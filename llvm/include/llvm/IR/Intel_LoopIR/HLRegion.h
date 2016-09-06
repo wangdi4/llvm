@@ -19,8 +19,8 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
-#include <set>
 #include <iterator>
+#include <set>
 
 namespace llvm {
 
@@ -33,7 +33,7 @@ namespace loopopt {
 /// A High level region is a section of CFG which can be analyzed and
 /// transformed independently of other sections of CFG. It typically consists
 /// of a single loopnest.
-class HLRegion : public HLNode {
+class HLRegion final : public HLNode {
 public:
   /// List of children nodes inside region
   typedef HLContainerTy ChildNodeTy;
@@ -50,7 +50,7 @@ public:
   typedef ChildNodeTy::const_reverse_iterator const_reverse_child_iterator;
 
 protected:
-  HLRegion(IRRegion *IReg);
+  HLRegion(IRRegion &IReg);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to access and destroy the nodes if we don't clear them out here.
@@ -62,10 +62,10 @@ protected:
   friend class HIRParser;
 
   /// \brief Sets the entry(first) bblock of this region.
-  void setEntryBBlock(BasicBlock *EntryBB) { IRReg->setEntryBBlock(EntryBB); }
+  void setEntryBBlock(BasicBlock *EntryBB) { IRReg.setEntryBBlock(EntryBB); }
 
   /// \brief Sets the exit(last) bblock of this region.
-  void setExitBBlock(BasicBlock *ExitBB) { IRReg->setExitBBlock(ExitBB); }
+  void setExitBBlock(BasicBlock *ExitBB) { IRReg.setExitBBlock(ExitBB); }
 
   /// \brief Clone Implementation
   /// Do not support Region cloning.
@@ -73,14 +73,25 @@ protected:
                       LabelMapTy *LabelMap) const override;
 
   // Returns contained IRRegion.
-  IRRegion *getIRRegion() { return IRReg; }
+  IRRegion &getIRRegion() { return IRReg; }
 
 private:
   bool GenCode;
-  IRRegion *IRReg;
+  IRRegion &IRReg;
   ChildNodeTy Children;
 
 public:
+  /// Prints header for the region.
+  void printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                   bool PrintIRRegion, bool Detailed) const;
+
+  /// Prints body for the region.
+  void printBody(formatted_raw_ostream &OS, unsigned Depth,
+                 bool Detailed) const;
+
+  /// Prints footer for the region.
+  void printFooter(formatted_raw_ostream &OS, unsigned Depth) const;
+
   /// \brief Prints HLRegion.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
@@ -89,52 +100,50 @@ public:
              bool Detailed) const;
 
   /// \brief Returns the entry(first) bblock of this region.
-  BasicBlock *getEntryBBlock() const { return IRReg->getEntryBBlock(); }
+  BasicBlock *getEntryBBlock() const { return IRReg.getEntryBBlock(); }
   /// \brief Returns the exit(last) bblock of this region.
-  BasicBlock *getExitBBlock() const { return IRReg->getExitBBlock(); }
+  BasicBlock *getExitBBlock() const { return IRReg.getExitBBlock(); }
 
   /// \brief Returns the predecessor bblock of this region.
-  BasicBlock *getPredBBlock() const { return IRReg->getPredBBlock(); }
+  BasicBlock *getPredBBlock() const { return IRReg.getPredBBlock(); }
   /// \brief Returns the successor bblock of this region.
-  BasicBlock *getSuccBBlock() const { return IRReg->getSuccBBlock(); }
+  BasicBlock *getSuccBBlock() const { return IRReg.getSuccBBlock(); }
 
   /// \brief Returns true if this region contains BB.
   bool containsBBlock(const BasicBlock *BB) const {
-    return IRReg->containsBBlock(BB);
+    return IRReg.containsBBlock(BB);
   }
 
   /// \brief Adds a live-in temp (represented using Symbase) with initial value
   /// InitVal to the region.
   void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
-    IRReg->addLiveInTemp(Symbase, InitVal);
+    IRReg.addLiveInTemp(Symbase, InitVal);
   }
 
   /// \brief Adds a live-out temp (represented using Symbase) to the region.
   void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
-    IRReg->addLiveOutTemp(Temp, Symbase);
+    IRReg.addLiveOutTemp(Temp, Symbase);
   }
 
   /// \brief Returns true if this symbase is live in to this region.
-  bool isLiveIn(unsigned Symbase) const { return IRReg->isLiveIn(Symbase); }
+  bool isLiveIn(unsigned Symbase) const { return IRReg.isLiveIn(Symbase); }
 
   /// \brief Returns true if this symbase is live out of this region.
-  bool isLiveOut(unsigned Symbase) const { return IRReg->isLiveOut(Symbase); }
+  bool isLiveOut(unsigned Symbase) const { return IRReg.isLiveOut(Symbase); }
 
   /// BBlock iterator methods
-  const_bb_iterator bb_begin() const { return IRReg->bb_begin(); }
-  const_bb_iterator bb_end() const { return IRReg->bb_end(); }
+  const_bb_iterator bb_begin() const { return IRReg.bb_begin(); }
+  const_bb_iterator bb_end() const { return IRReg.bb_end(); }
 
   /// Live-in iterator methods
-  const_live_in_iterator live_in_begin() const {
-    return IRReg->live_in_begin();
-  }
-  const_live_in_iterator live_in_end() const { return IRReg->live_in_end(); }
+  const_live_in_iterator live_in_begin() const { return IRReg.live_in_begin(); }
+  const_live_in_iterator live_in_end() const { return IRReg.live_in_end(); }
 
   /// Live-out iterator methods
   const_live_out_iterator live_out_begin() const {
-    return IRReg->live_out_begin();
+    return IRReg.live_out_begin();
   }
-  const_live_out_iterator live_out_end() const { return IRReg->live_out_end(); }
+  const_live_out_iterator live_out_end() const { return IRReg.live_out_end(); }
 
   iterator_range<const_live_out_iterator> live_out() const {
     return iterator_range<const_live_out_iterator>(live_out_begin(),
@@ -187,6 +196,9 @@ public:
 
   /// \brief Verifies HLRegion integrity.
   virtual void verify() const override;
+
+  /// Returns true if the last child of the region is a return instruction.
+  bool exitsFunction() const;
 };
 
 } // End namespace loopopt

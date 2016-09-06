@@ -15,7 +15,7 @@ target triple = "x86_64-apple-macosx10.8.0"
 ; CHECK: movb
 ; load, FIXME: this should be a movzbl, but the live-analysis used isn't good
 ;              enough to prove that upper portion of eax is unneeded.
-; CHECK: movb
+; CHECK: movzbl
 ; store:
 ; CHECK: movb
 ; CHECK: ret
@@ -61,7 +61,7 @@ a4:                                       ; preds = %4, %.lr.ph
 ; CHECK: movw
 ; load, FIXME: this should be a movzwl, but the live-analysis used isn't good
 ;              enough to prove that upper portion of eax is unneeded.
-; CHECK: movw
+; CHECK: movzwl
 ; store:
 ; CHECK: movw
 ; CHECK: ret

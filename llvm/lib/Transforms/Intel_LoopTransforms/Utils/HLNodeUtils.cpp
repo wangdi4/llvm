@@ -13,10 +13,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
-#include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
+#include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
+
+#include "llvm/Support/Debug.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+
+#include <memory>
 
 #define DEBUG_TYPE "hlnode-utils"
 using namespace llvm;
@@ -26,7 +33,7 @@ HLNodeUtils::DummyIRBuilderTy *HLNodeUtils::DummyIRBuilder(nullptr);
 Instruction *HLNodeUtils::FirstDummyInst(nullptr);
 Instruction *HLNodeUtils::LastDummyInst(nullptr);
 
-HLRegion *HLNodeUtils::createHLRegion(IRRegion *IRReg) {
+HLRegion *HLNodeUtils::createHLRegion(IRRegion &IRReg) {
   return new HLRegion(IRReg);
 }
 
@@ -187,7 +194,6 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
   case Instruction::FPExt:
   case Instruction::PtrToInt:
   case Instruction::IntToPtr:
-  case Instruction::BitCast:
   case Instruction::AddrSpaceCast: {
 
     InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode, DummyVal,
@@ -195,10 +201,26 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
     break;
   }
 
+  case Instruction::BitCast: {
+    // IRBuilder CreateCast returns input value when DestType is the same as
+    // the value's type. In such cases, the return value is not guaranteed to
+    // be an instruction as isa<Instruction>(DummyVal) is not necessarily true.
+    // We take care of such cases by forcing creation of a copy Instruction
+    // here.
+    if (DestTy == DummyVal->getType()) {
+      return createCopyInst(RvalRef, Name, LvalRef);
+    } else {
+      InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode,
+                                           DummyVal, DestTy, Name);
+    }
+    break;
+  }
+
   default:
     assert(false && "Instruction not handled!");
   }
 
+  assert(isa<Instruction>(InstVal) && "Expected instruction!");
   Inst = cast<Instruction>(InstVal);
 
   HInst = createLvalHLInst(Inst, LvalRef);
@@ -309,6 +331,8 @@ HLInst *HLNodeUtils::createCastHLInst(Type *DestTy, unsigned Opcode,
     return createZExt(DestTy, Op, Name, LvalRef);
   case Instruction::Trunc:
     return createTrunc(DestTy, Op, Name, LvalRef);
+  case Instruction::BitCast:
+    return createBitCast(DestTy, Op, Name, LvalRef);
   default:
     llvm_unreachable("Unexpected cast opcode");
   }
@@ -502,7 +526,7 @@ HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
 }
 
 HLInst *HLNodeUtils::CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                             ArrayRef<int> Mask,
+                                             ArrayRef<uint32_t> Mask,
                                              const Twine &Name,
                                              RegDDRef *LvalRef) {
   assert(OpRef1->getDestType()->isVectorTy() &&
@@ -1044,11 +1068,15 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
 
   assert(InsertContainer && "InsertContainer is null");
 
-  // Update TopSortNum
-  updateTopSortNum(*InsertContainer, First, Pos);
+  // Skip updating info for disconnected nodes. This can happen during cloning.
+  // The info will be updated when they are finally attached.
+  if (First->isAttached()) {
+    // Update TopSortNum
+    updateTopSortNum(*InsertContainer, First, Pos);
 
-  // Update loop info for loops in this range.
-  updateLoopInfoRecursively(std::prev(Pos, Count), Pos);
+    // Update loop info for loops in this range.
+    updateLoopInfoRecursively(First, Pos);
+  }
 }
 
 void HLNodeUtils::insertBefore(HLNode *Pos, HLNode *Node) {
@@ -1363,18 +1391,43 @@ void HLNodeUtils::remove(HLNode *Node) {
   removeImpl(It, std::next(It), nullptr);
 }
 
-void HLNodeUtils::remove(HLContainerTy *Container, HLNode *Node1,
-                         HLNode *Node2) {
-  assert(Node1 && Node2 && " Node1 or Node 2 cannot be null.");
-  assert(Container && " Clone Container is null.");
-  assert(!isa<HLRegion>(Node1) && !isa<HLRegion>(Node2) &&
+void HLNodeUtils::remove(HLContainerTy::iterator First,
+                         HLContainerTy::iterator Last) {
+  removeImpl(First, Last, nullptr);
+}
+
+void HLNodeUtils::remove(HLNode *First, HLNode *Last) {
+  assert(First && Last && " Node1 or Node 2 cannot be null.");
+  assert(!isa<HLRegion>(First) && !isa<HLRegion>(Last) &&
          " Node1 or Node2 cannot be a HLRegion.");
-  assert((Node1->getParent() == Node2->getParent()) &&
+  assert((First->getParent() == Last->getParent()) &&
          " Parent of Node1 and Node2 don't match.");
 
-  HLContainerTy::iterator ItStart(Node1);
-  HLContainerTy::iterator ItEnd(Node2);
+  HLContainerTy::iterator ItStart(First);
+  HLContainerTy::iterator ItEnd(Last);
+
+  removeImpl(ItStart, std::next(ItEnd), nullptr);
+}
+
+void HLNodeUtils::remove(HLContainerTy *Container, HLNode *First,
+                         HLNode *Last) {
+  assert(First && Last && " Node1 or Node 2 cannot be null.");
+  assert(Container && " Clone Container is null.");
+  assert(!isa<HLRegion>(First) && !isa<HLRegion>(Last) &&
+         " Node1 or Node2 cannot be a HLRegion.");
+  assert((First->getParent() == Last->getParent()) &&
+         " Parent of Node1 and Node2 don't match.");
+
+  HLContainerTy::iterator ItStart(First);
+  HLContainerTy::iterator ItEnd(Last);
   removeImpl(ItStart, std::next(ItEnd), Container);
+}
+
+void HLNodeUtils::remove(HLContainerTy *Container,
+                         HLContainerTy::iterator First,
+                         HLContainerTy::iterator Last) {
+  assert(Container && "Container is null.");
+  removeImpl(First, Last, Container);
 }
 
 void HLNodeUtils::erase(HLContainerTy::iterator First,
@@ -1784,22 +1837,69 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
   }
 
   unsigned PrevNum = 0;
+  auto ParentLoop = dyn_cast<HLLoop>(Parent);
+
+  // We need to special case insertion of nodes at the begining and end of the
+  // switch container because the default case is located at the beginning of
+  // the link list even though it is the lexically cast case.
+  auto ParentSwitch = dyn_cast<HLSwitch>(Parent);
 
   if (Container.begin() != First) {
-    PrevNum = getPrevLinkListNode(&*First)->getMaxTopSortNum();
+    // If we inserted nodes after the loop preheader, the previous num is loop's
+    // top sort num.
+    if (ParentLoop && (First == ParentLoop->pre_end())) {
+      PrevNum = ParentLoop->getTopSortNum();
+      // If we inserted at the begining of the first non-default switch case,
+      // switch is the lexically previous node.
+    } else if (ParentSwitch &&
+               (First == ParentSwitch->default_case_child_end())) {
+      PrevNum = ParentSwitch->getTopSortNum();
+    } else {
+      PrevNum = getPrevLinkListNode(&*First)->getMaxTopSortNum();
+    }
   } else {
-    PrevNum = Parent->getTopSortNum();
+    // If we inserted at the begining of the preheader, the lexically previous
+    // node is loop's previous node.
+    if (ParentLoop && (First != ParentLoop->child_begin())) {
+      auto PrevNode = getPrevLinkListNode(Parent);
+
+      PrevNum = PrevNode ? PrevNode->getMaxTopSortNum()
+                         : Parent->getParent()->getTopSortNum();
+      // If we inserted at the begining of the default case of switch and the
+      // switch has children in other cases then the lexically previous node
+      // comes from the last node in the linklist.
+    } else if (ParentSwitch && ParentSwitch->hasDefaultCaseChildren() &&
+               (ParentSwitch->default_case_child_end() != Container.end())) {
+      PrevNum = (&Container.back())->getMaxTopSortNum();
+    } else {
+      PrevNum = Parent->getTopSortNum();
+    }
   }
 
-  bool hasNextNode = Container.end() != Last;
-  unsigned NextNum = hasNextNode ? Last->getTopSortNum() : 0;
+  unsigned NextNum = 0;
+
+  // If the last node inserted is the last preheader node, the next num should
+  // be loop's top sort num.
+  if (ParentLoop && (Last == ParentLoop->pre_end())) {
+    NextNum = Parent->getTopSortNum();
+    // If the last node inserted is the last (non-default) case child of
+    // switch and the switch has default case children then the lexically next
+    // node comes from first default case child.
+  } else if (ParentSwitch && ParentSwitch->hasDefaultCaseChildren() &&
+             (ParentSwitch->default_case_child_end() != Container.end()) &&
+             (Last == Container.end())) {
+    NextNum = ParentSwitch->getFirstDefaultCaseChild()->getMinTopSortNum();
+  } else if (Container.end() != Last) {
+    NextNum = Last->getMinTopSortNum();
+  }
+
   if (!NextNum) {
     // !isa<HLRegion>(Parent) - HLRegions are linked in the ilist, but we
     // should not iterate across regions. If we traced to an HLRegion,
     // this means that there is no next node in this region.
     for (; Parent && !isa<HLRegion>(Parent); Parent = Parent->getParent()) {
       if (auto NextNode = getNextLinkListNode(Parent)) {
-        NextNum = NextNode->getTopSortNum();
+        NextNum = NextNode->getMinTopSortNum();
         break;
       }
     }
@@ -1816,7 +1916,7 @@ struct NodeCounter final : public HLNodeVisitorBase {
   void postVisit(HLNode *) {}
 };
 
-// The visitor that sets TopSortNums and LexicalLastTopSortNum from MinNum
+// The visitor that sets TopSortNums and MaxTopSortNum from MinNum
 // with a fixed Step. If set, the numbering will be started AfterNode.
 //
 // Force:
@@ -2382,222 +2482,481 @@ const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned Level,
   return nullptr;
 }
 
-// Switch-Call Visitor to check if Switch or Call exists.
-struct SwitchCallVisitor final : public HLNodeVisitorBase {
-  bool IsSwitch, IsCall;
+bool HLNodeUtils::isMinValue(VALType ValType) {
+  return ((ValType == VALType::IsMin) || (ValType == VALType::IsConstant));
+}
 
-  void visit(const HLSwitch *Switch) { IsSwitch = true; }
+bool HLNodeUtils::isMaxValue(VALType ValType) {
+  return (ValType == VALType::IsMax || ValType == VALType::IsConstant);
+}
 
-  void visit(const HLInst *Inst) {
-    if (Inst->isCallInst()) {
-      IsCall = true;
+bool HLNodeUtils::isKnownPositive(VALType ValType, int64_t Val) {
+  return (isMinValue(ValType) && (Val > 0));
+}
+
+bool HLNodeUtils::isKnownNonNegative(VALType ValType, int64_t Val) {
+  return (isMinValue(ValType) && (Val >= 0));
+}
+
+bool HLNodeUtils::isKnownNegative(VALType ValType, int64_t Val) {
+  return (isMaxValue(ValType) && (Val < 0));
+}
+
+bool HLNodeUtils::isKnownNonPositive(VALType ValType, int64_t Val) {
+  return (isMaxValue(ValType) && (Val <= 0));
+}
+
+bool HLNodeUtils::isKnownPositiveOrNegative(VALType ValType, int64_t Val) {
+  return isKnownPositive(ValType, Val) || isKnownNegative(ValType, Val);
+}
+
+bool HLNodeUtils::isKnownNonZero(VALType ValType, int64_t Val) {
+  return isKnownPositiveOrNegative(ValType, Val);
+}
+
+// Useful to detect if A(2 * N *I) will not be A(0) based on symbolic in UB.
+// CE = c*b + c0
+// BoundCE = c`*b` + c0` | where BoundCE >= 0
+// b` = -c`/c0`;
+// MinMaxVal = c*b` + c0;
+// See more comments inside the method.
+HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
+                                                     const CanonExpr *BoundCE,
+                                                     int64_t &Val) {
+  if (BoundCE->numBlobs() != 1 || BoundCE->hasIV()) {
+    return VALType::IsUnknown;
+  }
+
+  DEBUG(dbgs() << "\n\t in getMaxMinBlobValue: input args " << BlobIdx
+               << BoundCE->getSingleBlobCoeff() << " "
+               << BoundCE->getSingleBlobIndex() << " "
+               << BoundCE->getConstant());
+
+  auto BoundCoeff = BoundCE->getSingleBlobCoeff();
+  auto BoundBlobIdx = BoundCE->getSingleBlobIndex();
+
+  BlobTy Blob = BlobUtils::getBlob(BlobIdx);
+  // Strip sign extend cast from Blob
+  while (BlobUtils::isSignExtendBlob(Blob, &Blob))
+    ;
+
+  BlobTy BoundBlob = BlobUtils::getBlob(BoundBlobIdx);
+
+  if (Blob != BoundBlob) {
+    return VALType::IsUnknown;
+  }
+
+  auto BoundConstant = BoundCE->getConstant();
+
+  // Max/Min value of Blob = - Bound constant / Bound coeff
+  Val = -BoundConstant / BoundCoeff;
+
+  // In  BoundCE (e.g. in the form 3 *N +4), positive coef (3) indicates what
+  // the min value of N could be and negative coef (e.g. as in 4 - 3 *N)
+  // indicates what the max value of N could be.
+  return (BoundCoeff > 0) ? VALType::IsMin : VALType::IsMax;
+}
+
+bool HLNodeUtils::getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
+                                  int64_t &Val) {
+  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, Val);
+
+  return isMinValue(ValType);
+}
+
+bool HLNodeUtils::getMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
+                                  int64_t &Val) {
+  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, Val);
+
+  return isMaxValue(ValType);
+}
+
+bool HLNodeUtils::isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode) {
+  int64_t Val;
+  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, Val);
+
+  return isKnownNonZero(ValType, Val);
+}
+
+bool HLNodeUtils::isKnownNonPositive(unsigned BlobIdx, const HLNode *ParentNode,
+                                     int64_t &MaxVal) {
+  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MaxVal);
+
+  return isKnownNonPositive(ValType, MaxVal);
+}
+
+bool HLNodeUtils::isKnownNegative(unsigned BlobIdx, const HLNode *ParentNode,
+                                  int64_t &MaxVal) {
+  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MaxVal);
+
+  return isKnownNegative(ValType, MaxVal);
+}
+
+bool HLNodeUtils::isKnownPositive(unsigned BlobIdx, const HLNode *ParentNode,
+                                  int64_t &MinVal) {
+  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MinVal);
+
+  return isKnownPositive(ValType, MinVal);
+}
+
+bool HLNodeUtils::isKnownNonNegative(unsigned BlobIdx, const HLNode *ParentNode,
+                                     int64_t &MinVal) {
+  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MinVal);
+
+  return isKnownNonNegative(ValType, MinVal);
+}
+
+bool HLNodeUtils::isKnownPositiveOrNegative(unsigned BlobIdx,
+                                            const HLNode *ParentNode,
+                                            int64_t &MinMaxVal) {
+  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MinMaxVal);
+
+  return isKnownPositiveOrNegative(ValType, MinMaxVal);
+}
+
+///  Check if Loop has perfect/near-perfect loop properties
+HLNodeUtils::VALType
+HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
+                                        const RegDDRef *Lhs,
+                                        const RegDDRef *Rhs, int64_t &Val) {
+  if (!CmpInst::isIntPredicate(Pred) ||
+      (!CmpInst::isSigned(Pred) && Pred != PredicateTy::ICMP_EQ)) {
+    return VALType::IsUnknown;
+  }
+
+  if (!Lhs->isTerminalRef() || !Rhs->isTerminalRef()) {
+    return VALType::IsUnknown;
+  }
+
+  VALType Ret = VALType::IsUnknown;
+  int64_t EqualOffset = 0;
+
+  switch (Pred) {
+  case PredicateTy::ICMP_SLT: // <
+    EqualOffset = -1;
+  case PredicateTy::ICMP_SLE: // <=
+    break;
+  case PredicateTy::ICMP_SGT: // >
+    EqualOffset = -1;
+  case PredicateTy::ICMP_SGE: // >=
+    std::swap(Lhs, Rhs);
+    break;
+  case PredicateTy::ICMP_EQ: // ==
+    Ret = VALType::IsConstant;
+    break;
+  case PredicateTy::ICMP_NE: // !=
+    return VALType::IsUnknown;
+  default:
+    llvm_unreachable("Unexpected predicate");
+  }
+
+  // Lhs < Rhs
+  // CE = Rhs - Lhs
+  std::unique_ptr<CanonExpr> ConditionCE(CanonExprUtils::cloneAndSubtract(
+      Rhs->getSingleCanonExpr(), Lhs->getSingleCanonExpr(), true));
+
+  if (!ConditionCE.get()) {
+    return VALType::IsUnknown;
+  }
+
+  ConditionCE->addConstant(EqualOffset, false);
+
+  VALType Type = getMinMaxBlobValue(BlobIdx, ConditionCE.get(), Val);
+  if (Ret == VALType::IsUnknown) {
+    Ret = Type;
+  }
+
+  return Ret;
+}
+
+template <typename PredIter, typename GetDDRefFunc>
+HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValueFromPredRange(
+    unsigned BlobIdx, PredIter Begin, PredIter End, GetDDRefFunc GetDDRef,
+    bool InvertPredicates, int64_t &Val) {
+  VALType Ret = VALType::IsUnknown;
+
+  for (; Begin != End; ++Begin) {
+    PredicateTy Pred = *Begin;
+
+    if (InvertPredicates) {
+      Pred = CmpInst::getInversePredicate(Pred);
+    }
+
+    RegDDRef *Lhs = GetDDRef(Begin, true);
+    RegDDRef *Rhs = GetDDRef(Begin, false);
+
+    Ret = getMinMaxBlobValueFromPred(BlobIdx, Pred, Lhs, Rhs, Val);
+    if (Ret != VALType::IsUnknown) {
+      break;
     }
   }
 
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *) {}
-  bool isDone() const override { return (IsSwitch || IsCall); }
-  SwitchCallVisitor() : IsSwitch(false), IsCall(false) {}
-};
+  return Ret;
+}
 
-bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
-                                  const HLNode *NodeEnd,
-                                  bool RecurseInsideLoops) {
-  assert(NodeStart && NodeEnd && " Node Start/End is null.");
-  SwitchCallVisitor SCVisit;
-  if (RecurseInsideLoops) {
-    HLNodeUtils::visitRange<true, true>(SCVisit, NodeStart, NodeEnd);
+HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
+                                                     const HLNode *ParentNode,
+                                                     int64_t &Val) {
+
+  assert(ParentNode && "No HLNode context specified!");
+
+  VALType Ret = VALType::IsUnknown;
+
+  for (const HLNode *Node = ParentNode, *PrevNode = nullptr; Node != nullptr;
+       PrevNode = Node, Node = Node->getParent()) {
+
+    if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+      if (Loop->isUnknown()) {
+        continue;
+      }
+
+      if (Loop->hasZtt() &&
+          (Ret = getMinMaxBlobValueFromPredRange(
+               BlobIdx, Loop->ztt_pred_begin(), Loop->ztt_pred_end(),
+               std::bind(&HLLoop::getZttPredicateOperandDDRef, Loop,
+                         std::placeholders::_1, std::placeholders::_2),
+               false, Val)) != VALType::IsUnknown) {
+        return Ret;
+      }
+
+      // Try Upper bound
+      if ((Ret = getMinMaxBlobValue(BlobIdx, Loop->getUpperCanonExpr(), Val)) !=
+          VALType::IsUnknown) {
+        return Ret;
+      }
+
+      continue;
+    }
+
+    // Can't check topmost If statement (ParentNode) as it is not impossible to
+    // figure out whether blob came from Then or Else branch.
+    if (!PrevNode) {
+      continue;
+    }
+
+    if (const HLIf *If = dyn_cast<HLIf>(Node)) {
+      // Have to invert predicates if blob is from Else branch.
+      bool InvertPredicates = If->isElseChild(PrevNode);
+      if (InvertPredicates && If->getNumPredicates() > 1) {
+        // If Node in the else branch and number of predicates are greater then
+        // one we can't definitely prove the range.
+        continue;
+      }
+
+      if ((Ret = getMinMaxBlobValueFromPredRange(
+               BlobIdx, If->pred_begin(), If->pred_end(),
+               std::bind(&HLIf::getPredicateOperandDDRef, If,
+                         std::placeholders::_1, std::placeholders::_2),
+               InvertPredicates, Val)) != VALType::IsUnknown) {
+        return Ret;
+      }
+    }
+  }
+
+  return Ret;
+}
+
+bool HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx, int64_t Coeff,
+                                     const HLNode *ParentNode, bool IsMin,
+                                     int64_t &BlobVal) {
+
+  auto ValType = getMinMaxBlobValue(BlobIdx, ParentNode, BlobVal);
+
+  if (Coeff > 0) {
+    return IsMin ? isMinValue(ValType) : isMaxValue(ValType);
   } else {
-    HLNodeUtils::visitRange<true, false>(SCVisit, NodeStart, NodeEnd);
+    return IsMin ? isMaxValue(ValType) : isMinValue(ValType);
   }
-  return (SCVisit.IsSwitch || SCVisit.IsCall);
 }
 
-// Useful to detect if A(2 * N *I) will not be A(0) based on symbolic in
-// UB.
-// If the coeff could be  0, then we might end up with DV equals *
-// e.g.
-// If  UB = N  - 1 (UB cannot start with negative numbers in our framework),
-// it implies N is at least 1
-// Offset indicates the constant in CanonExpr. e.g. 3 as in  2 * i + 3
-// then the coeff  2 * N is positive
+bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
+                                     const HLNode *ParentNode, bool IsMin,
+                                     bool IsExact, int64_t &Val) {
 
-static bool getMaxMinCoeffVal(int64_t Coeff, unsigned BlobIdx, int64_t Offset1,
-                              int64_t UBCoeff, unsigned UBBlobIdx,
-                              int64_t Offset2, int64_t *Val) {
+  assert(CE && "CE is null!");
 
-#ifndef NDEBUG
-
-  DEBUG(dbgs() << "\n\t in getMaxMinCoeffVal: input args " << Coeff << " "
-               << BlobIdx << " " << Offset1 << " " << UBCoeff << " "
-               << UBBlobIdx << " " << Offset2);
-#endif
-
-  if (BlobIdx != UBBlobIdx || UBCoeff == 0) {
-    return false;
+  if (!ParentNode) {
+    return CE->isIntConstant(&Val);
   }
 
-  //  max/min value of UB =  - Offset2 / UBCoeff
-  int64_t BlobVal = -Offset2 / UBCoeff;
-
-  //  Substitute value in Blob
-
-  *Val = Coeff * BlobVal + Offset1;
-  return true;
-}
-
-// Get possible Max/Minimum  value of canon.
-// Only handles single Blob + constant - No support for IV now
-// If known, return true and Value.
-// *IsMax=true returned indicates if Val is to be used as the Max
-// or Min.
-
-enum VALType : unsigned { IsConstant, IsMax, IsMin };
-
-static bool getMaxMinValue(const CanonExpr *CE, int64_t *Val, VALType *ValType,
-                           const HLLoop *ParentLoop) {
-
-  const HLLoop *Loop;
-  *ValType = VALType::IsConstant;
+  // Cannot use verifyNestingLevel() here unless DD starts passing accurate
+  // ParentNode.
+  assert(CE->verifyIVs(ParentNode->getNodeLevel()) && "Invalid arguments!");
 
   if (CE->isNonLinear()) {
     return false;
   }
 
-  if (CE->isIntConstant(Val)) {
-    return true;
-  }
-
-  // Handles single blob + constant for now
-
-  if (ParentLoop == nullptr || CE->numBlobs() != 1 || CE->hasIV() ||
-      CE->getDenominator() != 1) {
+  if (IsExact && (CE->hasBlob() || CE->hasBlobIVCoeffs())) {
     return false;
   }
 
-  int64_t Coeff = CE->getSingleBlobCoeff();
-  unsigned BlobIdx = CE->getSingleBlobIndex();
+  int64_t MinOrMax = 0;
 
-  assert(Coeff != 0 && "Blob cannot be zero here");
+  for (auto Blob = CE->blob_begin(), E = CE->blob_end(); Blob != E; ++Blob) {
+    unsigned Index = CE->getBlobIndex(Blob);
+    int64_t Coeff = CE->getBlobCoeff(Blob);
+    int64_t BlobVal;
 
-  for (Loop = ParentLoop; Loop != nullptr; Loop = Loop->getParentLoop()) {
-
-    // Skip unknown loops and proceed to a parent loop as it can contain
-    // target blob in the upper bound
-    if (Loop->isUnknown()) {
-      continue;
+    if (!getMinMaxBlobValue(Index, Coeff, ParentNode, IsMin, BlobVal)) {
+      return false;
     }
 
-    const CanonExpr *UB = Loop->getUpperCanonExpr();
+    MinOrMax += (Coeff * BlobVal);
+  }
 
-    if (UB->numBlobs() != 1 || UB->hasIV()) {
-      continue;
-    }
+  if (CE->hasIV()) {
+    auto ParentLoop = isa<HLLoop>(ParentNode) ? cast<HLLoop>(ParentNode)
+                                              : ParentNode->getParentLoop();
 
-    int64_t UBCoeff = UB->getSingleBlobCoeff();
-    unsigned UBBlobIdx = UB->getSingleBlobIndex();
+    for (auto Lp = ParentLoop; Lp != nullptr; Lp = Lp->getParentLoop()) {
 
-    // Notice that for A[ (2 *n +3)* i + 4]
-    // Coeff = 2,  blob = n,  constant = 3
-    // 4 is not being passed to here. The caller in DD Test
-    // extracts 2 * n + 3 to form another canonexpr for the coeff
-    // In  Upper bound (e.g. in the form 3 *N +4, our  LB is never negative),
-    // positive coef (3) indicates what the min value of N could be
-    // negative coef (e.g. as in 4 - 3 *N) indicates what the max value of N
-    // could be.
-    // Based on the UB,
-    // postive / negative coeff in incoming CanonExpr determines if max or min
-    // value can be computed1
-    //  Coeff of N in  UB        Coeff in CanonExpr
-    //  0                        NA
-    //                           0      Is Constant
-    //  > 0                      > 0    min value
-    //  > 0                      < 0    max value
-    //  < 0                      > 0    max value
-    //  < 0                      < 0    min value
+      unsigned Level = Lp->getNodeLevel();
+      unsigned Index;
+      int64_t Coeff, BlobVal = 1, IVMax = 0;
 
-    if ((UBCoeff > 0 && (Coeff > 0)) || (UBCoeff < 0 && (Coeff < 0))) {
-      *ValType = VALType::IsMin;
-    } else {
-      *ValType = VALType::IsMax;
-    }
+      CE->getIVCoeff(Level, &Index, &Coeff);
 
-    if (getMaxMinCoeffVal(Coeff, BlobIdx, CE->getConstant(), UBCoeff, UBBlobIdx,
-                          UB->getConstant(), Val)) {
-      return true;
+      if (!Coeff) {
+        continue;
+      }
+
+      if ((Index != InvalidBlobIndex) &&
+          !getMinMaxBlobValue(Index, Coeff, ParentNode, IsMin, BlobVal)) {
+        return false;
+      }
+
+      if (!BlobVal) {
+        continue;
+      }
+
+      bool IsPositive =
+          ((Coeff > 0) && (BlobVal > 0)) || ((Coeff < 0) && (BlobVal < 0));
+
+      // Ignoring is equivalent to subtituting IV by zero (initial value of IV
+      // in normalized loops).
+      if ((IsMin && IsPositive) || (!IsMin && !IsPositive)) {
+
+        if (!Lp->isNormalized()) {
+          return false;
+        } else {
+          continue;
+        }
+      }
+
+      auto UpperCE = Lp->getUpperCanonExpr();
+      int64_t UpperVal;
+
+      if (UpperCE->isIntConstant(&UpperVal)) {
+        // Conservatively return false if upper is too big.
+        if ((UpperVal < 0) || (UpperVal > UINT32_MAX)) {
+          return false;
+        }
+
+        IVMax = UpperVal;
+
+      } else if (!getMaxValue(UpperCE, Lp, IVMax)) {
+        return false;
+      }
+
+      MinOrMax += (Coeff * BlobVal * IVMax);
     }
   }
 
-  return false;
+  MinOrMax += CE->getConstant();
+
+  if (CE->getDenominator() != 1) {
+    if ((MinOrMax < 0) && CE->isUnsignedDiv()) {
+      return false;
+    }
+
+    MinOrMax = MinOrMax / CE->getDenominator();
+  }
+
+  Val = MinOrMax;
+
+  return true;
+}
+
+bool HLNodeUtils::getExactMinValue(const CanonExpr *CE,
+                                   const HLNode *ParentNode, int64_t &Val) {
+  return getMinMaxValueImpl(CE, ParentNode, true, true, Val);
+}
+
+bool HLNodeUtils::getExactMaxValue(const CanonExpr *CE,
+                                   const HLNode *ParentNode, int64_t &Val) {
+  return getMinMaxValueImpl(CE, ParentNode, false, true, Val);
+}
+
+bool HLNodeUtils::getMinValue(const CanonExpr *CE, const HLNode *ParentNode,
+                              int64_t &Val) {
+  return getMinMaxValueImpl(CE, ParentNode, true, false, Val);
+}
+
+bool HLNodeUtils::getMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                              int64_t &Val) {
+  return getMinMaxValueImpl(CE, ParentNode, false, false, Val);
 }
 
 bool HLNodeUtils::isKnownPositive(const CanonExpr *CE,
-                                  const HLLoop *ParentLoop) {
-
+                                  const HLNode *ParentNode) {
   int64_t Val;
-  VALType ValType;
 
-  // If Min value is > 0  or IsConstant, then we can compare
-  // Notice the checking is done by using  !IsMax
-  if (getMaxMinValue(CE, &Val, &ValType, ParentLoop) &&
-      ValType != VALType::IsMax && (Val > 0)) {
+  if (getMinValue(CE, ParentNode, Val) && (Val > 0)) {
     return true;
   }
+
   return false;
 }
 
 bool HLNodeUtils::isKnownNonNegative(const CanonExpr *CE,
-                                     const HLLoop *ParentLoop) {
-
+                                     const HLNode *ParentNode) {
   int64_t Val;
-  VALType ValType;
 
-  if (getMaxMinValue(CE, &Val, &ValType, ParentLoop) &&
-      ValType != VALType::IsMax && (Val >= 0)) {
+  if (getMinValue(CE, ParentNode, Val) && (Val >= 0)) {
     return true;
   }
+
   return false;
 }
 
 bool HLNodeUtils::isKnownNegative(const CanonExpr *CE,
-                                  const HLLoop *ParentLoop) {
-
+                                  const HLNode *ParentNode) {
   int64_t Val;
-  VALType ValType;
-  if (getMaxMinValue(CE, &Val, &ValType, ParentLoop) &&
-      ValType != VALType::IsMin && (Val < 0)) {
+
+  if (getMaxValue(CE, ParentNode, Val) && (Val < 0)) {
     return true;
   }
+
   return false;
 }
 
 bool HLNodeUtils::isKnownNonPositive(const CanonExpr *CE,
-                                     const HLLoop *ParentLoop) {
-
+                                     const HLNode *ParentNode) {
   int64_t Val;
-  VALType ValType;
 
-  if (getMaxMinValue(CE, &Val, &ValType, ParentLoop) &&
-      ValType != VALType::IsMin && (Val < 1)) {
+  if (getMaxValue(CE, ParentNode, Val) && (Val <= 0)) {
     return true;
   }
+
+  return false;
+}
+
+bool HLNodeUtils::isKnownPositiveOrNegative(const CanonExpr *CE,
+                                            const HLNode *ParentNode) {
+
+  if (isKnownPositive(CE, ParentNode) || isKnownNegative(CE, ParentNode)) {
+    return true;
+  }
+
   return false;
 }
 
 bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
-                                 const HLLoop *ParentLoop) {
-
-  int64_t Val;
-  if (CE->isIntConstant(&Val) && (Val != 0)) {
-    return true;
-  }
-  if (isKnownPositive(CE, ParentLoop) || isKnownNegative(CE, ParentLoop)) {
-    return true;
-  }
-  return false;
+                                 const HLNode *ParentNode) {
+  return isKnownPositiveOrNegative(CE, ParentNode);
 }
 
-///  Check if Loop has perfect/near-perfect loop properties
 ///  Set InnermostLoop in *Lp
 ///
 bool HLNodeUtils::hasPerfectLoopProperties(const HLNode *Node,
@@ -2707,8 +3066,7 @@ bool HLNodeUtils::isPerfectLoopNest(
       break;
     }
 
-    const CanonExpr *UpperBound = Lp->getUpperCanonExpr();
-    if (!AllowTriangularLoop && !FirstIter && UpperBound->hasIV()) {
+    if (!AllowTriangularLoop && !FirstIter && Lp->isTriangularLoop()) {
       //  okay for outermost loop UB to have iv
       break;
     }
@@ -2802,52 +3160,44 @@ bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
   return NUS.HasNonUnitStride;
 }
 
-///  Move Ztt, Bounds DDRRef, OrigLoop, IvType
-void HLNodeUtils::moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop) {
-
-  DstLoop->setIVType(SrcLoop->getIVType());
-  DstLoop->removeZtt();
-
-  if (SrcLoop->hasZtt()) {
-    DstLoop->setZtt(SrcLoop->removeZtt());
-  }
-
-  // setLower, etc. require input DDRef not be attached to anything
-  DstLoop->setLowerDDRef(SrcLoop->removeLowerDDRef());
-  DstLoop->setUpperDDRef(SrcLoop->removeUpperDDRef());
-  DstLoop->setStrideDDRef(SrcLoop->removeStrideDDRef());
-  DstLoop->setLLVMLoop(SrcLoop->removeLLVMLoop());
-}
-
 /// Update Loop properties based on Input Permutations
 /// Used by Loop Interchange now. Will be useful for loop blocking later
 void HLNodeUtils::permuteLoopNests(
-    HLLoop *Loop, SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation) {
+    HLLoop *OutermostLoop, const SmallVectorImpl<HLLoop *> &LoopPermutation) {
 
-  SmallVector<HLLoop *, MaxLoopNestLevel> LoopSaved;
-  HLLoop *DstLoop = Loop;
+  SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
+  HLLoop *DstLoop = OutermostLoop;
 
-  for (auto &I : LoopPermutation) {
-    HLLoop *LoopCopy = I->cloneCompleteEmptyLoop();
-    LoopSaved.push_back(LoopCopy);
+  for (auto &Lp : LoopPermutation) {
+    HLLoop *LoopCopy = Lp->cloneEmptyLoop();
+    LoopCopy->setNestingLevel(Lp->getNestingLevel());
+    SavedLoops.push_back(LoopCopy);
   }
 
-  for (auto I = LoopPermutation.begin(), E = LoopPermutation.end(); I != E;
-       ++I, DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild())) {
+  for (auto &Lp : LoopPermutation) {
+    assert(DstLoop && "Perfect loop nest expected");
+
     HLLoop *SrcLoop = nullptr;
-    if (*I == DstLoop) {
+
+    // Loop is already in desired position.
+    if (Lp == DstLoop) {
       continue;
     }
-    assert(isa<HLLoop>(DstLoop) && "Perfect loop nest expected");
-    for (auto &L : LoopSaved) {
-      if ((*I)->getNestingLevel() == L->getNestingLevel()) {
-        SrcLoop = L;
+
+    for (auto &Lp1 : SavedLoops) {
+      // getNestingLevel() asserts for disconnected loops. It is set explicitly
+      // for saved loops in the previous loop so we access it directly.
+      if (Lp->getNestingLevel() == Lp1->NestingLevel) {
+        SrcLoop = Lp1;
         break;
       }
     }
     assert(SrcLoop && "Input Loop is null");
     assert(DstLoop != SrcLoop && "Dst, Src loop cannot be equal");
-    moveProperties(SrcLoop, DstLoop);
+    // Move properties from SrcLoop to DstLoop.
+    *DstLoop = std::move(*SrcLoop);
+
+    DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
   }
 }
 

@@ -14,6 +14,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/CallSite.h"
@@ -62,10 +63,16 @@ public:
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
 
 #if INTEL_CUSTOMIZATION
-    InlineAggressiveAnalysis *AggI = getAnalysisIfAvailable<InlineAggressiveAnalysis>();
+    InlineAggressiveAnalysis *AggI 
+      = getAnalysisIfAvailable<InlineAggressiveAnalysis>();
 #endif // INTEL_CUSTOMIZATION
 
-    return llvm::getInlineCost(CS, DefaultThreshold, TTI, AggI, ACT); // INTEL
+    std::function<AssumptionCache &(Function &)> GetAssumptionCache = [&](
+        Function &F) -> AssumptionCache & {
+      return ACT->getAssumptionCache(F);
+    };
+    return llvm::getInlineCost(CS, DefaultThreshold, TTI,        // INTEL
+      GetAssumptionCache, PSI, AggI);                            // INTEL 
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
@@ -82,6 +89,7 @@ INITIALIZE_PASS_BEGIN(SimpleInliner, "inline",
                 "Function Integration/Inlining", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(InlineAggressiveAnalysis)          // INTEL

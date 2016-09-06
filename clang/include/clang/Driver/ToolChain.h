@@ -11,13 +11,13 @@
 #define LLVM_CLANG_DRIVER_TOOLCHAIN_H
 
 #include "clang/Basic/Sanitizers.h"
+#include "clang/Basic/VersionTuple.h"
 #include "clang/Driver/Action.h"
 #include "clang/Driver/Multilib.h"
 #include "clang/Driver/Types.h"
 #include "clang/Driver/Util.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Target/TargetOptions.h"
 #include <memory>
 #include <string>
@@ -260,11 +260,13 @@ public:
     return ToolChain::CST_Libstdcxx;
   }
 
-  virtual std::string getCompilerRT(const llvm::opt::ArgList &Args,
+  virtual std::string getCompilerRT(const llvm::Triple &EffectiveTriple,
+                                    const llvm::opt::ArgList &Args,
                                     StringRef Component,
                                     bool Shared = false) const;
 
-  const char *getCompilerRTArgString(const llvm::opt::ArgList &Args,
+  const char *getCompilerRTArgString(const llvm::Triple &EffectiveTriple,
+                                     const llvm::opt::ArgList &Args,
                                      StringRef Component,
                                      bool Shared = false) const;
   /// needsProfileRT - returns true if instrumentation profile is on.
@@ -410,18 +412,27 @@ public:
       const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
   /// addProfileRTLibs - When -fprofile-instr-profile is specified, try to pass
   /// a suitable profile runtime library to the linker.
-  virtual void addProfileRTLibs(const llvm::opt::ArgList &Args,
+  virtual void addProfileRTLibs(const llvm::Triple &EffectiveTriple,
+                                const llvm::opt::ArgList &Args,
                                 llvm::opt::ArgStringList &CmdArgs) const;
 
   /// \brief Add arguments to use system-specific CUDA includes.
   virtual void AddCudaIncludeArgs(const llvm::opt::ArgList &DriverArgs,
                                   llvm::opt::ArgStringList &CC1Args) const;
 
+  /// \brief Add arguments to use MCU GCC toolchain includes.
+  virtual void AddIAMCUIncludeArgs(const llvm::opt::ArgList &DriverArgs,
+                                   llvm::opt::ArgStringList &CC1Args) const;
+
   /// \brief Return sanitizers which are available in this toolchain.
   virtual SanitizerMask getSupportedSanitizers() const;
 
   /// \brief Return sanitizers which are enabled by default.
   virtual SanitizerMask getDefaultSanitizers() const { return 0; }
+
+  /// \brief On Windows, returns the version of cl.exe.  On other platforms,
+  /// returns an empty VersionTuple.
+  virtual VersionTuple getMSVCVersionFromExe() const { return VersionTuple(); }
 };
 
 } // end namespace driver

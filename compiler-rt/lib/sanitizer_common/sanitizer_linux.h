@@ -42,9 +42,13 @@ uptr internal_prctl(int option, uptr arg2, uptr arg3, uptr arg4, uptr arg5);
 // (like the process-wide error reporting SEGV handler) must use
 // internal_sigaction instead.
 int internal_sigaction_norestorer(int signum, const void *act, void *oldact);
+#if defined(__x86_64__) && !SANITIZER_GO
+// Uses a raw system call to avoid interceptors.
+int internal_sigaction_syscall(int signum, const void *act, void *oldact);
+#endif
 void internal_sigdelset(__sanitizer_sigset_t *set, int signum);
 #if defined(__x86_64__) || defined(__mips__) || defined(__aarch64__) \
-  || defined(__powerpc64__)
+  || defined(__powerpc64__) || defined(__s390__)
 uptr internal_clone(int (*fn)(void *), void *child_stack, int flags, void *arg,
                     int *parent_tidptr, void *newtls, int *child_tidptr);
 #endif
@@ -83,11 +87,6 @@ bool LibraryNameIs(const char *full_name, const char *base_name);
 
 // Call cb for each region mapped by map.
 void ForEachMappedRegion(link_map *map, void (*cb)(const void *, uptr));
-
-#ifdef __s390x__
-// Aborts the process if running on a kernel without a fix for CVE-2016-2143.
-void AvoidCVE_2016_2143();
-#endif
 }  // namespace __sanitizer
 
 #endif  // SANITIZER_FREEBSD || SANITIZER_LINUX

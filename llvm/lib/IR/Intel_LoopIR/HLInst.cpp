@@ -14,13 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IntrinsicInst.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -178,7 +178,7 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
 
-  for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; I++, Count++) {
+  for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; ++I, ++Count) {
     if ((Count > 1) || (!hasLval() && (Count > 0))) {
       checkSeparator(OS, true);
     }
@@ -339,6 +339,27 @@ void HLInst::removeFakeDDRef(RegDDRef *RDDRef) {
   llvm_unreachable("Unexpected condition!");
 }
 
+bool HLInst::isLval(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  return (getLvalDDRef() == Ref);
+}
+
+bool HLInst::isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
+
+bool HLInst::isFake(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; ++I) {
+
+    if ((*I) == Ref) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 unsigned HLInst::getNumOperands() const { return getNumOperandsInternal(); }
 
 unsigned HLInst::getNumOperandsInternal() const {
@@ -445,3 +466,28 @@ bool HLInst::isSIMDDirective() const {
   return true;
 }
 
+bool HLInst::isReductionOp(unsigned *OpCode) const {
+
+  bool IsReductionOp = false;
+  *OpCode = 0;
+  const Instruction *LLVMInst = getLLVMInstruction();
+  if (isa<BinaryOperator>(LLVMInst)) {
+    *OpCode = LLVMInst->getOpcode();
+    // Start with these initially
+    switch (*OpCode) {
+    case Instruction::FAdd:
+    case Instruction::FSub:
+    case Instruction::FMul:
+    case Instruction::Add:
+    case Instruction::Sub:
+    case Instruction::And:
+    case Instruction::Or:
+    case Instruction::Xor:
+      IsReductionOp = true;
+      break;
+    default:
+      break;
+    }
+  }
+  return IsReductionOp;
+}

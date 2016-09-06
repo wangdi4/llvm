@@ -33,6 +33,7 @@
 #define LLVM_ANALYSIS_INTEL_OPTVLS_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Casting.h"
@@ -43,6 +44,9 @@ namespace llvm {
 // OptVLS data structures
 template <typename T>
 class OVLSVector : public SmallVector<T, 8> {};
+
+template <typename T>
+class OVLSSmallPtrSet : public SmallPtrSet<T, 2> {};
 
 template <typename KeyT, typename ValueT>
 class OVLSMap : public std::multimap<KeyT, ValueT> {};
@@ -65,6 +69,9 @@ typedef class OVLSGroup OVLSGroup;
 typedef OVLSVector<OVLSGroup*> OVLSGroupVector;
 
 typedef class OVLSInstruction OVLSInstruction;
+typedef OVLSVector<OVLSInstruction*> OVLSInstructionVector;
+
+typedef OVLSMap<OVLSMemref*, OVLSGroup*> OVLSMemrefToGroupMap;
 
 // AccessType: {Strided|Indexed}{Load|Store}
 class OVLSAccessType {
@@ -122,21 +129,23 @@ public:
   bool isIndexedAccess() const { return AccType == ILoad ||
                                         AccType == IStore; }
 
+  bool isGather() const { return AccType == ILoad ||
+                                 AccType == SLoad; }
 };
 
 
 /// Defines OVLS data type which is a vector type, representing a vector of
 /// elements. A vector type requires a size (number of elements in the vector)
-/// and an element size. The kinds of instructions OVLS deals with (i.e load/store
-/// permute/shift) do not require element type such as integer, float. Knowing
-/// the element size is sufficient.
+/// and an element size in bits. The kinds of instructions OVLS deals with (
+/// i.e load/store permute/shift) do not require element type such as integer,
+/// float. Knowing the element size is sufficient.
 /// Please note that, since OVLS server works with target independent abstract
 /// instructions (OVLSInstruction), it has no restrictions on the sizes.
 /// Any size is considered as a valid size.
 /// Syntax:  < <# elements> x <element-size> >
 class OVLSType {
 private:
-  uint32_t  ElementSize;
+  uint32_t  ElementSize; // in bits
   uint32_t  NumElements;
 
 public:
@@ -157,11 +166,20 @@ public:
 	   NumElements == Rhs.NumElements;
   }
 
+  bool operator!=(OVLSType Rhs) const {
+    return ElementSize != Rhs.ElementSize ||
+	   NumElements != Rhs.NumElements;
+  }
+
+  bool isValid() const { return ElementSize != 0 && NumElements != 0; }
+
   uint32_t getElementSize() const { return ElementSize; }
   void setElementSize(uint32_t ESize) { ElementSize = ESize; }
 
   uint32_t getNumElements() const { return NumElements; }
   void setNumElements(uint32_t NElems) { NumElements = NElems; }
+
+  uint32_t getSize() const { return NumElements * ElementSize; }
 
   /// \brief prints the type as "<NumElements x ElementSize>"
   void print(OVLSostream &OS) const {
@@ -278,19 +296,26 @@ public:
   explicit OVLSGroup(int VLen, const OVLSAccessType& AType)
     : VectorLength(VLen), AccType(AType) {
     NByteAccessMask = 0;
+    ElementMask = 0;
   }
 
   typedef OVLSMemrefVector::iterator iterator;
   inline iterator                begin() { return MemrefVec.begin(); }
   inline iterator                end  () { return MemrefVec.end();   }
 
+  typedef OVLSMemrefVector::const_iterator const_iterator;
+  inline const_iterator          begin() const { return MemrefVec.begin(); }
+  inline const_iterator          end  () const { return MemrefVec.end();   }
+
   // Returns true if the group is empty.
   bool empty() const {
     return MemrefVec.empty();
   }
-  // Inserts an element into the Group.
-  void insert(OVLSMemref *Mrf) {
+  // Insert an element into the Group and set the masks accordingly.
+  void insert(OVLSMemref *Mrf, uint64_t AMask, uint64_t EMask) {
     MemrefVec.push_back(Mrf);
+    NByteAccessMask = AMask;
+    ElementMask = EMask;
   }
 
   // Returns group access mask.
@@ -298,15 +323,57 @@ public:
   void setAccessMask(uint64_t Mask) { NByteAccessMask = Mask; }
   OVLSAccessType getAccessType() const { return AccType; }
   uint32_t getVectorLength() const { return VectorLength; }
+  uint64_t getElementMask() const { return ElementMask; }
+  void setElementMask(uint64_t Mask) { ElementMask = Mask; }
 
   bool hasStridedAccesses() const {
     return AccType.isStridedAccess();
   }
+
+  // Gathers collectively refers to both indexed and strided loads.
+  bool hasGathers() const {
+    return AccType.isGather();
+  }
+
+  // Returns the total number of memrefs that this group contains.
+  uint32_t size() const { return MemrefVec.size(); }
+
   // Return the first OVLSMemref of this group.
   OVLSMemref* getFirstMemref() const {
     if (!MemrefVec.empty()) return MemrefVec[0];
     return nullptr;
   }
+
+  OVLSMemref* getMemref(uint32_t Id) const {
+    assert(Id < MemrefVec.size() && "Invalid MemrefId!!!\n");
+    return MemrefVec[Id];
+  }
+
+  /// \brief Return true and the constant stride in \p ConstStride if all of the
+  /// memrefs in the group have the same constant stride. Otherwise, returns
+  /// false and untouched GStride. Stride represents a uniform distance between
+  /// the vector elements of a OVLSMemref.
+  /// Inverting the function return does not invert the functionality
+  /// (e.g. false does not mean the group has a variable stride).
+  bool hasAConstStride(int64_t &ConstStride) const {
+    int64_t Stride = 0;
+    if (getFirstMemref()->hasAConstStride(&Stride)) {
+      // A group only comprises the memrefs that have the same matching strides.
+      // Therefore, checking whether the first memref in the group has a
+      // constant stride is sufficient.
+      ConstStride = Stride;
+      return true;
+    }
+    return false;
+  }
+
+  // Assuming all members have the same element size.
+  // TODO: Support heterogeneous types using GCD
+  uint32_t getElemSize() const { return MemrefVec[0]->getType().getElementSize(); }
+
+  // Currently, a group is formed only if the members have the same number
+  // of elements.
+  uint32_t getNumElems() const { return MemrefVec[0]->getType().getNumElements(); }
 
   void print(OVLSostream &OS, unsigned SpaceCount) const;
 
@@ -317,22 +384,30 @@ public:
 #endif
 
 private:
-  OVLSMemrefVector MemrefVec;// Group element-vector
-  uint32_t VectorLength;   // Vector length in bytes, default/maximum supported
-                           // length is 64. VectorLength can be the maximum
-                           // length of the underlying vector register or any
-                           // other desired size that clients want to consider.
-  uint64_t NByteAccessMask;// NByteAccessMask is a byte mask, represents the
-                           // access pattern for each N bytes comprising the
-                           // i-th element of the memrefs in the MemrefVec,
-                           // here N <= VectorLength.
-                           // Each bit in the mask corresponds to a byte.
-                           // Specifically, it tells us if there are any gaps
-                           // in between the i-th accesses (since access
-                           // pattern information is not recorded in the
-                           // MemrefVec to save memory)
-                           // Maximum 64 bytes can be represented.
-  OVLSAccessType AccType;  // AccessType of the group.
+  /// \brief Group element-vector
+  OVLSMemrefVector MemrefVec;
+
+  /// \brief Vector length in bytes, default/maximum supported length is 64.
+  /// VectorLength can be the maximum length of the underlying vector register
+  /// or any other desired size that clients want to consider.
+  uint32_t VectorLength;
+
+  /// \brief NByteAccessMask is a byte mask, represents the access pattern for
+  /// each N bytes comprising the i-th element of the memrefs in the MemrefVec,
+  /// here N <= VectorLength. Each bit in the mask corresponds to a byte.
+  /// Specifically, it tells us if there are any gaps in between the i-th
+  /// accesses (since access pattern information is not recorded in the
+  /// MemrefVec to save memory) Maximum 64 bytes can be represented.
+  uint64_t NByteAccessMask;
+
+  /// \brief AccessType of the group.
+  OVLSAccessType AccType;
+
+  /// \brief Represents an element-wise mask for the ith elements of the
+  /// MemrefVec. Memrefs can have different element sizes but they will have
+  /// common divisors. The greatest common divisor is considered as an element
+  /// in the ElementMask.
+  uint64_t ElementMask;
 };
 
 /// OVLSOperand is used to define an operand object for OVLSInstruction.
@@ -341,27 +416,40 @@ class OVLSOperand {
 
 public:
   /// An operand can be an address or a temp.
-  /// TODO: We will also need to support value.
-  enum OperandKind { OK_Address, OK_Instruction };
+enum OperandKind { OK_Address, OK_Instruction, OK_Constant };
+
+  explicit OVLSOperand(OperandKind K, OVLSType T) : Kind(K), Type(T) {}
 
   explicit OVLSOperand(OperandKind K) : Kind(K) {}
-
   OVLSOperand() {}
 
   ~OVLSOperand() {}
 
   OperandKind getKind() const { return Kind; }
-
-  virtual void print(OVLSostream &OS) const = 0;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
-  virtual void dump() const = 0;
-#endif
+  OVLSType getType() const { return Type; }
 
 private:
   OperandKind Kind;
+  OVLSType Type;
+};
+
+/// OVLSConstant provides a raw bitstream to represent a constant of
+/// any type.
+class OVLSConstant : public OVLSOperand {
+private:
+  static const int32_t BitWidth = 1024;
+  uint8_t ConstValue[BitWidth / 8];
+
+public:
+  explicit OVLSConstant(OVLSType T, uint8_t *V) :
+    OVLSOperand(OK_Constant, T) {
+    assert(T.getSize() <= BitWidth && "Unsupported OVLSConstant size!");
+    memcpy(ConstValue, V, T.getSize());
+  }
+
+  static bool classof(const OVLSOperand *Operand) {
+    return Operand->getKind() == OK_Constant;
+  }
 };
 
 /// OVLSAddress{Base, Offset} represents an address that is Offset
@@ -409,12 +497,12 @@ private:
   int64_t Offset;
 };
 
-class OVLSInstruction {
+class OVLSInstruction : public OVLSOperand {
 public:
-  enum OperationCode { OC_Load, OC_Store };
+  enum OperationCode { OC_Load, OC_Store, OC_Shuffle };
 
   explicit OVLSInstruction(OperationCode OC,  OVLSType T) :
-    OPCode(OC) {
+    OVLSOperand(OK_Instruction), OPCode(OC) {
     DType = T;
     static uint64_t InstructionId = 1;
     Id = InstructionId++;
@@ -434,6 +522,8 @@ public:
   void setType(OVLSType T) { DType = T; }
 
   uint64_t getId() const { return Id; }
+
+  OperationCode getKind() const { return OPCode; }
 private:
   OperationCode OPCode;
 
@@ -452,6 +542,10 @@ public:
 		    uint64_t EMask) :
     OVLSInstruction(OC_Load, T), ElemMask(EMask) {
     Src = S;
+  }
+
+  static bool classof(const OVLSInstruction *I) {
+    return I->getKind() == OC_Load;
   }
 
   void print(OVLSostream &OS, unsigned NumSpaces) const;
@@ -477,6 +571,80 @@ private:
 
 };
 
+/// OVLSShuffle instruction combines elements from the first two input vectors
+/// into a new vector, with the selection and ordering of elements determined
+/// by the 3rd vector, referred to as the shuffle mask. The length of the
+/// shuffle mask can be of any length that is less than or equal to the total
+/// length of the input vectors. Therefore, the length of the result vector can
+/// be of any size that is the same as the shuffle mask and the element size is
+/// the same as the element size of the first two input vectors. The shuffle
+/// mask operand is required to be a constant vector with either constant
+/// integer or undef values(-1).
+/// For input vectors of width N, mask selector can be of 0..N-1
+/// referring to the elements from the 1st input, and selector from N to 2N-1
+/// refer to the 2nd input vector.
+/// The mask value of -1 is treated as undef (meaning don't care), any value
+/// can be put in the corresponding element of the result.
+/// Second source vector can also be undef(NULL), that will mean shuffle only
+/// from one vector.
+/// Example:
+/// <result> = shuffle <4 x i32> s1, // vector indices: 0, 1, 2, 3
+///                    <4 x i32> s2, // vector indices: 4, 5, 6, 7
+///                    <uint32_t*> mask // mask values: 0, 1, 4, 5
+/// This shuffle instruction constructs an output vector of 4 elements, where
+/// the first two elements are the 1st two elements of the 1st input vector
+/// and the second two elements of the result vector are the first two elements
+/// of the 2nd input vector.
+class OVLSShuffle : public OVLSInstruction {
+
+public:
+  explicit OVLSShuffle(OVLSOperand O1, OVLSOperand O2, OVLSOperand O3) :
+    OVLSInstruction(OC_Shuffle, OVLSType(O1.getType().getElementSize(),
+                                         O3.getType().getNumElements())) {
+    assert(hasValidOperands(O1, O2, O3) &&
+           "Invalid shuffle vector instruction operand!");
+    Op1 = O1;
+    Op2 = O2;
+    Op3 = O3;
+  }
+
+  /// isValidOperands - Return true if a shufflevector instruction can be
+  /// formed with the specified operands.
+  static bool hasValidOperands(OVLSOperand O1, OVLSOperand O2, OVLSOperand Mask);
+
+  static bool classof(const OVLSInstruction *I) {
+    return I->getKind() == OC_Shuffle;
+  }
+
+  void print(OVLSostream &OS, unsigned NumSpaces) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const {
+    print(OVLSdbgs(), 0);
+    OVLSdbgs() << '\n';
+  }
+#endif
+
+private:
+  OVLSOperand Op1;
+  OVLSOperand Op2;
+
+  /// \p Op3 defines the shuffle mask, specifies for each element of the result
+  /// vector, which element of the two source vectors the result element gets.
+  /// Having -1 as a shuffle selector means "don't care".
+  OVLSOperand Op3;
+};
+
+
+// Printing of OVLSInstruction.
+static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSInstruction& I) {
+  if (isa<OVLSLoad>(&I)) {
+    const OVLSLoad *LI = cast<const OVLSLoad>(&I);
+    LI->print(OS, 2);
+  }
+  return OS;
+}
+
 /// OVLS server works in a target independent manner. In order to estimate
 /// more accurate cost for a specific target (architecture), client needs to
 /// provide the necessary target-specific information.
@@ -501,7 +669,8 @@ public:
 class OptVLSInterface {
 public:
   /// \brief getGroups() groups the memrefs that are adjacent and returns
-  /// the formed groups in \p Grps.
+  /// the formed groups in \p Grps. It also optionally returns a map in
+  /// \p MemrefToGroupMap which maps memref to the group that it belongs to.
   /// getGroups() takes a vector of OVLSMemrefs, a vector of OVLSGroups for
   /// containing the return group-vector and a vector length in bytes (which is
   /// the maximum length of the underlying vector register or any other
@@ -519,7 +688,8 @@ public:
   /// some opportunities. This can be improved in the future if needed.
   static void getGroups(const OVLSMemrefVector &Memrefs,
                         OVLSGroupVector &Grps,
-                        uint32_t VectorLength);
+                        uint32_t VectorLength,
+                        OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
 
   /// \brief getGroupCost() returns a relative cost/benefit of performing
   /// adjacent gather/scatter optimization for a group (of gathers/scatters).
@@ -528,6 +698,17 @@ public:
   /// instructions.
   static int64_t getGroupCost(const OVLSGroup& Group,
                               const OVLSCostModelAnalysis& CM);
+
+  /// \brief getSequence() takes a group of gathers/scatters, returns true
+  /// if it is able to generate a vector of instructions (basically a set of
+  /// contiguous loads/stores followed by shuffles) that can replace (which is
+  /// semantically equivalent) the gathers/scatters.
+  /// Returns false if it is unable to generate the sequence. This function
+  /// tries to generate the best optimized sequence without doing any
+  /// relative cost/benefit analysis (which is gather/scatter vs. the generated
+  /// sequence). The main purpose of this function is to help diagnostics.
+  static bool getSequence(const OVLSGroup& Group,
+			  OVLSInstructionVector& InstVector);
 
 };
 

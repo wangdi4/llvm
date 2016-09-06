@@ -41,7 +41,6 @@ INITIALIZE_PASS_BEGIN(WRegionCollection, "vpo-wrncollection",
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LCSSA)
 INITIALIZE_PASS_END(WRegionCollection, "vpo-wrncollection",
                     "VPO Work-Region Collection", false, true)
 
@@ -58,8 +57,8 @@ WRegionCollection::WRegionCollection() : FunctionPass(ID) {
 void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<ScalarEvolutionWrapperPass>();
 }
 
 template <class T> void WRStack<T>::push(T X) {
@@ -217,46 +216,42 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
   return;
 }
 
-void WRegionCollection::doBuildWRegionGraph(Function &F) {
-
-  DEBUG(dbgs() << "\nFunction = \n" << *this->Func);
+void WRegionCollection::buildWRGraphFromLLVMIR(Function &F) {
+  WRGraph = new (WRContainerTy);
   WRStack<WRegionNode *> S;
-
   doPreOrderDomTreeVisit(&F.getEntryBlock(), &S);
-
   return;
 }
 
 bool WRegionCollection::runOnFunction(Function &F) {
+  DEBUG(dbgs() << "\nENTER WRegionCollection::runOnFunction: "
+               << F.getName() << "{\n");
   this->Func = &F;
-
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
-#if 0
-  // Run -vpo-cfg-restructuring transformation pass before this analysis.
-  // Analysis passes can't modify LLVM IR.
-
-  // CFG Restructuring, which puts directives into standalone basic blocks.
-  // It maintains DominatorTree and LoopInfo.
-  VPOUtils::CFGRestructuring(F, DT, LI);
-#endif
-
-  // TBD: This needs to be run for LLVM IR only path. For the HIR case,
-  // standalone basic blocks created cause HIR region formation to not
-  // include the SIMD directives which in turn causes WRegion formation
-  // to fail. Commenting out the call for now.
-
-  DEBUG(dbgs() << "W-Region Graph Construction Start {\n");
-  WRGraph = new (WRContainerTy);
-  doBuildWRegionGraph(F);
-  DEBUG(dbgs() << "} W-Region Graph Construction End\n");
-
-  // TODO: This return should return true if call to CFGRestruction()
-  // has modifed the IR.
+  DEBUG(dbgs() << "\n}EXIT WRegionCollection::runOnFunction: "
+               << F.getName() << "\n");
   return false;
 }
+
+void WRegionCollection::buildWRGraph(InputIRKind IR) {
+  DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR=" 
+               << IR <<"){\n");
+  if (IR == HIR) {
+    // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
+    //       after Vectorizer's HIR mode starts using this new interface
+    WRGraph = WRegionUtils::buildWRGraphFromHIR();
+  } else if (IR == LLVMIR) {
+    buildWRGraphFromLLVMIR(*Func);
+  } else {
+    llvm_unreachable("Unknown InputIRKind");
+  }
+
+  DEBUG(dbgs() << "\n} EXIT WRegionCollection::buildWRGraph\n");
+}
+
 
 void WRegionCollection::releaseMemory() {
 #if 0

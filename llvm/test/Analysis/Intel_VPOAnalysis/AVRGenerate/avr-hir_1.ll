@@ -11,8 +11,7 @@
 ;CHECK: else
 ;CHECK: {al:4}(%arr)[i1] = store i1 + 2
 ;CHECK-NEXT: %0 = load {al:4}(%barr)[i1]
-;CHECK-NEXT: if (%0 == 0)
-;CHECK: else
+;CHECK-NEXT: if (%0 != 0)
 ;CHECK: {al:4}(%barr)[i1] = store %0 + 1
 
 ; clang -O2 -S -fno-unroll-loops -emit-llvm test.c
@@ -52,10 +51,7 @@
 ;<7>       |   {
 ;<19>      |      (%arr)[i1] = i1 + 2;
 ;<21>      |      %0 = (%barr)[i1];
-;<23>      |      if (%0 == 0)
-;<23>      |      {
-;<23>      |      }
-;<23>      |      else
+;<23>      |      if (%0 != 0)
 ;<23>      |      {
 ;<28>      |         (%barr)[i1] = %0 + 1;
 ;<23>      |      }
@@ -106,6 +102,7 @@ for.inc:                                          ; preds = %if.then, %if.else, 
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.inc
+  call void @llvm.intel.directive(metadata !6)
   ret void
 }
 
@@ -122,3 +119,4 @@ attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fp
 !3 = !{!"omnipotent char", !4, i64 0}
 !4 = !{!"Simple C/C++ TBAA"}
 !5 = !{!"DIR.OMP.SIMD"}
+!6 = !{!"DIR.OMP.END.SIMD"}

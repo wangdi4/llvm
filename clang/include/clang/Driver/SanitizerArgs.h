@@ -16,6 +16,10 @@
 #include <string>
 #include <vector>
 
+namespace llvm {
+class Triple;
+}
+
 namespace clang {
 namespace driver {
 
@@ -34,6 +38,7 @@ class SanitizerArgs {
   bool CfiCrossDso = false;
   int AsanFieldPadding = 0;
   bool AsanSharedRuntime = false;
+  bool AsanUseAfterScope = false;
   bool LinkCXXRuntimes = false;
   bool NeedPIE = false;
   bool Stats = false;
@@ -58,11 +63,15 @@ class SanitizerArgs {
   bool needsCfiRt() const;
   bool needsCfiDiagRt() const;
   bool needsStatsRt() const { return Stats; }
+  bool needsEsanRt() const {
+    return Sanitizers.hasOneOf(SanitizerKind::Efficiency);
+  }
 
   bool requiresPIE() const;
   bool needsUnwindTables() const;
   bool linkCXXRuntimes() const { return LinkCXXRuntimes; }
-  void addArgs(const ToolChain &TC, const llvm::opt::ArgList &Args,
+  void addArgs(const ToolChain &TC, const llvm::Triple &EffectiveTriple,
+               const llvm::opt::ArgList &Args,
                llvm::opt::ArgStringList &CmdArgs, types::ID InputType) const;
 };
 

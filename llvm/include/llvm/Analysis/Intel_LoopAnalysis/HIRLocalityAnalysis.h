@@ -49,7 +49,7 @@ typedef std::pair<const HLLoop *, uint64_t> LoopLocalityPair;
 class HIRLocalityAnalysis final : public HIRAnalysisPass {
 
 private:
-  typedef DDRefGrouping::SymToMemRefTy SymToMemRefTy;
+  typedef ConstMemRefGatherer::MapTy SymToMemRefTy;
 
   // Symbolic constant to denote unknown 'N' trip count.
   // TODO: Revisit this for scaling known loops.
@@ -108,7 +108,7 @@ private:
   // trip count.
   SmallDenseMap<const HLLoop *, unsigned, 16> ConstTripCache;
 
-  DDRefGrouping::RefGroupsTy RefGroups;
+  DDRefGrouping::RefGroupMapTy<const RegDDRef> RefGroups;
 
   /// \brief Used for debugging purposes only to verify locality value.
   /// This function prints out the locality cost for all the loops.

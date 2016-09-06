@@ -18,13 +18,21 @@ We expect that FreeBSD is going to be the first large system
 to adopt LLD as the system linker.
 We are working on it in collaboration with the FreeBSD project.
 
-The linkers are notably small; as of March 2016,
-the COFF linker is under 7k lines and the ELF linker is about 10k lines.
+The linkers are notably small; as of June 2016,
+the COFF linker is under 7k lines and the ELF linker is about 13k lines,
+while gold is 146K lines.
 
 The linkers are designed to be as fast and simple as possible.
 Because it is simple, it is easy to extend to support new features.
 It already supports several advanced features such section garbage
 collection and identical code folding.
+
+The COFF linker supports i386, x86-64 and ARM. The ELF linker supports
+i386, x86-64, x32, MIPS32, MIPS64, PowerPC, AMDGPU, ARM and Aarch64,
+although the quality varies depending on platform. By default, LLD
+provides support for all targets because the amount of code we have for
+each target is so small. We do not even provide a way to disable
+targets at compile time.
 
 There are a few key design choices that we made to achieve these goals.
 We will describe them in this document.
@@ -186,23 +194,24 @@ Once you understand their functions, the code of the linker should look obvious 
 
 * Symbol
 
-  Symbol is a pointer to a SymbolBody. There's only one Symbol for
-  each unique symbol name (this uniqueness is guaranteed by the symbol table).
-  Because SymbolBodies are created for each file independently,
-  there can be many SymbolBodies for the same name.
-  Thus, the relationship between Symbols and SymbolBodies is 1:N.
-  You can think of Symbols as handles for SymbolBodies.
+  A Symbol is a container for a SymbolBody. There's only one Symbol for each
+  unique symbol name (this uniqueness is guaranteed by the symbol table).
+  Each global symbol has only one SymbolBody at any one time, which is
+  the SymbolBody stored within a memory region of the Symbol large enough
+  to store any SymbolBody.
 
-  The resolver keeps the Symbol's pointer to always point to the "best" SymbolBody.
-  Pointer mutation is the resolve operation of this linker.
+  As the resolver reads symbols from input files, it replaces the Symbol's
+  SymbolBody with the "best" SymbolBody for its symbol name by constructing
+  the new SymbolBody in place on top of the existing SymbolBody. For example,
+  if the resolver is given a defined symbol, and the SymbolBody with its name
+  is undefined, it will construct a Defined SymbolBody over the Undefined
+  SymbolBody.
 
-  SymbolBodies have pointers to their Symbols.
-  That means you can always find the best SymbolBody from
-  any SymbolBody by following pointers twice.
-  This structure makes it very easy and cheap to find replacements for symbols.
-  For example, if you have an Undefined SymbolBody, you can find a Defined
-  SymbolBody for that symbol just by going to its Symbol and then to SymbolBody,
-  assuming the resolver have successfully resolved all undefined symbols.
+  This means that each SymbolBody pointer always points to the best SymbolBody,
+  and it is possible to get from a SymbolBody to a Symbol, or vice versa,
+  by adding or subtracting a fixed offset. This memory layout helps reduce
+  the cache miss rate through high locality and a small number of required
+  pointer indirections.
 
 * SymbolTable
 

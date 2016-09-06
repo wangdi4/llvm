@@ -43,9 +43,11 @@ enum ActionType {
   PrintSets,
   GenOptParserDefs,
   GenCTags,
-  GenDirectives, // INTEL
-  GenMAPatterns, // INTEL
-  GenAttributes
+  GenDirectives,   // INTEL
+  GenSVMLVariants, // INTEL
+  GenMAPatterns,   // INTEL
+  GenAttributes,
+  GenSearchableTables,
 };
 
 namespace {
@@ -95,9 +97,13 @@ namespace {
                     clEnumValN(GenDirectives, "gen-directives",
                                "Generate directive enums and tables for \
                                 parallel/vector constructs and regions"),
+                    clEnumValN(GenSVMLVariants, "gen-svml",
+                               "Generate SVML variant function names"),
                     clEnumValN(GenMAPatterns, "gen-ma-patterns",
                                "Generate MUL/ADD patterns"),
 // END INTEL_CUSTOMIZATION
+                    clEnumValN(GenSearchableTables, "gen-searchable-tables",
+                               "Generate generic binary-searchable table"),
                     clEnumValEnd));
 
   cl::opt<std::string>
@@ -185,10 +191,16 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   case GenDirectives:
     EmitDirectives(Records, OS);
     break;
+  case GenSVMLVariants:
+    EmitSVMLVariants(Records, OS);
+    break;
   case GenMAPatterns:
     EmitMAPatterns(Records, OS);
     break;
 #endif // INTEL_CUSTOMIZATION
+  case GenSearchableTables:
+    EmitSearchableTables(Records, OS);
+    break;
   }
 
   return false;
@@ -196,7 +208,7 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
 }
 
 int main(int argc, char **argv) {
-  sys::PrintStackTraceOnErrorSignal();
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
 

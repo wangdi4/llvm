@@ -834,20 +834,20 @@ ValueObject::CreateChildAtIndex (size_t idx, bool synthetic_array_member, int32_
     
     ExecutionContext exe_ctx (GetExecutionContextRef());
     
-    child_compiler_type = GetCompilerType().GetChildCompilerTypeAtIndex (&exe_ctx,
-                                                                      idx,
-                                                                      transparent_pointers,
-                                                                      omit_empty_base_classes,
-                                                                      ignore_array_bounds,
-                                                                      child_name_str,
-                                                                      child_byte_size,
-                                                                      child_byte_offset,
-                                                                      child_bitfield_bit_size,
-                                                                      child_bitfield_bit_offset,
-                                                                      child_is_base_class,
-                                                                      child_is_deref_of_parent,
-                                                                      this,
-                                                                      language_flags);
+    child_compiler_type = GetCompilerType().GetChildCompilerTypeAtIndex(&exe_ctx,
+                                                                        idx,
+                                                                        transparent_pointers,
+                                                                        omit_empty_base_classes,
+                                                                        ignore_array_bounds,
+                                                                        child_name_str,
+                                                                        child_byte_size,
+                                                                        child_byte_offset,
+                                                                        child_bitfield_bit_size,
+                                                                        child_bitfield_bit_offset,
+                                                                        child_is_base_class,
+                                                                        child_is_deref_of_parent,
+                                                                        this,
+                                                                        language_flags);
     if (child_compiler_type)
     {
         if (synthetic_index)
@@ -1789,6 +1789,10 @@ ValueObject::DumpPrintableRepresentation(Stream& s,
 addr_t
 ValueObject::GetAddressOf (bool scalar_is_load_address, AddressType *address_type)
 {
+    // Can't take address of a bitfield
+    if (IsBitfield())
+        return LLDB_INVALID_ADDRESS;
+
     if (!UpdateValueIfNeeded(false))
         return LLDB_INVALID_ADDRESS;
         
@@ -2227,13 +2231,19 @@ ValueObject::GetSyntheticChildAtOffset(uint32_t offset,
 }
 
 ValueObjectSP
-ValueObject::GetSyntheticBase (uint32_t offset, const CompilerType& type, bool can_create)
+ValueObject::GetSyntheticBase (uint32_t offset,
+                               const CompilerType& type,
+                               bool can_create,
+                               ConstString name_const_str)
 {
     ValueObjectSP synthetic_child_sp;
     
-    char name_str[64];
-    snprintf(name_str, sizeof(name_str), "%s", type.GetTypeName().AsCString("<unknown>"));
-    ConstString name_const_str(name_str);
+    if (name_const_str.IsEmpty())
+    {
+        char name_str[128];
+        snprintf(name_str, sizeof(name_str), "base%s@%i", type.GetTypeName().AsCString("<unknown>"), offset);
+        name_const_str.SetCString(name_str);
+    }
     
     // Check if we have already created a synthetic array member in this
     // valid object. If we have we will re-use it.

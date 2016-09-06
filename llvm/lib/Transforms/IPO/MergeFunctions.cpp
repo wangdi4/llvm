@@ -89,13 +89,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/IPO.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/FoldingSet.h"
+#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/Hashing.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -112,6 +109,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/IPO.h"
 #include <vector>
 
 using namespace llvm;
@@ -1052,6 +1050,17 @@ int FunctionComparator::cmpOperations(const Instruction *L,
     return cmpNumbers(RMWI->getSynchScope(),
                       cast<AtomicRMWInst>(R)->getSynchScope());
   }
+  if (const PHINode *PNL = dyn_cast<PHINode>(L)) {
+    const PHINode *PNR = cast<PHINode>(R);
+    // Ensure that in addition to the incoming values being identical
+    // (checked by the caller of this function), the incoming blocks
+    // are also identical.
+    for (unsigned i = 0, e = PNL->getNumIncomingValues(); i != e; ++i) {
+      if (int Res =
+              cmpValues(PNL->getIncomingBlock(i), PNR->getIncomingBlock(i)))
+        return Res;
+    }
+  }
   return 0;
 }
 
@@ -1527,6 +1536,9 @@ bool MergeFunctions::doSanityCheck(std::vector<WeakVH> &Worklist) {
 }
 
 bool MergeFunctions::runOnModule(Module &M) {
+  if (skipModule(M))
+    return false;
+
   bool Changed = false;
 
   // All functions in the module, ordered by hash. Functions with a unique
@@ -1565,28 +1577,12 @@ bool MergeFunctions::runOnModule(Module &M) {
     DEBUG(dbgs() << "size of module: " << M.size() << '\n');
     DEBUG(dbgs() << "size of worklist: " << Worklist.size() << '\n');
 
-    // Insert only strong functions and merge them. Strong function merging
-    // always deletes one of them.
-    for (std::vector<WeakVH>::iterator I = Worklist.begin(),
-           E = Worklist.end(); I != E; ++I) {
-      if (!*I) continue;
-      Function *F = cast<Function>(*I);
-      if (!F->isDeclaration() && !F->hasAvailableExternallyLinkage() &&
-          !F->isInterposable()) {
-        Changed |= insert(F);
-      }
-    }
-
-    // Insert only weak functions and merge them. By doing these second we
-    // create thunks to the strong function when possible. When two weak
-    // functions are identical, we create a new strong function with two weak
-    // weak thunks to it which are identical but not mergable.
-    for (std::vector<WeakVH>::iterator I = Worklist.begin(),
-           E = Worklist.end(); I != E; ++I) {
-      if (!*I) continue;
-      Function *F = cast<Function>(*I);
-      if (!F->isDeclaration() && !F->hasAvailableExternallyLinkage() &&
-          F->isInterposable()) {
+    // Insert functions and merge them.
+    for (WeakVH &I : Worklist) {
+      if (!I)
+        continue;
+      Function *F = cast<Function>(I);
+      if (!F->isDeclaration() && !F->hasAvailableExternallyLinkage()) {
         Changed |= insert(F);
       }
     }
@@ -1641,7 +1637,7 @@ void MergeFunctions::replaceDirectCallers(Function *Old, Function *New) {
 
 // Replace G with an alias to F if possible, or else a thunk to F. Deletes G.
 void MergeFunctions::writeThunkOrAlias(Function *F, Function *G) {
-  if (HasGlobalAliases && G->hasUnnamedAddr()) {
+  if (HasGlobalAliases && G->hasGlobalUnnamedAddr()) {
     if (G->hasExternalLinkage() || G->hasLocalLinkage() ||
         G->hasWeakLinkage()) {
       writeAlias(F, G);
@@ -1826,20 +1822,16 @@ bool MergeFunctions::insert(Function *NewFunction) {
   // important when operating on more than one module independently to prevent
   // cycles of thunks calling each other when the modules are linked together.
   //
-  // When one function is weak and the other is strong there is an order imposed
-  // already. We process strong functions before weak functions.
-  if ((OldF.getFunc()->isInterposable() && NewFunction->isInterposable()) ||
-      (!OldF.getFunc()->isInterposable() && !NewFunction->isInterposable()))
-    if (OldF.getFunc()->getName() > NewFunction->getName()) {
-      // Swap the two functions.
-      Function *F = OldF.getFunc();
-      replaceFunctionInTree(*Result.first, NewFunction);
-      NewFunction = F;
-      assert(OldF.getFunc() != F && "Must have swapped the functions.");
-    }
-
-  // Never thunk a strong function to a weak function.
-  assert(!OldF.getFunc()->isInterposable() || NewFunction->isInterposable());
+  // First of all, we process strong functions before weak functions.
+  if ((OldF.getFunc()->isInterposable() && !NewFunction->isInterposable()) ||
+     (OldF.getFunc()->isInterposable() == NewFunction->isInterposable() &&
+       OldF.getFunc()->getName() > NewFunction->getName())) {
+    // Swap the two functions.
+    Function *F = OldF.getFunc();
+    replaceFunctionInTree(*Result.first, NewFunction);
+    NewFunction = F;
+    assert(OldF.getFunc() != F && "Must have swapped the functions.");
+  }
 
   DEBUG(dbgs() << "  " << OldF.getFunc()->getName()
                << " == " << NewFunction->getName() << '\n');

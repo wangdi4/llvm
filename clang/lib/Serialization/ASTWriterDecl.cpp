@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Serialization/ASTWriter.h"
 #include "ASTCommon.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclContextInternals.h"
@@ -20,7 +19,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Serialization/ASTReader.h"
-#include "llvm/ADT/Twine.h"
+#include "clang/Serialization/ASTWriter.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Support/ErrorHandling.h"
 using namespace clang;
@@ -107,6 +106,7 @@ namespace clang {
     void VisitTypeAliasTemplateDecl(TypeAliasTemplateDecl *D);
     void VisitUsingDecl(UsingDecl *D);
     void VisitUsingShadowDecl(UsingShadowDecl *D);
+    void VisitConstructorUsingShadowDecl(ConstructorUsingShadowDecl *D);
     void VisitLinkageSpecDecl(LinkageSpecDecl *D);
     void VisitFileScopeAsmDecl(FileScopeAsmDecl *D);
     void VisitImportDecl(ImportDecl *D);
@@ -398,7 +398,7 @@ void ASTDeclWriter::VisitTagDecl(TagDecl *D) {
   Record.push_back(D->isEmbeddedInDeclarator());
   Record.push_back(D->isFreeStanding());
   Record.push_back(D->isCompleteDefinitionRequired());
-  Record.AddSourceLocation(D->getRBraceLoc());
+  Record.AddSourceRange(D->getBraceRange());
 
   if (D->hasExtInfo()) {
     Record.push_back(1);
@@ -597,7 +597,7 @@ void ASTDeclWriter::VisitFunctionDecl(FunctionDecl *D) {
   }
 
   Record.push_back(D->param_size());
-  for (auto P : D->params())
+  for (auto P : D->parameters())
     Record.AddDeclRef(P);
   Code = serialization::DECL_FUNCTION;
 }
@@ -637,7 +637,7 @@ void ASTDeclWriter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
   Record.AddTypeSourceInfo(D->getReturnTypeSourceInfo());
   Record.AddSourceLocation(D->getLocEnd());
   Record.push_back(D->param_size());
-  for (const auto *P : D->params())
+  for (const auto *P : D->parameters())
     Record.AddDeclRef(P);
 
   Record.push_back(D->SelLocsKind);
@@ -895,6 +895,8 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
     Record.push_back(D->isNRVOVariable());
     Record.push_back(D->isCXXForRangeDecl());
     Record.push_back(D->isARCPseudoStrong());
+    Record.push_back(D->isInline());
+    Record.push_back(D->isInlineSpecified());
     Record.push_back(D->isConstexpr());
     Record.push_back(D->isInitCapture());
     Record.push_back(D->isPreviousDeclInSameBlockScope());
@@ -941,6 +943,7 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
       D->getInit() == nullptr &&
       !isa<ParmVarDecl>(D) &&
       !isa<VarTemplateSpecializationDecl>(D) &&
+      !D->isInline() &&
       !D->isConstexpr() &&
       !D->isInitCapture() &&
       !D->isPreviousDeclInSameBlockScope() &&
@@ -1019,9 +1022,8 @@ void ASTDeclWriter::VisitBlockDecl(BlockDecl *D) {
   Record.AddStmt(D->getBody());
   Record.AddTypeSourceInfo(D->getSignatureAsWritten());
   Record.push_back(D->param_size());
-  for (FunctionDecl::param_iterator P = D->param_begin(), PEnd = D->param_end();
-       P != PEnd; ++P)
-    Record.AddDeclRef(*P);
+  for (ParmVarDecl *P : D->parameters())
+    Record.AddDeclRef(P);
   Record.push_back(D->isVariadic());
   Record.push_back(D->blockMissingReturnType());
   Record.push_back(D->isConversionFromLambda());
@@ -1124,6 +1126,15 @@ void ASTDeclWriter::VisitUsingShadowDecl(UsingShadowDecl *D) {
   Code = serialization::DECL_USING_SHADOW;
 }
 
+void ASTDeclWriter::VisitConstructorUsingShadowDecl(
+    ConstructorUsingShadowDecl *D) {
+  VisitUsingShadowDecl(D);
+  Record.AddDeclRef(D->NominatedBaseClassShadowDecl);
+  Record.AddDeclRef(D->ConstructedBaseClassShadowDecl);
+  Record.push_back(D->IsVirtual);
+  Code = serialization::DECL_CONSTRUCTOR_USING_SHADOW;
+}
+
 void ASTDeclWriter::VisitUsingDirectiveDecl(UsingDirectiveDecl *D) {
   VisitNamedDecl(D);
   Record.AddSourceLocation(D->getUsingLoc());
@@ -1209,12 +1220,21 @@ void ASTDeclWriter::VisitCXXMethodDecl(CXXMethodDecl *D) {
 }
 
 void ASTDeclWriter::VisitCXXConstructorDecl(CXXConstructorDecl *D) {
+  if (auto Inherited = D->getInheritedConstructor()) {
+    Record.AddDeclRef(Inherited.getShadowDecl());
+    Record.AddDeclRef(Inherited.getConstructor());
+    Code = serialization::DECL_CXX_INHERITED_CONSTRUCTOR;
+  } else {
+    Code = serialization::DECL_CXX_CONSTRUCTOR;
+  }
+
   VisitCXXMethodDecl(D);
 
-  Record.AddDeclRef(D->getInheritedConstructor());
   Record.push_back(D->IsExplicitSpecified);
 
-  Code = serialization::DECL_CXX_CONSTRUCTOR;
+  Code = D->isInheritingConstructor()
+             ? serialization::DECL_CXX_INHERITED_CONSTRUCTOR
+             : serialization::DECL_CXX_CONSTRUCTOR;
 }
 
 void ASTDeclWriter::VisitCXXDestructorDecl(CXXDestructorDecl *D) {
@@ -1541,16 +1561,6 @@ void ASTDeclWriter::VisitDeclContext(DeclContext *DC) {
 }
 
 const Decl *ASTWriter::getFirstLocalDecl(const Decl *D) {
-  /// \brief Is this a local declaration (that is, one that will be written to
-  /// our AST file)? This is the case for declarations that are neither imported
-  /// from another AST file nor predefined.
-  auto IsLocalDecl = [&](const Decl *D) -> bool {
-    if (D->isFromASTFile())
-      return false;
-    auto I = DeclIDs.find(D);
-    return (I == DeclIDs.end() || I->second >= NUM_PREDEF_DECL_IDS);
-  };
-
   assert(IsLocalDecl(D) && "expected a local declaration");
 
   const Decl *Canon = D->getCanonicalDecl();
@@ -1758,6 +1768,7 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // IsFreeStanding
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // IsCompleteDefinitionRequired
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));   // SourceLocation
+  Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));   // SourceLocation
   Abv->Add(BitCodeAbbrevOp(0));                         // ExtInfoKind
   // EnumDecl
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));   // AddTypeRef
@@ -1805,6 +1816,7 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // EmbeddedInDeclarator
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // IsFreeStanding
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // IsCompleteDefinitionRequired
+  Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));   // SourceLocation
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));   // SourceLocation
   Abv->Add(BitCodeAbbrevOp(0));                         // ExtInfoKind
   // RecordDecl
@@ -1927,6 +1939,8 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // isNRVOVariable
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // isCXXForRangeDecl
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // isARCPseudoStrong
+  Abv->Add(BitCodeAbbrevOp(0));                         // isInline
+  Abv->Add(BitCodeAbbrevOp(0));                         // isInlineSpecified
   Abv->Add(BitCodeAbbrevOp(0));                         // isConstexpr
   Abv->Add(BitCodeAbbrevOp(0));                         // isInitCapture
   Abv->Add(BitCodeAbbrevOp(0));                         // isPrevDeclInSameScope
@@ -2108,11 +2122,11 @@ static bool isRequiredDecl(const Decl *D, ASTContext &Context,
       D->hasAttr<OMPDeclareTargetDeclAttr>())
     return true;
 
-  // ImportDecl is used by codegen to determine the set of imported modules to
-  // search for inputs for automatic linking; include it if it has a semantic
-  // effect.
-  if (isa<ImportDecl>(D) && !WritingModule)
-    return true;
+  if (WritingModule && (isa<VarDecl>(D) || isa<ImportDecl>(D))) {
+    // These declarations are part of the module initializer, and are emitted
+    // if and when the module is imported, rather than being emitted eagerly.
+    return false;
+  }
 
   return Context.DeclMustBeEmitted(D);
 }

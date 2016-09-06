@@ -6,22 +6,23 @@
 ; CHECK-DAG: mul26.lcssa.lcssa98
 ; CHECK-DAG: inc
 
-; CHECK: DO i1 = 0, 58
-; CHECK-NEXT: %inc = %mul26.lcssa.lcssa99  +  1;
-; CHECK-NEXT: %mul26.lcssa.lcssa98 = %mul26.lcssa.lcssa99 + 1;
-; CHECK: %mul26.lcssa95.in2 = %mul26.lcssa.lcssa99 + 1;
-; CHECK-NEXT: DO i2 = 0, i1 + -49
-; CHECK-NEXT: %mul2692 = %mul26.lcssa95.in2;
-; CHECK-NEXT: DO i3 = 0, 9
-; CHECK-NEXT: %0 = {al:4}(%g)[0][i3 + 1];
-; CHECK-NEXT: %mul2692 = %mul2692  *  %0;
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %mul26.lcssa95.in2 = %mul2692;
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: {al:4}(%j0)[0] = 11;
-; CHECK-NEXT: %mul26.lcssa.lcssa98 = %mul2692;
-; CHECK: %mul26.lcssa.lcssa99 = %mul26.lcssa.lcssa98;
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, 58, 1   <DO_LOOP>
+; CHECK: |   %inc = %mul26.lcssa.lcssa99  +  1;
+; CHECK: |   %mul26.lcssa.lcssa98 = %mul26.lcssa.lcssa99 + 1;
+; CHECK: |
+; CHECK: |      %mul26.lcssa95 = %mul26.lcssa.lcssa99 + 1;
+; CHECK: |   + DO i2 = 0, i1 + -49, 1   <DO_LOOP>
+; CHECK: |   |   + DO i3 = 0, 9, 1   <DO_LOOP>
+; CHECK: |   |   |   %0 = {al:4}(%g)[0][i3 + 1];
+; CHECK: |   |   |   %mul26.lcssa95 = %mul26.lcssa95  *  %0;
+; CHECK: |   |   + END LOOP
+; CHECK: |   + END LOOP
+; CHECK: |      {al:4}(%j0)[0] = 11;
+; CHECK: |      %mul26.lcssa.lcssa98 = %mul26.lcssa95;
+; CHECK: |
+; CHECK: |   %mul26.lcssa.lcssa99 = %mul26.lcssa.lcssa98;
+; CHECK: + END LOOP
+
 
 
 ;Module Before HIR; ModuleID = 'tester2.c'

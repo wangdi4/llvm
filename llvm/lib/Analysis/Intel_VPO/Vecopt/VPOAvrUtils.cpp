@@ -44,9 +44,7 @@ AVRBranch *AVRUtils::createAVRBranch(AVRLabel *Successor) {
   return new AVRBranch(Successor);
 }
 
-AVRNOP *AVRUtils::createAVRNOP() {
-  return new AVRNOP();
-}
+AVRNOP *AVRUtils::createAVRNOP() { return new AVRNOP(); }
 
 // Modification Utilities
 
@@ -58,223 +56,406 @@ void AVRUtils::setAVRAssignRHS(AVRAssign *AvrAssign, AVR *Node) {
   AvrAssign->setRHS(Node);
 }
 
-void AVRUtils::addCase(AVRSwitch *ASwitch) {
-  ASwitch->addCase();
+void AVRUtils::setAVRPhiLHS(AVRPhi *APhi, AVRValue *AValue) {
+  APhi->setLHS(AValue);
+}
+
+void AVRUtils::addAVRPhiIncoming(AVRPhi *APhi, AVRValue *AValue,
+                                 AVRLabel *ALabel) {
+  APhi->addIncoming(AValue, ALabel);
+}
+
+void AVRUtils::addCase(AVRSwitch *ASwitch) { ASwitch->addCase(); }
+
+void AVRUtils::setZeroTripTest(AVRLoop *ALoop, AVRIf *IfZtt) {
+  llvm_unreachable("Zero trip test support not implemented yet!");
+  ALoop->setZeroTripTest(IfZtt);
+}
+
+void AVRUtils::setSLEV(AVR *Avr, const SLEV& Slev) {
+  Avr->Slev.copyValue(Slev);
 }
 
 // Insertion Utilities
 
-void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
-                         InsertType Itype, SplitType SType, 
-                         unsigned CaseNumber) {
+void AVRUtils::insertSingleton(AVR *DestinationParent,
+                               AVRContainerTy &DestinationContainer,
+                               AvrItr InsertionPosition, AVR *NewNode) {
 
-  assert(Parent && "Parent is null.");
+  assert(DestinationParent && "Parent node is null!");
+  NewNode->setParent(DestinationParent);
+  DestinationContainer.insert(InsertionPosition, NewNode);
+}
 
-  AvrItr InsertionPos;
-  AVRContainerTy *Children = nullptr;
-  AVRSwitch *ASwitch = nullptr;
+void AVRUtils::insertSequence(AVR *DestinationParent,
+                              AVRContainerTy &DestinationContainer,
+                              AVRContainerTy *SourceContainer,
+                              AvrItr InsertionPosition) {
 
-  if (AVRFunction *AFunc = dyn_cast<AVRFunction>(Parent)) {
-    Children = &(AFunc->Children);
-  } else if (AVRLoop *ALoop = dyn_cast<AVRLoop>(Parent)) {
-    Children = &(ALoop->Children);
-  } else if (AVRIf *AIf = dyn_cast<AVRIf>(Parent)) {
+  AvrItr SourceBegin = SourceContainer->begin();
+  AvrItr SourceEnd = SourceContainer->end();
+  unsigned Distance = std::distance(SourceBegin, SourceEnd), I = 0;
 
-    if (SType == ThenChild) {
-      Children = &(AIf->ThenChildren);
-    } else if (SType == ElseChild) {
-      Children = &(AIf->ElseChildren);
-    } else {
-      // It's possible that insert is called with an AvrIf parent and unknown
-      // child container. Resolve children container with a quick look up.
-      if (AVRUtils::containsAvr(AIf->ThenChildren, &*Pos)) {
-        Children = &(AIf->ThenChildren);
-      } else if (AVRUtils::containsAvr(AIf->ElseChildren, &*Pos)) {
-        Children = &(AIf->ElseChildren);
-      } else {
-        llvm_unreachable("Malformed AVRIf insertion!");
-      }
-    }
-  } else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Parent)) {
-    Children = &(AWrn->Children);
-  } else if (isa<AVRSwitch>(Parent)) {
-    ASwitch = cast<AVRSwitch>(Parent);
+  DestinationContainer.splice(InsertionPosition, *SourceContainer, SourceBegin,
+                              SourceEnd);
 
-    assert((SType == None) && " Invalid insertion into switch avr node!");
-    assert((CaseNumber <= ASwitch->getNumCases()) &&
-           "Switch case number is out of range!");
-
-    Children = &(ASwitch->Children);
-  } else {
-    llvm_unreachable("VPO: Unsupported AVR Insertion\n");
+  // Update the parents of top-most nodes.
+  for (auto Itr = InsertionPosition; I < Distance; ++I, Itr--) {
+    std::prev(Itr)->setParent(DestinationParent);
   }
+}
 
-  assert(Children && "Children container ptr is null.");
+void AVRUtils::insertAfter(AvrItr InsertionPosition, AVR *Node) {
+  AVR *Parent = InsertionPosition->getParent();
+  AVRContainerTy *Children = getChildrenContainer(Parent, InsertionPosition);
+  insertSingleton(Parent, *Children, std::next(InsertionPosition), Node);
+}
 
-  // Set insertion point
-  switch (Itype) {
-    case FirstChild:
-      // FirstChild insertion for Switch case statements requires special
-      // handling. A single children container holds all switch cases. Update
-      // insertion iterator to point to correct switch case FirstChild.
-      if (ASwitch) {
-        if (CaseNumber == 0) {
-          InsertionPos = ASwitch->default_case_child_begin();
-	}
-        else {
-          InsertionPos = ASwitch->case_child_begin(CaseNumber);
-	}
-      } 
-      else {
-        InsertionPos = Children->begin();
-      }
-      break;
-    case LastChild:
-      // LastChild insertion for Switch case statements requires special
-      // handling. A single children container holds all switch cases. Update
-      // insertion iterator to point to correct switch case LastChild.
-      if (ASwitch) {
-        if (CaseNumber == 0)
-          InsertionPos = ASwitch->default_case_child_end();
-        else
-          InsertionPos = ASwitch->case_child_end(CaseNumber);
-      }
-      else {
-        InsertionPos = Children->end();
-      }
-      break;
-    case Append:
-      InsertionPos = std::next(Pos);
-      break;
-    case Prepend:
-      InsertionPos = Pos;
-      break;
-    default:
-      llvm_unreachable("VPO: Unknown AVR Insertion Type");
-  }
+void AVRUtils::insertBefore(AvrItr InsertionPosition, AVR *Node) {
+  AVR *Parent = InsertionPosition->getParent();
+  AVRContainerTy *Children = getChildrenContainer(Parent, InsertionPosition);
+  insertSingleton(Parent, *Children, InsertionPosition, Node);
+}
 
-  // Insert new avr.
-  NewAvr->setParent(Parent);
-  Children->insert(InsertionPos, &*NewAvr);
+void AVRUtils::insertAfter(AvrItr InsertionPosition,
+                           AVRContainerTy *NodeContainer) {
+  AVR *Parent = InsertionPosition->getParent();
+  AVRContainerTy *Children = getChildrenContainer(Parent, InsertionPosition);
+  insertSequence(Parent, *Children, NodeContainer,
+                 std::next(InsertionPosition));
+}
 
-  // Because the Avr Switch node uses a single linked-list container to store 
+void AVRUtils::insertBefore(AvrItr InsertionPosition,
+                            AVRContainerTy *NodeContainer) {
+  AVR *Parent = InsertionPosition->getParent();
+  AVRContainerTy *Children = getChildrenContainer(Parent, InsertionPosition);
+  insertSequence(Parent, *Children, NodeContainer, InsertionPosition);
+}
+
+void AVRUtils::insertAfter(AvrItr InsertionPosition,
+                           AVRContainerTy &DestinationContainer, AVR *Node) {
+  AVR *Parent = InsertionPosition->getParent();
+  insertSingleton(Parent, DestinationContainer, std::next(InsertionPosition),
+                  Node);
+}
+
+void AVRUtils::insertBefore(AvrItr InsertionPosition,
+                            AVRContainerTy &DestinationContainer, AVR *Node) {
+  AVR *Parent = InsertionPosition->getParent();
+  insertSingleton(Parent, DestinationContainer, InsertionPosition, Node);
+}
+
+void AVRUtils::insertAfter(AvrItr InsertionPosition,
+                           AVRContainerTy &DestinationContainer,
+                           AVRContainerTy *SourceContainer) {
+  AVR *Parent = InsertionPosition->getParent();
+  insertSequence(Parent, DestinationContainer, SourceContainer,
+                 std::next(InsertionPosition));
+}
+
+void AVRUtils::insertBefore(AvrItr InsertionPosition,
+                            AVRContainerTy &DestinationContainer,
+                            AVRContainerTy *SourceContainer) {
+  AVR *Parent = InsertionPosition->getParent();
+  insertSequence(Parent, DestinationContainer, SourceContainer,
+                 InsertionPosition);
+}
+
+void AVRUtils::insertFirstChild(AVR *Parent, AVR *Node) {
+  if (AVRLoop *LpNode = dyn_cast<AVRLoop>(Parent))
+    return insertFirstChild(LpNode, Node);
+  else if (AVRFunction *FunNode = dyn_cast<AVRFunction>(Parent))
+    return insertFirstChild(FunNode, Node);
+  else if (AVRWrn *WrNode = dyn_cast<AVRWrn>(Parent))
+    return insertFirstChild(WrNode, Node);
+  llvm_unreachable("Unable to resolve Parent node!");
+}
+
+void AVRUtils::insertLastChild(AVR *Parent, AVR *Node) {
+  if (AVRLoop *LpNode = dyn_cast<AVRLoop>(Parent))
+    return insertLastChild(LpNode, Node);
+  else if (AVRFunction *FunNode = dyn_cast<AVRFunction>(Parent))
+    return insertLastChild(FunNode, Node);
+  else if (AVRWrn *WrNode = dyn_cast<AVRWrn>(Parent))
+    return insertLastChild(WrNode, Node);
+  llvm_unreachable("Unable to resolve Parent node!");
+}
+
+void AVRUtils::insertFirstChild(AVRLoop *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->child_begin(), Node);
+}
+
+void AVRUtils::insertLastChild(AVRLoop *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->child_end(), Node);
+}
+
+void AVRUtils::insertFirstChildren(AVRLoop *Parent,
+                                   AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer,
+                 Parent->child_begin());
+}
+
+void AVRUtils::insertLastChildren(AVRLoop *Parent,
+                                  AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer, Parent->child_end());
+}
+
+void AVRUtils::insertFirstChild(AVRFunction *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->child_begin(), Node);
+}
+
+void AVRUtils::insertLastChild(AVRFunction *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->child_end(), Node);
+}
+
+void AVRUtils::insertFirstChildren(AVRFunction *Parent,
+                                   AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer,
+                 Parent->child_begin());
+}
+
+void AVRUtils::insertLastChildren(AVRFunction *Parent,
+                                  AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer, Parent->child_end());
+}
+
+void AVRUtils::insertFirstChild(AVRWrn *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->child_begin(), Node);
+}
+
+void AVRUtils::insertLastChild(AVRWrn *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->child_end(), Node);
+}
+
+void AVRUtils::insertFirstChildren(AVRWrn *Parent,
+                                   AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer,
+                 Parent->child_begin());
+}
+
+void AVRUtils::insertLastChildren(AVRWrn *Parent,
+                                  AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer, Parent->child_end());
+}
+
+void AVRUtils::insertFirstThenChild(AVRIf *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->ThenChildren, Parent->then_begin(), Node);
+}
+
+void AVRUtils::insertLastThenChild(AVRIf *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->ThenChildren, Parent->then_end(), Node);
+}
+
+void AVRUtils::insertFirstThenChildren(AVRIf *Parent,
+                                       AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->ThenChildren, NodeContainer,
+                 Parent->then_begin());
+}
+
+void AVRUtils::insertLastThenChildren(AVRIf *Parent,
+                                      AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->ThenChildren, NodeContainer,
+                 Parent->then_end());
+}
+
+void AVRUtils::insertFirstElseChild(AVRIf *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->ElseChildren, Parent->else_begin(), Node);
+}
+
+void AVRUtils::insertLastElseChild(AVRIf *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->ElseChildren, Parent->else_end(), Node);
+}
+
+void AVRUtils::insertFirstElseChildren(AVRIf *Parent,
+                                       AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->ElseChildren, NodeContainer,
+                 Parent->else_begin());
+}
+
+void AVRUtils::insertLastElseChildren(AVRIf *Parent,
+                                      AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->ElseChildren, NodeContainer,
+                 Parent->else_end());
+}
+
+void AVRUtils::insertFirstDefaultChild(AVRSwitch *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->default_case_child_begin(),
+                  Node);
+}
+
+void AVRUtils::insertLastDefaultChild(AVRSwitch *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->default_case_child_end(),
+                  Node);
+}
+
+void AVRUtils::insertFirstDefaultChildren(AVRSwitch *Parent,
+                                          AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer,
+                 Parent->default_case_child_begin());
+}
+
+void AVRUtils::insertLastDefaultChildren(AVRSwitch *Parent,
+                                         AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer,
+                 Parent->default_case_child_end());
+}
+
+void AVRUtils::insertFirstChild(AVRSwitch *Parent, AVR *Node,
+                                unsigned CaseNum) {
+
+  assert((CaseNum <= Parent->getNumCases()) && "Switch case is out of range!");
+  AvrItr InsertionPosition = Parent->case_child_begin(CaseNum);
+  insertSingleton(Parent, Parent->Children, InsertionPosition, Node);
+
+  // Because the switch node uses a single linked-list container to store
   // all the cases of the switch, we must update internal seperators which
-  // keep track of where each case begins in the linked-list. 
-  if ((Itype == FirstChild) && (ASwitch) && (CaseNumber != 0)) {
-    ASwitch->CaseBegin[CaseNumber - 1] = std::prev(InsertionPos);
-  }
-
-  return;
+  // keep track of where each case begins in the linked-list.
+  Parent->CaseBegin[CaseNum - 1] = std::prev(InsertionPosition);
 }
 
-void AVRUtils::insertFirstChildAVR(AVR *Parent, AvrItr NewAvr) {
-  insertAVR(Parent, AvrItr(nullptr), NewAvr, FirstChild);
+void AVRUtils::insertLastChild(AVRSwitch *Parent, AVR *Node, unsigned CaseNum) {
+
+  assert((CaseNum <= Parent->getNumCases()) && "Switch case is out of range!");
+  insertSingleton(Parent, Parent->Children, Parent->case_child_end(CaseNum),
+                  Node);
 }
 
-void AVRUtils::insertFirstThenChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, AvrItr(nullptr), NewAvr, FirstChild, ThenChild);
+void AVRUtils::insertFirstChildren(AVRSwitch *Parent,
+                                   AVRContainerTy *NodeContainer,
+                                   unsigned CaseNum) {
+
+  assert((CaseNum <= Parent->getNumCases()) && "Switch case is out of range!");
+  AvrItr InsertionPosition = Parent->case_child_begin(CaseNum);
+  insertSequence(Parent, Parent->Children, NodeContainer, InsertionPosition);
+
+  // Because the switch node uses a single linked-list container to store
+  // all the cases of the switch, we must update internal seperators which
+  // keep track of where each case begins in the linked-list.
+  Parent->CaseBegin[CaseNum - 1] = std::prev(InsertionPosition);
 }
 
-void AVRUtils::insertFirstElseChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, AvrItr(nullptr), NewAvr, FirstChild, ElseChild);
-}
-
-void AVRUtils::insertLastChildAVR(AVR *Parent, AvrItr NewAvr) {
-  insertAVR(Parent, AvrItr(nullptr), NewAvr, LastChild);
-}
-
-void AVRUtils::insertLastThenChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, AvrItr(nullptr), NewAvr, LastChild, ThenChild);
-}
-
-void AVRUtils::insertLastElseChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, AvrItr(nullptr), NewAvr, LastChild, ElseChild);
-}
-
-void AVRUtils::insertAVRAfter(AvrItr InsertionPos, AVR *NewAvr) {
-  assert(&*InsertionPos && "InsertionPos is Null");
-  insertAVR(InsertionPos->getParent(), InsertionPos, AvrItr(NewAvr), Append);
-}
-
-void AVRUtils::insertAVRBefore(AvrItr InsertionPos, AVR *NewAvr) {
-  assert(&*InsertionPos && "InsertionPos is Null");
-  insertAVR(InsertionPos->getParent(), InsertionPos, AvrItr(NewAvr), Prepend);
-}
-
-void AVRUtils::insertFirstDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr) {
-  insertAVR(ASwitch, AvrItr(nullptr), AvrItr(NewAvr), FirstChild, None, 0);
-}
-
-void AVRUtils::insertLastDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr) {
-  insertAVR(ASwitch, AvrItr(nullptr), AvrItr(NewAvr), LastChild, None, 0);
-}
-
-void AVRUtils::insertFirstChild(AVRSwitch *ASwitch, AVR *NewAvr,
+void AVRUtils::insertLastChildren(AVRSwitch *Parent,
+                                  AVRContainerTy *NodeContainer,
                                   unsigned CaseNum) {
-  insertAVR(ASwitch, AvrItr(nullptr), AvrItr(NewAvr),
-            FirstChild, None, CaseNum);
+  assert((CaseNum <= Parent->getNumCases()) && "Switch case is out of range!");
+  insertSequence(Parent, Parent->Children, NodeContainer,
+                 Parent->case_child_end(CaseNum));
 }
 
-void AVRUtils::insertLastChild(AVRSwitch *ASwitch, AVR *NewAvr,
-                                 unsigned CaseNum) {
-  insertAVR(ASwitch, AvrItr(nullptr), AvrItr(NewAvr), LastChild, None, CaseNum);
+void AVRUtils::insertFirstPreheaderChild(AVRLoop *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->PreheaderChildren, Parent->pre_begin(), Node);
 }
 
-void AVRUtils::insertAVRSeq(AVR *NewParent, AVRContainerTy &ToContainer,
-                            AvrItr InsertionPos, AVRContainerTy *FromContainer,
-                            AvrItr Begin, AvrItr End, InsertType Itype) {
+void AVRUtils::insertLastPreheaderChild(AVRLoop *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->PreheaderChildren, Parent->pre_end(), Node);
+}
 
-  unsigned Distance = std::distance(Begin, End), I = 0;
+void AVRUtils::insertFirstPreheaderChildren(AVRLoop *Parent,
+                                            AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->PreheaderChildren, NodeContainer,
+                 Parent->pre_begin());
+}
 
-  // Set insertion point
-  switch (Itype) {
-  case FirstChild:
-    InsertionPos = ToContainer.begin();
-    break;
-  case LastChild:
-    InsertionPos = ToContainer.end();
-    break;
-  case Append:
-    InsertionPos = std::next(InsertionPos);
-    break;
-  case Prepend:
-    // No change to InsertionPos will prepend sequence.
-    InsertionPos = InsertionPos;
-    break;
-  default:
-    llvm_unreachable("VPO: Unknown AVR Insertion Type");
-  }
+void AVRUtils::insertLastPreheaderChildren(AVRLoop *Parent,
+                                           AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->PreheaderChildren, NodeContainer,
+                 Parent->pre_end());
+}
 
-  ToContainer.splice(InsertionPos, *FromContainer, Begin, End);
+void AVRUtils::insertFirstPostexitChild(AVRLoop *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->PostexitChildren, Parent->post_begin(), Node);
+}
 
-  // Update parent of topmost nodes. Inner nodes' parent remains the same.
-  for (auto It = InsertionPos; I < Distance; ++I, It--) {
-    std::prev(It)->setParent(NewParent);
-  }
+void AVRUtils::insertLastPostexitChild(AVRLoop *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->PostexitChildren, Parent->post_end(), Node);
+}
+
+void AVRUtils::insertFirstPostexitChildren(AVRLoop *Parent,
+                                           AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->PostexitChildren, NodeContainer,
+                 Parent->post_begin());
+}
+
+void AVRUtils::insertLastPostexitChildren(AVRLoop *Parent,
+                                          AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->PostexitChildren, NodeContainer,
+                 Parent->post_end());
 }
 
 // Move Utilities
 
 void AVRUtils::moveAfter(AvrItr InsertionPos, AVR *Node) {
-
   remove(Node);
-  insertAVRAfter(InsertionPos, Node);
+  insertAfter(InsertionPos, Node);
 }
 
 void AVRUtils::moveAsFirstChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last) {
 
   AVRContainerTy TempContainer;
   AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ALoop->child_begin();
 
   if (First->getParent() != Last->getParent()) {
 
-    if(!resolveCommonLexicalParent(Begin, &End))
-      llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
   }
 
   removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
-  insertAVRSeq(ALoop, ALoop->Children, ALoop->Children.begin(), &TempContainer,
-               TempContainer.begin(), TempContainer.end(), FirstChild);
+  insertSequence(ALoop, ALoop->Children, &TempContainer, InsertionPosition);
+}
+
+void AVRUtils::moveAsFirstChildren(AVRSwitch *ASwitch, AvrItr First,
+                                   AvrItr Last, unsigned CaseNumber) {
+
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ASwitch->case_child_begin(CaseNumber);
+
+  if (First->getParent() != Last->getParent()) {
+
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ASwitch, ASwitch->Children, &TempContainer, InsertionPosition);
+}
+
+void AVRUtils::moveAsLastChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last) {
+
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ALoop->child_end();
+
+  if (First->getParent() != Last->getParent()) {
+
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ALoop, ALoop->Children, &TempContainer, InsertionPosition);
+}
+
+void AVRUtils::moveAsLastChildren(AVRSwitch *ASwitch, AvrItr First, AvrItr Last,
+                                  unsigned CaseNumber) {
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ASwitch->case_child_end(CaseNumber);
+
+  if (First->getParent() != Last->getParent()) {
+
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ASwitch, ASwitch->Children, &TempContainer, InsertionPosition);
 }
 
 void AVRUtils::moveAsFirstThenChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
@@ -283,17 +464,17 @@ void AVRUtils::moveAsFirstThenChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
 
   AVRContainerTy TempContainer;
   AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = AIf->ThenChildren.begin();
 
   if (First->getParent() != Last->getParent()) {
 
-    if(!resolveCommonLexicalParent(Begin, &End))
-      llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Couldn't resolve common lexical parent for avr sequence!");
   }
 
   removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
-  insertAVRSeq(AIf, AIf->ThenChildren, AIf->ThenChildren.begin(),
-               &TempContainer, TempContainer.begin(), TempContainer.end(),
-               FirstChild);
+  insertSequence(AIf, AIf->ThenChildren, &TempContainer, InsertionPosition);
 }
 
 void AVRUtils::moveAsFirstElseChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
@@ -302,17 +483,119 @@ void AVRUtils::moveAsFirstElseChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
 
   AVRContainerTy TempContainer;
   AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = AIf->ElseChildren.begin();
 
   if (First->getParent() != Last->getParent()) {
 
-    if(!resolveCommonLexicalParent(Begin, &End))
-      llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudlnt resolve common lexical parent for avr sequence!");
   }
 
   removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
-  insertAVRSeq(AIf, AIf->ElseChildren, AIf->ElseChildren.begin(),
-               &TempContainer, TempContainer.begin(), TempContainer.end(),
-               FirstChild);
+  insertSequence(AIf, AIf->ElseChildren, &TempContainer, InsertionPosition);
+}
+
+void AVRUtils::moveAsFirstDefaultChildren(AVRSwitch *ASwitch, AvrItr First,
+                                          AvrItr Last) {
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ASwitch->default_case_child_begin();
+
+  if (First->getParent() != Last->getParent()) {
+
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ASwitch, ASwitch->Children, &TempContainer, InsertionPosition);
+}
+
+void AVRUtils::moveAsLastDefaultChildren(AVRSwitch *ASwitch, AvrItr First,
+                                         AvrItr Last) {
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ASwitch->default_case_child_end();
+
+  if (First->getParent() != Last->getParent()) {
+
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ASwitch, ASwitch->Children, &TempContainer, InsertionPosition);
+}
+
+void AVRUtils::moveAsFirstPreheaderChildren(AVRLoop *ALoop, AvrItr First,
+                                            AvrItr Last) {
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ALoop->pre_begin();
+
+  if (First->getParent() != Last->getParent()) {
+
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ALoop, ALoop->Children, &TempContainer, InsertionPosition);
+}
+
+void AVRUtils::moveAsFirstPostexitChildren(AVRLoop *ALoop, AvrItr First,
+                                           AvrItr Last) {
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ALoop->post_begin();
+
+  if (First->getParent() != Last->getParent()) {
+
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ALoop, ALoop->Children, &TempContainer, InsertionPosition);
+}
+
+void AVRUtils::moveAsLastPreheaderChildren(AVRLoop *ALoop, AvrItr First,
+                                           AvrItr Last) {
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ALoop->pre_end();
+
+  if (First->getParent() != Last->getParent()) {
+
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ALoop, ALoop->Children, &TempContainer, InsertionPosition);
+}
+
+void AVRUtils::moveAsLastPostexitChildren(AVRLoop *ALoop, AvrItr First,
+                                          AvrItr Last) {
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+  AvrItr InsertionPosition = ALoop->post_end();
+
+  if (First->getParent() != Last->getParent()) {
+
+    if (!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable(
+          "Coudln't resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ALoop, ALoop->Children, &TempContainer, InsertionPosition);
 }
 
 // Removal Utilities
@@ -337,14 +620,13 @@ AVRContainerTy *AVRUtils::removeInternal(AvrItr Begin, AvrItr End,
       // internal separators used to specify switch cases within the
       // children container.
       if (AVRSwitch *ASwitch = dyn_cast<AVRSwitch>(Begin->getParent())) {
-        for (unsigned Itr = 0, End = ASwitch->getNumCases(); Itr < End;
-             ++Itr) {
+        for (unsigned Itr = 0, End = ASwitch->getNumCases(); Itr < End; ++Itr) {
 
           if (ASwitch->CaseBegin[Itr] == Begin) {
             ASwitch->CaseBegin[Itr] = std::next(Begin);
             break;
           }
-	}
+        }
       }
 
       OrigContainer->remove(Begin);
@@ -426,11 +708,9 @@ AVRContainerTy *AVRUtils::getAvrContainer(AVR *Node) {
     }
   } else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Parent)) {
     return &(AWrn->Children);
-  }
-  else if(AVRSwitch *ASwitch = dyn_cast<AVRSwitch>(Parent)){
+  } else if (AVRSwitch *ASwitch = dyn_cast<AVRSwitch>(Parent)) {
     return &(ASwitch->Children);
   }
-
 
   llvm_unreachable("VPO: Avr node missing parent container!");
 }
@@ -466,3 +746,43 @@ bool AVRUtils::resolveCommonLexicalParent(AVR *First, AVR **Last) {
   return false;
 }
 
+AVRContainerTy *AVRUtils::getChildrenContainer(AVR *Parent, AvrItr Child) {
+
+  // This implementation is costly. Callers of this function are corner cases
+  // that should be rarely encountered. This function should not be called
+  // as a generic utility.
+
+  // TODO: Unify the children containers of IF, LOOP parent nodes to eliminate
+  // the search overhead.
+
+  AVR *Node = &(*Child);
+
+  if (AVRFunction *FuncNode = dyn_cast<AVRFunction>(Parent)) {
+    return &FuncNode->Children;
+  } else if (AVRWrn *WrnNode = dyn_cast<AVRWrn>(Parent)) {
+    return &WrnNode->Children;
+  } else if (AVRSwitch *SwitchNode = dyn_cast<AVRSwitch>(Parent)) {
+    return &SwitchNode->Children;
+  } else if (AVRIf *IfNode = dyn_cast<AVRIf>(Parent)) {
+
+    if (IfNode->isThenChild(Node))
+      return &IfNode->ThenChildren;
+    else if (IfNode->isElseChild(Node))
+      return &IfNode->ElseChildren;
+
+    llvm_unreachable("Vector graph node parent unresolvable!");
+  } else if (AVRLoop *LoopNode = dyn_cast<AVRLoop>(Parent)) {
+
+    if (LoopNode->isPreheaderChild(Node))
+      return &LoopNode->PreheaderChildren;
+    else if (LoopNode->isChild(Node))
+      return &LoopNode->Children;
+    else if (LoopNode->isPostexitChild(Node))
+      return &LoopNode->PostexitChildren;
+
+    llvm_unreachable("Vector graph node parent unresolvable!");
+  }
+
+  llvm_unreachable("Unknown vector graph node parent!");
+  return nullptr;
+}

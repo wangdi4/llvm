@@ -13,13 +13,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
-#include "llvm/IR/Intel_LoopIR/HLInst.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -195,10 +197,27 @@ HLLoop *HLNode::getOutermostParentLoop() const {
   return ParLoop;
 }
 
+HLLoop *HLNode::getParentLoopAtLevel(unsigned Level) const {
+  assert(HLNodeUtils::isLoopLevelValid(Level) && "Invalid loop level!");
+  assert((getNodeLevel() >= Level) && "Invalid level w.r.t this node!"); 
+
+  HLLoop *ParLoop = getParentLoop();
+
+  while (ParLoop && (ParLoop->getNestingLevel() > Level)) {
+    ParLoop = ParLoop->getParentLoop();
+  }
+
+  assert(ParLoop && "Could not find parent at level!");
+
+  return ParLoop;
+}
+
 unsigned HLNode::getNodeLevel() const {
+  assert(getParentRegionImpl() && "Node should be connected to a HLRegion!");
 
-  assert(getParentRegion() && " Node should be connected to a HLRegion");
-
+  // For the HLLoop nodes return Loop nesting level instead of the level of
+  // attachment. This is a workaround for loop bounds to make them feel like
+  // they are attached at the loop nesting level.
   if (auto CurrentLoop = dyn_cast<HLLoop>(this)) {
     return CurrentLoop->getNestingLevel();
   }
@@ -208,7 +227,7 @@ unsigned HLNode::getNodeLevel() const {
   return Level;
 }
 
-HLRegion *HLNode::getParentRegion() const {
+HLRegion *HLNode::getParentRegionImpl() const {
   assert(!isa<HLRegion>(this) && "Region cannot not have a parent!");
 
   HLNode *Par = getParent();
@@ -220,7 +239,25 @@ HLRegion *HLNode::getParentRegion() const {
   return cast_or_null<HLRegion>(Par);
 }
 
+HLRegion *HLNode::getParentRegion() const {
+  auto Reg = getParentRegionImpl();
+  assert(Reg && "getParentRegion() called on detached node!");
+
+  return Reg;
+}
+
 void HLNode::verify() const {
   assert((isa<HLRegion>(this) || getParent() != nullptr) &&
          "Non-Region HLNode should have a parent node");
 }
+
+unsigned HLNode::getMinTopSortNum() const {
+  auto Lp = dyn_cast<HLLoop>(this);
+
+  if (Lp && Lp->hasPreheader()) {
+    return Lp->pre_begin()->getTopSortNum(); 
+  }
+
+  return getTopSortNum();
+}
+

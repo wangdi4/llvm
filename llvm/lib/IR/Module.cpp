@@ -13,8 +13,8 @@
 
 #include "llvm/IR/Module.h"
 #include "SymbolTableListTraitsImpl.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Constants.h"
@@ -487,7 +487,7 @@ PICLevel::Level Module::getPICLevel() const {
   auto *Val = cast_or_null<ConstantAsMetadata>(getModuleFlag("PIC Level"));
 
   if (!Val)
-    return PICLevel::Default;
+    return PICLevel::NotPIC;
 
   return static_cast<PICLevel::Level>(
       cast<ConstantInt>(Val->getValue())->getZExtValue());
@@ -497,16 +497,18 @@ void Module::setPICLevel(PICLevel::Level PL) {
   addModuleFlag(ModFlagBehavior::Error, "PIC Level", PL);
 }
 
-void Module::setMaximumFunctionCount(uint64_t Count) {
-  addModuleFlag(ModFlagBehavior::Error, "MaxFunctionCount", Count);
+PIELevel::Level Module::getPIELevel() const {
+  auto *Val = cast_or_null<ConstantAsMetadata>(getModuleFlag("PIE Level"));
+
+  if (!Val)
+    return PIELevel::Default;
+
+  return static_cast<PIELevel::Level>(
+      cast<ConstantInt>(Val->getValue())->getZExtValue());
 }
 
-Optional<uint64_t> Module::getMaximumFunctionCount() {
-  auto *Val =
-      cast_or_null<ConstantAsMetadata>(getModuleFlag("MaxFunctionCount"));
-  if (!Val)
-    return None;
-  return cast<ConstantInt>(Val->getValue())->getZExtValue();
+void Module::setPIELevel(PIELevel::Level PL) {
+  addModuleFlag(ModFlagBehavior::Error, "PIE Level", PL);
 }
 
 void Module::setProfileSummary(Metadata *M) {
@@ -515,4 +517,19 @@ void Module::setProfileSummary(Metadata *M) {
 
 Metadata *Module::getProfileSummary() {
   return getModuleFlag("ProfileSummary");
+}
+
+GlobalVariable *llvm::collectUsedGlobalVariables(
+    const Module &M, SmallPtrSetImpl<GlobalValue *> &Set, bool CompilerUsed) {
+  const char *Name = CompilerUsed ? "llvm.compiler.used" : "llvm.used";
+  GlobalVariable *GV = M.getGlobalVariable(Name);
+  if (!GV || !GV->hasInitializer())
+    return GV;
+
+  const ConstantArray *Init = cast<ConstantArray>(GV->getInitializer());
+  for (Value *Op : Init->operands()) {
+    GlobalValue *G = cast<GlobalValue>(Op->stripPointerCastsNoFollowAliases());
+    Set.insert(G);
+  }
+  return GV;
 }

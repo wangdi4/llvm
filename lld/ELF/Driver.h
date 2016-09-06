@@ -12,8 +12,10 @@
 
 #include "SymbolTable.h"
 #include "lld/Core/LLVM.h"
+#include "lld/Core/Reproduce.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -27,12 +29,13 @@ public:
   void main(ArrayRef<const char *> Args);
   void addFile(StringRef Path);
   void addLibrary(StringRef Name);
+  llvm::LLVMContext Context;      // to parse bitcode ifles
+  std::unique_ptr<CpioFile> Cpio; // for reproduce
 
 private:
   std::vector<MemoryBufferRef> getArchiveMembers(MemoryBufferRef MB);
   llvm::Optional<MemoryBufferRef> readFile(StringRef Path);
   void readConfigs(llvm::opt::InputArgList &Args);
-  void readDynamicList(StringRef Path);
   void createFiles(llvm::opt::InputArgList &Args);
   template <class ELFT> void link(llvm::opt::InputArgList &Args);
 
@@ -66,7 +69,10 @@ enum {
 };
 
 void printHelp(const char *Argv0);
-void printVersion();
+std::string getVersionString();
+std::vector<uint8_t> parseHexstring(StringRef S);
+
+std::string createResponseFile(const llvm::opt::InputArgList &Args);
 
 std::string findFromSearchPaths(StringRef Path);
 std::string searchLibrary(StringRef Path);

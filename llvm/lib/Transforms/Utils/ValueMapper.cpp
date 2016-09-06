@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -28,8 +29,6 @@ using namespace llvm;
 // Out of line method to get vtable etc for class.
 void ValueMapTypeRemapper::anchor() {}
 void ValueMaterializer::anchor() {}
-void ValueMaterializer::materializeInitFor(GlobalValue *New, GlobalValue *Old) {
-}
 
 namespace {
 
@@ -99,6 +98,10 @@ class MDNodeMapper;
 class Mapper {
   friend class MDNodeMapper;
 
+#ifndef NDEBUG
+  DenseSet<GlobalValue *> AlreadyScheduled;
+#endif
+
   RemapFlags Flags;
   ValueMapTypeRemapper *TypeMapper;
   unsigned CurrentMCID = 0;
@@ -140,20 +143,6 @@ public:
   /// Find the mapping for MD.  Guarantees that the return will be resolved
   /// (not an MDNode, or MDNode::isResolved() returns true).
   Metadata *mapMetadata(const Metadata *MD);
-
-  // Map LocalAsMetadata, which never gets memoized.
-  //
-  // If the referenced local is not mapped, the principled return is nullptr.
-  // However, optimization passes sometimes move metadata operands *before* the
-  // SSA values they reference.  To prevent crashes in \a RemapInstruction(),
-  // return "!{}" when RF_IgnoreMissingLocals is not set.
-  //
-  // \note Adding a mapping for LocalAsMetadata is unsupported.  Add a mapping
-  // to the value map for the SSA value in question instead.
-  //
-  // FIXME: Once we have a verifier check for forward references to SSA values
-  // through metadata operands, always return nullptr on unmapped locals.
-  Metadata *mapLocalAsMetadata(const LocalAsMetadata &LAM);
 
   void scheduleMapGlobalInitializer(GlobalVariable &GV, Constant &Init,
                                     unsigned MCID);
@@ -313,6 +302,16 @@ private:
   /// to change because of operands outside the graph.
   bool createPOT(UniquedGraph &G, const MDNode &FirstN);
 
+  /// Visit the operands of a uniqued node in the POT.
+  ///
+  /// Visit the operands in the range from \c I to \c E, returning the first
+  /// uniqued node we find that isn't yet in \c G.  \c I is always advanced to
+  /// where to continue the loop through the operands.
+  ///
+  /// This sets \c HasChanged if any of the visited operands change.
+  MDNode *visitOperands(UniquedGraph &G, MDNode::op_iterator &I,
+                        MDNode::op_iterator E, bool &HasChanged);
+
   /// Map all the nodes in the given uniqued graph.
   ///
   /// This visits all the nodes in \c G in post-order, using the identity
@@ -341,17 +340,15 @@ Value *Mapper::mapValue(const Value *V) {
   ValueToValueMapTy::iterator I = getVM().find(V);
 
   // If the value already exists in the map, use it.
-  if (I != getVM().end() && I->second)
+  if (I != getVM().end()) {
+    assert(I->second && "Unexpected null mapping");
     return I->second;
+  }
 
   // If we have a materializer and it can materialize a value, use that.
   if (auto *Materializer = getMaterializer()) {
-    if (Value *NewV =
-            Materializer->materializeDeclFor(const_cast<Value *>(V))) {
+    if (Value *NewV = Materializer->materialize(const_cast<Value *>(V))) {
       getVM()[V] = NewV;
-      if (auto *NewGV = dyn_cast<GlobalValue>(NewV))
-        Materializer->materializeInitFor(
-            NewGV, cast<GlobalValue>(const_cast<Value *>(V)));
       return NewV;
     }
   }
@@ -418,16 +415,27 @@ Value *Mapper::mapValue(const Value *V) {
   if (BlockAddress *BA = dyn_cast<BlockAddress>(C))
     return mapBlockAddress(*BA);
 
+  auto mapValueOrNull = [this](Value *V) {
+    auto Mapped = mapValue(V);
+    assert((Mapped || (Flags & RF_NullMapMissingGlobalValues)) &&
+           "Unexpected null mapping for constant operand without "
+           "NullMapMissingGlobalValues flag");
+    return Mapped;
+  };
+
   // Otherwise, we have some other constant to remap.  Start by checking to see
   // if all operands have an identity remapping.
   unsigned OpNo = 0, NumOperands = C->getNumOperands();
   Value *Mapped = nullptr;
   for (; OpNo != NumOperands; ++OpNo) {
     Value *Op = C->getOperand(OpNo);
-    Mapped = mapValue(Op);
-    if (Mapped != C) break;
+    Mapped = mapValueOrNull(Op);
+    if (!Mapped)
+      return nullptr;
+    if (Mapped != Op)
+      break;
   }
-  
+
   // See if the type mapper wants to remap the type as well.
   Type *NewTy = C->getType();
   if (TypeMapper)
@@ -444,14 +452,18 @@ Value *Mapper::mapValue(const Value *V) {
   Ops.reserve(NumOperands);
   for (unsigned j = 0; j != OpNo; ++j)
     Ops.push_back(cast<Constant>(C->getOperand(j)));
-  
+
   // If one of the operands mismatch, push it and the other mapped operands.
   if (OpNo != NumOperands) {
     Ops.push_back(cast<Constant>(Mapped));
-  
+
     // Map the rest of the operands that aren't processed yet.
-    for (++OpNo; OpNo != NumOperands; ++OpNo)
-      Ops.push_back(cast<Constant>(mapValue(C->getOperand(OpNo))));
+    for (++OpNo; OpNo != NumOperands; ++OpNo) {
+      Mapped = mapValueOrNull(C->getOperand(OpNo));
+      if (!Mapped)
+        return nullptr;
+      Ops.push_back(cast<Constant>(Mapped));
+    }
   }
   Type *NewSrcTy = nullptr;
   if (TypeMapper)
@@ -584,52 +596,70 @@ void MDNodeMapper::remapOperands(MDNode &N, OperandMapper mapOperand) {
   }
 }
 
+namespace {
+/// An entry in the worklist for the post-order traversal.
+struct POTWorklistEntry {
+  MDNode *N;              ///< Current node.
+  MDNode::op_iterator Op; ///< Current operand of \c N.
+
+  /// Keep a flag of whether operands have changed in the worklist to avoid
+  /// hitting the map in \a UniquedGraph.
+  bool HasChanged = false;
+
+  POTWorklistEntry(MDNode &N) : N(&N), Op(N.op_begin()) {}
+};
+} // end namespace
+
 bool MDNodeMapper::createPOT(UniquedGraph &G, const MDNode &FirstN) {
   assert(G.Info.empty() && "Expected a fresh traversal");
   assert(FirstN.isUniqued() && "Expected uniqued node in POT");
 
   // Construct a post-order traversal of the uniqued subgraph under FirstN.
   bool AnyChanges = false;
-
-  // The flag on the worklist indicates whether this is the first or second
-  // visit of a node.  The first visit looks through the operands; the second
-  // visit adds the node to POT.
-  SmallVector<std::pair<MDNode *, bool>, 16> Worklist;
-  Worklist.push_back(std::make_pair(&const_cast<MDNode &>(FirstN), false));
+  SmallVector<POTWorklistEntry, 16> Worklist;
+  Worklist.push_back(POTWorklistEntry(const_cast<MDNode &>(FirstN)));
   (void)G.Info[&FirstN];
   while (!Worklist.empty()) {
-    MDNode &N = *Worklist.back().first;
-    if (Worklist.back().second) {
-      // We've already visited operands.  Add this to POT.
-      Worklist.pop_back();
-      G.Info[&N].ID = G.POT.size();
-      G.POT.push_back(&N);
+    // Start or continue the traversal through the this node's operands.
+    auto &WE = Worklist.back();
+    if (MDNode *N = visitOperands(G, WE.Op, WE.N->op_end(), WE.HasChanged)) {
+      // Push a new node to traverse first.
+      Worklist.push_back(POTWorklistEntry(*N));
       continue;
     }
-    Worklist.back().second = true;
 
-    // Look through the operands for changes, pushing unmapped uniqued nodes
-    // onto to the worklist.
-    assert(N.isUniqued() && "Expected only uniqued nodes in POT");
-    bool LocalChanges = false;
-    for (Metadata *Op : N.operands()) {
-      assert(Op != &N && "Uniqued nodes cannot have self-references");
-      if (Optional<Metadata *> MappedOp = tryToMapOperand(Op)) {
-        AnyChanges |= LocalChanges |= Op != *MappedOp;
-        continue;
-      }
+    // Push the node onto the POT.
+    assert(WE.N->isUniqued() && "Expected only uniqued nodes");
+    assert(WE.Op == WE.N->op_end() && "Expected to visit all operands");
+    auto &D = G.Info[WE.N];
+    AnyChanges |= D.HasChanged = WE.HasChanged;
+    D.ID = G.POT.size();
+    G.POT.push_back(WE.N);
 
-      MDNode &OpN = *cast<MDNode>(Op);
-      assert(OpN.isUniqued() &&
-             "Only uniqued operands cannot be mapped immediately");
-      if (G.Info.insert(std::make_pair(&OpN, Data())).second)
-        Worklist.push_back(std::make_pair(&OpN, false));
-    }
-
-    if (LocalChanges)
-      G.Info[&N].HasChanged = true;
+    // Pop the node off the worklist.
+    Worklist.pop_back();
   }
   return AnyChanges;
+}
+
+MDNode *MDNodeMapper::visitOperands(UniquedGraph &G, MDNode::op_iterator &I,
+                                    MDNode::op_iterator E, bool &HasChanged) {
+  while (I != E) {
+    Metadata *Op = *I++; // Increment even on early return.
+    if (Optional<Metadata *> MappedOp = tryToMapOperand(Op)) {
+      // Check if the operand changes.
+      HasChanged |= Op != *MappedOp;
+      continue;
+    }
+
+    // A uniqued metadata node.
+    MDNode &OpN = *cast<MDNode>(Op);
+    assert(OpN.isUniqued() &&
+           "Only uniqued operands cannot be mapped immediately");
+    if (G.Info.insert(std::make_pair(&OpN, Data())).second)
+      return &OpN; // This is a new one.  Return it.
+  }
+  return nullptr;
 }
 
 void MDNodeMapper::UniquedGraph::propagateChanges() {
@@ -773,22 +803,6 @@ Optional<Metadata *> Mapper::mapSimpleMetadata(const Metadata *MD) {
   return None;
 }
 
-Metadata *Mapper::mapLocalAsMetadata(const LocalAsMetadata &LAM) {
-  // Lookup the mapping for the value itself, and return the appropriate
-  // metadata.
-  if (Value *V = mapValue(LAM.getValue())) {
-    if (V == LAM.getValue())
-      return const_cast<LocalAsMetadata *>(&LAM);
-    return ValueAsMetadata::get(V);
-  }
-
-  // FIXME: always return nullptr once Verifier::verifyDominatesUse() ensures
-  // metadata operands only reference defined SSA values.
-  return (Flags & RF_IgnoreMissingLocals)
-             ? nullptr
-             : MDTuple::get(LAM.getContext(), None);
-}
-
 Metadata *Mapper::mapMetadata(const Metadata *MD) {
   assert(MD && "Expected valid metadata");
   assert(!isa<LocalAsMetadata>(MD) && "Unexpected local metadata");
@@ -906,8 +920,9 @@ void Mapper::remapFunction(Function &F) {
   // Remap the metadata attachments.
   SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
   F.getAllMetadata(MDs);
+  F.clearMetadata();
   for (const auto &I : MDs)
-    F.setMetadata(I.first, cast_or_null<MDNode>(mapMetadata(I.second)));
+    F.addMetadata(I.first, *cast<MDNode>(mapMetadata(I.second)));
 
   // Remap the argument types.
   if (TypeMapper)
@@ -963,6 +978,7 @@ void Mapper::mapAppendingVariable(GlobalVariable &GV, Constant *InitPrefix,
 
 void Mapper::scheduleMapGlobalInitializer(GlobalVariable &GV, Constant &Init,
                                           unsigned MCID) {
+  assert(AlreadyScheduled.insert(&GV).second && "Should not reschedule");
   assert(MCID < MCs.size() && "Invalid mapping context");
 
   WorklistEntry WE;
@@ -978,6 +994,7 @@ void Mapper::scheduleMapAppendingVariable(GlobalVariable &GV,
                                           bool IsOldCtorDtor,
                                           ArrayRef<Constant *> NewMembers,
                                           unsigned MCID) {
+  assert(AlreadyScheduled.insert(&GV).second && "Should not reschedule");
   assert(MCID < MCs.size() && "Invalid mapping context");
 
   WorklistEntry WE;
@@ -993,6 +1010,7 @@ void Mapper::scheduleMapAppendingVariable(GlobalVariable &GV,
 
 void Mapper::scheduleMapGlobalAliasee(GlobalAlias &GA, Constant &Aliasee,
                                       unsigned MCID) {
+  assert(AlreadyScheduled.insert(&GA).second && "Should not reschedule");
   assert(MCID < MCs.size() && "Invalid mapping context");
 
   WorklistEntry WE;
@@ -1004,6 +1022,7 @@ void Mapper::scheduleMapGlobalAliasee(GlobalAlias &GA, Constant &Aliasee,
 }
 
 void Mapper::scheduleRemapFunction(Function &F, unsigned MCID) {
+  assert(AlreadyScheduled.insert(&F).second && "Should not reschedule");
   assert(MCID < MCs.size() && "Invalid mapping context");
 
   WorklistEntry WE;

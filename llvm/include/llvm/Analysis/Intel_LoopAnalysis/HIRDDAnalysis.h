@@ -1,4 +1,4 @@
-//===------ HIRDDAnalysis.h - Provides Data Dependence Analysis --*-- C++ --*-===//
+//===---- HIRDDAnalysis.h - Provides Data Dependence Analysis --*-- C++--*-===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -23,6 +23,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/AliasAnalysis.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 
@@ -41,7 +43,6 @@ class HLDDNode;
 class HLLoop;
 class HIRFramework;
 class DirectionVector;
-class DDGraph;
 
 enum DDVerificationLevel {
   Region = 0,
@@ -55,6 +56,55 @@ enum DDVerificationLevel {
   L8,
   L9,
   Innermost
+};
+
+
+// HIRDDAnalysis returns instances of this to ensure clients can access graph,
+// but not modify it. Convenient places to reimplement iterators or filter
+// graph as well
+class DDGraph {
+private:
+  const HLNode *CurNode;
+  DDGraphTy *G;
+
+public:
+  // TODO friend to DDA?
+  DDGraph(const HLNode *Node, DDGraphTy *Graph) : CurNode(Node), G(Graph) {}
+
+  DDGraphTy::EdgeIterator incoming_edges_begin(DDRef *Ref) {
+    return G->incoming_edges_begin(Ref);
+  }
+
+  DDGraphTy::EdgeIterator incoming_edges_end(DDRef *Ref) {
+    return G->incoming_edges_end(Ref);
+  }
+
+  DDGraphTy::EdgeIterator outgoing_edges_begin(DDRef *Ref) {
+    return G->outgoing_edges_begin(Ref);
+  }
+
+  DDGraphTy::EdgeIterator outgoing_edges_end(DDRef *Ref) {
+    return G->outgoing_edges_end(Ref);
+  }
+  /// \brief single edge going out of this DDRef
+  bool singleEdgeGoingOut(const DDRef *LRef) {
+
+    unsigned NumEdge = 0;
+    DDRef *Ref = const_cast<DDRef *>(LRef);
+
+    for (auto I1 = outgoing_edges_begin(Ref), E1 = outgoing_edges_end(Ref);
+         I1 != E1; ++I1) {
+      if (NumEdge++ > 1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void print(raw_ostream &OS) const { G->print(OS); }
+  // todo visit all refs in CurNode, printing outgoing edges whose sink is
+  // also in curnode
+  void dump() const { G->dump(); }
 };
 
 class HIRDDAnalysis final : public HIRAnalysisPass {
@@ -118,7 +168,21 @@ public:
   // graph to avoid expensive recomputation.
   // Note, atm the graph does not filter edges to ensure src/sink are in Node.
   // some edges may be pointing to a node that is not of interest
-  DDGraph getGraph(HLNode *Node, bool InputEdgesReq = false);
+  DDGraph getGraph(const HLRegion *Region, bool InputEdgesReq = false) {
+    return std::move(
+        getGraphImpl(static_cast<const HLNode *>(Region), InputEdgesReq));
+  }
+
+  DDGraph getGraph(const HLLoop *Loop, bool InputEdgesReq = false) {
+    return std::move(
+        getGraphImpl(static_cast<const HLNode *>(Loop), InputEdgesReq));
+  }
+
+  /// \brief Refine DV by calling demand driven DD. Return true when RefineDV
+  /// is set.
+  bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+                unsigned InnermostNestingLevel, unsigned OutermostNestingLevel,
+                DirectionVector &RefinedDV, bool *IsIndependent);
 
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,
@@ -142,19 +206,43 @@ public:
   // init_incremental_rebuild(HLNode*)
 private:
   Function *F;
+  std::unique_ptr<AAResults> AAR;
   HIRFramework *HIRF;
 
-  DenseMap<HLNode *, bool> GraphValidityMap;
+  // GraphState initializes to NoData by default.
+  enum class GraphState : unsigned char {
+    NoData, Invalid, Valid,
+  };
 
-  bool graphForNodeValid(HLNode *Node);
+  DenseMap<const HLNode *, GraphState> ValidationMap;
 
-  void rebuildGraph(HLNode *Node, bool BuildInputEdges = false);
+  /// The HLNode visitor that recursively marks HLNodes as invalid.
+  class GraphStateUpdater;
 
+  /// Returns parent Loop or Region for the \p Ref.
+  static const HLNode *getDDRefRegionLoopContainer(const DDRef *Ref);
+
+  /// Returns true if the nodes between \p RefParent1 and \p RefParent2 are
+  /// still valid and should not be constructed again.
+  bool isEdgeValid(const DDRef *Ref1, const DDRef *Ref2);
+
+  /// Marks every incoming or outgoing DD edge associated with the \p Loop
+  /// as invalid.
+  void invalidateGraph(const HLLoop *Loop, bool InvalidateInnerLoops);
+
+  /// Returns true if the graph for the Node is already constructed and valid.
+  bool graphForNodeValid(const HLNode *Node);
+
+  DDGraph getGraphImpl(const HLNode *Node, bool InputEdgesReq = false);
+
+  void buildGraph(const HLNode *Node, bool BuildInputEdges);
+
+  // TODO: consider per-region graph instead of per-function graph.
   // full dd graph
   DDGraphTy FunctionDDGraph;
 
   bool edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq);
-  void setInputDV(DVectorTy &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
+  void setInputDV(DirectionVector &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
 
   // Used to rebuild graphs for node/regions based on cl options
   // in DDA's runonPass for verification purposes.
@@ -176,50 +264,6 @@ private:
   };
 };
 
-// HIRDDAnalysis returns instances of this to ensure clients can access graph,
-// but not modify it. Convenient places to reimplement iterators or filter
-// graph as well
-class DDGraph {
-private:
-  HLNode *CurNode;
-  DDGraphTy *G;
-
-public:
-  // TODO friend to DDA?
-  DDGraph(HLNode *Node, DDGraphTy *Graph) : CurNode(Node), G(Graph) {}
-
-  std::vector<DDEdge>::const_iterator incoming_edges_begin(DDRef *Ref) {
-    return G->incoming_edges_begin(Ref);
-  }
-  std::vector<DDEdge>::const_iterator incoming_edges_end(DDRef *Ref) {
-    return G->incoming_edges_end(Ref);
-  }
-  std::vector<DDEdge>::const_iterator outgoing_edges_begin(DDRef *Ref) {
-    return G->outgoing_edges_begin(Ref);
-  }
-  std::vector<DDEdge>::const_iterator outgoing_edges_end(DDRef *Ref) {
-    return G->outgoing_edges_end(Ref);
-  }
-  /// \brief single edge going out of this DDRef
-  bool singleEdgeGoingOut(const DDRef *LRef) {
-
-    unsigned NumEdge = 0;
-    DDRef *Ref = const_cast<DDRef *>(LRef);
-
-    for (auto I1 = outgoing_edges_begin(Ref), E1 = outgoing_edges_end(Ref);
-         I1 != E1; ++I1) {
-      if (NumEdge++ > 1) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  void print(raw_ostream &OS) const { G->print(OS); }
-  // todo visit all refs in CurNode, printing outgoing edges whose sink is
-  // also in curnode
-  void dump() const { G->dump(); }
-};
 }
 }
 

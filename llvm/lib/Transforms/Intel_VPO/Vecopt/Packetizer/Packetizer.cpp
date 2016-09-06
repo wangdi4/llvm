@@ -152,6 +152,9 @@ PacketizeFunction::~PacketizeFunction()
 
 bool PacketizeFunction::runOnFunction(Function &F)
 {
+  if (skipFunction(F))
+    return false;
+
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
   m_pDL = &F.getParent()->getDataLayout();

@@ -1130,7 +1130,9 @@ ObjectFileMachO::ObjectFileMachO(const lldb::ModuleSP &module_sp,
     m_mach_sections(),
     m_entry_point_address(),
     m_thread_context_offsets(),
-    m_thread_context_offsets_valid(false)
+    m_thread_context_offsets_valid(false),
+    m_reexported_dylibs (),
+    m_allow_assembly_emulation_unwind_plans (true)
 {
     ::memset (&m_header, 0, sizeof(m_header));
     ::memset (&m_dysymtab, 0, sizeof(m_dysymtab));
@@ -1145,7 +1147,9 @@ ObjectFileMachO::ObjectFileMachO (const lldb::ModuleSP &module_sp,
     m_mach_sections(),
     m_entry_point_address(),
     m_thread_context_offsets(),
-    m_thread_context_offsets_valid(false)
+    m_thread_context_offsets_valid(false),
+    m_reexported_dylibs (),
+    m_allow_assembly_emulation_unwind_plans (true)
 {
     ::memset (&m_header, 0, sizeof(m_header));
     ::memset (&m_dysymtab, 0, sizeof(m_dysymtab));
@@ -1213,7 +1217,7 @@ ObjectFileMachO::ParseHeader ()
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         bool can_parse = false;
         lldb::offset_t offset = 0;
         m_data.SetByteOrder (endian::InlHostByteOrder());
@@ -1453,11 +1457,11 @@ ObjectFileMachO::GetSymtab()
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         if (m_symtab_ap.get() == NULL)
         {
             m_symtab_ap.reset(new Symtab(this));
-            Mutex::Locker symtab_locker (m_symtab_ap->GetMutex());
+            std::lock_guard<std::recursive_mutex> symtab_guard(m_symtab_ap->GetMutex());
             ParseSymtab ();
             m_symtab_ap->Finalize ();
         }
@@ -1621,6 +1625,10 @@ ObjectFileMachO::CreateSections (SectionList &unified_section_list)
                     }
                     if (m_data.GetU32(&offset, &load_cmd.maxprot, 4))
                     {
+                        const uint32_t segment_permissions =
+                            ((load_cmd.initprot & VM_PROT_READ) ? ePermissionsReadable : 0) |
+                            ((load_cmd.initprot & VM_PROT_WRITE) ? ePermissionsWritable : 0) |
+                            ((load_cmd.initprot & VM_PROT_EXECUTE) ? ePermissionsExecutable : 0);
 
                         const bool segment_is_encrypted = (load_cmd.flags & SG_PROTECTED_VERSION_1) != 0;
 
@@ -1647,6 +1655,7 @@ ObjectFileMachO::CreateSections (SectionList &unified_section_list)
 
                             segment_sp->SetIsEncrypted (segment_is_encrypted);
                             m_sections_ap->AddSection(segment_sp);
+                            segment_sp->SetPermissions(segment_permissions);
                             if (add_to_unified)
                                 unified_section_list.AddSection(segment_sp);
                         }
@@ -1778,7 +1787,7 @@ ObjectFileMachO::CreateSections (SectionList &unified_section_list)
                                                                       sect64.align,
                                                                       load_cmd.flags));      // Flags for this section
                                         segment_sp->SetIsFake(true);
-                                        
+                                        segment_sp->SetPermissions(segment_permissions);
                                         m_sections_ap->AddSection(segment_sp);
                                         if (add_to_unified)
                                             unified_section_list.AddSection(segment_sp);
@@ -1928,6 +1937,7 @@ ObjectFileMachO::CreateSections (SectionList &unified_section_list)
                                     section_is_encrypted = encrypted_file_ranges.FindEntryThatContains(sect64.offset) != NULL;
 
                                 section_sp->SetIsEncrypted (segment_is_encrypted || section_is_encrypted);
+                                section_sp->SetPermissions(segment_permissions);
                                 segment_sp->GetChildren().AddSection(section_sp);
 
                                 if (segment_sp->IsFake())
@@ -2602,6 +2612,23 @@ ObjectFileMachO::ParseSymtab ()
         }
 
         const size_t function_starts_count = function_starts.GetSize();
+
+        // For user process binaries (executables, dylibs, frameworks, bundles), if we don't have
+        // LC_FUNCTION_STARTS/eh_frame section in this binary, we're going to assume the binary
+        // has been stripped.  Don't allow assembly language instruction emulation because we don't
+        // know proper function start boundaries.
+        //
+        // For all other types of binaries (kernels, stand-alone bare board binaries, kexts), they
+        // may not have LC_FUNCTION_STARTS / eh_frame sections - we should not make any assumptions
+        // about them based on that.
+        if (function_starts_count == 0 && CalculateStrata() == eStrataUser)
+        {
+            m_allow_assembly_emulation_unwind_plans = false;
+            Log *unwind_or_symbol_log (lldb_private::GetLogIfAnyCategoriesSet (LIBLLDB_LOG_SYMBOLS | LIBLLDB_LOG_UNWIND));
+
+            if (unwind_or_symbol_log)
+                module_sp->LogMessage(unwind_or_symbol_log, "no LC_FUNCTION_STARTS, will not allow assembly profiled unwinds");
+        }
 
         const user_id_t TEXT_eh_frame_sectID =
             eh_frame_section_sp.get() ? eh_frame_section_sp->GetID()
@@ -4739,7 +4766,7 @@ ObjectFileMachO::Dump (Stream *s)
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         s->Printf("%p: ", static_cast<void*>(this));
         s->Indent();
         if (m_header.magic == MH_MAGIC_64 || m_header.magic == MH_CIGAM_64)
@@ -4895,7 +4922,7 @@ ObjectFileMachO::GetUUID (lldb_private::UUID* uuid)
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         lldb::offset_t offset = MachHeaderSizeFromMagic(m_header.magic);
         return GetUUID (m_header, m_data, offset, *uuid);
     }
@@ -4909,7 +4936,7 @@ ObjectFileMachO::GetDependentModules (FileSpecList& files)
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         struct load_command load_cmd;
         lldb::offset_t offset = MachHeaderSizeFromMagic(m_header.magic);
         std::vector<std::string> rpath_paths;
@@ -5037,7 +5064,7 @@ ObjectFileMachO::GetEntryPointAddress ()
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         struct load_command load_cmd;
         lldb::offset_t offset = MachHeaderSizeFromMagic(m_header.magic);
         uint32_t i;
@@ -5187,7 +5214,7 @@ ObjectFileMachO::GetNumThreadContexts ()
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         if (!m_thread_context_offsets_valid)
         {
             m_thread_context_offsets_valid = true;
@@ -5221,7 +5248,7 @@ ObjectFileMachO::GetThreadContextAtIndex (uint32_t idx, lldb_private::Thread &th
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         if (!m_thread_context_offsets_valid)
             GetNumThreadContexts ();
 
@@ -5357,7 +5384,7 @@ ObjectFileMachO::GetVersion (uint32_t *versions, uint32_t num_versions)
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         struct dylib_command load_cmd;
         lldb::offset_t offset = MachHeaderSizeFromMagic(m_header.magic);
         uint32_t version_cmd = 0;
@@ -5412,7 +5439,7 @@ ObjectFileMachO::GetArchitecture (ArchSpec &arch)
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         return GetArchitecture (m_header, m_data, MachHeaderSizeFromMagic(m_header.magic), arch);
     }
     return false;
@@ -5422,6 +5449,33 @@ UUID
 ObjectFileMachO::GetProcessSharedCacheUUID (Process *process)
 {
     UUID uuid;
+
+    // First see if we can get the shared cache details from debugserver
+    if (process)
+    {
+        StructuredData::ObjectSP info = process->GetSharedCacheInfo();
+        StructuredData::Dictionary *info_dict = nullptr;
+        if (info.get() && info->GetAsDictionary())
+        {
+            info_dict = info->GetAsDictionary();
+        }
+
+        // {"shared_cache_base_address":140735683125248,"shared_cache_uuid":"DDB8D70C-C9A2-3561-B2C8-BE48A4F33F96","no_shared_cache":false,"shared_cache_private_cache":false}
+
+        if (info_dict
+            && info_dict->HasKey("shared_cache_uuid")
+            && info_dict->HasKey("no_shared_cache")
+            && info_dict->HasKey("shared_cache_base_address"))
+        {
+            bool process_using_shared_cache = info_dict->GetValueForKey("no_shared_cache")->GetBooleanValue() == false;
+            std::string uuid_str = info_dict->GetValueForKey("shared_cache_uuid")->GetStringValue();
+
+            if (process_using_shared_cache && !uuid_str.empty() && uuid.SetFromCString (uuid_str.c_str()) == 0)
+                return uuid;
+        }
+    }
+
+    // Fall back to trying to read the shared cache info out of dyld's internal data structures
     if (process)
     {
         addr_t all_image_infos = process->GetImageInfoAddress();
@@ -5622,6 +5676,12 @@ bool
 ObjectFileMachO::GetIsDynamicLinkEditor()
 {
     return m_header.filetype == llvm::MachO::MH_DYLINKER;
+}
+
+bool
+ObjectFileMachO::AllowAssemblyEmulationUnwindPlans ()
+{
+    return m_allow_assembly_emulation_unwind_plans;
 }
 
 //------------------------------------------------------------------

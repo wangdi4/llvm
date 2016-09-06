@@ -21,12 +21,16 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/HLIf.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
 using namespace llvm::loopopt;
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
+
+// forward declarations
+class AVRIfHIR;
 
 //----------AVR Assign Node for HIR----------//
 /// \brief Assign node abstract vector representation for HIR.
@@ -78,12 +82,25 @@ class AVRExpressionHIR : public AVRExpression {
 
 private:
   /// HLAssign - HIR Inst node which this is expression is built from.
-  HLInst *HIRNode;
+  HLNode *HIRNode;
+
+  /// Opcode - The LLVM opcode for this expression.
+  unsigned Opcode;
+
+  /// Predicate - The LLVM predicate if this expression is a comparison.
+  CmpInst::Predicate Predicate;
 
 protected:
   /// \brief Constructs an AVRExpressionHIR given an AVRAssignHIR node and
   /// LHS/RHS specifier.
   AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand AOp);
+
+  /// \brief Constructs an AVRExpressionHIR given an AVRIfHIR node and 
+  /// predicate iterator.
+  AVRExpressionHIR(AVRIfHIR *AIf, HLIf::const_pred_iterator& PredIt);
+
+  /// \brief Constructs an AND AVRExpressionHIR of two given HIR expressions.
+  AVRExpressionHIR(AVRExpressionHIR* LHS, AVRExpressionHIR* RHS);
 
   /// \brief Destructor for this object.
   virtual ~AVRExpressionHIR() override {}
@@ -96,7 +113,7 @@ public:
   AVRExpressionHIR *clone() const override;
 
   /// \brief Returns HIRNode for this expression.
-  HLInst *getHIRNode() { return HIRNode; }
+  HLNode *getHIRNode() { return HIRNode; }
 
   /// \brief Method for supporting type inquiry.
   static bool classof(const AVR *Node) {
@@ -120,16 +137,13 @@ private:
   /// Val - The HIR RegDDref for this AVR Value
   RegDDRef *Val;
 
-  /// HLInstruct - Underlying HLNode which produced this value.
-  HLInst *HLInstruct;
-
-  /// ValType - The data type of this Value.
-  Type *ValType;
+  /// HLNode - Underlying HLNode which produced this value.
+  HLNode *HNode;
 
 protected:
   /// \brief Constructs an AVRValueHIR node for the operand in HLInst node
   ///  specified by DDRef.
-  AVRValueHIR(RegDDRef *DDRef, HLInst *Inst);
+  AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent);
 
   /// \brief Destructor for this object.
   virtual ~AVRValueHIR() {}
@@ -152,6 +166,15 @@ public:
 
   /// \brief Returns »the value name of this node.
   virtual std::string getAvrValueName() const override;
+
+  /// \brief Returns the RegDDRef associated with this node.
+  RegDDRef *getValue() { return Val; }
+
+  /// \brief Returns the HLNode associated with this node.
+  HLNode *getNode() { return HNode; }
+
+  /// \brief Returns whether the associated RegDDRef is a constant.
+  bool isConstant() const override { return Val->isConstant(); }
 };
 
 //----------AVR Label Node for HIR----------//

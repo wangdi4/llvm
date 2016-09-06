@@ -12,6 +12,7 @@
 
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/StringRef.h"
+#include <utility>
 #include <vector>
 
 namespace lld {
@@ -19,10 +20,9 @@ namespace elf {
 
 class ScriptParserBase {
 public:
-  ScriptParserBase(StringRef S) : Input(S), Tokens(tokenize(S)) {}
-  virtual ~ScriptParserBase() = default;
-
-  virtual void run() = 0;
+  explicit ScriptParserBase(StringRef S) : Input(S), Tokens(tokenize(S)) {}
+  explicit ScriptParserBase(std::vector<StringRef> Tokens)
+      : Input(""), Tokens(std::move(Tokens)) {}
 
 protected:
   void setError(const Twine &Msg);
@@ -36,8 +36,6 @@ protected:
 
   size_t getPos();
   void printErrorPos();
-
-  std::vector<uint8_t> parseHex(StringRef S);
 
   StringRef Input;
   std::vector<StringRef> Tokens;

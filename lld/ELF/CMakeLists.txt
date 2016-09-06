@@ -5,7 +5,7 @@ add_public_tablegen_target(ELFOptionsTableGen)
 add_lld_library(lldELF
   Driver.cpp
   DriverUtils.cpp
-  DynamicList.cpp
+  EhFrame.cpp
   Error.cpp
   ICF.cpp
   InputFiles.cpp
@@ -14,10 +14,14 @@ add_lld_library(lldELF
   LinkerScript.cpp
   MarkLive.cpp
   OutputSections.cpp
+  Relocations.cpp
   ScriptParser.cpp
+  Strings.cpp
+  SymbolListFile.cpp
   SymbolTable.cpp
   Symbols.cpp
   Target.cpp
+  Thunks.cpp
   Writer.cpp
 
   LINK_COMPONENTS
@@ -25,11 +29,14 @@ add_lld_library(lldELF
   Analysis
   BitReader
   BitWriter
+  Codegen
   Core
   IPO
   Linker
+  LTO
   Object
   Option
+  Passes
   MC
   Support
   Target
@@ -37,7 +44,8 @@ add_lld_library(lldELF
 
   LINK_LIBS
   lldConfig
+  lldCore
   ${PTHREAD_LIB}
   )
 
-add_dependencies(lldELF ELFOptionsTableGen)
+add_dependencies(lldELF intrinsics_gen ELFOptionsTableGen)

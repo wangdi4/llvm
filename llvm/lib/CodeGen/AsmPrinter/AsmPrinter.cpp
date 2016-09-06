@@ -12,12 +12,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/AsmPrinter.h"
+#include "CodeViewDebug.h"
 #include "DwarfDebug.h"
 #include "DwarfException.h"
 #include "intel/STIDebug.h"    // INTEL
 #include "WinException.h"
-#include "CodeViewDebug.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/CodeGen/Analysis.h"
@@ -128,6 +127,10 @@ AsmPrinter::~AsmPrinter() {
     delete &GCMap;
     GCMetadataPrinters = nullptr;
   }
+}
+
+bool AsmPrinter::isPositionIndependent() const {
+  return TM.isPositionIndependent();
 }
 
 /// getFunctionNumber - Return a unique ID for the current function.
@@ -267,6 +270,7 @@ bool AsmPrinter::doInitialization(Module &M) {
     }
     if (!EmitCodeView || MMI->getModule()->getDwarfVersion()) {
       DD = new DwarfDebug(this, &M);
+      DD->beginModule();
       Handlers.push_back(HandlerInfo(DD, DbgTimerName, DWARFGroupName));
     }
   }
@@ -332,21 +336,17 @@ void AsmPrinter::EmitLinkage(const GlobalValue *GV, MCSymbol *GVSym) const {
       OutStreamer->EmitSymbolAttribute(GVSym, MCSA_Weak);
     }
     return;
-  case GlobalValue::AppendingLinkage:
-    // FIXME: appending linkage variables should go into a section of
-    // their name or something.  For now, just emit them as external.
   case GlobalValue::ExternalLinkage:
-    // If external or appending, declare as a global symbol.
-    // .globl _foo
+    // If external, declare as a global symbol: .globl _foo
     OutStreamer->EmitSymbolAttribute(GVSym, MCSA_Global);
     return;
   case GlobalValue::PrivateLinkage:
   case GlobalValue::InternalLinkage:
     return;
+  case GlobalValue::AppendingLinkage:
   case GlobalValue::AvailableExternallyLinkage:
-    llvm_unreachable("Should never emit this");
   case GlobalValue::ExternalWeakLinkage:
-    llvm_unreachable("Don't know how to emit these");
+    llvm_unreachable("Should never emit this");
   }
   llvm_unreachable("Unknown linkage type!");
 }
@@ -392,9 +392,10 @@ void AsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
 
   MCSymbol *GVSym = getSymbol(GV);
   MCSymbol *EmittedSym = GVSym;
-  // getOrCreateEmuTLSControlSym only creates the symbol with name and default attributes.
-  // GV's or GVSym's attributes will be used for the EmittedSym.
 
+  // getOrCreateEmuTLSControlSym only creates the symbol with name and default
+  // attributes.
+  // GV's or GVSym's attributes will be used for the EmittedSym.
   EmitVisibility(EmittedSym, GV->getVisibility(), !GV->isDeclaration());
 
   if (!GV->hasInitializer())   // External globals require no extra code.
@@ -423,29 +424,42 @@ void AsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
     HI.Handler->setSymbolSize(GVSym, Size);
   }
 
-  // Handle common and BSS local symbols (.lcomm).
-  if (GVKind.isCommon() || GVKind.isBSSLocal()) {
+  // Handle common symbols
+  if (GVKind.isCommon()) {
     if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
     unsigned Align = 1 << AlignLog;
+    if (!getObjFileLowering().getCommDirectiveSupportsAlignment())
+      Align = 0;
 
-    // Handle common symbols.
-    if (GVKind.isCommon()) {
-      if (!getObjFileLowering().getCommDirectiveSupportsAlignment())
-        Align = 0;
+    // .comm _foo, 42, 4
+    OutStreamer->EmitCommonSymbol(GVSym, Size, Align);
+    return;
+  }
 
-      // .comm _foo, 42, 4
-      OutStreamer->EmitCommonSymbol(GVSym, Size, Align);
-      return;
-    }
+  // Determine to which section this global should be emitted.
+  MCSection *TheSection =
+      getObjFileLowering().SectionForGlobal(GV, GVKind, *Mang, TM);
 
-    // Handle local BSS symbols.
-    if (MAI->hasMachoZeroFillDirective()) {
-      MCSection *TheSection =
-          getObjFileLowering().SectionForGlobal(GV, GVKind, *Mang, TM);
-      // .zerofill __DATA, __bss, _foo, 400, 5
-      OutStreamer->EmitZerofill(TheSection, GVSym, Size, Align);
-      return;
-    }
+  // If we have a bss global going to a section that supports the
+  // zerofill directive, do so here.
+  if (GVKind.isBSS() && MAI->hasMachoZeroFillDirective() &&
+      TheSection->isVirtualSection()) {
+    if (Size == 0)
+      Size = 1; // zerofill of 0 bytes is undefined.
+    unsigned Align = 1 << AlignLog;
+    EmitLinkage(GV, GVSym);
+    // .zerofill __DATA, __bss, _foo, 400, 5
+    OutStreamer->EmitZerofill(TheSection, GVSym, Size, Align);
+    return;
+  }
+
+  // If this is a BSS local symbol and we are emitting in the BSS
+  // section use .lcomm/.comm directive.
+  if (GVKind.isBSSLocal() &&
+      getObjFileLowering().getBSSSection() == TheSection) {
+    if (Size == 0)
+      Size = 1; // .comm Foo, 0 is undefined, avoid it.
+    unsigned Align = 1 << AlignLog;
 
     // Use .lcomm only if it supports user-specified alignment.
     // Otherwise, while it would still be correct to use .lcomm in some
@@ -466,23 +480,6 @@ void AsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
     OutStreamer->EmitSymbolAttribute(GVSym, MCSA_Local);
     // .comm _foo, 42, 4
     OutStreamer->EmitCommonSymbol(GVSym, Size, Align);
-    return;
-  }
-
-  MCSymbol *EmittedInitSym = GVSym;
-
-  MCSection *TheSection =
-      getObjFileLowering().SectionForGlobal(GV, GVKind, *Mang, TM);
-
-  // Handle the zerofill directive on darwin, which is a special form of BSS
-  // emission.
-  if (GVKind.isBSSExtern() && MAI->hasMachoZeroFillDirective()) {
-    if (Size == 0) Size = 1;  // zerofill of 0 bytes is undefined.
-
-    // .globl _foo
-    OutStreamer->EmitSymbolAttribute(GVSym, MCSA_Global);
-    // .zerofill __DATA, __common, _foo, 400, 5
-    OutStreamer->EmitZerofill(TheSection, GVSym, Size, 1 << AlignLog);
     return;
   }
 
@@ -537,6 +534,8 @@ void AsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
     OutStreamer->AddBlankLine();
     return;
   }
+
+  MCSymbol *EmittedInitSym = GVSym;
 
   OutStreamer->SwitchSection(TheSection);
 
@@ -651,20 +650,20 @@ static void emitComments(const MachineInstr &MI, raw_ostream &CommentOS) {
   // We assume a single instruction only has a spill or reload, not
   // both.
   const MachineMemOperand *MMO;
-  if (TII->isLoadFromStackSlotPostFE(&MI, FI)) {
+  if (TII->isLoadFromStackSlotPostFE(MI, FI)) {
     if (FrameInfo->isSpillSlotObjectIndex(FI)) {
       MMO = *MI.memoperands_begin();
       CommentOS << MMO->getSize() << "-byte Reload\n";
     }
-  } else if (TII->hasLoadFromStackSlot(&MI, MMO, FI)) {
+  } else if (TII->hasLoadFromStackSlot(MI, MMO, FI)) {
     if (FrameInfo->isSpillSlotObjectIndex(FI))
       CommentOS << MMO->getSize() << "-byte Folded Reload\n";
-  } else if (TII->isStoreToStackSlotPostFE(&MI, FI)) {
+  } else if (TII->isStoreToStackSlotPostFE(MI, FI)) {
     if (FrameInfo->isSpillSlotObjectIndex(FI)) {
       MMO = *MI.memoperands_begin();
       CommentOS << MMO->getSize() << "-byte Spill\n";
     }
-  } else if (TII->hasStoreToStackSlot(&MI, MMO, FI)) {
+  } else if (TII->hasStoreToStackSlot(MI, MMO, FI)) {
     if (FrameInfo->isSpillSlotObjectIndex(FI))
       CommentOS << MMO->getSize() << "-byte Folded Spill\n";
   }
@@ -700,7 +699,7 @@ static void emitKill(const MachineInstr *MI, AsmPrinter &AP) {
                    AP.MF->getSubtarget().getRegisterInfo())
        << (Op.isDef() ? "<def>" : "<kill>");
   }
-  AP.OutStreamer->AddComment(Str);
+  AP.OutStreamer->AddComment(OS.str());
   AP.OutStreamer->AddBlankLine();
 }
 
@@ -1020,8 +1019,9 @@ static bool isGOTEquivalentCandidate(const GlobalVariable *GV,
   // Global GOT equivalents are unnamed private globals with a constant
   // pointer initializer to another global symbol. They must point to a
   // GlobalVariable or Function, i.e., as GlobalValue.
-  if (!GV->hasUnnamedAddr() || !GV->hasInitializer() || !GV->isConstant() ||
-      !GV->isDiscardableIfUnused() || !dyn_cast<GlobalValue>(GV->getOperand(0)))
+  if (!GV->hasGlobalUnnamedAddr() || !GV->hasInitializer() ||
+      !GV->isConstant() || !GV->isDiscardableIfUnused() ||
+      !dyn_cast<GlobalValue>(GV->getOperand(0)))
     return false;
 
   // To be a got equivalent, at least one of its users need to be a constant
@@ -1192,17 +1192,11 @@ bool AsmPrinter::doFinalization(Module &M) {
     // to notice uses in operands (due to constant exprs etc).  This should
     // happen with the MC stuff eventually.
 
-    // Print out module-level global variables here.
-    for (const auto &G : M.globals()) {
-      if (!G.hasExternalWeakLinkage())
+    // Print out module-level global objects here.
+    for (const auto &GO : M.global_objects()) {
+      if (!GO.hasExternalWeakLinkage())
         continue;
-      OutStreamer->EmitSymbolAttribute(getSymbol(&G), MCSA_WeakReference);
-    }
-
-    for (const auto &F : M) {
-      if (!F.hasExternalWeakLinkage())
-        continue;
-      OutStreamer->EmitSymbolAttribute(getSymbol(&F), MCSA_WeakReference);
+      OutStreamer->EmitSymbolAttribute(getSymbol(&GO), MCSA_WeakReference);
     }
   }
 
@@ -1431,7 +1425,7 @@ void AsmPrinter::EmitJumpTableInfo() {
     // For the EK_LabelDifference32 entry, if using .set avoids a relocation,
     /// emit a .set directive for each unique entry.
     if (MJTI->getEntryKind() == MachineJumpTableInfo::EK_LabelDifference32 &&
-        MAI->doesSetDirectiveSuppressesReloc()) {
+        MAI->doesSetDirectiveSuppressReloc()) {
       SmallPtrSet<const MachineBasicBlock*, 16> EmittedSets;
       const TargetLowering *TLI = MF->getSubtarget().getTargetLowering();
       const MCExpr *Base = TLI->getPICJumpTableRelocBaseExpr(MF,JTI,OutContext);
@@ -1512,7 +1506,7 @@ void AsmPrinter::EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
     // If the .set directive avoids relocations, this is emitted as:
     //      .set L4_5_set_123, LBB123 - LJTI1_2
     //      .word L4_5_set_123
-    if (MAI->doesSetDirectiveSuppressesReloc()) {
+    if (MAI->doesSetDirectiveSuppressReloc()) {
       Value = MCSymbolRefExpr::create(GetJTSetSymbol(UID, MBB->getNumber()),
                                       OutContext);
       break;
@@ -1543,7 +1537,7 @@ bool AsmPrinter::EmitSpecialLLVMGlobal(const GlobalVariable *GV) {
   }
 
   // Ignore debug and non-emitted data.  This handles llvm.compiler.used.
-  if (StringRef(GV->getSection()) == "llvm.metadata" ||
+  if (GV->getSection() == "llvm.metadata" ||
       GV->hasAvailableExternallyLinkage())
     return true;
 
@@ -1577,7 +1571,7 @@ bool AsmPrinter::EmitSpecialLLVMGlobal(const GlobalVariable *GV) {
     return true;
   }
 
-  return false;
+  report_fatal_error("unknown special variable");
 }
 
 /// EmitLLVMUsedList - For targets that define a MAI::UsedDirective, mark each
@@ -1636,7 +1630,8 @@ void AsmPrinter::EmitXXStructorList(const DataLayout &DL, const Constant *List,
     S.Priority = Priority->getLimitedValue(65535);
     S.Func = CS->getOperand(1);
     if (ETy->getNumElements() == 3 && !CS->getOperand(2)->isNullValue())
-      S.ComdatKey = dyn_cast<GlobalValue>(CS->getOperand(2)->stripPointerCasts());
+      S.ComdatKey =
+          dyn_cast<GlobalValue>(CS->getOperand(2)->stripPointerCasts());
   }
 
   // Emit the function pointers in the target-specific order
@@ -1777,10 +1772,6 @@ const MCExpr *AsmPrinter::lowerConstant(const Constant *CV) {
     llvm_unreachable("Unknown constant value to lower!");
   }
 
-  if (const MCExpr *RelocExpr
-      = getObjFileLowering().getExecutableRelativeSymbol(CE, *Mang, TM))
-    return RelocExpr;
-
   switch (CE->getOpcode()) {
   default:
     // If the code isn't optimized, there may be outstanding folding
@@ -1856,10 +1847,34 @@ const MCExpr *AsmPrinter::lowerConstant(const Constant *CV) {
     return MCBinaryExpr::createAnd(OpExpr, MaskExpr, Ctx);
   }
 
+  case Instruction::Sub: {
+    GlobalValue *LHSGV;
+    APInt LHSOffset;
+    if (IsConstantOffsetFromGlobal(CE->getOperand(0), LHSGV, LHSOffset,
+                                   getDataLayout())) {
+      GlobalValue *RHSGV;
+      APInt RHSOffset;
+      if (IsConstantOffsetFromGlobal(CE->getOperand(1), RHSGV, RHSOffset,
+                                     getDataLayout())) {
+        const MCExpr *RelocExpr = getObjFileLowering().lowerRelativeReference(
+            LHSGV, RHSGV, *Mang, TM);
+        if (!RelocExpr)
+          RelocExpr = MCBinaryExpr::createSub(
+              MCSymbolRefExpr::create(getSymbol(LHSGV), Ctx),
+              MCSymbolRefExpr::create(getSymbol(RHSGV), Ctx), Ctx);
+        int64_t Addend = (LHSOffset - RHSOffset).getSExtValue();
+        if (Addend != 0)
+          RelocExpr = MCBinaryExpr::createAdd(
+              RelocExpr, MCConstantExpr::create(Addend, Ctx), Ctx);
+        return RelocExpr;
+      }
+    }
+  }
+  // else fallthrough
+
   // The MC library also has a right-shift operator, but it isn't consistently
   // signed or unsigned between different targets.
   case Instruction::Add:
-  case Instruction::Sub:
   case Instruction::Mul:
   case Instruction::SDiv:
   case Instruction::SRem:
@@ -1952,7 +1967,7 @@ static void emitGlobalConstantDataSequential(const DataLayout &DL,
     uint64_t Bytes = DL.getTypeAllocSize(CDS->getType());
     // Don't emit a 1-byte object as a .fill.
     if (Bytes > 1)
-      return AP.OutStreamer->EmitFill(Bytes, Value);
+      return AP.OutStreamer->emitFill(Bytes, Value);
   }
 
   // If this can be emitted with .ascii/.asciz, emit it as such.
@@ -1991,7 +2006,7 @@ static void emitGlobalConstantArray(const DataLayout &DL,
 
   if (Value != -1) {
     uint64_t Bytes = DL.getTypeAllocSize(CA->getType());
-    AP.OutStreamer->EmitFill(Bytes, Value);
+    AP.OutStreamer->emitFill(Bytes, Value);
   }
   else {
     for (unsigned i = 0, e = CA->getNumOperands(); i != e; ++i) {

@@ -21,6 +21,7 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
+#include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Allocator.h"
@@ -148,7 +149,9 @@ public:
     return !V.Properties.test(Properties);
   }
 
-  void print(raw_ostream &ROS) const;
+  // Print the MachineFunctionProperties in human-readable form. If OnlySet is
+  // true, only print the properties that are set.
+  void print(raw_ostream &ROS, bool OnlySet=false) const;
 
 private:
   BitVector Properties =
@@ -389,7 +392,7 @@ public:
   /// print - Print out the MachineFunction in a format suitable for debugging
   /// to the specified stream.
   ///
-  void print(raw_ostream &OS, SlotIndexes* = nullptr) const;
+  void print(raw_ostream &OS, const SlotIndexes* = nullptr) const;
 
   /// viewCFG - This function is meant for use from the debugger.  You can just
   /// say 'call F->viewCFG()' and a ghostview window should pop up from the
@@ -500,8 +503,7 @@ public:
   /// CreateMachineInstr - Allocate a new MachineInstr. Use this instead
   /// of `new MachineInstr'.
   ///
-  MachineInstr *CreateMachineInstr(const MCInstrDesc &MCID,
-                                   DebugLoc DL,
+  MachineInstr *CreateMachineInstr(const MCInstrDesc &MCID, const DebugLoc &DL,
                                    bool NoImp = false);
 
   /// CloneMachineInstr - Create a new MachineInstr which is a copy of the
@@ -529,8 +531,8 @@ public:
   /// MachineMemOperands are owned by the MachineFunction and need not be
   /// explicitly deallocated.
   MachineMemOperand *getMachineMemOperand(MachinePointerInfo PtrInfo,
-                                          unsigned f, uint64_t s,
-                                          unsigned base_alignment,
+                                          MachineMemOperand::Flags f,
+                                          uint64_t s, unsigned base_alignment,
                                           const AAMDNodes &AAInfo = AAMDNodes(),
                                           const MDNode *Ranges = nullptr);
 

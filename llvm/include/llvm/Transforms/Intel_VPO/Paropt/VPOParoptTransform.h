@@ -76,8 +76,8 @@ class VPOParoptTransform {
 public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
-                     ScalarEvolution *SE, LoopInfo *LI, VPOParoptMode Mode)
-      : F(F), WI(WI), DT(DT), SE(SE), LI(LI), Mode(Mode), IdentTy(nullptr), 
+                     LoopInfo *LI, ScalarEvolution *SE, VPOParoptMode Mode)
+      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr), 
         TidPtr(nullptr), BidPtr(nullptr) {}
 
   /// \brief Top level interface for parallel transformation
@@ -93,11 +93,11 @@ private:
   /// \brief Get the Dominator Tree for code extractor
   DominatorTree *DT;
 
-  /// \brief Get the Scalar Evolution information for loop candidates
-  ScalarEvolution *SE;
-
   /// \brief Get the Loop information for loop candidates
   LoopInfo *LI;
+
+  /// \brief Get the Scalar Evolution information for loop candidates
+  ScalarEvolution *SE;
 
   /// \brief Paropt compilation mode
   VPOParoptMode Mode;

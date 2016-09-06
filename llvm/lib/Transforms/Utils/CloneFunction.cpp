@@ -122,11 +122,11 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
   SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
   OldFunc->getAllMetadata(MDs);
   for (auto MD : MDs)
-    NewFunc->setMetadata(
+    NewFunc->addMetadata(
         MD.first,
-        MapMetadata(MD.second, VMap,
-                    ModuleLevelChanges ? RF_None : RF_NoModuleLevelChanges,
-                    TypeMapper, Materializer));
+        *MapMetadata(MD.second, VMap,
+                     ModuleLevelChanges ? RF_None : RF_NoModuleLevelChanges,
+                     TypeMapper, Materializer));
 
   // Loop over all of the basic blocks in the function, cloning them as
   // appropriate.  Note that we save BE this way in order to handle cloning of
@@ -172,30 +172,14 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
                        TypeMapper, Materializer);
 }
 
-// Clone the module-level debug info associated with OldFunc. The cloned data
-// will point to NewFunc instead.
-static void CloneDebugInfoMetadata(Function *NewFunc, const Function *OldFunc,
-                                   ValueToValueMapTy &VMap) {
-  if (const DISubprogram *OldSP = OldFunc->getSubprogram()) {
-    auto *NewSP = cast<DISubprogram>(MapMetadata(OldSP, VMap));
-    // FIXME: There ought to be a better way to do this: ValueMapper
-    // will clone the distinct DICompileUnit. Use the original one
-    // instead.
-    NewSP->replaceUnit(OldSP->getUnit());
-    NewFunc->setSubprogram(NewSP);
-  }
-}
-
-/// Return a copy of the specified function, but without
-/// embedding the function into another module.  Also, any references specified
-/// in the VMap are changed to refer to their mapped value instead of the
-/// original one.  If any of the arguments to the function are in the VMap,
-/// the arguments are deleted from the resultant function.  The VMap is
-/// updated to include mappings from all of the instructions and basicblocks in
-/// the function from their old to new values.
+/// Return a copy of the specified function and add it to that function's
+/// module.  Also, any references specified in the VMap are changed to refer to
+/// their mapped value instead of the original one.  If any of the arguments to
+/// the function are in the VMap, the arguments are deleted from the resultant
+/// function.  The VMap is updated to include mappings from all of the
+/// instructions and basicblocks in the function from their old to new values.
 ///
-Function *llvm::CloneFunction(const Function *F, ValueToValueMapTy &VMap,
-                              bool ModuleLevelChanges,
+Function *llvm::CloneFunction(Function *F, ValueToValueMapTy &VMap,
                               ClonedCodeInfo *CodeInfo) {
   std::vector<Type*> ArgTypes;
 
@@ -211,7 +195,8 @@ Function *llvm::CloneFunction(const Function *F, ValueToValueMapTy &VMap,
                                     ArgTypes, F->getFunctionType()->isVarArg());
 
   // Create the new function...
-  Function *NewF = Function::Create(FTy, F->getLinkage(), F->getName());
+  Function *NewF =
+      Function::Create(FTy, F->getLinkage(), F->getName(), F->getParent());
 
   // Loop over the arguments, copying the names of the mapped arguments over...
   Function::arg_iterator DestI = NewF->arg_begin();
@@ -221,11 +206,10 @@ Function *llvm::CloneFunction(const Function *F, ValueToValueMapTy &VMap,
       VMap[&I] = &*DestI++;        // Add mapping to VMap
     }
 
-  if (ModuleLevelChanges)
-    CloneDebugInfoMetadata(NewF, F, VMap);
-
   SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
-  CloneFunctionInto(NewF, F, VMap, ModuleLevelChanges, Returns, "", CodeInfo);
+  CloneFunctionInto(NewF, F, VMap, /*ModuleLevelChanges=*/false, Returns, "",
+                    CodeInfo);
+
   return NewF;
 }
 
@@ -312,9 +296,11 @@ void PruningFunctionCloner::CloneBlock(const BasicBlock *BB,
         if (Value *MappedV = VMap.lookup(V))
           V = MappedV;
 
-        VMap[&*II] = V;
-        delete NewInst;
-        continue;
+        if (!NewInst->mayHaveSideEffects()) {
+          VMap[&*II] = V;
+          delete NewInst;
+          continue;
+        }
       }
     }
 
@@ -346,7 +332,7 @@ void PruningFunctionCloner::CloneBlock(const BasicBlock *BB,
       ConstantInt *Cond = dyn_cast<ConstantInt>(BI->getCondition());
       // Or is a known constant in the caller...
       if (!Cond) {
-        Value *V = VMap[BI->getCondition()];
+        Value *V = VMap.lookup(BI->getCondition());
         Cond = dyn_cast_or_null<ConstantInt>(V);
       }
 
@@ -362,7 +348,7 @@ void PruningFunctionCloner::CloneBlock(const BasicBlock *BB,
     // If switching on a value known constant in the caller.
     ConstantInt *Cond = dyn_cast<ConstantInt>(SI->getCondition());
     if (!Cond) { // Or known constant after constant prop in the callee...
-      Value *V = VMap[SI->getCondition()];
+      Value *V = VMap.lookup(SI->getCondition());
       Cond = dyn_cast_or_null<ConstantInt>(V);
     }
     if (Cond) {     // Constant fold to uncond branch!
@@ -449,7 +435,7 @@ void llvm::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFunc,
   // Defer PHI resolution until rest of function is resolved.
   SmallVector<const PHINode*, 16> PHIToResolve;
   for (const BasicBlock &BI : *OldFunc) {
-    Value *V = VMap[&BI];
+    Value *V = VMap.lookup(&BI);
     BasicBlock *NewBB = cast_or_null<BasicBlock>(V);
     if (!NewBB) continue;  // Dead block.
 
@@ -493,7 +479,7 @@ void llvm::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFunc,
       OPN = PHIToResolve[phino];
       PHINode *PN = cast<PHINode>(VMap[OPN]);
       for (unsigned pred = 0, e = NumPreds; pred != e; ++pred) {
-        Value *V = VMap[PN->getIncomingBlock(pred)];
+        Value *V = VMap.lookup(PN->getIncomingBlock(pred));
         if (BasicBlock *MappedBlock = cast_or_null<BasicBlock>(V)) {
           Value *InVal = MapValue(PN->getIncomingValue(pred),
                                   VMap, 
@@ -533,10 +519,9 @@ void llvm::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFunc,
       // entries.
       BasicBlock::iterator I = NewBB->begin();
       for (; (PN = dyn_cast<PHINode>(I)); ++I) {
-        for (std::map<BasicBlock*, unsigned>::iterator PCI =PredCount.begin(),
-             E = PredCount.end(); PCI != E; ++PCI) {
-          BasicBlock *Pred     = PCI->first;
-          for (unsigned NumToRemove = PCI->second; NumToRemove; --NumToRemove)
+        for (const auto &PCI : PredCount) {
+          BasicBlock *Pred = PCI.first;
+          for (unsigned NumToRemove = PCI.second; NumToRemove; --NumToRemove)
             PN->removeIncomingValue(Pred, false);
         }
       }
@@ -672,6 +657,8 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
                                    const Twine &NameSuffix, LoopInfo *LI,
                                    DominatorTree *DT,
                                    SmallVectorImpl<BasicBlock *> &Blocks) {
+  assert(OrigLoop->getSubLoops().empty() && 
+         "Loop to be cloned cannot have inner loop");
   Function *F = OrigLoop->getHeader()->getParent();
   Loop *ParentLoop = OrigLoop->getParentLoop();
 
@@ -702,11 +689,17 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
     // Update LoopInfo.
     NewLoop->addBasicBlockToLoop(NewBB, *LI);
 
-    // Update DominatorTree.
-    BasicBlock *IDomBB = DT->getNode(BB)->getIDom()->getBlock();
-    DT->addNewBlock(NewBB, cast<BasicBlock>(VMap[IDomBB]));
+    // Add DominatorTree node. After seeing all blocks, update to correct IDom.
+    DT->addNewBlock(NewBB, NewPH);
 
     Blocks.push_back(NewBB);
+  }
+
+  for (BasicBlock *BB : OrigLoop->getBlocks()) {
+    // Update DominatorTree.
+    BasicBlock *IDomBB = DT->getNode(BB)->getIDom()->getBlock();
+    DT->changeImmediateDominator(cast<BasicBlock>(VMap[BB]),
+                                 cast<BasicBlock>(VMap[IDomBB]));
   }
 
   // Move them physically from the end of the block list.

@@ -213,6 +213,23 @@ Note that when the control flow within a SIMD loop is completely uniform it
 behaves just like a scalar loop, i.e. each iteration either kills or keeps any
 Def executed by previous iterations for all lanes reaching the loop.
 
+Handling ``phi`` nodes
+----------------------
+
+While SLEV produces correct results by treating ``phi`` nodes as Defs, this
+approach is somewhat inaccurate.
+We therefore treat ``phi`` nodes as Uses and propagate their Reaching Defs to
+the users of the ``phi`` nodes.
+
+``phi`` nodes pose an additional problem: constant incoming values are, in fact,
+actual Reaching Defs. Consider the following example:
+
+.. todo:
+
+  Show a simple (divergent) diamond with a phi with two incoming constants in
+  the post-dom. Since the phi is not in the IR, uses would not be tainted
+  despite being reached by two conflicting Defs originating from the IR.
+
 Handling Undefs
 -----------------
 
@@ -422,16 +439,45 @@ some LLVM IR programs.
 The analysis is therefore still required to support unstructured control
 flow in general.
 
-Mapping the algorithm to AVR
-----------------------------
+SLEV ``Instruction``'s and AVR Nodes
+------------------------------------
 
-In ``AVR``, an ``Instruction`` is any ``AVR-EXPR``, ``AVR-ASSIGN``,
-``AVR-PHI``, ``AVR-CALL`` and ``AVR-COMPARE``. The CFG edges reflect the
-implicit and explicit control flow induced by ``AVR-IF``, ``AVR-LOOP`` and
-``AVR-FBRANCH/AVR-LABEL``.
-For instance, an ``AVR-IF`` node is seen by the CFG
-as an instruction (the condition) succeeded by the first ``AVR`` node in the
-'then' block and by the first ``AVR`` node in the 'else' block.
+SLEV has its own abstraction of instructions on which the data-flow analysis
+is run while abstracting away the irrelevant details. For example, the SLEV
+``Instruction``s for ``add`` and ``mul`` are used for representing both
+``AVR-EXPR``'s and the internal structure of the canonical expressions in the
+``AVR-VALUE-HIR RegDDRef``. The latter is another reason why SLEV uses its own
+``Instruction``: the internal structure of ``AVR-VALUE-HIR`` (opaque at ``AVR``
+level) is relevant to SLEV in order to accurately compute strides.
+
+An ``AVR`` node is relevant in the context of SLEV if it represents either
+an underlying IR value, a computation or a change in the control flow.
+We construct SLEV ``Instruction``s by traversing the ``AVR`` program and
+translating the ``AVR`` structure into "SLEV expressions". SLEVs maintains a
+notion of their users, thus generating a def-use graph. ``AVR``-level Reaching
+Def information is represented in using a SLEV ``Instruction`` that functions as
+a Use/Phi node and joins the SLEVs of all Reaching Defs.
+
+The AVR Control-Flow Graph
+--------------------------
+
+SLEV is a CFG-based analysis. Since SLEV is required to operate at AVR-level,
+and since HIR does not provide a CFG that SLEV can use we construct an AVR-level
+CFG.
+
+The CFG contains all ``AVR`` nodes considered ``Instruction``s. Edges are placed
+between ``AVR-FBRANCH/AVR-LABEL`` pairs and, for higher-level constructs
+(``AVR-IF``, ``AVR-SWITCH``) between the condition and the first ``Instruction``
+in the contained block(s) (but see below for IR/HIR differences).
+
+SLEV's control-flow divergence propagation involves finding specific simple
+paths between Defs, Uses and a diverging ``Instruction``. To simplify the code
+we conveniently keep the CFG uncompressed, i.e. we do not merge chains of
+single-successor-single-predecessor, effectively keeping a single
+``AVR`` node per Basic Block. This allows us to keep the code close to the
+algorithm and avoid handling corner-cases of Defs, Uses and conditions residing
+in the same Basic Block. If this implementation proves too memory inefficient we
+can compress the CFG in the future and adjust the code accordingly.
 
 This is illustrated in the following figure showing the CFG of the ``AVR``
 short-circuit if-then-else from the previous section.
@@ -442,12 +488,61 @@ short-circuit if-then-else from the previous section.
 instructions (``AVR-FBRANCH``, ``AVR-LABEL``) and the AVR control structures
 (``AVR-IF``, ``AVR-LOOP`` etc.).]
 
-SSA vs. Variables
------------------
+Constant incoming values of ``AVR-PHI``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-AVR trees may be based on SSA (if built from LLVM IR) or on SCC variables (if
-built from HIR). Since the algorithm relies on def-use chains it supports both
-cases (where an ``AVR-PHI`` node is a Def and a Use).
+As mentioned above, constant incoming values of ``PHI`` nodes form a special
+case of a Reaching Def that is misplaced in the CFG and should be correctly
+represented at the CFG and as a Def.
+
+IR/HIR Differences
+~~~~~~~~~~~~~~~~~~
+
+An ``AVR-IF-IR`` node replaces a conditional ``AVR-BRANCH``, but leaves the
+``AVR`` node that is the condition in its current location in the ``AVR``
+program. This means the ``AVR-IF`` (rather than the condition) must go into
+the CFG as the branching ``Instruction``. An ``AVR-IR-HIR`` node, however,
+contains its condition (rather than just reference it) which allows it to
+function as the branching ``Instruction`` (as it is evaluated "in the right
+place").
+
+Also, current ``AVR-IR`` support for loops is partial and retains the original
+``AVR-BRANCH`` nodes from the pre-header and the latch. This again leads to
+somewhat different CFGs depending on the underlying IR, but this will be
+remedied once ``AVR-IR`` loop support is complete.
+
+AVR Def/Use Information
+-----------------------
+
+SLEV depends on Reaching-Def information. We therefore construct a unified
+AVR-level Reaching-Def information out of whatever underlying Def/Use
+information available.
+
+HIR Specifics
+~~~~~~~~~~~~~
+
+HIR Def/Use information is available via the HIR DDG: an existing FLOW edge
+between ``DDRef``s ``A -> B`` expresses that ``A`` is a Reaching Def of ``B``.
+
+An ``AVR-VALUE-HIR`` wraps a single ``RegDDRef``. Note, however, that since
+``RegDDRef``s have an internal structure of a ``Canon-Expr`` with ``Blob``s that
+is opaque to ``AVR``, a single ``AVR-VALUE-HIR`` may refer to more than one
+underlying variable (``Symbase``). The ``AVR`` nodes that are Reaching Defs of
+some ``AVR`` node are therefore grouped by the ``DDRef``.
+
+IR Specifics
+~~~~~~~~~~~~
+
+Coming from LLVM-IR, an ``AVR-VALUE`` has no internal structure and is merely
+referring some underlying value. Since LLVM-IR is in SSA form, an ``AVR-VALUE``
+has only one Def (where ``AVR-PHI`` nodes are considered as Defs).
+
+For accuracy purposes, however, we would like SLEV to see past ``AVR-PHI`` nodes
+such that the "true" Reaching Defs are related to each AVR. The reason for that
+is described in the Appendix.
+
+We therefore do not consider ``AVR-PHI`` as Defs. Instead, we propagate their
+incoming values to the users of the underlying ``PHI`` node.
 
 API
 ---

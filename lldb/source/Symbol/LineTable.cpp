@@ -106,7 +106,7 @@ LineTable::AppendLineEntryToSequence
     if (!entries.empty() && entries.back().file_addr == file_addr)
     {
         // GCC don't use the is_prologue_end flag to mark the first instruction after the prologue.
-        // Instead of it it is issueing a line table entry for the first instruction of the prologue
+        // Instead of it it is issuing a line table entry for the first instruction of the prologue
         // and one for the first instruction after the prologue. If the size of the prologue is 0
         // instruction then the 2 line entry will have the same file address. Removing it will remove
         // our ability to properly detect the location of the end of prologe so we set the prologue_end
@@ -299,6 +299,7 @@ LineTable::ConvertEntryAtIndexToLineEntry (uint32_t idx, LineEntry &line_entry)
                 line_entry.range.SetByteSize(0);
 
             line_entry.file = m_comp_unit->GetSupportFiles().GetFileSpecAtIndex (entry.file_idx);
+            line_entry.original_file = m_comp_unit->GetSupportFiles().GetFileSpecAtIndex(entry.file_idx);
             line_entry.line = entry.line;
             line_entry.column = entry.column;
             line_entry.is_start_of_statement = entry.is_start_of_statement;
@@ -462,9 +463,9 @@ LineTable::Dump (Stream *s, Target *target, Address::DumpStyle style, Address::D
     for (size_t idx = 0; idx < count; ++idx)
     {
         ConvertEntryAtIndexToLineEntry (idx, line_entry);
-        line_entry.Dump (s, target, prev_file != line_entry.file, style, fallback_style, show_line_ranges);
+        line_entry.Dump (s, target, prev_file != line_entry.original_file, style, fallback_style, show_line_ranges);
         s->EOL();
-        prev_file = line_entry.file;
+        prev_file = line_entry.original_file;
     }
 }
 

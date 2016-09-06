@@ -82,8 +82,9 @@ class FeatureOutliner : public ModulePass {
     // a ymm variable, and an AVX-block that consumes the ymm variable, but the
     // intervening blocks only have SSE).
     void spillLiveVectors(DenseMap<BasicBlock*, Region*> &RegionMap, 
-      Region &BBRegion, MapVector<BasicBlock*, FeatureBitset> &BBFeatureMap,
-      DominatorTree *DT, const FeatureBitset &NewFeatures) const;
+      Region &BBRegion, MapVector<BasicBlock*, FeatureBitset> &BBNewFeatureMap,
+      DenseMap<BasicBlock*, FeatureBitset> &BBFeatureMap, DominatorTree *DT,
+      const FeatureBitset &NewFeatures) const;
 
     // Maps the user-visible feature enum into the internal representation
     static std::map<uint64_t, FeatureBitset> FeatureMapping;
@@ -182,7 +183,8 @@ ModulePass *llvm::createFeatureOutlinerPass(const TargetMachine *TM) {
 
 void FeatureOutliner::spillLiveVectors(
        DenseMap<BasicBlock*, Region*> &RegionMap, Region &BBRegion,
-       MapVector<BasicBlock*, FeatureBitset> &BBFeatureMap,
+       MapVector<BasicBlock*, FeatureBitset> &BBNewFeatureMap,
+       DenseMap<BasicBlock*, FeatureBitset> &BBFeatureMap,
        DominatorTree *DT, const FeatureBitset &NewFeatures) const {
   // Walk over all the values that are live-in to the region.
   // If any vector values enter the region, make sure they are spilled
@@ -268,9 +270,11 @@ void FeatureOutliner::spillLiveVectors(
   
   // TODO: This does the right thing, but the commented out code doesn't.
   // My bug? A compiler bug? A bug in the implementation of MapVector?
+  auto PreHeaderNewFeatures = BBNewFeatureMap[PreHeader];
+  BBNewFeatureMap[RegionHeader] = PreHeaderNewFeatures;
+  //BBNewFeatureMap[RegionHeader] = (uint64_t)BBNewFeatureMap[PreHeader];
   auto PreHeaderFeatures = BBFeatureMap[PreHeader];
   BBFeatureMap[RegionHeader] = PreHeaderFeatures;
-  //BBFeatureMap[RegionHeader] = (uint64_t)BBFeatureMap[PreHeader];
 
   // Now do the actual spilling.
   Function *F = RegionHeader->getParent();
@@ -374,7 +378,12 @@ FeatureBitset FeatureOutliner::getAssumedFeatures(BasicBlock *BB,
     CallInst *Call = dyn_cast<CallInst>(I);
     if (!Call)
       continue;
-    
+
+    // If the call is marked as ignore for feature outlining, skip
+    // until fix in feature outlining is in place.
+    if (Call->getMetadata("ignore_for_intel_feature_outlining"))
+      continue;
+
     // If we have a call to a function that has vector parameters,
     // or returns a vector then the block can use the instruction
     // set implied by the vector width
@@ -428,12 +437,16 @@ bool FeatureOutliner::runOnModule(Module &M) {
     // Maps each basic block to the new features the region it
     // dominates needs to support. We need iteration over this
     // to be deterministic, so we use a MapVector instead of DenseMap
-    MapVector<BasicBlock*, FeatureBitset> BBFeatureMap;
+    MapVector<BasicBlock*, FeatureBitset> BBNewFeatureMap;
     // Maps each basic block to the features *available* in this
     // block. This is necessary because a new feature may imply a
     // bunch of other features, and we need to know that when looking
     // at the blocks below.
     DenseMap<BasicBlock*, FeatureBitset> AvailableFeatureMap;
+    // Maps each basic block to the union of features from BBNewFeatureMap for
+    // this block and all the blocks that dominate it. These features will
+    // be added to the function features when outlining the basic block.
+    DenseMap<BasicBlock*, FeatureBitset> BBFeatureMap;
 
     // Maps each basic block to the set of basic blocks it dominates
     // (i.e regions). Note that those regions are single-entry but
@@ -466,7 +479,9 @@ bool FeatureOutliner::runOnModule(Module &M) {
         Available = TSI->getFeatureBits();
 
       FeatureBitset NewFeatures = getAssumedFeatures(BB, Available);
-      BBFeatureMap[BB] = NewFeatures;
+      BBNewFeatureMap[BB] = NewFeatures;
+      BBFeatureMap[BB] =
+          Parent ? BBFeatureMap[Parent->getBlock()] | NewFeatures : NewFeatures;
 
       // If this is the root block, or it has new features,
       // create a new region, otherwise add this block to
@@ -509,8 +524,9 @@ bool FeatureOutliner::runOnModule(Module &M) {
     // entering a region that will cause an ABI change (so the vector will
     // be passed by reference)
     for (auto R : RegionList) {
-      FeatureBitset Features = BBFeatureMap[(*R)[0]];
-      spillLiveVectors(RegionMap, *R, BBFeatureMap, &DT, Features);
+      FeatureBitset Features = BBNewFeatureMap[(*R)[0]];
+      spillLiveVectors(
+          RegionMap, *R, BBNewFeatureMap, BBFeatureMap, &DT, Features);
     }
 
     // Walk the region list, in reverse order.
@@ -518,13 +534,12 @@ bool FeatureOutliner::runOnModule(Module &M) {
     // get malformed regions.
     for (auto R = RegionList.rbegin(), RE = RegionList.rend(); R != RE; ++R) {
       BasicBlock *BB = (**R)[0];
-      FeatureBitset& Features = BBFeatureMap[BB];
-      if (!Features.any())
+      if (!BBNewFeatureMap[BB].any())
         continue;
 
       std::string FeatureString = 
         F->getFnAttribute("target-features").getValueAsString();
-      appendFeatureString(FeatureString, Features);
+      appendFeatureString(FeatureString, BBFeatureMap[BB]);
       // If the entry block adds features, outlining doesn't make sense,
       // just mark the function itself to have these features.
       // TODO: Generalize this under the constraint that just walking up the

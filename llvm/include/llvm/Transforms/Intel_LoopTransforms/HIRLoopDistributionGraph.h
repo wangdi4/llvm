@@ -143,6 +143,8 @@ private:
 public:
   PiBlock *getSrc() { return Src; }
   PiBlock *getSink() { return Sink; }
+  const PiBlock *getSrc() const { return Src; }
+  const PiBlock *getSink() const { return Sink; }
   const SmallVector<const DDEdge *, 16> &getDDEdges() const { return DDEdges; }
 
   PiGraphEdge(PiBlock *Start, PiBlock *End,
@@ -233,14 +235,14 @@ public:
         for (auto EdgeIt = PPGraph->outgoing_edges_begin(*NodeIt),
                   EndEdgeIt = PPGraph->outgoing_edges_end(*NodeIt);
              EdgeIt != EndEdgeIt; ++EdgeIt) {
-          PiBlock *SinkPiBlk = DistPPNodeToPiBlock[(*EdgeIt).getSink()];
+          PiBlock *SinkPiBlk = DistPPNodeToPiBlock[(*EdgeIt)->getSink()];
           assert(SinkPiBlk && "Invalid dist edge added");
           if (SrcBlk == SinkPiBlk) {
             // No cycles, not even self cycles
             continue;
           }
-          CurEdges[SinkPiBlk].append(EdgeIt->DDEdges.begin(),
-                                     EdgeIt->DDEdges.end());
+          CurEdges[SinkPiBlk].append((*EdgeIt)->DDEdges.begin(),
+                                     (*EdgeIt)->DDEdges.end());
         }
 
         // Edges in graph cannot be modified once added.

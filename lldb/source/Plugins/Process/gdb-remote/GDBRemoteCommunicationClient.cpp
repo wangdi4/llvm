@@ -55,79 +55,80 @@ using namespace lldb_private::process_gdb_remote;
 //----------------------------------------------------------------------
 // GDBRemoteCommunicationClient constructor
 //----------------------------------------------------------------------
-GDBRemoteCommunicationClient::GDBRemoteCommunicationClient() :
-    GDBRemoteCommunication("gdb-remote.client", "gdb-remote.client.rx_packet"),
-    m_supports_not_sending_acks (eLazyBoolCalculate),
-    m_supports_thread_suffix (eLazyBoolCalculate),
-    m_supports_threads_in_stop_reply (eLazyBoolCalculate),
-    m_supports_vCont_all (eLazyBoolCalculate),
-    m_supports_vCont_any (eLazyBoolCalculate),
-    m_supports_vCont_c (eLazyBoolCalculate),
-    m_supports_vCont_C (eLazyBoolCalculate),
-    m_supports_vCont_s (eLazyBoolCalculate),
-    m_supports_vCont_S (eLazyBoolCalculate),
-    m_qHostInfo_is_valid (eLazyBoolCalculate),
-    m_curr_pid_is_valid (eLazyBoolCalculate),
-    m_qProcessInfo_is_valid (eLazyBoolCalculate),
-    m_qGDBServerVersion_is_valid (eLazyBoolCalculate),
-    m_supports_alloc_dealloc_memory (eLazyBoolCalculate),
-    m_supports_memory_region_info  (eLazyBoolCalculate),
-    m_supports_watchpoint_support_info  (eLazyBoolCalculate),
-    m_supports_detach_stay_stopped (eLazyBoolCalculate),
-    m_watchpoints_trigger_after_instruction(eLazyBoolCalculate),
-    m_attach_or_wait_reply(eLazyBoolCalculate),
-    m_prepare_for_reg_writing_reply (eLazyBoolCalculate),
-    m_supports_p (eLazyBoolCalculate),
-    m_supports_x (eLazyBoolCalculate),
-    m_avoid_g_packets (eLazyBoolCalculate),
-    m_supports_QSaveRegisterState (eLazyBoolCalculate),
-    m_supports_qXfer_auxv_read (eLazyBoolCalculate),
-    m_supports_qXfer_libraries_read (eLazyBoolCalculate),
-    m_supports_qXfer_libraries_svr4_read (eLazyBoolCalculate),
-    m_supports_qXfer_features_read (eLazyBoolCalculate),
-    m_supports_augmented_libraries_svr4_read (eLazyBoolCalculate),
-    m_supports_jThreadExtendedInfo (eLazyBoolCalculate),
-    m_supports_jLoadedDynamicLibrariesInfos (eLazyBoolCalculate),
-    m_supports_qProcessInfoPID (true),
-    m_supports_qfProcessInfo (true),
-    m_supports_qUserName (true),
-    m_supports_qGroupName (true),
-    m_supports_qThreadStopInfo (true),
-    m_supports_z0 (true),
-    m_supports_z1 (true),
-    m_supports_z2 (true),
-    m_supports_z3 (true),
-    m_supports_z4 (true),
-    m_supports_QEnvironment (true),
-    m_supports_QEnvironmentHexEncoded (true),
-    m_supports_qSymbol (true),
-    m_qSymbol_requests_done (false),
-    m_supports_qModuleInfo (true),
-    m_supports_jThreadsInfo (true),
-    m_curr_pid (LLDB_INVALID_PROCESS_ID),
-    m_curr_tid (LLDB_INVALID_THREAD_ID),
-    m_curr_tid_run (LLDB_INVALID_THREAD_ID),
-    m_num_supported_hardware_watchpoints (0),
-    m_async_mutex (Mutex::eMutexTypeRecursive),
-    m_async_packet_predicate (false),
-    m_async_packet (),
-    m_async_result (PacketResult::Success),
-    m_async_response (),
-    m_async_signal (-1),
-    m_interrupt_sent (false),
-    m_thread_id_to_used_usec_map (),
-    m_host_arch(),
-    m_process_arch(),
-    m_os_version_major (UINT32_MAX),
-    m_os_version_minor (UINT32_MAX),
-    m_os_version_update (UINT32_MAX),
-    m_os_build (),
-    m_os_kernel (),
-    m_hostname (),
-    m_gdb_server_name(),
-    m_gdb_server_version(UINT32_MAX),
-    m_default_packet_timeout (0),
-    m_max_packet_size (0)
+GDBRemoteCommunicationClient::GDBRemoteCommunicationClient()
+    : GDBRemoteCommunication("gdb-remote.client", "gdb-remote.client.rx_packet"),
+      m_supports_not_sending_acks(eLazyBoolCalculate),
+      m_supports_thread_suffix(eLazyBoolCalculate),
+      m_supports_threads_in_stop_reply(eLazyBoolCalculate),
+      m_supports_vCont_all(eLazyBoolCalculate),
+      m_supports_vCont_any(eLazyBoolCalculate),
+      m_supports_vCont_c(eLazyBoolCalculate),
+      m_supports_vCont_C(eLazyBoolCalculate),
+      m_supports_vCont_s(eLazyBoolCalculate),
+      m_supports_vCont_S(eLazyBoolCalculate),
+      m_qHostInfo_is_valid(eLazyBoolCalculate),
+      m_curr_pid_is_valid(eLazyBoolCalculate),
+      m_qProcessInfo_is_valid(eLazyBoolCalculate),
+      m_qGDBServerVersion_is_valid(eLazyBoolCalculate),
+      m_supports_alloc_dealloc_memory(eLazyBoolCalculate),
+      m_supports_memory_region_info(eLazyBoolCalculate),
+      m_supports_watchpoint_support_info(eLazyBoolCalculate),
+      m_supports_detach_stay_stopped(eLazyBoolCalculate),
+      m_watchpoints_trigger_after_instruction(eLazyBoolCalculate),
+      m_attach_or_wait_reply(eLazyBoolCalculate),
+      m_prepare_for_reg_writing_reply(eLazyBoolCalculate),
+      m_supports_p(eLazyBoolCalculate),
+      m_supports_x(eLazyBoolCalculate),
+      m_avoid_g_packets(eLazyBoolCalculate),
+      m_supports_QSaveRegisterState(eLazyBoolCalculate),
+      m_supports_qXfer_auxv_read(eLazyBoolCalculate),
+      m_supports_qXfer_libraries_read(eLazyBoolCalculate),
+      m_supports_qXfer_libraries_svr4_read(eLazyBoolCalculate),
+      m_supports_qXfer_features_read(eLazyBoolCalculate),
+      m_supports_augmented_libraries_svr4_read(eLazyBoolCalculate),
+      m_supports_jThreadExtendedInfo(eLazyBoolCalculate),
+      m_supports_jLoadedDynamicLibrariesInfos(eLazyBoolCalculate),
+      m_supports_jGetSharedCacheInfo (eLazyBoolCalculate),
+      m_supports_qProcessInfoPID(true),
+      m_supports_qfProcessInfo(true),
+      m_supports_qUserName(true),
+      m_supports_qGroupName(true),
+      m_supports_qThreadStopInfo(true),
+      m_supports_z0(true),
+      m_supports_z1(true),
+      m_supports_z2(true),
+      m_supports_z3(true),
+      m_supports_z4(true),
+      m_supports_QEnvironment(true),
+      m_supports_QEnvironmentHexEncoded(true),
+      m_supports_qSymbol(true),
+      m_qSymbol_requests_done(false),
+      m_supports_qModuleInfo(true),
+      m_supports_jThreadsInfo(true),
+      m_curr_pid(LLDB_INVALID_PROCESS_ID),
+      m_curr_tid(LLDB_INVALID_THREAD_ID),
+      m_curr_tid_run(LLDB_INVALID_THREAD_ID),
+      m_num_supported_hardware_watchpoints(0),
+      m_async_mutex(),
+      m_async_packet_predicate(false),
+      m_async_packet(),
+      m_async_result(PacketResult::Success),
+      m_async_response(),
+      m_async_signal(-1),
+      m_interrupt_sent(false),
+      m_thread_id_to_used_usec_map(),
+      m_host_arch(),
+      m_process_arch(),
+      m_os_version_major(UINT32_MAX),
+      m_os_version_minor(UINT32_MAX),
+      m_os_version_update(UINT32_MAX),
+      m_os_build(),
+      m_os_kernel(),
+      m_hostname(),
+      m_gdb_server_name(),
+      m_gdb_server_version(UINT32_MAX),
+      m_default_packet_timeout(0),
+      m_max_packet_size(0)
 {
 }
 
@@ -677,6 +678,24 @@ GDBRemoteCommunicationClient::GetLoadedDynamicLibrariesInfosSupported ()
 }
 
 bool
+GDBRemoteCommunicationClient::GetSharedCacheInfoSupported ()
+{
+    if (m_supports_jGetSharedCacheInfo == eLazyBoolCalculate)
+    {
+        StringExtractorGDBRemote response;
+        m_supports_jGetSharedCacheInfo = eLazyBoolNo;
+        if (SendPacketAndWaitForResponse("jGetSharedCacheInfo:", response, false) == PacketResult::Success)
+        {
+            if (response.IsOKResponse())
+            {
+                m_supports_jGetSharedCacheInfo = eLazyBoolYes;
+            }
+        }
+    }
+    return m_supports_jGetSharedCacheInfo;
+}
+
+bool
 GDBRemoteCommunicationClient::GetxPacketSupported ()
 {
     if (m_supports_x == eLazyBoolCalculate)
@@ -820,7 +839,7 @@ GDBRemoteCommunicationClient::SendPacketAndWaitForResponse
         {
             if (IsRunning())
             {
-                Mutex::Locker async_locker (m_async_mutex);
+                std::lock_guard<std::recursive_mutex> guard(m_async_mutex);
                 m_async_packet.assign(payload, payload_length);
                 m_async_response.CopyResponseValidator(response);
                 m_async_packet_predicate.SetValue (true, eBroadcastNever);
@@ -1372,7 +1391,7 @@ GDBRemoteCommunicationClient::SendContinuePacketAndWaitForResponse
 bool
 GDBRemoteCommunicationClient::SendAsyncSignal (int signo)
 {
-    Mutex::Locker async_locker (m_async_mutex);
+    std::lock_guard<std::recursive_mutex> guard(m_async_mutex);
     m_async_signal = signo;
     bool timed_out = false;
     Mutex::Locker locker;
@@ -2427,6 +2446,8 @@ GDBRemoteCommunicationClient::GetMemoryRegionInfo (lldb::addr_t addr,
                             region_info.SetExecutable (MemoryRegionInfo::eYes);
                         else
                             region_info.SetExecutable (MemoryRegionInfo::eNo);
+
+                        region_info.SetMapped(MemoryRegionInfo::eYes);
                     }
                     else
                     {
@@ -2434,7 +2455,15 @@ GDBRemoteCommunicationClient::GetMemoryRegionInfo (lldb::addr_t addr,
                         region_info.SetReadable (MemoryRegionInfo::eNo);
                         region_info.SetWritable (MemoryRegionInfo::eNo);
                         region_info.SetExecutable (MemoryRegionInfo::eNo);
+                        region_info.SetMapped(MemoryRegionInfo::eNo);
                     }
+                }
+                else if (name.compare ("name") == 0)
+                {
+                    StringExtractorGDBRemote name_extractor;
+                    name_extractor.GetStringRef().swap(value);
+                    name_extractor.GetHexByteString(value);
+                    region_info.SetName(value.c_str());
                 }
                 else if (name.compare ("error") == 0)
                 {
@@ -2453,6 +2482,7 @@ GDBRemoteCommunicationClient::GetMemoryRegionInfo (lldb::addr_t addr,
                 region_info.SetReadable (MemoryRegionInfo::eNo);
                 region_info.SetWritable (MemoryRegionInfo::eNo);
                 region_info.SetExecutable (MemoryRegionInfo::eNo);
+                region_info.SetMapped(MemoryRegionInfo::eNo);
             }
         }
         else
@@ -4495,7 +4525,7 @@ GDBRemoteCommunicationClient::ServeSymbolLookups(lldb_private::Process *process)
     // symbols and we can stop asking.
     bool symbol_response_provided = false;
 
-    // Is this the inital qSymbol:: packet?
+    // Is this the initial qSymbol:: packet?
     bool first_qsymbol_query = true;
 
     if (m_supports_qSymbol && m_qSymbol_requests_done == false)

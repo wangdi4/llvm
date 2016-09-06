@@ -1,25 +1,22 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-complete-unroll -print-before=hir-complete-unroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that traceback for the instruction %add which is marked as live range indicator by ssa deconstruction is suppressed when parsing %sub59.
-; CHECK: DO i1 = 0, 15
-; CHECK-NEXT: %index.4184.out = %index.4184
-; CHECK-NEXT: %0 = {al:1}(%p)[i1 + 1];
-; CHECK-NEXT: %.sink.in1 = -1;
-; CHECK-NEXT: if (%0 == 0)
-; CHECK-NEXT: {
-; CHECK-NEXT: }
-; CHECK-NEXT: else
-; CHECK-NEXT: {
-; CHECK-NEXT: %1 = {al:4}(%huffcode)[0][%index.4184.out];
-; CHECK-NEXT: (%q)[i1 + 1] = -1 * %1 + %index.4184.out;
-; CHECK-NEXT: %2 = {al:1}(%p)[i1 + 1];
-; CHECK-NEXT: %index.4184 = %2  +  %index.4184;
-; CHECK-NEXT: %3 = {al:4}(%huffcode)[0][%index.4184 + -1];
-; CHECK-NEXT: %.sink.in1 = %3;
-; CHECK-NEXT: }
-; CHECK-NEXT: (%r)[i1 + 1] = %.sink.in1;
-; CHECK-NEXT: END LOOP
 
+; CHECK: + DO i1 = 0, 15, 1   <DO_LOOP>
+; CHECK: |   %index.4184.out = %index.4184;
+; CHECK: |   %0 = {al:1}(%p)[i1 + 1];
+; CHECK: |   %.sink = -1;
+; CHECK: |   if (%0 != 0)
+; CHECK: |   {
+; CHECK: |      %1 = {al:4}(%huffcode)[0][%index.4184.out];
+; CHECK: |      {al:4}(%q)[i1 + 1] = -1 * %1 + %index.4184.out;
+; CHECK: |      %2 = {al:1}(%p)[i1 + 1];
+; CHECK: |      %index.4184 = %2  +  %index.4184;
+; CHECK: |      %3 = {al:4}(%huffcode)[0][%index.4184 + -1];
+; CHECK: |      %.sink = %3;
+; CHECK: |   }
+; CHECK: |   {al:4}(%r)[i1 + 1] = %.sink;
+; CHECK: + END LOOP
 
 define void @DeriveHuffmanTable(i8* %p, i32* %q, i32* %r) {
 entry:

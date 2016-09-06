@@ -25,22 +25,15 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-std::set<IRRegion *> IRRegion::Objs;
-
-void IRRegion::destroyAll() {
-  for (auto &I : Objs) {
-    delete I;
-  }
-
-  Objs.clear();
-}
-
 IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs)
     : EntryBBlock(EntryBB), ExitBBlock(nullptr), BBlocks(BBs) {
   assert(EntryBB && "Entry basic block cannot be null!");
-
-  Objs.insert(this);
 }
+
+IRRegion::IRRegion(IRRegion &&Reg)
+    : EntryBBlock(Reg.EntryBBlock), ExitBBlock(Reg.ExitBBlock),
+      BBlocks(std::move(Reg.BBlocks)), LiveInSet(std::move(Reg.LiveInSet)),
+      LiveOutSet(std::move(Reg.LiveOutSet)) {}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void IRRegion::dump() const { print(dbgs(), 0); }
@@ -114,6 +107,11 @@ BasicBlock *IRRegion::getPredBBlock() const {
 
 BasicBlock *IRRegion::getSuccBBlock() const {
   auto SuccI = succ_begin(ExitBBlock);
+
+  // Exit bblock can be a function return bblock.
+  if (SuccI == succ_end(ExitBBlock)) {
+    return nullptr;
+  }
 
   /// In some cases the exit bblock is also the loop latch, so the successor
   /// can be the loop header. We need to skip it, if that is the case.

@@ -90,6 +90,46 @@ protected:
 private:
 #endif
 
+    // RAII object that stores the current insertion point and restores it when
+    // the object is destroyed. This includes the debug location.  Duplicated
+    // from InsertPointGuard to add SetInsertPoint() which is used to updated
+    // InsertPointGuards stack when insert points are moved during SCEV
+    // expansion.
+    class SCEVInsertPointGuard {
+      IRBuilderBase &Builder;
+      AssertingVH<BasicBlock> Block;
+      BasicBlock::iterator Point;
+      DebugLoc DbgLoc;
+      SCEVExpander *SE;
+
+      SCEVInsertPointGuard(const SCEVInsertPointGuard &) = delete;
+      SCEVInsertPointGuard &operator=(const SCEVInsertPointGuard &) = delete;
+
+    public:
+      SCEVInsertPointGuard(IRBuilderBase &B, SCEVExpander *SE)
+          : Builder(B), Block(B.GetInsertBlock()), Point(B.GetInsertPoint()),
+            DbgLoc(B.getCurrentDebugLocation()), SE(SE) {
+        SE->InsertPointGuards.push_back(this);
+      }
+
+      ~SCEVInsertPointGuard() {
+        // These guards should always created/destroyed in FIFO order since they
+        // are used to guard lexically scoped blocks of code in
+        // ScalarEvolutionExpander.
+        assert(SE->InsertPointGuards.back() == this);
+        SE->InsertPointGuards.pop_back();
+        Builder.restoreIP(IRBuilderBase::InsertPoint(Block, Point));
+        Builder.SetCurrentDebugLocation(DbgLoc);
+      }
+
+      BasicBlock::iterator GetInsertPoint() const { return Point; }
+      void SetInsertPoint(BasicBlock::iterator I) { Point = I; }
+    };
+
+    /// Stack of pointers to saved insert points, used to keep insert points
+    /// consistent when instructions are moved.
+    SmallVector<SCEVInsertPointGuard *, 8> InsertPointGuards;
+
 #ifndef NDEBUG
     const char *DebugType;
 #endif
@@ -108,9 +148,10 @@ private:
 #endif
     }
 
-#if INTEL_CUSTOMIZATION
-    virtual ~SCEVExpander() {}
-#endif
+    virtual ~SCEVExpander() { // INTEL
+      // Make sure the insert point guard stack is consistent.
+      assert(InsertPointGuards.empty());
+    }
 
 #ifndef NDEBUG
     void setDebugType(const char* s) { DebugType = s; }
@@ -275,7 +316,8 @@ private:
                           PointerType *PTy, Type *Ty, Value *V);
 
     /// \brief Find a previous Value in ExprValueMap for expand.
-    Value *FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
+    ScalarEvolution::ValueOffsetPair
+    FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
 
     virtual Value *expand(const SCEV *S);         // INTEL
 
@@ -332,6 +374,11 @@ private:
                                        bool &InvertStep);
     Value *expandIVInc(PHINode *PN, Value *StepV, const Loop *L,
                        Type *ExpandTy, Type *IntTy, bool useSubtract);
+
+    void hoistBeforePos(DominatorTree *DT, Instruction *InstToHoist,
+                        Instruction *Pos, PHINode *LoopPhi);
+
+    void fixupInsertPoints(Instruction *I);
   };
 }
 

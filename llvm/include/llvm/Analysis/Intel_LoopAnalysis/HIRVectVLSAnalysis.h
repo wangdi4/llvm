@@ -22,14 +22,12 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRVECTVLS_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRVECTVLS_H
 
-#include <map>
-
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/Pass.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/Pass.h"
+#include <map>
 
 namespace llvm {
 
@@ -60,7 +58,7 @@ public:
   /// \param VecContext holds the vectorization context underwhich the
   /// \p MemRefs are analyzed.
   /// \param [out] Mrfs holds the HIRVLSClientMemrefs created by this function.
-  void getVLSMemrefs(VectVLSContext *VectContext, LoopMemrefsVector &MemRefs,
+  void getVLSMemrefs(VectVLSContext &VectContext, LoopMemrefsVector &MemRefs,
                      OVLSMemrefVector &Mrfs);
 
   /// \brief Find groups of neighbouring memory references.
@@ -70,7 +68,25 @@ public:
   /// \p Memrefs are analyzed.
   /// \param [out] Grps holds the VLS Groups that are found by this function.
   void computeVLSGroups(const OVLSMemrefVector &Memrefs,
-                        VectVLSContext *VectContext, OVLSGroupVector &Grps);
+                        VectVLSContext &VectContext, OVLSGroupVector &Grps);
+
+  /// \brief Utility that analyzes HIR memory references relative to a context 
+  /// (loop, VF) given in \p VectContext and provides an OVLSMemref interface 
+  /// for them.
+  /// \param LoopMemrefs holds the HIR memrefs.
+  /// \param VectContext holds the vectorization context underwhich the
+  /// \p LoopMemrefs are analyzed (namely, loop and VF).
+  /// \param [out] Mrfs holds the HIRVLSClientMemrefs created by this function.
+  // TODO: Provide a VF-agnostic utility, as well as a utility that refines
+  // grouping given a VF.
+  void analyzeVLSMemrefsInLoop(VectVLSContext &VectContext,
+                               LoopMemrefsVector &LoopMemrefs,
+                               OVLSMemrefVector &Mrfs);
+
+  /// \brief Utility that gathers HIR memory references in \p Loop.
+  /// \param [out] LoopMemrefsVector holds the HIR memrefs gathered by this 
+  /// function.
+  static void gatherMemrefsInLoop(HLLoop *Loop, LoopMemrefsVector &LoopMemrefs);
 
   /// \brief Tester for debugging. Drives the routines that are required by
   /// VLS optimization without going through the VLS server itself and without

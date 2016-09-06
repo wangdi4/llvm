@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Spiller.h"
+#include "SplitKit.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -69,6 +70,8 @@ class HoistSpillHelper : private LiveRangeEdit::Delegate {
   const TargetRegisterInfo &TRI;
   const MachineBlockFrequencyInfo &MBFI;
 
+  InsertPointAnalysis IPA;
+
   // Map from StackSlot to its original register.
   DenseMap<int, unsigned> StackSlotToReg;
   // Map from pair of (StackSlot and Original VNI) to a set of spills which
@@ -114,11 +117,12 @@ public:
         MFI(*mf.getFrameInfo()), MRI(mf.getRegInfo()),
         TII(*mf.getSubtarget().getInstrInfo()),
         TRI(*mf.getSubtarget().getRegisterInfo()),
-        MBFI(pass.getAnalysis<MachineBlockFrequencyInfo>()) {}
+        MBFI(pass.getAnalysis<MachineBlockFrequencyInfo>()),
+        IPA(LIS, mf.getNumBlockIDs()) {}
 
-  void addToMergeableSpills(MachineInstr *Spill, int StackSlot,
+  void addToMergeableSpills(MachineInstr &Spill, int StackSlot,
                             unsigned Original);
-  bool rmFromMergeableSpills(MachineInstr *Spill, int StackSlot);
+  bool rmFromMergeableSpills(MachineInstr &Spill, int StackSlot);
   void hoistAllSpills();
   void LRE_DidCloneVirtReg(unsigned, unsigned) override;
 };
@@ -232,13 +236,13 @@ Spiller *createInlineSpiller(MachineFunctionPass &pass,
 
 /// isFullCopyOf - If MI is a COPY to or from Reg, return the other register,
 /// otherwise return 0.
-static unsigned isFullCopyOf(const MachineInstr *MI, unsigned Reg) {
-  if (!MI->isFullCopy())
+static unsigned isFullCopyOf(const MachineInstr &MI, unsigned Reg) {
+  if (!MI.isFullCopy())
     return 0;
-  if (MI->getOperand(0).getReg() == Reg)
-      return MI->getOperand(1).getReg();
-  if (MI->getOperand(1).getReg() == Reg)
-      return MI->getOperand(0).getReg();
+  if (MI.getOperand(0).getReg() == Reg)
+    return MI.getOperand(1).getReg();
+  if (MI.getOperand(1).getReg() == Reg)
+    return MI.getOperand(0).getReg();
   return 0;
 }
 
@@ -264,7 +268,7 @@ bool InlineSpiller::isSnippet(const LiveInterval &SnipLI) {
   for (MachineRegisterInfo::reg_instr_nodbg_iterator
        RI = MRI.reg_instr_nodbg_begin(SnipLI.reg),
        E = MRI.reg_instr_nodbg_end(); RI != E; ) {
-    MachineInstr *MI = &*(RI++);
+    MachineInstr &MI = *RI++;
 
     // Allow copies to/from Reg.
     if (isFullCopyOf(MI, Reg))
@@ -280,9 +284,9 @@ bool InlineSpiller::isSnippet(const LiveInterval &SnipLI) {
       continue;
 
     // Allow a single additional instruction.
-    if (UseMI && MI != UseMI)
+    if (UseMI && &MI != UseMI)
       return false;
-    UseMI = MI;
+    UseMI = &MI;
   }
   return true;
 }
@@ -303,14 +307,14 @@ void InlineSpiller::collectRegsToSpill() {
 
   for (MachineRegisterInfo::reg_instr_iterator
        RI = MRI.reg_instr_begin(Reg), E = MRI.reg_instr_end(); RI != E; ) {
-    MachineInstr *MI = &*(RI++);
+    MachineInstr &MI = *RI++;
     unsigned SnipReg = isFullCopyOf(MI, Reg);
     if (!isSibling(SnipReg))
       continue;
     LiveInterval &SnipLI = LIS.getInterval(SnipReg);
     if (!isSnippet(SnipLI))
       continue;
-    SnippetCopies.insert(MI);
+    SnippetCopies.insert(&MI);
     if (isRegToSpill(SnipReg))
       continue;
     RegsToSpill.push_back(SnipReg);
@@ -390,7 +394,7 @@ bool InlineSpiller::hoistSpillInsideBB(LiveInterval &SpillLI,
   LIS.InsertMachineInstrInMaps(*MII);
   DEBUG(dbgs() << "\thoisted: " << SrcVNI->def << '\t' << *MII);
 
-  HSpiller.addToMergeableSpills(&(*MII), StackSlot, Original);
+  HSpiller.addToMergeableSpills(*MII, StackSlot, Original);
   ++NumSpills;
   return true;
 }
@@ -422,10 +426,10 @@ void InlineSpiller::eliminateRedundantSpills(LiveInterval &SLI, VNInfo *VNI) {
     for (MachineRegisterInfo::use_instr_nodbg_iterator
          UI = MRI.use_instr_nodbg_begin(Reg), E = MRI.use_instr_nodbg_end();
          UI != E; ) {
-      MachineInstr *MI = &*(UI++);
-      if (!MI->isCopy() && !MI->mayStore())
+      MachineInstr &MI = *UI++;
+      if (!MI.isCopy() && !MI.mayStore())
         continue;
-      SlotIndex Idx = LIS.getInstructionIndex(*MI);
+      SlotIndex Idx = LIS.getInstructionIndex(MI);
       if (LI->getVNInfoAt(Idx) != VNI)
         continue;
 
@@ -444,10 +448,10 @@ void InlineSpiller::eliminateRedundantSpills(LiveInterval &SLI, VNInfo *VNI) {
       // Erase spills.
       int FI;
       if (Reg == TII.isStoreToStackSlot(MI, FI) && FI == StackSlot) {
-        DEBUG(dbgs() << "Redundant spill " << Idx << '\t' << *MI);
+        DEBUG(dbgs() << "Redundant spill " << Idx << '\t' << MI);
         // eliminateDeadDefs won't normally remove stores, so switch opcode.
-        MI->setDesc(TII.get(TargetOpcode::KILL));
-        DeadDefs.push_back(MI);
+        MI.setDesc(TII.get(TargetOpcode::KILL));
+        DeadDefs.push_back(&MI);
         ++NumSpillsRemoved;
         if (HSpiller.rmFromMergeableSpills(MI, StackSlot))
           --NumSpills;
@@ -622,7 +626,7 @@ void InlineSpiller::reMaterializeAll() {
   if (DeadDefs.empty())
     return;
   DEBUG(dbgs() << "Remat created " << DeadDefs.size() << " dead defs.\n");
-  Edit->eliminateDeadDefs(DeadDefs, RegsToSpill);
+  Edit->eliminateDeadDefs(DeadDefs, RegsToSpill, AA);
 
   // LiveRangeEdit::eliminateDeadDef is used to remove dead define instructions
   // after rematerialization.  To remove a VNI for a vreg from its LiveInterval,
@@ -652,17 +656,17 @@ void InlineSpiller::reMaterializeAll() {
 /// If MI is a load or store of StackSlot, it can be removed.
 bool InlineSpiller::coalesceStackAccess(MachineInstr *MI, unsigned Reg) {
   int FI = 0;
-  unsigned InstrReg = TII.isLoadFromStackSlot(MI, FI);
+  unsigned InstrReg = TII.isLoadFromStackSlot(*MI, FI);
   bool IsLoad = InstrReg;
   if (!IsLoad)
-    InstrReg = TII.isStoreToStackSlot(MI, FI);
+    InstrReg = TII.isStoreToStackSlot(*MI, FI);
 
   // We have a stack access. Is it the right register and slot?
   if (InstrReg != Reg || FI != StackSlot)
     return false;
 
   if (!IsLoad)
-    HSpiller.rmFromMergeableSpills(MI, StackSlot);
+    HSpiller.rmFromMergeableSpills(*MI, StackSlot);
 
   DEBUG(dbgs() << "Coalescing stack access: " << *MI);
   LIS.RemoveMachineInstrFromMaps(*MI);
@@ -761,8 +765,8 @@ foldMemoryOperand(ArrayRef<std::pair<MachineInstr*, unsigned> > Ops,
   MachineInstrSpan MIS(MI);
 
   MachineInstr *FoldMI =
-                LoadMI ? TII.foldMemoryOperand(MI, FoldOps, LoadMI)
-                       : TII.foldMemoryOperand(MI, FoldOps, StackSlot);
+      LoadMI ? TII.foldMemoryOperand(*MI, FoldOps, *LoadMI, &LIS)
+             : TII.foldMemoryOperand(*MI, FoldOps, StackSlot, &LIS);
   if (!FoldMI)
     return false;
 
@@ -789,7 +793,8 @@ foldMemoryOperand(ArrayRef<std::pair<MachineInstr*, unsigned> > Ops,
   }
 
   int FI;
-  if (TII.isStoreToStackSlot(MI, FI) && HSpiller.rmFromMergeableSpills(MI, FI))
+  if (TII.isStoreToStackSlot(*MI, FI) &&
+      HSpiller.rmFromMergeableSpills(*MI, FI))
     --NumSpills;
   LIS.ReplaceMachineInstrInMaps(*MI, *FoldMI);
   MI->eraseFromParent();
@@ -818,7 +823,7 @@ foldMemoryOperand(ArrayRef<std::pair<MachineInstr*, unsigned> > Ops,
     ++NumFolded;
   else if (Ops.front().second == 0) {
     ++NumSpills;
-    HSpiller.addToMergeableSpills(FoldMI, StackSlot, Original);
+    HSpiller.addToMergeableSpills(*FoldMI, StackSlot, Original);
   } else
     ++NumReloads;
   return true;
@@ -854,7 +859,7 @@ void InlineSpiller::insertSpill(unsigned NewVReg, bool isKill,
   DEBUG(dumpMachineInstrRangeWithSlotIndex(std::next(MI), MIS.end(), LIS,
                                            "spill"));
   ++NumSpills;
-  HSpiller.addToMergeableSpills(std::next(MI), StackSlot, Original);
+  HSpiller.addToMergeableSpills(*std::next(MI), StackSlot, Original);
 }
 
 /// spillAroundUses - insert spill code around each use of Reg.
@@ -909,7 +914,7 @@ void InlineSpiller::spillAroundUses(unsigned Reg) {
         Idx = VNI->def;
 
     // Check for a sibling copy.
-    unsigned SibReg = isFullCopyOf(MI, Reg);
+    unsigned SibReg = isFullCopyOf(*MI, Reg);
     if (SibReg && isSibling(SibReg)) {
       // This may actually be a copy between snippets.
       if (isRegToSpill(SibReg)) {
@@ -991,7 +996,7 @@ void InlineSpiller::spillAll() {
   // Hoisted spills may cause dead code.
   if (!DeadDefs.empty()) {
     DEBUG(dbgs() << "Eliminating " << DeadDefs.size() << " dead defs\n");
-    Edit->eliminateDeadDefs(DeadDefs, RegsToSpill);
+    Edit->eliminateDeadDefs(DeadDefs, RegsToSpill, AA);
   }
 
   // Finally delete the SnippetCopies.
@@ -1046,27 +1051,27 @@ void InlineSpiller::postOptimization() { HSpiller.hoistAllSpills(); }
 
 /// When a spill is inserted, add the spill to MergeableSpills map.
 ///
-void HoistSpillHelper::addToMergeableSpills(MachineInstr *Spill, int StackSlot,
+void HoistSpillHelper::addToMergeableSpills(MachineInstr &Spill, int StackSlot,
                                             unsigned Original) {
   StackSlotToReg[StackSlot] = Original;
-  SlotIndex Idx = LIS.getInstructionIndex(*Spill);
+  SlotIndex Idx = LIS.getInstructionIndex(Spill);
   VNInfo *OrigVNI = LIS.getInterval(Original).getVNInfoAt(Idx.getRegSlot());
   std::pair<int, VNInfo *> MIdx = std::make_pair(StackSlot, OrigVNI);
-  MergeableSpills[MIdx].insert(Spill);
+  MergeableSpills[MIdx].insert(&Spill);
 }
 
 /// When a spill is removed, remove the spill from MergeableSpills map.
 /// Return true if the spill is removed successfully.
 ///
-bool HoistSpillHelper::rmFromMergeableSpills(MachineInstr *Spill,
+bool HoistSpillHelper::rmFromMergeableSpills(MachineInstr &Spill,
                                              int StackSlot) {
   int Original = StackSlotToReg[StackSlot];
   if (!Original)
     return false;
-  SlotIndex Idx = LIS.getInstructionIndex(*Spill);
+  SlotIndex Idx = LIS.getInstructionIndex(Spill);
   VNInfo *OrigVNI = LIS.getInterval(Original).getVNInfoAt(Idx.getRegSlot());
   std::pair<int, VNInfo *> MIdx = std::make_pair(StackSlot, OrigVNI);
-  return MergeableSpills[MIdx].erase(Spill);
+  return MergeableSpills[MIdx].erase(&Spill);
 }
 
 /// Check BB to see if it is a possible target BB to place a hoisted spill,
@@ -1075,7 +1080,8 @@ bool HoistSpillHelper::rmFromMergeableSpills(MachineInstr *Spill,
 bool HoistSpillHelper::isSpillCandBB(unsigned OrigReg, VNInfo &OrigVNI,
                                      MachineBasicBlock &BB, unsigned &LiveReg) {
   SlotIndex Idx;
-  MachineBasicBlock::iterator MI = BB.getFirstTerminator();
+  LiveInterval &OrigLI = LIS.getInterval(OrigReg);
+  MachineBasicBlock::iterator MI = IPA.getLastInsertPointIter(OrigLI, BB);
   if (MI != BB.end())
     Idx = LIS.getInstructionIndex(*MI);
   else
@@ -1095,7 +1101,7 @@ bool HoistSpillHelper::isSpillCandBB(unsigned OrigReg, VNInfo &OrigVNI,
   return false;
 }
 
-/// Remove redundent spills in the same BB. Save those redundent spills in
+/// Remove redundant spills in the same BB. Save those redundant spills in
 /// SpillsToRm, and save the spill to keep and its BB in SpillBBToSpill map.
 ///
 void HoistSpillHelper::rmRedundantSpills(
@@ -1141,7 +1147,7 @@ void HoistSpillHelper::getVisitOrders(
   // original spills.
   SmallPtrSet<MachineDomTreeNode *, 8> WorkSet;
   // Save the BB nodes on the path from the first BB node containing
-  // non-redundent spill to the Root node.
+  // non-redundant spill to the Root node.
   SmallPtrSet<MachineDomTreeNode *, 8> NodesOnPath;
   // All the spills to be hoisted must originate from a single def instruction
   // to the OrigReg. It means the def instruction should dominate all the spills
@@ -1151,8 +1157,8 @@ void HoistSpillHelper::getVisitOrders(
   // For every node on the dominator tree with spill, walk up on the dominator
   // tree towards the Root node until it is reached. If there is other node
   // containing spill in the middle of the path, the previous spill saw will
-  // be redundent and the node containing it will be removed. All the nodes on
-  // the path starting from the first node with non-redundent spill to the Root
+  // be redundant and the node containing it will be removed. All the nodes on
+  // the path starting from the first node with non-redundant spill to the Root
   // node will be added to the WorkSet, which will contain all the possible
   // locations where spills may be hoisted to after the loop below is done.
   for (const auto Spill : Spills) {
@@ -1161,7 +1167,7 @@ void HoistSpillHelper::getVisitOrders(
     MachineInstr *SpillToRm = nullptr;
     while (Node != RootIDomNode) {
       // If Node dominates Block, and it already contains a spill, the spill in
-      // Block will be redundent.
+      // Block will be redundant.
       if (Node != MDT[Block] && SpillBBToSpill[Node]) {
         SpillToRm = SpillBBToSpill[MDT[Block]];
         break;
@@ -1339,22 +1345,22 @@ void HoistSpillHelper::runHoistSpills(
   }
 }
 
-/// For spills with equal values, remove redundent spills and hoist the left
+/// For spills with equal values, remove redundant spills and hoist those left
 /// to less hot spots.
 ///
 /// Spills with equal values will be collected into the same set in
 /// MergeableSpills when spill is inserted. These equal spills are originated
-/// from the same define instruction and are dominated by the instruction.
-/// Before hoisting all the equal spills, redundent spills inside in the same
-/// BB is first marked to be deleted. Then starting from spills left, walk up
-/// on the dominator tree towards the Root node where the define instruction
+/// from the same defining instruction and are dominated by the instruction.
+/// Before hoisting all the equal spills, redundant spills inside in the same
+/// BB are first marked to be deleted. Then starting from the spills left, walk
+/// up on the dominator tree towards the Root node where the define instruction
 /// is located, mark the dominated spills to be deleted along the way and
 /// collect the BB nodes on the path from non-dominated spills to the define
 /// instruction into a WorkSet. The nodes in WorkSet are the candidate places
-/// where we consider to hoist the spills. We iterate the WorkSet in bottom-up
-/// order, and for each node, we will decide whether to hoist spills inside
-/// its subtree to that node. In this way, we can get benefit locally even if
-/// hoisting all the equal spills to one cold place is impossible.
+/// where we are considering to hoist the spills. We iterate the WorkSet in
+/// bottom-up order, and for each node, we will decide whether to hoist spills
+/// inside its subtree to that node. In this way, we can get benefit locally
+/// even if hoisting all the equal spills to one cold place is impossible.
 ///
 void HoistSpillHelper::hoistAllSpills() {
   SmallVector<unsigned, 4> NewVRegs;
@@ -1376,6 +1382,7 @@ void HoistSpillHelper::hoistAllSpills() {
   for (auto &Ent : MergeableSpills) {
     int Slot = Ent.first.first;
     unsigned OrigReg = SlotToOrigReg[Slot];
+    LiveInterval &OrigLI = LIS.getInterval(OrigReg);
     VNInfo *OrigVNI = Ent.first.second;
     SmallPtrSet<MachineInstr *, 16> &EqValSpills = Ent.second;
     if (Ent.second.empty())
@@ -1408,24 +1415,22 @@ void HoistSpillHelper::hoistAllSpills() {
 
     // Stack live range update.
     LiveInterval &StackIntvl = LSS.getInterval(Slot);
-    if (!SpillsToIns.empty() || !SpillsToRm.empty()) {
-      LiveInterval &OrigLI = LIS.getInterval(OrigReg);
+    if (!SpillsToIns.empty() || !SpillsToRm.empty())
       StackIntvl.MergeValueInAsValue(OrigLI, OrigVNI,
                                      StackIntvl.getValNumInfo(0));
-    }
 
     // Insert hoisted spills.
     for (auto const Insert : SpillsToIns) {
       MachineBasicBlock *BB = Insert.first;
       unsigned LiveReg = Insert.second;
-      MachineBasicBlock::iterator MI = BB->getFirstTerminator();
+      MachineBasicBlock::iterator MI = IPA.getLastInsertPointIter(OrigLI, *BB);
       TII.storeRegToStackSlot(*BB, MI, LiveReg, false, Slot,
                               MRI.getRegClass(LiveReg), &TRI);
       LIS.InsertMachineInstrRangeInMaps(std::prev(MI), MI);
       ++NumSpills;
     }
 
-    // Remove redundent spills or change them to dead instructions.
+    // Remove redundant spills or change them to dead instructions.
     NumSpills -= SpillsToRm.size();
     for (auto const RMEnt : SpillsToRm) {
       RMEnt->setDesc(TII.get(TargetOpcode::KILL));
@@ -1435,7 +1440,7 @@ void HoistSpillHelper::hoistAllSpills() {
           RMEnt->RemoveOperand(i - 1);
       }
     }
-    Edit.eliminateDeadDefs(SpillsToRm, None);
+    Edit.eliminateDeadDefs(SpillsToRm, None, AA);
   }
 }
 

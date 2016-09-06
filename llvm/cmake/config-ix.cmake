@@ -110,7 +110,13 @@ if( NOT PURE_WINDOWS )
 endif()
 
 if(HAVE_LIBPTHREAD)
-  set(PTHREAD_LIB pthread)
+  # We want to find pthreads library and at the moment we do want to
+  # have it reported as '-l<lib>' instead of '-pthread'.
+  # TODO: switch to -pthread once the rest of the build system can deal with it.
+  set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+  set(THREADS_HAVE_PTHREAD_ARG Off)
+  find_package(Threads REQUIRED)
+  set(PTHREAD_LIB ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 # Don't look for these libraries on Windows. Also don't look for them if we're
@@ -141,20 +147,30 @@ if( NOT PURE_WINDOWS AND NOT LLVM_USE_SANITIZER MATCHES "Memory.*")
   endif()
 endif()
 
+check_library_exists(xar xar_open "" HAVE_LIBXAR)
+if(HAVE_LIBXAR)
+  set(XAR_LIB xar)
+endif()
+
 # function checks
 check_symbol_exists(arc4random "stdlib.h" HAVE_DECL_ARC4RANDOM)
 check_symbol_exists(backtrace "execinfo.h" HAVE_BACKTRACE)
+check_symbol_exists(_Unwind_Backtrace "unwind.h" HAVE_UNWIND_BACKTRACE)
 check_symbol_exists(getpagesize unistd.h HAVE_GETPAGESIZE)
 check_symbol_exists(getrusage sys/resource.h HAVE_GETRUSAGE)
 check_symbol_exists(setrlimit sys/resource.h HAVE_SETRLIMIT)
 check_symbol_exists(isatty unistd.h HAVE_ISATTY)
 check_symbol_exists(futimens sys/stat.h HAVE_FUTIMENS)
 check_symbol_exists(futimes sys/time.h HAVE_FUTIMES)
+check_symbol_exists(posix_fallocate fcntl.h HAVE_POSIX_FALLOCATE)
 if( HAVE_SETJMP_H )
   check_symbol_exists(longjmp setjmp.h HAVE_LONGJMP)
   check_symbol_exists(setjmp setjmp.h HAVE_SETJMP)
   check_symbol_exists(siglongjmp setjmp.h HAVE_SIGLONGJMP)
   check_symbol_exists(sigsetjmp setjmp.h HAVE_SIGSETJMP)
+endif()
+if( HAVE_SIGNAL_H )
+  check_symbol_exists(sigaltstack signal.h HAVE_SIGALTSTACK)
 endif()
 if( HAVE_SYS_UIO_H )
   check_symbol_exists(writev sys/uio.h HAVE_WRITEV)
@@ -401,12 +417,12 @@ else ()
   set(LLVM_NATIVE_ASMPRINTER LLVMInitialize${LLVM_NATIVE_ARCH}AsmPrinter)
 
   # We don't have an ASM parser for all architectures yet.
-  if (EXISTS ${CMAKE_SOURCE_DIR}/lib/Target/${LLVM_NATIVE_ARCH}/AsmParser/CMakeLists.txt)
+  if (EXISTS ${PROJECT_SOURCE_DIR}/lib/Target/${LLVM_NATIVE_ARCH}/AsmParser/CMakeLists.txt)
     set(LLVM_NATIVE_ASMPARSER LLVMInitialize${LLVM_NATIVE_ARCH}AsmParser)
   endif ()
 
   # We don't have an disassembler for all architectures yet.
-  if (EXISTS ${CMAKE_SOURCE_DIR}/lib/Target/${LLVM_NATIVE_ARCH}/Disassembler/CMakeLists.txt)
+  if (EXISTS ${PROJECT_SOURCE_DIR}/lib/Target/${LLVM_NATIVE_ARCH}/Disassembler/CMakeLists.txt)
     set(LLVM_NATIVE_DISASSEMBLER LLVMInitialize${LLVM_NATIVE_ARCH}Disassembler)
   endif ()
 endif ()
@@ -517,7 +533,7 @@ else()
   if(GO_EXECUTABLE STREQUAL "GO_EXECUTABLE-NOTFOUND")
     message(STATUS "Go bindings disabled.")
   else()
-    execute_process(COMMAND ${GO_EXECUTABLE} run ${CMAKE_SOURCE_DIR}/bindings/go/conftest.go
+    execute_process(COMMAND ${GO_EXECUTABLE} run ${PROJECT_SOURCE_DIR}/bindings/go/conftest.go
                     RESULT_VARIABLE GO_CONFTEST)
     if(GO_CONFTEST STREQUAL "0")
       set(LLVM_BINDINGS "${LLVM_BINDINGS} go")

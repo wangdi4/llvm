@@ -14,7 +14,7 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds float, float* %q, i64 %indvars.iv
   %0 = load float, float* %arrayidx, align 4, !tbaa !1
-  %add = fadd float %0, 1.000000e+00
+  %add = fadd float %0, 1.000000e+00 
   %arrayidx2 = getelementptr inbounds float, float* %p, i64 %indvars.iv
   store float %add, float* %arrayidx2, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -118,7 +118,10 @@ define void @sub4(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
 ;;    }
   
 ; CHECK: 'HIR Data Dependence Analysis' for function 'sub4'
-; CHECK-DAG: {al:4}(%p)[100 * i1 + i2 + 101] --> {al:4}(i32*)(%p)[100 * i1 + i2 + 100] FLOW (<= <>)
+
+
+; CHECK-DAG:  --> {al:4}(i32*)(%p)[100 * i1 + i2 + 100] FLOW (<= <)
+; CHECK-DAG:  --> {al:4}(%p)[100 * i1 + i2 + 101] ANTI (<= <)
 
 entry:
   br label %for.cond.1.preheader
@@ -163,8 +166,8 @@ define void @sub5(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
 ;;            q[i] =  p[100*i - j +11] ; } }
 
 ; CHECK: 'HIR Data Dependence Analysis' for function 'sub5'
-; CHECK-DAG: {al:4}(%p)[100 * i1 + i2 + 101] --> {al:4}(i32*)(%p)[100 * i1 + -1 * i2 + 110] FLOW (<= <>)
-
+; CHECK-DAG: --> {al:4}(i32*)(%p)[100 * i1 + -1 * i2 + 110] FLOW (<= <)
+; CHECK-DAG: --> {al:4}(%p)[100 * i1 + i2 + 101] ANTI (<= <)
 
 entry:
   br label %for.cond.1.preheader

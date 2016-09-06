@@ -507,19 +507,22 @@ __kmp_yield( int cond )
 void
 __kmp_gtid_set_specific( int gtid )
 {
-    KA_TRACE( 50, ("__kmp_gtid_set_specific: T#%d key:%d\n",
-                gtid, __kmp_gtid_threadprivate_key ));
-    KMP_ASSERT( __kmp_init_runtime );
-    if( ! TlsSetValue( __kmp_gtid_threadprivate_key, (LPVOID)(gtid+1)) )
-        KMP_FATAL( TLSSetValueFailed );
+    if( __kmp_init_gtid ) {
+        KA_TRACE( 50, ("__kmp_gtid_set_specific: T#%d key:%d\n",
+                    gtid, __kmp_gtid_threadprivate_key ));
+        if( ! TlsSetValue( __kmp_gtid_threadprivate_key, (LPVOID)(gtid+1)) )
+            KMP_FATAL( TLSSetValueFailed );
+    } else {
+        KA_TRACE( 50, ("__kmp_gtid_set_specific: runtime shutdown, returning\n" ) );
+    }
 }
 
 int
 __kmp_gtid_get_specific()
 {
     int gtid;
-    if( !__kmp_init_runtime ) {
-        KA_TRACE( 50, ("__kmp_get_specific: runtime shutdown, returning KMP_GTID_SHUTDOWN\n" ) );
+    if( !__kmp_init_gtid ) {
+        KA_TRACE( 50, ("__kmp_gtid_get_specific: runtime shutdown, returning KMP_GTID_SHUTDOWN\n" ) );
         return KMP_GTID_SHUTDOWN;
     }
     gtid = (int)(kmp_intptr_t)TlsGetValue( __kmp_gtid_threadprivate_key );
@@ -549,9 +552,18 @@ __kmp_get_proc_group( kmp_affin_mask_t const *mask )
     int i;
     int group = -1;
     for (i = 0; i < __kmp_num_proc_groups; i++) {
+#if KMP_USE_HWLOC
+        // On windows, the long type is always 32 bits
+        unsigned long first_32_bits = hwloc_bitmap_to_ith_ulong((hwloc_const_bitmap_t)mask, i*2);
+        unsigned long second_32_bits = hwloc_bitmap_to_ith_ulong((hwloc_const_bitmap_t)mask, i*2+1);
+        if (first_32_bits == 0 && second_32_bits == 0) {
+            continue;
+        }
+#else
         if (mask[i] == 0) {
             continue;
         }
+#endif
         if (group >= 0) {
             return -1;
         }
@@ -565,8 +577,23 @@ __kmp_get_proc_group( kmp_affin_mask_t const *mask )
 int
 __kmp_set_system_affinity( kmp_affin_mask_t const *mask, int abort_on_error )
 {
-
-#if KMP_GROUP_AFFINITY
+#if KMP_USE_HWLOC
+    int retval = hwloc_set_cpubind(__kmp_hwloc_topology, (hwloc_cpuset_t)mask, HWLOC_CPUBIND_THREAD);
+    if (retval >= 0) {
+        return 0;
+    }
+    int error = errno;
+    if (abort_on_error) {
+        __kmp_msg(
+            kmp_ms_fatal,
+            KMP_MSG( FatalSysError ),
+            KMP_ERR( error ),
+            __kmp_msg_null
+        );
+    }
+    return error;
+#else
+# if KMP_GROUP_AFFINITY
 
     if (__kmp_num_proc_groups > 1) {
         //
@@ -605,7 +632,7 @@ __kmp_set_system_affinity( kmp_affin_mask_t const *mask, int abort_on_error )
     }
     else
 
-#endif /* KMP_GROUP_AFFINITY */
+# endif /* KMP_GROUP_AFFINITY */
 
     {
         if (!SetThreadAffinityMask( GetCurrentThread(), *mask )) {
@@ -621,14 +648,30 @@ __kmp_set_system_affinity( kmp_affin_mask_t const *mask, int abort_on_error )
             return error;
         }
     }
+#endif /* KMP_USE_HWLOC */
     return 0;
 }
 
 int
 __kmp_get_system_affinity( kmp_affin_mask_t *mask, int abort_on_error )
 {
-
-#if KMP_GROUP_AFFINITY
+#if KMP_USE_HWLOC
+    int retval = hwloc_get_cpubind(__kmp_hwloc_topology, (hwloc_cpuset_t)mask, HWLOC_CPUBIND_THREAD);
+    if (retval >= 0) {
+        return 0;
+    }
+    int error = errno;
+    if (abort_on_error) {
+        __kmp_msg(
+            kmp_ms_fatal,
+            KMP_MSG( FatalSysError ),
+            KMP_ERR( error ),
+            __kmp_msg_null
+        );
+    }
+    return error;
+#else /* KMP_USE_HWLOC */
+# if KMP_GROUP_AFFINITY
 
     if (__kmp_num_proc_groups > 1) {
         KMP_CPU_ZERO(mask);
@@ -657,7 +700,7 @@ __kmp_get_system_affinity( kmp_affin_mask_t *mask, int abort_on_error )
     }
     else
 
-#endif /* KMP_GROUP_AFFINITY */
+# endif /* KMP_GROUP_AFFINITY */
 
     {
         kmp_affin_mask_t newMask, sysMask, retval;
@@ -701,14 +744,22 @@ __kmp_get_system_affinity( kmp_affin_mask_t *mask, int abort_on_error )
         }
         *mask = retval;
     }
+#endif /* KMP_USE_HWLOC */
     return 0;
 }
 
 void
 __kmp_affinity_bind_thread( int proc )
 {
-
-#if KMP_GROUP_AFFINITY
+#if KMP_USE_HWLOC
+    kmp_affin_mask_t *mask;
+    KMP_CPU_ALLOC_ON_STACK(mask);
+    KMP_CPU_ZERO(mask);
+    KMP_CPU_SET(proc, mask);
+    __kmp_set_system_affinity(mask, TRUE);
+    KMP_CPU_FREE_FROM_STACK(mask);
+#else /* KMP_USE_HWLOC */
+# if KMP_GROUP_AFFINITY
 
     if (__kmp_num_proc_groups > 1) {
         //
@@ -737,7 +788,7 @@ __kmp_affinity_bind_thread( int proc )
     }
     else
 
-#endif /* KMP_GROUP_AFFINITY */
+# endif /* KMP_GROUP_AFFINITY */
 
     {
         kmp_affin_mask_t mask;
@@ -745,6 +796,7 @@ __kmp_affinity_bind_thread( int proc )
         KMP_CPU_SET(proc, &mask);
         __kmp_set_system_affinity(&mask, TRUE);
     }
+#endif /* KMP_USE_HWLOC */
 }
 
 void

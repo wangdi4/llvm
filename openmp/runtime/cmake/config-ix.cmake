@@ -194,11 +194,11 @@ endif()
 if(${LIBOMP_STATS})
   check_c_source_compiles(
      "__thread int x;
-     int main(int argc, char** argv) 
+     int main(int argc, char** argv)
      { x = argc; return x; }"
      LIBOMP_HAVE___THREAD)
   check_c_source_compiles(
-     "int main(int argc, char** argv) 
+     "int main(int argc, char** argv)
      { unsigned long long t = __builtin_readcyclecounter(); return 0; }"
      LIBOMP_HAVE___BUILTIN_READCYCLECOUNTER)
   if(NOT LIBOMP_HAVE___BUILTIN_READCYCLECOUNTER)
@@ -246,23 +246,22 @@ endif()
 
 # Check if HWLOC support is available
 if(${LIBOMP_USE_HWLOC})
-  if(WIN32)
-    set(LIBOMP_HAVE_HWLOC FALSE)
-    libomp_say("Using hwloc not supported on Windows yet")
-  else()
-    set(CMAKE_REQUIRED_INCLUDES ${LIBOMP_HWLOC_INSTALL_DIR}/include)
-    check_include_file(hwloc.h LIBOMP_HAVE_HWLOC_H)
-    set(CMAKE_REQUIRED_INCLUDES)
-    check_library_exists(hwloc hwloc_topology_init 
+  set(CMAKE_REQUIRED_INCLUDES ${LIBOMP_HWLOC_INSTALL_DIR}/include)
+  check_include_file(hwloc.h LIBOMP_HAVE_HWLOC_H)
+  set(CMAKE_REQUIRED_INCLUDES)
+  find_library(LIBOMP_HWLOC_LIBRARY
+    NAMES hwloc libhwloc
+    HINTS ${LIBOMP_HWLOC_INSTALL_DIR}/lib)
+  if(LIBOMP_HWLOC_LIBRARY)
+    check_library_exists(${LIBOMP_HWLOC_LIBRARY} hwloc_topology_init
       ${LIBOMP_HWLOC_INSTALL_DIR}/lib LIBOMP_HAVE_LIBHWLOC)
-    find_library(LIBOMP_HWLOC_LIBRARY hwloc ${LIBOMP_HWLOC_INSTALL_DIR}/lib)
     get_filename_component(LIBOMP_HWLOC_LIBRARY_DIR ${LIBOMP_HWLOC_LIBRARY} PATH)
-    if(LIBOMP_HAVE_HWLOC_H AND LIBOMP_HAVE_LIBHWLOC AND LIBOMP_HWLOC_LIBRARY)
-      set(LIBOMP_HAVE_HWLOC TRUE)
-    else()
-      set(LIBOMP_HAVE_HWLOC FALSE)
-      libomp_say("Could not find hwloc")
-    endif()
+  endif()
+  if(LIBOMP_HAVE_HWLOC_H AND LIBOMP_HAVE_LIBHWLOC AND LIBOMP_HWLOC_LIBRARY)
+    set(LIBOMP_HAVE_HWLOC TRUE)
+  else()
+    set(LIBOMP_HAVE_HWLOC FALSE)
+    libomp_say("Could not find hwloc")
   endif()
 endif()
 

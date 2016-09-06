@@ -16,7 +16,6 @@
 #include "NVPTXRegisterInfo.h"
 #include "NVPTXSubtarget.h"
 #include "NVPTXTargetMachine.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -35,7 +34,7 @@ void NVPTXFrameLowering::emitPrologue(MachineFunction &MF,
                                       MachineBasicBlock &MBB) const {
   if (MF.getFrameInfo()->hasStackObjects()) {
     assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
-    MachineInstr *MI = MBB.begin();
+    MachineInstr *MI = &MBB.front();
     MachineRegisterInfo &MR = MF.getRegInfo();
 
     // This instruction really occurs before first instruction

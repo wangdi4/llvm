@@ -44,7 +44,6 @@ using namespace lldb;
 using namespace lldb_private;
 
 const char *AppleObjCTrampolineHandler::g_lookup_implementation_function_name = "__lldb_objc_find_implementation_for_selector";
-const char *AppleObjCTrampolineHandler::g_lookup_implementation_function_code = NULL;
 const char *AppleObjCTrampolineHandler::g_lookup_implementation_with_stret_function_code = "                               \n\
 extern \"C\"                                                                                                    \n\
 {                                                                                                               \n\
@@ -462,7 +461,7 @@ AppleObjCTrampolineHandler::AppleObjCVTables::InitializeVTableSymbols ()
         Target &target = process_sp->GetTarget();
         
         const ModuleList &target_modules = target.GetImages();
-        Mutex::Locker modules_locker(target_modules.GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(target_modules.GetMutex());
         size_t num_modules = target_modules.GetSize();
         if (!m_objc_module_sp)
         {
@@ -658,6 +657,7 @@ AppleObjCTrampolineHandler::AppleObjCTrampolineHandler (const ProcessSP &process
                                                         const ModuleSP &objc_module_sp) :
     m_process_wp (),
     m_objc_module_sp (objc_module_sp),
+    m_lookup_implementation_function_code(nullptr),
     m_impl_fn_addr (LLDB_INVALID_ADDRESS),
     m_impl_stret_fn_addr (LLDB_INVALID_ADDRESS),
     m_msg_forward_addr (LLDB_INVALID_ADDRESS)
@@ -704,11 +704,11 @@ AppleObjCTrampolineHandler::AppleObjCTrampolineHandler (const ProcessSP &process
         // It there is no stret return lookup function, assume that it is the same as the straight lookup:
         m_impl_stret_fn_addr = m_impl_fn_addr;
         // Also we will use the version of the lookup code that doesn't rely on the stret version of the function.
-        g_lookup_implementation_function_code = g_lookup_implementation_no_stret_function_code;
+        m_lookup_implementation_function_code = g_lookup_implementation_no_stret_function_code;
     }
     else
     {
-        g_lookup_implementation_function_code = g_lookup_implementation_with_stret_function_code;
+        m_lookup_implementation_function_code = g_lookup_implementation_with_stret_function_code;
     }
         
     // Look up the addresses for the objc dispatch functions and cache them.  For now I'm inspecting the symbol
@@ -751,16 +751,16 @@ AppleObjCTrampolineHandler::SetupDispatchFunction(Thread &thread, ValueList &dis
 
     // Scope for mutex locker:
     {
-        Mutex::Locker locker(m_impl_function_mutex);
-        
+        std::lock_guard<std::mutex> guard(m_impl_function_mutex);
+
         // First stage is to make the ClangUtility to hold our injected function:
 
         if (!m_impl_code.get())
         {
-            if (g_lookup_implementation_function_code != NULL)
+            if (m_lookup_implementation_function_code != NULL)
             {
                 Error error;
-                m_impl_code.reset (exe_ctx.GetTargetRef().GetUtilityFunctionForLanguage (g_lookup_implementation_function_code,
+                m_impl_code.reset (exe_ctx.GetTargetRef().GetUtilityFunctionForLanguage (m_lookup_implementation_function_code,
                                                                                          eLanguageTypeObjC,
                                                                                          g_lookup_implementation_function_name,
                                                                                          error));
@@ -818,7 +818,7 @@ AppleObjCTrampolineHandler::SetupDispatchFunction(Thread &thread, ValueList &dis
     // if other threads were calling into here, but actually it isn't because we allocate a new args structure for
     // this call by passing args_addr = LLDB_INVALID_ADDRESS...
 
-    if (impl_function_caller->WriteFunctionArguments(exe_ctx, args_addr, dispatch_values, diagnostics))
+    if (!impl_function_caller->WriteFunctionArguments(exe_ctx, args_addr, dispatch_values, diagnostics))
     {
         if (log)
         {

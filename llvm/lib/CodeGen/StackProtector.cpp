@@ -18,12 +18,13 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
+#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
@@ -95,10 +96,18 @@ bool StackProtector::runOnFunction(Function &Fn) {
   Attribute Attr = Fn.getFnAttribute("stack-protector-buffer-size");
   if (Attr.isStringAttribute() &&
       Attr.getValueAsString().getAsInteger(10, SSPBufferSize))
-      return false; // Invalid integer string
+    return false; // Invalid integer string
 
   if (!RequiresStackProtector())
     return false;
+
+  // TODO(etienneb): Functions with funclets are not correctly supported now.
+  // Do nothing if this is funclet-based personality.
+  if (Fn.hasPersonalityFn()) {
+    EHPersonality Personality = classifyEHPersonality(Fn.getPersonalityFn());
+    if (isFuncletEHPersonality(Personality))
+      return false;
+  }
 
   ++NumFunProtected;
   return InsertStackProtectors();
@@ -271,36 +280,51 @@ bool StackProtector::RequiresStackProtector() {
   return NeedsProtector;
 }
 
-/// Insert code into the entry block that stores the __stack_chk_guard
+/// Create a stack guard loading and populate whether SelectionDAG SSP is
+/// supported.
+static Value *getStackGuard(const TargetLoweringBase *TLI, Module *M,
+                            IRBuilder<> &B,
+                            bool *SupportsSelectionDAGSP = nullptr) {
+  if (Value *Guard = TLI->getIRStackGuard(B))
+    return B.CreateLoad(Guard, true, "StackGuard");
+
+  // Use SelectionDAG SSP handling, since there isn't an IR guard.
+  //
+  // This is more or less weird, since we optionally output whether we
+  // should perform a SelectionDAG SP here. The reason is that it's strictly
+  // defined as !TLI->getIRStackGuard(B), where getIRStackGuard is also
+  // mutating. There is no way to get this bit without mutating the IR, so
+  // getting this bit has to happen in this right time.
+  //
+  // We could have define a new function TLI::supportsSelectionDAGSP(), but that
+  // will put more burden on the backends' overriding work, especially when it
+  // actually conveys the same information getIRStackGuard() already gives.
+  if (SupportsSelectionDAGSP)
+    *SupportsSelectionDAGSP = true;
+  TLI->insertSSPDeclarations(*M);
+  return B.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stackguard));
+}
+
+/// Insert code into the entry block that stores the stack guard
 /// variable onto the stack:
 ///
 ///   entry:
 ///     StackGuardSlot = alloca i8*
-///     StackGuard = load __stack_chk_guard
-///     call void @llvm.stackprotect.create(StackGuard, StackGuardSlot)
+///     StackGuard = <stack guard>
+///     call void @llvm.stackprotector(StackGuard, StackGuardSlot)
 ///
 /// Returns true if the platform/triple supports the stackprotectorcreate pseudo
 /// node.
 static bool CreatePrologue(Function *F, Module *M, ReturnInst *RI,
-                           const TargetLoweringBase *TLI, AllocaInst *&AI,
-                           Value *&StackGuardVar) {
+                           const TargetLoweringBase *TLI, AllocaInst *&AI) {
   bool SupportsSelectionDAGSP = false;
   IRBuilder<> B(&F->getEntryBlock().front());
-
-  StackGuardVar = TLI->getIRStackGuard(B);
-  if (!StackGuardVar) {
-    /// Use SelectionDAG SSP handling, since there isn't an IR guard.
-    SupportsSelectionDAGSP = true;
-    TLI->insertSSPDeclarations(*M);
-    StackGuardVar = TLI->getSDStackGuard(*M);
-  }
-  assert(StackGuardVar && "Must have stack guard available");
-
   PointerType *PtrTy = Type::getInt8PtrTy(RI->getContext());
   AI = B.CreateAlloca(PtrTy, nullptr, "StackGuardSlot");
-  LoadInst *LI = B.CreateLoad(StackGuardVar, "StackGuard");
+
+  Value *GuardSlot = getStackGuard(TLI, M, B, &SupportsSelectionDAGSP);
   B.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stackprotector),
-               {LI, AI});
+               {GuardSlot, AI});
   return SupportsSelectionDAGSP;
 }
 
@@ -314,7 +338,6 @@ bool StackProtector::InsertStackProtectors() {
   bool SupportsSelectionDAGSP =
       EnableSelectionDAGSP && !TM->Options.EnableFastISel;
   AllocaInst *AI = nullptr;       // Place on stack that stores the stack guard.
-  Value *StackGuardVar = nullptr; // The stack guard variable.
 
   for (Function::iterator I = F->begin(), E = F->end(); I != E;) {
     BasicBlock *BB = &*I++;
@@ -322,13 +345,36 @@ bool StackProtector::InsertStackProtectors() {
     if (!RI)
       continue;
 
+    // Generate prologue instrumentation if not already generated.
     if (!HasPrologue) {
       HasPrologue = true;
-      SupportsSelectionDAGSP &=
-          CreatePrologue(F, M, RI, TLI, AI, StackGuardVar);
+      SupportsSelectionDAGSP &= CreatePrologue(F, M, RI, TLI, AI);
     }
 
-    if (!SupportsSelectionDAGSP) {
+    // SelectionDAG based code generation. Nothing else needs to be done here.
+    // The epilogue instrumentation is postponed to SelectionDAG.
+    if (SupportsSelectionDAGSP)
+      break;
+
+    // Set HasIRCheck to true, so that SelectionDAG will not generate its own
+    // version. SelectionDAG called 'shouldEmitSDCheck' to check whether
+    // instrumentation has already been generated.
+    HasIRCheck = true;
+
+    // Generate epilogue instrumentation. The epilogue intrumentation can be
+    // function-based or inlined depending on which mechanism the target is
+    // providing.
+    if (Value* GuardCheck = TLI->getSSPStackGuardCheck(*M)) {
+      // Generate the function-based epilogue instrumentation.
+      // The target provides a guard check function, generate a call to it.
+      IRBuilder<> B(RI);
+      LoadInst *Guard = B.CreateLoad(AI, true, "Guard");
+      CallInst *Call = B.CreateCall(GuardCheck, {Guard});
+      llvm::Function *Function = cast<llvm::Function>(GuardCheck);
+      Call->setAttributes(Function->getAttributes());
+      Call->setCallingConv(Function->getCallingConv());
+    } else {
+      // Generate the epilogue with inline instrumentation.
       // If we do not support SelectionDAG based tail calls, generate IR level
       // tail calls.
       //
@@ -342,7 +388,7 @@ bool StackProtector::InsertStackProtectors() {
       //
       //   return:
       //     ...
-      //     %1 = load __stack_chk_guard
+      //     %1 = <stack guard>
       //     %2 = load StackGuardSlot
       //     %3 = cmp i1 %1, %2
       //     br i1 %3, label %SP_return, label %CallStackCheckFailBlk
@@ -358,10 +404,6 @@ bool StackProtector::InsertStackProtectors() {
       // merge pass will merge together all of the various BB into one including
       // fail BB generated by the stack protector pseudo instruction.
       BasicBlock *FailBB = CreateFailBB();
-
-      // Set HasIRCheck to true, so that SelectionDAG will not generate its own
-      // version.
-      HasIRCheck = true;
 
       // Split the basic block before the return instruction.
       BasicBlock *NewBB = BB->splitBasicBlock(RI->getIterator(), "SP_return");
@@ -381,9 +423,9 @@ bool StackProtector::InsertStackProtectors() {
 
       // Generate the stack protector instructions in the old basic block.
       IRBuilder<> B(BB);
-      LoadInst *LI1 = B.CreateLoad(StackGuardVar);
-      LoadInst *LI2 = B.CreateLoad(AI);
-      Value *Cmp = B.CreateICmpEQ(LI1, LI2);
+      Value *Guard = getStackGuard(TLI, M, B);
+      LoadInst *LI2 = B.CreateLoad(AI, true);
+      Value *Cmp = B.CreateICmpEQ(Guard, LI2);
       auto SuccessProb =
           BranchProbabilityInfo::getBranchProbStackProtector(true);
       auto FailureProb =
@@ -406,6 +448,7 @@ BasicBlock *StackProtector::CreateFailBB() {
   LLVMContext &Context = F->getContext();
   BasicBlock *FailBB = BasicBlock::Create(Context, "CallStackCheckFailBlk", F);
   IRBuilder<> B(FailBB);
+  B.SetCurrentDebugLocation(DebugLoc::get(0, 0, F->getSubprogram()));
   if (Trip.isOSOpenBSD()) {
     Constant *StackChkFail =
         M->getOrInsertFunction("__stack_smash_handler",

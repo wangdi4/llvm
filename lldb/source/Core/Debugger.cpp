@@ -12,6 +12,7 @@
 // C Includes
 // C++ Includes
 #include <map>
+#include <mutex>
 
 // Other libraries and framework includes
 #include "llvm/ADT/StringRef.h"
@@ -67,23 +68,9 @@ static size_t g_debugger_event_thread_stack_bytes = 8 * 1024 * 1024;
 
 #pragma mark Static Functions
 
-static Mutex &
-GetDebuggerListMutex ()
-{
-    static Mutex g_mutex(Mutex::eMutexTypeRecursive);
-    return g_mutex;
-}
-
 typedef std::vector<DebuggerSP> DebuggerList;
-
-static DebuggerList &
-GetDebuggerList()
-{
-    // hide the static debugger list inside a singleton accessor to avoid
-    // global init constructors
-    static DebuggerList g_list;
-    return g_list;
-}
+static std::recursive_mutex *g_debugger_list_mutex_ptr = nullptr; // NOTE: intentional leak to avoid issues with C++ destructor chain
+static DebuggerList *g_debugger_list_ptr = nullptr; // NOTE: intentional leak to avoid issues with C++ destructor chain
 
 OptionEnumValueElement
 g_show_disassembly_enum_values[] =
@@ -453,28 +440,30 @@ Debugger::SetTabSize (uint32_t tab_size)
 //}
 //
 
-static bool lldb_initialized = false;
 void
 Debugger::Initialize(LoadPluginCallbackType load_plugin_callback)
 {
-    assert(!lldb_initialized && "Debugger::Initialize called more than once!");
-
-    lldb_initialized = true;
+    assert(g_debugger_list_ptr == nullptr && "Debugger::Initialize called more than once!");
+    g_debugger_list_mutex_ptr = new std::recursive_mutex();
+    g_debugger_list_ptr = new DebuggerList();
     g_load_plugin_callback = load_plugin_callback;
 }
 
 void
 Debugger::Terminate ()
 {
-    assert(lldb_initialized && "Debugger::Terminate called without a matching Debugger::Initialize!");
+    assert(g_debugger_list_ptr && "Debugger::Terminate called without a matching Debugger::Initialize!");
 
-    // Clear our master list of debugger objects
-    Mutex::Locker locker (GetDebuggerListMutex ());
-    auto& debuggers = GetDebuggerList();
-    for (const auto& debugger: debuggers)
-        debugger->Clear();
-
-    debuggers.clear();
+    if (g_debugger_list_ptr && g_debugger_list_mutex_ptr)
+    {
+        // Clear our master list of debugger objects
+        {
+            std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+            for (const auto& debugger: *g_debugger_list_ptr)
+                debugger->Clear();
+            g_debugger_list_ptr->clear();
+        }
+    }
 }
 
 void
@@ -603,10 +592,10 @@ DebuggerSP
 Debugger::CreateInstance (lldb::LogOutputCallback log_callback, void *baton)
 {
     DebuggerSP debugger_sp (new Debugger(log_callback, baton));
-    if (lldb_initialized)
+    if (g_debugger_list_ptr && g_debugger_list_mutex_ptr)
     {
-        Mutex::Locker locker (GetDebuggerListMutex ());
-        GetDebuggerList().push_back(debugger_sp);
+        std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+        g_debugger_list_ptr->push_back(debugger_sp);
     }
     debugger_sp->InstanceInitialize ();
     return debugger_sp;
@@ -620,16 +609,15 @@ Debugger::Destroy (DebuggerSP &debugger_sp)
         
     debugger_sp->Clear();
 
-    if (lldb_initialized)
+    if (g_debugger_list_ptr && g_debugger_list_mutex_ptr)
     {
-        Mutex::Locker locker (GetDebuggerListMutex ());
-        DebuggerList &debugger_list = GetDebuggerList ();
-        DebuggerList::iterator pos, end = debugger_list.end();
-        for (pos = debugger_list.begin (); pos != end; ++pos)
+        std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+        DebuggerList::iterator pos, end = g_debugger_list_ptr->end();
+        for (pos = g_debugger_list_ptr->begin (); pos != end; ++pos)
         {
             if ((*pos).get() == debugger_sp.get())
             {
-                debugger_list.erase (pos);
+                g_debugger_list_ptr->erase (pos);
                 return;
             }
         }
@@ -640,13 +628,11 @@ DebuggerSP
 Debugger::FindDebuggerWithInstanceName (const ConstString &instance_name)
 {
     DebuggerSP debugger_sp;
-    if (lldb_initialized)
+    if (g_debugger_list_ptr && g_debugger_list_mutex_ptr)
     {
-        Mutex::Locker locker (GetDebuggerListMutex ());
-        DebuggerList &debugger_list = GetDebuggerList();
-        DebuggerList::iterator pos, end = debugger_list.end();
-
-        for (pos = debugger_list.begin(); pos != end; ++pos)
+        std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+        DebuggerList::iterator pos, end = g_debugger_list_ptr->end();
+        for (pos = g_debugger_list_ptr->begin (); pos != end; ++pos)
         {
             if ((*pos)->m_instance_name == instance_name)
             {
@@ -662,12 +648,11 @@ TargetSP
 Debugger::FindTargetWithProcessID (lldb::pid_t pid)
 {
     TargetSP target_sp;
-    if (lldb_initialized)
+    if (g_debugger_list_ptr && g_debugger_list_mutex_ptr)
     {
-        Mutex::Locker locker (GetDebuggerListMutex ());
-        DebuggerList &debugger_list = GetDebuggerList();
-        DebuggerList::iterator pos, end = debugger_list.end();
-        for (pos = debugger_list.begin(); pos != end; ++pos)
+        std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+        DebuggerList::iterator pos, end = g_debugger_list_ptr->end();
+        for (pos = g_debugger_list_ptr->begin (); pos != end; ++pos)
         {
             target_sp = (*pos)->GetTargetList().FindTargetWithProcessID (pid);
             if (target_sp)
@@ -681,12 +666,11 @@ TargetSP
 Debugger::FindTargetWithProcess (Process *process)
 {
     TargetSP target_sp;
-    if (lldb_initialized)
+    if (g_debugger_list_ptr && g_debugger_list_mutex_ptr)
     {
-        Mutex::Locker locker (GetDebuggerListMutex ());
-        DebuggerList &debugger_list = GetDebuggerList();
-        DebuggerList::iterator pos, end = debugger_list.end();
-        for (pos = debugger_list.begin(); pos != end; ++pos)
+        std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+        DebuggerList::iterator pos, end = g_debugger_list_ptr->end();
+        for (pos = g_debugger_list_ptr->begin (); pos != end; ++pos)
         {
             target_sp = (*pos)->GetTargetList().FindTargetWithProcess (process);
             if (target_sp)
@@ -715,7 +699,9 @@ Debugger::Debugger(lldb::LogOutputCallback log_callback, void *baton) :
     m_loaded_plugins(),
     m_event_handler_thread(),
     m_io_handler_thread(),
-    m_sync_broadcaster(nullptr, "lldb.debugger.sync")
+    m_sync_broadcaster(nullptr, "lldb.debugger.sync"),
+    m_forward_listener_sp(),
+    m_clear_once()
 {
     char instance_cstr[256];
     snprintf(instance_cstr, sizeof(instance_cstr), "debugger_%d", (int)GetID());
@@ -762,31 +748,44 @@ Debugger::~Debugger ()
 void
 Debugger::Clear()
 {
-    ClearIOHandlers();
-    StopIOHandlerThread();
-    StopEventHandlerThread();
-    m_listener_sp->Clear();
-    int num_targets = m_target_list.GetNumTargets();
-    for (int i = 0; i < num_targets; i++)
-    {
-        TargetSP target_sp (m_target_list.GetTargetAtIndex (i));
-        if (target_sp)
+    //----------------------------------------------------------------------
+    // Make sure we call this function only once. With the C++ global
+    // destructor chain having a list of debuggers and with code that can be
+    // running on other threads, we need to ensure this doesn't happen
+    // multiple times.
+    //
+    // The following functions call Debugger::Clear():
+    //     Debugger::~Debugger();
+    //     static void Debugger::Destroy(lldb::DebuggerSP &debugger_sp);
+    //     static void Debugger::Terminate();
+    //----------------------------------------------------------------------
+    std::call_once(m_clear_once, [this]() {
+        ClearIOHandlers();
+        StopIOHandlerThread();
+        StopEventHandlerThread();
+        m_listener_sp->Clear();
+        int num_targets = m_target_list.GetNumTargets();
+        for (int i = 0; i < num_targets; i++)
         {
-            ProcessSP process_sp (target_sp->GetProcessSP());
-            if (process_sp)
-                process_sp->Finalize();
-            target_sp->Destroy();
+            TargetSP target_sp (m_target_list.GetTargetAtIndex (i));
+            if (target_sp)
+            {
+                ProcessSP process_sp (target_sp->GetProcessSP());
+                if (process_sp)
+                    process_sp->Finalize();
+                target_sp->Destroy();
+            }
         }
-    }
-    m_broadcaster_manager_sp->Clear ();
-    
-    // Close the input file _before_ we close the input read communications class
-    // as it does NOT own the input file, our m_input_file does.
-    m_terminal_state.Clear();
-    if (m_input_file_sp)
-        m_input_file_sp->GetFile().Close ();
-    
-    m_command_interpreter_ap->Clear();
+        m_broadcaster_manager_sp->Clear ();
+        
+        // Close the input file _before_ we close the input read communications class
+        // as it does NOT own the input file, our m_input_file does.
+        m_terminal_state.Clear();
+        if (m_input_file_sp)
+            m_input_file_sp->GetFile().Close ();
+        
+        m_command_interpreter_ap->Clear();
+    });
 }
 
 bool
@@ -907,33 +906,33 @@ Debugger::GetSelectedExecutionContext ()
 }
 
 void
-Debugger::DispatchInputInterrupt ()
+Debugger::DispatchInputInterrupt()
 {
-    Mutex::Locker locker (m_input_reader_stack.GetMutex());
-    IOHandlerSP reader_sp (m_input_reader_stack.Top());
+    std::lock_guard<std::recursive_mutex> guard(m_input_reader_stack.GetMutex());
+    IOHandlerSP reader_sp(m_input_reader_stack.Top());
     if (reader_sp)
         reader_sp->Interrupt();
 }
 
 void
-Debugger::DispatchInputEndOfFile ()
+Debugger::DispatchInputEndOfFile()
 {
-    Mutex::Locker locker (m_input_reader_stack.GetMutex());
-    IOHandlerSP reader_sp (m_input_reader_stack.Top());
+    std::lock_guard<std::recursive_mutex> guard(m_input_reader_stack.GetMutex());
+    IOHandlerSP reader_sp(m_input_reader_stack.Top());
     if (reader_sp)
         reader_sp->GotEOF();
 }
 
 void
-Debugger::ClearIOHandlers ()
+Debugger::ClearIOHandlers()
 {
     // The bottom input reader should be the main debugger input reader.  We do not want to close that one here.
-    Mutex::Locker locker (m_input_reader_stack.GetMutex());
+    std::lock_guard<std::recursive_mutex> guard(m_input_reader_stack.GetMutex());
     while (m_input_reader_stack.GetSize() > 1)
     {
-        IOHandlerSP reader_sp (m_input_reader_stack.Top());
+        IOHandlerSP reader_sp(m_input_reader_stack.Top());
         if (reader_sp)
-            PopIOHandler (reader_sp);
+            PopIOHandler(reader_sp);
     }
 }
 
@@ -1026,16 +1025,16 @@ Debugger::RunIOHandler (const IOHandlerSP& reader_sp)
 }
 
 void
-Debugger::AdoptTopIOHandlerFilesIfInvalid (StreamFileSP &in, StreamFileSP &out, StreamFileSP &err)
+Debugger::AdoptTopIOHandlerFilesIfInvalid(StreamFileSP &in, StreamFileSP &out, StreamFileSP &err)
 {
     // Before an IOHandler runs, it must have in/out/err streams.
     // This function is called when one ore more of the streams
     // are nullptr. We use the top input reader's in/out/err streams,
     // or fall back to the debugger file handles, or we fall back
     // onto stdin/stdout/stderr as a last resort.
-    
-    Mutex::Locker locker (m_input_reader_stack.GetMutex());
-    IOHandlerSP top_reader_sp (m_input_reader_stack.Top());
+
+    std::lock_guard<std::recursive_mutex> guard(m_input_reader_stack.GetMutex());
+    IOHandlerSP top_reader_sp(m_input_reader_stack.Top());
     // If no STDIN has been set, then set it appropriately
     if (!in)
     {
@@ -1043,7 +1042,7 @@ Debugger::AdoptTopIOHandlerFilesIfInvalid (StreamFileSP &in, StreamFileSP &out, 
             in = top_reader_sp->GetInputStreamFile();
         else
             in = GetInputFile();
-        
+
         // If there is nothing, use stdin
         if (!in)
             in = StreamFileSP(new StreamFile(stdin, false));
@@ -1055,7 +1054,7 @@ Debugger::AdoptTopIOHandlerFilesIfInvalid (StreamFileSP &in, StreamFileSP &out, 
             out = top_reader_sp->GetOutputStreamFile();
         else
             out = GetOutputFile();
-        
+
         // If there is nothing, use stdout
         if (!out)
             out = StreamFileSP(new StreamFile(stdout, false));
@@ -1067,31 +1066,30 @@ Debugger::AdoptTopIOHandlerFilesIfInvalid (StreamFileSP &in, StreamFileSP &out, 
             err = top_reader_sp->GetErrorStreamFile();
         else
             err = GetErrorFile();
-        
+
         // If there is nothing, use stderr
         if (!err)
             err = StreamFileSP(new StreamFile(stdout, false));
-        
     }
 }
 
 void
-Debugger::PushIOHandler (const IOHandlerSP& reader_sp)
+Debugger::PushIOHandler(const IOHandlerSP &reader_sp)
 {
     if (!reader_sp)
         return;
- 
-    Mutex::Locker locker (m_input_reader_stack.GetMutex());
+
+    std::lock_guard<std::recursive_mutex> guard(m_input_reader_stack.GetMutex());
 
     // Get the current top input reader...
-    IOHandlerSP top_reader_sp (m_input_reader_stack.Top());
-    
+    IOHandlerSP top_reader_sp(m_input_reader_stack.Top());
+
     // Don't push the same IO handler twice...
     if (reader_sp == top_reader_sp)
         return;
 
     // Push our new input reader
-    m_input_reader_stack.Push (reader_sp);
+    m_input_reader_stack.Push(reader_sp);
     reader_sp->Activate();
 
     // Interrupt the top input reader to it will exit its Run() function
@@ -1104,12 +1102,12 @@ Debugger::PushIOHandler (const IOHandlerSP& reader_sp)
 }
 
 bool
-Debugger::PopIOHandler (const IOHandlerSP& pop_reader_sp)
+Debugger::PopIOHandler(const IOHandlerSP &pop_reader_sp)
 {
-    if (! pop_reader_sp)
+    if (!pop_reader_sp)
         return false;
 
-    Mutex::Locker locker (m_input_reader_stack.GetMutex());
+    std::lock_guard<std::recursive_mutex> guard(m_input_reader_stack.GetMutex());
 
     // The reader on the stop of the stack is done, so let the next
     // read on the stack refresh its prompt and if there is one...
@@ -1123,7 +1121,7 @@ Debugger::PopIOHandler (const IOHandlerSP& pop_reader_sp)
 
     reader_sp->Deactivate();
     reader_sp->Cancel();
-    m_input_reader_stack.Pop ();
+    m_input_reader_stack.Pop();
 
     reader_sp = m_input_reader_stack.Top();
     if (reader_sp)
@@ -1147,10 +1145,10 @@ Debugger::GetAsyncErrorStream ()
 size_t
 Debugger::GetNumDebuggers()
 {
-    if (lldb_initialized)
+    if (g_debugger_list_ptr && g_debugger_list_mutex_ptr)
     {
-        Mutex::Locker locker (GetDebuggerListMutex ());
-        return GetDebuggerList().size();
+        std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+        return g_debugger_list_ptr->size();
     }
     return 0;
 }
@@ -1160,13 +1158,11 @@ Debugger::GetDebuggerAtIndex (size_t index)
 {
     DebuggerSP debugger_sp;
     
-    if (lldb_initialized)
+    if (g_debugger_list_ptr && g_debugger_list_mutex_ptr)
     {
-        Mutex::Locker locker (GetDebuggerListMutex ());
-        DebuggerList &debugger_list = GetDebuggerList();
-        
-        if (index < debugger_list.size())
-            debugger_sp = debugger_list[index];
+        std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+        if (index < g_debugger_list_ptr->size())
+            debugger_sp = g_debugger_list_ptr->at(index);
     }
 
     return debugger_sp;
@@ -1177,12 +1173,11 @@ Debugger::FindDebuggerWithID (lldb::user_id_t id)
 {
     DebuggerSP debugger_sp;
 
-    if (lldb_initialized)
+    if (g_debugger_list_ptr && g_debugger_list_mutex_ptr)
     {
-        Mutex::Locker locker (GetDebuggerListMutex ());
-        DebuggerList &debugger_list = GetDebuggerList();
-        DebuggerList::iterator pos, end = debugger_list.end();
-        for (pos = debugger_list.begin(); pos != end; ++pos)
+        std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+        DebuggerList::iterator pos, end = g_debugger_list_ptr->end();
+        for (pos = g_debugger_list_ptr->begin (); pos != end; ++pos)
         {
             if ((*pos)->GetID() == id)
             {
@@ -1812,7 +1807,7 @@ Debugger::RunREPL (LanguageType language, const char *repl_options)
         }
         else if (repl_languages.empty())
         {
-            err.SetErrorStringWithFormat("LLDB isn't configured with support support for any REPLs.");
+            err.SetErrorStringWithFormat("LLDB isn't configured with REPL support for any languages.");
             return err;
         }
         else

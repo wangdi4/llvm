@@ -27,16 +27,13 @@
 #include "sanitizer_common/sanitizer_atomic.h"
 #include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_libc.h"
-#if defined(__s390x__) && defined(__linux__)
-// For AvoidCVE_2016_2143.
-#include "sanitizer_common/sanitizer_linux.h"
-#endif
 #include "sanitizer_common/sanitizer_symbolizer.h"
 #include "lsan/lsan_common.h"
 #include "ubsan/ubsan_init.h"
 #include "ubsan/ubsan_platform.h"
 
 int __asan_option_detect_stack_use_after_return;  // Global interface symbol.
+int __asan_option_detect_stack_use_after_scope;  // Global interface symbol.
 uptr *__asan_test_only_reported_buggy_pointer;  // Used only for testing asan.
 
 namespace __asan {
@@ -332,7 +329,7 @@ static void InitializeHighMemEnd() {
 static void ProtectGap(uptr addr, uptr size) {
   if (!flags()->protect_shadow_gap)
     return;
-  void *res = MmapNoAccess(addr, size, "shadow gap");
+  void *res = MmapFixedNoAccess(addr, size, "shadow gap");
   if (addr == (uptr)res)
     return;
   // A few pages at the start of the address space can not be protected.
@@ -343,7 +340,7 @@ static void ProtectGap(uptr addr, uptr size) {
     while (size > step && addr < kZeroBaseMaxShadowStart) {
       addr += step;
       size -= step;
-      void *res = MmapNoAccess(addr, size, "shadow gap");
+      void *res = MmapFixedNoAccess(addr, size, "shadow gap");
       if (addr == (uptr)res)
         return;
     }
@@ -419,12 +416,12 @@ static void AsanInitInternal() {
 
   AsanCheckIncompatibleRT();
   AsanCheckDynamicRTPrereqs();
-#if defined(__s390x__) && defined(__linux__)
   AvoidCVE_2016_2143();
-#endif
 
   SetCanPoisonMemory(flags()->poison_heap);
   SetMallocContextSize(common_flags()->malloc_context_size);
+
+  InitializePlatformExceptionHandlers();
 
   InitializeHighMemEnd();
 
@@ -438,9 +435,11 @@ static void AsanInitInternal() {
 
   __sanitizer_set_report_path(common_flags()->log_path);
 
-  // Enable UAR detection, if required.
   __asan_option_detect_stack_use_after_return =
       flags()->detect_stack_use_after_return;
+
+  __asan_option_detect_stack_use_after_scope =
+      flags()->detect_stack_use_after_scope;
 
   // Re-exec ourselves if we need to set additional env or command line args.
   MaybeReexec();
@@ -468,6 +467,12 @@ static void AsanInitInternal() {
   if (!full_shadow_is_available) {
     kMidMemBeg = kLowMemEnd < 0x3000000000ULL ? 0x3000000000ULL : 0;
     kMidMemEnd = kLowMemEnd < 0x3000000000ULL ? 0x4fffffffffULL : 0;
+  }
+#elif SANITIZER_WINDOWS64
+  // Disable the "mid mem" shadow layout.
+  if (!full_shadow_is_available) {
+    kMidMemBeg = 0;
+    kMidMemEnd = 0;
   }
 #endif
 
@@ -546,18 +551,27 @@ static void AsanInitInternal() {
   force_interface_symbols();  // no-op.
   SanitizerInitializeUnwinder();
 
-#if CAN_SANITIZE_LEAKS
-  __lsan::InitCommonLsan();
-  if (common_flags()->detect_leaks && common_flags()->leak_check_at_exit) {
-    Atexit(__lsan::DoLeakCheck);
+  if (CAN_SANITIZE_LEAKS) {
+    __lsan::InitCommonLsan();
+    if (common_flags()->detect_leaks && common_flags()->leak_check_at_exit) {
+      Atexit(__lsan::DoLeakCheck);
+    }
   }
-#endif  // CAN_SANITIZE_LEAKS
 
 #if CAN_SANITIZE_UB
   __ubsan::InitAsPlugin();
 #endif
 
   InitializeSuppressions();
+
+  if (CAN_SANITIZE_LEAKS) {
+    // LateInitialize() calls dlsym, which can allocate an error string buffer
+    // in the TLS.  Let's ignore the allocation to avoid reporting a leak.
+    __lsan::ScopedInterceptorDisabler disabler;
+    Symbolizer::LateInitialize();
+  } else {
+    Symbolizer::LateInitialize();
+  }
 
   VReport(1, "AddressSanitizer Init done\n");
 }

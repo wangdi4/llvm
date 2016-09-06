@@ -27,7 +27,7 @@ namespace loopopt {
 class HLLabel;
 
 /// \brief High level node representing an unconditional jump
-class HLGoto : public HLNode {
+class HLGoto final : public HLNode {
 private:
   BasicBlock *TargetBBlock;
   HLLabel *TargetLabel;

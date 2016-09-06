@@ -75,7 +75,6 @@
 #ifndef INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_PREPROC_GRAPH
 #define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_PREPROC_GRAPH
 
-
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
@@ -205,21 +204,17 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
 
   DistributionNodeCreator(DistPPGraph *G) : DGraph(G), CurDistPPNode(nullptr) {}
 
-  void visitDistPPNode(HLNode *HNode) {
-    DistPPNode *DNode = nullptr;
+  void visitDistPPNode(HLNode *HNode, HLNode *ParentNode = nullptr) {
 
     // if CurDistPPNode is set it means we are visiting
     // children of an hlnode. Our distPPNode should be
     // our parent hlnode's distPPNode, which is CurDistPPNode
-    if (CurDistPPNode) {
-      DNode = CurDistPPNode;
-    } else {
-      DNode = new DistPPNode(HNode, DGraph);
-      CurDistPPNode = DNode;
-      DGraph->addNode(DNode);
+    if (!CurDistPPNode) {
+      CurDistPPNode = new DistPPNode(ParentNode ? ParentNode : HNode, DGraph);
+      DGraph->addNode(CurDistPPNode);
     }
 
-    addToNodeMap(DNode, HNode);
+    addToNodeMap(CurDistPPNode, HNode);
   }
 
   void postVisitDistPPNode(HLNode *HNode) {
@@ -231,7 +226,12 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   }
 
   void visit(HLLoop *L) { visitDistPPNode(L); }
-  void postVisit(HLLoop *L) { postVisitDistPPNode(L); }
+  void postVisit(HLLoop *L) {
+    if (!L->hasPostexit()) {
+      postVisitDistPPNode(L);
+    }
+  }
+
   void visit(HLIf *If) { visitDistPPNode(If); }
   void postVisit(HLIf *If) { postVisitDistPPNode(If); }
 
@@ -240,9 +240,25 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   void visit(HLInst *I) {
     if (isa<CallInst>(I->getLLVMInstruction())) {
       DGraph->setInvalid("Cannot distribute loops with calls");
+      return;
     }
-    visitDistPPNode(I);
-    postVisitDistPPNode(I);
+    HLLoop *ParentLoop = I->getParentLoop();
+
+    if (ParentLoop && ParentLoop->hasPreheader() &&
+        (ParentLoop->getFirstPreheaderNode() == I)) {
+      // Use loop for the DistPPNode starting from the first preheader node.
+      visitDistPPNode(I, ParentLoop);
+    } else {
+      visitDistPPNode(I);
+    }
+
+    if (ParentLoop && ParentLoop->hasPostexit() &&
+        (ParentLoop->getLastPostexitNode() == I)) {
+      // Reset DistPPNode at the last postexit node.
+      postVisitDistPPNode(ParentLoop);
+    } else {
+      postVisitDistPPNode(I);
+    }
   }
 
   void visit(const HLLabel *L) {
@@ -261,17 +277,19 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
 
   DDGraph *LoopDDGraph;
   DistPPGraph *DistG;
+  HLLoop *Loop;
   unsigned EdgeCount = 0;
   typedef DenseMap<DistPPNode *, SmallVector<const DDEdge *, 16>> EdgeNodeMapTy;
-  DistributionEdgeCreator(DDGraph *DDG, DistPPGraph *DistPreProcGraph)
-      : LoopDDGraph(DDG), DistG(DistPreProcGraph) {}
+  DistributionEdgeCreator(DDGraph *DDG, DistPPGraph *DistPreProcGraph,
+                          HLLoop *Loop)
+      : LoopDDGraph(DDG), DistG(DistPreProcGraph), Loop(Loop) {}
 
   void processOutgoingEdges(DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
     DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
     for (auto Edge = LoopDDGraph->outgoing_edges_begin(Ref),
               LastEdge = LoopDDGraph->outgoing_edges_end(Ref);
          Edge != LastEdge; ++Edge) {
-      HLDDNode *DstDDNode = (Edge)->getSink()->getHLDDNode();
+      HLDDNode *DstDDNode = (*Edge)->getSink()->getHLDDNode();
       auto DstDistPPNodeI = HLNodeToDistPPNode.find(DstDDNode);
       if (DstDistPPNodeI == HLNodeToDistPPNode.end()) {
         // Every hlnode in loop nest has a dist node, so this edge goes out of
@@ -280,8 +298,32 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       }
       // Add ddedge to list of edges for this sink DistPPNode
       DistPPNode *DstDistNode = DstDistPPNodeI->second;
-      EdgeMap[DstDistNode].push_back(&(*Edge));
+      EdgeMap[DstDistNode].push_back(*Edge);
     }
+  }
+
+  bool needBackwardEdge(const DDEdge *Edge) {
+    // Need to force a backward edge in the Dist Graph?
+
+    // for t1 =
+    //        = t1
+    // DD only produce the flow (=) edge
+    if (Edge->isLoopIndependentDepTemp()) {
+      return true;
+    }
+    // Scalar temp Output Dep (*) has single edge
+    if (Edge->isOUTPUTdep()) {
+      DDRef *DDRefSrc = Edge->getSrc();
+      RegDDRef *RegRef = cast<RegDDRef>(DDRefSrc);
+      assert(RegRef && "RegDDRef expected");
+      if (RegRef->isTerminalRef()) {
+        unsigned LoopLevel = Loop->getNestingLevel();
+        if (Edge->getDVAtLevel(LoopLevel) == DVKind::ALL) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   void visit(HLDDNode *DDNode) {
@@ -314,11 +356,8 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       SmallVectorImpl<const DDEdge *> &EdgeList = PairI->second;
 
       for (auto *Edge : EdgeList) {
-        if (Edge->isLoopIndependentDepTemp()) {
-          // Add a revsere edge because
-          // for t1 =
-          //        = t1
-          // DD only produce the flow (=) edge
+
+        if (needBackwardEdge(Edge)) {
           DistG->addEdge(
               DistPPEdge(PairI->first, SrcDistPPNode, PairI->second));
           EdgeCount++;
@@ -340,7 +379,8 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
   }
 
   DDGraph DDG = DDA->getGraph(Loop);
-  DistributionEdgeCreator EdgeCreator(&DDG, this);
+
+  DistributionEdgeCreator EdgeCreator(&DDG, this, Loop);
   HLNodeUtils::visitRange(EdgeCreator, Loop->getFirstChild(),
                           Loop->getLastChild());
 
@@ -404,4 +444,3 @@ template <> struct GraphTraits<DistPPGraph *> {
 } // llvm
 
 #endif
-

@@ -30,8 +30,6 @@ using namespace llvm::vpo;
 
 INITIALIZE_PASS_BEGIN(WRegionInfo, "vpo-wrninfo", 
                                    "VPO Work-Region Information", false, true)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionCollection)
 INITIALIZE_PASS_END(WRegionInfo, "vpo-wrninfo", 
                                  "VPO Work-Region Information", false, true)
@@ -47,34 +45,34 @@ WRegionInfo::WRegionInfo() : FunctionPass(ID) {
 
 void WRegionInfo::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
   AU.addRequiredTransitive<WRegionCollection>();
 }
 
-void WRegionInfo::doFillUpWRegionInfo(WRegionCollection *R) {
-  DEBUG(dbgs() << "fill Up W-Region Info After WRegionCollection\n");
+bool WRegionInfo::runOnFunction(Function &F) {
+  DEBUG(dbgs() << "\nENTER WRegionInfo::runOnFunction: " 
+               << F.getName() << "{\n");
+  Func = &F;
+  WRC  = &getAnalysis<WRegionCollection>();
+  DT   = WRC->getDomTree();   // propagate analysis results
+  LI   = WRC->getLoopInfo();
+  SE   = WRC->getSE();
+
+  DEBUG(dbgs() << "\n}EXIT WRegionInfo::runOnFunction: " 
+               << F.getName() << "\n");
+  return false;
 }
 
-bool WRegionInfo::runOnFunction(Function &F) {
-  this->Func = &F;
+void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
+  DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(InpuIR=" 
+               << IR <<"){\n");
 
-  DEBUG(dbgs() << "\nW-Region Information Collection Start\n");
+  WRC->buildWRGraph(IR);
 
-  DT     = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT    = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  WRC    = &getAnalysis<WRegionCollection>();
-
-#if 1
   DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
   for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I)
     DEBUG(I->dump());
-#endif
 
-  doFillUpWRegionInfo(WRC);
-
-  DEBUG(dbgs() << "W-Region Information Collection End\n");
-  return false;
+  DEBUG(dbgs() << "\n}EXIT WRegionInfo::buildWRGraph\n");
 }
 
 void WRegionInfo::releaseMemory() {

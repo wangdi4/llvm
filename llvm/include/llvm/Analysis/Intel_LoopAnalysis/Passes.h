@@ -58,9 +58,16 @@ FunctionPass *createHIRFrameworkPass();
 /// Creates analysis which can provide a data dependence graph of an HLNode
 FunctionPass *createHIRDDAnalysisPass();
 
+/// Identify Safe Reduction Chain 
+FunctionPass *createHIRSafeReductionAnalysisPass();
+
 /// Computes the locality cost for HLLoops which are used during
 /// transformations.
 FunctionPass *createHIRLocalityAnalysisPass();
+
+/// Compute the loop resource for HIR Loops which help in cost models of
+/// different transformations.
+FunctionPass *createHIRLoopResourcePass();
 
 /// Creates analysis which can provide parallel/vector candidate analysis
 FunctionPass *createHIRParVecAnalysisPass();

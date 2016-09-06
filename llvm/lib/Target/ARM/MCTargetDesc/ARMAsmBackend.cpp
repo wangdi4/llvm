@@ -83,7 +83,9 @@ const MCFixupKindInfo &ARMAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
       {"fixup_arm_condbl", 0, 24, MCFixupKindInfo::FKF_IsPCRel},
       {"fixup_arm_blx", 0, 24, MCFixupKindInfo::FKF_IsPCRel},
       {"fixup_arm_thumb_bl", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
-      {"fixup_arm_thumb_blx", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
+      {"fixup_arm_thumb_blx", 0, 32,
+       MCFixupKindInfo::FKF_IsPCRel |
+           MCFixupKindInfo::FKF_IsAlignedDownTo32Bits},
       {"fixup_arm_thumb_cb", 0, 16, MCFixupKindInfo::FKF_IsPCRel},
       {"fixup_arm_thumb_cp", 0, 8,
        MCFixupKindInfo::FKF_IsPCRel |
@@ -131,7 +133,9 @@ const MCFixupKindInfo &ARMAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
       {"fixup_arm_condbl", 8, 24, MCFixupKindInfo::FKF_IsPCRel},
       {"fixup_arm_blx", 8, 24, MCFixupKindInfo::FKF_IsPCRel},
       {"fixup_arm_thumb_bl", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
-      {"fixup_arm_thumb_blx", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
+      {"fixup_arm_thumb_blx", 0, 32,
+       MCFixupKindInfo::FKF_IsPCRel |
+           MCFixupKindInfo::FKF_IsAlignedDownTo32Bits},
       {"fixup_arm_thumb_cb", 0, 16, MCFixupKindInfo::FKF_IsPCRel},
       {"fixup_arm_thumb_cp", 8, 8,
        MCFixupKindInfo::FKF_IsPCRel |
@@ -254,7 +258,9 @@ bool ARMAsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
   return reasonForFixupRelaxation(Fixup, Value);
 }
 
-void ARMAsmBackend::relaxInstruction(const MCInst &Inst, MCInst &Res) const {
+void ARMAsmBackend::relaxInstruction(const MCInst &Inst,
+                                     const MCSubtargetInfo &STI,
+                                     MCInst &Res) const {
   unsigned RelaxedOp = getRelaxedOpcode(Inst.getOpcode());
 
   // Sanity check w/ diagnostic if we get here w/ a bogus instruction.
@@ -535,7 +541,12 @@ unsigned ARMAsmBackend::adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
     //
     // Note that the halfwords are stored high first, low second; so we need
     // to transpose the fixup value here to map properly.
-    uint32_t offset = (Value - 2) >> 2;
+    if (Ctx && Value  % 4 != 0) {
+      Ctx->reportError(Fixup.getLoc(), "misaligned ARM call destination");
+      return 0;
+    }
+
+    uint32_t offset = (Value - 4) >> 2;
     if (const MCSymbolRefExpr *SRE =
             dyn_cast<MCSymbolRefExpr>(Fixup.getValue()))
       if (SRE->getKind() == MCSymbolRefExpr::VK_TLSCALL)
@@ -1100,6 +1111,7 @@ static MachO::CPUSubTypeARM getMachOSubTypeFromArch(StringRef Arch) {
 MCAsmBackend *llvm::createARMAsmBackend(const Target &T,
                                         const MCRegisterInfo &MRI,
                                         const Triple &TheTriple, StringRef CPU,
+                                        const MCTargetOptions &Options,
                                         bool isLittle) {
   switch (TheTriple.getObjectFormat()) {
   default:
@@ -1120,24 +1132,28 @@ MCAsmBackend *llvm::createARMAsmBackend(const Target &T,
 
 MCAsmBackend *llvm::createARMLEAsmBackend(const Target &T,
                                           const MCRegisterInfo &MRI,
-                                          const Triple &TT, StringRef CPU) {
-  return createARMAsmBackend(T, MRI, TT, CPU, true);
+                                          const Triple &TT, StringRef CPU,
+                                          const MCTargetOptions &Options) {
+  return createARMAsmBackend(T, MRI, TT, CPU, Options, true);
 }
 
 MCAsmBackend *llvm::createARMBEAsmBackend(const Target &T,
                                           const MCRegisterInfo &MRI,
-                                          const Triple &TT, StringRef CPU) {
-  return createARMAsmBackend(T, MRI, TT, CPU, false);
+                                          const Triple &TT, StringRef CPU,
+                                          const MCTargetOptions &Options) {
+  return createARMAsmBackend(T, MRI, TT, CPU, Options, false);
 }
 
 MCAsmBackend *llvm::createThumbLEAsmBackend(const Target &T,
                                             const MCRegisterInfo &MRI,
-                                            const Triple &TT, StringRef CPU) {
-  return createARMAsmBackend(T, MRI, TT, CPU, true);
+                                            const Triple &TT, StringRef CPU,
+                                            const MCTargetOptions &Options) {
+  return createARMAsmBackend(T, MRI, TT, CPU, Options, true);
 }
 
 MCAsmBackend *llvm::createThumbBEAsmBackend(const Target &T,
                                             const MCRegisterInfo &MRI,
-                                            const Triple &TT, StringRef CPU) {
-  return createARMAsmBackend(T, MRI, TT, CPU, false);
+                                            const Triple &TT, StringRef CPU,
+                                            const MCTargetOptions &Options) {
+  return createARMAsmBackend(T, MRI, TT, CPU, Options, false);
 }

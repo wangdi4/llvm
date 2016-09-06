@@ -45,6 +45,7 @@ private:
                                   HLLoop *InnermostLoop,
                                   SmallVectorImpl<HLInst *> &PostLoopInsts,
                                   HLInst **StoreInst, DDGraph DDG);
+
   /// \brief Return true if a corresponding load is found
   static bool findLoadInst(const DDRef *RRef,
                            SmallVectorImpl<HLInst *> &PreLoopInsts,
@@ -91,8 +92,22 @@ public:
   /// \brief  Enables Perfect Loop Nests
   /// Takes care of simple cases that are needed for Interchange
   static bool enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG);
+  /// \brief  Checks if a LvalRef has 1 single use in a loop
+  static bool singleUseInLoop(RegDDRef *LvalRef, HLLoop *Loop, DDGraph DDG);
+  /// \brief  Checks if a DDRef is a valid reduction. It needs to match
+  /// the symbase as well
+  static bool isValidReductionDDRef(RegDDRef *RRef, HLLoop *Loop,
+                                    unsigned FirstSymbase,
+                                    bool *LastReductionInst, DDGraph DDG);
 };
 } // End namespace loopopt
 } // End namespace llvm
 
 #endif
+
+// TODO:
+// 1.Passing a DDGraph object is very expensive, try to use DDGraph& instead;
+// 2.
+// 3.
+// 4.
+// 5.

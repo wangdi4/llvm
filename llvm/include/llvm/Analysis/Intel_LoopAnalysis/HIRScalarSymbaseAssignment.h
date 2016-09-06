@@ -43,6 +43,7 @@ class Function;
 class Instruction;
 class MDString;
 class PHINode;
+class ScalarEvolution;
 
 namespace loopopt {
 
@@ -62,11 +63,20 @@ private:
   /// Func - The function we are analyzing.
   Function *Func;
 
-  /// RI - Region Identification analysis.
+  /// Loop info analysis.
+  LoopInfo *LI;
+
+  /// SE - Scalar Evolution analysis for the function.
+  ScalarEvolution *SE;
+
+  /// RI - Region identification analysis.
   HIRRegionIdentification *RI;
 
-  /// SCCF - SCCFormation analysis.
+  /// SCCF - SCC formation analysis.
   HIRSCCFormation *SCCF;
+
+  /// LF - Loop formation analysis.
+  HIRLoopFormation *LF;
 
   /// BaseTemps - Temps used to represent a set of scalar values which are
   /// assigned the same symbase.
@@ -84,6 +94,10 @@ private:
   /// values created by HIR transformations as well.
   SmallDenseMap<unsigned, const Value *, 64> ScalarLvalSymbases;
 
+private:
+  /// Populates region liveout instruction as loop liveout in its parent loops.
+  void populateLoopLiveouts(const Instruction *Inst, unsigned Symbase) const;
+
   /// \brief Populates liveout Values for the region pointed to by RegIt.
   void populateRegionLiveouts(HIRRegionIdentification::iterator RegIt);
 
@@ -91,12 +105,25 @@ private:
   bool processRegionPhiLivein(HIRRegionIdentification::iterator RegIt,
                               const PHINode *Phi, unsigned Symbase);
 
+  /// Populates loop liveouts based on SCC phi instructions.
+  void populateLoopSCCPhiLiveouts(const Instruction *SCCInst, unsigned Symbase);
+
   /// \brief Populates livein Values from the phi nodes present in the region.
   void populateRegionPhiLiveins(HIRRegionIdentification::iterator RegIt);
+
+  /// \brief Returns index of Symbase in BaseTemps.
+  unsigned getIndex(unsigned Symbase) const {
+    return Symbase - ConstantSymbase - 1;
+  }
 
   /// \brief Inserts Temp into set of base temps and returns its non-zero
   /// symbase.
   unsigned insertBaseTemp(const Value *Temp);
+
+  /// \brief Updates the base temp representing Symbase to the passed in Temp,
+  /// if applicable.
+  void updateBaseTemp(unsigned Symbase, const Value *Temp,
+                      const Value **OldTemp);
 
   /// \brief Inserts temp-symbase pair into the map. Symbase cannot be
   /// InvalidSymbase or ConstantSymbase.
@@ -113,9 +140,18 @@ private:
   /// \brief Returns Temp's symbase if it exists, else returns InvalidSymbase.
   unsigned getTempSymbase(const Value *Temp) const;
 
+  /// \brief Assigns a symbase to Temp and returns it.
+  unsigned assignTempSymbase(const Value *Temp);
+
+  /// \brief Traces back single operand phis until something else is encountered
+  /// (or we leave the current region) and returns that.
+  const Value *traceSingleOperandPhis(const Value *Scalar,
+                                      const IRRegion &IRReg) const;
+
   /// \brief Implements getOrAssignScalarSymbase() functionality.
   unsigned getOrAssignScalarSymbaseImpl(const Value *Scalar,
-                                        const IRRegion *IRReg, bool Assign);
+                                        const IRRegion &IRReg, bool Assign,
+                                        const Value **OldBaseScalar);
 
   /// \brief Sets current Function as a generic value to represent loop uppers.
   /// This is a hack to set a generic loop upper symbase which does not
@@ -137,17 +173,8 @@ public:
   /// Only used for printing.
   void insertHIRLval(const Value *Lval, unsigned Symbase);
 
-  /// \brief Traces back single operand phis until something else is encountered
-  /// (or we leave the current region) and returns that.
-  const Value *traceSingleOperandPhis(const Value *Scalar,
-                                      const IRRegion *IRReg) const;
-
   /// \brief Returns the scalar associated with symbase.
   const Value *getBaseScalar(unsigned Symbase) const;
-
-  /// \brief Returns the base scalar associated with Scalar, if any, else
-  /// returns the same scalar. It is only used for printing.
-  const Value *getBaseScalar(const Value *Scalar) const;
 
   /// \brief Returns the max symbase assigned to any scalar.
   unsigned getMaxScalarSymbase() const;
@@ -159,10 +186,13 @@ public:
   bool isConstant(const Value *Scalar) const;
 
   /// \brief Returns scalar's symbase if it exists, else assigns a new symbase.
-  unsigned getOrAssignScalarSymbase(const Value *Scalar, const IRRegion *IRReg);
+  /// If this scalar has replaced an existing base scalar, the existing scalar
+  /// is returned via OldBaseScalar.
+  unsigned getOrAssignScalarSymbase(const Value *Scalar, const IRRegion &IRReg,
+                                    const Value **OldBaseScalar = nullptr);
 
   /// \brief Returns scalar's symbase if it exists, else returns 0.
-  unsigned getScalarSymbase(const Value *Scalar, const IRRegion *IRReg);
+  unsigned getScalarSymbase(const Value *Scalar, const IRRegion &IRReg);
 };
 
 } // End namespace loopopt

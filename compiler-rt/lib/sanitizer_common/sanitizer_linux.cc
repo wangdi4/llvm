@@ -56,7 +56,6 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/utsname.h>
 #include <ucontext.h>
 #include <unistd.h>
 
@@ -100,6 +99,12 @@ const int FUTEX_WAKE = 1;
 # define SANITIZER_LINUX_USES_64BIT_SYSCALLS 0
 #endif
 
+#if defined(__x86_64__)
+extern "C" {
+extern void internal_sigreturn();
+}
+#endif
+
 namespace __sanitizer {
 
 #if SANITIZER_LINUX && defined(__x86_64__)
@@ -111,34 +116,10 @@ namespace __sanitizer {
 #endif
 
 // --------------- sanitizer_libc.h
+#if !SANITIZER_S390
 uptr internal_mmap(void *addr, uptr length, int prot, int flags, int fd,
                    OFF_T offset) {
-#ifdef __s390__
-  struct s390_mmap_params {
-    unsigned long addr;
-    unsigned long length;
-    unsigned long prot;
-    unsigned long flags;
-    unsigned long fd;
-    unsigned long offset;
-  } params = {
-    (unsigned long)addr,
-    (unsigned long)length,
-    (unsigned long)prot,
-    (unsigned long)flags,
-    (unsigned long)fd,
-# ifdef __s390x__
-    (unsigned long)offset,
-# else
-    (unsigned long)(offset / 4096),
-# endif
-  };
-# ifdef __s390x__
-  return internal_syscall(SYSCALL(mmap), &params);
-# else
-  return internal_syscall(SYSCALL(mmap2), &params);
-# endif
-#elif SANITIZER_FREEBSD || SANITIZER_LINUX_USES_64BIT_SYSCALLS
+#if SANITIZER_FREEBSD || SANITIZER_LINUX_USES_64BIT_SYSCALLS
   return internal_syscall(SYSCALL(mmap), (uptr)addr, length, prot, flags, fd,
                           offset);
 #else
@@ -148,6 +129,7 @@ uptr internal_mmap(void *addr, uptr length, int prot, int flags, int fd,
                           offset / 4096);
 #endif
 }
+#endif // !SANITIZER_S390
 
 uptr internal_munmap(void *addr, uptr length) {
   return internal_syscall(SYSCALL(munmap), (uptr)addr, length);
@@ -358,6 +340,15 @@ void internal__exit(int exitcode) {
   internal_syscall(SYSCALL(exit_group), exitcode);
 #endif
   Die();  // Unreachable.
+}
+
+unsigned int internal_sleep(unsigned int seconds) {
+  struct timespec ts;
+  ts.tv_sec = 1;
+  ts.tv_nsec = 0;
+  int res = internal_syscall(SYSCALL(nanosleep), &ts, &ts);
+  if (res) return ts.tv_sec;
+  return 0;
 }
 
 uptr internal_execve(const char *filename, char *const argv[],
@@ -631,7 +622,8 @@ int internal_fork() {
 
 #if SANITIZER_LINUX
 #define SA_RESTORER 0x04000000
-// Doesn't set sa_restorer, use with caution (see below).
+// Doesn't set sa_restorer if the caller did not set it, so use with caution
+//(see below).
 int internal_sigaction_norestorer(int signum, const void *act, void *oldact) {
   __sanitizer_kernel_sigaction_t k_act, k_oldact;
   internal_memset(&k_act, 0, sizeof(__sanitizer_kernel_sigaction_t));
@@ -675,6 +667,25 @@ int internal_sigaction_norestorer(int signum, const void *act, void *oldact) {
   }
   return result;
 }
+
+// Invokes sigaction via a raw syscall with a restorer, but does not support
+// all platforms yet.
+// We disable for Go simply because we have not yet added to buildgo.sh.
+#if defined(__x86_64__) && !SANITIZER_GO
+int internal_sigaction_syscall(int signum, const void *act, void *oldact) {
+  if (act == nullptr)
+    return internal_sigaction_norestorer(signum, act, oldact);
+  __sanitizer_sigaction u_adjust;
+  internal_memcpy(&u_adjust, act, sizeof(u_adjust));
+#if !SANITIZER_ANDROID || !SANITIZER_MIPS32
+    if (u_adjust.sa_restorer == nullptr) {
+      u_adjust.sa_restorer = internal_sigreturn;
+    }
+#endif
+    return internal_sigaction_norestorer(signum, (const void *)&u_adjust,
+                                         oldact);
+}
+#endif // defined(__x86_64__) && !SANITIZER_GO
 #endif  // SANITIZER_LINUX
 
 uptr internal_sigprocmask(int how, __sanitizer_sigset_t *set,
@@ -694,6 +705,10 @@ void internal_sigfillset(__sanitizer_sigset_t *set) {
   internal_memset(set, 0xff, sizeof(*set));
 }
 
+void internal_sigemptyset(__sanitizer_sigset_t *set) {
+  internal_memset(set, 0, sizeof(*set));
+}
+
 #if SANITIZER_LINUX
 void internal_sigdelset(__sanitizer_sigset_t *set, int signum) {
   signum -= 1;
@@ -703,6 +718,16 @@ void internal_sigdelset(__sanitizer_sigset_t *set, int signum) {
   const uptr idx = signum / (sizeof(k_set->sig[0]) * 8);
   const uptr bit = signum % (sizeof(k_set->sig[0]) * 8);
   k_set->sig[idx] &= ~(1 << bit);
+}
+
+bool internal_sigismember(__sanitizer_sigset_t *set, int signum) {
+  signum -= 1;
+  CHECK_GE(signum, 0);
+  CHECK_LT(signum, sizeof(*set) * 8);
+  __sanitizer_kernel_sigset_t *k_set = (__sanitizer_kernel_sigset_t *)set;
+  const uptr idx = signum / (sizeof(k_set->sig[0]) * 8);
+  const uptr bit = signum % (sizeof(k_set->sig[0]) * 8);
+  return k_set->sig[idx] & (1 << bit);
 }
 #endif  // SANITIZER_LINUX
 
@@ -984,8 +1009,18 @@ uptr internal_clone(int (*fn)(void *), void *child_stack, int flags, void *arg,
                        "bnez $2,1f;\n"
 
                        /* Call "fn(arg)". */
+#if SANITIZER_WORDSIZE == 32
+#ifdef __BIG_ENDIAN__
+                       "lw $25,4($29);\n"
+                       "lw $4,12($29);\n"
+#else
+                       "lw $25,0($29);\n"
+                       "lw $4,8($29);\n"
+#endif
+#else
                        "ld $25,0($29);\n"
                        "ld $4,8($29);\n"
+#endif
                        "jal $25;\n"
 
                        /* Call _exit($v0). */
@@ -1356,72 +1391,6 @@ void GetPcSpBp(void *context, uptr *pc, uptr *sp, uptr *bp) {
 void MaybeReexec() {
   // No need to re-exec on Linux.
 }
-
-#ifdef __s390x__
-static bool FixedCVE_2016_2143() {
-  // Try to determine if the running kernel has a fix for CVE-2016-2143,
-  // return false if in doubt (better safe than sorry).  Distros may want to
-  // adjust this for their own kernels.
-  struct utsname buf;
-  unsigned int major, minor, patch = 0;
-  // This should never fail, but just in case...
-  if (uname(&buf))
-    return false;
-  char *ptr = buf.release;
-  major = internal_simple_strtoll(ptr, &ptr, 10);
-  // At least first 2 should be matched.
-  if (ptr[0] != '.')
-    return false;
-  minor = internal_simple_strtoll(ptr+1, &ptr, 10);
-  // Third is optional.
-  if (ptr[0] == '.')
-    patch = internal_simple_strtoll(ptr+1, &ptr, 10);
-  if (major < 3) {
-    // <3.0 is bad.
-    return false;
-  } else if (major == 3) {
-    // 3.2.79+ is OK.
-    if (minor == 2 && patch >= 79)
-      return true;
-    // Otherwise, bad.
-    return false;
-  } else if (major == 4) {
-    // 4.1.21+ is OK.
-    if (minor == 1 && patch >= 21)
-      return true;
-    // 4.4.6+ is OK.
-    if (minor == 4 && patch >= 6)
-      return true;
-    // Otherwise, OK if 4.5+.
-    return minor >= 5;
-  } else {
-    // Linux 5 and up are fine.
-    return true;
-  }
-}
-
-void AvoidCVE_2016_2143() {
-  // Older kernels are affected by CVE-2016-2143 - they will crash hard
-  // if someone uses 4-level page tables (ie. virtual addresses >= 4TB)
-  // and fork() in the same process.  Unfortunately, sanitizers tend to
-  // require such addresses.  Since this is very likely to crash the whole
-  // machine (sanitizers themselves use fork() for llvm-symbolizer, for one),
-  // abort the process at initialization instead.
-  if (FixedCVE_2016_2143())
-    return;
-  if (GetEnv("SANITIZER_IGNORE_CVE_2016_2143"))
-    return;
-  Report(
-    "ERROR: Your kernel seems to be vulnerable to CVE-2016-2143.  Using ASan,\n"
-    "MSan or TSan with such kernel can and will crash your machine, or worse.\n"
-    "\n"
-    "If you are certain your kernel is not vulnerable (you have compiled it\n"
-    "yourself, are are using an unrecognized distribution kernel), you can\n"
-    "override this safety check by exporting SANITIZER_IGNORE_CVE_2016_2143\n"
-    "with any value.\n");
-  Die();
-}
-#endif
 
 } // namespace __sanitizer
 

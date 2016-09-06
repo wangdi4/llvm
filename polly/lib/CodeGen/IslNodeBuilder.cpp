@@ -48,11 +48,11 @@
 using namespace polly;
 using namespace llvm;
 
-// The maximal number of basic sets we allow during invariant load construction.
+// The maximal number of dimensions we allow during invariant load construction.
 // More complex access ranges will result in very high compile time and are also
 // unlikely to result in good code. This value is very high and should only
 // trigger for corner cases (e.g., the "dct_luma" function in h264, SPEC2006).
-static int const MaxConjunctsInAccessRange = 80;
+static int const MaxDimensionsInAccessRange = 9;
 
 __isl_give isl_ast_expr *
 IslNodeBuilder::getUpperBound(__isl_keep isl_ast_node *For,
@@ -177,23 +177,13 @@ int IslNodeBuilder::getNumberOfIterations(__isl_keep isl_ast_node *For) {
     return NumberIterations + 1;
 }
 
-struct SubtreeReferences {
-  LoopInfo &LI;
-  ScalarEvolution &SE;
-  Region &R;
-  ValueMapT &GlobalMap;
-  SetVector<Value *> &Values;
-  SetVector<const SCEV *> &SCEVs;
-  BlockGenerator &BlockGen;
-};
-
 /// @brief Extract the values and SCEVs needed to generate code for a block.
 static int findReferencesInBlock(struct SubtreeReferences &References,
                                  const ScopStmt *Stmt, const BasicBlock *BB) {
   for (const Instruction &Inst : *BB)
     for (Value *SrcVal : Inst.operands()) {
       auto *Scope = References.LI.getLoopFor(BB);
-      if (canSynthesize(SrcVal, &References.LI, &References.SE, &References.R,
+      if (canSynthesize(SrcVal, References.S, &References.LI, &References.SE,
                         Scope)) {
         References.SCEVs.insert(References.SE.getSCEVAtScope(SrcVal, Scope));
         continue;
@@ -213,7 +203,7 @@ static int findReferencesInBlock(struct SubtreeReferences &References,
 /// @param Stmt    The statement for which to extract the information.
 /// @param UserPtr A void pointer that can be casted to a SubtreeReferences
 ///                structure.
-static isl_stat addReferencesFromStmt(const ScopStmt *Stmt, void *UserPtr) {
+isl_stat addReferencesFromStmt(const ScopStmt *Stmt, void *UserPtr) {
   auto &References = *static_cast<struct SubtreeReferences *>(UserPtr);
 
   if (Stmt->isBlockStmt())
@@ -229,7 +219,7 @@ static isl_stat addReferencesFromStmt(const ScopStmt *Stmt, void *UserPtr) {
     if (Access->isArrayKind()) {
       auto *BasePtr = Access->getScopArrayInfo()->getBasePtr();
       if (Instruction *OpInst = dyn_cast<Instruction>(BasePtr))
-        if (Stmt->getParent()->getRegion().contains(OpInst))
+        if (Stmt->getParent()->contains(OpInst))
           continue;
 
       References.Values.insert(BasePtr);
@@ -292,7 +282,7 @@ void IslNodeBuilder::getReferencesInSubtree(__isl_keep isl_ast_node *For,
 
   SetVector<const SCEV *> SCEVs;
   struct SubtreeReferences References = {
-      LI, SE, S.getRegion(), ValueMap, Values, SCEVs, getBlockGenerator()};
+      LI, SE, S, ValueMap, Values, SCEVs, getBlockGenerator()};
 
   for (const auto &I : IDToValue)
     Values.insert(I.second);
@@ -314,7 +304,7 @@ void IslNodeBuilder::getReferencesInSubtree(__isl_keep isl_ast_node *For,
   /// are considered local. This leaves only loops that are before the scop, but
   /// do not contain the scop itself.
   Loops.remove_if([this](const Loop *L) {
-    return S.getRegion().contains(L) || L->contains(S.getRegion().getEntry());
+    return S.contains(L) || L->contains(S.getEntry());
   });
 }
 
@@ -861,7 +851,7 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
       // Check if the value is an instruction in a dead block within the SCoP
       // and if so do not code generate it.
       if (auto *Inst = dyn_cast<Instruction>(Val)) {
-        if (S.getRegion().contains(Inst)) {
+        if (S.contains(Inst)) {
           bool IsDead = true;
 
           // Check for "undef" loads first, then if there is a statement for
@@ -888,12 +878,12 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
         }
       }
 
-      if (const auto *IAClass = S.lookupInvariantEquivClass(Val)) {
+      if (auto *IAClass = S.lookupInvariantEquivClass(Val)) {
 
         // Check if this invariant access class is empty, hence if we never
         // actually added a loads instruction to it. In that case it has no
         // (meaningful) users and we should not try to code generate it.
-        if (std::get<1>(*IAClass).empty())
+        if (IAClass->InvariantAccesses.empty())
           V = UndefValue::get(ParamSCEV->getType());
 
         if (!preloadInvariantEquivClass(*IAClass)) {
@@ -922,16 +912,27 @@ bool IslNodeBuilder::materializeParameters(isl_set *Set, bool All) {
   return true;
 }
 
+/// @brief Add the number of dimensions in @p BS to @p U.
+static isl_stat countTotalDims(isl_basic_set *BS, void *U) {
+  unsigned *NumTotalDim = static_cast<unsigned *>(U);
+  *NumTotalDim += isl_basic_set_total_dim(BS);
+  isl_basic_set_free(BS);
+  return isl_stat_ok;
+}
+
 Value *IslNodeBuilder::preloadUnconditionally(isl_set *AccessRange,
                                               isl_ast_build *Build,
                                               Instruction *AccInst) {
-  if (isl_set_n_basic_set(AccessRange) > MaxConjunctsInAccessRange) {
+
+  // TODO: This check could be performed in the ScopInfo already.
+  unsigned NumTotalDim = 0;
+  isl_set_foreach_basic_set(AccessRange, countTotalDims, &NumTotalDim);
+  if (NumTotalDim > MaxDimensionsInAccessRange) {
     isl_set_free(AccessRange);
     return nullptr;
   }
 
   isl_pw_multi_aff *PWAccRel = isl_pw_multi_aff_from_set(AccessRange);
-  PWAccRel = isl_pw_multi_aff_gist_params(PWAccRel, S.getContext());
   isl_ast_expr *Access =
       isl_ast_build_access_from_pw_multi_aff(Build, PWAccRel);
   auto *Address = isl_ast_expr_address_of(Access);
@@ -949,6 +950,11 @@ Value *IslNodeBuilder::preloadUnconditionally(isl_set *AccessRange,
   if (LoadInst *PreloadInst = dyn_cast<LoadInst>(PreloadVal))
     PreloadInst->setAlignment(dyn_cast<LoadInst>(AccInst)->getAlignment());
 
+  // TODO: This is only a hot fix for SCoP sequences that use the same load
+  //       instruction contained and hoisted by one of the SCoPs.
+  if (SE.isSCEVable(Ty))
+    SE.forgetValue(AccInst);
+
   return PreloadVal;
 }
 
@@ -956,6 +962,8 @@ Value *IslNodeBuilder::preloadInvariantLoad(const MemoryAccess &MA,
                                             isl_set *Domain) {
 
   isl_set *AccessRange = isl_map_range(MA.getAddressFunction());
+  AccessRange = isl_set_gist_params(AccessRange, S.getContext());
+
   if (!materializeParameters(AccessRange, false)) {
     isl_set_free(AccessRange);
     isl_set_free(Domain);
@@ -988,7 +996,13 @@ Value *IslNodeBuilder::preloadInvariantLoad(const MemoryAccess &MA,
   isl_ast_expr *DomainCond = isl_ast_build_expr_from_set(Build, Domain);
   Domain = nullptr;
 
+  ExprBuilder.setTrackOverflow(true);
   Value *Cond = ExprBuilder.create(DomainCond);
+  Value *OverflowHappened = Builder.CreateNot(ExprBuilder.getOverflowState(),
+                                              "polly.preload.cond.overflown");
+  Cond = Builder.CreateAnd(Cond, OverflowHappened, "polly.preload.cond.result");
+  ExprBuilder.setTrackOverflow(false);
+
   if (!Cond->getType()->isIntegerTy(1))
     Cond = Builder.CreateIsNotNull(Cond);
 
@@ -1035,12 +1049,12 @@ Value *IslNodeBuilder::preloadInvariantLoad(const MemoryAccess &MA,
 }
 
 bool IslNodeBuilder::preloadInvariantEquivClass(
-    const InvariantEquivClassTy &IAClass) {
+    InvariantEquivClassTy &IAClass) {
   // For an equivalence class of invariant loads we pre-load the representing
   // element with the unified execution context. However, we have to map all
   // elements of the class to the one preloaded load as they are referenced
   // during the code generation and therefor need to be mapped.
-  const MemoryAccessList &MAs = std::get<1>(IAClass);
+  const MemoryAccessList &MAs = IAClass.InvariantAccesses;
   if (MAs.empty())
     return true;
 
@@ -1055,22 +1069,30 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   // Check for recurrsion which can be caused by additional constraints, e.g.,
   // non-finitie loop contraints. In such a case we have to bail out and insert
   // a "false" runtime check that will cause the original code to be executed.
-  auto PtrId = std::make_pair(std::get<0>(IAClass), std::get<3>(IAClass));
+  auto PtrId = std::make_pair(IAClass.IdentifyingPointer, IAClass.AccessType);
   if (!PreloadedPtrs.insert(PtrId).second)
     return false;
+
+  // The exectution context of the IAClass.
+  isl_set *&ExecutionCtx = IAClass.ExecutionContext;
 
   // If the base pointer of this class is dependent on another one we have to
   // make sure it was preloaded already.
   auto *SAI = MA->getScopArrayInfo();
-  if (const auto *BaseIAClass = S.lookupInvariantEquivClass(SAI->getBasePtr()))
+  if (auto *BaseIAClass = S.lookupInvariantEquivClass(SAI->getBasePtr())) {
     if (!preloadInvariantEquivClass(*BaseIAClass))
       return false;
+
+    // After we preloaded the BaseIAClass we adjusted the BaseExecutionCtx and
+    // we need to refine the ExecutionCtx.
+    isl_set *BaseExecutionCtx = isl_set_copy(BaseIAClass->ExecutionContext);
+    ExecutionCtx = isl_set_intersect(ExecutionCtx, BaseExecutionCtx);
+  }
 
   Instruction *AccInst = MA->getAccessInstruction();
   Type *AccInstTy = AccInst->getType();
 
-  isl_set *Domain = isl_set_copy(std::get<2>(IAClass));
-  Value *PreloadVal = preloadInvariantLoad(*MA, Domain);
+  Value *PreloadVal = preloadInvariantLoad(*MA, isl_set_copy(ExecutionCtx));
   if (!PreloadVal)
     return false;
 
@@ -1115,7 +1137,6 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
     }
   }
 
-  const Region &R = S.getRegion();
   for (const MemoryAccess *MA : MAs) {
 
     Instruction *MAAccInst = MA->getAccessInstruction();
@@ -1123,7 +1144,7 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
     BlockGenerator::EscapeUserVectorTy EscapeUsers;
     for (auto *U : MAAccInst->users())
       if (Instruction *UI = dyn_cast<Instruction>(U))
-        if (!R.contains(UI))
+        if (!S.contains(UI))
           EscapeUsers.push_back(UI);
 
     if (EscapeUsers.empty())
@@ -1138,7 +1159,7 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
 
 bool IslNodeBuilder::preloadInvariantLoads() {
 
-  const auto &InvariantEquivClasses = S.getInvariantAccesses();
+  auto &InvariantEquivClasses = S.getInvariantAccesses();
   if (InvariantEquivClasses.empty())
     return true;
 
@@ -1147,7 +1168,7 @@ bool IslNodeBuilder::preloadInvariantLoads() {
   PreLoadBB->setName("polly.preload.begin");
   Builder.SetInsertPoint(&PreLoadBB->front());
 
-  for (const auto &IAClass : InvariantEquivClasses)
+  for (auto &IAClass : InvariantEquivClasses)
     if (!preloadInvariantEquivClass(IAClass))
       return false;
 
@@ -1165,10 +1186,9 @@ void IslNodeBuilder::addParameters(__isl_take isl_set *Context) {
   // scop itself, but as the number of such scops may be arbitrarily large we do
   // not generate code for them here, but only at the point of code generation
   // where these values are needed.
-  Region &R = S.getRegion();
-  Loop *L = LI.getLoopFor(R.getEntry());
+  Loop *L = LI.getLoopFor(S.getEntry());
 
-  while (L != nullptr && R.contains(L))
+  while (L != nullptr && S.contains(L))
     L = L->getParentLoop();
 
   while (L != nullptr) {

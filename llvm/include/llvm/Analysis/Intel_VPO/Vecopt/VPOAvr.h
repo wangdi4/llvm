@@ -28,6 +28,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSLEV.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
@@ -66,6 +67,9 @@ private:
   /// Number - Unique ID for AVR node.
   unsigned Number;
 
+  /// Slev - SIMD lane evolution classification of this AVR node.
+  SLEV Slev;
+
   /// \brief Destroys all objects of this class. Only called after Vectorizer
   /// phase code generation.
   static void destroyAll();
@@ -87,6 +91,14 @@ protected:
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
 
+  /// \brief Utility function for printing only known SLEVs.
+  void printSLEV(formatted_raw_ostream &OS) const {
+    if (getSLEV().isBOTTOM())
+      return;
+    getSLEV().printValue(OS);
+    OS << " ";
+  }
+
 public:
   /// Virtual Clone Method
   virtual AVR *clone() const = 0;
@@ -102,6 +114,15 @@ public:
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const = 0;
 
+  /// \brief Virtual shallow-print method. Default implementation is to call the
+  /// print() method (which is shallow for most nodes). Nodes containing other
+  /// nodes should reimplement to just print the node itself without their
+  /// contained nodes. 
+  virtual void shallowPrint(formatted_raw_ostream &OS) const {
+
+    print(OS, 0, PrintNumber);
+  }
+
   /// \brief Returns a StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const = 0;
 
@@ -111,6 +132,9 @@ public:
 
   /// \brief Returns the Avr nodes's unique ID number
   unsigned getNumber() const { return Number; }
+
+  /// \brief Returns the Avr nodes's SLEV data.
+  SLEV getSLEV() const { return Slev; }
 
   /// \brief Code generation for AVR.
   virtual void codeGen();

@@ -10,7 +10,7 @@
 #include "../ClangTidy.h"
 #include "../ClangTidyModule.h"
 #include "../ClangTidyModuleRegistry.h"
-#include "../misc/AssignOperatorSignatureCheck.h"
+#include "../misc/UnconventionalAssignOperatorCheck.h"
 #include "InterfacesGlobalInitCheck.h"
 #include "ProBoundsArrayToPointerDecayCheck.h"
 #include "ProBoundsConstantArrayIndexCheck.h"
@@ -22,6 +22,7 @@
 #include "ProTypeStaticCastDowncastCheck.h"
 #include "ProTypeUnionAccessCheck.h"
 #include "ProTypeVarargCheck.h"
+#include "SlicingCheck.h"
 
 namespace clang {
 namespace tidy {
@@ -53,7 +54,9 @@ public:
         "cppcoreguidelines-pro-type-union-access");
     CheckFactories.registerCheck<ProTypeVarargCheck>(
         "cppcoreguidelines-pro-type-vararg");
-    CheckFactories.registerCheck<misc::AssignOperatorSignatureCheck>(
+    CheckFactories.registerCheck<SlicingCheck>(
+        "cppcoreguidelines-slicing");
+    CheckFactories.registerCheck<misc::UnconventionalAssignOperatorCheck>(
         "cppcoreguidelines-c-copy-assignment-signature");
   }
 };

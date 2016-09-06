@@ -146,7 +146,7 @@ void HIRVectVLSAnalysis::testVLSMemrefAnalysis(VectVLSContext *VectContext,
 // VectContext, e.g. the current loop level that is being considered for
 // vectorization. We initially create the ClientMemrefs without setting the
 // NumberOfElements (this will be set later per VF).
-void HIRVectVLSAnalysis::getVLSMemrefs(VectVLSContext *VectContext,
+void HIRVectVLSAnalysis::getVLSMemrefs(VectVLSContext &VectContext,
                                        LoopMemrefsVector &RefVec,
                                        OVLSMemrefVector &Mrfs) {
 
@@ -156,7 +156,7 @@ void HIRVectVLSAnalysis::getVLSMemrefs(VectVLSContext *VectContext,
     // FIXME: These 'new' operations in the loop are expensive and unnecessary.
     // The OVLSMemrefVector type should be changed to store objects rather than
     // pointers.
-    HIRVLSClientMemref *Mrf = new HIRVLSClientMemref(Ref, VectContext);
+    HIRVLSClientMemref *Mrf = new HIRVLSClientMemref(Ref, &VectContext);
     if (!Mrf->setStridedAccess()) {
       // TODO: Try indexed
       // FORNOW: Access Remains unknown.
@@ -166,12 +166,12 @@ void HIRVectVLSAnalysis::getVLSMemrefs(VectVLSContext *VectContext,
 }
 
 void HIRVectVLSAnalysis::computeVLSGroups(const OVLSMemrefVector &Memrefs,
-                                          VectVLSContext *VectContext,
+                                          VectVLSContext &VectContext,
                                           OVLSGroupVector &Grps) {
 
   unsigned GroupSize = MAX_VECTOR_LENGTH; // CHECKME
-  unsigned Level = VectContext->getLoopLevel();
-  unsigned VF = VectContext->getVectFactor();
+  unsigned Level = VectContext.getLoopLevel();
+  unsigned VF = VectContext.getVectFactor();
   DEBUG(dbgs() << "\nVLS: Examining level " << Level);
   DEBUG(dbgs() << " with NumElements(VF) " << VF << "\n");
 
@@ -213,7 +213,7 @@ void VectVLSDDRefVisitor::visit(const HLInst *Inst) {
   for (auto I = Inst->op_ddref_begin(), E = Inst->op_ddref_end(); I != E; ++I) {
     RegDDRef *RegRef = *I;
     if (!RegRef->isMemRef() ||
-        HIRVLSClientMemref::isInvariantAtLevel(RegRef, LoopLevel)) {
+        RegRef->isStructurallyInvariantAtLevel(LoopLevel)) {
       continue;
     }
     LoopMemrefs.push_back((RegRef));
@@ -225,8 +225,7 @@ void VectVLSDDRefVisitor::visit(const HLInst *Inst) {
 void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
 
   unsigned Level = Loop->getNestingLevel();
-  HLLoop *Loop2 = const_cast<HLLoop *>(Loop);
-  DDGraph DDG = DDA->getGraph(Loop2, false);
+  DDGraph DDG = DDA->getGraph(Loop, false);
   // DEBUG(DDG.dump());
 
   // 1. Gather MemRefs in Loop
@@ -240,12 +239,12 @@ void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
   // be colocated in the same group during the grouping process.
   // It also affects the NumElements member of all the Memrefs.
   // TODO: Consideration of dependence distance no yet implemeneted.
-  VectVLSContext VectContext(DDG, Level);
+  VectVLSContext VectContext(DDG, Loop);
 #if 0
   testVLSMemrefAnalysis(&VectContext, LoopMemrefs);
 #endif
   OVLSMemrefVector LoopVLSMrfs;
-  getVLSMemrefs(&VectContext, LoopMemrefs, LoopVLSMrfs);
+  getVLSMemrefs(VectContext, LoopMemrefs, LoopVLSMrfs);
 
   // To roughly emulate the vectorizer driver we would want to apply the
   // following for each candidate VF. Here we use only one VF.
@@ -255,7 +254,7 @@ void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
     VectContext.setCurrentVF(VF);
 
     OVLSGroupVector Grps;
-    computeVLSGroups(LoopVLSMrfs, &VectContext, Grps);
+    computeVLSGroups(LoopVLSMrfs, VectContext, Grps);
 
     // Do something with Grps
 
@@ -267,6 +266,28 @@ void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
   for (OVLSMemref *Memref : LoopVLSMrfs) {
     delete Memref;
   }
+}
+
+// Utility to gather HIR memrefs
+void HIRVectVLSAnalysis::gatherMemrefsInLoop(HLLoop *Loop,
+                                             LoopMemrefsVector &LoopMemrefs) {
+
+  DEBUG(dbgs() << "\nVLS: gather memrefs\n");
+
+  unsigned Level = Loop->getNestingLevel();
+  VectVLSDDRefVisitor V(Level, LoopMemrefs);
+  HLNodeUtils::visit(V, Loop);
+  // testVLSMemrefAnalysis(VectContext, LoopMemrefs);
+}
+
+// Utility to analyze HIR memrefs
+void HIRVectVLSAnalysis::analyzeVLSMemrefsInLoop(VectVLSContext &VectContext,
+                                                 LoopMemrefsVector &LoopMemrefs,
+                                                 OVLSMemrefVector &Mrfs) {
+
+  DEBUG(dbgs() << "\nVLS: analyze memrefs\n");
+
+  getVLSMemrefs(VectContext, LoopMemrefs, Mrfs);
 }
 
 // Only used when debugHIRVectVLS is on.

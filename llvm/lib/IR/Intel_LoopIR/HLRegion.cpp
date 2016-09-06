@@ -13,13 +13,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLRegion::HLRegion(IRRegion *IReg)
+HLRegion::HLRegion(IRRegion &IReg)
     : HLNode(HLNode::HLRegionVal), GenCode(false), IRReg(IReg) {}
 
 HLRegion *HLRegion::cloneImpl(GotoContainerTy *GotoList,
@@ -40,8 +43,9 @@ void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
   print(OS, Depth, false, Detailed);
 }
 
-void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
-                     bool PrintIRRegion, bool Detailed) const {
+void HLRegion::printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                           bool PrintIRRegion, bool Detailed) const {
+
   indent(OS, Depth);
 
   OS << "BEGIN REGION";
@@ -55,17 +59,32 @@ void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
 
   if (PrintIRRegion) {
     OS << "\n";
-    IRReg->print(OS, Depth);
+    IRReg.print(OS, Depth);
     OS << "\n";
   }
+}
 
+void HLRegion::printBody(formatted_raw_ostream &OS, unsigned Depth,
+                         bool Detailed) const {
   for (auto I = child_begin(), E = child_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
   }
+}
 
+void HLRegion::printFooter(formatted_raw_ostream &OS, unsigned Depth) const {
   indent(OS, Depth);
 
   OS << "END REGION\n";
+}
+
+void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool PrintIRRegion, bool Detailed) const {
+
+  printHeader(OS, Depth, PrintIRRegion, Detailed);
+
+  printBody(OS, Depth + 1, Detailed);
+
+  printFooter(OS, Depth);
 }
 
 HLNode *HLRegion::getFirstChild() {
@@ -88,3 +107,20 @@ void HLRegion::verify() const {
   assert(getParent() == nullptr && "HLRegion should be a root node");
   HLNode::verify();
 }
+
+bool HLRegion::exitsFunction() const {
+  auto LastChild = getLastChild();
+
+  if (!LastChild) {
+    return false;
+  }
+
+  auto HInst = dyn_cast<HLInst>(LastChild);
+
+  if (!HInst) {
+    return false;
+  }
+
+  return isa<ReturnInst>(HInst->getLLVMInstruction());
+}
+

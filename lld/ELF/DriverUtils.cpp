@@ -16,13 +16,17 @@
 #include "Driver.h"
 #include "Error.h"
 #include "lld/Config/Version.h"
+#include "lld/Core/Reproduce.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/Option/Option.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/StringSaver.h"
 
 using namespace llvm;
+using namespace llvm::sys;
 
 using namespace lld;
 using namespace lld::elf;
@@ -47,29 +51,45 @@ static const opt::OptTable::Info OptInfo[] = {
 
 ELFOptTable::ELFOptTable() : OptTable(OptInfo) {}
 
+static cl::TokenizerCallback getQuotingStyle(opt::InputArgList &Args) {
+  if (auto *Arg = Args.getLastArg(OPT_rsp_quoting)) {
+    StringRef S = Arg->getValue();
+    if (S != "windows" && S != "posix")
+      error("invalid response file quoting: " + S);
+    if (S == "windows")
+      return cl::TokenizeWindowsCommandLine;
+    return cl::TokenizeGNUCommandLine;
+  }
+  if (Triple(sys::getProcessTriple()).getOS() == Triple::Win32)
+    return cl::TokenizeWindowsCommandLine;
+  return cl::TokenizeGNUCommandLine;
+}
+
 // Parses a given list of options.
 opt::InputArgList ELFOptTable::parse(ArrayRef<const char *> Argv) {
   // Make InputArgList from string vectors.
   unsigned MissingIndex;
   unsigned MissingCount;
+  SmallVector<const char *, 256> Vec(Argv.data(), Argv.data() + Argv.size());
+
+  // We need to get the quoting style for response files before parsing all
+  // options so we parse here before and ignore all the options but
+  // --rsp-quoting.
+  opt::InputArgList Args = this->ParseArgs(Vec, MissingIndex, MissingCount);
 
   // Expand response files. '@<filename>' is replaced by the file's contents.
-  SmallVector<const char *, 256> Vec(Argv.data(), Argv.data() + Argv.size());
   StringSaver Saver(Alloc);
-  llvm::cl::ExpandResponseFiles(Saver, llvm::cl::TokenizeGNUCommandLine, Vec);
+  cl::ExpandResponseFiles(Saver, getQuotingStyle(Args), Vec);
 
   // Parse options and then do error checking.
-  opt::InputArgList Args = this->ParseArgs(Vec, MissingIndex, MissingCount);
+  Args = this->ParseArgs(Vec, MissingIndex, MissingCount);
   if (MissingCount)
     error(Twine("missing arg value for \"") + Args.getArgString(MissingIndex) +
           "\", expected " + Twine(MissingCount) +
           (MissingCount == 1 ? " argument.\n" : " arguments"));
 
-  iterator_range<opt::arg_iterator> Unknowns = Args.filtered(OPT_UNKNOWN);
-  for (auto *Arg : Unknowns)
-    warning("warning: unknown argument: " + Arg->getSpelling());
-  if (Unknowns.begin() != Unknowns.end())
-    error("unknown argument(s) found");
+  for (auto *Arg : Args.filtered(OPT_UNKNOWN))
+    error("unknown argument: " + Arg->getSpelling());
   return Args;
 }
 
@@ -78,18 +98,48 @@ void elf::printHelp(const char *Argv0) {
   Table.PrintHelp(outs(), Argv0, "lld", false);
 }
 
-void elf::printVersion() {
-  outs() << "LLD " << getLLDVersion();
-  std::string S = getLLDRepositoryVersion();
-  if (!S.empty())
-    outs() << " " << S;
-  outs() << "\n";
+std::string elf::getVersionString() {
+  std::string Version = getLLDVersion();
+  std::string Repo = getLLDRepositoryVersion();
+  if (Repo.empty())
+    return "LLD " + Version + "\n";
+  return "LLD " + Version + " " + Repo + "\n";
+}
+
+// Reconstructs command line arguments so that so that you can re-run
+// the same command with the same inputs. This is for --reproduce.
+std::string elf::createResponseFile(const opt::InputArgList &Args) {
+  SmallString<0> Data;
+  raw_svector_ostream OS(Data);
+
+  // Copy the command line to the output while rewriting paths.
+  for (auto *Arg : Args) {
+    switch (Arg->getOption().getID()) {
+    case OPT_reproduce:
+      break;
+    case OPT_INPUT:
+      OS << quote(rewritePath(Arg->getValue())) << "\n";
+      break;
+    case OPT_L:
+    case OPT_dynamic_list:
+    case OPT_rpath:
+    case OPT_alias_script_T:
+    case OPT_script:
+    case OPT_version_script:
+      OS << Arg->getSpelling() << " " << quote(rewritePath(Arg->getValue()))
+         << "\n";
+      break;
+    default:
+      OS << stringize(Arg) << "\n";
+    }
+  }
+  return Data.str();
 }
 
 std::string elf::findFromSearchPaths(StringRef Path) {
   for (StringRef Dir : Config->SearchPaths) {
     std::string FullPath = buildSysrootedPath(Dir, Path);
-    if (sys::fs::exists(FullPath))
+    if (fs::exists(FullPath))
       return FullPath;
   }
   return "";
@@ -100,12 +150,17 @@ std::string elf::findFromSearchPaths(StringRef Path) {
 std::string elf::searchLibrary(StringRef Path) {
   if (Path.startswith(":"))
     return findFromSearchPaths(Path.substr(1));
-  if (!Config->Static) {
-    std::string S = findFromSearchPaths(("lib" + Path + ".so").str());
-    if (!S.empty())
+  for (StringRef Dir : Config->SearchPaths) {
+    if (!Config->Static) {
+      std::string S = buildSysrootedPath(Dir, ("lib" + Path + ".so").str());
+      if (fs::exists(S))
+        return S;
+    }
+    std::string S = buildSysrootedPath(Dir, ("lib" + Path + ".a").str());
+    if (fs::exists(S))
       return S;
   }
-  return findFromSearchPaths(("lib" + Path + ".a").str());
+  return "";
 }
 
 // Makes a path by concatenating Dir and File.
@@ -114,8 +169,8 @@ std::string elf::searchLibrary(StringRef Path) {
 std::string elf::buildSysrootedPath(StringRef Dir, StringRef File) {
   SmallString<128> Path;
   if (Dir.startswith("="))
-    sys::path::append(Path, Config->Sysroot, Dir.substr(1), File);
+    path::append(Path, Config->Sysroot, Dir.substr(1), File);
   else
-    sys::path::append(Path, Dir, File);
+    path::append(Path, Dir, File);
   return Path.str();
 }

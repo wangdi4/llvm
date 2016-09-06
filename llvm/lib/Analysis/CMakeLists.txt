@@ -1,6 +1,7 @@
 add_llvm_library(LLVMAnalysis
   AliasAnalysis.cpp
   AliasAnalysisEvaluator.cpp
+  AliasAnalysisSummary.cpp
   AliasSetTracker.cpp
   Analysis.cpp
   AssumptionCache.cpp
@@ -10,7 +11,8 @@ add_llvm_library(LLVMAnalysis
   BranchProbabilityInfo.cpp
   CFG.cpp
   CFGPrinter.cpp
-  CFLAliasAnalysis.cpp
+  CFLAndersAliasAnalysis.cpp
+  CFLSteensAliasAnalysis.cpp
   CGSCCPassManager.cpp
   CallGraph.cpp
   CallGraphSCCPass.cpp
@@ -28,6 +30,7 @@ add_llvm_library(LLVMAnalysis
   EHPersonalities.cpp
   GlobalsModRef.cpp
   IVUsers.cpp
+  IndirectCallPromotionAnalysis.cpp
   InlineCost.cpp
   InstCount.cpp
   InstructionSimplify.cpp
@@ -43,6 +46,7 @@ add_llvm_library(LLVMAnalysis
   Interval.cpp
   IntervalPartition.cpp
   IteratedDominanceFrontier.cpp
+  LazyBlockFrequencyInfo.cpp
   LazyCallGraph.cpp
   LazyValueInfo.cpp
   Lint.cpp
@@ -62,9 +66,11 @@ add_llvm_library(LLVMAnalysis
   ObjCARCAliasAnalysis.cpp
   ObjCARCAnalysisUtils.cpp
   ObjCARCInstKind.cpp
+  OptimizationDiagnosticInfo.cpp
   OrderedBasicBlock.cpp
   PHITransAddr.cpp
   PostDominators.cpp
+  ProfileSummaryInfo.cpp
   PtrUseVisitor.cpp
   RegionInfo.cpp
   RegionPass.cpp
@@ -78,6 +84,7 @@ add_llvm_library(LLVMAnalysis
   TargetTransformInfo.cpp
   Trace.cpp
   TypeBasedAliasAnalysis.cpp
+  TypeMetadataUtils.cpp
   ScopedNoAliasAA.cpp
   ValueTracking.cpp
   VectorUtils.cpp
@@ -86,7 +93,7 @@ add_llvm_library(LLVMAnalysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
   )
 
-add_dependencies(LLVMAnalysis intrinsics_gen intel_directives_gen)
+add_dependencies(LLVMAnalysis intrinsics_gen intel_directives_gen intel_svml_gen)
 
 add_subdirectory(Intel_LoopAnalysis)
 add_subdirectory(Intel_VPO)

@@ -39,7 +39,6 @@
 #include "lldb/Host/TimeValue.h"
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/MemoryRegionInfo.h"
-#include "lldb/Target/Platform.h"
 #include "lldb/Host/common/NativeRegisterContext.h"
 #include "lldb/Host/common/NativeProcessProtocol.h"
 #include "lldb/Host/common/NativeThreadProtocol.h"
@@ -76,25 +75,21 @@ namespace
 //----------------------------------------------------------------------
 // GDBRemoteCommunicationServerLLGS constructor
 //----------------------------------------------------------------------
-GDBRemoteCommunicationServerLLGS::GDBRemoteCommunicationServerLLGS(
-        const lldb::PlatformSP& platform_sp,
-        MainLoop &mainloop) :
-    GDBRemoteCommunicationServerCommon ("gdb-remote.server", "gdb-remote.server.rx_packet"),
-    m_platform_sp (platform_sp),
-    m_mainloop (mainloop),
-    m_current_tid (LLDB_INVALID_THREAD_ID),
-    m_continue_tid (LLDB_INVALID_THREAD_ID),
-    m_debugged_process_mutex (Mutex::eMutexTypeRecursive),
-    m_debugged_process_sp (),
-    m_stdio_communication ("process.stdio"),
-    m_inferior_prev_state (StateType::eStateInvalid),
-    m_active_auxv_buffer_sp (),
-    m_saved_registers_mutex (),
-    m_saved_registers_map (),
-    m_next_saved_registers_id (1),
-    m_handshake_completed (false)
+GDBRemoteCommunicationServerLLGS::GDBRemoteCommunicationServerLLGS(MainLoop &mainloop)
+    : GDBRemoteCommunicationServerCommon("gdb-remote.server", "gdb-remote.server.rx_packet"),
+      m_mainloop(mainloop),
+      m_current_tid(LLDB_INVALID_THREAD_ID),
+      m_continue_tid(LLDB_INVALID_THREAD_ID),
+      m_debugged_process_mutex(),
+      m_debugged_process_sp(),
+      m_stdio_communication("process.stdio"),
+      m_inferior_prev_state(StateType::eStateInvalid),
+      m_active_auxv_buffer_sp(),
+      m_saved_registers_mutex(),
+      m_saved_registers_map(),
+      m_next_saved_registers_id(1),
+      m_handshake_completed(false)
 {
-    assert(platform_sp);
     RegisterPacketHandlers();
 }
 
@@ -208,9 +203,18 @@ GDBRemoteCommunicationServerLLGS::LaunchProcess ()
     if (!m_process_launch_info.GetArguments ().GetArgumentCount ())
         return Error ("%s: no process command line specified to launch", __FUNCTION__);
 
+    const bool should_forward_stdio = m_process_launch_info.GetFileActionForFD(STDIN_FILENO) == nullptr ||
+                                      m_process_launch_info.GetFileActionForFD(STDOUT_FILENO) == nullptr ||
+                                      m_process_launch_info.GetFileActionForFD(STDERR_FILENO) == nullptr;
+    m_process_launch_info.SetLaunchInSeparateProcessGroup(true);
+    m_process_launch_info.GetFlags().Set(eLaunchFlagDebug);
+
+    const bool default_to_use_pty = true;
+    m_process_launch_info.FinalizeFileActions(nullptr, default_to_use_pty);
+
     Error error;
     {
-        Mutex::Locker locker (m_debugged_process_mutex);
+        std::lock_guard<std::recursive_mutex> guard(m_debugged_process_mutex);
         assert (!m_debugged_process_sp && "lldb-gdbserver creating debugged process but one already exists");
         error = NativeProcessProtocol::Launch(
             m_process_launch_info,
@@ -231,11 +235,7 @@ GDBRemoteCommunicationServerLLGS::LaunchProcess ()
     // file actions non-null
     // process launch -i/e/o will also make these file actions non-null
     // nullptr means that the traffic is expected to flow over gdb-remote protocol
-    if (
-        m_process_launch_info.GetFileActionForFD(STDIN_FILENO) == nullptr  ||
-        m_process_launch_info.GetFileActionForFD(STDOUT_FILENO) == nullptr  ||
-        m_process_launch_info.GetFileActionForFD(STDERR_FILENO) == nullptr
-        )
+    if (should_forward_stdio)
     {
         // nullptr means it's not redirected to file or pty (in case of LLGS local)
         // at least one of stdio will be transferred pty<->gdb-remote
@@ -1001,14 +1001,6 @@ GDBRemoteCommunicationServerLLGS::StartSTDIOForwarding()
 {
     // Don't forward if not connected (e.g. when attaching).
     if (! m_stdio_communication.IsConnected())
-        return;
-
-    // llgs local-process debugging may specify PTY paths, which will make these
-    // file actions non-null
-    // process launch -e/o will also make these file actions non-null
-    // nullptr means that the traffic is expected to flow over gdb-remote protocol
-    if ( m_process_launch_info.GetFileActionForFD(STDOUT_FILENO) &&
-         m_process_launch_info.GetFileActionForFD(STDERR_FILENO))
         return;
 
     Error error;
@@ -2229,6 +2221,15 @@ GDBRemoteCommunicationServerLLGS::Handle_qMemoryRegionInfo (StringExtractorGDBRe
 
             response.PutChar (';');
         }
+
+        // Name
+        ConstString name = region_info.GetName();
+        if (name)
+        {
+            response.PutCString("name:");
+            response.PutCStringAsRawHex8(name.AsCString());
+            response.PutChar(';');
+        }
     }
 
     return SendPacketNoLock(response.GetData(), response.GetSize());
@@ -2593,7 +2594,7 @@ GDBRemoteCommunicationServerLLGS::Handle_QSaveRegisterState (StringExtractorGDBR
 
     // Save the register data buffer under the save id.
     {
-        Mutex::Locker locker (m_saved_registers_mutex);
+        std::lock_guard<std::mutex> guard(m_saved_registers_mutex);
         m_saved_registers_map[save_id] = register_data_sp;
     }
 
@@ -2643,7 +2644,7 @@ GDBRemoteCommunicationServerLLGS::Handle_QRestoreRegisterState (StringExtractorG
     // Retrieve register state buffer, then remove from the list.
     DataBufferSP register_data_sp;
     {
-        Mutex::Locker locker (m_saved_registers_mutex);
+        std::lock_guard<std::mutex> guard(m_saved_registers_mutex);
 
         // Find the register set buffer for the given save id.
         auto it = m_saved_registers_map.find (save_id);
@@ -2947,7 +2948,7 @@ GDBRemoteCommunicationServerLLGS::GetCurrentThreadID () const
 uint32_t
 GDBRemoteCommunicationServerLLGS::GetNextSavedRegistersID ()
 {
-    Mutex::Locker locker (m_saved_registers_mutex);
+    std::lock_guard<std::mutex> guard(m_saved_registers_mutex);
     return m_next_saved_registers_id++;
 }
 

@@ -24,6 +24,9 @@ PhiCanon::PhiCanon() : FunctionPass(ID) {
 }
 
 bool PhiCanon::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   std::vector<BasicBlock*> bb_to_fix;
   bool changed = false;
 

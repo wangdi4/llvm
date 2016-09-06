@@ -28,6 +28,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/ScopedPrinter.h"
 
 using namespace clang;
 
@@ -609,7 +610,6 @@ void Parser::ParseMicrosoftTypeAttributes(ParsedAttributes &attrs) {
     case tok::kw___ptr64:
     case tok::kw___w64:
     case tok::kw___ptr32:
-    case tok::kw___unaligned:
     case tok::kw___sptr:
     case tok::kw___uptr: {
       IdentifierInfo *AttrName = Tok.getIdentifierInfo();
@@ -720,7 +720,7 @@ static bool VersionNumberSeparator(const char Separator) {
 ///   simple-integer ',' simple-integer
 ///   simple-integer ',' simple-integer ',' simple-integer
 VersionTuple Parser::ParseVersionTuple(SourceRange &Range) {
-  Range = Tok.getLocation();
+  Range = SourceRange(Tok.getLocation(), Tok.getEndLoc());
 
   if (!Tok.is(tok::numeric_constant)) {
     Diag(Tok, diag::err_expected_version);
@@ -880,6 +880,13 @@ void Parser::ParseAvailabilityAttribute(IdentifierInfo &Availability,
     return;
   }
   IdentifierLoc *Platform = ParseIdentifierLoc();
+  // Canonicalize platform name from "macosx" to "macos".
+  if (Platform->Ident && Platform->Ident->getName() == "macosx")
+    Platform->Ident = PP.getIdentifierInfo("macos");
+  // Canonicalize platform name from "macosx_app_extension" to
+  // "macos_app_extension".
+  if (Platform->Ident && Platform->Ident->getName() == "macosx_app_extension")
+    Platform->Ident = PP.getIdentifierInfo("macos_app_extension");
 
   // Parse the ',' following the platform name.
   if (ExpectAndConsume(tok::comma)) {
@@ -2004,7 +2011,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         TemplateParameterLists FakedParamLists;
         FakedParamLists.push_back(Actions.ActOnTemplateParameterList(
             0, SourceLocation(), TemplateInfo.TemplateLoc, LAngleLoc, None,
-            LAngleLoc));
+            LAngleLoc, nullptr));
 
         ThisDecl =
             Actions.ActOnTemplateDeclarator(getCurScope(), FakedParamLists, D);
@@ -2068,7 +2075,8 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       if (Init.isInvalid()) {
         SmallVector<tok::TokenKind, 2> StopTokens;
         StopTokens.push_back(tok::comma);
-        if (D.getContext() == Declarator::ForContext)
+        if (D.getContext() == Declarator::ForContext ||
+            D.getContext() == Declarator::InitStmtContext)
           StopTokens.push_back(tok::r_paren);
         SkipUntil(StopTokens, StopAtSemi | StopBeforeMatch);
         Actions.ActOnInitializerError(ThisDecl);
@@ -2277,6 +2285,24 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
     if (SS)
       AnnotateScopeToken(*SS, /*IsNewAnnotation*/false);
     return false;
+  }
+
+  if (getLangOpts().CPlusPlus && (!SS || SS->isEmpty()) &&
+      getLangOpts().MSVCCompat) {
+    // Lookup of an unqualified type name has failed in MSVC compatibility mode.
+    // Give Sema a chance to recover if we are in a template with dependent base
+    // classes.
+    if (ParsedType T = Actions.ActOnMSVCUnknownTypeName(
+            *Tok.getIdentifierInfo(), Tok.getLocation(),
+            DSC == DSC_template_type_arg)) {
+      const char *PrevSpec;
+      unsigned DiagID;
+      DS.SetTypeSpecType(DeclSpec::TST_typename, Loc, PrevSpec, DiagID, T,
+                         Actions.getASTContext().getPrintingPolicy());
+      DS.SetRangeEnd(Tok.getLocation());
+      ConsumeToken();
+      return false;
+    }
   }
 
   // Otherwise, if we don't consume this token, we are going to emit an
@@ -2661,7 +2687,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
   bool AttrsLastTime = false;
   ParsedAttributesWithRange attrs(AttrFactory);
   // We use Sema's policy to get bool macros right.
-  const PrintingPolicy &Policy = Actions.getPrintingPolicy();
+  PrintingPolicy Policy = Actions.getPrintingPolicy();
   while (1) {
     bool isInvalid = false;
     bool isStorageClass = false;
@@ -2986,16 +3012,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         Actions.getTypeName(*Tok.getIdentifierInfo(),
                             Tok.getLocation(), getCurScope());
 
-      // MSVC: If we weren't able to parse a default template argument, and it's
-      // just a simple identifier, create a DependentNameType.  This will allow
-      // us to defer the name lookup to template instantiation time, as long we
-      // forge a NestedNameSpecifier for the current context.
-      if (!TypeRep && DSContext == DSC_template_type_arg &&
-          getLangOpts().MSVCCompat && getCurScope()->isTemplateParamScope()) {
-        TypeRep = Actions.ActOnDelayedDefaultTemplateArg(
-            *Tok.getIdentifierInfo(), Tok.getLocation());
-      }
-
       // If this is not a typedef name, don't parse it as part of the declspec,
       // it must be an implicit int or an error.
       if (!TypeRep) {
@@ -3087,6 +3103,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
     }
 
+    case tok::kw___unaligned:
+      isInvalid = DS.SetTypeQual(DeclSpec::TQ_unaligned, Loc, PrevSpec, DiagID,
+                                 getLangOpts());
+      break;
+
     case tok::kw___sptr:
     case tok::kw___uptr:
     case tok::kw___ptr64:
@@ -3097,7 +3118,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw___fastcall:
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
-    case tok::kw___unaligned:
       ParseMicrosoftTypeAttributes(DS.getAttributes());
       continue;
 
@@ -3306,6 +3326,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_double, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
+    case tok::kw___float128:
+      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec,
+                                     DiagID, Policy);
+      break;
     case tok::kw_wchar_t:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_wchar, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -3437,6 +3461,22 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       ParseDecltypeSpecifier(DS);
       continue;
 
+    case tok::annot_pragma_pack:
+      HandlePragmaPack();
+      continue;
+
+    case tok::annot_pragma_ms_pragma:
+      HandlePragmaMSPragma();
+      continue;
+
+    case tok::annot_pragma_ms_vtordisp:
+      HandlePragmaMSVtorDisp();
+      continue;
+
+    case tok::annot_pragma_ms_pointers_to_members:
+      HandlePragmaMSPointersToMembers();
+      continue;
+
     case tok::kw___underlying_type:
       ParseUnderlyingTypeSpecifier(DS);
       continue;
@@ -3507,9 +3547,13 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       if (DiagID == diag::ext_duplicate_declspec)
         Diag(Tok, DiagID)
           << PrevSpec << FixItHint::CreateRemoval(Tok.getLocation());
-      else if (DiagID == diag::err_opencl_unknown_type_specifier)
-        Diag(Tok, DiagID) << PrevSpec << isStorageClass;
-      else
+      else if (DiagID == diag::err_opencl_unknown_type_specifier) {
+        const int OpenCLVer = getLangOpts().OpenCLVersion;
+        std::string VerSpec = llvm::to_string(OpenCLVer / 100) +
+                              std::string (".") +
+                              llvm::to_string((OpenCLVer % 100) / 10);
+        Diag(Tok, DiagID) << VerSpec << PrevSpec << isStorageClass;
+      } else
         Diag(Tok, DiagID) << PrevSpec;
     }
 
@@ -3729,8 +3773,7 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
                       T.getOpenLocation(), T.getCloseLocation(),
                       attrs.getList());
   StructScope.Exit();
-  Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl,
-                                   T.getCloseLocation());
+  Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, T.getRange());
 }
 
 /// ParseEnumSpecifier
@@ -4181,7 +4224,7 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
 
     if (Tok.is(tok::identifier)) {
       // We're missing a comma between enumerators.
-      SourceLocation Loc = PP.getLocForEndOfToken(PrevTokLocation);
+      SourceLocation Loc = getEndOfPreviousToken();
       Diag(Loc, diag::err_enumerator_list_missing_comma)
         << FixItHint::CreateInsertion(Loc, ", ");
       continue;
@@ -4225,7 +4268,7 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
   ParsedAttributes attrs(AttrFactory);
   MaybeParseGNUAttributes(attrs);
 
-  Actions.ActOnEnumBody(StartLoc, T.getOpenLocation(), T.getCloseLocation(),
+  Actions.ActOnEnumBody(StartLoc, T.getRange(),
                         EnumDecl, EnumConstantDecls,
                         getCurScope(),
                         attrs.getList());
@@ -4239,8 +4282,7 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
   }
 
   EnumScope.Exit();
-  Actions.ActOnTagFinishDefinition(getCurScope(), EnumDecl,
-                                   T.getCloseLocation());
+  Actions.ActOnTagFinishDefinition(getCurScope(), EnumDecl, T.getRange());
 
   // The next token must be valid after an enum definition. If not, a ';'
   // was probably forgotten.
@@ -4252,27 +4294,6 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
     // ';' after the definition.
     PP.EnterToken(Tok);
     Tok.setKind(tok::semi);
-  }
-}
-
-/// isTypeSpecifierQualifier - Return true if the current token could be the
-/// start of a type-qualifier-list.
-bool Parser::isTypeQualifier() const {
-  switch (Tok.getKind()) {
-  default: return false;
-  // type-qualifier
-  case tok::kw_const:
-  case tok::kw_volatile:
-  case tok::kw_restrict:
-  case tok::kw___private:
-  case tok::kw___local:
-  case tok::kw___global:
-  case tok::kw___constant:
-  case tok::kw___generic:
-  case tok::kw___read_only:
-  case tok::kw___read_write:
-  case tok::kw___write_only:
-    return true;
   }
 }
 
@@ -4300,6 +4321,7 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+  case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -4374,6 +4396,7 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+  case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -4528,6 +4551,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+  case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -4812,6 +4836,10 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
       ParseOpenCLQualifiers(DS.getAttributes());
       break;
 
+    case tok::kw___unaligned:
+      isInvalid = DS.SetTypeQual(DeclSpec::TQ_unaligned, Loc, PrevSpec, DiagID,
+                                 getLangOpts());
+      break;
     case tok::kw___uptr:
       // GNU libc headers in C mode use '__uptr' as an identifer which conflicts
       // with the MS modifier keyword.
@@ -4829,7 +4857,6 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
     case tok::kw___fastcall:
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
-    case tok::kw___unaligned:
       if (AttrReqs & AR_DeclspecAttributesParsed) {
         ParseMicrosoftTypeAttributes(DS.getAttributes());
         continue;
@@ -5052,7 +5079,8 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
                                                 DS.getConstSpecLoc(),
                                                 DS.getVolatileSpecLoc(),
                                                 DS.getRestrictSpecLoc(),
-                                                DS.getAtomicSpecLoc()),
+                                                DS.getAtomicSpecLoc(),
+                                                DS.getUnalignedSpecLoc()),
                     DS.getAttributes(),
                     SourceLocation());
     else
@@ -5172,12 +5200,22 @@ static SourceLocation getMissingDeclaratorIdLoc(Declarator &D,
 ///          '~' class-name
 ///         template-id
 ///
+/// C++17 adds the following, which we also handle here:
+///
+///       simple-declaration:
+///         <decl-spec> '[' identifier-list ']' brace-or-equal-initializer ';'
+///
 /// Note, any additional constructs added here may need corresponding changes
 /// in isConstructorDeclarator.
 void Parser::ParseDirectDeclarator(Declarator &D) {
   DeclaratorScopeObj DeclScopeObj(*this, D.getCXXScopeSpec());
 
   if (getLangOpts().CPlusPlus && D.mayHaveIdentifier()) {
+    // This might be a C++17 structured binding.
+    if (Tok.is(tok::l_square) && !D.mayOmitIdentifier() &&
+        D.getCXXScopeSpec().isEmpty())
+      return ParseDecompositionDeclarator(D);
+
     // Don't parse FOO:BAR as if it were a typo for FOO::BAR inside a class, in
     // this context it is a bitfield. Also in range-based for statement colon
     // may delimit for-range-declaration.
@@ -5405,6 +5443,70 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
       break;
     }
   }
+}
+
+void Parser::ParseDecompositionDeclarator(Declarator &D) {
+  assert(Tok.is(tok::l_square));
+
+  // If this doesn't look like a structured binding, maybe it's a misplaced
+  // array declarator.
+  // FIXME: Consume the l_square first so we don't need extra lookahead for
+  // this.
+  if (!(NextToken().is(tok::identifier) &&
+        GetLookAheadToken(2).isOneOf(tok::comma, tok::r_square)) &&
+      !(NextToken().is(tok::r_square) &&
+        GetLookAheadToken(2).isOneOf(tok::equal, tok::l_brace)))
+    return ParseMisplacedBracketDeclarator(D);
+
+  BalancedDelimiterTracker T(*this, tok::l_square);
+  T.consumeOpen();
+
+  SmallVector<DecompositionDeclarator::Binding, 32> Bindings;
+  while (Tok.isNot(tok::r_square)) {
+    if (!Bindings.empty()) {
+      if (Tok.is(tok::comma))
+        ConsumeToken();
+      else {
+        if (Tok.is(tok::identifier)) {
+          SourceLocation EndLoc = getEndOfPreviousToken();
+          Diag(EndLoc, diag::err_expected)
+              << tok::comma << FixItHint::CreateInsertion(EndLoc, ",");
+        } else {
+          Diag(Tok, diag::err_expected_comma_or_rsquare);
+        }
+
+        SkipUntil(tok::r_square, tok::comma, tok::identifier,
+                  StopAtSemi | StopBeforeMatch);
+        if (Tok.is(tok::comma))
+          ConsumeToken();
+        else if (Tok.isNot(tok::identifier))
+          break;
+      }
+    }
+
+    if (Tok.isNot(tok::identifier)) {
+      Diag(Tok, diag::err_expected) << tok::identifier;
+      break;
+    }
+
+    Bindings.push_back({Tok.getIdentifierInfo(), Tok.getLocation()});
+    ConsumeToken();
+  }
+
+  if (Tok.isNot(tok::r_square))
+    // We've already diagnosed a problem here.
+    T.skipToEnd();
+  else {
+    // C++17 does not allow the identifier-list in a structured binding
+    // to be empty.
+    if (Bindings.empty())
+      Diag(Tok.getLocation(), diag::ext_decomp_decl_empty);
+
+    T.consumeClose();
+  }
+
+  return D.setDecompositionBindings(T.getOpenLocation(), Bindings,
+                                    T.getCloseLocation());
 }
 
 /// ParseParenDeclarator - We parsed the declarator D up to a paren.  This is

@@ -35,6 +35,7 @@ class GVMaterializer;
 class LLVMContext;
 class RandomNumberGenerator;
 class StructType;
+template <class PtrType> class SmallPtrSetImpl;
 
 template<> struct ilist_traits<NamedMDNode>
   : public ilist_default_traits<NamedMDNode> {
@@ -603,8 +604,77 @@ public:
   }
 
 /// @}
-/// @name Named Metadata Iteration
+/// @name Convenience iterators
 /// @{
+
+  template <bool IsConst> class global_object_iterator_t {
+    friend Module;
+
+    typename std::conditional<IsConst, const_iterator, iterator>::type
+        function_i,
+        function_e;
+    typename std::conditional<IsConst, const_global_iterator,
+                              global_iterator>::type global_i;
+
+    typedef
+        typename std::conditional<IsConst, const Module, Module>::type ModuleTy;
+
+    global_object_iterator_t(ModuleTy &M)
+        : function_i(M.begin()), function_e(M.end()),
+          global_i(M.global_begin()) {}
+    global_object_iterator_t(ModuleTy &M, int)
+        : function_i(M.end()), function_e(M.end()), global_i(M.global_end()) {}
+
+  public:
+    global_object_iterator_t &operator++() {
+      if (function_i != function_e)
+        ++function_i;
+      else
+        ++global_i;
+      return *this;
+    }
+
+    typename std::conditional<IsConst, const GlobalObject, GlobalObject>::type &
+    operator*() const {
+      if (function_i != function_e)
+        return *function_i;
+      else
+        return *global_i;
+    }
+
+    bool operator!=(const global_object_iterator_t &other) const {
+      return function_i != other.function_i || global_i != other.global_i;
+    }
+  };
+
+  typedef global_object_iterator_t</*IsConst=*/false> global_object_iterator;
+  typedef global_object_iterator_t</*IsConst=*/true>
+      const_global_object_iterator;
+
+  global_object_iterator global_object_begin() {
+    return global_object_iterator(*this);
+  }
+  global_object_iterator global_object_end() {
+    return global_object_iterator(*this, 0);
+  }
+
+  const_global_object_iterator global_object_begin() const {
+    return const_global_object_iterator(*this);
+  }
+  const_global_object_iterator global_object_end() const {
+    return const_global_object_iterator(*this, 0);
+  }
+
+  iterator_range<global_object_iterator> global_objects() {
+    return make_range(global_object_begin(), global_object_end());
+  }
+  iterator_range<const_global_object_iterator> global_objects() const {
+    return make_range(global_object_begin(), global_object_end());
+  }
+
+  /// @}
+  /// @name Named Metadata Iteration
+  /// @{
 
   named_metadata_iterator named_metadata_begin() { return NamedMDList.begin(); }
   const_named_metadata_iterator named_metadata_begin() const {
@@ -731,14 +801,19 @@ public:
   void setPICLevel(PICLevel::Level PL);
 /// @}
 
+/// @}
+/// @name Utility functions for querying and setting PIE level
+/// @{
+
+  /// \brief Returns the PIE level (small or large model)
+  PIELevel::Level getPIELevel() const;
+
+  /// \brief Set the PIE level (small or large model)
+  void setPIELevel(PIELevel::Level PL);
+/// @}
+
   /// @name Utility functions for querying and setting PGO summary
   /// @{
-
-  /// \brief Set maximum function count in PGO mode
-  void setMaximumFunctionCount(uint64_t);
-
-  /// \brief Returns maximum function count in PGO mode
-  Optional<uint64_t> getMaximumFunctionCount();
 
   /// \brief Attach profile summary metadata to this module.
   void setProfileSummary(Metadata *M);
@@ -747,6 +822,12 @@ public:
   Metadata *getProfileSummary();
   /// @}
 };
+
+/// \brief Given "llvm.used" or "llvm.compiler.used" as a global name, collect
+/// the initializer elements of that global in Set and return the global itself.
+GlobalVariable *collectUsedGlobalVariables(const Module &M,
+                                           SmallPtrSetImpl<GlobalValue *> &Set,
+                                           bool CompilerUsed);
 
 /// An raw_ostream inserter for modules.
 inline raw_ostream &operator<<(raw_ostream &O, const Module &M) {

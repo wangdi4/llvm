@@ -133,7 +133,7 @@ public:
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-    DL = &S.getRegion().getEntry()->getParent()->getParent()->getDataLayout();
+    DL = &S.getFunction().getParent()->getDataLayout();
     RI = &getAnalysis<RegionInfoPass>().getRegionInfo();
     Region *R = &S.getRegion();
     assert(!R->isTopLevelRegion() && "Top level regions are not supported");
@@ -143,11 +143,12 @@ public:
 
     simplifyRegion(R, DT, LI, RI);
     assert(R->isSimple());
-    BasicBlock *EnteringBB = S.getRegion().getEnteringBlock();
+    BasicBlock *EnteringBB = S.getEnteringBlock();
     assert(EnteringBB);
     PollyIRBuilder Builder = createPollyIRBuilder(EnteringBB, Annotator);
 
     IslNodeBuilder NodeBuilder(Builder, Annotator, this, *DL, *LI, *SE, *DT, S);
+    IslExprBuilder &ExprBuilder = NodeBuilder.getExprBuilder();
 
     // Only build the run-time condition and parameters _after_ having
     // introduced the conditional branch. This is important as the conditional
@@ -181,7 +182,7 @@ public:
       assert(MergeBlock);
       markBlockUnreachable(*StartBlock, Builder);
       markBlockUnreachable(*ExitingBlock, Builder);
-      auto *ExitingBB = R->getExitingBlock();
+      auto *ExitingBB = S.getExitingBlock();
       assert(ExitingBB);
       DT->changeImmediateDominator(MergeBlock, ExitingBB);
       DT->eraseNode(ExitingBlock);
@@ -191,23 +192,28 @@ public:
 
       NodeBuilder.addParameters(S.getContext());
 
-      Value *RTC = buildRTC(Builder, NodeBuilder.getExprBuilder());
+      ExprBuilder.setTrackOverflow(true);
+      Value *RTC = buildRTC(Builder, ExprBuilder);
+      Value *OverflowHappened = Builder.CreateNot(
+          ExprBuilder.getOverflowState(), "polly.rtc.overflown");
+      RTC = Builder.CreateAnd(RTC, OverflowHappened, "polly.rtc.result");
+      ExprBuilder.setTrackOverflow(false);
+
       Builder.GetInsertBlock()->getTerminator()->setOperand(0, RTC);
       Builder.SetInsertPoint(&StartBlock->front());
 
       NodeBuilder.create(AstRoot);
-
-      NodeBuilder.finalizeSCoP(S);
+      NodeBuilder.finalize();
       fixRegionInfo(EnteringBB->getParent(), R->getParent());
     }
 
-    verifyGeneratedFunction(S, *EnteringBB->getParent());
+    Function *F = EnteringBB->getParent();
+    verifyGeneratedFunction(S, *F);
     for (auto *SubF : NodeBuilder.getParallelSubfunctions())
       verifyGeneratedFunction(S, *SubF);
 
     // Mark the function such that we run additional cleanup passes on this
     // function (e.g. mem2reg to rediscover phi nodes).
-    Function *F = EnteringBB->getParent();
     F->addFnAttr("polly-optimized");
 
     return true;
@@ -220,7 +226,7 @@ public:
     AU.addRequired<RegionInfoPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<ScopDetection>();
-    AU.addRequired<ScopInfo>();
+    AU.addRequired<ScopInfoRegionPass>();
     AU.addRequired<LoopInfoWrapperPass>();
 
     AU.addPreserved<DependenceInfo>();
@@ -239,10 +245,10 @@ public:
     // FIXME: We do not yet add regions for the newly generated code to the
     //        region tree.
     AU.addPreserved<RegionInfoPass>();
-    AU.addPreserved<ScopInfo>();
+    AU.addPreserved<ScopInfoRegionPass>();
   }
 };
-}
+} // namespace
 
 char CodeGeneration::ID = 1;
 

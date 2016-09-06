@@ -25,6 +25,30 @@ AVRLoop::AVRLoop(unsigned SCID) : AVR(SCID) {}
 
 AVRLoop *AVRLoop::clone() const { return nullptr; }
 
+AVR *AVRLoop::getFirstPreheaderNode() {
+  if (hasPreheader()) {
+    return &*pre_begin();
+  }
+
+  return nullptr;
+}
+
+AVR *AVRLoop::getLastPreheaderNode() {
+  if (hasPreheader()) {
+    return &*(std::prev(pre_end()));
+  }
+
+  return nullptr;
+}
+
+AVR *AVRLoop::getFirstChild() {
+  if (hasChildren()) {
+    return &*child_begin();
+  }
+
+  return nullptr;
+}
+
 AVR *AVRLoop::getLastChild() {
   if (hasChildren()) {
     return &*(std::prev(child_end()));
@@ -33,37 +57,101 @@ AVR *AVRLoop::getLastChild() {
   }
 }
 
+AVR *AVRLoop::getFirstPostexitNode() {
+  if (hasPostexit()) {
+    return &*post_begin();
+  }
+
+  return nullptr;
+}
+
+AVR *AVRLoop::getLastPostexitNode() {
+  if (hasPostexit()) {
+    return &*(std::prev(post_end()));
+  }
+
+  return nullptr;
+}
+
+bool AVRLoop::isPreheaderChild(AVR *Node) const {
+
+  for (auto Itr = pre_begin(), End = pre_end(); Itr != End; ++Itr)
+    if (&(*Itr) == Node)
+      return true;
+
+  return false;
+}
+
+bool AVRLoop::isChild(AVR *Node) const {
+
+  for (auto Itr = child_begin(), End = child_end(); Itr != End; ++Itr)
+    if (&(*Itr) == Node)
+      return true;
+
+  return false;
+}
+
+bool AVRLoop::isPostexitChild(AVR *Node) const {
+
+  for (auto Itr = post_begin(), End = post_end(); Itr != End; ++Itr)
+    if (&(*Itr) == Node)
+      return true;
+
+  return false;
+}
+
+void AVRLoop::extractPreheader() {}
+
+void AVRLoop::extractPostexit() {}
+
+void AVRLoop::extractPreheaderAndPostexit() {}
+
+AVRIf *removeZeroTripTest() { return nullptr; }
+
 void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
                     VerbosityLevel VLevel) const {
 
   std::string Indent((Depth * TabLength), ' ');
 
+  // Print Loop Preheader
+  for (auto Itr = pre_begin(), End = pre_end(); Itr != End; ++Itr)
+    Itr->print(OS, Depth, VLevel);
+
   OS << Indent;
 
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      // Always print avr loop type name.
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrTypeName();
-      // TODO: Add IV Info
-      OS << "( IV )\n";
-      OS << Indent << "{\n";
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+  // Always print avr loop type name.
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrTypeName();
+    // TODO: Add IV Info
+    OS << "( IV )\n";
+    OS << Indent << "{\n";
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   Depth++;
-  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) {
+
+  // Print Loop Children
+  for (auto Itr = child_begin(), End = child_end(); Itr != End; ++Itr)
     Itr->print(OS, Depth, VLevel);
 
-    // OS << Indent  <<"END_AVR_LOOP\n";
-  }
+  // Print Loop Postexit
+  for (auto Itr = post_begin(), End = post_end(); Itr != End; ++Itr)
+    Itr->print(OS, Depth - 1, VLevel);
 
   OS << Indent << "}\n";
+}
+
+void AVRLoop::shallowPrint(formatted_raw_ostream &OS) const {
+
+  OS << "(" << getNumber() << ") " << getAvrTypeName()
+     << "( IV )"; // TODO: Add IV Info
 }
 
 StringRef AVRLoop::getAvrTypeName() const { return StringRef("LOOP"); }

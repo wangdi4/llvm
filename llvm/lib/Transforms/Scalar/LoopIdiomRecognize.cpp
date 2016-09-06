@@ -31,7 +31,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -39,8 +39,9 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"   // INTEL
-#include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
+#include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/LoopPassManager.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -54,6 +55,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 using namespace llvm;
@@ -65,7 +68,7 @@ STATISTIC(NumMemCpy, "Number of memcpy's formed from loop load+stores");
 
 namespace {
 
-class LoopIdiomRecognize : public LoopPass {
+class LoopIdiomRecognize {
   Loop *CurLoop;
   AliasAnalysis *AA;
   DominatorTree *DT;
@@ -76,22 +79,15 @@ class LoopIdiomRecognize : public LoopPass {
   const DataLayout *DL;
 
 public:
-  static char ID;
-  explicit LoopIdiomRecognize() : LoopPass(ID) {
-    initializeLoopIdiomRecognizePass(*PassRegistry::getPassRegistry());
-  }
+  explicit LoopIdiomRecognize(AliasAnalysis *AA, DominatorTree *DT,
+                              LoopInfo *LI, ScalarEvolution *SE,
+                              TargetLibraryInfo *TLI,
+                              const TargetTransformInfo *TTI,
+                              const DataLayout *DL)
+      : CurLoop(nullptr), AA(AA), DT(DT), LI(LI), SE(SE), TLI(TLI), TTI(TTI),
+        DL(DL) {}
 
-  bool runOnLoop(Loop *L, LPPassManager &LPM) override;
-
-  /// This transformation requires natural loop information & requires that
-  /// loop preheaders be inserted into the CFG.
-  ///
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    getLoopAnalysisUsage(AU);
-    AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
-  }
+  bool runOnLoop(Loop *L);
 
 private:
   typedef SmallVector<StoreInst *, 8> StoreList;
@@ -138,30 +134,83 @@ private:
   /// @}
 };
 
+class LoopIdiomRecognizeLegacyPass : public LoopPass {
+public:
+  static char ID;
+  explicit LoopIdiomRecognizeLegacyPass() : LoopPass(ID) {
+    initializeLoopIdiomRecognizeLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  bool runOnLoop(Loop *L, LPPassManager &LPM) override {
+    if (skipLoop(L))
+      return false;
+
+    AliasAnalysis *AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
+    DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    ScalarEvolution *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+    TargetLibraryInfo *TLI =
+        &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+    const TargetTransformInfo *TTI =
+        &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(
+            *L->getHeader()->getParent());
+    const DataLayout *DL = &L->getHeader()->getModule()->getDataLayout();
+
+    LoopIdiomRecognize LIR(AA, DT, LI, SE, TLI, TTI, DL);
+    return LIR.runOnLoop(L);
+  }
+
+  /// This transformation requires natural loop information & requires that
+  /// loop preheaders be inserted into the CFG.
+  ///
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
+    getLoopAnalysisUsage(AU);
+    AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
+  }
+};
 } // End anonymous namespace.
 
-char LoopIdiomRecognize::ID = 0;
-INITIALIZE_PASS_BEGIN(LoopIdiomRecognize, "loop-idiom", "Recognize loop idioms",
-                      false, false)
+PreservedAnalyses LoopIdiomRecognizePass::run(Loop &L,
+                                              AnalysisManager<Loop> &AM) {
+  const auto &FAM =
+      AM.getResult<FunctionAnalysisManagerLoopProxy>(L).getManager();
+  Function *F = L.getHeader()->getParent();
+
+  // Use getCachedResult because Loop pass cannot trigger a function analysis.
+  auto *AA = FAM.getCachedResult<AAManager>(*F);
+  auto *DT = FAM.getCachedResult<DominatorTreeAnalysis>(*F);
+  auto *LI = FAM.getCachedResult<LoopAnalysis>(*F);
+  auto *SE = FAM.getCachedResult<ScalarEvolutionAnalysis>(*F);
+  auto *TLI = FAM.getCachedResult<TargetLibraryAnalysis>(*F);
+  const auto *TTI = FAM.getCachedResult<TargetIRAnalysis>(*F);
+  const auto *DL = &L.getHeader()->getModule()->getDataLayout();
+  assert((AA && DT && LI && SE && TLI && TTI && DL) &&
+         "Analyses for Loop Idiom Recognition not available");
+
+  LoopIdiomRecognize LIR(AA, DT, LI, SE, TLI, TTI, DL);
+  if (!LIR.runOnLoop(&L))
+    return PreservedAnalyses::all();
+
+  return getLoopPassPreservedAnalyses();
+}
+
+char LoopIdiomRecognizeLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(LoopIdiomRecognizeLegacyPass, "loop-idiom",
+                      "Recognize loop idioms", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(LoopIdiomRecognize, "loop-idiom", "Recognize loop idioms",
-                    false, false)
+INITIALIZE_PASS_END(LoopIdiomRecognizeLegacyPass, "loop-idiom",
+                    "Recognize loop idioms", false, false)
 
-Pass *llvm::createLoopIdiomPass() { return new LoopIdiomRecognize(); }
+Pass *llvm::createLoopIdiomPass() { return new LoopIdiomRecognizeLegacyPass(); }
 
-/// deleteDeadInstruction - Delete this instruction.  Before we do, go through
-/// and zero out all the operands of this instruction.  If any of them become
-/// dead, delete them and the computation tree that feeds them.
-///
-static void deleteDeadInstruction(Instruction *I,
-                                  const TargetLibraryInfo *TLI) {
-  SmallVector<Value *, 16> Operands(I->value_op_begin(), I->value_op_end());
+static void deleteDeadInstruction(Instruction *I) {
   I->replaceAllUsesWith(UndefValue::get(I->getType()));
   I->eraseFromParent();
-  for (Value *Op : Operands)
-    RecursivelyDeleteTriviallyDeadInstructions(Op, TLI);
 }
 
 //===----------------------------------------------------------------------===//
@@ -170,10 +219,7 @@ static void deleteDeadInstruction(Instruction *I,
 //
 //===----------------------------------------------------------------------===//
 
-bool LoopIdiomRecognize::runOnLoop(Loop *L, LPPassManager &LPM) {
-  if (skipOptnoneFunction(L))
-    return false;
-
+bool LoopIdiomRecognize::runOnLoop(Loop *L) {
   CurLoop = L;
   // If the loop could not be converted to canonical form, it must have an
   // indirectbr in it, just give up.
@@ -184,15 +230,6 @@ bool LoopIdiomRecognize::runOnLoop(Loop *L, LPPassManager &LPM) {
   StringRef Name = L->getHeader()->getParent()->getName();
   if (Name == "memset" || Name == "memcpy")
     return false;
-
-  AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(
-      *CurLoop->getHeader()->getParent());
-  DL = &CurLoop->getHeader()->getModule()->getDataLayout();
 
   HasMemset = TLI->has(LibFunc::memset);
   HasMemsetPattern = TLI->has(LibFunc::memset_pattern16);
@@ -225,6 +262,14 @@ bool LoopIdiomRecognize::runOnCountableLoop() {
                << CurLoop->getHeader()->getName() << "\n");
 
   bool MadeChange = false;
+
+  // The following transforms hoist stores/memsets into the loop pre-header.
+  // Give up if the loop has instructions may throw.
+  LoopSafetyInfo SafetyInfo;
+  computeLoopSafetyInfo(&SafetyInfo, CurLoop);
+  if (SafetyInfo.MayThrow)
+    return MadeChange;
+
   // Scan all the blocks in the loop that are not in subloops.
   for (auto *BB : CurLoop->getBlocks()) {
     // Ignore blocks in subloops.
@@ -608,7 +653,7 @@ bool LoopIdiomRecognize::processLoopMemSet(MemSetInst *MSI,
     return false;
 
   // If we're not allowed to hack on memset, we fail.
-  if (!TLI->has(LibFunc::memset))
+  if (!HasMemset)
     return false;
 
   Value *Pointer = MSI->getDest();
@@ -681,9 +726,9 @@ mayLoopAccessLocation(Value *Ptr, ModRefInfo Access, Loop *L,
 
   for (Loop::block_iterator BI = L->block_begin(), E = L->block_end(); BI != E;
        ++BI)
-    for (BasicBlock::iterator I = (*BI)->begin(), E = (*BI)->end(); I != E; ++I)
-      if (IgnoredStores.count(&*I) == 0 &&
-          (AA.getModRefInfo(&*I, StoreLoc) & Access))
+    for (Instruction &I : **BI)
+      if (IgnoredStores.count(&I) == 0 &&
+          (AA.getModRefInfo(&I, StoreLoc) & Access))
         return true;
 
   return false;
@@ -777,13 +822,14 @@ bool LoopIdiomRecognize::processLoopStridedStore(
     Value *MSP =
         M->getOrInsertFunction("memset_pattern16", Builder.getVoidTy(),
                                Int8PtrTy, Int8PtrTy, IntPtr, (void *)nullptr);
+    inferLibFuncAttributes(*M->getFunction("memset_pattern16"), *TLI);
 
     // Otherwise we should form a memset_pattern16.  PatternValue is known to be
     // an constant array of 16-bytes.  Plop the value into a mergable global.
     GlobalVariable *GV = new GlobalVariable(*M, PatternValue->getType(), true,
                                             GlobalValue::PrivateLinkage,
                                             PatternValue, ".memset_pattern");
-    GV->setUnnamedAddr(true); // Ok to merge these.
+    GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global); // Ok to merge these.
     GV->setAlignment(16);
     Value *PatternPtr = ConstantExpr::getBitCast(GV, Int8PtrTy);
     NewCall = Builder.CreateCall(MSP, {BasePtr, PatternPtr, NumBytes});
@@ -796,7 +842,7 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   // Okay, the memset has been formed.  Zap the original store and anything that
   // feeds into it.
   for (auto *I : Stores)
-    deleteDeadInstruction(I, TLI);
+    deleteDeadInstruction(I);
   ++NumMemSet;
   return true;
 }
@@ -910,7 +956,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
 
   // Okay, the memcpy has been formed.  Zap the original store and anything that
   // feeds into it.
-  deleteDeadInstruction(SI, TLI);
+  deleteDeadInstruction(SI);
   ++NumMemCpy;
   return true;
 }
@@ -1134,7 +1180,7 @@ bool LoopIdiomRecognize::recognizePopcount() {
 }
 
 static CallInst *createPopcntIntrinsic(IRBuilder<> &IRBuilder, Value *Val,
-                                       DebugLoc DL) {
+                                       const DebugLoc &DL) {
   Value *Ops[] = {Val};
   Type *Tys[] = {Val->getType()};
 

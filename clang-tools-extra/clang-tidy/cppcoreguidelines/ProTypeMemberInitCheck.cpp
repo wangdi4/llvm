@@ -27,14 +27,23 @@ namespace cppcoreguidelines {
 
 namespace {
 
-void fieldsRequiringInit(const RecordDecl::field_range &Fields,
-                         ASTContext &Context,
-                         SmallPtrSetImpl<const FieldDecl *> &FieldsToInit) {
+// Iterate over all the fields in a record type, both direct and indirect (e.g.
+// if the record contains an anonmyous struct). If OneFieldPerUnion is true and
+// the record type (or indirect field) is a union, forEachField will stop after
+// the first field.
+template <typename T, typename Func>
+void forEachField(const RecordDecl *Record, const T &Fields,
+                  bool OneFieldPerUnion, Func &&Fn) {
   for (const FieldDecl *F : Fields) {
-    QualType Type = F->getType();
-    if (!F->hasInClassInitializer() &&
-        type_traits::isTriviallyDefaultConstructible(Type, Context))
-      FieldsToInit.insert(F);
+    if (F->isAnonymousStructOrUnion()) {
+      if (const CXXRecordDecl *R = F->getType()->getAsCXXRecordDecl())
+        forEachField(R, R->fields(), OneFieldPerUnion, Fn);
+    } else {
+      Fn(F);
+    }
+
+    if (OneFieldPerUnion && Record->isUnion())
+      break;
   }
 }
 
@@ -77,7 +86,7 @@ SourceLocation getLocationForEndOfToken(const ASTContext &Context,
                                         SourceLocation Location) {
   return Lexer::getLocForEndOfToken(Location, 0, Context.getSourceManager(),
                                     Context.getLangOpts());
-};
+}
 
 // There are 3 kinds of insertion placements:
 enum class InitializerPlacement {
@@ -112,12 +121,12 @@ struct IntializerInsertion {
     SourceLocation Location;
     switch (Placement) {
     case InitializerPlacement::New:
-      Location = lexer_utils::getPreviousNonCommentToken(
+      Location = utils::lexer::getPreviousNonCommentToken(
                      Context, Constructor.getBody()->getLocStart())
                      .getLocation();
       break;
     case InitializerPlacement::Before:
-      Location = lexer_utils::getPreviousNonCommentToken(
+      Location = utils::lexer::getPreviousNonCommentToken(
                      Context, Where->getSourceRange().getBegin())
                      .getLocation();
       break;
@@ -145,7 +154,7 @@ struct IntializerInsertion {
       Stream << ", " << joined << "()";
       break;
     }
-    return Code;
+    return Stream.str();
   }
 
   InitializerPlacement Placement;
@@ -177,9 +186,9 @@ computeInsertions(const CXXConstructorDecl::init_const_range &Inits,
       // Gets either the field or base class being initialized by the provided
       // initializer.
       const auto *InitDecl =
-          Init->isMemberInitializer()
-              ? static_cast<const NamedDecl *>(Init->getMember())
-              : Init->getBaseClass()->getAs<RecordType>()->getDecl();
+          Init->isAnyMemberInitializer()
+              ? static_cast<const NamedDecl *>(Init->getAnyMember())
+              : Init->getBaseClass()->getAsCXXRecordDecl();
 
       // Add all fields between current field up until the next intializer.
       for (; Decl != std::end(OrderedDecls) && *Decl != InitDecl; ++Decl) {
@@ -208,9 +217,14 @@ computeInsertions(const CXXConstructorDecl::init_const_range &Inits,
 void getInitializationsInOrder(const CXXRecordDecl *ClassDecl,
                                SmallVectorImpl<const NamedDecl *> &Decls) {
   Decls.clear();
-  for (const auto &Base : ClassDecl->bases())
-    Decls.emplace_back(getCanonicalRecordDecl(Base.getType()));
-  Decls.append(ClassDecl->fields().begin(), ClassDecl->fields().end());
+  for (const auto &Base : ClassDecl->bases()) {
+    // Decl may be null if the base class is a template parameter.
+    if (const NamedDecl *Decl = getCanonicalRecordDecl(Base.getType())) {
+      Decls.emplace_back(Decl);
+    }
+  }
+  forEachField(ClassDecl, ClassDecl->fields(), false,
+               [&](const FieldDecl *F) { Decls.push_back(F); });
 }
 
 template <typename T>
@@ -232,23 +246,7 @@ void fixInitializerList(const ASTContext &Context, DiagnosticBuilder &Diag,
   }
 }
 
-template <typename T, typename Func>
-void forEachField(const RecordDecl *Record, const T &Fields,
-                  bool OneFieldPerUnion, Func &&Fn) {
-  for (const FieldDecl *F : Fields) {
-    if (F->isAnonymousStructOrUnion()) {
-      if (const RecordDecl *R = getCanonicalRecordDecl(F->getType()))
-        forEachField(R, R->fields(), OneFieldPerUnion, Fn);
-    } else {
-      Fn(F);
-    }
-
-    if (OneFieldPerUnion && Record->isUnion())
-      break;
-  }
-}
-
-} // namespace
+} // anonymous namespace
 
 ProTypeMemberInitCheck::ProTypeMemberInitCheck(StringRef Name,
                                                ClangTidyContext *Context)
@@ -277,6 +275,7 @@ void ProTypeMemberInitCheck::registerMatchers(MatchFinder *Finder) {
                            isDefaultConstructor(), unless(isUserProvided())))));
   Finder->addMatcher(
       varDecl(isDefinition(), HasDefaultConstructor,
+              hasAutomaticStorageDuration(),
               hasType(recordDecl(has(fieldDecl()),
                                  isTriviallyDefaultConstructible())))
           .bind("var"),
@@ -285,6 +284,9 @@ void ProTypeMemberInitCheck::registerMatchers(MatchFinder *Finder) {
 
 void ProTypeMemberInitCheck::check(const MatchFinder::MatchResult &Result) {
   if (const auto *Ctor = Result.Nodes.getNodeAs<CXXConstructorDecl>("ctor")) {
+    // Skip declarations delayed by late template parsing without a body.
+    if (!Ctor->getBody())
+      return;
     checkMissingMemberInitializer(*Result.Context, Ctor);
     checkMissingBaseClassInitializer(*Result.Context, Ctor);
   } else if (const auto *Var = Result.Nodes.getNodeAs<VarDecl>("var")) {
@@ -304,13 +306,14 @@ void ProTypeMemberInitCheck::checkMissingMemberInitializer(
   if (IsUnion && ClassDecl->hasInClassInitializer())
     return;
 
-  // Skip declarations delayed by late template parsing without a body.
-  const Stmt *Body = Ctor->getBody();
-  if (!Body)
-    return;
-
+  // Gather all fields (direct and indirect) that need to be initialized.
   SmallPtrSet<const FieldDecl *, 16> FieldsToInit;
-  fieldsRequiringInit(ClassDecl->fields(), Context, FieldsToInit);
+  forEachField(ClassDecl, ClassDecl->fields(), false, [&](const FieldDecl *F) {
+    if (!F->hasInClassInitializer() &&
+        utils::type_traits::isTriviallyDefaultConstructible(F->getType(),
+                                                            Context))
+      FieldsToInit.insert(F);
+  });
   if (FieldsToInit.empty())
     return;
 
@@ -320,10 +323,10 @@ void ProTypeMemberInitCheck::checkMissingMemberInitializer(
     if (Init->isAnyMemberInitializer() && Init->isWritten()) {
       if (IsUnion)
         return; // We can only initialize one member of a union.
-      FieldsToInit.erase(Init->getMember());
+      FieldsToInit.erase(Init->getAnyMember());
     }
   }
-  removeFieldsInitializedInBody(*Body, Context, FieldsToInit);
+  removeFieldsInitializedInBody(*Ctor->getBody(), Context, FieldsToInit);
 
   // Collect all fields in order, both direct fields and indirect fields from
   // anonmyous record types.
@@ -384,7 +387,8 @@ void ProTypeMemberInitCheck::checkMissingBaseClassInitializer(
     if (const auto *BaseClassDecl = getCanonicalRecordDecl(Base.getType())) {
       AllBases.emplace_back(BaseClassDecl);
       if (!BaseClassDecl->field_empty() &&
-          type_traits::isTriviallyDefaultConstructible(Base.getType(), Context))
+          utils::type_traits::isTriviallyDefaultConstructible(Base.getType(),
+                                                              Context))
         BasesToInit.insert(BaseClassDecl);
     }
   }
@@ -395,7 +399,7 @@ void ProTypeMemberInitCheck::checkMissingBaseClassInitializer(
   // Remove any bases that were explicitly written in the initializer list.
   for (const CXXCtorInitializer *Init : Ctor->inits()) {
     if (Init->isBaseInitializer() && Init->isWritten())
-      BasesToInit.erase(Init->getBaseClass()->getAs<RecordType>()->getDecl());
+      BasesToInit.erase(Init->getBaseClass()->getAsCXXRecordDecl());
   }
 
   if (BasesToInit.empty())

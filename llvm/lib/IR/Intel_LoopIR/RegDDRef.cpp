@@ -131,7 +131,7 @@ void RegDDRef::setMetadata(StringRef Kind, MDNode *Node) {
 
 void RegDDRef::setMetadata(unsigned KindID, MDNode *Node) {
   // TODO: Handle DbgLoc.
-  createGEP();
+  assert(hasGEPInfo() && "Metadata can be attached only to GEP DDRefs");
 
   MDPairTy MD(KindID, Node);
 
@@ -141,19 +141,39 @@ void RegDDRef::setMetadata(unsigned KindID, MDNode *Node) {
   auto It = std::lower_bound(Beg, End, MD, GEPInfo::MDKindCompareLess());
 
   if ((It != End) && GEPInfo::MDKindCompareEqual()(*It, MD)) {
-    It->second = Node;
-
+    // Update Node
+    if (Node) {
+      It->second = Node;
+    } else {
+      // Remove Node
+      GepInfo->MDNodes.erase(It);
+    }
   } else {
-    GepInfo->MDNodes.insert(It, MD);
+    // Not found in MDNodes
+    if (Node) {
+      GepInfo->MDNodes.insert(It, MD);
+    }
   }
 }
 
-unsigned RegDDRef::findMaxBlobLevel(
-    const SmallVectorImpl<unsigned> &BlobIndices) const {
+void RegDDRef::getAAMetadata(AAMDNodes &AANodes) const {
+  AANodes.Scope = getMetadata(LLVMContext::MD_alias_scope);
+  AANodes.NoAlias = getMetadata(LLVMContext::MD_noalias);
+  AANodes.TBAA = getMetadata(LLVMContext::MD_tbaa);
+}
+
+void RegDDRef::setAAMetadata(AAMDNodes &AANodes) {
+  setMetadata(LLVMContext::MD_alias_scope, AANodes.Scope);
+  setMetadata(LLVMContext::MD_noalias, AANodes.NoAlias);
+  setMetadata(LLVMContext::MD_tbaa, AANodes.TBAA);
+}
+
+unsigned RegDDRef::findMaxTempBlobLevel(
+    const SmallVectorImpl<unsigned> &TempBlobIndices) const {
   unsigned DefLevel = 0, MaxLevel = 0;
 
-  for (auto Index : BlobIndices) {
-    bool Found = findBlobLevel(Index, &DefLevel);
+  for (auto Index : TempBlobIndices) {
+    bool Found = findTempBlobLevel(Index, &DefLevel);
     (void)Found;
     assert(Found && "Blob DDRef not found!");
 
@@ -167,12 +187,20 @@ unsigned RegDDRef::findMaxBlobLevel(
   return MaxLevel;
 }
 
+unsigned RegDDRef::findMaxBlobLevel(unsigned BlobIndex) const {
+  SmallVector<unsigned, 8> Indices;
+
+  BlobUtils::collectTempBlobs(BlobIndex, Indices);
+
+  return findMaxTempBlobLevel(Indices);
+}
+
 void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
   SmallVector<unsigned, 8> BlobIndices;
 
   CE->collectTempBlobIndices(BlobIndices);
 
-  auto MaxLevel = findMaxBlobLevel(BlobIndices);
+  auto MaxLevel = findMaxTempBlobLevel(BlobIndices);
 
   if (CanonExprUtils::hasNonLinearSemantics(MaxLevel, NestingLevel)) {
     CE->setNonLinear();
@@ -251,7 +279,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       OS << ")";
     }
 
-    for (auto I = canon_rbegin(), E = canon_rend(); I != E; I++) {
+    for (auto I = canon_rbegin(), E = canon_rend(); I != E; ++I) {
       if (hasGEPInfo()) {
         OS << "[";
       }
@@ -499,7 +527,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   SmallVector<unsigned, 8> BlobIndices;
   StrideAtLevel->collectTempBlobIndices(BlobIndices);
 
-  unsigned MaxLevel = findMaxBlobLevel(BlobIndices);
+  unsigned MaxLevel = findMaxTempBlobLevel(BlobIndices);
   assert((MaxLevel != NonLinearLevel) && "Invalid level!");
 
   StrideAtLevel->setDefinedAtLevel(MaxLevel);
@@ -683,7 +711,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
     assert(AuxRefs && "Missing auxiliary refs!");
 
     for (auto &AuxRef : (*AuxRefs)) {
-      if (AuxRef->findBlobLevel(Index, &DefLevel)) {
+      if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
         if (CanonExprUtils::hasNonLinearSemantics(DefLevel, Level)) {
           BRef->setNonLinear();
         } else {
@@ -765,7 +793,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   }
 }
 
-bool RegDDRef::findBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
+bool RegDDRef::findTempBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
   assert(DefLevel && "DefLevel ptr should not be null!");
 
   unsigned Index = 0;

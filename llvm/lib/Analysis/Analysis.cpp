@@ -35,10 +35,11 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeCFGPrinterPass(Registry);
   initializeCFGOnlyViewerPass(Registry);
   initializeCFGOnlyPrinterPass(Registry);
-  initializeCFLAAWrapperPassPass(Registry);
-  initializeDependenceAnalysisPass(Registry);
+  initializeCFLAndersAAWrapperPassPass(Registry);
+  initializeCFLSteensAAWrapperPassPass(Registry);
+  initializeDependenceAnalysisWrapperPassPass(Registry);
   initializeDelinearizationPass(Registry);
-  initializeDemandedBitsPass(Registry);
+  initializeDemandedBitsWrapperPassPass(Registry);
   initializeDivergenceAnalysisPass(Registry);
   initializeDominanceFrontierWrapperPassPass(Registry);
   initializeDomViewerPass(Registry);
@@ -51,10 +52,11 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializePostDomOnlyPrinterPass(Registry);
   initializeAAResultsWrapperPassPass(Registry);
   initializeGlobalsAAWrapperPassPass(Registry);
-  initializeIVUsersPass(Registry);
+  initializeIVUsersWrapperPassPass(Registry);
   initializeInstCountPass(Registry);
   initializeIntervalPartitionPass(Registry);
-  initializeLazyValueInfoPass(Registry);
+  initializeLazyBlockFrequencyInfoPassPass(Registry);
+  initializeLazyValueInfoWrapperPassPass(Registry);
   initializeLintPass(Registry);
   initializeLoopInfoWrapperPassPass(Registry);
   initializeMemDepPrinterPass(Registry);
@@ -66,6 +68,7 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeModuleDebugInfoPrinterPass(Registry);
   initializeModuleSummaryIndexWrapperPassPass(Registry);
   initializeObjCARCAAWrapperPassPass(Registry);
+  initializeOptimizationRemarkEmitterWrapperPassPass(Registry);
   initializePostDominatorTreeWrapperPassPass(Registry);
   initializeRegionInfoPassPass(Registry);
   initializeRegionViewerPass(Registry);

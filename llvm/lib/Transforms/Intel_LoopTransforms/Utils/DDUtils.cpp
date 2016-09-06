@@ -23,12 +23,11 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "dd-utils"
 
-/// Returns true if any incoming/outgoing edge into Loop
-//  for a DDRef
+/// Returns true if any incoming/outgoing edge into Loop for a DDRef.
 bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
 
   // Current logic matches one loop  only.
-  // It can be extendted later with an argument to match all
+  // It can be extended later with an argument to match all
   // the containing ParaentLoops
 
   DDRef *DDref = const_cast<DDRef *>(Ref);
@@ -36,7 +35,7 @@ bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
             E1 = DDG.outgoing_edges_end(DDref);
        I1 != E1; ++I1) {
 
-    DDRef *DDRefSink = I1->getSink();
+    DDRef *DDRefSink = (*I1)->getSink();
     HLLoop *ParentLoop = DDRefSink->getParentLoop();
     if (ParentLoop == Loop) {
       return true;
@@ -47,7 +46,7 @@ bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
             E1 = DDG.incoming_edges_end(DDref);
        I1 != E1; ++I1) {
 
-    DDRef *DDRefSrc = I1->getSrc();
+    DDRef *DDRefSrc = (*I1)->getSrc();
     HLLoop *ParentLoop = DDRefSrc->getParentLoop();
     if (ParentLoop == Loop) {
       return true;
@@ -91,8 +90,8 @@ bool DDUtils::canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
             E1 = DDG.outgoing_edges_end(RRef);
        I1 != E1; ++I1) {
     //  ..  = A[i]  is  RRef
-    const DDEdge *Edge = &(*I1);
-    DDRef *DDRefSink = I1->getSink();
+    const DDEdge *Edge = *I1;
+    DDRef *DDRefSink = Edge->getSink();
 
     Node = DDRefSink->getHLDDNode();
     if (Node->getParentLoop() == InnermostLoop) {
@@ -109,8 +108,8 @@ bool DDUtils::canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
             E1 = DDG.outgoing_edges_end(LRef);
        I1 != E1; ++I1) {
     //   t0  = ..    ; t0 is LRef
-    const DDEdge *Edge = &(*I1);
-    DDRef *DDRefSink = I1->getSink();
+    const DDEdge *Edge = *I1;
+    DDRef *DDRefSink = Edge->getSink();
     RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSink);
     if (!RegRef) {
       // Handles blobs later
@@ -137,13 +136,17 @@ bool DDUtils::canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
   }
 
   if (Defs == 1) {
-    assert(FlowEdge && AntiEdge && "both edge must exist here");
-    // Get the level for ParentLoop
-    unsigned Level = InnermostLoop->getNestingLevel() - 1;
-    if (FlowEdge->getDVAtLevel(Level) != DV::EQ) {
+    if (!FlowEdge || !AntiEdge) {
+      // This is a case that the load goes through 2 copy stmts
+      // Need some forwardSub cleanup. Bail out now.
       return false;
     }
-    if (AntiEdge->getDVAtLevel(Level) != DV::EQ) {
+    // Get the level for ParentLoop
+    unsigned Level = InnermostLoop->getNestingLevel() - 1;
+    if (FlowEdge->getDVAtLevel(Level) != DVKind::EQ) {
+      return false;
+    }
+    if (AntiEdge->getDVAtLevel(Level) != DVKind::EQ) {
       return false;
     }
   }
@@ -370,20 +373,25 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
               E2 = DDG.outgoing_edges_end(LRef);
          I2 != E2; ++I2) {
 
-      const DDEdge *Edge = &(*I2);
+      const DDEdge *Edge = *I2;
       if (!Edge->isFLOWdep()) {
         continue;
       }
 
-      DDRef *DDRefSink = I2->getSink();
+      DDRef *DDRefSink = Edge->getSink();
       HLDDNode *SinkDDNode = DDRefSink->getHLDDNode();
       HLLoop *ParentLoop = SinkDDNode->getParentLoop();
       assert(ParentLoop && ParentLoop->isInnermost() &&
              "Unexpected stmt outside loop");
       RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSink);
-      assert(RegRef->isTerminalRef() && "Unexpected memrefs");
+      CanonExpr *SinkCE = nullptr;
 
-      CanonExpr *SinkCE = RegRef->getSingleCanonExpr();
+      if (RegRef) {
+        assert(RegRef->isTerminalRef() && "Unexpected memrefs");
+        SinkCE = RegRef->getSingleCanonExpr();
+      } else {
+        SinkCE = cast<BlobDDRef>(DDRefSink)->getMutableCanonExpr();
+      }
       // There might be defs which are non-linear encountered here,
       // update it anyway
       SinkCE->setNonLinear();
@@ -479,6 +487,57 @@ bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
   // Call Util to update the temp DDRefs from linear-at-level to non-linear
   updateDDRefsLinearity(PreLoopInsts, DDG);
   updateDDRefsLinearity(PostLoopInsts, DDG);
+
+  return true;
+}
+
+///  Is single use of LvalRef in loop?  Counts blobs as well
+
+bool DDUtils::singleUseInLoop(RegDDRef *LvalRef, HLLoop *Loop, DDGraph DDG) {
+
+  assert(LvalRef && LvalRef->isLval() && "DDRef must be lval");
+  assert(Loop && "Loop  must be supplied");
+
+  unsigned NumUse = 0;
+  for (auto I1 = DDG.outgoing_edges_begin(LvalRef),
+            E1 = DDG.outgoing_edges_end(LvalRef);
+       I1 != E1; ++I1) {
+
+    DDRef *DDRefSink = (*I1)->getSink();
+
+    // Skip Sink outside loop, including prehdr/postexit
+    if (!(HLNodeUtils::contains(Loop, DDRefSink->getHLDDNode()))) {
+      continue;
+    }
+
+    RegDDRef *RefSink = dyn_cast<RegDDRef>(DDRefSink);
+    if ((!RefSink || RefSink->isRval()) && ++NumUse > 1) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/// Checks if a DDRef is part of a reduction. Must match with input Symbase
+///
+bool DDUtils::isValidReductionDDRef(RegDDRef *RRef, HLLoop *Loop,
+                                    unsigned FirstSymbase,
+                                    bool *LastReductionInst, DDGraph DDG) {
+  *LastReductionInst = false;
+  CanonExpr *CE = RRef->getSingleCanonExpr();
+  if (!CE->isNonLinear()) {
+    return false;
+  }
+  if (RRef->isLval()) {
+    if (!singleUseInLoop(RRef, Loop, DDG)) {
+      return false;
+    }
+    if (RRef->getSymbase() == FirstSymbase) {
+      *LastReductionInst = true;
+      return true;
+    }
+  }
 
   return true;
 }

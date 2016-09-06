@@ -16,6 +16,7 @@
 
 #include "llvm/Analysis/CallGraphSCCPass.h" // INTEL 
 #include "llvm/Analysis/Intel_AggInline.h"  // INTEL
+#include "llvm/Analysis/AssumptionCache.h"
 #include <cassert>
 #include <climits>
 
@@ -24,6 +25,7 @@ class AssumptionCacheTracker;
 class CallSite;
 class DataLayout;
 class Function;
+class ProfileSummaryInfo;
 class TargetTransformInfo;
 
 
@@ -215,20 +217,23 @@ public:
 ///
 /// Also note that calling this function *dynamically* computes the cost of
 /// inlining the callsite. It is an expensive, heavyweight call.
-InlineCost getInlineCost(CallSite CS, int DefaultThreshold,
-                         TargetTransformInfo &CalleeTTI,
-                         InlineAggressiveAnalysis *AggI,     // INTEL  
-                         AssumptionCacheTracker *ACT);
+InlineCost
+getInlineCost(CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
+              std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+              ProfileSummaryInfo *PSI,         // INTEL
+              InlineAggressiveAnalysis *AggI); // INTEL
 
 /// \brief Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
 /// pointer. This behaves exactly as the version with no explicit callee
 /// parameter in all other respects.
 //
-InlineCost getInlineCost(CallSite CS, Function *Callee, int DefaultThreshold,
-                         TargetTransformInfo &CalleeTTI,
-                         InlineAggressiveAnalysis *AggI,     // INTEL  
-                         AssumptionCacheTracker *ACT);
+InlineCost
+getInlineCost(CallSite CS, Function *Callee, int DefaultThreshold,
+              TargetTransformInfo &CalleeTTI,
+              std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+              ProfileSummaryInfo *PSI,               // INTEL
+              InlineAggressiveAnalysis *AggI);       // INTEL
 
 int computeThresholdFromOptLevels(unsigned OptLevel, unsigned SizeOptLevel);
 

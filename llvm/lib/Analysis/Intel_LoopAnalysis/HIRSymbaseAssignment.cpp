@@ -86,9 +86,7 @@ Value *HIRSymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
 
 // TODO: add special handling for memrefs with undefined base pointers.
 void HIRSymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
-  if (Ref->isTerminalRef()) {
-    return;
-  }
+  assert(!Ref->isTerminalRef() && "Non terminal ref is expected.");
 
   Value *Ptr = getRefPtr(Ref);
   assert(Ptr && "Could not find Value* ptr for mem load store ref");
@@ -96,11 +94,12 @@ void HIRSymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
 
   PtrToRefs[Ptr].push_back(Ref);
 
-  // TODO eventually want restrict/tbaa associated with refs
-  AAMDNodes AAInfo;
-  // we want loop carried disam, so use a store of unknown size
+  AAMDNodes AANodes;
+  Ref->getAAMetadata(AANodes);
+
+  // We want loop carried disam, so use a store of unknown size
   // to simulate read/write of all mem accessed by loop
-  AST.add(Ptr, MemoryLocation::UnknownSize, AAInfo);
+  AST.add(Ptr, MemoryLocation::UnknownSize, AANodes);
 }
 
 void HIRSymbaseAssignmentVisitor::visit(HLDDNode *Node) {

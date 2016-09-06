@@ -25,7 +25,7 @@ namespace loopopt {
 class RegDDRef;
 
 /// \brief High level node representing a switch statement
-class HLSwitch : public HLDDNode {
+class HLSwitch final : public HLDDNode {
 public:
   typedef HLContainerTy ChildNodeTy;
 

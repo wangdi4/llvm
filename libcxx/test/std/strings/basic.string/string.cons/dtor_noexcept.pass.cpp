@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: c++98, c++03
+
 // <string>
 
 // ~basic_string() // implied noexcept;
@@ -14,9 +16,8 @@
 #include <string>
 #include <cassert>
 
+#include "test_macros.h"
 #include "test_allocator.h"
-
-#if __has_feature(cxx_noexcept)
 
 template <class T>
 struct some_alloc
@@ -26,11 +27,8 @@ struct some_alloc
     ~some_alloc() noexcept(false);
 };
 
-#endif
-
 int main()
 {
-#if __has_feature(cxx_noexcept)
     {
         typedef std::string C;
         static_assert(std::is_nothrow_destructible<C>::value, "");
@@ -41,7 +39,6 @@ int main()
     }
     {
         typedef std::basic_string<char, std::char_traits<char>, some_alloc<char>> C;
-        static_assert(!std::is_nothrow_destructible<C>::value, "");
+        LIBCPP_STATIC_ASSERT(!std::is_nothrow_destructible<C>::value, "");
     }
-#endif
 }

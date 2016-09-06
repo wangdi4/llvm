@@ -26,6 +26,8 @@ class Loop;
 
 namespace vpo { // VPO Vectorizer Namespace
 
+class AVRIf;
+
 /// \brief Loop node abstract vector representation
 ///
 /// An AVRLoop node represents a loop found in LLVM IR or LoopOpt HIR.
@@ -33,29 +35,33 @@ class AVRLoop : public AVR {
 
 public:
   /// List Container of AVRFunction's children nodes.
-  typedef AVRContainerTy ChildrenTy;
+  typedef AVRContainerTy ChildNodeTy;
+  typedef ChildNodeTy PreheaderTy;
+  typedef ChildNodeTy PostexitTy;
 
   /// Iterators to iterate over children nodes
-  typedef ChildrenTy::iterator child_iterator;
-  typedef ChildrenTy::const_iterator const_child_iterator;
-  typedef ChildrenTy::reverse_iterator reverse_child_iterator;
-  typedef ChildrenTy::const_reverse_iterator const_reverse_child_iterator;
+  typedef ChildNodeTy::iterator child_iterator;
+  typedef ChildNodeTy::const_iterator const_child_iterator;
+  typedef ChildNodeTy::reverse_iterator reverse_child_iterator;
+  typedef ChildNodeTy::const_reverse_iterator const_reverse_child_iterator;
 
   /// Preheader iterators
-  typedef ChildrenTy::iterator pre_iterator;
-  typedef ChildrenTy::const_iterator const_pre_iterator;
-  typedef ChildrenTy::reverse_iterator reverse_pre_iterator;
-  typedef ChildrenTy::const_reverse_iterator const_reverse_pre_iterator;
+  typedef child_iterator pre_iterator;
+  typedef const_child_iterator const_pre_iterator;
+  typedef reverse_child_iterator reverse_pre_iterator;
+  typedef const_reverse_child_iterator const_reverse_pre_iterator;
 
   /// Postexit iterators
-  typedef ChildrenTy::iterator post_iterator;
-  typedef ChildrenTy::const_iterator const_post_iterator;
-  typedef ChildrenTy::reverse_iterator reverse_post_iterator;
-  typedef ChildrenTy::const_reverse_iterator const_reverse_post_iterator;
+  typedef child_iterator post_iterator;
+  typedef const_child_iterator const_post_iterator;
+  typedef reverse_child_iterator reverse_post_iterator;
+  typedef const_reverse_child_iterator const_reverse_post_iterator;
 
 private:
   /// WRNVecLoop Node.
   WRNVecLoopNode *WrnLoopNode;
+  /// Zero trip test.
+  AVRIf *Ztt;
   /// Loop nesting level.
   unsigned NestingLevel;
   /// Number of loop exits.
@@ -70,21 +76,16 @@ private:
   bool IsAutoVectorCandidate;
   /// Loop is a candidate for explicit-vectorization.
   bool IsExplicitVectorCandidate;
-
-  /// Children of this AVRLoop
-  ChildrenTy Children;
-
-  /// Iterator pointing to begining of children nodes
-  ChildrenTy::iterator ChildBegin;
-  /// Iterator pointing to begining of preheader nodes
-  ChildrenTy::iterator PreheaderBegin;
-  /// Iterator pointing to begining of postexit nodes
-  ChildrenTy::iterator PostexitBegin;
+  /// Children - Contains the children nodes of this loop.
+  ChildNodeTy Children;
+  /// PreheaderChildren - Contains the preheader nodes of this loop.
+  ChildNodeTy PreheaderChildren;
+  /// PostexitChildren - Contains the postexit nodes of this loop.
+  ChildNodeTy PostexitChildren;
 
   // TODO: PHI Node
 
 protected:
-
   AVRLoop(unsigned SCID);
   virtual ~AVRLoop() override {}
 
@@ -94,7 +95,7 @@ protected:
   /// \brief Set the number of exits in loop
   void setNumberOfExits(unsigned NumExits) { NumberOfExits = NumExits; }
 
-  /// \bried Set IsDoWhileLoop
+  /// \brief Set IsDoWhileLoop
   void setIsDoWhileLoop(bool IsDoW) { IsDoWhile = IsDoW; }
 
   /// \brief Set the loop nesting level
@@ -113,6 +114,29 @@ protected:
     IsExplicitVectorCandidate = ExplicitVectorCand;
   }
 
+  /// \brief Moves preheader nodes before the loop. Ztt is extracted first, if
+  /// present.
+  // TODO
+  void extractPreheader();
+
+  /// \brief Moves postexit nodes after the loop. Ztt is extracted first, if
+  /// present.
+  // TODO
+  void extractPostexit();
+
+  /// \brief Moves preheader nodes before the loop and postexit nodes after the
+  /// loop. Ztt is extracted first, if present.
+  // TODO
+  void extractPreheaderAndPostexit();
+
+  /// \brief Sets the loop's zero trip test.
+  void setZeroTripTest(AVRIf *IfZtt) { Ztt = IfZtt; }
+
+  /// \brief Removes this loops ZTT and returns the AVRIf if ztt exists,
+  /// otherwise
+  /// returns nullptr.
+  AVRIf *removeZeroTripTest();
+
   /// Only this utility class should be use to modify/delete AVR nodes.
   friend class AVRUtils;
 
@@ -125,6 +149,9 @@ public:
 
   /// \brief Returns Loop nesting level
   unsigned getNestingLevel() const { return NestingLevel; }
+
+  /// \brief Returns Loop Ztt.
+  AVRIf *getZeroTripTest() { return Ztt; }
 
   /// \brief Returns true if loop is a do loop.
   bool isDoLoop() const { return (!IsDoWhile && (NumberOfExits == 1)); }
@@ -147,7 +174,53 @@ public:
   /// \brief Returns true is loop is a candidate for explicit vectorization.
   bool isExplicitVectorCandidate() const { return IsExplicitVectorCandidate; }
 
-  // Loop Children Iterators
+  /// \brief Returns true if loop contains a zero trip test.
+  bool hasZeroTripTest() const { return Ztt != nullptr; }
+
+  /// Preheader iterator methods
+
+  pre_iterator pre_begin() { return PreheaderChildren.begin(); }
+  const_pre_iterator pre_begin() const { return PreheaderChildren.begin(); }
+  pre_iterator pre_end() { return PreheaderChildren.end(); }
+  const_pre_iterator pre_end() const { return PreheaderChildren.end(); }
+
+  reverse_pre_iterator pre_rbegin() { return PreheaderChildren.rbegin(); }
+  const_reverse_pre_iterator pre_rbegin() const {
+    return PreheaderChildren.rbegin();
+  }
+  reverse_pre_iterator pre_rend() { return PreheaderChildren.rend(); }
+  const_reverse_pre_iterator pre_rend() const {
+    return PreheaderChildren.rend();
+  }
+
+  /// Preheader access methods
+
+  /// \brief Returns the first preheader node if it exists, otherwise returns
+  /// null.
+  AVR *getFirstPreheaderNode();
+  const AVR *getFirstPreheaderNode() const {
+    return const_cast<AVRLoop *>(this)->getFirstPreheaderNode();
+  }
+
+  /// \brief Returns the last preheader node if it exists, otherwise returns
+  /// null.
+  AVR *getLastPreheaderNode();
+  const AVR *getLastPreheaderNode() const {
+    return const_cast<AVRLoop *>(this)->getLastPreheaderNode();
+  }
+
+  /// \brief Returns the number of preheader nodes.
+  unsigned getNumPreheader() const {
+    return std::distance(pre_begin(), pre_end());
+  }
+
+  /// \brief Returns true if preheader is not empty.
+  bool hasPreheader() const { return !PreheaderChildren.empty(); }
+
+  /// \brief Returns true if PreheaderChildren contains Node.
+  bool isPreheaderChild(AVR *Node) const;
+
+  /// Loop Children Iterators
 
   child_iterator child_begin() { return Children.begin(); }
   const_child_iterator child_begin() const { return Children.begin(); }
@@ -155,6 +228,7 @@ public:
   const_reverse_child_iterator child_rbegin() const {
     return Children.rbegin();
   }
+
   child_iterator child_end() { return Children.end(); }
   const_child_iterator child_end() const { return Children.end(); }
   reverse_child_iterator child_rend() { return Children.rend(); }
@@ -164,7 +238,7 @@ public:
 
   LoopNodesRange nodes() { return LoopNodesRange(child_begin(), child_end()); }
 
-  // Children Methods
+  /// Children access Methods
 
   /// \brief Returns the first child if it exists, otherwise returns null.
   AVR *getFirstChild();
@@ -188,6 +262,50 @@ public:
   /// \brief Returns true if it has children.
   bool hasChildren() const { return !Children.empty(); }
 
+  /// \brief Returns true if Children contains Node.
+  bool isChild(AVR *Node) const;
+
+  /// Postexit iterator methods
+
+  post_iterator post_begin() { return PostexitChildren.begin(); }
+  const_post_iterator post_begin() const { return PostexitChildren.begin(); }
+  post_iterator post_end() { return PostexitChildren.end(); }
+  const_post_iterator post_end() const { return PostexitChildren.end(); }
+
+  reverse_post_iterator post_rbegin() { return PostexitChildren.rbegin(); }
+  const_reverse_post_iterator post_rbegin() const {
+    return PostexitChildren.rbegin();
+  }
+  reverse_post_iterator post_rend() { return PostexitChildren.rend(); }
+  const_reverse_post_iterator post_rend() const {
+    return PostexitChildren.rend();
+  }
+
+  /// Postexit access methods
+
+  /// \brief Returns the first postexit node if it exists, otherwise returns
+  /// null.
+  AVR *getFirstPostexitNode();
+  const AVR *getFirstPostexitNode() const {
+    return const_cast<AVRLoop *>(this)->getFirstPostexitNode();
+  }
+  /// \brief Returns the last postexit node if it exists, otherwise returns
+  /// null.
+  AVR *getLastPostexitNode();
+  const AVR *getLastPostexitNode() const {
+    return const_cast<AVRLoop *>(this)->getLastPostexitNode();
+  }
+
+  /// \brief Returns the number of postexit nodes.
+  unsigned getNumPostexit() const {
+    return std::distance(post_begin(), post_end());
+  }
+  /// \brief Returns true if postexit is not empty.
+  bool hasPostexit() const { return !PostexitChildren.empty(); }
+
+  /// \brief Returns true if Children contains Node.
+  bool isPostexitChild(AVR *Node) const;
+
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return (Node->getAVRID() >= AVR::AVRLoopNode &&
@@ -197,6 +315,9 @@ public:
   /// \brief Prints the AvrLoop node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VLevel) const override;
+
+  /// \brief Shallow-prints the AvrLoop node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;

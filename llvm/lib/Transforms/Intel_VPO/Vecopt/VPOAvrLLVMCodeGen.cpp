@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -91,7 +91,7 @@ static Value* buildReductionTail(Value *VectorVal,
     Value *Hi = Builder.CreateExtractElement(VectorVal, Builder.getInt32(1), "Hi");
     return Builder.CreateBinOp(BOpcode, Lo, Hi, "Reduced");
   }
-  SmallVector<int, 16> LoMask, HiMask;
+  SmallVector<uint32_t, 16> LoMask, HiMask;
   for (unsigned i = 0; i < VL / 2; ++i)
     LoMask.push_back(i);
   for (unsigned i = VL / 2; i < VL; ++i)
@@ -223,10 +223,14 @@ void AVRCodeGen::completeReductions() {
   RM.completeReductionPhis(WidenMap);
 }
 
+// TODO: Take as input a VPOVecContext that indicates which AVRLoop(s)
+// is (are) to be vectorized, as identified by the vectorization scenario
+// evaluation.
+// FORNOW there is only one AVRLoop per region, so we will re-discover
+// the same AVRLoop that the vecScenarioEvaluation had "selected".
 bool AVRCodeGen::loopIsHandled() {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
-  int VL = 0;
   AVRBranchIR *LoopBackEdge = nullptr;
   AVRPhiIR *InductionPhi = nullptr;
   AVRCompare *InductionCmp = nullptr;
@@ -237,6 +241,7 @@ bool AVRCodeGen::loopIsHandled() {
   }
 
   // An AVRWrn node is expected to have only one AVRLoop child
+  // FIXME?: This expectation was already checked by the VecScenarioEvaluation.
   for (auto Itr = AWrn->child_begin(), E = AWrn->child_end(); Itr != E; ++Itr) {
     if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
       if (ALoop)
@@ -304,22 +309,23 @@ bool AVRCodeGen::loopIsHandled() {
 
   ConstantInt *StrideValue;
 
-  // Only handle constant integer stride of 1 for now
-  InductionDescriptor ID;
-  if (!InductionDescriptor::isInductionPHI(const_cast<PHINode *>(PhiInst), SE,
-                                           ID) ||
-      !(StrideValue = ID.getStepValue()) || !StrideValue->equalsInt(1)) {
-    return false;
-  }
-
   Loop *L;
-  Value *StartValue;
-
   L = LI->getLoopFor(PhiInst->getParent());
   if (!L) {
+    // Phi is not under a loop
     return false;
   }
 
+  // Only handle constant integer stride of 1 for now
+  InductionDescriptor ID;
+  if (!InductionDescriptor::isInductionPHI(const_cast<PHINode *>(PhiInst), L,
+                                           SE, ID) ||
+      !(StrideValue = ID.getConstIntStepValue()) ||
+      !StrideValue->equalsInt(1)) {
+    return false;
+  }
+
+  Value *StartValue;
   for (unsigned i = 0; i != NumPhiValues; ++i) {
     if (!(L->contains(PhiInst->getIncomingBlock(i)))) {
       // Starting loop induction value
@@ -355,12 +361,9 @@ bool AVRCodeGen::loopIsHandled() {
 #endif
   }
 
-  VL = AWrn->getSimdVectorLength();
-
-  // Assume a default vectorization factor of 4
-  if (VL == 0) {
-    VL = 4;
-  }
+  assert(VL >= 1);
+  if (VL == 1)
+    return false;
 
   // Check that trip count is a multiple of vector length. No remainder loop
   // is generated currently.
@@ -371,7 +374,6 @@ bool AVRCodeGen::loopIsHandled() {
   setALoop(ALoop);
   setOrigLoop(L);
   setTripCount(TripCount);
-  setVL(VL);
   setLoopBackEdge(LoopBackEdge);
   setInductionPhi(InductionPhi);
   setInductionCmp(InductionCmp);
@@ -809,7 +811,11 @@ void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
   }
 }
 
-bool AVRCodeGen::vectorize() {
+// TODO: Change all VL occurences to VF.
+// TODO: Have this method take a VecContext as input, which indicates which
+// AVRLoops in the region to vectorize, and how (using what VF).
+bool AVRCodeGen::vectorize(int VL) {
+  setVL(VL);
   if (!loopIsHandled()) {
     return false;
   }

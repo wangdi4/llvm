@@ -76,9 +76,7 @@ static unsigned computeBasePointerSaveOffset(const PPCSubtarget &STI) {
   // SVR4 ABI: First slot in the general register save area.
   return STI.isPPC64()
              ? -16U
-             : (STI.getTargetMachine().getRelocationModel() == Reloc::PIC_)
-                   ? -12U
-                   : -8U;
+             : STI.getTargetMachine().isPositionIndependent() ? -12U : -8U;
 }
 
 PPCFrameLowering::PPCFrameLowering(const PPCSubtarget &STI)
@@ -843,12 +841,15 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF,
     // mfocrf to selectively save just those fields, because mfocrf has short
     // latency compares to mfcr.
     unsigned MfcrOpcode = PPC::MFCR8;
-    if (isELFv2ABI && MustSaveCRs.size() == 1)
+    unsigned CrState = RegState::ImplicitKill;
+    if (isELFv2ABI && MustSaveCRs.size() == 1) {
       MfcrOpcode = PPC::MFOCRF8;
+      CrState = RegState::Kill;
+    }
     MachineInstrBuilder MIB =
       BuildMI(MBB, MBBI, dl, TII.get(MfcrOpcode), TempReg);
     for (unsigned i = 0, e = MustSaveCRs.size(); i != e; ++i)
-      MIB.addReg(MustSaveCRs[i], RegState::ImplicitKill);
+      MIB.addReg(MustSaveCRs[i], CrState);
     BuildMI(MBB, MBBI, dl, TII.get(PPC::STW8))
       .addReg(TempReg, getKillRegState(true))
       .addImm(8)
@@ -865,12 +866,15 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF,
     // mfocrf to selectively save just those fields, because mfocrf has short
     // latency compares to mfcr.
     unsigned MfcrOpcode = PPC::MFCR8;
-    if (isELFv2ABI && MustSaveCRs.size() == 1)
+    unsigned CrState = RegState::ImplicitKill;
+    if (isELFv2ABI && MustSaveCRs.size() == 1) {
       MfcrOpcode = PPC::MFOCRF8;
+      CrState = RegState::Kill;
+    }
     MachineInstrBuilder MIB =
       BuildMI(MBB, MBBI, dl, TII.get(MfcrOpcode), TempReg);
     for (unsigned i = 0, e = MustSaveCRs.size(); i != e; ++i)
-      MIB.addReg(MustSaveCRs[i], RegState::ImplicitKill);
+      MIB.addReg(MustSaveCRs[i], CrState);
   }
 
   if (HasFP)
@@ -897,7 +901,7 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF,
   if (MustSaveLR)
     // FIXME: On PPC32 SVR4, we must not spill before claiming the stackframe.
     BuildMI(MBB, MBBI, dl, StoreInst)
-      .addReg(ScratchReg)
+      .addReg(ScratchReg, getKillRegState(true))
       .addImm(LROffset)
       .addReg(SPReg);
 
@@ -1824,7 +1828,7 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
       unsigned LISInstr = is64Bit ? PPC::LIS8 : PPC::LIS;
       unsigned ORIInstr = is64Bit ? PPC::ORI8 : PPC::ORI;
       MachineInstr *MI = I;
-      DebugLoc dl = MI->getDebugLoc();
+      const DebugLoc &dl = MI->getDebugLoc();
 
       if (isInt<16>(CalleeAmt)) {
         BuildMI(MBB, I, dl, TII.get(ADDIInstr), StackReg)

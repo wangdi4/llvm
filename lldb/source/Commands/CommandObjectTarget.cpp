@@ -724,22 +724,20 @@ class CommandObjectTargetVariable : public CommandObjectParsed
     static const uint32_t SHORT_OPTION_SHLB = 0x73686c62;   // 'shlb'
 
 public:
-    CommandObjectTargetVariable (CommandInterpreter &interpreter) :
-        CommandObjectParsed(interpreter,
-                            "target variable",
-                            "Read global variable(s) prior to, or while running your binary.",
-                            nullptr,
-                            eCommandRequiresTarget),
-        m_option_group (interpreter),
-        m_option_variable (false), // Don't include frame options
-        m_option_format (eFormatDefault),
-        m_option_compile_units    (LLDB_OPT_SET_1, false, "file",
-                                   SHORT_OPTION_FILE, 0, eArgTypeFilename,
-                                   "A basename or fullpath to a file that contains global variables. This option can be specified multiple times."),
-        m_option_shared_libraries (LLDB_OPT_SET_1, false, "shlib",
-                                   SHORT_OPTION_SHLB, 0, eArgTypeFilename,
-                                   "A basename or fullpath to a shared library to use in the search for global variables. This option can be specified multiple times."),
-        m_varobj_options()
+    CommandObjectTargetVariable(CommandInterpreter &interpreter)
+        : CommandObjectParsed(interpreter, "target variable",
+                              "Read global variables for the current target, before or while running a process.",
+                              nullptr, eCommandRequiresTarget),
+          m_option_group(interpreter),
+          m_option_variable(false), // Don't include frame options
+          m_option_format(eFormatDefault),
+          m_option_compile_units(LLDB_OPT_SET_1, false, "file", SHORT_OPTION_FILE, 0, eArgTypeFilename,
+                                 "A basename or fullpath to a file that contains global variables. This option can be "
+                                 "specified multiple times."),
+          m_option_shared_libraries(LLDB_OPT_SET_1, false, "shlib", SHORT_OPTION_SHLB, 0, eArgTypeFilename,
+                                    "A basename or fullpath to a shared library to use in the search for global "
+                                    "variables. This option can be specified multiple times."),
+          m_varobj_options()
     {
         CommandArgumentEntry arg;
         CommandArgumentData var_name_arg;
@@ -793,6 +791,11 @@ public:
             case eValueTypeVariableLocal:
                 if (m_option_variable.show_scope)
                     s.PutCString(" LOCAL: ");
+                break;
+
+            case eValueTypeVariableThreadLocal:
+                if (m_option_variable.show_scope)
+                    s.PutCString("THREAD: ");
                 break;
 
             default:
@@ -1548,7 +1551,7 @@ static size_t
 DumpModuleObjfileHeaders(Stream &strm, ModuleList &module_list)
 {
     size_t num_dumped = 0;
-    Mutex::Locker modules_locker(module_list.GetMutex());
+    std::lock_guard<std::recursive_mutex> guard(module_list.GetMutex());
     const size_t num_modules = module_list.GetSize();
     if (num_modules > 0)
     {
@@ -1978,7 +1981,7 @@ FindModulesByName (Target *target,
     if (check_global_list)
     {
         // Check the global list
-        Mutex::Locker locker(Module::GetAllocationModuleCollectionMutex());
+        std::lock_guard<std::recursive_mutex> guard(Module::GetAllocationModuleCollectionMutex());
         const size_t num_modules = Module::GetNumberAllocatedModules();
         ModuleSP module_sp;
         for (size_t image_idx = 0; image_idx<num_modules; ++image_idx)
@@ -2302,7 +2305,7 @@ protected:
             if (command.GetArgumentCount() == 0)
             {
                 // Dump all sections for all modules images
-                Mutex::Locker modules_locker(target->GetImages().GetMutex());
+                std::lock_guard<std::recursive_mutex> guard(target->GetImages().GetMutex());
                 const size_t num_modules = target->GetImages().GetSize();
                 if (num_modules > 0)
                 {
@@ -2470,7 +2473,7 @@ protected:
                     else
                     {
                         // Check the global list
-                        Mutex::Locker locker(Module::GetAllocationModuleCollectionMutex());
+                        std::lock_guard<std::recursive_mutex> guard(Module::GetAllocationModuleCollectionMutex());
 
                         result.AppendWarningWithFormat("Unable to find an image that matches '%s'.\n", arg_cstr);
                     }
@@ -2532,7 +2535,7 @@ protected:
             {
                 // Dump all sections for all modules images
                 const ModuleList &target_modules = target->GetImages();
-                Mutex::Locker modules_locker (target_modules.GetMutex());
+                std::lock_guard<std::recursive_mutex> guard(target_modules.GetMutex());
                 const size_t num_modules = target_modules.GetSize();
                 if (num_modules > 0)
                 {
@@ -2633,7 +2636,7 @@ protected:
                 FileSpec file_spec(arg_cstr, false);
 
                 const ModuleList &target_modules = target->GetImages();
-                Mutex::Locker modules_locker(target_modules.GetMutex());
+                std::lock_guard<std::recursive_mutex> guard(target_modules.GetMutex());
                 const size_t num_modules = target_modules.GetSize();
                 if (num_modules > 0)
                 {
@@ -2680,8 +2683,7 @@ public:
     //------------------------------------------------------------------
     CommandObjectTargetModulesDump(CommandInterpreter &interpreter)
         : CommandObjectMultiword(
-              interpreter, "target modules dump",
-              "A set of commands for dumping information about one or more target modules.",
+              interpreter, "target modules dump", "Commands for dumping information about one or more target modules.",
               "target modules dump [headers|symtab|sections|symfile|line-table] [<file1> <file2> ...]")
     {
         LoadSubCommand("objfile", CommandObjectSP(new CommandObjectTargetModulesDumpObjfile(interpreter)));
@@ -3291,16 +3293,19 @@ protected:
             }
 
             size_t num_modules = 0;
-            Mutex::Locker locker;      // This locker will be locked on the mutex in module_list_ptr if it is non-nullptr.
-                                       // Otherwise it will lock the AllocationModuleCollectionMutex when accessing
-                                       // the global module list directly.
+
+            // This locker will be locked on the mutex in module_list_ptr if it is non-nullptr.
+            // Otherwise it will lock the AllocationModuleCollectionMutex when accessing
+            // the global module list directly.
+            std::unique_lock<std::recursive_mutex> guard(Module::GetAllocationModuleCollectionMutex(), std::defer_lock);
+
             const ModuleList *module_list_ptr = nullptr;
             const size_t argc = command.GetArgumentCount();
             if (argc == 0)
             {
                 if (use_global_module_list)
                 {
-                    locker.Lock (Module::GetAllocationModuleCollectionMutex());
+                    guard.lock();
                     num_modules = Module::GetNumberAllocatedModules();
                 }
                 else
@@ -3329,9 +3334,11 @@ protected:
                 module_list_ptr = &module_list;
             }
 
+            std::unique_lock<std::recursive_mutex> lock;
             if (module_list_ptr != nullptr)
             {
-                locker.Lock(module_list_ptr->GetMutex());
+                lock = std::unique_lock<std::recursive_mutex>(module_list_ptr->GetMutex());
+
                 num_modules = module_list_ptr->GetSize();
             }
 
@@ -4234,7 +4241,7 @@ protected:
                 // Dump all sections for all other modules
 
                 const ModuleList &target_modules = target->GetImages();
-                Mutex::Locker modules_locker(target_modules.GetMutex());
+                std::lock_guard<std::recursive_mutex> guard(target_modules.GetMutex());
                 const size_t num_modules = target_modules.GetSize();
                 if (num_modules > 0)
                 {
@@ -4326,11 +4333,10 @@ CommandObjectTargetModulesLookup::CommandOptions::g_option_table[] =
 class CommandObjectTargetModulesImageSearchPaths : public CommandObjectMultiword
 {
 public:
-    CommandObjectTargetModulesImageSearchPaths (CommandInterpreter &interpreter) :
-    CommandObjectMultiword (interpreter, 
-                            "target modules search-paths",
-                            "A set of commands for operating on debugger target image search paths.",
-                            "target modules search-paths <subcommand> [<subcommand-options>]")
+    CommandObjectTargetModulesImageSearchPaths(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "target modules search-paths",
+                                 "Commands for managing module search paths for a target.",
+                                 "target modules search-paths <subcommand> [<subcommand-options>]")
     {
         LoadSubCommand ("add",     CommandObjectSP (new CommandObjectTargetModulesSearchPathsAdd (interpreter)));
         LoadSubCommand ("clear",   CommandObjectSP (new CommandObjectTargetModulesSearchPathsClear (interpreter)));
@@ -4354,11 +4360,10 @@ public:
     //------------------------------------------------------------------
     // Constructors and Destructors
     //------------------------------------------------------------------
-    CommandObjectTargetModules(CommandInterpreter &interpreter) :
-        CommandObjectMultiword (interpreter,
-                                "target modules",
-                                "A set of commands for accessing information for one or more target modules.",
-                                "target modules <sub-command> ...")
+    CommandObjectTargetModules(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "target modules",
+                                 "Commands for accessing information for one or more target modules.",
+                                 "target modules <sub-command> ...")
     {
         LoadSubCommand ("add",          CommandObjectSP (new CommandObjectTargetModulesAdd (interpreter)));
         LoadSubCommand ("load",         CommandObjectSP (new CommandObjectTargetModulesLoad (interpreter)));
@@ -4812,11 +4817,9 @@ public:
     //------------------------------------------------------------------
     // Constructors and Destructors
     //------------------------------------------------------------------
-    CommandObjectTargetSymbols(CommandInterpreter &interpreter) :
-        CommandObjectMultiword (interpreter,
-                            "target symbols",
-                            "A set of commands for adding and managing debug symbol files.",
-                            "target symbols <sub-command> ...")
+    CommandObjectTargetSymbols(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "target symbols", "Commands for adding and managing debug symbol files.",
+                                 "target symbols <sub-command> ...")
     {
         LoadSubCommand ("add", CommandObjectSP (new CommandObjectTargetSymbolsAdd (interpreter)));
     }
@@ -5393,11 +5396,10 @@ protected:
 class CommandObjectMultiwordTargetStopHooks : public CommandObjectMultiword
 {
 public:
-    CommandObjectMultiwordTargetStopHooks (CommandInterpreter &interpreter) :
-        CommandObjectMultiword (interpreter, 
-                                "target stop-hook",
-                                "A set of commands for operating on debugger target stop-hooks.",
-                                "target stop-hook <subcommand> [<subcommand-options>]")
+    CommandObjectMultiwordTargetStopHooks(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "target stop-hook",
+                                 "Commands for operating on debugger target stop-hooks.",
+                                 "target stop-hook <subcommand> [<subcommand-options>]")
     {
         LoadSubCommand ("add",      CommandObjectSP (new CommandObjectTargetStopHookAdd (interpreter)));
         LoadSubCommand ("delete",   CommandObjectSP (new CommandObjectTargetStopHookDelete (interpreter)));
@@ -5423,11 +5425,9 @@ public:
 // CommandObjectMultiwordTarget
 //-------------------------------------------------------------------------
 
-CommandObjectMultiwordTarget::CommandObjectMultiwordTarget (CommandInterpreter &interpreter) :
-    CommandObjectMultiword (interpreter,
-                            "target",
-                            "A set of commands for operating on debugger targets.",
-                            "target <subcommand> [<subcommand-options>]")
+CommandObjectMultiwordTarget::CommandObjectMultiwordTarget(CommandInterpreter &interpreter)
+    : CommandObjectMultiword(interpreter, "target", "Commands for operating on debugger targets.",
+                             "target <subcommand> [<subcommand-options>]")
 {
     LoadSubCommand ("create",    CommandObjectSP (new CommandObjectTargetCreate (interpreter)));
     LoadSubCommand ("delete",    CommandObjectSP (new CommandObjectTargetDelete (interpreter)));

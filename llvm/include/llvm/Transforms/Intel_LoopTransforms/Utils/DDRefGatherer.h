@@ -44,7 +44,6 @@ enum DDRefGatherMode {
   IsAddressOfRefs = 1 << 2,
   BlobRefs = 1 << 3,
   ConstantRefs = 1 << 4,
-  UndefRefs = 1 << 5,
 
   // When adding new modes, ensure AllRef
   // bits are set.
@@ -56,7 +55,7 @@ enum DDRefGatherMode {
 template <typename RefTy>
 using SymToRefTy = std::map<unsigned int, SmallVector<RefTy *, 32>>;
 
-template <typename RefTy, unsigned Mode>
+template <typename RefTy, unsigned Mode, bool CollectUndefs = true>
 class DDRefGathererVisitor final : public HLNodeVisitorBase {
 protected:
   SymToRefTy<RefTy> &SymToMemRef;
@@ -75,7 +74,7 @@ protected:
                   !std::is_convertible<T *, RefTy *>::value>::type * = 0) {}
 
   void addRefImpl(RefTy *Ref) {
-    if (!(Mode & UndefRefs) && Ref->containsUndef()) {
+    if (!CollectUndefs && Ref->containsUndef()) {
       return;
     }
 
@@ -84,8 +83,6 @@ protected:
   }
 
 public:
-  typedef SymToRefTy<RefTy> MapTy;
-
   DDRefGathererVisitor(SymToRefTy<RefTy> &SymToMemRef)
       : SymToMemRef(SymToMemRef) {}
 
@@ -214,7 +211,7 @@ struct DDRefGatherer : public DDRefGathererUtils {
   DDRefGatherer(const DDRefGatherer &) = delete;
   DDRefGatherer &operator=(const DDRefGatherer &) = delete;
 
-  typedef typename DDRefGathererVisitor<RefTy, Mode>::MapTy MapTy;
+  typedef SymToRefTy<RefTy> MapTy;
 
   static void gather(const HLNode *Node, MapTy &SymToMemRef) {
     DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
@@ -229,6 +226,7 @@ struct DDRefGatherer : public DDRefGathererUtils {
 };
 
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+typedef DDRefGatherer<const RegDDRef, MemRefs> ConstMemRefGatherer;
 typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs> NonConstantRefGatherer;
 }
 }

@@ -13,6 +13,7 @@
 #include "Config.h"
 #include "SymbolTable.h"
 #include "lld/Core/LLVM.h"
+#include "lld/Core/Reproduce.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Object/COFF.h"
@@ -68,6 +69,8 @@ public:
 
   // Used by the resolver to parse .drectve section contents.
   void parseDirectives(StringRef S);
+
+  std::unique_ptr<CpioFile> Cpio; // for /linkrepro
 
 private:
   llvm::BumpPtrAllocator AllocAux;
@@ -133,6 +136,7 @@ void parseSubsystem(StringRef Arg, WindowsSubsystem *Sys, uint32_t *Major,
 
 void parseAlternateName(StringRef);
 void parseMerge(StringRef);
+void parseSection(StringRef);
 
 // Parses a string in the form of "EMBED[,=<integer>]|NO".
 void parseManifest(StringRef Arg);
@@ -160,7 +164,6 @@ void checkFailIfMismatch(StringRef Arg);
 std::unique_ptr<MemoryBuffer>
 convertResToCOFF(const std::vector<MemoryBufferRef> &MBs);
 
-void touchFile(StringRef Path);
 void createPDB(StringRef Path);
 
 // Create enum with OPT_xxx values for each option in Options.td

@@ -53,8 +53,11 @@ private:
   /// DT - The dominator tree.
   DominatorTree *DT;
 
-  /// PDT - The post-dominator tree.
-  PostDominatorTree *PDT;
+  /// LI - The loop information for the function we are currently analyzing.
+  LoopInfo *LI;
+
+  /// SE - Scalar Evolution analysis for the function.
+  ScalarEvolution *SE;
 
   /// WRC - WRegionCollection
   WRegionCollection *WRC;
@@ -72,11 +75,17 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  /// \brief Visit WRegion Graph and fill up Info based on the incoming LLVM IR.
-  void doFillUpWRegionInfo(WRegionCollection *R);
+  /// \brief Entry point for on-demand call to gather WRegion info out of the 
+  /// IR. If FromHIR==true, it walks the HIR; else, it walks the LLVM IR
+  void buildWRGraph(WRegionCollection::InputIRKind IR);
 
   /// WRN Graph
   WRContainerTy *getWRGraph() const { return WRC->getWRGraph(); }
+
+  /// \brief Getter methods for analyses done
+  DominatorTree *getDomTree() { return DT; }
+  LoopInfo *getLoopInfo()     { return LI; }
+  ScalarEvolution *getSE()    { return SE; }
 
   /// WRN Graph iterator methods
   iterator begin() { return getWRGraph()->begin(); }

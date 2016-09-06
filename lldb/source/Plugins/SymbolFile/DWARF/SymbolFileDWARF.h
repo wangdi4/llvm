@@ -137,8 +137,11 @@ public:
                                   lldb_private::FileSpecList& support_files) override;
 
     bool
-    ParseImportedModules (const lldb_private::SymbolContext &sc,
-                          std::vector<lldb_private::ConstString> &imported_modules) override;
+    ParseCompileUnitIsOptimized(const lldb_private::SymbolContext &sc) override;
+
+    bool
+    ParseImportedModules(const lldb_private::SymbolContext &sc,
+                         std::vector<lldb_private::ConstString> &imported_modules) override;
 
     size_t
     ParseFunctionBlocks (const lldb_private::SymbolContext& sc) override;
@@ -159,6 +162,12 @@ public:
     ResolveType (const DWARFDIE &die,
                  bool assert_not_being_parsed = true,
                  bool resolve_function_context = false);
+
+    SymbolFileDWARF *
+    GetDWARFForUID (lldb::user_id_t uid);
+
+    DWARFDIE
+    GetDIEFromUID (lldb::user_id_t uid);
 
     lldb_private::CompilerDecl
     GetDeclForUID (lldb::user_id_t uid) override;

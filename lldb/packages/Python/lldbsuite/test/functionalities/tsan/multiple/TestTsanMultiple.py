@@ -17,6 +17,7 @@ class TsanMultipleTestCase(TestBase):
     @skipIfFreeBSD # llvm.org/pr21136 runtimes not yet available by default
     @skipIfRemote
     @skipUnlessCompilerRt
+    @skipUnlessThreadSanitizer
     def test (self):
         self.build ()
         self.tsan_tests ()
@@ -48,7 +49,7 @@ class TsanMultipleTestCase(TestBase):
                  (stop_description == "Data race detected") or
                  (stop_description == "Use of deallocated memory detected") or
                  (stop_description == "Thread leak detected") or
-                 (stop_description == "Use of an invalid mutex (e.g. uninitialized or destroyed) detected") or
+                 (stop_description == "Use of an uninitialized or destroyed mutex detected") or
                  (stop_description == "Unlock of an unlocked mutex (or by a wrong thread) detected")
             )
 

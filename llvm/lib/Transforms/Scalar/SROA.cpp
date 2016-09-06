@@ -1157,6 +1157,8 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
   if (!HaveLoad)
     return false;
 
+  const DataLayout &DL = PN.getModule()->getDataLayout();
+
   // We can only transform this if it is safe to push the loads into the
   // predecessor blocks. The only thing to watch out for is that we can't put
   // a possibly trapping load in the predecessor if it is a critical edge.
@@ -1178,7 +1180,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     // If this pointer is always safe to load, or if we can prove that there
     // is already a load in the block, then we can move the load to the pred
     // block.
-    if (isSafeToLoadUnconditionally(InVal, MaxAlign, TI))
+    if (isSafeToLoadUnconditionally(InVal, MaxAlign, DL, TI))
       continue;
 
     return false;
@@ -1246,6 +1248,7 @@ static void speculatePHINodeLoads(PHINode &PN) {
 static bool isSafeSelectToSpeculate(SelectInst &SI) {
   Value *TValue = SI.getTrueValue();
   Value *FValue = SI.getFalseValue();
+  const DataLayout &DL = SI.getModule()->getDataLayout();
 
   for (User *U : SI.users()) {
     LoadInst *LI = dyn_cast<LoadInst>(U);
@@ -1255,9 +1258,9 @@ static bool isSafeSelectToSpeculate(SelectInst &SI) {
     // Both operands to the select need to be dereferencable, either
     // absolutely (e.g. allocas) or at this point because we can see other
     // accesses to it.
-    if (!isSafeToLoadUnconditionally(TValue, LI->getAlignment(), LI))
+    if (!isSafeToLoadUnconditionally(TValue, LI->getAlignment(), DL, LI))
       return false;
-    if (!isSafeToLoadUnconditionally(FValue, LI->getAlignment(), LI))
+    if (!isSafeToLoadUnconditionally(FValue, LI->getAlignment(), DL, LI))
       return false;
   }
 
@@ -1633,8 +1636,10 @@ static bool canConvertValue(const DataLayout &DL, Type *OldTy, Type *NewTy) {
   OldTy = OldTy->getScalarType();
   NewTy = NewTy->getScalarType();
   if (NewTy->isPointerTy() || OldTy->isPointerTy()) {
-    if (NewTy->isPointerTy() && OldTy->isPointerTy())
-      return true;
+    if (NewTy->isPointerTy() && OldTy->isPointerTy()) {
+      return cast<PointerType>(NewTy)->getPointerAddressSpace() ==
+        cast<PointerType>(OldTy)->getPointerAddressSpace();
+    }
     if (NewTy->isIntegerTy() || OldTy->isIntegerTy())
       return true;
     return false;
@@ -3103,9 +3108,14 @@ private:
     void emitFunc(Type *Ty, Value *&Agg, const Twine &Name) {
       assert(Ty->isSingleValueType());
       // Extract the single value and store it using the indices.
-      Value *Store = IRB.CreateStore(
-          IRB.CreateExtractValue(Agg, Indices, Name + ".extract"),
-          IRB.CreateInBoundsGEP(nullptr, Ptr, GEPIndices, Name + ".gep"));
+      //
+      // The gep and extractvalue values are factored out of the CreateStore
+      // call to make the output independent of the argument evaluation order.
+      Value *ExtractValue =
+          IRB.CreateExtractValue(Agg, Indices, Name + ".extract");
+      Value *InBoundsGEP =
+          IRB.CreateInBoundsGEP(nullptr, Ptr, GEPIndices, Name + ".gep");
+      Value *Store = IRB.CreateStore(ExtractValue, InBoundsGEP);
       (void)Store;
       DEBUG(dbgs() << "          to: " << *Store << "\n");
     }
@@ -3921,15 +3931,19 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
       Worklist.insert(NewAI);
     }
   } else {
-    // If we can't promote the alloca, iterate on it to check for new
-    // refinements exposed by splitting the current alloca. Don't iterate on an
-    // alloca which didn't actually change and didn't get promoted.
-    if (NewAI != &AI)
-      Worklist.insert(NewAI);
-
     // Drop any post-promotion work items if promotion didn't happen.
     while (PostPromotionWorklist.size() > PPWOldSize)
       PostPromotionWorklist.pop_back();
+
+    // We couldn't promote and we didn't create a new partition, nothing
+    // happened.
+    if (NewAI == &AI)
+      return nullptr;
+
+    // If we can't promote the alloca, iterate on it to check for new
+    // refinements exposed by splitting the current alloca. Don't iterate on an
+    // alloca which didn't actually change and didn't get promoted.
+    Worklist.insert(NewAI);
   }
 
   return NewAI;
@@ -4224,9 +4238,14 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
     PostPromotionWorklist.clear();
   } while (!Worklist.empty());
 
+  if (!Changed)
+    return PreservedAnalyses::all();
+
   // FIXME: Even when promoting allocas we should preserve some abstract set of
   // CFG-specific analyses.
-  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  PreservedAnalyses PA;
+  PA.preserve<GlobalsAA>();
+  return PA;
 }
 
 PreservedAnalyses SROA::run(Function &F, AnalysisManager<Function> &AM) {
@@ -4247,7 +4266,7 @@ public:
     initializeSROALegacyPassPass(*PassRegistry::getPassRegistry());
   }
   bool runOnFunction(Function &F) override {
-    if (skipOptnoneFunction(F))
+    if (skipFunction(F))
       return false;
 
     auto PA = Impl.runImpl(

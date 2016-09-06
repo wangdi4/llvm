@@ -9,4 +9,8 @@ if (INTEL_CUSTOMIZATION)
 set(LLVM_TARGET_DEFINITIONS Intel_Directives.td)
 tablegen(LLVM Intel_Directives.gen -gen-directives)
 add_public_tablegen_target(intel_directives_gen)
+
+set(LLVM_TARGET_DEFINITIONS Intel_SVML.td)
+tablegen(LLVM Intel_SVML.gen -gen-svml)
+add_public_tablegen_target(intel_svml_gen)
 endif() # INTEL_CUSTOMIZATION

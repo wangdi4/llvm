@@ -21,8 +21,7 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-AVRLoopIR::AVRLoopIR(Loop *Lp)
-    : AVRLoop(AVR::AVRLoopIRNode) {
+AVRLoopIR::AVRLoopIR(Loop *Lp) : AVRLoop(AVR::AVRLoopIRNode) {
 
   setNestingLevel(0);     // TODO
   setNumberOfExits(0);    // TODO
@@ -38,39 +37,6 @@ AVRLoopIR::AVRLoopIR(Loop *Lp)
 }
 
 AVRLoopIR *AVRLoopIR::clone() const { return nullptr; }
-
-void AVRLoopIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                      VerbosityLevel VLevel) const {
-
-  std::string Indent((Depth * TabLength), ' ');
-
-  OS << Indent;
-
-  switch (VLevel) {
-  case PrintNumber:
-    OS << "(" << getNumber() << ") ";
-  case PrintAvrType:
-  // Always print avr loop type name.
-  case PrintDataType:
-  case PrintBase:
-    OS << getAvrTypeName();
-    // TODO: Add IV Info
-    OS << "( IV )\n";
-    OS << Indent << "{\n";
-    break;
-  default:
-    llvm_unreachable("Unknown Avr Print Verbosity!");
-  }
-
-  Depth++;
-  for (auto Itr = child_begin(), End = child_end(); Itr != End; ++Itr) {
-    Itr->print(OS, Depth, VLevel);
-
-    // OS << Indent  <<"END_AVR_LOOP\n";
-  }
-
-  OS << Indent << "}\n";
-}
 
 StringRef AVRLoopIR::getAvrTypeName() const { return StringRef("LOOP"); }
 

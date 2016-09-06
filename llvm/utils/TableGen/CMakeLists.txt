@@ -25,10 +25,12 @@ add_tablegen(llvm-tblgen LLVM
   InstrInfoEmitter.cpp
   IntrinsicEmitter.cpp
   Intel_DirectivesEmitter.cpp # INTEL
+  Intel_SVMLEmitter.cpp       # INTEL
   Intel_MAPatternsEmitter.cpp # INTEL
   OptParserEmitter.cpp
   PseudoLoweringEmitter.cpp
   RegisterInfoEmitter.cpp
+  SearchableTableEmitter.cpp
   SubtargetEmitter.cpp
   TableGen.cpp
   X86DisassemblerTables.cpp

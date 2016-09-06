@@ -16,9 +16,11 @@
 #define INSTR_PROF_VALUE_PROF_DATA
 #include "InstrProfData.inc"
 
-char *(*GetEnvHook)(const char *) = 0;
+COMPILER_RT_VISIBILITY char *(*GetEnvHook)(const char *) = 0;
 
-COMPILER_RT_WEAK uint64_t __llvm_profile_raw_version = INSTR_PROF_RAW_VERSION;
+COMPILER_RT_WEAK uint64_t INSTR_PROF_RAW_VERSION_VAR = INSTR_PROF_RAW_VERSION;
+
+COMPILER_RT_WEAK char INSTR_PROF_PROFILE_NAME_VAR[1] = {0};
 
 COMPILER_RT_VISIBILITY uint64_t __llvm_profile_get_magic(void) {
   return sizeof(void *) == sizeof(uint64_t) ? (INSTR_PROF_RAW_MAGIC_64)
@@ -61,7 +63,7 @@ COMPILER_RT_VISIBILITY void __llvm_profile_reset_counters(void) {
       ValueProfNode *CurrentVNode = ValueCounters[i];
 
       while (CurrentVNode) {
-        CurrentVNode->VData.Count = 0;
+        CurrentVNode->Count = 0;
         CurrentVNode = CurrentVNode->Next;
       }
     }

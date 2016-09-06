@@ -18,23 +18,19 @@
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/FileManager.h"
 #include "clang/Basic/FileSystemOptions.h"
 #include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
 #include "clang/Lex/ExternalPreprocessorSource.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/PreprocessingRecord.h"
 #include "clang/Sema/ExternalSemaSource.h"
+#include "clang/Sema/IdentifierResolver.h"
 #include "clang/Serialization/ASTBitCodes.h"
 #include "clang/Serialization/ContinuousRangeMap.h"
 #include "clang/Serialization/Module.h"
 #include "clang/Serialization/ModuleFileExtension.h"
 #include "clang/Serialization/ModuleManager.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
@@ -42,11 +38,9 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/Bitcode/BitstreamReader.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/Timer.h"
 #include <deque>
-#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -54,10 +48,16 @@
 
 namespace llvm {
   class MemoryBuffer;
+  class APInt;
+  class APSInt;
+  class APFloat;
 }
 
 namespace clang {
 
+class SourceManager;
+class HeaderSearchOptions;
+class FileManager;
 class AddrLabelExpr;
 class ASTConsumer;
 class ASTContext;
@@ -390,6 +390,11 @@ private:
   /// \brief The module manager which manages modules and their dependencies
   ModuleManager ModuleMgr;
 
+  /// \brief A dummy identifier resolver used to merge TU-scope declarations in
+  /// C, for the cases where we don't have a Sema object to provide a real
+  /// identifier resolver.
+  IdentifierResolver DummyIdResolver;
+
   /// A mapping from extension block names to module file extensions.
   llvm::StringMap<IntrusiveRefCntPtr<ModuleFileExtension>> ModuleFileExtensions;
 
@@ -653,6 +658,10 @@ private:
   /// global method pool for this selector.
   llvm::DenseMap<Selector, unsigned> SelectorGeneration;
 
+  /// Whether a selector is out of date. We mark a selector as out of date
+  /// if we load another module after the method pool entry was pulled in.
+  llvm::DenseMap<Selector, bool> SelectorOutOfDate;
+
   struct PendingMacroInfo {
     ModuleFile *M;
     uint64_t MacroDirectivesOffset;
@@ -832,6 +841,9 @@ private:
 
   /// \brief Whether we have tried loading the global module index yet.
   bool TriedLoadingGlobalIndex;
+
+  ///\brief Whether we are currently processing update records.
+  bool ProcessingUpdateRecords;
 
   typedef llvm::DenseMap<unsigned, SwitchCase *> SwitchCaseMapTy;
   /// \brief Mapping from switch-case IDs in the chain to switch-case statements
@@ -1030,6 +1042,23 @@ private:
     }
 
     ~ReadingKindTracker() { Reader.ReadingKind = PrevKind; }
+  };
+
+  /// \brief RAII object to mark the start of processing updates.
+  class ProcessingUpdatesRAIIObj {
+    ASTReader &Reader;
+    bool PrevState;
+
+    ProcessingUpdatesRAIIObj(const ProcessingUpdatesRAIIObj &) = delete;
+    void operator=(const ProcessingUpdatesRAIIObj &) = delete;
+
+  public:
+    ProcessingUpdatesRAIIObj(ASTReader &reader)
+      : Reader(reader), PrevState(Reader.ProcessingUpdateRecords) {
+      Reader.ProcessingUpdateRecords = true;
+    }
+
+    ~ProcessingUpdatesRAIIObj() { Reader.ProcessingUpdateRecords = PrevState; }
   };
 
   /// \brief Suggested contents of the predefines buffer, after this
@@ -1781,6 +1810,10 @@ public:
   /// selector.
   void ReadMethodPool(Selector Sel) override;
 
+  /// Load the contents of the global method pool for a given
+  /// selector if necessary.
+  void updateOutOfDateSelector(Selector Sel) override;
+
   /// \brief Load the set of namespaces that are known to the external source,
   /// which will be used during typo correction.
   void ReadKnownNamespaces(
@@ -2092,6 +2125,11 @@ public:
   /// imported.
   Sema *getSema() { return SemaObj; }
 
+  /// \brief Get the identifier resolver used for name lookup / updates
+  /// in the translation unit scope. We have one of these even if we don't
+  /// have a Sema object.
+  IdentifierResolver &getIdResolver();
+
   /// \brief Retrieve the identifier table associated with the
   /// preprocessor.
   IdentifierTable &getIdentifierTable();
@@ -2111,6 +2149,8 @@ public:
 
   /// \brief Loads comments ranges.
   void ReadComments() override;
+
+  bool isProcessingUpdateRecords() { return ProcessingUpdateRecords; }
 };
 
 /// \brief Helper class that saves the current stream position and

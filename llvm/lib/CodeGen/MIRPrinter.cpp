@@ -565,9 +565,14 @@ void MIPrinter::print(const MachineInstr &MI) {
     OS << "frame-setup ";
   OS << TII->getName(MI.getOpcode());
   if (isPreISelGenericOpcode(MI.getOpcode())) {
-    assert(MI.getType() && "Generic instructions must have a type");
-    OS << ' ';
-    MI.getType()->print(OS, /*IsForDebug*/ false, /*NoDetails*/ true);
+    assert(MI.getType().isValid() && "Generic instructions must have a type");
+    OS << " { ";
+    for (unsigned i = 0; i < MI.getNumTypes(); ++i) {
+      MI.getType(i).print(OS);
+      if (i + 1 != MI.getNumTypes())
+        OS <<  ", ";
+    }
+    OS << " } ";
   }
   if (I < E)
     OS << ' ';
@@ -883,11 +888,12 @@ void MIPrinter::print(const MachineMemOperand &Op) {
     assert(Op.isStore() && "Non load machine operand must be a store");
     OS << "store ";
   }
-  OS << Op.getSize() << (Op.isLoad() ? " from " : " into ");
+  OS << Op.getSize();
   if (const Value *Val = Op.getValue()) {
+    OS << (Op.isLoad() ? " from " : " into ");
     printIRValueReference(*Val);
-  } else {
-    const PseudoSourceValue *PVal = Op.getPseudoValue();
+  } else if (const PseudoSourceValue *PVal = Op.getPseudoValue()) {
+    OS << (Op.isLoad() ? " from " : " into ");
     assert(PVal && "Expected a pseudo source value");
     switch (PVal->kind()) {
     case PseudoSourceValue::Stack:

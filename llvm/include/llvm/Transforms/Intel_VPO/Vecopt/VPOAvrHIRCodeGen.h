@@ -16,13 +16,13 @@
 #ifndef LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRHIRCODEGEN_H
 #define LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRHIRCODEGEN_H
 
-#include <map>
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include <map>
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
@@ -48,8 +48,8 @@ public:
   /// The recurrence kind is taken from \p RI. \p VL - vector length of
   /// the identity vector to be created. \Ty - scalar data type, float
   /// or integer.
-  static RegDDRef *getRecurrenceIdentityVector(ReductionItem *RI,
-                                               Type *Ty, unsigned VL);
+  static RegDDRef *getRecurrenceIdentityVector(ReductionItem *RI, Type *Ty,
+                                               unsigned VL);
 
 private:
   // Reduction map
@@ -67,25 +67,40 @@ private:
 class AVRCodeGenHIR {
 public:
   AVRCodeGenHIR(AVR *Avr)
-    : Avr(Avr), ALoop(nullptr), OrigLoop(nullptr), TripCount(0), VL(0),
-      RHM(Avr) {}
+      : Avr(Avr), ALoop(nullptr), OrigLoop(nullptr), MainLoop(nullptr),
+        NeedRemainderLoop(false), TripCount(0), VL(0), RHM(Avr) {}
 
   ~AVRCodeGenHIR() {}
 
-  // Perform the actual loop widening (vectorization).
-  bool vectorize();
+  // Perform the actual loop widening (vectorization) using VL as the
+  // vectorization factor.
+  bool vectorize(int VL);
 
+  // Return true if \p Ref is a constant stride reference at loop
+  // nesting level \p Level. Return stride coefficient in \p CoeffPtr
+  // if not null.
+  static bool isConstStrideRef(const RegDDRef *Ref, 
+                               unsigned Level,
+                               int64_t *CoeffPtr = nullptr);
 private:
   AVR *Avr;
 
   // AVRLoop in AVR region
   AVRLoop *ALoop;
 
-  // Original HIR loop corresponding to this Avr region
+  // Original HIR loop corresponding to this Avr region, if a remainder loop is
+  // needed after vectorization, the original loop is used as the remainder loop
+  // after updating loop bounds.
   HLLoop *OrigLoop;
 
-  // Loop trip count
-  unsigned int TripCount;
+  // Main vector loop
+  HLLoop *MainLoop;
+
+  // Is a remainder loop needed?
+  bool NeedRemainderLoop;
+
+  // Loop trip count if constant. Set to zero for non-constant trip count loops.
+  uint64_t TripCount;
 
   // Vector factor or vector length to use. Each scalar instruction is widened
   // to operate on this number of operands.
@@ -103,20 +118,20 @@ private:
 
   void setALoop(AVRLoop *L) { ALoop = L; }
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
-  void setTripCount(unsigned int TC) { TripCount = TC; }
+  void setMainLoop(HLLoop *L) { MainLoop = L; }
+  void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
+  void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVL(int V) { VL = V; }
 
   // Check for currently handled loops. Initial implementations
   // punts on seeing any control flow.
   bool loopIsHandled();
-  void widenNode(const HLNode *Node, HLNode *Anchor);
+  void widenNode(const HLNode *Node);
   RegDDRef *getVectorValue(const RegDDRef *Op);
-  HLInst *widenReductionNode(const HLNode *Node, HLNode *Anchor);
-  bool processLoop();
-  bool isConstStrideRef(const RegDDRef *Ref, int64_t *CoeffPtr = nullptr);
-
+  HLInst *widenReductionNode(const HLNode *Node);
+  void eraseIntrinsBeforeLoop();
+  void processLoop();
   RegDDRef *widenRef(const RegDDRef *Ref);
-
 };
 
 } // End VPO Vectorizer Namespace

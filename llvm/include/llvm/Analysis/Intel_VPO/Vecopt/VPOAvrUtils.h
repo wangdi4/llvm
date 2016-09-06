@@ -19,9 +19,9 @@
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrFunction.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrLoop.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrSwitch.h"
 #include "llvm/Support/Compiler.h"
 
@@ -30,10 +30,6 @@ namespace llvm { // LLVM Namespace
 class LoopInfo;
 
 namespace vpo { // VPO Vectorizer Namespace
-
-// Enumeration for types of Avr insertions.
-enum InsertType { FirstChild, LastChild, Append, Prepend };
-enum SplitType { None, ThenChild, ElseChild };
 
 // Avr Iterator Type
 typedef AVRContainerTy::iterator AvrItr;
@@ -47,7 +43,8 @@ class AVRUtils {
 
 private:
   // Internal implementations of utility helper functions, not meant
-  // to be called externally.
+  // to be called externally. The public interfaces of this class
+  // are wrappers to these private utility helpers.
 
   /// \brief Internal helper function for removing and deleting avrs
   /// and sequences of avrs.
@@ -55,13 +52,33 @@ private:
                                         AVRContainerTy *MoveContainer,
                                         bool Delete);
 
-  static void insertAVRSeq(AVR *NewParent, AVRContainerTy &ToContainer,
-                           AvrItr InsertionPos, AVRContainerTy *FromContainer,
-                           AvrItr Begin, AvrItr End, InsertType Itype);
+  /// \brief Internal function used to insert a single node into the
+  /// vector graph. DestinationParent is the Parent node which contains
+  /// DestinationContainer. DestinationContainer is the container that
+  /// where NewNode is inserted into at InsertionPosition.
+  static void insertSingleton(AVR *DestinationParent,
+                              AVRContainerTy &DestinationContainer,
+                              AvrItr InsertionPostition, AVR *NewNode);
+
+  /// \brief Internal function used to insert a sequence of nodes into
+  /// the vector graph. Destination Parent is the Parent node which
+  /// contains DestinationContainer. DestinationContainer is the
+  /// where the sequence of nodes in SourceContainer is inserted into
+  /// at InsertionPosition.
+  static void insertSequence(AVR *DestinationParent,
+                             AVRContainerTy &DestinationContainer,
+                             AVRContainerTy *SourceContainer,
+                             AvrItr InsertionPosition);
 
   /// \brief Internal helper function to resolve mismatched lexical nesting
   /// levels of avr (First, Last) sequences.
   static bool resolveCommonLexicalParent(AVR *First, AVR **Last);
+
+  /// \brief Internal helper function to obtain the container in Parent
+  /// node which contains iterator Child.
+  /// This utility has a costly search overhead, avoid if possible.
+  //  TODO: Unify children containers.
+  static AVRContainerTy *getChildrenContainer(AVR *Parent, AvrItr Child);
 
 public:
   // Creation Utilities
@@ -96,55 +113,262 @@ public:
   /// \brief Sets AvrAssign's RHS to Node.
   static void setAVRAssignRHS(AVRAssign *AvrAssign, AVR *Node);
 
+  /// \brief Sets AvrPhi's LHS to Node.
+  static void setAVRPhiLHS(AVRPhi *APhi, AVRValue *AValue);
+
+  /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
+  static void addAVRPhiIncoming(AVRPhi *APhi, AVRValue *AValue,
+                                AVRLabel *ALabel);
+
   /// \brief Add a case to the ASwitch node
   static void addCase(AVRSwitch *ASwitch);
 
+  /// \brief set Avr nodes's SLEV data.
+  static void setSLEV(AVR *Avr, const SLEV& Slev);
+
+  /// \brief Sets AvrLoop's zero trip test
+  static void setZeroTripTest(AVRLoop *AvrLoop, AVRIf *IfZtt);
+
   // Insertion Utilities
 
-  /// \brief Standard Insert Utility wrapper for AVRIf.
-  static void insertAVR(AVR *Parent, AvrItr Postion, AvrItr NewAvr, 
-                        InsertType Itype, SplitType SType = None,
-                        unsigned CaseNumber = 0);
+  /// \brief Inserts an unlinked Node after InsertionPosition in vector graph.
+  /// This interface contains a costly look-up for InsertionPosition's
+  /// children container. Use alternative interface with InsertionPosition's
+  /// children container passed as argurment, resort to this
+  /// interface as a last option.
+  static void insertAfter(AvrItr InsertionPosition, AVR *Node);
 
-  /// \brief Inserts NewAvr node as the first child in Parent avr.
-  static void insertFirstChildAVR(AVR *Parent, AvrItr NewAvr);
+  /// \brief Inserts an unlinked Node before InsertionPosition in vector graph.
+  /// This interface contains a costly look-up for InsertionPosition's
+  /// children container. Use alternative interface with InsertionPosition's
+  /// children container passed as argurment, resort to this
+  /// interface as a last option.
+  static void insertBefore(AvrItr InsertionPosition, AVR *Node);
 
-  /// \brief Inserts NewAvr node as the first 'Then' child of AVRIf.
-  static void insertFirstThenChild(AVRIf *AvrIf, AvrItr NewAvr);
+  /// \brief Inserts unlinked nodes in NodeContainer after InsertionPosition
+  /// in vector graph.
+  /// The contents of NodeContainer will be empty after insertion.
+  /// This interface contains a costly look-up for InsertionPosition's
+  /// children container. Use alternative interface with InsertionPosition's
+  /// children container passed as argurment, resort to this
+  /// interface as a last option.
+  static void insertAfter(AvrItr InsertionPos, AVRContainerTy *NodeContainer);
 
-  /// \brief Inserts NewAvr node as the first 'Else' child of AVRIf.
-  static void insertFirstElseChild(AVRIf *AvrIf, AvrItr NewAvr);
+  /// \brief Inserts unlinked nodes in NodeContainer after InsertionPosition
+  /// in vector graph.
+  /// The contents of NodeContainer will be empty after insertion.
+  /// This interface contains a costly look-up for InsertionPosition's
+  /// children container. Use alternative interface with InsertionPosition's
+  /// children container passed as argurment, resort to this
+  /// interface as a last option.
+  static void insertBefore(AvrItr InsertionPos, AVRContainerTy *NodeContainer);
 
-  /// \brief Inserts NewAvr node as the last child in Parent avr.
-  static void insertLastChildAVR(AVR *Parent, AvrItr NewAvr);
+  /// \brief Inserts an unlinked Node after InsertionPosition in the specified
+  /// DestinationContainer.
+  static void insertAfter(AvrItr InsertionPosition,
+                          AVRContainerTy &DestinationContainer, AVR *Node);
 
-  /// \brief Inserts NewAvr node as the last 'Then' child of AVRIf.
-  static void insertLastThenChild(AVRIf *AvrIf, AvrItr NewAvr);
+  /// \brief Inserts an unlinked Node before InsertionPosition in the specified
+  /// DestinationContainer.
+  static void insertBefore(AvrItr InsertionPosition,
+                           AVRContainerTy &DestinationContainer, AVR *Node);
 
-  /// \brief Inserts NewAvr node as the last 'Else' child of AVRIf.
-  static void insertLastElseChild(AVRIf *AvrIf, AvrItr NewAvr);
+  /// \brief Inserts unlinked nodes in NodeContainer after InsertionPosition
+  /// in DestinationContainer.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertAfter(AvrItr InsertionPosition,
+                          AVRContainerTy &DestinationContainer,
+                          AVRContainerTy *SourceContainer);
 
-  /// \brief Inserts an unlinked AVR node after InsertionPos in AVR list.
-  static void insertAVRAfter(AvrItr InsertionPos, AVR *NewAvr);
+  /// \brief Inserts unlinked nodes in NodeContainer before InsertionPosition
+  /// in DestinationContainer.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertBefore(AvrItr InsertionPosition,
+                           AVRContainerTy &DestinationContainer,
+                           AVRContainerTy *SourceContainer);
 
-  /// \brief Inserts an unlinked AVR node before InsertionPos in AVR list.
-  static void insertAVRBefore(AvrItr InsertionPos, AVR *NewAvr);
+  /// \brief Inserts Node as first child in (Parent) node's children.
+  static void insertFirstChild(AVR *Parent, AVR *Node);
 
-  /// \brief Inserts NewAvr node as the first child of ASwitch's default case.
-  static void insertFirstDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr);
+  /// \brief Inserts Node as last child in (Parent) node's children.
+  static void insertLastChild(AVR *Parent, AVR *Node);
 
-  /// \brief Inserts NewAvr node as the last child of ASwitch's deault case.
-  static void insertLastDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr);
- 
-  /// \brief Inserts NewAvr node as the first child of ASwitch's n-th case,
-  /// where n-th is specified by CaseNum.
-  static void insertFirstChild(AVRSwitch *ASwitch, AVR *NewAvr,
-                               unsigned CaseNum);
+  /// \brief Inserts Node as first child in loop (Parent) node's children.
+  static void insertFirstChild(AVRLoop *Parent, AVR *Node);
 
-  /// \brief Inserts NewAvr node as the last child of ASwitch's n-th case,
-  /// where n-th is specified by CaseNum.
-  static void insertLastChild(AVRSwitch *ASwitch, AVR *NewAvr,
-                              unsigned CaseNum);
+  /// \brief Inserts Node as last child in loop (Parent) node's children.
+  static void insertLastChild(AVRLoop *Parent, AVR *Node);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first children of loop
+  /// node, Parent. The order of NodeContainer is insertion order. The contents
+  /// of NodeContainer will be empty after insertion.
+  static void insertFirstChildren(AVRLoop *Parent,
+                                  AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last children of loop
+  /// node, Parent. The order of NodeContainer is insertion order. The contents
+  /// of NodeContainer will be empty after insertion.
+  static void insertLastChildren(AVRLoop *Parent,
+                                 AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts Node as first child in function (Parent) node's children.
+  static void insertFirstChild(AVRFunction *Parent, AVR *Node);
+
+  /// \brief Inserts Node as last child in function (Parent) node's children.
+  static void insertLastChild(AVRFunction *Parent, AVR *NewNode);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first children of
+  /// function node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertFirstChildren(AVRFunction *Parent,
+                                  AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last children of
+  /// function node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertLastChildren(AVRFunction *Parent,
+                                 AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts Node as first child in wrn (Parent) node's children.
+  static void insertFirstChild(AVRWrn *Parent, AVR *Node);
+
+  /// \brief Inserts Node as last child in wrn (Parent) node's children.
+  static void insertLastChild(AVRWrn *Parent, AVR *Node);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first children of
+  /// wrn node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertFirstChildren(AVRWrn *Parent,
+                                  AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last children of
+  /// wrn node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertLastChildren(AVRWrn *Parent, AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts Node as first 'then' child in if (Parent) node's 'then'
+  /// children.
+  static void insertFirstThenChild(AVRIf *Parent, AVR *Node);
+
+  /// \brief Inserts Node as last 'then' child in if (Parent) node's 'then'
+  /// children.
+  static void insertLastThenChild(AVRIf *Parent, AVR *Node);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first 'then' children of
+  /// if node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertFirstThenChildren(AVRIf *Parent,
+                                      AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last 'then' children of
+  /// if node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertLastThenChildren(AVRIf *Parent,
+                                     AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts Node as first 'else' child in if (Parent) node's 'else'
+  /// children.
+  static void insertFirstElseChild(AVRIf *Parent, AVR *Node);
+
+  /// \brief Inserts Node as last 'else' child in if (Parent) node's 'else'
+  /// children.
+  static void insertLastElseChild(AVRIf *Parent, AVR *Node);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first 'else' children of
+  /// if node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertFirstElseChildren(AVRIf *Parent,
+                                      AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last 'else' children of
+  /// if node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertLastElseChildren(AVRIf *Parent,
+                                     AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts Node as the first child of switch (Parent) node's default
+  /// case.
+  static void insertFirstDefaultChild(AVRSwitch *Parent, AVR *Node);
+
+  /// \brief Inserts Node as the last child of switch (Parent) node's default
+  /// case.
+  static void insertLastDefaultChild(AVRSwitch *Parent, AVR *Node);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first default children
+  /// of switch node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertFirstDefaultChildren(AVRSwitch *Parent,
+                                         AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last default children
+  /// of switch node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertLastDefaultChildren(AVRSwitch *Parent,
+                                        AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts Node as the first child of switch (Parent) node's n-th
+  /// case, where n-th is specified by CaseNum.
+  static void insertFirstChild(AVRSwitch *Parent, AVR *Node, unsigned CaseNum);
+
+  /// \brief Inserts Node as the last child of switch (Parent) node's n-th
+  /// case, where n-th is specified by CaseNum.
+  static void insertLastChild(AVRSwitch *Parent, AVR *Node, unsigned CaseNum);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first children of
+  /// of switch (Parent) node's n-th case, where n-th is specified by CaseNum.
+  /// The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertFirstChildren(AVRSwitch *Parent,
+                                  AVRContainerTy *NodeContainer,
+                                  unsigned CaseNum);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last children of
+  /// of switch (Parent) node's n-th case, where n-th is specified by CaseNum.
+  /// The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertLastChildren(AVRSwitch *Parent,
+                                 AVRContainerTy *NodeContainer,
+                                 unsigned CaseNum);
+
+  /// \brief Inserts Node as the first child of loop (Parent) nodes's preheader
+  /// children.
+  static void insertFirstPreheaderChild(AVRLoop *Parent, AVR *Node);
+
+  /// \brief Inserts Node as the last child of loop (Parent) nodes's preheader
+  /// children.
+  static void insertLastPreheaderChild(AVRLoop *Parent, AVR *Node);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first preheader children
+  /// of loop node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertFirstPreheaderChildren(AVRLoop *Parent,
+                                           AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last preheader children
+  /// of loop node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertLastPreheaderChildren(AVRLoop *Parent,
+                                          AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts Node as the first child of loop (Parent) nodes's postexit
+  /// children.
+  static void insertFirstPostexitChild(AVRLoop *Parent, AVR *Node);
+
+  /// \brief Inserts Node as the last child of loop (Parent) nodes's postexit
+  /// children.
+  static void insertLastPostexitChild(AVRLoop *Parent, AVR *Node);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first postexit children
+  /// of loop node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertFirstPostexitChildren(AVRLoop *Parent,
+                                          AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last postexit children
+  /// of loop node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertLastPostexitChildren(AVRLoop *Parent,
+                                         AVRContainerTy *NodeContainer);
 
   // Move Utilities
 
@@ -154,6 +378,20 @@ public:
   /// \brief Unlinks [First, Last] from their current position and inserts them
   /// at the begining of the parent loop's children.
   static void moveAsFirstChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last);
+
+  /// \brief Unlinks [First, Last] from their current position and inserts them
+  /// at the beginning of ASwitch's CaseNum-nth case.
+  static void moveAsFirstChildren(AVRSwitch *ASwitch, AvrItr First, AvrItr Last,
+                                  unsigned CaseNum);
+
+  /// \brief Unlinks [First, Last] from their current position and inserts them
+  /// at the end of the parent loop's children.
+  static void moveAsLastChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last);
+
+  /// \brief Unlinks [First, Last] from their current position and inserts them
+  /// at the end of ASwitch's CaseNum-nth case.
+  static void moveAsLastChildren(AVRSwitch *ASwitch, AvrItr First, AvrItr Last,
+                                 unsigned CaseNum);
 
   /// \brief Unlinks Node from its current location and inserts it as the
   /// first 'Then' child of AvrIf.
@@ -171,13 +409,43 @@ public:
   /// last 'Else' child of AvrIf.
   static void moveAsLastElseChild(AVRIf *AvrIf, AVR *Node);
 
-  /// \brief Unlinks [First, Last] from its current location and inserts them
-  /// at the begining of 'Then' children of AvrIf.
+  /// \brief Unlinks [First, Last] from their current location and inserts them
+  /// at the beginning of 'Then' children of AvrIf.
   static void moveAsFirstThenChildren(AVRIf *AIf, AvrItr First, AvrItr Last);
 
-  /// \brief Unlinks [First, Last] from its current location and inserts them
-  /// at the begining of 'Else' children of AvrIf.
+  /// \brief Unlinks [First, Last] from their current location and inserts them
+  /// at the beginning of 'Else' children of AvrIf.
   static void moveAsFirstElseChildren(AVRIf *AIf, AvrItr First, AvrItr Last);
+
+  /// \brief Unlinks [First, Last] from their current location and inserts them
+  /// at the beginning of ASwitch's default case.
+  static void moveAsFirstDefaultChildren(AVRSwitch *ASwitch, AvrItr First,
+                                         AvrItr Last);
+
+  /// \brief Unlinks [First, Last] from their current location and inserts them
+  /// at the end of ASwitch's default case.
+  static void moveAsLastDefaultChildren(AVRSwitch *ASwitch, AvrItr First,
+                                        AvrItr Last);
+
+  /// \brief Unlinks [First, Last] from their current location and inserts them
+  /// at the beginning of ALoop's preheader.
+  static void moveAsFirstPreheaderChildren(AVRLoop *ALoop, AvrItr First,
+                                           AvrItr Last);
+
+  /// \brief Unlinks [First, Last] from their current location and inserts them
+  /// at the beginning of ALoop's postexit.
+  static void moveAsFirstPostexitChildren(AVRLoop *ALoop, AvrItr First,
+                                          AvrItr Last);
+
+  /// \brief Unlinks [First, Last] from their current location and inserts them
+  /// at the end of ALoop's preheader.
+  static void moveAsLastPreheaderChildren(AVRLoop *ALoop, AvrItr First,
+                                          AvrItr Last);
+
+  /// \brief Unlinks [First, Last] from their current location and inserts them
+  /// at the end of ALoop's preheader.
+  static void moveAsLastPostexitChildren(AVRLoop *ALoop, AvrItr First,
+                                         AvrItr Last);
 
   // Removal Utilities
 

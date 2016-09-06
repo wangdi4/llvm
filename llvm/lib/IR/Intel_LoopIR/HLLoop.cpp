@@ -39,7 +39,8 @@ void HLLoop::initialize() {
 // IsInnermost flag is initialized to true, please refer to the header file.
 HLLoop::HLLoop(const Loop *LLVMLoop)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false) {
+      NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
+      LoopMetadata(LLVMLoop->getLoopID()), MaxTripCountEstimate(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -53,7 +54,8 @@ HLLoop::HLLoop(const Loop *LLVMLoop)
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
                RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IsNSW(false) {
+      NestingLevel(0), IsInnermost(true), IsNSW(false), LoopMetadata(nullptr),
+      MaxTripCountEstimate(0) {
   initialize();
   setNumExits(NumEx);
 
@@ -83,7 +85,10 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
-      IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW) {
+      IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
+      LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
+      LoopMetadata(HLLoopObj.LoopMetadata),
+      MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate) {
 
   initialize();
 
@@ -108,8 +113,9 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   setStrideDDRef(HLLoopObj.getStrideDDRef()->clone());
 
   // Avoid cloning children and preheader/postexit.
-  if (!CloneChildren)
+  if (!CloneChildren) {
     return;
+  }
 
   // Assert is placed here since empty loop cloning will not use it.
   assert(GotoList && " GotoList is null.");
@@ -139,6 +145,29 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   }
 }
 
+HLLoop &HLLoop::operator=(HLLoop &&Lp) {
+  OrigLoop = Lp.OrigLoop;
+  IVType = Lp.IVType;
+  IsNSW = Lp.IsNSW;
+  LoopMetadata = Lp.LoopMetadata;
+  MaxTripCountEstimate = Lp.MaxTripCountEstimate;
+
+  // LiveInSet/LiveOutSet do not need to be moved as they depend on the lexical
+  // order of HLLoops which remains the same as before.
+
+  removeZtt();
+
+  if (Lp.hasZtt()) {
+    setZtt(Lp.removeZtt());
+  }
+
+  setLowerDDRef(Lp.removeLowerDDRef());
+  setUpperDDRef(Lp.removeUpperDDRef());
+  setStrideDDRef(Lp.removeStrideDDRef());
+
+  return *this;
+}
+
 HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList,
                           LabelMapTy *LabelMap) const {
 
@@ -164,18 +193,31 @@ HLLoop *HLLoop::cloneEmptyLoop() const {
   return NewHLLoop;
 }
 
-HLLoop *HLLoop::cloneCompleteEmptyLoop() const {
+void HLLoop::printPreheader(formatted_raw_ostream &OS, unsigned Depth,
+                            bool Detailed) const {
+  bool FirstPreInst = true;
 
-  // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this, nullptr, nullptr, false);
-  NewHLLoop->setNestingLevel(getNestingLevel());
-  return NewHLLoop;
+  for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
+    if (FirstPreInst) {
+      indent(OS, Depth);
+      OS << "\n";
+      FirstPreInst = false;
+    }
+    I->print(OS, Depth + 1, Detailed);
+  }
 }
 
-void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth) const {
+void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
+                          bool Detailed) const {
+
+  if (!Detailed) {
+    return;
+  }
 
   indent(OS, Depth);
+
   OS << "+ Ztt: ";
+
   if (hasZtt()) {
     Ztt->printZttHeader(OS, this);
   } else {
@@ -191,29 +233,55 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth) const {
 
   indent(OS, Depth);
   OS << "+ NSW: " << (isNSW() ? "Yes\n" : "No\n");
-}
 
-void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
-                   bool Detailed) const {
-  const RegDDRef *Ref;
-  bool FirstPreInst = true;
-
-  /// Print preheader
-  for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
-    if (FirstPreInst) {
-      indent(OS, Depth);
-      OS << "\n";
-      FirstPreInst = false;
-    }
-    I->print(OS, Depth + 1, Detailed);
-  }
-
-  if (Detailed) {
-    printDetails(OS, Depth);
-  }
+  bool First = true;
 
   indent(OS, Depth);
-  /// Print header
+  OS << "+ LiveIn symbases: ";
+  for (auto I = live_in_begin(), E = live_in_end(); I != E; ++I) {
+    if (!First) {
+      OS << ", ";
+    }
+    OS << *I;
+    First = false;
+  }
+
+  OS << "\n";
+
+  First = true;
+
+  indent(OS, Depth);
+  OS << "+ LiveOut symbases: ";
+  for (auto I = live_out_begin(), E = live_out_end(); I != E; ++I) {
+    if (!First) {
+      OS << ", ";
+    }
+    OS << *I;
+    First = false;
+  }
+
+  OS << "\n";
+
+  indent(OS, Depth);
+  OS << "+ Loop metadata:";
+  if (auto Node = getLoopMetadata()) {
+    RegDDRef::MDNodesTy Nodes = {
+        RegDDRef::MDPairTy{LLVMContext::MD_loop, Node}};
+    DDRefUtils::printMDNodes(OS, Nodes);
+  } else {
+    OS << " No";
+  }
+  OS << "\n";
+}
+
+void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                         bool Detailed) const {
+  const RegDDRef *Ref;
+
+  printDetails(OS, Depth, Detailed);
+
+  indent(OS, Depth);
+
   if (getUpperDDRef() && (isDo() || isDoMultiExit())) {
     OS << "+ DO ";
     if (Detailed) {
@@ -233,31 +301,44 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     OS.indent(IndentWidth);
+
     if (isDo()) {
       OS << "<DO_LOOP>";
     } else if (isDoMultiExit()) {
       OS << "<DO_MULTI_EXIT_LOOP>";
     }
 
-    OS << "\n";
   } else if (!getUpperDDRef() || isUnknown()) {
-    OS << "+ UNKNOWN LOOP i" << NestingLevel << "\n";
+    OS << "+ UNKNOWN LOOP i" << NestingLevel;
   } else {
     llvm_unreachable("Unexpected loop type!");
   }
 
-  HLDDNode::print(OS, Depth, Detailed);
+  if (MaxTripCountEstimate) {
+    OS << "  <MAX_TC_EST = " << MaxTripCountEstimate << ">";
+  }
 
-  /// Print children
+  OS << "\n";
+
+  HLDDNode::print(OS, Depth, Detailed);
+}
+
+void HLLoop::printBody(formatted_raw_ostream &OS, unsigned Depth,
+                       bool Detailed) const {
+
   for (auto I = child_begin(), E = child_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
   }
+}
 
-  /// Print footer
+void HLLoop::printFooter(formatted_raw_ostream &OS, unsigned Depth) const {
   indent(OS, Depth);
   OS << "+ END LOOP\n";
+}
 
-  /// Print postexit
+void HLLoop::printPostexit(formatted_raw_ostream &OS, unsigned Depth,
+                           bool Detailed) const {
+
   for (auto I = post_begin(), E = post_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
   }
@@ -266,6 +347,20 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     indent(OS, Depth);
     OS << "\n";
   }
+}
+
+void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const {
+
+  printPreheader(OS, Depth, Detailed);
+
+  printHeader(OS, Depth, Detailed);
+
+  printBody(OS, Depth, Detailed);
+
+  printFooter(OS, Depth);
+
+  printPostexit(OS, Depth, Detailed);
 }
 
 void HLLoop::setNumExits(unsigned NumEx) {
@@ -651,21 +746,26 @@ bool HLLoop::isNormalized() const {
   return true;
 }
 
-bool HLLoop::isConstTripLoop(int64_t *TripCnt) const {
+bool HLLoop::isConstTripLoop(uint64_t *TripCnt) const {
 
-  bool RetVal = false;
-  CanonExpr *TripCExpr = getTripCountCanonExpr();
-  if (TripCExpr && TripCExpr->isIntConstant(TripCnt)) {
-    assert((!TripCnt || (*TripCnt != 0)) && " Zero Trip Loop found.");
-    RetVal = true;
+  int64_t TC;
+  std::unique_ptr<CanonExpr> TripCExpr(getTripCountCanonExpr());
+
+  if (TripCExpr.get() && TripCExpr->isIntConstant(&TC)) {
+    assert((TC != 0) && " Zero Trip Loop found!");
+
+    if (TripCnt) {
+      // This signed to unsigned conversion should be safe as all the negative
+      // trip counts which fit in signed 64 bits have been converted to postive
+      // integers by parser. Reinterpreting negative signed 64 values (which are
+      // outside the range) as an unsigned 64 bit value is correct for trip
+      // counts.
+      *TripCnt = TC;
+    }
+    return true;
   }
 
-  // Free the canon expr.
-  if (TripCExpr) {
-    CanonExprUtils::destroy(TripCExpr);
-  }
-
-  return RetVal;
+  return false;
 }
 
 // This will create the Ztt for the loop.
@@ -730,6 +830,10 @@ void HLLoop::extractPreheaderAndPostexit() {
   extractPostexit();
 }
 
+void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
+
+void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
+
 void HLLoop::verify() const {
   HLDDNode::verify();
 
@@ -784,4 +888,111 @@ bool HLLoop::isSIMD() const {
   }
 
   return false;
+}
+
+bool HLLoop::isTriangularLoop() const {
+
+  const CanonExpr *LB = getLowerCanonExpr();
+  const CanonExpr *UB = getUpperCanonExpr();
+  if (LB->hasIV() || UB->hasIV()) {
+    return true;
+  }
+
+  for (auto I = ztt_ddref_begin(), E1 = ztt_ddref_end(); I != E1; ++I) {
+    RegDDRef *RRef = *I;
+    for (auto Iter = RRef->canon_begin(), E2 = RRef->canon_end(); Iter != E2;
+         ++Iter) {
+      const CanonExpr *CE = *Iter;
+      if (CE->hasIV()) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
+                                       StringRef *RemoveID) {
+  LLVMContext &Context = HLNodeUtils::getContext();
+
+  // Reserve space for the unique identifier
+  SmallVector<Metadata *, 4> NewMDs(1);
+
+  MDNode *ExistingLoopMD = getLoopMetadata();
+  if (ExistingLoopMD) {
+    // TODO: add tests for this part of code after enabling generation of HIR
+    // for loops with pragmas.
+    for (unsigned I = 1, E = ExistingLoopMD->getNumOperands(); I < E; ++I) {
+      Metadata *RawMD = ExistingLoopMD->getOperand(I);
+      MDNode *MD = dyn_cast<MDNode>(RawMD);
+      if (!MD || MD->getNumOperands() == 0) {
+        // Unconditionally copy unknown metadata.
+        NewMDs.push_back(RawMD);
+        continue;
+      }
+
+      const MDString *Id = dyn_cast<MDString>(MD->getOperand(0));
+
+      // Do not handle non-string identifiers. Unconditionally copy metadata.
+      if (Id) {
+        StringRef IdRef = Id->getString();
+
+        // Check if the metadata will be redefined by the new one.
+        bool DoRedefine =
+            std::any_of(MDs.begin(), MDs.end(), [IdRef](MDNode *NewMD) {
+              const MDString *NewId = dyn_cast<MDString>(NewMD->getOperand(0));
+              assert(NewId && "Added metadata should contain string "
+                              "identifier as a first operand");
+
+              if (NewId->getString().equals(IdRef)) {
+                return true;
+              }
+
+              return false;
+            });
+
+        // Do not copy redefined metadata.
+        if (DoRedefine) {
+          continue;
+        }
+
+        bool DoRemove = RemoveID && IdRef.startswith(*RemoveID);
+
+        // Do not copy removed metadata.
+        if (DoRemove) {
+          continue;
+        }
+      }
+
+      NewMDs.push_back(MD);
+    }
+  }
+
+  NewMDs.append(MDs.begin(), MDs.end());
+
+  MDNode *NewLoopMD = MDNode::get(Context, NewMDs);
+  NewLoopMD->replaceOperandWith(0, NewLoopMD);
+  setLoopMetadata(NewLoopMD);
+}
+
+void HLLoop::markDoNotVectorize() {
+  LLVMContext &Context = HIRUtils::getContext();
+
+  Metadata *One = ConstantAsMetadata::get(
+      ConstantInt::get(Type::getInt32Ty(Context), 1));
+
+  Metadata *MDVectorWidth[] = {
+      MDString::get(Context, "llvm.loop.vectorize.width"), One
+  };
+  Metadata *MDInterleaveCount[] = {
+      MDString::get(Context, "llvm.loop.interleave.count"), One
+  };
+
+  MDNode *MDs[] = {
+      MDNode::get(Context, MDVectorWidth),
+      MDNode::get(Context, MDInterleaveCount)
+  };
+
+  addLoopMetadata(MDs);
 }

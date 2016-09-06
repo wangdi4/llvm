@@ -110,6 +110,130 @@ bool HIRSCCFormation::isCandidateRootNode(const NodeTy *Node) const {
   return true;
 }
 
+bool HIRSCCFormation::isLoopLiveOut(const Instruction *Inst) const {
+  auto Lp = LI->getLoopFor(Inst->getParent());
+
+  assert(Lp && "Loop is null!");
+
+  for (auto I = Inst->user_begin(), E = Inst->user_end(); I != E; ++I) {
+    auto UserInst = cast<Instruction>(*I);
+
+    // If HIRSCCFormation is recomputed after SSA deconstruction (during testing
+    // using opt, for example) we will see a liveout copy which is used outside
+    // the loop instead of a direct liveout use. This check is to make sure we
+    // form identical SCCs irrespective of when this is called.
+    if (SE->getHIRMetadata(UserInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+      return isLoopLiveOut(UserInst);
+    }
+
+    if (!Lp->contains(UserInst->getParent())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HIRSCCFormation::usedInHeaderPhi(const PHINode *Phi) const {
+  assert(!RI->isHeaderPhi(Phi) && "Header phi not expected!");
+
+  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
+    auto UserPhi = dyn_cast<PHINode>(*I);
+
+    if (!UserPhi || !RI->isHeaderPhi(UserPhi)) {
+      continue;
+    }
+
+    if (!CurLoop->contains(UserPhi->getParent())) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+class BasicBlockPhiFinder {
+  const PHINode *BBPhi;
+  bool Found;
+
+public:
+  BasicBlockPhiFinder(const PHINode *BBPhi) : BBPhi(BBPhi), Found(false) {}
+
+  bool follow(const SCEV *SC) {
+    if (auto Blob = dyn_cast<SCEVUnknown>(SC)) {
+      auto Phi = dyn_cast<PHINode>(Blob->getValue());
+
+      if (Phi && (Phi != BBPhi) && (Phi->getParent() == BBPhi->getParent())) {
+        Found = true;
+      }
+    }
+
+    return true;
+  }
+
+  bool isDone() { return found(); }
+
+  bool found() { return Found; }
+};
+
+bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
+  assert(RI->isHeaderPhi(Phi) && "Header phi expected!");
+
+  if (isConsideredLinear(Phi)) {
+    return false;
+  }
+
+  auto PhiBB = Phi->getParent();
+  bool IsSCEVable = SE->isSCEVable(Phi->getType());
+
+  BasicBlockPhiFinder BBPF(Phi);
+
+  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
+
+    auto InstOp = dyn_cast<Instruction>(Phi->getIncomingValue(I));
+
+    if (!InstOp) {
+      continue;
+    }
+
+    // Check if operand is a phi defined in the same bblock.
+    if (isa<PHINode>(InstOp) && (InstOp->getParent() == PhiBB)) {
+      return true;
+    }
+
+    if (!IsSCEVable) {
+      continue;
+    }
+
+    // Check SCEV form of operand.
+    auto SC = SE->getSCEV(const_cast<Instruction *>(InstOp));
+    visitAll(SC, BBPF);
+
+    if (BBPF.found()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HIRSCCFormation::isSingleTripLoop(Loop *Lp) const {
+  if (!SE->hasLoopInvariantBackedgeTakenCount(Lp)) {
+    return false;
+  }
+
+  const SCEV *BETC = SE->getBackedgeTakenCount(Lp);
+  auto ConstSCEV = dyn_cast<SCEVConstant>(BETC);
+
+  if (!ConstSCEV) {
+    return false;
+  }
+
+  return ConstSCEV->getValue()->isZero();
+}
+
 bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Use is outside the loop bring processed.
@@ -149,39 +273,26 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
     return false;
   }
 
+  auto Lp = LI->getLoopFor(Node->getParent());
+
+  // LLVM sometimes converts zero-trip loops to single trip loops. SSA
+  // deconstruction cannot handle SCCs for such loops so we suppress them.
+  if (isSingleTripLoop(Lp)) {
+    return false;
+  }
+
   // In a valid phi SCC, all phis are either header phis or used in header phis.
   auto Phi = dyn_cast<PHINode>(Node);
 
-  if (!Phi || RI->isHeaderPhi(Phi)) {
+  if (!Phi) {
     return true;
   }
 
-  // Do not involve single operand phis in SCCs.
-  if (1 == Phi->getNumIncomingValues()) {
-    return false;
+  if (RI->isHeaderPhi(Phi)) {
+    return (!isLoopLiveOut(Phi) || !dependsOnSameBasicBlockPhi(Phi));
   }
 
-  bool IsUsedInHeaderPhi = false;
-  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
-    auto UserPhi = dyn_cast<PHINode>(*I);
-
-    if (!UserPhi || !RI->isHeaderPhi(UserPhi)) {
-      continue;
-    }
-
-    if (!CurLoop->contains(UserPhi->getParent())) {
-      continue;
-    }
-
-    IsUsedInHeaderPhi = true;
-    break;
-  }
-
-  if (!IsUsedInHeaderPhi) {
-    return false;
-  }
-
-  return true;
+  return usedInHeaderPhi(Phi);
 }
 
 HIRSCCFormation::NodeTy::const_user_iterator
@@ -219,7 +330,7 @@ HIRSCCFormation::getLastSucc(const NodeTy *Node) const {
 
 void HIRSCCFormation::removeIntermediateNodes(SCCNodesTy &CurSCC) {
 
-  SmallVector<const NodeTy *, 4> IntermediateNodes;
+  SmallVector<const NodeTy *, 8> IntermediateNodes;
 
   for (auto NodeIt = CurSCC.begin(), NodeEndIt = CurSCC.end();
        NodeIt != NodeEndIt; ++NodeIt) {
@@ -262,9 +373,17 @@ unsigned HIRSCCFormation::getRegionIndex(
 
 void HIRSCCFormation::setRegionSCCBegin() {
   if (isNewRegion) {
-    // Set the index of the last RegionSCC element as the current region's first
-    // SCC.
-    RegionSCCBegin[getRegionIndex(CurRegIt)] = RegionSCCs.size() - 1;
+    // Set begin index of current region's SCCs.
+    RegionSCCBegin[getRegionIndex(CurRegIt)].first = RegionSCCs.size() - 1;
+
+    // Set end index of last region with SCCs.
+    if (LastSCCRegIt != RI->end()) {
+      RegionSCCBegin[getRegionIndex(LastSCCRegIt)].second =
+          RegionSCCs.size() - 1;
+    }
+
+    // Set the current region as the last region with SCCs.
+    LastSCCRegIt = CurRegIt;
     isNewRegion = false;
   }
 }
@@ -304,7 +423,7 @@ bool HIRSCCFormation::isRegionLiveOut(
        UserIt != EndIt; ++UserIt) {
     assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
 
-    if ((*RegIt)->containsBBlock(cast<Instruction>(*UserIt)->getParent())) {
+    if (RegIt->containsBBlock(cast<Instruction>(*UserIt)->getParent())) {
       continue;
     }
 
@@ -402,6 +521,35 @@ bool HIRSCCFormation::isValidSCC(const SCCNodesTy &Nodes) const {
   return true;
 }
 
+void HIRSCCFormation::updateRoot(SCCTy &SCC, const NodeTy *NewRoot) const {
+
+  if (!isa<PHINode>(NewRoot)) {
+    return;
+  }
+
+  // Update blindly if NewRoot is a phi and old root is not. This avoids loop
+  // lookup for single phi SCCs.
+  if (!isa<PHINode>(SCC.Root)) {
+    SCC.Root = NewRoot;
+    return;
+  }
+
+  auto ParentBB = NewRoot->getParent();
+  auto NewLp = LI->getLoopFor(ParentBB);
+
+  // Return if NewRoot isn't a header phi.
+  if (ParentBB != NewLp->getHeader()) {
+    return;
+  }
+
+  auto OldLp = LI->getLoopFor(SCC.Root->getParent());
+
+  // If new loop contains old loop, we have found an outer loop header phi.
+  if (NewLp->contains(OldLp)) {
+    SCC.Root = NewRoot;
+  }
+}
+
 unsigned HIRSCCFormation::findSCC(const NodeTy *Node) {
   unsigned Index = GlobalNodeIndex++;
   unsigned LowLink = Index;
@@ -446,43 +594,34 @@ unsigned HIRSCCFormation::findSCC(const NodeTy *Node) {
       VisitedNodes[Node] = 0;
     } else {
       // Create new SCC.
-      SCCTy *NewSCC = new SCCTy(Node);
-      auto &NewSCCNodes = NewSCC->Nodes;
+      SCCTy NewSCC(Node);
+      auto &NewSCCNodes = NewSCC.Nodes;
       const NodeTy *SCCNode;
-      bool isRootPhi = isa<PHINode>(Node);
 
       // Insert Nodes in new SCC.
       do {
         SCCNode = NodeStack.pop_back_val();
         NewSCCNodes.insert(SCCNode);
 
-        // If the root of this SCC is not a phi, it may get eliminated as an
-        // intermediate node which results in a dangling root node. To fix this
-        // we set the first phi we encounter to be the root node.
-        if (!isRootPhi && isa<PHINode>(SCCNode)) {
-          NewSCC->Root = SCCNode;
-          isRootPhi = true;
-        }
+        updateRoot(NewSCC, SCCNode);
 
         // Invalidate index so node is ignored in subsequent traverals.
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
 
-      assert(isRootPhi && "No phi found in SCC!");
+      assert(isa<PHINode>(NewSCC.Root) &&
+             RI->isHeaderPhi(cast<PHINode>(NewSCC.Root)) &&
+             "No phi found in SCC!");
 
       // Remove nodes not directly associated with the phi nodes.
       removeIntermediateNodes(NewSCCNodes);
 
       if (isValidSCC(NewSCCNodes) && isProfitableSCC(NewSCCNodes)) {
         // Add new SCC to the list.
-        RegionSCCs.push_back(NewSCC);
+        RegionSCCs.push_back(std::move(NewSCC));
 
         // Set pointer to first SCC of region, if applicable.
         setRegionSCCBegin();
-
-      } else {
-        // Not a valid SCC.
-        delete NewSCC;
       }
     }
   }
@@ -499,7 +638,7 @@ void HIRSCCFormation::formRegionSCCs() {
     setRegion(RegIt);
     VisitedNodes.clear();
 
-    auto Root = DT->getNode((*RegIt)->getEntryBBlock());
+    auto Root = DT->getNode(RegIt->getEntryBBlock());
 
     // Iterate the dominator tree of the region.
     for (df_iterator<DomTreeNode *> DomIt = df_begin(Root),
@@ -508,7 +647,7 @@ void HIRSCCFormation::formRegionSCCs() {
       auto BB = (*DomIt)->getBlock();
 
       // Skip this basic block as it isn't part of the region.
-      if (!(*RegIt)->containsBBlock(BB)) {
+      if (!RegIt->containsBBlock(BB)) {
         continue;
       }
 
@@ -518,6 +657,12 @@ void HIRSCCFormation::formRegionSCCs() {
       }
 
       CurLoop = LI->getLoopFor(BB);
+
+      // LLVM sometimes converts zero-trip loops to single trip loops. SSA
+      // deconstruction cannot handle SCCs for such loops so we suppress them.
+      if (isSingleTripLoop(CurLoop)) {
+        continue;
+      }
 
       // Iterate through the phi nodes in the header.
       for (auto I = BB->begin(); isa<PHINode>(I); ++I) {
@@ -538,8 +683,9 @@ bool HIRSCCFormation::runOnFunction(Function &F) {
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   RI = &getAnalysis<HIRRegionIdentification>();
 
-  // Initialize to NO_SCC.
-  RegionSCCBegin.resize(RI->getNumRegions(), NO_SCC);
+  // Initialize members to defualt values.
+  RegionSCCBegin.resize(RI->getNumRegions(), std::make_pair(NO_SCC, NO_SCC));
+  LastSCCRegIt = RI->end();
 
   formRegionSCCs();
 
@@ -550,10 +696,6 @@ void HIRSCCFormation::releaseMemory() {
   GlobalNodeIndex = 1;
   isNewRegion = false;
 
-  for (auto &I : RegionSCCs) {
-    delete I;
-  }
-
   RegionSCCs.clear();
   RegionSCCBegin.clear();
   VisitedNodes.clear();
@@ -563,7 +705,7 @@ void HIRSCCFormation::releaseMemory() {
 HIRSCCFormation::const_iterator
 HIRSCCFormation::begin(HIRRegionIdentification::const_iterator RegIt) const {
   unsigned Index = getRegionIndex(RegIt);
-  int BeginOffset = RegionSCCBegin[Index];
+  int BeginOffset = RegionSCCBegin[Index].first;
 
   // No SCCs associated with this region, return end().
   if (BeginOffset == NO_SCC) {
@@ -576,42 +718,20 @@ HIRSCCFormation::begin(HIRRegionIdentification::const_iterator RegIt) const {
 HIRSCCFormation::const_iterator
 HIRSCCFormation::end(HIRRegionIdentification::const_iterator RegIt) const {
 
-  // RegionSCCBegin vector contains an offset indicating the first SCC of the
-  // region in RegionSCCs vector. Index set to NO_SCC means the region has no
-  // SCCs so we can simply return RegionSCCs end() iterator. Otherwise, to find
-  // the last SCC associated with the region, we need to traverse the
-  // RegionSCCBegin vector and find the next non - NO_SCC element. For exmaple,
-  // consider the following RegionSCCBegin vector-
-  //
-  // [NO_SCC, 0, NO_SCC, 4]
-  //
-  // The above vector indicates that:
-  // - First region does not contain any SCCs.
-  // - Second region contains SCCs 0 to 3(4 is the end() element).
-  // - Third region does not contain any SCCs.
-  // - Fourth region contains all the remaining SCCs starting from 4.
-  //
-  unsigned Index = getRegionIndex(RegIt);
-  int BeginOffset = RegionSCCBegin[Index];
-
-  // No SCCs associated with this region, return end().
-  if (BeginOffset == NO_SCC) {
+  // If this is the absolute last region, blindly return end() iterator.
+  if (std::next(RegIt) == RI->end()) {
     return RegionSCCs.end();
   }
 
-  // Look for the end() for this region by looking at the next non-null index in
-  // the array.
-  for (++Index; Index < RegionSCCBegin.size(); ++Index) {
-    int EndOffset = RegionSCCBegin[Index];
+  unsigned Index = getRegionIndex(RegIt);
+  int EndOffset = RegionSCCBegin[Index].second;
 
-    if (EndOffset != NO_SCC) {
-      assert(EndOffset > BeginOffset && "Region SCC offsets are wrong!");
-      return RegionSCCs.begin() + EndOffset;
-    }
+  // No SCCs associated with this region, return end().
+  if (EndOffset == NO_SCC) {
+    return RegionSCCs.end();
   }
 
-  // Couldn't find a non-null index, return end().
-  return RegionSCCs.end();
+  return RegionSCCs.begin() + EndOffset;
 }
 
 void HIRSCCFormation::print(
@@ -628,9 +748,9 @@ void HIRSCCFormation::print(
     }
 
     OS << "\n   SCC" << Count << ": ";
-    for (auto InstI = (*SCCIt)->Nodes.begin(), InstE = (*SCCIt)->Nodes.end();
+    for (auto InstI = SCCIt->Nodes.begin(), InstE = SCCIt->Nodes.end();
          InstI != InstE; ++InstI) {
-      if (InstI != (*SCCIt)->Nodes.begin()) {
+      if (InstI != SCCIt->Nodes.begin()) {
         OS << " -> ";
       }
       (*InstI)->printAsOperand(OS, false);

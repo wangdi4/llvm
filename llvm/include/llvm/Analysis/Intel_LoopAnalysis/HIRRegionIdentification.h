@@ -22,6 +22,8 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/IR/Intel_LoopIR/IRRegion.h"
+
 namespace llvm {
 
 class Value;
@@ -39,15 +41,13 @@ class SCEV;
 
 namespace loopopt {
 
-class IRRegion;
-
 /// \brief This analysis is the first step in creating HIR. We start by
 /// identiyfing regions as a set of basic blocks in the incoming IR. This
 /// information is then used by HIRCreation pass to create and populate
 /// HIR regions.
 class HIRRegionIdentification : public FunctionPass {
 public:
-  typedef SmallVector<IRRegion *, 16> IRRegionsTy;
+  typedef SmallVector<IRRegion, 16> IRRegionsTy;
 
   /// Iterators to iterate over regions
   typedef IRRegionsTy::iterator iterator;
@@ -89,8 +89,30 @@ private:
   /// sub loops.
   bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth) const;
 
-  /// \brief Returns true if Lp is a SIMD loop.
-  bool isSIMDLoop(const Loop &Lp) const;
+  /// Returns true if this instruction represents simd begin/end directive. \p
+  /// BeginDir flag indicates whether to look for begin or end directive.
+  static bool isSIMDDirective(const Instruction *Inst, bool BeginDir);
+
+  /// Returns true if this bblock contains simd begin/end directive. \p BeginDir
+  /// flag indicates whether to look for begin or end directive.
+  static bool containsSIMDDirective(const BasicBlock *BB, bool BeginDir);
+
+  /// Traces a chain of single predecessor/successor bblocks starting from \p BB
+  /// and looks for simd begin/end directive. Returns the bblock containing the
+  /// directive.
+  static BasicBlock *findSIMDDirective(BasicBlock *BB, bool BeginDir);
+
+  /// Inserts chain of bblocks from BeginBB to EndBB inclusive, to RegBBlocks.
+  void addBBlocks(const BasicBlock *BeginBB, const BasicBlock *EndBB,
+                  IRRegion::RegionBBlocksTy &RegBBlocks) const;
+
+  /// \brief Returns true if Lp is a SIMD loop. If RegBBlocks is non-null, it
+  /// adds simd loop predecess/successor bblocks to it. Entry/Exit bblocks for
+  /// the simd loop region are returned via \p EntryBB and \p ExitBB.
+  bool isSIMDLoop(const Loop &Lp,
+                  IRRegion::RegionBBlocksTy *RegBBlocks = nullptr,
+                  BasicBlock **RegEntryBB = nullptr,
+                  BasicBlock **RegExitBB = nullptr) const;
 
   /// \brief Creates a Region out of Lp's basic blocks.
   void createRegion(const Loop &Lp);

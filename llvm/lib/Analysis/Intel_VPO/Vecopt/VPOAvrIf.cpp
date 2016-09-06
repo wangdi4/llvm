@@ -57,6 +57,24 @@ AVR *AVRIf::getLastThenChild() {
   return nullptr;
 }
 
+bool AVRIf::isThenChild(AVR *Node) const {
+
+  for (auto Itr = then_begin(), End = then_end(); Itr != End; ++Itr)
+    if (&(*Itr) == Node)
+      return true;
+
+  return false;
+}
+
+bool AVRIf::isElseChild(AVR *Node) const {
+
+  for (auto Itr = else_begin(), End = else_end(); Itr != End; ++Itr)
+    if (&(*Itr) == Node)
+      return true;
+
+  return false;
+}
+
 void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
                   VerbosityLevel VLevel) const {
 
@@ -81,6 +99,13 @@ void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
     }
     OS << Indent << "}\n";
   }
+}
+
+void AVRIf::shallowPrint(formatted_raw_ostream &OS) const {
+
+  OS << "(" << getNumber() << ") ";
+  printSLEV(OS);
+  OS << "IF (" << getCondition()->getNumber() << ")";
 }
 
 StringRef AVRIf::getAvrTypeName() const { return StringRef("if"); }

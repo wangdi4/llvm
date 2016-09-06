@@ -26,8 +26,7 @@ namespace vpo {  // VPO Vectorizer Namespace
 /// if-statement found in LLVM IR or LoopOpt HIR.
 class AVRIf : public AVR {
 public:
-
-  typedef AVRContainerTy IfChildrenTy; 
+  typedef AVRContainerTy IfChildrenTy;
 
   /// Iterators to iterate over then/else children nodes
   typedef IfChildrenTy::iterator then_iterator;
@@ -41,7 +40,6 @@ public:
   typedef const_reverse_then_iterator const_reverse_else_iterator;
 
 private:
-
   /// ThenChildren - Container that holds IF children in 'Then' branch.
   IfChildrenTy ThenChildren;
 
@@ -49,7 +47,6 @@ private:
   IfChildrenTy ElseChildren;
 
 protected:
-
   AVRIf(unsigned SCID);
   virtual ~AVRIf() override {}
 
@@ -60,6 +57,8 @@ protected:
   friend class AVRUtils;
 
 public:
+  /// \brief Returns the condition AVR for conditional branch.
+  virtual AVR *getCondition() const = 0;
 
   /// Children iterator methods
   then_iterator then_begin() { return ThenChildren.begin(); }
@@ -91,11 +90,12 @@ public:
   }
 
   /// \brief Returns the number of then children.
-  unsigned getNumThenChildren() const {
-    return ThenChildren.size();
-  }
+  unsigned getNumThenChildren() const { return ThenChildren.size(); }
   /// \brief Returns true if it has then children.
   bool hasThenChildren() const { return !ThenChildren.empty(); }
+
+  /// \brief Returns true if ThenChildren contains Node.
+  bool isThenChild(AVR *Node) const;
 
   /// \brief Returns the first else child if it exists, otherwise
   /// returns null.
@@ -114,14 +114,15 @@ public:
   }
 
   /// \brief Returns the number of else children.
-  unsigned getNumElseChildren() const {
-    return ElseChildren.size();
-  }
+  unsigned getNumElseChildren() const { return ElseChildren.size(); }
   /// \brief Returns true if it has else children.
   bool hasElseChildren() const { return !ElseChildren.empty(); }
 
+  /// \brief Returns true of ElseChildren contains Node.
+  bool isElseChild(AVR *Node) const;
+
   AVRIf *clone() const override;
- 
+
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return (Node->getAVRID() >= AVR::AVRIfNode &&
@@ -130,17 +131,19 @@ public:
 
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-	     VerbosityLevel VLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Shallow-prints the AvrIf node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
 
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_IF_H
+#endif // LLVM_ANALYSIS_VPO_AVR_IF_H

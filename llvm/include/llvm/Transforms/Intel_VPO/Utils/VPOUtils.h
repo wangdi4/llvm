@@ -75,6 +75,10 @@ private:
             SmallVectorImpl<BasicBlock *> &BBSet,
             SmallVectorImpl<Instruction *> &LiveOut);
 
+    /// \brief Adds ignore_for_intel_feature_outlining metadata attribute to
+    /// the call instruction specified in \p Call.
+    static void addNoFeatureOutline(CallInst *Call);
+
 public:
     /// Constructor and destructor
     VPOUtils() {}
@@ -144,10 +148,17 @@ public:
     /// \brief Returns the ID (enum) corresponding to OpenMP clauses.
     static int getClauseID(StringRef ClauseFullName);
 
-    /// \brief Removes calls to directive intrinsics.
+    /// \brief Removes calls to directive intrinsics from BasicBlock \p BB.
+    /// \returns \b true if <em>one or more</em> directive intrinsics were
+    /// stripped from \p BB; \b false otherwise.
+    static bool stripDirectives(BasicBlock &BB);
+
+    /// \brief Removes calls to directive intrinsics from function \p F.
+    /// \returns \b true if <em>one or more</em> directive intrinsics were
+    /// stripped from \p F; \b false otherwise.
     static bool stripDirectives(Function &F);
 
-    /// Utilities to handle directives & clauses 
+    /// Utilities to handle directives & clauses
 
     /// \brief Return true iff DirString corresponds to a directive that
     /// begins a region (eg, DIR_OMP_PARALLEL, DIR_OMP_SIMD, etc.

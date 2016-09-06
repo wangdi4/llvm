@@ -25,7 +25,6 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/IR/Function.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetOptions.h"
@@ -405,8 +404,6 @@ void AArch64RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   MI.getOperand(FIOperandNum).ChangeToRegister(ScratchReg, false, false, true);
 }
 
-namespace llvm {
-
 unsigned AArch64RegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
                                                   MachineFunction &MF) const {
   const AArch64FrameLowering *TFI = getFrameLowering(MF);
@@ -446,5 +443,3 @@ unsigned AArch64RegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
     return 16;
   }
 }
-
-} // namespace llvm

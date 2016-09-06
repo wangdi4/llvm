@@ -19,7 +19,6 @@
 #include "lldb/Host/Debug.h"
 #include "lldb/Host/FileSpec.h"
 #include "lldb/Host/HostThread.h"
-#include "lldb/Host/Mutex.h"
 #include "lldb/Target/MemoryRegionInfo.h"
 
 #include "lldb/Host/common/NativeProcessProtocol.h"
@@ -27,7 +26,6 @@
 
 namespace lldb_private {
     class Error;
-    class Module;
     class Scalar;
 
 namespace process_linux {
@@ -144,7 +142,6 @@ namespace process_linux {
 
         LazyBool m_supports_mem_region;
         std::vector<MemoryRegionInfo> m_mem_region_cache;
-        Mutex m_mem_region_cache_mutex;
 
         lldb::tid_t m_pending_notification_tid;
 
@@ -152,54 +149,14 @@ namespace process_linux {
         // the relevan breakpoint
         std::map<lldb::tid_t, lldb::addr_t> m_threads_stepping_with_breakpoint;
 
-        /// @class LauchArgs
-        ///
-        /// @brief Simple structure to pass data to the thread responsible for
-        /// launching a child process.
-        struct LaunchArgs
-        {
-            LaunchArgs(Module *module,
-                    char const **argv,
-                    char const **envp,
-                    const FileSpec &stdin_file_spec,
-                    const FileSpec &stdout_file_spec,
-                    const FileSpec &stderr_file_spec,
-                    const FileSpec &working_dir,
-                    const ProcessLaunchInfo &launch_info);
-
-            ~LaunchArgs();
-
-            Module *m_module;                  // The executable image to launch.
-            char const **m_argv;               // Process arguments.
-            char const **m_envp;               // Process environment.
-            const FileSpec m_stdin_file_spec;  // Redirect stdin if not empty.
-            const FileSpec m_stdout_file_spec; // Redirect stdout if not empty.
-            const FileSpec m_stderr_file_spec; // Redirect stderr if not empty.
-            const FileSpec m_working_dir;      // Working directory or empty.
-            const ProcessLaunchInfo &m_launch_info;
-        };
-
-        typedef std::function< ::pid_t(Error &)> InitialOperation;
 
         // ---------------------------------------------------------------------
         // Private Instance Methods
         // ---------------------------------------------------------------------
         NativeProcessLinux ();
 
-        /// Launches an inferior process ready for debugging.  Forms the
-        /// implementation of Process::DoLaunch.
-        void
-        LaunchInferior (
-            MainLoop &mainloop,
-            Module *module,
-            char const *argv[],
-            char const *envp[],
-            const FileSpec &stdin_file_spec,
-            const FileSpec &stdout_file_spec,
-            const FileSpec &stderr_file_spec,
-            const FileSpec &working_dir,
-            const ProcessLaunchInfo &launch_info,
-            Error &error);
+        Error
+        LaunchInferior(MainLoop &mainloop, ProcessLaunchInfo &launch_info);
 
         /// Attaches to an existing process.  Forms the
         /// implementation of Process::DoAttach
@@ -207,16 +164,10 @@ namespace process_linux {
         AttachToInferior (MainLoop &mainloop, lldb::pid_t pid, Error &error);
 
         ::pid_t
-        Launch(LaunchArgs *args, Error &error);
-
-        ::pid_t
         Attach(lldb::pid_t pid, Error &error);
 
         static Error
         SetDefaultPtraceOpts(const lldb::pid_t);
-
-        static bool
-        DupDescriptor(const FileSpec &file_spec, int fd, int flags);
 
         static void *
         MonitorThread(void *baton);

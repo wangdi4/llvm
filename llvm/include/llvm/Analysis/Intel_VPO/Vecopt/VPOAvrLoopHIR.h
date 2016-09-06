@@ -30,14 +30,12 @@ namespace vpo {  // VPO Vectorizer Namespace
 class AVRLoopHIR : public AVRLoop {
 
 private:
-
   /// Pointer to HIR loop node.
-  const HLLoop *HIRLoop;
+  HLLoop *HIRLoop;
 
 protected:
-
   // Interface to create AVRLoop from LLVM Loop.
-  AVRLoopHIR(const HLLoop *Lp);
+  AVRLoopHIR(HLLoop *Lp);
 
   // AvrLoop copy constructor.
   AVRLoopHIR(AVRLoopHIR &AVROrigLoop);
@@ -45,13 +43,12 @@ protected:
   virtual ~AVRLoopHIR() override {}
 
   /// \brief Set HIR Loop.
-  void setLoop(const HLLoop *Lp) { HIRLoop = Lp; }
+  void setLoop(HLLoop *Lp) { HIRLoop = Lp; }
 
   /// Only this utility class should be use to modify/delete AVR nodes.
   friend class AVRUtilsHIR;
 
 public:
-
   AVRLoopHIR *clone() const override;
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -60,11 +57,7 @@ public:
   }
 
   /// \brief Returns HLLoop node.
-  const HLLoop *getLoop() const { return HIRLoop; }
-
-  /// \brief Prints the AvrLoop node.
-  void print(formatted_raw_ostream &OS, unsigned Depth,
-             VerbosityLevel VLevel) const override;
+  HLLoop *getLoop() const { return HIRLoop; }
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
@@ -76,8 +69,7 @@ public:
   void codeGen() override;
 };
 
-
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_LOOP_HIR_H
+#endif // LLVM_ANALYSIS_VPO_AVR_LOOP_HIR_H

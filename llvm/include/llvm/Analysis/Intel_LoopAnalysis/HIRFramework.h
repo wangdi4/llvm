@@ -73,6 +73,8 @@ private:
 
   unsigned getNewSymbase() { return SA->getNewSymbase(); }
 
+  void estimateMaxTripCounts() const;
+
 public:
   static char ID; // Pass identification
   HIRFramework();

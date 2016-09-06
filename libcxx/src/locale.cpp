@@ -1660,10 +1660,8 @@ codecvt<wchar_t, char, mbstate_t>::do_unshift(state_type& st,
 int
 codecvt<wchar_t, char, mbstate_t>::do_encoding() const  _NOEXCEPT
 {
-#ifndef __CloudABI__
     if (__libcpp_mbtowc_l(nullptr, nullptr, MB_LEN_MAX, __l) != 0)
         return -1;
-#endif
 
     // stateless encoding
     if (__l == 0 || __libcpp_mb_cur_max_l(__l) == 1)  // there are no known constant length encodings
@@ -2825,10 +2823,10 @@ ucs4_to_utf16le(const uint32_t* frm, const uint32_t* frm_end, const uint32_t*& f
     to_nxt = to;
     if (mode & generate_header)
     {
-        if (to_end-to_nxt < 2)
+        if (to_end - to_nxt < 2)
             return codecvt_base::partial;
-            *to_nxt++ = static_cast<uint8_t>(0xFF);
-            *to_nxt++ = static_cast<uint8_t>(0xFE);
+        *to_nxt++ = static_cast<uint8_t>(0xFF);
+        *to_nxt++ = static_cast<uint8_t>(0xFE);
     }
     for (; frm_nxt < frm_end; ++frm_nxt)
     {

@@ -21,15 +21,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/CFG.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/CFG.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -39,8 +38,10 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include "llvm/Transforms/Utils/Local.h"
+#include <utility>
 using namespace llvm;
 
 #define DEBUG_TYPE "simplifycfg"
@@ -191,10 +192,11 @@ PreservedAnalyses SimplifyCFGPass::run(Function &F,
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
 
-  if (simplifyFunctionCFG(F, TTI, &AC, BonusInstThreshold))
-    return PreservedAnalyses::none();
-
-  return PreservedAnalyses::all();
+  if (!simplifyFunctionCFG(F, TTI, &AC, BonusInstThreshold))
+    return PreservedAnalyses::all();
+  PreservedAnalyses PA;
+  PA.preserve<GlobalsAA>();
+  return PA;
 }
 
 namespace {
@@ -205,15 +207,12 @@ struct CFGSimplifyPass : public FunctionPass {
 
   CFGSimplifyPass(int T = -1,
                   std::function<bool(const Function &)> Ftor = nullptr)
-      : FunctionPass(ID), PredicateFtor(Ftor) {
+      : FunctionPass(ID), PredicateFtor(std::move(Ftor)) {
     BonusInstThreshold = (T == -1) ? UserBonusInstThreshold : unsigned(T);
     initializeCFGSimplifyPassPass(*PassRegistry::getPassRegistry());
   }
   bool runOnFunction(Function &F) override {
-    if (PredicateFtor && !PredicateFtor(F))
-      return false;
-
-    if (skipOptnoneFunction(F))
+    if (skipFunction(F) || (PredicateFtor && !PredicateFtor(F)))
       return false;
 
     AssumptionCache *AC =
@@ -244,5 +243,5 @@ INITIALIZE_PASS_END(CFGSimplifyPass, "simplifycfg", "Simplify the CFG", false,
 FunctionPass *
 llvm::createCFGSimplificationPass(int Threshold,
                                   std::function<bool(const Function &)> Ftor) {
-  return new CFGSimplifyPass(Threshold, Ftor);
+  return new CFGSimplifyPass(Threshold, std::move(Ftor));
 }

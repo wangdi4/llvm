@@ -19,6 +19,9 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/StmtVisitor.h"
+#include "clang/Lex/Lexer.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
@@ -26,11 +29,7 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ExprEngine.h"
-#include "clang/Lex/Lexer.h"
-#include "clang/AST/RecursiveASTVisitor.h"
-#include "clang/AST/StmtVisitor.h"
 #include "llvm/Support/Unicode.h"
-#include "llvm/ADT/StringSet.h"
 
 using namespace clang;
 using namespace ento;
@@ -110,6 +109,30 @@ NonLocalizedStringChecker::NonLocalizedStringChecker() {
   BT.reset(new BugType(this, "Unlocalizable string",
                        "Localizability Issue (Apple)"));
 }
+
+namespace {
+class NonLocalizedStringBRVisitor final
+    : public BugReporterVisitorImpl<NonLocalizedStringBRVisitor> {
+
+  const MemRegion *NonLocalizedString;
+  bool Satisfied;
+
+public:
+  NonLocalizedStringBRVisitor(const MemRegion *NonLocalizedString)
+      : NonLocalizedString(NonLocalizedString), Satisfied(false) {
+        assert(NonLocalizedString);
+  }
+
+  PathDiagnosticPiece *VisitNode(const ExplodedNode *Succ,
+                                 const ExplodedNode *Pred,
+                                 BugReporterContext &BRC,
+                                 BugReport &BR) override;
+
+  void Profile(llvm::FoldingSetNodeID &ID) const override {
+    ID.Add(NonLocalizedString);
+  }
+};
+} // End anonymous namespace.
 
 #define NEW_RECEIVER(receiver)                                                 \
   llvm::DenseMap<Selector, uint8_t> &receiver##M =                             \
@@ -676,6 +699,11 @@ void NonLocalizedStringChecker::reportLocalizationError(
     R->addRange(M.getSourceRange());
   }
   R->markInteresting(S);
+
+  const MemRegion *StringRegion = S.getAsRegion();
+  if (StringRegion)
+    R->addVisitor(llvm::make_unique<NonLocalizedStringBRVisitor>(StringRegion));
+
   C.emitReport(std::move(R));
 }
 
@@ -864,6 +892,41 @@ void NonLocalizedStringChecker::checkPostStmt(const ObjCStringLiteral *SL,
                                               CheckerContext &C) const {
   SVal sv = C.getSVal(SL);
   setNonLocalizedState(sv, C);
+}
+
+PathDiagnosticPiece *
+NonLocalizedStringBRVisitor::VisitNode(const ExplodedNode *Succ,
+                                       const ExplodedNode *Pred,
+                                       BugReporterContext &BRC, BugReport &BR) {
+  if (Satisfied)
+    return nullptr;
+
+  Optional<StmtPoint> Point = Succ->getLocation().getAs<StmtPoint>();
+  if (!Point.hasValue())
+    return nullptr;
+
+  auto *LiteralExpr = dyn_cast<ObjCStringLiteral>(Point->getStmt());
+  if (!LiteralExpr)
+    return nullptr;
+
+  ProgramStateRef State = Succ->getState();
+  SVal LiteralSVal = State->getSVal(LiteralExpr, Succ->getLocationContext());
+  if (LiteralSVal.getAsRegion() != NonLocalizedString)
+    return nullptr;
+
+  Satisfied = true;
+
+  PathDiagnosticLocation L =
+      PathDiagnosticLocation::create(*Point, BRC.getSourceManager());
+
+  if (!L.isValid() || !L.asLocation().isValid())
+    return nullptr;
+
+  auto *Piece = new PathDiagnosticEventPiece(L,
+      "Non-localized string literal here");
+  Piece->addRange(LiteralExpr->getSourceRange());
+
+  return Piece;
 }
 
 namespace {

@@ -10,6 +10,7 @@
 #include "MisplacedWideningCastCheck.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "../utils/Matchers.h"
 
 using namespace clang::ast_matchers;
 
@@ -36,10 +37,11 @@ void MisplacedWideningCastCheck::registerMatchers(MatchFinder *Finder) {
            hasType(isInteger()))
           .bind("Calc");
 
-  const auto ExplicitCast =
-      explicitCastExpr(hasDestinationType(isInteger()), has(Calc));
+  const auto ExplicitCast = explicitCastExpr(hasDestinationType(isInteger()),
+                                             has(ignoringParenImpCasts(Calc)));
   const auto ImplicitCast =
-      implicitCastExpr(hasImplicitDestinationType(isInteger()), has(Calc));
+      implicitCastExpr(hasImplicitDestinationType(isInteger()),
+                       has(ignoringParenImpCasts(Calc)));
   const auto Cast = expr(anyOf(ExplicitCast, ImplicitCast)).bind("Cast");
 
   Finder->addMatcher(varDecl(hasInitializer(Cast)), this);
@@ -47,9 +49,7 @@ void MisplacedWideningCastCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(callExpr(hasAnyArgument(Cast)), this);
   Finder->addMatcher(binaryOperator(hasOperatorName("="), hasRHS(Cast)), this);
   Finder->addMatcher(
-      binaryOperator(anyOf(hasOperatorName("=="), hasOperatorName("!="),
-                           hasOperatorName("<"), hasOperatorName("<="),
-                           hasOperatorName(">"), hasOperatorName(">=")),
+      binaryOperator(matchers::isComparisonOperator(),
                      hasEitherOperand(Cast)),
       this);
 }

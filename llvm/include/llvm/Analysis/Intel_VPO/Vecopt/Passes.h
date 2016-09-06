@@ -27,6 +27,31 @@ FunctionPass *createAVRGeneratePass();
 /// createAVRGeneratePass - This creates a pass that generates AVRs needed
 /// for vectorization from HIR.
 FunctionPass *createAVRGenerateHIRPass();
+
+/// createAvrDefUsePass - This creates a pass that provides Def-Use/Use-Def
+/// information on an AVR program.
+FunctionPass *createAvrDefUsePass();
+
+/// createAvrDefUseHIRPass - This creates a pass that provides Def-Use/Use-Def
+/// information on an AVR program.
+FunctionPass *createAvrDefUseHIRPass();
+
+/// createAvrCFGPass - This creates a pass that constructs a
+/// control-flow-graph for an AVR program.
+FunctionPass *createAvrCFGPass();
+
+/// createAvrCFGHIRPass - This creates a pass that constructs a
+/// control-flow-graph for an AVR program.
+FunctionPass *createAvrCFGHIRPass();
+
+/// createSIMDLaneEvolutionPass - This creates a pass that calculates the
+/// SIMD lane evolution of an AVR program.
+FunctionPass *createSIMDLaneEvolutionPass();
+
+/// createSIMDLaneEvolutionHIRPass - This creates a pass that calculates the
+/// SIMD lane evolution of an AVR program.
+FunctionPass *createSIMDLaneEvolutionHIRPass();
+
 }
 
 #endif // LLVM_ANALYSIS_VPO_PASSES_H

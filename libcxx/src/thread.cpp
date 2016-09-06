@@ -46,14 +46,17 @@ thread::~thread()
 void
 thread::join()
 {
-    int ec = pthread_join(__t_, 0);
+    int ec = EINVAL;
+    if (__t_ != 0)
+    {
+        ec = __libcpp_thread_join(&__t_);
+        if (ec == 0)
+            __t_ = 0;
+    }
 #ifndef _LIBCPP_NO_EXCEPTIONS
     if (ec)
         throw system_error(error_code(ec, system_category()), "thread::join failed");
-#else
-    (void)ec;
 #endif  // _LIBCPP_NO_EXCEPTIONS
-    __t_ = 0;
 }
 
 void
@@ -62,7 +65,7 @@ thread::detach()
     int ec = EINVAL;
     if (__t_ != 0)
     {
-        ec = pthread_detach(__t_);
+        ec = __libcpp_thread_detach(&__t_);
         if (ec == 0)
             __t_ = 0;
     }

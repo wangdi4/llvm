@@ -706,6 +706,37 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
   UnwindDest->removePredecessor(InvokeBB);
 }
 
+/// When inlining a call site that has !llvm.mem.parallel_loop_access metadata,
+/// that metadata should be propagated to all memory-accessing cloned
+/// instructions.
+static void PropagateParallelLoopAccessMetadata(CallSite CS,
+                                                ValueToValueMapTy &VMap) {
+  MDNode *M =
+    CS.getInstruction()->getMetadata(LLVMContext::MD_mem_parallel_loop_access);
+  if (!M)
+    return;
+
+  for (ValueToValueMapTy::iterator VMI = VMap.begin(), VMIE = VMap.end();
+       VMI != VMIE; ++VMI) {
+    if (!VMI->second)
+      continue;
+
+    Instruction *NI = dyn_cast<Instruction>(VMI->second);
+    if (!NI)
+      continue;
+#if INTEL_CUSTOMIZATION
+    // CQ410950: Do not reassign M, use a temporary TM
+    if (MDNode *PM 
+        = NI->getMetadata(LLVMContext::MD_mem_parallel_loop_access)) {
+        MDNode* TM = MDNode::concatenate(PM, M);
+      NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, TM);
+#endif // INTEL_CUSTOMIZATION
+    } else if (NI->mayReadOrWriteMemory()) {
+      NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, M);
+    }
+  }
+}
+
 /// When inlining a function that contains noalias scope metadata,
 /// this metadata needs to be cloned so that the inlined blocks
 /// have different "unqiue scopes" at every call site. Were this not done, then
@@ -722,12 +753,11 @@ static void CloneAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap) {
   // inter-procedural alias analysis passes. We can revisit this if it becomes
   // an efficiency or overhead problem.
 
-  for (Function::const_iterator I = CalledFunc->begin(), IE = CalledFunc->end();
-       I != IE; ++I)
-    for (BasicBlock::const_iterator J = I->begin(), JE = I->end(); J != JE; ++J) {
-      if (const MDNode *M = J->getMetadata(LLVMContext::MD_alias_scope))
+  for (const BasicBlock &I : *CalledFunc)
+    for (const Instruction &J : I) {
+      if (const MDNode *M = J.getMetadata(LLVMContext::MD_alias_scope))
         MD.insert(M);
-      if (const MDNode *M = J->getMetadata(LLVMContext::MD_noalias))
+      if (const MDNode *M = J.getMetadata(LLVMContext::MD_noalias))
         MD.insert(M);
     }
 
@@ -749,20 +779,18 @@ static void CloneAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap) {
   // the noalias scopes and the lists of those scopes.
   SmallVector<TempMDTuple, 16> DummyNodes;
   DenseMap<const MDNode *, TrackingMDNodeRef> MDMap;
-  for (SetVector<const MDNode *>::iterator I = MD.begin(), IE = MD.end();
-       I != IE; ++I) {
+  for (const MDNode *I : MD) {
     DummyNodes.push_back(MDTuple::getTemporary(CalledFunc->getContext(), None));
-    MDMap[*I].reset(DummyNodes.back().get());
+    MDMap[I].reset(DummyNodes.back().get());
   }
 
   // Create new metadata nodes to replace the dummy nodes, replacing old
   // metadata references with either a dummy node or an already-created new
   // node.
-  for (SetVector<const MDNode *>::iterator I = MD.begin(), IE = MD.end();
-       I != IE; ++I) {
+  for (const MDNode *I : MD) {
     SmallVector<Metadata *, 4> NewOps;
-    for (unsigned i = 0, ie = (*I)->getNumOperands(); i != ie; ++i) {
-      const Metadata *V = (*I)->getOperand(i);
+    for (unsigned i = 0, ie = I->getNumOperands(); i != ie; ++i) {
+      const Metadata *V = I->getOperand(i);
       if (const MDNode *M = dyn_cast<MDNode>(V))
         NewOps.push_back(MDMap[M]);
       else
@@ -770,7 +798,7 @@ static void CloneAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap) {
     }
 
     MDNode *NewM = MDNode::get(CalledFunc->getContext(), NewOps);
-    MDTuple *TempM = cast<MDTuple>(MDMap[*I]);
+    MDTuple *TempM = cast<MDTuple>(MDMap[I]);
     assert(TempM->isTemporary() && "Expected temporary node");
 
     TempM->replaceAllUsesWith(NewM);
@@ -1071,7 +1099,7 @@ static void AddAlignmentAssumptions(CallSite CS, InlineFunctionInfo &IFI) {
       // caller, then don't bother inserting the assumption.
       Value *Arg = CS.getArgument(I->getArgNo());
       if (getKnownAlignment(Arg, DL, CS.getInstruction(),
-                            &IFI.ACT->getAssumptionCache(*CS.getCaller()),
+                            &(*IFI.GetAssumptionCache)(*CS.getCaller()),
                             &DT) >= Align)
         continue;
 
@@ -1201,7 +1229,7 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
     // If the pointer is already known to be sufficiently aligned, or if we can
     // round it up to a larger alignment, then we don't need a temporary.
     if (getOrEnforceKnownAlignment(Arg, ByValAlignment, DL, TheCall,
-                                   &IFI.ACT->getAssumptionCache(*Caller)) >=
+                                   &(*IFI.GetAssumptionCache)(*Caller)) >=
         ByValAlignment)
       return Arg;
     
@@ -1264,7 +1292,8 @@ static bool hasLifetimeMarkers(AllocaInst *AI) {
 /// Rebuild the entire inlined-at chain for this instruction so that the top of
 /// the chain now is inlined-at the new call site.
 static DebugLoc
-updateInlinedAtInfo(DebugLoc DL, DILocation *InlinedAtNode, LLVMContext &Ctx,
+updateInlinedAtInfo(const DebugLoc &DL, DILocation *InlinedAtNode,
+                    LLVMContext &Ctx,
                     DenseMap<const DILocation *, DILocation *> &IANodes) {
   SmallVector<DILocation *, 3> InlinedAtLocations;
   DILocation *Last = InlinedAtNode;
@@ -1285,8 +1314,7 @@ updateInlinedAtInfo(DebugLoc DL, DILocation *InlinedAtNode, LLVMContext &Ctx,
   // Starting from the top, rebuild the nodes to point to the new inlined-at
   // location (then rebuilding the rest of the chain behind it) and update the
   // map of already-constructed inlined-at nodes.
-  for (const DILocation *MD : make_range(InlinedAtLocations.rbegin(),
-                                         InlinedAtLocations.rend())) {
+  for (const DILocation *MD : reverse(InlinedAtLocations)) {
     Last = IANodes[MD] = DILocation::getDistinct(
         Ctx, MD->getLine(), MD->getColumn(), MD->getScope(), Last);
   }
@@ -1300,7 +1328,7 @@ updateInlinedAtInfo(DebugLoc DL, DILocation *InlinedAtNode, LLVMContext &Ctx,
 /// to encode location where these instructions are inlined.
 static void fixupLineNumbers(Function *Fn, Function::iterator FI,
                              Instruction *TheCall) {
-  DebugLoc TheCallDL = TheCall->getDebugLoc();
+  const DebugLoc &TheCallDL = TheCall->getDebugLoc();
   if (!TheCallDL)
     return;
 
@@ -1631,10 +1659,13 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // Add noalias metadata if necessary.
     AddAliasScopeMetadata(CS, VMap, DL, CalleeAAR);
 
+    // Propagate llvm.mem.parallel_loop_access if necessary.
+    PropagateParallelLoopAccessMetadata(CS, VMap);
+
     // FIXME: We could register any cloned assumptions instead of clearing the
     // whole function's cache.
-    if (IFI.ACT)
-      IFI.ACT->getAssumptionCache(*Caller).clear();
+    if (IFI.GetAssumptionCache)
+      (*IFI.GetAssumptionCache)(*Caller).clear();
   }
 
   // If there are any alloca instructions in the block that used to be the entry
@@ -1900,7 +1931,13 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
           continue;
         }
 
-        auto CallingConv = DeoptCall->getCallingConv();
+        // The calling convention on the deoptimize call itself may be bogus,
+        // since the code we're inlining may have undefined behavior (and may
+        // never actually execute at runtime); but all
+        // @llvm.experimental.deoptimize declarations have to have the same
+        // calling convention in a well-formed module.
+        auto CallingConv = DeoptCall->getCalledFunction()->getCallingConv();
+        NewDeoptIntrinsic->setCallingConv(CallingConv);
         auto *CurBB = RI->getParent();
         RI->eraseFromParent();
 
@@ -2149,7 +2186,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   if (PHI) {
     auto &DL = Caller->getParent()->getDataLayout();
     if (Value *V = SimplifyInstruction(PHI, DL, nullptr, nullptr,
-                                       &IFI.ACT->getAssumptionCache(*Caller))) {
+                                       &(*IFI.GetAssumptionCache)(*Caller))) {
       PHI->replaceAllUsesWith(V);
       PHI->eraseFromParent();
     }

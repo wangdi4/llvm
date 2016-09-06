@@ -22,16 +22,20 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGrouping.h"
 
 namespace llvm {
 namespace loopopt {
+namespace runtimedd {
+
+typedef DDRefGrouping::RefGroupTy<RegDDRef> RefGroupTy;
+typedef DDRefGrouping::RefGroupMapTy<RegDDRef> RefGroupMapTy;
 
 const unsigned ExpectedNumberOfTests = 8;
-const unsigned SmallTripCountTest = 4;
+const unsigned SmallTripCountTest = 16;
 
 enum RuntimeDDResult {
   OK,
@@ -47,6 +51,7 @@ enum RuntimeDDResult {
   BLOB_IV_COEFF,
   SAME_BASE,
   NON_DO_LOOP,
+  NON_PROFITABLE,
 };
 
 // The struct represents a segment of memory. It is used to construct checks
@@ -89,7 +94,7 @@ class IVSegment {
                                     const HLLoop *InnerLoop);
 
 public:
-  IVSegment(const DDRefGrouping::RefGroupTy &Group);
+  IVSegment(const RefGroupTy &Group);
   IVSegment(const IVSegment &) = delete;
   IVSegment(IVSegment &&Segment);
 
@@ -124,7 +129,7 @@ public:
 #endif
 };
 
-struct LoopCandidate {
+struct LoopContext {
   HLLoop *Loop;
   llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   bool GenTripCountTest;
@@ -163,6 +168,9 @@ private:
 
   struct LoopAnalyzer;
 
+  /// Returns true if \p Loop is considered as profitable for multiversioning.
+  static bool isProfitable(const HLLoop *Loop);
+
   // \brief The method processes each IV segment and updates bounds according to
   // a specified loopnest.
   // It also fills the applicability vector for the further use.
@@ -178,15 +186,19 @@ private:
                                         const RegDDRef *Ref2);
 
   // \brief Returns required DD tests for an arbitrary loop L.
-  static RuntimeDDResult computeTests(HLLoop *Loop, LoopCandidate &Candidate);
+  static RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
 
-  HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
-                                    Segment &S2) const;
+  static HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
+                                           Segment &S2);
 
   // \brief Modifies HIR implementing specified tests.
-  void generateDDTest(LoopCandidate &Candidate) const;
+  static void generateDDTest(LoopContext &Context);
+
+  // \brief Marks all DDRefs independent across groups.
+  static void markDDRefsIndep(HLLoop *Loop);
 };
 
+}
 }
 }
 

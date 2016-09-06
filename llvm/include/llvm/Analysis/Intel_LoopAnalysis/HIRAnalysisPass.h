@@ -22,6 +22,8 @@
 
 namespace llvm {
 
+class formatted_raw_ostream;
+
 namespace loopopt {
 
 class HLRegion;
@@ -42,7 +44,7 @@ class HLLoop;
 /// - Define pass under loopopt namespace.
 /// - Declare HIRFramework pass as required to access HIR.
 /// - Always call setPreservesAll() in getAnalysisUsage().
-/// - Add a new value for the pass to HIRAnalysisVal enum before 
+/// - Add a new value for the pass to HIRAnalysisVal enum before
 ///   HIRPassCountVal.
 /// Pass this value in the constructor.
 /// - Add a static classof() member for supporting LLVM's RTTI.
@@ -57,6 +59,8 @@ public:
   enum HIRAnalysisVal {
     HIRDDAnalysisVal,
     HIRLocalityAnalysisVal,
+    HIRLoopResourceVal,
+    HIRSafeReductionAnalysisVal,
     HIRVectVLSAnalysisVal,
     // Should be kept last
     HIRPassCountVal
@@ -66,9 +70,22 @@ private:
   /// ID to differentiate between concrete subclasses.
   const HIRAnalysisVal SubClassID;
 
+  /// Used to print derived classes's results.
+  struct PrintVisitor;
+
 protected:
   HIRAnalysisPass(char &ID, HIRAnalysisVal SCID)
       : FunctionPass(ID), SubClassID(SCID) {}
+
+  /// Invoked by main print() function to print analysis results for region.
+  /// This is intentionally non-const as on-demand analyses have to compute
+  /// results for printing.
+  virtual void print(formatted_raw_ostream &OS, const HLRegion *Reg) {}
+
+  /// Invoked by main print() function to print analysis results for loop.
+  /// This is intentionally non-const as on-demand analyses have to compute
+  /// results for printing.
+  virtual void print(formatted_raw_ostream &OS, const HLLoop *Lp) {}
 
 public:
   /// \brief Return an ID for the concrete type of this object.
@@ -76,6 +93,11 @@ public:
   /// This is used to implement the classof checks in LLVM and should't
   /// be used for any other purpose.
   HIRAnalysisVal getHIRAnalysisID() const { return SubClassID; }
+
+  /// Prints analysis's results in 'opt -analyze' mode. This is a lightweight
+  /// print which prints region's/loop's header/footer along with their analysis
+  /// results.
+  void print(raw_ostream &OS, const Module * = nullptr) const override;
 
   // Interface for derived classes to invalidate analysis for
   // regions/loops/nodes.

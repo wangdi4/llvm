@@ -14,6 +14,7 @@
 // C++ Includes
 #include <map>
 #include <memory>
+#include <mutex>
 
 // Other libraries and framework includes
 // Project includes
@@ -295,26 +296,26 @@ private:
     
     struct DescriptorMapUpdateResult
     {
-        bool update_ran;
-        bool any_found;
+        bool m_update_ran;
+        uint32_t m_num_found;
         
         DescriptorMapUpdateResult (bool ran,
-                                   bool found)
+                                   uint32_t found)
         {
-            update_ran = ran;
-            any_found = found;
+            m_update_ran = ran;
+            m_num_found = found;
         }
         
         static DescriptorMapUpdateResult
         Fail ()
         {
-            return {false, false};
+            return {false, 0};
         }
         
         static DescriptorMapUpdateResult
-        Success ()
+        Success (uint32_t found)
         {
-            return {true, true};
+            return {true, found};
         }
     };
     
@@ -333,7 +334,7 @@ private:
     bool
     UpdateISAToDescriptorMapFromMemory (RemoteNXMapTable &hash_table);
     
-    bool
+    DescriptorMapUpdateResult
     UpdateISAToDescriptorMapDynamic(RemoteNXMapTable &hash_table);
     
     uint32_t
@@ -353,11 +354,11 @@ private:
 
     std::unique_ptr<UtilityFunction>        m_get_class_info_code;
     lldb::addr_t                            m_get_class_info_args;
-    Mutex                                   m_get_class_info_args_mutex;
+    std::mutex m_get_class_info_args_mutex;
 
     std::unique_ptr<UtilityFunction>        m_get_shared_cache_class_info_code;
     lldb::addr_t                            m_get_shared_cache_class_info_args;
-    Mutex                                   m_get_shared_cache_class_info_args_mutex;
+    std::mutex m_get_shared_cache_class_info_args_mutex;
 
     std::unique_ptr<DeclVendor>             m_decl_vendor_ap;
     lldb::addr_t                            m_isa_hash_table_ptr;

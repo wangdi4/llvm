@@ -34,6 +34,7 @@
 #include "lldb/Interpreter/OptionValueBoolean.h"
 #include "lldb/Interpreter/OptionValueLanguage.h"
 #include "lldb/Interpreter/OptionValueString.h"
+#include "lldb/Symbol/Symbol.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/StackFrame.h"
@@ -751,7 +752,7 @@ Adding default formatting:
 (lldb) type format add -f hex AInt
 (lldb) frame variable iy
 
-)" "    Produces hexidecimal display of iy, because no formatter is available for Bint and \
+)" "    Produces hexadecimal display of iy, because no formatter is available for Bint and \
 the one for Aint is used instead." R"(
 
 To prevent this use the cascade option '-C no' to prevent evaluation of typedef chains:
@@ -1350,7 +1351,9 @@ protected:
         bool any_printed = false;
         
         auto category_closure = [&result, &formatter_regex, &any_printed] (const lldb::TypeCategoryImplSP& category) -> void {
-            result.GetOutputStream().Printf("-----------------------\nCategory: %s\n-----------------------\n", category->GetName());
+            result.GetOutputStream().Printf("-----------------------\nCategory: %s%s\n-----------------------\n",
+                                            category->GetName(),
+                                            category->IsEnabled() ? "" : " (disabled)");
 
             TypeCategoryImpl::ForEachCallbacks<FormatterType> foreach;
             foreach.SetExact([&result, &formatter_regex, &any_printed] (ConstString name, const FormatterSharedPointer& format_sp) -> bool {
@@ -3209,6 +3212,27 @@ CommandObjectTypeFilterAdd::CommandOptions::g_option_table[] =
 class CommandObjectTypeLookup : public CommandObjectRaw
 {
 protected:
+    // this function is allowed to do a more aggressive job at guessing languages than the expression parser
+    // is comfortable with - so leave the original call alone and add one that is specific to type lookup
+    lldb::LanguageType
+    GuessLanguage (StackFrame *frame)
+    {
+        lldb::LanguageType lang_type = lldb::eLanguageTypeUnknown;
+
+        if (!frame)
+            return lang_type;
+        
+        lang_type = frame->GuessLanguage();
+        if (lang_type != lldb::eLanguageTypeUnknown)
+            return lang_type;
+        
+        Symbol *s = frame->GetSymbolContext(eSymbolContextSymbol).symbol;
+        if (s)
+            lang_type = s->GetMangled().GuessLanguage();
+
+        return lang_type;
+    }
+    
     class CommandOptions : public OptionGroup
     {
     public:
@@ -3403,7 +3427,7 @@ public:
         // so the cost of the sort is going to be dwarfed by the actual lookup anyway
         if (StackFrame* frame = m_exe_ctx.GetFramePtr())
         {
-            LanguageType lang = frame->GuessLanguage();
+            LanguageType lang = GuessLanguage(frame);
             if (lang != eLanguageTypeUnknown)
             {
                 std::sort(languages.begin(),
@@ -3547,11 +3571,9 @@ private:
 class CommandObjectTypeFormat : public CommandObjectMultiword
 {
 public:
-    CommandObjectTypeFormat (CommandInterpreter &interpreter) :
-        CommandObjectMultiword (interpreter,
-                                "type format",
-                                "A set of commands for editing variable value display options",
-                                "type format [<sub-command-options>] ")
+    CommandObjectTypeFormat(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "type format", "Commands for customizing value display formats.",
+                                 "type format [<sub-command-options>] ")
     {
         LoadSubCommand ("add",    CommandObjectSP (new CommandObjectTypeFormatAdd (interpreter)));
         LoadSubCommand ("clear",  CommandObjectSP (new CommandObjectTypeFormatClear (interpreter)));
@@ -3572,11 +3594,10 @@ public:
 class CommandObjectTypeSynth : public CommandObjectMultiword
 {
 public:
-    CommandObjectTypeSynth (CommandInterpreter &interpreter) :
-    CommandObjectMultiword (interpreter,
-                            "type synthetic",
-                            "A set of commands for operating on synthetic type representations",
-                            "type synthetic [<sub-command-options>] ")
+    CommandObjectTypeSynth(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "type synthetic",
+                                 "Commands for operating on synthetic type representations.",
+                                 "type synthetic [<sub-command-options>] ")
     {
         LoadSubCommand ("add",           CommandObjectSP (new CommandObjectTypeSynthAdd (interpreter)));
         LoadSubCommand ("clear",         CommandObjectSP (new CommandObjectTypeSynthClear (interpreter)));
@@ -3597,11 +3618,9 @@ public:
 class CommandObjectTypeFilter : public CommandObjectMultiword
 {
 public:
-    CommandObjectTypeFilter (CommandInterpreter &interpreter) :
-    CommandObjectMultiword (interpreter,
-                            "type filter",
-                            "A set of commands for operating on type filters",
-                            "type synthetic [<sub-command-options>] ")
+    CommandObjectTypeFilter(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "type filter", "Commands for operating on type filters.",
+                                 "type synthetic [<sub-command-options>] ")
     {
         LoadSubCommand ("add",           CommandObjectSP (new CommandObjectTypeFilterAdd (interpreter)));
         LoadSubCommand ("clear",         CommandObjectSP (new CommandObjectTypeFilterClear (interpreter)));
@@ -3615,11 +3634,9 @@ public:
 class CommandObjectTypeCategory : public CommandObjectMultiword
 {
 public:
-    CommandObjectTypeCategory (CommandInterpreter &interpreter) :
-    CommandObjectMultiword (interpreter,
-                            "type category",
-                            "A set of commands for operating on categories",
-                            "type category [<sub-command-options>] ")
+    CommandObjectTypeCategory(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "type category", "Commands for operating on type categories.",
+                                 "type category [<sub-command-options>] ")
     {
         LoadSubCommand ("define",        CommandObjectSP (new CommandObjectTypeCategoryDefine (interpreter)));
         LoadSubCommand ("enable",        CommandObjectSP (new CommandObjectTypeCategoryEnable (interpreter)));
@@ -3634,11 +3651,9 @@ public:
 class CommandObjectTypeSummary : public CommandObjectMultiword
 {
 public:
-    CommandObjectTypeSummary (CommandInterpreter &interpreter) :
-    CommandObjectMultiword (interpreter,
-                            "type summary",
-                            "A set of commands for editing variable summary display options",
-                            "type summary [<sub-command-options>] ")
+    CommandObjectTypeSummary(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "type summary", "Commands for editing variable summary display options.",
+                                 "type summary [<sub-command-options>] ")
     {
         LoadSubCommand ("add",           CommandObjectSP (new CommandObjectTypeSummaryAdd (interpreter)));
         LoadSubCommand ("clear",         CommandObjectSP (new CommandObjectTypeSummaryClear (interpreter)));
@@ -3658,11 +3673,9 @@ public:
 // CommandObjectType
 //-------------------------------------------------------------------------
 
-CommandObjectType::CommandObjectType (CommandInterpreter &interpreter) :
-    CommandObjectMultiword (interpreter,
-                            "type",
-                            "A set of commands for operating on the type system",
-                            "type [<sub-command-options>]")
+CommandObjectType::CommandObjectType(CommandInterpreter &interpreter)
+    : CommandObjectMultiword(interpreter, "type", "Commands for operating on the type system.",
+                             "type [<sub-command-options>]")
 {
     LoadSubCommand ("category",  CommandObjectSP (new CommandObjectTypeCategory (interpreter)));
     LoadSubCommand ("filter",    CommandObjectSP (new CommandObjectTypeFilter (interpreter)));

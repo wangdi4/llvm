@@ -29,31 +29,6 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-vls-analysis"
 
-// FIXME: Temporarily here. To be moved to RegDDRef.cpp
-bool HIRVLSClientMemref::isInvariantAtLevel(const RegDDRef *RegDD,
-                                            unsigned LoopLevel) {
-  // Check the Base CE.
-  if (RegDD->hasGEPInfo() &&
-      !RegDD->getBaseCE()->isInvariantAtLevel(LoopLevel)) {
-    return false;
-  }
-
-  // Check canon expr of the ddrefs to see if level exist.
-  for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
-       ++Iter) {
-
-    const CanonExpr *Canon = *Iter;
-    // Check if CanonExpr is invariant i.e. IV is not present in any form inside
-    // the canon expr.
-    if (!Canon->isInvariantAtLevel(LoopLevel)) {
-      return false;
-    }
-  }
-
-  // Level doesn't exist in any of the canon exprs.
-  return true;
-}
-
 // TODO: Current implementation is largely HIR generic, but partly vectorizer
 // specific (namely the exact conditions we check for each DDG edge).
 // Can change this to work with an edge visitor that other users of this
@@ -61,7 +36,7 @@ bool HIRVLSClientMemref::isInvariantAtLevel(const RegDDRef *RegDD,
 // TODO: vectorizer will want to take the distance into account to prune
 // irrelevant dependences.
 // TODO: vectorizer will want to prune edges from irrlevant levels.
-// TODO: This function is conservative in the presence of unstructured code 
+// TODO: This function is conservative in the presence of unstructured code
 // (specifically the dominance checks).
 // TODO: This function relies on the topological sort numbers to tell if some
 // RegDDRef is accessed between the accesses to Ref and AtRef, where Ref and
@@ -70,6 +45,9 @@ bool HIRVLSClientMemref::isInvariantAtLevel(const RegDDRef *RegDD,
 bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
                                        const RegDDRef *AtRef,
                                        const VectVLSContext *VectContext) {
+
+  //DEBUG(dbgs() << "\ncanMove: "; Ref->dump());
+  //DEBUG(dbgs() << " To: "; AtRef->dump());
 
   DDGraph DDG = VectContext->getDDG();
   const HLDDNode *DDNode = Ref->getHLDDNode();
@@ -114,7 +92,8 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
   for (auto II = DDG.outgoing_edges_begin(RegRef),
             EE = DDG.outgoing_edges_end(RegRef);
        II != EE; ++II) {
-    DDRef *SinkRef = II->getSink();
+    const DDEdge *Edge = *II;
+    DDRef *SinkRef = Edge->getSink();
     HLDDNode *SinkNode = SinkRef->getHLDDNode();
     // DEBUG(dbgs() << "\nmove past loc " << HNode->getTopSortNum() << ". ");
     // Assuming structured code (no labels/gotos), we rely on the topological
@@ -129,7 +108,6 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
       continue;
     }
     // Lastly: Check the dependence edge.
-    const DDEdge *Edge = &(*II);
     if (Edge->getSrc() == Edge->getSink()) {
       continue;
     }
@@ -153,7 +131,7 @@ bool HIRVLSClientMemref::setStridedAccess() {
   DEBUG(dbgs() << "\nsetStridedAccess: Examine Ref "; Ref->dump());
 
   // CHECKME: Not supposed to find invariant refs... turn into an assert?
-  if (isInvariantAtLevel(Ref, LoopLevel)) {
+  if (Ref->isStructurallyInvariantAtLevel(LoopLevel)) {
     DEBUG(dbgs() << "\n  Invariant at Level\n");
     return false;
   }

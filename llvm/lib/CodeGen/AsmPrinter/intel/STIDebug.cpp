@@ -806,7 +806,7 @@ void STIAsmWriter::emitBytes(size_t size, const char* data) {
 }
 
 void STIAsmWriter::emitFill(size_t size, const uint8_t byte) {
-  ASM()->OutStreamer->EmitFill(size, byte);
+  ASM()->OutStreamer->emitFill(size, byte);
 }
 
 void STIAsmWriter::emitComment(StringRef comment) {
@@ -1051,9 +1051,6 @@ private:
   STIWriter* _writer;
   STIDebugFixupTable _fixupTable;
 
-  // Maps from a type identifier to the actual MDNode.
-  DITypeIdentifierMap TypeIdentifierMap;
-
   static const char* _unnamedType;
 
 public:
@@ -1110,9 +1107,6 @@ protected:
     STISymbolCompileUnit *compileUnit = module->getCompileUnits()->back();
     return compileUnit;
   }
-
-  /// \brief Return the TypeIdentifierMap.
-  const DITypeIdentifierMap &getTypeIdentifierMap() const;
 
   STIScope *getOrCreateScope(const DIScope* llvmScope);
   std::string getScopeFullName(const DIScope* llvmScope, StringRef name,
@@ -1701,10 +1695,6 @@ void STIDebugImpl::setWriter(STIWriter* writer) {
 
 std::string STIDebugImpl::getUniqueName() {
   return (Twine("<unnamed-tag>") + Twine(_uniqueNameCounter++)).str();
-}
-
-const DITypeIdentifierMap &STIDebugImpl::getTypeIdentifierMap() const {
-  return TypeIdentifierMap;
 }
 
 //===----------------------------------------------------------------------===//
@@ -2537,7 +2527,7 @@ void STIDebugImpl::setDefnInProgress(const DIType *llvmType, bool inProgress) {
 //===----------------------------------------------------------------------===//
 
 template <typename T> T* STIDebugImpl::resolve(TypedDINodeRef<T> ref) const {
-  return ref.resolve(getTypeIdentifierMap());
+  return ref.resolve();
 }
 
 //===----------------------------------------------------------------------===//
@@ -4734,22 +4724,15 @@ void STIDebugImpl::collectModuleInfo() {
   STISymbolModule *module;
   std::string OBJPath = getOBJFullPath();
 
+  // Generate the S_MODULE symbol.
+  //
   module = STISymbolModule::create();
   module->setSymbolsSignatureID(STI_SYMBOLS_SIGNATURE_LATEST);
   module->setPath(OBJPath);
-
   getSymbolTable()->setRoot(module);
 
-  // Initialize the DISubprogram->Function map.
-  for (Module::iterator I = M->begin(), E = M->end(); I != E; ++I) {
-    Function *Fn = &*I;
-    if (auto *SP = Fn->getSubprogram()) {
-      _subprogramMap.insert(std::make_pair(SP, Fn));
-    }
-  }
-
-  TypeIdentifierMap = generateDITypeIdentifierMap(*M);
-
+  // Generate the S_COMPILE symbol for each compilation unit.
+  //
   for (DICompileUnit *CU : M->debug_compile_units()) {
     STISymbolCompileUnit *compileUnit;
 
@@ -4764,14 +4747,24 @@ void STIDebugImpl::collectModuleInfo() {
     std::string path;
     getFullFileName(CU->getFile(), path);
     (void) getOrCreateChecksum(path);
+  }
 
-    collectGlobalVariableInfo(CU);
-
-    for (auto &Itr : _subprogramMap) {
-      auto *SP = Itr.first;
-      if (SP->getUnit() == CU)
-        getOrCreateSymbolProcedure(SP);
+  // Initialize the DISubprogram to Function map.
+  // Initialize the DISubprogram to STISymbolProcedure map.
+  //
+  for (Module::iterator I = M->begin(), E = M->end(); I != E; ++I) {
+    Function *Fn = &*I;
+    if (auto *SP = Fn->getSubprogram()) {
+      _subprogramMap.insert(std::make_pair(SP, Fn));
+      getOrCreateSymbolProcedure(SP);
     }
+  }
+
+  // Collect information about global variables.  This needs to be done after
+  // the subprograms have been created because this includes static variables.
+  //
+  for (DICompileUnit *CU : M->debug_compile_units()) {
+    collectGlobalVariableInfo(CU);
   }
 }
 
@@ -4819,6 +4812,11 @@ void STIDebugImpl::collectRoutineInfo() {
   for (const VariableHistoryInfo &info : _valueHistory) {
     InlinedVariable                        IV     = info.first;
     const DbgValueHistoryMap::InstrRanges &Ranges = info.second;
+
+    // FIXME: We do not know how to emit inlined variables.
+    // Skip inlined variables.
+    if (IV.second)
+      continue;
 
     if (processed.count(IV))
       continue;

@@ -59,6 +59,7 @@
 #include <cctype>
 #include <cstring>
 #include <system_error>
+#include <utility>
 
 using namespace llvm;
 using namespace object;
@@ -197,7 +198,7 @@ public:
   SectionFilterIterator(FilterPredicate P,
                         llvm::object::section_iterator const &I,
                         llvm::object::section_iterator const &E)
-      : Predicate(P), Iterator(I), End(E) {
+      : Predicate(std::move(P)), Iterator(I), End(E) {
     ScanPredicate();
   }
   const llvm::object::SectionRef &operator*() const { return *Iterator; }
@@ -224,7 +225,7 @@ private:
 class SectionFilter {
 public:
   SectionFilter(FilterPredicate P, llvm::object::ObjectFile const &O)
-      : Predicate(P), Object(O) {}
+      : Predicate(std::move(P)), Object(O) {}
   SectionFilterIterator begin() {
     return SectionFilterIterator(Predicate, Object.section_begin(),
                                  Object.section_end());
@@ -263,6 +264,12 @@ void llvm::error(std::error_code EC) {
   exit(1);
 }
 
+LLVM_ATTRIBUTE_NORETURN void llvm::error(Twine Message) {
+  errs() << ToolName << ": " << Message << ".\n";
+  errs().flush();
+  exit(1);
+}
+
 LLVM_ATTRIBUTE_NORETURN void llvm::report_error(StringRef File,
                                                 std::error_code EC) {
   assert(EC);
@@ -277,8 +284,43 @@ LLVM_ATTRIBUTE_NORETURN void llvm::report_error(StringRef File,
   raw_string_ostream OS(Buf);
   logAllUnhandledErrors(std::move(E), OS, "");
   OS.flush();
-  errs() << ToolName << ": " << Buf;
+  errs() << ToolName << ": '" << File << "': " << Buf;
   exit(1);
+}
+
+LLVM_ATTRIBUTE_NORETURN void llvm::report_error(StringRef ArchiveName,
+                                                StringRef FileName,
+                                                llvm::Error E,
+                                                StringRef ArchitectureName) {
+  assert(E);
+  errs() << ToolName << ": ";
+  if (ArchiveName != "")
+    errs() << ArchiveName << "(" << FileName << ")";
+  else
+    errs() << FileName;
+  if (!ArchitectureName.empty())
+    errs() << " (for architecture " << ArchitectureName << ")";
+  std::string Buf;
+  raw_string_ostream OS(Buf);
+  logAllUnhandledErrors(std::move(E), OS, "");
+  OS.flush();
+  errs() << " " << Buf;
+  exit(1);
+}
+
+LLVM_ATTRIBUTE_NORETURN void llvm::report_error(StringRef ArchiveName,
+                                                const object::Archive::Child &C,
+                                                llvm::Error E,
+                                                StringRef ArchitectureName) {
+  ErrorOr<StringRef> NameOrErr = C.getName();
+  // TODO: if we have a error getting the name then it would be nice to print
+  // the index of which archive member this is and or its offset in the
+  // archive instead of "???" as the name.
+  if (NameOrErr.getError())
+    llvm::report_error(ArchiveName, "???", std::move(E), ArchitectureName);
+  else
+    llvm::report_error(ArchiveName, NameOrErr.get(), std::move(E),
+                       ArchitectureName);
 }
 
 static const Target *getTarget(const ObjectFile *Obj = nullptr) {
@@ -405,6 +447,11 @@ public:
                  raw_ostream &OS,
                  StringRef Annot,
                  MCSubtargetInfo const &STI) override {
+    if (!MI) {
+      OS << " <unknown>";
+      return;
+    }
+
     SmallString<40> InstStr;
     raw_svector_ostream IS(InstStr);
 
@@ -485,18 +532,18 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
   const Elf_Sym *symb = Obj->getSymbol(SI->getRawDataRefImpl());
   StringRef Target;
   if (symb->getType() == ELF::STT_SECTION) {
-    ErrorOr<section_iterator> SymSI = SI->getSection();
-    if (std::error_code EC = SymSI.getError())
-      return EC;
+    Expected<section_iterator> SymSI = SI->getSection();
+    if (!SymSI)
+      return errorToErrorCode(SymSI.takeError());
     const Elf_Shdr *SymSec = Obj->getSection((*SymSI)->getRawDataRefImpl());
     ErrorOr<StringRef> SecName = EF.getSectionName(SymSec);
     if (std::error_code EC = SecName.getError())
       return EC;
     Target = *SecName;
   } else {
-    ErrorOr<StringRef> SymName = symb->getName(StrTab);
+    Expected<StringRef> SymName = symb->getName(StrTab);
     if (!SymName)
-      return SymName.getError();
+      return errorToErrorCode(SymName.takeError());
     Target = *SymName;
   }
   switch (EF.getHeader()->e_machine) {
@@ -542,6 +589,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
   case ELF::EM_ARM:
   case ELF::EM_HEXAGON:
   case ELF::EM_MIPS:
+  case ELF::EM_BPF:
     res = Target;
     break;
   case ELF::EM_WEBASSEMBLY:
@@ -586,9 +634,9 @@ static std::error_code getRelocationValueString(const COFFObjectFile *Obj,
                                                 const RelocationRef &Rel,
                                                 SmallVectorImpl<char> &Result) {
   symbol_iterator SymI = Rel.getSymbol();
-  ErrorOr<StringRef> SymNameOrErr = SymI->getName();
-  if (std::error_code EC = SymNameOrErr.getError())
-    return EC;
+  Expected<StringRef> SymNameOrErr = SymI->getName();
+  if (!SymNameOrErr)
+    return errorToErrorCode(SymNameOrErr.takeError());
   StringRef SymName = *SymNameOrErr;
   Result.append(SymName.begin(), SymName.end());
   return std::error_code();
@@ -608,14 +656,24 @@ static void printRelocationTargetName(const MachOObjectFile *O,
 
     for (const SymbolRef &Symbol : O->symbols()) {
       std::error_code ec;
-      ErrorOr<uint64_t> Addr = Symbol.getAddress();
-      if ((ec = Addr.getError()))
-        report_fatal_error(ec.message());
+      Expected<uint64_t> Addr = Symbol.getAddress();
+      if (!Addr) {
+        std::string Buf;
+        raw_string_ostream OS(Buf);
+        logAllUnhandledErrors(Addr.takeError(), OS, "");
+        OS.flush();
+        report_fatal_error(Buf);
+      }
       if (*Addr != Val)
         continue;
-      ErrorOr<StringRef> Name = Symbol.getName();
-      if (std::error_code EC = Name.getError())
-        report_fatal_error(EC.message());
+      Expected<StringRef> Name = Symbol.getName();
+      if (!Name) {
+        std::string Buf;
+        raw_string_ostream OS(Buf);
+        logAllUnhandledErrors(Name.takeError(), OS, "");
+        OS.flush();
+        report_fatal_error(Buf);
+      }
       fmt << *Name;
       return;
     }
@@ -646,8 +704,8 @@ static void printRelocationTargetName(const MachOObjectFile *O,
   if (isExtern) {
     symbol_iterator SI = O->symbol_begin();
     advance(SI, Val);
-    ErrorOr<StringRef> SOrErr = SI->getName();
-    error(SOrErr.getError());
+    Expected<StringRef> SOrErr = SI->getName();
+    error(errorToErrorCode(SOrErr.takeError()));
     S = *SOrErr;
   } else {
     section_iterator SI = O->section_begin();
@@ -885,12 +943,10 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
   const Target *TheTarget = getTarget(Obj);
 
   // Package up features to be passed to target/subtarget
-  std::string FeaturesStr;
+  SubtargetFeatures Features = Obj->getFeatures();
   if (MAttrs.size()) {
-    SubtargetFeatures Features;
     for (unsigned i = 0; i != MAttrs.size(); ++i)
       Features.AddFeature(MAttrs[i]);
-    FeaturesStr = Features.getString();
   }
 
   std::unique_ptr<const MCRegisterInfo> MRI(
@@ -904,7 +960,7 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
   if (!AsmInfo)
     report_fatal_error("error: no assembly info for target " + TripleName);
   std::unique_ptr<const MCSubtargetInfo> STI(
-      TheTarget->createMCSubtargetInfo(TripleName, MCPU, FeaturesStr));
+      TheTarget->createMCSubtargetInfo(TripleName, MCPU, Features.getString()));
   if (!STI)
     report_fatal_error("error: no subtarget info for target " + TripleName);
   std::unique_ptr<const MCInstrInfo> MII(TheTarget->createMCInstrInfo());
@@ -948,17 +1004,17 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
   typedef std::vector<std::pair<uint64_t, StringRef>> SectionSymbolsTy;
   std::map<SectionRef, SectionSymbolsTy> AllSymbols;
   for (const SymbolRef &Symbol : Obj->symbols()) {
-    ErrorOr<uint64_t> AddressOrErr = Symbol.getAddress();
-    error(AddressOrErr.getError());
+    Expected<uint64_t> AddressOrErr = Symbol.getAddress();
+    error(errorToErrorCode(AddressOrErr.takeError()));
     uint64_t Address = *AddressOrErr;
 
-    ErrorOr<StringRef> Name = Symbol.getName();
-    error(Name.getError());
+    Expected<StringRef> Name = Symbol.getName();
+    error(errorToErrorCode(Name.takeError()));
     if (Name->empty())
       continue;
 
-    ErrorOr<section_iterator> SectionOrErr = Symbol.getSection();
-    error(SectionOrErr.getError());
+    Expected<section_iterator> SectionOrErr = Symbol.getSection();
+    error(errorToErrorCode(SectionOrErr.takeError()));
     section_iterator SecI = *SectionOrErr;
     if (SecI == Obj->section_end())
       continue;
@@ -1336,7 +1392,8 @@ void llvm::PrintSectionContents(const ObjectFile *Obj) {
   }
 }
 
-void llvm::PrintSymbolTable(const ObjectFile *o) {
+void llvm::PrintSymbolTable(const ObjectFile *o, StringRef ArchiveName,
+                            StringRef ArchitectureName) {
   outs() << "SYMBOL TABLE:\n";
 
   if (const COFFObjectFile *coff = dyn_cast<const COFFObjectFile>(o)) {
@@ -1344,22 +1401,26 @@ void llvm::PrintSymbolTable(const ObjectFile *o) {
     return;
   }
   for (const SymbolRef &Symbol : o->symbols()) {
-    ErrorOr<uint64_t> AddressOrError = Symbol.getAddress();
-    error(AddressOrError.getError());
+    Expected<uint64_t> AddressOrError = Symbol.getAddress();
+    if (!AddressOrError)
+      report_error(ArchiveName, o->getFileName(), AddressOrError.takeError());
     uint64_t Address = *AddressOrError;
-    ErrorOr<SymbolRef::Type> TypeOrError = Symbol.getType();
-    error(TypeOrError.getError());
+    Expected<SymbolRef::Type> TypeOrError = Symbol.getType();
+    if (!TypeOrError)
+      report_error(ArchiveName, o->getFileName(), TypeOrError.takeError());
     SymbolRef::Type Type = *TypeOrError;
     uint32_t Flags = Symbol.getFlags();
-    ErrorOr<section_iterator> SectionOrErr = Symbol.getSection();
-    error(SectionOrErr.getError());
+    Expected<section_iterator> SectionOrErr = Symbol.getSection();
+    error(errorToErrorCode(SectionOrErr.takeError()));
     section_iterator Section = *SectionOrErr;
     StringRef Name;
     if (Type == SymbolRef::ST_Debug && Section != o->section_end()) {
       Section->getName(Name);
     } else {
-      ErrorOr<StringRef> NameOrErr = Symbol.getName();
-      error(NameOrErr.getError());
+      Expected<StringRef> NameOrErr = Symbol.getName();
+      if (!NameOrErr)
+        report_error(ArchiveName, o->getFileName(), NameOrErr.takeError(),
+                     ArchitectureName);
       Name = *NameOrErr;
     }
 
@@ -1591,12 +1652,16 @@ static void printFirstPrivateFileHeader(const ObjectFile *o) {
     report_fatal_error("Invalid/Unsupported object file format");
 }
 
-static void DumpObject(const ObjectFile *o) {
+static void DumpObject(const ObjectFile *o, const Archive *a = nullptr) {
+  StringRef ArchiveName = a != nullptr ? a->getFileName() : "";
   // Avoid other output when using a raw option.
   if (!RawClangAST) {
     outs() << '\n';
-    outs() << o->getFileName()
-           << ":\tfile format " << o->getFileFormatName() << "\n\n";
+    if (a)
+      outs() << a->getFileName() << "(" << o->getFileName() << ")";
+    else
+      outs() << o->getFileName();
+    outs() << ":\tfile format " << o->getFileFormatName() << "\n\n";
   }
 
   if (Disassemble)
@@ -1608,7 +1673,7 @@ static void DumpObject(const ObjectFile *o) {
   if (SectionContents)
     PrintSectionContents(o);
   if (SymbolTable)
-    PrintSymbolTable(o);
+    PrintSymbolTable(o, ArchiveName);
   if (UnwindInfo)
     PrintUnwindInfo(o);
   if (PrivateHeaders)
@@ -1638,19 +1703,21 @@ static void DumpObject(const ObjectFile *o) {
 
 /// @brief Dump each object file in \a a;
 static void DumpArchive(const Archive *a) {
-  for (auto &ErrorOrChild : a->children()) {
-    if (std::error_code EC = ErrorOrChild.getError())
-      report_error(a->getFileName(), EC);
-    const Archive::Child &C = *ErrorOrChild;
-    ErrorOr<std::unique_ptr<Binary>> ChildOrErr = C.getAsBinary();
-    if (std::error_code EC = ChildOrErr.getError())
-      if (EC != object_error::invalid_file_type)
-        report_error(a->getFileName(), EC);
+  Error Err;
+  for (auto &C : a->children(Err)) {
+    Expected<std::unique_ptr<Binary>> ChildOrErr = C.getAsBinary();
+    if (!ChildOrErr) {
+      if (auto E = isNotObjectErrorInvalidFileType(ChildOrErr.takeError()))
+        report_error(a->getFileName(), C, std::move(E));
+      continue;
+    }
     if (ObjectFile *o = dyn_cast<ObjectFile>(&*ChildOrErr.get()))
-      DumpObject(o);
+      DumpObject(o, a);
     else
       report_error(a->getFileName(), object_error::invalid_file_type);
   }
+  if (Err)
+    report_error(a->getFileName(), std::move(Err));
 }
 
 /// @brief Open file and figure out how to dump it.
@@ -1667,7 +1734,7 @@ static void DumpInput(StringRef file) {
   // Attempt to open the binary.
   Expected<OwningBinary<Binary>> BinaryOrErr = createBinary(file);
   if (!BinaryOrErr)
-    report_error(file, errorToErrorCode(BinaryOrErr.takeError()));
+    report_error(file, BinaryOrErr.takeError());
   Binary &Binary = *BinaryOrErr.get().getBinary();
 
   if (Archive *a = dyn_cast<Archive>(&Binary))
@@ -1680,7 +1747,7 @@ static void DumpInput(StringRef file) {
 
 int main(int argc, char **argv) {
   // Print a stack trace if we signal out.
-  sys::PrintStackTraceOnErrorSignal();
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
 

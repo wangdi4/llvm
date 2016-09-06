@@ -20,10 +20,13 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
@@ -36,8 +39,11 @@ using namespace llvm::loopopt;
 INITIALIZE_PASS_BEGIN(HIRScalarSymbaseAssignment,
                       "hir-scalar-symbase-assignment",
                       "HIR Scalar Symbase Assignment", false, true)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(HIRSCCFormation)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopFormation)
 INITIALIZE_PASS_END(HIRScalarSymbaseAssignment, "hir-scalar-symbase-assignment",
                     "HIR Scalar Symbase Assignment", false, true)
 
@@ -53,21 +59,51 @@ HIRScalarSymbaseAssignment::HIRScalarSymbaseAssignment() : FunctionPass(ID) {
 
 void HIRScalarSymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<HIRRegionIdentification>();
   AU.addRequired<HIRSCCFormation>();
+  AU.addRequired<HIRLoopFormation>();
 }
 
 void HIRScalarSymbaseAssignment::insertHIRLval(const Value *Lval,
                                                unsigned Symbase) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   ScalarLvalSymbases[Symbase] = Lval;
-#endif
 }
 
 unsigned HIRScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
   BaseTemps.push_back(Temp);
 
   return getMaxScalarSymbase();
+}
+
+void HIRScalarSymbaseAssignment::updateBaseTemp(unsigned Symbase,
+                                                const Value *Temp,
+                                                const Value **OldTemp) {
+
+  // If a copy instruction was added as a base temp, we need to update it to
+  // copy's associated phi. Using copies as base temps messes up (value -> base
+  // value) mapping in parsing because ScalarEvolution can optimize away simple
+  // copies such as t = 0 during simplification.
+
+  auto BaseTemp = BaseTemps[getIndex(Symbase)];
+
+  // Base is already a phi.
+  if (isa<PHINode>(BaseTemp)) {
+    return;
+  }
+
+  auto PhiBase = dyn_cast<PHINode>(Temp);
+
+  if (!PhiBase) {
+    return;
+  }
+
+  if (OldTemp) {
+    *OldTemp = BaseTemp;
+  }
+
+  BaseTemps[getIndex(Symbase)] = PhiBase;
 }
 
 void HIRScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
@@ -80,19 +116,67 @@ void HIRScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
   assert(Ret.second && "Attempt to overwrite Temp symbase!");
 }
 
+unsigned HIRScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
+
+  auto Iter = TempSymbaseMap.find(Temp);
+
+  if (Iter != TempSymbaseMap.end()) {
+    return Iter->second;
+  }
+
+  return InvalidSymbase;
+}
+
+unsigned HIRScalarSymbaseAssignment::assignTempSymbase(const Value *Temp) {
+  auto Symbase = insertBaseTemp(Temp);
+  insertTempSymbase(Temp, Symbase);
+
+  return Symbase;
+}
+
 unsigned HIRScalarSymbaseAssignment::getOrAssignTempSymbase(const Value *Temp) {
   auto Symbase = getTempSymbase(Temp);
 
-  if (!Symbase) {
-    Symbase = insertBaseTemp(Temp);
-    insertTempSymbase(Temp, Symbase);
+  if (Symbase == InvalidSymbase) {
+    Symbase = assignTempSymbase(Temp);
   }
 
   return Symbase;
 }
 
+const Value *HIRScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
+  const Value *RetVal = nullptr;
+
+  assert((Symbase > ConstantSymbase) && "Symbase is out of range!");
+
+  if (Symbase <= getMaxScalarSymbase()) {
+    RetVal = BaseTemps[getIndex(Symbase)];
+  } else {
+    // Symbase can be out of range for new temps created by HIR transformations.
+    // These temps are registered by framework utils for printing in debug mode.
+    auto It = ScalarLvalSymbases.find(Symbase);
+    assert((It != ScalarLvalSymbases.end()) && "Symbase not present in map!");
+    RetVal = It->second;
+  }
+
+  assert(RetVal && "Unexpected null value in RetVal");
+  return RetVal;
+}
+
+unsigned HIRScalarSymbaseAssignment::getMaxScalarSymbase() const {
+  return BaseTemps.size() + ConstantSymbase;
+}
+
+void HIRScalarSymbaseAssignment::setGenericLoopUpperSymbase() {
+  assignTempSymbase(Func);
+}
+
+const Value *HIRScalarSymbaseAssignment::getGenericLoopUpperVal() const {
+  return Func;
+}
+
 const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
-    const Value *Scalar, const IRRegion *IRReg) const {
+    const Value *Scalar, const IRRegion &IRReg) const {
 
   auto PhiInst = dyn_cast<PHINode>(Scalar);
 
@@ -129,7 +213,7 @@ const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
     // tracing it back to %t1' in Region 1 because the value %t1' is invalid
     // (converted to symbase) if we generate code for Region 1. Liveins are
     // always initialized using existing LLVM values.
-    if (!IRReg->containsBBlock(PhiInst->getParent())) {
+    if (!IRReg.containsBBlock(PhiInst->getParent())) {
       break;
     }
 
@@ -142,66 +226,6 @@ const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
   }
 
   return Scalar;
-}
-
-unsigned HIRScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
-
-  auto Iter = TempSymbaseMap.find(Temp);
-
-  if (Iter != TempSymbaseMap.end()) {
-    return Iter->second;
-  }
-
-  return InvalidSymbase;
-}
-
-const Value *HIRScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
-  const Value *RetVal = nullptr;
-
-  assert((Symbase > ConstantSymbase) && "Symbase is out of range!");
-
-  if (Symbase <= getMaxScalarSymbase()) {
-    RetVal = BaseTemps[Symbase - ConstantSymbase - 1];
-  } else {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    // Symbase can be out of range for new temps created by HIR transformations.
-    // These temps are registered by framework utils for printing in debug mode.
-    auto It = ScalarLvalSymbases.find(Symbase);
-    assert((It != ScalarLvalSymbases.end()) && "Symbase not present in map!");
-    RetVal = It->second;
-#else
-    // We shouldn't reach here in prod mode. ScalarLvalSymbases is only
-    // maintained in debug mode for printing.
-    llvm_unreachable("Couldn't find base temp!");
-#endif
-  }
-
-  assert(RetVal && "Unexpected null value in RetVal");
-  return RetVal;
-}
-
-const Value *
-HIRScalarSymbaseAssignment::getBaseScalar(const Value *Scalar) const {
-  auto Symbase = getTempSymbase(Scalar);
-
-  if (Symbase) {
-    return getBaseScalar(Symbase);
-  } else {
-    return Scalar;
-  }
-}
-
-unsigned HIRScalarSymbaseAssignment::getMaxScalarSymbase() const {
-  return BaseTemps.size() + ConstantSymbase;
-}
-
-void HIRScalarSymbaseAssignment::setGenericLoopUpperSymbase() {
-  auto Symbase = insertBaseTemp(Func);
-  insertTempSymbase(Func, Symbase);
-}
-
-const Value *HIRScalarSymbaseAssignment::getGenericLoopUpperVal() const {
-  return Func;
 }
 
 bool HIRScalarSymbaseAssignment::isConstant(const Value *Val) const {
@@ -219,7 +243,7 @@ MDString *
 HIRScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
   // We only care about livein copies here because unlike liveout copies, livein
   // copies need to be assigned the same symbase as other values in the SCC.
-  auto MDNode = Inst->getMetadata(HIR_LIVE_IN_STR);
+  auto MDNode = SE->getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn);
 
   if (!MDNode) {
     return nullptr;
@@ -234,7 +258,8 @@ HIRScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
 }
 
 unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
-    const Value *Scalar, const IRRegion *IRReg, bool Assign) {
+    const Value *Scalar, const IRRegion &IRReg, bool Assign,
+    const Value **OldBaseScalar) {
   unsigned Symbase = InvalidSymbase;
 
   // TODO: assign constant symbase to metadata types as they do not cause data
@@ -246,7 +271,7 @@ unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
   Scalar = traceSingleOperandPhis(Scalar, IRReg);
 
   if (auto Inst = dyn_cast<Instruction>(Scalar)) {
-    // First check if this instruction is a copy instruction inserted by SSA
+    // First check if this instruction has metdadata attached by SSA
     // deconstruction pass. If so, we need to access/update StrSymbaseMap.
     auto MDStr = getInstMDString(Inst);
 
@@ -256,46 +281,74 @@ unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
 
       if (It != StrSymbaseMap.end()) {
         Symbase = It->getValue();
+        updateBaseTemp(Symbase, Inst, OldBaseScalar);
 
-        // Insert into TempSymbaseMap so that the base temp can be retrieved
-        // using getBaseScalar().
-        if (Assign && (InvalidSymbase == getTempSymbase(Inst))) {
-          insertTempSymbase(Inst, Symbase);
-        }
       } else {
         if (Assign) {
-          Symbase = getOrAssignTempSymbase(Inst);
+          Symbase = insertBaseTemp(Inst);
           StrSymbaseMap.insert(std::make_pair(StrRef, Symbase));
-        } else {
-          Symbase = getTempSymbase(Inst);
         }
       }
+
     } else {
+      // No metadata attached, look it up in underlying TempSymbase map.
       Symbase = Assign ? getOrAssignTempSymbase(Inst) : getTempSymbase(Inst);
     }
+
   } else {
-    Symbase = Assign ? getOrAssignTempSymbase(Scalar) : getTempSymbase(Inst);
+    // Not an instruction, look it up in underlying TempSymbase map.
+    Symbase = Assign ? getOrAssignTempSymbase(Scalar) : getTempSymbase(Scalar);
   }
 
   return Symbase;
 }
 
-unsigned
-HIRScalarSymbaseAssignment::getOrAssignScalarSymbase(const Value *Scalar,
-                                                     const IRRegion *IRReg) {
-  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, true);
+unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbase(
+    const Value *Scalar, const IRRegion &IRReg, const Value **OldBaseScalar) {
+  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, true, OldBaseScalar);
 }
 
 unsigned HIRScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar,
-                                                      const IRRegion *IRReg) {
-  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, false);
+                                                      const IRRegion &IRReg) {
+  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, false, nullptr);
+}
+
+void HIRScalarSymbaseAssignment::populateLoopLiveouts(const Instruction *Inst,
+                                                      unsigned Symbase) const {
+
+  Loop *Lp = LI->getLoopFor(Inst->getParent());
+  HLLoop *DefLoop = Lp ? LF->findHLLoop(Lp) : nullptr;
+
+  auto BaseScalar = getBaseScalar(Symbase);
+  auto BaseInst = cast<Instruction>(BaseScalar);
+
+  // BaseInst can be different from Inst if either Inst is part of SCC or Inst
+  // is a single operand phi. Former case is handled in
+  // populateLoopSCCPhiLiveouts(). This is for the latter case where BaseInst is
+  // defined at a deeper level than Inst making it live out of inner loops.
+  if (BaseInst != Inst) {
+    Loop *BaseLp = LI->getLoopFor(BaseInst->getParent());
+    assert(BaseLp && "Could not find base instruction's loop!");
+    HLLoop *BaseDefLoop = LF->findHLLoop(BaseLp);
+    assert(BaseDefLoop && "Could not find base instruction's HLLoop!");
+
+    if (!DefLoop ||
+        (BaseDefLoop->getNestingLevel() > DefLoop->getNestingLevel())) {
+      DefLoop = BaseDefLoop;
+    }
+  }
+
+  while (DefLoop) {
+    DefLoop->addLiveOutTemp(Symbase);
+    DefLoop = DefLoop->getParentLoop();
+  }
 }
 
 void HIRScalarSymbaseAssignment::populateRegionLiveouts(
     HIRRegionIdentification::iterator RegIt) {
   // Traverse region basic blocks.
-  for (auto BBIt = (*RegIt)->bb_begin(), EndIt = (*RegIt)->bb_end();
-       BBIt != EndIt; ++BBIt) {
+  for (auto BBIt = RegIt->bb_begin(), EndIt = RegIt->bb_end(); BBIt != EndIt;
+       ++BBIt) {
 
     // Check if any instructions inside the basic blocks are live outside the
     // region.
@@ -304,7 +357,8 @@ void HIRScalarSymbaseAssignment::populateRegionLiveouts(
 
       if (SCCF->isRegionLiveOut(RegIt, &*Inst)) {
         auto Symbase = getOrAssignScalarSymbase(&*Inst, *RegIt);
-        (*RegIt)->addLiveOutTemp(&*Inst, Symbase);
+        RegIt->addLiveOutTemp(&*Inst, Symbase);
+        populateLoopLiveouts(&*Inst, Symbase);
       }
     }
   }
@@ -318,8 +372,8 @@ bool HIRScalarSymbaseAssignment::processRegionPhiLivein(
   // Check whether phi operands are live in to the region.
   for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
 
-    if (!(*RegIt)->containsBBlock(Phi->getIncomingBlock(I))) {
-      (*RegIt)->addLiveInTemp(Symbase, Phi->getIncomingValue(I));
+    if (!RegIt->containsBBlock(Phi->getIncomingBlock(I))) {
+      RegIt->addLiveInTemp(Symbase, Phi->getIncomingValue(I));
 
       Ret = true;
       break;
@@ -329,6 +383,35 @@ bool HIRScalarSymbaseAssignment::processRegionPhiLivein(
   return Ret;
 }
 
+void HIRScalarSymbaseAssignment::populateLoopSCCPhiLiveouts(
+    const Instruction *SCCInst, unsigned Symbase) {
+
+  // We need special logic to mark symbase as live out of the inner loops of the
+  // SCC. This is non-trivial to do during parsing as it is not aware of def-use
+  // cycle of SCCs. Liveins are handled correctly by the parser using the
+  // root/base instruction mechanism.
+
+  if (!isa<PHINode>(SCCInst)) {
+    return;
+  }
+
+  auto ParentBB = SCCInst->getParent();
+
+  Loop *Lp = LI->getLoopFor(ParentBB);
+  assert(Lp && "SCC phi does not have parent loop!");
+
+  // Ignore non-header phis.
+  if (ParentBB != Lp->getHeader()) {
+    return;
+  }
+
+  HLLoop *DefLoop = LF->findHLLoop(Lp);
+  assert(DefLoop && "SCC phi does not have parent HLLoop!");
+
+  // We found an inner SCC loop, mark symbase as live out of this loop.
+  DefLoop->addLiveOutTemp(Symbase);
+}
+
 void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
     HIRRegionIdentification::iterator RegIt) {
   // Traverse SCCs associated with the region.
@@ -336,16 +419,17 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
        SCCIt != EndIt; ++SCCIt) {
 
     bool SCCLiveInProcessed = false;
-    unsigned Symbase = getOrAssignScalarSymbase((*SCCIt)->Root, *RegIt);
+    // This call sets SCC's root node as the base temp.
+    unsigned Symbase = getOrAssignScalarSymbase(SCCIt->Root, *RegIt);
 
     // Traverse SCC instructions
-    for (auto SCCInstIt = (*SCCIt)->Nodes.begin(),
-              EndIt = (*SCCIt)->Nodes.end();
+    for (auto SCCInstIt = SCCIt->Nodes.begin(), EndIt = SCCIt->Nodes.end();
          SCCInstIt != EndIt; ++SCCInstIt) {
 
-      // Assign same symbase to all instructions in the SCC.
-      if ((*SCCInstIt) != (*SCCIt)->Root) {
+      if ((*SCCInstIt) != SCCIt->Root) {
+        // Assign same symbase to all instructions in the SCC.
         insertTempSymbase(*SCCInstIt, Symbase);
+        populateLoopSCCPhiLiveouts(*SCCInstIt, Symbase);
       }
 
       if (SCCLiveInProcessed) {
@@ -361,8 +445,8 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
   }
 
   // Process phis in the entry bblock that are not part of any SCC.
-  for (auto InstIt = (*RegIt)->getEntryBBlock()->begin(),
-            EndIt = (*RegIt)->getEntryBBlock()->end();
+  for (auto InstIt = RegIt->getEntryBBlock()->begin(),
+            EndIt = RegIt->getEntryBBlock()->end();
        InstIt != EndIt && isa<PHINode>(InstIt); ++InstIt) {
     // Has been processed already?
     if (getTempSymbase(&*InstIt)) {
@@ -376,8 +460,11 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
 
 bool HIRScalarSymbaseAssignment::runOnFunction(Function &F) {
   Func = &F;
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   SCCF = &getAnalysis<HIRSCCFormation>();
   RI = &getAnalysis<HIRRegionIdentification>();
+  LF = &getAnalysis<HIRLoopFormation>();
 
   // Assign a generic symbase representing loop uppers.
   setGenericLoopUpperSymbase();
@@ -407,11 +494,10 @@ void HIRScalarSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
     OS << "\nRegion " << (RegIt - RegBegin + 1);
 
     OS << "\n   Phi LiveIns: ";
-    for (auto LiveInIt = (*RegIt)->live_in_begin(),
-              EndIt = (*RegIt)->live_in_end();
+    for (auto LiveInIt = RegIt->live_in_begin(), EndIt = RegIt->live_in_end();
          LiveInIt != EndIt; ++LiveInIt) {
 
-      if (LiveInIt != (*RegIt)->live_in_begin()) {
+      if (LiveInIt != RegIt->live_in_begin()) {
         OS << ", ";
       }
 
@@ -422,10 +508,10 @@ void HIRScalarSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
     }
 
     OS << "\n   LiveOuts: ";
-    for (auto LiveOutIt = (*RegIt)->live_out_begin(),
-              EndIt = (*RegIt)->live_out_end();
+    for (auto LiveOutIt = RegIt->live_out_begin(),
+              EndIt = RegIt->live_out_end();
          LiveOutIt != EndIt; ++LiveOutIt) {
-      if (LiveOutIt != (*RegIt)->live_out_begin()) {
+      if (LiveOutIt != RegIt->live_out_begin()) {
         OS << ", ";
       }
       LiveOutIt->second->printAsOperand(OS, false);

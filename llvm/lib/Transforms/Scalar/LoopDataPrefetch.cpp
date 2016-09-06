@@ -12,13 +12,13 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "loop-data-prefetch"
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
@@ -32,6 +32,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -76,6 +77,7 @@ namespace {
       AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addRequired<LoopInfoWrapperPass>();
       AU.addPreserved<LoopInfoWrapperPass>();
+      AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
       AU.addRequired<ScalarEvolutionWrapperPass>();
       // FIXME: For some reason, preserving SE here breaks LSR (even if
       // this pass changes nothing).
@@ -115,6 +117,7 @@ namespace {
     ScalarEvolution *SE;
     const TargetTransformInfo *TTI;
     const DataLayout *DL;
+    OptimizationRemarkEmitter *ORE;
   };
 }
 
@@ -124,6 +127,7 @@ INITIALIZE_PASS_BEGIN(LoopDataPrefetch, "loop-data-prefetch",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_END(LoopDataPrefetch, "loop-data-prefetch",
                     "Loop Data Prefetch", false, false)
@@ -147,10 +151,14 @@ bool LoopDataPrefetch::isStrideLargeEnough(const SCEVAddRecExpr *AR) {
 }
 
 bool LoopDataPrefetch::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   DL = &F.getParent()->getDataLayout();
   AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+  ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
 
   // If PrefetchDistance is not set, don't run the pass.  This gives an
@@ -162,8 +170,8 @@ bool LoopDataPrefetch::runOnFunction(Function &F) {
 
   bool MadeChange = false;
 
-  for (auto I = LI->begin(), IE = LI->end(); I != IE; ++I)
-    for (auto L = df_begin(*I), LE = df_end(*I); L != LE; ++L)
+  for (Loop *I : *LI)
+    for (auto L = df_begin(I), LE = df_end(I); L != LE; ++L)
       MadeChange |= runOnLoop(*L);
 
   return MadeChange;
@@ -185,7 +193,7 @@ bool LoopDataPrefetch::runOnLoop(Loop *L) {
        I != IE; ++I) {
 
     // If the loop already has prefetches, then assume that the user knows
-    // what he or she is doing and don't add any more.
+    // what they are doing and don't add any more.
     for (BasicBlock::iterator J = (*I)->begin(), JE = (*I)->end();
          J != JE; ++J)
       if (CallInst *CI = dyn_cast<CallInst>(J))
@@ -248,10 +256,8 @@ bool LoopDataPrefetch::runOnLoop(Loop *L) {
       // is known to be within one cache line of some other load that has
       // already been prefetched, then don't prefetch this one as well.
       bool DupPref = false;
-      for (SmallVector<std::pair<Instruction *, const SCEVAddRecExpr *>,
-             16>::iterator K = PrefLoads.begin(), KE = PrefLoads.end();
-           K != KE; ++K) {
-        const SCEV *PtrDiff = SE->getMinusSCEV(LSCEVAddRec, K->second);
+      for (const auto &PrefLoad : PrefLoads) {
+        const SCEV *PtrDiff = SE->getMinusSCEV(LSCEVAddRec, PrefLoad.second);
         if (const SCEVConstant *ConstPtrDiff =
             dyn_cast<SCEVConstant>(PtrDiff)) {
           int64_t PD = std::abs(ConstPtrDiff->getValue()->getSExtValue());
@@ -288,6 +294,7 @@ bool LoopDataPrefetch::runOnLoop(Loop *L) {
       ++NumPrefetches;
       DEBUG(dbgs() << "  Access: " << *PtrValue << ", SCEV: " << *LSCEV
                    << "\n");
+      ORE->emitOptimizationRemark(DEBUG_TYPE, MemI, "prefetched memory access");
 
       MadeChange = true;
     }

@@ -915,12 +915,8 @@ SymbolFileDWARF::ParseCompileUnit (DWARFCompileUnit* dwarf_cu, uint32_t cu_idx)
                         LanguageType cu_language = DWARFCompileUnit::LanguageTypeFromDWARF(cu_die.GetAttributeValueAsUnsigned(DW_AT_language, 0));
 
                         bool is_optimized = dwarf_cu->GetIsOptimized ();
-                        cu_sp.reset(new CompileUnit (module_sp,
-                                                     dwarf_cu,
-                                                     cu_file_spec, 
-                                                     dwarf_cu->GetID(),
-                                                     cu_language,
-                                                     is_optimized));
+                        cu_sp.reset(new CompileUnit(module_sp, dwarf_cu, cu_file_spec, dwarf_cu->GetID(), cu_language,
+                                                    is_optimized ? eLazyBoolYes : eLazyBoolNo));
                         if (cu_sp)
                         {
                             // If we just created a compile unit with an invalid file spec, try and get the
@@ -1070,7 +1066,17 @@ SymbolFileDWARF::ParseCompileUnitSupportFiles (const SymbolContext& sc, FileSpec
 }
 
 bool
-SymbolFileDWARF::ParseImportedModules (const lldb_private::SymbolContext &sc, std::vector<lldb_private::ConstString> &imported_modules)
+SymbolFileDWARF::ParseCompileUnitIsOptimized(const lldb_private::SymbolContext &sc)
+{
+    DWARFCompileUnit *dwarf_cu = GetDWARFCompileUnit(sc.comp_unit);
+    if (dwarf_cu)
+        return dwarf_cu->GetIsOptimized();
+    return false;
+}
+
+bool
+SymbolFileDWARF::ParseImportedModules(const lldb_private::SymbolContext &sc,
+                                      std::vector<lldb_private::ConstString> &imported_modules)
 {
     assert (sc.comp_unit);
     DWARFCompileUnit* dwarf_cu = GetDWARFCompileUnit(sc.comp_unit);
@@ -1459,10 +1465,45 @@ SymbolFileDWARF::ParseDeclsForContext (CompilerDeclContext decl_ctx)
             ast_parser->GetDeclForUIDFromDWARF(decl);
 }
 
+SymbolFileDWARF *
+SymbolFileDWARF::GetDWARFForUID (lldb::user_id_t uid)
+{
+    // Anytime we get a "lldb::user_id_t" from an lldb_private::SymbolFile API
+    // we must make sure we use the correct DWARF file when resolving things.
+    // On MacOSX, when using SymbolFileDWARFDebugMap, we will use multiple
+    // SymbolFileDWARF classes, one for each .o file. We can often end up
+    // with references to other DWARF objects and we must be ready to receive
+    // a "lldb::user_id_t" that specifies a DIE from another SymbolFileDWARF
+    // instance.
+    SymbolFileDWARFDebugMap *debug_map = GetDebugMapSymfile();
+    if (debug_map)
+        return debug_map->GetSymbolFileByOSOIndex(debug_map->GetOSOIndexFromUserID(uid));
+    return this;
+}
+
+DWARFDIE
+SymbolFileDWARF::GetDIEFromUID (lldb::user_id_t uid)
+{
+    // Anytime we get a "lldb::user_id_t" from an lldb_private::SymbolFile API
+    // we must make sure we use the correct DWARF file when resolving things.
+    // On MacOSX, when using SymbolFileDWARFDebugMap, we will use multiple
+    // SymbolFileDWARF classes, one for each .o file. We can often end up
+    // with references to other DWARF objects and we must be ready to receive
+    // a "lldb::user_id_t" that specifies a DIE from another SymbolFileDWARF
+    // instance.
+    SymbolFileDWARF *dwarf = GetDWARFForUID(uid);
+    if (dwarf)
+        return dwarf->GetDIE(DIERef(uid, dwarf));
+    return DWARFDIE();
+}
+
 CompilerDecl
 SymbolFileDWARF::GetDeclForUID (lldb::user_id_t type_uid)
 {
-    DWARFDIE die = GetDIE(DIERef(type_uid, this));
+    // Anytime we have a lldb::user_id_t, we must get the DIE by
+    // calling SymbolFileDWARF::GetDIEFromUID(). See comments inside
+    // the SymbolFileDWARF::GetDIEFromUID() for details.
+    DWARFDIE die = GetDIEFromUID(type_uid);
     if (die)
         return die.GetDecl();
     return CompilerDecl();
@@ -1471,7 +1512,10 @@ SymbolFileDWARF::GetDeclForUID (lldb::user_id_t type_uid)
 CompilerDeclContext
 SymbolFileDWARF::GetDeclContextForUID (lldb::user_id_t type_uid)
 {
-    DWARFDIE die = GetDIE(DIERef(type_uid, this));
+    // Anytime we have a lldb::user_id_t, we must get the DIE by
+    // calling SymbolFileDWARF::GetDIEFromUID(). See comments inside
+    // the SymbolFileDWARF::GetDIEFromUID() for details.
+    DWARFDIE die = GetDIEFromUID(type_uid);
     if (die)
         return die.GetDeclContext();
     return CompilerDeclContext();
@@ -1480,7 +1524,10 @@ SymbolFileDWARF::GetDeclContextForUID (lldb::user_id_t type_uid)
 CompilerDeclContext
 SymbolFileDWARF::GetDeclContextContainingUID (lldb::user_id_t type_uid)
 {
-    DWARFDIE die = GetDIE (DIERef(type_uid, this));
+    // Anytime we have a lldb::user_id_t, we must get the DIE by
+    // calling SymbolFileDWARF::GetDIEFromUID(). See comments inside
+    // the SymbolFileDWARF::GetDIEFromUID() for details.
+    DWARFDIE die = GetDIEFromUID(type_uid);
     if (die)
         return die.GetContainingDeclContext();
     return CompilerDeclContext();
@@ -1490,13 +1537,14 @@ SymbolFileDWARF::GetDeclContextContainingUID (lldb::user_id_t type_uid)
 Type*
 SymbolFileDWARF::ResolveTypeUID (lldb::user_id_t type_uid)
 {
-    DWARFDIE type_die = GetDIE (DIERef(type_uid, this));
+    // Anytime we have a lldb::user_id_t, we must get the DIE by
+    // calling SymbolFileDWARF::GetDIEFromUID(). See comments inside
+    // the SymbolFileDWARF::GetDIEFromUID() for details.
+    DWARFDIE type_die = GetDIEFromUID(type_uid);
     if (type_die)
-    {
-        const bool assert_not_being_parsed = true;
-        return ResolveTypeUID (type_die, assert_not_being_parsed);
-    }
-    return NULL;
+        return type_die.ResolveType();
+    else
+        return nullptr;
 }
 
 Type*
@@ -1519,7 +1567,7 @@ SymbolFileDWARF::ResolveTypeUID (const DWARFDIE &die, bool assert_not_being_pars
                                                       die.GetName());
 
         // We might be coming in in the middle of a type tree (a class
-        // withing a class, an enum within a class), so parse any needed
+        // within a class, an enum within a class), so parse any needed
         // parent DIEs before we get to this one...
         DWARFDIE decl_ctx_die = GetDeclContextDIEContainingDIE (die);
         if (decl_ctx_die)
@@ -1577,7 +1625,7 @@ SymbolFileDWARF::HasForwardDeclForClangType (const CompilerType &compiler_type)
 bool
 SymbolFileDWARF::CompleteType (CompilerType &compiler_type)
 {
-    lldb_private::Mutex::Locker locker(GetObjectFile()->GetModule()->GetMutex());
+    std::lock_guard<std::recursive_mutex> guard(GetObjectFile()->GetModule()->GetMutex());
 
     ClangASTContext *clang_type_system = llvm::dyn_cast_or_null<ClangASTContext>(compiler_type.GetTypeSystem());
     if (clang_type_system)
@@ -1727,6 +1775,12 @@ SymbolFileDWARF::GetDIE (const DIERef &die_ref)
 std::unique_ptr<SymbolFileDWARFDwo>
 SymbolFileDWARF::GetDwoSymbolFileForCompileUnit(DWARFCompileUnit &dwarf_cu, const DWARFDebugInfoEntry &cu_die)
 {
+    // If we are using a dSYM file, we never want the standard DWO files since
+    // the -gmodule support uses the same DWO machanism to specify full debug
+    // info files for modules.
+    if (GetDebugMapSymfile())
+        return nullptr;
+
     const char *dwo_name = cu_die.GetAttributeValueAsString(this, &dwarf_cu, DW_AT_GNU_dwo_name, nullptr);
     if (!dwo_name)
         return nullptr;
@@ -1786,9 +1840,25 @@ SymbolFileDWARF::UpdateExternalModuleListIfNeeded()
                     {
                         ModuleSpec dwo_module_spec;
                         dwo_module_spec.GetFileSpec().SetFile(dwo_path, false);
+                        if (dwo_module_spec.GetFileSpec().IsRelative())
+                        {
+                            const char *comp_dir = die.GetAttributeValueAsString(DW_AT_comp_dir, nullptr);
+                            if (comp_dir)
+                            {
+                                dwo_module_spec.GetFileSpec().SetFile(comp_dir, true);
+                                dwo_module_spec.GetFileSpec().AppendPathComponent(dwo_path);
+                            }
+                        }
                         dwo_module_spec.GetArchitecture() = m_obj_file->GetModule()->GetArchitecture();
                         //printf ("Loading dwo = '%s'\n", dwo_path);
                         Error error = ModuleList::GetSharedModule (dwo_module_spec, module_sp, NULL, NULL, NULL);
+                        if (!module_sp)
+                        {
+                            GetObjectFile()->GetModule()->ReportWarning ("0x%8.8x: unable to locate module needed for external types: %s\nerror: %s\nDebugging will be degraded due to missing types. Rebuilding your project will regenerate the needed module files.",
+                                                                         die.GetOffset(),
+                                                                         dwo_module_spec.GetFileSpec().GetPath().c_str(),
+                                                                         error.AsCString("unknown error"));
+                        }
                     }
                     m_external_type_modules[const_name] = module_sp;
                 }
@@ -2120,6 +2190,9 @@ SymbolFileDWARF::Index ()
     if (debug_info)
     {
         const uint32_t num_compile_units = GetNumCompileUnits();
+        if (num_compile_units == 0)
+            return;
+
         std::vector<NameToDIE> function_basename_index(num_compile_units);
         std::vector<NameToDIE> function_fullname_index(num_compile_units);
         std::vector<NameToDIE> function_method_index(num_compile_units);
@@ -2128,7 +2201,8 @@ SymbolFileDWARF::Index ()
         std::vector<NameToDIE> global_index(num_compile_units);
         std::vector<NameToDIE> type_index(num_compile_units);
         std::vector<NameToDIE> namespace_index(num_compile_units);
-        
+
+        std::vector<bool> clear_cu_dies(num_compile_units, false);
         auto parser_fn = [this,
                           debug_info,
                           &function_basename_index,
@@ -2141,24 +2215,61 @@ SymbolFileDWARF::Index ()
                           &namespace_index](uint32_t cu_idx)
         {
             DWARFCompileUnit* dwarf_cu = debug_info->GetCompileUnitAtIndex(cu_idx);
-            bool clear_dies = dwarf_cu->ExtractDIEsIfNeeded(false) > 1;
-
-            dwarf_cu->Index(function_basename_index[cu_idx],
-                            function_fullname_index[cu_idx],
-                            function_method_index[cu_idx],
-                            function_selector_index[cu_idx],
-                            objc_class_selectors_index[cu_idx],
-                            global_index[cu_idx],
-                            type_index[cu_idx],
-                            namespace_index[cu_idx]);
-
-            // Keep memory down by clearing DIEs if this generate function
-            // caused them to be parsed
-            if (clear_dies)
-                dwarf_cu->ClearDIEs(true);
-
+            if (dwarf_cu)
+            {
+                dwarf_cu->Index(function_basename_index[cu_idx],
+                                function_fullname_index[cu_idx],
+                                function_method_index[cu_idx],
+                                function_selector_index[cu_idx],
+                                objc_class_selectors_index[cu_idx],
+                                global_index[cu_idx],
+                                type_index[cu_idx],
+                                namespace_index[cu_idx]);
+            }
             return cu_idx;
         };
+
+        auto extract_fn = [this,
+                           debug_info,
+                           num_compile_units](uint32_t cu_idx)
+        {
+            DWARFCompileUnit* dwarf_cu = debug_info->GetCompileUnitAtIndex(cu_idx);
+            if (dwarf_cu)
+            {
+                // dwarf_cu->ExtractDIEsIfNeeded(false) will return zero if the
+                // DIEs for a compile unit have already been parsed.
+                return std::make_pair(cu_idx, dwarf_cu->ExtractDIEsIfNeeded(false) > 1);
+            }
+            return std::make_pair(cu_idx, false);
+        };
+
+        // Create a task runner that extracts dies for each DWARF compile unit in a separate thread
+        TaskRunner<std::pair<uint32_t, bool>> task_runner_extract;
+        for (uint32_t cu_idx = 0; cu_idx < num_compile_units; ++cu_idx)
+            task_runner_extract.AddTask(extract_fn, cu_idx);
+
+        //----------------------------------------------------------------------
+        // First figure out which compile units didn't have their DIEs already
+        // parsed and remember this.  If no DIEs were parsed prior to this index
+        // function call, we are going to want to clear the CU dies after we
+        // are done indexing to make sure we don't pull in all DWARF dies, but
+        // we need to wait until all compile units have been indexed in case
+        // a DIE in one compile unit refers to another and the indexes accesses
+        // those DIEs.
+        //----------------------------------------------------------------------
+        while (true)
+        {
+            auto f = task_runner_extract.WaitForNextCompletedTask();
+            if (!f.valid())
+                break;
+            unsigned cu_idx;
+            bool clear;
+            std::tie(cu_idx, clear) = f.get();
+            clear_cu_dies[cu_idx] = clear;
+        }
+
+        // Now create a task runner that can index each DWARF compile unit in a separate
+        // thread so we can index quickly.
 
         TaskRunner<uint32_t> task_runner;
         for (uint32_t cu_idx = 0; cu_idx < num_compile_units; ++cu_idx)
@@ -2190,6 +2301,16 @@ SymbolFileDWARF::Index ()
             [&]() { m_global_index.Finalize(); },
             [&]() { m_type_index.Finalize(); },
             [&]() { m_namespace_index.Finalize(); });
+
+        //----------------------------------------------------------------------
+        // Keep memory down by clearing DIEs for any compile units if indexing
+        // caused us to load the compile unit's DIEs.
+        //----------------------------------------------------------------------
+        for (uint32_t cu_idx = 0; cu_idx < num_compile_units; ++cu_idx)
+        {
+            if (clear_cu_dies[cu_idx])
+                debug_info->GetCompileUnitAtIndex(cu_idx)->ClearDIEs(true);
+        }
 
 #if defined (ENABLE_DEBUG_PRINTF)
         StreamFile s(stdout, false);
@@ -4299,6 +4420,7 @@ SymbolFileDWARF::ParseVariableDIE
                         GetObjectFile()->GetModule()->ReportError ("0x%8.8x: %s has an invalid location: %s", die.GetOffset(), die.GetTagAsCString(), strm.GetString().c_str());
                     }
                 }
+                SymbolFileDWARFDebugMap *debug_map_symfile = GetDebugMapSymfile();
 
                 if (location_DW_OP_addr != LLDB_INVALID_ADDRESS)
                 {
@@ -4306,9 +4428,6 @@ SymbolFileDWARF::ParseVariableDIE
                         scope = eValueTypeVariableGlobal;
                     else
                         scope = eValueTypeVariableStatic;
-                    
-                    
-                    SymbolFileDWARFDebugMap *debug_map_symfile = GetDebugMapSymfile();
                     
                     if (debug_map_symfile)
                     {
@@ -4387,7 +4506,22 @@ SymbolFileDWARF::ParseVariableDIE
                     if (location_is_const_value_data)
                         scope = eValueTypeVariableStatic;
                     else
+                    {
                         scope = eValueTypeVariableLocal;
+                        if (debug_map_symfile)
+                        {
+                            // We need to check for TLS addresses that we need to fixup
+                            if (location.ContainsThreadLocalStorage())
+                            {
+                                location.LinkThreadLocalStorage(
+                                    debug_map_symfile->GetObjectFile()->GetModule(),
+                                    [this, debug_map_symfile](lldb::addr_t unlinked_file_addr) -> lldb::addr_t {
+                                        return debug_map_symfile->LinkOSOFileAddress(this, unlinked_file_addr);
+                                    });
+                                scope = eValueTypeVariableThreadLocal;
+                            }
+                        }
+                    }
                 }
             }
 

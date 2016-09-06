@@ -142,6 +142,7 @@ static IMAKind ClassifyImplicitMemberAccess(Sema &SemaRef,
     AbstractInstanceResult = IMA_Abstract;
     break;
 
+  case Sema::DiscardedStatement:
   case Sema::ConstantEvaluated:
   case Sema::PotentiallyEvaluated:
   case Sema::PotentiallyEvaluatedIfUsed:
@@ -268,6 +269,20 @@ Sema::BuildPossibleImplicitMemberExpr(const CXXScopeSpec &SS,
   llvm_unreachable("unexpected instance member access kind");
 }
 
+/// Determine whether input char is from rgba component set.
+static bool
+IsRGBA(char c) {
+  switch (c) {
+  case 'r':
+  case 'g':
+  case 'b':
+  case 'a':
+    return true;
+  default:
+    return false;
+  }
+}
+
 /// Check an ext-vector component access expression.
 ///
 /// VK should be set in advance to the value kind of the base
@@ -307,11 +322,25 @@ CheckExtVectorComponent(Sema &S, QualType baseType, ExprValueKind &VK,
     HalvingSwizzle = true;
   } else if (!HexSwizzle &&
              (Idx = vecType->getPointAccessorIdx(*compStr)) != -1) {
+    bool HasRGBA = IsRGBA(*compStr);
     do {
+      // Ensure that xyzw and rgba components don't intermingle.
+      if (HasRGBA != IsRGBA(*compStr))
+        break;
       if (HasIndex[Idx]) HasRepeated = true;
       HasIndex[Idx] = true;
       compStr++;
     } while (*compStr && (Idx = vecType->getPointAccessorIdx(*compStr)) != -1);
+
+    // Emit a warning if an rgba selector is used earlier than OpenCL 2.2
+    if (HasRGBA || (*compStr && IsRGBA(*compStr))) {
+      if (S.getLangOpts().OpenCL && S.getLangOpts().OpenCLVersion < 220) {
+        const char *DiagBegin = HasRGBA ? CompName->getNameStart() : compStr;
+        S.Diag(OpLoc, diag::ext_opencl_ext_vector_type_rgba_selector)
+          << StringRef(DiagBegin, 1)
+          << S.getLangOpts().OpenCLVersion << SourceRange(CompLoc);
+      }
+    }
   } else {
     if (HexSwizzle) compStr++;
     while ((Idx = vecType->getNumericAccessorIdx(*compStr)) != -1) {
@@ -338,7 +367,7 @@ CheckExtVectorComponent(Sema &S, QualType baseType, ExprValueKind &VK,
       compStr++;
 
     while (*compStr) {
-      if (!vecType->isAccessorWithinNumElements(*compStr++)) {
+      if (!vecType->isAccessorWithinNumElements(*compStr++, HexSwizzle)) {
         S.Diag(OpLoc, diag::err_ext_vector_component_exceeds_length)
           << baseType << SourceRange(CompLoc);
         return QualType();
@@ -1792,6 +1821,7 @@ BuildFieldReferenceExpr(Sema &S, Expr *BaseExpr, bool IsArrow,
   // Build a reference to a private copy for non-static data members in
   // non-static member functions, privatized by OpenMP constructs.
   if (S.getLangOpts().OpenMP && IsArrow &&
+      !S.CurContext->isDependentContext() &&
       isa<CXXThisExpr>(Base.get()->IgnoreParenImpCasts())) {
     if (auto *PrivateCopy = S.IsOpenMPCapturedDecl(Field))
       return S.getOpenMPCapturedExpr(PrivateCopy, VK, OK, OpLoc);

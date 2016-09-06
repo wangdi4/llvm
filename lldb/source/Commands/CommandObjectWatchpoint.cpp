@@ -265,8 +265,9 @@ protected:
         }
 
         const WatchpointList &watchpoints = target->GetWatchpointList();
-        Mutex::Locker locker;
-        target->GetWatchpointList().GetListMutex(locker);
+
+        std::unique_lock<std::recursive_mutex> lock;
+        target->GetWatchpointList().GetListMutex(lock);
 
         size_t num_watchpoints = watchpoints.GetSize();
 
@@ -369,8 +370,8 @@ protected:
         if (!CheckTargetForWatchpointOperations(target, result))
             return false;
 
-        Mutex::Locker locker;
-        target->GetWatchpointList().GetListMutex(locker);
+        std::unique_lock<std::recursive_mutex> lock;
+        target->GetWatchpointList().GetListMutex(lock);
 
         const WatchpointList &watchpoints = target->GetWatchpointList();
 
@@ -444,8 +445,8 @@ protected:
         if (!CheckTargetForWatchpointOperations(target, result))
             return false;
 
-        Mutex::Locker locker;
-        target->GetWatchpointList().GetListMutex(locker);
+        std::unique_lock<std::recursive_mutex> lock;
+        target->GetWatchpointList().GetListMutex(lock);
 
         const WatchpointList &watchpoints = target->GetWatchpointList();
         size_t num_watchpoints = watchpoints.GetSize();
@@ -525,9 +526,9 @@ protected:
         if (!CheckTargetForWatchpointOperations(target, result))
             return false;
 
-        Mutex::Locker locker;
-        target->GetWatchpointList().GetListMutex(locker);
-        
+        std::unique_lock<std::recursive_mutex> lock;
+        target->GetWatchpointList().GetListMutex(lock);
+
         const WatchpointList &watchpoints = target->GetWatchpointList();
 
         size_t num_watchpoints = watchpoints.GetSize();
@@ -666,9 +667,9 @@ protected:
         if (!CheckTargetForWatchpointOperations(target, result))
             return false;
 
-        Mutex::Locker locker;
-        target->GetWatchpointList().GetListMutex(locker);
-        
+        std::unique_lock<std::recursive_mutex> lock;
+        target->GetWatchpointList().GetListMutex(lock);
+
         const WatchpointList &watchpoints = target->GetWatchpointList();
 
         size_t num_watchpoints = watchpoints.GetSize();
@@ -819,9 +820,9 @@ protected:
         if (!CheckTargetForWatchpointOperations(target, result))
             return false;
 
-        Mutex::Locker locker;
-        target->GetWatchpointList().GetListMutex(locker);
-        
+        std::unique_lock<std::recursive_mutex> lock;
+        target->GetWatchpointList().GetListMutex(lock);
+
         const WatchpointList &watchpoints = target->GetWatchpointList();
 
         size_t num_watchpoints = watchpoints.GetSize();
@@ -1307,11 +1308,9 @@ private:
 class CommandObjectWatchpointSet : public CommandObjectMultiword
 {
 public:
-    CommandObjectWatchpointSet (CommandInterpreter &interpreter) :
-        CommandObjectMultiword (interpreter,
-                                "watchpoint set",
-                                "A set of commands for setting a watchpoint.",
-                                "watchpoint set <subcommand> [<subcommand-options>]")
+    CommandObjectWatchpointSet(CommandInterpreter &interpreter)
+        : CommandObjectMultiword(interpreter, "watchpoint set", "Commands for setting a watchpoint.",
+                                 "watchpoint set <subcommand> [<subcommand-options>]")
     {
         
         LoadSubCommand ("variable",   CommandObjectSP (new CommandObjectWatchpointSetVariable (interpreter)));
@@ -1326,11 +1325,9 @@ public:
 //-------------------------------------------------------------------------
 #pragma mark MultiwordWatchpoint
 
-CommandObjectMultiwordWatchpoint::CommandObjectMultiwordWatchpoint(CommandInterpreter &interpreter) :
-    CommandObjectMultiword (interpreter, 
-                            "watchpoint",
-                            "A set of commands for operating on watchpoints.",
-                            "watchpoint <command> [<command-options>]")
+CommandObjectMultiwordWatchpoint::CommandObjectMultiwordWatchpoint(CommandInterpreter &interpreter)
+    : CommandObjectMultiword(interpreter, "watchpoint", "Commands for operating on watchpoints.",
+                             "watchpoint <subcommand> [<command-options>]")
 {
     CommandObjectSP list_command_object (new CommandObjectWatchpointList (interpreter));
     CommandObjectSP enable_command_object (new CommandObjectWatchpointEnable (interpreter));

@@ -19,13 +19,14 @@
 #include "llvm/Support/Compiler.h"
 #include <set>
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
+#include "llvm/Support/Compiler.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 namespace llvm {
 
@@ -62,6 +63,7 @@ private:
   friend class HIRCreation;
   friend class HIRCleanup;
   friend class HIRLoopFormation;
+  friend class HIRParser;
   friend class HIRFramework;
 
   /// \brief Visitor for clone sequence.
@@ -146,7 +148,7 @@ private:
   static void initialize();
 
   /// \brief Returns a new HLRegion. Only used by framework.
-  static HLRegion *createHLRegion(IRRegion *IRReg);
+  static HLRegion *createHLRegion(IRRegion &IRReg);
 
   /// \brief Returns a new HLLabel. Only used by framework.
   static HLLabel *createHLLabel(BasicBlock *SrcBB);
@@ -271,6 +273,21 @@ private:
                              HLContainerTy::iterator First,
                              HLContainerTy::iterator Last, bool Erase);
 
+  /// \brief Unlinks Node from HIR and destroys it.
+  /// Note: This function is intentionally private. Transformations are not
+  /// supposed to erase nodes as cleaning up erased nodes from HIR analyses
+  /// requires implementation of a callback mechanism which doesn't seem worth
+  /// it.
+  static void erase(HLNode *Node);
+
+  /// \brief Unlinks [First, Last) from HIR and destroys them.
+  /// Note: This function is intentionally private. Transformations are not
+  /// supposed to erase nodes as cleaning up erased nodes from HIR analyses
+  /// requires implementation of a callback mechanism which doesn't seem worth
+  /// it.
+  static void erase(HLContainerTy::iterator First,
+                    HLContainerTy::iterator Last);
+
   /// \brief Returns true if a loop is found in range [First, Last).
   static bool foundLoopInRange(HLContainerTy::iterator First,
                                HLContainerTy::iterator Last);
@@ -318,9 +335,6 @@ private:
   static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
                             bool PostDomination, bool StrictDomination);
 
-  /// \brief Move Loop Bounds, IVtype and ZTT, etc. from one loop to another
-  static void moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop);
-
   /// \brief Set TopSortNums for the first time
   static void initTopSortNum();
 
@@ -347,23 +361,100 @@ private:
   /// returns nullptr.
   static HLNode *getNextLinkListNode(HLNode *Node);
 
-public:
-  /// \brief return true if non-zero
-  static bool isKnownNonZero(const CanonExpr *CE,
-                             const HLLoop *ParentLoop = nullptr);
-  /// \brief return true if non-positive
-  static bool isKnownNonPositive(const CanonExpr *CE,
-                                 const HLLoop *ParentLoop = nullptr);
-  /// \brief return true if non-negative
-  static bool isKnownNonNegative(const CanonExpr *CE,
-                                 const HLLoop *ParentLoop = nullptr);
-  /// \brief return true if negative
-  static bool isKnownNegative(const CanonExpr *CE,
-                              const HLLoop *ParentLoop = nullptr);
-  /// \brief return true if positive
-  static bool isKnownPositive(const CanonExpr *CE,
-                              const HLLoop *ParentLoop = nullptr);
+  enum VALType : unsigned { IsUnknown, IsConstant, IsMax, IsMin };
 
+  /// Returns true if \p ValType can represent a minimum value type.
+  static bool isMinValue(VALType ValType);
+
+  /// Returns true if \p ValType can represent a maximum value type.
+  static bool isMaxValue(VALType ValType);
+
+  /// Returns true if the value in question is known to be positive.
+  static bool isKnownPositive(VALType ValType, int64_t Val);
+
+  /// Returns true if the value in question is known to be non-negative.
+  static bool isKnownNonNegative(VALType ValType, int64_t Val);
+
+  /// Returns true if the value in question is known to be negative.
+  static bool isKnownNegative(VALType ValType, int64_t Val);
+
+  /// Returns true if the value in question is known to be non-positive.
+  static bool isKnownNonPositive(VALType ValType, int64_t Val);
+
+  /// Returns true if the value in question is known to be non-zero.
+  static bool isKnownNonZero(VALType ValType, int64_t Val);
+
+  /// Returns true if the value in question is known to be positive or negative.
+  static bool isKnownPositiveOrNegative(VALType ValType, int64_t Val);
+
+  // Get possible Minimum/Maximum value of canon.
+  // Only handles single Blob + constant - No support for IV now
+  // If known, return ValueType and Value.
+  // Return value indicates if Val is used as Constant, Min or Max.
+  static VALType getMinMaxBlobValue(unsigned BlobIdx, const CanonExpr *BoundCE,
+                                    int64_t &Val);
+
+  static VALType getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
+                                            const RegDDRef *Lhs,
+                                            const RegDDRef *Rhs, int64_t &Val);
+
+  template <typename PredIter, typename GetDDRefFunc>
+  static VALType
+  getMinMaxBlobValueFromPredRange(unsigned BlobIdx, PredIter Begin,
+                                  PredIter End, GetDDRefFunc GetDDRef,
+                                  bool InvertPredicates, int64_t &Val);
+
+  static VALType getMinMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
+                                    int64_t &Val);
+
+  static bool getMinMaxBlobValue(unsigned BlobIdx, int64_t Coeff,
+                                 const HLNode *ParentNode, bool IsMin,
+                                 int64_t &BlobVal);
+
+  /// Returns constant min or max value of CE based on its context (ParentNode)
+  /// and IsMin paramter. \p IsExact specifies whether we can calculate inexact
+  /// min/max in the presence of blobs.
+  /// Value is returned in Val. Only handles IVs + constant for now.
+  static bool getMinMaxValueImpl(const CanonExpr *CE, const HLNode *ParentNode,
+                                 bool IsMin, bool IsExact, int64_t &Val);
+
+  // Checks if *IF* or *Switch* or *Call* statement is present inside HIR tree.
+  template <bool SearchIf, bool SearchSwitch, bool SearchCall>
+  struct NodeKindVisitor final : public HLNodeVisitorBase {
+    bool Found;
+
+    static_assert(SearchIf || SearchSwitch || SearchCall,
+                  "At least one flag should be true");
+
+    void visit(const HLIf *If) {
+      if (SearchIf) {
+        Found = true;
+      }
+    }
+
+    void visit(const HLSwitch *Switch) {
+      if (SearchSwitch) {
+        Found = true;
+      }
+    }
+
+    void visit(const HLInst *Inst) {
+      if (SearchCall && Inst->isCallInst()) {
+        Found = true;
+      }
+    }
+
+    void visit(const HLNode *Node) {}
+    void postVisit(const HLNode *) {}
+
+    bool isDone() const override {
+      return Found;
+    }
+
+    NodeKindVisitor() : Found(false) {}
+  };
+
+public:
   /// \brief Returns the first dummy instruction of the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
 
@@ -478,8 +569,7 @@ public:
   /// OrigBinOp is not null, copy IR flags from OrigBinOp to the newly
   /// create instruction.
   static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
-                                    RegDDRef *OpRef2,
-                                    const Twine &Name = "",
+                                    RegDDRef *OpRef2, const Twine &Name = "",
                                     RegDDRef *LvalRef = nullptr,
                                     const BinaryOperator *OrigBinOp = nullptr);
 
@@ -598,13 +688,13 @@ public:
                               RegDDRef *LvalRef = nullptr);
   /// \brief Creates a new Call instruction.
   static HLInst *createCall(Function *F,
-                            const SmallVectorImpl<RegDDRef*> &CallArgs,
+                            const SmallVectorImpl<RegDDRef *> &CallArgs,
                             const Twine &Name = "call",
                             RegDDRef *LvalRef = nullptr);
 
   /// \brief Creates a new ShuffleVector instruction
   static HLInst *CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                         ArrayRef<int> Mask,
+                                         ArrayRef<uint32_t> Mask,
                                          const Twine &Name = "shuffle",
                                          RegDDRef *LvalRef = nullptr);
 
@@ -906,20 +996,26 @@ public:
   /// \brief Unlinks Node from HIR.
   static void remove(HLNode *Node);
 
-  /// \brief Unlinks a set for node from HIR and places then in the container.
-  static void remove(HLContainerTy *Container, HLNode *Node1, HLNode *Node2);
+  /// Unlinks [First, Last) from HIR.
+  static void remove(HLContainerTy::iterator First,
+                     HLContainerTy::iterator Last);
 
-  /// \brief Unlinks Node from HIR and destroys it.
-  static void erase(HLNode *Node);
-  /// \brief Unlinks [First, Last) from HIR and destroys them.
-  static void erase(HLContainerTy::iterator First,
-                    HLContainerTy::iterator Last);
+  /// \brief Unlinks [First, Last] from HIR.
+  static void remove(HLNode *First, HLNode *Last);
+
+  /// \brief Unlinks [First, Last) from HIR and places then in the container.
+  static void remove(HLContainerTy *Container, HLContainerTy::iterator First,
+                     HLContainerTy::iterator Last);
+
+  /// \brief Unlinks [First, Last] from HIR and places then in the container.
+  static void remove(HLContainerTy *Container, HLNode *First, HLNode *Last);
 
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(HLNode *OldNode, HLNode *NewNode);
 
-  /// \brief Returns true if Node is in the top sort num range [FirstNode,
-  /// LastNode].
+  /// \brief Returns true if Node is in the top sort num range [\p FirstNode,
+  /// \p LastNode]. The \p FirstNode could be a nullptr, the method will return
+  /// false in this case.
   static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
                                   const HLNode *LastNode);
 
@@ -971,14 +1067,14 @@ public:
   /// together in the same location.
   /// Returns false if there may exist a scenario/path in which Node1 is
   /// reached/accessed and Node2 isn't, or the other way around.
-  /// Note: In the presence of complicated unstructured code (containing 
+  /// Note: In the presence of complicated unstructured code (containing
   /// gotos/labels) this function will conservatively return false.
   static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2);
 
   /// \brief Returns true if Parent contains Node. IncludePrePostHdr indicates
   /// whether loop should be considered to contain preheader/postexit nodes.
   static bool contains(const HLNode *Parent, const HLNode *Node,
-                       bool IncludePrePostHdr = true);
+                       bool IncludePrePostHdr = false);
 
   /// \brief get parent loop for certain level, nullptr could be returned
   /// if input is invalid
@@ -986,11 +1082,18 @@ public:
                                               const HLLoop *InnermostLoop);
 
   /// \brief Gathers the innermost loops across regions and stores them into
-  /// the loop vector.
+  /// the loop vector. If Node is not specified, it will search for all
+  /// Regions
   template <typename T>
-  static void gatherInnermostLoops(SmallVectorImpl<T> &Loops) {
+  static void gatherInnermostLoops(SmallVectorImpl<T> &Loops,
+                                   HLNode *Node = nullptr) {
+
     LoopLevelVisitor<T, VisitKind::Innermost> LoopVisit(Loops);
-    HLNodeUtils::visitAll(LoopVisit);
+    if (Node) {
+      HLNodeUtils::visit(LoopVisit, Node);
+    } else {
+      HLNodeUtils::visitAll(LoopVisit);
+    }
   }
 
   /// \brief Gathers the outermost loops (or highest level loops with Level 1)
@@ -1054,15 +1157,31 @@ public:
   /// NodeEnd. RecurseInsideLoops flag denotes if we want to check switch
   /// or call inside nested loops. Usually, this flag is used to for
   /// optimizations where checks have already been made for child loops.
-  // TODO: Move this utility to header file, if there are no users except
-  // unrolling.
-  static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd,
-                              bool RecurseInsideLoops = true);
+  template <bool RecurseInsideLoops = true>
+  static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd) {
+    assert(NodeStart && NodeEnd && " Node Start/End is null.");
+    NodeKindVisitor<false, true, true> SCVisit;
+    HLNodeUtils::visitRange<true, RecurseInsideLoops>(SCVisit, NodeStart,
+                                                      NodeEnd);
+    return SCVisit.isDone();
+  }
+
+  template <bool RecurseInsideLoops = true>
+  static bool hasSwitchOrCallOrIf(const HLNode *NodeStart,
+                                  const HLNode *NodeEnd) {
+    assert(NodeStart && NodeEnd && " Node Start/End is null.");
+    NodeKindVisitor<true, true, true> SCVisit;
+    HLNodeUtils::visitRange<true, RecurseInsideLoops>(SCVisit, NodeStart,
+                                                      NodeEnd);
+    return SCVisit.isDone();
+  }
+
   /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
   ///   Used by Interchange now. Could be used later for blocking
+  /// Loops are added to \p LoopPermutation in the desired permuted order.
   static void
-  permuteLoopNests(HLLoop *Loop,
-                   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation);
+  permuteLoopNests(HLLoop *OutermostLoop,
+                   const SmallVectorImpl<HLLoop *> &LoopPermutation);
 
   /// \brief Returns true if Loop is a perfect Loop nest
   /// and the innermost loop
@@ -1084,23 +1203,105 @@ public:
   ///   Will take innermost loop for now
   ///   used mostly for blocking / interchange
   static bool hasNonUnitStrideRefs(const HLLoop *Loop);
-		
+
   /// \brief Find node receiving the load
   /// e.g.   t0 = a[i] ;
   ///         ...
   ///        t1 = t0
   ///  returns t1 = t0
-  static HLInst *
-  findForwardSubInst(const DDRef *LRef,
-                     SmallVectorImpl<HLInst *> &ForwardSubInsts);
-
-
+  static HLInst *findForwardSubInst(const DDRef *LRef,
+                                    SmallVectorImpl<HLInst *> &ForwardSubInsts);
 
   /// \brief Returns the lowest common ancestor loop of Lp1 and Lp2. Returns
   /// null if there is no such parent loop.
   static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
                                                    const HLLoop *Lp2);
   static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
+
+  /// Returns true if the minimum value of blob can be evaluated. Returns the
+  /// minimum value in \p Val.
+  static bool getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
+                              int64_t &Val);
+
+  /// Returns true if the maximum value of blob can be evaluated. Returns the
+  /// maximum value in \p Val.
+  static bool getMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
+                              int64_t &Val);
+
+  /// Returns true if blob is known to be non-zero.
+  static bool isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode);
+
+  /// Returns true if blob is known to be non-positive. Returns max value in \p
+  /// MaxVal.
+  static bool isKnownNonPositive(unsigned BlobIdx, const HLNode *ParentNode,
+                                 int64_t &MaxVal);
+
+  /// Returns true if blob is known to be non-negative. Returns min value in \p
+  /// MinVal.
+  static bool isKnownNonNegative(unsigned BlobIdx, const HLNode *ParentNode,
+                                 int64_t &MinVal);
+
+  /// Returns true if blob is known to be negative. Returns max value in \p
+  /// MaxVal.
+  static bool isKnownNegative(unsigned BlobIdx, const HLNode *ParentNode,
+                              int64_t &MaxVal);
+
+  /// Returns true if blob is known to be positive. Returns min value in \p
+  /// MinVal.
+  static bool isKnownPositive(unsigned BlobIdx, const HLNode *ParentNode,
+                              int64_t &MinVal);
+
+  /// Returns true if blob is known to be positive or negative. Returns min/max
+  /// value in \p MinMAxVal.
+  static bool isKnownPositiveOrNegative(unsigned BlobIdx,
+                                        const HLNode *ParentNode,
+                                        int64_t &MinMaxVal);
+
+  /// Returns true if exact minimum value of \p CE can be evaluated. Exact value
+  /// means that there is no approximation due to presence of blobs. Returns the
+  /// minimum value in \p Val.
+  static bool getExactMinValue(const CanonExpr *CE, const HLNode *ParentNode,
+                               int64_t &Val);
+
+  /// Returns true if exact maximum value of \p CE can be evaluated. Exact value
+  /// means that there is no approximation due to presence of blobs. Returns the
+  /// maximum value in \p Val.
+  static bool getExactMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                               int64_t &Val);
+
+  /// Returns true if minimum value of \p CE can be evaluated. Returns the
+  /// minimum value in \p Val.
+  static bool getMinValue(const CanonExpr *CE, const HLNode *ParentNode,
+                          int64_t &Val);
+
+  /// Returns true if maximum value of \p CE can be evaluated. Returns the
+  /// maximum value in \p Val.
+  static bool getMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                          int64_t &Val);
+
+  /// \brief return true if non-zero.
+  static bool isKnownNonZero(const CanonExpr *CE,
+                             const HLNode *ParentNode = nullptr);
+
+  /// \brief return true if non-positive.
+  static bool isKnownNonPositive(const CanonExpr *CE,
+                                 const HLNode *ParentNode = nullptr);
+
+  /// \brief return true if non-negative.
+  static bool isKnownNonNegative(const CanonExpr *CE,
+                                 const HLNode *ParentNode = nullptr);
+
+  /// \brief return true if negative.
+  static bool isKnownNegative(const CanonExpr *CE,
+                              const HLNode *ParentNode = nullptr);
+
+  /// \brief return true if positive.
+  static bool isKnownPositive(const CanonExpr *CE,
+                              const HLNode *ParentNode = nullptr);
+
+  /// \brief return true if positive or negative.
+  static bool isKnownPositiveOrNegative(const CanonExpr *CE,
+                                        const HLNode *ParentNode = nullptr);
 };
 
 } // End namespace loopopt

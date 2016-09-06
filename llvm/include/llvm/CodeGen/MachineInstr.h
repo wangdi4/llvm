@@ -16,15 +16,14 @@
 #ifndef LLVM_CODEGEN_MACHINEINSTR_H
 #define LLVM_CODEGEN_MACHINEINSTR_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/MachineOperand.h"
+#include "llvm/CodeGen/LowLevelType.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/MC/MCInstrDesc.h"
@@ -33,15 +32,14 @@
 
 namespace llvm {
 
+class StringRef;
+template <typename T> class ArrayRef;
 template <typename T> class SmallVectorImpl;
 class DILocalVariable;
 class DIExpression;
 class TargetInstrInfo;
 class TargetRegisterClass;
 class TargetRegisterInfo;
-#ifdef LLVM_BUILD_GLOBAL_ISEL
-class Type;
-#endif
 class MachineFunction;
 class MachineMemOperand;
 
@@ -108,9 +106,9 @@ private:
 
 #ifdef LLVM_BUILD_GLOBAL_ISEL
   /// Type of the instruction in case of a generic opcode.
-  /// \invariant This must be nullptr is getOpcode() is not
+  /// \invariant This must be LLT{} if getOpcode() is not
   /// in the range of generic opcodes.
-  Type *Ty;
+  SmallVector<LLT, 1>  Tys;
 #endif
 
   MachineInstr(const MachineInstr&) = delete;
@@ -189,8 +187,9 @@ public:
 
   /// Set the type of the instruction.
   /// \pre getOpcode() is in the range of the generic opcodes.
-  void setType(Type *Ty);
-  Type *getType() const;
+  void setType(LLT Ty, unsigned Idx = 0);
+  LLT getType(int unsigned = 0) const;
+  unsigned getNumTypes() const;
 
   /// Return true if MI is in a bundle (but not the first MI in a bundle).
   ///
@@ -526,6 +525,11 @@ public:
   /// Convergent instructions can not be made control-dependent on any
   /// additional values.
   bool isConvergent(QueryType Type = AnyInBundle) const {
+    if (isInlineAsm()) {
+      unsigned ExtraInfo = getOperand(InlineAsm::MIOp_ExtraInfo).getImm();
+      if (ExtraInfo & InlineAsm::Extra_IsConvergent)
+        return true;
+    }
     return hasProperty(MCID::Convergent, Type);
   }
 
@@ -916,6 +920,10 @@ public:
                          const TargetRegisterInfo *TRI = nullptr) const {
     return findRegisterDefOperandIdx(Reg, true, false, TRI) != -1;
   }
+
+  /// Returns true if the MachineInstr has an implicit-use operand of exactly
+  /// the given register (not considering sub/super-registers).
+  bool hasRegisterImplicitUseOperand(unsigned Reg) const;
 
   /// Returns the operand index that is a use of the specific register or -1
   /// if it is not found. It further tightens the search criteria to a use

@@ -16,9 +16,8 @@
 
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/Decl.h"
-#include "clang/AST/DeclarationName.h"
-#include "clang/Frontend/PCHContainerOperations.h"
 #include "clang/AST/TemplateBase.h"
+#include "clang/Frontend/PCHContainerOperations.h"
 #include "clang/Sema/SemaConsumer.h"
 #include "clang/Serialization/ASTBitCodes.h"
 #include "clang/Serialization/ASTDeserializationListener.h"
@@ -26,21 +25,19 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
-#include <map>
 #include <queue>
 #include <vector>
 
 namespace llvm {
   class APFloat;
   class APInt;
-  class BitstreamWriter;
 }
 
 namespace clang {
 
+class DeclarationName;
 class ASTContext;
 class Attr;
 class NestedNameSpecifier;
@@ -538,12 +535,6 @@ public:
   /// \brief Emit a reference to an identifier.
   void AddIdentifierRef(const IdentifierInfo *II, RecordDataImpl &Record);
 
-  /// \brief Emit a Selector (which is a smart pointer reference).
-  void AddSelectorRef(Selector, RecordDataImpl &Record);
-
-  /// \brief Emit a CXXTemporary.
-  void AddCXXTemporary(const CXXTemporary *Temp, RecordDataImpl &Record);
-
   /// \brief Get the unique number used to refer to the given selector.
   serialization::SelectorID getSelectorRef(Selector Sel);
 
@@ -571,6 +562,17 @@ public:
   /// decl.
   const Decl *getFirstLocalDecl(const Decl *D);
 
+  /// \brief Is this a local declaration (that is, one that will be written to
+  /// our AST file)? This is the case for declarations that are neither imported
+  /// from another AST file nor predefined.
+  bool IsLocalDecl(const Decl *D) {
+    if (D->isFromASTFile())
+      return false;
+    auto I = DeclIDs.find(D);
+    return (I == DeclIDs.end() ||
+            I->second >= serialization::NUM_PREDEF_DECL_IDS);
+  };
+
   /// \brief Emit a reference to a declaration.
   void AddDeclRef(const Decl *D, RecordDataImpl &Record);
 
@@ -582,20 +584,7 @@ public:
   /// declaration.
   serialization::DeclID getDeclID(const Decl *D);
 
-  /// \brief Emit a declaration name.
-  void AddDeclarationName(DeclarationName Name, RecordDataImpl &Record);
-
   unsigned getAnonymousDeclarationNumber(const NamedDecl *D);
-
-  /// \brief Emit a nested name specifier.
-  void AddNestedNameSpecifier(NestedNameSpecifier *NNS, RecordDataImpl &Record);
-
-  /// \brief Emit a template parameter list.
-  void AddTemplateParameterList(const TemplateParameterList *TemplateParams,
-                                RecordDataImpl &Record);
-
-  /// \brief Emit a UnresolvedSet structure.
-  void AddUnresolvedSet(const ASTUnresolvedSet &Set, RecordDataImpl &Record);
 
   /// \brief Add a string to the given record.
   void AddString(StringRef Str, RecordDataImpl &Record);
@@ -663,6 +652,7 @@ public:
   bool hasChain() const { return Chain; }
   ASTReader *getChain() const { return Chain; }
 
+private:
   // ASTDeserializationListener implementation
   void ReaderInitialized(ASTReader *Reader) override;
   void IdentifierRead(serialization::IdentID ID, IdentifierInfo *II) override;
@@ -689,7 +679,8 @@ public:
                                     const ObjCInterfaceDecl *IFD) override;
   void DeclarationMarkedUsed(const Decl *D) override;
   void DeclarationMarkedOpenMPThreadPrivate(const Decl *D) override;
-  void DeclarationMarkedOpenMPDeclareTarget(const Decl *D) override;
+  void DeclarationMarkedOpenMPDeclareTarget(const Decl *D,
+                                            const Attr *Attr) override;
   void RedefinedHiddenDefinition(const NamedDecl *D, Module *M) override;
   void AddedAttributeToRecord(const Attr *Attr,
                               const RecordDecl *Record) override;
@@ -820,14 +811,10 @@ public:
   }
 
   /// \brief Emit a Selector (which is a smart pointer reference).
-  void AddSelectorRef(Selector S) {
-    return Writer->AddSelectorRef(S, *Record);
-  }
+  void AddSelectorRef(Selector S);
 
   /// \brief Emit a CXXTemporary.
-  void AddCXXTemporary(const CXXTemporary *Temp) {
-    return Writer->AddCXXTemporary(Temp, *Record);
-  }
+  void AddCXXTemporary(const CXXTemporary *Temp);
 
   /// \brief Emit a C++ base specifier.
   void AddCXXBaseSpecifier(const CXXBaseSpecifier &Base);
@@ -862,9 +849,8 @@ public:
     return Writer->AddDeclRef(D, *Record);
   }
 
-  void AddDeclarationName(DeclarationName Name) {
-    return Writer->AddDeclarationName(Name, *Record);
-  }
+  /// \brief Emit a declaration name.
+  void AddDeclarationName(DeclarationName Name);
 
   void AddDeclarationNameLoc(const DeclarationNameLoc &DNLoc,
                              DeclarationName Name);
@@ -873,9 +859,7 @@ public:
   void AddQualifierInfo(const QualifierInfo &Info);
 
   /// \brief Emit a nested name specifier.
-  void AddNestedNameSpecifier(NestedNameSpecifier *NNS) {
-    return Writer->AddNestedNameSpecifier(NNS, *Record);
-  }
+  void AddNestedNameSpecifier(NestedNameSpecifier *NNS);
 
   /// \brief Emit a nested name specifier with source-location information.
   void AddNestedNameSpecifierLoc(NestedNameSpecifierLoc NNS);
@@ -887,17 +871,13 @@ public:
   void AddTemplateArgument(const TemplateArgument &Arg);
 
   /// \brief Emit a template parameter list.
-  void AddTemplateParameterList(const TemplateParameterList *TemplateParams) {
-    return Writer->AddTemplateParameterList(TemplateParams, *Record);
-  }
+  void AddTemplateParameterList(const TemplateParameterList *TemplateParams);
 
   /// \brief Emit a template argument list.
   void AddTemplateArgumentList(const TemplateArgumentList *TemplateArgs);
 
   /// \brief Emit a UnresolvedSet structure.
-  void AddUnresolvedSet(const ASTUnresolvedSet &Set) {
-    return Writer->AddUnresolvedSet(Set, *Record);
-  }
+  void AddUnresolvedSet(const ASTUnresolvedSet &Set);
 
   /// \brief Emit a CXXCtorInitializer array.
   void AddCXXCtorInitializers(ArrayRef<CXXCtorInitializer*> CtorInits);

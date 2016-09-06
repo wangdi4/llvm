@@ -45,21 +45,23 @@ namespace llvm {
 
 template <typename T> class Optional;
 
-/// \brief Pointer union between a subclass of DINode and MDString.
+/// Holds a subclass of DINode.
 ///
-/// \a DICompositeType can be referenced via an \a MDString unique identifier.
-/// This class allows some type safety in the face of that, requiring either a
-/// node of a particular type or an \a MDString.
+/// FIXME: This class doesn't currently make much sense.  Previously it was a
+/// union beteen MDString (for ODR-uniqued types) and things like DIType.  To
+/// support CodeView work, it wasn't deleted outright when MDString-based type
+/// references were deleted; we'll soon need a similar concept for CodeView
+/// DITypeIndex.
 template <class T> class TypedDINodeRef {
   const Metadata *MD = nullptr;
 
 public:
   TypedDINodeRef() = default;
   TypedDINodeRef(std::nullptr_t) {}
+  TypedDINodeRef(const T *MD) : MD(MD) {}
 
-  /// \brief Construct from a raw pointer.
   explicit TypedDINodeRef(const Metadata *MD) : MD(MD) {
-    assert((!MD || isa<MDString>(MD) || isa<T>(MD)) && "Expected valid ref");
+    assert((!MD || isa<T>(MD)) && "Expected valid type ref");
   }
 
   template <class U>
@@ -71,26 +73,10 @@ public:
 
   operator Metadata *() const { return const_cast<Metadata *>(MD); }
 
+  T *resolve() const { return const_cast<T *>(cast_or_null<T>(MD)); }
+
   bool operator==(const TypedDINodeRef<T> &X) const { return MD == X.MD; }
   bool operator!=(const TypedDINodeRef<T> &X) const { return MD != X.MD; }
-
-  /// \brief Create a reference.
-  ///
-  /// Get a reference to \c N, using an \a MDString reference if available.
-  static TypedDINodeRef get(const T *N);
-
-  template <class MapTy> T *resolve(const MapTy &Map) const {
-    if (!MD)
-      return nullptr;
-
-    if (auto *Typed = dyn_cast<T>(MD))
-      return const_cast<T *>(Typed);
-
-    auto *S = cast<MDString>(MD);
-    auto I = Map.find(S);
-    assert(I != Map.end() && "Missing identifier in type map");
-    return cast<T>(I->second);
-  }
 };
 
 typedef TypedDINodeRef<DINode> DINodeRef;
@@ -175,6 +161,9 @@ protected:
     return MDString::get(Context, S);
   }
 
+  /// Allow subclasses to mutate the tag.
+  void setTag(unsigned Tag) { SubclassData16 = Tag; }
+
 public:
   unsigned getTag() const { return SubclassData16; }
 
@@ -185,7 +174,9 @@ public:
   enum DIFlags {
 #define HANDLE_DI_FLAG(ID, NAME) Flag##NAME = ID,
 #include "llvm/IR/DebugInfoFlags.def"
-    FlagAccessibility = FlagPrivate | FlagProtected | FlagPublic
+    FlagAccessibility = FlagPrivate | FlagProtected | FlagPublic,
+    FlagPtrToMemberRep = FlagSingleInheritance | FlagMultipleInheritance |
+                         FlagVirtualInheritance,
   };
 
   static unsigned getFlag(StringRef Flag);
@@ -197,8 +188,6 @@ public:
   /// any remaining (unrecognized) bits.
   static unsigned splitFlags(unsigned Flags,
                              SmallVectorImpl<unsigned> &SplitFlags);
-
-  DINodeRef getRef() const { return DINodeRef::get(this); }
 
   static bool classof(const Metadata *MD) {
     switch (MD->getMetadataID()) {
@@ -434,8 +423,6 @@ public:
                              : static_cast<Metadata *>(getOperand(0));
   }
 
-  DIScopeRef getRef() const { return DIScopeRef::get(this); }
-
   static bool classof(const Metadata *MD) {
     switch (MD->getMetadataID()) {
     default:
@@ -530,10 +517,27 @@ protected:
   DIType(LLVMContext &C, unsigned ID, StorageType Storage, unsigned Tag,
          unsigned Line, uint64_t SizeInBits, uint64_t AlignInBits,
          uint64_t OffsetInBits, unsigned Flags, ArrayRef<Metadata *> Ops)
-      : DIScope(C, ID, Storage, Tag, Ops), Line(Line), Flags(Flags),
-        SizeInBits(SizeInBits), AlignInBits(AlignInBits),
-        OffsetInBits(OffsetInBits) {}
+      : DIScope(C, ID, Storage, Tag, Ops) {
+    init(Line, SizeInBits, AlignInBits, OffsetInBits, Flags);
+  }
   ~DIType() = default;
+
+  void init(unsigned Line, uint64_t SizeInBits, uint64_t AlignInBits,
+            uint64_t OffsetInBits, unsigned Flags) {
+    this->Line = Line;
+    this->Flags = Flags;
+    this->SizeInBits = SizeInBits;
+    this->AlignInBits = AlignInBits;
+    this->OffsetInBits = OffsetInBits;
+  }
+
+  /// Change fields in place.
+  void mutate(unsigned Tag, unsigned Line, uint64_t SizeInBits,
+              uint64_t AlignInBits, uint64_t OffsetInBits, unsigned Flags) {
+    assert(isDistinct() && "Only distinct nodes can mutate");
+    setTag(Tag);
+    init(Line, SizeInBits, AlignInBits, OffsetInBits, Flags);
+  }
 
 public:
   TempDIType clone() const {
@@ -577,12 +581,11 @@ public:
     return getFlags() & FlagObjcClassComplete;
   }
   bool isVector() const { return getFlags() & FlagVector; }
+  bool isBitField() const { return getFlags() & FlagBitField; }
   bool isStaticMember() const { return getFlags() & FlagStaticMember; }
   bool isLValueReference() const { return getFlags() & FlagLValueReference; }
   bool isRValueReference() const { return getFlags() & FlagRValueReference; }
   bool isExternalTypeRef() const { return getFlags() & FlagExternalTypeRef; }
-
-  DITypeRef getRef() const { return DITypeRef::get(this); }
 
   static bool classof(const Metadata *MD) {
     switch (MD->getMetadataID()) {
@@ -738,6 +741,12 @@ public:
   DIObjCProperty *getObjCProperty() const {
     return dyn_cast_or_null<DIObjCProperty>(getExtraData());
   }
+  Constant *getStorageOffsetInBits() const {
+    assert(getTag() == dwarf::DW_TAG_member && isBitField());
+    if (auto *C = cast_or_null<ConstantAsMetadata>(getExtraData()))
+      return C->getValue();
+    return nullptr;
+  }
   Constant *getConstant() const {
     assert(getTag() == dwarf::DW_TAG_member && isStaticMember());
     if (auto *C = cast_or_null<ConstantAsMetadata>(getExtraData()))
@@ -769,6 +778,16 @@ class DICompositeType : public DIType {
                AlignInBits, OffsetInBits, Flags, Ops),
         RuntimeLang(RuntimeLang) {}
   ~DICompositeType() = default;
+
+  /// Change fields in place.
+  void mutate(unsigned Tag, unsigned Line, unsigned RuntimeLang,
+              uint64_t SizeInBits, uint64_t AlignInBits, uint64_t OffsetInBits,
+              unsigned Flags) {
+    assert(isDistinct() && "Only distinct nodes can mutate");
+    assert(getRawIdentifier() && "Only ODR-uniqued nodes should mutate");
+    this->RuntimeLang = RuntimeLang;
+    DIType::mutate(Tag, Line, SizeInBits, AlignInBits, OffsetInBits, Flags);
+  }
 
   static DICompositeType *
   getImpl(LLVMContext &Context, unsigned Tag, StringRef Name, Metadata *File,
@@ -825,6 +844,40 @@ public:
 
   TempDICompositeType clone() const { return cloneImpl(); }
 
+  /// Get a DICompositeType with the given ODR identifier.
+  ///
+  /// If \a LLVMContext::isODRUniquingDebugTypes(), gets the mapped
+  /// DICompositeType for the given ODR \c Identifier.  If none exists, creates
+  /// a new node.
+  ///
+  /// Else, returns \c nullptr.
+  static DICompositeType *
+  getODRType(LLVMContext &Context, MDString &Identifier, unsigned Tag,
+             MDString *Name, Metadata *File, unsigned Line, Metadata *Scope,
+             Metadata *BaseType, uint64_t SizeInBits, uint64_t AlignInBits,
+             uint64_t OffsetInBits, unsigned Flags, Metadata *Elements,
+             unsigned RuntimeLang, Metadata *VTableHolder,
+             Metadata *TemplateParams);
+  static DICompositeType *getODRTypeIfExists(LLVMContext &Context,
+                                             MDString &Identifier);
+
+  /// Build a DICompositeType with the given ODR identifier.
+  ///
+  /// Looks up the mapped DICompositeType for the given ODR \c Identifier.  If
+  /// it doesn't exist, creates a new one.  If it does exist and \a
+  /// isForwardDecl(), and the new arguments would be a definition, mutates the
+  /// the type in place.  In either case, returns the type.
+  ///
+  /// If not \a LLVMContext::isODRUniquingDebugTypes(), this function returns
+  /// nullptr.
+  static DICompositeType *
+  buildODRType(LLVMContext &Context, MDString &Identifier, unsigned Tag,
+               MDString *Name, Metadata *File, unsigned Line, Metadata *Scope,
+               Metadata *BaseType, uint64_t SizeInBits, uint64_t AlignInBits,
+               uint64_t OffsetInBits, unsigned Flags, Metadata *Elements,
+               unsigned RuntimeLang, Metadata *VTableHolder,
+               Metadata *TemplateParams);
+
   DITypeRef getBaseType() const { return DITypeRef(getRawBaseType()); }
   DINodeArray getElements() const {
     return cast_or_null<MDTuple>(getRawElements());
@@ -869,14 +922,6 @@ public:
   }
 };
 
-template <class T> TypedDINodeRef<T> TypedDINodeRef<T>::get(const T *N) {
-  if (N)
-    if (auto *Composite = dyn_cast<DICompositeType>(N))
-      if (auto *S = Composite->getRawIdentifier())
-        return TypedDINodeRef<T>(S);
-  return TypedDINodeRef<T>(N);
-}
-
 /// \brief Type array for a subprogram.
 ///
 /// TODO: Fold the array of types in directly as operands.
@@ -884,34 +929,43 @@ class DISubroutineType : public DIType {
   friend class LLVMContextImpl;
   friend class MDNode;
 
+  /// The calling convention used with DW_AT_calling_convention. Actually of
+  /// type dwarf::CallingConvention.
+  uint8_t CC;
+
   DISubroutineType(LLVMContext &C, StorageType Storage, unsigned Flags,
-                   ArrayRef<Metadata *> Ops)
+                   uint8_t CC, ArrayRef<Metadata *> Ops)
       : DIType(C, DISubroutineTypeKind, Storage, dwarf::DW_TAG_subroutine_type,
-               0, 0, 0, 0, Flags, Ops) {}
+               0, 0, 0, 0, Flags, Ops),
+        CC(CC) {}
   ~DISubroutineType() = default;
 
   static DISubroutineType *getImpl(LLVMContext &Context, unsigned Flags,
-                                   DITypeRefArray TypeArray,
+                                   uint8_t CC, DITypeRefArray TypeArray,
                                    StorageType Storage,
                                    bool ShouldCreate = true) {
-    return getImpl(Context, Flags, TypeArray.get(), Storage, ShouldCreate);
+    return getImpl(Context, Flags, CC, TypeArray.get(), Storage, ShouldCreate);
   }
   static DISubroutineType *getImpl(LLVMContext &Context, unsigned Flags,
-                                   Metadata *TypeArray, StorageType Storage,
+                                   uint8_t CC, Metadata *TypeArray,
+                                   StorageType Storage,
                                    bool ShouldCreate = true);
 
   TempDISubroutineType cloneImpl() const {
-    return getTemporary(getContext(), getFlags(), getTypeArray());
+    return getTemporary(getContext(), getFlags(), getCC(), getTypeArray());
   }
 
 public:
   DEFINE_MDNODE_GET(DISubroutineType,
-                    (unsigned Flags, DITypeRefArray TypeArray),
-                    (Flags, TypeArray))
-  DEFINE_MDNODE_GET(DISubroutineType, (unsigned Flags, Metadata *TypeArray),
-                    (Flags, TypeArray))
+                    (unsigned Flags, uint8_t CC, DITypeRefArray TypeArray),
+                    (Flags, CC, TypeArray))
+  DEFINE_MDNODE_GET(DISubroutineType,
+                    (unsigned Flags, uint8_t CC, Metadata *TypeArray),
+                    (Flags, CC, TypeArray))
 
   TempDISubroutineType clone() const { return cloneImpl(); }
+
+  uint8_t getCC() const { return CC; }
 
   DITypeRefArray getTypeArray() const {
     return cast_or_null<MDTuple>(getRawTypeArray());
@@ -1099,6 +1153,12 @@ public:
   /// chain.
   DISubprogram *getSubprogram() const;
 
+  /// Get the first non DILexicalBlockFile scope of this scope.
+  ///
+  /// Return this if it's not a \a DILexicalBlockFIle; otherwise, look up the
+  /// scope chain.
+  DILocalScope *getNonLexicalBlockFileScope() const;
+
   static bool classof(const Metadata *MD) {
     return MD->getMetadataID() == DISubprogramKind ||
            MD->getMetadataID() == DILexicalBlockKind ||
@@ -1220,6 +1280,11 @@ class DISubprogram : public DILocalScope {
   unsigned ScopeLine;
   unsigned VirtualIndex;
 
+  /// In the MS ABI, the implicit 'this' parameter is adjusted in the prologue
+  /// of method overrides from secondary bases by this amount. It may be
+  /// negative.
+  int ThisAdjustment;
+
   // Virtuality can only assume three values, so we can pack
   // in 2 bits (none/pure/pure_virtual).
   unsigned Virtuality : 2;
@@ -1236,13 +1301,14 @@ class DISubprogram : public DILocalScope {
 
   DISubprogram(LLVMContext &C, StorageType Storage, unsigned Line,
                unsigned ScopeLine, unsigned Virtuality, unsigned VirtualIndex,
-               unsigned Flags, bool IsLocalToUnit, bool IsDefinition,
-               bool IsOptimized, ArrayRef<Metadata *> Ops)
+               int ThisAdjustment, unsigned Flags, bool IsLocalToUnit,
+               bool IsDefinition, bool IsOptimized, ArrayRef<Metadata *> Ops)
       : DILocalScope(C, DISubprogramKind, Storage, dwarf::DW_TAG_subprogram,
                      Ops),
         Line(Line), ScopeLine(ScopeLine), VirtualIndex(VirtualIndex),
-        Virtuality(Virtuality), Flags(Flags), IsLocalToUnit(IsLocalToUnit),
-        IsDefinition(IsDefinition), IsOptimized(IsOptimized) {
+        ThisAdjustment(ThisAdjustment), Virtuality(Virtuality), Flags(Flags),
+        IsLocalToUnit(IsLocalToUnit), IsDefinition(IsDefinition),
+        IsOptimized(IsOptimized) {
     static_assert(dwarf::DW_VIRTUALITY_max < 4, "Virtuality out of range");
     assert(Virtuality < 4 && "Virtuality out of range");
     assert((Flags < (1 << 27)) && "Flags out of range");
@@ -1254,33 +1320,34 @@ class DISubprogram : public DILocalScope {
           StringRef LinkageName, DIFile *File, unsigned Line,
           DISubroutineType *Type, bool IsLocalToUnit, bool IsDefinition,
           unsigned ScopeLine, DITypeRef ContainingType, unsigned Virtuality,
-          unsigned VirtualIndex, unsigned Flags, bool IsOptimized,
-          DICompileUnit *Unit, DITemplateParameterArray TemplateParams,
-          DISubprogram *Declaration, DILocalVariableArray Variables,
-          StorageType Storage, bool ShouldCreate = true) {
+          unsigned VirtualIndex, int ThisAdjustment, unsigned Flags,
+          bool IsOptimized, DICompileUnit *Unit,
+          DITemplateParameterArray TemplateParams, DISubprogram *Declaration,
+          DILocalVariableArray Variables, StorageType Storage,
+          bool ShouldCreate = true) {
     return getImpl(Context, Scope, getCanonicalMDString(Context, Name),
                    getCanonicalMDString(Context, LinkageName), File, Line, Type,
                    IsLocalToUnit, IsDefinition, ScopeLine, ContainingType,
-                   Virtuality, VirtualIndex, Flags, IsOptimized, Unit,
-                   TemplateParams.get(), Declaration, Variables.get(), Storage,
-                   ShouldCreate);
+                   Virtuality, VirtualIndex, ThisAdjustment, Flags, IsOptimized,
+                   Unit, TemplateParams.get(), Declaration, Variables.get(),
+                   Storage, ShouldCreate);
   }
   static DISubprogram *
   getImpl(LLVMContext &Context, Metadata *Scope, MDString *Name,
           MDString *LinkageName, Metadata *File, unsigned Line, Metadata *Type,
           bool IsLocalToUnit, bool IsDefinition, unsigned ScopeLine,
           Metadata *ContainingType, unsigned Virtuality, unsigned VirtualIndex,
-          unsigned Flags, bool IsOptimized, Metadata *Unit,
+          int ThisAdjustment, unsigned Flags, bool IsOptimized, Metadata *Unit,
           Metadata *TemplateParams, Metadata *Declaration, Metadata *Variables,
           StorageType Storage, bool ShouldCreate = true);
 
   TempDISubprogram cloneImpl() const {
-    return getTemporary(getContext(), getScope(), getName(), getLinkageName(),
-                        getFile(), getLine(), getType(), isLocalToUnit(),
-                        isDefinition(), getScopeLine(), getContainingType(),
-                        getVirtuality(), getVirtualIndex(), getFlags(),
-                        isOptimized(), getUnit(), getTemplateParams(),
-                        getDeclaration(), getVariables());
+    return getTemporary(
+        getContext(), getScope(), getName(), getLinkageName(), getFile(),
+        getLine(), getType(), isLocalToUnit(), isDefinition(), getScopeLine(),
+        getContainingType(), getVirtuality(), getVirtualIndex(),
+        getThisAdjustment(), getFlags(), isOptimized(), getUnit(),
+        getTemplateParams(), getDeclaration(), getVariables());
   }
 
 public:
@@ -1289,26 +1356,26 @@ public:
                      DIFile *File, unsigned Line, DISubroutineType *Type,
                      bool IsLocalToUnit, bool IsDefinition, unsigned ScopeLine,
                      DITypeRef ContainingType, unsigned Virtuality,
-                     unsigned VirtualIndex, unsigned Flags, bool IsOptimized,
-                     DICompileUnit *Unit,
+                     unsigned VirtualIndex, int ThisAdjustment, unsigned Flags,
+                     bool IsOptimized, DICompileUnit *Unit,
                      DITemplateParameterArray TemplateParams = nullptr,
                      DISubprogram *Declaration = nullptr,
                      DILocalVariableArray Variables = nullptr),
                     (Scope, Name, LinkageName, File, Line, Type, IsLocalToUnit,
                      IsDefinition, ScopeLine, ContainingType, Virtuality,
-                     VirtualIndex, Flags, IsOptimized, Unit, TemplateParams,
-                     Declaration, Variables))
+                     VirtualIndex, ThisAdjustment, Flags, IsOptimized, Unit,
+                     TemplateParams, Declaration, Variables))
   DEFINE_MDNODE_GET(
       DISubprogram,
       (Metadata * Scope, MDString *Name, MDString *LinkageName, Metadata *File,
        unsigned Line, Metadata *Type, bool IsLocalToUnit, bool IsDefinition,
        unsigned ScopeLine, Metadata *ContainingType, unsigned Virtuality,
-       unsigned VirtualIndex, unsigned Flags, bool IsOptimized,
-       Metadata *Unit, Metadata *TemplateParams = nullptr,
+       unsigned VirtualIndex, int ThisAdjustment, unsigned Flags,
+       bool IsOptimized, Metadata *Unit, Metadata *TemplateParams = nullptr,
        Metadata *Declaration = nullptr, Metadata *Variables = nullptr),
       (Scope, Name, LinkageName, File, Line, Type, IsLocalToUnit, IsDefinition,
-       ScopeLine, ContainingType, Virtuality, VirtualIndex, Flags, IsOptimized,
-       Unit, TemplateParams, Declaration, Variables))
+       ScopeLine, ContainingType, Virtuality, VirtualIndex, ThisAdjustment,
+       Flags, IsOptimized, Unit, TemplateParams, Declaration, Variables))
 
   TempDISubprogram clone() const { return cloneImpl(); }
 
@@ -1316,6 +1383,7 @@ public:
   unsigned getLine() const { return Line; }
   unsigned getVirtuality() const { return Virtuality; }
   unsigned getVirtualIndex() const { return VirtualIndex; }
+  int getThisAdjustment() const { return ThisAdjustment; }
   unsigned getScopeLine() const { return ScopeLine; }
   unsigned getFlags() const { return Flags; }
   bool isLocalToUnit() const { return IsLocalToUnit; }

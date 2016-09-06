@@ -280,8 +280,8 @@ void HLSwitch::removeCase(unsigned CaseNum) {
   assert((CaseNum != 0) && "Default case cannot be removed!");
   assert((CaseNum <= getNumCases()) && "CaseNum is out of range!");
 
-  /// Erase CaseNum's HLNodes
-  HLNodeUtils::erase(case_child_begin_internal(CaseNum),
+  /// Remove CaseNum's HLNodes
+  HLNodeUtils::remove(case_child_begin_internal(CaseNum),
                      case_child_end_internal(CaseNum));
 
   /// Remove the case value DDRef.

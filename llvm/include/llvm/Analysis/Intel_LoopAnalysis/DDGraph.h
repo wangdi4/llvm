@@ -25,6 +25,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/Support/Debug.h"
 #include <iterator>
@@ -41,14 +42,23 @@ class HLNode;
 // This was meant to be the basis of a general graph class
 // focused on fast iteration at the cost of slow modification
 // and extra memory
-template <class GraphNode, class GraphEdge> class HIRGraph {
+template <typename GraphNode, typename GraphEdge>
+class HIRGraph {
+  typedef SmallVector<GraphEdge *, 4> GraphEdgeContainerTy;
+
+  void addImpl(GraphEdge *EdgePtr) {
+    inEdges[EdgePtr->getSink()].push_back(EdgePtr);
+    outEdges[EdgePtr->getSrc()].push_back(EdgePtr);
+  }
 
 public:
-  typedef typename std::vector<GraphEdge>::const_iterator EdgeIterator;
-  typedef std::pointer_to_unary_function<GraphEdge, GraphNode *>
+  typedef typename GraphEdgeContainerTy::const_iterator EdgeIterator;
+  typedef std::pointer_to_unary_function<GraphEdge *, GraphNode *>
       GraphNodeDerefFun;
+
   typedef mapped_iterator<EdgeIterator, GraphNodeDerefFun> children_iterator;
-  static GraphNode *SinkFun(GraphEdge E) { return E.getSink(); }
+
+  static GraphNode *SinkFun(GraphEdge *E) { return E->getSink(); }
 
   children_iterator children_begin(GraphNode *Node) {
     return map_iterator(outgoing_edges_begin(Node), GraphNodeDerefFun(SinkFun));
@@ -60,38 +70,42 @@ public:
 
   // Don't let others modify edges. We can only remove or add
   // edges
-  typename std::vector<GraphEdge>::const_iterator
+  EdgeIterator
   incoming_edges_begin(GraphNode *Node) {
-    return inEdges[Node].cbegin();
+    return inEdges[Node].begin();
   }
-  typename std::vector<GraphEdge>::const_iterator
+
+  EdgeIterator
   incoming_edges_end(GraphNode *Node) {
-    return inEdges[Node].cend();
+    return inEdges[Node].end();
   }
-  typename std::vector<GraphEdge>::const_iterator
+
+  EdgeIterator
   outgoing_edges_begin(GraphNode *Node) {
-    return outEdges[Node].cbegin();
+    return outEdges[Node].begin();
   }
-  typename std::vector<GraphEdge>::const_iterator
+
+  EdgeIterator
   outgoing_edges_end(GraphNode *Node) {
-    return outEdges[Node].cend();
+    return outEdges[Node].end();
   }
 
-  void addEdge(GraphEdge E) {
-    inEdges[E.getSink()].push_back(E);
-    outEdges[E.getSrc()].push_back(E);
+  void addEdge(const GraphEdge &E) {
+    EdgesVector.push_back(E);
+    addImpl(&EdgesVector.back());
   }
 
-  void removeEdge(GraphEdge E) {
-    // TODO
+  void addEdge(GraphEdge &&E) {
+    EdgesVector.push_back(std::move(E));
+    addImpl(&EdgesVector.back());
   }
 
   void print(raw_ostream &OS) const {
     for (auto I = outEdges.begin(), E = outEdges.end(); I != E; ++I) {
-      std::vector<GraphEdge> edges = I->second;
-      for (auto EIt = edges.begin(), EdgesEnd = edges.end(); EIt != EdgesEnd;
+      auto Edges = I->second;
+      for (auto EIt = Edges.begin(), EdgesEnd = Edges.end(); EIt != EdgesEnd;
            ++EIt) {
-        EIt->print(OS);
+        (*EIt)->print(OS);
       }
     }
   }
@@ -101,16 +115,16 @@ public:
   void clear() {
     inEdges.clear();
     outEdges.clear();
+    EdgesVector.clear();
   }
 
 private:
-  GraphNode *CurNode;
-
-  // It is assumed the common operation is to iterate over inc/out edges
+  // It is assumed the common operation is to iterate over in/out edges
   // As such, we keep edge vectors for each node, with each edge stored
   // (as a struct vs ptr) twice; once in inEdges and once in outEdges
-  std::map<GraphNode *, std::vector<GraphEdge>> inEdges;
-  std::map<GraphNode *, std::vector<GraphEdge>> outEdges;
+  std::map<GraphNode *, GraphEdgeContainerTy> inEdges;
+  std::map<GraphNode *, GraphEdgeContainerTy> outEdges;
+  std::list<GraphEdge> EdgesVector;
 };
 
 class DDEdge {
@@ -124,7 +138,7 @@ private:
 
   DDRef *Src;
   DDRef *Sink;
-  DVectorTy DV;
+  DirectionVector DV;
   bool IsLoopIndepDepTemp;
 
 public:
@@ -132,12 +146,9 @@ public:
     Src = Sink = nullptr;
     IsLoopIndepDepTemp = false;
   }
-  DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DVectorTy &DirV,
+  DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DirectionVector &DirV,
          bool IsLoopIndepDepTempIn = false)
-      : Src(SrcRef), Sink(SinkRef) {
-    for (unsigned II = 0; II < MaxLoopNestLevel; ++II) {
-      DV[II] = DirV[II];
-    }
+      : Src(SrcRef), Sink(SinkRef), DV(DirV) {
     IsLoopIndepDepTemp = IsLoopIndepDepTempIn;
   }
 
@@ -162,12 +173,11 @@ public:
   DDRef *getSink() const { return Sink; }
   bool isLoopIndependentDepTemp() const { return IsLoopIndepDepTemp; }
 
-  // Next one is useful to loop through each element of DV
-  const DVType *getDV() const { return &DV[0]; }
-  // returns dv element for loop level.
-  DVType getDVAtLevel(unsigned Level) const { return DV[Level - 1]; }
-  // Next one returns pointer to an array of char
-  const DVectorTy *getDirVector() const { return &DV; }
+  // Returns direction vector of the edge.
+  const DirectionVector &getDV() const { return DV; }
+
+  // Returns DVKind element for a loop level.
+  DVKind getDVAtLevel(unsigned Level) const { return DV[Level - 1]; }
 
   // Returns true if the edge is a Forward dependence
   bool isForwardDep() const {
@@ -175,13 +185,13 @@ public:
     auto SrcTopSortNum = getSrc()->getHLDDNode()->getTopSortNum();
     auto SinkTopSortNum = getSink()->getHLDDNode()->getTopSortNum();
 
-    //Handle the case A[I] = A[I] + B[I]
-    //Case 1: The flow edge (from Lval to Rval) is backward.
-    //Case 2: The anti edge (from Rval to Lval) is forward.
+    // Handle the case A[I] = A[I] + B[I]
+    // Case 1: The flow edge (from Lval to Rval) is backward.
+    // Case 2: The anti edge (from Rval to Lval) is forward.
     if (SrcTopSortNum == SinkTopSortNum) {
       RegDDRef *SrcRef = dyn_cast<RegDDRef>(Src);
       bool SrcIsLval = (SrcRef && SrcRef->isLval());
-      return !SrcIsLval; 
+      return !SrcIsLval;
     }
     return (SrcTopSortNum < SinkTopSortNum);
   }
@@ -196,16 +206,16 @@ public:
   // Note that this function only performs a quick check. It doesn't
   // perform the same level of analysis as ParVec analysis.
   bool preventsVectorization(unsigned Level) const {
-    return preventsParallelization(Level) && !isForwardDep()
-                                          && (getSrc() != getSink());
+    return preventsParallelization(Level) && !isForwardDep() &&
+           (getSrc() != getSink());
   }
   // Proxy to isDVCrossIterDepAtLevel().
   bool hasCrossIterDepAtLevel(unsigned Level) const {
-    return isDVCrossIterDepAtLevel(getDV(), Level);
+    return DV.isCrossIterDepAtLevel(Level);
   }
   // Proxy to isDVRefinableAtLevel().
   bool isRefinableDepAtLevel(unsigned Level) const {
-    return isDVRefinableAtLevel(getDV(), Level);
+    return DV.isRefinableAtLevel(Level);
   }
 
   bool isOUTPUTdep() const { return getEdgeType() == DepType::OUTPUT; }
@@ -245,11 +255,11 @@ public:
     FOS << " ";
     unsigned Level;
     for (Level = 0; Level < MaxLoopNestLevel; ++Level) {
-      if (DV[Level] == DV::NONE) {
+      if (DV[Level] == DVKind::NONE) {
         break;
       }
     }
-    printDV(DV, Level, FOS);
+    DV.print(FOS, Level);
     FOS << " \n";
     // todo
   }

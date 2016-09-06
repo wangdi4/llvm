@@ -26,7 +26,6 @@
 #include "lldb/lldb-private.h"
 #include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Expression/IRMemoryMap.h"
-#include "lldb/Host/Mutex.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/SymbolContext.h"
 
@@ -294,6 +293,10 @@ private:
     CollectCandidateCPlusPlusNames(std::vector<SearchSpec> &CPP_specs,
                                    const std::vector<SearchSpec> &C_specs,
                                    const SymbolContext &sc);
+    
+    void
+    CollectFallbackNames(std::vector<SearchSpec> &fallback_specs,
+                         const std::vector<SearchSpec> &C_specs);
     
     lldb::addr_t
     FindInSymbols(const std::vector<SearchSpec> &specs,

@@ -15,7 +15,6 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_H
 #define LLVM_TRANSFORMS_SCALAR_H
 
-#include "llvm/ADT/StringRef.h"
 #include <functional>
 
 namespace llvm {
@@ -82,6 +81,16 @@ FunctionPass *createDeadStoreEliminationPass();
 //
 FunctionPass *createAggressiveDCEPass();
 
+
+//===----------------------------------------------------------------------===//
+//
+// GuardWidening - An optimization over the @llvm.experimental.guard intrinsic
+// that (optimistically) combines multiple guards into one to have fewer checks
+// at runtime.
+//
+FunctionPass *createGuardWideningPass();
+
+
 //===----------------------------------------------------------------------===//
 //
 // BitTrackingDCE - This pass uses a bit-tracking DCE algorithm in order to
@@ -94,17 +103,6 @@ FunctionPass *createBitTrackingDCEPass();
 // SROA - Replace aggregates or pieces of aggregates with scalar SSA values.
 //
 FunctionPass *createSROAPass();
-
-//===----------------------------------------------------------------------===//
-//
-// ScalarReplAggregates - Break up alloca's of aggregates into multiple allocas
-// if possible.
-//
-FunctionPass *createScalarReplAggregatesPass(signed Threshold = -1,
-                                             bool UseDomTree = true,
-                                             signed StructMemberThreshold = -1,
-                                             signed ArrayElementThreshold = -1,
-                                             signed ScalarLoadThreshold = -1);
 
 //===----------------------------------------------------------------------===//
 //
@@ -344,6 +342,13 @@ FunctionPass *createEarlyCSEPass();
 
 //===----------------------------------------------------------------------===//
 //
+// GVNHoist - This pass performs a simple and fast GVN pass over the dominator
+// tree to hoist common expressions from sibling branches.
+//
+FunctionPass *createGVNHoistPass();
+
+//===----------------------------------------------------------------------===//
+//
 // MergedLoadStoreMotion - This pass merges loads and stores in diamonds. Loads
 // are hoisted into the header, while stores sink into the footer.
 //
@@ -496,7 +501,10 @@ FunctionPass *createNaryReassociatePass();
 //
 // LoopDistribute - Distribute loops.
 //
-FunctionPass *createLoopDistributePass();
+// ProcessAllLoopsByDefault instructs the pass to look for distribution
+// opportunities in all loops unless -enable-loop-distribute or the
+// llvm.loop.distribute.enable metadata data override this default.
+FunctionPass *createLoopDistributePass(bool ProcessAllLoopsByDefault);
 
 //===----------------------------------------------------------------------===//
 //

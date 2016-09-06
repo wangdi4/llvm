@@ -16,18 +16,19 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLNODE_H
 #define LLVM_IR_INTEL_LOOPIR_HLNODE_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
-#include "llvm/ADT/DenseMap.h"
 
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FormattedStream.h"
 
 #include "llvm/IR/InstrTypes.h"
 
 #include <set>
 
 namespace llvm {
+
+class formatted_raw_ostream;
 
 namespace loopopt {
 
@@ -118,9 +119,6 @@ protected:
   /// \brief Destroys the object.
   void destroy();
 
-  /// \brief Indents nodes for printing.
-  void indent(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Returns true if Pred is TRUE or FALSE.
   static bool isPredicateTrueOrFalse(PredicateTy Pred) {
     return Pred == PredicateTy::FCMP_TRUE || Pred == PredicateTy::FCMP_FALSE;
@@ -144,6 +142,10 @@ protected:
     return Node->cloneImpl(GotoList, LabelMap);
   }
 
+  /// \brief Returns the parent region of this node, if one exists, else returns
+  /// null.
+  HLRegion *getParentRegionImpl() const;
+
 public:
   /// Virtual Clone Method
   virtual HLNode *clone() const = 0;
@@ -153,9 +155,15 @@ public:
   /// \brief Dumps HLNode with details.
   void dump(bool Detailed) const;
 
+  /// \brief Indents nodes for printing.
+  void indent(formatted_raw_ostream &OS, unsigned Depth) const;
+
   /// \brief Prints HLNode with details.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const = 0;
+
+  /// Returns true if this node is attached to a HIR region.
+  bool isAttached() const { return getParentRegionImpl(); }
 
   /// \brief Returns the immediate lexical parent of the HLNode.
   HLNode *getParent() const { return Parent; }
@@ -172,11 +180,16 @@ public:
   /// \brief Returns the outermost parent loop of this node, if one exists.
   HLLoop *getOutermostParentLoop() const;
 
+  /// Returns parent loop with a nesting level of \p Level. Asserts if it cannot
+  /// find such a loop.
+  HLLoop *getParentLoopAtLevel(unsigned Level) const;
+
   /// \brief Returns the Level of HLNode.
   /// The level is computed from the node's lexical parent loop.
   unsigned getNodeLevel() const;
 
-  /// \brief Returns the parent region of this node, if one exists.
+  /// \brief Returns the parent region of this node. Asserts if the parent
+  /// region doesn't exist.
   HLRegion *getParentRegion() const;
 
   /// \brief Return an ID for the concrete type of this object.
@@ -190,6 +203,11 @@ public:
 
   /// \brief Returns the number of this node in the topological sort order.
   unsigned getTopSortNum() const { return TopSortNum; }
+
+  /// \brief Returns the minimum topological sort number across its children.
+  /// Minimum top sort num differs from normal top sort num for loops which have
+  /// preheader nodes.
+  unsigned getMinTopSortNum() const;
 
   /// \brief Returns the maximum topological sort number across its children.
   unsigned getMaxTopSortNum() const { return MaxTopSortNum; }

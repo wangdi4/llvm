@@ -215,6 +215,14 @@ int main(int argc, char **argv) {
   OptVLSInterface::getGroups(Mrfs, Grps, GroupSize);
 
   // Do something with the grps.
+  for (OVLSGroup *Grp : Grps) {
+    OVLSInstructionVector InstVec;
+    if (OptVLSInterface::getSequence(*Grp, InstVec)) {
+      for (OVLSInstruction *I : InstVec) {
+        OVLSdbgs() << *I;
+      }
+    }
+  }
 
   // Release memory
   for (OVLSMemref *Memref : Mrfs) {

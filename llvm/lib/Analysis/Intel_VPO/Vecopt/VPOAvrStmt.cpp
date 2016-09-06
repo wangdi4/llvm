@@ -41,6 +41,7 @@ void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     if (hasLHS() && hasRHS()) {
 
@@ -66,10 +67,31 @@ void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << "\n";
 }
 
+void AVRAssign::shallowPrint(formatted_raw_ostream &OS) const {
+
+  OS << "(" << getNumber() << ") ";
+  printSLEV(OS);
+  OS << getAvrTypeName() << "{";
+
+  if (hasLHS() && hasRHS()) {
+
+    OS << "(" << this->getLHS()->getNumber() << ")"
+       << " := "
+       << "(" << this->getRHS()->getNumber() << ")";
+  }
+  else {
+
+    // Print non-expression containing avr assign node.
+    OS << getAvrValueName();
+  }
+
+  OS << "}";
+}
+
 StringRef AVRAssign::getAvrTypeName() const { return StringRef("ASSIGN"); }
 
 //----------AVR Expression Implementation----------//
-AVRExpression::AVRExpression(unsigned SCID) : AVR(SCID) {}
+AVRExpression::AVRExpression(unsigned SCID, Type *ExprType) : AVR(SCID), ExprType(ExprType) {}
 
 AVRExpression *AVRExpression::clone() const { return nullptr; }
 
@@ -84,7 +106,11 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "(" << getNumber() << ")";
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
-  case PrintDataType:
+  case PrintDataType: {
+    Type *ExprType = getType();
+    OS << *ExprType << " ";
+  }
+    printSLEV(OS);
   case PrintBase:
     if (isUnaryOperation()) {
 
@@ -117,10 +143,39 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 }
 
+void AVRExpression::shallowPrint(formatted_raw_ostream &OS) const {
+
+  OS << "("  << getNumber() << ")";
+  printSLEV(OS);
+  OS << getAvrTypeName() << "{";
+
+  if (isUnaryOperation()) {
+  
+    if (!isLHSExpr())
+      OS << getOpCodeName() << " (" << this->Operands.back()->getNumber() << ")";
+  }
+  else if (isBinaryOperation()) {
+
+    OS << "(" << this->Operands[0]->getNumber() << ") "
+       << getOpCodeName()
+       << " (" << this->Operands[1]->getNumber() << ")";
+
+  }
+  else {
+
+    OS << getOpCodeName() << " ";
+    for (auto Itr : Operands) {
+      OS << " (" << Itr->getNumber() << ")";
+    }
+  }
+
+  OS << "}";
+}
+
 StringRef AVRExpression::getAvrTypeName() const { return StringRef("EXPR"); }
 
 //----------AVR Value Implementation----------//
-AVRValue::AVRValue(unsigned SCID) : AVR(SCID) {}
+AVRValue::AVRValue(unsigned SCID, Type *ValType) : AVR(SCID), ValType(ValType) {}
 
 AVRValue *AVRValue::clone() const { return nullptr; }
 
@@ -137,12 +192,70 @@ void AVRLabel::print(formatted_raw_ostream &OS, unsigned Depth,
 StringRef AVRLabel::getAvrTypeName() const { return StringRef("LABEL"); }
 
 //----------AVR Phi Implementation----------//
-AVRPhi::AVRPhi(unsigned SCID) : AVR(SCID) {}
+AVRPhi::AVRPhi(unsigned SCID) : AVR(SCID), LHS(nullptr) {}
 
 AVRPhi *AVRPhi::clone() const { return nullptr; }
 
 void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
-                   VerbosityLevel VLevel) const {}
+                   VerbosityLevel VLevel) const {
+
+  assert(LHS && "AVR-style print called for partially-constructed AVRPhi");
+
+  std::string Indent((Depth * TabLength), ' ');
+  OS << Indent;
+
+  // Print Avr Phi Node.
+  switch (VLevel) {
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+    printSLEV(OS);
+  case PrintBase:
+    {
+      LHS->print(OS, 0, VLevel);
+      OS << " = phi ";
+      unsigned IncomingNum = IncomingValues.size();
+      for (unsigned Ind = 0; Ind < IncomingNum; ++Ind) {
+        if (Ind > 0)
+          OS << ", ";
+        OS << "[";
+        auto& Incoming = IncomingValues[Ind];
+        Incoming.first->print(OS, 0, VLevel);
+        OS << ", " << Incoming.second->getAvrValueName() << "]";
+      }
+    }
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+
+  // Close up open braces
+  if (VLevel >= PrintAvrType)
+    OS << "}";
+
+  OS << "\n";
+}
+
+void AVRPhi::shallowPrint(formatted_raw_ostream &OS) const {
+
+  OS << "(" << getNumber() << ") ";
+  printSLEV(OS);
+  OS << getAvrTypeName() << "{("
+     << LHS->getNumber() << ") := phi(";
+
+  unsigned IncomingNum = IncomingValues.size();
+  for (unsigned Ind = 0; Ind < IncomingNum; ++Ind) {
+    if (Ind > 0)
+      OS << ", ";
+    auto& Incoming = IncomingValues[Ind];
+    OS << "[(" << Incoming.first->getNumber()
+       << "), (" << Incoming.second->getNumber()
+       << ")]";
+  }
+  OS << ")}";
+}
 
 StringRef AVRPhi::getAvrTypeName() const { return StringRef("PHI"); }
 
@@ -265,6 +378,11 @@ void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
   default:
     llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+}
+
+void AVRWrn::shallowPrint(formatted_raw_ostream &OS) const {
+  
+  OS << "(" << getNumber() << ") " << getAvrTypeName();
 }
 
 StringRef AVRWrn::getAvrTypeName() const { return StringRef("WRN"); }

@@ -20,11 +20,11 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormattedStream.h"
 
+#include <iterator>
+#include <set>
 #include <stdint.h>
 #include <utility>
-#include <set>
 #include <vector>
-#include <iterator>
 
 namespace llvm {
 
@@ -143,15 +143,14 @@ private:
   // Capture whether we are representing signed or unsigned division.
   bool IsSignedDiv;
 
-  // The flag is set if canon expr contains UndefValue.
-  bool ContainsUndef;
-
 protected:
   CanonExpr(Type *SrcType, Type *DestType, bool IsSExt, unsigned DefLevel,
             int64_t ConstVal, int64_t Denom, bool IsSignedDiv);
   virtual ~CanonExpr(){};
 
   friend class CanonExprUtils;
+  // Calls verifyNestingLevel().
+  friend class HLNodeUtils;
   friend class HIRParser;
 
   /// \brief Destroys the object.
@@ -192,9 +191,6 @@ protected:
   void collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
                               bool MakeUnique, bool NeedTempBlobs) const;
 
-  /// \brief Marks this canon expr as containing undefined value.
-  void setContainsUndef() { this->ContainsUndef = true; }
-
   /// \brief Returns true if the canon expr represents a constant.
   bool isConstInternal() const {
     return (!containsUndef() && !hasIV() && !hasBlob() &&
@@ -211,8 +207,8 @@ protected:
   /// true, handle a constant FP value cast to a vector type.
   bool isFPConstantImpl(ConstantFP **Val, bool HandleSplat) const;
 
-  /// \brief Returns true if canon expr is a constant integer splat. The constant
-  //  integer splat value is returned in \pVal.
+  /// \brief Returns true if canon expr is a constant integer splat. The
+  /// constant integer splat value is returned in \pVal.
   bool isIntConstantSplat(int64_t *Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents a floating point constant
@@ -226,9 +222,22 @@ protected:
   /// \brief Return the mathematical coefficient to be used in cases
   /// where mathematical addition is performed. The Coeff value in those
   /// cases is multiplied by denominator.
+  /// Example: Original CE = i/2 and we want to add a blob 'b1' to it.
+  /// If IsMath = true, Result = (i+2*b1)/2 .
+  /// If IsMath = false, Result = (i+b1)/2 .
   int64_t getMathCoeff(int64_t Coeff, bool IsMathAdd) {
     return IsMathAdd ? (getDenominator() * Coeff) : Coeff;
   }
+
+  /// Verifies that the incoming nesting level is valid for this CE, asserts
+  /// otherwise.
+  bool verifyNestingLevel(unsigned NestingLevel) const;
+
+  /// Verifies that all IVs contained in CE are valid, asserts otherwise.
+  bool verifyIVs(unsigned NestingLevel) const;
+
+  /// \brief Returns true if canon expr represents null pointer value.
+  bool isNullImpl() const;
 
 public:
   CanonExpr *clone() const;
@@ -324,7 +333,7 @@ public:
   /// \brief Returns true if canon expr represents any kind of constant.
   bool isConstant() const {
     return (isIntConstant() || isFPConstant() || isNull() || isMetadata() ||
-            isConstantVector());
+            isConstantVector() || isNullVector());
   }
 
   /// \brief Returns true if canon expr is a constant integer. Integer value
@@ -356,6 +365,10 @@ public:
   /// \brief Returns true if canon expr represents null pointer value.
   bool isNull() const;
 
+  /// \brief Returns true if canon expr represents a vector of null pointer
+  /// values.
+  bool isNullVector() const;
+
   /// \brief Returns true if this canon expr looks soemthing like (1 * %t).
   /// This is a broader check than isSelfBlob() because it allows the blob to
   /// be a FP constant or even metadata.
@@ -363,6 +376,30 @@ public:
     return (!hasIV() && !getConstant() && (getDenominator() == 1) &&
             (numBlobs() == 1) && (getSingleBlobCoeff() == 1));
   }
+
+  /// Returns true if CanonExpr can be converted into a stand alone blob.
+  bool canConvertToStandAloneBlob() const;
+
+  /// Merges all the blobs and the constant/denominator into a single compound
+  /// blob. If the src/dest types are different the cast is merged into the blob
+  /// too. Return value indicates whether conversion was performed.
+  bool convertToStandAloneBlob();
+
+  // Converts CE to standalone blob and applies appropriate cast on top. Return
+  // value indicates whether conversion was performed.
+  bool castStandAloneBlob(Type *Ty, bool IsSExt);
+
+  /// Converts CE to a standalone blob and sign extends it to Ty. Return value
+  /// indicates whether conversion was performed.
+  bool convertSExtStandAloneBlob(Type *Ty);
+
+  /// Converts CE to a standalone blob and zero extends it to Ty. Return value
+  /// indicates whether conversion was performed.
+  bool convertZExtStandAloneBlob(Type *Ty);
+
+  /// Converts CE to a standalone blob and truncates it to Ty. Return value
+  /// indicates whether conversion was performed.
+  bool convertTruncStandAloneBlob(Type *Ty);
 
   /// \brief Returns true if this canon expr looks something like (1 * %t)
   /// i.e. a single blob with a coefficient of 1. Please note that there is an
@@ -389,13 +426,7 @@ public:
   }
 
   /// \brief Returns true if this expression contains undefined terms.
-  bool containsUndef() const { return ContainsUndef; }
-  /// \brief Indicates that the canon expr does not contain undefined terms
-  /// anymore.
-  /// NOTE: Canon expr can internally maintain this flag by inspecting all the
-  /// blobs but not sure if it is worth implementing as it will unnecessarily
-  /// increase compile time.
-  void unsetContainsUndef() { ContainsUndef = false; }
+  bool containsUndef() const;
 
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }
@@ -424,6 +455,10 @@ public:
   /// \brief Returns true if the division in the canon expr is a signed
   /// division.
   bool isSignedDiv() const { return IsSignedDiv; }
+
+  /// \brief Returns true if the division in the canon expr is an unsigned
+  /// division.
+  bool isUnsignedDiv() const { return !isSignedDiv(); }
 
   /// \brief Sets the division type which can be either signed or unsigned.
   /// This
@@ -542,6 +577,7 @@ public:
   /// \brief Returns the blob coeff of the only blob.
   int64_t getSingleBlobCoeff() const {
     assert((numBlobs() == 1) && "Canon expr does not contain single blob!");
+    assert(BlobCoeffs[0].Coeff != 0 && "Single Blob Coeff should not be zero");
     return BlobCoeffs[0].Coeff;
   }
 
@@ -604,7 +640,7 @@ public:
   void multiplyByConstant(int64_t Val);
 
   /// \brief Negates canon expr.
-  void negate();
+  void negate() { multiplyByConstant(-1); }
 
   /// \brief Verifies canon expression
   void verify(unsigned NestingLevel) const;
@@ -613,5 +649,14 @@ public:
 } // End loopopt namespace
 
 } // End llvm namespace
+
+namespace std {
+
+// default_delete<CanonExpr> is a helper for destruction CanonExpr objects to
+// support std::unique_ptr<CanonExpr>.
+template <> struct default_delete<llvm::loopopt::CanonExpr> {
+  void operator()(llvm::loopopt::CanonExpr *CE) const;
+};
+}
 
 #endif

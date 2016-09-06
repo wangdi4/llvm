@@ -195,12 +195,13 @@ AddLocalVariableDecls(const lldb::VariableListSP &var_list_sp, StreamString &str
     }
 }
 
-bool ExpressionSourceCode::GetText (std::string &text, lldb::LanguageType wrapping_language, bool const_object, bool static_method, ExecutionContext &exe_ctx) const
+bool ExpressionSourceCode::GetText (std::string &text, lldb::LanguageType wrapping_language, bool static_method, ExecutionContext &exe_ctx) const
 {
     const char *target_specific_defines = "typedef signed char BOOL;\n";
     std::string module_macros;
     
-    if (Target *target = exe_ctx.GetTargetPtr())
+    Target *target = exe_ctx.GetTargetPtr();
+    if (target)
     {
         if (target->GetArchitecture().GetMachine() == llvm::Triple::aarch64)
         {
@@ -278,8 +279,11 @@ bool ExpressionSourceCode::GetText (std::string &text, lldb::LanguageType wrappi
         ConstString object_name;
         if (Language::LanguageIsCPlusPlus(frame->GetLanguage()))
         {
-            lldb::VariableListSP var_list_sp = frame->GetInScopeVariableList(false);
-            AddLocalVariableDecls(var_list_sp, lldb_local_var_decls);
+            if (target->GetInjectLocalVariables(&exe_ctx))
+            {
+                lldb::VariableListSP var_list_sp = frame->GetInScopeVariableList(false, true);
+                AddLocalVariableDecls(var_list_sp, lldb_local_var_decls);
+            }
         }
     }
 
@@ -337,13 +341,12 @@ bool ExpressionSourceCode::GetText (std::string &text, lldb::LanguageType wrappi
             break;
         case lldb::eLanguageTypeC_plus_plus:
             wrap_stream.Printf("void                                   \n"
-                               "$__lldb_class::%s(void *$__lldb_arg) %s\n"
+                               "$__lldb_class::%s(void *$__lldb_arg)   \n"
                                "{                                      \n"
                                "    %s;                                \n"
                                "%s"
                                "}                                      \n",
                                m_name.c_str(),
-                               (const_object ? "const" : ""),
                                lldb_local_var_decls.GetData(),
                                tagged_body.c_str());
             break;

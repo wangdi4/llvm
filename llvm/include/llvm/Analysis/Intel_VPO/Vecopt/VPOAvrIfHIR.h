@@ -18,6 +18,7 @@
 #define LLVM_ANALYSIS_VPO_AVR_IF_HIR_H
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtHIR.h"
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
 
 using namespace llvm::loopopt;
@@ -32,6 +33,9 @@ class AVRIfHIR : public AVRIf {
 private:
   /// If comparison instruction
   HLIf *CompareInstruction;
+
+  /// Condition - The AVR expression for this If's condition.
+  AVRExpressionHIR* Condition;
 
 protected:
   AVRIfHIR(HLIf *CompareInst);
@@ -56,6 +60,8 @@ public:
   }
   /// \brief Returns the number of operands for this instruction.
   unsigned getNumOperands() const;
+
+  AVR *getCondition() const override { return Condition; }
 
   /// \brief Returns the underlying HLIf node for this AvrIf.
   const HLIf *getCompareInstruction() const { return CompareInstruction; }

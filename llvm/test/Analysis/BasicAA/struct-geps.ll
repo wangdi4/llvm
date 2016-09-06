@@ -15,11 +15,11 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-DAG: NoAlias: i32* %y, i32* %z
 
 ; CHECK-DAG: PartialAlias: %struct* %st, %struct* %y_12
-; CHECK-DAG: PartialAlias: %struct* %y_12, i32* %x
-; CHECK-DAG: PartialAlias: i32* %x, i80* %y_10
+; CHECK-DAG: MayAlias: %struct* %y_12, i32* %x  ;INTEL
+; CHECK-DAG: MayAlias: i32* %x, i80* %y_10      ;INTEL
 
 ; CHECK-DAG: PartialAlias: %struct* %st, i64* %y_8
-; CHECK-DAG: PartialAlias: i32* %z, i64* %y_8
+; CHECK-DAG: MayAlias: i32* %z, i64* %y_8       ;INTEL
 ; CHECK-DAG: NoAlias: i32* %x, i64* %y_8
 
 ; CHECK-DAG: MustAlias: %struct* %y_12, i32* %y
@@ -160,5 +160,14 @@ define void @test_same_underlying_object_different_indices(%struct* %st, i64 %i1
 define void @test_struct_in_array(%struct2* %st, i64 %i, i64 %j, i64 %k) {
   %x = getelementptr %struct2, %struct2* %st, i32 0, i32 1, i32 1, i32 0
   %y = getelementptr %struct2, %struct2* %st, i32 0, i32 0, i32 1, i32 1
+  ret void
+}
+
+; PR27418 - Treat GEP indices with the same value but different types the same
+; CHECK-LABEL: test_different_index_types
+; CHECK: MustAlias: i16* %tmp1, i16* %tmp2
+define void @test_different_index_types([2 x i16]* %arr) {
+  %tmp1 = getelementptr [2 x i16], [2 x i16]* %arr, i16 0, i32 1
+  %tmp2 = getelementptr [2 x i16], [2 x i16]* %arr, i16 0, i16 1
   ret void
 }

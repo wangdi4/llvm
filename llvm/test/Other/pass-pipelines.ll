@@ -3,11 +3,12 @@
 ; legacy pass manager doesn't introduce unexpected structural changes in the
 ; pass pipeline.
 ;
-; INTEL - Disabled Intel Andersen's Alias Analysis so as to not break
-; INTEL - the pass pipeline this is trying to check for.
+; INTEL - Disabled Intel Andersen's Alias Analysis and loopopt so as to not
+; INTEL - break the pass pipeline this is trying to check for.
+; INTEL - Disabled svml translation pass to prevent this test from breaking
 ; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
-; RUN:     -enable-andersen=false -O2 %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefix=CHECK-O2
+; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -O2 \
+; RUN:     %s 2>&1 | FileCheck %s --check-prefix=CHECK-O2
 ;
 ; In the first pipeline there should just be a function pass manager, no other
 ; pass managers.
@@ -57,6 +58,12 @@
 ; Next we break out of the main Function passes inside the CGSCC pipeline with
 ; a barrier pass.
 ; CHECK-O2: A No-Op Barrier Pass
+; Reduce the size of the IR ASAP after the inliner.
+; CHECK-O2-NEXT: Eliminate Available Externally
+; Inferring function attribute should be right after the CGSCC pipeline, before
+; any other optimizations/analyses.
+; CHECK-O2-NEXT: CallGraph
+; CHECK-O2-NEXT: Deduce function attributes in RPO
 ; CHECK-O2-NOT: Manager
 ; Next is the late function pass pipeline.
 ; CHECK-O2: FunctionPass Manager

@@ -67,6 +67,7 @@
 #include "llvm/Support/ErrorHandling.h"
 
 #include <algorithm>
+#include <atomic>
 
 
 
@@ -350,9 +351,6 @@ struct AndersensAAResult::ConstraintKeyInfo {
 // artificial Node's that represent the set of pointed-to variables shared
 // for each location equivalent Node.
 struct AndersensAAResult::Node {
-private:
-  static volatile sys::cas_flag Counter;
-
 public:
   Value *Val;
   SparseBitVector<> *Edges;
@@ -439,7 +437,10 @@ public:
 
   // Timestamp a node (used for work list prioritization)
   void Stamp() {
-    Timestamp = sys::AtomicIncrement(&Counter);
+    // Initialize Timestamp Counter (static).
+    static std::atomic<unsigned> Counter (0);
+
+    Timestamp = ++Counter;
     --Timestamp;
   }
 
@@ -809,8 +810,6 @@ unsigned AndersensAAResult::getNodeValue(Value &V) {
 }
 
 
-// Initialize Timestamp Counter (static).
-volatile llvm::sys::cas_flag AndersensAAResult::Node::Counter = 0;
 
 //ModulePass *llvm::createAndersensPass() { return new Andersens(); }
 

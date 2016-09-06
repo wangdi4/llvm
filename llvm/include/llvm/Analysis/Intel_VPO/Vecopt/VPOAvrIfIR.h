@@ -65,7 +65,7 @@ public:
   AVRBranch *getAvrBranch() const { return AvrBranch; }
 
   /// \brief Returns the AVR Condition for AvrIf.
-  AVR *getCondition() const { return Condition; }
+  virtual AVR *getCondition() const override { return Condition; }
 
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,

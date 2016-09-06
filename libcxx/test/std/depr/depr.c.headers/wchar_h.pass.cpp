@@ -10,6 +10,7 @@
 // <wchar.h>
 
 #include <wchar.h>
+#include <stdarg.h>
 #include <type_traits>
 
 #ifndef NULL
@@ -31,25 +32,25 @@
 int main()
 {
 // mbstate_t comes from the underlying C library; it is defined (in C99) as:
-//    a complete object type other than an array type that can hold the conversion 
-//    state information necessary to convert between sequences of multibyte 
+//    a complete object type other than an array type that can hold the conversion
+//    state information necessary to convert between sequences of multibyte
 //    characters and wide characters
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-braces"
-    mbstate_t mb = {0};
-#pragma clang diagnostic pop
-
+    mbstate_t mb = {};
     size_t s = 0;
     tm *tm = 0;
     wint_t w = 0;
     ::FILE* fp = 0;
-#ifdef __APPLE__
-    __darwin_va_list va;
-#else
-    __builtin_va_list va;
-#endif
+    ::va_list va;
     char* ns = 0;
     wchar_t* ws = 0;
+    ((void)mb); // Prevent unused warning
+    ((void)s); // Prevent unused warning
+    ((void)tm); // Prevent unused warning
+    ((void)w); // Prevent unused warning
+    ((void)fp); // Prevent unused warning
+    ((void)va); // Prevent unused warning
+    ((void)ns); // Prevent unused warning
+    ((void)ws); // Prevent unused warning
     static_assert((std::is_same<decltype(fwprintf(fp, L"")), int>::value), "");
     static_assert((std::is_same<decltype(fwscanf(fp, L"")), int>::value), "");
     static_assert((std::is_same<decltype(swprintf(ws, s, L"")), int>::value), "");

@@ -14,6 +14,7 @@
 
 #include "ScriptParser.h"
 #include "Error.h"
+#include "llvm/ADT/Twine.h"
 
 using namespace llvm;
 using namespace lld;
@@ -42,8 +43,12 @@ void ScriptParserBase::printErrorPos() {
 void ScriptParserBase::setError(const Twine &Msg) {
   if (Error)
     return;
-  error("line " + Twine(getPos()) + ": " + Msg);
-  printErrorPos();
+  if (Input.empty() || Tokens.empty()) {
+    error(Msg);
+  } else {
+    error("line " + Twine(getPos()) + ": " + Msg);
+    printErrorPos();
+  }
   Error = true;
 }
 
@@ -70,7 +75,7 @@ std::vector<StringRef> ScriptParserBase::tokenize(StringRef S) {
     // Unquoted token
     size_t Pos = S.find_first_not_of(
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-        "0123456789_.$/\\~=+[]*?-:");
+        "0123456789_.$/\\~=+[]*?-:!<>");
     // A character that cannot start a word (which is usually a
     // punctuation) forms a single character token.
     if (Pos == 0)
@@ -80,7 +85,7 @@ std::vector<StringRef> ScriptParserBase::tokenize(StringRef S) {
   }
 }
 
-// Skip leading whitespace characters or /**/-style comments.
+// Skip leading whitespace characters or comments.
 StringRef ScriptParserBase::skipSpace(StringRef S) {
   for (;;) {
     if (S.startswith("/*")) {
@@ -90,6 +95,13 @@ StringRef ScriptParserBase::skipSpace(StringRef S) {
         return "";
       }
       S = S.substr(E + 2);
+      continue;
+    }
+    if (S.startswith("#")) {
+      size_t E = S.find('\n', 1);
+      if (E == StringRef::npos)
+        E = S.size() - 1;
+      S = S.substr(E + 1);
       continue;
     }
     size_t Size = S.size();
@@ -148,19 +160,4 @@ size_t ScriptParserBase::getPos() {
   const char *Begin = Input.data();
   const char *Tok = Tokens[Pos - 1].data();
   return StringRef(Begin, Tok - Begin).count('\n') + 1;
-}
-
-std::vector<uint8_t> ScriptParserBase::parseHex(StringRef S) {
-  std::vector<uint8_t> Hex;
-  while (!S.empty()) {
-    StringRef B = S.substr(0, 2);
-    S = S.substr(2);
-    uint8_t H;
-    if (B.getAsInteger(16, H)) {
-      setError("not a hexadecimal value: " + B);
-      return {};
-    }
-    Hex.push_back(H);
-  }
-  return Hex;
 }

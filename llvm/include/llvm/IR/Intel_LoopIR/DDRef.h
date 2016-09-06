@@ -17,17 +17,19 @@
 #define LLVM_IR_INTEL_LOOPIR_DDREF_H
 
 #include "llvm/Support/Compiler.h"
-#include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include <set>
 
 namespace llvm {
 
 class Value;
 class Type;
+class formatted_raw_ostream;
 
 namespace loopopt {
 
 class CanonExpr;
+class HLDDNode;
+class HLLoop;
 
 /// \brief Base class for encapsulating Values/References which can cause
 /// data dependencies and/or for which we need to generate code using the
@@ -120,19 +122,20 @@ public:
   /// \brief Verifies DDRef integrity.
   virtual void verify() const;
 
-  /// \brief Returns true if DDRef temp is live out of Region
-  ///  Note: This is different from Live out of Loop
-  bool isLiveOutOfRegion() const {
-    return getHLDDNode()->isLiveOutOfRegion(Symbase);
-  }
+  /// Returns true if temp DDRef is live out of Region.
+  /// Assets if this DDRef does not represent a temp.
+  bool isLiveOutOfRegion() const;
 
-  /// \brief  Returns ParentLoop of DDRef
-  HLLoop *getParentLoop() {
-    HLDDNode *DDNode = getHLDDNode();
-    HLNode *HIR = dyn_cast<HLNode>(DDNode);
-    HLLoop *ParentLoop = HIR->getParentLoop();
-    return ParentLoop;
-  }
+  /// Returns true if temp DDRef is live into parent loop.
+  /// Asserts if this DDRef does not represent a temp.
+  bool isLiveIntoParentLoop() const;
+
+  /// Returns true if temp DDRef is live out of parent loop.
+  /// Asserts if this DDRef does not represent a temp.
+  bool isLiveOutOfParentLoop() const;
+
+  /// \brief  Returns ParentLoop of DDRef.
+  HLLoop *getParentLoop() const;
 };
 
 } // End loopopt namespace

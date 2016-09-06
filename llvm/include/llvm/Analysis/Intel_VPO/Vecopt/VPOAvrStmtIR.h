@@ -120,12 +120,14 @@ public:
 /// See AVRValue class for more information.
 class AVRValueIR : public AVRValue {
 
+public:
+
+  /// \brief Returns whether the associated RegDDRef is a constant.
+  bool isConstant() const override { return isa<Constant>(Val); }
+
 private:
   /// \p Val - The LLVM IR Value for this operand.
   const Value *Val;
-
-  /// \p ValType - LLVM type of this value.
-  Type *ValType;
 
   /// \p Instruct - LLVM instruction containing the operand which
   /// this AVR Value represents.
@@ -134,15 +136,21 @@ private:
 protected:
   /// \brief Constructs an AVRValueIR for the operand in \p Inst specified by
   /// \p V.
-  AVRValueIR(const Value *V, const Instruction *Inst);
+  AVRValueIR(const Value *V, const Instruction *Inst, AVR *Parent);
 
   /// \brief Destructor for this object.
-  virtual ~AVRValueIR() override {}
+  virtual ~AVRValueIR() override { }
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsIR;
 
 public:
+  /// \brief Returns the LLVM value
+ const Value *getLLVMValue() const { return Val; }
+
+  /// \brief Returns the LLVM instruction
+ const Instruction *getLLVMInstruction() const { return Instruct; }
+
   /// \brief Clone method for AVRValueIR.
   AVRValueIR *clone() const override;
 
@@ -286,6 +294,9 @@ private:
   /// block.
   BasicBlock *ElseBBlock;
 
+  /// NextBB - If unconditional branch, pointer to the successor block.
+  BasicBlock *NextBBlock;
+
 protected:
   /// \brief Create a new branch from LLVM branch instruction \p In and
   /// branch condition \p Cond (optional).
@@ -305,6 +316,9 @@ public:
 
   /// \brief Returns ElseBBlock successor for conditional branch.
   BasicBlock *getElseBBlock() const { return ElseBBlock; }
+
+  /// \brief Returns NextBBlock successor for unconditional branch.
+  BasicBlock *getNextBBlock() const { return NextBBlock; }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {

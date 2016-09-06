@@ -48,6 +48,12 @@ WRegionNode *WRegionUtils::createWRegion(
     case DIR_OMP_SIMD:
       W = new WRNVecLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_ATOMIC:
+      W = new WRNAtomicNode(EntryBB);
+      break;
+    case DIR_OMP_MASTER:
+      W = new WRNMasterNode(EntryBB);
+      break;
   }
   if (W)
     W->setLevel(NestingLevel);
@@ -261,3 +267,30 @@ void WRegionUtils::insertWRegionNode(
   return;
 }
 
+//Removal Utilities
+bool WRegionUtils::stripDirectives(WRegionNode *WRN) {
+  bool success = true;
+  BasicBlock *EntryBB = WRN->getEntryBBlock();
+  BasicBlock *ExitBB = WRN->getExitBBlock();
+
+  success = success && VPOUtils::stripDirectives(*EntryBB);
+  success = success && VPOUtils::stripDirectives(*ExitBB);
+
+  return success;
+}
+
+// Clause Utilities
+int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
+  switch (Kind) {
+  case WRNAtomicUpdate:
+    return QUAL_OMP_UPDATE;
+  case WRNAtomicRead:
+    return QUAL_OMP_READ;
+  case WRNAtomicWrite:
+    return QUAL_OMP_WRITE;
+  case WRNAtomicCapture:
+    return QUAL_OMP_CAPTURE;
+  default:
+    llvm_unreachable("Unsupported Atomic Kind");
+  }
+}

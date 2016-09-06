@@ -90,12 +90,6 @@ public:
   }
 
 private:
-  enum MetadataType {
-    LiveInType,
-    LiveOutType,
-    LiveRangeType,
-  };
-
   /// \brief Attaches a string metadata node to instruction. This will be used
   /// by ScalarSymbaseAssignment to assign symbases. The metadata kind used for
   /// livein/liveout values is different because livein copies need to be
@@ -103,7 +97,7 @@ private:
   /// don't. Live range type is used to indicate live range violation and
   /// suppress traceback during SCEV creation.
   void attachMetadata(Instruction *Inst, StringRef Name,
-                      MetadataType MType) const;
+                      ScalarEvolution::HIRLiveKind Kind) const;
 
   /// \brief Returns a copy of Val.
   Instruction *createCopy(Value *Val, StringRef Name, bool IsLivein) const;
@@ -120,7 +114,7 @@ private:
 
   /// \brief Returns the SCC this phi belongs to, if any, otherwise returns
   /// null.
-  HIRSCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
+  const HIRSCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
 
   /// \brief Returns true if OrigPredBB has an alternate reaching path to Phi
   /// other than the immediate successor. This means that adding a livein copy
@@ -148,7 +142,8 @@ private:
   /// replaces the liveout uses with the copy. If SCCNodes is null, Phi is
   /// treated as a standalone phi and this is needed to handle a special case
   /// described in the function definition.
-  void processPhiLiveouts(PHINode *Phi, HIRSCCFormation::SCCNodesTy *SCCNodes,
+  void processPhiLiveouts(PHINode *Phi,
+                          const HIRSCCFormation::SCCNodesTy *SCCNodes,
                           StringRef Name);
 
   /// \brief Deconstructs phi by inserting copies.
@@ -167,7 +162,7 @@ private:
   bool ModifiedIR;
   unsigned NamingCounter;
   HIRRegionIdentification::iterator CurRegIt;
-  SmallPtrSet<HIRSCCFormation::SCCTy *, 32> ProcessedSCCs;
+  SmallPtrSet<const HIRSCCFormation::SCCTy *, 32> ProcessedSCCs;
 };
 }
 
@@ -186,20 +181,15 @@ FunctionPass *llvm::createHIRSSADeconstructionPass() {
   return new HIRSSADeconstruction();
 }
 
-void HIRSSADeconstruction::attachMetadata(Instruction *Inst, StringRef Name,
-                                          MetadataType MType) const {
+void HIRSSADeconstruction::attachMetadata(
+    Instruction *Inst, StringRef Name,
+    ScalarEvolution::HIRLiveKind Kind) const {
   Twine NewName(Name, ".de.ssa");
 
   Metadata *Args[] = {MDString::get(Inst->getContext(), NewName.str())};
   MDNode *Node = MDNode::get(Inst->getContext(), Args);
 
-  if (MType == LiveInType) {
-    Inst->setMetadata(HIR_LIVE_IN_STR, Node);
-  } else if (MType == LiveOutType) {
-    Inst->setMetadata(HIR_LIVE_OUT_STR, Node);
-  } else {
-    Inst->setMetadata(HIR_LIVE_RANGE_STR, Node);
-  }
+  Inst->setMetadata(SE->getHIRMDKindID(Kind), Node);
 }
 
 Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
@@ -209,7 +199,8 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   auto CInst =
       CastInst::Create(Instruction::BitCast, Val, Val->getType(), NewName);
 
-  attachMetadata(CInst, Name, IsLivein ? LiveInType : LiveOutType);
+  attachMetadata(CInst, Name, IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
+                                       : ScalarEvolution::HIRLiveKind::LiveOut);
 
   return CInst;
 }
@@ -241,14 +232,14 @@ Instruction *HIRSSADeconstruction::insertCopyAsFirstInst(Instruction *Inst,
   return CopyInst;
 }
 
-HIRSCCFormation::SCCTy *
+const HIRSCCFormation::SCCTy *
 HIRSSADeconstruction::getPhiSCC(const PHINode *Phi) const {
   for (auto SCCIt = SCCF->begin(CurRegIt), E = SCCF->end(CurRegIt); SCCIt != E;
        ++SCCIt) {
 
     // Present in this SCC.
-    if (((*SCCIt)->Nodes).count(Phi)) {
-      return *SCCIt;
+    if (SCCIt->Nodes.count(Phi)) {
+      return &(*SCCIt);
     }
   }
 
@@ -378,7 +369,7 @@ bool HIRSSADeconstruction::liveoutCopyRequired(
 }
 
 void HIRSSADeconstruction::processPhiLiveouts(
-    PHINode *Phi, HIRSCCFormation::SCCNodesTy *SCCNodes, StringRef Name) {
+    PHINode *Phi, const HIRSCCFormation::SCCNodesTy *SCCNodes, StringRef Name) {
 
   Instruction *CopyInst = nullptr;
   bool CopyRequired = false;
@@ -537,7 +528,7 @@ bool HIRSSADeconstruction::processPhiLiveins(
     auto PredBB = Phi->getIncomingBlock(I);
 
     // Ignore if this value is region live-in.
-    if (!(*CurRegIt)->containsBBlock(PredBB)) {
+    if (!CurRegIt->containsBBlock(PredBB)) {
       continue;
     }
 
@@ -559,7 +550,7 @@ bool HIRSSADeconstruction::processPhiLiveins(
                "Could not split edge, SplitCriticalEdge() returned null!");
 
         // Add the new bblock to the current region.
-        (*CurRegIt)->addBBlock(PredBB);
+        CurRegIt->addBBlock(PredBB);
       }
     }
 
@@ -607,6 +598,12 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     for (auto const &SCCInst : PhiSCC->Nodes) {
 
       if (auto SCCPhiInst = dyn_cast<PHINode>(SCCInst)) {
+
+        // Single operand phis do not need to be processed.
+        if (1 == SCCPhiInst->getNumIncomingValues()) {
+          continue;
+        }
+
         LiveinCopyInserted =
             processPhiLiveins(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
                               Name.str()) ||
@@ -622,7 +619,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
 
         // Attach live range type metadata to suppress SCEV traceback.
         attachMetadata(const_cast<Instruction *>(SCCInst), Name.str(),
-                       LiveRangeType);
+                       ScalarEvolution::HIRLiveKind::LiveRange);
         // Tell SCEV to reparse the instruction.
         SE->forgetValue(const_cast<Instruction *>(SCCInst));
       }
@@ -632,7 +629,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
       // Attach metadata to the root node to connect the SCC to its livein
       // copies.
       attachMetadata(const_cast<Instruction *>(PhiSCC->Root), Name.str(),
-                     LiveInType);
+                     ScalarEvolution::HIRLiveKind::LiveIn);
     }
 
   } else {
@@ -668,7 +665,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     constructName(Phi, Name);
 
     // Attach metadata to Phi to connect it to its copies.
-    attachMetadata(Phi, Name.str(), LiveInType);
+    attachMetadata(Phi, Name.str(), ScalarEvolution::HIRLiveKind::LiveIn);
 
     processPhiLiveins(Phi, nullptr, Name.str());
     processPhiLiveouts(Phi, nullptr, Name.str());
@@ -684,7 +681,7 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
     CurRegIt = RegIt;
 
     // Traverse region basic blocks.
-    for (auto BBIt = (*RegIt)->bb_begin(), EndBBIt = (*RegIt)->bb_end();
+    for (auto BBIt = RegIt->bb_begin(), EndBBIt = RegIt->bb_end();
          BBIt != EndBBIt; ++BBIt) {
 
       // Process instructions inside the basic blocks.
@@ -699,6 +696,9 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
 }
 
 bool HIRSSADeconstruction::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();

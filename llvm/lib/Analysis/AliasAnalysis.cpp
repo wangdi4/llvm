@@ -27,7 +27,8 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CFG.h"
-#include "llvm/Analysis/CFLAliasAnalysis.h"
+#include "llvm/Analysis/CFLAndersAliasAnalysis.h"
+#include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
@@ -123,7 +124,10 @@ ModRefInfo AAResults::getModRefInfo(Instruction *I, ImmutableCallSite Call) {
   // We may have two calls
   if (auto CS = ImmutableCallSite(I)) {
     // Check if the two calls modify the same memory
-    return getModRefInfo(Call, CS);
+    return getModRefInfo(CS, Call);
+  } else if (I->isFenceLike()) {
+    // If this is a fence, just return MRI_ModRef.
+    return MRI_ModRef;
   } else {
     // Otherwise, check if the call modifies or references the
     // location this memory access defines.  The best we can say
@@ -156,6 +160,8 @@ ModRefInfo AAResults::getModRefInfo(ImmutableCallSite CS,
 
   if (onlyReadsMemory(MRB))
     Result = ModRefInfo(Result & MRI_Ref);
+  else if (doesNotReadMemory(MRB))
+    Result = ModRefInfo(Result & MRI_Mod);
 
   if (onlyAccessesArgPointees(MRB)) {
     bool DoesAlias = false;
@@ -221,6 +227,8 @@ ModRefInfo AAResults::getModRefInfo(ImmutableCallSite CS1,
   // from CS1 reading memory written by CS2.
   if (onlyReadsMemory(CS1B))
     Result = ModRefInfo(Result & MRI_Ref);
+  else if (doesNotReadMemory(CS1B))
+    Result = ModRefInfo(Result & MRI_Mod);
 
   // If CS2 only access memory through arguments, accumulate the mod/ref
   // information from CS1's references to the memory referenced by
@@ -459,7 +467,7 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
 
   unsigned ArgNo = 0;
   ModRefInfo R = MRI_NoModRef;
-  for (ImmutableCallSite::arg_iterator CI = CS.arg_begin(), CE = CS.arg_end();
+  for (auto CI = CS.data_operands_begin(), CE = CS.data_operands_end();
        CI != CE; ++CI, ++ArgNo) {
     // Only look at the no-capture or byval pointer arguments.  If this
     // pointer were passed to arguments that were neither of these, then it
@@ -563,7 +571,8 @@ INITIALIZE_PASS_BEGIN(AAResultsWrapperPass, "aa",
                       "Function Alias Analysis Results", false, true)
 INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)  // INTEL
 INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(CFLAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(CFLAndersAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(CFLSteensAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ExternalAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ObjCARCAAWrapperPass)
@@ -614,7 +623,9 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<SCEVAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = getAnalysisIfAvailable<CFLAAWrapperPass>())
+  if (auto *WrapperPass = getAnalysisIfAvailable<CFLAndersAAWrapperPass>())
+    AAR->addAAResult(WrapperPass->getResult());
+  if (auto *WrapperPass = getAnalysisIfAvailable<CFLSteensAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
 #ifdef INTEL_CUSTOMIZATION
   if (auto *WrapperPass = getAnalysisIfAvailable<AndersensAAWrapperPass>())
@@ -645,7 +656,8 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
-  AU.addUsedIfAvailable<CFLAAWrapperPass>();
+  AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
+  AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();
   AU.addUsedIfAvailable<AndersensAAWrapperPass>(); // INTEL
 }
 
@@ -668,7 +680,9 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
     AAR.addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = P.getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLAAWrapperPass>())
+  if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLAndersAAWrapperPass>())
+    AAR.addAAResult(WrapperPass->getResult());
+  if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLSteensAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
 #ifdef INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<AndersensAAWrapperPass>())
@@ -715,6 +729,7 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
   AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
-  AU.addUsedIfAvailable<CFLAAWrapperPass>();
+  AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
+  AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();
   AU.addUsedIfAvailable<AndersensAAWrapperPass>();        // INTEL
 }

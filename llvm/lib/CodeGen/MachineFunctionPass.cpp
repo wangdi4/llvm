@@ -49,7 +49,7 @@ bool MachineFunctionPass::runOnFunction(Function &F) {
     errs() << "MachineFunctionProperties required by " << getPassName()
            << " pass are not met by function " << F.getName() << ".\n"
            << "Required properties: ";
-    RequiredProperties.print(errs());
+    RequiredProperties.print(errs(), /*OnlySet=*/true);
     errs() << "\nCurrent properties: ";
     MFProps.print(errs());
     errs() << "\n";
@@ -78,7 +78,7 @@ void MachineFunctionPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<DominatorTreeWrapperPass>();
   AU.addPreserved<AAResultsWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
-  AU.addPreserved<IVUsers>();
+  AU.addPreserved<IVUsersWrapperPass>();
   AU.addPreserved<LoopInfoWrapperPass>();
   AU.addPreserved<MemoryDependenceWrapperPass>();
   AU.addPreserved<ScalarEvolutionWrapperPass>();

@@ -13,6 +13,7 @@
 // C Includes
 // C++ Includes
 #include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -527,7 +528,7 @@ public:
 
     bool
     ReadRegister(lldb::tid_t tid,
-                 uint32_t reg_num,
+                 uint32_t reg_num,   // Must be the eRegisterKindProcessPlugin register number, to be sent to the remote
                  StringExtractorGDBRemote &response);
 
     bool
@@ -557,6 +558,9 @@ public:
 
     bool
     GetLoadedDynamicLibrariesInfosSupported();
+
+    bool
+    GetSharedCacheInfoSupported();
 
     bool
     GetModuleInfo (const FileSpec& module_file_spec,
@@ -604,6 +608,7 @@ protected:
     LazyBool m_supports_augmented_libraries_svr4_read;
     LazyBool m_supports_jThreadExtendedInfo;
     LazyBool m_supports_jLoadedDynamicLibrariesInfos;
+    LazyBool m_supports_jGetSharedCacheInfo;
 
     bool
         m_supports_qProcessInfoPID:1,
@@ -631,7 +636,7 @@ protected:
 
     // If we need to send a packet while the target is running, the m_async_XXX
     // member variables take care of making this happen.
-    Mutex m_async_mutex;
+    std::recursive_mutex m_async_mutex;
     Predicate<bool> m_async_packet_predicate;
     std::string m_async_packet;
     PacketResult m_async_result;

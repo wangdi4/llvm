@@ -10,6 +10,7 @@
 // <cwchar>
 
 #include <cwchar>
+#include <cstdarg>
 #include <type_traits>
 
 #ifndef NULL
@@ -35,13 +36,20 @@ int main()
     std::tm *tm = 0;
     std::wint_t w = 0;
     ::FILE* fp = 0;
-#ifdef __APPLE__
-    __darwin_va_list va;
-#else
-    __builtin_va_list va;
-#endif
+    std::va_list va;
+
     char* ns = 0;
     wchar_t* ws = 0;
+
+    ((void)mb); // Prevent unused warning
+    ((void)s); // Prevent unused warning
+    ((void)tm); // Prevent unused warning
+    ((void)w); // Prevent unused warning
+    ((void)fp); // Prevent unused warning
+    ((void)va); // Prevent unused warning
+    ((void)ns); // Prevent unused warning
+    ((void)ws); // Prevent unused warning
+
     static_assert((std::is_same<decltype(std::fwprintf(fp, L"")), int>::value), "");
     static_assert((std::is_same<decltype(std::fwscanf(fp, L"")), int>::value), "");
     static_assert((std::is_same<decltype(std::swprintf(ws, s, L"")), int>::value), "");

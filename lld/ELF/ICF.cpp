@@ -83,7 +83,7 @@ template <class ELFT> class ICF {
                                         const InputSection<ELFT> *)>;
 
 public:
-  void run(SymbolTable<ELFT> *Symtab);
+  void run();
 
 private:
   uint64_t NextId = 1;
@@ -92,9 +92,7 @@ private:
   static uint64_t relSize(InputSection<ELFT> *S);
   static uint64_t getHash(InputSection<ELFT> *S);
   static bool isEligible(InputSectionBase<ELFT> *Sec);
-  static std::vector<InputSection<ELFT> *> getSections(SymbolTable<ELFT> *S);
-  static SymbolBody &getSymbol(const InputSection<ELFT> *Sec,
-                               const Elf_Rel *Rel);
+  static std::vector<InputSection<ELFT> *> getSections();
 
   void segregate(InputSection<ELFT> **Begin, InputSection<ELFT> **End,
                  Comparator Eq);
@@ -148,21 +146,14 @@ template <class ELFT> bool ICF<ELFT>::isEligible(InputSectionBase<ELFT> *Sec) {
 }
 
 template <class ELFT>
-std::vector<InputSection<ELFT> *>
-ICF<ELFT>::getSections(SymbolTable<ELFT> *Symtab) {
+std::vector<InputSection<ELFT> *> ICF<ELFT>::getSections() {
   std::vector<InputSection<ELFT> *> V;
-  for (const std::unique_ptr<ObjectFile<ELFT>> &F : Symtab->getObjectFiles())
+  for (const std::unique_ptr<ObjectFile<ELFT>> &F :
+       Symtab<ELFT>::X->getObjectFiles())
     for (InputSectionBase<ELFT> *S : F->getSections())
       if (isEligible(S))
         V.push_back(cast<InputSection<ELFT>>(S));
   return V;
-}
-
-template <class ELFT>
-SymbolBody &ICF<ELFT>::getSymbol(const InputSection<ELFT> *Sec,
-                                 const Elf_Rel *Rel) {
-  uint32_t SymIdx = Rel->getSymbol(Config->Mips64EL);
-  return Sec->File->getSymbolBody(SymIdx).repl();
 }
 
 // All sections between Begin and End must have the same group ID before
@@ -255,8 +246,8 @@ bool ICF<ELFT>::variableEq(const InputSection<ELFT> *A,
   const RelTy *EA = RelsA.end();
   const RelTy *IB = RelsB.begin();
   for (; IA != EA; ++IA, ++IB) {
-    SymbolBody &SA = getSymbol(A, (const Elf_Rel *)IA);
-    SymbolBody &SB = getSymbol(B, (const Elf_Rel *)IB);
+    SymbolBody &SA = A->File->getRelocTargetSym(*IA);
+    SymbolBody &SB = B->File->getRelocTargetSym(*IB);
     if (&SA == &SB)
       continue;
 
@@ -298,11 +289,11 @@ bool ICF<ELFT>::equalsVariable(const InputSection<ELFT> *A,
 }
 
 // The main function of ICF.
-template <class ELFT> void ICF<ELFT>::run(SymbolTable<ELFT> *Symtab) {
+template <class ELFT> void ICF<ELFT>::run() {
   // Initially, we use hash values as section group IDs. Therefore,
   // if two sections have the same ID, they are likely (but not
   // guaranteed) to have the same static contents in terms of ICF.
-  std::vector<InputSection<ELFT> *> V = getSections(Symtab);
+  std::vector<InputSection<ELFT> *> V = getSections();
   for (InputSection<ELFT> *S : V)
     // Set MSB on to avoid collisions with serial group IDs
     S->GroupId = getHash(S) | (uint64_t(1) << 63);
@@ -346,11 +337,9 @@ template <class ELFT> void ICF<ELFT>::run(SymbolTable<ELFT> *Symtab) {
 }
 
 // ICF entry point function.
-template <class ELFT> void elf::doIcf(SymbolTable<ELFT> *Symtab) {
-  ICF<ELFT>().run(Symtab);
-}
+template <class ELFT> void elf::doIcf() { ICF<ELFT>().run(); }
 
-template void elf::doIcf(SymbolTable<ELF32LE> *);
-template void elf::doIcf(SymbolTable<ELF32BE> *);
-template void elf::doIcf(SymbolTable<ELF64LE> *);
-template void elf::doIcf(SymbolTable<ELF64BE> *);
+template void elf::doIcf<ELF32LE>();
+template void elf::doIcf<ELF32BE>();
+template void elf::doIcf<ELF64LE>();
+template void elf::doIcf<ELF64BE>();

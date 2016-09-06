@@ -28,17 +28,16 @@ namespace vpo {  // VPO Vectorizer Namespace
 class AVRLoopIR : public AVRLoop {
 
 private:
-
   /// Pointer to original LLVM loop.
   const Loop *LLVMLoop;
 
-//TODO: Currently investigating the best way to represent and maintain loop
-//      info. Some loop info can simply be computed using existing LLVM
-//      utilities (e.g., trip count) and would avoid storing in the AVR.
-//      Other info we will want cached in the AVR (e.g., loopIVs).
+  // TODO: Currently investigating the best way to represent and maintain loop
+  //      info. Some loop info can simply be computed using existing LLVM
+  //      utilities (e.g., trip count) and would avoid storing in the AVR.
+  //      Other info we will want cached in the AVR (e.g., loopIVs).
 
   /// LoopIVs and strides
-  SmallDenseMap<Instruction*, const SCEV*> LoopIVs;
+  SmallDenseMap<Instruction *, const SCEV *> LoopIVs;
 
   /// Loop upper bound
   SCEV *UpperBound;
@@ -47,7 +46,6 @@ private:
   SCEV *LowerBound;
 
 protected:
-
   // Interface to create AVRLoop from LLVM Loop.
   AVRLoopIR(Loop *Lp);
 
@@ -69,7 +67,6 @@ protected:
   friend class AVRUtilsIR;
 
 public:
-
   AVRLoopIR *clone() const override;
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -81,23 +78,19 @@ public:
   const Loop *getLoop() const { return LLVMLoop; }
 
   /// \brief Get loop lower bound
-  SCEV* getLowerBound(Value *Lb) { return LowerBound; }
+  SCEV *getLowerBound(Value *Lb) { return LowerBound; }
 
   /// \brief Get loop upper bound
-  SCEV* getUpperBound(Value *Ub) { return UpperBound; }
+  SCEV *getUpperBound(Value *Ub) { return UpperBound; }
 
   /// \brief Set loop induction variables and associated strides from the
   /// original LLVM loop.
   void setLoopIV(Instruction *I, const SCEV *S) {
-    LoopIVs.insert(std::pair<Instruction *, const SCEV*>(I, S));
+    LoopIVs.insert(std::pair<Instruction *, const SCEV *>(I, S));
   }
 
   /// \brief Returns LoopIVs and corresponding strides.
-  //SmallDenseMap<Instruction*, const SCEV*>& getLoopIVs() { return LoopIVs; }
-
-  /// \brief Prints the AvrLoop node.
-  void print(formatted_raw_ostream &OS, unsigned Depth,
-             VerbosityLevel VLevel) const override;
+  // SmallDenseMap<Instruction*, const SCEV*>& getLoopIVs() { return LoopIVs; }
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
@@ -109,8 +102,7 @@ public:
   void codeGen() override;
 };
 
-
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_LOOP_IR_H
+#endif // LLVM_ANALYSIS_VPO_AVR_LOOP_IR_H

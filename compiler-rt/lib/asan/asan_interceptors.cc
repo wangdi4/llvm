@@ -144,6 +144,8 @@ DECLARE_REAL_AND_INTERCEPTOR(void, free, void *)
   (void) ctx;                                                                  \
 
 #define COMMON_INTERCEPT_FUNCTION(name) ASAN_INTERCEPT_FUNC(name)
+#define COMMON_INTERCEPT_FUNCTION_VER(name, ver)                          \
+  ASAN_INTERCEPT_FUNC_VER(name, ver)
 #define COMMON_INTERCEPTOR_WRITE_RANGE(ctx, ptr, size) \
   ASAN_WRITE_RANGE(ctx, ptr, size)
 #define COMMON_INTERCEPTOR_READ_RANGE(ctx, ptr, size) \
@@ -563,10 +565,27 @@ INTERCEPTOR(char*, strdup, const char *s) {
   return reinterpret_cast<char*>(new_mem);
 }
 
+#if ASAN_INTERCEPT___STRDUP
+INTERCEPTOR(char*, __strdup, const char *s) {
+  void *ctx;
+  ASAN_INTERCEPTOR_ENTER(ctx, strdup);
+  if (UNLIKELY(!asan_inited)) return internal_strdup(s);
+  ENSURE_ASAN_INITED();
+  uptr length = REAL(strlen)(s);
+  if (flags()->replace_str) {
+    ASAN_READ_RANGE(ctx, s, length + 1);
+  }
+  GET_STACK_TRACE_MALLOC;
+  void *new_mem = asan_malloc(length + 1, &stack);
+  REAL(memcpy)(new_mem, s, length + 1);
+  return reinterpret_cast<char*>(new_mem);
+}
+#endif // ASAN_INTERCEPT___STRDUP
+
 INTERCEPTOR(SIZE_T, wcslen, const wchar_t *s) {
   void *ctx;
   ASAN_INTERCEPTOR_ENTER(ctx, wcslen);
-  SIZE_T length = REAL(wcslen)(s);
+  SIZE_T length = internal_wcslen(s);
   if (!asan_init_is_running) {
     ENSURE_ASAN_INITED();
     ASAN_READ_RANGE(ctx, s, (length + 1) * sizeof(wchar_t));
@@ -706,11 +725,13 @@ void InitializeAsanInterceptors() {
   InitializeCommonInterceptors();
 
   // Intercept mem* functions.
-  ASAN_INTERCEPT_FUNC(memmove);
+  ASAN_INTERCEPT_FUNC(memcpy);
   ASAN_INTERCEPT_FUNC(memset);
   if (PLATFORM_HAS_DIFFERENT_MEMCPY_AND_MEMMOVE) {
-    ASAN_INTERCEPT_FUNC(memcpy);
+    // In asan, REAL(memmove) is not used, but it is used in msan.
+    ASAN_INTERCEPT_FUNC(memmove);
   }
+  CHECK(REAL(memcpy));
 
   // Intercept str* functions.
   ASAN_INTERCEPT_FUNC(strcat);  // NOLINT
@@ -719,6 +740,9 @@ void InitializeAsanInterceptors() {
   ASAN_INTERCEPT_FUNC(strncat);
   ASAN_INTERCEPT_FUNC(strncpy);
   ASAN_INTERCEPT_FUNC(strdup);
+#if ASAN_INTERCEPT___STRDUP
+  ASAN_INTERCEPT_FUNC(__strdup);
+#endif
 #if ASAN_INTERCEPT_INDEX && ASAN_USE_ALIAS_ATTRIBUTE_FOR_INDEX
   ASAN_INTERCEPT_FUNC(index);
 #endif

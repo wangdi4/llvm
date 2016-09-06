@@ -24,7 +24,6 @@
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Linker/IRMover.h"
 
@@ -36,21 +35,18 @@ class InputFile;
 
 class BitcodeCompiler {
 public:
+  BitcodeCompiler();
   void add(BitcodeFile &F);
-  std::unique_ptr<InputFile> compile();
-
-  BitcodeCompiler()
-      : Combined(new llvm::Module("ld-temp.o", Context)), Mover(*Combined) {}
+  std::vector<std::unique_ptr<InputFile>> compile();
 
 private:
-  llvm::TargetMachine *getTargetMachine();
+  std::vector<std::unique_ptr<InputFile>> runSplitCodegen(
+      const std::function<std::unique_ptr<llvm::TargetMachine>()> &TMFactory);
 
-  llvm::LLVMContext Context;
   std::unique_ptr<llvm::Module> Combined;
-  llvm::IRMover Mover;
-  SmallString<0> OwningData;
-  std::unique_ptr<MemoryBuffer> MB;
+  std::vector<SmallString<0>> OwningData;
   llvm::StringSet<> InternalizedSyms;
+  llvm::StringSet<> AsmUndefinedRefs;
 };
 }
 }

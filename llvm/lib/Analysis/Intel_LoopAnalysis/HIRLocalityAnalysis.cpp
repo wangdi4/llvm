@@ -45,19 +45,19 @@
 
 #include "llvm/IR/Type.h"
 
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -272,8 +272,9 @@ void HIRLocalityAnalysis::computeTempReuseLocality(const HLLoop *Loop) {
     // No Temporal Reuse for multiple IV subscripts e.g. A[i+1][i] and A[i][i]
     // or loop invariants e.g. A[1]
     unsigned IVPos = 0;
-    if (isMultipleIV(CompareRef, Loop->getNestingLevel(), &IVPos) || IVPos == 0) {
-        continue;
+    if (isMultipleIV(CompareRef, Loop->getNestingLevel(), &IVPos) ||
+        IVPos == 0) {
+      continue;
     }
 
     for (auto VecIt = RefVec.begin() + 1, End = RefVec.end(); VecIt != End;
@@ -413,7 +414,7 @@ void HIRLocalityAnalysis::initConstTripCache(
   for (auto Iter = Loops->begin(), End = Loops->end(); Iter != End; ++Iter) {
     const HLLoop *Loop = *Iter;
 
-    int64_t TripCnt = 0;
+    uint64_t TripCnt = 0;
     bool ConstTripLoop = Loop->isConstTripLoop(&TripCnt);
 
     // If Const Trip Loop and Trip is less than Symbolic 'N'
@@ -543,22 +544,22 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
     return;
 
   // Get the Symbase to Memory References.
-  MemRefGatherer::MapTy MemRefMap;
-  MemRefGatherer::gather(Loop, MemRefMap);
+  ConstMemRefGatherer::MapTy MemRefMap;
+  ConstMemRefGatherer::gather(Loop, MemRefMap);
 
   // Debugging
-  DEBUG(MemRefGatherer::dump(MemRefMap));
+  DEBUG(ConstMemRefGatherer::dump(MemRefMap));
 
   // Sort the Memory References.
-  MemRefGatherer::sort(MemRefMap);
+  ConstMemRefGatherer::sort(MemRefMap);
   DEBUG(dbgs() << " After sorting\n");
-  DEBUG(MemRefGatherer::dump(MemRefMap));
+  DEBUG(ConstMemRefGatherer::dump(MemRefMap));
 
   // Remove duplicate memory references.
-  MemRefGatherer::makeUnique(MemRefMap);
+  ConstMemRefGatherer::makeUnique(MemRefMap);
 
   DEBUG(dbgs() << " After sorting and removing dups\n");
-  DEBUG(MemRefGatherer::dump(MemRefMap));
+  DEBUG(ConstMemRefGatherer::dump(MemRefMap));
   DEBUG(dbgs() << " End\n");
 
   // Collect all the loops inside the loop nest.
@@ -576,7 +577,7 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
 
     // Copy the MemRefMap as it will be modified as the loop locality is
     // computed.
-    SymToMemRefTy LoopMemRefMap = MemRefMap;
+    ConstMemRefGatherer::MapTy LoopMemRefMap = MemRefMap;
 
     // Clear the LocalityInfo if exists or create a new one.
     resetLocalityMap(CurLoop);
@@ -587,7 +588,7 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
     // are erased by temp invariant locality pass.
     clearEmptySlots(LoopMemRefMap);
 
-    DEBUG(MemRefGatherer::dump(LoopMemRefMap));
+    DEBUG(ConstMemRefGatherer::dump(LoopMemRefMap));
 
     // Create Groupings based on index.
 

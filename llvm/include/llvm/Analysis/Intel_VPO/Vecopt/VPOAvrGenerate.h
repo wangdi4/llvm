@@ -98,6 +98,12 @@ protected:
   /// \brief Sets the LLVM Function currently being analysed.
   void setLLVMFunction(Function *F) { Func = F; }
 
+  /// \brief Continue AVR construction by adding label references to AVR nodes
+  /// whose semantics involve labels (e.g. Branch, Phi). This is done as a
+  /// separate phase since the labels may not yet exist when the using nodes are
+  /// being created.
+  void addLabelReferences();
+
   // Functions for AVR Loop formation.
   //
   // Some functions are generic implementation and thus defined within

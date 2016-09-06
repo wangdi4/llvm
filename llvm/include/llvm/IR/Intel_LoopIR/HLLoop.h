@@ -16,6 +16,8 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 #define LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 
+#include "llvm/ADT/SmallVector.h"
+
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
@@ -31,7 +33,7 @@ class CanonExpr;
 class RegDDRef;
 
 /// \brief High level node representing a loop
-class HLLoop : public HLDDNode {
+class HLLoop final : public HLDDNode {
 public:
   typedef HLContainerTy ChildNodeTy;
   typedef ChildNodeTy PreheaderTy;
@@ -67,6 +69,12 @@ public:
   typedef reverse_child_iterator reverse_post_iterator;
   typedef const_reverse_child_iterator const_reverse_post_iterator;
 
+  typedef SmallVector<unsigned, 8> LiveInSetTy;
+  typedef LiveInSetTy LiveOutSetTy;
+
+  typedef LiveInSetTy::const_iterator const_live_in_iterator;
+  typedef LiveOutSetTy::const_iterator const_live_out_iterator;
+
 private:
   const Loop *OrigLoop;
   HLIf *Ztt;
@@ -92,20 +100,34 @@ private:
   // Temporary tag to mark loop as multiversioned.
   unsigned MVTag = 0;
 
+  // Set of temp symbases live into the loop.
+  LiveInSetTy LiveInSet;
+  // Set of temp symbases live out of the loop.
+  LiveOutSetTy LiveOutSet;
+
+  // Associated !llvm.loop metadata.
+  MDNode *LoopMetadata;
+
+  uint64_t MaxTripCountEstimate;
+
 protected:
   HLLoop(const Loop *LLVMLoop);
   HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
          RegDDRef *StrideDDRef, unsigned NumEx);
-
-  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
-  /// tries to access and destroy the nodes if we don't clear them out here.
-  virtual ~HLLoop() override { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
   /// CloneChildren parameter denotes if we want to clone
   /// children and preheader/postexit.
   HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
          LabelMapTy *LabelMap, bool CloneChildren);
+
+  /// Move assignment operator used by HLNodeUtils::permuteLoopNests() to move
+  /// loop properties from Lp to this loop.
+  HLLoop &operator=(HLLoop &&Lp);
+
+  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
+  /// tries to access and destroy the nodes if we don't clear them out here.
+  virtual ~HLLoop() override { Children.clearAndLeakNodesUnsafely(); }
 
   friend class HLNodeUtils;
   friend class HIRParser; // accesses ZTT
@@ -151,9 +173,34 @@ protected:
 
   /// \brief Used to print members of the loop which are otherwise hidden in
   /// pretty print like ztt, innermost flag etc.
-  void printDetails(formatted_raw_ostream &OS, unsigned Depth) const;
+  void printDetails(formatted_raw_ostream &OS, unsigned Depth,
+                    bool Detailed) const;
+
+  /// Set or replace !llvm.loop metadata.
+  void setLoopMetadata(MDNode *MD) { LoopMetadata = MD; }
+
+  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
 
 public:
+  /// \brief Prints preheader of loop.
+  void printPreheader(formatted_raw_ostream &OS, unsigned Depth,
+                      bool Detailed) const;
+
+  /// \brief Prints header of loop.
+  void printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const;
+
+  /// \brief Prints body of loop.
+  void printBody(formatted_raw_ostream &OS, unsigned Depth,
+                 bool Detailed) const;
+
+  /// \brief Prints footer of loop.
+  void printFooter(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Prints postexit of loop.
+  void printPostexit(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed) const;
+
   /// \brief Prints HLLoop.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
@@ -306,7 +353,7 @@ public:
 
   /// \brief Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
-  bool isConstTripLoop(int64_t *TripCnt = nullptr) const;
+  bool isConstTripLoop(uint64_t *TripCnt = nullptr) const;
 
   /// \brief Returns true if this is a do loop.
   bool isDo() const {
@@ -340,9 +387,16 @@ public:
   void setNumExits(unsigned NumEx);
 
   /// \brief Returns the nesting level of the loop.
-  unsigned getNestingLevel() const { return NestingLevel; }
+  unsigned getNestingLevel() const {
+    assert(getParentRegion() && "getNestingLevel() invoked on detached loop!");
+    return NestingLevel;
+  }
+
   /// \brief Returns true if this is the innermost loop in the loop nest.
-  bool isInnermost() const { return IsInnermost; }
+  bool isInnermost() const {
+    assert(getParentRegion() && "isInnermost() invoked on detached loop!");
+    return IsInnermost;
+  }
 
   /// Preheader iterator methods
   pre_iterator pre_begin() { return Children.begin(); }
@@ -385,6 +439,9 @@ public:
   /// \brief Moves preheader nodes before the loop. Ztt is extracted first, if
   /// present.
   void extractPreheader();
+
+  /// Removes loop preheader nodes.
+  void removePreheader();
 
   /// Postexit iterator methods
   post_iterator post_begin() { return PostexitBegin; }
@@ -430,6 +487,9 @@ public:
   /// \brief Moves preheader nodes before the loop and postexit nodes after the
   /// loop. Ztt is extracted first, if present.
   void extractPreheaderAndPostexit();
+
+  /// Removes loop postexit nodes.
+  void removePostexit();
 
   /// Children iterator methods
   child_iterator child_begin() { return pre_end(); }
@@ -516,13 +576,6 @@ public:
   /// be updated by HLNode insertion/removal utilities.
   HLLoop *cloneEmptyLoop() const;
 
-  /// \brief - Clones the original loop without any of the children, preheader
-  /// and postexit nodes. This routines copies all the original loop properties
-  /// such as exits, ub, lb, strides, level. Data members that depend on where
-  //  the cloned loop lives in HIR (like parent, etc) are not copied. They will
-  /// be updated by HLNode insertion/removal utilities.
-  HLLoop *cloneCompleteEmptyLoop() const;
-
   /// \brief Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;
 
@@ -532,9 +585,93 @@ public:
   /// \brief Checks whether SIMD directive is attached to the loop.
   bool isSIMD() const;
 
-  unsigned getMVTag() { return MVTag; }
+  unsigned getMVTag() const { return MVTag; }
 
   void setMVTag(unsigned Tag) { MVTag = Tag; }
+
+  /// \brief return true if Triangular Loop
+  bool isTriangularLoop() const;
+
+  const_live_in_iterator live_in_begin() const { return LiveInSet.begin(); }
+  const_live_in_iterator live_in_end() const { return LiveInSet.end(); }
+
+  const_live_out_iterator live_out_begin() const { return LiveOutSet.begin(); }
+  const_live_out_iterator live_out_end() const { return LiveOutSet.end(); }
+
+  /// Returns true if loop has livein temps.
+  bool hasLiveInTemps() const { return !LiveInSet.empty(); }
+
+  /// Returns true if loop has liveout temps.
+  bool hasLiveOutTemps() const { return !LiveOutSet.empty(); }
+
+  /// Returns true if this symbase is live in to this loop.
+  bool isLiveIn(unsigned Symbase) const {
+    return std::binary_search(live_in_begin(), live_in_end(), Symbase);
+  }
+
+  /// Returns true if this symbase is live out of this loop.
+  bool isLiveOut(unsigned Symbase) const {
+    return std::binary_search(live_out_begin(), live_out_end(), Symbase);
+  }
+
+  /// Adds symbase as live into the loop.
+  void addLiveInTemp(unsigned Symbase) {
+    auto It = std::lower_bound(LiveInSet.begin(), LiveInSet.end(), Symbase);
+
+    if ((It == LiveInSet.end()) || (*It != Symbase)) {
+      LiveInSet.insert(It, Symbase);
+    }
+  }
+
+  /// Adds symbase as live out of the loop.
+  void addLiveOutTemp(unsigned Symbase) {
+    auto It = std::lower_bound(LiveOutSet.begin(), LiveOutSet.end(), Symbase);
+
+    if ((It == LiveOutSet.end()) || (*It != Symbase)) {
+      LiveOutSet.insert(It, Symbase);
+    }
+  }
+
+  /// Removes symbase from livein set.
+  void removeLiveInTemp(unsigned Symbase) {
+    auto It = std::lower_bound(LiveInSet.begin(), LiveInSet.end(), Symbase);
+
+    if ((It != LiveInSet.end()) && (*It == Symbase)) {
+      LiveInSet.erase(It);
+    }
+  }
+
+  /// Removes symbase from liveout set.
+  void removeLiveOutTemp(unsigned Symbase) {
+    auto It = std::lower_bound(LiveOutSet.begin(), LiveOutSet.end(), Symbase);
+
+    if ((It != LiveOutSet.end()) && (*It == Symbase)) {
+      LiveOutSet.erase(It);
+    }
+  }
+
+  /// Returns !llvm.loop metadata associated with the Loop.
+  MDNode *getLoopMetadata() const { return LoopMetadata; }
+
+  /// \brief Add a list of metadata \p MDs to loops !llvm.loop MDNode.
+  ///
+  /// The MDNode should have the format !{!"string-identifier", Args...}
+  void addLoopMetadata(ArrayRef<MDNode *> MDs) {
+    addRemoveLoopMetadataImpl(MDs, nullptr);
+  }
+
+  /// Remove !llvm.loop metadata that starts with \p ID.
+  void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, &ID); }
+
+  /// Clear all metadata from !llvm.loop MDNode.
+  void clearLoopMetadata() { setLoopMetadata(nullptr); }
+
+  uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
+
+  void setMaxTripCountEstimate(uint64_t MaxTC) { MaxTripCountEstimate = MaxTC; }
+
+  // \brief Marks loop to do not vectorize.
+  void markDoNotVectorize();
 };
 
 } // End namespace loopopt

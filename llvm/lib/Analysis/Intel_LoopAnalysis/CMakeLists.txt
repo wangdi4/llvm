@@ -11,8 +11,11 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   HIRParser.cpp
   HIRSymbaseAssignment.cpp
   HIRFramework.cpp
+  HIRAnalysisPass.cpp
   HIRDDAnalysis.cpp
   DDTests.cpp
+  HIRLoopResource.cpp
+  HIRSafeReductionAnalysis.cpp 
   HIRLocalityAnalysis.cpp
   HIRParVecAnalysis.cpp
 

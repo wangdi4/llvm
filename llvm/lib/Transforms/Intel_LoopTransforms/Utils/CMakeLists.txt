@@ -5,7 +5,7 @@ add_llvm_library(LLVMIntel_LoopUtils
   DDUtils.cpp
   HLNodeUtils.cpp
   DDRefGatherer.cpp
-  DDRefGrouping.cpp
+  HIRLoopTransformUtils.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

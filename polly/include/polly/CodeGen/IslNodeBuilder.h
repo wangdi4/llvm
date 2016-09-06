@@ -27,6 +27,18 @@ struct isl_ast_node;
 struct isl_ast_build;
 struct isl_union_map;
 
+struct SubtreeReferences {
+  LoopInfo &LI;
+  ScalarEvolution &SE;
+  Scop &S;
+  ValueMapT &GlobalMap;
+  SetVector<Value *> &Values;
+  SetVector<const SCEV *> &SCEVs;
+  BlockGenerator &BlockGen;
+};
+
+isl_stat addReferencesFromStmt(const ScopStmt *Stmt, void *UserPtr);
+
 class IslNodeBuilder {
 public:
   IslNodeBuilder(PollyIRBuilder &Builder, ScopAnnotator &Annotator, Pass *P,
@@ -46,10 +58,10 @@ public:
   /// @brief Preload all memory loads that are invariant.
   bool preloadInvariantLoads();
 
-  /// @brief Finalize code generation for the SCoP @p S.
+  /// @brief Finalize code generation.
   ///
   /// @see BlockGenerator::finalizeSCoP(Scop &S)
-  void finalizeSCoP(Scop &S) { BlockGen.finalizeSCoP(S); }
+  virtual void finalize() { BlockGen.finalizeSCoP(S); }
 
   IslExprBuilder &getExprBuilder() { return ExprBuilder; }
 
@@ -247,7 +259,7 @@ protected:
   /// to the required type.
   ///
   /// @returns False, iff a problem occured and the load was not preloaded.
-  bool preloadInvariantEquivClass(const InvariantEquivClassTy &IAClass);
+  bool preloadInvariantEquivClass(InvariantEquivClassTy &IAClass);
 
   void createForVector(__isl_take isl_ast_node *For, int VectorWidth);
   void createForSequential(__isl_take isl_ast_node *For, bool KnownParallel);

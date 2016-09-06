@@ -146,10 +146,14 @@ static bool aggressiveDCE(Function& F) {
   return !Worklist.empty();
 }
 
-PreservedAnalyses ADCEPass::run(Function &F) {
-  if (aggressiveDCE(F))
-    return PreservedAnalyses::none();
-  return PreservedAnalyses::all();
+PreservedAnalyses ADCEPass::run(Function &F, FunctionAnalysisManager &) {
+  if (!aggressiveDCE(F))
+    return PreservedAnalyses::all();
+
+  // FIXME: This should also 'preserve the CFG'.
+  auto PA = PreservedAnalyses();
+  PA.preserve<GlobalsAA>();
+  return PA;
 }
 
 namespace {
@@ -160,7 +164,7 @@ struct ADCELegacyPass : public FunctionPass {
   }
 
   bool runOnFunction(Function& F) override {
-    if (skipOptnoneFunction(F))
+    if (skipFunction(F))
       return false;
     return aggressiveDCE(F);
   }

@@ -54,14 +54,15 @@ insertNoop(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI) const
   BuildMI(MBB, MI, DL, get(Mips::NOP));
 }
 
-MachineMemOperand *MipsInstrInfo::GetMemOperand(MachineBasicBlock &MBB, int FI,
-                                                unsigned Flag) const {
+MachineMemOperand *
+MipsInstrInfo::GetMemOperand(MachineBasicBlock &MBB, int FI,
+                             MachineMemOperand::Flags Flags) const {
   MachineFunction &MF = *MBB.getParent();
   MachineFrameInfo &MFI = *MF.getFrameInfo();
   unsigned Align = MFI.getObjectAlignment(FI);
 
   return MF.getMachineMemOperand(MachinePointerInfo::getFixedStack(MF, FI),
-                                 Flag, MFI.getObjectSize(FI), Align);
+                                 Flags, MFI.getObjectSize(FI), Align);
 }
 
 //===----------------------------------------------------------------------===//
@@ -83,20 +84,20 @@ void MipsInstrInfo::AnalyzeCondBr(const MachineInstr *Inst, unsigned Opc,
     Cond.push_back(Inst->getOperand(i));
 }
 
-bool MipsInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
+bool MipsInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
                                   MachineBasicBlock *&TBB,
                                   MachineBasicBlock *&FBB,
                                   SmallVectorImpl<MachineOperand> &Cond,
                                   bool AllowModify) const {
   SmallVector<MachineInstr*, 2> BranchInstrs;
-  BranchType BT = AnalyzeBranch(MBB, TBB, FBB, Cond, AllowModify, BranchInstrs);
+  BranchType BT = analyzeBranch(MBB, TBB, FBB, Cond, AllowModify, BranchInstrs);
 
   return (BT == BT_None) || (BT == BT_Indirect);
 }
 
-void
-MipsInstrInfo::BuildCondBr(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
-                           DebugLoc DL, ArrayRef<MachineOperand> Cond) const {
+void MipsInstrInfo::BuildCondBr(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+                                const DebugLoc &DL,
+                                ArrayRef<MachineOperand> Cond) const {
   unsigned Opc = Cond[0].getImm();
   const MCInstrDesc &MCID = get(Opc);
   MachineInstrBuilder MIB = BuildMI(&MBB, DL, MCID);
@@ -107,14 +108,16 @@ MipsInstrInfo::BuildCondBr(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
     else if (Cond[i].isImm())
       MIB.addImm(Cond[i].getImm());
     else
-       assert(true && "Cannot copy operand");
+       assert(false && "Cannot copy operand");
   }
   MIB.addMBB(TBB);
 }
 
-unsigned MipsInstrInfo::InsertBranch(
-    MachineBasicBlock &MBB, MachineBasicBlock *TBB, MachineBasicBlock *FBB,
-    ArrayRef<MachineOperand> Cond, DebugLoc DL) const {
+unsigned MipsInstrInfo::InsertBranch(MachineBasicBlock &MBB,
+                                     MachineBasicBlock *TBB,
+                                     MachineBasicBlock *FBB,
+                                     ArrayRef<MachineOperand> Cond,
+                                     const DebugLoc &DL) const {
   // Shouldn't be a fall through.
   assert(TBB && "InsertBranch must not be told to insert a fallthrough");
 
@@ -174,7 +177,7 @@ bool MipsInstrInfo::ReverseBranchCondition(
   return false;
 }
 
-MipsInstrInfo::BranchType MipsInstrInfo::AnalyzeBranch(
+MipsInstrInfo::BranchType MipsInstrInfo::analyzeBranch(
     MachineBasicBlock &MBB, MachineBasicBlock *&TBB, MachineBasicBlock *&FBB,
     SmallVectorImpl<MachineOperand> &Cond, bool AllowModify,
     SmallVectorImpl<MachineInstr *> &BranchInstrs) const {
@@ -216,7 +219,7 @@ MipsInstrInfo::BranchType MipsInstrInfo::AnalyzeBranch(
   // If there is only one terminator instruction, process it.
   if (!SecondLastOpc) {
     // Unconditional branch.
-    if (LastOpc == UncondBrOpc) {
+    if (LastInst->isUnconditionalBranch()) {
       TBB = LastInst->getOperand(0).getMBB();
       return BT_Uncond;
     }
@@ -235,7 +238,7 @@ MipsInstrInfo::BranchType MipsInstrInfo::AnalyzeBranch(
 
   // If second to last instruction is an unconditional branch,
   // analyze it and remove the last instruction.
-  if (SecondLastOpc == UncondBrOpc) {
+  if (SecondLastInst->isUnconditionalBranch()) {
     // Return if the last instruction cannot be removed.
     if (!AllowModify)
       return BT_None;
@@ -248,7 +251,7 @@ MipsInstrInfo::BranchType MipsInstrInfo::AnalyzeBranch(
 
   // Conditional branch followed by an unconditional branch.
   // The last one must be unconditional.
-  if (LastOpc != UncondBrOpc)
+  if (!LastInst->isUnconditionalBranch())
     return BT_None;
 
   AnalyzeCondBr(SecondLastInst, SecondLastOpc, TBB, Cond);
@@ -266,7 +269,9 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
   if (Subtarget.inMicroMipsMode()) {
     switch (Opcode) {
     case Mips::BNE:
+    case Mips::BNE_MM:
     case Mips::BEQ:
+    case Mips::BEQ_MM:
     // microMIPS has NE,EQ branches that do not have delay slots provided one
     // of the operands is zero.
       if (I->getOperand(1).getReg() == Subtarget.getABI().GetZeroReg())
@@ -282,6 +287,16 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
     }
   }
 
+  // MIPSR6 forbids both operands being the zero register.
+  if (Subtarget.hasMips32r6() && (I->getNumOperands() > 1) &&
+      (I->getOperand(0).isReg() &&
+       (I->getOperand(0).getReg() == Mips::ZERO ||
+        I->getOperand(0).getReg() == Mips::ZERO_64)) &&
+      (I->getOperand(1).isReg() &&
+       (I->getOperand(1).getReg() == Mips::ZERO ||
+        I->getOperand(1).getReg() == Mips::ZERO_64)))
+    return 0;
+
   if (Subtarget.hasMips32r6() || canUseShortMicroMipsCTI) {
     switch (Opcode) {
     case Mips::B:
@@ -289,18 +304,26 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
     case Mips::BAL:
       return Mips::BALC;
     case Mips::BEQ:
+    case Mips::BEQ_MM:
       if (canUseShortMicroMipsCTI)
         return Mips::BEQZC_MM;
-      else
-        return Mips::BEQC;
+      else if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
+        return 0;
+      return Mips::BEQC;
     case Mips::BNE:
+    case Mips::BNE_MM:
       if (canUseShortMicroMipsCTI)
         return Mips::BNEZC_MM;
-      else
-        return Mips::BNEC;
+      else if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
+        return 0;
+      return Mips::BNEC;
     case Mips::BGE:
+      if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
+        return 0;
       return Mips::BGEC;
     case Mips::BGEU:
+      if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
+        return 0;
       return Mips::BGEUC;
     case Mips::BGEZ:
       return Mips::BGEZC;
@@ -309,8 +332,12 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
     case Mips::BLEZ:
       return Mips::BLEZC;
     case Mips::BLT:
+      if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
+        return 0;
       return Mips::BLTC;
     case Mips::BLTU:
+      if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
+        return 0;
       return Mips::BLTUC;
     case Mips::BLTZ:
       return Mips::BLTZC;
@@ -330,7 +357,7 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
       return Mips::JIC64;
     case Mips::JALR64Pseudo:
       return Mips::JIALC64;
-     default:
+    default:
       return 0;
     }
   }
@@ -355,19 +382,19 @@ bool MipsInstrInfo::HasForbiddenSlot(const MachineInstr &MI) const {
 }
 
 /// Return the number of bytes of code the specified instruction may be.
-unsigned MipsInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
-  switch (MI->getOpcode()) {
+unsigned MipsInstrInfo::GetInstSizeInBytes(const MachineInstr &MI) const {
+  switch (MI.getOpcode()) {
   default:
-    return MI->getDesc().getSize();
+    return MI.getDesc().getSize();
   case  TargetOpcode::INLINEASM: {       // Inline Asm: Variable size.
-    const MachineFunction *MF = MI->getParent()->getParent();
-    const char *AsmStr = MI->getOperand(0).getSymbolName();
+    const MachineFunction *MF = MI.getParent()->getParent();
+    const char *AsmStr = MI.getOperand(0).getSymbolName();
     return getInlineAsmLength(AsmStr, *MF->getTarget().getMCAsmInfo());
   }
   case Mips::CONSTPOOL_ENTRY:
     // If this machine instr is a constant pool entry, its size is recorded as
     // operand #2.
-    return MI->getOperand(2).getImm();
+    return MI.getOperand(2).getImm();
   }
 }
 

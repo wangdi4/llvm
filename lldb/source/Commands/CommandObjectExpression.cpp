@@ -61,9 +61,10 @@ CommandObjectExpression::CommandOptions::g_option_table[] =
     { LLDB_OPT_SET_1 | LLDB_OPT_SET_2, false, "unwind-on-error",    'u', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean,    "Clean up program state if the expression causes a crash, or raises a signal.  Note, unlike gdb hitting a breakpoint is controlled by another option (-i)."},
     { LLDB_OPT_SET_1 | LLDB_OPT_SET_2, false, "debug",              'g', OptionParser::eNoArgument      , nullptr, nullptr, 0, eArgTypeNone,       "When specified, debug the JIT code by setting a breakpoint on the first instruction and forcing breakpoints to not be ignored (-i0) and no unwinding to happen on error (-u0)."},
     { LLDB_OPT_SET_1 | LLDB_OPT_SET_2, false, "language",           'l', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeLanguage,   "Specifies the Language to use when parsing the expression.  If not set the target.language setting is used." },
-    { LLDB_OPT_SET_1 | LLDB_OPT_SET_2, false, "apply-fixits",       'X', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeLanguage,   "If true, simple FixIt hints will be automatically applied to the expression." },
+    { LLDB_OPT_SET_1 | LLDB_OPT_SET_2, false, "apply-fixits",       'X', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeLanguage,   "If true, simple fix-it hints will be automatically applied to the expression." },
     { LLDB_OPT_SET_1, false, "description-verbosity", 'v', OptionParser::eOptionalArgument, nullptr, g_description_verbosity_type, 0, eArgTypeDescriptionVerbosity,        "How verbose should the output of this expression be, if the object description is asked for."},
-    { LLDB_OPT_SET_1 | LLDB_OPT_SET_2, false, "top-level",          'p', OptionParser::eNoArgument      , NULL, NULL, 0, eArgTypeNone,       "Interpret the expression as top-level definitions rather than code to be immediately executed."}
+    { LLDB_OPT_SET_1 | LLDB_OPT_SET_2, false, "top-level",          'p', OptionParser::eNoArgument      , NULL, NULL, 0, eArgTypeNone,       "Interpret the expression as top-level definitions rather than code to be immediately executed."},
+    { LLDB_OPT_SET_1 | LLDB_OPT_SET_2, false, "allow-jit",          'j', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean,    "Controls whether the expression can fall back to being JITted if it's not supported by the interpreter (defaults to true)."}
 };
 
 uint32_t
@@ -111,6 +112,18 @@ CommandObjectExpression::CommandOptions::SetOptionValue (CommandInterpreter &int
                 error.SetErrorStringWithFormat("could not convert \"%s\" to a boolean value.", option_arg);
             break;
         }
+
+    case 'j':
+        {
+            bool success;
+            bool tmp_value = Args::StringToBoolean(option_arg, true, &success);
+            if (success)
+                allow_jit = tmp_value;
+            else
+                error.SetErrorStringWithFormat("could not convert \"%s\" to a boolean value.", option_arg);
+            break;
+        }
+
     case 't':
         {
             bool success;
@@ -197,6 +210,7 @@ CommandObjectExpression::CommandOptions::OptionParsingStarting (CommandInterpret
     m_verbosity = eLanguageRuntimeDescriptionDisplayVerbosityCompact;
     auto_apply_fixits = eLazyBoolCalculate;
     top_level = false;
+    allow_jit = true;
 }
 
 const OptionDefinition*
@@ -205,19 +219,18 @@ CommandObjectExpression::CommandOptions::GetDefinitions ()
     return g_option_table;
 }
 
-CommandObjectExpression::CommandObjectExpression (CommandInterpreter &interpreter) :
-    CommandObjectRaw(interpreter,
-                     "expression",
-                     "Evaluate an expression in the current program context, using user defined variables and variables currently in scope.",
-                     nullptr,
-                     eCommandProcessMustBePaused | eCommandTryTargetAPILock),
-    IOHandlerDelegate (IOHandlerDelegate::Completion::Expression),
-    m_option_group (interpreter),
-    m_format_options (eFormatDefault),
-    m_repl_option (LLDB_OPT_SET_1, false, "repl", 'r', "Drop into REPL", false, true),
-    m_command_options (),
-    m_expr_line_count (0),
-    m_expr_lines ()
+CommandObjectExpression::CommandObjectExpression(CommandInterpreter &interpreter)
+    : CommandObjectRaw(
+          interpreter, "expression",
+          "Evaluate an expression on the current thread.  Displays any returned value with LLDB's default formatting.",
+          nullptr, eCommandProcessMustBePaused | eCommandTryTargetAPILock),
+      IOHandlerDelegate(IOHandlerDelegate::Completion::Expression),
+      m_option_group(interpreter),
+      m_format_options(eFormatDefault),
+      m_repl_option(LLDB_OPT_SET_1, false, "repl", 'r', "Drop into REPL", false, true),
+      m_command_options(),
+      m_expr_line_count(0),
+      m_expr_lines()
 {
     SetHelpLong(
 R"(
@@ -282,6 +295,18 @@ CommandObjectExpression::GetOptions ()
     return &m_option_group;
 }
 
+static lldb_private::Error
+CanBeUsedForElementCountPrinting (ValueObject& valobj)
+{
+    CompilerType type(valobj.GetCompilerType());
+    CompilerType pointee;
+    if (!type.IsPointerType(&pointee))
+        return Error("as it does not refer to a pointer");
+    if (pointee.IsVoidType())
+        return Error("as it refers to a pointer to void");
+    return Error();
+}
+
 bool
 CommandObjectExpression::EvaluateExpression(const char *expr,
                                             Stream *output_stream,
@@ -313,6 +338,9 @@ CommandObjectExpression::EvaluateExpression(const char *expr,
         options.SetTryAllThreads(m_command_options.try_all_threads);
         options.SetDebug(m_command_options.debug);
         options.SetLanguage(m_command_options.language);
+        options.SetExecutionPolicy(m_command_options.allow_jit ?
+            EvaluateExpressionOptions::default_execution_policy :
+            lldb_private::eExecutionPolicyNever);
         
         bool auto_apply_fixits;
         if (m_command_options.auto_apply_fixits == eLazyBoolCalculate)
@@ -342,7 +370,7 @@ CommandObjectExpression::EvaluateExpression(const char *expr,
         if (error_stream && !m_fixed_expression.empty() && target->GetEnableNotifyAboutFixIts())
         {
             if (success == eExpressionCompleted)
-                error_stream->Printf ("  Fixit applied, fixed expression was: \n    %s\n", m_fixed_expression.c_str());
+                error_stream->Printf ("  Fix-it applied, fixed expression was: \n    %s\n", m_fixed_expression.c_str());
         }
 
         if (result_valobj_sp)
@@ -355,6 +383,17 @@ CommandObjectExpression::EvaluateExpression(const char *expr,
                 {
                     if (format != eFormatDefault)
                         result_valobj_sp->SetFormat (format);
+
+                    if (m_varobj_options.elem_count > 0)
+                    {
+                        Error error(CanBeUsedForElementCountPrinting(*result_valobj_sp));
+                        if (error.Fail())
+                        {
+                            result->AppendErrorWithFormat("expression cannot be used with --element-count %s\n", error.AsCString(""));
+                            result->SetStatus(eReturnStatusFailed);
+                            return false;
+                        }
+                    }
 
                     DumpValueObjectOptions options(m_varobj_options.GetAsDumpOptions(m_command_options.m_verbosity,format));
                     options.SetVariableFormatDisplayLanguage(result_valobj_sp->GetPreferredDisplayLanguage());
@@ -428,28 +467,21 @@ CommandObjectExpression::IOHandlerInputComplete (IOHandler &io_handler, std::str
         error_sp->Flush();
 }
 
-LineStatus
-CommandObjectExpression::IOHandlerLinesUpdated (IOHandler &io_handler,
-                                                StringList &lines,
-                                                uint32_t line_idx,
-                                                Error &error)
+bool
+CommandObjectExpression::IOHandlerIsInputComplete (IOHandler &io_handler,
+                                                   StringList &lines)
 {
-    if (line_idx == UINT32_MAX)
+    // An empty lines is used to indicate the end of input
+    const size_t num_lines = lines.GetSize();
+    if (num_lines > 0 && lines[num_lines - 1].empty())
     {
-        // Remove the last line from "lines" so it doesn't appear
-        // in our final expression
+        // Remove the last empty line from "lines" so it doesn't appear
+        // in our resulting input and return true to indicate we are done
+        // getting lines
         lines.PopBack();
-        error.Clear();
-        return LineStatus::Done;
+        return true;
     }
-    else if (line_idx + 1 == lines.GetSize())
-    {
-        // The last line was edited, if this line is empty, then we are done
-        // getting our multiple lines.
-        if (lines[line_idx].empty())
-            return LineStatus::Done;
-    }
-    return LineStatus::Success;
+    return false;
 }
 
 void

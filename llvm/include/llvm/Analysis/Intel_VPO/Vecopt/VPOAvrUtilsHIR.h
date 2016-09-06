@@ -59,9 +59,18 @@ public:
   static AVRExpressionHIR *createAVRExpressionHIR(AVRAssignHIR *HLAssign,
                                                   AssignOperand AOp);
 
+  /// \brief Returns a new AVRExpressionHIR node.
+  static AVRExpressionHIR *createAVRExpressionHIR(AVRIfHIR *AIf,
+                                             HLIf::const_pred_iterator& PredIt);
+
+  /// \brief Returns a new AVRExpressionHIR node.
+  static AVRExpressionHIR *createAVRExpressionHIR(AVRExpressionHIR* LHS,
+                                                  AVRExpressionHIR* RHS);
+
   /// \brief Returns a new AVRValueHIR node.
   static AVRValueHIR *createAVRValueHIR(RegDDRef *DDRef,
-                                        HLInst *HLInstruct);
+                                        HLNode *HNode,
+                                        AVR *Parent);
 
   /// \brief Returns a new AVRSwitchHIR node.
   static AVRSwitchHIR *createAVRSwitchHIR(HLSwitch *HSwitch);

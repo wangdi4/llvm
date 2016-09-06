@@ -12,20 +12,98 @@
 //
 //===----------------------------------------------------------------------===//
 
+//------------------------------------------------------------------------------
+// Unary ops.
+//------------------------------------------------------------------------------
+
+def G_FRAME_INDEX : Instruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$src2);
+  let hasSideEffects = 0;
+}
+
+def G_INTTOPTR : Instruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$src);
+  let hasSideEffects = 0;
+}
+
+def G_PTRTOINT : Instruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$src);
+  let hasSideEffects = 0;
+}
+
+def G_BITCAST : Instruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$src);
+  let hasSideEffects = 0;
+}
+
+
+//------------------------------------------------------------------------------
+// Binary ops.
+//------------------------------------------------------------------------------
 // Generic addition.
 def G_ADD : Instruction {
   let OutOperandList = (outs unknown:$dst);
   let InOperandList = (ins unknown:$src1, unknown:$src2);
-  let AsmString = "";
   let hasSideEffects = 0;
   let isCommutable = 1;
 }
 
+// Generic subtraction.
+def G_SUB : Instruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$src1, unknown:$src2);
+  let hasSideEffects = 0;
+  let isCommutable = 0;
+}
+
+// Generic bitwise and.
+def G_AND : Instruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$src1, unknown:$src2);
+  let hasSideEffects = 0;
+  let isCommutable = 1;
+}
+
+// Generic bitwise or.
+def G_OR : Instruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$src1, unknown:$src2);
+  let hasSideEffects = 0;
+  let isCommutable = 1;
+}
+
+//------------------------------------------------------------------------------
+// Variadic ops
+//------------------------------------------------------------------------------
+
+// Extract multiple registers specified size, starting from blocks given by
+// indexes. This will almost certainly be mapped to sub-register COPYs after
+// register banks have been selected.
+def G_EXTRACT : Instruction {
+  let OutOperandList = (outs variable_ops);
+  let InOperandList = (ins variable_ops);
+  let hasSideEffects = 0;
+}
+
+// Combine a sequence of generic vregs into a single larger value (starting at
+// bit 0).
+def G_SEQUENCE : Instruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins variable_ops);
+  let hasSideEffects = 0;
+}
+
+//------------------------------------------------------------------------------
+// Branches.
+//------------------------------------------------------------------------------
 // Generic unconditional branch.
 def G_BR : Instruction {
   let OutOperandList = (outs);
   let InOperandList = (ins unknown:$src1);
-  let AsmString = "";
   let hasSideEffects = 0;
   let isBranch = 1;
   let isTerminator = 1;

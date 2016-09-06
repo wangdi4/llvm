@@ -63,6 +63,12 @@ typedef enum LoadCWDlldbinitFile
 //----------------------------------------------------------------------
 // TargetProperties
 //----------------------------------------------------------------------
+class TargetExperimentalProperties : public Properties
+{
+public:
+    TargetExperimentalProperties();
+};
+
 class TargetProperties : public Properties
 {
 public:
@@ -237,6 +243,12 @@ public:
 
     void
     SetProcessLaunchInfo(const ProcessLaunchInfo &launch_info);
+    
+    bool
+    GetInjectLocalVariables(ExecutionContext *exe_ctx) const;
+    
+    void
+    SetInjectLocalVariables(ExecutionContext *exe_ctx, bool b);
 
 private:
     //------------------------------------------------------------------
@@ -257,6 +269,7 @@ private:
     // Member variables.
     //------------------------------------------------------------------
     ProcessLaunchInfo m_launch_info;
+    std::unique_ptr<TargetExperimentalProperties> m_experimental_properties_up;
 };
 
 class EvaluateExpressionOptions
@@ -713,8 +726,8 @@ public:
     static const lldb::TargetPropertiesSP &
     GetGlobalProperties();
 
-    Mutex &
-    GetAPIMutex ()
+    std::recursive_mutex &
+    GetAPIMutex()
     {
         return m_mutex;
     }
@@ -797,9 +810,11 @@ public:
                       LazyBool move_to_nearest_code);
 
     // Use this to create breakpoint that matches regex against the source lines in files given in source_file_list:
+    // If function_names is non-empty, also filter by function after the matches are made.
     lldb::BreakpointSP
     CreateSourceRegexBreakpoint (const FileSpecList *containingModules,
                                  const FileSpecList *source_file_list,
+                                 const std::unordered_set<std::string> &function_names,
                                  RegularExpression &source_regex,
                                  bool internal,
                                  bool request_hardware,
@@ -1059,7 +1074,7 @@ public:
     /// dependent modules that are discovered from the object files, or
     /// discovered at runtime as things are dynamically loaded.
     ///
-    /// Setting the executable causes any of the current dependant
+    /// Setting the executable causes any of the current dependent
     /// image information to be cleared and replaced with the static
     /// dependent image information found by calling
     /// ObjectFile::GetDependentModules (FileSpecList&) on the main
@@ -1592,7 +1607,8 @@ protected:
     //------------------------------------------------------------------
     Debugger &      m_debugger;
     lldb::PlatformSP m_platform_sp;     ///< The platform for this target.
-    Mutex           m_mutex;            ///< An API mutex that is used by the lldb::SB* classes make the SB interface thread safe
+    std::recursive_mutex
+        m_mutex; ///< An API mutex that is used by the lldb::SB* classes make the SB interface thread safe
     ArchSpec        m_arch;
     ModuleList      m_images;           ///< The list of images for this process (shared libraries and anything dynamically loaded).
     SectionLoadHistory m_section_load_history;

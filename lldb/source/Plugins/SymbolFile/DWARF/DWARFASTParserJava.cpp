@@ -147,7 +147,7 @@ DWARFASTParserJava::ParseArrayTypeFromDIE(const DWARFDIE &die)
 
     CompilerType element_compiler_type = element_type->GetForwardCompilerType();
     CompilerType array_compiler_type =
-        m_ast.CreateArrayType(element_compiler_type, length_expression, data_offset);
+        m_ast.CreateArrayType(linkage_name, element_compiler_type, length_expression, data_offset);
 
     Declaration decl;
     TypeSP type_sp(new Type(die.GetID(), dwarf, array_compiler_type.GetTypeName(), -1, nullptr,
@@ -468,7 +468,6 @@ DWARFASTParserJava::ParseChildMembers(const DWARFDIE &parent_die, CompilerType &
                 DWARFFormValue encoding_uid;
                 uint32_t member_byte_offset = UINT32_MAX;
                 DWARFExpression member_location_expression(dwarf_cu);
-                bool artificial = true;
 
                 DWARFAttributes attributes;
                 size_t num_attributes = die.GetAttributes(attributes);
@@ -494,7 +493,7 @@ DWARFASTParserJava::ParseChildMembers(const DWARFDIE &parent_die, CompilerType &
                                     member_byte_offset = form_value.Unsigned();
                                 break;
                             case DW_AT_artificial:
-                                artificial = form_value.Boolean();
+                                static_cast<void>(form_value.Boolean());
                                 break;
                             case DW_AT_accessibility:
                                 // TODO: Handle when needed

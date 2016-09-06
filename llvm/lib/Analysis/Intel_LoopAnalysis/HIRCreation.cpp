@@ -15,18 +15,18 @@
 
 #include "llvm/Support/CommandLine.h"
 
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSCCFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/Instructions.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -307,13 +307,18 @@ void HIRCreation::setExitBBlock() const {
 
   auto LastChild = CurRegion->getLastChild();
   assert(LastChild && "Last child of region is null!");
+
   // TODO: Handle other last child types later.
-  assert(isa<HLIf>(LastChild) && "Unexpected last region child!");
+  if (auto LastIf = dyn_cast<HLIf>(LastChild)) {
+    auto ExitRegionBB = getSrcBBlock(LastIf);
+    assert(ExitRegionBB && "Could not find src bblock of if!");
 
-  auto ExitRegionBB = getSrcBBlock(cast<HLIf>(LastChild));
-  assert(ExitRegionBB && "Could not find src bblock of if!");
+    CurRegion->setExitBBlock(const_cast<BasicBlock *>(ExitRegionBB));
 
-  CurRegion->setExitBBlock(const_cast<BasicBlock *>(ExitRegionBB));
+  } else {
+    assert((CurRegion->exitsFunction() || CurRegion->getExitBBlock()) &&
+           "Exit block of region not found!");
+  }
 }
 
 void HIRCreation::create() {

@@ -29,12 +29,12 @@ AVRIfIR::AVRIfIR(AVRBranch *ABranch)
   assert(ABranch->isConditional() && "Branch for AvrIf is non-conditional!");
   Condition = AvrBranch->getCondition();
 
-  // Set NOP Then-Else first children for downstream simplified node insertion. 
+  // Set NOP Then-Else first children for downstream simplified node insertion.
   AVR *ANOP = AVRUtils::createAVRNOP();
-  AVRUtils::insertFirstThenChild(this, AvrItr(ANOP));
+  AVRUtils::insertFirstThenChild(this, ANOP);
 
   ANOP = AVRUtils::createAVRNOP();
-  AVRUtils::insertFirstElseChild(this, AvrItr(ANOP));
+  AVRUtils::insertFirstElseChild(this, ANOP);
 }
 
 AVRIfIR *AVRIfIR::clone() const { return nullptr; }
@@ -51,6 +51,7 @@ void AVRIfIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "(" << getNumber() << ") ";
   case PrintAvrType:
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     OS << getAvrTypeName();
     OS << "( ";

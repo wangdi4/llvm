@@ -1,6 +1,6 @@
 ; RUN: llc -mtriple=x86_64-unknown-unknown -mattr=+avx -fixup-byte-word-insts=1 < %s | FileCheck -check-prefix=CHECK -check-prefix=BWON %s
 ; RUN: llc -mtriple=x86_64-unknown-unknown -mattr=+avx -fixup-byte-word-insts=0 < %s | FileCheck -check-prefix=CHECK -check-prefix=BWOFF %s
-; RUN: llc -mtriple=x86_64-unknown-unknown -mattr=+avx -addr-sink-using-gep=1 < %s | FileCheck %s
+; RUN: llc -mtriple=x86_64-unknown-unknown -mattr=+avx -addr-sink-using-gep=1 < %s | FileCheck -check-prefix=CHECK -check-prefix=BWON %s
 
 %struct.A = type { i8, i8, i8, i8, i8, i8, i8, i8 }
 %struct.B = type { i32, i32, i32, i32, i32, i32, i32, i32 }
@@ -182,14 +182,11 @@ define void @merge_loads_i16(i32 %count, %struct.A* noalias nocapture %q, %struc
 
 ; The loads and the stores are interleaved. Can't merge them.
 ; CHECK-LABEL: no_merge_loads:
-; load:
 ; BWON:  movzbl
 ; BWOFF: movb
-; store:
 ; CHECK: movb
-; load:
-; CHECK: {{movb|movzbl}}                                      ;INTEL
-; store:
+; BWON:  movzbl
+; BWOFF: movb
 ; CHECK: movb
 ; CHECK: ret
 define void @no_merge_loads(i32 %count, %struct.A* noalias nocapture %q, %struct.A* noalias nocapture %p) nounwind uwtable noinline ssp {
@@ -344,8 +341,9 @@ block4:                                       ; preds = %4, %.lr.ph
 ; Make sure that we merge the consecutive load/store sequence below and use a
 ; word (16 bit) instead of a byte copy.
 ; CHECK-LABEL: MergeLoadStoreBaseIndexOffset:
-; CHECK: {{movw|movzwl}}    (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]  ;INTEL
-; CHECK: movw               %[[REG]], (%{{.*}})                        ;INTEL
+; BWON: movzwl   (%{{.*}},%{{.*}}), %e[[REG:[a-z]+]]
+; BWOFF: movw    (%{{.*}},%{{.*}}), %[[REG:[a-z]+]]
+; CHECK: movw    %[[REG]], (%{{.*}})
 define void @MergeLoadStoreBaseIndexOffset(i64* %a, i8* %b, i8* %c, i32 %n) {
   br label %1
 
@@ -376,8 +374,9 @@ define void @MergeLoadStoreBaseIndexOffset(i64* %a, i8* %b, i8* %c, i32 %n) {
 ; word (16 bit) instead of a byte copy even if there are intermediate sign
 ; extensions.
 ; CHECK-LABEL: MergeLoadStoreBaseIndexOffsetSext:
-; CHECK: {{movw|movzwl}}  (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]   ;INTEL
-; CHECK: movw             %[[REG]], (%{{.*}})                         ;INTEL
+; BWON: movzwl   (%{{.*}},%{{.*}}), %e[[REG:[a-z]+]]
+; BWOFF: movw    (%{{.*}},%{{.*}}), %[[REG:[a-z]+]]
+; CHECK: movw    %[[REG]], (%{{.*}})
 define void @MergeLoadStoreBaseIndexOffsetSext(i8* %a, i8* %b, i8* %c, i32 %n) {
   br label %1
 
@@ -408,8 +407,8 @@ define void @MergeLoadStoreBaseIndexOffsetSext(i8* %a, i8* %b, i8* %c, i32 %n) {
 ; However, we can only merge ignore sign extensions when they are on all memory
 ; computations;
 ; CHECK-LABEL: loadStoreBaseIndexOffsetSextNoSex:
-; CHECK-NOT: {{movw|movzwl}}    (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]];INTEL
-; CHECK-NOT: movw               %[[REG]], (%{{.*}})                      ;INTEL
+; CHECK-NOT: movw    (%{{.*}},%{{.*}}), [[REG:%[a-z]+]]
+; CHECK-NOT: movw    [[REG]], (%{{.*}})
 define void @loadStoreBaseIndexOffsetSextNoSex(i8* %a, i8* %b, i8* %c, i32 %n) {
   br label %1
 
@@ -465,7 +464,7 @@ define void @merge_vec_element_store(<8 x float> %v, float* %ptr) {
   store float %vecext7, float* %arrayidx7, align 4
   ret void
 
-; CHECK-LABEL: merge_vec_element_store:
+; CHECK-LABEL: merge_vec_element_store
 ; CHECK: vmovups
 ; CHECK-NEXT: vzeroupper
 ; CHECK-NEXT: retq
@@ -488,7 +487,7 @@ define void @merge_vec_extract_stores(<8 x float> %v1, <8 x float> %v2, <4 x flo
   store <4 x float> %shuffle3, <4 x float>* %idx3, align 16
   ret void
 
-; CHECK-LABEL: merge_vec_extract_stores:
+; CHECK-LABEL: merge_vec_extract_stores
 ; CHECK:      vmovups %ymm0, 48(%rdi)
 ; CHECK-NEXT: vmovups %ymm1, 80(%rdi)
 ; CHECK-NEXT: vzeroupper
@@ -507,7 +506,7 @@ define void @merge_vec_stores_from_loads(<4 x float>* %v, <4 x float>* %ptr) {
   store <4 x float> %v1, <4 x float>* %store_idx1, align 16
   ret void
 
-; CHECK-LABEL: merge_vec_stores_from_loads:
+; CHECK-LABEL: merge_vec_stores_from_loads
 ; CHECK:      vmovaps
 ; CHECK-NEXT: vmovaps
 ; CHECK-NEXT: vmovaps
@@ -523,7 +522,7 @@ define void @merge_vec_stores_of_constants(<4 x i32>* %ptr) {
   store <4 x i32> <i32 0, i32 0, i32 0, i32 0>, <4 x i32>* %idx1, align 16
   ret void
 
-; CHECK-LABEL: merge_vec_stores_of_constants:
+; CHECK-LABEL: merge_vec_stores_of_constants
 ; CHECK:      vxorps
 ; CHECK-NEXT: vmovaps
 ; CHECK-NEXT: vmovaps
@@ -548,7 +547,7 @@ define void @merge_vec_element_and_scalar_load([6 x i64]* %array) {
   store i64 %a1, i64* %idx5, align 8
   ret void
 
-; CHECK-LABEL: merge_vec_element_and_scalar_load:
+; CHECK-LABEL: merge_vec_element_and_scalar_load
 ; CHECK:      movq	(%rdi), %rax
 ; CHECK-NEXT: movq	%rax, 32(%rdi)
 ; CHECK-NEXT: movq	8(%rdi), %rax

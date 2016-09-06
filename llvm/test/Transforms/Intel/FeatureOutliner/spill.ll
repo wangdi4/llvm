@@ -114,7 +114,7 @@ end:
 ; CHECK: attributes #0 = { nounwind readnone }
 ; CHECK: attributes #1 = { "target-cpu"="x86-64" }
 ; CHECK: attributes #2 = { "target-cpu"="x86-64" "target-features"="+avx" }
-; CHECK: attributes #3 = { "target-cpu"="x86-64" "target-features"="+avx512f" }
+; CHECK: attributes #3 = { "target-cpu"="x86-64" "target-features"="+avx,+avx512f" }
 
 attributes #0 = { nounwind readnone }
 attributes #1 = { "target-cpu"="x86-64" }

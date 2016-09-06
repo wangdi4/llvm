@@ -29,6 +29,37 @@
 # X86-64-NEXT:   StringTableSectionIndex:
 # X86-64-NEXT: }
 
+# RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux-gnux32 %s -o %tx32
+# RUN: ld.lld -m elf32_x86_64 %tx32 -o %t2x32
+# RUN: llvm-readobj -file-headers %t2x32 | FileCheck --check-prefix=X32 %s
+# RUN: ld.lld %tx32 -o %t3x32
+# RUN: llvm-readobj -file-headers %t3x32 | FileCheck --check-prefix=X32 %s
+# X32:      ElfHeader {
+# X32-NEXT:   Ident {
+# X32-NEXT:     Magic: (7F 45 4C 46)
+# X32-NEXT:     Class: 32-bit (0x1)
+# X32-NEXT:     DataEncoding: LittleEndian (0x1)
+# X32-NEXT:     FileVersion: 1
+# X32-NEXT:     OS/ABI: SystemV (0x0)
+# X32-NEXT:     ABIVersion: 0
+# X32-NEXT:     Unused: (00 00 00 00 00 00 00)
+# X32-NEXT:   }
+# X32-NEXT:   Type: Executable (0x2)
+# X32-NEXT:   Machine: EM_X86_64 (0x3E)
+# X32-NEXT:   Version: 1
+# X32-NEXT:   Entry:
+# X32-NEXT:   ProgramHeaderOffset: 0x34
+# X32-NEXT:   SectionHeaderOffset:
+# X32-NEXT:   Flags [ (0x0)
+# X32-NEXT:   ]
+# X32-NEXT:   HeaderSize: 52
+# X32-NEXT:   ProgramHeaderEntrySize: 32
+# X32-NEXT:   ProgramHeaderCount:
+# X32-NEXT:   SectionHeaderEntrySize: 40
+# X32-NEXT:   SectionHeaderCount:
+# X32-NEXT:   StringTableSectionIndex:
+# X32-NEXT: }
+
 # RUN: llvm-mc -filetype=obj -triple=i686-unknown-linux %s -o %tx86
 # RUN: ld.lld -m elf_i386 %tx86 -o %t2x86
 # RUN: llvm-readobj -file-headers %t2x86 | FileCheck --check-prefix=X86 %s
@@ -145,7 +176,7 @@
 # MIPS-NEXT:   SectionHeaderOffset:
 # MIPS-NEXT:   Flags [
 # MIPS-NEXT:     EF_MIPS_ABI_O32
-# MIPS-NEXT:     EF_MIPS_ARCH_32R2
+# MIPS-NEXT:     EF_MIPS_ARCH_32
 # MIPS-NEXT:     EF_MIPS_CPIC
 # MIPS-NEXT:   ]
 
@@ -174,9 +205,63 @@
 # MIPSEL-NEXT:   SectionHeaderOffset:
 # MIPSEL-NEXT:   Flags [
 # MIPSEL-NEXT:     EF_MIPS_ABI_O32
-# MIPSEL-NEXT:     EF_MIPS_ARCH_32R2
+# MIPSEL-NEXT:     EF_MIPS_ARCH_32
 # MIPSEL-NEXT:     EF_MIPS_CPIC
 # MIPSEL-NEXT:   ]
+
+# RUN: llvm-mc -filetype=obj -triple=mips64-unknown-linux %s -o %tmips64
+# RUN: ld.lld -m elf64btsmip -e _start %tmips64 -o %t2mips64
+# RUN: llvm-readobj -file-headers %t2mips64 | FileCheck --check-prefix=MIPS64 %s
+# RUN: ld.lld %tmips64 -e _start -o %t3mips64
+# RUN: llvm-readobj -file-headers %t3mips64 | FileCheck --check-prefix=MIPS64 %s
+# MIPS64:      ElfHeader {
+# MIPS64-NEXT:   Ident {
+# MIPS64-NEXT:     Magic: (7F 45 4C 46)
+# MIPS64-NEXT:     Class: 64-bit (0x2)
+# MIPS64-NEXT:     DataEncoding: BigEndian (0x2)
+# MIPS64-NEXT:     FileVersion: 1
+# MIPS64-NEXT:     OS/ABI: SystemV (0x0)
+# MIPS64-NEXT:     ABIVersion: 0
+# MIPS64-NEXT:     Unused: (00 00 00 00 00 00 00)
+# MIPS64-NEXT:   }
+# MIPS64-NEXT:   Type: Executable (0x2)
+# MIPS64-NEXT:   Machine: EM_MIPS (0x8)
+# MIPS64-NEXT:   Version: 1
+# MIPS64-NEXT:   Entry:
+# MIPS64-NEXT:   ProgramHeaderOffset: 0x40
+# MIPS64-NEXT:   SectionHeaderOffset:
+# MIPS64-NEXT:   Flags [
+# MIPS64-NEXT:     EF_MIPS_ARCH_64
+# MIPS64-NEXT:     EF_MIPS_CPIC
+# MIPS64-NEXT:     EF_MIPS_PIC
+# MIPS64-NEXT:   ]
+
+# RUN: llvm-mc -filetype=obj -triple=mips64el-unknown-linux %s -o %tmips64el
+# RUN: ld.lld -m elf64ltsmip -e _start %tmips64el -o %t2mips64el
+# RUN: llvm-readobj -file-headers %t2mips64el | FileCheck --check-prefix=MIPS64EL %s
+# RUN: ld.lld %tmips64el -e _start -o %t3mips64el
+# RUN: llvm-readobj -file-headers %t3mips64el | FileCheck --check-prefix=MIPS64EL %s
+# MIPS64EL:      ElfHeader {
+# MIPS64EL-NEXT:   Ident {
+# MIPS64EL-NEXT:     Magic: (7F 45 4C 46)
+# MIPS64EL-NEXT:     Class: 64-bit (0x2)
+# MIPS64EL-NEXT:     DataEncoding: LittleEndian (0x1)
+# MIPS64EL-NEXT:     FileVersion: 1
+# MIPS64EL-NEXT:     OS/ABI: SystemV (0x0)
+# MIPS64EL-NEXT:     ABIVersion: 0
+# MIPS64EL-NEXT:     Unused: (00 00 00 00 00 00 00)
+# MIPS64EL-NEXT:   }
+# MIPS64EL-NEXT:   Type: Executable (0x2)
+# MIPS64EL-NEXT:   Machine: EM_MIPS (0x8)
+# MIPS64EL-NEXT:   Version: 1
+# MIPS64EL-NEXT:   Entry:
+# MIPS64EL-NEXT:   ProgramHeaderOffset: 0x40
+# MIPS64EL-NEXT:   SectionHeaderOffset:
+# MIPS64EL-NEXT:   Flags [
+# MIPS64EL-NEXT:     EF_MIPS_ARCH_64
+# MIPS64EL-NEXT:     EF_MIPS_CPIC
+# MIPS64EL-NEXT:     EF_MIPS_PIC
+# MIPS64EL-NEXT:   ]
 
 # RUN: llvm-mc -filetype=obj -triple=aarch64-unknown-linux %s -o %taarch64
 # RUN: ld.lld -m aarch64linux %taarch64 -o %t2aarch64
@@ -204,5 +289,5 @@
 
 # REQUIRES: x86,ppc,mips,aarch64
 
-.globl _start;
+.globl _start
 _start:
