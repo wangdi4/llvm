@@ -567,8 +567,7 @@ bool HIRParser::isNestedBlob(BlobTy Blob) const {
 }
 
 bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                                unsigned NewTempIndex,
-                                unsigned &NewBlobIndex) {
+                                unsigned NewTempIndex, unsigned &NewBlobIndex) {
   auto OldTempBlob = getBlob(OldTempIndex);
   auto NewTempBlob = getBlob(NewTempIndex);
 
@@ -1794,9 +1793,9 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
 
   SmallVector<unsigned, 8> BlobIndices;
 
-  // For GEP DDRefs, some of the parsed blobs can get cancelled due to index
-  // merging. So we check whether there is a mismatch in collected blobs and
-  // actual blobs present in the DDRef.
+  // Some of the parsed blobs can get cancelled due to index merging or SCEV
+  // simplification so we need to check whether there is a mismatch in collected
+  // blobs and actual blobs present in the DDRef.
   //
   // Here's a very simple made up example composed of multiple GEPs-
   //
@@ -1807,7 +1806,7 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
   // When parsing %q, we parse %p (@A + %1) and %2 (-1 * %1) separately and then
   // merge them. On merging %1 will cancel out.
   //
-  if (Ref->hasGEPInfo()) {
+  if (!CurTempBlobLevelMap.empty()) {
     Ref->collectTempBlobIndices(BlobIndices);
   }
 
