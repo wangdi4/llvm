@@ -74,7 +74,7 @@ bool VPOParopt::runOnModule(Module &M) {
 
   bool Changed = false;
 
-  VPOParoptMode Mode = OMPPAR;
+  int Mode = ParTrans | OmpPar;
 
   /// \brief As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.
@@ -118,7 +118,7 @@ bool VPOParopt::runOnModule(Module &M) {
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
     VPOParoptTransform VP(F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
                           Mode);
-    Changed = Changed | VP.ParoptTransformer();
+    Changed = Changed | VP.paroptTransforms();
 
     DEBUG(dbgs() << "\n}=== VPOParopt after ParoptTransformer\n");
 

@@ -272,6 +272,9 @@ namespace {
       (void) llvm::createVectorGraphInfoPass();
       (void) llvm::createVectorGraphPredicatorPass();
 
+      // VPO Paropt Prepare Passes
+      (void) llvm::createVPOParoptPreparePass();
+
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();
   #endif // INTEL_CUSTOMIZATION

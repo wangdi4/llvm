@@ -39,12 +39,14 @@ class ModulePass;
 namespace vpo {
 
 enum VPOParoptMode {
-  PAROPTOFF = 0x00000000,
-  OMPVEC = 0x00000001,
-  OMPPAR = 0x00000002,
-  OMPOFFLOAD = 0x00000004,
-  AUTOVEC = 0x00000008,
-  AUTOPAR = 0x00000010
+  ParoptOff  = 0x00000000,
+  ParPrepare = 0x00000001,
+  ParTrans   = 0x00000002,
+  OmpPar     = 0x00000004,
+  OmpVec     = 0x00000008,
+  OmpOffload = 0x00000010,
+  AutoVec    = 0x00000020,
+  AutoPar    = 0x00000040
 };
 
 /// \brief VPOParopt class for performing parallelization and offloading

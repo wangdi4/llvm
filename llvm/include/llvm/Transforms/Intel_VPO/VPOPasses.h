@@ -25,6 +25,7 @@ FunctionPass *createVPODriverPass();
 FunctionPass *createVPODriverHIRPass();
 FunctionPass *createVPODirectiveCleanupPass();
 FunctionPass *createVPOCFGRestructuringPass();
+FunctionPass *createVPOParoptPreparePass();
 ModulePass   *createVPOParoptPass();
 }
 

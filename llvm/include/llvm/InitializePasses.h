@@ -396,6 +396,8 @@ void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 // VPO Utility Pass
 void initializeVPOCFGRestructuringPass(PassRegistry&);
+// VPO Paropt Prepare Pass
+void initializeVPOParoptPreparePass(PassRegistry&);
 // VPO Parallelizer Pass
 void initializeVPOParoptPass(PassRegistry&);
 // VPO Vectorizer Passes
