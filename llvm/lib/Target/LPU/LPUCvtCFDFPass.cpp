@@ -105,6 +105,7 @@ namespace llvm {
       AU.addRequired<ControlDependenceGraph>();
       //AU.addRequired<LiveVariables>();
       AU.addRequired<MachineDominatorTree>();
+			AU.addRequired<MachinePostDominatorTree>();
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -191,6 +192,7 @@ namespace llvm {
   private:
     MachineFunction *thisMF;
     MachineDominatorTree *DT;
+		MachinePostDominatorTree *PDT;
     ControlDependenceGraph *CDG;
     MachineLoopInfo *MLI;
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2switch;  //switch for Reg added in bb
@@ -279,6 +281,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   thisMF = &MF;
 
   DT = &getAnalysis<MachineDominatorTree>();
+	PDT = &getAnalysis<MachinePostDominatorTree>();
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
 
@@ -301,7 +304,12 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (OrderMemops > 0) {
     addMemoryOrderingConstraints();
   }
-  
+#if 0
+	{
+		errs() << "LPUCvtCFDFPass after memoryop order" << ":\n";
+		MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
+	}
+#endif
 	insertSWITCHForIf();
 	insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
@@ -318,6 +326,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     removeBranch();
     linearizeCFG();
   }
+
   return Modified;
 
 }
@@ -1374,6 +1383,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
 		ControlDependenceNode* mnode = CDG->getNode(mbb);
+		/*
 		bool oneAndOnly = true;
 		if (getNonLatchParent(mnode, oneAndOnly) == nullptr && 
 			  !oneAndOnly &&
@@ -1382,24 +1392,32 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
 			RunSXU = true;
 			continue;
 		}
+		*/
 		bool bypassBB = false;
     MachineBasicBlock::iterator iterI = mbb->begin();
     while (iterI != mbb->end()) {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
+#if 1
 			for (MIOperands MO(MI); MO.isValid() && !bypassBB; ++MO) {
 				if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+				
 				if (MO->isUse()) {
 					//move to its incoming block operand
 					++MO;
 					MachineBasicBlock* inBB = MO->getMBB();
+					if (!PDT->dominates(mbb, inBB)) {
+						bypassBB = true;
+						break;
+					}
 					do {
+						bool inBBFork = ((inBB->succ_size() > 1) && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB));
 						ControlDependenceNode* inNode = CDG->getNode(inBB);
 						ControlDependenceNode* ctrlNode = nullptr;
 						bool oneAndOnly = true;
 						ctrlNode = getNonLatchParent(inNode, oneAndOnly);
-						if (ctrlNode == nullptr && !oneAndOnly) {
+						if (ctrlNode == nullptr && !oneAndOnly && !inBBFork) {
 							bypassBB = true;
 							break;
 						}	
@@ -1409,8 +1427,11 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
 					} while (!DT->dominates(inBB, mbb));
 				}
 			}
-			if (bypassBB) break;
-
+			if (bypassBB) {
+				RunSXU = true;
+				break;
+			}
+#endif
       multiInputsPick.clear();
       unsigned dst = MI->getOperand(0).getReg();
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
