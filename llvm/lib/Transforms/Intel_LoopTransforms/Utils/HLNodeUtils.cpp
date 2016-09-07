@@ -3157,16 +3157,15 @@ void HLNodeUtils::permuteLoopNests(
 
   for (auto &Lp : LoopPermutation) {
     assert(DstLoop && "Perfect loop nest expected");
-
     HLLoop *SrcLoop = nullptr;
-
-    // Loop is already in desired position.
+    // Loop is already in desired position
     if (Lp == DstLoop) {
+      DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
       continue;
     }
-
     for (auto &Lp1 : SavedLoops) {
-      // getNestingLevel() asserts for disconnected loops. It is set explicitly
+      // getNestingLevel() asserts for disconnected loops. It is set
+      // explicitly
       // for saved loops in the previous loop so we access it directly.
       if (Lp->getNestingLevel() == Lp1->NestingLevel) {
         SrcLoop = Lp1;
