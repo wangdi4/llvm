@@ -115,6 +115,7 @@ namespace llvm {
     void insertSWITCHForLoopExit();
     void replacePhiWithPICK();
     void replaceLoopHdrPhi();
+		void TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI);
     void replaceIfFooterPhiSeq();
   	void assignLicForDF();
   	void removeBranch();
@@ -1382,116 +1383,111 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
   MachineBasicBlock *root = thisMF->begin();
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
-		ControlDependenceNode* mnode = CDG->getNode(mbb);
-		/*
-		bool oneAndOnly = true;
-		if (getNonLatchParent(mnode, oneAndOnly) == nullptr && 
-			  !oneAndOnly &&
-			  mbb->instr_begin()->isPHI()) {
-			DEBUG(errs() << "WARNING: force runing on SXU.\n");
-			RunSXU = true;
-			continue;
-		}
-		*/
-		bool bypassBB = false;
+	ControlDependenceNode* mnode = CDG->getNode(mbb);
     MachineBasicBlock::iterator iterI = mbb->begin();
+	bool bypassBB = false;
     while (iterI != mbb->end()) {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
 #if 1
-			for (MIOperands MO(MI); MO.isValid() && !bypassBB; ++MO) {
-				if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-				
-				if (MO->isUse()) {
-					//move to its incoming block operand
-					++MO;
-					MachineBasicBlock* inBB = MO->getMBB();
-					if (!PDT->dominates(mbb, inBB)) {
+		for (MIOperands MO(MI); MO.isValid() && !bypassBB; ++MO) {
+			if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+
+			if (MO->isUse()) {
+				//move to its incoming block operand
+				++MO;
+				MachineBasicBlock* inBB = MO->getMBB();
+				if (!PDT->dominates(mbb, inBB)) {
+					bypassBB = true;
+					break;
+				}
+				do {
+					bool inBBFork = ((inBB->succ_size() > 1) && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB));
+					ControlDependenceNode* inNode = CDG->getNode(inBB);
+					ControlDependenceNode* ctrlNode = nullptr;
+					bool oneAndOnly = true;
+					ctrlNode = getNonLatchParent(inNode, oneAndOnly);
+					if (ctrlNode == nullptr && !oneAndOnly && !inBBFork) {
 						bypassBB = true;
 						break;
 					}
-					do {
-						bool inBBFork = ((inBB->succ_size() > 1) && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB));
-						ControlDependenceNode* inNode = CDG->getNode(inBB);
-						ControlDependenceNode* ctrlNode = nullptr;
-						bool oneAndOnly = true;
-						ctrlNode = getNonLatchParent(inNode, oneAndOnly);
-						if (ctrlNode == nullptr && !oneAndOnly && !inBBFork) {
-							bypassBB = true;
-							break;
-						}	
-						if (ctrlNode == nullptr) break;
-						MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
-						inBB = ctrlBB;
-					} while (!DT->dominates(inBB, mbb));
-				}
+					if (ctrlNode == nullptr) break;
+					MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
+					inBB = ctrlBB;
+				} while (!DT->dominates(inBB, mbb));
 			}
-			if (bypassBB) {
-				RunSXU = true;
-				break;
-			}
+		}
+		if (bypassBB) {
+			RunSXU = true;
+			break;
+		}
 #endif
+
       multiInputsPick.clear();
       unsigned dst = MI->getOperand(0).getReg();
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-        if (MO->isUse()) {
-          unsigned Reg = MO->getReg();
-          //move to its incoming block operand
-          ++MO;
-          MachineBasicBlock* inBB = MO->getMBB();
-          bool inBBFork = inBB->succ_size() > 1 && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB);
-          if (!DT->dominates(inBB, mbb) && inBBFork) {
-            MachineInstr* pickInstr = PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, 0);
-            if (!pickInstr) {
-              //patched
-              continue;
-            } else {
-              Reg = pickInstr->getOperand(0).getReg();
-            }
-          }
-
-          MachineBasicBlock* ctrlBB = nullptr;
-          bool patched = false;
-          while (!DT->dominates(inBB, mbb)) {
-            ControlDependenceNode* inNode = CDG->getNode(inBB);
-            ControlDependenceNode* ctrlNode = nullptr;
-						bool oneAndOnly = false;
-            ctrlNode = getNonLatchParent(inNode, oneAndOnly);
-            ctrlBB = ctrlNode->getBlock();
-            unsigned pickReg = 0;
-            if (DT->dominates(ctrlBB, mbb)) {
-              pickReg = dst;
-            }
-            MachineInstr* pickInstr = PatchOrInsertPickAtFork(ctrlBB, dst, Reg, inBB, MI, pickReg);
-            if (pickInstr == NULL) {
-              patched = true;
-              break;
-            }
-            inBB = ctrlBB;
-            Reg = pickInstr->getOperand(0).getReg();
-          }
-          if (patched) continue;
-
-          assert(DT->dominates(inBB, mbb));
-          if (!ctrlBB) {
-            //fall through
-            MachineInstr* dMI = MRI->getVRegDef(Reg);
-            MachineBasicBlock* DefBB = dMI->getParent();
-            unsigned switchingDef = findSwitchingDstForReg(Reg, DefBB);
-            if (switchingDef) {
-              Reg = switchingDef;
-            }
-            PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, dst);
-          }
-        }
+				if (MO->isUse()) {
+					unsigned Reg = MO->getReg();
+					//move to its incoming block operand
+					++MO;
+					MachineBasicBlock* inBB = MO->getMBB();
+					if (DT->dominates(inBB, mbb)) {
+						//fall through
+						MachineInstr* dMI = MRI->getVRegDef(Reg);
+						MachineBasicBlock* DefBB = dMI->getParent();
+						unsigned switchingDef = findSwitchingDstForReg(Reg, DefBB);
+						if (switchingDef) {
+							Reg = switchingDef;
+						}
+						PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, dst);
+						continue;
+					}	else {
+						bool inBBFork = inBB->succ_size() > 1 && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB);
+						if (inBBFork) {
+							MachineInstr* pickInstr = PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, 0);
+							if (!pickInstr) {
+								//patched
+								continue;  //to next MO
+							}	else {
+								Reg = pickInstr->getOperand(0).getReg();
+							}
+						}
+						TraceCtrl(inBB, mbb, Reg, dst, MI);
+					}
+				}
       } //end of for MO
       MI->removeFromParent();
     }
   } //end of bb
 }
 
+
+
+void LPUCvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI) {
+	MachineBasicBlock* ctrlBB = nullptr;
+	bool patched = false;
+	if (!DT->dominates(inBB, mbb)) {
+		ControlDependenceNode* inNode = CDG->getNode(inBB);
+		ControlDependenceNode* ctrlNode = nullptr;
+		for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
+			ControlDependenceNode* ctrlNode = *pnode;
+			ctrlBB = ctrlNode->getBlock();
+			if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+				continue;
+			unsigned pickReg = 0;
+			if (DT->dominates(ctrlBB, mbb)) {
+				pickReg = dst;
+			}
+			MachineInstr* pickInstr = PatchOrInsertPickAtFork(ctrlBB, dst, Reg, inBB, MI, pickReg);
+			if (pickInstr) {
+				//not patched, keep tracing
+				TraceCtrl(ctrlBB, mbb, pickInstr->getOperand(0).getReg(), dst, MI);
+			}
+		}
+	}
+}
 
 MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
                                                 unsigned new_opcode,
