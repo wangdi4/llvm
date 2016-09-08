@@ -107,9 +107,6 @@ public:
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
-
-  /// \brief Returns the value name of this node.
-  virtual std::string getAvrValueName() const = 0;
 };
 
 //----------AVR Expression Node----------//
@@ -139,6 +136,21 @@ protected:
 
   /// IsLHSExpr - True when this expression is the LHS of an assignment.
   bool IsLHSExpr;
+
+  /// Predicate - The LLVM predicate if this expression is a comparison.
+  CmpInst::Predicate Predicate = CmpInst::BAD_ICMP_PREDICATE;
+
+  /// \brief Constructor for creating pure AVR expressions, i.e. not based on
+  /// an underlying IR instruction.
+  AVRExpression(Type *ValType,
+                const SmallVectorImpl<AVR *>& Operands,
+                unsigned Operation,
+                CmpInst::Predicate Predicate);
+
+  /// \brief Constructor for create a pure AVR expression.
+  AVRExpression(Type *ValType, bool isLHS = false);
+
+  void addOperand(AVR* Operand) { Operands.push_back(Operand); }
 
   /// \brief Constructor used by derived classes. Should not instantiate
   /// this object at this level.
@@ -191,11 +203,44 @@ public:
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
 
-  /// \brief Returns the value name of this node.
-  virtual std::string getAvrValueName() const = 0;
-
   /// \brief Returns the Opcode name of this expression's operation.
-  virtual std::string getOpCodeName() const = 0;
+  virtual std::string getOpCodeName() const {
+    std::string OperationName = Instruction::getOpcodeName(Operation);
+    if (Predicate == CmpInst::BAD_ICMP_PREDICATE)
+      return OperationName;
+
+    const char * pred = "unknown";
+    switch (Predicate) {
+    case FCmpInst::FCMP_FALSE: pred = "false"; break;
+    case FCmpInst::FCMP_OEQ:   pred = "oeq"; break;
+    case FCmpInst::FCMP_OGT:   pred = "ogt"; break;
+    case FCmpInst::FCMP_OGE:   pred = "oge"; break;
+    case FCmpInst::FCMP_OLT:   pred = "olt"; break;
+    case FCmpInst::FCMP_OLE:   pred = "ole"; break;
+    case FCmpInst::FCMP_ONE:   pred = "one"; break;
+    case FCmpInst::FCMP_ORD:   pred = "ord"; break;
+    case FCmpInst::FCMP_UNO:   pred = "uno"; break;
+    case FCmpInst::FCMP_UEQ:   pred = "ueq"; break;
+    case FCmpInst::FCMP_UGT:   pred = "ugt"; break;
+    case FCmpInst::FCMP_UGE:   pred = "uge"; break;
+    case FCmpInst::FCMP_ULT:   pred = "ult"; break;
+    case FCmpInst::FCMP_ULE:   pred = "ule"; break;
+    case FCmpInst::FCMP_UNE:   pred = "une"; break;
+    case FCmpInst::FCMP_TRUE:  pred = "true"; break;
+    case ICmpInst::ICMP_EQ:    pred = "eq"; break;
+    case ICmpInst::ICMP_NE:    pred = "ne"; break;
+    case ICmpInst::ICMP_SGT:   pred = "sgt"; break;
+    case ICmpInst::ICMP_SGE:   pred = "sge"; break;
+    case ICmpInst::ICMP_SLT:   pred = "slt"; break;
+    case ICmpInst::ICMP_SLE:   pred = "sle"; break;
+    case ICmpInst::ICMP_UGT:   pred = "ugt"; break;
+    case ICmpInst::ICMP_UGE:   pred = "uge"; break;
+    case ICmpInst::ICMP_ULT:   pred = "ult"; break;
+    case ICmpInst::ICMP_ULE:   pred = "ule"; break;
+    default:                   pred = "unknown"; break;
+    }
+    return OperationName + "/" + pred;
+  }
 };
 
 //----------AVR Value Node----------//
@@ -214,16 +259,33 @@ private:
   /// changest)
   // MemRefInfo *MRI;
 
+  /// \p Def - The AVR nodes which this value is referencing; used exclusively
+  /// for pure AVR values, i.e. AVRValues with no underlying IR.
+  SmallPtrSet<AVRExpression*, 1> ReachingDefs;
+
   /// \p ValType - type of this value.
   Type *ValType;
-
+ 
+  /// \p ConstVal - The constant value this value refers to.
+  const Constant *ConstVal = nullptr;
+ 
 protected:
   /// Set the data type of this Value.
   void setType(Type *DataType) { ValType = DataType; } 
 
+  /// \brief Constructor for creating a constant AVR value.
+  AVRValue(Constant *ConstVal);
+
+  /// \brief Constructor for creating an AVR value that directly uses a single
+  /// Def AVR node.
+  AVRValue(AVRExpression *ReachingDef);
+
   /// \brief Constructor used by derived classes. Should not instantiate
   /// this object at this level.
   AVRValue(unsigned SCID, Type *ValType);
+
+  // \brief Set the constant value for this AVRValue 
+  void setConstant(const Constant *Const) { ConstVal = Const; }
 
   /// \brief Destructor for this object.
   virtual ~AVRValue() override {}
@@ -245,17 +307,18 @@ public:
   }
 
   /// \brief Prints the AVRAssignIR node.
-  void print(formatted_raw_ostream &OS, unsigned Depth,
-             VerbosityLevel VerbosityLevel) const = 0;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     VerbosityLevel VerbosityLevel) const override;
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
 
-  /// \brief Returns value name of this node.
-  virtual std::string getAvrValueName() const = 0;
   /// \brief Returns whether this AVR value represents a constant value in the
   /// underlying IR.
-  virtual bool isConstant() const = 0;
+  virtual bool isConstant() const { return ConstVal != nullptr; }
+
+  /// \brief Returns the constant value for this AVR value
+  virtual const Constant* getConstant() const { return ConstVal; }
 };
 
 //----------AVR Label Node----------//
@@ -938,6 +1001,193 @@ public:
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;
 
+};
+
+class AVRBlock : public AVR {
+
+public:
+  // Setup types for AVRBlock's children.
+  typedef AVRContainerTy ChildrenTy;
+
+  /// Iterators to iterate for children nodes.
+  typedef ChildrenTy::iterator child_iterator;
+  typedef ChildrenTy::const_iterator const_child_iterator;
+  typedef ChildrenTy::reverse_iterator reverse_child_iterator;
+  typedef ChildrenTy::const_reverse_iterator const_reverse_child_iterator;
+
+private:
+  
+  ChildrenTy Children;
+
+  SmallVector<AVRBlock*, 2> Predecessors;
+  SmallVector<AVRBlock*, 2> Successors;
+  SmallPtrSet<AVRBlock*, 2> SchedConstraints;
+
+  /// Condition - pointer to the AVR which generates the true/false bit for
+  /// that selects between (the two) successors.
+  AVR *Condition;
+
+  void setCondition(AVR *C) { Condition = C; }
+
+  void addSuccessor(AVRBlock* Successor) {
+    assert(Successor && "Null successor?");
+    Successors.push_back(Successor);
+    Successor->Predecessors.push_back(this);
+    Successor->addSchedulingConstraint(this);
+  }
+
+  void addSchedulingConstraint(AVRBlock* Block) {
+    SchedConstraints.insert(Block);
+  }
+
+protected:
+  AVRBlock();
+  virtual ~AVRBlock() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
+
+  const SmallVectorImpl<AVRBlock*>& getPredecessors() const { return Predecessors; }
+
+  const SmallVectorImpl<AVRBlock*>& getSuccessors() const { return Successors; }
+
+  const SmallPtrSetImpl<AVRBlock*>& getSchedConstraints() { return SchedConstraints; }
+
+  SmallVectorImpl<AVRBlock*>::const_iterator pred_begin() const { return Predecessors.begin(); }
+  SmallVectorImpl<AVRBlock*>::const_iterator pred_end() const { return Predecessors.end(); }
+  SmallVectorImpl<AVRBlock*>::const_iterator succ_begin() const { return Successors.begin(); }
+  SmallVectorImpl<AVRBlock*>::const_iterator succ_end() const { return Successors.end(); }
+  SmallVectorImpl<AVRBlock*>::iterator pred_begin() { return Predecessors.begin(); }
+  SmallVectorImpl<AVRBlock*>::iterator pred_end() { return Predecessors.end(); }
+  SmallVectorImpl<AVRBlock*>::iterator succ_begin() { return Successors.begin(); }
+  SmallVectorImpl<AVRBlock*>::iterator succ_end() { return Successors.end(); }
+
+  // Block Children Iterators
+
+  child_iterator child_begin() { return Children.begin(); }
+  const_child_iterator child_begin() const { return Children.begin(); }
+  reverse_child_iterator child_rbegin() { return Children.rbegin(); }
+  const_reverse_child_iterator child_rbegin() const {
+    return Children.rbegin();
+  }
+  child_iterator child_end() { return Children.end(); }
+  const_child_iterator child_end() const { return Children.end(); }
+  reverse_child_iterator child_rend() { return Children.rend(); }
+  const_reverse_child_iterator child_rend() const { return Children.rend(); }
+
+  typedef iterator_range<child_iterator> LoopNodesRange;
+
+  LoopNodesRange nodes() { return LoopNodesRange(child_begin(), child_end()); }
+
+  // Children Methods
+
+  /// \brief Returns the first child if it exists, otherwise returns null.
+  AVR *getFirstChild();
+
+  /// \brief Returns the first child if it exists, otherwise returns null.
+  const AVR *getFirstChild() const {
+    return const_cast<AVRBlock *>(this)->getFirstChild();
+  }
+
+  /// \brief Returns the last child if it exists, otherwise returns null.
+  AVR *getLastChild();
+
+  /// \brief Returns const pointer to last child if it exisits.
+  const AVR *getLastChild() const {
+    return const_cast<AVRBlock *>(this)->getLastChild();
+  }
+
+  /// \brief Returns the number of children.
+  unsigned getNumChildren() const { return Children.size(); }
+
+  /// \brief Returns true if it has children.
+  bool hasChildren() const { return !Children.empty(); }
+
+  unsigned getSuccessorOrdinal(AVRBlock* Successor) {
+    unsigned Ordinal = 0;
+    for (AVRBlock* ABlock : Successors) {
+      if (Successor == ABlock)
+        return Ordinal;
+      ++Ordinal;
+    }
+    llvm_unreachable("Block is not a successor");
+  }
+
+  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return Node->getAVRID() == AVR::AVRBlockNode;
+  }
+
+  /// \brief Clone method for AVRUnreachable.
+  AVRBlock *clone() const override;
+
+  /// \brief Prints the AVR Unreachable node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Shallow-prints the AVRBlock node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
+};
+
+//----------AVR Predicate Node----------//
+/// \brief TODO
+class AVRPredicate : public AVR {
+
+public:
+
+  /// \brief A type representing an incoming value to the AVRPredicate and the
+  /// AVRLabel corresponding to the basic block it originates from.
+  typedef std::pair<AVRPredicate*, AVR*> IncomingTy;
+
+private:
+
+  /// \brief Incoming AVR values and their corresponding AVR labels.
+  SmallVector<IncomingTy, 2> IncomingPredicates;
+
+  AVRPredicate();
+  virtual ~AVRPredicate() override {}
+
+  ///\brief Adds an incoming AVRPredicate when some condition holds.
+  void addIncoming(AVRPredicate *APredicate, AVR *Condition) {
+    IncomingPredicates.push_back(std::make_pair(APredicate, Condition));
+  }
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return (Node->getAVRID() == AVR::AVRPredicateNode);
+  }
+
+  AVRPredicate *clone() const override;
+
+  /// \brief Prints the AVRPredicate node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Shallow-prints the AVRPredicate node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
+
+  /// \brief Returns the incoming values of this AVR predicate.
+  const SmallVectorImpl<IncomingTy>& getIncoming() {
+    return IncomingPredicates;
+  }
 };
 
 } // End VPO Vectorizer Namespace

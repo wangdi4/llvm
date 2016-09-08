@@ -155,6 +155,11 @@ SIMDLaneEvolutionAnalysisBase::~SIMDLaneEvolutionAnalysisBase() {
     delete S;
 
   SLEVs.clear();
+
+  delete DominatorTree;
+  delete PostDominatorTree;
+
+  delete CFG;
 }
 
 SIMDLaneEvolutionAnalysisBase::InfluenceRegion
@@ -184,13 +189,15 @@ SIMDLaneEvolutionAnalysisBase::calculateInfluenceRegion(AVR* Avr) {
   return IR;
 }
 
-void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr Begin, AvrItr End,
+void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
                                              IRValuePrinterBase* ValuePrinter) {
 
+  Begin = B;
+  End = E;
   AffectedOld = &Affected1;
   AffectedNew = &Affected2;
 
-  CFG = new AvrCFGBase(Begin, End, "SLEV", false);
+  CFG = new AvrCFGBase(Begin, End, "SLEV", true, false);
 
   DEBUG(formatted_raw_ostream FOS(dbgs());
         FOS << "SLEV: Analyzing AVR:\n";
@@ -260,12 +267,6 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr Begin, AvrItr End,
   DEBUG(formatted_raw_ostream FOS(dbgs());
         FOS << "SLEV: Done\n");
 
-  delete DominatorTree;
-  DominatorTree = nullptr;
-  delete PostDominatorTree;
-  PostDominatorTree = nullptr;
-
-  delete CFG;
   DefUseBase = nullptr;
 }
 

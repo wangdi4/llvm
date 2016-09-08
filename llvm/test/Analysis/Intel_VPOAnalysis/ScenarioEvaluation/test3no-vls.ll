@@ -14,15 +14,31 @@
 
 ; TODO: Only runs in debug mode
 ; REQUIRES: asserts
-; RUN: opt < %s -O2 -S -loopopt -debug 2>&1 | FileCheck %s
+; RUN: opt < %s -O2 -S -loopopt -debug -enable-vect-vls=0 2>&1 | FileCheck %s
 ;
 ;
 ; TODO: fix CQ413511 and remove XFAIL
 ; XFAIL: *
-;
-; CHECK: Printing Groups- Total Groups 2
-; CHECK-DAG: AccessMask(per byte, R to L): 111111111111
-; CHECK-DAG: AccessMask(per byte, R to L): 111111111111
+; 
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Case 2: Non-consecutive access Scalarization Cost.
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Case 2: Non-consecutive access Scalarization Cost.
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Case 2: Non-consecutive access Scalarization Cost.
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Case 2: Non-consecutive access Scalarization Cost.
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Case 2: Non-consecutive access Scalarization Cost.
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Case 2: Non-consecutive access Scalarization Cost.
+; CHECK: VPODriver: Scenarios engine selected VF 1
 
 ; ModuleID = 'vectvls2.c'
 source_filename = "vectvls2.c"
