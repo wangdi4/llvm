@@ -422,6 +422,7 @@ bool HLInst::isReductionOp(unsigned *OpCode) const {
     case Instruction::FMul:
     case Instruction::Add:
     case Instruction::Sub:
+    case Instruction::Mul:
     case Instruction::And:
     case Instruction::Or:
     case Instruction::Xor:
