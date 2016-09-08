@@ -60,6 +60,7 @@ TEST_F(OCL21, clCreateProgramWithIL01)
     getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, sizeof(void *), &il, &ret);
 
     ASSERT_EQ(sizeof(void *), ret);
+    ASSERT_EQ(sizeof(kernelSource), sizeof(il));
 
     if (kernelSource != nullptr)
     {
@@ -287,83 +288,87 @@ TEST_F(OCL21, clCloneKernel02)
     size_t global_work_size[3] = { 1024, 1, 1 };
     size_t local_work_size[3] = { 32, 1, 1 };
 
-    cl_mem input_buffer = nullptr;
-    cl_mem output_buffer = nullptr;
-
-    createBuffer(&input_buffer, ocl_descriptor.context, CL_MEM_READ_ONLY, size, nullptr);
-    createBuffer(&output_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, size, nullptr);
-
-    // some staff to check copy of the kernel
-    cl_uint original_reference_count = 0;
-    cl_uint copied_reference_count = 0;
-
-    cl_uint original_num_args = 0;
-    cl_uint copied_num_args = 0;
-
-    cl_context copied_context = 0;
-    cl_program copied_program = 0;
-
-    cl_kernel kernel = (cl_kernel)nullptr;
-    cl_kernel copied = (cl_kernel)nullptr;
-
-    // create original kernel
-    ASSERT_NO_FATAL_FAILURE(createKernel(&kernel, ocl_descriptor.program, "copy_int"));
-
-    setKernelArg(kernel, 0, sizeof(cl_mem), &input_buffer);
-    setKernelArg(kernel, 1, sizeof(cl_mem), &output_buffer);
-
-    // save info about original kernel
-    getKernelInfo(kernel, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
-        &original_reference_count, nullptr);
-    getKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint),
-        &original_num_args, nullptr);
-
-    // execute original kernel and check results
-    enqueueWriteBuffer(ocl_descriptor.queues[0], input_buffer, CL_TRUE, 0, size,
-        &data.front(), 0, nullptr, nullptr);
-
-    enqueueNDRangeKernel(ocl_descriptor.queues[0], kernel, 3, nullptr,
-        global_work_size, local_work_size, 0, nullptr, nullptr);
-
-    enqueueReadBuffer(ocl_descriptor.queues[0], output_buffer, CL_TRUE, 0, size,
-        &data.front(), 0, nullptr, nullptr);
-
-    for (size_t i = 0; i < size; ++i)
+    for (size_t index = 0; index < 2; ++index)
     {
-        ASSERT_EQ(data[i], result[i]) << i << "-th element of result buffer is wrong";
+        std::cout << "Testing " << index << "-th device..." << std::endl;
+        cl_mem input_buffer = nullptr;
+        cl_mem output_buffer = nullptr;
+
+        createBuffer(&input_buffer, ocl_descriptor.context, CL_MEM_READ_ONLY, size, nullptr);
+        createBuffer(&output_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, size, nullptr);
+
+        // some staff to check copy of the kernel
+        cl_uint original_reference_count = 0;
+        cl_uint copied_reference_count = 0;
+
+        cl_uint original_num_args = 0;
+        cl_uint copied_num_args = 0;
+
+        cl_context copied_context = 0;
+        cl_program copied_program = 0;
+
+        cl_kernel kernel = (cl_kernel)nullptr;
+        cl_kernel copied = (cl_kernel)nullptr;
+
+        // create original kernel
+        ASSERT_NO_FATAL_FAILURE(createKernel(&kernel, ocl_descriptor.program, "copy_int"));
+
+        setKernelArg(kernel, 0, sizeof(cl_mem), &input_buffer);
+        setKernelArg(kernel, 1, sizeof(cl_mem), &output_buffer);
+
+        // save info about original kernel
+        getKernelInfo(kernel, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
+            &original_reference_count, nullptr);
+        getKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint),
+            &original_num_args, nullptr);
+
+        // execute original kernel and check results
+        enqueueWriteBuffer(ocl_descriptor.queues[index], input_buffer, CL_TRUE, 0, size,
+            &data.front(), 0, nullptr, nullptr);
+
+        enqueueNDRangeKernel(ocl_descriptor.queues[index], kernel, 3, nullptr,
+            global_work_size, local_work_size, 0, nullptr, nullptr);
+
+        enqueueReadBuffer(ocl_descriptor.queues[index], output_buffer, CL_TRUE, 0, size,
+            &data.front(), 0, nullptr, nullptr);
+
+        for (size_t i = 0; i < size; ++i)
+        {
+            ASSERT_EQ(data[i], result[i]) << i << "-th element of result buffer is wrong";
+        }
+
+        result.assign(size, 0);
+
+        // copy original kernel
+        ASSERT_NO_FATAL_FAILURE(cloneKernel(&copied, kernel));
+
+        // check info about copied kernel
+        getKernelInfo(copied, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
+            &copied_reference_count, nullptr);
+        ASSERT_EQ(original_reference_count, copied_reference_count);
+        getKernelInfo(copied, CL_KERNEL_NUM_ARGS, sizeof(cl_uint),
+            &copied_num_args, nullptr);
+        ASSERT_EQ(original_num_args, copied_num_args);
+
+        // execute copied kernel and check results
+        enqueueNDRangeKernel(ocl_descriptor.queues[index], copied, 3, nullptr,
+            global_work_size, local_work_size, 0, nullptr, nullptr);
+
+        enqueueReadBuffer(ocl_descriptor.queues[index], output_buffer, CL_TRUE, 0, size,
+            &data.front(), 0, nullptr, nullptr);
+
+        for (size_t i = 0; i < size; ++i)
+        {
+            ASSERT_EQ(data[i], result[i]) << i << "-th element of result buffer is wrong";
+        }
+
+        // testing done, release resources
+        clReleaseMemObject(input_buffer);
+        clReleaseMemObject(output_buffer);
+
+        clReleaseKernel(kernel);
+        clReleaseKernel(copied);
     }
-
-    result.assign(size, 0);
-
-    // copy original kernel
-    ASSERT_NO_FATAL_FAILURE(cloneKernel(&copied, kernel));
-
-    // check info about copied kernel
-    getKernelInfo(copied, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
-        &copied_reference_count, nullptr);
-    ASSERT_EQ(original_reference_count, copied_reference_count);
-    getKernelInfo(copied, CL_KERNEL_NUM_ARGS, sizeof(cl_uint),
-        &copied_num_args, nullptr);
-    ASSERT_EQ(original_num_args, copied_num_args);
-
-    // execute copied kernel and check results
-    enqueueNDRangeKernel(ocl_descriptor.queues[0], copied, 3, nullptr,
-        global_work_size, local_work_size, 0, nullptr, nullptr);
-
-    enqueueReadBuffer(ocl_descriptor.queues[0], output_buffer, CL_TRUE, 0, size,
-        &data.front(), 0, nullptr, nullptr);
-
-    for (size_t i = 0; i < size; ++i)
-    {
-        ASSERT_EQ(data[i], result[i]) << i << "-th element of result buffer is wrong";
-    }
-
-    // testing done, release resources
-    clReleaseMemObject(input_buffer);
-    clReleaseMemObject(output_buffer);
-
-    clReleaseKernel(kernel);
-    clReleaseKernel(copied);
 }
 
 //| TEST: OCL21.clGetKernelSubGroupInfo01
@@ -397,30 +402,34 @@ TEST_F(OCL21, clGetKernelSubGroupInfo01)
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
 
-    size_t cl_kernel_max_num_sub_groups = 0;
-    size_t ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_MAX_NUM_SUB_GROUPS,
-        0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
-    ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
+    for (size_t index = 0; index < 2; ++index)
+    {
+        std::cout << "Testing " << index << "-th device..." << std::endl;
+        size_t cl_kernel_max_num_sub_groups = 0;
+        size_t ret_size = 0;
+        getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_MAX_NUM_SUB_GROUPS,
+            0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
+        ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
 
-    size_t local_size[3] = { 10, 10, 10 };
-    ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
-        sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
-        sizeof(local_size), local_size, &ret_size);
-    ASSERT_GT(local_size[0], 0);
-    ASSERT_EQ(local_size[1], 1);
-    ASSERT_EQ(local_size[2], 1);
+        size_t local_size[3] = { 10, 10, 10 };
+        ret_size = 0;
+        getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+            sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
+            sizeof(local_size), local_size, &ret_size);
+        ASSERT_GT(local_size[0], 0);
+        ASSERT_EQ(local_size[1], 1);
+        ASSERT_EQ(local_size[2], 1);
 
-    local_size[0] = local_size[1] = local_size[2] = 10;
-    ret_size = 0;
-    size_t wrong_cl_kernel_max_num_sub_groups = cl_kernel_max_num_sub_groups + 10;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
-        sizeof(wrong_cl_kernel_max_num_sub_groups), &wrong_cl_kernel_max_num_sub_groups,
-        sizeof(local_size), local_size, &ret_size);
-    ASSERT_EQ(local_size[0], 0);
-    ASSERT_EQ(local_size[1], 0);
-    ASSERT_EQ(local_size[2], 0);
+        local_size[0] = local_size[1] = local_size[2] = 10;
+        ret_size = 0;
+        size_t wrong_cl_kernel_max_num_sub_groups = cl_kernel_max_num_sub_groups + 10;
+        getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+            sizeof(wrong_cl_kernel_max_num_sub_groups), &wrong_cl_kernel_max_num_sub_groups,
+            sizeof(local_size), local_size, &ret_size);
+        ASSERT_EQ(local_size[0], 0);
+        ASSERT_EQ(local_size[1], 0);
+        ASSERT_EQ(local_size[2], 0);
+    }
 }
 
 //| TEST: OCL21.clGetKernelSubGroupInfo02
@@ -452,27 +461,31 @@ TEST_F(OCL21, clGetKernelSubGroupInfo02)
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
 
-    size_t cl_kernel_max_num_sub_groups = 0;
-    size_t ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_MAX_NUM_SUB_GROUPS,
-        0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
-    ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
+    for (size_t index = 0; index < 2; ++index)
+    {
+        std::cout << "Testing " << index << "-th device..." << std::endl;
+        size_t cl_kernel_max_num_sub_groups = 0;
+        size_t ret_size = 0;
+        getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_MAX_NUM_SUB_GROUPS,
+            0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
+        ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
 
-    size_t local_size[3] = { 10, 10, 10 };
-    ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
-        sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
-        sizeof(local_size), local_size, &ret_size);
-    ASSERT_GT(local_size[0], 0);
-    ASSERT_EQ(local_size[1], 1);
-    ASSERT_EQ(local_size[2], 1);
+        size_t local_size[3] = { 10, 10, 10 };
+        ret_size = 0;
+        getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+            sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
+            sizeof(local_size), local_size, &ret_size);
+        ASSERT_GT(local_size[0], 0);
+        ASSERT_EQ(local_size[1], 1);
+        ASSERT_EQ(local_size[2], 1);
 
-    ret_size = 0;
-    size_t sub_group_count = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,
-        sizeof(local_size), local_size,
-        sizeof(sub_group_count), &sub_group_count, &ret_size);
-    ASSERT_EQ(sub_group_count, cl_kernel_max_num_sub_groups);
+        ret_size = 0;
+        size_t sub_group_count = 0;
+        getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,
+            sizeof(local_size), local_size,
+            sizeof(sub_group_count), &sub_group_count, &ret_size);
+        ASSERT_EQ(sub_group_count, cl_kernel_max_num_sub_groups);
+    }
 }
 
 //| TEST: OCL21.clGetKernelSubGroupInfo03
@@ -504,75 +517,78 @@ TEST_F(OCL21, clGetKernelSubGroupInfo03)
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
 
-    cl_mem sub_group_size_buffer = nullptr;
-    cl_mem max_sub_group_size_buffer = nullptr;
-    cl_mem num_sub_groups_buffer = nullptr;
+    for (size_t index = 0; index < 2; ++index)
+    {
+        std::cout << "Testing " << index << "-th device..." << std::endl;
+        cl_mem sub_group_size_buffer = nullptr;
+        cl_mem max_sub_group_size_buffer = nullptr;
+        cl_mem num_sub_groups_buffer = nullptr;
 
-    size_t cl_kernel_max_num_sub_groups = 0;
-    size_t ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_MAX_NUM_SUB_GROUPS,
-        0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
-    ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
+        size_t cl_kernel_max_num_sub_groups = 0;
+        size_t ret_size = 0;
+        getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_MAX_NUM_SUB_GROUPS,
+            0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
+        ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
 
-    size_t local_size[3] = { 1, 1, 1 };
-    ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
-        sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
-        sizeof(local_size), local_size, &ret_size);
-    ASSERT_GT(local_size[0], 0);
-    ASSERT_EQ(local_size[1], 1);
-    ASSERT_EQ(local_size[2], 1);
+        size_t local_size[3] = { 1, 1, 1 };
+        ret_size = 0;
+        getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+            sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
+            sizeof(local_size), local_size, &ret_size);
+        ASSERT_GT(local_size[0], 0);
+        ASSERT_EQ(local_size[1], 1);
+        ASSERT_EQ(local_size[2], 1);
 
-    size_t cl_kernel_max_sub_group_size_for_ndrange = 0;
-    ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
-        sizeof(local_size), local_size, sizeof(cl_kernel_max_sub_group_size_for_ndrange),
-        &cl_kernel_max_sub_group_size_for_ndrange, &ret_size);
+        size_t cl_kernel_max_sub_group_size_for_ndrange = 0;
+        ret_size = 0;
+        getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
+            sizeof(local_size), local_size, sizeof(cl_kernel_max_sub_group_size_for_ndrange),
+            &cl_kernel_max_sub_group_size_for_ndrange, &ret_size);
 
-    size_t global_size[3] = { 100, 1, 1 };
-    size_t buffer_size = global_size[0] * sizeof(cl_uint);
+        size_t global_size[3] = { 100, 1, 1 };
+        size_t buffer_size = global_size[0] * sizeof(cl_uint);
 
-    createBuffer(&sub_group_size_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
-    createBuffer(&max_sub_group_size_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
-    createBuffer(&num_sub_groups_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
+        createBuffer(&sub_group_size_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
+        createBuffer(&max_sub_group_size_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
+        createBuffer(&num_sub_groups_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
 
-    size_t pattern = 0;
-    enqueueFillBuffer(ocl_descriptor.queues[0], sub_group_size_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr);
-    enqueueFillBuffer(ocl_descriptor.queues[0], max_sub_group_size_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr);
-    enqueueFillBuffer(ocl_descriptor.queues[0], num_sub_groups_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr);
+        size_t pattern = 0;
+        enqueueFillBuffer(ocl_descriptor.queues[index], sub_group_size_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr);
+        enqueueFillBuffer(ocl_descriptor.queues[index], max_sub_group_size_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr);
+        enqueueFillBuffer(ocl_descriptor.queues[index], num_sub_groups_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr);
 
-    setKernelArg(kernel, 0, buffer_size, sub_group_size_buffer);
-    setKernelArg(kernel, 1, buffer_size, max_sub_group_size_buffer);
-    setKernelArg(kernel, 2, buffer_size, num_sub_groups_buffer);
+        setKernelArg(kernel, 0, buffer_size, sub_group_size_buffer);
+        setKernelArg(kernel, 1, buffer_size, max_sub_group_size_buffer);
+        setKernelArg(kernel, 2, buffer_size, num_sub_groups_buffer);
 
-    enqueueNDRangeKernel(ocl_descriptor.queues[1], kernel, 3, nullptr, global_size, local_size, 0, nullptr, nullptr);
+        enqueueNDRangeKernel(ocl_descriptor.queues[index], kernel, 3, nullptr, global_size, local_size, 0, nullptr, nullptr);
 
-    cl_uint *ptr = nullptr;
-    enqueueMapBuffer(&ptr, ocl_descriptor.queues[0], sub_group_size_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
-    for (size_t i = 0; i < global_size[0]; ++i) {
-        ASSERT_GE(cl_kernel_max_sub_group_size_for_ndrange, ptr[i]);
+        cl_uint *ptr = nullptr;
+        enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], sub_group_size_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
+        for (size_t i = 0; i < global_size[0]; ++i) {
+            ASSERT_GE(cl_kernel_max_sub_group_size_for_ndrange, ptr[i]);
+        }
+        enqueueUnmapMemObject(ocl_descriptor.queues[index], sub_group_size_buffer, ptr, 0, nullptr, nullptr);
+
+        ptr = nullptr;
+        enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], max_sub_group_size_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
+        for (size_t i = 0; i < global_size[0]; ++i) {
+            ASSERT_EQ(cl_kernel_max_sub_group_size_for_ndrange, ptr[i]);
+        }
+        enqueueUnmapMemObject(ocl_descriptor.queues[index], max_sub_group_size_buffer, ptr, 0, nullptr, nullptr);
+
+        ptr = nullptr;
+        enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], num_sub_groups_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
+        for (size_t i = 0; i < global_size[0]; ++i) {
+            ASSERT_EQ(ptr[i], cl_kernel_max_num_sub_groups);
+        }
+        enqueueUnmapMemObject(ocl_descriptor.queues[index], num_sub_groups_buffer, ptr, 0, nullptr, nullptr);
+
+        finish(ocl_descriptor.queues[index]);
+
+        clReleaseKernel(kernel);
+        clReleaseMemObject(sub_group_size_buffer);
+        clReleaseMemObject(max_sub_group_size_buffer);
+        clReleaseMemObject(num_sub_groups_buffer);
     }
-    enqueueUnmapMemObject(ocl_descriptor.queues[0], sub_group_size_buffer, ptr, 0, nullptr, nullptr);
-
-    ptr = nullptr;
-    enqueueMapBuffer(&ptr, ocl_descriptor.queues[0], max_sub_group_size_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
-    for (size_t i = 0; i < global_size[0]; ++i) {
-        ASSERT_EQ(cl_kernel_max_sub_group_size_for_ndrange, ptr[i]);
-    }
-    enqueueUnmapMemObject(ocl_descriptor.queues[0], max_sub_group_size_buffer, ptr, 0, nullptr, nullptr);
-
-    ptr = nullptr;
-    enqueueMapBuffer(&ptr, ocl_descriptor.queues[0], num_sub_groups_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
-    for (size_t i = 0; i < global_size[0]; ++i) {
-        ASSERT_EQ(ptr[i], cl_kernel_max_num_sub_groups);
-    }
-    enqueueUnmapMemObject(ocl_descriptor.queues[0], num_sub_groups_buffer, ptr, 0, nullptr, nullptr);
-
-    finish(ocl_descriptor.queues[0]);
-    finish(ocl_descriptor.queues[1]);
-
-    clReleaseKernel(kernel);
-    clReleaseMemObject(sub_group_size_buffer);
-    clReleaseMemObject(max_sub_group_size_buffer);
-    clReleaseMemObject(num_sub_groups_buffer);
 }
