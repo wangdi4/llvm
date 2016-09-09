@@ -45,6 +45,7 @@ class OCL21: public CommonRuntime{};
 //| -------------
 //|
 //| Verify that valid non-zero program object is returned and build successfull
+//| Verify size of returned IL and magic number in it
 //|
 
 TEST_F(OCL21, clCreateProgramWithIL01)
@@ -59,8 +60,9 @@ TEST_F(OCL21, clCreateProgramWithIL01)
 
     getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, sizeof(void *), &il, &ret);
 
-    ASSERT_EQ(sizeof(void *), ret);
-    ASSERT_EQ(sizeof(kernelSource), sizeof(il));
+    ASSERT_EQ(sizeof(void *), ret) << "param_value_size_ret assertion failed";
+    ASSERT_EQ(sizeof(kernelSource), sizeof(il)) << "IL size assertion failed";
+    ASSERT_EQ(((char *)il)[0], 0x07230203) << "Magic number assertion failed";
 
     if (kernelSource != nullptr)
     {
@@ -259,19 +261,22 @@ TEST_F(OCL21, clCloneKernel01)
 //| Purpose
 //| -------
 //|
-//| Verify the ability to clone kernel objects for all kernel functions in a shared program
+//| Verify the ability to clone kernel object in a shared program
 //|
 //| Method
 //| ------
 //|
-//| 1. Build program with source of 10 kernels on both CPU and GPU
-//| 2. Create 10 kernels for that program (will create for both CPU and GPU)
-//| 3. Clone all kernels
+//| 1. Build program both CPU and GPU
+//| 2. Create kernel for that program (will create for both CPU and GPU)
+//| 3. Clone kernel
 //|
 //| Pass criteria
 //| -------------
 //|
 //| Verify that valid non-zero kernel objects are returned
+//| Verify that result of execution of cloned kernel is the same as result of
+//| execution of original kernel
+//| Verify that info about kernel successfully copied (num_args, context, ...)
 //|
 TEST_F(OCL21, clCloneKernel02)
 {
@@ -394,7 +399,7 @@ TEST_F(OCL21, clCloneKernel02)
 //|
 //| All assertions passed
 //|
-TEST_F(OCL21, clGetKernelSubGroupInfo01)
+TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo01)
 {
     // create OpenCL queues, program and context
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
@@ -451,9 +456,9 @@ TEST_F(OCL21, clGetKernelSubGroupInfo01)
 //| Pass criteria
 //| -------------
 //|
-//| Verify that valid non-zero kernel objects are returned
+//| Verify that valid non-zero kernel objects are returned and all assertions passed
 //|
-TEST_F(OCL21, clGetKernelSubGroupInfo02)
+TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo02)
 {
     // create OpenCL queues, program and context
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
@@ -508,8 +513,11 @@ TEST_F(OCL21, clGetKernelSubGroupInfo02)
 //| -------------
 //|
 //| Verify that valid non-zero kernel objects are returned
+//| Verify that data from kernel (from functions get_sub_group_size,
+//| get_max_sub_group_size, get_num_sub_groups) is valid and conform with
+//| data from API calls
 //|
-TEST_F(OCL21, clGetKernelSubGroupInfo03)
+TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo03)
 {
     // create OpenCL queues, program and context
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
@@ -545,7 +553,7 @@ TEST_F(OCL21, clGetKernelSubGroupInfo03)
             sizeof(local_size), local_size, sizeof(cl_kernel_max_sub_group_size_for_ndrange),
             &cl_kernel_max_sub_group_size_for_ndrange, &ret_size);
 
-        size_t global_size[3] = { 100, 1, 1 };
+        size_t global_size[3] = { local_size[0], local_size[1], local_size[2] };
         size_t buffer_size = global_size[0] * sizeof(cl_uint);
 
         createBuffer(&sub_group_size_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
@@ -565,8 +573,10 @@ TEST_F(OCL21, clGetKernelSubGroupInfo03)
 
         cl_uint *ptr = nullptr;
         enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], sub_group_size_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
+        cl_uint sub_group_size = ptr[0];
         for (size_t i = 0; i < global_size[0]; ++i) {
             ASSERT_GE(cl_kernel_max_sub_group_size_for_ndrange, ptr[i]);
+            ASSERT_EQ(sub_group_size, ptr[i]);
         }
         enqueueUnmapMemObject(ocl_descriptor.queues[index], sub_group_size_buffer, ptr, 0, nullptr, nullptr);
 
