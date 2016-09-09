@@ -85,6 +85,7 @@ public:
     IIToFU[LPU::Sched::IICvtFF  ] = LPU::FUNCUNIT::FMA;
     IIToFU[LPU::Sched::IILD     ] = LPU::FUNCUNIT::MEM;
     IIToFU[LPU::Sched::IIST     ] = LPU::FUNCUNIT::MEM;
+    IIToFU[LPU::Sched::IIATM    ] = LPU::FUNCUNIT::MEM;
     // temporarily commented out.  (If no patterns, the II doesn't get
     // defined...)
     //    IIToFU[LPU::Sched::IISeq    ] = LPU::FUNCUNIT::ALU;
