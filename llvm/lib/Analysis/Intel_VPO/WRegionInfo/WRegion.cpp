@@ -338,3 +338,98 @@ void WRNMasterNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNMasterNode <" << getNumber() << ">\n\n";
 }
+
+//
+// Methods for WRNOrderedNode
+//
+
+// constructor
+WRNOrderedNode::WRNOrderedNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNOrdered, BB) {
+  DEBUG(dbgs() << "\nCreated WRNOrderedNode <" << getNumber() << ">\n");
+}
+
+WRNOrderedNode::WRNOrderedNode(WRNOrderedNode *W) : WRegionNode(W) {
+  DEBUG(dbgs() << "\nCreated WRNOrderedNode<" << getNumber() << ">\n");
+}
+
+void WRNOrderedNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNOrderedNode<" << getNumber() << "> {\n";
+
+  if (!isBBSetEmpty())
+    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
+      const BasicBlock *BB = *I;
+      OS << Indent << *BB;
+    }
+  else
+    OS << Indent << "No BBSet\n";
+
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNOrderedNode <" << getNumber() << ">\n\n";
+}
+
+//
+// Methods for WRNSingleNode
+//
+
+// constructor
+WRNSingleNode::WRNSingleNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNSingle, BB) {
+  DEBUG(dbgs() << "\nCreated WRNSingleNode <" << getNumber() << ">\n");
+}
+
+WRNSingleNode::WRNSingleNode(WRNSingleNode *W) : WRegionNode(W) {
+  DEBUG(dbgs() << "\nCreated WRNSingleNode<" << getNumber() << ">\n");
+}
+
+void WRNSingleNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNSingleNode<" << getNumber() << "> {\n";
+
+  if (!isBBSetEmpty())
+    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
+      const BasicBlock *BB = *I;
+      OS << Indent << *BB;
+    }
+  else
+    OS << Indent << "No BBSet\n";
+
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNSingleNode <" << getNumber() << ">\n\n";
+}
+
+//
+// Methods for WRNCriticalNode
+//
+
+// constructor
+WRNCriticalNode::WRNCriticalNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNCritical, BB), UserLockName("") {
+  // UserLockName is empty be default
+  DEBUG(dbgs() << "\nCreated WRNCriticalNode <" << getNumber() << ">\n");
+}
+
+WRNCriticalNode::WRNCriticalNode(WRNCriticalNode *W)
+    : WRegionNode(W), UserLockName(W->UserLockName) {
+  DEBUG(dbgs() << "\nCreated WRNCriticalNode<" << getNumber() << ">\n");
+}
+
+void WRNCriticalNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNCriticalNode<" << getNumber() << "> {\n";
+
+  if (!UserLockName.empty())
+    OS << Indent << "\nUser Lock Name: " << UserLockName << "\n";
+
+  if (!isBBSetEmpty())
+    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
+      const BasicBlock *BB = *I;
+      OS << Indent << *BB;
+    }
+  else
+    OS << Indent << "No BBSet\n";
+
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNCriticalNode <" << getNumber() << ">\n\n";
+}

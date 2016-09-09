@@ -23,7 +23,7 @@ using namespace llvm::vpo;
 unsigned AVR::GlobalNumber(0);
 
 AVR::AVR(unsigned SCID)
-  : SubClassID(SCID), Parent(nullptr) 
+    : SubClassID(SCID), Parent(nullptr), Predicate(nullptr)
 { Number = GlobalNumber++; }
 
 void AVR::destroy() {

@@ -1227,6 +1227,28 @@ Instruction *InstCombiner::visitFPTrunc(FPTruncInst &CI) {
   if (OpI && OpI->hasOneUse()) {
     Value *LHSOrig = lookThroughFPExtensions(OpI->getOperand(0));
     Value *RHSOrig = lookThroughFPExtensions(OpI->getOperand(1));
+#if INTEL_CUSTOMIZATION
+    // When this binary operator has fast math flag, we can eliminate some
+    // float-double casts at a cost of precision loss. For example, we can
+    // transform:
+    //     %a = fpext float %x to double
+    //     %b = fadd fast double %a, C (a 64-bit fp-constant)
+    //     %c = fptrunc double %b to float
+    // into:
+    //     %c = fadd fast float %x, C' (32-bit representation of C)
+    // Same for fsub, fmul and fdiv.
+    if (OpI->getFastMathFlags().unsafeAlgebra() && CI.getType()->isFloatTy() &&
+        OpI->getOpcode() != Instruction::FRem) {
+      // Here we just cast the double constant to float, then the following
+      // optimzations will take care of the elimination.
+      if (isa<ConstantFP>(RHSOrig) && RHSOrig->getType()->isDoubleTy() &&
+          LHSOrig->getType()->isFloatTy())
+        RHSOrig = Builder->CreateFPTrunc(RHSOrig, CI.getType());
+      else if (isa<ConstantFP>(LHSOrig) && LHSOrig->getType()->isDoubleTy() &&
+          RHSOrig->getType()->isFloatTy())
+        LHSOrig = Builder->CreateFPTrunc(LHSOrig, CI.getType());
+    }
+#endif // INTEL_CUSTOMIZATION
     unsigned OpWidth = OpI->getType()->getFPMantissaWidth();
     unsigned LHSWidth = LHSOrig->getType()->getFPMantissaWidth();
     unsigned RHSWidth = RHSOrig->getType()->getFPMantissaWidth();

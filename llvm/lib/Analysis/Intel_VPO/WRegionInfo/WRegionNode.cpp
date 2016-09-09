@@ -241,6 +241,21 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_IF:
     setIf(V);
     break;
+  case QUAL_OMP_NAME: {
+    // The operand is expected to be a constant string. Example:
+    // call void @llvm.intel.directive.qual.opnd.a9i8(metadata
+    // !"QUAL.OMP.NAME", [9 x i8] c"lock_name")
+    ConstantDataSequential *CD = dyn_cast<ConstantDataSequential>(V);
+    assert((CD != nullptr && (CD->isString() || CD->isCString())) &&
+           "QUAL_OMP_NAME opnd should be a constant string.");
+
+    if (CD->isCString()) // Process as C string first, so that the nul
+                         // bytes at the end are ignored. (e.g. c"lock_name\00")
+      setUserLockName(CD->getAsCString());
+    else if (CD->isString()) // Process as a regular string. (e.g. c"lock_name")
+      setUserLockName(CD->getAsString());
+
+  } break;
   case QUAL_OMP_NUM_THREADS:
     setNumThreads(V);
     break;

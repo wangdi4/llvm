@@ -268,14 +268,52 @@ public:
   virtual bool isAConstDistanceFrom(const OVLSMemref& Memref,
                                     int64_t *Dist) = 0;
 
-  // Returns true if this and Memref have the same number of elements.
+  /// \brief Returns true if this and Memref have the same number of elements.
   virtual bool haveSameNumElements(const OVLSMemref& Memref) = 0;
 
-  // Returns true if this can move to the location of Memref. This means it
-  // does not violate any program/control flow semantics nor any memory
-  // dependencies. I.e., this is still alive at the location of Memref and
-  // there are no loads/stores of this in between the location of this and the
-  // location of Memref.
+  /// \brief Returns true if this can move to the location of \p Memref. This 
+  /// means it does not violate any program/control flow semantics nor any 
+  /// memory dependencies. I.e., this is still alive at the location of 
+  /// \p Memref and there are no loads/stores that may alias with this in 
+  /// between the location of this and the location of \p Memref.
+  /// canMoveTo() only answers the individual legality question that it is
+  /// asked; it does not know if the move will actually be carried out by the
+  /// caller, and has no context/memory of moves that had been asked before.
+  /// Therefore, if the caller uses canMoveTo multiple times to ask about 
+  /// accumulative moves, the answers may not be valid, unless the following
+  /// two conditions are met:
+  /// 1) caller only moves loads up, and only moves stores down, based on the 
+  /// getLocation() function; This will guarantee that no new Write-After-Read
+  /// (WAR) dependencies will be introduced. (A TODO on the server side).
+  /// 2) canMoveTo will not allow any moves in the face of any Read-After-Write
+  /// (RAW) dependences. (A TODO on the client canMoveTo side)
+  ///
+  /// Here's an example where individual moves can be legal independently, but
+  /// not together (accumulatively):
+  ///
+  /// For i:
+  ///   …  =  b[4*i + 4]      // ld1
+  ///   b[4*i - 1] = …        // st1
+  ///   …  =  b[4*i + 1]      // ld2
+  ///   b[4*i] = …            // st2
+  ///
+  /// (the only dependence is a forward Write-After-Read (WAR) dep between
+  /// ld1-->st2); Consider the following sequence of calls to canMoveTo:
+  ///
+  /// ld1->canMoveTo(ld2): returns true
+  /// st2->canMoveTo(st1): returns true, but this is wrong if previous
+  ///                      canMoveTo was actually committed.
+  ///
+  /// Validity of canMoveTo answers upon multiple calls that assume 
+  /// accumulative moves will be guaranteed with the following sequence of 
+  /// calls, in which loads are hoisted up, namely -- moved towards the 
+  /// load with the smaller getLocation() between this and Memref; And 
+  /// stores are only sinked down, namely moved towards the store with 
+  /// larger getLocation() among this and Memref:
+  ///
+  /// ld2->canMoveTo(ld1): returns true
+  /// st1->canMoveTo(st2): returns true, and this is valid even if previous 
+  ///                      move took place.
   virtual bool canMoveTo(const OVLSMemref& Memref) = 0;
 
   /// \brief Returns true if this is a strided access and it has a constant
@@ -284,6 +322,19 @@ public:
   /// Inverting the return value does not invert the functionality(false does
   /// not mean that it has a variable stride)
   virtual bool hasAConstStride(int64_t *Stride) = 0;
+
+  /// \brief Return the location of this in the code. The location should be
+  /// relative to other Memrefs sent by the client to the VLS engine. 
+  /// getLocation can be used for a location-based group-formation heuristic.
+  /// A location-based heuristic can be useful in order to use canMoveTo()
+  /// *multiple* times, to ask about *accumulative* moves (moves that are all
+  /// assumed to take place, if approved). The scheme is to only move loads up
+  /// and only move stores down. 
+  /// So, for every pair of loads (ld1,ld2) that the caller wants 
+  /// to put together in one group, the caller would ask about moving ld1 to 
+  /// the location of ld2 only if ld2->getLocation() < ld1->getLocation(). 
+  /// Otherwise, the caller should ask about moving ld2 to the location of ld1. 
+  virtual unsigned getLocation() const = 0; 
 
 private:
   unsigned Id;          // A unique Id, helps debugging.
@@ -374,6 +425,9 @@ public:
   // Currently, a group is formed only if the members have the same number
   // of elements.
   uint32_t getNumElems() const { return MemrefVec[0]->getType().getNumElements(); }
+
+  /// \brief Return the vector of memrefs of this group.
+  const OVLSMemrefVector &getMemrefVec() const { return MemrefVec; }
 
   void print(OVLSostream &OS, unsigned SpaceCount) const;
 
@@ -544,6 +598,9 @@ public:
     Src = S;
   }
 
+  /// \brief Return the Address (Src) member of the Load.
+  OVLSAddress getSrc() const { return Src; }
+
   static bool classof(const OVLSInstruction *I) {
     return I->getKind() == OC_Load;
   }
@@ -663,6 +720,9 @@ public:
   /// the OVLS clients to help getting the target-specific instruction cost.
   virtual uint64_t getInstructionCost(const OVLSInstruction *I) const = 0;
 
+  /// \brief Returns target-specific cost for loading/storing \p Mrf
+  /// using a gather/scatter.
+  virtual uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const = 0;
 };
 
 // OptVLS public Interface class that operates on OptVLS Abstract types.
@@ -691,11 +751,15 @@ public:
                         uint32_t VectorLength,
                         OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
 
-  /// \brief getGroupCost() returns a relative cost/benefit of performing
+  /// \brief getGroupCost() examines if it is beneficial to perform
   /// adjacent gather/scatter optimization for a group (of gathers/scatters).
   /// Adj. gather/scatter optimization replaces a set of gathers/scatters by a
   /// set of contiguous loads/stores followed by a sequence of shuffle
-  /// instructions.
+  /// instructions. This method returns the minimum between these two costs;
+  /// It computes the cost of the load/store+shuffle sequence, it computes the
+  /// cost of the gathers/shuffles, and returns the lower of the two. This is 
+  /// how the vectorizer client currently uses this method: it assumes that it
+  /// provides the absolute cost of the best way to vectorize this group.
   static int64_t getGroupCost(const OVLSGroup& Group,
                               const OVLSCostModelAnalysis& CM);
 

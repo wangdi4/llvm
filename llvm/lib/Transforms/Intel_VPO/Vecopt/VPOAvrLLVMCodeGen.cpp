@@ -223,12 +223,26 @@ void AVRCodeGen::completeReductions() {
   RM.completeReductionPhis(WidenMap);
 }
 
+int AVRCodeGen::getRemainderLoopCost(Loop *Loop, unsigned int VF, 
+                         unsigned int &ConstTripCount) {
+  ConstTripCount = TripCount;
+  // Check for positive trip count and that trip count is a multiple of vector
+  // length. Otherwise a remainder loop is needed. Since CG currently does not
+  // support remainder loops, return a dummy high cost to make sure this VF will
+  // not be selected as vectorization factor.
+  if (TripCount == 0 || TripCount % VF) {
+    return 1000;
+  }
+
+  return 0;
+}
+
 // TODO: Take as input a VPOVecContext that indicates which AVRLoop(s)
 // is (are) to be vectorized, as identified by the vectorization scenario
 // evaluation.
 // FORNOW there is only one AVRLoop per region, so we will re-discover
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
-bool AVRCodeGen::loopIsHandled() {
+bool AVRCodeGen::loopIsHandledImpl(unsigned int &ConstTripCount) {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
   AVRBranchIR *LoopBackEdge = nullptr;
@@ -351,9 +365,9 @@ bool AVRCodeGen::loopIsHandled() {
     return false;
   }
 
-  unsigned int TripCount = SE->getSmallConstantTripCount(L, ExitingBlock);
+  ConstTripCount = SE->getSmallConstantTripCount(L, ExitingBlock);
 
-  if (!TripCount) {
+  if (!ConstTripCount) {
     errs() << "VPO_OPTREPORT: Vectorization failed: "
               "failed to compute loop trip count\n";
 #ifndef NDEBUG
@@ -361,25 +375,29 @@ bool AVRCodeGen::loopIsHandled() {
 #endif
   }
 
-  assert(VL >= 1);
-  if (VL == 1)
-    return false;
-
-  // Check that trip count is a multiple of vector length. No remainder loop
-  // is generated currently.
-  if (TripCount % VL) {
-    return false;
-  }
-
   setALoop(ALoop);
   setOrigLoop(L);
-  setTripCount(TripCount);
   setLoopBackEdge(LoopBackEdge);
   setInductionPhi(InductionPhi);
   setInductionCmp(InductionCmp);
   setStartValue(StartValue);
   setStrideValue(StrideValue);
 
+  return true;
+}
+
+bool AVRCodeGen::loopIsHandled(unsigned int VF) {
+  unsigned int ConstTripCount = 0;
+  if (!loopIsHandledImpl(ConstTripCount))
+    return false;
+
+  // Check for positive trip count and that  trip count is a multiple of vector
+  // length.
+  // No remainder loop is generated currently.
+  if (ConstTripCount == 0 || (VF && ConstTripCount % VF))
+    return false;
+
+  setTripCount(ConstTripCount);
   // errs() << "Legal loop\n";
   return true;
 }
@@ -814,9 +832,12 @@ void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
 // TODO: Change all VL occurences to VF.
 // TODO: Have this method take a VecContext as input, which indicates which
 // AVRLoops in the region to vectorize, and how (using what VF).
-bool AVRCodeGen::vectorize(int VL) {
+bool AVRCodeGen::vectorize(unsigned int VL) {
   setVL(VL);
-  if (!loopIsHandled()) {
+  assert(VL >= 1);
+  if (VL == 1)
+    return false;
+  if (!loopIsHandled(VL)) {
     return false;
   }
 

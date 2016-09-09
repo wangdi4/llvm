@@ -19,10 +19,30 @@
 ;
 ; TODO: fix CQ413511 and remove XFAIL
 ; XFAIL: *
-;
-; CHECK: Printing Groups- Total Groups 2
-; CHECK-DAG: AccessMask(per byte, R to L): 111111111111
-; CHECK-DAG: AccessMask(per byte, R to L): 111111111111
+; 
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Found a VLS group for the access!
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Found a VLS group for the access!
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Found a VLS group for the access!
+; CHECK-NEXT: skip -- not first access of the group!
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Found a VLS group for the access!
+; CHECK-NEXT: skip -- not first access of the group!
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Found a VLS group for the access!
+; CHECK-NEXT: skip -- not first access of the group!
+; CHECK: Consecutive Stride = 0
+; CHECK-NEXT: Stride = 3
+; CHECK-NEXT: Found a VLS group for the access!
+; CHECK-NEXT: skip -- not first access of the group!
+; CHECK: VPODriver: Scenarios engine selected VF 4
 
 ; ModuleID = 'vectvls2.c'
 source_filename = "vectvls2.c"

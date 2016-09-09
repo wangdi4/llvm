@@ -195,6 +195,9 @@ protected:
   virtual void setHasSeqCstClause(bool SC)      {errorClause("SEQ_CST");      }
   virtual bool getHasSeqCstClause()       const {errorClause("SEQ_CST");
                                                  return false;                }
+  virtual void setUserLockName(StringRef LN)    {errorClause(QUAL_OMP_NAME);  }
+  virtual StringRef getUserLockName()     const {errorClause(QUAL_OMP_NAME);
+                                                 return "";                   }
   virtual void setCollapse(int N)            {errorClause(QUAL_OMP_COLLAPSE); }
   virtual int getCollapse()            const {errorClause(QUAL_OMP_COLLAPSE);
                                               return 0;                       }

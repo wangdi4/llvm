@@ -158,6 +158,11 @@ bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref,
       return false;
   }
 
+  // Consider a[(i1 + 1) & 3], this is changed to a[zext.i2.i64(i1 + 1)] - we
+  // do not want to treat this reference as unit stride.
+  if (FirstCE->isSExt() || FirstCE->isZExt())
+    return false;
+
   if (FirstCE->isNonLinear() ||
       FirstCE->getDefinedAtLevel() >= NestingLevel)
     return false;
@@ -300,19 +305,17 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
 // evaluation.
 // FORNOW there is only one AVRLoop per region, so we will re-discover
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
-bool AVRCodeGenHIR::loopIsHandled() {
+bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
   WRNVecLoopNode *WVecNode;
   HLLoop *Loop = nullptr;
 
-  assert(VL >= 1);
-  if (VL == 1)
-    return false;
-  
   // We expect avr to be a AVRWrn node
-  if (!(AWrn = dyn_cast<AVRWrn>(Avr)))
+  if (!(AWrn = dyn_cast<AVRWrn>(Avr))) {
+    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - expected AVRWrn node\n");
     return false;
+  }
 
   WVecNode = AWrn->getWrnNode();
 
@@ -321,24 +324,33 @@ bool AVRCodeGenHIR::loopIsHandled() {
   for (auto Itr = AWrn->child_begin(), End = AWrn->child_end(); Itr != End;
        ++Itr) {
     if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
-      if (ALoop)
+      if (ALoop) {
+        DEBUG(errs() << 
+              "VPO_OPTREPORT: Loop not handled - expected one AVRLoop child\n");
         return false;
+      }
 
       ALoop = TempALoop;
     }
   }
 
   // Check that we have an AVRLoop
-  if (!ALoop)
+  if (!ALoop) {
+    DEBUG(errs() << 
+          "VPO_OPTREPORT: Loop not handled - AVRLoop child not found\n");
     return false;
+  }
 
   Loop = WVecNode->getHLLoop();
   assert(Loop && "Null HLLoop.");
   setOrigLoop(Loop);
 
   // Only handle normalized loops
-  if (!OrigLoop->isNormalized()) 
+  if (!OrigLoop->isNormalized()) {
+    DEBUG(errs() << 
+          "VPO_OPTREPORT: Loop not handled - loop not in normalized form\n");
     return false;
+  }
 
   // We are working with normalized loops, trip count is loop UpperBound + 1.
   auto UBRef = Loop->getUpperDDRef();
@@ -348,8 +360,11 @@ bool AVRCodeGenHIR::loopIsHandled() {
     auto ConstTripCount = UBConst + 1;
 
     // Check that main vector loop will have atleast one iteration
-    if (ConstTripCount < VL)
+    if (ConstTripCount < VF) {
+      DEBUG(errs() << 
+            "VPO_OPTREPORT: Loop not handled - zero iteration main loop\n");
       return false;
+    }
 
     // Set constant trip count
     setTripCount((uint64_t) ConstTripCount);
@@ -359,8 +374,11 @@ bool AVRCodeGenHIR::loopIsHandled() {
   bool MemRefSeen = false;
   for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
        ++Itr) {
-    if (!isa<AVRAssignHIR>(Itr))
+    if (!isa<AVRAssignHIR>(Itr)) {
+      DEBUG(errs() << 
+            "VPO_OPTREPORT: Loop not handled - only AVRAssign is supported\n");
       return false;
+    }
 
     HandledCheck NodeCheck(OrigLoop->getNestingLevel());
     HLDDNode *INode = cast<AVRAssignHIR>(Itr)->getHIRInstruction();
@@ -380,22 +398,39 @@ bool AVRCodeGenHIR::loopIsHandled() {
   // unit stride refs are seen. Still vectorize the case when no mem refs
   // are seen. Remove this check once vectorizer cost model is fully
   // implemented.
-  if (DisableStressTest && MemRefSeen && !UnitStrideSeen)
+  if (DisableStressTest && MemRefSeen && !UnitStrideSeen) {
+    DEBUG(errs() << 
+          "VPO_OPTREPORT: Loop not handled - all mem refs non unit-stride\n");
     return false;
+  }
 
-  // Loop parent is expected to be an HLRegion
+  // TODO - Explicit reduction implementation needs to be extended for
+  // cases where the parent is not a region - while I look into how to
+  // do this, I am retaining the restriction for the parent to be a
+  // region for reduction support for now.
   HLRegion *Parent = dyn_cast<HLRegion>(Loop->getParent());
-  if (!Parent)
-    return false;
 
-  // Live out for reduction only
   // TODO - HIR added support for recognizing reductions and we now
   // mark loops with self reductions as vectorizable. However, we do
   // not handle these in code generation. The check below will mark
   // these cases as not handled for now.
-  for (auto LiveOut : Parent->live_out())
-    if (!RHM.isReductionVariable(LiveOut.second))
+  if (Parent) {
+    // Live out for reduction only
+    for (auto LiveOut : Parent->live_out())
+      if (!RHM.isReductionVariable(LiveOut.second)) {
+        DEBUG(errs() << 
+              "VPO_OPTREPORT: Loop not handled - liveouts not supported\n");
+        return false;
+      }
+  }
+  else {
+    // No loop live out support for now.
+    if (Loop->hasLiveOutTemps()) {
+      DEBUG(errs() << 
+            "VPO_OPTREPORT: Loop not handled - liveouts not supported\n");
       return false;
+    }
+  }
 
   setALoop(ALoop);
 
@@ -406,19 +441,24 @@ bool AVRCodeGenHIR::loopIsHandled() {
 // TODO: Change all VL occurences with VF
 // TODO: Have this method take a VecContext as input, which indicates which
 // AVRLoops in the region to vectorize, and how (using what VF).
-bool AVRCodeGenHIR::vectorize(int VL) {
+bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   bool LoopHandled;
 
   setVL(VL);
-  LoopHandled = loopIsHandled();
+  assert(VL >= 1);
+  if (VL == 1) {
+    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - VL is 1\n");
+    return false;
+  }
+  LoopHandled = loopIsHandled(VL);
   if (!LoopHandled)
     return false;
 
   DEBUG(errs() << "Handled loop before vec codegen: \n");
   DEBUG(OrigLoop->dump(true));
 
-  RHM.mapHLNodes(cast<HLRegion>(OrigLoop->getParent()));
-
+  RHM.mapHLNodes(OrigLoop->getParentRegion());
+ 
   processLoop();
 
   DEBUG(errs() << "\n\n\nHandled loop after: \n");
@@ -427,6 +467,20 @@ bool AVRCodeGenHIR::vectorize(int VL) {
     DEBUG(OrigLoop->dump(true));
 
   return true;
+}
+
+int AVRCodeGenHIR::getRemainderLoopCost(HLLoop *Loop, unsigned int VF, 
+                                        unsigned int &ConstTripCount) {
+  ConstTripCount = TripCount;
+  // Check for positive trip count and that trip count is a multiple of vector
+  // length. Otherwise a remainder loop is needed. Since CG currently does not
+  // support remainder loops, return a dummy high cost to make sure this VF will
+  // not be selected as vectorization factor.
+  if (TripCount == 0 || TripCount % VF) {
+    return 1000;
+  }
+
+  return 0;
 }
 
 void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {

@@ -42,6 +42,7 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   Vecopt/VPODefUse.cpp
   Vecopt/VPOCFG.cpp
   Vecopt/VPOSIMDLaneEvolution.cpp
+  Vecopt/VPOPredicator.cpp
   Vecopt/VPOScenarioEvaluation.cpp
 )
 
