@@ -17,10 +17,10 @@ target triple = "spir64-unknown-unknown"
 
 ; CHECK: @sg_test_pipes
 ; CHECK: entry
-; CHECK: call %opencl.reserve_id_t* @_Z28work_group_reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %0, i32 %1, i32 16)
-; CHECK: call %opencl.reserve_id_t* @_Z29work_group_reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %3, i32 %4, i32 16)
-; CHECK: call void @_Z27work_group_commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %6, %opencl.reserve_id_t* %7, i32 16)
-; CHECK: call void @_Z28work_group_commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %8, %opencl.reserve_id_t* %9, i32 16)
+; CHECK: call %opencl.reserve_id_t* @__work_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)* %0, i32 %1, i32 16)
+; CHECK: call %opencl.reserve_id_t* @__work_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)* %3, i32 %4, i32 16)
+; CHECK: call void @__work_group_commit_read_pipe(%opencl.pipe_t addrspace(1)* %6, %opencl.reserve_id_t* %7, i32 16)
+; CHECK: call void @__work_group_commit_write_pipe(%opencl.pipe_t addrspace(1)* %8, %opencl.reserve_id_t* %9, i32 16)
 
 ; Function Attrs: nounwind
 define spir_kernel void @sg_test_pipes(%opencl.pipe_t addrspace(1)* %num_packets, i32 %pipes) #0 {
@@ -33,33 +33,33 @@ entry:
   store i32 %pipes, i32* %pipes.addr, align 4
   %0 = load %opencl.pipe_t addrspace(1)*, %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
   %1 = load i32, i32* %pipes.addr, align 4
-  %2 = call %opencl.reserve_id_t* @_Z27sub_group_reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %0, i32 %1, i32 16)
+  %2 = call %opencl.reserve_id_t* @__sub_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)* %0, i32 %1, i32 16)
   store %opencl.reserve_id_t* %2, %opencl.reserve_id_t** %res_rrp, align 8
   %3 = load %opencl.pipe_t addrspace(1)*, %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
   %4 = load i32, i32* %pipes.addr, align 4
-  %5 = call %opencl.reserve_id_t* @_Z28sub_group_reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %3, i32 %4, i32 16)
+  %5 = call %opencl.reserve_id_t* @__sub_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)* %3, i32 %4, i32 16)
   store %opencl.reserve_id_t* %5, %opencl.reserve_id_t** %res_rwp, align 8
   %6 = load %opencl.pipe_t addrspace(1)*, %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
   %7 = load %opencl.reserve_id_t*, %opencl.reserve_id_t** %res_rrp, align 8
-  call void @_Z26sub_group_commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %6, %opencl.reserve_id_t* %7, i32 16)
+  call void @__sub_group_commit_read_pipe(%opencl.pipe_t addrspace(1)* %6, %opencl.reserve_id_t* %7, i32 16)
   %8 = load %opencl.pipe_t addrspace(1)*, %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
   %9 = load %opencl.reserve_id_t*, %opencl.reserve_id_t** %res_rwp, align 8
-  call void @_Z27sub_group_commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %8, %opencl.reserve_id_t* %9, i32 16)
+  call void @__sub_group_commit_write_pipe(%opencl.pipe_t addrspace(1)* %8, %opencl.reserve_id_t* %9, i32 16)
   ret void
 }
 
-declare %opencl.reserve_id_t* @_Z27sub_group_reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)*, i32, i32)
+declare %opencl.reserve_id_t* @__sub_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)*, i32, i32)
 
-declare %opencl.reserve_id_t* @_Z28sub_group_reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)*, i32, i32)
+declare %opencl.reserve_id_t* @__sub_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)*, i32, i32)
 
-declare void @_Z26sub_group_commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
+declare void @__sub_group_commit_read_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
 
-declare void @_Z27sub_group_commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
+declare void @__sub_group_commit_write_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
 
-; CHECK: declare %opencl.reserve_id_t* @_Z28work_group_reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)*, i32, i32)
-; CHECK: declare %opencl.reserve_id_t* @_Z29work_group_reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)*, i32, i32)
-; CHECK: declare void @_Z27work_group_commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
-; CHECK: declare void @_Z28work_group_commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
+; CHECK: declare %opencl.reserve_id_t* @__work_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)*, i32, i32)
+; CHECK: declare %opencl.reserve_id_t* @__work_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)*, i32, i32)
+; CHECK: declare void @__work_group_commit_read_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
+; CHECK: declare void @__work_group_commit_write_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 

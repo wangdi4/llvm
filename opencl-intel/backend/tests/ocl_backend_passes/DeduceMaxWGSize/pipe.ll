@@ -3,20 +3,20 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 %opencl.pipe_t = type opaque
 
-declare i32 @_Z10write_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*, i32)
+declare i32 @__write_pipe_2(%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*, i32)
 
 define void @A(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data) nounwind {
 entry:
-  %write_res = tail call i32 @_Z10write_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
+  %write_res = tail call i32 @__write_pipe_2(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
   ret void
 }
 
 define void @__Vectorized_.A(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data) nounwind {
 entry:
-  %write_res.0 = tail call i32 @_Z10write_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
-  %write_res.1 = tail call i32 @_Z10write_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
-  %write_res.2 = tail call i32 @_Z10write_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
-  %write_res.3 = tail call i32 @_Z10write_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
+  %write_res.0 = tail call i32 @__write_pipe_2(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
+  %write_res.1 = tail call i32 @__write_pipe_2(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
+  %write_res.2 = tail call i32 @__write_pipe_2(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
+  %write_res.3 = tail call i32 @__write_pipe_2(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
   ret void
 }
 

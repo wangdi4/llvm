@@ -60,15 +60,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_PREFETCH = "prefetch";
   const std::string CompilationUtils::NAME_ASYNC_WORK_GROUP_STRIDED_COPY = "async_work_group_strided_copy";
 
-  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_READ_PIPE = "work_group_reserve_read_pipe";
-  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_READ_PIPE = "work_group_commit_read_pipe";
-  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_WRITE_PIPE = "work_group_reserve_write_pipe";
-  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_WRITE_PIPE = "work_group_commit_write_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_READ_PIPE = "__work_group_reserve_read_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_READ_PIPE = "__work_group_commit_read_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_WRITE_PIPE = "__work_group_reserve_write_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_WRITE_PIPE = "__work_group_commit_write_pipe";
 
-  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_READ_PIPE = "sub_group_reserve_read_pipe";
-  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_READ_PIPE = "sub_group_commit_read_pipe";
-  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_WRITE_PIPE = "sub_group_reserve_write_pipe";
-  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_WRITE_PIPE = "sub_group_commit_write_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_READ_PIPE = "__sub_group_reserve_read_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_READ_PIPE = "__sub_group_commit_read_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_WRITE_PIPE = "__sub_group_reserve_write_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_WRITE_PIPE = "__sub_group_commit_write_pipe";
 
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
@@ -920,36 +920,36 @@ bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
 }
 
-bool CompilationUtils::isWorkGroupReserveReadPipe(const std::string& S){
-  return isMangleOf(S, NAME_WORK_GROUP_RESERVE_READ_PIPE);
+bool CompilationUtils::isWorkGroupReserveReadPipe(const std::string &S) {
+  return S == NAME_WORK_GROUP_RESERVE_READ_PIPE;
 }
 
-bool CompilationUtils::isWorkGroupCommitReadPipe(const std::string& S){
-  return isMangleOf(S, NAME_WORK_GROUP_COMMIT_READ_PIPE);
+bool CompilationUtils::isWorkGroupCommitReadPipe(const std::string &S) {
+  return S == NAME_WORK_GROUP_COMMIT_READ_PIPE;
 }
 
-bool CompilationUtils::isWorkGroupReserveWritePipe(const std::string& S){
-  return isMangleOf(S, NAME_WORK_GROUP_RESERVE_WRITE_PIPE);
+bool CompilationUtils::isWorkGroupReserveWritePipe(const std::string &S) {
+  return S == NAME_WORK_GROUP_RESERVE_WRITE_PIPE;
 }
 
-bool CompilationUtils::isWorkGroupCommitWritePipe(const std::string& S){
-  return isMangleOf(S, NAME_WORK_GROUP_COMMIT_WRITE_PIPE);
+bool CompilationUtils::isWorkGroupCommitWritePipe(const std::string &S) {
+  return S == NAME_WORK_GROUP_COMMIT_WRITE_PIPE;
 }
 
-bool CompilationUtils::isSubGroupReserveReadPipe(const std::string& S){
-  return isMangleOf(S, NAME_SUB_GROUP_RESERVE_READ_PIPE);
+bool CompilationUtils::isSubGroupReserveReadPipe(const std::string &S) {
+  return S == NAME_SUB_GROUP_RESERVE_READ_PIPE;
 }
 
-bool CompilationUtils::isSubGroupCommitReadPipe(const std::string& S){
-  return isMangleOf(S, NAME_SUB_GROUP_COMMIT_READ_PIPE);
+bool CompilationUtils::isSubGroupCommitReadPipe(const std::string &S) {
+  return S == NAME_SUB_GROUP_COMMIT_READ_PIPE;
 }
 
-bool CompilationUtils::isSubGroupReserveWritePipe(const std::string& S){
-  return isMangleOf(S, NAME_SUB_GROUP_RESERVE_WRITE_PIPE);
+bool CompilationUtils::isSubGroupReserveWritePipe(const std::string &S) {
+  return S == NAME_SUB_GROUP_RESERVE_WRITE_PIPE;
 }
 
-bool CompilationUtils::isSubGroupCommitWritePipe(const std::string& S){
-  return isMangleOf(S, NAME_SUB_GROUP_COMMIT_WRITE_PIPE);
+bool CompilationUtils::isSubGroupCommitWritePipe(const std::string &S) {
+  return S == NAME_SUB_GROUP_COMMIT_WRITE_PIPE;
 }
 
 bool CompilationUtils::isMemFence(const std::string& S){
@@ -1177,12 +1177,11 @@ bool CompilationUtils::isAtomicBuiltin(const std::string& funcName){
 
 bool CompilationUtils::isWorkItemPipeBuiltin(const std::string& funcName){
   // S is work item pipe built-in name if
-  // - it's mangled (only built-in function names are mangled)
   // - it doesn't start w\ "work_group" and ends with "_pipe"
-  if (!isMangledName(funcName.c_str()))
-    return false;
-  StringRef name = stripName(funcName.c_str());
-  return !name.startswith("work_group") && name.endswith("_pipe");
+  StringRef name(funcName);
+  return !name.startswith("__work_group") &&
+         (name.endswith("_pipe") || name.endswith("_pipe_2") ||
+          name.endswith("_pipe_4"));
 }
 
 bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName){
