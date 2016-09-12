@@ -245,7 +245,7 @@ public:
   RegDDRef *removePredicateOperandDDRef(const_pred_iterator CPredI, bool IsLHS);
 
   /// \brief Returns true if \p Node is contained inside *then* or *else* branch
-  /// of the HLIf. The \p Node should be an immediate child of the current HLIf.
+  /// of the HLIf.
   bool isThenChild(const HLNode *Node) const;
   bool isElseChild(const HLNode *Node) const;
 

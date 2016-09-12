@@ -291,19 +291,13 @@ RegDDRef *HLIf::removePredicateOperandDDRef(const_pred_iterator CPredI,
 }
 
 bool HLIf::isThenChild(const HLNode *Node) const {
-  assert(Node->getParent() == this &&
-        "The Node should be attached to the HLIf");
-
-  return HLNodeUtils::isInTopSortNumRange(Node, getFirstThenChild(),
-                                          getLastThenChild());
+  return HLNodeUtils::isInTopSortNumMaxRange(Node, getFirstThenChild(),
+                                             getLastThenChild());
 }
 
 bool HLIf::isElseChild(const HLNode *Node) const {
-  assert(Node->getParent() == this &&
-      "The Node should be attached to the HLIf");
-
-  return HLNodeUtils::isInTopSortNumRange(Node, getFirstElseChild(),
-                                          getLastElseChild());
+  return HLNodeUtils::isInTopSortNumMaxRange(Node, getFirstElseChild(),
+                                             getLastElseChild());
 }
 
 void HLIf::verify() const {

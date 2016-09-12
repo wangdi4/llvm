@@ -36,7 +36,7 @@ FunctionPass *createHIRCodeGenPass();
 
 /// createOptPredicatePass - This creates a pass that performs OptPredicate
 /// transformation on HIR.
-FunctionPass *createHIROptPredicatePass(int Threshold = -1);
+FunctionPass *createHIROptPredicatePass();
 
 /// createHIRCompleteUnrollPass - This creates a pass that performs complete
 /// unrolling on small trip count HIR loops.

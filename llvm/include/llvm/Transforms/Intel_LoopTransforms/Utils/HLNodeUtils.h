@@ -419,6 +419,11 @@ private:
   static bool getMinMaxValueImpl(const CanonExpr *CE, const HLNode *ParentNode,
                                  bool IsMin, bool IsExact, int64_t &Val);
 
+  template <bool IsMaxMode>
+  static bool isInTopSortNumRangeImpl(const HLNode *Node,
+                                      const HLNode *FirstNode,
+                                      const HLNode *LastNode);
+
 public:
   /// \brief Returns the first dummy instruction of the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
@@ -997,6 +1002,14 @@ public:
   static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
                                   const HLNode *LastNode);
 
+  /// Returns true if \p Node top sort number is in range
+  /// [FirstNode->getMinTopSortNum(), LastNode->getMaxTopSortNum].
+  /// The \p FirstNode could be a nullptr, the method will return false in this
+  /// case.
+  static bool isInTopSortNumMaxRange(const HLNode *Node,
+                                     const HLNode *FirstNode,
+                                     const HLNode *LastNode);
+
   /// \brief Returns true if the Loop level is in a valid range from
   /// [1, MaxLoopNestLevel].
   static bool isLoopLevelValid(unsigned Level) {
@@ -1261,6 +1274,9 @@ public:
   /// Updates target HLLabel in every HLGoto node according to the mapping.
   static void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
                                HLNode *End);
+
+  // Returns true if both HLIf nodes are equal.
+  static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
 };
 
 } // End namespace loopopt

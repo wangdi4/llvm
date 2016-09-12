@@ -1978,9 +1978,10 @@ void HLNodeUtils::distributeTopSortNum(HLContainerTy::iterator First,
   }
 }
 
-bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
-                                      const HLNode *FirstNode,
-                                      const HLNode *LastNode) {
+template <bool IsMaxMode>
+bool HLNodeUtils::isInTopSortNumRangeImpl(const HLNode *Node,
+                                          const HLNode *FirstNode,
+                                          const HLNode *LastNode) {
   assert(Node && "Node is null!");
 
   if (!FirstNode) {
@@ -1990,10 +1991,24 @@ bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
   assert(LastNode && "Last node is null!");
 
   unsigned Num = Node->getTopSortNum();
-  unsigned FirstNum = FirstNode->getTopSortNum();
-  unsigned LastNum = LastNode->getTopSortNum();
+  unsigned FirstNum =
+      IsMaxMode ? FirstNode->getMinTopSortNum() : FirstNode->getTopSortNum();
+  unsigned LastNum =
+      IsMaxMode ? LastNode->getMaxTopSortNum() : LastNode->getTopSortNum();
 
   return (Num >= FirstNum && Num <= LastNum);
+}
+
+bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
+                                      const HLNode *FirstNode,
+                                      const HLNode *LastNode) {
+  return isInTopSortNumRangeImpl<false>(Node, FirstNode, LastNode);
+}
+
+bool HLNodeUtils::isInTopSortNumMaxRange(const HLNode *Node,
+                                         const HLNode *FirstNode,
+                                         const HLNode *LastNode) {
+  return isInTopSortNumRangeImpl<true>(Node, FirstNode, LastNode);
 }
 
 const HLNode *HLNodeUtils::getLexicalChildImpl(const HLNode *Parent,
@@ -3263,3 +3278,28 @@ void HLNodeUtils::remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
   LabelRemapVisitor Visitor(Mapper);
   visitRange(Visitor, Begin, End);
 }
+
+bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
+  if (NodeA->getNumPredicates() != NodeB->getNumPredicates()) {
+    return false;
+  }
+
+  for (auto IA = NodeA->pred_begin(), EA = NodeA->pred_end(),
+            IB = NodeB->pred_begin();
+       IA != EA; ++IA, ++IB) {
+
+    if (*IA != *IB) {
+      return false;
+    }
+
+    if (!DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, true),
+                              NodeB->getPredicateOperandDDRef(IB, true)) ||
+        !DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, false),
+                              NodeB->getPredicateOperandDDRef(IB, false))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
