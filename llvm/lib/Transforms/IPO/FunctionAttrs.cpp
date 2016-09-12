@@ -1108,7 +1108,12 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     Changed |= addNoRecurseAttrs(SCCNodes);
   }
 
-  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  if (!Changed)                           // INTEL
+    return PreservedAnalyses::all();      // INTEL
+
+  PreservedAnalyses PA;                   // INTEL
+  PA.preserve<WholeProgramAnalysis>();    // INTEL
+  return PA;                              // INTEL
 }
 
 namespace {
@@ -1311,5 +1316,6 @@ ReversePostOrderFunctionAttrsPass::run(Module &M, AnalysisManager<Module> &AM) {
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<CallGraphAnalysis>();
+  PA.preserve<WholeProgramAnalysis>();     // INTEL
   return PA;
 }

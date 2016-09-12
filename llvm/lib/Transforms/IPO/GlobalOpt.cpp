@@ -2577,7 +2577,11 @@ PreservedAnalyses GlobalOptPass::run(Module &M, AnalysisManager<Module> &AM) {
     };
     if (!optimizeGlobalsInModule(M, DL, &TLI, LookupDomTree))
       return PreservedAnalyses::all();
-    return PreservedAnalyses::none();
+
+    auto PA = PreservedAnalyses();        // INTEL
+    PA.preserve<WholeProgramAnalysis>();  // INTEL
+
+    return PA;                            // INTEL
 }
 
 namespace {
@@ -2602,6 +2606,7 @@ struct GlobalOptLegacyPass : public ModulePass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();            // INTEL
   }
 };
 }
