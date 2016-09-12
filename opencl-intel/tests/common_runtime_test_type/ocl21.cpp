@@ -50,7 +50,7 @@ class OCL21: public CommonRuntime{};
 
 TEST_F(OCL21, clCreateProgramWithIL01)
 {
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "simple_kernels.spv"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "simple_kernels.spv"));
 
     const char * kernelSource = nullptr;
     ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "simple_kernels.spv"));
@@ -292,6 +292,7 @@ TEST_F(OCL21, clCloneKernel02)
 
     size_t global_work_size[3] = { 1024, 1, 1 };
     size_t local_work_size[3] = { 32, 1, 1 };
+    cl_int zero = 0;
 
     for (size_t index = 0; index < 2; ++index)
     {
@@ -330,6 +331,8 @@ TEST_F(OCL21, clCloneKernel02)
         // execute original kernel and check results
         enqueueWriteBuffer(ocl_descriptor.queues[index], input_buffer, CL_TRUE, 0, size,
             &data.front(), 0, nullptr, nullptr);
+        enqueueFillBuffer(ocl_descriptor.queues[index], output_buffer, &zero,
+            sizeof(cl_int), 0, result.size() * sizeof(cl_int), 0, nullptr, nullptr);
 
         enqueueNDRangeKernel(ocl_descriptor.queues[index], kernel, 3, nullptr,
             global_work_size, local_work_size, 0, nullptr, nullptr);
@@ -402,7 +405,7 @@ TEST_F(OCL21, clCloneKernel02)
 TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo01)
 {
     // create OpenCL queues, program and context
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "subgroups.spv"));
 
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
@@ -461,7 +464,7 @@ TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo01)
 TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo02)
 {
     // create OpenCL queues, program and context
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "subgroups.spv"));
 
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
@@ -520,7 +523,7 @@ TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo02)
 TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo03)
 {
     // create OpenCL queues, program and context
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "subgroups.spv"));
 
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");

@@ -433,8 +433,8 @@ void createAndBuildProgramWithSource(const char* sFileName, cl_program* program,
 	}
 }
 
-// createAndBuildProgramWithSourceIL - calls and validates clCreateProgramWithIL and clBuildProgram using kernel file name
-void createAndBuildProgramWithSourceIL(const char* sFileName, cl_program* program, cl_context context,
+// createAndBuildProgramWithILSourceFile - calls and validates clCreateProgramWithIL and clBuildProgram using kernel file name
+void createAndBuildProgramWithILSourceFile(const char* sFileName, cl_program* program, cl_context context,
     cl_uint num_devices, const cl_device_id *device_list, const char *options,
     void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),  void *user_data)
 {
@@ -469,7 +469,7 @@ void *user_data)
 	ASSERT_NO_FATAL_FAILURE( buildProgram (program, num_devices, device_list, options, pfn_notify, user_data));
 }
 
-// createAndBuildProgramWithILSource - calls and validates clCreateBuffer clCreateProgramWithIL and clBuildProgram using kernel source
+// createAndBuildProgramWithILSource - calls and validates clCreateProgramWithIL and clBuildProgram using kernel source
 void createAndBuildProgramWithILSource(const char* kernelSource, size_t length,
     cl_program* program, cl_context context, cl_uint num_devices,
     const cl_device_id *device_list, const char *options,
@@ -898,8 +898,8 @@ void setUpContextProgramQueuesFromStringSource(OpenCLDescriptor& ocl_descriptor,
 	}
 }
 
-// setUpContextProgramQueuesFromILSource - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
-void setUpContextProgramQueuesFromILSource(OpenCLDescriptor& ocl_descriptor, const char* kernelSource)
+// setUpContextProgramQueuesFromILSourceFile - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
+void setUpContextProgramQueuesFromILSourceFile(OpenCLDescriptor& ocl_descriptor, const char* kernelSource)
 {
     // get platfrom and device ids
     ASSERT_NO_FATAL_FAILURE(getCPUGPUDevicesIfNotCreated(ocl_descriptor));
@@ -910,7 +910,7 @@ void setUpContextProgramQueuesFromILSource(OpenCLDescriptor& ocl_descriptor, con
     ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, nullptr, nullptr));
 
     // create and build program
-    ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSourceIL(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 2, ocl_descriptor.devices, nullptr, nullptr, nullptr));
+    ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithILSourceFile(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 2, ocl_descriptor.devices, nullptr, nullptr, nullptr));
 
     // create queues
     for(int i = 0; i < 2; ++i)
