@@ -1,12 +1,14 @@
 ; Check goto parsing
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; TODO: this test is being throttled due to too many nested ifs but not due to presence of goto. Make detection of gotos stronger.
+
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-cost-model-throttling=0 | FileCheck %s
 ; CHECK-DAG: goto [[LABEL1:.*]];
 ; CHECK-DAG: goto [[LABEL2:.*]];
 ; CHECK-DAG: [[LABEL1]]:
 ; CHECK-DAG: [[LABEL2]]:
 
 ; Check goto CG
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S -hir-cost-model-throttling=0 | FileCheck -check-prefix=CHECK-CG %s
 ;          BEGIN REGION { }
 ;<54>            + DO i1 = 0, 1, 1   <DO_LOOP>
 ;<4>             |   (@A)[0][i1] = i1;

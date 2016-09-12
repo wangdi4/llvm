@@ -12,9 +12,6 @@
 ; CHECK: if.end:
 ; CHECK: for.inc.51:
 
-; RUN: opt < %s -analyze -hir-creation -debug 2>&1 | FileCheck -check-prefix=COST-MODEL %s
-; COST-MODEL: Loop throttled due to presence of goto
-
 
 ; ModuleID = 'bugpoint-reduced-simplified.bc'
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
