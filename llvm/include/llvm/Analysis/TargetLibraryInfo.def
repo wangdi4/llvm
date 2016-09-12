@@ -180,6 +180,13 @@ TLI_DEFINE_STRING_INTERNAL("__cxa_guard_acquire")
 /// void __cxa_guard_release(guard_t *guard);
 TLI_DEFINE_ENUM_INTERNAL(cxa_guard_release)
 TLI_DEFINE_STRING_INTERNAL("__cxa_guard_release")
+
+#if INTEL_CUSTOMIZATION
+/// int __isoc99_fscanf(FILE *stream, const char *format, ... );
+TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_fscanf)
+TLI_DEFINE_STRING_INTERNAL("__isoc99_fscanf")
+#endif // INTEL_CUSTOMIZATION
+
 /// int __isoc99_scanf (const char *format, ...)
 TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_scanf)
 TLI_DEFINE_STRING_INTERNAL("__isoc99_scanf")
@@ -242,6 +249,13 @@ TLI_DEFINE_STRING_INTERNAL("__strndup")
 /// char * __strtok_r(char *s, const char *delim, char **save_ptr);
 TLI_DEFINE_ENUM_INTERNAL(dunder_strtok_r)
 TLI_DEFINE_STRING_INTERNAL("__strtok_r")
+
+#if INTEL_CUSTOMIZATION
+/// __xstat64 (int vers, const char *file, struct stat64 *buf);
+TLI_DEFINE_ENUM_INTERNAL(dunder_xstat64)
+TLI_DEFINE_STRING_INTERNAL("__xstat64")
+#endif // INTEL_CUSTOMIZATION
+
 /// int abs(int j);
 TLI_DEFINE_ENUM_INTERNAL(abs)
 TLI_DEFINE_STRING_INTERNAL("abs")
@@ -395,6 +409,13 @@ TLI_DEFINE_STRING_INTERNAL("cosl")
 /// char *ctermid(char *s);
 TLI_DEFINE_ENUM_INTERNAL(ctermid)
 TLI_DEFINE_STRING_INTERNAL("ctermid")
+
+#if INTEL_CUSTOMIZATION
+/// void exit(int status)
+TLI_DEFINE_ENUM_INTERNAL(exit)
+TLI_DEFINE_STRING_INTERNAL("exit")
+#endif // INTEL_CUSTOMIZATION
+
 /// double exp(double x);
 TLI_DEFINE_ENUM_INTERNAL(exp)
 TLI_DEFINE_STRING_INTERNAL("exp")

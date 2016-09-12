@@ -19,7 +19,9 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_AggInline.h"  // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_WP.h"  // INTEL
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -159,6 +161,20 @@ static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
 // Indirect call Conv
 static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
     cl::init(true), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
+
+// Indirect call Conv at non-LTO
+static cl::opt<bool>
+  EnableNonLTOIndirectCallConv("enable-non-lto-ind-call-conv",
+  cl::init(false), cl::Hidden, cl::desc("Enable Non LTO Indirect Call Conv"));
+
+// Whole Program Analysis
+static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
+    cl::init(true), cl::Hidden, cl::desc("Enable Whole Program Analysis"));
+
+// Inline Aggressive Analysis
+static cl::opt<bool> 
+    EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
+    cl::init(true), cl::Hidden, cl::desc("Enable Inline Aggressive Analysis"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
@@ -477,6 +493,14 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
   addInitialAliasAnalysisPasses(MPM);
+#if INTEL_CUSTOMIZATION
+  if (OptLevel >= 2 && EnableAndersen && !PrepareForLTO) {
+    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
+    if (EnableNonLTOIndirectCallConv) {
+      MPM.add(createIndirectCallConvPass()); // Indirect Call Conv
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (!DisableUnitAtATime) {
     // Infer attributes about declarations if possible.
@@ -738,6 +762,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // whole-program devirtualization and bitset lowering.
   PM.add(createGlobalDCEPass());
 
+#if INTEL_CUSTOMIZATION
+  // Whole Program Analysis
+  if (EnableWPA)
+    PM.add(createWholeProgramWrapperPassPass());
+#endif // INTEL_CUSTOMIZATION
+
   // Provide AliasAnalysis services for optimizations.
   addInitialAliasAnalysisPasses(PM);
 
@@ -800,6 +830,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   }
   if (EnableIndirectCallConv && EnableAndersen) {
     PM.add(createIndirectCallConvPass()); // Indirect Call Conv
+  }
+  if (EnableInlineAggAnalysis) {
+    PM.add(createInlineAggressiveAnalysisPass()); // Aggressive Inline
   }
 #endif // INTEL_CUSTOMIZATION
 

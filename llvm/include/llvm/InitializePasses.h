@@ -168,6 +168,7 @@ void initializeImplicitNullChecksPass(PassRegistry&);
 void initializeIndVarSimplifyLegacyPassPass(PassRegistry&);
 void initializeInductiveRangeCheckEliminationPass(PassRegistry&);
 void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
+void initializeInlineAggressiveAnalysisPass(PassRegistry&); // INTEL
 void initializeInlineCostAnalysisPass(PassRegistry&);
 void initializeInstCountPass(PassRegistry&);
 void initializeInstNamerPass(PassRegistry&);
@@ -428,6 +429,7 @@ void initializeFuncletLayoutPass(PassRegistry &);
 void initializeLoopLoadEliminationPass(PassRegistry&);
 void initializeFunctionImportPassPass(PassRegistry &);
 void initializeLoopVersioningPassPass(PassRegistry &);
+void initializeWholeProgramWrapperPassPass(PassRegistry&); // INTEL
 void initializeWholeProgramDevirtPass(PassRegistry &);
 void initializePatchableFunctionPass(PassRegistry &);
 }

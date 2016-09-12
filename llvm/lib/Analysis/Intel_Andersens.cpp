@@ -1560,40 +1560,19 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     // at solve time, but this slows down solving. For now, we simply mark
     // address taken functions as escaping and treat them as external until
     // Escape analysis is implemented.
-    if (!F->hasLocalLinkage() || F->hasAddressTaken())
+    // Functions without definition (library calls/external functions)
+    // are treated separately in "AddConstraintsForCall" routine.
+    if (!F->isDeclaration() && (!F->hasLocalLinkage() || F->hasAddressTaken()))
       AddConstraintsForNonInternalLinkage(&(*F));
 
+    // Functions without definition (library calls/external functions)
+    // are handled in "AddConstraintsForCall" routine. No need to do
+    // anything special here.
     if (!F->isDeclaration()) {
       // Scan the function body, creating a memory object for each heap/stack
       // allocation in the body of the function and a node to represent all
       // pointer values defined by instructions and used as operands.
       visit(&(*F));
-    } else {
-      // External functions that return pointers return the universal set.
-      if (isPointsToType(F->getFunctionType()->getReturnType()))
-        CreateConstraint(Constraint::Copy, getReturnNode(&(*F)), UniversalSet);
-
-      // Any pointers that are passed into the function have the universal set
-      // stored into them.
-      for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
-           I != E; ++I)
-        if (isPointsToType(I->getType())) {
-          // Pointers passed into external functions could have anything stored
-          // through them.
-          CreateConstraint(Constraint::Store, getNode(&(*I)), UniversalSet);
-          // Memory objects passed into external function calls can have the
-          // universal set point to them.
-#if FULL_UNIVERSAL
-          CreateConstraint(Constraint::Copy, UniversalSet, getNode(&(*I)));
-#else
-          CreateConstraint(Constraint::Copy, getNode(&(*I)), UniversalSet);
-#endif
-        }
-
-      // If this is an external varargs function, it can also store pointers
-      // into any pointers passed through the varargs section.
-      if (F->getFunctionType()->isVarArg())
-        CreateConstraint(Constraint::Store, getVarargNode(&(*F)), UniversalSet);
     }
   }
   // Treat Indirect calls conservatively if number of indirect calls exceeds

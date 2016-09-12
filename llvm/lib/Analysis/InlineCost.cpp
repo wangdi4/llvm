@@ -21,6 +21,8 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_AggInline.h"      // INTEL
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopInfo.h" // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -107,6 +109,10 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   CallSite CandidateCS;
 
   int Threshold;
+
+  // INTEL    Aggressive Analysis
+  InlineAggressiveAnalysis *AI;           // INTEL
+
   int Cost;
 
   bool IsCallerRecursive;
@@ -222,9 +228,12 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
 public:
   CallAnalyzer(const TargetTransformInfo &TTI,
                std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-               ProfileSummaryInfo *PSI, Function &Callee, int Threshold,
+               ProfileSummaryInfo *PSI,            // INTEL
+               InlineAggressiveAnalysis *AI,       // INTEL
+               Function &Callee, int Threshold,    // INTEL 
                CallSite CSArg)
-      : TTI(TTI), GetAssumptionCache(GetAssumptionCache), PSI(PSI), F(Callee),
+      : TTI(TTI), GetAssumptionCache(GetAssumptionCache), PSI(PSI), 
+        AI(AI), F(Callee),
         CandidateCS(CSArg), Threshold(Threshold), Cost(0),
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
@@ -975,8 +984,8 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // during devirtualization and so we want to give it a hefty bonus for
   // inlining, but cap that bonus in the event that inlining wouldn't pan
   // out. Pretend to inline the function, with a custom threshold.
-  CallAnalyzer CA(TTI, GetAssumptionCache, PSI, *F,
-                  InlineConstants::IndirectCallThreshold, CS);
+  CallAnalyzer CA(TTI, GetAssumptionCache, PSI, AI,*F,          // INTEL
+                  InlineConstants::IndirectCallThreshold, CS);  // INTEL 
   if (CA.analyzeCall(CS, nullptr)) { // INTEL 
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -1510,6 +1519,13 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     Cost += InlineConstants::SecondToLastCallToStaticBonus;
     YesReasonVector.push_back(InlrDoubleLocalCall);
   }
+
+  // Use InlineAggressiveAnalysis to expose uses of global ptrs 
+  if (AI != nullptr && AI->isCallInstInAggInlList(CS)) {
+    Cost += InlineConstants::AggressiveInlineCallBonus;
+    YesReasonVector.push_back(InlrAggInline);
+  }
+
 #endif // INTEL_CUSTOMIZATION
 
   // If this function uses the coldcc calling convention, prefer not to inline
@@ -1760,9 +1776,9 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
 InlineCost llvm::getInlineCost(
     CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    ProfileSummaryInfo *PSI) {
+    ProfileSummaryInfo *PSI, InlineAggressiveAnalysis *AI) {  // INTEL 
   return getInlineCost(CS, CS.getCalledFunction(), DefaultThreshold, CalleeTTI,
-                       GetAssumptionCache, PSI);
+                       GetAssumptionCache, PSI, AI);  // INTEL 
 }
 
 int llvm::computeThresholdFromOptLevels(unsigned OptLevel,
@@ -1792,7 +1808,7 @@ InlineCost llvm::getInlineCost(
     CallSite CS, Function *Callee, int DefaultThreshold,
     TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    ProfileSummaryInfo *PSI) {
+    ProfileSummaryInfo *PSI, InlineAggressiveAnalysis *AI) {  // INTEL 
 
   // Cannot inline indirect calls.
   if (!Callee)
@@ -1841,7 +1857,8 @@ InlineCost llvm::getInlineCost(
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                      << "...\n");
 
-  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, PSI, *Callee, DefaultThreshold, CS);
+  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, PSI, AI, *Callee,  // INTEL
+    DefaultThreshold, CS);                                          // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);

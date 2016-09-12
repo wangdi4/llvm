@@ -27,6 +27,9 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_WP.h"         // INTEL
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
@@ -1948,7 +1951,9 @@ PreservedAnalyses IPSCCPPass::run(Module &M, AnalysisManager<Module> &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   if (!runIPSCCP(M, DL, &TLI))
     return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+  auto PA = PreservedAnalyses();        // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
+  return PA;                            // INTEL
 }
 
 namespace {
@@ -1976,6 +1981,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();  // INTEL
   }
 };
 } // end anonymous namespace
