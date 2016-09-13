@@ -300,8 +300,8 @@ TEST_F(OCL21, clCloneKernel02)
         cl_mem input_buffer = nullptr;
         cl_mem output_buffer = nullptr;
 
-        createBuffer(&input_buffer, ocl_descriptor.context, CL_MEM_READ_ONLY, size, nullptr);
-        createBuffer(&output_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, size, nullptr);
+        createBuffer(&input_buffer, ocl_descriptor.context, CL_MEM_READ_ONLY, size * sizeof(cl_int), nullptr);
+        createBuffer(&output_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, size * sizeof(cl_int), nullptr);
 
         // some staff to check copy of the kernel
         cl_uint original_reference_count = 0;
@@ -329,7 +329,7 @@ TEST_F(OCL21, clCloneKernel02)
             &original_num_args, nullptr);
 
         // execute original kernel and check results
-        enqueueWriteBuffer(ocl_descriptor.queues[index], input_buffer, CL_TRUE, 0, size,
+        enqueueWriteBuffer(ocl_descriptor.queues[index], input_buffer, CL_TRUE, 0, size * sizeof(cl_int),
             &data.front(), 0, nullptr, nullptr);
         enqueueFillBuffer(ocl_descriptor.queues[index], output_buffer, &zero,
             sizeof(cl_int), 0, result.size() * sizeof(cl_int), 0, nullptr, nullptr);
@@ -337,8 +337,8 @@ TEST_F(OCL21, clCloneKernel02)
         enqueueNDRangeKernel(ocl_descriptor.queues[index], kernel, 3, nullptr,
             global_work_size, local_work_size, 0, nullptr, nullptr);
 
-        enqueueReadBuffer(ocl_descriptor.queues[index], output_buffer, CL_TRUE, 0, size,
-            &data.front(), 0, nullptr, nullptr);
+        enqueueReadBuffer(ocl_descriptor.queues[index], output_buffer, CL_TRUE, 0, size * sizeof(cl_int),
+            &result.front(), 0, nullptr, nullptr);
 
         for (size_t i = 0; i < size; ++i)
         {
@@ -349,6 +349,7 @@ TEST_F(OCL21, clCloneKernel02)
 
         // copy original kernel
         ASSERT_NO_FATAL_FAILURE(cloneKernel(&copied, kernel));
+        std::cout << "Starting test cloned kernel" << std::endl;
 
         // check info about copied kernel
         getKernelInfo(copied, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
@@ -358,17 +359,22 @@ TEST_F(OCL21, clCloneKernel02)
             &copied_num_args, nullptr);
         ASSERT_EQ(original_num_args, copied_num_args);
 
+        enqueueFillBuffer(ocl_descriptor.queues[index], output_buffer, &zero,
+            sizeof(cl_int), 0, result.size() * sizeof(cl_int), 0, nullptr, nullptr);
+
         // execute copied kernel and check results
         enqueueNDRangeKernel(ocl_descriptor.queues[index], copied, 3, nullptr,
             global_work_size, local_work_size, 0, nullptr, nullptr);
 
-        enqueueReadBuffer(ocl_descriptor.queues[index], output_buffer, CL_TRUE, 0, size,
-            &data.front(), 0, nullptr, nullptr);
+        enqueueReadBuffer(ocl_descriptor.queues[index], output_buffer, CL_TRUE, 0, size * sizeof(cl_int),
+            &result.front(), 0, nullptr, nullptr);
 
         for (size_t i = 0; i < size; ++i)
         {
             ASSERT_EQ(data[i], result[i]) << i << "-th element of result buffer is wrong";
         }
+
+        finish(ocl_descriptor.queues[index]);
 
         // testing done, release resources
         clReleaseMemObject(input_buffer);
