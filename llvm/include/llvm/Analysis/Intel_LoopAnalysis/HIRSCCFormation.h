@@ -139,11 +139,10 @@ private:
   /// \brief Returns the last successor of Node in the graph.
   NodeTy::user_iterator getLastSucc(NodeTy *Node) const;
 
-  /// \brief Removes non-phi nodes which are not the same type as the root of
-  /// the phi. These are encountered when tracing through casts. Only single-use
-  /// nodes are allowed here so we know that they only appear in the SCC and
-  /// thus cannot cause live-range issues.
-  void removeIntermediateNodes(SCCTy &CurSCC) const;
+  /// \brief Removes non-phi nodes which are not directly connected to phi nodes
+  /// in the SCC.
+  /// Returns false if intermediate nodes cannot be removed (invalid SCC).
+  bool removedIntermediateNodes(SCCTy &CurSCC) const;
 
   /// \brief Sets the RegionSCCBegin iterator for a new region.
   void setRegionSCCBegin();

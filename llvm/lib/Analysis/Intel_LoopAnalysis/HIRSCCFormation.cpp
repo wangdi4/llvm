@@ -335,14 +335,20 @@ HIRSCCFormation::getLastSucc(NodeTy *Node) const {
   return Node->user_end();
 }
 
-void HIRSCCFormation::removeIntermediateNodes(SCCTy &CurSCC) const {
+bool HIRSCCFormation::removedIntermediateNodes(SCCTy &CurSCC) const {
 
   SmallVector<NodeTy *, 8> IntermediateNodes;
+  auto NodeCount = CurSCC.Nodes.size();
 
   Type *RootTy = CurSCC.Root->getType();
   bool IsSCEVable = SE->isSCEVable(RootTy);
 
   for (auto Node : CurSCC.Nodes) {
+
+    if ((NodeCount > 2) && hasMultipleNonPhiSCCUses(Node, CurSCC.Nodes)) {
+      return false;
+    }
+
     if (isa<PHINode>(Node)) {
       continue;
     }
@@ -387,6 +393,8 @@ void HIRSCCFormation::removeIntermediateNodes(SCCTy &CurSCC) const {
   for (auto &I : IntermediateNodes) {
     CurSCC.Nodes.erase(I);
   }
+
+  return true;
 }
 
 unsigned HIRSCCFormation::getRegionIndex(
@@ -515,14 +523,8 @@ bool HIRSCCFormation::hasMultipleNonPhiSCCUses(NodeTy *Node,
 bool HIRSCCFormation::isValidSCC(const SCCTy &CurSCC) const {
   SmallPtrSet<BasicBlock *, 12> BBlocks;
   Type *RootTy = CurSCC.Root->getType();
-  auto NodeCount = CurSCC.Nodes.size();
 
   for (auto Node : CurSCC.Nodes) {
-
-    if ((NodeCount > 2) && hasMultipleNonPhiSCCUses(Node, CurSCC.Nodes)) {
-      return false;
-    }
-
     auto Phi = dyn_cast<PHINode>(Node);
 
     if (!Phi) {
@@ -671,9 +673,8 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
              RI->isHeaderPhi(cast<PHINode>(NewSCC.Root)) &&
              "No phi found in SCC!");
 
-      removeIntermediateNodes(NewSCC);
-
-      if (isValidSCC(NewSCC) && isProfitableSCC(NewSCCNodes)) {
+      if (removedIntermediateNodes(NewSCC) && isValidSCC(NewSCC) &&
+          isProfitableSCC(NewSCCNodes)) {
         // Add new SCC to the list.
         RegionSCCs.push_back(std::move(NewSCC));
 

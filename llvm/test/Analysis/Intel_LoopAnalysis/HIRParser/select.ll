@@ -5,11 +5,12 @@
 
 
 ; Check parsing output for the loop verifying that the select instruction is parsed correctly.
-; CHECK: DO i1 = 0, %n + -2
-; CHECK-NEXT: %maxval.011.out = %maxval.011
-; CHECK-NEXT: %1 = (@x)[0][i1 + 1]
-; CHECK-NEXT: %maxval.011 = (%maxval.011.out < %1) ? %1 : %maxval.011
-; CHECK-NEXT: END LOOP
+
+; CHECK: + DO i1 = 0, %n + -2, 1   <DO_LOOP>
+; CHECK: |   %1 = (@x)[0][i1 + 1];
+; CHECK: |   %2 = (%maxval.011 < %1) ? %1 : %maxval.011;
+; CHECK: |   %maxval.011 = %2;
+; CHECK: + END LOOP
 
 
 ; ModuleID = 'kernel24.c'

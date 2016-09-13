@@ -1,29 +1,20 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
-; Check that the liveout values of region 8 (%43 and %conv318.maxLen.0) which are part of SCCs are not mapped to base values(%minLen.01049 and %maxLen.01050) in the livein set of region 9. The mapping is not valid for livein sets because they use underlying LLVM values directly (blobs cannot be used here). 
-
-; CHECK: Region 8
-; CHECK: SCC1
-; CHECK-DAG: %conv318.maxLen.0
-; CHECK-DAG: %maxLen.01050
-; CHECK: SCC2
-; CHECK-DAG: %43
-; CHECK-DAG: %minLen.01049
+; Check that the values %maxLen.01050.out and %minLen.01049.out marked livein in region 9 during parsing are also marked as liveout in the previous region where they are defined.
 
 ; CHECK: LiveOuts
-; CHECK-DAG: %43(sym:{{[0-9]+}})
-; CHECK-DAG: %conv318.maxLen.0(sym:{{[0-9]+}})
+; CHECK-DAG: %maxLen.01050.out
+; CHECK-DAG: %minLen.01049.out
 
 ; CHECK: Region 9
 ; CHECK: LiveIns
-; CHECK-DAG: %minLen.01049(%43)
-; CHECK-DAG: %n.025.i(%43)
-; CHECK-DAG: %maxLen.01050(%conv318.maxLen.0)
+; CHECK-DAG: %maxLen.01050.out(%maxLen.01050.out)
+; CHECK-DAG: %minLen.01049.out(%minLen.01049.out)
 
-; Mapped values are used in the upper bound calculation in Region 10.
-; CHECK: DO i32 i1 = 0, -1 * %minLen.01049 + smax(%maxLen.01050, %minLen.01049)
+; Livein values are used in the upper bound calculation in Region 9.
+; CHECK: DO i32 i1 = 0, smax((-1 + (-1 * zext.i8.i32(%42))), (-1 + (-1 * %minLen.01049.out))) + smax(zext.i8.i32(%42), (-1 + (-1 * smax((-1 + (-1 * zext.i8.i32(%42))), (-1 + (-1 * %minLen.01049.out))))), %maxLen.01050.out
 
-; Check that borh lval and rval have identical canon exprs for this copy statement. Originally, there was a mismatch due to bug in assigning symbases.
+; Check that both lval and rval have identical canon exprs for this copy statement. Originally, there was a mismatch due to bug in assigning symbases.
 ; CHECK: %vec.026.i = 2 * %vec.1.lcssa.i;
 ; CHECK: <LVAL-REG> NON-LINEAR i32 2 * %vec.1.lcssa.i 
 ; CHECK: <RVAL-REG> NON-LINEAR i32 2 * %vec.1.lcssa.i 

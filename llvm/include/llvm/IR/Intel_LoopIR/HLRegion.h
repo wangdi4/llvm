@@ -121,8 +121,8 @@ public:
   }
 
   /// \brief Adds a live-out temp (represented using Symbase) to the region.
-  void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
-    IRReg.addLiveOutTemp(Temp, Symbase);
+  void addLiveOutTemp(unsigned Symbase, const Value *Temp) {
+    IRReg.addLiveOutTemp(Symbase, Temp);
   }
 
   /// Replaces \p OldSymbase by \p NewSymbase as the new liveout temp.

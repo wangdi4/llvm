@@ -1332,25 +1332,30 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
 
   unsigned DefLevel = 0;
   bool IsRegionLivein = false;
-
-  Loop *DefLp = nullptr;
-  HLLoop *DefLoop = nullptr;
   HLLoop *LCALoop = nullptr;
+
+  auto ParentBB = Inst->getParent();
+  Loop *DefLp = LI->getLoopFor(Inst->getParent());
+
+  HLLoop *DefLoop = DefLp ? LF->findHLLoop(DefLp) : nullptr;
 
   HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
                                          : CurNode->getLexicalParentLoop();
 
   // Set region livein and def level.
-  if (!CurRegion->containsBBlock(Inst->getParent())) {
+  if (!CurRegion->containsBBlock(ParentBB)) {
     CurRegion->addLiveInTemp(Symbase, Inst);
     IsRegionLivein = true;
 
-    // We need to lookup DefLoop before UseLoop here as it is used later for
-    // livein/liveout analysis.
-  } else if ((DefLp = LI->getLoopFor(Inst->getParent())) &&
-             (DefLoop = LF->findHLLoop(DefLp)) && UseLoop &&
+    // If Inst is defined in another region, we need to add it as region
+    // liveout.
+    if (DefLoop) {
+      DefLoop->getParentRegion()->addLiveOutTemp(Symbase, Inst);
+    }
+
+  } else if (DefLoop && UseLoop &&
              (LCALoop =
-                  HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop))) {
+                  HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop))) {
     // If the current node where the blob is used and the blob definition are
     // both in some HLLoop, the defined at level should be the lowest common
     // ancestor loop. For example-

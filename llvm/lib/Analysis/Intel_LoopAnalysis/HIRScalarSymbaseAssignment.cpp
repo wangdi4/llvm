@@ -340,7 +340,7 @@ void HIRScalarSymbaseAssignment::populateRegionLiveouts(
 
       if (SCCF->isRegionLiveOut(RegIt, &*Inst)) {
         auto Symbase = getOrAssignScalarSymbase(&*Inst, *RegIt);
-        RegIt->addLiveOutTemp(&*Inst, Symbase);
+        RegIt->addLiveOutTemp(Symbase, &*Inst);
         populateLoopLiveouts(&*Inst, Symbase);
       }
     }
