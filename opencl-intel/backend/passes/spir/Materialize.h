@@ -25,16 +25,18 @@ struct Maybe {
   const T& value() const { return m_value; }
 
   // @brief Returns the value assigned to this object.
-  T& value() { return m_value; }
+  T &value() { return m_value; }
 
   // @brief Constructs a valid (data holding) object.
-  Maybe(const T& val) : m_value(val), m_isNull(false) {}
+  Maybe(const T &val) : m_value(val), m_isNull(false) {}
+
 private:
   // @brief Constructs a 'null-representing' object.
   Maybe() : m_isNull(true) {}
 
   // @brief the value assigned to the object
   T m_value;
+
   // @brief signals whether this object is a 'null' object of not.
   bool m_isNull;
 };
@@ -45,18 +47,16 @@ private:
 // (More concretely, replaces SPIR artifacts with Intel-implementation
 // specific stuff.
 ///////////////////////////////////////////////////////////////////////////////
-class SpirMaterializer : public llvm::ModulePass{
-
+class SpirMaterializer : public llvm::ModulePass {
 public:
   static char ID;
 
   SpirMaterializer();
 
-  const char* getPassName()const;
+  const char *getPassName() const;
 
-  bool runOnModule(llvm::Module&);
+  bool runOnModule(llvm::Module &);
 };
-
 }
 
-#endif//__MATERIALIZE_H__
+#endif //__MATERIALIZE_H__
