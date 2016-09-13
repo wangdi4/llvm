@@ -432,6 +432,65 @@ class OpenMPCodeOutliner {
       addArg(E);
     emitListClause();
   }
+
+  void emitOMPScheduleClause(const OMPScheduleClause *C) {
+    int DefaultChunkSize = 0;
+    switch (C->getScheduleKind()) {
+    case OMPC_SCHEDULE_static:
+      addArg("QUAL.OMP.SCHEDULE.STATIC");
+      break;
+    case OMPC_SCHEDULE_dynamic:
+      DefaultChunkSize = 1;
+      addArg("QUAL.OMP.SCHEDULE.DYNAMIC");
+      break;
+    case OMPC_SCHEDULE_guided:
+      DefaultChunkSize = 1;
+      addArg("QUAL.OMP.SCHEDULE.GUIDED");
+      break;
+    case OMPC_SCHEDULE_auto:
+      addArg("QUAL.OMP.SCHEDULE.AUTO");
+      break;
+    case OMPC_SCHEDULE_runtime:
+      addArg("QUAL.OMP.SCHEDULE.RUNTIME");
+      break;
+    case OMPC_SCHEDULE_unknown:
+      llvm_unreachable("Unknown schedule clause");
+    }
+    SmallString<64> Modifiers;
+    for (int Count = 0; Count < 2; ++Count) {
+      SmallString<64> LocalModifier;
+      auto Mod = Count == 0 ? C->getFirstScheduleModifier()
+                            : C->getSecondScheduleModifier();
+      switch (Mod) {
+      case OMPC_SCHEDULE_MODIFIER_monotonic:
+        LocalModifier = "MONOTONIC";
+        break;
+      case OMPC_SCHEDULE_MODIFIER_nonmonotonic:
+        LocalModifier = "NONMONOTONIC";
+        break;
+      case OMPC_SCHEDULE_MODIFIER_simd:
+        LocalModifier = "SIMD";
+        break;
+      case OMPC_SCHEDULE_MODIFIER_last:
+      case OMPC_SCHEDULE_MODIFIER_unknown:
+        break;
+      }
+      if (!LocalModifier.empty()) {
+        if (!Modifiers.empty())
+          Modifiers += ".";
+        Modifiers += LocalModifier;
+      }
+    }
+    if (Modifiers.empty())
+      Modifiers = "MODIFIERNONE";
+    addArg(Modifiers);
+    if (auto *E = C->getChunkSize())
+      addArg(CGF.EmitScalarExpr(E));
+    else
+      addArg(CGF.Builder.getInt32(DefaultChunkSize));
+    emitListClause();
+  }
+
   void emitOMPIfClause(const OMPIfClause *) {}
   void emitOMPFinalClause(const OMPFinalClause *) {}
   void emitOMPNumThreadsClause(const OMPNumThreadsClause *) {}
@@ -445,7 +504,6 @@ class OpenMPCodeOutliner {
   void emitOMPCopyinClause(const OMPCopyinClause *) {}
   void emitOMPCopyprivateClause(const OMPCopyprivateClause *) {}
   void emitOMPProcBindClause(const OMPProcBindClause *) {}
-  void emitOMPScheduleClause(const OMPScheduleClause *) {}
   void emitOMPNowaitClause(const OMPNowaitClause *) {}
   void emitOMPUntiedClause(const OMPUntiedClause *) {}
   void emitOMPMergeableClause(const OMPMergeableClause *) {}

@@ -2368,6 +2368,7 @@ private:
     assert(isa<Expr>(S) && "Only exprs should be translated");
     Expr *E = cast<Expr>(S);
     QualType VarTy = E->getType();
+    VarTy.addConst();
     if (E->isGLValue())
       VarTy = SemaRef.BuildReferenceType(VarTy, true, E->getExprLoc(),
                                          DeclarationName());

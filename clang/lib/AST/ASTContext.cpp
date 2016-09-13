@@ -6887,6 +6887,45 @@ bool ASTContext::areCompatibleVectorTypes(QualType FirstVec,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
+bool ASTContext::areCompatibleTypedefTypesInC(QualType OldType,
+                                              QualType NewType) {
+#ifndef NDEBUG
+  const LangOptions &Opts = getLangOpts();
+  assert(Opts.IntelMSCompat &&
+         "This routine must be called in IntelMSCompat mode only!");
+  assert(!Opts.CPlusPlus && !Opts.ObjC1 && !Opts.ObjC2 &&
+         "This routine must be called in C mode only!");
+#endif // not NDEBUG
+
+  QualType OldCan = getCanonicalType(OldType);
+  QualType NewCan = getCanonicalType(NewType);
+
+  if (OldCan.getCVRQualifiers() != NewCan.getCVRQualifiers())
+    return false;
+
+  if (OldCan->isPointerType() && NewCan->isPointerType()) {
+    QualType OldPointee = OldType->getPointeeType();
+    QualType NewPointee = NewType->getPointeeType();
+    // void * and char * are interchangeable.
+    if ((OldPointee->isCharType() && NewPointee->isVoidType()) ||
+        (OldPointee->isVoidType() && NewPointee->isCharType()))
+      return true;
+    return areCompatibleTypedefTypesInC(OldPointee, NewPointee);
+  }
+
+  if (!OldCan->isIntegralOrEnumerationType() ||
+      !NewCan->isIntegralOrEnumerationType())
+    return false;
+
+  auto OldTypeInfo = getTypeInfo(OldCan);
+  auto NewTypeInfo = getTypeInfo(NewCan);
+  return (OldTypeInfo.Width == NewTypeInfo.Width &&
+          OldTypeInfo.Align == NewTypeInfo.Align);
+}
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // ObjCQualifiedIdTypesAreCompatible - Compatibility testing for qualified id's.
 //===----------------------------------------------------------------------===//

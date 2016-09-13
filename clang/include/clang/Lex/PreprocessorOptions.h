@@ -54,6 +54,11 @@ public:
   /// definitions and expansions.
   unsigned DetailedRecord : 1;
 
+#if INTEL_CUSTOMIZATION
+  // The output file specified so #import processing can find output directory
+  StringRef OutputFile;
+#endif // INTEL_CUSTOMIZATION
+
   /// The implicit PCH included at the start of the translation unit, or empty.
   std::string ImplicitPCHInclude;
 

@@ -978,6 +978,7 @@ static void EmitRecursiveCilkRankedStmt(CodeGenFunction &CGF,
                                         const CilkRankedStmt &S,
                                         unsigned Rank) {
   if (Rank < S.getRank()) {
+    CodeGenFunction::RunCleanupsScope RankedStmtScope(CGF);
     const DeclStmt *DS = cast<DeclStmt>(S.getVars()[Rank]);
     CGF.EmitStmt(DS);
     // Generate code for loop.

@@ -2405,6 +2405,10 @@ static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
                                   FileManager &FileMgr,
                                   DiagnosticsEngine &Diags) {
   using namespace options;
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(OPT_fintel_ms_compatibility))
+      Opts.OutputFile = Args.getLastArgValue(OPT_o);
+#endif // INTEL_CUSTOMIZATION
   Opts.ImplicitPCHInclude = Args.getLastArgValue(OPT_include_pch);
   Opts.ImplicitPTHInclude = Args.getLastArgValue(OPT_include_pth);
   if (const Arg *A = Args.getLastArg(OPT_token_cache))

@@ -1883,6 +1883,11 @@ private:
   void HandleIncludeMacrosDirective(SourceLocation HashLoc, Token &Tok);
   void HandleImportDirective(SourceLocation HashLoc, Token &Tok);
   void HandleMicrosoftImportDirective(Token &Tok);
+#if INTEL_CUSTOMIZATION
+  std::string WrapperFilename;
+  void HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
+                                           Token &importTok);
+#endif // INTEL_CUSTOMIZATION
 
 public:
   // Module inclusion testing.

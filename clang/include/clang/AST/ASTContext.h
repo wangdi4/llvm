@@ -1818,6 +1818,21 @@ public:
   /// types.
   bool areCompatibleVectorTypes(QualType FirstVec, QualType SecondVec);
 
+#if INTEL_CUSTOMIZATION
+  // CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
+  // Return true is the given typedef types are compatible in C.
+  //
+  // Conditions:
+  //   1. Both typedef types are either integer, enumeral or pointers;
+  //   2. Both typedef types are equally qualified;
+  //   3. Both typedef types have the same size and alignment;
+  //   4. If pointers:
+  //     4.1. Levels of pointers are equal;
+  //     4.2. Pointee types are compatible OR
+  //     4.3. One type points to void and another points to char.
+  bool areCompatibleTypedefTypesInC(QualType OldType, QualType NewType);
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief Return true if this is an \c NSObject object with its \c NSObject
   /// attribute set.
   static bool isObjCNSObjectType(QualType Ty) {

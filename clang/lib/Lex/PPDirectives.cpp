@@ -30,6 +30,14 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SaveAndRestore.h"
+#if INTEL_CUSTOMIZATION && defined(LLVM_ON_WIN32)
+#include "clang/Lex/PreprocessorOptions.h"
+#include "llvm/Support/Program.h"
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 
@@ -2099,11 +2107,490 @@ void Preprocessor::HandleMicrosoftImportDirective(Token &Tok) {
   DiscardUntilEndOfDirective();
 }
 
+#if INTEL_CUSTOMIZATION && defined(LLVM_ON_WIN32)
+
+// Look up Subkey in HKEY_CLASSES_ROOT.  If found copy the value to the buffer
+// pointed to by Result and return true.  The result should be limited to
+// MaxSize bytes.  If unsuccessful return false with result pointing to the
+// empty string.
+static bool getRegistryString(char *Subkey, char *Result, DWORD MaxSize) {
+  bool Found = false;
+  *Result = '\0';
+
+  if (*Subkey != '\0') {
+    HKEY RegKey;
+    DWORD Size = MaxSize;
+    if (RegOpenKeyExA(HKEY_CLASSES_ROOT, Subkey, 0, KEY_READ, &RegKey) ==
+        ERROR_SUCCESS) {
+      if (RegQueryValueExA(RegKey, "", nullptr, nullptr, (LPBYTE)Result,
+                           &Size) == ERROR_SUCCESS)
+        Found = true;
+      RegCloseKey(RegKey);
+    }
+  }
+  return Found;
+}
+
+#define REG_BUFSIZE 4096
+
+// Adjust the Major and Minor version and Lcid if needed.
+//
+// If you do not specify a localization ID, a progid is chosen according to
+// the following rules:
+//
+// If there is only one localization ID, that one is used.
+// If there is more than one localization ID, the first one with version
+//    number 0, 9, or 409 is used.
+// If there is more than one localization ID and none of them are 0, 9, or
+//    409, the last one is used.
+// If you do not specify a version number, the most recent version is used.
+static bool adjustIdParameters(char *GuidStr, unsigned short *Major,
+                               unsigned short *Minor, LCID *Lcid) {
+  char RegPath[REG_BUFSIZE];
+  char Buffer[REG_BUFSIZE];
+  HKEY RegKey;
+  unsigned short LocalMajor = 0, LocalMinor = 0;
+  LONG Ret;
+
+  // Check if exact version specified exists.
+  sprintf(RegPath, "TypeLib\\%s\\%hx.%hx", GuidStr, *Major, *Minor);
+  if (RegOpenKeyExA(HKEY_CLASSES_ROOT, RegPath, 0, KEY_READ, &RegKey) !=
+      ERROR_SUCCESS) {
+    // Exact version does not exist so look for a different one.
+    sprintf(RegPath, "TypeLib\\%s", GuidStr);
+    if (RegOpenKeyExA(HKEY_CLASSES_ROOT, RegPath, 0, KEY_READ, &RegKey) ==
+        ERROR_SUCCESS) {
+      Ret = ERROR_SUCCESS;
+      for (int Item = 0; Ret != ERROR_NO_MORE_ITEMS; ++Item) {
+        unsigned short TempMajor = 0, TempMinor = 0;
+        DWORD Size = REG_BUFSIZE;
+        Buffer[0] = 0;
+        Ret = RegEnumKeyExA(RegKey, Item, Buffer, &Size, 0, 0, 0, 0);
+        if (Ret == ERROR_SUCCESS) {
+          sscanf(Buffer, "%hx.%hx", &TempMajor, &TempMinor);
+          if ((LocalMajor < TempMajor) ||
+              ((LocalMajor == TempMajor) && (LocalMinor < TempMinor))) {
+            LocalMajor = TempMajor;
+            LocalMinor = TempMinor;
+          }
+        }
+      }
+      *Major = LocalMajor;
+      *Minor = LocalMinor;
+    } else {
+      return false;
+    }
+  }
+  RegCloseKey(RegKey);
+
+  // At this point we have an appropriate version determined. Now check
+  // the LCID.
+  sprintf(RegPath, "TypeLib\\%s\\%hx.%hx\\%lx", GuidStr, *Major, *Minor, *Lcid);
+  if (RegOpenKeyExA(HKEY_CLASSES_ROOT, RegPath, 0, KEY_READ, &RegKey) !=
+      ERROR_SUCCESS) {
+    // The specified lcid does not exist.  Search for one.
+    sprintf(RegPath, "TypeLib\\%s\\%hx.%hx", GuidStr, *Major, *Minor);
+    RegOpenKeyExA(HKEY_CLASSES_ROOT, RegPath, 0, KEY_READ, &RegKey);
+    Ret = ERROR_SUCCESS;
+    for (int Item = 0; Ret != ERROR_NO_MORE_ITEMS; ++Item) {
+      DWORD Size = REG_BUFSIZE;
+      Ret = RegEnumKeyExA(RegKey, Item, Buffer, &Size, 0, 0, 0, 0);
+      if (Ret == ERROR_SUCCESS) {
+        sscanf(Buffer, "%lx", Lcid);
+        if (*Lcid == 0x0 || *Lcid == 0x9 || *Lcid == 0x409)
+          break;
+      }
+    }
+    RegCloseKey(RegKey);
+  } else {
+    RegCloseKey(RegKey);
+  }
+  return true;
+}
+
+#define SIZEOF_GUID_STRING 39
+// GUID string - {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}\0
+//               1   8    1 4  1 4  1 4  1     12     1 1 = 39
+
+// Set *GuidPtr to the GUID for the type library specified by the Name.
+// If there is no libid or progid or if the Name does not specify a correct
+// GUID, an all-zero GUID is returned.  Note that since we call the MS compiler
+// to process import directives bad LIBIDs, PROGIDs, or type lib files will have
+// already caused the MS compiler to produce an error so we don't have to be
+// too concerned about producing error messages for bad #imports.
+static void getTypelibGuid(const char *Name, GUID *GuidPtr,
+                           unsigned short *Major, unsigned short *Minor,
+                           LCID *Lcid) {
+  char GuidStr[SIZEOF_GUID_STRING] = "";
+  StringRef OriginalName = Name;
+  if (OriginalName.startswith_lower("libid:")) {
+    Name += 6;
+    while (isspace(*Name))
+      Name++;
+    strcpy(GuidStr, "{");
+    strncat(GuidStr, Name, SIZEOF_GUID_STRING - 3);
+    strcat(GuidStr, "}");
+  } else if (OriginalName.startswith_lower("progid:")) {
+    // Find the CLSID for the PROGID then use that to get the LIBID.
+    //
+    // The CLSID is either HKEY_CLASSES_ROOT\foo\CLSID or
+    // HKEY_CLASSES_ROOT\[[HKEY_CLASSES_ROOT\foo\CurVer]]\CLSID.
+    //
+    // Use that to find the typelib:
+    //
+    // HKEY_CLASSES_ROOT\CLSID\[[from above]]\TypeLib
+    //
+    char SubKey[REG_BUFSIZE];
+    char SubKeyCurVer[REG_BUFSIZE] = "";
+    char Buf[REG_BUFSIZE];
+    Name += 7;
+    while (isspace(*Name))
+      Name++;
+    if (strlen(Name) < REG_BUFSIZE - 7 - 1) {
+      strcpy(SubKey, Name);
+      strcat(SubKey, "\\CurVer");
+      if (getRegistryString(SubKey, Buf, REG_BUFSIZE - 6 - 1)) {
+        strcpy(SubKeyCurVer, Buf);
+        strcat(SubKeyCurVer, "\\CLSID");
+      }
+
+      strcpy(SubKey, Name);
+      strcat(SubKey, "\\CLSID");
+
+      if (getRegistryString(SubKey, Buf, REG_BUFSIZE - 6 - 8 - 1) ||
+          getRegistryString(SubKeyCurVer, Buf, REG_BUFSIZE - 6 - 8 - 1)) {
+        strcpy(SubKey, "CLSID\\");
+        strcat(SubKey, Buf);
+        strcat(SubKey, "\\TypeLib");
+        if (getRegistryString(SubKey, Buf, REG_BUFSIZE - 1) &&
+            strlen(Buf) < SIZEOF_GUID_STRING)
+          strcpy(GuidStr, Buf);
+      }
+    }
+  }
+
+  // Clear the GUID. If we didn't successfully build a GUID string
+  // or if it cannot be converted to a GUID by IIDFromString we will
+  // return the all-zero GUID. */
+  memset(GuidPtr, 0, sizeof(GUID));
+
+  if (GuidStr[0] != '\0') {
+    WCHAR WideGuidStr[SIZEOF_GUID_STRING];
+    BSTR GuidBStr;
+
+    if (adjustIdParameters(GuidStr, Major, Minor, Lcid)) {
+      MultiByteToWideChar(CP_ACP, 0, GuidStr, -1, WideGuidStr,
+                          SIZEOF_GUID_STRING);
+      if ((GuidBStr = SysAllocString(WideGuidStr)) != NULL) {
+        IIDFromString(GuidBStr, GuidPtr);
+        SysFreeString(GuidBStr);
+      }
+    }
+  }
+}
+
+static std::string getTypelibName(StringRef Filename, unsigned short Major,
+                                  unsigned short Minor, unsigned long Lcid) {
+  std::string Result = Filename.substr(1, Filename.size() - 2);
+  GUID Guid;
+  getTypelibGuid(Filename.data() + 1, &Guid, &Major, &Minor, &Lcid);
+
+  if (Guid == GUID_NULL) {
+    StringRef ResultRef = Result;
+    if (ResultRef.startswith_lower("libid:") ||
+        ResultRef.startswith_lower("progid:"))
+      return "";
+  }
+
+  // At this point we should be able to get the type lib filename but
+  // to protect against incomplete registry entries and to match Microsoft
+  // we also try the standard lcids here.
+
+  bool Ok = false;
+  BSTR Bstr = SysAllocStringLen(NULL, 0);
+  if (Bstr != NULL) {
+    if (QueryPathOfRegTypeLib(Guid, Major, Minor, Lcid, &Bstr) == S_OK)
+      Ok = true;
+    if (!Ok && Lcid != 0 &&
+        QueryPathOfRegTypeLib(Guid, Major, Minor, 0, &Bstr) == S_OK)
+      Ok = true;
+    if (!Ok && Lcid != 9 &&
+        QueryPathOfRegTypeLib(Guid, Major, Minor, 9, &Bstr) == S_OK)
+      Ok = true;
+    if (!Ok && Lcid != 0x409 &&
+        QueryPathOfRegTypeLib(Guid, Major, Minor, 0x409, &Bstr) == S_OK)
+      Ok = true;
+  }
+  if (Ok) {
+    // Convert the wide string back and return it.
+    char Buf[REG_BUFSIZE];
+    _snprintf(Buf, sizeof(Buf), "%S", Bstr);
+    Result = Buf;
+  }
+  SysFreeString(Bstr);
+
+  return Result;
+}
+
+/// HandleMicrosoftImportIntelDirective - Implements \#import for Microsoft Mode
+void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
+                                                       Token &ImportTok) {
+  Token FilenameTok;
+  CurPPLexer->LexIncludeFilename(FilenameTok);
+
+  // Reserve a buffer to get the spelling.
+  SmallString<128> FilenameBuffer;
+  StringRef Filename;
+  SourceLocation End;
+  SourceLocation CharEnd;
+
+  switch (FilenameTok.getKind()) {
+  case tok::eod:
+    // If the token kind is EOD, the error has already been diagnosed.
+    return;
+
+  case tok::angle_string_literal:
+  case tok::string_literal:
+    Filename = getSpelling(FilenameTok, FilenameBuffer);
+    End = FilenameTok.getLocation();
+    CharEnd = End.getLocWithOffset(FilenameTok.getLength());
+    break;
+
+  case tok::less:
+    // This could be a <foo/bar.h> file coming from a macro expansion.  In this
+    // case, glue the tokens together into FilenameBuffer and interpret those.
+    FilenameBuffer.push_back('<');
+    if (ConcatenateIncludeName(FilenameBuffer, End))
+      return; // Found <eod> but no ">"?  Diagnostic already emitted.
+    Filename = FilenameBuffer;
+    CharEnd = End.getLocWithOffset(1);
+    break;
+
+  default:
+    Diag(FilenameTok.getLocation(), diag::err_pp_expects_filename);
+    DiscardUntilEndOfDirective();
+    return;
+  }
+
+  unsigned long Lcid = 0;
+  unsigned short Major = 0, Minor = 0;
+  bool ImplementationOnly = false;
+
+  SmallVector<Token, 32> Tokens;
+  Tokens.push_back(FilenameTok);
+
+  // Store all the tokens to pass to the Microsoft compiler.  We need
+  // information from three attributes (implementation_only, version, and lcid)
+  // to correctly find the correct library.  We don't check the syntax of all
+  // the attributes but expect the Microsoft compiler to fail on bad syntax.
+  // We do some checking on version and lcid.
+  while (true) {
+    Token Tok;
+    LexUnexpandedToken(Tok);
+    if (Tok.is(tok::eod))
+      break;
+    Tokens.push_back(Tok);
+
+    IdentifierInfo *II = nullptr;
+    if (Tok.is(tok::identifier))
+      II = Tok.getIdentifierInfo();
+    if (II) {
+      if (II->isStr("implementation_only"))
+        ImplementationOnly = true;
+      else if (II->isStr("version")) {
+        Token SubTok;
+        LexUnexpandedToken(SubTok);
+        Tokens.push_back(SubTok);
+        LexUnexpandedToken(SubTok);
+        Tokens.push_back(SubTok);
+
+        if (!SubTok.isLiteral()) {
+          Diag(SubTok, clang::diag::err_bad_import_value);
+          DiscardUntilEndOfDirective();
+          return;
+        }
+
+        VersionTuple Version;
+        StringRef VersionString = SubTok.getLiteralData();
+        VersionString = VersionString.substr(1, SubTok.getLength() - 2);
+
+        if (Version.tryParse(VersionString) || Version.getSubminor() ||
+            Version.getBuild() || Version.usesUnderscores()) {
+          Diag(SubTok, clang::diag::err_bad_import_value);
+          DiscardUntilEndOfDirective();
+          return;
+        }
+
+        Major = static_cast<unsigned short>(Version.getMajor());
+        if (Version.getMinor())
+          Minor = static_cast<unsigned short>(Version.getMinor().getValue());
+
+        LexUnexpandedToken(SubTok);
+        Tokens.push_back(SubTok);
+      } else if (II->isStr("lcid")) {
+        Token SubTok;
+        LexUnexpandedToken(SubTok);
+        Tokens.push_back(SubTok);
+        LexUnexpandedToken(SubTok);
+        Tokens.push_back(SubTok);
+
+        if (!SubTok.isLiteral()) {
+          Diag(SubTok, clang::diag::err_bad_import_value);
+          DiscardUntilEndOfDirective();
+          return;
+        }
+
+        StringRef LcidString = SubTok.getLiteralData();
+        LcidString = LcidString.substr(1, SubTok.getLength() - 2);
+
+        if (LcidString.getAsInteger(10, Lcid)) {
+          Diag(SubTok, clang::diag::err_bad_import_value);
+          DiscardUntilEndOfDirective();
+          return;
+        }
+
+        LexUnexpandedToken(SubTok);
+        Tokens.push_back(SubTok);
+      }
+    }
+  }
+
+  SmallString<128> TypelibName =
+      StringRef(getTypelibName(Filename, Major, Minor, Lcid));
+  if (TypelibName.empty()) {
+    Diag(FilenameTok, clang::diag::err_typelib_not_found);
+    return;
+  }
+
+  if (ImplementationOnly)
+    llvm::sys::path::replace_extension(TypelibName, "tli");
+  else
+    llvm::sys::path::replace_extension(TypelibName, "tlh");
+
+  auto TypelibHeaderName = llvm::sys::path::filename(TypelibName);
+
+  //
+  // Create the wrapper file.  This file contains an accumulation of #import
+  // directives we've seen so far (since they can depend on each other).
+  // The wrapper file is compiled by the Microsoft compiler.
+  //
+  int WrapperFileDesc;
+  if (WrapperFilename.empty()) {
+    SmallString<128> WrapperFilenameImpl;
+    if (std::error_code ErrorCode = llvm::sys::fs::createTemporaryFile(
+            "import", "cpp", WrapperFileDesc, WrapperFilenameImpl)) {
+      Diag(FilenameTok, clang::diag::err_unable_to_make_temp)
+          << ErrorCode.message();
+      return;
+    }
+    WrapperFilename = StringRef(WrapperFilenameImpl);
+  } else if (std::error_code ErrorCode = llvm::sys::fs::openFileForWrite(
+                 WrapperFilename, WrapperFileDesc, llvm::sys::fs::F_Append)) {
+    Diag(FilenameTok, clang::diag::err_unable_to_make_temp)
+        << ErrorCode.message();
+    return;
+  }
+
+  // Add this #import to the end of the wrapper file
+  llvm::raw_fd_ostream WrapperFile(WrapperFileDesc, /*shouldClose=*/true);
+  WrapperFile << "#import ";
+  WrapperFile << Lexer::getSourceText({{Tokens.begin()->getLocation(),
+                                        Tokens.rbegin()->getLocation()},
+                                       true},
+                                      getSourceManager(), LangOpts)
+              << '\n';
+  WrapperFile.close();
+
+  //
+  // Create a response file for the arguments needed to compile the
+  // wrapper file.
+  //
+  int ArgFileDesc;
+  SmallString<128> ArgFilename;
+  if (std::error_code ErrorCode = llvm::sys::fs::createTemporaryFile(
+          llvm::sys::path::stem(TypelibHeaderName), "arg", ArgFileDesc,
+          ArgFilename)) {
+    Diag(FilenameTok, clang::diag::err_unable_to_make_temp)
+        << ErrorCode.message();
+    return;
+  }
+
+  llvm::raw_fd_ostream ArgFile(ArgFileDesc, /*shouldClose=*/true);
+  ArgFile << "/I\".\"\n";
+  auto HSOpts = HeaderInfo.getHeaderSearchOpts();
+  for (const auto &Iter : HSOpts.UserEntries)
+    ArgFile << "/I\"" << Iter.Path << "\"\n";
+
+  SmallString<128> OutputDir = getPreprocessorOpts().OutputFile;
+  llvm::sys::path::remove_filename(OutputDir);
+
+  if (!OutputDir.empty())
+    ArgFile << "/Fo\"" << OutputDir << "/\"\n";
+  ArgFile << "\"" << WrapperFilename << "\"\n";
+  ArgFile.close();
+
+  std::string ErrMsg;
+  std::string MSCompiler;
+  if (auto Path = llvm::sys::findProgramByName("cl"))
+    MSCompiler = *Path;
+  std::vector<const char *> Args;
+  Args.push_back(MSCompiler.c_str());
+  Args.push_back("/P");
+  SmallString<128> ResponseArg = StringRef("@");
+  ResponseArg += ArgFilename;
+  Args.push_back(ResponseArg.c_str());
+  Args.push_back(nullptr);
+
+  StringRef Nul("NUL");
+  const StringRef *Redirects[] = {&Nul, &Nul, &Nul};
+  if (llvm::sys::ExecuteAndWait(MSCompiler, &Args[0], nullptr, Redirects, 0, 0,
+                                &ErrMsg)) {
+    Diag(FilenameTok, diag::err_import_exec) << MSCompiler;
+    return;
+  }
+
+  // Remove the arg and generated preprocessed file.
+  llvm::sys::fs::remove(ArgFilename);
+  SmallString<128> OutputFilename = OutputDir;
+  if (!OutputDir.empty())
+    OutputFilename += "/";
+  OutputFilename += llvm::sys::path::filename(WrapperFilename);
+  llvm::sys::path::replace_extension(OutputFilename, "i");
+  llvm::sys::fs::remove(OutputFilename);
+
+  SmallString<128> HeaderFilename;
+  if (!OutputDir.empty()) {
+    HeaderFilename += OutputDir;
+    HeaderFilename += "/";
+  }
+  HeaderFilename += TypelibHeaderName;
+
+  const FileEntry *FE = HeaderInfo.getFileMgr().getFile(HeaderFilename,
+                                                        /*OpenFile=*/true);
+  if (FE) {
+    CharSourceRange FilenameRange =
+        CharSourceRange::getCharRange(FilenameTok.getLocation(), CharEnd);
+
+    if (Callbacks) {
+      // Notify the callback object that we've seen an inclusion directive.
+      Callbacks->InclusionDirective(HashLoc, ImportTok, HeaderFilename.c_str(),
+                                    false, FilenameRange, FE, "", "", nullptr);
+    }
+    FileID FID = SourceMgr.createFileID(FE, End, SrcMgr::C_System);
+    EnterSourceFile(FID, /*Dir=*/nullptr, FilenameTok.getLocation());
+  }
+}
+#endif // INTEL_CUSTOMIZATION && defined(LLVM_ON_WIN32)
+
 /// HandleImportDirective - Implements \#import.
 ///
 void Preprocessor::HandleImportDirective(SourceLocation HashLoc,
                                          Token &ImportTok) {
   if (!LangOpts.ObjC1) {  // #import is standard for ObjC.
+#if INTEL_CUSTOMIZATION && defined(LLVM_ON_WIN32)
+    if (LangOpts.IntelMSCompat)
+      return HandleMicrosoftImportIntelDirective(HashLoc, ImportTok);
+#endif // INTEL_CUSTOMIZATION && defined(LLVM_ON_WIN32)
     if (LangOpts.MSVCCompat)
       return HandleMicrosoftImportDirective(ImportTok);
     Diag(ImportTok, diag::ext_pp_import_directive);
