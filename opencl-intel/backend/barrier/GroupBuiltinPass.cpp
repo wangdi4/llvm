@@ -39,14 +39,14 @@ namespace intel {
 
   Constant *GroupBuiltin::getInitializationValue(Function *pFunc) {
 
-    // Collect parameters for initialization value selection 
+    // Collect parameters for initialization value selection
     Type *pRetType = pFunc->getFunctionType()->getReturnType();
     unsigned dataWidth = pRetType->isVectorTy()? pRetType->getVectorNumElements() : 1;
     std::string funcName = pFunc->getName().str();
     assert(isMangledName(funcName.c_str()) && "WG BI function name is expected to be mangled!");
     reflection::FunctionDescriptor fd = demangle(funcName.c_str());
     reflection::RefParamType pParam = fd.parameters[0];
-    if (reflection::VectorType *pVecParam = 
+    if (reflection::VectorType *pVecParam =
               reflection::dyn_cast<reflection::VectorType>(pParam)) {
       pParam = pVecParam->getScalarType();
     }
@@ -177,23 +177,23 @@ namespace intel {
   }
 
   // Generates sequence for LinearID calculation for 2D workgroup
-  static Instruction *calculate2DimLinearID(Instruction *pBefore, Value *pLocalID_0, 
+  static Instruction *calculate2DimLinearID(Instruction *pBefore, Value *pLocalID_0,
                                             Value *pLocalSize_0, Value *pLocalID_1) {
     // Calculate 2-dimensional LinearID: local_id(1)*get_local_size(0)+local_id(0)
-    BinaryOperator *pMul = 
+    BinaryOperator *pMul =
           BinaryOperator::CreateMul(pLocalSize_0, pLocalID_1, "", pBefore);
     return BinaryOperator::CreateAdd(pMul, pLocalID_0, "getLinearId2D", pBefore);
   }
 
   // Generates sequence for LinearID calculation for 3D workgroup
-  static Instruction *calculate3DimLinearID(Instruction *pBefore, Value *pLinearID_2Dim, 
-                                            Value *pLocalSize_0, Value *pLocalSize_1, 
+  static Instruction *calculate3DimLinearID(Instruction *pBefore, Value *pLinearID_2Dim,
+                                            Value *pLocalSize_0, Value *pLocalSize_1,
                                             Value *pLocalID_2) {
-    // Calculate 3-dimensional LinearID: 
+    // Calculate 3-dimensional LinearID:
     //    <2-dimensional LinearID> + local_id(2)*get_local_size(0)*get_local_size(1)
-    BinaryOperator *pMul1 = 
+    BinaryOperator *pMul1 =
         BinaryOperator::CreateMul(pLocalSize_1, pLocalID_2, "", pBefore);
-    BinaryOperator *pMul2 = 
+    BinaryOperator *pMul2 =
         BinaryOperator::CreateMul(pLocalSize_0, pMul1, "", pBefore);
     return BinaryOperator::CreateAdd(pMul2, pLinearID_2Dim, "getLinearId3D", pBefore);
   }
@@ -229,7 +229,7 @@ namespace intel {
       if (nDim > 2) {
         // For 3-dim - account for dimension#2
         CallInst *pLocalSize_1 = getWICall(pWgCallInstr, CompilationUtils::mangledGetLocalSize(), 1);
-        pRetVal = calculate3DimLinearID(pWgCallInstr, pRetVal, pLocalSize_0, pLocalSize_1, 
+        pRetVal = calculate3DimLinearID(pWgCallInstr, pRetVal, pLocalSize_0, pLocalSize_1,
                                         pWgCallInstr->getArgOperand(3));
       }
     }
@@ -277,7 +277,7 @@ namespace intel {
     TFunctionSet visitedFunctions;
     for (unsigned idx = 0; idx < callWgFunc.size(); idx++) {
       CallInst *pWgCallInst = cast<CallInst>(callWgFunc[idx]);
-      // Replace call to WG-wide function with that to per-WI function 
+      // Replace call to WG-wide function with that to per-WI function
       // (which accumulates the result):
 
       // Collect info about caller function (where the call resides)
@@ -353,8 +353,8 @@ namespace intel {
         }
       }
       //      We're utilizing 'gentype' parameter attribute from the 1st argument, because for a WG
-      //      function its return type is ALWAYS a pointer to the type of 1st parameter. The better way 
-      //      would be to use a constructor of type argument out of LLVM type, however there is no 
+      //      function its return type is ALWAYS a pointer to the type of 1st parameter. The better way
+      //      would be to use a constructor of type argument out of LLVM type, however there is no
       //      such in NameMangleAPI. We mangle a __private pointer to that 'gentype'.
       reflection::PointerType *pGenT = new reflection::PointerType(fd.parameters[0]);
       pGenT->addAttribute(reflection::ATTR_PRIVATE);
@@ -383,7 +383,7 @@ namespace intel {
       (void) m_util.createBarrier(pWgCallInst);
 
       // 6. For uniform & vectorized WG function (less broadcast WG) - finalize the result
-      if (CompilationUtils::isWorkGroupUniform(funcName)    && 
+      if (CompilationUtils::isWorkGroupUniform(funcName)    &&
           !CompilationUtils::isWorkGroupBroadCast(funcName) &&
           pRetType->isVectorTy()) {
 

@@ -19,47 +19,47 @@ target triple = "i686-pc-win32"
 %opencl.pipe_t = type opaque
 %opencl.reserve_id_t = type opaque
 
-declare %opencl.reserve_id_t* @_Z29work_group_reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)*, i32 , i32)
-declare void @_Z28work_group_commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t* nocapture, i32)
-declare %opencl.reserve_id_t* @_Z28work_group_reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)*, i32, i32)
-declare void @_Z27work_group_commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t* nocapture, i32)
+declare %opencl.reserve_id_t* @__work_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)*, i32 , i32)
+declare void @__work_group_commit_write_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t* nocapture, i32)
+declare %opencl.reserve_id_t* @__work_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)*, i32, i32)
+declare void @__work_group_commit_read_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t* nocapture, i32)
 
 ; CHECK: @wg_reserve_write
 define %opencl.reserve_id_t* @wg_reserve_write(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets) nounwind {
-  %rid = tail call %opencl.reserve_id_t* @_Z29work_group_reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
+  %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
   ret %opencl.reserve_id_t* %rid
 ; CHECK:   call void @_Z7barrierj(i32 1)
-; CHECK:   %rid = tail call %opencl.reserve_id_t* @_Z29work_group_reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
+; CHECK:   %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
 ; CHECK:   call void @dummybarrier.()
 ; CHECK:   ret %opencl.reserve_id_t* %rid
 }
 
 ; CHECK: @wg_commit_write
 define void @wg_commit_write(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid) nounwind {
-  tail call void @_Z28work_group_commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
+  tail call void @__work_group_commit_write_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
   ret void 
 ; CHECK:   call void @_Z7barrierj(i32 1)
-; CHECK:   tail call void @_Z28work_group_commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
+; CHECK:   tail call void @__work_group_commit_write_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
 ; CHECK:   call void @dummybarrier.()
 ; CHECK:   ret void
 }
 
 ; CHECK: @wg_reserve_read
 define %opencl.reserve_id_t* @wg_reserve_read(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets) nounwind {
-  %rid = tail call %opencl.reserve_id_t* @_Z28work_group_reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
+  %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
   ret %opencl.reserve_id_t* %rid
 ; CHECK:   call void @_Z7barrierj(i32 1)
-; CHECK:   %rid = tail call %opencl.reserve_id_t* @_Z28work_group_reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
+; CHECK:   %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
 ; CHECK:   call void @dummybarrier.()
 ; CHECK:   ret %opencl.reserve_id_t* %rid
 }
 
 ; CHECK: @wg_commit_read
 define void @wg_commit_read(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid) nounwind {
-  tail call void @_Z27work_group_commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
+  tail call void @__work_group_commit_read_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
   ret void 
 ; CHECK:   call void @_Z7barrierj(i32 1)
-; CHECK:   tail call void @_Z27work_group_commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
+; CHECK:   tail call void @__work_group_commit_read_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
 ; CHECK:   call void @dummybarrier.()
 ; CHECK:   ret void
 }

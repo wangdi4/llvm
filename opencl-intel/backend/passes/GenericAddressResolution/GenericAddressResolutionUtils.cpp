@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <FunctionDescriptor.h>
 #include <ParameterType.h>
 #include <MetaDataApi.h>
+#include <llvm/ADT/StringSwitch.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
@@ -197,11 +198,26 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     return attr;
   }
 
+  bool isPipeBuiltin(const std::string& s) {
+    return llvm::StringSwitch<bool>(s)
+      .Case("__read_pipe_2", true)
+      .Case("__read_pipe_4", true)
+      .Case("__commit_read_pipe", true)
+      .Case("__reserve_read_pipe", true)
+      .Case("__write_pipe_2", true)
+      .Case("__write_pipe_4", true)
+      .Case("__commit_write_pipe", true)
+      .Case("__reserve_write_pipe", true)
+      .Default(false);
+  }
+
   std::string getResolvedMangledName(std::string origMangledName,
                                      const SmallVector<OCLAddressSpace::spaces, 8> &resolvedSpaces,
                                      const SmallVector<OCLAddressSpace::spaces, 8> *originalSpaces) {
+    if (!isMangledName(origMangledName.c_str())) return origMangledName;
 
-    assert(isMangledName(origMangledName.c_str()) && "Function name is expected to be mangled!");
+    assert(isMangledName(origMangledName.c_str()) &&
+           "Function name is expected to be mangled!");
 
     reflection::FunctionDescriptor fd = demangle(origMangledName.c_str());
     //if (fd.parameters.size() != resolvedSpaces.size()) {
