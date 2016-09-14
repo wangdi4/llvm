@@ -229,25 +229,34 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
   return HInst;
 }
 
-HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
-                                    RegDDRef *LvalRef) {
-  Value *InstVal;
-  Instruction *Inst;
-  HLInst *HInst;
-
-  checkUnaryInstOperands(LvalRef, RvalRef, nullptr);
-
+Instruction *HLNodeUtils::createCopyInstImpl(Type *Ty, const Twine &Name) {
   // Create dummy val.
-  auto DummyVal = UndefValue::get(RvalRef->getDestType());
+  auto DummyVal = UndefValue::get(Ty);
 
   // Cannot use IRBuilder here as it returns the same value for casts with
   // identical src and dest types.
-  InstVal = CastInst::Create(Instruction::BitCast, DummyVal,
+  Value *InstVal = CastInst::Create(Instruction::BitCast, DummyVal,
                              DummyVal->getType(), Name);
-  Inst = cast<Instruction>(InstVal);
+
+  auto Inst = cast<Instruction>(InstVal);
   Inst->insertBefore(&*(DummyIRBuilder->GetInsertPoint()));
 
-  HInst = createLvalHLInst(Inst, LvalRef);
+  return Inst;
+}
+
+RegDDRef *HLNodeUtils::createTemp(Type *Ty, const Twine &Name) {
+  auto Inst = createCopyInstImpl(Ty, Name); 
+
+  return DDRefUtils::createSelfBlobRef(Inst); 
+}
+
+HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
+                                    RegDDRef *LvalRef) {
+  checkUnaryInstOperands(LvalRef, RvalRef, nullptr);
+
+  auto Inst = createCopyInstImpl(RvalRef->getDestType(), Name);
+  
+  auto HInst = createLvalHLInst(Inst, LvalRef);
   HInst->setRvalDDRef(RvalRef);
 
   return HInst;

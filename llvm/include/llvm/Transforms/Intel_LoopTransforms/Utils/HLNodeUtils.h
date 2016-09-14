@@ -197,6 +197,9 @@ private:
                                         RegDDRef *LvalRef, bool HasNUWOrExact,
                                         bool HasNSW, MDNode *FPMathTag);
 
+  /// Creates and inserts a dummy copy instruction.
+  static Instruction *createCopyInstImpl(Type *Ty, const Twine &Name);
+
   /// \brief Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
   static void cloneSequenceImpl(HLContainerTy *CloneContainer,
@@ -458,6 +461,12 @@ public:
   /// defaults to null and hence follows rval ref arguments in the function
   /// signature. A new non-linear self blob ref is created if the LvalRef is set
   /// to null.
+
+  /// Creates a new underlying instruction and returns a self-blob DDRef
+  /// representing that instruction.
+  /// TODO: Although this interface has nothing to do with HLNodes, all the
+  /// underlying setup exists here. Can we move this to DDRefUtils()?
+  static RegDDRef *createTemp(Type *Ty, const Twine &Name = "temp");
 
   /// \brief Used to create copy instructions of the form: Lval = Rval;
   static HLInst *createCopyInst(RegDDRef *RvalRef, const Twine &Name = "copy",
