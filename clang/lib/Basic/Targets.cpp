@@ -5473,6 +5473,9 @@ public:
     IntMaxType  = SignedLong;
     Int64Type   = SignedLong;
 
+    // LPU supports atomics up to 8 bytes.
+    MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 64;
+
     // Match lib/Target/LPU/LPUSubtarget.cpp
     // Issue - does it need to match x86-64?
     DescriptionString =
