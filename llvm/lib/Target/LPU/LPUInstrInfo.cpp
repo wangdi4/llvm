@@ -21,6 +21,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/ADT/StringRef.h"
 
 using namespace llvm;
 
@@ -365,29 +366,31 @@ LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
 
 }
 
-
-// Convert opcode of LD/ST into a corresponding opcode for OLD/OST.
-// Returns current_opcode if it is not a LD or ST.
+// Convert opcode of LD/ST/ATM* into a corresponding opcode for OLD/OST/OATM*.
+// Returns current_opcode if it is not a LD, ST, or ATM*.
 unsigned
 LPUInstrInfo::get_ordered_opcode_for_LDST(unsigned current_opcode)  const {
-  // HACK: this code relies on the (possibly fragile) assumption that
-  // (a) we have exactly one ordered store operation for every normal
-  // store opcode, and (b) that the difference between the ordered and
-  // non-ordered version of these opcodes is always a constant.
-  //
-  // If either of these conditions are violated, e.g., because there
-  // is some other new instruction that starts with OLD or OST, then
-  // bad things will happen...
-  if ((current_opcode >= LPU::ST1) &&  (current_opcode <= LPU::ST8i)) {
-    return current_opcode + (LPU::OST1 - LPU::ST1);
+  // This is still a bit of a hack, and certainly slower than before, but it
+  // should be less fragile. This depends on the opcode names for conversion to
+  // ordered opcodes. Specifically, if the unordered opcode is named "BAR",
+  // then the ordered opcode must be that which is named exactly "OBAR".
+  StringRef current = getName(current_opcode);
+  unsigned new_op;
+  bool found = false;
+  for(new_op=0; new_op<getNumOpcodes(); ++new_op) {
+      StringRef candidate = StringRef(getName(new_op));
+      if(candidate.startswith("O") && candidate.endswith(current)
+              && candidate.size() == current.size()+1){
+          found = true;
+          break;
+      }
   }
-  else if ((current_opcode >= LPU::LD1) && (current_opcode <= LPU::LD8X)) {
-    // Analogous hack for LD operations. 
-    return current_opcode + (LPU::OLD1 - LPU::LD1);
+
+  if(found) {
+      return new_op;
   }
-  else {
-    return current_opcode;
-  }
+
+  return current_opcode;
 }
 
 

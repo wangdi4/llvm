@@ -566,6 +566,53 @@ multiclass OStOp<string opStr, RegisterClass RC, ValueType opType,
   }
 }
 
+multiclass AtomicOp<string instr_asm, SDNode opNode,
+           RegisterClass RC, list<Predicate> preds,
+           InstrItinClass itin = NoItinerary> {
+  let Predicates = preds, Itinerary = itin in {
+    def "" : FMTGEN <
+      (outs RC:$dst),
+      (ins ADDR_R:$addr, RC:$op3),
+      !strconcat(instr_asm, "\t%ign, $dst, $addr, $op3, %ign\t# NOTE: Generated as unordered."),
+      [(set RC:$dst, (opNode ADDR_R:$addr, RC:$op3))]>;
+  }
+}
+
+multiclass OAtomicOp<string instr_asm,
+           RegisterClass RC, list<Predicate> preds,
+           InstrItinClass itin = NoItinerary> {
+  let Predicates = preds, Itinerary = itin in {
+    def "" : FMTGEN <
+      (outs RC:$dst, I0:$issued),
+      (ins ADDR_R:$addr, RC:$op3, I0:$ready),
+      !strconcat(instr_asm, "\t$issued, $dst, $addr, $op3, $ready"),
+      []>;
+  }
+}
+
+multiclass AtomicOp2<string instr_asm, SDNode opNode,
+           RegisterClass RC, list<Predicate> preds,
+           InstrItinClass itin = NoItinerary> {
+  let Predicates = preds, Itinerary = itin in {
+    def "" : FMTGEN <
+      (outs RC:$dst),
+      (ins ADDR_R:$addr, RC:$op3, RC:$op4),
+      !strconcat(instr_asm, "\t%ign, $dst, $addr, $op3, $op4, %ign\t# NOTE: Generated as unordered."),
+      [(set RC:$dst, (opNode ADDR_R:$addr, RC:$op4, RC:$op3))]>;
+  }
+}
+
+multiclass OAtomicOp2<string instr_asm,
+           RegisterClass RC, list<Predicate> preds,
+           InstrItinClass itin = NoItinerary> {
+  let Predicates = preds, Itinerary = itin in {
+    def "" : FMTGEN <
+      (outs RC:$dst, I0:$issued),
+      (ins ADDR_R:$addr, RC:$op3, RC:$op4, I0:$ready),
+      !strconcat(instr_asm, "\t$issued, $dst, $addr, $op3, $op4, $ready"),
+      []>;
+  }
+}
 
 let isBranch=1, isTerminator=1, Itinerary = IICtl in {
   // Branch true
@@ -744,6 +791,86 @@ defm PARITY8   : UnaryOpP<"parity8",  parity,          I8,  [HasI8,HasBitOp],  I
 defm PARITY16  : UnaryOpP<"parity16", parity,          I16, [HasI16,HasBitOp], IIALU>;
 defm PARITY32  : UnaryOpP<"parity32", parity,          I32, [HasI32,HasBitOp], IIALU>;
 defm PARITY64  : UnaryOpP<"parity64", parity,          I64, [HasI64,HasBitOp], IIALU>;
+
+// Atomic operations
+defm ATMAND8   : AtomicOp<"atmand8",   atomic_load_and, I8,  [HasI8],  IIATM>;
+defm ATMAND16  : AtomicOp<"atmand16",  atomic_load_and, I16, [HasI16], IIATM>;
+defm ATMAND32  : AtomicOp<"atmand32",  atomic_load_and, I32, [HasI32], IIATM>;
+defm ATMAND64  : AtomicOp<"atmand64",  atomic_load_and, I64, [HasI64], IIATM>;
+defm ATMADD8   : AtomicOp<"atmadd8",   atomic_load_add, I8,  [HasI8],  IIATM>;
+defm ATMADD16  : AtomicOp<"atmadd16",  atomic_load_add, I16, [HasI16], IIATM>;
+defm ATMADD32  : AtomicOp<"atmadd32",  atomic_load_add, I32, [HasI32], IIATM>;
+defm ATMADD64  : AtomicOp<"atmadd64",  atomic_load_add, I64, [HasI64], IIATM>;
+defm ATMMIN8   : AtomicOp<"atmmin8",   atomic_load_min, I8,  [HasI8],  IIATM>;
+defm ATMMIN16  : AtomicOp<"atmmin16",  atomic_load_min, I16, [HasI16], IIATM>;
+defm ATMMIN32  : AtomicOp<"atmmin32",  atomic_load_min, I32, [HasI32], IIATM>;
+defm ATMMIN64  : AtomicOp<"atmmin64",  atomic_load_min, I64, [HasI64], IIATM>;
+defm ATMMAX8   : AtomicOp<"atmmax8",   atomic_load_max, I8,  [HasI8],  IIATM>;
+defm ATMMAX16  : AtomicOp<"atmmax16",  atomic_load_max, I16, [HasI16], IIATM>;
+defm ATMMAX32  : AtomicOp<"atmmax32",  atomic_load_max, I32, [HasI32], IIATM>;
+defm ATMMAX64  : AtomicOp<"atmmax64",  atomic_load_max, I64, [HasI64], IIATM>;
+defm ATMOR8    : AtomicOp<"atmor8",    atomic_load_or,  I8,  [HasI8],  IIATM>;
+defm ATMOR16   : AtomicOp<"atmor16",   atomic_load_or,  I16, [HasI16], IIATM>;
+defm ATMOR32   : AtomicOp<"atmor32",   atomic_load_or,  I32, [HasI32], IIATM>;
+defm ATMOR64   : AtomicOp<"atmor64",   atomic_load_or,  I64, [HasI64], IIATM>;
+defm ATMXOR8   : AtomicOp<"atmxor8",   atomic_load_xor, I8,  [HasI8],  IIATM>;
+defm ATMXOR16  : AtomicOp<"atmxor16",  atomic_load_xor, I16, [HasI16], IIATM>;
+defm ATMXOR32  : AtomicOp<"atmxor32",  atomic_load_xor, I32, [HasI32], IIATM>;
+defm ATMXOR64  : AtomicOp<"atmxor64",  atomic_load_xor, I64, [HasI64], IIATM>;
+defm ATMXCHG8  : AtomicOp<"atmxchg8",  atomic_swap,     I8,  [HasI8],  IIATM>;
+defm ATMXCHG16 : AtomicOp<"atmxchg16", atomic_swap,     I16, [HasI16], IIATM>;
+defm ATMXCHG32 : AtomicOp<"atmxchg32", atomic_swap,     I32, [HasI32], IIATM>;
+defm ATMXCHG64 : AtomicOp<"atmxchg64", atomic_swap,     I64, [HasI64], IIATM>;
+
+defm ATMCMPXCHG8  : AtomicOp2<"atmcmpxchg8",  atomic_cmp_swap, I8,  [HasI8],  IIATM>;
+defm ATMCMPXCHG16 : AtomicOp2<"atmcmpxchg16", atomic_cmp_swap, I16, [HasI16], IIATM>;
+defm ATMCMPXCHG32 : AtomicOp2<"atmcmpxchg32", atomic_cmp_swap, I32, [HasI32], IIATM>;
+defm ATMCMPXCHG64 : AtomicOp2<"atmcmpxchg64", atomic_cmp_swap, I64, [HasI64], IIATM>;
+
+defm OATMAND8   : OAtomicOp<"atmand8",   I8,  [HasI8],  IIATM>;
+defm OATMAND16  : OAtomicOp<"atmand16",  I16, [HasI16], IIATM>;
+defm OATMAND32  : OAtomicOp<"atmand32",  I32, [HasI32], IIATM>;
+defm OATMAND64  : OAtomicOp<"atmand64",  I64, [HasI64], IIATM>;
+defm OATMADD8   : OAtomicOp<"atmadd8",   I8,  [HasI8],  IIATM>;
+defm OATMADD16  : OAtomicOp<"atmadd16",  I16, [HasI16], IIATM>;
+defm OATMADD32  : OAtomicOp<"atmadd32",  I32, [HasI32], IIATM>;
+defm OATMADD64  : OAtomicOp<"atmadd64",  I64, [HasI64], IIATM>;
+defm OATMMIN8   : OAtomicOp<"atmmin8",   I8,  [HasI8],  IIATM>;
+defm OATMMIN16  : OAtomicOp<"atmmin16",  I16, [HasI16], IIATM>;
+defm OATMMIN32  : OAtomicOp<"atmmin32",  I32, [HasI32], IIATM>;
+defm OATMMIN64  : OAtomicOp<"atmmin64",  I64, [HasI64], IIATM>;
+defm OATMMAX8   : OAtomicOp<"atmmax8",   I8,  [HasI8],  IIATM>;
+defm OATMMAX16  : OAtomicOp<"atmmax16",  I16, [HasI16], IIATM>;
+defm OATMMAX32  : OAtomicOp<"atmmax32",  I32, [HasI32], IIATM>;
+defm OATMMAX64  : OAtomicOp<"atmmax64",  I64, [HasI64], IIATM>;
+defm OATMOR8    : OAtomicOp<"atmor8",    I8,  [HasI8],  IIATM>;
+defm OATMOR16   : OAtomicOp<"atmor16",   I16, [HasI16], IIATM>;
+defm OATMOR32   : OAtomicOp<"atmor32",   I32, [HasI32], IIATM>;
+defm OATMOR64   : OAtomicOp<"atmor64",   I64, [HasI64], IIATM>;
+defm OATMXOR8   : OAtomicOp<"atmxor8",   I8,  [HasI8],  IIATM>;
+defm OATMXOR16  : OAtomicOp<"atmxor16",  I16, [HasI16], IIATM>;
+defm OATMXOR32  : OAtomicOp<"atmxor32",  I32, [HasI32], IIATM>;
+defm OATMXOR64  : OAtomicOp<"atmxor64",  I64, [HasI64], IIATM>;
+defm OATMXCHG8  : OAtomicOp<"atmxchg8",  I8,  [HasI8],  IIATM>;
+defm OATMXCHG16 : OAtomicOp<"atmxchg16", I16, [HasI16], IIATM>;
+defm OATMXCHG32 : OAtomicOp<"atmxchg32", I32, [HasI32], IIATM>;
+defm OATMXCHG64 : OAtomicOp<"atmxchg64", I64, [HasI64], IIATM>;
+
+defm OATMCMPXCHG8  : OAtomicOp2<"atmcmpxchg8",  I8,  [HasI8],  IIATM>;
+defm OATMCMPXCHG16 : OAtomicOp2<"atmcmpxchg16", I16, [HasI16], IIATM>;
+defm OATMCMPXCHG32 : OAtomicOp2<"atmcmpxchg32", I32, [HasI32], IIATM>;
+defm OATMCMPXCHG64 : OAtomicOp2<"atmcmpxchg64", I64, [HasI64], IIATM>;
+
+/* // How do we find these?
+defm ATMADDF32 : AtomicOp<"atmaddf32", atomic_load_add, F32, [HasF32], IIATM>;
+defm ATMADDF64 : AtomicOp<"atmaddf64", atomic_load_add, F64, [HasF64], IIATM>;
+
+defm ATMMINF32 : AtomicOp<"atmminf32", atomic_load_min, F32, [HasF32], IIATM>;
+defm ATMMINF64 : AtomicOp<"atmminf64", atomic_load_min, F64, [HasF64], IIATM>;
+
+defm ATMMAXF32 : AtomicOp<"atmmaxf32", atomic_load_max, F32, [HasF32], IIATM>;
+defm ATMMAXF64 : AtomicOp<"atmmaxf64", atomic_load_max, F64, [HasF64], IIATM>;
+*/
 
 // todo: int<=>float Conversions
 // first type in convert name is result, second is source type

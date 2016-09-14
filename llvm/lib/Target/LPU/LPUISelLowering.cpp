@@ -120,6 +120,16 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     setOperationAction(ISD::CTLZ,             VT,    action);
     setOperationAction(ISD::CTLZ_ZERO_UNDEF,  VT,    Expand);
 
+    // Atomic operations
+    setOperationAction(ISD::ATOMIC_LOAD_AND,  VT,    Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_ADD,  VT,    Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_MIN,  VT,    Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_MAX,  VT,    Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_OR,   VT,    Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_XOR,  VT,    Legal);
+    setOperationAction(ISD::ATOMIC_SWAP,      VT,    Legal);
+    setOperationAction(ISD::ATOMIC_CMP_SWAP,  VT,    Legal);
+
     setOperationAction(ISD::DYNAMIC_STACKALLOC,VT,   Expand);
   }
 
