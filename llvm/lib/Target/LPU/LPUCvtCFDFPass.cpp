@@ -1019,11 +1019,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
         for (MIOperands MO(MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();
-          if (MO->isDef() && MRI->use_empty(Reg) && TII.isSwitch(MI)) {
-            MI->substituteRegister(Reg, LPU::IGN, 0, TRI);
-          } else {
-            renameQueue.push_back(Reg);	
-          }
+          renameQueue.push_back(Reg);
         }
       }
     }
@@ -1034,8 +1030,17 @@ void LPUCvtCFDFPass::assignLicForDF() {
     renameQueue.pop_front();
     MachineInstr *DefMI = MRI->getVRegDef(dReg);
     if (!DefMI ) continue;
+    MachineOperand *DefMO = DefMI->findRegisterDefOperand(dReg);
 		if (DefMI->isPHI()) continue;
-    //if (TII.isLoad(DefMI) || TII.isStore(DefMI)) continue;
+
+    // We've decided to convert this def to a LIC. If it was dead, we must send
+    // it to the %ign LIC rather than allocating a new one.
+    assert(DefMO->isDef() && "Trying to reason about uses of a non-def.");
+    if (MRI->use_empty(dReg)) {
+        DefMI->substituteRegister(dReg, LPU::IGN, 0, TRI);
+        continue;
+    }
+
 		const TargetRegisterClass *TRC = MRI->getRegClass(dReg);
     const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(TRC);
     assert(new_LIC_RC && "unknown LPU register class");
@@ -1066,7 +1071,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
     }
 		
     for (MIOperands MO(DefMI); MO.isValid(); ++MO) {
-      if (!MO->isReg() || !MO->isUse() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+      if (!MO->isReg() || &*MO == DefMO || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
       unsigned Reg = MO->getReg();
       renameQueue.push_back(Reg);
     }
