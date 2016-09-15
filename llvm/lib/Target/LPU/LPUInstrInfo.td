@@ -569,7 +569,7 @@ multiclass OStOp<string opStr, RegisterClass RC, ValueType opType,
 multiclass AtomicOp<string instr_asm, PatFrag opNode,
            RegisterClass RC, ValueType opType, list<Predicate> preds,
            InstrItinClass itin = IIATM> {
-  let Predicates = preds, Itinerary = itin in {
+  let mayLoad = 1, mayStore = 1, hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def i : FMTGEN <
       (outs RC:$dst),
       (ins ADDR_R:$addr, Operand<opType>:$op3),
@@ -586,7 +586,7 @@ multiclass AtomicOp<string instr_asm, PatFrag opNode,
 multiclass OAtomicOp<string instr_asm,
            RegisterClass RC, ValueType opType, list<Predicate> preds,
            InstrItinClass itin = IIATM> {
-  let Predicates = preds, Itinerary = itin in {
+  let mayLoad = 1, mayStore = 1, hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def i : FMTGEN <
       (outs RC:$dst, I0:$issued),
       (ins ADDR_R:$addr, Operand<opType>:$op3, I0:$ready),
@@ -603,7 +603,7 @@ multiclass OAtomicOp<string instr_asm,
 multiclass AtomicOp2<string instr_asm, PatFrag opNode,
            RegisterClass RC, ValueType opType, list<Predicate> preds,
            InstrItinClass itin = IIATM> {
-  let Predicates = preds, Itinerary = itin in {
+  let mayLoad = 1, mayStore = 1, hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def ri : FMTGEN <
       (outs RC:$dst),
       (ins ADDR_R:$addr, Operand<opType>:$op3, RC:$op4),
@@ -630,7 +630,7 @@ multiclass AtomicOp2<string instr_asm, PatFrag opNode,
 multiclass OAtomicOp2<string instr_asm,
            RegisterClass RC, ValueType opType, list<Predicate> preds,
            InstrItinClass itin = IIATM> {
-  let Predicates = preds, Itinerary = itin in {
+  let mayLoad = 1, mayStore = 1, hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def ri : FMTGEN <
       (outs RC:$dst, I0:$issued),
       (ins ADDR_R:$addr, Operand<opType>:$op3, RC:$op4, I0:$ready),
