@@ -2035,7 +2035,7 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
                              PredicateTy *Pred, RegDDRef **LHSDDRef,
                              RegDDRef **RHSDDRef) {
   SmallVector<PredicateTy, 1> Preds;
-  SmallVector<RegDDRef *, 1> Refs;
+  SmallVector<RegDDRef *, 2> Refs;
 
   parseCompare(Cond, Level, Preds, Refs, false);
   assert((Preds.size() == 1) && "Single predicate expected!");

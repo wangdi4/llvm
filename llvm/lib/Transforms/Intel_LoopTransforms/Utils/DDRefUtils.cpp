@@ -15,11 +15,11 @@
 
 #include "llvm/Support/Debug.h"
 
+#include "llvm/IR/Constants.h" // needed for UndefValue class
+#include "llvm/IR/Metadata.h"  // needed for MetadataAsValue -> Value
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
-#include "llvm/IR/Constants.h" // needed for UndefValue class
 
 using namespace llvm;
 using namespace loopopt;
@@ -120,7 +120,7 @@ bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
 }
 
 bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                              bool IgnoreDestType) {
+                              bool RelaxedMode) {
 
   // Match the symbase. Type checking is done inside the CEUtils.
   if ((Ref1->getSymbase() != Ref2->getSymbase())) {
@@ -135,11 +135,10 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
   // Check Base Canon Exprs.
   if (Ref1->hasGEPInfo() &&
       !CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(),
-                                IgnoreDestType)) {
+                                RelaxedMode)) {
     return false;
   }
 
-  // TODO: Think about if we can delinearize the subscripts.
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
   }
@@ -151,7 +150,7 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
     const CanonExpr *Ref1CE = *Ref1Iter;
     const CanonExpr *Ref2CE = *Ref2Iter;
 
-    if (!CanonExprUtils::areEqual(Ref1CE, Ref2CE)) {
+    if (!CanonExprUtils::areEqual(Ref1CE, Ref2CE, RelaxedMode)) {
       return false;
     }
   }
@@ -161,7 +160,7 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
 }
 
 bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
-                          bool IgnoreDestType) {
+                          bool RelaxedMode) {
 
   assert(Ref1 && Ref2 && "Ref1/Ref2 parameter is null.");
 
@@ -183,7 +182,7 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
       return false;
     }
 
-    return areEqualImpl(RRef1, RRef2, IgnoreDestType);
+    return areEqualImpl(RRef1, RRef2, RelaxedMode);
 
   } else {
     llvm_unreachable("Unknown DDRef kind!");
@@ -216,7 +215,7 @@ bool DDRefUtils::getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
     const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
     const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
 
-    // The BaseCE and getNumDimestions() match so we know that 
+    // The BaseCE and getNumDimestions() match so we know that
     // getDimensionStride is the same in both.
     uint64_t DimStride = Ref1->getDimensionStride(I);
 

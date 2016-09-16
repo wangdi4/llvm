@@ -322,7 +322,9 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
 
     const HLLoop *InnermostLoop;
     // Why ruin perfection
-    if (HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLoop)) {
+    // Should we run distribution in perfect loopnest mode on innermost loops?
+    if (!Lp->isInnermost() &&
+        HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLoop)) {
       return false;
     }
   }

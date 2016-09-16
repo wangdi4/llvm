@@ -56,7 +56,7 @@ private:
   /// This routine compares the symbase, type and each of the canon exprs
   /// inside the references.
   static bool areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                           bool IgnoreDestType);
+                           bool RelaxedMode);
 
   /// \brief Returns true if BlobDDRef1 equals BlobDDRef2.
   static bool areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2);
@@ -106,10 +106,9 @@ public:
   static void destroy(DDRef *Ref);
 
   /// \brief Returns true if the two DDRefs, Ref1 and Ref2, are equal.
-  /// IgnoreDestType parameter is only used for base destination type comparison
-  /// of RegDDRef. This parameter is ignored in all other cases.
+  /// RelaxedMode is passed to CanonExprUtils::areEqual().
   static bool areEqual(const DDRef *Ref1, const DDRef *Ref2,
-                       bool IgnoreDestType = false);
+                       bool RelaxedMode = false);
 
   /// \brief Prints metadata nodes attached to RegDDRef.
   static void printMDNodes(formatted_raw_ostream &OS,

@@ -42,7 +42,7 @@ class HLRegion;
 class HLDDNode;
 class HLLoop;
 class HIRFramework;
-class DirectionVector;
+struct DirectionVector;
 
 enum DDVerificationLevel {
   Region = 0,

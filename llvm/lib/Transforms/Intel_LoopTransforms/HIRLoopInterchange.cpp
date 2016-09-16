@@ -100,7 +100,7 @@ private:
   struct CollectCandidateLoops;
 
   SmallVector<CandidateLoopPair, 12> CandidateLoops;
-  SmallVector<LoopLocalityPair, MaxLoopNestLevel> LoopLocality;
+  SmallVector<const HLLoop *, MaxLoopNestLevel> SortedLoops;
   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation;
   SmallVector<HLLoop *, MaxLoopNestLevel> NearByPerm;
   SmallVector<const HLLoop *, 5> PerfectLoopsEnabled;
@@ -260,15 +260,15 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
 
 bool HIRLoopInterchange::shouldInterchange(const HLLoop *Loop) {
 
-  LoopLocality.clear();
+  SortedLoops.clear();
   unsigned PrevLevel = 1;
   bool InterchangeNeeded = false;
 
   // Call Util in Locality Analysis to get Best Permutation
-  LA->sortedLocalityLoops(Loop, LoopLocality);
+  LA->sortedLocalityLoops(Loop, SortedLoops);
 
-  for (auto &I : LoopLocality) {
-    HLLoop *L = const_cast<HLLoop *>(I.first);
+  for (auto &I : SortedLoops) {
+    HLLoop *L = const_cast<HLLoop *>(I);
 
     unsigned Level = L->getNestingLevel();
     if (PrevLevel > Level) {
@@ -297,8 +297,8 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
   OutmostNestingLevel = Loop->getNestingLevel();
 
   // Save it in local vector because it may change later
-  for (auto &I : LoopLocality) {
-    HLLoop *L = const_cast<HLLoop *>(I.first);
+  for (auto &I : SortedLoops) {
+    HLLoop *L = const_cast<HLLoop *>(I);
     LoopPermutation.push_back(L);
   }
 

@@ -422,6 +422,14 @@ private:
   static bool getMinMaxValueImpl(const CanonExpr *CE, const HLNode *ParentNode,
                                  bool IsMin, bool IsExact, int64_t &Val);
 
+  /// Checks if Loop has perfect/near-perfect loop properties.
+  /// Expects non-innermost incoming \p Lp.
+  /// Sets inner loop in \p InnerLp.
+  /// Return true if it has perfect/near-perfect loop properties
+  static bool hasPerfectLoopProperties(const HLLoop *Lp, const HLLoop **InnerLp,
+                                       bool AllowNearPerfect,
+                                       bool *IsNearPerfectLoop);
+
   template <bool IsMaxMode>
   static bool isInTopSortNumRangeImpl(const HLNode *Node,
                                       const HLNode *FirstNode,
@@ -1160,21 +1168,16 @@ public:
   permuteLoopNests(HLLoop *OutermostLoop,
                    const SmallVectorImpl<HLLoop *> &LoopPermutation);
 
-  /// \brief Returns true if Loop is a perfect Loop nest
-  /// and the innermost loop
+  /// \brief Returns true if Loop is a perfect Loop nest. Also returns the
+  /// innermost loop.
+  /// Asserts if incoming loop is innermost.
+  /// TODO: AllowPrePostHdr is unused, remove it?
   static bool isPerfectLoopNest(const HLLoop *Loop,
-                                const HLLoop **InnermostLoop,
+                                const HLLoop **InnermostLoop = nullptr,
                                 bool AllowPrePostHdr = false,
                                 bool AllowTriangularLoop = false,
                                 bool AllowNearPerfect = false,
                                 bool *IsNearPerfect = nullptr);
-
-  /// \breif Check if Loop has perfect/near-perfect loop properties
-  ///  set  innermost loop in *Lp if it is hit
-  ///  Return true if it has perfect/near-perfect loop properties
-  static bool hasPerfectLoopProperties(const HLNode *Node, const HLLoop **Lp,
-                                       bool AllowNearPerfect,
-                                       bool *IsNearPerfectLoop);
 
   ///  \brief Any memref with non-unit stride?
   ///   Will take innermost loop for now

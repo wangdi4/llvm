@@ -25,6 +25,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFGATHERER_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFGATHERER_H
 
+#include <map>
 #include <type_traits>
 
 #include "llvm/Support/Debug.h"
@@ -140,20 +141,21 @@ public:
   }
 #endif
 
-  /// \brief Removes the duplicates by comparing the Ref's in sorted order.
-  template <typename RefTy> static void makeUnique(SymToRefTy<RefTy> &RefMap) {
+  /// Removes the duplicates by comparing the Ref's in sorted order.
+  template <typename RefTy>
+  static void makeUnique(SymToRefTy<RefTy> &RefMap, bool RelaxedMode = false) {
     for (auto &SymVecPair : RefMap) {
       auto &RefVec = SymVecPair.second;
 
       RefVec.erase(
           std::unique(RefVec.begin(), RefVec.end(),
                       std::bind(DDRefUtils::areEqual, std::placeholders::_1,
-                                std::placeholders::_2, false)),
+                                std::placeholders::_2, RelaxedMode)),
           RefVec.end());
     }
   }
 
-  /// \brief Sorts the Memory Refs in the MemRefMap.
+  /// Sorts the Memory Refs in the MemRefMap.
   template <typename RefTy> static void sort(SymToRefTy<RefTy> &MemRefMap) {
     // Sorts the memory reference based on the comparison provided
     // by compareMemRef.
@@ -200,6 +202,14 @@ public:
       std::sort(RefVec.begin(), RefVec.end(),
                 DDRefGathererUtils::compareMemRef);
     }
+  }
+
+  /// Sorts and removes duplicates in MemRefMap.
+  template <typename RefTy>
+  static void sortAndUnique(SymToRefTy<RefTy> &MemRefMap,
+                            bool RelaxedMode = false) {
+    sort(MemRefMap);
+    makeUnique(MemRefMap, RelaxedMode);
   }
 };
 
