@@ -53,7 +53,8 @@ TEST_F(OCL21, clCreateProgramWithIL01)
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "simple_kernels.spv"));
 
     const char * kernelSource = nullptr;
-    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "simple_kernels.spv"));
+    size_t length = 0;
+    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "simple_kernels.spv", &length));
 
     void * il = nullptr;
     size_t ret = 0;
@@ -61,7 +62,6 @@ TEST_F(OCL21, clCreateProgramWithIL01)
     getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, sizeof(void *), &il, &ret);
 
     ASSERT_EQ(sizeof(void *), ret) << "param_value_size_ret assertion failed";
-    ASSERT_EQ(sizeof(kernelSource), sizeof(il)) << "IL size assertion failed";
     ASSERT_EQ(((char *)il)[0], 0x07230203) << "Magic number assertion failed";
 
     if (kernelSource != nullptr)

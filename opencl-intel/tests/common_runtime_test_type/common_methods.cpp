@@ -42,7 +42,7 @@
 
 // fileToBuffer - returns (via return_val) content of file with sFileName name in current working directory
 // caller is responsible for resources deallocation
-void fileToBuffer(const char** return_val, const char* sFileName)
+void fileToBuffer(const char** return_val, const char* sFileName, size_t* return_length)
 {
 	std::stringstream ss;
 	#if defined (_WIN32)
@@ -67,6 +67,10 @@ void fileToBuffer(const char** return_val, const char* sFileName)
 	//	close file
 	file.close();
 	//	return buffer
+    if (return_length != nullptr)
+    {
+        *return_length = length + 1;
+    }
 	*return_val = static_cast<const char*> (buffer);
 }
 

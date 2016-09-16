@@ -38,7 +38,7 @@
 
 // fileToBuffer - returns (via return_val) content of file with sFileName name in current working directory
 // caller is responsible for resources deallocation
-void fileToBuffer(const char** return_val, const char* sFileName);
+void fileToBuffer(const char** return_val, const char* sFileName, size_t * return_length = nullptr);
 
 //	sleepMS - will cause the running thread to sleep for milliseconds
 void sleepMS(unsigned milliseconds);

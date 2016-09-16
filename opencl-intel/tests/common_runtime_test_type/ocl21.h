@@ -17,17 +17,7 @@
 
 #include "dynamic_array.h"
 
-// fillMemory - fill memory with some dummy data
-template<typename T>
-void fillMemory(T* ptr, size_t n, T base)
-{
-   T cur = base;
-   for (size_t i = 0; i < n; ++i)
-   {
-        ptr[i] = cur = getNextValue(cur);
-   }
-}
-
+// IncrementingSequence<T> - generates incrementing sequence of elements
 template<typename T>
 class IncrementingSequence
 {

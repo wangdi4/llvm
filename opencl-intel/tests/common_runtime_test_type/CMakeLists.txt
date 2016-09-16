@@ -9,23 +9,12 @@ include (../../cmake_utils/CMakeFuncs.txt)
 
 set( TARGET common_runtime_test_type )
 
-#ensure we are using the frontend LLVM tools
-if( NOT DEFINED LLVM_PATH_FE )
-    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
+if( NOT DEFINED LLVM_PATH_SPIRV )
+    message( FATAL_ERROR "LLVM_PATH_SPIRV is not specified." )
 endif()
 
-set(LLVM_PATH ${LLVM_PATH_FE})
-find_package(LLVM REQUIRED)
-
-if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
-   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
-   set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/native/bin/llvm-spirv")
-else()
-   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}" )
-   set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/bin/llvm-spirv")
-endif()
-
-set( CLANG "${TOOLS_BINARY_DIR}/clang" )
+set( CLANG "${LLVM_PATH_SPIRV}/bin/clang-3.6" )
+message( "Using CLANG: ${CLANG}" )
 
 include_directories( ../../externals/gtest/include
                      ${CL_API_HEADERS}
@@ -53,7 +42,7 @@ endif (NOT WIN32 AND NOT ANDROID)
 
 set( CREATE_DIR_NAME tests/common_runtime_test_type )
 
-set( SPIR_OPT -cl-kernel-arg-info -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200 -D__OPENCL_VERSION__=200 )
+set( COMMON_OPT -cl-kernel-arg-info -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200 -D__OPENCL_VERSION__=200 )
 
 if (BUILD_X64)
 list (
@@ -69,55 +58,37 @@ list (
 )
 endif(BUILD_X64)
 
-set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers)
+set( INCLUDE_HEADERS_PATH ${LLVM_PATH_SPIRV}/lib/clang/3.6.1/include/)
 
 set( INPUT_FILE kernels/subgroups.cl )
-set( SPIR_OUTPUT_FILE subgroups.bc )
 set( SPIRV_OUTPUT_FILE subgroups.spv )
 
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
-  ${SPIR_OPT} -Dcl_khr_subgroups
-  -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
+  -I ${INCLUDE_HEADERS_PATH} -emit-spirv
+  ${COMMON_OPT} ${SPIR_OPT} -Dcl_khr_subgroups
+  -include opencl.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  COMMENT "Generate spir binary files for common_runtime_test_type:  ${SPIR_OUTPUT_FILE}"
-  VERBATIM
-)
-
-add_custom_command( TARGET ${TARGET}
-  POST_BUILD
-  COMMAND ${SPIRV_CONVERTER} -o ${SPIRV_OUTPUT_FILE} ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
-  DEPENDS ${SPIR_OUTPUT_FILE}
-  COMMENT "Generate spirv binary files for common_runtime_test_type:  ${SPIRV_OUTPUT_FILE}"
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  COMMENT "Generate spirv binary file for common_runtime_test_type:  ${SPIRV_OUTPUT_FILE}"
   VERBATIM
 )
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE} DESTINATION tests/common_runtime_test_type )
 
 set( INPUT_FILE kernels/simple_kernels.cl )
-set( SPIR_OUTPUT_FILE simple_kernels.bc )
 set( SPIRV_OUTPUT_FILE simple_kernels.spv )
 
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
-  ${SPIR_OPT}
-  -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
+  -I ${INCLUDE_HEADERS_PATH} -emit-spirv
+  ${COMMON_OPT} ${SPIR_OPT}
+  -include opencl.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  COMMENT "Generate spir binary files for common_runtime_test_type:  ${SPIR_OUTPUT_FILE}"
-  VERBATIM
-)
-
-add_custom_command( TARGET ${TARGET}
-  POST_BUILD
-  COMMAND ${SPIRV_CONVERTER} -o ${SPIRV_OUTPUT_FILE} ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
-  DEPENDS ${SPIR_OUTPUT_FILE}
-  COMMENT "Generate spirv binary files for common_runtime_test_type:  ${SPIRV_OUTPUT_FILE}"
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  COMMENT "Generate spirv binary file for common_runtime_test_type:  ${SPIRV_OUTPUT_FILE}"
   VERBATIM
 )
 

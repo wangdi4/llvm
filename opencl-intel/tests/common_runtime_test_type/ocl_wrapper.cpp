@@ -443,15 +443,16 @@ void createAndBuildProgramWithILSourceFile(const char* sFileName, cl_program* pr
         ASSERT_TRUE(false) << "Null argument provided";
     }
     cl_int errcode_ret = CL_SUCCESS;
-    const char* kernelSource = NULL;
+    const char* kernelSource = nullptr;
     // read kernels file
-    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, sFileName));
-    ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithILSource(kernelSource, sizeof(kernelSource) / sizeof(char), program, context,
+    size_t length = 0;
+    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, sFileName, &length));
+    ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithILSource(kernelSource, length, program, context,
         num_devices, device_list, options, pfn_notify, user_data));
     if (nullptr != kernelSource)
     {
         delete[] kernelSource;
-        kernelSource = NULL;
+        kernelSource = nullptr;
     }
 }
 
