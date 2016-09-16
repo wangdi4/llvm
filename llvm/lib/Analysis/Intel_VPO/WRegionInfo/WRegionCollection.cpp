@@ -61,29 +61,6 @@ void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ScalarEvolutionWrapperPass>();
 }
 
-template <class T> void WRStack<T>::push(T X) {
-  Stack_.push_back(X);
-  return;
-}
-
-template <class T> void WRStack<T>::pop() {
-  if (Stack_.size() > 0)
-    Stack_.erase(Stack_.end() - 1);
-
-  return;
-}
-
-template <class T> T WRStack<T>::top() {
-  assert(Stack_.size() > 0);
-  return Stack_.at(Stack_.size() - 1);
-}
-
-template <class T> size_t WRStack<T>::size() { return Stack_.size(); }
-
-template <class T> bool WRStack<T>::empty() {
-  return Stack_.size() == 0 ? true : false;
-}
-
 /// \brief TBD: get associated Loop Info for a given W-Region
 bool WRegionCollection::isCandidateLoop(Loop &Lp) {
 
