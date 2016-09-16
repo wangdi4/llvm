@@ -250,7 +250,7 @@ void TempSubstituter::visit(HLDDNode *Node) {
 
         if (!Temp.isSubstitutable() ||
             ((ParentLoop = Node->getParentLoop()) &&
-            // TODO: Extend to handle inner loop uses.
+             // TODO: Extend to handle inner loop uses.
              !HLNodeUtils::contains(ParentLoop, Temp.getDefInst()))) {
           Temp.markInvalid();
 
@@ -366,7 +366,8 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
 
   RegDDRef *LvalRef = HInst->getLvalDDRef();
 
-  if (LvalRef->isLiveOutOfParentLoop() || LvalRef->isLiveOutOfRegion()) {
+  if ((HInst->getLexicalParentLoop() && LvalRef->isLiveOutOfParentLoop()) ||
+      LvalRef->isLiveOutOfRegion()) {
     return false;
   }
 
