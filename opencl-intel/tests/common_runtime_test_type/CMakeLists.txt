@@ -13,10 +13,10 @@ if( NOT DEFINED LLVM_PATH_SPIRV )
     message( FATAL_ERROR "LLVM_PATH_SPIRV is not specified." )
 endif()
 
-set( CLANG "${LLVM_PATH_SPIRV}/bin/clang-3.6" )
-message( "Using CLANG: ${CLANG}" )
+set( CLANG "${LLVM_PATH_SPIRV}/bin/clang" )
 
 include_directories( ../../externals/gtest/include
+                     ../../externals/khronos/spirv/headers/include
                      ${CL_API_HEADERS}
                      ${CMAKE_CURRENT_SOURCE_DIR}/common )
 

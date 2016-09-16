@@ -23,6 +23,7 @@
 
 #include "common_runtime_tests.h"
 #include "ocl21.h"
+#include "spirv/1.0/spirv.hpp"
 
 class OCL21: public CommonRuntime{};
 
@@ -58,11 +59,17 @@ TEST_F(OCL21, clCreateProgramWithIL01)
 
     void * il = nullptr;
     size_t ret = 0;
+    size_t sizes[2] = { 0, 0 };
 
     getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, sizeof(void *), &il, &ret);
-
     ASSERT_EQ(sizeof(void *), ret) << "param_value_size_ret assertion failed";
-    ASSERT_EQ(((char *)il)[0], 0x07230203) << "Magic number assertion failed";
+    ASSERT_EQ(((int *)il)[0], spv::MagicNumber) << "Magic number assertion failed";
+
+    getProgramInfo(ocl_descriptor.program, CL_PROGRAM_BINARY_SIZES, sizeof(sizes), sizes, nullptr);
+    for (size_t index = 0; index < 2; ++ index)
+    {
+        ASSERT_EQ(sizes[index], length) << "Binary size assertion failed for " << index << "-th device";
+    }
 
     if (kernelSource != nullptr)
     {
@@ -318,15 +325,14 @@ TEST_F(OCL21, clCloneKernel02)
 
         // create original kernel
         ASSERT_NO_FATAL_FAILURE(createKernel(&kernel, ocl_descriptor.program, "copy_int"));
-
-        setKernelArg(kernel, 0, sizeof(cl_mem), &input_buffer);
-        setKernelArg(kernel, 1, sizeof(cl_mem), &output_buffer);
-
         // save info about original kernel
         getKernelInfo(kernel, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
             &original_reference_count, nullptr);
         getKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint),
             &original_num_args, nullptr);
+
+        setKernelArg(kernel, 0, sizeof(cl_mem), &input_buffer);
+        setKernelArg(kernel, 1, sizeof(cl_mem), &output_buffer);
 
         // execute original kernel and check results
         enqueueWriteBuffer(ocl_descriptor.queues[index], input_buffer, CL_TRUE, 0, size * sizeof(cl_int),
@@ -351,6 +357,11 @@ TEST_F(OCL21, clCloneKernel02)
         ASSERT_NO_FATAL_FAILURE(cloneKernel(&copied, kernel));
         std::cout << "Starting test cloned kernel" << std::endl;
 
+        cl_uint temp_reference_count = 0;
+        getKernelInfo(kernel, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
+            &temp_reference_count, nullptr);
+        ASSERT_EQ(temp_reference_count, original_reference_count);
+
         // check info about copied kernel
         getKernelInfo(copied, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
             &copied_reference_count, nullptr);
@@ -358,6 +369,13 @@ TEST_F(OCL21, clCloneKernel02)
         getKernelInfo(copied, CL_KERNEL_NUM_ARGS, sizeof(cl_uint),
             &copied_num_args, nullptr);
         ASSERT_EQ(original_num_args, copied_num_args);
+
+        getKernelInfo(copied, CL_KERNEL_CONTEXT, sizeof(cl_context),
+            &copied_context, nullptr);
+        ASSERT_EQ(ocl_descriptor.context, copied_context);
+        getKernelInfo(copied, CL_KERNEL_PROGRAM, sizeof(cl_program),
+            &copied_program, nullptr);
+        ASSERT_EQ(ocl_descriptor.program, copied_program);
 
         enqueueFillBuffer(ocl_descriptor.queues[index], output_buffer, &zero,
             sizeof(cl_int), 0, result.size() * sizeof(cl_int), 0, nullptr, nullptr);
