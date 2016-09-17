@@ -12,7 +12,7 @@
 ;   return sum;
 ; }
 ; 
-; RUN: opt -hir-ssa-deconstruction -hir-parser -hir-dd-analysis -hir-vec-dir-insert -print-after=hir-vec-dir-insert -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -print-after=hir-vec-dir-insert -S < %s 2>&1 | FileCheck %s
 ; HIR Test.
 ; CHECK: @llvm.intel.directive(!1)
 ; CHECK: DO i1 = 0, 1023, 1   <DO_LOOP>

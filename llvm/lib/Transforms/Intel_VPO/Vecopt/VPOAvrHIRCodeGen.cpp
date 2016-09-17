@@ -595,6 +595,11 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     PointerType *PtrType = cast<PointerType>(Ref->getBaseDestType());
     auto AddressSpace = PtrType->getAddressSpace();
 
+    // Omit the range metadata as is done in loop vectorize which does
+    // not propagate the same. We get a compile time error otherwise about
+    // type mismatch for range values.
+    WideRef->setMetadata(LLVMContext::MD_range, nullptr);
+
     WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
   }
 

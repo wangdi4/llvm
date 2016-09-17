@@ -11,7 +11,7 @@
 ;   return 0;
 ; }
 ; 
-; RUN: opt -hir-ssa-deconstruction -hir-parser -hir-dd-analysis -hir-vec-dir-insert -VPODriverHIR -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
 ;
 ; HIR Test.
 ; CHECK: %tgu = 

@@ -9,7 +9,7 @@
 ;     for (i2 = 0; i2 < 1024; i2++)
 ;       a[i1][i2] = b[i1][i2] + c[i1][i2];
 ; }
-; RUN: opt -hir-ssa-deconstruction -hir-parser -hir-dd-analysis -hir-vec-dir-insert -VPODriverHIR -hir-cg -S  < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -S  < %s | FileCheck %s
 ; CHECK: add <4 x i32>
 ; CHECK-NEXT: store <4 x i32>
 ; 

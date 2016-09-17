@@ -10,7 +10,7 @@
 ;   }
 ; }
 ; 
-; RUN: opt -hir-ssa-deconstruction -hir-parser -hir-dd-analysis -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
 ;
 ; HIR Test.
 ; CHECK:      DO i1 = 0, 1023, 4
