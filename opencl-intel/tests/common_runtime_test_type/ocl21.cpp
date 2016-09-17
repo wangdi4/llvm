@@ -426,7 +426,7 @@ TEST_F(OCL21, clCloneKernel02)
 //|
 //| All assertions passed
 //|
-TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo01)
+TEST_F(OCL21, clGetKernelSubGroupInfo01)
 {
     // create OpenCL queues, program and context
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "subgroups.spv"));
@@ -485,7 +485,7 @@ TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo01)
 //|
 //| Verify that valid non-zero kernel objects are returned and all assertions passed
 //|
-TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo02)
+TEST_F(OCL21, clGetKernelSubGroupInfo02)
 {
     // create OpenCL queues, program and context
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "subgroups.spv"));
@@ -544,7 +544,7 @@ TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo02)
 //| get_max_sub_group_size, get_num_sub_groups) is valid and conform with
 //| data from API calls
 //|
-TEST_F(OCL21, DISABLED_clGetKernelSubGroupInfo03)
+TEST_F(OCL21, clGetKernelSubGroupInfo03)
 {
     // create OpenCL queues, program and context
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "subgroups.spv"));
