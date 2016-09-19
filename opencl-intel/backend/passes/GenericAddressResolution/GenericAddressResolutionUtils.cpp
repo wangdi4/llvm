@@ -5,21 +5,22 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "GenericAddressResolution.h"
-
-#include <NameMangleAPI.h>
 #include <FunctionDescriptor.h>
-#include <ParameterType.h>
 #include <MetaDataApi.h>
+#include <NameMangleAPI.h>
+#include <ParameterType.h>
+
 #include <llvm/ADT/StringSwitch.h>
-#include <llvm/IR/Type.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
-#include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Instructions.h>
-#include <llvm/Support/raw_ostream.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/Type.h>
 #include <llvm/Support/Debug.h>
-#include <set>
+#include <llvm/Support/raw_ostream.h>
+
 #include <assert.h>
+#include <set>
 
 #define DEBUG_TYPE "GenericAddressResolutionUtils"
 
@@ -173,88 +174,96 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     }
   }
 
-  static reflection::TypeAttributeEnum translateAddrSpaceToAttr(OCLAddressSpace::spaces space) {
+  static reflection::TypeAttributeEnum
+  translateAddrSpaceToAttr(OCLAddressSpace::spaces space) {
     reflection::TypeAttributeEnum attr = reflection::ATTR_NONE;
     switch (space) {
-      case OCLAddressSpace::Private :
-        attr = reflection::ATTR_PRIVATE;
-        break;
-      case OCLAddressSpace::Global :
-        attr = reflection::ATTR_GLOBAL;
-        break;
-      case OCLAddressSpace::Local :
-        attr = reflection::ATTR_LOCAL;
-        break;
-      case OCLAddressSpace::Constant :
-        attr = reflection::ATTR_CONSTANT;
-        break;
-      case OCLAddressSpace::Generic :
-        attr = reflection::ATTR_GENERIC;
-        break;
-      default:
-        assert(0 && "Unsupported type of address space!");
-        break;
+    case OCLAddressSpace::Private:
+      attr = reflection::ATTR_PRIVATE;
+      break;
+    case OCLAddressSpace::Global:
+      attr = reflection::ATTR_GLOBAL;
+      break;
+    case OCLAddressSpace::Local:
+      attr = reflection::ATTR_LOCAL;
+      break;
+    case OCLAddressSpace::Constant:
+      attr = reflection::ATTR_CONSTANT;
+      break;
+    case OCLAddressSpace::Generic:
+      attr = reflection::ATTR_GENERIC;
+      break;
+    default:
+      assert(0 && "Unsupported type of address space!");
+      break;
     }
     return attr;
   }
 
-  bool isPipeBuiltin(const std::string& s) {
+  bool isPipeBuiltin(const std::string &s) {
     return llvm::StringSwitch<bool>(s)
-      .Case("__read_pipe_2", true)
-      .Case("__read_pipe_4", true)
-      .Case("__commit_read_pipe", true)
-      .Case("__reserve_read_pipe", true)
-      .Case("__write_pipe_2", true)
-      .Case("__write_pipe_4", true)
-      .Case("__commit_write_pipe", true)
-      .Case("__reserve_write_pipe", true)
-      .Default(false);
+        .Case("__read_pipe_2", true)
+        .Case("__read_pipe_4", true)
+        .Case("__commit_read_pipe", true)
+        .Case("__reserve_read_pipe", true)
+        .Case("__write_pipe_2", true)
+        .Case("__write_pipe_4", true)
+        .Case("__commit_write_pipe", true)
+        .Case("__reserve_write_pipe", true)
+        .Default(false);
   }
 
-  std::string getResolvedMangledName(std::string origMangledName,
-                                     const SmallVector<OCLAddressSpace::spaces, 8> &resolvedSpaces,
-                                     const SmallVector<OCLAddressSpace::spaces, 8> *originalSpaces) {
-    if (!isMangledName(origMangledName.c_str())) return origMangledName;
+  std::string getResolvedMangledName(
+      std::string origMangledName,
+      const SmallVector<OCLAddressSpace::spaces, 8> &resolvedSpaces,
+      const SmallVector<OCLAddressSpace::spaces, 8> *originalSpaces) {
+    if (!isMangledName(origMangledName.c_str()))
+      return origMangledName;
 
     assert(isMangledName(origMangledName.c_str()) &&
            "Function name is expected to be mangled!");
 
     reflection::FunctionDescriptor fd = demangle(origMangledName.c_str());
-    //if (fd.parameters.size() != resolvedSpaces.size()) {
-    //  dbgs() << origMangledName << "\n";
-    // }
 
-    reflection::ParamType * lastArg = fd.parameters.back();
-    reflection::PrimitiveType *lastArgTy = reflection::dyn_cast<reflection::PrimitiveType>(lastArg);
-    if(lastArgTy && lastArgTy->getPrimitive() == reflection::PRIMITIVE_VAR_ARG){
-      // in case of 0 number of variadic arguments mangler still detect variadic argument
-      // in callinst variadic argument may not be generated, we should exclude it from computations
-      // and align number of arguments to resolvedSpaces.size()
-      assert(fd.parameters.size() - 1  <= resolvedSpaces.size() &&
-         "in case of variadic # arguments should be less or equal to # of arguments detected by mangler");
+    reflection::ParamType *lastArg = fd.parameters.back();
+    reflection::PrimitiveType *lastArgTy =
+        reflection::dyn_cast<reflection::PrimitiveType>(lastArg);
+    if (lastArgTy &&
+        lastArgTy->getPrimitive() == reflection::PRIMITIVE_VAR_ARG) {
+      // in case of 0 number of variadic arguments mangler still detect variadic
+      // argument in callinst variadic argument may not be generated, we should
+      // exclude it from computations and align number of arguments to
+      // resolvedSpaces.size()
+      assert(fd.parameters.size() - 1 <= resolvedSpaces.size() &&
+             "in case of variadic # arguments should be less or equal to # of "
+             "arguments detected by mangler");
     } else {
       assert(resolvedSpaces.size() == fd.parameters.size() &&
-        "Mismatch between mangled name and amount of parameters");
+             "Mismatch between mangled name and amount of parameters");
     }
 
-    assert((!originalSpaces || originalSpaces->size() == resolvedSpaces.size()) && "Invalid parameters!");
+    assert(
+        (!originalSpaces || originalSpaces->size() == resolvedSpaces.size()) &&
+        "Invalid parameters!");
 
     for (unsigned idx = 0; idx < resolvedSpaces.size(); idx++) {
       OCLAddressSpace::spaces resolvedSpace = resolvedSpaces[idx];
-      if (!IS_ADDR_SPACE_GENERIC(resolvedSpace)) {
-        // This parameter is a pointer which can be replaced with named addr-space
-        reflection::PointerType *ptrParam =
-              reflection::dyn_cast<reflection::PointerType>(fd.parameters[idx]);
-        assert(ptrParam && "The parameter's mangling encoding should be of pointer type!");
-        // Replace mangling encoding with its named-space version
-        reflection::TypeAttributeEnum newAttr = translateAddrSpaceToAttr(resolvedSpace);
-        reflection::TypeAttributeEnum origAttr = originalSpaces?
-                                                   translateAddrSpaceToAttr(
-                                                            (*originalSpaces)[idx]) :
-                                                   reflection::ATTR_GENERIC;
-        if (!ptrParam->convertAddrSpaceAttribute(origAttr, newAttr)) {
-          assert(0 && "Addr-space mangling attribute replace failed!");
-        }
+      if (IS_ADDR_SPACE_GENERIC(resolvedSpace))
+        continue;
+      // This parameter is a pointer which can be replaced with named
+      // addr-space
+      reflection::PointerType *ptrParam =
+          reflection::dyn_cast<reflection::PointerType>(fd.parameters[idx]);
+      assert(ptrParam &&
+             "The parameter's mangling encoding should be of pointer type!");
+      // Replace mangling encoding with its named-space version
+      reflection::TypeAttributeEnum newAttr =
+          translateAddrSpaceToAttr(resolvedSpace);
+      reflection::TypeAttributeEnum origAttr =
+          originalSpaces ? translateAddrSpaceToAttr((*originalSpaces)[idx])
+                         : reflection::ATTR_GENERIC;
+      if (!ptrParam->convertAddrSpaceAttribute(origAttr, newAttr)) {
+        assert(0 && "Addr-space mangling attribute replace failed!");
       }
     }
 
