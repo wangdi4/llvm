@@ -51,7 +51,7 @@ class OCL21: public CommonRuntime{};
 
 TEST_F(OCL21, clCreateProgramWithIL01)
 {
-    std::cout << "CPU only" << std::endl;
+    std::cout << "GPU only" << std::endl;
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "simple_kernels.spv"));
 
     const char * kernelSource = nullptr;
@@ -67,7 +67,7 @@ TEST_F(OCL21, clCreateProgramWithIL01)
     ASSERT_EQ(((int *)il)[0], spv::MagicNumber) << "Magic number assertion failed";
 
     getProgramInfo(ocl_descriptor.program, CL_PROGRAM_BINARY_SIZES, sizeof(sizes), sizes, nullptr);
-    for (size_t index = 0; index < 1; ++ index)
+    for (size_t index = 1; index < 2; ++ index)
     {
         ASSERT_EQ(sizes[index], length) << "Binary size assertion failed for " << index << "-th device";
     }
