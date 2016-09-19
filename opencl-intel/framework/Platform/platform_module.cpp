@@ -51,14 +51,13 @@ const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
 const char* PlatformModule::m_vPlatformVersionStr = NULL;
-#if defined (_WIN32)
-
-const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
+#ifdef BUILD_EXPERIMENTAL_21
+const char PlatformModule::m_vPlatformNameStr[] = "Experimental OpenCL 2.1 CPU Only Platform";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 #else
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
-#endif
+#endif // BUILD_EXPERIMENTAL_21
 const char PlatformModule::m_vPlatformVendorStr[] = "Intel(R) Corporation";
 const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatformVendorStr) / sizeof(char);
 
