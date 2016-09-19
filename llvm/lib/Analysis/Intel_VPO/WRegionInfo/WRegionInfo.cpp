@@ -70,7 +70,7 @@ void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
 
   DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
   for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I)
-    DEBUG(I->dump());
+    DEBUG((*I)->dump());
 
   DEBUG(dbgs() << "\n}EXIT WRegionInfo::buildWRGraph\n");
 }
@@ -83,7 +83,7 @@ void WRegionInfo::print(raw_ostream &OS, const Module *M) const {
 
   for (auto I = begin(), E = end(); I != E; ++I) {
     FOS << "\n";
-    I->print(FOS, 0);
+    (*I)->print(FOS, 0);
   }
 }
 

@@ -16,8 +16,7 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGIONNODE_H
 #define LLVM_ANALYSIS_VPO_WREGIONNODE_H
 
-#include "llvm/ADT/ilist.h"
-#include "llvm/ADT/ilist_node.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
 #include "llvm/IR/Dominators.h"
@@ -40,53 +39,21 @@
 namespace llvm {
 
 namespace vpo {
-class WRegionNode;
-}
-
-
-/// \brief traits for iplist<WRegionNode>
-///
-/// Refer to ilist_traits<Instruction> in BasicBlock.h for explanation.
-template <>
-struct ilist_traits<vpo::WRegionNode>
-    : public ilist_default_traits<vpo::WRegionNode> {
-
-  vpo::WRegionNode *createSentinel() const;
-
-  static void destroySentinel(vpo::WRegionNode *) {}
-
-  vpo::WRegionNode *provideInitialHead() const { return createSentinel(); }
-  vpo::WRegionNode *ensureHead(vpo::WRegionNode *) const {
-    return createSentinel();
-  }
-  static void noteHead(vpo::WRegionNode *, vpo::WRegionNode *) {}
-
-  static vpo::WRegionNode *createWRegionNode(const vpo::WRegionNode &) {
-    llvm_unreachable("WRegionNodes should be explicitly created via" 
-                     "WRegionUtils class");
-    return nullptr;
-  }
-  static void deleteWRegionNode(vpo::WRegionNode *) {}
-
-private:
-  mutable ilist_half_node<vpo::WRegionNode> Sentinel;
-};
-
-
-namespace vpo {
 
 extern std::unordered_map<int, StringRef> WRNName;
 
 typedef VPOSmallVectorBB WRegionBBSetTy;
 
-typedef iplist<WRegionNode> WRContainerTy;
+class WRegionNode;
+typedef SmallVector<WRegionNode *, 4>  WRContainerTy;
+typedef SmallVectorImpl<WRegionNode *> WRContainerImpl;
 typedef WRContainerTy::iterator               wrn_iterator;
 typedef WRContainerTy::const_iterator         wrn_const_iterator;
 typedef WRContainerTy::reverse_iterator       wrn_reverse_iterator;
 typedef WRContainerTy::const_reverse_iterator wrn_const_reverse_iterator;
 
 /// \brief WRegion Node base class
-class WRegionNode : public ilist_node<WRegionNode> {
+class WRegionNode {
 
 public:
 
@@ -261,10 +228,8 @@ protected:
 public:
   
 #if 1
-  // WRegionNodes are destroyed in bulk using
-  // WRegionUtils::destroyAll(). iplist<> tries to
-  // access and destroy the nodes if we don't clear them out here.
-  virtual ~WRegionNode() { Children.clearAndLeakNodesUnsafely(); }
+  // WRegionNodes are destroyed in bulk using WRegionUtils::destroyAll()
+  virtual ~WRegionNode() { Children.clear(); }
 #else
   virtual ~WRegionNode() {}
 #endif
@@ -326,7 +291,7 @@ public:
   unsigned getNumChildren() const { return Children.size(); }
 
   /// \brief Returns the Children container (by ref)
-  WRContainerTy &getChildren() { return Children ; }
+  WRContainerImpl &getChildren() { return Children ; }
 
   /// \brief Returns the first child if it exists, otherwise returns null.
   WRegionNode *getFirstChild();

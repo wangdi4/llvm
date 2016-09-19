@@ -49,10 +49,6 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNOrdered, "Ordered"},
     {WRegionNode::WRNTaskgroup, "Taskgroup"}};
 
-WRegionNode *ilist_traits<WRegionNode>::createSentinel() const {
-      return static_cast<WRegionNode *>(&Sentinel);
-}
-
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
     : SubClassID(SCID), EntryBBlock(BB) {
@@ -117,14 +113,14 @@ BasicBlock *WRegionNode::getSuccBBlock() const {
 
 WRegionNode *WRegionNode::getFirstChild() {
   if (hasChildren()) {
-    return &*(Children.begin());
+    return *(Children.begin());
   }
   return nullptr;
 }
 
 WRegionNode *WRegionNode::getLastChild() {
   if (hasChildren()) {
-    return &(Children.back());
+    return Children.back();
   }
   return nullptr;
 }
@@ -133,7 +129,7 @@ void WRegionNode::printChildren(formatted_raw_ostream &OS,
                                 unsigned Depth) const
  {
   for (auto I = wrn_child_begin(), E = wrn_child_end(); I != E; ++I) {
-    I->print(OS, Depth);
+    (*I)->print(OS, Depth);
   }
 }
 

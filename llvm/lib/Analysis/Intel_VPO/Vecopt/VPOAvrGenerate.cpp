@@ -912,7 +912,7 @@ void AVRGenerate::buildAvrsForVectorCandidates() {
   // added to the Abstract Layer after the preorder build is completed.
   for (auto Itr = WR->begin(), End = WR->end(); Itr != End; ++Itr) {
 
-    if (WRNVecLoopNode *WRNVecNode = dyn_cast<WRNVecLoopNode>(Itr)) {
+    if (WRNVecLoopNode *WRNVecNode = dyn_cast<WRNVecLoopNode>(*Itr)) {
 
       AvrWrn = AVRUtils::createAVRWrn(WRNVecNode);
       preorderTravAvrBuild(WRNVecNode->getEntryBBlock(), AvrItr(AvrWrn));
@@ -1311,10 +1311,10 @@ void AVRGenerateHIR::buildAbstractLayer() {
   AVRGenerateVisitor AG;
 
   // Walk the HIR and build WRGraph based on HIR
-  WRContainerTy *WRGraph = WRegionUtils::buildWRGraphFromHIR();
+  WRContainerImpl *WRGraph = WRegionUtils::buildWRGraphFromHIR();
   DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
   for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
-    DEBUG(I->dump());
+    DEBUG((*I)->dump());
   }
 
   // TBD: Using WRN nodes directly for now. This needs to be changed
@@ -1323,12 +1323,12 @@ void AVRGenerateHIR::buildAbstractLayer() {
   // forward.
   for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
     DEBUG(errs() << "Starting AVR gen for \n");
-    DEBUG(I->dump());
+    DEBUG((*I)->dump());
     AVRWrn *AWrn;
     AVR *Avr;
     WRNVecLoopNode *WVecNode;
 
-    if (!(WVecNode = dyn_cast<WRNVecLoopNode>(I)))
+    if (!(WVecNode = dyn_cast<WRNVecLoopNode>(*I)))
       continue;
 
     // Create an AVRWrn and insert AVR for contained loop as child

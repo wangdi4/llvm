@@ -95,7 +95,7 @@ WRegionNode *WRegionUtils::createWRegionHIR(
 void WRegionUtils::updateWRGraphFromHIR (
   IntrinsicInst   *Call,
   Intrinsic::ID   IntrinId,
-  WRContainerTy   *WRGraph,
+  WRContainerImpl *WRGraph,
   WRStack<WRegionNode*> &S, 
   loopopt::HLNode *H
 )
@@ -117,14 +117,8 @@ void WRegionUtils::updateWRGraphFromHIR (
       }
       else {
         WRegionNode *Parent = S.top();
-        if (!Parent->hasChildren()) {
-          WRContainerTy::iterator WI(W);
-          WRegionUtils::insertFirstChild(Parent, WI);
-        } else {
-          WRegionNode *C = Parent->getLastChild();
-          WRContainerTy::iterator WI(C);
-          WRegionUtils::insertAfter(WI, W);
-        }
+        Parent->getChildren().push_back(W);
+        W->setParent(Parent);
       }
       S.push(W);
     }
@@ -172,11 +166,11 @@ void WRegionUtils::updateWRGraphFromHIR (
 /// This visitor class is intended to be instantiated and used
 /// only by WRegionUtils::buildWRGraphFromHIR(). 
 struct HIRVisitor final : public HLNodeVisitorBase {
-  WRContainerTy *WRGraph;
+  WRContainerImpl *WRGraph;
   WRStack<WRegionNode*> S; 
   HIRVisitor() : WRGraph(new WRContainerTy){}
 
-  WRContainerTy *getWRGraph() const { return WRGraph; }
+  WRContainerImpl *getWRGraph() const { return WRGraph; }
   void visit(loopopt::HLNode *Node);
   void postVisit(loopopt::HLNode *) {}
 };
@@ -213,7 +207,7 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
   } 
 }
 
-WRContainerTy *WRegionUtils::buildWRGraphFromHIR()
+WRContainerImpl *WRegionUtils::buildWRGraphFromHIR()
 {
   HIRVisitor Visitor;
 
@@ -221,78 +215,6 @@ WRContainerTy *WRegionUtils::buildWRGraphFromHIR()
   return Visitor.getWRGraph();
 }
 
-
-// Insertion Utilities
-void WRegionUtils::insertFirstChild(
-  WRegionNode *Parent, 
-  WrnIter wrn
-) 
-{
-  insertWRegionNode(Parent, WrnIter(nullptr), wrn, WRegionUtils::FirstChild);
-  return;
-}
-
-void WRegionUtils::insertLastChild(
-  WRegionNode *Parent, 
-  WrnIter wrn
-) 
-{
-  insertWRegionNode(Parent, WrnIter(nullptr), wrn, WRegionUtils::LastChild);
-  return;
-}
-
-void WRegionUtils::insertAfter(
-  WrnIter  pos, 
-  WRegionNode *wrn
-) 
-{
-  assert(&*pos && "Insert Position is Null");
-  insertWRegionNode(pos->getParent(), pos, WrnIter(wrn), WRegionUtils::Append);
-}
-
-void WRegionUtils::insertBefore(
-  WrnIter  pos, 
-  WRegionNode *wrn
-) 
-{
-  assert(&*pos && "Insert Position is Null");
-  insertWRegionNode(pos->getParent(), pos, WrnIter(wrn), WRegionUtils::Prepend);
-}
-
-void WRegionUtils::insertWRegionNode(
-  WRegionNode  *Parent, 
-  WrnIter  Pos, 
-  WrnIter  W, 
-  OpType   Op
-) 
-{
-  assert(Parent && "Parent is Null");
-
-  WRContainerTy &WRContainer = Parent->getChildren();
-
-  WrnIter InsertionPoint;
-
-  switch (Op) {
-      case WRegionUtils::FirstChild:
-        WRContainer.insertAfter(WrnIter(nullptr), &*W);
-        break;
-      case WRegionUtils::LastChild:
-        WRContainer.insertAfter(WrnIter(Parent->getLastChild()), &*W);
-        break;
-      case WRegionUtils::Append:
-        WRContainer.insertAfter(Pos, &*W);
-        break;
-      case WRegionUtils::Prepend:
-        WRContainer.insert(Pos, &*W);
-        break;
-      default:
-        llvm_unreachable("VPO: Unknown WRegionNode Insertion Operation Type");
-  }
-
-  W->setParent(Parent);
-
-  return;
-}
 
 //Removal Utilities
 bool WRegionUtils::stripDirectives(WRegionNode *WRN) {

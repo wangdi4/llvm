@@ -70,27 +70,27 @@ public:
 
   /// \brief Visits WRegionNodes in the WRContainerTy in the forward direction.
   /// Returns true to indicate that early termination has occurred.
-  bool forwardVisit(WRContainerTy *C);
+  bool forwardVisit(WRContainerImpl *C);
 
   /// \brief Visits WRegionNodes in the WRContainerTy in the backward direction.
   /// Returns true to indicate that early termination has occurred.
-  bool backwardVisit(WRContainerTy *C);
+  bool backwardVisit(WRContainerImpl *C);
 };
 
-template <typename WV> bool WRNVisitor<WV>::forwardVisit(WRContainerTy *C) {
+template <typename WV> bool WRNVisitor<WV>::forwardVisit(WRContainerImpl *C) {
   for (auto I = C->begin(), Next = I, E = C->end(); I != E; I = Next) {
     ++Next;
-    if (visit(&*I, true))
+    if (visit(*I, true))
       return true;
   }
   return false;
 }
 
-template <typename WV> bool WRNVisitor<WV>::backwardVisit(WRContainerTy *C) {
+template <typename WV> bool WRNVisitor<WV>::backwardVisit(WRContainerImpl *C) {
   for (auto RI = C->rbegin(), RNext = RI, RE = C->rend(); RI != RE;
        RI = RNext) {
     ++RNext;
-    if (visit(&(*RI), false))
+    if (visit(*RI, false))
       return true;
   }
   return false;
@@ -147,40 +147,20 @@ public:
 
   /// \brief Visit all WRN nodes in the Graph in the forward direction
   template <typename WV>
-  static void forwardVisit(WV &Visitor, WRContainerTy *Graph) {
+  static void forwardVisit(WV &Visitor, WRContainerImpl *Graph) {
     WRNVisitor<WV> V(Visitor);
     V.forwardVisit(Graph);
   }
   
   /// \brief Visit all WRN nodes in the Graph in the backward direction
   template <typename WV>
-  static void backwardVisit(WV &Visitor, WRContainerTy *Graph) {
+  static void backwardVisit(WV &Visitor, WRContainerImpl *Graph) {
     WRNVisitor<WV> V(Visitor);
     V.backwardVisit(Graph);
   }
-  
- 
 
   /// It contains functions which are used to create, modify, and destroy
   /// WRegionNode.
-
-  /// Insertion Utilities -- To Do: Define More Utilities
-
-  /// \brief Standard Insert Utility
-  static void insertWRegionNode(WRegionNode *Parent, WrnIter Pos, WrnIter W,
-                                OpType Op);
-
-  /// \brief Inserts new wrn as the first child in Parent wrn.
-  static void insertFirstChild(WRegionNode *Parent, WrnIter W);
-
-  /// \brief Inserts new wrn as the last child in Parent wrn.
-  static void insertLastChild(WRegionNode *Parent, WrnIter W);
-
-  /// \brief Inserts an unlinked WRegion Node after pos in WRegion Node list.
-  static void insertAfter(WrnIter Pos, WRegionNode *W);
-
-  /// \brief Inserts an unlinked WRegion Node before pos in WRegion Node list.
-  static void insertBefore(WrnIter Pos, WRegionNode *W);
 
   /// Creation Utilities
 
@@ -204,12 +184,12 @@ public:
   ///   H: The HLNode containing the intrinsic call
   static void updateWRGraphFromHIR(IntrinsicInst *Call,
                                    Intrinsic::ID IntrinId,
-                                   WRContainerTy *WRGraph,
+                                   WRContainerImpl *WRGraph,
                                    WRStack<WRegionNode*> &S,
                                    loopopt::HLNode *H);
 
   /// \brief Driver routine to build WRGraph based on HIR representation
-  static WRContainerTy *buildWRGraphFromHIR();
+  static WRContainerImpl *buildWRGraphFromHIR();
 
   /// \brief Extract the operands for a list-type clause.
   /// This is called by WRegionNode::handleQualOpndList()

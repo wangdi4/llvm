@@ -78,7 +78,7 @@ class WRegionCollection : public FunctionPass {
 
 private:
   /// WRGraph - vector of WRegionNodes.
-  WRContainerTy *WRGraph;
+  WRContainerImpl *WRGraph;
 
   /// Func - The function we are analyzing.
   Function *Func;
@@ -124,7 +124,7 @@ public:
   //TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
 
   /// \brief Getter methods
-  WRContainerTy *getWRGraph() { return WRGraph; }
+  WRContainerImpl *getWRGraph() { return WRGraph; }
   DominatorTree *getDomTree() { return DT; }
   LoopInfo *getLoopInfo()     { return LI; }
   ScalarEvolution *getSE()    { return SE; }
