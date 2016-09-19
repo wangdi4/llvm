@@ -968,6 +968,54 @@
 // CHECK_ATOM_M64: #define __x86_64 1
 // CHECK_ATOM_M64: #define __x86_64__ 1
 //
+//
+// RUN: %clang -march=goldmont -m32 -E -dM %s -o - 2>&1 \
+// RUN:     -target i386-unknown-linux \
+// RUN:   | FileCheck %s -check-prefix=CHECK_GLM_M32
+// CHECK_GLM_M32: #define __FSGSBASE__ 1
+// CHECK_GLM_M32: #define __MMX__ 1
+// CHECK_GLM_M32: #define __RDSEED__ 1
+// CHECK_GLM_M32: #define __SHA__ 1
+// CHECK_GLM_M32: #define __SSE2__ 1
+// CHECK_GLM_M32: #define __SSE3__ 1
+// CHECK_GLM_M32: #define __SSE4_1__ 1
+// CHECK_GLM_M32: #define __SSE4_2__ 1
+// CHECK_GLM_M32: #define __SSE__ 1
+// CHECK_GLM_M32: #define __SSSE3__ 1
+// CHECK_GLM_M32: #define __XSAVEC__ 1
+// CHECK_GLM_M32: #define __XSAVEOPT__ 1
+// CHECK_GLM_M32: #define __XSAVES__ 1
+// CHECK_GLM_M32: #define __XSAVE__ 1
+// CHECK_GLM_M32: #define __glm 1
+// CHECK_GLM_M32: #define __glm__ 1
+// CHECK_GLM_M32: #define __i386 1
+// CHECK_GLM_M32: #define __i386__ 1
+// CHECK_GLM_M32: #define __tune_glm__ 1
+// CHECK_GLM_M32: #define i386 1
+
+// RUN: %clang -march=goldmont -m64 -E -dM %s -o - 2>&1 \
+// RUN:     -target i386-unknown-linux \
+// RUN:   | FileCheck %s -check-prefix=CHECK_GLM_M64
+// CHECK_GLM_M64: #define __FSGSBASE__ 1
+// CHECK_GLM_M64: #define __MMX__ 1
+// CHECK_GLM_M64: #define __RDSEED__ 1
+// CHECK_GLM_M64: #define __SHA__ 1
+// CHECK_GLM_M64: #define __SSE2__ 1
+// CHECK_GLM_M64: #define __SSE3__ 1
+// CHECK_GLM_M64: #define __SSE4_1__ 1
+// CHECK_GLM_M64: #define __SSE4_2__ 1
+// CHECK_GLM_M64: #define __SSE__ 1
+// CHECK_GLM_M64: #define __SSSE3__ 1
+// CHECK_GLM_M64: #define __XSAVEC__ 1
+// CHECK_GLM_M64: #define __XSAVEOPT__ 1
+// CHECK_GLM_M64: #define __XSAVES__ 1
+// CHECK_GLM_M64: #define __XSAVE__ 1
+// CHECK_GLM_M64: #define __glm 1
+// CHECK_GLM_M64: #define __glm__ 1
+// CHECK_GLM_M64: #define __tune_glm__ 1
+// CHECK_GLM_M64: #define __x86_64 1
+// CHECK_GLM_M64: #define __x86_64__ 1
+
 // RUN: %clang -march=slm -m32 -E -dM %s -o - 2>&1 \
 // RUN:     -target i386-unknown-linux \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_SLM_M32

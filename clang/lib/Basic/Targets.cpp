@@ -2444,6 +2444,7 @@ class X86TargetInfo : public TargetInfo {
     //@{
     CK_Bonnell,
     CK_Silvermont,
+    CK_Goldmont, // INTEL
     //@}
 
     /// \name Nehalem
@@ -2579,6 +2580,8 @@ class X86TargetInfo : public TargetInfo {
         .Case("atom", CK_Bonnell) // Legacy name.
         .Case("silvermont", CK_Silvermont)
         .Case("slm", CK_Silvermont) // Legacy name.
+        .Case("goldmont", CK_Goldmont) // INTEL
+        .Case("glm", CK_Goldmont)      // INTEL
         .Case("nehalem", CK_Nehalem)
         .Case("corei7", CK_Nehalem) // Legacy name.
         .Case("westmere", CK_Westmere)
@@ -2764,6 +2767,7 @@ public:
     case CK_Penryn:
     case CK_Bonnell:
     case CK_Silvermont:
+    case CK_Goldmont: // INTEL
     case CK_Nehalem:
     case CK_Westmere:
     case CK_SandyBridge:
@@ -2956,6 +2960,24 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "cx16", true);
     break;
+  #if INTEL_CUSTOMIZATION
+  case CK_Goldmont:
+    setFeatureEnabledImpl(Features, "sha", true);
+    setFeatureEnabledImpl(Features, "rdseed", true);
+    setFeatureEnabledImpl(Features, "xsave", true);
+    setFeatureEnabledImpl(Features, "xsaveopt", true);
+    setFeatureEnabledImpl(Features, "xsavec", true);
+    setFeatureEnabledImpl(Features, "xsaves", true);
+    setFeatureEnabledImpl(Features, "clflushopt", true);
+    setFeatureEnabledImpl(Features, "mpx", true);
+    setFeatureEnabledImpl(Features, "aes", true);
+    setFeatureEnabledImpl(Features, "pclmul", true);
+    setFeatureEnabledImpl(Features, "sse4.2", true);
+    setFeatureEnabledImpl(Features, "fxsr", true);
+    setFeatureEnabledImpl(Features, "cx16", true);
+    setFeatureEnabledImpl(Features, "fsgsbase", true);
+    break;
+  #endif
   case CK_KNL:
     setFeatureEnabledImpl(Features, "avx512f", true);
     setFeatureEnabledImpl(Features, "avx512cd", true);
@@ -3499,6 +3521,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Silvermont:
     defineCPUMacros(Builder, "slm");
     break;
+  #if INTEL_CUSTOMIZATION
+  case CK_Goldmont:
+    defineCPUMacros(Builder, "glm");
+    break;
+  #endif
   case CK_Nehalem:
   case CK_Westmere:
   case CK_SandyBridge:
