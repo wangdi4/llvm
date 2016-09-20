@@ -155,8 +155,9 @@ protected:
   /// \brief Used by updateBlobDDRefs() to remove BlobDDRefs which are not
   /// needed anymore. The required blobs are passed in through BlobIndices. The
   /// function removes those blobs from BlobIndices whose BlobDDRef is already
-  /// attached to RegDDRef.
-  void removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices);
+  /// attached to RegDDRef. It returns stale blobs in \p StaleBlobs.
+  void removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices,
+                             SmallVectorImpl<BlobDDRef *> &StaleBlobs);
 
   /// \brief Called by the verifier to check that the temp blobs contained in
   /// the DDRef correspond to blob DDRefs attached to the DDRef.

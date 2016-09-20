@@ -1,8 +1,12 @@
 ;    for(i=0; i<n; i++) j *= A[i];
-;
+
+; Check output of 'mul' opcode for safe reduction analysis
+
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis  | FileCheck %s
 ; CHECK:   Safe Reduction
+
 ; CHECK:   %j.07 = %0  *  %j.07;
+
 ; ModuleID = 'mul.c'
 source_filename = "mul.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

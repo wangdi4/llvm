@@ -677,12 +677,12 @@ void RegDDRef::removeAllBlobDDRefs() {
   }
 }
 
-void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices) {
+void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices,
+                                     SmallVectorImpl<BlobDDRef *> &StaleBlobs) {
 
-  // Iteratre through blob DDRefs.
-  for (auto It = blob_cbegin(); It != blob_cend();) {
+  auto RemovePred = [&](BlobDDRef *BRef) {
 
-    unsigned Index = (*It)->getBlobIndex();
+    unsigned Index = BRef->getBlobIndex();
 
     auto BlobIt =
         std::lower_bound(BlobIndices.begin(), BlobIndices.end(), Index);
@@ -692,29 +692,18 @@ void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices) {
       // Remove index for the existing blob DDRef.
       BlobIndices.erase(BlobIt);
 
-      ++It;
-      continue;
+      return false;
     }
 
-    bool ResetToBegin = (It == blob_cbegin());
-    const_blob_iterator J(It);
+    // Save stale blob's reference for further potential use
+    StaleBlobs.push_back(BRef);
 
-    // Save the previous iterator for recovering the next iterator to be
-    // processed after erasure. vector erase() invalidates all the iterators at
-    // and after the point of erasure.
-    if (!ResetToBegin) {
-      --It;
-    }
+    return true;
+  };
 
-    removeBlobDDRef(J);
-
-    // Get the next iterator to be processed.
-    if (!ResetToBegin) {
-      ++It;
-    } else {
-      It = blob_cbegin();
-    }
-  }
+  BlobDDRefs.erase(
+      std::remove_if(BlobDDRefs.begin(), BlobDDRefs.end(), RemovePred),
+      BlobDDRefs.end());
 }
 
 void RegDDRef::collectTempBlobIndices(
@@ -772,6 +761,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
 void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
                                 bool AssumeLvalIfDetached) {
   SmallVector<unsigned, 8> BlobIndices;
+  SmallVector<BlobDDRef *, 8> StaleBlobs;
 
   bool IsLvalAssumed = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
 
@@ -816,11 +806,21 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   collectTempBlobIndices(BlobIndices);
 
   // Remove stale BlobDDRefs.
-  removeStaleBlobDDRefs(BlobIndices);
+  removeStaleBlobDDRefs(BlobIndices, StaleBlobs);
 
   // Add new BlobDDRefs.
   for (auto &I : BlobIndices) {
-    auto BRef = DDRefUtils::createBlobDDRef(I, 0);
+
+    BlobDDRef *BRef;
+    if (!StaleBlobs.empty()) {
+      BRef = StaleBlobs.pop_back_val();
+      BRef->replaceBlob(I);
+      BRef->setDefinedAtLevel(0);
+      // Detaching blob from parent DDRef
+      BRef->setParentDDRef(nullptr);
+    } else {
+      BRef = DDRefUtils::createBlobDDRef(I, 0);
+    }
 
     addBlobDDRef(BRef);
 
