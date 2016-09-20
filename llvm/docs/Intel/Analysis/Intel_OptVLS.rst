@@ -72,10 +72,10 @@ Optimized pseudo vector code:
     %2 = @llvm.masked.load.v2f64(&x[n[k+1]], ..);
 
     // move p1 p2 to %p_v
-    %p_v = shufflevector <2 x f64> %1, <2 x f64> %2, <2 x i32> <i32 0, i32 0>;
+    %p_v = shufflevector <2 x f64> %1, <2 x f64> %2, <2 x i32> <i32 0, i32 2>;
 
     // move q1 q2 to %q_v
-    %q_v = shufflevector <2 x f64> %1, <2 x f64> %2, <2 x i32> <i32 1, i32 1>;
+    %q_v = shufflevector <2 x f64> %1, <2 x f64> %2, <2 x i32> <i32 1, i32 3>;
 
     ...
 
@@ -293,7 +293,7 @@ This section describes more details for each interface function and abstract typ
   c) canMoveTo()- FIXME: We are still discussing whether it's the server or the client is responsible
                    for code placement, which will affect this interface.
 
-2. GetSequence()
+2. getSequence()
 
   Optimized sequence generation for a group of gathers is split into two parts:
 
@@ -316,10 +316,11 @@ This section describes more details for each interface function and abstract typ
      result of some logical rearrangement of those incoming bit-ranges/edges. An initial version of the graph gets
      drawn by the load-generator and is passed to the genShuffles() as an input. Initially, it only has nodes for
      the loaded data, and final gather results, and edges between loaded and gather results show which loaded
-     elements contribute to which gather results.
+     elements contribute to which gather results. The total number of edges of a gather-node needs to match its total number
+     of elements where each edge moves its element size of bits.
 
      This initial graph represents doing all rearrangement in 1 logic operation for each gather result.  In most cases,
-     no single instruction exists that can do such logical operations.  It is the responsibility of genShuffles() to
+     no single instruction exists that can do such logical operations. It is the responsibility of genShuffles() to
      expand the graph, breaking such complex logical operations into multiple simpler logical operations for which
      instructions exist. The rest of the content talks about how genShuffles() does this graph expansion that results
      in efficient and legal rearrangement instruction sequences.
@@ -360,6 +361,9 @@ This section describes more details for each interface function and abstract typ
 
         [64:127] = V4[64:127]
 
+
+     In the above graph, each gather-node has two incoming edges which matches its total number of elements,
+     and each edge moves exactly 64 bits which is its element-size.
      Below shows the auxiliary data-structures that help building this graph:
 
 
@@ -455,4 +459,19 @@ This section describes more details for each interface function and abstract typ
      by server querying back to the client and asking for a cost of the instructions. The client is responsible for using the TTI cost-model
      (or something better) that gives us a target specific instruction cost.
 
+     For our simple example, splitting is not required since each node in the graph has maximum two input nodes. There are no
+     intermediate nodes other than the load/gather-nodes, so no room for exploiting data parallelism or additional optimization.
+     After a successful graph-verification genShuffles() traverses the graph in a topological order and translates each node (each
+     logical instruction other than the load-nodes) into an OVLSInstruction(shuffle instruction) using its incoming edges. More
+     specifically, input operands of the shuffle instruction are the set of 'sources' identified by the incoming edges. We compute
+     the shuffle mask by combining the incoming bits where each element in the mask gets specified by the bit-index of the
+     incoming bits of its input nodes. At this final stage, the graph has only two non-load nodes. Consequently, the following
+     two shuffle instructions get generated:
+
+     %3 = shufflevector <2 x 64> %1, <2 x 64> %2, <2 x 32><0, 2>;
+
+     %4 = shufflevector <2 x 64> %1, <2 x 64> %2, <2 x 32><1, 3>;
+
      NEXT: provide more details on the instruction cost, merging, instruction generation and complete the example.
+
+     NEXT: provide details on the graph-verification.

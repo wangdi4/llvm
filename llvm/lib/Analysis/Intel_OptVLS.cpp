@@ -198,8 +198,16 @@ namespace OptVLS {
     /// Current total number of incoming bits from IncomingEdges.
     uint32_t TotalIncomingEdgeBits;
 
+    /// Type of the result node gets set during the output node(gather node)
+    /// construction. In order to generate an OVLSInstruction we will
+    /// need an OVLSType. It is important that we generate the right typed
+    /// output node(gather-node). Having to deduce it from the incoming bits
+    /// might be erroneous due to mixed typed group of memrefs. If we know the
+    /// expected type we will be able to bitcast the source-nodes if need be.
+    OVLSType Type;
+
   public:
-    explicit GraphNode(OVLSInstruction *I) : Inst(I) {
+    explicit GraphNode(OVLSInstruction *I, OVLSType T) : Inst(I), Type(T) {
       static uint32_t NodeId = 1;
       Id = NodeId++;
       TotalIncomingEdgeBits = 0;
@@ -217,6 +225,7 @@ namespace OptVLS {
     uint32_t getId() const { return Id; }
     OVLSInstruction* getInstruction() const { return Inst; }
     bool isALoad() const { return Inst && isa<OVLSLoad>(Inst); }
+    bool isUndefined() const { return Inst == nullptr; }
 
     // Returns the current total number of incoming bits.
     uint32_t size() const { return TotalIncomingEdgeBits; }
@@ -275,6 +284,59 @@ namespace OptVLS {
       // Update current bit-index.
       TotalIncomingEdgeBits += E->getBitRange().getNumBits();
     }
+
+    // Generate a shuffle instruction for this node.
+    void genShuffle() {
+      OVLSInstruction *Op1 = nullptr;
+      OVLSInstruction *Op2 = nullptr;
+      OVLSConstant *ShuffleMask = nullptr;
+
+      // Use 'Type' which is the type of this result node to define the instruction
+      uint32_t ElemSize = Type.getElementSize();
+      uint32_t NumElems = Type.getNumElements();
+
+      const uint32_t MaxNumElems = 256;
+      assert(NumElems <= MaxNumElems && "Increase MaxNumElems");
+
+      int32_t IntShuffleMask[MaxNumElems];
+      uint32_t MaskIndex = 0;
+
+      // Traverse through the incoming edges, collect the input vectors and the
+      // correspondent vector indices
+      for (Edge *E : IncomingEdges) {
+        OVLSInstruction *Src = E->getSource()->getInstruction();
+        BitRange BR = E->getBitRange();
+
+        // Temporarily assuming each edge moves exactly 'ElemSize' number of bits
+        // and the BitIndex is divisibly by ElemSize.
+
+        assert(BR.getBitIndex() % ElemSize == 0 && "BitIndex needs to be divisible by"
+                                             " element-size!");
+        assert(BR.getNumBits() == ElemSize && "Each edge should move element-size "
+                                               "number of bits!!!");
+        if (Src == nullptr)
+          IntShuffleMask[MaskIndex++] = -1;
+        else {
+          if (Op1 == nullptr)
+            Op1 = Src;
+          else if (Src != Op1 && Op2 == nullptr)
+            Op2 = Src;
+          else if (Src != Op1 && Src != Op2)
+            assert("Invalid number of operands for OVLSShuffle!!!");
+
+          if (Src == Op1)
+            IntShuffleMask[MaskIndex++] = BR.getBitIndex() / ElemSize;
+          else
+            IntShuffleMask[MaskIndex++] = (BR.getBitIndex() / ElemSize) + NumElems;
+        }
+      }
+
+      assert(MaskIndex == NumElems && "IntShuffleMask got out of range!!!");
+
+      ShuffleMask = new OVLSConstant(OVLSType(32, NumElems), (int8_t*)IntShuffleMask);
+      Inst = new OVLSShuffle(Op1, Op2, ShuffleMask);
+    } // end of genShuffle()
+
   }; // end of GraphNode
 
   typedef OVLSVector<GraphNode*> GraphNodeVector;
@@ -403,19 +465,17 @@ namespace OptVLS {
       return true;
     }
 
-    // Currently returns only the load instructions.
-    // Visit the graph in a topological order and push the load
-    // instructions into the InstVector.
-    // FIXME: Once getShuffles() is in, this function should return
-    // all the other instructions as well. At that time, an instruction
-    // can not be null, so an assertion should be thrown.
+    // Visit the graph in a topological order and push the associated
+    // instruction of a node into the InstVector.
     void getInstructions(OVLSInstructionVector &InstVector) {
       GraphNodeVector TopSortedNodes;
       getTopSortedNodes(TopSortedNodes);
 
       for (GraphNode *N : TopSortedNodes) {
         OVLSInstruction *I = N->getInstruction();
-        if (I && isa<OVLSLoad>(I))
+        // FIXME: uncomment this once we have a call of genShuffles()
+        //assert(I != nullptr && "Inst cannot be null!!!");
+        if (I)
           InstVector.push_back(I);
       }
     }
@@ -423,6 +483,13 @@ namespace OptVLS {
     GraphNode* getNode(uint32_t Id) const {
       assert(Id < Nodes.size() && "Invalid Id!!!");
       return Nodes[Id];
+    }
+
+    // Generate shuffles for nodes with undefined instructions.
+    void genShuffles() {
+      for (GraphNode *N : Nodes)
+        if(N->isUndefined())
+          N->genShuffle();
     }
   }; // end of class Graph
 
@@ -667,7 +734,7 @@ namespace OptVLS {
                                    E = Group.end(); I != E; ++I) {
       // At this point, we don't know the desired instruction/opcode,
       // initialize it(associated OVLSInstruction) to nullptr.
-      GraphNode *GatherNode = new GraphNode(nullptr);
+      GraphNode *GatherNode = new GraphNode(nullptr, (*I)->getType());
       G.insert(GatherNode);
     }
 
@@ -697,7 +764,7 @@ namespace OptVLS {
       OVLSInstruction *MemInst = new OVLSLoad(LoadType, *Src, ElementMask);
 
       // Create a graph-node for a load.
-      GraphNode *LoadNode = new GraphNode(MemInst);
+      GraphNode *LoadNode = new GraphNode(MemInst, MemInst->getType());
       G.insert(LoadNode);
 
       // Draw edges from the load elements that show which load element
@@ -764,18 +831,46 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << "\n";
 }
 
-bool OVLSShuffle::hasValidOperands(OVLSOperand O1, OVLSOperand O2,
-                                   OVLSOperand Mask) {
+/// print the shuffle instruction like below:
+/// %3 = shufflevector <2 x 64> %1, <2 x 64> %2, <2 x 32><0, 2>
+void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
+  uint32_t Counter = 0;
+  while (Counter++ != NumSpaces)
+    OS << " ";
+
+  OS << "%" << getId();
+  OS << " = ";
+  OS << "shufflevector ";
+
+  Op1->printAsOperand(OS);
+  OS << ", ";
+
+  Op2->printAsOperand(OS);
+  OS << ", ";
+
+  OS << *Op3;
+  OS << "\n";
+}
+
+bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
+                                   OVLSOperand *Mask) const {
+  assert(Op1 != nullptr && "A minimum of one defined input vector required!!!");
+  if (!Op1->getType().isValid())
+    return false;
+
   // O1 and O2 must be vectors of the same type.
-  if (!O1.getType().isValid() || O1.getType() != O2.getType())
+  if (Op2 != nullptr && Op1->getType() != Op2->getType())
     return false;
 
   // Mask needs to be a vector of constants.
-  if (!Mask.getType().isValid() || !isa<OVLSConstant>(&Mask))
+  if (!Mask || !Mask->getType().isValid() || !isa<OVLSConstant>(Mask))
     return false;
 
-  if (Mask.getType().getNumElements() >
-      (O1.getType().getNumElements() + O2.getType().getNumElements()))
+  uint32_t MaxNumElems = Op1->getType().getNumElements();
+
+  MaxNumElems *= 2;
+
+  if (Mask->getType().getNumElements() > MaxNumElems)
     return false;
 
   return true;
