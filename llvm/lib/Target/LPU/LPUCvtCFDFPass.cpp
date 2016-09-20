@@ -1532,11 +1532,31 @@ MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
   MachineOperand issued_op = MachineOperand::CreateReg(issued_reg, true);
   MachineOperand ready_op = MachineOperand::CreateReg(ready_reg, false);
 
+
+  // Figure out how many "def" operands we have in this instruction.
+  // This code assumes that normal loads have exactly one definition,
+  // and normal stores have no definitions.
+  unsigned expected_def_operands = 0;
+  if (TII.isLoad(MI)) {
+    expected_def_operands = 1;
+  } else if (TII.isStore(MI)) {
+    expected_def_operands = 0;
+  }
+  else {
+    assert(false && "Converting unknown type of instruction to ordered memory op");
+  }
+
+  // We should have at least as many definitions as expected operands.
+  assert(MI->getNumOperands() >= expected_def_operands);
+
   // 1. Add all the defs to the new instruction first.
-  while(opidx < MI->getNumOperands()) {
+  while(opidx < expected_def_operands) {
     MachineOperand& MO = MI->getOperand(opidx);
-    if (!MO.isDef())
-      break;
+    // Sanity-check: if we have registers operands, then they had
+    // better be definitions.
+    if (MO.isReg()) {
+      assert(MO.isDef());
+    }
     new_inst->addOperand(MO);
     opidx++;
   }
@@ -1546,6 +1566,11 @@ MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
   // Then add the remaining operands.
   while (opidx < MI->getNumOperands()) {
     MachineOperand& MO = MI->getOperand(opidx);
+    // In the remaining operands, there should not be any register
+    // definitions.
+    if (MO.isReg()) {
+      assert(!MO.isDef());
+    }
     new_inst->addOperand(MO);
     opidx++;
   }
