@@ -18,6 +18,8 @@
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_Andersens.h"   // INTEL
+#include "llvm/Analysis/Intel_WP.h"          // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -42,6 +44,13 @@ namespace {
     GlobalDCELegacyPass() : ModulePass(ID) {
       initializeGlobalDCELegacyPassPass(*PassRegistry::getPassRegistry());
     }
+
+#if INTEL_CUSTOMIZATION
+    void getAnalysisUsage(AnalysisUsage &AU) const override {
+      AU.addPreserved<WholeProgramWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // run - Do the GlobalDCE pass on the specified module, optionally updating
     // the specified callgraph to reflect the changes.
@@ -209,7 +218,12 @@ PreservedAnalyses GlobalDCEPass::run(Module &M, ModuleAnalysisManager &) {
 
   if (Changed)
     return PreservedAnalyses::none();
-  return PreservedAnalyses::all();
+
+  auto PA = PreservedAnalyses();        // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
+  PA.preserve<AndersensAA>();           // INTEL
+
+  return PA;                            // INTEL
 }
 
 /// GlobalIsNeeded - the specific global value as needed, and

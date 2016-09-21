@@ -38,6 +38,8 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/Intel_Andersens.h"      // INTEL
+#include "llvm/Analysis/Intel_WP.h"             // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -69,6 +71,8 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<AssumptionCacheTracker>();
       AU.addRequired<TargetLibraryInfoWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
+      AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
       getAAResultsAnalysisUsage(AU);
       CallGraphSCCPass::getAnalysisUsage(AU);
     }
