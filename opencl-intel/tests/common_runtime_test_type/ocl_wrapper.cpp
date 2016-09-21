@@ -446,7 +446,7 @@ void createAndBuildProgramWithILSourceFile(const char* sFileName, cl_program* pr
     const char* kernelSource = nullptr;
     // read kernels file
     size_t length = 0;
-    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, sFileName, &length));
+    ASSERT_NO_FATAL_FAILURE(binaryFileToBuffer(&kernelSource, sFileName, &length));
     ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithILSource(kernelSource, length, program, context,
         num_devices, device_list, options, pfn_notify, user_data));
     if (nullptr != kernelSource)
@@ -908,10 +908,10 @@ void setUpContextProgramQueuesFromILSourceFile(OpenCLDescriptor& ocl_descriptor,
 
     // create context
     cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)ocl_descriptor.platforms[0], 0};
-    ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 1, &(ocl_descriptor.devices[1]), nullptr, nullptr));
+    ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, nullptr, nullptr));
 
     // create and build program
-    ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithILSourceFile(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 1, &(ocl_descriptor.devices[1]), nullptr, nullptr, nullptr));
+    ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithILSourceFile(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 2, ocl_descriptor.devices, nullptr, nullptr, nullptr));
 
     // create queues
     for(int i = 1; i < 2; ++i)

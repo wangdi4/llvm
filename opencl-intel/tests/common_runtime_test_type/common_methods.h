@@ -36,6 +36,10 @@
  * Encapsulates common methods
  **/
 
+// bineryFileToBuffer - returns (via return_val) content of file with sFileName name in current working directory
+// caller is responsible for resources deallocation
+void binaryFileToBuffer(const char** return_val, const char* sFileName, size_t* return_length);
+
 // fileToBuffer - returns (via return_val) content of file with sFileName name in current working directory
 // caller is responsible for resources deallocation
 void fileToBuffer(const char** return_val, const char* sFileName, size_t * return_length = nullptr);

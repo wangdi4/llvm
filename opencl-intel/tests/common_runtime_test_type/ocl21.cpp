@@ -56,7 +56,7 @@ TEST_F(OCL21, clCreateProgramWithIL01)
 
     const char * kernelSource = nullptr;
     size_t length = 0;
-    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "simple_kernels.spv", &length));
+    ASSERT_NO_FATAL_FAILURE(binaryFileToBuffer(&kernelSource, "simple_kernels.spv", &length));
 
     void * il = nullptr;
     size_t ret = 0;
