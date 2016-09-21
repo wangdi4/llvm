@@ -149,16 +149,6 @@ private:
       return;
     }
 
-    // See if the path is with environment variable
-    char *envVar;
-    envVar = getenv("VECT_ModulePathFileName");
-    if (envVar) {
-      errs() << "\nmodule path was by environment variable\n";
-      std::string pathByEnv(envVar);
-      m_newModulePath = pathByEnv;
-      return;
-    }
-
     // Finally if all options fail try to read path from file. (For Apple)
     std::ifstream modulePathFile(ModulePathFileName);
     if (modulePathFile.is_open()) {

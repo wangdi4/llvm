@@ -331,6 +331,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported() const {
                 default:
                     return false;
                 case spv::CapabilityImageBasic:
+                case spv::CapabilitySampledBuffer:
+                case spv::CapabilitySampled1D:
                 case spv::CapabilityImageReadWrite:
                     if(!m_sDeviceInfo.bImageSupport) return false;
                     break;
