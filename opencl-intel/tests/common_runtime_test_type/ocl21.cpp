@@ -623,9 +623,9 @@ TEST_F(OCL21, clGetKernelSubGroupInfo03)
 
         ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[index]));
 
-        clReleaseKernel(kernel);
         clReleaseMemObject(sub_group_size_buffer);
         clReleaseMemObject(max_sub_group_size_buffer);
         clReleaseMemObject(num_sub_groups_buffer);
     }
+    clReleaseKernel(kernel);
 }
