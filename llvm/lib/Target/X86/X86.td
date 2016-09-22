@@ -260,6 +260,8 @@ def ProcIntelAtom : SubtargetFeature<"atom", "X86ProcFamily", "IntelAtom",
                     "Intel Atom processors">;
 def ProcIntelSLM  : SubtargetFeature<"slm", "X86ProcFamily", "IntelSLM",
                     "Intel Silvermont processors">;
+def ProcIntelGLM : SubtargetFeature<"glm", "X86ProcFamily", "IntelGLM",
+                                    "Intel Goldmont processors">; // INTEL
 
 class Proc<string Name, list<SubtargetFeature> Features>
  : ProcessorModel<Name, GenericModel, Features>;
@@ -388,6 +390,43 @@ class SilvermontProc<string Name> : ProcessorModel<Name, SLMModel, [
 ]>;
 def : SilvermontProc<"silvermont">;
 def : SilvermontProc<"slm">; // Legacy alias.
+
+// if INTEL_CUSTOMIZATION
+// FIXME: Goldmont inheritor most of his feature from Silvermont.
+//       Need to re-write SLM and GLM in the same way SandyBridge
+//       and IvyBridge defined, see lines: 455-501.
+class GoldmontProc<string Name> : ProcessorModel<Name, SLMModel, [
+  ProcIntelGLM,
+  FeatureX87,
+  FeatureMMX,
+  FeatureSSE42,
+  FeatureFXSR,
+  FeatureCMPXCHG16B,
+  FeatureMOVBE,
+  FeaturePOPCNT,
+  FeaturePCLMUL,
+  FeatureAES,
+  FeatureSlowDivide64,
+  FeatureCallRegIndirect,
+  FeaturePRFCHW,
+  FeatureSlowLEA,
+  FeatureSlowIncDec,
+  FeatureSlowBTMem,
+  FeatureLAHFSAHF,
+  FeatureMPX,
+  FeatureSMAP,
+  FeatureSHA,
+  FeatureRDSEED,
+  FeatureXSAVE,
+  FeatureXSAVEOPT,
+  FeatureXSAVEC,
+  FeatureXSAVES,
+  FeatureCLFLUSHOPT,
+  FeatureFSGSBase
+]>;
+def : GoldmontProc<"goldmont">;
+def : GoldmontProc<"glm">;
+// endif INTEL_CUSTOMIZATION
 
 // "Arrandale" along with corei3 and corei5
 class NehalemProc<string Name> : ProcessorModel<Name, SandyBridgeModel, [

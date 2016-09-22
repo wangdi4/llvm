@@ -128,9 +128,10 @@ public:
                                      Instruction *InsertPt);
 
     /// \brief Generate source location information from Instruction DebugLoc
-    static AllocaInst* genKmpcLocfromDebugLoc(Function *F, Instruction *AI, 
-                                              StructType *IdentTy, int Flags, 
-                                              BasicBlock *BS, BasicBlock *BE);
+    static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
+                                                  StructType *IdentTy,
+                                                  int Flags, BasicBlock *BS,
+                                                  BasicBlock *BE);
 
     /// \brief Generate a call to notify the runtime system that the static 
     /// loop scheduling is started 
@@ -152,41 +153,146 @@ public:
                                        Value *Tid, Instruction *InsertPt);
 
     /// \brief Generate source location information for Explicit barrier
-    static AllocaInst* genKmpcLocforExplicitBarrier(Function *F, 
-                                                    Instruction *InsertPt, 
-                                                    StructType *IdentTy, 
-                                                    BasicBlock *BB);
+    static GlobalVariable *genKmpcLocforExplicitBarrier(Function *F,
+                                                        Instruction *InsertPt,
+                                                        StructType *IdentTy,
+                                                        BasicBlock *BB);
 
     /// \brief Generate source location information for Implicit barrier
-    static AllocaInst* genKmpcLocforImplicitBarrier(WRegionNode *W,
-                                                    Function *F,
-                                                    Instruction *InsertPt,
-                                                    StructType *IdentTy,
-                                                    BasicBlock *BB);
+    static GlobalVariable *genKmpcLocforImplicitBarrier(WRegionNode *W,
+                                                        Function *F,
+                                                        Instruction *InsertPt,
+                                                        StructType *IdentTy,
+                                                        BasicBlock *BB);
 
-    /// \brief Generates KMPC runtime call to the function \p IntrinsicName with
-    /// arguments Loc(obtained using \p IdentTy) and \p Args. The function inserts Instructions in
-    /// the IR for obtaining Loc, before the \p InsertPt, and inserts the
-    /// function prototype into the module symbol table. But it does not insert
-    /// the final KMPC call.
+    /// \brief Generates a critical section surrounding all the inner
+    /// BasicBlocks of the WRegionNode \p W. The function works only on
+    /// directives which have an Entry BasicBlock with "DIR.OMP..." intrinsic
+    /// calls, and an exit BasicBlock with a corresponding "DIR.OMP.END..."
+    /// calls. The middle BasicBlocks will then be surrounded by a critical
+    /// section. The function emits calls to `__kmpc_critical` and
+    /// `__kmpc_end_critical` in positions marked in the following diagram:
+    ///
+    ///    EntryBB:
+    ///      call void @llvm.intel.directive(metadata !"DIR.OMP...")
+    ///      call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+    /// +------< begin critical >
+    /// |    br label %BB1
+    /// |
+    /// |  BB1:
+    /// |    ...
+    /// |  ...
+    /// |    br label %ExitBB
+    /// |
+    /// |  ExitBB:
+    /// |    call void @llvm.intel.directive(metadata !"DIR.OMP.END...")
+    /// |    call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+    /// +------< end critical >
+    ///      br label %..
+    ///
+    /// \p IdentTy is needed to obtain the Loc struct for the KMPC calls.
+    /// \p TidPtr is the AllocaInst for ThreadId, needed for the KMPC calls.
+    /// \p LockNameSuffix will be used as suffix in the name of the lock
+    /// variable used for the critical section. (The prefix is determined based
+    /// on the architecture and the kind of WRegionNode \W).
+    ///
+    /// Example KMPC calls:
+    /// call void @__kmpc_begin_critical(%ident_t* %loc.addr.11.12, i32 %my.tid,
+    /// [8 x i32]* @_kmpc_atomic_lock)
+    ///
+    /// call void @__kmpc_end_critical(%ident_t* %loc.addr.11.122, i32 %my.tid1,
+    /// [8 x i32]* @_kmpc_atomic_lock)
+    ///
+    /// \returns `true` if the calls to `__kmpc_critical` and
+    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
+    static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                       AllocaInst *TidPtr,
+                                       const StringRef &LockNameSuffix);
+
+    /// \brief Identical to the function above, but uses a default suffix for
+    /// the name of the lock variable to be used for the critical section.
+    /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
+    /// const StringRef &) for more details.
+    ///
+    /// \returns `true` if the calls to `__kmpc_critical` and
+    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
+    static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                       AllocaInst *TidPtr);
+
+    /// \brief This function generates a call to query if the current thread
+    /// is master thread or a call to end_master for the team of threads.
+    ///   call master = @__kmpc_master(%ident_t* %loc, i32 %tid)
+    ///      or
+    ///   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
+    static CallInst* genKmpcMasterOrEndMasterCall(WRegionNode *W,
+                       StructType *IdentTy, Value *Tid, Instruction *InsertPt,
+                       bool IsMasterStart);
+
+    /// \brief This function generates a call to guard single-region is
+    /// executed by one of threads in the enclosing thread team.
+    ///
+    ///   call single = @__kmpc_single(%ident_t* %loc, i32 %tid)
+    ///      or
+    ///   call void @__kmpc_end_single(%ident_t* %loc, i32 %tid)
+    static CallInst* genKmpcSingleOrEndSingleCall(WRegionNode *W,
+                       StructType *IdentTy, Value *Tid, Instruction *InsertPt,
+                       bool IsSingleStart);
+
+    /// \Brief This function generates calls to guard the ordered thread
+    /// execution for the ordered/end ordered region.
+    ///
+    ///   call void @__kmpc_ordered(%ident_t* %loc, i32 %tid)
+    ///      or
+    ///   call void @__kmpc_end_ordered(%ident_t* %loc, i32 %tid)
+    static CallInst* genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
+                       StructType *IdentTy, Value *Tid,
+                       Instruction *InsertPt, bool IsOrderedStart);
+
+    /// \brief Generates KMPC runtime call to the function \p IntrinsicName
+    /// with arguments Loc(obtained using \p IdentTy), Tid (Obtained using \p
+    /// TidPtr), and \p Args.
+    /// \param TidPtr is the AllocaInst for Tid.
     /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
     /// KMPC call.
     /// \param IntrinsicName is the name of the function.
     /// \param ReturnTy is the return type of the function.
     /// \param Args arguments for the function call.
-    /// \returns the generated CallInst.
-    static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
-                                 Instruction *InsertPt, StringRef IntrinsicName,
-                                 Type *ReturnTy, ArrayRef<Value *> Args);
+    /// Note: The function inserts a LoadInst for getting Tid, into the IR
+    /// (before the \p InsertPt), and inserts the function prototype for the
+    /// KMPC intrinsic \p IntrinsicName into the module symbol table. But it
+    /// does not insert the KMPC call into the IR.
+    ///
+    /// \returns The generated CallInst.
+    static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
+                                        AllocaInst *TidPtr,
+                                        Instruction *InsertPt,
+                                        StringRef IntrinsicName, Type *ReturnTy,
+                                        ArrayRef<Value *> Args);
 
-  private:
-    ///  \name Private constructor and destructor to disable instantiation.
+private:
+    /// \name Private constructor and destructor to disable instantiation.
     /// @{
 
     VPOParoptUtils() = delete;
     ~VPOParoptUtils() = delete;
 
     /// @}
+
+    /// \name Helper methods for generating a KMPC call.
+    /// @{
+
+    /// \brief Generates KMPC runtime call to the function \p IntrinsicName
+    /// with arguments Loc(obtained using \p IdentTy) and \p Args.
+    /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
+    /// KMPC call.
+    /// \param IntrinsicName is the name of the function.
+    /// \param ReturnTy is the return type of the function.
+    /// \param Args arguments for the function call.
+    ///
+    /// \returns the generated CallInst.
+    static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
+                                 Instruction *InsertPt, StringRef IntrinsicName,
+                                 Type *ReturnTy, ArrayRef<Value *> Args);
 
     /// \brief Generates a call to the function \p FnName.
     /// If the function is not already declared in the module \p M, then it is
@@ -195,8 +301,82 @@ public:
     /// \param FnName Name of the function.
     /// \param ReturnTy Return type of the function.
     /// \param FnArgs Arguments for the function call.
+    ///
+    /// \returns the generated CallInst.
     static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
                              ArrayRef<Value *> FnArgs);
+
+    /// @}
+
+    /// \name Helper methods for generating a Critical Section.
+    /// @{
+
+    /// \brief Creates a prefix for the name of the lock var to be used in KMPC
+    /// critical calls based on the kind of WRegionNode \p W.
+    ///
+    /// \returns A string prefix for the KMPC Lock object for \p W.
+    static SmallString<64> getKmpcCriticalLockNamePrefix(WRegionNode *W);\
+
+    /// \brief Returns a GlobalVariable that can be used as the Lock object for
+    /// `__kmpc_critical` and __kmpc_end_critical` calls.
+    /// \p W is used to determine the name of the Lock object generated.
+    /// \p LockNameSuffix will be used as suffix in the name of the lock
+    /// variable used for the critical section. (The prefix is determined based
+    /// on the architecture and the kind of WRegionNode \W).
+    ///
+    /// \returns The lock variable for the critical section to be generated.
+    static GlobalVariable *
+    genKmpcCriticalLockVar(WRegionNode *W, const StringRef &LockNameSuffix);
+
+    /// \brief Handles generation of a critical section around \p BeginInst
+    /// and \p EndInst.
+    /// The function needs a lock variable \p LockVar, which is generated by
+    /// genKmpcCriticalLockVar().
+    /// \see genKmpcCriticalSection() functions more details. They are the
+    /// public functions which invokes this private helper.
+    ///
+    /// \returns `true` if the calls to `__kmpc_critical` and
+    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
+    static bool genKmpcCriticalSectionImpl(WRegionNode *W, StructType *IdentTy,
+                                           AllocaInst *TidPtr,
+                                           Instruction *BeginInst,
+                                           Instruction *EndInst,
+                                           GlobalVariable *LockVar);
+
+    /// \brief Generates a critical section around Instructions \p BeginInst
+    /// and \p EndInst. The function emits calls to `__kmpc_critical`
+    /// before \p BeginInst and `__kmpc_end_critical` after \p EndInst.
+    ///
+    /// +------< begin critical >
+    /// |    BeginInst
+    /// |    ...
+    /// |    ...
+    /// |    EndInst
+    /// +------< end critical >
+    ///
+    /// \p BeginInst is the Instruction before which the call to
+    /// `__kmpc_critical` is inserted.
+    /// \p EndInst is the Instruction after which the call to
+    /// `__kmpc_end_critical` is inserted.
+    ///
+    /// Note: Other Instructions, aside from the `__kmpc_critical` and
+    /// `__kmpc_end_critical` calls, which are needed for the KMPC calls,
+    /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
+    /// Note: This method is currently private, but can be made public if needed.
+    ///
+    /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
+    /// const StringRef &) for examples of the KMPC critical calls.
+    ///
+    /// \returns `true` if the calls to `__kmpc_critical` and
+    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
+    static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                       AllocaInst *TidPtr,
+                                       Instruction *BeginInst,
+                                       Instruction *EndInst,
+                                       const StringRef &LockNameSuffix);
+
+    /// @}
+
     };
 
 } // End vpo namespace

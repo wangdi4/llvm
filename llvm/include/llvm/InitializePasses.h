@@ -168,6 +168,7 @@ void initializeImplicitNullChecksPass(PassRegistry&);
 void initializeIndVarSimplifyLegacyPassPass(PassRegistry&);
 void initializeInductiveRangeCheckEliminationPass(PassRegistry&);
 void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
+void initializeInlineAggressiveAnalysisPass(PassRegistry&); // INTEL
 void initializeInlineCostAnalysisPass(PassRegistry&);
 void initializeInstCountPass(PassRegistry&);
 void initializeInstNamerPass(PassRegistry&);
@@ -421,6 +422,7 @@ void initializeSIMDLaneEvolutionHIRPass(PassRegistry&);
 void initializeVPODriverPass(PassRegistry&);
 void initializeVPODriverHIRPass(PassRegistry&);
 void initializeVPODirectiveCleanupPass(PassRegistry&);
+void initializeVectorGraphInfoPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
 void initializeSjLjEHPreparePass(PassRegistry&);
@@ -429,6 +431,7 @@ void initializeFuncletLayoutPass(PassRegistry &);
 void initializeLoopLoadEliminationPass(PassRegistry&);
 void initializeFunctionImportPassPass(PassRegistry &);
 void initializeLoopVersioningPassPass(PassRegistry &);
+void initializeWholeProgramWrapperPassPass(PassRegistry&); // INTEL
 void initializeWholeProgramDevirtPass(PassRegistry &);
 void initializePatchableFunctionPass(PassRegistry &);
 }

@@ -43,10 +43,9 @@ using namespace llvm;
 namespace {
 
 /// This internal switch can be used to turn off the Global FMA optimization.
-/// Currently the optimization is turned OFF by default.
 static cl::opt<bool> DoFMAOpt("do-x86-global-fma",
                               cl::desc("Enable the global FMA opt."),
-                              cl::init(false), cl::Hidden);
+                              cl::init(true), cl::Hidden);
 
 /// This internal switch regulates the amount of debug messages printed
 /// by the Global FMA optimization.

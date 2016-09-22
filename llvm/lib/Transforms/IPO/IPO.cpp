@@ -55,6 +55,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeSampleProfileLoaderLegacyPassPass(Registry);
   initializeFunctionImportLegacyPassPass(Registry);
   initializeWholeProgramDevirtPass(Registry);
+  initializeInlineAggressiveAnalysisPass(Registry);  // INTEL
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {

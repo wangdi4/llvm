@@ -99,13 +99,42 @@ public:
   /// \brief Returns a new AVRLoop node.
   static AVRLoop *createAVRLoop();
 
+  /// \brief Returns a new AVRPredicate node.
+  static AVRPredicate *createAVRPredicate();
+
+  /// \brief Returns a new AVRAssign node.
+  static AVRAssign *createAVRAssign();
+
+  /// \brief Returns a new AVRValue node.
+  static AVRValue *createAVRValue(Constant *ConstVal);
+
+  /// \brief Returns a new AVRValue node.
+  static AVRValue *createAVRValue(AVRExpression *ReachingDef);
+
+  /// \brief Returns a new AVRExpression node.
+  static AVRExpression *createAVRExpression(Type *ValType,
+                                            const SmallVectorImpl<AVR*>& Operands,
+                                            unsigned Operation,
+                                            CmpInst::Predicate Predicate = CmpInst::BAD_ICMP_PREDICATE);
+
   /// \brief Returns a new AVRBranch node.
   static AVRBranch *createAVRBranch(AVRLabel *Sucessor);
 
   /// \brief Returns a new AVRNOP node.
   static AVRNOP *createAVRNOP();
 
+  /// \brief Returns a new AVRBlock node.
+  static AVRBlock *createAVRBlock();
+
   // Modification Utilities
+
+  /// \brief set Avr nodes's predicate.
+  static void setPredicate(AVR *Avr, AVRPredicate* Predicate);
+
+  /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
+  static void addAVRPredicateIncoming(AVRPredicate *APredicate,
+                                      AVRPredicate *IncomingPredicate,
+                                      AVR *IncomingCondition);
 
   /// \brief Sets AvrAssign's LHS to Node.
   static void setAVRAssignLHS(AVRAssign *AvrAssign, AVR *Node);
@@ -125,6 +154,12 @@ public:
 
   /// \brief set Avr nodes's SLEV data.
   static void setSLEV(AVR *Avr, const SLEV& Slev);
+
+  static void setBlockCondition(AVRBlock* ABlock, AVR *Avr);
+
+  static void addSuccessor(AVRBlock* Block, AVRBlock* Successor);
+
+  static void addSchedulingConstraint(AVRBlock* Block, AVRBlock* Constraint);
 
   /// \brief Sets AvrLoop's zero trip test
   static void setZeroTripTest(AVRLoop *AvrLoop, AVRIf *IfZtt);
@@ -245,6 +280,23 @@ public:
   /// wrn node, Parent. The order of NodeContainer is insertion order.
   /// The contents of NodeContainer will be empty after insertion.
   static void insertLastChildren(AVRWrn *Parent, AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts Node as first child in block (Parent) node's children.
+  static void insertFirstChild(AVRBlock *Parent, AVR *Node);
+
+  /// \brief Inserts Node as last child in block (Parent) node's children.
+  static void insertLastChild(AVRBlock *Parent, AVR *Node);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as first children of
+  /// block node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertFirstChildren(AVRBlock *Parent,
+                                  AVRContainerTy *NodeContainer);
+
+  /// \brief Inserts unlinked Nodes in NodeContainer as last children of
+  /// block node, Parent. The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertLastChildren(AVRBlock *Parent, AVRContainerTy *NodeContainer);
 
   /// \brief Inserts Node as first 'then' child in if (Parent) node's 'then'
   /// children.
@@ -417,6 +469,10 @@ public:
   /// at the beginning of 'Else' children of AvrIf.
   static void moveAsFirstElseChildren(AVRIf *AIf, AvrItr First, AvrItr Last);
 
+  /// \brief Unlinks [First, Last] from its current location and inserts them
+  /// at the end of the block's children.
+  static void moveAsLastChildren(AVRBlock *ABlock, AvrItr First, AvrItr Last);
+  
   /// \brief Unlinks [First, Last] from their current location and inserts them
   /// at the beginning of ASwitch's default case.
   static void moveAsFirstDefaultChildren(AVRSwitch *ASwitch, AvrItr First,

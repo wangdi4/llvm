@@ -26,6 +26,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/Intel_WP.h"                  // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -1121,6 +1122,8 @@ struct PostOrderFunctionAttrsLegacyPass : public CallGraphSCCPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<WholeProgramWrapperPass>();               // INTEL
+    AU.addUsedIfAvailable<WholeProgramWrapperPass>();         // INTEL
     AU.addRequired<AssumptionCacheTracker>();
     getAAResultsAnalysisUsage(AU);
     CallGraphSCCPass::getAnalysisUsage(AU);
@@ -1139,7 +1142,8 @@ INITIALIZE_PASS_END(PostOrderFunctionAttrsLegacyPass, "functionattrs",
 Pass *llvm::createPostOrderFunctionAttrsLegacyPass() { return new PostOrderFunctionAttrsLegacyPass(); }
 
 template <typename AARGetterT>
-static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter) {
+static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter,   // INTEL
+  WholeProgramWrapperPass* WPA) {                              // INTEL
   bool Changed = false;
 
   // Fill SCCNodes with the elements of the SCC. Used for quickly looking up
@@ -1156,6 +1160,16 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter) {
       ExternalNode = true;
       continue;
     }
+
+#if INTEL_CUSTOMIZATION
+  // Treat “main” as non-recursive function if there are no uses
+  // when whole-program-safe is true.
+  if (F->getName() == "main" && F->use_empty()) {
+    if (WPA && WPA->getResult().isWholeProgramSafe()) {
+      Changed |= setDoesNotRecurse(*F);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
     SCCNodes.insert(F);
   }
@@ -1191,7 +1205,8 @@ bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {
     return *AAR;
   };
 
-  return runImpl(SCC, AARGetter);
+  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>(); // INTEL
+  return runImpl(SCC, AARGetter, WPA);                           // INTEL
 }
 
 namespace {
@@ -1205,6 +1220,7 @@ struct ReversePostOrderFunctionAttrsLegacyPass : public ModulePass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     AU.addRequired<CallGraphWrapperPass>();
     AU.addPreserved<CallGraphWrapperPass>();
   }

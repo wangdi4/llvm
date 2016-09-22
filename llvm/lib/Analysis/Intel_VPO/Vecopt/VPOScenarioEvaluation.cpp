@@ -15,18 +15,25 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOPredicator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
+#include "llvm/Analysis/Intel_OptVLSClientUtils.h"
 
 #define DEBUG_TYPE "VPOScenarioEvaluation"
 
-static cl::opt<unsigned> DefaultVF("default-vpo-vf", cl::init(4),
+static cl::opt<unsigned> DefaultVF("default-vpo-vf", cl::init(0),
                                    cl::desc("Default vector length"));
+static cl::opt<unsigned> EnableVectVLS("enable-vect-vls", cl::init(1),
+                             cl::desc("Enable VLS group analysis by default"));
 
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
+
+#undef USE_EXPERIMENTAL_CODE
+//#define USE_EXPERIMENTAL_CODE 1
 
 // Given a region that contains loops/loop-nest, decide which of the loops
 // (or combinations of loops) to vectorize, and how.
@@ -66,27 +73,39 @@ using namespace llvm::loopopt;
 // CHECKME: A different flow for different optimization levels?
 //
 // Implementation stages (for innermost loop vectorization):
-// Step0 [current]: Incorporate the VLS Memref analysis and VLS Group analysis
+// Step0 [done]: Incorporate the VLS Memref analysis and VLS Group analysis
 //        into the vectorizer.
 //        "evaluate" a single given/default VF candidate (dummy evaluation);
 //        No AVR changes.
 //        No Compile-time considerations.
 //        No changes in the behavior of the vectorizer.
-// Step1: Really evaluate a single given/default VF candidate (via TTI costs);
+// Step1: [done] Really evaluate a single given/default VF candidate (via TTI costs);
 //        Still no AVR changes.
 //        Still no Compile-time considerations.
 //        VLSGroups ignored in cost analysis.
 //        Given the default VF, the Vectorizer may now decide not to vectorize.
-// Step2: Evaluate several VF candidates;
+// Step2: [current] Evaluate several VF candidates;
 //        Still no Compile-time considerations.
 //        Still no AVR changes.
-// Step3: Refine the skeleton: Optimize (minimize) processing across VF
-//        candidates (for Compile time).
+// Step3: Fill remaining holes in the cost evaluation
 // Step4: Take into account VLSGroups in cost evaluation.
 // Step5: Prepare mechanism to allow changing the AVR.
 // Step6: Incorporate passes that may change the AVR.
+// Step7: Refine the skeleton: Optimize (minimize) processing across VF
+//        candidates (for Compile time).
 // Step7: ...
-VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
+VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
+
+  // Set the default VF according to any directives or user compiler switches,
+  // or otherwise set it to 1.
+  ForceVF = AWrn->getSimdVectorLength();
+  DEBUG(errs() << "VF = " << ForceVF << " DefaultVF = " << DefaultVF << "\n");
+  if (ForceVF == 0) {
+    ForceVF = DefaultVF;
+  }
+  int initialVF = ForceVF ? ForceVF : 1;
+  //DEBUG(errs() << "Set dummy vectCand with VF = " << initialVF << "\n");
+  VPOVecContextBase VectCand(initialVF); 
 
 #if 1
   // FORNOW: An AVRWrn node is expected to have only one AVRLoop child
@@ -95,7 +114,7 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
        ++Itr) {
     if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
       if (AvrLoop)
-        return nullptr;
+        return VectCand;
 
       AvrLoop = TempALoop;
     }
@@ -103,7 +122,7 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
 
   // Check that we have an AVRLoop
   if (!AvrLoop)
-    return nullptr;
+    return VectCand; 
 #endif
 
   // Loop over search space of candidates within AWrn. In the future this will
@@ -111,8 +130,6 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
   // FORNOW: we expect to encounter only a single ALoop in AWrn.
   // So FORNOW: A region has a single innermost loop, and therefore a single
   // scenario: Scenario == a single AvrLoop considered for vectoriztion
-
-  VPOVecContextBase *VectCand;
 
   // TODO: CostOfBestScenario = 0;
   // TODO: foreach Scenario:
@@ -122,19 +139,32 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
     {
       setALoop(AvrLoop);
 
+      // VectCand represents the best way to vectorize this loop, including
+      // compared to leaving it scalar (in which case VectCand in null);
+
+      // Check if widening stage supports this loop. If ForceVF is zero, 
+      // isLoopHandled will not check if a remainder loop is needed.
+      // FORNOW: If this loop is not supported, return a dummy VC; In the 
+      // future we should continue to next candidate loop in region.
+#ifndef USE_EXPERIMENTAL_CODE
+      if (!loopIsHandled(ForceVF))
+        return VectCand;
+#endif
+
+      int BestCostForALoop = 0;
       // Get the scalar cost for this loop.
+      // (No need to compute the cost if ForceVF is set to a VF forced by the 
+      // user).
       //
       // FORNOW: Calculate cost only for the candidate AvrLoop. We assume that
       // the rest of the code in the region will remain the same between the
       // scalar and vector versions.
-      int BestCostForALoop = getCM()->getCost(ALoop, 1);
+      if (ForceVF == 0) {
+        BestCostForALoop = getCM()->getCost(ALoop, 1, nullptr);
+      }
       DEBUG(errs() << "Scalar Cost for candidate Loop = " << BestCostForALoop
                    << "\n");
       DEBUG(ALoop->dump(PrintDataType));
-
-      // VectCand represents the best way to vectorize this loop, including
-      // compared to leaving it scalar (in which case VectCand in null);
-      VectCand = nullptr;
 
       VectCand = processLoop(AvrLoop, &BestCostForALoop);
 
@@ -161,33 +191,21 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
 // vector regsiters supported by the target.
 void VPOScenarioEvaluationBase::findVFCandidates(
     VFsVector &VFCandidates) const {
-  int VF = 0;
-  int MinVF, MaxVF;
-  VF = AWrn->getSimdVectorLength();
-  DEBUG(errs() << "VF = " << VF << " DefaultVF = " << DefaultVF << "\n");
-  // FORNOW: Assume the default vectorization factor when VF is 0
-  // FORNOW: We consider a single candidate.
-  // CHECKME: DefaultVF OK for LLVMIR path?
-  if (VF == 0) {
-    MinVF = DefaultVF;
-    MaxVF = DefaultVF;
+  unsigned int MinVF, MaxVF;
+  if (ForceVF == 0) {
+    MinVF = 4;  // FIXME
+    MaxVF = 4;  // FIXME
   } else {
-    MinVF = VF;
-    MaxVF = VF;
+    MinVF = ForceVF;
+    MaxVF = ForceVF;
   }
 
-  // FORNOW: We consider a single VF.
-  assert(MinVF == MaxVF && "No support for multiple VF candidates.");
-  // (FORNOW: iterate once:)
-  for (VF = MinVF; VF <= MaxVF; VF *= 2) {
+  for (unsigned int VF = MinVF; VF <= MaxVF; VF *= 2) {
     VFCandidates.push_back(VF);
   }
 }
 
-#undef USE_EXPERIMENTAL_CODE
-// #define USE_EXPERIMENTAL_CODE 1
-
-VPOVecContextBase *
+VPOVecContextBase
 VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
   DEBUG(errs() << "Process Loop\n");
 
@@ -210,6 +228,9 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
   getSLEVUtil().runOnAvr(AWrn->child_begin(), AWrn->child_end());
   DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After SLEV analysis:\n";
         AWrn->print(FOS, 1, PrintNumber));
+
+  VPOPredicator Predicator;
+  Predicator.runOnAvr(VPOScenarioEvaluationBase::ALoop);
 #endif
 
   // Identify VF candidates
@@ -219,14 +240,14 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
 
   // Evaluate each VF candidate
   //
-  VPOVecContextBase *BestCand = nullptr;
+  VPOVecContextBase BestCand(1);
   for (auto &VF : VFCandidates) {
 
     DEBUG(errs() << "Evaluate candidate with VF = " << VF << "\n");
     // Currently VecContext is used to hold underlying-IR level information
     // required for some of the analyses in processCandidates (namely, for VLS
     // grouping).
-    VPOVecContextBase &VC = setVecContext(VF);
+    VPOVecContextBase VC = setVecContext(VF);
     int Cost = processCandidate(ALoop, VF, VC);
 
     // FIXME: Change condition back to <; FORNOW using <= simply to avoid
@@ -234,7 +255,7 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
     // tests expect will be vectorized.
     if (Cost <= *BestCostForALoop) {
       *BestCostForALoop = Cost;
-      BestCand = &VC;
+      BestCand = VC;
       DEBUG(errs() << "New Best Candidate Cost = " << *BestCostForALoop
                    << " for VF = " << VF << " \n");
     }
@@ -283,6 +304,10 @@ int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
   // the memrefs. Revisit this based on how we want to handle memrefs in VPO in
   // general.
   VPOVLSInfoBase *VLSInfo = getVLSInfoForCandidate();
+  // Analyze the Loop Memrefs; Produce a mapping from each memory access to 
+  // the respective OVLSMemref object that contains the information and 
+  // utilities required for VLS group analysis. The resulting map resides in 
+  // the VLSInfo object.
   OVLSMemrefVector VLSMrfs;
   VLSInfo->analyzeVLSMemrefsInLoop(VLSMrfs);
 
@@ -294,13 +319,28 @@ int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
   // Context). May want to expose this explicitly here (passing around
   // base-class objects) rather than keeping the derived-class objects
   // internally.
+  //
+  // Produce a mapping from each memory access to the respective VLS Group
+  // it belongs to. The resulting map from memrefs to groups resides in 
+  // the VLSInfo object.
   OVLSGroupVector VLSGrps;
   VLSInfo->analyzeVLSGroupsInLoop(VLSMrfs, VLSGrps);
+#if 0 // Testing
+  // Do something with the grps.
+  OVLSTTICostModelHIR VLSCM(TTI, LLVMCntxt); 
+  for (OVLSGroup *Grp : VLSGrps) {
+    int64_t Cost = OptVLSInterface::getGroupCost(*Grp, VLSCM); 
+    DEBUG(errs() << "Cost for Group = " << Cost << "\n");
+  }
+#endif
 
   // Calculate the cost of the current candidate
+  // (No need to calculate cost if the user forced a specific VF).
   //
-  // FORNOW: The VLS Groups are not yet used by the CostModel.
-  int Cost = getCM()->getCost(ALoop, VF);
+  int Cost = 0; 
+  if (ForceVF == 0) { 
+    Cost = getCM()->getCost(ALoop, VF, VLSInfo);
+  } 
   DEBUG(errs() << "Vector Cost for candidate Loop = " << Cost << "\n");
 
   // Cleaups.
@@ -355,7 +395,7 @@ int64_t getConsecutiveStride(AVRValue *PtrOp) {
     return -1;
   return 0;
 #else
-  // Optimistic... 
+  // Optimistic... (just so we don't break current LLVMIR tests)
   return 1;
 #endif
 }
@@ -365,28 +405,28 @@ int64_t getConsecutiveStride(AVRValue *PtrOp) {
 // TODO: Support Reductions, Inductions, Calls, Select, Compare, Branch, Phi. 
 // TODO: Move to a different module.
 void VPOCostGathererBase::visit(AVRLoop *Loop) {
-  DEBUG(errs() << "visiting loop!\n");
+//  DEBUG(errs() << "visiting loop!\n");
 }
 
 // TODO: If this is an inner-loop inside the ALoop being vectorized: multiply
 // by the iteration-count
 void VPOCostGathererBase::postVisit(AVRLoop *Loop) {
-  DEBUG(errs() << "visited loop!\n");
+  //DEBUG(errs() << "visited loop!\n");
 }
 
 void VPOCostGathererBase::visit(AVRAssign *Assign) {
-  DEBUG(errs() << "visiting assign!\n");
+  //DEBUG(errs() << "visiting assign!\n");
 }
 
 // TODO: Take blend cost into account if masked.
 void VPOCostGathererBase::postVisit(AVRAssign *Assign) {
-  DEBUG(errs() << "visited assign!\n");
+  //DEBUG(errs() << "visited assign!\n");
 }
 
 // Following will soon move under handling of Expr
 #if 1
 void VPOCostGathererBase::visit(AVRLabel *Label) {
-  DEBUG(errs() << "visit Label!\n");
+  //DEBUG(errs() << "visit Label!\n");
 }
 
 void VPOCostGathererBase::visit(AVRCall *Call) {
@@ -429,7 +469,7 @@ void VPOCostGathererBase::visit(AVR *ANode) {
 #endif
 
 void VPOCostGathererBase::visit(AVRExpression *Expr) {
-  DEBUG(errs() << "visiting expr!\n");
+  //DEBUG(errs() << "visiting expr!\n");
   if (Expr->isLHSExpr()) {
     // We assume that there is no operation here, just a Value
     return;
@@ -448,18 +488,18 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
   VectorTy = ToVectorTy(Expr->getType(), VF);
 #endif
 
-  DEBUG(errs() << "visit expr: \n");
-  DEBUG(Expr->dump(PrintDataType));
+  //DEBUG(errs() << "visit expr: \n");
+  //DEBUG(Expr->dump(PrintDataType));
   if (Expr->isLHSExpr()) {
     // FORNOW: Not contributing any cost
     // TODO: What about costly address computations on HIR side?
-    DEBUG(errs() << "visited expr: LHS: no cost contributed!\n");
+    // DEBUG(errs() << "visited expr: LHS: no cost contributed!\n");
     return;
   }
 
   switch (Expr->getOperation()) {
   case Instruction::GetElementPtr: {
-    DEBUG(errs() << "Query cost of getElementPtr\n");
+    // DEBUG(errs() << "Query cost of getElementPtr\n");
     // "We mark this instruction as zero-cost because the cost of GEPs in
     // vectorized code depends on whether the corresponding memory instruction
     // is scalarized or not. Therefore, we handle GEPs with the memory
@@ -587,7 +627,7 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
 
   case Instruction::Load:
   case Instruction::Store: {
-    DEBUG(errs() << "TODO: Query cost of load/store instruction\n");
+    //DEBUG(errs() << "Query cost of load/store instruction\n");
 
     // 0. Get the pointer and value operands
     bool isStore = (Expr->getOperation() == Instruction::Store ? true : false);
@@ -622,7 +662,8 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
     // 2. Get the Address Space
     unsigned AS = PtrType->getPointerAddressSpace();
 
-// Case 1: A scalar ld/st will be generated
+    // Case 1: A scalar ld/st will be generated
+    //
 #ifdef USE_EXPERIMENTAL_CODE
     if (VF == 1 || Expr->getSLEV().isUniform()) {
 #else
@@ -634,13 +675,13 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
       break;
     }
 
-// TODO: Account for brodacst cost (for loads).
-// Only if the loaded value is used in an operation that will be
-// widened do we need a brodcast. So we defer this to processing of the
-// loaded value upon its use.
-// FIXME: This means we may be taking this cost multiple times at each use.
-// CHECKME: Do we want to account for this cost here or when we process the
-// used Value?
+    // TODO: Account for brodacst cost (for loads).
+    // Only if the loaded value is used in an operation that will be
+    // widened do we need a brodcast. So we defer this to processing of the
+    // loaded value upon its use.
+    // FIXME: This means we may be taking this cost multiple times at each use.
+    // CHECKME: Do we want to account for this cost here or when we process the
+    // used Value?
 #if 0
     if (LI && Legal->isUniform(Ptr)) {
       // Scalar load + broadcast
@@ -653,23 +694,78 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
     }
 #endif
 
-    // Case 2: Strided access, part of VLS group
-    // TODO.
+    // TODO: consider masking
+    bool isMaskRequired = false; // FIXME
 
-    // Classify the access
-    int64_t ConsecutiveStride = getConsecutiveStride(PtrOp);
-    DEBUG(errs() << "ConsecutiveStride = " << ConsecutiveStride << "\n");
+    // Classify the access (stride)
+    //
+    int64_t ConsecutiveStride = 0;
+    int64_t StrideInElements = 0;
+
+    VPOVLSInfoBase *VLSInfo = getVLSInfo();
+    assert(VLSInfo && "VLSInfo not available"); 
+    OVLSMemref *Mrf = VLSInfo->getVLSMemrefInfoForAccess(PtrOp);
     Type *DataTy = (cast<PointerType>(PtrType))->getElementType();
+     
+#ifdef USE_EXPERIMENTAL_CODE 
+    ConsecutiveStride = getConsecutiveStride(PtrOp);
+    if (PtrOp->getSLEV().isStrided()) {
+      StrideInElements =
+          PtrOp->getSLEV().getStride().getInteger().getSExtValue();
+    } 
+#else
+    // Temporary work around until SLEV is operational
+    int64_t StrideInBytes;
+    if (Mrf && Mrf->hasAConstStride(&StrideInBytes)) {
+      unsigned ElemSize = DataTy->getPrimitiveSizeInBits() / 8;
+      if (DataTy->isPointerTy()) {
+        // Avoid div-by-zero for pulldown purpose.
+        // TODO: Load can be a pointer. What do we do?
+        Cost = 0;
+        break; 
+      }
+      StrideInElements = StrideInBytes / ElemSize;
+      if ((StrideInElements == 1) || (StrideInElements == -1))
+        ConsecutiveStride = StrideInElements;
+    } 
+    else {
+      ConsecutiveStride = getConsecutiveStride(PtrOp);
+    }
+#endif
+    DEBUG(errs() << "Consecutive Stride = " << ConsecutiveStride << "\n");
+    DEBUG(errs() << "Stride = " << StrideInElements << "\n");
+    bool Reverse = ConsecutiveStride < 0;
     bool isGatherOrScatterLegal = (isLoad && TTI.isLegalMaskedGather(DataTy)) ||
                                   (isStore && TTI.isLegalMaskedScatter(DataTy));
-
     bool UseGatherOrScatter =
         (ConsecutiveStride == 0) && isGatherOrScatterLegal;
 
-    bool Reverse = ConsecutiveStride < 0;
+    // Case 2: Strided access, part of VLS group
+    //
+    OVLSGroup *Grp = nullptr;
+    if (Mrf) 
+      Grp = VLSInfo->getVLSGroupInfoForVLSMemref(Mrf);
+    if (Grp && !ConsecutiveStride && EnableVectVLS) {
+      DEBUG(errs() << "Found a VLS group for the access!\n");
+      // The group cost is accounted in its entirety to the first Memref of Grp 
+      if (Mrf == Grp->getFirstMemref()) {
+        OVLSTTICostModel *TTICM = getVLSCostModel(); 
+        int64_t GrpCost = OptVLSInterface::getGroupCost(*Grp, *TTICM); 
+        Cost = GrpCost;
+        DEBUG(errs() << "Group Cost = " << Cost << "\n");
+        break;
+      }
+      // If this memref is in a VLS group but is not the first Memref of the 
+      // group -- no cost is added (as the entire group cost is accounted to 
+      // the first Memref of the group).
+      DEBUG(errs() << "skip -- not first access of the group!\n");
+      Cost = 0;
+      break; 
+    }
 
-// Case 3: Scalarized loads/stores
-// (for non unit-stride access without gather/scatter support)
+    // Case 3: Scalarized loads/stores
+    // (for non unit-stride access without gather/scatter support)
+    //
 #if 0
     // TODO:
     const DataLayout &DL = I->getModule()->getDataLayout();
@@ -679,7 +775,7 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
 #endif
     bool GapInElemSize = false; // FIXME
     if ((!ConsecutiveStride && !UseGatherOrScatter) || GapInElemSize) {
-      DEBUG(errs() << "Case 2: Scalarization Cost.\n");
+      DEBUG(errs() << "Case 2: Non-consecutive access Scalarization Cost.\n");
       bool IsComplexComputation = isLikelyComplexAddressComputation(PtrOp);
       Cost = 0;
       // The cost of extracting from the value vector and pointer vector.
@@ -704,11 +800,10 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
       break;
     }
 
-    // TODO: consider masking
-    bool isMaskRequired = false; // FIXME
     Cost = TTI.getAddressComputationCost(VectorTy);
 
     // Case 4: Non unit-stride access, using Gather/Scatter
+    //
 #ifdef USE_EXPERIMENTAL_CODE 
     if (PtrOp->getSLEV().isStrided()) {
       int64_t StrideInElements =
@@ -728,6 +823,7 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
     }
 
     // Case 5: Wide load/stores.
+    //
     // TODO: Take masking into account.
     DEBUG(errs() << "Case 4: Wide Load/Store Cost.\n");
     if (isMaskRequired)
@@ -750,8 +846,8 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
 
   // Costs related to creating the operands were already counted when
   // operands were visited. Costs related to the operation itself:
-  DEBUG(errs() << "visited expr: add cost of operation!\n");
-  DEBUG(Expr->dump(PrintDataType));
+  //DEBUG(errs() << "visited expr: add cost of operation!\n");
+  //DEBUG(Expr->dump(PrintDataType));
   DEBUG(errs() << "added a cost of " << Cost << "  to LoopBodyCost\n");
   LoopBodyCost += Cost;
 }
@@ -759,7 +855,7 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
 // TODO: Contribute the cost of producing this value if not already
 // available, according to the SLEV property.
 void VPOCostGathererBase::visit(AVRValue *AValue) {
-  DEBUG(errs() << "visiting value!\n");
+  //DEBUG(errs() << "visiting value!\n");
 }
 
 void VPOCostGathererBase::postVisit(AVRValue *AValue) {}
@@ -770,21 +866,30 @@ void VPOCostGathererBase::postVisit(AVRValue *AValue) {}
 // TODO: What additional information will the costModel need?:
 // - a Map of Memrefs to the VLS Group they belong to (if any).
 // - ?
-int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF) {
+int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF, 
+                              VPOVLSInfoBase *VLSInfo) {
   DEBUG(errs() << "getCost: VF = " << VF << "\n");
   int Cost;
 
-  assert(TTI && "No TTI available");
-  VPOCostGathererBase &CostGatherer = getCostGatherer(VF, ALoop);
-  AVRVisitor<VPOCostGathererBase> AVisitor(CostGatherer);
+  // Calculate LoopBody Cost 
+  VPOCostGathererBase *CostGatherer = getCostGatherer(VF, ALoop, VLSInfo);
+  assert(CostGatherer && "Invalid CostGatherer");
+  AVRVisitor<VPOCostGathererBase> AVisitor(*CostGatherer);
   AVisitor.visit(ALoop, true, true, true);
+  unsigned int LoopBodyCost = CostGatherer->getLoopBodyCost();
 
-  unsigned int LoopBodyCost = CostGatherer.getLoopBodyCost();
-  unsigned int OutOfLoopCost = CostGatherer.getOutOfLoopCost();
+  // Calculate OutOfLoop Costs. 
+  unsigned int LoopCount;
+  unsigned int RemainderLoopCost = getRemainderLoopCost(ALoop, VF, LoopCount);
+  DEBUG(errs() << "RemainderLoopCost = " << RemainderLoopCost
+               << " LoopCount = " << LoopCount << "\n");
+  CostGatherer->addOutOfLoopCost(RemainderLoopCost);
+  unsigned int OutOfLoopCost = CostGatherer->getOutOfLoopCost();
   DEBUG(errs() << "LoopBodyCost = " << LoopBodyCost
                << " OutOfLoopCost = " << OutOfLoopCost << "\n");
-  // FIXME: Take the LoopCount if available.
-  // TODO: Consider remainder-loop etc. costs...
-  Cost = (LoopBodyCost * 100 / VF) + OutOfLoopCost;
+  if (LoopCount <= 0) LoopCount = 100;
+  Cost = (LoopBodyCost * LoopCount / VF) + OutOfLoopCost;
+
+  delete CostGatherer;
   return Cost;
 }

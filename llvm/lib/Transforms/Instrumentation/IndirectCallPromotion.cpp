@@ -19,6 +19,7 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/IndirectCallPromotionAnalysis.h"
 #include "llvm/Analysis/IndirectCallSiteVisitor.h"
+#include "llvm/Analysis/Intel_WP.h"   // INTEL
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IRBuilder.h"
@@ -105,6 +106,12 @@ public:
   const char *getPassName() const override {
     return "PGOIndirectCallPromotion";
   }
+
+#if INTEL_CUSTOMIZATION
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<WholeProgramWrapperPass>();
+  }
+#endif // INTEL_CUSTOMIZATION
 
 private:
   bool runOnModule(Module &M) override;
@@ -657,5 +664,8 @@ PreservedAnalyses PGOIndirectCallPromotion::run(Module &M, AnalysisManager<Modul
   if (!promoteIndirectCalls(M, InLTO | ICPLTOMode))
     return PreservedAnalyses::all();
 
-  return PreservedAnalyses::none();
+  auto PA = PreservedAnalyses();        // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
+
+  return PA;                            // INTEL
 }

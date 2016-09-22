@@ -21,6 +21,8 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_AggInline.h"      // INTEL
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopInfo.h" // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -107,6 +109,10 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   CallSite CandidateCS;
 
   int Threshold;
+
+  // INTEL    Aggressive Analysis
+  InlineAggressiveAnalysis *AI;           // INTEL
+
   int Cost;
 
   bool IsCallerRecursive;
@@ -222,9 +228,12 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
 public:
   CallAnalyzer(const TargetTransformInfo &TTI,
                std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-               ProfileSummaryInfo *PSI, Function &Callee, int Threshold,
+               ProfileSummaryInfo *PSI,            // INTEL
+               InlineAggressiveAnalysis *AI,       // INTEL
+               Function &Callee, int Threshold,    // INTEL 
                CallSite CSArg)
-      : TTI(TTI), GetAssumptionCache(GetAssumptionCache), PSI(PSI), F(Callee),
+      : TTI(TTI), GetAssumptionCache(GetAssumptionCache), PSI(PSI), 
+        AI(AI), F(Callee),
         CandidateCS(CSArg), Threshold(Threshold), Cost(0),
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
@@ -975,8 +984,8 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // during devirtualization and so we want to give it a hefty bonus for
   // inlining, but cap that bonus in the event that inlining wouldn't pan
   // out. Pretend to inline the function, with a custom threshold.
-  CallAnalyzer CA(TTI, GetAssumptionCache, PSI, *F,
-                  InlineConstants::IndirectCallThreshold, CS);
+  CallAnalyzer CA(TTI, GetAssumptionCache, PSI, AI,*F,          // INTEL
+                  InlineConstants::IndirectCallThreshold, CS);  // INTEL 
   if (CA.analyzeCall(CS, nullptr)) { // INTEL 
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -1278,13 +1287,15 @@ static bool forgivableCondition(TerminatorInst* TI) {
 } 
 
 //
-// Return 'true' if this is a double callsite worth inlining. The criteria
-// are: 
+// Return 'true' if this is a double callsite worth inlining.
+//   (This is one of multiple double callsite heuristics.)
+//
+// The criteria for this heuristic are:
 //  (1) Must have exactly two calls to the function in the caller 
 //  (2) The callee must have a single outer loop 
 //  (3) That loop's basic blocks must have a relatively large successor count
 //
-static bool worthyDoubleCallSite(CallSite &CS) {
+static bool worthyDoubleCallSite1(CallSite &CS) {
    Function *Caller = CS.getCaller(); 
    Function *Callee = CS.getCalledFunction(); 
    // Look for 2 calls of the callee in the caller. 
@@ -1325,6 +1336,81 @@ static bool worthyDoubleCallSite(CallSite &CS) {
    } 
    return (100 * SuccCount / BBCount) > InlineConstants::BasicBlockSuccRatio;
 } 
+
+//
+// Return 'true' if the Function F has a Loop L whose trip count will be
+// constant after F is inlined.
+//
+static bool boundConstArg(Function *F, Loop *L) {
+  auto EB = L->getExitingBlock(); 
+  if (EB == nullptr) 
+    return false;
+  auto BI = dyn_cast<BranchInst>(EB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+  auto ICmp = dyn_cast<ICmpInst>(BI->getCondition());
+  if (!ICmp)
+    return false;
+  for (unsigned i = 0, e = ICmp->getNumOperands(); i != e; ++i) {
+    auto Arg = dyn_cast<Argument>(ICmp->getOperand(i));
+    if (!Arg)
+      continue;
+    unsigned ArgNo = Arg->getArgNo();
+    for (Use &U : F->uses()) {
+      if (auto CS = ImmutableCallSite(U.getUser())) {
+        if (!CS)
+          return false;
+        if (!CS.isCallee(&U))
+          return false;
+        auto I = CS.getInstruction();
+        if (!isa<Constant>(I->getOperand(ArgNo)))
+          return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+//
+// Return 'true' if the Function F has a Loop L whose two inner most loops
+// have trip counts that will be constant after F is inlined.
+//
+static bool hasConstTripCountArg(Function *F, Loop *L) {
+  if (L->empty() && L->getParentLoop()
+    && boundConstArg(F, L) && boundConstArg(F, L->getParentLoop()))
+    return true;
+  for (auto LB = L->begin(), LE = L->end(); LB != LE; ++LB)
+    if (hasConstTripCountArg(F, *LB))
+      return true;
+  return false;
+}
+
+//
+// Return 'true' if this is a double callsite worth inlining.
+//   (This is one of multiple double callsite heuristics.)
+//
+// The criteria for this heuristic are:
+//  (1) Must have exactly two calls to the function
+//  (2) Must be only one loop nest
+//  (3) The inner two loops of that nest must have a loop bound that
+//      will be a constant after inlining is applied
+//
+static bool worthyDoubleCallSite2(CallSite &CS) {
+  Function *Callee = CS.getCalledFunction();
+  DominatorTree DT = DominatorTree(*Callee);
+  LoopInfo LI = LoopInfo(DT);
+  return std::distance(LI.begin(), LI.end()) == 1
+    && hasConstTripCountArg(Callee, *(LI.begin()));
+}
+
+//
+// Return 'true' if this is a double callsite worth inlining.
+//
+static bool worthyDoubleCallSite(CallSite &CS)
+{
+  return worthyDoubleCallSite1(CS) || worthyDoubleCallSite2(CS);
+}
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -1433,6 +1519,13 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     Cost += InlineConstants::SecondToLastCallToStaticBonus;
     YesReasonVector.push_back(InlrDoubleLocalCall);
   }
+
+  // Use InlineAggressiveAnalysis to expose uses of global ptrs 
+  if (AI != nullptr && AI->isCallInstInAggInlList(CS)) {
+    Cost += InlineConstants::AggressiveInlineCallBonus;
+    YesReasonVector.push_back(InlrAggInline);
+  }
+
 #endif // INTEL_CUSTOMIZATION
 
   // If this function uses the coldcc calling convention, prefer not to inline
@@ -1683,9 +1776,9 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
 InlineCost llvm::getInlineCost(
     CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    ProfileSummaryInfo *PSI) {
+    ProfileSummaryInfo *PSI, InlineAggressiveAnalysis *AI) {  // INTEL 
   return getInlineCost(CS, CS.getCalledFunction(), DefaultThreshold, CalleeTTI,
-                       GetAssumptionCache, PSI);
+                       GetAssumptionCache, PSI, AI);  // INTEL 
 }
 
 int llvm::computeThresholdFromOptLevels(unsigned OptLevel,
@@ -1715,7 +1808,7 @@ InlineCost llvm::getInlineCost(
     CallSite CS, Function *Callee, int DefaultThreshold,
     TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    ProfileSummaryInfo *PSI) {
+    ProfileSummaryInfo *PSI, InlineAggressiveAnalysis *AI) {  // INTEL 
 
   // Cannot inline indirect calls.
   if (!Callee)
@@ -1764,7 +1857,8 @@ InlineCost llvm::getInlineCost(
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                      << "...\n");
 
-  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, PSI, *Callee, DefaultThreshold, CS);
+  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, PSI, AI, *Callee,  // INTEL
+    DefaultThreshold, CS);                                          // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);

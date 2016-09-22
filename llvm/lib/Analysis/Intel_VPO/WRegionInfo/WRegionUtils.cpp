@@ -54,6 +54,15 @@ WRegionNode *WRegionUtils::createWRegion(
     case DIR_OMP_MASTER:
       W = new WRNMasterNode(EntryBB);
       break;
+    case DIR_OMP_ORDERED:
+      W = new WRNOrderedNode(EntryBB);
+      break;
+    case DIR_OMP_SINGLE:
+      W = new WRNSingleNode(EntryBB);
+      break;
+    case DIR_OMP_CRITICAL:
+      W = new WRNCriticalNode(EntryBB);
+      break;
   }
   if (W)
     W->setLevel(NestingLevel);

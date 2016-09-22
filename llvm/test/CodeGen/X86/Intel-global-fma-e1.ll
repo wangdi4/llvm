@@ -10,8 +10,8 @@
 ; SKX opcodes. the code should become identical for AVX2 and SKX after the
 ; FMA form selection is enabled for SKX.
 
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -do-x86-global-fma -fp-contract=fast -enable-unsafe-fp-math | FileCheck --check-prefix=ALL --check-prefix=AVX2 %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -do-x86-global-fma -fp-contract=fast -enable-unsafe-fp-math | FileCheck --check-prefix=ALL --check-prefix=AVX512 %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math | FileCheck --check-prefix=ALL --check-prefix=AVX2 %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math | FileCheck --check-prefix=ALL --check-prefix=AVX512 %s
 
 ; These attributes are used for functions testing scalar and 128/256 bit types.
 attributes #0 = { nounwind "target-features"="+avx2,+fma" }

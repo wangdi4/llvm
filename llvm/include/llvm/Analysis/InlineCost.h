@@ -15,6 +15,7 @@
 #define LLVM_ANALYSIS_INLINECOST_H
 
 #include "llvm/Analysis/CallGraphSCCPass.h" // INTEL 
+#include "llvm/Analysis/Intel_AggInline.h"  // INTEL
 #include "llvm/Analysis/AssumptionCache.h"
 #include <cassert>
 #include <climits>
@@ -35,6 +36,7 @@ namespace InlineConstants {
   const int CallPenalty = 25;
   const int LastCallToStaticBonus = -15000;
   const int SecondToLastCallToStaticBonus = -410; // INTEL
+  const int AggressiveInlineCallBonus = -5000;    // INTEL
   const int ColdccPenalty = 2000;
   const int NoreturnPenalty = 10000;
   /// Do not inline functions which allocate this many bytes on the stack
@@ -68,6 +70,7 @@ typedef enum {
    InlrEmptyFunction,
    InlrDoubleLocalCall, 
    InlrVectorBonus,
+   InlrAggInline,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -217,7 +220,8 @@ public:
 InlineCost
 getInlineCost(CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-              ProfileSummaryInfo *PSI);
+              ProfileSummaryInfo *PSI,         // INTEL
+              InlineAggressiveAnalysis *AggI); // INTEL
 
 /// \brief Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -228,7 +232,8 @@ InlineCost
 getInlineCost(CallSite CS, Function *Callee, int DefaultThreshold,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-              ProfileSummaryInfo *PSI);
+              ProfileSummaryInfo *PSI,               // INTEL
+              InlineAggressiveAnalysis *AggI);       // INTEL
 
 int computeThresholdFromOptLevels(unsigned OptLevel, unsigned SizeOptLevel);
 

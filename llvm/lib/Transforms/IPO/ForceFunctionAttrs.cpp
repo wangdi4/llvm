@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_WP.h"                  // INTEL
 #include "llvm/Transforms/IPO/ForceFunctionAttrs.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Function.h"
@@ -99,6 +100,12 @@ struct ForceFunctionAttrsLegacyPass : public ModulePass {
     initializeForceFunctionAttrsLegacyPassPass(
         *PassRegistry::getPassRegistry());
   }
+
+#if INTEL_CUSTOMIZATION
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<WholeProgramWrapperPass>();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   bool runOnModule(Module &M) override {
     if (ForceAttributes.empty())

@@ -11,14 +11,14 @@
 ; SKX opcodes. the code should become identical for AVX2 and SKX after the
 ; FMA form selection is enabled for SKX.
 
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -do-x86-global-fma -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=small -relocation-model=pic | FileCheck --check-prefix=AVX2SML %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -do-x86-global-fma -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=small -relocation-model=pic | FileCheck --check-prefix=SKXSML %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=small -relocation-model=pic | FileCheck --check-prefix=AVX2SML %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=small -relocation-model=pic | FileCheck --check-prefix=SKXSML %s
 
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -do-x86-global-fma -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=large | FileCheck --check-prefix=AVX2LRG %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -do-x86-global-fma -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=large | FileCheck --check-prefix=SKXLRG %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=large | FileCheck --check-prefix=AVX2LRG %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=large | FileCheck --check-prefix=SKXLRG %s
 
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -do-x86-global-fma -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=AVX2OTHER %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -do-x86-global-fma -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=SKXOTHER %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=AVX2OTHER %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=SKXOTHER %s
 
 attributes #0 = { nounwind }
 

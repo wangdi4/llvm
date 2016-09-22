@@ -321,18 +321,12 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
 // evaluation.
 // FORNOW there is only one AVRLoop per region, so we will re-discover
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
-bool AVRCodeGenHIR::loopIsHandled() {
+bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
   WRNVecLoopNode *WVecNode;
   HLLoop *Loop = nullptr;
 
-  assert(VL >= 1);
-  if (VL == 1) {
-    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - VL is 1\n");
-    return false;
-  }
-  
   // We expect avr to be a AVRWrn node
   if (!(AWrn = dyn_cast<AVRWrn>(Avr))) {
     DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - expected AVRWrn node\n");
@@ -463,11 +457,16 @@ bool AVRCodeGenHIR::loopIsHandled() {
 // TODO: Change all VL occurences with VF
 // TODO: Have this method take a VecContext as input, which indicates which
 // AVRLoops in the region to vectorize, and how (using what VF).
-bool AVRCodeGenHIR::vectorize(int VL) {
+bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   bool LoopHandled;
 
   setVL(VL);
-  LoopHandled = loopIsHandled();
+  assert(VL >= 1);
+  if (VL == 1) {
+    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - VL is 1\n");
+    return false;
+  }
+  LoopHandled = loopIsHandled(VL);
   if (!LoopHandled)
     return false;
 
@@ -484,6 +483,20 @@ bool AVRCodeGenHIR::vectorize(int VL) {
     DEBUG(OrigLoop->dump(true));
 
   return true;
+}
+
+int AVRCodeGenHIR::getRemainderLoopCost(HLLoop *Loop, unsigned int VF, 
+                                        unsigned int &ConstTripCount) {
+  ConstTripCount = TripCount;
+  // Check for positive trip count and that trip count is a multiple of vector
+  // length. Otherwise a remainder loop is needed. Since CG currently does not
+  // support remainder loops, return a dummy high cost to make sure this VF will
+  // not be selected as vectorization factor.
+  if (TripCount == 0 || TripCount % VF) {
+    return 1000;
+  }
+
+  return 0;
 }
 
 void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {

@@ -15,6 +15,7 @@
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/Intel_WP.h"                     // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"    // INTEL
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
