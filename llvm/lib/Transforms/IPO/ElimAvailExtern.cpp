@@ -15,6 +15,8 @@
 
 #include "llvm/Transforms/IPO/ElimAvailExtern.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_Andersens.h"         // INTEL
+#include "llvm/Analysis/Intel_WP.h"                // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/IPO.h"
@@ -65,7 +67,12 @@ PreservedAnalyses
 EliminateAvailableExternallyPass::run(Module &M, ModuleAnalysisManager &) {
   if (!eliminateAvailableExternally(M))
     return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+
+  PreservedAnalyses PA;                    // INTEL
+  PA.preserve<AndersensAA>();              // INTEL
+  PA.preserve<WholeProgramAnalysis>();     // INTEL
+
+  return PA;                               // INTEL
 }
 
 namespace {
@@ -75,6 +82,13 @@ struct EliminateAvailableExternallyLegacyPass : public ModulePass {
     initializeEliminateAvailableExternallyLegacyPassPass(
         *PassRegistry::getPassRegistry());
   }
+
+#if INTEL_CUSTOMIZATION
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<AndersensAAWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // run - Do the EliminateAvailableExternally pass on the specified module,
   // optionally updating the specified callgraph to reflect the changes.

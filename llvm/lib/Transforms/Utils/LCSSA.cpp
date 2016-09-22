@@ -371,5 +371,6 @@ PreservedAnalyses LCSSAPass::run(Function &F, AnalysisManager<Function> &AM) {
   PA.preserve<GlobalsAA>();
   PA.preserve<SCEVAA>();
   PA.preserve<ScalarEvolutionAnalysis>();
+  PA.preserve<AndersensAA>();  // INTEL
   return PA;
 }

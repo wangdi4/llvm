@@ -39,6 +39,7 @@
 
 #include "llvm/Support/CommandLine.h"
 
+#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -81,6 +82,7 @@ public:
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<HIRRegionIdentification>();
     AU.addPreserved<HIRSCCFormation>();
+    AU.addPreserved<AndersensAAWrapperPass>();
   }
 
   void releaseMemory() override {

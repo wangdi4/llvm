@@ -26,6 +26,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/Intel_Andersens.h"           // INTEL
 #include "llvm/Analysis/Intel_WP.h"                  // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -1113,6 +1114,7 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
 
   PreservedAnalyses PA;                   // INTEL
   PA.preserve<WholeProgramAnalysis>();    // INTEL
+  PA.preserve<AndersensAA>();             // INTEL
   return PA;                              // INTEL
 }
 
@@ -1127,6 +1129,7 @@ struct PostOrderFunctionAttrsLegacyPass : public CallGraphSCCPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<AndersensAAWrapperPass>();                // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();               // INTEL
     AU.addUsedIfAvailable<WholeProgramWrapperPass>();         // INTEL
     AU.addRequired<AssumptionCacheTracker>();
@@ -1225,6 +1228,7 @@ struct ReversePostOrderFunctionAttrsLegacyPass : public ModulePass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
     AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     AU.addRequired<CallGraphWrapperPass>();
     AU.addPreserved<CallGraphWrapperPass>();
@@ -1316,6 +1320,7 @@ ReversePostOrderFunctionAttrsPass::run(Module &M, AnalysisManager<Module> &AM) {
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<CallGraphAnalysis>();
+  PA.preserve<AndersensAA>();              // INTEL
   PA.preserve<WholeProgramAnalysis>();     // INTEL
   return PA;
 }
