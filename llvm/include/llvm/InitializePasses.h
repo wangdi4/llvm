@@ -360,6 +360,8 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializeWriteBitcodePassPass(PassRegistry &);
 void initializeXRayInstrumentationPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
+// Pass for TBAA metadata propagation
+void initializeTbaaMDPropagationPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
 void initializeIndirectCallConvPass(PassRegistry &);
 // Pass for SnodeInfo analysis

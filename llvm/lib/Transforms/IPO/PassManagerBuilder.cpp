@@ -150,6 +150,12 @@ static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
     cl::desc("Enable register promotion for global vars outside of the LTO."));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
+                                    cl::Hidden,
+                                    cl::desc("Enable Tbaa Propagation"));
+#endif // INTEL_CUSTOMIZATION
+
 // Andersen AliasAnalysis
 static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
@@ -359,6 +365,10 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
   // Combine silly seq's
   addInstructionCombiningPass(MPM);
+#if INTEL_CUSTOMIZATION
+  if (EnableTbaaProp)
+    MPM.add(createTbaaMDPropagationPass());
+#endif // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_Peephole, MPM);
 
   MPM.add(createTailCallEliminationPass()); // Eliminate tail calls

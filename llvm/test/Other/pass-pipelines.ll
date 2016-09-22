@@ -6,9 +6,10 @@
 ; INTEL - Disabled Intel Andersen's Alias Analysis and loopopt so as to not
 ; INTEL - break the pass pipeline this is trying to check for.
 ; INTEL - Disabled svml translation pass to prevent this test from breaking
+; INTEL - Disabled the tbaa propagation pass to prevent this test from breaking
 ; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
-; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -O2 \
-; RUN:     %s 2>&1 | FileCheck %s --check-prefix=CHECK-O2
+; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -enable-tbaa-prop=false -O2 %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-O2
 ;
 ; In the first pipeline there should just be a function pass manager, no other
 ; pass managers.
