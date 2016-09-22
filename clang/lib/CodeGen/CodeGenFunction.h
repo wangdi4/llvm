@@ -1510,6 +1510,14 @@ private:
   void EmitOpenCLKernelMetadata(const FunctionDecl *FD, 
                                 llvm::Function *Fn);
 
+#if INTEL_CUSTOMIZATION
+  // Table recording the mapping between the return pointer and
+  // the correspoind tbaa for the pointer dereference.
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> RetPtrMap;
+  bool IsFakeLoadCand(const Expr *RV);
+  bool EmitFakeLoadForRetPtr(const Expr *RV);
+#endif // INTEL_CUSTOMIZATION
+
 public:
   CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
   ~CodeGenFunction();

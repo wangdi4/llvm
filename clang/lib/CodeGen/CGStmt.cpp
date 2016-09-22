@@ -11,10 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CGDebugInfo.h" // INTEL
 #include "CodeGenFunction.h"
-#include "CGDebugInfo.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
+#include "clang/AST/Expr.h"  // INTEL
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/PrettyStackTrace.h"
@@ -1017,6 +1018,35 @@ void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {
   EmitBranchThroughCleanup(ReturnBlock);
 }
 
+
+#if INTEL_CUSTOMIZATION
+// Checks the expression is the candidate of the fakeload intrinsic
+bool CodeGenFunction::IsFakeLoadCand(const Expr *RV) {
+  if (RV->getStmtClass() == Expr::ArraySubscriptExprClass ||
+      RV->getStmtClass() == Expr::MemberExprClass)
+    return true;
+  return false;
+}
+
+// Generates the load for the return pointer and saves the tbaa information
+// for the return pointer dereference.
+bool CodeGenFunction::EmitFakeLoadForRetPtr(const Expr *RV) {
+  LValue Des = EmitLValue(RV);
+  llvm::Value *LV = EmitLoadOfLValue(Des, RV->getExprLoc()).getScalarVal();
+  llvm::LoadInst *LI = dyn_cast<llvm::LoadInst>(LV);
+  if (LI) {
+    llvm::MDNode *M = LI->getMetadata(llvm::LLVMContext::MD_tbaa);
+    Builder.CreateStore(LI->getPointerOperand(), ReturnValue);
+    if (M)
+      RetPtrMap[LI->getPointerOperand()] = M;
+    LI->eraseFromParent();
+    return true;
+  }
+  return false;
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 /// EmitReturnStmt - Note that due to GCC extensions, this can have an operand
 /// if the function returns void, or may be missing one if the function returns
 /// non-void.  Fun stuff :).
@@ -1063,12 +1093,33 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
   } else if (FnRetTy->isReferenceType()) {
     // If this function returns a reference, take the address of the expression
     // rather than the value.
-    RValue Result = EmitReferenceBindingToExpr(RV);
-    Builder.CreateStore(Result.getScalarVal(), ReturnValue);
+#if INTEL_CUSTOMIZATION
+    // Handle the case of ret_type& function();
+    if (!getLangOpts().IntelCompat ||
+        CGM.getCodeGenOpts().OptimizationLevel < 2 ||
+        !IsFakeLoadCand(RV) ||
+        !EmitFakeLoadForRetPtr(RV)) {
+      RValue Result = EmitReferenceBindingToExpr(RV);
+      Builder.CreateStore(Result.getScalarVal(), ReturnValue);
+    }
+#endif // INTEL_CUSTOMIZATION
   } else {
     switch (getEvaluationKind(RV->getType())) {
     case TEK_Scalar:
-      Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);
+#if INTEL_CUSTOMIZATION
+      {
+        const UnaryOperator *Exp = dyn_cast<UnaryOperator>(RV);
+        // Handle the case of ret_type* function();
+        if (!getLangOpts().IntelCompat ||
+            CGM.getCodeGenOpts().OptimizationLevel < 2 || 
+            !Exp ||
+            Exp->getOpcode() != UO_AddrOf ||
+            !IsFakeLoadCand(Exp->getSubExpr()) ||
+            !EmitFakeLoadForRetPtr(Exp->getSubExpr())) {
+          Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
       break;
     case TEK_Complex:
       EmitComplexExprIntoLValue(RV, MakeAddrLValue(ReturnValue, RV->getType()),

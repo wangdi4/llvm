@@ -2805,6 +2805,15 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         // Get the stored value and nuke the now-dead store.
         RV = SI->getValueOperand();
         SI->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+        // Generates the intrinsic to hold the tbaa metadata for
+        // the return pointer.
+        if (getLangOpts().IntelCompat) {
+          auto RTI = RetPtrMap.find(RV);
+          if (RTI != RetPtrMap.end()) 
+            RV = Builder.CreateFakeLoad(RV, RTI->second);
+        }
+#endif // INTEL_CUSTOMIZATION
 
         // If that was the only use of the return value, nuke it as well now.
         auto returnValueInst = ReturnValue.getPointer();
