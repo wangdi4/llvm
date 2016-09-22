@@ -552,12 +552,13 @@ TEST_F(OCL21, clGetKernelSubGroupInfo03)
     cl_kernel kernel = 0;
     ASSERT_NO_FATAL_FAILURE(createKernel(&kernel, ocl_descriptor.program, "sub_groups_main"));
 
+    cl_mem sub_group_size_buffer[2] = { nullptr, nullptr };
+    cl_mem max_sub_group_size_buffer[2] = { nullptr, nullptr };
+    cl_mem num_sub_groups_buffer[2] = { nullptr, nullptr };
+
     for (size_t index = 0; index < 2; ++index)
     {
         std::cout << "Testing " << index << "-th device..." << std::endl;
-        cl_mem sub_group_size_buffer = nullptr;
-        cl_mem max_sub_group_size_buffer = nullptr;
-        cl_mem num_sub_groups_buffer = nullptr;
 
         size_t cl_kernel_max_num_sub_groups = 0;
         size_t ret_size = 0;
@@ -583,49 +584,51 @@ TEST_F(OCL21, clGetKernelSubGroupInfo03)
         size_t global_size[3] = { local_size[0], local_size[1], local_size[2] };
         size_t buffer_size = global_size[0] * sizeof(cl_uint);
 
-        ASSERT_NO_FATAL_FAILURE(createBuffer(&sub_group_size_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
-        ASSERT_NO_FATAL_FAILURE(createBuffer(&max_sub_group_size_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
-        ASSERT_NO_FATAL_FAILURE(createBuffer(&num_sub_groups_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
+        ASSERT_NO_FATAL_FAILURE(createBuffer(&sub_group_size_buffer[index], ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
+        ASSERT_NO_FATAL_FAILURE(createBuffer(&max_sub_group_size_buffer[index], ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
+        ASSERT_NO_FATAL_FAILURE(createBuffer(&num_sub_groups_buffer[index], ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
 
         size_t pattern = 0;
-        ASSERT_NO_FATAL_FAILURE(enqueueFillBuffer(ocl_descriptor.queues[index], sub_group_size_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr));
-        ASSERT_NO_FATAL_FAILURE(enqueueFillBuffer(ocl_descriptor.queues[index], max_sub_group_size_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr));
-        ASSERT_NO_FATAL_FAILURE(enqueueFillBuffer(ocl_descriptor.queues[index], num_sub_groups_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr));
+        ASSERT_NO_FATAL_FAILURE(enqueueFillBuffer(ocl_descriptor.queues[index], sub_group_size_buffer[index], &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr));
+        ASSERT_NO_FATAL_FAILURE(enqueueFillBuffer(ocl_descriptor.queues[index], max_sub_group_size_buffer[index], &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr));
+        ASSERT_NO_FATAL_FAILURE(enqueueFillBuffer(ocl_descriptor.queues[index], num_sub_groups_buffer[index], &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr));
 
-        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 0, buffer_size, &sub_group_size_buffer));
-        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 1, buffer_size, &max_sub_group_size_buffer));
-        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 2, buffer_size, &num_sub_groups_buffer));
+        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 0, buffer_size, &sub_group_size_buffer[index]));
+        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 1, buffer_size, &max_sub_group_size_buffer[index]));
+        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 2, buffer_size, &num_sub_groups_buffer[index]));
 
         ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[index], kernel, 3, nullptr, global_size, local_size, 0, nullptr, nullptr));
 
         cl_uint *ptr = nullptr;
-        ASSERT_NO_FATAL_FAILURE(enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], sub_group_size_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr));
+        ASSERT_NO_FATAL_FAILURE(enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], sub_group_size_buffer[index], CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr));
         cl_uint sub_group_size = ptr[0];
         for (size_t i = 0; i < global_size[0]; ++i) {
             ASSERT_GE(cl_kernel_max_sub_group_size_for_ndrange, ptr[i]);
             ASSERT_EQ(sub_group_size, ptr[i]);
         }
-        ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[index], sub_group_size_buffer, ptr, 0, nullptr, nullptr));
+        ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[index], sub_group_size_buffer[index], ptr, 0, nullptr, nullptr));
 
         ptr = nullptr;
-        ASSERT_NO_FATAL_FAILURE(enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], max_sub_group_size_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr));
+        ASSERT_NO_FATAL_FAILURE(enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], max_sub_group_size_buffer[index], CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr));
         for (size_t i = 0; i < global_size[0]; ++i) {
             ASSERT_EQ(cl_kernel_max_sub_group_size_for_ndrange, ptr[i]);
         }
-        ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[index], max_sub_group_size_buffer, ptr, 0, nullptr, nullptr));
+        ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[index], max_sub_group_size_buffer[index], ptr, 0, nullptr, nullptr));
 
         ptr = nullptr;
-        ASSERT_NO_FATAL_FAILURE(enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], num_sub_groups_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr));
+        ASSERT_NO_FATAL_FAILURE(enqueueMapBuffer(&ptr, ocl_descriptor.queues[index], num_sub_groups_buffer[index], CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr));
         for (size_t i = 0; i < global_size[0]; ++i) {
             ASSERT_EQ(ptr[i], cl_kernel_max_num_sub_groups);
         }
-        ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[index], num_sub_groups_buffer, ptr, 0, nullptr, nullptr));
+        ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[index], num_sub_groups_buffer[index], ptr, 0, nullptr, nullptr));
 
         ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[index]));
-
-        clReleaseMemObject(sub_group_size_buffer);
-        clReleaseMemObject(max_sub_group_size_buffer);
-        clReleaseMemObject(num_sub_groups_buffer);
+    }
+    for (size_t index = 0; index < 2; ++index)
+    {
+        clReleaseMemObject(sub_group_size_buffer[index]);
+        clReleaseMemObject(max_sub_group_size_buffer[index]);
+        clReleaseMemObject(num_sub_groups_buffer[index]);
     }
     clReleaseKernel(kernel);
 }
