@@ -737,7 +737,8 @@ public:
   /// like truncation, negation etc applied on top of the SCEV. We are trying to
   /// reverse engineer SCEV analysis here.
   const Instruction *findOrigInst(const Instruction *CurInst, const SCEV *SC,
-                                  bool *IsTruncation, bool *IsNegation,
+                                  bool *IsTruncOrSExt, bool *IsZExt,
+                                  bool *IsNegation,
                                   SCEVConstant **ConstMultiplier,
                                   SCEV **Additive);
 
@@ -747,7 +748,7 @@ public:
   /// have identical operands (except the fist operand) and have identical or
   /// stronger wrap flags.
   bool isReplacable(const SCEV *OrigSCEV, const SCEV *NewSCEV,
-                    bool *IsTruncation, bool *IsNegation,
+                    bool *IsTruncOrSExt, bool *IsZExt, bool *IsNegation,
                     SCEVConstant **ConstMultiplier, SCEV **Additive) const;
 
   /// Returns constant multiplier which when applied to AddRec yields MulAddRec,
@@ -778,13 +779,14 @@ const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
   SCEV *Additive = nullptr;
   SCEVConstant *ConstMultiplier = nullptr;
   bool IsNegation = false;
-  bool IsTruncation = false;
+  bool IsTruncOrSExt = false;
+  bool IsZExt = false;
 
   if (SafeMode && Failed) {
     return nullptr;
   }
 
-  OrigInst = findOrigInst(nullptr, SC, &IsTruncation, &IsNegation,
+  OrigInst = findOrigInst(nullptr, SC, &IsTruncOrSExt, &IsZExt, &IsNegation,
                           &ConstMultiplier, &Additive);
 
   if (!OrigInst) {
@@ -795,8 +797,16 @@ const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
 
   // NOTE: The order of truncation, negation, multiplication and addition
   // matters.
-  if (IsTruncation) {
-    NewSCEV = HIRP->SE->getTruncateExpr(NewSCEV, SC->getType());
+  if (IsTruncOrSExt) {
+    if (NewSCEV->getType()->getPrimitiveSizeInBits() <
+        SC->getType()->getPrimitiveSizeInBits()) {
+      NewSCEV = HIRP->SE->getSignExtendExpr(NewSCEV, SC->getType());
+    } else {
+      NewSCEV = HIRP->SE->getTruncateExpr(NewSCEV, SC->getType());
+    }
+
+  } else if (IsZExt) {
+    NewSCEV = HIRP->SE->getZeroExtendExpr(NewSCEV, SC->getType());
   }
 
   if (IsNegation) {
@@ -848,8 +858,9 @@ HIRParser::BlobProcessor::searchSCEVValues(const SCEV *SC) const {
 }
 
 const Instruction *HIRParser::BlobProcessor::findOrigInst(
-    const Instruction *CurInst, const SCEV *SC, bool *IsTruncation,
-    bool *IsNegation, SCEVConstant **ConstMultiplier, SCEV **Additive) {
+    const Instruction *CurInst, const SCEV *SC, bool *IsTruncOrSExt,
+    bool *IsZExt, bool *IsNegation, SCEVConstant **ConstMultiplier,
+    SCEV **Additive) {
 
   bool IsLiveInCopy = false;
   bool FirstInst = false;
@@ -886,7 +897,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
       }
       // Original instruction should dominate the current instruction.
     } else if (HIRP->DT->dominates(CurInst, HIRP->getCurInst()) &&
-               isReplacable(SC, CurSCEV, IsTruncation, IsNegation,
+               isReplacable(SC, CurSCEV, IsTruncOrSExt, IsZExt, IsNegation,
                             ConstMultiplier, Additive)) {
       return CurInst;
     }
@@ -916,7 +927,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
       continue;
     }
 
-    auto OrigInst = findOrigInst(OpInst, SC, IsTruncation, IsNegation,
+    auto OrigInst = findOrigInst(OpInst, SC, IsTruncOrSExt, IsZExt, IsNegation,
                                  ConstMultiplier, Additive);
 
     if (OrigInst) {
@@ -927,11 +938,15 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
   return nullptr;
 }
 
-bool HIRParser::BlobProcessor::isReplacable(
-    const SCEV *OrigSCEV, const SCEV *NewSCEV, bool *IsTruncation,
-    bool *IsNegation, SCEVConstant **ConstMultiplier, SCEV **Additive) const {
+bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
+                                            const SCEV *NewSCEV,
+                                            bool *IsTruncOrSExt, bool *IsZExt,
+                                            bool *IsNegation,
+                                            SCEVConstant **ConstMultiplier,
+                                            SCEV **Additive) const {
 
-  bool IsTrunc = false;
+  bool TruncOrSExt = false;
+  bool ZExt = false;
 
   // We got an exact match.
   if (NewSCEV == OrigSCEV) {
@@ -977,26 +992,45 @@ bool HIRParser::BlobProcessor::isReplacable(
 
     if (NewType->getPrimitiveSizeInBits() <
         OrigType->getPrimitiveSizeInBits()) {
-      return false;
+
+      auto ExtAddRec = dyn_cast<SCEVAddRecExpr>(
+          HIRP->SE->getSignExtendExpr(NewAddRec, OrigType));
+
+      if (!ExtAddRec) {
+        ExtAddRec = dyn_cast<SCEVAddRecExpr>(
+            HIRP->SE->getZeroExtendExpr(NewAddRec, OrigType));
+        ZExt = true;
+      } else {
+        TruncOrSExt = true;
+      }
+
+      if (ExtAddRec) {
+        NewAddRec = ExtAddRec;
+      } else {
+        return false;
+      }
+
+    } else {
+
+      NewAddRec = dyn_cast<SCEVAddRecExpr>(
+          HIRP->SE->getTruncateExpr(NewAddRec, OrigType));
+
+      // In some case truncation of an AddRec returns a non-AddRec SCEV. For
+      // example-
+      // trunc i32 {0,+,2^30} to i16 -> 0
+      // As the truncated stride evaluates to 0.
+      if (!NewAddRec) {
+        return false;
+      }
+
+      TruncOrSExt = true;
     }
-
-    NewAddRec = dyn_cast<SCEVAddRecExpr>(
-        HIRP->SE->getTruncateExpr(NewAddRec, OrigType));
-
-    // In some case truncation of an AddRec returns a non-AddRec SCEV. For
-    // example-
-    // trunc i32 {0,+,2^30} to i16 -> 0
-    // As the truncated stride evaluates to 0.
-    if (!NewAddRec) {
-      return false;
-    }
-
-    IsTrunc = true;
   }
 
   if (isReplacableAddRec(OrigAddRec, NewAddRec, WrapFlags, ConstMultiplier,
                          Additive)) {
-    *IsTruncation = IsTrunc;
+    *IsTruncOrSExt = TruncOrSExt;
+    *IsZExt = ZExt;
     return true;
   }
 
@@ -1010,7 +1044,8 @@ bool HIRParser::BlobProcessor::isReplacable(
 
   if (isReplacableAddRec(OrigAddRec, NewAddRec, WrapFlags, ConstMultiplier,
                          Additive)) {
-    *IsTruncation = IsTrunc;
+    *IsTruncOrSExt = TruncOrSExt;
+    *IsZExt = ZExt;
     *IsNegation = true;
     return true;
   }
