@@ -370,6 +370,8 @@ void initializeNonLTOGlobalOptPass(PassRegistry &);
 void initializeFeatureOutlinerPass(PassRegistry&);
 // Pass for math call optimization.
 void initializeMapIntrinToImlPass(PassRegistry&);
+// Pass for indicating loopopt based throttling.
+void initializeLoopOptMarkerPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationPass(PassRegistry&);
 void initializeHIRSCCFormationPass(PassRegistry&);

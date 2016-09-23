@@ -251,6 +251,9 @@ FunctionPass *createNonLTOGlobalOptimizerPass();
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info if possible 
 FunctionPass *createIndirectCallConvPass();
+
+// LoopOptMarker - Indicates loopopt based throttling to subsequent passes.
+FunctionPass *createLoopOptMarkerPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

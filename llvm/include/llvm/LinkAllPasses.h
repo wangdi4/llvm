@@ -225,6 +225,7 @@ namespace {
 
   #if INTEL_CUSTOMIZATION 
       (void) llvm::createSNodeAnalysisPass();
+      (void) llvm::createLoopOptMarkerPass(); 
       // HIR passes
       (void) llvm::createHIRRegionIdentificationPass();
       (void) llvm::createHIRSCCFormationPass();

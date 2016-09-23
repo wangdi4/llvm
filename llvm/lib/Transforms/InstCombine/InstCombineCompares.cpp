@@ -1186,6 +1186,14 @@ Instruction *InstCombiner::foldICmpAddOpConst(Instruction &ICI,
 /// both known to be integer constants.
 Instruction *InstCombiner::foldICmpDivConst(ICmpInst &ICI, BinaryOperator *DivI,
                                             ConstantInt *DivRHS) {
+
+#if INTEL_CUSTOMIZATION
+  // Disabling this particular optimization before loopopt as it interferes with
+  // ztt recognition. 
+  if (ICI.getParent()->getParent()->isPreLoopOpt())
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
+
   ConstantInt *CmpRHS = cast<ConstantInt>(ICI.getOperand(1));
   const APInt &CmpRHSV = CmpRHS->getValue();
 
@@ -1353,6 +1361,13 @@ Instruction *InstCombiner::foldICmpShrConst(ICmpInst &ICI, BinaryOperator *Shr,
     return nullptr;
 
   if (!ICI.isEquality()) {
+#if INTEL_CUSTOMIZATION
+    // Disabling this particular optimization before loopopt as it interferes
+    // with ztt recognition. 
+    if (ICI.getParent()->getParent()->isPreLoopOpt())
+      return nullptr;
+#endif // INTEL_CUSTOMIZATION
+
     // If we have an unsigned comparison and an ashr, we can't simplify this.
     // Similarly for signed comparisons with lshr.
     if (ICI.isSigned() != (Shr->getOpcode() == Instruction::AShr))

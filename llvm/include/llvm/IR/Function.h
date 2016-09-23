@@ -640,6 +640,27 @@ public:
   /// to \a DISubprogram.
   DISubprogram *getSubprogram() const;
 
+#if INTEL_CUSTOMIZATION
+  // Ideally this should be private but I am keeping it here to avoid creating
+  // another Intel specific region.
+  const char *PreLoopOptStr = "pre_loopopt";
+
+  /// Indicates that loopopt is going to be run later in the pipeline.
+  void setPreLoopOpt() { addFnAttr(PreLoopOptStr); }
+
+  /// Returns true if loopopt is going to be run later in the pipeline.
+  bool isPreLoopOpt() const { 
+    return hasFnAttribute(PreLoopOptStr); 
+  }
+
+  /// Resets "pre-loopopt" state for the function.
+  void resetPreLoopOpt() { 
+    // TODO: Replace with removeFnAttr(PreLoopOptStr) when the interface is
+    // available.
+    setAttributes(AttributeSets.removeAttribute(
+      getContext(), AttributeSet::FunctionIndex, PreLoopOptStr)); 
+  }
+#endif // INTEL_CUSTOMIZATION
 private:
   void allocHungoffUselist();
   template<int Idx> void setHungoffOperand(Constant *C);

@@ -422,6 +422,9 @@ public:
 
     eraseDummyInstructions();
 
+    // No longer need to suppress scalar optimizations.
+    F.resetPreLoopOpt();
+
     return Transformed;
   }
 
