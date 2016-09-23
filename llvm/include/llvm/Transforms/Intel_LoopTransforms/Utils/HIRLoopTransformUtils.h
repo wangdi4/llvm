@@ -20,6 +20,7 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRLOOPTRANSFORM_UTILS_H
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 
 namespace llvm {
 
@@ -68,46 +69,81 @@ private:
                                    const RegDDRef *NewTCRef);
 
 public:
-  // *** HIR-Loop-Reversal-Related Section ***
-
-  /// \brief is the given Loop legal for Reversal
-  static bool isHIRLoopReversalLegal(const HLLoop *Lp);
-
-  /// \brief conduct HIR Loop-Reversal Tests and reverse the loop if requested.
+  ///\brief
+  /// Do Reversal Tests for a given HIR inner-most loop and return true if
+  /// the loop is reversible.
   //
-  // If all reversal-related tests are positive and the caller indicates a wish
-  // to reverse, the given loop will then be reversed.
-  //
-  // Details:
-  // 1. Check if a given loop is suitable for HIR Loop Reversal;
-  // 2. If the loop is suitable for reversal and the user indicates a need to
-  // reverse (DoReverse is true), then the given loop is reversed.
-  //
-  // PARAMS:
-  // HLLoop * Lp:    a given loop;
-  // bool DoReverse: true if the client wants to reverse the loop (provided the
-  //                 loop is good to reverse);
-  // HIRDDAnalysis &DDAnalysis:client provides HIRDDAnalysis result;
-  // bool &Reversed: true if the loop is successfully reversed;
+  // Parameters:
+  // -HLLoop*: the HLLoop *
+  // -HIRDDAnalysis &: Existing DD Analysis
+  // -HIRSafeReductionAnalysis &: Existing SafeReduction analysis
+  // -HIRLoopStatistics &: existing LoopStatistics analysis
+  // -DoProfitTest:
+  //    Whether to conduct profitable test using reverser's profit model.
+  //    Default is false, which ignores Reverser's profit model and don't do
+  //    profit test.
   //
   // Return: bool
-  // - true:  the given loop is good/suitable to reverse;
+  // - true:  the loop is reversible;
   // - false: otherwise;
   //
-  bool checkAndReverseLoop(
-      HLLoop *Lp,     // INPUT + OUTPUT: a given loop
-      bool DoReverse, // INPUT: client's intention to reverse the loop if the
-                      // loop
-                      // is suitable
-      HIRDDAnalysis &DDA, // INPUT: client provides a HIRDDAnalysis
-      HIRSafeReductionAnalysis
-          &SRA, // INPUT: client provides a HIRSafeReductionAnalysis
-      HIRLoopStatistics
-          &LS,           // INPUT: client provides a HIRLoopStatistics analysis
-      bool &LoopReversed // OUTPUT: true if the loop is successfully reversed
+  // Note: the following decisions are made after group (HPO+Vectorization)
+  //       discussions.
+  //
+  // - DoProfitTest:
+  //   This is an option to the client, and can be ignored if the client decides
+  //   to proceed without using Reversal's profit model.
+  //
+  // - NO DoLegalTest flag
+  //   Can't allow a client to skip this test. The client may not have a legal
+  //   model thus has to rely on Reversal's legal model instead.
+  //   Even if the client does have one, it may be quite different from the
+  //   reversal's legal model, and may not want to spend effort maintaining.
+  //   As a result, this function will implicitly perform legal test.
+  //
+  // There is also an idea of passing context from this API to the next one in
+  // order to avoid doing repetitive work on collection and analysis (save some
+  // compile time). This idea is currently on hold due to unclear usage cases
+  // from client.
+  // Will revisit the situation once there is any request from potential client.
+  //
+  static bool isHIRLoopReversible(
+      HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+      HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
+      HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
+      HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
+      bool DoProfitTest = false       // INPUT: Control Profit Tests
       );
 
-  /// This function creates and returns a  new loop that will be used as the
+  ///\brief Do Certain Reversal Tests for a given HIR inner-most loop.
+  /// Reverse the loop if the loop is legal to reverse.
+  //
+  // Parameters:
+  // -HLLoop*: the HLLoop *
+  // -HIRDDAnalysis &: Existing DD Analysis
+  // -HIRSafeReductionAnalysis &: Existing SafeReduction analysis
+  // -HIRLoopStatistics &: existing LoopStatistics analysis
+  //
+  // Return: void
+  // - assert if any required reversal tests fail.
+  // - reverse the loop if reversal tests are successful.
+  //
+  // Note: the following decisions are made after group discussions.
+  //
+  // Ideally, a client will call this function after a previous call to
+  // isHIRLoopReverible(-) and the loop is indeed reversible.
+  // However, in case the client calls this function directly without proper
+  // preparation, this function will implicitly assert on preliminary check
+  // and legal check, only ignoring profit check.
+  //
+  static void doHIRLoopReversal(
+      HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+      HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
+      HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
+      HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
+      );
+
+  /// This function creates and returns a new loop that will be used as the
   ///  main loop for unrolling or vectorization(current clients). The bounds
   /// for this newly created loop are set appropriately using the bounds of
   /// \p OrigLoop and \p UnrollOrVecFactor. If a remainder loop is needed,
