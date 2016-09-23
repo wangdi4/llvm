@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2007 Intel Corporation
+// Copyright (c) 2006-2016 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -60,6 +60,7 @@ public:
     //      true - if succesully loaded
     //      false - if file doesn't exists or other error has occured
     crt_err_code    Load( const char* pLibName );
+    crt_err_code    LoadDependency( const char* pLibName );
 
     // Release all allocated resourses and unloads the library
     void Close();

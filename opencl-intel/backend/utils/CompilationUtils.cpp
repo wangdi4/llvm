@@ -776,6 +776,19 @@ static std::string mangleWithParam(const char*const N, unsigned int numOfParams)
   return mangle(FD);
 }
 
+static std::string mangleWithParam(const char*const N,
+                                   ArrayRef<reflection::TypePrimitiveEnum> Types){
+  reflection::FunctionDescriptor FD;
+  FD.name = N;
+  for (const auto &Ty:Types) {
+    reflection::ParamType *pTy =
+      new reflection::PrimitiveType(Ty);
+    reflection::RefParamType UI(pTy);
+    FD.parameters.push_back(UI);
+  }
+  return mangle(FD);
+}
+
 std::string CompilationUtils::mangledGetGID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GID.c_str());
 }
@@ -816,8 +829,13 @@ std::string CompilationUtils::mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType) {
   switch(wgBarrierType) {
   case WG_BARRIER_NO_SCOPE:
     return mangleWithParam<reflection::PRIMITIVE_UINT>(WG_BARRIER_FUNC_NAME.c_str(), 1);
-  case WG_BARRIER_WITH_SCOPE:
-    return mangleWithParam<reflection::PRIMITIVE_UINT>(WG_BARRIER_FUNC_NAME.c_str(), 2);
+  case WG_BARRIER_WITH_SCOPE: {
+    reflection::TypePrimitiveEnum Params[] = {
+      reflection::PRIMITIVE_UINT,
+      reflection::PRIMITIVE_INT };
+
+    return mangleWithParam(WG_BARRIER_FUNC_NAME.c_str(), Params);
+  }
   default:
     assert(false && "Unknown work_group_barrier version");
     return "";
