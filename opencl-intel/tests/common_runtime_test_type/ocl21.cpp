@@ -57,20 +57,22 @@ TEST_F(OCL21, clCreateProgramWithIL01)
     size_t length = 0;
     ASSERT_NO_FATAL_FAILURE(binaryFileToBuffer(&kernelSource, "simple_kernels.spv", &length));
 
-    void * il = nullptr;
+    char * il = nullptr;
     size_t ret = 0;
     size_t sizes[2] = { 0, 0 };
 
-    ASSERT_NO_FATAL_FAILURE(getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, sizeof(void *), &il, &ret));
-    ASSERT_EQ(sizeof(void *), ret) << "param_value_size_ret assertion failed";
+    ASSERT_NO_FATAL_FAILURE(getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, 0, nullptr, &ret));
+    ASSERT_EQ(length, ret) << "param_value_size_ret (SPIR-V size) assertion failed";
+
+    il = new char[ret];
+    ASSERT_NO_FATAL_FAILURE(getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, ret, il, nullptr));
     ASSERT_EQ(((int *)il)[0], spv::MagicNumber) << "Magic number assertion failed";
 
-    ASSERT_NO_FATAL_FAILURE(getProgramInfo(ocl_descriptor.program, CL_PROGRAM_BINARY_SIZES, sizeof(sizes), sizes, nullptr));
-    for (size_t index = 0; index < 2; ++ index)
+    if (il != nullptr)
     {
-        ASSERT_EQ(sizes[index], length) << "Binary size assertion failed for " << index << "-th device";
+        delete[] il;
+        il = nullptr;
     }
-
     if (kernelSource != nullptr)
     {
         delete[] kernelSource;
