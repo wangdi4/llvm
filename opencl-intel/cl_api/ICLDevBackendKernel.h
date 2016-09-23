@@ -55,7 +55,7 @@ public:
 
     /**
      * @returns the required work-group size that was declared during kernel compilation.
-     *  NULL when this attribute is not present;
+     *  NULL when this attribute is not present; 
      *  whereas work-group size is array of MAX_WORK_DIM entries
      */
     virtual const size_t* GetRequiredWorkGroupSize() const = 0;
@@ -111,13 +111,13 @@ public:
      virtual const char *GetKernelAttributes() const = 0;
 
     /**
-     * @returns true if the specified kernel has print operation in the kernel body,
+     * @returns true if the specified kernel has print operation in the kernel body, 
      *  false otherwise
      */
     virtual bool HasPrintOperation() const = 0;
 
     /**
-     * @returns true if the specified kernel has barrier operation in the kernel body,
+     * @returns true if the specified kernel has barrier operation in the kernel body, 
      *  false otherwise
      */
     virtual bool HasBarrierOperation() const = 0;
@@ -129,7 +129,7 @@ public:
     virtual bool HasDebugInfo() const = 0;
 
     /**
-     * @returns true if the specified kernel calls other kernerls in the kernel body,
+     * @returns true if the specified kernel calls other kernerls in the kernel body, 
      *  false otherwise
      */
     virtual bool HasKernelCallOperation() const = 0;
@@ -140,7 +140,7 @@ public:
      */
     virtual unsigned int GetMinGroupSizeFactorial() const = 0;
     /**
-     * @returns true if the specified kernel is clang's block
+     * @returns true if the specified kernel is clang's block 
      *  false otherwise
      */
     virtual bool IsBlock() const = 0;
@@ -159,7 +159,7 @@ class ICLDevBackendKernel_;
  */
 class ICLDevBackendKernelRunner
 {
-public:
+public:   
     /**
      * This struct holds the state of the thread
      */
@@ -185,14 +185,12 @@ public:
      *   updated by the device backend
      * @param pDevMemObjArray [internal use] pointer to the explicit arguments
      * @param devMemObjArrayLength [internal use] size of the array
-     * @param numOfComputeUnits number of compute units ND-range is to be run on
      * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
      */
     virtual cl_dev_err_code PrepareKernelArguments(
       void* pKernelUniformArgs,
       const cl_mem_obj_descriptor* *pDevMemObjArray,  // TODO-NDRANGE: change type
-      unsigned int devMemObjArrayLength,
-      size_t numOfComputeUnits) const = 0;
+      unsigned int devMemObjArrayLength) const = 0;
 
     /**
      * @effects prepares the thread for kernel execution
@@ -251,18 +249,18 @@ public:
 
     /**
      * Gets the kernel parameters description
-     *
+     * 
      * @returns
-     *  In success will return the kernel arguments descriptor; otherwise, NULL
+     *  In success will return the kernel arguments descriptor; otherwise, NULL 
      *  value will be returned
      */
     virtual const cl_kernel_argument* GetKernelParams() const = 0;
 
     /**
      * Gets the kernel parameters extended information
-     *
+     * 
      * @returns
-     *  In success will return the kernel arguments information; otherwise, NULL
+     *  In success will return the kernel arguments information; otherwise, NULL 
      *  value will be returned
      */
     virtual const cl_kernel_argument_info* GetKernelArgInfo() const = 0;

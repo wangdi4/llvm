@@ -211,7 +211,7 @@ public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList);
 
     // ITaskSet interface
-    int     Init(size_t region[], unsigned int &regCount, size_t numberOfThreads);
+    int     Init(size_t region[], unsigned int &regCount);
     void*   AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
     void    DetachFromThread(void* pWgContext);
     bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext);

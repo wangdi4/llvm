@@ -33,41 +33,15 @@
 #include <cl_sys_defines.h>
 #include <task_executor.h>
 
-#ifdef _WIN32
-#include <Windows.h>
-#else // _WIN32
+#if !defined(_WIN32)
 #include <malloc.h>
-#endif// _WIN32
+#endif
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::FECompilerAPI;
 using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::ClangFE;
-
-#ifdef _WIN32
-static void AddDriverStorePathToLibrarySearchPath()
-{
-    char dllPath[MAX_PATH];
-#ifdef _M_X64
-    LPCTSTR crt_name = "IntelOpenCL64.dll";
-#else //(_M_X64)
-    LPCTSTR crt_name = "IntelOpenCL32.dll";
-#endif //(_M_X64)
-    DWORD Length = GetModuleFileName( GetModuleHandle(crt_name), dllPath, MAX_PATH );
-
-    for( DWORD l = Length; l > 0; l-- )
-    {
-        if( dllPath[ l - 1 ] == '\\' )
-        {
-            dllPath[ l ] = '\0';
-            break;
-        }
-    }
-
-    SetDllDirectory((LPCSTR)dllPath);
-}
-#endif // _WIN32
 
 FrontEndCompiler::FrontEndCompiler() : 
         OCLObject<_cl_object>(NULL, "FrontEndCompiler"),
@@ -88,10 +62,6 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
     FreeResources();
 
     INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
-
-#ifdef _WIN32
-    AddDriverStorePathToLibrarySearchPath();
-#endif // _WIN32
 
     if ( !m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psModuleName)) )
     {

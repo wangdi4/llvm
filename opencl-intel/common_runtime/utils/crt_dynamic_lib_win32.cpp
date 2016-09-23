@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2016 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -23,7 +23,6 @@
 #include "crt_dynamic_lib.h"
 
 #include <windows.h>
-#include "DriverStore.h"
 
 using namespace OCLCRT::Utils;
 
@@ -69,32 +68,6 @@ crt_err_code OclDynamicLib::Load( const char* pLibName )
     m_uiFuncCount = exp->NumberOfNames;
     m_pOffsetNames = (unsigned int*)&hMod[ exp->AddressOfNames ];
     m_pOffsetFunc = (unsigned int*)&hMod[ exp->AddressOfFunctions ];
-
-    return CRT_SUCCESS;
-}
-
-crt_err_code OclDynamicLib::LoadDependency( const char* pLibName )
-{
-    if ( NULL != m_hLibrary )
-    {
-        return CRT_FAIL;
-    }
-
-    m_hLibrary = ::LoadDependency( pLibName );
-
-    if( NULL == m_hLibrary )
-    {
-        return CRT_FAIL;
-    }
-
-    // Library was succefully loaded
-    BYTE *hMod = (BYTE*)m_hLibrary;
-    IMAGE_NT_HEADERS *pnt = (IMAGE_NT_HEADERS*)&hMod[PIMAGE_DOS_HEADER(hMod)->e_lfanew];
-    IMAGE_EXPORT_DIRECTORY *exp = (IMAGE_EXPORT_DIRECTORY*)&hMod[pnt->OptionalHeader.DataDirectory->VirtualAddress];
-
-    m_uiFuncCount = exp->NumberOfNames;
-    m_pOffsetNames = (unsigned int*)&hMod[exp->AddressOfNames];
-    m_pOffsetFunc = (unsigned int*)&hMod[exp->AddressOfFunctions];
 
     return CRT_SUCCESS;
 }

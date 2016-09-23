@@ -82,8 +82,8 @@ static const char* noWGUnite =
 "                int y = get_global_id(0);\n"
 "                int z = get_global_id(2);\n"
 "                int index = x + y * size + z * size * size;\n"
-"                a_dev[index] = num;\n"
 "                b_dev[index] = a_dev[index]+m_dev[index];\n"
+"                a_dev[index] = num;\n"
 "}";
 
 static const char* differentSizes =

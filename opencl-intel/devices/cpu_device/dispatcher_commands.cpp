@@ -781,7 +781,7 @@ NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskList* pList, K
     m_numThreads = pList->GetDeviceConcurency();
 }
 
-int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThreads)
+int NDRange::Init(size_t region[], unsigned int &dimCount)
 {
     cl_dev_cmd_param_kernel* cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 
@@ -831,7 +831,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
 #ifdef OCLDEVICE_PLUGINS
         kernelParamsVec.resize(cmdParams->arg_size);
 #endif
-        cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount,
+        cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount, 
                                                      &devMemObjects, &kernelParamsVec);
         if ( CL_DEV_FAILED(clRet) )
         {
@@ -874,7 +874,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     }
     if(!zero_enqueue)
     {
-        m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount, numberOfThreads);
+        m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
     }
 
     // if logger is enabled, always print local work size from BE

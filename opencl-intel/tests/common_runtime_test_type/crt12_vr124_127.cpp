@@ -539,9 +539,9 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityWriteOnly_VR127){
 	// set up shared context, program and queues with kernel1
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
-    // create the buffer objects
-    ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0], ocl_descriptor.context, CL_MEM_WRITE_ONLY|CL_MEM_USE_HOST_PTR, sizeof(cl_int), buffer1.dynamic_array));
-    ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[1], ocl_descriptor.context, CL_MEM_WRITE_ONLY|CL_MEM_USE_HOST_PTR, sizeof(cl_int), buffer2.dynamic_array));
+	// create the buffer objects
+	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0], ocl_descriptor.context, CL_MEM_WRITE_ONLY|CL_MEM_USE_HOST_PTR, sizeof(cl_int)*2, buffer1.dynamic_array));
+	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[1],ocl_descriptor.context,CL_MEM_WRITE_ONLY|CL_MEM_USE_HOST_PTR,sizeof(cl_int)*2,buffer2.dynamic_array));
 
 	//create kernel and set arguments.
 	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels, ocl_descriptor.program, "kernel_1"));

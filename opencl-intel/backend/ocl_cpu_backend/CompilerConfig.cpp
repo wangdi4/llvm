@@ -57,7 +57,6 @@ static bool parseBool(const char *val) {
 
 void GlobalCompilerConfig::LoadConfig()
 {
-#ifndef NDEBUG
     if (const char *pEnv = getenv("VOLCANO_ENABLE_TIMING"))
     {
         m_enableTiming = !strcmp(pEnv, "TRUE");
@@ -70,6 +69,7 @@ void GlobalCompilerConfig::LoadConfig()
     {
         m_infoOutputFile = pEnv;
     }
+
 #ifdef OCLT
     // Stat options are set as llvm options for 2 reasons
     // they are available also for opt
@@ -83,7 +83,6 @@ void GlobalCompilerConfig::LoadConfig()
         }
     }
 #endif // OCLT
-#endif // NDEBUG
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
@@ -114,7 +113,7 @@ void CompilerConfig::LoadConfig()
         m_cpuArch = pEnv;
     }
 
-    if (const char *pEnv = getenv("CL_CONFIG_CPU_VECTORIZER_MODE"))
+    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE"))
     {
         unsigned int size;
         if ((std::stringstream(pEnv) >> size).fail())
@@ -123,13 +122,14 @@ void CompilerConfig::LoadConfig()
         }
         m_transposeSize = ETransposeSize(size);
     }
-#ifndef NDEBUG
+
     if (const char *pEnv = getenv("VOLCANO_CPU_FEATURES"))
     {
         // The validity of the cpud features are checked upon parsing of optimizer options
         m_cpuFeatures = pEnv;
     }
 
+#ifndef NDEBUG
     if (getenv("VOLCANO_DEBUG"))
     {
       llvm::DebugFlag = true;
@@ -138,6 +138,7 @@ void CompilerConfig::LoadConfig()
     {
       llvm::setCurrentDebugType(pEnv);
     }
+#endif
 
 #ifdef OCLT
     if (const char *pEnv = getenv("VOLCANO_IR_FILE_BASE_NAME"))
@@ -146,7 +147,6 @@ void CompilerConfig::LoadConfig()
         m_statFileBaseName = pEnv;
     }
 #endif // OCLT
-#endif // NDEBUG
 }
 
 void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)

@@ -61,7 +61,7 @@ namespace intel {
       return m_totalWeight;
     }
 
-
+    
     // for statistical purposes only, calculate the heuristic results per
     // block and output as counters. Called after both runs (before and after
     // vectorization), called in the post vectorization, and gets
@@ -196,7 +196,7 @@ namespace intel {
     static const int CHEAP_SHUFFLE_WEIGHT = 2;
     static const int EXPENSIVE_EXTRACT_WEIGHT = 2;
     static const int CHEAP_EXTRACT_WEIGHT = DEFAULT_WEIGHT;
-    static const int INSERT_WEIGHT = 2;
+    static const int INSERT_WEIGHT = 3;
 
     // Memops are complicated.
     static const int MEM_OP_WEIGHT = 6;
@@ -273,7 +273,7 @@ public:
     // cannot passed as is to the scalar function, what make it too difficult
     // to support these cases.
     static bool hasNonInlineUnsupportedFunctions(Function &F);
-
+    
     // Checks if the function directly calls stream read/write image functions.
     // We never want to vectorize that, as it doesn't make any sense.
     static bool hasDirectStreamCalls(Function &F, RuntimeServices* services);

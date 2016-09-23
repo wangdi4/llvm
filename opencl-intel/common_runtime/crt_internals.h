@@ -245,107 +245,6 @@ inline cl_int ValidateMapFlags( cl_map_flags map_flags )
     return CL_SUCCESS;
 }
 
-
-class AutoLock
-{
-public:
-    AutoLock(OclMutex &mutex) : m_mutex(mutex)
-    {
-        m_mutex.Lock();
-    }
-    ~AutoLock()
-    {
-        m_mutex.Unlock();
-    }
-private:
-    OclMutex &m_mutex;
-};
-
-
-// This class is used to protect access to shared STL Map resource
-// We need this since, on STL, its not thread-safe to call multiple functions
-// on the same resource where one of them is write operation.
-template <class TKEY, class TVAL>
-class GuardedMap
-{
-public:
-
-    GuardedMap(std::map<TKEY, TVAL>& map):
-        m_map(map)  {}
-
-    std::map<TKEY, TVAL>& get()
-    {
-        return m_map;
-    }
-
-    void Lock()
-    {
-        m_mutex.Lock();
-    }
-
-    void Release()
-    {
-        m_mutex.Unlock();
-    }
-
-    void Add(TKEY key, TVAL value)
-    {
-        AutoLock lock(m_mutex);
-        m_map[key] = value;
-    }
-
-    void Remove(TKEY key)
-    {
-        AutoLock lock(m_mutex);
-        m_map.erase(key);
-    }
-
-    TVAL GetValue(TKEY key)
-    {
-        AutoLock lock(m_mutex);
-        typename std::map<TKEY,TVAL>::iterator itr = m_map.find(key);
-        TVAL val = (itr != m_map.end()) ? itr->second : NULL;
-        return val;
-    }
-
-    size_t size()
-    {
-        AutoLock lock(m_mutex);
-        return m_map.size();
-    }
-
-    bool Find(const TKEY &key)
-    {
-        AutoLock lock(m_mutex);
-        return m_map.find(key) != m_map.end();
-    }
-
-    const TKEY FindUpperBound(const TKEY &key, TVAL size)
-    {
-        AutoLock lock(m_mutex);
-
-        typename std::map<TKEY, TVAL>::const_iterator iter = m_map.upper_bound( key );
-        if (iter == m_map.begin())
-        {
-            return NULL;
-        }
-        --iter;
-
-        if (((char*)key >= (char*)iter->first) &&
-            ((char*)key + size <= (char*)iter->first + iter->second))
-        {
-            return iter->first;
-        }
-        
-        return NULL;
-    }
-    
-private:
-    std::map<TKEY, TVAL>& m_map;
-    OclMutex m_mutex;
-};
-
-
 class CrtMemObject: public CrtObject
 {
 public:
@@ -637,32 +536,39 @@ public:
 
 class CrtSVMAllocation
 {
-    std::map<const void*, size_t> internalMap;
-    GuardedMap<const void*, size_t> m_svmAllocations;
-    
+    std::map<const void*, size_t> m_svmAllocations;
+
 public:
-    CrtSVMAllocation() : m_svmAllocations(internalMap)
-    {
-    }
-    
     void Add(const void* pSVMPtr, size_t size)
     {
-        m_svmAllocations.Add(pSVMPtr, size);
+        m_svmAllocations[pSVMPtr] = size;
     }
 
     void Remove(const void* pSVMPtr)
     {
-        m_svmAllocations.Remove(pSVMPtr);
+        m_svmAllocations.erase(pSVMPtr);
     }
 
     bool HasSVMAllocPtr(const void* pSVMPtr)
     {
-        return m_svmAllocations.Find(pSVMPtr);
+        return m_svmAllocations.end() != m_svmAllocations.find( pSVMPtr );
     }
 
-    const void* GetSVMAllocPtrForRange(const void* pSVMPtr, size_t size)
+    const void* GetSVMAllocPtrForRange(const void* pSVMPtr, size_t size) const
     {
-        return m_svmAllocations.FindUpperBound(pSVMPtr, size);
+        std::map<const void*, size_t>::const_iterator iter = m_svmAllocations.upper_bound( pSVMPtr );
+        if (iter == m_svmAllocations.begin())
+        {
+            return NULL;
+        }
+        --iter;
+
+        if (((char*)pSVMPtr >= (char*)iter->first) &&
+            ((char*)pSVMPtr + size < (char*)iter->first + iter->second))
+        {
+            return iter->first;
+        }
+        return NULL;
     }
 
 };
@@ -976,6 +882,61 @@ private:
     cl_event*                   m_outEventArray;
     bool                        m_eventRetained;
     cl_event                    m_userEvent;
+};
+
+// This class is used to protect access to shared STL Map resource
+// We need this since, on STL, its not thread-safe to call multiple functions
+// on the same resource where one of them is write operation.
+template <class TKEY, class TVAL>
+class GuardedMap
+{
+public:
+
+    GuardedMap(std::map<TKEY, TVAL>& map):m_map(map){};
+
+    std::map<TKEY, TVAL>& get()
+    {
+        return m_map;
+    }
+    void Lock()
+    {
+        m_mutex.Lock();
+    }
+    void Release()
+    {
+        m_mutex.Unlock();
+    }
+    void Add(TKEY key, TVAL value)
+    {
+        m_mutex.Lock();
+        m_map[key] = value;
+        m_mutex.Unlock();
+    }
+    void Remove(TKEY key)
+    {
+        m_mutex.Lock();
+        typename std::map<TKEY,TVAL>::iterator itr = m_map.find(key);
+        m_map.erase(itr);
+        m_mutex.Unlock();
+    }
+    TVAL GetValue(TKEY key)
+    {
+        m_mutex.Lock();
+        typename std::map<TKEY,TVAL>::iterator itr = m_map.find(key);
+        TVAL val = (itr != m_map.end()) ? itr->second : NULL;
+        m_mutex.Unlock();
+        return val;
+    }
+    size_t size()
+    {
+        m_mutex.Lock();
+        size_t retSize = m_map.size();
+        m_mutex.Unlock();
+        return retSize;
+    }
+private:
+    std::map<TKEY, TVAL>& m_map;
+    OclMutex m_mutex;
 };
 
 /// ------------------------------------------------------------------------------

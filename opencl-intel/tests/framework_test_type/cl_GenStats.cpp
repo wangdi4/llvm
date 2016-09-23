@@ -157,10 +157,6 @@ static void EndProgram(cl_context context) {
 
 
 bool cl_GenStats() {
-#ifdef NDEBUG
-  // OCL statistics is disabled in Release builds.
-  return true;
-#endif
   cl_context context;
   cl_device_id device;
 

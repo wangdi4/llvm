@@ -223,8 +223,8 @@ void test3DReadWriteCommands(OpenCLDescriptor& ocl_descriptor, cl_image_format i
 	//TODO: for CL_RG UNSIGNED and SIGNED INT32 crashed on destructors when sizes 
 	//of cpu_array and gpu_array were arraySize
 	//Need to test this case on IVB
-	DynamicArray<T> cpu_array(arraySize);
-	DynamicArray<T> gpu_array(arraySize);
+	DynamicArray<T> cpu_array(arraySize*50);
+	DynamicArray<T> gpu_array(arraySize*50);
 
 	// create OpenCL queues, program and context
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "read_image_no_3d_writes.cl"));
