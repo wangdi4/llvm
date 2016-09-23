@@ -634,3 +634,68 @@ TEST_F(OCL21, clGetKernelSubGroupInfo03)
     }
     clReleaseKernel(kernel);
 }
+//| TEST: OCL21.clGetKernelSubGroupInfo03
+//|
+//| Purpose
+//| -------
+//|
+//| Verify the ability to get kernel subgroup info
+//|
+//| Method
+//| ------
+//|
+//| 1. Build program from IL
+//| 2. Get size = CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE
+//| 3. Get count = CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE
+//| 4. Execute kernel
+//| 5. Validate data from kernel
+//|
+//| Pass criteria
+//| -------------
+//|
+//| Verify that valid non-zero kernel objects are returned
+//| Verify that data from kernel (from functions get_sub_group_size,
+//| get_max_sub_group_size, get_num_sub_groups) is valid and conform with
+//| data from API calls
+//|
+TEST_F(OCL21, clGetKernelSubGroupInfo04)
+{
+    // create OpenCL queues, program and context
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSourceFile(ocl_descriptor, "subgroups.spv"));
+
+    cl_kernel kernel = 0;
+    ASSERT_NO_FATAL_FAILURE(createKernel(&kernel, ocl_descriptor.program, "empty"));
+
+    for (size_t index = 0; index < 2; ++index)
+    {
+        std::cout << "Testing " << index << "-th device..." << std::endl;
+
+        size_t cl_kernel_max_num_sub_groups = 0;
+        size_t ret_size = 0;
+        ASSERT_NO_FATAL_FAILURE(getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_MAX_NUM_SUB_GROUPS,
+            0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size));
+        ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
+
+        size_t local_size[3] = { 1, 1, 1 };
+        ret_size = 0;
+        ASSERT_NO_FATAL_FAILURE(getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+            sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
+            sizeof(local_size), local_size, &ret_size));
+        ASSERT_GT(local_size[0], 0);
+        ASSERT_EQ(local_size[1], 1);
+        ASSERT_EQ(local_size[2], 1);
+
+        size_t cl_kernel_max_sub_group_size_for_ndrange = 0;
+        ret_size = 0;
+        ASSERT_NO_FATAL_FAILURE(getKernelSubGroupInfo(kernel, ocl_descriptor.devices[index], CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
+            sizeof(local_size), local_size, sizeof(cl_kernel_max_sub_group_size_for_ndrange),
+            &cl_kernel_max_sub_group_size_for_ndrange, &ret_size));
+
+        size_t global_size[3] = { local_size[0], local_size[1], local_size[2] };
+
+        ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[index], kernel, 3, nullptr, global_size, local_size, 0, nullptr, nullptr));
+
+        ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[index]));
+    }
+    clReleaseKernel(kernel);
+}
