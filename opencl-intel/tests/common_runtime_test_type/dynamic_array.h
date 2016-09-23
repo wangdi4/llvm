@@ -190,15 +190,15 @@ public:
 		{
 			ASSERT_TRUE(false) << "Null argument provided";
 		}
-		cl_float* float_array = new cl_float[dynamic_array_size];
+        std::vector<cl_float> float_array(dynamic_array_size);
 
 		//copy current half array to float array
-		halfp2singles(float_array, dynamic_array, dynamic_array_size);
+        halfp2singles(&float_array[0], dynamic_array, dynamic_array_size);
 
-		cl_float* float_array2 = new cl_float[dynamic_array_size];
+        std::vector<cl_float> float_array2(dynamic_array_size);
 
 		//copy current half array to float array
-		halfp2singles(float_array2, rhsArray, dynamic_array_size);
+        halfp2singles(&float_array2[0], rhsArray, dynamic_array_size);
 
 		arraySize = arraySize<(cl_uint)dynamic_array_size?arraySize:dynamic_array_size;
 		for(cl_uint i=0; i<arraySize; ++i){

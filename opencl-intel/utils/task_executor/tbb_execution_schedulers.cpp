@@ -350,7 +350,7 @@ bool TBB_ExecutionSchedulers::parallel_execute( base_command_list& cmdList,
     TE_CMD_LIST_PREFERRED_SCHEDULING scheduler    = cmdList.GetPreferredScheduler();
     TASK_SET_OPTIMIZATION            optimization = task->OptimizeBy();
 
-    int res = task->Init(dims, dimCount);
+    int res = task->Init(dims, dimCount, cmdList.GetTEDevice()->GetConcurrency());
 
     assert( scheduler < TE_CMD_LIST_PREFERRED_SCHEDULING_LAST && "Invalid preferred scheduling" );
     assert( optimization < TASK_SET_OPTIMIZE_BY_LAST && "Invalid ");

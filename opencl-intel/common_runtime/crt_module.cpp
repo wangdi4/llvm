@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2015 Intel Corporation
+// Copyright (c) 2006-2016 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -25,8 +25,13 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#ifdef _WIN32
+#include "utils\DriverStore.h"
+#endif
+
 using namespace OCLCRT;
 
+#pragma warning (disable : 4996 )
 #define REGISTER_DISPATCH_ENTRYPOINT(__NAME__,__ADDRESS__) \
     m_icdDispatchTable . __NAME__ = (__ADDRESS__);
 
@@ -340,10 +345,24 @@ crt_err_code CrtModule::Initialize()
                 res = CRT_FAIL;
                 break;
             }
-            if (CRT_FAIL == pCrtPlatform->m_lib.Load(libName.c_str()))
+#ifdef _WIN32
+            // new path for GPU on RS
+            if( ( libName.find("igdrcl") != std::string::npos ) && ( GetWinVer() >= OS_WIN_RS ) )
             {
-                delete pCrtPlatform;
-                continue;
+                if( CRT_FAIL == pCrtPlatform->m_lib.LoadDependency( libName.c_str() ) )
+                {
+                    delete pCrtPlatform;
+                    continue;
+                }
+            }
+            else
+#endif
+            {
+                if( CRT_FAIL == pCrtPlatform->m_lib.Load( libName.c_str() ) )
+                {
+                    delete pCrtPlatform;
+                    continue;
+                }
             }
 
             KHRpfn_clGetExtensionFunctionAddress clGetExtFuncAddr = (KHRpfn_clGetExtensionFunctionAddress)pCrtPlatform->m_lib.GetFunctionPtrByName("clGetExtensionFunctionAddress");
@@ -610,7 +629,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_ctx_interop_user_sync_set = CL_TRUE;
                 break;
-            case CL_CONTEXT_SHOW_PERFORMANCE_HINTS_INTEL:
+            case CL_CONTEXT_SHOW_DIAGNOSTICS_INTEL:
                 if( cl_show_perf_hints_set != CL_FALSE )
                 {
                     return CL_INVALID_PROPERTY;

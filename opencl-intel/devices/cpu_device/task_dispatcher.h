@@ -206,7 +206,7 @@ public:
     bool    SetAsSyncPoint()  { return false;}
     bool    CompleteAndCheckSyncPoint() { return true;}
     bool    IsCompleted() const { return true;}
-    int	    Init(size_t region[], unsigned int &regCount);
+    int     Init(size_t region[], unsigned int &regCount, size_t numberOfThreads);
     void*   AttachToThread(void* tls, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
     void	  DetachFromThread(void* data);
     bool	  ExecuteIteration(size_t x, size_t y, size_t z, void* data);

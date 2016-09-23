@@ -492,10 +492,10 @@ void executeSetAndExecuteKernelsSum(const char* kernelName, DynamicArray<T>& inp
 	// create queue, kernel and set kernel args for each device
 	for(int i=0; i<2; ++i)
 	{
-		float sum = 0;
+        float sum = 0;
 
 		// create separate output buffer
-		ASSERT_NO_FATAL_FAILURE(createBuffer(&buffers[i], context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, 
+        ASSERT_NO_FATAL_FAILURE(createBuffer(&buffers[i], context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
 			sizeof(cl_float), &sum));
 
 		// create kernel
