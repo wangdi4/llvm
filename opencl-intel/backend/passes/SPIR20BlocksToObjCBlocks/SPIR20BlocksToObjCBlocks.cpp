@@ -220,33 +220,33 @@ SPIR20BlocksToObjCBlocks::getOrCreateObjCBlock(Module &M,
   Instruction *objcInvokePtr =
       GetElementPtrInst::Create(nullptr, objcBlockAlloca, objcInvokeGEPIndices,
                                 "objc.block.invoke", insertBefore);
-  new StoreInst(spirBlockInvoke, objcInvokePtr, insertBefore);
+    new StoreInst(spirBlockInvoke, objcInvokePtr, insertBefore);
 
-  // 2. Store a pointer to the block desriptor global value created earlier
-  Value *objcBlockDescrGEPIndices[2] = {ConstantInt::get(m_int32Ty, 0),
-                                        ConstantInt::get(m_int32Ty, 4)};
-  Instruction *objcBlockDescrPtr = GetElementPtrInst::Create(
-      nullptr, objcBlockAlloca, objcBlockDescrGEPIndices,
-      "objc.block.descriptor", insertBefore);
-  new StoreInst(objcBlockDescrGV, objcBlockDescrPtr, insertBefore);
+    // 2. Store a pointer to the block desriptor global value created earlier
+    Value * objcBlockDescrGEPIndices[2] = { ConstantInt::get(m_int32Ty, 0),
+                                            ConstantInt::get(m_int32Ty, 4) };
+    Instruction* objcBlockDescrPtr =
+      GetElementPtrInst::Create(nullptr, objcBlockAlloca, objcBlockDescrGEPIndices,
+                                "objc.block.descriptor", insertBefore);
+    new StoreInst(objcBlockDescrGV, objcBlockDescrPtr, insertBefore);
 
-  // 3. Store captured context if any and fix block invoke function
-  if (spirBlockContextCast) {
-    Value *spirContextAlloca = spirBlockContextCast->getOperand(0);
-    assert(isa<AllocaInst>(spirContextAlloca) &&
-           "alloca for SPIR 2.0 captured context is expected");
-    replaceGEPs(spirContextAlloca, objcBlockAlloca);
+    // 3. Store captured context if any and fix block invoke function
+    if(spirBlockContextCast) {
+      Value * spirContextAlloca = spirBlockContextCast->getOperand(0);
+      assert(isa<AllocaInst>(spirContextAlloca) &&
+             "alloca for SPIR 2.0 captured context is expected");
+      replaceGEPs(spirContextAlloca, objcBlockAlloca);
+    }
     // Fix the invoke which still expects captured data as an agrument
-    // and all GEPs from it.
+    // and all GEPs from it (even if nothing have been captured).
     fixBlockInvoke(M, spirBlockInvoke, objcBlockContextTy);
-  }
 
-  // Ideally next what has to be done is to replace all uses of "opencl.block"
-  // opaque type with this new block type but this is tedious and error prone.
-  // It is easier to cast the poiner to Objective-C block to SPIR 2.0 block and
-  // rely on BIImport pass which is able to properly map opaque struct types
-  // while importing built-ins to a user module.
-  CastInst *objcBlock =
+    // Ideally next what has to be done is to replace all uses of "opencl.block"
+    // opaque type with this new block type but this is tedious and error prone.
+    // It is easier to cast the poiner to Objective-C block to SPIR 2.0 block and
+    // rely on BIImport pass which is able to properly map opaque struct types while
+    // importing built-ins to a user module.
+    CastInst * objcBlock =
       CastInst::CreatePointerCast(objcBlockAlloca, spirBlockBindCI->getType(),
                                   "objc.to.spir.cast", insertBefore);
   return m_objcBlocks[spirBlockInvoke] = objcBlock;
