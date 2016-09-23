@@ -111,9 +111,10 @@ namespace llvm {
     }
 		void insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn = nullptr);
     void insertSWITCHForIf();
+		void renameAcrossLoopForRepeat();
     void insertSWITCHForRepeat();
     void insertSWITCHForLoopExit();
-	void SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop);
+		void SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop);
     void replacePhiWithPICK();
     void replaceLoopHdrPhi();
 		void TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI);
@@ -492,6 +493,63 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::getOrInsertPredCopy(MachineBasi
   return predcpyVec;
 }
 
+//TODO: rename for repeat
+void LPUCvtCFDFPass::renameAcrossLoopForRepeat() {
+	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+	typedef po_iterator<MachineLoop *> po_mloop_iterator;
+	if (MLI->begin() == MLI->end()) return;
+
+	MachineLoop* root = *MLI->begin();
+	for (po_mloop_iterator iloop = po_mloop_iterator::begin(root), END = po_mloop_iterator::end(root); iloop != END; ++iloop) {
+		MachineLoop *mloop = *iloop;
+		for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+			MachineBasicBlock* mbb = *BI;
+			//only conside blocks in the  urrent loop level, blocks in the nested level are done before.
+			if (MLI->getLoopFor(mbb) != mloop) continue;
+			for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
+				MachineInstr *MI = I;
+				for (MIOperands MO(MI); MO.isValid(); ++MO) {
+					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) return;
+					unsigned Reg = MO->getReg();
+					if (MO->isUse()) {
+						MachineInstr *DefMI = MRI->getVRegDef(Reg);
+						MachineBasicBlock *dmbb = DefMI->getParent();
+						MachineLoop* dmloop = MLI->getLoopFor(dmbb);
+						if (TII.isSwitch(DefMI)) {
+							//def already from a switch -- can only happen if use is an immediate child of def in CDG
+							continue;
+						}
+						//def is in immediate nesting level, this including def not in any loop at all
+						if (mloop->getParentLoop() == dmloop) continue;
+
+						//def outside the loop of use, and not in the immediate nesting level
+						if (!dmloop || dmloop->contains(mloop)) {
+							MachineBasicBlock* landingPad = mloop->getLoopPreheader();
+							//TODO:: create the landing pad if can't find one
+							assert(landingPad && "can't find loop preheader as landing pad for renaming");
+							const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+							const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+							unsigned cpyReg = MRI->createVirtualRegister(TRC);
+							MachineInstr *cpyInst = BuildMI(*landingPad, landingPad->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(Reg);
+							cpyInst->setFlag(MachineInstr::NonSequential);
+							MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+							while (UI != MRI->use_end()) {
+								MachineOperand &UseMO = *UI;
+								MachineInstr *UseMI = UseMO.getParent();
+								MachineBasicBlock* UseBB = UseMI->getParent();
+								++UI;
+								if (MLI->getLoopFor(UseBB) && MLI->getLoopFor(UseBB) == mloop) {
+									UseMO.setReg(cpyReg);
+								}
+							}
+						}
+					}
+				}
+			}//end of for MI
+		}
+	}
+}
 
 
 void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn) {
@@ -838,6 +896,9 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
 
 //focus on uses
 void LPUCvtCFDFPass::insertSWITCHForRepeat() {
+
+	renameAcrossLoopForRepeat();
+
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
