@@ -586,18 +586,18 @@ TEST_F(OCL21, clGetKernelSubGroupInfo03)
         size_t global_size[3] = { local_size[0], local_size[1], local_size[2] };
         size_t buffer_size = global_size[0] * sizeof(cl_uint);
 
-        ASSERT_NO_FATAL_FAILURE(createBuffer(&sub_group_size_buffer[index], ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
-        ASSERT_NO_FATAL_FAILURE(createBuffer(&max_sub_group_size_buffer[index], ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
-        ASSERT_NO_FATAL_FAILURE(createBuffer(&num_sub_groups_buffer[index], ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
+        ASSERT_NO_FATAL_FAILURE(createBuffer(&(sub_group_size_buffer[index]), ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
+        ASSERT_NO_FATAL_FAILURE(createBuffer(&(max_sub_group_size_buffer[index]), ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
+        ASSERT_NO_FATAL_FAILURE(createBuffer(&(num_sub_groups_buffer[index]), ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr));
 
         size_t pattern = 0;
         ASSERT_NO_FATAL_FAILURE(enqueueFillBuffer(ocl_descriptor.queues[index], sub_group_size_buffer[index], &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr));
         ASSERT_NO_FATAL_FAILURE(enqueueFillBuffer(ocl_descriptor.queues[index], max_sub_group_size_buffer[index], &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr));
         ASSERT_NO_FATAL_FAILURE(enqueueFillBuffer(ocl_descriptor.queues[index], num_sub_groups_buffer[index], &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr));
 
-        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 0, buffer_size, &sub_group_size_buffer[index]));
-        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 1, buffer_size, &max_sub_group_size_buffer[index]));
-        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 2, buffer_size, &num_sub_groups_buffer[index]));
+        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 0, buffer_size, &(sub_group_size_buffer[index])));
+        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 1, buffer_size, &(max_sub_group_size_buffer[index])));
+        ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 2, buffer_size, &(num_sub_groups_buffer[index])));
 
         ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[index], kernel, 3, nullptr, global_size, local_size, 0, nullptr, nullptr));
 
