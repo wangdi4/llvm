@@ -18,6 +18,36 @@
 #endif //BUILD_EXPERIMENTAL_21
 #endif
 
+#ifdef _DEBUG
+#ifdef _MSC_VER
+static int AvoidMessageBoxHook(int ReportType, char *Message, int *Return) {
+	// Set *Return to the retry code for the return value of _CrtDbgReport:
+	// http://msdn.microsoft.com/en-us/library/8hyw4sy7(v=vs.71).aspx
+	// This may also trigger just-in-time debugging via DebugBreak().
+	if (Return)
+		*Return = 1;
+	// Don't call _CrtDbgReport.
+	return 1;
+}
+#endif
+
+static void DisableSystemDialogsOnCrash() {
+#ifdef _MSC_VER
+	// Helpful text message is printed when a program is abnormally terminated
+	_set_abort_behavior(0, _WRITE_ABORT_MSG);
+	// Disable Dr. Watson.
+	_set_abort_behavior(0, _CALL_REPORTFAULT);
+	_CrtSetReportHook(AvoidMessageBoxHook);
+#endif
+
+	// Disable standard error dialog box.
+	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX |
+		SEM_NOOPENFILEERRORBOX);
+	_set_error_mode(_OUT_TO_STDERR);
+}
+#endif // _DEBUG
+
+
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -26,8 +56,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-#ifdef _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
-        InitSharedPtrs();
+#ifdef _DEBUG
+	DisableSystemDialogsOnCrash();
+
+	// this is needed to initialize allocated objects DB, which is
+	// maintained in only in debug
+	InitSharedPtrs();
 #endif
 		break;
 	case DLL_THREAD_ATTACH:

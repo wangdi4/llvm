@@ -134,7 +134,7 @@ void Kernel::FreeAllJITs() {
   }
 }
 
-void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
+void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs, size_t numOfComputeUnits)
     const {
   // assumption: LocalWorkSize GlobalSize and minWorkGroup already initialized
 
@@ -149,16 +149,16 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
 
   // In case we can merge WG's but we have local size given (not NULL)
   if (canUniteWG && !UseAutoGroupSize){
-    // need to merge WG in the specified dimensions
+    // Need to merge WG in the dimension a kernel is vectorized for
     size_t localWorkSizeX = UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim];
     size_t globalWorkSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
-
-    unsigned int localSizeUpperLimit = min(globalWorkSizeX,
+    // Compute the maximum WG size given that there are N threads to run on.
+    unsigned int localSizeUpperLimit = min(globalWorkSizeX / numOfComputeUnits,
              m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE));
-
+    // Make WG size upper limit to be al least of vector size in case if local size set to 1
     unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
     size_t loopUpperLimit = min(minMultiplyFactor*localWorkSizeX, localSizeUpperLimit);
-
+    // Some magic happens below. Unfortunately the reasoning why it works this way is lost for good.
     size_t baseVectorIterations = localWorkSizeX / minMultiplyFactor;
     size_t baseScalarIterations = localWorkSizeX - (baseVectorIterations * minMultiplyFactor);
 
@@ -403,14 +403,15 @@ cl_dev_err_code Kernel::PrepareThreadState(ICLDevExecutionState &state) const {
 cl_dev_err_code
 Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
                                const cl_mem_obj_descriptor **pDevMemObjArray,
-                               unsigned int devMemObjArrayLength) const {
+                               unsigned int devMemObjArrayLength,
+                               size_t numOfComputeUnits) const {
   assert(pKernelUniformArgs && "Uniform Arguments Pointer is null");
   void *pKernelUniformImplicitArgsPosition =
       (char *)pKernelUniformArgs + m_explicitArgsSizeInBytes;
   cl_uniform_kernel_args *pKernelUniformImplicitArgs =
       static_cast<cl_uniform_kernel_args *>(pKernelUniformImplicitArgsPosition);
 
-  CreateWorkDescription(pKernelUniformImplicitArgs);
+  CreateWorkDescription(pKernelUniformImplicitArgs, numOfComputeUnits);
 
   // local cannot be zero at this point
   assert(pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] != 0 &&
@@ -718,4 +719,3 @@ Kernel *KernelSet::GetKernel(const char *name) const {
 }
 }
 } // namespace
-

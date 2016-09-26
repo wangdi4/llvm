@@ -314,9 +314,9 @@ public:
     // Fills the buffer with 3D number of iterations to run
     // Fills regCount with actual number of regions
     // Returns 0 if initialization success, otherwise an error code
-    virtual int        Init(size_t region[], unsigned int& regCount) = 0;
+    virtual int     Init(size_t region[], unsigned int& regCount, size_t numberOfThreads = 1) = 0;
 
-    virtual void*    GetConcreteClass() { return this; }
+    virtual void*   GetConcreteClass() { return this; }
 
     // Is called when the task is going to be called for the first time within specific thread. 
     // @param currentThreadData - data returned by OnThreadEntry()

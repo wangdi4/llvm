@@ -37,7 +37,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 // General configuration strings:
 #define CL_CONFIG_LOG_FILE                      "CL_CONFIG_LOG_FILE"                    // string
+#ifndef NDEBUG
 #define CL_CONFIG_USE_LOGGER                    "CL_CONFIG_USE_LOGGER"                  // bool
+#endif
 #define CL_CONFIG_DEVICES                       "CL_CONFIG_DEVICES"                     // string (use tokenize to get substrings)
 
 #define CL_CONFIG_USE_ITT_API                   "CL_CONFIG_USE_ITT_API"                 // bool
@@ -64,7 +66,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		~OCLConfig();
 
 		string		 GetLogFile() const { return m_pConfigFile->Read<string>(CL_CONFIG_LOG_FILE, DEFAULT_LOG_FILE_NAME); }
-		bool		   UseLogger() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_LOGGER, false); }
+		bool		   UseLogger() const {
+#ifndef NDEBUG
+			return m_pConfigFile->Read<bool>(CL_CONFIG_USE_LOGGER, false);
+#else
+			return false;
+#endif
+		}
 		
 		vector<string> GetDevices() const;
 		string         GetDefaultDevice() const;
