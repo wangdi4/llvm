@@ -345,8 +345,7 @@ void MapIntrinToIml::generateMathLibCalls(
       ArgInst->insertAfter(*InsertPt);
       *InsertPt = ArgInst;
     }
-    Twine TempName = "vcall";
-    CallInst *NewCI = CallInst::Create(Func, Args[I], TempName);
+    CallInst *NewCI = CallInst::Create(Func, Args[I], "vcall");
     NewCI->insertAfter(*InsertPt);
     Calls.push_back(NewCI);
     *InsertPt = NewCI;
@@ -524,17 +523,17 @@ void MapIntrinToIml::generateSinCosStore(CallInst *VectorCall,
             ConstantInt::get(Type::getInt32Ty(Func->getContext()), PtrIdx);
 
         // Extract the sin/cos result from the vector register.
-        Twine ExtractName = ResultName + ".elem";
         ExtractElementInst *ElemToStore =
-            ExtractElementInst::Create(ShuffleInst, ElmIdx, ExtractName);
+            ExtractElementInst::Create(ShuffleInst, ElmIdx,
+                                       ResultName + ".elem");
         ElemToStore->insertAfter(*InsertPt);
         *InsertPt = ElemToStore;
 
         // Extract the pointer from the vector of pointers argument from the
         // original call.
-        Twine ExtractNamePtr = ResultName + ".elem.ptr";
         ExtractElementInst *ElemToStorePtr =
-            ExtractElementInst::Create(SvmlArg, ElmIdxPtr, ExtractNamePtr);
+            ExtractElementInst::Create(SvmlArg, ElmIdxPtr,
+                                       ResultName + ".elem.ptr");
         ElemToStorePtr->insertAfter(*InsertPt);
         *InsertPt = ElemToStorePtr;
 
@@ -827,11 +826,11 @@ const char* MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
   // the lookup is based on the legal target vector length. This is important
   // to remember since the input function (FuncName) could be a logical vector
   // that is larger.
-  Twine TempFuncName = "__svml_" + getScalarFunctionName(FuncName, LogicalVL) +
-                       Twine(TargetVL);
-  std::string TempFuncNameRef = TempFuncName.str();
-  char *ParentFuncName = new char[TempFuncNameRef.length() + 1];
-  std::strcpy(ParentFuncName, TempFuncNameRef.c_str());
+  StringRef ScalarFuncName = getScalarFunctionName(FuncName, LogicalVL);
+  std::string TargetVLStr = APInt(32, TargetVL).toString(10, false);
+  std::string TempFuncName = "__svml_" + ScalarFuncName.str() + TargetVLStr;
+  char *ParentFuncName = new char[TempFuncName.size() + 1];
+  std::strcpy(ParentFuncName, TempFuncName.c_str());
 
   DEBUG(dbgs() << "Input Function: " << FuncName << "\n");
   DEBUG(dbgs() << "Legal Function: " << TempFuncName << "\n");
