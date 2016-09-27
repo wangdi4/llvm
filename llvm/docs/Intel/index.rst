@@ -13,6 +13,7 @@ Xmain
    VPO/index
    Analysis/index
    CodeGen/index
+   Clang/index
 
 Introduction
 ============
@@ -63,3 +64,5 @@ Major Components
 :doc:`CodeGen <CodeGen/index>`
    Container for CodeGen documents.
 
+:doc:`Clang <Clang/index>`
+   Container for Clang documents.
