@@ -1,7 +1,11 @@
 
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
-;This case needs two distributions to make 2 vectorizable loops
-; and one serial
+; RUN: opt -O2   < %s 2>&1 | FileCheck %s
+;
+; This is just a remainder that we need to defer the PreLoad in GVN until
+; loopopt cleanup.  Loop Carried temps will prevent loop transformations and  
+; vectorization
+;
+;  XFAIL: *  
 ;;Split at 8-10 and again 21-22
 ;          BEGIN REGION { }
 ;<30>         + DO i1 = 0, 98, 1   <DO_LOOP>

@@ -2,7 +2,7 @@
 ;     for(int  i = 0; i <= 50; i++) {
 ;        A[100 - 2*i] = B[i] +1;
 ;        A[50 - i] =  B[i+n] +1; }
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=mem-rec -hir-cost-model-throttling=0  < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  -hir-cost-model-throttling=0  < %s 2>&1 | FileCheck %s
 ;  CHECK: DO i1    
 ;  CHECK-NOT: DO i1    
 ;Module Before HIR; ModuleID = 'reorder3.cpp'

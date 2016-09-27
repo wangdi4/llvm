@@ -19,6 +19,8 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   HIRSafeReductionAnalysis.cpp 
   HIRLocalityAnalysis.cpp
   HIRParVecAnalysis.cpp
+  HIRLoopDistributionPreProcGraph.cpp
+  HIRLoopDistributionGraph.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis

@@ -16,6 +16,9 @@
 // be much more tractable than the DDGraph itself for scc detection/analysis.
 // This graph is then analyzed for sccs, each of which forms a pi block.
 //
+//===---------------------------------------------------------------------===//
+
+//
 // Consider the following loop nest
 //          BEGIN REGION { }
 //          <29>         + DO i1 = 0, 99998, 1   <DO_LOOP>
@@ -91,10 +94,6 @@
 namespace llvm {
 
 namespace loopopt {
-
-// TODO: Arbitrarily chosen
-unsigned MaxDDEdges = 256;
-unsigned MaxDistPPSize = 128;
 
 class DistPPGraph;
 
@@ -403,37 +402,8 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
 };
 
-DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
-  createNodes(Loop);
-  if (!isGraphValid()) {
-    return;
-  }
-
-  DDGraph DDG = DDA->getGraph(Loop);
-
-  DistributionEdgeCreator EdgeCreator(&DDG, this, Loop);
-  HLNodeUtils::visitRange(EdgeCreator, Loop->getFirstChild(),
-                          Loop->getLastChild());
-
-  if (EdgeCreator.EdgeCount > MaxDDEdges) {
-    setInvalid("Too many DD edges for proper analysis");
-  }
-}
-void DistPPGraph::createNodes(HLLoop *Loop) {
-  DistributionNodeCreator NodeCreator(this);
-  HLNodeUtils::visitRange(NodeCreator, Loop->getFirstChild(),
-                          Loop->getLastChild());
-  // Bail early before DD for invalid cases
-  if (getNodeCount() > MaxDistPPSize) {
-    setInvalid("Too many stmts to analyze");
-  }
-
-  if (getNodeCount() == 1) {
-    setInvalid("Single Node Loop cannot be analyzed");
-  }
-}
-
 } // loopopt
+
 //===--------------------------------------------------------------------===//
 // GraphTraits specializations for DistPPGraph. This will allow us to use
 // Graph algorithm iterators such as SCCIterator. Must be in same namespace

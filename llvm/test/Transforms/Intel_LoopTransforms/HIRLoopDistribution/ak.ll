@@ -1,5 +1,5 @@
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=mem-rec < %s 2>&1 | FileCheck %s
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=mem-rec -disable-hir-loop-distribute < %s 2>&1 | FileCheck --check-prefix=CHECK-DISABLE %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec -disable-hir-loop-distribute < %s 2>&1 | FileCheck --check-prefix=CHECK-DISABLE %s
 ;we want to dist on 10-13 to remove loop carried dep
 ;          BEGIN REGION { }
 ;<29>         + DO i1 = 0, 99998, 1   <DO_LOOP>

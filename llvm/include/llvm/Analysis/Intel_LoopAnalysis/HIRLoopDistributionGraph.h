@@ -1,4 +1,4 @@
-//===----- HIRLoopDistributionGraph.h - Forms Distribution Graph  --------===//
+//===----- HIRLoopDistributionGraph.h - Forms Distribution Graph  ---------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -23,7 +23,7 @@
 #ifndef INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
 #define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionPreProcGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopDistributionPreProcGraph.h"
 
 namespace llvm {
 
@@ -98,40 +98,6 @@ private:
   SmallVector<DistPPNode *, 16> DistPPNodes;
   PiBlockType BlockType;
 };
-
-void PiBlock::setPiBlockType(const std::vector<DistPPNode *> &SCCNodes) {
-  int StmtCount = 0;
-  int LoopCount = 0;
-  for (DistPPNode *Node : SCCNodes) {
-    if (isa<HLLoop>(Node->HNode)) {
-      LoopCount++;
-    } else {
-      StmtCount++;
-    }
-  }
-
-  if (StmtCount == 0) {
-    if (LoopCount == 0) {
-      llvm_unreachable("Malformed pi block in loop distribution");
-    } else if (LoopCount == 1) {
-      BlockType = PiBlockType::SingleLoop;
-    } else {
-      BlockType = PiBlockType::MultipleLoop;
-    }
-  } else if (StmtCount == 1) {
-    if (LoopCount == 0) {
-      BlockType = PiBlockType::SingleStmt;
-    } else {
-      BlockType = PiBlockType::StmtAndLoop;
-    }
-  } else if (StmtCount > 1) {
-    if (LoopCount == 0) {
-      BlockType = PiBlockType::MultipleStmt;
-    } else {
-      BlockType = PiBlockType::StmtAndLoop;
-    }
-  }
-}
 
 // A PiGraphEdge represents a list of dd edges between PiBlocks.
 class PiGraphEdge {
@@ -322,20 +288,5 @@ template <> struct GraphTraits<PiGraph *> {
   static unsigned size(PiGraph *G) { return G->size(); }
 };
 } /// llvm
-
-void llvm::loopopt::PiGraph::createNodes() {
-  {
-    scc_iterator<DistPPGraph *> I = scc_begin(PPGraph);
-
-    for (auto I = scc_begin(PPGraph), E = scc_end(PPGraph); I != E; ++I) {
-      addPiBlock(*I);
-    }
-
-    // scc_iterator uses tarjans algorithm, which emits scc's in
-    // reverse top sort order. Reverse piblock list to restore
-    // top sort order
-    std::reverse(PiBlocks.begin(), PiBlocks.end());
-  }
-}
 
 #endif

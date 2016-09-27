@@ -14,22 +14,17 @@
 // distribution to break recurrences(enables vectorization)
 //===----------------------------------------------------------------------===//
 //
+
 #include "llvm/ADT/SCCIterator.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
-
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionGraph.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
+
+#include "HIRLoopDistribution.h"
 
 #define DEBUG_TYPE "hir-loop-distribute"
 
@@ -40,107 +35,76 @@ cl::opt<bool> DisableDist("disable-hir-loop-distribute",
                           cl::desc("Disable HIR Loop Distribution"), cl::Hidden,
                           cl::init(false));
 
-namespace {
+bool HIRLoopDistribution::runOnFunction(Function &F) {
 
-enum class DistHeuristics : unsigned char {
-  NotSpecified = 0, // Default enum for command line option. Will be overridden
-                    // by pass constructor argument
-  MaximalDist,      // Everytime you can, do it. Testing only
-  NestFormation,    // Try to form perfect loop nests
-  BreakMemRec,      // Break recurrence among mem refs ie A[i] -> A[i+i]
-  BreakScalarRec,   // Break recurrence among scalars. Requires scalar expansion
-};
+  this->F = &F;
 
-cl::opt<DistHeuristics> CmdLineHeuristics(
-    "hir-loop-distribute-heuristics", cl::Hidden,
-    cl::desc("HIR Loop Distribution Heuristics"),
-    cl::values(
-        clEnumValN(DistHeuristics::NotSpecified, "none",
-                   "No specified heuristics, uses pass defaults"),
-        clEnumValN(DistHeuristics::MaximalDist, "maximal",
-                   "Distribute at every legal opportunity(not implemented)"),
-        clEnumValN(DistHeuristics::NestFormation, "nest",
-                   "Distribute with intent to form perfect loop nests"),
-        clEnumValN(DistHeuristics::BreakMemRec, "mem-rec",
-                   "Distribute to break recurrences among memory references"),
-        clEnumValN(
-            DistHeuristics::BreakScalarRec, "scalar-rec",
-            "Distribute to break recurrences among scalars(not implemented)"),
-        clEnumValEnd),
-    cl::init(DistHeuristics::NotSpecified));
+  if (DisableDist || skipFunction(F)) {
+    if (OptReportLevel >= 3) {
+      dbgs() << "LOOP DISTRIBUTION: Transform disabled \n";
+    }
+    return false;
+  }
 
-class HIRLoopDistribution : public HIRTransformPass {
-  typedef SmallVector<PiBlock *, 4> PiBlockList;
+  DDA = &getAnalysis<HIRDDAnalysis>();
+  SmallVector<HLLoop *, 64> Loops;
 
-public:
-  static char ID;
+  if (DistCostModel == DistHeuristics::BreakMemRec) {
+    HLNodeUtils::gatherInnermostLoops(Loops);
+  } else {
+    HLNodeUtils::gatherAllLoops(Loops);
+    // Work from innermost to outermost
+    std::sort(Loops.begin(), Loops.end(), [](HLLoop *A, HLLoop *B) -> bool {
+      return A->getNestingLevel() > B->getNestingLevel();
+    });
+  }
 
-  HIRLoopDistribution(bool FormPerfectLoopNests = true) : HIRTransformPass(ID) {
-    initializeHIRLoopDistributionPass(*PassRegistry::getPassRegistry());
-    if (FormPerfectLoopNests) {
-      DistCostModel = DistHeuristics::NestFormation;
+  bool Modified = false;
+  for (auto I = Loops.begin(), E = Loops.end(); I != E; ++I) {
+    HLLoop *Lp = *I;
+    if (!loopIsCandidate(Lp)) {
+      if (OptReportLevel >= 3) {
+        dbgs() << "LOOP DISTRIBUTION: Loop is not candidate with current "
+                  "heuristics \n";
+      }
+      continue;
+    }
+
+    std::unique_ptr<PiGraph> PG(new PiGraph(Lp, DDA));
+
+    if (!PG->isGraphValid()) {
+      if (OptReportLevel >= 3) {
+        dbgs() << "LOOP DISTRIBUTION: Distribution for loop failed due to "
+               << PG->getFailureReason() << "\n";
+      }
+      continue;
+    }
+
+    // Single piblock graph isn't worth considering
+    if (PG->size() < 2) {
+      if (OptReportLevel >= 3) {
+        // TODO might still be able to scalar expand though...
+        dbgs() << "LOOP DISTRIBUTION: Skipped loop because of too many "
+                  "dependences\n";
+      }
+      continue;
+    }
+
+    SmallVector<PiBlockList, 8> NewOrdering;
+    findDistPoints(Lp, PG, NewOrdering);
+    if (NewOrdering.size() > 1) {
+      distributeLoop(Lp, NewOrdering);
+      Modified = true;
     } else {
-      DistCostModel = DistHeuristics::BreakMemRec;
+      if (OptReportLevel >= 3) {
+        dbgs() << "LOOP DISTRIBUTION: "
+               << "Found no valid distribution points"
+               << "\n";
+      }
     }
   }
 
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFramework>();
-    AU.addRequiredTransitive<HIRDDAnalysis>();
-  }
-
-private:
-  Function *F;
-  HIRDDAnalysis *DDA;
-  int OptReportLevel = 1;
-
-  // Heuristics set used for this pass
-  DistHeuristics DistCostModel = DistHeuristics::BreakMemRec;
-
-  void findDistPoints(const HLLoop *L, std::unique_ptr<PiGraph> const &PGraph,
-                      SmallVectorImpl<PiBlockList> &DistPoints) const;
-
-  // Returns true if this edge contains dd edge with (<) at loop level
-  // Such an edge would be eliminated by distributing the src sink piblocks
-  // into separate loops
-  bool piEdgeIsRecurrence(const HLLoop *Lp, const PiGraphEdge &Edge) const;
-
-  // Loop may be discarded prior to any analysis by some heuristics.
-  // For example, the costmodel may consider only innermost loops, no need
-  // to do potentially expensive analysis on others
-  bool loopIsCandidate(const HLLoop *L) const;
-
-  // Breaks up pi graph into loops(loop is formed by a list of piblocks)
-  // according to appropriate "cost model".  Very primitive and missing
-  // important considerations such as trip count, predicted vectorizability
-  void breakPiBlockRecurrences(const HLLoop *L,
-                               std::unique_ptr<PiGraph> const &PiGraph,
-                               SmallVectorImpl<PiBlockList> &DistPoints) const;
-
-  // Breaks up pigraph with intent to form perfect loop nests, even at cost
-  // of skipping creation of potentially vectorizable loops
-  void formPerfectLoopNests(std::unique_ptr<PiGraph> const &PGraph,
-                            SmallVectorImpl<PiBlockList> &DistPoints) const;
-
-  // Uses ordered list of PiBlockLists to form distributed version of Loop.
-  // Each PiBlockList will form a new loop(with same bounds as Loop) containing
-  // each piblock's hlnodes.
-  void distributeLoop(HLLoop *L, SmallVectorImpl<PiBlockList> &DistPoints);
-};
-}
-
-char HIRLoopDistribution::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopDistribution, "hir-loop-distribute",
-                      "HIR Loop Distribution", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-INITIALIZE_PASS_END(HIRLoopDistribution, "hir-loop-distribute",
-                    "HIR Loop Distribution", false, false)
-
-FunctionPass *llvm::createHIRLoopDistributionPass(bool FormPerfectNests) {
-  return new HIRLoopDistribution(FormPerfectNests);
+  return Modified;
 }
 
 bool HIRLoopDistribution::piEdgeIsRecurrence(const HLLoop *Lp,
@@ -298,7 +262,8 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
   // Distributing j forms two vectorizable loops. There will still be an
   // edge between the two new loops when considering I. Distributing
   // again won't enable vectorization, but create more loop overhead.
-  if (DistCostModel == DistHeuristics::BreakMemRec && !Lp->isInnermost()) {
+
+  if (DistCostModel == DistHeuristics::NestFormation && Lp->isInnermost()) {
     return false;
   }
 
@@ -327,7 +292,32 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
         HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLoop)) {
       return false;
     }
+
+    // For compile time consideration, throttle for
+    // more than 3 innermost loops or nesting level > 3
+    // Forming Perfect Loop Nest is primarily to enable interchange
+
+    SmallVector<HLLoop *, 12> InnermostLPVector;
+
+    HLNodeUtils::gatherInnermostLoops(InnermostLPVector,
+                                      const_cast<HLLoop *>(Lp));
+    if (InnermostLPVector.size() > 2) {
+      return false;
+    }
+    bool NonUnitStride = false;
+    for (auto &Loop : InnermostLPVector) {
+      if ((Loop->getNestingLevel() - Lp->getNestingLevel()) > 2) {
+        return false;
+      }
+      if (!NonUnitStride && HLNodeUtils::hasNonUnitStrideRefs(Loop)) {
+        NonUnitStride = true;
+      }
+    }
+    if (!NonUnitStride) {
+      return false;
+    }
   }
+
   return true;
 }
 
@@ -384,75 +374,4 @@ void HIRLoopDistribution::findDistPoints(
   }
 
   DEBUG(dbgs() << "Loop Dist proposes " << DistPoints.size() << " Loops\n");
-}
-
-bool HIRLoopDistribution::runOnFunction(Function &F) {
-
-  this->F = &F;
-
-  if (DisableDist || skipFunction(F)) {
-    if (OptReportLevel >= 3) {
-      dbgs() << "LOOP DISTRIBUTION: Transform disabled \n";
-    }
-    return false;
-  }
-
-  if (CmdLineHeuristics != DistHeuristics::NotSpecified) {
-    DistCostModel = CmdLineHeuristics;
-  }
-
-  DDA = &getAnalysis<HIRDDAnalysis>();
-  SmallVector<HLLoop *, 64> Loops;
-  HLNodeUtils::gatherAllLoops(Loops);
-
-  // Work from innermost to outermost
-  std::sort(Loops.begin(), Loops.end(), [](HLLoop *A, HLLoop *B) -> bool {
-    return A->getNestingLevel() > B->getNestingLevel();
-  });
-
-  bool Modified = false;
-  for (auto I = Loops.begin(), E = Loops.end(); I != E; ++I) {
-    HLLoop *Lp = *I;
-    if (!loopIsCandidate(Lp)) {
-      if (OptReportLevel >= 3) {
-        dbgs() << "LOOP DISTRIBUTION: Loop is not candidate with current "
-                  "heuristics \n";
-      }
-      continue;
-    }
-
-    std::unique_ptr<PiGraph> PG(new PiGraph(Lp, DDA));
-    if (!PG->isGraphValid()) {
-      if (OptReportLevel >= 3) {
-        dbgs() << "LOOP DISTRIBUTION: Distribution for loop failed due to "
-               << PG->getFailureReason() << "\n";
-      }
-      continue;
-    }
-
-    // Single piblock graph isn't worth considering
-    if (PG->size() < 2) {
-      if (OptReportLevel >= 3) {
-        // TODO might still be able to scalar expand though...
-        dbgs() << "LOOP DISTRIBUTION: Skipped loop because of too many "
-                  "dependences\n";
-      }
-      continue;
-    }
-
-    SmallVector<PiBlockList, 8> NewOrdering;
-    findDistPoints(Lp, PG, NewOrdering);
-    if (NewOrdering.size() > 1) {
-      distributeLoop(Lp, NewOrdering);
-      Modified = true;
-    } else {
-      if (OptReportLevel >= 3) {
-        dbgs() << "LOOP DISTRIBUTION: "
-               << "Found no valid distribution points"
-               << "\n";
-      }
-    }
-  }
-
-  return Modified;
 }

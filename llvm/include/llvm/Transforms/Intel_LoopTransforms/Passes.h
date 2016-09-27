@@ -42,9 +42,15 @@ FunctionPass *createHIROptPredicatePass();
 /// unrolling on small trip count HIR loops.
 FunctionPass *createHIRCompleteUnrollPass();
 
-/// createHIRDistributionPass - This creates a pass that performs Loop
-/// Distribution for perfect nest formation or breaking memory recurrences
-FunctionPass *createHIRLoopDistributionPass(bool FormPerfectNest = true);
+
+/// createHIRDistributionForMemRecPass - This creates a pass that performs Loop
+/// Distribution for breaking memory recurrences
+FunctionPass *createHIRLoopDistributionForMemRecPass();
+
+/// createHIRDistributionForLoopNestPass - This creates a pass that performs Loop
+/// Distribution for enabling perfect Loop Nests
+FunctionPass *createHIRLoopDistributionForLoopNestPass();
+
 
 /// createHIRInterchangePass - This creates a pass that performs Loop
 /// Interchange

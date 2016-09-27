@@ -1,4 +1,4 @@
-;RUN: opt -hir-loop-distribute -S -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=mem-rec  < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec   < %s 2>&1 | FileCheck %s
 ;There is a breakable recurrence from 15:32 but we cannot distribute
 ;across if thenblocks
 ;          BEGIN REGION { }
