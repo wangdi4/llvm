@@ -158,6 +158,11 @@ bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref,
       return false;
   }
 
+  // Consider a[(i1 + 1) & 3], this is changed to a[zext.i2.i64(i1 + 1)] - we
+  // do not want to treat this reference as unit stride.
+  if (FirstCE->isSExt() || FirstCE->isZExt())
+    return false;
+
   if (FirstCE->isNonLinear() ||
       FirstCE->getDefinedAtLevel() >= NestingLevel)
     return false;
