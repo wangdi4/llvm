@@ -446,6 +446,30 @@ TEST(MangleTest, _Z17convert_float_satc){
   ASSERT_EQ(orig, syntesized);
 }
 
+TEST(MangleTest, ignorePrivateAddrSpaceQual){
+  // Built-in declaration:
+  //
+  // bool atomic_compare_exchange_weak_explicit(
+  //           __local volatile atomic_int *object,
+  //           __private int *expected,  <--- private address space
+  //           int desired,                   qualifier is not mangled
+  //           memory_order success,
+  //           memory_order failure);
+
+  std::string orig = "_Z37atomic_compare_exchange_weak_explicitPVU3AS3U7_AtomiciPii12memory_orderS3_";
+  FunctionDescriptor fd = demangle( orig.c_str() );
+  ASSERT_FALSE(fd.isNull());
+  std::string syntesized = mangle( fd );
+  ASSERT_EQ(orig, syntesized);
+
+  // Check that __private has no affect on mangling
+  PointerType *Ty = reinterpret_cast<PointerType *>((ParamType *)fd.parameters[1]);
+  Ty->addAttribute(reflection::ATTR_PRIVATE);
+  std::string syntesizedWithPrivate = mangle( fd );
+  ASSERT_EQ(syntesized, syntesizedWithPrivate);
+}
+
+
 //A special case, in which the param duplicate operator works to duplicate a
 //type suffix, not the enture type. The first parameter is v2f, the second is v2f*.
 TEST(MangleTest, semidup){
