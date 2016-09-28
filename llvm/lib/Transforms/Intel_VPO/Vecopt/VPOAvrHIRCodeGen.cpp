@@ -14,6 +14,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Support/raw_ostream.h"
@@ -103,9 +104,8 @@ ReductionItem *ReductionHIRMngr::getReductionInfo(const Value *Val) {
   return ReductionMap[Val];
 }
 
-RegDDRef *
-ReductionHIRMngr::getRecurrenceIdentityVector(ReductionItem *RedItem,
-                                              Type *Ty, unsigned VL) {
+Constant *ReductionHIRMngr::getRecurrenceIdentity(ReductionItem *RedItem,
+                                                  Type *Ty) {
 
   assert((Ty->isFloatTy() || Ty->isIntegerTy()) &&
          "Expected FP or Integer scalar type");
@@ -132,8 +132,7 @@ ReductionHIRMngr::getRecurrenceIdentityVector(ReductionItem *RedItem,
   default:
     llvm_unreachable("Unknown recurrence kind");
   }
-  Constant *Iden = RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty);
-  return getConstantSplatDDRef(Iden, VL);
+  return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty);
 }
 
 // TBD - once we update to the latest loopopt sources, make use of
@@ -420,38 +419,50 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
     return false;
   }
 
-  // TODO - Explicit reduction implementation needs to be extended for
-  // cases where the parent is not a region - while I look into how to
-  // do this, I am retaining the restriction for the parent to be a
-  // region for reduction support for now.
-  HLRegion *Parent = dyn_cast<HLRegion>(Loop->getParent());
-
-  // TODO - HIR added support for recognizing reductions and we now
-  // mark loops with self reductions as vectorizable. However, we do
-  // not handle these in code generation. The check below will mark
-  // these cases as not handled for now.
-  if (Parent) {
-    // Live out for reduction only
-    for (auto LiveOut : Parent->live_out())
-      if (!RHM.isReductionVariable(LiveOut.second)) {
-        DEBUG(errs() << 
-              "VPO_OPTREPORT: Loop not handled - liveouts not supported\n");
-        return false;
-      }
-  }
-  else {
-    // No loop live out support for now.
-    if (Loop->hasLiveOutTemps()) {
-      DEBUG(errs() << 
-            "VPO_OPTREPORT: Loop not handled - liveouts not supported\n");
-      return false;
-    }
-  }
-
   setALoop(ALoop);
 
   DEBUG(errs() << "Handled loop\n");
   return true;
+}
+
+bool AVRCodeGenHIR::isSmallShortAddRedLoop() {
+  // Return false if loop does not have any reductions
+  auto SRCL = SRA->getSafeReductionChain(OrigLoop);
+  if (SRCL.empty()) 
+    return false;
+
+  unsigned Count = 0;
+  bool Found = false;
+
+  // Check for loop with at most two instructions of which atleast one
+  // is a add reduction of short type values into an I32/I64.
+  for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
+       ++Itr) {
+    ++Count;
+    if (Count > 2)
+      return false;
+
+    assert(isa<AVRAssignHIR>(Itr) && "Expected AVR assign");
+    auto HInst = cast<AVRAssignHIR>(Itr)->getHIRInstruction();
+
+    if (HInst->getLLVMInstruction()->getOpcode() != Instruction::Add)
+      continue;
+
+    if (!SRA->isSafeReduction(HInst))
+      continue;
+
+    auto Lval = HInst->getLvalDDRef();
+    auto Op1 = HInst->getOperandDDRef(1);
+    auto Op2 = HInst->getOperandDDRef(2);
+
+    if ((Lval->getDestType()->isIntegerTy(32) ||
+         Lval->getDestType()->isIntegerTy(64)) &&
+        (Op1->getSrcType()->isIntegerTy(16) ||
+         Op2->getSrcType()->isIntegerTy(16)))
+      Found = true;
+  }
+
+  return Found;
 }
 
 // TODO: Change all VL occurences with VF
@@ -469,6 +480,16 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   LoopHandled = loopIsHandled(VL);
   if (!LoopHandled)
     return false;
+
+  SRA->computeSafeReductionChains(OrigLoop);
+  
+  // Workaround for perf regressions - suppress vectorization of some small
+  // loops with add reduction of short values until cost model can be refined.
+  if (isSmallShortAddRedLoop()) {
+    DEBUG(errs() << 
+          "VPO_OPTREPORT: Suppress vectorization - SmallShortAddRedLoop\n");
+    return false;
+  }
 
   DEBUG(errs() << "Handled loop before vec codegen: \n");
   DEBUG(OrigLoop->dump(true));
@@ -585,6 +606,8 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   // If the DDREF has a widened counterpart, return the same after setting
   // SrcType/DestType appropriately.
   if (Ref->isSelfBlob()) {
+    unsigned RedOpCode;
+
     if (WidenMap.find(Ref->getSymbase()) != WidenMap.end()) {
       auto WInst = WidenMap[Ref->getSymbase()];
       // TODO - look into reusing instead of cloning (Pankaj's suggestion)
@@ -597,7 +620,31 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
       return WideRef;
     }
+
+    // Check if Ref is a reduction - we create widened DDREF for a
+    // reduction ref the first time it is encountered and use this to replace
+    // all occurrences of Ref. The widened ref is added to the WidenMap
+    // here to accomplish this.
+    if (SRA->isSafeReductionSymbase(Ref->getSymbase(),
+                                    &RedOpCode)) {
+      auto Identity = HLInst::getRecurrenceIdentity(RedOpCode,
+                                                    RefDestTy);
+      auto RedOpVecInst = insertReductionInitializer(Identity);
+      
+      // Add to WidenMap and handle generating code for building reduction tail
+      addToMapAndHandleLiveOut(Ref, RedOpVecInst);
+
+      // LVAL ref of the initialization instruction is the widened reduction
+      // ref.
+      return RedOpVecInst->getLvalDDRef()->clone();
+    }
+
   }
+
+  // Lval terminal refs get the widened ref duing the widened HLInst creation
+  // later - simply return NULL.
+  if (Ref->isLval() && Ref->isTerminalRef())
+    return nullptr;
 
   // TODO - look into reusing instead of cloning (Pankaj's suggestion)
   WideRef = Ref->clone();
@@ -695,23 +742,35 @@ RegDDRef *AVRCodeGenHIR::getVectorValue(const RegDDRef *Op) {
   return nullptr;
 }
 
-/// \brief Return scalar result of horizontal vector binary operation.
-/// Horizontal binary operation splits the vector recursively
+/// \brief Return result of combining horizontal vector binary operation with
+/// initial value. Horizontal binary operation splits VecRef recursively
 /// into 2 parts until the VL becomes 2. Then we extract elements from the
-/// vector and perform scalar operation.
+/// vector and perform scalar operation, the result of which is then 
+/// combined with the initial value and assigned to ResultRef. The created
+/// instructions are added to the InstContainer initially and are added
+/// after Loop at the end after generating the combined result.
 static HLInst * buildReductionTail(HLContainerTy& InstContainer,
-                                   unsigned BOpcode, HLInst *Inst) {
+                                   unsigned BOpcode, const RegDDRef *VecRef,
+                                   const RegDDRef *InitValRef, HLLoop *Loop,
+                                   const RegDDRef *ResultRef) {
 
   // Take Vector Length from the WideRedInst type
-  Type *InstTy = Inst->getLvalDDRef()->getDestType();
+  Type *VecTy = VecRef->getDestType();
 
-  unsigned VL = cast<VectorType>(InstTy)->getNumElements();
+  // For Sub/FSub operation, we need to use Add/FAdd for the horizontal
+  // vector and combine operations.
+  if (BOpcode ==  Instruction::Sub)
+    BOpcode = Instruction::Add;
+  else if (BOpcode ==  Instruction::FSub)
+    BOpcode = Instruction::FAdd;
+
+  unsigned VL = cast<VectorType>(VecTy)->getNumElements();
   if (VL == 2) {
     HLInst *Lo =
-      HLNodeUtils::CreateExtractElementInst(Inst->getLvalDDRef()->clone(),
+      HLNodeUtils::CreateExtractElementInst(VecRef->clone(),
                                            0, "Lo");
     HLInst *Hi =
-      HLNodeUtils::CreateExtractElementInst(Inst->getLvalDDRef()->clone(),
+      HLNodeUtils::CreateExtractElementInst(VecRef->clone(),
                                            1, "Hi");
 
     HLInst *Combine = 
@@ -720,7 +779,17 @@ static HLInst * buildReductionTail(HLContainerTy& InstContainer,
     InstContainer.push_back(Lo);
     InstContainer.push_back(Hi);
     InstContainer.push_back(Combine);
-    return Combine;
+
+    RegDDRef *ScalarValue = Combine->getLvalDDRef();
+
+    // Combine with initial value
+    auto FinalInst = HLNodeUtils::createBinaryHLInst(BOpcode,
+                                                     ScalarValue->clone(),
+                                                     InitValRef->clone(),
+                                                     ""/* Name */,
+                                                     ResultRef->clone());
+    InstContainer.push_back(FinalInst);
+    return FinalInst;
   }
   SmallVector<uint32_t, 16> LoMask, HiMask;
   for (unsigned i = 0; i < VL/2; ++i)
@@ -728,12 +797,12 @@ static HLInst * buildReductionTail(HLContainerTy& InstContainer,
   for (unsigned i = VL/2; i < VL; ++i)
     HiMask.push_back(i);
   HLInst *Lo =
-    HLNodeUtils::CreateShuffleVectorInst(Inst->getLvalDDRef()->clone(),
-                                         Inst->getLvalDDRef()->clone(),
+    HLNodeUtils::CreateShuffleVectorInst(VecRef->clone(),
+                                         VecRef->clone(),
                                          LoMask, "Lo");
   HLInst *Hi =
-    HLNodeUtils::CreateShuffleVectorInst(Inst->getLvalDDRef()->clone(),
-                                         Inst->getLvalDDRef()->clone(),
+    HLNodeUtils::CreateShuffleVectorInst(VecRef->clone(),
+                                         VecRef->clone(),
                                          HiMask, "Hi");
   HLInst *Result =
     HLNodeUtils::createBinaryHLInst(BOpcode, Lo->getLvalDDRef()->clone(),
@@ -741,7 +810,8 @@ static HLInst * buildReductionTail(HLContainerTy& InstContainer,
   InstContainer.push_back(Lo);
   InstContainer.push_back(Hi);
   InstContainer.push_back(Result);
-  return buildReductionTail(InstContainer, BOpcode, Result);
+  return buildReductionTail(InstContainer, BOpcode, Result->getLvalDDRef(),
+                            InitValRef, Loop, ResultRef);
 }
 
 // Find RegDDref of address, where the reduction variable is stored.
@@ -809,12 +879,9 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node) {
   // operand. 
   ReductionItem *RI = RHM.getReductionInfo(CurInst);
 
-  RegDDRef *IdentityVec =
-    ReductionHIRMngr::getRecurrenceIdentityVector(RI, RedOp->getDestType(), VL);
-
-  HLInst *RedOpVecInst = HLNodeUtils::createCopyInst(IdentityVec, "RedOp");
-
-  HLNodeUtils::insertBefore(MainLoop, RedOpVecInst);
+  Constant *Identity =
+    ReductionHIRMngr::getRecurrenceIdentity(RI, RedOp->getDestType());
+  auto RedOpVecInst = insertReductionInitializer(Identity);
 
   // Create a wide reduction instruction
   HLInst *WideInst =
@@ -826,21 +893,15 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node) {
 
   // Build the tail - horizontal operation that converts vector to scalar
   HLContainerTy Tail;
-  HLInst *LastScalarInst = buildReductionTail(Tail, BOp->getOpcode(), WideInst);
-  RegDDRef *ScalarValue = LastScalarInst->getLvalDDRef()->clone();
-
-  // Combine with initial value
   const RegDDRef *Address = RHM.getReductionValuePtr(RI);
-
   HLInst *LoadInitValInst = HLNodeUtils::createLoad(Address->clone());
   Tail.push_back(LoadInitValInst);
-  RegDDRef *InitValue = LoadInitValInst->getLvalDDRef()->clone();
 
-  Tail.push_back(HLNodeUtils::createBinaryHLInst(BOp->getOpcode(),
-                                                 ScalarValue, InitValue,
-                                                 ""/* Name */,
-                                                 RedOp->clone()));
+  RegDDRef *InitValue = LoadInitValInst->getLvalDDRef();
+  RegDDRef *VecRef = WideInst->getLvalDDRef();
 
+  buildReductionTail(Tail, BOp->getOpcode(), VecRef,
+                     InitValue, MainLoop, RedOp);
   HLNodeUtils::insertAfter(MainLoop, &Tail);
   return WideInst;
 }
@@ -851,37 +912,33 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node) {
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
 
+  HLInst *WideInst = nullptr;
+
+  if (isa<BinaryOperator>(CurInst)) {
+    if (RHM.isReductionVariable(CurInst)) {
+      WideInst = widenReductionNode(Node);
+      HLNodeUtils::insertAsLastChild(MainLoop, WideInst);
+      return;
+    }
+  }
+
   DEBUG(errs() << "DDRef ");
   DEBUG(INode->dump());
+  bool InsertInMap = true;
   for (auto Iter = INode->op_ddref_begin(), End = INode->op_ddref_end();
        Iter != End; ++Iter) {
     RegDDRef *WideRef, *Ref;
 
     Ref = *Iter;
 
-    // Lval terminal refs get the widened ref duing the HLInst creation
-    // later.
-    if (Ref->isLval() && Ref->isTerminalRef())
-      WideOps.push_back(nullptr);
-    else {
-      WideRef = widenRef(Ref);
-      WideOps.push_back(WideRef);
-      
-      DEBUG(errs() << "Orig Ref: " << Ref << "\n");
-      DEBUG(errs() << "Wide Ref: " << WideRef << "\n");
-    }
+    WideRef = widenRef(Ref);
+    WideOps.push_back(WideRef);
   }
 
   DEBUG(Node->dump(true));
 
-  HLInst *WideInst = nullptr;
-  bool InsertInMap = true;
-
   if (auto BOp = dyn_cast<BinaryOperator>(CurInst)) {
-    if (RHM.isReductionVariable(CurInst))
-      WideInst = widenReductionNode(Node);
-    else
-      WideInst = HLNodeUtils::createBinaryHLInst(
+    WideInst = HLNodeUtils::createBinaryHLInst(
         BOp->getOpcode(), WideOps[1], WideOps[2],
         CurInst->getName() + ".vec",  WideOps[0], BOp);
   } else if (isa<LoadInst>(CurInst)) {
@@ -912,9 +969,62 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node) {
     llvm_unreachable("Unimplemented widening for inst");
   }
 
-  // Add to WidenMap
-  if (InsertInMap)
-    WidenMap[INode->getLvalDDRef()->getSymbase()] = WideInst;
+  // Add to WidenMap and handle generating code for any liveouts
+  if (InsertInMap) {
+    addToMapAndHandleLiveOut(INode->getLvalDDRef(), WideInst);
+  }
 
   HLNodeUtils::insertAsLastChild(MainLoop, WideInst);
 }
+
+HLInst *AVRCodeGenHIR::insertReductionInitializer(Constant *Iden) {
+  auto IdentityVec = getConstantSplatDDRef(Iden, VL);
+  HLInst *RedOpVecInst = HLNodeUtils::createCopyInst(IdentityVec, "RedOp");
+  HLNodeUtils::insertBefore(MainLoop, RedOpVecInst);
+
+  auto LvalSymbase = RedOpVecInst->getLvalDDRef()->getSymbase();
+  MainLoop->addLiveInTemp(LvalSymbase);
+  return RedOpVecInst;
+}
+
+void AVRCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
+                                             HLInst *WideInst) {
+  auto ScalSymbase = ScalRef->getSymbase();
+  
+  // If already in WidenMap, nothing further to do
+  if (WidenMap.count(ScalSymbase))
+    return;
+  
+  // Insert in WidenMap
+  WidenMap[ScalSymbase] =  WideInst;
+
+  // Generate any necessary code to handle loop liveout/reduction
+  if (!MainLoop->isLiveOut(ScalSymbase))
+    return;
+
+  unsigned OpCode;
+  auto VecRef = WideInst->getLvalDDRef();
+
+  MainLoop->addLiveOutTemp(VecRef->getSymbase());
+
+  if (SRA->isSafeReductionSymbase(ScalSymbase, &OpCode)) {
+    HLContainerTy Tail;
+    
+    buildReductionTail(Tail, OpCode, VecRef, ScalRef, MainLoop, ScalRef);
+    HLNodeUtils::insertAfter(MainLoop, &Tail);
+  }
+  else {
+    auto Extr =  HLNodeUtils::CreateExtractElementInst(VecRef->clone(), VL - 1,
+                                                       "Last",
+                                                       ScalRef->clone());
+    auto Lval = Extr->getLvalDDRef();
+
+    // Convert to selfblob if Lval has IV at Loop level since last value
+    // extract instruction is added after the Loop.
+    if (Lval->getSingleCanonExpr()->hasIV(MainLoop->getNestingLevel()))
+      Lval->makeSelfBlob();
+
+    HLNodeUtils::insertAfter(MainLoop, Extr);
+  }
+}
+

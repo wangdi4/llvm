@@ -49,12 +49,15 @@ private:
   // There is no need to go through Loop,
   // because there are no many safe reductions in a function.
   SmallDenseMap<const HLInst *, SafeRedChain *, 16> SafeReductionInstMap;
+  // Map of reduction DDRef symbases and the reduction opcode
+  SmallDenseMap<unsigned, unsigned, 16> SafeReductionSymbaseMap;
 
   bool findFirstRedStmt(HLLoop *Loop, HLInst *Inst, bool *SingleStmtReduction,
                         unsigned *FirstSB, unsigned *ReductionOpCode,
                         DDGraph DDG);
 
-  void setSafeRedChainList(SafeRedChain &RedInsts, const HLLoop *Loop);
+  void setSafeRedChainList(SafeRedChain &RedInsts, const HLLoop *Loop,
+                           unsigned RedSymbase, unsigned RedOpCode);
 
   void identifySingleStatementReduction(HLLoop *Loop, DDGraph DDG);
   void identifySafeReductionChain(HLLoop *Loop, DDGraph DDG);
@@ -93,6 +96,10 @@ public:
   //           const SafeRedChain *SRC);
   void markLoopBodyModified(const HLLoop *L) override;
   void releaseMemory() override;
+
+  /// Return true if given Symbase corresponds to a reduction DDRef, return
+  /// reduction opcode in OpCodeP if it is not null.
+  bool isSafeReductionSymbase(unsigned Symbase, unsigned *OpCodeP = nullptr);
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HIRAnalysisPass *AP) {

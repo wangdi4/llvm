@@ -200,7 +200,7 @@ void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
     if (SingleStmtReduction) {
       DEBUG(dbgs() << "\nSingle Safe Reduction stmt found\n");
       RedInsts.push_back(Inst);
-      setSafeRedChainList(RedInsts, Loop);
+      setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
       RedInsts.clear();
       FirstRvalSB = 0;
       continue;
@@ -366,7 +366,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
       }
       if (FirstRvalSB == SinkDDRef->getSymbase()) {
         DEBUG(dbgs() << "\nSafe Reduction chain found\n");
-        setSafeRedChainList(RedInsts, Loop);
+        setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
         break;
       }
 
@@ -485,7 +485,9 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
 }
 
 void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
-                                                   const HLLoop *Loop) {
+                                                   const HLLoop *Loop,
+                                                   unsigned RedSymbase,
+                                                   unsigned RedOpCode) {
 
   SafeRedChainList &SR = SafeReductionMap[Loop];
   SR.push_back(RedInsts);
@@ -493,6 +495,7 @@ void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
   for (auto &Inst : RedInsts) {
     SafeReductionInstMap.insert(std::make_pair(Inst, &SRSet));
   }
+  SafeReductionSymbaseMap[RedSymbase] = RedOpCode;
 }
 
 bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
@@ -552,6 +555,7 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
 void HIRSafeReductionAnalysis::releaseMemory() {
   SafeReductionMap.clear();
   SafeReductionInstMap.clear();
+  SafeReductionSymbaseMap.clear();
 }
 
 void HIRSafeReductionAnalysis::markLoopBodyModified(const HLLoop *Loop) {
@@ -567,4 +571,15 @@ void HIRSafeReductionAnalysis::markLoopBodyModified(const HLLoop *Loop) {
     }
     SafeReductionMap.erase(Loop);
   }
+}
+bool HIRSafeReductionAnalysis::isSafeReductionSymbase(unsigned Symbase,
+                                                      unsigned *OpCodeP) {
+  if (SafeReductionSymbaseMap.find(Symbase) == SafeReductionSymbaseMap.end()) {
+    return false;
+  }
+
+  if (OpCodeP) {
+    *OpCodeP = SafeReductionSymbaseMap[Symbase];
+  }
+  return true;
 }

@@ -21,6 +21,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -415,7 +416,9 @@ bool HLInst::isReductionOp(unsigned *OpCode) const {
   const Instruction *LLVMInst = getLLVMInstruction();
   if (isa<BinaryOperator>(LLVMInst)) {
     *OpCode = LLVMInst->getOpcode();
-    // Start with these initially
+    // Start with these initially - when adding a new opcode ensure
+    // that we also add changes to get reduction identity in
+    // getRecurrenceIdentity below.
     switch (*OpCode) {
     case Instruction::FAdd:
     case Instruction::FSub:
@@ -433,4 +436,46 @@ bool HLInst::isReductionOp(unsigned *OpCode) const {
     }
   }
   return IsReductionOp;
+}
+
+Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
+  RecurrenceDescriptor::RecurrenceKind RDKind;
+
+  switch (RednOpCode) {
+  case Instruction::FAdd:
+  case Instruction::FSub:
+    RDKind = RecurrenceDescriptor::RK_FloatAdd;
+    break;
+
+  case Instruction::Add:
+  case Instruction::Sub:
+    RDKind = RecurrenceDescriptor::RK_IntegerAdd;
+    break;
+
+  case Instruction::FMul:
+    RDKind = RecurrenceDescriptor::RK_FloatMult;
+    break;
+
+  case Instruction::Mul:
+    RDKind = RecurrenceDescriptor::RK_IntegerMult;
+    break;
+
+  case Instruction::And:
+    RDKind = RecurrenceDescriptor::RK_IntegerAnd;
+    break;
+
+  case Instruction::Or:
+    RDKind = RecurrenceDescriptor::RK_IntegerOr;
+    break;
+
+  case Instruction::Xor:
+    RDKind = RecurrenceDescriptor::RK_IntegerXor;
+    break;
+
+  default:
+    llvm_unreachable("Unexpected reduction opcode");
+    break;
+  }
+
+  return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty);
 }
