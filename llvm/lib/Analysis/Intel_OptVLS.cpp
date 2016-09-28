@@ -22,9 +22,10 @@
 //===---------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_OptVLS.h"
+#include "llvm/ADT/SetVector.h"
 #define DEBUG_TYPE "ovls"
 #include <deque>
-
+#include <set>
 using namespace llvm;
 
 // MemrefDistanceMap contains a set of distances where each distance gets
@@ -112,6 +113,7 @@ void OVLSGroup::dump() const {
 
 namespace OptVLS {
   class GraphNode;
+  typedef OVLSVector<GraphNode*> GraphNodeVector;
   /// Represents a range of bits using a bit-location of the leftmost bit and
   /// a number of consecutive bits immediately to the right that are included
   /// in the range. {0, 0} means undefined bit-range.
@@ -121,8 +123,10 @@ namespace OptVLS {
 
   public:
     BitRange(uint32_t BI, uint32_t NBits) {
-      assert(BI % BYTE == 0 && "BitIndex in a BitRange needs to be divisible by a byte size!!!");
-      assert(NBits % BYTE == 0 && "NumBits in a BitRange needs to be divisible by a byte size!!!");
+      assert(BI % BYTE == 0 &&
+             "BitIndex in a BitRange needs to be divisible by a byte size!!!");
+      assert(NBits % BYTE == 0 &&
+             "NumBits in a BitRange needs to be divisible by a byte size!!!");
       BIndex = BI;
       NumBits = NBits;
     }
@@ -134,6 +138,7 @@ namespace OptVLS {
     }
     uint32_t getNumBits() const { return NumBits; }
     uint32_t getBitIndex() const { return BIndex; }
+    void updateBitIndex(uint32_t NewBIndex) { BIndex = NewBIndex; }
   };
 
   /// print BitRange as "Start_BitIndex : End_BitIndex"
@@ -158,6 +163,11 @@ namespace OptVLS {
     }
     GraphNode* getSource() const { return Src; }
     BitRange getBitRange() const { return BR; }
+    void updateSource(GraphNode *NewSrc, uint32_t NewBIndex) {
+      Src = NewSrc;
+      // Update BitIndex.
+      BR.updateBitIndex(NewBIndex);
+    }
   };
 
   /// GraphNode can be thought of as a result of some logical instruction
@@ -166,9 +176,10 @@ namespace OptVLS {
   /// particularly show which source bit-range maps to which bit-index of this
   /// (which helps defining (/elaborates on) the logical instruction semantics).
   /// A ‘GraphNode’ basically allows us to define an expected behavior
-  /// (/semantic) first which then evolves into a particular valid OVLSinstruction
-  /// ‘Inst’ if there is any for that semantic. A node is allowed to have any
-  /// permutation of bit-ranges coming from a maximum of two source nodes.
+  /// (/semantic) first which then evolves into a particular valid
+  /// OVLSinstruction ‘Inst’ if there is any for that semantic. A node is
+  /// allowed to have any permutation of bit-ranges coming from a maximum of
+  /// two source nodes.
   class GraphNode {
     /// Provides a unique id to each instruction node. It helps printing
     /// tracable node information.
@@ -196,7 +207,7 @@ namespace OptVLS {
     OVLSVector<Edge *> IncomingEdges;
 
     /// Current total number of incoming bits from IncomingEdges.
-    uint32_t TotalIncomingEdgeBits;
+    uint32_t TotalIncomingBits;
 
     /// Type of the result node gets set during the output node(gather node)
     /// construction. In order to generate an OVLSInstruction we will
@@ -210,7 +221,7 @@ namespace OptVLS {
     explicit GraphNode(OVLSInstruction *I, OVLSType T) : Inst(I), Type(T) {
       static uint32_t NodeId = 1;
       Id = NodeId++;
-      TotalIncomingEdgeBits = 0;
+      TotalIncomingBits = 0;
     }
 
     ~GraphNode() {
@@ -228,7 +239,7 @@ namespace OptVLS {
     bool isUndefined() const { return Inst == nullptr; }
 
     // Returns the current total number of incoming bits.
-    uint32_t size() const { return TotalIncomingEdgeBits; }
+    uint32_t size() const { return TotalIncomingBits; }
 
     // print GraphNode;
     void print(OVLSostream &OS, uint32_t NumSpaces) const {
@@ -268,21 +279,103 @@ namespace OptVLS {
     // it throws an exception in such case.
     void addAnIncomingEdge(uint32_t BIndex, Edge *E) {
       assert(E != nullptr && "Invalid Edge!!!");
-      assert(BIndex >= TotalIncomingEdgeBits && "Overwriting an (element)edge is not allowed!!!");
+      assert(BIndex >= TotalIncomingBits &&
+             "Overwriting an (element)edge is not allowed!!!");
 
-      if (BIndex > TotalIncomingEdgeBits) {
+      if (BIndex > TotalIncomingBits) {
         // BIndex is larger than the current bit-index, create a dummy edge
         // to fillup the gap.
-        uint32_t GapSize = (BIndex - TotalIncomingEdgeBits);
+        uint32_t GapSize = (BIndex - TotalIncomingBits);
 
         Edge *Gap = new Edge(nullptr, BitRange(0, GapSize));
         IncomingEdges.push_back(Gap);
-        TotalIncomingEdgeBits += GapSize;
+        TotalIncomingBits += GapSize;
       }
 
       IncomingEdges.push_back(E);
       // Update current bit-index.
-      TotalIncomingEdgeBits += E->getBitRange().getNumBits();
+      TotalIncomingBits += E->getBitRange().getNumBits();
+    }
+
+    /// Returns the total number of unique source nodes.
+    /// A node can have multiple edges coming from the same source node.
+    /// Therefore, the size of IncomingEdges will not be equal to the number of
+    /// unique source nodes.
+    uint32_t getNumUniqueSources() {
+      SmallSetVector<Edge *, 4> UniqueEdges;
+      for (Edge *E : IncomingEdges)
+        UniqueEdges.insert(E);
+      return UniqueEdges.size();
+    }
+
+    /// Split the edge E:(src->dst) by inserting a NewNode such as
+    /// src->NewNode->dst.
+    ///  src        src
+    ///   |          |
+    ///   |    =>  NewNode
+    ///  dst         |
+    ///             dst
+    void splitEdge(Edge *E, GraphNode *NewNode) {
+      // Create an edge from src to NewNode.
+      Edge *NewEdge = new Edge(E->getSource(), E->getBitRange());
+      uint32_t NewNodeBIndex = NewNode->size();
+      NewNode->addAnIncomingEdge(NewNodeBIndex, NewEdge);
+
+      // Update E with the new source NewNode;
+      // src->dst => NewNode->dst.
+      E->updateSource(NewNode, NewNodeBIndex);
+    }
+
+    /// Split the unique source nodes into half by replacing this node
+    /// (the destination node) by 3 nodes where 2 new nodes each has half the
+    /// unique source nodes.
+    ///                \\         //
+    ///    \\ // =>  NewNode1  NewNode2
+    ///     dst          \\      //
+    ///                      dst
+    /// Note, multiple edges coming from the same source node appear
+    /// consecutively in the destination. Here is an example:
+    /// src1(0, 1, 2, 3) src2(4, 5, 6, 7)
+    /// dst could be dst(0, 3, 6) but not dst(0, 6, 3)
+    bool splitSourceNodes(GraphNodeVector &NewNodes) {
+      uint32_t NumUniqueSources = getNumUniqueSources();
+
+      if (NumUniqueSources <= 2) return false;
+
+      OVLSType T;
+      GraphNode *NewNode1 = new GraphNode(nullptr, T);
+      GraphNode *NewNode2 = new GraphNode(nullptr, T);
+
+      NewNodes.push_back(NewNode1);
+      NewNodes.push_back(NewNode2);
+
+      // FIXME: set the type for NewNode1 and NewNode2
+
+      uint32_t FirstHalf = NumUniqueSources / 2;
+
+      uint32_t TotalUniqueSources = 0;
+      GraphNode *NewNode = NewNode1;
+      GraphNode *PrevSrc = nullptr;
+      std::set<GraphNode *> VisitedSources;
+      for (Edge *E : IncomingEdges) {
+        GraphNode *Src = E->getSource();
+        std::set<GraphNode *>::iterator it = VisitedSources.find(Src);
+        assert(it == VisitedSources.end() &&
+               "Unexpected dispersed edges from the same source!!!");
+
+        // Keep track of the unique sources.
+        if (Src != PrevSrc) {
+          TotalUniqueSources++;
+          VisitedSources.insert(Src);
+	}
+
+        // Redirect the second half of the edges to the newnode2.
+        if (TotalUniqueSources == FirstHalf + 1)
+          NewNode = NewNode2;
+
+        splitEdge(E, NewNode);
+      }
+      return true;
     }
 
     // Generate a shuffle instruction for this node.
@@ -339,7 +432,6 @@ namespace OptVLS {
 
   }; // end of GraphNode
 
-  typedef OVLSVector<GraphNode*> GraphNodeVector;
   /// This directed graph is used to automatically build the network (of
   /// required instructions) of computing the result of a set of adjacent
   /// gathers from a set of contiguous loads. In this directed graph, an edge
@@ -419,6 +511,19 @@ namespace OptVLS {
       }
     }
 
+    /// Split unique source nodes of shuffle nodes recursively until each node
+    /// has no more than two unique source nodes.
+    void reduceNSourcesToTwoSources() {
+      for (GraphNode *N : Nodes) {
+        GraphNodeVector NewNodes;
+        if (N->splitSourceNodes(NewNodes)) {
+          // insert newly created nodes in to the graph.
+          for (GraphNode *NewNode : NewNodes)
+            insert(NewNode);
+          NewNodes.clear();
+        }
+      }
+    }
     /// Returns false if verification fails. Verification fails if total number
     /// of gathers in the \p Group does not match the total number of gather-nodes
     /// (nodes with the incoming edges) in this(graph). Verification also fails
@@ -493,7 +598,8 @@ namespace OptVLS {
     }
   }; // end of class Graph
 
-  static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
+  static void dumpOVLSGroupVector(OVLSostream &OS,
+                                  const OVLSGroupVector &Grps) {
     OS << "\n  Printing Groups- Total Groups " << Grps.size() << "\n";
     unsigned GroupId = 1;
     for (unsigned i = 0, S = Grps.size(); i < S; i++) {
@@ -501,15 +607,17 @@ namespace OptVLS {
       Grps[i]->print(OS, 3);
     }
   }
-  static void dumpOVLSMemrefVector(OVLSostream &OS, const OVLSMemrefVector &MemrefVec,
+  static void dumpOVLSMemrefVector(OVLSostream &OS,
+                                   const OVLSMemrefVector &MemrefVec,
                                    unsigned NumSpaces) {
     for (OVLSMemref *Memref : MemrefVec) {
       Memref->print(OS, NumSpaces);
       OS << "\n";
     }
   }
-  static void dumpMemrefDistanceMapVector(OVLSostream &OS,
-                                          const MemrefDistanceMapVector &AdjMemrefSetVec) {
+  static void dumpMemrefDistanceMapVector(
+                         OVLSostream &OS,
+                         const MemrefDistanceMapVector &AdjMemrefSetVec) {
     unsigned Id = 0;
     for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
       OS << "  Set #" << ++Id << "\n";
@@ -579,8 +687,9 @@ namespace OptVLS {
         uint64_t AccMask = CurrGrp->getNByteAccessMask();
 
         if (!CurrGrp->empty() &&
-            ((Dist - GrpFirstMDist + ElemSize) > VectorLength || // capacity exceeded.
-            !Memref->canMoveTo(*CurrGrp->getFirstMemref()))) {
+            ((// capacity exceeded.
+              Dist - GrpFirstMDist + ElemSize) > VectorLength ||
+              !Memref->canMoveTo(*CurrGrp->getFirstMemref()))) {
           OVLSGrps.push_back(CurrGrp);
           CurrGrp = new OVLSGroup(VectorLength, AccType);
 
@@ -617,8 +726,8 @@ namespace OptVLS {
   //   2) have same number of vector elements
   //   3) are a constant distance apart
   //
-  // Adjacent memrefs in the group are sorted based on their distance from the first
-  // memref in the group in an ascending order.
+  // Adjacent memrefs in the group are sorted based on their distance from the
+  // first memref in the group in an ascending order.
   static void splitMrfs(const OVLSMemrefVector &Memrefs,
                         MemrefDistanceMapVector &AdjMemrefSetVec) {
     OVLSDebug(OVLSdbgs() << "\n  Split the vector memrefs into sub groups of "
@@ -632,17 +741,20 @@ namespace OptVLS {
       int64_t Dist = 0;
       bool AdjMrfSetFound = false;
 
-      // TODO: Currently finding the appropriate group is done using a linear search.
-      // It would be better to use a hashing algorithm for this search.
+      // TODO: Currently finding the appropriate group is done using a linear
+      // search. It would be better to use a hashing algorithm for this search.
       for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
 
         OVLSMemref *SetFirstSeenMrf = (*AdjMemrefSet).find(0)->second;
 
-        if (Memref->getAccessType() == SetFirstSeenMrf->getAccessType() && // same access type
-            // Memref->haveSameNumElements(*SetFirstSeenMrf) && // same number of vector elements
+        if (// same access type
+            Memref->getAccessType() == SetFirstSeenMrf->getAccessType() &&
+            // same number of vector elements
+            // Memref->haveSameNumElements(*SetFirstSeenMrf) &&
             // TODO: Support heterogeneous types
             Memref->getType() == SetFirstSeenMrf->getType() &&
-            Memref->isAConstDistanceFrom(*SetFirstSeenMrf, &Dist)) { // are a const distance apart
+            // are a const distance apart
+            Memref->isAConstDistanceFrom(*SetFirstSeenMrf, &Dist)) {
           // Found a set
           AdjMrfSetFound = true;
           (*AdjMemrefSet).insert(std::pair<int, OVLSMemref*>(Dist, Memref));
@@ -967,9 +1079,9 @@ bool OptVLSInterface::getSequence(const OVLSGroup& Group,
 
   /// At this point, we have generated loads (to load the contiguous chunks of
   /// memory created by the \p Group of gathers) and a graph that shows which
-  /// loaded elements contribute to which gather results (gather-node) by drawing
-  /// edges from load-nodes(nodes with load instruction) to gather-result-nodes(nodes
-  /// with null instruction).
+  /// loaded elements contribute to which gather results (gather-node) by
+  /// drawing edges from load-nodes(nodes with load instruction) to
+  /// gather-result-nodes(nodes with null instruction).
   /// To ensure that we are on the right track of producing the gather results,
   /// make sure the graph contains a node for each gather in the group with
   /// number of bytes (matches the number of bytes of the gather in the group)
@@ -981,16 +1093,16 @@ bool OptVLSInterface::getSequence(const OVLSGroup& Group,
   return true;
 }
 
-// The members of Group can be either vectorized individually using a 
-// gather/scatter each, or can be vectorized together with their neighbors 
-// in the Group using wide loads/stores and shuffles. This function 
+// The members of Group can be either vectorized individually using a
+// gather/scatter each, or can be vectorized together with their neighbors
+// in the Group using wide loads/stores and shuffles. This function
 // returns the minimum cost between these two options (i.e. the absolute
 // cost of the best way to vectorize this Group).
 int64_t OptVLSInterface::getGroupCost(const OVLSGroup& Group,
                                       const OVLSCostModelAnalysis& CM) {
-  int64_t Cost = 0; 
+  int64_t Cost = 0;
 
-  // 1. Obtain the cost of vectorizing this group using wide loads/stores 
+  // 1. Obtain the cost of vectorizing this group using wide loads/stores
   // + shuffle-sequence
   OVLSInstructionVector InstVector;
   if (getSequence(Group, InstVector)) {
@@ -1001,13 +1113,13 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup& Group,
       Cost += C;
     }
   }
- 
+
   // 2. Obtain the cost of vectorizing this group using gathers/scatters.
   // FORNOW: If gathers/scatters are not supported the cost is 0.
   // TODO: We want to return the cost of the scalarized gathers/scatters
   // if they are not supported, instead of zero.
   int64_t GatherScatterCost = 0;
-  const OVLSMemrefVector &MemrefVec = Group.getMemrefVec(); 
+  const OVLSMemrefVector &MemrefVec = Group.getMemrefVec();
   for (OVLSMemref *Memref : MemrefVec) {
     int64_t C = CM.getGatherScatterOpCost(*Memref);
     //OVLSdbgs() << "Cost = " << C << "\n";
@@ -1020,13 +1132,13 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup& Group,
   if (GatherScatterCost && GatherScatterCost <= Cost)
     Cost = GatherScatterCost;
 
-  // Both gathers/scatters and shuffles not supported; return some high dummy 
+  // Both gathers/scatters and shuffles not supported; return some high dummy
   // cost. TODO: Instead, return the scalarization cost.
-  // Once the cost utilities are fully implemented we don't expect to get a 
+  // Once the cost utilities are fully implemented we don't expect to get a
   // zero cost.
   if (Cost == 0)
-    Cost = 
-      MemrefVec.size() * Group.getFirstMemref()->getType().getNumElements();  
+    Cost =
+      MemrefVec.size() * Group.getFirstMemref()->getType().getNumElements();
 
   return Cost;
 }

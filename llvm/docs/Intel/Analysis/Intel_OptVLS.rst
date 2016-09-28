@@ -257,6 +257,7 @@ Section 5: Implementation Details
 This section describes more details for each interface function and abstract type.
 
 1. getGroups()
+--------------
 
   a) The input vector length is the maximum allowed vector size in the underlying architecture.
      This determines how many adjacent memrefs can be put together in a group. In addition, it
@@ -294,6 +295,7 @@ This section describes more details for each interface function and abstract typ
                    for code placement, which will affect this interface.
 
 2. getSequence()
+----------------
 
   Optimized sequence generation for a group of gathers is split into two parts:
 
@@ -440,17 +442,130 @@ This section describes more details for each interface function and abstract typ
 
 ...
 
+     In order to find an efficient sequence of rearrangement instructions genShuffles() performs two primary tasks on the initial
+     graph:
+
+     1. Splitting
+
+     2. Merging
+
+
+1. split()-
+^^^^^^^^^^^
+
      While the initial graph shows how bit fields from loads need to be rearranged to produce each gather result, the logical
      operations needed to do the rearrangement may not correspond to any real single machine instructions or LLVM-IR(/OVLS)-Instructions.
      A valid instruction generally have maximum 2 inputs, and this initial graph allows any number of inputs to feed a gather result,
-     thus it would take many real 2-input instruction to compute each final output result.  The first job of genShuffles() is to
-     simplify the graph so it can be optimized. We simplify the graph by splitting nodes recursively until each node has no more
-     than two source nodes. Each step of the recursive split replaces a single node by 3 nodes, where 2 nodes each have half the
-     inputs on the original node, and those two nodes feed the third node. Once this has been done for all nodes we have transformed
-     the initial graph into a new graph where every node operates on maximum 2 sources. These nodes are now quite similar to instructions
-     (they have 1/2 inputs and 1 output), though they are not quite instructions yet because we haven't yet found precise instructions
-     (including opcodes and immediate values) that perform the needed operations.
+     thus it would take many real 2-input instruction to compute each final output result.
 
+     Here is an example whose initial graph would contain gather nodes with more than 2-input source nodes:
+
+.. code-block::  c++
+
+  double x[1000];
+  for(int k = 0; k < n; k++) {
+    const int j = n[k];
+    double p = x[j  ];
+    double q = x[j + 1];
+    ...
+  }
+
+...
+
+     One possible scenario of the loads from multiple consecutive iterations could be thought of laid out in the
+     linear memory space of x such as: p1 q1 ... p2 q2 ... p3 q3 ... p4 q4 ...
+     With VF = 4, each gather will contain 4 elements.
+
+     genLoads() will generate 4 contiguous loads and the following initial graph:
+
+     %1 = mask.load.64.4 (<Base:0xf7ced0 Offset:0>, 11)
+
+     %2 = mask.load.64.4 (<Base:0xf7cdd0 Offset:0>, 11)
+
+     %3 = mask.load.64.4 (<Base:0xf7cde0 Offset:0>, 11)
+
+     %4 = mask.load.64.4 (<Base:0xf7eed0 Offset:0>, 11)
+
+
+.. graphviz::
+
+   digraph Initial_Graph {
+
+      V2 -> V0[label="0:63",weight="0:63"];
+
+      V2 -> V1[label="64:127",weight="64:127"];
+
+      V3 -> V0[label="0:63",weight="0:63"];
+
+      V3 -> V1[label="64:127",weight="64:127"];
+
+      V4 -> V0[label="0:63",weight="0:63"];
+
+      V4 -> V1[label="64:127",weight="64:127"];
+
+      V5 -> V0[label="0:63",weight="0:63"];
+
+      V5 -> V1[label="64:127",weight="64:127"];
+
+   }
+
+...
+
+     The first job of genShuffles() is to simplify the graph so it can be optimized. We simplify the graph by
+     splitting source nodes recursively until each node has no more than two source nodes. Each step of the
+     recursive split replaces a single node by 3 nodes, where 2 nodes each has half the source nodes of the
+     original node, and those two nodes feed the third node. Once this has been done for all nodes we have
+     transformed the initial graph into a new graph where every node operates on maximum 2 sources.
+
+     Here is the output graph after splitting:
+
+.. graphviz::
+
+   digraph Initial_Graph {
+
+      V2 -> V6[label="0:63",weight="0:63"];
+
+      V2 -> V8[label="64:127",weight="64:127"];
+
+      V3 -> V6[label="0:63",weight="0:63"];
+
+      V6 -> V0[label="0:63",weight="0:63"];
+
+      V6 -> V0[label="64:127",weight="64:127"];
+
+      V3 -> V8[label="64:127",weight="64:127"];
+
+      V4 -> V7[label="0:63",weight="0:63"];
+
+      V4 -> V9[label="64:127",weight="64:127"];
+
+      V5 -> V9[label="64:127",weight="64:127"];
+
+      V5 -> V7[label="0:63",weight="0:63"];
+
+      V7 -> V0[label="0:63",weight="0:63"];
+
+      V7 -> V0[label="64:127",weight="64:127"];
+
+      V8 -> V1[label="0:63",weight="0:63"];
+
+      V8 -> V1[label="64:127",weight="64:127"];
+
+      V9 -> V1[label="0:63",weight="0:63"];
+
+      V9 -> V1[label="64:127",weight="64:127"];
+
+   }
+
+...
+
+     These nodes are now quite similar to instructions (they have 1 or 2 inputs and a single output), though they are not quite
+     instructions yet because we haven't yet found precise instructions (including opcodes and immediate values) that perform
+     the needed operations.
+
+
+2. merge()-
+^^^^^^^^^^^
 
      Before trying to find the exact (opcodes/) instructions we perform an additional optimization step that attempts to exploit
      data parallelism available in the rearrangement operations. We do this by merging similar nodes, which we do by test-merging
