@@ -221,7 +221,7 @@ InlineCost
 getInlineCost(CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
               ProfileSummaryInfo *PSI,         // INTEL
-              InlineAggressiveAnalysis *AggI); // INTEL
+              InlineAggressiveInfo *AggI);     // INTEL
 
 /// \brief Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -233,7 +233,7 @@ getInlineCost(CallSite CS, Function *Callee, int DefaultThreshold,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
               ProfileSummaryInfo *PSI,               // INTEL
-              InlineAggressiveAnalysis *AggI);       // INTEL
+              InlineAggressiveInfo *AggI);           // INTEL
 
 int computeThresholdFromOptLevels(unsigned OptLevel, unsigned SizeOptLevel);
 

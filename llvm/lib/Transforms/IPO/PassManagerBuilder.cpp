@@ -832,7 +832,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIndirectCallConvPass()); // Indirect Call Conv
   }
   if (EnableInlineAggAnalysis) {
-    PM.add(createInlineAggressiveAnalysisPass()); // Aggressive Inline
+    PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline
   }
 #endif // INTEL_CUSTOMIZATION
 

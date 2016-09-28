@@ -14,7 +14,6 @@
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_AggInline.h"
-#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -54,30 +53,47 @@ static cl::opt<uint64_t> InlineAggressiveInstLimit("inline-agg-inst-limit",
 #define DEBUG_TYPE  "inlineaggressiveanalysis"
 
 
-INITIALIZE_PASS_BEGIN(InlineAggressiveAnalysis, "inlineaggressiveanalysis",
+INITIALIZE_PASS_BEGIN(InlineAggressiveWrapperPass, "inlineaggressiveanalysis",
                 "inline aggressive analysis", false, false)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(InlineAggressiveAnalysis, "inlineaggressiveanalysis",
+INITIALIZE_PASS_END(InlineAggressiveWrapperPass, "inlineaggressiveanalysis",
                 "inline aggressive analysis", false, false)
 
-char InlineAggressiveAnalysis::ID = 0;
+char InlineAggressiveWrapperPass::ID = 0;
 
-ModulePass *llvm::createInlineAggressiveAnalysisPass() {
-  return new InlineAggressiveAnalysis();
+ModulePass *llvm::createInlineAggressiveWrapperPassPass() {
+  return new InlineAggressiveWrapperPass();
 }
 
-InlineAggressiveAnalysis::InlineAggressiveAnalysis() : ModulePass(ID) {
-  initializeInlineAggressiveAnalysisPass(*PassRegistry::getPassRegistry());
+InlineAggressiveWrapperPass::InlineAggressiveWrapperPass() : ModulePass(ID) {
+  initializeInlineAggressiveWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
-bool InlineAggressiveAnalysis::doFinalization(Module &M) {
+bool InlineAggressiveWrapperPass::doFinalization(Module &M) {
+  Result.reset();
   return false;
 }
+
+bool InlineAggressiveWrapperPass::runOnModule(Module &M) {
+  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
+  Result.reset(new InlineAggressiveInfo(
+                InlineAggressiveInfo::runImpl(M,
+                            WPA ? &WPA->getResult() : nullptr)));
+  return false;
+}
+
+InlineAggressiveInfo::InlineAggressiveInfo() {
+  AggInlCalls.clear();
+}
+
+InlineAggressiveInfo::~InlineAggressiveInfo() {}
+
+
 
 // Mark 'CS' as Inlined-Call by inserting 'CS' into AggInlCalls if
 // it is already not there.
 //
-void InlineAggressiveAnalysis::setAggInlInfoForCallSite(CallSite CS) {
+void InlineAggressiveInfo::setAggInlInfoForCallSite(CallSite CS) {
   if (isCallInstInAggInlList(CS))
     return;
   AggInlCalls.push_back(CS.getInstruction());
@@ -86,7 +102,7 @@ void InlineAggressiveAnalysis::setAggInlInfoForCallSite(CallSite CS) {
 // Returns true if 'CS' is marked as inlined-call i.e 'CS' is in
 // AggInlCall.
 //
-bool InlineAggressiveAnalysis::isCallInstInAggInlList(CallSite CS) {
+bool InlineAggressiveInfo::isCallInstInAggInlList(CallSite CS) {
   for (unsigned i = 0, e = AggInlCalls.size(); i != e; ++i) {
     if (AggInlCalls[i] == CS.getInstruction()) 
       return true;
@@ -116,7 +132,7 @@ static bool noCallsToUserDefinedRoutinesInCallee(CallSite CS) {
 
 // Mark all callsites of 'F' as aggressive-inlined-calls.
 //
-bool InlineAggressiveAnalysis::setAggInlineInfoForAllCallSites(Function *F) {
+bool InlineAggressiveInfo::setAggInlineInfoForAllCallSites(Function *F) {
   for (const Use &U : F->uses()) {
     User *UR = U.getUser();
     if (!isa<CallInst>(UR)) {
@@ -131,7 +147,7 @@ bool InlineAggressiveAnalysis::setAggInlineInfoForAllCallSites(Function *F) {
 // Mark 'CS' as aggressive-inlined-calls and all callsites of callee of
 // 'CS' as aggressive-inlined-calls.
 //
-bool InlineAggressiveAnalysis::setAggInlineInfo(CallSite CS)
+bool InlineAggressiveInfo::setAggInlineInfo(CallSite CS)
 {
   setAggInlInfoForCallSite(CS);
   Function * Callee = CS.getCalledFunction();
@@ -143,7 +159,7 @@ bool InlineAggressiveAnalysis::setAggInlineInfo(CallSite CS)
 
 // Propagate AggInfo from callsites to called functions recursively.
 //
-bool InlineAggressiveAnalysis::propagateAggInlineInfoCall(CallSite CS) {
+bool InlineAggressiveInfo::propagateAggInlineInfoCall(CallSite CS) {
 
   Function *Callee = CS.getCalledFunction();
 
@@ -171,7 +187,7 @@ bool InlineAggressiveAnalysis::propagateAggInlineInfoCall(CallSite CS) {
 // Set AggInfo to any callsite that eventually calls a callsite, which
 // is marked as Inlined-call for Aggressive Analysis.
 //
-bool InlineAggressiveAnalysis::propagateAggInlineInfo(Function *F) {
+bool InlineAggressiveInfo::propagateAggInlineInfo(Function *F) {
   for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
     CallSite CS(cast<Value>(&*II));
     if (!CS)
@@ -349,7 +365,7 @@ static bool collectMemoryAllocatedGlobVarsUsingAllocRtn(
 //                 ...
 //             }
 //
-bool InlineAggressiveAnalysis::trackUsesofAllocatedGlobalVariables(
+bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
                              std::vector<GlobalVariable*> &Globals) {
   for (unsigned i = 0, e = Globals.size(); i != e; ++i) {
     GlobalVariable *GV = Globals[i];
@@ -458,21 +474,29 @@ bool InlineAggressiveAnalysis::trackUsesofAllocatedGlobalVariables(
   return true;
 }
 
-bool InlineAggressiveAnalysis::runOnModule(Module &M) {
-  Function *AllocRtn = nullptr;
-  Function *MainRtn = nullptr;
+InlineAggressiveInfo  InlineAggressiveInfo::runImpl(Module &M,
+                                              WholeProgramInfo *WPI) {
+  InlineAggressiveInfo Result;
 
-  AggInlCalls.clear();
-
-  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
-  if (!WPA || !WPA->getResult().isWholeProgramSafe()) {
+  //auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
+  if (!WPI || !WPI->isWholeProgramSafe()) {
     if (InlineAggressiveTrace) {
       errs() << " Skipped AggInl ... Whole Program NOT safe \n";
     }
-    return false;
+    return Result;
   }
+  Result.analyzeModule(M); 
+  return Result;
+}
  
+bool InlineAggressiveInfo::analyzeModule(Module &M) {
+
+  Function *AllocRtn = nullptr;
+  Function *MainRtn = nullptr;
+
   uint64_t TotalInstCount = 0;
+
+  AggInlCalls.clear();
 
   for (Function &F : M) {
 
@@ -595,13 +619,24 @@ bool InlineAggressiveAnalysis::runOnModule(Module &M) {
     }
   }
 
-  return false;
+  return true;
 }
 
 // This analysis depends on WholeProgramAnalysis. Analysis info is not
 // modified by any other pass.
 //
-void InlineAggressiveAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
+void InlineAggressiveWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addUsedIfAvailable<WholeProgramWrapperPass>();
 }
+
+char InlineAggAnalysis::PassID;
+
+InlineAggressiveInfo InlineAggAnalysis::run(Module &M,
+                                AnalysisManager<Module> &AM) {
+  
+  return InlineAggressiveInfo::runImpl(M,
+                              AM.getCachedResult<WholeProgramAnalysis>(M));
+}
+
+

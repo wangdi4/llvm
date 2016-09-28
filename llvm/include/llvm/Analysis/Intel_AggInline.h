@@ -16,19 +16,20 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
 
-struct InlineAggressiveAnalysis : public ModulePass {
-  static char ID;
+// It handles actual analysis and results of Inline Aggressive analysis.
+struct InlineAggressiveInfo {
+  InlineAggressiveInfo();
+  ~InlineAggressiveInfo();
 
-  InlineAggressiveAnalysis();
+  static InlineAggressiveInfo runImpl(Module &M, WholeProgramInfo *WPI);
+  bool analyzeModule(Module &MI);
 
-  bool runOnModule(Module &M) override;
-  bool doFinalization(Module &M) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool isCallInstInAggInlList(CallSite CS);
 
 
@@ -45,7 +46,36 @@ private:
                              std::vector<GlobalVariable*> &Globals);
 };
 
-ModulePass *createInlineAggressiveAnalysisPass();
+// Analysis pass providing a never-invalidated Inline Aggressive
+// analysis result.
+class InlineAggAnalysis : public AnalysisInfoMixin<InlineAggAnalysis> {
+  friend AnalysisInfoMixin<InlineAggAnalysis>;
+  static char PassID;
+
+public:
+  typedef InlineAggressiveInfo Result;
+
+  InlineAggressiveInfo run(Module &M, AnalysisManager<Module> &AM);
+};
+
+// Legacy wrapper pass to provide the InlineAggressiveInfo object.
+class InlineAggressiveWrapperPass : public ModulePass {
+  std::unique_ptr<InlineAggressiveInfo> Result;
+
+public:
+  static char ID;
+
+  InlineAggressiveWrapperPass();
+
+  InlineAggressiveInfo &getResult() { return *Result; }
+  const InlineAggressiveInfo &getResult() const { return *Result; }
+
+  bool runOnModule(Module &M) override;
+  bool doFinalization(Module &M) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+};
+
+ModulePass *createInlineAggressiveWrapperPassPass();
 
 }
 

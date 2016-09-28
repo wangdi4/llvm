@@ -83,7 +83,7 @@ void Inliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<ProfileSummaryInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addUsedIfAvailable<InlineAggressiveAnalysis>();               // INTEL
+  AU.addUsedIfAvailable<InlineAggressiveWrapperPass>();     // INTEL
   getAAResultsAnalysisUsage(AU);
   CallGraphSCCPass::getAnalysisUsage(AU);
 }

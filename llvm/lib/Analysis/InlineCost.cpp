@@ -100,6 +100,9 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   /// Profile summary information.
   ProfileSummaryInfo *PSI;
 
+  // INTEL    Aggressive Analysis
+  InlineAggressiveInfo *AI;           // INTEL
+
   // The called function.
   Function &F;
 
@@ -109,9 +112,6 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   CallSite CandidateCS;
 
   int Threshold;
-
-  // INTEL    Aggressive Analysis
-  InlineAggressiveAnalysis *AI;           // INTEL
 
   int Cost;
 
@@ -229,7 +229,7 @@ public:
   CallAnalyzer(const TargetTransformInfo &TTI,
                std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
                ProfileSummaryInfo *PSI,            // INTEL
-               InlineAggressiveAnalysis *AI,       // INTEL
+               InlineAggressiveInfo *AI,           // INTEL
                Function &Callee, int Threshold,    // INTEL 
                CallSite CSArg)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), PSI(PSI), 
@@ -1520,7 +1520,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     YesReasonVector.push_back(InlrDoubleLocalCall);
   }
 
-  // Use InlineAggressiveAnalysis to expose uses of global ptrs 
+  // Use InlineAggressiveInfo to expose uses of global ptrs 
   if (AI != nullptr && AI->isCallInstInAggInlList(CS)) {
     Cost += InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
@@ -1776,7 +1776,7 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
 InlineCost llvm::getInlineCost(
     CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    ProfileSummaryInfo *PSI, InlineAggressiveAnalysis *AI) {  // INTEL 
+    ProfileSummaryInfo *PSI, InlineAggressiveInfo *AI) {  // INTEL 
   return getInlineCost(CS, CS.getCalledFunction(), DefaultThreshold, CalleeTTI,
                        GetAssumptionCache, PSI, AI);  // INTEL 
 }
@@ -1808,7 +1808,7 @@ InlineCost llvm::getInlineCost(
     CallSite CS, Function *Callee, int DefaultThreshold,
     TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    ProfileSummaryInfo *PSI, InlineAggressiveAnalysis *AI) {  // INTEL 
+    ProfileSummaryInfo *PSI, InlineAggressiveInfo *AI) {  // INTEL 
 
   // Cannot inline indirect calls.
   if (!Callee)
