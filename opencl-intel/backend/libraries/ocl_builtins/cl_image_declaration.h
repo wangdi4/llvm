@@ -47,6 +47,7 @@
 
 #include "cl_types2.h"
 #include "cl_image_format_t.h"
+#include "cl_sampler_mask.h"
 
 #define IMG_FUNC_EXPORT
 #define MAX_WORK_DIM 3
