@@ -80,6 +80,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+#define DEBUG_TYPE "hir-loop-distribution-pre-proc-graph"
+
 DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
   const unsigned MaxDDEdges = 256;
 
@@ -95,9 +97,8 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
                           Loop->getLastChild());
 
   if (EdgeCreator.EdgeCount > MaxDDEdges) {
-  llvm:
     errs() << " Toom many DD edges ";
-    Loop->dump();
+    DEBUG(Loop->dump());
     setInvalid("Too many DD edges for proper analysis");
   }
 }
