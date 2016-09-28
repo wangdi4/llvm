@@ -80,6 +80,8 @@ namespace llvm {
     getRegForInlineAsmConstraint(const std::string &Constraint,
                                  MVT VT) const override;
     */
+    SDValue LowerAtomicLoad(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerAtomicStore(SDValue Op, SelectionDAG &DAG) const;
 
     bool isTruncateFree(EVT VT1, EVT VT2) const override;
     bool isTruncateFree(Type *Ty1, Type *Ty2) const override;

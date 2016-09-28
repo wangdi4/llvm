@@ -130,6 +130,9 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     setOperationAction(ISD::ATOMIC_SWAP,      VT,    Legal);
     setOperationAction(ISD::ATOMIC_CMP_SWAP,  VT,    Legal);
 
+    setOperationAction(ISD::ATOMIC_LOAD,      VT,    Custom);
+    setOperationAction(ISD::ATOMIC_STORE,     VT,    Custom);
+
     setOperationAction(ISD::DYNAMIC_STACKALLOC,VT,   Expand);
   }
 
@@ -311,6 +314,8 @@ SDValue LPUTargetLowering::LowerOperation(SDValue Op,
   case ISD::FRAMEADDR:        return LowerFRAMEADDR(Op, DAG);
   case ISD::VASTART:          return LowerVASTART(Op, DAG);
     */
+  case ISD::ATOMIC_LOAD:      return LowerAtomicLoad(Op, DAG);
+  case ISD::ATOMIC_STORE:     return LowerAtomicStore(Op, DAG);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -359,6 +364,42 @@ SDValue LPUTargetLowering::LowerJumpTable(SDValue Op,
   return DAG.getNode(LPUISD::Wrapper, SDLoc(JT), getPointerTy(), Result);
 }
 
+SDValue LPUTargetLowering::LowerAtomicLoad(SDValue Op,
+                                             SelectionDAG &DAG) const {
+    AtomicSDNode *AL = cast<AtomicSDNode>(Op);
+    // Sufficiently small regular loads are already atomic.
+    // If this is a large load, don't lower here. Probably the right thing to
+    // do is to use AtomicExpandPass to take care of it.
+    if(AL->getMemoryVT().getStoreSizeInBits() > 64) {
+        return Op;
+    }
+
+    SDLoc DL(Op);
+    return DAG.getLoad(AL->getMemoryVT(),
+            DL,
+            AL->getChain(),
+            AL->getBasePtr(),
+            AL->getPointerInfo(),
+            false, false, false, AL->getAlignment());
+}
+
+SDValue LPUTargetLowering::LowerAtomicStore(SDValue Op,
+                                             SelectionDAG &DAG) const {
+    AtomicSDNode *AS = cast<AtomicSDNode>(Op);
+    // Sufficiently small regular stores are already atomic.
+    if(AS->getMemoryVT().getStoreSizeInBits() > 64) {
+        return Op;
+    }
+
+    SDLoc DL(Op);
+    return DAG.getStore(
+            AS->getChain(),
+            DL,
+            AS->getVal(),
+            AS->getBasePtr(),
+            AS->getPointerInfo(),
+            false, false, AS->getAlignment());
+}
 //===----------------------------------------------------------------------===//
 //                       LPU Inline Assembly Support
 //===----------------------------------------------------------------------===//
