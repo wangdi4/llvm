@@ -67,6 +67,15 @@ inline std::string toString (const T& elem) {
   return ss.str();
 }
 
+bool is2DImage(reflection::TypePrimitiveEnum image)
+{
+  return (
+    image == reflection::PRIMITIVE_IMAGE_2D_T ||
+    image == reflection::PRIMITIVE_IMAGE_2D_RO_T ||
+    image == reflection::PRIMITIVE_IMAGE_2D_WO_T ||
+    image == reflection::PRIMITIVE_IMAGE_2D_RW_T);
+}
+
 std::string Mangler::mangle(const std::string& name) {
   if (::isMangledName(name.c_str())){
     llvm::StringRef stripped = stripName(name.c_str());
@@ -76,7 +85,7 @@ std::string Mangler::mangle(const std::string& name) {
         V_ASSERT(!fdesc.isNull() && "demangle operation failed!");
         //Currently, we only support two dimension images masked built-ins.
         reflection::PrimitiveType *pTy = reflection::dyn_cast<reflection::PrimitiveType>(fdesc.parameters[0]);
-        bool isImage2d = (pTy && pTy->getPrimitive() == reflection::PRIMITIVE_IMAGE_2D_T);
+        bool isImage2d = pTy && is2DImage(pTy->getPrimitive());
         if (!isImage2d) {
           //Do not have implementation for masked built-ins, break to use create fake mask function.
           break;
