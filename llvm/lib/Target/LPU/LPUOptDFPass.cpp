@@ -1490,9 +1490,7 @@ seq_compute_matching_seq_opcode(unsigned ciOp,
                                 unsigned* indvar_opcode) {
   switch (ciOp) {
   case LPU::CMPNE32:
-  case LPU::CMPNE32i:
-    if ((tOp == LPU::ADD32i) ||
-        (tOp == LPU::ADD32)) {
+    if (tOp == LPU::ADD32) {
       // inversion of NE is the same.
       *indvar_opcode = LPU::SEQNE32;
       return true;
@@ -1500,9 +1498,7 @@ seq_compute_matching_seq_opcode(unsigned ciOp,
     break;
 
   case LPU::CMPLTS64:
-  case LPU::CMPLTS64i:
-    if ((tOp == LPU::ADD64i) ||
-        (tOp == LPU::ADD64)) {
+    if (tOp == LPU::ADD64) {
       if (invert_compare)
         *indvar_opcode = LPU::SEQGES64;
       else
@@ -1525,23 +1521,19 @@ seq_compute_matching_stride_opcode(unsigned transformOpcode,
                                    unsigned* strideOpcode) {
 
   switch (transformOpcode) {
-  case LPU::ADD64:    
-  case LPU::ADD64i:
+  case LPU::ADD64:
     *strideOpcode = LPU::STRIDE64;
     return true;
 
-  case LPU::ADD32:    
-  case LPU::ADD32i:
+  case LPU::ADD32:
     *strideOpcode = LPU::STRIDE32;
     return true;
     
-  case LPU::ADD16:    
-  case LPU::ADD16i:
+  case LPU::ADD16:
     *strideOpcode = LPU::STRIDE16;
     return true;
 
-  case LPU::ADD8:    
-  case LPU::ADD8i:
+  case LPU::ADD8:
     *strideOpcode = LPU::STRIDE8;
     return true;
     

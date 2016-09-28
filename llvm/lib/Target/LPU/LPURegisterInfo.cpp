@@ -136,23 +136,24 @@ LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
       MI.getOperand(opndNum).ChangeToRegister(getFrameRegister(MF), false);
     } else {
       // Non-0 offset - change to add with offset
-      MI.setDesc(TII.get(LPU::ADD64i));
+      MI.setDesc(TII.get(LPU::ADD64));
       MI.getOperand(opndNum).ChangeToRegister(getFrameRegister(MF), false);
       MI.addOperand(MachineOperand::CreateImm(Offset));
       DEBUG(errs() << "Converted MOV to ADD immediate: "<<Offset<<"\n");
     }
     return;
-  case LPU::ADD64i:
-  case LPU::SUB64i:
+    // These were ADD64i/SUB64i.  Is this still valid?
+  case LPU::ADD64:
+  case LPU::SUB64:
     changeToMove = (Offset == 0) ? true : false;
     break;
   case LPU::LD8:    new_mem_opc = LPU::LD8D;    break;
   case LPU::LD16:   new_mem_opc = LPU::LD16D;   break;
-  case LPU::LD16f:  new_mem_opc = LPU::LD16fD;  break;
+    //  case LPU::LD16f:  new_mem_opc = LPU::LD16fD;  break;
   case LPU::LD32:   new_mem_opc = LPU::LD32D;   break;
-  case LPU::LD32f:  new_mem_opc = LPU::LD32fD;  break;
+    //  case LPU::LD32f:  new_mem_opc = LPU::LD32fD;  break;
   case LPU::LD64:   new_mem_opc = LPU::LD64D;   break;
-  case LPU::LD64f:  new_mem_opc = LPU::LD64fD;  break;
+    //  case LPU::LD64f:  new_mem_opc = LPU::LD64fD;  break;
   case LPU::ST8:    new_mem_opc = LPU::ST8D;    new_is_st = true;  break;
   case LPU::ST16:   new_mem_opc = LPU::ST16D;   new_is_st = true;  break;
   case LPU::ST16f:  new_mem_opc = LPU::ST16fD;  new_is_st = true;  break;

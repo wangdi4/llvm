@@ -22,6 +22,15 @@
 
 using namespace llvm;
 
+namespace llvm {
+namespace MCOI {
+  enum /* OperandType */ {
+    // Target specific operand types.
+    OPERAND_REG_IMM = llvm::MCOI::OPERAND_FIRST_TARGET
+  };
+}
+}
+
 #define GET_INSTRINFO_MC_DESC
 #include "LPUGenInstrInfo.inc"
 

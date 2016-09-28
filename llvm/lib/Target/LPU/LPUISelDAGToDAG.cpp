@@ -56,6 +56,8 @@ namespace {
 
   private:
     // Complex patterns
+    bool SelectRegImm(SDValue Opnd, SDValue &Result);
+
     bool SelectAddrRegIdx(SDNode *Parent, SDValue Addr, SDValue &Base,
 	SDValue &ScaledOffset);
 
@@ -79,6 +81,45 @@ namespace {
 FunctionPass *llvm::createLPUISelDag(LPUTargetMachine &TM,
                                         CodeGenOpt::Level OptLevel) {
   return new LPUDAGToDAGISel(TM, OptLevel);
+}
+
+// Match a register or immediate operand
+bool LPUDAGToDAGISel::SelectRegImm(SDValue Opnd,
+                                         SDValue &Result)
+{
+  if (ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Opnd)) {
+    const ConstantInt &ci = *(CN->getConstantIntValue());
+    Result = CurDAG->getTargetConstant(ci, CN->getValueType(0));
+    return true;
+  }
+
+  // Get the bits for FP types
+  // See also LPUMCInstLower.cpp::Lower, case MO_FPImmediate
+  if (ConstantFPSDNode *CN = dyn_cast<ConstantFPSDNode>(Opnd)) {
+    const ConstantFP* f = CN->getConstantFPValue();
+    APFloat apf = f->getValueAPF();
+    bool ignored;
+    if (f->getType() == Type::getFloatTy(f->getContext()))
+      apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &ignored);
+    double d = apf.convertToDouble();
+    if (f->getType()->getTypeID() == Type::FloatTyID) {
+      // Result = CurDAG->getTargetConstantFP(f, EVT(MVT::f32)); ?
+      union { int i; float f; } ifu;
+      ifu.f = d;
+      Result = CurDAG->getTargetConstant(ifu.i, MVT::i64);
+      return true;
+    } else if (f->getType()->getTypeID() == Type::DoubleTyID) {
+      // Result = CurDAG->getTargetConstantFP(f, EVT(MVT::f64)); ?
+      union { long long l; double d; } ldu;
+      ldu.d = d;
+      Result = CurDAG->getTargetConstant(ldu.l, MVT::i64);
+      return true;
+    }
+  }
+
+  // Fall back to register match
+  Result = Opnd;
+  return true;
 }
 
 // Scaled indexing (for scaling by 2/4/8 matching opcode access size)

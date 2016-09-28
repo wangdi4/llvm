@@ -328,6 +328,16 @@ unsigned LPUInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
   }
 }
 */
+
+// This should probably be set up differently:
+// Have a generic operation enum (e.g. PICK, SWITCH, CMPLEU, ADD, ... etc.)
+// Then have
+//  genop = genericOpcodeFromSpecific(opcode)
+//  VT = typeFromOpcode(opcode) - primary result type
+// and:
+// plus things like:
+//  opc = selectSeq(addOp, cmpOp)  // return a sequence based on add+
+
 unsigned 
 LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC, 
 				    bool isPick) const {
@@ -399,7 +409,7 @@ bool LPUInstrInfo::isLoad(MachineInstr *MI) const {
 }
 
 bool LPUInstrInfo::isStore(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::ST1 && MI->getOpcode() <= LPU::ST8i;
+	return MI->getOpcode() >= LPU::ST1 && MI->getOpcode() <= LPU::ST8X;
 }
 
 bool LPUInstrInfo::isOrderedLoad(MachineInstr *MI) const {
@@ -407,37 +417,37 @@ bool LPUInstrInfo::isOrderedLoad(MachineInstr *MI) const {
 }
 
 bool LPUInstrInfo::isOrderedStore(MachineInstr *MI) const {
-  return ((MI->getOpcode() >= LPU::OST1) && (MI->getOpcode() <= LPU::OST8i));
+  return ((MI->getOpcode() >= LPU::OST1) && (MI->getOpcode() <= LPU::OST8X));
 }
 
 bool LPUInstrInfo::isMul(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::MUL16 && MI->getOpcode() <= LPU::MULF64i;
+	return MI->getOpcode() >= LPU::MUL16 && MI->getOpcode() <= LPU::MULF64;
 }
 
 
 bool LPUInstrInfo::isDiv(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::DIVF16 && MI->getOpcode() <= LPU::DIVU8i1;
+	return MI->getOpcode() >= LPU::DIVF16 && MI->getOpcode() <= LPU::DIVU8;
 }
 
 bool LPUInstrInfo::isFMA(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::FMAF16 && MI->getOpcode() <= LPU::FMAF64xi;
+	return MI->getOpcode() >= LPU::FMAF16 && MI->getOpcode() <= LPU::FMAF64x;
 }
 
 bool LPUInstrInfo::isAdd(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::ADD16 && MI->getOpcode() <= LPU::ADDF64i;
+	return MI->getOpcode() >= LPU::ADD16 && MI->getOpcode() <= LPU::ADDF64;
 }
 
 bool LPUInstrInfo::isSub(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::SUB16 && MI->getOpcode() <= LPU::SUBF64i1;
+	return MI->getOpcode() >= LPU::SUB16 && MI->getOpcode() <= LPU::SUBF64;
 }
 
 bool LPUInstrInfo::isShift(MachineInstr *MI) const {
-        return (MI->getOpcode() >= LPU::SLL16 && MI->getOpcode() <= LPU::SLL8i1) ||
-          (MI->getOpcode() >= LPU::SRA16 && MI->getOpcode() <= LPU::SRL8i1);
+        return (MI->getOpcode() >= LPU::SLL16 && MI->getOpcode() <= LPU::SLL8) ||
+          (MI->getOpcode() >= LPU::SRA16 && MI->getOpcode() <= LPU::SRL8);
 }
 
 bool LPUInstrInfo::isCmp(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::CMPEQ1 && MI->getOpcode() <= LPU::CMPUOF64i;
+	return MI->getOpcode() >= LPU::CMPEQ16 && MI->getOpcode() <= LPU::CMPUOF64;
 }
 
 bool LPUInstrInfo::isSwitch(MachineInstr *MI) const {
@@ -457,7 +467,9 @@ bool LPUInstrInfo::isPick(MachineInstr *MI) const {
 }
 
 bool LPUInstrInfo::isCopy(MachineInstr *MI) const {
-  return MI->getOpcode() == LPU::COPY1 ||
+  return
+    MI->getOpcode() == LPU::COPY0 ||
+    MI->getOpcode() == LPU::COPY1 ||
     MI->getOpcode() == LPU::COPY8 ||
     MI->getOpcode() == LPU::COPY16 ||
     MI->getOpcode() == LPU::COPY32 ||

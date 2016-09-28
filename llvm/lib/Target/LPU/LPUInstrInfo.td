@@ -13,33 +13,19 @@
 
 include "LPUInstrFormats.td"
 
-//===----------------------------------------------------------------------===//
-// LPU Operand Definitions.
-//===----------------------------------------------------------------------===//
-
-def brtarget     : Operand<OtherVT>;
-def calltarget   : Operand<i64>;
-
-def UnitOpnd : Operand<i64> {
-  let PrintMethod = "printUnitOperand";
-}
-
-// Memory operands
-class Addr<int numArgs, string funcName, dag opInfo> :
-  Operand<i64>, ComplexPattern<i64, numArgs,
-    funcName, [],
-    [SDNPWantParent]> { let MIOperandInfo = opInfo; }
-
-let PrintMethod = "printMemOperand" in {
-def ADDR_RX : Addr<2, "SelectAddrRegIdx", (ops I64:$base, I64:$offset)>;
-def ADDR_RI : Addr<2, "SelectAddrRegImm", (ops I64:$base, i64imm:$offset)>;
-def ADDR_RR : Addr<2, "SelectAddrRegReg", (ops I64:$base, I64:$offset)>;
-}
-def ADDR_I : Addr<1, "SelectAddrImm", (ops i64imm:$imm)>;
-def ADDR_R : Addr<1, "SelectAddrReg", (ops I64:$addr)>;
-
-def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
-def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
+// Possible TODO:
+// - Get rid of "f" variants for stores and other operations?  (e.g. ideally
+//   there should be a single LD32, ST32, PICK32, etc.)
+// - Get rid of separate ordered loads/stores by having default operands?
+//   (Also, should %ign be zero_reg defined in Target.td, and use that
+//   as default for order operands for stores/loads?)
+// - Drop commutable variants and merge with a commutative parameter now that
+//   other things are no longer preventing this
+// - Possible to merge BinOp and CmpOp (something that can take both a PatFrag
+//   and an SDNode?)
+// - Use "for" or some other mechanism to deal with 8/16/32/64 redundancy in patterns
+// - Merge ADDR_I/R and ADDR_RI/RR similar to RegImm?
+// - Why are so many operands in LPUGenInstrInfo.inc unknown
 
 //===----------------------------------------------------------------------===//
 // LPU Instruction Predicate Definitions
@@ -65,6 +51,120 @@ def HasFDiv      : Predicate<"Subtarget.hasFDiv()">;
 def HasFMA       : Predicate<"Subtarget.hasFMA()">;
 def HasSqrt      : Predicate<"Subtarget.hasSqrt()">;
 def HasMath0     : Predicate<"Subtarget.hasMath0()">;
+
+//===----------------------------------------------------------------------===//
+// LPU Operand Definitions.
+//===----------------------------------------------------------------------===//
+
+def brtarget     : Operand<OtherVT>;
+def calltarget   : Operand<i64>;
+
+def UnitOpnd : Operand<i64> {
+  let PrintMethod = "printUnitOperand";
+}
+
+// Memory operands
+class Addr<int numArgs, string funcName, dag opInfo> :
+  Operand<i64>, ComplexPattern<i64, numArgs,
+    funcName, [],
+    [SDNPWantParent]> { let MIOperandInfo = opInfo; }
+
+let PrintMethod = "printMemOperand" in {
+def ADDR_RX : Addr<2, "SelectAddrRegIdx", (ops I64:$base, I64:$offset)>;
+def ADDR_RI : Addr<2, "SelectAddrRegImm", (ops I64:$base, i64imm:$offset)>;
+def ADDR_RR : Addr<2, "SelectAddrRegReg", (ops I64:$base, I64:$offset)>;
+}
+def ADDR_I : Addr<1, "SelectAddrImm", (ops i64imm:$imm)>;
+def ADDR_R : Addr<1, "SelectAddrReg", (ops I64:$addr)>;
+
+// Not in Target.td with the other *imms
+let OperandType = "OPERAND_IMMEDIATE" in {
+def f16imm : Operand<f16>;
+}
+
+// Register or immedate
+class RegImmOperand<ValueType vt> :
+  Operand<vt>,
+  ComplexPattern<vt,1,"SelectRegImm", [imm, fpimm]> {
+    let OperandType = "OPERAND_REG_IMM";
+  }
+
+// RCL (Reg/Chan/Literal) is the same as used in the simulator
+def RCLi0  : RegImmOperand<i1>;
+def RCLi1  : RegImmOperand<i1>;
+def RCLi8  : RegImmOperand<i8>;
+def RCLi16 : RegImmOperand<i16>;
+def RCLf16 : RegImmOperand<f16>;
+def RCLi32 : RegImmOperand<i32>;
+def RCLf32 : RegImmOperand<f32>;
+def RCLi64 : RegImmOperand<i64>;
+def RCLf64 : RegImmOperand<f64>;
+
+
+//===----------------------------------------------------------------------===//
+// LPU Type associations
+//===----------------------------------------------------------------------===//
+// LPUTypeInfo - information that describes LPU information about value
+// types.  For example, what register class and immediate to use.
+// (Approach taken from X86 target.)
+//
+class LPUTypeInfo<ValueType vt, string instrSuffix,
+    RegisterClass rc, RegisterClass regRC, RegisterClass licRC,
+    DAGOperand rcl, DAGOperand immOperand, SDPatternOperator immNode,
+    list<Predicate> preds> {
+  // VT - the value type itself
+  ValueType VT = vt;
+
+  // InstrSuffix - used on instructions with this type.
+  // e.g. i8->8, i64->64, f32->f32
+  string InstrSuffix = instrSuffix;
+
+  // RC - the generic (either actual register or lic) register class
+  // associated with this type
+  RegisterClass RC = rc;
+
+  // RegRC - the actual "register" register class associated with this type
+  RegisterClass RegRC = regRC;
+
+  // LICRC - the LIC register class associated with this type
+  RegisterClass LICRC = licRC;
+
+  // RCL - Register (Reg or LIC) or Literal operand
+  DAGOperand RCL = rcl;
+
+  // L (ImmOperand) - the operand kind of an immediate of this type
+  DAGOperand L = immOperand;
+
+  // ImmNode - the operator that should be used to match an immediate
+  // of this kind in a pattern (e.g. imm or fpimm)
+  SDPatternOperator ImmNode = immNode;
+
+  // Preds - Predicate list associated with type (not yet used by patterns)
+  list<Predicate> Preds = preds;
+}
+
+// LPU type associations
+def Ti0  : LPUTypeInfo<i1,  "0",    I0,  RI0,  CI0,  RCLi0,  i1imm,  imm,   [HasI1]>;
+def Ti1  : LPUTypeInfo<i1,  "1",    I1,  RI1,  CI1,  RCLi1,  i1imm,  imm,   [HasI1]>;
+def Ti8  : LPUTypeInfo<i8,  "8",    I8,  RI8,  CI8,  RCLi8,  i8imm,  imm,   [HasI8]>;
+def Ts8  : LPUTypeInfo<i8,  "s8",   I8,  RI8,  CI8,  RCLi8,  i8imm,  imm,   [HasI8]>;
+def Tu8  : LPUTypeInfo<i8,  "u8",   I8,  RI8,  CI8,  RCLi8,  i8imm,  imm,   [HasI8]>;
+def Ti16 : LPUTypeInfo<i16, "16",   I16, RI16, CI16, RCLi16, i16imm, imm,   [HasI16]>;
+def Ts16 : LPUTypeInfo<i16, "s16",  I16, RI16, CI16, RCLi16, i16imm, imm,   [HasI16]>;
+def Tu16 : LPUTypeInfo<i16, "u16",  I16, RI16, CI16, RCLi16, i16imm, imm,   [HasI16]>;
+def Tf16 : LPUTypeInfo<f16, "f16",  I16, RI16, CI16, RCLf16, f16imm, fpimm, [HasF16]>;
+def Ti32 : LPUTypeInfo<i32, "32",   I32, RI32, CI32, RCLi32, i32imm, imm,   [HasI32]>;
+def Ts32 : LPUTypeInfo<i32, "s32",  I32, RI32, CI32, RCLi32, i32imm, imm,   [HasI32]>;
+def Tu32 : LPUTypeInfo<i32, "u32",  I32, RI32, CI32, RCLi32, i32imm, imm,   [HasI32]>;
+def Tf32 : LPUTypeInfo<f32, "f32",  I32, RI32, CI32, RCLf32, f32imm, fpimm, [HasF32]>;
+def Ti64 : LPUTypeInfo<i64, "64",   I64, RI64, CI64, RCLi64, i64imm, imm,   [HasI64]>;
+def Ts64 : LPUTypeInfo<i64, "s64",  I64, RI64, CI64, RCLi64, i64imm, imm,   [HasI64]>;
+def Tu64 : LPUTypeInfo<i64, "u64",  I64, RI64, CI64, RCLi64, i64imm, imm,   [HasI64]>;
+def Tf64 : LPUTypeInfo<f64, "f64",  I64, RI64, CI64, RCLf64, f64imm, fpimm, [HasF64]>;
+
+
+def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
+def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
 
 //===----------------------------------------------------------------------===//
 // LPU profiles and nodes
@@ -109,357 +209,244 @@ def ADJCALLSTACKUP : PseudoInstLPU<(outs), (ins i64imm:$amt1, i64imm:$amt2),
                             [(callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
-
 multiclass MovOp<string opStr, RegisterClass RC, ValueType opType,
                  list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1),
+      (outs RC:$dst), // Use the more general register class for output
+      (ins RC:$op1), // Reg or literal of the appropriate size (e.g. either i32 or f32 for 32b)
       !strconcat(opStr, "\t$dst, $op1"),
-      []>;
-    def i : FMTGEN<
-      (outs RC:$dst),
-      (ins Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $imm"),
       []>;
   }
 }
 
-multiclass UnaryOp<string opStr, SDNode opNode, RegisterClass RC,
+multiclass UnaryOp<string opStr, SDNode opNode, LPUTypeInfo t,
                    list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1),
-      !strconcat(opStr, "\t$dst, $op1"),
-      [(set RC:$dst, (opNode RC:$op1))]>;
+      (outs t.RC:$dst),
+      (ins t.RCL:$op1),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1"),
+      [(set t.RC:$dst, (opNode t.RCL:$op1))]>;
   }
 }
 
 // Separate pattern because "not" is not an SDNode but a PatFrag
-multiclass UnaryOpP<string opStr, PatFrag opNode, RegisterClass RC,
+multiclass UnaryOpP<string opStr, PatFrag opNode, LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1),
-      !strconcat(opStr, "\t$dst, $op1"),
-      [(set RC:$dst, (opNode RC:$op1))]>;
+      (outs t.RC:$dst),
+      (ins t.RCL:$op1),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1"),
+      [(set t.RC:$dst, (opNode t.RCL:$op1))]>;
   }
 }
 
-multiclass NegOp<string opStr, RegisterClass RC, list<Predicate> preds,
-           InstrItinClass itin = NoItinerary> {
+multiclass NegOp<string opStr, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1),
-      !strconcat(opStr, "\t$dst, $op1"),
-      [(set RC:$dst, (sub 0, RC:$op1))]>;
+      (outs t.RC:$dst),
+      (ins t.RCL:$op1),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1"),
+      [(set t.RC:$dst, (sub 0, t.RCL:$op1))]>;
   }
 }
 
+
 // Binary op, no pattern, not commutable
-multiclass SExtOp<string opStr, RegisterClass RCt, RegisterClass RCs,
+multiclass SExtOp<string opStr, LPUTypeInfo td, LPUTypeInfo ts,
                   list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RCt:$dst),
-      (ins RCs:$op1, RCs:$op2),
-      !strconcat(opStr, "\t$dst, $op1, $op2"),
+      (outs td.RC:$dst),
+      (ins ts.RCL:$op1, ts.RCL:$op2),
+      !strconcat(opStr, td.InstrSuffix, "\t$dst, $op1, $op2"),
       []>;
   }
 }
 
-multiclass CvtOp<string opStr, SDNode opNode, RegisterClass DT,
-  RegisterClass ST, list<Predicate> preds, InstrItinClass itin = NoItinerary> {
+multiclass CvtOp<string opStr, SDNode opNode, LPUTypeInfo td, LPUTypeInfo ts,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs DT:$dst),
-      (ins ST:$src),
-      !strconcat(opStr, "\t$dst, $src"),
-      [(set DT:$dst, (opNode ST:$src))]>;
+      (outs td.RC:$dst),
+      (ins ts.RCL:$src),
+      !strconcat(opStr, td.InstrSuffix, ts.InstrSuffix, "\t$dst, $src"),
+      [(set td.RC:$dst, (opNode ts.RCL:$src))]>;
   }
 }
 
 // Handling of commutative
 // Currently there are separate commutative "C" and non-commutative "NC"
 // classes.  The individual operators use the appropriate multiclass as needed.
-// In theory there could just be a single BinOp class.  In that case, you
-// would get warnings for the "i1" suffix pattern, which would lead you to not
-// have operators marked commutative at all.  Given it isn't clear what negative
-// impact that might have, we simply have BinOpC and BinOpNC classes for now.
-
+// Now that other things have been cleaned up, it should be possible to have
+// commutative simply be a parameter and remove the duplication.
+//
 // Nested multiclasses would be nice - it would allow declaring 4 defs
 // per operator, rather than enumerating 8/16/32/64, etc.
-multiclass BinOpC<string opStr, SDNode opNode, RegisterClass RC,
-           ValueType opType, SDNode immNode, list<Predicate> preds,
-           InstrItinClass itin = NoItinerary> {
+// Note: May be able to simplify with "for"
+
+multiclass BinOpC<string opStr, SDNode opNode, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let isCommutable = 1, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, RC:$op2),
-      !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set RC:$dst, (opNode RC:$op1, RC:$op2))]>;
-    def i : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set RC:$dst, (opNode RC:$op1, (opType immNode:$imm)))]>;
+      (outs t.RC:$dst),
+      (ins t.RCL:$op1, t.RCL:$op2),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1, $op2"),
+      [(set t.RC:$dst, (opNode t.RCL:$op1, t.RCL:$op2))]>;
   }
 }
 
-multiclass BinOpNC<string opStr, SDNode opNode, RegisterClass RC,
-           ValueType opType, SDNode immNode, list<Predicate> preds,
-           InstrItinClass itin = NoItinerary> {
+multiclass BinOpNC<string opStr, SDNode opNode, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let isCommutable = 0, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, RC:$op2),
-      !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set RC:$dst, (opNode RC:$op1, RC:$op2))]>;
-    def i : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set RC:$dst, (opNode RC:$op1, (opType immNode:$imm)))]>;
-    // Only difference with BinOpC is this additional pattern, allowing
-    // literal operation for the 1st of the 2 binary operands
-    def i1 : FMTGEN<
-      (outs RC:$dst),
-      (ins Operand<opType>:$imm, RC:$op2),
-      !strconcat(opStr, "\t$dst, $imm, $op2"),
-      [(set RC:$dst, (opNode (opType immNode:$imm), RC:$op2))]>;
+      (outs t.RC:$dst),
+      (ins t.RCL:$op1, t.RCL:$op2),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1, $op2"),
+      [(set t.RC:$dst, (opNode t.RCL:$op1, t.RCL:$op2))]>;
   }
 }
 
-multiclass ShiftOp<string opStr, SDNode opNode, RegisterClass RC,
-           ValueType opType, SDNode immNode, list<Predicate> preds,
-           InstrItinClass itin = NoItinerary> {
+// Shift ops specifically have an i8 for the shift amount
+multiclass ShiftOp<string opStr, SDNode opNode, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let isCommutable = 0, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, I8:$op2), 
-      !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set RC:$dst, (opNode RC:$op1, I8:$op2))]>;
-    def i : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, Operand<i8>:$imm),
-      !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set RC:$dst, (opNode RC:$op1, (i8 immNode:$imm)))]>;
-    // Only difference with BinOpC is this additional pattern, allowing
-    // literal operation for the 1st of the 2 binary operands
-    def i1 : FMTGEN<
-      (outs RC:$dst),
-      (ins Operand<opType>:$imm, I8:$op2),
-      !strconcat(opStr, "\t$dst, $imm, $op2"),
-      [(set RC:$dst, (opNode (opType immNode:$imm), I8:$op2))]>;
+      (outs t.RC:$dst),
+      (ins t.RCL:$op1, RCLi8:$op2), 
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1, $op2"),
+      [(set t.RC:$dst, (opNode t.RCL:$op1, RCLi8:$op2))]>;
   }
 }
 
-multiclass ShAdd<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
-           ValueType opType, SDNode immNode, list<Predicate> preds,
-           InstrItinClass itin = NoItinerary> {
+multiclass ShAdd<string opStr, SDNode inner, SDNode outer, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, I8:$op2, RC:$op3),
-      !strconcat(opStr, "\t$dst, $op1, $op2, $op3"),
-      [(set RC:$dst, (outer (inner RC:$op1, I8:$op2), RC:$op3))]>;
-    def i : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, I8:$op2, Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $op1, $op2, $imm"),
-      [(set RC:$dst, (outer (inner RC:$op1, I8:$op2), (opType immNode:$imm)))]>;
-    def ix : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, Operand<i8>:$imm, RC:$op3),
-      !strconcat(opStr, "\t$dst, $op1, $imm, $op3"),
-      [(set RC:$dst, (outer (inner RC:$op1, (i8 immNode:$imm)), RC:$op3))]>;
-    def ii : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, Operand<i8>:$imm2, RC:$imm3),
-      !strconcat(opStr, "\t$dst, $op1, $imm2, $imm3"),
-      [(set RC:$dst, (outer (inner RC:$op1, (i8 immNode:$imm2)),
-                                                    (opType immNode:$imm3)))]>;
+      (outs t.RC:$dst),
+      (ins t.RCL:$op1, RCLi8:$op2, t.RCL:$op3),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1, $op2, $op3"),
+      [(set t.RC:$dst, (outer (inner t.RCL:$op1, RCLi8:$op2), t.RCL:$op3))]>;
   }
 }
 
-multiclass FusedOp1<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
-           ValueType opType, SDNode immNode, list<Predicate> preds,
-           InstrItinClass itin = NoItinerary> {
+multiclass FusedOp1<string opStr, SDNode inner, SDNode outer, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, RC:$op2, RC:$op3),
-      !strconcat(opStr, "\t$dst, $op1, $op2, $op3"),
-      [(set RC:$dst, (outer (inner RC:$op1, RC:$op2), RC:$op3))]>;
-    def i : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, RC:$op2, Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $op1, $op2, $imm"),
-      [(set RC:$dst, (outer (inner RC:$op1, RC:$op2), (opType immNode:$imm)))]>;
-    def ix : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, Operand<opType>:$imm, RC:$op3),
-      !strconcat(opStr, "\t$dst, $op1, $imm, $op3"),
-      [(set RC:$dst, (outer (inner RC:$op1, (opType immNode:$imm)), RC:$op3))]>;
-    def ii : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, Operand<opType>:$imm2, RC:$imm3),
-      !strconcat(opStr, "\t$dst, $op1, $imm2, $imm3"),
-      [(set RC:$dst, (outer (inner RC:$op1, (opType immNode:$imm2)),
-                                                    (opType immNode:$imm3)))]>;
+      (outs t.RC:$dst),
+      (ins t.RCL:$op1, t.RCL:$op2, t.RCL:$op3),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1, $op2, $op3"),
+      [(set t.RC:$dst, (outer (inner t.RCL:$op1, t.RCL:$op2), t.RCL:$op3))]>;
   }
 }
 
-multiclass FusedOp2<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
-           ValueType opType, SDNode immNode, list<Predicate> preds,
-           InstrItinClass itin = NoItinerary> {
+multiclass FusedOp2<string opStr, SDNode inner, SDNode outer, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins RC:$op1, RC:$op2, RC:$op3),
-      !strconcat(opStr, "\t$dst, $op2, $op3, $op1"),
-      [(set RC:$dst, (outer RC:$op1, (inner RC:$op2, RC:$op3)))]>;
-    def i : FMTGEN<
-      (outs RC:$dst),
-      (ins Operand<opType>:$imm, RC:$op2, RC:$op3),
-      !strconcat(opStr, "\t$dst, $op2, $op3, $imm"),
-      [(set RC:$dst, (outer (opType immNode:$imm), (inner RC:$op2, RC:$op3)))]>;
+      (outs t.RC:$dst),
+      (ins t.RCL:$op1, t.RCL:$op2, t.RCL:$op3),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op2, $op3, $op1"),
+      [(set t.RC:$dst, (outer t.RCL:$op1, (inner t.RCL:$op2, t.RCL:$op3)))]>;
   }
 }
 
 // CmpOp[N]C are identical to BinOp, except opNode is a PatFrag rather than
 // an SDNode...
-multiclass CmpOpC<string opStr, PatFrag opNode, RegisterClass RC,
-           ValueType opType, SDNode immNode, list<Predicate> preds,
-           InstrItinClass itin = NoItinerary> {
+// As with Binop, commutative could be a flag.
+multiclass CmpOpC<string opStr, PatFrag opNode, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let isCommutable = 1, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
       (outs I1:$dst),
-      (ins RC:$op1, RC:$op2),
-      !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set I1:$dst, (opNode opType:$op1, opType:$op2))]>;
-    def i : FMTGEN<
-      (outs I1:$dst),
-      (ins RC:$op1, Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set I1:$dst, (opNode opType:$op1, (opType immNode:$imm)))]>;
+      (ins t.RCL:$op1, t.RCL:$op2),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1, $op2"),
+      [(set I1:$dst, (opNode (t.VT t.RCL:$op1), (t.VT t.RCL:$op2)))]>;
   }
 }
 
-multiclass CmpOpNC<string opStr, PatFrag opNode, RegisterClass RC,
-           ValueType opType, SDNode immNode, list<Predicate> preds,
-           InstrItinClass itin = NoItinerary> {
+multiclass CmpOpNC<string opStr, PatFrag opNode, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = NoItinerary> {
   let isCommutable = 0, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
       (outs I1:$dst),
-      (ins RC:$op1, RC:$op2),
-      !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set I1:$dst, (opNode opType:$op1, opType:$op2))]>;
-    def i : FMTGEN<
-      (outs I1:$dst),
-      (ins RC:$op1, Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set I1:$dst, (opNode opType:$op1, (opType immNode:$imm)))]>;
-    def i1 : FMTGEN<
-      (outs I1:$dst),
-      (ins Operand<opType>:$imm, RC:$op2),
-      !strconcat(opStr, "\t$dst, $imm, $op2"),
-      [(set I1:$dst, (opNode (opType immNode:$imm), opType:$op2))]>;
+      (ins t.RCL:$op1, t.RCL:$op2),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1, $op2"),
+      [(set I1:$dst, (opNode (t.VT t.RCL:$op1), (t.VT t.RCL:$op2)))]>;
   }
 }
 
-multiclass LdOp<string opStr, RegisterClass RC, ValueType opType,
+multiclass LdOp<string opStr, LPUTypeInfo t,
            InstrItinClass itin = IILD> {
   let Predicates = [HasIndex], Itinerary = itin in {
     def X : FMTGEN< // indexed reg+reg
-      (outs RC:$dst),
+      (outs t.RC:$dst),
       (ins ADDR_RX:$addr),
       !strconcat(opStr, "x\t$dst, $addr"),
-      [(set opType:$dst, (load ADDR_RX:$addr))]>;
+      [(set t.VT:$dst, (load ADDR_RX:$addr))]>;
   }
 
   let Predicates = [HasDispl], Itinerary = itin in {
     def D : FMTGEN< // normal literal displacement form (val+k)
-      (outs RC:$dst),
+      (outs t.RC:$dst),
       (ins ADDR_RI:$addr),
       !strconcat(opStr, "d\t$dst, $addr"),
-      [(set opType:$dst, (load ADDR_RI:$addr))]>;
+      [(set t.VT:$dst, (load ADDR_RI:$addr))]>;
     def R : FMTGEN< // non-indexed reg+reg
-      (outs RC:$dst),
+      (outs t.RC:$dst),
       (ins ADDR_RR:$addr),
       !strconcat(opStr, "d\t$dst, $addr"),
-      [(set opType:$dst, (load ADDR_RR:$addr))]>;
+      [(set t.VT:$dst, (load ADDR_RR:$addr))]>;
   }
 
   let Itinerary = itin in {
     def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
-      (outs RC:$dst),
+      (outs t.RC:$dst),
       (ins ADDR_I:$addr),
       !strconcat(opStr, "\t$dst, $addr"),
-      [(set opType:$dst, (load ADDR_I:$addr))]>;
+      [(set t.VT:$dst, (load ADDR_I:$addr))]>;
     def "" : FMTGEN< // normal basereg form
-      (outs RC:$dst),
+      (outs t.RC:$dst),
       (ins ADDR_R:$addr),
       !strconcat(opStr, "\t$dst, $addr"),
-      [(set opType:$dst, (load ADDR_R:$addr))]>;
+      [(set t.VT:$dst, (load ADDR_R:$addr))]>;
     }
 }
 
 // Ugly combinatorial issue between literal store data and addressing modes
-// TODO: How to handle store output flag?
-multiclass StOp<string opStr, RegisterClass RC, ValueType opType,
-           SDNode immNode, InstrItinClass itin = IIST> {
+multiclass StOp<string opStr, LPUTypeInfo t,
+           InstrItinClass itin = IIST> {
   let Predicates = [HasIndex], Itinerary = itin in {
-    def Xi : FMTGEN<
-      (outs),
-      (ins ADDR_RX:$addr, Operand<opType>:$data),
-      !strconcat(opStr, "x\t$addr, $data, %ign"),
-      [(store (opType immNode:$data), ADDR_RX:$addr)]>;
     def X : FMTGEN<
       (outs),    
-      (ins ADDR_RX:$addr, RC:$data),
+      (ins ADDR_RX:$addr, t.RCL:$data),
       !strconcat(opStr, "x\t$addr, $data"),
-      [(store opType:$data, ADDR_RX:$addr)]>;
+      [(store (t.VT t.RCL:$data), ADDR_RX:$addr)]>;
   }
 
   let Predicates = [HasDispl], Itinerary = itin in {
-    def Di : FMTGEN<
-      (outs),        
-      (ins ADDR_RI:$addr, Operand<opType>:$data),
-      !strconcat(opStr, "d\t$addr, $data, %ign"),
-      [(store (opType immNode:$data), ADDR_RI:$addr)]>;
     def D : FMTGEN<
       (outs),            
-      (ins ADDR_RI:$addr, RC:$data),
+      (ins ADDR_RI:$addr, t.RCL:$data),
       !strconcat(opStr, "d\t$addr, $data, %ign"),
-      [(store opType:$data, ADDR_RI:$addr)]>;
-    def Ri : FMTGEN<
-      (outs),                
-      (ins ADDR_RR:$addr, Operand<opType>:$data),
-      !strconcat(opStr, "d\t$addr, $data, %ign"),
-      [(store (opType immNode:$data), ADDR_RR:$addr)]>;
+      [(store (t.VT t.RCL:$data), ADDR_RI:$addr)]>;
     def R : FMTGEN<
-      (outs),                    
-      (ins ADDR_RR:$addr, RC:$data),
+      (outs),
+      (ins ADDR_RR:$addr, t.RCL:$data),
       !strconcat(opStr, "d\t$addr, $data, %ign"),
-      [(store opType:$data, ADDR_RR:$addr)]>;
+      [(store (t.VT t.RCL:$data), ADDR_RR:$addr)]>;
   }
 
   let Itinerary = itin in {
-    def i : FMTGEN<
-      (outs),                        
-      (ins ADDR_R:$addr, Operand<opType>:$data),
-      !strconcat(opStr, "\t$addr, $data, %ign"),
-      [(store (opType immNode:$data), ADDR_R:$addr)]>;
     def "" : FMTGEN<
       (outs),                            
-      (ins ADDR_R:$addr, RC:$data),
+      (ins ADDR_R:$addr, t.RCL:$data),
       !strconcat(opStr, "\t$addr, $data, %ign"),
-      [(store opType:$data, ADDR_R:$addr)]>;
+      [(store (t.VT t.RCL:$data), ADDR_R:$addr)]>;
   }
 }
 
@@ -475,11 +462,11 @@ multiclass StOp<string opStr, RegisterClass RC, ValueType opType,
 // and/or define more macros to eliminate duplicated code between
 // these two cases. But this hack is what I could figure out for now.
 
-multiclass OLdOp<string opStr, RegisterClass RC, ValueType opType,
+multiclass OLdOp<string opStr, LPUTypeInfo t,
            InstrItinClass itin = IILD> {
   let Predicates = [HasIndex], Itinerary = itin in {
     def X : FMTGEN< // indexed reg+reg
-      (outs RC:$dst, I0:$issued),
+      (outs t.RC:$dst, I0:$issued),
       (ins ADDR_RX:$addr, I0:$ready),
       !strconcat(opStr, "x\t$dst, $addr, $issued, $ready"),
       []>;
@@ -487,12 +474,12 @@ multiclass OLdOp<string opStr, RegisterClass RC, ValueType opType,
 
   let Predicates = [HasDispl], Itinerary = itin in {
     def D : FMTGEN< // normal literal displacement form (val+k)
-      (outs RC:$dst, I0:$issued),
+      (outs t.RC:$dst, I0:$issued),
       (ins ADDR_RI:$addr, I0:$ready),
       !strconcat(opStr, "d\t$dst, $addr, $issued, $ready"),
       []>;
     def R : FMTGEN< // non-indexed reg+reg
-      (outs RC:$dst, I0:$issued),    
+      (outs t.RC:$dst, I0:$issued),
       (ins ADDR_RR:$addr, I0:$ready),
       !strconcat(opStr, "d\t$dst, $addr, $issued, $ready"),
       []>;
@@ -500,12 +487,12 @@ multiclass OLdOp<string opStr, RegisterClass RC, ValueType opType,
 
   let Itinerary = itin in {
     def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
-      (outs RC:$dst, I0:$issued),
+      (outs t.RC:$dst, I0:$issued),
       (ins ADDR_I:$addr, I0:$ready),
       !strconcat(opStr, "\t$dst, $addr, $issued, $ready"),
       []>;
     def "" : FMTGEN< // normal basereg form
-      (outs RC:$dst, I0:$issued),
+      (outs t.RC:$dst, I0:$issued),
       (ins ADDR_R:$addr, I0:$ready),
       !strconcat(opStr, "\t$dst, $addr, $issued, $ready"),
       []>;
@@ -514,141 +501,77 @@ multiclass OLdOp<string opStr, RegisterClass RC, ValueType opType,
 
 
 
-multiclass OStOp<string opStr, RegisterClass RC, ValueType opType,
-           SDNode immNode, InstrItinClass itin = IIST> {
+multiclass OStOp<string opStr, LPUTypeInfo t,
+           InstrItinClass itin = IIST> {
   let Predicates = [HasIndex], Itinerary = itin in {
-    def Xi : FMTGEN<
-      (outs I0:$issued),
-      (ins ADDR_RX:$addr, Operand<opType>:$data, I0:$ready),
-      !strconcat(opStr, "x\t$addr, $data, $issued, $ready"),
-      []>;
     def X : FMTGEN<
-      (outs I0:$issued),    
-      (ins ADDR_RX:$addr, RC:$data, I0:$ready),
+      (outs I0:$issued),
+      (ins ADDR_RX:$addr, t.RCL:$data, I0:$ready),
       !strconcat(opStr, "x\t$addr, $data, $issued, $ready"),
       []>;
   }
 
   let Predicates = [HasDispl], Itinerary = itin in {
-    def Di : FMTGEN<
-      (outs I0:$issued),        
-      (ins ADDR_RI:$addr, Operand<opType>:$data, I0:$ready),
-      !strconcat(opStr, "d\t$addr, $data, $issued, $ready"),
-      []>;
     def D : FMTGEN<
-      (outs I0:$issued),            
-      (ins ADDR_RI:$addr, RC:$data, I0:$ready),
-      !strconcat(opStr, "d\t$addr, $data, $issued, $ready"),
-      []>;
-    def Ri : FMTGEN<
-      (outs I0:$issued),            
-      (ins ADDR_RR:$addr, Operand<opType>:$data,  I0:$ready),
+      (outs I0:$issued),
+      (ins ADDR_RI:$addr, t.RCL:$data, I0:$ready),
       !strconcat(opStr, "d\t$addr, $data, $issued, $ready"),
       []>;
     def R : FMTGEN<
-      (outs I0:$issued),    
-      (ins ADDR_RR:$addr, RC:$data, I0:$ready),
+      (outs I0:$issued),
+      (ins ADDR_RR:$addr, t.RCL:$data, I0:$ready),
       !strconcat(opStr, "d\t$addr, $data, $issued, $ready"),
       []>;
   }
 
   let Itinerary = itin in {
-      def i : FMTGEN<
-        (outs I0:$issued),    
-        (ins ADDR_R:$addr, Operand<opType>:$data, I0:$ready),
-        !strconcat(opStr, "\t$addr, $data, $issued, $ready"),
-        []>;
       def "" : FMTGEN<
-        (outs I0:$issued),    
-        (ins ADDR_R:$addr, RC:$data, I0:$ready),
+        (outs I0:$issued),
+        (ins ADDR_R:$addr, t.RCL:$data, I0:$ready),
         !strconcat(opStr, "\t$addr, $data, $issued, $ready"),
         []>;
   }
 }
 
-multiclass AtomicOp<string instr_asm, PatFrag opNode,
-           RegisterClass RC, ValueType opType, list<Predicate> preds,
-           InstrItinClass itin = IIATM> {
+multiclass AtomicOp<string instr_asm, PatFrag opNode, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = IIATM> {
   let mayLoad = 1, mayStore = 1, hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
-    def i : FMTGEN <
-      (outs RC:$dst),
-      (ins ADDR_R:$addr, Operand<opType>:$op3),
-      !strconcat(instr_asm, "\t%ign, $dst, $addr, $op3, %ign\t# NOTE: Generated as unordered."),
-      [(set opType:$dst, (opNode ADDR_R:$addr, (opType imm:$op3)))]>;
     def "" : FMTGEN <
-      (outs RC:$dst),
-      (ins ADDR_R:$addr, RC:$op3),
+      (outs t.RC:$dst),
+      (ins ADDR_R:$addr, t.RCL:$op3),
       !strconcat(instr_asm, "\t%ign, $dst, $addr, $op3, %ign\t# NOTE: Generated as unordered."),
-      [(set opType:$dst, (opNode ADDR_R:$addr, opType:$op3))]>;
+      [(set t.VT:$dst, (opNode ADDR_R:$addr, (t.VT t.RCL:$op3)))]>;
   }
 }
 
-multiclass OAtomicOp<string instr_asm,
-           RegisterClass RC, ValueType opType, list<Predicate> preds,
-           InstrItinClass itin = IIATM> {
+multiclass OAtomicOp<string instr_asm, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = IIATM> {
   let mayLoad = 1, mayStore = 1, hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
-    def i : FMTGEN <
-      (outs RC:$dst, I0:$issued),
-      (ins ADDR_R:$addr, Operand<opType>:$op3, I0:$ready),
-      !strconcat(instr_asm, "\t$issued, $dst, $addr, $op3, $ready"),
-      []>;
     def "" : FMTGEN <
-      (outs RC:$dst, I0:$issued),
-      (ins ADDR_R:$addr, RC:$op3, I0:$ready),
+      (outs t.RC:$dst, I0:$issued),
+      (ins ADDR_R:$addr, t.RCL:$op3, I0:$ready),
       !strconcat(instr_asm, "\t$issued, $dst, $addr, $op3, $ready"),
       []>;
   }
 }
 
-multiclass AtomicOp2<string instr_asm, PatFrag opNode,
-           RegisterClass RC, ValueType opType, list<Predicate> preds,
-           InstrItinClass itin = IIATM> {
+multiclass AtomicOp2<string instr_asm, PatFrag opNode, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = IIATM> {
   let mayLoad = 1, mayStore = 1, hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
-    def ri : FMTGEN <
-      (outs RC:$dst),
-      (ins ADDR_R:$addr, Operand<opType>:$op3, RC:$op4),
-      !strconcat(instr_asm, "\t%ign, $dst, $addr, $op3, $op4, %ign\t# NOTE: Generated as unordered."),
-      [(set opType:$dst, (opNode ADDR_R:$addr, RC:$op4, (opType imm:$op3)))]>;
-    def ir : FMTGEN <
-      (outs RC:$dst),
-      (ins ADDR_R:$addr, RC:$op3, Operand<opType>:$op4),
-      !strconcat(instr_asm, "\t%ign, $dst, $addr, $op3, $op4, %ign\t# NOTE: Generated as unordered."),
-      [(set opType:$dst, (opNode ADDR_R:$addr, (opType imm:$op4), RC:$op3))]>;
-    def ii : FMTGEN <
-      (outs RC:$dst),
-      (ins ADDR_R:$addr, Operand<opType>:$op3, Operand<opType>:$op4),
-      !strconcat(instr_asm, "\t%ign, $dst, $addr, $op3, $op4, %ign\t# NOTE: Generated as unordered."),
-      [(set opType:$dst, (opNode ADDR_R:$addr, (opType imm:$op4), (opType imm:$op3)))]>;
     def "" : FMTGEN <
-      (outs RC:$dst),
-      (ins ADDR_R:$addr, RC:$op3, RC:$op4),
+      (outs t.RC:$dst),
+      (ins ADDR_R:$addr, t.RCL:$op3, t.RCL:$op4),
       !strconcat(instr_asm, "\t%ign, $dst, $addr, $op3, $op4, %ign\t# NOTE: Generated as unordered."),
-      [(set RC:$dst, (opNode ADDR_R:$addr, RC:$op4, RC:$op3))]>;
+      [(set t.RC:$dst, (opNode ADDR_R:$addr, t.RCL:$op4, t.RCL:$op3))]>;
   }
 }
 
-multiclass OAtomicOp2<string instr_asm,
-           RegisterClass RC, ValueType opType, list<Predicate> preds,
-           InstrItinClass itin = IIATM> {
+multiclass OAtomicOp2<string instr_asm, LPUTypeInfo t,
+           list<Predicate> preds, InstrItinClass itin = IIATM> {
   let mayLoad = 1, mayStore = 1, hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
-    def ri : FMTGEN <
-      (outs RC:$dst, I0:$issued),
-      (ins ADDR_R:$addr, Operand<opType>:$op3, RC:$op4, I0:$ready),
-      !strconcat(instr_asm, "\t$issued, $dst, $addr, $op3, $op4, $ready"),
-      []>;
-    def ir : FMTGEN <
-      (outs RC:$dst, I0:$issued),
-      (ins ADDR_R:$addr, RC:$op3, Operand<opType>:$op4, I0:$ready),
-      !strconcat(instr_asm, "\t$issued, $dst, $addr, $op3, $op4, $ready"),
-      []>;
-    def ii : FMTGEN <
-      (outs RC:$dst, I0:$issued),
-      (ins ADDR_R:$addr, Operand<opType>:$op3, Operand<opType>:$op4, I0:$ready),
-      !strconcat(instr_asm, "\t$issued, $dst, $addr, $op3, $op4, $ready"),
-      []>;
     def "" : FMTGEN <
-      (outs RC:$dst, I0:$issued),
-      (ins ADDR_R:$addr, RC:$op3, RC:$op4, I0:$ready),
+      (outs t.RC:$dst, I0:$issued),
+      (ins ADDR_R:$addr, t.RCL:$op3, t.RCL:$op4, I0:$ready),
       !strconcat(instr_asm, "\t$issued, $dst, $addr, $op3, $op4, $ready"),
       []>;
   }
@@ -749,155 +672,460 @@ def : Pat<(LPUTailCall imm:$dst),
 def : Pat<(LPUTailCall I64:$dst),
           (JTR I64:$dst)>;
 
-
-// The repetition below could be removed if nested multiclass were supported.
-// (e.g. the first level would expand to 8/16/32/64, then the 2nd level
-// would be as today.)
-
 defm MOV1      : MovOp<"mov1",  I1,  i1,  [HasI1],  IIALU>;
 defm MOV8      : MovOp<"mov8",  I8,  i8,  [HasI8],  IIALU>;
 defm MOV16     : MovOp<"mov16", I16, i16, [HasI16], IIALU>;
 defm MOV32     : MovOp<"mov32", I32, i32, [HasI32], IIALU>;
 defm MOV64     : MovOp<"mov64", I64, i64, [HasI64], IIALU>;
 
-// GlobalAddress, ExternalSymbol
+def : Pat<(i64 (LPUWrapper tglobaladdr:$src)),   (MOV64 tglobaladdr:$src)>;
+def : Pat<(i64 (LPUWrapper texternalsym:$src)),  (MOV64 texternalsym:$src)>;
+def : Pat<(i64 (LPUWrapper tblockaddress:$src)), (MOV64 tblockaddress:$src)>;
+def : Pat<(i64 (LPUWrapper tjumptable:$src)),    (MOV64 tjumptable:$src)>;
 
-def : Pat<(i64 (LPUWrapper tglobaladdr:$src)),   (MOV64i tglobaladdr:$src)>;
-def : Pat<(i64 (LPUWrapper texternalsym:$src)),  (MOV64i texternalsym:$src)>;
-def : Pat<(i64 (LPUWrapper tblockaddress:$src)), (MOV64i tblockaddress:$src)>;
-def : Pat<(i64 (LPUWrapper tjumptable:$src)),    (MOV64i tjumptable:$src)>;
-
-defm NOT1      : UnaryOpP<"not1",     not,   I1,  [HasI1],  IIALU>;
-defm NOT8      : UnaryOpP<"not8",     not,   I8,  [HasI8],  IIALU>;
-defm NOT16     : UnaryOpP<"not16",    not,   I16, [HasI16], IIALU>;
-defm NOT32     : UnaryOpP<"not32",    not,   I32, [HasI32], IIALU>;
-defm NOT64     : UnaryOpP<"not64",    not,   I64, [HasI64], IIALU>;
-defm NEG8      : NegOp  <"neg8",             I8,  [HasI8],  IIALU>;
-defm NEG16     : NegOp  <"neg16",            I16, [HasI16], IIALU>;
-defm NEG32     : NegOp  <"neg32",            I32, [HasI32], IIALU>;
-defm NEG64     : NegOp  <"neg64",            I64, [HasI64], IIALU>;
-defm NEGF16    : UnaryOp<"negf16",    fneg,  I16, [HasF16], IIALU>;
-defm NEGF32    : UnaryOp<"negf32",    fneg,  I32, [HasF32], IIALU>;
-defm NEGF64    : UnaryOp<"negf64",    fneg,  I64, [HasF64], IIALU>;
-defm ABSF16    : UnaryOp<"absf16",    fabs,  I16, [HasF16], IIALU>;
-defm ABSF32    : UnaryOp<"absf32",    fabs,  I32, [HasF32], IIALU>;
-defm ABSF64    : UnaryOp<"absf64",    fabs,  I64, [HasF64], IIALU>;
-defm SQRTF16   : UnaryOp<"sqrtf16",   fsqrt, I16, [HasF16,HasSqrt], IISqrtF16>;
-defm SQRTF32   : UnaryOp<"sqrtf32",   fsqrt, I32, [HasF32,HasSqrt], IISqrtF32>;
-defm SQRTF64   : UnaryOp<"sqrtf64",   fsqrt, I64, [HasF64,HasSqrt], IISqrtF64>;
-defm EXP2F16   : UnaryOp<"exp2f16",   fexp2, I16, [HasF16,HasMath0], IIMathF16>;
-defm EXP2F32   : UnaryOp<"exp2f32",   fexp2, I32, [HasF32,HasMath0], IIMathF32>;
-defm EXP2F64   : UnaryOp<"exp2f64",   fexp2, I64, [HasF64,HasMath0], IIMathF64>;
-defm LOG2F16   : UnaryOp<"log2f16",   flog2, I16, [HasF16,HasMath0], IIMathF16>;
-defm LOG2F32   : UnaryOp<"log2f32",   flog2, I32, [HasF32,HasMath0], IIMathF32>;
-defm LOG2F64   : UnaryOp<"log2f64",   flog2, I64, [HasF64,HasMath0], IIMathF64>;
-defm EXPF16    : UnaryOp<"expf16",    fexp,  I16, [HasF16,HasMath0], IIMathF16>;
-defm EXPF32    : UnaryOp<"expf32",    fexp,  I32, [HasF32,HasMath0], IIMathF32>;
-defm EXPF64    : UnaryOp<"expf64",    fexp,  I64, [HasF64,HasMath0], IIMathF64>;
-defm LOGF16    : UnaryOp<"logf16",    flog,  I16, [HasF16,HasMath0], IIMathF16>;
-defm LOGF32    : UnaryOp<"logf32",    flog,  I32, [HasF32,HasMath0], IIMathF32>;
-defm LOGF64    : UnaryOp<"logf64",    flog,  I64, [HasF64,HasMath0], IIMathF64>;
-defm SINF16    : UnaryOp<"sinf16",    fsin,  I16, [HasF16,HasMath0], IIMathF16>;
-defm SINF32    : UnaryOp<"sinf32",    fsin,  I32, [HasF32,HasMath0], IIMathF32>;
-defm SINF64    : UnaryOp<"sinf64",    fsin,  I64, [HasF64,HasMath0], IIMathF64>;
-defm COSF16    : UnaryOp<"cosf16",    fcos,  I16, [HasF16,HasMath0], IIMathF16>;
-defm COSF32    : UnaryOp<"cosf32",    fcos,  I32, [HasF32,HasMath0], IIMathF32>;
-defm COSF64    : UnaryOp<"cosf64",    fcos,  I64, [HasF64,HasMath0], IIMathF64>;
-//defm SINCOSF16 : UnaryOp<"sincosf16", fsincos, I16, [HasF16,HasMath0], IIMathF16>;
-//defm SINCOSF32 : UnaryOp<"sincosf32", fsincos, I32, [HasF32,HasMath0], IIMathF32>;
-//defm SINCOSF64 : UnaryOp<"sincosf64", fsincos, I64, [HasF64,HasMath0], IIMathF64>;
+defm NOT1      : UnaryOpP<"not",    not,   Ti1,  [HasI1],  IIALU>;
+defm NOT8      : UnaryOpP<"not",    not,   Ti8,  [HasI8],  IIALU>;
+defm NOT16     : UnaryOpP<"not",    not,   Ti16, [HasI16], IIALU>;
+defm NOT32     : UnaryOpP<"not",    not,   Ti32, [HasI32], IIALU>;
+defm NOT64     : UnaryOpP<"not",    not,   Ti64, [HasI64], IIALU>;
+defm NEG8      : NegOp  <"neg",            Ti8,  [HasI8],  IIALU>;
+defm NEG16     : NegOp  <"neg",            Ti16, [HasI16], IIALU>;
+defm NEG32     : NegOp  <"neg",            Ti32, [HasI32], IIALU>;
+defm NEG64     : NegOp  <"neg",            Ti64, [HasI64], IIALU>;
+defm NEGF16    : UnaryOp<"neg",     fneg,  Tf16, [HasF16], IIALU>;
+defm NEGF32    : UnaryOp<"neg",     fneg,  Tf32, [HasF32], IIALU>;
+defm NEGF64    : UnaryOp<"neg",     fneg,  Tf64, [HasF64], IIALU>;
+defm ABSF16    : UnaryOp<"abs",     fabs,  Tf16, [HasF16], IIALU>;
+defm ABSF32    : UnaryOp<"abs",     fabs,  Tf32, [HasF32], IIALU>;
+defm ABSF64    : UnaryOp<"abs",     fabs,  Tf64, [HasF64], IIALU>;
+defm SQRTF16   : UnaryOp<"sqrt",    fsqrt, Tf16, [HasF16,HasSqrt], IISqrtF16>;
+defm SQRTF32   : UnaryOp<"sqrt",    fsqrt, Tf32, [HasF32,HasSqrt], IISqrtF32>;
+defm SQRTF64   : UnaryOp<"sqrt",    fsqrt, Tf64, [HasF64,HasSqrt], IISqrtF64>;
+defm EXP2F16   : UnaryOp<"exp2",    fexp2, Tf16, [HasF16,HasMath0], IIMathF16>;
+defm EXP2F32   : UnaryOp<"exp2",    fexp2, Tf32, [HasF32,HasMath0], IIMathF32>;
+defm EXP2F64   : UnaryOp<"exp2",    fexp2, Tf64, [HasF64,HasMath0], IIMathF64>;
+defm LOG2F16   : UnaryOp<"log2",    flog2, Tf16, [HasF16,HasMath0], IIMathF16>;
+defm LOG2F32   : UnaryOp<"log2",    flog2, Tf32, [HasF32,HasMath0], IIMathF32>;
+defm LOG2F64   : UnaryOp<"log2",    flog2, Tf64, [HasF64,HasMath0], IIMathF64>;
+defm EXPF16    : UnaryOp<"exp",     fexp,  Tf16, [HasF16,HasMath0], IIMathF16>;
+defm EXPF32    : UnaryOp<"exp",     fexp,  Tf32, [HasF32,HasMath0], IIMathF32>;
+defm EXPF64    : UnaryOp<"exp",     fexp,  Tf64, [HasF64,HasMath0], IIMathF64>;
+defm LOGF16    : UnaryOp<"log",     flog,  Tf16, [HasF16,HasMath0], IIMathF16>;
+defm LOGF32    : UnaryOp<"log",     flog,  Tf32, [HasF32,HasMath0], IIMathF32>;
+defm LOGF64    : UnaryOp<"log",     flog,  Tf64, [HasF64,HasMath0], IIMathF64>;
+defm SINF16    : UnaryOp<"sin",     fsin,  Tf16, [HasF16,HasMath0], IIMathF16>;
+defm SINF32    : UnaryOp<"sin",     fsin,  Tf32, [HasF32,HasMath0], IIMathF32>;
+defm SINF64    : UnaryOp<"sin",     fsin,  Tf64, [HasF64,HasMath0], IIMathF64>;
+defm COSF16    : UnaryOp<"cos",     fcos,  Tf16, [HasF16,HasMath0], IIMathF16>;
+defm COSF32    : UnaryOp<"cos",     fcos,  Tf32, [HasF32,HasMath0], IIMathF32>;
+defm COSF64    : UnaryOp<"cos",     fcos,  Tf64, [HasF64,HasMath0], IIMathF64>;
+//defm SINCOSF16 : UnaryOp<"sincos", fsincos, Tf16, [HasF16,HasMath0], IIMathF16>;
+//defm SINCOSF32 : UnaryOp<"sincos", fsincos, Tf32, [HasF32,HasMath0], IIMathF32>;
+//defm SINCOSF64 : UnaryOp<"sincos", fsincos, Tf64, [HasF64,HasMath0], IIMathF64>;
 
 // BitOps. Note that LLVM's SDNodes expect the output type to match the input
 // type, while in the simulator all output types are 8-bit.
-defm CTPOP8    : UnaryOp<"ctpop8",   ctpop,            I8,  [HasI8,HasBitOp],  IIALU>;
-defm CTPOP16   : UnaryOp<"ctpop16",  ctpop,            I16, [HasI16,HasBitOp], IIALU>;
-defm CTPOP32   : UnaryOp<"ctpop32",  ctpop,            I32, [HasI32,HasBitOp], IIALU>;
-defm CTPOP64   : UnaryOp<"ctpop64",  ctpop,            I64, [HasI64,HasBitOp], IIALU>;
-defm CTLZ8     : UnaryOp<"ctlz8",    ctlz,             I8,  [HasI8,HasBitOp],  IIALU>;
-defm CTLZ16    : UnaryOp<"ctlz16",   ctlz,             I16, [HasI16,HasBitOp], IIALU>;
-defm CTLZ32    : UnaryOp<"ctlz32",   ctlz,             I32, [HasI32,HasBitOp], IIALU>;
-defm CTLZ64    : UnaryOp<"ctlz64",   ctlz,             I64, [HasI64,HasBitOp], IIALU>;
-defm CTTZ8     : UnaryOp<"cttz8",    cttz,             I8,  [HasI8,HasBitOp],  IIALU>;
-defm CTTZ16    : UnaryOp<"cttz16",   cttz,             I16, [HasI16,HasBitOp], IIALU>;
-defm CTTZ32    : UnaryOp<"cttz32",   cttz,             I32, [HasI32,HasBitOp], IIALU>;
-defm CTTZ64    : UnaryOp<"cttz64",   cttz,             I64, [HasI64,HasBitOp], IIALU>;
+defm CTPOP8    : UnaryOp<"ctpop",   ctpop, Ti8,  [HasI8,HasBitOp],  IIALU>;
+defm CTPOP16   : UnaryOp<"ctpop",   ctpop, Ti16, [HasI16,HasBitOp], IIALU>;
+defm CTPOP32   : UnaryOp<"ctpop",   ctpop, Ti32, [HasI32,HasBitOp], IIALU>;
+defm CTPOP64   : UnaryOp<"ctpop",   ctpop, Ti64, [HasI64,HasBitOp], IIALU>;
+defm CTLZ8     : UnaryOp<"ctlz",    ctlz,  Ti8,  [HasI8,HasBitOp],  IIALU>;
+defm CTLZ16    : UnaryOp<"ctlz",    ctlz,  Ti16, [HasI16,HasBitOp], IIALU>;
+defm CTLZ32    : UnaryOp<"ctlz",    ctlz,  Ti32, [HasI32,HasBitOp], IIALU>;
+defm CTLZ64    : UnaryOp<"ctlz",    ctlz,  Ti64, [HasI64,HasBitOp], IIALU>;
+defm CTTZ8     : UnaryOp<"cttz",    cttz,  Ti8,  [HasI8,HasBitOp],  IIALU>;
+defm CTTZ16    : UnaryOp<"cttz",    cttz,  Ti16, [HasI16,HasBitOp], IIALU>;
+defm CTTZ32    : UnaryOp<"cttz",    cttz,  Ti32, [HasI32,HasBitOp], IIALU>;
+defm CTTZ64    : UnaryOp<"cttz",    cttz,  Ti64, [HasI64,HasBitOp], IIALU>;
 
 // Helper fragment to find "parity". Clang's __builtin_parity(x) will result in
 // (ctpop(x)&1) in IR, which will be transformed back to parityN(x) by this
 // pattern fragment.
 def parity : PatFrag<(ops node:$in), (and (ctpop node:$in), 1)>;
 
-defm PARITY8   : UnaryOpP<"parity8",  parity,          I8,  [HasI8,HasBitOp],  IIALU>;
-defm PARITY16  : UnaryOpP<"parity16", parity,          I16, [HasI16,HasBitOp], IIALU>;
-defm PARITY32  : UnaryOpP<"parity32", parity,          I32, [HasI32,HasBitOp], IIALU>;
-defm PARITY64  : UnaryOpP<"parity64", parity,          I64, [HasI64,HasBitOp], IIALU>;
+defm PARITY8   : UnaryOpP<"parity", parity,Ti8,  [HasI8,HasBitOp],  IIALU>;
+defm PARITY16  : UnaryOpP<"parity", parity,Ti16, [HasI16,HasBitOp], IIALU>;
+defm PARITY32  : UnaryOpP<"parity", parity,Ti32, [HasI32,HasBitOp], IIALU>;
+defm PARITY64  : UnaryOpP<"parity", parity,Ti64, [HasI64,HasBitOp], IIALU>;
+
+// todo: int<=>float Conversions
+// first type in convert name is result, second is source type
+defm CVTS32F32 : CvtOp<"cvt", fp_to_sint, Ts32, Tf32, [HasI32,HasF32], IICvtIF>;
+defm CVTS32F64 : CvtOp<"cvt", fp_to_sint, Ts32, Tf64, [HasI32,HasF64], IICvtIF>;
+defm CVTU32F32 : CvtOp<"cvt", fp_to_uint, Tu32, Tf32, [HasI32,HasF32], IICvtIF>;
+defm CVTU32F64 : CvtOp<"cvt", fp_to_uint, Tu32, Tf64, [HasI32,HasF64], IICvtIF>;
+defm CVTS64F32 : CvtOp<"cvt", fp_to_sint, Ts64, Tf32, [HasI64,HasF32], IICvtIF>;
+defm CVTS64F64 : CvtOp<"cvt", fp_to_sint, Ts64, Tf64, [HasI64,HasF64], IICvtIF>;
+defm CVTU64F32 : CvtOp<"cvt", fp_to_uint, Tu64, Tf32, [HasI64,HasF32], IICvtIF>;
+defm CVTU64F64 : CvtOp<"cvt", fp_to_uint, Tu64, Tf64, [HasI64,HasF64], IICvtIF>;
+
+defm CVTF32S32 : CvtOp<"cvt", sint_to_fp, Tf32, Ts32, [HasF32,HasI32], IICvtFI>;
+defm CVTF32S64 : CvtOp<"cvt", sint_to_fp, Tf32, Ts64, [HasF32,HasI64], IICvtFI>;
+defm CVTF32U32 : CvtOp<"cvt", uint_to_fp, Tf32, Tu32, [HasF32,HasI32], IICvtFI>;
+defm CVTF32U64 : CvtOp<"cvt", uint_to_fp, Tf32, Tu64, [HasF32,HasI64], IICvtFI>;
+defm CVTF64S32 : CvtOp<"cvt", sint_to_fp, Tf64, Ts32, [HasF64,HasI32], IICvtFI>;
+defm CVTF64S64 : CvtOp<"cvt", sint_to_fp, Tf64, Ts64, [HasF64,HasI64], IICvtFI>;
+defm CVTF64U32 : CvtOp<"cvt", uint_to_fp, Tf64, Tu32, [HasF64,HasI32], IICvtFI>;
+defm CVTF64U64 : CvtOp<"cvt", uint_to_fp, Tf64, Tu64, [HasF64,HasI64], IICvtFI>;
+
+defm CVTF32F64 : CvtOp<"cvt", fround,   Tf32, Tf64, [HasF32,HasF64], IICvtFF>;
+defm CVTF64F32 : CvtOp<"cvt", fextend,  Tf64, Tf32, [HasF32,HasF64], IICvtFF>;
+
+defm SEXT8_1   : SExtOp<"sext", Ti8,  Ti1,  [HasI8],  IIALU>;
+defm SEXT8     : SExtOp<"sext", Ti8,  Ti8,  [HasI8],  IIALU>;
+defm SEXT16_1  : SExtOp<"sext", Ti16, Ti1,  [HasI16], IIALU>;
+defm SEXT16_8  : SExtOp<"sext", Ti16, Ti8,  [HasI16], IIALU>;
+defm SEXT16    : SExtOp<"sext", Ti16, Ti16, [HasI16], IIALU>;
+defm SEXT32_1  : SExtOp<"sext", Ti32, Ti1,  [HasI32], IIALU>;
+defm SEXT32_8  : SExtOp<"sext", Ti32, Ti8,  [HasI32], IIALU>;
+defm SEXT32_16 : SExtOp<"sext", Ti32, Ti16, [HasI32], IIALU>;
+defm SEXT32    : SExtOp<"sext", Ti32, Ti32, [HasI32], IIALU>;
+defm SEXT64_1  : SExtOp<"sext", Ti64, Ti1,  [HasI64], IIALU>;
+defm SEXT64_8  : SExtOp<"sext", Ti64, Ti8,  [HasI64], IIALU>;
+defm SEXT64_16 : SExtOp<"sext", Ti64, Ti16, [HasI64], IIALU>;
+defm SEXT64_32 : SExtOp<"sext", Ti64, Ti32, [HasI64], IIALU>;
+defm SEXT64    : SExtOp<"sext", Ti64, Ti64, [HasI64], IIALU>;
+
+defm AND1      : BinOpC< "and", and,  Ti1,  [HasI1],  IIALU>;
+defm AND8      : BinOpC< "and", and,  Ti8,  [HasI8],  IIALU>;
+defm AND16     : BinOpC< "and", and,  Ti16, [HasI16], IIALU>;
+defm AND32     : BinOpC< "and", and,  Ti32, [HasI32], IIALU>;
+defm AND64     : BinOpC< "and", and,  Ti64, [HasI64], IIALU>;
+
+defm OR1       : BinOpC< "or",  or,   Ti1,  [HasI1],  IIALU>;
+defm OR8       : BinOpC< "or",  or,   Ti8,  [HasI8],  IIALU>;
+defm OR16      : BinOpC< "or",  or,   Ti16, [HasI16], IIALU>;
+defm OR32      : BinOpC< "or",  or,   Ti32, [HasI32], IIALU>;
+defm OR64      : BinOpC< "or",  or,   Ti64, [HasI64], IIALU>;
+
+defm XOR1      : BinOpC< "xor", xor,  Ti1,  [HasI1],  IIALU>;
+defm XOR8      : BinOpC< "xor", xor,  Ti8,  [HasI8],  IIALU>;
+defm XOR16     : BinOpC< "xor", xor,  Ti16, [HasI16], IIALU>;
+defm XOR32     : BinOpC< "xor", xor,  Ti32, [HasI32], IIALU>;
+defm XOR64     : BinOpC< "xor", xor,  Ti64, [HasI64], IIALU>;
+
+defm SLL8      : ShiftOp<"sll", shl,  Ti8,  [HasI8],  IIShft>;
+defm SLL16     : ShiftOp<"sll", shl,  Ti16, [HasI16], IIShft>;
+defm SLL32     : ShiftOp<"sll", shl,  Ti32, [HasI32], IIShft>;
+defm SLL64     : ShiftOp<"sll", shl,  Ti64, [HasI64], IIShft>;
+
+defm SRL8      : ShiftOp<"srl", srl,  Ti8,  [HasI8],  IIShft>;
+defm SRL16     : ShiftOp<"srl", srl,  Ti16, [HasI16], IIShft>;
+defm SRL32     : ShiftOp<"srl", srl,  Ti32, [HasI32], IIShft>;
+defm SRL64     : ShiftOp<"srl", srl,  Ti64, [HasI64], IIShft>;
+
+defm SRA8      : ShiftOp<"sra", sra,  Ti8,  [HasI8],  IIShft>;
+defm SRA16     : ShiftOp<"sra", sra,  Ti16, [HasI16], IIShft>;
+defm SRA32     : ShiftOp<"sra", sra,  Ti32, [HasI32], IIShft>;
+defm SRA64     : ShiftOp<"sra", sra,  Ti64, [HasI64], IIShft>;
+
+def : Pat<(i1 (add i1:$op1, i1:$op2)),       (XOR1 $op1,$op2)>;
+def : Pat<(i1 (add i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
+
+defm ADD8      : BinOpC< "add", add,  Ti8,  [HasI8],  IIALU>;
+defm ADD16     : BinOpC< "add", add,  Ti16, [HasI16], IIALU>;
+defm ADD32     : BinOpC< "add", add,  Ti32, [HasI32], IIALU>;
+defm ADD64     : BinOpC< "add", add,  Ti64, [HasI64], IIALU>;
+
+defm ADDF16    : BinOpC< "add", fadd, Tf16, [HasF16], IIAddF16>;
+defm ADDF32    : BinOpC< "add", fadd, Tf32, [HasF32], IIAddF32>;
+defm ADDF64    : BinOpC< "add", fadd, Tf64, [HasF64], IIAddF64>;
+
+def : Pat<(i1 (sub i1:$op1, i1:$op2)),       (XOR1 $op1,$op2)>;
+def : Pat<(i1 (sub i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
+defm SUB8      : BinOpNC<"sub", sub,  Ti8,  [HasI8],  IIALU>;
+defm SUB16     : BinOpNC<"sub", sub,  Ti16, [HasI16], IIALU>;
+defm SUB32     : BinOpNC<"sub", sub,  Ti32, [HasI32], IIALU>;
+defm SUB64     : BinOpNC<"sub", sub,  Ti64, [HasI64], IIALU>;
+
+defm SUBF16    : BinOpNC<"sub", fsub, Tf16, [HasF16], IIAddF16>;
+defm SUBF32    : BinOpNC<"sub", fsub, Tf32, [HasF32], IIAddF32>;
+defm SUBF64    : BinOpNC<"sub", fsub, Tf64, [HasF64], IIAddF64>;
+
+defm MUL8      : BinOpC< "mul", mul,  Ti8,  [HasI8],  IIMulI8>;
+defm MUL16     : BinOpC< "mul", mul,  Ti16, [HasI16], IIMulI16>;
+defm MUL32     : BinOpC< "mul", mul,  Ti32, [HasI32], IIMulI32>;
+defm MUL64     : BinOpC< "mul", mul,  Ti64, [HasI64], IIMulI64>;
+
+defm MULF16    : BinOpC< "mul", fmul, Tf16, [HasF16], IIMulF16>;
+defm MULF32    : BinOpC< "mul", fmul, Tf32, [HasF32], IIMulF32>;
+defm MULF64    : BinOpC< "mul", fmul, Tf64, [HasF64], IIMulF64>;
+
+defm DIVS8     : BinOpNC<"div", sdiv, Ts8,  [HasI8,HasIDiv],  IIDivI8>;
+defm DIVS16    : BinOpNC<"div", sdiv, Ts16, [HasI16,HasIDiv], IIDivI16>;
+defm DIVS32    : BinOpNC<"div", sdiv, Ts32, [HasI32,HasIDiv], IIDivI32>;
+defm DIVS64    : BinOpNC<"div", sdiv, Ts64, [HasI64,HasIDiv], IIDivI64>;
+
+defm DIVU8     : BinOpNC<"div", udiv, Tu8,  [HasI8,HasIDiv],  IIDivI8>;
+defm DIVU16    : BinOpNC<"div", udiv, Tu16, [HasI16,HasIDiv], IIDivI16>;
+defm DIVU32    : BinOpNC<"div", udiv, Tu32, [HasI32,HasIDiv], IIDivI32>;
+defm DIVU64    : BinOpNC<"div", udiv, Tu64, [HasI64,HasIDiv], IIDivI64>;
+
+defm DIVF16    : BinOpNC<"div", fdiv, Tf16, [HasF16,HasFDiv], IIDivF16>;
+defm DIVF32    : BinOpNC<"div", fdiv, Tf32, [HasF32,HasFDiv], IIDivF32>;
+defm DIVF64    : BinOpNC<"div", fdiv, Tf64, [HasF64,HasFDiv], IIDivF64>;
+
+defm POWF32    : BinOpNC<"pow", fpow, Tf32, [HasF32,HasMath0], IIMathF32>;
+defm POWF64    : BinOpNC<"pow", fpow, Tf64, [HasF64,HasMath0], IIMathF64>;
+
+defm CMPLTS8  : CmpOpNC<"cmplt",setlt,  Ts8,  [HasI8],  IIALU>;
+defm CMPLTS16 : CmpOpNC<"cmplt",setlt,  Ts16, [HasI16], IIALU>;
+defm CMPLTS32 : CmpOpNC<"cmplt",setlt,  Ts32, [HasI32], IIALU>;
+defm CMPLTS64 : CmpOpNC<"cmplt",setlt,  Ts64, [HasI64], IIALU>;
+
+defm CMPLTU8  : CmpOpNC<"cmplt",setult, Tu8,  [HasI8],  IIALU>;
+defm CMPLTU16 : CmpOpNC<"cmplt",setult, Tu16, [HasI16], IIALU>;
+defm CMPLTU32 : CmpOpNC<"cmplt",setult, Tu32, [HasI32], IIALU>;
+defm CMPLTU64 : CmpOpNC<"cmplt",setult, Tu64, [HasI64], IIALU>;
+
+defm CMPLES8  : CmpOpNC<"cmple",setle,  Ts8,  [HasI8],  IIALU>;
+defm CMPLES16 : CmpOpNC<"cmple",setle,  Ts16, [HasI16], IIALU>;
+defm CMPLES32 : CmpOpNC<"cmple",setle,  Ts32, [HasI32], IIALU>;
+defm CMPLES64 : CmpOpNC<"cmple",setle,  Ts64, [HasI64], IIALU>;
+
+defm CMPLEU8  : CmpOpNC<"cmple",setule, Tu8,  [HasI8],  IIALU>;
+defm CMPLEU16 : CmpOpNC<"cmple",setule, Tu16, [HasI16], IIALU>;
+defm CMPLEU32 : CmpOpNC<"cmple",setule, Tu32, [HasI32], IIALU>;
+defm CMPLEU64 : CmpOpNC<"cmple",setule, Tu64, [HasI64], IIALU>;
+
+// Note - there is no cmpeq1.  As long as operands are clean, cmpeq8
+// suffices
+defm CMPEQ8   : CmpOpC<"cmpeq", seteq,  Ti8,  [HasI8],  IIALU>;
+defm CMPEQ16  : CmpOpC<"cmpeq", seteq,  Ti16, [HasI16], IIALU>;
+defm CMPEQ32  : CmpOpC<"cmpeq", seteq,  Ti32, [HasI32], IIALU>;
+defm CMPEQ64  : CmpOpC<"cmpeq", seteq,  Ti64, [HasI64], IIALU>;
+
+defm CMPGTS8  : CmpOpNC<"cmpgt",setgt,  Ts8,  [HasI8],  IIALU>;
+defm CMPGTS16 : CmpOpNC<"cmpgt",setgt,  Ts16, [HasI16], IIALU>;
+defm CMPGTS32 : CmpOpNC<"cmpgt",setgt,  Ts32, [HasI32], IIALU>;
+defm CMPGTS64 : CmpOpNC<"cmpgt",setgt,  Ts64, [HasI64], IIALU>;
+
+defm CMPGTU8  : CmpOpNC<"cmpgt",setugt, Tu8,  [HasI8],  IIALU>;
+defm CMPGTU16 : CmpOpNC<"cmpgt",setugt, Tu16, [HasI16], IIALU>;
+defm CMPGTU32 : CmpOpNC<"cmpgt",setugt, Tu32, [HasI32], IIALU>;
+defm CMPGTU64 : CmpOpNC<"cmpgt",setugt, Tu64, [HasI64], IIALU>;
+
+defm CMPGES8  : CmpOpNC<"cmpge",setge,  Ts8,  [HasI8],  IIALU>;
+defm CMPGES16 : CmpOpNC<"cmpge",setge,  Ts16, [HasI16], IIALU>;
+defm CMPGES32 : CmpOpNC<"cmpge",setge,  Ts32, [HasI32], IIALU>;
+defm CMPGES64 : CmpOpNC<"cmpge",setge,  Ts64, [HasI64], IIALU>;
+
+defm CMPGEU8  : CmpOpNC<"cmpge",setuge, Tu8,  [HasI8],  IIALU>;
+defm CMPGEU16 : CmpOpNC<"cmpge",setuge, Tu16, [HasI16], IIALU>;
+defm CMPGEU32 : CmpOpNC<"cmpge",setuge, Tu32, [HasI32], IIALU>;
+defm CMPGEU64 : CmpOpNC<"cmpge",setuge, Tu64, [HasI64], IIALU>;
+
+def : Pat<(i1 (setne i1:$op1, i1:$op2)), (XOR1 $op1,$op2)>;
+def : Pat<(i1 (setne i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
+defm CMPNE8   : CmpOpC<"cmpne", setne,  Ti8,  [HasI8],  IIALU>;
+defm CMPNE16  : CmpOpC<"cmpne", setne,  Ti16, [HasI16], IIALU>;
+defm CMPNE32  : CmpOpC<"cmpne", setne,  Ti32, [HasI32], IIALU>;
+defm CMPNE64  : CmpOpC<"cmpne", setne,  Ti64, [HasI64], IIALU>;
+
+defm CMPOLTF16: CmpOpNC<"cmplt",setolt, Tf16, [HasF16], IICmpF>;
+defm CMPOLTF32: CmpOpNC<"cmplt",setolt, Tf32, [HasF32], IICmpF>;
+defm CMPOLTF64: CmpOpNC<"cmplt",setolt, Tf64, [HasF64], IICmpF>;
+defm CMPULTF16: CmpOpNC<"cmplt",setult, Tf16, [HasF16], IICmpF>;
+defm CMPULTF32: CmpOpNC<"cmplt",setult, Tf32, [HasF32], IICmpF>;
+defm CMPULTF64: CmpOpNC<"cmplt",setult, Tf64, [HasF64], IICmpF>;
+
+defm CMPOLEF16: CmpOpNC<"cmple",setole, Tf16, [HasF16], IICmpF>;
+defm CMPOLEF32: CmpOpNC<"cmple",setole, Tf32, [HasF32], IICmpF>;
+defm CMPOLEF64: CmpOpNC<"cmple",setole, Tf64, [HasF64], IICmpF>;
+defm CMPULEF16: CmpOpNC<"cmple",setule, Tf16, [HasF16], IICmpF>;
+defm CMPULEF32: CmpOpNC<"cmple",setule, Tf32, [HasF32], IICmpF>;
+defm CMPULEF64: CmpOpNC<"cmple",setule, Tf64, [HasF64], IICmpF>;
+
+defm CMPOEQF16: CmpOpC<"cmpeq", setoeq, Tf16, [HasF16], IICmpF>;
+defm CMPOEQF32: CmpOpC<"cmpeq", setoeq, Tf32, [HasF32], IICmpF>;
+defm CMPOEQF64: CmpOpC<"cmpeq", setoeq, Tf64, [HasF64], IICmpF>;
+defm CMPUEQF16: CmpOpC<"cmpeq", setueq, Tf16, [HasF16], IICmpF>;
+defm CMPUEQF32: CmpOpC<"cmpeq", setueq, Tf32, [HasF32], IICmpF>;
+defm CMPUEQF64: CmpOpC<"cmpeq", setueq, Tf64, [HasF64], IICmpF>;
+
+defm CMPOGTF16: CmpOpNC<"cmpgt",setogt, Tf16, [HasF16], IICmpF>;
+defm CMPOGTF32: CmpOpNC<"cmpgt",setogt, Tf32, [HasF32], IICmpF>;
+defm CMPOGTF64: CmpOpNC<"cmpgt",setogt, Tf64, [HasF64], IICmpF>;
+defm CMPUGTF16: CmpOpNC<"cmpgt",setugt, Tf16, [HasF16], IICmpF>;
+defm CMPUGTF32: CmpOpNC<"cmpgt",setugt, Tf32, [HasF32], IICmpF>;
+defm CMPUGTF64: CmpOpNC<"cmpgt",setugt, Tf64, [HasF64], IICmpF>;
+
+defm CMPOGEF16: CmpOpNC<"cmpge",setoge, Tf16, [HasF16], IICmpF>;
+defm CMPOGEF32: CmpOpNC<"cmpge",setoge, Tf32, [HasF32], IICmpF>;
+defm CMPOGEF64: CmpOpNC<"cmpge",setoge, Tf64, [HasF64], IICmpF>;
+defm CMPUGEF16: CmpOpNC<"cmpge",setuge, Tf16, [HasF16], IICmpF>;
+defm CMPUGEF32: CmpOpNC<"cmpge",setuge, Tf32, [HasF32], IICmpF>;
+defm CMPUGEF64: CmpOpNC<"cmpge",setuge, Tf64, [HasF64], IICmpF>;
+
+defm CMPONEF16: CmpOpC<"cmpne", setone, Tf16, [HasF16], IICmpF>;
+defm CMPONEF32: CmpOpC<"cmpne", setone, Tf32, [HasF32], IICmpF>;
+defm CMPONEF64: CmpOpC<"cmpne", setone, Tf64, [HasF64], IICmpF>;
+defm CMPUNEF16: CmpOpC<"cmpne", setune, Tf16, [HasF16], IICmpF>;
+defm CMPUNEF32: CmpOpC<"cmpne", setune, Tf32, [HasF32], IICmpF>;
+defm CMPUNEF64: CmpOpC<"cmpne", setune, Tf64, [HasF64], IICmpF>;
+
+defm CMPOF16  : CmpOpC<"cmpo",  seto,   Tf16, [HasF16], IICmpF>;
+defm CMPOF32  : CmpOpC<"cmpo",  seto,   Tf32, [HasF32], IICmpF>;
+defm CMPOF64  : CmpOpC<"cmpo",  seto,   Tf64, [HasF64], IICmpF>;
+defm CMPUOF16 : CmpOpC<"cmpuo", setuo,  Tf16, [HasF16], IICmpF>;
+defm CMPUOF32 : CmpOpC<"cmpuo", setuo,  Tf32, [HasF32], IICmpF>;
+defm CMPUOF64 : CmpOpC<"cmpuo", setuo,  Tf64, [HasF64], IICmpF>;
+
+multiclass BSelectOp<string opStr, LPUTypeInfo t,
+           InstrItinClass itin = NoItinerary> {
+  let Itinerary = itin in {
+    // BSEL - Only allow constant 1st operand, so CSA network only needs to support
+    // 2 operand input boxes.
+    def "": FMTGEN<
+      (outs t.RC:$dst),
+      (ins t.L:$sel, t.RCL:$v0, t.RCL:$v1),
+      !strconcat(opStr, t.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
+      []>;
+  }
+}
+
+defm BSEL1  : BSelectOp <"bsel", Ti1>;
+defm BSEL8  : BSelectOp <"bsel", Ti8>;
+defm BSEL16 : BSelectOp <"bsel", Ti16>;
+defm BSEL32 : BSelectOp <"bsel", Ti32>;
+defm BSEL64 : BSelectOp <"bsel", Ti64>;
+
+def LAND1 : FMTGEN<
+  (outs I1:$dst),
+  (ins RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, RCLi1:$op4),
+  "land1\t$dst, $op1, $op2, $op3, $op4",
+  []> { let Itinerary = IIALU; }
+
+// Shift/add - itinerary depends on constant small shift amt - else IShft...
+defm SLADD8  : ShAdd<"sladd", shl,  add,  Ti8,  [HasI8, HasShAdd], IISAdd>;
+defm SLADD16 : ShAdd<"sladd", shl,  add,  Ti16, [HasI16,HasShAdd], IISAdd>;
+defm SLADD32 : ShAdd<"sladd", shl,  add,  Ti32, [HasI32,HasShAdd], IISAdd>;
+defm SLADD64 : ShAdd<"sladd", shl,  add,  Ti64, [HasI64,HasShAdd], IISAdd>;
+
+defm FMAF16  : FusedOp1<"fma",  fmul, fadd, Tf16, [HasF16,HasFMA], IIFMAF16>;
+// crude handling of commutative
+defm FMAF16x : FusedOp2<"fma",  fmul, fadd, Tf16, [HasF16,HasFMA], IIFMAF16>;
+defm FMSF16  : FusedOp1<"fms",  fmul, fsub, Tf16, [HasF16,HasFMA], IIFMAF16>;
+defm FMRSF16 : FusedOp2<"fmrs", fmul, fsub, Tf16, [HasF16,HasFMA], IIFMAF16>;
+
+defm FMAF32  : FusedOp1<"fma",  fmul, fadd, Tf32, [HasF32,HasFMA], IIFMAF32>;
+// crude handling of commutative
+defm FMAF32x : FusedOp2<"fma",  fmul, fadd, Tf32, [HasF32,HasFMA], IIFMAF32>;
+defm FMSF32  : FusedOp1<"fms",  fmul, fsub, Tf32, [HasF32,HasFMA], IIFMAF32>;
+defm FMRSF32 : FusedOp2<"fmrs", fmul, fsub, Tf32, [HasF32,HasFMA], IIFMAF32>;
+
+defm FMAF64  : FusedOp1<"fma",  fmul, fadd, Tf64, [HasF64,HasFMA], IIFMAF64>;
+// crude handling of commutative
+defm FMAF64x : FusedOp2<"fma",  fmul, fadd, Tf64, [HasF64,HasFMA], IIFMAF64>;
+defm FMSF64  : FusedOp1<"fms",  fmul, fsub, Tf64, [HasF64,HasFMA], IIFMAF64>;
+defm FMRSF64 : FusedOp2<"fmrs", fmul, fsub, Tf64, [HasF64,HasFMA], IIFMAF64>;
+
+// Should we do these, or drop and assume sext-at-consumer?
+// todo: LDS8
+// todo: LDS16
+// todo: LDS32
+defm LD1   : LdOp<"ld8",   Ti1>;
+defm LD8   : LdOp<"ld8",   Ti8>;
+defm LD16  : LdOp<"ld16",  Ti16>;
+defm LD16f : LdOp<"ld16",  Tf16>;
+defm LD32  : LdOp<"ld32",  Ti32>;
+defm LD32f : LdOp<"ld32",  Tf32>;
+defm LD64  : LdOp<"ld64",  Ti64>;
+defm LD64f : LdOp<"ld64",  Tf64>;
+
+defm OLD1   : OLdOp<"ld8",   Ti1>;
+defm OLD8   : OLdOp<"ld8",   Ti8>;
+defm OLD16  : OLdOp<"ld16",  Ti16>;
+defm OLD16f : OLdOp<"ld16",  Tf16>;
+defm OLD32  : OLdOp<"ld32",  Ti32>;
+defm OLD32f : OLdOp<"ld32",  Tf32>;
+defm OLD64  : OLdOp<"ld64",  Ti64>;
+defm OLD64f : OLdOp<"ld64",  Tf64>;
+
+defm ST1   : StOp<"st8",   Ti1>;
+defm ST8   : StOp<"st8",   Ti8>;
+defm ST16  : StOp<"st16",  Ti16>;
+defm ST16f : StOp<"st16",  Tf16>;
+defm ST32  : StOp<"st32",  Ti32>;
+defm ST32f : StOp<"st32",  Tf32>;
+defm ST64  : StOp<"st64",  Ti64>;
+defm ST64f : StOp<"st64",  Tf64>;
+
+defm OST1   : OStOp<"st8",   Ti1>;
+defm OST8   : OStOp<"st8",   Ti8>;
+defm OST16  : OStOp<"st16",  Ti16>;
+defm OST16f : OStOp<"st16",  Tf16>;
+defm OST32  : OStOp<"st32",  Ti32>;
+defm OST32f : OStOp<"st32",  Tf32>;
+defm OST64  : OStOp<"st64",  Ti64>;
+defm OST64f : OStOp<"st64",  Tf64>;
 
 // Atomic operations
-defm ATMAND8   : AtomicOp<"atmand8",   atomic_load_and_8,  I8,  i8,  [HasI8],  IIATM>;
-defm ATMAND16  : AtomicOp<"atmand16",  atomic_load_and_16, I16, i16, [HasI16], IIATM>;
-defm ATMAND32  : AtomicOp<"atmand32",  atomic_load_and_32, I32, i32, [HasI32], IIATM>;
-defm ATMAND64  : AtomicOp<"atmand64",  atomic_load_and_64, I64, i64, [HasI64], IIATM>;
-defm ATMADD8   : AtomicOp<"atmadd8",   atomic_load_add_8,  I8,  i8,  [HasI8],  IIATM>;
-defm ATMADD16  : AtomicOp<"atmadd16",  atomic_load_add_16, I16, i16, [HasI16], IIATM>;
-defm ATMADD32  : AtomicOp<"atmadd32",  atomic_load_add_32, I32, i32, [HasI32], IIATM>;
-defm ATMADD64  : AtomicOp<"atmadd64",  atomic_load_add_64, I64, i64, [HasI64], IIATM>;
-defm ATMMIN8   : AtomicOp<"atmmin8",   atomic_load_min_8,  I8,  i8,  [HasI8],  IIATM>;
-defm ATMMIN16  : AtomicOp<"atmmin16",  atomic_load_min_16, I16, i16, [HasI16], IIATM>;
-defm ATMMIN32  : AtomicOp<"atmmin32",  atomic_load_min_32, I32, i32, [HasI32], IIATM>;
-defm ATMMIN64  : AtomicOp<"atmmin64",  atomic_load_min_64, I64, i64, [HasI64], IIATM>;
-defm ATMMAX8   : AtomicOp<"atmmax8",   atomic_load_max_8,  I8,  i8,  [HasI8],  IIATM>;
-defm ATMMAX16  : AtomicOp<"atmmax16",  atomic_load_max_16, I16, i16, [HasI16], IIATM>;
-defm ATMMAX32  : AtomicOp<"atmmax32",  atomic_load_max_32, I32, i32, [HasI32], IIATM>;
-defm ATMMAX64  : AtomicOp<"atmmax64",  atomic_load_max_64, I64, i64, [HasI64], IIATM>;
-defm ATMOR8    : AtomicOp<"atmor8",    atomic_load_or_8,   I8,  i8,  [HasI8],  IIATM>;
-defm ATMOR16   : AtomicOp<"atmor16",   atomic_load_or_16,  I16, i16, [HasI16], IIATM>;
-defm ATMOR32   : AtomicOp<"atmor32",   atomic_load_or_32,  I32, i32, [HasI32], IIATM>;
-defm ATMOR64   : AtomicOp<"atmor64",   atomic_load_or_64,  I64, i64, [HasI64], IIATM>;
-defm ATMXOR8   : AtomicOp<"atmxor8",   atomic_load_xor_8,  I8,  i8,  [HasI8],  IIATM>;
-defm ATMXOR16  : AtomicOp<"atmxor16",  atomic_load_xor_16, I16, i16, [HasI16], IIATM>;
-defm ATMXOR32  : AtomicOp<"atmxor32",  atomic_load_xor_32, I32, i32, [HasI32], IIATM>;
-defm ATMXOR64  : AtomicOp<"atmxor64",  atomic_load_xor_64, I64, i64, [HasI64], IIATM>;
-defm ATMXCHG8  : AtomicOp<"atmxchg8",  atomic_swap_8,      I8,  i8,  [HasI8],  IIATM>;
-defm ATMXCHG16 : AtomicOp<"atmxchg16", atomic_swap_16,     I16, i16, [HasI16], IIATM>;
-defm ATMXCHG32 : AtomicOp<"atmxchg32", atomic_swap_32,     I32, i32, [HasI32], IIATM>;
-defm ATMXCHG64 : AtomicOp<"atmxchg64", atomic_swap_64,     I64, i64, [HasI64], IIATM>;
-defm ATMCMPXCHG8  : AtomicOp2<"atmcmpxchg8",  atomic_cmp_swap_8,  I8,  i8,  [HasI8],  IIATM>;
-defm ATMCMPXCHG16 : AtomicOp2<"atmcmpxchg16", atomic_cmp_swap_16, I16, i16, [HasI16], IIATM>;
-defm ATMCMPXCHG32 : AtomicOp2<"atmcmpxchg32", atomic_cmp_swap_32, I32, i32, [HasI32], IIATM>;
-defm ATMCMPXCHG64 : AtomicOp2<"atmcmpxchg64", atomic_cmp_swap_64, I64, i64, [HasI64], IIATM>;
+defm ATMAND8   : AtomicOp<"atmand8",   atomic_load_and_8,  Ti8,  [HasI8],  IIATM>;
+defm ATMAND16  : AtomicOp<"atmand16",  atomic_load_and_16, Ti16, [HasI16], IIATM>;
+defm ATMAND32  : AtomicOp<"atmand32",  atomic_load_and_32, Ti32, [HasI32], IIATM>;
+defm ATMAND64  : AtomicOp<"atmand64",  atomic_load_and_64, Ti64, [HasI64], IIATM>;
+defm ATMADD8   : AtomicOp<"atmadd8",   atomic_load_add_8,  Ti8,  [HasI8],  IIATM>;
+defm ATMADD16  : AtomicOp<"atmadd16",  atomic_load_add_16, Ti16, [HasI16], IIATM>;
+defm ATMADD32  : AtomicOp<"atmadd32",  atomic_load_add_32, Ti32, [HasI32], IIATM>;
+defm ATMADD64  : AtomicOp<"atmadd64",  atomic_load_add_64, Ti64, [HasI64], IIATM>;
+defm ATMMIN8   : AtomicOp<"atmmin8",   atomic_load_min_8,  Ti8,  [HasI8],  IIATM>;
+defm ATMMIN16  : AtomicOp<"atmmin16",  atomic_load_min_16, Ti16, [HasI16], IIATM>;
+defm ATMMIN32  : AtomicOp<"atmmin32",  atomic_load_min_32, Ti32, [HasI32], IIATM>;
+defm ATMMIN64  : AtomicOp<"atmmin64",  atomic_load_min_64, Ti64, [HasI64], IIATM>;
+defm ATMMAX8   : AtomicOp<"atmmax8",   atomic_load_max_8,  Ti8,  [HasI8],  IIATM>;
+defm ATMMAX16  : AtomicOp<"atmmax16",  atomic_load_max_16, Ti16, [HasI16], IIATM>;
+defm ATMMAX32  : AtomicOp<"atmmax32",  atomic_load_max_32, Ti32, [HasI32], IIATM>;
+defm ATMMAX64  : AtomicOp<"atmmax64",  atomic_load_max_64, Ti64, [HasI64], IIATM>;
+defm ATMOR8    : AtomicOp<"atmor8",    atomic_load_or_8,   Ti8,  [HasI8],  IIATM>;
+defm ATMOR16   : AtomicOp<"atmor16",   atomic_load_or_16,  Ti16, [HasI16], IIATM>;
+defm ATMOR32   : AtomicOp<"atmor32",   atomic_load_or_32,  Ti32, [HasI32], IIATM>;
+defm ATMOR64   : AtomicOp<"atmor64",   atomic_load_or_64,  Ti64, [HasI64], IIATM>;
+defm ATMXOR8   : AtomicOp<"atmxor8",   atomic_load_xor_8,  Ti8,  [HasI8],  IIATM>;
+defm ATMXOR16  : AtomicOp<"atmxor16",  atomic_load_xor_16, Ti16, [HasI16], IIATM>;
+defm ATMXOR32  : AtomicOp<"atmxor32",  atomic_load_xor_32, Ti32, [HasI32], IIATM>;
+defm ATMXOR64  : AtomicOp<"atmxor64",  atomic_load_xor_64, Ti64, [HasI64], IIATM>;
+defm ATMXCHG8  : AtomicOp<"atmxchg8",  atomic_swap_8,      Ti8,  [HasI8],  IIATM>;
+defm ATMXCHG16 : AtomicOp<"atmxchg16", atomic_swap_16,     Ti16, [HasI16], IIATM>;
+defm ATMXCHG32 : AtomicOp<"atmxchg32", atomic_swap_32,     Ti32, [HasI32], IIATM>;
+defm ATMXCHG64 : AtomicOp<"atmxchg64", atomic_swap_64,     Ti64, [HasI64], IIATM>;
+defm ATMCMPXCHG8  : AtomicOp2<"atmcmpxchg8",  atomic_cmp_swap_8,  Ti8,  [HasI8],  IIATM>;
+defm ATMCMPXCHG16 : AtomicOp2<"atmcmpxchg16", atomic_cmp_swap_16, Ti16, [HasI16], IIATM>;
+defm ATMCMPXCHG32 : AtomicOp2<"atmcmpxchg32", atomic_cmp_swap_32, Ti32, [HasI32], IIATM>;
+defm ATMCMPXCHG64 : AtomicOp2<"atmcmpxchg64", atomic_cmp_swap_64, Ti64, [HasI64], IIATM>;
 
-defm OATMAND8   : OAtomicOp<"atmand8",   I8,  i8,  [HasI8],  IIATM>;
-defm OATMAND16  : OAtomicOp<"atmand16",  I16, i16, [HasI16], IIATM>;
-defm OATMAND32  : OAtomicOp<"atmand32",  I32, i32, [HasI32], IIATM>;
-defm OATMAND64  : OAtomicOp<"atmand64",  I64, i64, [HasI64], IIATM>;
-defm OATMADD8   : OAtomicOp<"atmadd8",   I8,  i8,  [HasI8],  IIATM>;
-defm OATMADD16  : OAtomicOp<"atmadd16",  I16, i16, [HasI16], IIATM>;
-defm OATMADD32  : OAtomicOp<"atmadd32",  I32, i32, [HasI32], IIATM>;
-defm OATMADD64  : OAtomicOp<"atmadd64",  I64, i64, [HasI64], IIATM>;
-defm OATMMIN8   : OAtomicOp<"atmmin8",   I8,  i8,  [HasI8],  IIATM>;
-defm OATMMIN16  : OAtomicOp<"atmmin16",  I16, i16, [HasI16], IIATM>;
-defm OATMMIN32  : OAtomicOp<"atmmin32",  I32, i32, [HasI32], IIATM>;
-defm OATMMIN64  : OAtomicOp<"atmmin64",  I64, i64, [HasI64], IIATM>;
-defm OATMMAX8   : OAtomicOp<"atmmax8",   I8,  i8,  [HasI8],  IIATM>;
-defm OATMMAX16  : OAtomicOp<"atmmax16",  I16, i16, [HasI16], IIATM>;
-defm OATMMAX32  : OAtomicOp<"atmmax32",  I32, i32, [HasI32], IIATM>;
-defm OATMMAX64  : OAtomicOp<"atmmax64",  I64, i64, [HasI64], IIATM>;
-defm OATMOR8    : OAtomicOp<"atmor8",    I8,  i8,  [HasI8],  IIATM>;
-defm OATMOR16   : OAtomicOp<"atmor16",   I16, i16, [HasI16], IIATM>;
-defm OATMOR32   : OAtomicOp<"atmor32",   I32, i32, [HasI32], IIATM>;
-defm OATMOR64   : OAtomicOp<"atmor64",   I64, i64, [HasI64], IIATM>;
-defm OATMXOR8   : OAtomicOp<"atmxor8",   I8,  i8,  [HasI8],  IIATM>;
-defm OATMXOR16  : OAtomicOp<"atmxor16",  I16, i16, [HasI16], IIATM>;
-defm OATMXOR32  : OAtomicOp<"atmxor32",  I32, i32, [HasI32], IIATM>;
-defm OATMXOR64  : OAtomicOp<"atmxor64",  I64, i64, [HasI64], IIATM>;
-defm OATMXCHG8  : OAtomicOp<"atmxchg8",  I8,  i8,  [HasI8],  IIATM>;
-defm OATMXCHG16 : OAtomicOp<"atmxchg16", I16, i16, [HasI16], IIATM>;
-defm OATMXCHG32 : OAtomicOp<"atmxchg32", I32, i32, [HasI32], IIATM>;
-defm OATMXCHG64 : OAtomicOp<"atmxchg64", I64, i64, [HasI64], IIATM>;
-defm OATMCMPXCHG8  : OAtomicOp2<"atmcmpxchg8",  I8,  i8,  [HasI8],  IIATM>;
-defm OATMCMPXCHG16 : OAtomicOp2<"atmcmpxchg16", I16, i16, [HasI16], IIATM>;
-defm OATMCMPXCHG32 : OAtomicOp2<"atmcmpxchg32", I32, i32, [HasI32], IIATM>;
-defm OATMCMPXCHG64 : OAtomicOp2<"atmcmpxchg64", I64, i64, [HasI64], IIATM>;
+defm OATMAND8   : OAtomicOp<"atmand8",   Ti8,  [HasI8],  IIATM>;
+defm OATMAND16  : OAtomicOp<"atmand16",  Ti16, [HasI16], IIATM>;
+defm OATMAND32  : OAtomicOp<"atmand32",  Ti32, [HasI32], IIATM>;
+defm OATMAND64  : OAtomicOp<"atmand64",  Ti64, [HasI64], IIATM>;
+defm OATMADD8   : OAtomicOp<"atmadd8",   Ti8,  [HasI8],  IIATM>;
+defm OATMADD16  : OAtomicOp<"atmadd16",  Ti16, [HasI16], IIATM>;
+defm OATMADD32  : OAtomicOp<"atmadd32",  Ti32, [HasI32], IIATM>;
+defm OATMADD64  : OAtomicOp<"atmadd64",  Ti64, [HasI64], IIATM>;
+defm OATMMIN8   : OAtomicOp<"atmmin8",   Ti8,  [HasI8],  IIATM>;
+defm OATMMIN16  : OAtomicOp<"atmmin16",  Ti16, [HasI16], IIATM>;
+defm OATMMIN32  : OAtomicOp<"atmmin32",  Ti32, [HasI32], IIATM>;
+defm OATMMIN64  : OAtomicOp<"atmmin64",  Ti64, [HasI64], IIATM>;
+defm OATMMAX8   : OAtomicOp<"atmmax8",   Ti8,  [HasI8],  IIATM>;
+defm OATMMAX16  : OAtomicOp<"atmmax16",  Ti16, [HasI16], IIATM>;
+defm OATMMAX32  : OAtomicOp<"atmmax32",  Ti32, [HasI32], IIATM>;
+defm OATMMAX64  : OAtomicOp<"atmmax64",  Ti64, [HasI64], IIATM>;
+defm OATMOR8    : OAtomicOp<"atmor8",    Ti8,  [HasI8],  IIATM>;
+defm OATMOR16   : OAtomicOp<"atmor16",   Ti16, [HasI16], IIATM>;
+defm OATMOR32   : OAtomicOp<"atmor32",   Ti32, [HasI32], IIATM>;
+defm OATMOR64   : OAtomicOp<"atmor64",   Ti64, [HasI64], IIATM>;
+defm OATMXOR8   : OAtomicOp<"atmxor8",   Ti8,  [HasI8],  IIATM>;
+defm OATMXOR16  : OAtomicOp<"atmxor16",  Ti16, [HasI16], IIATM>;
+defm OATMXOR32  : OAtomicOp<"atmxor32",  Ti32, [HasI32], IIATM>;
+defm OATMXOR64  : OAtomicOp<"atmxor64",  Ti64, [HasI64], IIATM>;
+defm OATMXCHG8  : OAtomicOp<"atmxchg8",  Ti8,  [HasI8],  IIATM>;
+defm OATMXCHG16 : OAtomicOp<"atmxchg16", Ti16, [HasI16], IIATM>;
+defm OATMXCHG32 : OAtomicOp<"atmxchg32", Ti32, [HasI32], IIATM>;
+defm OATMXCHG64 : OAtomicOp<"atmxchg64", Ti64, [HasI64], IIATM>;
+defm OATMCMPXCHG8  : OAtomicOp2<"atmcmpxchg8",  Ti8,  [HasI8],  IIATM>;
+defm OATMCMPXCHG16 : OAtomicOp2<"atmcmpxchg16", Ti16, [HasI16], IIATM>;
+defm OATMCMPXCHG32 : OAtomicOp2<"atmcmpxchg32", Ti32, [HasI32], IIATM>;
+defm OATMCMPXCHG64 : OAtomicOp2<"atmcmpxchg64", Ti64, [HasI64], IIATM>;
 
 /* // How do we find these?
 defm ATMADDF32 : AtomicOp<"atmaddf32", atomic_load_add, F32, [HasF32], IIATM>;
@@ -910,557 +1138,244 @@ defm ATMMAXF32 : AtomicOp<"atmmaxf32", atomic_load_max, F32, [HasF32], IIATM>;
 defm ATMMAXF64 : AtomicOp<"atmmaxf64", atomic_load_max, F64, [HasF64], IIATM>;
 */
 
-// todo: int<=>float Conversions
-// first type in convert name is result, second is source type
-defm CVTS32F32 : CvtOp<"cvts32f32", fp_to_sint, I32, I32, [HasI32,HasF32], IICvtIF>;
-defm CVTS32F64 : CvtOp<"cvts32f64", fp_to_sint, I32, I64, [HasI32,HasF64], IICvtIF>;
-defm CVTU32F32 : CvtOp<"cvtu32f32", fp_to_uint, I32, I32, [HasI32,HasF32], IICvtIF>;
-defm CVTU32F64 : CvtOp<"cvtu32f64", fp_to_uint, I32, I64, [HasI32,HasF64], IICvtIF>;
-defm CVTS64F32 : CvtOp<"cvts64f32", fp_to_sint, I64, I32, [HasI64,HasF32], IICvtIF>;
-defm CVTS64F64 : CvtOp<"cvts64f64", fp_to_sint, I64, I64, [HasI64,HasF64], IICvtIF>;
-defm CVTU64F32 : CvtOp<"cvtu64f32", fp_to_uint, I64, I32, [HasI64,HasF32], IICvtIF>;
-defm CVTU64F64 : CvtOp<"cvtu64f64", fp_to_uint, I64, I64, [HasI64,HasF64], IICvtIF>;
-
-defm CVTF32S32 : CvtOp<"cvtf32s32", sint_to_fp, I32, I32, [HasF32,HasI32], IICvtFI>;
-defm CVTF32S64 : CvtOp<"cvtf32s64", sint_to_fp, I32, I64, [HasF32,HasI64], IICvtFI>;
-defm CVTF32U32 : CvtOp<"cvtf32u32", uint_to_fp, I32, I32, [HasF32,HasI32], IICvtFI>;
-defm CVTF32U64 : CvtOp<"cvtf32u64", uint_to_fp, I32, I64, [HasF32,HasI64], IICvtFI>;
-defm CVTF64S32 : CvtOp<"cvtf64s32", sint_to_fp, I64, I32, [HasF64,HasI32], IICvtFI>;
-defm CVTF64S64 : CvtOp<"cvtf64s64", sint_to_fp, I64, I64, [HasF64,HasI64], IICvtFI>;
-defm CVTF64U32 : CvtOp<"cvtf64u32", uint_to_fp, I64, I32, [HasF64,HasI32], IICvtFI>;
-defm CVTF64U64 : CvtOp<"cvtf64u64", uint_to_fp, I64, I64, [HasF64,HasI64], IICvtFI>;
-
-defm CVTF32F64 : CvtOp<"cvtf32f64", fround,   I32, I64, [HasF32,HasF64], IICvtFF>;
-defm CVTF64F32 : CvtOp<"cvtf64f32", fextend,  I64, I32, [HasF32,HasF64], IICvtFF>;
-
-defm SEXT8_1   : SExtOp<"sext8",  I8,  I1,  [HasI8],  IIALU>;
-defm SEXT8     : SExtOp<"sext8",  I8,  I8,  [HasI8],  IIALU>;
-defm SEXT16_1  : SExtOp<"sext16", I16, I1,  [HasI16], IIALU>;
-defm SEXT16_8  : SExtOp<"sext16", I16, I8,  [HasI16], IIALU>;
-defm SEXT16    : SExtOp<"sext16", I16, I16, [HasI16], IIALU>;
-defm SEXT32_1  : SExtOp<"sext32", I32, I1,  [HasI32], IIALU>;
-defm SEXT32_8  : SExtOp<"sext32", I32, I8,  [HasI32], IIALU>;
-defm SEXT32_16 : SExtOp<"sext32", I32, I16, [HasI32], IIALU>;
-defm SEXT32    : SExtOp<"sext32", I32, I32, [HasI32], IIALU>;
-defm SEXT64_1  : SExtOp<"sext64", I64, I1,  [HasI64], IIALU>;
-defm SEXT64_8  : SExtOp<"sext64", I64, I8,  [HasI64], IIALU>;
-defm SEXT64_16 : SExtOp<"sext64", I64, I16, [HasI64], IIALU>;
-defm SEXT64_32 : SExtOp<"sext64", I64, I32, [HasI64], IIALU>;
-defm SEXT64    : SExtOp<"sext64", I64, I64, [HasI64], IIALU>;
-
-defm AND1      : BinOpC< "and1",   and,  I1,  i1,  imm,   [HasI1],  IIALU>;
-defm AND8      : BinOpC< "and8",   and,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm AND16     : BinOpC< "and16",  and,  I16, i16, imm,   [HasI16], IIALU>;
-defm AND32     : BinOpC< "and32",  and,  I32, i32, imm,   [HasI32], IIALU>;
-defm AND64     : BinOpC< "and64",  and,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm OR1       : BinOpC< "or1",    or,   I1,  i1,  imm,   [HasI1],  IIALU>;
-defm OR8       : BinOpC< "or8",    or,   I8,  i8,  imm,   [HasI8],  IIALU>;
-defm OR16      : BinOpC< "or16",   or,   I16, i16, imm,   [HasI16], IIALU>;
-defm OR32      : BinOpC< "or32",   or,   I32, i32, imm,   [HasI32], IIALU>;
-defm OR64      : BinOpC< "or64",   or,   I64, i64, imm,   [HasI64], IIALU>;
-
-defm XOR1      : BinOpC< "xor1",   xor,  I1,  i1,  imm,   [HasI1],  IIALU>;
-defm XOR8      : BinOpC< "xor8",   xor,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm XOR16     : BinOpC< "xor16",  xor,  I16, i16, imm,   [HasI16], IIALU>;
-defm XOR32     : BinOpC< "xor32",  xor,  I32, i32, imm,   [HasI32], IIALU>;
-defm XOR64     : BinOpC< "xor64",  xor,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm SLL8      : ShiftOp<"sll8",   shl,  I8,  i8,  imm,   [HasI8],  IIShft>;
-defm SLL16     : ShiftOp<"sll16",  shl,  I16, i16, imm,   [HasI16], IIShft>;
-defm SLL32     : ShiftOp<"sll32",  shl,  I32, i32, imm,   [HasI32], IIShft>;
-defm SLL64     : ShiftOp<"sll64",  shl,  I64, i64, imm,   [HasI64], IIShft>;
-
-defm SRL8      : ShiftOp<"srl8",   srl,  I8,  i8,  imm,   [HasI8],  IIShft>;
-defm SRL16     : ShiftOp<"srl16",  srl,  I16, i16, imm,   [HasI16], IIShft>;
-defm SRL32     : ShiftOp<"srl32",  srl,  I32, i32, imm,   [HasI32], IIShft>;
-defm SRL64     : ShiftOp<"srl64",  srl,  I64, i64, imm,   [HasI64], IIShft>;
-
-defm SRA8      : ShiftOp<"sra8",   sra,  I8,  i8,  imm,   [HasI8],  IIShft>;
-defm SRA16     : ShiftOp<"sra16",  sra,  I16, i16, imm,   [HasI16], IIShft>;
-defm SRA32     : ShiftOp<"sra32",  sra,  I32, i32, imm,   [HasI32], IIShft>;
-defm SRA64     : ShiftOp<"sra64",  sra,  I64, i64, imm,   [HasI64], IIShft>;
-
-def : Pat<(i1 (add i1:$op1, i1:$op2)),       (XOR1 $op1,$op2)>;
-def : Pat<(i1 (add i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
-defm ADD8      : BinOpC< "add8",   add,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm ADD16     : BinOpC< "add16",  add,  I16, i16, imm,   [HasI16], IIALU>;
-defm ADD32     : BinOpC< "add32",  add,  I32, i32, imm,   [HasI32], IIALU>;
-defm ADD64     : BinOpC< "add64",  add,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm ADDF16    : BinOpC< "addf16", fadd, I16, f16, fpimm, [HasF16], IIAddF16>;
-defm ADDF32    : BinOpC< "addf32", fadd, I32, f32, fpimm, [HasF32], IIAddF32>;
-defm ADDF64    : BinOpC< "addf64", fadd, I64, f64, fpimm, [HasF64], IIAddF64>;
-
-def : Pat<(i1 (sub i1:$op1, i1:$op2)),       (XOR1 $op1,$op2)>;
-def : Pat<(i1 (sub i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
-defm SUB8      : BinOpNC<"sub8",   sub,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm SUB16     : BinOpNC<"sub16",  sub,  I16, i16, imm,   [HasI16], IIALU>;
-defm SUB32     : BinOpNC<"sub32",  sub,  I32, i32, imm,   [HasI32], IIALU>;
-defm SUB64     : BinOpNC<"sub64",  sub,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm SUBF16    : BinOpNC<"subf16", fsub, I16, f16, fpimm, [HasF16], IIAddF16>;
-defm SUBF32    : BinOpNC<"subf32", fsub, I32, f32, fpimm, [HasF32], IIAddF32>;
-defm SUBF64    : BinOpNC<"subf64", fsub, I64, f64, fpimm, [HasF64], IIAddF64>;
-
-defm MUL8      : BinOpC< "mul8",   mul,  I8,  i8,  imm,   [HasI8],  IIMulI8>;
-defm MUL16     : BinOpC< "mul16",  mul,  I16, i16, imm,   [HasI16], IIMulI16>;
-defm MUL32     : BinOpC< "mul32",  mul,  I32, i32, imm,   [HasI32], IIMulI32>;
-defm MUL64     : BinOpC< "mul64",  mul,  I64, i64, imm,   [HasI64], IIMulI64>;
-
-defm MULF16    : BinOpC<"mulf16",  fmul, I16, f16, fpimm, [HasF16], IIMulF16>;
-defm MULF32    : BinOpC<"mulf32",  fmul, I32, f32, fpimm, [HasF32], IIMulF32>;
-defm MULF64    : BinOpC<"mulf64",  fmul, I64, f64, fpimm, [HasF64], IIMulF64>;
-
-defm DIVS8     : BinOpNC<"divs8",  sdiv, I8,  i8,  imm,   [HasI8,HasIDiv],  IIDivI8>;
-defm DIVS16    : BinOpNC<"divs16", sdiv, I16, i16, imm,   [HasI16,HasIDiv], IIDivI16>;
-defm DIVS32    : BinOpNC<"divs32", sdiv, I32, i32, imm,   [HasI32,HasIDiv], IIDivI32>;
-defm DIVS64    : BinOpNC<"divs64", sdiv, I64, i64, imm,   [HasI64,HasIDiv], IIDivI64>;
-
-defm DIVU8     : BinOpNC<"divu8",  udiv, I8,  i8,  imm,   [HasI8,HasIDiv],  IIDivI8>;
-defm DIVU16    : BinOpNC<"divu16", udiv, I16, i16, imm,   [HasI16,HasIDiv], IIDivI16>;
-defm DIVU32    : BinOpNC<"divu32", udiv, I32, i32, imm,   [HasI32,HasIDiv], IIDivI32>;
-defm DIVU64    : BinOpNC<"divu64", udiv, I64, i64, imm,   [HasI64,HasIDiv], IIDivI64>;
-
-defm DIVF16    : BinOpNC<"divf16", fdiv, I16, f16, fpimm, [HasF16,HasFDiv], IIDivF16>;
-defm DIVF32    : BinOpNC<"divf32", fdiv, I32, f32, fpimm, [HasF32,HasFDiv], IIDivF32>;
-defm DIVF64    : BinOpNC<"divf64", fdiv, I64, f64, fpimm, [HasF64,HasFDiv], IIDivF64>;
-
-defm POWF32    : BinOpNC<"powf32",   fpow,  I32, f32, fpimm, [HasF32,HasMath0], IIMathF32>;
-defm POWF64    : BinOpNC<"powf64",   fpow,  I64, f64, fpimm, [HasF64,HasMath0], IIMathF64>;
-
-defm CMPLTS8  : CmpOpNC<"cmplts8", setlt,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPLTS16 : CmpOpNC<"cmplts16",setlt,  I16, i16, imm,   [HasI16], IIALU>;
-defm CMPLTS32 : CmpOpNC<"cmplts32",setlt,  I32, i32, imm,   [HasI32], IIALU>;
-defm CMPLTS64 : CmpOpNC<"cmplts64",setlt,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm CMPLTU8  : CmpOpNC<"cmpltu8", setult, I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPLTU16 : CmpOpNC<"cmpltu16",setult, I16, i16, imm,   [HasI16], IIALU>;
-defm CMPLTU32 : CmpOpNC<"cmpltu32",setult, I32, i32, imm,   [HasI32], IIALU>;
-defm CMPLTU64 : CmpOpNC<"cmpltu64",setult, I64, i64, imm,   [HasI64], IIALU>;
-
-defm CMPLES8  : CmpOpNC<"cmples8", setle,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPLES16 : CmpOpNC<"cmples16",setle,  I16, i16, imm,   [HasI16], IIALU>;
-defm CMPLES32 : CmpOpNC<"cmples32",setle,  I32, i32, imm,   [HasI32], IIALU>;
-defm CMPLES64 : CmpOpNC<"cmples64",setle,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm CMPLEU8  : CmpOpNC<"cmpleu8", setule, I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPLEU16 : CmpOpNC<"cmpleu16",setule, I16, i16, imm,   [HasI16], IIALU>;
-defm CMPLEU32 : CmpOpNC<"cmpleu32",setule, I32, i32, imm,   [HasI32], IIALU>;
-defm CMPLEU64 : CmpOpNC<"cmpleu64",setule, I64, i64, imm,   [HasI64], IIALU>;
-
-// Note - there is no cmpeq1.  As long as operands are clean, cmpeq8
-// suffices
-defm CMPEQ1   : CmpOpC<"cmpeq8",   seteq,  I1,  i1,  imm,   [HasI1],  IIALU>;
-defm CMPEQ8   : CmpOpC<"cmpeq8",   seteq,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPEQ16  : CmpOpC<"cmpeq16",  seteq,  I16, i16, imm,   [HasI16], IIALU>;
-defm CMPEQ32  : CmpOpC<"cmpeq32",  seteq,  I32, i32, imm,   [HasI32], IIALU>;
-defm CMPEQ64  : CmpOpC<"cmpeq64",  seteq,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm CMPGTS8  : CmpOpNC<"cmpgts8", setgt,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPGTS16 : CmpOpNC<"cmpgts16",setgt,  I16, i16, imm,   [HasI16], IIALU>;
-defm CMPGTS32 : CmpOpNC<"cmpgts32",setgt,  I32, i32, imm,   [HasI32], IIALU>;
-defm CMPGTS64 : CmpOpNC<"cmpgts64",setgt,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm CMPGTU8  : CmpOpNC<"cmpgtu8", setugt, I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPGTU16 : CmpOpNC<"cmpgtu16",setugt, I16, i16, imm,   [HasI16], IIALU>;
-defm CMPGTU32 : CmpOpNC<"cmpgtu32",setugt, I32, i32, imm,   [HasI32], IIALU>;
-defm CMPGTU64 : CmpOpNC<"cmpgtu64",setugt, I64, i64, imm,   [HasI64], IIALU>;
-
-defm CMPGES8  : CmpOpNC<"cmpges8", setge,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPGES16 : CmpOpNC<"cmpges16",setge,  I16, i16, imm,   [HasI16], IIALU>;
-defm CMPGES32 : CmpOpNC<"cmpges32",setge,  I32, i32, imm,   [HasI32], IIALU>;
-defm CMPGES64 : CmpOpNC<"cmpges64",setge,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm CMPGEU8  : CmpOpNC<"cmpgeu8", setuge, I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPGEU16 : CmpOpNC<"cmpgeu16",setuge, I16, i16, imm,   [HasI16], IIALU>;
-defm CMPGEU32 : CmpOpNC<"cmpgeu32",setuge, I32, i32, imm,   [HasI32], IIALU>;
-defm CMPGEU64 : CmpOpNC<"cmpgeu64",setuge, I64, i64, imm,   [HasI64], IIALU>;
-
-def : Pat<(i1 (setne i1:$op1, i1:$op2)), (XOR1 $op1,$op2)>;
-def : Pat<(i1 (setne i1:$op1, (i1 imm:$imm))), (XOR1i $op1,$imm)>;
-defm CMPNE8   : CmpOpC<"cmpne8",   setne,  I8,  i8,  imm,   [HasI8],  IIALU>;
-defm CMPNE16  : CmpOpC<"cmpne16",  setne,  I16, i16, imm,   [HasI16], IIALU>;
-defm CMPNE32  : CmpOpC<"cmpne32",  setne,  I32, i32, imm,   [HasI32], IIALU>;
-defm CMPNE64  : CmpOpC<"cmpne64",  setne,  I64, i64, imm,   [HasI64], IIALU>;
-
-defm CMPOLTF16: CmpOpNC<"cmpltf16",setolt, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPOLTF32: CmpOpNC<"cmpltf32",setolt, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPOLTF64: CmpOpNC<"cmpltf64",setolt, I64, f64, fpimm, [HasF64], IICmpF>;
-defm CMPULTF16: CmpOpNC<"cmpltf16",setult, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPULTF32: CmpOpNC<"cmpltf32",setult, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPULTF64: CmpOpNC<"cmpltf64",setult, I64, f64, fpimm, [HasF64], IICmpF>;
-
-defm CMPOLEF16: CmpOpNC<"cmplef16",setole, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPOLEF32: CmpOpNC<"cmplef32",setole, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPOLEF64: CmpOpNC<"cmplef64",setole, I64, f64, fpimm, [HasF64], IICmpF>;
-defm CMPULEF16: CmpOpNC<"cmplef16",setule, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPULEF32: CmpOpNC<"cmplef32",setule, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPULEF64: CmpOpNC<"cmplef64",setule, I64, f64, fpimm, [HasF64], IICmpF>;
-
-defm CMPOEQF16: CmpOpC<"cmpeqf16", setoeq, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPOEQF32: CmpOpC<"cmpeqf32", setoeq, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPOEQF64: CmpOpC<"cmpeqf64", setoeq, I64, f64, fpimm, [HasF64], IICmpF>;
-defm CMPUEQF16: CmpOpC<"cmpeqf16", setueq, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPUEQF32: CmpOpC<"cmpeqf32", setueq, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPUEQF64: CmpOpC<"cmpeqf64", setueq, I64, f64, fpimm, [HasF64], IICmpF>;
-
-defm CMPOGTF16: CmpOpNC<"cmpgtf16",setogt, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPOGTF32: CmpOpNC<"cmpgtf32",setogt, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPOGTF64: CmpOpNC<"cmpgtf64",setogt, I64, f64, fpimm, [HasF64], IICmpF>;
-defm CMPUGTF16: CmpOpNC<"cmpgtf16",setugt, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPUGTF32: CmpOpNC<"cmpgtf32",setugt, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPUGTF64: CmpOpNC<"cmpgtf64",setugt, I64, f64, fpimm, [HasF64], IICmpF>;
-
-defm CMPOGEF16: CmpOpNC<"cmpgef16",setoge, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPOGEF32: CmpOpNC<"cmpgef32",setoge, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPOGEF64: CmpOpNC<"cmpgef64",setoge, I64, f64, fpimm, [HasF64], IICmpF>;
-defm CMPUGEF16: CmpOpNC<"cmpgef16",setuge, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPUGEF32: CmpOpNC<"cmpgef32",setuge, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPUGEF64: CmpOpNC<"cmpgef64",setuge, I64, f64, fpimm, [HasF64], IICmpF>;
-
-defm CMPONEF16: CmpOpC<"cmpnef16", setone, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPONEF32: CmpOpC<"cmpnef32", setone, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPONEF64: CmpOpC<"cmpnef64", setone, I64, f64, fpimm, [HasF64], IICmpF>;
-defm CMPUNEF16: CmpOpC<"cmpnef16", setune, I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPUNEF32: CmpOpC<"cmpnef32", setune, I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPUNEF64: CmpOpC<"cmpnef64", setune, I64, f64, fpimm, [HasF64], IICmpF>;
-
-defm CMPOF16  : CmpOpC<"cmpof16",  seto,   I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPOF32  : CmpOpC<"cmpof32",  seto,   I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPOF64  : CmpOpC<"cmpof64",  seto,   I64, f64, fpimm, [HasF64], IICmpF>;
-defm CMPUOF16 : CmpOpC<"cmpuof16", setuo,  I16, f16, fpimm, [HasF16], IICmpF>;
-defm CMPUOF32 : CmpOpC<"cmpuof32", setuo,  I32, f32, fpimm, [HasF32], IICmpF>;
-defm CMPUOF64 : CmpOpC<"cmpuof64", setuo,  I64, f64, fpimm, [HasF64], IICmpF>;
-
-
-multiclass BSelectOp<string opStr, RegisterClass RC, ValueType opType, SDNode immNode,InstrItinClass itin = NoItinerary> {
-  let Itinerary = itin in {
-    // BSEL - Only allow constant 1st operand, so CSA network only needs to support
-    // 2 operand input boxes.
-    def "": FMTGEN<
-      (outs RC:$dst),
-      (ins Operand<opType>:$sel, RC:$v0, RC:$v1),
-      !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
-      []>;
-  }
-}
-
-defm BSEL1    :BSelectOp <"bsel1",   I1, i1, imm>;
-defm BSEL8    :BSelectOp <"bsel8",   I8, i8, imm>;
-defm BSEL16   :BSelectOp <"bsel16",  I16, i16, imm>;
-defm BSEL32   :BSelectOp <"bsel32",  I32, i32, imm>;
-defm BSEL64   :BSelectOp <"bsel64",  I64, i64, imm>;
-
-def LAND1 : FMTGEN<
-  (outs I1:$dst),
-  (ins I1:$op1, I1:$op2, I1:$op3, I1:$op4),
-  "land1\t$dst, $op1, $op2, $op3, $op4",
-  []> { let Itinerary = IIALU; }
-
-// Shift/add - itinerary depends on constant small shift amt - else IShft...
-defm SLADD8  : ShAdd<"sladd8",  shl,  add,  I8,  i8,  imm,   [HasI8, HasShAdd], IISAdd>;
-defm SLADD16 : ShAdd<"sladd16", shl,  add,  I16, i16, imm,   [HasI16,HasShAdd], IISAdd>;
-defm SLADD32 : ShAdd<"sladd32", shl,  add,  I32, i32, imm,   [HasI32,HasShAdd], IISAdd>;
-defm SLADD64 : ShAdd<"sladd64", shl,  add,  I64, i64, imm,   [HasI64,HasShAdd], IISAdd>;
-
-defm FMAF16  : FusedOp1<"fmaf16",  fmul, fadd, I16, f16, fpimm, [HasF16,HasFMA], IIFMAF16>;
-// crude handling of commutative
-defm FMAF16x : FusedOp2<"fmaf16",  fmul, fadd, I16, f16, fpimm, [HasF16,HasFMA], IIFMAF16>;
-defm FMSF16  : FusedOp1<"fmsf16",  fmul, fsub, I16, f16, fpimm, [HasF16,HasFMA], IIFMAF16>;
-defm FMRSF16 : FusedOp2<"fmrsf16", fmul, fsub, I16, f16, fpimm, [HasF16,HasFMA], IIFMAF16>;
-
-defm FMAF32  : FusedOp1<"fmaf32",  fmul, fadd, I32, f32, fpimm, [HasF32,HasFMA], IIFMAF32>;
-// crude handling of commutative
-defm FMAF32x : FusedOp2<"fmaf32",  fmul, fadd, I32, f32, fpimm, [HasF32,HasFMA], IIFMAF32>;
-defm FMSF32  : FusedOp1<"fmsf32",  fmul, fsub, I32, f32, fpimm, [HasF32,HasFMA], IIFMAF32>;
-defm FMRSF32 : FusedOp2<"fmrsf32", fmul, fsub, I32, f32, fpimm, [HasF32,HasFMA], IIFMAF32>;
-
-defm FMAF64  : FusedOp1<"fmaf64",  fmul, fadd, I64, f64, fpimm, [HasF64,HasFMA], IIFMAF64>;
-// crude handling of commutative
-defm FMAF64x : FusedOp2<"fmaf64",  fmul, fadd, I64, f64, fpimm, [HasF64,HasFMA], IIFMAF64>;
-defm FMSF64  : FusedOp1<"fmsf64",  fmul, fsub, I64, f64, fpimm, [HasF64,HasFMA], IIFMAF64>;
-defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, I64, f64, fpimm, [HasF64,HasFMA], IIFMAF64>;
-
-// Should we do these, or drop and assume sext-at-consumer?
-// todo: LDS8
-// todo: LDS16
-// todo: LDS32
-defm LD1   : LdOp<"ld8",   I1,  i1>;
-defm LD8   : LdOp<"ld8",   I8,  i8>;
-defm LD16  : LdOp<"ld16",  I16, i16>;
-defm LD16f : LdOp<"ld16",  I16, f16>;
-defm LD32  : LdOp<"ld32",  I32, i32>;
-defm LD32f : LdOp<"ld32",  I32, f32>;
-defm LD64  : LdOp<"ld64",  I64, i64>;
-defm LD64f : LdOp<"ld64",  I64, f64>;
-
-defm OLD1   : OLdOp<"ld8",   I1,  i1>;
-defm OLD8   : OLdOp<"ld8",   I8,  i8>;
-defm OLD16  : OLdOp<"ld16",  I16, i16>;
-defm OLD16f : OLdOp<"ld16",  I16, f16>;
-defm OLD32  : OLdOp<"ld32",  I32, i32>;
-defm OLD32f : OLdOp<"ld32",  I32, f32>;
-defm OLD64  : OLdOp<"ld64",  I64, i64>;
-defm OLD64f : OLdOp<"ld64",  I64, f64>;
-
-defm ST1   : StOp<"st8",   I1,  i1,  imm>;
-defm ST8   : StOp<"st8",   I8,  i8,  imm>;
-defm ST16  : StOp<"st16",  I16, i16, imm>;
-defm ST16f : StOp<"st16",  I16, f16, fpimm>;
-defm ST32  : StOp<"st32",  I32, i32, imm>;
-defm ST32f : StOp<"st32",  I32, f32, fpimm>;
-defm ST64  : StOp<"st64",  I64, i64, imm>;
-defm ST64f : StOp<"st64",  I64, f64, fpimm>;
-
-defm OST1   : OStOp<"st8",   I1,  i1,  imm>;
-defm OST8   : OStOp<"st8",   I8,  i8,  imm>;
-defm OST16  : OStOp<"st16",  I16, i16, imm>;
-defm OST16f : OStOp<"st16",  I16, f16, fpimm>;
-defm OST32  : OStOp<"st32",  I32, i32, imm>;
-defm OST32f : OStOp<"st32",  I32, f32, fpimm>;
-defm OST64  : OStOp<"st64",  I64, i64, imm>;
-defm OST64f : OStOp<"st64",  I64, f64, fpimm>;
-
-multiclass CopyOp<string opStr, RegisterClass RC,
+multiclass CopyOp<string opStr, LPUTypeInfo t,
            InstrItinClass itin = IIVir> {
   let Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$op0, RC:$op1, RC:$op2, RC:$op3),
-      (ins RC:$op4),
-      !strconcat(opStr, "\t$op0, $op1, $op2, $op3, $op4"),
+      (outs t.RC:$op0, t.RC:$op1, t.RC:$op2, t.RC:$op3),
+      (ins t.RCL:$op4),
+      !strconcat(opStr, t.InstrSuffix, "\t$op0, $op1, $op2, $op3, $op4"),
       []>;
   }
 }
-defm COPY0   : CopyOp<"copy0",  I1>;
-defm COPY1   : CopyOp<"copy1",  I1>;
-defm COPY8   : CopyOp<"copy8",  I8>;
-defm COPY16  : CopyOp<"copy16", I16>;
-defm COPY32  : CopyOp<"copy32", I32>;
-defm COPY64  : CopyOp<"copy64", I64>;
+defm COPY0   : CopyOp<"copy", Ti0>;
+defm COPY1   : CopyOp<"copy", Ti1>;
+defm COPY8   : CopyOp<"copy", Ti8>;
+defm COPY16  : CopyOp<"copy", Ti16>;
+defm COPY32  : CopyOp<"copy", Ti32>;
+defm COPY64  : CopyOp<"copy", Ti64>;
 
-multiclass MergeOp<string opStr, RegisterClass RC, ValueType opType,
-                   SDNode immNode,
+multiclass MergeOp<string opStr, LPUTypeInfo t,
                    list<Predicate> preds, InstrItinClass itin> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins I1:$sel, RC:$v0, RC:$v1),
+      (outs t.RC:$dst),
+      (ins I1:$sel, t.RCL:$v0, t.RCL:$v1),
       !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
-      [(set opType:$dst, (select I1:$sel, opType:$v1, opType:$v0))]>;
-    def i : FMTGEN<
-      (outs RC:$dst),
-      (ins I1:$sel, RC:$v0, Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $sel, $v0, $imm"),
-      [(set opType:$dst, (select I1:$sel, (opType immNode:$imm), opType:$v0))]>;
-    // allow literal operation for the 1st of the 2 selected operands
-    def i1 : FMTGEN<
-      (outs RC:$dst),
-      (ins I1:$sel, Operand<opType>:$imm, RC:$v1),
-      !strconcat(opStr, "\t$dst, $sel, $imm, $v1"),
-      [(set opType:$dst, (select I1:$sel, opType:$v1, (opType immNode:$imm)))]>;
+      [(set t.VT:$dst, (select I1:$sel, (t.VT t.RCL:$v1), (t.VT t.RCL:$v0)))]>;
   }
 }
-defm MERGE1   : MergeOp<"merge1",  I1,  i1,  imm,   [HasI1],  IIVir>;
-defm MERGE8   : MergeOp<"merge8",  I8,  i8,  imm,   [HasI8],  IIVir>;
-defm MERGE16  : MergeOp<"merge16", I16, i16, imm,   [HasI16], IIVir>;
-defm MERGE16f : MergeOp<"merge16", I16, f16, fpimm, [HasI16], IIVir>;
-defm MERGE32  : MergeOp<"merge32", I32, i32, imm,   [HasI32], IIVir>;
-defm MERGE32f : MergeOp<"merge32", I32, f32, fpimm, [HasI32], IIVir>;
-defm MERGE64  : MergeOp<"merge64", I64, i64, imm,   [HasI64], IIVir>;
-defm MERGE64f : MergeOp<"merge64", I64, f64, fpimm, [HasI64], IIVir>;
+defm MERGE1   : MergeOp<"merge1",  Ti1,  [HasI1],  IIVir>;
+defm MERGE8   : MergeOp<"merge8",  Ti8,  [HasI8],  IIVir>;
+defm MERGE16  : MergeOp<"merge16", Ti16, [HasI16], IIVir>;
+defm MERGE16f : MergeOp<"merge16", Tf16, [HasI16], IIVir>;
+defm MERGE32  : MergeOp<"merge32", Ti32, [HasI32], IIVir>;
+defm MERGE32f : MergeOp<"merge32", Tf32, [HasI32], IIVir>;
+defm MERGE64  : MergeOp<"merge64", Ti64, [HasI64], IIVir>;
+defm MERGE64f : MergeOp<"merge64", Tf64, [HasI64], IIVir>;
 
-multiclass SwitchOp<string opStr, RegisterClass RC,
+multiclass SwitchOp<string opStr, LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin> {
   let Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst0, RC:$dst1),
-      (ins I1:$sel, RC:$v),
+      (outs t.RC:$dst0, t.RC:$dst1),
+      (ins I1:$sel, t.RCL:$v),
       !strconcat(opStr, "\t$dst0, $dst1, $sel, $v"),
       []>;
   }
 }
-defm SWITCH1   : SwitchOp<"switch1",  I1,  [HasI1],  IIVir>;
-defm SWITCH8   : SwitchOp<"switch8",  I8,  [HasI8],  IIVir>;
-defm SWITCH16  : SwitchOp<"switch16", I16, [HasI16], IIVir>;
-defm SWITCH32  : SwitchOp<"switch32", I32, [HasI32], IIVir>;
-defm SWITCH64  : SwitchOp<"switch64", I64, [HasI64], IIVir>;
+defm SWITCH1   : SwitchOp<"switch1",  Ti1,  [HasI1],  IIVir>;
+defm SWITCH8   : SwitchOp<"switch8",  Ti8,  [HasI8],  IIVir>;
+defm SWITCH16  : SwitchOp<"switch16", Ti16, [HasI16], IIVir>;
+defm SWITCH32  : SwitchOp<"switch32", Ti32, [HasI32], IIVir>;
+defm SWITCH64  : SwitchOp<"switch64", Ti64, [HasI64], IIVir>;
 
-multiclass SwitchAnyOp<string opStr, RegisterClass RC,
+multiclass SwitchAnyOp<string opStr, LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst0, RC:$dst1, I1:$sel),
-      (ins RC:$v),
+      (outs t.RC:$dst0, t.RC:$dst1, I1:$sel),
+      (ins t.RCL:$v),
       !strconcat(opStr, "\t$dst0, $dst1, $sel, $v"),
       []>;
   }
 }
-defm SWITCHANY1  : SwitchAnyOp<"switchany1",  I1,  [HasI1],  IIVir>;
-defm SWITCHANY8  : SwitchAnyOp<"switchany8",  I8,  [HasI8],  IIVir>;
-defm SWITCHANY16 : SwitchAnyOp<"switchany16", I16, [HasI16], IIVir>;
-defm SWITCHANY32 : SwitchAnyOp<"switchany32", I32, [HasI32], IIVir>;
-defm SWITCHANY64 : SwitchAnyOp<"switchany64", I64, [HasI64], IIVir>;
+defm SWITCHANY1  : SwitchAnyOp<"switchany1",  Ti1,  [HasI1],  IIVir>;
+defm SWITCHANY8  : SwitchAnyOp<"switchany8",  Ti8,  [HasI8],  IIVir>;
+defm SWITCHANY16 : SwitchAnyOp<"switchany16", Ti16, [HasI16], IIVir>;
+defm SWITCHANY32 : SwitchAnyOp<"switchany32", Ti32, [HasI32], IIVir>;
+defm SWITCHANY64 : SwitchAnyOp<"switchany64", Ti64, [HasI64], IIVir>;
 
-multiclass PickOp<string opStr, RegisterClass RC,
+multiclass PickOp<string opStr, LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin> {
   let Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst),
-      (ins I1:$sel, RC:$v0, RC:$v1),
+      (outs t.RC:$dst),
+      (ins I1:$sel, t.RCL:$v0, t.RCL:$v1),
       !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
       []>;
   }
 }
-defm PICK1   : PickOp<"pick1",  I1,  [HasI1],  IIVir>;
-defm PICK8   : PickOp<"pick8",  I8,  [HasI8],  IIVir>;
-defm PICK16  : PickOp<"pick16", I16, [HasI16], IIVir>;
-defm PICK32  : PickOp<"pick32", I32, [HasI32], IIVir>;
-defm PICK64  : PickOp<"pick64", I64, [HasI64], IIVir>;
+defm PICK1   : PickOp<"pick1",  Ti1,  [HasI1],  IIVir>;
+defm PICK8   : PickOp<"pick8",  Ti8,  [HasI8],  IIVir>;
+defm PICK16  : PickOp<"pick16", Ti16, [HasI16], IIVir>;
+defm PICK32  : PickOp<"pick32", Ti32, [HasI32], IIVir>;
+defm PICK64  : PickOp<"pick64", Ti64, [HasI64], IIVir>;
 
-multiclass PickAnyOp<string opStr, RegisterClass RC,
+multiclass PickAnyOp<string opStr, LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
-      (outs RC:$dst, I1:$sel),
-      (ins RC:$v0, RC:$v1),
+      (outs t.RC:$dst, I1:$sel),
+      (ins t.RCL:$v0, t.RCL:$v1),
       !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
       []>;
   }
 }
-defm PICKANY1  : PickAnyOp<"pickany1",  I1,  [HasI1],  IIVir>;
-defm PICKANY8  : PickAnyOp<"pickany8",  I8,  [HasI8],  IIVir>;
-defm PICKANY16 : PickAnyOp<"pickany16", I16, [HasI16], IIVir>;
-defm PICKANY32 : PickAnyOp<"pickany32", I32, [HasI32], IIVir>;
-defm PICKANY64 : PickAnyOp<"pickany64", I64, [HasI64], IIVir>;
+defm PICKANY1  : PickAnyOp<"pickany1",  Ti1,  [HasI1],  IIVir>;
+defm PICKANY8  : PickAnyOp<"pickany8",  Ti8,  [HasI8],  IIVir>;
+defm PICKANY16 : PickAnyOp<"pickany16", Ti16, [HasI16], IIVir>;
+defm PICKANY32 : PickAnyOp<"pickany32", Ti32, [HasI32], IIVir>;
+defm PICKANY64 : PickAnyOp<"pickany64", Ti64, [HasI64], IIVir>;
 
 def ANY0 : FMTGEN<
-  (outs I64:$dst),
-  (ins I0:$op1, I0:$op2, I0:$op3, I0:$op4),
+  (outs I8:$dst),
+  (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
   "any0\t$dst, $op1, $op2, $op3, $op4",
   []> { let Itinerary = IIVir; }
 
 def ALL0 : FMTGEN<
   (outs I0:$dst),
-  (ins I0:$op1, I0:$op2, I0:$op3, I0:$op4),
+  (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
   "all0\t$dst, $op1, $op2, $op3, $op4",
   []> { let Itinerary = IIVir; }
 
 def ONCOUNT0 : FMTGEN<  // TODO: something to reflect state
   (outs I0:$dst),
-  (ins I64:$cnt, I0:$op2, I0:$op3, I0:$op4, I0:$op5),
+  (ins RCLi64:$cnt, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4, RCLi0:$op5),
   "oncount0\t$dst, $cnt, $op2, $op3, $op4, $op5",
   []> { let Itinerary = IIVir; }
 
-multiclass SeqCOp<string opStr, RegisterClass RC, ValueType opType,
+def PREDPROP : FMTGEN<
+  (outs I1:$efalse, I1:$etrue),
+  (ins RCLi1:$pb, RCLi1:$sb),
+  "predprop\t$efalse, $etrue, $pb, $sb",
+  []> { let Itinerary = IIALU; }
+
+def PREDMERGE : FMTGEN<
+  (outs I1:$predres, I1:$index),
+  (ins RCLi1:$e0, RCLi1:$e1),
+  "predprop\t$predres, $index, $e0, $e1",
+  []> { let Itinerary = IIALU; }
+
+multiclass SeqCOp<string opStr, LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin> {
   // hasSideEffects attempts to capture the internal state and stream output behavior
   let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<  // TODO: something to reflect state
-      (outs RC:$val, I1:$pred, I1:$first, I1:$last),
-      (ins RC:$base, RC:$count, RC:$stride),
+      (outs t.RC:$val, I1:$pred, I1:$first, I1:$last),
+      (ins t.RCL:$base, t.RCL:$count, t.RCL:$stride),
       !strconcat(opStr, "\t$val, $pred, $first, $last, $base, $count, $stride"),
       []>;
   }
 }
 
-defm SEQC8    : SeqCOp<"seqc8",    I8, i8,   [HasI8],  IIALU>;
-defm SEQC16   : SeqCOp<"seqc16",   I16, i16, [HasI16], IIALU>;
-defm SEQC32   : SeqCOp<"seqc32",   I32, i32, [HasI32], IIALU>;
-defm SEQC64   : SeqCOp<"seqc64",   I64, i64, [HasI64], IIALU>;
+defm SEQC8    : SeqCOp<"seqc8",    Ti8,  [HasI8],  IIALU>;
+defm SEQC16   : SeqCOp<"seqc16",   Ti16, [HasI16], IIALU>;
+defm SEQC32   : SeqCOp<"seqc32",   Ti32, [HasI32], IIALU>;
+defm SEQC64   : SeqCOp<"seqc64",   Ti64, [HasI64], IIALU>;
 
-multiclass SeqSOp<string opStr, RegisterClass RC, ValueType opType,
+multiclass SeqSOp<string opStr, LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin> {
   // hasSideEffects attempts to capture the internal state and stream output behavior
   let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     // TODO: something to reflect state
-    // Unfortunately, 
-    def "" : FMTGEN< // rrr form
-      (outs RC:$val, I1:$pred, I1:$first, I1:$last),
-      (ins RC:$base, RC:$bound, RC:$stride),
+    def "" : FMTGEN<
+      (outs t.RC:$val, I1:$pred, I1:$first, I1:$last),
+      (ins t.RCL:$base, t.RCL:$bound, t.RCL:$stride),
       !strconcat(opStr, "\t$val, $pred, $first, $last, $base, $bound, $stride"),
       []>;
   }
 }
 
-defm SEQLTS8  : SeqSOp<"seqlts8",  I8,  i8,  [HasI8],  IIALU>;
-defm SEQLTS16 : SeqSOp<"seqlts16", I16, i16, [HasI16], IIALU>;
-defm SEQLTS32 : SeqSOp<"seqlts32", I32, i32, [HasI32], IIALU>;
-defm SEQLTS64 : SeqSOp<"seqlts64", I64, i64, [HasI64], IIALU>;
+defm SEQLTS8  : SeqSOp<"seqlts8",  Ti8,  [HasI8],  IIALU>;
+defm SEQLTS16 : SeqSOp<"seqlts16", Ti16, [HasI16], IIALU>;
+defm SEQLTS32 : SeqSOp<"seqlts32", Ti32, [HasI32], IIALU>;
+defm SEQLTS64 : SeqSOp<"seqlts64", Ti64, [HasI64], IIALU>;
 
-defm SEQLTU8  : SeqSOp<"seqltu8",  I8, i8,   [HasI8],  IIALU>;
-defm SEQLTU16 : SeqSOp<"seqltu16", I16, i16, [HasI16], IIALU>;
-defm SEQLTU32 : SeqSOp<"seqltu32", I32, i32, [HasI32], IIALU>;
-defm SEQLTU64 : SeqSOp<"seqltu64", I64, i64, [HasI64], IIALU>;
+defm SEQLTU8  : SeqSOp<"seqltu8",  Ti8,  [HasI8],  IIALU>;
+defm SEQLTU16 : SeqSOp<"seqltu16", Ti16, [HasI16], IIALU>;
+defm SEQLTU32 : SeqSOp<"seqltu32", Ti32, [HasI32], IIALU>;
+defm SEQLTU64 : SeqSOp<"seqltu64", Ti64, [HasI64], IIALU>;
 
-defm SEQLES8  : SeqSOp<"seqles8",  I8,  i8,  [HasI8],  IIALU>;
-defm SEQLES16 : SeqSOp<"seqles16", I16, i16, [HasI16], IIALU>;
-defm SEQLES32 : SeqSOp<"seqles32", I32, i32, [HasI32], IIALU>;
-defm SEQLES64 : SeqSOp<"seqles64", I64, i64, [HasI64], IIALU>;
+defm SEQLES8  : SeqSOp<"seqles8",  Ti8,  [HasI8],  IIALU>;
+defm SEQLES16 : SeqSOp<"seqles16", Ti16, [HasI16], IIALU>;
+defm SEQLES32 : SeqSOp<"seqles32", Ti32, [HasI32], IIALU>;
+defm SEQLES64 : SeqSOp<"seqles64", Ti64, [HasI64], IIALU>;
 
-defm SEQLEU8  : SeqSOp<"seqleu8",  I8,  i8,  [HasI8],  IIALU>;
-defm SEQLEU16 : SeqSOp<"seqleu16", I16, i16, [HasI16], IIALU>;
-defm SEQLEU32 : SeqSOp<"seqleu32", I32, i32, [HasI32], IIALU>;
-defm SEQLEU64 : SeqSOp<"seqleu64", I64, i64, [HasI64], IIALU>;
+defm SEQLEU8  : SeqSOp<"seqleu8",  Ti8,  [HasI8],  IIALU>;
+defm SEQLEU16 : SeqSOp<"seqleu16", Ti16, [HasI16], IIALU>;
+defm SEQLEU32 : SeqSOp<"seqleu32", Ti32, [HasI32], IIALU>;
+defm SEQLEU64 : SeqSOp<"seqleu64", Ti64, [HasI64], IIALU>;
 
-defm SEQNE8   : SeqSOp<"seqne8",   I8,  i8,  [HasI8],  IIALU>;
-defm SEQNE16  : SeqSOp<"seqne16",  I16, i16, [HasI16], IIALU>;
-defm SEQNE32  : SeqSOp<"seqne32",  I32, i32, [HasI32], IIALU>;
-defm SEQNE64  : SeqSOp<"seqne64",  I64, i64, [HasI64], IIALU>;
+defm SEQNE8   : SeqSOp<"seqne8",   Ti8,  [HasI8],  IIALU>;
+defm SEQNE16  : SeqSOp<"seqne16",  Ti16, [HasI16], IIALU>;
+defm SEQNE32  : SeqSOp<"seqne32",  Ti32, [HasI32], IIALU>;
+defm SEQNE64  : SeqSOp<"seqne64",  Ti64, [HasI64], IIALU>;
 
-defm SEQGTS8  : SeqSOp<"seqgts8",  I8,  i8,  [HasI8],  IIALU>;
-defm SEQGTS16 : SeqSOp<"seqgts16", I16, i16, [HasI16], IIALU>;
-defm SEQGTS32 : SeqSOp<"seqgts32", I32, i32, [HasI32], IIALU>;
-defm SEQGTS64 : SeqSOp<"seqgts64", I64, i64, [HasI64], IIALU>;
+defm SEQGTS8  : SeqSOp<"seqgts8",  Ti8,  [HasI8],  IIALU>;
+defm SEQGTS16 : SeqSOp<"seqgts16", Ti16, [HasI16], IIALU>;
+defm SEQGTS32 : SeqSOp<"seqgts32", Ti32, [HasI32], IIALU>;
+defm SEQGTS64 : SeqSOp<"seqgts64", Ti64, [HasI64], IIALU>;
 
-defm SEQGTU8  : SeqSOp<"seqgtu8",  I8,  i8,  [HasI8],  IIALU>;
-defm SEQGTU16 : SeqSOp<"seqgtu16", I16, i16, [HasI16], IIALU>;
-defm SEQGTU32 : SeqSOp<"seqgtu32", I32, i32, [HasI32], IIALU>;
-defm SEQGTU64 : SeqSOp<"seqgtu64", I64, i64, [HasI64], IIALU>;
+defm SEQGTU8  : SeqSOp<"seqgtu8",  Ti8,  [HasI8],  IIALU>;
+defm SEQGTU16 : SeqSOp<"seqgtu16", Ti16, [HasI16], IIALU>;
+defm SEQGTU32 : SeqSOp<"seqgtu32", Ti32, [HasI32], IIALU>;
+defm SEQGTU64 : SeqSOp<"seqgtu64", Ti64, [HasI64], IIALU>;
 
-defm SEQGES8  : SeqSOp<"seqges8",  I8,  i8,  [HasI8],  IIALU>;
-defm SEQGES16 : SeqSOp<"seqges16", I16, i16, [HasI16], IIALU>;
-defm SEQGES32 : SeqSOp<"seqges32", I32, i32, [HasI32], IIALU>;
-defm SEQGES64 : SeqSOp<"seqges64", I64, i64, [HasI64], IIALU>;
+defm SEQGES8  : SeqSOp<"seqges8",  Ti8,  [HasI8],  IIALU>;
+defm SEQGES16 : SeqSOp<"seqges16", Ti16, [HasI16], IIALU>;
+defm SEQGES32 : SeqSOp<"seqges32", Ti32, [HasI32], IIALU>;
+defm SEQGES64 : SeqSOp<"seqges64", Ti64, [HasI64], IIALU>;
 
-defm SEQGEU8  : SeqSOp<"seqgeu8",  I8,  i8,  [HasI8],  IIALU>;
-defm SEQGEU16 : SeqSOp<"seqgeu16", I16, i16, [HasI16], IIALU>;
-defm SEQGEU32 : SeqSOp<"seqgeu32", I32, i32, [HasI32], IIALU>;
-defm SEQGEU64 : SeqSOp<"seqgeu64", I64, i64, [HasI64], IIALU>;
+defm SEQGEU8  : SeqSOp<"seqgeu8",  Ti8,  [HasI8],  IIALU>;
+defm SEQGEU16 : SeqSOp<"seqgeu16", Ti16, [HasI16], IIALU>;
+defm SEQGEU32 : SeqSOp<"seqgeu32", Ti32, [HasI32], IIALU>;
+defm SEQGEU64 : SeqSOp<"seqgeu64", Ti64, [HasI64], IIALU>;
 
-multiclass RepeatOp<string opStr, RegisterClass RC, ValueType opType,
+multiclass RepeatOp<string opStr, LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin> {
   // hasSideEffects attempts to capture the internal state and stream output behavior
   let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<  // TODO: something to reflect state
       (outs I64:$out),
-      (ins I1:$pred, RC:$in),
+      (ins I1:$pred, t.RCL:$in),
       !strconcat(opStr, "\t$out, $pred, $in"),
       []>;
   }
 }
 
-defm REPEAT8  : RepeatOp<"repeat8",  I8,  i8,  [HasI8],  IIALU>;
-defm REPEAT16 : RepeatOp<"repeat16", I16, i16, [HasI16], IIALU>;
-defm REPEAT32 : RepeatOp<"repeat32", I32, i32, [HasI32], IIALU>;
-defm REPEAT64 : RepeatOp<"repeat64", I64, i64, [HasI64], IIALU>;
+defm REPEAT8  : RepeatOp<"repeat8",  Ti8,  [HasI8],  IIALU>;
+defm REPEAT16 : RepeatOp<"repeat16", Ti16, [HasI16], IIALU>;
+defm REPEAT32 : RepeatOp<"repeat32", Ti32, [HasI32], IIALU>;
+defm REPEAT64 : RepeatOp<"repeat64", Ti64, [HasI64], IIALU>;
 
-multiclass StrideOp<string opStr, RegisterClass RC, ValueType opType,
+multiclass StrideOp<string opStr, LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin> {
   // hasSideEffects attempts to capture the internal state and stream output behavior
   let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<  // TODO: something to reflect state
       (outs I64:$out),
-      (ins I1:$pred, RC:$base, RC:$stride),
+      (ins I1:$pred, t.RCL:$base, t.RCL:$stride),
       !strconcat(opStr, "\t$out, $pred, $base, $stride"),
       []>;
   }
 }
 
-defm STRIDE8  : StrideOp<"stride8",  I8,  i8,  [HasI8],  IIALU>;
-defm STRIDE16 : StrideOp<"stride16", I16, i16, [HasI16], IIALU>;
-defm STRIDE32 : StrideOp<"stride32", I32, i32, [HasI32], IIALU>;
-defm STRIDE64 : StrideOp<"stride64", I64, i64, [HasI64], IIALU>;
+defm STRIDE8  : StrideOp<"stride8",  Ti8,  [HasI8],  IIALU>;
+defm STRIDE16 : StrideOp<"stride16", Ti16, [HasI16], IIALU>;
+defm STRIDE32 : StrideOp<"stride32", Ti32, [HasI32], IIALU>;
+defm STRIDE64 : StrideOp<"stride64", Ti64, [HasI64], IIALU>;
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.
@@ -1471,24 +1386,24 @@ def ONEND : FMTGEN<  // TODO: something to reflect state
   []> { let Itinerary = IIVir; }
   
 
-multiclass Init<RegisterClass RC, ValueType opType,
+multiclass Init<LPUTypeInfo t,
            list<Predicate> preds, InstrItinClass itin> {
   // Not clear that "hasSideEffects" is a good description of static initialization...
   let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def "" : PseudoInstLPU<
-      (outs RC:$dst),
-      (ins Operand<opType>:$imm),
+      (outs t.RC:$dst),
+      (ins t.L:$imm),
       ".curr\t$dst;\t.value $imm;\t.avail 0",
       []>;
   }
 }
 
-defm INIT0  : Init<I1,  i1,  [HasI1],  IIVir>;
-defm INIT1  : Init<I1,  i1,  [HasI1],  IIVir>;
-defm INIT8  : Init<I8,  i8,  [HasI8],  IIVir>;
-defm INIT16 : Init<I16, i16, [HasI16], IIVir>;
-defm INIT32 : Init<I32, i32, [HasI32], IIVir>;
-defm INIT64 : Init<I64, i64, [HasI64], IIVir>;
+defm INIT0  : Init<Ti0,  [HasI1],  IIVir>;
+defm INIT1  : Init<Ti1,  [HasI1],  IIVir>;
+defm INIT8  : Init<Ti8,  [HasI8],  IIVir>;
+defm INIT16 : Init<Ti16, [HasI16], IIVir>;
+defm INIT32 : Init<Ti32, [HasI32], IIVir>;
+defm INIT64 : Init<Ti64, [HasI64], IIVir>;
 
 // Unit - type only
 def UNIT : PseudoInstLPU<
@@ -1510,7 +1425,6 @@ def UNITA : PseudoInstLPU<
     (ins UnitOpnd:$immType, Operand<i64>:$idx1, Operand<i64>:$idx2),
     ".unit\t$immType, $idx1, $idx2",
     []>;
-
 
 // Arbitrary immediate support
 def: Pat<(i1 imm:$imm),  (MOV1 imm:$imm)>;

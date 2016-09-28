@@ -65,7 +65,7 @@ void LPUFrameLowering::emitPrologue(MachineFunction &MF) const {
   if (StackSize == 0) return;
 
   // Adjust stack : sub sp, sp, imm
-  BuildMI(MBB, MBBI, dl, TII.get(LPU::SUB64i), LPU::SP)
+  BuildMI(MBB, MBBI, dl, TII.get(LPU::SUB64), LPU::SP)
     .addReg(LPU::SP).addImm(StackSize);
 
   if (MFI->hasCalls()) {
@@ -167,7 +167,7 @@ void LPUFrameLowering::emitEpilogue(MachineFunction &MF,
   }
 
   // Adjust stack : add sp, sp, imm
-  BuildMI(MBB, MBBI, dl, TII.get(LPU::ADD64i), LPU::SP)
+  BuildMI(MBB, MBBI, dl, TII.get(LPU::ADD64), LPU::SP)
     .addReg(LPU::SP).addImm(StackSize);
 }
 
@@ -210,10 +210,10 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
       DebugLoc DL = I != MBB.end() ? I->getDebugLoc() : DebugLoc();
 
       if (I->getOpcode() == LPU::ADJCALLSTACKDOWN) {
-	BuildMI(MBB, I, DL, TII.get(LPU::SUB64i), LPU::SP).addReg(LPU::SP).
+	BuildMI(MBB, I, DL, TII.get(LPU::SUB64), LPU::SP).addReg(LPU::SP).
           addImm(Amount);
       } else {
-	BuildMI(MBB, I, DL, TII.get(LPU::ADD64i), LPU::SP).addReg(LPU::SP).
+	BuildMI(MBB, I, DL, TII.get(LPU::ADD64), LPU::SP).addReg(LPU::SP).
           addImm(Amount);
       }
     }
