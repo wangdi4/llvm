@@ -656,6 +656,21 @@ void __attribute__((overloadable)) soa4_read_imageui(__read_write image2d_t imag
                       res_x, res_y, res_z, res_w);
 }
 
+void __attribute__((overloadable)) soa4_read_imageui(__read_only image2d_t image, int4 coord_x, int4 coord_y,
+                                                    __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
+{
+    // call SOA version with the default sampler
+    sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+    soa4_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) soa4_read_imageui(__read_write image2d_t image, int4 coord_x, int4 coord_y,
+                                                    __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
+{
+    soa4_read_imageui(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y,
+                      res_x, res_y, res_z, res_w);
+}
+
 void __attribute__((overloadable)) soa8_read_imageui(__read_only image2d_t image, sampler_t sampler, int8 coord_x, int8 coord_y,
                                                     __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
 {
@@ -674,6 +689,21 @@ void __attribute__((overloadable)) soa8_read_imageui(__read_write image2d_t imag
                                                     __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
 {
     soa8_read_imageui(__builtin_astype(image, __read_only image2d_t), sampler, coord_x, coord_y,
+                      res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) soa8_read_imageui(__read_only image2d_t image, int8 coord_x, int8 coord_y,
+                                                    __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
+{
+    // call SOA version with the default sampler
+    sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+    soa8_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) soa8_read_imageui(__read_write image2d_t image, int8 coord_x, int8 coord_y,
+                                                    __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
+{
+    soa8_read_imageui(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y,
                       res_x, res_y, res_z, res_w);
 }
 
