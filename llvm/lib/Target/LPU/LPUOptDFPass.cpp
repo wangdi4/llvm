@@ -568,7 +568,7 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
     else {
       DEBUG(errs() << "No cmp0_idx\n");
     }
-    if (current_loop.cmp1_idx >= 1) {
+    if (current_loop.cmp1_idx >= 0) {
       DEBUG(errs() << "cmp1 matches candidate: \n");
       seq_debug_print_candidate(current_loop.candidates[current_loop.cmp1_idx]);
     }
@@ -773,14 +773,18 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
       DEBUG(errs() << "TBD: Performing sequence optimizations\n");
 
       int num_transformed = 0;
+      int loop_count = 0;
       for (auto it = loops.begin();
            it != loops.end();
            ++it) {
         LPUSeqLoopInfo& loop = *it;
         bool success = seq_try_transform_loop(loop,
                                               insSetMarkedForDeletion);
+        DEBUG(errs() << "Successful transform of loop " << loop_count
+              << "? : " << success << "\n");
         if (success)
           num_transformed++;
+        loop_count++;
       }
       DEBUG(errs() << "Done with seq opt. Transformed "
             <<  num_transformed << " loops\n");
@@ -1162,6 +1166,11 @@ inline bool update_header_cmp_channels(LPUSeqLoopInfo& current_loop,
                                        unsigned bottom, 
                                        unsigned cmp0_channel,
                                        unsigned cmp1_channel) {
+  if (bottom == 0) {
+    DEBUG(errs() << "ERROR: encountering bad bottom channel in loop...\n");
+    assert(0);
+  }
+  
   if (bottom == cmp0_channel) {
     if (current_loop.cmp0_idx >= 0) {
       DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp0\n");
@@ -1173,6 +1182,8 @@ inline bool update_header_cmp_channels(LPUSeqLoopInfo& current_loop,
   else if (bottom == cmp1_channel) {
     if (current_loop.cmp1_idx >= 0) {
       DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp1. Ignoring\n");
+      DEBUG(errs() << "Duplicate def of " << bottom <<
+            " is at idx " << current_loop.cmp1_idx << "\n");
       return false;
     }
     current_loop.cmp1_idx = loop_idx;
@@ -1300,8 +1311,9 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
         // For the second pass, classified takes on the role of
         // "remaining", and current_loop will just take in the
         // remaining candidates.
-        if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
-            // Mark the remaining candidates as invalid.
+        if ((stype == LPUSeqCandidate::SeqType::UNKNOWN) ||
+            (stype == LPUSeqCandidate::SeqType::INVALID)) {
+          // Mark the remaining candidates as invalid.
           x.stype = LPUSeqCandidate::SeqType::INVALID;
           classified.push_back(x);
         }
@@ -1343,7 +1355,7 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
   // Found a valid induction variable. 
   // True if induction variable (i.e., first argument in the compare)
   // is a stride candidate.
-  bool found_indvar;
+  bool found_indvar = false;
   // Index in the loop.candidates vector that identifies a sequence
   // candidate.
   int indvarIdx;
