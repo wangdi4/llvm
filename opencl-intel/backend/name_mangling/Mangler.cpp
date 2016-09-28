@@ -12,6 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <string>
 #include <sstream>
 #include <map>
+#include <algorithm>
 
 //
 //Implementation of an API.
@@ -26,6 +27,18 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 //Note!: theoretically, we need "S1_, S2_,....), but those two are enough for
 //all the builtin functions in openCL, so that will do until proven otherwise.
 const char* DUPLICANT_STR[2] = {"S_", "S0_"};
+
+typedef std::vector<reflection::TypeAttributeEnum> TypeAttrVec;
+static bool hasQualifiersForSubstitution(const TypeAttrVec &attrs) {
+  if (attrs.size() == 0) {
+    return false;
+  }
+
+  // ignore __private address space as it is done in clang
+  size_t privateAddrSpaceQualsNum = std::count(attrs.begin(), attrs.end(),
+                                               reflection::ATTR_PRIVATE);
+  return privateAddrSpaceQualsNum != attrs.size();
+}
 
 class MangleVisitor: public reflection::TypeVisitor{
 public:
@@ -60,9 +73,11 @@ public:
       m_stream << getMangledAttribute(p->getAttributes()[i]);
     }
     p->getPointee()->accept(this);
-    if (p->getAttributes().size())
+
+    if (hasQualifiersForSubstitution(p->getAttributes())) {
       m_dupList.push_back((reflection::ParamType *)new reflection::PointerType(
           p->getPointee()));
+    }
     m_dupList.push_back((reflection::ParamType*)p);
   }
 
