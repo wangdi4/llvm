@@ -153,7 +153,8 @@ public:
   //   <picker> = INIT1 0
   bool seq_is_picker_init_inst(MachineRegisterInfo* MRI,
                                MachineInstr* MI,
-                               unsigned* picker_channel);
+                               unsigned* picker_channel,
+                               bool* picker_sense);
 
   // Returns true if a machine instruction is
   //   <picker> = MOV1 <switcher>
@@ -248,6 +249,7 @@ public:
   // Otherwise, returns a pointer to the instruction we created. 
   MachineInstr*
   seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
+                                          const LPUSeqHeader& loop_header,
                                           unsigned last_reg,
                                           const LPUInstrInfo &TII,
                                           MachineBasicBlock& BB,
@@ -263,6 +265,7 @@ public:
   // Returns the added instruction. 
   MachineInstr*
   seq_add_repeat(LPUSeqCandidate& repeat_candidate,
+                 const LPUSeqHeader& loop_header,
                  unsigned pred_reg,
                  const LPUInstrInfo &TII,
                  MachineBasicBlock& BB,
@@ -272,6 +275,7 @@ public:
   // Returns the added instruction. 
   MachineInstr*
   seq_add_stride(LPUSeqCandidate& repeat_candidate,
+                 const LPUSeqHeader& loop_header,                 
                  unsigned pred_reg,
                  MachineOperand* in_stride_op,
                  unsigned strideOpcode,
@@ -284,6 +288,7 @@ public:
   // Returns the onend instruction.
   MachineInstr*
   seq_add_parloop_memdep(LPUSeqCandidate& memdepCandidate,
+                         const LPUSeqHeader& loop_header,
                          unsigned pred_reg,
                          const LPUInstrInfo &TII,
                          MachineBasicBlock& BB,
@@ -404,8 +409,8 @@ seq_debug_print_candidate(LPUSeqCandidate& x) {
 
 bool LPUOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo* MRI,
                                            MachineInstr* MI,
-                                           unsigned* pickerChannel) {
-  // Just insert a dummy value for safety. 
+                                           unsigned* pickerChannel,
+                                           bool* pickerSense) {
   if (MI->getOpcode() == LPU::INIT1) {
     DEBUG(errs() << "Found an init instruction " << *MI
           << "with " << MI->getNumOperands() << " operands \n");
@@ -413,23 +418,28 @@ bool LPUOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo* MRI,
       MachineOperand& picker_def = MI->getOperand(0);
       MachineOperand& init_val = MI->getOperand(1);
 
-      if ((init_val.isImm()) &&
-          (init_val.getImm() == 0)) {
-        DEBUG(errs() << "Found an init 0 \n");
-        
-        if (picker_def.isReg()) {
-          int pickval = picker_def.getReg();
-          // TBD(jsukha): I can't figure out how to query the register
-          // class of a channel here.  Bcause it is a physical
-          // register, I can't seem to use the normal getRegClass methods. 
-          // But I'm going to assume that knowing that the
-          // opcode was INIT1 was enough...
-          if (!TargetRegisterInfo::isVirtualRegister(pickval)) {
-            *pickerChannel = pickval;
-            return true;
+      if (init_val.isImm()) {
+        int ival = init_val.getImm();
+        if ((ival == 0) || (ival == 1)) {
+          DEBUG(errs() << "Found an init " << ival << " \n");
+          if (picker_def.isReg()) {
+            int pickval = picker_def.getReg();
+            // TBD(jsukha): I can't figure out how to query the register
+            // class of a channel here.  Bcause it is a physical
+            // register, I can't seem to use the normal getRegClass methods. 
+            // But I'm going to assume that knowing that the
+            // opcode was INIT1 was enough...
+            if (!TargetRegisterInfo::isVirtualRegister(pickval)) {
+              *pickerChannel = pickval;
+              *pickerSense = ival;
+              return true;
+            }
+            else {
+              DEBUG(errs() << "Found picker in a virtual reg. Skipping...\n");
+            }
           }
           else {
-            DEBUG(errs() << "Found picker in a virtual reg. Skipping...\n");
+            DEBUG(errs() << "Picker def " << picker_def << " is not a reg\n");
           }
         }
         else {
@@ -475,8 +485,10 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
   
   // Look for an "<picker> = INIT1 0" instruction.
   unsigned pickerChannel;
-  if (seq_is_picker_init_inst(MRI, MI, &pickerChannel)) {
-
+  bool pickerSense = 0;
+  if (seq_is_picker_init_inst(MRI, MI,
+                              &pickerChannel,
+                              &pickerSense)) {
     DEBUG(errs() << "Found picker definition. Register= " <<
           pickerChannel << " = " << PrintReg(pickerChannel) << "\n");
 
@@ -497,12 +509,17 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
 
     DEBUG(errs() << "Num defs found: " << def_count << "\n");
     unsigned switcherChannel = 0;
+
+    // TBD(jsukha): In theory, we should be able to deal with loops
+    // where the switcher control is inverted from the picker control.
+    // But I'm ignoring this case for now.
     if (!seq_is_picker_mov_inst(MRI, pickerMov1,
                                 pickerChannel,
                                 &switcherChannel)) {
       // If that last definition is not instruction we want, bail.
       return false;
     }
+    bool switcherSense = pickerSense;
 
     DEBUG(errs() << "Found pickerMov1 instruction " << *pickerMov1);
     DEBUG(errs() << " with switcher channel " << switcherChannel << "\n");
@@ -536,7 +553,9 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
                  pickerMov1,
                  compareInst,
                  pickerChannel,
-                 switcherChannel);
+                 switcherChannel,
+                 pickerSense,
+                 switcherSense);
     return true;
   }
   return false;
@@ -641,9 +660,11 @@ seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
           //   pick[n] top_val, pickerChannel, init_val, loop_back
           if ((TII.isPick(MI)) &&
               (MI->getNumOperands() == 4)) {
-            MachineOperand& selectOp = MI->getOperand(1);
-            MachineOperand& loopbackOp = MI->getOperand(3);
-
+            int pick_select_idx = LPUSeqHeader::pick_select_op_idx();
+            MachineOperand& selectOp = MI->getOperand(pick_select_idx);
+            int loopback_idx = current_loop.header.pick_loopback_op_idx();
+            MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
+            
             if (selectOp.isReg() && loopbackOp.isReg()) {
               unsigned select_reg = selectOp.getReg();
               unsigned loopback_reg = loopbackOp.getReg();
@@ -681,9 +702,11 @@ seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
           //   switch[n] final, loopback, switcherChannel, bottom_val
           if ((TII.isSwitch(MI)) &&
               (MI->getNumOperands() == 4)) {
-            MachineOperand& loopbackOp = MI->getOperand(1);
-            MachineOperand& selectOp = MI->getOperand(2);
-
+            int loopback_idx = current_loop.header.switch_loopback_op_idx();
+            MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
+            int switch_select_idx = LPUSeqHeader::switch_select_op_idx();
+            MachineOperand& selectOp = MI->getOperand(switch_select_idx);
+            
             if (selectOp.isReg() && loopbackOp.isReg()) {
               unsigned select_reg = selectOp.getReg();
               unsigned loopback_reg = loopbackOp.getReg();
@@ -858,16 +881,16 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
 
   // Get the source of the switch. In the example above, this register
   // is %CI64_13.
-  MachineOperand& bottom_op = x.switchInst->getOperand(3);
-  MachineOperand& top_op = x.pickInst->getOperand(0);
+  MachineOperand* bottom_op = x.get_switch_bottom_op();
+  MachineOperand* top_op = x.get_pick_top_op();
   
-  if (bottom_op.isReg() &&
-      (!TargetRegisterInfo::isVirtualRegister(bottom_op.getReg())) &&
-      top_op.isReg() &&
-      (!TargetRegisterInfo::isVirtualRegister(top_op.getReg()))) {
+  if (bottom_op->isReg() &&
+      (!TargetRegisterInfo::isVirtualRegister(bottom_op->getReg())) &&
+      top_op->isReg() &&
+      (!TargetRegisterInfo::isVirtualRegister(top_op->getReg()))) {
 
-    unsigned bottom_channel = bottom_op.getReg();
-    unsigned top_channel = top_op.getReg();
+    unsigned bottom_channel = bottom_op->getReg();
+    unsigned top_channel = top_op->getReg();
     MachineRegisterInfo *MRI = &thisMF->getRegInfo();  
     // Look at the instruction that defines bottom_op.
     MachineInstr* def_bottom = getSingleDef(bottom_channel, MRI);
@@ -920,16 +943,16 @@ LPUOptDFPass::
 seq_classify_stride(LPUSeqCandidate& x,
                     const DenseMap<unsigned, int>& repeat_channels) {
   assert(x.pickInst && x.switchInst);
-  MachineOperand& bottom_op = x.switchInst->getOperand(3);
-  MachineOperand& top_op = x.pickInst->getOperand(0);
+  MachineOperand* bottom_op = x.get_switch_bottom_op();
+  MachineOperand* top_op = x.get_pick_top_op();
   
-  if (bottom_op.isReg() &&
-      (!TargetRegisterInfo::isVirtualRegister(bottom_op.getReg())) &&
-      top_op.isReg() &&
-      (!TargetRegisterInfo::isVirtualRegister(top_op.getReg()))) {
+  if (bottom_op->isReg() &&
+      (!TargetRegisterInfo::isVirtualRegister(bottom_op->getReg())) &&
+      top_op->isReg() &&
+      (!TargetRegisterInfo::isVirtualRegister(top_op->getReg()))) {
 
-    unsigned bottom_channel = bottom_op.getReg();
-    unsigned top_channel = top_op.getReg();
+    unsigned bottom_channel = bottom_op->getReg();
+    unsigned top_channel = top_op->getReg();
     MachineRegisterInfo *MRI = &thisMF->getRegInfo();  
     // Look at the instruction that defines bottom_op.
     MachineInstr* def_bottom = getSingleDef(bottom_channel, MRI);
@@ -1001,17 +1024,17 @@ LPUSeqCandidate::SeqType
 LPUOptDFPass::
 seq_classify_memdep_graph(LPUSeqCandidate& x) {
   assert(x.pickInst && x.switchInst);
-  MachineOperand& bottom_op = x.switchInst->getOperand(3);
-  MachineOperand& top_op = x.pickInst->getOperand(0);
+  MachineOperand* bottom_op = x.get_switch_bottom_op();
+  MachineOperand* top_op = x.get_pick_top_op();
 
 
   if ((x.pickInst->getOpcode() == LPU::PICK1) &&
       (x.switchInst->getOpcode() == LPU::SWITCH1) &&
-      bottom_op.isReg() &&
-      top_op.isReg()) {
+      bottom_op->isReg() &&
+      top_op->isReg()) {
 
-    unsigned source_reg = bottom_op.getReg();
-    unsigned sink_reg = top_op.getReg();
+    unsigned source_reg = bottom_op->getReg();
+    unsigned sink_reg = top_op->getReg();
 
     // If the knob setting is 2, just ASSUME we have a memory
     // dependency here, instead of trying to walk the graph to verify
@@ -1275,6 +1298,7 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
         int idx = current_loop.candidates.size();
         current_loop.candidates.push_back(x);
+
         update_header_cmp_channels(current_loop,
                                    idx, 
                                    x.bottom,
@@ -1404,6 +1428,11 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
   
   if (!found_bound) {
     DEBUG(errs() << "Seq transform failed: possible non-constant loop.\n");
+    DEBUG(errs() << "Boundidx = " << boundIdx << "\n");
+    if (boundIdx >= 0) {
+      seq_debug_print_candidate(loop.candidates[boundIdx]);
+
+    }
     return false;
   }
 
@@ -1433,6 +1462,10 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
     
     return true;
   }
+  DEBUG(errs() << "WARNING: possible sequence opcode not implemented yet.\n");
+  DEBUG(errs() << "  induction variable candidate is: ");
+  seq_debug_print_candidate(indvarCandidate);
+  
   return false;
 }
 
@@ -1568,6 +1601,7 @@ seq_replace_channel_with_ign(MachineInstr* MI,
 MachineInstr*
 LPUOptDFPass::
 seq_add_parloop_memdep(LPUSeqCandidate& sc,
+                       const LPUSeqHeader& loop_header,                       
                        unsigned pred_reg,
                        const LPUInstrInfo &TII,
                        MachineBasicBlock& BB,
@@ -1580,11 +1614,11 @@ seq_add_parloop_memdep(LPUSeqCandidate& sc,
             TII.get(LPU::REPEAT8),  // TBD: We technically want repeat1?
             sc.top).
     addReg(pred_reg).
-    addOperand(*sc.get_pick_input_op());
+    addOperand(*sc.get_pick_input_op(loop_header));
   repinst->setFlag(MachineInstr::NonSequential);
 
 
-  MachineOperand* out_s_op = sc.get_switch_output_op();
+  MachineOperand* out_s_op = sc.get_switch_output_op(loop_header);
   assert(out_s_op->isReg());
   
   MachineInstr* onend_inst =
@@ -1603,6 +1637,7 @@ seq_add_parloop_memdep(LPUSeqCandidate& sc,
 MachineInstr*
 LPUOptDFPass::
 seq_add_repeat(LPUSeqCandidate& sc,
+               const LPUSeqHeader& loop_header,
                unsigned pred_reg,
                const LPUInstrInfo &TII,
                MachineBasicBlock& BB,
@@ -1621,7 +1656,7 @@ seq_add_repeat(LPUSeqCandidate& sc,
               TII.get(LPU::REPEAT64),
               sc.top).
       addReg(pred_reg).
-      addOperand(*sc.get_pick_input_op());
+    addOperand(*sc.get_pick_input_op(loop_header));
   repinst->setFlag(MachineInstr::NonSequential);
   return repinst;
 }
@@ -1631,6 +1666,7 @@ seq_add_repeat(LPUSeqCandidate& sc,
 MachineInstr*
 LPUOptDFPass::
 seq_add_stride(LPUSeqCandidate& sc,
+               const LPUSeqHeader& loop_header,               
                unsigned pred_reg,
                MachineOperand* in_stride_op,
                unsigned strideOpcode,
@@ -1646,7 +1682,7 @@ seq_add_stride(LPUSeqCandidate& sc,
             TII.get(strideOpcode),
             sc.top).
     addReg(pred_reg).
-    addOperand(*sc.get_pick_input_op()).
+    addOperand(*sc.get_pick_input_op(loop_header)).
     addOperand(*in_stride_op);
   strideInst->setFlag(MachineInstr::NonSequential);
   return strideInst;
@@ -1656,12 +1692,13 @@ seq_add_stride(LPUSeqCandidate& sc,
 MachineInstr*
 LPUOptDFPass::
 seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
+                                        const LPUSeqHeader& loop_header,
                                         unsigned last_reg,
                                         const LPUInstrInfo &TII,
                                         MachineBasicBlock& BB,
                                         MachineInstr* prev_inst) {
   MachineInstr* output_switch = NULL;
-  MachineOperand* out_s_op = sCandidate.get_switch_output_op();
+  MachineOperand* out_s_op = sCandidate.get_switch_output_op(loop_header);
 
   if (!(out_s_op->isReg() &&
         (out_s_op->getReg() == LPU::IGN))) {
@@ -1703,7 +1740,7 @@ seq_lookup_stride_op(LPUSeqLoopInfo& loop,
       unsigned stride_idx = loop.repeat_channels[bottom_s_reg];
       assert(stride_idx < loop.candidates.size());
       stride_repeat = &loop.candidates[stride_idx];
-      in_s_op = stride_repeat->get_pick_input_op();
+      in_s_op = stride_repeat->get_pick_input_op(loop.header);
     }
     else {
       // We should have matched the register for this stride op with a
@@ -2009,7 +2046,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
 
   // <in_i> may or may not be an immediate, but it must come from the
   // pick.
-  MachineOperand* in_i_op = indvarCandidate.get_pick_input_op();
+  MachineOperand* in_i_op = indvarCandidate.get_pick_input_op(loop.header);
   
   // Find a matching operand for <in_b>.  It either comes from a
   // corresponding repeat input, or the second argument to the
@@ -2023,7 +2060,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   if (boundIdx >= 0) {
     bound_repeat = &loop.candidates[boundIdx];
     assert(bound_repeat->stype == LPUSeqCandidate::SeqType::REPEAT);
-    in_b_op = bound_repeat->get_pick_input_op();
+    in_b_op = bound_repeat->get_pick_input_op(loop.header);
   }
   else {
     in_b_op = &loop.header.compareInst->getOperand(boundOpIdx);
@@ -2078,11 +2115,25 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
     addOperand(*in_s_op);
   seq_inst->setFlag(MachineInstr::NonSequential);
 
+
+  // If the switcher is expecting 1, 1, 1, ... 1, 0, then
+  // loop.header.switcherSense should be 0, and we want a NOT1 to
+  // convert from "last" to the
+  //
+  // Otherwise, the switcher is expecting 0, 0, 0, ... 0, 1,
+  // switcherSense is 1, and should just use a "MOV1" instead.
+  //
+  // TBD: We could just generate the last channel directly.  But a
+  // later optimization phase can probably eliminate the redundancy
+  // fairly easily.
+  //
+  unsigned switcher_ctrl_opcode = ( loop.header.switcherSense ? LPU::MOV1 : LPU::NOT1 );  
+  
   MachineInstr* switcher_def_inst =
     BuildMI(*BB,
             seq_inst,
             indvarCandidate.pickInst->getDebugLoc(),
-            TII.get(LPU::NOT1),
+            TII.get(switcher_ctrl_opcode),
             loop.header.switcherChannel).
     addReg(last_reg);
   switcher_def_inst->setFlag(MachineInstr::NonSequential);
@@ -2092,6 +2143,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   //  %ign, <out_i> = switch[n] <last_i>, <bottom_i>
   MachineInstr* output_switch =
     seq_add_output_switch_for_seq_candidate(indvarCandidate,
+                                            loop.header,
                                             last_reg,
                                             TII,
                                             *BB,
@@ -2126,12 +2178,14 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
         {
           MachineInstr* repinst =
             seq_add_repeat(scandidate,
+                           loop.header, 
                            pred_reg,
                            TII,
                            *BB,
                            seq_inst);
           MachineInstr* out_switch =
-            seq_add_output_switch_for_seq_candidate(scandidate, 
+            seq_add_output_switch_for_seq_candidate(scandidate,
+                                                    loop.header,
                                                     last_reg,
                                                     TII,
                                                     *BB,
@@ -2142,7 +2196,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
             DEBUG(errs() << "Adding an output switch for the repeat/stride: "
                   << *out_switch << "\n");
           }
-          
+
           insMarkedForDeletion.push_back(scandidate.pickInst);
           insMarkedForDeletion.push_back(scandidate.switchInst);
           assert(!scandidate.transformInst);
@@ -2171,6 +2225,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
                                  scandidate);
           MachineInstr* stride_inst =
             seq_add_stride(scandidate,
+                           loop.header, 
                            pred_reg,
                            my_s_op,
                            strideOpcode, 
@@ -2179,6 +2234,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
                            seq_inst);
           MachineInstr* out_switch =
             seq_add_output_switch_for_seq_candidate(scandidate,
+                                                    loop.header,
                                                     last_reg,
                                                     TII,
                                                     *BB,
@@ -2205,6 +2261,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
         {
           MachineInstr* onend_inst =
             seq_add_parloop_memdep(scandidate,
+                                   loop.header,                                   
                                    pred_reg,
                                    TII,
                                    *BB,

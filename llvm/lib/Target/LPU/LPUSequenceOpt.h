@@ -228,6 +228,23 @@ namespace llvm {
     unsigned pickerChannel;
     unsigned switcherChannel;
 
+    // This value is the "sense" of the pick instructions controlling
+    // the loop.  This value should be 0 / false if the loop is
+    // controlled by an "INIT 0", and a 1 / true if the loop is
+    // controlled by an "INIT 1".
+    bool pickerSense;
+
+    // This value is the sense of the channel controlling the switcher
+    // for the loop.  If 0, then the final output from the switch is
+    // operand 0, and the loopback value is operand 1.
+    //
+    // Otherwise, for 1, the final output and loopback values are
+    // reversed.
+    //
+    // TBD(jsukha): USUALLY we expect pickerSense and switcherSense to
+    // be matching.  But it is concievable that there could be loops
+    // where these values are reversed.
+    bool switcherSense;    
 
     LPUSeqHeader()
       : pickerInit(NULL)
@@ -239,12 +256,61 @@ namespace llvm {
               MachineInstr* pickerMov1_,
               MachineInstr* compareInst_,
               unsigned pickerChannel_,
-              unsigned switcherChannel_) {
+              unsigned switcherChannel_,
+              bool pickerSense_,
+              bool switcherSense_) {              
       this->pickerInit = pickerInit_;
       this->pickerMov1 = pickerMov1_;
       this->compareInst = compareInst_;
       this->pickerChannel = pickerChannel_;
       this->switcherChannel = switcherChannel_;
+      this->pickerSense = pickerSense_;
+      this->switcherSense = switcherSense_;
+    }
+
+
+    static
+    int pick_top_op_idx() {
+      return 0;
+    }
+    static
+    int pick_select_op_idx() {
+      return 1;
+    }
+    static
+    int switch_select_op_idx() {
+      return 2;
+    }
+    static
+    int switch_bottom_op_idx() {
+      return 3;
+    }
+    
+    // A pick for a loop looks like:
+    //   pick <out>, <ctrl>, <in0>, <in1>
+    //
+    // If the loop is 0-intialized, <in0> is the initial value and
+    // <in1> is the loopback. Otherwise, it is reversed.
+    //
+    // These two methods return the correct index to the machine
+    // operand that we should use.    
+    int pick_input_op_idx() const {
+      return 2 + this->pickerSense;
+    }
+    int pick_loopback_op_idx() const {
+      return 3 - this->pickerSense;
+    }
+
+    // The output switch looks like:
+    //  switch <out0>, <out1>, <ctrl>, <in>
+    //
+    // If the loop is 0-initialized, then <out0> is the output.
+    // and <out1> is the loopback.  Otherwise, it is reversed. 
+    int switch_output_op_idx() const {
+      return this->switcherSense;
+    }
+    int switch_loopback_op_idx() const {
+      return 1 - this->switcherSense;
     }
   };
 
@@ -299,22 +365,30 @@ namespace llvm {
       }
     }
 
-    // Accessor functions for important 
-
-    inline MachineOperand* get_pick_top_op() const {
-      return &pickInst->getOperand(0);
+    // Accessor functions for different operands from the pick/switch
+    // instructions.
+    inline MachineOperand*
+    get_pick_top_op() const {
+      int idx = LPUSeqHeader::pick_top_op_idx();
+      return &pickInst->getOperand(idx);
     }
 
-    inline MachineOperand* get_pick_input_op() const {
-      return &pickInst->getOperand(2);
+    inline MachineOperand*
+    get_pick_input_op(const LPUSeqHeader& header) const {
+      int idx = header.pick_input_op_idx();
+      return &pickInst->getOperand(idx);
     }
 
-    inline MachineOperand* get_switch_bottom_op() const {
-      return &switchInst->getOperand(3);
+    inline MachineOperand*
+    get_switch_bottom_op() const {
+      int idx = LPUSeqHeader::switch_bottom_op_idx();
+      return &switchInst->getOperand(idx);
     }
 
-    inline MachineOperand* get_switch_output_op() const {
-      return &switchInst->getOperand(0);
+    inline MachineOperand*
+    get_switch_output_op(const LPUSeqHeader& header) const {
+      int idx = header.switch_output_op_idx();      
+      return &switchInst->getOperand(idx);
     }
 
 
