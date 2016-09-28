@@ -9,45 +9,31 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __DRIVER_VECTORIZER_FUNCTION_H__
 
 #include "VectorizerFunction.h"
-#include "BuiltinKeeper.h"
-#include "NameMangleAPI.h"
-#include "Mangler.h"
-#include "ParameterType.h"
-#include "Logger.h"
 
-#include "llvm/IR/Constants.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/Module.h"
-
-using namespace reflection;
 namespace intel {
 
-class DriverVectorizerFunction: public VectorizerFunction{
+class DriverVectorizerFunction : public VectorizerFunction {
 public:
-
   DriverVectorizerFunction(const std::string& s);
 
   ~DriverVectorizerFunction();
 
-  unsigned getWidth()const;
+  unsigned getWidth() const;
 
-  bool isPacketizable()const;
+  bool isPacketizable() const;
 
-  bool isScalarizable()const;
+  bool isScalarizable() const;
 
-  std::string getVersion(unsigned index)const;
+  std::string getVersion(unsigned index) const;
 
-  bool isNull()const;
+  bool isNull() const;
 
 private:
-
-  bool isMangled()const;
+  bool isMangled() const;
 
   const std::string m_name;
 };
 
-} // namespace
+} // namespace intel
 
 #endif // __DRIVER_VECTORIZER_FUNCTION_H__
-

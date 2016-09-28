@@ -6,12 +6,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "DriverVectorizerFunction.h"
-#include "VectorizerFunction.h"
 #include "BuiltinKeeper.h"
-#include "NameMangleAPI.h"
-#include "Mangler.h"
-#include "ParameterType.h"
 #include "Logger.h"
+#include "Mangler.h"
+#include "NameMangleAPI.h"
+#include "ParameterType.h"
+#include "VectorizerFunction.h"
 
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Constants.h"
@@ -22,30 +22,30 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 using namespace reflection;
 namespace intel {
 
-DriverVectorizerFunction::DriverVectorizerFunction(const std::string& s): m_name(s){
-}
+DriverVectorizerFunction::DriverVectorizerFunction(const std::string &s)
+    : m_name(s) {}
 
-DriverVectorizerFunction::~DriverVectorizerFunction() {  }
+DriverVectorizerFunction::~DriverVectorizerFunction() {}
 
-static bool isPipeBuiltin(const std::string& s) {
+static bool isPipeBuiltin(const std::string &s) {
   return llvm::StringSwitch<bool>(s)
-    .Case("__read_pipe_2", true)
-    .Case("__read_pipe_4", true)
-    .Case("__commit_read_pipe", true)
-    .Case("__reserve_read_pipe", true)
-    .Case("__sub_group_commit_read_pipe", true)
-    .Case("__sub_group_reserve_read_pipe", true)
-    .Case("__work_group_commit_read_pipe", true)
-    .Case("__work_group_reserve_read_pipe", true)
-    .Case("__write_pipe_2", true)
-    .Case("__write_pipe_4", true)
-    .Case("__commit_write_pipe", true)
-    .Case("__reserve_write_pipe", true)
-    .Case("__sub_group_commit_write_pipe", true)
-    .Case("__sub_group_reserve_write_pipe", true)
-    .Case("__work_group_commit_write_pipe", true)
-    .Case("__work_group_reserve_write_pipe", true)
-    .Default(false);
+      .Case("__read_pipe_2", true)
+      .Case("__read_pipe_4", true)
+      .Case("__commit_read_pipe", true)
+      .Case("__reserve_read_pipe", true)
+      .Case("__sub_group_commit_read_pipe", true)
+      .Case("__sub_group_reserve_read_pipe", true)
+      .Case("__work_group_commit_read_pipe", true)
+      .Case("__work_group_reserve_read_pipe", true)
+      .Case("__write_pipe_2", true)
+      .Case("__write_pipe_4", true)
+      .Case("__commit_write_pipe", true)
+      .Case("__reserve_write_pipe", true)
+      .Case("__sub_group_commit_write_pipe", true)
+      .Case("__sub_group_reserve_write_pipe", true)
+      .Case("__work_group_commit_write_pipe", true)
+      .Case("__work_group_reserve_write_pipe", true)
+      .Default(false);
 }
 
 unsigned DriverVectorizerFunction::getWidth() const {
