@@ -1801,20 +1801,21 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   NewConstraint.setLine(SrcCoeff, getNegative(DstCoeff), Delta, CurLoop);
 
-  int64_t K1, K2, K3;
-  if (!(Delta->isIntConstant(&K1)) || !(SrcCoeff->isIntConstant(&K2)) ||
-      !(DstCoeff->isIntConstant(&K3))) {
+  int64_t ConstDeltaVal, SrcCoeffVal, DstCoeffVal, UBVal;
+  if (!(Delta->isIntConstant(&ConstDeltaVal)) ||
+      !(SrcCoeff->isIntConstant(&SrcCoeffVal)) ||
+      !(DstCoeff->isIntConstant(&DstCoeffVal))) {
     return false;
   }
 
-  DEBUG(dbgs() << "\tDelta, SrcCoeff, DstCoeff = " << K1 << "," << K2 << ","
-               << K3);
+  DEBUG(dbgs() << "\tDelta, SrcCoeff, DstCoeff = " << ConstDeltaVal << ","
+               << SrcCoeffVal << "," << DstCoeffVal);
 
   // find gcd
   APInt G, X, Y;
-  APInt DM = llvm::APInt(64, K1, true);
-  APInt AM = llvm::APInt(64, K2, true);
-  APInt BM = llvm::APInt(64, K3, true);
+  APInt DM = llvm::APInt(64, ConstDeltaVal, true);
+  APInt AM = llvm::APInt(64, SrcCoeffVal, true);
+  APInt BM = llvm::APInt(64, DstCoeffVal, true);
 
   unsigned Bits = AM.getBitWidth();
   if (findGCD(Bits, AM, BM, DM, G, X, Y)) {
@@ -1828,14 +1829,14 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   //  Normalized CE implies LM = 0
 
   APInt UM(Bits, 1, true);
-  bool UMvalid = false;
+  bool UMValid = false;
 
   // UM is perhaps unavailable, let's check
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
-    if (UpperBound->isIntConstant(&K1)) {
-      UM = llvm::APInt(64, K1, true);
+    if (UpperBound->isIntConstant(&UBVal)) {
+      UM = llvm::APInt(64, UBVal, true);
       DEBUG(dbgs() << "\t    UM = " << UM << "\n");
-      UMvalid = true;
+      UMValid = true;
     }
   }
 
@@ -1847,14 +1848,14 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   if (TMUL.sgt(0)) {
     TL = maxAPInt(TL, ceilingOfQuotient(-X, TMUL));
     DEBUG(dbgs() << "\t    TL = " << TL << "\n");
-    if (UMvalid) {
+    if (UMValid) {
       TU = minAPInt(TU, floorOfQuotient(UM - X, TMUL));
       DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     }
   } else {
     TU = minAPInt(TU, floorOfQuotient(-X, TMUL));
     DEBUG(dbgs() << "\t    TU = " << TU << "\n");
-    if (UMvalid) {
+    if (UMValid) {
       TL = maxAPInt(TL, ceilingOfQuotient(UM - X, TMUL));
       DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     }
@@ -1865,14 +1866,14 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   if (TMUL.sgt(0)) {
     TL = maxAPInt(TL, ceilingOfQuotient(-Y, TMUL));
     DEBUG(dbgs() << "\t    TL = " << TL << "\n");
-    if (UMvalid) {
+    if (UMValid) {
       TU = minAPInt(TU, floorOfQuotient(UM - Y, TMUL));
       DEBUG(dbgs() << "\t    TU = " << TU << "\n");
     }
   } else {
     TU = minAPInt(TU, floorOfQuotient(-Y, TMUL));
     DEBUG(dbgs() << "\t    TU = " << TU << "\n");
-    if (UMvalid) {
+    if (UMValid) {
       TL = maxAPInt(TL, ceilingOfQuotient(UM - Y, TMUL));
       DEBUG(dbgs() << "\t    TL = " << TL << "\n");
     }
@@ -1904,29 +1905,65 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   }
 
   // equal
-  TU = SaveTU; // restore
-  TL = SaveTL;
+
+  // TU = SaveTU;
+  // TL = SaveTL;
+
+  // This algorithm does not set "=" in this case:
+  //
+  // do i=0,21
+  //  a(63 - 3*i) =
+  //  a(126 -6*i) =
+  //  DV should be (<=)  but the "=' part is not set
+
+  // if (TMUL.sgt(0)) {
+  //   TL = maxAPInt(TL, ceilingOfQuotient(X - Y, TMUL));
+  //   DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
+  //  } else {
+  //    TU = minAPInt(TU, floorOfQuotient(X - Y, TMUL));
+  //   DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
+  // }
+  // TMUL = BM - AM;
+  // if (TMUL.sgt(0)) {
+  //   TL = maxAPInt(TL, ceilingOfQuotient(Y - X, TMUL));
+  //   DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
+  // } else {
+  //   TU = minAPInt(TU, floorOfQuotient(Y - X, TMUL));
+  //   DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
+  // }
+  // if (TL.sle(TU)) {
+  //  NewDirection |= DVKind::EQ;
+  //  ++ExactSIVsuccesses;
+  // }
+
+  // Algorithm revised:
+  // For tesing (=) it can be done simply as follows.
+  // IV  = diff_of_the_constants / diff_of_coeffs
+  // Check if IV is within this range:  [0, Upperbound]
+
   DEBUG(dbgs() << "\t    exploring EQ direction\n");
-  if (TMUL.sgt(0)) {
-    TL = maxAPInt(TL, ceilingOfQuotient(X - Y, TMUL));
-    DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
-  } else {
-    TU = minAPInt(TU, floorOfQuotient(X - Y, TMUL));
-    DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
-  }
-  TMUL = BM - AM;
-  if (TMUL.sgt(0)) {
-    TL = maxAPInt(TL, ceilingOfQuotient(Y - X, TMUL));
-    DEBUG(dbgs() << "\t\t    TL = " << TL << "\n");
-  } else {
-    TU = minAPInt(TU, floorOfQuotient(Y - X, TMUL));
-    DEBUG(dbgs() << "\t\t    TU = " << TU << "\n");
-  }
-  if (TL.sle(TU)) {
-    NewDirection |= DVKind::EQ;
-    ++ExactSIVsuccesses;
+
+  int64_t CoeffDeltaVal = SrcCoeffVal - DstCoeffVal;
+  assert(CoeffDeltaVal != 0 && "Coeffs not expected to be equal here");
+  if ((ConstDeltaVal % CoeffDeltaVal) == 0) {
+    int64_t IVVal = ConstDeltaVal / CoeffDeltaVal;
+    if (IVVal >= 0) {
+      bool SetEQ = false;
+      if (UMValid) {
+        if (IVVal <= UBVal) {
+          SetEQ = true;
+        }
+      } else {
+        SetEQ = true;
+      }
+      if (SetEQ) {
+        NewDirection |= DVKind::EQ;
+        ++ExactSIVsuccesses;
+      }
+    }
   }
 
+  TMUL = BM - AM;
   // greater than
   TU = SaveTU; // restore
   TL = SaveTL;

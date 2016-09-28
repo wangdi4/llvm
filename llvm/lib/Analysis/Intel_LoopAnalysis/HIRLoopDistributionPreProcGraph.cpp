@@ -97,8 +97,6 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
                           Loop->getLastChild());
 
   if (EdgeCreator.EdgeCount > MaxDDEdges) {
-    errs() << " Toom many DD edges ";
-    DEBUG(Loop->dump());
     setInvalid("Too many DD edges for proper analysis");
   }
 }
