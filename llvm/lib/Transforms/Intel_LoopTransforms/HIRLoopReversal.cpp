@@ -307,70 +307,73 @@ struct HIRLoopReversal::AnalyzeDDInfo final : public HLNodeVisitorBase {
   // Any premature abort?
   bool getCollectionAborted(void) const { return AbortCollector; }
 
-  void visit(const HLInst *Inst) { doLegalTest(Inst); }
+  void visit(const HLDDNode *DDNode);
 
-  // Do Legal Test on HLInst* for HIR LoopReversal
-  // and
-  // Do SafeReduction Test:
-  // if (Lval is TempLiveOut and !isSafeReduction) then
-  //   Abort Collection
-  //
-  void doLegalTest(const HLInst *Inst) {
-    // Examine the current HLInst
-    // DEBUG(Inst->dump(););
+  void postVisit(const HLNode *Node) {}
+};
 
-    // 1. Ignore the Inst if it is a SafeReduction
+// Do Legal Test on
+//
+// 1. HLInst* for HIR LoopReversal and Do SafeReduction Test:
+// if (Lval is TempLiveOut and !isSafeReduction) then
+//   Abort Collection
+//
+// 2. Regular Reversal Legal Test
+//
+void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
+  // 0.Sanity
+  assert(DDNode && "DDNode can't be null\n");
+
+  // Examine the current HLInst
+  // DEBUG(DDNode->dump(););
+
+  // 1. Support for HLInst*
+  if (const HLInst *Inst = dyn_cast<HLInst>(DDNode)) {
+    // Ignore SafeReduction!
     if (HLR->HSRA->isSafeReduction(Inst)) {
       return;
     }
 
-    // 2. Do LiveOut Temp test on the loop
+    // Do LiveOut Temp test only if Lval exists
+    // Note: a call may have a null Lval
     const RegDDRef *LRef = Inst->getLvalDDRef();
-    assert(LRef && "LRef can't be null\n");
-
-    // Abort collection if IsLoopLiveOut && !SafeReduction hold
-    bool IsLoopLiveOut = Lp->isLiveOut(LRef->getSymbase());
-    if (IsLoopLiveOut) {
+    if (LRef && Lp->isLiveOut(LRef->getSymbase())) {
+      // Abort collection if IsLoopLiveOut && !SafeReduction hold
       AbortCollector = true;
       return;
     }
-
-    // 3. Iterate over each DDRef
-    for (auto I = Inst->op_ddref_begin(), E = Inst->op_ddref_end(); I != E;
-         ++I) {
-      // Iterate over each outgoing edge:
-      for (auto II = DDG.outgoing_edges_begin(*I),
-                EE = DDG.outgoing_edges_end(*I);
-           II != EE; ++II) {
-
-        // Examine the DDEdge:
-        const DDEdge *Edge = (*II);
-        // DEBUG(Edge->print(dbgs()););
-        // DEBUG(::dump(Edge, "Current Outgoing DDEdge:"););
-        //(void)Edge;
-
-        // 1.Ignore any edge if its sink is out of the current loop
-        if (!(HLNodeUtils::contains(Lp, Edge->getSink()->getHLDDNode()))) {
-          continue;
-        }
-
-        // 2. Check Current DV is legal to reverse
-        const DirectionVector &DV = Edge->getDV();
-        // DEBUG(DV.print(dbgs(), true));
-
-        bool ValidDV = HLR->isLegal(DV, LoopLevel);
-        // Abort Collection if invalid!
-        if (!ValidDV) {
-          AbortCollector = true;
-          return;
-        }
-      }
-      // end loop: out-going edge
-    }
   }
 
-  void postVisit(const HLNode *Node) {}
-};
+  // 2. Iterate over each DDRef
+  for (auto It = DDNode->op_ddref_begin(), ItE = DDNode->op_ddref_end();
+       It != ItE; ++It) {
+    // Iterate over each outgoing edge:
+    for (auto II = DDG.outgoing_edges_begin(*It),
+              EE = DDG.outgoing_edges_end(*It);
+         II != EE; ++II) {
+
+      // Examine the DDEdge:
+      const DDEdge *Edge = (*II);
+      // DEBUG(Edge->print(dbgs()););
+
+      // 1.Ignore any edge if its sink is out of the current loop
+      if (!(HLNodeUtils::contains(Lp, Edge->getSink()->getHLDDNode()))) {
+        continue;
+      }
+
+      // 2. Check Current DV is legal to reverse
+      const DirectionVector &DV = Edge->getDV();
+      // DEBUG(DV.print(dbgs(), true));
+
+      // Abort Collection if invalid!
+      if (!HLR->isLegal(DV, LoopLevel)) {
+        AbortCollector = true;
+        return;
+      }
+    }
+    // end loop: out-going edge
+  }
+}
 
 // *** HIRLoopReversal Pass's Implementation ***
 
@@ -509,7 +512,8 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp) {
     return false;
   }
 
-  // 3.3 Filter off any loop with constant trip count below the given threshold
+  // 3.3 Filter off any loop with constant trip count below the given
+  // threshold
   uint64_t TripCount = 0;
   if (Lp->isConstTripLoop(&TripCount)) {
     if (TripCount < DefaultShortTripThreshold) {
@@ -637,25 +641,24 @@ bool HIRLoopReversal::isProfitable(const HLLoop *Lp) {
 // Launch legal test for each DV in the loop.
 //
 /* ------------------------------------------------------------------- */
-bool HIRLoopReversal::isLegal(const HLLoop *Lp) {
+bool HIRLoopReversal::isLegal(HLLoop *Lp) {
   // 0. Sanity Check/Setup;
   assert(Lp &&
          "HIRLoopReversal::isLegal(.) assert fired: Loop can't be NULL\n");
   // DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
-  HLLoop *Lp2 = const_cast<HLLoop *>(Lp); // cast-away the constant qualifier
 
   // Get DDGraph
-  DDGraph DDG = HDDA->getGraph(Lp2, false);
+  DDGraph DDG = HDDA->getGraph(Lp, false);
   // DEBUG(dbgs() << "Dump the Full DDGraph:\n"; DDG.dump(););
 
   // Force to have HIR SafeReductionAnalysis results ready
   //(need it in AnalyzeDDInfo)
-  HSRA->computeSafeReductionChains(Lp2);
+  HSRA->computeSafeReductionChains(Lp);
 
   // 1. Analyze all DVs from the Loop
   // Note: legality test is inside AnalyzeDDInfo, no DV is ever saved!
-  AnalyzeDDInfo ADDI(DDG, Lp2, this, LoopLevel);
-  HLNodeUtils::visit(ADDI, Lp2);
+  AnalyzeDDInfo ADDI(DDG, Lp, this, LoopLevel);
+  HLNodeUtils::visitRange(ADDI, Lp->child_begin(), Lp->child_end());
 
   // 2. Check DDInfoAnalysis's early abortion
   bool CollectionAborted = ADDI.getCollectionAborted();
