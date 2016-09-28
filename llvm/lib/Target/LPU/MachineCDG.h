@@ -270,15 +270,7 @@ namespace llvm {
       MachineFunctionPass::getAnalysisUsage(AU);
     }
     void writeDotGraph(StringRef fname);
-    virtual bool runOnMachineFunction(MachineFunction &F) {
-      thisMF = &F;
-      TII = thisMF->getSubtarget().getInstrInfo();
-      MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
-      thisPDT = &pdt;
-      graphForFunction(F, pdt);
-      writeDotGraph(F.getName());
-      return false;
-    }
+		virtual bool runOnMachineFunction(MachineFunction &F);
   };
 
   template <> struct GraphTraits<ControlDependenceGraph *>
@@ -350,6 +342,9 @@ namespace llvm {
         return "F";
       case ControlDependenceNode::OTHER:
         return "";
+			default:
+				assert(false && "unknown edge type");
+				return "";
       }
     }
   };

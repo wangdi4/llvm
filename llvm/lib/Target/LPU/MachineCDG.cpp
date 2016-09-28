@@ -16,10 +16,16 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "LPUInstrInfo.h"
+#include "llvm/Support/CommandLine.h"
 #include <deque>
 #include <set>
 
 using namespace llvm;
+
+static cl::opt<int>
+LPUDumpDotGraph("lpu-dump-dot-graph", cl::Hidden,
+	cl::desc("LPU Specific: dump CFG, CDG, PDT, DT dot graphs"),
+	cl::init(0));
 
 //  Because of the namespace-related syntax limitations of gcc, we need
 //  To hoist init out of namespace blocks. 
@@ -141,6 +147,7 @@ ControlDependenceGraphBase::getEdgeType(MachineBasicBlock *A, MachineBasicBlock 
 		}
   } else {
     assert(false && "unexpected case");
+		return ControlDependenceNode::OTHER;
   }
 }
 
@@ -418,9 +425,9 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
           MachineDomTreeNode *YRTailDN = pdt.getNode(YRTailBB);
           bool isYBtwnStartEnd = pdt.dominates(YRHdrDN, StartDN) &&
                                  pdt.properlyDominates(EndDN, YRTailDN);
-		  if (!isYBtwnStartEnd || loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1) {
+		  if (!isYBtwnStartEnd || (loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1)) {
 			//modification to the original paper: latch node need to be in a seperate region by itself
-			if (YR->NewRegion <= T || loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1) {
+			if (YR->NewRegion <= T || (loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1)) {
 			  NumRegions++;
               CDGRegion *splitRgn = new CDGRegion();
               //regions[NumRegions] = splitRgn;
@@ -502,6 +509,17 @@ ControlDependenceGraph::ControlDependenceGraph() : MachineFunctionPass(ID), Cont
   initializeControlDependenceGraphPass(*PassRegistry::getPassRegistry());
 }
 
+bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
+	thisMF = &F;
+	TII = thisMF->getSubtarget().getInstrInfo();
+	MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
+	thisPDT = &pdt;
+	graphForFunction(F, pdt);
+	if (LPUDumpDotGraph) {
+		writeDotGraph(F.getName());
+	}
+	return false;
+}
 
 void ControlDependenceGraph::writeDotGraph(StringRef fname) {
   std::string Filename = fname.str() + "_CDG" + ".dot";
