@@ -78,18 +78,19 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopResource.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
+#include "HIRUnroll.h"
 
 #define DEBUG_TYPE "hir-general-unroll"
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::loopopt::unroll;
 
 const unsigned DefaultMaxUnrollFactor = 8;
 const unsigned AbsoluteMaxUnrollFactor = 16;
@@ -123,77 +124,6 @@ static cl::opt<unsigned> MaxLoopCost(
     "hir-general-unroll-max-loop-cost", cl::init(50), cl::Hidden,
     cl::desc("Max allowed cost of the original loop which is to be unrolled"));
 
-/// \brief Visitor to update the CanonExpr.
-namespace {
-class CanonExprVisitor final : public HLNodeVisitorBase {
-private:
-  unsigned Level;
-  unsigned UnrollFactor;
-  unsigned UnrollCnt;
-
-  void processRegDDRef(RegDDRef *RegDD);
-  void processCanonExpr(CanonExpr *CExpr);
-
-public:
-  CanonExprVisitor(unsigned L, unsigned UFactor, unsigned UCnt)
-      : Level(L), UnrollFactor(UFactor), UnrollCnt(UCnt) {}
-
-  /// \brief No processing needed for Goto
-  void visit(HLGoto *Goto){};
-  /// \brief No processing needed for Label
-  void visit(HLLabel *Label){};
-  void visit(HLDDNode *Node);
-  void visit(HLNode *Node) {
-    llvm_unreachable(" Node not supported for unrolling.");
-  };
-  void postVisit(HLNode *Node) {}
-};
-
-} // namespace
-
-void CanonExprVisitor::visit(HLDDNode *Node) {
-
-  // Only expecting if and inst inside the innermost loops.
-  // Primarily to catch errors of other types.
-  assert((isa<HLIf>(Node) || isa<HLInst>(Node)) && " Node not supported for "
-                                                   "unrolling.");
-
-  for (auto Iter = Node->ddref_begin(), End = Node->ddref_end(); Iter != End;
-       ++Iter) {
-    processRegDDRef(*Iter);
-  }
-}
-
-/// processRegDDRef - Processes RegDDRef to call the Canon Exprs
-/// present inside it.
-/// This is an internal helper function.
-void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
-
-  // Process CanonExprs inside the RegDDRefs
-  for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
-       ++Iter) {
-    processCanonExpr(*Iter);
-  }
-
-  // Process GEP Base
-  if (RegDD->hasGEPInfo()) {
-    processCanonExpr(RegDD->getBaseCE());
-  }
-}
-
-/// processCanonExpr - Processes CanonExpr to modify IV to
-/// IV*UF + (Original IVCoeff)*UnrollCnt.
-/// This is an internal helper function.
-void CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
-
-  // Shift the canon expr to create the offset.
-  if (UnrollCnt)
-    CExpr->shift(Level, UnrollCnt);
-
-  // IV*UF .
-  CExpr->multiplyIVByConstant(Level, UnrollFactor);
-}
-
 namespace {
 
 class HIRGeneralUnroll : public HIRTransformPass {
@@ -223,8 +153,7 @@ private:
   /// Processes and santitizes command line options.
   void sanitizeOptions();
 
-  /// \brief Main method to be invoked after all the innermost loops
-  /// are gathered.
+  /// Main method to be invoked after all the innermost loops are gathered.
   void processGeneralUnroll(SmallVectorImpl<HLLoop *> &CandidateLoops);
 
   /// Computes and returns unroll factor for the loop using cost model. Returns
@@ -234,15 +163,8 @@ private:
   /// Returns true if we can attempt to unroll this loop.
   bool isApplicable(const HLLoop *Loop) const;
 
-  /// \brief Determines if Unrolling is profitable for the given Loop.
+  /// Determines if Unrolling is profitable for the given Loop.
   bool isProfitable(const HLLoop *Loop, unsigned *UnrollFactor) const;
-
-  /// \brief High level method which gives call to other sub-methods.
-  void transformLoop(HLLoop *OrigLoop, unsigned UnrollFactor);
-
-  /// \brief Performs the actual unrolling.
-  void processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop,
-                         unsigned UnrollFactor);
 };
 }
 
@@ -321,7 +243,7 @@ void HIRGeneralUnroll::processGeneralUnroll(
     // Perform a cost/profitability analysis on the loop
     // If all conditions are met, unroll it.
     if (isApplicable(Loop) && isProfitable(Loop, &UnrollFactor)) {
-      transformLoop(Loop, UnrollFactor);
+      unrollLoop(Loop, UnrollFactor);
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
     }
@@ -399,55 +321,3 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop,
   return true;
 }
 
-// transformLoop - Perform the unrolling transformation for
-// the given loop.
-void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, unsigned UnrollFactor) {
-
-  DEBUG(dbgs() << "\t GeneralUnroll Loop: ");
-  DEBUG(OrigLoop->dump());
-
-  bool NeedRemainderLoop = false;
-
-  // Create the unrolled main loop and setup remainder loop.
-  HLLoop *UnrollLoop = 
-    HIRLoopTransformUtils::setupMainAndRemainderLoops(OrigLoop, UnrollFactor,
-                                                      NeedRemainderLoop);
-
-  processUnrollLoop(OrigLoop, UnrollLoop, UnrollFactor);
-
-  // If a remainder loop is not needed get rid of the OrigLoop at this point.
-  if (!NeedRemainderLoop) {
-    HLNodeUtils::remove(OrigLoop);
-  }
-
-  DEBUG(dbgs() << "\n\t Transformed GeneralUnroll Loops No:"
-               << LoopsGenUnrolled);
-  DEBUG(UnrollLoop->dump());
-}
-
-void HIRGeneralUnroll::processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop,
-                                         unsigned UnrollFactor) {
-
-  // Container for cloning body.
-  HLContainerTy LoopBody;
-
-  // Loop through the 0th iteration unrolled loop children and create new
-  // children
-  // with updated References based on unroll factor.
-  for (unsigned UnrollCnt = 0; UnrollCnt < UnrollFactor; ++UnrollCnt) {
-
-    // Clone 0th iteration
-    HLNodeUtils::cloneSequence(&LoopBody, OrigLoop->getFirstChild(),
-                               OrigLoop->getLastChild());
-
-    // Store references as LoopBody will be empty after insertion.
-    HLNode *CurFirstChild = &(LoopBody.front());
-    HLNode *CurLastChild = &(LoopBody.back());
-
-    HLNodeUtils::insertAsLastChildren(UnrollLoop, &LoopBody);
-
-    CanonExprVisitor CEVisit(UnrollLoop->getNestingLevel(), UnrollFactor,
-                             UnrollCnt);
-    HLNodeUtils::visitRange(CEVisit, CurFirstChild, CurLastChild);
-  }
-}

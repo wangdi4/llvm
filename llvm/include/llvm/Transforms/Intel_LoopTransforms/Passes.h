@@ -68,6 +68,10 @@ FunctionPass *createHIRDummyTransformationPass();
 /// unrolling for larger trip count HIR loops.
 FunctionPass *createHIRGeneralUnrollPass();
 
+/// createHIRUnrollAndJamPass - This creates a pass that performs unroll & jam
+/// on loops.
+FunctionPass *createHIRUnrollAndJamPass();
+
 /// createHIRLoopReversalPass - This creates a HIR Loop pass that performs Loop
 /// Reversal
 FunctionPass *createHIRLoopReversalPass();

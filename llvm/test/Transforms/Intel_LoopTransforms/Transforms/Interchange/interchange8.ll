@@ -1,12 +1,11 @@
 ;  for  i1 ; for i2, for i3,
 ;     a1_v[i1] = 1;   
-;  Interchange should not occur.  There is an error in locality analysis. 
-;  More weight in temporal locality is needed in this case.
+;  Interchange should not occur.  
 ;    
 ; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged
-; XFAIL: * 
-; Locality error - to be fixed
+
+
 ;Module Before HIR; ModuleID = 'interchange8.cpp'
 source_filename = "interchange8.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

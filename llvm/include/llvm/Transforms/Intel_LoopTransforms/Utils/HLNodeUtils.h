@@ -700,8 +700,8 @@ public:
   static void cloneSequence(HLContainerTy *CloneContainer, const HLNode *Node1,
                             const HLNode *Node2 = nullptr,
                             HLNodeMapper *NodeMapper = nullptr) {
-    assert(Node1 && !isa<HLRegion>(Node1) &&
-           " Node1 - Region Cloning is not allowed.");
+    assert(Node1 && "Node1 is null!");
+    assert(!isa<HLRegion>(Node1) && "Node1 - Region Cloning is not allowed.");
     assert((!Node2 || !isa<HLRegion>(Node2)) &&
            " Node 2 - Region Cloning is not allowed.");
     assert(CloneContainer && " Clone Container is null.");

@@ -187,7 +187,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
         // Near perfect loops found
         DEBUG(dbgs() << "is NearPerfect Loop:\n");
         DEBUG(dbgs(); Loop->dump());
-        DDGraph DDG = DDA->getGraph(Loop, false);
+        DDGraph DDG = DDA->getGraph(Loop);
 
         if (DDUtils::enablePerfectLoopNest(const_cast<HLLoop *>(InnermostLoop),
                                            DDG)) {
@@ -485,10 +485,6 @@ static bool ignoreEdge(const DDEdge *Edge, const HLLoop *CandidateLoop,
     return true;
   }
 
-  if (Edge->isINPUTdep()) {
-    return true;
-  }
-
   // t1 =
   //    = t1
   // Anti dep (<) for LoopIndepDepTemp is no longer generated
@@ -533,7 +529,7 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
   CollectDDInfo(HIRLoopInterchange &LIP, const HLLoop *CandidateLoop,
                 bool RefineDV)
       : LIP(LIP), CandidateLoop(CandidateLoop),
-        DDG(LIP.DDA->getGraph(CandidateLoop, false)), RefineDV(RefineDV) {
+        DDG(LIP.DDA->getGraph(CandidateLoop)), RefineDV(RefineDV) {
     LIP.DVs.clear();
   }
 

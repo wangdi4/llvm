@@ -189,7 +189,13 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
     if (FirstRef->isStructurallyInvariantAtLevel(Level)) {
       // Invariant refs are grouped together so we add the locality for the
       // whole group.
-      LI.TempInv += ((getTripCount(Loop) - 1) * RefVec.size());
+      for (auto Ref : RefVec) {
+        LI.TempInv += getTripCount(Loop) - 1;
+
+        if (Ref->isLval()) {
+          LI.TempInv += WriteWt;
+        }
+      }
     }
   }
 }
@@ -577,8 +583,9 @@ uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
 
   // Clear existing locality and trip count info.
   LocalityByLevel[Level - 1].clear();
-  // Don't need a multiplication factor of trip count.
-  TripCountByLevel[Level - 1] = 1;
+  // Don't need a multiplication factor of trip count so setting it to 2 because
+  // temporal invariant locality uses multiplication factor of (TripCount - 1).
+  TripCountByLevel[Level - 1] = 2;
 
   ConstMemRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
                                    MemRefMap);

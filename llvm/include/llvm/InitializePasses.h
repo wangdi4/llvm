@@ -399,6 +399,7 @@ void initializeHIRLoopInterchangePass(PassRegistry&);
 void initializeHIRLoopDistributionForMemRecPass(PassRegistry&);
 void initializeHIRLoopDistributionForLoopNestPass(PassRegistry&);
 void initializeHIRGeneralUnrollPass(PassRegistry&);
+void initializeHIRUnrollAndJamPass(PassRegistry&);
 void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRLoopReversalPass(PassRegistry&);

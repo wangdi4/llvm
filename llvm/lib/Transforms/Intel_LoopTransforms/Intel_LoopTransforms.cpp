@@ -21,6 +21,7 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIROptPredicatePass(Registry);
   initializeHIRCompleteUnrollPass(Registry);
   initializeHIRGeneralUnrollPass(Registry);
+  initializeHIRUnrollAndJamPass(Registry);
   initializeHIRDummyTransformationPass(Registry);
   initializeHIRLoopReversalPass(Registry);
   initializeHIRRuntimeDDPass(Registry);

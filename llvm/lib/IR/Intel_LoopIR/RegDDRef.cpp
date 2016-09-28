@@ -462,9 +462,8 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
 
   CanonExpr *StrideAtLevel = nullptr;
 
-  for (unsigned I = 1; I <= getNumDimensions(); ++I) {
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
-    uint64_t DimStride = getDimensionStride(I);
 
     // We want to guarantee that we return a Stride that is invariant at Level,
     // or otherwise to bail out.
@@ -496,11 +495,17 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
           DimCE->getSrcType(), DimCE->getDestType(), DimCE->isSExt());
     }
 
-    unsigned Index = DimCE->getIVBlobCoeff(Level);
+    int64_t Coeff;
+    unsigned Index;
+
+    DimCE->getIVCoeff(Level, &Index, &Coeff);
+
+    uint64_t DimStride = getDimensionStride(I);
+
     if (Index != InvalidBlobIndex) {
-      StrideAtLevel->addBlob(Index, DimCE->getIVConstCoeff(Level) * DimStride);
+      StrideAtLevel->addBlob(Index, Coeff * DimStride);
     } else {
-      StrideAtLevel->addConstant(DimCE->getIVConstCoeff(Level) * DimStride);
+      StrideAtLevel->addConstant(Coeff * DimStride);
     }
   }
 

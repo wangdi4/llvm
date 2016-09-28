@@ -841,12 +841,19 @@ void HLLoop::verify() const {
       "Lower, Upper and Stride DDRefs "
       "should be all defined or all undefined");
 
+  auto StrideCE = getStrideDDRef()->getSingleCanonExpr();
+
   assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
          "Loop lower cannot be non-linear!");
   assert(!getUpperDDRef()->getSingleCanonExpr()->isNonLinear() &&
          "Loop upper cannot be non-linear!");
-  assert(!getStrideDDRef()->getSingleCanonExpr()->isNonLinear() &&
-         "Loop stride cannot be non-linear!");
+  assert(!StrideCE->isNonLinear() && "Loop stride cannot be non-linear!");
+
+  int64_t Val;
+
+  assert((StrideCE->isIntConstant(&Val) && (Val > 0)) &&
+         "Loop stride expected to be a postive integer!");
+  (void)Val;
 
   assert(getUpperDDRef()->getSrcType()->isIntegerTy() &&
          "Invalid loop upper type!");
@@ -974,20 +981,16 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
 void HLLoop::markDoNotVectorize() {
   LLVMContext &Context = HIRUtils::getContext();
 
-  Metadata *One = ConstantAsMetadata::get(
-      ConstantInt::get(Type::getInt32Ty(Context), 1));
+  Metadata *One =
+      ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Context), 1));
 
   Metadata *MDVectorWidth[] = {
-      MDString::get(Context, "llvm.loop.vectorize.width"), One
-  };
+      MDString::get(Context, "llvm.loop.vectorize.width"), One};
   Metadata *MDInterleaveCount[] = {
-      MDString::get(Context, "llvm.loop.interleave.count"), One
-  };
+      MDString::get(Context, "llvm.loop.interleave.count"), One};
 
-  MDNode *MDs[] = {
-      MDNode::get(Context, MDVectorWidth),
-      MDNode::get(Context, MDInterleaveCount)
-  };
+  MDNode *MDs[] = {MDNode::get(Context, MDVectorWidth),
+                   MDNode::get(Context, MDInterleaveCount)};
 
   addLoopMetadata(MDs);
 }
