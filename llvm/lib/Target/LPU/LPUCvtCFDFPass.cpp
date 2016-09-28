@@ -318,7 +318,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
   handleAllConstantInputs();
-#if 0
+#if 1
 	{
 	  errs() << "LPUCvtCFDFPass before LIC allocation" << ":\n";
 		MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
@@ -510,21 +510,18 @@ void LPUCvtCFDFPass::renameAcrossLoopForRepeat() {
 			for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
 				MachineInstr *MI = I;
 				for (MIOperands MO(MI); MO.isValid(); ++MO) {
-					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) return;
+					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 					unsigned Reg = MO->getReg();
 					if (MO->isUse()) {
 						MachineInstr *DefMI = MRI->getVRegDef(Reg);
 						MachineBasicBlock *dmbb = DefMI->getParent();
 						MachineLoop* dmloop = MLI->getLoopFor(dmbb);
-						if (TII.isSwitch(DefMI)) {
-							//def already from a switch -- can only happen if use is an immediate child of def in CDG
-							continue;
-						}
+
 						//def is in immediate nesting level, this including def not in any loop at all
-						if (mloop->getParentLoop() == dmloop) continue;
+						if (mloop->getParentLoop() == dmloop || mloop == dmloop) continue;
 
 						//def outside the loop of use, and not in the immediate nesting level
-						if (!dmloop || dmloop->contains(mloop)) {
+						if ((!dmloop || dmloop->contains(mloop)) && DT->properlyDominates(dmbb, mbb)) {
 							MachineBasicBlock* landingPad = mloop->getLoopPreheader();
 							//TODO:: create the landing pad if can't find one
 							assert(landingPad && "can't find loop preheader as landing pad for renaming");
@@ -763,16 +760,11 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 				MachineBasicBlock* lphdr = mloop->getHeader();
 				// Rewrite uses that outside of the original def's block, inside the loop
 				MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-				while (UI != MRI->use_end()) {
-					MachineOperand &UseMO = *UI;
-					MachineInstr *UseMI = UseMO.getParent();
-					++UI;
-					if (MLI->getLoopFor(UseMI->getParent()) == mloop &&
-						UseMI->getParent() == lphdr &&
-						UseMI->isPHI()) {
-						//rename loop header Phi
-						UseMO.setReg(newVReg);
-					}
+				if (MLI->getLoopFor(UseMI->getParent()) == mloop &&
+					UseMI->getParent() == lphdr &&
+					UseMI->isPHI()) {
+					//rename loop header Phi
+					UseMO.setReg(newVReg);
 				}
 			}
 			else {   //mloop != defLoop
@@ -781,8 +773,8 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 							 // 1) def inside a loop, use outside the loop as LCSSA Phi with single input
 							 // 2) def outside a loop, use inside the loop, not handled here
 							 //use, def in different region cross latch
-				bool isUseEnclosingDef = MLI->getLoopFor(UseBB) == NULL ||
-					MLI->getLoopFor(UseBB) == MLI->getLoopFor(mbb)->getParentLoop();
+				bool isUseEnclosingDef =  MLI->getLoopFor(UseBB) == NULL ||
+					                        MLI->getLoopFor(UseBB) == MLI->getLoopFor(mbb)->getParentLoop();
 				//only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
 				if (isUseEnclosingDef) {
 					//this is case 1, can only have one level nesting difference 
@@ -803,15 +795,8 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 					}
 					// Rewrite uses that outside of the original def's block, inside the loop
 					MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-					while (UI != MRI->use_end()) {
-						MachineOperand &UseMO = *UI;
-						MachineInstr *UseMI = UseMO.getParent();
-						++UI;
-						if (UseMI->getParent() == UseBB) {
-							//renameLCSSAPhi or other cross boundary uses
-							UseMO.setReg(newVReg);
-						}
-					}
+					//renameLCSSAPhi or other cross boundary uses
+					UseMO.setReg(newVReg);
 				} else {
 					// use not enclosing def, def and use in different regions
 					// assert(use have to be a switch from the repeat handling pass, or def is a switch from the if handling pass  
@@ -898,6 +883,13 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
 void LPUCvtCFDFPass::insertSWITCHForRepeat() {
 
 	renameAcrossLoopForRepeat();
+
+#if 1
+	{
+		errs() << "after rename for repeat" << ":\n";
+		thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());
+	}
+#endif
 
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
