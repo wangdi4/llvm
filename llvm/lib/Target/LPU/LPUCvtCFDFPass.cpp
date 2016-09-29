@@ -111,7 +111,7 @@ namespace llvm {
     }
 		void insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn = nullptr);
     void insertSWITCHForIf();
-		void renameAcrossLoopForRepeat();
+		void renameAcrossLoopForRepeat(MachineLoop *);
     void insertSWITCHForRepeat();
     void insertSWITCHForLoopExit();
 		void SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop);
@@ -494,15 +494,12 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::getOrInsertPredCopy(MachineBasi
 }
 
 //TODO: rename for repeat
-void LPUCvtCFDFPass::renameAcrossLoopForRepeat() {
+void LPUCvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
 	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-	typedef po_iterator<MachineLoop *> po_mloop_iterator;
-	if (MLI->begin() == MLI->end()) return;
-
-	MachineLoop* root = *MLI->begin();
-	for (po_mloop_iterator iloop = po_mloop_iterator::begin(root), END = po_mloop_iterator::end(root); iloop != END; ++iloop) {
-		MachineLoop *mloop = *iloop;
+	for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
+		renameAcrossLoopForRepeat(*LI);
+		MachineLoop *mloop = *LI;
 		for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
 			MachineBasicBlock* mbb = *BI;
 			//only conside blocks in the  urrent loop level, blocks in the nested level are done before.
@@ -881,9 +878,9 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
 
 //focus on uses
 void LPUCvtCFDFPass::insertSWITCHForRepeat() {
-
-	renameAcrossLoopForRepeat();
-
+	for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
+		renameAcrossLoopForRepeat(*LI);
+	}
 #if 1
 	{
 		errs() << "after rename for repeat" << ":\n";

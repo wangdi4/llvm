@@ -507,11 +507,11 @@ LPUInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {
 
 unsigned
 LPUInstrInfo::getMoveOpcode(const TargetRegisterClass *RC) const {
-  if (RC == &LPU::I1RegClass)  return LPU::MOV1;
-  else if (RC == &LPU::I8RegClass)  return LPU::MOV8;
-  else if (RC == &LPU::I16RegClass) return LPU::MOV16;
-  else if (RC == &LPU::I32RegClass) return LPU::MOV32;
-  else if (RC == &LPU::I64RegClass) return LPU::MOV64;
+  if (RC == &LPU::I1RegClass || RC == &LPU::CI1RegClass || RC == &LPU::RI1RegClass)  return LPU::MOV1;
+  else if (RC == &LPU::I8RegClass || RC == &LPU::CI8RegClass || RC == &LPU::RI8RegClass)  return LPU::MOV8;
+  else if (RC == &LPU::I16RegClass || RC == &LPU::CI16RegClass || RC == &LPU::RI16RegClass) return LPU::MOV16;
+  else if (RC == &LPU::I32RegClass || RC == &LPU::CI32RegClass || RC == &LPU::RI32RegClass) return LPU::MOV32;
+  else if (RC == &LPU::I64RegClass || RC == &LPU::CI64RegClass || RC == &LPU::RI64RegClass) return LPU::MOV64;
   else
     llvm_unreachable("Unknown Target LIC class!");
 }
