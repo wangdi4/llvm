@@ -318,7 +318,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
   handleAllConstantInputs();
-#if 1
+#if 0
 	{
 	  errs() << "LPUCvtCFDFPass before LIC allocation" << ":\n";
 		MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
@@ -881,7 +881,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
 	for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
 		renameAcrossLoopForRepeat(*LI);
 	}
-#if 1
+#if 0
 	{
 		errs() << "after rename for repeat" << ":\n";
 		thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());

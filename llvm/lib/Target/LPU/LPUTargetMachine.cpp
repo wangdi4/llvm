@@ -46,6 +46,11 @@
 
 using namespace llvm;
 
+static cl::opt<int>
+RunLPUStatistics("lpu-run-statistics", cl::Hidden,
+	cl::desc("LPU Specific: collect statistics for DF instructions"),
+	cl::init(0));
+
 extern "C" void LLVMInitializeLPUTarget() {
   // Register the target.
   RegisterTargetMachine<LPUTargetMachine> X(TheLPUTarget);
@@ -123,8 +128,9 @@ public:
     addPass(createLPUOptDFPass(), false);
     Banner = std::string("After LPUOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-
-    addPass(createLPUStatisticsPass(), false);
+		if (RunLPUStatistics) {
+			addPass(createLPUStatisticsPass(), false);
+		}
 #else
     Banner = std::string("Before LPUConvertControlPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
