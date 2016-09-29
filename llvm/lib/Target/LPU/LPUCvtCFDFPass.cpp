@@ -935,7 +935,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
               }
             } else {
               //LLVM3.6 buggy latch
-              assert(TII.isCopy(defInstr));
+              assert(TII.isMOV(defInstr));
               newVReg = defInstr->getOperand(0).getReg();
             }
       
