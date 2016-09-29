@@ -2125,4 +2125,78 @@ void __attribute__((overloadable)) mask_soa8_write_imageui(int8 mask, __read_wri
     return mask_soa8_write_imageui(mask, __builtin_astype(image, __write_only image2d_t), coord_x, coord_y, val_x, val_y, val_z, val_w);
 }
 
+// SOA versions of masked read_imageui that have unmasked counterparts
+void __attribute__((overloadable)) mask_soa4_read_imageui(int4 mask, __read_only image2d_t image, sampler_t sampler, int4 coord_x, int4 coord_y,
+                                                         __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
+{
+    const int rescmp = intel_movemask(mask);
+    // ALL elements in mask are zero
+    if(rescmp == 0){
+        return;
+    }
+
+    // If addressing mode isn't set then set clamp to edge to avoid out of bounds memory accesses
+    if(__builtin_astype(sampler, int) & __ADDRESS_MASK) {
+        sampler_t maskSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+        sampler = maskSampler;
+    }
+    soa4_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa4_read_imageui(int4 mask, __read_write image2d_t image, sampler_t sampler, int4 coord_x, int4 coord_y,
+                                                         __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
+{
+    mask_soa4_read_imageui(mask, __builtin_astype(image, __read_only image2d_t), sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa4_read_imageui(int4 mask, __read_only image2d_t image, int4 coord_x, int4 coord_y,
+                                                         __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
+{
+    // Use clamp to edge addressing mode to avoid out of bounds memory accesses
+    sampler_t sampler  = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+    mask_soa4_read_imageui(mask, image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa4_read_imageui(int4 mask, __write_only image2d_t image, int4 coord_x, int4 coord_y,
+                                                         __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
+{
+    mask_soa4_read_imageui(mask, __builtin_astype(image, __read_only image2d_t), coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa8_read_imageui(int8 mask, __read_only image2d_t image, sampler_t sampler, int8 coord_x, int8 coord_y,
+                                                         __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
+{
+    const int rescmp = intel_movemask(mask);
+    // ALL elements in mask are zero
+    if(rescmp == 0){
+        return;
+    }
+    // If addressing mode isn't set then set clamp to edge to avoid out of bounds memory accesses
+    if(__builtin_astype(sampler, int) & __ADDRESS_MASK) {
+        sampler_t maskSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+        sampler = maskSampler;
+    }
+    soa8_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa8_read_imageui(int8 mask, __write_only image2d_t image, sampler_t sampler, int8 coord_x, int8 coord_y,
+                                                         __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
+{
+    mask_soa8_read_imageui(mask, __builtin_astype(image, __read_only image2d_t), sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa8_read_imageui(int8 mask, __read_only image2d_t image, int8 coord_x, int8 coord_y,
+                                                         __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
+{
+    // Use clamp to edge addressing mode to avoid out of bounds memory accesses
+    sampler_t sampler  = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+    mask_soa8_read_imageui(mask, image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa8_read_imageui(int8 mask, __write_only image2d_t image, int8 coord_x, int8 coord_y,
+                                                         __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
+{
+    mask_soa8_read_imageui(mask, __builtin_astype(image, __read_only image2d_t), coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
 #endif // defined (__MIC__) || defined(__MIC2__)
