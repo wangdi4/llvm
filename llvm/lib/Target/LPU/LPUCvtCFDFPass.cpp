@@ -285,6 +285,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   DT = &getAnalysis<MachineDominatorTree>();
 	PDT = &getAnalysis<MachinePostDominatorTree>();
+	if (PDT->getRootNode() == nullptr) return false;
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
 

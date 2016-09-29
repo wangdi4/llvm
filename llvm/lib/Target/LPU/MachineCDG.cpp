@@ -513,6 +513,9 @@ bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
 	thisMF = &F;
 	TII = thisMF->getSubtarget().getInstrInfo();
 	MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
+	if (pdt.getRootNode() == nullptr) {	
+		return false;
+	}
 	thisPDT = &pdt;
 	graphForFunction(F, pdt);
 	if (LPUDumpDotGraph) {
