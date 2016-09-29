@@ -493,6 +493,13 @@ bool LPUInstrInfo::isInit(MachineInstr *MI) const {
 		MI->getOpcode() == LPU::INIT64;
 }
 
+bool LPUInstrInfo::isAtomic(MachineInstr *MI) const {
+    return MI->getOpcode() >= LPU::ATMADD16 && MI->getOpcode() <= LPU::ATMXOR8;
+}
+
+bool LPUInstrInfo::isOrderedAtomic(MachineInstr *MI) const {
+    return MI->getOpcode() >= LPU::OATMADD16 && MI->getOpcode() <= LPU::OATMXOR8;
+}
 
 unsigned
 LPUInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {

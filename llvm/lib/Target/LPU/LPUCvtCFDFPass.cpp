@@ -1629,6 +1629,8 @@ MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
     expected_def_operands = 1;
   } else if (TII.isStore(MI)) {
     expected_def_operands = 0;
+  } else if (TII.isAtomic(MI)) {
+    expected_def_operands = 1;
   }
   else {
     assert(false && "Converting unknown type of instruction to ordered memory op");

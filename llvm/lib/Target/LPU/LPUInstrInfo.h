@@ -156,6 +156,8 @@ public:
   bool isFMA(MachineInstr *) const;
   bool isShift(MachineInstr *) const;
   bool isCmp(MachineInstr *) const;
+  bool isAtomic(MachineInstr *) const;
+  bool isOrderedAtomic(MachineInstr *) const;
 
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
   unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
