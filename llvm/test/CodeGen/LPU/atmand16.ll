@@ -3,11 +3,11 @@ target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "lpu"
 
 ; Function Attrs: nounwind
-define i16 @f_atm16(i16* %m, i16 signext %v) #0 {
-; LPU_CHECK-LABEL: f_atm16
-; LPU_CHECK: atm16
+define i16 @f_atmand16(i16* %m, i16 signext %v) #0 {
+; LPU_CHECK-LABEL: f_atmand16
+; LPU_CHECK: atmand16
 entry:
-  %0 = atomicrmw add i16* %m, i16 %v seq_cst
+  %0 = atomicrmw and i16* %m, i16 %v seq_cst
   ret i16 %0
 }
 
