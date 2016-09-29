@@ -709,7 +709,6 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 
 
 void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop) {
-	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 	MachineBasicBlock *latchBB = mloop->getLoopLatch();
 	ControlDependenceNode *mLatch = CDG->getNode(latchBB);
@@ -756,7 +755,6 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 				}
 				MachineBasicBlock* lphdr = mloop->getHeader();
 				// Rewrite uses that outside of the original def's block, inside the loop
-				MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
 				if (MLI->getLoopFor(UseMI->getParent()) == mloop &&
 					UseMI->getParent() == lphdr &&
 					UseMI->isPHI()) {
@@ -791,7 +789,6 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 						newVReg = switchFalseReg;
 					}
 					// Rewrite uses that outside of the original def's block, inside the loop
-					MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
 					//renameLCSSAPhi or other cross boundary uses
 					UseMO.setReg(newVReg);
 				} else {
@@ -810,8 +807,6 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
 	DenseMap<MachineBasicBlock *, std::set<unsigned> *> LCSwitch;
 
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  
   ControlDependenceNode *root = CDG->getRoot();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
@@ -832,7 +827,6 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
 
       //avoid infinitive recursive
       if (TII.isSwitch(MI) && mbb == latchBB) {
-				MachineBasicBlock* mlphdr = mloop->getHeader();
 				MachineBasicBlock* exitBB = mloop->getExitBlock();
 				assert(exitBB && "multiple exit blocks from loop latch");
 
@@ -1476,7 +1470,6 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
   MachineBasicBlock *root = thisMF->begin();
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
-	ControlDependenceNode* mnode = CDG->getNode(mbb);
     MachineBasicBlock::iterator iterI = mbb->begin();
 	bool bypassBB = false;
     while (iterI != mbb->end()) {
@@ -1560,10 +1553,8 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
 
 void LPUCvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI) {
 	MachineBasicBlock* ctrlBB = nullptr;
-	bool patched = false;
 	if (!DT->dominates(inBB, mbb)) {
 		ControlDependenceNode* inNode = CDG->getNode(inBB);
-		ControlDependenceNode* ctrlNode = nullptr;
 		for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
 			ControlDependenceNode* ctrlNode = *pnode;
 			ctrlBB = ctrlNode->getBlock();
