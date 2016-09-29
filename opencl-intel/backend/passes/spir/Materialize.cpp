@@ -112,6 +112,8 @@ public:
           m_isChanged = true;
         }
         auto *F = CI->getCalledFunction();
+        if (!F)
+          continue;
         StringRef FName = F->getName();
         if (!isMangledName(FName.data()) || FName.find("image") == std::string::npos)
           continue;
@@ -148,11 +150,15 @@ public:
             ->setPrimitive(getPrimitiveType(ArgTys[0]));
         auto NewName = mangle(FD);
 
-        // Create function with updated name
-        auto NewF = Function::Create(FT, F->getLinkage(), NewName);
-        NewF->copyAttributesFrom(F);
+        // Check if a new function is already added to the module.
+        auto NewF = F->getParent()->getFunction(NewName);
+        if (!NewF) {
+          // Create function with updated name
+          NewF = Function::Create(FT, F->getLinkage(), NewName);
+          NewF->copyAttributesFrom(F);
 
-        F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
+          F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
+        }
 
         CallInst *New = CallInst::Create(NewF, Args, "", CI);
         //assert(New->getType() == Call->getType());
