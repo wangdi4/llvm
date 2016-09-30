@@ -86,7 +86,10 @@ public:
 
     virtual lldb_private::Error
     LaunchProcess (lldb_private::ProcessLaunchInfo &launch_info);
-    
+
+    virtual lldb_private::Error
+    KillProcess (const lldb::pid_t pid);
+
     virtual lldb::ProcessSP
     DebugProcess (lldb_private::ProcessLaunchInfo &launch_info,
                   lldb_private::Debugger &debugger,
@@ -212,6 +215,16 @@ public:
 protected:
     GDBRemoteCommunicationClient m_gdb_client;
     std::string m_platform_description; // After we connect we can get a more complete description of what we are connected to
+    std::string m_platform_hostname;
+
+    // Launch the lldb-gdbserver on the remote host and return the port it is listening on or 0 on
+    // failure. Subclasses should override this method if they want to do extra actions before or
+    // after launching the lldb-gdbserver.
+    virtual uint16_t
+    LaunchGDBserverAndGetPort (lldb::pid_t &pid);
+
+    virtual bool
+    KillSpawnedProcess (lldb::pid_t pid);
 
 private:
     DISALLOW_COPY_AND_ASSIGN (PlatformRemoteGDBServer);

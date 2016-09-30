@@ -1,7 +1,5 @@
 /*
  * include/40/omp.h.var
- * $Revision: 41674 $
- * $Date: 2012-06-05 08:33:35 -0500 (Tue, 05 Jun 2012) $
  */
 
 
@@ -93,6 +91,7 @@
     /* OpenMP 4.0 */
     extern int  __KAI_KMPC_CONVENTION  omp_get_default_device (void);
     extern void __KAI_KMPC_CONVENTION  omp_set_default_device (int);
+    extern int  __KAI_KMPC_CONVENTION  omp_is_initial_device (void);
     extern int  __KAI_KMPC_CONVENTION  omp_get_num_devices (void);
     extern int  __KAI_KMPC_CONVENTION  omp_get_num_teams (void);
     extern int  __KAI_KMPC_CONVENTION  omp_get_team_num (void);

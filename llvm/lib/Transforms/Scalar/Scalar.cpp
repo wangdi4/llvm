@@ -20,7 +20,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 
 using namespace llvm;
 
@@ -38,7 +38,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeScalarizerPass(Registry);
   initializeDSEPass(Registry);
   initializeGVNPass(Registry);
-  initializeEarlyCSEPass(Registry);
+  initializeEarlyCSELegacyPassPass(Registry);
   initializeFlattenCFGPassPass(Registry);
   initializeInductiveRangeCheckEliminationPass(Registry);
   initializeIndVarSimplifyPass(Registry);
@@ -69,7 +69,10 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeSinkingPass(Registry);
   initializeTailCallElimPass(Registry);
   initializeSeparateConstOffsetFromGEPPass(Registry);
+  initializeStraightLineStrengthReducePass(Registry);
   initializeLoadCombinePass(Registry);
+  initializePlaceBackedgeSafepointsImplPass(Registry);
+  initializePlaceSafepointsPass(Registry);
 }
 
 void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {

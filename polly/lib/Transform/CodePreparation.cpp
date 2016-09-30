@@ -27,6 +27,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "polly/LinkAllPasses.h"
+#include "polly/ScopDetection.h"
 #include "polly/CodeGen/BlockGenerators.h"
 #include "polly/Support/ScopHelper.h"
 #include "llvm/Analysis/DominanceFrontier.h"
@@ -64,9 +65,8 @@ static void DemotePHI(
 /// @brief Prepare the IR for the scop detection.
 ///
 class CodePreparation : public FunctionPass {
-  CodePreparation(const CodePreparation &) LLVM_DELETED_FUNCTION;
-  const CodePreparation &
-  operator=(const CodePreparation &) LLVM_DELETED_FUNCTION;
+  CodePreparation(const CodePreparation &) = delete;
+  const CodePreparation &operator=(const CodePreparation &) = delete;
 
   LoopInfo *LI;
   ScalarEvolution *SE;
@@ -201,6 +201,9 @@ void CodePreparation::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool CodePreparation::runOnFunction(Function &F) {
+  if (PollyModelPHINodes)
+    return false;
+
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolution>();
 

@@ -123,7 +123,7 @@ class SettingsCommandTestCase(TestBase):
 
         self.runCmd("settings show frame-format")
         m = re.match(
-                '^frame-format \(string\) = "(.*)\"$',
+                '^frame-format \(format-string\) = "(.*)\"$',
                 self.res.GetOutput())
         self.assertTrue(m, "Bad settings string")
         self.format_string = m.group(1)
@@ -373,10 +373,14 @@ class SettingsCommandTestCase(TestBase):
             startstr = 'target.arg0 (string) = "cde"')
         self.runCmd("settings clear target.arg0", check=False)
         # file
-        self.runCmd ("settings set target.output-path /bin/ls")   # Set to known value
-        self.runCmd ("settings set target.output-path /bin/cat ") # Set to new value with trailing whitespaces
+        path1 = os.path.join(os.getcwd(), "path1.txt")
+        path2 = os.path.join(os.getcwd(), "path2.txt")
+        self.runCmd ("settings set target.output-path %s" % path1)   # Set to known value
         self.expect ("settings show target.output-path", SETTING_MSG("target.output-path"),
-            startstr = 'target.output-path (file) = ', substrs=['/bin/cat"'])
+            startstr = 'target.output-path (file) = ', substrs=[path1])
+        self.runCmd ("settings set target.output-path %s " % path2) # Set to new value with trailing whitespaces
+        self.expect ("settings show target.output-path", SETTING_MSG("target.output-path"),
+            startstr = 'target.output-path (file) = ', substrs=[path2])
         self.runCmd("settings clear target.output-path", check=False)
         # enum
         self.runCmd ("settings set stop-disassembly-display never")   # Set to known value
@@ -392,6 +396,13 @@ class SettingsCommandTestCase(TestBase):
                         '[0]: "3"', 
                         '[1]: "4"',
                         '[2]: "5"' ])
+        self.runCmd ("settings set target.run-args 1 2 3")  # Set to known value
+        self.runCmd ("settings set target.run-args 3 \  \ ") # Set to new value with trailing whitespaces
+        self.expect ("settings show target.run-args", SETTING_MSG("target.run-args"),
+            substrs = [ 'target.run-args (arguments) =',
+                        '[0]: "3"',
+                        '[1]: " "',
+                        '[2]: " "' ])
         self.runCmd("settings clear target.run-args", check=False)        
         # dictionaries
         self.runCmd ("settings clear target.env-vars")  # Set to known value
@@ -401,6 +412,20 @@ class SettingsCommandTestCase(TestBase):
                         'A=B', 
                         'C=D'])
         self.runCmd("settings clear target.env-vars", check=False)        
+        # regex
+        self.runCmd ("settings clear target.process.thread.step-avoid-regexp")  # Set to known value
+        self.runCmd ("settings set target.process.thread.step-avoid-regexp foo\\ ") # Set to new value with trailing whitespaces
+        self.expect ("settings show target.process.thread.step-avoid-regexp",
+                SETTING_MSG("target.process.thread.step-avoid-regexp"),
+                substrs = [ 'target.process.thread.step-avoid-regexp (regex) = foo\\ '])
+        self.runCmd("settings clear target.process.thread.step-avoid-regexp", check=False)
+        # format-string
+        self.runCmd ("settings clear disassembly-format")  # Set to known value
+        self.runCmd ("settings set disassembly-format foo ") # Set to new value with trailing whitespaces
+        self.expect ("settings show disassembly-format",
+                SETTING_MSG("disassembly-format"),
+                substrs = [ 'disassembly-format (format-string) = "foo "'])
+        self.runCmd("settings clear disassembly-format", check=False)
         
     def test_all_settings_exist (self):
         self.expect ("settings show",

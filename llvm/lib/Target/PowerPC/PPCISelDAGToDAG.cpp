@@ -42,11 +42,15 @@ using namespace llvm;
 cl::opt<bool> ANDIGlueBug("expose-ppc-andi-glue-bug",
 cl::desc("expose the ANDI glue bug on PPC"), cl::Hidden);
 
-cl::opt<bool> UseBitPermRewriter("ppc-use-bit-perm-rewriter", cl::init(true),
-  cl::desc("use aggressive ppc isel for bit permutations"), cl::Hidden);
-cl::opt<bool> BPermRewriterNoMasking("ppc-bit-perm-rewriter-stress-rotates",
-  cl::desc("stress rotate selection in aggressive ppc isel for "
-           "bit permutations"), cl::Hidden);
+static cl::opt<bool>
+    UseBitPermRewriter("ppc-use-bit-perm-rewriter", cl::init(true),
+                       cl::desc("use aggressive ppc isel for bit permutations"),
+                       cl::Hidden);
+static cl::opt<bool> BPermRewriterNoMasking(
+    "ppc-bit-perm-rewriter-stress-rotates",
+    cl::desc("stress rotate selection in aggressive ppc isel for "
+             "bit permutations"),
+    cl::Hidden);
 
 namespace llvm {
   void initializePPCDAGToDAGISelPass(PassRegistry&);
@@ -59,22 +63,20 @@ namespace {
   ///
   class PPCDAGToDAGISel : public SelectionDAGISel {
     const PPCTargetMachine &TM;
-    const PPCTargetLowering *PPCLowering;
     const PPCSubtarget *PPCSubTarget;
+    const PPCTargetLowering *PPCLowering;
     unsigned GlobalBaseReg;
   public:
     explicit PPCDAGToDAGISel(PPCTargetMachine &tm)
-        : SelectionDAGISel(tm), TM(tm),
-          PPCLowering(TM.getSubtargetImpl()->getTargetLowering()),
-          PPCSubTarget(TM.getSubtargetImpl()) {
+        : SelectionDAGISel(tm), TM(tm) {
       initializePPCDAGToDAGISelPass(*PassRegistry::getPassRegistry());
     }
 
     bool runOnMachineFunction(MachineFunction &MF) override {
       // Make sure we re-emit a set of the global base reg if necessary
       GlobalBaseReg = 0;
-      PPCLowering = TM.getSubtargetImpl()->getTargetLowering();
-      PPCSubTarget = TM.getSubtargetImpl();
+      PPCSubTarget = &MF.getSubtarget<PPCSubtarget>();
+      PPCLowering = PPCSubTarget->getTargetLowering();
       SelectionDAGISel::runOnMachineFunction(MF);
 
       if (!PPCSubTarget->isSVR4ABI())
@@ -188,7 +190,7 @@ namespace {
                                       std::vector<SDValue> &OutOps) override {
       // We need to make sure that this one operand does not end up in r0
       // (because we might end up lowering this as 0(%op)).
-      const TargetRegisterInfo *TRI = TM.getSubtargetImpl()->getRegisterInfo();
+      const TargetRegisterInfo *TRI = PPCSubTarget->getRegisterInfo();
       const TargetRegisterClass *TRC = TRI->getPointerRegClass(*MF, /*Kind=*/1);
       SDValue RC = CurDAG->getTargetConstant(TRC->getID(), MVT::i32);
       SDValue NewOp =
@@ -258,7 +260,7 @@ void PPCDAGToDAGISel::InsertVRSaveCode(MachineFunction &Fn) {
   unsigned InVRSAVE = RegInfo->createVirtualRegister(&PPC::GPRCRegClass);
   unsigned UpdatedVRSAVE = RegInfo->createVirtualRegister(&PPC::GPRCRegClass);
 
-  const TargetInstrInfo &TII = *TM.getSubtargetImpl()->getInstrInfo();
+  const TargetInstrInfo &TII = *PPCSubTarget->getInstrInfo();
   MachineBasicBlock &EntryBB = *Fn.begin();
   DebugLoc dl;
   // Emit the following code into the entry block:
@@ -294,7 +296,7 @@ void PPCDAGToDAGISel::InsertVRSaveCode(MachineFunction &Fn) {
 ///
 SDNode *PPCDAGToDAGISel::getGlobalBaseReg() {
   if (!GlobalBaseReg) {
-    const TargetInstrInfo &TII = *TM.getSubtargetImpl()->getInstrInfo();
+    const TargetInstrInfo &TII = *PPCSubTarget->getInstrInfo();
     // Insert the set of GlobalBaseReg into the first MBB of the function
     MachineBasicBlock &FirstMBB = MF->front();
     MachineBasicBlock::iterator MBBI = FirstMBB.begin();
@@ -2521,7 +2523,7 @@ SDNode *PPCDAGToDAGISel::Select(SDNode *N) {
     if (isInt64Immediate(N->getOperand(1).getNode(), Imm64) &&
         isMask_64(Imm64)) {
       SDValue Val = N->getOperand(0);
-      MB = 64 - CountTrailingOnes_64(Imm64);
+      MB = 64 - countTrailingOnes(Imm64);
       SH = 0;
 
       // If the operand is a logical right shift, we can fold it into this

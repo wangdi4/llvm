@@ -47,8 +47,8 @@ namespace llvm {
   /// of the sections that it creates.
   ///
   class MCContext {
-    MCContext(const MCContext&) LLVM_DELETED_FUNCTION;
-    MCContext &operator=(const MCContext&) LLVM_DELETED_FUNCTION;
+    MCContext(const MCContext&) = delete;
+    MCContext &operator=(const MCContext&) = delete;
   public:
     typedef StringMap<MCSymbol*, BumpPtrAllocator&> SymbolTable;
   private:
@@ -271,11 +271,11 @@ namespace llvm {
     }
 
     const MCSectionELF *getELFSection(StringRef Section, unsigned Type,
-                                      unsigned Flags, SectionKind Kind);
+                                      unsigned Flags);
 
     const MCSectionELF *getELFSection(StringRef Section, unsigned Type,
-                                      unsigned Flags, SectionKind Kind,
-                                      unsigned EntrySize, StringRef Group);
+                                      unsigned Flags, unsigned EntrySize,
+                                      StringRef Group);
 
     void renameELFSection(const MCSectionELF *Section, StringRef Name);
 

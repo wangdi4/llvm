@@ -98,6 +98,7 @@ private:
   __isl_give isl_pw_aff *visitSMaxExpr(const SCEVSMaxExpr *Expr);
   __isl_give isl_pw_aff *visitUMaxExpr(const SCEVUMaxExpr *Expr);
   __isl_give isl_pw_aff *visitUnknown(const SCEVUnknown *Expr);
+  __isl_give isl_pw_aff *visitSDivInstruction(Instruction *SDiv);
 
   friend struct SCEVVisitor<SCEVAffinator, isl_pw_aff *>;
 };
@@ -262,8 +263,34 @@ __isl_give isl_pw_aff *SCEVAffinator::visitUMaxExpr(const SCEVUMaxExpr *Expr) {
   llvm_unreachable("SCEVUMaxExpr not yet supported");
 }
 
+__isl_give isl_pw_aff *SCEVAffinator::visitSDivInstruction(Instruction *SDiv) {
+  assert(SDiv->getOpcode() == Instruction::SDiv && "Assumed SDiv instruction!");
+  auto *SE = S->getSE();
+
+  auto *Divisor = SDiv->getOperand(1);
+  auto *DivisorSCEV = SE->getSCEV(Divisor);
+  auto *DivisorPWA = visit(DivisorSCEV);
+  assert(isa<ConstantInt>(Divisor) &&
+         "SDiv is no parameter but has a non-constant RHS.");
+
+  auto *Dividend = SDiv->getOperand(0);
+  auto *DividendSCEV = SE->getSCEV(Dividend);
+  auto *DividendPWA = visit(DividendSCEV);
+  return isl_pw_aff_tdiv_q(DividendPWA, DivisorPWA);
+}
+
 __isl_give isl_pw_aff *SCEVAffinator::visitUnknown(const SCEVUnknown *Expr) {
-  llvm_unreachable("Unknowns are always parameters");
+  if (Instruction *I = dyn_cast<Instruction>(Expr->getValue())) {
+    switch (I->getOpcode()) {
+    case Instruction::SDiv:
+      return visitSDivInstruction(I);
+    default:
+      break; // Fall through.
+    }
+  }
+
+  llvm_unreachable(
+      "Unknowns SCEV was neither parameter nor a valid instruction.");
 }
 
 int SCEVAffinator::getLoopDepth(const Loop *L) {
@@ -570,7 +597,8 @@ void MemoryAccess::print(raw_ostream &OS) const {
     OS.indent(12) << "MayWriteAccess :=\t";
     break;
   }
-  OS << "[Reduction Type: " << getReductionType() << "]\n";
+  OS << "[Reduction Type: " << getReductionType() << "] ";
+  OS << "[Scalar: " << isScalar() << "]\n";
   OS.indent(16) << getOriginalAccessRelationStr() << ";\n";
 }
 
@@ -696,7 +724,6 @@ void ScopStmt::buildScattering(SmallVectorImpl<unsigned> &Scatter) {
   unsigned NbScatteringDims = Parent.getMaxLoopDepth() * 2 + 1;
 
   isl_space *Space = isl_space_set_alloc(getIslCtx(), 0, NbScatteringDims);
-  Space = isl_space_set_tuple_name(Space, isl_dim_out, "scattering");
 
   Scattering = isl_map_from_domain_and_range(isl_set_universe(getDomainSpace()),
                                              isl_set_universe(Space));
@@ -907,7 +934,7 @@ void ScopStmt::deriveAssumptions() {
 ScopStmt::ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion,
                    BasicBlock &bb, SmallVectorImpl<Loop *> &Nest,
                    SmallVectorImpl<unsigned> &Scatter)
-    : Parent(parent), BB(&bb), NestLoops(Nest.size()) {
+    : Parent(parent), BB(&bb), Build(nullptr), NestLoops(Nest.size()) {
   // Setup the induction variables.
   for (unsigned i = 0, e = Nest.size(); i < e; ++i)
     NestLoops[i] = Nest[i];
@@ -1280,6 +1307,8 @@ static int buildMinMaxAccess(__isl_take isl_set *Set, void *User) {
     }
   }
 
+  Set = isl_set_remove_divs(Set);
+
   MinPMA = isl_set_lexmin_pw_multi_aff(isl_set_copy(Set));
   MaxPMA = isl_set_lexmax_pw_multi_aff(isl_set_copy(Set));
 
@@ -1512,8 +1541,6 @@ void Scop::dropConstantScheduleDims() {
       isl_val_free(FixedVal);
     }
 
-  DropDimMap = isl_map_set_tuple_id(
-      DropDimMap, isl_dim_out, isl_map_get_tuple_id(DropDimMap, isl_dim_in));
   for (auto *S : *this) {
     isl_map *Schedule = S->getScattering();
     Schedule = isl_map_apply_range(Schedule, isl_map_copy(DropDimMap));
@@ -1525,7 +1552,7 @@ void Scop::dropConstantScheduleDims() {
 
 Scop::Scop(TempScop &tempScop, LoopInfo &LI, ScalarEvolution &ScalarEvolution,
            isl_ctx *Context)
-    : SE(&ScalarEvolution), R(tempScop.getMaxRegion()),
+    : SE(&ScalarEvolution), R(tempScop.getMaxRegion()), IsOptimized(false),
       MaxLoopDepth(getMaxLoopDepthInRegion(tempScop.getMaxRegion(), LI)) {
   IslCtx = Context;
   buildContext();

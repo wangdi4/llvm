@@ -15,7 +15,7 @@
 #include "llvm/ProfileData/CoverageMapping.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
-#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ProfileData/CoverageMappingReader.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/Debug.h"
@@ -304,13 +304,14 @@ class SegmentBuilder {
 public:
   /// Build a list of CoverageSegments from a sorted list of Regions.
   std::vector<CoverageSegment> buildSegments(ArrayRef<CountedRegion> Regions) {
+    const CountedRegion *PrevRegion = nullptr;
     for (const auto &Region : Regions) {
       // Pop any regions that end before this one starts.
       while (!ActiveRegions.empty() &&
              ActiveRegions.back()->endLoc() <= Region.startLoc())
         popRegion();
-      if (!Segments.empty() && Segments.back().Line == Region.LineStart &&
-          Segments.back().Col == Region.ColumnStart) {
+      if (PrevRegion && PrevRegion->startLoc() == Region.startLoc() &&
+          PrevRegion->endLoc() == Region.endLoc()) {
         if (Region.Kind != coverage::CounterMappingRegion::SkippedRegion)
           Segments.back().addCount(Region.ExecutionCount);
       } else {
@@ -318,6 +319,7 @@ public:
         ActiveRegions.push_back(&Region);
         startSegment(Region);
       }
+      PrevRegion = &Region;
     }
     // Pop any regions that are left in the stack.
     while (!ActiveRegions.empty())
@@ -338,42 +340,35 @@ std::vector<StringRef> CoverageMapping::getUniqueSourceFiles() const {
   return Filenames;
 }
 
-static Optional<unsigned> findMainViewFileID(StringRef SourceFile,
-                                             const FunctionRecord &Function) {
-  llvm::SmallVector<bool, 8> IsExpandedFile(Function.Filenames.size(), false);
-  llvm::SmallVector<bool, 8> FilenameEquivalence(Function.Filenames.size(),
-                                                 false);
+static SmallBitVector gatherFileIDs(StringRef SourceFile,
+                                    const FunctionRecord &Function) {
+  SmallBitVector FilenameEquivalence(Function.Filenames.size(), false);
   for (unsigned I = 0, E = Function.Filenames.size(); I < E; ++I)
     if (SourceFile == Function.Filenames[I])
       FilenameEquivalence[I] = true;
+  return FilenameEquivalence;
+}
+
+static Optional<unsigned> findMainViewFileID(StringRef SourceFile,
+                                             const FunctionRecord &Function) {
+  SmallBitVector IsNotExpandedFile(Function.Filenames.size(), true);
+  SmallBitVector FilenameEquivalence = gatherFileIDs(SourceFile, Function);
   for (const auto &CR : Function.CountedRegions)
     if (CR.Kind == CounterMappingRegion::ExpansionRegion &&
         FilenameEquivalence[CR.FileID])
-      IsExpandedFile[CR.ExpandedFileID] = true;
-  for (unsigned I = 0, E = Function.Filenames.size(); I < E; ++I)
-    if (FilenameEquivalence[I] && !IsExpandedFile[I])
-      return I;
-  return None;
+      IsNotExpandedFile[CR.ExpandedFileID] = false;
+  IsNotExpandedFile &= FilenameEquivalence;
+  int I = IsNotExpandedFile.find_first();
+  return I != -1 ? I : None;
 }
 
 static Optional<unsigned> findMainViewFileID(const FunctionRecord &Function) {
-  llvm::SmallVector<bool, 8> IsExpandedFile(Function.Filenames.size(), false);
+  SmallBitVector IsNotExpandedFile(Function.Filenames.size(), true);
   for (const auto &CR : Function.CountedRegions)
     if (CR.Kind == CounterMappingRegion::ExpansionRegion)
-      IsExpandedFile[CR.ExpandedFileID] = true;
-  for (unsigned I = 0, E = Function.Filenames.size(); I < E; ++I)
-    if (!IsExpandedFile[I])
-      return I;
-  return None;
-}
-
-static SmallSet<unsigned, 8> gatherFileIDs(StringRef SourceFile,
-                                           const FunctionRecord &Function) {
-  SmallSet<unsigned, 8> IDs;
-  for (unsigned I = 0, E = Function.Filenames.size(); I < E; ++I)
-    if (SourceFile == Function.Filenames[I])
-      IDs.insert(I);
-  return IDs;
+      IsNotExpandedFile[CR.ExpandedFileID] = false;
+  int I = IsNotExpandedFile.find_first();
+  return I != -1 ? I : None;
 }
 
 /// Sort a nested sequence of regions from a single file.
@@ -401,7 +396,7 @@ CoverageData CoverageMapping::getCoverageForFile(StringRef Filename) {
       continue;
     auto FileIDs = gatherFileIDs(Filename, Function);
     for (const auto &CR : Function.CountedRegions)
-      if (FileIDs.count(CR.FileID)) {
+      if (FileIDs.test(CR.FileID)) {
         Regions.push_back(CR);
         if (isExpansion(CR, *MainFileID))
           FileCoverage.Expansions.emplace_back(CR, Function);
@@ -409,6 +404,7 @@ CoverageData CoverageMapping::getCoverageForFile(StringRef Filename) {
   }
 
   sortNestedRegions(Regions.begin(), Regions.end());
+  DEBUG(dbgs() << "Emitting segments for file: " << Filename << "\n");
   FileCoverage.Segments = SegmentBuilder().buildSegments(Regions);
 
   return FileCoverage;
@@ -450,6 +446,7 @@ CoverageMapping::getCoverageForFunction(const FunctionRecord &Function) {
     }
 
   sortNestedRegions(Regions.begin(), Regions.end());
+  DEBUG(dbgs() << "Emitting segments for function: " << Function.Name << "\n");
   FunctionCoverage.Segments = SegmentBuilder().buildSegments(Regions);
 
   return FunctionCoverage;
@@ -468,6 +465,8 @@ CoverageMapping::getCoverageForExpansion(const ExpansionRecord &Expansion) {
     }
 
   sortNestedRegions(Regions.begin(), Regions.end());
+  DEBUG(dbgs() << "Emitting segments for expansion of file " << Expansion.FileID
+               << "\n");
   ExpansionCoverage.Segments = SegmentBuilder().buildSegments(Regions);
 
   return ExpansionCoverage;

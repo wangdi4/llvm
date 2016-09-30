@@ -608,7 +608,8 @@ SBValue::GetValueDidChange ()
     lldb::ValueObjectSP value_sp(GetSP(locker));
     if (value_sp)
     {
-        result = value_sp->GetValueDidChange ();
+        if (value_sp->UpdateValueIfNeeded(false))
+            result = value_sp->GetValueDidChange ();
     }
     if (log)
         log->Printf ("SBValue(%p)::GetValueDidChange() => %i",
@@ -1241,6 +1242,22 @@ SBValue::MightHaveChildren ()
         log->Printf ("SBValue(%p)::MightHaveChildren() => %i",
                      static_cast<void*>(value_sp.get()), has_children);
     return has_children;
+}
+
+bool
+SBValue::IsRuntimeSupportValue ()
+{
+    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
+    bool is_support = false;
+    ValueLocker locker;
+    lldb::ValueObjectSP value_sp(GetSP(locker));
+    if (value_sp)
+        is_support = value_sp->IsRuntimeSupportValue();
+    
+    if (log)
+        log->Printf ("SBValue(%p)::IsRuntimeSupportValue() => %i",
+                     static_cast<void*>(value_sp.get()), is_support);
+    return is_support;
 }
 
 uint32_t

@@ -25,15 +25,24 @@ using namespace llvm::dwarf;
 
 namespace {
 class HeaderBuilder {
+  /// \brief Whether there are any fields yet.
+  ///
+  /// Note that this is not equivalent to \c Chars.empty(), since \a concat()
+  /// may have been called already with an empty string.
+  bool IsEmpty;
   SmallVector<char, 256> Chars;
 
 public:
-  explicit HeaderBuilder(Twine T) { T.toVector(Chars); }
-  HeaderBuilder(const HeaderBuilder &X) : Chars(X.Chars) {}
-  HeaderBuilder(HeaderBuilder &&X) : Chars(std::move(X.Chars)) {}
+  HeaderBuilder() : IsEmpty(true) {}
+  HeaderBuilder(const HeaderBuilder &X) : IsEmpty(X.IsEmpty), Chars(X.Chars) {}
+  HeaderBuilder(HeaderBuilder &&X)
+      : IsEmpty(X.IsEmpty), Chars(std::move(X.Chars)) {}
 
   template <class Twineable> HeaderBuilder &concat(Twineable &&X) {
-    Chars.push_back(0);
+    if (IsEmpty)
+      IsEmpty = false;
+    else
+      Chars.push_back(0);
     Twine(X).toVector(Chars);
     return *this;
   }
@@ -43,7 +52,7 @@ public:
   }
 
   static HeaderBuilder get(unsigned Tag) {
-    return HeaderBuilder("0x" + Twine::utohexstr(Tag));
+    return HeaderBuilder().concat("0x" + Twine::utohexstr(Tag));
   }
 };
 }
@@ -105,8 +114,8 @@ void DIBuilder::finalize() {
   // Now that all temp nodes have been replaced or deleted, resolve remaining
   // cycles.
   for (const auto &N : UnresolvedNodes)
-    if (N)
-      cast<UniquableMDNode>(N)->resolveCycles();
+    if (N && !N->isResolved())
+      N->resolveCycles();
   UnresolvedNodes.clear();
 
   // Can't handle unresolved nodes anymore.
@@ -136,21 +145,19 @@ DICompileUnit DIBuilder::createCompileUnit(unsigned Lang, StringRef Filename,
                                            DebugEmissionKind Kind,
                                            bool EmitDebugInfo) {
 
-  assert(((Lang <= dwarf::DW_LANG_OCaml && Lang >= dwarf::DW_LANG_C89) ||
+  assert(((Lang <= dwarf::DW_LANG_Fortran08 && Lang >= dwarf::DW_LANG_C89) ||
           (Lang <= dwarf::DW_LANG_hi_user && Lang >= dwarf::DW_LANG_lo_user)) &&
          "Invalid Language tag");
   assert(!Filename.empty() &&
          "Unable to create compile unit without filename");
-  Metadata *TElts[] = {HeaderBuilder::get(DW_TAG_base_type).get(VMContext)};
-  TempEnumTypes = MDNode::getTemporary(VMContext, TElts).release();
 
-  TempRetainTypes = MDNode::getTemporary(VMContext, TElts).release();
-
-  TempSubprograms = MDNode::getTemporary(VMContext, TElts).release();
-
-  TempGVs = MDNode::getTemporary(VMContext, TElts).release();
-
-  TempImportedModules = MDNode::getTemporary(VMContext, TElts).release();
+  // TODO: Once we make MDCompileUnit distinct, stop using temporaries here
+  // (just start with operands assigned to nullptr).
+  TempEnumTypes = MDTuple::getTemporary(VMContext, None).release();
+  TempRetainTypes = MDTuple::getTemporary(VMContext, None).release();
+  TempSubprograms = MDTuple::getTemporary(VMContext, None).release();
+  TempGVs = MDTuple::getTemporary(VMContext, None).release();
+  TempImportedModules = MDTuple::getTemporary(VMContext, None).release();
 
   Metadata *Elts[] = {HeaderBuilder::get(dwarf::DW_TAG_compile_unit)
                           .concat(Lang)
@@ -165,6 +172,8 @@ DICompileUnit DIBuilder::createCompileUnit(unsigned Lang, StringRef Filename,
                       TempEnumTypes, TempRetainTypes, TempSubprograms, TempGVs,
                       TempImportedModules};
 
+  // TODO: Switch to getDistinct().  We never want to merge compile units based
+  // on contents.
   MDNode *CUNode = MDNode::get(VMContext, Elts);
 
   // Create a named metadata so that it is easier to find cu in a module.
@@ -406,7 +415,9 @@ DIDerivedType DIBuilder::createInheritance(DIType Ty, DIType BaseTy,
                           .concat(Flags)
                           .get(VMContext),
                       nullptr, Ty.getRef(), BaseTy.getRef()};
-  return DIDerivedType(MDNode::get(VMContext, Elts));
+  auto R = DIDerivedType(MDNode::get(VMContext, Elts));
+  trackIfUnresolved(R);
+  return R;
 }
 
 DIDerivedType DIBuilder::createMemberType(DIDescriptor Scope, StringRef Name,
@@ -494,55 +505,50 @@ DIBuilder::createObjCProperty(StringRef Name, DIFile File, unsigned LineNumber,
 
 DITemplateTypeParameter
 DIBuilder::createTemplateTypeParameter(DIDescriptor Context, StringRef Name,
-                                       DIType Ty, MDNode *File, unsigned LineNo,
-                                       unsigned ColumnNo) {
+                                       DIType Ty) {
   Metadata *Elts[] = {HeaderBuilder::get(dwarf::DW_TAG_template_type_parameter)
                           .concat(Name)
-                          .concat(LineNo)
-                          .concat(ColumnNo)
+                          .concat(0)
+                          .concat(0)
                           .get(VMContext),
                       DIScope(getNonCompileUnitScope(Context)).getRef(),
-                      Ty.getRef(), File};
+                      Ty.getRef(), nullptr};
   return DITemplateTypeParameter(MDNode::get(VMContext, Elts));
 }
 
-static DITemplateValueParameter createTemplateValueParameterHelper(
-    LLVMContext &VMContext, unsigned Tag, DIDescriptor Context, StringRef Name,
-    DIType Ty, Metadata *MD, MDNode *File, unsigned LineNo, unsigned ColumnNo) {
+static DITemplateValueParameter
+createTemplateValueParameterHelper(LLVMContext &VMContext, unsigned Tag,
+                                   DIDescriptor Context, StringRef Name,
+                                   DIType Ty, Metadata *MD) {
   Metadata *Elts[] = {
-      HeaderBuilder::get(Tag).concat(Name).concat(LineNo).concat(ColumnNo).get(
-          VMContext),
-      DIScope(getNonCompileUnitScope(Context)).getRef(), Ty.getRef(), MD, File};
+      HeaderBuilder::get(Tag).concat(Name).concat(0).concat(0).get(VMContext),
+      DIScope(getNonCompileUnitScope(Context)).getRef(), Ty.getRef(), MD,
+      nullptr};
   return DITemplateValueParameter(MDNode::get(VMContext, Elts));
 }
 
 DITemplateValueParameter
 DIBuilder::createTemplateValueParameter(DIDescriptor Context, StringRef Name,
-                                        DIType Ty, Constant *Val, MDNode *File,
-                                        unsigned LineNo, unsigned ColumnNo) {
+                                        DIType Ty, Constant *Val) {
   return createTemplateValueParameterHelper(
       VMContext, dwarf::DW_TAG_template_value_parameter, Context, Name, Ty,
-      getConstantOrNull(Val), File, LineNo, ColumnNo);
+      getConstantOrNull(Val));
 }
 
 DITemplateValueParameter
 DIBuilder::createTemplateTemplateParameter(DIDescriptor Context, StringRef Name,
-                                           DIType Ty, StringRef Val,
-                                           MDNode *File, unsigned LineNo,
-                                           unsigned ColumnNo) {
+                                           DIType Ty, StringRef Val) {
   return createTemplateValueParameterHelper(
       VMContext, dwarf::DW_TAG_GNU_template_template_param, Context, Name, Ty,
-      MDString::get(VMContext, Val), File, LineNo, ColumnNo);
+      MDString::get(VMContext, Val));
 }
 
 DITemplateValueParameter
 DIBuilder::createTemplateParameterPack(DIDescriptor Context, StringRef Name,
-                                       DIType Ty, DIArray Val,
-                                       MDNode *File, unsigned LineNo,
-                                       unsigned ColumnNo) {
+                                       DIType Ty, DIArray Val) {
   return createTemplateValueParameterHelper(
       VMContext, dwarf::DW_TAG_GNU_template_parameter_pack, Context, Name, Ty,
-      Val, File, LineNo, ColumnNo);
+      Val);
 }
 
 DICompositeType DIBuilder::createClassType(DIDescriptor Context, StringRef Name,
@@ -739,8 +745,10 @@ static HeaderBuilder setTypeFlagsInHeader(StringRef Header,
     Flags = 0;
   Flags |= FlagsToSet;
 
-  return HeaderBuilder(Twine(I.getPrefix())).concat(Flags).concat(
-      I.getSuffix());
+  return HeaderBuilder()
+      .concat(I.getPrefix())
+      .concat(Flags)
+      .concat(I.getSuffix());
 }
 
 static DIType createTypeWithFlags(LLVMContext &Context, DIType Ty,
@@ -805,10 +813,10 @@ DIBuilder::createForwardDecl(unsigned Tag, StringRef Name, DIDescriptor Scope,
   return RetTy;
 }
 
-DICompositeType DIBuilder::createReplaceableForwardDecl(
+DICompositeType DIBuilder::createReplaceableCompositeType(
     unsigned Tag, StringRef Name, DIDescriptor Scope, DIFile F, unsigned Line,
     unsigned RuntimeLang, uint64_t SizeInBits, uint64_t AlignInBits,
-    StringRef UniqueIdentifier) {
+    unsigned Flags, StringRef UniqueIdentifier) {
   // Create a temporary MDNode.
   Metadata *Elts[] = {
       HeaderBuilder::get(Tag)
@@ -817,7 +825,7 @@ DICompositeType DIBuilder::createReplaceableForwardDecl(
           .concat(SizeInBits)
           .concat(AlignInBits)
           .concat(0) // Offset
-          .concat(DIDescriptor::FlagFwdDecl)
+          .concat(Flags)
           .concat(RuntimeLang)
           .get(VMContext),
       F.getFileNode(), DIScope(getNonCompileUnitScope(Scope)).getRef(), nullptr,
@@ -936,17 +944,23 @@ DIVariable DIBuilder::createLocalVariable(unsigned Tag, DIDescriptor Scope,
   return RetVar;
 }
 
-DIExpression DIBuilder::createExpression(ArrayRef<int64_t> Addr) {
+DIExpression DIBuilder::createExpression(ArrayRef<uint64_t> Addr) {
   auto Header = HeaderBuilder::get(DW_TAG_expression);
-  for (int64_t I : Addr)
+  for (uint64_t I : Addr)
     Header.concat(I);
   Metadata *Elts[] = {Header.get(VMContext)};
   return DIExpression(MDNode::get(VMContext, Elts));
 }
 
-DIExpression DIBuilder::createPieceExpression(unsigned OffsetInBytes,
-                                              unsigned SizeInBytes) {
-  int64_t Addr[] = {dwarf::DW_OP_piece, OffsetInBytes, SizeInBytes};
+DIExpression DIBuilder::createExpression(ArrayRef<int64_t> Signed) {
+  // TODO: Remove the callers of this signed version and delete.
+  SmallVector<uint64_t, 8> Addr(Signed.begin(), Signed.end());
+  return createExpression(Addr);
+}
+
+DIExpression DIBuilder::createBitPieceExpression(unsigned OffsetInBits,
+                                                 unsigned SizeInBits) {
+  int64_t Addr[] = {dwarf::DW_OP_bit_piece, OffsetInBits, SizeInBits};
   return createExpression(Addr);
 }
 
@@ -1210,12 +1224,12 @@ void DIBuilder::replaceVTableHolder(DICompositeType &T, DICompositeType VTableHo
   if (T != VTableHolder)
     return;
 
-  // Look for unresolved operands.  T has dropped RAUW support and is already
-  // marked resolved, orphaning any cycles underneath it.
-  assert(T->isResolved() && "Expected self-reference to be resolved");
-  for (const MDOperand &O : T->operands())
-    if (auto *N = dyn_cast_or_null<MDNode>(O))
-      trackIfUnresolved(N);
+  // Look for unresolved operands.  T will drop RAUW support, orphaning any
+  // cycles underneath it.
+  if (T->isResolved())
+    for (const MDOperand &O : T->operands())
+      if (auto *N = dyn_cast_or_null<MDNode>(O))
+        trackIfUnresolved(N);
 }
 
 void DIBuilder::replaceArrays(DICompositeType &T, DIArray Elements,

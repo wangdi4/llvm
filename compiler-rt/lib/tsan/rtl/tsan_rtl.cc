@@ -67,8 +67,17 @@ static char thread_registry_placeholder[sizeof(ThreadRegistry)];
 static ThreadContextBase *CreateThreadContext(u32 tid) {
   // Map thread trace when context is created.
   MapThreadTrace(GetThreadTrace(tid), TraceSize() * sizeof(Event));
-  MapThreadTrace(GetThreadTraceHeader(tid), sizeof(Trace));
-  new(ThreadTrace(tid)) Trace();
+  const uptr hdr = GetThreadTraceHeader(tid);
+  MapThreadTrace(hdr, sizeof(Trace));
+  new((void*)hdr) Trace();
+  // We are going to use only a small part of the trace with the default
+  // value of history_size. However, the constructor writes to the whole trace.
+  // Unmap the unused part.
+  uptr hdr_end = hdr + sizeof(Trace);
+  hdr_end -= sizeof(TraceHeader) * (kTraceParts - TraceParts());
+  hdr_end = RoundUp(hdr_end, GetPageSizeCached());
+  if (hdr_end < hdr + sizeof(Trace))
+    UnmapOrDie((void*)hdr_end, hdr + sizeof(Trace) - hdr_end);
   void *mem = internal_alloc(MBlockThreadContex, sizeof(ThreadContext));
   return new(mem) ThreadContext(tid);
 }
@@ -282,11 +291,11 @@ static void CheckShadowMapping() {
         if (p < beg || p >= end)
           continue;
         const uptr s = MemToShadow(p);
-        VPrintf(3, "  checking pointer %p -> %p\n", p, s);
+        const uptr m = (uptr)MemToMeta(p);
+        VPrintf(3, "  checking pointer %p: shadow=%p meta=%p\n", p, s, m);
         CHECK(IsAppMem(p));
         CHECK(IsShadowMem(s));
         CHECK_EQ(p & ~(kShadowCell - 1), ShadowToMem(s));
-        const uptr m = (uptr)MemToMeta(p);
         CHECK(IsMetaMem(m));
       }
     }
@@ -365,8 +374,7 @@ int Finalize(ThreadState *thr) {
   ctx->report_mtx.Unlock();
 
 #ifndef SANITIZER_GO
-  if (common_flags()->verbosity)
-    AllocatorPrintStats();
+  if (Verbosity()) AllocatorPrintStats();
 #endif
 
   ThreadFinalize(thr);
@@ -395,8 +403,11 @@ int Finalize(ThreadState *thr) {
 
   failed = OnFinalize(failed);
 
+#ifdef TSAN_COLLECT_STATS
   StatAggregate(ctx->stat, thr->stat);
   StatOutput(ctx->stat);
+#endif
+
   return failed ? flags()->exitcode : 0;
 }
 
@@ -566,6 +577,16 @@ void MemoryAccessImpl1(ThreadState *thr, uptr addr,
 
   Shadow old(0);
 
+  // It release mode we manually unroll the loop,
+  // because empirically gcc generates better code this way.
+  // However, we can't afford unrolling in debug mode, because the function
+  // consumes almost 4K of stack. Gtest gives only 4K of stack to death test
+  // threads, which is not enough for the unrolled loop.
+#if SANITIZER_DEBUG
+  for (int idx = 0; idx < 4; idx++) {
+#include "tsan_update_shadow_word_inl.h"
+  }
+#else
   int idx = 0;
 #include "tsan_update_shadow_word_inl.h"
   idx = 1;
@@ -574,6 +595,7 @@ void MemoryAccessImpl1(ThreadState *thr, uptr addr,
 #include "tsan_update_shadow_word_inl.h"
   idx = 3;
 #include "tsan_update_shadow_word_inl.h"
+#endif
 
   // we did not find any races and had already stored
   // the current access info, so we are done

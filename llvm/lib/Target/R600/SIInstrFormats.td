@@ -38,6 +38,7 @@ class InstSI <dag outs, dag ins, string asm, list<dag> pattern> :
   field bits<1> DS = 0;
   field bits<1> MIMG = 0;
   field bits<1> FLAT = 0;
+  field bits<1> WQM = 0;
 
   // These need to be kept in sync with the enum in SIInstrFlags.
   let TSFlags{0} = VM_CNT;
@@ -64,6 +65,7 @@ class InstSI <dag outs, dag ins, string asm, list<dag> pattern> :
   let TSFlags{17} = DS;
   let TSFlags{18} = MIMG;
   let TSFlags{19} = FLAT;
+  let TSFlags{20} = WQM;
 
   // Most instructions require adjustments after selection to satisfy
   // operand requirements.
@@ -337,7 +339,7 @@ class VOP3e <bits<9> op> : Enc64 {
 
 class VOP3be <bits<9> op> : Enc64 {
 
-  bits<8> dst;
+  bits<8> vdst;
   bits<2> src0_modifiers;
   bits<9> src0;
   bits<2> src1_modifiers;
@@ -347,7 +349,7 @@ class VOP3be <bits<9> op> : Enc64 {
   bits<7> sdst;
   bits<2> omod;
 
-  let Inst{7-0} = dst;
+  let Inst{7-0} = vdst;
   let Inst{14-8} = sdst;
   let Inst{25-17} = op;
   let Inst{31-26} = 0x34; //encoding
@@ -554,9 +556,6 @@ class VOP1 <bits<8> op, dag outs, dag ins, string asm, list<dag> pattern> :
 class VOP2 <bits<6> op, dag outs, dag ins, string asm, list<dag> pattern> :
     VOP2Common <outs, ins, asm, pattern>, VOP2e<op>;
 
-class VOP3b <bits<9> op, dag outs, dag ins, string asm, list<dag> pattern> :
-    VOP3Common <outs, ins, asm, pattern>, VOP3be<op>;
-
 class VOPC <bits<8> op, dag ins, string asm, list<dag> pattern> :
     VOPCCommon <ins, asm, pattern>, VOPCe <op>;
 
@@ -584,9 +583,6 @@ class DS <dag outs, dag ins, string asm, list<dag> pattern> :
   let DisableEncoding = "$m0";
   let SchedRW = [WriteLDS];
 }
-
-class DS_si <bits<8> op, dag outs, dag ins, string asm, list<dag> pattern> :
-    DS <outs, ins, asm, pattern>, DSe<op>;
 
 class MUBUF <dag outs, dag ins, string asm, list<dag> pattern> :
     InstSI<outs, ins, asm, pattern> {

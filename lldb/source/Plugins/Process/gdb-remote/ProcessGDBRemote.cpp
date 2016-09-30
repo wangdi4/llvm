@@ -268,7 +268,7 @@ ProcessGDBRemote::CanDebug (Target &target, bool plugin_specified_by_name)
 ProcessGDBRemote::ProcessGDBRemote(Target& target, Listener &listener) :
     Process (target, listener),
     m_flags (0),
-    m_gdb_comm(false),
+    m_gdb_comm (),
     m_debugserver_pid (LLDB_INVALID_PROCESS_ID),
     m_last_stop_packet (),
     m_last_stop_packet_mutex (Mutex::eMutexTypeNormal),
@@ -784,13 +784,25 @@ ProcessGDBRemote::DoLaunch (Module *exe_module, ProcessLaunchInfo &launch_info)
     if (log)
     {
         if (stdin_path || stdout_path || stderr_path)
-            log->Printf ("ProcessGDBRemote::%s provided with STDIO paths via launch_info: stdin=%s, stdout=%s, stdout=%s",
+            log->Printf ("ProcessGDBRemote::%s provided with STDIO paths via launch_info: stdin=%s, stdout=%s, stderr=%s",
                          __FUNCTION__,
                          stdin_path ? stdin_path : "<null>",
                          stdout_path ? stdout_path : "<null>",
                          stderr_path ? stderr_path : "<null>");
         else
             log->Printf ("ProcessGDBRemote::%s no STDIO paths given via launch_info", __FUNCTION__);
+    }
+
+    const bool disable_stdio = (launch_flags & eLaunchFlagDisableSTDIO) != 0;
+    if (stdin_path || disable_stdio)
+    {
+        // the inferior will be reading stdin from the specified file
+        // or stdio is completely disabled
+        m_stdin_forward = false;
+    }
+    else
+    {
+        m_stdin_forward = true;
     }
 
     //  ::LogSetBitMask (GDBR_LOG_DEFAULT);
@@ -811,13 +823,23 @@ ProcessGDBRemote::DoLaunch (Module *exe_module, ProcessLaunchInfo &launch_info)
             lldb_utility::PseudoTerminal pty;
             const bool disable_stdio = (launch_flags & eLaunchFlagDisableSTDIO) != 0;
 
-            // If the debugserver is local and we aren't disabling STDIO, lets use
-            // a pseudo terminal to instead of relying on the 'O' packets for stdio
-            // since 'O' packets can really slow down debugging if the inferior 
-            // does a lot of output.
             PlatformSP platform_sp (m_target.GetPlatform());
-            if (platform_sp && platform_sp->IsHost() && !disable_stdio)
+            if (disable_stdio)
             {
+                // set to /dev/null unless redirected to a file above
+                if (!stdin_path)
+                    stdin_path = "/dev/null";
+                if (!stdout_path)
+                    stdout_path = "/dev/null";
+                if (!stderr_path)
+                    stderr_path = "/dev/null";
+            }
+            else if (platform_sp && platform_sp->IsHost())
+            {
+                // If the debugserver is local and we aren't disabling STDIO, lets use
+                // a pseudo terminal to instead of relying on the 'O' packets for stdio
+                // since 'O' packets can really slow down debugging if the inferior
+                // does a lot of output.
                 const char *slave_name = NULL;
                 if (stdin_path == NULL || stdout_path == NULL || stderr_path == NULL)
                 {
@@ -834,30 +856,15 @@ ProcessGDBRemote::DoLaunch (Module *exe_module, ProcessLaunchInfo &launch_info)
                     stderr_path = slave_name;
 
                 if (log)
-                    log->Printf ("ProcessGDBRemote::%s adjusted STDIO paths for local platform (IsHost() is true) using slave: stdin=%s, stdout=%s, stdout=%s",
+                    log->Printf ("ProcessGDBRemote::%s adjusted STDIO paths for local platform (IsHost() is true) using slave: stdin=%s, stdout=%s, stderr=%s",
                                  __FUNCTION__,
                                  stdin_path ? stdin_path : "<null>",
                                  stdout_path ? stdout_path : "<null>",
                                  stderr_path ? stderr_path : "<null>");
             }
 
-            // Set STDIN to /dev/null if we want STDIO disabled or if either
-            // STDOUT or STDERR have been set to something and STDIN hasn't
-            if (disable_stdio || (stdin_path == NULL && (stdout_path || stderr_path)))
-                stdin_path = "/dev/null";
-            
-            // Set STDOUT to /dev/null if we want STDIO disabled or if either
-            // STDIN or STDERR have been set to something and STDOUT hasn't
-            if (disable_stdio || (stdout_path == NULL && (stdin_path || stderr_path)))
-                stdout_path = "/dev/null";
-            
-            // Set STDERR to /dev/null if we want STDIO disabled or if either
-            // STDIN or STDOUT have been set to something and STDERR hasn't
-            if (disable_stdio || (stderr_path == NULL && (stdin_path || stdout_path)))
-                stderr_path = "/dev/null";
-
             if (log)
-                log->Printf ("ProcessGDBRemote::%s final STDIO paths after all adjustments: stdin=%s, stdout=%s, stdout=%s",
+                log->Printf ("ProcessGDBRemote::%s final STDIO paths after all adjustments: stdin=%s, stdout=%s, stderr=%s",
                              __FUNCTION__,
                              stdin_path ? stdin_path : "<null>",
                              stdout_path ? stdout_path : "<null>",
@@ -973,9 +980,12 @@ ProcessGDBRemote::ConnectToDebugserver (const char *connect_url)
 {
     Error error;
     // Only connect if we have a valid connect URL
+    Log *log(ProcessGDBRemoteLog::GetLogIfAllCategoriesSet(GDBR_LOG_PROCESS));
     
     if (connect_url && connect_url[0])
     {
+        if (log)
+            log->Printf("ProcessGDBRemote::%s Connecting to %s", __FUNCTION__, connect_url);
         std::unique_ptr<ConnectionFileDescriptor> conn_ap(new ConnectionFileDescriptor());
         if (conn_ap.get())
         {
@@ -1739,7 +1749,8 @@ ProcessGDBRemote::SetThreadStopInfo (StringExtractor& stop_packet)
                     // Swap "value" over into "name_extractor"
                     desc_extractor.GetStringRef().swap(value);
                     // Now convert the HEX bytes into a string value
-                    desc_extractor.GetHexByteString (thread_name);
+                    desc_extractor.GetHexByteString (value);
+                    description.swap(value);
                 }
                 else if (name.size() == 2 && ::isxdigit(name[0]) && ::isxdigit(name[1]))
                 {
@@ -1840,8 +1851,24 @@ ProcessGDBRemote::SetThreadStopInfo (StringExtractor& stop_packet)
                         }
                         else if (reason.compare("watchpoint") == 0)
                         {
-                            break_id_t watch_id = LLDB_INVALID_WATCH_ID;
-                            // TODO: locate the watchpoint somehow...
+                            StringExtractor desc_extractor(description.c_str());
+                            addr_t wp_addr = desc_extractor.GetU64(LLDB_INVALID_ADDRESS);
+                            uint32_t wp_index = desc_extractor.GetU32(LLDB_INVALID_INDEX32);
+                            watch_id_t watch_id = LLDB_INVALID_WATCH_ID;
+                            if (wp_addr != LLDB_INVALID_ADDRESS)
+                            {
+                                WatchpointSP wp_sp = GetTarget().GetWatchpointList().FindByAddress(wp_addr);
+                                if (wp_sp)
+                                {
+                                    wp_sp->SetHardwareIndex(wp_index);
+                                    watch_id = wp_sp->GetID();
+                                }
+                            }
+                            if (watch_id == LLDB_INVALID_WATCH_ID)
+                            {
+                                Log *log (ProcessGDBRemoteLog::GetLogIfAllCategoriesSet (GDBR_LOG_WATCHPOINTS));
+                                if (log) log->Printf ("failed to find watchpoint");
+                            }
                             thread_sp->SetStopInfo (StopInfo::CreateStopReasonWithWatchpointID (*thread_sp, watch_id));
                             handled = true;
                         }
@@ -2457,6 +2484,10 @@ ProcessGDBRemote::PutSTDIN (const char *src, size_t src_len, Error &error)
         ConnectionStatus status;
         m_stdio_communication.Write(src, src_len, status, NULL);
     }
+    else if (m_stdin_forward)
+    {
+        m_gdb_comm.SendStdinNotification(src, src_len);
+    }
     return 0;
 }
 
@@ -2761,6 +2792,10 @@ ProcessGDBRemote::LaunchAndConnectToDebugserver (const ProcessInfo &process_info
         static FileSpec g_debugserver_file_spec;
 
         ProcessLaunchInfo debugserver_launch_info;
+        // Make debugserver run in its own session so signals generated by
+        // special terminal key sequences (^C) don't affect debugserver.
+        debugserver_launch_info.SetLaunchInSeparateProcessGroup(true);
+
         debugserver_launch_info.SetMonitorProcessCallback (MonitorDebugserverProcess, this, false);
         debugserver_launch_info.SetUserID(process_info.GetUserID());
 

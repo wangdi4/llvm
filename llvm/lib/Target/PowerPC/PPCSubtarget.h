@@ -68,9 +68,6 @@ protected:
   /// TargetTriple - What processor and OS we're targeting.
   Triple TargetTriple;
 
-  // Calculates type size & alignment
-  const DataLayout DL;
-
   /// stackAlignment - The minimum alignment known to hold of the stack frame on
   /// entry to the function and which must be maintained by every function.
   unsigned StackAlignment;
@@ -92,6 +89,7 @@ protected:
   bool HasQPX;
   bool HasVSX;
   bool HasP8Vector;
+  bool HasP8Altivec;
   bool HasFCPSGN;
   bool HasFSQRT;
   bool HasFRE, HasFRES, HasFRSQRTE, HasFRSQRTES;
@@ -121,7 +119,7 @@ protected:
     PPC_ABI_ELFv1,
     PPC_ABI_ELFv2
   } TargetABI;
-
+  const PPCTargetMachine &TM;
   PPCFrameLowering FrameLowering;
   PPCInstrInfo InstrInfo;
   PPCTargetLowering TLInfo;
@@ -156,7 +154,6 @@ public:
   const PPCFrameLowering *getFrameLowering() const override {
     return &FrameLowering;
   }
-  const DataLayout *getDataLayout() const override { return &DL; }
   const PPCInstrInfo *getInstrInfo() const override { return &InstrInfo; }
   const PPCTargetLowering *getTargetLowering() const override {
     return &TLInfo;
@@ -167,6 +164,7 @@ public:
   const PPCRegisterInfo *getRegisterInfo() const override {
     return &getInstrInfo()->getRegisterInfo();
   }
+  const PPCTargetMachine &getTargetMachine() const { return TM; }
 
   /// initializeSubtargetDependencies - Initializes using a CPU and feature string
   /// so that we can use initializer lists for subtarget initialization.
@@ -197,8 +195,7 @@ public:
   /// hasLazyResolverStub - Return true if accesses to the specified global have
   /// to go through a dyld lazy resolution stub.  This means that an extra load
   /// is required to get the address of the global.
-  bool hasLazyResolverStub(const GlobalValue *GV,
-                           const TargetMachine &TM) const;
+  bool hasLazyResolverStub(const GlobalValue *GV) const;
 
   // isLittleEndian - True if generating little-endian code
   bool isLittleEndian() const { return IsLittleEndian; }
@@ -220,6 +217,7 @@ public:
   bool hasQPX() const { return HasQPX; }
   bool hasVSX() const { return HasVSX; }
   bool hasP8Vector() const { return HasP8Vector; }
+  bool hasP8Altivec() const { return HasP8Altivec; }
   bool hasMFOCRF() const { return HasMFOCRF; }
   bool hasISEL() const { return HasISEL; }
   bool hasPOPCNTD() const { return HasPOPCNTD; }

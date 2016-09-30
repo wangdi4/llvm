@@ -48,8 +48,8 @@ using namespace lldb_private;
 //----------------------------------------------------------------------
 // GDBRemoteCommunicationClient constructor
 //----------------------------------------------------------------------
-GDBRemoteCommunicationClient::GDBRemoteCommunicationClient(bool is_platform) :
-    GDBRemoteCommunication("gdb-remote.client", "gdb-remote.client.rx_packet", is_platform),
+GDBRemoteCommunicationClient::GDBRemoteCommunicationClient() :
+    GDBRemoteCommunication("gdb-remote.client", "gdb-remote.client.rx_packet"),
     m_supports_not_sending_acks (eLazyBoolCalculate),
     m_supports_thread_suffix (eLazyBoolCalculate),
     m_supports_threads_in_stop_reply (eLazyBoolCalculate),
@@ -1211,13 +1211,13 @@ GDBRemoteCommunicationClient::SendInterrupt
 }
 
 lldb::pid_t
-GDBRemoteCommunicationClient::GetCurrentProcessID ()
+GDBRemoteCommunicationClient::GetCurrentProcessID (bool allow_lazy)
 {
-    if (m_curr_pid_is_valid == eLazyBoolYes)
+    if (allow_lazy && m_curr_pid_is_valid == eLazyBoolYes)
         return m_curr_pid;
     
     // First try to retrieve the pid via the qProcessInfo request.
-    GetCurrentProcessInfo ();
+    GetCurrentProcessInfo (allow_lazy);
     if (m_curr_pid_is_valid == eLazyBoolYes)
     {
         // We really got it.
@@ -1866,6 +1866,21 @@ GDBRemoteCommunicationClient::SendAttach
     return -1;
 }
 
+int
+GDBRemoteCommunicationClient::SendStdinNotification (const char* data, size_t data_len)
+{
+    StreamString packet;
+    packet.PutCString("I");
+    packet.PutBytesAsRawHex8(data, data_len);
+    StringExtractorGDBRemote response;
+    if (SendPacketAndWaitForResponse (packet.GetData(), packet.GetSize(), response, false) == PacketResult::Success)
+    {
+        return 0;
+    }
+    return response.GetError();
+
+}
+
 const lldb_private::ArchSpec &
 GDBRemoteCommunicationClient::GetHostArchitecture ()
 {
@@ -2409,14 +2424,17 @@ GDBRemoteCommunicationClient::GetProcessInfo (lldb::pid_t pid, ProcessInstanceIn
 }
 
 bool
-GDBRemoteCommunicationClient::GetCurrentProcessInfo ()
+GDBRemoteCommunicationClient::GetCurrentProcessInfo (bool allow_lazy)
 {
     Log *log (ProcessGDBRemoteLog::GetLogIfAnyCategoryIsSet (GDBR_LOG_PROCESS | GDBR_LOG_PACKETS));
 
-    if (m_qProcessInfo_is_valid == eLazyBoolYes)
-        return true;
-    if (m_qProcessInfo_is_valid == eLazyBoolNo)
-        return false;
+    if (allow_lazy)
+    {
+        if (m_qProcessInfo_is_valid == eLazyBoolYes)
+            return true;
+        if (m_qProcessInfo_is_valid == eLazyBoolNo)
+            return false;
+    }
 
     GetHostInfo ();
 
@@ -2850,7 +2868,11 @@ GDBRemoteCommunicationClient::LaunchGDBserverAndGetPort (lldb::pid_t &pid, const
     const char *packet = stream.GetData();
     int packet_len = stream.GetSize();
 
-    if (SendPacketAndWaitForResponse(packet, packet_len, response, false) == PacketResult::Success)
+    // give the process a few seconds to startup
+    const uint32_t old_packet_timeout = SetPacketTimeout (10);
+    auto result = SendPacketAndWaitForResponse(packet, packet_len, response, false);
+    SetPacketTimeout (old_packet_timeout);
+    if (result == PacketResult::Success)
     {
         std::string name;
         std::string value;
@@ -3014,6 +3036,7 @@ GDBRemoteCommunicationClient::SendGDBStoppointTypePacket (GDBStoppointType type,
             case eWatchpointWrite:      m_supports_z2 = false; break;
             case eWatchpointRead:       m_supports_z3 = false; break;
             case eWatchpointReadWrite:  m_supports_z4 = false; break;
+            case eStoppointInvalid:     return UINT8_MAX;
             }
         }
     }

@@ -935,8 +935,8 @@ static void emitUsed(CodeGenModule &CGM, StringRef Name,
   UsedArray.resize(List.size());
   for (unsigned i = 0, e = List.size(); i != e; ++i) {
     UsedArray[i] =
-     llvm::ConstantExpr::getBitCast(cast<llvm::Constant>(&*List[i]),
-                                    CGM.Int8PtrTy);
+        llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+            cast<llvm::Constant>(&*List[i]), CGM.Int8PtrTy);
   }
 
   if (UsedArray.empty())
@@ -1084,28 +1084,32 @@ void CodeGenModule::EmitDeferred() {
   // previously unused static decl may become used during the generation of code
   // for a static function, iterate until no changes are made.
 
-  while (true) {
-    if (!DeferredVTables.empty()) {
-      EmitDeferredVTables();
+  if (!DeferredVTables.empty()) {
+    EmitDeferredVTables();
 
-      // Emitting a v-table doesn't directly cause more v-tables to
-      // become deferred, although it can cause functions to be
-      // emitted that then need those v-tables.
-      assert(DeferredVTables.empty());
-    }
+    // Emitting a v-table doesn't directly cause more v-tables to
+    // become deferred, although it can cause functions to be
+    // emitted that then need those v-tables.
+    assert(DeferredVTables.empty());
+  }
 
-    // Stop if we're out of both deferred v-tables and deferred declarations.
-    if (DeferredDeclsToEmit.empty()) break;
+  // Stop if we're out of both deferred v-tables and deferred declarations.
+  if (DeferredDeclsToEmit.empty())
+    return;
 
-    DeferredGlobal &G = DeferredDeclsToEmit.back();
+  // Grab the list of decls to emit. If EmitGlobalDefinition schedules more
+  // work, it will not interfere with this.
+  std::vector<DeferredGlobal> CurDeclsToEmit;
+  CurDeclsToEmit.swap(DeferredDeclsToEmit);
+
+  for (DeferredGlobal &G : CurDeclsToEmit) {
     GlobalDecl D = G.GD;
     llvm::GlobalValue *GV = G.GV;
-    DeferredDeclsToEmit.pop_back();
+    G.GV = nullptr;
 
     assert(!GV || GV == GetGlobalValue(getMangledName(D)));
     if (!GV)
       GV = GetGlobalValue(getMangledName(D));
-
 
     // Check to see if we've already emitted this.  This is necessary
     // for a couple of reasons: first, decls can end up in the
@@ -1118,6 +1122,14 @@ void CodeGenModule::EmitDeferred() {
 
     // Otherwise, emit the definition and move on to the next one.
     EmitGlobalDefinition(D, GV);
+
+    // If we found out that we need to emit more decls, do that recursively.
+    // This has the advantage that the decls are emitted in a DFS and related
+    // ones are close together, which is convenient for testing.
+    if (!DeferredVTables.empty() || !DeferredDeclsToEmit.empty()) {
+      EmitDeferred();
+      assert(DeferredVTables.empty() && DeferredDeclsToEmit.empty());
+    }
   }
 }
 
@@ -1274,6 +1286,8 @@ llvm::Constant *CodeGenModule::GetAddrOfUuidDescriptor(
   auto *GV = new llvm::GlobalVariable(
       getModule(), Init->getType(),
       /*isConstant=*/true, llvm::GlobalValue::LinkOnceODRLinkage, Init, Name);
+  if (supportsCOMDAT())
+    GV->setComdat(TheModule.getOrInsertComdat(GV->getName()));
   return GV;
 }
 
@@ -1601,12 +1615,15 @@ CodeGenModule::GetOrCreateLLVMFunction(StringRef MangledName,
       // don't need it anymore).
       addDeferredDeclToEmit(F, DDI->second);
       DeferredDecls.erase(DDI);
-
+      
       // Otherwise, if this is a sized deallocation function, emit a weak
-      // definition
-      // for it at the end of the translation unit.
-    } else if (D && cast<FunctionDecl>(D)
-                        ->getCorrespondingUnsizedGlobalDeallocationFunction()) {
+      // definition for it at the end of the translation unit (if allowed),
+      // unless the sized deallocation function is aliased.
+    } else if (D &&
+               cast<FunctionDecl>(D)
+                  ->getCorrespondingUnsizedGlobalDeallocationFunction() &&
+               getLangOpts().DefaultSizedDelete &&
+               !D->hasAttr<AliasAttr>()) {
       addDeferredDeclToEmit(F, GD);
 
       // Otherwise, there are cases we have to worry about where we're
@@ -2148,9 +2165,25 @@ static bool isVarDeclStrongDefinition(const ASTContext &Context,
 
   // Declarations with a required alignment do not have common linakge in MSVC
   // mode.
-  if (Context.getLangOpts().MSVCCompat &&
-      (Context.isAlignmentRequired(D->getType()) || D->hasAttr<AlignedAttr>()))
-    return true;
+  if (Context.getLangOpts().MSVCCompat) {
+    if (D->hasAttr<AlignedAttr>())
+      return true;
+    QualType VarType = D->getType();
+    if (Context.isAlignmentRequired(VarType))
+      return true;
+
+    if (const auto *RT = VarType->getAs<RecordType>()) {
+      const RecordDecl *RD = RT->getDecl();
+      for (const FieldDecl *FD : RD->fields()) {
+        if (FD->isBitField())
+          continue;
+        if (FD->hasAttr<AlignedAttr>())
+          return true;
+        if (Context.isAlignmentRequired(FD->getType()))
+          return true;
+      }
+    }
+  }
 
   return false;
 }

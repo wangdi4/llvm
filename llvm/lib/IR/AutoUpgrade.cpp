@@ -163,6 +163,8 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
         Name == "x86.avx.vbroadcast.ss" ||
         Name == "x86.avx.vbroadcast.ss.256" ||
         Name == "x86.avx.vbroadcast.sd.256" ||
+        Name == "x86.sse2.psll.dq.bs" ||
+        Name == "x86.sse2.psrl.dq.bs" ||
         (Name.startswith("x86.xop.vpcom") && F->arg_size() == 2)) {
       NewFn = nullptr;
       return true;
@@ -226,6 +228,81 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
                                        NewFn);
     if (Name == "x86.avx512.mask.cmp.pd.512")
       return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_pd_512,
+                                       NewFn);
+
+    if (Name == "x86.avx512.mask.cmp.b.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_b_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.w.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_w_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.d.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_d_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.q.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_q_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.b.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_b_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.w.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_w_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.d.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_d_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.q.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_q_512,
+                                       NewFn);
+
+    if (Name == "x86.avx512.mask.cmp.b.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_b_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.w.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_w_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.d.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_d_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.q.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_q_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.b.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_b_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.w.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_w_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.d.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_d_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.q.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_q_256,
+                                       NewFn);
+
+    if (Name == "x86.avx512.mask.cmp.b.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_b_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.w.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_w_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.d.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_d_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.q.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_q_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.b.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_b_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.w.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_w_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.d.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_d_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.q.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_q_128,
                                        NewFn);
 
     // frcz.ss/sd may need to have an argument dropped
@@ -383,9 +460,9 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
         Imm = 4;
       else if (Name.startswith("ne"))
         Imm = 5;
-      else if (Name.startswith("true"))
-        Imm = 6;
       else if (Name.startswith("false"))
+        Imm = 6;
+      else if (Name.startswith("true"))
         Imm = 7;
       else
         llvm_unreachable("Unknown condition");
@@ -412,6 +489,43 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
       for (unsigned I = 0; I < EltNum; ++I)
         Rep = Builder.CreateInsertElement(Rep, Load,
                                           ConstantInt::get(I32Ty, I));
+    } else if (Name == "llvm.x86.sse2.psll.dq.bs") {
+      Value *Op0 = ConstantVector::getSplat(16, Builder.getInt8(0));
+      Value *Op1 = Builder.CreateBitCast(CI->getArgOperand(0),
+                                         VectorType::get(Type::getInt8Ty(C),16),
+                                         "cast");
+
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+
+      if (Shift < 16) {
+        SmallVector<Constant*, 16> Idxs;
+        for (unsigned i = 16; i != 32; ++i)
+          Idxs.push_back(Builder.getInt32(i - Shift));
+
+        Op0 = Builder.CreateShuffleVector(Op0, Op1, ConstantVector::get(Idxs));
+      }
+
+      Rep = Builder.CreateBitCast(Op0,
+                                  VectorType::get(Type::getInt64Ty(C), 2),
+                                  "cast");
+    } else if (Name == "llvm.x86.sse2.psrl.dq.bs") {
+      Value *Op0 = Builder.CreateBitCast(CI->getArgOperand(0),
+                                         VectorType::get(Type::getInt8Ty(C),16),
+                                         "cast");
+      Value *Op1 = ConstantVector::getSplat(16, Builder.getInt8(0));
+
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+
+      if (Shift < 16) {
+        SmallVector<Constant*, 16> Idxs;
+        for (unsigned i = 0; i != 16; ++i)
+          Idxs.push_back(Builder.getInt32(i + Shift));
+
+        Op1 = Builder.CreateShuffleVector(Op0, Op1, ConstantVector::get(Idxs));
+      }
+      Rep = Builder.CreateBitCast(Op1,
+                                  VectorType::get(Type::getInt64Ty(C), 2),
+                                  "cast");
     } else {
       bool PD128 = false, PD256 = false, PS128 = false, PS256 = false;
       if (Name == "llvm.x86.avx.vpermil.pd.256")

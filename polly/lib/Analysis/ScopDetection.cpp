@@ -60,6 +60,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMContext.h"
@@ -148,6 +149,13 @@ static cl::opt<bool>
                 cl::Hidden, cl::init(false), cl::ZeroOrMore,
                 cl::cat(PollyCategory));
 
+static cl::opt<bool, true> XPollyModelPHINodes(
+    "polly-model-phi-nodes",
+    cl::desc("Allow PHI nodes in the input [Unsafe with code-generation!]."),
+    cl::location(PollyModelPHINodes), cl::Hidden, cl::ZeroOrMore,
+    cl::init(false), cl::cat(PollyCategory));
+
+bool polly::PollyModelPHINodes = false;
 bool polly::PollyTrackFailures = false;
 bool polly::PollyDelinearize = false;
 StringRef polly::PollySkipFnAttr = "polly.skip.fn";
@@ -329,7 +337,7 @@ bool ScopDetection::isValidCFG(BasicBlock &BB,
 }
 
 bool ScopDetection::isValidCallInst(CallInst &CI) {
-  if (CI.mayHaveSideEffects() || CI.doesNotReturn())
+  if (CI.doesNotReturn())
     return false;
 
   if (CI.doesNotAccessMemory())
@@ -341,7 +349,29 @@ bool ScopDetection::isValidCallInst(CallInst &CI) {
   if (CalledFunction == 0)
     return false;
 
-  // TODO: Intrinsics.
+  // Check if we can handle the intrinsic call.
+  if (auto *IT = dyn_cast<IntrinsicInst>(&CI)) {
+    switch (IT->getIntrinsicID()) {
+    // Lifetime markers are supported/ignored.
+    case llvm::Intrinsic::lifetime_start:
+    case llvm::Intrinsic::lifetime_end:
+    // Invariant markers are supported/ignored.
+    case llvm::Intrinsic::invariant_start:
+    case llvm::Intrinsic::invariant_end:
+    // Some misc annotations are supported/ignored.
+    case llvm::Intrinsic::var_annotation:
+    case llvm::Intrinsic::ptr_annotation:
+    case llvm::Intrinsic::annotation:
+    case llvm::Intrinsic::donothing:
+    case llvm::Intrinsic::assume:
+    case llvm::Intrinsic::expect:
+      return true;
+    default:
+      // Other intrinsics which may access the memory are not yet supported.
+      break;
+    }
+  }
+
   return false;
 }
 
@@ -573,7 +603,7 @@ bool ScopDetection::isValidMemoryAccess(Instruction &Inst,
 bool ScopDetection::isValidInstruction(Instruction &Inst,
                                        DetectionContext &Context) const {
   if (PHINode *PN = dyn_cast<PHINode>(&Inst))
-    if (!canSynthesize(PN, LI, SE, &Context.CurRegion)) {
+    if (!PollyModelPHINodes && !canSynthesize(PN, LI, SE, &Context.CurRegion)) {
       return invalid<ReportPhiNodeRefInRegion>(Context, /*Assert=*/true, &Inst);
     }
 

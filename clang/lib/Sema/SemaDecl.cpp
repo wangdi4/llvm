@@ -3472,7 +3472,7 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
     return ActOnFriendTypeDecl(S, DS, TemplateParams);
   }
 
-  CXXScopeSpec &SS = DS.getTypeSpecScope();
+  const CXXScopeSpec &SS = DS.getTypeSpecScope();
   bool IsExplicitSpecialization =
     !TemplateParams.empty() && TemplateParams.back()->size() == 0;
   if (Tag && SS.isNotEmpty() && !Tag->isCompleteDefinition() &&
@@ -3499,7 +3499,8 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
         DS.getStorageClassSpec() != DeclSpec::SCS_typedef) {
       if (getLangOpts().CPlusPlus ||
           Record->getDeclContext()->isRecord())
-        return BuildAnonymousStructOrUnion(S, DS, AS, Record, Context.getPrintingPolicy());
+        return BuildAnonymousStructOrUnion(S, DS, AS, Record,
+                                           Context.getPrintingPolicy());
 
       DeclaresAnything = false;
     }
@@ -5578,8 +5579,9 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         }
       }
     } else {
-      assert(D.getName().getKind() != UnqualifiedId::IK_TemplateId &&
-             "should have a 'template<>' for this decl");
+      assert(
+          (Invalid || D.getName().getKind() != UnqualifiedId::IK_TemplateId) &&
+          "should have a 'template<>' for this decl");
     }
 
     if (IsVariableTemplateSpecialization) {
@@ -8715,6 +8717,14 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
     CheckVariableDeclarationType(VDecl);
     if (VDecl->isInvalidDecl())
       return;
+
+    // If all looks well, warn if this is a case that will change meaning when
+    // we implement N3922.
+    if (DirectInit && !CXXDirectInit && isa<InitListExpr>(Init)) {
+      Diag(Init->getLocStart(),
+           diag::warn_auto_var_direct_list_init)
+        << FixItHint::CreateInsertion(Init->getLocStart(), "=");
+    }
   }
 
   // dllimport cannot be used on variable definitions.
@@ -8841,11 +8851,12 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
           });
       if (Res.isInvalid()) {
         VDecl->setInvalidDecl();
-        return;
-      }
-      if (Res.get() != Args[Idx])
+      } else if (Res.get() != Args[Idx]) {
         Args[Idx] = Res.get();
+      }
     }
+    if (VDecl->isInvalidDecl())
+      return;
 
     InitializationSequence InitSeq(*this, Entity, Kind, Args);
     ExprResult Result = InitSeq.Perform(*this, Entity, Kind, Args, &DclT);
@@ -9257,6 +9268,8 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
         Var->setInvalidDecl();
         return;
       }
+    } else {
+      return;
     }
 
     // The variable can not have an abstract class type.
@@ -12346,7 +12359,8 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
   if (!InvalidDecl && Mutable) {
     unsigned DiagID = 0;
     if (T->isReferenceType())
-      DiagID = diag::err_mutable_reference;
+      DiagID = getLangOpts().MSVCCompat ? diag::ext_mutable_reference
+                                        : diag::err_mutable_reference;
     else if (T.isConstQualified())
       DiagID = diag::err_mutable_const;
 
@@ -12355,8 +12369,10 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
       if (D && D->getDeclSpec().getStorageClassSpecLoc().isValid())
         ErrLoc = D->getDeclSpec().getStorageClassSpecLoc();
       Diag(ErrLoc, DiagID);
-      Mutable = false;
-      InvalidDecl = true;
+      if (DiagID != diag::ext_mutable_reference) {
+        Mutable = false;
+        InvalidDecl = true;
+      }
     }
   }
 
@@ -13979,7 +13995,10 @@ Decl *Sema::getObjCDeclContext() const {
 }
 
 AvailabilityResult Sema::getCurContextAvailability() const {
-  const Decl *D = cast<Decl>(getCurObjCLexicalContext());
+  const Decl *D = cast_or_null<Decl>(getCurObjCLexicalContext());
+  if (!D)
+    return AR_Available;
+
   // If we are within an Objective-C method, we should consult
   // both the availability of the method as well as the
   // enclosing class.  If the class is (say) deprecated,

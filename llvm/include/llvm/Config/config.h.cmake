@@ -55,6 +55,9 @@
    don't. */
 #cmakedefine01 HAVE_DECL_STRERROR_S
 
+/* Define to 1 if you have the DIA SDK installed, and to 0 if you don't. */
+#cmakedefine HAVE_DIA_SDK ${HAVE_DIA_SDK}
+
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
 #cmakedefine HAVE_DIRENT_H ${HAVE_DIRENT_H}
@@ -426,6 +429,9 @@
 /* Have host's __chkstk */
 #cmakedefine HAVE___CHKSTK ${HAVE___CHKSTK}
 
+/* Have host's __chkstk_ms */
+#cmakedefine HAVE___CHKSTK_MS ${HAVE___CHKSTK_MS}
+
 /* Have host's __cmpdi2 */
 #cmakedefine HAVE___CMPDI2 ${HAVE___CMPDI2}
 
@@ -461,6 +467,9 @@
 
 /* Have host's ___chkstk */
 #cmakedefine HAVE____CHKSTK ${HAVE____CHKSTK}
+
+/* Have host's ___chkstk_ms */
+#cmakedefine HAVE____CHKSTK_MS ${HAVE____CHKSTK_MS}
 
 /* Define if we link Polly to the tools */
 #cmakedefine LINK_POLLY_INTO_TOOLS

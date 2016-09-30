@@ -525,6 +525,33 @@ public:
   }
 };
 
+template <typename Target>
+class PS4OSTargetInfo : public OSTargetInfo<Target> {
+protected:
+  void getOSDefines(const LangOptions &Opts, const llvm::Triple &Triple,
+                    MacroBuilder &Builder) const override {
+    Builder.defineMacro("__FreeBSD__", "9");
+    Builder.defineMacro("__FreeBSD_cc_version", "900001");
+    Builder.defineMacro("__KPRINTF_ATTRIBUTE__");
+    DefineStd(Builder, "unix", Opts);
+    Builder.defineMacro("__ELF__");
+    Builder.defineMacro("__PS4__");
+  }
+public:
+  PS4OSTargetInfo(const llvm::Triple &Triple) : OSTargetInfo<Target>(Triple) {
+    this->WCharType = this->UnsignedShort;
+
+    this->UserLabelPrefix = "";
+
+    switch (Triple.getArch()) {
+    default:
+    case llvm::Triple::x86_64:
+      this->MCountName = ".mcount";
+      break;
+    }
+  }
+};
+
 // Solaris target
 template<typename Target>
 class SolarisTargetInfo : public OSTargetInfo<Target> {
@@ -573,7 +600,7 @@ protected:
       if (Opts.RTTIData)
         Builder.defineMacro("_CPPRTTI");
 
-      if (Opts.Exceptions)
+      if (Opts.CXXExceptions)
         Builder.defineMacro("_CPPUNWIND");
     }
 
@@ -658,11 +685,6 @@ public:
       assert(Triple.getArch() == llvm::Triple::le32);
       this->DescriptionString = "e-p:32:32-i64:64";
     }
-  }
-  typename Target::CallingConvCheckResult checkCallingConvention(
-      CallingConv CC) const override {
-    return CC == CC_PnaclCall ? Target::CCCR_OK :
-        Target::checkCallingConvention(CC);
   }
 };
 } // end anonymous namespace.
@@ -1570,8 +1592,15 @@ class R600TargetInfo : public TargetInfo {
 
 public:
   R600TargetInfo(const llvm::Triple &Triple)
-      : TargetInfo(Triple), GPU(GK_R600) {
-    DescriptionString = DescriptionStringR600;
+      : TargetInfo(Triple) {
+
+    if (Triple.getArch() == llvm::Triple::amdgcn) {
+      DescriptionString = DescriptionStringSI;
+      GPU = GK_SOUTHERN_ISLANDS;
+    } else {
+      DescriptionString = DescriptionStringR600;
+      GPU = GK_R600;
+    }
     AddrSpaceMap = &R600AddrSpaceMap;
     UseAddrSpaceMapMangling = true;
   }
@@ -3995,7 +4024,7 @@ public:
       Features["neon"] = true;
       Features["hwdiv"] = true;
       Features["hwdiv-arm"] = true;
-    } else if (CPU == "cortex-a53" || CPU == "cortex-a57") {
+    } else if (CPU == "cortex-a53" || CPU == "cortex-a57" || CPU == "cortex-a72") {
       Features["fp-armv8"] = true;
       Features["neon"] = true;
       Features["hwdiv"] = true;
@@ -4115,7 +4144,7 @@ public:
         .Case("cortex-m3", "7M")
         .Cases("cortex-m4", "cortex-m7", "7EM")
         .Case("cortex-m0", "6M")
-        .Cases("cortex-a53", "cortex-a57", "8A")
+        .Cases("cortex-a53", "cortex-a57", "cortex-a72", "8A")
         .Default(nullptr);
   }
   static const char *getCPUProfile(StringRef Name) {
@@ -4123,7 +4152,7 @@ public:
         .Cases("cortex-a5", "cortex-a7", "cortex-a8", "A")
         .Cases("cortex-a9", "cortex-a12", "cortex-a15", "cortex-a17", "krait",
                "A")
-        .Cases("cortex-a53", "cortex-a57", "A")
+        .Cases("cortex-a53", "cortex-a57", "cortex-a72", "A")
         .Cases("cortex-m3", "cortex-m4", "cortex-m0", "cortex-m7", "M")
         .Cases("cortex-r4", "cortex-r5", "R")
         .Default("");
@@ -4643,7 +4672,7 @@ public:
     MaxAtomicInlineWidth = 128;
     MaxAtomicPromoteWidth = 128;
 
-    LongDoubleWidth = LongDoubleAlign = 128;
+    LongDoubleWidth = LongDoubleAlign = SuitableAlign = 128;
     LongDoubleFormat = &llvm::APFloat::IEEEquad;
 
     // {} in inline assembly are neon specifiers, not assembly variant
@@ -4673,7 +4702,7 @@ public:
   bool setCPU(const std::string &Name) override {
     bool CPUKnown = llvm::StringSwitch<bool>(Name)
                         .Case("generic", true)
-                        .Cases("cortex-a53", "cortex-a57", true)
+                        .Cases("cortex-a53", "cortex-a57", "cortex-a72", true)
                         .Case("cyclone", true)
                         .Default(false);
     return CPUKnown;
@@ -4983,7 +5012,7 @@ public:
     WCharType = SignedInt;
     UseSignedCharForObjCBool = false;
 
-    LongDoubleWidth = LongDoubleAlign = 64;
+    LongDoubleWidth = LongDoubleAlign = SuitableAlign = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble;
 
     TheCXXABI.set(TargetCXXABI::iOS64);
@@ -5766,14 +5795,6 @@ public:
   }
   const std::string& getCPU() const { return CPU; }
   void getDefaultFeatures(llvm::StringMap<bool> &Features) const override {
-    // The backend enables certain ABI's by default according to the
-    // architecture.
-    // Disable both possible defaults so that we don't end up with multiple
-    // ABI's selected and trigger an assertion.
-    Features["o32"] = false;
-    Features["n64"] = false;
-
-    Features[ABI] = true;
     if (CPU == "octeon")
       Features["mips64r2"] = Features["cnmips"] = true;
     else
@@ -6007,6 +6028,8 @@ public:
       : MipsTargetInfoBase(Triple, "o32", "mips32r2") {
     SizeType = UnsignedInt;
     PtrDiffType = SignedInt;
+    Int64Type = SignedLongLong;
+    IntMaxType = Int64Type;
     MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 32;
   }
   bool setABI(const std::string &Name) override {
@@ -6136,6 +6159,8 @@ public:
     PointerWidth = PointerAlign = 64;
     SizeType = UnsignedLong;
     PtrDiffType = SignedLong;
+    Int64Type = SignedLong;
+    IntMaxType = Int64Type;
   }
 
   void setN32ABITypes() {
@@ -6143,6 +6168,8 @@ public:
     PointerWidth = PointerAlign = 32;
     SizeType = UnsignedInt;
     PtrDiffType = SignedInt;
+    Int64Type = SignedLongLong;
+    IntMaxType = Int64Type;
   }
 
   bool setABI(const std::string &Name) override {
@@ -6444,6 +6471,15 @@ namespace {
                           unsigned &NumAliases) const override {}
     BuiltinVaListKind getBuiltinVaListKind() const override {
       return TargetInfo::VoidPtrBuiltinVaList;
+    }
+
+    CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
+      return (CC == CC_SpirFunction ||
+              CC == CC_SpirKernel) ? CCCR_OK : CCCR_Warning;
+    }
+
+    CallingConv getDefaultCallingConv(CallingConvMethodType MT) const override {
+      return CC_SpirFunction;
     }
   };
 
@@ -6900,6 +6936,8 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
     }
     case llvm::Triple::NaCl:
       return new NaClTargetInfo<X86_64TargetInfo>(Triple);
+    case llvm::Triple::PS4:
+      return new PS4OSTargetInfo<X86_64TargetInfo>(Triple);
     default:
       return new X86_64TargetInfo(Triple);
     }

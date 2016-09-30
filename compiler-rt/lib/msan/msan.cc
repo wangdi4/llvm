@@ -16,6 +16,7 @@
 #include "msan_chained_origin_depot.h"
 #include "msan_origin.h"
 #include "msan_thread.h"
+#include "msan_poisoning.h"
 #include "sanitizer_common/sanitizer_atomic.h"
 #include "sanitizer_common/sanitizer_common.h"
 #include "sanitizer_common/sanitizer_flags.h"
@@ -110,7 +111,7 @@ class FlagHandlerKeepGoing : public FlagHandlerBase {
  public:
   explicit FlagHandlerKeepGoing(bool *halt_on_error)
       : halt_on_error_(halt_on_error) {}
-  bool Parse(const char *value) {
+  bool Parse(const char *value) final {
     bool tmp;
     FlagHandler<bool> h(&tmp);
     if (!h.Parse(value)) return false;
@@ -119,7 +120,7 @@ class FlagHandlerKeepGoing : public FlagHandlerBase {
   }
 };
 
-void RegisterMsanFlags(FlagParser *parser, Flags *f) {
+static void RegisterMsanFlags(FlagParser *parser, Flags *f) {
 #define MSAN_FLAG(Type, Name, DefaultValue, Description) \
   RegisterFlag(parser, #Name, Description, &f->Name);
 #include "msan_flags.inc"
@@ -131,7 +132,8 @@ void RegisterMsanFlags(FlagParser *parser, Flags *f) {
                           "deprecated, use halt_on_error");
 }
 
-static void InitializeFlags(Flags *f, const char *options) {
+static void InitializeFlags() {
+  Flags *f = flags();
   FlagParser parser;
   RegisterMsanFlags(&parser, f);
   RegisterCommonFlags(&parser);
@@ -155,9 +157,13 @@ static void InitializeFlags(Flags *f, const char *options) {
   if (__msan_default_options)
     parser.ParseString(__msan_default_options());
 
-  parser.ParseString(options);
+  const char *msan_options = GetEnv("MSAN_OPTIONS");
+  parser.ParseString(msan_options);
+  VPrintf(1, "MSAN_OPTIONS: %s\n", msan_options ? msan_options : "<empty>");
 
-  if (common_flags()->verbosity) ReportUnrecognizedFlags();
+  SetVerbosity(common_flags()->verbosity);
+
+  if (Verbosity()) ReportUnrecognizedFlags();
 
   if (common_flags()->help) parser.PrintFlagDescriptions();
 
@@ -270,6 +276,7 @@ u32 ChainOrigin(u32 id, StackTrace *stack) {
     return id;
 
   Origin o = Origin::FromRawId(id);
+  stack->tag = StackTrace::TAG_UNKNOWN;
   Origin chained = Origin::CreateChainedOrigin(o, stack);
   return chained.raw_id();
 }
@@ -347,8 +354,7 @@ void __msan_init() {
   SetDieCallback(MsanDie);
   InitTlsSize();
 
-  const char *msan_options = GetEnv("MSAN_OPTIONS");
-  InitializeFlags(&msan_flags, msan_options);
+  InitializeFlags();
   __sanitizer_set_report_path(common_flags()->log_path);
 
   InitializeInterceptors();
@@ -364,8 +370,6 @@ void __msan_init() {
     SetStackSizeLimitInBytes(32 * 1024 * 1024);
     ReExec();
   }
-
-  VPrintf(1, "MSAN_OPTIONS: %s\n", msan_options ? msan_options : "<empty>");
 
   __msan_clear_on_return();
   if (__msan_get_track_origins())
@@ -492,24 +496,7 @@ void __msan_load_unpoisoned(void *src, uptr size, void *dst) {
 }
 
 void __msan_set_origin(const void *a, uptr size, u32 origin) {
-  // Origin mapping is 4 bytes per 4 bytes of application memory.
-  // Here we extend the range such that its left and right bounds are both
-  // 4 byte aligned.
-  if (!__msan_get_track_origins()) return;
-  uptr x = MEM_TO_ORIGIN((uptr)a);
-  uptr beg = x & ~3UL;  // align down.
-  uptr end = (x + size + 3) & ~3UL;  // align up.
-  u64 origin64 = ((u64)origin << 32) | origin;
-  // This is like memset, but the value is 32-bit. We unroll by 2 to write
-  // 64 bits at once. May want to unroll further to get 128-bit stores.
-  if (beg & 7ULL) {
-    *(u32*)beg = origin;
-    beg += 4;
-  }
-  for (uptr addr = beg; addr < (end & ~7UL); addr += 8)
-    *(u64*)addr = origin64;
-  if (end & 7ULL)
-    *(u32*)(end - 4) = origin;
+  if (__msan_get_track_origins()) SetOrigin(a, size, origin);
 }
 
 // 'descr' is created at compile time and contains '----' in the beginning.

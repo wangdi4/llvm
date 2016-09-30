@@ -35,6 +35,7 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/LibCallSemantics.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/ValueHandle.h"
@@ -168,6 +169,8 @@ class MachineModuleInfo : public ImmutablePass {
   /// address. See comments in lib/Target/X86/X86FrameLowering.cpp for more
   /// details.
   bool UsesMorestackAddr;
+
+  EHPersonality PersonalityTypeCache;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -412,6 +415,9 @@ public:
   /// getPersonality - Return a personality function if available.  The presence
   /// of one is required to emit exception handling info.
   const Function *getPersonality() const;
+
+  /// Classify the personality function amongst known EH styles.
+  EHPersonality getPersonalityType();
 
   /// setVariableDbgInfo - Collect information used to emit debugging
   /// information of a variable.

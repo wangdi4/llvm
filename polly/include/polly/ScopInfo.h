@@ -46,6 +46,7 @@ struct isl_set;
 struct isl_union_set;
 struct isl_union_map;
 struct isl_space;
+struct isl_ast_build;
 struct isl_constraint;
 struct isl_pw_multi_aff;
 
@@ -161,8 +162,8 @@ public:
   };
 
 private:
-  MemoryAccess(const MemoryAccess &) LLVM_DELETED_FUNCTION;
-  const MemoryAccess &operator=(const MemoryAccess &) LLVM_DELETED_FUNCTION;
+  MemoryAccess(const MemoryAccess &) = delete;
+  const MemoryAccess &operator=(const MemoryAccess &) = delete;
 
   isl_map *AccessRelation;
   enum AccessType AccType;
@@ -354,8 +355,8 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS,
 /// At the moment every statement represents a single basic block of LLVM-IR.
 class ScopStmt {
   //===-------------------------------------------------------------------===//
-  ScopStmt(const ScopStmt &) LLVM_DELETED_FUNCTION;
-  const ScopStmt &operator=(const ScopStmt &) LLVM_DELETED_FUNCTION;
+  ScopStmt(const ScopStmt &) = delete;
+  const ScopStmt &operator=(const ScopStmt &) = delete;
 
   /// Polyhedral description
   //@{
@@ -425,6 +426,9 @@ class ScopStmt {
 
   /// The BasicBlock represented by this statement.
   BasicBlock *BB;
+
+  /// @brief The isl AST build for the new generated AST.
+  isl_ast_build *Build;
 
   std::vector<Loop *> NestLoops;
 
@@ -559,6 +563,12 @@ public:
 
   const char *getBaseName() const;
 
+  /// @brief Set the isl AST build.
+  void setAstBuild(__isl_keep isl_ast_build *B) { Build = B; }
+
+  /// @brief Get the isl AST build.
+  __isl_keep isl_ast_build *getAstBuild() const { return Build; }
+
   /// @brief Restrict the domain of the statement.
   ///
   /// @param NewDomain The new statement domain.
@@ -618,13 +628,16 @@ public:
   using MinMaxVectorVectorTy = SmallVector<MinMaxVectorTy *, 4>;
 
 private:
-  Scop(const Scop &) LLVM_DELETED_FUNCTION;
-  const Scop &operator=(const Scop &) LLVM_DELETED_FUNCTION;
+  Scop(const Scop &) = delete;
+  const Scop &operator=(const Scop &) = delete;
 
   ScalarEvolution *SE;
 
   /// The underlying Region.
   Region &R;
+
+  /// Flag to indicate that the scheduler actually optimized the SCoP.
+  bool IsOptimized;
 
   /// Max loop depth.
   unsigned MaxLoopDepth;
@@ -781,6 +794,12 @@ public:
     return maxScatterDim;
   }
 
+  /// @brief Mark the SCoP as optimized by the scheduler.
+  void markAsOptimized() { IsOptimized = true; }
+
+  /// @brief Check if the SCoP has been optimized by the scheduler.
+  bool isOptimized() const { return IsOptimized; }
+
   /// @brief Get the name of this Scop.
   std::string getNameStr() const;
 
@@ -835,6 +854,9 @@ public:
 
   /// @brief Return the stmt for the given @p BB or nullptr if none.
   ScopStmt *getStmtForBasicBlock(BasicBlock *BB) const;
+
+  /// @brief Return the number of statements in the SCoP.
+  size_t getSize() const { return Stmts.size(); }
 
   /// @name Statements Iterators
   ///
@@ -918,8 +940,8 @@ static inline raw_ostream &operator<<(raw_ostream &O, const Scop &scop) {
 ///
 class ScopInfo : public RegionPass {
   //===-------------------------------------------------------------------===//
-  ScopInfo(const ScopInfo &) LLVM_DELETED_FUNCTION;
-  const ScopInfo &operator=(const ScopInfo &) LLVM_DELETED_FUNCTION;
+  ScopInfo(const ScopInfo &) = delete;
+  const ScopInfo &operator=(const ScopInfo &) = delete;
 
   // The Scop
   Scop *scop;

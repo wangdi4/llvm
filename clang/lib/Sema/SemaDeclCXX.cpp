@@ -509,14 +509,11 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
       
       // Look for the function declaration where the default argument was
       // actually written, which may be a declaration prior to Old.
-      for (FunctionDecl *Older = Old->getPreviousDecl();
-           Older; Older = Older->getPreviousDecl()) {
-        if (!Older->getParamDecl(p)->hasDefaultArg())
-          break;
-        
+      for (auto Older = Old; OldParam->hasInheritedDefaultArg();) {
+        Older = Older->getPreviousDecl();
         OldParam = Older->getParamDecl(p);
-      }        
-      
+      }
+
       Diag(OldParam->getLocation(), diag::note_previous_definition)
         << OldParam->getDefaultArgRange();
     } else if (OldParamHasDfl) {
@@ -1743,18 +1740,6 @@ void Sema::BuildBasePathArray(const CXXBasePaths &Paths,
   // Now add all bases.
   for (unsigned I = Start, E = Path.size(); I != E; ++I)
     BasePathArray.push_back(const_cast<CXXBaseSpecifier*>(Path[I].Base));
-}
-
-/// \brief Determine whether the given base path includes a virtual
-/// base class.
-bool Sema::BasePathInvolvesVirtualBase(const CXXCastPath &BasePath) {
-  for (CXXCastPath::const_iterator B = BasePath.begin(), 
-                                BEnd = BasePath.end();
-       B != BEnd; ++B)
-    if ((*B)->isVirtual())
-      return true;
-
-  return false;
 }
 
 /// CheckDerivedToBaseConversion - Check whether the Derived-to-Base
@@ -9459,8 +9444,8 @@ namespace {
 //  copy/move operators. These classes serve as factory functions and help us
 //  avoid using the same Expr* in the AST twice.
 class ExprBuilder {
-  ExprBuilder(const ExprBuilder&) LLVM_DELETED_FUNCTION;
-  ExprBuilder &operator=(const ExprBuilder&) LLVM_DELETED_FUNCTION;
+  ExprBuilder(const ExprBuilder&) = delete;
+  ExprBuilder &operator=(const ExprBuilder&) = delete;
 
 protected:
   static Expr *assertNotNull(Expr *E) {

@@ -17,6 +17,7 @@
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Bitcode/LLVMBitCodes.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instructions.h"
@@ -653,7 +654,8 @@ static void WriteModuleInfo(const Module *M, const ValueEnumerator &VE,
 
     // GLOBALVAR: [type, isconst, initid,
     //             linkage, alignment, section, visibility, threadlocal,
-    //             unnamed_addr, externally_initialized, dllstorageclass]
+    //             unnamed_addr, externally_initialized, dllstorageclass,
+    //             comdat]
     Vals.push_back(VE.getTypeID(GV.getType()));
     Vals.push_back(GV.isConstant());
     Vals.push_back(GV.isDeclaration() ? 0 :
@@ -762,22 +764,18 @@ static void WriteValueAsMetadata(const ValueAsMetadata *MD,
   Record.clear();
 }
 
-static void WriteMDNode(const MDNode *N,
-                        const ValueEnumerator &VE,
-                        BitstreamWriter &Stream,
-                        SmallVectorImpl<uint64_t> &Record) {
+static void WriteMDTuple(const MDTuple *N, const ValueEnumerator &VE,
+                         BitstreamWriter &Stream,
+                         SmallVectorImpl<uint64_t> &Record, unsigned Abbrev) {
   for (unsigned i = 0, e = N->getNumOperands(); i != e; ++i) {
     Metadata *MD = N->getOperand(i);
-    if (!MD) {
-      Record.push_back(0);
-      continue;
-    }
-    assert(!isa<LocalAsMetadata>(MD) && "Unexpected function-local metadata");
-    Record.push_back(VE.getMetadataID(MD) + 1);
+    assert(!(MD && isa<LocalAsMetadata>(MD)) &&
+           "Unexpected function-local metadata");
+    Record.push_back(VE.getMetadataOrNullID(MD));
   }
   Stream.EmitRecord(N->isDistinct() ? bitc::METADATA_DISTINCT_NODE
                                     : bitc::METADATA_NODE,
-                    Record);
+                    Record, Abbrev);
   Record.clear();
 }
 
@@ -789,14 +787,356 @@ static void WriteMDLocation(const MDLocation *N, const ValueEnumerator &VE,
   Record.push_back(N->getLine());
   Record.push_back(N->getColumn());
   Record.push_back(VE.getMetadataID(N->getScope()));
-
-  // Always emit the inlined-at location, even though it's optional.
-  if (Metadata *InlinedAt = N->getInlinedAt())
-    Record.push_back(VE.getMetadataID(InlinedAt) + 1);
-  else
-    Record.push_back(0);
+  Record.push_back(VE.getMetadataOrNullID(N->getInlinedAt()));
 
   Stream.EmitRecord(bitc::METADATA_LOCATION, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteGenericDebugNode(const GenericDebugNode *N,
+                                  const ValueEnumerator &VE,
+                                  BitstreamWriter &Stream,
+                                  SmallVectorImpl<uint64_t> &Record,
+                                  unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getTag());
+  Record.push_back(0); // Per-tag version field; unused for now.
+
+  for (auto &I : N->operands())
+    Record.push_back(VE.getMetadataOrNullID(I));
+
+  Stream.EmitRecord(bitc::METADATA_GENERIC_DEBUG, Record, Abbrev);
+  Record.clear();
+}
+
+static uint64_t rotateSign(int64_t I) {
+  uint64_t U = I;
+  return I < 0 ? ~(U << 1) : U << 1;
+}
+
+static void WriteMDSubrange(const MDSubrange *N, const ValueEnumerator &,
+                            BitstreamWriter &Stream,
+                            SmallVectorImpl<uint64_t> &Record,
+                            unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getCount());
+  Record.push_back(rotateSign(N->getLo()));
+
+  Stream.EmitRecord(bitc::METADATA_SUBRANGE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDEnumerator(const MDEnumerator *N, const ValueEnumerator &VE,
+                              BitstreamWriter &Stream,
+                              SmallVectorImpl<uint64_t> &Record,
+                              unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(rotateSign(N->getValue()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+
+  Stream.EmitRecord(bitc::METADATA_ENUMERATOR, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDBasicType(const MDBasicType *N, const ValueEnumerator &VE,
+                             BitstreamWriter &Stream,
+                             SmallVectorImpl<uint64_t> &Record,
+                             unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getTag());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(N->getSizeInBits());
+  Record.push_back(N->getAlignInBits());
+  Record.push_back(N->getEncoding());
+
+  Stream.EmitRecord(bitc::METADATA_BASIC_TYPE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDDerivedType(const MDDerivedType *N,
+                               const ValueEnumerator &VE,
+                               BitstreamWriter &Stream,
+                               SmallVectorImpl<uint64_t> &Record,
+                               unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getTag());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getFile()));
+  Record.push_back(N->getLine());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataID(N->getBaseType()));
+  Record.push_back(N->getSizeInBits());
+  Record.push_back(N->getAlignInBits());
+  Record.push_back(N->getOffsetInBits());
+  Record.push_back(N->getFlags());
+  Record.push_back(VE.getMetadataOrNullID(N->getExtraData()));
+
+  Stream.EmitRecord(bitc::METADATA_DERIVED_TYPE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDCompositeType(const MDCompositeType *N,
+                                 const ValueEnumerator &VE,
+                                 BitstreamWriter &Stream,
+                                 SmallVectorImpl<uint64_t> &Record,
+                                 unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getTag());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getFile()));
+  Record.push_back(N->getLine());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getBaseType()));
+  Record.push_back(N->getSizeInBits());
+  Record.push_back(N->getAlignInBits());
+  Record.push_back(N->getOffsetInBits());
+  Record.push_back(N->getFlags());
+  Record.push_back(VE.getMetadataOrNullID(N->getElements()));
+  Record.push_back(N->getRuntimeLang());
+  Record.push_back(VE.getMetadataOrNullID(N->getVTableHolder()));
+  Record.push_back(VE.getMetadataOrNullID(N->getTemplateParams()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawIdentifier()));
+
+  Stream.EmitRecord(bitc::METADATA_COMPOSITE_TYPE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDSubroutineType(const MDSubroutineType *N,
+                                  const ValueEnumerator &VE,
+                                  BitstreamWriter &Stream,
+                                  SmallVectorImpl<uint64_t> &Record,
+                                  unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getFlags());
+  Record.push_back(VE.getMetadataOrNullID(N->getTypeArray()));
+
+  Stream.EmitRecord(bitc::METADATA_SUBROUTINE_TYPE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDFile(const MDFile *N, const ValueEnumerator &VE,
+                        BitstreamWriter &Stream,
+                        SmallVectorImpl<uint64_t> &Record, unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawFilename()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawDirectory()));
+
+  Stream.EmitRecord(bitc::METADATA_FILE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDCompileUnit(const MDCompileUnit *N,
+                               const ValueEnumerator &VE,
+                               BitstreamWriter &Stream,
+                               SmallVectorImpl<uint64_t> &Record,
+                               unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getSourceLanguage());
+  Record.push_back(VE.getMetadataID(N->getFile()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawProducer()));
+  Record.push_back(N->isOptimized());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawFlags()));
+  Record.push_back(N->getRuntimeVersion());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawSplitDebugFilename()));
+  Record.push_back(N->getEmissionKind());
+  Record.push_back(VE.getMetadataOrNullID(N->getEnumTypes()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRetainedTypes()));
+  Record.push_back(VE.getMetadataOrNullID(N->getSubprograms()));
+  Record.push_back(VE.getMetadataOrNullID(N->getGlobalVariables()));
+  Record.push_back(VE.getMetadataOrNullID(N->getImportedEntities()));
+
+  Stream.EmitRecord(bitc::METADATA_COMPILE_UNIT, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDSubprogram(const MDSubprogram *N,
+                               const ValueEnumerator &VE,
+                               BitstreamWriter &Stream,
+                               SmallVectorImpl<uint64_t> &Record,
+                               unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawLinkageName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getFile()));
+  Record.push_back(N->getLine());
+  Record.push_back(VE.getMetadataOrNullID(N->getType()));
+  Record.push_back(N->isLocalToUnit());
+  Record.push_back(N->isDefinition());
+  Record.push_back(N->getScopeLine());
+  Record.push_back(VE.getMetadataOrNullID(N->getContainingType()));
+  Record.push_back(N->getVirtuality());
+  Record.push_back(N->getVirtualIndex());
+  Record.push_back(N->getFlags());
+  Record.push_back(N->isOptimized());
+  Record.push_back(VE.getMetadataOrNullID(N->getFunction()));
+  Record.push_back(VE.getMetadataOrNullID(N->getTemplateParams()));
+  Record.push_back(VE.getMetadataOrNullID(N->getDeclaration()));
+  Record.push_back(VE.getMetadataOrNullID(N->getVariables()));
+
+  Stream.EmitRecord(bitc::METADATA_SUBPROGRAM, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDLexicalBlock(const MDLexicalBlock *N,
+                               const ValueEnumerator &VE,
+                               BitstreamWriter &Stream,
+                               SmallVectorImpl<uint64_t> &Record,
+                               unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getFile()));
+  Record.push_back(N->getLine());
+  Record.push_back(N->getColumn());
+
+  Stream.EmitRecord(bitc::METADATA_LEXICAL_BLOCK, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDLexicalBlockFile(const MDLexicalBlockFile *N,
+                                    const ValueEnumerator &VE,
+                                    BitstreamWriter &Stream,
+                                    SmallVectorImpl<uint64_t> &Record,
+                                    unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getFile()));
+  Record.push_back(N->getDiscriminator());
+
+  Stream.EmitRecord(bitc::METADATA_LEXICAL_BLOCK_FILE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDNamespace(const MDNamespace *N, const ValueEnumerator &VE,
+                             BitstreamWriter &Stream,
+                             SmallVectorImpl<uint64_t> &Record,
+                             unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getFile()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(N->getLine());
+
+  Stream.EmitRecord(bitc::METADATA_NAMESPACE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDTemplateTypeParameter(const MDTemplateTypeParameter *N,
+                                         const ValueEnumerator &VE,
+                                         BitstreamWriter &Stream,
+                                         SmallVectorImpl<uint64_t> &Record,
+                                         unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getType()));
+
+  Stream.EmitRecord(bitc::METADATA_TEMPLATE_TYPE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDTemplateValueParameter(const MDTemplateValueParameter *N,
+                                          const ValueEnumerator &VE,
+                                          BitstreamWriter &Stream,
+                                          SmallVectorImpl<uint64_t> &Record,
+                                          unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getTag());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getType()));
+  Record.push_back(VE.getMetadataOrNullID(N->getValue()));
+
+  Stream.EmitRecord(bitc::METADATA_TEMPLATE_VALUE, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDGlobalVariable(const MDGlobalVariable *N,
+                                  const ValueEnumerator &VE,
+                                  BitstreamWriter &Stream,
+                                  SmallVectorImpl<uint64_t> &Record,
+                                  unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawLinkageName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getFile()));
+  Record.push_back(N->getLine());
+  Record.push_back(VE.getMetadataOrNullID(N->getType()));
+  Record.push_back(N->isLocalToUnit());
+  Record.push_back(N->isDefinition());
+  Record.push_back(VE.getMetadataOrNullID(N->getVariable()));
+  Record.push_back(VE.getMetadataOrNullID(N->getStaticDataMemberDeclaration()));
+
+  Stream.EmitRecord(bitc::METADATA_GLOBAL_VAR, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDLocalVariable(const MDLocalVariable *N,
+                                 const ValueEnumerator &VE,
+                                 BitstreamWriter &Stream,
+                                 SmallVectorImpl<uint64_t> &Record,
+                                 unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getTag());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getFile()));
+  Record.push_back(N->getLine());
+  Record.push_back(VE.getMetadataOrNullID(N->getType()));
+  Record.push_back(N->getArg());
+  Record.push_back(N->getFlags());
+  Record.push_back(VE.getMetadataOrNullID(N->getInlinedAt()));
+
+  Stream.EmitRecord(bitc::METADATA_LOCAL_VAR, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDExpression(const MDExpression *N, const ValueEnumerator &,
+                              BitstreamWriter &Stream,
+                              SmallVectorImpl<uint64_t> &Record,
+                              unsigned Abbrev) {
+  Record.reserve(N->getElements().size() + 1);
+
+  Record.push_back(N->isDistinct());
+  for (uint64_t I : N->getElements())
+    Record.push_back(I);
+
+  Stream.EmitRecord(bitc::METADATA_EXPRESSION, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDObjCProperty(const MDObjCProperty *N,
+                                 const ValueEnumerator &VE,
+                                 BitstreamWriter &Stream,
+                                 SmallVectorImpl<uint64_t> &Record,
+                                 unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getFile()));
+  Record.push_back(N->getLine());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawSetterName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawGetterName()));
+  Record.push_back(N->getAttributes());
+  Record.push_back(VE.getMetadataOrNullID(N->getType()));
+
+  Stream.EmitRecord(bitc::METADATA_OBJC_PROPERTY, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteMDImportedEntity(const MDImportedEntity *N,
+                                  const ValueEnumerator &VE,
+                                  BitstreamWriter &Stream,
+                                  SmallVectorImpl<uint64_t> &Record,
+                                  unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getTag());
+  Record.push_back(VE.getMetadataOrNullID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getEntity()));
+  Record.push_back(N->getLine());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+
+  Stream.EmitRecord(bitc::METADATA_IMPORTED_ENTITY, Record, Abbrev);
   Record.clear();
 }
 
@@ -819,7 +1159,10 @@ static void WriteModuleMetadata(const Module *M,
     MDSAbbrev = Stream.EmitAbbrev(Abbv);
   }
 
-  unsigned LocAbbrev = 0;
+  // Initialize MDNode abbreviations.
+#define HANDLE_MDNODE_LEAF(CLASS) unsigned CLASS##Abbrev = 0;
+#include "llvm/IR/Metadata.def"
+
   if (VE.hasMDLocation()) {
     // Abbrev for METADATA_LOCATION.
     //
@@ -832,7 +1175,23 @@ static void WriteModuleMetadata(const Module *M,
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
-    LocAbbrev = Stream.EmitAbbrev(Abbv);
+    MDLocationAbbrev = Stream.EmitAbbrev(Abbv);
+  }
+
+  if (VE.hasGenericDebugNode()) {
+    // Abbrev for METADATA_GENERIC_DEBUG.
+    //
+    // Assume the column is usually under 128, and always output the inlined-at
+    // location (it's never more expensive than building an array size 1).
+    BitCodeAbbrev *Abbv = new BitCodeAbbrev();
+    Abbv->Add(BitCodeAbbrevOp(bitc::METADATA_GENERIC_DEBUG));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
+    GenericDebugNodeAbbrev = Stream.EmitAbbrev(Abbv);
   }
 
   unsigned NameAbbrev = 0;
@@ -847,13 +1206,16 @@ static void WriteModuleMetadata(const Module *M,
 
   SmallVector<uint64_t, 64> Record;
   for (const Metadata *MD : MDs) {
-    if (const MDLocation *Loc = dyn_cast<MDLocation>(MD)) {
-      WriteMDLocation(Loc, VE, Stream, Record, LocAbbrev);
-      continue;
-    }
     if (const MDNode *N = dyn_cast<MDNode>(MD)) {
-      WriteMDNode(N, VE, Stream, Record);
-      continue;
+      switch (N->getMetadataID()) {
+      default:
+        llvm_unreachable("Invalid MDNode subclass");
+#define HANDLE_MDNODE_LEAF(CLASS)                                              \
+  case Metadata::CLASS##Kind:                                                  \
+    Write##CLASS(cast<CLASS>(N), VE, Stream, Record, CLASS##Abbrev);           \
+    continue;
+#include "llvm/IR/Metadata.def"
+      }
     }
     if (const auto *MDC = dyn_cast<ConstantAsMetadata>(MD)) {
       WriteValueAsMetadata(MDC, VE, Stream, Record);
@@ -1754,8 +2116,8 @@ static void WriteFunction(const Function &F, ValueEnumerator &VE,
 
         Vals.push_back(DL.getLine());
         Vals.push_back(DL.getCol());
-        Vals.push_back(Scope ? VE.getMetadataID(Scope) + 1 : 0);
-        Vals.push_back(IA ? VE.getMetadataID(IA) + 1 : 0);
+        Vals.push_back(VE.getMetadataOrNullID(Scope));
+        Vals.push_back(VE.getMetadataOrNullID(IA));
         Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_LOC, Vals);
         Vals.clear();
 

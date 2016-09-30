@@ -13,18 +13,19 @@
 #include "lld/Core/LLVM.h"
 #include "lld/Core/Parallel.h"
 #include "lld/Core/PassManager.h"
+#include "lld/Core/Reader.h"
 #include "lld/Core/Resolver.h"
+#include "lld/Core/Writer.h"
 #include "lld/Driver/Driver.h"
 #include "lld/Passes/RoundTripNativePass.h"
 #include "lld/Passes/RoundTripYAMLPass.h"
-#include "lld/ReaderWriter/Reader.h"
-#include "lld/ReaderWriter/Writer.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Process.h"
 #include "llvm/Support/raw_ostream.h"
 #include <mutex>
 
@@ -77,8 +78,11 @@ bool Driver::link(LinkingContext &context, raw_ostream &diagnostics) {
   if (context.getNodes().empty())
     return false;
 
-  for (std::unique_ptr<Node> &ie : context.getNodes())
-    if (FileNode *node = dyn_cast<FileNode>(ie.get()))
+  // File::parse may add items to the node list which may invalidate
+  // existing iterators. Avoid using iterator to access elements.
+  std::vector<std::unique_ptr<Node>> &nodes = context.getNodes();
+  for (size_t i = 0; i < nodes.size(); ++i)
+    if (FileNode *node = dyn_cast<FileNode>(nodes[i].get()))
       context.getTaskGroup().spawn([node] { node->getFile()->parse(); });
 
   std::vector<std::unique_ptr<File>> internalFiles;
@@ -114,9 +118,12 @@ bool Driver::link(LinkingContext &context, raw_ostream &diagnostics) {
   context.addPasses(pm);
 
 #ifndef NDEBUG
-  if (context.runRoundTripPass()) {
-    pm.add(std::unique_ptr<Pass>(new RoundTripYAMLPass(context)));
-    pm.add(std::unique_ptr<Pass>(new RoundTripNativePass(context)));
+  llvm::Optional<std::string> env =
+      llvm::sys::Process::GetEnv("LLD_RUN_ROUNDTRIP_TEST");
+
+  if (env.hasValue() && !env.getValue().empty()) {
+    pm.add(llvm::make_unique<RoundTripYAMLPass>(context));
+    pm.add(llvm::make_unique<RoundTripNativePass>(context));
   }
 #endif
 

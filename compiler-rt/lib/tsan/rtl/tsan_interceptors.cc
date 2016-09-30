@@ -1826,14 +1826,6 @@ TSAN_INTERCEPTOR(int, rmdir, char *path) {
   return res;
 }
 
-TSAN_INTERCEPTOR(void*, opendir, char *path) {
-  SCOPED_TSAN_INTERCEPTOR(opendir, path);
-  void *res = REAL(opendir)(path);
-  if (res != 0)
-    Acquire(thr, pc, Dir2addr(path));
-  return res;
-}
-
 TSAN_INTERCEPTOR(int, closedir, void *dirp) {
   SCOPED_TSAN_INTERCEPTOR(closedir, dirp);
   int fd = dirfd(dirp);
@@ -2240,11 +2232,14 @@ static void HandleRecvmsg(ThreadState *thr, uptr pc,
     if (fd >= 0) FdClose(thr, pc, fd);           \
   }
 
-#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, res)  \
+#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, handle) \
   libignore()->OnLibraryLoaded(filename)
 
 #define COMMON_INTERCEPTOR_LIBRARY_UNLOADED() \
   libignore()->OnLibraryUnloaded()
+
+#define COMMON_INTERCEPTOR_DIR_ACQUIRE(ctx, path) \
+  Acquire(((TsanInterceptorContext *) ctx)->thr, pc, Dir2addr(path))
 
 #define COMMON_INTERCEPTOR_FD_ACQUIRE(ctx, fd) \
   FdAcquire(((TsanInterceptorContext *) ctx)->thr, pc, fd)
@@ -2561,7 +2556,6 @@ void InitializeInterceptors() {
   TSAN_INTERCEPT(abort);
   TSAN_INTERCEPT(puts);
   TSAN_INTERCEPT(rmdir);
-  TSAN_INTERCEPT(opendir);
   TSAN_INTERCEPT(closedir);
 
   TSAN_MAYBE_INTERCEPT_EPOLL_CTL;

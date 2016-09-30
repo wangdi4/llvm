@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "InstCombine.h"
+#include "InstCombineInternal.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/PatternMatch.h"
@@ -1063,6 +1063,15 @@ Instruction *InstCombiner::visitSExt(SExtInst &CI) {
 
   Value *Src = CI.getOperand(0);
   Type *SrcTy = Src->getType(), *DestTy = CI.getType();
+
+  // If we know that the value being extended is positive, we can use a zext
+  // instead. 
+  bool KnownZero, KnownOne;
+  ComputeSignBit(Src, KnownZero, KnownOne, 0, &CI);
+  if (KnownZero) {
+    Value *ZExt = Builder->CreateZExt(Src, DestTy);
+    return ReplaceInstUsesWith(CI, ZExt);
+  }
 
   // Attempt to extend the entire input expression tree to the destination
   // type.   Only do this if the dest type is a simple type, don't convert the

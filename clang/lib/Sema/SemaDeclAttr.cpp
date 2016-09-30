@@ -1548,18 +1548,16 @@ static void handleTLSModelAttr(Sema &S, Decl *D,
                           Attr.getAttributeSpellingListIndex()));
 }
 
-static void handleMallocAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
-    QualType RetTy = FD->getReturnType();
-    if (RetTy->isAnyPointerType() || RetTy->isBlockPointerType()) {
-      D->addAttr(::new (S.Context)
-                 MallocAttr(Attr.getRange(), S.Context,
-                            Attr.getAttributeSpellingListIndex()));
-      return;
-    }
+static void handleRestrictAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  QualType ResultType = getFunctionOrMethodResultType(D);
+  if (ResultType->isAnyPointerType() || ResultType->isBlockPointerType()) {
+    D->addAttr(::new (S.Context) RestrictAttr(
+        Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+    return;
   }
 
-  S.Diag(Attr.getLoc(), diag::warn_attribute_malloc_pointer_only);
+  S.Diag(Attr.getLoc(), diag::warn_attribute_return_pointers_only)
+      << Attr.getName() << getFunctionOrMethodResultSourceRange(D);
 }
 
 static void handleCommonAttr(Sema &S, Decl *D, const AttributeList &Attr) {
@@ -2953,12 +2951,15 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *TS,
 void Sema::CheckAlignasUnderalignment(Decl *D) {
   assert(D->hasAttrs() && "no attributes on decl");
 
-  QualType Ty;
-  if (ValueDecl *VD = dyn_cast<ValueDecl>(D))
-    Ty = VD->getType();
-  else
-    Ty = Context.getTagDeclType(cast<TagDecl>(D));
-  if (Ty->isDependentType() || Ty->isIncompleteType())
+  QualType UnderlyingTy, DiagTy;
+  if (ValueDecl *VD = dyn_cast<ValueDecl>(D)) {
+    UnderlyingTy = DiagTy = VD->getType();
+  } else {
+    UnderlyingTy = DiagTy = Context.getTagDeclType(cast<TagDecl>(D));
+    if (EnumDecl *ED = dyn_cast<EnumDecl>(D))
+      UnderlyingTy = ED->getIntegerType();
+  }
+  if (DiagTy->isDependentType() || DiagTy->isIncompleteType())
     return;
 
   // C++11 [dcl.align]p5, C11 6.7.5/4:
@@ -2977,10 +2978,10 @@ void Sema::CheckAlignasUnderalignment(Decl *D) {
 
   if (AlignasAttr && Align) {
     CharUnits RequestedAlign = Context.toCharUnitsFromBits(Align);
-    CharUnits NaturalAlign = Context.getTypeAlignInChars(Ty);
+    CharUnits NaturalAlign = Context.getTypeAlignInChars(UnderlyingTy);
     if (NaturalAlign > RequestedAlign)
       Diag(AlignasAttr->getLocation(), diag::err_alignas_underaligned)
-        << Ty << (unsigned)NaturalAlign.getQuantity();
+        << DiagTy << (unsigned)NaturalAlign.getQuantity();
   }
 }
 
@@ -3328,11 +3329,6 @@ static void handleCallConvAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                        Attr.getAttributeSpellingListIndex()));
     return;
   }
-  case AttributeList::AT_PnaclCall:
-    D->addAttr(::new (S.Context)
-               PnaclCallAttr(Attr.getRange(), S.Context,
-                             Attr.getAttributeSpellingListIndex()));
-    return;
   case AttributeList::AT_IntelOclBicc:
     D->addAttr(::new (S.Context)
                IntelOclBiccAttr(Attr.getRange(), S.Context,
@@ -3389,7 +3385,6 @@ bool Sema::CheckCallingConvAttr(const AttributeList &attr, CallingConv &CC,
     Diag(attr.getLoc(), diag::err_invalid_pcs);
     return true;
   }
-  case AttributeList::AT_PnaclCall: CC = CC_PnaclCall; break;
   case AttributeList::AT_IntelOclBicc: CC = CC_IntelOclBicc; break;
   default: llvm_unreachable("unexpected attribute kind");
   }
@@ -3737,6 +3732,22 @@ static void handleObjCBridgeAttr(Sema &S, Scope *Sc, Decl *D,
     S.Diag(D->getLocStart(), diag::err_objc_attr_not_id) << Attr.getName() << 0;
     return;
   }
+
+  // Typedefs only allow objc_bridge(id) and have some additional checking.
+  if (auto TD = dyn_cast<TypedefNameDecl>(D)) {
+    if (!Parm->Ident->isStr("id")) {
+      S.Diag(Attr.getLoc(), diag::err_objc_attr_typedef_not_id)
+        << Attr.getName();
+      return;
+    }
+
+    // Only allow 'cv void *'.
+    QualType T = TD->getUnderlyingType();
+    if (!T->isVoidPointerType()) {
+      S.Diag(Attr.getLoc(), diag::err_objc_attr_typedef_not_void_pointer);
+      return;
+    }
+  }
   
   D->addAttr(::new (S.Context)
              ObjCBridgeAttr(Attr.getRange(), S.Context, Parm->Ident,
@@ -3783,6 +3794,10 @@ static void handleObjCDesignatedInitializer(Sema &S, Decl *D,
     IFace = CatDecl->getClassInterface();
   else
     IFace = cast<ObjCInterfaceDecl>(D->getDeclContext());
+
+  if (!IFace)
+    return;
+
   IFace->setHasDesignatedInitializers();
   D->addAttr(::new (S.Context)
                   ObjCDesignatedInitializerAttr(Attr.getRange(), S.Context,
@@ -4436,8 +4451,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_CUDALaunchBounds:
     handleLaunchBoundsAttr(S, D, Attr);
     break;
-  case AttributeList::AT_Malloc:
-    handleMallocAttr(S, D, Attr);
+  case AttributeList::AT_Restrict:
+    handleRestrictAttr(S, D, Attr);
     break;
   case AttributeList::AT_MayAlias:
     handleSimpleAttribute<MayAliasAttr>(S, D, Attr);
@@ -4661,7 +4676,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_MSABI:
   case AttributeList::AT_SysVABI:
   case AttributeList::AT_Pcs:
-  case AttributeList::AT_PnaclCall:
   case AttributeList::AT_IntelOclBicc:
     handleCallConvAttr(S, D, Attr);
     break;
@@ -4673,8 +4687,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
 
   // Microsoft attributes:
-  case AttributeList::AT_MsStruct:
-    handleSimpleAttribute<MsStructAttr>(S, D, Attr);
+  case AttributeList::AT_MSNoVTable:
+    handleSimpleAttribute<MSNoVTableAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_MSStruct:
+    handleSimpleAttribute<MSStructAttr>(S, D, Attr);
     break;
   case AttributeList::AT_Uuid:
     handleUuidAttr(S, D, Attr);
@@ -5059,7 +5076,8 @@ static bool isDeclDeprecated(Decl *D) {
       return true;
     // A category implicitly has the availability of the interface.
     if (const ObjCCategoryDecl *CatD = dyn_cast<ObjCCategoryDecl>(D))
-      return CatD->getClassInterface()->isDeprecated();
+      if (const ObjCInterfaceDecl *Interface = CatD->getClassInterface())
+        return Interface->isDeprecated();
   } while ((D = cast_or_null<Decl>(D->getDeclContext())));
   return false;
 }
@@ -5070,7 +5088,8 @@ static bool isDeclUnavailable(Decl *D) {
       return true;
     // A category implicitly has the availability of the interface.
     if (const ObjCCategoryDecl *CatD = dyn_cast<ObjCCategoryDecl>(D))
-      return CatD->getClassInterface()->isUnavailable();
+      if (const ObjCInterfaceDecl *Interface = CatD->getClassInterface())
+        return Interface->isUnavailable();
   } while ((D = cast_or_null<Decl>(D->getDeclContext())));
   return false;
 }

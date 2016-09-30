@@ -1534,9 +1534,17 @@ llvm::Function *MicrosoftCXXABI::EmitVirtualMemPtrThunk(
   ThunkFn->setLinkage(MD->isExternallyVisible()
                           ? llvm::GlobalValue::LinkOnceODRLinkage
                           : llvm::GlobalValue::InternalLinkage);
+  if (MD->isExternallyVisible())
+    ThunkFn->setComdat(CGM.getModule().getOrInsertComdat(ThunkFn->getName()));
 
   CGM.SetLLVMFunctionAttributes(MD, FnInfo, ThunkFn);
   CGM.SetLLVMFunctionAttributesForDefinition(MD, ThunkFn);
+
+  // Add the "thunk" attribute so that LLVM knows that the return type is
+  // meaningless. These thunks can be used to call functions with differing
+  // return types, and the caller is required to cast the prototype
+  // appropriately to extract the correct value.
+  ThunkFn->addFnAttr("thunk");
 
   // These thunks can be compared, so they are not unnamed.
   ThunkFn->setUnnamedAddr(false);
@@ -1574,7 +1582,8 @@ void MicrosoftCXXABI::emitVirtualInheritanceTables(const CXXRecordDecl *RD) {
   for (unsigned I = 0, E = VBGlobals.VBTables->size(); I != E; ++I) {
     const VPtrInfo *VBT = (*VBGlobals.VBTables)[I];
     llvm::GlobalVariable *GV = VBGlobals.Globals[I];
-    emitVBTableDefinition(*VBT, RD, GV);
+    if (GV->isDeclaration())
+      emitVBTableDefinition(*VBT, RD, GV);
   }
 }
 
@@ -1600,6 +1609,9 @@ MicrosoftCXXABI::getAddrOfVBTable(const VPtrInfo &VBT, const CXXRecordDecl *RD,
     GV->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
   else if (RD->hasAttr<DLLExportAttr>())
     GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+
+  if (!GV->hasExternalLinkage())
+    emitVBTableDefinition(VBT, RD, GV);
 
   return GV;
 }
@@ -1923,6 +1935,9 @@ void MicrosoftCXXABI::EmitGuardedInit(CodeGenFunction &CGF, const VarDecl &D,
                                  GV->getLinkage(), Zero, GuardName.str());
     GI->Guard->setVisibility(GV->getVisibility());
     GI->Guard->setDLLStorageClass(GV->getDLLStorageClass());
+    if (GI->Guard->isWeakForLinker())
+      GI->Guard->setComdat(
+          CGM.getModule().getOrInsertComdat(GI->Guard->getName()));
   } else {
     assert(GI->Guard->getLinkage() == GV->getLinkage() &&
            "static local from the same function had different linkage");

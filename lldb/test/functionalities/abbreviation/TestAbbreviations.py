@@ -34,7 +34,7 @@ class AbbreviationsTestCase(TestBase):
 
         # Only one matching command: execute it.
         self.expect("h",
-                    startstr = "The following is a list of built-in, permanent debugger commands:")
+                    startstr = "Debugger commands:")
 
         # Execute cleanup function during test tear down
         def cleanup():
@@ -150,8 +150,8 @@ class AbbreviationsTestCase(TestBase):
         # ARCH, if not specified, defaults to x86_64.
         if self.getArchitecture() in ["", 'x86_64', 'i386']:
             self.expect("dis -f",
-                        substrs = ['<sum(int, int)>:',
-                                   ' mov',
+                        startstr = "a.out`sum(int, int)",
+                        substrs = [' mov',
                                    ' addl ',
                                    'ret'])
 
