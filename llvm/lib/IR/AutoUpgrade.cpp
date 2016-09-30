@@ -163,6 +163,14 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
         Name == "x86.avx.vbroadcast.ss" ||
         Name == "x86.avx.vbroadcast.ss.256" ||
         Name == "x86.avx.vbroadcast.sd.256" ||
+        Name == "x86.sse2.psll.dq" ||
+        Name == "x86.sse2.psrl.dq" ||
+        Name == "x86.avx2.psll.dq" ||
+        Name == "x86.avx2.psrl.dq" ||
+        Name == "x86.sse2.psll.dq.bs" ||
+        Name == "x86.sse2.psrl.dq.bs" ||
+        Name == "x86.avx2.psll.dq.bs" ||
+        Name == "x86.avx2.psrl.dq.bs" ||
         (Name.startswith("x86.xop.vpcom") && F->arg_size() == 2)) {
       NewFn = nullptr;
       return true;
@@ -228,6 +236,81 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
       return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_pd_512,
                                        NewFn);
 
+    if (Name == "x86.avx512.mask.cmp.b.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_b_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.w.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_w_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.d.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_d_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.q.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_q_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.b.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_b_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.w.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_w_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.d.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_d_512,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.q.512")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_q_512,
+                                       NewFn);
+
+    if (Name == "x86.avx512.mask.cmp.b.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_b_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.w.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_w_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.d.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_d_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.q.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_q_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.b.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_b_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.w.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_w_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.d.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_d_256,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.q.256")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_q_256,
+                                       NewFn);
+
+    if (Name == "x86.avx512.mask.cmp.b.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_b_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.w.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_w_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.d.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_d_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.cmp.q.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_cmp_q_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.b.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_b_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.w.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_w_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.d.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_d_128,
+                                       NewFn);
+    if (Name == "x86.avx512.mask.ucmp.q.128")
+      return UpgradeAVX512CmpIntrinsic(F, Intrinsic::x86_avx512_mask_ucmp_q_128,
+                                       NewFn);
+
     // frcz.ss/sd may need to have an argument dropped
     if (Name.startswith("x86.xop.vfrcz.ss") && F->arg_size() == 2) {
       F->setName(Name + ".old");
@@ -291,6 +374,80 @@ static MetadataAsValue *getExpression(Value *VarOperand, Function *F) {
     Expr = DIB.createExpression();
   }
   return MetadataAsValue::get(F->getContext(), Expr);
+}
+
+// Handles upgrading SSE2 and AVX2 PSLLDQ intrinsics by converting them
+// to byte shuffles.
+static Value *UpgradeX86PSLLDQIntrinsics(IRBuilder<> &Builder, LLVMContext &C,
+                                         Value *Op, unsigned NumLanes,
+                                         unsigned Shift) {
+  // Each lane is 16 bytes.
+  unsigned NumElts = NumLanes * 16;
+
+  // Bitcast from a 64-bit element type to a byte element type.
+  Op = Builder.CreateBitCast(Op,
+                             VectorType::get(Type::getInt8Ty(C), NumElts),
+                             "cast");
+  // We'll be shuffling in zeroes.
+  Value *Res = ConstantVector::getSplat(NumElts, Builder.getInt8(0));
+
+  // If shift is less than 16, emit a shuffle to move the bytes. Otherwise,
+  // we'll just return the zero vector.
+  if (Shift < 16) {
+    SmallVector<Constant*, 32> Idxs;
+    // 256-bit version is split into two 16-byte lanes.
+    for (unsigned l = 0; l != NumElts; l += 16)
+      for (unsigned i = 0; i != 16; ++i) {
+        unsigned Idx = NumElts + i - Shift;
+        if (Idx < NumElts)
+          Idx -= NumElts - 16; // end of lane, switch operand.
+        Idxs.push_back(Builder.getInt32(Idx + l));
+      }
+
+    Res = Builder.CreateShuffleVector(Res, Op, ConstantVector::get(Idxs));
+  }
+
+  // Bitcast back to a 64-bit element type.
+  return Builder.CreateBitCast(Res,
+                               VectorType::get(Type::getInt64Ty(C), 2*NumLanes),
+                               "cast");
+}
+
+// Handles upgrading SSE2 and AVX2 PSRLDQ intrinsics by converting them
+// to byte shuffles.
+static Value *UpgradeX86PSRLDQIntrinsics(IRBuilder<> &Builder, LLVMContext &C,
+                                         Value *Op, unsigned NumLanes,
+                                         unsigned Shift) {
+  // Each lane is 16 bytes.
+  unsigned NumElts = NumLanes * 16;
+
+  // Bitcast from a 64-bit element type to a byte element type.
+  Op = Builder.CreateBitCast(Op,
+                             VectorType::get(Type::getInt8Ty(C), NumElts),
+                             "cast");
+  // We'll be shuffling in zeroes.
+  Value *Res = ConstantVector::getSplat(NumElts, Builder.getInt8(0));
+
+  // If shift is less than 16, emit a shuffle to move the bytes. Otherwise,
+  // we'll just return the zero vector.
+  if (Shift < 16) {
+    SmallVector<Constant*, 32> Idxs;
+    // 256-bit version is split into two 16-byte lanes.
+    for (unsigned l = 0; l != NumElts; l += 16)
+      for (unsigned i = 0; i != 16; ++i) {
+        unsigned Idx = i + Shift;
+        if (Idx >= 16)
+          Idx += NumElts - 16; // end of lane, switch operand.
+        Idxs.push_back(Builder.getInt32(Idx + l));
+      }
+
+    Res = Builder.CreateShuffleVector(Op, Res, ConstantVector::get(Idxs));
+  }
+
+  // Bitcast back to a 64-bit element type.
+  return Builder.CreateBitCast(Res,
+                               VectorType::get(Type::getInt64Ty(C), 2*NumLanes),
+                               "cast");
 }
 
 // UpgradeIntrinsicCall - Upgrade a call to an old intrinsic to be a call the
@@ -383,9 +540,9 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
         Imm = 4;
       else if (Name.startswith("ne"))
         Imm = 5;
-      else if (Name.startswith("true"))
-        Imm = 6;
       else if (Name.startswith("false"))
+        Imm = 6;
+      else if (Name.startswith("true"))
         Imm = 7;
       else
         llvm_unreachable("Unknown condition");
@@ -412,6 +569,46 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
       for (unsigned I = 0; I < EltNum; ++I)
         Rep = Builder.CreateInsertElement(Rep, Load,
                                           ConstantInt::get(I32Ty, I));
+    } else if (Name == "llvm.x86.sse2.psll.dq") {
+      // 128-bit shift left specified in bits.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSLLDQIntrinsics(Builder, C, CI->getArgOperand(0), 1,
+                                       Shift / 8); // Shift is in bits.
+    } else if (Name == "llvm.x86.sse2.psrl.dq") {
+      // 128-bit shift right specified in bits.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSRLDQIntrinsics(Builder, C, CI->getArgOperand(0), 1,
+                                       Shift / 8); // Shift is in bits.
+    } else if (Name == "llvm.x86.avx2.psll.dq") {
+      // 256-bit shift left specified in bits.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSLLDQIntrinsics(Builder, C, CI->getArgOperand(0), 2,
+                                       Shift / 8); // Shift is in bits.
+    } else if (Name == "llvm.x86.avx2.psrl.dq") {
+      // 256-bit shift right specified in bits.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSRLDQIntrinsics(Builder, C, CI->getArgOperand(0), 2,
+                                       Shift / 8); // Shift is in bits.
+    } else if (Name == "llvm.x86.sse2.psll.dq.bs") {
+      // 128-bit shift left specified in bytes.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSLLDQIntrinsics(Builder, C, CI->getArgOperand(0), 1,
+                                       Shift);
+    } else if (Name == "llvm.x86.sse2.psrl.dq.bs") {
+      // 128-bit shift right specified in bytes.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSRLDQIntrinsics(Builder, C, CI->getArgOperand(0), 1,
+                                       Shift);
+    } else if (Name == "llvm.x86.avx2.psll.dq.bs") {
+      // 256-bit shift left specified in bytes.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSLLDQIntrinsics(Builder, C, CI->getArgOperand(0), 2,
+                                       Shift);
+    } else if (Name == "llvm.x86.avx2.psrl.dq.bs") {
+      // 256-bit shift right specified in bytes.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSRLDQIntrinsics(Builder, C, CI->getArgOperand(0), 2,
+                                       Shift);
     } else {
       bool PD128 = false, PD256 = false, PS128 = false, PS256 = false;
       if (Name == "llvm.x86.avx.vpermil.pd.256")

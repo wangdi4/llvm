@@ -18,6 +18,15 @@
 #include "sanitizer_internal_defs.h"
 #include "sanitizer_platform.h"
 
+#if SANITIZER_FREEBSD
+// FreeBSD's dlopen() returns a pointer to an Obj_Entry structure that
+// incroporates the map structure.
+# define GET_LINK_MAP_BY_DLOPEN_HANDLE(handle) \
+    ((link_map*)((handle) == nullptr ? nullptr : ((char*)(handle) + 544)))
+#else
+# define GET_LINK_MAP_BY_DLOPEN_HANDLE(handle) ((link_map*)(handle))
+#endif  // !SANITIZER_FREEBSD
+
 namespace __sanitizer {
   extern unsigned struct_utsname_sz;
   extern unsigned struct_stat_sz;
@@ -686,7 +695,7 @@ namespace __sanitizer {
 #endif
 
 #if SANITIZER_LINUX && !SANITIZER_ANDROID && \
-    (defined(__i386) || defined(__x86_64))
+  (defined(__i386) || defined(__x86_64) || defined(__mips64))
   extern unsigned struct_user_regs_struct_sz;
   extern unsigned struct_user_fpregs_struct_sz;
   extern unsigned struct_user_fpxregs_struct_sz;

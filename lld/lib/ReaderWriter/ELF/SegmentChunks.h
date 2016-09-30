@@ -15,7 +15,7 @@
 #include "SectionChunks.h"
 #include "Writer.h"
 #include "lld/Core/range.h"
-#include "lld/ReaderWriter/Writer.h"
+#include "lld/Core/Writer.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Object/ELF.h"
@@ -30,7 +30,6 @@ namespace lld {
 namespace elf {
 
 template <typename ELFT> class DefaultLayout;
-template <typename ELFT> class ScriptLayout;
 
 /// \brief A segment can be divided into segment slices
 ///        depending on how the segments can be split

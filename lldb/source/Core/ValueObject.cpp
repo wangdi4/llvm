@@ -971,7 +971,9 @@ ValueObject::GetPointeeData (DataExtractor& data,
     if (item_count == 0)
         return 0;
     
-    const uint64_t item_type_size = pointee_or_element_clang_type.GetByteSize();
+    ExecutionContext exe_ctx (GetExecutionContextRef());
+    
+    const uint64_t item_type_size = pointee_or_element_clang_type.GetByteSize(exe_ctx.GetBestExecutionContextScope());
     const uint64_t bytes = item_count * item_type_size;
     const uint64_t offset = item_idx * item_type_size;
     
@@ -1047,7 +1049,7 @@ ValueObject::GetPointeeData (DataExtractor& data,
                 break;
             case eAddressTypeHost:
                 {
-                    const uint64_t max_bytes = GetClangType().GetByteSize();
+                    const uint64_t max_bytes = GetClangType().GetByteSize(exe_ctx.GetBestExecutionContextScope());
                     if (max_bytes > offset)
                     {
                         size_t bytes_read = std::min<uint64_t>(max_bytes - offset, bytes);
@@ -1507,14 +1509,14 @@ ValueObject::GetValueAsSigned (int64_t fail_value, bool *success)
         {
             if (success)
                 *success = true;
-                return scalar.SLongLong(fail_value);
+            return scalar.SLongLong(fail_value);
         }
         // fallthrough, otherwise...
     }
     
     if (success)
         *success = false;
-        return fail_value;
+    return fail_value;
 }
 
 // if any more "special cases" are added to ValueObject::DumpPrintableRepresentation() please keep
@@ -2062,6 +2064,21 @@ ValueObject::IsPossibleDynamicType ()
 }
 
 bool
+ValueObject::IsRuntimeSupportValue ()
+{
+    Process *process(GetProcessSP().get());
+    if (process)
+    {
+        LanguageRuntime *runtime = process->GetLanguageRuntime(GetObjectRuntimeLanguage());
+        if (!runtime)
+            runtime = process->GetObjCLanguageRuntime();
+        if (runtime)
+            return runtime->IsRuntimeSupportValue(*this);
+    }
+    return false;
+}
+
+bool
 ValueObject::IsObjCNil ()
 {
     const uint32_t mask = eTypeIsObjC | eTypeIsPointer;
@@ -2222,10 +2239,12 @@ ValueObject::GetSyntheticChildAtOffset(uint32_t offset, const ClangASTType& type
     if (!can_create)
         return ValueObjectSP();
     
+    ExecutionContext exe_ctx (GetExecutionContextRef());
+    
     ValueObjectChild *synthetic_child = new ValueObjectChild(*this,
                                                              type,
                                                              name_const_str,
-                                                             type.GetByteSize(),
+                                                             type.GetByteSize(exe_ctx.GetBestExecutionContextScope()),
                                                              offset,
                                                              0,
                                                              0,
@@ -2263,10 +2282,12 @@ ValueObject::GetSyntheticBase (uint32_t offset, const ClangASTType& type, bool c
     
     const bool is_base_class = true;
     
+    ExecutionContext exe_ctx (GetExecutionContextRef());
+    
     ValueObjectChild *synthetic_child = new ValueObjectChild(*this,
                                                              type,
                                                              name_const_str,
-                                                             type.GetByteSize(),
+                                                             type.GetByteSize(exe_ctx.GetBestExecutionContextScope()),
                                                              offset,
                                                              0,
                                                              0,
@@ -4130,16 +4151,22 @@ ValueObject::GetRoot ()
 {
     if (m_root)
         return m_root;
-    ValueObject* parent = m_parent;
-    if (!parent)
-        return (m_root = this);
-    while (parent->m_parent)
+    return (m_root = FollowParentChain( [] (ValueObject* vo) -> bool {
+        return (vo->m_parent != nullptr);
+    }));
+}
+
+ValueObject*
+ValueObject::FollowParentChain (std::function<bool(ValueObject*)> f)
+{
+    ValueObject* vo = this;
+    while (vo)
     {
-        if (parent->m_root)
-            return (m_root = parent->m_root);
-        parent = parent->m_parent;
+        if (f(vo) == false)
+            break;
+        vo = vo->m_parent;
     }
-    return (m_root = parent);
+    return vo;
 }
 
 AddressType

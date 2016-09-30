@@ -682,6 +682,7 @@ CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
   case TargetCXXABI::iOS:
   case TargetCXXABI::iOS64:
   case TargetCXXABI::GenericAArch64:
+  case TargetCXXABI::GenericMIPS:
   case TargetCXXABI::GenericItanium:
     return CreateItaniumCXXABI(*this);
   case TargetCXXABI::Microsoft:
@@ -737,9 +738,8 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
       FILEDecl(nullptr), jmp_bufDecl(nullptr), sigjmp_bufDecl(nullptr),
       ucontext_tDecl(nullptr), BlockDescriptorType(nullptr),
       BlockDescriptorExtendedType(nullptr), cudaConfigureCallDecl(nullptr),
-      FirstLocalImport(), LastLocalImport(),
-      SourceMgr(SM), LangOpts(LOpts),
-      SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFile, SM)),
+      FirstLocalImport(), LastLocalImport(), SourceMgr(SM), LangOpts(LOpts),
+      SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
       AddrSpaceMap(nullptr), Target(nullptr), PrintingPolicy(LOpts),
       Idents(idents), Selectors(sels), BuiltinInfo(builtins),
       DeclarationNames(*this), ExternalSource(nullptr), Listener(nullptr),
@@ -1682,9 +1682,11 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     }
 
     const RecordType *RT = cast<RecordType>(TT);
-    const ASTRecordLayout &Layout = getASTRecordLayout(RT->getDecl());
+    const RecordDecl *RD = RT->getDecl();
+    const ASTRecordLayout &Layout = getASTRecordLayout(RD);
     Width = toBits(Layout.getSize());
     Align = toBits(Layout.getAlignment());
+    AlignIsRequired = RD->hasAttr<AlignedAttr>();
     break;
   }
 
@@ -8078,6 +8080,7 @@ MangleContext *ASTContext::createMangleContext() {
   case TargetCXXABI::GenericAArch64:
   case TargetCXXABI::GenericItanium:
   case TargetCXXABI::GenericARM:
+  case TargetCXXABI::GenericMIPS:
   case TargetCXXABI::iOS:
   case TargetCXXABI::iOS64:
     return ItaniumMangleContext::create(*this, getDiagnostics());

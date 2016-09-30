@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "InstCombine.h"
+#include "InstCombineInternal.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/IR/CallSite.h"
@@ -1127,11 +1127,17 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     if (isKnownNonNull(DerivedPtr))
       II->addAttribute(AttributeSet::ReturnIndex, Attribute::NonNull);
 
-    // TODO: dereferenceable -> deref attribute
+    // isDereferenceablePointer -> deref attribute
+    if (DerivedPtr->isDereferenceablePointer(DL)) {
+      if (Argument *A = dyn_cast<Argument>(DerivedPtr)) {
+        uint64_t Bytes = A->getDereferenceableBytes();
+        II->addDereferenceableAttr(AttributeSet::ReturnIndex, Bytes);
+      }
+    }
 
     // TODO: bitcast(relocate(p)) -> relocate(bitcast(p))
     // Canonicalize on the type from the uses to the defs
-    
+
     // TODO: relocate((gep p, C, C2, ...)) -> gep(relocate(p), C, C2, ...)
   }
   }
@@ -1380,6 +1386,10 @@ bool InstCombiner::transformConstExprCastCall(CallSite CS) {
   Function *Callee =
     dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
   if (!Callee)
+    return false;
+  // The prototype of thunks are a lie, don't try to directly call such
+  // functions.
+  if (Callee->hasFnAttribute("thunk"))
     return false;
   Instruction *Caller = CS.getInstruction();
   const AttributeSet &CallerPAL = CS.getAttributes();

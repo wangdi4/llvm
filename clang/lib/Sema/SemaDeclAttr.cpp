@@ -1548,18 +1548,16 @@ static void handleTLSModelAttr(Sema &S, Decl *D,
                           Attr.getAttributeSpellingListIndex()));
 }
 
-static void handleMallocAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
-    QualType RetTy = FD->getReturnType();
-    if (RetTy->isAnyPointerType() || RetTy->isBlockPointerType()) {
-      D->addAttr(::new (S.Context)
-                 MallocAttr(Attr.getRange(), S.Context,
-                            Attr.getAttributeSpellingListIndex()));
-      return;
-    }
+static void handleRestrictAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  QualType ResultType = getFunctionOrMethodResultType(D);
+  if (ResultType->isAnyPointerType() || ResultType->isBlockPointerType()) {
+    D->addAttr(::new (S.Context) RestrictAttr(
+        Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+    return;
   }
 
-  S.Diag(Attr.getLoc(), diag::warn_attribute_malloc_pointer_only);
+  S.Diag(Attr.getLoc(), diag::warn_attribute_return_pointers_only)
+      << Attr.getName() << getFunctionOrMethodResultSourceRange(D);
 }
 
 static void handleCommonAttr(Sema &S, Decl *D, const AttributeList &Attr) {
@@ -3331,11 +3329,6 @@ static void handleCallConvAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                        Attr.getAttributeSpellingListIndex()));
     return;
   }
-  case AttributeList::AT_PnaclCall:
-    D->addAttr(::new (S.Context)
-               PnaclCallAttr(Attr.getRange(), S.Context,
-                             Attr.getAttributeSpellingListIndex()));
-    return;
   case AttributeList::AT_IntelOclBicc:
     D->addAttr(::new (S.Context)
                IntelOclBiccAttr(Attr.getRange(), S.Context,
@@ -3392,7 +3385,6 @@ bool Sema::CheckCallingConvAttr(const AttributeList &attr, CallingConv &CC,
     Diag(attr.getLoc(), diag::err_invalid_pcs);
     return true;
   }
-  case AttributeList::AT_PnaclCall: CC = CC_PnaclCall; break;
   case AttributeList::AT_IntelOclBicc: CC = CC_IntelOclBicc; break;
   default: llvm_unreachable("unexpected attribute kind");
   }
@@ -3739,6 +3731,22 @@ static void handleObjCBridgeAttr(Sema &S, Scope *Sc, Decl *D,
   if (!Parm) {
     S.Diag(D->getLocStart(), diag::err_objc_attr_not_id) << Attr.getName() << 0;
     return;
+  }
+
+  // Typedefs only allow objc_bridge(id) and have some additional checking.
+  if (auto TD = dyn_cast<TypedefNameDecl>(D)) {
+    if (!Parm->Ident->isStr("id")) {
+      S.Diag(Attr.getLoc(), diag::err_objc_attr_typedef_not_id)
+        << Attr.getName();
+      return;
+    }
+
+    // Only allow 'cv void *'.
+    QualType T = TD->getUnderlyingType();
+    if (!T->isVoidPointerType()) {
+      S.Diag(Attr.getLoc(), diag::err_objc_attr_typedef_not_void_pointer);
+      return;
+    }
   }
   
   D->addAttr(::new (S.Context)
@@ -4246,6 +4254,12 @@ static void handleDeprecatedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
       return;
     }
   }
+
+  if (!S.getLangOpts().CPlusPlus14)
+    if (Attr.isCXX11Attribute() &&
+        !(Attr.hasScope() && Attr.getScopeName()->isStr("gnu")))
+      S.Diag(Attr.getLoc(), diag::ext_deprecated_attr_is_a_cxx14_extension);
+
   handleAttrWithMessage<DeprecatedAttr>(S, D, Attr);
 }
 
@@ -4443,8 +4457,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_CUDALaunchBounds:
     handleLaunchBoundsAttr(S, D, Attr);
     break;
-  case AttributeList::AT_Malloc:
-    handleMallocAttr(S, D, Attr);
+  case AttributeList::AT_Restrict:
+    handleRestrictAttr(S, D, Attr);
     break;
   case AttributeList::AT_MayAlias:
     handleSimpleAttribute<MayAliasAttr>(S, D, Attr);
@@ -4668,7 +4682,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_MSABI:
   case AttributeList::AT_SysVABI:
   case AttributeList::AT_Pcs:
-  case AttributeList::AT_PnaclCall:
   case AttributeList::AT_IntelOclBicc:
     handleCallConvAttr(S, D, Attr);
     break;
@@ -4680,8 +4693,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
 
   // Microsoft attributes:
-  case AttributeList::AT_MsStruct:
-    handleSimpleAttribute<MsStructAttr>(S, D, Attr);
+  case AttributeList::AT_MSNoVTable:
+    handleSimpleAttribute<MSNoVTableAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_MSStruct:
+    handleSimpleAttribute<MSStructAttr>(S, D, Attr);
     break;
   case AttributeList::AT_Uuid:
     handleUuidAttr(S, D, Attr);

@@ -1,6 +1,7 @@
 include(CheckCXXCompilerFlag)
 include(CheckLibraryExists)
 include(CheckSymbolExists)
+include(TestBigEndian)
 
 # CodeGen options.
 check_cxx_compiler_flag(-fPIC                COMPILER_RT_HAS_FPIC_FLAG)
@@ -17,6 +18,7 @@ check_cxx_compiler_flag("-Werror -fno-function-sections" COMPILER_RT_HAS_FNO_FUN
 check_cxx_compiler_flag(-std=c++11           COMPILER_RT_HAS_STD_CXX11_FLAG)
 check_cxx_compiler_flag(-ftls-model=initial-exec COMPILER_RT_HAS_FTLS_MODEL_INITIAL_EXEC)
 check_cxx_compiler_flag(-fno-lto             COMPILER_RT_HAS_FNO_LTO_FLAG)
+check_cxx_compiler_flag(-msse3               COMPILER_RT_HAS_MSSE3_FLAG)
 
 check_cxx_compiler_flag(/GR COMPILER_RT_HAS_GR_FLAG)
 check_cxx_compiler_flag(/GS COMPILER_RT_HAS_GS_FLAG)
@@ -27,7 +29,7 @@ check_cxx_compiler_flag(/Oy COMPILER_RT_HAS_Oy_FLAG)
 check_cxx_compiler_flag(-gline-tables-only COMPILER_RT_HAS_GLINE_TABLES_ONLY_FLAG)
 check_cxx_compiler_flag(-g COMPILER_RT_HAS_G_FLAG)
 check_cxx_compiler_flag(/Zi COMPILER_RT_HAS_Zi_FLAG)
- 
+
 # Warnings.
 check_cxx_compiler_flag(-Wall COMPILER_RT_HAS_WALL_FLAG)
 check_cxx_compiler_flag(-Werror COMPILER_RT_HAS_WERROR_FLAG)
@@ -121,6 +123,13 @@ macro(detect_target_arch)
   endif()
 endmacro()
 
+# Detect whether the current target platform is 32-bit or 64-bit, and setup
+# the correct commandline flags needed to attempt to target 32-bit and 64-bit.
+if (NOT CMAKE_SIZEOF_VOID_P EQUAL 4 AND
+    NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+  message(FATAL_ERROR "Please use architecture with 4 or 8 byte pointers.")
+endif()
+
 # Generate the COMPILER_RT_SUPPORTED_ARCH list.
 if(ANDROID)
   # Can't rely on LLVM_NATIVE_ARCH in cross-compilation.
@@ -129,21 +138,27 @@ if(ANDROID)
   set(COMPILER_RT_OS_SUFFIX "-android")
 else()
   if("${LLVM_NATIVE_ARCH}" STREQUAL "X86")
-    if (NOT MSVC)
-      test_target_arch(x86_64 ${TARGET_64_BIT_CFLAGS})
+    if(NOT MSVC)
+      test_target_arch(x86_64 "-m64")
+      test_target_arch(i386 "-m32")
+    else()
+      test_target_arch(i386 "")
     endif()
-    test_target_arch(i386 ${TARGET_32_BIT_CFLAGS})
   elseif("${LLVM_NATIVE_ARCH}" STREQUAL "PowerPC")
-    test_target_arch(powerpc64 ${TARGET_64_BIT_CFLAGS})
-    test_target_arch(powerpc64le ${TARGET_64_BIT_CFLAGS})
+    TEST_BIG_ENDIAN(HOST_IS_BIG_ENDIAN)
+    if(HOST_IS_BIG_ENDIAN)
+      test_target_arch(powerpc64 "-m64")
+    else()
+      test_target_arch(powerpc64le "-m64")
+    endif()
   elseif("${LLVM_NATIVE_ARCH}" STREQUAL "Mips")
     if("${COMPILER_RT_TEST_TARGET_ARCH}" MATCHES "mipsel|mips64el")
       # regex for mipsel, mips64el
-      test_target_arch(mipsel ${TARGET_32_BIT_CFLAGS})
-      test_target_arch(mips64el ${TARGET_64_BIT_CFLAGS})
+      test_target_arch(mipsel "-m32")
+      test_target_arch(mips64el "-m64")
     else()
-      test_target_arch(mips ${TARGET_32_BIT_CFLAGS})
-      test_target_arch(mips64 ${TARGET_64_BIT_CFLAGS})
+      test_target_arch(mips "-m32")
+      test_target_arch(mips64 "-m64")
     endif()
   elseif("${COMPILER_RT_TEST_TARGET_ARCH}" MATCHES "arm")
     test_target_arch(arm "-march=armv7-a")
@@ -169,11 +184,20 @@ function(filter_available_targets out_var)
   set(${out_var} ${archs} PARENT_SCOPE)
 endfunction()
 
+function(get_target_flags_for_arch arch out_var)
+  list(FIND COMPILER_RT_SUPPORTED_ARCH ${arch} ARCH_INDEX)
+  if(ARCH_INDEX EQUAL -1)
+    message(FATAL_ERROR "Unsupported architecture: ${arch}")
+  else()
+    set(${out_var} ${TARGET_${arch}_CFLAGS} PARENT_SCOPE)
+  endif()
+endfunction()
+
 # Architectures supported by compiler-rt libraries.
 filter_available_targets(SANITIZER_COMMON_SUPPORTED_ARCH
   x86_64 i386 i686 powerpc64 powerpc64le arm aarch64 mips mips64 mipsel mips64el)
 filter_available_targets(ASAN_SUPPORTED_ARCH
-  x86_64 i386 i686 powerpc64 powerpc64le arm mips mipsel mips64 mips64el)
+  x86_64 i386 i686 powerpc64 powerpc64le arm aarch64 mips mipsel mips64 mips64el)
 filter_available_targets(DFSAN_SUPPORTED_ARCH x86_64 mips64 mips64el)
 filter_available_targets(LSAN_SUPPORTED_ARCH x86_64)
 # LSan common files should be available on all architectures supported
@@ -206,7 +230,7 @@ else()
   set(COMPILER_RT_HAS_ASAN FALSE)
 endif()
 
-if (OS_NAME MATCHES "Linux|FreeBSD")
+if (OS_NAME MATCHES "Linux|FreeBSD|Windows")
   set(COMPILER_RT_ASAN_HAS_STATIC_RUNTIME TRUE)
 else()
   set(COMPILER_RT_ASAN_HAS_STATIC_RUNTIME FALSE)

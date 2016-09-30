@@ -1,7 +1,5 @@
 /*
  * kmp_csupport.c -- kfront linkage support for OpenMP.
- * $Revision: 43473 $
- * $Date: 2014-09-26 15:02:57 -0500 (Fri, 26 Sep 2014) $
  */
 
 
@@ -496,13 +494,8 @@ __kmpc_end_serialized_parallel(ident_t *loc, kmp_int32 global_tid)
         this_thr -> th.th_current_task -> td_flags.executing = 1;
 
         if ( __kmp_tasking_mode != tskm_immediate_exec ) {
-            //
-            // Copy the task team from the new child / old parent team
-            // to the thread.  If non-NULL, copy the state flag also.
-            //
-            if ( ( this_thr -> th.th_task_team = this_thr -> th.th_team -> t.t_task_team ) != NULL ) {
-                this_thr -> th.th_task_state = this_thr -> th.th_task_team -> tt.tt_state;
-            }
+            // Copy the task team from the new child / old parent team to the thread.
+            this_thr->th.th_task_team = this_thr->th.th_team->t.t_task_team[this_thr->th.th_task_state];
             KA_TRACE( 20, ( "__kmpc_end_serialized_parallel: T#%d restoring task_team %p / team %p\n",
                             global_tid, this_thr -> th.th_task_team, this_thr -> th.th_team ) );
         }
@@ -1823,11 +1816,10 @@ __kmpc_reduce_nowait(
             teams_swapped = 1;
             th->th.th_info.ds.ds_tid = team->t.t_master_tid;
             th->th.th_team = team->t.t_parent;
-            th->th.th_task_team = th->th.th_team->t.t_task_team;
             th->th.th_team_nproc = th->th.th_team->t.t_nproc;
+            th->th.th_task_team = th->th.th_team->t.t_task_team[0];
             task_state = th->th.th_task_state;
-            if( th->th.th_task_team )
-                th->th.th_task_state = th->th.th_task_team->tt.tt_state;
+            th->th.th_task_state = 0;
         }
     }
 #endif // OMP_40_ENABLED
@@ -1901,8 +1893,8 @@ __kmpc_reduce_nowait(
         // Restore thread structure
         th->th.th_info.ds.ds_tid = 0;
         th->th.th_team = team;
-        th->th.th_task_team = team->t.t_task_team;
         th->th.th_team_nproc = team->t.t_nproc;
+        th->th.th_task_team = team->t.t_task_team[task_state];
         th->th.th_task_state = task_state;
     }
 #endif
@@ -2159,14 +2151,12 @@ __kmpc_get_parent_taskid() {
 
 void __kmpc_place_threads(int nC, int nT, int nO)
 {
-#if KMP_MIC
     if ( ! __kmp_init_serial ) {
         __kmp_serial_initialize();
     }
     __kmp_place_num_cores = nC;
     __kmp_place_num_threads_per_core = nT;
     __kmp_place_core_offset = nO;
-#endif
 }
 
 // end of file //

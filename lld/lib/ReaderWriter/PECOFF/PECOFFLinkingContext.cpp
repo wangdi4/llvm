@@ -9,20 +9,17 @@
 
 #include "Atoms.h"
 #include "EdataPass.h"
-#include "GroupedSectionsPass.h"
 #include "IdataPass.h"
 #include "InferSubsystemPass.h"
 #include "LinkerGeneratedSymbolFile.h"
 #include "LoadConfigPass.h"
+#include "OrderPass.h"
 #include "PDBPass.h"
 #include "lld/Core/PassManager.h"
+#include "lld/Core/Reader.h"
 #include "lld/Core/Simple.h"
-#include "lld/Passes/LayoutPass.h"
-#include "lld/Passes/RoundTripNativePass.h"
-#include "lld/Passes/RoundTripYAMLPass.h"
+#include "lld/Core/Writer.h"
 #include "lld/ReaderWriter/PECOFFLinkingContext.h"
-#include "lld/ReaderWriter/Reader.h"
-#include "lld/ReaderWriter/Writer.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Path.h"
@@ -51,6 +48,12 @@ bool PECOFFLinkingContext::validateImpl(raw_ostream &diagnostics) {
   if (getBaseAddress() & 0xffff) {
     diagnostics << "Base address have to be multiple of 64K, but got "
                 << getBaseAddress() << "\n";
+    return false;
+  }
+
+  // Specifing /noentry without /dll is an error.
+  if (!hasEntry() && !isDll()) {
+    diagnostics << "/noentry must be specified with /dll\n";
     return false;
   }
 
@@ -348,13 +351,12 @@ std::string PECOFFLinkingContext::getPDBFilePath() const {
 }
 
 void PECOFFLinkingContext::addPasses(PassManager &pm) {
-  pm.add(std::unique_ptr<Pass>(new pecoff::PDBPass(*this)));
-  pm.add(std::unique_ptr<Pass>(new pecoff::EdataPass(*this)));
-  pm.add(std::unique_ptr<Pass>(new pecoff::IdataPass(*this)));
-  pm.add(std::unique_ptr<Pass>(new LayoutPass(registry())));
-  pm.add(std::unique_ptr<Pass>(new pecoff::LoadConfigPass(*this)));
-  pm.add(std::unique_ptr<Pass>(new pecoff::GroupedSectionsPass()));
-  pm.add(std::unique_ptr<Pass>(new pecoff::InferSubsystemPass(*this)));
+  pm.add(llvm::make_unique<pecoff::PDBPass>(*this));
+  pm.add(llvm::make_unique<pecoff::EdataPass>(*this));
+  pm.add(llvm::make_unique<pecoff::IdataPass>(*this));
+  pm.add(llvm::make_unique<pecoff::OrderPass>());
+  pm.add(llvm::make_unique<pecoff::LoadConfigPass>(*this));
+  pm.add(llvm::make_unique<pecoff::InferSubsystemPass>(*this));
 }
 
 } // end namespace lld

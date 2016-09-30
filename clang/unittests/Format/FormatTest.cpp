@@ -2244,6 +2244,26 @@ TEST_F(FormatTest, FormatTryCatch) {
   verifyFormat("try {} catch (");
 }
 
+TEST_F(FormatTest, FormatSEHTryCatch) {
+  verifyFormat("__try {\n"
+               "  int a = b * c;\n"
+               "} __except (EXCEPTION_EXECUTE_HANDLER) {\n"
+               "  // Do nothing.\n"
+               "}");
+
+  verifyFormat("__try {\n"
+               "  int a = b * c;\n"
+               "} __finally {\n"
+               "  // Do nothing.\n"
+               "}");
+
+  verifyFormat("DEBUG({\n"
+               "  __try {\n"
+               "  } __finally {\n"
+               "  }\n"
+               "});\n");
+}
+
 TEST_F(FormatTest, IncompleteTryCatchBlocks) {
   verifyFormat("try {\n"
                "  f();\n"
@@ -2276,6 +2296,20 @@ TEST_F(FormatTest, FormatTryCatchBraceStyles) {
                "  // something\n"
                "}",
                Style);
+  verifyFormat("__try {\n"
+               "  // something\n"
+               "}\n"
+               "__finally {\n"
+               "  // something\n"
+               "}",
+               Style);
+  verifyFormat("@try {\n"
+               "  // something\n"
+               "}\n"
+               "@finally {\n"
+               "  // something\n"
+               "}",
+               Style);
   Style.BreakBeforeBraces = FormatStyle::BS_Allman;
   verifyFormat("try\n"
                "{\n"
@@ -2301,13 +2335,16 @@ TEST_F(FormatTest, FormatTryCatchBraceStyles) {
 TEST_F(FormatTest, FormatObjCTryCatch) {
   verifyFormat("@try {\n"
                "  f();\n"
-               "}\n"
-               "@catch (NSException e) {\n"
+               "} @catch (NSException e) {\n"
                "  @throw;\n"
-               "}\n"
-               "@finally {\n"
+               "} @finally {\n"
                "  exit(42);\n"
                "}");
+  verifyFormat("DEBUG({\n"
+               "  @try {\n"
+               "  } @finally {\n"
+               "  }\n"
+               "});\n");
 }
 
 TEST_F(FormatTest, StaticInitializers) {
@@ -2468,6 +2505,10 @@ TEST_F(FormatTest, DoesntRemoveUnknownTokens) {
             "\\na : b);",
             format("const char * c = STRINGIFY(\n"
                    "\\na : b);"));
+
+  verifyFormat("a\r\\");
+  verifyFormat("a\v\\");
+  verifyFormat("a\f\\");
 }
 
 TEST_F(FormatTest, IndentsPPDirectiveInReducedSpace) {
@@ -2610,6 +2651,11 @@ TEST_F(FormatTest, MacroDefinitionsWithIncompleteCode) {
                getLLVMStyleWithColumns(28));
   verifyFormat("#d, = };");
   verifyFormat("#if \"a");
+
+  verifyNoCrash("#if a\na(\n#else\n#endif\n{a");
+  verifyNoCrash("a={0,1\n#if a\n#else\n;\n#endif\n}");
+  verifyNoCrash("#if a\na(\n#else\n#endif\n) a {a,b,c,d,f,g};");
+  verifyNoCrash("#ifdef A\n a(\n #else\n #endif\n) = []() {      \n)}");
 }
 
 TEST_F(FormatTest, MacrosWithoutTrailingSemicolon) {
@@ -3076,6 +3122,8 @@ TEST_F(FormatTest, LayoutNestedBlocks) {
                "  if (aaaaaaaaaaaaaaaaaaaaaaaa) return;\n"
                "}, a);",
                Style);
+
+  verifyNoCrash("^{v^{a}}");
 }
 
 TEST_F(FormatTest, IndividualStatementsOfNestedBlocks) {
@@ -4714,8 +4762,9 @@ TEST_F(FormatTest, AlignsPipes) {
                "}");
 
   // Handle 'endl'.
-  verifyFormat("llvm::errs() << aaaa << endl\n"
-               "             << bbbb << endl;");
+  verifyFormat("llvm::errs() << aaaaaaaaaaaaaaaaaaaaaa << endl\n"
+               "             << bbbbbbbbbbbbbbbbbbbbbb << endl;");
+  verifyFormat("llvm::errs() << endl << bbbbbbbbbbbbbbbbbbbbbb << endl;");
 }
 
 TEST_F(FormatTest, UnderstandsEquals) {
@@ -5216,6 +5265,7 @@ TEST_F(FormatTest, UnderstandsUsesOfStarAndAmp) {
       "    aaaaaaaaaaaaaaaaaaaaaaaaaaaa, *aaaaaaaaaaaaaaaaaaaaaaaaaaaaa);");
 
   verifyGoogleFormat("**outparam = 1;");
+  verifyGoogleFormat("*outparam = a * b;");
   verifyGoogleFormat("int main(int argc, char** argv) {}");
   verifyGoogleFormat("A<int*> a;");
   verifyGoogleFormat("A<int**> a;");
@@ -5769,6 +5819,7 @@ TEST_F(FormatTest, IncorrectAccessSpecifier) {
 TEST_F(FormatTest, IncorrectCodeUnbalancedBraces) {
   verifyFormat("{");
   verifyFormat("#})");
+  verifyNoCrash("(/**/[:!] ?[).");
 }
 
 TEST_F(FormatTest, IncorrectCodeDoNoWhile) {
@@ -7440,6 +7491,12 @@ TEST_F(FormatTest, BreaksWideAndNSStringLiterals) {
   EXPECT_EQ("@\"NSString \"\n"
             "@\"literal\";",
             format("@\"NSString literal\";", getGoogleStyleWithColumns(19)));
+
+  // This input makes clang-format try to split the incomplete unicode escape
+  // sequence, which used to lead to a crasher.
+  verifyNoCrash(
+      "aaaaaaaaaaaaaaaaaaaa = L\"\\udff\"'; // aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      getLLVMStyleWithColumns(60));
 }
 
 TEST_F(FormatTest, DoesNotBreakRawStringLiterals) {
@@ -9474,6 +9531,13 @@ TEST_F(FormatTest, FormatsLambdas) {
                "      doo_dah();\n"
                "    })) {\n"
                "}");
+  verifyFormat("auto lambda = []() {\n"
+               "  int a = 2\n"
+               "#if A\n"
+               "          + 2\n"
+               "#endif\n"
+               "      ;\n"
+               "};");
 }
 
 TEST_F(FormatTest, FormatsBlocks) {

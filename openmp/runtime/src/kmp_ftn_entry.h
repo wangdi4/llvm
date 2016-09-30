@@ -1,7 +1,5 @@
 /*
  * kmp_ftn_entry.h -- Fortran entry linkage support for OpenMP.
- * $Revision: 43435 $
- * $Date: 2014-09-04 15:16:08 -0500 (Thu, 04 Sep 2014) $
  */
 
 
@@ -259,11 +257,11 @@ FTN_GET_AFFINITY_MAX_PROC( void )
             return 0;
         }
 
-    #if KMP_OS_WINDOWS && KMP_ARCH_X86_64
-        if ( __kmp_num_proc_groups <= 1 ) {
+    #if KMP_GROUP_AFFINITY
+        if ( __kmp_num_proc_groups > 1 ) {
             return (int)KMP_CPU_SETSIZE;
         }
-    #endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+    #endif /* KMP_GROUP_AFFINITY */
         return __kmp_xproc;
     #endif
 }
@@ -772,6 +770,32 @@ FTN_GET_NUM_DEVICES( void )
 
 #endif // KMP_MIC || KMP_OS_DARWIN
 
+#if ! KMP_OS_LINUX
+
+int FTN_STDCALL
+FTN_IS_INITIAL_DEVICE( void )
+{
+    return 1;
+}
+
+#else
+
+// This internal function is used when the entry from the offload library
+// is not found.
+int _Offload_get_device_number( void )  __attribute__((weak));
+
+int FTN_STDCALL
+xexpand(FTN_IS_INITIAL_DEVICE)( void )
+{
+    if( _Offload_get_device_number ) {
+        return _Offload_get_device_number() == -1;
+    } else {
+        return 1;
+    }
+}
+
+#endif // ! KMP_OS_LINUX
+
 #endif // OMP_40_ENABLED
 
 #ifdef KMP_STUB
@@ -1110,6 +1134,7 @@ xaliasify(FTN_GET_PROC_BIND, 40);
 xaliasify(FTN_GET_NUM_TEAMS, 40);
 xaliasify(FTN_GET_TEAM_NUM, 40);
 xaliasify(FTN_GET_CANCELLATION, 40);
+xaliasify(FTN_IS_INITIAL_DEVICE, 40);
 #endif /* OMP_40_ENABLED */
 
 #if OMP_41_ENABLED
@@ -1178,6 +1203,7 @@ xversionify(FTN_GET_PROC_BIND,     40, "OMP_4.0");
 xversionify(FTN_GET_NUM_TEAMS,     40, "OMP_4.0");
 xversionify(FTN_GET_TEAM_NUM,      40, "OMP_4.0");
 xversionify(FTN_GET_CANCELLATION,  40, "OMP_4.0");
+xversionify(FTN_IS_INITIAL_DEVICE, 40, "OMP_4.0");
 #endif /* OMP_40_ENABLED */
 
 #if OMP_41_ENABLED

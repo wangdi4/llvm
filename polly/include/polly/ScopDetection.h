@@ -108,6 +108,7 @@ typedef std::vector<PairInstSCEV> AFs;
 typedef std::map<const SCEVUnknown *, AFs> BaseToAFs;
 typedef std::map<const SCEVUnknown *, const SCEV *> BaseToElSize;
 
+extern bool PollyModelPHINodes;
 extern bool PollyTrackFailures;
 extern bool PollyDelinearize;
 extern bool PollyUseRuntimeAliasChecks;
@@ -124,8 +125,8 @@ public:
 
 private:
   //===--------------------------------------------------------------------===//
-  ScopDetection(const ScopDetection &) LLVM_DELETED_FUNCTION;
-  const ScopDetection &operator=(const ScopDetection &) LLVM_DELETED_FUNCTION;
+  ScopDetection(const ScopDetection &) = delete;
+  const ScopDetection &operator=(const ScopDetection &) = delete;
 
   /// @brief Analysis passes used.
   //@{

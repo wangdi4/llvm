@@ -212,7 +212,7 @@ ThreadPlanAssemblyTracer::Log ()
                 const bool show_bytes = true;
                 const bool show_address = true;
                 Instruction *instruction = instruction_list.GetInstructionAtIndex(0).get();
-                const char *disassemble_format = "${addr-file-or-load}: ";
+                const FormatEntity::Entry *disassemble_format = m_thread.GetProcess()->GetTarget().GetDebugger().GetDisassemblyFormat();
                 instruction->Dump (stream,
                                    max_opcode_byte_size,
                                    show_address,
@@ -220,7 +220,8 @@ ThreadPlanAssemblyTracer::Log ()
                                    NULL,
                                    NULL,
                                    NULL,
-                                   disassemble_format);
+                                   disassemble_format,
+                                   0);
             }
         }
     }

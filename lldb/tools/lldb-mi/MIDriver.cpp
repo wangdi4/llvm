@@ -41,6 +41,7 @@
 #include "MICmdArgValFile.h"
 #include "MICmdArgValString.h"
 #include "MICmnConfig.h"
+#include "MICmnLLDBDebugSessionInfo.h"
 
 // Instantiations:
 #if _DEBUG
@@ -687,7 +688,13 @@ CMIDriver::ReadStdinLineQueue(void)
         }
 
         // Process the command
-        const bool bOk = InterpretCommand(lineText);
+        bool bOk = false;
+        {
+            // Lock Mutex before processing commands so that we don't disturb an event
+            // that is being processed.
+            CMIUtilThreadLock lock(CMICmnLLDBDebugSessionInfo::Instance().GetSessionMutex());
+            bOk = InterpretCommand(lineText);
+        }
 
         // Draw prompt if desired
         if (bOk && m_rStdin.GetEnablePrompt())
@@ -1035,6 +1042,7 @@ CMIDriver::InterpretCommandThisDriver(const CMIUtilString &vTextLine, bool &vwbC
     const CMICmnMIValueResult valueResult("msg", vconst);
     const CMICmnMIResultRecord miResultRecord(cmdData.strMiCmdToken, CMICmnMIResultRecord::eResultClass_Error, valueResult);
     m_rStdOut.WriteMIResponse(miResultRecord.GetString());
+    m_rStdOut.WriteMIResponse("(gdb)");
 
     // Proceed to wait for or execute next command
     return MIstatus::success;

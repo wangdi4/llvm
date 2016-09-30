@@ -1601,12 +1601,28 @@ public:
   }
 };
 
+class PS4TargetCodeGenInfo : public X86_64TargetCodeGenInfo {
+public:
+  PS4TargetCodeGenInfo(CodeGen::CodeGenTypes &CGT, bool HasAVX)
+    : X86_64TargetCodeGenInfo(CGT, HasAVX) {}
+
+  void getDependentLibraryOption(llvm::StringRef Lib,
+                                 llvm::SmallString<24> &Opt) const {
+    Opt = "\01";
+    Opt += Lib;
+  }
+};
+
 static std::string qualifyWindowsLibrary(llvm::StringRef Lib) {
-  // If the argument does not end in .lib, automatically add the suffix. This
-  // matches the behavior of MSVC.
-  std::string ArgStr = Lib;
+  // If the argument does not end in .lib, automatically add the suffix.
+  // If the argument contains a space, enclose it in quotes.
+  // This matches the behavior of MSVC.
+  bool Quote = (Lib.find(" ") != StringRef::npos);
+  std::string ArgStr = Quote ? "\"" : "";
+  ArgStr += Lib;
   if (!Lib.endswith_lower(".lib"))
     ArgStr += ".lib";
+  ArgStr += Quote ? "\"" : "";
   return ArgStr;
 }
 
@@ -2167,19 +2183,15 @@ ABIArgInfo X86_64ABIInfo::getIndirectResult(QualType Ty,
   return ABIArgInfo::getIndirect(Align);
 }
 
-/// GetByteVectorType - The ABI specifies that a value should be passed in an
-/// full vector XMM/YMM register.  Pick an LLVM IR type that will be passed as a
-/// vector register.
+/// The ABI specifies that a value should be passed in a full vector XMM/YMM
+/// register. Pick an LLVM IR type that will be passed as a vector register.
 llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
-  llvm::Type *IRType = CGT.ConvertType(Ty);
+  // Wrapper structs/arrays that only contain vectors are passed just like
+  // vectors; strip them off if present.
+  if (const Type *InnerTy = isSingleElementStruct(Ty, getContext()))
+    Ty = QualType(InnerTy, 0);
 
-  // Wrapper structs that just contain vectors are passed just like vectors,
-  // strip them off if present.
-  llvm::StructType *STy = dyn_cast<llvm::StructType>(IRType);
-  while (STy && STy->getNumElements() == 1) {
-    IRType = STy->getElementType(0);
-    STy = dyn_cast<llvm::StructType>(IRType);
-  }
+  llvm::Type *IRType = CGT.ConvertType(Ty);
 
   // If the preferred type is a 16-byte vector, prefer to pass it.
   if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(IRType)){
@@ -3077,48 +3089,6 @@ llvm::Value *WinX86_64ABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
 
   return AddrTyped;
 }
-
-namespace {
-
-class NaClX86_64ABIInfo : public ABIInfo {
- public:
-  NaClX86_64ABIInfo(CodeGen::CodeGenTypes &CGT, bool HasAVX)
-      : ABIInfo(CGT), PInfo(CGT), NInfo(CGT, HasAVX) {}
-  void computeInfo(CGFunctionInfo &FI) const override;
-  llvm::Value *EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
-                         CodeGenFunction &CGF) const override;
- private:
-  PNaClABIInfo PInfo;  // Used for generating calls with pnaclcall callingconv.
-  X86_64ABIInfo NInfo; // Used for everything else.
-};
-
-class NaClX86_64TargetCodeGenInfo : public TargetCodeGenInfo  {
-  bool HasAVX;
- public:
-   NaClX86_64TargetCodeGenInfo(CodeGen::CodeGenTypes &CGT, bool HasAVX)
-       : TargetCodeGenInfo(new NaClX86_64ABIInfo(CGT, HasAVX)), HasAVX(HasAVX) {
-   }
-   unsigned getOpenMPSimdDefaultAlignment(QualType) const override {
-     return HasAVX ? 32 : 16;
-   }
-};
-
-}
-
-void NaClX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
-  if (FI.getASTCallingConvention() == CC_PnaclCall)
-    PInfo.computeInfo(FI);
-  else
-    NInfo.computeInfo(FI);
-}
-
-llvm::Value *NaClX86_64ABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
-                                          CodeGenFunction &CGF) const {
-  // Always use the native convention; calling pnacl-style varargs functions
-  // is unuspported.
-  return NInfo.EmitVAArg(VAListAddr, Ty, CGF);
-}
-
 
 // PowerPC-32
 namespace {
@@ -4492,9 +4462,37 @@ public:
                                               llvm::AttributeSet::FunctionIndex,
                                               B));
   }
-
 };
 
+class WindowsARMTargetCodeGenInfo : public ARMTargetCodeGenInfo {
+  void addStackProbeSizeTargetAttribute(const Decl *D, llvm::GlobalValue *GV,
+                                        CodeGen::CodeGenModule &CGM) const;
+
+public:
+  WindowsARMTargetCodeGenInfo(CodeGenTypes &CGT, ARMABIInfo::ABIKind K)
+      : ARMTargetCodeGenInfo(CGT, K) {}
+
+  void SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+                           CodeGen::CodeGenModule &CGM) const override;
+};
+
+void WindowsARMTargetCodeGenInfo::addStackProbeSizeTargetAttribute(
+    const Decl *D, llvm::GlobalValue *GV, CodeGen::CodeGenModule &CGM) const {
+  if (!isa<FunctionDecl>(D))
+    return;
+  if (CGM.getCodeGenOpts().StackProbeSize == 4096)
+    return;
+
+  llvm::Function *F = cast<llvm::Function>(GV);
+  F->addFnAttr("stack-probe-size",
+               llvm::utostr(CGM.getCodeGenOpts().StackProbeSize));
+}
+
+void WindowsARMTargetCodeGenInfo::SetTargetAttributes(
+    const Decl *D, llvm::GlobalValue *GV, CodeGen::CodeGenModule &CGM) const {
+  ARMTargetCodeGenInfo::SetTargetAttributes(D, GV, CGM);
+  addStackProbeSizeTargetAttribute(D, GV, CGM);
+}
 }
 
 void ARMABIInfo::computeInfo(CGFunctionInfo &FI) const {
@@ -5083,42 +5081,6 @@ llvm::Value *ARMABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
   llvm::Value *AddrTyped = Builder.CreateBitCast(Addr, PTy);
 
   return AddrTyped;
-}
-
-namespace {
-
-class NaClARMABIInfo : public ABIInfo {
- public:
-  NaClARMABIInfo(CodeGen::CodeGenTypes &CGT, ARMABIInfo::ABIKind Kind)
-      : ABIInfo(CGT), PInfo(CGT), NInfo(CGT, Kind) {}
-  void computeInfo(CGFunctionInfo &FI) const override;
-  llvm::Value *EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
-                         CodeGenFunction &CGF) const override;
- private:
-  PNaClABIInfo PInfo; // Used for generating calls with pnaclcall callingconv.
-  ARMABIInfo NInfo; // Used for everything else.
-};
-
-class NaClARMTargetCodeGenInfo : public TargetCodeGenInfo  {
- public:
-  NaClARMTargetCodeGenInfo(CodeGen::CodeGenTypes &CGT, ARMABIInfo::ABIKind Kind)
-      : TargetCodeGenInfo(new NaClARMABIInfo(CGT, Kind)) {}
-};
-
-}
-
-void NaClARMABIInfo::computeInfo(CGFunctionInfo &FI) const {
-  if (FI.getASTCallingConvention() == CC_PnaclCall)
-    PInfo.computeInfo(FI);
-  else
-    static_cast<const ABIInfo&>(NInfo).computeInfo(FI);
-}
-
-llvm::Value *NaClARMABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
-                                       CodeGenFunction &CGF) const {
-  // Always use the native convention; calling pnacl-style varargs functions
-  // is unsupported.
-  return static_cast<const ABIInfo&>(NInfo).EmitVAArg(VAListAddr, Ty, CGF);
 }
 
 //===----------------------------------------------------------------------===//
@@ -7141,6 +7103,12 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
   case llvm::Triple::thumb:
   case llvm::Triple::thumbeb:
     {
+      if (Triple.getOS() == llvm::Triple::Win32) {
+        TheTargetCodeGenInfo =
+            new WindowsARMTargetCodeGenInfo(Types, ARMABIInfo::AAPCS_VFP);
+        return *TheTargetCodeGenInfo;
+      }
+
       ARMABIInfo::ABIKind Kind = ARMABIInfo::AAPCS;
       if (getTarget().getABI() == "apcs-gnu")
         Kind = ARMABIInfo::APCS;
@@ -7149,14 +7117,7 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
                 Triple.getEnvironment() == llvm::Triple::GNUEABIHF))
         Kind = ARMABIInfo::AAPCS_VFP;
 
-      switch (Triple.getOS()) {
-        case llvm::Triple::NaCl:
-          return *(TheTargetCodeGenInfo =
-                   new NaClARMTargetCodeGenInfo(Types, Kind));
-        default:
-          return *(TheTargetCodeGenInfo =
-                   new ARMTargetCodeGenInfo(Types, Kind));
-      }
+      return *(TheTargetCodeGenInfo = new ARMTargetCodeGenInfo(Types, Kind));
     }
 
   case llvm::Triple::ppc:
@@ -7222,9 +7183,8 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
     case llvm::Triple::Win32:
       return *(TheTargetCodeGenInfo =
                    new WinX86_64TargetCodeGenInfo(Types, HasAVX));
-    case llvm::Triple::NaCl:
-      return *(TheTargetCodeGenInfo =
-                   new NaClX86_64TargetCodeGenInfo(Types, HasAVX));
+    case llvm::Triple::PS4:
+      return *(TheTargetCodeGenInfo = new PS4TargetCodeGenInfo(Types, HasAVX));
     default:
       return *(TheTargetCodeGenInfo =
                    new X86_64TargetCodeGenInfo(Types, HasAVX));

@@ -334,11 +334,11 @@ function(llvm_add_library name)
         PREFIX ""
         )
     endif()
-    if (MSVC)
-      set_target_properties(${name}
-        PROPERTIES
-        IMPORT_SUFFIX ".imp")
-    endif ()
+    
+    set_target_properties(${name}
+      PROPERTIES
+      SOVERSION ${LLVM_VERSION_MAJOR}
+      VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}${LLVM_VERSION_SUFFIX})
   endif()
 
   if(ARG_MODULE OR ARG_SHARED)
@@ -413,7 +413,16 @@ macro(add_llvm_library name)
         EXPORT LLVMExports
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-        ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+        ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX}
+        COMPONENT ${name})
+
+      if (NOT CMAKE_CONFIGURATION_TYPES)
+        add_custom_target(install-${name}
+                          DEPENDS ${name}
+                          COMMAND "${CMAKE_COMMAND}"
+                                  -DCMAKE_INSTALL_COMPONENT=${name}
+                                  -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
+      endif()
     endif()
     set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS ${name})
   endif()
@@ -494,7 +503,16 @@ macro(add_llvm_tool name)
     if( LLVM_BUILD_TOOLS )
       install(TARGETS ${name}
               EXPORT LLVMExports
-              RUNTIME DESTINATION bin)
+              RUNTIME DESTINATION bin
+              COMPONENT ${name})
+
+      if (NOT CMAKE_CONFIGURATION_TYPES)
+        add_custom_target(install-${name}
+                          DEPENDS ${name}
+                          COMMAND "${CMAKE_COMMAND}"
+                                  -DCMAKE_INSTALL_COMPONENT=${name}
+                                  -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
+      endif()
     endif()
   endif()
   if( LLVM_BUILD_TOOLS )
@@ -588,12 +606,6 @@ function(add_unittest test_suite test_name)
   if( NOT LLVM_BUILD_TESTS )
     set(EXCLUDE_FROM_ALL ON)
   endif()
-
-  # Visual Studio 2012 only supports up to 8 template parameters in
-  # std::tr1::tuple by default, but gtest requires 10
-  if (MSVC AND MSVC_VERSION EQUAL 1700)
-    list(APPEND LLVM_COMPILE_DEFINITIONS _VARIADIC_MAX=10)
-  endif ()
 
   include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
   if (NOT LLVM_ENABLE_THREADS)

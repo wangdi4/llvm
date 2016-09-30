@@ -117,12 +117,14 @@ class LLVMVectorSameWidth<int num, LLVMType elty>
   ValueType ElTy = elty.VT;
 }
 class LLVMPointerTo<int num> : LLVMMatchType<num>;
+class LLVMVectorOfPointersToElt<int num> : LLVMMatchType<num>;
 
 // Match the type of another intrinsic parameter that is expected to be a
 // vector type, but change the element count to be half as many
 class LLVMHalfElementsVectorType<int num> : LLVMMatchType<num>;
 
 def llvm_void_ty       : LLVMType<isVoid>;
+def llvm_any_ty        : LLVMType<Any>;
 def llvm_anyint_ty     : LLVMType<iAny>;
 def llvm_anyfloat_ty   : LLVMType<fAny>;
 def llvm_anyvector_ty  : LLVMType<vAny>;
@@ -409,6 +411,11 @@ def int_eh_typeid_for : Intrinsic<[llvm_i32_ty], [llvm_ptr_ty], [IntrNoMem]>;
 def int_eh_return_i32 : Intrinsic<[], [llvm_i32_ty, llvm_ptr_ty]>;
 def int_eh_return_i64 : Intrinsic<[], [llvm_i64_ty, llvm_ptr_ty]>;
 
+// eh.begincatch takes a pointer returned by a landingpad instruction and
+// returns the exception object pointer for the exception to be handled.
+def int_eh_begincatch : Intrinsic<[llvm_ptr_ty], [llvm_ptr_ty]>;
+def int_eh_endcatch : Intrinsic<[], []>;
+
 // __builtin_unwind_init is an undocumented GCC intrinsic that causes all
 // callee-saved registers to be saved and restored (regardless of whether they
 // are used) in the calling function. It is used by libgcc_eh.
@@ -516,13 +523,15 @@ def int_experimental_gc_statepoint : Intrinsic<[llvm_i32_ty],
                                [llvm_anyptr_ty, llvm_i32_ty,
                                 llvm_i32_ty, llvm_vararg_ty]>;
 
-def int_experimental_gc_result_int : Intrinsic<[llvm_anyint_ty], [llvm_i32_ty]>;
-def int_experimental_gc_result_float : Intrinsic<[llvm_anyfloat_ty], 
-                                                 [llvm_i32_ty]>;
-def int_experimental_gc_result_ptr : Intrinsic<[llvm_anyptr_ty], [llvm_i32_ty]>;
-
+def int_experimental_gc_result   : Intrinsic<[llvm_any_ty], [llvm_i32_ty]>;
 def int_experimental_gc_relocate : Intrinsic<[llvm_anyptr_ty],
                                 [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty]>;
+
+// Deprecated: will be removed in a couple of weeks
+def int_experimental_gc_result_int : Intrinsic<[llvm_anyint_ty], [llvm_i32_ty]>;
+def int_experimental_gc_result_float : Intrinsic<[llvm_anyfloat_ty],
+                                                 [llvm_i32_ty]>;
+def int_experimental_gc_result_ptr : Intrinsic<[llvm_anyptr_ty], [llvm_i32_ty]>;
 
 //===-------------------------- Other Intrinsics --------------------------===//
 //
@@ -581,6 +590,19 @@ def int_masked_load  : Intrinsic<[llvm_anyvector_ty],
                                  [LLVMPointerTo<0>, llvm_i32_ty,
                                   LLVMVectorSameWidth<0, llvm_i1_ty>, LLVMMatchType<0>],
                                  [IntrReadArgMem]>;
+
+def int_masked_gather: Intrinsic<[llvm_anyvector_ty],
+                                 [LLVMVectorOfPointersToElt<0>, llvm_i32_ty,
+                                  LLVMVectorSameWidth<0, llvm_i1_ty>,
+                                  LLVMMatchType<0>],
+                                 [IntrReadArgMem]>;
+
+def int_masked_scatter: Intrinsic<[],
+                                  [llvm_anyvector_ty,
+                                   LLVMVectorOfPointersToElt<0>, llvm_i32_ty,
+                                   LLVMVectorSameWidth<0, llvm_i1_ty>],
+                                  [IntrReadWriteArgMem]>;
+
 //===----------------------------------------------------------------------===//
 // Target-specific intrinsics
 //===----------------------------------------------------------------------===//
@@ -594,3 +616,4 @@ include "llvm/IR/IntrinsicsHexagon.td"
 include "llvm/IR/IntrinsicsNVVM.td"
 include "llvm/IR/IntrinsicsMips.td"
 include "llvm/IR/IntrinsicsR600.td"
+include "llvm/IR/IntrinsicsBPF.td"

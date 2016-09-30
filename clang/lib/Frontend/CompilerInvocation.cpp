@@ -39,6 +39,9 @@
 #include <memory>
 #include <sys/stat.h>
 #include <system_error>
+#if LLVM_ON_UNIX
+#include <unistd.h> // for gethostname()
+#endif
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -441,7 +444,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
                        Args.hasArg(OPT_cl_unsafe_math_optimizations) ||
                        Args.hasArg(OPT_cl_finite_math_only) ||
                        Args.hasArg(OPT_cl_fast_relaxed_math));
-  Opts.NoSignedZeros = Args.hasArg(OPT_cl_no_signed_zeros);
+  Opts.NoSignedZeros = Args.hasArg(OPT_fno_signed_zeros);
   Opts.NoZeroInitializedInBSS = Args.hasArg(OPT_mno_zero_initialized_in_bss);
   Opts.BackendOptions = Args.getAllArgValues(OPT_backend_option);
   Opts.NumRegisterParameters = getLastArgIntValue(Args, OPT_mregparm, 0, Diags);
@@ -473,6 +476,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.DataSections = Args.hasFlag(OPT_fdata_sections,
                                    OPT_fno_data_sections, false);
   Opts.MergeFunctions = Args.hasArg(OPT_fmerge_functions);
+
+  Opts.MSVolatile = Args.hasArg(OPT_fms_volatile);
 
   Opts.VectorizeBB = Args.hasArg(OPT_vectorize_slp_aggressive);
   Opts.VectorizeLoop = Args.hasArg(OPT_vectorize_loops);
@@ -709,9 +714,9 @@ bool clang::ParseDiagnosticArgs(DiagnosticOptions &Opts, ArgList &Args,
   if (Format == "clang")
     Opts.setFormat(DiagnosticOptions::Clang);
   else if (Format == "msvc")
-    Opts.setFormat(DiagnosticOptions::Msvc);
+    Opts.setFormat(DiagnosticOptions::MSVC);
   else if (Format == "msvc-fallback") {
-    Opts.setFormat(DiagnosticOptions::Msvc);
+    Opts.setFormat(DiagnosticOptions::MSVC);
     Opts.CLFallbackMode = true;
   } else if (Format == "vi")
     Opts.setFormat(DiagnosticOptions::Vi);
@@ -1520,6 +1525,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.NoMathBuiltin = Args.hasArg(OPT_fno_math_builtin);
   Opts.AssumeSaneOperatorNew = !Args.hasArg(OPT_fno_assume_sane_operator_new);
   Opts.SizedDeallocation |= Args.hasArg(OPT_fsized_deallocation);
+  Opts.DefineSizedDeallocation = Opts.SizedDeallocation &&
+      Args.hasArg(OPT_fdefine_sized_deallocation);
   Opts.HeinousExtensions = Args.hasArg(OPT_fheinous_gnu_extensions);
   Opts.AccessControl = !Args.hasArg(OPT_fno_access_control);
   Opts.ElideConstructors = !Args.hasArg(OPT_fno_elide_constructors);
@@ -1568,6 +1575,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.CurrentModule = Args.getLastArgValue(OPT_fmodule_name);
   Opts.ImplementationOfModule =
       Args.getLastArgValue(OPT_fmodule_implementation_of);
+  Opts.ModuleFeatures = Args.getAllArgValues(OPT_fmodule_feature);
   Opts.NativeHalfType = Opts.NativeHalfType;
   Opts.HalfArgsAndReturns = Args.hasArg(OPT_fallow_half_arguments_and_returns);
   Opts.GNUAsm = !Args.hasArg(OPT_fno_gnu_inline_asm);
@@ -1668,7 +1676,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // -fsanitize-address-field-padding=N has to be a LangOpt, parse it here.
   Opts.SanitizeAddressFieldPadding =
       getLastArgIntValue(Args, OPT_fsanitize_address_field_padding, 0, Diags);
-  Opts.SanitizerBlacklistFile = Args.getLastArgValue(OPT_fsanitize_blacklist);
+  Opts.SanitizerBlacklistFiles = Args.getAllArgValues(OPT_fsanitize_blacklist);
 }
 
 static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
@@ -2019,6 +2027,20 @@ std::string CompilerInvocation::getModuleHash() const {
         code = hash_combine(code, statBuf.st_mtime);
     }
   }
+
+#if LLVM_ON_UNIX
+  // The LockFileManager cannot tell when processes from another host are
+  // running, so mangle the hostname in to the module hash to separate them.
+  char hostname[256];
+  hostname[0] = 0;
+  if (gethostname(hostname, 255) == 0) {
+    // Forcibly null-terminate the result, since POSIX doesn't require that
+    // truncation result in an error or that truncated names be null-terminated.
+    hostname[sizeof(hostname)-1] = 0;
+    code = hash_combine(code, StringRef(hostname));
+  }
+  // Ignore failures in gethostname() by not including the hostname in the hash.
+#endif
 
   return llvm::APInt(64, code).toString(36, /*Signed=*/false);
 }

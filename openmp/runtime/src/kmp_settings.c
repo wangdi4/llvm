@@ -1,7 +1,5 @@
 /*
  * kmp_settings.c -- Initialize environment variables
- * $Revision: 43473 $
- * $Date: 2014-09-26 15:02:57 -0500 (Fri, 26 Sep 2014) $
  */
 
 
@@ -2192,11 +2190,11 @@ __kmp_parse_affinity_env( char const * name, char const * value,
             } else if (__kmp_match_str("node", buf, (const char **)&next)) {
                 set_gran( affinity_gran_node, -1 );
                 buf = next;
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
             } else if (__kmp_match_str("group", buf, (const char **)&next)) {
                 set_gran( affinity_gran_group, -1 );
                 buf = next;
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP AFFINITY */
             } else if ((*buf >= '0') && (*buf <= '9')) {
                 int n;
                 next = buf;
@@ -2430,11 +2428,11 @@ __kmp_stg_print_affinity( kmp_str_buf_t * buffer, char const * name, void * data
             case affinity_gran_node:
                 __kmp_str_buf_print( buffer, "%s", "granularity=node,");
                 break;
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
             case affinity_gran_group:
                 __kmp_str_buf_print( buffer, "%s", "granularity=group,");
                 break;
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP_AFFINITY */
         }
         if ( __kmp_affinity_dups ) {
             __kmp_str_buf_print( buffer, "%s,", "duplicates");
@@ -2535,6 +2533,9 @@ __kmp_stg_parse_gomp_cpu_affinity( char const * name, char const * value, void *
         // Warning already emitted
         //
         __kmp_affinity_type = affinity_none;
+# if OMP_40_ENABLED
+        __kmp_nested_proc_bind.bind_types[0] = proc_bind_false;
+# endif
     }
 } // __kmp_stg_parse_gomp_cpu_affinity
 
@@ -3103,11 +3104,11 @@ __kmp_stg_parse_topology_method( char const * name, char const * value,
       || __kmp_str_match( "cpuinfo", 5, value )) {
         __kmp_affinity_top_method = affinity_top_method_cpuinfo;
     }
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
     else if ( __kmp_str_match( "group", 1, value ) ) {
         __kmp_affinity_top_method = affinity_top_method_group;
     }
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP_AFFINITY */
     else if ( __kmp_str_match( "flat", 1, value ) ) {
         __kmp_affinity_top_method = affinity_top_method_flat;
     }
@@ -3145,11 +3146,11 @@ __kmp_stg_print_topology_method( kmp_str_buf_t * buffer, char const * name,
         value = "cpuinfo";
         break;
 
-#  if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+#  if KMP_GROUP_AFFINITY
         case affinity_top_method_group:
         value = "group";
         break;
-#  endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+#  endif /* KMP_GROUP_AFFINITY */
 
         case affinity_top_method_flat:
         value = "flat";
@@ -4204,7 +4205,6 @@ __kmp_stg_print_speculative_statsfile( kmp_str_buf_t * buffer, char const * name
 
 #endif // KMP_USE_ADAPTIVE_LOCKS
 
-#if KMP_MIC
 // -------------------------------------------------------------------------------------------------
 // KMP_PLACE_THREADS
 // -------------------------------------------------------------------------------------------------
@@ -4342,7 +4342,6 @@ __kmp_stg_print_place_threads( kmp_str_buf_t * buffer, char const * name, void *
 */
     }
 }
-#endif
 
 #if USE_ITT_BUILD
 // -------------------------------------------------------------------------------------------------
@@ -4560,9 +4559,7 @@ static kmp_setting_t __kmp_stg_table[] = {
     { "KMP_SPECULATIVE_STATSFILE",         __kmp_stg_parse_speculative_statsfile,__kmp_stg_print_speculative_statsfile,  NULL, 0, 0 },
 #endif
 #endif // KMP_USE_ADAPTIVE_LOCKS
-#if KMP_MIC
     { "KMP_PLACE_THREADS",                 __kmp_stg_parse_place_threads,      __kmp_stg_print_place_threads,      NULL, 0, 0 },
-#endif
 #if USE_ITT_BUILD
     { "KMP_FORKJOIN_FRAMES",               __kmp_stg_parse_forkjoin_frames,    __kmp_stg_print_forkjoin_frames,    NULL, 0, 0 },
     { "KMP_FORKJOIN_FRAMES_MODE",          __kmp_stg_parse_forkjoin_frames_mode,__kmp_stg_print_forkjoin_frames_mode,  NULL, 0, 0 },
@@ -5036,7 +5033,13 @@ __kmp_env_initialize( char const * string ) {
         }
         __kmp_nested_proc_bind.size = 1;
         __kmp_nested_proc_bind.used = 1;
+# if KMP_AFFINITY_SUPPORTED
         __kmp_nested_proc_bind.bind_types[0] = proc_bind_default;
+# else
+        // default proc bind is false if affinity not supported
+        __kmp_nested_proc_bind.bind_types[0] = proc_bind_false;
+# endif
+
     }
 #endif /* OMP_40_ENABLED */
 
@@ -5106,7 +5109,7 @@ __kmp_env_initialize( char const * string ) {
 
         if ( KMP_AFFINITY_CAPABLE() ) {
 
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
 
             //
             // Handle the Win 64 group affinity stuff if there are multiple
@@ -5180,16 +5183,16 @@ __kmp_env_initialize( char const * string ) {
             }
             else
 
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP_AFFINITY */
 
             {
                 if ( __kmp_affinity_respect_mask == affinity_respect_mask_default ) {
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
                     if ( __kmp_num_proc_groups > 1 ) {
                         __kmp_affinity_respect_mask = FALSE;
                     }
                     else
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP_AFFINITY */
                     {
                         __kmp_affinity_respect_mask = TRUE;
                     }
@@ -5241,8 +5244,7 @@ __kmp_env_initialize( char const * string ) {
 
         KMP_DEBUG_ASSERT( __kmp_affinity_type != affinity_default);
 # if OMP_40_ENABLED
-        KMP_DEBUG_ASSERT( __kmp_nested_proc_bind.bind_types[0]
-          != proc_bind_default );
+        KMP_DEBUG_ASSERT( __kmp_nested_proc_bind.bind_types[0] != proc_bind_default );
 # endif
     }
 

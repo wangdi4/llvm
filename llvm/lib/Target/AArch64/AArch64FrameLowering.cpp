@@ -64,8 +64,7 @@ bool AArch64FrameLowering::canUseRedZone(const MachineFunction &MF) const {
     return false;
   // Don't use the red zone if the function explicitly asks us not to.
   // This is typically used for kernel code.
-  if (MF.getFunction()->getAttributes().hasAttribute(
-          AttributeSet::FunctionIndex, Attribute::NoRedZone))
+  if (MF.getFunction()->hasFnAttribute(Attribute::NoRedZone))
     return false;
 
   const MachineFrameInfo *MFI = MF.getFrameInfo();
@@ -167,7 +166,7 @@ void AArch64FrameLowering::emitCalleeSavedFrameMoves(
   if (CSI.empty())
     return;
 
-  const DataLayout *TD = MF.getSubtarget().getDataLayout();
+  const DataLayout *TD = MF.getTarget().getDataLayout();
   bool HasFP = hasFP(MF);
 
   // Calculate amount of bytes used for return address storing.
@@ -308,7 +307,7 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF) const {
     TII->copyPhysReg(MBB, MBBI, DL, AArch64::X19, AArch64::SP, false);
 
   if (needsFrameMoves) {
-    const DataLayout *TD = MF.getSubtarget().getDataLayout();
+    const DataLayout *TD = MF.getTarget().getDataLayout();
     const int StackGrowth = -TD->getPointerSize(0);
     unsigned FramePtr = RegInfo->getFrameRegister(MF);
 

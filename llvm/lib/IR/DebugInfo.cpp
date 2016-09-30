@@ -147,19 +147,32 @@ uint64_t DIExpression::getElement(unsigned Idx) const {
   return getHeaderFieldAs<int64_t>(I);
 }
 
-bool DIExpression::isVariablePiece() const {
+bool DIExpression::isBitPiece() const {
   unsigned N = getNumElements();
-  return N >=3 && getElement(N-3) == dwarf::DW_OP_piece;
+  return N >=3 && getElement(N-3) == dwarf::DW_OP_bit_piece;
 }
 
-uint64_t DIExpression::getPieceOffset() const {
-  assert(isVariablePiece() && "not a piece");
+uint64_t DIExpression::getBitPieceOffset() const {
+  assert(isBitPiece() && "not a piece");
   return getElement(getNumElements()-2);
 }
 
-uint64_t DIExpression::getPieceSize() const {
-  assert(isVariablePiece() && "not a piece");
+uint64_t DIExpression::getBitPieceSize() const {
+  assert(isBitPiece() && "not a piece");
   return getElement(getNumElements()-1);
+}
+
+DIExpression::iterator DIExpression::begin() const {
+ return DIExpression::iterator(*this);
+}
+
+DIExpression::iterator DIExpression::end() const {
+ return DIExpression::iterator();
+}
+
+DIExpression::Operand DIExpression::Operand::getNext() const {
+  iterator it(I);
+  return *(++it);
 }
 
 //===----------------------------------------------------------------------===//
@@ -241,8 +254,7 @@ bool DIDescriptor::isSubprogram() const {
 }
 
 bool DIDescriptor::isGlobalVariable() const {
-  return DbgNode && (getTag() == dwarf::DW_TAG_variable ||
-                     getTag() == dwarf::DW_TAG_constant);
+  return DbgNode && getTag() == dwarf::DW_TAG_variable;
 }
 
 bool DIDescriptor::isScope() const {
@@ -332,9 +344,7 @@ void DIDescriptor::replaceAllUsesWith(LLVMContext &VMContext, DIDescriptor D) {
   // itself.
   const MDNode *DN = D;
   if (DbgNode == DN) {
-    SmallVector<Metadata *, 10> Ops(DbgNode->getNumOperands());
-    for (size_t i = 0; i != Ops.size(); ++i)
-      Ops[i] = DbgNode->getOperand(i);
+    SmallVector<Metadata *, 10> Ops(DbgNode->op_begin(), DbgNode->op_end());
     DN = MDNode::get(VMContext, Ops);
   }
 
@@ -375,16 +385,9 @@ bool DIObjCProperty::Verify() const {
 }
 
 /// \brief Check if a field at position Elt of a MDNode is a MDNode.
-///
-/// We currently allow an empty string and an integer.
-/// But we don't allow a non-empty string in a MDNode field.
 static bool fieldIsMDNode(const MDNode *DbgNode, unsigned Elt) {
-  // FIXME: This function should return true, if the field is null or the field
-  // is indeed a MDNode: return !Fld || isa<MDNode>(Fld).
   Metadata *Fld = getField(DbgNode, Elt);
-  if (Fld && isa<MDString>(Fld) && !cast<MDString>(Fld)->getString().empty())
-    return false;
-  return true;
+  return !Fld || isa<MDNode>(Fld);
 }
 
 /// \brief Check if a field at position Elt of a MDNode is a MDString.
@@ -536,7 +539,8 @@ bool DISubprogram::Verify() const {
           Scope = D.isLexicalBlockFile()
                       ? D.getScope()
                       : DebugLoc::getFromDILexicalBlock(Scope).getScope();
-          assert(Scope && "lexical block file has no scope");
+          if (!Scope)
+            return false;
         }
         if (!DISubprogram(Scope).describes(F))
           return false;
@@ -594,25 +598,25 @@ bool DIExpression::Verify() const {
   if (!DbgNode)
     return true;
 
-  unsigned N = getNumElements();
-  for (unsigned I = 0; I < N; ++I)
-    switch (getElement(I)) {
-    case DW_OP_piece:
-      // DW_OP_piece has to be the last element in the expression and take two
-      // arguments.
-      if (getElement(I) == DW_OP_piece && !isVariablePiece())
-        return false;
-      I += 2;
-      break;
+  if (!(isExpression() && DbgNode->getNumOperands() == 1))
+    return false;
+
+  for (auto Op : *this)
+    switch (Op) {
+    case DW_OP_bit_piece:
+      // Must be the last element of the expression.
+      return std::distance(Op.getBase(), DIHeaderFieldIterator()) == 3;
     case DW_OP_plus:
-      // Takes one argument.
-      if (I+1 == N)
+      if (std::distance(Op.getBase(), DIHeaderFieldIterator()) < 2)
         return false;
-      I += 1;
       break;
-    default: break;
-  }
-  return isExpression() && DbgNode->getNumOperands() == 1;
+    case DW_OP_deref:
+      break;
+    default:
+      // Other operators are not yet supported by the backend.
+      return false;
+    }
+  return true;
 }
 
 bool DILocation::Verify() const {
@@ -871,9 +875,8 @@ DIVariable llvm::createInlinedVariable(MDNode *DV, MDNode *InlinedScope,
     return cleanseInlinedVariable(DV, VMContext);
 
   // Insert inlined scope.
-  SmallVector<Metadata *, 8> Elts;
-  for (unsigned I = 0, E = DIVariableInlinedAtIndex; I != E; ++I)
-    Elts.push_back(DV->getOperand(I));
+  SmallVector<Metadata *, 8> Elts(DV->op_begin(),
+                                  DV->op_begin() + DIVariableInlinedAtIndex);
   Elts.push_back(InlinedScope);
 
   DIVariable Inlined(MDNode::get(VMContext, Elts));
@@ -887,9 +890,8 @@ DIVariable llvm::cleanseInlinedVariable(MDNode *DV, LLVMContext &VMContext) {
     return DIVariable(DV);
 
   // Remove inlined scope.
-  SmallVector<Metadata *, 8> Elts;
-  for (unsigned I = 0, E = DIVariableInlinedAtIndex; I != E; ++I)
-    Elts.push_back(DV->getOperand(I));
+  SmallVector<Metadata *, 8> Elts(DV->op_begin(),
+                                  DV->op_begin() + DIVariableInlinedAtIndex);
 
   DIVariable Cleansed(MDNode::get(VMContext, Elts));
   assert(Cleansed.Verify() && "Expected to create a DIVariable");
@@ -1397,27 +1399,22 @@ void DIVariable::printInternal(raw_ostream &OS) const {
 }
 
 void DIExpression::printInternal(raw_ostream &OS) const {
-  for (unsigned I = 0; I < getNumElements(); ++I) {
-    uint64_t OpCode = getElement(I);
-    OS << " [" << OperationEncodingString(OpCode);
-    switch (OpCode) {
+  for (auto Op : *this) {
+    OS << " [" << OperationEncodingString(Op);
+    switch (Op) {
     case DW_OP_plus: {
-      OS << " " << getElement(++I);
+      OS << " " << Op.getArg(1);
       break;
     }
-    case DW_OP_piece: {
-      unsigned Offset = getElement(++I);
-      unsigned Size = getElement(++I);
-      OS << " offset=" << Offset << ", size=" << Size;
+    case DW_OP_bit_piece: {
+      OS << " offset=" << Op.getArg(1) << ", size=" << Op.getArg(2);
       break;
     }
     case DW_OP_deref:
       // No arguments.
       break;
     default:
-      // Else bail out early. This may be a line table entry.
-      OS << "Unknown]";
-      return;
+      llvm_unreachable("unhandled operation");
     }
     OS << "]";
   }
@@ -1529,7 +1526,7 @@ bool llvm::StripDebugInfo(Module &M) {
 }
 
 unsigned llvm::getDebugMetadataVersionFromModule(const Module &M) {
-  if (auto *Val = mdconst::extract_or_null<ConstantInt>(
+  if (auto *Val = mdconst::dyn_extract_or_null<ConstantInt>(
           M.getModuleFlag("Debug Info Version")))
     return Val->getZExtValue();
   return 0;

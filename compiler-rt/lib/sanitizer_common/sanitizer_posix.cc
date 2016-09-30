@@ -30,6 +30,13 @@
 #include <sys/personality.h>
 #endif
 
+#if SANITIZER_FREEBSD
+// The MAP_NORESERVE define has been removed in FreeBSD 11.x, and even before
+// that, it was never implemented.  So just define it to zero.
+#undef  MAP_NORESERVE
+#define MAP_NORESERVE 0
+#endif
+
 namespace __sanitizer {
 
 // ------------- sanitizer_common.h
@@ -237,7 +244,8 @@ bool MemoryRangeIsAvailable(uptr range_start, uptr range_end) {
   while (proc_maps.Next(&start, &end,
                         /*offset*/0, /*filename*/0, /*filename_size*/0,
                         /*protection*/0)) {
-    if (!IntervalsAreSeparate(start, end, range_start, range_end))
+    CHECK_NE(0, end);
+    if (!IntervalsAreSeparate(start, end - 1, range_start, range_end))
       return false;
   }
   return true;

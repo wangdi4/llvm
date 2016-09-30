@@ -214,6 +214,9 @@ RuntimeDyldImpl::loadObjectImpl(const object::ObjectFile &Obj) {
     StubMap Stubs;
     section_iterator RelocatedSection = SI->getRelocatedSection();
 
+    if (RelocatedSection == SE)
+      continue;
+
     relocation_iterator I = SI->relocation_begin();
     relocation_iterator E = SI->relocation_end();
 
@@ -449,11 +452,9 @@ void RuntimeDyldImpl::emitCommonSymbols(const ObjectFile &Obj,
     StringRef Name;
     Check(Sym.getName(Name));
 
-    assert((GlobalSymbolTable.find(Name) == GlobalSymbolTable.end()) &&
-           "Common symbol in global symbol table.");
-
     // Skip common symbols already elsewhere.
-    if (GlobalSymbolTable.count(Name)) {
+    if (GlobalSymbolTable.count(Name) ||
+        MemMgr->getSymbolAddressInLogicalDylib(Name)) {
       DEBUG(dbgs() << "\tSkipping already emitted common symbol '" << Name
                    << "'\n");
       continue;

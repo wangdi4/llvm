@@ -199,6 +199,11 @@ namespace sema {
   class TemplateDeductionInfo;
 }
 
+namespace threadSafety {
+  class BeforeSet;
+  void threadSafetyCleanup(BeforeSet* Cache);
+}
+
 // FIXME: No way to easily map from TemplateTypeParmTypes to
 // TemplateTypeParmDecls, so we have this horrible PointerUnion.
 typedef std::pair<llvm::PointerUnion<const TemplateTypeParmType*, NamedDecl*>,
@@ -206,8 +211,8 @@ typedef std::pair<llvm::PointerUnion<const TemplateTypeParmType*, NamedDecl*>,
 
 /// Sema - This implements semantic analysis and AST building for C.
 class Sema {
-  Sema(const Sema &) LLVM_DELETED_FUNCTION;
-  void operator=(const Sema &) LLVM_DELETED_FUNCTION;
+  Sema(const Sema &) = delete;
+  void operator=(const Sema &) = delete;
 
   ///\brief Source of additional semantic information.
   ExternalSemaSource *ExternalSource;
@@ -4493,7 +4498,7 @@ public:
   void DeclareGlobalAllocationFunction(DeclarationName Name, QualType Return,
                                        QualType Param1,
                                        QualType Param2 = QualType(),
-                                       bool addMallocAttr = false);
+                                       bool addRestrictAttr = false);
 
   bool FindDeallocationFunction(SourceLocation StartLoc, CXXRecordDecl *RD,
                                 DeclarationName Name, FunctionDecl* &Operator,
@@ -5181,8 +5186,6 @@ public:
 
   // FIXME: I don't like this name.
   void BuildBasePathArray(const CXXBasePaths &Paths, CXXCastPath &BasePath);
-
-  bool BasePathInvolvesVirtualBase(const CXXCastPath &BasePath);
 
   bool CheckDerivedToBaseConversion(QualType Derived, QualType Base,
                                     SourceLocation Loc, SourceRange Range,
@@ -6609,10 +6612,10 @@ public:
         ArrayRef<TemplateArgument> TemplateArgs = ArrayRef<TemplateArgument>(),
         sema::TemplateDeductionInfo *DeductionInfo = nullptr);
 
-    InstantiatingTemplate(const InstantiatingTemplate&) LLVM_DELETED_FUNCTION;
+    InstantiatingTemplate(const InstantiatingTemplate&) = delete;
 
     InstantiatingTemplate&
-    operator=(const InstantiatingTemplate&) LLVM_DELETED_FUNCTION;
+    operator=(const InstantiatingTemplate&) = delete;
   };
 
   void PrintInstantiationStack();
@@ -6710,6 +6713,7 @@ public:
 
   /// \brief Worker object for performing CFG-based warnings.
   sema::AnalysisBasedWarnings AnalysisWarnings;
+  threadSafety::BeforeSet *ThreadSafetyDeclCache;
 
   /// \brief An entity for which implicit template instantiation is required.
   ///
@@ -8740,8 +8744,8 @@ public:
 
   /// \brief To be used for checking whether the arguments being passed to
   /// function exceeds the number of parameters expected for it.
-  bool TooManyArguments(size_t NumParams, size_t NumArgs,
-                        bool PartialOverloading = false) const {
+  static bool TooManyArguments(size_t NumParams, size_t NumArgs,
+                               bool PartialOverloading = false) {
     // We check whether we're just after a comma in code-completion.
     if (NumArgs > 0 && PartialOverloading)
       return NumArgs + 1 > NumParams; // If so, we view as an extra argument.

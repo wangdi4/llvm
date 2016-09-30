@@ -49,6 +49,7 @@ set(CMAKE_MODULE_PATH
 set(LLVM_VERSION_MAJOR 3)
 set(LLVM_VERSION_MINOR 7)
 set(LLVM_VERSION_PATCH 0)
+set(LLVM_VERSION_SUFFIX svn)
 
 if (NOT PACKAGE_VERSION)
   set(PACKAGE_VERSION "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}svn")
@@ -96,6 +97,9 @@ if(WIN32 AND NOT UNIX)
     "ExecWait '$INSTDIR/tools/msbuild/install.bat'")
   set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
     "ExecWait '$INSTDIR/tools/msbuild/uninstall.bat'")
+  if( CMAKE_CL_64 )
+    set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+  endif()
 endif()
 include(CPack)
 
@@ -629,6 +633,7 @@ add_subdirectory(cmake/modules)
 if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
   install(DIRECTORY include/llvm include/llvm-c
     DESTINATION include
+    COMPONENT llvm-headers
     FILES_MATCHING
     PATTERN "*.def"
     PATTERN "*.h"
@@ -640,6 +645,7 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
 
   install(DIRECTORY ${LLVM_INCLUDE_DIR}/llvm
     DESTINATION include
+    COMPONENT llvm-headers
     FILES_MATCHING
     PATTERN "*.def"
     PATTERN "*.h"
@@ -650,4 +656,12 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
     PATTERN "config.h" EXCLUDE
     PATTERN ".svn" EXCLUDE
     )
+
+  if (NOT CMAKE_CONFIGURATION_TYPES)
+    add_custom_target(installhdrs
+                      DEPENDS ${name}
+                      COMMAND "${CMAKE_COMMAND}"
+                              -DCMAKE_INSTALL_COMPONENT=llvm-headers
+                              -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
+  endif()
 endif()

@@ -79,6 +79,23 @@ static const unsigned RecursionMaxDepth = 12;
 // it has no negative effect on the llvm benchmarks.
 static const unsigned AliasedCheckLimit = 10;
 
+// Another limit for the alias checks: The maximum distance between load/store
+// instructions where alias checks are done.
+// This limit is useful for very large basic blocks.
+static const unsigned MaxMemDepDistance = 160;
+
+/// \brief Predicate for the element types that the SLP vectorizer supports.
+///
+/// The most important thing to filter here are types which are invalid in LLVM
+/// vectors. We also filter target specific types which have absolutely no
+/// meaningful vectorization path such as x86_fp80 and ppc_f128. This just
+/// avoids spending time checking the cost model and realizing that they will
+/// be inevitably scalarized.
+static bool isValidElementType(Type *Ty) {
+  return VectorType::isValidElementType(Ty) && !Ty->isX86_FP80Ty() &&
+         !Ty->isPPC_FP128Ty();
+}
+
 /// \returns the parent basic block if all of the instructions in \p VL
 /// are in the same block or null otherwise.
 static BasicBlock *getSameBlock(ArrayRef<Value *> VL) {
@@ -212,6 +229,8 @@ static Instruction *propagateMetadata(Instruction *I, ArrayRef<Value *> VL) {
         MD = MDNode::getMostGenericTBAA(MD, IMD);
         break;
       case LLVMContext::MD_alias_scope:
+        MD = MDNode::getMostGenericAliasScope(MD, IMD);
+        break;
       case LLVMContext::MD_noalias:
         MD = MDNode::intersect(MD, IMD);
         break;
@@ -302,6 +321,17 @@ static AliasAnalysis::Location getLocation(Instruction *I, AliasAnalysis *AA) {
   if (LoadInst *LI = dyn_cast<LoadInst>(I))
     return AA->getLocation(LI);
   return AliasAnalysis::Location();
+}
+
+/// \returns True if the instruction is not a volatile or atomic load/store.
+static bool isSimple(Instruction *I) {
+  if (LoadInst *LI = dyn_cast<LoadInst>(I))
+    return LI->isSimple();
+  if (StoreInst *SI = dyn_cast<StoreInst>(I))
+    return SI->isSimple();
+  if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(I))
+    return !MI->isVolatile();
+  return true;
 }
 
 /// Bottom Up SLP Vectorizer.
@@ -496,7 +526,7 @@ private:
     }
     AliasAnalysis::Location Loc2 = getLocation(Inst2, AA);
     bool aliased = true;
-    if (Loc1.Ptr && Loc2.Ptr) {
+    if (Loc1.Ptr && Loc2.Ptr && isSimple(Inst1) && isSimple(Inst2)) {
       // Do the alias check.
       aliased = AA->alias(Loc1, Loc2);
     }
@@ -1130,7 +1160,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth) {
       Type *SrcTy = VL0->getOperand(0)->getType();
       for (unsigned i = 0; i < VL.size(); ++i) {
         Type *Ty = cast<Instruction>(VL[i])->getOperand(0)->getType();
-        if (Ty != SrcTy || Ty->isAggregateType() || Ty->isVectorTy()) {
+        if (Ty != SrcTy || !isValidElementType(Ty)) {
           BS.cancelScheduling(VL);
           newTreeEntry(VL, false);
           DEBUG(dbgs() << "SLP: Gathering casts with different src types.\n");
@@ -2868,33 +2898,56 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
           AliasAnalysis::Location SrcLoc = getLocation(SrcInst, SLP->AA);
           bool SrcMayWrite = BundleMember->Inst->mayWriteToMemory();
           unsigned numAliased = 0;
+          unsigned DistToSrc = 1;
 
           while (DepDest) {
             assert(isInSchedulingRegion(DepDest));
-            if (SrcMayWrite || DepDest->Inst->mayWriteToMemory()) {
 
-              // Limit the number of alias checks, becaus SLP->isAliased() is
-              // the expensive part in the following loop.
-              if (numAliased >= AliasedCheckLimit
-                  || SLP->isAliased(SrcLoc, SrcInst, DepDest->Inst)) {
+            // We have two limits to reduce the complexity:
+            // 1) AliasedCheckLimit: It's a small limit to reduce calls to
+            //    SLP->isAliased (which is the expensive part in this loop).
+            // 2) MaxMemDepDistance: It's for very large blocks and it aborts
+            //    the whole loop (even if the loop is fast, it's quadratic).
+            //    It's important for the loop break condition (see below) to
+            //    check this limit even between two read-only instructions.
+            if (DistToSrc >= MaxMemDepDistance ||
+                    ((SrcMayWrite || DepDest->Inst->mayWriteToMemory()) &&
+                     (numAliased >= AliasedCheckLimit ||
+                      SLP->isAliased(SrcLoc, SrcInst, DepDest->Inst)))) {
 
-                // We increment the counter only if the locations are aliased
-                // (instead of counting all alias checks). This gives a better
-                // balance between reduced runtime accurate dependencies.
-                numAliased++;
+              // We increment the counter only if the locations are aliased
+              // (instead of counting all alias checks). This gives a better
+              // balance between reduced runtime and accurate dependencies.
+              numAliased++;
 
-                DepDest->MemoryDependencies.push_back(BundleMember);
-                BundleMember->Dependencies++;
-                ScheduleData *DestBundle = DepDest->FirstInBundle;
-                if (!DestBundle->IsScheduled) {
-                  BundleMember->incrementUnscheduledDeps(1);
-                }
-                if (!DestBundle->hasValidDependencies()) {
-                  WorkList.push_back(DestBundle);
-                }
+              DepDest->MemoryDependencies.push_back(BundleMember);
+              BundleMember->Dependencies++;
+              ScheduleData *DestBundle = DepDest->FirstInBundle;
+              if (!DestBundle->IsScheduled) {
+                BundleMember->incrementUnscheduledDeps(1);
+              }
+              if (!DestBundle->hasValidDependencies()) {
+                WorkList.push_back(DestBundle);
               }
             }
             DepDest = DepDest->NextLoadStore;
+
+            // Example, explaining the loop break condition: Let's assume our
+            // starting instruction is i0 and MaxMemDepDistance = 3.
+            //
+            //                      +--------v--v--v
+            //             i0,i1,i2,i3,i4,i5,i6,i7,i8
+            //             +--------^--^--^
+            //
+            // MaxMemDepDistance let us stop alias-checking at i3 and we add
+            // dependencies from i0 to i3,i4,.. (even if they are not aliased).
+            // Previously we already added dependencies from i3 to i6,i7,i8
+            // (because of MaxMemDepDistance). As we added a dependency from
+            // i0 to i3, we have transitive dependencies from i0 to i6,i7,i8
+            // and we can abort this loop at i6.
+            if (DistToSrc >= 2 * MaxMemDepDistance)
+                break;
+            DistToSrc++;
           }
         }
       }
@@ -3013,7 +3066,7 @@ struct SLPVectorizer : public FunctionPass {
     SE = &getAnalysis<ScalarEvolution>();
     DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
     DL = DLP ? &DLP->getDataLayout() : nullptr;
-    TTI = &getAnalysis<TargetTransformInfo>();
+    TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
     auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
     TLI = TLIP ? &TLIP->getTLI() : nullptr;
     AA = &getAnalysis<AliasAnalysis>();
@@ -3075,7 +3128,7 @@ struct SLPVectorizer : public FunctionPass {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<ScalarEvolution>();
     AU.addRequired<AliasAnalysis>();
-    AU.addRequired<TargetTransformInfo>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<LoopInfoWrapperPass>();
@@ -3253,7 +3306,7 @@ unsigned SLPVectorizer::collectStores(BasicBlock *BB, BoUpSLP &R) {
 
     // Check that the pointer points to scalars.
     Type *Ty = SI->getValueOperand()->getType();
-    if (Ty->isAggregateType() || Ty->isVectorTy())
+    if (!isValidElementType(Ty))
       continue;
 
     // Find the base pointer.
@@ -3294,7 +3347,7 @@ bool SLPVectorizer::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
 
   for (int i = 0, e = VL.size(); i < e; ++i) {
     Type *Ty = VL[i]->getType();
-    if (Ty->isAggregateType() || Ty->isVectorTy())
+    if (!isValidElementType(Ty))
       return false;
     Instruction *Inst = dyn_cast<Instruction>(VL[i]);
     if (!Inst || Inst->getOpcode() != Opcode0)
@@ -3514,7 +3567,7 @@ public:
       return false;
 
     Type *Ty = B->getType();
-    if (Ty->isVectorTy())
+    if (!isValidElementType(Ty))
       return false;
 
     ReductionOpcode = B->getOpcode();
@@ -3904,6 +3957,7 @@ bool SLPVectorizer::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
             // and the iterator may become invalid value.
             it = BB->begin();
             e = BB->end();
+            break;
           }
         }
       }
@@ -3960,7 +4014,7 @@ char SLPVectorizer::ID = 0;
 static const char lv_name[] = "SLP Vectorizer";
 INITIALIZE_PASS_BEGIN(SLPVectorizer, SV_NAME, lv_name, false, false)
 INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
-INITIALIZE_AG_DEPENDENCY(TargetTransformInfo)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)

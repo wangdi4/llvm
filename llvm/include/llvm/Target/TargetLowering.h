@@ -77,8 +77,8 @@ namespace llvm {
 /// This base class for TargetLowering contains the SelectionDAG-independent
 /// parts that can be used from the rest of CodeGen.
 class TargetLoweringBase {
-  TargetLoweringBase(const TargetLoweringBase&) LLVM_DELETED_FUNCTION;
-  void operator=(const TargetLoweringBase&) LLVM_DELETED_FUNCTION;
+  TargetLoweringBase(const TargetLoweringBase&) = delete;
+  void operator=(const TargetLoweringBase&) = delete;
 
 public:
   /// This enum indicates whether operations are valid for a target, and if not,
@@ -149,9 +149,6 @@ protected:
 public:
   const TargetMachine &getTargetMachine() const { return TM; }
   const DataLayout *getDataLayout() const { return DL; }
-  const TargetLoweringObjectFile &getObjFileLowering() const {
-    return *TM.getObjFileLowering();
-  }
 
   bool isBigEndian() const { return !IsLittleEndian; }
   bool isLittleEndian() const { return IsLittleEndian; }
@@ -575,6 +572,14 @@ public:
   bool isLoadExtLegal(unsigned ExtType, EVT ValVT, EVT MemVT) const {
     return ValVT.isSimple() && MemVT.isSimple() &&
       getLoadExtAction(ExtType, ValVT, MemVT) == Legal;
+  }
+
+  /// Return true if the specified load with extension is legal or custom
+  /// on this target.
+  bool isLoadExtLegalOrCustom(unsigned ExtType, EVT ValVT, EVT MemVT) const {
+    return ValVT.isSimple() && MemVT.isSimple() &&
+      (getLoadExtAction(ExtType, ValVT, MemVT) == Legal ||
+       getLoadExtAction(ExtType, ValVT, MemVT) == Custom);
   }
 
   /// Return how this store with truncation should be treated: either it is
@@ -1089,10 +1094,6 @@ public:
   // TargetLowering Configuration Methods - These methods should be invoked by
   // the derived class constructor to configure this object for the target.
   //
-
-  /// \brief Reset the operation actions based on target options.
-  virtual void resetOperationActions() {}
-
 protected:
   /// Specify how the target extends the result of integer and floating point
   /// boolean values from i1 to a wider type.  See getBooleanContents.
@@ -1516,6 +1517,10 @@ public:
     assert(VT.isFloatingPoint());
     return false;
   }
+
+  /// Return true if folding a vector load into ExtVal (a sign, zero, or any
+  /// extend node) is profitable.
+  virtual bool isVectorLoadExtDesirable(SDValue ExtVal) const { return false; }
 
   /// Return true if an fneg operation is free to the point where it is never
   /// worthwhile to replace it with a bitwise operation.
@@ -2019,8 +2024,8 @@ protected:
 /// This class also defines callbacks that targets must implement to lower
 /// target-specific constructs to SelectionDAG operators.
 class TargetLowering : public TargetLoweringBase {
-  TargetLowering(const TargetLowering&) LLVM_DELETED_FUNCTION;
-  void operator=(const TargetLowering&) LLVM_DELETED_FUNCTION;
+  TargetLowering(const TargetLowering&) = delete;
+  void operator=(const TargetLowering&) = delete;
 
 public:
   /// NOTE: The TargetMachine owns TLOF.
@@ -2684,7 +2689,7 @@ public:
   /// pointer.
   ///
   /// This should only be used for C_Register constraints.  On error, this
-  /// returns a register number of 0 and a null register class pointer..
+  /// returns a register number of 0 and a null register class pointer.
   virtual std::pair<unsigned, const TargetRegisterClass*>
     getRegForInlineAsmConstraint(const std::string &Constraint,
                                  MVT VT) const;

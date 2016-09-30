@@ -1,7 +1,5 @@
 /*
  * kmp_os.h -- KPTS runtime header file.
- * $Revision: 43473 $
- * $Date: 2014-09-26 15:02:57 -0500 (Fri, 26 Sep 2014) $
  */
 
 
@@ -121,12 +119,6 @@
 # define KMP_OS_UNIX 1
 #endif
 
-#if (KMP_OS_LINUX || KMP_OS_WINDOWS) && !KMP_OS_CNK && !KMP_ARCH_PPC64
-# define KMP_AFFINITY_SUPPORTED 1
-#else
-# define KMP_AFFINITY_SUPPORTED 0
-#endif
-
 #if KMP_OS_WINDOWS
 # if defined _M_AMD64
 #  undef KMP_ARCH_X86_64
@@ -197,6 +189,18 @@
 // TODO: Fixme - This is clever, but really fugly 
 #if (1 != KMP_ARCH_X86 + KMP_ARCH_X86_64 + KMP_ARCH_ARM + KMP_ARCH_PPC64 + KMP_ARCH_AARCH64)
 # error Unknown or unsupported architecture
+#endif
+
+#if (KMP_OS_LINUX || KMP_OS_WINDOWS) && !KMP_OS_CNK && !KMP_ARCH_PPC64
+# define KMP_AFFINITY_SUPPORTED 1
+# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+#  define KMP_GROUP_AFFINITY    1
+# else
+#  define KMP_GROUP_AFFINITY    0
+# endif
+#else
+# define KMP_AFFINITY_SUPPORTED 0
+# define KMP_GROUP_AFFINITY     0
 #endif
 
 /* Check for quad-precision extension. */

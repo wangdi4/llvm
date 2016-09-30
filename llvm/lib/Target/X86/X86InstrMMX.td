@@ -125,7 +125,7 @@ let Constraints = "$src1 = $dst" in {
                                     (bitconvert (load_mmx addr:$src2))))],
                   itins.rm>, Sched<[WriteVecShiftLd, ReadAfterLd]>;
     def ri : MMXIi8<opc2, ImmForm, (outs VR64:$dst),
-                                   (ins VR64:$src1, i32i8imm:$src2),
+                                   (ins VR64:$src1, i32u8imm:$src2),
                     !strconcat(OpcodeStr, "\t{$src2, $dst|$dst, $src2}"),
            [(set VR64:$dst, (IntId2 VR64:$src1, imm:$src2))], itins.ri>,
            Sched<[WriteVecShift]>;
@@ -229,14 +229,21 @@ def MMX_MOVD64rm : MMXI<0x6E, MRMSrcMem, (outs VR64:$dst), (ins i32mem:$src),
                         [(set VR64:$dst,
                         (x86mmx (scalar_to_vector (loadi32 addr:$src))))],
                         IIC_MMX_MOV_MM_RM>, Sched<[WriteLoad]>;
+
+let Predicates = [HasMMX] in {
+  let AddedComplexity = 15 in
+    def : Pat<(x86mmx (MMX_X86movw2d GR32:$src)),
+              (MMX_MOVD64rr GR32:$src)>;
+  let AddedComplexity = 20 in
+    def : Pat<(x86mmx (MMX_X86movw2d (loadi32 addr:$src))),
+              (MMX_MOVD64rm addr:$src)>;
+}
+
 let mayStore = 1 in
 def MMX_MOVD64mr : MMXI<0x7E, MRMDestMem, (outs), (ins i32mem:$dst, VR64:$src),
                         "movd\t{$src, $dst|$dst, $src}", [], IIC_MMX_MOV_MM_RM>,
                    Sched<[WriteStore]>;
 
-// Low word of MMX to GPR.
-def MMX_X86movd2w : SDNode<"X86ISD::MMX_MOVD2W", SDTypeProfile<1, 1,
-                            [SDTCisVT<0, i32>, SDTCisVT<1, x86mmx>]>>;
 def MMX_MOVD64grr : MMXI<0x7E, MRMDestReg, (outs GR32:$dst), (ins VR64:$src),
                          "movd\t{$src, $dst|$dst, $src}",
                          [(set GR32:$dst,
@@ -559,7 +566,7 @@ let Constraints = "$src1 = $dst" in {
 
 // Extract / Insert
 def MMX_PEXTRWirri: MMXIi8<0xC5, MRMSrcReg,
-                       (outs GR32orGR64:$dst), (ins VR64:$src1, i32i8imm:$src2),
+                       (outs GR32orGR64:$dst), (ins VR64:$src1, i32u8imm:$src2),
                        "pextrw\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                        [(set GR32orGR64:$dst, (int_x86_mmx_pextr_w VR64:$src1,
                                                imm:$src2))],
@@ -567,7 +574,7 @@ def MMX_PEXTRWirri: MMXIi8<0xC5, MRMSrcReg,
 let Constraints = "$src1 = $dst" in {
   def MMX_PINSRWirri : MMXIi8<0xC4, MRMSrcReg,
                       (outs VR64:$dst),
-                      (ins VR64:$src1, GR32orGR64:$src2, i32i8imm:$src3),
+                      (ins VR64:$src1, GR32orGR64:$src2, i32u8imm:$src3),
                       "pinsrw\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                       [(set VR64:$dst, (int_x86_mmx_pinsr_w VR64:$src1,
                                         GR32orGR64:$src2, imm:$src3))],
@@ -575,7 +582,7 @@ let Constraints = "$src1 = $dst" in {
 
   def MMX_PINSRWirmi : MMXIi8<0xC4, MRMSrcMem,
                      (outs VR64:$dst),
-                     (ins VR64:$src1, i16mem:$src2, i32i8imm:$src3),
+                     (ins VR64:$src1, i16mem:$src2, i32u8imm:$src3),
                      "pinsrw\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                      [(set VR64:$dst, (int_x86_mmx_pinsr_w VR64:$src1,
                                          (i32 (anyext (loadi16 addr:$src2))),

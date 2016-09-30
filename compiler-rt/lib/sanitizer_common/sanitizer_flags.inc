@@ -104,6 +104,9 @@ COMMON_FLAG(uptr, soft_rss_limit_mb, 0,
             " until the RSS goes below the soft limit."
             " This limit does not affect memory allocations other than"
             " malloc/new.")
+COMMON_FLAG(bool, can_use_proc_maps_statm, true,
+            "If false, do not attempt to read /proc/maps/statm."
+            " Mostly useful for testing sanitizers.")
 COMMON_FLAG(
     bool, coverage, false,
     "If set, coverage information will be dumped at program shutdown (if the "
@@ -133,6 +136,9 @@ COMMON_FLAG(
     "Disable core dumping. By default, disable_core=1 on 64-bit to avoid "
     "dumping a 16T+ core file. Ignored on OSes that don't dump core by"
     "default and for sanitizers that don't reserve lots of virtual memory.")
+COMMON_FLAG(bool, use_madv_dontdump, true,
+          "If set, instructs kernel to not store the (huge) shadow "
+          "in core file.")
 COMMON_FLAG(bool, symbolize_inline_frames, true,
             "Print inlined frames in stacktraces. Defaults to true.")
 COMMON_FLAG(const char *, stack_trace_format, "DEFAULT",

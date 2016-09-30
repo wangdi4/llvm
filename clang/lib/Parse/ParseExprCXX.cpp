@@ -194,6 +194,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
 
   if (Tok.is(tok::annot_cxxscope)) {
     assert(!LastII && "want last identifier but have already annotated scope");
+    assert(!MayBePseudoDestructor && "unexpected annot_cxxscope");
     Actions.RestoreNestedNameSpecifierAnnotation(Tok.getAnnotationValue(),
                                                  Tok.getAnnotationRange(),
                                                  SS);
@@ -206,6 +207,13 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
     // a scope specifier. Restore it.
     TemplateIdAnnotation *TemplateId = takeTemplateIdAnnotation(Tok);
     SS = TemplateId->SS;
+  }
+
+  // Has to happen before any "return false"s in this function.
+  bool CheckForDestructor = false;
+  if (MayBePseudoDestructor && *MayBePseudoDestructor) {
+    CheckForDestructor = true;
+    *MayBePseudoDestructor = false;
   }
 
   if (LastII)
@@ -242,12 +250,6 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
     }
 
     return Actions.ActOnSuperScopeSpecifier(SuperLoc, ConsumeToken(), SS);
-  }
-
-  bool CheckForDestructor = false;
-  if (MayBePseudoDestructor && *MayBePseudoDestructor) {
-    CheckForDestructor = true;
-    *MayBePseudoDestructor = false;
   }
 
   if (!HasScopeSpecifier &&
@@ -659,7 +661,8 @@ ExprResult Parser::ParseCXXIdExpression(bool isAddressOfOperand) {
   ParseOptionalCXXScopeSpecifier(SS, ParsedType(), /*EnteringContext=*/false);
 
   Token Replacement;
-  ExprResult Result = tryParseCXXIdExpression(SS, isAddressOfOperand, Replacement);
+  ExprResult Result =
+      tryParseCXXIdExpression(SS, isAddressOfOperand, Replacement);
   if (Result.isUnset()) {
     // If the ExprResult is valid but null, then typo correction suggested a
     // keyword replacement that needs to be reparsed.
@@ -894,11 +897,16 @@ Optional<unsigned> Parser::ParseLambdaIntroducer(LambdaIntroducer &Intro,
         // to save the necessary state, and restore it later.
         EnterExpressionEvaluationContext EC(Actions,
                                             Sema::PotentiallyEvaluated);
-        TryConsumeToken(tok::equal);
+        bool HadEquals = TryConsumeToken(tok::equal);
 
-        if (!SkippedInits)
+        if (!SkippedInits) {
+          // Warn on constructs that will change meaning when we implement N3922
+          if (!HadEquals && Tok.is(tok::l_brace)) {
+            Diag(Tok, diag::warn_init_capture_direct_list_init)
+              << FixItHint::CreateInsertion(Tok.getLocation(), "=");
+          }
           Init = ParseInitializer();
-        else if (Tok.is(tok::l_brace)) {
+        } else if (Tok.is(tok::l_brace)) {
           BalancedDelimiterTracker Braces(*this, tok::l_brace);
           Braces.consumeOpen();
           Braces.skipToEnd();
@@ -1084,6 +1092,11 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
     // GNU-style attributes must be parsed before the mutable specifier to be
     // compatible with GCC.
     MaybeParseGNUAttributes(Attr, &DeclEndLoc);
+
+    // MSVC-style attributes must be parsed before the mutable specifier to be
+    // compatible with MSVC.
+    while (Tok.is(tok::kw___declspec))
+      ParseMicrosoftDeclSpec(Attr);
 
     // Parse 'mutable'[opt].
     SourceLocation MutableLoc;
@@ -2510,13 +2523,21 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, bool EnteringContext,
     // If the user wrote ~T::T, correct it to T::~T.
     DeclaratorScopeObj DeclScopeObj(*this, SS);
     if (!TemplateSpecified && NextToken().is(tok::coloncolon)) {
+      // Don't let ParseOptionalCXXScopeSpecifier() "correct"
+      // `int A; struct { ~A::A(); };` to `int A; struct { ~A:A(); };`,
+      // it will confuse this recovery logic.
+      ColonProtectionRAIIObject ColonRAII(*this, false);
+
       if (SS.isSet()) {
         AnnotateScopeToken(SS, /*NewAnnotation*/true);
         SS.clear();
       }
       if (ParseOptionalCXXScopeSpecifier(SS, ObjectType, EnteringContext))
         return true;
-      if (Tok.isNot(tok::identifier) || NextToken().is(tok::coloncolon)) {
+      if (SS.isNotEmpty())
+        ObjectType = ParsedType();
+      if (Tok.isNot(tok::identifier) || NextToken().is(tok::coloncolon) ||
+          SS.isInvalid()) {
         Diag(TildeLoc, diag::err_destructor_tilde_scope);
         return true;
       }

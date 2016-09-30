@@ -16,7 +16,7 @@
 #include "lld/Core/Parallel.h"
 #include "lld/Core/SharedLibraryFile.h"
 #include "lld/ReaderWriter/ELFLinkingContext.h"
-#include "lld/ReaderWriter/Writer.h"
+#include "lld/Core/Writer.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Path.h"
 
@@ -417,7 +417,9 @@ std::error_code OutputELFWriter<ELFT>::buildOutput(const File &file) {
   buildAtomToAddressMap(file);
 
   // Create symbol table and section string table
-  buildStaticSymbolTable(file);
+  // Do it only if -s is not specified.
+  if (!_context.stripSymbols())
+    buildStaticSymbolTable(file);
 
   // Finalize the layout by calling the finalize() functions
   _layout.finalize();
