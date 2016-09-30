@@ -95,8 +95,9 @@ namespace {
     void emitParamList(const Function *);
     void emitReturnVal(const Function*);
   public:
-    LPUAsmPrinter(TargetMachine &TM, MCStreamer &Streamer)
-      : AsmPrinter(TM, Streamer), reader() {}
+    LPUAsmPrinter(TargetMachine &TM,
+            std::unique_ptr<MCStreamer> Streamer)
+      : AsmPrinter(TM, std::move(Streamer)), reader() {}
 
     const char *getPassName() const override {
       return "LPU Assembly Printer";
