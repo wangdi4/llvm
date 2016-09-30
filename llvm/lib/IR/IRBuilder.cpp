@@ -221,6 +221,35 @@ CallInst *IRBuilderBase::CreateAssumption(Value *Cond) {
   return createCallHelper(FnAssume, Ops, this);
 }
 
+#if INTEL_CUSTOMIZATION
+// Intrinsic generated for the return pointers
+Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
+  Value *CPtr = Ptr;
+  if (StructType *STyp =
+          dyn_cast<StructType>(CPtr->getType()->getPointerElementType())) {
+    if (STyp->isLiteral())
+      CPtr = getCastedInt8PtrValue(CPtr);
+  }
+
+  Type *Types[] = {CPtr->getType()};
+  Value *Ops[] = {CPtr, MetadataAsValue::get(Context, TbaaTag)};
+  Module *M = BB->getParent()->getParent();
+  Value *FnFakeLoad =
+      Intrinsic::getDeclaration(M, Intrinsic::intel_fakeload, Types);
+  Instruction *Ret = createCallHelper(FnFakeLoad, Ops, this);
+  cast<CallInst>(Ret)->setDoesNotThrow();
+
+  if (Ret->getType() != Ptr->getType()) {
+    BitCastInst *BCI = new BitCastInst(Ret, Ptr->getType(), "");
+    BB->getInstList().insert(InsertPt, BCI);
+    SetInstDebugLocation(BCI);
+    Ret = BCI;
+  }
+
+  return Ret;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// \brief Create a call to a Masked Load intrinsic.
 /// \p Ptr      - base pointer for the load
 /// \p Align    - alignment of the source location

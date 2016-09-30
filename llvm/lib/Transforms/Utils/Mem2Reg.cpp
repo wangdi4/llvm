@@ -15,8 +15,11 @@
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/Intel_WP.h"                     // INTEL
-#include "llvm/Analysis/Intel_Andersens.h"    // INTEL
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"    
+#include "llvm/Analysis/Intel_WP.h"             
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
@@ -62,7 +65,11 @@ PreservedAnalyses PromotePass::run(Function &F, AnalysisManager<Function> &AM) {
     return PreservedAnalyses::all();
 
   // FIXME: This should also 'preserve the CFG'.
-  return PreservedAnalyses::none();
+#if INTEL_CUSTOMIZATION
+  PreservedAnalyses PA;
+  PA.preserve<GlobalsAA>();
+  return PA;
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {
@@ -89,7 +96,10 @@ struct PromoteLegacyPass : public FunctionPass {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.setPreservesCFG();
-    AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
+#if INTEL_CUSTOMIZATION
+    AU.addPreserved<AndersensAAWrapperPass>();   
+    AU.addPreserved<GlobalsAAWrapperPass>();
+#endif // INTEL_CUSTOMIZATION
   }
   };
 }  // end of anonymous namespace

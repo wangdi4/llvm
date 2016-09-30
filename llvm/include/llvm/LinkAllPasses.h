@@ -74,8 +74,11 @@ namespace {
       (void) llvm::createBitTrackingDCEPass();
       (void) llvm::createArgumentPromotionPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
-      (void) llvm::createAndersensAAWrapperPass(); // INTEL
-      (void) llvm::createNonLTOGlobalOptimizerPass(); // INTEL
+#if INTEL_CUSTOMIZATION 
+      (void) llvm::createAndersensAAWrapperPass(); 
+      (void) llvm::createNonLTOGlobalOptimizerPass(); 
+      (void)llvm::createTbaaMDPropagationPass();    
+#endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
       (void) llvm::createTypeBasedAAWrapperPass();

@@ -543,6 +543,12 @@ public:
                              Type *ResultType,
                              const Twine &Name = "");
 
+#if INTEL_CUSTOMIZATION
+  /// \brief Create a call to the llvm.intel.fakeload intrinsic
+  // to hold the tbaa informaiton for the return pointers.
+  Instruction *CreateFakeLoad(Value *Ptr, MDNode *TbaaTag);
+#endif // INTEL_CUSTOMIZATION
+
 private:
   /// \brief Create a call to a masked intrinsic with given Id.
   CallInst *CreateMaskedIntrinsic(Intrinsic::ID Id, ArrayRef<Value *> Ops,

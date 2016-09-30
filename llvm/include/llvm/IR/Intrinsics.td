@@ -756,7 +756,10 @@ def int_has_feature : Intrinsic<[llvm_i1_ty], [llvm_i64_ty], [IntrNoMem]>;
 def int_intel_sizeof : Intrinsic<[llvm_anyint_ty],
                                  [LLVMMatchType<0>, llvm_vararg_ty],
                                  [IntrNoMem], "llvm.intel.sizeof">;
-
+// Intrinsic generated for the return pointer. 
+def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],
+                                 [LLVMMatchType<0>, llvm_metadata_ty],
+                                 [IntrReadMem]>;
 // endif INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"

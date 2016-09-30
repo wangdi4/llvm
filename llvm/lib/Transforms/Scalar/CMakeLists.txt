@@ -19,6 +19,7 @@ add_llvm_library(LLVMScalarOpts
   Intel_GlobalOpt.cpp
   Intel_IndirectCallConv.cpp
   Intel_LoopOptMarker.cpp
+  Intel_TbaaMDPropagation.cpp
 #endif     // INTEL_CUSTOMIZATION
   JumpThreading.cpp
   LICM.cpp
