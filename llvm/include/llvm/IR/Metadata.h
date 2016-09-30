@@ -47,8 +47,11 @@ class Metadata {
   const unsigned char SubclassID;
 
 protected:
+  /// \brief Active type of storage.
+  enum StorageType { Uniqued, Distinct, Temporary };
+
   /// \brief Storage flag for non-uniqued, otherwise unowned, metadata.
-  bool IsDistinctInContext : 1;
+  StorageType Storage : 2;
   // TODO: expose remaining bits to subclasses.
 
   unsigned short SubclassData16;
@@ -58,20 +61,16 @@ public:
   enum MetadataKind {
     MDTupleKind,
     MDLocationKind,
-    MDNodeFwdDeclKind,
     ConstantAsMetadataKind,
     LocalAsMetadataKind,
     MDStringKind
   };
 
 protected:
-  Metadata(unsigned ID)
-      : SubclassID(ID), IsDistinctInContext(false), SubclassData16(0),
-        SubclassData32(0) {}
+  Metadata(unsigned ID, StorageType Storage)
+      : SubclassID(ID), Storage(Storage), SubclassData16(0), SubclassData32(0) {
+  }
   ~Metadata() {}
-
-  /// \brief Store this in a big non-uniqued untyped bucket.
-  bool isStoredDistinctInContext() const { return IsDistinctInContext; }
 
   /// \brief Default handling of a changed operand, which asserts.
   ///
@@ -115,6 +114,9 @@ class MetadataAsValue : public Value {
   MetadataAsValue(Type *Ty, Metadata *MD);
   ~MetadataAsValue();
 
+  /// \brief Drop use of metadata (during teardown).
+  void dropUse() { MD = nullptr; }
+
 public:
   static MetadataAsValue *get(LLVMContext &Context, Metadata *MD);
   static MetadataAsValue *getIfExists(LLVMContext &Context, Metadata *MD);
@@ -142,14 +144,18 @@ public:
   typedef MetadataTracking::OwnerTy OwnerTy;
 
 private:
+  LLVMContext &Context;
   uint64_t NextIndex;
   SmallDenseMap<void *, std::pair<OwnerTy, uint64_t>, 4> UseMap;
 
 public:
-  ReplaceableMetadataImpl() : NextIndex(0) {}
+  ReplaceableMetadataImpl(LLVMContext &Context)
+      : Context(Context), NextIndex(0) {}
   ~ReplaceableMetadataImpl() {
     assert(UseMap.empty() && "Cannot destroy in-use replaceable metadata");
   }
+
+  LLVMContext &getContext() const { return Context; }
 
   /// \brief Replace all uses of this with MD.
   ///
@@ -185,9 +191,14 @@ class ValueAsMetadata : public Metadata, ReplaceableMetadataImpl {
 
   Value *V;
 
+  /// \brief Drop users without RAUW (during teardown).
+  void dropUsers() {
+    ReplaceableMetadataImpl::resolveAllUses(/* ResolveUsers */ false);
+  }
+
 protected:
   ValueAsMetadata(unsigned ID, Value *V)
-      : Metadata(ID), V(V) {
+      : Metadata(ID, Uniqued), ReplaceableMetadataImpl(V->getContext()), V(V) {
     assert(V && "Expected valid value");
   }
   ~ValueAsMetadata() {}
@@ -438,8 +449,8 @@ class MDString : public Metadata {
   MDString &operator=(const MDString &) LLVM_DELETED_FUNCTION;
 
   StringMapEntry<MDString> *Entry;
-  MDString() : Metadata(MDStringKind), Entry(nullptr) {}
-  MDString(MDString &&) : Metadata(MDStringKind) {}
+  MDString() : Metadata(MDStringKind, Uniqued), Entry(nullptr) {}
+  MDString(MDString &&) : Metadata(MDStringKind, Uniqued) {}
 
 public:
   static MDString *get(LLVMContext &Context, StringRef Str);
@@ -572,14 +583,96 @@ template <> struct simplify_type<const MDOperand> {
   static SimpleType getSimplifiedValue(const MDOperand &MD) { return MD.get(); }
 };
 
+/// \brief Pointer to the context, with optional RAUW support.
+///
+/// Either a raw (non-null) pointer to the \a LLVMContext, or an owned pointer
+/// to \a ReplaceableMetadataImpl (which has a reference to \a LLVMContext).
+class ContextAndReplaceableUses {
+  PointerUnion<LLVMContext *, ReplaceableMetadataImpl *> Ptr;
+
+  ContextAndReplaceableUses() LLVM_DELETED_FUNCTION;
+  ContextAndReplaceableUses(ContextAndReplaceableUses &&)
+      LLVM_DELETED_FUNCTION;
+  ContextAndReplaceableUses(const ContextAndReplaceableUses &)
+      LLVM_DELETED_FUNCTION;
+  ContextAndReplaceableUses &
+  operator=(ContextAndReplaceableUses &&) LLVM_DELETED_FUNCTION;
+  ContextAndReplaceableUses &
+  operator=(const ContextAndReplaceableUses &) LLVM_DELETED_FUNCTION;
+
+public:
+  ContextAndReplaceableUses(LLVMContext &Context) : Ptr(&Context) {}
+  ContextAndReplaceableUses(
+      std::unique_ptr<ReplaceableMetadataImpl> ReplaceableUses)
+      : Ptr(ReplaceableUses.release()) {
+    assert(getReplaceableUses() && "Expected non-null replaceable uses");
+  }
+  ~ContextAndReplaceableUses() { delete getReplaceableUses(); }
+
+  operator LLVMContext &() { return getContext(); }
+
+  /// \brief Whether this contains RAUW support.
+  bool hasReplaceableUses() const {
+    return Ptr.is<ReplaceableMetadataImpl *>();
+  }
+  LLVMContext &getContext() const {
+    if (hasReplaceableUses())
+      return getReplaceableUses()->getContext();
+    return *Ptr.get<LLVMContext *>();
+  }
+  ReplaceableMetadataImpl *getReplaceableUses() const {
+    if (hasReplaceableUses())
+      return Ptr.get<ReplaceableMetadataImpl *>();
+    return nullptr;
+  }
+
+  /// \brief Assign RAUW support to this.
+  ///
+  /// Make this replaceable, taking ownership of \c ReplaceableUses (which must
+  /// not be null).
+  void
+  makeReplaceable(std::unique_ptr<ReplaceableMetadataImpl> ReplaceableUses) {
+    assert(ReplaceableUses && "Expected non-null replaceable uses");
+    assert(&ReplaceableUses->getContext() == &getContext() &&
+           "Expected same context");
+    delete getReplaceableUses();
+    Ptr = ReplaceableUses.release();
+  }
+
+  /// \brief Drop RAUW support.
+  ///
+  /// Cede ownership of RAUW support, returning it.
+  std::unique_ptr<ReplaceableMetadataImpl> takeReplaceableUses() {
+    assert(hasReplaceableUses() && "Expected to own replaceable uses");
+    std::unique_ptr<ReplaceableMetadataImpl> ReplaceableUses(
+        getReplaceableUses());
+    Ptr = &ReplaceableUses->getContext();
+    return ReplaceableUses;
+  }
+};
+
+template <class T>
+struct TempMDNodeDeleter {
+  inline void operator()(T *Node) const;
+};
+
+#define HANDLE_UNIQUABLE_LEAF(CLASS)                                           \
+  typedef std::unique_ptr<CLASS, TempMDNodeDeleter<CLASS>> Temp##CLASS;
+#include "llvm/IR/Metadata.def"
+
 //===----------------------------------------------------------------------===//
 /// \brief Tuple of metadata.
 class MDNode : public Metadata {
+  friend class ReplaceableMetadataImpl;
+
   MDNode(const MDNode &) LLVM_DELETED_FUNCTION;
   void operator=(const MDNode &) LLVM_DELETED_FUNCTION;
   void *operator new(size_t) LLVM_DELETED_FUNCTION;
 
-  LLVMContext &Context;
+protected:
+  ContextAndReplaceableUses Context;
+
+private:
   unsigned NumOperands;
 
 protected:
@@ -598,7 +691,8 @@ protected:
     llvm_unreachable("Constructor throws?");
   }
 
-  MDNode(LLVMContext &Context, unsigned ID, ArrayRef<Metadata *> MDs);
+  MDNode(LLVMContext &Context, unsigned ID, StorageType Storage,
+         ArrayRef<Metadata *> MDs);
   ~MDNode() {}
 
   void dropAllReferences();
@@ -607,39 +701,48 @@ protected:
   MDOperand *mutable_end() { return reinterpret_cast<MDOperand *>(this); }
 
 public:
-  static inline MDNode *get(LLVMContext &Context, ArrayRef<Metadata *> MDs);
-  static inline MDNode *getIfExists(LLVMContext &Context,
-                                    ArrayRef<Metadata *> MDs);
-  static inline MDNode *getDistinct(LLVMContext &Context,
-                                    ArrayRef<Metadata *> MDs);
-
-  /// \brief Return a temporary MDNode
-  ///
-  /// For use in constructing cyclic MDNode structures. A temporary MDNode is
-  /// not uniqued, may be RAUW'd, and must be manually deleted with
-  /// deleteTemporary.
-  static MDNodeFwdDecl *getTemporary(LLVMContext &Context,
+  static inline MDTuple *get(LLVMContext &Context, ArrayRef<Metadata *> MDs);
+  static inline MDTuple *getIfExists(LLVMContext &Context,
                                      ArrayRef<Metadata *> MDs);
+  static inline MDTuple *getDistinct(LLVMContext &Context,
+                                     ArrayRef<Metadata *> MDs);
+  static inline TempMDTuple getTemporary(LLVMContext &Context,
+                                         ArrayRef<Metadata *> MDs);
 
   /// \brief Deallocate a node created by getTemporary.
   ///
   /// The node must not have any users.
   static void deleteTemporary(MDNode *N);
 
-  LLVMContext &getContext() const { return Context; }
+  LLVMContext &getContext() const { return Context.getContext(); }
 
   /// \brief Replace a specific operand.
   void replaceOperandWith(unsigned I, Metadata *New);
 
   /// \brief Check if node is fully resolved.
-  bool isResolved() const;
-
-  /// \brief Check if node is distinct.
   ///
-  /// Distinct nodes are not uniqued, and will not be returned by \a
-  /// MDNode::get().
-  bool isDistinct() const {
-    return isStoredDistinctInContext() || isa<MDNodeFwdDecl>(this);
+  /// If \a isTemporary(), this always returns \c false; if \a isDistinct(),
+  /// this always returns \c true.
+  ///
+  /// If \a isUniqued(), returns \c true if this has already dropped RAUW
+  /// support (because all operands are resolved).
+  ///
+  /// As forward declarations are resolved, their containers should get
+  /// resolved automatically.  However, if this (or one of its operands) is
+  /// involved in a cycle, \a resolveCycles() needs to be called explicitly.
+  bool isResolved() const { return !Context.hasReplaceableUses(); }
+
+  bool isUniqued() const { return Storage == Uniqued; }
+  bool isDistinct() const { return Storage == Distinct; }
+  bool isTemporary() const { return Storage == Temporary; }
+
+  /// \brief RAUW a temporary.
+  ///
+  /// \pre \a isTemporary() must be \c true.
+  void replaceAllUsesWith(Metadata *MD) {
+    assert(isTemporary() && "Expected temporary node");
+    assert(!isResolved() && "Expected RAUW support");
+    Context.getReplaceableUses()->replaceAllUsesWith(MD);
   }
 
 protected:
@@ -671,8 +774,7 @@ public:
   /// \brief Methods for support type inquiry through isa, cast, and dyn_cast:
   static bool classof(const Metadata *MD) {
     return MD->getMetadataID() == MDTupleKind ||
-           MD->getMetadataID() == MDLocationKind ||
-           MD->getMetadataID() == MDNodeFwdDeclKind;
+           MD->getMetadataID() == MDLocationKind;
   }
 
   /// \brief Check whether MDNode is a vtable access.
@@ -693,26 +795,19 @@ public:
 /// for implementing sub-types of \a MDNode that can be uniqued like
 /// constants.
 ///
-/// There is limited support for RAUW at construction time.  At
-/// construction time, if any operands are an instance of \a
-/// MDNodeFwdDecl (or another unresolved \a UniquableMDNode, which
-/// indicates an \a MDNodeFwdDecl in its path), the node itself will be
-/// unresolved.  As soon as all operands become resolved, it will drop
-/// RAUW support permanently.
+/// There is limited support for RAUW at construction time.  At construction
+/// time, if any operand is a temporary node (or an unresolved uniqued node,
+/// which indicates a transitive temporary operand), the node itself will be
+/// unresolved.  As soon as all operands become resolved, it will drop RAUW
+/// support permanently.
 ///
 /// If an unresolved node is part of a cycle, \a resolveCycles() needs
-/// to be called on some member of the cycle when each \a MDNodeFwdDecl
-/// has been removed.
+/// to be called on some member of the cycle once all temporary nodes have been
+/// replaced.
 class UniquableMDNode : public MDNode {
   friend class ReplaceableMetadataImpl;
   friend class MDNode;
   friend class LLVMContextImpl;
-
-  /// \brief Support RAUW as long as one of its arguments is replaceable.
-  ///
-  /// FIXME: Save memory by storing this in a pointer union with the
-  /// LLVMContext, and adding an LLVMContext reference to RMI.
-  std::unique_ptr<ReplaceableMetadataImpl> ReplaceableUses;
 
 protected:
   /// \brief Create a new node.
@@ -720,11 +815,13 @@ protected:
   /// If \c AllowRAUW, then if any operands are unresolved support RAUW.  RAUW
   /// will be dropped once all operands have been resolved (or if \a
   /// resolveCycles() is called).
-  UniquableMDNode(LLVMContext &C, unsigned ID, ArrayRef<Metadata *> Vals,
-                  bool AllowRAUW);
+  UniquableMDNode(LLVMContext &C, unsigned ID, StorageType Storage,
+                  ArrayRef<Metadata *> Vals);
   ~UniquableMDNode() {}
 
   void storeDistinctInContext();
+  template <class T, class StoreT>
+  static T *storeImpl(T *N, StorageType Storage, StoreT &Store);
 
 public:
   static bool classof(const Metadata *MD) {
@@ -732,22 +829,12 @@ public:
            MD->getMetadataID() == MDLocationKind;
   }
 
-  /// \brief Check whether any operands are forward declarations.
-  ///
-  /// Returns \c true as long as any operands (or their operands, etc.) are \a
-  /// MDNodeFwdDecl.
-  ///
-  /// As forward declarations are resolved, their containers should get
-  /// resolved automatically.  However, if this (or one of its operands) is
-  /// involved in a cycle, \a resolveCycles() needs to be called explicitly.
-  bool isResolved() const { return !ReplaceableUses; }
-
   /// \brief Resolve cycles.
   ///
   /// Once all forward declarations have been resolved, force cycles to be
   /// resolved.
   ///
-  /// \pre No operands (or operands' operands, etc.) are \a MDNodeFwdDecl.
+  /// \pre No operands (or operands' operands, etc.) have \a isTemporary().
   void resolveCycles();
 
 private:
@@ -770,31 +857,46 @@ class MDTuple : public UniquableMDNode {
   friend class LLVMContextImpl;
   friend class UniquableMDNode;
 
-  MDTuple(LLVMContext &C, ArrayRef<Metadata *> Vals, bool AllowRAUW)
-      : UniquableMDNode(C, MDTupleKind, Vals, AllowRAUW) {}
+  MDTuple(LLVMContext &C, StorageType Storage, unsigned Hash,
+          ArrayRef<Metadata *> Vals)
+      : UniquableMDNode(C, MDTupleKind, Storage, Vals) {
+    setHash(Hash);
+  }
   ~MDTuple() { dropAllReferences(); }
 
   void setHash(unsigned Hash) { MDNodeSubclassData = Hash; }
   void recalculateHash();
 
   static MDTuple *getImpl(LLVMContext &Context, ArrayRef<Metadata *> MDs,
-                          bool ShouldCreate);
+                          StorageType Storage, bool ShouldCreate = true);
 
 public:
   /// \brief Get the hash, if any.
   unsigned getHash() const { return MDNodeSubclassData; }
 
   static MDTuple *get(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
-    return getImpl(Context, MDs, /* ShouldCreate */ true);
+    return getImpl(Context, MDs, Uniqued);
   }
   static MDTuple *getIfExists(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
-    return getImpl(Context, MDs, /* ShouldCreate */ false);
+    return getImpl(Context, MDs, Uniqued, /* ShouldCreate */ false);
   }
 
   /// \brief Return a distinct node.
   ///
   /// Return a distinct node -- i.e., a node that is not uniqued.
-  static MDTuple *getDistinct(LLVMContext &Context, ArrayRef<Metadata *> MDs);
+  static MDTuple *getDistinct(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
+    return getImpl(Context, MDs, Distinct);
+  }
+
+  /// \brief Return a temporary node.
+  ///
+  /// For use in constructing cyclic MDNode structures. A temporary MDNode is
+  /// not uniqued, may be RAUW'd, and must be manually deleted with
+  /// deleteTemporary.
+  static TempMDTuple getTemporary(LLVMContext &Context,
+                                  ArrayRef<Metadata *> MDs) {
+    return TempMDTuple(getImpl(Context, MDs, Temporary));
+  }
 
   static bool classof(const Metadata *MD) {
     return MD->getMetadataID() == MDTupleKind;
@@ -805,14 +907,22 @@ private:
   void eraseFromStoreImpl();
 };
 
-MDNode *MDNode::get(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
+MDTuple *MDNode::get(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
   return MDTuple::get(Context, MDs);
 }
-MDNode *MDNode::getIfExists(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
+MDTuple *MDNode::getIfExists(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
   return MDTuple::getIfExists(Context, MDs);
 }
-MDNode *MDNode::getDistinct(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
+MDTuple *MDNode::getDistinct(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
   return MDTuple::getDistinct(Context, MDs);
+}
+TempMDTuple MDNode::getTemporary(LLVMContext &Context,
+                                 ArrayRef<Metadata *> MDs) {
+  return MDTuple::getTemporary(Context, MDs);
+}
+template <class T>
+void TempMDNodeDeleter<T>::operator()(T *Node) const {
+  MDNode::deleteTemporary(Node);
 }
 
 /// \brief Debug location.
@@ -822,17 +932,14 @@ class MDLocation : public UniquableMDNode {
   friend class LLVMContextImpl;
   friend class UniquableMDNode;
 
-  MDLocation(LLVMContext &C, unsigned Line, unsigned Column,
-             ArrayRef<Metadata *> MDs, bool AllowRAUW);
+  MDLocation(LLVMContext &C, StorageType Storage, unsigned Line,
+             unsigned Column, ArrayRef<Metadata *> MDs);
   ~MDLocation() { dropAllReferences(); }
-
-  static MDLocation *constructHelper(LLVMContext &Context, unsigned Line,
-                                     unsigned Column, Metadata *Scope,
-                                     Metadata *InlinedAt, bool AllowRAUW);
 
   static MDLocation *getImpl(LLVMContext &Context, unsigned Line,
                              unsigned Column, Metadata *Scope,
-                             Metadata *InlinedAt, bool ShouldCreate);
+                             Metadata *InlinedAt, StorageType Storage,
+                             bool ShouldCreate = true);
 
   // Disallow replacing operands.
   void replaceOperandWith(unsigned I, Metadata *New) LLVM_DELETED_FUNCTION;
@@ -840,18 +947,25 @@ class MDLocation : public UniquableMDNode {
 public:
   static MDLocation *get(LLVMContext &Context, unsigned Line, unsigned Column,
                          Metadata *Scope, Metadata *InlinedAt = nullptr) {
-    return getImpl(Context, Line, Column, Scope, InlinedAt,
-                   /* ShouldCreate */ true);
+    return getImpl(Context, Line, Column, Scope, InlinedAt, Uniqued);
   }
   static MDLocation *getIfExists(LLVMContext &Context, unsigned Line,
                                  unsigned Column, Metadata *Scope,
                                  Metadata *InlinedAt = nullptr) {
-    return getImpl(Context, Line, Column, Scope, InlinedAt,
+    return getImpl(Context, Line, Column, Scope, InlinedAt, Uniqued,
                    /* ShouldCreate */ false);
   }
   static MDLocation *getDistinct(LLVMContext &Context, unsigned Line,
                                  unsigned Column, Metadata *Scope,
-                                 Metadata *InlinedAt = nullptr);
+                                 Metadata *InlinedAt = nullptr) {
+    return getImpl(Context, Line, Column, Scope, InlinedAt, Distinct);
+  }
+  static TempMDLocation getTemporary(LLVMContext &Context, unsigned Line,
+                                     unsigned Column, Metadata *Scope,
+                                     Metadata *InlinedAt = nullptr) {
+    return TempMDLocation(
+        getImpl(Context, Line, Column, Scope, InlinedAt, Temporary));
+  }
 
   unsigned getLine() const { return MDNodeSubclassData; }
   unsigned getColumn() const { return SubclassData16; }
@@ -869,35 +983,6 @@ public:
 private:
   MDLocation *uniquifyImpl();
   void eraseFromStoreImpl();
-};
-
-/// \brief Forward declaration of metadata.
-///
-/// Forward declaration of metadata, in the form of a basic tuple.  Unlike \a
-/// MDTuple, this class has full support for RAUW, is not owned, is not
-/// uniqued, and is suitable for forward references.
-class MDNodeFwdDecl : public MDNode, ReplaceableMetadataImpl {
-  friend class Metadata;
-  friend class ReplaceableMetadataImpl;
-
-  MDNodeFwdDecl(LLVMContext &C, ArrayRef<Metadata *> Vals)
-      : MDNode(C, MDNodeFwdDeclKind, Vals) {}
-
-public:
-  ~MDNodeFwdDecl() { dropAllReferences(); }
-
-  // MSVC doesn't seem to see the alternaive: "using MDNode::operator delete".
-  void operator delete(void *Mem) { MDNode::operator delete(Mem); }
-
-  static MDNodeFwdDecl *get(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
-    return new (MDs.size()) MDNodeFwdDecl(Context, MDs);
-  }
-
-  static bool classof(const Metadata *MD) {
-    return MD->getMetadataID() == MDNodeFwdDeclKind;
-  }
-
-  using ReplaceableMetadataImpl::replaceAllUsesWith;
 };
 
 //===----------------------------------------------------------------------===//

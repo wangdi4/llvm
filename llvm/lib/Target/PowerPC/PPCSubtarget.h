@@ -113,6 +113,8 @@ protected:
   bool DeprecatedDST;
   bool HasLazyResolverStubs;
   bool IsLittleEndian;
+  bool HasICBT;
+  bool HasInvariantFunctionDescriptors;
 
   enum {
     PPC_ABI_UNKNOWN,
@@ -230,6 +232,10 @@ public:
   bool isE500() const { return IsE500; }
   bool isDeprecatedMFTB() const { return DeprecatedMFTB; }
   bool isDeprecatedDST() const { return DeprecatedDST; }
+  bool hasICBT() const { return HasICBT; }
+  bool hasInvariantFunctionDescriptors() const {
+    return HasInvariantFunctionDescriptors;
+  }
 
   const Triple &getTargetTriple() const { return TargetTriple; }
 

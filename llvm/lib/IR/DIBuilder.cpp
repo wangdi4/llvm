@@ -54,19 +54,14 @@ DIBuilder::DIBuilder(Module &m, bool AllowUnresolvedNodes)
       DeclareFn(nullptr), ValueFn(nullptr),
       AllowUnresolvedNodes(AllowUnresolvedNodes) {}
 
-static bool isUnresolved(MDNode *N) {
-  return N &&
-         (isa<MDNodeFwdDecl>(N) || !cast<UniquableMDNode>(N)->isResolved());
-}
-
 void DIBuilder::trackIfUnresolved(MDNode *N) {
-  if (!AllowUnresolvedNodes) {
-    assert(!isUnresolved(N) && "Cannot handle unresolved nodes");
+  if (!N)
     return;
-  }
-  if (isUnresolved(N))
-    UnresolvedNodes.emplace_back(N);
-  return;
+  if (N->isResolved())
+    return;
+
+  assert(AllowUnresolvedNodes && "Cannot handle unresolved nodes");
+  UnresolvedNodes.emplace_back(N);
 }
 
 void DIBuilder::finalize() {
@@ -147,15 +142,15 @@ DICompileUnit DIBuilder::createCompileUnit(unsigned Lang, StringRef Filename,
   assert(!Filename.empty() &&
          "Unable to create compile unit without filename");
   Metadata *TElts[] = {HeaderBuilder::get(DW_TAG_base_type).get(VMContext)};
-  TempEnumTypes = MDNode::getTemporary(VMContext, TElts);
+  TempEnumTypes = MDNode::getTemporary(VMContext, TElts).release();
 
-  TempRetainTypes = MDNode::getTemporary(VMContext, TElts);
+  TempRetainTypes = MDNode::getTemporary(VMContext, TElts).release();
 
-  TempSubprograms = MDNode::getTemporary(VMContext, TElts);
+  TempSubprograms = MDNode::getTemporary(VMContext, TElts).release();
 
-  TempGVs = MDNode::getTemporary(VMContext, TElts);
+  TempGVs = MDNode::getTemporary(VMContext, TElts).release();
 
-  TempImportedModules = MDNode::getTemporary(VMContext, TElts);
+  TempImportedModules = MDNode::getTemporary(VMContext, TElts).release();
 
   Metadata *Elts[] = {HeaderBuilder::get(dwarf::DW_TAG_compile_unit)
                           .concat(Lang)
@@ -830,7 +825,7 @@ DICompositeType DIBuilder::createReplaceableForwardDecl(
       nullptr, // TemplateParams
       UniqueIdentifier.empty() ? nullptr
                                : MDString::get(VMContext, UniqueIdentifier)};
-  DICompositeType RetTy(MDNode::getTemporary(VMContext, Elts));
+  DICompositeType RetTy(MDNode::getTemporary(VMContext, Elts).release());
   assert(RetTy.isCompositeType() &&
          "createReplaceableForwardDecl result should be a DIType");
   if (!UniqueIdentifier.empty())
@@ -908,7 +903,7 @@ DIGlobalVariable DIBuilder::createTempGlobalVariableFwdDecl(
   return createGlobalVariableHelper(VMContext, Context, Name, LinkageName, F,
                                     LineNumber, Ty, isLocalToUnit, Val, Decl,
                                     false, [&](ArrayRef<Metadata *> Elts) {
-    return MDNode::getTemporary(VMContext, Elts);
+    return MDNode::getTemporary(VMContext, Elts).release();
   });
 }
 
@@ -1012,7 +1007,7 @@ DISubprogram DIBuilder::createFunction(DIDescriptor Context, StringRef Name,
   return createFunctionHelper(VMContext, Context, Name, LinkageName, File,
                               LineNo, Ty, isLocalToUnit, isDefinition,
                               ScopeLine, Flags, isOptimized, Fn, TParams, Decl,
-                              MDNode::getTemporary(VMContext, None),
+                              MDNode::getTemporary(VMContext, None).release(),
                               [&](ArrayRef<Metadata *> Elts) -> MDNode *{
     MDNode *Node = MDNode::get(VMContext, Elts);
     // Create a named metadata so that we
@@ -1035,7 +1030,7 @@ DIBuilder::createTempFunctionFwdDecl(DIDescriptor Context, StringRef Name,
                               LineNo, Ty, isLocalToUnit, isDefinition,
                               ScopeLine, Flags, isOptimized, Fn, TParams, Decl,
                               nullptr, [&](ArrayRef<Metadata *> Elts) {
-    return MDNode::getTemporary(VMContext, Elts);
+    return MDNode::getTemporary(VMContext, Elts).release();
   });
 }
 

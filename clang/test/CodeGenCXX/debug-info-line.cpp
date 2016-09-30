@@ -135,7 +135,7 @@ struct bar {
 // CHECK: invoke{{ }}
 // CHECK: invoke{{ }}
 // CHECK:   to label {{.*}}, !dbg [[DBG_GLBL_DTOR_B:!.*]]
-#line 1500
+#line 1200
 bar b[1] = { //
     (fn(),   //
      bar())};
@@ -144,7 +144,7 @@ bar b[1] = { //
 __complex double f11() {
   __complex double f;
 // CHECK: store {{.*}} !dbg [[DBG_F11:!.*]]
-#line 1200
+#line 1300
   return f;
 }
 
@@ -153,7 +153,7 @@ void f12() {
   int f12_1();
   void f12_2(int = f12_1());
 // CHECK: call {{(signext )?}}i32 {{.*}} !dbg [[DBG_F12:!.*]]
-#line 1300
+#line 1400
   f12_2();
 }
 
@@ -162,26 +162,62 @@ void f13() {
 // CHECK: call {{.*}} !dbg [[DBG_F13:!.*]]
 #define F13_IMPL 1, src()
   1,
-#line 1400
+#line 1500
   F13_IMPL;
 }
 
-// CHECK: [[DBG_F1]] = !{i32 100,
-// CHECK: [[DBG_FOO_VALUE]] = !{i32 200,
-// CHECK: [[DBG_FOO_REF]] = !{i32 202,
-// CHECK: [[DBG_FOO_COMPLEX]] = !{i32 204,
-// CHECK: [[DBG_F2]] = !{i32 300,
-// CHECK: [[DBG_F3]] = !{i32 400,
-// CHECK: [[DBG_F4]] = !{i32 500,
-// CHECK: [[DBG_F5]] = !{i32 600,
-// CHECK: [[DBG_F6]] = !{i32 700,
-// CHECK: [[DBG_F7]] = !{i32 800,
-// CHECK: [[DBG_F8]] = !{i32 900,
-// CHECK: [[DBG_F9]] = !{i32 1000,
-// CHECK: [[DBG_F10_ICMP]] = !{i32 1100,
-// CHECK: [[DBG_F10_STORE]] = !{i32 1100,
-// CHECK: [[DBG_GLBL_CTOR_B]] = !{i32 1500,
-// CHECK: [[DBG_GLBL_DTOR_B]] = !{i32 1500,
-// CHECK: [[DBG_F11]] = !{i32 1200,
-// CHECK: [[DBG_F12]] = !{i32 1300,
-// CHECK: [[DBG_F13]] = !{i32 1400,
+struct f14_impl {
+  f14_impl(int);
+};
+
+// CHECK-LABEL: define
+struct f14_use {
+// CHECK: call {{.*}}f14_impl{{.*}}, !dbg [[DBG_F14_CTOR_CALL:![0-9]*]]
+#line 1600
+  f14_impl v{//
+             1};
+  f14_use();
+};
+
+f14_use::f14_use() = default;
+
+// CHECK-LABEL: define
+// CHECK-LABEL: define
+void func(foo);
+void f15(foo *f) {
+  func(
+// CHECK: getelementptr {{.*}}, !dbg [[DBG_F15:![0-9]*]]
+#line 1700
+      f[3]);
+}
+
+// CHECK-LABEL: define
+void f16(__complex float f) {
+  __complex float g = //
+// CHECK: add {{.*}}, !dbg [[DBG_F16:![0-9]*]]
+#line 1800
+      f + 1;
+}
+
+// CHECK: [[DBG_F1]] = !MDLocation(line: 100,
+// CHECK: [[DBG_FOO_VALUE]] = !MDLocation(line: 200,
+// CHECK: [[DBG_FOO_REF]] = !MDLocation(line: 202,
+// CHECK: [[DBG_FOO_COMPLEX]] = !MDLocation(line: 204,
+// CHECK: [[DBG_F2]] = !MDLocation(line: 300,
+// CHECK: [[DBG_F3]] = !MDLocation(line: 400,
+// CHECK: [[DBG_F4]] = !MDLocation(line: 500,
+// CHECK: [[DBG_F5]] = !MDLocation(line: 600,
+// CHECK: [[DBG_F6]] = !MDLocation(line: 700,
+// CHECK: [[DBG_F7]] = !MDLocation(line: 800,
+// CHECK: [[DBG_F8]] = !MDLocation(line: 900,
+// CHECK: [[DBG_F9]] = !MDLocation(line: 1000,
+// CHECK: [[DBG_F10_ICMP]] = !MDLocation(line: 1100,
+// CHECK: [[DBG_F10_STORE]] = !MDLocation(line: 1100,
+// CHECK: [[DBG_GLBL_CTOR_B]] = !MDLocation(line: 1200,
+// CHECK: [[DBG_GLBL_DTOR_B]] = !MDLocation(line: 1200,
+// CHECK: [[DBG_F11]] = !MDLocation(line: 1300,
+// CHECK: [[DBG_F12]] = !MDLocation(line: 1400,
+// CHECK: [[DBG_F13]] = !MDLocation(line: 1500,
+// CHECK: [[DBG_F14_CTOR_CALL]] = !MDLocation(line: 1600,
+// CHECK: [[DBG_F15]] = !MDLocation(line: 1700,
+// CHECK: [[DBG_F16]] = !MDLocation(line: 1800,

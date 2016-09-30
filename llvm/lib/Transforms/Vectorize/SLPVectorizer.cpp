@@ -75,6 +75,10 @@ static const unsigned MinVecRegSize = 128;
 
 static const unsigned RecursionMaxDepth = 12;
 
+// Limit the number of alias checks. The limit is chosen so that
+// it has no negative effect on the llvm benchmarks.
+static const unsigned AliasedCheckLimit = 10;
+
 /// \returns the parent basic block if all of the instructions in \p VL
 /// are in the same block or null otherwise.
 static BasicBlock *getSameBlock(ArrayRef<Value *> VL) {
@@ -1760,7 +1764,7 @@ int BoUpSLP::getTreeCost() {
 
   // We only vectorize tiny trees if it is fully vectorizable.
   if (VectorizableTree.size() < 3 && !isFullyVectorizableTinyTree()) {
-    if (!VectorizableTree.size()) {
+    if (VectorizableTree.empty()) {
       assert(!ExternalUses.size() && "We should not have any external users");
     }
     return INT_MAX;
@@ -2754,11 +2758,22 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
           Instruction *SrcInst = BundleMember->Inst;
           AliasAnalysis::Location SrcLoc = getLocation(SrcInst, SLP->AA);
           bool SrcMayWrite = BundleMember->Inst->mayWriteToMemory();
+          unsigned numAliased = 0;
 
           while (DepDest) {
             assert(isInSchedulingRegion(DepDest));
             if (SrcMayWrite || DepDest->Inst->mayWriteToMemory()) {
-              if (SLP->isAliased(SrcLoc, SrcInst, DepDest->Inst)) {
+
+              // Limit the number of alias checks, becaus SLP->isAliased() is
+              // the expensive part in the following loop.
+              if (numAliased >= AliasedCheckLimit
+                  || SLP->isAliased(SrcLoc, SrcInst, DepDest->Inst)) {
+
+                // We increment the counter only if the locations are aliased
+                // (instead of counting all alias checks). This gives a better
+                // balance between reduced runtime accurate dependencies.
+                numAliased++;
+
                 DepDest->MemoryDependencies.push_back(BundleMember);
                 BundleMember->Dependencies++;
                 ScheduleData *DestBundle = DepDest->FirstInBundle;
@@ -2890,9 +2905,10 @@ struct SLPVectorizer : public FunctionPass {
     DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
     DL = DLP ? &DLP->getDataLayout() : nullptr;
     TTI = &getAnalysis<TargetTransformInfo>();
-    TLI = getAnalysisIfAvailable<TargetLibraryInfo>();
+    auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
+    TLI = TLIP ? &TLIP->getTLI() : nullptr;
     AA = &getAnalysis<AliasAnalysis>();
-    LI = &getAnalysis<LoopInfo>();
+    LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
 
@@ -2951,9 +2967,9 @@ struct SLPVectorizer : public FunctionPass {
     AU.addRequired<ScalarEvolution>();
     AU.addRequired<AliasAnalysis>();
     AU.addRequired<TargetTransformInfo>();
-    AU.addRequired<LoopInfo>();
+    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addPreserved<LoopInfo>();
+    AU.addPreserved<LoopInfoWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.setPreservesCFG();
   }

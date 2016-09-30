@@ -155,7 +155,8 @@ void ReplaceableMetadataImpl::moveRef(void *Ref, void *New,
 }
 
 void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
-  assert(!(MD && isa<MDNodeFwdDecl>(MD)) && "Expected non-temp node");
+  assert(!(MD && isa<MDNode>(MD) && cast<MDNode>(MD)->isTemporary()) &&
+         "Expected non-temp node");
 
   if (UseMap.empty())
     return;
@@ -167,6 +168,11 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
     return L.second.second < R.second.second;
   });
   for (const auto &Pair : Uses) {
+    // Check that this Ref hasn't disappeared after RAUW (when updating a
+    // previous Ref).
+    if (!UseMap.count(Pair.first))
+      continue;
+
     OwnerTy Owner = Pair.second.first;
     if (!Owner) {
       // Update unowned tracking references directly.
@@ -390,17 +396,16 @@ void MDNode::operator delete(void *Mem) {
   ::operator delete(O);
 }
 
-MDNode::MDNode(LLVMContext &Context, unsigned ID, ArrayRef<Metadata *> MDs)
-    : Metadata(ID), Context(Context), NumOperands(MDs.size()),
+MDNode::MDNode(LLVMContext &Context, unsigned ID, StorageType Storage,
+               ArrayRef<Metadata *> MDs)
+    : Metadata(ID, Storage), Context(Context), NumOperands(MDs.size()),
       MDNodeSubclassData(0) {
   for (unsigned I = 0, E = MDs.size(); I != E; ++I)
     setOperand(I, MDs[I]);
-}
 
-bool MDNode::isResolved() const {
-  if (isa<MDNodeFwdDecl>(this))
-    return false;
-  return cast<UniquableMDNode>(this)->isResolved();
+  if (isTemporary())
+    this->Context.makeReplaceable(
+        make_unique<ReplaceableMetadataImpl>(Context));
 }
 
 static bool isOperandUnresolved(Metadata *Op) {
@@ -410,9 +415,9 @@ static bool isOperandUnresolved(Metadata *Op) {
 }
 
 UniquableMDNode::UniquableMDNode(LLVMContext &C, unsigned ID,
-                                 ArrayRef<Metadata *> Vals, bool AllowRAUW)
-    : MDNode(C, ID, Vals) {
-  if (!AllowRAUW)
+                                 StorageType Storage, ArrayRef<Metadata *> Vals)
+    : MDNode(C, ID, Storage, Vals) {
+  if (!isUniqued())
     return;
 
   // Check whether any operands are unresolved, requiring re-uniquing.
@@ -423,15 +428,16 @@ UniquableMDNode::UniquableMDNode(LLVMContext &C, unsigned ID,
   if (!NumUnresolved)
     return;
 
-  ReplaceableUses.reset(new ReplaceableMetadataImpl);
+  this->Context.makeReplaceable(make_unique<ReplaceableMetadataImpl>(C));
   SubclassData32 = NumUnresolved;
 }
 
 void UniquableMDNode::resolve() {
+  assert(isUniqued() && "Expected this to be uniqued");
   assert(!isResolved() && "Expected this to be unresolved");
 
   // Move the map, so that this immediately looks resolved.
-  auto Uses = std::move(ReplaceableUses);
+  auto Uses = Context.takeReplaceableUses();
   SubclassData32 = 0;
   assert(isResolved() && "Expected this to be resolved");
 
@@ -466,13 +472,14 @@ void UniquableMDNode::resolveCycles() {
 
   // Resolve all operands.
   for (const auto &Op : operands()) {
-    if (!Op)
+    auto *N = dyn_cast_or_null<UniquableMDNode>(Op);
+    if (!N)
       continue;
-    assert(!isa<MDNodeFwdDecl>(Op) &&
+
+    assert(!N->isTemporary() &&
            "Expected all forward declarations to be resolved");
-    if (auto *N = dyn_cast<UniquableMDNode>(Op))
-      if (!N->isResolved())
-        N->resolveCycles();
+    if (!N->isResolved())
+      N->resolveCycles();
   }
 }
 
@@ -493,8 +500,8 @@ void MDNode::dropAllReferences() {
     setOperand(I, nullptr);
   if (auto *N = dyn_cast<UniquableMDNode>(this))
     if (!N->isResolved()) {
-      N->ReplaceableUses->resolveAllUses(/* ResolveUsers */ false);
-      N->ReplaceableUses.reset();
+      N->Context.getReplaceableUses()->resolveAllUses(/* ResolveUsers */ false);
+      (void)N->Context.takeReplaceableUses();
     }
 }
 
@@ -519,9 +526,7 @@ void UniquableMDNode::handleChangedOperand(void *Ref, Metadata *New) {
   unsigned Op = static_cast<MDOperand *>(Ref) - op_begin();
   assert(Op < getNumOperands() && "Expected valid operand");
 
-  if (isStoredDistinctInContext()) {
-    assert(isResolved() && "Expected distinct node to be resolved");
-
+  if (!isUniqued()) {
     // This node is not uniqued.  Just set the operand and be done with it.
     setOperand(Op, New);
     return;
@@ -535,9 +540,9 @@ void UniquableMDNode::handleChangedOperand(void *Ref, Metadata *New) {
 
   // Drop uniquing for self-reference cycles.
   if (New == this) {
-    storeDistinctInContext();
     if (!isResolved())
       resolve();
+    storeDistinctInContext();
     return;
   }
 
@@ -557,7 +562,7 @@ void UniquableMDNode::handleChangedOperand(void *Ref, Metadata *New) {
     // dropAllReferences(), but we still need the use-list).
     for (unsigned O = 0, E = getNumOperands(); O != E; ++O)
       setOperand(O, nullptr);
-    ReplaceableUses->replaceAllUsesWith(Uniqued);
+    Context.getReplaceableUses()->replaceAllUsesWith(Uniqued);
     deleteAsSubclass();
     return;
   }
@@ -601,67 +606,70 @@ void UniquableMDNode::eraseFromStore() {
   }
 }
 
-MDTuple *MDTuple::getImpl(LLVMContext &Context, ArrayRef<Metadata *> MDs,
-                          bool ShouldCreate) {
-  MDTupleInfo::KeyTy Key(MDs);
-
-  auto &Store = Context.pImpl->MDTuples;
+template <class T, class InfoT>
+static T *getUniqued(DenseSet<T *, InfoT> &Store,
+                     const typename InfoT::KeyTy &Key) {
   auto I = Store.find_as(Key);
-  if (I != Store.end())
-    return *I;
-  if (!ShouldCreate)
-    return nullptr;
+  return I == Store.end() ? nullptr : *I;
+}
 
-  // Coallocate space for the node and Operands together, then placement new.
-  auto *N = new (MDs.size()) MDTuple(Context, MDs, /* AllowRAUW */ true);
-  N->setHash(Key.Hash);
-  Store.insert(N);
+template <class T, class StoreT>
+T *UniquableMDNode::storeImpl(T *N, StorageType Storage, StoreT &Store) {
+  switch (Storage) {
+  case Uniqued:
+    Store.insert(N);
+    break;
+  case Distinct:
+    N->storeDistinctInContext();
+    break;
+  case Temporary:
+    break;
+  }
   return N;
 }
 
-MDTuple *MDTuple::getDistinct(LLVMContext &Context, ArrayRef<Metadata *> MDs) {
-  auto *N = new (MDs.size()) MDTuple(Context, MDs, /* AllowRAUW */ false);
-  N->storeDistinctInContext();
-  return N;
+MDTuple *MDTuple::getImpl(LLVMContext &Context, ArrayRef<Metadata *> MDs,
+                          StorageType Storage, bool ShouldCreate) {
+  unsigned Hash = 0;
+  if (Storage == Uniqued) {
+    MDTupleInfo::KeyTy Key(MDs);
+    if (auto *N = getUniqued(Context.pImpl->MDTuples, Key))
+      return N;
+    if (!ShouldCreate)
+      return nullptr;
+    Hash = Key.Hash;
+  } else {
+    assert(ShouldCreate && "Expected non-uniqued nodes to always be created");
+  }
+
+  return storeImpl(new (MDs.size()) MDTuple(Context, Storage, Hash, MDs),
+                   Storage, Context.pImpl->MDTuples);
 }
 
 MDTuple *MDTuple::uniquifyImpl() {
   recalculateHash();
-  MDTupleInfo::KeyTy Key(this);
-
   auto &Store = getContext().pImpl->MDTuples;
-  auto I = Store.find_as(Key);
-  if (I == Store.end()) {
-    Store.insert(this);
-    return this;
-  }
-  return *I;
+  if (MDTuple *N = getUniqued(Store, this))
+    return N;
+
+  Store.insert(this);
+  return this;
 }
 
 void MDTuple::eraseFromStoreImpl() { getContext().pImpl->MDTuples.erase(this); }
 
-MDLocation::MDLocation(LLVMContext &C, unsigned Line, unsigned Column,
-                       ArrayRef<Metadata *> MDs, bool AllowRAUW)
-    : UniquableMDNode(C, MDLocationKind, MDs, AllowRAUW) {
+MDLocation::MDLocation(LLVMContext &C, StorageType Storage, unsigned Line,
+                       unsigned Column, ArrayRef<Metadata *> MDs)
+    : UniquableMDNode(C, MDLocationKind, Storage, MDs) {
   assert((MDs.size() == 1 || MDs.size() == 2) &&
          "Expected a scope and optional inlined-at");
 
   // Set line and column.
   assert(Line < (1u << 24) && "Expected 24-bit line");
-  assert(Column < (1u << 8) && "Expected 8-bit column");
+  assert(Column < (1u << 16) && "Expected 16-bit column");
 
   MDNodeSubclassData = Line;
   SubclassData16 = Column;
-}
-
-MDLocation *MDLocation::constructHelper(LLVMContext &Context, unsigned Line,
-                                        unsigned Column, Metadata *Scope,
-                                        Metadata *InlinedAt, bool AllowRAUW) {
-  SmallVector<Metadata *, 2> Ops;
-  Ops.push_back(Scope);
-  if (InlinedAt)
-    Ops.push_back(InlinedAt);
-  return new (Ops.size()) MDLocation(Context, Line, Column, Ops, AllowRAUW);
 }
 
 static void adjustLine(unsigned &Line) {
@@ -671,72 +679,60 @@ static void adjustLine(unsigned &Line) {
 }
 
 static void adjustColumn(unsigned &Column) {
-  // Set to unknown on overflow.  Still use 8 bits for now.
-  if (Column >= (1u << 8))
+  // Set to unknown on overflow.  We only have 16 bits to play with here.
+  if (Column >= (1u << 16))
     Column = 0;
 }
 
 MDLocation *MDLocation::getImpl(LLVMContext &Context, unsigned Line,
                                 unsigned Column, Metadata *Scope,
-                                Metadata *InlinedAt, bool ShouldCreate) {
+                                Metadata *InlinedAt, StorageType Storage,
+                                bool ShouldCreate) {
   // Fixup line/column.
   adjustLine(Line);
   adjustColumn(Column);
 
-  MDLocationInfo::KeyTy Key(Line, Column, Scope, InlinedAt);
+  if (Storage == Uniqued) {
+    if (auto *N = getUniqued(
+            Context.pImpl->MDLocations,
+            MDLocationInfo::KeyTy(Line, Column, Scope, InlinedAt)))
+      return N;
+    if (!ShouldCreate)
+      return nullptr;
+  } else {
+    assert(ShouldCreate && "Expected non-uniqued nodes to always be created");
+  }
 
-  auto &Store = Context.pImpl->MDLocations;
-  auto I = Store.find_as(Key);
-  if (I != Store.end())
-    return *I;
-  if (!ShouldCreate)
-    return nullptr;
-
-  auto *N = constructHelper(Context, Line, Column, Scope, InlinedAt,
-                            /* AllowRAUW */ true);
-  Store.insert(N);
-  return N;
-}
-
-MDLocation *MDLocation::getDistinct(LLVMContext &Context, unsigned Line,
-                                    unsigned Column, Metadata *Scope,
-                                    Metadata *InlinedAt) {
-  // Fixup line/column.
-  adjustLine(Line);
-  adjustColumn(Column);
-
-  auto *N = constructHelper(Context, Line, Column, Scope, InlinedAt,
-                            /* AllowRAUW */ false);
-  N->storeDistinctInContext();
-  return N;
+  SmallVector<Metadata *, 2> Ops;
+  Ops.push_back(Scope);
+  if (InlinedAt)
+    Ops.push_back(InlinedAt);
+  return storeImpl(new (Ops.size())
+                       MDLocation(Context, Storage, Line, Column, Ops),
+                   Storage, Context.pImpl->MDLocations);
 }
 
 MDLocation *MDLocation::uniquifyImpl() {
-  MDLocationInfo::KeyTy Key(this);
-
   auto &Store = getContext().pImpl->MDLocations;
-  auto I = Store.find_as(Key);
-  if (I == Store.end()) {
-    Store.insert(this);
-    return this;
-  }
-  return *I;
+  if (MDLocation *N = getUniqued(Store, this))
+    return N;
+
+  Store.insert(this);
+  return this;
 }
 
 void MDLocation::eraseFromStoreImpl() {
   getContext().pImpl->MDLocations.erase(this);
 }
 
-MDNodeFwdDecl *MDNode::getTemporary(LLVMContext &Context,
-                                    ArrayRef<Metadata *> MDs) {
-  return MDNodeFwdDecl::get(Context, MDs);
+void MDNode::deleteTemporary(MDNode *N) {
+  assert(N->isTemporary() && "Expected temporary node");
+  cast<UniquableMDNode>(N)->deleteAsSubclass();
 }
 
-void MDNode::deleteTemporary(MDNode *N) { delete cast<MDNodeFwdDecl>(N); }
-
 void UniquableMDNode::storeDistinctInContext() {
-  assert(!IsDistinctInContext && "Expected newly distinct metadata");
-  IsDistinctInContext = true;
+  assert(isResolved() && "Expected resolved nodes");
+  Storage = Distinct;
   if (auto *T = dyn_cast<MDTuple>(this))
     T->setHash(0);
   getContext().pImpl->DistinctMDNodes.insert(this);
@@ -746,7 +742,7 @@ void MDNode::replaceOperandWith(unsigned I, Metadata *New) {
   if (getOperand(I) == New)
     return;
 
-  if (isDistinct()) {
+  if (!isUniqued()) {
     setOperand(I, New);
     return;
   }
@@ -756,11 +752,7 @@ void MDNode::replaceOperandWith(unsigned I, Metadata *New) {
 
 void MDNode::setOperand(unsigned I, Metadata *New) {
   assert(I < NumOperands);
-  if (isStoredDistinctInContext() || isa<MDNodeFwdDecl>(this))
-    // No need for a callback, this isn't uniqued.
-    mutable_begin()[I].reset(New, nullptr);
-  else
-    mutable_begin()[I].reset(New, this);
+  mutable_begin()[I].reset(New, isUniqued() ? this : nullptr);
 }
 
 /// \brief Get a node, or a self-reference that looks like it.

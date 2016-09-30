@@ -20,6 +20,43 @@ using namespace llvm;
 
 namespace {
 
+TEST(ContextAndReplaceableUsesTest, FromContext) {
+  LLVMContext Context;
+  ContextAndReplaceableUses CRU(Context);
+  EXPECT_EQ(&Context, &CRU.getContext());
+  EXPECT_FALSE(CRU.hasReplaceableUses());
+  EXPECT_FALSE(CRU.getReplaceableUses());
+}
+
+TEST(ContextAndReplaceableUsesTest, FromReplaceableUses) {
+  LLVMContext Context;
+  ContextAndReplaceableUses CRU(make_unique<ReplaceableMetadataImpl>(Context));
+  EXPECT_EQ(&Context, &CRU.getContext());
+  EXPECT_TRUE(CRU.hasReplaceableUses());
+  EXPECT_TRUE(CRU.getReplaceableUses());
+}
+
+TEST(ContextAndReplaceableUsesTest, makeReplaceable) {
+  LLVMContext Context;
+  ContextAndReplaceableUses CRU(Context);
+  CRU.makeReplaceable(make_unique<ReplaceableMetadataImpl>(Context));
+  EXPECT_EQ(&Context, &CRU.getContext());
+  EXPECT_TRUE(CRU.hasReplaceableUses());
+  EXPECT_TRUE(CRU.getReplaceableUses());
+}
+
+TEST(ContextAndReplaceableUsesTest, takeReplaceableUses) {
+  LLVMContext Context;
+  auto ReplaceableUses = make_unique<ReplaceableMetadataImpl>(Context);
+  auto *Ptr = ReplaceableUses.get();
+  ContextAndReplaceableUses CRU(std::move(ReplaceableUses));
+  ReplaceableUses = CRU.takeReplaceableUses();
+  EXPECT_EQ(&Context, &CRU.getContext());
+  EXPECT_FALSE(CRU.hasReplaceableUses());
+  EXPECT_FALSE(CRU.getReplaceableUses());
+  EXPECT_EQ(Ptr, ReplaceableUses.get());
+}
+
 class MetadataTest : public testing::Test {
 protected:
   LLVMContext Context;
@@ -130,19 +167,14 @@ TEST_F(MDNodeTest, Delete) {
   delete I;
 }
 
-TEST_F(MDNodeTest, DeleteMDNodeFwdDecl) {
-  delete MDNode::getTemporary(Context, None);
-}
-
 TEST_F(MDNodeTest, SelfReference) {
   // !0 = !{!0}
   // !1 = !{!0}
   {
-    MDNode *Temp = MDNode::getTemporary(Context, None);
-    Metadata *Args[] = {Temp};
+    auto Temp = MDNode::getTemporary(Context, None);
+    Metadata *Args[] = {Temp.get()};
     MDNode *Self = MDNode::get(Context, Args);
     Self->replaceOperandWith(0, Self);
-    MDNode::deleteTemporary(Temp);
     ASSERT_EQ(Self, Self->getOperand(0));
 
     // Self-references should be distinct, so MDNode::get() should grab a
@@ -157,11 +189,10 @@ TEST_F(MDNodeTest, SelfReference) {
   // !0 = !{!0, !{}}
   // !1 = !{!0, !{}}
   {
-    MDNode *Temp = MDNode::getTemporary(Context, None);
-    Metadata *Args[] = {Temp, MDNode::get(Context, None)};
+    auto Temp = MDNode::getTemporary(Context, None);
+    Metadata *Args[] = {Temp.get(), MDNode::get(Context, None)};
     MDNode *Self = MDNode::get(Context, Args);
     Self->replaceOperandWith(0, Self);
-    MDNode::deleteTemporary(Temp);
     ASSERT_EQ(Self, Self->getOperand(0));
 
     // Self-references should be distinct, so MDNode::get() should grab a
@@ -274,27 +305,47 @@ TEST_F(MDNodeTest, getDistinct) {
   ASSERT_EQ(Empty, MDNode::get(Context, None));
 }
 
-TEST_F(MDNodeTest, TempIsDistinct) {
-  MDNode *T = MDNode::getTemporary(Context, None);
-  EXPECT_TRUE(T->isDistinct());
-  MDNode::deleteTemporary(T);
+TEST_F(MDNodeTest, isUniqued) {
+  MDNode *U = MDTuple::get(Context, None);
+  MDNode *D = MDTuple::getDistinct(Context, None);
+  auto T = MDTuple::getTemporary(Context, None);
+  EXPECT_TRUE(U->isUniqued());
+  EXPECT_FALSE(D->isUniqued());
+  EXPECT_FALSE(T->isUniqued());
+}
+
+TEST_F(MDNodeTest, isDistinct) {
+  MDNode *U = MDTuple::get(Context, None);
+  MDNode *D = MDTuple::getDistinct(Context, None);
+  auto T = MDTuple::getTemporary(Context, None);
+  EXPECT_FALSE(U->isDistinct());
+  EXPECT_TRUE(D->isDistinct());
+  EXPECT_FALSE(T->isDistinct());
+}
+
+TEST_F(MDNodeTest, isTemporary) {
+  MDNode *U = MDTuple::get(Context, None);
+  MDNode *D = MDTuple::getDistinct(Context, None);
+  auto T = MDTuple::getTemporary(Context, None);
+  EXPECT_FALSE(U->isTemporary());
+  EXPECT_FALSE(D->isTemporary());
+  EXPECT_TRUE(T->isTemporary());
 }
 
 TEST_F(MDNodeTest, getDistinctWithUnresolvedOperands) {
   // temporary !{}
-  MDNodeFwdDecl *Temp = MDNode::getTemporary(Context, None);
+  auto Temp = MDTuple::getTemporary(Context, None);
   ASSERT_FALSE(Temp->isResolved());
 
   // distinct !{temporary !{}}
-  Metadata *Ops[] = {Temp};
+  Metadata *Ops[] = {Temp.get()};
   MDNode *Distinct = MDNode::getDistinct(Context, Ops);
   EXPECT_TRUE(Distinct->isResolved());
-  EXPECT_EQ(Temp, Distinct->getOperand(0));
+  EXPECT_EQ(Temp.get(), Distinct->getOperand(0));
 
   // temporary !{} => !{}
   MDNode *Empty = MDNode::get(Context, None);
   Temp->replaceAllUsesWith(Empty);
-  MDNode::deleteTemporary(Temp);
   EXPECT_EQ(Empty, Distinct->getOperand(0));
 }
 
@@ -303,7 +354,7 @@ TEST_F(MDNodeTest, handleChangedOperandRecursion) {
   MDNode *N0 = MDNode::get(Context, None);
 
   // !1 = !{!3, null}
-  std::unique_ptr<MDNodeFwdDecl> Temp3(MDNode::getTemporary(Context, None));
+  auto Temp3 = MDTuple::getTemporary(Context, None);
   Metadata *Ops1[] = {Temp3.get(), nullptr};
   MDNode *N1 = MDNode::get(Context, Ops1);
 
@@ -367,7 +418,7 @@ TEST_F(MDNodeTest, replaceResolvedOperand) {
   // a global value that gets RAUW'ed.
   //
   // Use a temporary node to keep N from being resolved.
-  std::unique_ptr<MDNodeFwdDecl> Temp(MDNodeFwdDecl::get(Context, None));
+  auto Temp = MDTuple::getTemporary(Context, None);
   Metadata *Ops[] = {nullptr, Temp.get()};
 
   MDNode *Empty = MDTuple::get(Context, ArrayRef<Metadata *>());
@@ -397,19 +448,19 @@ TEST_F(MDLocationTest, Overflow) {
     EXPECT_EQ(7u, L->getColumn());
   }
   unsigned U24 = 1u << 24;
-  unsigned U8 = 1u << 8;
+  unsigned U16 = 1u << 16;
   {
-    MDLocation *L = MDLocation::get(Context, U24 - 1, U8 - 1, N);
+    MDLocation *L = MDLocation::get(Context, U24 - 1, U16 - 1, N);
     EXPECT_EQ(U24 - 1, L->getLine());
-    EXPECT_EQ(U8 - 1, L->getColumn());
+    EXPECT_EQ(U16 - 1, L->getColumn());
   }
   {
-    MDLocation *L = MDLocation::get(Context, U24, U8, N);
+    MDLocation *L = MDLocation::get(Context, U24, U16, N);
     EXPECT_EQ(0u, L->getLine());
     EXPECT_EQ(0u, L->getColumn());
   }
   {
-    MDLocation *L = MDLocation::get(Context, U24 + 1, U8 + 1, N);
+    MDLocation *L = MDLocation::get(Context, U24 + 1, U16 + 1, N);
     EXPECT_EQ(0u, L->getLine());
     EXPECT_EQ(0u, L->getColumn());
   }
@@ -422,6 +473,13 @@ TEST_F(MDLocationTest, getDistinct) {
   MDLocation *L1 = MDLocation::get(Context, 2, 7, N);
   EXPECT_FALSE(L1->isDistinct());
   EXPECT_EQ(L1, MDLocation::get(Context, 2, 7, N));
+}
+
+TEST_F(MDLocationTest, getTemporary) {
+  MDNode *N = MDNode::get(Context, None);
+  auto L = MDLocation::getTemporary(Context, 2, 7, N);
+  EXPECT_TRUE(L->isTemporary());
+  EXPECT_FALSE(L->isResolved());
 }
 
 typedef MetadataTest MetadataAsValueTest;
@@ -482,6 +540,34 @@ TEST_F(ValueAsMetadataTest, UpdatesOnRAUW) {
       new GlobalVariable(Ty, false, GlobalValue::ExternalLinkage));
   GV0->replaceAllUsesWith(GV1.get());
   EXPECT_TRUE(MD->getValue() == GV1.get());
+}
+
+TEST_F(ValueAsMetadataTest, CollidingDoubleUpdates) {
+  // Create a constant.
+  ConstantAsMetadata *CI = ConstantAsMetadata::get(
+      ConstantInt::get(getGlobalContext(), APInt(8, 0)));
+
+  // Create a temporary to prevent nodes from resolving.
+  auto Temp = MDTuple::getTemporary(Context, None);
+
+  // When the first operand of N1 gets reset to nullptr, it'll collide with N2.
+  Metadata *Ops1[] = {CI, CI, Temp.get()};
+  Metadata *Ops2[] = {nullptr, CI, Temp.get()};
+
+  auto *N1 = MDTuple::get(Context, Ops1);
+  auto *N2 = MDTuple::get(Context, Ops2);
+  ASSERT_NE(N1, N2);
+
+  // Tell metadata that the constant is getting deleted.
+  //
+  // After this, N1 will be invalid, so don't touch it.
+  ValueAsMetadata::handleDeletion(CI->getValue());
+  EXPECT_EQ(nullptr, N2->getOperand(0));
+  EXPECT_EQ(nullptr, N2->getOperand(1));
+  EXPECT_EQ(Temp.get(), N2->getOperand(2));
+
+  // Clean up Temp for teardown.
+  Temp->replaceAllUsesWith(nullptr);
 }
 
 typedef MetadataTest TrackingMDRefTest;

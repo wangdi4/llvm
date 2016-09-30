@@ -1577,25 +1577,25 @@ def : Pat<(v8i1 (X86cmpmu (v8i32 VR256X:$src1), (v8i32 VR256X:$src2), imm:$cc)),
             imm:$cc), VK8)>;
 
 def : Pat<(i16 (int_x86_avx512_mask_cmp_ps_512 (v16f32 VR512:$src1),
-                (v16f32 VR512:$src2), i32immZExt5:$cc, (i16 -1),
+                (v16f32 VR512:$src2), i8immZExt5:$cc, (i16 -1),
                  FROUND_NO_EXC)),
           (COPY_TO_REGCLASS (VCMPPSZrrib VR512:$src1, VR512:$src2,
                              (I8Imm imm:$cc)), GR16)>;
 
 def : Pat<(i8 (int_x86_avx512_mask_cmp_pd_512 (v8f64 VR512:$src1),
-                (v8f64 VR512:$src2), i32immZExt5:$cc, (i8 -1),
+                (v8f64 VR512:$src2), i8immZExt5:$cc, (i8 -1),
                  FROUND_NO_EXC)),
           (COPY_TO_REGCLASS (VCMPPDZrrib VR512:$src1, VR512:$src2,
                              (I8Imm imm:$cc)), GR8)>;
 
 def : Pat<(i16 (int_x86_avx512_mask_cmp_ps_512 (v16f32 VR512:$src1),
-                (v16f32 VR512:$src2), i32immZExt5:$cc, (i16 -1),
+                (v16f32 VR512:$src2), i8immZExt5:$cc, (i16 -1),
                 FROUND_CURRENT)),
           (COPY_TO_REGCLASS (VCMPPSZrri VR512:$src1, VR512:$src2,
                              (I8Imm imm:$cc)), GR16)>;
 
 def : Pat<(i8 (int_x86_avx512_mask_cmp_pd_512 (v8f64 VR512:$src1),
-                (v8f64 VR512:$src2), i32immZExt5:$cc, (i8 -1),
+                (v8f64 VR512:$src2), i8immZExt5:$cc, (i8 -1),
                  FROUND_CURRENT)),
           (COPY_TO_REGCLASS (VCMPPDZrri VR512:$src1, VR512:$src2,
                              (I8Imm imm:$cc)), GR8)>;
@@ -2113,7 +2113,7 @@ multiclass avx512_load_vl<bits<8> opc, string OpcodeStr, string ld_pat,
 multiclass avx512_store<bits<8> opc, string OpcodeStr, PatFrag st_frag,
                         ValueType OpVT, RegisterClass KRC, RegisterClass RC,
                         X86MemOperand memop, Domain d> {
-  let isAsmParserOnly = 1, hasSideEffects = 0 in {
+  let isCodeGenOnly = 1, ForceDisassemble = 1, hasSideEffects = 0 in {
   def rr_alt : AVX512PI<opc, MRMDestReg, (outs RC:$dst), (ins RC:$src),
               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"), [], d>,
               EVEX;
@@ -2200,6 +2200,22 @@ def: Pat<(v16f32 (int_x86_avx512_mask_loadu_ps_512 addr:$ptr,
                  (bc_v16f32 (v16i32 immAllZerosV)), GR16:$mask)),
        (VMOVUPSZrmkz (v16i1 (COPY_TO_REGCLASS GR16:$mask, VK16WM)), addr:$ptr)>;
 
+def: Pat<(v8f64 (int_x86_avx512_mask_load_pd_512 addr:$ptr,
+                (bc_v8f64 (v16i32 immAllZerosV)), GR8:$mask)),
+       (VMOVAPDZrmkz (v8i1 (COPY_TO_REGCLASS GR8:$mask, VK8WM)), addr:$ptr)>;
+
+def: Pat<(v16f32 (int_x86_avx512_mask_load_ps_512 addr:$ptr,
+                 (bc_v16f32 (v16i32 immAllZerosV)), GR16:$mask)),
+       (VMOVAPSZrmkz (v16i1 (COPY_TO_REGCLASS GR16:$mask, VK16WM)), addr:$ptr)>;
+
+def: Pat<(v8f64 (int_x86_avx512_mask_load_pd_512 addr:$ptr,
+                (bc_v8f64 (v16i32 immAllZerosV)), (i8 -1))),
+       (VMOVAPDZrm addr:$ptr)>;
+
+def: Pat<(v16f32 (int_x86_avx512_mask_load_ps_512 addr:$ptr,
+                 (bc_v16f32 (v16i32 immAllZerosV)), (i16 -1))),
+       (VMOVAPSZrm addr:$ptr)>;
+
 def: Pat<(int_x86_avx512_mask_storeu_ps_512 addr:$ptr, (v16f32 VR512:$src),
           GR16:$mask),
          (VMOVUPSZmrk addr:$ptr, (v16i1 (COPY_TO_REGCLASS GR16:$mask, VK16WM)),
@@ -2207,6 +2223,15 @@ def: Pat<(int_x86_avx512_mask_storeu_ps_512 addr:$ptr, (v16f32 VR512:$src),
 def: Pat<(int_x86_avx512_mask_storeu_pd_512 addr:$ptr, (v8f64 VR512:$src),
           GR8:$mask),
          (VMOVUPDZmrk addr:$ptr, (v8i1 (COPY_TO_REGCLASS GR8:$mask, VK8WM)),
+            VR512:$src)>;
+
+def: Pat<(int_x86_avx512_mask_store_ps_512 addr:$ptr, (v16f32 VR512:$src),
+          GR16:$mask),
+         (VMOVAPSZmrk addr:$ptr, (v16i1 (COPY_TO_REGCLASS GR16:$mask, VK16WM)),
+            VR512:$src)>;
+def: Pat<(int_x86_avx512_mask_store_pd_512 addr:$ptr, (v8f64 VR512:$src),
+          GR8:$mask),
+         (VMOVAPDZmrk addr:$ptr, (v8i1 (COPY_TO_REGCLASS GR8:$mask, VK8WM)),
             VR512:$src)>;
 
 def: Pat<(masked_store addr:$ptr, VK8WM:$mask, (v8f32 VR256:$src)),

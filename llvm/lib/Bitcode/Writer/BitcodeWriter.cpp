@@ -480,13 +480,13 @@ static unsigned getEncodedLinkage(const GlobalValue &GV) {
   case GlobalValue::ExternalLinkage:
     return 0;
   case GlobalValue::WeakAnyLinkage:
-    return 1;
+    return 16;
   case GlobalValue::AppendingLinkage:
     return 2;
   case GlobalValue::InternalLinkage:
     return 3;
   case GlobalValue::LinkOnceAnyLinkage:
-    return 4;
+    return 18;
   case GlobalValue::ExternalWeakLinkage:
     return 7;
   case GlobalValue::CommonLinkage:
@@ -494,9 +494,9 @@ static unsigned getEncodedLinkage(const GlobalValue &GV) {
   case GlobalValue::PrivateLinkage:
     return 9;
   case GlobalValue::WeakODRLinkage:
-    return 10;
+    return 17;
   case GlobalValue::LinkOnceODRLinkage:
-    return 11;
+    return 19;
   case GlobalValue::AvailableExternallyLinkage:
     return 12;
   }
@@ -549,11 +549,13 @@ static unsigned getEncodedComdatSelectionKind(const Comdat &C) {
 }
 
 static void writeComdats(const ValueEnumerator &VE, BitstreamWriter &Stream) {
-  SmallVector<uint8_t, 64> Vals;
+  SmallVector<uint16_t, 64> Vals;
   for (const Comdat *C : VE.getComdats()) {
     // COMDAT: [selection_kind, name]
     Vals.push_back(getEncodedComdatSelectionKind(*C));
-    Vals.push_back(C->getName().size());
+    size_t Size = C->getName().size();
+    assert(isUInt<16>(Size));
+    Vals.push_back(Size);
     for (char Chr : C->getName())
       Vals.push_back((unsigned char)Chr);
     Stream.EmitRecord(bitc::MODULE_CODE_COMDAT, Vals, /*AbbrevToUse=*/0);
@@ -627,7 +629,7 @@ static void WriteModuleInfo(const Module *M, const ValueEnumerator &VE,
                               Log2_32_Ceil(MaxGlobalType+1)));
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1));      // Constant.
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));        // Initializer.
-    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 4));      // Linkage.
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 5));      // Linkage.
     if (MaxAlignment == 0)                                      // Alignment.
       Abbv->Add(BitCodeAbbrevOp(0));
     else {

@@ -531,13 +531,13 @@ bool LLParser::ParseMDNodeID(MDNode *&Result) {
   }
 
   // Otherwise, create MDNode forward reference.
-  MDNodeFwdDecl *FwdNode = MDNodeFwdDecl::get(Context, None);
-  ForwardRefMDNodes[MID] = std::make_pair(FwdNode, Lex.getLoc());
+  auto &FwdRef = ForwardRefMDNodes[MID];
+  FwdRef = std::make_pair(MDTuple::getTemporary(Context, None), Lex.getLoc());
 
   if (NumberedMetadata.size() <= MID)
     NumberedMetadata.resize(MID+1);
-  NumberedMetadata[MID].reset(FwdNode);
-  Result = FwdNode;
+  Result = FwdRef.first.get();
+  NumberedMetadata[MID].reset(Result);
   return false;
 }
 
@@ -597,9 +597,7 @@ bool LLParser::ParseStandaloneMetadata() {
   // See if this was forward referenced, if so, handle it.
   auto FI = ForwardRefMDNodes.find(MetadataID);
   if (FI != ForwardRefMDNodes.end()) {
-    MDNodeFwdDecl *Temp = FI->second.first;
-    Temp->replaceAllUsesWith(Init);
-    delete Temp;
+    FI->second.first->replaceAllUsesWith(Init);
     ForwardRefMDNodes.erase(FI);
 
     assert(NumberedMetadata[MetadataID] == Init && "Tracking VH didn't work");
@@ -3002,7 +3000,7 @@ bool LLParser::ParseSpecializedMDNode(MDNode *&N, bool IsDistinct) {
 ///   ::= !MDLocation(line: 43, column: 8, scope: !5, inlinedAt: !6)
 bool LLParser::ParseMDLocation(MDNode *&Result, bool IsDistinct) {
   MDUnsignedField<uint32_t> line(0, ~0u >> 8);
-  MDUnsignedField<uint32_t> column(0, ~0u >> 24);
+  MDUnsignedField<uint32_t> column(0, ~0u >> 16);
   MDField scope;
   MDField inlinedAt;
   if (ParseMDFieldsImpl([&]() -> bool {
