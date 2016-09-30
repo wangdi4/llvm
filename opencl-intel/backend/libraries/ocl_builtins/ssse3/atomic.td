@@ -534,6 +534,22 @@ OclBuiltinImpl atomic_fetch_sub_l_impl = OclBuiltinImpl<atomic_fetch_sub_l, atom
 OclBuiltinImpl atomic_fetch_sub_explicit_l_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_l, atomic_fetch_sub_explicit_l.Types, 0, atomic_fetch_key_explicit_code, ["$KEY"->"sub"]>;
 OclBuiltinImpl atomic_fetch_sub_explicit_scope_l_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_l, atomic_fetch_sub_explicit_scope_l.Types, 0, atomic_fetch_binop_explicit_scope_l_code, ["$KEY"->"sub"]>;
 
+OclBuiltinImpl atomic_fetch_add_uintptr_g_impl = OclBuiltinImpl<atomic_fetch_add_uintptr_g, atomic_fetch_add_uintptr_g.Types, 0, atomic_fetch_key_code, ["$KEY"->"add"]>;
+OclBuiltinImpl atomic_fetch_add_explicit_uintptr_g_impl = OclBuiltinImpl<atomic_fetch_add_explicit_uintptr_g, atomic_fetch_add_explicit_uintptr_g.Types, 0, atomic_fetch_key_explicit_code, ["$KEY"->"add"]>;
+OclBuiltinImpl atomic_fetch_add_explicit_scope_uintptr_g_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_uintptr_g, atomic_fetch_add_explicit_scope_uintptr_g.Types, 0, atomic_fetch_binop_explicit_scope_g_code, ["$KEY"->"add"]>;
+
+OclBuiltinImpl atomic_fetch_add_uintptr_l_impl = OclBuiltinImpl<atomic_fetch_add_uintptr_l, atomic_fetch_add_uintptr_l.Types, 0, atomic_fetch_key_code, ["$KEY"->"add"]>;
+OclBuiltinImpl atomic_fetch_add_explicit_uintptr_l_impl = OclBuiltinImpl<atomic_fetch_add_explicit_uintptr_l, atomic_fetch_add_explicit_uintptr_l.Types, 0, atomic_fetch_key_explicit_code, ["$KEY"->"add"]>;
+OclBuiltinImpl atomic_fetch_add_explicit_scope_uintptr_l_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_uintptr_l, atomic_fetch_add_explicit_scope_uintptr_l.Types, 0, atomic_fetch_binop_explicit_scope_l_code, ["$KEY"->"add"]>;
+
+OclBuiltinImpl atomic_fetch_sub_uintptr_g_impl = OclBuiltinImpl<atomic_fetch_sub_uintptr_g, atomic_fetch_sub_uintptr_g.Types, 0, atomic_fetch_key_code, ["$KEY"->"sub"]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_uintptr_g_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_uintptr_g, atomic_fetch_sub_explicit_uintptr_g.Types, 0, atomic_fetch_key_explicit_code, ["$KEY"->"sub"]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_scope_uintptr_g_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_uintptr_g, atomic_fetch_sub_explicit_scope_uintptr_g.Types, 0, atomic_fetch_binop_explicit_scope_g_code, ["$KEY"->"sub"]>;
+
+OclBuiltinImpl atomic_fetch_sub_uintptr_l_impl = OclBuiltinImpl<atomic_fetch_sub_uintptr_l, atomic_fetch_sub_uintptr_l.Types, 0, atomic_fetch_key_code, ["$KEY"->"sub"]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_uintptr_l_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_uintptr_l, atomic_fetch_sub_explicit_uintptr_l.Types, 0, atomic_fetch_key_explicit_code, ["$KEY"->"sub"]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_scope_uintptr_l_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_uintptr_l, atomic_fetch_sub_explicit_scope_uintptr_l.Types, 0, atomic_fetch_binop_explicit_scope_l_code, ["$KEY"->"sub"]>;
+
 OclBuiltinImpl atomic_fetch_or_g_impl = OclBuiltinImpl<atomic_fetch_or_g, atomic_fetch_or_g.Types, 0, atomic_fetch_key_code, ["$KEY"->"or"]>;
 OclBuiltinImpl atomic_fetch_or_explicit_g_impl = OclBuiltinImpl<atomic_fetch_or_explicit_g, atomic_fetch_or_explicit_g.Types, 0, atomic_fetch_key_explicit_code, ["$KEY"->"or"]>;
 OclBuiltinImpl atomic_fetch_or_explicit_scope_g_impl = OclBuiltinImpl<atomic_fetch_or_explicit_scope_g, atomic_fetch_or_explicit_scope_g.Types, 0, atomic_fetch_binop_explicit_scope_g_code, ["$KEY"->"or"]>;
