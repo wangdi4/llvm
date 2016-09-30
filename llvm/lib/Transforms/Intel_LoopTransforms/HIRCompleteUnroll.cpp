@@ -129,11 +129,14 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRLoopStatistics>();
   }
 
 private:
   class CanonExprVisitor;
   class ProfitabilityAnalyzer;
+
+  HIRLoopStatistics *HLS;
 
   /// Storage for loops which will be transformed.
   /// Only outermost loops to be transformed will be stored.
@@ -355,6 +358,7 @@ void HIRCompleteUnroll::CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
 ///// ProfitabilityAnalyzer Visitor Start
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
+
   HLNodeUtils::visitRange<true, false>(*this, CurLoop->child_begin(),
                                        CurLoop->child_end());
 
@@ -362,14 +366,59 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
   auto It = HCU.AvgTripCount.find(CurLoop);
   assert((It != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
 
-  // Check if the loop is small enough to assign trip count worth of
-  // profitability (for eliminating loop control) and give it higher chance of
-  // unrolling.
+  // Check if the loop is small enough to assign some extra profitability to it
+  // (for eliminating loop control) and give it higher chance of unrolling.
   if (isSmallLoop()) {
-    ProfitabilityIndex += It->second;
+    // Capping extra profitability at an arbitrary constant.
+    // Increasing threshold from 4 to 15 to completely unroll loops in
+    // enc_motion.c::dist1().
+    //
+    //           <132>           + DO i1 = 0, %h + -1, 1   <DO_LOOP>
+    //           <42>            |   %.pre503 = {al:1}(%blk1)[%lx * i1 + %lx];
+    //           <43>            |   %52 = %.pre503;
+    //           <44>            |   %53 = %.pre502;
+    //           <133>           |   + DO i2 = 0, 15, 1   <DO_LOOP>
+    //           <51>            |   |   %54 = {al:1}(%blk1)[%lx * i1 + i2 + 1];
+    //           <55>            |   |   %55 = {al:1}(%blk1)[%lx * i1 + i2 + %lx
+    //           + 1];
+    //           <63>            |   |   %56 = {al:1}(%blk2)[%lx * i1 + i2];
+    //           <68>            |   |   %.p455 = (-1 * zext.i8.i32(%56) + ((2 +
+    //           zext.i8.i32(%55) + zext.i8.i32(%54) + zext.i8.i32(%52) +
+    //           zext.i8.i32(%53)) /u 4) > -1) ? -1 * zext.i8.i32(%56) + ((2 +
+    //           zext.i8.i32(%55) + zext.i8.i32(%54) + zext.i8.i32(%52) +
+    //           zext.i8.i32(%53)) /u 4) : zext.i8.i32(%56) + -1 * ((2 +
+    //           zext.i8.i32(%55) + zext.i8.i32(%54) + zext.i8.i32(%52) +
+    //           zext.i8.i32(%53)) /u 4);
+    //           <69>            |   |   %s.7482 = %.p455  +  %s.7482;
+    //           <71>            |   |   %52 = %55;
+    //           <72>            |   |   %53 = %54;
+    //           <133>           |   + END LOOP
+    //           <82>            |   %.pre502 = %.pre503;
+    //           <132>           + END LOOP
+    //                     END REGION
+    //
+    // TODO: Refine cost model for min/max/abs HLInsts. The instruction <68>
+    // above is an abs() with the form:
+    // p = (V > -1) V : -V
+    //
+    // If we include all its DDRefs in the cost model, we will incorrectly count
+    // the occurence of 'V' 3 times when it should only be counted once as a
+    // common sub-expression.
+    //
+    ProfitabilityIndex += std::min(15u, It->second);
   }
 
   scale(It->second);
+
+  // Add ztt's profitability.
+  if (CurLoop->hasZtt()) {
+    for (auto RefIt = CurLoop->ztt_ddref_begin(), E = CurLoop->ztt_ddref_end();
+         RefIt != E; ++RefIt) {
+      processRef(*RefIt);
+    }
+    // Increment index by number of predicates eliminated.
+    ProfitabilityIndex += CurLoop->getNumZttPredicates();
+  }
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSmallLoop() const {
@@ -615,6 +664,7 @@ char HIRCompleteUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "hir-complete-unroll",
                       "HIR Complete Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRCompleteUnroll, "hir-complete-unroll",
                     "HIR Complete Unroll", false, false)
 
@@ -638,6 +688,8 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   if (CompleteUnrollTripThreshold == 0) {
     return false;
   }
+
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
@@ -893,9 +945,9 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop,
     return false;
   }
 
-  // Ignore loops which have switch or function calls for unrolling.
-  if (HLNodeUtils::hasSwitchOrCall<false>(Loop->getFirstChild(),
-                                          Loop->getLastChild())) {
+  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+
+  if (LS.hasSwitches() || LS.hasCalls()) {
     return false;
   }
 

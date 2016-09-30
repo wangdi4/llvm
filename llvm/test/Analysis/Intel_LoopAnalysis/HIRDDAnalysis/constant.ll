@@ -2,11 +2,11 @@
 
 ; Check for different types using detailed print
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details -hir-dd-analysis  -hir-dd-analysis-verify=Region | FileCheck %s
-; CHECK: %3 = {al:8}(i64*)(%0)[%N + 1]
+; CHECK: %3 = (i64*)(%0)[%N + 1]
 ; CHECK: LINEAR zext.i32.i64(%N + 1)
-; CHECK: {al:8}(i64*)(%0)[2] = %3;
+; CHECK: (i64*)(%0)[2] = %3;
 ; CHECK: (LINEAR bitcast.double*.i64*(%0){def@1})[i64 2] 
-; CHECK-DAG: {al:8}(i64*)(%0)[2] --> {al:8}(i64*)(%0)[%N + 1] FLOW (* *)
+; CHECK-DAG: (i64*)(%0)[2] --> (i64*)(%0)[%N + 1] FLOW (* *)
 
 ; # Source Code
 ; #define ee_u32 unsigned int

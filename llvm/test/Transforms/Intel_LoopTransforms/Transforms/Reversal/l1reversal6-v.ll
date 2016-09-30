@@ -53,19 +53,19 @@
 ; 
 ;          BEGIN REGION { }
 ;<20>         + DO i1 = 0, 19, 1   <DO_LOOP>
-;<3>          |   %2 = {al:4}(%B)[i1 + 1];
-;<7>          |   {al:4}(%A)[-1 * i1 + 199] = %2 + 1;
-;<10>         |   %4 = {al:4}(%A)[i1 + 2];
-;<14>         |   {al:4}(%B)[-1 * i1 + 999] = %4 + 2;
+;<3>          |   %2 = (%B)[i1 + 1];
+;<7>          |   (%A)[-1 * i1 + 199] = %2 + 1;
+;<10>         |   %4 = (%A)[i1 + 2];
+;<14>         |   (%B)[-1 * i1 + 999] = %4 + 2;
 ;<20>         + END LOOP
 ;          END REGION
 ;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 19, 1   <DO_LOOP>
-; BEFORE:     |   %2 = {al:4}(%B)[i1 + 1];
-; BEFORE:     |   {al:4}(%A)[-1 * i1 + 199] = %2 + 1;
-; BEFORE:     |   %4 = {al:4}(%A)[i1 + 2];
-; BEFORE:     |   {al:4}(%B)[-1 * i1 + 999] = %4 + 2;
+; BEFORE:     |   %2 = (%B)[i1 + 1];
+; BEFORE:     |   (%A)[-1 * i1 + 199] = %2 + 1;
+; BEFORE:     |   %4 = (%A)[i1 + 2];
+; BEFORE:     |   (%B)[-1 * i1 + 999] = %4 + 2;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -76,19 +76,19 @@
 ; 
 ;          BEGIN REGION { modified }
 ;<20>         + DO i1 = 0, 19, 1   <DO_LOOP>
-;<3>          |   %2 = {al:4}(%B)[-1 * i1 + 20];
-;<7>          |   {al:4}(%A)[i1 + 180] = %2 + 1;
-;<10>         |   %4 = {al:4}(%A)[-1 * i1 + 21];
-;<14>         |   {al:4}(%B)[i1 + 980] = %4 + 2;
+;<3>          |   %2 = (%B)[-1 * i1 + 20];
+;<7>          |   (%A)[i1 + 180] = %2 + 1;
+;<10>         |   %4 = (%A)[-1 * i1 + 21];
+;<14>         |   (%B)[i1 + 980] = %4 + 2;
 ;<20>         + END LOOP
 ;          END REGION
 ;
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:      + DO i1 = 0, 19, 1   <DO_LOOP>
-; AFTER:      |   %2 = {al:4}(%B)[-1 * i1 + 20];
-; AFTER:      |   {al:4}(%A)[i1 + 180] = %2 + 1;
-; AFTER:      |   %4 = {al:4}(%A)[-1 * i1 + 21];
-; AFTER:      |   {al:4}(%B)[i1 + 980] = %4 + 2;
+; AFTER:      |   %2 = (%B)[-1 * i1 + 20];
+; AFTER:      |   (%A)[i1 + 180] = %2 + 1;
+; AFTER:      |   %4 = (%A)[-1 * i1 + 21];
+; AFTER:      |   (%B)[i1 + 980] = %4 + 2;
 ; AFTER:      + END LOOP
 ; AFTER:   END REGION
 ;

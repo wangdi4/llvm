@@ -2,21 +2,21 @@
 
 ; RUN: opt -hir-ssa-deconstruction %s | opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
 
-; CHECK: {al:4}(%a)[i1 + %j] --> {al:4}(%a)[i1 + %i] ANTI
-; CHECK: {al:4}(%a)[i1 + %i] --> {al:4}(%a)[i1 + %j] FLOW
+; CHECK: (%a)[i1 + %j] --> (%a)[i1 + %i] ANTI
+; CHECK: (%a)[i1 + %i] --> (%a)[i1 + %j] FLOW
 
 ; RUN: opt -hir-ssa-deconstruction < %s | opt -scoped-noalias -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck --check-prefix=SCOPED-AA %s
 
-; SCOPED-AA-NOT: {al:4}(%a)[i1 + %j] --> {al:4}(%a)[i1 + %i] ANTI
-; SCOPED-AA-NOT: {al:4}(%a)[i1 + %i] --> {al:4}(%a)[i1 + %j] FLOW
+; SCOPED-AA-NOT: (%a)[i1 + %j] --> (%a)[i1 + %i] ANTI
+; SCOPED-AA-NOT: (%a)[i1 + %i] --> (%a)[i1 + %j] FLOW
 
 ; HIR-
 ; + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
-; |   %0 = {al:4}(%a)[i1 + %i];
-; |   %1 = {al:4}(%a)[i1 + %j];
+; |   %0 = (%a)[i1 + %i];
+; |   %1 = (%a)[i1 + %j];
 ; |   %mul33.i = %mul  *  %1;
 ; |   %add34.i = %0  +  %mul33.i;
-; |   {al:4}(%a)[i1 + %i] = %add34.i;
+; |   (%a)[i1 + %i] = %add34.i;
 ; + END LOOP
 
 define void @dgefa(float* nocapture %a, i64 %i, i64 %j, i32 %n, float %mul) {

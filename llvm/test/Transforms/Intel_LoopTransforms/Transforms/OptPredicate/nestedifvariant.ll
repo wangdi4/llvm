@@ -1,5 +1,5 @@
-
-; Test for OptPredicate with nested if and only the inner if can be hoisted out.
+; Test for OptPredicate with nested if and where the inner IF is linear. Such IF could not be hoisted
+; as the containing IF is already at the topmost level.
 
 ; Source Code
 ; void sub3 (long int n, long int m) {
@@ -23,24 +23,8 @@
 
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S < %s 2>&1 | FileCheck %s
 
-; Check the then loop.
-; CHECK: REGION { modified }
-; CHECK: if (%m > 10)
-; CHECK: DO i2 = 0, 998, 1
-; CHECK: if (i2 + 1 > 10)
-; CHECK: (@B)[0][i1 + 2][i2 + 2] = 
-; CHECK: (@C)[0][i1 + 1][i2 + 1] = 
-; CHECK: else
-; CHECK: (@C)[0][i1 + 1][i2 + 1]
-
-; Check the else block.
-; CHECK: else
-; CHECK: if (i2 + 1 > 10)
-; CHECK: (@B)[0][i1 + 2][i2 + 2]
-; CHECK-NOT: (@C)[0][i1 + 1][i2 + 1] = 
-; CHECK: (@B)[0][i1 + 1][i2 + 1] =
-; CHECK: else
-; CHECK: (@C)[0][i1 + 1][i2 + 1]
+; CHECK: After
+; CHECK: REGION { }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -13,11 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-looptransform-utils"
@@ -46,7 +46,11 @@ bool HIRLoopTransformUtils::checkAndReverseLoop(
     HLLoop *Lp,     // INPUT + OUTPUT: a given loop
     bool DoReverse, // INPUT: client's intention to reverse the loop if the loop
                     // is suitable
-    HIRDDAnalysis &DDAnalysis, // INPUT: client provides a HIRDDAnalysis
+    HIRDDAnalysis &DDA, // INPUT: client provides a HIRDDAnalysis
+    HIRSafeReductionAnalysis
+        &SRA, // INPUT: client provides a HIRSafeReductionAnalysis
+    HIRLoopStatistics
+        &LS,           // INPUT: client provides a HIRLoopStatistics analysis
     bool &LoopReversed // OUTPUT: true if the loop is successfully reversed
     ) {
 
@@ -54,7 +58,7 @@ bool HIRLoopTransformUtils::checkAndReverseLoop(
   HIRLoopReversal ReversalPass;
 
   // 2.Call to runOnLoop(.)
-  return ReversalPass.runOnLoop(Lp, DoReverse, DDAnalysis, LoopReversed);
+  return ReversalPass.runOnLoop(Lp, DoReverse, DDA, SRA, LS, LoopReversed);
 }
 
 bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
@@ -97,7 +101,7 @@ bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
     // Use the same canon expr to generate the division.
     TripCE->divide(UnrollOrVecFactor, true);
 
-    Ref->setSymbase(DDRefUtils::getNewSymbase());
+    Ref->setSymbase(getHIRFramework()->getNewSymbase());
 
     Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
 
@@ -113,7 +117,7 @@ void HIRLoopTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
                                              unsigned BlobIndex,
                                              unsigned DefLevel) {
   // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
-  BoundRef->setSymbase(DDRefUtils::getNewSymbase());
+  BoundRef->setSymbase(getHIRFramework()->getNewSymbase());
 
   // Add blob DDRef for the temp in UB.
   BoundRef->addBlobDDRef(BlobIndex, DefLevel);
@@ -170,6 +174,9 @@ HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
 
     // Generate the Ztt.
     NewLoop->createZtt(false);
+
+    // Update unrolled/vectorized loop's trip count estimate.
+    NewLoop->setMaxTripCountEstimate(NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor);
   }
 
   // Set the code gen for modified region
@@ -211,6 +218,9 @@ void HIRLoopTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
                      OrigLoop->getNestingLevel() - 1);
 
     OrigLoop->createZtt(false);
+
+    // Update remainder loop's trip count estimate.
+    OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
   }
 
   DEBUG(dbgs() << "\n Remainder Loop \n");

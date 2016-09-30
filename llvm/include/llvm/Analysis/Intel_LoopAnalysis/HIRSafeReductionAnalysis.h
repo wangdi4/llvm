@@ -63,6 +63,9 @@ private:
 
   // Perform  SafeReducton Analysis
   void identifySafeReduction(HLLoop *Loop);
+  // Checks if a temp is legal to be used for Reduction
+  //  e.g s =  10 * s + ..  is not legal
+  bool isRedTemp(CanonExpr *CE, BlobTy Blob);
 
 public:
   HIRSafeReductionAnalysis()

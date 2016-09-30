@@ -1,6 +1,7 @@
 add_llvm_library(LLVMIntel_LoopTransforms 
         Intel_LoopTransforms.cpp
         HIRSSADeconstruction.cpp
+        HIRTempCleanup.cpp
         HIRPrinter.cpp
         HIRCodeGen.cpp
         HIROptPredicate.cpp

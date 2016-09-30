@@ -3,12 +3,12 @@
 ; Check parsing output for the loop verifying that the if compare is inverted so as to move then children into the empty then case.
 
 ; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
-; CHECK: |   %0 = {al:4}(%A)[i1];
+; CHECK: |   %0 = (%A)[i1];
 ; CHECK: |   if (%0 != 0)
 ; CHECK: |   {
-; CHECK: |      {al:4}(%A)[i1] = %0 + 1;
-; CHECK: |      %1 = {al:4}(%B)[i1];
-; CHECK: |      {al:4}(%B)[i1] = %0 + %1 + 1;
+; CHECK: |      (%A)[i1] = %0 + 1;
+; CHECK: |      %1 = (%B)[i1];
+; CHECK: |      (%B)[i1] = %0 + %1 + 1;
 ; CHECK: |   }
 ; CHECK: + END LOOP
 

@@ -183,7 +183,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
 }
 
 bool CanonExpr::isSelfBlob() const {
-  return (isStandAloneBlob() &&
+  return ((getSrcType() == getDestType()) && isStandAloneBlob() &&
           BlobUtils::isTempBlob(BlobUtils::getBlob(getSingleBlobIndex())));
 }
 
@@ -832,6 +832,61 @@ void CanonExpr::replaceBlob(unsigned OldIndex, unsigned NewIndex) {
   if (!found) {
     assert("Old blob index not found!");
   }
+}
+
+bool CanonExpr::replaceTempBlob(unsigned OldTempIndex, unsigned NewTempIndex) {
+  assert(BlobUtils::isTempBlob(BlobUtils::getBlob(OldTempIndex)) &&
+         "Old Index is not a temp!");
+  assert(BlobUtils::isTempBlob(BlobUtils::getBlob(NewTempIndex)) &&
+         "New Index is not a temp!");
+
+  bool Replaced = false;
+  unsigned NewBlobIndex;
+
+  // Replace in IV blobs coeffs.
+  for (auto &IV : IVCoeffs) {
+    if (IV.Index == InvalidBlobIndex) {
+      continue;
+    }
+
+    if (IV.Index == OldTempIndex) {
+      IV.Index = NewTempIndex;
+      Replaced = true;
+
+    } else if (BlobUtils::replaceTempBlob(IV.Index, OldTempIndex, NewTempIndex,
+                                      NewBlobIndex)) {
+      IV.Index = NewBlobIndex;
+      Replaced = true;
+    }
+  }
+
+  // Replace in blobs.
+  BlobCoeffsTy NewBlobs;
+
+  auto RemovePred = [&](BlobIndexToCoeff &BC) {
+    if (BC.Index == OldTempIndex) {
+      NewBlobs.emplace_back(NewTempIndex, BC.Coeff);
+      return (Replaced = true);
+    }
+
+    if (BlobUtils::replaceTempBlob(BC.Index, OldTempIndex, NewTempIndex,
+                                      NewBlobIndex)) {
+      NewBlobs.emplace_back(NewBlobIndex, BC.Coeff);
+      return (Replaced = true);
+    }
+
+    return false;
+  };
+
+  BlobCoeffs.erase(
+      std::remove_if(BlobCoeffs.begin(), BlobCoeffs.end(), RemovePred),
+      BlobCoeffs.end());
+
+  for (auto &Blob : NewBlobs) {
+    addBlob(Blob.Index, Blob.Coeff);
+  }
+
+  return Replaced;
 }
 
 void CanonExpr::clear() {

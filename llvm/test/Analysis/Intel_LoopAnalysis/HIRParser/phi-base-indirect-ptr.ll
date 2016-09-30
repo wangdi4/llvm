@@ -2,8 +2,8 @@
 
 ; Check parsing output for the loop verifying that indirect pointer with phi base is parsed correctly.
 ; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: %0 = {al:8}(%p)[i1]
-; CHECK-NEXT: {al:4}(%0)[0] = i1
+; CHECK-NEXT: %0 = (%p)[i1]
+; CHECK-NEXT: (%0)[0] = i1
 ; CHECK-NEXT: END LOOP
 
 

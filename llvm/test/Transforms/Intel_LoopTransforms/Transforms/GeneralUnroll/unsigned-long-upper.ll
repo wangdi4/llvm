@@ -5,9 +5,9 @@
 ; CHECK: Before HIR General Unroll
 ; CHECK: + DO i1 = 0, -1152921504606846979, 1   <DO_LOOP>
 ; CHECK: |   %rem = i1  %  50;
-; CHECK: |   %0 = {al:8}(@A)[0][%rem];
+; CHECK: |   %0 = (@A)[0][%rem];
 ; CHECK: |   %rem1 = i1 + 1  %  50;
-; CHECK: |   {al:8}(@A)[0][%rem1] = i1 + %0 + 1;
+; CHECK: |   (@A)[0][%rem1] = i1 + %0 + 1;
 ; CHECK: + END LOOP
 
 ; CHECK: After HIR General Unroll

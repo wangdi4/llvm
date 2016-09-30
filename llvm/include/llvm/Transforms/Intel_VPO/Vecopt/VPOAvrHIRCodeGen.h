@@ -41,8 +41,8 @@ public:
   /// \brief Return address, where initial value is stored.
   const RegDDRef *getReductionValuePtr(ReductionItem *RI);
 
-  /// \brief Build internal maps for the given \p Region
-  void mapHLNodes(const HLRegion *Region);
+  /// \brief Build internal maps for the given loop \p OrigLoop.
+  void mapHLNodes(const HLLoop *OrigLoop);
 
   /// \brief Return identity vector corresponding to the recurrence kind.
   /// The recurrence kind is taken from \p RI. \p VL - vector length of

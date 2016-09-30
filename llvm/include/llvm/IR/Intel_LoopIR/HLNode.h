@@ -24,6 +24,8 @@
 
 #include "llvm/IR/InstrTypes.h"
 
+#include "llvm/IR/Intel_LoopIR/HLNodeMapper.h"
+
 #include <set>
 
 namespace llvm {
@@ -103,6 +105,12 @@ private:
     }
   }
 
+  /// \brief Virtual Clone Implementation
+  /// This function populates the GotoList with Goto branching within the
+  /// region and LabelMap with Old and New Labels.
+  virtual HLNode *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                            HLNodeMapper *NodeMapper) const = 0;
+
 protected:
   HLNode(unsigned SCID);
   HLNode(const HLNode &HLNodeObj);
@@ -127,20 +135,12 @@ protected:
   /// \brief Pretty prints predicates.
   static void printPredicate(formatted_raw_ostream &OS, PredicateTy Pred);
 
-  /// \brief Virtual Clone Implementation
-  /// This function populates the GotoList with Goto branching within the
-  /// region and LabelMap with Old and New Labels.
-  virtual HLNode *cloneImpl(GotoContainerTy *GotoList,
-                            LabelMapTy *LabelMap) const = 0;
-
   /// \brief Base Clone Implementation
   /// This is the protected base clone implementation as the subclasses cannot
   /// directly call the cloneImpl of other subclasses.
   /// For e.g. Loop->cloneBaseImpl(child, GL, LM) will return child clone.
-  HLNode *cloneBaseImpl(const HLNode *Node, GotoContainerTy *GotoList,
-                        LabelMapTy *LabelMap) const {
-    return Node->cloneImpl(GotoList, LabelMap);
-  }
+  static HLNode *cloneBaseImpl(const HLNode *Node, GotoContainerTy *GotoList,
+                        LabelMapTy *LabelMap, HLNodeMapper *NodeMapper);
 
   /// \brief Returns the parent region of this node, if one exists, else returns
   /// null.
@@ -148,7 +148,10 @@ protected:
 
 public:
   /// Virtual Clone Method
-  virtual HLNode *clone() const = 0;
+  /// If \p NodeMapper is not null, every node will be mapped to the cloned
+  /// node. This is used for accessing clones having original node pointers.
+  virtual HLNode *clone(HLNodeMapper *NodeMapper = nullptr) const;
+
   /// \brief Dumps HLNode.
   void dump() const;
 

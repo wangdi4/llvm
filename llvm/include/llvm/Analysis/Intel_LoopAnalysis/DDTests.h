@@ -393,11 +393,13 @@ class DDTest {
   const CanonExpr *getSplitIteration(const Dependences &Dep, unsigned Level);
 
   ///
-  ///  Reverse Direction vector
+  ///  Split DV for forward/backward edges. ForwardDV may get modified for
+  ///  leading <>
   ///
 
-  void getDVForBackwardEdge(const DirectionVector &InputDV,
-                            DirectionVector &OutputDV, unsigned MaxLevel) const;
+  void splitDVForForwardBackwardEdge(DirectionVector &ForwardDV,
+                                     DirectionVector &BackwardDV,
+                                     unsigned MaxLevel) const;
 
   /// \brief Query LLVM Alias Analysis to check if there is no aliasing between
   /// \p SrcDDRef and \p DstDDref (ex. due to TBAA or AliasScopes)

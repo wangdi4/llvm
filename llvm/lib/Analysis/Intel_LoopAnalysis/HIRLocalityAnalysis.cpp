@@ -43,12 +43,6 @@
 
 #include "llvm/Pass.h"
 
-#include "llvm/IR/Type.h"
-
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
@@ -59,16 +53,50 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
+#include "llvm/IR/Type.h"
+
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-locality-analysis"
 
-// Primarily used for debugging purpose.
-// We do not print any information except DEBUG mode.
-static cl::opt<bool> debugLocality(
-    "hir-debug-locality", cl::init(false), cl::Hidden,
-    cl::desc("Pre-computes locality for all loops inside function."));
+static cl::opt<bool>
+    SortedLocality("hir-sorted-locality", cl::init(false), cl::Hidden,
+                   cl::desc("Computes sorted locality (for interchange) for "
+                            "all loopnests inside function."));
+
+static cl::opt<bool> TemporalLocality(
+    "hir-temporal-locality", cl::init(false), cl::Hidden,
+    cl::desc("Computes temporal (invariant + reuse) locality for all loops."));
+
+// Symbolic constant to denote unknown 'N' trip count.
+// TODO: Revisit this for scaling known loops.
+const unsigned SymbolicConstTC = 20;
+
+// Max distance between refs considered temporal reuse.
+const unsigned DefaultReuseThreshold = 4;
+
+// number of cache lines =
+// WtFactor*((Total Cache Size)/(CacheLine size * Associativity))
+const unsigned NumCacheLines = 16;
+
+// Cache line size in bytes.
+// TODO: Get data from Target Machine.
+const unsigned CacheLineSize = 64;
+
+// Floats per cache line.
+// TODO: Assuming 4bytes of float. Change when sizeinfo is available.
+// TODO: Similar for other data types. Revisit when bit width is available
+// for the given data.
+const unsigned FloatsPerCacheLine = CacheLineSize / 4;
+const unsigned IntsPerCacheLine = CacheLineSize / 4;
+
+// A small value to differentiate between Read vs Write.
+const unsigned WriteWt = 4;
 
 FunctionPass *llvm::createHIRLocalityAnalysisPass() {
   return new HIRLocalityAnalysis();
@@ -82,118 +110,86 @@ INITIALIZE_PASS_END(HIRLocalityAnalysis, "hir-locality-analysis",
                     "HIR Locality Analysis", false, true)
 
 void HIRLocalityAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
-
   AU.setPreservesAll();
   AU.addRequired<HIRFramework>();
 }
 
 // Performs a basic setup without actually running the locality
 // analysis.
-bool HIRLocalityAnalysis::runOnFunction(Function &F) {
-
-  // We use DEBUG throughout, so that nothing should be displayed
-  // in production mode.
-  if (debugLocality) {
-    checkLocality();
-  }
-
-  return false;
-}
-
-// Only used when debugLocality is on.
-void HIRLocalityAnalysis::checkLocality() {
-
-  // For any changes, please run the llvm-lit tests
-  // to check for any breakage.
-  SmallVector<const HLLoop *, 16> Loops;
-  HLNodeUtils::gatherOutermostLoops(Loops);
-  for (auto &I : Loops) {
-    SmallVector<LoopLocalityPair, 16> LoopLocality;
-    sortedLocalityLoops(I, LoopLocality);
-  }
-}
-
-void HIRLocalityAnalysis::releaseMemory() {
-
-  // Delete all the Locality Info.
-  for (auto &I : LocalityMap) {
-    delete I.second;
-  }
-  LocalityMap.clear();
-  // Below are redundant clears.
-  RefGroups.clear();
-  ConstTripCache.clear();
-}
-
-// Comparator for sorting Loops with Locality value.
-struct compareLocalityValue {
-  bool operator()(const LoopLocalityPair &left, const LoopLocalityPair &right) {
-    return left.second < right.second;
-  }
-};
+bool HIRLocalityAnalysis::runOnFunction(Function &F) { return false; }
 
 void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
 
-  // TODO: Discuss about what information needs to be printed in production
-  // mode.
-  formatted_raw_ostream FOS(OS);
-  FOS << "Locality Information for all loops(sorted order):\n";
-  SmallVector<LoopLocalityPair, 16> LoopLocality;
-  for (auto &I : LocalityMap) {
-    LoopLocality.push_back(
-        std::make_pair(I.first, (I.second)->getLocalityValue()));
-  }
-  std::sort(LoopLocality.begin(), LoopLocality.end(), compareLocalityValue());
-  for (auto &I : LoopLocality) {
-    const HLLoop *L = I.first;
-    printLocalityInfo(OS, L);
-  }
-}
+  HIRLocalityAnalysis &HLA = *const_cast<HIRLocalityAnalysis *>(this);
 
-void HIRLocalityAnalysis::markLoopBodyModified(const HLLoop *L) {
+  if (SortedLocality) {
+    OS << "Locality Information for all loops(sorted order):\n";
+    SmallVector<const HLLoop *, 16> OutermostLoops;
 
-  assert(L && " Loop parameter is null.");
+    HLNodeUtils::gatherOutermostLoops(OutermostLoops);
 
-  // Mark loop as modified.
-  LoopModificationMap[L] = true;
+    for (auto Lp : OutermostLoops) {
 
-  // Mark all the parents as modified.
-  const HLLoop *CurLoop = L->getParentLoop();
-  while (CurLoop) {
-    LoopModificationMap[CurLoop] = true;
-    CurLoop = CurLoop->getParentLoop();
+      if (Lp->isInnermost() ||
+          !HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false, false, true,
+                                          nullptr)) {
+        continue;
+      }
+
+      SmallVector<const HLLoop *, MaxLoopNestLevel> SortedLoops;
+      HLA.sortedLocalityLoops(Lp, SortedLoops);
+
+      for (auto Lp : SortedLoops) {
+        printLocalityInfo(OS, Lp);
+      }
+    }
+  } else if (TemporalLocality) {
+    formatted_raw_ostream FOS(OS);
+
+    FOS << "Temporal locality information for all loops:\n";
+    SmallVector<const HLLoop *, 16> Loops;
+
+    HLNodeUtils::gatherAllLoops(Loops);
+
+    for (auto Lp : Loops) {
+      HLA.getTemporalLocality(Lp);
+      const LocalityInfo &LI = LocalityByLevel[Lp->getNestingLevel() - 1];
+
+      Lp->printHeader(FOS, 0, false);
+      Lp->indent(FOS, 0);
+      FOS << "TempInv: " << LI.TempInv << "\n";
+      Lp->indent(FOS, 0);
+      FOS << "TempReuse: " << LI.TempReuse << "\n";
+
+      Lp->printFooter(FOS, 0);
+    }
   }
 }
 
 void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
-                                                 SymToMemRefTy &MemRefMap) {
+                                                 RefGroupMapTy &RefGroups) {
 
   // We need to find invariant DDRefs and compute a temporal locality
   // based on the loop's trip count.
   // For eg. for(i=0; i<N; i++) { A[t] = 0; }. Here Array A is invariant
   // and we add 'N' to temporal locality.
 
-  LocalityInfo *LI = LocalityMap[Loop];
+  unsigned Level = Loop->getNestingLevel();
+
+  LocalityInfo &LI = LocalityByLevel[Level - 1];
+  assert((LI.TempInv == 0) && "Temporal invariant locality already populated!");
 
   // Compute Temp. Invariant Locality.
-  for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
-       SymVecPair != Last; ++SymVecPair) {
+  for (auto &GroupVecPair : RefGroups) {
+    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair.second;
+    assert(!RefVec.empty() && " Ref Group is empty.");
 
-    auto &RefVec = SymVecPair->second;
+    const RegDDRef *FirstRef = *(RefVec.begin());
 
-    // Count Invariant References and remove them from the map.
-    // Note, we need to check vector end, since elements are deleted.
-    for (auto Iter = RefVec.begin(); Iter != RefVec.end();) {
-
-      const RegDDRef *RegDD = *Iter;
-
-      if (RegDD->isStructurallyInvariantAtLevel(Loop->getNestingLevel())) {
-        Iter = RefVec.erase(Iter);
-        // Adding 'N-1' to temporal locality.
-        LI->TempInv += (getTripCount(Loop) - 1);
-      } else {
-        Iter++;
-      }
+    if (FirstRef->isStructurallyInvariantAtLevel(Level)) {
+      // Invariant refs are grouped together so we add the locality for the
+      // whole group.
+      LI.TempInv += ((getTripCount(Loop) - 1) * RefVec.size());
     }
   }
 }
@@ -226,44 +222,42 @@ bool HIRLocalityAnalysis::isMultipleIV(const RegDDRef *Ref, unsigned Level,
 // We need to find temporal reuse for cases such as A[i] and A[i+2],
 // which can be allocated to a temp registers for future use.
 bool HIRLocalityAnalysis::isTemporalReuse(const RegDDRef *Ref1,
-                                          const RegDDRef *Ref2,
-                                          unsigned IVPos) {
+                                          const RegDDRef *Ref2, unsigned IVPos,
+                                          unsigned ReuseThreshold) {
 
   // Compare the diff at subscript Pos.
   const CanonExpr *Ref1CE = Ref1->getDimensionIndex(IVPos);
   const CanonExpr *Ref2CE = Ref2->getDimensionIndex(IVPos);
 
+  CanonExpr *Result = nullptr;
   // Diff the CanonExprs.
-  const CanonExpr *Result =
-      CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true);
-  if (!Result) {
-    return false;
-  }
+  assert(((Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true)) &&
+          !Result->hasIV() && !Result->hasBlob()) &&
+         "Refgroups incorrectly formed!");
 
-  // TODO: Being conservative with Denom.
-  if (Result->getDenominator() > 1) {
-    return false;
-  }
+  int64_t C1 = Ref1CE->getConstant();
+  int64_t C2 = Ref2CE->getConstant();
+  int64_t D1 = Ref1CE->getDenominator();
+  int64_t D2 = Ref2CE->getDenominator();
 
-  assert(Result->isIntConstant() &&
-         " Result is not constant for temporal reuse.");
+  int64_t Diff = std::llabs((C1 * D2) - (C2 * D1)) / (D1 * D2);
 
-  int64_t Diff = Result->getConstant();
-
-  // If Diff is greater than Threshold, then temporal reuse exist.
-  if (std::abs(Diff) < TempReuseThreshold)
-    return true;
-
-  return false;
+  // If Diff is within threshold then temporal reuse exists.
+  return (Diff <= ReuseThreshold);
 }
 
-void HIRLocalityAnalysis::computeTempReuseLocality(const HLLoop *Loop) {
+void HIRLocalityAnalysis::computeTempReuseLocality(const HLLoop *Loop,
+                                                   RefGroupMapTy &RefGroups,
+                                                   unsigned ReuseThreshold) {
 
-  LocalityInfo *LI = LocalityMap[Loop];
-  for (auto GroupVecPair = RefGroups.begin(), Last = RefGroups.end();
-       GroupVecPair != Last; ++GroupVecPair) {
+  unsigned Level = Loop->getNestingLevel();
 
-    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair->second;
+  LocalityInfo &LI = LocalityByLevel[Level - 1];
+  assert((LI.TempReuse == 0) && "Temporal reuse locality already populated!");
+
+  for (auto &GroupVecPair : RefGroups) {
+
+    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair.second;
     assert(!RefVec.empty() && " Ref Group is empty.");
 
     // The first reference is used for comparison.
@@ -272,44 +266,26 @@ void HIRLocalityAnalysis::computeTempReuseLocality(const HLLoop *Loop) {
     // No Temporal Reuse for multiple IV subscripts e.g. A[i+1][i] and A[i][i]
     // or loop invariants e.g. A[1]
     unsigned IVPos = 0;
-    if (isMultipleIV(CompareRef, Loop->getNestingLevel(), &IVPos) ||
-        IVPos == 0) {
+    if (isMultipleIV(CompareRef, Level, &IVPos) || IVPos == 0) {
       continue;
     }
 
-    for (auto VecIt = RefVec.begin() + 1, End = RefVec.end(); VecIt != End;
-         ++VecIt) {
-      if (isTemporalReuse(CompareRef, *VecIt, IVPos)) {
-        LI->TempReuse += 1;
-      } else {
-        // Update the compare ref.
-        CompareRef = *VecIt;
+    for (auto RefIt = RefVec.begin() + 1, End = RefVec.end(); RefIt != End;
+         ++RefIt) {
+      if (isTemporalReuse(CompareRef, *RefIt, IVPos, ReuseThreshold)) {
+        LI.TempReuse += 1;
       }
+      // We should update the compare ref unconditionally. Consider this group-
+      // A[i], A[i+2], A[i+4]
+      // We should compute a reuse of 2 (for {A[i], A[i+2]} and {A[i+2],
+      // A[i+4]}) with a threhsold of 2.
+      CompareRef = *RefIt;
     }
   }
 }
 
-bool HIRLocalityAnalysis::isLoopModified(const HLLoop *Loop) {
-
-  // Checks if status exist and returns the status.
-  auto Iter = LoopModificationMap.find(Loop);
-  if (Iter != LoopModificationMap.end())
-    return Iter->second;
-
-  // Default is to return true.
-  return true;
-}
-
 int64_t HIRLocalityAnalysis::getTripCount(const HLLoop *Loop) {
-
-  auto Iter = ConstTripCache.find(Loop);
-  if (Iter != ConstTripCache.end()) {
-    // Return Const Trip Count.
-    return Iter->second;
-  }
-
-  // If Trip Cache doesn't have loop, it indicates 'N' trip count.
-  return SymbolicConst;
+  return TripCountByLevel[Loop->getNestingLevel() - 1];
 }
 
 // This method computes the loop nest trip count for spatial locality.
@@ -334,17 +310,19 @@ uint64_t HIRLocalityAnalysis::computeSpatialTrip(const RegDDRef *Ref,
     return SpatialTrip;
 
   // For locality, -i or +i is same as reuse happens in both cases.
-  uint64_t IVCoeff = std::abs(CE->getIVConstCoeff(LoopLevel));
+  uint64_t IVCoeff = std::llabs(CE->getIVConstCoeff(LoopLevel));
 
   // DEBUG(dbgs() << "\n BitSize: " <<
   //     (Ref->getBaseSrcType()->getPrimitiveSizeInBits()));
 
   uint64_t TripCnt = getTripCount(Loop);
+
   // TODO: Assuming currently only Int/Float type, extend later.
   // getPrimitiveSizeInBits returns 0 for pointer type. TODO: Need to
   // investigate target machine information, later.
   const unsigned ElemPerCacheLine =
       Ref->getDestType()->isIntegerTy() ? IntsPerCacheLine : FloatsPerCacheLine;
+
   // We need to guard with max as equation may produce negative value, depending
   // upon the parameters.
   SpatialTrip =
@@ -352,14 +330,17 @@ uint64_t HIRLocalityAnalysis::computeSpatialTrip(const RegDDRef *Ref,
   return SpatialTrip;
 }
 
-void HIRLocalityAnalysis::computeSpatialLocality(const HLLoop *Loop) {
+void HIRLocalityAnalysis::computeSpatialLocality(const HLLoop *Loop,
+                                                 RefGroupMapTy &RefGroups) {
 
-  LocalityInfo *LI = LocalityMap[Loop];
+  unsigned Level = Loop->getNestingLevel();
 
-  for (auto GroupVecPair = RefGroups.begin(), Last = RefGroups.end();
-       GroupVecPair != Last; ++GroupVecPair) {
+  LocalityInfo &LI = LocalityByLevel[Level - 1];
+  assert((LI.Spatial == 0) && "Spatial locality already populated!");
 
-    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair->second;
+  for (auto &GroupVecPair : RefGroups) {
+
+    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair.second;
     assert(!RefVec.empty() && " Ref Group is empty.");
 
     // We need to compute spatial locality for only one from each RefGroup.
@@ -367,7 +348,7 @@ void HIRLocalityAnalysis::computeSpatialLocality(const HLLoop *Loop) {
 
     // No Spatial Reuse for multiple IV subscripts e.g. A[i+1][i] and A[i][i].
     unsigned IVPos = 0;
-    if (isMultipleIV(Ref, Loop->getNestingLevel(), &IVPos)) {
+    if (isMultipleIV(Ref, Level, &IVPos)) {
       continue;
     }
 
@@ -388,73 +369,37 @@ void HIRLocalityAnalysis::computeSpatialLocality(const HLLoop *Loop) {
 
     // Compute the spatial locality. Higher is better.
     // Adds a constant offset if Ref is Write to help differentiate cases.
-    LI->Spatial += SpatialTrip;
+    LI.Spatial += SpatialTrip;
     if (Ref->isLval())
-      LI->Spatial += WriteWt;
+      LI.Spatial += WriteWt;
   }
 }
 
 void HIRLocalityAnalysis::printLocalityInfo(raw_ostream &OS,
-                                            const HLLoop *L) const {
+                                            const HLLoop *Lp) const {
+
+  unsigned Level = Lp->getNestingLevel();
 
   // lit tests are dependent on the printing information.
-  auto Iter = LocalityMap.find(L);
-  assert((Iter != LocalityMap.end()) && " Locality info not found for loop.");
-  const LocalityInfo *LI = Iter->second;
-  OS << "\n Locality Info for Loop level: " << L->getNestingLevel();
-  OS << "\t Locality Value: " << LI->getLocalityValue();
-  OS << "\t Spatial: " << LI->Spatial;
-  OS << "\t TempInv: " << LI->TempInv;
-  OS << "\t TempReuse: " << LI->TempReuse << "\n";
+  const LocalityInfo &LI = LocalityByLevel[Level - 1];
+
+  OS << "\n Locality Info for Loop level: " << Level;
+  OS << "\t Locality Value: " << LI.getLocalityValue();
+  OS << "\t Spatial: " << LI.Spatial;
+  OS << "\t TempInv: " << LI.TempInv;
+  OS << "\t TempReuse: " << LI.TempReuse << "\n";
 }
 
-void HIRLocalityAnalysis::initConstTripCache(
-    SmallVectorImpl<const HLLoop *> *Loops) {
+void HIRLocalityAnalysis::initTripCountByLevel(
+    const SmallVectorImpl<const HLLoop *> &Loops) {
 
-  for (auto Iter = Loops->begin(), End = Loops->end(); Iter != End; ++Iter) {
-    const HLLoop *Loop = *Iter;
-
+  for (auto Loop : Loops) {
     uint64_t TripCnt = 0;
     bool ConstTripLoop = Loop->isConstTripLoop(&TripCnt);
 
-    // If Const Trip Loop and Trip is less than Symbolic 'N'
-    // add it to trip cache. If loops are not present in trip cache,
-    // they are assumed to be 'N'.
-    if (ConstTripLoop && TripCnt < SymbolicConst)
-      ConstTripCache[Loop] = TripCnt;
-  }
-}
-
-// Clears out the locality map information if it exists, otherwise
-// it creates a new one for first time visits to the loop.
-void HIRLocalityAnalysis::resetLocalityMap(const HLLoop *L) {
-
-  auto Iter = LocalityMap.find(L);
-  if (Iter != LocalityMap.end()) {
-    // Clear existing info.
-    LocalityInfo *LI = Iter->second;
-    LI->clear();
-  } else {
-    // Create a new info.
-    LocalityMap[L] = new LocalityInfo();
-  }
-}
-
-// Removes the empty Symbases from the list.
-// This is needed since the invariant DDRef will be removed from
-// the list.
-void HIRLocalityAnalysis::clearEmptySlots(SymToMemRefTy &MemRefMap) {
-  // Note, we need to check map end since the elements
-  // are deleted.
-  for (auto SymVecPair = MemRefMap.begin(); SymVecPair != MemRefMap.end();) {
-    auto &RefVec = SymVecPair->second;
-    if (RefVec.empty()) {
-      auto EraseIt = SymVecPair;
-      SymVecPair++;
-      MemRefMap.erase(EraseIt);
-    } else {
-      SymVecPair++;
-    }
+    TripCountByLevel[Loop->getNestingLevel() - 1] =
+        (ConstTripLoop && (TripCnt < SymbolicConstTC)) ? TripCnt
+                                                       : SymbolicConstTC;
   }
 }
 
@@ -462,16 +407,23 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
                                              const RegDDRef *Ref2,
                                              unsigned Level, uint64_t MaxDiff) {
 
+  // Put all invariant refs in one group.
+  if (Ref1->isStructurallyInvariantAtLevel(Level) &&
+      Ref2->isStructurallyInvariantAtLevel(Level)) {
+    return true;
+  }
+
   // TODO: Think about if we can delinearize the subscripts.
-  if (Ref1->getNumDimensions() != Ref2->getNumDimensions())
+  if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
+  }
 
   unsigned NumConstDiff = 0;
 
   // Compare base CE.
   // TODO: Currently assuming it to be in different groups. Need to add
   // support for cases such as *(ptr+i) and *(ptr+i+1).
-  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE())) {
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(), true)) {
     // assert(false && " Handle Base CE for array groups.");
     return false;
   }
@@ -489,7 +441,7 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
     // grouping.
     if (!Ref1CE->hasIV(Level)) {
       // Compare 'j' and 'j+1'
-      if (!CanonExprUtils::areEqual(Ref1CE, Ref2CE)) {
+      if (!CanonExprUtils::areEqual(Ref1CE, Ref2CE, true)) {
         return false;
       } else {
         continue;
@@ -500,8 +452,8 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
     // TODO: Added RelaxedMode, but think about cases where src type also
     // differs.
     // sext.i32.i64(i+21) and i64(i+21) should be present in the same group.
-    const CanonExpr *Result =
-        CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true);
+    std::unique_ptr<CanonExpr> Result(
+        CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true));
     if (!Result) {
       return false;
     }
@@ -512,7 +464,8 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
     }
 
     // Difference between the two canon expr should be constant.
-    uint64_t Diff = std::abs(Result->getConstant()) / Result->getDenominator();
+    uint64_t Diff =
+        std::llabs(Result->getConstant()) / Result->getDenominator();
 
     // If Diff is greater than MaxDiff then place it in a
     // separate bucket.
@@ -536,59 +489,35 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
 }
 
 // This is a high level routine to compute different locality.
-void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
-                                          bool EnableCache) {
+void HIRLocalityAnalysis::computeLoopNestLocality(
+    const HLLoop *Loop, const SmallVectorImpl<const HLLoop *> &LoopVec) {
 
-  // Check if the Loop locality is valid from past computation.
-  if (!isLoopModified(Loop) && EnableCache)
-    return;
-
+  RefGroupMapTy RefGroups;
   // Get the Symbase to Memory References.
   ConstMemRefGatherer::MapTy MemRefMap;
-  ConstMemRefGatherer::gather(Loop, MemRefMap);
+  ConstMemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
+                                   MemRefMap);
 
   // Debugging
   DEBUG(ConstMemRefGatherer::dump(MemRefMap));
 
   // Sort the Memory References.
-  ConstMemRefGatherer::sort(MemRefMap);
-  DEBUG(dbgs() << " After sorting\n");
-  DEBUG(ConstMemRefGatherer::dump(MemRefMap));
-
-  // Remove duplicate memory references.
-  ConstMemRefGatherer::makeUnique(MemRefMap);
+  ConstMemRefGatherer::sortAndUnique(MemRefMap, true);
 
   DEBUG(dbgs() << " After sorting and removing dups\n");
   DEBUG(ConstMemRefGatherer::dump(MemRefMap));
   DEBUG(dbgs() << " End\n");
 
-  // Collect all the loops inside the loop nest.
-  SmallVector<const HLLoop *, 16> LoopVec;
-  HLNodeUtils::gatherAllLoops(Loop, LoopVec);
-
-  initConstTripCache(&LoopVec);
+  initTripCountByLevel(LoopVec);
 
   // For each loop, we create a reference group based on the sorted Memory Ref
   // Mapping, then compute the temporal reuse and spatial locality. The
   // Reference groups are based on per loop basis.
-  for (auto Iter = LoopVec.begin(), End = LoopVec.end(); Iter != End; ++Iter) {
-
-    const HLLoop *CurLoop = *Iter;
+  for (auto CurLoop : LoopVec) {
 
     // Copy the MemRefMap as it will be modified as the loop locality is
     // computed.
     ConstMemRefGatherer::MapTy LoopMemRefMap = MemRefMap;
-
-    // Clear the LocalityInfo if exists or create a new one.
-    resetLocalityMap(CurLoop);
-
-    computeTempInvLocality(CurLoop, LoopMemRefMap);
-
-    // Remove the empty entries inside symbase since loop invariant entries
-    // are erased by temp invariant locality pass.
-    clearEmptySlots(LoopMemRefMap);
-
-    DEBUG(ConstMemRefGatherer::dump(LoopMemRefMap));
 
     // Create Groupings based on index.
 
@@ -599,80 +528,71 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
                   NumCacheLines));
     DEBUG(DDRefGrouping::dump(RefGroups));
 
-    computeTempReuseLocality(CurLoop);
+    computeTempInvLocality(CurLoop, RefGroups);
+    // This is unused by interchange so commenting out.
+    // computeTempReuseLocality(CurLoop, RefGroups, DefaultReuseThreshold);
 
-    computeSpatialLocality(CurLoop);
+    computeSpatialLocality(CurLoop, RefGroups);
 
     DEBUG(printLocalityInfo(dbgs(), CurLoop));
 
     // Clear the grouping after last use for current loop.
     RefGroups.clear();
   }
-
-  // Clears the trip count cache after use.
-  ConstTripCache.clear();
 }
 
-uint64_t HIRLocalityAnalysis::getLocalityValue(const HLLoop *Loop) {
-  assert(Loop && " Loop parameter is null.");
-
-  // Compute the locality for the entire loop nest, if necessary.
-  computeLocality(Loop);
-
-  assert(LocalityMap.count(Loop) && " Loop locality information not found.");
-  LocalityInfo *LI = LocalityMap[Loop];
-  return LI->getLocalityValue();
-}
-
-void HIRLocalityAnalysis::verifyLocality(const HLLoop *Loop) {
-
-  // If Loop is modified, then we cannot do a cache check (verify).
-  if (isLoopModified(Loop)) {
-    computeLocality(Loop, false);
-  } else {
-    // Compare the cached value with newly computed value.
-    uint64_t CachedLoc = LocalityMap[Loop]->getLocalityValue();
-    computeLocality(Loop, false);
-
-    (void)CachedLoc;
-    assert((CachedLoc != LocalityMap[Loop]->getLocalityValue()) &&
-           " Cached locality information not consistent.");
-  }
-}
-
-// The LoopLocality will contain Loops along with LocalityValue in sorted order.
-// Note that the topmost Loop level must be passed to this method, similar
-// to loop interchange use case.
 void HIRLocalityAnalysis::sortedLocalityLoops(
     const HLLoop *OutermostLoop,
-    SmallVectorImpl<LoopLocalityPair> &LoopLocality) {
-
+    SmallVector<const HLLoop *, MaxLoopNestLevel> &SortedLoops) {
   assert(OutermostLoop && " Loop parameter is null.");
-  assert(LoopLocality.empty() && "LoopLocality vector is non-empty.");
+  assert(SortedLoops.empty() && "SortedLoops vector is non-empty.");
+  assert(HLNodeUtils::isPerfectLoopNest(OutermostLoop, nullptr, false, false,
+                                        true, nullptr) &&
+         "Near perfect loopnest expected!");
 
-// Compute the locality for the entire loop nest, if necessary.
-// In debug mode, we test the cached loop information and recomputed
-// value, whereas in non-debug mode, we use cached value. This is primarily
-// done for testing.
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // Debug mode.
-  verifyLocality(OutermostLoop);
-#else
-  // Optimized mode.
-  computeLocality(OutermostLoop, true);
-#endif
-
-  SmallVector<const HLLoop *, 16> Loops;
-  HLNodeUtils::gatherAllLoops(OutermostLoop, Loops);
-
-  // Store all the Loop Locality Information.
-  for (auto Iter = Loops.begin(), End = Loops.end(); Iter != End; ++Iter) {
-    const HLLoop *CurLoop = *Iter;
-    assert(LocalityMap.count(CurLoop) &&
-           " Locality information for loop not found.");
-    LocalityInfo *LI = LocalityMap[CurLoop];
-    LoopLocality.push_back(std::make_pair(CurLoop, LI->getLocalityValue()));
+  // Clear locality by level.
+  for (auto &Loc : LocalityByLevel) {
+    Loc.clear();
   }
 
-  std::sort(LoopLocality.begin(), LoopLocality.end(), compareLocalityValue());
+  HLNodeUtils::gatherAllLoops(OutermostLoop, SortedLoops);
+  computeLoopNestLocality(OutermostLoop, SortedLoops);
+
+  auto Comp = [this](const HLLoop *Lp1, const HLLoop *Lp2) {
+    return LocalityByLevel[Lp1->getNestingLevel() - 1].getLocalityValue() <
+           LocalityByLevel[Lp2->getNestingLevel() - 1].getLocalityValue();
+  };
+
+  std::sort(SortedLoops.begin(), SortedLoops.end(), Comp);
+}
+
+uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
+                                                  unsigned ReuseThreshold) {
+  assert(Lp && " Loop parameter is null!");
+
+  unsigned Level = Lp->getNestingLevel();
+
+  RefGroupMapTy RefGroups;
+  ConstMemRefGatherer::MapTy MemRefMap;
+
+  // Clear existing locality and trip count info.
+  LocalityByLevel[Level - 1].clear();
+  // Don't need a multiplication factor of trip count.
+  TripCountByLevel[Level - 1] = 1;
+
+  ConstMemRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
+                                   MemRefMap);
+  ConstMemRefGatherer::sortAndUnique(MemRefMap, true);
+
+  DDRefGrouping::createGroups(
+      RefGroups, MemRefMap,
+      std::bind(isGroupMemRefMatch, std::placeholders::_1,
+                std::placeholders::_2, Level, NumCacheLines));
+
+  computeTempInvLocality(Lp, RefGroups);
+
+  computeTempReuseLocality(
+      Lp, RefGroups, ReuseThreshold ? ReuseThreshold : DefaultReuseThreshold);
+
+  return LocalityByLevel[Level - 1].getTemporalLocality();
 }

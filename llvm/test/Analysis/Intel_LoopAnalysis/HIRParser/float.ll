@@ -2,10 +2,10 @@
 
 ; Check parsing output for the loop
 ; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: %0 = {al:4}(%B)[i1]
-; CHECK-NEXT: %1 = {al:4}(%A)[i1]
+; CHECK-NEXT: %0 = (%B)[i1]
+; CHECK-NEXT: %1 = (%A)[i1]
 ; CHECK-NEXT: %add = %0  +  %1
-; CHECK-NEXT: {al:4}(%A)[i1] = %add
+; CHECK-NEXT: (%A)[i1] = %add
 ; CHECK-NEXT: END LOOP
 
 
