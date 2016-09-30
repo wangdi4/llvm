@@ -148,17 +148,18 @@ uint64_t DIExpression::getElement(unsigned Idx) const {
 }
 
 bool DIExpression::isVariablePiece() const {
-  return getNumElements() && getElement(0) == dwarf::DW_OP_piece;
+  unsigned N = getNumElements();
+  return N >=3 && getElement(N-3) == dwarf::DW_OP_piece;
 }
 
 uint64_t DIExpression::getPieceOffset() const {
-  assert(isVariablePiece());
-  return getElement(1);
+  assert(isVariablePiece() && "not a piece");
+  return getElement(getNumElements()-2);
 }
 
 uint64_t DIExpression::getPieceSize() const {
-  assert(isVariablePiece());
-  return getElement(2);
+  assert(isVariablePiece() && "not a piece");
+  return getElement(getNumElements()-1);
 }
 
 //===----------------------------------------------------------------------===//
@@ -337,7 +338,8 @@ void DIDescriptor::replaceAllUsesWith(LLVMContext &VMContext, DIDescriptor D) {
     DN = MDNode::get(VMContext, Ops);
   }
 
-  auto *Node = cast<MDNodeFwdDecl>(const_cast<MDNode *>(DbgNode));
+  assert(DbgNode->isTemporary() && "Expected temporary node");
+  auto *Node = const_cast<MDNode *>(DbgNode);
   Node->replaceAllUsesWith(const_cast<MDNode *>(DN));
   MDNode::deleteTemporary(Node);
   DbgNode = DN;
@@ -346,7 +348,8 @@ void DIDescriptor::replaceAllUsesWith(LLVMContext &VMContext, DIDescriptor D) {
 void DIDescriptor::replaceAllUsesWith(MDNode *D) {
   assert(DbgNode && "Trying to replace an unverified type!");
   assert(DbgNode != D && "This replacement should always happen");
-  auto *Node = cast<MDNodeFwdDecl>(const_cast<MDNode *>(DbgNode));
+  assert(DbgNode->isTemporary() && "Expected temporary node");
+  auto *Node = const_cast<MDNode *>(DbgNode);
   Node->replaceAllUsesWith(D);
   MDNode::deleteTemporary(Node);
 }
@@ -525,12 +528,15 @@ bool DISubprogram::Verify() const {
         while ((IA = DL.getInlinedAt()))
           DL = DebugLoc::getFromDILocation(IA);
         DL.getScopeAndInlinedAt(Scope, IA);
+        if (!Scope)
+          return false;
         assert(!IA);
         while (!DIDescriptor(Scope).isSubprogram()) {
           DILexicalBlockFile D(Scope);
           Scope = D.isLexicalBlockFile()
                       ? D.getScope()
                       : DebugLoc::getFromDILexicalBlock(Scope).getScope();
+          assert(Scope && "lexical block file has no scope");
         }
         if (!DISubprogram(Scope).describes(F))
           return false;
@@ -588,14 +594,29 @@ bool DIExpression::Verify() const {
   if (!DbgNode)
     return true;
 
+  unsigned N = getNumElements();
+  for (unsigned I = 0; I < N; ++I)
+    switch (getElement(I)) {
+    case DW_OP_piece:
+      // DW_OP_piece has to be the last element in the expression and take two
+      // arguments.
+      if (getElement(I) == DW_OP_piece && !isVariablePiece())
+        return false;
+      I += 2;
+      break;
+    case DW_OP_plus:
+      // Takes one argument.
+      if (I+1 == N)
+        return false;
+      I += 1;
+      break;
+    default: break;
+  }
   return isExpression() && DbgNode->getNumOperands() == 1;
 }
 
 bool DILocation::Verify() const {
-  if (!DbgNode)
-    return false;
-
-  return DbgNode->getNumOperands() == 4;
+  return DbgNode && isa<MDLocation>(DbgNode);
 }
 
 bool DINameSpace::Verify() const {
@@ -830,16 +851,12 @@ void DICompileUnit::replaceGlobalVariables(DIArray GlobalVariables) {
 
 DILocation DILocation::copyWithNewScope(LLVMContext &Ctx,
                                         DILexicalBlockFile NewScope) {
-  SmallVector<Metadata *, 10> Elts;
   assert(Verify());
-  for (unsigned I = 0; I < DbgNode->getNumOperands(); ++I) {
-    if (I != 2)
-      Elts.push_back(DbgNode->getOperand(I));
-    else
-      Elts.push_back(NewScope);
-  }
-  MDNode *NewDIL = MDNode::get(Ctx, Elts);
-  return DILocation(NewDIL);
+  assert(NewScope && "Expected valid scope");
+
+  const auto *Old = cast<MDLocation>(DbgNode);
+  return DILocation(MDLocation::get(Ctx, Old->getLine(), Old->getColumn(),
+                                    NewScope, Old->getInlinedAt()));
 }
 
 unsigned DILocation::computeNewDiscriminator(LLVMContext &Ctx) {

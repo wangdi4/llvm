@@ -52,17 +52,16 @@ std::error_code PPCTargetRelocationHandler::applyRelocation(
     break;
 
   default:
-    unhandledReferenceType(*atom._atom, ref);
+    return make_unhandled_reloc_error();
   }
 
   return std::error_code();
 }
 
 PPCTargetHandler::PPCTargetHandler(PPCLinkingContext &context)
-    : DefaultTargetHandler(context), _ppcLinkingContext(context),
+    : _ppcLinkingContext(context),
       _ppcTargetLayout(new PPCTargetLayout<PPCELFType>(context)),
-      _ppcRelocationHandler(
-          new PPCTargetRelocationHandler(context, *_ppcTargetLayout.get())) {}
+      _ppcRelocationHandler(new PPCTargetRelocationHandler()) {}
 
 void PPCTargetHandler::registerRelocationNames(Registry &registry) {
   registry.addKindTable(Reference::KindNamespace::ELF,

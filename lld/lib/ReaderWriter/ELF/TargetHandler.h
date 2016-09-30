@@ -40,53 +40,27 @@ template <class ELFT> class ELFHeader;
 template <class ELFT> class Section;
 template <class ELFT> class TargetLayout;
 
-template <class ELFT> class TargetRelocationHandler {
+class TargetRelocationHandler {
 public:
   /// Constructor
-  TargetRelocationHandler(ELFLinkingContext &targetInfo)
-      : _context(targetInfo) {}
+  TargetRelocationHandler() {}
+  virtual ~TargetRelocationHandler() {}
 
   virtual std::error_code applyRelocation(ELFWriter &, llvm::FileOutputBuffer &,
                                           const lld::AtomLayout &,
                                           const Reference &) const = 0;
-
-  void unhandledReferenceType(const Atom &atom, const Reference &ref) const {
-    llvm::errs() << "Unhandled reference type in file " << atom.file().path()
-                 << ": reference from " << atom.name() << "+"
-                 << ref.offsetInAtom() << " to " << ref.target()->name()
-                 << "+" << ref.addend() << " of type ";
-
-    StringRef kindValStr;
-    if (!_context.registry().referenceKindToString(ref.kindNamespace(),
-                                                   ref.kindArch(),
-                                                   ref.kindValue(),
-                                                   kindValStr)) {
-      kindValStr = "unknown";
-    }
-
-    llvm::errs() << ref.kindValue() << " (" << kindValStr << ")\n";
-    llvm::report_fatal_error("unhandled reference type");
-  }
-
-  virtual ~TargetRelocationHandler() {}
-private:
-  ELFLinkingContext &_context;
 };
 
 /// \brief TargetHandler contains all the information responsible to handle a
 /// a particular target on ELF. A target might wish to override implementation
 /// of creating atoms and how the atoms are written to the output file.
 template <class ELFT> class TargetHandler : public TargetHandlerBase {
-
 public:
-  /// Constructor
-  TargetHandler(ELFLinkingContext &targetInfo) : _context(targetInfo) {}
-
   /// The layout determined completely by the Target.
   virtual TargetLayout<ELFT> &getTargetLayout() = 0;
 
   /// Determine how relocations need to be applied.
-  virtual const TargetRelocationHandler<ELFT> &getRelocationHandler() const = 0;
+  virtual const TargetRelocationHandler &getRelocationHandler() const = 0;
 
   /// How does the target deal with reading input files.
   virtual std::unique_ptr<Reader> getObjReader(bool) = 0;
@@ -96,10 +70,16 @@ public:
 
   /// How does the target deal with writing ELF output.
   virtual std::unique_ptr<Writer> getWriter() = 0;
-
-private:
-  ELFLinkingContext &_context;
 };
+
+inline std::error_code make_unhandled_reloc_error() {
+  return make_dynamic_error_code(Twine("Unhandled reference type"));
+}
+
+inline std::error_code make_out_of_range_reloc_error() {
+  return make_dynamic_error_code(Twine("Relocation out of range"));
+}
+
 } // end namespace elf
 } // end namespace lld
 

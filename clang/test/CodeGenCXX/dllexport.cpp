@@ -82,8 +82,8 @@ int __declspec(dllexport) nonInlineStaticLocalsFunc() {
   return x++;
 };
 
-// MSC-DAG: @"\01?x@?1??inlineStaticLocalsFunc@@YAHXZ@4HA" = weak_odr dllexport global i32 0
-// MSC-DAG: @"\01??_B?1??inlineStaticLocalsFunc@@YAHXZ@51" = weak_odr dllexport global i32 0
+// MSC-DAG: @"\01?x@?1??inlineStaticLocalsFunc@@YAHXZ@4HA" = weak_odr dllexport global i32 0, comdat
+// MSC-DAG: @"\01??_B?1??inlineStaticLocalsFunc@@YAHXZ@51" = weak_odr dllexport global i32 0, comdat
 // Note: MinGW doesn't seem to export the static local here.
 inline int __declspec(dllexport) inlineStaticLocalsFunc() {
   static int x = f();
@@ -630,6 +630,17 @@ template <typename T> struct ExplicitInstConstexprMembers {
   // M32-DAG: define weak_odr dllexport x86_thiscallcc i32 @"\01?f@?$ExplicitInstConstexprMembers@X@@QBEHXZ"
 };
 template struct __declspec(dllexport) ExplicitInstConstexprMembers<void>;
+
+template <typename T> struct ExplicitInstantiationDeclTemplate { void f() {} };
+extern template struct __declspec(dllexport) ExplicitInstantiationDeclTemplate<int>;
+USEMEMFUNC(ExplicitInstantiationDeclTemplate<int>, f);
+// M32-DAG: {{declare|define available_externally}} x86_thiscallcc void @"\01?f@?$ExplicitInstantiationDeclTemplate@H@@QAEXXZ"
+
+template <typename T> struct __declspec(dllexport) ExplicitInstantiationDeclExportedTemplate { void f() {} };
+extern template struct ExplicitInstantiationDeclExportedTemplate<int>;
+USEMEMFUNC(ExplicitInstantiationDeclExportedTemplate<int>, f);
+// M32-DAG: {{declare|define available_externally}} x86_thiscallcc void @"\01?f@?$ExplicitInstantiationDeclExportedTemplate@H@@QAEXXZ"
+
 
 //===----------------------------------------------------------------------===//
 // Classes with template base classes

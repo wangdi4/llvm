@@ -698,9 +698,9 @@ void IslNodeBuilder::createIf(__isl_take isl_ast_node *If) {
   LLVMContext &Context = F->getContext();
 
   BasicBlock *CondBB =
-      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), P);
+      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), &DT, &LI);
   CondBB->setName("polly.cond");
-  BasicBlock *MergeBB = SplitBlock(CondBB, CondBB->begin(), P);
+  BasicBlock *MergeBB = SplitBlock(CondBB, CondBB->begin(), &DT, &LI);
   MergeBB->setName("polly.merge");
   BasicBlock *ThenBB = BasicBlock::Create(Context, "polly.then", F);
   BasicBlock *ElseBB = BasicBlock::Create(Context, "polly.else", F);
@@ -711,8 +711,8 @@ void IslNodeBuilder::createIf(__isl_take isl_ast_node *If) {
 
   Loop *L = LI.getLoopFor(CondBB);
   if (L) {
-    L->addBasicBlockToLoop(ThenBB, LI.getBase());
-    L->addBasicBlockToLoop(ElseBB, LI.getBase());
+    L->addBasicBlockToLoop(ThenBB, LI);
+    L->addBasicBlockToLoop(ElseBB, LI);
   }
 
   CondBB->getTerminator()->eraseFromParent();
@@ -912,7 +912,7 @@ public:
   }
 
   bool runOnScop(Scop &S) {
-    LI = &getAnalysis<LoopInfo>();
+    LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     AI = &getAnalysis<IslAstInfo>();
     DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     SE = &getAnalysis<ScalarEvolution>();
@@ -949,11 +949,11 @@ public:
     AU.addRequired<ScalarEvolution>();
     AU.addRequired<ScopDetection>();
     AU.addRequired<ScopInfo>();
-    AU.addRequired<LoopInfo>();
+    AU.addRequired<LoopInfoWrapperPass>();
 
     AU.addPreserved<Dependences>();
 
-    AU.addPreserved<LoopInfo>();
+    AU.addPreserved<LoopInfoWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<IslAstInfo>();
     AU.addPreserved<ScopDetection>();
@@ -977,7 +977,7 @@ INITIALIZE_PASS_BEGIN(IslCodeGeneration, "polly-codegen-isl",
                       "Polly - Create LLVM-IR from SCoPs", false, false);
 INITIALIZE_PASS_DEPENDENCY(Dependences);
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass);
-INITIALIZE_PASS_DEPENDENCY(LoopInfo);
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(RegionInfoPass);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution);
 INITIALIZE_PASS_DEPENDENCY(ScopDetection);

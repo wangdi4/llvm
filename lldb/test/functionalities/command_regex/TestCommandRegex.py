@@ -11,6 +11,7 @@ class CommandRegexTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
+    @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
     def test_command_regex(self):
         """Test a simple scenario of 'command regex' invocation and subsequent use."""
         import pexpect
@@ -36,8 +37,7 @@ class CommandRegexTestCase(TestBase):
         # Help!
         child.sendline('Help__')
         # If we see the familiar 'help' output, the test is done.
-        child.expect('The following is a list of built-in, permanent debugger commands:')
-        
+        child.expect('Debugger commands:')
         # Try and incorrectly remove "Help__" using "command unalias" and verify we fail
         child.sendline('command unalias Help__')
         child.expect_exact("error: 'Help__' is not an alias, it is a debugger command which can be removed using the 'command delete' command")

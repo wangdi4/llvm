@@ -1597,7 +1597,11 @@ Parser::ParseCXXTypeConstructExpression(const DeclSpec &DS) {
     CommaLocsTy CommaLocs;
 
     if (Tok.isNot(tok::r_paren)) {
-      if (ParseExpressionList(Exprs, CommaLocs)) {
+      if (ParseExpressionList(Exprs, CommaLocs, [&] {
+            Actions.CodeCompleteConstructor(getCurScope(),
+                                      TypeRep.get()->getCanonicalTypeInternal(),
+                                            DS.getLocEnd(), Exprs);
+         })) {
         SkipUntil(tok::r_paren, StopAtSemi);
         return ExprError();
       }
@@ -2504,6 +2508,7 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, bool EnteringContext,
     }
 
     // If the user wrote ~T::T, correct it to T::~T.
+    DeclaratorScopeObj DeclScopeObj(*this, SS);
     if (!TemplateSpecified && NextToken().is(tok::coloncolon)) {
       if (SS.isSet()) {
         AnnotateScopeToken(SS, /*NewAnnotation*/true);
@@ -2520,6 +2525,10 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, bool EnteringContext,
       Diag(TildeLoc, diag::err_destructor_tilde_scope)
         << FixItHint::CreateRemoval(TildeLoc)
         << FixItHint::CreateInsertion(Tok.getLocation(), "~");
+
+      // Temporarily enter the scope for the rest of this function.
+      if (Actions.ShouldEnterDeclaratorScope(getCurScope(), SS))
+        DeclScopeObj.EnterDeclaratorScope();
     }
 
     // Parse the class-name (or template-name in a simple-template-id).
@@ -2663,7 +2672,14 @@ Parser::ParseCXXNewExpression(bool UseGlobal, SourceLocation Start) {
     ConstructorLParen = T.getOpenLocation();
     if (Tok.isNot(tok::r_paren)) {
       CommaLocsTy CommaLocs;
-      if (ParseExpressionList(ConstructorArgs, CommaLocs)) {
+      if (ParseExpressionList(ConstructorArgs, CommaLocs, [&] {
+            ParsedType TypeRep = Actions.ActOnTypeName(getCurScope(),
+                                                       DeclaratorInfo).get();
+            Actions.CodeCompleteConstructor(getCurScope(),
+                                      TypeRep.get()->getCanonicalTypeInternal(),
+                                            DeclaratorInfo.getLocEnd(),
+                                            ConstructorArgs);
+      })) {
         SkipUntil(tok::semi, StopAtSemi | StopBeforeMatch);
         return ExprError();
       }

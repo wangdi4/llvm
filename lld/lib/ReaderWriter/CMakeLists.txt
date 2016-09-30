@@ -4,7 +4,11 @@ add_subdirectory(Native)
 add_subdirectory(PECOFF)
 add_subdirectory(YAML)
 
-set(LLVM_LINK_COMPONENTS object)
+set(LLVM_LINK_COMPONENTS object support)
+
+if (MSVC)
+  add_definitions(-wd4062) # Suppress 'warning C4062: Enumerator has no associated handler in a switch statement.'
+endif()
 
 add_lld_library(lldReaderWriter
   CoreLinkingContext.cpp

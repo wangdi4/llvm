@@ -18,12 +18,8 @@ typedef llvm::object::ELFType<llvm::support::little, 2, true> AArch64ELFType;
 
 template <class ELFT> class AArch64TargetLayout;
 
-class AArch64TargetRelocationHandler final
-    : public TargetRelocationHandler<AArch64ELFType> {
+class AArch64TargetRelocationHandler final : public TargetRelocationHandler {
 public:
-  AArch64TargetRelocationHandler(ELFLinkingContext &targetInfo)
-      : TargetRelocationHandler<AArch64ELFType>(targetInfo) {}
-
   std::error_code applyRelocation(ELFWriter &, llvm::FileOutputBuffer &,
                                   const lld::AtomLayout &,
                                   const Reference &) const override;
