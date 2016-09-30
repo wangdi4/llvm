@@ -409,37 +409,44 @@ bool HLInst::isSIMDDirective() const {
   return true;
 }
 
-bool HLInst::isReductionOp(unsigned *OpCode) const {
+bool HLInst::isValidReductionOpCode(unsigned OpCode) {
+  // Start with these initially - when adding a new opcode ensure
+  // that we also add changes to get reduction identity in
+  // getRecurrenceIdentity below.
+  switch (OpCode) {
+  case Instruction::FAdd:
+  case Instruction::FSub:
+  case Instruction::FMul:
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::Mul:
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor:
+    return true;
 
-  bool IsReductionOp = false;
-  *OpCode = 0;
+  default:
+    return false;
+  }
+}
+
+bool HLInst::isReductionOp(unsigned *OpCode) const {
   const Instruction *LLVMInst = getLLVMInstruction();
+
   if (isa<BinaryOperator>(LLVMInst)) {
     *OpCode = LLVMInst->getOpcode();
-    // Start with these initially - when adding a new opcode ensure
-    // that we also add changes to get reduction identity in
-    // getRecurrenceIdentity below.
-    switch (*OpCode) {
-    case Instruction::FAdd:
-    case Instruction::FSub:
-    case Instruction::FMul:
-    case Instruction::Add:
-    case Instruction::Sub:
-    case Instruction::Mul:
-    case Instruction::And:
-    case Instruction::Or:
-    case Instruction::Xor:
-      IsReductionOp = true;
-      break;
-    default:
-      break;
-    }
+    return isValidReductionOpCode(*OpCode);
+  } else {
+    *OpCode = 0;
+    return false;
   }
-  return IsReductionOp;
 }
 
 Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
   RecurrenceDescriptor::RecurrenceKind RDKind;
+
+  assert(isValidReductionOpCode(RednOpCode) &&
+         "Expected a valid reduction opcode");
 
   switch (RednOpCode) {
   case Instruction::FAdd:

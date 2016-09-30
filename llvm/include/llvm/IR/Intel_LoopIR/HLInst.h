@@ -169,6 +169,9 @@ public:
   /// Return the identity value corresponding to the given reduction
   /// instruction opcode and specified type.
   static Constant *getRecurrenceIdentity(unsigned RednOpCode, Type *Ty);
+
+  /// Return true if OpCode is a valid reduction opcode.
+  static bool isValidReductionOpCode(unsigned OpCode);
 };
 
 } // End namespace loopopt
