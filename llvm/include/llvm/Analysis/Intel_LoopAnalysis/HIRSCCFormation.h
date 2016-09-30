@@ -156,6 +156,11 @@ private:
   /// \brief Returns true if forming this SCC results in a cleaner HIR.
   bool isProfitableSCC(const SCCNodesTy &Nodes) const;
 
+  /// Returns true if one of \p Inst1 and \p Inst2 is a CmpInst and the other is
+  /// a SelectInst and CmpInst's only use is in the SelectInst. This is used to
+  /// identiy min/max patterns.
+  static bool isCmpAndSelectPattern(Instruction *Inst1, Instruction *Inst2);
+
   /// Returns true if Node has multiple non-phi uses in the SCC.
   bool hasMultipleNonPhiSCCUses(NodeTy *Node, const SCCNodesTy &Nodes) const;
 

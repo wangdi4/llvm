@@ -486,6 +486,22 @@ bool HIRSCCFormation::isProfitableSCC(const SCCNodesTy &Nodes) const {
   return true;
 }
 
+bool HIRSCCFormation::isCmpAndSelectPattern(Instruction *Inst1,
+                                            Instruction *Inst2) {
+  auto CInst = Inst1;
+  auto SelInst = Inst2;
+
+  if (!isa<CmpInst>(CInst)) {
+    std::swap(CInst, SelInst);
+  } 
+
+  if (!isa<CmpInst>(CInst) || !isa<SelectInst>(SelInst)) {
+    return false;
+  }
+
+  return (CInst->hasOneUse() && (*(CInst->user_begin()) == SelInst));
+}
+
 bool HIRSCCFormation::hasMultipleNonPhiSCCUses(NodeTy *Node,
                                                const SCCNodesTy &Nodes) const {
   NodeTy *SCCUserNode = nullptr;
@@ -510,7 +526,9 @@ bool HIRSCCFormation::hasMultipleNonPhiSCCUses(NodeTy *Node,
     }
 
     if (Nodes.count(UserNode)) {
-      if (SCCUserNode && SCCUserNode != UserNode) {
+      if (SCCUserNode && (SCCUserNode != UserNode) &&
+          // Used to identify min/max reductions.
+          !isCmpAndSelectPattern(SCCUserNode, UserNode)) {
         return true;
       }
       SCCUserNode = UserNode;
