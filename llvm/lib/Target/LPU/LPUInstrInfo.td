@@ -16,14 +16,14 @@ include "LPUInstrFormats.td"
 // Possible TODO:
 // - Get rid of "f" variants for stores and other operations?  (e.g. ideally
 //   there should be a single LD32, ST32, PICK32, etc.)
-// - Clean up SEXT ops (should only need to be SEXTn, not _m versions
 // - Get rid of separate ordered loads/stores by having default operands?
 //   (Also, should %ign be zero_reg defined in Target.td, and use that
 //   as default for order operands for stores/loads?)
 // - Possible to merge BinOp and CmpOp (something that can take both a PatFrag
 //   and an SDNode?)
-// - Use "for" or some other mechanism to deal with 8/16/32/64 redundancy in patterns
-//   (but will likely eventually need bitpatterns
+// - Use "for" or some other mechanism to deal with 8/16/32/64 redundancy
+//   in patterns? (but will likely eventually need opcode bitpatterns, so
+//   that may not be feasible/desirable long term)
 // - Merge ADDR_I/R and ADDR_RI/RR similar to RegImm?
 // - Why are so many operands in LPUGenInstrInfo.inc unknown?
 
@@ -109,8 +109,7 @@ def RCLf64 : RegImmOperand<f64>;
 //
 class LPUTypeInfo<ValueType vt, string instrSuffix,
     RegisterClass rc, RegisterClass regRC, RegisterClass licRC,
-    DAGOperand rcl, DAGOperand immOperand, SDPatternOperator immNode,
-    list<Predicate> preds> {
+    DAGOperand rcl, DAGOperand immOperand, list<Predicate> preds> {
   // VT - the value type itself
   ValueType VT = vt;
 
@@ -134,32 +133,28 @@ class LPUTypeInfo<ValueType vt, string instrSuffix,
   // L (ImmOperand) - the operand kind of an immediate of this type
   DAGOperand L = immOperand;
 
-  // ImmNode - the operator that should be used to match an immediate
-  // of this kind in a pattern (e.g. imm or fpimm)
-  SDPatternOperator ImmNode = immNode;
-
   // Preds - Predicate list associated with type (not yet used by patterns)
   list<Predicate> Preds = preds;
 }
 
 // LPU type associations
-def Ti0  : LPUTypeInfo<i1,  "0",    I0,  RI0,  CI0,  RCLi0,  i1imm,  imm,   [HasI1]>;
-def Ti1  : LPUTypeInfo<i1,  "1",    I1,  RI1,  CI1,  RCLi1,  i1imm,  imm,   [HasI1]>;
-def Ti8  : LPUTypeInfo<i8,  "8",    I8,  RI8,  CI8,  RCLi8,  i8imm,  imm,   [HasI8]>;
-def Ts8  : LPUTypeInfo<i8,  "s8",   I8,  RI8,  CI8,  RCLi8,  i8imm,  imm,   [HasI8]>;
-def Tu8  : LPUTypeInfo<i8,  "u8",   I8,  RI8,  CI8,  RCLi8,  i8imm,  imm,   [HasI8]>;
-def Ti16 : LPUTypeInfo<i16, "16",   I16, RI16, CI16, RCLi16, i16imm, imm,   [HasI16]>;
-def Ts16 : LPUTypeInfo<i16, "s16",  I16, RI16, CI16, RCLi16, i16imm, imm,   [HasI16]>;
-def Tu16 : LPUTypeInfo<i16, "u16",  I16, RI16, CI16, RCLi16, i16imm, imm,   [HasI16]>;
-def Tf16 : LPUTypeInfo<f16, "f16",  I16, RI16, CI16, RCLf16, f16imm, fpimm, [HasF16]>;
-def Ti32 : LPUTypeInfo<i32, "32",   I32, RI32, CI32, RCLi32, i32imm, imm,   [HasI32]>;
-def Ts32 : LPUTypeInfo<i32, "s32",  I32, RI32, CI32, RCLi32, i32imm, imm,   [HasI32]>;
-def Tu32 : LPUTypeInfo<i32, "u32",  I32, RI32, CI32, RCLi32, i32imm, imm,   [HasI32]>;
-def Tf32 : LPUTypeInfo<f32, "f32",  I32, RI32, CI32, RCLf32, f32imm, fpimm, [HasF32]>;
-def Ti64 : LPUTypeInfo<i64, "64",   I64, RI64, CI64, RCLi64, i64imm, imm,   [HasI64]>;
-def Ts64 : LPUTypeInfo<i64, "s64",  I64, RI64, CI64, RCLi64, i64imm, imm,   [HasI64]>;
-def Tu64 : LPUTypeInfo<i64, "u64",  I64, RI64, CI64, RCLi64, i64imm, imm,   [HasI64]>;
-def Tf64 : LPUTypeInfo<f64, "f64",  I64, RI64, CI64, RCLf64, f64imm, fpimm, [HasF64]>;
+def Ti0  : LPUTypeInfo<i1,  "0",    I0,  RI0,  CI0,  RCLi0,  i1imm,  [HasI1]>;
+def Ti1  : LPUTypeInfo<i1,  "1",    I1,  RI1,  CI1,  RCLi1,  i1imm,  [HasI1]>;
+def Ti8  : LPUTypeInfo<i8,  "8",    I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
+def Ts8  : LPUTypeInfo<i8,  "s8",   I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
+def Tu8  : LPUTypeInfo<i8,  "u8",   I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
+def Ti16 : LPUTypeInfo<i16, "16",   I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
+def Ts16 : LPUTypeInfo<i16, "s16",  I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
+def Tu16 : LPUTypeInfo<i16, "u16",  I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
+def Tf16 : LPUTypeInfo<f16, "f16",  I16, RI16, CI16, RCLf16, f16imm, [HasF16]>;
+def Ti32 : LPUTypeInfo<i32, "32",   I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
+def Ts32 : LPUTypeInfo<i32, "s32",  I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
+def Tu32 : LPUTypeInfo<i32, "u32",  I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
+def Tf32 : LPUTypeInfo<f32, "f32",  I32, RI32, CI32, RCLf32, f32imm, [HasF32]>;
+def Ti64 : LPUTypeInfo<i64, "64",   I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
+def Ts64 : LPUTypeInfo<i64, "s64",  I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
+def Tu64 : LPUTypeInfo<i64, "u64",  I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
+def Tf64 : LPUTypeInfo<f64, "f64",  I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
 
 
 def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
@@ -798,19 +793,9 @@ def CVTF64U64 : CvtOp<   "cvt", uint_to_fp,Tf64, Tu64, [HasF64,HasI64], IICvtFI>
 def CVTF32F64 : CvtOp<   "cvt", fround,    Tf32, Tf64, [HasF32,HasF64], IICvtFF>;
 def CVTF64F32 : CvtOp<   "cvt", fextend,   Tf64, Tf32, [HasF32,HasF64], IICvtFF>;
 
-def SEXT8_1   : SExtOp<  "sext",           Ti8,  Ti1,  [HasI8],  IIALU>;
 def SEXT8     : SExtOp<  "sext",           Ti8,  Ti8,  [HasI8],  IIALU>;
-def SEXT16_1  : SExtOp<  "sext",           Ti16, Ti1,  [HasI16], IIALU>;
-def SEXT16_8  : SExtOp<  "sext",           Ti16, Ti8,  [HasI16], IIALU>;
 def SEXT16    : SExtOp<  "sext",           Ti16, Ti16, [HasI16], IIALU>;
-def SEXT32_1  : SExtOp<  "sext",           Ti32, Ti1,  [HasI32], IIALU>;
-def SEXT32_8  : SExtOp<  "sext",           Ti32, Ti8,  [HasI32], IIALU>;
-def SEXT32_16 : SExtOp<  "sext",           Ti32, Ti16, [HasI32], IIALU>;
 def SEXT32    : SExtOp<  "sext",           Ti32, Ti32, [HasI32], IIALU>;
-def SEXT64_1  : SExtOp<  "sext",           Ti64, Ti1,  [HasI64], IIALU>;
-def SEXT64_8  : SExtOp<  "sext",           Ti64, Ti8,  [HasI64], IIALU>;
-def SEXT64_16 : SExtOp<  "sext",           Ti64, Ti16, [HasI64], IIALU>;
-def SEXT64_32 : SExtOp<  "sext",           Ti64, Ti32, [HasI64], IIALU>;
 def SEXT64    : SExtOp<  "sext",           Ti64, Ti64, [HasI64], IIALU>;
 
 def AND1      : BinOp<   "and",    and,    Ti1,  [HasI1],  IIALU>;
@@ -1188,41 +1173,41 @@ def INIT32 : Init<Ti32, [HasI32], IIVir>;
 def INIT64 : Init<Ti64, [HasI64], IIVir>;
 
 // Memory references
-defm LD1     : LdOp<"ld8",   Ti1>;
-defm LD8     : LdOp<"ld8",   Ti8>;
-defm LD16    : LdOp<"ld16",  Ti16>;
-defm LD16f   : LdOp<"ld16",  Tf16>;
-defm LD32    : LdOp<"ld32",  Ti32>;
-defm LD32f   : LdOp<"ld32",  Tf32>;
-defm LD64    : LdOp<"ld64",  Ti64>;
-defm LD64f   : LdOp<"ld64",  Tf64>;
+defm LD1      : LdOp<    "ld8",   Ti1>;
+defm LD8      : LdOp<    "ld8",   Ti8>;
+defm LD16     : LdOp<    "ld16",  Ti16>;
+defm LD16f    : LdOp<    "ld16",  Tf16>;
+defm LD32     : LdOp<    "ld32",  Ti32>;
+defm LD32f    : LdOp<    "ld32",  Tf32>;
+defm LD64     : LdOp<    "ld64",  Ti64>;
+defm LD64f    : LdOp<    "ld64",  Tf64>;
 
-defm OLD1    : OLdOp<"ld8",   Ti1>;
-defm OLD8    : OLdOp<"ld8",   Ti8>;
-defm OLD16   : OLdOp<"ld16",  Ti16>;
-defm OLD16f  : OLdOp<"ld16",  Tf16>;
-defm OLD32   : OLdOp<"ld32",  Ti32>;
-defm OLD32f  : OLdOp<"ld32",  Tf32>;
-defm OLD64   : OLdOp<"ld64",  Ti64>;
-defm OLD64f  : OLdOp<"ld64",  Tf64>;
+defm OLD1     : OLdOp<   "ld8",   Ti1>;
+defm OLD8     : OLdOp<   "ld8",   Ti8>;
+defm OLD16    : OLdOp<   "ld16",  Ti16>;
+defm OLD16f   : OLdOp<   "ld16",  Tf16>;
+defm OLD32    : OLdOp<   "ld32",  Ti32>;
+defm OLD32f   : OLdOp<   "ld32",  Tf32>;
+defm OLD64    : OLdOp<   "ld64",  Ti64>;
+defm OLD64f   : OLdOp<   "ld64",  Tf64>;
 
-defm ST1     : StOp<"st8",   Ti1>;
-defm ST8     : StOp<"st8",   Ti8>;
-defm ST16    : StOp<"st16",  Ti16>;
-defm ST16f   : StOp<"st16",  Tf16>;
-defm ST32    : StOp<"st32",  Ti32>;
-defm ST32f   : StOp<"st32",  Tf32>;
-defm ST64    : StOp<"st64",  Ti64>;
-defm ST64f   : StOp<"st64",  Tf64>;
+defm ST1      : StOp<    "st8",   Ti1>;
+defm ST8      : StOp<    "st8",   Ti8>;
+defm ST16     : StOp<    "st16",  Ti16>;
+//defm ST16f    : StOp<    "st16",  Tf16>;
+defm ST32     : StOp<    "st32",  Ti32>;
+//defm ST32f    : StOp<    "st32",  Tf32>;
+defm ST64     : StOp<    "st64",  Ti64>;
+//defm ST64f    : StOp<    "st64",  Tf64>;
 
-defm OST1    : OStOp<"st8",   Ti1>;
-defm OST8    : OStOp<"st8",   Ti8>;
-defm OST16   : OStOp<"st16",  Ti16>;
-defm OST16f  : OStOp<"st16",  Tf16>;
-defm OST32   : OStOp<"st32",  Ti32>;
-defm OST32f  : OStOp<"st32",  Tf32>;
-defm OST64   : OStOp<"st64",  Ti64>;
-defm OST64f  : OStOp<"st64",  Tf64>;
+defm OST1     : OStOp<   "st8",   Ti1>;
+defm OST8     : OStOp<   "st8",   Ti8>;
+defm OST16    : OStOp<   "st16",  Ti16>;
+//defm OST16f   : OStOp<   "st16",  Tf16>;
+defm OST32    : OStOp<   "st32",  Ti32>;
+//defm OST32f   : OStOp<   "st32",  Tf32>;
+defm OST64    : OStOp<   "st64",  Ti64>;
+//defm OST64f   : OStOp<   "st64",  Tf64>;
 
 // Atomic operations
 def ATMAND8   : AtomicOp<"atmand8",   atomic_load_and_8,  Ti8,  [HasI8],  IIATM>;
@@ -1334,34 +1319,34 @@ def : Pat<(i64 imm:$imm),   (MOV64 imm:$imm)>;
 def : Pat<(f64 fpimm:$imm), (MOV64 fpimm:$imm)>;
 
 // sext/zext
-def : Pat<(i64 (sext i32:$op1)),  (SEXT64_32 (i32 $op1), 32)>;
-def : Pat<(i64 (sext i16:$op1)),  (SEXT64_16 (i16 $op1), 16)>;
-def : Pat<(i64 (sext i8:$op1)),   (SEXT64_8  (i8 $op1),  8)>;
-def : Pat<(i64 (sext i1:$op1)),   (SEXT64_1  (i1 $op1),  1)>;
+def : Pat<(i64 (sext i32:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64), 32)>;
+def : Pat<(i64 (sext i16:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64), 16)>;
+def : Pat<(i64 (sext  i8:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64),  8)>;
+def : Pat<(i64 (sext  i1:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64),  1)>;
 
-def : Pat<(i32 (sext i16:$op1)),  (SEXT32_16 (i16 $op1), 16)>;
-def : Pat<(i32 (sext i8:$op1)),   (SEXT32_8 (i8 $op1), 8)>;
-def : Pat<(i32 (sext i1:$op1)),   (SEXT32_1 (i1 $op1), 1)>;
+def : Pat<(i32 (sext i16:$op1)),  (SEXT32 (COPY_TO_REGCLASS $op1,I64), 16)>;
+def : Pat<(i32 (sext  i8:$op1)),  (SEXT32 (COPY_TO_REGCLASS $op1,I64),  8)>;
+def : Pat<(i32 (sext  i1:$op1)),  (SEXT32 (COPY_TO_REGCLASS $op1,I64),  1)>;
 
-def : Pat<(i16 (sext i8:$op1)),   (SEXT16_8 (i8 $op1), 8)>;
-def : Pat<(i16 (sext i1:$op1)),   (SEXT16_1 (i1 $op1), 1)>;
+def : Pat<(i16 (sext  i8:$op1)),  (SEXT16 (COPY_TO_REGCLASS $op1,I64),  8)>;
+def : Pat<(i16 (sext  i1:$op1)),  (SEXT16 (COPY_TO_REGCLASS $op1,I64),  1)>;
 
-def : Pat<(i8 (sext i1:$op1)),    (SEXT8_1 (i1 $op1), 1)>;
+def : Pat<(i8  (sext  i1:$op1)),  (SEXT8  (COPY_TO_REGCLASS $op1,I64),  1)>;
 
 // sext_inreg are the same
 def : Pat<(i64 (sext_inreg i64:$op1, i32)),  (SEXT64 $op1, 32)>;
 def : Pat<(i64 (sext_inreg i64:$op1, i16)),  (SEXT64 $op1, 16)>;
-def : Pat<(i64 (sext_inreg i64:$op1, i8)),   (SEXT64 $op1, 8)>;
-def : Pat<(i64 (sext_inreg i64:$op1, i1)),   (SEXT64 $op1, 1)>;
+def : Pat<(i64 (sext_inreg i64:$op1,  i8)),  (SEXT64 $op1,  8)>;
+def : Pat<(i64 (sext_inreg i64:$op1,  i1)),  (SEXT64 $op1,  1)>;
 
 def : Pat<(i32 (sext_inreg i32:$op1, i16)),  (SEXT32 $op1, 16)>;
-def : Pat<(i32 (sext_inreg i32:$op1, i8)),   (SEXT32 $op1, 8)>;
-def : Pat<(i32 (sext_inreg i32:$op1, i1)),   (SEXT32 $op1, 1)>;
+def : Pat<(i32 (sext_inreg i32:$op1,  i8)),  (SEXT32 $op1,  8)>;
+def : Pat<(i32 (sext_inreg i32:$op1,  i1)),  (SEXT32 $op1,  1)>;
 
-def : Pat<(i16 (sext_inreg i16:$op1, i8)),   (SEXT16 $op1, 8)>;
-def : Pat<(i16 (sext_inreg i16:$op1, i1)),   (SEXT16 $op1, 1)>;
+def : Pat<(i16 (sext_inreg i16:$op1,  i8)),  (SEXT16 $op1,  8)>;
+def : Pat<(i16 (sext_inreg i16:$op1,  i1)),  (SEXT16 $op1,  1)>;
 
-def : Pat<(i8 (sext_inreg i8:$op1, i1)),     (SEXT8 $op1, 1)>;
+def : Pat<(i8  (sext_inreg  i8:$op1,  i1)),  (SEXT8  $op1,  1)>;
 
 // zext patterns
 // (Is the copy even necessary?  Or can we just return the value?)
@@ -1370,47 +1355,47 @@ def : Pat<(i8 (sext_inreg i8:$op1, i1)),     (SEXT8 $op1, 1)>;
 
 def : Pat<(i64 (zext i32:$op1)),       (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(i64 (zext i16:$op1)),       (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(i64 (zext i8:$op1)),        (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(i64 (zext i1:$op1)),        (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(i64 (zext  i8:$op1)),       (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(i64 (zext  i1:$op1)),       (COPY_TO_REGCLASS $op1, I64)>;
 
 def : Pat<(i32 (zext i16:$op1)),       (COPY_TO_REGCLASS $op1, I32)>;
-def : Pat<(i32 (zext i8:$op1)),        (COPY_TO_REGCLASS $op1, I32)>;
-def : Pat<(i32 (zext i1:$op1)),        (COPY_TO_REGCLASS $op1, I32)>;
+def : Pat<(i32 (zext  i8:$op1)),       (COPY_TO_REGCLASS $op1, I32)>;
+def : Pat<(i32 (zext  i1:$op1)),       (COPY_TO_REGCLASS $op1, I32)>;
 
-def : Pat<(i16 (zext i8:$op1)),        (COPY_TO_REGCLASS $op1, I16)>;
-def : Pat<(i16 (zext i1:$op1)),        (COPY_TO_REGCLASS $op1, I16)>;
+def : Pat<(i16 (zext  i8:$op1)),       (COPY_TO_REGCLASS $op1, I16)>;
+def : Pat<(i16 (zext  i1:$op1)),       (COPY_TO_REGCLASS $op1, I16)>;
 
-def : Pat<(i8 (zext i1:$op1)),         (COPY_TO_REGCLASS $op1, I8)>;
+def : Pat<(i8  (zext  i1:$op1)),       (COPY_TO_REGCLASS $op1,  I8)>;
 
 // anyext are treated as zext
 def : Pat<(i64 (anyext i32:$op1)),     (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(i64 (anyext i16:$op1)),     (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(i64 (anyext i8:$op1)),      (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(i64 (anyext i1:$op1)),      (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(i64 (anyext  i8:$op1)),     (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(i64 (anyext  i1:$op1)),     (COPY_TO_REGCLASS $op1, I64)>;
 
 def : Pat<(i32 (anyext i16:$op1)),     (COPY_TO_REGCLASS $op1, I32)>;
-def : Pat<(i32 (anyext i8:$op1)),      (COPY_TO_REGCLASS $op1, I32)>;
-def : Pat<(i32 (anyext i1:$op1)),      (COPY_TO_REGCLASS $op1, I32)>;
+def : Pat<(i32 (anyext  i8:$op1)),     (COPY_TO_REGCLASS $op1, I32)>;
+def : Pat<(i32 (anyext  i1:$op1)),     (COPY_TO_REGCLASS $op1, I32)>;
 
-def : Pat<(i16 (anyext i8:$op1)),      (COPY_TO_REGCLASS $op1, I16)>;
-def : Pat<(i16 (anyext i1:$op1)),      (COPY_TO_REGCLASS $op1, I16)>;
+def : Pat<(i16 (anyext  i8:$op1)),     (COPY_TO_REGCLASS $op1, I16)>;
+def : Pat<(i16 (anyext  i1:$op1)),     (COPY_TO_REGCLASS $op1, I16)>;
 
-def : Pat<(i8 (anyext i1:$op1)),       (COPY_TO_REGCLASS $op1, I8)>;
+def : Pat<(i8  (anyext  i1:$op1)),     (COPY_TO_REGCLASS $op1,  I8)>;
 
 // Truncate
 def : Pat<(i32 (trunc i64:$op1)),      (COPY_TO_REGCLASS $op1, I32)>;
 def : Pat<(i16 (trunc i64:$op1)),      (COPY_TO_REGCLASS $op1, I16)>;
-def : Pat<(i8  (trunc i64:$op1)),      (COPY_TO_REGCLASS $op1, I8)>;
-def : Pat<(i1  (trunc i64:$op1)),      (COPY_TO_REGCLASS $op1, I1)>;
+def : Pat<(i8  (trunc i64:$op1)),      (COPY_TO_REGCLASS $op1,  I8)>;
+def : Pat<(i1  (trunc i64:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
 
 def : Pat<(i16 (trunc i32:$op1)),      (COPY_TO_REGCLASS $op1, I16)>;
-def : Pat<(i8  (trunc i32:$op1)),      (COPY_TO_REGCLASS $op1, I8)>;
-def : Pat<(i1  (trunc i32:$op1)),      (COPY_TO_REGCLASS $op1, I1)>;
+def : Pat<(i8  (trunc i32:$op1)),      (COPY_TO_REGCLASS $op1,  I8)>;
+def : Pat<(i1  (trunc i32:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
 
-def : Pat<(i8  (trunc i16:$op1)),      (COPY_TO_REGCLASS $op1, I8)>;
-def : Pat<(i1  (trunc i16:$op1)),      (COPY_TO_REGCLASS $op1, I1)>;
+def : Pat<(i8  (trunc i16:$op1)),      (COPY_TO_REGCLASS $op1,  I8)>;
+def : Pat<(i1  (trunc i16:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
 
-def : Pat<(i1  (trunc i8:$op1)),       (COPY_TO_REGCLASS $op1, I1)>;
+def : Pat<(i1  (trunc  i8:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
 
 // bitconvert (shows up in exp)
 def : Pat<(i64 (bitconvert f64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
@@ -1422,7 +1407,8 @@ def : Pat<(f32 (bitconvert i32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
 def : Pat<(i16 (bitconvert f16:$op1)), (COPY_TO_REGCLASS $op1, I16)>;
 def : Pat<(f16 (bitconvert i16:$op1)), (COPY_TO_REGCLASS $op1, I16)>;
 
-// fcopysign - use the sign bit from the sign opnd, and everything else from the other
+// fcopysign - use the sign bit from the sign opnd, and everything else from
+// the other
 /* 
   After having finally found a solution, for some reason this causes a tablegen
   crash when doing builds on Windows...  Disabled for now...
