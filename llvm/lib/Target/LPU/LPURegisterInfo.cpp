@@ -149,12 +149,18 @@ LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     break;
   case LPU::LD8:    new_mem_opc = LPU::LD8D;    break;
   case LPU::LD16:   new_mem_opc = LPU::LD16D;   break;
+  case LPU::LD16f:  new_mem_opc = LPU::LD16fD;  break;
   case LPU::LD32:   new_mem_opc = LPU::LD32D;   break;
+  case LPU::LD32f:  new_mem_opc = LPU::LD32fD;  break;
   case LPU::LD64:   new_mem_opc = LPU::LD64D;   break;
+  case LPU::LD64f:  new_mem_opc = LPU::LD64fD;  break;
   case LPU::ST8:    new_mem_opc = LPU::ST8D;    new_is_st = true;  break;
   case LPU::ST16:   new_mem_opc = LPU::ST16D;   new_is_st = true;  break;
+  case LPU::ST16f:  new_mem_opc = LPU::ST16fD;  new_is_st = true;  break;
   case LPU::ST32:   new_mem_opc = LPU::ST32D;   new_is_st = true;  break;
+  case LPU::ST32f:  new_mem_opc = LPU::ST32fD;  new_is_st = true;  break;
   case LPU::ST64:   new_mem_opc = LPU::ST64D;   new_is_st = true;  break;
+  case LPU::ST64f:  new_mem_opc = LPU::ST64fD;  new_is_st = true;  break;
   default:
     break;
   }

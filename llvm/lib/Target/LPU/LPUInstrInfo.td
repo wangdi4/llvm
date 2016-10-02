@@ -1194,20 +1194,20 @@ defm OLD64f   : OLdOp<   "ld64",  Tf64>;
 defm ST1      : StOp<    "st8",   Ti1>;
 defm ST8      : StOp<    "st8",   Ti8>;
 defm ST16     : StOp<    "st16",  Ti16>;
-//defm ST16f    : StOp<    "st16",  Tf16>;
+defm ST16f    : StOp<    "st16",  Tf16>;
 defm ST32     : StOp<    "st32",  Ti32>;
-//defm ST32f    : StOp<    "st32",  Tf32>;
+defm ST32f    : StOp<    "st32",  Tf32>;
 defm ST64     : StOp<    "st64",  Ti64>;
-//defm ST64f    : StOp<    "st64",  Tf64>;
+defm ST64f    : StOp<    "st64",  Tf64>;
 
 defm OST1     : OStOp<   "st8",   Ti1>;
 defm OST8     : OStOp<   "st8",   Ti8>;
 defm OST16    : OStOp<   "st16",  Ti16>;
-//defm OST16f   : OStOp<   "st16",  Tf16>;
+defm OST16f   : OStOp<   "st16",  Tf16>;
 defm OST32    : OStOp<   "st32",  Ti32>;
-//defm OST32f   : OStOp<   "st32",  Tf32>;
+defm OST32f   : OStOp<   "st32",  Tf32>;
 defm OST64    : OStOp<   "st64",  Ti64>;
-//defm OST64f   : OStOp<   "st64",  Tf64>;
+defm OST64f   : OStOp<   "st64",  Tf64>;
 
 // Atomic operations
 def ATMAND8   : AtomicOp<"atmand8",   atomic_load_and_8,  Ti8,  [HasI8],  IIATM>;
