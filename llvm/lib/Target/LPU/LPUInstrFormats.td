@@ -11,7 +11,8 @@
 // Instruction format superclass
 //===----------------------------------------------------------------------===//
 
-class InstLPU<dag outs, dag ins, string asmstr, list<dag> pattern>
+class InstLPU<dag outs, dag ins, string asmstr, list<dag> pattern,
+      list<Predicate> preds, InstrItinClass itin = NoItinerary>
     : Instruction {
   // Actual encoding TBD.  Might be variable length.
   field bits<64> Inst;
@@ -21,18 +22,22 @@ class InstLPU<dag outs, dag ins, string asmstr, list<dag> pattern>
   dag InOperandList = ins;
   let AsmString   = asmstr;
   let Pattern = pattern;
+  let Predicates = preds;
+  let Itinerary = itin;
 }
 
 // LPU pseudo instruction format
-class PseudoInstLPU<dag outs, dag ins, string asmstr, list<dag> pattern>
-   : InstLPU<outs, ins, asmstr, pattern> {
+class PseudoInstLPU<dag outs, dag ins, string asmstr, list<dag> pattern,
+      list<Predicate> preds = [], InstrItinClass itin = NoItinerary>
+    : InstLPU<outs, ins, asmstr, pattern, preds, itin> {
   let isPseudo = 1;
   let Itinerary = IIPseudo;
 }
 
 
 // Generic format for now
-class FMTGEN<dag outs, dag ins, string asmstr, list<dag> pattern>
-    : InstLPU<outs,ins,asmstr,pattern> {
+class FMTGEN<dag outs, dag ins, string asmstr, list<dag> pattern,
+      list<Predicate> preds = [], InstrItinClass itin = NoItinerary>
+    : InstLPU<outs, ins, asmstr, pattern, preds, itin> {
 //let DecoderMethod = "DecodeFGENInstruction";
 }
