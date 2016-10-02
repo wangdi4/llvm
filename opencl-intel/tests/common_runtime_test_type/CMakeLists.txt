@@ -9,7 +9,14 @@ include (../../cmake_utils/CMakeFuncs.txt)
 
 set( TARGET common_runtime_test_type )
 
+if( NOT DEFINED LLVM_PATH_SPIRV )
+    message( FATAL_ERROR "LLVM_PATH_SPIRV is not specified." )
+endif()
+
+set( CLANG "${LLVM_PATH_SPIRV}/bin/clang" )
+
 include_directories( ../../externals/gtest/include
+                     ../../externals/khronos/spirv/headers/include
                      ${CL_API_HEADERS}
                      ${CMAKE_CURRENT_SOURCE_DIR}/common )
 
@@ -34,6 +41,58 @@ if (NOT WIN32 AND NOT ANDROID)
 endif (NOT WIN32 AND NOT ANDROID)
 
 set( CREATE_DIR_NAME tests/common_runtime_test_type )
+
+set( COMMON_OPT -cl-kernel-arg-info -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200 -D__OPENCL_VERSION__=200 )
+
+if (BUILD_X64)
+list (
+  APPEND
+  SPIR_OPT
+  -triple spir64-unknown-unknown -D __x86_64__
+)
+else (BUILD_X64)
+list (
+  APPEND
+  SPIR_OPT
+  -triple spir-unknown-unknown -D __i386__
+)
+endif(BUILD_X64)
+
+set( INCLUDE_HEADERS_PATH ${LLVM_PATH_SPIRV}/lib/clang/3.6.1/include/)
+
+set( INPUT_FILE kernels/subgroups.cl )
+set( SPIRV_OUTPUT_FILE subgroups.spv )
+
+add_custom_command( TARGET ${TARGET}
+  POST_BUILD
+  COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  -I ${INCLUDE_HEADERS_PATH} -emit-spirv
+  ${COMMON_OPT} ${SPIR_OPT} -Dcl_khr_subgroups
+  -include opencl.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE}
+  MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  COMMENT "Generate spirv binary file for common_runtime_test_type:  ${SPIRV_OUTPUT_FILE}"
+  VERBATIM
+)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE} DESTINATION tests/common_runtime_test_type )
+
+set( INPUT_FILE kernels/simple_kernels.cl )
+set( SPIRV_OUTPUT_FILE simple_kernels.spv )
+
+add_custom_command( TARGET ${TARGET}
+  POST_BUILD
+  COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  -I ${INCLUDE_HEADERS_PATH} -emit-spirv
+  ${COMMON_OPT} ${SPIR_OPT}
+  -include opencl.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE}
+  MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  COMMENT "Generate spirv binary file for common_runtime_test_type:  ${SPIRV_OUTPUT_FILE}"
+  VERBATIM
+)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE} DESTINATION tests/common_runtime_test_type )
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
