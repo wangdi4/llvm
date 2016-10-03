@@ -133,8 +133,8 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintDataType: {
     Type *ExprType = getType();
     OS << *ExprType << " ";
-  }
     printSLEV(OS);
+  }
   case PrintBase:
     if (isUnaryOperation()) {
 
@@ -231,7 +231,8 @@ void AVRValue::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << getAvrTypeName() << "{";
   case PrintDataType:
     printSLEV(OS);
-    OS << *ValType << " ";
+    if (ConstVal == nullptr)
+      OS << *ValType << " ";
   case PrintBase:
     if (ConstVal) {
       OS << *ConstVal;

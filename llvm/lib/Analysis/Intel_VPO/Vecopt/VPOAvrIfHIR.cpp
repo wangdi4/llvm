@@ -26,33 +26,6 @@ AVRIfHIR::AVRIfHIR(HLIf *CompInst)
 
 AVRIfHIR *AVRIfHIR::clone() const { return nullptr; }
 
-void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                     VerbosityLevel VLevel) const {
-
-  std::string Indent(Depth * TabLength, ' ');
-  OS << Indent;
-
-  // Print AVR If Node.
-  switch (VLevel) {
-  case PrintNumber:
-    OS << "(" << getNumber() << ")";
-  case PrintAvrDecomp:
-  case PrintAvrType:
-  case PrintDataType:
-    printSLEV(OS);
-  case PrintBase:
-    if (getPredicate())
-      OS << " /P" << getPredicate()->getNumber() << "/ ";
-    CompareInstruction->printHeader(OS, 0);
-    OS << Indent << "{\n";
-    break;
-  default:
-    llvm_unreachable("Unknown Avr Print Verbosity!");
-  }
-
-  AVRIf::print(OS, Depth, VLevel);
-}
-
 std::string AVRIfHIR::getAvrValueName() const { return ""; }
 
 void AVRIfHIR::codeGen() {}

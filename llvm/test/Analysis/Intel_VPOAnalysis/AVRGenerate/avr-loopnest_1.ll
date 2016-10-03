@@ -19,13 +19,14 @@
 ;CHECK:      simd.loop:
 ;TEMP-DO-NOT-CHECK:      br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 
-;CHECK:      if( %mask.cond = icmp ne i32 %mask.parm, 0 )
+;CHECK:      if (%mask.cond = icmp ne i32 %mask.parm, 0
+;CHECK-NEXT: )
 
 ;CHECK:      simd.loop.then:
 ;TEMP-DO-NOT-CHECK:      br i1 %cmp2, label %for.body.lr.ph, label %for.end
 
-;CHECK:      if( %cmp2 = icmp slt i32 %0, 64 )
-
+;CHECK:      if (%cmp2 = icmp slt i32 %0, 64
+;CHECK-NEXT: )
 
 ;CHECK:      for.body.lr.ph:
 ;CHECK-NEXT: br label %for.body
@@ -33,7 +34,8 @@
 ;CHECK-NEXT: for.body:
 ;TEMP-DO-NOT-CHECK:      br i1 %cmp1, label %if.then, label %if.end
 
-;CHECK:      if( %cmp1 = icmp eq i32 %2, %3 )
+;CHECK:      if (%cmp1 = icmp eq i32 %2, %3
+;CHECK-NEXT: )
 
 ;CHECK:      if.then:
 ;CHECK:      br label %simd.loop.exit

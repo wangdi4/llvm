@@ -79,6 +79,30 @@ void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
                   VerbosityLevel VLevel) const {
 
   std::string Indent(Depth * TabLength, ' ');
+  OS << Indent;
+
+  // Print If header
+  switch (VLevel) {
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
+  case PrintAvrType:
+  case PrintDataType:
+    printSLEV(OS);
+  case PrintBase:
+    OS << getAvrTypeName();
+    if (getPredicate())
+      OS << " /P" << getPredicate()->getNumber() << "/ ";
+    OS << " (";
+    getCondition()->print(OS, 0, VLevel);
+    OS << ") ";
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+
+  OS << Indent << "{\n";
+
   Depth++;
   // Print Then-children
   if (hasThenChildren()) {
