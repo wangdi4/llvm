@@ -101,7 +101,6 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
     IsLHSExpr = false;
 }
 
-// TODO: set type
 AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
                                    HLIf::const_pred_iterator& PredIt)
   : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) {
@@ -126,17 +125,22 @@ AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
   }
 
   RegDDRef *RHS = HIf->getPredicateOperandDDRef(PredIt, false);
-  if (RHS) {
+  assert (RHS && "Predicate's RHS is null");
+  AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(RHS, nullptr, this);
+  this->Operands.push_back(AvrVal);
 
-    AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(RHS, nullptr, this);
-    this->Operands.push_back(AvrVal);
-  }
+  // Set type
+  assert(!RHS->getSrcType()->isVectorTy() && "SrcType is vector type");
+  assert(!RHS->getDestType()->isVectorTy() && "DstType is vector type");
+  this->setType(Type::getInt1Ty(RHS->getDestType()->getContext()));
 }
 
-// TODO: set type
-AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR* LHS,
-                                   AVRExpressionHIR* RHS)
-  : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) {
+AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR *LHS, AVRExpressionHIR *RHS)
+    : AVRExpression(AVR::AVRExpressionHIRNode,
+                    Type::getInt1Ty(RHS->getType()->getContext())) {
+
+  assert(!LHS->getType()->isVectorTy() && "LHS has vector type");
+  assert(!RHS->getType()->isVectorTy() && "RHS has vector type");
 
   HIRNode = nullptr; // no underlying HLInst.
   this->Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
@@ -152,16 +156,16 @@ AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR* LHS,
 // If we are not going to need IR specific information,
 // Should we move this functionality to AVRExpression?
 // AVRPredicator is doing something similar
-// TODO: set type
 AVRExpressionHIR::AVRExpressionHIR(AVR* LHS,
                                    AVR* RHS,
                                    Type *Ty,
                                    unsigned Opcode)
-  : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) {
+  : AVRExpression(AVR::AVRExpressionHIRNode, Ty) {
+
+  assert(Ty && "Expression type is null");
 
   HIRNode = nullptr; // no underlying HLInst.
   this->Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
-  this->setType(Ty);
   // Why do we need Opcode and Operation?
   this->Opcode = Opcode;
   this->Operation = this->Opcode;

@@ -744,16 +744,21 @@ void VPOPredicator::predicate(AVRBlock* Entry) {
                                             IncomingCondition);
         }
       }
-      else if (isa<AVRBranch>(Terminator)) {
+      else {
+        if (isa<AVRBranch>(Terminator))
+          assert(!cast<AVRBranch>(Terminator)->isConditional() &&
+                 "Did not expect conditional branches at this point");
+        else 
+          // In HIR, there aren't explicit unconditional AVRBranch instructions.
+          // By now, we assume that if the terminator is not AVRIf or AVRSwitch,
+          // then it has to be an AVRAssig (and meaning unconditional branch).
+          assert(isa<AVRAssign>(Terminator) &&
+                 "Did not expect an AVR other than an AVRAssign at this point");
 
-        assert(!cast<AVRBranch>(Terminator)->isConditional() &&
-               "Did not expect conditional branches at this point");
         AVRUtils::addAVRPredicateIncoming(ABlock->getPredicate(),
                                           Predecessor->getPredicate(),
                                           nullptr);
       }
-      else
-        llvm_unreachable("Unknown block terminator");
     }
   }
 }
