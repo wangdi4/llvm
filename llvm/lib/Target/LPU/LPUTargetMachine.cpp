@@ -57,6 +57,7 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, StringRef TT,
                                          CodeGenOpt::Level OL)
     : LLVMTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
+      DL("e-m:e-i64:64-n32:64"),
       Subtarget(TT, CPU, FS, *this) {
   // Not sure this is needed
   //setRequiresStructuredCFG(true);

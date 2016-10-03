@@ -52,7 +52,7 @@ GetExternalSymbolSymbol(const MachineOperand &MO) const {
 
 MCSymbol *LPUMCInstLower::
 GetJumpTableSymbol(const MachineOperand &MO) const {
-  const DataLayout *DL = Printer.TM.getSubtargetImpl()->getDataLayout();
+  const DataLayout *DL = Printer.TM.getDataLayout();
   SmallString<256> Name;
   raw_svector_ostream(Name) << DL->getPrivateGlobalPrefix() << "JTI"
                             << Printer.getFunctionNumber() << '_'
@@ -69,7 +69,7 @@ GetJumpTableSymbol(const MachineOperand &MO) const {
 /*
 MCSymbol *LPUMCInstLower::
 GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
-  const DataLayout *DL = Printer.TM.getSubtargetImpl()->getDataLayout();
+  const DataLayout *DL = Printer.TM.getDataLayout();
   SmallString<256> Name;
   raw_svector_ostream(Name) << DL->getPrivateGlobalPrefix() << "CPI"
                             << Printer.getFunctionNumber() << '_'

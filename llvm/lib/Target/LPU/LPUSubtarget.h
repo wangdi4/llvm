@@ -19,7 +19,6 @@
 #include "LPUInstrInfo.h"
 #include "LPURegisterInfo.h"
 #include "LPUSelectionDAGInfo.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include <string>
 
@@ -31,7 +30,6 @@ class StringRef;
 
 class LPUSubtarget : public LPUGenSubtargetInfo {
   virtual void anchor();
-  const DataLayout DL; // Calculates type size & alignment
   LPUFrameLowering FrameLowering;
   LPUInstrInfo InstrInfo;
   LPUTargetLowering TLInfo;
@@ -97,7 +95,6 @@ public:
     return &FrameLowering;
   }
   const LPUInstrInfo *getInstrInfo() const override { return &InstrInfo; }
-  const DataLayout *getDataLayout() const override { return &DL; }
   const TargetRegisterInfo *getRegisterInfo() const override {
     return &InstrInfo.getRegisterInfo();
   }

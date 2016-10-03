@@ -22,6 +22,7 @@ namespace llvm {
 
 class LPUTargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
+  const DataLayout DL;
   LPUSubtarget Subtarget;
 public:
   LPUTargetMachine(const Target &T, StringRef TT,
@@ -30,6 +31,7 @@ public:
 		   CodeGenOpt::Level OL);
   ~LPUTargetMachine() override;
 
+  const DataLayout *getDataLayout() const override { return &DL; }
   const LPUSubtarget *getSubtargetImpl() const override {
     return &Subtarget;
   }
