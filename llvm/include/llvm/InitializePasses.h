@@ -79,6 +79,7 @@ void initializeADCELegacyPassPass(PassRegistry&);
 void initializeAddDiscriminatorsLegacyPassPass(PassRegistry&);
 void initializeAddressSanitizerModulePass(PassRegistry&);
 void initializeAddressSanitizerPass(PassRegistry&);
+void initializeAggInlAALegacyPassPass(PassRegistry&); // INTEL
 void initializeAliasSetPrinterPass(PassRegistry&);
 void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeAlwaysInlinerPass(PassRegistry&);

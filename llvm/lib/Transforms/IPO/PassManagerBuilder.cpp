@@ -861,6 +861,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // Break up allocas
   PM.add(createSROAPass());
+ 
+#if INTEL_CUSTOMIZATION
+  if (EnableInlineAggAnalysis) {
+    PM.add(createAggInlAALegacyPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.

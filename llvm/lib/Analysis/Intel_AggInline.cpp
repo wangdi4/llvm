@@ -88,7 +88,13 @@ InlineAggressiveInfo::InlineAggressiveInfo() {
 
 InlineAggressiveInfo::~InlineAggressiveInfo() {}
 
-
+// Returns true if Aggressive Inline occured.
+//
+bool InlineAggressiveInfo::isAggInlineOccured(void) {
+  if (AggInlCalls.size())
+   return true;
+  return false;
+}
 
 // Mark 'CS' as Inlined-Call by inserting 'CS' into AggInlCalls if
 // it is already not there.

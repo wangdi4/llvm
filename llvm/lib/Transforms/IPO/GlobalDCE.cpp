@@ -18,6 +18,7 @@
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_AggInline.h"   // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"   // INTEL
 #include "llvm/Analysis/Intel_WP.h"          // INTEL
 #include "llvm/IR/Constants.h"
@@ -49,6 +50,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addPreserved<WholeProgramWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();
+      AU.addPreserved<InlineAggressiveWrapperPass>();
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -222,6 +224,7 @@ PreservedAnalyses GlobalDCEPass::run(Module &M, ModuleAnalysisManager &) {
   auto PA = PreservedAnalyses();        // INTEL
   PA.preserve<WholeProgramAnalysis>();  // INTEL
   PA.preserve<AndersensAA>();           // INTEL
+  PA.preserve<InlineAggAnalysis>();     // INTEL
 
   return PA;                            // INTEL
 }

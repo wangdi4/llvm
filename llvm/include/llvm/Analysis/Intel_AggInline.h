@@ -32,6 +32,8 @@ struct InlineAggressiveInfo {
 
   bool isCallInstInAggInlList(CallSite CS);
 
+  bool isAggInlineOccured(void);
+
 
 private:
   // List of calls that are marked as AggInline. 

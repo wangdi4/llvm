@@ -38,6 +38,7 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/Intel_AggInline.h"      // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"      // INTEL
 #include "llvm/Analysis/Intel_WP.h"             // INTEL
 #include "llvm/Analysis/Loads.h"
@@ -73,6 +74,7 @@ namespace {
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
       AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
+      AU.addPreserved<InlineAggressiveWrapperPass>();    // INTEL
       getAAResultsAnalysisUsage(AU);
       CallGraphSCCPass::getAnalysisUsage(AU);
     }

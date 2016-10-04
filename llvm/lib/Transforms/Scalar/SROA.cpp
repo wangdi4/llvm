@@ -29,6 +29,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"    // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
@@ -4245,6 +4246,7 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
   // CFG-specific analyses.
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
+  PA.preserve<InlineAggAnalysis>();    // INTEL
   return PA;
 }
 
@@ -4279,6 +4281,7 @@ public:
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();    // INTEL
+    AU.addPreserved<InlineAggressiveWrapperPass>(); // INTEL
     AU.setPreservesCFG();
   }
 

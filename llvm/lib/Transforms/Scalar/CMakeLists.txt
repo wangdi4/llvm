@@ -16,6 +16,7 @@ add_llvm_library(LLVMScalarOpts
   InductiveRangeCheckElimination.cpp
   IndVarSimplify.cpp
 #ifdef INTEL_CUSTOMIZATION
+  Intel_AggInlAA.cpp
   Intel_GlobalOpt.cpp
   Intel_IndirectCallConv.cpp
 #endif     // INTEL_CUSTOMIZATION
