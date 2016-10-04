@@ -104,3 +104,7 @@ bool DDRef::isLiveOutOfParentLoop() const {
 }
 
 HLLoop *DDRef::getParentLoop() const { return getHLDDNode()->getParentLoop(); }
+
+HLLoop *DDRef::getLexicalParentLoop() const {
+  return getHLDDNode()->getLexicalParentLoop();
+}

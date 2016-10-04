@@ -136,6 +136,9 @@ public:
 
   /// \brief  Returns ParentLoop of DDRef.
   HLLoop *getParentLoop() const;
+
+  /// Returns lexical ParentLoop of DDRef.
+  HLLoop *getLexicalParentLoop() const;
 };
 
 } // End loopopt namespace
