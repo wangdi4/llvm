@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=lpu -lpu-cvt-ctrl-pass=100 < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
 
 
 ; ModuleID = 'loopPick.cpp'
@@ -8,8 +8,8 @@ target triple = "lpu"
 ; Function Attrs: nounwind
 define i32 @loopPick(i32* nocapture %ip, i32 %n) #0 {
 ; LPU_CHECK-LABEL: loopPick
-; LPU_CHECK: pick32
-; LPU_CHECK-NEXT: pick64
+; LPU_CHECK: pick64
+; LPU_CHECK: pick64
 
 entry:
   %cmp5 = icmp sgt i32 %n, 0

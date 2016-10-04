@@ -15,10 +15,8 @@ entry:
   store i16* %p, i16** %p.addr, align 8
   %0 = load i16** %p.addr, align 8
   %1 = load i16* %0, align 2
-  %conv = zext i16 %1 to i32
-  %sub = sub nsw i32 0, %conv
-  %conv1 = trunc i32 %sub to i16
-  ret i16 %conv1
+  %sub = sub nsw i16 0, %1
+  ret i16 %sub
 }
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }

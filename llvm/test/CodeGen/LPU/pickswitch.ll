@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=lpu -lpu-cvt-ctrl-pass=100 < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
 
 
 ; ModuleID = 'loopPickSwitch.cpp'

@@ -15,10 +15,8 @@ entry:
   store i8* %p, i8** %p.addr, align 8
   %0 = load i8** %p.addr, align 8
   %1 = load i8* %0, align 1
-  %conv = sext i8 %1 to i32
-  %sub = sub nsw i32 0, %conv
-  %conv1 = trunc i32 %sub to i8
-  ret i8 %conv1
+  %sub = sub nsw i8 0, %1
+  ret i8 %sub
 }
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
