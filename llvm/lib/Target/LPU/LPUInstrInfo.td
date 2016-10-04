@@ -220,7 +220,7 @@ class UnaryOp<string opStr, SDNode opNode, LPUTypeInfo t,
     [(set t.RC:$dst, (opNode t.RCL:$op1))],
     preds, itin>;
 
-// Separate pattern because "not" is not an SDNode but a PatFrag
+// Separate pattern because not/ineg are PatFrags rather than SDNodes
 class UnaryOpP<string opStr, PatFrag opNode, LPUTypeInfo t,
                list<Predicate> preds, InstrItinClass itin = NoItinerary> :
   FMTGEN<
@@ -228,16 +228,7 @@ class UnaryOpP<string opStr, PatFrag opNode, LPUTypeInfo t,
     (ins t.RCL:$op1),
     !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1"),
     [(set t.RC:$dst, (opNode t.RCL:$op1))],
-    preds, itin>;
-
-class NegOp<string opStr, LPUTypeInfo t,
-            list<Predicate> preds, InstrItinClass itin = NoItinerary> :
-  FMTGEN<
-    (outs t.RC:$dst),
-    (ins t.RCL:$op1),
-    !strconcat(opStr, t.InstrSuffix, "\t$dst, $op1"),
-    [(set t.RC:$dst, (sub 0, t.RCL:$op1))],
-    preds, itin>;
+    preds, itin> { let AddedComplexity = 1; } // prefer not/neg to other forms
 
 class SExtOp<string opStr, LPUTypeInfo td, LPUTypeInfo ts,
              list<Predicate> preds, InstrItinClass itin = NoItinerary> :
@@ -710,10 +701,10 @@ def NOT8      : UnaryOpP<"not",    not,    Ti8,  [HasI8],  IIALU>;
 def NOT16     : UnaryOpP<"not",    not,    Ti16, [HasI16], IIALU>;
 def NOT32     : UnaryOpP<"not",    not,    Ti32, [HasI32], IIALU>;
 def NOT64     : UnaryOpP<"not",    not,    Ti64, [HasI64], IIALU>;
-def NEG8      : NegOp<   "neg",            Ti8,  [HasI8],  IIALU>;
-def NEG16     : NegOp<   "neg",            Ti16, [HasI16], IIALU>;
-def NEG32     : NegOp<   "neg",            Ti32, [HasI32], IIALU>;
-def NEG64     : NegOp<   "neg",            Ti64, [HasI64], IIALU>;
+def NEG8      : UnaryOpP<"neg",    ineg,   Ti8,  [HasI8],  IIALU>;
+def NEG16     : UnaryOpP<"neg",    ineg,   Ti16, [HasI16], IIALU>;
+def NEG32     : UnaryOpP<"neg",    ineg,   Ti32, [HasI32], IIALU>;
+def NEG64     : UnaryOpP<"neg",    ineg,   Ti64, [HasI64], IIALU>;
 def NEGF16    : UnaryOp< "neg",    fneg,   Tf16, [HasF16], IIALU>;
 def NEGF32    : UnaryOp< "neg",    fneg,   Tf32, [HasF32], IIALU>;
 def NEGF64    : UnaryOp< "neg",    fneg,   Tf64, [HasF64], IIALU>;
