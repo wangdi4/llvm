@@ -1475,6 +1475,17 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::SIGN_EXTEND,        MVT::v8i16, Custom);
     setOperationAction(ISD::SIGN_EXTEND,        MVT::v16i16, Custom);
 
+    setOperationAction(ISD::FFLOOR,             MVT::v16f32, Legal);
+    setOperationAction(ISD::FFLOOR,             MVT::v8f64, Legal);
+    setOperationAction(ISD::FCEIL,              MVT::v16f32, Legal);
+    setOperationAction(ISD::FCEIL,              MVT::v8f64, Legal);
+    setOperationAction(ISD::FTRUNC,             MVT::v16f32, Legal);
+    setOperationAction(ISD::FTRUNC,             MVT::v8f64, Legal);
+    setOperationAction(ISD::FRINT,              MVT::v16f32, Legal);
+    setOperationAction(ISD::FRINT,              MVT::v8f64, Legal);
+    setOperationAction(ISD::FNEARBYINT,         MVT::v16f32, Legal);
+    setOperationAction(ISD::FNEARBYINT,         MVT::v8f64, Legal);
+
     setOperationAction(ISD::CONCAT_VECTORS,     MVT::v8f64,  Custom);
     setOperationAction(ISD::CONCAT_VECTORS,     MVT::v8i64,  Custom);
     setOperationAction(ISD::CONCAT_VECTORS,     MVT::v16f32,  Custom);
@@ -5930,7 +5941,8 @@ static SDValue getVShift(bool isLeft, EVT VT, SDValue SrcOp,
   unsigned Opc = isLeft ? X86ISD::VSHLDQ : X86ISD::VSRLDQ;
   SrcOp = DAG.getNode(ISD::BITCAST, dl, ShVT, SrcOp);
   MVT ScalarShiftTy = TLI.getScalarShiftAmountTy(SrcOp.getValueType());
-  SDValue ShiftVal = DAG.getConstant(NumBits, ScalarShiftTy);
+  assert(NumBits % 8 == 0 && "Only support byte sized shifts");
+  SDValue ShiftVal = DAG.getConstant(NumBits/8, ScalarShiftTy);
   return DAG.getNode(ISD::BITCAST, dl, VT,
                      DAG.getNode(Opc, dl, ShVT, SrcOp, ShiftVal));
 }
@@ -7761,9 +7773,9 @@ static SDValue lowerVectorShuffleAsByteRotate(SDLoc DL, MVT VT, SDValue V1,
   Hi = DAG.getNode(ISD::BITCAST, DL, MVT::v2i64, Hi);
 
   SDValue LoShift = DAG.getNode(X86ISD::VSHLDQ, DL, MVT::v2i64, Lo,
-                                DAG.getConstant(8 * LoByteShift, MVT::i8));
+                                DAG.getConstant(LoByteShift, MVT::i8));
   SDValue HiShift = DAG.getNode(X86ISD::VSRLDQ, DL, MVT::v2i64, Hi,
-                                DAG.getConstant(8 * HiByteShift, MVT::i8));
+                                DAG.getConstant(HiByteShift, MVT::i8));
   return DAG.getNode(ISD::BITCAST, DL, VT,
                      DAG.getNode(ISD::OR, DL, MVT::v2i64, LoShift, HiShift));
 }
@@ -7907,7 +7919,7 @@ static SDValue lowerVectorShuffleAsByteShift(SDLoc DL, MVT VT, SDValue V1,
     SDValue V = MatchV1 ? V1 : V2;
     V = DAG.getNode(ISD::BITCAST, DL, ShiftVT, V);
     V = DAG.getNode(Op, DL, ShiftVT, V,
-                    DAG.getConstant(ByteShift * 8, MVT::i8));
+                    DAG.getConstant(ByteShift, MVT::i8));
     return DAG.getNode(ISD::BITCAST, DL, VT, V);
   };
 
@@ -8300,7 +8312,7 @@ static SDValue lowerVectorShuffleAsElementInsertion(
       V2 = DAG.getNode(
           X86ISD::VSHLDQ, DL, MVT::v2i64, V2,
           DAG.getConstant(
-              V2Index * EltVT.getSizeInBits(),
+              V2Index * EltVT.getSizeInBits()/8,
               DAG.getTargetLoweringInfo().getScalarShiftAmountTy(MVT::v2i64)));
       V2 = DAG.getNode(ISD::BITCAST, DL, VT, V2);
     }
@@ -8468,10 +8480,15 @@ static SDValue lowerVectorShuffleAsInsertPS(SDValue Op, SDValue V1, SDValue V2,
 ///
 /// This specifically targets cases where we end up with alternating between
 /// the two inputs, and so can permute them into something that feeds a single
-/// UNPCK instruction.
+/// UNPCK instruction. Note that this routine only targets integer vectors
+/// because for floating point vectors we have a generalized SHUFPS lowering
+/// strategy that handles everything that doesn't *exactly* match an unpack,
+/// making this clever lowering unnecessary.
 static SDValue lowerVectorShuffleAsUnpack(MVT VT, SDLoc DL, SDValue V1,
                                           SDValue V2, ArrayRef<int> Mask,
                                           SelectionDAG &DAG) {
+  assert(!VT.isFloatingPoint() &&
+         "This routine only supports integer vectors.");
   assert(!isSingleInputShuffleMask(Mask) &&
          "This routine should only be used when blending two inputs.");
   assert(Mask.size() >= 2 && "Single element masks are invalid.");
@@ -8486,25 +8503,56 @@ static SDValue lowerVectorShuffleAsUnpack(MVT VT, SDLoc DL, SDValue V1,
 
   bool UnpackLo = NumLoInputs >= NumHiInputs;
 
-  SmallVector<int, 32> V1Mask(Mask.size(), -1);
-  SmallVector<int, 32> V2Mask(Mask.size(), -1);
-  for (int i = 0; i < Size; ++i) {
-    if (Mask[i] < 0)
-      continue;
+  auto TryUnpack = [&](MVT UnpackVT, int Scale) {
+    SmallVector<int, 32> V1Mask(Mask.size(), -1);
+    SmallVector<int, 32> V2Mask(Mask.size(), -1);
 
-    // We only handle the case where V1 feeds even mask slots and V2 feeds odd
-    // mask slots. We rely on canonicalization to ensure this is the case.
-    if ((i % 2 == 0) != (Mask[i] < Size))
-      return SDValue();
+    for (int i = 0; i < Size; ++i) {
+      if (Mask[i] < 0)
+        continue;
 
-    SmallVectorImpl<int> &VMask = (i % 2 == 0) ? V1Mask : V2Mask;
-    VMask[i / 2 + (UnpackLo ? 0 : Size / 2)] = Mask[i] % Size;
+      // Each element of the unpack contains Scale elements from this mask.
+      int UnpackIdx = i / Scale;
+
+      // We only handle the case where V1 feeds the first slots of the unpack.
+      // We rely on canonicalization to ensure this is the case.
+      if ((UnpackIdx % 2 == 0) != (Mask[i] < Size))
+        return SDValue();
+
+      // Setup the mask for this input. The indexing is tricky as we have to
+      // handle the unpack stride.
+      SmallVectorImpl<int> &VMask = (UnpackIdx % 2 == 0) ? V1Mask : V2Mask;
+      VMask[(UnpackIdx / 2) * Scale + i % Scale + (UnpackLo ? 0 : Size / 2)] =
+          Mask[i] % Size;
+    }
+
+    // Shuffle the inputs into place.
+    V1 = DAG.getVectorShuffle(VT, DL, V1, DAG.getUNDEF(VT), V1Mask);
+    V2 = DAG.getVectorShuffle(VT, DL, V2, DAG.getUNDEF(VT), V2Mask);
+
+    // Cast the inputs to the type we will use to unpack them.
+    V1 = DAG.getNode(ISD::BITCAST, DL, UnpackVT, V1);
+    V2 = DAG.getNode(ISD::BITCAST, DL, UnpackVT, V2);
+
+    // Unpack the inputs and cast the result back to the desired type.
+    return DAG.getNode(ISD::BITCAST, DL, VT,
+                       DAG.getNode(UnpackLo ? X86ISD::UNPCKL : X86ISD::UNPCKH,
+                                   DL, UnpackVT, V1, V2));
+  };
+
+  // We try each unpack from the largest to the smallest to try and find one
+  // that fits this mask.
+  int OrigNumElements = VT.getVectorNumElements();
+  int OrigScalarSize = VT.getScalarSizeInBits();
+  for (int ScalarSize = 64; ScalarSize >= OrigScalarSize; ScalarSize /= 2) {
+    int Scale = ScalarSize / OrigScalarSize;
+    int NumElements = OrigNumElements / Scale;
+    MVT UnpackVT = MVT::getVectorVT(MVT::getIntegerVT(ScalarSize), NumElements);
+    if (SDValue Unpack = TryUnpack(UnpackVT, Scale))
+      return Unpack;
   }
 
-  V1 = DAG.getVectorShuffle(VT, DL, V1, DAG.getUNDEF(VT), V1Mask);
-  V2 = DAG.getVectorShuffle(VT, DL, V2, DAG.getUNDEF(VT), V2Mask);
-  return DAG.getNode(UnpackLo ? X86ISD::UNPCKL : X86ISD::UNPCKH, DL, VT, V1,
-                     V2);
+  return SDValue();
 }
 
 /// \brief Handle lowering of 2-lane 64-bit floating point shuffles.
