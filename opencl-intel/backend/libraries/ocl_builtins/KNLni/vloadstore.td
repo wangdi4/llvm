@@ -24,8 +24,7 @@ OclBuiltinImpl __ocl_float2half16_rtpA2 = OclBuiltinImpl<__ocl_float2half16_rtp,
   }]>;
 
 OclBuiltinImpl __ocl_double2half8_rteA2 = OclBuiltinImpl<__ocl_double8ToHalf8_rte, [v8f64], 0, [{
-    typedef union { double8 d; long8 ix; } double8_t;
-    double8_t x, j;
+    union { double8 d; long8 ix; } x, j;
     float8 f;
     short8 h;
     x.d = $Arg0VarName;
@@ -63,7 +62,7 @@ OclBuiltinImpl __ocl_double2half8_rtzA2 = OclBuiltinImpl<__ocl_double8ToHalf8_rt
 code Stored_half8 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
     float4 f4 = __ocl_double8ToHalf8_rte($Arg0VarName);
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 code Stored_half16 = [{
@@ -115,31 +114,31 @@ code Storef_half16 = [{
 code Storef_half8 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
     float4 f4 = __ocl_float2half8($Arg0VarName);
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 code Storef_half_rte8 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
     float4 f4 = __ocl_float2half8_rte($Arg0VarName);
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 code Storef_half_rtp8 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
     float4 f4 = __ocl_float2half8_rtp($Arg0VarName);
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 code Storef_half_rtn8 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
     float4 f4 = __ocl_float2half8_rtn($Arg0VarName);
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 code Storef_half_rtz8 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
     float4 f4 = __ocl_float2half8_rtz($Arg0VarName);
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 code Storef_half_rte16 = [{
@@ -171,7 +170,7 @@ code Stored_half_rtp8 = [{
     float8 f8 = _mm512_cvt_roundpd_ps($Arg0VarName,
                                       _MM_FROUND_NO_EXC | _MM_FROUND_TO_POS_INF);
     float4 f4 = as_float4(_mm256_cvtps_ph(f8, _MM_FROUND_TO_POS_INF));
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 code Stored_half_rtn8 = [{
@@ -179,7 +178,7 @@ code Stored_half_rtn8 = [{
     float8 f8 = _mm512_cvt_roundpd_ps($Arg0VarName,
                                       _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEG_INF);
     float4 f4 = as_float4(_mm256_cvtps_ph(f8, _MM_FROUND_TO_NEG_INF));
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 code Stored_half_rte8 = [{
@@ -187,7 +186,7 @@ code Stored_half_rte8 = [{
     float8 f8 = _mm512_cvt_roundpd_ps($Arg0VarName,
                                       _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT);
     float4 f4 = as_float4(_mm256_cvtps_ph(f8, _MM_FROUND_TO_NEAREST_INT));
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 code Stored_half_rtz8 = [{
@@ -195,7 +194,7 @@ code Stored_half_rtz8 = [{
     float8 f8 = _mm512_cvt_roundpd_ps($Arg0VarName,
                                       _MM_FROUND_NO_EXC | _MM_FROUND_TO_ZERO);
     float4 f4 = as_float4(_mm256_cvtps_ph(f8, _MM_FROUND_TO_ZERO));
-    _mm_storeu_ps((float*)$Arg2VarName, f4);
+    _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
 // Aligned store
@@ -270,11 +269,15 @@ code Storead_half_rtz16 = [{
   }];
 
 code Load_half8 = [{
-    short8 tmp = *((short8 *)($Arg1VarName + 8*$Arg0VarName));
-    return __ocl_Half8ToFloat8(tmp);
+    float8 res;
+    const short8 inp = vload8($Arg0VarName, ($Arg1igentype)$Arg1VarName);
+    return __ocl_Half8ToFloat8(inp);
   }];
 
 code Load_half16 = [{
-    short16 tmp = *((short16 *)($Arg1VarName + 16*$Arg0VarName));
-    return __ocl_Half16ToFloat16(tmp);
+    float16 res;
+    const short16 inp = vload16($Arg0VarName, ($Arg1igentype)$Arg1VarName);
+    res.lo = __ocl_Half8ToFloat8(inp.lo);
+    res.hi = __ocl_Half8ToFloat8(inp.hi);
+    return res;
   }];
