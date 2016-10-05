@@ -29,12 +29,21 @@
 
 typedef double __v8df __attribute__((__vector_size__(64)));
 typedef float __v16sf __attribute__((__vector_size__(64)));
+#ifdef __OPENCL__
+typedef long __v8di __attribute__((__vector_size__(64)));
+#else
 typedef long long __v8di __attribute__((__vector_size__(64)));
+#endif
 typedef int __v16si __attribute__((__vector_size__(64)));
 
 typedef float __m512 __attribute__((__vector_size__(64)));
 typedef double __m512d __attribute__((__vector_size__(64)));
+#ifdef __OPENCL__
+typedef long __m512i __attribute__((__vector_size__(64)));
+#else
 typedef long long __m512i __attribute__((__vector_size__(64)));
+#endif
+
 
 typedef unsigned char __mmask8;
 typedef unsigned short __mmask16;
