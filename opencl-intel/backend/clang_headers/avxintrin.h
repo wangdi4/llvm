@@ -1059,6 +1059,12 @@ _mm256_setzero_ps(void)
   return (__m256){ 0, 0, 0, 0, 0, 0, 0, 0 };
 }
 
+static __inline __m256i __attribute__((__always_inline__, __nodebug__))
+_mm256_setzero_si256(void)
+{
+  return (__m256i) { 0LL, 0LL, 0LL, 0LL };
+}
+
 /* Cast between vector types */
 static __inline __m256 __attribute__((__always_inline__, __nodebug__))
 _mm256_castpd_ps(__m256d in)
