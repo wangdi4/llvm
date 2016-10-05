@@ -685,6 +685,7 @@ def : Pat<(LPUTailCall imm:$dst),
 def : Pat<(LPUTailCall I64:$dst),
           (JTR I64:$dst)>;
 
+def MOV0      : MovOp<   "mov1",  I0,  i1,  [HasI1],  IIALU>;
 def MOV1      : MovOp<   "mov1",  I1,  i1,  [HasI1],  IIALU>;
 def MOV8      : MovOp<   "mov8",  I8,  i8,  [HasI8],  IIALU>;
 def MOV16     : MovOp<   "mov16", I16, i16, [HasI16], IIALU>;
