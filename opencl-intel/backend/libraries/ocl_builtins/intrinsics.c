@@ -66,8 +66,7 @@ _mm256_maskstore_pd(__v4df *p, __v4di m, __v4di a)
 
 #endif
 
-//#ifdef __AVX512F__
-#if 1
+#ifdef __AVX512F__
 
 typedef double __v8df __attribute__((__vector_size__(64)));
 typedef float __v16sf __attribute__((__vector_size__(64)));
