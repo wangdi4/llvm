@@ -259,6 +259,7 @@ namespace {
       // VPO Vectorizer Passes
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createAVRGenerateHIRPass();
+      (void) llvm::createVPOPredicatorPass();
       (void) llvm::createVPODriverPass();
       (void) llvm::createVPODriverHIRPass();
       (void) llvm::createVPODirectiveCleanupPass();

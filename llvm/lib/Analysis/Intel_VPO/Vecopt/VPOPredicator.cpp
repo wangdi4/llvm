@@ -13,11 +13,19 @@
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOPredicator.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 
 #define DEBUG_TYPE "vpo-predicator"
-
 using namespace llvm;
-using namespace vpo;
+using namespace llvm::vpo;
+
+INITIALIZE_PASS_BEGIN(VPOPredicator, "avr-predicate", "AVR Predicator", false, true)
+INITIALIZE_PASS_END(VPOPredicator, "avr-predicate", "AVR Predicator", false, true)
+
+char VPOPredicator::ID = 0;
+
+FunctionPass *llvm::createVPOPredicatorPass() { return new VPOPredicator(); }
+
 
 namespace llvm {
 
@@ -124,7 +132,8 @@ private:
 
     // If this AVR node is divergent, it marks the SESE region it affects for
     // deconstruction (either the one it contains or the one it resides in).
-    if (!ANode->getSLEV().isUniform())
+    // TODO: Enable SLEV
+    //if (!ANode->getSLEV().isUniform())
       RegionStack.top()->setDivergent();
   }
 
@@ -340,7 +349,51 @@ template <> struct GraphTraits<Inverse<const vpo::AVRBlock*> > {
 
 } // End namespace llvm
 
-VPOPredicator::VPOPredicator() {
+VPOPredicator::VPOPredicator() : FunctionPass(ID) {
+  llvm::initializeVPOPredicatorPass(*PassRegistry::getPassRegistry());
+}
+
+void VPOPredicator::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.setPreservesAll();
+  AU.addUsedIfAvailable<AVRGenerate>();
+  AU.addUsedIfAvailable<AVRGenerateHIR>();
+  // TODO: Enable SLEV
+}
+
+bool VPOPredicator::runOnFunction(Function &F) {
+
+  // We get the AVRGenerate analysis available (LLVM-IR/HIR) without having two
+  // Function Passes. This IS NOT A GOOD IDEA but it's a quick implementation
+  // to enable the predicator in 'opt' for testing.
+  // TODO: Create two passes, one for LLVM-ir and one for HIR
+
+  AVRGenerate *AGIR = getAnalysisIfAvailable<AVRGenerate>();
+  AVRGenerateHIR *AGHIR = getAnalysisIfAvailable<AVRGenerateHIR>();
+
+  assert(((AGIR == nullptr) ^ (AGHIR == nullptr)) &&
+         "VPOPredicator requires AVRGenerate XOR AVRGenerateHIR analyses");
+
+  AVRG = AGIR ? (AVRGenerateBase *)AGIR : (AVRGenerateBase *)AGHIR;
+
+  // TODO: Enable SLEV
+  //SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  DEBUG(dbgs() << "AVR Predicator Pass\n");
+
+  for (auto AVRItr = AVRG->begin(), AVREnd = AVRG->end(); AVRItr != AVREnd;
+       ++AVRItr) {
+
+    // Run on loops within the working region
+    if (AVRWrn *Wrn = dyn_cast<AVRWrn>(AVRItr)) {
+      for (auto WrnItr = Wrn->child_begin(), WrnEnd = Wrn->child_end();
+           WrnItr != WrnEnd; ++WrnItr) {
+        if (AVRLoop *ALoop = dyn_cast<AVRLoop>(WrnItr)) {
+          runOnAvr(ALoop);
+        }
+      }
+    }
+  }
+
+  return false;
 }
 
 void VPOPredicator::runOnAvr(AVRLoop* ALoop) {

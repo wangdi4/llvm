@@ -32,6 +32,9 @@ FunctionPass *createAVRGenerateHIRPass();
 /// AVRValueHIRs into sub-expressions with simpler AVRValueHIRs.
 FunctionPass *createAVRDecomposeHIRPass();
 
+/// This creates a pass that provides predicate information on an AVR program.
+FunctionPass *createVPOPredicatorPass();
+
 /// createAvrDefUsePass - This creates a pass that provides Def-Use/Use-Def
 /// information on an AVR program.
 FunctionPass *createAvrDefUsePass();

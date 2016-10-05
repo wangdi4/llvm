@@ -24,6 +24,7 @@ void llvm::initializeIntel_VPOAnalysis(PassRegistry &Registry) {
   initializeAVRGeneratePass(Registry);
   initializeAVRGenerateHIRPass(Registry);
   initializeAVRDecomposeHIRPass(Registry);
+  initializeVPOPredicatorPass(Registry);
 
   initializeAvrDefUsePass(Registry);
   initializeAvrDefUseHIRPass(Registry);
