@@ -36,9 +36,9 @@ public:
     return &Subtarget;
   }
   /// \brief Register LPU analysis passes with a pass manager.
-  void addAnalysisPasses(PassManagerBase &PM) override;
+  TargetIRAnalysis getTargetIRAnalysis() override;
 
-  TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
+  TargetPassConfig *createPassConfig(legacy::PassManagerBase &PM) override;
 
   TargetLoweringObjectFile *getObjFileLowering() const override {
     return TLOF.get();

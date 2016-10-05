@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "LPUTargetMachine.h"
+#include "LPUTargetTransformInfo.h"
 #include "LPU.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -26,7 +27,7 @@
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
@@ -66,13 +67,9 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, StringRef TT,
 }
 
 
-
-void LPUTargetMachine::addAnalysisPasses(PassManagerBase &PM) {
-  // Add first the target-independent BasicTTI pass, then our X86 pass. This
-  // allows the X86 pass to delegate to the target independent layer when
-  // appropriate.
-  //PM.add(createBasicTargetTransformInfoPass(this));
-  PM.add(createLPUTargetTransformInfoPass(this));
+TargetIRAnalysis LPUTargetMachine::getTargetIRAnalysis() {
+    return TargetIRAnalysis(
+    [this](Function &) { return TargetTransformInfo(LPUTTIImpl(this)); });
 }
 
 
@@ -83,7 +80,7 @@ namespace {
 /// LPU Code Generator Pass Configuration Options.
 class LPUPassConfig : public TargetPassConfig {
 public:
-  LPUPassConfig(LPUTargetMachine *TM, PassManagerBase &PM)
+  LPUPassConfig(LPUTargetMachine *TM, legacy::PassManagerBase &PM)
     : TargetPassConfig(TM, PM) {}
 
   LPUTargetMachine &getLPUTargetMachine() const {
@@ -152,7 +149,7 @@ public:
 };
 } // namespace
 
-TargetPassConfig *LPUTargetMachine::createPassConfig(PassManagerBase &PM) {
+TargetPassConfig *LPUTargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
   LPUPassConfig *PassConfig = new LPUPassConfig(this, PM);
   return PassConfig;
 }

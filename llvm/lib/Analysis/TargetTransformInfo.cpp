@@ -262,8 +262,6 @@ TargetTransformInfo::Concept::~Concept() {}
 
 TargetIRAnalysis::TargetIRAnalysis() : TTICallback(&getDefaultTTI) {}
 
-char NoTTI::ID = 0;
-
 TargetIRAnalysis::TargetIRAnalysis(
     std::function<Result(Function &)> TTICallback)
     : TTICallback(TTICallback) {}
