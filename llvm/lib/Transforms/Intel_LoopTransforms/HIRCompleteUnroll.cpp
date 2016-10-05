@@ -370,12 +370,47 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
   // (for eliminating loop control) and give it higher chance of unrolling.
   if (isSmallLoop()) {
     // Capping extra profitability at an arbitrary constant.
-    ProfitabilityIndex += std::min(4u, It->second);
+    // Increasing threshold from 4 to 15 to completely unroll loops in
+    // enc_motion.c::dist1().
+    //
+    //           <132>           + DO i1 = 0, %h + -1, 1   <DO_LOOP>
+    //           <42>            |   %.pre503 = {al:1}(%blk1)[%lx * i1 + %lx];
+    //           <43>            |   %52 = %.pre503;
+    //           <44>            |   %53 = %.pre502;
+    //           <133>           |   + DO i2 = 0, 15, 1   <DO_LOOP>
+    //           <51>            |   |   %54 = {al:1}(%blk1)[%lx * i1 + i2 + 1];
+    //           <55>            |   |   %55 = {al:1}(%blk1)[%lx * i1 + i2 + %lx
+    //           + 1];
+    //           <63>            |   |   %56 = {al:1}(%blk2)[%lx * i1 + i2];
+    //           <68>            |   |   %.p455 = (-1 * zext.i8.i32(%56) + ((2 +
+    //           zext.i8.i32(%55) + zext.i8.i32(%54) + zext.i8.i32(%52) +
+    //           zext.i8.i32(%53)) /u 4) > -1) ? -1 * zext.i8.i32(%56) + ((2 +
+    //           zext.i8.i32(%55) + zext.i8.i32(%54) + zext.i8.i32(%52) +
+    //           zext.i8.i32(%53)) /u 4) : zext.i8.i32(%56) + -1 * ((2 +
+    //           zext.i8.i32(%55) + zext.i8.i32(%54) + zext.i8.i32(%52) +
+    //           zext.i8.i32(%53)) /u 4);
+    //           <69>            |   |   %s.7482 = %.p455  +  %s.7482;
+    //           <71>            |   |   %52 = %55;
+    //           <72>            |   |   %53 = %54;
+    //           <133>           |   + END LOOP
+    //           <82>            |   %.pre502 = %.pre503;
+    //           <132>           + END LOOP
+    //                     END REGION
+    //
+    // TODO: Refine cost model for min/max/abs HLInsts. The instruction <68>
+    // above is an abs() with the form:
+    // p = (V > -1) V : -V
+    //
+    // If we include all its DDRefs in the cost model, we will incorrectly count
+    // the occurence of 'V' 3 times when it should only be counted once as a
+    // common sub-expression.
+    //
+    ProfitabilityIndex += std::min(15u, It->second);
   }
 
   scale(It->second);
 
-  // Add ztt's profitability. 
+  // Add ztt's profitability.
   if (CurLoop->hasZtt()) {
     for (auto RefIt = CurLoop->ztt_ddref_begin(), E = CurLoop->ztt_ddref_end();
          RefIt != E; ++RefIt) {
