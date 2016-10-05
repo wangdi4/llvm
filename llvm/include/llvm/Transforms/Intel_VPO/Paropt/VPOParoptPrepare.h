@@ -49,7 +49,8 @@ public:
   static char ID;
 
   /// \brief ParoptPrepare object constructor
-  VPOParoptPrepare();
+  /// \brief 0x5 is equivalent to ParPrepare | OmpPar
+  explicit VPOParoptPrepare(unsigned MyMode =0x5);
   ~VPOParoptPrepare() {}; 
 
   const char *getPassName() const override { return "VPO Paropt Prepare Pass"; }
@@ -61,6 +62,8 @@ public:
 private:
   /// \brief W-Region information holder
   WRegionInfo *WI;
+  // VPO-mode
+  unsigned Mode;
 
 };
 

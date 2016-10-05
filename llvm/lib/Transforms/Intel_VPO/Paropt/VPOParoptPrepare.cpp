@@ -54,11 +54,14 @@ INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
 
 char VPOParoptPrepare::ID = 0;
 
-FunctionPass *llvm::createVPOParoptPreparePass() {
-  return new VPOParoptPrepare();
+FunctionPass *llvm::createVPOParoptPreparePass(unsigned Mode) {
+  assert(Mode >= OmpPar && ((Mode & (Mode-1)) == 0) &&
+         "Expect the VPO Mode is OmpPar, OmpVec or OmpOffload.");
+  return new VPOParoptPrepare(ParPrepare | Mode);
 }
 
-VPOParoptPrepare::VPOParoptPrepare() : FunctionPass(ID) {
+VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode)
+    : FunctionPass(ID), Mode(MyMode) {
   DEBUG(dbgs() << "\n\n====== Enter VPO Paropt Prepare Pass ======\n\n");
   initializeVPOParoptPreparePass(*PassRegistry::getPassRegistry());
 }
@@ -70,10 +73,7 @@ void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPOParoptPrepare::runOnFunction(Function &F) {
-
   bool Changed = false;
-
-  int Mode = ParPrepare | OmpPar;
 
   DEBUG(dbgs() << "\n=== VPOParoptPrepare Start: " << F.getName() <<" {\n");
 

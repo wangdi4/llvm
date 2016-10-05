@@ -56,7 +56,7 @@ public:
   /// Pass Identification
   static char ID;
 
-  VPOParopt();
+  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar);
   ~VPOParopt(){};
 
   const char *getPassName() const override { return "VPO Paropt Pass"; }
@@ -68,6 +68,7 @@ public:
 
 private:
   WRegionInfo *WI;
+  unsigned Mode;
 };
 
 } // end namespace vpo

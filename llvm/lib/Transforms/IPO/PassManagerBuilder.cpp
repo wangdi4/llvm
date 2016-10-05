@@ -111,7 +111,12 @@ static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
   cl::desc("Run VPO Vecopt Pass"));
 
-static cl::opt<int> RunVPOParopt("paropt",
+// The user can use -mllvm -paropt=value to enable
+// the OmpPar, OmpVec, OmpOffload.
+// For example, if paropt is 0x4(OmpPar), the VPO mode in the pass
+// VPOParoptPreparePass becomes 0x5 (ParPrepare | OmpPar) and 
+// the pass VPOParoptPass is 0x6 (ParTrans | OmpPar)
+static cl::opt<unsigned> RunVPOParopt("paropt",
   cl::init(0x00000000), cl::Hidden,
   cl::desc("Run VPO Paropt Pass"));
 
@@ -250,6 +255,13 @@ void PassManagerBuilder::populateFunctionPassManager(
   // Add LibraryInfo if we have some.
   if (LibraryInfo)
     FPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
+
+#if INTEL_CUSTOMIZATION
+  if (RunVPOParopt) {
+    FPM.add(createVPOCFGRestructuringPass());
+    FPM.add(createVPOParoptPreparePass(RunVPOParopt));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (OptLevel == 0) return;
 
@@ -895,7 +907,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
                                             bool RunVec) const {
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPOParoptPass());
+    PM.add(createVPOParoptPass(RunVPOParopt));
   }
   if (RunVPOVecopt && RunVec) {
     PM.add(createVPOCFGRestructuringPass());
