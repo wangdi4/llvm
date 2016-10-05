@@ -376,7 +376,10 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
       dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" && 
       "Invalid OclBuiltin record with invalid inputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
-      const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Ins->getArg(i))->getDef()->getName());
+      const DefInit* DI = dyn_cast<DefInit>(Ins->getArg(i));
+      assert(DI && "Invalid built-in 'ins' argument.");
+
+      const OclType* ArgTy = m_DB.getOclType(DI->getDef()->getName());
       const std::string& ArgName = Ins->getArgName(i);
       m_Inputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
