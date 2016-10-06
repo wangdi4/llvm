@@ -353,9 +353,12 @@ AVRBranch::AVRBranch(AVRLabel *ALabel)
 }
 
 AVRBranch::AVRBranch(unsigned SCID, bool IsInd, AVR *Cond)
-    : AVR(SCID), IsIndirect(IsInd), IsBottomTest(false), Condition(Cond) {}
+    : AVR(SCID), IsIndirect(IsInd), IsBottomTest(false) {
+  setCondition(Cond);
+}
 
-AVRBranch::AVRBranch(unsigned SCID) : AVR(SCID), IsBottomTest(false) {}
+AVRBranch::AVRBranch(unsigned SCID)
+    : AVR(SCID), IsConditional(false), IsIndirect(false), IsBottomTest(false) {}
 
 AVRBranch *AVRBranch::clone() const { return nullptr; }
 
@@ -458,7 +461,7 @@ void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 void AVRWrn::shallowPrint(formatted_raw_ostream &OS) const {
-  
+
   OS << "(" << getNumber() << ") " << getAvrTypeName();
 }
 
@@ -553,7 +556,7 @@ AVRBlock::AVRBlock() : AVR(AVR::AVRBlockNode) {}
 AVRBlock *AVRBlock::clone() const { return nullptr; }
 
 void AVRBlock::print(formatted_raw_ostream &OS, unsigned Depth,
-                   VerbosityLevel VLevel) const {
+                     VerbosityLevel VLevel) const {
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -569,7 +572,7 @@ void AVRBlock::print(formatted_raw_ostream &OS, unsigned Depth,
     if (getPredicate())
       OS << "/P" << getPredicate()->getNumber() << "/ ";
     OS << getAvrTypeName() << "--> [";
-    for (AVRBlock* Successor : Successors)
+    for (AVRBlock *Successor : Successors)
       OS << " (" << Successor->getNumber() << ")";
     OS << " ]\n";
     OS << Indent << "{\n";
@@ -586,14 +589,14 @@ void AVRBlock::print(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 void AVRBlock::shallowPrint(formatted_raw_ostream &OS) const {
-  
+
   OS << "(" << getNumber() << ") " << getAvrTypeName();
   if (getPredicate())
     OS << " /P" << getPredicate()->getNumber() << "/ ";
-  OS  << "--> [";
-    for (AVRBlock* Successor : Successors)
-      OS << " (" << Successor->getNumber() << ")";
-    OS << " ]";
+  OS << "--> [";
+  for (AVRBlock *Successor : Successors)
+    OS << " (" << Successor->getNumber() << ")";
+  OS << " ]";
 }
 
 StringRef AVRBlock::getAvrTypeName() const { return StringRef("BLOCK"); }
@@ -606,7 +609,7 @@ AVRPredicate::AVRPredicate() : AVR(AVR::AVRPredicateNode) {}
 AVRPredicate *AVRPredicate::clone() const { return nullptr; }
 
 void AVRPredicate::print(formatted_raw_ostream &OS, unsigned Depth,
-                   VerbosityLevel VLevel) const {
+                         VerbosityLevel VLevel) const {
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -617,24 +620,22 @@ void AVRPredicate::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
   case PrintAvrType:
-      OS << getAvrTypeName() << " {";
+    OS << getAvrTypeName() << " {";
   case PrintDataType:
-  case PrintBase:
-    {
-      OS << "P" << getNumber() << " := ";
-      unsigned IncomingNum = IncomingPredicates.size();
-      for (unsigned Ind = 0; Ind < IncomingNum; ++Ind) {
-        if (Ind > 0)
-          OS << " || ";
-        auto& Incoming = IncomingPredicates[Ind];
-        OS << "(" << Incoming.first->getNumber() << ")";
-        if (Incoming.second) {
-          OS << " && ";
-          Incoming.second->print(OS, 0, VLevel);
-        }
+  case PrintBase: {
+    OS << "P" << getNumber() << " := ";
+    unsigned IncomingNum = IncomingPredicates.size();
+    for (unsigned Ind = 0; Ind < IncomingNum; ++Ind) {
+      if (Ind > 0)
+        OS << " || ";
+      auto &Incoming = IncomingPredicates[Ind];
+      OS << "(" << Incoming.first->getNumber() << ")";
+      if (Incoming.second) {
+        OS << " && ";
+        Incoming.second->print(OS, 0, VLevel);
       }
     }
-    break;
+  } break;
   default:
     llvm_unreachable("Unknown Avr Print Verbosity!");
   }
@@ -656,7 +657,7 @@ void AVRPredicate::shallowPrint(formatted_raw_ostream &OS) const {
   for (unsigned Ind = 0; Ind < IncomingNum; ++Ind) {
     if (Ind > 0)
       OS << " || ";
-    auto& Incoming = IncomingPredicates[Ind];
+    auto &Incoming = IncomingPredicates[Ind];
     OS << "(" << Incoming.first->getNumber() << ")";
     if (Incoming.second) {
       OS << " && ";
@@ -666,6 +667,8 @@ void AVRPredicate::shallowPrint(formatted_raw_ostream &OS) const {
   OS << "}";
 }
 
-StringRef AVRPredicate::getAvrTypeName() const { return StringRef("PREDICATE"); }
+StringRef AVRPredicate::getAvrTypeName() const {
+  return StringRef("PREDICATE");
+}
 
 std::string AVRPredicate::getAvrValueName() const { return ""; }

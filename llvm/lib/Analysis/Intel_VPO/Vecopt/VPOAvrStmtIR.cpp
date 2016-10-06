@@ -340,11 +340,9 @@ AVRBranchIR::AVRBranchIR(Instruction *In, AVR *Cond)
   if (BranchInst *BI = dyn_cast<BranchInst>(In)) {
 
     if (BI->isConditional()) {
-      setIsConditional(true);
       ThenBBlock = BI->getSuccessor(0);
       ElseBBlock = BI->getSuccessor(1);
     } else {
-      setIsConditional(false);
       NextBBlock = BI->getSuccessor(0);
     }
   }

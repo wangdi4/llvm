@@ -12,10 +12,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOPredicator.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 
-#define DEBUG_TYPE "vpo-predicator"
+#define DEBUG_TYPE "avr-predicate"
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -500,7 +501,7 @@ void VPOPredicator::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) 
   // as the first children of the SESE containing node.
 
   DenseMap<AvrBasicBlock*, AVRBlock*> BlocksMap;
-  DenseMap<AVRBlock*, AvrBasicBlock*> BlockSuccessorsDictatorMap;
+  MapVector<AVRBlock *, AvrBasicBlock *> BlockSuccessorsDictatorMap;
   SmallVector<AvrBasicBlock*, 3> Worklist;
   SmallPtrSet<AvrBasicBlock*, 8> Visited;
   AvrBasicBlock* RegionEntryBB = Region->getEntry();
@@ -634,8 +635,8 @@ void VPOPredicator::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) 
     AVRBlock* Top = BlockStack.top();
     DEBUG(formatted_raw_ostream FOS(dbgs());
           FOS << "Top AVRBlock now " << Top->getNumber() << " \n");
-    const SmallPtrSetImpl<AVRBlock*>& SchedConstraints
-      = Top->getSchedConstraints();
+    const SmallVectorImpl<AVRBlock *> &SchedConstraints =
+        Top->getSchedConstraints();
     bool CanSchedule = true;
     for (AVRBlock* Dependency : SchedConstraints) {
       if (!ScheduledBlocks.count(Dependency)) {
@@ -798,9 +799,14 @@ void VPOPredicator::predicate(AVRBlock* Entry) {
         }
       }
       else {
-        if (isa<AVRBranch>(Terminator))
+        if (isa<AVRBranch>(Terminator)) {
+          
+          AVRBranch *ab = cast<AVRBranch>(Terminator);
+          errs() << "isConditional?: " << ab->isConditional() << "\ni";
+
           assert(!cast<AVRBranch>(Terminator)->isConditional() &&
                  "Did not expect conditional branches at this point");
+        }
         else 
           // In HIR, there aren't explicit unconditional AVRBranch instructions.
           // By now, we assume that if the terminator is not AVRIf or AVRSwitch,

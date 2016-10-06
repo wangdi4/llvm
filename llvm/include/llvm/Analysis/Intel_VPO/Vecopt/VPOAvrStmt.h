@@ -496,7 +496,7 @@ private:
 
   /// Condition - If conditional branch, pointer to the AVR which generates the
   /// true/false bit for conditional branch.
-  AVR *Condition;
+  AVR *Condition = nullptr;
 
   // TODO: Consolidate Successors/ThenBBlock/ElseBBlock.
   /// Successors - Vector containing avr labels which are the labels of the
@@ -515,11 +515,11 @@ protected:
 
   virtual ~AVRBranch() override {}
 
-  /// \brief Sets the conditional branch flag.
-  void setIsConditional(bool IC) { IsConditional = IC; }
-
   /// \brief Sets the Avr Condition node for a conditional branch.
-  void setCondition(AVR *Cond) { Condition = Cond; }
+  void setCondition(AVR *Cond) {
+    Condition = Cond;
+    IsConditional = Condition != nullptr ? true : false;
+  }
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
@@ -1037,7 +1037,7 @@ private:
 
   SmallVector<AVRBlock*, 2> Predecessors;
   SmallVector<AVRBlock*, 2> Successors;
-  SmallPtrSet<AVRBlock*, 2> SchedConstraints;
+  SmallVector<AVRBlock*, 2> SchedConstraints;
 
   /// Condition - pointer to the AVR which generates the true/false bit for
   /// that selects between (the two) successors.
@@ -1053,7 +1053,7 @@ private:
   }
 
   void addSchedulingConstraint(AVRBlock* Block) {
-    SchedConstraints.insert(Block);
+    SchedConstraints.push_back(Block);
   }
 
 protected:
@@ -1069,7 +1069,7 @@ public:
 
   const SmallVectorImpl<AVRBlock*>& getSuccessors() const { return Successors; }
 
-  const SmallPtrSetImpl<AVRBlock*>& getSchedConstraints() { return SchedConstraints; }
+  const SmallVectorImpl<AVRBlock*>& getSchedConstraints() { return SchedConstraints; }
 
   SmallVectorImpl<AVRBlock*>::const_iterator pred_begin() const { return Predecessors.begin(); }
   SmallVectorImpl<AVRBlock*>::const_iterator pred_end() const { return Predecessors.end(); }
