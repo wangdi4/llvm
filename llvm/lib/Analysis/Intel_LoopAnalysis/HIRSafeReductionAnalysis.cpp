@@ -111,7 +111,7 @@ bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 //  Refer to HIRLoopInterchange.cpp for sample code to invoke and get
 //  Safe Reductions
 
-void HIRSafeReductionAnalysis::identifySafeReduction(HLLoop *Loop) {
+void HIRSafeReductionAnalysis::identifySafeReduction(const HLLoop *Loop) {
 
   // Safe reductions are of the follow forms:
   // a. Single statement
@@ -143,9 +143,9 @@ void HIRSafeReductionAnalysis::identifySafeReduction(HLLoop *Loop) {
   identifySafeReductionChain(Loop, DDG);
 }
 
-void HIRSafeReductionAnalysis::computeSafeReductionChains(HLLoop *Loop) {
+void HIRSafeReductionAnalysis::computeSafeReductionChains(const HLLoop *Loop) {
 
-  SmallVector<HLLoop *, 32> CandidateLoops;
+  SmallVector<const HLLoop *, 32> CandidateLoops;
   HLNodeUtils::gatherInnermostLoops(CandidateLoops, Loop);
   for (auto &Lp : CandidateLoops) {
     auto SR = SafeReductionMap.find(Lp);
@@ -157,7 +157,7 @@ void HIRSafeReductionAnalysis::computeSafeReductionChains(HLLoop *Loop) {
 }
 
 const SafeRedChainList &
-HIRSafeReductionAnalysis::getSafeReductionChain(HLLoop *Loop) {
+HIRSafeReductionAnalysis::getSafeReductionChain(const HLLoop *Loop) {
 
   assert(Loop->isInnermost() && "SafeReduction supports only innermost loop");
   SafeRedChainList &SRCL = SafeReductionMap[Loop];
@@ -166,8 +166,8 @@ HIRSafeReductionAnalysis::getSafeReductionChain(HLLoop *Loop) {
 
 // Single stmt safe reduction is of this form:
 //  t1 = t1 + a[i]
-void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
-                                                                DDGraph DDG) {
+void HIRSafeReductionAnalysis::identifySingleStatementReduction(
+    const HLLoop *Loop, DDGraph DDG) {
 
   DEBUG(dbgs() << "\nIn single Sum Reduction\n");
   for (auto I = Loop->child_begin(), E = Loop->child_end(); I != E; ++I) {
@@ -175,7 +175,7 @@ void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
     unsigned ReductionOpCode = 0;
     SafeRedChain RedInsts;
     bool SingleStmtReduction;
-    HLNode *NodeI = &(*I);
+    const HLNode *NodeI = &(*I);
 
     FirstRvalSB = 0;
 
@@ -183,7 +183,7 @@ void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
     if (!HLNodeUtils::postDominates(NodeI, FirstChild)) {
       continue;
     }
-    HLInst *Inst = dyn_cast<HLInst>(NodeI);
+    const HLInst *Inst = dyn_cast<HLInst>(NodeI);
     if (!Inst) {
       continue;
     }
@@ -216,8 +216,9 @@ void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
 //     t1 = t2
 //     t3 = t1 +
 //     t2 = t3 +
-bool HIRSafeReductionAnalysis::isValidSR(RegDDRef *LRef, HLLoop *Loop,
-                                         HLInst **SinkInst, DDRef **SinkDDRef,
+bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
+                                         const HLLoop *Loop, HLInst **SinkInst,
+                                         DDRef **SinkDDRef,
                                          unsigned ReductionOpCode,
                                          DDGraph DDG) {
 
@@ -293,7 +294,7 @@ bool HIRSafeReductionAnalysis::isRedTemp(CanonExpr *CE, BlobTy TempBlob) {
   return true;
 }
 
-void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
+void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
                                                           DDGraph DDG) {
 
   DEBUG(dbgs() << "\nIn Sum Reduction Chain\n");
@@ -302,9 +303,9 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
     unsigned ReductionOpCode = 0;
     SafeRedChain RedInsts;
     bool SingleStmtReduction;
-    HLNode *NodeI = &(*Lp);
+    const HLNode *NodeI = &(*Lp);
 
-    HLInst *Inst = dyn_cast<HLInst>(NodeI);
+    const HLInst *Inst = dyn_cast<HLInst>(NodeI);
     if (!Inst) {
       continue;
     }
@@ -337,7 +338,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
 
     while (true) {
 
-      RegDDRef *LRef = Inst->getLvalDDRef();
+      const RegDDRef *LRef = Inst->getLvalDDRef();
       if (!isValidSR(LRef, Loop, &SinkInst, &SinkDDRef, ReductionOpCode, DDG)) {
         break;
       }
@@ -388,11 +389,9 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
   }
 }
 
-bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
-                                                bool *SingleStmtReduction,
-                                                unsigned *FirstRvalSB,
-                                                unsigned *ReductionOpCode,
-                                                DDGraph DDG) {
+bool HIRSafeReductionAnalysis::findFirstRedStmt(
+    const HLLoop *Loop, const HLInst *Inst, bool *SingleStmtReduction,
+    unsigned *FirstRvalSB, unsigned *ReductionOpCode, DDGraph DDG) {
 
   // Start by guessing the start of reduction chain
   // S1  is Inst
@@ -431,7 +430,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
   unsigned Level = Loop->getNestingLevel();
   for (auto I = Inst->rval_op_ddref_begin(), E2 = Inst->rval_op_ddref_end();
        I != E2; ++I) {
-    RegDDRef *RRef = *I;
+    const RegDDRef *RRef = *I;
     if (!RRef || RRef->isMemRef()) {
       continue;
     }
@@ -463,7 +462,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
       }
 
       if (Inst == SrcInst) {
-        RegDDRef *LRef = Inst->getLvalDDRef();
+        const RegDDRef *LRef = Inst->getLvalDDRef();
         if (DDUtils::singleUseInLoop(LRef, Loop, DDG)) {
           *SingleStmtReduction = true;
           *FirstRvalSB = DDRefSrc->getSymbase();

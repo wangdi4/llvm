@@ -47,8 +47,8 @@ class HIRGraph {
   typedef SmallVector<GraphEdge *, 4> GraphEdgeContainerTy;
 
   void addImpl(GraphEdge *EdgePtr) {
-    inEdges[EdgePtr->getSink()].push_back(EdgePtr);
-    outEdges[EdgePtr->getSrc()].push_back(EdgePtr);
+    InEdges[EdgePtr->getSink()].push_back(EdgePtr);
+    OutEdges[EdgePtr->getSrc()].push_back(EdgePtr);
   }
 
 public:
@@ -71,23 +71,23 @@ public:
   // Don't let others modify edges. We can only remove or add
   // edges
   EdgeIterator
-  incoming_edges_begin(GraphNode *Node) {
-    return inEdges[Node].begin();
+  incoming_edges_begin(const GraphNode *Node) {
+    return InEdges[Node].begin();
   }
 
   EdgeIterator
-  incoming_edges_end(GraphNode *Node) {
-    return inEdges[Node].end();
+  incoming_edges_end(const GraphNode *Node) {
+    return InEdges[Node].end();
   }
 
   EdgeIterator
-  outgoing_edges_begin(GraphNode *Node) {
-    return outEdges[Node].begin();
+  outgoing_edges_begin(const GraphNode *Node) {
+    return OutEdges[Node].begin();
   }
 
   EdgeIterator
-  outgoing_edges_end(GraphNode *Node) {
-    return outEdges[Node].end();
+  outgoing_edges_end(const GraphNode *Node) {
+    return OutEdges[Node].end();
   }
 
   void addEdge(const GraphEdge &E) {
@@ -101,7 +101,7 @@ public:
   }
 
   void print(raw_ostream &OS) const {
-    for (auto I = outEdges.begin(), E = outEdges.end(); I != E; ++I) {
+    for (auto I = OutEdges.begin(), E = OutEdges.end(); I != E; ++I) {
       auto Edges = I->second;
       for (auto EIt = Edges.begin(), EdgesEnd = Edges.end(); EIt != EdgesEnd;
            ++EIt) {
@@ -113,8 +113,8 @@ public:
   void dump() const { print(dbgs()); }
 
   void clear() {
-    inEdges.clear();
-    outEdges.clear();
+    InEdges.clear();
+    OutEdges.clear();
     EdgesVector.clear();
   }
 
@@ -122,8 +122,8 @@ private:
   // It is assumed the common operation is to iterate over in/out edges
   // As such, we keep edge vectors for each node, with each edge stored
   // (as a struct vs ptr) twice; once in inEdges and once in outEdges
-  std::map<GraphNode *, GraphEdgeContainerTy> inEdges;
-  std::map<GraphNode *, GraphEdgeContainerTy> outEdges;
+  std::map<const GraphNode *, GraphEdgeContainerTy> InEdges;
+  std::map<const GraphNode *, GraphEdgeContainerTy> OutEdges;
   std::list<GraphEdge> EdgesVector;
 };
 

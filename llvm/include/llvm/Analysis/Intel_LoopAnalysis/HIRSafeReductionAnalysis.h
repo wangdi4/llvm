@@ -52,20 +52,20 @@ private:
   // Map of reduction DDRef symbases and the reduction opcode
   SmallDenseMap<unsigned, unsigned, 16> SafeReductionSymbaseMap;
 
-  bool findFirstRedStmt(HLLoop *Loop, HLInst *Inst, bool *SingleStmtReduction,
-                        unsigned *FirstSB, unsigned *ReductionOpCode,
-                        DDGraph DDG);
+  bool findFirstRedStmt(const HLLoop *Loop, const HLInst *Inst,
+                        bool *SingleStmtReduction, unsigned *FirstSB,
+                        unsigned *ReductionOpCode, DDGraph DDG);
 
   void setSafeRedChainList(SafeRedChain &RedInsts, const HLLoop *Loop,
                            unsigned RedSymbase, unsigned RedOpCode);
 
-  void identifySingleStatementReduction(HLLoop *Loop, DDGraph DDG);
-  void identifySafeReductionChain(HLLoop *Loop, DDGraph DDG);
-  bool isValidSR(RegDDRef *LRef, HLLoop *Loop, HLInst **SinkInst,
+  void identifySingleStatementReduction(const HLLoop *Loop, DDGraph DDG);
+  void identifySafeReductionChain(const HLLoop *Loop, DDGraph DDG);
+  bool isValidSR(const RegDDRef *LRef, const HLLoop *Loop, HLInst **SinkInst,
                  DDRef **SinkDDRef, unsigned ReductionOpCode, DDGraph DDG);
 
   // Perform  SafeReducton Analysis
-  void identifySafeReduction(HLLoop *Loop);
+  void identifySafeReduction(const HLLoop *Loop);
   // Checks if a temp is legal to be used for Reduction
   //  e.g s =  10 * s + ..  is not legal
   bool isRedTemp(CanonExpr *CE, BlobTy Blob);
@@ -79,10 +79,10 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   // \brief Compute SafeReduction for all innermost loops
-  void computeSafeReductionChains(HLLoop *Loop);
+  void computeSafeReductionChains(const HLLoop *Loop);
 
   // \brief Get SafeReduction of a Loop
-  const SafeRedChainList &getSafeReductionChain(HLLoop *Loop);
+  const SafeRedChainList &getSafeReductionChain(const HLLoop *Loop);
 
   // \brief Is Inst part of a Safe Reduction. Indicate of Single Stmt when
   // argument

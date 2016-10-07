@@ -148,7 +148,7 @@ public:
 
   /// \brief Legality check for HIR Loop Reversal
   //(is the given loop Legal to reverse?)
-  bool isLegal(HLLoop *Lp);
+  bool isLegal(const HLLoop *Lp);
 
   /// \brief setup context before calling isReversible(-)
   void setupBeforeTests(HLLoop *Lp, HIRDDAnalysis &DDA,

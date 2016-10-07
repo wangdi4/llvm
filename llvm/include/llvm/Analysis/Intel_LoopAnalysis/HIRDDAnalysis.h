@@ -71,19 +71,19 @@ public:
   // TODO friend to DDA?
   DDGraph(const HLNode *Node, DDGraphTy *Graph) : CurNode(Node), G(Graph) {}
 
-  DDGraphTy::EdgeIterator incoming_edges_begin(DDRef *Ref) {
+  DDGraphTy::EdgeIterator incoming_edges_begin(const DDRef *Ref) {
     return G->incoming_edges_begin(Ref);
   }
 
-  DDGraphTy::EdgeIterator incoming_edges_end(DDRef *Ref) {
+  DDGraphTy::EdgeIterator incoming_edges_end(const DDRef *Ref) {
     return G->incoming_edges_end(Ref);
   }
 
-  DDGraphTy::EdgeIterator outgoing_edges_begin(DDRef *Ref) {
+  DDGraphTy::EdgeIterator outgoing_edges_begin(const DDRef *Ref) {
     return G->outgoing_edges_begin(Ref);
   }
 
-  DDGraphTy::EdgeIterator outgoing_edges_end(DDRef *Ref) {
+  DDGraphTy::EdgeIterator outgoing_edges_end(const DDRef *Ref) {
     return G->outgoing_edges_end(Ref);
   }
   /// \brief single edge going out of this DDRef

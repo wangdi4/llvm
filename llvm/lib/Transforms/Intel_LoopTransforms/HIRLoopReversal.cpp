@@ -287,12 +287,12 @@ FunctionPass *llvm::createHIRLoopReversalPass() {
 // Analyze Data-Dependence for the given Loop, for Reversal
 struct HIRLoopReversal::AnalyzeDDInfo final : public HLNodeVisitorBase {
   DDGraph &DDG;         // DDGraph
-  HLLoop *Lp;           // The Loop
+  const HLLoop *Lp;           // The Loop
   HIRLoopReversal *HLR; // The HIRLoopReversal Pass*, will call its isLegal(.)
   bool AbortCollector;  // Flat to abort the current collection process
   unsigned LoopLevel;   // loop's level
 
-  explicit AnalyzeDDInfo(DDGraph &DDGraphRef, HLLoop *InitLoopPtr,
+  explicit AnalyzeDDInfo(DDGraph &DDGraphRef, const HLLoop *InitLoopPtr,
                          HIRLoopReversal *InitHLR, unsigned InitLoopLevel)
       : DDG(DDGraphRef), Lp(InitLoopPtr), HLR(InitHLR), AbortCollector(false),
         LoopLevel(InitLoopLevel) {
@@ -641,7 +641,7 @@ bool HIRLoopReversal::isProfitable(const HLLoop *Lp) {
 // Launch legal test for each DV in the loop.
 //
 /* ------------------------------------------------------------------- */
-bool HIRLoopReversal::isLegal(HLLoop *Lp) {
+bool HIRLoopReversal::isLegal(const HLLoop *Lp) {
   // 0. Sanity Check/Setup;
   assert(Lp &&
          "HIRLoopReversal::isLegal(.) assert fired: Loop can't be NULL\n");

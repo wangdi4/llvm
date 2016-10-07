@@ -1092,11 +1092,21 @@ public:
   /// \brief Gathers the innermost loops across regions and stores them into
   /// the loop vector. If Node is not specified, it will search for all
   /// Regions
-  template <typename T>
-  static void gatherInnermostLoops(SmallVectorImpl<T> &Loops,
+  static void gatherInnermostLoops(SmallVectorImpl<HLLoop *> &Loops,
                                    HLNode *Node = nullptr) {
 
-    LoopLevelVisitor<T, VisitKind::Innermost> LoopVisit(Loops);
+    LoopLevelVisitor<HLLoop *, VisitKind::Innermost> LoopVisit(Loops);
+    if (Node) {
+      HLNodeUtils::visit(LoopVisit, Node);
+    } else {
+      HLNodeUtils::visitAll(LoopVisit);
+    }
+  }
+
+  static void gatherInnermostLoops(SmallVectorImpl<const HLLoop *> &Loops,
+                                   const HLNode *Node = nullptr) {
+
+    LoopLevelVisitor<const HLLoop *, VisitKind::Innermost> LoopVisit(Loops);
     if (Node) {
       HLNodeUtils::visit(LoopVisit, Node);
     } else {

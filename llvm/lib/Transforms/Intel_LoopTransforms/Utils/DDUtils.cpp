@@ -493,7 +493,8 @@ bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
 
 ///  Is single use of LvalRef in loop?  Counts blobs as well
 
-bool DDUtils::singleUseInLoop(RegDDRef *LvalRef, HLLoop *Loop, DDGraph DDG) {
+bool DDUtils::singleUseInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
+                              DDGraph DDG) {
 
   assert(LvalRef && LvalRef->isLval() && "DDRef must be lval");
   assert(Loop && "Loop  must be supplied");
