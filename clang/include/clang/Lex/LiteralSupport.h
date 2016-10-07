@@ -66,6 +66,7 @@ public:
   bool isFloat : 1;         // 1.0f
   bool isImaginary : 1;     // 1.0i
   bool isFloat128 : 1;      // 1.0q
+  bool hadDSuffix : 1;      // 1.0d INTEL
   uint8_t MicrosoftInteger; // Microsoft suffix extension i8, i16, i32, or i64.
 
   bool isIntegerLiteral() const {

@@ -515,6 +515,9 @@ def x_error_intel_pragma_conflicting_section_attributes : Error<"conflicting sec
 def x_err_attribute_not_string : Error<"argument to %0 attribute was not a string literal">;
 def err_attribute_section_local_variable : Error<
   "'section' attribute is not valid on local variables">;
+// CQ#412550
+def warn_d_suffix : ExtWarn<"d-suffix in FP literal is a GNU extension">,
+  InGroup<GNULiteralSuffix>;
 }
 // endif INTEL_SPECIFIC_IL0_BACKEND
 } // end of sema component.
