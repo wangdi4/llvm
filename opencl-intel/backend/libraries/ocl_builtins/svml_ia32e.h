@@ -17112,8 +17112,8 @@ uint2 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_cvtfptou32rtnsat2 (double2 a
  double4 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_trunc4 (double4 a);
  int4 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_idiv4 (int4 a, int4 b);
  int4 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_irem4 (int4 a, int4 b);
- int4 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_udiv4 (int4 a, int4 b);
- int4 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_urem4 (int4 a, int4 b);
+ uint4 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_udiv4 (uint4 a, uint4 b);
+ uint4 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_urem4 (uint4 a, uint4 b);
  float8 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_acosf8 (float8 a);
  float8 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_acoshf8 (float8 a);
  float8 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_acospif8 (float8 a);
@@ -17600,8 +17600,8 @@ uint2 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_cvtfptou32rtnsat2 (double2 a
  double16 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_trunc16 (double16 a);
  int16 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_idiv16 (int16 a, int16 b);
  int16 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_irem16 (int16 a, int16 b);
- int16 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_udiv16 (int16 a, int16 b);
- int16 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_urem16 (int16 a, int16 b);
+ uint16 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_udiv16 (uint16 a, uint16 b);
+ uint16 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_urem16 (uint16 a, uint16 b);
  ocl_float32 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_acosf32 (ocl_float32 a);
  ocl_float32 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_acoshf32 (ocl_float32 a);
  ocl_float32 __attribute__((intel_ocl_bicc)) __ocl_svml_z0_acospif32 (ocl_float32 a);
