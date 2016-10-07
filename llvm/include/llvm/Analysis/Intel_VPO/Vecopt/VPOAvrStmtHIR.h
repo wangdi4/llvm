@@ -249,6 +249,7 @@ public:
 class AVRBranchHIR : public AVRBranch {
 
 private:
+  // CHECKME: Is this going to be an HLNode other than a goto?
   HLNode *Instruct;
   // TODO: Add Member Data
 
