@@ -33,8 +33,8 @@
 #define PTR_CAST	ThreadTaskExecutor
 #endif
 
-#pragma comment (lib, "cl_logger.lib")
-#pragma comment (lib, "cl_sys_utils.lib")
+#pragma comment(lib, "cl_logger" EXPERIMENTAL_POSTFIX ".lib")
+#pragma comment(lib, "cl_sys_utils.lib")
 
 #include <Windows.h>
 #include <stdio.h>
