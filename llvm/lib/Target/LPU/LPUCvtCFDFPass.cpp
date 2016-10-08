@@ -118,7 +118,16 @@ namespace llvm {
     void replacePhiWithPICK();
     void replaceLoopHdrPhi();
 		void generateCompletePickTreeForPhi(MachineInstr *);
+		void generateDynamicPickTreeForPhi(MachineInstr *);
+		unsigned getEdgePred(MachineBasicBlock* fromBB, unsigned childType);
+		void setEdgePred(MachineBasicBlock* fromBB, unsigned childType, unsigned ch);
+		unsigned getBBPred(MachineBasicBlock* inBB);
+		void setBBPred(MachineBasicBlock* inBB, unsigned ch);
+		unsigned computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB);
+		unsigned computeEdgePred(MachineBasicBlock* fromBB, unsigned childType);
+		unsigned computeBBPred(MachineBasicBlock *inBB);
 		void TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI);
+		bool CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb);
     void replaceIfFooterPhiSeq();
   	void assignLicForDF();
   	void removeBranch();
@@ -202,6 +211,8 @@ namespace llvm {
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2switch;  //switch for Reg added in bb
     DenseMap<MachineBasicBlock *, SmallVectorImpl<MachineInstr *>* > bb2predcpy;
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2pick;  //switch for Reg added in bb
+		DenseMap<MachineBasicBlock*, SmallVectorImpl<unsigned>* > edgepreds;
+		DenseMap<MachineBasicBlock *, unsigned> bbpreds;
     std::set<MachineInstr *> multiInputsPick;
   };
 }
@@ -1447,13 +1458,11 @@ void LPUCvtCFDFPass::assignPICKSrcForReg(unsigned &pickFalseReg, unsigned &pickT
     if (ctrlNode->isFalseChild(inNode)) {
       pickFalseReg = Reg;
       pickTrueReg = LPU::IGN;
-    }
-    else {
+    } else {
       pickTrueReg = Reg;
       pickFalseReg = LPU::IGN;
     }
-  }
-  else {
+  } else {
     MachineBasicBlock* mbb = phi->getParent();
     //assert(DT->dominates(ctrlBB, mbb));
 		if (CDG->getEdgeType(ctrlBB, mbb, true) == ControlDependenceNode::TRUE) {
@@ -1489,16 +1498,14 @@ void LPUCvtCFDFPass::generateCompletePickTreeForPhi(MachineInstr* MI) {
 				}
 				PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, dst);
 				continue;
-			}
-			else {
+			}	else {
 				bool inBBFork = inBB->succ_size() > 1 && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB);
 				if (inBBFork) {
 					MachineInstr* pickInstr = PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, 0);
 					if (!pickInstr) {
 						//patched
 						continue;  //to next MO
-					}
-					else {
+					}	else {
 						Reg = pickInstr->getOperand(0).getReg();
 					}
 				}
@@ -1509,56 +1516,209 @@ void LPUCvtCFDFPass::generateCompletePickTreeForPhi(MachineInstr* MI) {
 	MI->removeFromParent();
 }
 
+unsigned LPUCvtCFDFPass::getEdgePred(MachineBasicBlock* mbb, unsigned childType) {
+	if (edgepreds.find(mbb) == edgepreds.end()) return 0;
+	return (*edgepreds[mbb])[childType];
+}
+
+void LPUCvtCFDFPass::setEdgePred(MachineBasicBlock* mbb, unsigned childType, unsigned ch) {
+	if (edgepreds.find(mbb) == edgepreds.end()) {
+		SmallVector<unsigned, 2>* childVect = new SmallVector<unsigned, 2>;
+		edgepreds[mbb] = childVect;
+	}
+	(*edgepreds[mbb])[childType] = ch;
+}
+
+unsigned LPUCvtCFDFPass::getBBPred(MachineBasicBlock* mbb) {
+	if (bbpreds.find(mbb) == bbpreds.end()) return 0;
+	return bbpreds[mbb];
+}
+
+
+void LPUCvtCFDFPass::setBBPred(MachineBasicBlock* mbb, unsigned ch) {
+	//don't set it twice
+	assert(bbpreds.find(mbb) == bbpreds.end() && "LPU: Try to set bb pred twice");
+	bbpreds[mbb] = ch;
+}
+
+unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB) {
+	ControlDependenceNode* fromNode = CDG->getNode(fromBB);
+	ControlDependenceNode* toNode = CDG->getNode(toBB);
+	if (fromBB->succ_size() == 1 || fromNode->isParent(fromNode)) {
+		return computeBBPred(fromBB);
+	} else if (fromNode->isFalseChild(toNode)) {
+		return computeEdgePred(fromBB, (unsigned)0);
+	}	else {
+		return computeEdgePred(fromBB, (unsigned)1);
+	}
+}
+
+	
+unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, unsigned childType) {
+	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+	MachineRegisterInfo* MRI = &thisMF->getRegInfo();
+
+	assert(fromBB->succ_size() == 2 && "LPU bb has more than 2 successor");
+	if (unsigned edgeReg = getEdgePred(fromBB, childType)) {
+		return edgeReg;
+	}
+	unsigned bbPredReg = computeBBPred(fromBB);
+	unsigned falseEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
+	unsigned trueEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
+	MachineBasicBlock::iterator loc = fromBB->getFirstTerminator();
+	MachineInstr* bi = loc;
+	BuildMI(*fromBB, loc, DebugLoc(), TII.get(LPU::PREDPROP),
+		falseEdge).addReg(trueEdge, RegState::Define).addReg(bbPredReg).addReg(bi->getOperand(0).getReg());
+	setEdgePred(fromBB, 0, falseEdge);
+	setEdgePred(fromBB, 1, trueEdge);
+	return getEdgePred(fromBB, childType);
+}
+
+unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
+	if (unsigned c = getBBPred(inBB)) {
+		return c;
+	}
+	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+	MachineRegisterInfo* MRI = &thisMF->getRegInfo();
+	MachineBasicBlock* ctrlBB = nullptr;
+	unsigned ctrlEdge;
+	unsigned predBB = 0;
+	ControlDependenceNode* inNode = CDG->getNode(inBB);
+	for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
+		ControlDependenceNode* ctrlNode = *pnode;
+		ctrlBB = ctrlNode->getBlock();
+
+		if (!ctrlBB) { //root node has no bb
+			//.init 1
+			LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+			// Look up target register class corresponding to this register.
+			const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(&LPU::I1RegClass);
+			assert(new_LIC_RC && "Can't determine register class for register");
+			unsigned initCh = LMFI->allocateLIC(new_LIC_RC);
+			MachineBasicBlock* entryBB = thisMF->begin();
+			const unsigned InitOpcode = TII.getInitOpcode(&LPU::I1RegClass);
+			BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII.get(InitOpcode), initCh).addImm(1);
+			ctrlEdge = initCh;
+		}	else {
+			//bypass loop latch node
+			if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+				continue;
+			assert(ctrlBB->succ_size() == 2 && "LPU: bb has more than 2 successor");
+			computeBBPred(ctrlBB);
+			unsigned falseEdgeReg = computeEdgePred(ctrlBB, (unsigned)0);
+			unsigned trueEdgeReg = computeEdgePred(ctrlBB, (unsigned)1);
+			if (ctrlNode->isFalseChild(inNode)) {
+				ctrlEdge = falseEdgeReg;
+			}	else {
+				ctrlEdge = trueEdgeReg;
+			}
+		}
+		//merge predecessor if needed
+		if (!predBB) {
+			predBB = ctrlEdge;
+		}	else {
+			unsigned mergeEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
+			MachineBasicBlock::iterator loc = inBB->getFirstNonPHI();
+			BuildMI(*inBB, loc, DebugLoc(), TII.get(LPU::PREDMERGE), mergeEdge).addReg(predBB).addReg(ctrlEdge);
+			predBB = mergeEdge;
+		}
+	}
+	//be prudent and only save when necessary
+	if (inBB->pred_size() > 1 || inBB->succ_size() > 1) {
+		setBBPred(inBB, predBB);
+	}
+	return predBB;
+}
+
+void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
+	assert(MI->isPHI());
+	//MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+	MachineBasicBlock* mbb = MI->getParent();
+	for (MIOperands MO(MI); MO.isValid(); ++MO) {
+		if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+		if (MO->isUse()) {
+			//unsigned Reg = MO->getReg();
+			//move to its incoming block operand
+			++MO;
+			MachineBasicBlock* inBB = MO->getMBB();
+			//unsigned edgePred = computeEdgePred(inBB, mbb);
+			//addEdgeValuePairToPick1(MI, edgePred, Reg);
+		}
+	} //end of for MO
+	MI->removeFromParent();
+}
+
+
 void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
   typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
   MachineBasicBlock *root = thisMF->begin();
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
     MachineBasicBlock::iterator iterI = mbb->begin();
-	bool bypassBB = false;
+		bool needDynamicTree = false;
+		bool checked = false;
     while (iterI != mbb->end()) {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-#if 1
-			for (MIOperands MO(MI); MO.isValid() && !bypassBB; ++MO) {
-				if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-
-				if (MO->isUse()) {
-					//move to its incoming block operand
-					++MO;
-					MachineBasicBlock* inBB = MO->getMBB();
-					if (!PDT->dominates(mbb, inBB)) {
-						bypassBB = true;
-						break;
-					}
-					do {
-						bool inBBFork = ((inBB->succ_size() > 1) && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB));
-						ControlDependenceNode* inNode = CDG->getNode(inBB);
-						ControlDependenceNode* ctrlNode = nullptr;
-						bool oneAndOnly = true;
-						ctrlNode = getNonLatchParent(inNode, oneAndOnly);
-						if (ctrlNode == nullptr && !oneAndOnly && !inBBFork) {
-							bypassBB = true;
+			//check to see if needs PREDPROP/PREDMERGE
+			if (!checked) {
+				for (MIOperands MO(MI); MO.isValid(); ++MO) {
+					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+					if (MO->isUse()) {
+						//move to its incoming block operand
+						++MO;
+						MachineBasicBlock* inBB = MO->getMBB();
+						if (!PDT->dominates(mbb, inBB) || !CheckPhiInputBB(inBB, mbb)) {
+							needDynamicTree = true;
 							break;
 						}
-						if (ctrlNode == nullptr) break;
-						MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
-						inBB = ctrlBB;
-					} while (!DT->dominates(inBB, mbb));
+					}
 				}
 			}
-			if (bypassBB) {
+			checked = true;
+			if (needDynamicTree) {
+#if 0
+				generateDynamicPickTreeForPhi(MI);
+#else 
 				RunSXU = true;
 				break;
-			}
 #endif
-
-			generateCompletePickTreeForPhi(MI);
+			}	else {
+				generateCompletePickTreeForPhi(MI);
+			}
 		}
   } //end of bb
 }
 
+
+
+//make sure phi block post dominates all control points of all its inBBs
+bool LPUCvtCFDFPass::CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb) {
+	if (DT->dominates(inBB, mbb)) {
+		return PDT->dominates(mbb, inBB);
+	}
+	ControlDependenceNode* inNode = CDG->getNode(inBB);
+	unsigned numCtrl = 0;
+	for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
+		ControlDependenceNode* ctrlNode = *pnode;
+		MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
+		//ignore loop latch ???
+		if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+			continue;
+		
+		++numCtrl;
+		if (numCtrl > 1) return false;
+
+		if (!PDT->dominates(mbb, ctrlBB)) {
+			return false;
+		}
+		if (!CheckPhiInputBB(ctrlBB, mbb)) {
+			return false;
+		}
+	}
+	return true;
+}
 
 
 void LPUCvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI) {
