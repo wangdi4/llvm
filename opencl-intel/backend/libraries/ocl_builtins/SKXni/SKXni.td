@@ -1,9 +1,9 @@
 // vim:ts=2:sw=2:et:
 
-include "KNLni/KNLni.td"
+include "avx512f/avx512f.td"
 
 
-class SKX : KNL {
+class SKX : AVX512F {
 
 }
 
