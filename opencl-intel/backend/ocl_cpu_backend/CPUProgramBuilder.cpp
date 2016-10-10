@@ -372,9 +372,6 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStart, &injectedObjSize)
         && pInjectedObjStart != NULL)
     {
-#ifdef ENABLE_KNL
-        LoadObject(pProgram, spModule, pInjectedObjStart, injectedObjSize);
-#else
         std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
         // Build the MemoryBuffer object from the supplied options
         std::unique_ptr<llvm::MemoryBuffer> pInjectedObj =
@@ -384,26 +381,8 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         // Add the injected object to the execution engine cache
         CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
         pCPUProgram->GetExecutionEngine()->setObjectCache(pObjectLoader.release());
-#endif //ENABLE_KNL
     }
 }
-
-#ifdef ENABLE_KNL
-void CPUProgramBuilder::LoadObject(Program* pProgram, llvm::Module* spModule,
-                                   const char *pInjectedObjStart,
-                                   size_t injectedObjSize) const
-{
-    std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
-    // Build the MemoryBuffer object from the supplied options
-    std::auto_ptr<llvm::MemoryBuffer> pInjectedObj(
-        llvm::MemoryBuffer::getMemBuffer( llvm::StringRef(pInjectedObjStart, injectedObjSize)) );
-
-    pObjectLoader->addPreCompiled(spModule, pInjectedObj.release());
-    // Add the injected object to the execution engine cache
-    CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
-    pCPUProgram->GetExecutionEngine()->setObjectCache(pObjectLoader.release());
-}
-#endif //ENABLE_KNL
 
 IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const
 {

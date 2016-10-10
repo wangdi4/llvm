@@ -74,11 +74,6 @@ protected:
 
     void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const;
 
-#ifdef ENABLE_KNL
-    void LoadObject(Program* pProgram, llvm::Module* spModule, const char *start,
-                    size_t size) const;
-#endif // ENABLE_KNL
-
     /// @brief inherited method. create mapper from block to Kernel
     /// @param pProgram
     /// @param llvm module
