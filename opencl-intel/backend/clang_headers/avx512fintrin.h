@@ -380,6 +380,16 @@ _mm512_abs_epi32(__m512i __A);
 
 /* Vector permutations */
 
+static __inline __m512i __attribute__ ((__always_inline__, __nodebug__))
+_mm512_permutex2var_epi32(__m512i __A, __m512i __I, __m512i __B)
+{
+  return (__m512i)__builtin_ia32_vpermt2vard512_mask((__v16si)__I
+    /* idx */,
+    (__v16si)__A,
+    (__v16si)__B,
+    (__mmask16)-1);
+}
+
 static __inline __m512 __attribute__ ((__always_inline__, __nodebug__))
 _mm512_permutex2var_ps(__m512 __A, __m512i __I, __m512 __B)
 {
