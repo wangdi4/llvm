@@ -335,6 +335,7 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     {
         throw Exceptions::CompilerException("Program is not valid for this target", CL_DEV_INVALID_BINARY);
     }
+    dumpModule(*pModule);
 
     CompilerBuildOptions buildOptions(pModule);
 

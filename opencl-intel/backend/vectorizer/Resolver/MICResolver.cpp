@@ -74,8 +74,13 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
 
     // Remove address space from pointer type
     PtrTy = PointerType::get(RetTy->getScalarType(), 0);
-    Ptr = CastInst::CreatePointerCast(Ptr, PtrTy, "ptrTypeCast", caller);
-
+    
+    // Ptr = CastInst::CreatePointerCast(Ptr, PtrTy, "ptrTypeCast", caller);
+    Type *IntptrTy = Type::getInt64Ty(caller->getContext());
+    Instruction *Cast1 = CastInst::Create(Instruction::PtrToInt, Ptr, IntptrTy, "ptrToInt", caller);
+    Ptr = CastInst::Create(Instruction::IntToPtr, Cast1, PtrTy, "intToPtr", caller);
+    
+    // Ptr = new BitCastInst(Ptr, PtrTy, "ptrTypeCast", caller);
     Type *IndTy = IntegerType::get(caller->getContext(), 32);
 
     Value *Index = getConsecutiveConstantVector(IndTy, RetTy->getNumElements());
@@ -121,7 +126,11 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
 
     // Remove address space from pointer type
     PtrTy = PointerType::get(DataTy->getScalarType(), 0);
-    Ptr = CastInst::CreatePointerCast(Ptr, PtrTy, "ptrTypeCast", caller);
+    
+    // Ptr = CastInst::CreatePointerCast(Ptr, PtrTy, "ptrTypeCast", caller);
+    Type *IntptrTy = Type::getInt64Ty(caller->getContext());
+    Instruction *Cast1 = CastInst::Create(Instruction::PtrToInt, Ptr, IntptrTy, "ptrToInt", caller);
+    Ptr = CastInst::Create(Instruction::IntToPtr, Cast1, PtrTy, "intToPtr", caller);
 
     Type *IndTy = IntegerType::get(caller->getContext(), 32);
 
@@ -340,7 +349,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createGatherScatterResolverPass() {
+  FunctionPass* createKNCResolverPass() {
     return new intel::MICResolver();
   }
 }

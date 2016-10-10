@@ -12,7 +12,7 @@
 // suppliers and licensors, and is protected by worldwide copyright and trade
 // secret laws and treaty provisions. No part of the Material may be used, copied,
 // reproduced, modified, published, uploaded, posted, transmitted, distributed,
-// or disclosed in any way without Intel’s prior express written permission.
+// or disclosed in any way without IntelÂ’s prior express written permission.
 //
 // No license under any patent, copyright, trade secret or other intellectual
 // property right is granted to or conferred upon you by disclosure or delivery
@@ -21,7 +21,7 @@
 // and approved by Intel in writing.
 //
 // Unless otherwise agreed by Intel in writing, you may not remove or alter this notice
-// or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
+// or any other notice embedded in Materials by Intel or IntelÂ’s suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 
@@ -82,11 +82,11 @@ static const char* CPU_STRING = "GenuineIntel";
 
 cl_err_code Intel::OpenCL::Utils::IsCPUSupported()
 {
-	if( CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
-	{
-		return CL_SUCCESS;
-	}
-	return CL_ERR_CPU_NOT_SUPPORTED;
+        if( CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
+        {
+                return CL_SUCCESS;
+        }
+        return CL_ERR_CPU_NOT_SUPPORTED;
 }
 
 
@@ -239,7 +239,7 @@ bool CPUDetect::IsFeatureSupported(ECPUFeatureSupport featureType)
         return true;
     }
 
-	return (0 != (m_uiCPUFeatures & (unsigned int)featureType));
+        return (0 != (m_uiCPUFeatures & (unsigned int)featureType));
 }
 CPUDetect * CPUDetect::GetInstance()
 {
@@ -307,21 +307,21 @@ void CPUDetect::GetCPUInfo()
     MEMCPY_S( vcCPUString + 8, sizeof(vcCPUString) - 8, viCPUInfo + 2, sizeof(unsigned int));
 
     m_szCPUString = STRDUP(vcCPUString);
-	if(!m_szCPUString)
-	{
-		m_bIsGenuineIntel = false;
-	}
-	else
-	{
-		if (strcmp(m_szCPUString, CPU_STRING) == 0)
-		{
-			m_bIsGenuineIntel = true;
-		}
-		else
-		{
-			m_bIsGenuineIntel = false;
-		}
-	}
+        if(!m_szCPUString)
+        {
+                m_bIsGenuineIntel = false;
+        }
+        else
+        {
+                if (strcmp(m_szCPUString, CPU_STRING) == 0)
+                {
+                        m_bIsGenuineIntel = true;
+                }
+                else
+                {
+                        m_bIsGenuineIntel = false;
+                }
+        }
 
     if (iValidIDs == 1)
     {
@@ -364,6 +364,7 @@ void CPUDetect::GetCPUInfo()
 		m_uiCPUFeatures |= CFS_SSE42;
 	}
 
+        // if (viCPUInfo[2] & 0x10000000)
 	if (viCPUInfo[2] & 0x18000000)
 	{
 #if defined(_WIN32) && !defined(_M_X64)
@@ -378,8 +379,8 @@ void CPUDetect::GetCPUInfo()
                     mov XCRInfo[1], edx
             }
 #elif defined(__ANDROID__)
-   	    // No support for AVX on android		
-	    XCRInfo[0] = XCRInfo[0] & ~0x00000006;
+            // No support for AVX on android
+            XCRInfo[0] = XCRInfo[0] & ~0x00000006;
 #else
             xgetbv( XCRInfo )
 #endif
@@ -397,18 +398,28 @@ void CPUDetect::GetCPUInfo()
                     {
                         m_uiCPUFeatures |= CFS_AVX20;
                     }
+                    if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
+                    {
+                        m_uiCPUFeatures |= CFS_AVX512F;
+                    }
             }
-	}
+        }
 
     CPUID(viCPUInfo, 0x80000000);
     unsigned int iValidExIDs = viCPUInfo[0];
- 
+
     if (iValidExIDs < 0x80000004)
     {
 #if defined(__ANDROID__)
 	// Android is not supporting Brand String query
 	m_szCPUBrandString = STRDUP("Intel(R) Atom(TM)");
 #endif
+    }
+    else if (m_uiCPUFeatures & CFS_AVX512F) {
+        // SDE does not support the string yet, this block will be removed later.
+        const char brand[] = "Intel KNL TBD";
+        MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), brand, sizeof(brand));
+        m_szCPUBrandString = STRDUP(vcCPUBrandString);
     }
     else
     {

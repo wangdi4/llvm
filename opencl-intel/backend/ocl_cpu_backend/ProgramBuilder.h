@@ -74,6 +74,11 @@ protected:
 
     virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const = 0;
 
+#ifdef ENABLE_KNL
+    virtual void LoadObject(Program* pProgram, llvm::Module* spModule,
+                            const char *start, size_t size) const {}
+#endif //ENABLE_KNL
+
     virtual KernelSet* CreateKernels(Program* pProgram,
                              llvm::Module* pModule,
                              ProgramBuildResult& buildResult) const = 0;

@@ -166,13 +166,13 @@ public:
     }
     bool HasGatherScatter() const {
         return HasGatherScatter(m_CPU);
-    };
+    }
     static bool HasGatherScatter(ECPU CPU) {
         return (CPU == MIC_KNC || CPU == CPU_KNL);
-    };
+    }
     bool RequirePrefetch() const {
         return m_CPU == MIC_KNC;
-    };
+    }
     static bool IsValidCPUName(const char* pCPUName) {
         return DEVICE_INVALID != GetCPUByName(pCPUName);
     }
@@ -190,6 +190,12 @@ public:
     }
     bool HasSSE42() const {
         return IsFeatureOn(CFS_SSE42);
+    }
+    bool HasAVX512() const {
+      return IsFeatureOn(CFS_AVX512F);
+    }
+    bool HasKNC() const {
+      return (m_CPU == MIC_KNC);
     }
     static unsigned GetLatestSupportedFeature(ECPU CPU) {
         return (1 << CPU);

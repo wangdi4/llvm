@@ -15,6 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/Module.h"
+#include "TargetArch.h"
 
 using namespace llvm;
 
@@ -43,6 +44,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const { 
     AU.addRequired<BuiltinLibInfo>();
   }
+  virtual bool isBitMask(const VectorType& vecType) const { return false; }
 
 private:
   /// @brief Resolve a call-site. This is a target specific hook.

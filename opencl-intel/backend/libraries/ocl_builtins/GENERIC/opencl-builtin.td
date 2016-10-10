@@ -659,6 +659,18 @@ def pv8gentype : OclGenType<"pv8gentype"> {
   list<string> Tout = T5;
 }
 
+//converts the given typed to pv8 vNxT -> pv8XT e.g. v1f32 -> pv8f32 (pointer)
+def pv16gentype : OclGenType<"pv16gentype"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst("v1", "v16", n));
+  list<string> T1 = !foreach(n, T0, !subst("v2", "v16", n));
+  list<string> T2 = !foreach(n, T1, !subst("v3", "v16", n));
+  list<string> T3 = !foreach(n, T2, !subst("v4", "v16", n));
+  list<string> T4 = !foreach(n, T3, !subst("v8", "v16", n));
+  list<string> T5 = !foreach(n, T4, !strconcat("p", n));
+  list<string> Tout = T5;
+}
+
 //TODO: Improve the below conversions once concat of list is possible.
 
 // converts a type to a pointer atomic type

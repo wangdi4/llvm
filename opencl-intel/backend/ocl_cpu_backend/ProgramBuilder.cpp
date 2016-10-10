@@ -62,6 +62,13 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/LLVMContext.h"
 #include <algorithm>
+
+#ifdef ENABLE_KNL
+#include <fstream>
+#include <iostream>
+#include <stdlib.h>
+#include <unistd.h>
+#endif //ENABLE_KNL
 #include <sstream>
 
 #if defined (WIN32)
@@ -260,12 +267,58 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
                           RuntimeServiceSharedPtr(new RuntimeServiceImpl);
         // set runtime service for the program
         pProgram->SetRuntimeService(lRuntimeService);
+#ifdef ENABLE_KNL
+        std::string buffer, filename("/tmp/kernel");
+        llvm::raw_string_ostream stream(buffer);
+        stream << (*pModule);
+        std::ostringstream s;
+        static int runningNum = 0;
+        s << getpid() << '_' << runningNum++;
+        filename += s.str();
+        stream.flush();
+        {
+            std::ofstream outf((filename+".ll").c_str());
+            outf << buffer;
+        }
+        std::string llvmKNLBinPath(getenv("LLVM_KNL_DIR"));
+        std::string llvmOCLBinPath(getenv("LLVM_OCL_DIR"));
+        std::string llcOptions("-force-align-stack -code-model=large ");
+        if (pCompiler->GetCpuId().GetCPU() == CPU_KNL)
+          llcOptions += " -mcpu=knl ";
+        else if (pCompiler->GetCpuId().GetCPU() == CPU_HASWELL)
+          llcOptions += " -mcpu=core-avx2 ";
+        else if (pCompiler->GetCpuId().GetCPU() == CPU_SANDYBRIDGE)
+          llcOptions += " -mcpu=corei7-avx ";
+        else
+          llcOptions += " -mcpu=corei7 ";
+        if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT"))
+          llcOptions += " -fp-contract=fast ";
+        llcOptions += filename + ".ll ";
+        llcOptions += "-filetype=obj -o " + filename + ".o";
+        printf("llc %s\n", llcOptions.c_str());
+        system((llvmOCLBinPath + "/llvm-as " + filename + ".ll -o " + filename + ".bc").c_str());
+        system((llvmKNLBinPath + "/llvm-dis " + filename + ".bc -o " + filename + ".ll").c_str());
+        if (system((llvmKNLBinPath + "/llc " + llcOptions).c_str()) != 0) {
+          system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
+          throw Exceptions::DeviceBackendExceptionBase("llc does not work", CL_DEV_ERROR_FAIL);
+        }
+        llvm::OwningPtr<llvm::MemoryBuffer> injectedObject;
+        if (llvm::MemoryBuffer::getFile((filename + ".o").c_str(), injectedObject)) {
+          system(std::string("rm " + filename + ".ll").c_str());
+          throw Exceptions::DeviceBackendExceptionBase("can't find object file",
+                                                       CL_DEV_ERROR_FAIL);
+        }
+        LoadObject(pProgram, pModule, injectedObject->getBufferStart(),
+                   injectedObject->getBufferSize());
+//        system(std::string("rm " + filename + ".bc " + filename + ".ll " + filename + ".o").c_str());
+        system(std::string("rm " + filename + ".o").c_str());
+#else // ENABLE_KNL
 
         // Dump module stats just before lowering if requested
         DumpModuleStats(pModule);
 
         PostOptimizationProcessing(pProgram, pModule, pOptions);
-
+#endif // ENABLE_KNL
         if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {
             //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");

@@ -19,6 +19,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 
+#include <stdio.h>
+
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]
 
@@ -55,8 +57,8 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
-PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
-                                     unsigned int vectorizationDimension) : FunctionPass(ID), m_pDL(nullptr),
+PacketizeFunction::PacketizeFunction(Intel::ECPU Cpu,
+                                     unsigned int vectorizationDimension) : FunctionPass(ID), m_Cpu(Cpu),
   OCLSTAT_INIT(GEP_With_2_Indices,
   "Loads and stores of an address with exactly two indices",
   m_kernelStats),
@@ -135,7 +137,7 @@ PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
   m_noVectorFuncCtr = 0;
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
-  UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
+  UseScatterGather = Intel::CPUId::HasGatherScatter(m_Cpu) || EnableScatterGatherSubscript;
   m_vectorizedDim = vectorizationDimension;
   m_rtServices = NULL;
 
@@ -421,8 +423,10 @@ bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isL
   std::string funcName = Mangler::getTransposeBuiltinName(isLoad, isScatterGather, isMasked, origVecType, m_packetWidth);
   Function* transposeFuncRT = m_rtServices->findInRuntimeModule(funcName);
   // No proper transpose function for this load and packet width
-  if (!transposeFuncRT) return false;
-
+  if (!transposeFuncRT) {
+    printf("%s is missing\n", funcName.c_str());
+    return false;
+  }
   return true;
 }
 
@@ -972,12 +976,16 @@ bool PacketizeFunction::isGatherScatterType(bool masked,
                                 VectorType *VecTy) {
   unsigned NumElements = VecTy->getNumElements();
   Type *ElemTy = VecTy->getElementType();
+  if (m_Cpu == Intel::CPU_KNL && ElemTy->getPrimitiveSizeInBits() < 32)
+    return false;
   if (EnableScatterGatherSubscript_v4i8 &&
       (NumElements == 4) &&
       (ElemTy->isIntegerTy(8)))
     return true;
   std::string gatherScatterName = Mangler::getGatherScatterName(masked, type, VecTy);
   Function* gatherScatterFunc = m_rtServices->findInRuntimeModule(gatherScatterName);
+  if (!gatherScatterFunc)
+    printf("Can't find %s\n", gatherScatterName.c_str());
   return (gatherScatterFunc != NULL);
 }
 
@@ -1116,7 +1124,15 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
   V_ASSERT(BaseTy && "Base is not a pointer!");
   PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
-  MO.Base = CastInst::CreatePointerCast(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
+  
+  // AVX-512. Strange: This became...
+  // MO.Base = CastInst::CreatePointerCast(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
+  // ...this:
+  Type *IntptrTy = Type::getInt64Ty(MO.Orig->getContext());
+  Instruction *Cast1 = CastInst::Create(Instruction::PtrToInt, MO.Base, IntptrTy, "ptrToInt", MO.Orig);
+  MO.Base = CastInst::Create(Instruction::IntToPtr, Cast1, StrippedBaseTy, "stripAS", MO.Orig);
+  // And previous version was just commented out. 
+
 
   SmallVector<Value*, 8> args;
   // Fill the arguments of the internal gather/scatter, these are the variants:
@@ -1534,7 +1550,9 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   }
 
   // Was not able to vectorize memory operation, fall back to scalarizing.
-  V_PRINT(vectorizer_stat, "<<<<NonConsecCtr("<<__FILE__<<":"<<__LINE__<<"): " <<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<": Handles random pointer, or load/store of non primitive types\n");
+  V_PRINT(vectorizer_stat, "<<<<NonConsecCtr("<<__FILE__<<":"<<__LINE__<<"): " <<
+         Instruction::getOpcodeName(MO.Orig->getOpcode()) <<
+         ": Handles random pointer, or load/store of non primitive types\n");
   V_STAT(m_nonConsecCtr++;)
   Scalarize_Memory_Operand_Because_Cant_Create_Gather_Scatter++; // statistics
   return duplicateNonPacketizableInst(MO.Orig);
@@ -2285,8 +2303,8 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
   V_PRINT(packetizer, "\t\tInsertElement Instruction\n");
   V_ASSERT(IEI && "instruction type dynamic cast failed");
 
-  if (m_packetWidth!=8 && m_packetWidth!=4) {
-    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" m_packetWidth!=8 && m_packetWidth!=4\n");
+  if (m_packetWidth!=8 && m_packetWidth!=4 && m_packetWidth!=16) {
+    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" m_packetWidth!=[4|8|16]\n");
     V_STAT(m_cannotHandleCtr++;)
     Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
     return duplicateNonPacketizableInst(IEI);
@@ -2492,11 +2510,14 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
 
   // Make the transpose optimization only while arch vector is 4,
   // and the input vector is equal or smaller than that.
-  if ((m_packetWidth != 4 && m_packetWidth != 8) ||
+  if ((m_packetWidth != 4 && m_packetWidth != 8 && m_packetWidth != 16) ||
     inputVectorWidth > m_packetWidth)
   {
     // No optimized solution implemented for this setup
-    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" m_packetWidth != 4 && m_packetWidth != 8 || inputVectorWidth > m_packetWidth\n");
+    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "
+            << Instruction::getOpcodeName(EI->getOpcode())
+            << " (m_packetWidth != 4 && m_packetWidth != 8 && m_packetWidth != 16) "
+            << "|| inputVectorWidth > m_packetWidth\n");
     V_STAT(m_cannotHandleCtr++;)
     Scalarize_ExtractElement_Because_Cant_Transpose++; // statistics
     return duplicateNonPacketizableInst(EI);
@@ -2528,12 +2549,18 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
     }
   }
 
+  // to optimize - delena
+  if (m_packetWidth == 16) {
+    return duplicateNonPacketizableInst(EI);
+  }
   // Create the transpose sequence.
   SmallVector<Instruction *, 16> SOA;
   if (m_packetWidth == 8) {
     if (EI->getType()->getScalarType()->getScalarSizeInBits() != 32 ||
       inputVectorWidth < 4) {
-        V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" m_packetWidth == 8 && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
+        V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "
+                << Instruction::getOpcodeName(EI->getOpcode())
+                <<" m_packetWidth == [8] && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
         V_STAT(m_cannotHandleCtr++;)
         Scalarize_ExtractElement_Because_Cant_Transpose++; // statistics
         return duplicateNonPacketizableInst(EI);
@@ -2736,7 +2763,12 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
     Type* ExtMaskType = getMaskTypeForTranpose(transposeFunc);
     V_ASSERT(ExtMaskType->getScalarSizeInBits() >= VectorMask->getType()->getScalarSizeInBits() &&
              "Extended mask type smaller than original mask type!");
-    Value* ExtMask = Builder.CreateSExtOrBitCast(VectorMask, ExtMaskType, "extmask");
+
+    Value* ExtMask;
+    if (CastInst::isBitCastable(VectorMask->getType(), ExtMaskType))
+      ExtMask = Builder.CreateBitCast(VectorMask, ExtMaskType, "extmask");
+    else
+      ExtMask = Builder.CreateSExtOrBitCast(VectorMask, ExtMaskType, "extmask");
     funcArgs.push_back(ExtMask);
   }
 
@@ -3097,9 +3129,9 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createPacketizerPass(bool scatterGather = false,
+  FunctionPass* createPacketizerPass(const Intel::CPUId& CpuId,
                                      unsigned int vectorizationDimension = 0) {
-    return new intel::PacketizeFunction(scatterGather, vectorizationDimension);
+    return new intel::PacketizeFunction(CpuId.GetCPU(), vectorizationDimension);
   }
 }
 

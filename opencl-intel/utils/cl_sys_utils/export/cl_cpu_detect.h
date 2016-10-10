@@ -31,10 +31,10 @@
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-	// IsCPUSupported - Check that the current CPU is alligned with the required HW platform
-	// returncs CL_SUCCESS if the cpu supported
-	// returns CL_ERR_CPU_NOT_SUPPORTED otherwise
-	cl_err_code IsCPUSupported();
+    // IsCPUSupported - Check that the current CPU is alligned with the required HW platform
+    // returncs CL_SUCCESS if the cpu supported
+    // returns CL_ERR_CPU_NOT_SUPPORTED otherwise
+    cl_err_code IsCPUSupported();
 
     // CPU Features enumeration
     enum ECPUFeatureSupport
@@ -47,10 +47,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
         CFS_SSE42   = 0x0010,
         CFS_AVX10   = 0x0020,
         CFS_AVX20   = 0x0040,
-        CFS_FMA     = 0x0080
+        CFS_FMA     = 0x0080,
+        CFS_AVX512F = 0x0100
     };
 
-    // Processor microarchitecture
     enum EMicroArchitecture
     {
         MA_ALL,
@@ -78,23 +78,23 @@ namespace Intel { namespace OpenCL { namespace Utils {
         BRAND_INTEL_XEON
     };
 
-	// CPU detection class (singleton)
+    // CPU detection class (singleton)
     class CPUDetect
     {
     public:
 
-		static CPUDetect * GetInstance();
+        static CPUDetect * GetInstance();
 
-		bool IsGenuineIntel();
+	bool IsGenuineIntel();
 
         bool isBroadwell();
         bool isBroxton();
         bool isSkylake();
         bool isKabylake();
 
-		bool IsMicroArchitecture(EMicroArchitecture microArchitecture);
+	bool IsMicroArchitecture(EMicroArchitecture microArchitecture);
 
-		bool IsFeatureSupported(ECPUFeatureSupport featureType);
+        bool IsFeatureSupported(ECPUFeatureSupport featureType);
 
 		unsigned char	GetStepping() { return m_ucStepping; }
 		unsigned char	GetModel() { return m_ucModel; }
@@ -126,8 +126,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
         unsigned short  m_i16ProcessorSignature;
         ECPUBrandFamily m_eCPUBrand;
 
-		void			GetCPUInfo();
-		bool			ShouldBypassCPUCheck();
+        void            GetCPUInfo();
+        bool            ShouldBypassCPUCheck();
 
     };
 

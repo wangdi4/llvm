@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -175,7 +175,7 @@ int4 __attribute__((overloadable)) ProjectToEdgeInt(__private image_aux_data *pI
 // Clamps SOA4 coordinates to be inside image
 //
 // @param [in] image: the image object
-// @param [in] coord_(x,y) coordinates of the pixel 
+// @param [in] coord_(x,y) coordinates of the pixel
 // @param [out] res_(x,y) output coordinates
 void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(__private image_aux_data *pImage, int4 coord_x, int4 coord_y, __private int4* res_x, __private int4* res_y)
 {
@@ -191,7 +191,7 @@ void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(__private image_aux_dat
 // Clamps SOA8 coordinates to be inside image
 //
 // @param [in] image: the image object
-// @param [in] coord_(x,y) coordinates of the pixel 
+// @param [in] coord_(x,y) coordinates of the pixel
 // @param [out] res_(x,y) output coordinates
 void __attribute__((overloadable)) SOA8_ProjectToEdgeInt(__private image_aux_data *pImage, int8 coord_x, int8 coord_y, __private int8* res_x, __private int8* res_y)
 {
