@@ -1649,6 +1649,8 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 	SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
 	MachineBasicBlock* mbb = MI->getParent();
 	unsigned predBB = 0;
+	MachineInstr* predMergeInstr = nullptr;
+
 	for (MIOperands MO(MI); MO.isValid(); ++MO) {
 		if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 		if (MO->isUse()) {
@@ -1666,15 +1668,36 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 				predBB = edgePred;
 			}	else {
 				unsigned mergeEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
-				MachineBasicBlock::iterator loc = inBB->getFirstNonPHI();
-				BuildMI(*inBB, loc, DebugLoc(), TII.get(LPU::OR1), mergeEdge).addReg(predBB).addReg(edgePred);
+				//two inputs phi
+				if (MI->getNumOperands() == 5) {
+					unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
+					predMergeInstr = BuildMI(*mbb, MI, DebugLoc(), TII.get(LPU::PREDMERGE),
+						                                                            indexReg).
+						                                                            addReg(mergeEdge, RegState::Define).
+						                                                            addReg(predBB).   //last processed edge
+						                                                            addReg(edgePred); //current edge
+				}	else {
+					BuildMI(*mbb, MI, DebugLoc(), TII.get(LPU::OR1), mergeEdge).addReg(predBB).addReg(edgePred);
+				}
 				predBB = mergeEdge;
 			}
 		}
 	} //end of for MO
 
-	//TODO::generated pick1 sequence
+	if (predMergeInstr) {
+		assert(MI->getNumOperands() == 5);
+		unsigned reg1 = MI->getOperand(1).getReg();
+		unsigned reg2 = MI->getOperand(3).getReg();
+		unsigned pickPred = predMergeInstr->getOperand(0).getReg();
+		const unsigned pickOpcode = TII.getPickSwitchOpcode(&LPU::I1RegClass, true /*pick op*/);
+		unsigned dst = MI->getOperand(0).getReg();
+		BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(pickPred).addReg(reg1).addReg(reg2);
+	}	else {
+		//TODO::generated pick1 sequence
+		assert(false && "to be implemented");
+	}
 
+	setBBPred(mbb, predBB);
 	//release memory
 	for (unsigned i = 0; i < pred2values.size(); i++) {
 		std::pair<unsigned, unsigned>* pred2value = pred2values[i];
