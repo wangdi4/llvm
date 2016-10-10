@@ -260,6 +260,15 @@ void LPUCvtCFDFPass::releaseMemory() {
     delete instrv;
   }
 	bb2predcpy.clear();
+
+	DenseMap<MachineBasicBlock *, SmallVectorImpl<unsigned> *> ::iterator itedge = edgepreds.begin();
+	while (itedge != edgepreds.end()) {
+		SmallVectorImpl<unsigned>* edges = itedge->getSecond();
+		++itedge;
+		delete edges;
+	}
+	edgepreds.clear();
+
 }
 
 
@@ -1630,21 +1639,34 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
 	return predBB;
 }
 
+
 void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 	assert(MI->isPHI());
 	//MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+	SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
 	MachineBasicBlock* mbb = MI->getParent();
 	for (MIOperands MO(MI); MO.isValid(); ++MO) {
 		if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 		if (MO->isUse()) {
-			//unsigned Reg = MO->getReg();
+			unsigned Reg = MO->getReg();
 			//move to its incoming block operand
 			++MO;
 			MachineBasicBlock* inBB = MO->getMBB();
-			//unsigned edgePred = computeEdgePred(inBB, mbb);
-			//addEdgeValuePairToPick1(MI, edgePred, Reg);
+			unsigned edgePred = computeEdgePred(inBB, mbb);
+			std::pair<unsigned, unsigned>* pred2value = new std::pair<unsigned, unsigned>;
+			pred2value->first = edgePred;
+			pred2value->second = Reg;
+			pred2values.push_back(pred2value);
 		}
 	} //end of for MO
+
+	//TODO::generated pick1 sequence
+
+	//release memory
+	for (unsigned i = 0; i < pred2values.size(); i++) {
+		std::pair<unsigned, unsigned>* pred2value = pred2values[i];
+		delete pred2value;
+	}
 	MI->removeFromParent();
 }
 
