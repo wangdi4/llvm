@@ -5,9 +5,18 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/ScopedNoAliasAA.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
+#include "llvm/Analysis/CFLAliasAnalysis.h"
+
 #include "OCLAliasAnalysis.h"
 #include "OCLPassSupport.h"
 #include "OCLAddressSpace.h"
+
 #include <queue>
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
@@ -22,7 +31,6 @@ OCL_INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(CFLAAWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(ExternalAAWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(ObjCARCAAWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(SCEVAAWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
@@ -62,7 +70,6 @@ void OCLAliasAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   // the legacy pass manager.
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
-  AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAAWrapperPass>();
@@ -100,9 +107,6 @@ bool OCLAliasAnalysis::runOnFunction(Function &F) {
   if (auto *WrapperPass = getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>())
     OCLAAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
-    OCLAAR->addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass =
-          getAnalysisIfAvailable<objcarc::ObjCARCAAWrapperPass>())
     OCLAAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     OCLAAR->addAAResult(WrapperPass->getResult());

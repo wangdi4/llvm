@@ -8,14 +8,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __OCL_ALIAS_ANALYSIS_H__
 #define __OCL_ALIAS_ANALYSIS_H__
 
-#include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/ScopedNoAliasAA.h"
-#include "llvm/Analysis/TypeBasedAliasAnalysis.h"
-#include "llvm/Analysis/ObjCARCAliasAnalysis.h"
-#include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
-#include "llvm/Analysis/CFLAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"

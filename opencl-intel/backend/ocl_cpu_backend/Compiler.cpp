@@ -547,9 +547,7 @@ void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
 
       case TRANSPOSE_SIZE_16:
         if(!m_CpuId.HasGatherScatter())
-          validity = INVALID;
-          // TODO: uncomment when MIC/AVX512 support became relevant
-          //validity = UNSUPPORTED;
+          validity = UNSUPPORTED;
         break;
     }
 
