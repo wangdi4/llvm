@@ -19,8 +19,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 
-#include <stdio.h>
-
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]
 
@@ -985,7 +983,7 @@ bool PacketizeFunction::isGatherScatterType(bool masked,
   std::string gatherScatterName = Mangler::getGatherScatterName(masked, type, VecTy);
   Function* gatherScatterFunc = m_rtServices->findInRuntimeModule(gatherScatterName);
   if (!gatherScatterFunc)
-    printf("Can't find %s\n", gatherScatterName.c_str());
+    V_PRINT(packetizer, "Can't find %s, " << gatherScatterName.c_str() << "\n");
   return (gatherScatterFunc != NULL);
 }
 
