@@ -1302,6 +1302,8 @@ def err_missing_default_ctor : Error<
   "%select{|implicit default |inheriting }0constructor for %1 must explicitly "
   "initialize the %select{base class|member}2 %3 which does not have a default "
   "constructor">;
+def note_due_to_dllexported_class : Note<
+  "due to '%0' being dllexported%select{|; try compiling in C++11 mode}1">;
 
 def err_illegal_union_or_anon_struct_member : Error<
   "%select{anonymous struct|union}0 member %1 has a non-trivial "
@@ -2035,6 +2037,8 @@ def err_typecheck_vector_not_convertable : Error<
   "can't convert between vector values of different size (%0 and %1)">;
 def err_typecheck_vector_not_convertable_non_scalar : Error<
   "can't convert between vector and non-scalar values (%0 and %1)">;
+def err_typecheck_vector_lengths_not_equal : Error<
+  "vector operands do not have the same number of elements (%0 and %1)">;
 def err_ext_vector_component_exceeds_length : Error<
   "vector component access exceeds type %0">;
 def err_ext_vector_component_name_illegal : Error<
@@ -4889,6 +4893,8 @@ def err_ivar_reference_type : Error<
   "instance variables cannot be of reference type">;
 def err_typecheck_illegal_increment_decrement : Error<
   "cannot %select{decrement|increment}1 value of type %0">;
+def err_typecheck_expect_int : Error<
+  "used type %0 where integer is required">;
 def err_typecheck_arithmetic_incomplete_type : Error<
   "arithmetic on a pointer to an incomplete type %0">;
 def err_typecheck_pointer_arith_function_type : Error<
@@ -5052,6 +5058,9 @@ def warn_null_in_comparison_operation : Warning<
   "comparison between NULL and non-pointer "
   "%select{(%1 and NULL)|(NULL and %1)}0">,
   InGroup<NullArithmetic>;
+def err_shift_rhs_only_vector : Error<
+  "requested shift is a vector of type %0 but the first operand is not a "
+  "vector (%1)">;
 
 def warn_logical_not_on_lhs_of_comparison : Warning<
   "logical not is only applied to the left hand side of this comparison">,
@@ -5636,8 +5645,8 @@ def err_pseudo_dtor_type_mismatch : Error<
 def err_pseudo_dtor_call_with_args : Error<
   "call to pseudo-destructor cannot have any arguments">;
 def err_dtor_expr_without_call : Error<
-  "%select{destructor reference|pseudo-destructor expression}0 must be "
-  "called immediately with '()'">;
+  "reference to %select{destructor|pseudo-destructor}0 must be called"
+  "%select{|; did you mean to call it with no arguments?}1">;
 def err_pseudo_dtor_destructor_non_type : Error<
   "%0 does not refer to a type name in pseudo-destructor expression; expected "
   "the name of type %1">;
@@ -6065,6 +6074,9 @@ def err_global_call_not_config : Error<
 def err_ref_bad_target : Error<
   "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
   "function %1 in %select{__device__|__global__|__host__|__host__ __device__}2 function">;
+def warn_host_calls_from_host_device : Warning<
+  "calling __host__ function %0 from __host__ __device__ function %1 can lead to runtime errors">,
+  InGroup<CudaCompat>;
 
 def warn_non_pod_vararg_with_format_string : Warning<
   "cannot pass %select{non-POD|non-trivial}0 object of type %1 to variadic "
@@ -6114,8 +6126,6 @@ def err_typecheck_cond_expect_nonfloat : Error<
   "used type %0 where floating point type is not allowed">;
 def ext_typecheck_cond_one_void : Extension<
   "C99 forbids conditional expressions with only one void side">;
-def err_typecheck_cond_expect_scalar_or_vector : Error<
-  "used type %0 where arithmetic, pointer, or vector type is required">;
 def err_typecheck_cast_to_incomplete : Error<
   "cast to incomplete type %0">;
 def ext_typecheck_cast_nonscalar : Extension<
@@ -7233,8 +7243,8 @@ def err_asm_naked_this_ref : Error<
 def err_asm_naked_parm_ref : Error<
   "parameter references not allowed in naked functions">;
 
-def ext_use_of_attribute_is_a_cxx14_extension : ExtWarn<
-  "use of the %0 attribute is a C++14 extension">, InGroup<CXX14>;
+def ext_deprecated_attr_is_a_cxx14_extension : ExtWarn<
+  "use of the 'deprecated' attribute is a C++14 extension">, InGroup<CXX14>;
 
 // OpenCL warnings and errors.
 def err_invalid_astype_of_different_size : Error<

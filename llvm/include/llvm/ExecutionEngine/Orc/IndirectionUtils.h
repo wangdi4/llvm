@@ -22,6 +22,7 @@
 #include <sstream>
 
 namespace llvm {
+namespace orc {
 
 /// @brief Base class for JITLayer independent aspects of
 ///        JITCompileCallbackManager.
@@ -55,7 +56,7 @@ public:
     // Moving the trampoline ID back to the available list first means there's at
     // least one available trampoline if the compile action triggers a request for
     // a new one.
-    AvailableTrampolines.push_back(I->first);
+    AvailableTrampolines.push_back(I->first - TargetT::CallSize);
     auto CallbackHandler = std::move(I->second);
     ActiveTrampolines.erase(I);
 
@@ -225,14 +226,21 @@ typedef std::map<Module*, DenseSet<const GlobalValue*>> ModulePartitionMap;
 void partition(Module &M, const ModulePartitionMap &PMap);
 
 /// @brief Struct for trivial "complete" partitioning of a module.
-struct FullyPartitionedModule {
+class FullyPartitionedModule {
+public:
   std::unique_ptr<Module> GlobalVars;
   std::unique_ptr<Module> Commons;
   std::vector<std::unique_ptr<Module>> Functions;
+
+  FullyPartitionedModule() = default;
+  FullyPartitionedModule(FullyPartitionedModule &&S)
+      : GlobalVars(std::move(S.GlobalVars)), Commons(std::move(S.Commons)),
+        Functions(std::move(S.Functions)) {}
 };
 
 FullyPartitionedModule fullyPartition(Module &M);
 
-}
+} // End namespace orc.
+} // End namespace llvm.
 
 #endif // LLVM_EXECUTIONENGINE_ORC_INDIRECTIONUTILS_H

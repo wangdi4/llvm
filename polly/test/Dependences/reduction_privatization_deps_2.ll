@@ -1,16 +1,16 @@
-; RUN: opt %loadPolly -polly-dependences -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-dependences -analyze < %s | FileCheck %s
 ;
 ; We have privatization dependences from a textually later statement to a
 ; textually earlier one, but the dependences still go forward in time.
 ;
 ;  CHECK: RAW dependences:
 ;  CHECK-DAG:  Stmt_S3[i0] -> Stmt_S2[1 + i0, o1] : i0 <= 97 and i0 >= 0 and o1 <= 99 and o1 >= 0
-;  CHECK-DAG:  Stmt_S1[i0] -> Stmt_S3[i0] : i0 >= 0 and i0 <= 98
+;  CHECK-DAG:  Stmt_S1[i0] -> Stmt_S3[i0] : i0 <= 98 and i0 >= 0
 ;  CHECK: WAR dependences:
 ;  CHECK:   {  }
 ;  CHECK: WAW dependences:
 ;  CHECK-DAG:  Stmt_S3[i0] -> Stmt_S2[1 + i0, o1] : i0 <= 97 and i0 >= 0 and o1 <= 99 and o1 >= 0
-;  CHECK-DAG:  Stmt_S1[i0] -> Stmt_S3[i0] : i0 >= 0 and i0 <= 98
+;  CHECK-DAG:  Stmt_S1[i0] -> Stmt_S3[i0] : i0 <= 98 and i0 >= 0
 ;  CHECK: Reduction dependences:
 ;  CHECK:   { Stmt_S2[i0, i1] -> Stmt_S2[i0, 1 + i1] : i0 <= 98 and i0 >= 0 and i1 <= 98 and i1 >= 0 }
 ;
@@ -40,8 +40,8 @@ for.body:                                         ; preds = %for.cond
 
 S1:                                               ; preds = %for.body
   %add = add nsw i32 %i.0, 1
-  %arrayidx = getelementptr inbounds i32* %sum, i32 %add
-  %tmp = load i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, i32* %sum, i32 %add
+  %tmp = load i32, i32* %arrayidx, align 4
   %add1 = add nsw i32 %tmp, 42
   store i32 %add1, i32* %arrayidx, align 4
   br label %for.cond2
@@ -56,8 +56,8 @@ for.body4:                                        ; preds = %for.cond2
 
 S2:                                               ; preds = %for.body4
   %mul = mul nsw i32 %i.0, %j.0
-  %arrayidx5 = getelementptr inbounds i32* %sum, i32 %i.0
-  %tmp2 = load i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds i32, i32* %sum, i32 %i.0
+  %tmp2 = load i32, i32* %arrayidx5, align 4
   %add6 = add nsw i32 %tmp2, %mul
   store i32 %add6, i32* %arrayidx5, align 4
   br label %for.inc
@@ -71,8 +71,8 @@ for.end:                                          ; preds = %for.cond2
 
 S3:                                               ; preds = %for.end
   %add7 = add nsw i32 %i.0, 1
-  %arrayidx8 = getelementptr inbounds i32* %sum, i32 %add7
-  %tmp3 = load i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds i32, i32* %sum, i32 %add7
+  %tmp3 = load i32, i32* %arrayidx8, align 4
   %add9 = add nsw i32 %tmp3, 7
   store i32 %add9, i32* %arrayidx8, align 4
   br label %for.inc10

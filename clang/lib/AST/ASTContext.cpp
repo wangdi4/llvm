@@ -682,6 +682,7 @@ CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
   case TargetCXXABI::iOS:
   case TargetCXXABI::iOS64:
   case TargetCXXABI::GenericAArch64:
+  case TargetCXXABI::GenericMIPS:
   case TargetCXXABI::GenericItanium:
     return CreateItaniumCXXABI(*this);
   case TargetCXXABI::Microsoft:
@@ -4334,6 +4335,19 @@ QualType ASTContext::getAdjustedParameterType(QualType T) const {
 QualType ASTContext::getSignatureParameterType(QualType T) const {
   T = getVariableArrayDecayedType(T);
   T = getAdjustedParameterType(T);
+  return T.getUnqualifiedType();
+}
+
+QualType ASTContext::getExceptionObjectType(QualType T) const {
+  // C++ [except.throw]p3:
+  //   A throw-expression initializes a temporary object, called the exception
+  //   object, the type of which is determined by removing any top-level
+  //   cv-qualifiers from the static type of the operand of throw and adjusting
+  //   the type from "array of T" or "function returning T" to "pointer to T"
+  //   or "pointer to function returning T", [...]
+  T = getVariableArrayDecayedType(T);
+  if (T->isArrayType() || T->isFunctionType())
+    T = getDecayedType(T);
   return T.getUnqualifiedType();
 }
 
@@ -8079,6 +8093,7 @@ MangleContext *ASTContext::createMangleContext() {
   case TargetCXXABI::GenericAArch64:
   case TargetCXXABI::GenericItanium:
   case TargetCXXABI::GenericARM:
+  case TargetCXXABI::GenericMIPS:
   case TargetCXXABI::iOS:
   case TargetCXXABI::iOS64:
     return ItaniumMangleContext::create(*this, getDiagnostics());

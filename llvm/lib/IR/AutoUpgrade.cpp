@@ -163,10 +163,22 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
         Name == "x86.avx.vbroadcast.ss" ||
         Name == "x86.avx.vbroadcast.ss.256" ||
         Name == "x86.avx.vbroadcast.sd.256" ||
+        Name == "x86.sse2.psll.dq" ||
+        Name == "x86.sse2.psrl.dq" ||
+        Name == "x86.avx2.psll.dq" ||
+        Name == "x86.avx2.psrl.dq" ||
         Name == "x86.sse2.psll.dq.bs" ||
         Name == "x86.sse2.psrl.dq.bs" ||
         Name == "x86.avx2.psll.dq.bs" ||
         Name == "x86.avx2.psrl.dq.bs" ||
+        Name == "x86.sse41.pblendw" ||
+        Name == "x86.sse41.blendpd" ||
+        Name == "x86.sse41.blendps" ||
+        Name == "x86.avx.blend.pd.256" ||
+        Name == "x86.avx.blend.ps.256" ||
+        Name == "x86.avx2.pblendw" ||
+        Name == "x86.avx2.pblendd.128" ||
+        Name == "x86.avx2.pblendd.256" ||
         (Name.startswith("x86.xop.vpcom") && F->arg_size() == 2)) {
       NewFn = nullptr;
       return true;
@@ -180,17 +192,8 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
       if (Name == "x86.sse41.ptestnzc")
         return UpgradeSSE41Function(F, Intrinsic::x86_sse41_ptestnzc, NewFn);
     }
-    // Several blend and other instructions with maskes used the wrong number of
+    // Several blend and other instructions with masks used the wrong number of
     // bits.
-    if (Name == "x86.sse41.pblendw")
-      return UpgradeX86IntrinsicsWith8BitMask(F, Intrinsic::x86_sse41_pblendw,
-                                              NewFn);
-    if (Name == "x86.sse41.blendpd")
-      return UpgradeX86IntrinsicsWith8BitMask(F, Intrinsic::x86_sse41_blendpd,
-                                              NewFn);
-    if (Name == "x86.sse41.blendps")
-      return UpgradeX86IntrinsicsWith8BitMask(F, Intrinsic::x86_sse41_blendps,
-                                              NewFn);
     if (Name == "x86.sse41.insertps")
       return UpgradeX86IntrinsicsWith8BitMask(F, Intrinsic::x86_sse41_insertps,
                                               NewFn);
@@ -203,24 +206,9 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
     if (Name == "x86.sse41.mpsadbw")
       return UpgradeX86IntrinsicsWith8BitMask(F, Intrinsic::x86_sse41_mpsadbw,
                                               NewFn);
-    if (Name == "x86.avx.blend.pd.256")
-      return UpgradeX86IntrinsicsWith8BitMask(
-          F, Intrinsic::x86_avx_blend_pd_256, NewFn);
-    if (Name == "x86.avx.blend.ps.256")
-      return UpgradeX86IntrinsicsWith8BitMask(
-          F, Intrinsic::x86_avx_blend_ps_256, NewFn);
     if (Name == "x86.avx.dp.ps.256")
       return UpgradeX86IntrinsicsWith8BitMask(F, Intrinsic::x86_avx_dp_ps_256,
                                               NewFn);
-    if (Name == "x86.avx2.pblendw")
-      return UpgradeX86IntrinsicsWith8BitMask(F, Intrinsic::x86_avx2_pblendw,
-                                              NewFn);
-    if (Name == "x86.avx2.pblendd.128")
-      return UpgradeX86IntrinsicsWith8BitMask(
-          F, Intrinsic::x86_avx2_pblendd_128, NewFn);
-    if (Name == "x86.avx2.pblendd.256")
-      return UpgradeX86IntrinsicsWith8BitMask(
-          F, Intrinsic::x86_avx2_pblendd_256, NewFn);
     if (Name == "x86.avx2.mpsadbw")
       return UpgradeX86IntrinsicsWith8BitMask(F, Intrinsic::x86_avx2_mpsadbw,
                                               NewFn);
@@ -372,6 +360,80 @@ static MetadataAsValue *getExpression(Value *VarOperand, Function *F) {
   return MetadataAsValue::get(F->getContext(), Expr);
 }
 
+// Handles upgrading SSE2 and AVX2 PSLLDQ intrinsics by converting them
+// to byte shuffles.
+static Value *UpgradeX86PSLLDQIntrinsics(IRBuilder<> &Builder, LLVMContext &C,
+                                         Value *Op, unsigned NumLanes,
+                                         unsigned Shift) {
+  // Each lane is 16 bytes.
+  unsigned NumElts = NumLanes * 16;
+
+  // Bitcast from a 64-bit element type to a byte element type.
+  Op = Builder.CreateBitCast(Op,
+                             VectorType::get(Type::getInt8Ty(C), NumElts),
+                             "cast");
+  // We'll be shuffling in zeroes.
+  Value *Res = ConstantVector::getSplat(NumElts, Builder.getInt8(0));
+
+  // If shift is less than 16, emit a shuffle to move the bytes. Otherwise,
+  // we'll just return the zero vector.
+  if (Shift < 16) {
+    SmallVector<Constant*, 32> Idxs;
+    // 256-bit version is split into two 16-byte lanes.
+    for (unsigned l = 0; l != NumElts; l += 16)
+      for (unsigned i = 0; i != 16; ++i) {
+        unsigned Idx = NumElts + i - Shift;
+        if (Idx < NumElts)
+          Idx -= NumElts - 16; // end of lane, switch operand.
+        Idxs.push_back(Builder.getInt32(Idx + l));
+      }
+
+    Res = Builder.CreateShuffleVector(Res, Op, ConstantVector::get(Idxs));
+  }
+
+  // Bitcast back to a 64-bit element type.
+  return Builder.CreateBitCast(Res,
+                               VectorType::get(Type::getInt64Ty(C), 2*NumLanes),
+                               "cast");
+}
+
+// Handles upgrading SSE2 and AVX2 PSRLDQ intrinsics by converting them
+// to byte shuffles.
+static Value *UpgradeX86PSRLDQIntrinsics(IRBuilder<> &Builder, LLVMContext &C,
+                                         Value *Op, unsigned NumLanes,
+                                         unsigned Shift) {
+  // Each lane is 16 bytes.
+  unsigned NumElts = NumLanes * 16;
+
+  // Bitcast from a 64-bit element type to a byte element type.
+  Op = Builder.CreateBitCast(Op,
+                             VectorType::get(Type::getInt8Ty(C), NumElts),
+                             "cast");
+  // We'll be shuffling in zeroes.
+  Value *Res = ConstantVector::getSplat(NumElts, Builder.getInt8(0));
+
+  // If shift is less than 16, emit a shuffle to move the bytes. Otherwise,
+  // we'll just return the zero vector.
+  if (Shift < 16) {
+    SmallVector<Constant*, 32> Idxs;
+    // 256-bit version is split into two 16-byte lanes.
+    for (unsigned l = 0; l != NumElts; l += 16)
+      for (unsigned i = 0; i != 16; ++i) {
+        unsigned Idx = i + Shift;
+        if (Idx >= 16)
+          Idx += NumElts - 16; // end of lane, switch operand.
+        Idxs.push_back(Builder.getInt32(Idx + l));
+      }
+
+    Res = Builder.CreateShuffleVector(Op, Res, ConstantVector::get(Idxs));
+  }
+
+  // Bitcast back to a 64-bit element type.
+  return Builder.CreateBitCast(Res,
+                               VectorType::get(Type::getInt64Ty(C), 2*NumLanes),
+                               "cast");
+}
+
 // UpgradeIntrinsicCall - Upgrade a call to an old intrinsic to be a call the
 // upgraded intrinsic. All argument and return casting must be provided in
 // order to seamlessly integrate with existing context.
@@ -491,89 +553,67 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
       for (unsigned I = 0; I < EltNum; ++I)
         Rep = Builder.CreateInsertElement(Rep, Load,
                                           ConstantInt::get(I32Ty, I));
+    } else if (Name == "llvm.x86.sse2.psll.dq") {
+      // 128-bit shift left specified in bits.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSLLDQIntrinsics(Builder, C, CI->getArgOperand(0), 1,
+                                       Shift / 8); // Shift is in bits.
+    } else if (Name == "llvm.x86.sse2.psrl.dq") {
+      // 128-bit shift right specified in bits.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSRLDQIntrinsics(Builder, C, CI->getArgOperand(0), 1,
+                                       Shift / 8); // Shift is in bits.
+    } else if (Name == "llvm.x86.avx2.psll.dq") {
+      // 256-bit shift left specified in bits.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSLLDQIntrinsics(Builder, C, CI->getArgOperand(0), 2,
+                                       Shift / 8); // Shift is in bits.
+    } else if (Name == "llvm.x86.avx2.psrl.dq") {
+      // 256-bit shift right specified in bits.
+      unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSRLDQIntrinsics(Builder, C, CI->getArgOperand(0), 2,
+                                       Shift / 8); // Shift is in bits.
     } else if (Name == "llvm.x86.sse2.psll.dq.bs") {
-      Value *Op0 = ConstantVector::getSplat(16, Builder.getInt8(0));
-      Value *Op1 = Builder.CreateBitCast(CI->getArgOperand(0),
-                                         VectorType::get(Type::getInt8Ty(C),16),
-                                         "cast");
-
+      // 128-bit shift left specified in bytes.
       unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
-
-      if (Shift < 16) {
-        SmallVector<Constant*, 16> Idxs;
-        for (unsigned i = 16; i != 32; ++i)
-          Idxs.push_back(Builder.getInt32(i - Shift));
-
-        Op0 = Builder.CreateShuffleVector(Op0, Op1, ConstantVector::get(Idxs));
-      }
-
-      Rep = Builder.CreateBitCast(Op0,
-                                  VectorType::get(Type::getInt64Ty(C), 2),
-                                  "cast");
+      Rep = UpgradeX86PSLLDQIntrinsics(Builder, C, CI->getArgOperand(0), 1,
+                                       Shift);
     } else if (Name == "llvm.x86.sse2.psrl.dq.bs") {
-      Value *Op0 = Builder.CreateBitCast(CI->getArgOperand(0),
-                                         VectorType::get(Type::getInt8Ty(C),16),
-                                         "cast");
-      Value *Op1 = ConstantVector::getSplat(16, Builder.getInt8(0));
-
+      // 128-bit shift right specified in bytes.
       unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
-
-      if (Shift < 16) {
-        SmallVector<Constant*, 16> Idxs;
-        for (unsigned i = 0; i != 16; ++i)
-          Idxs.push_back(Builder.getInt32(i + Shift));
-
-        Op1 = Builder.CreateShuffleVector(Op0, Op1, ConstantVector::get(Idxs));
-      }
-      Rep = Builder.CreateBitCast(Op1,
-                                  VectorType::get(Type::getInt64Ty(C), 2),
-                                  "cast");
+      Rep = UpgradeX86PSRLDQIntrinsics(Builder, C, CI->getArgOperand(0), 1,
+                                       Shift);
     } else if (Name == "llvm.x86.avx2.psll.dq.bs") {
-      Value *Op0 = ConstantVector::getSplat(32, Builder.getInt8(0));
-      Value *Op1 = Builder.CreateBitCast(CI->getArgOperand(0),
-                                         VectorType::get(Type::getInt8Ty(C),32),
-                                         "cast");
-
+      // 256-bit shift left specified in bytes.
       unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
-
-      if (Shift < 16) {
-        SmallVector<Constant*, 32> Idxs;
-        for (unsigned l = 0; l != 32; l += 16)
-          for (unsigned i = 0; i != 16; ++i) {
-            unsigned Idx = 32 + i - Shift;
-            if (Idx < 32) Idx -= 16; // end of lane, switch operand.
-            Idxs.push_back(Builder.getInt32(Idx + l));
-          }
-
-        Op1 = Builder.CreateShuffleVector(Op0, Op1, ConstantVector::get(Idxs));
-      }
-
-      Rep = Builder.CreateBitCast(Op1,
-                                  VectorType::get(Type::getInt64Ty(C), 4),
-                                  "cast");
+      Rep = UpgradeX86PSLLDQIntrinsics(Builder, C, CI->getArgOperand(0), 2,
+                                       Shift);
     } else if (Name == "llvm.x86.avx2.psrl.dq.bs") {
-      Value *Op0 = Builder.CreateBitCast(CI->getArgOperand(0),
-                                         VectorType::get(Type::getInt8Ty(C),32),
-                                         "cast");
-      Value *Op1 = ConstantVector::getSplat(32, Builder.getInt8(0));
-
+      // 256-bit shift right specified in bytes.
       unsigned Shift = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+      Rep = UpgradeX86PSRLDQIntrinsics(Builder, C, CI->getArgOperand(0), 2,
+                                       Shift);
+    } else if (Name == "llvm.x86.sse41.pblendw" ||
+               Name == "llvm.x86.sse41.blendpd" ||
+               Name == "llvm.x86.sse41.blendps" ||
+               Name == "llvm.x86.avx.blend.pd.256" ||
+               Name == "llvm.x86.avx.blend.ps.256" ||
+               Name == "llvm.x86.avx2.pblendw" ||
+               Name == "llvm.x86.avx2.pblendd.128" ||
+               Name == "llvm.x86.avx2.pblendd.256") {
+      Value *Op0 = CI->getArgOperand(0);
+      Value *Op1 = CI->getArgOperand(1);
+      unsigned Imm = cast <ConstantInt>(CI->getArgOperand(2))->getZExtValue();
+      VectorType *VecTy = cast<VectorType>(CI->getType());
+      unsigned NumElts = VecTy->getNumElements();
 
-      if (Shift < 16) {
-        SmallVector<Constant*, 32> Idxs;
-        for (unsigned l = 0; l != 32; l += 16)
-          for (unsigned i = 0; i != 16; ++i) {
-            unsigned Idx = i + Shift;
-            if (Idx >= 16) Idx += 16; // end of lane, switch operand.
-            Idxs.push_back(Builder.getInt32(Idx + l));
-          }
-
-        Op0 = Builder.CreateShuffleVector(Op0, Op1, ConstantVector::get(Idxs));
+      SmallVector<Constant*, 16> Idxs;
+      for (unsigned i = 0; i != NumElts; ++i) {
+        unsigned Idx = ((Imm >> (i%8)) & 1) ? i + NumElts : i;
+        Idxs.push_back(Builder.getInt32(Idx));
       }
 
-      Rep = Builder.CreateBitCast(Op0,
-                                  VectorType::get(Type::getInt64Ty(C), 4),
-                                  "cast");
+      Rep = Builder.CreateShuffleVector(Op0, Op1, ConstantVector::get(Idxs));
     } else {
       bool PD128 = false, PD256 = false, PS128 = false, PS256 = false;
       if (Name == "llvm.x86.avx.vpermil.pd.256")
@@ -704,19 +744,11 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
     return;
   }
 
-  case Intrinsic::x86_sse41_pblendw:
-  case Intrinsic::x86_sse41_blendpd:
-  case Intrinsic::x86_sse41_blendps:
   case Intrinsic::x86_sse41_insertps:
   case Intrinsic::x86_sse41_dppd:
   case Intrinsic::x86_sse41_dpps:
   case Intrinsic::x86_sse41_mpsadbw:
-  case Intrinsic::x86_avx_blend_pd_256:
-  case Intrinsic::x86_avx_blend_ps_256:
   case Intrinsic::x86_avx_dp_ps_256:
-  case Intrinsic::x86_avx2_pblendw:
-  case Intrinsic::x86_avx2_pblendd_128:
-  case Intrinsic::x86_avx2_pblendd_256:
   case Intrinsic::x86_avx2_mpsadbw: {
     // Need to truncate the last argument from i32 to i8 -- this argument models
     // an inherently 8-bit immediate operand to these x86 instructions.

@@ -133,7 +133,7 @@ private:
   static const Registry::KindStrings _sKindStrings[];
   static const StubInfo              _sStubInfo;
 
-  enum X86_Kinds : Reference::KindValue {
+  enum X86Kind : Reference::KindValue {
     invalid,               /// for error condition
 
     modeCode,              /// Content starting at this offset is code.
@@ -152,7 +152,7 @@ private:
     lazyPointer,           /// Location contains a lazy pointer.
     lazyImmediateLocation, /// Location contains immediate value used in stub.
   };
-  
+
   static bool useExternalRelocationTo(const Atom &target);
 
   void applyFixupFinal(const Reference &ref, uint8_t *location,
@@ -170,9 +170,9 @@ private:
 //===----------------------------------------------------------------------===//
 
 ArchHandler_x86::ArchHandler_x86() {}
-  
+
 ArchHandler_x86::~ArchHandler_x86() { }
-  
+
 const Registry::KindStrings ArchHandler_x86::_sKindStrings[] = {
   LLD_KIND_STRING_ENTRY(invalid),
   LLD_KIND_STRING_ENTRY(modeCode),
@@ -192,29 +192,29 @@ const Registry::KindStrings ArchHandler_x86::_sKindStrings[] = {
 const ArchHandler::StubInfo ArchHandler_x86::_sStubInfo = {
   "dyld_stub_binder",
 
-  // Lazy pointer references 
+  // Lazy pointer references
   { Reference::KindArch::x86, pointer32, 0, 0 },
   { Reference::KindArch::x86, lazyPointer, 0, 0 },
-  
+
   // GOT pointer to dyld_stub_binder
   { Reference::KindArch::x86, pointer32, 0, 0 },
 
   // x86 code alignment
-  1, 
-  
+  1,
+
   // Stub size and code
-  6, 
+  6,
   { 0xff, 0x25, 0x00, 0x00, 0x00, 0x00 },       // jmp *lazyPointer
   { Reference::KindArch::x86, abs32, 2, 0 },
   { false, 0, 0, 0 },
-  
+
   // Stub Helper size and code
   10,
   { 0x68, 0x00, 0x00, 0x00, 0x00,               // pushl $lazy-info-offset
     0xE9, 0x00, 0x00, 0x00, 0x00 },             // jmp helperhelper
   { Reference::KindArch::x86, lazyImmediateLocation, 1, 0 },
   { Reference::KindArch::x86, branch32, 6, 0 },
-  
+
   // Stub Helper-Common size and code
   12,
   { 0x68, 0x00, 0x00, 0x00, 0x00,               // pushl $dyld_ImageLoaderCache
@@ -375,7 +375,7 @@ ArchHandler_x86::getPairReferenceInfo(const normalized::Relocation &reloc1,
     if (ec)
       return ec;
     if (fromTarget != inAtom) {
-      if (*target != inAtom) 
+      if (*target != inAtom)
         return make_dynamic_error_code(Twine("SECTDIFF relocation where "
                                              "neither target is in atom"));
       *kind = negDelta32;
@@ -441,7 +441,7 @@ void ArchHandler_x86::applyFixupFinal(const Reference &ref, uint8_t *loc,
     return;
   assert(ref.kindArch() == Reference::KindArch::x86);
   ulittle32_t *loc32 = reinterpret_cast<ulittle32_t *>(loc);
-  switch (static_cast<X86_Kinds>(ref.kindValue())) {
+  switch (static_cast<X86Kind>(ref.kindValue())) {
   case branch32:
     *loc32 = (targetAddress - (fixupAddress + 4)) + ref.addend();
     break;
@@ -486,7 +486,7 @@ void ArchHandler_x86::applyFixupRelocatable(const Reference &ref,
   bool useExternalReloc = useExternalRelocationTo(*ref.target());
   ulittle16_t *loc16 = reinterpret_cast<ulittle16_t *>(loc);
   ulittle32_t *loc32 = reinterpret_cast<ulittle32_t *>(loc);
-  switch (static_cast<X86_Kinds>(ref.kindValue())) {
+  switch (static_cast<X86Kind>(ref.kindValue())) {
   case branch32:
     if (useExternalReloc)
       *loc32 = ref.addend() - (fixupAddress + 4);
@@ -559,7 +559,7 @@ void ArchHandler_x86::appendSectionRelocations(
   assert(ref.kindArch() == Reference::KindArch::x86);
   uint32_t sectionOffset = atomSectionOffset + ref.offsetInAtom();
   bool useExternalReloc = useExternalRelocationTo(*ref.target());
-  switch (static_cast<X86_Kinds>(ref.kindValue())) {
+  switch (static_cast<X86Kind>(ref.kindValue())) {
   case modeCode:
   case modeData:
     break;

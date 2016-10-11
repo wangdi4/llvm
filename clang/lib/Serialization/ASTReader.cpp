@@ -108,9 +108,12 @@ ChainedASTReaderListener::ReadFileSystemOptions(const FileSystemOptions &FSOpts,
 }
 
 bool ChainedASTReaderListener::ReadHeaderSearchOptions(
-    const HeaderSearchOptions &HSOpts, bool Complain) {
-  return First->ReadHeaderSearchOptions(HSOpts, Complain) ||
-         Second->ReadHeaderSearchOptions(HSOpts, Complain);
+    const HeaderSearchOptions &HSOpts, StringRef SpecificModuleCachePath,
+    bool Complain) {
+  return First->ReadHeaderSearchOptions(HSOpts, SpecificModuleCachePath,
+                                        Complain) ||
+         Second->ReadHeaderSearchOptions(HSOpts, SpecificModuleCachePath,
+                                         Complain);
 }
 bool ChainedASTReaderListener::ReadPreprocessorOptions(
     const PreprocessorOptions &PPOpts, bool Complain,
@@ -464,7 +467,7 @@ collectMacroDefinitions(const PreprocessorOptions &PPOpts,
     Macros[MacroName] = std::make_pair(MacroBody, false);
   }
 }
-         
+
 /// \brief Check the preprocessor options deserialized from the control block
 /// against the preprocessor options in an existing preprocessor.
 ///
@@ -588,6 +591,36 @@ bool PCHValidator::ReadPreprocessorOptions(const PreprocessorOptions &PPOpts,
                                   Complain? &Reader.Diags : nullptr,
                                   PP.getFileManager(),
                                   SuggestedPredefines,
+                                  PP.getLangOpts());
+}
+
+/// Check the header search options deserialized from the control block
+/// against the header search options in an existing preprocessor.
+///
+/// \param Diags If non-null, produce diagnostics for any mismatches incurred.
+static bool checkHeaderSearchOptions(const HeaderSearchOptions &HSOpts,
+                                     StringRef SpecificModuleCachePath,
+                                     StringRef ExistingModuleCachePath,
+                                     DiagnosticsEngine *Diags,
+                                     const LangOptions &LangOpts) {
+  if (LangOpts.Modules) {
+    if (SpecificModuleCachePath != ExistingModuleCachePath) {
+      if (Diags)
+        Diags->Report(diag::err_pch_modulecache_mismatch)
+          << SpecificModuleCachePath << ExistingModuleCachePath;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool PCHValidator::ReadHeaderSearchOptions(const HeaderSearchOptions &HSOpts,
+                                           StringRef SpecificModuleCachePath,
+                                           bool Complain) {
+  return checkHeaderSearchOptions(HSOpts, SpecificModuleCachePath,
+                                  PP.getHeaderSearchInfo().getModuleCachePath(),
+                                  Complain ? &Reader.Diags : nullptr,
                                   PP.getLangOpts());
 }
 
@@ -3066,11 +3099,6 @@ ASTReader::ReadASTBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
       }
       break;
 
-    case DYNAMIC_CLASSES:
-      for (unsigned I = 0, N = Record.size(); I != N; ++I)
-        DynamicClasses.push_back(getGlobalDeclID(F, Record[I]));
-      break;
-
     case PENDING_IMPLICIT_INSTANTIATIONS:
       if (PendingInstantiations.size() % 2 != 0) {
         Error("Invalid existing PendingInstantiations");
@@ -3433,13 +3461,6 @@ ASTReader::ReadModuleMapFileBlock(RecordData &Record, ModuleFile &F,
       if ((ClientLoadCapabilities & ARR_OutOfDate) == 0)
         Diag(diag::err_module_different_modmap)
           << F.ModuleName << /*not new*/1 << ModMap->getName();
-      return OutOfDate;
-    }
-
-    // Check whether the 'IsSystem' bit changed.
-    if (M->IsSystem != static_cast<bool>(Record[Idx])) {
-      if ((ClientLoadCapabilities & ARR_OutOfDate) == 0)
-        Diag(diag::err_module_system_change) << F.ModuleName << M->IsSystem;
       return OutOfDate;
     }
   }
@@ -4191,16 +4212,19 @@ namespace {
     const LangOptions &ExistingLangOpts;
     const TargetOptions &ExistingTargetOpts;
     const PreprocessorOptions &ExistingPPOpts;
+    std::string ExistingModuleCachePath;
     FileManager &FileMgr;
-    
+
   public:
     SimplePCHValidator(const LangOptions &ExistingLangOpts,
                        const TargetOptions &ExistingTargetOpts,
                        const PreprocessorOptions &ExistingPPOpts,
+                       StringRef ExistingModuleCachePath,
                        FileManager &FileMgr)
       : ExistingLangOpts(ExistingLangOpts),
         ExistingTargetOpts(ExistingTargetOpts),
         ExistingPPOpts(ExistingPPOpts),
+        ExistingModuleCachePath(ExistingModuleCachePath),
         FileMgr(FileMgr)
     {
     }
@@ -4213,6 +4237,13 @@ namespace {
     bool ReadTargetOptions(const TargetOptions &TargetOpts,
                            bool Complain) override {
       return checkTargetOptions(ExistingTargetOpts, TargetOpts, nullptr);
+    }
+    bool ReadHeaderSearchOptions(const HeaderSearchOptions &HSOpts,
+                                 StringRef SpecificModuleCachePath,
+                                 bool Complain) override {
+      return checkHeaderSearchOptions(HSOpts, SpecificModuleCachePath,
+                                      ExistingModuleCachePath,
+                                      nullptr, ExistingLangOpts);
     }
     bool ReadPreprocessorOptions(const PreprocessorOptions &PPOpts,
                                  bool Complain,
@@ -4408,8 +4439,10 @@ bool ASTReader::isAcceptableASTFile(StringRef Filename,
                                     FileManager &FileMgr,
                                     const LangOptions &LangOpts,
                                     const TargetOptions &TargetOpts,
-                                    const PreprocessorOptions &PPOpts) {
-  SimplePCHValidator validator(LangOpts, TargetOpts, PPOpts, FileMgr);
+                                    const PreprocessorOptions &PPOpts,
+                                    std::string ExistingModuleCachePath) {
+  SimplePCHValidator validator(LangOpts, TargetOpts, PPOpts,
+                               ExistingModuleCachePath, FileMgr);
   return !readASTFileControlBlock(Filename, FileMgr, validator);
 }
 
@@ -4540,9 +4573,13 @@ ASTReader::ReadSubmoduleBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
         if (!CurrentModule->getUmbrellaHeader())
           ModMap.setUmbrellaHeader(CurrentModule, Umbrella);
         else if (CurrentModule->getUmbrellaHeader() != Umbrella) {
-          if ((ClientLoadCapabilities & ARR_OutOfDate) == 0)
-            Error("mismatched umbrella headers in submodule");
-          return OutOfDate;
+          // This can be a spurious difference caused by changing the VFS to
+          // point to a different copy of the file, and it is too late to
+          // to rebuild safely.
+          // FIXME: If we wrote the virtual paths instead of the 'real' paths,
+          // after input file validation only real problems would remain and we
+          // could just error. For now, assume it's okay.
+          break;
         }
       }
       break;
@@ -4780,8 +4817,10 @@ bool ASTReader::ParseHeaderSearchOptions(const RecordData &Record,
   HSOpts.UseStandardSystemIncludes = Record[Idx++];
   HSOpts.UseStandardCXXIncludes = Record[Idx++];
   HSOpts.UseLibcxx = Record[Idx++];
+  std::string SpecificModuleCachePath = ReadString(Record, Idx);
 
-  return Listener.ReadHeaderSearchOptions(HSOpts, Complain);
+  return Listener.ReadHeaderSearchOptions(HSOpts, SpecificModuleCachePath,
+                                          Complain);
 }
 
 bool ASTReader::ParsePreprocessorOptions(const RecordData &Record,
@@ -6628,7 +6667,8 @@ ASTReader::FindExternalVisibleDeclsByName(const DeclContext *DC,
       auto Merged = MergedLookups.find(DC);
       if (Merged != MergedLookups.end()) {
         for (unsigned I = 0; I != Merged->second.size(); ++I) {
-          LookUpInContexts(Merged->second[I]);
+          const DeclContext *Context = Merged->second[I];
+          LookUpInContexts(Context);
           // We might have just added some more merged lookups. If so, our
           // iterator is now invalid, so grab a fresh one before continuing.
           Merged = MergedLookups.find(DC);
@@ -7265,16 +7305,6 @@ void ASTReader::ReadExtVectorDecls(SmallVectorImpl<TypedefNameDecl *> &Decls) {
       Decls.push_back(D);
   }
   ExtVectorDecls.clear();
-}
-
-void ASTReader::ReadDynamicClasses(SmallVectorImpl<CXXRecordDecl *> &Decls) {
-  for (unsigned I = 0, N = DynamicClasses.size(); I != N; ++I) {
-    CXXRecordDecl *D
-      = dyn_cast_or_null<CXXRecordDecl>(GetDecl(DynamicClasses[I]));
-    if (D)
-      Decls.push_back(D);
-  }
-  DynamicClasses.clear();
 }
 
 void ASTReader::ReadUnusedLocalTypedefNameCandidates(
@@ -8272,10 +8302,9 @@ void ASTReader::finishPendingActions() {
     PendingIncompleteDeclChains.clear();
 
     // Load pending declaration chains.
-    for (unsigned I = 0; I != PendingDeclChains.size(); ++I) {
+    for (unsigned I = 0; I != PendingDeclChains.size(); ++I)
       loadPendingDeclChain(PendingDeclChains[I]);
-      PendingDeclChainsKnown.erase(PendingDeclChains[I]);
-    }
+    PendingDeclChainsKnown.clear();
     PendingDeclChains.clear();
 
     // Make the most recent of the top-level declarations visible.

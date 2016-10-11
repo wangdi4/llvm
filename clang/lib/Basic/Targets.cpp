@@ -25,7 +25,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/IR/Type.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <algorithm>
@@ -472,6 +471,17 @@ protected:
     Builder.defineMacro("__ELF__");
     if (Opts.POSIXThreads)
       Builder.defineMacro("_REENTRANT");
+
+    switch (Triple.getArch()) {
+    default:
+      break;
+    case llvm::Triple::arm:
+    case llvm::Triple::armeb:
+    case llvm::Triple::thumb:
+    case llvm::Triple::thumbeb:
+      Builder.defineMacro("__ARM_DWARF_EH__");
+      break;
+    }
   }
 public:
   BitrigTargetInfo(const llvm::Triple &Triple) : OSTargetInfo<Target>(Triple) {
@@ -1161,9 +1171,6 @@ void PPCTargetInfo::getDefaultFeatures(llvm::StringMap<bool> &Features) const {
     .Default(false);
 
   Features["qpx"] = (CPU == "a2q");
-
-  if (!ABI.empty())
-    Features[ABI] = true;
 }
 
 bool PPCTargetInfo::hasFeature(StringRef Feature) const {
@@ -1649,6 +1656,8 @@ public:
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override {
     Builder.defineMacro("__R600__");
+    if (GPU >= GK_SOUTHERN_ISLANDS && Opts.OpenCL)
+      Builder.defineMacro("cl_khr_fp64");
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
@@ -3630,19 +3639,31 @@ public:
     IntPtrType = SignedLongLong;
     this->UserLabelPrefix = "";
   }
+
   void getTargetDefines(const LangOptions &Opts,
                                 MacroBuilder &Builder) const override {
     WindowsTargetInfo<X86_64TargetInfo>::getTargetDefines(Opts, Builder);
     Builder.defineMacro("_WIN64");
   }
+
   BuiltinVaListKind getBuiltinVaListKind() const override {
     return TargetInfo::CharPtrBuiltinVaList;
   }
+
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
-    return (CC == CC_C ||
-            CC == CC_X86VectorCall ||
-            CC == CC_IntelOclBicc ||
-            CC == CC_X86_64SysV) ? CCCR_OK : CCCR_Warning;
+    switch (CC) {
+    case CC_X86StdCall:
+    case CC_X86ThisCall:
+    case CC_X86FastCall:
+      return CCCR_Ignore;
+    case CC_C:
+    case CC_X86VectorCall:
+    case CC_IntelOclBicc:
+    case CC_X86_64SysV:
+      return CCCR_OK;
+    default:
+      return CCCR_Warning;
+    }
   }
 };
 } // end anonymous namespace
@@ -3817,8 +3838,9 @@ class ARMTargetInfo : public TargetInfo {
     DoubleAlign = LongLongAlign = LongDoubleAlign = SuitableAlign = 64;
     const llvm::Triple &T = getTriple();
 
-    // size_t is unsigned long on MachO-derived environments and NetBSD.
-    if (T.isOSBinFormatMachO() || T.getOS() == llvm::Triple::NetBSD)
+    // size_t is unsigned long on MachO-derived environments, NetBSD and Bitrig.
+    if (T.isOSBinFormatMachO() || T.getOS() == llvm::Triple::NetBSD ||
+        T.getOS() == llvm::Triple::Bitrig)
       SizeType = UnsignedLong;
     else
       SizeType = UnsignedInt;
@@ -4031,7 +4053,7 @@ public:
       Features["hwdiv-arm"] = true;
       Features["crc"] = true;
       Features["crypto"] = true;
-    } else if (CPU == "cortex-r5" ||
+    } else if (CPU == "cortex-r5" || CPU == "cortex-r7" ||
                // Enable the hwdiv extension for all v8a AArch32 cores by
                // default.
                ArchName == "armv8a" || ArchName == "armv8" ||
@@ -4040,7 +4062,8 @@ public:
                ArchName == "thumbebv8a" || ArchName == "thumbebv8") {
       Features["hwdiv"] = true;
       Features["hwdiv-arm"] = true;
-    } else if (CPU == "cortex-m3" || CPU == "cortex-m4" || CPU == "cortex-m7") {
+    } else if (CPU == "cortex-m3" || CPU == "cortex-m4" || CPU == "cortex-m7" ||
+               CPU == "sc300") {
       Features["hwdiv"] = true;
     }
   }
@@ -4138,12 +4161,12 @@ public:
         .Cases("cortex-a5", "cortex-a7", "cortex-a8", "7A")
         .Cases("cortex-a9", "cortex-a12", "cortex-a15", "cortex-a17", "krait",
                "7A")
-        .Cases("cortex-r4", "cortex-r5", "7R")
+        .Cases("cortex-r4", "cortex-r5", "cortex-r7", "7R")
         .Case("swift", "7S")
         .Case("cyclone", "8A")
-        .Case("cortex-m3", "7M")
+        .Cases("sc300", "cortex-m3", "7M")
         .Cases("cortex-m4", "cortex-m7", "7EM")
-        .Case("cortex-m0", "6M")
+        .Cases("sc000", "cortex-m0", "cortex-m0plus", "cortex-m1", "6M")
         .Cases("cortex-a53", "cortex-a57", "cortex-a72", "8A")
         .Default(nullptr);
   }
@@ -4153,8 +4176,9 @@ public:
         .Cases("cortex-a9", "cortex-a12", "cortex-a15", "cortex-a17", "krait",
                "A")
         .Cases("cortex-a53", "cortex-a57", "cortex-a72", "A")
-        .Cases("cortex-m3", "cortex-m4", "cortex-m0", "cortex-m7", "M")
-        .Cases("cortex-r4", "cortex-r5", "R")
+        .Cases("cortex-m3", "cortex-m4", "cortex-m0", "cortex-m0plus", "M")
+        .Cases("cortex-m1", "cortex-m7", "sc000", "sc300", "M")
+        .Cases("cortex-r4", "cortex-r5", "cortex-r7", "R")
         .Default("");
   }
   bool setCPU(const std::string &Name) override {
@@ -5763,7 +5787,9 @@ public:
                      const std::string &CPUStr)
       : TargetInfo(Triple), CPU(CPUStr), IsMips16(false), IsMicromips(false),
         IsNan2008(false), IsSingleFloat(false), FloatABI(HardFloat),
-        DspRev(NoDSP), HasMSA(false), HasFP64(false), ABI(ABIStr) {}
+        DspRev(NoDSP), HasMSA(false), HasFP64(false), ABI(ABIStr) {
+    TheCXXABI.set(TargetCXXABI::GenericMIPS);
+  }
 
   bool isNaN2008Default() const {
     return CPU == "mips32r6" || CPU == "mips64r6";
@@ -5771,6 +5797,10 @@ public:
 
   bool isFP64Default() const {
     return CPU == "mips32r6" || ABI == "n32" || ABI == "n64" || ABI == "64";
+  }
+
+  bool isNan2008() const override {
+    return IsNan2008;
   }
 
   StringRef getABI() const override { return ABI; }
@@ -5786,9 +5816,13 @@ public:
         .Case("mips5", true)
         .Case("mips32", IsMips32)
         .Case("mips32r2", IsMips32)
+        .Case("mips32r3", IsMips32)
+        .Case("mips32r5", IsMips32)
         .Case("mips32r6", IsMips32)
         .Case("mips64", true)
         .Case("mips64r2", true)
+        .Case("mips64r3", true)
+        .Case("mips64r5", true)
         .Case("mips64r6", true)
         .Case("octeon", true)
         .Default(false);
@@ -6051,6 +6085,10 @@ public:
       Builder.defineMacro("__mips_isa_rev", "1");
     else if (CPUStr == "mips32r2")
       Builder.defineMacro("__mips_isa_rev", "2");
+    else if (CPUStr == "mips32r3")
+      Builder.defineMacro("__mips_isa_rev", "3");
+    else if (CPUStr == "mips32r5")
+      Builder.defineMacro("__mips_isa_rev", "5");
     else if (CPUStr == "mips32r6")
       Builder.defineMacro("__mips_isa_rev", "6");
 
@@ -6200,6 +6238,10 @@ public:
       Builder.defineMacro("__mips_isa_rev", "1");
     else if (CPUStr == "mips64r2")
       Builder.defineMacro("__mips_isa_rev", "2");
+    else if (CPUStr == "mips64r3")
+      Builder.defineMacro("__mips_isa_rev", "3");
+    else if (CPUStr == "mips64r5")
+      Builder.defineMacro("__mips_isa_rev", "5");
     else if (CPUStr == "mips64r6")
       Builder.defineMacro("__mips_isa_rev", "6");
 

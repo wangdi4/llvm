@@ -383,7 +383,7 @@ public:
         case eWatchpointWrite:      return m_supports_z2;
         case eWatchpointRead:       return m_supports_z3;
         case eWatchpointReadWrite:  return m_supports_z4;
-        case eStoppointInvalid:     return false;
+        default:                    return false;
         }
     }
     uint8_t
@@ -533,6 +533,11 @@ public:
 
     bool
     GetThreadExtendedInfoSupported();
+
+    bool
+    GetModuleInfo (const char* module_path,
+                   const lldb_private::ArchSpec& arch_spec,
+                   StringExtractorGDBRemote &response);
 
 protected:
 

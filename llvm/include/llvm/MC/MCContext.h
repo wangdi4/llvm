@@ -215,6 +215,8 @@ namespace llvm {
     /// with a unique but unspecified name.
     MCSymbol *CreateTempSymbol();
 
+    MCSymbol *createTempSymbol(const Twine &Name);
+
     /// getUniqueSymbolID() - Return a unique identifier for use in constructing
     /// symbol names.
     unsigned getUniqueSymbolID() { return NextUniqueID++; }
@@ -276,6 +278,10 @@ namespace llvm {
     const MCSectionELF *getELFSection(StringRef Section, unsigned Type,
                                       unsigned Flags, unsigned EntrySize,
                                       StringRef Group);
+
+    const MCSectionELF *getELFSection(StringRef Section, unsigned Type,
+                                      unsigned Flags, unsigned EntrySize,
+                                      StringRef Group, bool Unique);
 
     void renameELFSection(const MCSectionELF *Section, StringRef Name);
 

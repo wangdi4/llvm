@@ -286,6 +286,16 @@ StandardConversionSequence::getNarrowingKind(ASTContext &Ctx,
   QualType FromType = getToType(0);
   QualType ToType = getToType(1);
   switch (Second) {
+  // 'bool' is an integral type; dispatch to the right place to handle it.
+  case ICK_Boolean_Conversion:
+    if (FromType->isRealFloatingType())
+      goto FloatingIntegralConversion;
+    if (FromType->isIntegralOrUnscopedEnumerationType())
+      goto IntegralConversion;
+    // Boolean conversions can be from pointers and pointers to members
+    // [conv.bool], and those aren't considered narrowing conversions.
+    return NK_Not_Narrowing;
+
   // -- from a floating-point type to an integer type, or
   //
   // -- from an integer type or unscoped enumeration type to a floating-point
@@ -293,6 +303,7 @@ StandardConversionSequence::getNarrowingKind(ASTContext &Ctx,
   //    value after conversion will fit into the target type and will produce
   //    the original value when converted back to the original type, or
   case ICK_Floating_Integral:
+  FloatingIntegralConversion:
     if (FromType->isRealFloatingType() && ToType->isIntegralType(Ctx)) {
       return NK_Type_Narrowing;
     } else if (FromType->isIntegralType(Ctx) && ToType->isRealFloatingType()) {
@@ -357,13 +368,8 @@ StandardConversionSequence::getNarrowingKind(ASTContext &Ctx,
   //    the source is a constant expression and the actual value after
   //    conversion will fit into the target type and will produce the original
   //    value when converted back to the original type.
-  case ICK_Boolean_Conversion:  // Bools are integers too.
-    if (!FromType->isIntegralOrUnscopedEnumerationType()) {
-      // Boolean conversions can be from pointers and pointers to members
-      // [conv.bool], and those aren't considered narrowing conversions.
-      return NK_Not_Narrowing;
-    }  // Otherwise, fall through to the integral case.
-  case ICK_Integral_Conversion: {
+  case ICK_Integral_Conversion:
+  IntegralConversion: {
     assert(FromType->isIntegralOrUnscopedEnumerationType());
     assert(ToType->isIntegralOrUnscopedEnumerationType());
     const bool FromSigned = FromType->isSignedIntegerOrEnumerationType();
@@ -3336,7 +3342,7 @@ CompareImplicitConversionSequences(Sema &S,
   // list-initialization sequence L2 if:
   // - L1 converts to std::initializer_list<X> for some X and L2 does not, or,
   //   if not that,
-  // - L1 converts to type “array of N1 T”, L2 converts to type “array of N2 T”,
+  // - L1 converts to type "array of N1 T", L2 converts to type "array of N2 T",
   //   and N1 is smaller than N2.,
   // even if one of the other rules in this paragraph would otherwise apply.
   if (!ICS1.isBad()) {
@@ -4495,7 +4501,7 @@ TryListConversion(Sema &S, InitListExpr *From, QualType ToType,
   //   element of the list to X.
   //
   // C++14 [over.ics.list]p3:
-  //   Otherwise, if the parameter type is “array of N X”, if the initializer
+  //   Otherwise, if the parameter type is "array of N X", if the initializer
   //   list has exactly N elements or if it has fewer than N elements and X is
   //   default-constructible, and if all the elements of the initializer list
   //   can be implicitly converted to X, the implicit conversion sequence is
@@ -8118,7 +8124,7 @@ void Sema::AddBuiltinOperatorCandidates(OverloadedOperatorKind Op,
   bool HasArithmeticOrEnumeralCandidateType = false;
   SmallVector<BuiltinCandidateTypeSet, 2> CandidateTypes;
   for (unsigned ArgIdx = 0, N = Args.size(); ArgIdx != N; ++ArgIdx) {
-    CandidateTypes.push_back(BuiltinCandidateTypeSet(*this));
+    CandidateTypes.emplace_back(*this);
     CandidateTypes[ArgIdx].AddTypesConvertedFrom(Args[ArgIdx]->getType(),
                                                  OpLoc,
                                                  true,
@@ -11588,6 +11594,10 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
 
     return MaybeBindToTemporary(call);
   }
+
+  if (isa<CXXPseudoDestructorExpr>(NakedMemExpr))
+    return new (Context)
+        CallExpr(Context, MemExprE, Args, Context.VoidTy, VK_RValue, RParenLoc);
 
   UnbridgedCastsSet UnbridgedCasts;
   if (checkArgPlaceholdersForOverload(*this, Args, UnbridgedCasts))

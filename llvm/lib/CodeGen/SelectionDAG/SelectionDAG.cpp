@@ -1581,24 +1581,19 @@ SDValue SelectionDAG::getVectorShuffle(EVT VT, SDLoc dl, SDValue N1,
             return N1;
       }
 
-      // If the shuffle itself creates a constant splat, build the vector
-      // directly.
+      // If the shuffle itself creates a splat, build the vector directly.
       if (AllSame && SameNumElts) {
-         const SDValue &Splatted = BV->getOperand(MaskVec[0]);
-         if (isa<ConstantSDNode>(Splatted) || isa<ConstantFPSDNode>(Splatted)) {
-           SmallVector<SDValue, 8> Ops;
-           for (unsigned i = 0; i != NElts; ++i)
-             Ops.push_back(Splatted);
+        const SDValue &Splatted = BV->getOperand(MaskVec[0]);
+        SmallVector<SDValue, 8> Ops(NElts, Splatted);
 
-           SDValue NewBV =
-               getNode(ISD::BUILD_VECTOR, dl, BV->getValueType(0), Ops);
+        EVT BuildVT = BV->getValueType(0);
+        SDValue NewBV = getNode(ISD::BUILD_VECTOR, dl, BuildVT, Ops);
 
-           // We may have jumped through bitcasts, so the type of the
-           // BUILD_VECTOR may not match the type of the shuffle.
-           if (BV->getValueType(0) != VT)
-             NewBV = getNode(ISD::BITCAST, dl, VT, NewBV);
-           return NewBV;
-         }
+        // We may have jumped through bitcasts, so the type of the
+        // BUILD_VECTOR may not match the type of the shuffle.
+        if (BuildVT != VT)
+          NewBV = getNode(ISD::BITCAST, dl, VT, NewBV);
+        return NewBV;
       }
     }
   }
@@ -5423,17 +5418,9 @@ UpdateNodeOperands(SDNode *N, ArrayRef<SDValue> Ops) {
   assert(N->getNumOperands() == NumOps &&
          "Update with wrong number of operands");
 
-  // Check to see if there is no change.
-  bool AnyChange = false;
-  for (unsigned i = 0; i != NumOps; ++i) {
-    if (Ops[i] != N->getOperand(i)) {
-      AnyChange = true;
-      break;
-    }
-  }
-
-  // No operands changed, just return the input node.
-  if (!AnyChange) return N;
+  // If no operands changed just return the input node.
+  if (Ops.empty() || std::equal(Ops.begin(), Ops.end(), N->op_begin()))
+    return N;
 
   // See if the modified node already exists.
   void *InsertPos = nullptr;

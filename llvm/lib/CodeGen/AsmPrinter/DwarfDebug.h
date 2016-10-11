@@ -68,8 +68,8 @@ public:
 //===----------------------------------------------------------------------===//
 /// \brief This class is used to track local variable information.
 ///
-/// - Variables whose location changes over time have a DotDebugLocOffset and the
-///   other fields are not used.
+/// - Variables whose location changes over time have a DotDebugLocOffset and
+///   the other fields are not used.
 ///
 /// - Variables that are described by multiple MMI table entries have multiple
 ///   expressions and frame indices.
@@ -94,8 +94,9 @@ public:
   /// Construct a DbgVariable from a DEBUG_VALUE.
   /// AbstractVar may be NULL.
   DbgVariable(const MachineInstr *DbgValue, DwarfDebug *DD)
-    : Var(DbgValue->getDebugVariable()), Expr(1, DbgValue->getDebugExpression()),
-        TheDIE(nullptr), DotDebugLocOffset(~0U), MInsn(DbgValue), DD(DD) {
+      : Var(DbgValue->getDebugVariable()),
+        Expr(1, DbgValue->getDebugExpression()), TheDIE(nullptr),
+        DotDebugLocOffset(~0U), MInsn(DbgValue), DD(DD) {
     FrameIndex.push_back(~0);
   }
 
@@ -200,10 +201,6 @@ class DwarfDebug : public AsmPrinterHandler {
   // Size of each symbol emitted (for those symbols that have a specific size).
   DenseMap<const MCSymbol *, uint64_t> SymSize;
 
-  // Provides a unique id per text section.
-  typedef DenseMap<const MCSection *, SmallVector<SymbolCU, 8> > SectionMapType;
-  SectionMapType SectionMap;
-
   LexicalScopes LScopes;
 
   // Collection of abstract variables.
@@ -280,7 +277,8 @@ class DwarfDebug : public AsmPrinterHandler {
   // them.
   DenseMap<const MDNode *, const DwarfTypeUnit *> DwarfTypeUnits;
 
-  SmallVector<std::pair<std::unique_ptr<DwarfTypeUnit>, DICompositeType>, 1> TypeUnitsUnderConstruction;
+  SmallVector<std::pair<std::unique_ptr<DwarfTypeUnit>, DICompositeType>, 1>
+      TypeUnitsUnderConstruction;
 
   // Whether to emit the pubnames/pubtypes sections.
   bool HasDwarfPubSections;
@@ -368,10 +366,6 @@ class DwarfDebug : public AsmPrinterHandler {
   /// \brief Finish off debug information after all functions have been
   /// processed.
   void finalizeModuleInfo();
-
-  /// \brief Emit labels to close any remaining sections that have been left
-  /// open.
-  void endSections();
 
   /// \brief Emit the debug info section.
   void emitDebugInfo();
@@ -583,7 +577,8 @@ public:
 
   /// \brief Emit an entry for the debug loc section. This can be used to
   /// handle an entry that's going to be emitted into the debug loc section.
-  void emitDebugLocEntry(ByteStreamer &Streamer, const DebugLocEntry &Entry);
+  void emitDebugLocEntry(ByteStreamer &Streamer,
+                         const DebugLocEntry &Entry);
   /// \brief emit a single value for the debug loc section.
   void emitDebugLocValue(ByteStreamer &Streamer,
                          const DebugLocEntry::Value &Value,

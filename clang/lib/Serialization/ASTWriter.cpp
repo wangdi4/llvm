@@ -1216,7 +1216,6 @@ void ASTWriter::WriteControlBlock(Preprocessor &PP, ASTContext &Context,
       Record.push_back(0);
     }
 
-    Record.push_back(WritingModule->IsSystem);
     Stream.EmitRecord(MODULE_MAP_FILE, Record);
   }
 
@@ -1344,6 +1343,8 @@ void ASTWriter::WriteControlBlock(Preprocessor &PP, ASTContext &Context,
   Record.push_back(HSOpts.UseStandardSystemIncludes);
   Record.push_back(HSOpts.UseStandardCXXIncludes);
   Record.push_back(HSOpts.UseLibcxx);
+  // Write out the specific module cache path that contains the module files.
+  AddString(PP.getHeaderSearchInfo().getModuleCachePath(), Record);
   Stream.EmitRecord(HEADER_SEARCH_OPTIONS, Record);
 
   // Preprocessor options.
@@ -2108,8 +2109,7 @@ void ASTWriter::WritePreprocessor(const Preprocessor &PP, bool IsModule) {
       if (MD->isImported()) {
         auto Overrides = MD->getOverriddenModules();
         Record.push_back(Overrides.size());
-        for (auto Override : Overrides)
-          Record.push_back(Override);
+        Record.append(Overrides.begin(), Overrides.end());
       }
     }
     if (Record.empty())
@@ -3663,17 +3663,22 @@ public:
 } // end anonymous namespace
 
 template<typename Visitor>
-static void visitLocalLookupResults(const DeclContext *ConstDC,
-                                    bool NeedToReconcileExternalVisibleStorage,
-                                    Visitor AddLookupResult) {
+void ASTWriter::visitLocalLookupResults(const DeclContext *ConstDC,
+                                        Visitor AddLookupResult) {
   // FIXME: We need to build the lookups table, which is logically const.
   DeclContext *DC = const_cast<DeclContext*>(ConstDC);
   assert(DC == DC->getPrimaryContext() && "only primary DC has lookup table");
 
   SmallVector<DeclarationName, 16> ExternalNames;
   for (auto &Lookup : *DC->buildLookup()) {
+    // If there are no local declarations in our lookup result, we don't
+    // need to write an entry for the name at all unless we're rewriting
+    // the decl context.
+    if (!Lookup.second.hasLocalDecls() && !isRewritten(cast<Decl>(DC)))
+      continue;
+
     if (Lookup.second.hasExternalDecls() ||
-        NeedToReconcileExternalVisibleStorage) {
+        DC->NeedToReconcileExternalVisibleStorage) {
       // We don't know for sure what declarations are found by this name,
       // because the external source might have a different set from the set
       // that are in the lookup map, and we can't update it now without
@@ -3697,9 +3702,8 @@ static void visitLocalLookupResults(const DeclContext *ConstDC,
 void ASTWriter::AddUpdatedDeclContext(const DeclContext *DC) {
   if (UpdatedDeclContexts.insert(DC).second && WritingAST) {
     // Ensure we emit all the visible declarations.
-    visitLocalLookupResults(DC, DC->NeedToReconcileExternalVisibleStorage,
-                            [&](DeclarationName Name,
-                                DeclContext::lookup_const_result Result) {
+    visitLocalLookupResults(DC, [&](DeclarationName Name,
+                                    DeclContext::lookup_result Result) {
       for (auto *Decl : Result)
         GetDeclRef(getDeclForLocalLookup(getLangOpts(), Decl));
     });
@@ -3721,9 +3725,8 @@ ASTWriter::GenerateNameLookupTable(const DeclContext *DC,
   SmallVector<NamedDecl *, 8> ConstructorDecls;
   SmallVector<NamedDecl *, 4> ConversionDecls;
 
-  visitLocalLookupResults(DC, DC->NeedToReconcileExternalVisibleStorage,
-                          [&](DeclarationName Name,
-                              DeclContext::lookup_result Result) {
+  visitLocalLookupResults(DC, [&](DeclarationName Name,
+                                  DeclContext::lookup_result Result) {
     if (Result.empty())
       return;
 
@@ -3756,16 +3759,14 @@ ASTWriter::GenerateNameLookupTable(const DeclContext *DC,
   // Add the constructors.
   if (!ConstructorDecls.empty()) {
     Generator.insert(ConstructorName,
-                     DeclContext::lookup_result(ConstructorDecls.begin(),
-                                                ConstructorDecls.end()),
+                     DeclContext::lookup_result(ConstructorDecls),
                      Trait);
   }
 
   // Add the conversion functions.
   if (!ConversionDecls.empty()) {
     Generator.insert(ConversionName,
-                     DeclContext::lookup_result(ConversionDecls.begin(),
-                                                ConversionDecls.end()),
+                     DeclContext::lookup_result(ConversionDecls),
                      Trait);
   }
 
@@ -4268,23 +4269,6 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
       getIdentifierRef(&Table.get(BuiltinNames[I]));
   }
 
-  // If there are any out-of-date identifiers, bring them up to date.
-  if (ExternalPreprocessorSource *ExtSource = PP.getExternalSource()) {
-    // Find out-of-date identifiers.
-    SmallVector<IdentifierInfo *, 4> OutOfDate;
-    for (IdentifierTable::iterator ID = PP.getIdentifierTable().begin(),
-                                IDEnd = PP.getIdentifierTable().end();
-         ID != IDEnd; ++ID) {
-      if (ID->second->isOutOfDate())
-        OutOfDate.push_back(ID->second);
-    }
-
-    // Update the out-of-date identifiers.
-    for (unsigned I = 0, N = OutOfDate.size(); I != N; ++I) {
-      ExtSource->updateOutOfDateIdentifier(*OutOfDate[I]);
-    }
-  }
-
   // If we saw any DeclContext updates before we started writing the AST file,
   // make sure all visible decls in those DeclContexts are written out.
   if (!UpdatedDeclContexts.empty()) {
@@ -4359,10 +4343,6 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
   RecordData UnusedLocalTypedefNameCandidates;
   for (const TypedefNameDecl *TD : SemaRef.UnusedLocalTypedefNameCandidates)
     AddDeclRef(TD, UnusedLocalTypedefNameCandidates);
-
-  // Build a record containing all of dynamic classes declarations.
-  RecordData DynamicClasses;
-  AddLazyVectorDecls(*this, SemaRef.DynamicClasses, DynamicClasses);
 
   // Build a record containing all of pending implicit instantiations.
   RecordData PendingInstantiations;
@@ -4642,10 +4622,6 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
   // Write the record containing VTable uses information.
   if (!VTableUses.empty())
     Stream.EmitRecord(VTABLE_USES, VTableUses);
-
-  // Write the record containing dynamic classes declarations.
-  if (!DynamicClasses.empty())
-    Stream.EmitRecord(DYNAMIC_CLASSES, DynamicClasses);
 
   // Write the record containing potentially unused local typedefs.
   if (!UnusedLocalTypedefNameCandidates.empty())

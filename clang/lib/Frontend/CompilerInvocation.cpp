@@ -39,9 +39,6 @@
 #include <memory>
 #include <sys/stat.h>
 #include <system_error>
-#if LLVM_ON_UNIX
-#include <unistd.h> // for gethostname()
-#endif
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -256,7 +253,7 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
     for (unsigned i = 0, e = checkers.size(); i != e; ++i)
       Opts.CheckersControlList.push_back(std::make_pair(checkers[i], enable));
   }
-  
+
   // Go through the analyzer configuration options.
   for (arg_iterator it = Args.filtered_begin(OPT_analyzer_config),
        ie = Args.filtered_end(); it != ie; ++it) {
@@ -475,6 +472,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
                                        OPT_fno_function_sections, false);
   Opts.DataSections = Args.hasFlag(OPT_fdata_sections,
                                    OPT_fno_data_sections, false);
+  Opts.UniqueSectionNames = Args.hasFlag(OPT_funique_section_names,
+                                         OPT_fno_unique_section_names, true);
+
   Opts.MergeFunctions = Args.hasArg(OPT_fmerge_functions);
 
   Opts.MSVolatile = Args.hasArg(OPT_fms_volatile);
@@ -1393,6 +1393,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Args.hasArg(OPT_fcuda_is_device))
     Opts.CUDAIsDevice = 1;
 
+  if (Args.hasArg(OPT_fcuda_allow_host_calls_from_host_device))
+    Opts.CUDAAllowHostCallsFromHostDevice = 1;
+
   if (Opts.ObjC1) {
     if (Arg *arg = Args.getLastArg(OPT_fobjc_runtime_EQ)) {
       StringRef value = arg->getValue();
@@ -1516,6 +1519,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.ModulesErrorRecovery = !Args.hasArg(OPT_fno_modules_error_recovery);
   Opts.ModulesImplicitMaps = Args.hasFlag(OPT_fmodules_implicit_maps,
                                           OPT_fno_modules_implicit_maps, true);
+  Opts.ImplicitModules = !Args.hasArg(OPT_fno_implicit_modules);
   Opts.CharIsSigned = Opts.OpenCL || !Args.hasArg(OPT_fno_signed_char);
   Opts.WChar = Opts.CPlusPlus && !Args.hasArg(OPT_fno_wchar);
   Opts.ShortWChar = Args.hasFlag(OPT_fshort_wchar, OPT_fno_short_wchar, false);
@@ -1525,8 +1529,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.NoMathBuiltin = Args.hasArg(OPT_fno_math_builtin);
   Opts.AssumeSaneOperatorNew = !Args.hasArg(OPT_fno_assume_sane_operator_new);
   Opts.SizedDeallocation |= Args.hasArg(OPT_fsized_deallocation);
-  Opts.DefaultSizedDelete = Opts.SizedDeallocation &&
-      Args.hasArg(OPT_fdef_sized_delete);
+  Opts.SizedDeallocation &= !Args.hasArg(OPT_fno_sized_deallocation);
+  Opts.DefineSizedDeallocation = Opts.SizedDeallocation &&
+      Args.hasArg(OPT_fdefine_sized_deallocation);
   Opts.HeinousExtensions = Args.hasArg(OPT_fheinous_gnu_extensions);
   Opts.AccessControl = !Args.hasArg(OPT_fno_access_control);
   Opts.ElideConstructors = !Args.hasArg(OPT_fno_elide_constructors);
@@ -1573,6 +1578,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.DebuggerObjCLiteral = Args.hasArg(OPT_fdebugger_objc_literal);
   Opts.ApplePragmaPack = Args.hasArg(OPT_fapple_pragma_pack);
   Opts.CurrentModule = Args.getLastArgValue(OPT_fmodule_name);
+  Opts.AppExt = Args.hasArg(OPT_fapplication_extension);
   Opts.ImplementationOfModule =
       Args.getLastArgValue(OPT_fmodule_implementation_of);
   Opts.ModuleFeatures = Args.getAllArgValues(OPT_fmodule_feature);
@@ -1821,6 +1827,7 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
   Opts.ShowMacroComments = Args.hasArg(OPT_CC);
   Opts.ShowMacros = Args.hasArg(OPT_dM) || Args.hasArg(OPT_dD);
   Opts.RewriteIncludes = Args.hasArg(OPT_frewrite_includes);
+  Opts.UseLineDirectives = Args.hasArg(OPT_fuse_line_directives);
 }
 
 static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args) {
@@ -2027,20 +2034,6 @@ std::string CompilerInvocation::getModuleHash() const {
         code = hash_combine(code, statBuf.st_mtime);
     }
   }
-
-#if LLVM_ON_UNIX
-  // The LockFileManager cannot tell when processes from another host are
-  // running, so mangle the hostname in to the module hash to separate them.
-  char hostname[256];
-  hostname[0] = 0;
-  if (gethostname(hostname, 255) == 0) {
-    // Forcibly null-terminate the result, since POSIX doesn't require that
-    // truncation result in an error or that truncated names be null-terminated.
-    hostname[sizeof(hostname)-1] = 0;
-    code = hash_combine(code, StringRef(hostname));
-  }
-  // Ignore failures in gethostname() by not including the hostname in the hash.
-#endif
 
   return llvm::APInt(64, code).toString(36, /*Signed=*/false);
 }

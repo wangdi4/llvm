@@ -2,7 +2,7 @@
 #include "llvm/ExecutionEngine/Orc/OrcTargetSupport.h"
 #include <array>
 
-using namespace llvm;
+using namespace llvm::orc;
 
 namespace {
 
@@ -47,15 +47,15 @@ uint64_t executeCompileCallback(JITCompileCallbackManagerBase<TargetT> *JCBM,
 }
 
 namespace llvm {
+namespace orc {
 
 const char* OrcX86_64::ResolverBlockName = "orc_resolver_block";
 
 void OrcX86_64::insertResolverBlock(
-                               Module &M,
-                               JITCompileCallbackManagerBase<OrcX86_64> &JCBM) {
+    Module &M, JITCompileCallbackManagerBase<OrcX86_64> &JCBM) {
+  auto CallbackPtr = executeCompileCallback<OrcX86_64>;
   uint64_t CallbackAddr =
-      static_cast<uint64_t>(
-        reinterpret_cast<uintptr_t>(executeCompileCallback<OrcX86_64>));
+      static_cast<uint64_t>(reinterpret_cast<uintptr_t>(CallbackPtr));
 
   std::ostringstream AsmStream;
   Triple TT(M.getTargetTriple());
@@ -124,4 +124,5 @@ OrcX86_64::insertCompileCallbackTrampolines(Module &M,
   return GetLabelName;
 }
 
-}
+} // End namespace orc.
+} // End namespace llvm.

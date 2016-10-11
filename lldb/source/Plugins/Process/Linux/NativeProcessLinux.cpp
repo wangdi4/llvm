@@ -123,7 +123,8 @@
 
 // Try to define a macro to encapsulate the tgkill syscall
 // fall back on kill() if tgkill isn't available
-#define tgkill(pid, tid, sig)  syscall(SYS_tgkill, pid, tid, sig)
+#define tgkill(pid, tid, sig) \
+    syscall(SYS_tgkill, static_cast<::pid_t>(pid), static_cast<::pid_t>(tid), sig)
 
 // We disable the tracing of ptrace calls for integration builds to
 // avoid the additional indirection and checks.
@@ -178,7 +179,7 @@ namespace
 
         // Resolve the executable module.
         ModuleSP exe_module_sp;
-        ModuleSpec exe_module_spec(process_info.GetExecutableFile(), platform.GetSystemArchitecture ());
+        ModuleSpec exe_module_spec(process_info.GetExecutableFile(), process_info.GetArchitecture());
         FileSpecList executable_search_paths (Target::GetDefaultExecutableSearchPaths ());
         Error error = platform.ResolveExecutable(
             exe_module_spec,
@@ -1393,7 +1394,7 @@ NativeProcessLinux::AttachToInferior (lldb::pid_t pid, lldb_private::Error &erro
     // Resolve the executable module
     ModuleSP exe_module_sp;
     FileSpecList executable_search_paths (Target::GetDefaultExecutableSearchPaths());
-    ModuleSpec exe_module_spec(process_info.GetExecutableFile(), HostInfo::GetArchitecture());
+    ModuleSpec exe_module_spec(process_info.GetExecutableFile(), process_info.GetArchitecture());
     error = platform_sp->ResolveExecutable(exe_module_spec, exe_module_sp,
                                            executable_search_paths.GetSize() ? &executable_search_paths : NULL);
     if (!error.Success())
@@ -1453,7 +1454,8 @@ WAIT_AGAIN:
     }
 }
 
-NativeProcessLinux::~NativeProcessLinux()
+void
+NativeProcessLinux::Terminate ()
 {
     StopMonitor();
 }
@@ -1563,11 +1565,11 @@ NativeProcessLinux::Launch(LaunchArgs *args)
                 exit(eDupStdinFailed);
 
         if (!args->m_stdout_path.empty ())
-            if (!DupDescriptor(args->m_stdout_path.c_str (), STDOUT_FILENO, O_WRONLY | O_CREAT))
+            if (!DupDescriptor(args->m_stdout_path.c_str (), STDOUT_FILENO, O_WRONLY | O_CREAT | O_TRUNC))
                 exit(eDupStdoutFailed);
 
         if (!args->m_stderr_path.empty ())
-            if (!DupDescriptor(args->m_stderr_path.c_str (), STDERR_FILENO, O_WRONLY | O_CREAT))
+            if (!DupDescriptor(args->m_stderr_path.c_str (), STDERR_FILENO, O_WRONLY | O_CREAT | O_TRUNC))
                 exit(eDupStderrFailed);
 
         // Change working directory
@@ -3368,6 +3370,15 @@ NativeProcessLinux::ServeOperation(OperationArgs *args)
             assert(false && "Unexpected errno from sem_wait");
         }
 
+        // nullptr as operation means the operation thread should exit. Cancel() can't be used
+        // because it is not supported on android.
+        if (!monitor->m_operation)
+        {
+            // notify calling thread that operation is complete
+            sem_post(&monitor->m_operation_done);
+            break;
+        }
+
         reinterpret_cast<Operation*>(monitor->m_operation)->Execute(monitor);
 
         // notify calling thread that operation is complete
@@ -3553,8 +3564,8 @@ NativeProcessLinux::StopMonitoringChildProcess()
 void
 NativeProcessLinux::StopMonitor()
 {
-    StopMonitoringChildProcess();
     StopOpThread();
+    StopMonitoringChildProcess();
     StopCoordinatorThread ();
     sem_destroy(&m_operation_pending);
     sem_destroy(&m_operation_done);
@@ -3572,7 +3583,7 @@ NativeProcessLinux::StopOpThread()
     if (!m_operation_thread.IsJoinable())
         return;
 
-    m_operation_thread.Cancel();
+    DoOperation(nullptr); // nullptr as operation ask the operation thread to exit
     m_operation_thread.Join(nullptr);
 }
 
@@ -3637,6 +3648,7 @@ NativeProcessLinux::StopCoordinatorThread()
     // Tell the coordinator we're done.  This will cause the coordinator
     // run loop thread to exit when the processing queue hits this message.
     m_coordinator_up->StopCoordinator ();
+    m_coordinator_thread.Join (nullptr);
 }
 
 bool

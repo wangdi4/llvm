@@ -12,7 +12,8 @@ import lit.util  # pylint: disable=import-error,no-name-in-module
 
 from libcxx.test.format import LibcxxTestFormat
 from libcxx.compiler import CXXCompiler
-
+from libcxx.test.executor import *
+from libcxx.test.tracing import *
 
 def loadSiteConfig(lit_config, config, param_name, env_name):
     # We haven't loaded the site specific configuration (the user is
@@ -78,6 +79,7 @@ class Configuration(object):
             "parameter '{}' should be true or false".format(name))
 
     def configure(self):
+        self.configure_executor()
         self.configure_target_info()
         self.configure_cxx()
         self.configure_triple()
@@ -91,6 +93,8 @@ class Configuration(object):
         self.configure_env()
         self.configure_compile_flags()
         self.configure_link_flags()
+        self.configure_color_diagnostics()
+        self.configure_debug_mode()
         self.configure_warnings()
         self.configure_sanitizer()
         self.configure_substitutions()
@@ -108,6 +112,32 @@ class Configuration(object):
                              list(self.config.available_features))
         self.lit_config.note('Using environment: %r' % self.env)
 
+    def get_test_format(self):
+        return LibcxxTestFormat(
+            self.cxx,
+            self.use_clang_verify,
+            self.execute_external,
+            self.executor,
+            exec_env=self.env)
+
+    def configure_executor(self):
+        exec_str = self.get_lit_conf('executor', "None")
+        te = eval(exec_str)
+        if te:
+            self.lit_config.note("Using executor: %r" % exec_str)
+            if self.lit_config.useValgrind:
+                # We have no way of knowing where in the chain the
+                # ValgrindExecutor is supposed to go. It is likely
+                # that the user wants it at the end, but we have no
+                # way of getting at that easily.
+                selt.lit_config.fatal("Cannot infer how to create a Valgrind "
+                                      " executor.")
+        else:
+            te = LocalExecutor()
+            if self.lit_config.useValgrind:
+                te = ValgrindExecutor(self.lit_config.valgrindArgs, te)
+        self.executor = te
+
     def configure_target_info(self):
         default = "libcxx.test.target_info.LocalTI"
         info_str = self.get_lit_conf('target_info', default)
@@ -116,13 +146,6 @@ class Configuration(object):
         self.target_info = getattr(mod, info)()
         if info_str != default:
             self.lit_config.note("inferred target_info as: %r" % info_str)
-
-    def get_test_format(self):
-        return LibcxxTestFormat(
-            self.cxx,
-            self.use_clang_verify,
-            self.execute_external,
-            exec_env=self.env)
 
     def configure_cxx(self):
         # Gather various compiler parameters.
@@ -215,7 +238,7 @@ class Configuration(object):
                 'en_US.UTF-8': 'en_US.UTF-8',
                 'cs_CZ.ISO8859-2': 'cs_CZ.ISO8859-2',
                 'fr_FR.UTF-8': 'fr_FR.UTF-8',
-                'fr_CA.ISO8859-1': 'cs_CZ.ISO8859-1',
+                'fr_CA.ISO8859-1': 'fr_CA.ISO8859-1',
                 'ru_RU.UTF-8': 'ru_RU.UTF-8',
                 'zh_CN.UTF-8': 'zh_CN.UTF-8',
             },
@@ -317,7 +340,7 @@ class Configuration(object):
         # Configure include paths
         self.cxx.compile_flags += ['-nostdinc++']
         self.configure_compile_flags_header_includes()
-        if sys.platform.startswith('linux'):
+        if self.target_info.platform() == 'linux':
             self.cxx.compile_flags += ['-D__STDC_FORMAT_MACROS',
                                        '-D__STDC_LIMIT_MACROS',
                                        '-D__STDC_CONSTANT_MACROS']
@@ -437,7 +460,10 @@ class Configuration(object):
         elif cxx_abi == 'libsupc++':
             self.cxx.link_flags += ['-lsupc++']
         elif cxx_abi == 'libcxxabi':
-            self.cxx.link_flags += ['-lc++abi']
+            # Don't link libc++abi explicitly on OS X because the symbols
+            # should be available in libc++ directly.
+            if self.target_info.platform() != 'darwin':
+                self.cxx.link_flags += ['-lc++abi']
         elif cxx_abi == 'libcxxrt':
             self.cxx.link_flags += ['-lcxxrt']
         elif cxx_abi == 'none':
@@ -467,6 +493,26 @@ class Configuration(object):
             self.cxx.link_flags += ['-lc', '-lm', '-lpthread', '-lgcc_s']
         else:
             self.lit_config.fatal("unrecognized system: %r" % target_platform)
+
+    def configure_color_diagnostics(self):
+        use_color = self.get_lit_conf('color_diagnostics')
+        if use_color is None:
+            use_color = os.environ.get('LIBCXX_COLOR_DIAGNOSTICS')
+        if use_color is None:
+            return
+        if use_color != '':
+            self.lit_config.fatal('Invalid value for color_diagnostics "%s".'
+                                  % use_color)
+        self.cxx.flags += ['-fdiagnostics-color=always']
+
+    def configure_debug_mode(self):
+        debug_level = self.get_lit_conf('debug_level', None)
+        if not debug_level:
+            return
+        if debug_level not in ['0', '1']:
+            self.lit_config.fatal('Invalid value for debug_level "%s".'
+                                  % debug_level)
+        self.cxx.compile_flags += ['-D_LIBCPP_DEBUG=%s' % debug_level]
 
     def configure_warnings(self):
         enable_warnings = self.get_lit_bool('enable_warnings', False)
@@ -576,15 +622,16 @@ class Configuration(object):
             # linux-gnu is needed in the triple to properly identify linuxes
             # that use GLIBC. Handle redhat and opensuse triples as special
             # cases and append the missing `-gnu` portion.
-            if target_triple.endswith('redhat-linux') or \
-               target_triple.endswith('suse-linux'):
+            if (target_triple.endswith('redhat-linux') or
+                target_triple.endswith('suse-linux')):
                 target_triple += '-gnu'
             self.config.target_triple = target_triple
             self.lit_config.note(
                 "inferred target_triple as: %r" % self.config.target_triple)
 
     def configure_env(self):
-        if sys.platform == 'darwin' and not self.use_system_cxx_lib:
+        if (self.target_info.platform() == 'darwin' and
+            not self.use_system_cxx_lib):
             libcxx_library = self.get_lit_conf('libcxx_library')
             if libcxx_library:
                 cxx_library_root = os.path.dirname(libcxx_library)

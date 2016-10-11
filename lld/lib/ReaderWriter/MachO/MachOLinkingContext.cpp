@@ -17,7 +17,7 @@
 #include "lld/Core/Reader.h"
 #include "lld/Core/Writer.h"
 #include "lld/Driver/Driver.h"
-#include "lld/Passes/RoundTripYAMLPass.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Config/config.h"
@@ -791,7 +791,7 @@ bool MachOLinkingContext::exportSymbolNamed(StringRef sym) const {
 
 std::string MachOLinkingContext::demangle(StringRef symbolName) const {
   // Only try to demangle symbols if -demangle on command line
-  if (!_demangle)
+  if (!demangleSymbols())
     return symbolName;
 
   // Only try to demangle symbols that look like C++ symbols

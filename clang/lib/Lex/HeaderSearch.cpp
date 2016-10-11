@@ -115,13 +115,11 @@ const HeaderMap *HeaderSearch::CreateHeaderMap(const FileEntry *FE) {
 std::string HeaderSearch::getModuleFileName(Module *Module) {
   const FileEntry *ModuleMap =
       getModuleMap().getModuleMapFileForUniquing(Module);
-  return getModuleFileName(Module->Name, ModuleMap->getName(),
-                           Module->IsSystem);
+  return getModuleFileName(Module->Name, ModuleMap->getName());
 }
 
 std::string HeaderSearch::getModuleFileName(StringRef ModuleName,
-                                            StringRef ModuleMapPath,
-                                            bool IsSystem) {
+                                            StringRef ModuleMapPath) {
   // If we don't have a module cache path, we can't do anything.
   if (ModuleCachePath.empty()) 
     return std::string();
@@ -148,10 +146,6 @@ std::string HeaderSearch::getModuleFileName(StringRef ModuleName,
 
     llvm::hash_code Hash =
         llvm::hash_combine(DirName.lower(), FileName.lower());
-
-    // Hash the IsSystem bit, since changing search paths can change whether a
-    // module is considered 'system' or not.
-    Hash = llvm::hash_combine(Hash, IsSystem);
 
     SmallString<128> HashStr;
     llvm::APInt(64, size_t(Hash)).toStringUnsigned(HashStr, /*Radix*/36);
@@ -1359,8 +1353,10 @@ void HeaderSearch::loadSubdirectoryModuleMaps(DirectoryLookup &SearchDir) {
   llvm::sys::path::native(SearchDir.getDir()->getName(), DirNative);
   for (llvm::sys::fs::directory_iterator Dir(DirNative.str(), EC), DirEnd;
        Dir != DirEnd && !EC; Dir.increment(EC)) {
-    loadModuleMapFile(Dir->path(), SearchDir.isSystemHeaderDirectory(),
-                      SearchDir.isFramework());
+    bool IsFramework = llvm::sys::path::extension(Dir->path()) == ".framework";
+    if (IsFramework == SearchDir.isFramework())
+      loadModuleMapFile(Dir->path(), SearchDir.isSystemHeaderDirectory(),
+                        SearchDir.isFramework());
   }
 
   SearchDir.setSearchedAllModuleMaps(true);

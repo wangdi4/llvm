@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-no-early-exit -polly-codegen-isl -S < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-no-early-exit -polly-codegen-isl -S < %s | FileCheck %s
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -19,7 +19,7 @@ for.body.lr.ph:                                   ; preds = %entry.split
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %0 = phi i64 [ 0, %for.body.lr.ph ], [ %1, %for.body ], !dbg !21
-  %arrayidx = getelementptr float* %A, i64 %0, !dbg !21
+  %arrayidx = getelementptr float, float* %A, i64 %0, !dbg !21
   %conv = sitofp i64 %0 to float, !dbg !21
   store float %conv, float* %arrayidx, align 4, !dbg !21
   %1 = add nsw i64 %0, 1, !dbg !20

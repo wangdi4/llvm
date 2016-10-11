@@ -1,8 +1,8 @@
-; RUN: opt %loadPolly -basicaa -polly-dependences -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -basicaa -polly-dependences -analyze < %s | FileCheck %s
 ;
 ; CHECK: RAW dependences:
 ; CHECK-DAG: Stmt_S2[i0, i1] -> Stmt_S3[i0] : i0 <= 1023 and i0 >= 0 and i1 <= 1023 and i1 >= 0
-; CHECK-DAG: Stmt_S3[i0] -> Stmt_S0[1 + i0] : i0 >= 0 and i0 <= 1022
+; CHECK-DAG: Stmt_S3[i0] -> Stmt_S0[1 + i0] : i0 <= 1022 and i0 >= 0
 ; CHECK-DAG: Stmt_S0[i0] -> Stmt_S1[i0, o1] : i0 <= 1023 and i0 >= 0 and o1 <= 1023 and o1 >= 0
 ; These are the important RAW dependences, as they need to originate/end in only one iteration:
 ; CHECK-DAG: Stmt_S1[i0, 1023] -> Stmt_S2[i0, o1] : i0 <= 1023 and i0 >= 0 and o1 <= 1023 and o1 >= 0
@@ -11,7 +11,7 @@
 ; CHECK:   {  }
 ; CHECK: WAW dependences:
 ; CHECK-DAG: Stmt_S2[i0, i1] -> Stmt_S3[i0] : i0 <= 1023 and i0 >= 0 and i1 <= 1023 and i1 >= 0
-; CHECK-DAG: Stmt_S3[i0] -> Stmt_S0[1 + i0] : i0 >= 0 and i0 <= 1022
+; CHECK-DAG: Stmt_S3[i0] -> Stmt_S0[1 + i0] : i0 <= 1022 and i0 >= 0
 ; CHECK-DAG: Stmt_S0[i0] -> Stmt_S1[i0, o1] : i0 <= 1023 and i0 >= 0 and o1 <= 1023 and o1 >= 0
 ; These are the important WAW dependences, as they need to originate/end in only one iteration:
 ; CHECK-DAG: Stmt_S1[i0, 1023] -> Stmt_S2[i0, o1] : i0 <= 1023 and i0 >= 0 and o1 <= 1023 and o1 >= 0
@@ -46,7 +46,7 @@ for.body:                                         ; preds = %for.cond
   br label %S0
 
 S0:                                               ; preds = %for.body
-  %tmp = load i32* %red, align 4
+  %tmp = load i32, i32* %red, align 4
   %mul = mul nsw i32 %tmp, 5
   %add = add nsw i32 %mul, 42
   store i32 %add, i32* %red, align 4
@@ -61,7 +61,7 @@ for.body3:                                        ; preds = %for.cond1
   br label %S1
 
 S1:                                               ; preds = %for.body3
-  %tmp3 = load i32* %red, align 4
+  %tmp3 = load i32, i32* %red, align 4
   %mul4 = mul nsw i32 %tmp3, %i.0
   store i32 %mul4, i32* %red, align 4
   br label %for.inc
@@ -82,7 +82,7 @@ for.body8:                                        ; preds = %for.cond6
   br label %S2
 
 S2:                                               ; preds = %for.body8
-  %tmp4 = load i32* %red, align 4
+  %tmp4 = load i32, i32* %red, align 4
   %add9 = add nsw i32 %tmp4, %i5.0
   store i32 %add9, i32* %red, align 4
   br label %for.inc10
@@ -95,7 +95,7 @@ for.end12:                                        ; preds = %for.cond6
   br label %S3
 
 S3:                                               ; preds = %for.end12
-  %tmp5 = load i32* %red, align 4
+  %tmp5 = load i32, i32* %red, align 4
   %mul13 = mul nsw i32 %tmp5, 7
   %add14 = add nsw i32 %mul13, 42
   store i32 %add14, i32* %red, align 4

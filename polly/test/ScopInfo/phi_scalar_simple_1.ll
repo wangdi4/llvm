@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-scops -polly-model-phi-nodes -disable-polly-intra-scop-scalar-to-array -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-scops -polly-model-phi-nodes -disable-polly-intra-scop-scalar-to-array -analyze < %s | FileCheck %s
 ;
 ;    int jd(int *restrict A, int x, int N) {
 ;      for (int i = 1; i < N; i++)
@@ -57,8 +57,8 @@ for.inc:                                          ; preds = %for.body3
 ; CHECK:           [N] -> { Stmt_for_inc[i0, i1] -> MemRef_x_addr_1[] };
 ; CHECK:       ReadAccess := [Reduction Type: NONE] [Scalar: 0]
 ; CHECK:           [N] -> { Stmt_for_inc[i0, i1] -> MemRef_A[1 + i0] };
-  %arrayidx = getelementptr inbounds i32* %A, i64 %indvars.iv
-  %tmp1 = load i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
+  %tmp1 = load i32, i32* %arrayidx, align 4
   %add = add nsw i32 %x.addr.1, %tmp1
   %inc = add nsw i32 %j.0, 1
   br label %for.cond1

@@ -1,9 +1,9 @@
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -x86-experimental-vector-shuffle-legality | FileCheck %s --check-prefix=ALL --check-prefix=SSE --check-prefix=SSE2
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+sse3 -x86-experimental-vector-shuffle-legality | FileCheck %s --check-prefix=ALL --check-prefix=SSE --check-prefix=SSE3
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+ssse3 -x86-experimental-vector-shuffle-legality | FileCheck %s --check-prefix=ALL --check-prefix=SSE --check-prefix=SSSE3
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+sse4.1 -x86-experimental-vector-shuffle-legality | FileCheck %s --check-prefix=ALL --check-prefix=SSE --check-prefix=SSE41
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+avx -x86-experimental-vector-shuffle-legality | FileCheck %s --check-prefix=ALL --check-prefix=AVX --check-prefix=AVX1
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+avx2 -x86-experimental-vector-shuffle-legality | FileCheck %s --check-prefix=ALL --check-prefix=AVX --check-prefix=AVX2
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 | FileCheck %s --check-prefix=ALL --check-prefix=SSE --check-prefix=SSE2
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+sse3 | FileCheck %s --check-prefix=ALL --check-prefix=SSE --check-prefix=SSE3
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+ssse3 | FileCheck %s --check-prefix=ALL --check-prefix=SSE --check-prefix=SSSE3
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+sse4.1 | FileCheck %s --check-prefix=ALL --check-prefix=SSE --check-prefix=SSE41
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+avx | FileCheck %s --check-prefix=ALL --check-prefix=AVX --check-prefix=AVX1
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mattr=+avx2 | FileCheck %s --check-prefix=ALL --check-prefix=AVX --check-prefix=AVX2
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-unknown"
@@ -485,20 +485,20 @@ define <4 x i32> @shuffle_v4i32_0145(<4 x i32> %a, <4 x i32> %b) {
 define <4 x i32> @shuffle_v4i32_0451(<4 x i32> %a, <4 x i32> %b) {
 ; SSE2-LABEL: shuffle_v4i32_0451:
 ; SSE2:       # BB#0:
-; SSE2-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,1],xmm1[0,1]
-; SSE2-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,2,3,1]
+; SSE2-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
+; SSE2-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,1,3,2]
 ; SSE2-NEXT:    retq
 ;
 ; SSE3-LABEL: shuffle_v4i32_0451:
 ; SSE3:       # BB#0:
-; SSE3-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,1],xmm1[0,1]
-; SSE3-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,2,3,1]
+; SSE3-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
+; SSE3-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,1,3,2]
 ; SSE3-NEXT:    retq
 ;
 ; SSSE3-LABEL: shuffle_v4i32_0451:
 ; SSSE3:       # BB#0:
-; SSSE3-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,1],xmm1[0,1]
-; SSSE3-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,2,3,1]
+; SSSE3-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
+; SSSE3-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,1,3,2]
 ; SSSE3-NEXT:    retq
 ;
 ; SSE41-LABEL: shuffle_v4i32_0451:
@@ -541,20 +541,20 @@ define <4 x i32> @shuffle_v4i32_4501(<4 x i32> %a, <4 x i32> %b) {
 define <4 x i32> @shuffle_v4i32_4015(<4 x i32> %a, <4 x i32> %b) {
 ; SSE2-LABEL: shuffle_v4i32_4015:
 ; SSE2:       # BB#0:
-; SSE2-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,1],xmm1[0,1]
-; SSE2-NEXT:    shufps {{.*#+}} xmm0 = xmm0[2,0,1,3]
+; SSE2-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
+; SSE2-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[1,0,2,3]
 ; SSE2-NEXT:    retq
 ;
 ; SSE3-LABEL: shuffle_v4i32_4015:
 ; SSE3:       # BB#0:
-; SSE3-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,1],xmm1[0,1]
-; SSE3-NEXT:    shufps {{.*#+}} xmm0 = xmm0[2,0,1,3]
+; SSE3-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
+; SSE3-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[1,0,2,3]
 ; SSE3-NEXT:    retq
 ;
 ; SSSE3-LABEL: shuffle_v4i32_4015:
 ; SSSE3:       # BB#0:
-; SSSE3-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,1],xmm1[0,1]
-; SSSE3-NEXT:    shufps {{.*#+}} xmm0 = xmm0[2,0,1,3]
+; SSSE3-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
+; SSSE3-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[1,0,2,3]
 ; SSSE3-NEXT:    retq
 ;
 ; SSE41-LABEL: shuffle_v4i32_4015:
@@ -955,14 +955,13 @@ define <4 x float> @shuffle_v4f32_0zz3(<4 x float> %a) {
 define <4 x float> @shuffle_v4f32_u051(<4 x float> %a, <4 x float> %b) {
 ; SSE-LABEL: shuffle_v4f32_u051:
 ; SSE:       # BB#0:
-; SSE-NEXT:    shufps {{.*#+}} xmm1 = xmm1[1,0],xmm0[1,0]
-; SSE-NEXT:    shufps {{.*#+}} xmm0 = xmm0[0,0],xmm1[0,2]
+; SSE-NEXT:    unpcklps {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
+; SSE-NEXT:    movaps %xmm1, %xmm0
 ; SSE-NEXT:    retq
 ;
 ; AVX-LABEL: shuffle_v4f32_u051:
 ; AVX:       # BB#0:
-; AVX-NEXT:    vshufps {{.*#+}} xmm1 = xmm1[1,0],xmm0[1,0]
-; AVX-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[0,0],xmm1[0,2]
+; AVX-NEXT:    vunpcklps {{.*#+}} xmm0 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
 ; AVX-NEXT:    retq
   %shuffle = shufflevector <4 x float> %a, <4 x float> %b, <4 x i32> <i32 undef, i32 0, i32 5, i32 1>
   ret <4 x float> %shuffle
@@ -1305,44 +1304,16 @@ define <4 x i32> @shuffle_v4i32_2345(<4 x i32> %a, <4 x i32> %b) {
 }
 
 define <4 x i32> @shuffle_v4i32_40u1(<4 x i32> %a, <4 x i32> %b) {
-; SSE2-LABEL: shuffle_v4i32_40u1:
-; SSE2:       # BB#0:
-; SSE2-NEXT:    shufps {{.*#+}} xmm1 = xmm1[0,0],xmm0[0,0]
-; SSE2-NEXT:    shufps {{.*#+}} xmm1 = xmm1[0,2],xmm0[2,1]
-; SSE2-NEXT:    movaps %xmm1, %xmm0
-; SSE2-NEXT:    retq
+; SSE-LABEL: shuffle_v4i32_40u1:
+; SSE:       # BB#0:
+; SSE-NEXT:    punpckldq {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
+; SSE-NEXT:    movdqa %xmm1, %xmm0
+; SSE-NEXT:    retq
 ;
-; SSE3-LABEL: shuffle_v4i32_40u1:
-; SSE3:       # BB#0:
-; SSE3-NEXT:    shufps {{.*#+}} xmm1 = xmm1[0,0],xmm0[0,0]
-; SSE3-NEXT:    shufps {{.*#+}} xmm1 = xmm1[0,2],xmm0[2,1]
-; SSE3-NEXT:    movaps %xmm1, %xmm0
-; SSE3-NEXT:    retq
-;
-; SSSE3-LABEL: shuffle_v4i32_40u1:
-; SSSE3:       # BB#0:
-; SSSE3-NEXT:    shufps {{.*#+}} xmm1 = xmm1[0,0],xmm0[0,0]
-; SSSE3-NEXT:    shufps {{.*#+}} xmm1 = xmm1[0,2],xmm0[2,1]
-; SSSE3-NEXT:    movaps %xmm1, %xmm0
-; SSSE3-NEXT:    retq
-;
-; SSE41-LABEL: shuffle_v4i32_40u1:
-; SSE41:       # BB#0:
-; SSE41-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
-; SSE41-NEXT:    pblendw {{.*#+}} xmm0 = xmm1[0,1],xmm0[2,3,4,5,6,7]
-; SSE41-NEXT:    retq
-;
-; AVX1-LABEL: shuffle_v4i32_40u1:
-; AVX1:       # BB#0:
-; AVX1-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
-; AVX1-NEXT:    vpblendw {{.*#+}} xmm0 = xmm1[0,1],xmm0[2,3,4,5,6,7]
-; AVX1-NEXT:    retq
-;
-; AVX2-LABEL: shuffle_v4i32_40u1:
-; AVX2:       # BB#0:
-; AVX2-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
-; AVX2-NEXT:    vpblendd {{.*#+}} xmm0 = xmm1[0],xmm0[1,2,3]
-; AVX2-NEXT:    retq
+; AVX-LABEL: shuffle_v4i32_40u1:
+; AVX:       # BB#0:
+; AVX-NEXT:    vpunpckldq {{.*#+}} xmm0 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
+; AVX-NEXT:    retq
   %shuffle = shufflevector <4 x i32> %a, <4 x i32> %b, <4 x i32> <i32 4, i32 0, i32 undef, i32 1>
   ret <4 x i32> %shuffle
 }
@@ -1628,7 +1599,7 @@ define <4 x i32> @insert_mem_and_zero_v4i32(i32* %ptr) {
 ; AVX:       # BB#0:
 ; AVX-NEXT:    vmovd {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; AVX-NEXT:    retq
-  %a = load i32* %ptr
+  %a = load i32, i32* %ptr
   %v = insertelement <4 x i32> undef, i32 %a, i32 0
   %shuffle = shufflevector <4 x i32> %v, <4 x i32> zeroinitializer, <4 x i32> <i32 0, i32 5, i32 6, i32 7>
   ret <4 x i32> %shuffle
@@ -1682,7 +1653,7 @@ define <4 x float> @insert_mem_and_zero_v4f32(float* %ptr) {
 ; AVX:       # BB#0:
 ; AVX-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; AVX-NEXT:    retq
-  %a = load float* %ptr
+  %a = load float, float* %ptr
   %v = insertelement <4 x float> undef, float %a, i32 0
   %shuffle = shufflevector <4 x float> %v, <4 x float> zeroinitializer, <4 x i32> <i32 0, i32 5, i32 6, i32 7>
   ret <4 x float> %shuffle
@@ -1763,7 +1734,7 @@ define <4 x i32> @insert_mem_lo_v4i32(<2 x i32>* %ptr, <4 x i32> %b) {
 ; AVX2-NEXT:    vmovq {{.*#+}} xmm1 = mem[0],zero
 ; AVX2-NEXT:    vpblendd {{.*#+}} xmm0 = xmm1[0,1],xmm0[2,3]
 ; AVX2-NEXT:    retq
-  %a = load <2 x i32>* %ptr
+  %a = load <2 x i32>, <2 x i32>* %ptr
   %v = shufflevector <2 x i32> %a, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
   %shuffle = shufflevector <4 x i32> %v, <4 x i32> %b, <4 x i32> <i32 0, i32 1, i32 6, i32 7>
   ret <4 x i32> %shuffle
@@ -1799,7 +1770,7 @@ define <4 x i32> @insert_mem_hi_v4i32(<2 x i32>* %ptr, <4 x i32> %b) {
 ; AVX-NEXT:    vmovq {{.*#+}} xmm1 = mem[0],zero
 ; AVX-NEXT:    vpunpcklqdq {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; AVX-NEXT:    retq
-  %a = load <2 x i32>* %ptr
+  %a = load <2 x i32>, <2 x i32>* %ptr
   %v = shufflevector <2 x i32> %a, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
   %shuffle = shufflevector <4 x i32> %v, <4 x i32> %b, <4 x i32> <i32 4, i32 5, i32 0, i32 1>
   ret <4 x i32> %shuffle
@@ -1832,7 +1803,7 @@ define <4 x float> @insert_mem_lo_v4f32(<2 x float>* %ptr, <4 x float> %b) {
 ; AVX:       # BB#0:
 ; AVX-NEXT:    vmovlpd (%rdi), %xmm0, %xmm0
 ; AVX-NEXT:    retq
-  %a = load <2 x float>* %ptr
+  %a = load <2 x float>, <2 x float>* %ptr
   %v = shufflevector <2 x float> %a, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
   %shuffle = shufflevector <4 x float> %v, <4 x float> %b, <4 x i32> <i32 0, i32 1, i32 6, i32 7>
   ret <4 x float> %shuffle
@@ -1865,7 +1836,7 @@ define <4 x float> @insert_mem_hi_v4f32(<2 x float>* %ptr, <4 x float> %b) {
 ; AVX:       # BB#0:
 ; AVX-NEXT:    vmovhpd (%rdi), %xmm0, %xmm0
 ; AVX-NEXT:    retq
-  %a = load <2 x float>* %ptr
+  %a = load <2 x float>, <2 x float>* %ptr
   %v = shufflevector <2 x float> %a, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
   %shuffle = shufflevector <4 x float> %v, <4 x float> %b, <4 x i32> <i32 4, i32 5, i32 0, i32 1>
   ret <4 x float> %shuffle
@@ -1882,7 +1853,7 @@ define <4 x float> @shuffle_mem_v4f32_3210(<4 x float>* %ptr) {
 ; AVX:       # BB#0:
 ; AVX-NEXT:    vpermilps {{.*#+}} xmm0 = mem[3,2,1,0]
 ; AVX-NEXT:    retq
-  %a = load <4 x float>* %ptr
+  %a = load <4 x float>, <4 x float>* %ptr
   %shuffle = shufflevector <4 x float> %a, <4 x float> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
   ret <4 x float> %shuffle
 }

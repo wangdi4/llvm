@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-dependences -analyze -debug-only=polly-dependence 2>&1 < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-dependences -analyze -debug-only=polly-dependence 2>&1 < %s | FileCheck %s
 ;
 ; REQUIRES: asserts
 ;
@@ -10,11 +10,11 @@
 ; CHECK: }
 ; CHECK: Wrapped Dependences:
 ; CHECK: RAW dependences:
-; CHECK:   { [Stmt_for_cond[i0] -> MemRef_sum[0]] -> [Stmt_for_cond[1 + i0] -> MemRef_sum[0]] : i0 >= 0 and i0 <= 99 }
+; CHECK:   { [Stmt_for_cond[i0] -> MemRef_sum[0]] -> [Stmt_for_cond[1 + i0] -> MemRef_sum[0]] : i0 <= 99 and i0 >= 0 }
 ; CHECK: WAR dependences:
 ; CHECK:   {  }
 ; CHECK: WAW dependences:
-; CHECK:   { [Stmt_for_cond[i0] -> MemRef_sum[0]] -> [Stmt_for_cond[1 + i0] -> MemRef_sum[0]] : i0 >= 0 and i0 <= 99 }
+; CHECK:   { [Stmt_for_cond[i0] -> MemRef_sum[0]] -> [Stmt_for_cond[1 + i0] -> MemRef_sum[0]] : i0 <= 99 and i0 >= 0 }
 ; CHECK: Reduction dependences:
 ; CHECK:   n/a
 ; CHECK: Final Wrapped Dependences:
@@ -71,7 +71,7 @@ entry.split:                                      ; preds = %entry.split1
 
 for.cond:                                         ; preds = %for.cond, %entry.split
   %i1.0 = phi i32 [ 0, %entry.split ], [ %inc, %for.cond ]
-  %sum.reload = load i32* %sum
+  %sum.reload = load i32, i32* %sum
   %mul = mul nsw i32 %i1.0, 3
   %add = add nsw i32 %sum.reload, %mul
   %inc = add nsw i32 %i1.0, 1

@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-detect -polly-report -disable-output < %s  2>&1 | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-detect -polly-report -disable-output < %s  2>&1 | FileCheck %s
 target datalayout = "e-i64:64-f80:128-s:64-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -13,7 +13,7 @@ entry.split:                                      ; preds = %entry
 for.body:                                         ; preds = %entry.split, %for.body
   %indvar = phi i64 [ 0, %entry.split ], [ %indvar.next, %for.body ]
   %i.01 = trunc i64 %indvar to i32, !dbg !13
-  %arrayidx = getelementptr float* %A, i64 %indvar, !dbg !13
+  %arrayidx = getelementptr float, float* %A, i64 %indvar, !dbg !13
   %conv = sitofp i32 %i.01 to float, !dbg !13
   store float %conv, float* %arrayidx, align 4, !dbg !13
   %indvar.next = add i64 %indvar, 1, !dbg !11
@@ -39,7 +39,7 @@ entry.split:                                      ; preds = %entry
 for.body:                                         ; preds = %entry.split, %for.body
   %indvar = phi i64 [ 0, %entry.split ], [ %indvar.next, %for.body ]
   %i.01 = trunc i64 %indvar to i32, !dbg !17
-  %arrayidx = getelementptr float* %A, i64 %indvar, !dbg !17
+  %arrayidx = getelementptr float, float* %A, i64 %indvar, !dbg !17
   %conv = sitofp i32 %i.01 to float, !dbg !17
   store float %conv, float* %arrayidx, align 4, !dbg !17
   %indvar.next = add i64 %indvar, 1, !dbg !15

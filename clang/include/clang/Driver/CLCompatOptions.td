@@ -80,6 +80,7 @@ def _SLASH_I : CLJoinedOrSeparate<"I">,
   Alias<I>;
 def _SLASH_J : CLFlag<"J">, HelpText<"Make char type unsigned">,
   Alias<funsigned_char>;
+def _SLASH_O0 : CLFlag<"O0">, Alias<O0>;
 def _SLASH_O : CLJoined<"O">, HelpText<"Optimization level">,
   MetaVarName<"<n>">, Alias<O>;
 def _SLASH_Ob0 : CLFlag<"Ob0">, HelpText<"Disable inlining">,
@@ -129,6 +130,8 @@ def _SLASH_WX_ : CLFlag<"WX-">, HelpText<"Do not treat warnings as errors">,
 def _SLASH_w_flag : CLFlag<"w">, HelpText<"Disable all warnings">, Alias<w>;
 def _SLASH_wd4005 : CLFlag<"wd4005">, Alias<W_Joined>,
   AliasArgs<["no-macro-redefined"]>;
+def _SLASH_wd4996 : CLFlag<"wd4996">, Alias<W_Joined>,
+  AliasArgs<["no-deprecated-declarations"]>;
 def _SLASH_vd : CLJoined<"vd">, HelpText<"Control vtordisp placement">,
   Alias<vtordisp_mode_EQ>;
 def _SLASH_Zc_strictStrings : CLFlag<"Zc:strictStrings">,
@@ -213,6 +216,7 @@ def _SLASH_analyze_ : CLIgnoredFlag<"analyze-">;
 def _SLASH_cgthreads : CLIgnoredJoined<"cgthreads">;
 def _SLASH_d2Zi_PLUS : CLIgnoredFlag<"d2Zi+">;
 def _SLASH_errorReport : CLIgnoredJoined<"errorReport">;
+def _SLASH_Fd : CLIgnoredJoined<"Fd">;
 def _SLASH_FS : CLIgnoredFlag<"FS">, HelpText<"Force synchronous PDB writes">;
 def _SLASH_Gd : CLIgnoredFlag<"Gd">;
 def _SLASH_GF : CLIgnoredFlag<"GF">;
@@ -221,6 +225,7 @@ def _SLASH_kernel_ : CLIgnoredFlag<"kernel-">;
 def _SLASH_nologo : CLIgnoredFlag<"nologo">;
 def _SLASH_Ob1 : CLIgnoredFlag<"Ob1">;
 def _SLASH_Ob2 : CLIgnoredFlag<"Ob2">;
+def _SLASH_openmp_ : CLIgnoredFlag<"openmp-">;
 def _SLASH_RTC : CLIgnoredJoined<"RTC">;
 def _SLASH_sdl : CLIgnoredFlag<"sdl">;
 def _SLASH_sdl_ : CLIgnoredFlag<"sdl-">;
@@ -245,7 +250,6 @@ def _SLASH_FA_joined : CLJoined<"FA">;
 def _SLASH_favor : CLJoined<"favor">;
 def _SLASH_FC : CLFlag<"FC">;
 def _SLASH_F : CLFlag<"F">;
-def _SLASH_Fd : CLJoined<"Fd">;
 def _SLASH_Fm : CLJoined<"Fm">;
 def _SLASH_fp : CLJoined<"fp">;
 def _SLASH_Fp : CLJoined<"Fp">;

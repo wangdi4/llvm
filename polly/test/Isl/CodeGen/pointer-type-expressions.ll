@@ -1,5 +1,5 @@
-; RUN: opt %loadPolly -polly-no-early-exit -polly-ast -analyze < %s | FileCheck %s
-; RUN: opt %loadPolly -polly-no-early-exit -polly-codegen-isl -S < %s | FileCheck %s -check-prefix=CODEGEN
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-no-early-exit -polly-ast -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-no-early-exit -polly-codegen-isl -S < %s | FileCheck %s -check-prefix=CODEGEN
 
 ; void f(int a[], int N, float *P) {
 ;   int i;
@@ -21,7 +21,7 @@ bb:
   br i1 %brcond, label %store, label %bb.backedge
 
 store:
-  %scevgep = getelementptr i64* %a, i64 %i
+  %scevgep = getelementptr i64, i64* %a, i64 %i
   store i64 %i, i64* %scevgep
   br label %bb.backedge
 

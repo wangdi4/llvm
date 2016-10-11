@@ -1,6 +1,6 @@
-; RUN: opt %loadPolly -tbaa -polly-parallel -polly-parallel-force -polly-parallel-force -polly-ast -analyze < %s | FileCheck %s -check-prefix=AST
-; RUN: opt %loadPolly -tbaa -polly-parallel -polly-parallel-force -polly-parallel-force -polly-codegen-isl -S -verify-dom-info < %s | FileCheck %s -check-prefix=IR
-; RUN: opt %loadPolly -tbaa -polly-parallel -polly-parallel-force -polly-parallel-force -polly-codegen-isl -S -verify-dom-info < %s | FileCheck %s -check-prefix=IR
+; RUN: opt %loadPolly -polly-detect-unprofitable -tbaa -polly-parallel -polly-parallel-force -polly-parallel-force -polly-ast -analyze < %s | FileCheck %s -check-prefix=AST
+; RUN: opt %loadPolly -polly-detect-unprofitable -tbaa -polly-parallel -polly-parallel-force -polly-parallel-force -polly-codegen-isl -S -verify-dom-info < %s | FileCheck %s -check-prefix=IR
+; RUN: opt %loadPolly -polly-detect-unprofitable -tbaa -polly-parallel -polly-parallel-force -polly-parallel-force -polly-codegen-isl -S -verify-dom-info < %s | FileCheck %s -check-prefix=IR
 
 ; #define N 1024
 ; float A[N];
@@ -29,9 +29,9 @@ for.i:
   br i1 %exitcond, label %S, label %exit
 
 S:
-  %ptr = load float** %A,  !tbaa !2
-  %scevgep = getelementptr float* %ptr, i64 %indvar
-  %val = load float* %scevgep, !tbaa !6
+  %ptr = load float*, float** %A,  !tbaa !2
+  %scevgep = getelementptr float, float* %ptr, i64 %indvar
+  %val = load float, float* %scevgep, !tbaa !6
   %sum = fadd float %val, 1.0
   store float %sum, float* %scevgep, !tbaa !6
   br label %for.inc

@@ -43,6 +43,8 @@
 
 #define DEBUG_TYPE "WriterPECOFF"
 
+using namespace llvm::support::endian;
+
 using llvm::COFF::DataDirectoryIndex;
 using llvm::object::coff_runtime_function_x64;
 using llvm::support::ulittle16_t;
@@ -198,7 +200,7 @@ public:
       // Set the name of the dummy symbol to the first string table entry.
       // It's better than letting dumpbin print out a garabage as a symbol name.
       char *off = _stringTable.data() + 4;
-      *reinterpret_cast<ulittle32_t *>(off) = 4;
+      write32le(off, 4);
     }
     uint32_t offset = _stringTable.size();
     _stringTable.insert(_stringTable.end(), sectionName.begin(),
@@ -213,7 +215,7 @@ public:
     if (_stringTable.empty())
       return;
     char *off = _stringTable.data() + sizeof(llvm::object::coff_symbol16);
-    *reinterpret_cast<ulittle32_t *>(off) = _stringTable.size();
+    write32le(off, _stringTable.size());
     std::memcpy(buffer, _stringTable.data(), _stringTable.size());
   }
 
@@ -785,6 +787,14 @@ void AtomChunk::addBaseRelocations(BaseRelocationList &relocSites) const {
       if (ref->kindNamespace() != Reference::KindNamespace::COFF)
         continue;
 
+      // An absolute symbol points to a fixed location in memory. Their
+      // address should not be fixed at load time. One exception is ImageBase
+      // because that's relative to run-time image base address.
+      if (auto *abs = dyn_cast<AbsoluteAtom>(ref->target()))
+        if (!abs->name().equals("__ImageBase") &&
+            !abs->name().equals("___ImageBase"))
+          continue;
+
       uint64_t address = layout->_virtualAddr + ref->offsetInAtom();
       switch (_machineType) {
       default: llvm_unreachable("unsupported machine type");
@@ -997,17 +1007,17 @@ BaseRelocChunk::createBaseRelocBlock(uint64_t pageAddr,
   uint8_t *ptr = &contents[0];
 
   // The first four bytes is the page RVA.
-  *reinterpret_cast<ulittle32_t *>(ptr) = pageAddr;
+  write32le(ptr, pageAddr);
   ptr += sizeof(ulittle32_t);
 
   // The second four bytes is the size of the block, including the the page
   // RVA and this size field.
-  *reinterpret_cast<ulittle32_t *>(ptr) = size;
+  write32le(ptr, size);
   ptr += sizeof(ulittle32_t);
 
   for (const auto &reloc : relocs) {
     assert(reloc.first < _ctx.getPageSize());
-    *reinterpret_cast<ulittle16_t *>(ptr) = (reloc.second << 12) | reloc.first;
+    write16le(ptr, (reloc.second << 12) | reloc.first);
     ptr += sizeof(ulittle16_t);
   }
   return contents;

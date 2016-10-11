@@ -17,7 +17,7 @@ namespace lldb {
 class SBPlatform;
 class SBTarget;
 
-class SBLaunchInfo
+class LLDB_API SBLaunchInfo
 {
 public:
     SBLaunchInfo (const char **argv);
@@ -142,10 +142,10 @@ public:
     SetShell (const char * path);
     
     bool
-    GetGlobArguments ();
+    GetShellExpandArguments ();
     
     void
-    SetGlobArguments (bool glob);
+    SetShellExpandArguments (bool glob);
     
     uint32_t
     GetResumeCount ();

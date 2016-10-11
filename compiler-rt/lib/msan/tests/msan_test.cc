@@ -77,6 +77,7 @@ int shmdt(const void *);
 # include <pthread_np.h>
 # include <sys/uio.h>
 # include <sys/mount.h>
+# include <sys/sysctl.h>
 # include <net/ethernet.h>
 # define f_namelen f_namemax  // FreeBSD names this statfs field so.
 # define cpu_set_t cpuset_t
@@ -114,7 +115,8 @@ void *mempcpy(void *dest, const void *src, size_t n);
 # define SUPERUSER_GROUP "root"
 #endif
 
-static const size_t kPageSize = 4096;
+const size_t kPageSize = 4096;
+const size_t kMaxPathLength = 4096;
 
 typedef unsigned char      U1;
 typedef unsigned short     U2;  // NOLINT
@@ -132,8 +134,11 @@ static bool TrackingOrigins() {
   __msan_set_origin(&x, sizeof(x), 0x1234);
   U4 origin = __msan_get_origin(&x);
   __msan_set_origin(&x, sizeof(x), 0);
-  return origin == 0x1234;
+  return __msan_origin_is_descendant_or_same(origin, 0x1234);
 }
+
+#define EXPECT_ORIGIN(expected, origin) \
+  EXPECT_TRUE(__msan_origin_is_descendant_or_same((origin), (expected)))
 
 #define EXPECT_UMR(action) \
     do {                        \
@@ -142,14 +147,13 @@ static bool TrackingOrigins() {
       __msan_set_expect_umr(0); \
     } while (0)
 
-#define EXPECT_UMR_O(action, origin) \
-    do {                                            \
-      __msan_set_expect_umr(1);                     \
-      action;                                       \
-      __msan_set_expect_umr(0);                     \
-      if (TrackingOrigins())                        \
-        EXPECT_EQ(origin, __msan_get_umr_origin()); \
-    } while (0)
+#define EXPECT_UMR_O(action, origin)                                       \
+  do {                                                                     \
+    __msan_set_expect_umr(1);                                              \
+    action;                                                                \
+    __msan_set_expect_umr(0);                                              \
+    if (TrackingOrigins()) EXPECT_ORIGIN(origin, __msan_get_umr_origin()); \
+  } while (0)
 
 #define EXPECT_POISONED(x) ExpectPoisoned(x)
 
@@ -164,8 +168,7 @@ void ExpectPoisoned(const T& t) {
 template<typename T>
 void ExpectPoisonedWithOrigin(const T& t, unsigned origin) {
   EXPECT_NE(-1, __msan_test_shadow((void*)&t, sizeof(t)));
-  if (TrackingOrigins())
-    EXPECT_EQ(origin, __msan_get_origin((void*)&t));
+  if (TrackingOrigins()) EXPECT_ORIGIN(origin, __msan_get_origin((void *)&t));
 }
 
 #define EXPECT_NOT_POISONED(x) EXPECT_EQ(true, TestForNotPoisoned((x)))
@@ -2812,9 +2815,20 @@ TEST(MemorySanitizer, getrusage) {
   EXPECT_NOT_POISONED(usage.ru_nivcsw);
 }
 
-#ifdef __GLIBC__
-extern char *program_invocation_name;
-#else  // __GLIBC__
+#if defined(__FreeBSD__)
+static void GetProgramPath(char *buf, size_t sz) {
+  int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+  int res = sysctl(mib, 4, buf, &sz, NULL, 0);
+  ASSERT_EQ(0, res);
+}
+#elif defined(__GLIBC__)
+static void GetProgramPath(char *buf, size_t sz) {
+  extern char *program_invocation_name;
+  int res = snprintf(buf, sz, "%s", program_invocation_name);
+  ASSERT_GE(res, 0);
+  ASSERT_LT((size_t)res, sz);
+}
+#else
 # error "TODO: port this"
 #endif
 
@@ -2849,21 +2863,29 @@ static int dl_phdr_callback(struct dl_phdr_info *info, size_t size, void *data) 
 
 // Compute the path to our loadable DSO.  We assume it's in the same
 // directory.  Only use string routines that we intercept so far to do this.
-static int PathToLoadable(char *buf, size_t sz) {
-  const char *basename = "libmsan_loadable.x86_64.so";
-  char *argv0 = program_invocation_name;
-  char *last_slash = strrchr(argv0, '/');
-  assert(last_slash);
-  int res =
-      snprintf(buf, sz, "%.*s/%s", int(last_slash - argv0), argv0, basename);
-  assert(res >= 0);
-  return (size_t)res < sz ? 0 : res;
+static void GetPathToLoadable(char *buf, size_t sz) {
+  char program_path[kMaxPathLength];
+  GetProgramPath(program_path, sizeof(program_path));
+
+  const char *last_slash = strrchr(program_path, '/');
+  ASSERT_NE(nullptr, last_slash);
+  size_t dir_len = (size_t)(last_slash - program_path);
+#if defined(__x86_64__)
+  static const char basename[] = "libmsan_loadable.x86_64.so";
+#elif defined(__MIPSEB__) || defined(MIPSEB)
+  static const char basename[] = "libmsan_loadable.mips64.so";
+#elif defined(__mips64)
+  static const char basename[] = "libmsan_loadable.mips64el.so";
+#endif
+  int res = snprintf(buf, sz, "%.*s/%s",
+                     (int)dir_len, program_path, basename);
+  ASSERT_GE(res, 0);
+  ASSERT_LT((size_t)res, sz);
 }
 
 TEST(MemorySanitizer, dl_iterate_phdr) {
-  char path[4096];
-  int res = PathToLoadable(path, sizeof(path));
-  ASSERT_EQ(0, res);
+  char path[kMaxPathLength];
+  GetPathToLoadable(path, sizeof(path));
 
   // Having at least one dlopen'ed library in the process makes this more
   // entertaining.
@@ -2873,15 +2895,13 @@ TEST(MemorySanitizer, dl_iterate_phdr) {
   int count = 0;
   int result = dl_iterate_phdr(dl_phdr_callback, &count);
   ASSERT_GT(count, 0);
-  
+
   dlclose(lib);
 }
 
-
 TEST(MemorySanitizer, dlopen) {
-  char path[4096];
-  int res = PathToLoadable(path, sizeof(path));
-  ASSERT_EQ(0, res);
+  char path[kMaxPathLength];
+  GetPathToLoadable(path, sizeof(path));
 
   // We need to clear shadow for globals when doing dlopen.  In order to test
   // this, we have to poison the shadow for the DSO before we load it.  In
@@ -2906,7 +2926,7 @@ TEST(MemorySanitizer, dlopen) {
 
 // Regression test for a crash in dlopen() interceptor.
 TEST(MemorySanitizer, dlopenFailed) {
-  const char *path = "/libmsan_loadable_does_not_exist.x86_64.so";
+  const char *path = "/libmsan_loadable_does_not_exist.so";
   void *lib = dlopen(path, RTLD_LAZY);
   ASSERT_TRUE(lib == NULL);
 }
@@ -3883,15 +3903,15 @@ TEST(VectorMaddTest, mmx_pmadd_wd) {
 #endif  // defined(__clang__)
 
 TEST(MemorySanitizerOrigins, SetGet) {
-  EXPECT_EQ(TrackingOrigins(), __msan_get_track_origins());
+  EXPECT_EQ(TrackingOrigins(), !!__msan_get_track_origins());
   if (!TrackingOrigins()) return;
   int x;
   __msan_set_origin(&x, sizeof(x), 1234);
-  EXPECT_EQ(1234U, __msan_get_origin(&x));
+  EXPECT_ORIGIN(1234U, __msan_get_origin(&x));
   __msan_set_origin(&x, sizeof(x), 5678);
-  EXPECT_EQ(5678U, __msan_get_origin(&x));
+  EXPECT_ORIGIN(5678U, __msan_get_origin(&x));
   __msan_set_origin(&x, sizeof(x), 0);
-  EXPECT_EQ(0U, __msan_get_origin(&x));
+  EXPECT_ORIGIN(0U, __msan_get_origin(&x));
 }
 
 namespace {
@@ -3907,12 +3927,12 @@ TEST(MemorySanitizerOrigins, InitializedStoreDoesNotChangeOrigin) {
   S s;
   U4 origin = rand();  // NOLINT
   s.a = *GetPoisonedO<U2>(0, origin);
-  EXPECT_EQ(origin, __msan_get_origin(&s.a));
-  EXPECT_EQ(origin, __msan_get_origin(&s.b));
+  EXPECT_ORIGIN(origin, __msan_get_origin(&s.a));
+  EXPECT_ORIGIN(origin, __msan_get_origin(&s.b));
 
   s.b = 42;
-  EXPECT_EQ(origin, __msan_get_origin(&s.a));
-  EXPECT_EQ(origin, __msan_get_origin(&s.b));
+  EXPECT_ORIGIN(origin, __msan_get_origin(&s.a));
+  EXPECT_ORIGIN(origin, __msan_get_origin(&s.b));
 }
 }  // namespace
 
@@ -3928,7 +3948,8 @@ void BinaryOpOriginTest(BinaryOp op) {
   *z = op(*x, *y);
   U4 origin = __msan_get_origin(z);
   EXPECT_POISONED_O(*z, origin);
-  EXPECT_EQ(true, origin == ox || origin == oy);
+  EXPECT_EQ(true, __msan_origin_is_descendant_or_same(origin, ox) ||
+                      __msan_origin_is_descendant_or_same(origin, oy));
 
   // y is poisoned, x is not.
   *x = 10101;
@@ -3937,7 +3958,7 @@ void BinaryOpOriginTest(BinaryOp op) {
   __msan_set_origin(z, sizeof(*z), 0);
   *z = op(*x, *y);
   EXPECT_POISONED_O(*z, oy);
-  EXPECT_EQ(__msan_get_origin(z), oy);
+  EXPECT_ORIGIN(oy, __msan_get_origin(z));
 
   // x is poisoned, y is not.
   *x = *GetPoisonedO<T>(0, ox);
@@ -3946,7 +3967,7 @@ void BinaryOpOriginTest(BinaryOp op) {
   __msan_set_origin(z, sizeof(*z), 0);
   *z = op(*x, *y);
   EXPECT_POISONED_O(*z, ox);
-  EXPECT_EQ(__msan_get_origin(z), ox);
+  EXPECT_ORIGIN(ox, __msan_get_origin(z));
 }
 
 template<class T> INLINE T XOR(const T &a, const T&b) { return a ^ b; }

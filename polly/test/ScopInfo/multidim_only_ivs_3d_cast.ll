@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-scops -analyze -polly-delinearize < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-scops -analyze -polly-delinearize < %s | FileCheck %s
 
 ; void foo(int n, int m, int o, double A[n][m][o]) {
 ;
@@ -13,7 +13,10 @@
 ; correctness issue, but could be improved.
 
 ; CHECK: Assumed Context:
-; CHECK:  [n, m, o, p_3, p_4] -> { : p_4 >= o and p_3 >= m }
+; CHECK:  [n, m, o, p_3, p_4] -> { :
+; CHECK-DAG: p_4 >= o
+; CHECK-DAG: p_3 >= m
+; CHECK:  }
 ; CHECK: p0: %n
 ; CHECK: p1: %m
 ; CHECK: p2: %o
@@ -54,7 +57,7 @@ for.k:
   %tmp.us.us = add i64 %j, %tmp
   %tmp17.us.us = mul i64 %tmp.us.us, %n_zext
   %subscript = add i64 %tmp17.us.us, %k
-  %idx = getelementptr inbounds double* %A, i64 %subscript
+  %idx = getelementptr inbounds double, double* %A, i64 %subscript
   store double 1.0, double* %idx
   br label %for.k.inc
 

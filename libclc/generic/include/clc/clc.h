@@ -38,6 +38,7 @@
 #include <clc/math/atan2.h>
 #include <clc/math/copysign.h>
 #include <clc/math/cos.h>
+#include <clc/math/cospi.h>
 #include <clc/math/ceil.h>
 #include <clc/math/exp.h>
 #include <clc/math/exp10.h>
@@ -107,7 +108,11 @@
 #include <clc/shared/vstore.h>
 
 /* 6.11.4 Common Functions */
+#include <clc/common/degrees.h>
+#include <clc/common/radians.h>
 #include <clc/common/sign.h>
+#include <clc/common/smoothstep.h>
+#include <clc/common/step.h>
 
 /* 6.11.5 Geometric Functions */
 #include <clc/geometric/cross.h>

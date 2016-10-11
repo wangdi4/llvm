@@ -1,15 +1,15 @@
-; RUN: opt %loadPolly -polly-dependences -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-dependences -analyze < %s | FileCheck %s
 ;
 ;  CHECK: RAW dependences:
 ;  CHECK-DAG:  Stmt_S2[i0, i1] -> Stmt_S3[o0] : o0 <= 1 and i1 <= 1 - i0 and o0 <= 1 + i0 - i1 and o0 >= 1 - i1
 ;  CHECK-DAG:  Stmt_S3[i0] -> Stmt_S2[o0, 1 - i0] : i0 <= 1 and i0 >= 0 and o0 >= 1 + i0 and o0 <= 98
-;  CHECK-DAG:  Stmt_S1[i0] -> Stmt_S3[2 + i0] : i0 >= 0 and i0 <= 96
+;  CHECK-DAG:  Stmt_S1[i0] -> Stmt_S3[2 + i0] : i0 <= 96 and i0 >= 0
 ;  CHECK: WAR dependences:
 ;  CHECK:   {  }
 ;  CHECK: WAW dependences:
 ;  CHECK-DAG:  Stmt_S2[i0, i1] -> Stmt_S3[o0] : o0 <= 1 and i1 <= 1 - i0 and o0 <= 1 + i0 - i1 and o0 >= 1 - i1
 ;  CHECK-DAG:  Stmt_S3[i0] -> Stmt_S2[o0, 1 - i0] : i0 <= 1 and i0 >= 0 and o0 >= 1 + i0 and o0 <= 98
-;  CHECK-DAG:  Stmt_S1[i0] -> Stmt_S3[2 + i0] : i0 >= 0 and i0 <= 96
+;  CHECK-DAG:  Stmt_S1[i0] -> Stmt_S3[2 + i0] : i0 <= 96 and i0 >= 0
 ;  CHECK: Reduction dependences:
 ;  CHECK-DAG:  Stmt_S2[i0, i1] -> Stmt_S2[1 + i0, i1] : i0 <= 97 and i0 >= 0 and i1 <= 98 - i0 and i1 >= 0 and i1 >= 2 - i0
 ;  CHECK-DAG:  Stmt_S2[0, 0] -> Stmt_S2[1, 0]
@@ -40,8 +40,8 @@ for.body:                                         ; preds = %for.cond
 
 S1:                                               ; preds = %for.body
   %add = add nsw i32 %i.0, 1
-  %arrayidx = getelementptr inbounds i32* %sum, i32 %add
-  %tmp = load i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, i32* %sum, i32 %add
+  %tmp = load i32, i32* %arrayidx, align 4
   %add1 = add nsw i32 %tmp, 42
   store i32 %add1, i32* %arrayidx, align 4
   br label %for.cond2
@@ -57,8 +57,8 @@ for.body4:                                        ; preds = %for.cond2
 S2:                                               ; preds = %for.body4
   %mul = mul nsw i32 %i.0, %j.0
   %sub = sub nsw i32 %i.0, %j.0
-  %arrayidx5 = getelementptr inbounds i32* %sum, i32 %sub
-  %tmp2 = load i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds i32, i32* %sum, i32 %sub
+  %tmp2 = load i32, i32* %arrayidx5, align 4
   %add6 = add nsw i32 %tmp2, %mul
   store i32 %add6, i32* %arrayidx5, align 4
   br label %for.inc
@@ -72,8 +72,8 @@ for.end:                                          ; preds = %for.cond2
 
 S3:                                               ; preds = %for.end
   %sub7 = add nsw i32 %i.0, -1
-  %arrayidx8 = getelementptr inbounds i32* %sum, i32 %sub7
-  %tmp3 = load i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds i32, i32* %sum, i32 %sub7
+  %tmp3 = load i32, i32* %arrayidx8, align 4
   %add9 = add nsw i32 %tmp3, 7
   store i32 %add9, i32* %arrayidx8, align 4
   br label %for.inc10

@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-use-runtime-alias-checks=false -pass-remarks-missed="polly-detect" -polly-detect-track-failures -polly-detect -analyze < %s 2>&1| FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-use-runtime-alias-checks=false -pass-remarks-missed="polly-detect" -polly-detect-track-failures -polly-detect -analyze < %s 2>&1| FileCheck %s
 
 ;void f(int A[], int B[]) {
 ;  for (int i=0; i<42; i++)
@@ -24,9 +24,9 @@ entry.split:                                      ; preds = %entry
 
 for.body:                                         ; preds = %entry.split, %for.body
   %indvar = phi i64 [ 0, %entry.split ], [ %indvar.next, %for.body ]
-  %arrayidx = getelementptr i32* %B, i64 %indvar, !dbg !22
-  %arrayidx2 = getelementptr i32* %A, i64 %indvar, !dbg !22
-  %0 = load i32* %arrayidx, align 4, !dbg !22
+  %arrayidx = getelementptr i32, i32* %B, i64 %indvar, !dbg !22
+  %arrayidx2 = getelementptr i32, i32* %A, i64 %indvar, !dbg !22
+  %0 = load i32, i32* %arrayidx, align 4, !dbg !22
   store i32 %0, i32* %arrayidx2, align 4, !dbg !22
   tail call void @llvm.dbg.value(metadata !{null}, i64 0, metadata !18), !dbg !20
   %indvar.next = add i64 %indvar, 1, !dbg !21

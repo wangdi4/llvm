@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -pass-remarks-missed="polly-detect" -polly-detect-track-failures -polly-detect -analyze < %s 2>&1| FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -pass-remarks-missed="polly-detect" -polly-detect-track-failures -polly-detect -analyze < %s 2>&1| FileCheck %s
 
 ; void f(int A[]) {
 ;   for(int i=0; i<42; ++i)
@@ -26,7 +26,7 @@ for.body:                                         ; preds = %entry.split, %for.b
   %0 = phi i32 [ 0, %entry.split ], [ %1, %for.body ], !dbg !20
   %mul = mul nsw i32 %0, %0, !dbg !20
   %idxprom1 = zext i32 %mul to i64, !dbg !20
-  %arrayidx = getelementptr inbounds i32* %A, i64 %idxprom1, !dbg !20
+  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom1, !dbg !20
   store i32 0, i32* %arrayidx, align 4, !dbg !20
   %1 = add nsw i32 %0, 1, !dbg !21
   tail call void @llvm.dbg.value(metadata i32 %1, i64 0, metadata !16), !dbg !18
