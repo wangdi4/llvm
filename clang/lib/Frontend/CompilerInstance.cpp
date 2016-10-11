@@ -329,14 +329,7 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
 
   PP->setPreprocessedOutput(getPreprocessorOutputOpts().ShowCPP);
 
-  // Set up the module path, including the hash for the
-  // module-creation options.
-  SmallString<256> SpecificModuleCache(
-                           getHeaderSearchOpts().ModuleCachePath);
-  if (!getHeaderSearchOpts().DisableModuleHash)
-    llvm::sys::path::append(SpecificModuleCache,
-                            getInvocation().getModuleHash());
-  PP->getHeaderSearchInfo().setModuleCachePath(SpecificModuleCache);
+  PP->getHeaderSearchInfo().setModuleCachePath(getSpecificModuleCachePath());
 
   // Handle generating dependencies, if requested.
   const DependencyOutputOptions &DepOpts = getDependencyOutputOpts();
@@ -371,6 +364,17 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
     AttachHeaderIncludeGen(*PP, /*ShowAllHeaders=*/false, /*OutputPath=*/"",
                            /*ShowDepth=*/true, /*MSStyle=*/true);
   }
+}
+
+std::string CompilerInstance::getSpecificModuleCachePath() {
+  // Set up the module path, including the hash for the
+  // module-creation options.
+  SmallString<256> SpecificModuleCache(
+                           getHeaderSearchOpts().ModuleCachePath);
+  if (!getHeaderSearchOpts().DisableModuleHash)
+    llvm::sys::path::append(SpecificModuleCache,
+                            getInvocation().getModuleHash());
+  return SpecificModuleCache.str();
 }
 
 // ASTContext
@@ -1275,6 +1279,7 @@ bool CompilerInstance::loadModuleFile(StringRef FileName) {
   struct ReadModuleNames : ASTReaderListener {
     CompilerInstance &CI;
     std::vector<StringRef> ModuleFileStack;
+    std::vector<StringRef> ModuleNameStack;
     bool Failed;
     bool TopFileIsModule;
 
@@ -1284,21 +1289,36 @@ bool CompilerInstance::loadModuleFile(StringRef FileName) {
     bool needsImportVisitation() const override { return true; }
 
     void visitImport(StringRef FileName) override {
+      if (!CI.ExplicitlyLoadedModuleFiles.insert(FileName).second) {
+        if (ModuleFileStack.size() == 0)
+          TopFileIsModule = true;
+        return;
+      }
+
       ModuleFileStack.push_back(FileName);
+      ModuleNameStack.push_back(StringRef());
       if (ASTReader::readASTFileControlBlock(FileName, CI.getFileManager(),
                                              *this)) {
-        CI.getDiagnostics().Report(SourceLocation(),
-                                   diag::err_module_file_not_found)
+        CI.getDiagnostics().Report(
+            SourceLocation(), CI.getFileManager().getBufferForFile(FileName)
+                                  ? diag::err_module_file_invalid
+                                  : diag::err_module_file_not_found)
             << FileName;
-        // FIXME: Produce a note stack explaining how we got here.
+        for (int I = ModuleFileStack.size() - 2; I >= 0; --I)
+          CI.getDiagnostics().Report(SourceLocation(),
+                                     diag::note_module_file_imported_by)
+              << ModuleFileStack[I]
+              << !ModuleNameStack[I].empty() << ModuleNameStack[I];
         Failed = true;
       }
+      ModuleNameStack.pop_back();
       ModuleFileStack.pop_back();
     }
 
     void ReadModuleName(StringRef ModuleName) override {
       if (ModuleFileStack.size() == 1)
         TopFileIsModule = true;
+      ModuleNameStack.back() = ModuleName;
 
       auto &ModuleFile = CI.ModuleFileOverrides[ModuleName];
       if (!ModuleFile.empty() &&
@@ -1374,6 +1394,12 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
 
     auto Override = ModuleFileOverrides.find(ModuleName);
     bool Explicit = Override != ModuleFileOverrides.end();
+    if (!Explicit && !getLangOpts().ImplicitModules) {
+      getDiagnostics().Report(ModuleNameLoc, diag::err_module_build_disabled)
+          << ModuleName;
+      ModuleBuildFailed = true;
+      return ModuleLoadResult();
+    }
 
     std::string ModuleFileName =
         Explicit ? Override->second

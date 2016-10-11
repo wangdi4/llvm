@@ -16,6 +16,7 @@
 #include <vector>
 
 // Other libraries and framework includes
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 
 // Project includes
@@ -26,6 +27,7 @@
 #include "lldb/Core/ConstString.h"
 #include "lldb/Core/UserID.h"
 #include "lldb/Core/Value.h"
+#include "lldb/Symbol/ClangASTType.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/ExecutionContextScope.h"
 #include "lldb/Target/Process.h"
@@ -678,12 +680,6 @@ public:
     lldb::ValueObjectSP
     GetSyntheticArrayMember (size_t index, bool can_create);
 
-    lldb::ValueObjectSP
-    GetSyntheticArrayMemberFromPointer (size_t index, bool can_create);
-    
-    lldb::ValueObjectSP
-    GetSyntheticArrayMemberFromArray (size_t index, bool can_create);
-    
     lldb::ValueObjectSP
     GetSyntheticBitFieldChild (uint32_t from, uint32_t to, bool can_create);
 

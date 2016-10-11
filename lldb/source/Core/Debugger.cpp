@@ -39,6 +39,7 @@
 #include "lldb/Host/Terminal.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
+#include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Interpreter/OptionValueSInt64.h"
 #include "lldb/Interpreter/OptionValueString.h"
 #include "lldb/Symbol/ClangASTContext.h"
@@ -902,7 +903,7 @@ Debugger::ClearIOHandlers ()
 }
 
 void
-Debugger::ExecuteIOHanders()
+Debugger::ExecuteIOHandlers()
 {
     
     while (1)
@@ -1743,7 +1744,7 @@ lldb::thread_result_t
 Debugger::IOHandlerThread (lldb::thread_arg_t arg)
 {
     Debugger *debugger = (Debugger *)arg;
-    debugger->ExecuteIOHanders();
+    debugger->ExecuteIOHandlers();
     debugger->StopEventHandlerThread();
     return NULL;
 }

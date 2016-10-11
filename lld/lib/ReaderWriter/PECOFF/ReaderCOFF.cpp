@@ -83,7 +83,7 @@ public:
 
   FileCOFF(std::unique_ptr<MemoryBuffer> mb, PECOFFLinkingContext &ctx)
     : File(mb->getBufferIdentifier(), kindObject), _mb(std::move(mb)),
-      _compatibleWithSEH(false), _ordinal(0),
+      _compatibleWithSEH(false), _ordinal(1),
       _machineType(llvm::COFF::MT_Invalid), _ctx(ctx) {}
 
   std::error_code doParse() override;
@@ -108,19 +108,13 @@ public:
 
   void beforeLink() override;
 
-  void addDefinedAtom(AliasAtom *atom) {
-    atom->setOrdinal(_ordinal++);
-    _definedAtoms._atoms.push_back(atom);
-  }
-
   void addUndefinedSymbol(StringRef sym) {
     _undefinedAtoms._atoms.push_back(new (_alloc) COFFUndefinedAtom(*this, sym));
   }
 
-  AliasAtom *createAlias(StringRef name, const DefinedAtom *target);
+  AliasAtom *createAlias(StringRef name, const DefinedAtom *target, int cnt);
   void createAlternateNameAtoms();
-  std::error_code parseDirectiveSection(
-    StringRef directives, std::set<StringRef> *undefinedSymbols);
+  std::error_code parseDirectiveSection(StringRef directives);
 
   mutable llvm::BumpPtrAllocator _alloc;
 
@@ -168,6 +162,7 @@ private:
   std::error_code addRelocationReferenceToAtoms();
   std::error_code findSection(StringRef name, const coff_section *&result);
   StringRef ArrayRefToString(ArrayRef<uint8_t> array);
+  uint64_t getNextOrdinal();
 
   std::unique_ptr<const llvm::object::COFFObjectFile> _obj;
   std::unique_ptr<MemoryBuffer> _mb;
@@ -332,20 +327,6 @@ std::error_code FileCOFF::doParse() {
     return NativeReaderError::conflicting_target_machine;
   }
 
-  // The set to contain the symbols specified as arguments of
-  // /INCLUDE option.
-  std::set<StringRef> undefinedSymbols;
-
-  // Interpret .drectve section if the section has contents.
-  // Read .drectve section if exists.
-  ArrayRef<uint8_t> directives;
-  if (std::error_code ec = getSectionContents(".drectve", directives))
-    return ec;
-  if (!directives.empty())
-    if (std::error_code ec = parseDirectiveSection(
-          ArrayRefToString(directives), &undefinedSymbols))
-      return ec;
-
   if (std::error_code ec = getReferenceArch(_referenceArch))
     return ec;
 
@@ -374,22 +355,38 @@ std::error_code FileCOFF::doParse() {
                  << " is not compatible with SEH.\n";
     return llvm::object::object_error::parse_failed;
   }
-
-  // Add /INCLUDE'ed symbols to the file as if they existed in the
-  // file as undefined symbols.
-  for (StringRef sym : undefinedSymbols)
-    addUndefinedSymbol(sym);
-
-  // One can define alias symbols using /alternatename:<sym>=<sym> option.
-  // The mapping for /alternatename is in the context object. This helper
-  // function iterate over defined atoms and create alias atoms if needed.
-  createAlternateNameAtoms();
   return std::error_code();
 }
 
 void FileCOFF::beforeLink() {
   // Acquire the mutex to mutate _ctx.
   std::lock_guard<std::recursive_mutex> lock(_ctx.getMutex());
+  std::set<StringRef> undefSyms;
+
+  // Interpret .drectve section if the section has contents.
+  ArrayRef<uint8_t> directives;
+  if (getSectionContents(".drectve", directives))
+    return;
+  if (!directives.empty()) {
+    std::set<StringRef> orig;
+    for (StringRef sym : _ctx.initialUndefinedSymbols())
+      orig.insert(sym);
+    if (parseDirectiveSection(ArrayRefToString(directives)))
+      return;
+    for (StringRef sym : _ctx.initialUndefinedSymbols())
+      if (orig.count(sym) == 0)
+        undefSyms.insert(sym);
+  }
+
+  // Add /INCLUDE'ed symbols to the file as if they existed in the
+  // file as undefined symbols.
+  for (StringRef sym : undefSyms)
+    addUndefinedSymbol(sym);
+
+  // One can define alias symbols using /alternatename:<sym>=<sym> option.
+  // The mapping for /alternatename is in the context object. This helper
+  // function iterate over defined atoms and create alias atoms if needed.
+  createAlternateNameAtoms();
 
   // In order to emit SEH table, all input files need to be compatible with
   // SEH. Disable SEH if the file being read is not compatible.
@@ -555,7 +552,7 @@ FileCOFF::createDefinedSymbols(const SymbolVectorT &symbols,
       uint32_t size = sym.getValue();
       auto *atom = new (_alloc)
           COFFBSSAtom(*this, name, getScope(sym), DefinedAtom::permRW_,
-                      DefinedAtom::mergeAsWeakAndAddressUsed, size, _ordinal++);
+                      DefinedAtom::mergeAsWeakAndAddressUsed, size, getNextOrdinal());
 
       // Common symbols should be aligned on natural boundaries with the maximum
       // of 32 byte. It's not documented anywhere, but it's what MSVC link.exe
@@ -669,7 +666,7 @@ std::error_code FileCOFF::AtomizeDefinedSymbolsInSection(
                                      : si[1].getValue() - sym.getValue();
       auto *atom = new (_alloc) COFFBSSAtom(
           *this, _symbolName[sym], getScope(sym), getPermissions(section),
-          DefinedAtom::mergeAsWeakAndAddressUsed, size, _ordinal++);
+          DefinedAtom::mergeAsWeakAndAddressUsed, size, getNextOrdinal());
       atoms.push_back(atom);
       _symbolAtom[sym] = atom;
     }
@@ -704,7 +701,7 @@ std::error_code FileCOFF::AtomizeDefinedSymbolsInSection(
     ArrayRef<uint8_t> data(secData.data(), secData.size());
     auto *atom = new (_alloc) COFFDefinedAtom(
         *this, "", sectionName, Atom::scopeTranslationUnit, type, isComdat,
-        perms, _merge[section], data, _ordinal++);
+        perms, _merge[section], data, getNextOrdinal());
     atoms.push_back(atom);
     _definedAtomLocations[section][0].push_back(atom);
     return std::error_code();
@@ -717,7 +714,7 @@ std::error_code FileCOFF::AtomizeDefinedSymbolsInSection(
     ArrayRef<uint8_t> data(secData.data(), size);
     auto *atom = new (_alloc) COFFDefinedAtom(
         *this, "", sectionName, Atom::scopeTranslationUnit, type, isComdat,
-        perms, _merge[section], data, _ordinal++);
+        perms, _merge[section], data, getNextOrdinal());
     atoms.push_back(atom);
     _definedAtomLocations[section][0].push_back(atom);
   }
@@ -730,7 +727,7 @@ std::error_code FileCOFF::AtomizeDefinedSymbolsInSection(
     ArrayRef<uint8_t> data(start, end);
     auto *atom = new (_alloc) COFFDefinedAtom(
         *this, _symbolName[*si], sectionName, getScope(*si), type, isComdat,
-        perms, _merge[section], data, _ordinal++);
+        perms, _merge[section], data, getNextOrdinal());
     atoms.push_back(atom);
     _symbolAtom[*si] = atom;
     _definedAtomLocations[section][si->getValue()].push_back(atom);
@@ -860,26 +857,27 @@ std::error_code FileCOFF::getSectionContents(StringRef sectionName,
   return std::error_code();
 }
 
-AliasAtom *FileCOFF::createAlias(StringRef name,
-                                 const DefinedAtom *target) {
+AliasAtom *
+FileCOFF::createAlias(StringRef name, const DefinedAtom *target, int cnt) {
   AliasAtom *alias = new (_alloc) AliasAtom(*this, name);
   alias->addReference(Reference::KindNamespace::all, Reference::KindArch::all,
                       Reference::kindLayoutAfter, 0, target, 0);
   alias->setMerge(DefinedAtom::mergeAsWeak);
   if (target->contentType() == DefinedAtom::typeCode)
     alias->setDeadStrip(DefinedAtom::deadStripNever);
+  alias->setOrdinal(target->ordinal() - cnt);
   return alias;
 }
 
 void FileCOFF::createAlternateNameAtoms() {
   std::vector<AliasAtom *> aliases;
   for (const DefinedAtom *atom : defined()) {
-    auto it = _ctx.alternateNames().find(atom->name());
-    if (it != _ctx.alternateNames().end())
-      aliases.push_back(createAlias(it->second, atom));
+    int cnt = 1;
+    for (StringRef alias : _ctx.getAlternateNames(atom->name()))
+      aliases.push_back(createAlias(alias, atom, cnt++));
   }
   for (AliasAtom *alias : aliases)
-    addDefinedAtom(alias);
+    _definedAtoms._atoms.push_back(alias);
 }
 
 // Interpret the contents of .drectve section. If exists, the section contains
@@ -889,8 +887,7 @@ void FileCOFF::createAlternateNameAtoms() {
 // The section mainly contains /defaultlib (-l in Unix), but can contain any
 // options as long as they are valid.
 std::error_code
-FileCOFF::parseDirectiveSection(StringRef directives,
-                                std::set<StringRef> *undefinedSymbols) {
+FileCOFF::parseDirectiveSection(StringRef directives) {
   DEBUG(llvm::dbgs() << ".drectve: " << directives << "\n");
 
   // Split the string into tokens, as the shell would do for argv.
@@ -907,14 +904,13 @@ FileCOFF::parseDirectiveSection(StringRef directives,
   llvm::raw_string_ostream stream(errorMessage);
   PECOFFLinkingContext::ParseDirectives parseDirectives =
     _ctx.getParseDirectives();
-  bool parseFailed = !parseDirectives(argc, argv, _ctx, stream,
-                                      undefinedSymbols);
+  bool parseFailed = !parseDirectives(argc, argv, _ctx, stream);
   stream.flush();
   // Print error message if error.
   if (parseFailed) {
-    auto msg = Twine("Failed to parse '") + directives + "'\n"
-    + "Reason: " + errorMessage;
-    return make_dynamic_error_code(msg);
+    return make_dynamic_error_code(
+      Twine("Failed to parse '") + directives + "'\n"
+      + "Reason: " + errorMessage);
   }
   if (!errorMessage.empty()) {
     llvm::errs() << "lld warning: " << errorMessage << "\n";
@@ -949,7 +945,7 @@ std::error_code FileCOFF::addRelocationReferenceToAtoms() {
   for (const auto &sec : _obj->sections()) {
     const coff_section *section = _obj->getCOFFSection(sec);
 
-    // Skip there's no atom for the section. Currently we do not create any
+    // Skip if there's no atom for the section. Currently we do not create any
     // atoms for some sections, such as "debug$S", and such sections need to
     // be skipped here too.
     if (_sectionAtoms.find(section) == _sectionAtoms.end())
@@ -985,12 +981,10 @@ std::error_code FileCOFF::maybeCreateSXDataAtoms() {
   if (sxdata.empty())
     return std::error_code();
 
-  std::vector<uint8_t> atomContent =
-      *new (_alloc) std::vector<uint8_t>((size_t)sxdata.size());
   auto *atom = new (_alloc) COFFDefinedAtom(
       *this, "", ".sxdata", Atom::scopeTranslationUnit, DefinedAtom::typeData,
       false /*isComdat*/, DefinedAtom::permR__, DefinedAtom::mergeNo,
-      atomContent, _ordinal++);
+      sxdata, getNextOrdinal());
 
   const ulittle32_t *symbolIndex =
       reinterpret_cast<const ulittle32_t *>(sxdata.data());
@@ -1053,17 +1047,19 @@ StringRef FileCOFF::ArrayRefToString(ArrayRef<uint8_t> array) {
       array[2] == 0xBF) {
     array = array.slice(3);
   }
-
   if (array.empty())
     return "";
-
-  size_t len = 0;
-  size_t e = array.size();
-  while (len < e && array[len] != '\0')
-    ++len;
-  std::string *contents =
-      new (_alloc) std::string(reinterpret_cast<const char *>(&array[0]), len);
+  StringRef s(reinterpret_cast<const char *>(array.data()), array.size());
+  s = s.substr(0, s.find_first_of('\0'));
+  std::string *contents = new (_alloc) std::string(s.data(), s.size());
   return StringRef(*contents).trim();
+}
+
+// getNextOrdinal returns a monotonically increasaing uint64_t number
+// starting from 1. There's a large gap between two numbers returned
+// from this function, so that you can put other atoms between them.
+uint64_t FileCOFF::getNextOrdinal() {
+  return _ordinal++ << 32;
 }
 
 class COFFObjectReader : public Reader {

@@ -20,6 +20,7 @@
 #include "lld/Core/Simple.h"
 #include "lld/Core/Writer.h"
 #include "lld/ReaderWriter/PECOFFLinkingContext.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Path.h"
@@ -213,17 +214,6 @@ bool PECOFFLinkingContext::addSectionRenaming(raw_ostream &diagnostics,
     }
   }
   return true;
-}
-
-StringRef PECOFFLinkingContext::getAlternateName(StringRef def) const {
-  auto it = _alternateNames.find(def);
-  if (it == _alternateNames.end())
-    return "";
-  return it->second;
-}
-
-void PECOFFLinkingContext::setAlternateName(StringRef weak, StringRef def) {
-  _alternateNames[def] = weak;
 }
 
 /// Try to find the input library file from the search paths and append it to

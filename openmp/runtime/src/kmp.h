@@ -392,6 +392,16 @@ enum clock_function_type {
 };
 #endif /* KMP_OS_LINUX */
 
+#if KMP_ARCH_X86_64 && (KMP_OS_LINUX || KMP_OS_WINDOWS)
+enum mic_type {
+    non_mic,
+    mic1,
+    mic2,
+    mic3,
+    dummy
+};
+#endif
+
 /* ------------------------------------------------------------------------ */
 /* -- fast reduction stuff ------------------------------------------------ */
 
@@ -869,7 +879,11 @@ extern unsigned int __kmp_place_core_offset;
 
 #define KMP_MIN_STKOFFSET       (0)
 #define KMP_MAX_STKOFFSET       KMP_MAX_STKSIZE
-#define KMP_DEFAULT_STKOFFSET   KMP_MIN_STKOFFSET
+#if KMP_OS_DARWIN
+# define KMP_DEFAULT_STKOFFSET  KMP_MIN_STKOFFSET
+#else
+# define KMP_DEFAULT_STKOFFSET  CACHE_LINE
+#endif
 
 #define KMP_MIN_STKPADDING      (0)
 #define KMP_MAX_STKPADDING      (2 * 1024 * 1024)
@@ -972,12 +986,12 @@ extern unsigned int __kmp_place_core_offset;
 #endif
 
 #if KMP_ARCH_X86 || KMP_ARCH_X86_64
-struct kmp_cpuid {
+typedef struct kmp_cpuid {
     kmp_uint32  eax;
     kmp_uint32  ebx;
     kmp_uint32  ecx;
     kmp_uint32  edx;
-};
+} kmp_cpuid_t;
 extern void __kmp_x86_cpuid( int mode, int mode2, struct kmp_cpuid *p );
 # if KMP_ARCH_X86
   extern void __kmp_x86_pause( void );
@@ -2614,6 +2628,10 @@ extern enum clock_function_type __kmp_clock_function;
 extern int __kmp_clock_function_param;
 # endif /* KMP_OS_LINUX */
 
+#if KMP_ARCH_X86_64 && (KMP_OS_LINUX || KMP_OS_WINDOWS)
+extern enum mic_type __kmp_mic_type;
+#endif
+
 # ifdef USE_LOAD_BALANCE
 extern double      __kmp_load_balance_interval;   /* Interval for the load balance algorithm */
 # endif /* USE_LOAD_BALANCE */
@@ -3158,7 +3176,7 @@ KMP_EXPORT void   __kmpc_fork_call          ( ident_t *, kmp_int32 nargs, kmpc_m
 KMP_EXPORT void   __kmpc_serialized_parallel     ( ident_t *, kmp_int32 global_tid );
 KMP_EXPORT void   __kmpc_end_serialized_parallel ( ident_t *, kmp_int32 global_tid );
 
-KMP_EXPORT void   __kmpc_flush              ( ident_t *, ... );
+KMP_EXPORT void   __kmpc_flush              ( ident_t *);
 KMP_EXPORT void   __kmpc_barrier            ( ident_t *, kmp_int32 global_tid );
 KMP_EXPORT kmp_int32  __kmpc_master         ( ident_t *, kmp_int32 global_tid );
 KMP_EXPORT void   __kmpc_end_master         ( ident_t *, kmp_int32 global_tid );

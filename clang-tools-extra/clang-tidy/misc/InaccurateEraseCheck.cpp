@@ -16,6 +16,7 @@ using namespace clang::ast_matchers;
 
 namespace clang {
 namespace tidy {
+namespace misc {
 
 void InaccurateEraseCheck::registerMatchers(MatchFinder *Finder) {
   const auto CheckForEndCall = hasArgument(
@@ -26,10 +27,10 @@ void InaccurateEraseCheck::registerMatchers(MatchFinder *Finder) {
 
   Finder->addMatcher(
       memberCallExpr(
-          on(hasType(namedDecl(matchesName("std::")))),
+          on(hasType(namedDecl(matchesName("^::std::")))),
           callee(methodDecl(hasName("erase"))), argumentCountIs(1),
           hasArgument(0, has(callExpr(callee(functionDecl(matchesName(
-                                          "std::(remove_if|remove|unique)"))),
+                                          "^::std::(remove(_if)?|unique)$"))),
                                       CheckForEndCall).bind("InaccAlgCall"))),
           unless(isInTemplateInstantiation())).bind("InaccErase"),
       this);
@@ -60,5 +61,6 @@ void InaccurateEraseCheck::check(const MatchFinder::MatchResult &Result) {
       << Hint;
 }
 
+} // namespace misc
 } // namespace tidy
 } // namespace clang

@@ -14,10 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "polly/ScopInfo.h"
-#include "isl/aff.h"
-#include "isl/ast.h"
-#include "isl/ast_build.h"
-#include "isl/set.h"
 #include "polly/CodeGen/BlockGenerators.h"
 #include "polly/CodeGen/CodeGeneration.h"
 #include "polly/CodeGen/IslExprBuilder.h"
@@ -25,11 +21,21 @@
 #include "polly/Support/GICHelper.h"
 #include "polly/Support/SCEVValidator.h"
 #include "polly/Support/ScopHelper.h"
+
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
+
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+
+#include "isl/aff.h"
+#include "isl/ast.h"
+#include "isl/set.h"
+#include "isl/ast_build.h"
+
+#include <deque>
 
 using namespace llvm;
 using namespace polly;
@@ -76,9 +82,10 @@ bool polly::isIgnoredIntrinsic(const Value *V) {
   return false;
 }
 
-BlockGenerator::BlockGenerator(PollyIRBuilder &B, Pass *P, LoopInfo &LI,
-                               ScalarEvolution &SE, IslExprBuilder *ExprBuilder)
-    : Builder(B), P(P), LI(LI), SE(SE), ExprBuilder(ExprBuilder) {}
+BlockGenerator::BlockGenerator(PollyIRBuilder &B, LoopInfo &LI,
+                               ScalarEvolution &SE, DominatorTree &DT,
+                               IslExprBuilder *ExprBuilder)
+    : Builder(B), LI(LI), SE(SE), ExprBuilder(ExprBuilder), DT(DT) {}
 
 Value *BlockGenerator::getNewValue(ScopStmt &Stmt, const Value *Old,
                                    ValueMapT &BBMap, ValueMapT &GlobalMap,
@@ -283,19 +290,36 @@ void BlockGenerator::copyInstruction(ScopStmt &Stmt, const Instruction *Inst,
   copyInstScalar(Stmt, Inst, BBMap, GlobalMap, LTS);
 }
 
-void BlockGenerator::copyBB(ScopStmt &Stmt, ValueMapT &GlobalMap,
-                            LoopToScevMapT &LTS) {
-  auto *DTWP = P->getAnalysisIfAvailable<DominatorTreeWrapperPass>();
-  auto *DT = DTWP ? &DTWP->getDomTree() : nullptr;
-
-  BasicBlock *BB = Stmt.getBasicBlock();
-  BasicBlock *CopyBB =
-      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), DT, &LI);
-  CopyBB->setName("polly.stmt." + BB->getName());
-  Builder.SetInsertPoint(CopyBB->begin());
+void BlockGenerator::copyStmt(ScopStmt &Stmt, ValueMapT &GlobalMap,
+                              LoopToScevMapT &LTS) {
+  assert(Stmt.isBlockStmt() &&
+         "Only block statements can be copied by the block generator");
 
   ValueMapT BBMap;
 
+  BasicBlock *BB = Stmt.getBasicBlock();
+  copyBB(Stmt, BB, BBMap, GlobalMap, LTS);
+}
+
+BasicBlock *BlockGenerator::splitBB(BasicBlock *BB) {
+  BasicBlock *CopyBB =
+      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), &DT, &LI);
+  CopyBB->setName("polly.stmt." + BB->getName());
+  return CopyBB;
+}
+
+BasicBlock *BlockGenerator::copyBB(ScopStmt &Stmt, BasicBlock *BB,
+                                   ValueMapT &BBMap, ValueMapT &GlobalMap,
+                                   LoopToScevMapT &LTS) {
+  BasicBlock *CopyBB = splitBB(BB);
+  copyBB(Stmt, BB, CopyBB, BBMap, GlobalMap, LTS);
+  return CopyBB;
+}
+
+void BlockGenerator::copyBB(ScopStmt &Stmt, BasicBlock *BB, BasicBlock *CopyBB,
+                            ValueMapT &BBMap, ValueMapT &GlobalMap,
+                            LoopToScevMapT &LTS) {
+  Builder.SetInsertPoint(CopyBB->begin());
   for (Instruction &Inst : *BB)
     copyInstruction(Stmt, &Inst, BBMap, GlobalMap, LTS);
 }
@@ -622,13 +646,13 @@ void VectorBlockGenerator::copyInstruction(ScopStmt &Stmt,
   copyInstScalarized(Stmt, Inst, VectorMap, ScalarMaps);
 }
 
-void VectorBlockGenerator::copyBB(ScopStmt &Stmt) {
-  auto *DTWP = P->getAnalysisIfAvailable<DominatorTreeWrapperPass>();
-  auto *DT = DTWP ? &DTWP->getDomTree() : nullptr;
+void VectorBlockGenerator::copyStmt(ScopStmt &Stmt) {
+  assert(Stmt.isBlockStmt() && "TODO: Only block statements can be copied by "
+                               "the vector block generator");
 
   BasicBlock *BB = Stmt.getBasicBlock();
   BasicBlock *CopyBB =
-      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), DT, &LI);
+      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), &DT, &LI);
   CopyBB->setName("polly.stmt." + BB->getName());
   Builder.SetInsertPoint(CopyBB->begin());
 
@@ -651,4 +675,91 @@ void VectorBlockGenerator::copyBB(ScopStmt &Stmt) {
 
   for (Instruction &Inst : *BB)
     copyInstruction(Stmt, &Inst, VectorBlockMap, ScalarBlockMap);
+}
+
+BasicBlock *RegionGenerator::repairDominance(
+    BasicBlock *BB, BasicBlock *BBCopy,
+    DenseMap<BasicBlock *, BasicBlock *> &BlockMap) {
+
+  BasicBlock *BBIDom = DT.getNode(BB)->getIDom()->getBlock();
+  BasicBlock *BBCopyIDom = BlockMap.lookup(BBIDom);
+
+  if (BBCopyIDom)
+    DT.changeImmediateDominator(BBCopy, BBCopyIDom);
+
+  return BBCopyIDom;
+}
+
+void RegionGenerator::copyStmt(ScopStmt &Stmt, ValueMapT &GlobalMap,
+                               LoopToScevMapT &LTS) {
+  assert(Stmt.isRegionStmt() &&
+         "Only region statements can be copied by the block generator");
+
+  // The region represented by the statement.
+  Region *R = Stmt.getRegion();
+
+  // The "BBMaps" for the whole region.
+  DenseMap<BasicBlock *, ValueMapT> RegionMaps;
+
+  // A map from old to new blocks in the region
+  DenseMap<BasicBlock *, BasicBlock *> BlockMap;
+
+  // Iterate over all blocks in the region in a breadth-first search.
+  std::deque<BasicBlock *> Blocks;
+  SmallPtrSet<BasicBlock *, 8> SeenBlocks;
+  Blocks.push_back(R->getEntry());
+  SeenBlocks.insert(R->getEntry());
+
+  while (!Blocks.empty()) {
+    BasicBlock *BB = Blocks.front();
+    Blocks.pop_front();
+
+    // First split the block and update dominance information.
+    BasicBlock *BBCopy = splitBB(BB);
+    BasicBlock *BBCopyIDom = repairDominance(BB, BBCopy, BlockMap);
+
+    // Get the mapping for this block and initialize it with the mapping
+    // available at its immediate dominator (in the new region).
+    ValueMapT &RegionMap = RegionMaps[BBCopy];
+    RegionMap = RegionMaps[BBCopyIDom];
+
+    // Copy the block with the BlockGenerator.
+    copyBB(Stmt, BB, BBCopy, RegionMap, GlobalMap, LTS);
+
+    // And continue with new successors inside the region.
+    for (auto SI = succ_begin(BB), SE = succ_end(BB); SI != SE; SI++)
+      if (R->contains(*SI) && SeenBlocks.insert(*SI).second)
+        Blocks.push_back(*SI);
+
+    // In order to remap PHI nodes we store also basic block mappings.
+    BlockMap[BB] = BBCopy;
+  }
+
+  // Now create a new dedicated region exit block and add it to the region map.
+  BasicBlock *ExitBBCopy =
+      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), &DT, &LI);
+  ExitBBCopy->setName("polly.stmt." + R->getExit()->getName() + ".as.exit");
+  BlockMap[R->getExit()] = ExitBBCopy;
+
+  repairDominance(R->getExit(), ExitBBCopy, BlockMap);
+
+  // As the block generator doesn't handle control flow we need to add the
+  // region control flow by hand after all blocks have been copied.
+  for (BasicBlock *BB : SeenBlocks) {
+
+    BranchInst *BI = cast<BranchInst>(BB->getTerminator());
+
+    BasicBlock *BBCopy = BlockMap[BB];
+    Instruction *BICopy = BBCopy->getTerminator();
+
+    ValueMapT &RegionMap = RegionMaps[BBCopy];
+    RegionMap.insert(BlockMap.begin(), BlockMap.end());
+
+    Builder.SetInsertPoint(BBCopy);
+    copyInstScalar(Stmt, BI, RegionMap, GlobalMap, LTS);
+    BICopy->eraseFromParent();
+  }
+
+  // Reset the old insert point for the build.
+  Builder.SetInsertPoint(ExitBBCopy->begin());
 }

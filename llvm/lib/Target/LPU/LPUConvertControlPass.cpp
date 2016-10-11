@@ -695,7 +695,7 @@ bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
     MachineInstr *MI = I;
 
     //DEBUG(errs() << "processing inst: ");
-    //DEBUG(MI->print(*thisOS, &TM));
+    //DEBUG(MI->print(*thisOS));
 
     // TODO: do we need to process all insts?
     // what about picks/switches/cmps/brs?
@@ -872,7 +872,7 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
       MachineInstr *MI = I;
 
       DEBUG(errs() << "gen pick/switch DF ops: processing inst: ");
-      DEBUG(MI->print(*thisOS, &TM));
+      DEBUG(MI->print(*thisOS));
 
       // TODO: do we need to process all insts?
       // what about picks/switches/cmps/brs?

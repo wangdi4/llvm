@@ -24,6 +24,7 @@
 #include "X86_64LinkingContext.h"
 #include "lld/Core/Simple.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLExtras.h"
 
 using namespace lld;
 using namespace lld::elf;
@@ -111,9 +112,11 @@ template <class Derived> class RelocationPass : public Pass {
       return;
     assert(ref.kindArch() == Reference::KindArch::x86_64);
     switch (ref.kindValue()) {
+    case R_X86_64_16:
     case R_X86_64_32:
     case R_X86_64_32S:
     case R_X86_64_64:
+    case R_X86_64_PC16:
     case R_X86_64_PC32:
     case R_X86_64_PC64:
       static_cast<Derived *>(this)->handlePlain(ref);

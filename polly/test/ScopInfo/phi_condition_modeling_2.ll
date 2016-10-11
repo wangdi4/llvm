@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -analyze -polly-scops -disable-polly-intra-scop-scalar-to-array -polly-model-phi-nodes < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -analyze -polly-scops -disable-polly-intra-scop-scalar-to-array -polly-model-phi-nodes < %s | FileCheck %s
 ;
 ;    void f(int *A, int c, int N) {
 ;      int tmp;
@@ -58,7 +58,7 @@ bb8:                                              ; preds = %bb7, %bb6
   br label %bb8b
 
 bb8b:
-  %tmp9 = getelementptr inbounds i32* %A, i64 %indvars.iv
+  %tmp9 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
   store i32 %tmp.0, i32* %tmp9, align 4
   br label %bb10
 

@@ -40,6 +40,7 @@
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Host/common/NativeRegisterContext.h"
+#include "lldb/Target/Process.h"
 #include "lldb/Target/ProcessLaunchInfo.h"
 #include "lldb/Utility/PseudoTerminal.h"
 
@@ -123,7 +124,8 @@
 
 // Try to define a macro to encapsulate the tgkill syscall
 // fall back on kill() if tgkill isn't available
-#define tgkill(pid, tid, sig)  syscall(SYS_tgkill, pid, tid, sig)
+#define tgkill(pid, tid, sig) \
+    syscall(SYS_tgkill, static_cast<::pid_t>(pid), static_cast<::pid_t>(tid), sig)
 
 // We disable the tracing of ptrace calls for integration builds to
 // avoid the additional indirection and checks.
@@ -140,6 +142,8 @@ namespace
 {
     using namespace lldb;
     using namespace lldb_private;
+
+    static void * const EXIT_OPERATION = nullptr;
 
     const UnixSignals&
     GetUnixSignals ()
@@ -178,7 +182,7 @@ namespace
 
         // Resolve the executable module.
         ModuleSP exe_module_sp;
-        ModuleSpec exe_module_spec(process_info.GetExecutableFile(), platform.GetSystemArchitecture ());
+        ModuleSpec exe_module_spec(process_info.GetExecutableFile(), process_info.GetArchitecture());
         FileSpecList executable_search_paths (Target::GetDefaultExecutableSearchPaths ());
         Error error = platform.ResolveExecutable(
             exe_module_spec,
@@ -1393,7 +1397,7 @@ NativeProcessLinux::AttachToInferior (lldb::pid_t pid, lldb_private::Error &erro
     // Resolve the executable module
     ModuleSP exe_module_sp;
     FileSpecList executable_search_paths (Target::GetDefaultExecutableSearchPaths());
-    ModuleSpec exe_module_spec(process_info.GetExecutableFile(), HostInfo::GetArchitecture());
+    ModuleSpec exe_module_spec(process_info.GetExecutableFile(), process_info.GetArchitecture());
     error = platform_sp->ResolveExecutable(exe_module_spec, exe_module_sp,
                                            executable_search_paths.GetSize() ? &executable_search_paths : NULL);
     if (!error.Success())
@@ -1453,7 +1457,8 @@ WAIT_AGAIN:
     }
 }
 
-NativeProcessLinux::~NativeProcessLinux()
+void
+NativeProcessLinux::Terminate ()
 {
     StopMonitor();
 }
@@ -1563,11 +1568,11 @@ NativeProcessLinux::Launch(LaunchArgs *args)
                 exit(eDupStdinFailed);
 
         if (!args->m_stdout_path.empty ())
-            if (!DupDescriptor(args->m_stdout_path.c_str (), STDOUT_FILENO, O_WRONLY | O_CREAT))
+            if (!DupDescriptor(args->m_stdout_path.c_str (), STDOUT_FILENO, O_WRONLY | O_CREAT | O_TRUNC))
                 exit(eDupStdoutFailed);
 
         if (!args->m_stderr_path.empty ())
-            if (!DupDescriptor(args->m_stderr_path.c_str (), STDERR_FILENO, O_WRONLY | O_CREAT))
+            if (!DupDescriptor(args->m_stderr_path.c_str (), STDERR_FILENO, O_WRONLY | O_CREAT | O_TRUNC))
                 exit(eDupStderrFailed);
 
         // Change working directory
@@ -3368,6 +3373,12 @@ NativeProcessLinux::ServeOperation(OperationArgs *args)
             assert(false && "Unexpected errno from sem_wait");
         }
 
+        // EXIT_OPERATION used to stop the operation thread because Cancel() isn't supported on
+        // android. We don't have to send a post to the m_operation_done semaphore because in this
+        // case the synchronization is achieved by a Join() call
+        if (monitor->m_operation == EXIT_OPERATION)
+            break;
+
         reinterpret_cast<Operation*>(monitor->m_operation)->Execute(monitor);
 
         // notify calling thread that operation is complete
@@ -3384,6 +3395,11 @@ NativeProcessLinux::DoOperation(void *op)
 
     // notify operation thread that an operation is ready to be processed
     sem_post(&m_operation_pending);
+
+    // Don't wait for the operation to complete in case of an exit operation. The operation thread
+    // will exit without posting to the semaphore
+    if (m_operation == EXIT_OPERATION)
+        return;
 
     // wait for operation to complete
     while (sem_wait(&m_operation_done))
@@ -3554,8 +3570,8 @@ void
 NativeProcessLinux::StopMonitor()
 {
     StopMonitoringChildProcess();
-    StopOpThread();
     StopCoordinatorThread ();
+    StopOpThread();
     sem_destroy(&m_operation_pending);
     sem_destroy(&m_operation_done);
 
@@ -3572,7 +3588,7 @@ NativeProcessLinux::StopOpThread()
     if (!m_operation_thread.IsJoinable())
         return;
 
-    m_operation_thread.Cancel();
+    DoOperation(EXIT_OPERATION);
     m_operation_thread.Join(nullptr);
 }
 
@@ -3637,6 +3653,7 @@ NativeProcessLinux::StopCoordinatorThread()
     // Tell the coordinator we're done.  This will cause the coordinator
     // run loop thread to exit when the processing queue hits this message.
     m_coordinator_up->StopCoordinator ();
+    m_coordinator_thread.Join (nullptr);
 }
 
 bool
