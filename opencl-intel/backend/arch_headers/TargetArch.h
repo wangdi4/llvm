@@ -18,6 +18,7 @@ enum ECPU {
     CPU_SANDYBRIDGE,
     CPU_HASWELL,
     CPU_KNL,
+    CPU_SKX,
     // MIC Cards must appear last
     MIC_KNC,
     MIC_FIRST = MIC_KNC,
@@ -25,18 +26,24 @@ enum ECPU {
 };
 // CPU Features enumeration
 enum ECPUFeatureSupport {
-    CFS_NONE    = 0x0000,
-    CFS_SSE2    = 1,
-    CFS_SSE3    = 1 << 1,
-    CFS_SSSE3   = 1 << 2,
-    CFS_SSE41   = 1 << 3,
-    CFS_SSE42   = 1 << 4,
-    CFS_AVX1    = 1 << 5,
-    CFS_AVX2    = 1 << 6,
-    CFS_FMA     = 1 << 7,
-    CFS_BMI     = 1 << 8,
-    CFS_BMI2    = 1 << 9,
-    CFS_AVX512F = 1 << 10
+    CFS_NONE     = 0x0000,
+    CFS_SSE2     = 1,
+    CFS_SSE3     = 1 << 1,
+    CFS_SSSE3    = 1 << 2,
+    CFS_SSE41    = 1 << 3,
+    CFS_SSE42    = 1 << 4,
+    CFS_AVX1     = 1 << 5,
+    CFS_AVX2     = 1 << 6,
+    CFS_FMA      = 1 << 7,
+    CFS_BMI      = 1 << 8,
+    CFS_BMI2     = 1 << 9,
+    CFS_AVX512F  = 1 << 10, // KNL, SKX
+    CFS_AVX512CD = 1 << 11, // KNL, SKX
+    CFS_AVX512ER = 1 << 12, // KNL
+    CFS_AVX512PF = 1 << 13, // KNL
+    CFS_AVX512BW = 1 << 14, // SKX
+    CFS_AVX512DQ = 1 << 15, // SKX
+    CFS_AVX512VL = 1 << 16, // SKX
 };
 class CPUId {
 public:
@@ -58,6 +65,7 @@ public:
     static ECPU GetCPUByName(const char *CPUName) {
         std::string Name(CPUName);
         if (Name == "knl") return CPU_KNL;
+        if (Name == "skx") return CPU_SKX;
         if (Name == "knc") return MIC_KNC;
         if (Name == "core-avx2") return CPU_HASWELL;
         if (Name == "corei7-avx") return CPU_SANDYBRIDGE;
@@ -91,9 +99,12 @@ public:
             return "core-avx2";
         case CPU_KNL:
             return "knl";
+        case CPU_SKX:
+            return "skx";
         case MIC_KNC:
             return "knc";
         }
+        assert(false && "Unknown CPU!");
     }
     const char*         GetCPUPrefix() const {
       if( Intel::CPU_SANDYBRIDGE == GetCPU() && !HasAVX1()) {
@@ -124,6 +135,9 @@ public:
                 return "s9";
             case CPU_KNL:
                 return "d3";
+            case CPU_SKX:
+                assert(false && "SKX on 32-bit OS is not supported so far!");
+                return 0;
             case MIC_KNC:
                 assert(false && "No MIC SVML lib for 32-bit OS!");
                 return 0;
@@ -143,11 +157,13 @@ public:
         case CPU_COREI7:
             return "h8";
         case CPU_SANDYBRIDGE:
-            return  "e9";
+            return "e9";
         case CPU_HASWELL:
             return "l9";
         case CPU_KNL:
             return "b3";
+        case CPU_SKX:
+            return "z0";
         case MIC_KNC:
             return "b2";
         }
@@ -168,7 +184,7 @@ public:
         return HasGatherScatter(m_CPU);
     }
     static bool HasGatherScatter(ECPU CPU) {
-        return (CPU == MIC_KNC || CPU == CPU_KNL);
+        return (CPU == MIC_KNC || CPU == CPU_KNL || CPU == CPU_SKX);
     }
     bool RequirePrefetch() const {
         return m_CPU == MIC_KNC;

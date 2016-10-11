@@ -85,6 +85,10 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu
   // KNL is not supported
   if (cpuId.GetCPU() == CPU_KNL)
     return true;
+  // SKX is not supported too for now
+  // ToDo: Enable back when images will be supported on SKX
+  if (cpuId.GetCPU() == CPU_SKX)
+    return true;
 
   // Find library for this platform if it has been built earlier
   ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId);

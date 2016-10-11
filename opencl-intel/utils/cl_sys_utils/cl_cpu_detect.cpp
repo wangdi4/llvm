@@ -398,9 +398,27 @@ void CPUDetect::GetCPUInfo()
                     {
                         m_uiCPUFeatures |= CFS_AVX20;
                     }
+                    // AVX-512 support
+                    // We use very simple procedure to check AVX-512 features
+                    // regardless of what Software Developer Manual Vol.1 says
+                    // because support of EVEX encoded short vectors will be added later.
                     if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
                     {
-                        m_uiCPUFeatures |= CFS_AVX512F;
+                      // So far following simple logic - we see AVX512DQ then it is SKX, otherwise - it's KNL.
+                      m_uiCPUFeatures |= CFS_AVX512F;
+                      if ((viCPUInfo[1] & 0x20000) == 0x20000) // CPUID.(EAX=07H, ECX=0):EBX[bit 17] - AVX512DQ
+                      {
+                        m_uiCPUFeatures |= CFS_AVX512CD;
+                        m_uiCPUFeatures |= CFS_AVX512BW;
+                        m_uiCPUFeatures |= CFS_AVX512DQ;
+                        // I do not add CFS_AVX512VL for the reasons above.
+                      }
+                      else
+                      {
+                        m_uiCPUFeatures |= CFS_AVX512CD;
+                        m_uiCPUFeatures |= CFS_AVX512ER;
+                        m_uiCPUFeatures |= CFS_AVX512PF;
+                      }
                     }
             }
         }
@@ -415,9 +433,14 @@ void CPUDetect::GetCPUInfo()
 	m_szCPUBrandString = STRDUP("Intel(R) Atom(TM)");
 #endif
     }
-    else if (m_uiCPUFeatures & CFS_AVX512F) {
+    else if (m_uiCPUFeatures & CFS_AVX512F & CFS_AVX512ER) {
         // SDE does not support the string yet, this block will be removed later.
         const char brand[] = "Intel KNL TBD";
+        MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), brand, sizeof(brand));
+        m_szCPUBrandString = STRDUP(vcCPUBrandString);
+    }
+    else if (m_uiCPUFeatures & CFS_AVX512F & CFS_AVX512DQ) {
+        const char brand[] = "Intel SKX TBD";
         MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), brand, sizeof(brand));
         m_szCPUBrandString = STRDUP(vcCPUBrandString);
     }

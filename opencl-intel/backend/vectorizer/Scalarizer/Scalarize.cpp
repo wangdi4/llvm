@@ -1536,7 +1536,8 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
   if ((m_Cpu == Intel::MIC_KNC) && (type->getNumElements() < 16))
     return true;
 
-  if ((m_Cpu == Intel::CPU_KNL) && (type->getElementType()->getPrimitiveSizeInBits() >= 32))
+  if ((m_Cpu == Intel::CPU_KNL || m_Cpu == Intel::CPU_SKX) &&
+      (type->getElementType()->getPrimitiveSizeInBits() >= 32))
     return true;
 
   return false;

@@ -74,7 +74,7 @@ TransposeSize("tsize",
 
 llvm::cl::opt<std::string>
 CPUArch("cpuarch",
-         llvm::cl::desc("CPU Architecture: auto, core2, corei7, corei7-avx, core-avx2, knc, knl"),
+         llvm::cl::desc("CPU Architecture: auto, core2, corei7, corei7-avx, core-avx2, knc, knl, skx"),
          llvm::cl::init("auto")
          );
 

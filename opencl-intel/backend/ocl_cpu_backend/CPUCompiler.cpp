@@ -187,6 +187,30 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     {
         cpuFeatures |= CFS_AVX512F;
     }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512bw") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512BW;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512cd") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512CD;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512dq") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512DQ;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512er") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512ER;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512pf") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512PF;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512vl") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512VL;
+    }
 
     if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-sse41" ) != forcedFeatures.end())
     {
@@ -308,8 +332,18 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
       m_forcedCpuFeatures.push_back("+avx2");
       m_forcedCpuFeatures.push_back("+f16c");
     }
-    if (selectedCpuId == Intel::CPU_KNL) {
+    if (selectedCpuId == Intel::CPU_KNL || selectedCpuId == Intel::CPU_SKX) {
       m_forcedCpuFeatures.push_back("+avx512f");
+    }
+    if (selectedCpuId == Intel::CPU_KNL) {
+      m_forcedCpuFeatures.push_back("+avx512cd");
+      m_forcedCpuFeatures.push_back("+avx512er");
+      m_forcedCpuFeatures.push_back("+avx512pf");
+    }
+    if (selectedCpuId == Intel::CPU_SKX) {
+      m_forcedCpuFeatures.push_back("+avx512cd");
+      m_forcedCpuFeatures.push_back("+avx512bw");
+      m_forcedCpuFeatures.push_back("+avx512dq");
     }
 
     unsigned int selectedCpuFeatures = Utils::SelectCpuFeatures( selectedCpuId, m_forcedCpuFeatures );

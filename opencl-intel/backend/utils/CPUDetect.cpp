@@ -202,10 +202,29 @@ CPUDetect::CPUDetect(void)
                     uiCPUFeatures |= CFS_BMI;
                 if ((viCPUInfo[1] & 0x100) == 0x100)
                     uiCPUFeatures |= CFS_BMI2;
+                // AVX-512 support
+                // We use very simple procedure to check AVX-512 features
+                // regardless of what Software Developer Manual Vol.1 says
+                // because support of EVEX encoded short vectors will be added later.
                 if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
                 {
+                    // So far following simple logic - we see AVX512DQ then it is SKX, otherwise - it's KNL.
                     uiCPUFeatures |= CFS_AVX512F;
-                    CPU = CPU_KNL;
+                    if ((viCPUInfo[1] & 0x20000) == 0x20000) // CPUID.(EAX=07H, ECX=0):EBX[bit 17] - AVX512DQ
+                    {
+                      uiCPUFeatures |= CFS_AVX512CD;
+                      uiCPUFeatures |= CFS_AVX512BW;
+                      uiCPUFeatures |= CFS_AVX512DQ;
+                      // I do not add CFS_AVX512VL for the reasons above.
+                      CPU = CPU_SKX;
+                    }
+                    else
+                    {
+                      uiCPUFeatures |= CFS_AVX512CD;
+                      uiCPUFeatures |= CFS_AVX512ER;
+                      uiCPUFeatures |= CFS_AVX512PF;
+                      CPU = CPU_KNL;
+                    }
                 }
             }
         }

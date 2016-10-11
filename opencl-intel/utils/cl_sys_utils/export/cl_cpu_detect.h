@@ -39,16 +39,22 @@ namespace Intel { namespace OpenCL { namespace Utils {
     // CPU Features enumeration
     enum ECPUFeatureSupport
     {
-        CFS_NONE    = 0x0000,
-        CFS_SSE2    = 0x0001,
-        CFS_SSE3    = 0x0002,
-        CFS_SSSE3   = 0x0004,
-        CFS_SSE41   = 0x0008,
-        CFS_SSE42   = 0x0010,
-        CFS_AVX10   = 0x0020,
-        CFS_AVX20   = 0x0040,
-        CFS_FMA     = 0x0080,
-        CFS_AVX512F = 0x0100
+        CFS_NONE     = 0x0000,
+        CFS_SSE2     = 0x0001,
+        CFS_SSE3     = 0x0002,
+        CFS_SSSE3    = 0x0004,
+        CFS_SSE41    = 0x0008,
+        CFS_SSE42    = 0x0010,
+        CFS_AVX10    = 0x0020,
+        CFS_AVX20    = 0x0040,
+        CFS_FMA      = 0x0080,
+        CFS_AVX512F  = 0x0100,  // KNL, SKX
+        CFS_AVX512CD = 0x0200,  // KNL, SKX
+        CFS_AVX512ER = 0x0400,  // KNL
+        CFS_AVX512PF = 0x0800,  // KNL
+        CFS_AVX512BW = 0x1000,  // SKX
+        CFS_AVX512DQ = 0x2000,  // SKX
+        CFS_AVX512VL = 0x4000   // SKX
     };
 
     enum EMicroArchitecture
