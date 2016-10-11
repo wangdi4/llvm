@@ -786,6 +786,7 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
     DEBUG(errs() << "After classification: \n");
     seq_print_loop_info(&loops);
 
+    DEBUG(errs() << "Done with sequence classification\n");
     if (seq_opt_level > 1) {
       // Actually do the transforms.
 
@@ -808,6 +809,11 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
         if (success)
           num_transformed++;
         loop_count++;
+
+        if (num_transformed > SequenceMaxPerLoop) {
+          DEBUG(errs() << "Reached transform loop limit. Stopping\n");
+          break;
+        }
       }
       DEBUG(errs() << "Done with seq opt. Transformed "
             <<  num_transformed << " loops\n");
@@ -1386,9 +1392,15 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
   int boundIdx;
   // Operand index in the comparison instruction for the bound. 
   int boundOpIdx;
-  bool invert_compare;
 
-  // Two cases.  Look for the strie (induction variable) in either
+  // This comparison sense will be 0 if the original compare is
+  //   compare induction_var, stride
+  // and 1 if we have
+  //   compare stride, induction_var
+  //
+  bool compare_sense;
+  
+  // Two cases.  Look for the stride (induction variable) in either
   // cmp0 or cmp1.
   if ((loop.cmp0_idx >= 0) &&
       loop.candidates[loop.cmp0_idx].stype == LPUSeqCandidate::SeqType::STRIDE) {
@@ -1398,7 +1410,7 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
     
     // Operand index in the comparison instruction for the bound.
     boundOpIdx = 2;
-    invert_compare = false;
+    compare_sense = false;
   }
   else if ((loop.cmp1_idx >= 0) &&
            loop.candidates[loop.cmp1_idx].stype == LPUSeqCandidate::SeqType::STRIDE) {
@@ -1406,13 +1418,27 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
     indvarIdx = loop.cmp1_idx;
     boundIdx = loop.cmp0_idx;
     boundOpIdx = 1;
-    invert_compare = true;
+    compare_sense = true;
   }
 
   if (!found_indvar) {
     DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
     return false;
   }
+
+  // There are two cases where we will need to swap comparison of the
+  // sequence from the direction of the original compare.
+
+  //
+  // 1. If the comparison sense is inverted (i.e., we have compare
+  //    stride, var), then we need to invert the comparison.
+  //
+  // 2. If the switcher sense is 1 (so it expects 0, 0, 0,
+  // ... 1 for its control), then we need to invert the comparison.
+  //
+  // Both conditions together will cancel each other out.  Thus, the
+  // final booleans
+  bool invert_compare = compare_sense ^ (loop.header.switcherSense);
 
   LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
   
@@ -1435,9 +1461,6 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
     }
     return false;
   }
-
-  // Now, look at the opcodes for the stride instruction and the the
-  // compare instruction.  If they don't line up, then
 
 
   // Compute a matching opcode for the compare and transformation
@@ -1462,6 +1485,9 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
     
     return true;
   }
+
+  // If we fall through to here, then there may be some kind of
+  // sequence we haven't implemented yet.
   DEBUG(errs() << "WARNING: possible sequence opcode not implemented yet.\n");
   DEBUG(errs() << "  induction variable candidate is: ");
   seq_debug_print_candidate(indvarCandidate);
@@ -1488,28 +1514,37 @@ seq_compute_matching_seq_opcode(unsigned ciOp,
                                 unsigned tOp,
                                 bool invert_compare,
                                 unsigned* indvar_opcode) {
-  switch (ciOp) {
-  case LPU::CMPNE32:
-    if (tOp == LPU::ADD32) {
-      // inversion of NE is the same.
-      *indvar_opcode = LPU::SEQNE32;
-      return true;
-    }
-    break;
+  const LPUInstrInfo &TII =
+    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
-  case LPU::CMPLTS64:
-    if (tOp == LPU::ADD64) {
-      if (invert_compare)
-        *indvar_opcode = LPU::SEQGES64;
-      else
-        *indvar_opcode = LPU::SEQLTS64;
+  // Invert the comparison opcode if needed.
+  unsigned compareOp = ciOp;
+  if (invert_compare) {
+    compareOp = TII.commuteCompareOpcode(ciOp);
+  }
+
+  // Find a sequence opcode that matches our compare opcode.
+  unsigned seqOp = TII.convertCompareOpToSequenceOp(compareOp);
+  if (seqOp != compareOp) {
+
+    // If we have a matching sequence op, then check that the
+    // transforming op matches as well.
+
+    switch(tOp) {
+    case LPU::ADD8:
+      *indvar_opcode = TII.promoteSequenceOpBitwidth(seqOp, 8);
+      return true;      
+    case LPU::ADD16:
+      *indvar_opcode = TII.promoteSequenceOpBitwidth(seqOp, 16);      
+      return true;      
+    case LPU::ADD32:
+      *indvar_opcode = TII.promoteSequenceOpBitwidth(seqOp, 32);            
+      return true;      
+    case LPU::ADD64:
+      *indvar_opcode = TII.promoteSequenceOpBitwidth(seqOp, 64);                  
       return true;
     }
-    
-  default:
-    // No match. return false. 
-    return false;
-  };
+  }
 
   return false;
 }
