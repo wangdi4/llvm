@@ -404,7 +404,7 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
     return true;
   }
   else {
-    printf("%s is missing\n", funcName.c_str());
+    V_PRINT(DEBUG_TYPE, "%s is missing\n", funcName.c_str());
   }
   return false;
 }
