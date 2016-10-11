@@ -75,6 +75,11 @@ void BlobDDRef::replaceBlob(unsigned NewIndex) {
   unsigned OldIndex = CE->getSingleBlobIndex();
   unsigned NewSymbase = BlobUtils::getTempBlobSymbase(NewIndex);
 
+  // Resetting CE's source and dest. to corresp. type
+  Type *Ty = BlobUtils::getBlob(NewIndex)->getType();
+  CE->setSrcType(Ty);
+  CE->setDestType(Ty);
+
   CE->replaceBlob(OldIndex, NewIndex);
   setSymbase(NewSymbase);
 }
