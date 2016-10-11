@@ -158,7 +158,7 @@ public:
   bool isCmp(MachineInstr *) const;
   bool isAtomic(MachineInstr *) const;
   bool isOrderedAtomic(MachineInstr *) const;
-  bool isSeq(MachineInstr *) const;
+  bool isSeqOT(MachineInstr *) const;
   
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
   unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
@@ -192,10 +192,10 @@ public:
   // opcode for a sequence instruction corresponding to that op.
   //
   // 
-  //  CMPGT maps to SEQGT
-  //  CMPGE maps to SEQGE
+  //  CMPGT maps to SEQOTGT
+  //  CMPGE maps to SEQOTGE
   //    etc...
-  unsigned convertCompareOpToSequenceOp(unsigned cmp_opcode) const;
+  unsigned convertCompareOpToSeqOTOp(unsigned cmp_opcode) const;
 
 
   // Takes in a sequence opcode, and a bitwidth, and returns a
@@ -203,9 +203,9 @@ public:
   //   min(size of seq_opcode, bitwidth)
   //
   // For example:
-  //     SEQGTS32, 8   --> SEQGTS32
-  //     SEQGTS16, 32  --> SEQGTS32
-  unsigned promoteSequenceOpBitwidth(unsigned seq_opcode, int bitwidth) const;
+  //     SEQOTGTS32, 8   --> SEQOTGTS32
+  //     SEQOTGTS16, 32  --> SEQOTGTS32
+  unsigned promoteSeqOTOpBitwidth(unsigned seq_opcode, int bitwidth) const;
   
 };
 

@@ -503,11 +503,10 @@ bool LPUInstrInfo::isOrderedAtomic(MachineInstr *MI) const {
     return MI->getOpcode() >= LPU::OATMADD16 && MI->getOpcode() <= LPU::OATMXOR8;
 }
 
-bool LPUInstrInfo::isSeq(MachineInstr *MI) const {
-    return ((MI->getOpcode() >= LPU::SEQC16) &&
-            (MI->getOpcode() <= LPU::SEQNE64));
+bool LPUInstrInfo::isSeqOT(MachineInstr *MI) const {
+    return ((MI->getOpcode() >= LPU::SEQOTGE) &&
+            (MI->getOpcode() <= LPU::SEQOTNE8));
 }
-
 
 unsigned
 LPUInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {
@@ -736,89 +735,89 @@ unsigned LPUInstrInfo::commuteCompareOpcode(unsigned cmp_opcode) const {
 
 
 unsigned LPUInstrInfo::
-convertCompareOpToSequenceOp(unsigned cmp_opcode) const {
+convertCompareOpToSeqOTOp(unsigned cmp_opcode) const {
     switch (cmp_opcode) {
     // ">="
     case LPU::CMPGES8:
-      return LPU::SEQGES8;
+      return LPU::SEQOTGES8;
     case LPU::CMPGES16:
-      return LPU::SEQGES16;
+      return LPU::SEQOTGES16;
     case LPU::CMPGES32:
-      return LPU::SEQGES32;
+      return LPU::SEQOTGES32;
     case LPU::CMPGES64:
-      return LPU::SEQGES64;
+      return LPU::SEQOTGES64;
     case LPU::CMPGEU8:
-      return LPU::SEQGEU8;
+      return LPU::SEQOTGEU8;
     case LPU::CMPGEU16:
-      return LPU::SEQGEU16;
+      return LPU::SEQOTGEU16;
     case LPU::CMPGEU32:
-      return LPU::SEQGEU32;
+      return LPU::SEQOTGEU32;
     case LPU::CMPGEU64:
-      return LPU::SEQGEU64;
+      return LPU::SEQOTGEU64;
 
     // ">" 
     case LPU::CMPGTS8:
-      return LPU::SEQGTS8;
+      return LPU::SEQOTGTS8;
     case LPU::CMPGTS16:
-      return LPU::SEQGTS16;
+      return LPU::SEQOTGTS16;
     case LPU::CMPGTS32:
-      return LPU::SEQGTS32;
+      return LPU::SEQOTGTS32;
     case LPU::CMPGTS64:
-      return LPU::SEQGTS64;
+      return LPU::SEQOTGTS64;
     case LPU::CMPGTU8:
-      return LPU::SEQGTU8;
+      return LPU::SEQOTGTU8;
     case LPU::CMPGTU16:
-      return LPU::SEQGTU16;
+      return LPU::SEQOTGTU16;
     case LPU::CMPGTU32:
-      return LPU::SEQGTU32;
+      return LPU::SEQOTGTU32;
     case LPU::CMPGTU64:
-      return LPU::SEQGTU64;
+      return LPU::SEQOTGTU64;
 
     // "<=" 
     case LPU::CMPLES8:
-      return LPU::SEQLES8;
+      return LPU::SEQOTLES8;
     case LPU::CMPLES16:
-      return LPU::SEQLES16;
+      return LPU::SEQOTLES16;
     case LPU::CMPLES32:
-      return LPU::SEQLES32;
+      return LPU::SEQOTLES32;
     case LPU::CMPLES64:
-      return LPU::SEQLES64;
+      return LPU::SEQOTLES64;
     case LPU::CMPLEU8:
-      return LPU::SEQLEU8;
+      return LPU::SEQOTLEU8;
     case LPU::CMPLEU16:
-      return LPU::SEQLEU16;
+      return LPU::SEQOTLEU16;
     case LPU::CMPLEU32:
-      return LPU::SEQLEU32;
+      return LPU::SEQOTLEU32;
     case LPU::CMPLEU64:
-      return LPU::SEQLEU64;
+      return LPU::SEQOTLEU64;
 
     // "<" 
     case LPU::CMPLTS8:
-      return LPU::SEQLTS8;
+      return LPU::SEQOTLTS8;
     case LPU::CMPLTS16:
-      return LPU::SEQLTS16;
+      return LPU::SEQOTLTS16;
     case LPU::CMPLTS32:
-      return LPU::SEQLTS32;
+      return LPU::SEQOTLTS32;
     case LPU::CMPLTS64:
-      return LPU::SEQLTS64;
+      return LPU::SEQOTLTS64;
     case LPU::CMPLTU8:
-      return LPU::SEQLTU8;
+      return LPU::SEQOTLTU8;
     case LPU::CMPLTU16:
-      return LPU::SEQLTU16;
+      return LPU::SEQOTLTU16;
     case LPU::CMPLTU32:
-      return LPU::SEQLTU32;
+      return LPU::SEQOTLTU32;
     case LPU::CMPLTU64:
-      return LPU::SEQLTU64;
+      return LPU::SEQOTLTU64;
 
     // !=
     case LPU::CMPNE8:
-      return LPU::SEQNE8;
+      return LPU::SEQOTNE8;
     case LPU::CMPNE16:
-      return LPU::SEQNE16;
+      return LPU::SEQOTNE16;
     case LPU::CMPNE32:
-      return LPU::SEQNE32;
+      return LPU::SEQOTNE32;
     case LPU::CMPNE64:
-      return LPU::SEQNE64;
+      return LPU::SEQOTNE64;
       
 
     // By default, return the same opcode. 
@@ -829,99 +828,99 @@ convertCompareOpToSequenceOp(unsigned cmp_opcode) const {
 
 
 unsigned LPUInstrInfo::
-promoteSequenceOpBitwidth(unsigned seq_opcode,
-                          int bitwidth) const {
+promoteSeqOTOpBitwidth(unsigned seq_opcode,
+                       int bitwidth) const {
     switch (seq_opcode) {
       // This code is relying on the fall-through of switch, to end up
       // picking the smallest size that is both larger than the size
       // specified in seq_opcode and >= bitwidth.
 
     //">="
-    case LPU::SEQGES8:
-      if (bitwidth <= 8) { return LPU::SEQGES8; }
-    case LPU::SEQGES16:
-      if (bitwidth <= 16) { return LPU::SEQGES16; }      
-    case LPU::SEQGES32:
-      if (bitwidth <= 32) { return LPU::SEQGES32; }            
-    case LPU::SEQGES64:
-      return LPU::SEQGES64;
+    case LPU::SEQOTGES8:
+      if (bitwidth <= 8) { return LPU::SEQOTGES8; }
+    case LPU::SEQOTGES16:
+      if (bitwidth <= 16) { return LPU::SEQOTGES16; }      
+    case LPU::SEQOTGES32:
+      if (bitwidth <= 32) { return LPU::SEQOTGES32; }            
+    case LPU::SEQOTGES64:
+      return LPU::SEQOTGES64;
 
-    case LPU::SEQGEU8:
-      if (bitwidth <= 8) { return LPU::SEQGEU8; }
-    case LPU::SEQGEU16:
-      if (bitwidth <= 16) { return LPU::SEQGEU16; }      
-    case LPU::SEQGEU32:
-      if (bitwidth <= 32) { return LPU::SEQGEU32; }            
-    case LPU::SEQGEU64:
-      return LPU::SEQGEU64;
+    case LPU::SEQOTGEU8:
+      if (bitwidth <= 8) { return LPU::SEQOTGEU8; }
+    case LPU::SEQOTGEU16:
+      if (bitwidth <= 16) { return LPU::SEQOTGEU16; }      
+    case LPU::SEQOTGEU32:
+      if (bitwidth <= 32) { return LPU::SEQOTGEU32; }            
+    case LPU::SEQOTGEU64:
+      return LPU::SEQOTGEU64;
 
     // ">"
-    case LPU::SEQGTS8:
-      if (bitwidth <= 8) { return LPU::SEQGTS8; }
-    case LPU::SEQGTS16:
-      if (bitwidth <= 16) { return LPU::SEQGTS16; }      
-    case LPU::SEQGTS32:
-      if (bitwidth <= 32) { return LPU::SEQGTS32; }            
-    case LPU::SEQGTS64:
-      return LPU::SEQGTS64;
+    case LPU::SEQOTGTS8:
+      if (bitwidth <= 8) { return LPU::SEQOTGTS8; }
+    case LPU::SEQOTGTS16:
+      if (bitwidth <= 16) { return LPU::SEQOTGTS16; }      
+    case LPU::SEQOTGTS32:
+      if (bitwidth <= 32) { return LPU::SEQOTGTS32; }            
+    case LPU::SEQOTGTS64:
+      return LPU::SEQOTGTS64;
 
-    case LPU::SEQGTU8:
-      if (bitwidth <= 8) { return LPU::SEQGTU8; }
-    case LPU::SEQGTU16:
-      if (bitwidth <= 16) { return LPU::SEQGTU16; }      
-    case LPU::SEQGTU32:
-      if (bitwidth <= 32) { return LPU::SEQGTU32; }            
-    case LPU::SEQGTU64:
-      return LPU::SEQGTU64;
+    case LPU::SEQOTGTU8:
+      if (bitwidth <= 8) { return LPU::SEQOTGTU8; }
+    case LPU::SEQOTGTU16:
+      if (bitwidth <= 16) { return LPU::SEQOTGTU16; }      
+    case LPU::SEQOTGTU32:
+      if (bitwidth <= 32) { return LPU::SEQOTGTU32; }            
+    case LPU::SEQOTGTU64:
+      return LPU::SEQOTGTU64;
 
 
     // "<="
-    case LPU::SEQLES8:
-      if (bitwidth <= 8) { return LPU::SEQLES8; }
-    case LPU::SEQLES16:
-      if (bitwidth <= 16) { return LPU::SEQLES16; }      
-    case LPU::SEQLES32:
-      if (bitwidth <= 32) { return LPU::SEQLES32; }            
-    case LPU::SEQLES64:
-      return LPU::SEQLES64;
+    case LPU::SEQOTLES8:
+      if (bitwidth <= 8) { return LPU::SEQOTLES8; }
+    case LPU::SEQOTLES16:
+      if (bitwidth <= 16) { return LPU::SEQOTLES16; }      
+    case LPU::SEQOTLES32:
+      if (bitwidth <= 32) { return LPU::SEQOTLES32; }            
+    case LPU::SEQOTLES64:
+      return LPU::SEQOTLES64;
 
-    case LPU::SEQLEU8:
-      if (bitwidth <= 8) { return LPU::SEQLEU8; }
-    case LPU::SEQLEU16:
-      if (bitwidth <= 16) { return LPU::SEQLEU16; }      
-    case LPU::SEQLEU32:
-      if (bitwidth <= 32) { return LPU::SEQLEU32; }            
-    case LPU::SEQLEU64:
-      return LPU::SEQLEU64;
+    case LPU::SEQOTLEU8:
+      if (bitwidth <= 8) { return LPU::SEQOTLEU8; }
+    case LPU::SEQOTLEU16:
+      if (bitwidth <= 16) { return LPU::SEQOTLEU16; }      
+    case LPU::SEQOTLEU32:
+      if (bitwidth <= 32) { return LPU::SEQOTLEU32; }            
+    case LPU::SEQOTLEU64:
+      return LPU::SEQOTLEU64;
 
     // "<"
-    case LPU::SEQLTS8:
-      if (bitwidth <= 8) { return LPU::SEQLTS8; }
-    case LPU::SEQLTS16:
-      if (bitwidth <= 16) { return LPU::SEQLTS16; }      
-    case LPU::SEQLTS32:
-      if (bitwidth <= 32) { return LPU::SEQLTS32; }            
-    case LPU::SEQLTS64:
-      return LPU::SEQLTS64;
+    case LPU::SEQOTLTS8:
+      if (bitwidth <= 8) { return LPU::SEQOTLTS8; }
+    case LPU::SEQOTLTS16:
+      if (bitwidth <= 16) { return LPU::SEQOTLTS16; }      
+    case LPU::SEQOTLTS32:
+      if (bitwidth <= 32) { return LPU::SEQOTLTS32; }            
+    case LPU::SEQOTLTS64:
+      return LPU::SEQOTLTS64;
 
-    case LPU::SEQLTU8:
-      if (bitwidth <= 8) { return LPU::SEQLTU8; }
-    case LPU::SEQLTU16:
-      if (bitwidth <= 16) { return LPU::SEQLTU16; }      
-    case LPU::SEQLTU32:
-      if (bitwidth <= 32) { return LPU::SEQLTU32; }            
-    case LPU::SEQLTU64:
-      return LPU::SEQLTU64;
+    case LPU::SEQOTLTU8:
+      if (bitwidth <= 8) { return LPU::SEQOTLTU8; }
+    case LPU::SEQOTLTU16:
+      if (bitwidth <= 16) { return LPU::SEQOTLTU16; }      
+    case LPU::SEQOTLTU32:
+      if (bitwidth <= 32) { return LPU::SEQOTLTU32; }            
+    case LPU::SEQOTLTU64:
+      return LPU::SEQOTLTU64;
 
     // !=
-    case LPU::SEQNE8:
-      if (bitwidth <= 8) { return LPU::SEQNE8; }
-    case LPU::SEQNE16:
-      if (bitwidth <= 16) { return LPU::SEQNE16; }      
-    case LPU::SEQNE32:
-      if (bitwidth <= 32) { return LPU::SEQNE32; }            
-    case LPU::SEQNE64:
-      return LPU::SEQNE64;
+    case LPU::SEQOTNE8:
+      if (bitwidth <= 8) { return LPU::SEQOTNE8; }
+    case LPU::SEQOTNE16:
+      if (bitwidth <= 16) { return LPU::SEQOTNE16; }      
+    case LPU::SEQOTNE32:
+      if (bitwidth <= 32) { return LPU::SEQOTNE32; }            
+    case LPU::SEQOTNE64:
+      return LPU::SEQOTNE64;
       
     // By default, return the same opcode. 
     default:

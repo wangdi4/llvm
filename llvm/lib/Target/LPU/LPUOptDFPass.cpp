@@ -1524,7 +1524,7 @@ seq_compute_matching_seq_opcode(unsigned ciOp,
   }
 
   // Find a sequence opcode that matches our compare opcode.
-  unsigned seqOp = TII.convertCompareOpToSequenceOp(compareOp);
+  unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);
   if (seqOp != compareOp) {
 
     // If we have a matching sequence op, then check that the
@@ -1532,16 +1532,16 @@ seq_compute_matching_seq_opcode(unsigned ciOp,
 
     switch(tOp) {
     case LPU::ADD8:
-      *indvar_opcode = TII.promoteSequenceOpBitwidth(seqOp, 8);
+      *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 8);
       return true;      
     case LPU::ADD16:
-      *indvar_opcode = TII.promoteSequenceOpBitwidth(seqOp, 16);      
+      *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 16);      
       return true;      
     case LPU::ADD32:
-      *indvar_opcode = TII.promoteSequenceOpBitwidth(seqOp, 32);            
+      *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 32);            
       return true;      
     case LPU::ADD64:
-      *indvar_opcode = TII.promoteSequenceOpBitwidth(seqOp, 64);                  
+      *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 64);                  
       return true;
     }
   }
