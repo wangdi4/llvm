@@ -530,7 +530,7 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
     return true;
   }
   else {
-    printf("%s is missing\n", funcName.c_str());
+    V_PRINT(resolver, "%s is missing, " << funcName.c_str() << "\n");
   }
   return false;
 }

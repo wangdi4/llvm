@@ -422,7 +422,7 @@ bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isL
   Function* transposeFuncRT = m_rtServices->findInRuntimeModule(funcName);
   // No proper transpose function for this load and packet width
   if (!transposeFuncRT) {
-    printf("%s is missing\n", funcName.c_str());
+    V_PRINT(packetizer, "%s is missing," << funcName.c_str() << "\n");
     return false;
   }
   return true;
