@@ -17,19 +17,21 @@
 
 // NOTE: This enumeration is effectively duplicated in LPUInstrInfo.h
 // for now.  Eventually, that information will hopefully just rely on
-// information here.
-def VIR : FuncUnit; // Virtual unit - doesn't really exist
-def ALU : FuncUnit; // Integer arithmetic and logical
-def SHF : FuncUnit; // Shift unit
-def IMA : FuncUnit; // Integer multiply/accumulate
-def FMA : FuncUnit; // Floating Multiply Accumulate
-def FCM : FuncUnit; // Floating point comparisons
-def CFI : FuncUnit; // Conversion to Floating from Integer
-def CIF : FuncUnit; // Conversion to Integer of Floating
-def DIV : FuncUnit; // Division
-def MEM : FuncUnit; // Memory access
-def SXU : FuncUnit; // Sequential eXecution Unit
-def SPD : FuncUnit; // Scratchpad
+// information here.  Note that the LPUInstrInfo.h copy doesn't have
+// the FU_ prefix.  Here, it is needed because of collisions with things
+// like FMA and DIV with generic opcodes.
+def FU_VIR : FuncUnit; // Virtual unit - doesn't really exist
+def FU_ALU : FuncUnit; // Integer arithmetic and logical
+def FU_SHF : FuncUnit; // Shift unit
+def FU_IMA : FuncUnit; // Integer multiply/accumulate
+def FU_FMA : FuncUnit; // Floating Multiply Accumulate
+def FU_FCM : FuncUnit; // Floating point comparisons
+def FU_CFI : FuncUnit; // Conversion to Floating from Integer
+def FU_CIF : FuncUnit; // Conversion to Integer of Floating
+def FU_DIV : FuncUnit; // Division
+def FU_MEM : FuncUnit; // Memory access
+def FU_SXU : FuncUnit; // Sequential eXecution Unit
+def FU_SPD : FuncUnit; // Scratchpad
 
 //===----------------------------------------------------------------------===//
 // Instruction Itinerary classes used for LPU
@@ -85,48 +87,48 @@ def IICtl     : InstrItinClass;
 //
 def LPUGenericItineraries :
 ProcessorItineraries<
-  [VIR, ALU, SHF, IMA, FMA, FCM, CFI, CIF, DIV, MEM, SXU, SPD], [], [
+  [FU_VIR, FU_ALU, FU_SHF, FU_IMA, FU_FMA, FU_FCM, FU_CFI, FU_CIF, FU_DIV, FU_MEM, FU_SXU, FU_SPD], [], [
 
-  InstrItinData<IIPseudo  , [InstrStage<1, [ALU]>]>,
-  InstrItinData<IIVir     , [InstrStage<1, [VIR]>]>,
-  InstrItinData<IIALU     , [InstrStage<1, [ALU]>]>,
-  InstrItinData<IISAdd    , [InstrStage<1, [ALU]>]>,
-  InstrItinData<IIShft    , [InstrStage<1, [SHF]>]>,
-  InstrItinData<IICmpF    , [InstrStage<1, [FCM]>]>,
-  InstrItinData<IIAddF16  , [InstrStage<2, [FMA]>]>,
-  InstrItinData<IIAddF32  , [InstrStage<2, [FMA]>]>,
-  InstrItinData<IIAddF64  , [InstrStage<2, [FMA]>]>,
-  InstrItinData<IIMulI8   , [InstrStage<2, [IMA]>]>,
-  InstrItinData<IIMulI16  , [InstrStage<2, [IMA]>]>,
-  InstrItinData<IIMulI32  , [InstrStage<2, [IMA]>]>,
-  InstrItinData<IIMulI64  , [InstrStage<2, [IMA]>]>,
-  InstrItinData<IIMulF16  , [InstrStage<2, [FMA]>]>,
-  InstrItinData<IIMulF32  , [InstrStage<2, [FMA]>]>,
-  InstrItinData<IIMulF64  , [InstrStage<2, [FMA]>]>,
-  InstrItinData<IIFMAF16  , [InstrStage<3, [FMA]>]>,
-  InstrItinData<IIFMAF32  , [InstrStage<3, [FMA]>]>,
-  InstrItinData<IIFMAF64  , [InstrStage<3, [FMA]>]>,
-  InstrItinData<IIDivI8   , [InstrStage<5, [DIV]>]>,
-  InstrItinData<IIDivI16  , [InstrStage<5, [DIV]>]>,
-  InstrItinData<IIDivI32  , [InstrStage<5, [DIV]>]>,
-  InstrItinData<IIDivI64  , [InstrStage<7, [DIV]>]>,
-  InstrItinData<IIDivF16  , [InstrStage<5, [DIV]>]>,
-  InstrItinData<IIDivF32  , [InstrStage<5, [DIV]>]>,
-  InstrItinData<IIDivF64  , [InstrStage<5, [DIV]>]>,
-  InstrItinData<IISqrtF16 , [InstrStage<8, [DIV]>]>,
-  InstrItinData<IISqrtF32 , [InstrStage<8, [DIV]>]>,
-  InstrItinData<IISqrtF64 , [InstrStage<8, [DIV]>]>,
-  InstrItinData<IIMathF16 , [InstrStage<24,[DIV]>]>,
-  InstrItinData<IIMathF32 , [InstrStage<24,[DIV]>]>,
-  InstrItinData<IIMathF64 , [InstrStage<24,[DIV]>]>,
-  InstrItinData<IICvtIF   , [InstrStage<1, [CIF]>]>,
-  InstrItinData<IICvtFI   , [InstrStage<1, [CFI]>]>,
-  InstrItinData<IICvtFF   , [InstrStage<1, [FMA]>]>,
-  InstrItinData<IILD      , [InstrStage<12,[MEM]>]>,
-  InstrItinData<IIST      , [InstrStage<4, [MEM]>]>,
-  InstrItinData<IIATM     , [InstrStage<12,[MEM]>]>,
-  InstrItinData<IISeq     , [InstrStage<1, [ALU]>]>,
-  InstrItinData<IICtl     , [InstrStage<1, [SXU]>]>
+  InstrItinData<IIPseudo  , [InstrStage<1, [FU_ALU]>]>,
+  InstrItinData<IIVir     , [InstrStage<1, [FU_VIR]>]>,
+  InstrItinData<IIALU     , [InstrStage<1, [FU_ALU]>]>,
+  InstrItinData<IISAdd    , [InstrStage<1, [FU_ALU]>]>,
+  InstrItinData<IIShft    , [InstrStage<1, [FU_SHF]>]>,
+  InstrItinData<IICmpF    , [InstrStage<1, [FU_FCM]>]>,
+  InstrItinData<IIAddF16  , [InstrStage<2, [FU_FMA]>]>,
+  InstrItinData<IIAddF32  , [InstrStage<2, [FU_FMA]>]>,
+  InstrItinData<IIAddF64  , [InstrStage<2, [FU_FMA]>]>,
+  InstrItinData<IIMulI8   , [InstrStage<2, [FU_IMA]>]>,
+  InstrItinData<IIMulI16  , [InstrStage<2, [FU_IMA]>]>,
+  InstrItinData<IIMulI32  , [InstrStage<2, [FU_IMA]>]>,
+  InstrItinData<IIMulI64  , [InstrStage<2, [FU_IMA]>]>,
+  InstrItinData<IIMulF16  , [InstrStage<2, [FU_FMA]>]>,
+  InstrItinData<IIMulF32  , [InstrStage<2, [FU_FMA]>]>,
+  InstrItinData<IIMulF64  , [InstrStage<2, [FU_FMA]>]>,
+  InstrItinData<IIFMAF16  , [InstrStage<3, [FU_FMA]>]>,
+  InstrItinData<IIFMAF32  , [InstrStage<3, [FU_FMA]>]>,
+  InstrItinData<IIFMAF64  , [InstrStage<3, [FU_FMA]>]>,
+  InstrItinData<IIDivI8   , [InstrStage<5, [FU_DIV]>]>,
+  InstrItinData<IIDivI16  , [InstrStage<5, [FU_DIV]>]>,
+  InstrItinData<IIDivI32  , [InstrStage<5, [FU_DIV]>]>,
+  InstrItinData<IIDivI64  , [InstrStage<7, [FU_DIV]>]>,
+  InstrItinData<IIDivF16  , [InstrStage<5, [FU_DIV]>]>,
+  InstrItinData<IIDivF32  , [InstrStage<5, [FU_DIV]>]>,
+  InstrItinData<IIDivF64  , [InstrStage<5, [FU_DIV]>]>,
+  InstrItinData<IISqrtF16 , [InstrStage<8, [FU_DIV]>]>,
+  InstrItinData<IISqrtF32 , [InstrStage<8, [FU_DIV]>]>,
+  InstrItinData<IISqrtF64 , [InstrStage<8, [FU_DIV]>]>,
+  InstrItinData<IIMathF16 , [InstrStage<24,[FU_DIV]>]>,
+  InstrItinData<IIMathF32 , [InstrStage<24,[FU_DIV]>]>,
+  InstrItinData<IIMathF64 , [InstrStage<24,[FU_DIV]>]>,
+  InstrItinData<IICvtIF   , [InstrStage<1, [FU_CIF]>]>,
+  InstrItinData<IICvtFI   , [InstrStage<1, [FU_CFI]>]>,
+  InstrItinData<IICvtFF   , [InstrStage<1, [FU_FMA]>]>,
+  InstrItinData<IILD      , [InstrStage<12,[FU_MEM]>]>,
+  InstrItinData<IIST      , [InstrStage<4, [FU_MEM]>]>,
+  InstrItinData<IIATM     , [InstrStage<12,[FU_MEM]>]>,
+  InstrItinData<IISeq     , [InstrStage<1, [FU_ALU]>]>,
+  InstrItinData<IICtl     , [InstrStage<1, [FU_SXU]>]>
 
 ]>;
 

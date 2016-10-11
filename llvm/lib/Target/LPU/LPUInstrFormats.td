@@ -11,8 +11,22 @@
 // Instruction format superclass
 //===----------------------------------------------------------------------===//
 
-class InstLPU<dag outs, dag ins, string asmstr, list<dag> pattern,
-      list<Predicate> preds, InstrItinClass itin = NoItinerary>
+// Generic operations
+// For now, this just declares generic opcodes.  In the long run, we may want
+// to have things like operands, type signatures
+class GenericOp<string opStr, list<Predicate> preds = []> : Instruction {
+  string Namespace = "LPU";
+  string AsmString = opStr;
+  // No description for generic ops currently
+  let OutOperandList = (outs);
+  let InOperandList = (ins);
+  list<Predicate> Preds = preds;
+}
+
+class LPUOpInfo;
+
+class InstLPU<dag outs, dag ins, string asmstr, list<dag> pattern = [],
+      list<Predicate> preds = [], InstrItinClass itin = NoItinerary>
     : Instruction {
   // Actual encoding TBD.  Might be variable length.
   field bits<64> Inst;
@@ -24,14 +38,16 @@ class InstLPU<dag outs, dag ins, string asmstr, list<dag> pattern,
   let Pattern = pattern;
   let Predicates = preds;
   let Itinerary = itin;
+
+  GenericOp GenOp; // The generic operator for this operation (e.g. ADD for ADD64)
+  LPUOpInfo OpInfo;
 }
 
 // LPU pseudo instruction format
 class PseudoInstLPU<dag outs, dag ins, string asmstr, list<dag> pattern,
-      list<Predicate> preds = [], InstrItinClass itin = NoItinerary>
+      list<Predicate> preds = [], InstrItinClass itin = IIPseudo>
     : InstLPU<outs, ins, asmstr, pattern, preds, itin> {
   let isPseudo = 1;
-  let Itinerary = IIPseudo;
 }
 
 
