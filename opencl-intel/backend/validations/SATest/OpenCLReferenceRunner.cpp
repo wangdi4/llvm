@@ -134,7 +134,7 @@ OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT):
     initOCLBuiltinsGeometric();
     initOCLBuiltinsImages();
     initOCLBuiltinsInteger();
-    //initOCLBuiltinsMath();
+    initOCLBuiltinsMath();
     initOCLBuiltinsMisc();
     initOCLBuiltinsRelational();
     initOCLBuiltinsWorkItem();
