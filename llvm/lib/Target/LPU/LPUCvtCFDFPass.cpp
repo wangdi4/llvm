@@ -260,6 +260,15 @@ void LPUCvtCFDFPass::releaseMemory() {
     delete instrv;
   }
 	bb2predcpy.clear();
+
+	DenseMap<MachineBasicBlock *, SmallVectorImpl<unsigned> *> ::iterator itedge = edgepreds.begin();
+	while (itedge != edgepreds.end()) {
+		SmallVectorImpl<unsigned>* edges = itedge->getSecond();
+		++itedge;
+		delete edges;
+	}
+	edgepreds.clear();
+
 }
 
 
@@ -1523,7 +1532,9 @@ unsigned LPUCvtCFDFPass::getEdgePred(MachineBasicBlock* mbb, unsigned childType)
 
 void LPUCvtCFDFPass::setEdgePred(MachineBasicBlock* mbb, unsigned childType, unsigned ch) {
 	if (edgepreds.find(mbb) == edgepreds.end()) {
-		SmallVector<unsigned, 2>* childVect = new SmallVector<unsigned, 2>;
+		SmallVectorImpl<unsigned>* childVect = new SmallVector<unsigned, 2>;
+		childVect->push_back(0);
+		childVect->push_back(0);
 		edgepreds[mbb] = childVect;
 	}
 	(*edgepreds[mbb])[childType] = ch;
@@ -1619,7 +1630,7 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
 		}	else {
 			unsigned mergeEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
 			MachineBasicBlock::iterator loc = inBB->getFirstNonPHI();
-			BuildMI(*inBB, loc, DebugLoc(), TII.get(LPU::PREDMERGE), mergeEdge).addReg(predBB).addReg(ctrlEdge);
+			BuildMI(*inBB, loc, DebugLoc(), TII.get(LPU::OR1), mergeEdge).addReg(predBB).addReg(ctrlEdge);
 			predBB = mergeEdge;
 		}
 	}
@@ -1630,21 +1641,62 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
 	return predBB;
 }
 
+
 void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 	assert(MI->isPHI());
-	//MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+	SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
 	MachineBasicBlock* mbb = MI->getParent();
+	unsigned predBB = 0;
+	MachineInstr* predMergeInstr = nullptr;
+
 	for (MIOperands MO(MI); MO.isValid(); ++MO) {
 		if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 		if (MO->isUse()) {
-			//unsigned Reg = MO->getReg();
+			unsigned Reg = MO->getReg();
 			//move to its incoming block operand
 			++MO;
 			MachineBasicBlock* inBB = MO->getMBB();
-			//unsigned edgePred = computeEdgePred(inBB, mbb);
-			//addEdgeValuePairToPick1(MI, edgePred, Reg);
+			unsigned edgePred = computeEdgePred(inBB, mbb);
+			std::pair<unsigned, unsigned>* pred2value = new std::pair<unsigned, unsigned>;
+			pred2value->first = edgePred;
+			pred2value->second = Reg;
+			pred2values.push_back(pred2value);
+			//merge incoming edge pred to generate BB pred
+			if (!predBB) {
+				predBB = edgePred;
+			}	else if (MI->getNumOperands() == 5) {
+				//two input phi: use PREDMERGE to avoid further lowering.
+				unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
+				predMergeInstr = BuildMI(*mbb, MI, DebugLoc(), TII.get(LPU::PREDMERGE),
+					indexReg).
+					addReg(LPU::IGN, RegState::Define). //eat the BB's pred, they will be computed using "or" consistently
+					addReg(predBB).   //last processed edge
+					addReg(edgePred); //current edge
+			}
 		}
 	} //end of for MO
+
+	//if we have two-way predMerge available, use predmerge/pick combination to generated pick directly
+	if (predMergeInstr) {
+		assert(MI->getNumOperands() == 5);
+		unsigned reg1 = MI->getOperand(1).getReg();
+		unsigned reg2 = MI->getOperand(3).getReg();
+		const TargetRegisterClass *TRC = MRI->getRegClass(reg1);
+		unsigned pickPred = predMergeInstr->getOperand(0).getReg();
+		const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+		unsigned dst = MI->getOperand(0).getReg();
+		BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(pickPred).addReg(reg1).addReg(reg2);
+	}	else {
+		//TODO::generated xphi sequence
+		assert(false && "to be implemented");
+	}
+	//release memory
+	for (unsigned i = 0; i < pred2values.size(); i++) {
+		std::pair<unsigned, unsigned>* pred2value = pred2values[i];
+		delete pred2value;
+	}
 	MI->removeFromParent();
 }
 
