@@ -433,13 +433,13 @@ void CPUDetect::GetCPUInfo()
 	m_szCPUBrandString = STRDUP("Intel(R) Atom(TM)");
 #endif
     }
-    else if (m_uiCPUFeatures & CFS_AVX512F & CFS_AVX512ER) {
+    else if ((m_uiCPUFeatures & CFS_AVX512F) && (m_uiCPUFeatures & CFS_AVX512ER)) {
         // SDE does not support the string yet, this block will be removed later.
         const char brand[] = "Intel KNL TBD";
         MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), brand, sizeof(brand));
         m_szCPUBrandString = STRDUP(vcCPUBrandString);
     }
-    else if (m_uiCPUFeatures & CFS_AVX512F & CFS_AVX512DQ) {
+    else if ((m_uiCPUFeatures & CFS_AVX512F) && (m_uiCPUFeatures & CFS_AVX512DQ)) {
         const char brand[] = "Intel SKX TBD";
         MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), brand, sizeof(brand));
         m_szCPUBrandString = STRDUP(vcCPUBrandString);
