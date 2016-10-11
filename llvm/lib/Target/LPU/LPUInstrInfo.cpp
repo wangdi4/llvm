@@ -430,7 +430,7 @@ bool LPUInstrInfo::isDiv(MachineInstr *MI) const {
 }
 
 bool LPUInstrInfo::isFMA(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::FMAF16 && MI->getOpcode() <= LPU::FMAF64x;
+	return MI->getOpcode() >= LPU::FMAF16 && MI->getOpcode() <= LPU::FMAF64;
 }
 
 bool LPUInstrInfo::isAdd(MachineInstr *MI) const {

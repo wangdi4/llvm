@@ -38,6 +38,7 @@ class LPUSubtarget : public LPUGenSubtargetInfo {
 
 protected:
   bool IsOrdered;
+  bool HasI0;
   bool HasI1;
   bool HasI8;
   bool HasI16;
@@ -60,6 +61,7 @@ protected:
 public:
   std::string lpuName() const { return LPUName; }
   bool isOrdered() const { return IsOrdered; }
+  bool hasI0()    const { return HasI0; }
   bool hasI1()    const { return HasI1; }
   bool hasI8()    const { return HasI8; }
   bool hasI16()   const { return HasI16; }
