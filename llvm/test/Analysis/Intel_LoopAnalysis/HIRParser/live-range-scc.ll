@@ -5,7 +5,7 @@
 ; CHECK: + DO i1 = 0, 56, 1   <DO_LOOP>
 ; CHECK: |   %sub13153.out2 = %sub13153;
 ; CHECK: |   %sub13153 = %sub13153  +  -1;
-; CHECK: |   if (-1 * i1 + %in < %sub13153.out2)
+; CHECK: |   if (-1 * i1 + %in <u %sub13153.out2)
 ; CHECK: |   {
 ; CHECK: |      %.pre-phi = i1 + 1;
 ; CHECK: |   }

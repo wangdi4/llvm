@@ -330,3 +330,42 @@ void HLIf::verify() const {
 
   HLDDNode::verify();
 }
+
+#ifndef NDEBUG
+LLVM_DUMP_METHOD
+void HLIf::dumpHeader() const {
+  formatted_raw_ostream OS(dbgs());
+  OS << "<" << getNumber() << "> ";
+  printHeader(OS, 0);
+}
+#endif
+
+bool HLIf::isKnownPredicate(bool *IsTrue) const {
+  bool FinalResult = true;
+
+  // Check every predicate if its value is known. Evaluate the result of the
+  // whole HLIf statement.
+  for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
+    auto *DDRefLhs = getPredicateOperandDDRef(I, true);
+    auto *DDRefRhs = getPredicateOperandDDRef(I, false);
+
+    if (!DDRefLhs->isTerminalRef() || !DDRefRhs->isTerminalRef()) {
+      return false;
+    }
+
+    bool Result;
+    if (!HLNodeUtils::isKnownPredicate(DDRefLhs->getSingleCanonExpr(), *I,
+                                       DDRefRhs->getSingleCanonExpr(),
+                                       &Result)) {
+      return false;
+    }
+
+    FinalResult = FinalResult && Result;
+  }
+
+  if (IsTrue) {
+    *IsTrue = FinalResult;
+  }
+
+  return true;
+}

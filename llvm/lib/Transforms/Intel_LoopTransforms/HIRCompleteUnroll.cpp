@@ -970,7 +970,14 @@ void HIRCompleteUnroll::transformLoops() {
     Loop->getParentRegion()->setGenCode();
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
 
+    HLLoop *ParentLoop = Loop->getParentLoop();
+
     transformLoop(Loop, Loop, TripValues);
+
+    if (ParentLoop) {
+      HLNodeUtils::eliminateRedundantPredicates(ParentLoop->child_begin(),
+                                                ParentLoop->child_end());
+    }
   }
 }
 

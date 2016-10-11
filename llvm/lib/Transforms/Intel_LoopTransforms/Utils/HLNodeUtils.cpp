@@ -15,8 +15,8 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
-
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
@@ -25,7 +25,7 @@
 
 #include <memory>
 
-#define DEBUG_TYPE "hlnode-utils"
+#define DEBUG_TYPE "hir-hlnode-utils"
 using namespace llvm;
 using namespace loopopt;
 
@@ -2962,6 +2962,82 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
   return isKnownPositiveOrNegative(CE, ParentNode);
 }
 
+bool HLNodeUtils::getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS) {
+  switch (Pred) {
+  case PredicateTy::ICMP_EQ:
+    return LHS.eq(RHS);
+  case PredicateTy::ICMP_NE:
+    return LHS.ne(RHS);
+
+  case PredicateTy::ICMP_SGE:
+    return LHS.sge(RHS);
+  case PredicateTy::ICMP_SGT:
+    return LHS.sgt(RHS);
+  case PredicateTy::ICMP_SLE:
+    return LHS.sle(RHS);
+  case PredicateTy::ICMP_SLT:
+    return LHS.slt(RHS);
+
+  case PredicateTy::ICMP_UGE:
+    return LHS.uge(RHS);
+  case PredicateTy::ICMP_UGT:
+    return LHS.ugt(RHS);
+  case PredicateTy::ICMP_ULE:
+    return LHS.ule(RHS);
+  case PredicateTy::ICMP_ULT:
+    return LHS.ult(RHS);
+
+  default:
+    llvm_unreachable("Unsupported predicate");
+  }
+}
+
+bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
+                                   const CanonExpr *RHS, bool *Result) {
+  if (Pred == PredicateTy::FCMP_FALSE) {
+    *Result = false;
+    return true;
+  } else if (Pred == PredicateTy::FCMP_TRUE) {
+    *Result = true;
+    return true;
+  }
+
+  // TODO: Temporaty skip constants with casts. The check below should be
+  // removed after simplification of CEs.
+  if (LHS->getSrcType() != LHS->getDestType() ||
+      RHS->getSrcType() != RHS->getDestType()) {
+    return false;
+  }
+
+  int64_t LHSVal, RHSVal;
+  if (LHS->isIntConstant(&LHSVal) && RHS->isIntConstant(&RHSVal)) {
+    bool IsSigned = CmpInst::isSigned(Pred);
+    unsigned BitWidth = LHS->getDestType()->getIntegerBitWidth();
+
+    // TODO: uncomment asserts after simplifications of CEs.
+    //assert(LHS->getSrcType() == LHS->getDestType() &&
+    //       RHS->getSrcType() == RHS->getDestType() && "Cast is not expected");
+    assert(LHS->getDestType() == RHS->getDestType() && "LHS/RHS type mismatch");
+
+    APInt LHSAPInt(BitWidth, LHSVal, IsSigned);
+    APInt RHSAPInt(BitWidth, RHSVal, IsSigned);
+
+    *Result = getPredicateResult(LHSAPInt, Pred, RHSAPInt);
+    return true;
+  }
+
+  bool IsTrueWhenEqual = CmpInst::isTrueWhenEqual(Pred);
+  if ((IsTrueWhenEqual || CmpInst::isFalseWhenEqual(Pred)) &&
+      CanonExprUtils::areEqual(LHS, RHS, false)) {
+    *Result = IsTrueWhenEqual;
+    return true;
+  }
+
+  //TODO: add support for IVs and Blobs
+
+  return false;
+}
+
 bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
                                            const HLLoop **InnerLp,
                                            bool AllowNearPerfect,
@@ -3298,5 +3374,89 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   }
 
   return true;
+}
+
+void HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
+  if (ThenBody) {
+    HLNodeUtils::moveAfter(If, If->then_begin(), If->then_end());
+  } else {
+    HLNodeUtils::moveAfter(If, If->else_begin(), If->else_end());
+  }
+  HLNodeUtils::remove(If);
+}
+
+class RedundantIfLookup final : public HLNodeVisitorBase {
+public:
+  typedef SmallVector<std::tuple<HLIf *, bool>, 16> CandidatesVector;
+
+private:
+  CandidatesVector &Candidates;
+  const HLNode *SkipNode;
+
+public:
+  RedundantIfLookup(CandidatesVector &Candidates)
+      : Candidates(Candidates), SkipNode(nullptr) {}
+
+  void visit(HLIf *If) {
+    bool IsTrue;
+    if (If->isKnownPredicate(&IsTrue)) {
+      SkipNode = If;
+
+      Candidates.emplace_back(std::make_tuple(If, IsTrue));
+
+      // Go over nodes that are not going to be removed. If the predicate is
+      // always TRUE the else branch will be removed.
+      RedundantIfLookup Lookup(Candidates);
+      if (IsTrue) {
+        HLNodeUtils::visitRange<true, false>(Lookup,
+                                             If->then_begin(), If->then_end());
+      } else {
+        HLNodeUtils::visitRange<true, false>(Lookup,
+                                             If->else_begin(), If->else_end());
+      }
+    }
+  }
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  virtual bool skipRecursion(const HLNode *Node) const {
+    return Node == SkipNode;
+  }
+};
+
+STATISTIC(RedundantPredicates, "Redundant predicates removed");
+
+bool HLNodeUtils::eliminateRedundantPredicates(HLContainerTy::iterator First,
+                                               HLContainerTy::iterator Last) {
+  DEBUG(dbgs() << "Eliminating redundant predicates\n ");
+  assert(((First != Last) || First->getParent() == Last->getParent())
+         && "Both nodes should have the same parent"); 
+
+  RedundantIfLookup::CandidatesVector Candidates;
+  RedundantIfLookup Lookup(Candidates);
+
+  HLNodeUtils::visitRange<true, false>(Lookup, First, Last);
+  for (auto Candidate : Candidates) {
+    HLIf *If = std::get<0>(Candidate);
+
+    DEBUG(dbgs() << "Eliminated: ");
+    DEBUG(If->dumpHeader());
+    DEBUG(dbgs() << "\n");
+
+    HLNodeUtils::replaceNodeWithBody(If, std::get<1>(Candidate));
+
+    RedundantPredicates++;
+  }
+
+  if (Candidates.size() > 0) {
+    DEBUG(dbgs() << "While Removing redundant predicates:\n");
+    DEBUG(First->getParentRegion()->dump());
+    DEBUG(dbgs() << "\n");
+
+    return true;
+  }
+
+  return false;
 }
 

@@ -251,6 +251,15 @@ public:
 
   /// \brief Verifies HLIf integrity.
   virtual void verify() const override;
+
+#ifndef NDEBUG
+  LLVM_DUMP_METHOD
+  void dumpHeader() const;
+#endif
+
+  /// Returns true if the HLIf is known to always compute to the specific
+  /// result, which is returned to the \p IsTrue.
+  bool isKnownPredicate(bool *IsTrue = nullptr) const;
 };
 
 } // End namespace loopopt

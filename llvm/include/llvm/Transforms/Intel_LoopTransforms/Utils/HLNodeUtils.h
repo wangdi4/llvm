@@ -435,6 +435,9 @@ private:
                                       const HLNode *FirstNode,
                                       const HLNode *LastNode);
 
+  /// Test the condition described by Pred, LHS and RHS.
+  static bool getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS);
+
 public:
   /// \brief Returns the first dummy instruction of the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
@@ -1259,6 +1262,11 @@ public:
   static bool getExactMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
                                int64_t &Val);
 
+  /// Returns true if the predicate can be evaluated. The predicate result value
+  /// will be stored into the /p Result.
+  static bool isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
+                               const CanonExpr *RHS, bool *Result);
+
   /// Returns true if minimum value of \p CE can be evaluated. Returns the
   /// minimum value in \p Val.
   static bool getMinValue(const CanonExpr *CE, const HLNode *ParentNode,
@@ -1299,6 +1307,15 @@ public:
 
   // Returns true if both HLIf nodes are equal.
   static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
+
+  // Replaces HLIf with its *then* or *else* body.
+  static void replaceNodeWithBody(HLIf *If, bool ThenBody);
+
+  /// Removes HLIfs that always evaluates as either true or false and
+  /// returns true whenever HLIfs were removed. The utility doesn't
+  /// invalidate analysis.
+  static bool eliminateRedundantPredicates(HLContainerTy::iterator First,
+                                           HLContainerTy::iterator Last);
 };
 
 } // End namespace loopopt

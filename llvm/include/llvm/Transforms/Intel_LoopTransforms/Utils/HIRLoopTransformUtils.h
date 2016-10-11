@@ -144,7 +144,7 @@ public:
       );
 
   /// This function creates and returns a new loop that will be used as the
-  ///  main loop for unrolling or vectorization(current clients). The bounds
+  /// main loop for unrolling or vectorization(current clients). The bounds
   /// for this newly created loop are set appropriately using the bounds of
   /// \p OrigLoop and \p UnrollOrVecFactor. If a remainder loop is needed,
   /// \p NeedRemainderLoop is set to true and the bounds of \p OrigLoop are

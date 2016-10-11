@@ -6,10 +6,10 @@
 ; CHECK: @llvm.intel.directive(!"DIR.QUAL.LIST.END");
 ; CHECK: + DO i1 = 0, 2047, 1   <DO_LOOP>
 ; CHECK: |   %0 = (%a)[i1];
-; CHECK: |   if (%0 != 0.000000e+00)
+; CHECK: |   if (%0 !=u 0.000000e+00)
 ; CHECK: |   {
 ; CHECK: |      %1 = (%b)[i1];
-; CHECK: |      if (%1 != 0.000000e+00)
+; CHECK: |      if (%1 !=u 0.000000e+00)
 ; CHECK: |      {
 ; CHECK: |         %2 = (%c)[i1];
 ; CHECK: |         %mul = %1  *  %2;

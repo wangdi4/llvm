@@ -19,7 +19,7 @@
 ; CHECK: |   |      %v_qf.0160 = i1 + 1;
 ; CHECK: |   |   }
 ; CHECK: |   |   %.pre-phi = i1 + 1;
-; CHECK: |   |   if (2 * i2 <= i1 + 1)
+; CHECK: |   |   if (2 * i2 <=u i1 + 1)
 ; CHECK: |   |   {
 ; CHECK: |   |      %g_t.promoted = (@g_t)[0];
 ; CHECK: |   |      %mul27156 = %g_t.promoted;

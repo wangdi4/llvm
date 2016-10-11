@@ -119,35 +119,40 @@ void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
     OS << " true ";
   } else if (Pred == PredicateTy::FCMP_FALSE) {
     OS << " false ";
-  }
-  /// TODO: Differentiate ordered/unordered and signed/unsigned.
-  else if ((Pred == PredicateTy::FCMP_OEQ) || (Pred == PredicateTy::FCMP_UEQ) ||
-           (Pred == PredicateTy::ICMP_EQ)) {
+  } else if ((Pred == PredicateTy::FCMP_OEQ) ||
+             (Pred == PredicateTy::ICMP_EQ)) {
     OS << " == ";
   } else if ((Pred == PredicateTy::FCMP_ONE) ||
-             (Pred == PredicateTy::FCMP_UNE) ||
              (Pred == PredicateTy::ICMP_NE)) {
     OS << " != ";
   } else if ((Pred == PredicateTy::FCMP_OGT) ||
-             (Pred == PredicateTy::FCMP_UGT) ||
-             (Pred == PredicateTy::ICMP_UGT) ||
              (Pred == PredicateTy::ICMP_SGT)) {
     OS << " > ";
   } else if ((Pred == PredicateTy::FCMP_OGE) ||
-             (Pred == PredicateTy::FCMP_UGE) ||
-             (Pred == PredicateTy::ICMP_UGE) ||
              (Pred == PredicateTy::ICMP_SGE)) {
     OS << " >= ";
   } else if ((Pred == PredicateTy::FCMP_OLT) ||
-             (Pred == PredicateTy::FCMP_ULT) ||
-             (Pred == PredicateTy::ICMP_ULT) ||
              (Pred == PredicateTy::ICMP_SLT)) {
     OS << " < ";
   } else if ((Pred == PredicateTy::FCMP_OLE) ||
-             (Pred == PredicateTy::FCMP_ULE) ||
-             (Pred == PredicateTy::ICMP_ULE) ||
              (Pred == PredicateTy::ICMP_SLE)) {
     OS << " <= ";
+  } else if (Pred == PredicateTy::FCMP_UEQ) {
+    OS << " ==u ";
+  } else if (Pred == PredicateTy::FCMP_UNE) {
+    OS << " !=u ";
+  } else if ((Pred == PredicateTy::FCMP_UGT) ||
+             (Pred == PredicateTy::ICMP_UGT)) {
+    OS << " >u ";
+  } else if ((Pred == PredicateTy::FCMP_UGE) ||
+             (Pred == PredicateTy::ICMP_UGE)) {
+    OS << " >=u ";
+  } else if ((Pred == PredicateTy::FCMP_ULT) ||
+             (Pred == PredicateTy::ICMP_ULT)) {
+    OS << " <u ";
+  } else if ((Pred == PredicateTy::FCMP_ULE) ||
+             (Pred == PredicateTy::ICMP_ULE)) {
+    OS << " <=u ";
   } else if (Pred == PredicateTy::FCMP_ORD) {
     OS << " ORDERED ";
   } else if (Pred == PredicateTy::FCMP_UNO) {

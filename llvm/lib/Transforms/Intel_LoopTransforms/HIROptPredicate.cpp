@@ -93,16 +93,6 @@ static cl::opt<bool> DisableCostModel(
 
 namespace {
 
-/// Prints \p If header during the optimization process.
-#ifndef NDEBUG
-LLVM_DUMP_METHOD
-static void dumpIf(const HLIf *If) {
-  formatted_raw_ostream OS(dbgs());
-  OS << "<" << If->getNumber() << "> ";
-  If->printHeader(OS, 0);
-}
-#endif
-
 struct HoistCandidate {
   HLIf *If;
   unsigned Level;
@@ -115,10 +105,10 @@ struct HoistCandidate {
   LLVM_DUMP_METHOD
   void dump() {
     dbgs() << "{";
-    dumpIf(If);
+    If->dumpHeader();
     dbgs() << ", L: " << Level << ", [ ";
     for (HLIf *Clone : Clones) {
-      dumpIf(Clone);
+      Clone->dumpHeader();
       dbgs() << " ";
     }
     dbgs() << "]}";
@@ -170,9 +160,6 @@ private:
   /// \p If.
   HLLoop *findTargetLoopAtLevel(const HLIf *If, HLLoop *ParentLoop,
                                 unsigned Level) const;
-
-  /// Extracts HLIf body and removes the node.
-  void replaceWithBody(HLIf *If, bool ThenBody);
 
   /// Transform the original loop.
   void transformCandidate(HLLoop *TargetLoop, HoistCandidate &Candidate);
@@ -345,7 +332,7 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   }
 
   DEBUG(dbgs() << "Opportunity: ");
-  DEBUG(dumpIf(If));
+  DEBUG(If->dumpHeader());
   DEBUG(dbgs() << " --> Level " << Level << "\n");
 
   Pass.Candidates.emplace_back(If, Level);
@@ -535,19 +522,6 @@ bool HIROptPredicate::isLoopSupported(const HLLoop *Loop) const {
   return true;
 }
 
-void HIROptPredicate::replaceWithBody(HLIf *If, bool ThenBody) {
-  if (ThenBody) {
-    if (If->hasThenChildren()) {
-      HLNodeUtils::moveAfter(If, If->then_begin(), If->then_end());
-    }
-  } else {
-    if (If->hasElseChildren()) {
-      HLNodeUtils::moveAfter(If, If->else_begin(), If->else_end());
-    }
-  }
-  HLNodeUtils::remove(If);
-}
-
 // transformLoop - Perform the OptPredicate transformation for the given loop.
 // There will be two loops after the transformation. One loop inside the
 // If-Then and other inside the Else.
@@ -594,11 +568,11 @@ bool HIROptPredicate::transformClones(HLLoop *TargetLoop,
 
   for (HLIf *Clone : Candidate.Clones) {
     if (HLNodeUtils::contains(Candidate.If, Clone, false)) {
-      replaceWithBody(Clone, Candidate.If->isThenChild(Clone));
+      HLNodeUtils::replaceNodeWithBody(Clone, Candidate.If->isThenChild(Clone));
     } else {
       if (!NewCandidatePtr) {
         DEBUG(dbgs() << "Found new candidate: ");
-        DEBUG(dumpIf(Clone));
+        DEBUG(Clone->dumpHeader());
         DEBUG(dbgs() << "\n");
 
         NewCandidate = std::move(HoistCandidate(Clone, Candidate.Level));

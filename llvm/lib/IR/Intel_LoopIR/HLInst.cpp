@@ -99,12 +99,14 @@ bool HLInst::checkSeparator(formatted_raw_ostream &OS, bool Print) const {
       } else if ((Opcode == Instruction::Mul) ||
                  (Opcode == Instruction::FMul)) {
         OS << "  *  ";
-      } else if ((Opcode == Instruction::UDiv) ||
-                 (Opcode == Instruction::SDiv) ||
+      } else if (Opcode == Instruction::UDiv) {
+        OS << "  /u  ";
+      } else if ((Opcode == Instruction::SDiv) ||
                  (Opcode == Instruction::FDiv)) {
         OS << "  /  ";
-      } else if ((Opcode == Instruction::URem) ||
-                 (Opcode == Instruction::SRem) ||
+      } else if (Opcode == Instruction::URem) {
+        OS << "  %u  ";
+      } else if ((Opcode == Instruction::SRem) ||
                  (Opcode == Instruction::FRem)) {
         OS << "  %  ";
       } else if (Opcode == Instruction::Shl) {
