@@ -386,9 +386,22 @@ namespace llvm {
       int idx = header.switch_output_op_idx();      
       return &switchInst->getOperand(idx);
     }
+  };
 
 
-    
+  // A struct that summarizes key information about a sequence
+  // instruction.  This struct is mostly here for packaging purposes,
+  // to avoid having too many arguments between functions.
+  struct LPUSeqInstrInfo {
+    // The pointer to the sequence machine instruction we created.
+    MachineInstr* seq_inst;
+
+    // The channel numbers for the predicate, first, and last.
+    // (Technically we could look these up from seq_inst, but it is
+    // more convenient to just save them here).
+    unsigned pred_reg;
+    unsigned first_reg;
+    unsigned last_reg;
   };
 
 
