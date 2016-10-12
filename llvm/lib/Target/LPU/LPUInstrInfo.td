@@ -1156,7 +1156,7 @@ def PREDPROP : FMTGEN<
 def PREDMERGE : FMTGEN<
   (outs I1:$predres, I1:$index),
   (ins RCLi1:$e0, RCLi1:$e1),
-  "predprop\t$predres, $index, $e0, $e1",
+  "predmerge\t$predres, $index, $e0, $e1",
   [], [], IIALU>;
 
 def SEQC      : GenericOp<"seqc">;
