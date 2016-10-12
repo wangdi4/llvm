@@ -190,7 +190,7 @@ public:
 
 
   // Helper method for finding sequence candidates.
-  void seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
+  void seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
 
 
   // Check whether this candidate sequence is either a repeat or a
@@ -205,24 +205,39 @@ public:
   LPUSeqCandidate::SeqType
   seq_classify_repeat_or_reduction(LPUSeqCandidate& x);
 
-
   // Check whether this candidate sequence matches a "stride" type.
-  // This pass uses the 
   LPUSeqCandidate::SeqType
   seq_classify_stride(LPUSeqCandidate& x,
                       const DenseMap<unsigned, int>& repeat_channels);
-
 
   // Check whether this candidate sequence represents a memory dependency
   // chain. 
   LPUSeqCandidate::SeqType
   seq_classify_memdep_graph(LPUSeqCandidate& x);
 
+
   // Classify all the candidate sequences in the loops we found.
   void
-  seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
+  seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
 
-
+  // Helper methods for seq_analyze_loops.
+  //
+  // The three "seq_classify_loop" methods handle together handle the
+  // classification of all the sequence candidates for a given loop.
+  // 
+  void
+  seq_classify_loop_repeats(LPUSeqLoopInfo& current_loop,
+                            SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& repeats,
+                            SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& reductions,
+                            SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other);
+  void
+  seq_classify_loop_reductions_as_strides(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& reductions,
+                                          LPUSeqLoopInfo& current_loop,
+                                          SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaining);
+  void
+  seq_classify_loop_remaining(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaining,
+                              LPUSeqLoopInfo& current_loop,
+                              SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other);
 
 
   // The final check to see if we can transform the loop control
@@ -756,11 +771,12 @@ seq_candidate_match_switch(MachineInstr* MI,
 
 void
 LPUOptDFPass::
-seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
+seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-
+  int loop_id_counter = 0;
+  
   for (MachineFunction::iterator BB = thisMF->begin(), E=thisMF->end();
        BB != E;
        ++BB) {
@@ -777,6 +793,7 @@ seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
         // Save the header information into the current loop.
         LPUSeqLoopInfo current_loop;
+        current_loop.loop_id = loop_id_counter++;
         current_loop.header = tmp_header;
 
         // We are going to look for pick and switch instructions, and
@@ -838,13 +855,13 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
 
     // Look for the candidates we might replace with sequences.
     SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH> loops;
-    seq_find_candidates(&loops);
+    seq_find_candidate_loops(&loops);
     
     // Only print after classification now. 
     //    seq_print_loop_info(&loops);
 
     DEBUG(errs() << "Classifying sequence op types\n");
-    seq_classify_candidates(&loops);
+    seq_analyze_loops(&loops);
     DEBUG(errs() << "After classification: \n");
     seq_print_loop_info(&loops);
 
@@ -1026,7 +1043,7 @@ seq_classify_stride(LPUSeqCandidate& x,
     MachineInstr* def_bottom = getSingleDef(bottom_channel, MRI);
 
     if (!def_bottom)
-      return LPUSeqCandidate::SeqType::UNKNOWN;
+      return x.stype;
     
     const LPUInstrInfo &TII =
       *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
@@ -1040,7 +1057,7 @@ seq_classify_stride(LPUSeqCandidate& x,
                                               &stride_opcode)) {
         DEBUG(errs() << "WARNING: stride operation for transform "
               << *def_bottom  << " not implemented yet...\n");
-        return LPUSeqCandidate::SeqType::INVALID;
+        return x.stype;
       }
       
       if (def_bottom->getNumOperands() == 3) {
@@ -1061,7 +1078,7 @@ seq_classify_stride(LPUSeqCandidate& x,
           // Neither matches top. We have something weird. 
           DEBUG(errs() << "Add inst " << *def_bottom
                 << " doesn't match sequence we expect.\n");
-          return LPUSeqCandidate::SeqType::UNKNOWN;
+          return x.stype;
         }
 
         MachineOperand& stride_op = def_bottom->getOperand(stride_idx);
@@ -1083,7 +1100,7 @@ seq_classify_stride(LPUSeqCandidate& x,
       }
     }
   }
-  return LPUSeqCandidate::SeqType::UNKNOWN;
+  return x.stype;
 }
 
 
@@ -1287,140 +1304,195 @@ inline bool update_header_cmp_channels(LPUSeqLoopInfo& current_loop,
   }
 }
 
-// Classify all the candidate sequences in the loops we found.
+// Partition the sequence candidates in "current_loop.candidates"
+// into repeats, reductions, or other.
 void
 LPUOptDFPass::
-seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
+seq_classify_loop_repeats(LPUSeqLoopInfo& current_loop,
+                          SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& repeats,
+                          SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& reductions,
+                          SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other) {
+  repeats.clear();
+  reductions.clear();
+  other.clear();
+  
+  // First pass: look for repeat / reduction.
+  for (auto it = current_loop.candidates.begin();
+       it != current_loop.candidates.end();
+       ++it) {
+
+    LPUSeqCandidate& x = *it;
+    LPUSeqCandidate::SeqType stype;
+
+    stype = seq_classify_repeat_or_reduction(x);
+
+    if (stype == LPUSeqCandidate::SeqType::REPEAT) {
+      // Save the channel into our list and map of repeat
+      // candidates.    The index in this
+      // repeat_candidate vector will be the same as the
+      // index in the final vector.
+      int idx = repeats.size();
+      repeats.push_back(x);
+      current_loop.repeat_channels[x.bottom] = idx;
+
+      // Look for a match for this repeat in the comparison
+      // channels.
+      update_header_cmp_channels(current_loop,
+                                 idx,
+                                 x.bottom);
+    }
+    else if (stype == LPUSeqCandidate::SeqType::REDUCTION) {
+      reductions.push_back(x);
+    }
+    else {
+      other.push_back(x);
+    }
+  }
+
+  DEBUG(errs() << "Repeat phase: Loop " << current_loop.loop_id << "\n");
+  DEBUG(errs() << "  Repeat candidates: " << repeats.size() << "\n");
+  DEBUG(errs() << "  Reduction candidates: " << reductions.size() << "\n");
+  DEBUG(errs() << "  Other candidates: " << other.size() << "\n");
+  DEBUG(errs() << "  Total candidates: "
+        << current_loop.candidates.size() << "\n");
+  DEBUG(errs() << "  Repeat channels found: "
+        << current_loop.repeat_channels.size() << "\n");
+}
+
+
+// Classify the candidates in "reductions", (which are ideally
+// potential reductions) as either reductions or stride operations.
+//
+// Insert them into current_loop.candidates if successful.
+// Otherwise, insert them into "remaining".
+void
+LPUOptDFPass::
+seq_classify_loop_reductions_as_strides(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& reductions,
+                                        LPUSeqLoopInfo& current_loop,
+                                        SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaining) {
+  // Move each of the reductions over into the candidates.  Since
+  // a stride is sometimes a special case of a reduction, we
+  // double-check all the reductions, now that we've identified
+  // the repeats.
+  for (int i = 0; i < (int)reductions.size(); ++i) {
+    LPUSeqCandidate& x = reductions[i];
+    int idx = current_loop.candidates.size();
+    LPUSeqCandidate::SeqType stype;    
+    stype = seq_classify_stride(x,
+                                current_loop.repeat_channels);
+
+    if ((stype == LPUSeqCandidate::SeqType::STRIDE) ||
+        (stype == LPUSeqCandidate::SeqType::REDUCTION)) {
+      current_loop.candidates.push_back(x);
+      update_header_cmp_channels(current_loop,
+                                 idx,
+                                 x.bottom);
+    }
+    else {
+      remaining.push_back(x);
+    }
+  }
+
+  DEBUG(errs() << "Reduction phase:  Loop " << current_loop.loop_id << "\n");
+  DEBUG(errs() << "   Repeats, reductions, and strides: "
+        << current_loop.candidates.size() << "\n");
+  DEBUG(errs() << "   Remaining candidates: " << remaining.size() << "\n");
+}
+
+
+// Classify any candidates in "remaining".
+// Push them into current_loop.candidates if they are successfully classified,
+// or into "other" if they are unknown. 
+void
+LPUOptDFPass::
+seq_classify_loop_remaining(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaining,
+                            LPUSeqLoopInfo& current_loop,
+                            SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other) {
+  
+  for (auto it = remaining.begin();
+       it != remaining.end();
+       ++it) {
+    LPUSeqCandidate& x = *it;
+    LPUSeqCandidate::SeqType stype;
+    stype = seq_classify_stride(x,
+                                current_loop.repeat_channels);
+
+    // Try to classify memory dependency candidates, if the knob
+    // is set.
+    if (SeqBreakMemdep > 0) {
+      if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
+        stype = seq_classify_memdep_graph(x);
+      }
+    }
+
+    if ((stype == LPUSeqCandidate::SeqType::UNKNOWN) ||
+        (stype == LPUSeqCandidate::SeqType::INVALID)) {
+      // Mark the remaining candidates as invalid.
+      x.stype = LPUSeqCandidate::SeqType::INVALID;
+      other.push_back(x);
+    }
+    else {
+      int loop_idx = current_loop.candidates.size();
+      current_loop.candidates.push_back(x);
+      // Again, look for a match with this sequence and the
+      // compare instruction.
+      update_header_cmp_channels(current_loop,
+                                 loop_idx,
+                                 x.bottom);
+    }
+  }
+}
+
+// Analyze all the loops that we found, to identify candidates for
+// sequence transformation.
+void
+LPUOptDFPass::
+seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
   if (loops) {
     for (unsigned i = 0; i < loops->size(); ++i) {
       LPUSeqLoopInfo& current_loop = (*loops)[i];
 
-      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> classified;
-      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> remaining;
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> repeat_candidates;
-
-      // First pass: look for repeat / reduction.
-      for (auto it = current_loop.candidates.begin();
-           it != current_loop.candidates.end();
-           ++it) {
-        LPUSeqCandidate& x = *it;
-        LPUSeqCandidate::SeqType stype;
-
-        stype = seq_classify_repeat_or_reduction(x);
-
-        if (stype == LPUSeqCandidate::SeqType::REPEAT) {
-          // Save the channel into our list and map of repeat
-          // candidates.    The index in this
-          // repeat_candidate vector will be the same as the
-          // index in the final vector. 
-          int idx = repeat_candidates.size();
-          repeat_candidates.push_back(x);
-          current_loop.repeat_channels[x.bottom] = idx;
-
-          // Look for a match for this repeat in the comparison
-          // channels.
-          update_header_cmp_channels(current_loop,
-                                     idx,
-                                     x.bottom);
-        }
-        else if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
-          remaining.push_back(x);
-        }
-        else {
-          classified.push_back(x);
-        }
-      }
-
-      DEBUG(errs() << "Repeat candidates: " << repeat_candidates.size() << "\n");
-      DEBUG(errs() << "Classified candidates: " << classified.size() << "\n");
-      DEBUG(errs() << "Remaining candidates: " << remaining.size() << "\n");
-      DEBUG(errs() << "Current loop candidates: "
-            << current_loop.candidates.size() << "\n");
-
+      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> reductions;
+      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> remaining;
       
-      // Move the repeat and classified candidates over into the
-      // current loop.  Along the way, look for matches with the
-      // operands in the compare.
-      current_loop.candidates.clear();
+      // Step 1: scan for repeats, and partition the candidates into
+      // repeats/reductions/remaining.
+      seq_classify_loop_repeats(current_loop,
+                                repeat_candidates,
+                                reductions,
+                                remaining);
 
-      // Move all the repeats back into candidates.
+      // Move the repeat candidates into the current loop. 
+      // current loop.
+      current_loop.candidates.clear();
       current_loop.candidates.insert(current_loop.candidates.end(),
                                      repeat_candidates.begin(),
                                      repeat_candidates.end());
-      repeat_candidates.clear();
 
-      // Next, move each of the classified candidates into the
-      // candidates.
-      for (int i = 0; i < (int)classified.size(); ++i) {
-        LPUSeqCandidate& x = classified[i];
+      // Step 2: Classify the potential reductions as either
+      // reduction, stride, or unknown.  Anything successfully
+      // classified goes into "current_loop.candidates".  Everything
+      // else goes into remaining.
+      seq_classify_loop_reductions_as_strides(reductions,
+                                              current_loop,
+                                              remaining);
 
-        int idx = current_loop.candidates.size();
-        current_loop.candidates.push_back(x);
-        update_header_cmp_channels(current_loop,
-                                   idx, 
-                                   x.bottom);
-
-
-      }
-      classified.clear();
-
-
-      DEBUG(errs() << "After: Classified candidates: " << classified.size() << "\n");
-      DEBUG(errs() << "After: Remaining candidates: " << remaining.size() << "\n");
-      DEBUG(errs() << "After: Current loop candidates: "
-            << current_loop.candidates.size() << "\n");
-
-      // Second pass: look for strides in the remaining candidates.
-      for (auto it = remaining.begin();
-           it != remaining.end();
-           ++it) {
-        LPUSeqCandidate& x = *it;
-        LPUSeqCandidate::SeqType stype;
-        stype = seq_classify_stride(x,
-                                    current_loop.repeat_channels);
-
-
-        // Try to classify memory dependency candidates, if the knob
-        // is set.
-        if (SeqBreakMemdep > 0) {
-          if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
-            stype = seq_classify_memdep_graph(x);
-          }
-        }
-
-        // For the second pass, classified takes on the role of
-        // "remaining", and current_loop will just take in the
-        // remaining candidates.
-        if ((stype == LPUSeqCandidate::SeqType::UNKNOWN) ||
-            (stype == LPUSeqCandidate::SeqType::INVALID)) {
-          // Mark the remaining candidates as invalid.
-          x.stype = LPUSeqCandidate::SeqType::INVALID;
-          classified.push_back(x);
-        }
-        else {
-          int loop_idx = current_loop.candidates.size();
-          current_loop.candidates.push_back(x);
-          // Again, look for a match with this sequence and the
-          // compare instruction.
-          update_header_cmp_channels(current_loop,
-                                     loop_idx,
-                                     x.bottom);
-        }
-      }
-
+      // Step 3: classify everything else that is in remaining.
+      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> other;
+      seq_classify_loop_remaining(remaining,
+                                  current_loop,
+                                  other);
       // TBD(jsukha): Do we keep the invalid candidates around?
       // I guess I'll do it for now...
       current_loop.candidates.insert(current_loop.candidates.end(),
-                                     classified.begin(),
-                                     classified.end());
-
-      DEBUG(errs() << "Final: Invalid candidates: "
-            << classified.size() << "\n");
-      DEBUG(errs() << "Final: All loop candidates: "
+                                     other.begin(),
+                                     other.end());
+      DEBUG(errs() << "Final classification: Loop " << current_loop.loop_id <<  "\n");
+      DEBUG(errs() << "   Invalid candidates: " << other.size() << "\n");
+      DEBUG(errs() << "   All candidates: "
             << current_loop.candidates.size() << "\n");
-      DEBUG(errs() << "Repeat channels found: "
-            << current_loop.repeat_channels.size() << "\n");
     }
   }
 }

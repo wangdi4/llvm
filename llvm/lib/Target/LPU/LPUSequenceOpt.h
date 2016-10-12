@@ -393,6 +393,7 @@ namespace llvm {
 
 
   struct LPUSeqLoopInfo {
+    int loop_id;
     LPUSeqHeader header;
     SmallVector<LPUSeqCandidate, 12> candidates;
 
@@ -427,7 +428,8 @@ namespace llvm {
     
   public:
     LPUSeqLoopInfo()
-    : cmp0_channel(LPU::IGN)
+    : loop_id(-1)
+    , cmp0_channel(LPU::IGN)
     , cmp1_channel(LPU::IGN)
     , cmp0_idx(-1)
     , cmp1_idx(-1)
@@ -436,6 +438,8 @@ namespace llvm {
     , compare_sense(0)
     {
     }
+    
+    ~LPUSeqLoopInfo() {}
 
     // Accessor methods for some of the index fields in this data
     // structure.
@@ -478,7 +482,6 @@ namespace llvm {
     bool invert_compare() const {
       return this->compare_sense ^ this->header.switcherSense;
     }
-
 
 
 
@@ -595,7 +598,6 @@ namespace llvm {
       return false;
     }
 
-
     // Returns true if this loop has a valid bound.
     bool has_valid_bound() const {
       // This can either be a repeated channel, or an immediate.
@@ -636,7 +638,19 @@ namespace llvm {
     }
 
 
-    ~LPUSeqLoopInfo() {}
+    /*******************************************************************/
+    // These methods below should only be called after we have
+    // classified the sequence candidates (into REPEAT, STRIDE, etc.)
+    
+    // Tries to find the induction variable.  Returns true if found,
+    // false otherwise. 
+    //
+    // This method assumes the sequence candidates stored in the
+    // "candidates" array have already been classified.
+    // 
+    // This method will initialize indvar_idx, bound_idx, and
+    // compare_sense.
+
   };
 
 } // namespace llvm
