@@ -332,13 +332,13 @@ namespace llvm {
     MachineInstr* pickInst;
     MachineInstr* switchInst;
 
-    // The transforming body is either a single instruction, or a list
-    // of instructions.
+    // For now, we assume the transforming body is a single instruction.
     //
-    // (For now, the list is only used for PARLOOP_MEM_DEP.
-    //  All the other cases expect 0 or 1 instructions). 
+    // TBD(jsukha): In some cases, e.g., for PARLOOP_MEM_DEP, the body
+    // could actually be many instructions, but we haven't found a
+    // need to save the body yet.
     MachineInstr* transformInst;
-    SmallVectorImpl< MachineInstr* >* transformBody;
+
     SeqType stype;
 
     // We will save away the channel info for faster processing later.
@@ -351,7 +351,6 @@ namespace llvm {
       : pickInst(pickI)
       , switchInst(switchI)
       , transformInst(NULL)
-      , transformBody(NULL)
       , stype(UNKNOWN)
       , top(0)
       , bottom(0)
@@ -360,9 +359,6 @@ namespace llvm {
     }
 
     ~LPUSeqCandidate() {
-      if (transformBody) {
-        delete transformBody;
-      }
     }
 
     // Accessor functions for different operands from the pick/switch
@@ -404,17 +400,111 @@ namespace llvm {
     // "repeat_candidates" where we found the candidate.
     DenseMap<unsigned, int> repeat_channels;
 
+
+
+  private:
+    // The channel (register) numbers that correspond to the operands
+    // in the compare instruction.  These values are "LPU::IGN" if the
+    // operand is an immediate.
+    unsigned cmp0_channel;
+    unsigned cmp1_channel;
+    
     // The index into the candidate array where matches to the uses in
     // the compare are located, if there are any such matches.
     //  -1 indicates no match. 
     int cmp0_idx;
     int cmp1_idx;
 
+  public:
+    
     LPUSeqLoopInfo()
-    : cmp0_idx(-1)
+    : cmp0_channel(LPU::IGN)
+    , cmp1_channel(LPU::IGN)
+    , cmp0_idx(-1)
     , cmp1_idx(-1)
     {
     }
+
+    // Accessor methods for the index.
+    int cmp0Idx() const {
+      return cmp0_idx;
+    }
+    int cmp1Idx() const {
+      return cmp1_idx;
+    }
+    
+    // Do any initialization of the loop information, once we know we
+    // have a valid loop header.   Currently, this method:
+    //
+    //   1. Initializes repeat channels to empty. 
+    //   2. Figures out and saves the registers each operand for the
+    //      compare instruction if they exist.
+    //
+    void init_from_header() {
+      // Just for paranoia.
+      this->repeat_channels.clear();
+
+      // Look up the registers in the compare instruction, if there
+      // are any.
+      assert(header.compareInst);
+      MachineOperand& cmpuse0 = header.compareInst->getOperand(1);
+      MachineOperand& cmpuse1 = header.compareInst->getOperand(2);
+
+      if (cmpuse0.isReg()) {
+        this->cmp0_channel = cmpuse0.getReg();
+      }
+      if (cmpuse1.isReg()) {
+        this->cmp1_channel = cmpuse1.getReg();
+      }
+    }
+
+    enum CmpMatchType {
+      NoMatch = -1,     // No match
+      Match0 = 0,       // Matches input 0 of the compare.
+      Match1 = 1,       // Matches input 1 of the compare
+      Dup0 = 2,         // Matches input 0, but we already found a match.
+      Dup1 = 3,         // Matches input 1, but we already found a match.
+      OtherError = 4,   // Some other error.
+    };
+
+    // This method attempts to match the "bottom" register with one of
+    // the compare inputs, returning one of the codes defined in
+    // CmpMatchType.
+    //
+    // If an input matches, we also save the specified candidate_idx.
+    CmpMatchType match_candidate_with_cmp(unsigned bottom,
+                                          int candidate_idx) {
+      // Errors conditions.
+      if ((bottom == LPU::IGN) || (candidate_idx < 0)) {
+        return CmpMatchType::OtherError;
+      }
+
+      // Try to match with input 0 of the compare.
+      if (bottom == this->cmp0_channel) {
+        if (this->cmp0_idx >= 0) {
+          return CmpMatchType::Dup0;
+        }
+        else {
+          this->cmp0_idx = candidate_idx;
+          return CmpMatchType::Match0;
+        }
+      }
+
+      // Try to match with input 1 of the compare.
+      if (bottom == this->cmp1_channel) {
+        if (this->cmp1_idx >= 0) {
+          return CmpMatchType::Dup1;
+        }
+        else {
+          this->cmp1_idx = candidate_idx;
+          return CmpMatchType::Match1;
+        }
+      }
+
+      // Otherwise, no match.
+      return CmpMatchType::NoMatch;
+    }
+
 
     ~LPUSeqLoopInfo() {}
   };

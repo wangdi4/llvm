@@ -597,17 +597,17 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
     seq_debug_print_header(current_loop.header);
 
     // Print matches to cmp0 and cmp1 uses, if they exist.
-    if (current_loop.cmp0_idx >= 0) {
+    if (current_loop.cmp0Idx() >= 0) {
 
       DEBUG(errs() << "cmp0 matches candidate: \n");
-      seq_debug_print_candidate(current_loop.candidates[current_loop.cmp0_idx]);
+      seq_debug_print_candidate(current_loop.candidates[current_loop.cmp0Idx()]);
     }
     else {
       DEBUG(errs() << "No cmp0_idx\n");
     }
-    if (current_loop.cmp1_idx >= 0) {
+    if (current_loop.cmp1Idx() >= 0) {
       DEBUG(errs() << "cmp1 matches candidate: \n");
-      seq_debug_print_candidate(current_loop.candidates[current_loop.cmp1_idx]);
+      seq_debug_print_candidate(current_loop.candidates[current_loop.cmp1Idx()]);
     }
     else {
       DEBUG(errs() << "No cmp1_idx\n");
@@ -817,6 +817,10 @@ seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
             current_loop.candidates.push_back(nc);
           }
         }
+
+        // Initialize other state information about the loop after we
+        // have added the relevant information about loop candidates.
+        current_loop.init_from_header();
         loops->push_back(current_loop);
       }
       else {
@@ -1252,37 +1256,40 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
 // Returns true if we found a match, false otherwise.
 inline bool update_header_cmp_channels(LPUSeqLoopInfo& current_loop,
                                        int loop_idx,
-                                       unsigned bottom, 
-                                       unsigned cmp0_channel,
-                                       unsigned cmp1_channel) {
-  if (bottom == 0) {
+                                       unsigned bottom) {
+  LPUSeqLoopInfo::CmpMatchType ctype;
+  // This method in LPUSeqLoopInfo does all the hard work.
+  // The remainder of this method is just error reporting.
+  ctype = current_loop.match_candidate_with_cmp(bottom, loop_idx);
+
+  switch (ctype) {
+  case LPUSeqLoopInfo::CmpMatchType::Match0:
+  case LPUSeqLoopInfo::CmpMatchType::Match1:    
+    return true;
+    
+  case LPUSeqLoopInfo::CmpMatchType::Dup0:
+    DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp0. Ignoring\n");
+    DEBUG(errs() << "Duplicate def of " << bottom <<
+          " is at idx " << current_loop.cmp0Idx() << "\n");
+    return false;
+
+  case LPUSeqLoopInfo::CmpMatchType::Dup1:
+    DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp1. Ignoring\n");
+    DEBUG(errs() << "Duplicate def of " << bottom <<
+          " is at idx " << current_loop.cmp1Idx() << "\n");
+    return false;
+
+  case LPUSeqLoopInfo::CmpMatchType::NoMatch:
+    return false;
+    
+  case LPUSeqLoopInfo::CmpMatchType::OtherError:
+  default:
     DEBUG(errs() << "ERROR: encountering bad bottom channel in loop...\n");
     assert(0);
   }
-  
-  if (bottom == cmp0_channel) {
-    if (current_loop.cmp0_idx >= 0) {
-      DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp0\n");
-      return false;
-    }
-    current_loop.cmp0_idx = loop_idx;
-    return true;
-  }
-  else if (bottom == cmp1_channel) {
-    if (current_loop.cmp1_idx >= 0) {
-      DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp1. Ignoring\n");
-      DEBUG(errs() << "Duplicate def of " << bottom <<
-            " is at idx " << current_loop.cmp1_idx << "\n");
-      return false;
-    }
-    current_loop.cmp1_idx = loop_idx;
-    return true;
-  }
-  return false;
 }
 
 // Classify all the candidate sequences in the loops we found.
-
 void
 LPUOptDFPass::
 seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
@@ -1290,16 +1297,6 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
   if (loops) {
     for (unsigned i = 0; i < loops->size(); ++i) {
       LPUSeqLoopInfo& current_loop = (*loops)[i];
-      current_loop.repeat_channels.clear();
-
-      assert(current_loop.header.compareInst);
-
-      // Look up the registers in the compare instruction, if there
-      // are any.
-      MachineOperand& cmpuse0 = current_loop.header.compareInst->getOperand(1);
-      MachineOperand& cmpuse1 = current_loop.header.compareInst->getOperand(2);
-      unsigned cmp0_channel = (cmpuse0.isReg() ? cmpuse0.getReg() : 0);
-      unsigned cmp1_channel = (cmpuse1.isReg() ? cmpuse1.getReg() : 0);
 
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> classified;
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> remaining;
@@ -1327,9 +1324,7 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
           // channels.
           update_header_cmp_channels(current_loop,
                                      idx,
-                                     x.bottom,
-                                     cmp0_channel,
-                                     cmp1_channel);
+                                     x.bottom);
         }
         else if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
           remaining.push_back(x);
@@ -1364,12 +1359,10 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
         int idx = current_loop.candidates.size();
         current_loop.candidates.push_back(x);
-
         update_header_cmp_channels(current_loop,
                                    idx, 
-                                   x.bottom,
-                                   cmp0_channel,
-                                   cmp1_channel);
+                                   x.bottom);
+
 
       }
       classified.clear();
@@ -1414,9 +1407,7 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
           // compare instruction.
           update_header_cmp_channels(current_loop,
                                      loop_idx,
-                                     x.bottom,
-                                     cmp0_channel,
-                                     cmp1_channel);
+                                     x.bottom);
         }
       }
 
@@ -1462,21 +1453,21 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
   
   // Two cases.  Look for the stride (induction variable) in either
   // cmp0 or cmp1.
-  if ((loop.cmp0_idx >= 0) &&
-      loop.candidates[loop.cmp0_idx].stype == LPUSeqCandidate::SeqType::STRIDE) {
+  if ((loop.cmp0Idx() >= 0) &&
+      loop.candidates[loop.cmp0Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
     found_indvar = true;
-    indvarIdx = loop.cmp0_idx;
-    boundIdx = loop.cmp1_idx;
+    indvarIdx = loop.cmp0Idx();
+    boundIdx = loop.cmp1Idx();
     
     // Operand index in the comparison instruction for the bound.
     boundOpIdx = 2;
     compare_sense = false;
   }
-  else if ((loop.cmp1_idx >= 0) &&
-           loop.candidates[loop.cmp1_idx].stype == LPUSeqCandidate::SeqType::STRIDE) {
+  else if ((loop.cmp1Idx() >= 0) &&
+           loop.candidates[loop.cmp1Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
     found_indvar = true;
-    indvarIdx = loop.cmp1_idx;
-    boundIdx = loop.cmp0_idx;
+    indvarIdx = loop.cmp1Idx();
+    boundIdx = loop.cmp0Idx();
     boundOpIdx = 1;
     compare_sense = true;
   }
