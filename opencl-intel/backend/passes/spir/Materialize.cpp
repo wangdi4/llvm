@@ -115,61 +115,72 @@ public:
         if (!F)
           continue;
         StringRef FName = F->getName();
-        if (!isMangledName(FName.data()) || FName.find("image") == std::string::npos)
+        if (!isMangledName(FName.data()))
           continue;
-        auto FD = demangle(FName.data());
-        auto AccQ = StringSwitch<std::string>(FD.name)
-                        .Case("write_imagef", "wo_")
-                        .Case("write_imagei", "wo_")
-                        .Case("write_imageui", "wo_")
-                        .Default("ro_");
-        auto ImgArg = CI->getArgOperand(0);
-        auto ImgArgTy = ImgArg->getType();
-        assert(isPointerToOpaqueStructType(ImgArgTy) &&
-               "Expect image type argument");
-        auto STName = ImgArgTy->getPointerElementType()->getStructName();
-        assert(STName.startswith("opencl.image") &&
-               "Expect image type argument");
-        if (STName.find("_ro_t") != std::string::npos ||
-            STName.find("_wo_t") != std::string::npos ||
-            STName.find("_rw_t") != std::string::npos)
-          continue;
-        std::vector<Value *> Args;
-        std::vector<Type *> ArgTys;
-        ArgTys.push_back(
-            getOrCreateOpaquePtrType(M, updateImageTypeName(STName, AccQ)));
-        Args.push_back(BitCastInst::CreatePointerCast(CI->getArgOperand(0),
-                                                      ArgTys[0], "", CI));
-        for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
-          Args.push_back(CI->getArgOperand(i));
-          ArgTys.push_back(CI->getArgOperand(i)->getType());
+        if (FName.find("image") != std::string::npos) {
+          auto FD = demangle(FName.data());
+          auto AccQ = StringSwitch<std::string>(FD.name)
+                          .Case("write_imagef", "wo_")
+                          .Case("write_imagei", "wo_")
+                          .Case("write_imageui", "wo_")
+                          .Default("ro_");
+          auto ImgArg = CI->getArgOperand(0);
+          auto ImgArgTy = ImgArg->getType();
+          assert(isPointerToOpaqueStructType(ImgArgTy) &&
+                 "Expect image type argument");
+          auto STName = ImgArgTy->getPointerElementType()->getStructName();
+          assert(STName.startswith("opencl.image") &&
+                 "Expect image type argument");
+          if (STName.find("_ro_t") != std::string::npos ||
+              STName.find("_wo_t") != std::string::npos ||
+              STName.find("_rw_t") != std::string::npos)
+            continue;
+          std::vector<Value *> Args;
+          std::vector<Type *> ArgTys;
+          ArgTys.push_back(
+              getOrCreateOpaquePtrType(M, updateImageTypeName(STName, AccQ)));
+          Args.push_back(BitCastInst::CreatePointerCast(CI->getArgOperand(0),
+                                                        ArgTys[0], "", CI));
+          for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
+            Args.push_back(CI->getArgOperand(i));
+            ArgTys.push_back(CI->getArgOperand(i)->getType());
+          }
+          auto *FT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
+          dyn_cast<reflection::PrimitiveType>(
+              (reflection::ParamType *)FD.parameters[0])
+              ->setPrimitive(getPrimitiveType(ArgTys[0]));
+          auto NewName = mangle(FD);
+
+          // Check if a new function is already added to the module.
+          auto NewF = F->getParent()->getFunction(NewName);
+          if (!NewF) {
+            // Create function with updated name
+            NewF = Function::Create(FT, F->getLinkage(), NewName);
+            NewF->copyAttributesFrom(F);
+
+            F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
+          }
+
+          CallInst *New = CallInst::Create(NewF, Args, "", CI);
+          //assert(New->getType() == Call->getType());
+          New->setCallingConv(CI->getCallingConv());
+          New->setAttributes(NewF->getAttributes());
+          if (CI->isTailCall())
+            New->setTailCall();
+          New->setDebugLoc(CI->getDebugLoc());
+          CI->replaceAllUsesWith(New);
+
+          m_isChanged = true;
         }
-        auto *FT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
-        dyn_cast<reflection::PrimitiveType>(
-            (reflection::ParamType *)FD.parameters[0])
-            ->setPrimitive(getPrimitiveType(ArgTys[0]));
-        auto NewName = mangle(FD);
 
-        // Check if a new function is already added to the module.
-        auto NewF = F->getParent()->getFunction(NewName);
-        if (!NewF) {
-          // Create function with updated name
-          NewF = Function::Create(FT, F->getLinkage(), NewName);
-          NewF->copyAttributesFrom(F);
+        if (FName.find("to_global") != std::string::npos ||
+            FName.find("to_local") != std::string::npos ||
+            FName.find("to_private") != std::string::npos) {
+          reflection::FunctionDescriptor FD = demangle(FName.data());
+          F->setName("__" + FD.name);
 
-          F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
+          m_isChanged = true;
         }
-
-        CallInst *New = CallInst::Create(NewF, Args, "", CI);
-        //assert(New->getType() == Call->getType());
-        New->setCallingConv(CI->getCallingConv());
-        New->setAttributes(NewF->getAttributes());
-        if (CI->isTailCall())
-          New->setTailCall();
-        New->setDebugLoc(CI->getDebugLoc());
-        CI->replaceAllUsesWith(New);
-
-        m_isChanged = true;
       }
     }
   }
