@@ -400,8 +400,6 @@ namespace llvm {
     // "repeat_candidates" where we found the candidate.
     DenseMap<unsigned, int> repeat_channels;
 
-
-
   private:
     // The channel (register) numbers that correspond to the operands
     // in the compare instruction.  These values are "LPU::IGN" if the
@@ -415,23 +413,82 @@ namespace llvm {
     int cmp0_idx;
     int cmp1_idx;
 
-  public:
+    // Index into candidates array where we have induction variable.
+    int indvar_idx;
+    // Index into candidates array where we have bound value. 
+    int bound_idx;
+
+    // Sense of the compare instruction: 
+    //  0 if the compare is 
+    //    compare indvar, bound
+    //  1 if the compare is
+    //    compare bound, indvar
+    int compare_sense;
     
+  public:
     LPUSeqLoopInfo()
     : cmp0_channel(LPU::IGN)
     , cmp1_channel(LPU::IGN)
     , cmp0_idx(-1)
     , cmp1_idx(-1)
+    , indvar_idx(-1)
+    , bound_idx(-1)
+    , compare_sense(0)
     {
     }
 
-    // Accessor methods for the index.
+    // Accessor methods for some of the index fields in this data
+    // structure.
     int cmp0Idx() const {
       return cmp0_idx;
     }
     int cmp1Idx() const {
       return cmp1_idx;
     }
+
+    // Operand index in the compare instruction where we can find the
+    // bound.
+    inline int boundOpIdx() const {
+      return 2 - this->compare_sense;
+    }
+
+    int indvarIdx() const {
+      return indvar_idx;
+    }
+    int boundIdx() const {
+      return bound_idx;
+    }
+
+
+    // Returns true if we need a sequence instruction whose comparison
+    // is inverted from the actual compare instruction we find.
+    // 
+    // There are two cases where we will need to swap comparison of the
+    // sequence from the direction of the original compare.
+    //
+    // 1. If the comparison sense is inverted (i.e., we have compare
+    //    stride, var), then we need to invert the comparison.
+    //
+    // 2. If the switcher sense is 1 (so it expects 0, 0, 0,
+    // ... 1 for its control), then we need to invert the comparison.
+    //
+    // Both conditions together will cancel each other out.  Thus, we
+    // xor the booleans together to figure out whether need to invert
+    // the compare.
+    bool invert_compare() const {
+      return this->compare_sense ^ this->header.switcherSense;
+    }
+
+
+
+
+    /*******************************************************************/
+    // These methods below should only be called after we have
+    // identified a potential header for the loop.
+    // 
+    // But it is safe to call these methods as part of the
+    // classification process.
+
     
     // Do any initialization of the loop information, once we know we
     // have a valid loop header.   Currently, this method:
@@ -503,6 +560,79 @@ namespace llvm {
 
       // Otherwise, no match.
       return CmpMatchType::NoMatch;
+    }
+
+
+    /*******************************************************************/
+    // These methods below should only be called after we have
+    // classified the sequence candidates (into REPEAT, STRIDE, etc.)
+    
+    // Tries to find the induction variable.  Returns true if found,
+    // false otherwise. 
+    //
+    // This method assumes the sequence candidates stored in the
+    // "candidates" array have already been classified.
+    // 
+    // This method will initialize indvar_idx, bound_idx, and
+    // compare_sense.
+    bool find_induction_variable() {
+      // Two cases.  Look for the stride (induction variable) in
+      // either cmp0 or cmp1.
+      if ((this->cmp0Idx() >= 0) &&
+          this->candidates[this->cmp0Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
+        this->indvar_idx = this->cmp0Idx();
+        this->bound_idx = this->cmp1Idx();
+        this->compare_sense = 0;
+        return true;
+      }
+      else if ((this->cmp1Idx() >= 0) &&
+               this->candidates[this->cmp1Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
+        this->indvar_idx = this->cmp1Idx();
+        this->bound_idx = this->cmp0Idx();
+        this->compare_sense = 1;
+        return true;
+      }
+      return false;
+    }
+
+
+    // Returns true if this loop has a valid bound.
+    bool has_valid_bound() const {
+      // This can either be a repeated channel, or an immediate.
+      bool found_bound_channel =
+        ((this->bound_idx >= 0) &&
+         this->candidates[this->bound_idx].stype == LPUSeqCandidate::SeqType::REPEAT);
+
+      int boundOp_idx = this->boundOpIdx();
+      bool found_bound_imm =
+        ((this->bound_idx == -1) &&
+         this->header.compareInst->getOperand(boundOp_idx).isImm());
+      return found_bound_channel || found_bound_imm;
+    }
+
+    // Look up the machine operand that we should use for the initial
+    // value of a bound.
+    MachineOperand* get_input_bound_op() const {
+      // Find a matching operand for <in_b>.  It either comes from a
+      // corresponding repeat input, or the bound argument of the
+      // compare.  Note that we can't always pick it straight from the
+      // compare unless it is an immediate, because that channel has a
+      // value for every loop iteration.
+      MachineOperand* in_b_op;
+      if (this->bound_idx >= 0) {
+        // If we have a bound_idx, the bound corresponds to a repeat
+        // statement.
+        const LPUSeqCandidate* bound_repeat = &candidates[this->bound_idx];
+        assert(bound_repeat);
+        assert(bound_repeat->stype == LPUSeqCandidate::SeqType::REPEAT);
+        in_b_op = bound_repeat->get_pick_input_op(header);
+      }
+      else {
+        // Otherwise, the bound should be a literal.
+        in_b_op = &header.compareInst->getOperand(this->boundOpIdx());
+        assert(in_b_op->isImm());
+      }
+      return in_b_op;
     }
 
 

@@ -41,9 +41,10 @@
 using namespace llvm;
 
 static cl::opt<int>
-OptDFPass("lpu-opt-df-pass", cl::Hidden,
-               cl::desc("LPU Specific: Optimize data flow pass"),
-               cl::init(0));
+OptDFPass("lpu-opt-df-pass",
+          cl::Hidden,
+          cl::desc("LPU Specific: Optimize data flow pass"),
+          cl::init(0));
 
 #define DEBUG_TYPE "lpu-opt-df"
 
@@ -92,14 +93,13 @@ SeqBreakMemdep("lpu-seq-break-memdep", cl::Hidden,
 
 // Flag to specify the maximum number of sequence candidates we will
 // identify in a given loop.
-// TBD(jsukha): We may not care about this limit in the long run?
-// No code uses this limit yet...
+//
+// TBD(jsukha): I set this value to be a large but arbitrary value.
 static cl::opt<int>
 SequenceMaxPerLoop("lpu-seq-max",
               cl::Hidden,
               cl::desc("LPU Specific: Max sequence units inserted per loop"),
-              cl::init(1024));
-
+              cl::init(1024*1024));
 
 
 namespace {
@@ -235,8 +235,6 @@ public:
                              LPUSeqCandidate& indvarCandidate,
                              unsigned indvar_opcode,
                              int indvarIdx,
-                             int boundIdx,
-                             int boundOpIdx,
                              std::set<MachineInstr*>& insSetMarkedForDeletion);
 
 
@@ -1434,85 +1432,27 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
                        std::set<MachineInstr*>& insSetMarkedForDeletion) {
   
   // Found a valid induction variable. 
-  // True if induction variable (i.e., first argument in the compare)
-  // is a stride candidate.
-  bool found_indvar = false;
-  // Index in the loop.candidates vector that identifies a sequence
-  // candidate.
-  int indvarIdx;
-  int boundIdx;
-  // Operand index in the comparison instruction for the bound. 
-  int boundOpIdx;
-
-  // This comparison sense will be 0 if the original compare is
-  //   compare induction_var, stride
-  // and 1 if we have
-  //   compare stride, induction_var
-  //
-  bool compare_sense;
-  
-  // Two cases.  Look for the stride (induction variable) in either
-  // cmp0 or cmp1.
-  if ((loop.cmp0Idx() >= 0) &&
-      loop.candidates[loop.cmp0Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
-    found_indvar = true;
-    indvarIdx = loop.cmp0Idx();
-    boundIdx = loop.cmp1Idx();
-    
-    // Operand index in the comparison instruction for the bound.
-    boundOpIdx = 2;
-    compare_sense = false;
-  }
-  else if ((loop.cmp1Idx() >= 0) &&
-           loop.candidates[loop.cmp1Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
-    found_indvar = true;
-    indvarIdx = loop.cmp1Idx();
-    boundIdx = loop.cmp0Idx();
-    boundOpIdx = 1;
-    compare_sense = true;
-  }
-
+  bool found_indvar = loop.find_induction_variable();
   if (!found_indvar) {
     DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
     return false;
   }
 
-  // There are two cases where we will need to swap comparison of the
-  // sequence from the direction of the original compare.
-
-  //
-  // 1. If the comparison sense is inverted (i.e., we have compare
-  //    stride, var), then we need to invert the comparison.
-  //
-  // 2. If the switcher sense is 1 (so it expects 0, 0, 0,
-  // ... 1 for its control), then we need to invert the comparison.
-  //
-  // Both conditions together will cancel each other out.  Thus, the
-  // final booleans
-  bool invert_compare = compare_sense ^ (loop.header.switcherSense);
-
+  int indvarIdx = loop.indvarIdx();
   LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
-  
-  // Found a valid loop bound.
-  // This can either be a repeated channel, or an immediate.
-  bool found_bound_channel = 
-    ((boundIdx >= 0) &&
-     loop.candidates[boundIdx].stype == LPUSeqCandidate::SeqType::REPEAT);
-  bool found_bound_imm =
-    ((boundIdx == -1) &&
-     loop.header.compareInst->getOperand(boundOpIdx).isImm());
-  bool found_bound = found_bound_channel || found_bound_imm;
-  
-  if (!found_bound) {
-    DEBUG(errs() << "Seq transform failed: possible non-constant loop.\n");
-    DEBUG(errs() << "Boundidx = " << boundIdx << "\n");
-    if (boundIdx >= 0) {
-      seq_debug_print_candidate(loop.candidates[boundIdx]);
 
+  bool found_bound = loop.has_valid_bound();
+  if (!found_bound) {
+    int boundIdx = loop.boundIdx();
+    DEBUG(errs() << "Seq transform failed: no valid bound (e.g., possible non-constant loop).\n");
+    DEBUG(errs() << "Boundidx = " << boundIdx << "\n");
+    if (loop.boundIdx() >= 0) {
+      seq_debug_print_candidate(loop.candidates[loop.boundIdx()]);
     }
     return false;
   }
 
+  bool invert_compare = loop.invert_compare();
 
   // Compute a matching opcode for the compare and transformation
   // instruction.  
@@ -1530,8 +1470,6 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
                           indvarCandidate,
                           indvar_opcode,
                           indvarIdx,
-                          boundIdx,
-                          boundOpIdx, 
                           insSetMarkedForDeletion);
     
     return true;
@@ -2033,8 +1971,6 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
                       LPUSeqCandidate& indvarCandidate,
                       unsigned indvar_opcode,
                       int indvarIdx,
-                      int boundIdx,
-                      int boundOpIdx,
                       std::set<MachineInstr*>& insSetMarkedForDeletion) {
 
   //  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
@@ -2124,25 +2060,10 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   // <in_i> may or may not be an immediate, but it must come from the
   // pick.
   MachineOperand* in_i_op = indvarCandidate.get_pick_input_op(loop.header);
+
+  // Get the operand we should use for <in_b>.
+  MachineOperand* in_b_op = loop.get_input_bound_op();
   
-  // Find a matching operand for <in_b>.  It either comes from a
-  // corresponding repeat input, or the second argument to the
-  // compare.  Note that we can't always pick it straight from the
-  // compare unless it is an immediate, because that channel has a
-  // value for every loop iteration.
-  MachineOperand* in_b_op;
-  // This value is NULL if the bound comes from a literal, or non-null
-  // if we need a repeat.
-  LPUSeqCandidate* bound_repeat = NULL;
-  if (boundIdx >= 0) {
-    bound_repeat = &loop.candidates[boundIdx];
-    assert(bound_repeat->stype == LPUSeqCandidate::SeqType::REPEAT);
-    in_b_op = bound_repeat->get_pick_input_op(loop.header);
-  }
-  else {
-    in_b_op = &loop.header.compareInst->getOperand(boundOpIdx);
-    assert(in_b_op->isImm());
-  }
 
   assert(indvarCandidate.transformInst);
 
