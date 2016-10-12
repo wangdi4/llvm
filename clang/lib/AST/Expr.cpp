@@ -3918,6 +3918,121 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   case AO__atomic_compare_exchange:
   case AO__atomic_compare_exchange_n:
     return 6;
+
+#if INTEL_CUSTOMIZATION
+  case AO__atomic_store_explicit:
+  case AO__atomic_store_explicit_1:
+  case AO__atomic_store_explicit_2:
+  case AO__atomic_store_explicit_4:
+  case AO__atomic_store_explicit_8:
+  case AO__atomic_store_explicit_16:
+    return 3;
+
+  case AO__atomic_load_explicit:
+  case AO__atomic_load_explicit_1:
+  case AO__atomic_load_explicit_2:
+  case AO__atomic_load_explicit_4:
+  case AO__atomic_load_explicit_8:
+  case AO__atomic_load_explicit_16:
+    return 2;
+
+  case AO__atomic_exchange_explicit:
+  case AO__atomic_exchange_explicit_1:
+  case AO__atomic_exchange_explicit_2:
+  case AO__atomic_exchange_explicit_4:
+  case AO__atomic_exchange_explicit_8:
+  case AO__atomic_exchange_explicit_16:
+    return 3;
+
+  case AO__atomic_compare_exchange_weak_explicit:
+  case AO__atomic_compare_exchange_weak_explicit_1:
+  case AO__atomic_compare_exchange_weak_explicit_2:
+  case AO__atomic_compare_exchange_weak_explicit_4:
+  case AO__atomic_compare_exchange_weak_explicit_8:
+  case AO__atomic_compare_exchange_weak_explicit_16:
+  case AO__atomic_compare_exchange_strong_explicit:
+  case AO__atomic_compare_exchange_strong_explicit_1:
+  case AO__atomic_compare_exchange_strong_explicit_2:
+  case AO__atomic_compare_exchange_strong_explicit_4:
+  case AO__atomic_compare_exchange_strong_explicit_8:
+  case AO__atomic_compare_exchange_strong_explicit_16:
+    return 5;
+
+  case AO__atomic_fetch_add_explicit:
+  case AO__atomic_fetch_add_explicit_1:
+  case AO__atomic_fetch_add_explicit_2:
+  case AO__atomic_fetch_add_explicit_4:
+  case AO__atomic_fetch_add_explicit_8:
+  case AO__atomic_fetch_add_explicit_16:
+  case AO__atomic_fetch_sub_explicit:
+  case AO__atomic_fetch_sub_explicit_1:
+  case AO__atomic_fetch_sub_explicit_2:
+  case AO__atomic_fetch_sub_explicit_4:
+  case AO__atomic_fetch_sub_explicit_8:
+  case AO__atomic_fetch_sub_explicit_16:
+  case AO__atomic_fetch_and_explicit:
+  case AO__atomic_fetch_and_explicit_1:
+  case AO__atomic_fetch_and_explicit_2:
+  case AO__atomic_fetch_and_explicit_4:
+  case AO__atomic_fetch_and_explicit_8:
+  case AO__atomic_fetch_and_explicit_16:
+  case AO__atomic_fetch_nand_explicit:
+  case AO__atomic_fetch_nand_explicit_1:
+  case AO__atomic_fetch_nand_explicit_2:
+  case AO__atomic_fetch_nand_explicit_4:
+  case AO__atomic_fetch_nand_explicit_8:
+  case AO__atomic_fetch_nand_explicit_16:
+  case AO__atomic_fetch_or_explicit:
+  case AO__atomic_fetch_or_explicit_1:
+  case AO__atomic_fetch_or_explicit_2:
+  case AO__atomic_fetch_or_explicit_4:
+  case AO__atomic_fetch_or_explicit_8:
+  case AO__atomic_fetch_or_explicit_16:
+  case AO__atomic_fetch_xor_explicit:
+  case AO__atomic_fetch_xor_explicit_1:
+  case AO__atomic_fetch_xor_explicit_2:
+  case AO__atomic_fetch_xor_explicit_4:
+  case AO__atomic_fetch_xor_explicit_8:
+  case AO__atomic_fetch_xor_explicit_16:
+  case AO__atomic_add_fetch_explicit:
+  case AO__atomic_add_fetch_explicit_1:
+  case AO__atomic_add_fetch_explicit_2:
+  case AO__atomic_add_fetch_explicit_4:
+  case AO__atomic_add_fetch_explicit_8:
+  case AO__atomic_add_fetch_explicit_16:
+  case AO__atomic_sub_fetch_explicit:
+  case AO__atomic_sub_fetch_explicit_1:
+  case AO__atomic_sub_fetch_explicit_2:
+  case AO__atomic_sub_fetch_explicit_4:
+  case AO__atomic_sub_fetch_explicit_8:
+  case AO__atomic_sub_fetch_explicit_16:
+  case AO__atomic_and_fetch_explicit:
+  case AO__atomic_and_fetch_explicit_1:
+  case AO__atomic_and_fetch_explicit_2:
+  case AO__atomic_and_fetch_explicit_4:
+  case AO__atomic_and_fetch_explicit_8:
+  case AO__atomic_and_fetch_explicit_16:
+  case AO__atomic_nand_fetch_explicit:
+  case AO__atomic_nand_fetch_explicit_1:
+  case AO__atomic_nand_fetch_explicit_2:
+  case AO__atomic_nand_fetch_explicit_4:
+  case AO__atomic_nand_fetch_explicit_8:
+  case AO__atomic_nand_fetch_explicit_16:
+  case AO__atomic_or_fetch_explicit:
+  case AO__atomic_or_fetch_explicit_1:
+  case AO__atomic_or_fetch_explicit_2:
+  case AO__atomic_or_fetch_explicit_4:
+  case AO__atomic_or_fetch_explicit_8:
+  case AO__atomic_or_fetch_explicit_16:
+  case AO__atomic_xor_fetch_explicit:
+  case AO__atomic_xor_fetch_explicit_1:
+  case AO__atomic_xor_fetch_explicit_2:
+  case AO__atomic_xor_fetch_explicit_4:
+  case AO__atomic_xor_fetch_explicit_8:
+  case AO__atomic_xor_fetch_explicit_16:
+    return 3;
+
+#endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("unknown atomic op");
 }

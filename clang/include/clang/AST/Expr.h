@@ -4941,6 +4941,20 @@ public:
     return getOp() == AO__c11_atomic_compare_exchange_strong ||
            getOp() == AO__c11_atomic_compare_exchange_weak ||
            getOp() == AO__atomic_compare_exchange ||
+#if INTEL_CUSTOMIZATION
+          getOp() == AO__atomic_compare_exchange_weak_explicit ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_1 ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_2 ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_4 ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_8 ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_16 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_1 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_2 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_4 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_8 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_16||
+#endif // INTEL_CUSTOMIZATION
            getOp() == AO__atomic_compare_exchange_n;
   }
 
