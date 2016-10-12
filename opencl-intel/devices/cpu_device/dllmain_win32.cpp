@@ -25,12 +25,19 @@
 #include "stdafx.h"
 
 #pragma comment(lib, "cl_sys_utils.lib")
-#pragma comment(lib, "cl_logger" EXPERIMENTAL_POSTFIX ".lib")
-
+#pragma comment(lib, "cl_logger.lib")
 #if defined(_M_X64)
-    #pragma comment(lib, "task_executor64" EXPERIMENTAL_POSTFIX ".lib")
+#ifdef BUILD_EXPERIMENTAL_21
+    #pragma comment(lib, "task_executor64_2_1.lib")
+#else //BUILD_EXPERIMENTAL_21
+    #pragma comment(lib, "task_executor64.lib")
+#endif //BUILD_EXPERIMENTAL_21
 #else
-    #pragma comment(lib, "task_executor32" EXPERIMENTAL_POSTFIX ".lib")
+#ifdef BUILD_EXPERIMENTAL_21
+    #pragma comment(lib, "task_executor32_2_1.lib")
+#else //BUILD_EXPERIMENTAL_21
+    #pragma comment(lib, "task_executor32.lib")
+#endif //BUILD_EXPERIMENTAL_21
 #endif
 
 #include "cpu_device.h"

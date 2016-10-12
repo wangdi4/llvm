@@ -245,12 +245,10 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
 
     // Check TBB library version
 
-    // Minimal TBB version that we support(7001 is TBB 4.2).
-    const int MINIMAL_TBB_INTERFACE_VERSION = 7001;
-    if(MINIMAL_TBB_INTERFACE_VERSION > tbb::TBB_runtime_interface_version())
+    if(TBB_INTERFACE_VERSION > tbb::TBB_runtime_interface_version())
     {
         std::stringstream stream;
-        stream << "TBB version doesn't match. Required " << __TBB_STRING(MINIMAL_TBB_INTERFACE_VERSION) << ", loaded " << tbb::TBB_runtime_interface_version() << "." << std::ends;
+        stream << "TBB version doens't match. Required " << __TBB_STRING(TBB_INTERFACE_VERSION) << ", loaded " << tbb::TBB_runtime_interface_version() << "." << std::ends;
         LOG_ERROR(TEXT(stream.str().c_str()), "");
         if (NULL != pUserLogger && pUserLogger->IsErrorLoggingEnabled())
         {
@@ -389,9 +387,17 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     Intel::OpenCL::Utils::GetModuleDirectory(tbbPath, MAX_PATH);
 
 #ifdef _DEBUG
-    STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug" EXPERIMENTAL_POSTFIX ".dll");
+#ifdef BUILD_EXPERIMENTAL_21
+        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug_2_1.dll");
+#else // BUILD_EXPERIMENTAL_21
+        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug.dll");
+#endif // BUILD_EXPERIMENTAL_21
 #else
-    STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb"       EXPERIMENTAL_POSTFIX ".dll");
+#ifdef BUILD_EXPERIMENTAL_21
+        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_2_1.dll");
+#else // BUILD_EXPERIMENTAL_21
+        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb.dll");
+#endif // BUILD_EXPERIMENTAL_21
 #endif
 
     bLoadRes = m_dllTBBLib.Load(tbbPath);

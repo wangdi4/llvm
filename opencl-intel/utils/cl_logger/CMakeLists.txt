@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME cl_logger${EXPERIMENTAL_POSTFIX} )
+set( TARGET_NAME cl_logger )
 include_directories( ${CL_API_HEADERS} )
 
 FIND_SOURCES()

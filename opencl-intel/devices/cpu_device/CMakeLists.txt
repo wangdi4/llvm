@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME cpu_device${BUILD_PLATFORM}${EXPERIMENTAL_POSTFIX} )
+set( TARGET_NAME cpu_device${BUILD_PLATFORM} )
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCLDEVICE_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
@@ -109,9 +109,9 @@ endif (WIN32)
 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
-                                      cl_logger${EXPERIMENTAL_POSTFIX}
+                                      cl_logger
                                       device_commands
-                                      task_executor${BUILD_PLATFORM}${EXPERIMENTAL_POSTFIX}
+                                      task_executor${BUILD_PLATFORM}
                                       ${LINK_LIBS})
 if (INCLUDE_MKL)
     target_link_libraries( ${TARGET_NAME} LINK_PRIVATE ${MKL_LINK_LIBS})

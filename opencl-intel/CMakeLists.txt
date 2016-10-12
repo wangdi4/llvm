@@ -5,11 +5,6 @@ cmake_minimum_required(VERSION 2.8.7)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
-if( BUILD_EXPERIMENTAL_21 )
-    set( EXPERIMENTAL_POSTFIX "_2_1" )
-    add_definitions( -DBUILD_EXPERIMENTAL_21 )
-    add_definitions( -DEXPERIMENTAL_POSTFIX="_2_1" )
-endif( BUILD_EXPERIMENTAL_21 )
 # CMAKE variables
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH}
@@ -544,6 +539,10 @@ set( TOOLS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/Tools )
 set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
 
+if( BUILD_EXPERIMENTAL_21 )
+    add_definitions( -DBUILD_EXPERIMENTAL_21 )
+    set( EXPERIMENTAL_POSTFIX "_2_1" )
+endif( BUILD_EXPERIMENTAL_21 )
 
 
 
