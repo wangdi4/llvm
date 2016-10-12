@@ -56,4 +56,5 @@ class FMTGEN<dag outs, dag ins, string asmstr, list<dag> pattern,
       list<Predicate> preds = [], InstrItinClass itin = NoItinerary>
     : InstLPU<outs, ins, asmstr, pattern, preds, itin> {
 //let DecoderMethod = "DecodeFGENInstruction";
+  let hasSideEffects = 0;
 }

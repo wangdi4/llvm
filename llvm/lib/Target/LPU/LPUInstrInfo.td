@@ -113,7 +113,7 @@ class LPUOpInfo<ValueType vt, int opBitSize, string instrSuffix,
   // VT - the value type itself
   ValueType VT = vt;
 
-  // OpBitSize - the size of the operation.  (e.g. 
+  // OpBitSize - the size of the operation.  (e.g.
   int OpBitSize = opBitSize;
 
   // InstrSuffix - used on instructions with this type.
@@ -282,7 +282,7 @@ class ShiftOp<GenericOp gen, SDNode opNode, LPUOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
-    (ins oi.RCL:$op1, RCLi8:$op2), 
+    (ins oi.RCL:$op1, RCLi8:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2"),
     [(set oi.RC:$dst, (opNode oi.RCL:$op1, RCLi8:$op2))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
@@ -384,16 +384,21 @@ class PickAnyOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-// hasSideEffects attempts to capture the internal state and stream output behavior
+// We thought that hasSideEffects would capture the internal state and stream
+// output behavior, but it's really not the right thing.  From the standpoint
+// of retained state, each time a SEQ or REPEAT is triggered, it has a fresh
+// new state and is uneffected by previous "side effects".  Marking these
+// operations as having side effects has not benefit and interferes with dead
+// instruction detection.
 class SeqCOp<GenericOp gen, LPUOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<  // TODO: something to reflect state
     (outs oi.RC:$val, I1:$pred, I1:$first, I1:$last),
     (ins oi.RCL:$base, oi.RCL:$count, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $pred, $first, $last, $base, $count, $stride"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
-// hasSideEffects attempts to capture the internal state and stream output behavior
+// See comment for SeqCOp, above, as to why hasSideEffects is not being set.
 // TODO: something to reflect state
 class SeqSOp<GenericOp gen, LPUOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
@@ -401,25 +406,25 @@ class SeqSOp<GenericOp gen, LPUOpInfo oi,
     (outs oi.RC:$val, I1:$pred, I1:$first, I1:$last),
     (ins oi.RCL:$base, oi.RCL:$bound, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $pred, $first, $last, $base, $bound, $stride"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
-// hasSideEffects attempts to capture the internal state and stream output behavior
+// See comment for SeqCOp, above, as to why hasSideEffects is not being set.
 class RepeatOp<GenericOp gen, LPUOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<  // TODO: something to reflect state
     (outs oi.RC:$out),
     (ins I1:$pred, oi.RCL:$in),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $in"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
-// hasSideEffects attempts to capture the internal state and stream output behavior
+// See comment for SeqCOp, above, as to why hasSideEffects is not being set.
 class StrideOp<GenericOp gen, LPUOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<  // TODO: something to reflect state
     (outs oi.RC:$out),
     (ins I1:$pred, oi.RCL:$base, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $base, $stride"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 class SReduceOp<GenericOp gen, LPUOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
@@ -477,9 +482,9 @@ multiclass LdOp<string opStr, LPUOpInfo t,
 // Ugly combinatorial issue between literal store data and addressing modes
 multiclass StOp<string opStr, LPUOpInfo t,
            InstrItinClass itin = IIST> {
-  let Predicates = [HasIndex], Itinerary = itin in {
+  let Predicates = [HasIndex], mayStore = 1, Itinerary = itin in {
     def X : FMTGEN<
-      (outs),    
+      (outs),
       (ins ADDR_RX:$addr, t.RCL:$data),
       !strconcat(opStr, "x\t$addr, $data"),
       [(store (t.VT t.RCL:$data), ADDR_RX:$addr)]>;
@@ -487,7 +492,7 @@ multiclass StOp<string opStr, LPUOpInfo t,
 
   let Predicates = [HasDispl], Itinerary = itin in {
     def D : FMTGEN<
-      (outs),            
+      (outs),
       (ins ADDR_RI:$addr, t.RCL:$data),
       !strconcat(opStr, "d\t$addr, $data, %ign"),
       [(store (t.VT t.RCL:$data), ADDR_RI:$addr)]>;
@@ -500,7 +505,7 @@ multiclass StOp<string opStr, LPUOpInfo t,
 
   let Itinerary = itin in {
     def "" : FMTGEN<
-      (outs),                            
+      (outs),
       (ins ADDR_R:$addr, t.RCL:$data),
       !strconcat(opStr, "\t$addr, $data, %ign"),
       [(store (t.VT t.RCL:$data), ADDR_R:$addr)]>;
@@ -558,7 +563,7 @@ multiclass OLdOp<string opStr, LPUOpInfo t,
 
 multiclass OStOp<string opStr, LPUOpInfo t,
            InstrItinClass itin = IIST> {
-  let Predicates = [HasIndex], Itinerary = itin in {
+  let Predicates = [HasIndex], mayStore = 1, Itinerary = itin in {
     def X : FMTGEN<
       (outs I0:$issued),
       (ins ADDR_RX:$addr, t.RCL:$data, I0:$ready),
@@ -1352,7 +1357,7 @@ def ONEND : FMTGEN<  // TODO: something to reflect state
   (ins I1:$ctrl, I0:$in),
   "onend\t$dst, $ctrl, $in",
   []> { let Itinerary = IIVir; }
-  
+
 // Not clear that "hasSideEffects" is a good description of static initialization...
 class Init<LPUOpInfo t, list<Predicate> preds, InstrItinClass itin> :
   PseudoInstLPU<
@@ -1613,7 +1618,7 @@ def : Pat<(f16 (bitconvert i16:$op1)), (COPY_TO_REGCLASS $op1, I16)>;
 
 // fcopysign - use the sign bit from the sign opnd, and everything else from
 // the other
-/* 
+/*
   After having finally found a solution, for some reason this causes a tablegen
   crash when doing builds on Windows...  Disabled for now...
 def : Pat<(fcopysign f32:$other, f32:$sign),
