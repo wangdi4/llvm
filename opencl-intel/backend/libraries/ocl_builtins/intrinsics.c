@@ -121,6 +121,13 @@ _mm512_maskz_loadu_epi64(__mmask8 __U, void const *__P)
     (__mmask8)__U);
 }
 
+void __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_storeu_epi64(void *__P, __mmask8 __U, __m512i __A)
+{
+  __builtin_ia32_storedqudi512_mask((__v8di *)__P, (__v8di)__A,
+    (__mmask8)__U);
+}
+
 __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_abs_epi32(__m512i __A)
 {
