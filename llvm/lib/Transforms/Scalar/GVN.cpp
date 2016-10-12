@@ -1780,6 +1780,10 @@ static void patchReplacementInstruction(Instruction *I, Value *Repl) {
       LLVMContext::MD_tbaa,           LLVMContext::MD_alias_scope,
       LLVMContext::MD_noalias,        LLVMContext::MD_range,
       LLVMContext::MD_fpmath,         LLVMContext::MD_invariant_load,
+#if INTEL_CUSTOMIZATION
+      LLVMContext::MD_std_container_ptr,
+      LLVMContext::MD_std_container_ptr_iter,
+#endif // INTEL_CUSTOMIZATION
       LLVMContext::MD_invariant_group};
   combineMetadata(ReplInst, I, KnownIDs);
 }

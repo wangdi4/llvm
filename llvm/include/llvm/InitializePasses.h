@@ -360,6 +360,10 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializeWriteBitcodePassPass(PassRegistry &);
 void initializeXRayInstrumentationPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
+// Pass for alias analysis for STL templates
+void initializeStdContainerAAWrapperPassPass(PassRegistry &);
+// Pass for alias metadata propagation
+void initializeStdContainerOptPass(PassRegistry &);
 // Pass for TBAA metadata propagation
 void initializeTbaaMDPropagationPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info

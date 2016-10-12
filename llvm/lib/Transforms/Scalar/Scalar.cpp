@@ -17,6 +17,7 @@
 #include "llvm-c/Initialization.h"
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -87,11 +88,12 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializePlaceSafepointsPass(Registry);
   initializeFloat2IntLegacyPassPass(Registry);
   initializeLoopDistributeLegacyPass(Registry);
-#ifdef INTEL_CUSTOMIZATION
-  initializeNonLTOGlobalOptPass(Registry); 
-  initializeIndirectCallConvPass(Registry); 
+#if INTEL_CUSTOMIZATION
+  initializeNonLTOGlobalOptPass(Registry);
+  initializeIndirectCallConvPass(Registry);
+  initializeStdContainerOptPass(Registry);
   initializeTbaaMDPropagationPass(Registry); 
-#endif     // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   initializeLoopLoadEliminationPass(Registry);
   initializeLoopSimplifyCFGLegacyPassPass(Registry);
   initializeLoopVersioningPassPass(Registry);
@@ -253,6 +255,12 @@ void LLVMAddTypeBasedAliasAnalysisPass(LLVMPassManagerRef PM) {
 void LLVMAddScopedNoAliasAAPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createScopedNoAliasAAWrapperPass());
 }
+
+#if INTEL_CUSTOMIZATION
+void LLVMAddStdContainerAAPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createStdContainerAAWrapperPass());
+}
+#endif // INTEL_CUSTOMIZATION
 
 void LLVMAddBasicAliasAnalysisPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createBasicAAWrapperPass());

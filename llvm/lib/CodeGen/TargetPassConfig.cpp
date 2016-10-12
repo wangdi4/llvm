@@ -18,6 +18,7 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -439,6 +440,7 @@ void TargetPassConfig::addIRPasses() {
   // Add TypeBasedAliasAnalysis before BasicAliasAnalysis so that
   // BasicAliasAnalysis wins if they disagree. This is intended to help
   // support "obvious" type-punning idioms.
+  addPass(createStdContainerAAWrapperPass()); // INTEL
   addPass(createTypeBasedAAWrapperPass());
   addPass(createScopedNoAliasAAWrapperPass());
   addPass(createBasicAAWrapperPass());

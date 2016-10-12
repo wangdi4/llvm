@@ -17,8 +17,8 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_Andersens.h"    
-#include "llvm/Analysis/Intel_WP.h"             
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -100,6 +100,7 @@ struct PromoteLegacyPass : public FunctionPass {
     AU.addPreserved<AndersensAAWrapperPass>();   
     AU.addPreserved<GlobalsAAWrapperPass>();
 #endif // INTEL_CUSTOMIZATION
+    AU.addPreserved<GlobalsAAWrapperPass>();       // INTEL
   }
   };
 }  // end of anonymous namespace

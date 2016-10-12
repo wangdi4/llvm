@@ -19,9 +19,12 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_AggInline.h"  // INTEL
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-#include "llvm/Analysis/Intel_WP.h"  // INTEL
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_AggInline.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h"
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -150,11 +153,14 @@ static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
     cl::desc("Enable register promotion for global vars outside of the LTO."));
 
-#if INTEL_CUSTOMIZATION
+// Std Container Optimization at -O2 and above.
+static cl::opt<bool> EnableStdContainerOpt("enable-std-container-opt",
+                                           cl::init(true), cl::Hidden,
+                                           cl::desc("Enable Std Container Optimization"));
+
 static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
                                     cl::Hidden,
                                     cl::desc("Enable Tbaa Propagation"));
-#endif // INTEL_CUSTOMIZATION
 
 // Andersen AliasAnalysis
 static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
@@ -298,6 +304,10 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
   // support "obvious" type-punning idioms.
   PM.add(createTypeBasedAAWrapperPass());
   PM.add(createScopedNoAliasAAWrapperPass());
+#if INTEL_CUSTOMIZATION
+  if (EnableStdContainerOpt)
+    PM.add(createStdContainerAAWrapperPass());
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addInstructionCombiningPass(
@@ -366,8 +376,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Combine silly seq's
   addInstructionCombiningPass(MPM);
 #if INTEL_CUSTOMIZATION
-  if (EnableTbaaProp)
+  if (EnableTbaaProp) {
     MPM.add(createTbaaMDPropagationPass());
+    MPM.add(createSROAPass());
+  }
+  if (EnableStdContainerOpt) 
+    MPM.add(createStdContainerOptPass());
 #endif // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_Peephole, MPM);
 

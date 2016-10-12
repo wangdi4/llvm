@@ -39,6 +39,7 @@ add_llvm_library(LLVMAnalysis
   Intel_Andersens.cpp
   Intel_Directives.cpp
   Intel_SNode.cpp
+  Intel_StdContainerAA.cpp
   Intel_OptVLS.cpp
   Intel_OptVLSClientUtils.cpp
   Intel_VectorVariant.cpp

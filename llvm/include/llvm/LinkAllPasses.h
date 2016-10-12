@@ -36,6 +36,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"   // INTEL
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h" // INTEL
+#include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -77,7 +78,9 @@ namespace {
 #if INTEL_CUSTOMIZATION 
       (void) llvm::createAndersensAAWrapperPass(); 
       (void) llvm::createNonLTOGlobalOptimizerPass(); 
-      (void)llvm::createTbaaMDPropagationPass();    
+      (void) llvm::createTbaaMDPropagationPass();    
+      (void) llvm::createStdContainerOptPass();      
+      (void) llvm::createStdContainerAAWrapperPass();  
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();

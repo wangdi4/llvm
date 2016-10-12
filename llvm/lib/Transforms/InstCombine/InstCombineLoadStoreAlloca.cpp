@@ -350,6 +350,10 @@ static LoadInst *combineLoadToNewType(InstCombiner &IC, LoadInst &LI, Type *NewT
     case LLVMContext::MD_noalias:
     case LLVMContext::MD_nontemporal:
     case LLVMContext::MD_mem_parallel_loop_access:
+#if INTEL_CUSTOMIZATION
+    case LLVMContext::MD_std_container_ptr:
+    case LLVMContext::MD_std_container_ptr_iter:
+#endif // INTEL_CUSTOMIZATION
       // All of these directly apply.
       NewLoad->setMetadata(ID, N);
       break;
@@ -422,6 +426,10 @@ static StoreInst *combineStoreToNewValue(InstCombiner &IC, StoreInst &SI, Value 
     case LLVMContext::MD_noalias:
     case LLVMContext::MD_nontemporal:
     case LLVMContext::MD_mem_parallel_loop_access:
+#if INTEL_CUSTOMIZATION
+    case LLVMContext::MD_std_container_ptr:
+    case LLVMContext::MD_std_container_ptr_iter:
+#endif // INTEL_CUSTOMIZATION
       // All of these directly apply.
       NewStore->setMetadata(ID, N);
       break;
@@ -831,7 +839,12 @@ Instruction *InstCombiner::visitLoadInst(LoadInst &LI) {
           LLVMContext::MD_invariant_load,  LLVMContext::MD_nonnull,
           LLVMContext::MD_invariant_group, LLVMContext::MD_align,
           LLVMContext::MD_dereferenceable,
-          LLVMContext::MD_dereferenceable_or_null};
+#if INTEL_CUSTOMIZATION
+          LLVMContext::MD_std_container_ptr,
+          LLVMContext::MD_std_container_ptr_iter,
+#endif // INTEL_CUSTOMIZATION
+          LLVMContext::MD_dereferenceable_or_null
+      };
       combineMetadata(NLI, &LI, KnownIDs);
     };
 
