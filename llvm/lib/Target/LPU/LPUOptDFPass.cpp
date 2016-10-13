@@ -240,6 +240,12 @@ public:
                               SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other);
 
 
+  // The final check in the analysis phase, which checks whether we
+  // can figure out which sequence candidate is an induction variable
+  // for the loop.
+  // Returns true if we found a valid induction variable and bound.
+  bool seq_identify_induction_variable(LPUSeqLoopInfo& loop);
+
   // The final check to see if we can transform the loop control
   // variable on a loop, and then transform the loop. 
   bool seq_try_transform_loop(LPUSeqLoopInfo& loop,
@@ -1531,8 +1537,39 @@ seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
       DEBUG(errs() << "   Invalid candidates: " << other.size() << "\n");
       DEBUG(errs() << "   All candidates: "
             << current_loop.candidates.size() << "\n");
+
+      bool can_transform = seq_identify_induction_variable(current_loop);
+      DEBUG(errs() << "Loop " << current_loop.loop_id
+            << ": can transform = " << can_transform << "\n");
     }
   }
+}
+
+bool 
+LPUOptDFPass::
+seq_identify_induction_variable(LPUSeqLoopInfo& loop) {
+  const LPUInstrInfo &TII =
+    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+
+  // Found a valid induction variable.
+  bool found_indvar = loop.find_induction_variable();
+  if (!found_indvar) {
+    DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
+    return false;
+  }
+
+  bool found_bound = loop.has_valid_bound();
+  if (!found_bound) {
+    int boundIdx = loop.boundIdx();
+    DEBUG(errs() << "Seq transform failed: no valid bound (e.g., possible non-constant loop).\n");
+    DEBUG(errs() << "Boundidx = " << boundIdx << "\n");
+    if (loop.boundIdx() >= 0) {
+      seq_debug_print_candidate(loop.candidates[loop.boundIdx()]);
+    }
+    return false;
+  }
+
+  return loop.sequence_opcode_transform_check(TII);
 }
 
 
@@ -1545,6 +1582,7 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
   bool found_indvar = loop.find_induction_variable();
   if (!found_indvar) {
     DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
+    assert(!loop.sequence_transform_is_valid());
     return false;
   }
 
@@ -1559,6 +1597,8 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
     if (loop.boundIdx() >= 0) {
       seq_debug_print_candidate(loop.candidates[loop.boundIdx()]);
     }
+
+    assert(!loop.sequence_transform_is_valid());
     return false;
   }
 
@@ -1575,7 +1615,7 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
                                       invert_compare, 
                                       &indvar_opcode)) {
     DEBUG(errs() << "Can do sequence transform of induction variable!\n");
-
+    assert(loop.sequence_transform_is_valid());
     seq_do_transform_loop(loop,
                           indvarCandidate,
                           indvar_opcode,
@@ -1590,7 +1630,7 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
   DEBUG(errs() << "WARNING: possible sequence opcode not implemented yet.\n");
   DEBUG(errs() << "  induction variable candidate is: ");
   seq_debug_print_candidate(indvarCandidate);
-  
+  assert(!loop.sequence_transform_is_valid());  
   return false;
 }
 

@@ -438,6 +438,15 @@ namespace llvm {
     //  1 if the compare is
     //    compare bound, indvar
     int compare_sense;
+
+    // Final flag which indicates we have a safe transformation.
+    bool valid_to_transform;
+
+    // The final opcode we should use for this sequence, if we can
+    // transform it.
+    unsigned seq_opcode;
+
+    static const unsigned INVALID_OPCODE = LPU::PHI;
     
   public:
     LPUSeqLoopInfo()
@@ -449,6 +458,8 @@ namespace llvm {
     , indvar_idx(-1)
     , bound_idx(-1)
     , compare_sense(0)
+    , valid_to_transform(false)
+    , seq_opcode(LPUSeqLoopInfo::INVALID_OPCODE)
     {
     }
     
@@ -476,6 +487,14 @@ namespace llvm {
       return bound_idx;
     }
 
+    
+    bool sequence_transform_is_valid() const {
+      return valid_to_transform;
+    }
+
+    unsigned get_seq_opcode() const {
+      return seq_opcode;
+    }
 
     // Returns true if we need a sequence instruction whose comparison
     // is inverted from the actual compare instruction we find.
@@ -496,7 +515,49 @@ namespace llvm {
       return this->compare_sense ^ this->header.switcherSense;
     }
 
+    // Helper method: looks up the right opcode for the sequence for
+    // an induction variable, based on the opcode for the compare,
+    // transforming statement, and whether we need to invert the
+    // comparison.
+    static
+    bool
+    compute_matching_seq_opcode(unsigned ciOp,
+                                unsigned tOp,
+                                bool invert_compare,
+                                const LPUInstrInfo &TII,
+                                unsigned* indvar_opcode) {
 
+      // Invert the comparison opcode if needed.
+      unsigned compareOp = ciOp;
+      if (invert_compare) {
+        compareOp = TII.commuteCompareOpcode(ciOp);
+      }
+
+      // Find a sequence opcode that matches our compare opcode.
+      unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);
+      if (seqOp != compareOp) {
+
+        // If we have a matching sequence op, then check that the
+        // transforming op matches as well.
+
+        switch(tOp) {
+        case LPU::ADD8:
+          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 8);
+          return true;
+        case LPU::ADD16:
+          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 16);
+          return true;
+        case LPU::ADD32:
+          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 32);
+          return true;
+        case LPU::ADD64:
+          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 64);
+          return true;
+        }
+      }
+      return false;
+    }
+    
 
     /*******************************************************************/
     // These methods below should only be called after we have
@@ -650,19 +711,31 @@ namespace llvm {
       return in_b_op;
     }
 
-
     /*******************************************************************/
-    // These methods below should only be called after we have
-    // classified the sequence candidates (into REPEAT, STRIDE, etc.)
-    
-    // Tries to find the induction variable.  Returns true if found,
-    // false otherwise. 
-    //
-    // This method assumes the sequence candidates stored in the
-    // "candidates" array have already been classified.
-    // 
-    // This method will initialize indvar_idx, bound_idx, and
-    // compare_sense.
+    // These methods below should only be called after we have found a
+    // valid induction variable candidate for this loop.
+
+    // Returns true we can do the sequence transform.
+    // If yes, then store the opcode that we need for the sequence instruction. 
+    bool sequence_opcode_transform_check(const LPUInstrInfo &TII) {
+      if (this->indvar_idx >= 0) {
+        LPUSeqCandidate& indvarCandidate = this->candidates[this->indvar_idx];
+        bool invert_compare = this->invert_compare();
+        unsigned compare_opcode = this->header.compareInst->getOpcode();
+        unsigned transform_opcode = indvarCandidate.transformInst->getOpcode();
+
+        this->valid_to_transform =
+          LPUSeqLoopInfo::compute_matching_seq_opcode(compare_opcode,
+                                                      transform_opcode,
+                                                      invert_compare,
+                                                      TII, 
+                                                      &this->seq_opcode);
+        return this->valid_to_transform;
+      }
+      
+      this->valid_to_transform = false;
+      return false;
+    }
 
   };
 
