@@ -43,10 +43,10 @@
 #include "clang/Lex/PreprocessingRecord.h"
 #include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Lex/ScratchBuffer.h"
-#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Capacity.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -535,6 +535,10 @@ void Preprocessor::EndSourceFile() {
   // Notify the client that we reached the end of the source file.
   if (Callbacks)
     Callbacks->EndOfMainFile();
+#if INTEL_CUSTOMIZATION
+  if (!WrapperFilename.empty())
+    llvm::sys::fs::remove(WrapperFilename);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //===----------------------------------------------------------------------===//

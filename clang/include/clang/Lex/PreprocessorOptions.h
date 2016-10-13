@@ -12,7 +12,6 @@
 
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include <cassert>
@@ -54,6 +53,11 @@ public:
   /// \brief Whether we should maintain a detailed record of all macro
   /// definitions and expansions.
   unsigned DetailedRecord : 1;
+
+#if INTEL_CUSTOMIZATION
+  // The output file specified so #import processing can find output directory
+  StringRef OutputFile;
+#endif // INTEL_CUSTOMIZATION
 
   /// The implicit PCH included at the start of the translation unit, or empty.
   std::string ImplicitPCHInclude;

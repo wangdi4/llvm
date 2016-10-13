@@ -90,7 +90,7 @@ namespace clang {
     /*DeclSpec::TST*/ unsigned Type  : 5;
     /*DeclSpec::TSS*/ unsigned Sign  : 2;
     /*DeclSpec::TSW*/ unsigned Width : 2;
-    bool ModeAttr : 1;
+    unsigned ModeAttr : 1;
   };  
 
   /// \brief A C++ access specifier (public, private, protected), plus the
@@ -237,7 +237,7 @@ namespace clang {
   /// Currently calling convention field of Type::ExtInfo class has size 4 bits.
   /// All these bits are used already and there is no place for a new Intel
   /// regcall calling convention. For that reason CC_X86RegCall has the same
-  /// value as CC_SpirKernel supposing that CC_SpirKernel calling convention
+  /// value as CC_OpenCLKernel supposing that CC_OpenCLKernel calling convention
   /// won't be used in Intel xmain compiler for C/C++.
 #endif // INTEL_CUSTOMIZATION
   enum CallingConv {
@@ -253,8 +253,8 @@ namespace clang {
     CC_AAPCS_VFP,   // __attribute__((pcs("aapcs-vfp")))
     CC_IntelOclBicc, // __attribute__((intel_ocl_bicc))
     CC_SpirFunction, // default for OpenCL functions on SPIR target
-    CC_SpirKernel,   // inferred for OpenCL kernels on SPIR target
-    CC_X86RegCall = CC_SpirKernel, // INTEL __attribute__((regcall))
+    CC_OpenCLKernel, // inferred for OpenCL kernels
+    CC_X86RegCall = CC_OpenCLKernel, // INTEL __attribute__((regcall))
     CC_Swift,        // __attribute__((swiftcall))
     CC_PreserveMost, // __attribute__((preserve_most))
     CC_PreserveAll,  // __attribute__((preserve_all))
@@ -270,7 +270,7 @@ namespace clang {
     case CC_X86Pascal:
     case CC_X86VectorCall:
     case CC_SpirFunction:
-    case CC_SpirKernel: // INTEL CC_X86RegCall
+    case CC_OpenCLKernel: // INTEL CC_X86RegCall
     case CC_Swift:
       return false;
     default:

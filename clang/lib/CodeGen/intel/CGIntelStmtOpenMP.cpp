@@ -432,6 +432,65 @@ class OpenMPCodeOutliner {
       addArg(E);
     emitListClause();
   }
+
+  void emitOMPScheduleClause(const OMPScheduleClause *C) {
+    int DefaultChunkSize = 0;
+    switch (C->getScheduleKind()) {
+    case OMPC_SCHEDULE_static:
+      addArg("QUAL.OMP.SCHEDULE.STATIC");
+      break;
+    case OMPC_SCHEDULE_dynamic:
+      DefaultChunkSize = 1;
+      addArg("QUAL.OMP.SCHEDULE.DYNAMIC");
+      break;
+    case OMPC_SCHEDULE_guided:
+      DefaultChunkSize = 1;
+      addArg("QUAL.OMP.SCHEDULE.GUIDED");
+      break;
+    case OMPC_SCHEDULE_auto:
+      addArg("QUAL.OMP.SCHEDULE.AUTO");
+      break;
+    case OMPC_SCHEDULE_runtime:
+      addArg("QUAL.OMP.SCHEDULE.RUNTIME");
+      break;
+    case OMPC_SCHEDULE_unknown:
+      llvm_unreachable("Unknown schedule clause");
+    }
+    SmallString<64> Modifiers;
+    for (int Count = 0; Count < 2; ++Count) {
+      SmallString<64> LocalModifier;
+      auto Mod = Count == 0 ? C->getFirstScheduleModifier()
+                            : C->getSecondScheduleModifier();
+      switch (Mod) {
+      case OMPC_SCHEDULE_MODIFIER_monotonic:
+        LocalModifier = "MONOTONIC";
+        break;
+      case OMPC_SCHEDULE_MODIFIER_nonmonotonic:
+        LocalModifier = "NONMONOTONIC";
+        break;
+      case OMPC_SCHEDULE_MODIFIER_simd:
+        LocalModifier = "SIMD";
+        break;
+      case OMPC_SCHEDULE_MODIFIER_last:
+      case OMPC_SCHEDULE_MODIFIER_unknown:
+        break;
+      }
+      if (!LocalModifier.empty()) {
+        if (!Modifiers.empty())
+          Modifiers += ".";
+        Modifiers += LocalModifier;
+      }
+    }
+    if (Modifiers.empty())
+      Modifiers = "MODIFIERNONE";
+    addArg(Modifiers);
+    if (auto *E = C->getChunkSize())
+      addArg(CGF.EmitScalarExpr(E));
+    else
+      addArg(CGF.Builder.getInt32(DefaultChunkSize));
+    emitListClause();
+  }
+
   void emitOMPIfClause(const OMPIfClause *) {}
   void emitOMPFinalClause(const OMPFinalClause *) {}
   void emitOMPNumThreadsClause(const OMPNumThreadsClause *) {}
@@ -445,7 +504,6 @@ class OpenMPCodeOutliner {
   void emitOMPCopyinClause(const OMPCopyinClause *) {}
   void emitOMPCopyprivateClause(const OMPCopyprivateClause *) {}
   void emitOMPProcBindClause(const OMPProcBindClause *) {}
-  void emitOMPScheduleClause(const OMPScheduleClause *) {}
   void emitOMPNowaitClause(const OMPNowaitClause *) {}
   void emitOMPUntiedClause(const OMPUntiedClause *) {}
   void emitOMPMergeableClause(const OMPMergeableClause *) {}
@@ -470,6 +528,8 @@ class OpenMPCodeOutliner {
   void emitOMPDefaultmapClause(const OMPDefaultmapClause *) {}
   void emitOMPToClause(const OMPToClause *) {}
   void emitOMPFromClause(const OMPFromClause *) {}
+  void emitOMPUseDevicePtrClause(const OMPUseDevicePtrClause *) {}
+  void emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *) {}
 
 public:
   OpenMPCodeOutliner(CodeGenFunction &CGF)
@@ -767,6 +827,10 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_target_exit_data:
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
+  case OMPD_target_update:
+  case OMPD_distribute_parallel_for:
+  case OMPD_distribute_parallel_for_simd:
+  case OMPD_distribute_simd:
     break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:

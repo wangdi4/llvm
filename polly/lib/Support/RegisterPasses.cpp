@@ -26,6 +26,7 @@
 #include "polly/DependenceInfo.h"
 #include "polly/LinkAllPasses.h"
 #include "polly/Options.h"
+#include "polly/PolyhedralInfo.h"
 #include "polly/ScopDetection.h"
 #include "polly/ScopInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"
@@ -86,6 +87,16 @@ static cl::opt<CodeGenChoice> CodeGenerator(
                clEnumValEnd),
     cl::Hidden, cl::init(CODEGEN_ISL), cl::ZeroOrMore, cl::cat(PollyCategory));
 
+enum TargetChoice { TARGET_CPU, TARGET_GPU };
+static cl::opt<TargetChoice>
+    Target("polly-target", cl::desc("The hardware to target"),
+           cl::values(clEnumValN(TARGET_CPU, "cpu", "generate CPU code"),
+#ifdef GPU_CODEGEN
+                      clEnumValN(TARGET_GPU, "gpu", "generate GPU code"),
+#endif
+                      clEnumValEnd),
+           cl::init(TARGET_CPU), cl::ZeroOrMore, cl::cat(PollyCategory));
+
 VectorizerChoice polly::PollyVectorizerChoice;
 static cl::opt<polly::VectorizerChoice, true> Vectorizer(
     "polly-vectorizer", cl::desc("Select the vectorization strategy"),
@@ -142,9 +153,18 @@ static cl::opt<bool>
                cl::desc("Show the Polly CFG right after code generation"),
                cl::Hidden, cl::init(false), cl::cat(PollyCategory));
 
+static cl::opt<bool>
+    EnablePolyhedralInfo("polly-enable-polyhedralinfo",
+                         cl::desc("Enable polyhedral interface of Polly"),
+                         cl::Hidden, cl::init(false), cl::cat(PollyCategory));
+
 namespace polly {
 void initializePollyPasses(PassRegistry &Registry) {
   initializeCodeGenerationPass(Registry);
+
+#ifdef GPU_CODEGEN
+  initializePPCGCodeGenerationPass(Registry);
+#endif
   initializeCodePreparationPass(Registry);
   initializeDeadCodeElimPass(Registry);
   initializeDependenceInfoPass(Registry);
@@ -154,6 +174,7 @@ void initializePollyPasses(PassRegistry &Registry) {
   initializeIslAstInfoPass(Registry);
   initializeIslScheduleOptimizerPass(Registry);
   initializePollyCanonicalizePass(Registry);
+  initializePolyhedralInfoPass(Registry);
   initializeScopDetectionPass(Registry);
   initializeScopInfoRegionPassPass(Registry);
   initializeScopInfoWrapperPassPass(Registry);
@@ -202,6 +223,8 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
     PM.add(polly::createDOTOnlyPrinterPass());
 
   PM.add(polly::createScopInfoRegionPassPass());
+  if (EnablePolyhedralInfo)
+    PM.add(polly::createPolyhedralInfoPass());
 
   if (ImportJScop)
     PM.add(polly::createJSONImporterPass());
@@ -209,24 +232,34 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
   if (DeadCodeElim)
     PM.add(polly::createDeadCodeElimPass());
 
-  switch (Optimizer) {
-  case OPTIMIZER_NONE:
-    break; /* Do nothing */
+  if (Target == TARGET_GPU) {
+    // GPU generation provides its own scheduling optimization strategy.
+  } else {
+    switch (Optimizer) {
+    case OPTIMIZER_NONE:
+      break; /* Do nothing */
 
-  case OPTIMIZER_ISL:
-    PM.add(polly::createIslScheduleOptimizerPass());
-    break;
+    case OPTIMIZER_ISL:
+      PM.add(polly::createIslScheduleOptimizerPass());
+      break;
+    }
   }
 
   if (ExportJScop)
     PM.add(polly::createJSONExporterPass());
 
-  switch (CodeGenerator) {
-  case CODEGEN_ISL:
-    PM.add(polly::createCodeGenerationPass());
-    break;
-  case CODEGEN_NONE:
-    break;
+  if (Target == TARGET_GPU) {
+#ifdef GPU_CODEGEN
+    PM.add(polly::createPPCGCodeGenerationPass());
+#endif
+  } else {
+    switch (CodeGenerator) {
+    case CODEGEN_ISL:
+      PM.add(polly::createCodeGenerationPass());
+      break;
+    case CODEGEN_NONE:
+      break;
+    }
   }
 
   // FIXME: This dummy ModulePass keeps some programs from miscompiling,
@@ -236,6 +269,11 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
 
   if (CFGPrinter)
     PM.add(llvm::createCFGPrinterPass());
+
+  if (Target == TARGET_GPU) {
+    // Invariant load hoisting not yet supported by GPU code generation.
+    PollyInvariantLoadHoisting = false;
+  }
 }
 
 static bool shouldEnablePolly() {

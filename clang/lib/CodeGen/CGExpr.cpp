@@ -11,16 +11,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenFunction.h"
 #include "CGCXXABI.h"
 #include "CGCall.h"
 #if INTEL_SPECIFIC_CILKPLUS
 #include "intel/CGCilkPlusRuntime.h"
 #endif // INTEL_SPECIFIC_CILKPLUS
+#include "CGCleanup.h"
 #include "CGDebugInfo.h"
 #include "CGObjCRuntime.h"
 #include "CGOpenMPRuntime.h"
 #include "CGRecordLayout.h"
+#include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
@@ -438,6 +439,40 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
       EmitAnyExprToMem(E, Object, Qualifiers(), /*IsInit*/true);
     }
   } else {
+    switch (M->getStorageDuration()) {
+    case SD_Automatic:
+    case SD_FullExpression:
+#ifdef INTEL_CUSTOMIZATION
+      // This is a temporary "hack" to disable lifetime.start/lifetime.end
+      // for cilk programs.
+      // After r274385 which started lifetime.start/end on temporary markers,
+      // all cilk tests fail due to a temporary start/end being placed on the
+      // incoming pointer to cilk_spawn_helper (%1), which causes dead store
+      // elimination to remove all memory writes through these pointers.
+      // It's unclear whether there's a bug in lifetime insertion, or if the
+      // cilk code needs to be tweaked because of the funny "fastcall"
+      // convention in linux.
+      // For now, we're going to disable this until this can be figured out.
+      //
+      if (CGCilkSpawnInfo *Info =
+	dyn_cast_or_null<CGCilkSpawnInfo>(CapturedStmtInfo))
+	break;
+#endif //INTEL_CUSTOMIZATION
+
+      if (auto *Size = EmitLifetimeStart(
+              CGM.getDataLayout().getTypeAllocSize(Object.getElementType()),
+              Object.getPointer())) {
+        if (M->getStorageDuration() == SD_Automatic)
+          pushCleanupAfterFullExpr<CallLifetimeEnd>(NormalEHLifetimeMarker,
+                                                    Object, Size);
+        else
+          pushFullExprCleanup<CallLifetimeEnd>(NormalEHLifetimeMarker, Object,
+                                               Size);
+      }
+      break;
+    default:
+      break;
+    }
     EmitAnyExprToMem(E, Object, Qualifiers(), /*IsInit*/true);
   }
   pushTemporaryCleanup(*this, M, E, Object);
@@ -1789,8 +1824,7 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
 
   if (const VectorType *VTy = Dst.getType()->getAs<VectorType>()) {
     unsigned NumSrcElts = VTy->getNumElements();
-    unsigned NumDstElts =
-       cast<llvm::VectorType>(Vec->getType())->getNumElements();
+    unsigned NumDstElts = Vec->getType()->getVectorNumElements();
     if (NumDstElts == NumSrcElts) {
       // Use shuffle vector is the src and destination are the same number of
       // elements and restore the vector mask since it is on the side it will be

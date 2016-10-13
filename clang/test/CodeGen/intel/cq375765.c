@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
   // CHECK: store i32 (i32, i32)* [[COND2]], i32 (i32, i32)** [[FUNC1:%.+]]
 
   pf2 func2 = argc ? f1 : f2; // expected-warning{{function type mismatch: different regparm attributes}}
-                              // expected-warning@-1{{incompatible pointer types initializing 'pf2'}}
+                              // expected-warning@-1{{incompatible function pointer types initializing 'pf2'}}
   // CHECK: [[COND3:%.+]] = select {{.*}} i32 (i32, i32)* @f1, i32 (i32, i32)* @f2
   // CHECK: store i32 (i32, i32)* [[COND3]], i32 (i32, i32)** [[FUNC2:%.+]]
 

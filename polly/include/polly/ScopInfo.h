@@ -922,17 +922,30 @@ struct InvariantAccess {
 using InvariantAccessesTy = SmallVector<InvariantAccess, 8>;
 
 /// @brief Type for equivalent invariant accesses and their domain context.
-///
-/// The first element is the SCEV for the pointer/location that identifies this
-/// equivalence class. The second is a list of memory accesses to that location
-/// that are now treated as invariant and hoisted during code generation. The
-/// third element is the execution context under which the invariant memory
-/// location is accessed, hence the union of all domain contexts for the memory
-/// accesses in the list. The last element describes the type of the invariant
-/// accesss in order to differentiate between different typed invariant loads of
-/// the same location.
-using InvariantEquivClassTy =
-    std::tuple<const SCEV *, MemoryAccessList, isl_set *, Type *>;
+struct InvariantEquivClassTy {
+
+  /// The pointer that identifies this equivalence class
+  const SCEV *IdentifyingPointer;
+
+  /// Memory accesses now treated invariant
+  ///
+  /// These memory accesses access the pointer location that identifies
+  /// this equivalence class. They are treated as invariant and hoisted during
+  /// code generation.
+  MemoryAccessList InvariantAccesses;
+
+  /// The execution context under which the memory location is accessed
+  ///
+  /// It is the union of the execution domains of the memory accesses in the
+  /// InvariantAccesses list.
+  isl_set *ExecutionContext;
+
+  /// The type of the invariant access
+  ///
+  /// It is used to differentiate between differently typed invariant loads from
+  /// the same location.
+  Type *AccessType;
+};
 
 /// @brief Type for invariant accesses equivalence classes.
 using InvariantEquivClassesTy = SmallVector<InvariantEquivClassTy, 8>;
@@ -1427,7 +1440,7 @@ private:
     /// @brief The location that caused this assumption.
     DebugLoc Loc;
 
-    /// @brief An optional block whos domain can simplify the assumption.
+    /// @brief An optional block whose domain can simplify the assumption.
     BasicBlock *BB;
   };
 
@@ -1612,7 +1625,7 @@ private:
   __isl_give isl_set *addNonEmptyDomainConstraints(__isl_take isl_set *C) const;
 
   /// @brief Simplify the SCoP representation
-  void simplifySCoP(bool AfterHoisting, DominatorTree &DT, LoopInfo &LI);
+  void simplifySCoP(bool AfterHoisting);
 
   /// @brief Return the access for the base ptr of @p MA if any.
   MemoryAccess *lookupBasePtrAccess(MemoryAccess *MA);
@@ -1842,15 +1855,29 @@ public:
   /// could be executed.
   bool isEmpty() const { return Stmts.empty(); }
 
+  typedef ArrayInfoMapTy::iterator array_iterator;
+  typedef ArrayInfoMapTy::const_iterator const_array_iterator;
   typedef iterator_range<ArrayInfoMapTy::iterator> array_range;
   typedef iterator_range<ArrayInfoMapTy::const_iterator> const_array_range;
 
+  inline array_iterator array_begin() { return ScopArrayInfoMap.begin(); }
+
+  inline array_iterator array_end() { return ScopArrayInfoMap.end(); }
+
+  inline const_array_iterator array_begin() const {
+    return ScopArrayInfoMap.begin();
+  }
+
+  inline const_array_iterator array_end() const {
+    return ScopArrayInfoMap.end();
+  }
+
   inline array_range arrays() {
-    return array_range(ScopArrayInfoMap.begin(), ScopArrayInfoMap.end());
+    return array_range(array_begin(), array_end());
   }
 
   inline const_array_range arrays() const {
-    return const_array_range(ScopArrayInfoMap.begin(), ScopArrayInfoMap.end());
+    return const_array_range(array_begin(), array_end());
   }
 
   /// @brief Return the isl_id that represents a certain parameter.
@@ -1911,6 +1938,9 @@ public:
   InvariantEquivClassesTy &getInvariantAccesses() {
     return InvariantEquivClasses;
   }
+
+  /// @brief Check if the scop has any invariant access.
+  bool hasInvariantAccesses() { return !InvariantEquivClasses.empty(); }
 
   /// @brief Mark the SCoP as optimized by the scheduler.
   void markAsOptimized() { IsOptimized = true; }

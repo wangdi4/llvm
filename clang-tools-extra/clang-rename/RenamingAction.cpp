@@ -49,26 +49,24 @@ public:
     std::vector<SourceLocation> NewCandidates;
 
     for (const auto &USR : USRs) {
-      NewCandidates = getLocationsOfUSR(USR, PrevName, Context.getTranslationUnitDecl());
+      NewCandidates = getLocationsOfUSR(USR, PrevName,
+                                        Context.getTranslationUnitDecl());
       RenamingCandidates.insert(RenamingCandidates.end(), NewCandidates.begin(),
                                 NewCandidates.end());
       NewCandidates.clear();
     }
 
     auto PrevNameLen = PrevName.length();
-    if (PrintLocations)
-      for (const auto &Loc : RenamingCandidates) {
+    for (const auto &Loc : RenamingCandidates) {
+      if (PrintLocations) {
         FullSourceLoc FullLoc(Loc, SourceMgr);
         errs() << "clang-rename: renamed at: " << SourceMgr.getFilename(Loc)
                << ":" << FullLoc.getSpellingLineNumber() << ":"
                << FullLoc.getSpellingColumnNumber() << "\n";
-        Replaces.insert(tooling::Replacement(SourceMgr, Loc, PrevNameLen,
-                                             NewName));
       }
-    else
-      for (const auto &Loc : RenamingCandidates)
-        Replaces.insert(tooling::Replacement(SourceMgr, Loc, PrevNameLen,
-                                             NewName));
+      Replaces.insert(tooling::Replacement(SourceMgr, Loc, PrevNameLen,
+                                           NewName));
+    }
   }
 
 private:

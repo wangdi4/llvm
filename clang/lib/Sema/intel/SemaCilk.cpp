@@ -2368,6 +2368,7 @@ private:
     assert(isa<Expr>(S) && "Only exprs should be translated");
     Expr *E = cast<Expr>(S);
     QualType VarTy = E->getType();
+    VarTy.addConst();
     if (E->isGLValue())
       VarTy = SemaRef.BuildReferenceType(VarTy, true, E->getExprLoc(),
                                          DeclarationName());
@@ -3540,7 +3541,7 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
                     .get())
                 .get());
         Stmt *IfStmt =
-            ActOnIfStmt(SourceLocation(), /*IsConstexpr=*/false,
+            ActOnIfStmt(SourceLocation(), /*IsConstexpr=*/false, nullptr,
                         ActOnCondition(S, SourceLocation(), Cond.get(),
                                        ConditionKind::Boolean),
                         new (Context) BreakStmt(SourceLocation()),

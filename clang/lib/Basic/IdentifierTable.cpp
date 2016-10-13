@@ -113,22 +113,23 @@ enum {
   KEYOBJC2 = 0x20000,
   KEYZVECTOR = 0x40000,
   KEYCOROUTINES = 0x80000,
+  KEYMODULES = 0x100000,
 #if INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
-  KEYCILKPLUS = 0x100000,
-  KEYFLOAT128 = 0x200000,
-  KEYRESTRICT = 0x400000,
-  KEYMSASM = 0x8000000,
-  KEYBASES = 0x10000000,
-  KEYNOINT128 = 0x20000000,
-  KEYDECIMAL = 0x40000000,
-  KEYMSCOMPAT = 0x80000000,
+  KEYCILKPLUS = 0x200000,
+  KEYFLOAT128 = 0x400000,
+  KEYRESTRICT = 0x800000,
+  KEYMSASM = 0x1000000,
+  KEYBASES = 0x2000000,
+  KEYNOINT128 = 0x4000000,
+  KEYDECIMAL = 0x8000000,
+  KEYMSCOMPAT = 0x10000000,
   KEYNOINTELALL =
       ~(KEYCILKPLUS | KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES |
         KEYNOINT128 | KEYDECIMAL | KEYMSCOMPAT | KEYNOMS18 | KEYNOOPENCL),
   KEYINTELALL = KEYCILKPLUS | KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES |
                 KEYNOINT128 | KEYDECIMAL | KEYMSCOMPAT,
 #endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
-  KEYALL = (0xffffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0xfffffff
+  KEYALL = (0x1fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x1fffffff
             ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
 };
 
@@ -202,9 +203,10 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   // We treat bridge casts as objective-C keywords so we can warn on them
   // in non-arc mode.
   if (LangOpts.ObjC2 && (Flags & KEYARC)) return KS_Enabled;
-  if (LangOpts.ConceptsTS && (Flags & KEYCONCEPTS)) return KS_Enabled;
   if (LangOpts.ObjC2 && (Flags & KEYOBJC2)) return KS_Enabled;
+  if (LangOpts.ConceptsTS && (Flags & KEYCONCEPTS)) return KS_Enabled;
   if (LangOpts.Coroutines && (Flags & KEYCOROUTINES)) return KS_Enabled;
+  if (LangOpts.ModulesTS && (Flags & KEYMODULES)) return KS_Enabled;
   if (LangOpts.CPlusPlus && (Flags & KEYCXX11)) return KS_Future;
   return KS_Disabled;
 }

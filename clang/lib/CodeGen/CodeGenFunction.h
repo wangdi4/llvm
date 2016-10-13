@@ -595,6 +595,19 @@ public:
 
   llvm::Instruction *CurrentFuncletPad = nullptr;
 
+  class CallLifetimeEnd final : public EHScopeStack::Cleanup {
+    llvm::Value *Addr;
+    llvm::Value *Size;
+
+  public:
+    CallLifetimeEnd(Address addr, llvm::Value *size)
+        : Addr(addr.getPointer()), Size(size) {}
+
+    void Emit(CodeGenFunction &CGF, Flags flags) override {
+      CGF.EmitLifetimeEnd(Size, Addr);
+    }
+  };
+
   /// Header for data within LifetimeExtendedCleanupStack.
   struct LifetimeExtendedCleanupHeader {
     /// The size of the following cleanup object.
@@ -1497,6 +1510,14 @@ private:
   void EmitOpenCLKernelMetadata(const FunctionDecl *FD, 
                                 llvm::Function *Fn);
 
+#if INTEL_CUSTOMIZATION
+  // Table recording the mapping between the return pointer and
+  // the correspoind tbaa for the pointer dereference.
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> RetPtrMap;
+  bool IsFakeLoadCand(const Expr *RV);
+  bool EmitFakeLoadForRetPtr(const Expr *RV);
+#endif // INTEL_CUSTOMIZATION
+
 public:
   CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
   ~CodeGenFunction();
@@ -1832,6 +1853,10 @@ public:
   /// ShouldInstrumentFunction - Return true if the current function should be
   /// instrumented with __cyg_profile_func_* calls
   bool ShouldInstrumentFunction();
+
+  /// ShouldXRayInstrument - Return true if the current function should be
+  /// instrumented with XRay nop sleds.
+  bool ShouldXRayInstrumentFunction() const;
 
   /// EmitFunctionInstrumentation - Emit LLVM code to call the specified
   /// instrumentation function with the current function and the call site, if
@@ -2829,6 +2854,12 @@ public:
   void EmitOMPDistributeLoop(const OMPDistributeDirective &S);
   void EmitOMPDistributeParallelForDirective(
       const OMPDistributeParallelForDirective &S);
+  void EmitOMPDistributeParallelForSimdDirective(
+      const OMPDistributeParallelForSimdDirective &S);
+  void EmitOMPDistributeSimdDirective(const OMPDistributeSimdDirective &S);
+  void EmitOMPTargetParallelForSimdDirective(
+      const OMPTargetParallelForSimdDirective &S);
+  void EmitOMPTargetSimdDirective(const OMPTargetSimdDirective &S);
 
   /// Emit outlined function for the target directive.
   static std::pair<llvm::Function * /*OutlinedFn*/,

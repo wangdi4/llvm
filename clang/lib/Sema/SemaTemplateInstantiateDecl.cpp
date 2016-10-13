@@ -610,6 +610,16 @@ TemplateDeclInstantiator::VisitTypeAliasTemplateDecl(TypeAliasTemplateDecl *D) {
   return Inst;
 }
 
+Decl *TemplateDeclInstantiator::VisitBindingDecl(BindingDecl *D) {
+  return BindingDecl::Create(SemaRef.Context, Owner, D->getLocation(),
+                             D->getIdentifier());
+}
+
+Decl *TemplateDeclInstantiator::VisitDecompositionDecl(DecompositionDecl *D) {
+  // FIXME: Instantiate bindings and pass them in.
+  return VisitVarDecl(D, /*InstantiatingVarTemplate=*/false);
+}
+
 Decl *TemplateDeclInstantiator::VisitVarDecl(VarDecl *D) {
   return VisitVarDecl(D, /*InstantiatingVarTemplate=*/false);
 }
@@ -1030,9 +1040,7 @@ void TemplateDeclInstantiator::InstantiateEnumDefinition(
     }
   }
 
-  // FIXME: Fixup LBraceLoc
-  SemaRef.ActOnEnumBody(Enum->getLocation(), SourceLocation(),
-                        Enum->getRBraceLoc(), Enum,
+  SemaRef.ActOnEnumBody(Enum->getLocation(), Enum->getBraceRange(), Enum,
                         Enumerators,
                         nullptr, nullptr);
 }
@@ -1618,8 +1626,7 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(FunctionDecl *D,
     ArrayRef<TemplateArgument> Innermost = TemplateArgs.getInnermost();
     Function->setFunctionTemplateSpecialization(FunctionTemplate,
                             TemplateArgumentList::CreateCopy(SemaRef.Context,
-                                                             Innermost.begin(),
-                                                             Innermost.size()),
+                                                             Innermost),
                                                 /*InsertPos=*/nullptr);
   } else if (isFriend) {
     // Note, we need this connection even if the friend doesn't have a body.
@@ -1910,8 +1917,7 @@ TemplateDeclInstantiator::VisitCXXMethodDecl(CXXMethodDecl *D,
     ArrayRef<TemplateArgument> Innermost = TemplateArgs.getInnermost();
     Method->setFunctionTemplateSpecialization(FunctionTemplate,
                          TemplateArgumentList::CreateCopy(SemaRef.Context,
-                                                          Innermost.begin(),
-                                                          Innermost.size()),
+                                                          Innermost),
                                               /*InsertPos=*/nullptr);
   } else if (!isFriend) {
     // Record that this is an instantiation of a member function.
@@ -2169,16 +2175,11 @@ Decl *TemplateDeclInstantiator::VisitNonTypeTemplateParmDecl(
 
   NonTypeTemplateParmDecl *Param;
   if (IsExpandedParameterPack)
-    Param = NonTypeTemplateParmDecl::Create(SemaRef.Context, Owner,
-                                            D->getInnerLocStart(),
-                                            D->getLocation(),
-                                    D->getDepth() - TemplateArgs.getNumLevels(),
-                                            D->getPosition(),
-                                            D->getIdentifier(), T,
-                                            DI,
-                                            ExpandedParameterPackTypes.data(),
-                                            ExpandedParameterPackTypes.size(),
-                                    ExpandedParameterPackTypesAsWritten.data());
+    Param = NonTypeTemplateParmDecl::Create(
+        SemaRef.Context, Owner, D->getInnerLocStart(), D->getLocation(),
+        D->getDepth() - TemplateArgs.getNumLevels(), D->getPosition(),
+        D->getIdentifier(), T, DI, ExpandedParameterPackTypes,
+        ExpandedParameterPackTypesAsWritten);
   else
     Param = NonTypeTemplateParmDecl::Create(SemaRef.Context, Owner,
                                             D->getInnerLocStart(),
@@ -2767,8 +2768,7 @@ TemplateDeclInstantiator::VisitClassTemplateSpecializationDecl(
                                               D->getLocStart(),
                                               D->getLocation(),
                                               InstClassTemplate,
-                                              Converted.data(),
-                                              Converted.size(),
+                                              Converted,
                                               PrevDecl);
 
   // Add this partial specialization to the set of class template partial
@@ -2783,7 +2783,7 @@ TemplateDeclInstantiator::VisitClassTemplateSpecializationDecl(
   // Build the canonical type that describes the converted template
   // arguments of the class template explicit specialization.
   QualType CanonType = SemaRef.Context.getTemplateSpecializationType(
-      TemplateName(InstClassTemplate), Converted.data(), Converted.size(),
+      TemplateName(InstClassTemplate), Converted,
       SemaRef.Context.getRecordType(InstD));
 
   // Build the fully-sugared type for this class template
@@ -2876,8 +2876,7 @@ Decl *TemplateDeclInstantiator::VisitVarTemplateSpecializationDecl(
   // Build the instantiated declaration
   VarTemplateSpecializationDecl *Var = VarTemplateSpecializationDecl::Create(
       SemaRef.Context, Owner, D->getInnerLocStart(), D->getLocation(),
-      VarTemplate, DI->getType(), DI, D->getStorageClass(), Converted.data(),
-      Converted.size());
+      VarTemplate, DI->getType(), DI, D->getStorageClass(), Converted);
   Var->setTemplateArgsInfo(TemplateArgsInfo);
   if (InsertPos)
     VarTemplate->AddSpecialization(Var, InsertPos);
@@ -3010,8 +3009,7 @@ TemplateDeclInstantiator::InstantiateClassTemplatePartialSpecialization(
   // arguments of the class template partial specialization.
   QualType CanonType
     = SemaRef.Context.getTemplateSpecializationType(TemplateName(ClassTemplate),
-                                                    Converted.data(),
-                                                    Converted.size());
+                                                    Converted);
 
   // Build the fully-sugared type for this class template
   // specialization as the user wrote in the specialization
@@ -3060,8 +3058,7 @@ TemplateDeclInstantiator::InstantiateClassTemplatePartialSpecialization(
                                                      PartialSpec->getLocation(),
                                                      InstParams,
                                                      ClassTemplate,
-                                                     Converted.data(),
-                                                     Converted.size(),
+                                                     Converted,
                                                      InstTemplateArgs,
                                                      CanonType,
                                                      nullptr);
@@ -3133,7 +3130,7 @@ TemplateDeclInstantiator::InstantiateVarTemplatePartialSpecialization(
   // Build the canonical type that describes the converted template
   // arguments of the variable template partial specialization.
   QualType CanonType = SemaRef.Context.getTemplateSpecializationType(
-      TemplateName(VarTemplate), Converted.data(), Converted.size());
+      TemplateName(VarTemplate), Converted);
 
   // Build the fully-sugared type for this variable template
   // specialization as the user wrote in the specialization
@@ -3189,8 +3186,7 @@ TemplateDeclInstantiator::InstantiateVarTemplatePartialSpecialization(
       VarTemplatePartialSpecializationDecl::Create(
           SemaRef.Context, Owner, PartialSpec->getInnerLocStart(),
           PartialSpec->getLocation(), InstParams, VarTemplate, DI->getType(),
-          DI, PartialSpec->getStorageClass(), Converted.data(),
-          Converted.size(), InstTemplateArgs);
+          DI, PartialSpec->getStorageClass(), Converted, InstTemplateArgs);
 
   // Substitute the nested name specifier, if any.
   if (SubstQualifier(PartialSpec, InstPartialSpec))

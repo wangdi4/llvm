@@ -10,6 +10,7 @@ add_lld_library(lldCOFF
   Error.cpp
   ICF.cpp
   InputFiles.cpp
+  Librarian.cpp
   MarkLive.cpp
   ModuleDef.cpp
   PDB.cpp
@@ -29,7 +30,9 @@ add_lld_library(lldCOFF
   Option
   Support
 
-  LINK_LIBS ${PTHREAD_LIB}
+  LINK_LIBS
+  lldCore
+  ${PTHREAD_LIB}
   )
 
 add_dependencies(lldCOFF COFFOptionsTableGen)

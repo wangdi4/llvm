@@ -69,6 +69,9 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   // Emit the rest of the function body.
   EmitFunctionBody();
 
+  // Emit the XRay table for this function.
+  EmitXRayTable();
+
   // We didn't modify anything.
   return false;
 }
@@ -277,7 +280,7 @@ static void printLeaMemReference(X86AsmPrinter &P, const MachineInstr *MI,
 static void printMemReference(X86AsmPrinter &P, const MachineInstr *MI,
                               unsigned Op, raw_ostream &O,
                               const char *Modifier = nullptr) {
-  assert(isMem(MI, Op) && "Invalid memory reference!");
+  assert(isMem(*MI, Op) && "Invalid memory reference!");
   const MachineOperand &Segment = MI->getOperand(Op+X86::AddrSegmentReg);
   if (Segment.getReg()) {
     printOperand(P, MI, Op+X86::AddrSegmentReg, O, Modifier);

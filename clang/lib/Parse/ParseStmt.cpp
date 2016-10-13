@@ -12,18 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Parse/Parser.h"
 #include "RAIIObjectsForParser.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/Basic/Attributes.h"
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/PrettyStackTrace.h"
+#include "clang/Parse/Parser.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/LoopHint.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
-#include "llvm/ADT/SmallString.h"
 #include "clang/AST/StmtCXX.h" // INTEL
 using namespace clang;
 
@@ -1226,7 +1223,8 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
 
 /// ParseParenExprOrCondition:
 /// [C  ]     '(' expression ')'
-/// [C++]     '(' condition ')'       [not allowed if OnlyAllowCondition=true]
+/// [C++]     '(' condition ')'
+/// [C++1z]   '(' init-statement[opt] condition ')'
 ///
 /// This function parses and performs error recovery on the specified condition
 /// or expression (depending on whether we're in C++ or C mode).  This function
@@ -1235,14 +1233,15 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
 /// should try to recover harder.  It returns false if the condition is
 /// successfully parsed.  Note that a successful parse can still have semantic
 /// errors in the condition.
-bool Parser::ParseParenExprOrCondition(Sema::ConditionResult &Cond,
+bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
+                                       Sema::ConditionResult &Cond,
                                        SourceLocation Loc,
                                        Sema::ConditionKind CK) {
   BalancedDelimiterTracker T(*this, tok::l_paren);
   T.consumeOpen();
 
   if (getLangOpts().CPlusPlus)
-    Cond = ParseCXXCondition(Loc, CK);
+    Cond = ParseCXXCondition(InitStmt, Loc, CK);
   else {
     ExprResult CondExpr = ParseExpression();
 
@@ -1322,11 +1321,12 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   ParseScope IfScope(this, Scope::DeclScope | Scope::ControlScope, C99orCXX);
 
   // Parse the condition.
+  StmtResult InitStmt;
   Sema::ConditionResult Cond;
 #if INTEL_SPECIFIC_CILKPLUS
   Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
 #endif // INTEL_SPECIFIC_CILKPLUS
-  if (ParseParenExprOrCondition(Cond, IfLoc,
+  if (ParseParenExprOrCondition(&InitStmt, Cond, IfLoc,
                                 IsConstexpr ? Sema::ConditionKind::ConstexprIf
                                             : Sema::ConditionKind::Boolean)) {
 #if INTEL_SPECIFIC_CILKPLUS
@@ -1433,8 +1433,8 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   if (ElseStmt.isInvalid())
     ElseStmt = Actions.ActOnNullStmt(ElseStmtLoc);
 
-  return Actions.ActOnIfStmt(IfLoc, IsConstexpr, Cond, ThenStmt.get(), ElseLoc,
-                             ElseStmt.get());
+  return Actions.ActOnIfStmt(IfLoc, IsConstexpr, InitStmt.get(), Cond,
+                             ThenStmt.get(), ElseLoc, ElseStmt.get());
 }
 
 /// ParseSwitchStatement
@@ -1471,11 +1471,14 @@ StmtResult Parser::ParseSwitchStatement(SourceLocation *TrailingElseLoc) {
   ParseScope SwitchScope(this, ScopeFlags);
 
   // Parse the condition.
+  StmtResult InitStmt;
   Sema::ConditionResult Cond;
-  if (ParseParenExprOrCondition(Cond, SwitchLoc, Sema::ConditionKind::Switch))
+  if (ParseParenExprOrCondition(&InitStmt, Cond, SwitchLoc,
+                                Sema::ConditionKind::Switch))
     return StmtError();
 
-  StmtResult Switch = Actions.ActOnStartOfSwitchStmt(SwitchLoc, Cond);
+  StmtResult Switch =
+      Actions.ActOnStartOfSwitchStmt(SwitchLoc, InitStmt.get(), Cond);
 
   if (Switch.isInvalid()) {
     // Skip the switch body.
@@ -1558,7 +1561,8 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
 
   // Parse the condition.
   Sema::ConditionResult Cond;
-  if (ParseParenExprOrCondition(Cond, WhileLoc, Sema::ConditionKind::Boolean))
+  if (ParseParenExprOrCondition(nullptr, Cond, WhileLoc,
+                                Sema::ConditionKind::Boolean))
     return StmtError();
 
   // C99 6.8.5p5 - In C99, the body of the while statement is a scope, even if
@@ -1877,7 +1881,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
       // missing both semicolons.
     } else {
       if (getLangOpts().CPlusPlus)
-        SecondPart = ParseCXXCondition(ForLoc, Sema::ConditionKind::Boolean);
+        SecondPart =
+            ParseCXXCondition(nullptr, ForLoc, Sema::ConditionKind::Boolean);
       else {
         ExprResult SecondExpr = ParseExpression();
         if (SecondExpr.isInvalid())
