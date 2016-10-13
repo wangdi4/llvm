@@ -246,16 +246,11 @@ public:
   // Returns true if we found a valid induction variable and bound.
   bool seq_identify_induction_variable(LPUSeqLoopInfo& loop);
 
-  // The final check to see if we can transform the loop control
-  // variable on a loop, and then transform the loop. 
-  bool seq_try_transform_loop(LPUSeqLoopInfo& loop,
-                              std::set<MachineInstr*>& insSetMarkedForDeletion);
   
-  // The hard work of the try_transform method. 
+  // The actual sequence transformation.
+  // This method should only get called once we've passed all our checks for
+  // validity in the transform. 
   void seq_do_transform_loop(LPUSeqLoopInfo& loop,
-                             LPUSeqCandidate& indvarCandidate,
-                             unsigned indvar_opcode,
-                             int indvarIdx,
                              std::set<MachineInstr*>& insSetMarkedForDeletion);
 
   // Helper methods for do_transform_loop.
@@ -265,13 +260,9 @@ public:
   // created.
   void
   seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
-                            LPUSeqCandidate& indvarCandidate,
-                            unsigned indvar_opcode,
-                            int indvarIdx,
                             MachineBasicBlock* BB,                             
                             LPUSeqInstrInfo* seqInfo,
                             SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion);
-  
   void
   seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
                                LPUSeqLoopInfo& loop,
@@ -297,18 +288,6 @@ public:
                                        SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion);
   
   
-  // Tries to compute a matching sequence opcode for the pair of a
-  // comparison instruction and the transform instruction.
-  //
-  // Returns true if we found a match, and false otherwise.  If true,
-  // then *indvar_opcode is the opcode of the new sequence instruction
-  // that we will use.
-  bool seq_compute_matching_seq_opcode(unsigned compare_opcode,
-                                       unsigned transform_opcode,
-                                       bool invert_compare, 
-                                       unsigned* indvar_opcode);
-
-
 
   // Tries to compute a matching stride opcode for the transform
   // instruction for a stride candidate.
@@ -925,14 +904,20 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
            it != loops.end();
            ++it) {
         LPUSeqLoopInfo& loop = *it;
-        bool success = seq_try_transform_loop(loop,
-                                              insSetMarkedForDeletion);
-        DEBUG(errs() << "Successful transform of loop " << loop_count
-              << "? : " << success << "\n");
-        if (success)
-          num_transformed++;
-        loop_count++;
 
+        if (loop.sequence_transform_is_valid()) {
+          seq_do_transform_loop(loop,
+                                insSetMarkedForDeletion);
+          num_transformed++;
+          DEBUG(errs() << "Successful transform of loop "
+                << loop_count << ".\n");
+        }
+        else {
+          DEBUG(errs() << "Failed transform of loop "
+                << loop_count << ".\n");
+        }
+        loop_count++;
+        
         if (num_transformed > SequenceMaxPerLoop) {
           DEBUG(errs() << "Reached transform loop limit. Stopping\n");
           break;
@@ -1573,120 +1558,8 @@ seq_identify_induction_variable(LPUSeqLoopInfo& loop) {
 }
 
 
-bool 
-LPUOptDFPass::
-seq_try_transform_loop(LPUSeqLoopInfo& loop,
-                       std::set<MachineInstr*>& insSetMarkedForDeletion) {
-  
-  // Found a valid induction variable. 
-  bool found_indvar = loop.find_induction_variable();
-  if (!found_indvar) {
-    DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
-    assert(!loop.sequence_transform_is_valid());
-    return false;
-  }
-
-  int indvarIdx = loop.indvarIdx();
-  LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
-
-  bool found_bound = loop.has_valid_bound();
-  if (!found_bound) {
-    int boundIdx = loop.boundIdx();
-    DEBUG(errs() << "Seq transform failed: no valid bound (e.g., possible non-constant loop).\n");
-    DEBUG(errs() << "Boundidx = " << boundIdx << "\n");
-    if (loop.boundIdx() >= 0) {
-      seq_debug_print_candidate(loop.candidates[loop.boundIdx()]);
-    }
-
-    assert(!loop.sequence_transform_is_valid());
-    return false;
-  }
-
-  bool invert_compare = loop.invert_compare();
-
-  // Compute a matching opcode for the compare and transformation
-  // instruction.  
-  unsigned indvar_opcode = 0;
-  unsigned compare_opcode = loop.header.compareInst->getOpcode();
-  unsigned transform_opcode = indvarCandidate.transformInst->getOpcode();
-
-  if (seq_compute_matching_seq_opcode(compare_opcode,
-                                      transform_opcode,
-                                      invert_compare, 
-                                      &indvar_opcode)) {
-    DEBUG(errs() << "Can do sequence transform of induction variable!\n");
-    assert(loop.sequence_transform_is_valid());
-    seq_do_transform_loop(loop,
-                          indvarCandidate,
-                          indvar_opcode,
-                          indvarIdx,
-                          insSetMarkedForDeletion);
-    
-    return true;
-  }
-
-  // If we fall through to here, then there may be some kind of
-  // sequence we haven't implemented yet.
-  DEBUG(errs() << "WARNING: possible sequence opcode not implemented yet.\n");
-  DEBUG(errs() << "  induction variable candidate is: ");
-  seq_debug_print_candidate(indvarCandidate);
-  assert(!loop.sequence_transform_is_valid());  
-  return false;
-}
 
 
-
-
-// TBD(jsukha): FIX ME!
-//
-// NOTE: This method hard-codes two specific pairs of (compare,
-// transform) opcode pairs for the sequence optimization.
-//
-// These values are hard-coded so that we can get some of our
-// initial test examples working.  
-//
-// But we eventually need to allow for a larger set of matching pairs.
-//
-bool
-LPUOptDFPass::
-seq_compute_matching_seq_opcode(unsigned ciOp,
-                                unsigned tOp,
-                                bool invert_compare,
-                                unsigned* indvar_opcode) {
-  const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-
-  // Invert the comparison opcode if needed.
-  unsigned compareOp = ciOp;
-  if (invert_compare) {
-    compareOp = TII.commuteCompareOpcode(ciOp);
-  }
-
-  // Find a sequence opcode that matches our compare opcode.
-  unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);
-  if (seqOp != compareOp) {
-
-    // If we have a matching sequence op, then check that the
-    // transforming op matches as well.
-
-    switch(tOp) {
-    case LPU::ADD8:
-      *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 8);
-      return true;      
-    case LPU::ADD16:
-      *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 16);      
-      return true;      
-    case LPU::ADD32:
-      *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 32);            
-      return true;      
-    case LPU::ADD64:
-      *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 64);                  
-      return true;
-    }
-  }
-
-  return false;
-}
 
 
 bool
@@ -2118,13 +1991,16 @@ seq_mark_loop_ins_for_deletion(LPUSeqLoopInfo& loop,
 void
 LPUOptDFPass::
 seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
-                          LPUSeqCandidate& indvarCandidate,
-                          unsigned indvar_opcode,
-                          int indvarIdx,
                           MachineBasicBlock* BB,                           
                           LPUSeqInstrInfo* seqInfo,
                           SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion) {
-  
+
+  assert(loop.sequence_transform_is_valid());
+  int indvarIdx = loop.indvarIdx();
+  assert(indvarIdx >= 0);
+  LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
+  unsigned indvar_opcode = loop.get_seq_opcode();
+
   LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
@@ -2358,16 +2234,13 @@ seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
 void
 LPUOptDFPass::
 seq_do_transform_loop(LPUSeqLoopInfo& loop,
-                      LPUSeqCandidate& indvarCandidate,
-                      unsigned indvar_opcode,
-                      int indvarIdx,
                       std::set<MachineInstr*>& insSetMarkedForDeletion) {
-
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
-  assert(indvarCandidate.pickInst);
-  assert(loop.candidates[indvarIdx].pickInst == indvarCandidate.pickInst);
+  int indvarIdx = loop.indvarIdx();
+  assert(indvarIdx >= 0);
+  LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
   MachineBasicBlock* BB = indvarCandidate.pickInst->getParent();
   
   // The set of (initial) instructions that we want to delete from
@@ -2382,9 +2255,6 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
 
   // Transform the induction variable into a sequence instruction.  
   seq_do_transform_loop_seq(loop,
-                            indvarCandidate,
-                            indvar_opcode,
-                            indvarIdx,
                             BB, 
                             &seqInfo,
                             loopInsMarkedForDeletion);
