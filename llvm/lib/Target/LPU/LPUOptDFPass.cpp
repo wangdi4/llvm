@@ -169,6 +169,26 @@ public:
   bool seq_identify_header(MachineInstr* MI,
                            LPUSeqHeader* header);
 
+  // Returns MI if  MI is a pick instruction that matches the specified
+  // loop header.  Otherwise, returns NULL.
+  // Also saves MI into pickMap (keyed by loopback register) if a
+  // match is found.
+  MachineInstr*
+  seq_candidate_match_pick(MachineInstr* MI,
+                           const LPUSeqHeader& header,
+                           const LPUInstrInfo& TII,
+                           DenseMap<unsigned, MachineInstr*>& pickMap);
+  
+  // Returns matching pick instruction if MI is a switch instruction
+  // that matches a pick in the specified loop.  Otherwise, returns
+  // NULL.
+  MachineInstr*
+  seq_candidate_match_switch(MachineInstr* MI,
+                             const LPUSeqHeader& header,
+                             const LPUInstrInfo& TII,
+                             DenseMap<unsigned, MachineInstr*>& pickMap);
+
+
   // Helper method for finding sequence candidates.
   void seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
 
@@ -562,8 +582,6 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
 }
 
 
-
-
 void LPUOptDFPass::
 seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
@@ -619,6 +637,125 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
   DEBUG(errs() << "************************\n");  
 }
 
+
+
+// Returns MI if  MI is a pick instruction that matches the specified
+// loop header.  Otherwise, returns NULL.
+// Also saves MI into pickMap (keyed by loopback register) if a
+// match is found.
+//
+// To be a match, this pick needs to use the same picker channel p as
+// header.pickerChannel.
+//
+// For example, if header.pickerSense == 0, we will match the
+// following pick: 
+//
+//   pick[n] top_val, p, init_val, loop_back
+//
+// If there is a match, then we save MI into pickMap, keyed on the
+// register for loop_back.
+MachineInstr*
+LPUOptDFPass::
+seq_candidate_match_pick(MachineInstr* MI,
+                         const LPUSeqHeader& header, 
+                         const LPUInstrInfo& TII,
+                         DenseMap<unsigned, MachineInstr*>& pickMap) {
+  if (TII.isPick(MI)) {
+    assert(MI->getNumOperands() == 4);
+
+    int pick_select_idx = LPUSeqHeader::pick_select_op_idx();
+    MachineOperand& selectOp = MI->getOperand(pick_select_idx);
+
+    // Figure out which op is the loopback based on the sense of the
+    // header.
+    int loopback_idx = header.pick_loopback_op_idx();
+    MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
+            
+    if (selectOp.isReg() && loopbackOp.isReg()) {
+      unsigned select_reg = selectOp.getReg();
+      unsigned loopback_reg = loopbackOp.getReg();
+      if ((!TargetRegisterInfo::isVirtualRegister(select_reg)) &&
+          (select_reg == header.pickerChannel) &&
+          (!TargetRegisterInfo::isVirtualRegister(loopback_reg))) {
+        DEBUG(errs() << "Found a pick candidate " << *MI <<
+              " with loopback reg " << loopback_reg << "\n");
+        if (pickMap.find(loopback_reg) != pickMap.end()) {
+          DEBUG(errs() << "WARNING: found an existing pick ins " <<
+                        *pickMap[loopback_reg] <<
+                " with same loopback reg...\n");
+        }
+        else {
+          // Success! save everything away.
+          pickMap[loopback_reg] = MI;          
+          return MI;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
+
+// Returns matching pick instruction if MI is a switch instruction
+// that matches a pick in the specified loop.  Otherwise, returns
+// NULL.
+//
+// A switch matches another pick if they share the same loopback
+// register, and there is no other use of that loopback register.
+MachineInstr*
+LPUOptDFPass::
+seq_candidate_match_switch(MachineInstr* MI,
+                           const LPUSeqHeader& header,
+                           const LPUInstrInfo& TII,
+                           DenseMap<unsigned, MachineInstr*>& pickMap) {
+  // Look for:
+  //   switch[n] final, loopback, switcherChannel, bottom_val
+  if (TII.isSwitch(MI)) {
+    
+    assert(MI->getNumOperands() == 4);
+    int loopback_idx = header.switch_loopback_op_idx();
+    MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
+
+    int switch_select_idx = LPUSeqHeader::switch_select_op_idx();
+    MachineOperand& selectOp = MI->getOperand(switch_select_idx);
+
+    if (selectOp.isReg() && loopbackOp.isReg()) {
+      unsigned select_reg = selectOp.getReg();
+      unsigned loopback_reg = loopbackOp.getReg();
+
+      if ((!TargetRegisterInfo::isVirtualRegister(select_reg)) &&
+          (select_reg == header.switcherChannel) &&
+          (!TargetRegisterInfo::isVirtualRegister(loopback_reg))) {
+
+        DEBUG(errs() << "Found possible switch candidate " <<
+              *MI << " with loopback reg " << loopback_reg << "\n");
+
+        if (pickMap.find(loopback_reg) == pickMap.end()) {
+          DEBUG(errs() <<
+                "WARNING: No match. No matching pick for this switch\n");
+        }
+        else {
+          MachineInstr* matching_pick = pickMap[loopback_reg];
+
+          // Finally, verify that the number of uses of the
+          // loopback register is exactly 1, i.e., in the
+          // pick.
+          MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+          matching_pick = getSingleUse(loopback_reg, MRI);
+
+          if (!matching_pick) {
+            DEBUG(errs() <<
+                  "WARNING: No match.  Found other uses of loopback register "
+                  << loopback_reg << "\n" );
+          }
+          return matching_pick;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
 void
 LPUOptDFPass::
 seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
@@ -647,46 +784,16 @@ seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
         // We are going to look for pick and switch instructions, and
         // store them into a map keyed on their loopback inputs.
         DenseMap<unsigned, MachineInstr*> pickMap;
-        SmallVector<unsigned, 8> loopback_channels;
 
-        // Walk over uses of the picker channel, storing the picks and
-        // corresponding loopback channel.
+        // Walk over uses of the picker channel, storing the matching picks.
         for (auto it = MRI->use_instr_begin(current_loop.header.pickerChannel);
              it != MRI->use_instr_end();
              ++it) {
           MachineInstr* MI = &(*it);
-
-          // Look for:
-          //   pick[n] top_val, pickerChannel, init_val, loop_back
-          if ((TII.isPick(MI)) &&
-              (MI->getNumOperands() == 4)) {
-            int pick_select_idx = LPUSeqHeader::pick_select_op_idx();
-            MachineOperand& selectOp = MI->getOperand(pick_select_idx);
-            int loopback_idx = current_loop.header.pick_loopback_op_idx();
-            MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
-            
-            if (selectOp.isReg() && loopbackOp.isReg()) {
-              unsigned select_reg = selectOp.getReg();
-              unsigned loopback_reg = loopbackOp.getReg();
-
-              if ((!TargetRegisterInfo::isVirtualRegister(select_reg)) &&
-                  (select_reg == current_loop.header.pickerChannel) &&
-                  (!TargetRegisterInfo::isVirtualRegister(loopback_reg))) {
-                DEBUG(errs() << "Found a pick candidate " << *MI <<
-                      " with loopback reg " << loopback_reg << "\n");
-
-                if (pickMap.find(loopback_reg) != pickMap.end()) {
-                  DEBUG(errs() << "WARNING: found an existing pick ins " <<
-                        *pickMap[loopback_reg] <<
-                        " with same loopback reg...\n");
-                }
-                else {
-                  pickMap[loopback_reg] = MI;
-                  loopback_channels.push_back(loopback_reg);
-                }
-              }
-            }
-          }
+          seq_candidate_match_pick(MI,
+                                   current_loop.header, 
+                                   TII,
+                                   pickMap);
         }
 
         // Now walk over the uses of the corresponding switcher
@@ -698,70 +805,23 @@ seq_find_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
              ++it) {
           MachineInstr* MI = &(*it);
 
-          // Look for:
-          //   switch[n] final, loopback, switcherChannel, bottom_val
-          if ((TII.isSwitch(MI)) &&
-              (MI->getNumOperands() == 4)) {
-            int loopback_idx = current_loop.header.switch_loopback_op_idx();
-            MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
-            int switch_select_idx = LPUSeqHeader::switch_select_op_idx();
-            MachineOperand& selectOp = MI->getOperand(switch_select_idx);
-            
-            if (selectOp.isReg() && loopbackOp.isReg()) {
-              unsigned select_reg = selectOp.getReg();
-              unsigned loopback_reg = loopbackOp.getReg();
-
-              if ((!TargetRegisterInfo::isVirtualRegister(select_reg)) &&
-                  (select_reg == current_loop.header.switcherChannel) &&
-                  (!TargetRegisterInfo::isVirtualRegister(loopback_reg))) {
-
-                DEBUG(errs() << "Found a possible switch candidate " <<
-                      *MI << " with loopback reg " << loopback_reg << "\n");
-
-                if (pickMap.find(loopback_reg) == pickMap.end()) {
-                  DEBUG(errs() <<
-                        "WARNING: no matching pick for this switch\n");
-                }
-                else {
-                  MachineInstr* matching_pick = pickMap[loopback_reg];
-
-                  // Finally, verify that the number of uses of the
-                  // loopback register is exactly 1, i.e., in the
-                  // pick.
-                  int expected_loopback_uses = 1;
-                  int num_loopback_uses = 0;
-                  for (auto lb_it = MRI->use_instr_begin(loopback_reg);
-                       lb_it != MRI->use_instr_end();
-                       ++lb_it) {
-                    num_loopback_uses++;
-                    MachineInstr* tmpMI = &(*lb_it);
-                    if (tmpMI != matching_pick) {
-                      DEBUG(errs() <<
-                            "WARNING: Found other use of loopback " <<
-                            loopback_reg << ": " << *tmpMI << "\n");
-                    }
-                    if (num_loopback_uses >= expected_loopback_uses) {
-                      break;
-                    }
-                  }
-
-                  if (num_loopback_uses == expected_loopback_uses) {
-                    LPUSeqCandidate nc = LPUSeqCandidate(matching_pick,
-                                                         MI);
-                    current_loop.candidates.push_back(nc);
-                  }
-                }
-              }
-            }
+          // Look for a switch that matches some pick we found
+          // earlier.  If we find a match, save the candidate.
+          MachineInstr* matching_pick = seq_candidate_match_switch(MI,
+                                                                   current_loop.header,
+                                                                   TII,
+                                                                   pickMap);
+          if (matching_pick) {
+            LPUSeqCandidate nc = LPUSeqCandidate(matching_pick,
+                                                 MI);
+            current_loop.candidates.push_back(nc);
           }
         }
-
         loops->push_back(current_loop);
       }
       else {
-        //        DEBUG(errs() << "Skipping header ins " << *MI << "\n");
+        //        DEBUG(errs() << "No match for header instruction " << *MI << "\n");
       }
-      
       ++iterMI;
     }
   }
@@ -1997,7 +2057,6 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   //
   // Then, once that is done, replacing the remaining dependent
   // sequence candidates, and cleanup (Steps 4 and 5).
-  DEBUG(errs() << "Sequence transform not implemented yet...\n");
 
   // 1. First convert the loop control variable.
   //
@@ -2145,7 +2204,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
 
   // If the switcher is expecting 1, 1, 1, ... 1, 0, then
   // loop.header.switcherSense should be 0, and we want a NOT1 to
-  // convert from "last" to the
+  // convert from "last" to the "switcher" channel.
   //
   // Otherwise, the switcher is expecting 0, 0, 0, ... 0, 1,
   // switcherSense is 1, and should just use a "MOV1" instead.
