@@ -21,8 +21,6 @@
 #include <thread>
 
 // Other libraries and framework includes
-#include "llvm/ADT/Triple.h"
-#include "lldb/Interpreter/Args.h"
 #include "lldb/Core/DataBuffer.h"
 #include "lldb/Core/Log.h"
 #include "lldb/Core/RegisterValue.h"
@@ -37,13 +35,16 @@
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Host/TimeValue.h"
+#include "lldb/Host/common/NativeProcessProtocol.h"
+#include "lldb/Host/common/NativeRegisterContext.h"
+#include "lldb/Host/common/NativeThreadProtocol.h"
+#include "lldb/Interpreter/Args.h"
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/MemoryRegionInfo.h"
-#include "lldb/Host/common/NativeRegisterContext.h"
-#include "lldb/Host/common/NativeProcessProtocol.h"
-#include "lldb/Host/common/NativeThreadProtocol.h"
 #include "lldb/Utility/JSON.h"
 #include "lldb/Utility/LLDBAssert.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/Support/ScopedPrinter.h"
 
 // Project includes
 #include "Utility/StringExtractorGDBRemote.h"
@@ -346,7 +347,7 @@ GDBRemoteCommunicationServerLLGS::SendWResponse (NativeProcessProtocol *process)
         StreamGDBRemote response;
         response.PutChar ('E');
         response.PutHex8 (GDBRemoteServerError::eErrorExitStatus);
-        return SendPacketNoLock(response.GetData(), response.GetSize());
+        return SendPacketNoLock(response.GetString());
     }
     else
     {
@@ -376,7 +377,7 @@ GDBRemoteCommunicationServerLLGS::SendWResponse (NativeProcessProtocol *process)
         // POSIX exit status limited to unsigned 8 bits.
         response.PutHex8 (return_code);
 
-        return SendPacketNoLock(response.GetData(), response.GetSize());
+        return SendPacketNoLock(response.GetString());
     }
 }
 
@@ -490,8 +491,7 @@ GetRegistersAsJSON(NativeThreadProtocol &thread, bool abridged)
         StreamString stream;
         WriteRegisterValueInHexFixedWidth(stream, reg_ctx_sp, *reg_info_p, &reg_value);
 
-        register_object_sp->SetObject(std::to_string(reg_num),
-                std::make_shared<JSONString>(stream.GetString()));
+        register_object_sp->SetObject(llvm::to_string(reg_num), std::make_shared<JSONString>(stream.GetString()));
     }
 
     return register_object_sp;
@@ -792,7 +792,7 @@ GDBRemoteCommunicationServerLLGS::SendStopReplyPacketForThread (lldb::tid_t tid)
         }
     }
 
-    return SendPacketNoLock (response.GetData(), response.GetSize());
+    return SendPacketNoLock (response.GetString());
 }
 
 void
@@ -969,7 +969,7 @@ GDBRemoteCommunicationServerLLGS::SendONotification (const char *buffer, uint32_
     response.PutChar ('O');
     response.PutBytesAsRawHex8 (buffer, len);
 
-    return SendPacketNoLock (response.GetData (), response.GetSize ());
+    return SendPacketNoLock (response.GetString());
 }
 
 Error
@@ -1072,7 +1072,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qProcessInfo (StringExtractorGDBRemote 
 
     StreamString response;
     CreateProcessInfoResponse_DebugServerStyle(proc_info, response);
-    return SendPacketNoLock (response.GetData (), response.GetSize ());
+    return SendPacketNoLock (response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -1094,7 +1094,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qC (StringExtractorGDBRemote &packet)
     StreamString response;
     response.Printf ("QC%" PRIx64, thread_sp->GetID ());
 
-    return SendPacketNoLock (response.GetData(), response.GetSize());
+    return SendPacketNoLock (response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -1150,7 +1150,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qGetWorkingDir (StringExtractorGDBRemot
     {
         StreamString response;
         response.PutCStringAsRawHex8(working_dir.GetCString());
-        return SendPacketNoLock(response.GetData(), response.GetSize());
+        return SendPacketNoLock(response.GetString());
     }
 
     return SendErrorResponse(14);
@@ -1298,7 +1298,7 @@ GDBRemoteCommunicationServerLLGS::Handle_vCont_actions (StringExtractorGDBRemote
     StreamString response;
     response.Printf("vCont;c;C;s;S");
 
-    return SendPacketNoLock(response.GetData(), response.GetSize());
+    return SendPacketNoLock(response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -1627,7 +1627,15 @@ GDBRemoteCommunicationServerLLGS::Handle_qRegisterInfo (StringExtractorGDBRemote
         response.PutChar (';');
     }
 
-    return SendPacketNoLock(response.GetData(), response.GetSize());
+    if (reg_info->dynamic_size_dwarf_expr_bytes)
+    {
+       const size_t dwarf_opcode_len = reg_info->dynamic_size_dwarf_len;
+       response.PutCString("dynamic_size_dwarf_expr_bytes:");
+       for(uint32_t i = 0; i < dwarf_opcode_len; ++i)
+           response.PutHex8 (reg_info->dynamic_size_dwarf_expr_bytes[i]);
+       response.PutChar(';');
+    }
+    return SendPacketNoLock(response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -1665,14 +1673,14 @@ GDBRemoteCommunicationServerLLGS::Handle_qfThreadInfo (StringExtractorGDBRemote 
     if (log)
         log->Printf ("GDBRemoteCommunicationServerLLGS::%s() finished thread iteration", __FUNCTION__);
 
-    return SendPacketNoLock(response.GetData(), response.GetSize());
+    return SendPacketNoLock(response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
 GDBRemoteCommunicationServerLLGS::Handle_qsThreadInfo (StringExtractorGDBRemote &packet)
 {
     // FIXME for now we return the full thread list in the initial packet and always do nothing here.
-    return SendPacketNoLock ("l", 1);
+    return SendPacketNoLock ("l");
 }
 
 GDBRemoteCommunication::PacketResult
@@ -1749,7 +1757,7 @@ GDBRemoteCommunicationServerLLGS::Handle_p (StringExtractorGDBRemote &packet)
     for (uint32_t i = 0; i < reg_value.GetByteSize (); ++i)
         response.PutHex8 (data[i]);
 
-    return SendPacketNoLock (response.GetData (), response.GetSize ());
+    return SendPacketNoLock (response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -1822,7 +1830,10 @@ GDBRemoteCommunicationServerLLGS::Handle_P (StringExtractorGDBRemote &packet)
         return SendErrorResponse (0x47);
     }
 
-    if (reg_size != reg_info->byte_size)
+    // The dwarf expression are evaluate on host site
+    // which may cause register size to change
+    // Hence the reg_size may not be same as reg_info->bytes_size
+    if ((reg_size != reg_info->byte_size) && !(reg_info->dynamic_size_dwarf_expr_bytes))
     {
         return SendIllFormedResponse (packet, "P packet register size is incorrect");
     }
@@ -2056,7 +2067,7 @@ GDBRemoteCommunicationServerLLGS::Handle_memory_read(StringExtractorGDBRemote &p
             response.PutHex8(buf[i]);
     }
 
-    return SendPacketNoLock(response.GetData(), response.GetSize());
+    return SendPacketNoLock(response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -2232,7 +2243,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qMemoryRegionInfo (StringExtractorGDBRe
         }
     }
 
-    return SendPacketNoLock(response.GetData(), response.GetSize());
+    return SendPacketNoLock(response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -2545,7 +2556,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qXfer_auxv_read (StringExtractorGDBRemo
     if (done_with_buffer)
         m_active_auxv_buffer_sp.reset ();
 
-    return SendPacketNoLock(response.GetData(), response.GetSize());
+    return SendPacketNoLock(response.GetString());
 #else
     return SendUnimplementedResponse ("not implemented on this platform");
 #endif
@@ -2601,7 +2612,7 @@ GDBRemoteCommunicationServerLLGS::Handle_QSaveRegisterState (StringExtractorGDBR
     // Write the response.
     StreamGDBRemote response;
     response.Printf ("%" PRIu32, save_id);
-    return SendPacketNoLock(response.GetData(), response.GetSize());
+    return SendPacketNoLock(response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -2796,7 +2807,7 @@ GDBRemoteCommunicationServerLLGS::Handle_jThreadsInfo (StringExtractorGDBRemote 
     threads_array_sp->Write(response);
     StreamGDBRemote escaped_response;
     escaped_response.PutEscapedBytes(response.GetData(), response.GetSize());
-    return SendPacketNoLock (escaped_response.GetData(), escaped_response.GetSize());
+    return SendPacketNoLock (escaped_response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -2816,7 +2827,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qWatchpointSupportInfo (StringExtractor
     uint32_t num = m_debugged_process_sp->GetMaxWatchpoints();
     StreamGDBRemote response;
     response.Printf ("num:%d;", num);
-    return SendPacketNoLock(response.GetData(), response.GetSize());
+    return SendPacketNoLock(response.GetString());
 }
 
 GDBRemoteCommunication::PacketResult
@@ -2844,7 +2855,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qFileLoadAddress (StringExtractorGDBRem
 
     StreamGDBRemote response;
     response.PutHex64(file_load_address);
-    return SendPacketNoLock(response.GetData(), response.GetSize());
+    return SendPacketNoLock(response.GetString());
 }
 
 void

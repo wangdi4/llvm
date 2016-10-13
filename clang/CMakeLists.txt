@@ -177,6 +177,9 @@ if (LIBXML2_FOUND)
   set(CLANG_HAVE_LIBXML 1)
 endif()
 
+include(CheckIncludeFile)
+check_include_file(sys/resource.h CLANG_HAVE_RLIMITS)
+
 set(CLANG_RESOURCE_DIR "" CACHE STRING
   "Relative directory from the Clang binary to its resource files.")
 
@@ -193,12 +196,23 @@ set(ENABLE_X86_RELAX_RELOCATIONS OFF CACHE BOOL
     "enable x86 relax relocations by default")
 
 set(CLANG_DEFAULT_CXX_STDLIB "" CACHE STRING
-  "Default C++ stdlib to use (empty for platform default, \"libstdc++\" or \"libc++\"")
+  "Default C++ stdlib to use (\"libstdc++\" or \"libc++\", empty for platform default")
 if (NOT(CLANG_DEFAULT_CXX_STDLIB STREQUAL "" OR
         CLANG_DEFAULT_CXX_STDLIB STREQUAL "libstdc++" OR
         CLANG_DEFAULT_CXX_STDLIB STREQUAL "libc++"))
   message(WARNING "Resetting default C++ stdlib to use platform default")
-  set(CLANG_DEFAULT_CXX_STDLIB "")
+  set(CLANG_DEFAULT_CXX_STDLIB "" CACHE STRING
+    "Default C++ stdlib to use (\"libstdc++\" or \"libc++\", empty for platform default" FORCE)
+endif()
+
+set(CLANG_DEFAULT_RTLIB "" CACHE STRING
+  "Default runtime library to use (\"libgcc\" or \"compiler-rt\", empty for platform default)")
+if (NOT(CLANG_DEFAULT_RTLIB STREQUAL "" OR
+        CLANG_DEFAULT_RTLIB STREQUAL "libgcc" OR
+        CLANG_DEFAULT_RTLIB STREQUAL "compiler-rt"))
+  message(WARNING "Resetting default rtlib to use platform default")
+  set(CLANG_DEFAULT_RTLIB "" CACHE STRING
+    "Default runtime library to use (\"libgcc\" or \"compiler-rt\", empty for platform default)" FORCE)
 endif()
 
 set(CLANG_DEFAULT_OPENMP_RUNTIME "libomp" CACHE STRING
@@ -560,11 +574,22 @@ if (CLANG_ENABLE_BOOTSTRAP)
   if(LLVM_BUILD_INSTRUMENTED)
     set(PGO_DEP generate-profdata)
     set(PGO_OPT -DLLVM_PROFDATA_FILE=${CMAKE_CURRENT_BINARY_DIR}/utils/perf-training/clang.profdata)
-    set(COMPILER_OPTIONS
-      -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-      -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-      -DCMAKE_ASM_COMPILER=${CMAKE_ASM_COMPILER})
+    # Use the current tools for LTO instead of the instrumented ones
+    list(APPEND _BOOTSTRAP_DEFAULT_PASSTHROUGH
+      CMAKE_CXX_COMPILER
+      CMAKE_C_COMPILER
+      CMAKE_ASM_COMPILER
+      CMAKE_AR
+      CMAKE_RANLIB
+      DARWIN_LTO_LIBRARY
+      DYLD_LIBRARY_PATH)
+
+    set(COMPILER_OPTIONS)
+    set(LTO_LIBRARY)
     set(RUNTIME_DEP) # Don't set runtime dependencies
+    set(LTO_DEP)     # Don't need to depend on LTO
+    set(LTO_AR)
+    set(LTO_RANLIB)
   endif()
 
   # Find all variables that start with BOOTSTRAP_ and populate a variable with

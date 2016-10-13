@@ -2326,6 +2326,12 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
   if (const auto *FD = dyn_cast<FunctionDecl>(ND))
     return EmitFunctionDeclLValue(*this, E, FD);
 
+  // FIXME: While we're emitting a binding from an enclosing scope, all other
+  // DeclRefExprs we see should be implicitly treated as if they also refer to
+  // an enclosing scope.
+  if (const auto *BD = dyn_cast<BindingDecl>(ND))
+    return EmitLValue(BD->getBinding());
+
   llvm_unreachable("Unhandled DeclRefExpr");
 }
 
@@ -3745,6 +3751,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   case CK_ARCExtendBlockObject:
   case CK_CopyAndAutoreleaseBlockObject:
   case CK_AddressSpaceConversion:
+  case CK_IntToOCLSampler:
 #if INTEL_CUSTOMIZATION
     // CQ#366312 - enable an extension that allows casts of lvalues to
     // be used as lvalues, as long as the size of the object is not lengthened

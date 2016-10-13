@@ -54,7 +54,7 @@
 #include <utility>
 using namespace clang;
 
-template class llvm::Registry<clang::PragmaHandler>;
+LLVM_INSTANTIATE_REGISTRY(PragmaHandlerRegistry)
 
 //===----------------------------------------------------------------------===//
 ExternalPreprocessorSource::~ExternalPreprocessorSource() { }
@@ -74,7 +74,7 @@ Preprocessor::Preprocessor(IntrusiveRefCntPtr<PreprocessorOptions> PPOpts,
       IncrementalProcessing(false), TUKind(TUKind), CodeComplete(nullptr),
       CodeCompletionFile(nullptr), CodeCompletionOffset(0),
       LastTokenWasAt(false), ModuleImportExpectsIdentifier(false),
-      CodeCompletionReached(0), MainFileDir(nullptr),
+      CodeCompletionReached(0), CodeCompletionII(0), MainFileDir(nullptr),
       SkipMainFilePreamble(0, true), CurPPLexer(nullptr), CurDirLookup(nullptr),
       CurLexerKind(CLK_Lexer), CurSubmodule(nullptr),
       Callbacks(nullptr),
@@ -481,7 +481,7 @@ void Preprocessor::CreateString(StringRef Str, Token &Tok,
 }
 
 Module *Preprocessor::getCurrentModule() {
-  if (!getLangOpts().CompilingModule)
+  if (!getLangOpts().isCompilingModule())
     return nullptr;
 
   return getHeaderSearchInfo().lookupModule(getLangOpts().CurrentModule);
@@ -623,6 +623,11 @@ static diag::kind getFutureCompatDiagKind(const IdentifierInfo &II,
       "Keyword not known to come from a newer Standard or proposed Standard");
 }
 
+void Preprocessor::updateOutOfDateIdentifier(IdentifierInfo &II) const {
+  assert(II.isOutOfDate() && "not out of date");
+  getExternalSource()->updateOutOfDateIdentifier(II);
+}
+
 /// HandleIdentifier - This callback is invoked when the lexer reads an
 /// identifier.  This callback looks up the identifier in the map and/or
 /// potentially macro expands it or turns it into a named token (like 'for').
@@ -647,7 +652,7 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
     if (&II == Ident__VA_ARGS__)
       CurrentIsPoisoned = Ident__VA_ARGS__->isPoisoned();
 
-    ExternalSource->updateOutOfDateIdentifier(II);
+    updateOutOfDateIdentifier(II);
     Identifier.setKind(II.getTokenID());
 
     if (&II == Ident__VA_ARGS__)
@@ -712,9 +717,12 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
   // Note that we do not treat 'import' as a contextual
   // keyword when we're in a caching lexer, because caching lexers only get
   // used in contexts where import declarations are disallowed.
-  if (LastTokenWasAt && II.isModulesImport() && !InMacroArgs && 
-      !DisableMacroExpansion &&
-      (getLangOpts().Modules || getLangOpts().DebuggerSupport) && 
+  //
+  // Likewise if this is the C++ Modules TS import keyword.
+  if (((LastTokenWasAt && II.isModulesImport()) ||
+       Identifier.is(tok::kw_import)) &&
+      !InMacroArgs && !DisableMacroExpansion &&
+      (getLangOpts().Modules || getLangOpts().DebuggerSupport) &&
       CurLexerKind != CLK_CachingLexer) {
     ModuleImportLoc = Identifier.getLocation();
     ModuleImportPath.clear();
@@ -749,6 +757,9 @@ void Preprocessor::Lex(Token &Result) {
     }
   } while (!ReturnedToken);
 
+  if (Result.is(tok::code_completion))
+    setCodeCompletionIdentifierInfo(Result.getIdentifierInfo());
+
   LastTokenWasAt = Result.is(tok::at);
 }
 
@@ -779,7 +790,8 @@ void Preprocessor::LexAfterModuleImport(Token &Result) {
   }
   
   // If we're expecting a '.' or a ';', and we got a '.', then wait until we
-  // see the next identifier.
+  // see the next identifier. (We can also see a '[[' that begins an
+  // attribute-specifier-seq here under the C++ Modules TS.)
   if (!ModuleImportExpectsIdentifier && Result.getKind() == tok::period) {
     ModuleImportExpectsIdentifier = true;
     CurLexerKind = CLK_LexAfterModuleImport;
@@ -788,6 +800,23 @@ void Preprocessor::LexAfterModuleImport(Token &Result) {
 
   // If we have a non-empty module path, load the named module.
   if (!ModuleImportPath.empty()) {
+    // Under the Modules TS, the dot is just part of the module name, and not
+    // a real hierarachy separator. Flatten such module names now.
+    //
+    // FIXME: Is this the right level to be performing this transformation?
+    std::string FlatModuleName;
+    if (getLangOpts().ModulesTS) {
+      for (auto &Piece : ModuleImportPath) {
+        if (!FlatModuleName.empty())
+          FlatModuleName += ".";
+        FlatModuleName += Piece.first->getName();
+      }
+      SourceLocation FirstPathLoc = ModuleImportPath[0].second;
+      ModuleImportPath.clear();
+      ModuleImportPath.push_back(
+          std::make_pair(getIdentifierInfo(FlatModuleName), FirstPathLoc));
+    }
+
     Module *Imported = nullptr;
     if (getLangOpts().Modules) {
       Imported = TheModuleLoader.loadModule(ModuleImportLoc,

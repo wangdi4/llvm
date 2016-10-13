@@ -53,6 +53,8 @@ namespace llvm {
   /// using the MIR serialization format.
   MachineFunctionPass *createPrintMIRPass(raw_ostream &OS);
 
+  MachineFunctionPass *createResetMachineFunctionPass();
+
   /// createCodeGenPreparePass - Transform the code to expose more pattern
   /// matching during instruction selection.
   FunctionPass *createCodeGenPreparePass(const TargetMachine *TM = nullptr);
@@ -374,6 +376,12 @@ namespace llvm {
   /// and propagates register usage information of callee to caller
   /// if available with PysicalRegisterUsageInfo pass.
   FunctionPass *createRegUsageInfoPropPass();
+
+  /// This pass performs software pipelining on machine instructions.
+  extern char &MachinePipelinerID;
+
+  /// This pass frees the memory occupied by the MachineFunction.
+  FunctionPass *createFreeMachineFunctionPass();
 } // End llvm namespace
 
 /// Target machine pass initializer for passes with dependencies. Use with

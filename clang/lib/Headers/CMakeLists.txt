@@ -2,6 +2,7 @@
 # This file has been heavily modified. Merge with care.
 set(modified_files
   adxintrin.h
+  armintr.h
   avx2intrin.h
   avx512bwintrin.h
   avx512cdintrin.h
