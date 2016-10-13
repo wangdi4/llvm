@@ -18,7 +18,6 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/MemoryBuffer.h"
 
 #ifdef __DEBUG
 #include <string>
@@ -33,10 +32,7 @@ char intel::RenderscriptVectorizer::ID = 0;
 
 extern "C" Pass* createSpecialCaseBuiltinResolverPass();
 extern "C" FunctionPass* createVectorizerCorePass(const intel::OptimizerConfig*);
-extern "C" Pass* createBuiltinLibInfoPass(
-  SmallVector<Module*, 2> pRtlModuleList,
-  SmallVector<MemoryBuffer*, 2> builtinsBufferList,
-  std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> pRtlModuleList, std::string type);
 /// -- DBG Utilities
 // These functions used for debugging
 #ifdef __DEBUG
@@ -170,10 +166,7 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
   // Create the vectorizer core pass that will do the vectotrization work.
   VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
   legacy::FunctionPassManager vectPM(&M);
-  vectPM.add(createBuiltinLibInfoPass(
-    getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
-    getAnalysis<BuiltinLibInfo>().getBuiltinModuleBuffers(),
-    "rs"));
+  vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "rs"));
   vectPM.add(vectCore);
 
 
@@ -214,10 +207,7 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
 
   {
       legacy::PassManager mpm;
-    mpm.add(createBuiltinLibInfoPass(
-      getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
-      getAnalysis<BuiltinLibInfo>().getBuiltinModuleBuffers(),
-      "rs"));
+    mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "rs"));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);
   }

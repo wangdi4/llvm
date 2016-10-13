@@ -14,7 +14,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/InitializePasses.h"
 
 // Placeholders for debug log files
@@ -27,10 +26,7 @@ char intel::Vectorizer::ID = 0;
 
 extern "C" Pass* createSpecialCaseBuiltinResolverPass();
 extern "C" FunctionPass* createVectorizerCorePass(const intel::OptimizerConfig*);
-extern "C" Pass* createBuiltinLibInfoPass(
-  llvm::SmallVector<llvm::Module*, 2> pRtlModuleList,
-  SmallVector<MemoryBuffer*, 2> builtinsBufferList,
-  std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
 
 namespace intel {
 
@@ -110,10 +106,7 @@ bool Vectorizer::runOnModule(Module &M)
   // Create the vectorizer core pass that will do the vectotrization work.
   VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
   legacy::FunctionPassManager vectPM(&M);
-  vectPM.add(createBuiltinLibInfoPass(
-    getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
-    getAnalysis<BuiltinLibInfo>().getBuiltinModuleBuffers(),
-    ""));
+  vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
   vectPM.add(vectCore);
 
 
@@ -195,10 +188,7 @@ bool Vectorizer::runOnModule(Module &M)
 
   {
     legacy::PassManager mpm;
-    mpm.add(createBuiltinLibInfoPass(
-      getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
-      getAnalysis<BuiltinLibInfo>().getBuiltinModuleBuffers(),
-      ""));
+    mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);
   }

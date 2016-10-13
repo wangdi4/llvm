@@ -354,7 +354,7 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor);
-    Optimizer optimizer(pModule, GetBuiltinModuleList(), GetBuiltinBufferList(), &optimizerConfig);
+    Optimizer optimizer(pModule, GetBuiltinModuleList(), &optimizerConfig);
     optimizer.Optimize();
 
     if( optimizer.hasUndefinedExternals() && !buildOptions.GetlibraryModule())
@@ -428,18 +428,10 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 
 // RTL builtin modules consist of two libraries. The first is shared across all HW architectures and the second one is optimized for a specific HW architecture.
 // NOTE: There is no shared library for KNC so it has the optimized one only.
-void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
-  llvm::SmallVector<llvm::MemoryBuffer*, 2>& builtinsBuffers,
-  llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
+void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
 {
-    auto rtlBuffer(std::move(pLibrary->GetRtlBuffer()));
+    std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(std::move(pLibrary->GetRtlBuffer()));
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");
-
-    // make a copy of memory buffers as the ones that we crated modules from are owned by those modules.
-    // this copies will be owned by BuiltinModules class together with Modules.
-    auto rtlBufferCopy = MemoryBuffer::getMemBufferCopy(rtlBuffer->getBuffer(), rtlBuffer->getBufferIdentifier());
-    builtinsBuffers.push_back(rtlBufferCopy.release());
-
     llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr(llvm::getLazyBitcodeModule( std::move(rtlBuffer), *m_pLLVMContext ));
 
     if ( !spModuleOrErr )
@@ -457,19 +449,16 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
         spModuleOrErr.get().get()->setModuleIdentifier("RTLibrary");
     }
 
-    auto pModule = spModuleOrErr.get().release();
+    auto* pModule = spModuleOrErr.get().release();
     builtinsModules.push_back(pModule);
 
     // on KNC we don't have shared (common) library, so skip loading
     if (pLibrary->GetCPU() != MIC_KNC) {
         // the shared RTL is loaded here
-        auto sharedBuffer(std::move(pLibrary->GetRtlBufferSvmlShared()));
-
-        auto sharedBufferCopy = MemoryBuffer::getMemBufferCopy(sharedBuffer->getBuffer(), sharedBuffer->getBufferIdentifier());
-        builtinsBuffers.push_back(sharedBufferCopy.release());
-
-        llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(llvm::getLazyBitcodeModule(
-          std::move(sharedBuffer), *m_pLLVMContext));
+        llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
+            llvm::getLazyBitcodeModule(
+                std::move(pLibrary->GetRtlBufferSvmlShared()),
+                *m_pLLVMContext));
 
         if ( !spModuleSvmlSharedOrErr ) {
             throw Exceptions::CompilerException("Failed to allocate/parse buitin module");

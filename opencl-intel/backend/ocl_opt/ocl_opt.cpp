@@ -6,9 +6,6 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/ExecutionEngine/ObjectMemoryBuffer.h"
-#include <llvm/Bitcode/ReaderWriter.h>
 #include "llvm/opt.h"
 #include "InitializePasses.h"
 #include "CPUDetect.h"
@@ -29,10 +26,7 @@ RuntimeServices("runtime",
                   cl::desc("Runtime services type (ocl/dx/apple/rs)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
 
-extern "C" Pass* createBuiltinLibInfoPass(
-  SmallVector<Module*, 2> builtinsList,
-  SmallVector<MemoryBuffer*, 2> builtinsBufferList,
-  std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
 extern "C" Pass* createBuiltInImportPass(const char* CPUName);
 
 void initializeOCLPasses(PassRegistry &Registry)
@@ -111,16 +105,6 @@ void InitOCLOpt(llvm::LLVMContext& context)
     initializeOCLPasses(Registry);
 }
 
-static void GenerateEmptyModuleAndBuffer(Module* &module, MemoryBuffer* &buffer, llvm::LLVMContext& context)
-{
-  module = new Module("empty", context);
-  // serialize to LLVM bitcode
-  llvm::SmallVector<char, 1024>* moduleBuffer = new llvm::SmallVector<char, 1024>();
-  llvm::raw_svector_ostream ir_ostream(*moduleBuffer);
-  llvm::WriteBitcodeToFile(module, ir_ostream);
-  buffer = new ObjectMemoryBuffer(std::move(*moduleBuffer));
-}
-
 extern "C" llvm::ImmutablePass * createImplicitArgsAnalysisPass(LLVMContext *C);
 void InitOCLPasses( llvm::LLVMContext& context, llvm::legacy::PassManager& passMgr )
 {
@@ -128,17 +112,12 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::legacy::PassManager& passM
   // *** Vectorizer initializations
   // Obtain the runtime modules (either from input, or generate empty ones)
   llvm::SmallVector<llvm::Module*, 2> runtimeModuleList;
-  llvm::SmallVector<MemoryBuffer*, 2> runtimeBufferList;
 
   if (RuntimeLib.size() != 0) {
     for (unsigned i = 0; i != RuntimeLib.size(); ++i)
     {
       if (RuntimeLib[i] == "") {
-        Module* empty = nullptr;
-        MemoryBuffer* emptyBuffer = nullptr;
-        GenerateEmptyModuleAndBuffer(empty, emptyBuffer, context);
-        runtimeModuleList.push_back(empty);
-        runtimeBufferList.push_back(emptyBuffer);
+        runtimeModuleList.push_back(new Module("empty", context));
       }
       else {
         llvm::SMDiagnostic Err;
@@ -149,27 +128,15 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::legacy::PassManager& passM
           exit(1);
         }
         runtimeModuleList.push_back(runtimeModule.release());
-        llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> rtlBufferOrErr = llvm::MemoryBuffer::getFile(RuntimeLib[i]);
-        if (!rtlBufferOrErr)
-        {
-          errs() << "Runtime error reading file from \"" << RuntimeLib[i] << "\":\n";
-          errs() << "Error: " << rtlBufferOrErr.getError().message();
-          exit(1);
-        }
-        runtimeBufferList.push_back(rtlBufferOrErr.get().release());
       }
     }
   }
   else {
-    Module* empty = nullptr;
-    MemoryBuffer* emptyBuffer = nullptr;
-    GenerateEmptyModuleAndBuffer(empty, emptyBuffer, context);
-    runtimeModuleList.push_back(empty);
-    runtimeBufferList.push_back(emptyBuffer);
+    runtimeModuleList.push_back(new Module("empty", context));
   }
 
   //Always add the BuiltinLibInfo Pass to the Pass Manager
-  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, runtimeBufferList, RuntimeServices));
+  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, RuntimeServices));
   passMgr.add(createImplicitArgsAnalysisPass(&context));
 
   Intel::CPUId cpuId = Intel::OpenCL::DeviceBackend::Utils::CPUDetect::GetInstance()->GetCPUId();
