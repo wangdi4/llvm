@@ -29,8 +29,8 @@ class LinkingContext;
 /// and producing a merged graph.
 class Resolver {
 public:
-  Resolver(LinkingContext &context)
-      : _context(context), _symbolTable(context), _result(new MergedFile()),
+  Resolver(LinkingContext &ctx)
+      : _ctx(ctx), _symbolTable(ctx), _result(new MergedFile()),
         _fileIndex(0) {}
 
   // InputFiles::Handler methods
@@ -41,13 +41,13 @@ public:
 
   // Handle files, this adds atoms from the current file thats
   // being processed by the resolver
-  bool handleFile(const File &);
+  bool handleFile(File &);
 
   // Handle an archive library file.
-  bool handleArchiveFile(const File &);
+  bool handleArchiveFile(File &);
 
   // Handle a shared library file.
-  void handleSharedLibrary(const File &);
+  void handleSharedLibrary(File &);
 
   /// @brief do work of merging and resolving and return list
   bool resolve();
@@ -83,7 +83,7 @@ private:
     void addAtoms(std::vector<const Atom*>& atoms);
   };
 
-  LinkingContext &_context;
+  LinkingContext &_ctx;
   SymbolTable _symbolTable;
   std::vector<const Atom *>     _atoms;
   std::set<const Atom *>        _deadStripRoots;

@@ -66,7 +66,7 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
 
   // Compute derived properties from the register classes
   setStackPointerRegisterToSaveRestore(LPU::SP);
-  computeRegisterProperties();
+  computeRegisterProperties(ST.getRegisterInfo());
 
   // Scheduling shouldn't be relevant
   // setSchedulingPreference(Sched::ILP);

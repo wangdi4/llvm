@@ -13,6 +13,7 @@
 
 #include "llvm/Object/IRObjectFile.h"
 #include "RecordStreamer.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/GVMaterializer.h"
 #include "llvm/IR/LLVMContext.h"
@@ -73,6 +74,7 @@ IRObjectFile::IRObjectFile(MemoryBufferRef Object, std::unique_ptr<Module> Mod)
   MCContext MCCtx(MAI.get(), MRI.get(), &MOFI);
   MOFI.InitMCObjectFileInfo(Triple, Reloc::Default, CodeModel::Default, MCCtx);
   std::unique_ptr<RecordStreamer> Streamer(new RecordStreamer(MCCtx));
+  T->createNullTargetStreamer(*Streamer);
 
   std::unique_ptr<MemoryBuffer> Buffer(MemoryBuffer::getMemBuffer(InlineAsm));
   SourceMgr SrcMgr;

@@ -352,8 +352,13 @@ struct cat {
 
 // Support value comparison outside the template.
 struct GenericOptionValue {
-  virtual ~GenericOptionValue() {}
   virtual bool compare(const GenericOptionValue &V) const = 0;
+
+protected:
+  ~GenericOptionValue() = default;
+  GenericOptionValue() = default;
+  GenericOptionValue(const GenericOptionValue&) = default;
+  GenericOptionValue &operator=(const GenericOptionValue &) = default;
 
 private:
   virtual void anchor();
@@ -380,12 +385,20 @@ struct OptionValueBase : public GenericOptionValue {
   bool compare(const GenericOptionValue & /*V*/) const override {
     return false;
   }
+
+protected:
+  ~OptionValueBase() = default;
 };
 
 // Simple copy of the option value.
 template <class DataType> class OptionValueCopy : public GenericOptionValue {
   DataType Value;
   bool Valid;
+
+protected:
+  ~OptionValueCopy() = default;
+  OptionValueCopy(const OptionValueCopy&) = default;
+  OptionValueCopy &operator=(const OptionValueCopy&) = default;
 
 public:
   OptionValueCopy() : Valid(false) {}
@@ -417,12 +430,19 @@ public:
 template <class DataType>
 struct OptionValueBase<DataType, false> : OptionValueCopy<DataType> {
   typedef DataType WrapperType;
+
+protected:
+  ~OptionValueBase() = default;
+  OptionValueBase() = default;
+  OptionValueBase(const OptionValueBase&) = default;
+  OptionValueBase &operator=(const OptionValueBase&) = default;
 };
 
 // Top-level option class.
 template <class DataType>
-struct OptionValue : OptionValueBase<DataType, std::is_class<DataType>::value> {
-  OptionValue() {}
+struct OptionValue final
+    : OptionValueBase<DataType, std::is_class<DataType>::value> {
+  OptionValue() = default;
 
   OptionValue(const DataType &V) { this->setValue(V); }
   // Some options may take their value from a different data type.
@@ -435,7 +455,8 @@ struct OptionValue : OptionValueBase<DataType, std::is_class<DataType>::value> {
 // Other safe-to-copy-by-value common option types.
 enum boolOrDefault { BOU_UNSET, BOU_TRUE, BOU_FALSE };
 template <>
-struct OptionValue<cl::boolOrDefault> : OptionValueCopy<cl::boolOrDefault> {
+struct OptionValue<cl::boolOrDefault> final
+    : OptionValueCopy<cl::boolOrDefault> {
   typedef cl::boolOrDefault WrapperType;
 
   OptionValue() {}
@@ -450,7 +471,8 @@ private:
   void anchor() override;
 };
 
-template <> struct OptionValue<std::string> : OptionValueCopy<std::string> {
+template <>
+struct OptionValue<std::string> final : OptionValueCopy<std::string> {
   typedef StringRef WrapperType;
 
   OptionValue() {}
@@ -967,7 +989,7 @@ void printOptionDiff(const Option &O, const generic_parser_base &P, const DT &V,
 // This is instantiated for basic parsers when the parsed value has a different
 // type than the option value. e.g. HelpPrinter.
 template <class ParserDT, class ValDT> struct OptionDiffPrinter {
-  void print(const Option &O, const parser<ParserDT> P, const ValDT & /*V*/,
+  void print(const Option &O, const parser<ParserDT> &P, const ValDT & /*V*/,
              const OptionValue<ValDT> & /*Default*/, size_t GlobalWidth) {
     P.printOptionNoValue(O, GlobalWidth);
   }
@@ -976,7 +998,7 @@ template <class ParserDT, class ValDT> struct OptionDiffPrinter {
 // This is instantiated for basic parsers when the parsed value has the same
 // type as the option value.
 template <class DT> struct OptionDiffPrinter<DT, DT> {
-  void print(const Option &O, const parser<DT> P, const DT &V,
+  void print(const Option &O, const parser<DT> &P, const DT &V,
              const OptionValue<DT> &Default, size_t GlobalWidth) {
     P.printOptionDiff(O, V, Default, GlobalWidth);
   }

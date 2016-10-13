@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-dependences -analyze -basicaa < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-dependences -analyze -basicaa < %s | FileCheck %s
 ;
 ; CHECK: Reduction dependences:
 ; CHECK:   [N] -> { Stmt_for_body3[i0, i1] -> Stmt_for_body3[i0, 1 + i1] : i0 <= 1023 and i0 >= 0 and i1 <= 1022 and i1 >= 0 and i1 >= 1024 - N + i0 }
@@ -32,8 +32,8 @@ for.cond1:                                        ; preds = %for.inc, %for.body
   br i1 %exitcond, label %for.body3, label %for.end
 
 for.body3:                                        ; preds = %for.cond1
-  %arrayidx = getelementptr inbounds i32* %sums, i32 %i.0
-  %tmp = load i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, i32* %sums, i32 %i.0
+  %tmp = load i32, i32* %arrayidx, align 4
   %add = add nsw i32 %tmp, 5
   store i32 %add, i32* %arrayidx, align 4
   %sub = sub nsw i32 %N, %i.0
@@ -42,11 +42,11 @@ for.body3:                                        ; preds = %for.cond1
   br i1 %cmp5, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body3
-  %arrayidx6 = getelementptr inbounds i32* %sums, i32 %i.0
-  %tmp2 = load i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, i32* %sums, i32 %i.0
+  %tmp2 = load i32, i32* %arrayidx6, align 4
   %sub7 = sub nsw i32 %N, %i.0
   %add8 = add nsw i32 %sub7, %j.0
-  %arrayidx9 = getelementptr inbounds i32* %escape, i32 %add8
+  %arrayidx9 = getelementptr inbounds i32, i32* %escape, i32 %add8
   store i32 %tmp2, i32* %arrayidx9, align 4
   br label %if.end
 

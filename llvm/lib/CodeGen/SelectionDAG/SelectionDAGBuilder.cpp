@@ -6415,9 +6415,10 @@ static void GetRegistersForValue(SelectionDAG &DAG,
 
   // If this is a constraint for a single physreg, or a constraint for a
   // register class, find it.
-  std::pair<unsigned, const TargetRegisterClass*> PhysReg =
-    TLI.getRegForInlineAsmConstraint(OpInfo.ConstraintCode,
-                                     OpInfo.ConstraintVT);
+  std::pair<unsigned, const TargetRegisterClass *> PhysReg =
+      TLI.getRegForInlineAsmConstraint(MF.getSubtarget().getRegisterInfo(),
+                                       OpInfo.ConstraintCode,
+                                       OpInfo.ConstraintVT);
 
   unsigned NumRegs = 1;
   if (OpInfo.ConstraintVT != MVT::Other) {
@@ -6513,8 +6514,8 @@ void SelectionDAGBuilder::visitInlineAsm(ImmutableCallSite CS) {
   SDISelAsmOperandInfoVector ConstraintOperands;
 
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  TargetLowering::AsmOperandInfoVector
-    TargetConstraints = TLI.ParseConstraints(CS);
+  TargetLowering::AsmOperandInfoVector TargetConstraints =
+      TLI.ParseConstraints(DAG.getSubtarget().getRegisterInfo(), CS);
 
   bool hasMemory = false;
 
@@ -6606,12 +6607,13 @@ void SelectionDAGBuilder::visitInlineAsm(ImmutableCallSite CS) {
       SDISelAsmOperandInfo &Input = ConstraintOperands[OpInfo.MatchingInput];
 
       if (OpInfo.ConstraintVT != Input.ConstraintVT) {
-        std::pair<unsigned, const TargetRegisterClass*> MatchRC =
-          TLI.getRegForInlineAsmConstraint(OpInfo.ConstraintCode,
-                                            OpInfo.ConstraintVT);
-        std::pair<unsigned, const TargetRegisterClass*> InputRC =
-          TLI.getRegForInlineAsmConstraint(Input.ConstraintCode,
-                                            Input.ConstraintVT);
+	const TargetRegisterInfo *TRI = DAG.getSubtarget().getRegisterInfo();
+        std::pair<unsigned, const TargetRegisterClass *> MatchRC =
+            TLI.getRegForInlineAsmConstraint(TRI, OpInfo.ConstraintCode,
+                                             OpInfo.ConstraintVT);
+        std::pair<unsigned, const TargetRegisterClass *> InputRC =
+            TLI.getRegForInlineAsmConstraint(TRI, Input.ConstraintCode,
+                                             Input.ConstraintVT);
         if ((OpInfo.ConstraintVT.isInteger() !=
              Input.ConstraintVT.isInteger()) ||
             (MatchRC.second != InputRC.second)) {
@@ -7475,11 +7477,8 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
       }
       if (Args[i].isNest)
         Flags.setNest();
-      if (NeedsRegBlock) {
+      if (NeedsRegBlock)
         Flags.setInConsecutiveRegs();
-        if (Value == NumValues - 1)
-          Flags.setInConsecutiveRegsLast();
-      }
       Flags.setOrigAlign(OriginalAlignment);
 
       MVT PartVT = getRegisterType(CLI.RetTy->getContext(), VT);
@@ -7528,6 +7527,9 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
         CLI.Outs.push_back(MyFlags);
         CLI.OutVals.push_back(Parts[j]);
       }
+
+      if (NeedsRegBlock && Value == NumValues - 1)
+        CLI.Outs[CLI.Outs.size() - 1].Flags.setInConsecutiveRegsLast();
     }
   }
 
@@ -7743,11 +7745,8 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
       }
       if (F.getAttributes().hasAttribute(Idx, Attribute::Nest))
         Flags.setNest();
-      if (NeedsRegBlock) {
+      if (NeedsRegBlock)
         Flags.setInConsecutiveRegs();
-        if (Value == NumValues - 1)
-          Flags.setInConsecutiveRegsLast();
-      }
       Flags.setOrigAlign(OriginalAlignment);
 
       MVT RegisterVT = TLI->getRegisterType(*CurDAG->getContext(), VT);
@@ -7762,6 +7761,8 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
           MyFlags.Flags.setOrigAlign(1);
         Ins.push_back(MyFlags);
       }
+      if (NeedsRegBlock && Value == NumValues - 1)
+        Ins[Ins.size() - 1].Flags.setInConsecutiveRegsLast();
       PartBase += VT.getStoreSize();
     }
   }
@@ -7896,7 +7897,6 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
   assert(i == InVals.size() && "Argument register count mismatch!");
 
   // Finally, if the target has anything special to do, allow it to do so.
-  // FIXME: this should insert code into the DAG!
   EmitFunctionEntryCode();
 }
 

@@ -25,4 +25,13 @@ const char *getModuleVersion(void);
 
 __asm("foo");
 
+typedef	struct __sFILE {
+  int _offset;
+} FILE;
+
+extern FILE *myFile;
+
+#define SOME_MACRO_GETTING_UNDEFINED 1
+#undef SOME_MACRO_GETTING_UNDEFINED
+
 #endif // MODULE_H

@@ -2015,38 +2015,30 @@ bool X86FastISel::X86SelectSIToFP(const Instruction *I) {
   if (OpReg == 0)
     return false;
 
-  bool HasAVX = Subtarget->hasAVX();
   const TargetRegisterClass *RC = nullptr;
   unsigned Opcode;
 
-  if (I->getType()->isDoubleTy() && X86ScalarSSEf64) {
+  if (I->getType()->isDoubleTy()) {
     // sitofp int -> double
-    Opcode = HasAVX ? X86::VCVTSI2SDrr : X86::CVTSI2SDrr;
+    Opcode = X86::VCVTSI2SDrr;
     RC = &X86::FR64RegClass;
-  } else if (I->getType()->isFloatTy() && X86ScalarSSEf32) {
+  } else if (I->getType()->isFloatTy()) {
     // sitofp int -> float
-    Opcode = HasAVX ? X86::VCVTSI2SSrr : X86::CVTSI2SSrr;
+    Opcode = X86::VCVTSI2SSrr;
     RC = &X86::FR32RegClass;
   } else
     return false;
 
+  // The target-independent selection algorithm in FastISel already knows how
+  // to select a SINT_TO_FP if the target is SSE but not AVX. This code is only
+  // reachable if the subtarget has AVX.
+  assert(Subtarget->hasAVX() && "Expected a subtarget with AVX!");
 
-  unsigned ImplicitDefReg = 0;
-  if (HasAVX) {
-    ImplicitDefReg = createResultReg(RC);
-    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
-            TII.get(TargetOpcode::IMPLICIT_DEF), ImplicitDefReg);
-  }
-
-  const MCInstrDesc &II = TII.get(Opcode);
-  OpReg = constrainOperandRegClass(II, OpReg, (HasAVX ? 2 : 1));
-  
-  unsigned ResultReg = createResultReg(RC);
-  MachineInstrBuilder MIB;
-  MIB = BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, II, ResultReg);
-  if (ImplicitDefReg)
-    MIB.addReg(ImplicitDefReg, RegState::Kill);
-  MIB.addReg(OpReg);
+  unsigned ImplicitDefReg = createResultReg(RC);
+  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
+          TII.get(TargetOpcode::IMPLICIT_DEF), ImplicitDefReg);
+  unsigned ResultReg =
+      fastEmitInst_rr(Opcode, RC, ImplicitDefReg, true, OpReg, false);
   updateValueMap(I, ResultReg);
   return true;
 }
@@ -2182,6 +2174,68 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
   // FIXME: Handle more intrinsics.
   switch (II->getIntrinsicID()) {
   default: return false;
+  case Intrinsic::convert_from_fp16:
+  case Intrinsic::convert_to_fp16: {
+    if (TM.Options.UseSoftFloat || !Subtarget->hasF16C())
+      return false;
+
+    const Value *Op = II->getArgOperand(0);
+    unsigned InputReg = getRegForValue(Op);
+    if (InputReg == 0)
+      return false;
+
+    // F16C only allows converting from float to half and from half to float.
+    bool IsFloatToHalf = II->getIntrinsicID() == Intrinsic::convert_to_fp16;
+    if (IsFloatToHalf) {
+      if (!Op->getType()->isFloatTy())
+        return false;
+    } else {
+      if (!II->getType()->isFloatTy())
+        return false;
+    }
+
+    unsigned ResultReg = 0;
+    const TargetRegisterClass *RC = TLI.getRegClassFor(MVT::v8i16);
+    if (IsFloatToHalf) {
+      // 'InputReg' is implicitly promoted from register class FR32 to
+      // register class VR128 by method 'constrainOperandRegClass' which is
+      // directly called by 'fastEmitInst_ri'.
+      // Instruction VCVTPS2PHrr takes an extra immediate operand which is
+      // used to provide rounding control.
+      InputReg = fastEmitInst_ri(X86::VCVTPS2PHrr, RC, InputReg, false, 0);
+
+      // Move the lower 32-bits of ResultReg to another register of class GR32.
+      ResultReg = createResultReg(&X86::GR32RegClass);
+      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
+              TII.get(X86::VMOVPDI2DIrr), ResultReg)
+          .addReg(InputReg, RegState::Kill);
+      
+      // The result value is in the lower 16-bits of ResultReg.
+      unsigned RegIdx = X86::sub_16bit;
+      ResultReg = fastEmitInst_extractsubreg(MVT::i16, ResultReg, true, RegIdx);
+    } else {
+      assert(Op->getType()->isIntegerTy(16) && "Expected a 16-bit integer!");
+      // Explicitly sign-extend the input to 32-bit.
+      InputReg = fastEmit_r(MVT::i16, MVT::i32, ISD::SIGN_EXTEND, InputReg,
+                            /*Kill=*/false);
+
+      // The following SCALAR_TO_VECTOR will be expanded into a VMOVDI2PDIrr.
+      InputReg = fastEmit_r(MVT::i32, MVT::v4i32, ISD::SCALAR_TO_VECTOR,
+                            InputReg, /*Kill=*/true);
+
+      InputReg = fastEmitInst_r(X86::VCVTPH2PSrr, RC, InputReg, /*Kill=*/true);
+
+      // The result value is in the lower 32-bits of ResultReg.
+      // Emit an explicit copy from register class VR128 to register class FR32.
+      ResultReg = createResultReg(&X86::FR32RegClass);
+      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
+              TII.get(TargetOpcode::COPY), ResultReg)
+          .addReg(InputReg, RegState::Kill);
+    }
+
+    updateValueMap(II, ResultReg);
+    return true;
+  }
   case Intrinsic::frameaddress: {
     MachineFunction *MF = FuncInfo.MF;
     if (MF->getTarget().getMCAsmInfo()->usesWindowsCFI())
@@ -2927,7 +2981,7 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
       X86::XMM0, X86::XMM1, X86::XMM2, X86::XMM3,
       X86::XMM4, X86::XMM5, X86::XMM6, X86::XMM7
     };
-    unsigned NumXMMRegs = CCInfo.getFirstUnallocated(XMMArgRegs, 8);
+    unsigned NumXMMRegs = CCInfo.getFirstUnallocated(XMMArgRegs);
     assert((Subtarget->hasSSE1() || !NumXMMRegs)
            && "SSE registers cannot be used when SSE is disabled");
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::MOV8ri),

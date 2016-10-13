@@ -1115,8 +1115,7 @@ public:
   //
   // Debugging support
   //
-  void print(raw_ostream &OS, const TargetMachine *TM = nullptr,
-             bool SkipOpers = false) const;
+  void print(raw_ostream &OS, bool SkipOpers = false) const;
   void dump() const;
 
   //===--------------------------------------------------------------------===//

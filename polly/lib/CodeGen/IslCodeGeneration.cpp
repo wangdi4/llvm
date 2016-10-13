@@ -41,6 +41,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
@@ -64,9 +65,9 @@ public:
                  DominatorTree &DT, Scop &S)
       : S(S), Builder(Builder), Annotator(Annotator),
         Rewriter(new SCEVExpander(SE, "polly")),
-        ExprBuilder(Builder, IDToValue, *Rewriter),
-        BlockGen(Builder, P, LI, SE, &ExprBuilder), P(P), DL(DL), LI(LI),
-        SE(SE), DT(DT) {}
+        ExprBuilder(Builder, IDToValue, *Rewriter, DT, LI),
+        BlockGen(Builder, LI, SE, DT, &ExprBuilder), RegionGen(BlockGen),
+        DL(DL), LI(LI), SE(SE), DT(DT) {}
 
   ~IslNodeBuilder() { delete Rewriter; }
 
@@ -84,6 +85,10 @@ private:
 
   IslExprBuilder ExprBuilder;
   BlockGenerator BlockGen;
+
+  /// @brief Generator for region statements.
+  RegionGenerator RegionGen;
+
   Pass *P;
   const DataLayout &DL;
   LoopInfo &LI;
@@ -307,17 +312,9 @@ struct FindValuesUser {
   SetVector<const SCEV *> &SCEVs;
 };
 
-/// Extract the values and SCEVs needed to generate code for a ScopStmt.
-///
-/// This function extracts a ScopStmt from a given isl_set and computes the
-/// Values this statement depends on as well as a set of SCEV expressions that
-/// need to be synthesized when generating code for this statment.
-static int findValuesInStmt(isl_set *Set, void *UserPtr) {
-  isl_id *Id = isl_set_get_tuple_id(Set);
-  struct FindValuesUser &User = *static_cast<struct FindValuesUser *>(UserPtr);
-  const ScopStmt *Stmt = static_cast<const ScopStmt *>(isl_id_get_user(Id));
-  const BasicBlock *BB = Stmt->getBasicBlock();
-
+/// @brief Extract the values and SCEVs needed to generate code for a block.
+static int findValuesInBlock(struct FindValuesUser &User, const ScopStmt *Stmt,
+                             const BasicBlock *BB) {
   // Check all the operands of instructions in the basic block.
   for (const Instruction &Inst : *BB) {
     for (Value *SrcVal : Inst.operands()) {
@@ -335,6 +332,28 @@ static int findValuesInStmt(isl_set *Set, void *UserPtr) {
         User.Values.insert(SrcVal);
     }
   }
+  return 0;
+}
+
+/// Extract the values and SCEVs needed to generate code for a ScopStmt.
+///
+/// This function extracts a ScopStmt from a given isl_set and computes the
+/// Values this statement depends on as well as a set of SCEV expressions that
+/// need to be synthesized when generating code for this statment.
+static int findValuesInStmt(isl_set *Set, void *UserPtr) {
+  isl_id *Id = isl_set_get_tuple_id(Set);
+  struct FindValuesUser &User = *static_cast<struct FindValuesUser *>(UserPtr);
+  const ScopStmt *Stmt = static_cast<const ScopStmt *>(isl_id_get_user(Id));
+
+  if (Stmt->isBlockStmt())
+    findValuesInBlock(User, Stmt, Stmt->getBasicBlock());
+  else {
+    assert(Stmt->isRegionStmt() &&
+           "Stmt was neither block nor region statement");
+    for (const BasicBlock *BB : Stmt->getRegion()->blocks())
+      findValuesInBlock(User, Stmt, BB);
+  }
+
   isl_id_free(Id);
   isl_set_free(Set);
   return 0;
@@ -800,7 +819,10 @@ void IslNodeBuilder::createUser(__isl_take isl_ast_node *User) {
   Stmt->setAstBuild(IslAstInfo::getBuild(User));
 
   createSubstitutions(Expr, Stmt, VMap, LTS);
-  BlockGen.copyBB(*Stmt, VMap, LTS);
+  if (Stmt->isBlockStmt())
+    BlockGen.copyStmt(*Stmt, VMap, LTS);
+  else
+    RegionGen.copyStmt(*Stmt, VMap, LTS);
 
   isl_ast_node_free(User);
   isl_id_free(Id);
@@ -913,7 +935,26 @@ public:
     return RTC;
   }
 
-  bool runOnScop(Scop &S) {
+  bool verifyGeneratedFunction(Scop &S, Function &F) {
+    if (!verifyFunction(F))
+      return false;
+
+    DEBUG({
+      errs() << "== ISL Codegen created an invalid function ==\n\n== The "
+                "SCoP ==\n";
+      S.print(errs());
+      errs() << "\n== The isl AST ==\n";
+      AI->printScop(errs(), S);
+      errs() << "\n== The invalid function ==\n";
+      F.print(errs());
+      errs() << "\n== The errors ==\n";
+      verifyFunction(F, &errs());
+    });
+
+    return true;
+  }
+
+  bool runOnScop(Scop &S) override {
     AI = &getAnalysis<IslAstInfo>();
 
     // Check if we created an isl_ast root node, otherwise exit.
@@ -944,12 +985,15 @@ public:
     Builder.SetInsertPoint(StartBlock->begin());
 
     NodeBuilder.create(AstRoot);
+
+    assert(!verifyGeneratedFunction(S, *EnteringBB->getParent()) &&
+           "Verification of generated function failed");
     return true;
   }
 
-  virtual void printScop(raw_ostream &OS) const {}
+  void printScop(raw_ostream &, Scop &) const override {}
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DataLayoutPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<IslAstInfo>();

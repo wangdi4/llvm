@@ -21,12 +21,14 @@
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/Options.h"
+#include "lldb/Interpreter/OptionValueBoolean.h"
 #include "lldb/Interpreter/OptionValueString.h"
 #include "lldb/Interpreter/OptionValueUInt64.h"
 #include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/StreamString.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
+#include "lldb/Target/LanguageRuntime.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Interpreter/CommandCompletions.h"
 #include "lldb/Target/StackFrame.h"
@@ -1950,15 +1952,15 @@ public:
         {
         case 'N':
             if (BreakpointID::StringIsBreakpointName(option_value, error) && error.Success())
-                m_name.SetValueFromCString(option_value);
+                m_name.SetValueFromString(option_value);
             break;
           
         case 'B':
-            if (m_breakpoint.SetValueFromCString(option_value).Fail())
+            if (m_breakpoint.SetValueFromString(option_value).Fail())
                 error.SetErrorStringWithFormat ("unrecognized value \"%s\" for breakpoint", option_value);
             break;
         case 'D':
-            if (m_use_dummy.SetValueFromCString(option_value).Fail())
+            if (m_use_dummy.SetValueFromString(option_value).Fail())
                 error.SetErrorStringWithFormat ("unrecognized value \"%s\" for use-dummy", option_value);
             break;
 
