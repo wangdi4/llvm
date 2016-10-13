@@ -718,8 +718,8 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 			}
 			for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
 				MachineInstr *MI = I;
-				//loop header phi forward input is a kind of fork
-				if (MI->isPHI()) continue; //care about forks, not joints
+				//phi block control depends on its input blocks, need to handle it here
+				//if (MI->isPHI()) continue; //care about forks, not joints
 				for (MIOperands MO(MI); MO.isValid(); ++MO) {
 					insertSWITCHForOperand(*MO, mbb);
 				}
