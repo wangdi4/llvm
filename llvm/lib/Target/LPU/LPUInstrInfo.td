@@ -1156,7 +1156,7 @@ def PREDPROP : FMTGEN<
 def PREDMERGE : FMTGEN<
   (outs I1:$predres, I1:$index),
   (ins RCLi1:$e0, RCLi1:$e1),
-  "predprop\t$predres, $index, $e0, $e1",
+  "predmerge\t$predres, $index, $e0, $e1",
   [], [], IIALU>;
 
 def SEQC      : GenericOp<"seqc">;
@@ -1166,26 +1166,26 @@ def SEQC32    : SeqCOp<  SEQC,  Ti32, IIALU>;
 def SEQC64    : SeqCOp<  SEQC,  Ti64, IIALU>;
 
 def SEQLT     : GenericOp<"seqlt">;
-def SEQLTS8   : SeqSOp<  SEQLT, Ti8,  IIALU>;
-def SEQLTS16  : SeqSOp<  SEQLT, Ti16, IIALU>;
-def SEQLTS32  : SeqSOp<  SEQLT, Ti32, IIALU>;
-def SEQLTS64  : SeqSOp<  SEQLT, Ti64, IIALU>;
+def SEQLTS8   : SeqSOp<  SEQLT, Ts8,  IIALU>;
+def SEQLTS16  : SeqSOp<  SEQLT, Ts16, IIALU>;
+def SEQLTS32  : SeqSOp<  SEQLT, Ts32, IIALU>;
+def SEQLTS64  : SeqSOp<  SEQLT, Ts64, IIALU>;
 
-def SEQLTU8   : SeqSOp<  SEQLT, Ti8,  IIALU>;
-def SEQLTU16  : SeqSOp<  SEQLT, Ti16, IIALU>;
-def SEQLTU32  : SeqSOp<  SEQLT, Ti32, IIALU>;
-def SEQLTU64  : SeqSOp<  SEQLT, Ti64, IIALU>;
+def SEQLTU8   : SeqSOp<  SEQLT, Tu8,  IIALU>;
+def SEQLTU16  : SeqSOp<  SEQLT, Tu16, IIALU>;
+def SEQLTU32  : SeqSOp<  SEQLT, Tu32, IIALU>;
+def SEQLTU64  : SeqSOp<  SEQLT, Tu64, IIALU>;
 
 def SEQLE     : GenericOp<"seqle">;
-def SEQLES8   : SeqSOp<  SEQLE, Ti8,  IIALU>;
-def SEQLES16  : SeqSOp<  SEQLE, Ti16, IIALU>;
-def SEQLES32  : SeqSOp<  SEQLE, Ti32, IIALU>;
-def SEQLES64  : SeqSOp<  SEQLE, Ti64, IIALU>;
+def SEQLES8   : SeqSOp<  SEQLE, Ts8,  IIALU>;
+def SEQLES16  : SeqSOp<  SEQLE, Ts16, IIALU>;
+def SEQLES32  : SeqSOp<  SEQLE, Ts32, IIALU>;
+def SEQLES64  : SeqSOp<  SEQLE, Ts64, IIALU>;
 
-def SEQLEU8   : SeqSOp<  SEQLE, Ti8,  IIALU>;
-def SEQLEU16  : SeqSOp<  SEQLE, Ti16, IIALU>;
-def SEQLEU32  : SeqSOp<  SEQLE, Ti32, IIALU>;
-def SEQLEU64  : SeqSOp<  SEQLE, Ti64, IIALU>;
+def SEQLEU8   : SeqSOp<  SEQLE, Tu8,  IIALU>;
+def SEQLEU16  : SeqSOp<  SEQLE, Tu16, IIALU>;
+def SEQLEU32  : SeqSOp<  SEQLE, Tu32, IIALU>;
+def SEQLEU64  : SeqSOp<  SEQLE, Tu64, IIALU>;
 
 def SEQNE     : GenericOp<"seqne">;
 def SEQNE8    : SeqSOp<  SEQNE, Ti8,  IIALU>;
@@ -1194,26 +1194,78 @@ def SEQNE32   : SeqSOp<  SEQNE, Ti32, IIALU>;
 def SEQNE64   : SeqSOp<  SEQNE, Ti64, IIALU>;
 
 def SEQGT     : GenericOp<"seqgt">;
-def SEQGTS8   : SeqSOp<  SEQGT, Ti8,  IIALU>;
-def SEQGTS16  : SeqSOp<  SEQGT, Ti16, IIALU>;
-def SEQGTS32  : SeqSOp<  SEQGT, Ti32, IIALU>;
-def SEQGTS64  : SeqSOp<  SEQGT, Ti64, IIALU>;
+def SEQGTS8   : SeqSOp<  SEQGT, Ts8,  IIALU>;
+def SEQGTS16  : SeqSOp<  SEQGT, Ts16, IIALU>;
+def SEQGTS32  : SeqSOp<  SEQGT, Ts32, IIALU>;
+def SEQGTS64  : SeqSOp<  SEQGT, Ts64, IIALU>;
 
-def SEQGTU8   : SeqSOp<  SEQGT, Ti8,  IIALU>;
-def SEQGTU16  : SeqSOp<  SEQGT, Ti16, IIALU>;
-def SEQGTU32  : SeqSOp<  SEQGT, Ti32, IIALU>;
-def SEQGTU64  : SeqSOp<  SEQGT, Ti64, IIALU>;
+def SEQGTU8   : SeqSOp<  SEQGT, Tu8,  IIALU>;
+def SEQGTU16  : SeqSOp<  SEQGT, Tu16, IIALU>;
+def SEQGTU32  : SeqSOp<  SEQGT, Tu32, IIALU>;
+def SEQGTU64  : SeqSOp<  SEQGT, Tu64, IIALU>;
 
 def SEQGE     : GenericOp<"seqge">;
-def SEQGES8   : SeqSOp<  SEQGE, Ti8,  IIALU>;
-def SEQGES16  : SeqSOp<  SEQGE, Ti16, IIALU>;
-def SEQGES32  : SeqSOp<  SEQGE, Ti32, IIALU>;
-def SEQGES64  : SeqSOp<  SEQGE, Ti64, IIALU>;
+def SEQGES8   : SeqSOp<  SEQGE, Ts8,  IIALU>;
+def SEQGES16  : SeqSOp<  SEQGE, Ts16, IIALU>;
+def SEQGES32  : SeqSOp<  SEQGE, Ts32, IIALU>;
+def SEQGES64  : SeqSOp<  SEQGE, Ts64, IIALU>;
 
-def SEQGEU8   : SeqSOp<  SEQGE, Ti8,  IIALU>;
-def SEQGEU16  : SeqSOp<  SEQGE, Ti16, IIALU>;
-def SEQGEU32  : SeqSOp<  SEQGE, Ti32, IIALU>;
-def SEQGEU64  : SeqSOp<  SEQGE, Ti64, IIALU>;
+def SEQGEU8   : SeqSOp<  SEQGE, Tu8,  IIALU>;
+def SEQGEU16  : SeqSOp<  SEQGE, Tu16, IIALU>;
+def SEQGEU32  : SeqSOp<  SEQGE, Tu32, IIALU>;
+def SEQGEU64  : SeqSOp<  SEQGE, Tu64, IIALU>;
+
+
+// One-trip variants (seqotXXX) of the sequence operation.
+def SEQOTLT     : GenericOp<"seqotlt">;
+def SEQOTLTS8   : SeqSOp<  SEQOTLT, Ts8,  IIALU>;
+def SEQOTLTS16  : SeqSOp<  SEQOTLT, Ts16, IIALU>;
+def SEQOTLTS32  : SeqSOp<  SEQOTLT, Ts32, IIALU>;
+def SEQOTLTS64  : SeqSOp<  SEQOTLT, Ts64, IIALU>;
+
+def SEQOTLTU8   : SeqSOp<  SEQOTLT, Tu8,  IIALU>;
+def SEQOTLTU16  : SeqSOp<  SEQOTLT, Tu16, IIALU>;
+def SEQOTLTU32  : SeqSOp<  SEQOTLT, Tu32, IIALU>;
+def SEQOTLTU64  : SeqSOp<  SEQOTLT, Tu64, IIALU>;
+
+def SEQOTLE     : GenericOp<"seqotle">;
+def SEQOTLES8   : SeqSOp<  SEQOTLE, Ts8,  IIALU>;
+def SEQOTLES16  : SeqSOp<  SEQOTLE, Ts16, IIALU>;
+def SEQOTLES32  : SeqSOp<  SEQOTLE, Ts32, IIALU>;
+def SEQOTLES64  : SeqSOp<  SEQOTLE, Ts64, IIALU>;
+
+def SEQOTLEU8   : SeqSOp<  SEQOTLE, Tu8,  IIALU>;
+def SEQOTLEU16  : SeqSOp<  SEQOTLE, Tu16, IIALU>;
+def SEQOTLEU32  : SeqSOp<  SEQOTLE, Tu32, IIALU>;
+def SEQOTLEU64  : SeqSOp<  SEQOTLE, Tu64, IIALU>;
+
+def SEQOTNE     : GenericOp<"seqotne">;
+def SEQOTNE8    : SeqSOp<  SEQOTNE, Ti8,  IIALU>;
+def SEQOTNE16   : SeqSOp<  SEQOTNE, Ti16, IIALU>;
+def SEQOTNE32   : SeqSOp<  SEQOTNE, Ti32, IIALU>;
+def SEQOTNE64   : SeqSOp<  SEQOTNE, Ti64, IIALU>;
+
+def SEQOTGT     : GenericOp<"seqotgt">;
+def SEQOTGTS8   : SeqSOp<  SEQOTGT, Ts8,  IIALU>;
+def SEQOTGTS16  : SeqSOp<  SEQOTGT, Ts16, IIALU>;
+def SEQOTGTS32  : SeqSOp<  SEQOTGT, Ts32, IIALU>;
+def SEQOTGTS64  : SeqSOp<  SEQOTGT, Ts64, IIALU>;
+
+def SEQOTGTU8   : SeqSOp<  SEQOTGT, Tu8,  IIALU>;
+def SEQOTGTU16  : SeqSOp<  SEQOTGT, Tu16, IIALU>;
+def SEQOTGTU32  : SeqSOp<  SEQOTGT, Tu32, IIALU>;
+def SEQOTGTU64  : SeqSOp<  SEQOTGT, Tu64, IIALU>;
+
+def SEQOTGE     : GenericOp<"seqotge">;
+def SEQOTGES8   : SeqSOp<  SEQOTGE, Ts8,  IIALU>;
+def SEQOTGES16  : SeqSOp<  SEQOTGE, Ts16, IIALU>;
+def SEQOTGES32  : SeqSOp<  SEQOTGE, Ts32, IIALU>;
+def SEQOTGES64  : SeqSOp<  SEQOTGE, Ts64, IIALU>;
+
+def SEQOTGEU8   : SeqSOp<  SEQOTGE, Tu8,  IIALU>;
+def SEQOTGEU16  : SeqSOp<  SEQOTGE, Tu16, IIALU>;
+def SEQOTGEU32  : SeqSOp<  SEQOTGE, Tu32, IIALU>;
+def SEQOTGEU64  : SeqSOp<  SEQOTGE, Tu64, IIALU>;
 
 def REPEAT    : GenericOp<"repeat">;
 def REPEAT8   : RepeatOp<REPEAT, Ti8,  IIALU>;
