@@ -4,11 +4,11 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: %p.promoted = {al:4}(%p)[0]
+; CHECK: %p.promoted = (%p)[0]
 ; CHECK: %conv419 = %p.promoted
 ; CHECK: %conv419 = %conv419  +  1.000000e+00
-; CHECK: {al:4}(%A)[1] = 1
-; CHECK: {al:4}(%p)[0] = %conv419
+; CHECK: (%A)[1] = 1
+; CHECK: (%p)[0] = %conv419
 ; CHECK: %conv419 = %p.promoted
 ; CHECK: %conv419 = %conv419  +  1.000000e+00
 ; CHECK: %conv419 = %conv419  +  1.000000e+00

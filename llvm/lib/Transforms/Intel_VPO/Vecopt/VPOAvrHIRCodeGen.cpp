@@ -197,7 +197,10 @@ public:
 
   void visit(HLDDNode *Node);
 
-  void visit(HLNode *Node) { IsHandled = false; }
+  void visit(HLNode *Node) {
+    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - unsupported HLNode\n");
+    IsHandled = false;
+  }
 
   void postVisit(HLNode *Node) {}
 
@@ -211,6 +214,8 @@ public:
 void HandledCheck::visit(HLDDNode *Node) {
 
   if (!isa<HLInst>(Node)) {
+    DEBUG(errs() <<
+          "VPO_OPTREPORT: Loop not handled - only HLInst supported\n");
     IsHandled = false;
     return;
   }
@@ -219,6 +224,7 @@ void HandledCheck::visit(HLDDNode *Node) {
 
   // Calls are not supported for now
   if (Inst->isCallInst()) {
+    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - calls not supported\n");
     IsHandled = false;
     return;
   }
@@ -250,6 +256,8 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
     // Addressof computation not supported for now.
     if (RegDD->isAddressOf()) {
+      DEBUG(errs() <<
+            "VPO_OPTREPORT: Loop not handled - addressof computation\n");
       IsHandled = false;
       return;
     }
@@ -257,6 +265,8 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
     auto BaseCE = RegDD->getBaseCE();
 
     if (!BaseCE->isInvariantAtLevel(LoopLevel)) {
+      DEBUG(errs() <<
+            "VPO_OPTREPORT: Loop not handled - BaseCE not invariant\n");
       IsHandled = false;
       return;
     }
@@ -269,6 +279,8 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 // support blob IV coefficients
 void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
   if (CExpr->hasIVBlobCoeff(LoopLevel)) {
+    DEBUG(errs() <<
+          "VPO_OPTREPORT: Loop not handled - IV with blob coefficient\n");
     IsHandled = false;
     return;
   }
@@ -276,6 +288,8 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
 
   // TODO: Handle the case when we have a denominator
   if (CExpr->getDenominator() != 1) {
+    DEBUG(errs() <<
+          "VPO_OPTREPORT: Loop not handled - IV with denominator\n");
     IsHandled = false;
     return;
   }
@@ -294,6 +308,8 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
       DEBUG(errs() << "Nested blob: ");
       DEBUG(TopBlob->dump());
 
+      DEBUG(errs() <<
+            "VPO_OPTREPORT: Loop not handled - nested blob\n");
       IsHandled = false;
       return;
     }
@@ -360,7 +376,7 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
     auto ConstTripCount = UBConst + 1;
 
     // Check that main vector loop will have atleast one iteration
-    if (ConstTripCount < VF) {
+    if (ConstTripCount < VL) {
       DEBUG(errs() << 
             "VPO_OPTREPORT: Loop not handled - zero iteration main loop\n");
       return false;
@@ -457,8 +473,8 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   DEBUG(errs() << "Handled loop before vec codegen: \n");
   DEBUG(OrigLoop->dump(true));
 
-  RHM.mapHLNodes(OrigLoop->getParentRegion());
- 
+  RHM.mapHLNodes(OrigLoop);
+
   processLoop();
 
   DEBUG(errs() << "\n\n\nHandled loop after: \n");
@@ -592,6 +608,11 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     PointerType *PtrType = cast<PointerType>(Ref->getBaseDestType());
     auto AddressSpace = PtrType->getAddressSpace();
 
+    // Omit the range metadata as is done in loop vectorize which does
+    // not propagate the same. We get a compile time error otherwise about
+    // type mismatch for range values.
+    WideRef->setMetadata(LLVMContext::MD_range, nullptr);
+
     WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
   }
 
@@ -639,7 +660,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     CE->collectTempBlobIndices(BlobIndices, false);
 
     for (auto &BI : BlobIndices) {
-      auto OldSymbase = BlobUtils::getBlobSymbase(BI);
+      auto OldSymbase = BlobUtils::getTempBlobSymbase(BI);
       
       if (WidenMap.find(OldSymbase) != WidenMap.end()) {
         auto WInst1 = WidenMap[OldSymbase];
@@ -725,14 +746,26 @@ static HLInst * buildReductionTail(HLContainerTy& InstContainer,
 
 // Find RegDDref of address, where the reduction variable is stored.
 // This functionality we need while DDG is not fully implemented.
-void ReductionHIRMngr::mapHLNodes(const HLRegion *HRegion) {
+// TODO- Concerns from Pankaj related to this function - these need to be
+// addressed in the full reduction implementation.
+// 1) The traversal should be backwards starting from the loop, not forwards
+//    starting from the parent.
+// 2) Not sure if preheader/postexit of the loop has been extracted already.
+//    If not, we are missing looking in the preheader first. (Preheader
+//    extraction has not happened at this point.)
+// 3) The comparison for LLVM instructions below is making me uneasy. I don't
+//    think this is the right way to check things in HIR.
+void ReductionHIRMngr::mapHLNodes(const HLLoop *OrigLoop) {
+  const HLNode *Parent = OrigLoop->getParent();
+  auto FChild = HLNodeUtils::getFirstLexicalChild(Parent);
+
   for (auto RedItr : ReductionMap) {
     ReductionItem *RI = RedItr.second;
     const Value *Initializer = RI->getInitializer();
     bool Success = false;
-    for (auto HLInstItr = HRegion->child_begin(), End = HRegion->child_end();
-         HLInstItr != End; ++HLInstItr)
-      if (auto HInst = dyn_cast<HLInst>(HLInstItr))
+    for (auto Itr = FChild->getIterator(), End = OrigLoop->getIterator();
+         Itr != End; ++Itr)
+      if (auto HInst = dyn_cast<HLInst>(Itr))
         if (HInst->getLLVMInstruction() == Initializer) {
           Initializers[RI] = HInst->getRvalDDRef();
           Success = true;

@@ -37,6 +37,7 @@ HANDLE_DI_FLAG((1 << 16), SingleInheritance)
 HANDLE_DI_FLAG((2 << 16), MultipleInheritance)
 HANDLE_DI_FLAG((3 << 16), VirtualInheritance)
 HANDLE_DI_FLAG((1 << 18), IntroducedVirtual)
-HANDLE_DI_FLAG((1 << 19), Thunk) // INTEL
+HANDLE_DI_FLAG((1 << 19), BitField)
+HANDLE_DI_FLAG((1 << 20), Thunk) // INTEL
 
 #undef HANDLE_DI_FLAG

@@ -52,13 +52,13 @@
 ; 
 ;          BEGIN REGION { }
 ;<10>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<3>          | {al:4}(%A)[i1 + 1] = %.pre;
+;<3>          | (%A)[i1 + 1] = %.pre;
 ;<10>         + END LOOP
 ;          END REGION
 ; 
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 4, 1   <DO_LOOP>
-; BEFORE:     | {al:4}(%A)[i1 + 1] = %.pre;
+; BEFORE:     | (%A)[i1 + 1] = %.pre;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -71,13 +71,13 @@
 ; 
 ;          BEGIN REGION { }
 ;<10>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<3>          | {al:4}(%A)[i1 + 1] = %.pre;
+;<3>          | (%A)[i1 + 1] = %.pre;
 ;<10>         + END LOOP
 ;          END REGION
 ; 
 ; AFTER:   BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 4, 1   <DO_LOOP>
-; AFTER:     | {al:4}(%A)[i1 + 1] = %.pre;
+; AFTER:     | (%A)[i1 + 1] = %.pre;
 ; AFTER:     + END LOOP
 ; AFTER:   END REGION
 ;

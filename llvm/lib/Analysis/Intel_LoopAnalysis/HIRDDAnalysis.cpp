@@ -241,21 +241,46 @@ void HIRDDAnalysis::invalidateGraph(const HLLoop *Loop,
   ValidationMap[PrevNode->getParentRegion()] = GraphState::Invalid;
 }
 
-const HLNode *HIRDDAnalysis::getDDRefRegionLoopContainer(const DDRef *Ref) {
+std::tuple<const HLNode *, bool>
+HIRDDAnalysis::getDDRefRegionLoopContainer(const DDRef *Ref) {
   const HLNode *Node = Ref->getHLDDNode();
   const HLLoop *ParentLoop = Node->getLexicalParentLoop();
   if (ParentLoop) {
-    return ParentLoop;
+    return std::make_tuple(ParentLoop, true);
   }
 
-  return Node->getParentRegion();
+  return std::make_tuple(Node->getParentRegion(), false);
 }
 
 bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
-  auto RefParent1 = getDDRefRegionLoopContainer(Ref1);
-  auto RefParent2 = getDDRefRegionLoopContainer(Ref2);
-  return ValidationMap[RefParent1] == GraphState::Valid &&
-         ValidationMap[RefParent2] == GraphState::Valid;
+  bool IsParentLoop1;
+  bool IsParentLoop2;
+  const HLNode *RefParent1;
+  const HLNode *RefParent2;
+
+  std::tie(RefParent1, IsParentLoop1) = getDDRefRegionLoopContainer(Ref1);
+  std::tie(RefParent2, IsParentLoop2) = getDDRefRegionLoopContainer(Ref2);
+
+  if (!IsParentLoop1) {
+    return ValidationMap[RefParent1] == GraphState::Valid;
+  } else if (!IsParentLoop2) {
+    return ValidationMap[RefParent2] == GraphState::Valid;
+  }
+
+  const HLLoop *RefParentLoop1 = cast<HLLoop>(RefParent1);
+  const HLLoop *RefParentLoop2 = cast<HLLoop>(RefParent2);
+
+  const HLLoop *Ancestor =
+      HLNodeUtils::getLowestCommonAncestorLoop(RefParentLoop1, RefParentLoop2);
+  if (Ancestor) {
+    return ValidationMap[Ancestor] == GraphState::Valid;
+  }
+
+  const HLNode *TopLoop =
+      RefParentLoop1->getNestingLevel() < RefParentLoop2->getNestingLevel()
+          ? RefParent1
+          : RefParent2;
+  return ValidationMap[TopLoop->getParentRegion()] == GraphState::Valid;
 }
 
 void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {

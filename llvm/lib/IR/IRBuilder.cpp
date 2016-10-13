@@ -191,6 +191,26 @@ CallInst *IRBuilderBase::CreateLifetimeEnd(Value *Ptr, ConstantInt *Size) {
   return createCallHelper(TheFn, Ops, this);
 }
 
+CallInst *IRBuilderBase::CreateInvariantStart(Value *Ptr, ConstantInt *Size) {
+
+  assert(isa<PointerType>(Ptr->getType()) &&
+         "invariant.start only applies to pointers.");
+  Ptr = getCastedInt8PtrValue(Ptr);
+  if (!Size)
+    Size = getInt64(-1);
+  else
+    assert(Size->getType() == getInt64Ty() &&
+           "invariant.start requires the size to be an i64");
+
+  Value *Ops[] = {Size, Ptr};
+  // Fill in the single overloaded type: memory object type.
+  Type *ObjectPtr[1] = {Ptr->getType()};
+  Module *M = BB->getParent()->getParent();
+  Value *TheFn =
+      Intrinsic::getDeclaration(M, Intrinsic::invariant_start, ObjectPtr);
+  return createCallHelper(TheFn, Ops, this);
+}
+
 CallInst *IRBuilderBase::CreateAssumption(Value *Cond) {
   assert(Cond->getType() == getInt1Ty() &&
          "an assumption condition must be of type i1");
@@ -200,6 +220,35 @@ CallInst *IRBuilderBase::CreateAssumption(Value *Cond) {
   Value *FnAssume = Intrinsic::getDeclaration(M, Intrinsic::assume);
   return createCallHelper(FnAssume, Ops, this);
 }
+
+#if INTEL_CUSTOMIZATION
+// Intrinsic generated for the return pointers
+Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
+  Value *CPtr = Ptr;
+  if (StructType *STyp =
+          dyn_cast<StructType>(CPtr->getType()->getPointerElementType())) {
+    if (STyp->isLiteral())
+      CPtr = getCastedInt8PtrValue(CPtr);
+  }
+
+  Type *Types[] = {CPtr->getType()};
+  Value *Ops[] = {CPtr, MetadataAsValue::get(Context, TbaaTag)};
+  Module *M = BB->getParent()->getParent();
+  Value *FnFakeLoad =
+      Intrinsic::getDeclaration(M, Intrinsic::intel_fakeload, Types);
+  Instruction *Ret = createCallHelper(FnFakeLoad, Ops, this);
+  cast<CallInst>(Ret)->setDoesNotThrow();
+
+  if (Ret->getType() != Ptr->getType()) {
+    BitCastInst *BCI = new BitCastInst(Ret, Ptr->getType(), "");
+    BB->getInstList().insert(InsertPt, BCI);
+    SetInstDebugLocation(BCI);
+    Ret = BCI;
+  }
+
+  return Ret;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Create a call to a Masked Load intrinsic.
 /// \p Ptr      - base pointer for the load

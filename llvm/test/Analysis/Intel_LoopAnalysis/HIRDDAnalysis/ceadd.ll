@@ -3,9 +3,9 @@
 
 ; Check for DD test output 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
-; CHECK-DAG: {al:4}(%b)[i1] --> {al:4}(%b)[i1 + -1] ANTI (<)
-; CHECK-DAG: {al:4}(%b)[i1 + 1] --> {al:4}(%b)[i1] FLOW (<)
-; CHECK-DAG: {al:4}(%b)[i1 + 1] --> {al:4}(%b)[i1 + -1] OUTPUT (<)
+; CHECK-DAG: (%b)[i1] --> (%b)[i1 + -1] ANTI (<)
+; CHECK-DAG: (%b)[i1 + 1] --> (%b)[i1] FLOW (<)
+; CHECK-DAG: (%b)[i1 + 1] --> (%b)[i1 + -1] OUTPUT (<)
 
 ; # Source Code
 ; int sub(unsigned  *b,  unsigned deg ) {

@@ -38,7 +38,7 @@
 ; CHECK: if (%[[TMP]] > 10)
 ; CHECK: <RVAL-REG> NON-LINEAR i64 %conv
 
-; Check other opt predicated If which should be linear.
+; Check opt predicated If which should be linear and placed after the (%t > 10).
 ; %m is live-in variable.
 ; CHECK: if (%m > 10)
 ; <RVAL-REG> LINEAR i64 %m

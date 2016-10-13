@@ -13,10 +13,12 @@
 ; CHECK-NEXT: |   if (i1 < 31)
 ; CHECK-NEXT: |   {
 ; CHECK-NEXT: |      %0 = 31  -  i1;
+; CHECK-NEXT: |
 ; CHECK-NEXT: |      + DO i2 = 0, smax(1, %0) + -1, 1   <DO_LOOP>
-; CHECK-NEXT: |      |   %2 = {al:4}(i32*)(@S2)[0][i2][i1];
-; CHECK-NEXT: |      |   {al:4}(i32*)(@R2)[0][i2][i1] = %2;
+; CHECK-NEXT: |      |   %2 = (i32*)(@S2)[0][i2][i1];
+; CHECK-NEXT: |      |   (i32*)(@R2)[0][i2][i1] = %2;
 ; CHECK-NEXT: |      + END LOOP
+; CHECK-NEXT: |
 ; CHECK-NEXT: |      %inc.lcssa19 = smax(1, %0);
 ; CHECK-NEXT: |   }
 ; CHECK-NEXT: + END LOOP

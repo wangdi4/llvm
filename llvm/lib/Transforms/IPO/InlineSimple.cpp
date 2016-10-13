@@ -61,7 +61,18 @@ public:
   InlineCost getInlineCost(CallSite CS) override {
     Function *Callee = CS.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
-    return llvm::getInlineCost(CS, DefaultThreshold, TTI, ACT, PSI);
+
+#if INTEL_CUSTOMIZATION
+    InlineAggressiveAnalysis *AggI 
+      = getAnalysisIfAvailable<InlineAggressiveAnalysis>();
+#endif // INTEL_CUSTOMIZATION
+
+    std::function<AssumptionCache &(Function &)> GetAssumptionCache = [&](
+        Function &F) -> AssumptionCache & {
+      return ACT->getAssumptionCache(F);
+    };
+    return llvm::getInlineCost(CS, DefaultThreshold, TTI,        // INTEL
+      GetAssumptionCache, PSI, AggI);                            // INTEL 
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
@@ -81,6 +92,7 @@ INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(InlineAggressiveAnalysis)          // INTEL
 INITIALIZE_PASS_END(SimpleInliner, "inline",
                 "Function Integration/Inlining", false, false)
 
@@ -103,5 +115,6 @@ bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
 
 void SimpleInliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addUsedIfAvailable<InlineAggressiveAnalysis>();            // INTEL
   Inliner::getAnalysisUsage(AU);
 }

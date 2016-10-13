@@ -36,9 +36,9 @@ static cl::opt<unsigned>
     PhiBBsThreshold("phi-bb-threshold", cl::Hidden, cl::init(3),
                     cl::desc("Control the number of the BBs having more than "
                              "two incoming edges (default = 3)"));
-static cl::opt<double>
-    CodeSizeRatioThreshold("cs-size-ratio-threshold", cl::Hidden, cl::init(0.1),
-                    cl::desc("Control the ratio of code size (default = 0.1)"));
+static cl::opt<double> CodeSizeRatioThreshold(
+    "cs-size-ratio-threshold", cl::Hidden, cl::init(0.096),
+    cl::desc("Control the ratio of code size (default = 0.096)"));
 
 static cl::opt<unsigned>
     NumVarsThreshold("num-vars-threshold", cl::Hidden, cl::init(5),

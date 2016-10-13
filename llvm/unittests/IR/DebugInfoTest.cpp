@@ -73,8 +73,8 @@ TEST(DINodeTest, splitFlags) {
   CHECK_SPLIT(DINode::FlagRValueReference, {DINode::FlagRValueReference}, 0u);
   unsigned Flags[] = {DINode::FlagFwdDecl, DINode::FlagVector};
   CHECK_SPLIT(DINode::FlagFwdDecl | DINode::FlagVector, Flags, 0u);
-  CHECK_SPLIT(0x100000u, {}, 0x100000u);
-  CHECK_SPLIT(0x100000u | DINode::FlagVector, {DINode::FlagVector}, 0x100000u);
+  CHECK_SPLIT(0x200000u, {}, 0x200000u); // INTEL
+  CHECK_SPLIT(0x200000u | DINode::FlagVector, {DINode::FlagVector}, 0x200000u); // INTEL
 #undef CHECK_SPLIT
 }
 

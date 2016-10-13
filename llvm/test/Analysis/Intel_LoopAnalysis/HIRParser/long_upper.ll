@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that the i64 type upper is truncated to i32.
 ; CHECK: DO i1 = 0, trunc.i64.i32((-1 + %n))
-; CHECK-NEXT: {al:8}(%A)[i1] = i1
+; CHECK-NEXT: (%A)[i1] = i1
 ; CHECK-NEXT: END LOOP
 
 

@@ -29,6 +29,37 @@
 # X86-64-NEXT:   StringTableSectionIndex:
 # X86-64-NEXT: }
 
+# RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux-gnux32 %s -o %tx32
+# RUN: ld.lld -m elf32_x86_64 %tx32 -o %t2x32
+# RUN: llvm-readobj -file-headers %t2x32 | FileCheck --check-prefix=X32 %s
+# RUN: ld.lld %tx32 -o %t3x32
+# RUN: llvm-readobj -file-headers %t3x32 | FileCheck --check-prefix=X32 %s
+# X32:      ElfHeader {
+# X32-NEXT:   Ident {
+# X32-NEXT:     Magic: (7F 45 4C 46)
+# X32-NEXT:     Class: 32-bit (0x1)
+# X32-NEXT:     DataEncoding: LittleEndian (0x1)
+# X32-NEXT:     FileVersion: 1
+# X32-NEXT:     OS/ABI: SystemV (0x0)
+# X32-NEXT:     ABIVersion: 0
+# X32-NEXT:     Unused: (00 00 00 00 00 00 00)
+# X32-NEXT:   }
+# X32-NEXT:   Type: Executable (0x2)
+# X32-NEXT:   Machine: EM_X86_64 (0x3E)
+# X32-NEXT:   Version: 1
+# X32-NEXT:   Entry:
+# X32-NEXT:   ProgramHeaderOffset: 0x34
+# X32-NEXT:   SectionHeaderOffset:
+# X32-NEXT:   Flags [ (0x0)
+# X32-NEXT:   ]
+# X32-NEXT:   HeaderSize: 52
+# X32-NEXT:   ProgramHeaderEntrySize: 32
+# X32-NEXT:   ProgramHeaderCount:
+# X32-NEXT:   SectionHeaderEntrySize: 40
+# X32-NEXT:   SectionHeaderCount:
+# X32-NEXT:   StringTableSectionIndex:
+# X32-NEXT: }
+
 # RUN: llvm-mc -filetype=obj -triple=i686-unknown-linux %s -o %tx86
 # RUN: ld.lld -m elf_i386 %tx86 -o %t2x86
 # RUN: llvm-readobj -file-headers %t2x86 | FileCheck --check-prefix=X86 %s
@@ -145,7 +176,7 @@
 # MIPS-NEXT:   SectionHeaderOffset:
 # MIPS-NEXT:   Flags [
 # MIPS-NEXT:     EF_MIPS_ABI_O32
-# MIPS-NEXT:     EF_MIPS_ARCH_32R2
+# MIPS-NEXT:     EF_MIPS_ARCH_32
 # MIPS-NEXT:     EF_MIPS_CPIC
 # MIPS-NEXT:   ]
 
@@ -174,7 +205,7 @@
 # MIPSEL-NEXT:   SectionHeaderOffset:
 # MIPSEL-NEXT:   Flags [
 # MIPSEL-NEXT:     EF_MIPS_ABI_O32
-# MIPSEL-NEXT:     EF_MIPS_ARCH_32R2
+# MIPSEL-NEXT:     EF_MIPS_ARCH_32
 # MIPSEL-NEXT:     EF_MIPS_CPIC
 # MIPSEL-NEXT:   ]
 
@@ -200,7 +231,7 @@
 # MIPS64-NEXT:   ProgramHeaderOffset: 0x40
 # MIPS64-NEXT:   SectionHeaderOffset:
 # MIPS64-NEXT:   Flags [
-# MIPS64-NEXT:     EF_MIPS_ARCH_64R2
+# MIPS64-NEXT:     EF_MIPS_ARCH_64
 # MIPS64-NEXT:     EF_MIPS_CPIC
 # MIPS64-NEXT:     EF_MIPS_PIC
 # MIPS64-NEXT:   ]
@@ -227,7 +258,7 @@
 # MIPS64EL-NEXT:   ProgramHeaderOffset: 0x40
 # MIPS64EL-NEXT:   SectionHeaderOffset:
 # MIPS64EL-NEXT:   Flags [
-# MIPS64EL-NEXT:     EF_MIPS_ARCH_64R2
+# MIPS64EL-NEXT:     EF_MIPS_ARCH_64
 # MIPS64EL-NEXT:     EF_MIPS_CPIC
 # MIPS64EL-NEXT:     EF_MIPS_PIC
 # MIPS64EL-NEXT:   ]

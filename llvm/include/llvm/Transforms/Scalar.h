@@ -248,6 +248,10 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1,
 // scope global variables into the registers.
 FunctionPass *createNonLTOGlobalOptimizerPass();
 
+// TbaaMDPropagationPass is a pass which recovers the tbaa information
+// for the return pointer dereferences.
+FunctionPass *createTbaaMDPropagationPass();
+
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info if possible 
 FunctionPass *createIndirectCallConvPass();
@@ -339,6 +343,13 @@ extern char &LCSSAID;
 // tree.
 //
 FunctionPass *createEarlyCSEPass();
+
+//===----------------------------------------------------------------------===//
+//
+// GVNHoist - This pass performs a simple and fast GVN pass over the dominator
+// tree to hoist common expressions from sibling branches.
+//
+FunctionPass *createGVNHoistPass();
 
 //===----------------------------------------------------------------------===//
 //

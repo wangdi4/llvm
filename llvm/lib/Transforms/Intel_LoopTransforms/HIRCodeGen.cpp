@@ -303,7 +303,7 @@ private:
         // Blobs represented by an scevunknown whose value is an instruction
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
-        unsigned BlobSymbase = BlobUtils::findBlobSymbase(S);
+        unsigned BlobSymbase = BlobUtils::findTempBlobSymbase(S);
 
         // SCEVExpander can create its own SCEVs as intermediates which are
         // then expanded. One example is expandAddToGep which replaces
@@ -656,7 +656,7 @@ Value *HIRCodeGen::CGVisitor::visitScalar(RegDDRef *Ref) {
 
   // Lvals must be stored into
   std::string TempName = getTempName(Ref);
-  AllocaInst *Alloca = getNamedValue(Twine(TempName), Ref->getDestType());
+  AllocaInst *Alloca = getNamedValue(TempName, Ref->getDestType());
 
   // For lvals return address of temp
   return Alloca;

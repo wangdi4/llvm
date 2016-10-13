@@ -2,13 +2,13 @@
 
 ; DO i1 = 0, 4, 1   <DO_LOOP>
 ;
-;      %0 = {al:8}(%A)[i1];
-;      %1 = {al:8}(%B)[0];
+;      %0 = (%A)[i1];
+;      %1 = (%B)[0];
 ;   + DO i2 = 0, -1 * i1 + %indvars.iv + -1, 1   <DO_LOOP>
-;   |   %2 = {al:8}(%B)[i1 + i2];
-;   |   %3 = {al:4}(%2)[i1];
-;   |   {al:4}(%0)[i1 + i2 + %M] = %3;
-;   |   {al:4}(%1)[2 * i1 + i2] = 5;
+;   |   %2 = (%B)[i1 + i2];
+;   |   %3 = (%2)[i1];
+;   |   (%0)[i1 + i2 + %M] = %3;
+;   |   (%1)[2 * i1 + i2] = 5;
 ;   + END LOOP
 ;      %l.155 = %M + 5;
 ;      %l2.154 = %indvars.iv * i1;
@@ -19,16 +19,7 @@
 
 
 ; Check that the i2 loop with ztt, preheader and postexit is CG'd correctly.
-<<<<<<< .working
-; CHECK: dummy check to prevent lit testing hangs on windows.
-; XFAIL: *
-=======
 ; CHECK: region:
->>>>>>> .merge-right.r8647
-
-<<<<<<< .working
-
-=======
 ; Check outer loop begin
 ; CHECK: store i64 0, i64* %i1.i64
 ; CHECK: loop.{{[0-9]+}}:
@@ -64,8 +55,6 @@
 ; CHECK: mul i64 [[INDVARS]]{{[0-9]+}}, [[I1LOAD2]]
 
 
-
->>>>>>> .merge-right.r8647
 ; ModuleID = 'livein-copy1.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

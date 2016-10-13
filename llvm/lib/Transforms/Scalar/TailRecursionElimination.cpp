@@ -50,6 +50,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Scalar/TailRecursionElimination.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -732,6 +733,9 @@ static bool processReturningBlock(ReturnInst *Ret, BasicBlock *&OldEntry,
 }
 
 static bool eliminateTailRecursion(Function &F, const TargetTransformInfo *TTI) {
+  if (F.getFnAttribute("disable-tail-calls").getValueAsString() == "true")
+    return false;
+
   bool MadeChange = false;
   bool AllCallsAreTailCalls = false;
   MadeChange |= markTails(F, AllCallsAreTailCalls);
@@ -802,8 +806,7 @@ struct TailCallElim : public FunctionPass {
   }
 
   bool runOnFunction(Function &F) override {
-    if (skipFunction(F) ||
-        F.getFnAttribute("disable-tail-calls").getValueAsString() == "true")
+    if (skipFunction(F))
       return false;
 
     return eliminateTailRecursion(
@@ -822,4 +825,18 @@ INITIALIZE_PASS_END(TailCallElim, "tailcallelim", "Tail Call Elimination",
 // Public interface to the TailCallElimination pass
 FunctionPass *llvm::createTailCallEliminationPass() {
   return new TailCallElim();
+}
+
+PreservedAnalyses TailCallElimPass::run(Function &F,
+                                        FunctionAnalysisManager &AM) {
+
+  TargetTransformInfo &TTI = AM.getResult<TargetIRAnalysis>(F);
+
+  bool Changed = eliminateTailRecursion(F, &TTI);
+
+  if (!Changed)
+    return PreservedAnalyses::all();
+  PreservedAnalyses PA;
+  PA.preserve<GlobalsAA>();
+  return PA;
 }

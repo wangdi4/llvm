@@ -13,7 +13,9 @@ set(ISL_CODEGEN_FILES
     CodeGen/CodeGeneration.cpp)
 
 if (GPU_CODEGEN)
-  set (GPGPU_CODEGEN_FILES)
+  set (GPGPU_CODEGEN_FILES
+       CodeGen/PPCGCodeGeneration.cpp
+       )
 endif (GPU_CODEGEN)
 
 # Compile ISL into a separate library.
@@ -26,6 +28,7 @@ endif ()
 
 add_polly_library(Polly
   Analysis/DependenceInfo.cpp
+  Analysis/PolyhedralInfo.cpp
   Analysis/ScopDetection.cpp
   Analysis/ScopDetectionDiagnostic.cpp
   Analysis/ScopInfo.cpp
@@ -54,6 +57,10 @@ add_polly_library(Polly
   Transform/ScheduleOptimizer.cpp
   ${POLLY_HEADER_FILES}
   )
+
+if (GPU_CODEGEN)
+  target_link_libraries(Polly PollyPPCG)
+endif (GPU_CODEGEN)
 
 target_link_libraries(Polly PollyISL)
 

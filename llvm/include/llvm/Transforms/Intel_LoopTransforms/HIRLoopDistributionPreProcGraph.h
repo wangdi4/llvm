@@ -311,18 +311,49 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     if (Edge->isLoopIndependentDepTemp()) {
       return true;
     }
+    unsigned LoopLevel = Loop->getNestingLevel();
     // Scalar temp Output Dep (*) has single edge
+
+    DDRef *DDRefSrc = Edge->getSrc();
+    RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSrc);
+
     if (Edge->isOUTPUTdep()) {
-      DDRef *DDRefSrc = Edge->getSrc();
-      RegDDRef *RegRef = cast<RegDDRef>(DDRefSrc);
       assert(RegRef && "RegDDRef expected");
-      if (RegRef->isTerminalRef()) {
-        unsigned LoopLevel = Loop->getNestingLevel();
-        if (Edge->getDVAtLevel(LoopLevel) == DVKind::ALL) {
-          return true;
-        }
+      if (RegRef->isTerminalRef() &&
+          Edge->getDVAtLevel(LoopLevel) == DVKind::ALL) {
+        return true;
       }
     }
+
+    // For Memory refs with (<=), only have 1 DD Edge is formed which
+    // should be sufficent for most transformations that have no reordering
+    // within the same iteration, for the purpose of fast compile time.
+    // For Dist, need to special case and add a backward edge if needed
+    // This applies for all dep (F/A/O).
+    // e.g.
+    //     DO  i=1,50
+    // s1:   A[100 -2 *i ] =
+    // s2:   A[50 - i] =
+    // We have   s2 : s1  output (<=)
+    // Without forcing the backward edge,  Dist will end up with
+    //  Loop1
+    //    s2
+    //  Loop2
+    //    s1
+
+    if (!RegRef) {
+      return false;
+    }
+
+    DDRef *DDRefSink = Edge->getSink();
+    if (Edge->getDVAtLevel(LoopLevel) == DVKind::LE) {
+      HLNode *SrcHIR = DDRefSrc->getHLDDNode();
+      HLNode *DstHIR = DDRefSink->getHLDDNode();
+      if (!HLNodeUtils::dominates(SrcHIR, DstHIR)) {
+        return true;
+      }
+    }
+
     return false;
   }
 

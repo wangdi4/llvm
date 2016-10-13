@@ -316,7 +316,8 @@ private:
                           PointerType *PTy, Type *Ty, Value *V);
 
     /// \brief Find a previous Value in ExprValueMap for expand.
-    Value *FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
+    ScalarEvolution::ValueOffsetPair
+    FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
 
     virtual Value *expand(const SCEV *S);         // INTEL
 

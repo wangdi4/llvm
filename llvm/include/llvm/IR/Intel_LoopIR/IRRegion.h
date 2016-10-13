@@ -103,16 +103,25 @@ public:
   void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
     auto Ret = LiveInSet.insert(std::make_pair(Symbase, InitVal));
     (void)Ret;
-    assert((Ret.second || ((Ret.first->first == Symbase) &&
-                           (Ret.first->second == InitVal))) &&
+    assert((Ret.second || (Ret.first->second == InitVal)) &&
            "Inconsistent livein value detected!");
   }
 
   /// \brief Adds a live-out temp (represented using Symbase) to the region.
-  void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
+  void addLiveOutTemp(unsigned Symbase, const Value *Temp) {
     auto Ret = LiveOutSet.insert(std::make_pair(Symbase, Temp));
     (void)Ret;
-    assert(Ret.second && "Liveout value already exists!");
+    assert((Ret.second || (Ret.first->second == Temp)) &&
+           "Inconsistent liveout value detected!");
+  }
+
+  void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
+    auto It = LiveOutSet.find(OldSymbase);
+    assert((It != LiveOutSet.end()) && "Old liveout temp not found!");
+
+    auto Temp = It->second;
+    LiveOutSet.erase(It);
+    addLiveOutTemp(NewSymbase, Temp);
   }
 
   /// \brief Returns true if this symbase is live in to this region.

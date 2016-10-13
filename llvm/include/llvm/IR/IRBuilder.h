@@ -446,6 +446,11 @@ public:
   /// If the pointer isn't i8* it will be converted.
   CallInst *CreateLifetimeEnd(Value *Ptr, ConstantInt *Size = nullptr);
 
+  /// Create a call to invariant.start intrinsic.
+  ///
+  /// If the pointer isn't i8* it will be converted.
+  CallInst *CreateInvariantStart(Value *Ptr, ConstantInt *Size = nullptr);
+
   /// \brief Create a call to Masked Load intrinsic
   CallInst *CreateMaskedLoad(Value *Ptr, unsigned Align, Value *Mask,
                              Value *PassThru = nullptr, const Twine &Name = "");
@@ -537,6 +542,12 @@ public:
                              int DerivedOffset,
                              Type *ResultType,
                              const Twine &Name = "");
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Create a call to the llvm.intel.fakeload intrinsic
+  // to hold the tbaa informaiton for the return pointers.
+  Instruction *CreateFakeLoad(Value *Ptr, MDNode *TbaaTag);
+#endif // INTEL_CUSTOMIZATION
 
 private:
   /// \brief Create a call to a masked intrinsic with given Id.

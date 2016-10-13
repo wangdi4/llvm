@@ -61,15 +61,18 @@ static std::string getOutputPath(StringRef Path) {
 // Opens a file. Path has to be resolved already.
 // Newly created memory buffers are owned by this driver.
 MemoryBufferRef LinkerDriver::openFile(StringRef Path) {
-  auto MBOrErr = MemoryBuffer::getFile(Path);
-  error(MBOrErr, Twine("Could not open ") + Path);
-  std::unique_ptr<MemoryBuffer> &MB = *MBOrErr;
+  std::unique_ptr<MemoryBuffer> MB =
+      check(MemoryBuffer::getFile(Path), "could not open " + Path);
   MemoryBufferRef MBRef = MB->getMemBufferRef();
   OwningMBs.push_back(std::move(MB)); // take ownership
   return MBRef;
 }
 
 static std::unique_ptr<InputFile> createFile(MemoryBufferRef MB) {
+  if (Driver->Cpio)
+    Driver->Cpio->append(relativeToRoot(MB.getBufferIdentifier()),
+                         MB.getBuffer());
+
   // File type is detected by contents, not by file extension.
   file_magic Magic = identify_magic(MB.getBuffer());
   if (Magic == file_magic::archive)
@@ -128,7 +131,7 @@ void LinkerDriver::parseDirectives(StringRef S) {
     case OPT_throwingnew:
       break;
     default:
-      error(Twine(Arg->getSpelling()) + " is not allowed in .drectve");
+      fatal(Arg->getSpelling() + " is not allowed in .drectve");
     }
   }
 }
@@ -248,12 +251,43 @@ static uint64_t getDefaultImageBase() {
   return Config->DLL ? 0x10000000 : 0x400000;
 }
 
+static std::string createResponseFile(const llvm::opt::InputArgList &Args,
+                                      ArrayRef<MemoryBufferRef> MBs,
+                                      ArrayRef<StringRef> SearchPaths) {
+  SmallString<0> Data;
+  raw_svector_ostream OS(Data);
+
+  for (auto *Arg : Args) {
+    switch (Arg->getOption().getID()) {
+    case OPT_linkrepro:
+    case OPT_INPUT:
+    case OPT_defaultlib:
+    case OPT_libpath:
+      break;
+    default:
+      OS << stringize(Arg) << "\n";
+    }
+  }
+
+  for (StringRef Path : SearchPaths) {
+    std::string RelPath = relativeToRoot(Path);
+    OS << "/libpath:" << quote(RelPath) << "\n";
+  }
+
+  for (MemoryBufferRef MB : MBs) {
+    std::string InputPath = relativeToRoot(MB.getBufferIdentifier());
+    OS << quote(InputPath) << "\n";
+  }
+
+  return Data.str();
+}
+
 void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   // If the first command line argument is "/lib", link.exe acts like lib.exe.
   // We call our own implementation of lib.exe that understands bitcode files.
   if (ArgsArr.size() > 1 && StringRef(ArgsArr[1]).equals_lower("/lib")) {
     if (llvm::libDriverMain(ArgsArr.slice(1)) != 0)
-      error("lib failed");
+      fatal("lib failed");
     return;
   }
 
@@ -274,8 +308,19 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
     return;
   }
 
+  if (auto *Arg = Args.getLastArg(OPT_linkrepro)) {
+    SmallString<64> Path = StringRef(Arg->getValue());
+    llvm::sys::path::append(Path, "repro");
+    ErrorOr<CpioFile *> F = CpioFile::create(Path);
+    if (F)
+      Cpio.reset(*F);
+    else
+      llvm::errs() << "/linkrepro: failed to open " << Path
+                   << ".cpio: " << F.getError().message() << '\n';
+  }
+
   if (Args.filtered_begin(OPT_INPUT) == Args.filtered_end())
-    error("no input files.");
+    fatal("no input files");
 
   // Construct search path list.
   SearchPaths.push_back("");
@@ -302,7 +347,7 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   // Handle /noentry
   if (Args.hasArg(OPT_noentry)) {
     if (!Args.hasArg(OPT_dll))
-      error("/noentry must be specified with /dll");
+      fatal("/noentry must be specified with /dll");
     Config->NoEntry = true;
   }
 
@@ -315,7 +360,7 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   // Handle /fixed
   if (Args.hasArg(OPT_fixed)) {
     if (Args.hasArg(OPT_dynamicbase))
-      error("/fixed must not be specified with /dynamicbase");
+      fatal("/fixed must not be specified with /dynamicbase");
     Config->Relocatable = false;
     Config->DynamicBase = false;
   }
@@ -389,17 +434,17 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
         StringRef OptLevel = StringRef(S).substr(7);
         if (OptLevel.getAsInteger(10, Config->LTOOptLevel) ||
             Config->LTOOptLevel > 3)
-          error("/opt:lldlto: invalid optimization level: " + OptLevel);
+          fatal("/opt:lldlto: invalid optimization level: " + OptLevel);
         continue;
       }
       if (StringRef(S).startswith("lldltojobs=")) {
         StringRef Jobs = StringRef(S).substr(11);
         if (Jobs.getAsInteger(10, Config->LTOJobs) || Config->LTOJobs == 0)
-          error("/opt:lldltojobs: invalid job count: " + Jobs);
+          fatal("/opt:lldltojobs: invalid job count: " + Jobs);
         continue;
       }
       if (S != "ref" && S != "lbr" && S != "nolbr")
-        error(Twine("/opt: unknown option: ") + S);
+        fatal("/opt: unknown option: " + S);
     }
   }
 
@@ -500,7 +545,7 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
       continue;
     }
     if (Config->Machine != MT)
-      error(Twine(File->getShortName()) + ": machine type " + machineToStr(MT) +
+      fatal(File->getShortName() + ": machine type " + machineToStr(MT) +
             " conflicts with " + machineToStr(Config->Machine));
   }
   if (Config->Machine == IMAGE_FILE_MACHINE_UNKNOWN) {
@@ -512,8 +557,15 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   if (!Resources.empty()) {
     std::unique_ptr<MemoryBuffer> MB = convertResToCOFF(Resources);
     Symtab.addFile(createFile(MB->getMemBufferRef()));
+
+    MBs.push_back(MB->getMemBufferRef());
     OwningMBs.push_back(std::move(MB)); // take ownership
   }
+
+  if (Cpio)
+    Cpio->append("response.txt",
+                 createResponseFile(Args, MBs,
+                                    ArrayRef<StringRef>(SearchPaths).slice(1)));
 
   // Handle /largeaddressaware
   if (Config->is64() || Args.hasArg(OPT_largeaddressaware))
@@ -535,7 +587,7 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
     // infer that from user-defined entry name.
     StringRef S = findDefaultEntry();
     if (S.empty())
-      error("entry point must be defined");
+      fatal("entry point must be defined");
     Config->Entry = addUndefined(S);
     if (Config->Verbose)
       llvm::outs() << "Entry name inferred: " << S << "\n";
@@ -642,14 +694,14 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   if (Config->Subsystem == IMAGE_SUBSYSTEM_UNKNOWN) {
     Config->Subsystem = inferSubsystem();
     if (Config->Subsystem == IMAGE_SUBSYSTEM_UNKNOWN)
-      error("subsystem must be defined");
+      fatal("subsystem must be defined");
   }
 
   // Handle /safeseh.
   if (Args.hasArg(OPT_safeseh))
     for (ObjectFile *File : Symtab.ObjectFiles)
       if (!File->SEHCompat)
-        error("/safeseh: " + File->getName() + " is not compatible with SEH");
+        fatal("/safeseh: " + File->getName() + " is not compatible with SEH");
 
   // Windows specific -- when we are creating a .dll file, we also
   // need to create a .lib file.
@@ -683,7 +735,8 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   if (auto *Arg = Args.getLastArg(OPT_lldmap)) {
     std::error_code EC;
     llvm::raw_fd_ostream Out(Arg->getValue(), EC, OpenFlags::F_Text);
-    error(EC, "Could not create the symbol map");
+    if (EC)
+      fatal(EC, "could not create the symbol map");
     Symtab.printMap(Out);
   }
   // Call exit to avoid calling destructors.

@@ -16,6 +16,7 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_LOOPFORMATION_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_LOOPFORMATION_H
 
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Pass.h"
 
@@ -59,6 +60,9 @@ private:
   /// Loops - Sorted vector of Loops to HLLoops.
   SmallVector<LoopPairTy, 32> Loops;
 
+  /// Contains loops which require inversion of ztt predicate.
+  SmallPtrSet<HLLoop *, 16> InvertedZttLoops;
+
   /// \brief Inserts (Lp, HLoop) pair in the map.
   void insertHLLoop(const Loop *Lp, HLLoop *HLoop);
 
@@ -81,10 +85,11 @@ private:
 
   /// \brief Moves children of IfParent to loop's preheader/postexit if they are
   /// valid, else returns false.
-  static bool populatedPreheaderPostexitNodes(HLLoop *HLoop, HLIf *IfParent);
+  static bool populatedPreheaderPostexitNodes(HLLoop *HLoop, HLIf *IfParent,
+                                              bool PredicateInversion);
 
   /// \brief Sets the parent if node of the loop as its ztt.
-  void setZtt(HLLoop *HLoop) const;
+  void setZtt(HLLoop *HLoop);
 
   /// \brief Forms loops in HIR.
   void formLoops();
@@ -101,6 +106,11 @@ public:
 
   /// \brief Returns HLLoop corresponding to Lp.
   HLLoop *findHLLoop(const Loop *Lp);
+
+  /// Returns true if this loop requires ztt predicate inversion.
+  bool requiresZttInversion(HLLoop *Loop) const {
+    return InvertedZttLoops.count(Loop);
+  }
 };
 
 } // End namespace loopopt

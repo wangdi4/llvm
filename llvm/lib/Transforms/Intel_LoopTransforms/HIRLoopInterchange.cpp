@@ -100,7 +100,7 @@ private:
   struct CollectCandidateLoops;
 
   SmallVector<CandidateLoopPair, 12> CandidateLoops;
-  SmallVector<LoopLocalityPair, MaxLoopNestLevel> LoopLocality;
+  SmallVector<const HLLoop *, MaxLoopNestLevel> SortedLoops;
   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation;
   SmallVector<HLLoop *, MaxLoopNestLevel> NearByPerm;
   SmallVector<const HLLoop *, 5> PerfectLoopsEnabled;
@@ -117,8 +117,7 @@ private:
                                  const HLLoop *BestLocalityLoop);
   void getNearbyPermutation(const HLLoop *Loop);
   // SrcLevel and DstLevel start from 1
-  bool isLegalForPermutation(const HLLoop *StartLoop, const HLLoop *SrcLoop,
-                             unsigned DstLevel, unsigned SrcLevel) const;
+  bool isLegalForPermutation(unsigned DstLevel, unsigned SrcLevel) const;
   // SrcLevel and DstLevel start from 1
   void permuteNearBy(unsigned DstLevel, unsigned SrcLevel);
   void transformLoop(HLLoop *Loop);
@@ -261,15 +260,15 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
 
 bool HIRLoopInterchange::shouldInterchange(const HLLoop *Loop) {
 
-  LoopLocality.clear();
+  SortedLoops.clear();
   unsigned PrevLevel = 1;
   bool InterchangeNeeded = false;
 
   // Call Util in Locality Analysis to get Best Permutation
-  LA->sortedLocalityLoops(Loop, LoopLocality);
+  LA->sortedLocalityLoops(Loop, SortedLoops);
 
-  for (auto &I : LoopLocality) {
-    HLLoop *L = const_cast<HLLoop *>(I.first);
+  for (auto &I : SortedLoops) {
+    HLLoop *L = const_cast<HLLoop *>(I);
 
     unsigned Level = L->getNestingLevel();
     if (PrevLevel > Level) {
@@ -298,8 +297,8 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
   OutmostNestingLevel = Loop->getNestingLevel();
 
   // Save it in local vector because it may change later
-  for (auto &I : LoopLocality) {
-    HLLoop *L = const_cast<HLLoop *>(I.first);
+  for (auto &I : SortedLoops) {
+    HLLoop *L = const_cast<HLLoop *>(I);
     LoopPermutation.push_back(L);
   }
 
@@ -313,6 +312,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
     // If no, Stop. Otherwise while loop in next function will loop forever
 
     const HLLoop *BestLocalityLoop = LoopPermutation.back();
+
     if (!isBestLocalityInInnermost(Loop, BestLocalityLoop)) {
       CanInterchange = false;
     } else {
@@ -343,8 +343,7 @@ bool HIRLoopInterchange::isBestLocalityInInnermost(
   unsigned SrcLevel =
       BestLocalityLoop->getNestingLevel() - OutmostNestingLevel + 1;
   if (InnermostNestingLevel == BestLocalityLoop->getNestingLevel() ||
-      isLegalForPermutation(Loop, BestLocalityLoop, InnermostNestingLevel,
-                            SrcLevel)) {
+      isLegalForPermutation(InnermostNestingLevel, SrcLevel)) {
     return true;
   }
   DEBUG(dbgs() << "\nCannot move best locality loop as innermost\n");
@@ -447,7 +446,7 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
         SrcLevel++;
       }
       assert(SrcLevel != 0 && "Loop not found");
-      if (isLegalForPermutation(Loop, I, DstLevel, SrcLevel)) {
+      if (isLegalForPermutation(DstLevel, SrcLevel)) {
         permuteNearBy(DstLevel, SrcLevel);
         LoopPermutation.erase(&I);
         DstLevel++;
@@ -627,7 +626,8 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
   //  because it will end up as ( < > = <)
   // (2) Moving < inwards: Once we hit <, then it is legal , if we hit > or *
   //     return illegal
-  // (3) Moving > outwards: Return illegal
+  // (3) Moving > outwards: okay to shift * to left as long as it does
+  //     not hit <
   //
 
   //  Adjust DstLevel based on OutmostNestingLevel
@@ -664,8 +664,13 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
       }
     } else {
       // (3)
+      // (= = *)  Okay to shift * to left as long as it does not hit <
       if (WorkDV[SrcLevel - 1] & DVKind::GT) {
-        return false;
+        for (unsigned JJ = SrcLevel - 1; JJ >= DstLevel; --JJ) {
+          if (WorkDV[JJ - 1] & DVKind::LT) {
+            return false;
+          }
+        }
       }
     }
   }
@@ -677,9 +682,7 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
 ///                 DstLevel  = 1
 ///       It will return false because > cannot cross <
 ///  Input Levels are relative to 1 (starting in level 1)
-bool HIRLoopInterchange::isLegalForPermutation(const HLLoop *StartLoop,
-                                               const HLLoop *SrcLoop,
-                                               unsigned DstLevel,
+bool HIRLoopInterchange::isLegalForPermutation(unsigned DstLevel,
                                                unsigned SrcLevel) const {
 
   if (SrcLevel == DstLevel) {

@@ -4,12 +4,13 @@
 ; CHECK: LiveIns
 ; CHECK-SAME: %indvars.iv22(0)
 
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: {al:4}(%A)[%indvars.iv22 * i2] = i1 + i2
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %indvars.iv22 = i1  +  1
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   |   (%A)[%indvars.iv22 * i2] = i1 + i2;
+; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |   %indvars.iv22 = i1 + 1;
+; CHECK: + END LOOP
 
 
 ; ModuleID = 'mul-iv.c'

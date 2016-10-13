@@ -177,16 +177,6 @@ int IslNodeBuilder::getNumberOfIterations(__isl_keep isl_ast_node *For) {
     return NumberIterations + 1;
 }
 
-struct SubtreeReferences {
-  LoopInfo &LI;
-  ScalarEvolution &SE;
-  Scop &S;
-  ValueMapT &GlobalMap;
-  SetVector<Value *> &Values;
-  SetVector<const SCEV *> &SCEVs;
-  BlockGenerator &BlockGen;
-};
-
 /// @brief Extract the values and SCEVs needed to generate code for a block.
 static int findReferencesInBlock(struct SubtreeReferences &References,
                                  const ScopStmt *Stmt, const BasicBlock *BB) {
@@ -213,7 +203,7 @@ static int findReferencesInBlock(struct SubtreeReferences &References,
 /// @param Stmt    The statement for which to extract the information.
 /// @param UserPtr A void pointer that can be casted to a SubtreeReferences
 ///                structure.
-static isl_stat addReferencesFromStmt(const ScopStmt *Stmt, void *UserPtr) {
+isl_stat addReferencesFromStmt(const ScopStmt *Stmt, void *UserPtr) {
   auto &References = *static_cast<struct SubtreeReferences *>(UserPtr);
 
   if (Stmt->isBlockStmt())
@@ -893,7 +883,7 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
         // Check if this invariant access class is empty, hence if we never
         // actually added a loads instruction to it. In that case it has no
         // (meaningful) users and we should not try to code generate it.
-        if (std::get<1>(*IAClass).empty())
+        if (IAClass->InvariantAccesses.empty())
           V = UndefValue::get(ParamSCEV->getType());
 
         if (!preloadInvariantEquivClass(*IAClass)) {
@@ -1064,7 +1054,7 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   // element with the unified execution context. However, we have to map all
   // elements of the class to the one preloaded load as they are referenced
   // during the code generation and therefor need to be mapped.
-  const MemoryAccessList &MAs = std::get<1>(IAClass);
+  const MemoryAccessList &MAs = IAClass.InvariantAccesses;
   if (MAs.empty())
     return true;
 
@@ -1079,12 +1069,12 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   // Check for recurrsion which can be caused by additional constraints, e.g.,
   // non-finitie loop contraints. In such a case we have to bail out and insert
   // a "false" runtime check that will cause the original code to be executed.
-  auto PtrId = std::make_pair(std::get<0>(IAClass), std::get<3>(IAClass));
+  auto PtrId = std::make_pair(IAClass.IdentifyingPointer, IAClass.AccessType);
   if (!PreloadedPtrs.insert(PtrId).second)
     return false;
 
   // The exectution context of the IAClass.
-  isl_set *&ExecutionCtx = std::get<2>(IAClass);
+  isl_set *&ExecutionCtx = IAClass.ExecutionContext;
 
   // If the base pointer of this class is dependent on another one we have to
   // make sure it was preloaded already.
@@ -1095,7 +1085,7 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
 
     // After we preloaded the BaseIAClass we adjusted the BaseExecutionCtx and
     // we need to refine the ExecutionCtx.
-    isl_set *BaseExecutionCtx = isl_set_copy(std::get<2>(*BaseIAClass));
+    isl_set *BaseExecutionCtx = isl_set_copy(BaseIAClass->ExecutionContext);
     ExecutionCtx = isl_set_intersect(ExecutionCtx, BaseExecutionCtx);
   }
 

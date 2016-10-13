@@ -392,14 +392,22 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
   AvrUsedVarsMapTy &UVs = DefUses[RHS]; // Initialize to no uses.
   // FIXME: AVRValueHIR may not be a RegDDRef
   if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
+  auto HLoop = TopLevelLoop->getLoop();
 
-    for (auto II = DDG.outgoing_edges_begin(RDDF),
-              EE = DDG.outgoing_edges_end(RDDF);
-         II != EE; ++II) {
-      const DDEdge *Edge = *II;
-      // Skip non-FLOW dependencies.
-      if (!Edge->isFLOWdep())
-        continue;
+  // If the def is outside the loop, all uses of the def in the loop can
+  // be treated as uniform. We want to avoid problems for cases where
+  // we do not find the use AVR(such as in loop bounds for which we do
+  // not build AVR nodes).
+  if (!HLNodeUtils::contains(HLoop, RDDF->getHLDDNode()))
+    return;
+
+  for (auto II = DDG.outgoing_edges_begin(RDDF),
+            EE = DDG.outgoing_edges_end(RDDF);
+       II != EE; ++II) {
+    const DDEdge *Edge = *II;
+    // Skip non-FLOW dependencies.
+    if (!Edge->isFLOWdep())
+      continue;
 
       DDRef *DDRef = Edge->getSink();
       RegDDRef *SelfBlob = dyn_cast<RegDDRef>(DDRef);
@@ -408,10 +416,9 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
       if (!(isa<BlobDDRef>(DDRef) || (SelfBlob && SelfBlob->isSelfBlob())))
         continue;
 
-      // Skip dependencies outside TopLevelLoop
-      auto HLoop = TopLevelLoop->getLoop();
-      if (!HLNodeUtils::contains(HLoop, DDRef->getHLDDNode()))
-        continue;
+    // Skip dependencies outside TopLevelLoop
+    if (!HLNodeUtils::contains(HLoop, DDRef->getHLDDNode()))
+      continue;
 
       // Skip dependencies to DDRefs whose using AVR is a Def.
       AVR *UsingAVR = IR2AVR.getAVR(DDRef);

@@ -53,7 +53,8 @@ FunctionPass *llvm::createHIRScalarSymbaseAssignmentPass() {
   return new HIRScalarSymbaseAssignment();
 }
 
-HIRScalarSymbaseAssignment::HIRScalarSymbaseAssignment() : FunctionPass(ID) {
+HIRScalarSymbaseAssignment::HIRScalarSymbaseAssignment()
+    : FunctionPass(ID), GenericRvalSymbase(0) {
   initializeHIRScalarSymbaseAssignmentPass(*PassRegistry::getPassRegistry());
 }
 
@@ -64,11 +65,6 @@ void HIRScalarSymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<HIRRegionIdentification>();
   AU.addRequired<HIRSCCFormation>();
   AU.addRequired<HIRLoopFormation>();
-}
-
-void HIRScalarSymbaseAssignment::insertHIRLval(const Value *Lval,
-                                               unsigned Symbase) {
-  ScalarLvalSymbases[Symbase] = Lval;
 }
 
 unsigned HIRScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
@@ -145,21 +141,12 @@ unsigned HIRScalarSymbaseAssignment::getOrAssignTempSymbase(const Value *Temp) {
 }
 
 const Value *HIRScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
-  const Value *RetVal = nullptr;
-
   assert((Symbase > ConstantSymbase) && "Symbase is out of range!");
+  assert((Symbase <= getMaxScalarSymbase()) && "Symbase is out of range!");
 
-  if (Symbase <= getMaxScalarSymbase()) {
-    RetVal = BaseTemps[getIndex(Symbase)];
-  } else {
-    // Symbase can be out of range for new temps created by HIR transformations.
-    // These temps are registered by framework utils for printing in debug mode.
-    auto It = ScalarLvalSymbases.find(Symbase);
-    assert((It != ScalarLvalSymbases.end()) && "Symbase not present in map!");
-    RetVal = It->second;
-  }
+  auto RetVal = BaseTemps[getIndex(Symbase)];
 
-  assert(RetVal && "Unexpected null value in RetVal");
+  assert(RetVal && "Unexpected null value for symbase!");
   return RetVal;
 }
 
@@ -167,12 +154,8 @@ unsigned HIRScalarSymbaseAssignment::getMaxScalarSymbase() const {
   return BaseTemps.size() + ConstantSymbase;
 }
 
-void HIRScalarSymbaseAssignment::setGenericLoopUpperSymbase() {
-  assignTempSymbase(Func);
-}
-
-const Value *HIRScalarSymbaseAssignment::getGenericLoopUpperVal() const {
-  return Func;
+void HIRScalarSymbaseAssignment::initGenericRvalSymbase() {
+  GenericRvalSymbase = assignTempSymbase(Func);
 }
 
 const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
@@ -357,7 +340,7 @@ void HIRScalarSymbaseAssignment::populateRegionLiveouts(
 
       if (SCCF->isRegionLiveOut(RegIt, &*Inst)) {
         auto Symbase = getOrAssignScalarSymbase(&*Inst, *RegIt);
-        RegIt->addLiveOutTemp(&*Inst, Symbase);
+        RegIt->addLiveOutTemp(Symbase, &*Inst);
         populateLoopLiveouts(&*Inst, Symbase);
       }
     }
@@ -466,8 +449,8 @@ bool HIRScalarSymbaseAssignment::runOnFunction(Function &F) {
   RI = &getAnalysis<HIRRegionIdentification>();
   LF = &getAnalysis<HIRLoopFormation>();
 
-  // Assign a generic symbase representing loop uppers.
-  setGenericLoopUpperSymbase();
+  // Assign a generic symbase.
+  initGenericRvalSymbase();
 
   for (auto RegIt = RI->begin(), EndRegIt = RI->end(); RegIt != EndRegIt;
        ++RegIt) {
@@ -482,7 +465,6 @@ void HIRScalarSymbaseAssignment::releaseMemory() {
   BaseTemps.clear();
   TempSymbaseMap.clear();
   StrSymbaseMap.clear();
-  ScalarLvalSymbases.clear();
 }
 
 void HIRScalarSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {

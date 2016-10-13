@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/LTO/LTOCodeGenerator.h"
-#include "llvm/LTO/UpdateCompilerUsed.h"
+#include "llvm/LTO/legacy/LTOCodeGenerator.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
@@ -36,7 +35,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/LTO/LTOModule.h"
+#include "llvm/LTO/legacy/LTOModule.h"
+#include "llvm/LTO/legacy/UpdateCompilerUsed.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
@@ -123,12 +123,14 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeReversePostOrderFunctionAttrsLegacyPassPass(R);
   initializeGlobalsAAWrapperPassPass(R);
   initializeAndersensAAWrapperPassPass(R);   // INTEL
-  initializeLICMPass(R);
+  initializeLegacyLICMPassPass(R);
   initializeMergedLoadStoreMotionLegacyPassPass(R);
   initializeGVNLegacyPassPass(R);
   initializeMemCpyOptLegacyPassPass(R);
   initializeDCELegacyPassPass(R);
   initializeCFGSimplifyPassPass(R);
+  initializeWholeProgramWrapperPassPass(R);  // INTEL
+  initializeInlineAggressiveAnalysisPass(R);  // INTEL
 }
 
 bool LTOCodeGenerator::addModule(LTOModule *Mod) {

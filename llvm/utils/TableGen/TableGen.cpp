@@ -46,7 +46,8 @@ enum ActionType {
   GenDirectives,   // INTEL
   GenSVMLVariants, // INTEL
   GenMAPatterns,   // INTEL
-  GenAttributes
+  GenAttributes,
+  GenSearchableTables,
 };
 
 namespace {
@@ -101,6 +102,8 @@ namespace {
                     clEnumValN(GenMAPatterns, "gen-ma-patterns",
                                "Generate MUL/ADD patterns"),
 // END INTEL_CUSTOMIZATION
+                    clEnumValN(GenSearchableTables, "gen-searchable-tables",
+                               "Generate generic binary-searchable table"),
                     clEnumValEnd));
 
   cl::opt<std::string>
@@ -195,6 +198,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     EmitMAPatterns(Records, OS);
     break;
 #endif // INTEL_CUSTOMIZATION
+  case GenSearchableTables:
+    EmitSearchableTables(Records, OS);
+    break;
   }
 
   return false;

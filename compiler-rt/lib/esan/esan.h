@@ -37,6 +37,8 @@ extern bool EsanDuringInit;
 
 void initializeLibrary(ToolType Tool);
 int finalizeLibrary();
+void reportResults();
+unsigned int getSampleCount();
 // Esan creates the variable per tool per compilation unit at compile time
 // and passes its pointer Ptr to the runtime library.
 void processCompilationUnitInit(void *Ptr);
@@ -51,6 +53,7 @@ uptr checkMmapResult(uptr Addr, SIZE_T Size);
 // The return value indicates whether to call the real version or not.
 bool processSignal(int SigNum, void (*Handler)(int), void (**Result)(int));
 bool processSigaction(int SigNum, const void *Act, void *OldAct);
+bool processSigprocmask(int How, void *Set, void *OldSet);
 
 } // namespace __esan
 

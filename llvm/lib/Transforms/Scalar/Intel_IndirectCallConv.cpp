@@ -34,6 +34,7 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
@@ -75,6 +76,7 @@ namespace {
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addRequired<AndersensAAWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();
+      AU.addPreserved<WholeProgramWrapperPass>();
     }
 
 private:

@@ -10,9 +10,6 @@
 ; CHECK-NOT: goto
 ; CHECK: END REGION
 
-; RUN: opt < %s -analyze -hir-creation -debug 2>&1 | FileCheck -check-prefix=COST-MODEL %s
-; COST-MODEL: Loop throttled due to presence of too many nested ifs
-
 
 ; ModuleID = 'bugpoint-reduced-function.bc'
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
