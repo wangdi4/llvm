@@ -97,7 +97,7 @@ target_link_libraries( ${TARGET_NAME}
                         CLElfLib
                         metadataapi
                         dynamic_load
-                        cl_logger
+                        cl_logger${EXPERIMENTAL_POSTFIX}
                         cl_sys_utils
                         # LLVM LIBS
                         # Doing so must be done with caution as cclang export all the symbols
