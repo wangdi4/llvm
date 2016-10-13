@@ -1670,8 +1670,8 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 				//two input phi: use PREDMERGE to avoid further lowering.
 				unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
 				predMergeInstr = BuildMI(*mbb, MI, DebugLoc(), TII.get(LPU::PREDMERGE),
-					indexReg).
-					addReg(LPU::IGN, RegState::Define). //eat the BB's pred, they will be computed using "or" consistently
+					LPU::IGN).
+					addReg(indexReg, RegState::Define). //eat the BB's pred, they will be computed using "or" consistently
 					addReg(predBB).   //last processed edge
 					addReg(edgePred); //current edge
 			}
@@ -1684,7 +1684,7 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 		unsigned reg1 = MI->getOperand(1).getReg();
 		unsigned reg2 = MI->getOperand(3).getReg();
 		const TargetRegisterClass *TRC = MRI->getRegClass(reg1);
-		unsigned pickPred = predMergeInstr->getOperand(0).getReg();
+		unsigned pickPred = predMergeInstr->getOperand(1).getReg();
 		const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
 		unsigned dst = MI->getOperand(0).getReg();
 		BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(pickPred).addReg(reg1).addReg(reg2);
