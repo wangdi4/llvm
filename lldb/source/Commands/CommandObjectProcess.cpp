@@ -126,7 +126,7 @@ public:
                                            nullptr,
                                            eCommandRequiresTarget,
                                            "restart"),
-        m_options (interpreter)
+        m_options()
     {
         CommandArgumentEntry arg;
         CommandArgumentData run_args_arg;
@@ -156,8 +156,8 @@ public:
     {
         std::string completion_str (input.GetArgumentAtIndex(cursor_index));
         completion_str.erase (cursor_char_position);
-        
-        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter, 
+
+        CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                             CommandCompletions::eDiskFileCompletion,
                                                             completion_str.c_str(),
                                                             match_start_point,
@@ -303,15 +303,17 @@ protected:
 //OptionDefinition
 //CommandObjectProcessLaunch::CommandOptions::g_option_table[] =
 //{
-//{ SET1 | SET2 | SET3, false, "stop-at-entry", 's', OptionParser::eNoArgument,       nullptr, 0, eArgTypeNone,    "Stop at the entry point of the program when launching a process."},
-//{ SET1              , false, "stdin",         'i', OptionParser::eRequiredArgument, nullptr, 0, eArgTypeDirectoryName,    "Redirect stdin for the process to <path>."},
-//{ SET1              , false, "stdout",        'o', OptionParser::eRequiredArgument, nullptr, 0, eArgTypeDirectoryName,    "Redirect stdout for the process to <path>."},
-//{ SET1              , false, "stderr",        'e', OptionParser::eRequiredArgument, nullptr, 0, eArgTypeDirectoryName,    "Redirect stderr for the process to <path>."},
-//{ SET1 | SET2 | SET3, false, "plugin",        'p', OptionParser::eRequiredArgument, nullptr, 0, eArgTypePlugin,  "Name of the process plugin you want to use."},
-//{        SET2       , false, "tty",           't', OptionParser::eOptionalArgument, nullptr, 0, eArgTypeDirectoryName,    "Start the process in a terminal. If <path> is specified, look for a terminal whose name contains <path>, else start the process in a new terminal."},
-//{               SET3, false, "no-stdio",      'n', OptionParser::eNoArgument,       nullptr, 0, eArgTypeNone,    "Do not set up for terminal I/O to go to running process."},
-//{ SET1 | SET2 | SET3, false, "working-dir",   'w', OptionParser::eRequiredArgument, nullptr, 0, eArgTypeDirectoryName,    "Set the current working directory to <path> when running the inferior."},
-//{ 0,                  false, nullptr,             0,  0,                 nullptr, 0, eArgTypeNone,    nullptr }
+//  // clang-format off
+//  {SET1 | SET2 | SET3, false, "stop-at-entry", 's', OptionParser::eNoArgument,       nullptr, 0, eArgTypeNone,          "Stop at the entry point of the program when launching a process."},
+//  {SET1,               false, "stdin",         'i', OptionParser::eRequiredArgument, nullptr, 0, eArgTypeDirectoryName, "Redirect stdin for the process to <path>."},
+//  {SET1,               false, "stdout",        'o', OptionParser::eRequiredArgument, nullptr, 0, eArgTypeDirectoryName, "Redirect stdout for the process to <path>."},
+//  {SET1,               false, "stderr",        'e', OptionParser::eRequiredArgument, nullptr, 0, eArgTypeDirectoryName, "Redirect stderr for the process to <path>."},
+//  {SET1 | SET2 | SET3, false, "plugin",        'p', OptionParser::eRequiredArgument, nullptr, 0, eArgTypePlugin,        "Name of the process plugin you want to use."},
+//  {       SET2,        false, "tty",           't', OptionParser::eOptionalArgument, nullptr, 0, eArgTypeDirectoryName, "Start the process in a terminal. If <path> is specified, look for a terminal whose name contains <path>, else start the process in a new terminal."},
+//  {              SET3, false, "no-stdio",      'n', OptionParser::eNoArgument,       nullptr, 0, eArgTypeNone,          "Do not set up for terminal I/O to go to running process."},
+//  {SET1 | SET2 | SET3, false, "working-dir",   'w', OptionParser::eRequiredArgument, nullptr, 0, eArgTypeDirectoryName, "Set the current working directory to <path> when running the inferior."},
+//  {0, false, nullptr, 0, 0, nullptr, 0, eArgTypeNone, nullptr}
+//  // clang-format on
 //};
 //
 //#undef SET1
@@ -328,17 +330,18 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options(interpreter)
+        CommandOptions() :
+            Options()
         {
             // Keep default values of all options in one place: OptionParsingStarting ()
-            OptionParsingStarting ();
+            OptionParsingStarting(nullptr);
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue (uint32_t option_idx, const char *option_arg,
+                        ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -387,7 +390,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             attach_info.Clear();
         }
@@ -406,6 +409,7 @@ public:
                                         int opt_element_index,
                                         int match_start_point,
                                         int max_return_elements,
+                                        CommandInterpreter &interpreter,
                                         bool &word_complete,
                                         StringList &matches) override
         {
@@ -425,7 +429,7 @@ public:
                 const char *partial_name = nullptr;
                 partial_name = input.GetArgumentAtIndex(opt_arg_pos);
 
-                PlatformSP platform_sp (m_interpreter.GetPlatform (true));
+                PlatformSP platform_sp(interpreter.GetPlatform(true));
                 if (platform_sp)
                 {
                     ProcessInstanceInfoList process_infos;
@@ -467,7 +471,7 @@ public:
                                             "process attach <cmd-options>",
                                             0,
                                             "attach"),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -606,13 +610,15 @@ protected:
 OptionDefinition
 CommandObjectProcessAttach::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_ALL, false, "continue",'c', OptionParser::eNoArgument,         nullptr, nullptr, 0, eArgTypeNone,         "Immediately continue the process once attached."},
-{ LLDB_OPT_SET_ALL, false, "plugin",  'P', OptionParser::eRequiredArgument,   nullptr, nullptr, 0, eArgTypePlugin,       "Name of the process plugin you want to use."},
-{ LLDB_OPT_SET_1,   false, "pid",     'p', OptionParser::eRequiredArgument,   nullptr, nullptr, 0, eArgTypePid,          "The process ID of an existing process to attach to."},
-{ LLDB_OPT_SET_2,   false, "name",    'n', OptionParser::eRequiredArgument,   nullptr, nullptr, 0, eArgTypeProcessName,  "The name of the process to attach to."},
-{ LLDB_OPT_SET_2,   false, "include-existing", 'i', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone,         "Include existing processes when doing attach -w."},
-{ LLDB_OPT_SET_2,   false, "waitfor", 'w', OptionParser::eNoArgument,         nullptr, nullptr, 0, eArgTypeNone,         "Wait for the process with <process-name> to launch."},
-{ 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "continue",         'c', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,         "Immediately continue the process once attached."},
+  {LLDB_OPT_SET_ALL, false, "plugin",           'P', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePlugin,       "Name of the process plugin you want to use."},
+  {LLDB_OPT_SET_1,   false, "pid",              'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePid,          "The process ID of an existing process to attach to."},
+  {LLDB_OPT_SET_2,   false, "name",             'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName,  "The name of the process to attach to."},
+  {LLDB_OPT_SET_2,   false, "include-existing", 'i', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,         "Include existing processes when doing attach -w."},
+  {LLDB_OPT_SET_2,   false, "waitfor",          'w', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,         "Wait for the process with <process-name> to launch."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -632,7 +638,7 @@ public:
                              eCommandTryTargetAPILock      |
                              eCommandProcessMustBeLaunched |
                              eCommandProcessMustBePaused   ),
-        m_options(interpreter)
+        m_options()
     {
     }
 
@@ -642,17 +648,18 @@ protected:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options(interpreter)
+        CommandOptions() :
+            Options()
         {
             // Keep default values of all options in one place: OptionParsingStarting ()
-            OptionParsingStarting ();
+            OptionParsingStarting(nullptr);
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -673,7 +680,7 @@ protected:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_ignore = 0;
         }
@@ -802,9 +809,10 @@ protected:
 OptionDefinition
 CommandObjectProcessContinue::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_ALL, false, "ignore-count",'i', OptionParser::eRequiredArgument,         nullptr, nullptr, 0, eArgTypeUnsignedInteger,
-                           "Ignore <N> crossings of the breakpoint (if it exists) for the currently selected thread."},
-{ 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "ignore-count",'i', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger, "Ignore <N> crossings of the breakpoint (if it exists) for the currently selected thread."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -818,16 +826,17 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options (interpreter)
+        CommandOptions() :
+            Options()
         {
-            OptionParsingStarting ();
+            OptionParsingStarting(nullptr);
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -856,7 +865,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_keep_stopped = eLazyBoolCalculate;
         }
@@ -879,7 +888,7 @@ public:
         : CommandObjectParsed(interpreter, "process detach", "Detach from the current target process.",
                               "process detach",
                               eCommandRequiresProcess | eCommandTryTargetAPILock | eCommandProcessMustBeLaunched),
-          m_options(interpreter)
+          m_options()
     {
     }
 
@@ -928,8 +937,10 @@ protected:
 OptionDefinition
 CommandObjectProcessDetach::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_1, false, "keep-stopped",   's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the process should be kept stopped on detach (if possible)." },
-{ 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "keep-stopped", 's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the process should be kept stopped on detach (if possible)."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -943,17 +954,18 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options(interpreter)
+        CommandOptions() :
+            Options()
         {
             // Keep default values of all options in one place: OptionParsingStarting ()
-            OptionParsingStarting ();
+            OptionParsingStarting(nullptr);
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -972,7 +984,7 @@ public:
         }
         
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             plugin_name.clear();
         }
@@ -998,7 +1010,7 @@ public:
                              "Connect to a remote debug service.",
                              "process connect <remote-url>",
                              0),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -1059,8 +1071,10 @@ protected:
 OptionDefinition
 CommandObjectProcessConnect::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_ALL, false, "plugin", 'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePlugin, "Name of the process plugin you want to use."},
-    { 0,                false, nullptr,      0 , 0,                 nullptr, nullptr, 0, eArgTypeNone,   nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "plugin", 'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePlugin, "Name of the process plugin you want to use."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -1100,17 +1114,18 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options(interpreter)
+        CommandOptions() :
+            Options()
         {
             // Keep default values of all options in one place: OptionParsingStarting ()
-            OptionParsingStarting ();
+            OptionParsingStarting(nullptr);
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -1129,7 +1144,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             do_install = false;
             install_path.Clear();
@@ -1158,7 +1173,7 @@ public:
                              eCommandTryTargetAPILock      |
                              eCommandProcessMustBeLaunched |
                              eCommandProcessMustBePaused   ),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -1222,8 +1237,10 @@ protected:
 OptionDefinition
 CommandObjectProcessLoad::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_ALL, false, "install", 'i', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypePath, "Install the shared library to the target. If specified without an argument then the library will installed in the current working directory."},
-    { 0,                false, nullptr,    0 , 0,                               nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "install", 'i', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypePath, "Install the shared library to the target. If specified without an argument then the library will installed in the current working directory."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -1577,16 +1594,17 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options (interpreter)
+        CommandOptions() :
+            Options()
         {
-            OptionParsingStarting ();
+            OptionParsingStarting(nullptr);
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -1610,7 +1628,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             stop.clear();
             notify.clear();
@@ -1639,7 +1657,7 @@ public:
               interpreter, "process handle",
               "Manage LLDB handling of OS signals for the current target process.  Defaults to showing current policy.",
               nullptr),
-          m_options(interpreter)
+          m_options()
     {
         SetHelpLong ("\nIf no signals are specified, update them all.  If no update "
                      "option is specified, list the current values.");
@@ -1858,10 +1876,12 @@ protected:
 OptionDefinition
 CommandObjectProcessHandle::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_1, false, "stop",   's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the process should be stopped if the signal is received." },
-{ LLDB_OPT_SET_1, false, "notify", 'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the debugger should notify the user if the signal is received." },
-{ LLDB_OPT_SET_1, false, "pass",  'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the signal should be passed to the process." },
-{ 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "stop",   's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the process should be stopped if the signal is received."},
+  {LLDB_OPT_SET_1, false, "notify", 'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the debugger should notify the user if the signal is received."},
+  {LLDB_OPT_SET_1, false, "pass",   'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the signal should be passed to the process."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------

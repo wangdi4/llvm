@@ -41,7 +41,7 @@ public:
               interpreter, "add",
               "Add a set of LLDB commands to a watchpoint, to be executed whenever the watchpoint is hit.", nullptr),
           IOHandlerDelegateMultiline("DONE", IOHandlerDelegate::Completion::LLDBCommand),
-          m_options(interpreter)
+          m_options()
     {
         SetHelpLong (
 R"(
@@ -280,8 +280,8 @@ are no syntax errors may indicate that a function was declared but never called.
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options (interpreter),
+        CommandOptions() :
+            Options(),
             m_use_commands (false),
             m_use_script_language (false),
             m_script_language (eScriptLanguageNone),
@@ -294,7 +294,8 @@ are no syntax errors may indicate that a function was declared but never called.
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -338,7 +339,7 @@ are no syntax errors may indicate that a function was declared but never called.
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_use_commands = true;
             m_use_script_language = false;
@@ -488,19 +489,13 @@ g_script_option_enumeration[4] =
 OptionDefinition
 CommandObjectWatchpointCommandAdd::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_1,   false, "one-liner",       'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeOneLiner,
-        "Specify a one-line watchpoint command inline. Be sure to surround it with quotes." },
-
-    { LLDB_OPT_SET_ALL, false, "stop-on-error",   'e', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean,
-        "Specify whether watchpoint command execution should terminate on error." },
-
-    { LLDB_OPT_SET_ALL, false, "script-type",     's', OptionParser::eRequiredArgument, nullptr, g_script_option_enumeration, 0, eArgTypeNone,
-        "Specify the language for the commands - if none is specified, the lldb command interpreter will be used."},
-
-    { LLDB_OPT_SET_2,   false, "python-function", 'F', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePythonFunction,
-        "Give the name of a Python function to run as command for this watchpoint. Be sure to give a module name if appropriate."},
-    
-    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1,   false, "one-liner",       'o', OptionParser::eRequiredArgument, nullptr, nullptr,                     0, eArgTypeOneLiner,       "Specify a one-line watchpoint command inline. Be sure to surround it with quotes."},
+  {LLDB_OPT_SET_ALL, false, "stop-on-error",   'e', OptionParser::eRequiredArgument, nullptr, nullptr,                     0, eArgTypeBoolean,        "Specify whether watchpoint command execution should terminate on error."},
+  {LLDB_OPT_SET_ALL, false, "script-type",     's', OptionParser::eRequiredArgument, nullptr, g_script_option_enumeration, 0, eArgTypeNone,           "Specify the language for the commands - if none is specified, the lldb command interpreter will be used."},
+  {LLDB_OPT_SET_2,   false, "python-function", 'F', OptionParser::eRequiredArgument, nullptr, nullptr,                     0, eArgTypePythonFunction, "Give the name of a Python function to run as command for this watchpoint. Be sure to give a module name if appropriate."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------

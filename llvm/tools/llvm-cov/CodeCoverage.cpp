@@ -38,6 +38,10 @@
 using namespace llvm;
 using namespace coverage;
 
+void exportCoverageDataToJson(StringRef ObjectFilename,
+                              const coverage::CoverageMapping &CoverageMapping,
+                              raw_ostream &OS);
+
 namespace {
 /// \brief The implementation of the coverage tool.
 class CodeCoverageTool {
@@ -46,7 +50,9 @@ public:
     /// \brief The show command.
     Show,
     /// \brief The report command.
-    Report
+    Report,
+    /// \brief The export command.
+    Export
   };
 
   /// \brief Print the error message to the error output stream.
@@ -93,6 +99,9 @@ public:
 
   int report(int argc, const char **argv,
              CommandLineParserType commandLineParser);
+
+  int export_(int argc, const char **argv,
+              CommandLineParserType commandLineParser);
 
   std::string ObjectFilename;
   CoverageViewOptions ViewOpts;
@@ -201,9 +210,9 @@ CodeCoverageTool::createFunctionView(const FunctionRecord &Function,
     return nullptr;
 
   auto Expansions = FunctionCoverage.getExpansions();
-  auto View = SourceCoverageView::create(getSymbolForHumans(Function.Name),
-                                         SourceBuffer.get(), ViewOpts,
-                                         std::move(FunctionCoverage));
+  auto View = SourceCoverageView::create(
+      getSymbolForHumans(Function.Name), SourceBuffer.get(), ViewOpts,
+      std::move(FunctionCoverage), /*FunctionView=*/true);
   attachExpansionSubViews(*View, Expansions, Coverage);
 
   return View;
@@ -229,7 +238,7 @@ CodeCoverageTool::createSourceFileView(StringRef SourceFile,
     auto SubViewExpansions = SubViewCoverage.getExpansions();
     auto SubView = SourceCoverageView::create(
         getSymbolForHumans(Function->Name), SourceBuffer.get(), ViewOpts,
-        std::move(SubViewCoverage));
+        std::move(SubViewCoverage), /*FunctionView=*/true);
     attachExpansionSubViews(*SubView, SubViewExpansions, Coverage);
 
     if (SubView) {
@@ -454,6 +463,12 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
     CompareFilenamesOnly = FilenameEquivalence;
 
     ViewOpts.Format = Format;
+    SmallString<128> ObjectFilePath(this->ObjectFilename);
+    if (std::error_code EC = sys::fs::make_absolute(ObjectFilePath)) {
+      error(EC.message(), this->ObjectFilename);
+      return 1;
+    }
+    ViewOpts.ObjectFilename = ObjectFilePath.c_str();
     switch (ViewOpts.Format) {
     case CoverageViewOptions::OutputFormat::Text:
       ViewOpts.Colors = UseColor == cl::BOU_UNSET
@@ -534,6 +549,8 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
     return show(argc, argv, commandLineParser);
   case Report:
     return report(argc, argv, commandLineParser);
+  case Export:
+    return export_(argc, argv, commandLineParser);
   }
   return 0;
 }
@@ -573,6 +590,15 @@ int CodeCoverageTool::show(int argc, const char **argv,
   cl::alias ShowOutputDirectoryA("o", cl::desc("Alias for --output-dir"),
                                  cl::aliasopt(ShowOutputDirectory));
 
+  cl::opt<uint32_t> TabSize(
+      "tab-size", cl::init(2),
+      cl::desc(
+          "Set tab expansion size for html coverage reports (default = 2)"));
+
+  cl::opt<std::string> ProjectTitle(
+      "project-title", cl::Optional,
+      cl::desc("Set project title for the coverage report"));
+
   auto Err = commandLineParser(argc, argv);
   if (Err)
     return Err;
@@ -585,6 +611,8 @@ int CodeCoverageTool::show(int argc, const char **argv,
   ViewOpts.ShowExpandedRegions = ShowExpansions;
   ViewOpts.ShowFunctionInstantiations = ShowInstantiations;
   ViewOpts.ShowOutputDirectory = ShowOutputDirectory;
+  ViewOpts.TabSize = TabSize;
+  ViewOpts.ProjectTitle = ProjectTitle;
 
   if (ViewOpts.hasOutputDirectory()) {
     if (auto E = sys::fs::create_directories(ViewOpts.ShowOutputDirectory)) {
@@ -592,6 +620,19 @@ int CodeCoverageTool::show(int argc, const char **argv,
       return 1;
     }
   }
+
+  sys::fs::file_status Status;
+  if (sys::fs::status(PGOFilename, Status)) {
+    error("profdata file error: can not get the file status. \n");
+    return 1;
+  }
+
+  auto ModifiedTime = Status.getLastModificationTime();
+  std::string ModifiedTimeStr = ModifiedTime.str();
+  size_t found = ModifiedTimeStr.rfind(":");
+  ViewOpts.CreatedTimeStr = (found != std::string::npos)
+                                ? "Created: " + ModifiedTimeStr.substr(0, found)
+                                : "Created: " + ModifiedTimeStr;
 
   auto Coverage = load();
   if (!Coverage)
@@ -626,7 +667,9 @@ int CodeCoverageTool::show(int argc, const char **argv,
   }
 
   // Show files
-  bool ShowFilenames = SourceFiles.size() != 1;
+  bool ShowFilenames =
+      (SourceFiles.size() != 1) ||
+      (ViewOpts.Format == CoverageViewOptions::OutputFormat::HTML);
 
   if (SourceFiles.empty())
     // Get the source files from the function coverage mapping.
@@ -694,6 +737,24 @@ int CodeCoverageTool::report(int argc, const char **argv,
   return 0;
 }
 
+int CodeCoverageTool::export_(int argc, const char **argv,
+                              CommandLineParserType commandLineParser) {
+
+  auto Err = commandLineParser(argc, argv);
+  if (Err)
+    return Err;
+
+  auto Coverage = load();
+  if (!Coverage) {
+    error("Could not load coverage information");
+    return 1;
+  }
+
+  exportCoverageDataToJson(ObjectFilename, *Coverage.get(), outs());
+
+  return 0;
+}
+
 int showMain(int argc, const char *argv[]) {
   CodeCoverageTool Tool;
   return Tool.run(CodeCoverageTool::Show, argc, argv);
@@ -702,4 +763,9 @@ int showMain(int argc, const char *argv[]) {
 int reportMain(int argc, const char *argv[]) {
   CodeCoverageTool Tool;
   return Tool.run(CodeCoverageTool::Report, argc, argv);
+}
+
+int exportMain(int argc, const char *argv[]) {
+  CodeCoverageTool Tool;
+  return Tool.run(CodeCoverageTool::Export, argc, argv);
 }

@@ -492,6 +492,10 @@ namespace llvm {
       return true;
     }
 
+    bool isCtlzFast() const override {
+      return true;
+    }
+
     bool supportSplitCSR(MachineFunction *MF) const override {
       return
         MF->getFunction()->getCallingConv() == CallingConv::CXX_FAST_TLS &&
@@ -952,6 +956,13 @@ namespace llvm {
                                          CCValAssign::LocInfo &LocInfo,
                                          ISD::ArgFlagsTy &ArgFlags,
                                          CCState &State);
+
+  bool 
+  CC_PPC32_SVR4_Custom_SkipLastArgRegsPPCF128(unsigned &ValNo, MVT &ValVT,
+                                                 MVT &LocVT,
+                                                 CCValAssign::LocInfo &LocInfo,
+                                                 ISD::ArgFlagsTy &ArgFlags,
+                                                 CCState &State);
 
   bool CC_PPC32_SVR4_Custom_AlignFPArgRegs(unsigned &ValNo, MVT &ValVT,
                                            MVT &LocVT,

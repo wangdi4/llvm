@@ -47,7 +47,7 @@ public:
                             "log enable",
                             "Enable logging for a single log channel.",
                             nullptr),
-        m_options (interpreter)
+        m_options()
     {
         CommandArgumentEntry arg1;
         CommandArgumentEntry arg2;
@@ -104,17 +104,18 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options (interpreter),
-            log_file (),
-            log_options (0)
+        CommandOptions() :
+            Options(),
+            log_file(),
+            log_options(0)
         {
         }
 
         ~CommandOptions () override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue (uint32_t option_idx, const char *option_arg,
+                        ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -140,7 +141,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             log_file.Clear();
             log_options = 0;
@@ -199,17 +200,19 @@ protected:
 OptionDefinition
 CommandObjectLogEnable::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_1, false, "file",       'f', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFilename,   "Set the destination file to log to."},
-{ LLDB_OPT_SET_1, false, "threadsafe", 't', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,        "Enable thread safe logging to avoid interweaved log lines." },
-{ LLDB_OPT_SET_1, false, "verbose",    'v', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,       "Enable verbose logging." },
-{ LLDB_OPT_SET_1, false, "debug",      'g', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,       "Enable debug logging." },
-{ LLDB_OPT_SET_1, false, "sequence",   's', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,       "Prepend all log lines with an increasing integer sequence id." },
-{ LLDB_OPT_SET_1, false, "timestamp",  'T', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,       "Prepend all log lines with a timestamp." },
-{ LLDB_OPT_SET_1, false, "pid-tid",    'p', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,       "Prepend all log lines with the process and thread ID that generates the log line." },
-{ LLDB_OPT_SET_1, false, "thread-name",'n', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,       "Prepend all log lines with the thread name for the thread that generates the log line." },
-{ LLDB_OPT_SET_1, false, "stack",      'S', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,       "Append a stack backtrace to each log line." },
-{ LLDB_OPT_SET_1, false, "append",     'a', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,       "Append to the log file instead of overwriting." },
-{ 0, false, nullptr,                       0,  0,                 nullptr, nullptr, 0, eArgTypeNone,       nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "file",       'f', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFilename, "Set the destination file to log to."},
+  {LLDB_OPT_SET_1, false, "threadsafe", 't', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,     "Enable thread safe logging to avoid interweaved log lines."},
+  {LLDB_OPT_SET_1, false, "verbose",    'v', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,     "Enable verbose logging."},
+  {LLDB_OPT_SET_1, false, "debug",      'g', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,     "Enable debug logging."},
+  {LLDB_OPT_SET_1, false, "sequence",   's', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,     "Prepend all log lines with an increasing integer sequence id."},
+  {LLDB_OPT_SET_1, false, "timestamp",  'T', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,     "Prepend all log lines with a timestamp."},
+  {LLDB_OPT_SET_1, false, "pid-tid",    'p', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,     "Prepend all log lines with the process and thread ID that generates the log line."},
+  {LLDB_OPT_SET_1, false, "thread-name",'n', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,     "Prepend all log lines with the thread name for the thread that generates the log line."},
+  {LLDB_OPT_SET_1, false, "stack",      'S', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,     "Append a stack backtrace to each log line."},
+  {LLDB_OPT_SET_1, false, "append",     'a', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,     "Append to the log file instead of overwriting."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 class CommandObjectLogDisable : public CommandObjectParsed

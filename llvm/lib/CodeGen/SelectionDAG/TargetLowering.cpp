@@ -216,7 +216,7 @@ void TargetLowering::softenSetCCOperands(SelectionDAG &DAG, EVT VT,
   case ISD::SETUEQ:
     LC1 = (VT == MVT::f32) ? RTLIB::UO_F32 :
           (VT == MVT::f64) ? RTLIB::UO_F64 :
-          (VT == MVT::f128) ? RTLIB::UO_F64 : RTLIB::UO_PPCF128;
+          (VT == MVT::f128) ? RTLIB::UO_F128 : RTLIB::UO_PPCF128;
     LC2 = (VT == MVT::f32) ? RTLIB::OEQ_F32 :
           (VT == MVT::f64) ? RTLIB::OEQ_F64 :
           (VT == MVT::f128) ? RTLIB::OEQ_F128 : RTLIB::OEQ_PPCF128;
@@ -1147,8 +1147,8 @@ bool TargetLowering::SimplifyDemandedBits(SDValue Op,
     // See if the operation should be performed at a smaller bit width.
     if (TLO.ShrinkDemandedOp(Op, BitWidth, NewMask, dl))
       return true;
+    LLVM_FALLTHROUGH;
   }
-  // FALL THROUGH
   default:
     // Just use computeKnownBits to compute output bits.
     TLO.DAG.computeKnownBits(Op, KnownZero, KnownOne, Depth);
@@ -1232,6 +1232,16 @@ bool TargetLowering::isConstTrueVal(const SDNode *N) const {
   }
 
   llvm_unreachable("Invalid boolean contents");
+}
+
+SDValue TargetLowering::getConstTrueVal(SelectionDAG &DAG, EVT VT,
+                                        const SDLoc &DL) const {
+  unsigned ElementWidth = VT.getScalarSizeInBits();
+  APInt TrueInt =
+      getBooleanContents(VT) == TargetLowering::ZeroOrOneBooleanContent
+          ? APInt(ElementWidth, 1)
+          : APInt::getAllOnesValue(ElementWidth);
+  return DAG.getConstant(TrueInt, DL, VT);
 }
 
 bool TargetLowering::isConstFalseVal(const SDNode *N) const {
@@ -2291,7 +2301,7 @@ void TargetLowering::LowerAsmOperandForConstraint(SDValue Op,
       Ops.push_back(Op);
       return;
     }
-    // fall through
+    LLVM_FALLTHROUGH;
   case 'i':    // Simple Integer or Relocatable Constant
   case 'n':    // Simple Integer
   case 's': {  // Relocatable Constant
@@ -3544,11 +3554,36 @@ SDValue TargetLowering::LowerToTLSEmulatedModel(const GlobalAddressSDNode *GA,
 
   // TLSADDR will be codegen'ed as call. Inform MFI that function has calls.
   // At last for X86 targets, maybe good for other targets too?
-  MachineFrameInfo *MFI = DAG.getMachineFunction().getFrameInfo();
-  MFI->setAdjustsStack(true);  // Is this only for X86 target?
-  MFI->setHasCalls(true);
+  MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
+  MFI.setAdjustsStack(true);  // Is this only for X86 target?
+  MFI.setHasCalls(true);
 
   assert((GA->getOffset() == 0) &&
          "Emulated TLS must have zero offset in GlobalAddressSDNode");
   return CallResult.first;
+}
+
+SDValue TargetLowering::lowerCmpEqZeroToCtlzSrl(SDValue Op,
+                                                SelectionDAG &DAG) const {
+  assert((Op->getOpcode() == ISD::SETCC) && "Input has to be a SETCC node.");
+  if (!isCtlzFast())
+    return SDValue();
+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
+  SDLoc dl(Op);
+  if (ConstantSDNode *C = dyn_cast<ConstantSDNode>(Op.getOperand(1))) {
+    if (C->isNullValue() && CC == ISD::SETEQ) {
+      EVT VT = Op.getOperand(0).getValueType();
+      SDValue Zext = Op.getOperand(0);
+      if (VT.bitsLT(MVT::i32)) {
+        VT = MVT::i32;
+        Zext = DAG.getNode(ISD::ZERO_EXTEND, dl, VT, Op.getOperand(0));
+      }
+      unsigned Log2b = Log2_32(VT.getSizeInBits());
+      SDValue Clz = DAG.getNode(ISD::CTLZ, dl, VT, Zext);
+      SDValue Scc = DAG.getNode(ISD::SRL, dl, VT, Clz,
+                                DAG.getConstant(Log2b, dl, MVT::i32));
+      return DAG.getNode(ISD::TRUNCATE, dl, MVT::i32, Scc);
+    }
+  }
+  return SDValue();
 }
