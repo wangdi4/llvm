@@ -332,13 +332,13 @@ namespace llvm {
     MachineInstr* pickInst;
     MachineInstr* switchInst;
 
-    // The transforming body is either a single instruction, or a list
-    // of instructions.
+    // For now, we assume the transforming body is a single instruction.
     //
-    // (For now, the list is only used for PARLOOP_MEM_DEP.
-    //  All the other cases expect 0 or 1 instructions). 
+    // TBD(jsukha): In some cases, e.g., for PARLOOP_MEM_DEP, the body
+    // could actually be many instructions, but we haven't found a
+    // need to save the body yet.
     MachineInstr* transformInst;
-    SmallVectorImpl< MachineInstr* >* transformBody;
+
     SeqType stype;
 
     // We will save away the channel info for faster processing later.
@@ -346,23 +346,27 @@ namespace llvm {
     unsigned bottom;
     MachineOperand* stride_op;
 
+
+    // The opcode that we would use for this transformed sequence
+    // instruction.
+    unsigned opcode;
+
+    static const unsigned INVALID_OPCODE = LPU::PHI;    
+
   LPUSeqCandidate(MachineInstr* pickI,
                   MachineInstr* switchI)
       : pickInst(pickI)
       , switchInst(switchI)
       , transformInst(NULL)
-      , transformBody(NULL)
       , stype(UNKNOWN)
       , top(0)
       , bottom(0)
       , stride_op(NULL)
+      , opcode(LPUSeqCandidate::INVALID_OPCODE)
     {
     }
 
     ~LPUSeqCandidate() {
-      if (transformBody) {
-        delete transformBody;
-      }
     }
 
     // Accessor functions for different operands from the pick/switch
@@ -390,33 +394,372 @@ namespace llvm {
       int idx = header.switch_output_op_idx();      
       return &switchInst->getOperand(idx);
     }
+  };
 
 
-    
+  // A struct that summarizes key information about a sequence
+  // instruction.  This struct is mostly here for packaging purposes,
+  // to avoid having too many arguments between functions.
+  struct LPUSeqInstrInfo {
+    // The pointer to the sequence machine instruction we created.
+    MachineInstr* seq_inst;
+
+    // The channel numbers for the predicate, first, and last.
+    // (Technically we could look these up from seq_inst, but it is
+    // more convenient to just save them here).
+    unsigned pred_reg;
+    unsigned first_reg;
+    unsigned last_reg;
   };
 
 
   struct LPUSeqLoopInfo {
+    int loop_id;
     LPUSeqHeader header;
     SmallVector<LPUSeqCandidate, 12> candidates;
+
 
     // A map from repeat channel register to the index in
     // "repeat_candidates" where we found the candidate.
     DenseMap<unsigned, int> repeat_channels;
 
+  private:
+    // Tracks the number of sequences in this loop which can be
+    // converted.
+    int num_valid_sequences;
+        
+    // The channel (register) numbers that correspond to the operands
+    // in the compare instruction.  These values are "LPU::IGN" if the
+    // operand is an immediate.
+    unsigned cmp0_channel;
+    unsigned cmp1_channel;
+    
     // The index into the candidate array where matches to the uses in
     // the compare are located, if there are any such matches.
     //  -1 indicates no match. 
     int cmp0_idx;
     int cmp1_idx;
 
+    // Index into candidates array where we have induction variable.
+    int indvar_idx;
+    // Index into candidates array where we have bound value. 
+    int bound_idx;
+
+    // Sense of the compare instruction: 
+    //  0 if the compare is 
+    //    compare indvar, bound
+    //  1 if the compare is
+    //    compare bound, indvar
+    int compare_sense;
+
+    // Final flag which indicates we have a safe transformation.
+    bool valid_to_transform;
+
+    // The final opcode we should use for this sequence, if we can
+    // transform it.
+    unsigned seq_opcode;
+
+    
+  public:
     LPUSeqLoopInfo()
-    : cmp0_idx(-1)
+    : loop_id(-1)
+    , num_valid_sequences(0)
+    , cmp0_channel(LPU::IGN)
+    , cmp1_channel(LPU::IGN)
+    , cmp0_idx(-1)
     , cmp1_idx(-1)
+    , indvar_idx(-1)
+    , bound_idx(-1)
+    , compare_sense(0)
+    , valid_to_transform(false)
+    , seq_opcode(LPUSeqCandidate::INVALID_OPCODE)
     {
     }
-
+    
     ~LPUSeqLoopInfo() {}
+
+    // Get and set the number of valid sequences in this loop.
+    void set_valid_sequence_count(int val) {
+      this->num_valid_sequences = val;
+    }
+    int get_valid_sequence_count() const {
+      return this->num_valid_sequences;
+    }
+
+    // Accessor methods for some of the index fields in this data
+    // structure.
+    int cmp0Idx() const {
+      return cmp0_idx;
+    }
+    int cmp1Idx() const {
+      return cmp1_idx;
+    }
+
+    // Operand index in the compare instruction where we can find the
+    // bound.
+    inline int boundOpIdx() const {
+      return 2 - this->compare_sense;
+    }
+
+    int indvarIdx() const {
+      return indvar_idx;
+    }
+    int boundIdx() const {
+      return bound_idx;
+    }
+
+    
+    bool sequence_transform_is_valid() const {
+      return valid_to_transform;
+    }
+
+    unsigned get_seq_opcode() const {
+      return seq_opcode;
+    }
+
+    // Returns true if we need a sequence instruction whose comparison
+    // is inverted from the actual compare instruction we find.
+    // 
+    // There are two cases where we will need to swap comparison of the
+    // sequence from the direction of the original compare.
+    //
+    // 1. If the comparison sense is inverted (i.e., we have compare
+    //    stride, var), then we need to invert the comparison.
+    //
+    // 2. If the switcher sense is 1 (so it expects 0, 0, 0,
+    // ... 1 for its control), then we need to invert the comparison.
+    //
+    // Both conditions together will cancel each other out.  Thus, we
+    // xor the booleans together to figure out whether need to invert
+    // the compare.
+    bool invert_compare() const {
+      return this->compare_sense ^ this->header.switcherSense;
+    }
+
+    // Helper method: looks up the right opcode for the sequence for
+    // an induction variable, based on the opcode for the compare,
+    // transforming statement, and whether we need to invert the
+    // comparison.
+    static
+    bool
+    compute_matching_seq_opcode(unsigned ciOp,
+                                unsigned tOp,
+                                bool invert_compare,
+                                const LPUInstrInfo &TII,
+                                unsigned* indvar_opcode) {
+
+      // Invert the comparison opcode if needed.
+      unsigned compareOp = ciOp;
+      if (invert_compare) {
+        compareOp = TII.commuteCompareOpcode(ciOp);
+      }
+
+      // Find a sequence opcode that matches our compare opcode.
+      unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);
+      if (seqOp != compareOp) {
+
+        // If we have a matching sequence op, then check that the
+        // transforming op matches as well.
+
+        switch(tOp) {
+        case LPU::ADD8:
+          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 8);
+          return true;
+        case LPU::ADD16:
+          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 16);
+          return true;
+        case LPU::ADD32:
+          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 32);
+          return true;
+        case LPU::ADD64:
+          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 64);
+          return true;
+        }
+      }
+      return false;
+    }
+
+
+    
+
+    /*******************************************************************/
+    // These methods below should only be called after we have
+    // identified a potential header for the loop.
+    // 
+    // But it is safe to call these methods as part of the
+    // classification process.
+
+    
+    // Do any initialization of the loop information, once we know we
+    // have a valid loop header.   Currently, this method:
+    //
+    //   1. Initializes repeat channels to empty. 
+    //   2. Figures out and saves the registers each operand for the
+    //      compare instruction if they exist.
+    //
+    void init_from_header() {
+      // Just for paranoia.
+      this->repeat_channels.clear();
+
+      // Look up the registers in the compare instruction, if there
+      // are any.
+      assert(header.compareInst);
+      MachineOperand& cmpuse0 = header.compareInst->getOperand(1);
+      MachineOperand& cmpuse1 = header.compareInst->getOperand(2);
+
+      if (cmpuse0.isReg()) {
+        this->cmp0_channel = cmpuse0.getReg();
+      }
+      if (cmpuse1.isReg()) {
+        this->cmp1_channel = cmpuse1.getReg();
+      }
+    }
+
+    enum CmpMatchType {
+      NoMatch = -1,     // No match
+      Match0 = 0,       // Matches input 0 of the compare.
+      Match1 = 1,       // Matches input 1 of the compare
+      Dup0 = 2,         // Matches input 0, but we already found a match.
+      Dup1 = 3,         // Matches input 1, but we already found a match.
+      OtherError = 4,   // Some other error.
+    };
+
+    // This method attempts to match the "bottom" register with one of
+    // the compare inputs, returning one of the codes defined in
+    // CmpMatchType.
+    //
+    // If an input matches, we also save the specified candidate_idx.
+    CmpMatchType match_candidate_with_cmp(unsigned bottom,
+                                          int candidate_idx) {
+      // Errors conditions.
+      if ((bottom == LPU::IGN) || (candidate_idx < 0)) {
+        return CmpMatchType::OtherError;
+      }
+
+      // Try to match with input 0 of the compare.
+      if (bottom == this->cmp0_channel) {
+        if (this->cmp0_idx >= 0) {
+          return CmpMatchType::Dup0;
+        }
+        else {
+          this->cmp0_idx = candidate_idx;
+          return CmpMatchType::Match0;
+        }
+      }
+
+      // Try to match with input 1 of the compare.
+      if (bottom == this->cmp1_channel) {
+        if (this->cmp1_idx >= 0) {
+          return CmpMatchType::Dup1;
+        }
+        else {
+          this->cmp1_idx = candidate_idx;
+          return CmpMatchType::Match1;
+        }
+      }
+
+      // Otherwise, no match.
+      return CmpMatchType::NoMatch;
+    }
+
+
+    /*******************************************************************/
+    // These methods below should only be called after we have
+    // classified the sequence candidates (into REPEAT, STRIDE, etc.)
+    
+    // Tries to find the induction variable.  Returns true if found,
+    // false otherwise. 
+    //
+    // This method assumes the sequence candidates stored in the
+    // "candidates" array have already been classified.
+    // 
+    // This method will initialize indvar_idx, bound_idx, and
+    // compare_sense.
+    bool find_induction_variable() {
+      // Two cases.  Look for the stride (induction variable) in
+      // either cmp0 or cmp1.
+      if ((this->cmp0Idx() >= 0) &&
+          this->candidates[this->cmp0Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
+        this->indvar_idx = this->cmp0Idx();
+        this->bound_idx = this->cmp1Idx();
+        this->compare_sense = 0;
+        return true;
+      }
+      else if ((this->cmp1Idx() >= 0) &&
+               this->candidates[this->cmp1Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
+        this->indvar_idx = this->cmp1Idx();
+        this->bound_idx = this->cmp0Idx();
+        this->compare_sense = 1;
+        return true;
+      }
+      return false;
+    }
+
+    // Returns true if this loop has a valid bound.
+    bool has_valid_bound() const {
+      // This can either be a repeated channel, or an immediate.
+      bool found_bound_channel =
+        ((this->bound_idx >= 0) &&
+         this->candidates[this->bound_idx].stype == LPUSeqCandidate::SeqType::REPEAT);
+
+      int boundOp_idx = this->boundOpIdx();
+      bool found_bound_imm =
+        ((this->bound_idx == -1) &&
+         this->header.compareInst->getOperand(boundOp_idx).isImm());
+      return found_bound_channel || found_bound_imm;
+    }
+
+    // Look up the machine operand that we should use for the initial
+    // value of a bound.
+    MachineOperand* get_input_bound_op() const {
+      // Find a matching operand for <in_b>.  It either comes from a
+      // corresponding repeat input, or the bound argument of the
+      // compare.  Note that we can't always pick it straight from the
+      // compare unless it is an immediate, because that channel has a
+      // value for every loop iteration.
+      MachineOperand* in_b_op;
+      if (this->bound_idx >= 0) {
+        // If we have a bound_idx, the bound corresponds to a repeat
+        // statement.
+        const LPUSeqCandidate* bound_repeat = &candidates[this->bound_idx];
+        assert(bound_repeat);
+        assert(bound_repeat->stype == LPUSeqCandidate::SeqType::REPEAT);
+        in_b_op = bound_repeat->get_pick_input_op(header);
+      }
+      else {
+        // Otherwise, the bound should be a literal.
+        in_b_op = &header.compareInst->getOperand(this->boundOpIdx());
+        assert(in_b_op->isImm());
+      }
+      return in_b_op;
+    }
+
+    /*******************************************************************/
+    // These methods below should only be called after we have found a
+    // valid induction variable candidate for this loop.
+
+    // Returns true we can do the sequence transform.
+    // If yes, then store the opcode that we need for the sequence instruction. 
+    bool sequence_opcode_transform_check(const LPUInstrInfo &TII) {
+      if (this->indvar_idx >= 0) {
+        LPUSeqCandidate& indvarCandidate = this->candidates[this->indvar_idx];
+        bool invert_compare = this->invert_compare();
+        unsigned compare_opcode = this->header.compareInst->getOpcode();
+        unsigned transform_opcode = indvarCandidate.transformInst->getOpcode();
+
+        this->valid_to_transform =
+          LPUSeqLoopInfo::compute_matching_seq_opcode(compare_opcode,
+                                                      transform_opcode,
+                                                      invert_compare,
+                                                      TII, 
+                                                      &this->seq_opcode);
+        return this->valid_to_transform;
+      }
+      
+      this->valid_to_transform = false;
+      return false;
+    }
+
   };
 
 } // namespace llvm

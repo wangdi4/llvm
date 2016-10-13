@@ -928,3 +928,77 @@ promoteSeqOTOpBitwidth(unsigned seq_opcode,
     }
 }
 
+
+bool
+LPUInstrInfo::
+convertAddToStrideOp(unsigned add_opcode,
+                     unsigned* strideOpcode) const {
+  switch (add_opcode) {
+  case LPU::ADD64:
+    *strideOpcode = LPU::STRIDE64;
+    return true;
+
+  case LPU::ADD32:
+    *strideOpcode = LPU::STRIDE32;
+    return true;
+    
+  case LPU::ADD16:
+    *strideOpcode = LPU::STRIDE16;
+    return true;
+
+  case LPU::ADD8:
+    *strideOpcode = LPU::STRIDE8;
+    return true;
+    
+  default:
+    // No match. return false. 
+    return false;
+  }
+}
+
+
+bool
+LPUInstrInfo::
+convertPickToRepeatOp(unsigned pick_opcode,
+                      unsigned* repeat_opcode) const {
+  switch (pick_opcode) {
+  case LPU::PICK64:
+    *repeat_opcode = LPU::REPEAT64;
+    return true;
+
+  case LPU::PICK32:
+    *repeat_opcode = LPU::REPEAT32;
+    return true;
+    
+  case LPU::PICK16:
+    *repeat_opcode = LPU::REPEAT16;
+    return true;
+
+  case LPU::PICK8:
+  case LPU::PICK1:
+    // TBD(jsukha): We don't have a REPEAT1 statement, so just use the
+    // REPEAT8 for now.
+    *repeat_opcode = LPU::REPEAT8;
+    return true;
+    
+  default:
+    // No match. return false. 
+    return false;
+  }
+}
+
+
+bool
+LPUInstrInfo::
+convertTransformToReductionOp(unsigned transform_opcode,
+                              unsigned* reduction_opcode) const {
+  switch (transform_opcode) {
+    // TBD(jsukha): We don't have any of the reduction opcodes added
+    // to the compiler yet...
+    //
+    // Return false for now.
+  default:
+    // No match. return false. 
+    return false;
+  }
+}
