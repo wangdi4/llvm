@@ -718,8 +718,8 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 			}
 			for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
 				MachineInstr *MI = I;
-				//loop header phi forward input is a kind of fork
-				if (MI->isPHI()) continue; //care about forks, not joints
+				//phi block control depends on its input blocks, need to handle it here
+				//if (MI->isPHI()) continue; //care about forks, not joints
 				for (MIOperands MO(MI); MO.isValid(); ++MO) {
 					insertSWITCHForOperand(*MO, mbb);
 				}
@@ -1649,6 +1649,8 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 	SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
 	MachineBasicBlock* mbb = MI->getParent();
 	unsigned predBB = 0;
+	MachineInstr* predMergeInstr = nullptr;
+
 	for (MIOperands MO(MI); MO.isValid(); ++MO) {
 		if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 		if (MO->isUse()) {
@@ -1664,17 +1666,32 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 			//merge incoming edge pred to generate BB pred
 			if (!predBB) {
 				predBB = edgePred;
-			}	else {
-				unsigned mergeEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
-				MachineBasicBlock::iterator loc = inBB->getFirstNonPHI();
-				BuildMI(*inBB, loc, DebugLoc(), TII.get(LPU::OR1), mergeEdge).addReg(predBB).addReg(edgePred);
-				predBB = mergeEdge;
+			}	else if (MI->getNumOperands() == 5) {
+				//two input phi: use PREDMERGE to avoid further lowering.
+				unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
+				predMergeInstr = BuildMI(*mbb, MI, DebugLoc(), TII.get(LPU::PREDMERGE),
+					LPU::IGN).
+					addReg(indexReg, RegState::Define). //eat the BB's pred, they will be computed using "or" consistently
+					addReg(predBB).   //last processed edge
+					addReg(edgePred); //current edge
 			}
 		}
 	} //end of for MO
 
-	//TODO::generated pick1 sequence
-
+	//if we have two-way predMerge available, use predmerge/pick combination to generated pick directly
+	if (predMergeInstr) {
+		assert(MI->getNumOperands() == 5);
+		unsigned reg1 = MI->getOperand(1).getReg();
+		unsigned reg2 = MI->getOperand(3).getReg();
+		const TargetRegisterClass *TRC = MRI->getRegClass(reg1);
+		unsigned pickPred = predMergeInstr->getOperand(1).getReg();
+		const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+		unsigned dst = MI->getOperand(0).getReg();
+		BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(pickPred).addReg(reg1).addReg(reg2);
+	}	else {
+		//TODO::generated xphi sequence
+		assert(false && "to be implemented");
+	}
 	//release memory
 	for (unsigned i = 0; i < pred2values.size(); i++) {
 		std::pair<unsigned, unsigned>* pred2value = pred2values[i];

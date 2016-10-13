@@ -19,13 +19,12 @@ class HostInfoAndroid : public HostInfoLinux
 {
     friend class HostInfoBase;
 
-  private:
-    // Static class, unconstructable.
-    HostInfoAndroid();
-    ~HostInfoAndroid();
+  public:
+    static FileSpec GetDefaultShell();
 
   protected:
     static void ComputeHostArchitectureSupport(ArchSpec &arch_32, ArchSpec &arch_64);
+    static bool ComputeSupportExeDirectory(FileSpec &file_spec);
 };
 
 } // end of namespace lldb_private

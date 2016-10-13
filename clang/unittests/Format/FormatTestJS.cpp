@@ -521,6 +521,96 @@ TEST_F(FormatTestJS, MetadataAnnotations) {
                "    return 'y';\n"
                "  }\n"
                "}");
+  verifyFormat("class X {}\n"
+               "class Y {}");
+}
+
+TEST_F(FormatTestJS, Modules) {
+  verifyFormat("import SomeThing from 'some/module.js';");
+  verifyFormat("import {X, Y} from 'some/module.js';");
+  verifyFormat("import {\n"
+               "  VeryLongImportsAreAnnoying,\n"
+               "  VeryLongImportsAreAnnoying,\n"
+               "  VeryLongImportsAreAnnoying,\n"
+               "  VeryLongImportsAreAnnoying\n"
+               "} from 'some/module.js';");
+  verifyFormat("import {\n"
+               "  X,\n"
+               "  Y,\n"
+               "} from 'some/module.js';");
+  verifyFormat("import {\n"
+               "  X,\n"
+               "  Y,\n"
+               "} from 'some/long/module.js';",
+               getGoogleJSStyleWithColumns(20));
+  verifyFormat("import {X as myLocalX, Y as myLocalY} from 'some/module.js';");
+  verifyFormat("import * as lib from 'some/module.js';");
+  verifyFormat("var x = {\n  import: 1\n};\nx.import = 2;");
+
+  verifyFormat("export function fn() {\n"
+               "  return 'fn';\n"
+               "}");
+  verifyFormat("export const x = 12;");
+  verifyFormat("export default class X {}");
+  verifyFormat("export {X, Y} from 'some/module.js';");
+  verifyFormat("export {\n"
+               "  X,\n"
+               "  Y,\n"
+               "} from 'some/module.js';");
+  verifyFormat("export class C {\n"
+               "  x: number;\n"
+               "  y: string;\n"
+               "}");
+  verifyFormat("export class X { y: number; }");
+  verifyFormat("export default class X { y: number }");
+  verifyFormat("export default function() {\n  return 1;\n}");
+  verifyFormat("export var x = 12;");
+  verifyFormat("export var x: number = 12;");
+  verifyFormat("export const y = {\n"
+               "  a: 1,\n"
+               "  b: 2\n"
+               "};");
+}
+
+TEST_F(FormatTestJS, TemplateStrings) {
+  // Keeps any whitespace/indentation within the template string.
+  EXPECT_EQ("var x = `hello\n"
+            "     ${  name    }\n"
+            "  !`;",
+            format("var x    =    `hello\n"
+                   "     ${  name    }\n"
+                   "  !`;"));
+
+  // FIXME: +1 / -1 offsets are to work around clang-format miscalculating
+  // widths for unknown tokens that are not whitespace (e.g. '`'). Remove when
+  // the code is corrected.
+
+  verifyFormat("var x =\n"
+               "    `hello ${world}` >= some();",
+               getGoogleJSStyleWithColumns(34)); // Barely doesn't fit.
+  verifyFormat("var x = `hello ${world}` >= some();",
+               getGoogleJSStyleWithColumns(35 + 1)); // Barely fits.
+  EXPECT_EQ("var x = `hello\n"
+            "  ${world}` >=\n"
+            "        some();",
+            format("var x =\n"
+                   "    `hello\n"
+                   "  ${world}` >= some();",
+                   getGoogleJSStyleWithColumns(21))); // Barely doesn't fit.
+  EXPECT_EQ("var x = `hello\n"
+            "  ${world}` >= some();",
+            format("var x =\n"
+                   "    `hello\n"
+                   "  ${world}` >= some();",
+                   getGoogleJSStyleWithColumns(22))); // Barely fits.
+
+  verifyFormat("var x =\n    `h`;", getGoogleJSStyleWithColumns(13 - 1));
+  EXPECT_EQ(
+      "var x =\n    `multi\n  line`;",
+      format("var x = `multi\n  line`;", getGoogleJSStyleWithColumns(14 - 1)));
+
+  // Two template strings.
+  verifyFormat("var x = `hello` == `hello`;");
 }
 
 } // end namespace tooling

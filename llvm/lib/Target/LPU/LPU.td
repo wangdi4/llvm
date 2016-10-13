@@ -27,6 +27,8 @@ def FeatureOrdered : SubtargetFeature<"ordered", "IsOrdered", "true",
 // Not all of these can reasonably be disabled currently.   The intent
 // is to have infrastructure allow selective control for experimentation
 // where relevant.
+def FeatureI0    : SubtargetFeature<"i0", "HasI0", "true",
+                            "Enable 0b integer ALU ops">;
 def FeatureI1    : SubtargetFeature<"i1", "HasI1", "true",
                             "Enable 1b integer ALU ops">;
 def FeatureI8    : SubtargetFeature<"i8", "HasI8", "true",
@@ -80,35 +82,39 @@ class Proc<string Name, SchedMachineModel Model,
 
 def : Proc<"ordered",  LPUGeneric,
                        [FeatureOrdered,
-                        FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
-                        FeatureI64,   FeatureF16,   FeatureF32,   FeatureF64,
+                        FeatureI0,    FeatureI1,    FeatureI8,    FeatureI16,
+                        FeatureI32,   FeatureI64,   FeatureF16,   FeatureF32,
+                        FeatureF64,
                         FeatureSextL, FeatureDispl, FeatureIndex,
                         FeatureShAdd, FeatureBitOp,
                         FeatureIDiv,  FeatureFDiv,  FeatureFMA,
                         FeatureSqrt,  FeatureMath0]>;
 
 def : Proc<"autounit", LPUGeneric,
-                       [FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
-                        FeatureI64,   FeatureF16,   FeatureF32,   FeatureF64,
+                       [FeatureI0,    FeatureI1,    FeatureI8,    FeatureI16,
+                        FeatureI32,   FeatureI64,   FeatureF16,   FeatureF32,
+                        FeatureF64,
                         FeatureSextL, FeatureDispl, FeatureIndex,
                         FeatureShAdd, FeatureBitOp,
                         FeatureIDiv,  FeatureFDiv,  FeatureFMA,
                         FeatureSqrt,  FeatureMath0]>;
 // Like autounit, but almost all more complex ops disabled
 def : Proc<"automin",  LPUGeneric,
-                       [FeatureI1,    FeatureI32,   FeatureI64,
-                                      FeatureF32,   FeatureF64]>;
+                       [FeatureI0,    FeatureI1,    FeatureI32,   FeatureI64,
+                        FeatureF32,   FeatureF64]>;
 
 def : Proc<"config0",  LPUConfig0,
-                       [FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
-                        FeatureI64,   FeatureF16,   FeatureF32,   FeatureF64,
+                       [FeatureI0,    FeatureI1,    FeatureI8,    FeatureI16,
+                        FeatureI32,   FeatureI64,   FeatureF16,   FeatureF32,
+                        FeatureF64,
                         FeatureSextL, FeatureDispl, FeatureIndex,
                         FeatureShAdd, FeatureBitOp,
                         FeatureIDiv,  FeatureFDiv,  FeatureFMA,
                         FeatureSqrt,  FeatureMath0]>;
 def : Proc<"config1",  LPUConfig1,
-                       [FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
-                        FeatureI64,   FeatureF16,   FeatureF32,   FeatureF64,
+                       [FeatureI0,    FeatureI1,    FeatureI8,    FeatureI16,
+                        FeatureI32,   FeatureI64,   FeatureF16,   FeatureF32,
+                        FeatureF64,
                         FeatureSextL, FeatureDispl, FeatureIndex,
                         FeatureShAdd, FeatureBitOp,
                         FeatureIDiv,  FeatureFDiv , FeatureFMA,

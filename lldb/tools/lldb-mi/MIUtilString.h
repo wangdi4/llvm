@@ -63,6 +63,7 @@ class CMIUtilString : public std::string
     CMIUtilString RemoveRepeatedCharacters(const MIchar vChar);
     MIuint Split(const CMIUtilString &vDelimiter, VecString_t &vwVecSplits) const;
     MIuint SplitConsiderQuotes(const CMIUtilString &vDelimiter, VecString_t &vwVecSplits) const;
+    MIuint SplitLines(VecString_t &vwVecSplits) const;
     CMIUtilString StripCREndOfLine(void) const;
     CMIUtilString StripCRAll(void) const;
     CMIUtilString Trim(void) const;
@@ -71,6 +72,9 @@ class CMIUtilString : public std::string
     MIuint FindFirst(const CMIUtilString &vrPattern, const bool vbSkipQuotedText, bool &vrwbNotFoundClosedQuote,
                      const MIuint vnPos = 0) const;
     MIuint FindFirstNot(const CMIUtilString &vrPattern, const MIuint vnPos = 0) const;
+    CMIUtilString Escape(const bool vbEscapeQuotes = false) const;
+    CMIUtilString AddSlashes(void) const;
+    CMIUtilString StripSlashes(void) const;
     //
     CMIUtilString &operator=(const MIchar *vpRhs);
     CMIUtilString &operator=(const std::string &vrRhs);

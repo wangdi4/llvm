@@ -50,6 +50,8 @@
 #include "lldb/Interpreter/CommandObject.h"
 #include "lldb/Interpreter/CommandObjectMultiword.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
+#include "lldb/Interpreter/OptionValueProperties.h"
+#include "lldb/Interpreter/Property.h"
 #ifndef LLDB_DISABLE_PYTHON
 #include "lldb/Interpreter/PythonDataObjects.h"
 #endif
@@ -703,7 +705,7 @@ ProcessGDBRemote::DoConnectRemote (Stream *strm, const char *remote_url)
     // FIXME Add a gdb-remote packet to discover dynamically.
     if (error.Success ())
     {
-        const ArchSpec arch_spec = GetTarget ().GetArchitecture ();
+        const ArchSpec arch_spec = m_gdb_comm.GetHostArchitecture();
         if (arch_spec.IsValid ())
         {
             if (log)
@@ -904,27 +906,29 @@ ProcessGDBRemote::DoLaunch (Module *exe_module, ProcessLaunchInfo &launch_info)
                 }
             }
 
-            const uint32_t old_packet_timeout = m_gdb_comm.SetPacketTimeout (10);
-            int arg_packet_err = m_gdb_comm.SendArgumentsPacket (launch_info);
-            if (arg_packet_err == 0)
             {
-                std::string error_str;
-                if (m_gdb_comm.GetLaunchSuccess (error_str))
+                // Scope for the scoped timeout object
+                GDBRemoteCommunication::ScopedTimeout timeout (m_gdb_comm, 10);
+
+                int arg_packet_err = m_gdb_comm.SendArgumentsPacket (launch_info);
+                if (arg_packet_err == 0)
                 {
-                    SetID (m_gdb_comm.GetCurrentProcessID ());
+                    std::string error_str;
+                    if (m_gdb_comm.GetLaunchSuccess (error_str))
+                    {
+                        SetID (m_gdb_comm.GetCurrentProcessID ());
+                    }
+                    else
+                    {
+                        error.SetErrorString (error_str.c_str());
+                    }
                 }
                 else
                 {
-                    error.SetErrorString (error_str.c_str());
+                    error.SetErrorStringWithFormat("'A' packet returned an error: %i", arg_packet_err);
                 }
             }
-            else
-            {
-                error.SetErrorStringWithFormat("'A' packet returned an error: %i", arg_packet_err);
-            }
-            
-            m_gdb_comm.SetPacketTimeout (old_packet_timeout);
-                
+
             if (GetID() == LLDB_INVALID_PROCESS_ID)
             {
                 if (log)
@@ -2158,10 +2162,9 @@ ProcessGDBRemote::DoDestroy ()
     {
         if (m_public_state.GetValue() != eStateAttaching)
         {
-
             StringExtractorGDBRemote response;
             bool send_async = true;
-            const uint32_t old_packet_timeout = m_gdb_comm.SetPacketTimeout (3);
+            GDBRemoteCommunication::ScopedTimeout (m_gdb_comm, 3);
 
             if (m_gdb_comm.SendPacketAndWaitForResponse("k", 1, response, send_async) == GDBRemoteCommunication::PacketResult::Success)
             {
@@ -2205,8 +2208,6 @@ ProcessGDBRemote::DoDestroy ()
                     log->Printf ("ProcessGDBRemote::DoDestroy - failed to send k packet");
                 exit_string.assign("failed to send the k packet");
             }
-
-            m_gdb_comm.SetPacketTimeout(old_packet_timeout);
         }
         else
         {

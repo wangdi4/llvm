@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-scops -polly-model-phi-nodes -disable-polly-intra-scop-scalar-to-array -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-scops -polly-model-phi-nodes -disable-polly-intra-scop-scalar-to-array -analyze < %s | FileCheck %s
 ;
 ;    float f(float *A, int N) {
 ;      float tmp = 0;
@@ -37,8 +37,8 @@ bb3:                                              ; preds = %bb1
   br label %bb4
 
 bb4:                                              ; preds = %bb3
-  %tmp5 = getelementptr inbounds float* %A, i64 %indvars.iv
-  %tmp6 = load float* %tmp5, align 4
+  %tmp5 = getelementptr inbounds float, float* %A, i64 %indvars.iv
+  %tmp6 = load float, float* %tmp5, align 4
   %tmp7 = fadd float %tmp.0, %tmp6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   br label %bb1

@@ -13,16 +13,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ModularizeUtilities.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Driver/Options.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendActions.h"
+#include "CoverageChecker.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+#include "ModularizeUtilities.h"
 
 using namespace clang;
 using namespace llvm;
@@ -42,6 +43,7 @@ ModularizeUtilities::ModularizeUtilities(std::vector<std::string> &InputPaths,
                                          llvm::StringRef Prefix)
   : InputFilePaths(InputPaths),
     HeaderPrefix(Prefix),
+    HasModuleMap(false),
     // Init clang stuff needed for loading the module map and preprocessing.
     LangOpts(new LangOptions()), DiagIDs(new DiagnosticIDs()),
     DiagnosticOpts(new DiagnosticOptions()),
@@ -88,7 +90,34 @@ std::error_code ModularizeUtilities::loadAllHeaderListsAndDependencies() {
   }
   return std::error_code();
 }
-  
+
+// Do coverage checks.
+// For each loaded module map, do header coverage check.
+// Starting from the directory of the module.map file,
+// Find all header files, optionally looking only at files
+// covered by the include path options, and compare against
+// the headers referenced by the module.map file.
+// Display warnings for unaccounted-for header files.
+// Returns 0 if there were no errors or warnings, 1 if there
+// were warnings, 2 if any other problem, such as a bad
+// module map path argument was specified.
+std::error_code ModularizeUtilities::doCoverageCheck(
+    std::vector<std::string> &IncludePaths,
+    llvm::ArrayRef<std::string> CommandLine) {
+  int ModuleMapCount = ModuleMaps.size();
+  int ModuleMapIndex;
+  std::error_code EC;
+  for (ModuleMapIndex = 0; ModuleMapIndex < ModuleMapCount; ++ModuleMapIndex) {
+    std::unique_ptr<clang::ModuleMap> &ModMap = ModuleMaps[ModuleMapIndex];
+    CoverageChecker *Checker = CoverageChecker::createCoverageChecker(
+      InputFilePaths[ModuleMapIndex], IncludePaths, CommandLine, ModMap.get());
+    std::error_code LocalEC = Checker->doChecks();
+    if (LocalEC.value() > 0)
+      EC = LocalEC;
+  }
+  return EC;
+}
+
 // Load single header list and dependencies.
 std::error_code ModularizeUtilities::loadSingleHeaderListsAndDependencies(
     llvm::StringRef InputPath) {
@@ -209,12 +238,15 @@ std::error_code ModularizeUtilities::loadModuleMap(
   // Save module map.
   ModuleMaps.push_back(std::move(ModMap));
 
+  // Indicate we are using module maps.
+  HasModuleMap = true;
+
   return std::error_code();
 }
 
 // Collect module map headers.
 // Walks the modules and collects referenced headers into
-// ModuleMapHeadersSet.
+// HeaderFileNames.
 bool ModularizeUtilities::collectModuleMapHeaders(clang::ModuleMap *ModMap) {
   for (ModuleMap::module_iterator I = ModMap->module_begin(),
     E = ModMap->module_end();
@@ -227,7 +259,7 @@ bool ModularizeUtilities::collectModuleMapHeaders(clang::ModuleMap *ModMap) {
 
 // Collect referenced headers from one module.
 // Collects the headers referenced in the given module into
-// HeaderFileNames and ModuleMapHeadersSet.
+// HeaderFileNames.
 bool ModularizeUtilities::collectModuleHeaders(const Module &Mod) {
 
   // Ignore explicit modules because they often have dependencies
@@ -248,7 +280,6 @@ bool ModularizeUtilities::collectModuleHeaders(const Module &Mod) {
     std::string HeaderPath = getCanonicalPath(UmbrellaHeader->getName());
     // Collect umbrella header.
     HeaderFileNames.push_back(HeaderPath);
-    ModuleMapHeadersSet.insert(HeaderPath);
 
     // FUTURE: When needed, umbrella header header collection goes here.
   }
@@ -306,10 +337,27 @@ bool ModularizeUtilities::collectUmbrellaHeaders(StringRef UmbrellaDirName,
       continue;
     // Save header name.
     std::string HeaderPath = getCanonicalPath(File);
-    ModuleMapHeadersSet.insert(HeaderPath);
     Dependents.push_back(HeaderPath);
   }
   return true;
+}
+
+std::string normalize(StringRef Path) {
+  SmallString<128> Buffer;
+  llvm::sys::path::const_iterator B = llvm::sys::path::begin(Path),
+    E = llvm::sys::path::end(Path);
+  while (B != E) {
+    if (B->compare(".") == 0) {
+    }
+    else if (B->compare("..") == 0)
+      llvm::sys::path::remove_filename(Buffer);
+    else
+      llvm::sys::path::append(Buffer, *B);
+    ++B;
+  }
+  if (Path.endswith("/") || Path.endswith("\\"))
+    Buffer.append(1, Path.back());
+  return Buffer.c_str();
 }
 
 // Convert header path to canonical form.
@@ -317,7 +365,7 @@ bool ModularizeUtilities::collectUmbrellaHeaders(StringRef UmbrellaDirName,
 // \param FilePath The file path, relative to the module map directory.
 // \returns The file path in canonical form.
 std::string ModularizeUtilities::getCanonicalPath(StringRef FilePath) {
-  std::string Tmp(FilePath);
+  std::string Tmp(normalize(FilePath));
   std::replace(Tmp.begin(), Tmp.end(), '\\', '/');
   StringRef Tmp2(Tmp);
   if (Tmp2.startswith("./"))
@@ -339,4 +387,17 @@ bool ModularizeUtilities::isHeader(StringRef FileName) {
   if (Extension.equals_lower(".inc"))
     return true;
   return false;
+}
+
+// Get directory path component from file path.
+// \returns the component of the given path, which will be
+// relative if the given path is relative, absolute if the
+// given path is absolute, or "." if the path has no leading
+// path component.
+std::string ModularizeUtilities::getDirectoryFromPath(StringRef Path) {
+  SmallString<256> Directory(Path);
+  sys::path::remove_filename(Directory);
+  if (Directory.size() == 0)
+    return ".";
+  return Directory.str();
 }

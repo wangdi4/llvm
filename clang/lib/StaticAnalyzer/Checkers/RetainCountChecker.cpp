@@ -2852,7 +2852,7 @@ void RetainCountChecker::checkPostStmt(const ObjCIvarRefExpr *IRE,
 
   ProgramStateRef State = C.getState();
   SymbolRef Sym = State->getSVal(*IVarLoc).getAsSymbol();
-  if (!Sym)
+  if (!Sym || !wasLoadedFromIvar(Sym))
     return;
 
   // Accessing an ivar directly is unusual. If we've done that, be more
@@ -2867,7 +2867,9 @@ void RetainCountChecker::checkPostStmt(const ObjCIvarRefExpr *IRE,
   else
     return;
 
-  if (!wasLoadedFromIvar(Sym))
+  // If the value is already known to be nil, don't bother tracking it.
+  ConstraintManager &CMgr = State->getConstraintManager();
+  if (CMgr.isNull(State, Sym).isConstrainedTrue())
     return;
 
   if (const RefVal *RV = getRefBinding(State, Sym)) {
@@ -3338,7 +3340,7 @@ bool RetainCountChecker::evalCall(const CallExpr *CE, CheckerContext &C) const {
   // See if it's one of the specific functions we know how to eval.
   bool canEval = false;
 
-  QualType ResultTy = CE->getCallReturnType();
+  QualType ResultTy = CE->getCallReturnType(C.getASTContext());
   if (ResultTy->isObjCIdType()) {
     // Handle: id NSMakeCollectable(CFTypeRef)
     canEval = II->isStr("NSMakeCollectable");

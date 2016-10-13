@@ -218,6 +218,8 @@ NativeThreadLinux::SetWatchpoint (lldb::addr_t addr, size_t size, uint32_t watch
 {
     if (!hardware)
         return Error ("not implemented");
+    if (m_state == eStateLaunching)
+        return Error ();
     Error error = RemoveWatchpoint(addr);
     if (error.Fail()) return error;
     NativeRegisterContextSP reg_ctx = GetRegisterContext ();
@@ -270,13 +272,17 @@ NativeThreadLinux::SetRunning ()
     // then this is a new thread. So set all existing watchpoints.
     if (m_watchpoint_index_map.empty())
     {
-        const auto &watchpoint_map = GetProcess()->GetWatchpointMap();
-        if (watchpoint_map.empty()) return;
-        GetRegisterContext()->ClearAllHardwareWatchpoints();
-        for (const auto &pair : watchpoint_map)
+        const auto process_sp = GetProcess();
+        if (process_sp)
         {
-            const auto& wp = pair.second;
-            SetWatchpoint(wp.m_addr, wp.m_size, wp.m_watch_flags, wp.m_hardware);
+            const auto &watchpoint_map = process_sp->GetWatchpointMap();
+            if (watchpoint_map.empty()) return;
+            GetRegisterContext()->ClearAllHardwareWatchpoints();
+            for (const auto &pair : watchpoint_map)
+            {
+                const auto& wp = pair.second;
+                SetWatchpoint(wp.m_addr, wp.m_size, wp.m_watch_flags, wp.m_hardware);
+            }
         }
     }
 }

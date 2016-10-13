@@ -153,6 +153,7 @@ public:
   /// \returns true to indicate the header search options are invalid, or false
   /// otherwise.
   virtual bool ReadHeaderSearchOptions(const HeaderSearchOptions &HSOpts,
+                                       StringRef SpecificModuleCachePath,
                                        bool Complain) {
     return false;
   }
@@ -230,6 +231,7 @@ public:
                              bool Complain) override;
 
   bool ReadHeaderSearchOptions(const HeaderSearchOptions &HSOpts,
+                               StringRef SpecificModuleCachePath,
                                bool Complain) override;
   bool ReadPreprocessorOptions(const PreprocessorOptions &PPOpts,
                                bool Complain,
@@ -261,6 +263,9 @@ public:
                              bool Complain) override;
   bool ReadPreprocessorOptions(const PreprocessorOptions &PPOpts, bool Complain,
                                std::string &SuggestedPredefines) override;
+  bool ReadHeaderSearchOptions(const HeaderSearchOptions &HSOpts,
+                               StringRef SpecificModuleCachePath,
+                               bool Complain) override;
   void ReadCounter(const serialization::ModuleFile &M, unsigned Value) override;
 
 private:
@@ -770,12 +775,6 @@ private:
   /// Sema tracks these to validate that the types are consistent across all
   /// local extern "C" declarations.
   SmallVector<uint64_t, 16> LocallyScopedExternCDecls;
-
-  /// \brief The IDs of all dynamic class declarations in the chain.
-  ///
-  /// Sema tracks these because it checks for the key functions being defined
-  /// at the end of the TU, in which case it directs CodeGen to emit the VTable.
-  SmallVector<uint64_t, 16> DynamicClasses;
 
   /// \brief The IDs of all potentially unused typedef names in the chain.
   ///
@@ -1496,7 +1495,8 @@ public:
                                   FileManager &FileMgr,
                                   const LangOptions &LangOpts,
                                   const TargetOptions &TargetOpts,
-                                  const PreprocessorOptions &PPOpts);
+                                  const PreprocessorOptions &PPOpts,
+                                  std::string ExistingModuleCachePath);
 
   /// \brief Returns the suggested contents of the predefines buffer,
   /// which contains a (typically-empty) subset of the predefines
@@ -1811,8 +1811,6 @@ public:
                          SmallVectorImpl<CXXConstructorDecl *> &Decls) override;
 
   void ReadExtVectorDecls(SmallVectorImpl<TypedefNameDecl *> &Decls) override;
-
-  void ReadDynamicClasses(SmallVectorImpl<CXXRecordDecl *> &Decls) override;
 
   void ReadUnusedLocalTypedefNameCandidates(
       llvm::SmallSetVector<const TypedefNameDecl *, 4> &Decls) override;

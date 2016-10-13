@@ -158,11 +158,55 @@ public:
   bool isCmp(MachineInstr *) const;
   bool isAtomic(MachineInstr *) const;
   bool isOrderedAtomic(MachineInstr *) const;
-
+  bool isSeqOT(MachineInstr *) const;
+  
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
   unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
   unsigned getInitOpcode(const TargetRegisterClass *RC) const;
 
+
+  
+  // Methods for mapping opcodes, primarily for sequence optimization.
+
+  // Takes an opcode for a compare instruction, and returns the opcode
+  // that you would use if you swapped the input operands to the
+  // comparison.
+  //
+  //  >=  maps to <
+  //  >   maps to <=
+  //  <=  maps to >
+  //  <   maps to >=
+  //  ==  maps to ==
+  //  !=  maps to !=
+  //
+  // This method covers:
+  //    Signed/unsigned integer comparison 8, 16, 32, 64-bit types
+  //    Floating-point comparisons for 16, 32, 64-bit types.
+  //
+  // This method dies if passed in an opcode which is not an
+  // appropriate compare.
+  unsigned commuteCompareOpcode(unsigned cmp_opcode) const;
+
+
+  // Takes in an opcode for a comparison operation, and returns the
+  // opcode for a sequence instruction corresponding to that op.
+  //
+  // 
+  //  CMPGT maps to SEQOTGT
+  //  CMPGE maps to SEQOTGE
+  //    etc...
+  unsigned convertCompareOpToSeqOTOp(unsigned cmp_opcode) const;
+
+
+  // Takes in a sequence opcode, and a bitwidth, and returns a
+  // corresponding sequence opcode whose bitwidth size is
+  //   min(size of seq_opcode, bitwidth)
+  //
+  // For example:
+  //     SEQOTGTS32, 8   --> SEQOTGTS32
+  //     SEQOTGTS16, 32  --> SEQOTGTS32
+  unsigned promoteSeqOTOpBitwidth(unsigned seq_opcode, int bitwidth) const;
+  
 };
 
 }
