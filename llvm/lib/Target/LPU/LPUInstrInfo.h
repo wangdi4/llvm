@@ -220,6 +220,12 @@ public:
   bool
   convertPickToRepeatOp(unsigned pick_opcode,
                         unsigned* repeat_opcode) const;
+
+  // Convert an ADD/SUB/FMA code into a matching reduction opcode of
+  // the same size. TBD(jsukha): Not implemented yet!
+  bool
+  convertTransformToReductionOp(unsigned transform_opcode,
+                                unsigned* reduction_opcode) const;
   
 };
 

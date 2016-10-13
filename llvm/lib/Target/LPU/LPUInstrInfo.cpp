@@ -986,3 +986,19 @@ convertPickToRepeatOp(unsigned pick_opcode,
     return false;
   }
 }
+
+
+bool
+LPUInstrInfo::
+convertTransformToReductionOp(unsigned transform_opcode,
+                              unsigned* reduction_opcode) const {
+  switch (transform_opcode) {
+    // TBD(jsukha): We don't have any of the reduction opcodes added
+    // to the compiler yet...
+    //
+    // Return false for now.
+  default:
+    // No match. return false. 
+    return false;
+  }
+}

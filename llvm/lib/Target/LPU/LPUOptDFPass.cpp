@@ -286,6 +286,13 @@ public:
                                        const LPUSeqInstrInfo& seqInfo,
                                        const LPUInstrInfo& TII,
                                        SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion);
+  void
+  seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
+                                  LPUSeqLoopInfo& loop,
+                                  MachineBasicBlock* BB,
+                                  const LPUSeqInstrInfo& seqInfo,
+                                  const LPUInstrInfo& TII,
+                                  SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion);
   
   
 
@@ -1028,14 +1035,24 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
     //  a single add/sub instruction, which
     //  uses top_op's definition as one of its inputs. 
 
-    if ((TII.isAdd(def_bottom)) || (TII.isSub(def_bottom))) {
-      // For a reduction, we need no other uses of top_op or
-      // bottom_op, except in the add.
-      if ((getSingleUse(top_channel, MRI) == def_bottom) &&
-          (getSingleUse(bottom_channel, MRI) == x.switchInst)) {
+    // For a reduction, we want no other uses of top, except in the
+    // the transforming instruction itself.
+    if (getSingleUse(top_channel, MRI) == def_bottom) {
+      if ( TII.isAdd(def_bottom) ||
+           TII.isSub(def_bottom) ||
+           TII.isFMA(def_bottom) ) {
+        unsigned reduction_opcode;
+        // TBD(jsukha): NOTE: This method always fails for now.
+        if (!TII.convertTransformToReductionOp(def_bottom->getOpcode(),
+                                               &reduction_opcode)) {
+          DEBUG(errs() << "WARNING: Potential reduction with transform "
+                << *def_bottom << " invalid or not implemented.\n");
+          return LPUSeqCandidate::SeqType::UNKNOWN;
+        }
+        
         DEBUG(errs() << "Found reduction transform body " <<
               *def_bottom << "\n");
-
+        x.opcode = reduction_opcode;
         x.stype = LPUSeqCandidate::SeqType::REDUCTION;
         x.transformInst = def_bottom;
         x.top = top_channel;
@@ -1511,16 +1528,27 @@ seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
       seq_classify_loop_remaining(remaining,
                                   current_loop,
                                   other);
-      // TBD(jsukha): Do we keep the invalid candidates around?
-      // I guess I'll do it for now...
-      current_loop.candidates.insert(current_loop.candidates.end(),
-                                     other.begin(),
-                                     other.end());
+
+      // Remember the number of sequences that we can transform.
+      current_loop.set_valid_sequence_count(current_loop.candidates.size());
+
       DEBUG(errs() << "Final classification: Loop " << current_loop.loop_id <<  "\n");
       DEBUG(errs() << "   Invalid candidates: " << other.size() << "\n");
-      DEBUG(errs() << "   All candidates: "
+      DEBUG(errs() << "   Valid candidates: "
             << current_loop.candidates.size() << "\n");
 
+      // Print the invalid candidates that we are ignoring.
+      DEBUG(errs() << "Invalid candidates: \n");
+      for (unsigned j = 0; j < other.size(); ++j) {
+        seq_debug_print_candidate(other[j]);
+      }
+
+      // NOTE: If we wanted to keep track of the invalid candidates 
+      // in a loop, we could insert it into the list.  But we aren't here.
+      //
+      //  current_loop.candidates.insert(current_loop.candidates.end(),
+      //                                 other.begin(), other.end());
+      
       bool can_transform = seq_identify_induction_variable(current_loop);
       DEBUG(errs() << "Loop " << current_loop.loop_id
             << ": can transform = " << can_transform << "\n");
@@ -1984,26 +2012,13 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
 
   MachineOperand* in_s_op = seq_lookup_stride_op(loop,
                                                  indvarCandidate);
+
+  // All but one of the valid sequences in a loop are dependent.
+  int num_dependent_sequences = loop.get_valid_sequence_count() - 1;
+  assert(num_dependent_sequences >= 0);
   
-  int num_dependent_sequences = 0;
-  for (unsigned idx = 0; idx < loop.candidates.size(); ++idx) {
-    if (idx != (unsigned)indvarIdx) {
-      LPUSeqCandidate::SeqType st = loop.candidates[idx].stype;
-      // TBD(jsukha): Eventually, this list should include all the
-      // sequence types.
-      //
-      // For now, however, it should only count the ones that we have
-      // implemented, because these will use the predicate output of
-      // the sequence.
-      if ((st == LPUSeqCandidate::SeqType::REPEAT) ||
-          (st == LPUSeqCandidate::SeqType::STRIDE) ||
-          (st == LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP)) {
-        num_dependent_sequences++;
-      }
-    }
-  }
-  
-  DEBUG(errs() << "For this loop, dependent sequences = " <<
+  DEBUG(errs() << "For loop " << loop.loop_id
+        << ", dependent sequences = " <<
         num_dependent_sequences << "\n");
 
   // We only need to define a predicate register if we have at least
@@ -2188,7 +2203,19 @@ seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
   loopInsMarkedForDeletion.push_back(scandidate.switchInst);
 }
 
-  
+
+void
+LPUOptDFPass::
+seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
+                                LPUSeqLoopInfo& loop,
+                                MachineBasicBlock* BB,
+                                const LPUSeqInstrInfo& seqInfo,
+                                const LPUInstrInfo& TII,
+                                SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion) {
+  assert(!scandidate.transformInst);
+  DEBUG(errs() << "ERROR: Reductions are not implemented yet\n");
+}
+
 void
 LPUOptDFPass::
 seq_do_transform_loop(LPUSeqLoopInfo& loop,
@@ -2254,7 +2281,19 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
                                              TII,
                                              loopInsMarkedForDeletion);
         break;
-          
+
+
+      case LPUSeqCandidate::SeqType::REDUCTION:
+        DEBUG(errs() << "ERROR: Reductions are not yet implemented\n");
+        seq_do_transform_loop_reduction(scandidate,
+                                        loop,
+                                        BB,
+                                        seqInfo,
+                                        TII,
+                                        loopInsMarkedForDeletion);
+        break;
+
+        
       default:
         DEBUG(errs() << "do_transform: Ignoring sequence candidate in transform: ");
         seq_debug_print_candidate(scandidate);

@@ -418,11 +418,16 @@ namespace llvm {
     LPUSeqHeader header;
     SmallVector<LPUSeqCandidate, 12> candidates;
 
+
     // A map from repeat channel register to the index in
     // "repeat_candidates" where we found the candidate.
     DenseMap<unsigned, int> repeat_channels;
 
   private:
+    // Tracks the number of sequences in this loop which can be
+    // converted.
+    int num_valid_sequences;
+        
     // The channel (register) numbers that correspond to the operands
     // in the compare instruction.  These values are "LPU::IGN" if the
     // operand is an immediate.
@@ -458,6 +463,7 @@ namespace llvm {
   public:
     LPUSeqLoopInfo()
     : loop_id(-1)
+    , num_valid_sequences(0)
     , cmp0_channel(LPU::IGN)
     , cmp1_channel(LPU::IGN)
     , cmp0_idx(-1)
@@ -471,6 +477,14 @@ namespace llvm {
     }
     
     ~LPUSeqLoopInfo() {}
+
+    // Get and set the number of valid sequences in this loop.
+    void set_valid_sequence_count(int val) {
+      this->num_valid_sequences = val;
+    }
+    int get_valid_sequence_count() const {
+      return this->num_valid_sequences;
+    }
 
     // Accessor methods for some of the index fields in this data
     // structure.
