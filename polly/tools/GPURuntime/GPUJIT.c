@@ -20,6 +20,7 @@
 #include <string.h>
 
 static int DebugMode;
+static int CacheMode;
 
 static void debug_print(const char *format, ...) {
   if (!DebugMode)
@@ -40,6 +41,7 @@ struct PollyGPUContextT {
 struct PollyGPUFunctionT {
   CUfunction Cuda;
   CUmodule CudaModule;
+  const char *PTXString;
 };
 
 struct PollyGPUDevicePtrT {
@@ -54,18 +56,12 @@ static void *HandleCudaRT;
 typedef CUresult CUDAAPI CuMemAllocFcnTy(CUdeviceptr *, size_t);
 static CuMemAllocFcnTy *CuMemAllocFcnPtr;
 
-typedef CUresult CUDAAPI CuFuncSetBlockShapeFcnTy(CUfunction, int, int, int);
-static CuFuncSetBlockShapeFcnTy *CuFuncSetBlockShapeFcnPtr;
-
-typedef CUresult CUDAAPI CuParamSetvFcnTy(CUfunction, int, void *,
-                                          unsigned int);
-static CuParamSetvFcnTy *CuParamSetvFcnPtr;
-
-typedef CUresult CUDAAPI CuParamSetSizeFcnTy(CUfunction, unsigned int);
-static CuParamSetSizeFcnTy *CuParamSetSizeFcnPtr;
-
-typedef CUresult CUDAAPI CuLaunchGridFcnTy(CUfunction, int, int);
-static CuLaunchGridFcnTy *CuLaunchGridFcnPtr;
+typedef CUresult CUDAAPI CuLaunchKernelFcnTy(
+    CUfunction f, unsigned int gridDimX, unsigned int gridDimY,
+    unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY,
+    unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream,
+    void **kernelParams, void **extra);
+static CuLaunchKernelFcnTy *CuLaunchKernelFcnPtr;
 
 typedef CUresult CUDAAPI CuMemcpyDtoHFcnTy(void *, CUdeviceptr, size_t);
 static CuMemcpyDtoHFcnTy *CuMemcpyDtoHFcnPtr;
@@ -178,17 +174,8 @@ static int initialDeviceAPIs() {
    * of this kind of cast may not be emitted by clang and new versions of gcc
    * as it is valid on POSIX 2008.
    */
-  CuFuncSetBlockShapeFcnPtr = (CuFuncSetBlockShapeFcnTy *)getAPIHandle(
-      HandleCuda, "cuFuncSetBlockShape");
-
-  CuParamSetvFcnPtr =
-      (CuParamSetvFcnTy *)getAPIHandle(HandleCuda, "cuParamSetv");
-
-  CuParamSetSizeFcnPtr =
-      (CuParamSetSizeFcnTy *)getAPIHandle(HandleCuda, "cuParamSetSize");
-
-  CuLaunchGridFcnPtr =
-      (CuLaunchGridFcnTy *)getAPIHandle(HandleCuda, "cuLaunchGrid");
+  CuLaunchKernelFcnPtr =
+      (CuLaunchKernelFcnTy *)getAPIHandle(HandleCuda, "cuLaunchKernel");
 
   CuMemAllocFcnPtr =
       (CuMemAllocFcnTy *)getAPIHandle(HandleCuda, "cuMemAlloc_v2");
@@ -264,6 +251,11 @@ PollyGPUContext *polly_initContext() {
   char DeviceName[256];
   int DeviceCount = 0;
 
+  static __thread PollyGPUContext *CurrentContext = NULL;
+
+  if (CurrentContext)
+    return CurrentContext;
+
   /* Get API handles. */
   if (initialDeviceAPIs() == 0) {
     fprintf(stdout, "Getting the \"handle\" for the CUDA driver API failed.\n");
@@ -297,12 +289,40 @@ PollyGPUContext *polly_initContext() {
   }
   CuCtxCreateFcnPtr(&(Context->Cuda), 0, Device);
 
+  CacheMode = getenv("POLLY_NOCACHE") == 0;
+
+  if (CacheMode)
+    CurrentContext = Context;
+
   return Context;
 }
+
+static void freeKernel(PollyGPUFunction *Kernel) {
+  if (Kernel->CudaModule)
+    CuModuleUnloadFcnPtr(Kernel->CudaModule);
+
+  if (Kernel)
+    free(Kernel);
+}
+
+#define KERNEL_CACHE_SIZE 10
 
 PollyGPUFunction *polly_getKernel(const char *PTXBuffer,
                                   const char *KernelName) {
   dump_function();
+
+  static __thread PollyGPUFunction *KernelCache[KERNEL_CACHE_SIZE];
+  static __thread int NextCacheItem = 0;
+
+  for (long i = 0; i < KERNEL_CACHE_SIZE; i++) {
+    // We exploit here the property that all Polly-ACC kernels are allocated
+    // as global constants, hence a pointer comparision is sufficient to
+    // determin equality.
+    if (KernelCache[i] && KernelCache[i]->PTXString == PTXBuffer) {
+      debug_print("  -> using cached kernel\n");
+      return KernelCache[i];
+    }
+  }
 
   PollyGPUFunction *Function = malloc(sizeof(PollyGPUFunction));
 
@@ -376,17 +396,27 @@ PollyGPUFunction *polly_getKernel(const char *PTXBuffer,
 
   CuLinkDestroyFcnPtr(LState);
 
+  Function->PTXString = PTXBuffer;
+
+  if (CacheMode) {
+    if (KernelCache[NextCacheItem])
+      freeKernel(KernelCache[NextCacheItem]);
+
+    KernelCache[NextCacheItem] = Function;
+
+    NextCacheItem = (NextCacheItem + 1) % KERNEL_CACHE_SIZE;
+  }
+
   return Function;
 }
 
 void polly_freeKernel(PollyGPUFunction *Kernel) {
   dump_function();
 
-  if (Kernel->CudaModule)
-    CuModuleUnloadFcnPtr(Kernel->CudaModule);
+  if (CacheMode)
+    return;
 
-  if (Kernel)
-    free(Kernel);
+  freeKernel(Kernel);
 }
 
 void polly_copyFromHostToDevice(void *HostData, PollyGPUDevicePtr *DevData,
@@ -407,29 +437,25 @@ void polly_copyFromDeviceToHost(PollyGPUDevicePtr *DevData, void *HostData,
   }
 }
 
-void polly_setKernelParameters(PollyGPUFunction *Kernel, int BlockWidth,
-                               int BlockHeight, PollyGPUDevicePtr *DevData) {
+void polly_launchKernel(PollyGPUFunction *Kernel, unsigned int GridDimX,
+                        unsigned int GridDimY, unsigned int BlockDimX,
+                        unsigned int BlockDimY, unsigned int BlockDimZ,
+                        void **Parameters) {
   dump_function();
 
-  int ParamOffset = 0;
+  unsigned GridDimZ = 1;
+  unsigned int SharedMemBytes = CU_SHARED_MEM_CONFIG_DEFAULT_BANK_SIZE;
+  CUstream Stream = 0;
+  void **Extra = 0;
 
-  CuFuncSetBlockShapeFcnPtr(Kernel->Cuda, BlockWidth, BlockHeight, 1);
-  CuParamSetvFcnPtr(Kernel->Cuda, ParamOffset, &(DevData->Cuda),
-                    sizeof(DevData->Cuda));
-  ParamOffset += sizeof(DevData->Cuda);
-  CuParamSetSizeFcnPtr(Kernel->Cuda, ParamOffset);
-}
-
-void polly_launchKernel(PollyGPUFunction *Kernel, int GridWidth,
-                        int GridHeight) {
-  dump_function();
-
-  if (CuLaunchGridFcnPtr(Kernel->Cuda, GridWidth, GridHeight) != CUDA_SUCCESS) {
+  CUresult Res;
+  Res = CuLaunchKernelFcnPtr(Kernel->Cuda, GridDimX, GridDimY, GridDimZ,
+                             BlockDimX, BlockDimY, BlockDimZ, SharedMemBytes,
+                             Stream, Parameters, Extra);
+  if (Res != CUDA_SUCCESS) {
     fprintf(stdout, "Launching CUDA kernel failed.\n");
     exit(-1);
   }
-  CudaThreadSynchronizeFcnPtr();
-  debug_print("CUDA kernel launched.\n");
 }
 
 void polly_freeDeviceMemory(PollyGPUDevicePtr *Allocation) {
@@ -458,8 +484,17 @@ PollyGPUDevicePtr *polly_allocateMemoryForDevice(long MemSize) {
   return DevData;
 }
 
+void *polly_getDevicePtr(PollyGPUDevicePtr *Allocation) {
+  dump_function();
+
+  return (void *)Allocation->Cuda;
+}
+
 void polly_freeContext(PollyGPUContext *Context) {
   dump_function();
+
+  if (CacheMode)
+    return;
 
   if (Context->Cuda) {
     CuCtxDestroyFcnPtr(Context->Cuda);

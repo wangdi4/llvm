@@ -238,6 +238,7 @@ public:
 
 template <> struct GraphTraits<vpo::AVRBlock*> {
   typedef vpo::AVRBlock NodeType;
+  typedef vpo::AVRBlock *NodeRef;
   typedef SmallVectorImpl<AVRBlock*>::iterator ChildIteratorType;
   typedef standard_df_iterator<vpo::AVRBlock *> nodes_iterator;
 
@@ -263,6 +264,7 @@ template <> struct GraphTraits<vpo::AVRBlock*> {
 
 template <> struct GraphTraits<Inverse<vpo::AVRBlock*> > {
   typedef vpo::AVRBlock NodeType;
+  typedef vpo::AVRBlock *NodeRef;
   typedef SmallVectorImpl<AVRBlock*>::iterator ChildIteratorType;
   typedef standard_df_iterator<vpo::AVRBlock *> nodes_iterator;
 
@@ -289,6 +291,7 @@ template <> struct GraphTraits<Inverse<vpo::AVRBlock*> > {
 
 template <> struct GraphTraits<const vpo::AVRBlock*> {
   typedef const vpo::AVRBlock NodeType;
+  typedef const vpo::AVRBlock *NodeRef;
   typedef SmallVectorImpl<AVRBlock*>::const_iterator ChildIteratorType;
   typedef standard_df_iterator<const vpo::AVRBlock *> nodes_iterator;
 
@@ -314,6 +317,7 @@ template <> struct GraphTraits<const vpo::AVRBlock*> {
 
 template <> struct GraphTraits<Inverse<const vpo::AVRBlock*> > {
   typedef const vpo::AVRBlock NodeType;
+  typedef const vpo::AVRBlock *NodeRef;
   typedef SmallVectorImpl<AVRBlock*>::const_iterator ChildIteratorType;
   typedef standard_df_iterator<const vpo::AVRBlock *> nodes_iterator;
 

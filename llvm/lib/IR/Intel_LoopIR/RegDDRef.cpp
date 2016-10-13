@@ -430,6 +430,14 @@ bool RegDDRef::isSelfBlob() const {
   return (getSymbase() == SB);
 }
 
+bool RegDDRef::isUndefSelfBlob() const {
+  if (!isSelfBlob()) {
+    return false;
+  }
+
+  return getSingleCanonExpr()->isUndefSelfBlob();
+}
+
 void RegDDRef::replaceSelfBlobIndex(unsigned NewIndex) {
   assert(isSelfBlob() && "DDRef is not a self blob!");
   getSingleCanonExpr()->replaceSingleBlobIndex(NewIndex);

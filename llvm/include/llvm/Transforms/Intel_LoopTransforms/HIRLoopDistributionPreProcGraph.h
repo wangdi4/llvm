@@ -442,6 +442,7 @@ void DistPPGraph::createNodes(HLLoop *Loop) {
 //
 template <> struct GraphTraits<DistPPGraph *> {
   typedef DistPPNode NodeType;
+  typedef DistPPNode *NodeRef;
   typedef DistPPGraph::children_iterator ChildIteratorType;
   static NodeType *getEntryNode(DistPPGraph *G) { return *(G->node_begin()); }
 

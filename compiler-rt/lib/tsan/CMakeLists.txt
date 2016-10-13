@@ -96,8 +96,7 @@ set(TSAN_HEADERS
   rtl/tsan_vector.h)
 
 set(TSAN_RUNTIME_LIBRARIES)
-add_custom_target(tsan)
-set_target_properties(tsan PROPERTIES FOLDER "Compiler-RT Misc")
+add_compiler_rt_component(tsan)
 
 if(APPLE)
   set(TSAN_ASM_SOURCES rtl/tsan_rtl_amd64.S)
@@ -160,6 +159,11 @@ else()
      # Pass ASM file directly to the C++ compiler.
      set_source_files_properties(${TSAN_ASM_SOURCES} PROPERTIES
        LANGUAGE C)
+    elseif(arch MATCHES "mips64|mips64le")
+     set(TSAN_ASM_SOURCES rtl/tsan_rtl_mips64.S)
+     # Pass ASM file directly to the C++ compiler.
+     set_source_files_properties(${TSAN_ASM_SOURCES} PROPERTIES
+       LANGUAGE C)
     else()
       set(TSAN_ASM_SOURCES)
     endif()
@@ -192,8 +196,6 @@ else()
                           clang_rt.tsan_cxx-${arch}-symbols)
   endforeach()
 endif()
-
-add_dependencies(compiler-rt tsan)
 
 # Make sure that non-platform-specific files don't include any system headers.
 # FreeBSD does not install a number of Clang-provided headers for the compiler

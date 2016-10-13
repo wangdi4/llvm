@@ -49,10 +49,6 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNOrdered, "Ordered"},
     {WRegionNode::WRNTaskgroup, "Taskgroup"}};
 
-WRegionNode *ilist_traits<WRegionNode>::createSentinel() const {
-      return static_cast<WRegionNode *>(&Sentinel);
-}
-
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
     : SubClassID(SCID), EntryBBlock(BB) {

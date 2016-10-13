@@ -544,8 +544,8 @@ public:
              df_iterator<GraphT>::begin(G) :
              df_iterator<GraphT>::end(G)) {}
 
-  typename super::reference operator*() const {
-    return *(*impl);
+  typename super::pointer operator*() const {
+    return *impl;
   }
 
   bool operator==(const standard_df_iterator &x) const {
@@ -571,6 +571,7 @@ public:
 
 template <> struct GraphTraits<vpo::AvrBasicBlock*> {
   typedef vpo::AvrBasicBlock NodeType;
+  typedef vpo::AvrBasicBlock *NodeRef;
   typedef vpo::AvrBasicBlock::CFGEdgesTy::iterator ChildIteratorType;
   typedef standard_df_iterator<vpo::AvrBasicBlock *> nodes_iterator;
 
@@ -597,6 +598,7 @@ template <> struct GraphTraits<vpo::AvrBasicBlock*> {
 
 template <> struct GraphTraits<Inverse<vpo::AvrBasicBlock*> > {
   typedef vpo::AvrBasicBlock NodeType;
+  typedef vpo::AvrBasicBlock *NodeRef;
   typedef vpo::AvrBasicBlock::CFGEdgesTy::iterator ChildIteratorType;
   typedef standard_df_iterator<vpo::AvrBasicBlock *> nodes_iterator;
 
@@ -623,6 +625,7 @@ template <> struct GraphTraits<Inverse<vpo::AvrBasicBlock*> > {
 
 template <> struct GraphTraits<const vpo::AvrBasicBlock*> {
   typedef const vpo::AvrBasicBlock NodeType;
+  typedef const vpo::AvrBasicBlock *NodeRef;
   typedef vpo::AvrBasicBlock::CFGEdgesTy::const_iterator ChildIteratorType;
   typedef standard_df_iterator<const vpo::AvrBasicBlock *> nodes_iterator;
 
@@ -649,6 +652,7 @@ template <> struct GraphTraits<const vpo::AvrBasicBlock*> {
 
 template <> struct GraphTraits<Inverse<const vpo::AvrBasicBlock*> > {
   typedef const vpo::AvrBasicBlock NodeType;
+  typedef const vpo::AvrBasicBlock *NodeRef;
   typedef vpo::AvrBasicBlock::CFGEdgesTy::const_iterator ChildIteratorType;
   typedef standard_df_iterator<const vpo::AvrBasicBlock *> nodes_iterator;
 

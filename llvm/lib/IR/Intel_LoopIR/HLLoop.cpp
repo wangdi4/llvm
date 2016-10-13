@@ -71,14 +71,14 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
 
   setIVType(LowerDDRef->getDestType());
 
-  assert(
-      ((!getLowerDDRef()->containsUndef() &&
-        !getUpperDDRef()->containsUndef() &&
-        !getStrideDDRef()->containsUndef()) ||
-       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
-        getStrideDDRef()->containsUndef())) &&
-      "Lower, Upper and Stride DDRefs "
-      "should be all defined or all undefined");
+  assert(((!getLowerDDRef()->isUndefSelfBlob() &&
+           !getUpperDDRef()->isUndefSelfBlob() &&
+           !getStrideDDRef()->isUndefSelfBlob()) ||
+          (getLowerDDRef()->isUndefSelfBlob() &&
+           getUpperDDRef()->isUndefSelfBlob() &&
+           getStrideDDRef()->isUndefSelfBlob())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
 }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj)
@@ -148,8 +148,7 @@ HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
   /// Loop over children, preheader and postexit
   for (auto PreIter = this->pre_begin(), PreIterEnd = this->pre_end();
        PreIter != PreIterEnd; ++PreIter) {
-    HLNode *NewHLNode =
-        cloneBaseImpl(&*PreIter, nullptr, nullptr, NodeMapper);
+    HLNode *NewHLNode = cloneBaseImpl(&*PreIter, nullptr, nullptr, NodeMapper);
     HLNodeUtils::insertAsLastPreheaderNode(NewHLLoop, NewHLNode);
   }
 
@@ -162,11 +161,9 @@ HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
     HLNodeUtils::insertAsLastChild(NewHLLoop, NewHLNode);
   }
 
-  for (auto PostIter = this->post_begin(),
-            PostIterEnd = this->post_end();
+  for (auto PostIter = this->post_begin(), PostIterEnd = this->post_end();
        PostIter != PostIterEnd; ++PostIter) {
-    HLNode *NewHLNode =
-        cloneBaseImpl(&*PostIter, nullptr, nullptr, NodeMapper);
+    HLNode *NewHLNode = cloneBaseImpl(&*PostIter, nullptr, nullptr, NodeMapper);
     HLNodeUtils::insertAsLastPostexitNode(NewHLLoop, NewHLNode);
   }
 
@@ -832,14 +829,14 @@ void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
 void HLLoop::verify() const {
   HLDDNode::verify();
 
-  assert(
-      ((!getLowerDDRef()->containsUndef() &&
-        !getUpperDDRef()->containsUndef() &&
-        !getStrideDDRef()->containsUndef()) ||
-       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
-        getStrideDDRef()->containsUndef())) &&
-      "Lower, Upper and Stride DDRefs "
-      "should be all defined or all undefined");
+  assert(((!getLowerDDRef()->isUndefSelfBlob() &&
+           !getUpperDDRef()->isUndefSelfBlob() &&
+           !getStrideDDRef()->isUndefSelfBlob()) ||
+          (getLowerDDRef()->isUndefSelfBlob() &&
+           getUpperDDRef()->isUndefSelfBlob() &&
+           getStrideDDRef()->isUndefSelfBlob())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
 
   assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
          "Loop lower cannot be non-linear!");
@@ -974,20 +971,16 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
 void HLLoop::markDoNotVectorize() {
   LLVMContext &Context = HIRUtils::getContext();
 
-  Metadata *One = ConstantAsMetadata::get(
-      ConstantInt::get(Type::getInt32Ty(Context), 1));
+  Metadata *One =
+      ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Context), 1));
 
   Metadata *MDVectorWidth[] = {
-      MDString::get(Context, "llvm.loop.vectorize.width"), One
-  };
+      MDString::get(Context, "llvm.loop.vectorize.width"), One};
   Metadata *MDInterleaveCount[] = {
-      MDString::get(Context, "llvm.loop.interleave.count"), One
-  };
+      MDString::get(Context, "llvm.loop.interleave.count"), One};
 
-  MDNode *MDs[] = {
-      MDNode::get(Context, MDVectorWidth),
-      MDNode::get(Context, MDInterleaveCount)
-  };
+  MDNode *MDs[] = {MDNode::get(Context, MDVectorWidth),
+                   MDNode::get(Context, MDInterleaveCount)};
 
   addLoopMetadata(MDs);
 }

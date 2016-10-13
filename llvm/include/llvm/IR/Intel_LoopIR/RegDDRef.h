@@ -428,6 +428,9 @@ public:
   /// DDRef for %t2 to the DDRef.
   bool isSelfBlob() const override;
 
+  /// Returns true if this ref looks like 1 * undef.
+  bool isUndefSelfBlob() const override;
+
   /// \brief Returns true if this DDRef contains undefined canon expressions.
   bool containsUndef() const override;
 

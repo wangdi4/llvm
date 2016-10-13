@@ -1098,7 +1098,13 @@ def addrRegImm :
 def addrDefault :
   ComplexPattern<iPTR, 2, "selectAddrDefault", [frameindex]>;
 
-def addrimm10 : ComplexPattern<iPTR, 2, "selectIntAddrMSA", [frameindex]>;
+def addrimm10 : ComplexPattern<iPTR, 2, "selectIntAddrSImm10", [frameindex]>;
+def addrimm10lsl1 : ComplexPattern<iPTR, 2, "selectIntAddrSImm10Lsl1",
+                                   [frameindex]>;
+def addrimm10lsl2 : ComplexPattern<iPTR, 2, "selectIntAddrSImm10Lsl2",
+                                   [frameindex]>;
+def addrimm10lsl3 : ComplexPattern<iPTR, 2, "selectIntAddrSImm10Lsl3",
+                                   [frameindex]>;
 
 //===----------------------------------------------------------------------===//
 // Instructions specific format
@@ -1364,14 +1370,12 @@ let isCall=1, hasDelaySlot=1, isCTI=1, Defs = [RA] in {
 
 let isCall = 1, isTerminator = 1, isReturn = 1, isBarrier = 1, hasDelaySlot = 1,
     hasExtraSrcRegAllocReq = 1, isCTI = 1, Defs = [AT] in {
-  class TailCall<Instruction JumpInst> :
+  class TailCall<Instruction JumpInst, DAGOperand Opnd> :
     PseudoSE<(outs), (ins calltarget:$target), [], II_J>,
-    PseudoInstExpansion<(JumpInst jmptarget:$target)>;
+    PseudoInstExpansion<(JumpInst Opnd:$target)>;
 
-  class TailCallReg<RegisterOperand RO, Instruction JRInst,
-                    RegisterOperand ResRO = RO> :
-    PseudoSE<(outs), (ins RO:$rs), [(MipsTailCall RO:$rs)], II_JR>,
-    PseudoInstExpansion<(JRInst ResRO:$rs)>;
+  class TailCallReg<RegisterOperand RO> :
+    MipsPseudo<(outs), (ins RO:$rs), [(MipsTailCall RO:$rs)], II_JR>;
 }
 
 class BAL_BR_Pseudo<Instruction RealInst> :
@@ -1912,8 +1916,12 @@ def BLTZAL : MMRel, BGEZAL_FT<"bltzal", brtarget, GPR32Opnd>, BGEZAL_FM<0x10>,
 def BLTZALL : MMRel, BGEZAL_FT<"bltzall", brtarget, GPR32Opnd, 0>,
               BGEZAL_FM<0x12>, ISA_MIPS2_NOT_32R6_64R6;
 def BAL_BR : BAL_BR_Pseudo<BGEZAL>;
-def TAILCALL : TailCall<J>;
-def TAILCALL_R : TailCallReg<GPR32Opnd, JR>;
+
+let Predicates = [NotInMicroMips] in { 
+  def TAILCALL : TailCall<J, jmptarget>;
+}
+
+def TAILCALLREG : TailCallReg<GPR32Opnd>;
 
 // Indirect branches are matched as PseudoIndirectBranch/PseudoIndirectBranch64
 // then are expanded to JR, JR64, JALR, or JALR64 depending on the ISA.
@@ -2233,11 +2241,25 @@ def : MipsInstAlias<"jalr $rs", (JALR RA, GPR32Opnd:$rs), 0>;
 def : MipsInstAlias<"jalr.hb $rs", (JALR_HB RA, GPR32Opnd:$rs), 1>, ISA_MIPS32;
 def : MipsInstAlias<"neg $rt, $rs",
                     (SUB GPR32Opnd:$rt, ZERO, GPR32Opnd:$rs), 1>;
-def : MipsInstAlias<"negu $rt",
-                    (SUBu GPR32Opnd:$rt, ZERO, GPR32Opnd:$rt), 0>;
+def : MipsInstAlias<"neg $rt",
+                    (SUB GPR32Opnd:$rt, ZERO, GPR32Opnd:$rt), 1>;
 def : MipsInstAlias<"negu $rt, $rs",
                     (SUBu GPR32Opnd:$rt, ZERO, GPR32Opnd:$rs), 1>;
+def : MipsInstAlias<"negu $rt",
+                    (SUBu GPR32Opnd:$rt, ZERO, GPR32Opnd:$rt), 1>;
 let AdditionalPredicates = [NotInMicroMips] in {
+  def : MipsInstAlias<
+          "sgt $rd, $rs, $rt",
+          (SLT GPR32Opnd:$rd, GPR32Opnd:$rt, GPR32Opnd:$rs), 0>;
+  def : MipsInstAlias<
+          "sgt $rs, $rt",
+          (SLT GPR32Opnd:$rs, GPR32Opnd:$rt, GPR32Opnd:$rs), 0>;
+  def : MipsInstAlias<
+          "sgtu $rd, $rs, $rt",
+          (SLTu GPR32Opnd:$rd, GPR32Opnd:$rt, GPR32Opnd:$rs), 0>;
+  def : MipsInstAlias<
+          "sgtu $$rs, $rt",
+          (SLTu GPR32Opnd:$rs, GPR32Opnd:$rt, GPR32Opnd:$rs), 0>;
   def : MipsInstAlias<
           "slt $rs, $rt, $imm",
           (SLTi GPR32Opnd:$rs, GPR32Opnd:$rt, simm32_relaxed:$imm), 0>;
@@ -2324,6 +2346,12 @@ let AdditionalPredicates = [NotInMicroMips] in {
                       (SRAV GPR32Opnd:$rd, GPR32Opnd:$rt, GPR32Opnd:$rs), 0>;
   def : MipsInstAlias<"srl $rd, $rt, $rs",
                       (SRLV GPR32Opnd:$rd, GPR32Opnd:$rt, GPR32Opnd:$rs), 0>;
+  def : MipsInstAlias<"sll $rd, $rt",
+                      (SLLV GPR32Opnd:$rd, GPR32Opnd:$rd, GPR32Opnd:$rt), 0>;
+  def : MipsInstAlias<"sra $rd, $rt",
+                      (SRAV GPR32Opnd:$rd, GPR32Opnd:$rd, GPR32Opnd:$rt), 0>;
+  def : MipsInstAlias<"srl $rd, $rt",
+                      (SRLV GPR32Opnd:$rd, GPR32Opnd:$rd, GPR32Opnd:$rt), 0>;
 }
 def : MipsInstAlias<"sdbbp", (SDBBP 0)>, ISA_MIPS32_NOT_32R6_64R6;
 def : MipsInstAlias<"sync",

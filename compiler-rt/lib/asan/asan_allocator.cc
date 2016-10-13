@@ -654,6 +654,8 @@ struct Allocator {
     fallback_mutex.Unlock();
     allocator.ForceUnlock();
   }
+
+  void ReleaseToOS() { allocator.ReleaseToOS(); }
 };
 
 static Allocator instance(LINKER_INITIALIZED);
@@ -673,6 +675,9 @@ uptr AsanChunkView::End() { return Beg() + UsedSize(); }
 uptr AsanChunkView::UsedSize() { return chunk_->UsedSize(); }
 uptr AsanChunkView::AllocTid() { return chunk_->alloc_tid; }
 uptr AsanChunkView::FreeTid() { return chunk_->free_tid; }
+AllocType AsanChunkView::GetAllocType() {
+  return (AllocType)chunk_->alloc_type;
+}
 
 static StackTrace GetStackTraceFromId(u32 id) {
   CHECK(id);
@@ -692,8 +697,11 @@ StackTrace AsanChunkView::GetFreeStack() {
   return GetStackTraceFromId(GetFreeStackId());
 }
 
+void ReleaseToOS() { instance.ReleaseToOS(); }
+
 void InitializeAllocator(const AllocatorOptions &options) {
   instance.Initialize(options);
+  SetAllocatorReleaseToOSCallback(ReleaseToOS);
 }
 
 void ReInitializeAllocator(const AllocatorOptions &options) {
@@ -706,6 +714,9 @@ void GetAllocatorOptions(AllocatorOptions *options) {
 
 AsanChunkView FindHeapChunkByAddress(uptr addr) {
   return instance.FindHeapChunkByAddress(addr);
+}
+AsanChunkView FindHeapChunkByAllocBeg(uptr addr) {
+  return AsanChunkView(instance.GetAsanChunk(reinterpret_cast<void*>(addr)));
 }
 
 void AsanThreadLocalMallocStorage::CommitBack() {

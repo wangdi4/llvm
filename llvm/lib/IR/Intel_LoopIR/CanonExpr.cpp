@@ -187,6 +187,11 @@ bool CanonExpr::isSelfBlob() const {
           BlobUtils::isTempBlob(BlobUtils::getBlob(getSingleBlobIndex())));
 }
 
+bool CanonExpr::isUndefSelfBlob() const {
+  return (isSelfBlob() &&
+          BlobUtils::isUndefBlob(BlobUtils::getBlob(getSingleBlobIndex())));
+}
+
 void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
   assert((Val != 0) && "Denominator cannot be zero!");
 
@@ -854,7 +859,7 @@ bool CanonExpr::replaceTempBlob(unsigned OldTempIndex, unsigned NewTempIndex) {
       Replaced = true;
 
     } else if (BlobUtils::replaceTempBlob(IV.Index, OldTempIndex, NewTempIndex,
-                                      NewBlobIndex)) {
+                                          NewBlobIndex)) {
       IV.Index = NewBlobIndex;
       Replaced = true;
     }
@@ -870,7 +875,7 @@ bool CanonExpr::replaceTempBlob(unsigned OldTempIndex, unsigned NewTempIndex) {
     }
 
     if (BlobUtils::replaceTempBlob(BC.Index, OldTempIndex, NewTempIndex,
-                                      NewBlobIndex)) {
+                                   NewBlobIndex)) {
       NewBlobs.emplace_back(NewBlobIndex, BC.Coeff);
       return (Replaced = true);
     }

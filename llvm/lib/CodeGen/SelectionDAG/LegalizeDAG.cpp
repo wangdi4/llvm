@@ -259,19 +259,25 @@ SelectionDAGLegalize::ExpandConstantFP(ConstantFPSDNode *CFP, bool UseCP) {
                            (VT == MVT::f64) ? MVT::i64 : MVT::i32);
   }
 
+  APFloat APF = CFP->getValueAPF();
   EVT OrigVT = VT;
   EVT SVT = VT;
-  while (SVT != MVT::f32 && SVT != MVT::f16) {
-    SVT = (MVT::SimpleValueType)(SVT.getSimpleVT().SimpleTy - 1);
-    if (ConstantFPSDNode::isValueValidForType(SVT, CFP->getValueAPF()) &&
-        // Only do this if the target has a native EXTLOAD instruction from
-        // smaller type.
-        TLI.isLoadExtLegal(ISD::EXTLOAD, OrigVT, SVT) &&
-        TLI.ShouldShrinkFPConstant(OrigVT)) {
-      Type *SType = SVT.getTypeForEVT(*DAG.getContext());
-      LLVMC = cast<ConstantFP>(ConstantExpr::getFPTrunc(LLVMC, SType));
-      VT = SVT;
-      Extend = true;
+
+  // We don't want to shrink SNaNs. Converting the SNaN back to its real type
+  // can cause it to be changed into a QNaN on some platforms (e.g. on SystemZ).
+  if (!APF.isSignaling()) {
+    while (SVT != MVT::f32 && SVT != MVT::f16) {
+      SVT = (MVT::SimpleValueType)(SVT.getSimpleVT().SimpleTy - 1);
+      if (ConstantFPSDNode::isValueValidForType(SVT, APF) &&
+          // Only do this if the target has a native EXTLOAD instruction from
+          // smaller type.
+          TLI.isLoadExtLegal(ISD::EXTLOAD, OrigVT, SVT) &&
+          TLI.ShouldShrinkFPConstant(OrigVT)) {
+        Type *SType = SVT.getTypeForEVT(*DAG.getContext());
+        LLVMC = cast<ConstantFP>(ConstantExpr::getFPTrunc(LLVMC, SType));
+        VT = SVT;
+        Extend = true;
+      }
     }
   }
 
@@ -795,7 +801,7 @@ void SelectionDAGLegalize::LegalizeLoadOps(SDNode *Node) {
     default: llvm_unreachable("This action is not supported yet!");
     case TargetLowering::Custom:
       isCustom = true;
-      // FALLTHROUGH
+      LLVM_FALLTHROUGH;
     case TargetLowering::Legal: {
       Value = SDValue(Node, 0);
       Chain = SDValue(Node, 1);
@@ -1117,12 +1123,12 @@ void SelectionDAGLegalize::LegalizeOp(SDNode *Node) {
         ReplaceNode(Node, ResultVals.data());
         return;
       }
+      LLVM_FALLTHROUGH;
     }
-      // FALL THROUGH
     case TargetLowering::Expand:
       if (ExpandNode(Node))
         return;
-      // FALL THROUGH
+      LLVM_FALLTHROUGH;
     case TargetLowering::LibCall:
       ConvertNodeToLibcall(Node);
       return;
@@ -1592,6 +1598,7 @@ bool SelectionDAGLegalize::LegalizeSetCCCondCode(EVT VT, SDValue &LHS,
           break;
         }
         // Fallthrough if we are unsigned integer.
+        LLVM_FALLTHROUGH;
     case ISD::SETLE:
     case ISD::SETGT:
     case ISD::SETGE:

@@ -194,17 +194,7 @@ typedef std::vector<SNode *>::const_iterator const_snode_vector_iterator;
 //
 
 template <> struct ilist_traits<SNode> : public ilist_default_traits<SNode> {
-private:
-  mutable ilist_half_node<SNode> Sentinel;
-
-public:
-  SNode *createSentinel() const;
-  static void destroySentinel(SNode *) {};
-
-  SNode *provideInitialHead() const { return createSentinel(); };
-  SNode *ensureHead(SNode *) const { return createSentinel(); };
-  static void noteHead(SNode *, SNode *) {};
-  static void deleteNode(SNode *){};
+  static void deleteNode(SNode *) {}
 };
 
 typedef iplist<SNode> SNodeChildrenListTy;

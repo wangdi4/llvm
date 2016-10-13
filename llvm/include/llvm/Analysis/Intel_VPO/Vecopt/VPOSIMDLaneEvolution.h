@@ -1349,6 +1349,7 @@ public:
 /// \brief User-based graph traits for SLEVs.
 template <> struct GraphTraits<vpo::SLEVInstruction*> {
   typedef vpo::SLEVInstruction NodeType;
+  typedef vpo::SLEVInstruction *NodeRef;
   typedef vpo::SLEVInstruction::SLEVUsersTy::iterator ChildIteratorType;
   typedef standard_df_iterator<vpo::SLEVInstruction *> nodes_iterator;
 
