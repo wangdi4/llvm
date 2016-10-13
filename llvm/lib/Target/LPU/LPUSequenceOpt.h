@@ -346,6 +346,13 @@ namespace llvm {
     unsigned bottom;
     MachineOperand* stride_op;
 
+
+    // The opcode that we would use for this transformed sequence
+    // instruction.
+    unsigned opcode;
+
+    static const unsigned INVALID_OPCODE = LPU::PHI;    
+
   LPUSeqCandidate(MachineInstr* pickI,
                   MachineInstr* switchI)
       : pickInst(pickI)
@@ -355,6 +362,7 @@ namespace llvm {
       , top(0)
       , bottom(0)
       , stride_op(NULL)
+      , opcode(LPUSeqCandidate::INVALID_OPCODE)
     {
     }
 
@@ -446,7 +454,6 @@ namespace llvm {
     // transform it.
     unsigned seq_opcode;
 
-    static const unsigned INVALID_OPCODE = LPU::PHI;
     
   public:
     LPUSeqLoopInfo()
@@ -459,7 +466,7 @@ namespace llvm {
     , bound_idx(-1)
     , compare_sense(0)
     , valid_to_transform(false)
-    , seq_opcode(LPUSeqLoopInfo::INVALID_OPCODE)
+    , seq_opcode(LPUSeqCandidate::INVALID_OPCODE)
     {
     }
     
@@ -557,6 +564,8 @@ namespace llvm {
       }
       return false;
     }
+
+
     
 
     /*******************************************************************/

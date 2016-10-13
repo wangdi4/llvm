@@ -206,6 +206,20 @@ public:
   //     SEQOTGTS32, 8   --> SEQOTGTS32
   //     SEQOTGTS16, 32  --> SEQOTGTS32
   unsigned promoteSeqOTOpBitwidth(unsigned seq_opcode, int bitwidth) const;
+
+
+  // Convert an add opcode to the corresponding stride opcode.
+  // Returns true if we did a successful conversion, false otherwise.
+  // Saves output into *strideOpcode when returning true.
+  bool
+  convertAddToStrideOp(unsigned add_opcode,
+                       unsigned* strideOpcode) const;
+
+  // Convert a pick opcode into a matching repeat opcode (of the same
+  // size).
+  bool
+  convertPickToRepeatOp(unsigned pick_opcode,
+                        unsigned* repeat_opcode) const;
   
 };
 

@@ -289,12 +289,6 @@ public:
   
   
 
-  // Tries to compute a matching stride opcode for the transform
-  // instruction for a stride candidate.
-  bool seq_compute_matching_stride_opcode(unsigned transformOpcode,
-                                          unsigned* strideOpcode);
-  
-
 
   // Add a switch instruction after "prev_inst" in basic block BB,
   // which stores the last value to the output channel for the
@@ -334,7 +328,6 @@ public:
                  const LPUSeqHeader& loop_header,                 
                  unsigned pred_reg,
                  MachineOperand* in_stride_op,
-                 unsigned strideOpcode,
                  const LPUInstrInfo &TII,
                  MachineBasicBlock& BB,
                  MachineInstr* prev_inst);
@@ -1009,10 +1002,17 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
     // Look at the instruction that defines bottom_op.
     MachineInstr* def_bottom = getSingleDef(bottom_channel, MRI);
 
+    const LPUInstrInfo &TII =
+      *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+    
     // First, if the defining instruction is the pick itself, then
     // there is no transform body.  We have a repeat.
     if (def_bottom == x.pickInst) {
       assert(top_channel == bottom_channel);
+      bool matched_opcode =
+        TII.convertPickToRepeatOp(x.pickInst->getOpcode(),
+                                  &x.opcode);
+      assert(matched_opcode);
       x.stype = LPUSeqCandidate::SeqType::REPEAT;
       x.transformInst = NULL;
       x.top = top_channel;
@@ -1027,9 +1027,6 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
     // To find these transforming bodies, we want
     //  a single add/sub instruction, which
     //  uses top_op's definition as one of its inputs. 
-
-    const LPUInstrInfo &TII =
-      *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
     if ((TII.isAdd(def_bottom)) || (TII.isSub(def_bottom))) {
       // For a reduction, we need no other uses of top_op or
@@ -1081,16 +1078,16 @@ seq_classify_stride(LPUSeqCandidate& x,
 
       // Bail out if our add instruction doesn't match one of our
       // known striding operations yet.
+      // TBD(jsukha): We haven't added code to deal with "sub" yet. 
       unsigned stride_opcode;
-      if (!seq_compute_matching_stride_opcode(def_bottom->getOpcode(),
-                                              &stride_opcode)) {
+      if (!TII.convertAddToStrideOp(def_bottom->getOpcode(),
+                                    &stride_opcode)) {
         DEBUG(errs() << "WARNING: stride operation for transform "
               << *def_bottom  << " not implemented yet...\n");
         return x.stype;
       }
       
       if (def_bottom->getNumOperands() == 3) {
-
         // First, figure out the potential stride, by looking for the
         // top input.
         int stride_idx = 0;
@@ -1120,6 +1117,7 @@ seq_classify_stride(LPUSeqCandidate& x,
           x.stride_op = &stride_op;
           x.stype = LPUSeqCandidate::SeqType::STRIDE;
           x.transformInst = def_bottom;
+          x.opcode = stride_opcode;
           return LPUSeqCandidate::SeqType::STRIDE;
         }
       }
@@ -1561,36 +1559,6 @@ seq_identify_induction_variable(LPUSeqLoopInfo& loop) {
 
 
 
-
-bool
-LPUOptDFPass::
-seq_compute_matching_stride_opcode(unsigned transformOpcode,
-                                   unsigned* strideOpcode) {
-
-  switch (transformOpcode) {
-  case LPU::ADD64:
-    *strideOpcode = LPU::STRIDE64;
-    return true;
-
-  case LPU::ADD32:
-    *strideOpcode = LPU::STRIDE32;
-    return true;
-    
-  case LPU::ADD16:
-    *strideOpcode = LPU::STRIDE16;
-    return true;
-
-  case LPU::ADD8:
-    *strideOpcode = LPU::STRIDE8;
-    return true;
-    
-  default:
-    // No match. return false. 
-    return false;
-  }
-}
-
-
 // Returns true if all defs in this instruction are %ign, and at least
 // one replacement has occurred (either of a use or def) has occurred.
 bool LPUOptDFPass::
@@ -1681,20 +1649,16 @@ seq_add_repeat(LPUSeqCandidate& sc,
                const LPUInstrInfo &TII,
                MachineBasicBlock& BB,
                MachineInstr* prev_inst) {
-
   assert(sc.stype == LPUSeqCandidate::SeqType::REPEAT);
+  assert(sc.opcode != LPUSeqCandidate::INVALID_OPCODE);
 
-  // TBD(jsukha): FIX ME! Right now, the compiler is only inserting
-  // REPEAT64 instructions for all repeat candidates, instead of
-  // figuring out the correct size of repeat to insert.
-  // (We need to map pick/switch opcode to repeat opcode).
   MachineInstr* repinst =
     BuildMI(BB,
-              prev_inst,
-              sc.pickInst->getDebugLoc(),
-              TII.get(LPU::REPEAT64),
-              sc.top).
-      addReg(pred_reg).
+            prev_inst,
+            sc.pickInst->getDebugLoc(),
+            TII.get(sc.opcode),
+            sc.top).
+    addReg(pred_reg).
     addOperand(*sc.get_pick_input_op(loop_header));
   repinst->setFlag(MachineInstr::NonSequential);
   return repinst;
@@ -1708,17 +1672,18 @@ seq_add_stride(LPUSeqCandidate& sc,
                const LPUSeqHeader& loop_header,               
                unsigned pred_reg,
                MachineOperand* in_stride_op,
-               unsigned strideOpcode,
                const LPUInstrInfo &TII,
                MachineBasicBlock& BB,
                MachineInstr* prev_inst) {
   assert(sc.stype == LPUSeqCandidate::SeqType::STRIDE);
+  assert(sc.opcode != LPUSeqCandidate::INVALID_OPCODE);
+
   assert(in_stride_op);
   MachineInstr* strideInst =
     BuildMI(BB,
             prev_inst,
             sc.pickInst->getDebugLoc(),
-            TII.get(strideOpcode),
+            TII.get(sc.opcode), 
             sc.top).
     addReg(pred_reg).
     addOperand(*sc.get_pick_input_op(loop_header)).
@@ -2157,17 +2122,11 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
                              const LPUInstrInfo& TII,
                              SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion) {
   assert(scandidate.transformInst);
-  unsigned transformOpcode
-    = scandidate.transformInst->getOpcode();
-  unsigned strideOpcode;
 
   // We should have already matched the opcodes at the time we
   // classified the candidate.  TBD: We could store the match,
   // instead of looking it up here again...
-  bool matched =
-    seq_compute_matching_stride_opcode(transformOpcode,
-                                       &strideOpcode);
-  assert(matched);
+  assert(scandidate.opcode != LPUSeqCandidate::INVALID_OPCODE);
 
   MachineOperand* my_s_op =
     seq_lookup_stride_op(loop,
@@ -2177,7 +2136,6 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
                    loop.header,
                    seqInfo.pred_reg,
                    my_s_op,
-                   strideOpcode,
                    TII,
                    *BB,
                    seqInfo.seq_inst);
