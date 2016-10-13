@@ -503,7 +503,7 @@ CodeGenFunction::emitBuiltinObjectSize(const Expr *E, unsigned Type,
   return Builder.CreateCall(F, {EmitScalarExpr(E), CI});
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ373809: unknown '__intel_***' builtin functions
 static RValue EmitIntelCast(CodeGenFunction &CGF, const CallExpr *E,
                             llvm::Type *DestType) {
@@ -532,7 +532,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin___CFStringMakeConstantString:
   case Builtin::BI__builtin___NSStringMakeConstantString:
     return RValue::get(CGM.EmitConstantExpr(E, E->getType(), nullptr));
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ373809: unknown '__intel_***' builtin functions
   case Builtin::BI__intel_castu32_f32: {
     return EmitIntelCast(*this, E, FloatTy);
@@ -2671,7 +2671,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   // generic builtins start to require generic target features then we
   // can move this up to the beginning of the function.
   checkTargetFeatures(E, FD);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   } else {
     static std::map<StringRef, uint64_t> FeatureMapping = { 
       {"cmov", 0x00000004ULL},
@@ -2732,6 +2732,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   Intrinsic::ID IntrinsicID = Intrinsic::not_intrinsic;
   if (const char *Prefix =
           llvm::Triple::getArchTypePrefix(getTarget().getTriple().getArch())) {
+#if INTEL_CUSTOMIZATION
+    if (getContext().getLangOpts().IntelCompat && BuiltinID == X86::BI_rdtsc) {
+      // Alias _rdtsc to __builtin_ia32_rdtsc for ICC compatibility.  ICC's
+      // builtin predates GCC/clang, and exists in the wild.
+      Name = getContext().BuiltinInfo.getName(X86::BI__builtin_ia32_rdtsc);
+    }
+#endif // INTEL_CUSTOMIZATION
     IntrinsicID = Intrinsic::getIntrinsicForGCCBuiltin(Prefix, Name);
     // NOTE we dont need to perform a compatibility flag check here since the
     // intrinsics are declared in Builtins*.def via LANGBUILTIN which filter the
