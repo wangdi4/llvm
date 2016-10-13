@@ -34,8 +34,8 @@
 using namespace llvm;
 
 // Handle the Pass registration stuff necessary to use DataLayout's.
-INITIALIZE_PASS(DataLayoutPass, "datalayout", "Data Layout", false, true)
 
+INITIALIZE_PASS(DataLayoutPass, "datalayout", "Data Layout", false, true)
 char DataLayoutPass::ID = 0;
 
 //===----------------------------------------------------------------------===//

@@ -101,7 +101,6 @@ char StripSymbols::ID = 0;
 INITIALIZE_PASS(StripSymbols, "strip",
                 "Strip all symbols from a module", false, false)
 
-
 ModulePass *llvm::createStripSymbolsPass(bool OnlyDebugInfo) {
   return new StripSymbols(OnlyDebugInfo);
 }
