@@ -1883,9 +1883,8 @@ LPUOptDFPass::
 seq_mark_loop_ins_for_deletion(LPUSeqLoopInfo& loop,
                                MachineBasicBlock& BB,
                                SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& insMarkedForDeletion) {
-  const TargetMachine &TM = thisMF->getTarget();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();  
-  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
 
   DEBUG(errs() << "TBD: Initial set of instructions to delete: \n");
   for (auto it = insMarkedForDeletion.begin();

@@ -298,8 +298,7 @@ allocateLicsInBlock(MachineBasicBlock* BB)
   // Extract fields from the machine function.
   MachineFunction* MF = BB->getParent();
   MachineRegisterInfo *MRI = &(MF->getRegInfo());
-  const TargetMachine &TM = MF->getTarget();
-  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  const TargetRegisterInfo &TRI = *MF->getSubtarget().getRegisterInfo();
   LPUMachineFunctionInfo *LMFI = MF->getInfo<LPUMachineFunctionInfo>();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
     (MF->getSubtarget().getInstrInfo());

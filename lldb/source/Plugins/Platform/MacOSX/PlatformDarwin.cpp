@@ -212,9 +212,7 @@ PlatformDarwin::ResolveExecutable (const ModuleSpec &module_spec,
     {
         if (m_remote_platform_sp)
         {
-            error = m_remote_platform_sp->ResolveExecutable (module_spec,
-                                                             exe_module_sp,
-                                                             module_search_paths_ptr);
+            error = GetCachedExecutable (resolved_module_spec, exe_module_sp, module_search_paths_ptr, *m_remote_platform_sp);
         }
         else
         {
@@ -236,11 +234,11 @@ PlatformDarwin::ResolveExecutable (const ModuleSpec &module_spec,
         if (resolved_module_spec.GetArchitecture().IsValid())
         {
             error = ModuleList::GetSharedModule (resolved_module_spec,
-                                                 exe_module_sp, 
+                                                 exe_module_sp,
                                                  module_search_paths_ptr,
-                                                 NULL, 
+                                                 NULL,
                                                  NULL);
-        
+
             if (error.Fail() || exe_module_sp.get() == NULL || exe_module_sp->GetObjectFile() == NULL)
             {
                 exe_module_sp.reset();
@@ -258,11 +256,12 @@ PlatformDarwin::ResolveExecutable (const ModuleSpec &module_spec,
             for (uint32_t idx = 0; GetSupportedArchitectureAtIndex (idx, resolved_module_spec.GetArchitecture()); ++idx)
             {
                 error = GetSharedModule (resolved_module_spec,
-                                         exe_module_sp, 
+                                         NULL,
+                                         exe_module_sp,
                                          module_search_paths_ptr,
-                                         NULL, 
+                                         NULL,
                                          NULL);
-                // Did we find an executable using one of the 
+                // Did we find an executable using one of the
                 if (error.Success())
                 {
                     if (exe_module_sp && exe_module_sp->GetObjectFile())
@@ -469,6 +468,7 @@ PlatformDarwin::GetSharedModuleWithLocalCache (const lldb_private::ModuleSpec &m
 
 Error
 PlatformDarwin::GetSharedModule (const ModuleSpec &module_spec,
+                                 Process* process,
                                  ModuleSP &module_sp,
                                  const FileSpecList *module_search_paths_ptr,
                                  ModuleSP *old_module_sp_ptr,
@@ -484,6 +484,7 @@ PlatformDarwin::GetSharedModule (const ModuleSpec &module_spec,
         if (m_remote_platform_sp)
         {
             error = m_remote_platform_sp->GetSharedModule (module_spec,
+                                                           process,
                                                            module_sp,
                                                            module_search_paths_ptr,
                                                            old_module_sp_ptr,
@@ -495,6 +496,7 @@ PlatformDarwin::GetSharedModule (const ModuleSpec &module_spec,
     {
         // Fall back to the local platform and find the file locally
         error = Platform::GetSharedModule (module_spec,
+                                           process,
                                            module_sp,
                                            module_search_paths_ptr,
                                            old_module_sp_ptr,
@@ -515,6 +517,7 @@ PlatformDarwin::GetSharedModule (const ModuleSpec &module_spec,
                     if (Host::ResolveExecutableInBundle (new_module_spec.GetFileSpec()))
                     {
                         Error new_error (Platform::GetSharedModule (new_module_spec,
+                                                                    process,
                                                                     module_sp,
                                                                     NULL,
                                                                     old_module_sp_ptr,
@@ -544,6 +547,7 @@ PlatformDarwin::GetSharedModule (const ModuleSpec &module_spec,
                                 ModuleSpec new_module_spec (module_spec);
                                 new_module_spec.GetFileSpec() = new_file_spec;
                                 Error new_error (Platform::GetSharedModule (new_module_spec,
+                                                                            process,
                                                                             module_sp,
                                                                             NULL,
                                                                             old_module_sp_ptr,
@@ -1170,7 +1174,7 @@ PlatformDarwin::GetResumeCountForLaunchInfo (ProcessLaunchInfo &launch_info)
         // /bin/sh re-exec's itself as /bin/bash requiring another resume.
         // But it only does this if the COMMAND_MODE environment variable
         // is set to "legacy".
-        char * const *envp = (char * const*)launch_info.GetEnvironmentEntries().GetConstArgumentVector();
+        const char **envp = launch_info.GetEnvironmentEntries().GetConstArgumentVector();
         if (envp != NULL)
         {
             for (int i = 0; envp[i] != NULL; i++)
@@ -1342,7 +1346,7 @@ PlatformDarwin::DirectoryEnumerator(void *baton,
     }
     
     return FileSpec::EnumerateDirectoryResult::eEnumerateDirectoryResultNext;
-};
+}
 
 FileSpec
 PlatformDarwin::FindSDKInXcodeForModules (SDKType sdk_type,
@@ -1475,8 +1479,9 @@ PlatformDarwin::AddClangModuleCompilationOptionsForSDKType (Target *target, std:
             break;
     }
 
+    bool versions_valid = false;
     if (use_current_os_version)
-        GetOSVersion(versions[0], versions[1], versions[2]);
+        versions_valid = GetOSVersion(versions[0], versions[1], versions[2]);
     else if (target)
     {
         // Our OS doesn't match our executable so we need to get the min OS version from the object file
@@ -1485,14 +1490,17 @@ PlatformDarwin::AddClangModuleCompilationOptionsForSDKType (Target *target, std:
         {
             ObjectFile *object_file = exe_module_sp->GetObjectFile();
             if (object_file)
-                object_file->GetMinimumOSVersion(versions, 3);
+                versions_valid = object_file->GetMinimumOSVersion(versions, 3) > 0;
         }
     }
     // Only add the version-min options if we got a version from somewhere
-    if (versions[0])
+    if (versions_valid && versions[0] != UINT32_MAX)
     {
+        // Make any invalid versions be zero if needed
+        if (versions[1] == UINT32_MAX)
+            versions[1] = 0;
         if (versions[2] == UINT32_MAX)
-            versions[2] = 0; // FIXME who actually likes this behavior?
+            versions[2] = 0;
         
         switch (sdk_type)
         {

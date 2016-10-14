@@ -9,115 +9,31 @@
 #ifndef LLD_READER_WRITER_ELF_MIPS_MIPS_TARGET_HANDLER_H
 #define LLD_READER_WRITER_ELF_MIPS_MIPS_TARGET_HANDLER_H
 
-#include "DefaultTargetHandler.h"
+#include "ELFReader.h"
 #include "MipsDynamicLibraryWriter.h"
-#include "MipsELFReader.h"
+#include "MipsELFFile.h"
 #include "MipsExecutableWriter.h"
 #include "MipsLinkingContext.h"
-#include "MipsRelocationHandler.h"
-#include "MipsSectionChunks.h"
-#include "TargetLayout.h"
-#include "llvm/ADT/DenseSet.h"
+#include "MipsTargetLayout.h"
+#include "TargetHandler.h"
 
 namespace lld {
 namespace elf {
 
-/// \brief TargetLayout for Mips
-template <class ELFType>
-class MipsTargetLayout final : public TargetLayout<ELFType> {
-public:
-  MipsTargetLayout(const MipsLinkingContext &ctx)
-      : TargetLayout<ELFType>(ctx),
-        _gotSection(new (_alloc) MipsGOTSection<ELFType>(ctx)),
-        _pltSection(new (_alloc) MipsPLTSection<ELFType>(ctx)) {}
-
-  const MipsGOTSection<ELFType> &getGOTSection() const { return *_gotSection; }
-  const MipsPLTSection<ELFType> &getPLTSection() const { return *_pltSection; }
-
-  AtomSection<ELFType> *
-  createSection(StringRef name, int32_t type,
-                DefinedAtom::ContentPermissions permissions,
-                Layout::SectionOrder order) override {
-    if (type == DefinedAtom::typeGOT && name == ".got")
-      return _gotSection;
-    if (type == DefinedAtom::typeStub && name == ".plt")
-      return _pltSection;
-    return DefaultLayout<ELFType>::createSection(name, type, permissions,
-                                                 order);
-  }
-
-  /// \brief GP offset relative to .got section.
-  uint64_t getGPOffset() const { return 0x7FF0; }
-
-  /// \brief Get '_gp' symbol atom layout.
-  AtomLayout *getGP() {
-    if (!_gpAtom.hasValue()) {
-      auto atom = this->findAbsoluteAtom("_gp");
-      _gpAtom = atom != this->absoluteAtoms().end() ? *atom : nullptr;
-    }
-    return *_gpAtom;
-  }
-
-  /// \brief Get '_gp_disp' symbol atom layout.
-  AtomLayout *getGPDisp() {
-    if (!_gpDispAtom.hasValue()) {
-      auto atom = this->findAbsoluteAtom("_gp_disp");
-      _gpDispAtom = atom != this->absoluteAtoms().end() ? *atom : nullptr;
-    }
-    return *_gpDispAtom;
-  }
-
-  /// \brief Return the section order for a input section
-  Layout::SectionOrder getSectionOrder(StringRef name, int32_t contentType,
-                                       int32_t contentPermissions) override {
-    if ((contentType == DefinedAtom::typeStub) && (name.startswith(".text")))
-      return DefaultLayout<ELFType>::ORDER_TEXT;
-
-    return DefaultLayout<ELFType>::getSectionOrder(name, contentType,
-                                                   contentPermissions);
-  }
-
-private:
-  llvm::BumpPtrAllocator _alloc;
-  MipsGOTSection<ELFType> *_gotSection;
-  MipsPLTSection<ELFType> *_pltSection;
-  llvm::Optional<AtomLayout *> _gpAtom;
-  llvm::Optional<AtomLayout *> _gpDispAtom;
-};
-
-/// \brief Mips Runtime file.
-template <class ELFType>
-class MipsRuntimeFile final : public CRuntimeFile<ELFType> {
-public:
-  MipsRuntimeFile(MipsLinkingContext &ctx)
-      : CRuntimeFile<ELFType>(ctx, "Mips runtime file") {}
-};
-
-/// \brief Auxiliary class holds relocation's names table.
-class MipsRelocationStringTable {
-  static const Registry::KindStrings kindStrings[];
-
-public:
-  static void registerTable(Registry &registry);
-};
-
 /// \brief TargetHandler for Mips
-template <class ELFT>
-class MipsTargetHandler final : public DefaultTargetHandler<ELFT> {
+template <class ELFT> class MipsTargetHandler final : public TargetHandler {
 public:
   MipsTargetHandler(MipsLinkingContext &ctx)
-      : _ctx(ctx), _runtimeFile(new MipsRuntimeFile<ELFT>(ctx)),
-        _targetLayout(new MipsTargetLayout<ELFT>(ctx)),
-        _relocationHandler(createMipsRelocationHandler<ELFT>(ctx)) {}
-
-  MipsTargetLayout<ELFT> &getTargetLayout() override { return *_targetLayout; }
+      : _ctx(ctx), _targetLayout(new MipsTargetLayout<ELFT>(ctx)),
+        _relocationHandler(
+            createMipsRelocationHandler<ELFT>(ctx, *_targetLayout)) {}
 
   std::unique_ptr<Reader> getObjReader() override {
-    return std::unique_ptr<Reader>(new MipsELFObjectReader<ELFT>(_ctx));
+    return llvm::make_unique<ELFReader<MipsELFFile<ELFT>>>(_ctx);
   }
 
   std::unique_ptr<Reader> getDSOReader() override {
-    return std::unique_ptr<Reader>(new MipsELFDSOReader<ELFT>(_ctx));
+    return llvm::make_unique<ELFReader<DynamicFile<ELFT>>>(_ctx);
   }
 
   const TargetRelocationHandler &getRelocationHandler() const override {
@@ -127,11 +43,11 @@ public:
   std::unique_ptr<Writer> getWriter() override {
     switch (_ctx.getOutputELFType()) {
     case llvm::ELF::ET_EXEC:
-      return std::unique_ptr<Writer>(
-          new MipsExecutableWriter<ELFT>(_ctx, *_targetLayout));
+      return llvm::make_unique<MipsExecutableWriter<ELFT>>(
+          _ctx, *_targetLayout);
     case llvm::ELF::ET_DYN:
-      return std::unique_ptr<Writer>(
-          new MipsDynamicLibraryWriter<ELFT>(_ctx, *_targetLayout));
+      return llvm::make_unique<MipsDynamicLibraryWriter<ELFT>>(
+          _ctx, *_targetLayout);
     case llvm::ELF::ET_REL:
       llvm_unreachable("TODO: support -r mode");
     default:
@@ -139,13 +55,8 @@ public:
     }
   }
 
-  void registerRelocationNames(Registry &registry) override {
-    MipsRelocationStringTable::registerTable(registry);
-  }
-
 private:
   MipsLinkingContext &_ctx;
-  std::unique_ptr<MipsRuntimeFile<ELFT>> _runtimeFile;
   std::unique_ptr<MipsTargetLayout<ELFT>> _targetLayout;
   std::unique_ptr<TargetRelocationHandler> _relocationHandler;
 };
@@ -156,7 +67,7 @@ public:
 
   MipsSymbolTable(const ELFLinkingContext &ctx)
       : SymbolTable<ELFT>(ctx, ".symtab",
-                          DefaultLayout<ELFT>::ORDER_SYMBOL_TABLE) {}
+                          TargetLayout<ELFT>::ORDER_SYMBOL_TABLE) {}
 
   void addDefinedAtom(Elf_Sym &sym, const DefinedAtom *da,
                       int64_t addr) override {
@@ -174,7 +85,7 @@ public:
     }
   }
 
-  void finalize(bool sort = true) override {
+  void finalize(bool sort) override {
     SymbolTable<ELFT>::finalize(sort);
 
     for (auto &ste : this->_symbolTable) {
@@ -198,7 +109,7 @@ public:
   MipsDynamicSymbolTable(const ELFLinkingContext &ctx,
                          MipsTargetLayout<ELFT> &layout)
       : DynamicSymbolTable<ELFT>(ctx, layout, ".dynsym",
-                                 DefaultLayout<ELFT>::ORDER_DYNAMIC_SYMBOLS),
+                                 TargetLayout<ELFT>::ORDER_DYNAMIC_SYMBOLS),
         _targetLayout(layout) {}
 
   void sortSymbols() override {
@@ -247,6 +158,11 @@ public:
 private:
   MipsTargetLayout<ELFT> &_targetLayout;
 };
+
+std::unique_ptr<TargetHandler>
+createMips32ELTargetHandler(MipsLinkingContext &ctx);
+std::unique_ptr<TargetHandler>
+createMips64ELTargetHandler(MipsLinkingContext &ctx);
 
 } // end namespace elf
 } // end namespace lld

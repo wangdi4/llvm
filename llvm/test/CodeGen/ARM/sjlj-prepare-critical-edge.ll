@@ -79,7 +79,7 @@ declare void @terminatev()
 ; CHECK: str r0, [sp, [[OFFSET:#[0-9]+]]]
 ; CHECK: ldr [[R0:r[0-9]+]], [sp, [[OFFSET]]]
 ; CHECK: {{.*}}@ %do.body.i.i.i
-; CHECK: cmp [[R0]], #0
+; CHECK: cbz [[R0]]
 
 %"class.std::__1::basic_string" = type { %"class.std::__1::__compressed_pair" }
 %"class.std::__1::__compressed_pair" = type { %"class.std::__1::__libcpp_compressed_pair_imp" }
@@ -93,7 +93,7 @@ declare void @terminatev()
 define void @_Z4foo1c(i8 signext %a) {
 entry:
   %s1 = alloca %"class.std::__1::basic_string", align 4
-  call void @_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm(%"class.std::__1::basic_string"* %s1, i8* getelementptr inbounds ([12 x i8]* @.str, i32 0, i32 0), i32 11)
+  call void @_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm(%"class.std::__1::basic_string"* %s1, i8* getelementptr inbounds ([12 x i8], [12 x i8]* @.str, i32 0, i32 0), i32 11)
   %call.i.i.i14.i.i = invoke noalias i8* @_Znwm(i32 1024)
           to label %do.body.i.i.i unwind label %lpad.body
 

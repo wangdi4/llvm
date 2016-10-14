@@ -7,25 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-//++
-// File:        MIDriver.cpp
-//
-// Overview:    CMIDriver implementation.
-//
-// Environment: Compilers:  Visual C++ 12.
-//                          gcc (Ubuntu/Linaro 4.8.1-10ubuntu9) 4.8.1
-//              Libraries:  See MIReadmetxt.
-//
-// Copyright:   None.
-//--
-
 // Third party headers:
-#include <stdarg.h> // va_list, va_start, var_end
-#include <iostream>
+#include <fstream>
 #include "lldb/API/SBError.h"
 
 // In-house headers:
-#include "Driver.h"
 #include "MIDriver.h"
 #include "MICmnResources.h"
 #include "MICmnLog.h"
@@ -69,6 +55,7 @@ CMIDriver::CMIDriver(void)
     , m_eCurrentDriverState(eDriverState_NotRunning)
     , m_bHaveExecutableFileNamePathOnCmdLine(false)
     , m_bDriverDebuggingArgExecutable(false)
+    , m_bHaveCommandFileNamePathOnCmdLine(false)
 {
 }
 
@@ -186,22 +173,6 @@ CMIDriver::Initialize(void)
     MI::ModuleInit<CMICmdMgr>(IDS_MI_INIT_ERR_CMDMGR, bOk, errMsg);
     bOk &= m_rLldbDebugger.SetDriver(*this);
     MI::ModuleInit<CMICmnLLDBDebugger>(IDS_MI_INIT_ERR_LLDBDEBUGGER, bOk, errMsg);
-
-#if MICONFIG_COMPILE_MIDRIVER_WITH_LLDBDRIVER
-    CMIDriverMgr &rDrvMgr = CMIDriverMgr::Instance();
-    bOk = bOk && rDrvMgr.RegisterDriver(*g_driver, "LLDB driver"); // Will be pass thru driver
-    if (bOk)
-    {
-        bOk = SetEnableFallThru(false); // This is intentional at this time - yet to be fully implemented
-        bOk = bOk && SetDriverToFallThruTo(*g_driver);
-        CMIUtilString strOtherDrvErrMsg;
-        if (bOk && GetEnableFallThru() && !g_driver->MISetup(strOtherDrvErrMsg))
-        {
-            bOk = false;
-            errMsg = CMIUtilString::Format(MIRSRC(IDS_MI_INIT_ERR_FALLTHRUDRIVER), strOtherDrvErrMsg.c_str());
-        }
-    }
-#endif // MICONFIG_COMPILE_MIDRIVER_WITH_LLDBDRIVER
 
     m_bExitApp = false;
 
@@ -340,20 +311,6 @@ CMIDriver::GetError(void) const
 }
 
 //++ ------------------------------------------------------------------------------------
-// Details: Call *this driver to resize the console window.
-// Type:    Overridden.
-// Args:    vTermWidth - (R) New window column size.
-// Return:  MIstatus::success - Functional succeeded.
-//          MIstatus::failure - Functional failed.
-// Throws:  None.
-//--
-void
-CMIDriver::DoResizeWindow(const uint32_t vTermWidth)
-{
-    GetTheDebugger().SetTerminalWidth(vTermWidth);
-}
-
-//++ ------------------------------------------------------------------------------------
 // Details: Call *this driver to return it's debugger.
 // Type:    Overridden.
 // Args:    None.
@@ -415,8 +372,8 @@ CMIDriver::DoParseArgs(const int argc, const char *argv[], FILE *vpStdOut, bool 
 //          that are only handled by *this driver:
 //              --executable
 //          The application's options --interpreter and --executable in code act very similar.
-//          The --executable is necessary to differentiate whither the MI Driver is being
-//          using by a client i.e. Eclipse or from the command line. Eclipse issues the option
+//          The --executable is necessary to differentiate whether the MI Driver is being
+//          used by a client (e.g. Eclipse) or from the command line. Eclipse issues the option
 //          --interpreter and also passes additional arguments which can be interpreted as an
 //          executable if called from the command line. Using --executable tells the MI
 //          Driver is being called the command line and that the executable argument is indeed
@@ -452,20 +409,40 @@ CMIDriver::ParseArgs(const int argc, const char *argv[], FILE *vpStdOut, bool &v
 
     if (bHaveArgs)
     {
-        // Search right to left to look for the executable
+        // Search right to left to look for filenames
         for (MIint i = argc - 1; i > 0; i--)
         {
             const CMIUtilString strArg(argv[i]);
             const CMICmdArgValFile argFile;
+
+            // Check for a filename
             if (argFile.IsFilePath(strArg) || CMICmdArgValString(true, false, true).IsStringArg(strArg))
             {
+                // Is this the command file for the '-s' or '--source' options?
+                const CMIUtilString strPrevArg(argv[i - 1]);
+                if (strPrevArg.compare("-s") == 0 || strPrevArg.compare("--source") == 0)
+                {
+                    m_strCmdLineArgCommandFileNamePath = strArg;
+                    m_bHaveCommandFileNamePathOnCmdLine = true;
+                    i--; // skip '-s' on the next loop
+                    continue;
+                }
+                // Else, must be the executable
                 bHaveExecutableFileNamePath = true;
-                m_strCmdLineArgExecuteableFileNamePath = argFile.GetFileNamePath(strArg);
+                m_strCmdLineArgExecuteableFileNamePath = strArg;
                 m_bHaveExecutableFileNamePathOnCmdLine = true;
             }
-            // This argument is also check for in CMIDriverMgr::ParseArgs()
-            if (0 == strArg.compare("--executable")) // Used to specify that there is executable argument also on the command line
-            {                                        // See fn description.
+            // Report error if no command file was specified for the '-s' or '--source' options
+            else if (strArg.compare("-s") == 0 || strArg.compare("--source") == 0)
+            {
+                vwbExiting = true;
+                const CMIUtilString errMsg = CMIUtilString::Format(MIRSRC(IDS_CMD_ARGS_ERR_VALIDATION_MISSING_INF), strArg.c_str());
+                errStatus.SetErrorString(errMsg.c_str());
+                break;
+            }
+            // This argument is also checked for in CMIDriverMgr::ParseArgs()
+            else if (strArg.compare("--executable") == 0) // Used to specify that there is executable argument also on the command line
+            {                                             // See fn description.
                 bHaveExecutableLongOption = true;
             }
         }
@@ -473,13 +450,7 @@ CMIDriver::ParseArgs(const int argc, const char *argv[], FILE *vpStdOut, bool &v
 
     if (bHaveExecutableFileNamePath && bHaveExecutableLongOption)
     {
-// CODETAG_CMDLINE_ARG_EXECUTABLE_DEBUG_SESSION
-#if MICONFIG_ENABLE_MI_DRIVER_MI_MODE_CMDLINE_ARG_EXECUTABLE_DEBUG_SESSION
         SetDriverDebuggingArgExecutable();
-#else
-        vwbExiting = true;
-        errStatus.SetErrorString(MIRSRC(IDS_DRIVER_ERR_LOCAL_DEBUG_NOT_IMPL));
-#endif // MICONFIG_ENABLE_MI_DRIVER_MI_MODE_CMDLINE_ARG_EXECUTABLE_DEBUG_SESSION
     }
 
     return errStatus;
@@ -563,23 +534,29 @@ CMIDriver::DoMainLoop(void)
     if (!StartWorkerThreads())
         return MIstatus::failure;
 
-    // App is not quitting currently
-    m_bExitApp = false;
+    bool bOk = MIstatus::success;
 
-// CODETAG_CMDLINE_ARG_EXECUTABLE_DEBUG_SESSION
-#if MICONFIG_ENABLE_MI_DRIVER_MI_MODE_CMDLINE_ARG_EXECUTABLE_DEBUG_SESSION
     if (HaveExecutableFileNamePathOnCmdLine())
     {
         if (!LocalDebugSessionStartupExecuteCommands())
         {
             SetErrorDescription(MIRSRC(IDS_MI_INIT_ERR_LOCAL_DEBUG_SESSION));
-            return MIstatus::failure;
+            bOk = MIstatus::failure;
         }
     }
-#endif // MICONFIG_ENABLE_MI_DRIVER_MI_MODE_CMDLINE_ARG_EXECUTABLE_DEBUG_SESSION
+
+    // App is not quitting currently
+    m_bExitApp = false;
+
+    // Handle source file
+    if (m_bHaveCommandFileNamePathOnCmdLine)
+    {
+        const bool bAsyncMode = false;
+        ExecuteCommandFile(bAsyncMode);
+    }
 
     // While the app is active
-    while (!m_bExitApp)
+    while (bOk && !m_bExitApp)
     {
         CMIUtilString errorText;
         const MIchar *pCmd = m_rStdin.ReadLine (errorText);
@@ -588,23 +565,21 @@ CMIDriver::DoMainLoop(void)
             CMIUtilString lineText(pCmd);
             if (!lineText.empty ())
             {
-                if (lineText == "quit")
-                {
-                    // We want to be exiting when receiving a quit command
-                    m_bExitApp = true;
-                    break;
-                }
+                // Check that the handler thread is alive (otherwise we stuck here)
+                assert(CMICmnLLDBDebugger::Instance().ThreadIsActive());
 
-                bool bOk = false;
                 {
                     // Lock Mutex before processing commands so that we don't disturb an event
                     // being processed
                     CMIUtilThreadLock lock(CMICmnLLDBDebugSessionInfo::Instance().GetSessionMutex());
                     bOk = InterpretCommand(lineText);
                 }
+
                 // Draw prompt if desired
-                if (bOk && m_rStdin.GetEnablePrompt())
-                    m_rStdOut.WriteMIResponse(m_rStdin.GetPrompt());
+                bOk = bOk && CMICmnStreamStdout::WritePrompt();
+
+                // Wait while the handler thread handles incoming events
+                CMICmnLLDBDebugger::Instance().WaitForHandleEvent();
             }
         }
     }
@@ -857,6 +832,79 @@ CMIDriver::InterpretCommand(const CMIUtilString &vTextLine)
 }
 
 //++ ------------------------------------------------------------------------------------
+// Details: Helper function for CMIDriver::InterpretCommandThisDriver.
+//          Convert a CLI command to MI command (just wrap any CLI command
+//          into "<tokens>-interpreter-exec command \"<CLI command>\"").
+// Type:    Method.
+// Args:    vTextLine   - (R) Text data representing a possible command.
+// Return:  CMIUtilString   - The original MI command or converted CLI command.
+//          MIstatus::failure - Functional failed.
+// Throws:  None.
+//--
+CMIUtilString
+CMIDriver::WrapCLICommandIntoMICommand(const CMIUtilString &vTextLine) const
+{
+    // Tokens contain following digits
+    static const CMIUtilString digits("0123456789");
+
+    // Consider an algorithm on the following example:
+    // 001-file-exec-and-symbols "/path/to/file"
+    //
+    // 1. Skip a command token
+    // For example:
+    // 001-file-exec-and-symbols "/path/to/file"
+    // 001target create "/path/to/file"
+    //    ^ -- command starts here (in both cases)
+    // Also possible case when command not found:
+    // 001
+    //    ^ -- i.e. only tokens are present (or empty string at all)
+    const MIuint nCommandOffset = vTextLine.find_first_not_of(digits);
+
+    // 2. Check if command is empty
+    // For example:
+    // 001-file-exec-and-symbols "/path/to/file"
+    // 001target create "/path/to/file"
+    //    ^ -- command not empty (in both cases)
+    // or:
+    // 001
+    //    ^ -- command wasn't found
+    const bool bIsEmptyCommand = (nCommandOffset == (MIuint)CMIUtilString::npos);
+
+    // 3. Check and exit if it isn't a CLI command
+    // For example:
+    // 001-file-exec-and-symbols "/path/to/file"
+    // 001
+    //    ^ -- it isn't CLI command (in both cases)
+    // or:
+    // 001target create "/path/to/file"
+    //    ^ -- it's CLI command
+    const bool bIsCliCommand = !bIsEmptyCommand && (vTextLine.at(nCommandOffset) != '-');
+    if (!bIsCliCommand)
+        return vTextLine;
+
+   // 4. Wrap CLI command to make it MI-compatible
+   //
+   // 001target create "/path/to/file"
+   // ^^^ -- token
+   const std::string vToken(vTextLine.begin(), vTextLine.begin() + nCommandOffset);
+   // 001target create "/path/to/file"
+   //    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ -- CLI command
+   const CMIUtilString vCliCommand(std::string(vTextLine, nCommandOffset).c_str());
+
+   // 5. Escape special characters and embed the command in a string
+   // Result: it looks like -- target create \"/path/to/file\".
+   const std::string vShieldedCliCommand(vCliCommand.AddSlashes());
+
+   // 6. Turn the CLI command into an MI command, as in:
+   // 001-interpreter-exec command "target create \"/path/to/file\""
+   // ^^^ -- token
+   //    ^^^^^^^^^^^^^^^^^^^^^^^^^^^                               ^ -- wrapper
+   //                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ -- shielded CLI command
+   return CMIUtilString::Format("%s-interpreter-exec command \"%s\"",
+                                vToken.c_str(), vShieldedCliCommand.c_str());
+}
+
+//++ ------------------------------------------------------------------------------------
 // Details: Interpret the text data and match against current commands to see if there
 //          is a match. If a match then the command is issued and actioned on. If a
 //          command cannot be found to match then vwbCmdYesValid is set to false and
@@ -864,7 +912,7 @@ CMIDriver::InterpretCommand(const CMIUtilString &vTextLine)
 //          This function is used by the application's main thread.
 // Type:    Method.
 // Args:    vTextLine           - (R) Text data representing a possible command.
-//          vwbCmdYesValid      - (W) True = Command invalid, false = command acted on.
+//          vwbCmdYesValid      - (W) True = Command valid, false = command not handled.
 // Return:  MIstatus::success - Functional succeeded.
 //          MIstatus::failure - Functional failed.
 // Throws:  None.
@@ -872,12 +920,14 @@ CMIDriver::InterpretCommand(const CMIUtilString &vTextLine)
 bool
 CMIDriver::InterpretCommandThisDriver(const CMIUtilString &vTextLine, bool &vwbCmdYesValid)
 {
-    vwbCmdYesValid = false;
+    // Convert any CLI commands into MI commands
+    CMIUtilString vMITextLine(WrapCLICommandIntoMICommand(vTextLine));
 
+    vwbCmdYesValid = false;
     bool bCmdNotInCmdFactor = false;
     SMICmdData cmdData;
     CMICmdMgr &rCmdMgr = CMICmdMgr::Instance();
-    if (!rCmdMgr.CmdInterpret(vTextLine, vwbCmdYesValid, bCmdNotInCmdFactor, cmdData))
+    if (!rCmdMgr.CmdInterpret(vMITextLine, vwbCmdYesValid, bCmdNotInCmdFactor, cmdData))
         return MIstatus::failure;
 
     if (vwbCmdYesValid)
@@ -891,12 +941,12 @@ CMIDriver::InterpretCommandThisDriver(const CMIUtilString &vTextLine, bool &vwbC
     // Check for escape character, may be cursor control characters
     // This code is not necessary for application operation, just want to keep tabs on what
     // is been given to the driver to try and intepret.
-    if (vTextLine.at(0) == 27)
+    if (vMITextLine.at(0) == 27)
     {
         CMIUtilString logInput(MIRSRC(IDS_STDIN_INPUT_CTRL_CHARS));
-        for (MIuint i = 0; i < vTextLine.length(); i++)
+        for (MIuint i = 0; i < vMITextLine.length(); i++)
         {
-            logInput += CMIUtilString::Format("%d ", vTextLine.at(i));
+            logInput += CMIUtilString::Format("%d ", vMITextLine.at(i));
         }
         m_pLog->WriteLog(logInput);
         return MIstatus::success;
@@ -909,13 +959,11 @@ CMIDriver::InterpretCommandThisDriver(const CMIUtilString &vTextLine, bool &vwbC
         strNotInCmdFactory = CMIUtilString::Format(MIRSRC(IDS_DRIVER_CMD_NOT_IN_FACTORY), cmdData.strMiCmd.c_str());
     const CMIUtilString strNot(CMIUtilString::Format("%s ", MIRSRC(IDS_WORD_NOT)));
     const CMIUtilString msg(
-        CMIUtilString::Format(MIRSRC(IDS_DRIVER_CMD_RECEIVED), vTextLine.c_str(), strNot.c_str(), strNotInCmdFactory.c_str()));
+        CMIUtilString::Format(MIRSRC(IDS_DRIVER_CMD_RECEIVED), vMITextLine.c_str(), strNot.c_str(), strNotInCmdFactory.c_str()));
     const CMICmnMIValueConst vconst = CMICmnMIValueConst(msg);
     const CMICmnMIValueResult valueResult("msg", vconst);
     const CMICmnMIResultRecord miResultRecord(cmdData.strMiCmdToken, CMICmnMIResultRecord::eResultClass_Error, valueResult);
-    bool bOk = m_rStdOut.WriteMIResponse(miResultRecord.GetString());
-    if (bOk && m_rStdin.GetEnablePrompt())
-        bOk = m_rStdOut.WriteMIResponse(m_rStdin.GetPrompt());
+    const bool bOk = m_rStdOut.WriteMIResponse(miResultRecord.GetString());
 
     // Proceed to wait for or execute next command
     return bOk;
@@ -1124,9 +1172,7 @@ CMIDriver::InitClientIDEToMIDriver(void) const
 bool
 CMIDriver::InitClientIDEEclipse(void) const
 {
-    std::cout << "(gdb)" << std::endl;
-
-    return MIstatus::success;
+    return CMICmnStreamStdout::WritePrompt();
 }
 
 //++ ------------------------------------------------------------------------------------
@@ -1176,8 +1222,7 @@ CMIDriver::LocalDebugSessionStartupExecuteCommands(void)
     const CMIUtilString strCmd(CMIUtilString::Format("-file-exec-and-symbols \"%s\"", m_strCmdLineArgExecuteableFileNamePath.AddSlashes().c_str()));
     bool bOk = CMICmnStreamStdout::TextToStdout(strCmd);
     bOk = bOk && InterpretCommand(strCmd);
-    if (bOk && m_rStdin.GetEnablePrompt())
-        bOk = m_rStdOut.WriteMIResponse(m_rStdin.GetPrompt());
+    bOk = bOk && CMICmnStreamStdout::WritePrompt();
     return bOk;
 }
 
@@ -1208,6 +1253,73 @@ bool
 CMIDriver::IsDriverDebuggingArgExecutable(void) const
 {
     return m_bDriverDebuggingArgExecutable;
+}
+
+//++ ------------------------------------------------------------------------------------
+// Details: Execute commands from prepared source file
+// Type:    Method.
+// Args:    vbAsyncMode       - (R) True = execute commands in asynchronous mode, false = otherwise.
+// Return:  MIstatus::success - Function succeeded.
+//          MIstatus::failure - Function failed.
+// Throws:  None.
+//--
+bool
+CMIDriver::ExecuteCommandFile(const bool vbAsyncMode)
+{
+    std::ifstream ifsStartScript(m_strCmdLineArgCommandFileNamePath.c_str());
+    if (!ifsStartScript.is_open())
+    {
+        const CMIUtilString errMsg(
+            CMIUtilString::Format(MIRSRC(IDS_UTIL_FILE_ERR_OPENING_FILE_UNKNOWN), m_strCmdLineArgCommandFileNamePath.c_str()));
+        SetErrorDescription(errMsg.c_str());
+        const bool bForceExit = true;
+        SetExitApplicationFlag(bForceExit);
+        return MIstatus::failure;
+    }
+
+    // Switch lldb to synchronous mode
+    CMICmnLLDBDebugSessionInfo &rSessionInfo(CMICmnLLDBDebugSessionInfo::Instance());
+    const bool bAsyncSetting = rSessionInfo.GetDebugger().GetAsync();
+    rSessionInfo.GetDebugger().SetAsync(vbAsyncMode);
+
+    // Execute commands from file
+    bool bOk = MIstatus::success;
+    CMIUtilString strCommand;
+    while (!m_bExitApp && std::getline(ifsStartScript, strCommand))
+    {
+        // Print command
+        bOk = CMICmnStreamStdout::TextToStdout(strCommand);
+
+        // Skip if it's a comment or empty line
+        if (strCommand.empty() || strCommand[0] == '#')
+            continue;
+
+        // Execute if no error
+        if (bOk)
+        {
+            CMIUtilThreadLock lock(rSessionInfo.GetSessionMutex());
+            bOk = InterpretCommand(strCommand);
+        }
+
+        // Draw the prompt after command will be executed (if enabled)
+        bOk = bOk && CMICmnStreamStdout::WritePrompt();
+
+        // Exit if there is an error
+        if (!bOk)
+        {
+            const bool bForceExit = true;
+            SetExitApplicationFlag(bForceExit);
+            break;
+        }
+
+        // Wait while the handler thread handles incoming events
+        CMICmnLLDBDebugger::Instance().WaitForHandleEvent();
+    }
+
+    // Switch lldb back to initial mode
+    rSessionInfo.GetDebugger().SetAsync(bAsyncSetting);
+
+    return bOk;
 }
 
 //++ ------------------------------------------------------------------------------------

@@ -21,7 +21,7 @@
 
 namespace llvm {
 namespace NVPTXISD {
-enum NodeType {
+enum NodeType : unsigned {
   // Start the numbering from where ISD NodeType finishes.
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
   Wrapper,
@@ -496,6 +496,12 @@ public:
   void LowerAsmOperandForConstraint(SDValue Op, std::string &Constraint,
                                     std::vector<SDValue> &Ops,
                                     SelectionDAG &DAG) const override;
+
+  unsigned getInlineAsmMemConstraint(
+      const std::string &ConstraintCode) const override {
+    // FIXME: Map different constraints differently.
+    return InlineAsm::Constraint_m;
+  }
 
   const NVPTXTargetMachine *nvTM;
 

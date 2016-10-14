@@ -33,9 +33,11 @@ namespace llvm {
     };
   }
 
+  class LPUSubtarget;
+
   class LPUTargetLowering : public TargetLowering {
   public:
-    explicit LPUTargetLowering(const TargetMachine &TM);
+    explicit LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget &ST);
 
     EVT getSetCCResultType(LLVMContext &Context, EVT VT) const override;
 

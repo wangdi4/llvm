@@ -261,10 +261,10 @@ def int_gcwrite : Intrinsic<[],
 //
 def int_returnaddress : Intrinsic<[llvm_ptr_ty], [llvm_i32_ty], [IntrNoMem]>;
 def int_frameaddress  : Intrinsic<[llvm_ptr_ty], [llvm_i32_ty], [IntrNoMem]>;
-def int_frameallocate : Intrinsic<[llvm_ptr_ty], [llvm_i32_ty]>;
+def int_frameescape : Intrinsic<[], [llvm_vararg_ty]>;
 def int_framerecover : Intrinsic<[llvm_ptr_ty],
-                                             [llvm_ptr_ty, llvm_ptr_ty],
-                                             [IntrNoMem]>;
+                                 [llvm_ptr_ty, llvm_ptr_ty, llvm_i32_ty],
+                                 [IntrNoMem]>;
 def int_read_register  : Intrinsic<[llvm_anyint_ty], [llvm_metadata_ty],
                                    [IntrNoMem], "llvm.read_register">;
 def int_write_register : Intrinsic<[], [llvm_metadata_ty, llvm_anyint_ty],
@@ -418,6 +418,12 @@ def int_eh_begincatch : Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty],
                                   [NoCapture<0>, NoCapture<1>]>;
 def int_eh_endcatch : Intrinsic<[], []>;
 
+// Represents the list of actions to take when an exception is thrown.
+def int_eh_actions : Intrinsic<[llvm_ptr_ty], [llvm_vararg_ty], []>;
+
+def int_eh_exceptioncode : Intrinsic<[llvm_i32_ty], []>;
+def int_eh_exceptioninfo : Intrinsic<[llvm_ptr_ty], []>;
+
 // __builtin_unwind_init is an undocumented GCC intrinsic that causes all
 // callee-saved registers to be saved and restored (regardless of whether they
 // are used) in the calling function. It is used by libgcc_eh.
@@ -522,7 +528,8 @@ def int_experimental_patchpoint_i64 : Intrinsic<[llvm_i64_ty],
 // These are documented in docs/Statepoint.rst
 
 def int_experimental_gc_statepoint : Intrinsic<[llvm_i32_ty],
-                               [llvm_anyptr_ty, llvm_i32_ty,
+                               [llvm_i64_ty, llvm_i32_ty,
+                                llvm_anyptr_ty, llvm_i32_ty,
                                 llvm_i32_ty, llvm_vararg_ty]>;
 
 def int_experimental_gc_result   : Intrinsic<[llvm_any_ty], [llvm_i32_ty]>;
@@ -623,3 +630,4 @@ include "llvm/IR/IntrinsicsNVVM.td"
 include "llvm/IR/IntrinsicsMips.td"
 include "llvm/IR/IntrinsicsR600.td"
 include "llvm/IR/IntrinsicsBPF.td"
+include "llvm/IR/IntrinsicsSystemZ.td"

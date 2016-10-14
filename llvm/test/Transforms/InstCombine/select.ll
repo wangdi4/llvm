@@ -423,11 +423,11 @@ jump:
   %c = or i1 false, false
   br label %ret 
 ret:
-  %a = phi i1 [true, %jump], [%c, %entry]
-  %b = select i1 %a, i32 10, i32 20
+  %a = phi i1 [true, %entry], [%c, %jump]
+  %b = select i1 %a, i32 20, i32 10
   ret i32 %b
 ; CHECK-LABEL: @test26(
-; CHECK: %a = phi i32 [ 10, %jump ], [ 20, %entry ]
+; CHECK: %a = phi i32 [ 20, %entry ], [ 10, %jump ]
 ; CHECK-NEXT: ret i32 %a
 }
 
@@ -1518,5 +1518,17 @@ define i32 @test_select_select1(i32 %a, i32 %r0, i32 %r1, i32 %v1, i32 %v2) {
   %s0 = select i1 %c0, i32 %r0, i32 %r1
   %c1 = icmp slt i32 %a, %v2
   %s1 = select i1 %c1, i32 %r0, i32 %s0
+  ret i32 %s1
+}
+
+define i32 @test_max_of_min(i32 %a) {
+; MAX(MIN(%a, -1), -1) == -1
+; CHECK-LABEL: @test_max_of_min(
+; CHECK: ret i32 -1
+  %not_a = xor i32 %a, -1
+  %c0 = icmp sgt i32 %a, 0
+  %s0 = select i1 %c0, i32 %not_a, i32 -1
+  %c1 = icmp sgt i32 %s0, -1
+  %s1 = select i1 %c1, i32 %s0, i32 -1
   ret i32 %s1
 }

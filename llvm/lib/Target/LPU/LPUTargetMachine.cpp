@@ -20,7 +20,6 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -51,6 +50,11 @@ RunLPUStatistics("lpu-run-statistics", cl::Hidden,
 	cl::desc("LPU Specific: collect statistics for DF instructions"),
 	cl::init(0));
 
+// Helper function to build a DataLayout string
+static std::string computeDataLayout() {
+  return "e-m:e-i64:64-n32:64";
+}
+
 extern "C" void LLVMInitializeLPUTarget() {
   // Register the target.
   RegisterTargetMachine<LPUTargetMachine> X(TheLPUTarget);
@@ -61,9 +65,8 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, StringRef TT,
                                          const TargetOptions &Options,
                                          Reloc::Model RM, CodeModel::Model CM,
                                          CodeGenOpt::Level OL)
-    : LLVMTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL),
+    : LLVMTargetMachine(T, computeDataLayout(), TT, CPU, FS, Options, RM, CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
-      DL("e-m:e-i64:64-n32:64"),
       Subtarget(TT, CPU, FS, *this) {
   // Not sure this is needed
   //setRequiresStructuredCFG(true);

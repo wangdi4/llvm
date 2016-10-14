@@ -80,20 +80,23 @@ loadFile(MachOLinkingContext &ctx, StringRef path,
   ErrorOr<std::unique_ptr<MemoryBuffer>> mbOrErr = ctx.getMemoryBuffer(path);
   if (std::error_code ec = mbOrErr.getError())
     return makeErrorFile(path, ec);
-  std::vector<std::unique_ptr<File>> files;
-  if (std::error_code ec = ctx.registry().loadFile(std::move(mbOrErr.get()), files))
+  ErrorOr<std::unique_ptr<File>> fileOrErr =
+      ctx.registry().loadFile(std::move(mbOrErr.get()));
+  if (std::error_code ec = fileOrErr.getError())
     return makeErrorFile(path, ec);
-  for (std::unique_ptr<File> &pf : files) {
-    // If file is a dylib, inform LinkingContext about it.
-    if (SharedLibraryFile *shl = dyn_cast<SharedLibraryFile>(pf.get())) {
-      if (std::error_code ec = shl->parse())
-        return makeErrorFile(path, ec);
-      ctx.registerDylib(reinterpret_cast<mach_o::MachODylibFile*>(shl),
-                        upwardDylib);
-    }
+  std::unique_ptr<File> &file = fileOrErr.get();
+
+  // If file is a dylib, inform LinkingContext about it.
+  if (SharedLibraryFile *shl = dyn_cast<SharedLibraryFile>(file.get())) {
+    if (std::error_code ec = shl->parse())
+      return makeErrorFile(path, ec);
+    ctx.registerDylib(reinterpret_cast<mach_o::MachODylibFile *>(shl),
+                      upwardDylib);
   }
   if (wholeArchive)
-    return parseMemberFiles(files);
+    return parseMemberFiles(std::move(file));
+  std::vector<std::unique_ptr<File>> files;
+  files.push_back(std::move(file));
   return files;
 }
 
@@ -479,15 +482,15 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
                   << alignStr << "' not a valid number\n";
       return false;
     }
-    uint8_t align2 = llvm::countTrailingZeros(alignValue);
-    if ( (unsigned long)(1 << align2) != alignValue ) {
+    uint16_t align = 1 << llvm::countTrailingZeros(alignValue);
+    if (!llvm::isPowerOf2_64(alignValue)) {
       diagnostics << "warning: alignment for '-sectalign "
                   << segName << " " << sectName
                   << llvm::format(" 0x%llX", alignValue)
                   << "' is not a power of two, using "
-                  << llvm::format("0x%08X", (1 << align2)) << "\n";
+                  << llvm::format("0x%08X", align) << "\n";
     }
-    ctx.addSectionAlignment(segName, sectName, align2);
+    ctx.addSectionAlignment(segName, sectName, align);
   }
 
   // Handle -mllvm
@@ -544,7 +547,6 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
   if (!ctx.doNothing()) {
     ctx.registry().addSupportMachOObjects(ctx);
     ctx.registry().addSupportArchives(ctx.logInputFiles());
-    ctx.registry().addSupportNativeObjects();
     ctx.registry().addSupportYamlFiles();
   }
 

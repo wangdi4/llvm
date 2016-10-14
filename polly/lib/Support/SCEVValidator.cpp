@@ -1,11 +1,10 @@
 
 #include "polly/Support/SCEVValidator.h"
 #include "polly/ScopInfo.h"
+#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
-#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Support/Debug.h"
-
 #include <vector>
 
 using namespace llvm;
@@ -228,7 +227,7 @@ public:
       Return.merge(Op);
     }
 
-    if (HasMultipleParams)
+    if (HasMultipleParams && Return.isValid())
       return ValidatorResult(SCEVType::PARAM, Expr);
 
     // TODO: Check for NSW and NUW.
@@ -287,7 +286,7 @@ public:
     // if 'start' is not zero.
     const SCEV *ZeroStartExpr = SE.getAddRecExpr(
         SE.getConstant(Expr->getStart()->getType(), 0),
-        Expr->getStepRecurrence(SE), Expr->getLoop(), SCEV::FlagAnyWrap);
+        Expr->getStepRecurrence(SE), Expr->getLoop(), Expr->getNoWrapFlags());
 
     ValidatorResult ZeroStartResult =
         ValidatorResult(SCEVType::PARAM, ZeroStartExpr);
@@ -559,7 +558,27 @@ std::vector<const SCEV *> getParamsInAffineExpr(const Region *R,
 
   SCEVValidator Validator(R, SE, BaseAddress);
   ValidatorResult Result = Validator.visit(Expr);
+  assert(Result.isValid() && "Requested parameters for an invalid SCEV!");
 
   return Result.getParameters();
+}
+
+std::pair<const SCEV *, const SCEV *>
+extractConstantFactor(const SCEV *S, ScalarEvolution &SE) {
+
+  const SCEV *LeftOver = SE.getConstant(S->getType(), 1);
+  const SCEV *ConstPart = SE.getConstant(S->getType(), 1);
+
+  const SCEVMulExpr *M = dyn_cast<SCEVMulExpr>(S);
+  if (!M)
+    return std::make_pair(ConstPart, S);
+
+  for (const SCEV *Op : M->operands())
+    if (isa<SCEVConstant>(Op))
+      ConstPart = SE.getMulExpr(ConstPart, Op);
+    else
+      LeftOver = SE.getMulExpr(LeftOver, Op);
+
+  return std::make_pair(ConstPart, LeftOver);
 }
 }

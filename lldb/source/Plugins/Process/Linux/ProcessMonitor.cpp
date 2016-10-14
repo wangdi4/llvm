@@ -24,6 +24,7 @@
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Host/Host.h"
+#include "lldb/Host/HostNativeThread.h"
 #include "lldb/Host/HostThread.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Target/Thread.h"
@@ -36,14 +37,16 @@
 #include "ProcessLinux.h"
 #include "Plugins/Process/POSIX/ProcessPOSIXLog.h"
 #include "ProcessMonitor.h"
+#include "Procfs.h"
 
 // System includes - They have to be included after framework includes because they define some
 // macros which collide with variable names in other modules
-#ifndef __ANDROID__
-#include <sys/procfs.h>
-#endif
-#include <sys/personality.h>
-#include <sys/ptrace.h>
+
+#include "lldb/Host/linux/Personality.h"
+#include "lldb/Host/linux/Ptrace.h"
+#include "lldb/Host/linux/Signalfd.h"
+#include "lldb/Host/android/Android.h"
+
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -51,36 +54,7 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 
-#ifdef __ANDROID__
-#define __ptrace_request int
-#define PT_DETACH PTRACE_DETACH
-#endif
-
-#define DEBUG_PTRACE_MAXBYTES 20
-
-// Support ptrace extensions even when compiled without required kernel support
-#ifndef PTRACE_GETREGSET
-  #define PTRACE_GETREGSET 0x4204
-#endif
-#ifndef PTRACE_SETREGSET
-  #define PTRACE_SETREGSET 0x4205
-#endif
-#ifndef PTRACE_GET_THREAD_AREA
-  #define PTRACE_GET_THREAD_AREA 25
-#endif
-#ifndef PTRACE_ARCH_PRCTL
-  #define PTRACE_ARCH_PRCTL      30
-#endif
-#ifndef ARCH_GET_FS
-  #define ARCH_SET_GS 0x1001
-  #define ARCH_SET_FS 0x1002
-  #define ARCH_GET_FS 0x1003
-  #define ARCH_GET_GS 0x1004
-#endif
-
 #define LLDB_PERSONALITY_GET_CURRENT_SETTINGS  0xffffffff
-
-#define LLDB_PTRACE_NT_ARM_TLS  0x401           // ARM TLS register
 
 // Support hardware breakpoints in case it has not been defined
 #ifndef TRAP_HWBKPT
@@ -93,6 +67,9 @@
     syscall(SYS_tgkill, static_cast<::pid_t>(pid), static_cast<::pid_t>(tid), sig)
 
 using namespace lldb_private;
+using namespace lldb_private::process_linux;
+
+static Operation* EXIT_OPERATION = nullptr;
 
 // FIXME: this code is host-dependent with respect to types and
 // endianness and needs to be fixed.  For example, lldb::addr_t is
@@ -374,7 +351,7 @@ DoWriteMemory(lldb::pid_t pid,
                  (log->GetMask().Test(POSIX_LOG_MEMORY_DATA_SHORT) &&
                   size <= POSIX_LOG_MEMORY_SHORT_BYTES)))
                  log->Printf ("ProcessMonitor::%s() [%p]:0x%lx (0x%lx)", __FUNCTION__,
-                              (void*)vm_addr, *(unsigned long*)src, *(unsigned long*)buff);
+                              (void*)vm_addr, *(const unsigned long*)src, *(const unsigned long*)buff);
         }
 
         vm_addr += word_size;
@@ -437,7 +414,7 @@ public:
           m_error(error), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::addr_t m_addr;
@@ -467,7 +444,7 @@ public:
           m_error(error), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::addr_t m_addr;
@@ -498,7 +475,7 @@ public:
           m_value(value), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -583,7 +560,7 @@ public:
           m_value(value), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -668,7 +645,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -708,7 +685,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -748,7 +725,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_regset(regset), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -777,7 +754,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -817,7 +794,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -857,7 +834,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_regset(regset), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -886,7 +863,7 @@ public:
         : m_tid(tid), m_addr(addr), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -970,7 +947,7 @@ public:
     ResumeOperation(lldb::tid_t tid, uint32_t signo, bool &result) :
         m_tid(tid), m_signo(signo), m_result(result) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -1007,7 +984,7 @@ public:
     SingleStepOperation(lldb::tid_t tid, uint32_t signo, bool &result)
         : m_tid(tid), m_signo(signo), m_result(result) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -1038,7 +1015,7 @@ public:
     SiginfoOperation(lldb::tid_t tid, void *info, bool &result, int &ptrace_err)
         : m_tid(tid), m_info(info), m_result(result), m_err(ptrace_err) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -1067,7 +1044,7 @@ public:
     EventMessageOperation(lldb::tid_t tid, unsigned long *message, bool &result)
         : m_tid(tid), m_message(message), m_result(result) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -1092,7 +1069,7 @@ class DetachOperation : public Operation
 public:
     DetachOperation(lldb::tid_t tid, Error &result) : m_tid(tid), m_error(result) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -2335,7 +2312,7 @@ ProcessMonitor::StopMonitoringChildProcess()
 {
     if (m_monitor_thread.IsJoinable())
     {
-        m_monitor_thread.Cancel();
+        ::pthread_kill(m_monitor_thread.GetNativeThread().GetSystemHandle(), SIGUSR1);
         m_monitor_thread.Join(nullptr);
     }
 }
@@ -2359,6 +2336,6 @@ ProcessMonitor::StopOpThread()
     if (!m_operation_thread.IsJoinable())
         return;
 
-    m_operation_thread.Cancel();
+    DoOperation(EXIT_OPERATION);
     m_operation_thread.Join(nullptr);
 }

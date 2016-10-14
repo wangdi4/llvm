@@ -115,6 +115,7 @@ public:
                                const CXXDestructorDecl *Dtor) override;
 
   void emitRethrow(CodeGenFunction &CGF, bool isNoReturn) override;
+  void emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) override;
 
   void emitBeginCatch(CodeGenFunction &CGF, const CXXCatchStmt *C) override;
 
@@ -125,6 +126,11 @@ public:
   void EmitFundamentalRTTIDescriptor(QualType Type);
   void EmitFundamentalRTTIDescriptors();
   llvm::Constant *getAddrOfRTTIDescriptor(QualType Ty) override;
+  llvm::Constant *
+  getAddrOfCXXCatchHandlerType(QualType Ty,
+                               QualType CatchHandlerType) override {
+    return getAddrOfRTTIDescriptor(Ty);
+  }
 
   bool shouldTypeidBeNullChecked(bool IsDeref, QualType SrcRecordTy) override;
   void EmitBadTypeidCall(CodeGenFunction &CGF) override;
@@ -859,7 +865,7 @@ bool ItaniumCXXABI::classifyReturnType(CGFunctionInfo &FI) const {
 /// The Itanium ABI requires non-zero initialization only for data
 /// member pointers, for which '0' is a valid offset.
 bool ItaniumCXXABI::isZeroInitializable(const MemberPointerType *MPT) {
-  return MPT->getPointeeType()->isFunctionType();
+  return MPT->isMemberFunctionPointer();
 }
 
 /// The Itanium ABI always places an offset to the complete object
@@ -914,6 +920,59 @@ void ItaniumCXXABI::emitRethrow(CodeGenFunction &CGF, bool isNoReturn) {
     CGF.EmitNoreturnRuntimeCallOrInvoke(Fn, None);
   else
     CGF.EmitRuntimeCallOrInvoke(Fn);
+}
+
+static llvm::Constant *getAllocateExceptionFn(CodeGenModule &CGM) {
+  // void *__cxa_allocate_exception(size_t thrown_size);
+
+  llvm::FunctionType *FTy =
+    llvm::FunctionType::get(CGM.Int8PtrTy, CGM.SizeTy, /*IsVarArgs=*/false);
+
+  return CGM.CreateRuntimeFunction(FTy, "__cxa_allocate_exception");
+}
+
+static llvm::Constant *getThrowFn(CodeGenModule &CGM) {
+  // void __cxa_throw(void *thrown_exception, std::type_info *tinfo,
+  //                  void (*dest) (void *));
+
+  llvm::Type *Args[3] = { CGM.Int8PtrTy, CGM.Int8PtrTy, CGM.Int8PtrTy };
+  llvm::FunctionType *FTy =
+    llvm::FunctionType::get(CGM.VoidTy, Args, /*IsVarArgs=*/false);
+
+  return CGM.CreateRuntimeFunction(FTy, "__cxa_throw");
+}
+
+void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
+  QualType ThrowType = E->getSubExpr()->getType();
+  // Now allocate the exception object.
+  llvm::Type *SizeTy = CGF.ConvertType(getContext().getSizeType());
+  uint64_t TypeSize = getContext().getTypeSizeInChars(ThrowType).getQuantity();
+
+  llvm::Constant *AllocExceptionFn = getAllocateExceptionFn(CGM);
+  llvm::CallInst *ExceptionPtr = CGF.EmitNounwindRuntimeCall(
+      AllocExceptionFn, llvm::ConstantInt::get(SizeTy, TypeSize), "exception");
+
+  CGF.EmitAnyExprToExn(E->getSubExpr(), ExceptionPtr);
+
+  // Now throw the exception.
+  llvm::Constant *TypeInfo = CGM.GetAddrOfRTTIDescriptor(ThrowType,
+                                                         /*ForEH=*/true);
+
+  // The address of the destructor.  If the exception type has a
+  // trivial destructor (or isn't a record), we just pass null.
+  llvm::Constant *Dtor = nullptr;
+  if (const RecordType *RecordTy = ThrowType->getAs<RecordType>()) {
+    CXXRecordDecl *Record = cast<CXXRecordDecl>(RecordTy->getDecl());
+    if (!Record->hasTrivialDestructor()) {
+      CXXDestructorDecl *DtorD = Record->getDestructor();
+      Dtor = CGM.getAddrOfCXXStructor(DtorD, StructorType::Complete);
+      Dtor = llvm::ConstantExpr::getBitCast(Dtor, CGM.Int8PtrTy);
+    }
+  }
+  if (!Dtor) Dtor = llvm::Constant::getNullValue(CGM.Int8PtrTy);
+
+  llvm::Value *args[] = { ExceptionPtr, TypeInfo, Dtor };
+  CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM), args);
 }
 
 static llvm::Constant *getItaniumDynamicCastFn(CodeGenFunction &CGF) {
@@ -1329,7 +1388,7 @@ llvm::Value *ItaniumCXXABI::getVTableAddressPointInStructor(
 
 llvm::Constant *ItaniumCXXABI::getVTableAddressPointForConstExpr(
     BaseSubobject Base, const CXXRecordDecl *VTableClass) {
-  llvm::Constant *VTable = getAddrOfVTable(VTableClass, CharUnits());
+  auto *VTable = getAddrOfVTable(VTableClass, CharUnits());
 
   // Find the appropriate vtable within the vtable group.
   uint64_t AddressPoint = CGM.getItaniumVTableContext()
@@ -1340,7 +1399,8 @@ llvm::Constant *ItaniumCXXABI::getVTableAddressPointForConstExpr(
     llvm::ConstantInt::get(CGM.Int64Ty, AddressPoint)
   };
 
-  return llvm::ConstantExpr::getInBoundsGetElementPtr(VTable, Indices);
+  return llvm::ConstantExpr::getInBoundsGetElementPtr(VTable->getValueType(),
+                                                      VTable, Indices);
 }
 
 llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
@@ -1384,7 +1444,8 @@ llvm::Value *ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
   Ty = Ty->getPointerTo()->getPointerTo();
   llvm::Value *VTable = CGF.GetVTablePtr(This, Ty);
 
-  CGF.EmitVTablePtrCheckForCall(cast<CXXMethodDecl>(GD.getDecl()), VTable);
+  if (CGF.SanOpts.has(SanitizerKind::CFIVCall))
+    CGF.EmitVTablePtrCheckForCall(cast<CXXMethodDecl>(GD.getDecl()), VTable);
 
   uint64_t VTableIndex = CGM.getItaniumVTableContext().getMethodVTableIndex(GD);
   llvm::Value *VFuncPtr =
@@ -1608,7 +1669,7 @@ llvm::Value *ARMCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
   CGF.Builder.CreateStore(elementSize, cookie);
 
   // The second element is the element count.
-  cookie = CGF.Builder.CreateConstInBoundsGEP1_32(cookie, 1);
+  cookie = CGF.Builder.CreateConstInBoundsGEP1_32(CGF.SizeTy, cookie, 1);
   CGF.Builder.CreateStore(numElements, cookie);
 
   // Finally, compute a pointer to the actual data buffer by skipping
@@ -2546,7 +2607,8 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
 
   // The vtable address point is 2.
   llvm::Constant *Two = llvm::ConstantInt::get(PtrDiffTy, 2);
-  VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(VTable, Two);
+  VTable =
+      llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8PtrTy, VTable, Two);
   VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
 
   Fields.push_back(VTable);
@@ -3158,8 +3220,8 @@ static void emitConstructorDestructorAlias(CodeGenModule &CGM,
   llvm::PointerType *AliasType = Aliasee->getType();
 
   // Create the alias with no name.
-  auto *Alias = llvm::GlobalAlias::create(
-      AliasType->getElementType(), 0, Linkage, "", Aliasee, &CGM.getModule());
+  auto *Alias = llvm::GlobalAlias::create(AliasType, Linkage, "", Aliasee,
+                                          &CGM.getModule());
 
   // Switch any previous uses to the alias.
   if (Entry) {

@@ -16,13 +16,11 @@
 
 #include "LPUSubtarget.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/IR/DataLayout.h"
 
 namespace llvm {
 
 class LPUTargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
-  const DataLayout DL;
   LPUSubtarget Subtarget;
 public:
   LPUTargetMachine(const Target &T, StringRef TT,
@@ -31,8 +29,10 @@ public:
 		   CodeGenOpt::Level OL);
   ~LPUTargetMachine() override;
 
-  const DataLayout *getDataLayout() const override { return &DL; }
-  const LPUSubtarget *getSubtargetImpl() const override {
+  const LPUSubtarget *getSubtargetImpl(const Function &) const override {
+    return &Subtarget;
+  }
+  const LPUSubtarget *getSubtargetImpl() const {
     return &Subtarget;
   }
   /// \brief Register LPU analysis passes with a pass manager.

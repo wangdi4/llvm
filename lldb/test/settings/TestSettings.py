@@ -165,7 +165,8 @@ class SettingsCommandTestCase(TestBase):
         self.expect("settings show auto-confirm", SETTING_MSG("auto-confirm"),
             startstr = "auto-confirm (boolean) = false")
 
-    @unittest2.skipUnless(os.name != "nt" and os.uname()[4] in ['amd64', 'i386', 'x86_64'], "requires x86 or x86_64")
+    @expectedFailureArch("arm")
+    @expectedFailureArch("aarch64")
     def test_disassembler_settings(self):
         """Test that user options for the disassembler take effect."""
         self.buildDefault()
@@ -199,7 +200,7 @@ class SettingsCommandTestCase(TestBase):
         self.expect("disassemble -n numberfn",
             substrs = ["5ah"])
 
-    @unittest2.skipUnless(sys.platform.startswith("darwin"), "requires Darwin")
+    @skipUnlessDarwin
     @dsym_test
     def test_run_args_and_env_vars_with_dsym(self):
         """Test that run-args and env-vars are passed to the launched process."""

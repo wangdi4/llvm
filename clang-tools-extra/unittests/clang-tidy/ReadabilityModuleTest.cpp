@@ -75,11 +75,6 @@ TEST(NamespaceCommentCheckTest, CheckExistingComments) {
             runCheckOnCode<NamespaceCommentCheck>("namespace {\n"
                                                   "}\n"
                                                   "// namespace"));
-  // Leave unknown comments.
-  EXPECT_EQ("namespace {\n"
-            "} // namespace // random text",
-            runCheckOnCode<NamespaceCommentCheck>("namespace {\n"
-                                                  "} // random text"));
 }
 
 TEST(NamespaceCommentCheckTest, FixWrongComments) {
@@ -94,6 +89,12 @@ TEST(NamespaceCommentCheckTest, FixWrongComments) {
             "} // namespace",
             runCheckOnCode<NamespaceCommentCheck>("namespace {\n"
                                                   "} // namespace asdf"));
+  // Remove unknown line comments. These are likely to be an unrecognized form
+  // of a namespace ending comment.
+  EXPECT_EQ("namespace {\n"
+            "} // namespace",
+            runCheckOnCode<NamespaceCommentCheck>("namespace {\n"
+                                                  "} // random text"));
 }
 
 TEST(BracesAroundStatementsCheck, IfWithComments) {
@@ -232,6 +233,27 @@ TEST(BracesAroundStatementsCheck, If) {
                                                         "  } else\n"
                                                         "    return -3;\n"
                                                         "}"));
+}
+
+TEST(BracesAroundStatementsCheck, IfElseWithShortStatements) {
+  ClangTidyOptions Options;
+  Options.CheckOptions["test-check.ShortStatementLines"] = "1";
+
+  EXPECT_EQ("int main() {\n"
+            "  if (true) return 1;\n"
+            "  if (false) { return -1;\n"
+            "  } else if (1 == 2) { return -2;\n"
+            "  } else { return -3;\n"
+            "}\n"
+            "}",
+            runCheckOnCode<BracesAroundStatementsCheck>(
+                "int main() {\n"
+                "  if (true) return 1;\n"
+                "  if (false) return -1;\n"
+                "  else if (1 == 2) return -2;\n"
+                "  else return -3;\n"
+                "}",
+                nullptr, "input.cc", None, Options));
 }
 
 TEST(BracesAroundStatementsCheck, For) {

@@ -15,7 +15,6 @@
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/lldb-private-log.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Breakpoint/BreakpointID.h"
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
@@ -537,6 +536,7 @@ bool
 BreakpointLocation::SetBreakpointSite (BreakpointSiteSP& bp_site_sp)
 {
     m_bp_site_sp = bp_site_sp;
+    SendBreakpointLocationChangedEvent (eBreakpointEventTypeLocationsResolved);
     return true;
 }
 

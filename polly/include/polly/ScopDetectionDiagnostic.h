@@ -20,18 +20,17 @@
 #ifndef POLLY_SCOP_DETECTION_DIAGNOSTIC_H
 #define POLLY_SCOP_DETECTION_DIAGNOSTIC_H
 
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/AliasSetTracker.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Value.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Support/Casting.h"
-
-#include <string>
 #include <memory>
+#include <string>
 
 using namespace llvm;
 
@@ -43,15 +42,6 @@ class Region;
 }
 
 namespace polly {
-
-/// @brief Get the location of a region from the debug info.
-///
-/// @param R The region to get debug info for.
-/// @param LineBegin The first line in the region.
-/// @param LineEnd The last line in the region.
-/// @param FileName The filename where the region was defined.
-void getDebugLocation(const Region *R, unsigned &LineBegin, unsigned &LineEnd,
-                      std::string &FileName);
 
 class RejectLog;
 /// @brief Emit optimization remarks about the rejected regions to the user.
@@ -835,8 +825,10 @@ public:
 /// @brief Report regions that seem not profitable to be optimized.
 class ReportUnprofitable : public ReportOther {
   //===--------------------------------------------------------------------===//
+  Region *R;
+
 public:
-  ReportUnprofitable();
+  ReportUnprofitable(Region *R);
 
   /// @name LLVM-RTTI interface
   //@{
@@ -846,6 +838,8 @@ public:
   /// @name RejectReason interface
   //@{
   virtual std::string getMessage() const override;
+  virtual std::string getEndUserMessage() const override;
+  virtual const DebugLoc &getDebugLoc() const override;
   //@}
 };
 

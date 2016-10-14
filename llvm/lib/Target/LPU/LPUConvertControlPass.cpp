@@ -117,8 +117,7 @@ private:
     thisMF->RenumberBlocks();
     myIfConverter->BBAnalysis.resize(thisMF->getNumBlockIDs());
     myIfConverter->TII = thisMF->getSubtarget().getInstrInfo();
-    const TargetSubtargetInfo &ST =
-      thisMF->getTarget().getSubtarget<TargetSubtargetInfo>();
+    const TargetSubtargetInfo &ST = thisMF->getSubtarget();
     myIfConverter->SchedModel.init(ST.getSchedModel(),&ST,myIfConverter->TII);
   }
 
@@ -327,10 +326,9 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
                                          MachineBasicBlock::iterator
                                            LastPhiInst) {
 
-  const TargetMachine &TM = thisMF->getTarget();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
                             (thisMF->getSubtarget().getInstrInfo());
-  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   bool genDFInst = false;
 
@@ -458,10 +456,9 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
           (Kind == ICTriangleFalse) || (Kind == ICTriangleFRev)) &&
           "LPUIfConversion: genDFInstructions - unexpected Token Kind");
 
-  const TargetMachine &TM = thisMF->getTarget();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
                             (thisMF->getSubtarget().getInstrInfo());
-  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   bool genDFInst = false;
 
@@ -843,7 +840,6 @@ bool LPUConvertControlPass::processLiveRangesInLoop(MachineBasicBlock *BB) {
 
 bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
 
-  const TargetMachine &TM = thisMF->getTarget();
   bool loopModified = false;
 
   loopBackedgeBB = currLoop->getLoopLatch();

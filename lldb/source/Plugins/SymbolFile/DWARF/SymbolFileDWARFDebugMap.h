@@ -70,6 +70,7 @@ public:
     virtual size_t          ParseCompileUnitFunctions (const lldb_private::SymbolContext& sc);
     virtual bool            ParseCompileUnitLineTable (const lldb_private::SymbolContext& sc);
     virtual bool            ParseCompileUnitSupportFiles (const lldb_private::SymbolContext& sc, lldb_private::FileSpecList &support_files);
+    virtual bool            ParseImportedModules (const lldb_private::SymbolContext &sc, std::vector<lldb_private::ConstString> &imported_modules) override;
     virtual size_t          ParseFunctionBlocks (const lldb_private::SymbolContext& sc);
     virtual size_t          ParseTypes (const lldb_private::SymbolContext& sc);
     virtual size_t          ParseVariablesForContext (const lldb_private::SymbolContext& sc);
@@ -102,16 +103,11 @@ public:
     
     static void
     CompleteObjCInterfaceDecl (void *baton, clang::ObjCInterfaceDecl *);
-    
-    static bool 
-    LayoutRecordType (void *baton, 
-                      const clang::RecordDecl *record_decl,
-                      uint64_t &size, 
-                      uint64_t &alignment,
-                      llvm::DenseMap <const clang::FieldDecl *, uint64_t> &field_offsets,
-                      llvm::DenseMap <const clang::CXXRecordDecl *, clang::CharUnits> &base_offsets,
-                      llvm::DenseMap <const clang::CXXRecordDecl *, clang::CharUnits> &vbase_offsets);
 
+    static bool LayoutRecordType(void *baton, const clang::RecordDecl *record_decl, uint64_t &size, uint64_t &alignment,
+                                 llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
+                                 llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits> &base_offsets,
+                                 llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits> &vbase_offsets);
 
     //------------------------------------------------------------------
     // PluginInterface protocol
@@ -231,6 +227,23 @@ protected:
 
     SymbolFileDWARF *
     GetSymbolFileByOSOIndex (uint32_t oso_idx);
+    
+    // If closure returns "false", iteration continues.  If it returns
+    // "true", iteration terminates.
+    void
+    ForEachSymbolFile (std::function<bool (SymbolFileDWARF *)> closure)
+    {
+        for (uint32_t oso_idx = 0, num_oso_idxs = m_compile_unit_infos.size();
+             oso_idx < num_oso_idxs;
+             ++oso_idx)
+        {
+            if (SymbolFileDWARF *oso_dwarf = GetSymbolFileByOSOIndex (oso_idx))
+            {
+                if (closure(oso_dwarf))
+                    return;
+            }
+        }
+    }
 
     CompileUnitInfo *
     GetCompileUnitInfoForSymbolWithIndex (uint32_t symbol_idx, uint32_t *oso_idx_ptr);

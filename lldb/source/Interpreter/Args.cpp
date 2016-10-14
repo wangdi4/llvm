@@ -230,7 +230,7 @@ Args::ParseSingleArgument(llvm::StringRef command)
                 arg += '\\';
 
             arg += command.front();
-            command.drop_front();
+            command = command.drop_front();
 
             break;
 
@@ -412,7 +412,8 @@ Args::AppendArguments (const Args &rhs)
 {
     const size_t rhs_argc = rhs.GetArgumentCount();
     for (size_t i=0; i<rhs_argc; ++i)
-        AppendArgument(rhs.GetArgumentAtIndex(i));
+        AppendArgument(rhs.GetArgumentAtIndex(i),
+                       rhs.GetArgumentQuoteCharAtIndex(i));
 }
 
 void
@@ -1137,7 +1138,7 @@ Args::IsPositionalArgument (const char *arg)
         return false;
         
     bool is_positional = true;
-    char *cptr = (char *) arg;
+    const char *cptr = arg;
     
     if (cptr[0] == '%')
     {

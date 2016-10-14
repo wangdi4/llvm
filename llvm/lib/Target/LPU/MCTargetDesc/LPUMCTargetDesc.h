@@ -14,6 +14,8 @@
 #ifndef LLVM_LIB_TARGET_LPU_MCTARGETDESC_LPUMCTARGETDESC_H
 #define LLVM_LIB_TARGET_LPU_MCTARGETDESC_LPUMCTARGETDESC_H
 
+#include "llvm/Support/DataTypes.h"
+
 namespace llvm {
 class Target;
 

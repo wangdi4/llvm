@@ -18,20 +18,15 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
-; This is the structure that will get created for the frame allocation.
-; CHECK: %struct._Z4testv.ehdata = type { i32, i8*, i32 }
-
 @_ZTIi = external constant i8*
 
 ; The function entry will be rewritten like this.
-; CHECK: define void @_Z4testv() #0 {
+; CHECK: define void @_Z4testv()
 ; CHECK: entry:
-; CHECK:   %frame.alloc = call i8* @llvm.frameallocate(i32 24)
-; CHECK:   %eh.data = bitcast i8* %frame.alloc to %struct._Z4testv.ehdata*
-; CHECK:   %exn.slot = alloca i8*
-; CHECK:   %ehselector.slot = alloca i32
-; CHECK-NOT:  %i = alloca i32, align 4
-; CHECK:  %i = getelementptr inbounds %struct._Z4testv.ehdata, %struct._Z4testv.ehdata* %eh.data, i32 0, i32 2
+; CHECK:   [[I_PTR:\%.+]] = alloca i32, align 4
+; CHECK:   call void (...) @llvm.frameescape(i32* [[I_PTR]])
+; CHECK:   invoke void @_Z9may_throwv()
+; CHECK:           to label %invoke.cont unwind label %[[LPAD_LABEL:lpad[0-9]*]]
 
 ; Function Attrs: uwtable
 define void @_Z4testv() #0 {
@@ -45,6 +40,12 @@ entry:
 invoke.cont:                                      ; preds = %entry
   br label %try.cont
 
+; CHECK: [[LPAD_LABEL]]:{{[ ]+}}; preds = %entry
+; CHECK:   landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*)
+; CHECK-NEXT:           catch i8* bitcast (i8** @_ZTIi to i8*)
+; CHECK-NEXT:   [[RECOVER:\%.+]] = call i8* (...) @llvm.eh.actions(i32 1, i8* bitcast (i8** @_ZTIi to i8*), i32 0, i8* (i8*, i8*)* @_Z4testv.catch)
+; CHECK-NEXT:   indirectbr i8* [[RECOVER]], [label %try.cont]
+
 lpad:                                             ; preds = %entry
   %tmp = landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*)
           catch i8* bitcast (i8** @_ZTIi to i8*)
@@ -54,11 +55,15 @@ lpad:                                             ; preds = %entry
   store i32 %tmp2, i32* %ehselector.slot
   br label %catch.dispatch
 
+; CHECK-NOT: catch-dispatch:
+
 catch.dispatch:                                   ; preds = %lpad
   %sel = load i32, i32* %ehselector.slot
   %tmp3 = call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIi to i8*)) #3
   %matches = icmp eq i32 %sel, %tmp3
   br i1 %matches, label %catch, label %eh.resume
+
+; CHECK-NOT: catch:
 
 catch:                                            ; preds = %catch.dispatch
   %exn11 = load i8*, i8** %exn.slot
@@ -68,6 +73,8 @@ catch:                                            ; preds = %catch.dispatch
   call void @_Z10handle_inti(i32 %tmp7)
   br label %invoke.cont2
 
+; CHECK-NOT: invoke.cont2:
+
 invoke.cont2:                                     ; preds = %catch
   call void @llvm.eh.endcatch() #3
   br label %try.cont
@@ -75,21 +82,24 @@ invoke.cont2:                                     ; preds = %catch
 try.cont:                                         ; preds = %invoke.cont2, %invoke.cont
   ret void
 
+; CHECK-NOT: eh.resume:
+
 eh.resume:                                        ; preds = %catch.dispatch
   %exn3 = load i8*, i8** %exn.slot
   %sel4 = load i32, i32* %ehselector.slot
   %lpad.val = insertvalue { i8*, i32 } undef, i8* %exn3, 0
   %lpad.val5 = insertvalue { i8*, i32 } %lpad.val, i32 %sel4, 1
   resume { i8*, i32 } %lpad.val5
+
+; CHECK: }
 }
 
-; CHECK: define internal i8* @_Z4testv.catch(i8*, i8*) {
+; CHECK: define internal i8* @_Z4testv.catch(i8*, i8*)
 ; CHECK: entry:
-; CHECK:   %eh.alloc = call i8* @llvm.framerecover(i8* bitcast (void ()* @_Z4testv to i8*), i8* %1)
-; CHECK:   %eh.data = bitcast i8* %eh.alloc to %struct._Z4testv.ehdata*
-; CHECK:   %i = getelementptr inbounds %struct._Z4testv.ehdata, %struct._Z4testv.ehdata* %eh.data, i32 0, i32 2
-; CHECK:   %tmp7 = load i32, i32* %i, align 4
-; CHECK:   call void @_Z10handle_inti(i32 %tmp7)
+; CHECK:   [[RECOVER_I:\%.+]] = call i8* @llvm.framerecover(i8* bitcast (void ()* @_Z4testv to i8*), i8* %1, i32 0)
+; CHECK:   [[I_PTR1:\%.+]] = bitcast i8* [[RECOVER_I]] to i32*
+; CHECK:   [[TMP:\%.+]] = load i32, i32* [[I_PTR1]], align 4
+; CHECK:   call void @_Z10handle_inti(i32 [[TMP]])
 ; CHECK:   ret i8* blockaddress(@_Z4testv, %try.cont)
 ; CHECK: }
 

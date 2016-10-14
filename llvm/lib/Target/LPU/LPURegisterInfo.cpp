@@ -21,6 +21,7 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetMachine.h"
@@ -88,8 +89,8 @@ LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     assert(opndNum < MI.getNumOperands() && "Instr doesn't have FrameIndex operand!");
   }
 
-  DEBUG(errs() << "\nFunction : " << MF.getFunction()->getName() << "\n";
-        errs() << "<--------->\n" << MI);
+  DEBUG(llvm::errs() << "\nFunction : " << MF.getFunction()->getName() << "\n";
+        llvm::errs() << "<--------->\n" << MI);
 
   unsigned opc = MI.getOpcode();
 

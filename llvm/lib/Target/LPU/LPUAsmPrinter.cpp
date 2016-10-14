@@ -82,6 +82,8 @@ namespace {
   class LPUAsmPrinter : public AsmPrinter {
     const Function *F;
     const MachineRegisterInfo *MRI;
+    // Cache the subtarget here.
+    const LPUSubtarget *lpuSubtarget;
     DebugLoc prevDebugLoc;
     bool ignoreLoc(const MachineInstr &);
     LineReader* reader;
@@ -101,6 +103,11 @@ namespace {
 
     const char *getPassName() const override {
       return "LPU Assembly Printer";
+    }
+
+    bool runOnMachineFunction(MachineFunction &F) override {
+        lpuSubtarget = &F.getSubtarget<LPUSubtarget>();
+        return AsmPrinter::runOnMachineFunction(F);
     }
 
     void EmitStartOfAsmFile(Module &) override;
@@ -124,9 +131,9 @@ void LPUAsmPrinter::recordAndEmitFilenames(Module &M) {
   DbgFinder.processModule(M);
 
   unsigned i = 1;
-  for (DICompileUnit DIUnit : DbgFinder.compile_units()) {
-    StringRef Filename(DIUnit.getFilename());
-    StringRef Dirname(DIUnit.getDirectory());
+  for (const DICompileUnit *DIUnit : DbgFinder.compile_units()) {
+    StringRef Filename(DIUnit->getFilename());
+    StringRef Dirname(DIUnit->getDirectory());
     SmallString<128> FullPathName = Dirname;
     if (!Dirname.empty() && !sys::path::is_absolute(Filename)) {
       sys::path::append(FullPathName, Filename);
@@ -135,13 +142,13 @@ void LPUAsmPrinter::recordAndEmitFilenames(Module &M) {
     if (filenameMap.find(Filename.str()) != filenameMap.end())
       continue;
     filenameMap[Filename.str()] = i;
-    OutStreamer.EmitDwarfFileDirective(i, "", Filename.str());
+    OutStreamer->EmitDwarfFileDirective(i, "", Filename.str());
     ++i;
   }
 
-  for (DISubprogram SP : DbgFinder.subprograms()) {
-    StringRef Filename(SP.getFilename());
-    StringRef Dirname(SP.getDirectory());
+  for (const DISubprogram *SP : DbgFinder.subprograms()) {
+    StringRef Filename(SP->getFilename());
+    StringRef Dirname(SP->getDirectory());
     SmallString<128> FullPathName = Dirname;
     if (!Dirname.empty() && !sys::path::is_absolute(Filename)) {
       sys::path::append(FullPathName, Filename);
@@ -159,12 +166,12 @@ bool LPUAsmPrinter::doInitialization(Module &M) {
 
   // Emit module-level inline asm if it exists.
   if (!M.getModuleInlineAsm().empty()) {
-    OutStreamer.AddComment("Start of file scope inline assembly");
-    OutStreamer.AddBlankLine();
-    OutStreamer.EmitRawText(StringRef(M.getModuleInlineAsm()));
-    OutStreamer.AddBlankLine();
-    OutStreamer.AddComment("End of file scope inline assembly");
-    OutStreamer.AddBlankLine();
+    OutStreamer->AddComment("Start of file scope inline assembly");
+    OutStreamer->AddBlankLine();
+    OutStreamer->EmitRawText(StringRef(M.getModuleInlineAsm()));
+    OutStreamer->AddBlankLine();
+    OutStreamer->AddComment("End of file scope inline assembly");
+    OutStreamer->AddBlankLine();
   }
 
   recordAndEmitFilenames(M);
@@ -180,7 +187,7 @@ void LPUAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
 
   DebugLoc curLoc = MI.getDebugLoc();
 
-  if (prevDebugLoc.isUnknown() && curLoc.isUnknown())
+  if (!prevDebugLoc && !curLoc)
     return;
 
   if (prevDebugLoc == curLoc)
@@ -188,22 +195,15 @@ void LPUAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
 
   prevDebugLoc = curLoc;
 
-  if (curLoc.isUnknown())
+  if (!curLoc)
     return;
 
-  const MachineFunction *MF = MI.getParent()->getParent();
-  //const TargetMachine &TM = MF->getTarget();
-
-  const LLVMContext &ctx = MF->getFunction()->getContext();
-  DIScope Scope(curLoc.getScope(ctx));
-
-  assert((!Scope || Scope.isScope()) &&
-    "Scope of a DebugLoc should be null or a DIScope.");
+  auto *Scope = cast_or_null<DIScope>(curLoc.getScope());
   if (!Scope)
      return;
 
-  StringRef fileName(Scope.getFilename());
-  StringRef dirName(Scope.getDirectory());
+  StringRef fileName(Scope->getFilename());
+  StringRef dirName(Scope->getDirectory());
   SmallString<128> FullPathName = dirName;
   if (!dirName.empty() && !sys::path::is_absolute(fileName)) {
     sys::path::append(FullPathName, fileName);
@@ -220,7 +220,7 @@ void LPUAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
   std::stringstream temp;
   temp << "\t.loc " << filenameMap[fileName.str()] << " " << curLoc.getLine()
        << " " << curLoc.getCol();
-  OutStreamer.EmitRawText(Twine(temp.str().c_str()));
+  OutStreamer->EmitRawText(Twine(temp.str().c_str()));
 }
 
 void LPUAsmPrinter::emitSrcInText(StringRef filename, unsigned line) {
@@ -233,7 +233,7 @@ void LPUAsmPrinter::emitSrcInText(StringRef filename, unsigned line) {
   temp << " ";
   temp << reader->readLine(line);
   temp << "\n";
-  this->OutStreamer.EmitRawText(Twine(temp.str()));
+  this->OutStreamer->EmitRawText(Twine(temp.str()));
 }
 
 LineReader *LPUAsmPrinter::getReader(std::string filename) {
@@ -252,7 +252,7 @@ LineReader *LPUAsmPrinter::getReader(std::string filename) {
 void LPUAsmPrinter::emitParamList(const Function *F) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const TargetLowering *TLI = TM.getSubtargetImpl()->getTargetLowering();
+  const TargetLowering *TLI = lpuSubtarget->getTargetLowering();
   Function::const_arg_iterator I, E;
   unsigned paramIndex = 0;
   MVT thePointerTy = TLI->getPointerTy();
@@ -281,13 +281,13 @@ void LPUAsmPrinter::emitParamList(const Function *F) {
     first = false;
   }
   if (!first)
-    OutStreamer.EmitRawText(O.str());
+    OutStreamer->EmitRawText(O.str());
 }
 
 void LPUAsmPrinter::emitReturnVal(const Function *F) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const TargetLowering *TLI = TM.getSubtargetImpl()->getTargetLowering();
+  const TargetLowering *TLI = lpuSubtarget->getTargetLowering();
 
   Type *Ty = F->getReturnType();
 
@@ -318,7 +318,7 @@ void LPUAsmPrinter::emitReturnVal(const Function *F) {
   // (Should really use the allocation.)
   O << " %r0";
 
-  OutStreamer.EmitRawText(O.str());
+  OutStreamer->EmitRawText(O.str());
 }
 
 void LPUAsmPrinter::EmitStartOfAsmFile(Module &) {
@@ -329,11 +329,11 @@ void LPUAsmPrinter::EmitStartOfAsmFile(Module &) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
   O << "\t# .processor ";  // note - commented out...
-  O << TM.getSubtarget<LPUSubtarget>().lpuName();
+  O << lpuSubtarget->lpuName();
 
-  OutStreamer.EmitRawText(O.str());
-  OutStreamer.EmitRawText("\t.version 0,6,0");
-  OutStreamer.EmitRawText("\t.unit sxu");
+  OutStreamer->EmitRawText(O.str());
+  OutStreamer->EmitRawText("\t.version 0,6,0");
+  OutStreamer->EmitRawText("\t.unit sxu");
 }
 
 void LPUAsmPrinter::EmitFunctionEntryLabel() {
@@ -347,11 +347,11 @@ void LPUAsmPrinter::EmitFunctionEntryLabel() {
   O << "\t.entry\t" << *CurrentFnSym << "\n";
   // For now, assume control flow (sequential) entry
   O << *CurrentFnSym << ":";
-  OutStreamer.EmitRawText(O.str());
+  OutStreamer->EmitRawText(O.str());
 
   // Start a scope for this routine to localize the LIC names
   // For now, this includes parameters and results
-  OutStreamer.EmitRawText("{");
+  OutStreamer->EmitRawText("{");
 
   emitReturnVal(F);
 
@@ -386,14 +386,14 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
       else if (LPU::CI1RegClass.contains(reg))  O << ".i1";
       else if (LPU::CI0RegClass.contains(reg))  O << ".i0";
       O << " " << LPUInstPrinter::getRegisterName(reg);
-      OutStreamer.EmitRawText(O.str());
+      OutStreamer->EmitRawText(O.str());
     }
   }
 
 }
 
 void LPUAsmPrinter::EmitFunctionBodyEnd() {
-  OutStreamer.EmitRawText("}");
+  OutStreamer->EmitRawText("}");
 }
 
 void LPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
@@ -401,7 +401,7 @@ void LPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   emitLineNumberAsDotLoc(*MI);
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
-  EmitToStreamer(OutStreamer, TmpInst);
+  EmitToStreamer(*OutStreamer, TmpInst);
 }
 
 // Force static initialization.

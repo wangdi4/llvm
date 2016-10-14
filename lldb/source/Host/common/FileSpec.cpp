@@ -27,6 +27,7 @@
 #include <pwd.h>
 #endif
 
+#include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/DataBufferMemoryMap.h"
 #include "lldb/Core/RegularExpression.h"
@@ -199,6 +200,11 @@ FileSpec::FileSpec(const char *pathname, bool resolve_path, PathSyntax syntax) :
 {
     if (pathname && pathname[0])
         SetFile(pathname, resolve_path, syntax);
+}
+
+FileSpec::FileSpec(const char *pathname, bool resolve_path, ArchSpec arch) :
+    FileSpec(pathname, resolve_path, arch.GetTriple().isOSWindows() ? ePathSyntaxWindows : ePathSyntaxPosix)
+{
 }
 
 //------------------------------------------------------------------
@@ -558,6 +564,8 @@ FileSpec::RemoveBackupDots (const ConstString &input_const_str, ConstString &res
         {
             if (had_dots)
             {
+                while (before_sep.startswith("//"))
+                    before_sep = before_sep.substr(1);
                 if (!before_sep.empty())
                 {
                     result.append(before_sep.data(), before_sep.size());
@@ -603,11 +611,10 @@ FileSpec::RemoveBackupDots (const ConstString &input_const_str, ConstString &res
 void
 FileSpec::Dump(Stream *s) const
 {
-    static ConstString g_slash_only ("/");
     if (s)
     {
         m_directory.Dump(s);
-        if (m_directory && m_directory != g_slash_only)
+        if (m_directory && m_directory.GetStringRef().back() != '/')
             s->PutChar('/');
         m_filename.Dump(s);
     }
@@ -798,17 +805,22 @@ FileSpec::GetPath(char *path, size_t path_max_len, bool denormalize) const
 }
 
 std::string
-FileSpec::GetPath (bool denormalize) const
+FileSpec::GetPath(bool denormalize) const
 {
     llvm::SmallString<64> result;
-    if (m_directory)
-        result.append(m_directory.GetCString());
-    if (m_filename)
-        llvm::sys::path::append(result, m_filename.GetCString());
-    if (denormalize && !result.empty())
-        DeNormalize(result, m_syntax);
-
+    GetPath(result, denormalize);
     return std::string(result.begin(), result.end());
+}
+
+void
+FileSpec::GetPath(llvm::SmallVectorImpl<char> &path, bool denormalize) const
+{
+    StreamString stream;
+    Dump(&stream);
+    path.append(stream.GetString().begin(), stream.GetString().end());
+    Normalize(path, m_syntax);
+    if (denormalize && !path.empty())
+        DeNormalize(path, m_syntax);
 }
 
 ConstString

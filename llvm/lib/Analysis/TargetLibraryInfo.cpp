@@ -13,14 +13,22 @@
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/ADT/Triple.h"
-
+#include "llvm/Support/CommandLine.h"
 using namespace llvm;
 
-const char* TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] =
-  {
+static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
+    "vector-library", cl::Hidden, cl::desc("Vector functions library"),
+    cl::init(TargetLibraryInfoImpl::NoLibrary),
+    cl::values(clEnumValN(TargetLibraryInfoImpl::NoLibrary, "none",
+                          "No vector functions library"),
+               clEnumValN(TargetLibraryInfoImpl::Accelerate, "Accelerate",
+                          "Accelerate framework"),
+               clEnumValEnd));
+
+const char *const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] = {
 #define TLI_DEFINE_STRING
 #include "llvm/Analysis/TargetLibraryInfo.def"
-  };
+};
 
 static bool hasSinCosPiStret(const Triple &T) {
   // Only Darwin variants have _stret versions of combined trig functions.
@@ -44,7 +52,7 @@ static bool hasSinCosPiStret(const Triple &T) {
 /// specified target triple.  This should be carefully written so that a missing
 /// target triple gets a sane set of defaults.
 static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
-                       const char **StandardNames) {
+                       const char *const *StandardNames) {
 #ifndef NDEBUG
   // Verify that the StandardNames array is in alphabetical order.
   for (unsigned F = 1; F < LibFunc::NumLibFuncs; ++F) {
@@ -347,6 +355,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc::statvfs64);
     TLI.setUnavailable(LibFunc::tmpfile64);
   }
+
+  TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary);
 }
 
 TargetLibraryInfoImpl::TargetLibraryInfoImpl() {
@@ -366,12 +376,16 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const Triple &T) {
 TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
     : CustomNames(TLI.CustomNames) {
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
+  VectorDescs = TLI.VectorDescs;
+  ScalarDescs = TLI.ScalarDescs;
 }
 
 TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
     : CustomNames(std::move(TLI.CustomNames)) {
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
+  VectorDescs = TLI.VectorDescs;
+  ScalarDescs = TLI.ScalarDescs;
 }
 
 TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoImpl &TLI) {
@@ -395,21 +409,19 @@ static StringRef sanitizeFunctionName(StringRef funcName) {
 
   // Check for \01 prefix that is used to mangle __asm declarations and
   // strip it if present.
-  if (funcName.front() == '\01')
-    funcName = funcName.substr(1);
-  return funcName;
+  return GlobalValue::getRealLinkageName(funcName);
 }
 
 bool TargetLibraryInfoImpl::getLibFunc(StringRef funcName,
                                    LibFunc::Func &F) const {
-  const char **Start = &StandardNames[0];
-  const char **End = &StandardNames[LibFunc::NumLibFuncs];
+  const char *const *Start = &StandardNames[0];
+  const char *const *End = &StandardNames[LibFunc::NumLibFuncs];
 
   funcName = sanitizeFunctionName(funcName);
   if (funcName.empty())
     return false;
 
-  const char **I = std::lower_bound(
+  const char *const *I = std::lower_bound(
       Start, End, funcName, [](const char *LHS, StringRef RHS) {
         return std::strncmp(LHS, RHS.data(), RHS.size()) < 0;
       });
@@ -422,6 +434,122 @@ bool TargetLibraryInfoImpl::getLibFunc(StringRef funcName,
 
 void TargetLibraryInfoImpl::disableAllFunctions() {
   memset(AvailableArray, 0, sizeof(AvailableArray));
+}
+
+static bool compareByScalarFnName(const VecDesc &LHS, const VecDesc &RHS) {
+  return std::strncmp(LHS.ScalarFnName, RHS.ScalarFnName,
+                      std::strlen(RHS.ScalarFnName)) < 0;
+}
+
+static bool compareByVectorFnName(const VecDesc &LHS, const VecDesc &RHS) {
+  return std::strncmp(LHS.VectorFnName, RHS.VectorFnName,
+                      std::strlen(RHS.VectorFnName)) < 0;
+}
+
+static bool compareWithScalarFnName(const VecDesc &LHS, StringRef S) {
+  return std::strncmp(LHS.ScalarFnName, S.data(), S.size()) < 0;
+}
+
+static bool compareWithVectorFnName(const VecDesc &LHS, StringRef S) {
+  return std::strncmp(LHS.VectorFnName, S.data(), S.size()) < 0;
+}
+
+void TargetLibraryInfoImpl::addVectorizableFunctions(ArrayRef<VecDesc> Fns) {
+  VectorDescs.insert(VectorDescs.end(), Fns.begin(), Fns.end());
+  std::sort(VectorDescs.begin(), VectorDescs.end(), compareByScalarFnName);
+
+  ScalarDescs.insert(ScalarDescs.end(), Fns.begin(), Fns.end());
+  std::sort(ScalarDescs.begin(), ScalarDescs.end(), compareByVectorFnName);
+}
+
+void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
+    enum VectorLibrary VecLib) {
+  switch (VecLib) {
+  case Accelerate: {
+    const VecDesc VecFuncs[] = {
+        // Floating-Point Arithmetic and Auxiliary Functions
+        {"ceilf", "vceilf", 4},
+        {"fabsf", "vfabsf", 4},
+        {"llvm.fabs.f32", "vfabsf", 4},
+        {"floorf", "vfloorf", 4},
+        {"sqrtf", "vsqrtf", 4},
+        {"llvm.sqrt.f32", "vsqrtf", 4},
+
+        // Exponential and Logarithmic Functions
+        {"expf", "vexpf", 4},
+        {"llvm.exp.f32", "vexpf", 4},
+        {"expm1f", "vexpm1f", 4},
+        {"logf", "vlogf", 4},
+        {"llvm.log.f32", "vlogf", 4},
+        {"log1pf", "vlog1pf", 4},
+        {"log10f", "vlog10f", 4},
+        {"llvm.log10.f32", "vlog10f", 4},
+        {"logbf", "vlogbf", 4},
+
+        // Trigonometric Functions
+        {"sinf", "vsinf", 4},
+        {"llvm.sin.f32", "vsinf", 4},
+        {"cosf", "vcosf", 4},
+        {"llvm.cos.f32", "vcosf", 4},
+        {"tanf", "vtanf", 4},
+        {"asinf", "vasinf", 4},
+        {"acosf", "vacosf", 4},
+        {"atanf", "vatanf", 4},
+
+        // Hyperbolic Functions
+        {"sinhf", "vsinhf", 4},
+        {"coshf", "vcoshf", 4},
+        {"tanhf", "vtanhf", 4},
+        {"asinhf", "vasinhf", 4},
+        {"acoshf", "vacoshf", 4},
+        {"atanhf", "vatanhf", 4},
+    };
+    addVectorizableFunctions(VecFuncs);
+    break;
+  }
+  case NoLibrary:
+    break;
+  }
+}
+
+bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName) const {
+  funcName = sanitizeFunctionName(funcName);
+  if (funcName.empty())
+    return false;
+
+  std::vector<VecDesc>::const_iterator I = std::lower_bound(
+      VectorDescs.begin(), VectorDescs.end(), funcName,
+      compareWithScalarFnName);
+  return I != VectorDescs.end() && StringRef(I->ScalarFnName) == funcName;
+}
+
+StringRef TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
+                                                       unsigned VF) const {
+  F = sanitizeFunctionName(F);
+  if (F.empty())
+    return F;
+  std::vector<VecDesc>::const_iterator I = std::lower_bound(
+      VectorDescs.begin(), VectorDescs.end(), F, compareWithScalarFnName);
+  while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == F) {
+    if (I->VectorizationFactor == VF)
+      return I->VectorFnName;
+    ++I;
+  }
+  return StringRef();
+}
+
+StringRef TargetLibraryInfoImpl::getScalarizedFunction(StringRef F,
+                                                       unsigned &VF) const {
+  F = sanitizeFunctionName(F);
+  if (F.empty())
+    return F;
+
+  std::vector<VecDesc>::const_iterator I = std::lower_bound(
+      ScalarDescs.begin(), ScalarDescs.end(), F, compareWithVectorFnName);
+  if (I == VectorDescs.end() || StringRef(I->VectorFnName) != F)
+    return StringRef();
+  VF = I->VectorizationFactor;
+  return I->ScalarFnName;
 }
 
 TargetLibraryInfo TargetLibraryAnalysis::run(Module &M) {
