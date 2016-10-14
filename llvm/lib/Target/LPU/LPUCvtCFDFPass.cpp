@@ -1,4 +1,4 @@
-//===-- LPUCvtCFDFPass.cpp - LPU convert control flow to data flow --------===//
+#//===-- LPUCvtCFDFPass.cpp - LPU convert control flow to data flow --------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -119,6 +119,7 @@ namespace llvm {
     void replaceLoopHdrPhi();
 		void generateCompletePickTreeForPhi(MachineInstr *);
 		void generateDynamicPickTreeForPhi(MachineInstr *);
+		void generateDynamicPreds();
 		unsigned getEdgePred(MachineBasicBlock* fromBB, unsigned childType);
 		void setEdgePred(MachineBasicBlock* fromBB, unsigned childType, unsigned ch);
 		unsigned getBBPred(MachineBasicBlock* inBB);
@@ -335,7 +336,11 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 		MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
 	}
 #endif
+
 	insertSWITCHForIf();
+#if 0
+	generateDynamicPreds();
+#endif 
 	insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
@@ -370,11 +375,22 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
     assert(bi->getOperand(0).isReg());
     // generate switch op
     const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
-    MachineInstr *switchInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(switchOpcode), 
-                                                                     switchFalseReg).
-                                                                     addReg(switchTrueReg, RegState::Define).
-                                                                     addReg(bi->getOperand(0).getReg()).
-                                                                     addReg(Reg);
+		MachineInstr *switchInst;
+		MachineInstr *DefMI = MRI->getVRegDef(Reg);
+		if (DefMI->getOpcode() == LPU::PREDPROP) {
+			//special handling for predprop/premerge in loop to avoid cycle of dependence
+			switchInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(switchOpcode),
+				switchFalseReg).
+				addReg(switchTrueReg, RegState::Define).
+				addReg(bi->getOperand(0).getReg()).
+				addImm(1);
+		}	else {
+			switchInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(switchOpcode),
+				switchFalseReg).
+				addReg(switchTrueReg, RegState::Define).
+				addReg(bi->getOperand(0).getReg()).
+				addReg(Reg);
+		}
     switchInst->setFlag(MachineInstr::NonSequential);
     result = switchInst;
   } else {
@@ -756,7 +772,7 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 			else if (!DT->properlyDominates(mbb, UseBB) && mloop == useLoop) {
 				//insertSWITCHForBackEdge();
 				//def, use must in same loop, use must be loop hdr PHI, def come from backedge to loop hdr PHI
-				assert(UseMI->isPHI());
+				//assert(UseMI->isPHI());
 				if (UseBB != mloop->getHeader()) {
 					//no need to attend if-footer Phi inside the loop, still need to attend those outside the loop
 					continue;
@@ -1016,6 +1032,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
 			unsigned numOpnd = 0;
 			unsigned backEdgeIndex = 0;
 			unsigned dst = MI->getOperand(0).getReg();
+
       for (MIOperands MO(MI); MO.isValid(); ++MO, ++numOpnd) {
         if (!MO->isReg()) continue;
         // process use at loop level
@@ -1034,13 +1051,12 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
         }
       } //end for MO
 			if (numUse > 2) {
-				//loop hdr phi has more than 2 inputs
+				//loop hdr phi has more than 2 inputs, 
+				//remove backedge input reduce it to if-foot phi case to be handled by if-footer phi pass
 				initInput = &MI->getOperand(0);
 				const TargetRegisterClass *TRC = MRI->getRegClass(MI->getOperand(0).getReg());
 				unsigned renameReg = MRI->createVirtualRegister(TRC);
 				initInput->setReg(renameReg);
-				MI->RemoveOperand(backEdgeIndex);
-				MI->RemoveOperand(backEdgeIndex);
 			}
 			MachineOperand* pickFalse;
 			MachineOperand* pickTrue;
@@ -1088,8 +1104,13 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
 			}
       
 			pickInst->setFlag(MachineInstr::NonSequential);
-			if (numUse == 2) {
-				MI->removeFromParent();
+			MI->removeFromParent();
+			if (numUse > 2) {
+				//move phi before the pick
+				MachineBasicBlock::iterator tmpI = pickInst;
+				mbb->insert(tmpI, MI);
+				MI->RemoveOperand(backEdgeIndex);
+				MI->RemoveOperand(backEdgeIndex);
 			}
     }
   }
@@ -1698,6 +1719,43 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 		delete pred2value;
 	}
 	MI->removeFromParent();
+}
+
+
+
+void LPUCvtCFDFPass::generateDynamicPreds() {
+	typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
+	MachineBasicBlock *root = thisMF->begin();
+	for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
+		MachineBasicBlock* mbb = *itermbb;
+		MachineBasicBlock::iterator iterI = mbb->begin();
+		bool needDynamicTree = false;
+		bool checked = false;
+		while (iterI != mbb->end()) {
+			MachineInstr *MI = iterI;
+			++iterI;
+			if (!MI->isPHI()) continue;
+			//check to see if needs PREDPROP/PREDMERGE
+			if (!checked) {
+				for (MIOperands MO(MI); MO.isValid(); ++MO) {
+					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+					if (MO->isUse()) {
+						//move to its incoming block operand
+						++MO;
+						MachineBasicBlock* inBB = MO->getMBB();
+						if (!PDT->dominates(mbb, inBB) || !CheckPhiInputBB(inBB, mbb)) {
+							needDynamicTree = true;
+							break;
+						}
+					}
+				}
+			}
+			checked = true;
+			if (needDynamicTree) {
+				generateDynamicPickTreeForPhi(MI);
+			}
+		}
+	} //end of bb
 }
 
 
