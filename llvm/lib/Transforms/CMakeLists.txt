@@ -11,4 +11,4 @@ add_subdirectory(Intel_LoopTransforms)
 add_subdirectory(Intel_MapIntrinToIml)
 add_subdirectory(Intel_VPO)
 endif()
-
+add_subdirectory(Coroutines)

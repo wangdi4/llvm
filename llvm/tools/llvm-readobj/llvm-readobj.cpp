@@ -272,10 +272,16 @@ LLVM_ATTRIBUTE_NORETURN void reportError(Twine Msg) {
   exit(1);
 }
 
+void error(Error EC) {
+  if (!EC)
+    return;
+  handleAllErrors(std::move(EC),
+                  [&](const ErrorInfoBase &EI) { reportError(EI.message()); });
+}
+
 void error(std::error_code EC) {
   if (!EC)
     return;
-
   reportError(EC.message());
 }
 
@@ -454,6 +460,8 @@ static void dumpArchive(const Archive *Arc) {
     }
     if (ObjectFile *Obj = dyn_cast<ObjectFile>(&*ChildOrErr.get()))
       dumpObject(Obj);
+    else if (COFFImportFile *Imp = dyn_cast<COFFImportFile>(&*ChildOrErr.get()))
+      dumpCOFFImportFile(Imp);
     else
       reportError(Arc->getFileName(), readobj_error::unrecognized_file_format);
   }

@@ -56,10 +56,6 @@ void SNodeAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
 }
 
-SNode *ilist_traits<SNode>::createSentinel() const {
-  return static_cast<SNode *>(&Sentinel);
-}
-
 // creates a new SNode given an incoming SNode type.
 SNode *SNodeAnalysis::genSNode(SNode::SNodeOp SnOp) {
   SNode *Snode;

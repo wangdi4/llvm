@@ -67,6 +67,23 @@ protected:
   }
 };
 
+/// Provides an 'InsertHelper' that calls a user-provided callback after
+/// performing the default insertion.
+class IRBuilderCallbackInserter : IRBuilderDefaultInserter {
+  std::function<void(Instruction *)> Callback;
+
+public:
+  IRBuilderCallbackInserter(std::function<void(Instruction *)> Callback)
+      : Callback(Callback) {}
+
+protected:
+  void InsertHelper(Instruction *I, const Twine &Name,
+                    BasicBlock *BB, BasicBlock::iterator InsertPt) const {
+    IRBuilderDefaultInserter::InsertHelper(I, Name, BB, InsertPt);
+    Callback(I);
+  }
+};
+
 /// \brief Common base class shared among various IRBuilders.
 class IRBuilderBase {
   DebugLoc CurDbgLocation;
@@ -544,7 +561,12 @@ public:
                              const Twine &Name = "");
 
 #if INTEL_CUSTOMIZATION
-  /// \brief Create a call to the llvm.intel.fakeload intrinsic
+  /// \brief Create a call to the llvm.intel.std.container.ptr intrinic
+  /// to guide the generation of alias metadata. If the argument ITER
+  /// is true, it refers to the llvm.intel.std.container.ptr.iter intrinsic.
+  Instruction *CreateStdContainerCall(Value *Ptr, bool ITER);
+
+/// \brief Create a call to the llvm.intel.fakeload intrinsic
   // to hold the tbaa informaiton for the return pointers.
   Instruction *CreateFakeLoad(Value *Ptr, MDNode *TbaaTag);
 #endif // INTEL_CUSTOMIZATION

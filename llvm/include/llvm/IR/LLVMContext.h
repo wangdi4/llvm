@@ -69,6 +69,10 @@ public:
     MD_align = 17,                    // "align"
     MD_loop = 18,                     // "llvm.loop"
     MD_type = 19,                     // "type"
+#if INTEL_CUSTOMIZATION
+    MD_std_container_ptr = 20,        // "std.container.ptr"
+    MD_std_container_ptr_iter = 21    // "std.container.ptr.iter"
+#endif                                // INTEL_CUSTOMIZATION
   };
 
   /// Known operand bundle tag IDs, which always have the same value.  All

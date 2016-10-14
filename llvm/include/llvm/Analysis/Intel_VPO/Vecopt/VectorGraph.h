@@ -133,16 +133,6 @@ public:
 template <>
 struct ilist_traits<VGNode> : public ilist_default_traits<VGNode> {
 
-  VGNode *createSentinel() const {
-    return static_cast<VGNode *>(&Sentinel);
-  }
-
-  static void destroySentinel(VGNode *) {}
-
-  VGNode *provideInitialHead() const { return createSentinel(); }
-  VGNode *ensureHead(VGNode *) const { return createSentinel(); }
-  static void noteHead(VGNode *, VGNode *) {}
-
   static VGNode *createNode(const VGNode &) {
     llvm_unreachable("Vector Grpah Nodes should be explicitly created via "
                      "VectorGraphNodes");
@@ -150,9 +140,6 @@ struct ilist_traits<VGNode> : public ilist_default_traits<VGNode> {
     return nullptr;
   }
   static void deleteNode(VGNode *) {}
-
-private:
-  mutable ilist_half_node<VGNode> Sentinel;
 };
 
 typedef iplist<VGNode> VectorGraphTy;
@@ -492,35 +479,35 @@ public:
 };
 
 template <class GraphT, class GT = GraphTraits<GraphT>>
-class standard_df_iterator
+class standard_df_iterator2
     : public std::iterator<std::forward_iterator_tag, typename GT::NodeType> {
 private:
   df_iterator<GraphT> impl;
 
-  standard_df_iterator() {}
+  standard_df_iterator2() {}
 
 public:
   typedef std::iterator<std::forward_iterator_tag, typename GT::NodeType> super;
 
-  standard_df_iterator(const GraphT &G, bool Begin)
+  standard_df_iterator2(const GraphT &G, bool Begin)
       : impl(Begin ? df_iterator<GraphT>::begin(G)
                    : df_iterator<GraphT>::end(G)) {}
 
-  typename super::reference operator*() const { return *(*impl); }
+  typename super::pointer operator*() const { return *impl; }
 
-  bool operator==(const standard_df_iterator &x) const {
+  bool operator==(const standard_df_iterator2 &x) const {
     return impl == x.impl;
   }
 
-  bool operator!=(const standard_df_iterator &x) const { return !(*this == x); }
+  bool operator!=(const standard_df_iterator2 &x) const { return !(*this == x); }
 
-  standard_df_iterator &operator++() { // Preincrement
+  standard_df_iterator2 &operator++() { // Preincrement
     impl++;
     return *this;
   }
 
-  standard_df_iterator operator++(int) { // Postincrement
-    standard_df_iterator tmp = *this;
+  standard_df_iterator2 operator++(int) { // Postincrement
+    standard_df_iterator2 tmp = *this;
     ++*this;
     return tmp;
   }
@@ -528,8 +515,9 @@ public:
 
 template <> struct GraphTraits<VGBlock *> {
   typedef VGBlock NodeType;
+  typedef VGBlock *NodeRef;
   typedef SmallVectorImpl<VGBlock *>::iterator ChildIteratorType;
-  typedef standard_df_iterator<VGBlock *> nodes_iterator;
+  typedef standard_df_iterator2<VGBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(VGBlock *N) { return N; }
 
@@ -551,8 +539,9 @@ template <> struct GraphTraits<VGBlock *> {
 
 template <> struct GraphTraits<Inverse<VGBlock *>> {
   typedef VGBlock NodeType;
+  typedef VGBlock *NodeRef;
   typedef SmallVectorImpl<VGBlock *>::iterator ChildIteratorType;
-  typedef standard_df_iterator<VGBlock *> nodes_iterator;
+  typedef standard_df_iterator2<VGBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(Inverse<VGBlock *> G) { return G.Graph; }
 
@@ -575,8 +564,9 @@ template <> struct GraphTraits<Inverse<VGBlock *>> {
 
 template <> struct GraphTraits<const VGBlock *> {
   typedef const VGBlock NodeType;
+  typedef const VGBlock *NodeRef;
   typedef SmallVectorImpl<VGBlock *>::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const VGBlock *> nodes_iterator;
+  typedef standard_df_iterator2<const VGBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(const VGBlock *N) { return N; }
 
@@ -598,8 +588,9 @@ template <> struct GraphTraits<const VGBlock *> {
 
 template <> struct GraphTraits<Inverse<const VGBlock *>> {
   typedef const VGBlock NodeType;
+  typedef const VGBlock *NodeRef;
   typedef SmallVectorImpl<VGBlock *>::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const VGBlock *> nodes_iterator;
+  typedef standard_df_iterator2<const VGBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(Inverse<const VGBlock *> G) {
     return G.Graph;

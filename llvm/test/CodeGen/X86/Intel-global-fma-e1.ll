@@ -31,35 +31,18 @@ attributes #1 = { nounwind "target-cpu"="skx" "target-features"="+avx512f,+fma" 
 @i32 = common global float 0.000000e+00, align 4
 
 define void @func32() #0 {
-; AVX2-LABEL: func32:
-; AVX2:       # BB#0: # %entry
-; AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; AVX2-NEXT:    vmulss {{.*}}(%rip), %xmm0, %xmm0
-; AVX2-NEXT:    vaddss {{.*}}(%rip), %xmm1, %xmm1
-; AVX2-NEXT:    vfmadd231ss {{.*}}(%rip), %xmm2, %xmm0
-; AVX2-NEXT:    vfmadd132ss {{.*}}(%rip), %xmm1, %xmm1
-; AVX2-NEXT:    vfmadd213ss %xmm0, %xmm0, %xmm1
-; AVX2-NEXT:    vmovss %xmm1, {{.*}}(%rip)
-; AVX2-NEXT:    retq
-;
-; AVX512-LABEL: func32:
-; AVX512:       # BB#0: # %entry
-; AVX512-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; AVX512-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; AVX512-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; AVX512-NEXT:    vmovss {{.*#+}} xmm3 = mem[0],zero,zero,zero
-; AVX512-NEXT:    vmovss {{.*#+}} xmm4 = mem[0],zero,zero,zero
-; AVX512-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; AVX512-NEXT:    vmovss {{.*#+}} xmm6 = mem[0],zero,zero,zero
-; AVX512-NEXT:    vmulss %xmm1, %xmm2, %xmm1
-; AVX512-NEXT:    vaddss %xmm3, %xmm4, %xmm2
-; AVX512-NEXT:    vfmadd213ss %xmm1, %xmm5, %xmm6
-; AVX512-NEXT:    vfmadd213ss %xmm2, %xmm0, %xmm2
-; AVX512-NEXT:    vfmadd213ss %xmm6, %xmm6, %xmm2
-; AVX512-NEXT:    vmovss %xmm2, {{.*}}(%rip)
-; AVX512-NEXT:    retq
+; ALL-LABEL: func32:
+; ALL:       # BB#0: # %entry
+; ALL-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; ALL-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; ALL-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; ALL-NEXT:    vmulss {{.*}}(%rip), %xmm0, %xmm0
+; ALL-NEXT:    vaddss {{.*}}(%rip), %xmm1, %xmm1
+; ALL-NEXT:    vfmadd231ss {{.*}}(%rip), %xmm2, %xmm0
+; ALL-NEXT:    vfmadd132ss {{.*}}(%rip), %xmm1, %xmm1
+; ALL-NEXT:    vfmadd213ss %xmm0, %xmm0, %xmm1
+; ALL-NEXT:    vmovss %xmm1, {{.*}}(%rip)
+; ALL-NEXT:    retq
 entry:
   %load_a = load float, float* @a32, align 4
   %load_b = load float, float* @b32, align 4
@@ -111,35 +94,18 @@ entry:
 @i64 = common global double 0.000000e+00, align 8
 
 define void @func64() #0 {
-; AVX2-LABEL: func64:
-; AVX2:       # BB#0: # %entry
-; AVX2-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
-; AVX2-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; AVX2-NEXT:    vmovsd {{.*#+}} xmm2 = mem[0],zero
-; AVX2-NEXT:    vmulsd {{.*}}(%rip), %xmm0, %xmm0
-; AVX2-NEXT:    vaddsd {{.*}}(%rip), %xmm1, %xmm1
-; AVX2-NEXT:    vfmadd231sd {{.*}}(%rip), %xmm2, %xmm0
-; AVX2-NEXT:    vfmadd132sd {{.*}}(%rip), %xmm1, %xmm1
-; AVX2-NEXT:    vfmadd213sd %xmm0, %xmm0, %xmm1
-; AVX2-NEXT:    vmovsd %xmm1, {{.*}}(%rip)
-; AVX2-NEXT:    retq
-;
-; AVX512-LABEL: func64:
-; AVX512:       # BB#0: # %entry
-; AVX512-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
-; AVX512-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; AVX512-NEXT:    vmovsd {{.*#+}} xmm2 = mem[0],zero
-; AVX512-NEXT:    vmovsd {{.*#+}} xmm3 = mem[0],zero
-; AVX512-NEXT:    vmovsd {{.*#+}} xmm4 = mem[0],zero
-; AVX512-NEXT:    vmovsd {{.*#+}} xmm5 = mem[0],zero
-; AVX512-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
-; AVX512-NEXT:    vmulsd %xmm1, %xmm2, %xmm1
-; AVX512-NEXT:    vaddsd %xmm3, %xmm4, %xmm2
-; AVX512-NEXT:    vfmadd213sd %xmm1, %xmm5, %xmm6
-; AVX512-NEXT:    vfmadd213sd %xmm2, %xmm0, %xmm2
-; AVX512-NEXT:    vfmadd213sd %xmm6, %xmm6, %xmm2
-; AVX512-NEXT:    vmovsd %xmm2, {{.*}}(%rip)
-; AVX512-NEXT:    retq
+; ALL-LABEL: func64:
+; ALL:       # BB#0: # %entry
+; ALL-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; ALL-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; ALL-NEXT:    vmovsd {{.*#+}} xmm2 = mem[0],zero
+; ALL-NEXT:    vmulsd {{.*}}(%rip), %xmm0, %xmm0
+; ALL-NEXT:    vaddsd {{.*}}(%rip), %xmm1, %xmm1
+; ALL-NEXT:    vfmadd231sd {{.*}}(%rip), %xmm2, %xmm0
+; ALL-NEXT:    vfmadd132sd {{.*}}(%rip), %xmm1, %xmm1
+; ALL-NEXT:    vfmadd213sd %xmm0, %xmm0, %xmm1
+; ALL-NEXT:    vmovsd %xmm1, {{.*}}(%rip)
+; ALL-NEXT:    retq
 entry:
   %load_a = load double, double* @a64, align 8
   %load_b = load double, double* @b64, align 8

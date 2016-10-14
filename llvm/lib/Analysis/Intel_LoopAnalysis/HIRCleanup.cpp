@@ -122,7 +122,7 @@ void HIRCleanup::eliminateRedundantLabels() {
         auto LexSuccessor = HLNodeUtils::getLexicalControlFlowSuccessor(Label);
 
         HLContainerTy::iterator It(Label);
-        assert(LexSuccessor && ((HLNode *)std::next(It) == LexSuccessor) &&
+        assert(LexSuccessor && (&*std::next(It) == LexSuccessor) &&
                "Unexpected loop latch label successor!");
 
         LoopLatchHooks[LabelBB] = LexSuccessor;

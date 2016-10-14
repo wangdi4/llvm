@@ -1,5 +1,7 @@
-; RUN: opt %loadPolly -analyze -polly-scops < %s | FileCheck %s
-; RUN: opt %loadPolly -S -polly-codegen < %s | FileCheck %s --check-prefix=IR
+; RUN: opt %loadPolly -analyze -polly-scops \
+; RUN: -polly-invariant-load-hoisting=true < %s | FileCheck %s
+; RUN: opt %loadPolly -S -polly-codegen \
+; RUN: -polly-invariant-load-hoisting=true < %s | FileCheck %s --check-prefix=IR
 ;
 ;    void f(long *A, long *B, long *ptr, long val) {
 ;      for (long i = 0; i < 100; i++) {
@@ -28,6 +30,7 @@
 ;
 ; IR:      polly.loop_preheader:
 ; IR-NEXT:   %scevgep = getelementptr i64, i64* %ptr, i64 1
+; IR-NEXT:   %26 = add i64 %val, 1
 ; IR-NEXT:   br label %polly.loop_header
 ;
 ;

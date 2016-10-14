@@ -179,16 +179,6 @@ public:
 template <>
 struct ilist_traits<vpo::AVR> : public ilist_default_traits<vpo::AVR> {
 
-  vpo::AVR *createSentinel() const {
-    return static_cast<vpo::AVR *>(&Sentinel);
-  }
-
-  static void destroySentinel(vpo::AVR *) {}
-
-  vpo::AVR *provideInitialHead() const { return createSentinel(); }
-  vpo::AVR *ensureHead(vpo::AVR *) const { return createSentinel(); }
-  static void noteHead(vpo::AVR *, vpo::AVR *) {}
-
   static vpo::AVR *createNode(const vpo::AVR &) {
     llvm_unreachable("AVR should be explicitly created via AVRUtils"
                      "class");
@@ -196,9 +186,6 @@ struct ilist_traits<vpo::AVR> : public ilist_default_traits<vpo::AVR> {
     return nullptr;
   }
   static void deleteNode(vpo::AVR *) {}
-
-private:
-  mutable ilist_half_node<vpo::AVR> Sentinel;
 };
 
 namespace vpo { // VPO Vectorizer Namespace

@@ -32,7 +32,7 @@ class CommandObjectSettingsSet : public CommandObjectRaw
 public:
     CommandObjectSettingsSet(CommandInterpreter &interpreter)
         : CommandObjectRaw(interpreter, "settings set", "Set the value of the specified debugger setting.", nullptr),
-          m_options(interpreter)
+          m_options()
     {
         CommandArgumentEntry arg1;
         CommandArgumentEntry arg2;
@@ -95,16 +95,17 @@ insert-before or insert-after."
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options (interpreter),
-            m_global (false)
+        CommandOptions() :
+            Options(),
+            m_global(false)
         {
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -123,7 +124,7 @@ insert-before or insert-after."
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_global = false;
         }
@@ -168,7 +169,7 @@ insert-before or insert-after."
         if (cursor_index == setting_var_idx)
         {
             // Attempting to complete setting variable name
-            CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+            CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                                 CommandCompletions::eSettingsNameCompletion,
                                                                 completion_str.c_str(),
                                                                 match_start_point,
@@ -284,8 +285,10 @@ private:
 OptionDefinition
 CommandObjectSettingsSet::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_2, false, "global", 'g', OptionParser::eNoArgument,   nullptr, nullptr, 0, eArgTypeNone, "Apply the new value to the global default value." },
-    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_2, false, "global", 'g', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Apply the new value to the global default value."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -328,7 +331,7 @@ public:
     {
         std::string completion_str (input.GetArgumentAtIndex (cursor_index), cursor_char_position);
 
-        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+        CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                             CommandCompletions::eSettingsNameCompletion,
                                                             completion_str.c_str(),
                                                             match_start_point,
@@ -418,7 +421,7 @@ public:
     {
         std::string completion_str (input.GetArgumentAtIndex (cursor_index), cursor_char_position);
 
-        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+        CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                             CommandCompletions::eSettingsNameCompletion,
                                                             completion_str.c_str(),
                                                             match_start_point,
@@ -524,7 +527,7 @@ public:
 
         // Attempting to complete variable name
         if (cursor_index < 2)
-            CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+            CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                                 CommandCompletions::eSettingsNameCompletion,
                                                                 completion_str.c_str(),
                                                                 match_start_point,
@@ -532,7 +535,6 @@ public:
                                                                 nullptr,
                                                                 word_complete,
                                                                 matches);
-
         return matches.GetSize();
     }
 
@@ -655,7 +657,7 @@ public:
 
         // Attempting to complete variable name
         if (cursor_index < 2)
-            CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+            CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                                 CommandCompletions::eSettingsNameCompletion,
                                                                 completion_str.c_str(),
                                                                 match_start_point,
@@ -774,7 +776,7 @@ public:
 
         // Attempting to complete variable name
         if (cursor_index < 2)
-            CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+            CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                                 CommandCompletions::eSettingsNameCompletion,
                                                                 completion_str.c_str(),
                                                                 match_start_point,
@@ -896,7 +898,7 @@ public:
 
         // Attempting to complete variable name
         if (cursor_index < 2)
-            CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+            CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                                 CommandCompletions::eSettingsNameCompletion,
                                                                 completion_str.c_str(),
                                                                 match_start_point,
@@ -1007,7 +1009,7 @@ public:
 
         // Attempting to complete variable name
         if (cursor_index < 2)
-            CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+            CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                                 CommandCompletions::eSettingsNameCompletion,
                                                                 completion_str.c_str(),
                                                                 match_start_point,
@@ -1106,7 +1108,7 @@ public:
 
         // Attempting to complete variable name
         if (cursor_index < 2)
-            CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+            CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                                 CommandCompletions::eSettingsNameCompletion,
                                                                 completion_str.c_str(),
                                                                 match_start_point,

@@ -290,7 +290,7 @@ struct AndersensAAResult::BitmapKeyInfo {
   static unsigned getHashValue(const SparseBitVector<> *bitmap) {
     uint64_t HashVal = 0;
 
-    for (SparseBitVector<>::iterator bi = bitmap->begin(), E = bitmap->end();
+    for (auto bi = bitmap->begin(), E = bitmap->end();
          bi != E; ++bi) {
       HashVal ^= *bi;
     }

@@ -19,9 +19,13 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_AggInline.h"  // INTEL
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-#include "llvm/Analysis/Intel_WP.h"  // INTEL
+#include "llvm/Analysis/InlineCost.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_AggInline.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h"
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -155,11 +159,14 @@ static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
     cl::desc("Enable register promotion for global vars outside of the LTO."));
 
-#if INTEL_CUSTOMIZATION
+// Std Container Optimization at -O2 and above.
+static cl::opt<bool> EnableStdContainerOpt("enable-std-container-opt",
+                                           cl::init(true), cl::Hidden,
+                                           cl::desc("Enable Std Container Optimization"));
+
 static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
                                     cl::Hidden,
                                     cl::desc("Enable Tbaa Propagation"));
-#endif // INTEL_CUSTOMIZATION
 
 // Andersen AliasAnalysis
 static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
@@ -224,8 +231,8 @@ static cl::opt<int> PreInlineThreshold(
              "(default = 75)"));
 
 static cl::opt<bool> EnableGVNHoist(
-    "enable-gvn-hoist", cl::init(false), cl::Hidden,
-    cl::desc("Enable the experimental GVN Hoisting pass"));
+    "enable-gvn-hoist", cl::init(true), cl::Hidden,
+    cl::desc("Enable the GVN hoisting pass (default = on)"));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -303,6 +310,10 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
   // support "obvious" type-punning idioms.
   PM.add(createTypeBasedAAWrapperPass());
   PM.add(createScopedNoAliasAAWrapperPass());
+#if INTEL_CUSTOMIZATION
+  if (EnableStdContainerOpt)
+    PM.add(createStdContainerAAWrapperPass());
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addInstructionCombiningPass(
@@ -345,8 +356,17 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
   // Perform the preinline and cleanup passes for O1 and above.
   // And avoid doing them if optimizing for size.
   if (OptLevel > 0 && SizeLevel == 0 && !DisablePreInliner) {
-    // Create preinline pass.
-    MPM.add(createFunctionInliningPass(PreInlineThreshold));
+    // Create preinline pass. We construct an InlineParams object and specify
+    // the threshold here to avoid the command line options of the regular
+    // inliner to influence pre-inlining. The only fields of InlineParams we
+    // care about are DefaultThreshold and HintThreshold.
+    InlineParams IP;
+    IP.DefaultThreshold = PreInlineThreshold;
+    // FIXME: The hint threshold has the same value used by the regular inliner.
+    // This should probably be lowered after performance testing.
+    IP.HintThreshold = 325;
+
+    MPM.add(createFunctionInliningPass(IP));
     MPM.add(createSROAPass());
     MPM.add(createEarlyCSEPass());             // Catch trivial redundancies
     MPM.add(createCFGSimplificationPass());    // Merge & remove BBs
@@ -378,8 +398,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Combine silly seq's
   addInstructionCombiningPass(MPM);
 #if INTEL_CUSTOMIZATION
-  if (EnableTbaaProp)
+  if (EnableTbaaProp) {
     MPM.add(createTbaaMDPropagationPass());
+    MPM.add(createSROAPass());
+  }
+  if (EnableStdContainerOpt) 
+    MPM.add(createStdContainerOptPass());
 #endif // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_Peephole, MPM);
 
@@ -571,6 +595,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel > 2)
     MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
 
+  addExtensionsToPM(EP_CGSCCOptimizerLate, MPM);
   addFunctionSimplificationPasses(MPM);
 
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC

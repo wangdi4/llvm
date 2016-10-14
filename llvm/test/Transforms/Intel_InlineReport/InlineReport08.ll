@@ -1,13 +1,14 @@
 ; RUN: opt -inline -inline-report=33 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s
 
 ; Generated with clang -c -S -emit-llvm sm1.c 
+; Inline inlineoptsize-threshold will be overriden and will print as 0.
 
 ; CHECK: Begin 
 ; CHECK-NEXT: Option Values:
 ; CHECK-NEXT: inline-threshold: 50
 ; CHECK-NEXT: inlinehint-threshold: 100
 ; CHECK-NEXT: inlinecold-threshold: 25
-; CHECK-NEXT: inlineoptsize-threshold: 10 
+; CHECK-NEXT: inlineoptsize-threshold: 0 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

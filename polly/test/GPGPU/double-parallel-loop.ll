@@ -92,11 +92,20 @@
 ; IR-NEXT:    br i1 true, label %polly.start, label %bb2
 
 ; IR: polly.start:
+; IR-NEXT: br label %polly.acc.initialize
+
+; IR: polly.acc.initialize:
 ; IR-NEXT:    [[GPUContext:%.*]] = call i8* @polly_initContext()
 ; IR-NEXT:    %p_dev_array_MemRef_A = call i8* @polly_allocateMemoryForDevice(i64 4194304)
 ; IR-NEXT:    [[HostPtr:%.*]] = bitcast [1024 x float]* %A to i8*
 ; IR-NEXT:    call void @polly_copyFromHostToDevice(i8* [[HostPtr]], i8* %p_dev_array_MemRef_A, i64 4194304)
+; IR-NEXT:    [[DevPtr:%.*]]  = call i8* @polly_getDevicePtr(i8* %p_dev_array_MemRef_A)
+; IR-NEXT:    store i8* [[DevPtr]], i8** %polly_launch_0_param_0
+; IR-NEXT:    [[ParamSlot:%.*]] = getelementptr [1 x i8*], [1 x i8*]* %polly_launch_0_params, i64 0, i64 0
+; IR-NEXT:    [[ParamTyped:%.*]] = bitcast i8** %polly_launch_0_param_0 to i8*
+; IR-NEXT:    store i8* [[ParamTyped]], i8** [[ParamSlot]]
 ; IR-NEXT:    call i8* @polly_getKernel
+; IR-NEXT:    call void @polly_launchKernel(i8* %5, i32 32, i32 32, i32 32, i32 16, i32 1, i8* %polly_launch_0_params_i8ptr)
 ; IR-NEXT:    call void @polly_freeKernel
 ; IR-NEXT:    [[HostPtr2:%.*]] = bitcast [1024 x float]* %A to i8*
 ; IR-NEXT:    call void @polly_copyFromDeviceToHost(i8* %p_dev_array_MemRef_A, i8* [[HostPtr2]], i64 4194304)
@@ -107,7 +116,7 @@
 ; IR: polly.exiting:
 ; IR-NEXT:    br label %polly.merge_new_and_old
 
-; KERNEL-IR-LABEL: define ptx_kernel void @kernel_0(i8* %MemRef_A) {
+; KERNEL-IR-LABEL: define ptx_kernel void @kernel_0(i8* %MemRef_A) #0 {
 ; KERNEL-IR-NEXT: entry:
 ; KERNEL-IR-NEXT:   %0 = call i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
 ; KERNEL-IR-NEXT:   %b0 = zext i32 %0 to i64
@@ -165,6 +174,7 @@
 ; KERNEL-IR-LABEL: polly.loop_preheader:                             ; preds = %entry
 ; KERNEL-IR-NEXT:   br label %polly.loop_header
 
+; KERNEL-IR: attributes #0 = { "polly.skip.fn" }
 
 ; KERNEL-ASM: .version 3.2
 ; KERNEL-ASM-NEXT: .target sm_30

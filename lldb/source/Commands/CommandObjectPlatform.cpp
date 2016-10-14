@@ -64,19 +64,19 @@ ParsePermissionString(const char* permissions)
 static OptionDefinition
 g_permissions_options[] =
 {
-    {   LLDB_OPT_SET_ALL, false, "permissions-value",   'v', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePermissionsNumber         , "Give out the numeric value for permissions (e.g. 757)" },
-    {   LLDB_OPT_SET_ALL, false, "permissions-string",  's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePermissionsString  , "Give out the string value for permissions (e.g. rwxr-xr--)." },
-    {   LLDB_OPT_SET_ALL, false, "user-read",           'r', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone         , "Allow user to read." },
-    {   LLDB_OPT_SET_ALL, false, "user-write",          'w', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone         , "Allow user to write." },
-    {   LLDB_OPT_SET_ALL, false, "user-exec",           'x', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone         , "Allow user to execute." },
-
-    {   LLDB_OPT_SET_ALL, false, "group-read",          'R', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone         , "Allow group to read." },
-    {   LLDB_OPT_SET_ALL, false, "group-write",         'W', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone         , "Allow group to write." },
-    {   LLDB_OPT_SET_ALL, false, "group-exec",          'X', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone         , "Allow group to execute." },
-
-    {   LLDB_OPT_SET_ALL, false, "world-read",          'd', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone         , "Allow world to read." },
-    {   LLDB_OPT_SET_ALL, false, "world-write",         't', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone         , "Allow world to write." },
-    {   LLDB_OPT_SET_ALL, false, "world-exec",          'e', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone         , "Allow world to execute." },
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "permissions-value",   'v', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePermissionsNumber, "Give out the numeric value for permissions (e.g. 757)"},
+  {LLDB_OPT_SET_ALL, false, "permissions-string",  's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePermissionsString, "Give out the string value for permissions (e.g. rwxr-xr--)."},
+  {LLDB_OPT_SET_ALL, false, "user-read",           'r', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Allow user to read."},
+  {LLDB_OPT_SET_ALL, false, "user-write",          'w', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Allow user to write."},
+  {LLDB_OPT_SET_ALL, false, "user-exec",           'x', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Allow user to execute."},
+  {LLDB_OPT_SET_ALL, false, "group-read",          'R', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Allow group to read."},
+  {LLDB_OPT_SET_ALL, false, "group-write",         'W', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Allow group to write."},
+  {LLDB_OPT_SET_ALL, false, "group-exec",          'X', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Allow group to execute."},
+  {LLDB_OPT_SET_ALL, false, "world-read",          'd', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Allow world to read."},
+  {LLDB_OPT_SET_ALL, false, "world-write",         't', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Allow world to write."},
+  {LLDB_OPT_SET_ALL, false, "world-exec",          'e', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Allow world to execute."},
+  // clang-format on
 };
 
 class OptionPermissions : public lldb_private::OptionGroup
@@ -89,9 +89,9 @@ public:
     ~OptionPermissions() override = default;
 
     lldb_private::Error
-    SetOptionValue (CommandInterpreter &interpreter,
-                    uint32_t option_idx,
-                    const char *option_arg) override
+    SetOptionValue(uint32_t option_idx,
+                   const char *option_arg,
+                   ExecutionContext *execution_context) override
     {
         Error error;
         char short_option = (char) GetDefinitions()[option_idx].short_option;
@@ -152,7 +152,7 @@ public:
     }
     
     void
-    OptionParsingStarting (CommandInterpreter &interpreter) override
+    OptionParsingStarting(ExecutionContext *execution_context) override
     {
         m_permissions = 0;
     }
@@ -189,7 +189,7 @@ public:
                              "Create a platform if needed and select it as the current platform.",
                              "platform select <platform-name>",
                              0),
-        m_option_group (interpreter),
+        m_option_group (),
         m_platform_options (false) // Don't include the "--platform" option by passing false
     {
         m_option_group.Append (&m_platform_options, LLDB_OPT_SET_ALL, 1);
@@ -210,7 +210,7 @@ public:
         std::string completion_str (input.GetArgumentAtIndex(cursor_index));
         completion_str.erase (cursor_char_position);
         
-        CommandCompletions::PlatformPluginNames(m_interpreter,
+        CommandCompletions::PlatformPluginNames(GetCommandInterpreter(),
                                                 completion_str.c_str(),
                                                 match_start_point,
                                                 max_return_elements,
@@ -517,7 +517,7 @@ public:
                              "Set settings for the current target's platform, or for a platform by name.",
                              "platform settings",
                              0),
-        m_options (interpreter),
+        m_options(),
         m_option_working_dir (LLDB_OPT_SET_1, false, "working-dir", 'w', 0, eArgTypePath, "The working directory for the platform.")
     {
         m_options.Append (&m_option_working_dir, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
@@ -568,7 +568,7 @@ public:
                             "Make a new directory on the remote end.",
                             nullptr,
                             0),
-        m_options(interpreter)
+        m_options()
     {
     }
 
@@ -633,7 +633,7 @@ public:
                             "Open a file on the remote end.",
                             nullptr,
                             0),
-        m_options(interpreter)
+        m_options()
     {
     }
 
@@ -752,7 +752,7 @@ public:
                             "Read data from a file on the remote end.",
                             nullptr,
                             0),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -792,15 +792,16 @@ protected:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-        Options (interpreter)
+        CommandOptions() :
+        Options()
         {
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue (uint32_t option_idx, const char *option_arg,
+                        ExecutionContext *execution_context) override
         {
             Error error;
             char short_option = (char) m_getopt_table[option_idx].val;
@@ -827,7 +828,7 @@ protected:
         }
         
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_offset = 0;
             m_count = 1;
@@ -855,9 +856,11 @@ protected:
 OptionDefinition
 CommandObjectPlatformFRead::CommandOptions::g_option_table[] =
 {
-    {   LLDB_OPT_SET_1, false, "offset"           , 'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeIndex        , "Offset into the file at which to start reading." },
-    {   LLDB_OPT_SET_1, false, "count"            , 'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeCount        , "Number of bytes to read from the file." },
-    {  0              , false, nullptr               ,  0 , 0                           , nullptr, nullptr, 0, eArgTypeNone         , nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "offset", 'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeIndex, "Offset into the file at which to start reading."},
+  {LLDB_OPT_SET_1, false, "count",  'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeCount, "Number of bytes to read from the file."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //----------------------------------------------------------------------
@@ -872,7 +875,7 @@ public:
                             "Write data to a file on the remote end.",
                             nullptr,
                             0),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -914,15 +917,16 @@ protected:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-        Options (interpreter)
+        CommandOptions() :
+        Options()
         {
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue (uint32_t option_idx, const char *option_arg,
+                        ExecutionContext *execution_context) override
         {
             Error error;
             char short_option = (char) m_getopt_table[option_idx].val;
@@ -947,7 +951,7 @@ protected:
         }
         
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_offset = 0;
             m_data.clear();
@@ -975,9 +979,11 @@ protected:
 OptionDefinition
 CommandObjectPlatformFWrite::CommandOptions::g_option_table[] =
 {
-    {   LLDB_OPT_SET_1, false, "offset"           , 'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeIndex        , "Offset into the file at which to start reading." },
-    {   LLDB_OPT_SET_1, false, "data"            , 'd', OptionParser::eRequiredArgument , nullptr, nullptr, 0, eArgTypeValue        , "Text to write to the file." },
-    {  0              , false, nullptr               ,  0 , 0                           , nullptr, nullptr, 0, eArgTypeNone         , nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "offset", 'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeIndex, "Offset into the file at which to start reading."},
+  {LLDB_OPT_SET_1, false, "data",   'd', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeValue, "Text to write to the file."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 class CommandObjectPlatformFile : public CommandObjectMultiword
@@ -1220,7 +1226,7 @@ public:
                              "Launch a new process on a remote platform.",
                              "platform process launch program",
                              eCommandRequiresTarget | eCommandTryTargetAPILock),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -1332,7 +1338,7 @@ public:
                              "List processes on a remote platform by name, pid, or many other matching attributes.",
                              "platform process list",
                              0),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -1451,8 +1457,8 @@ protected:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions(CommandInterpreter &interpreter) :
-            Options(interpreter),
+        CommandOptions() :
+            Options(),
             match_info(),
             show_args(false),
             verbose(false)
@@ -1480,7 +1486,8 @@ protected:
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -1525,7 +1532,18 @@ protected:
                     break;
 
                 case 'a':
-                    match_info.GetProcessInfo().GetArchitecture().SetTriple (option_arg, m_interpreter.GetDebugger().GetPlatformList().GetSelectedPlatform().get());
+                    {
+                        TargetSP target_sp = execution_context ?
+                        execution_context->GetTargetSP() : TargetSP();
+                        DebuggerSP debugger_sp = target_sp ?
+                            target_sp->GetDebugger().shared_from_this() :
+                            DebuggerSP();
+                        PlatformSP platform_sp = debugger_sp ?
+                            debugger_sp->GetPlatformList().GetSelectedPlatform() :
+                            PlatformSP();
+                        match_info.GetProcessInfo().GetArchitecture().SetTriple(
+                                            option_arg, platform_sp.get());
+                    }
                     break;
 
                 case 'n':
@@ -1570,7 +1588,7 @@ protected:
         }
         
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             match_info.Clear();
             show_args = false;
@@ -1600,21 +1618,23 @@ protected:
 OptionDefinition
 CommandObjectPlatformProcessList::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_1            , false, "pid"        , 'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePid              , "List the process info for a specific process ID." },
-{ LLDB_OPT_SET_2            , true , "name"       , 'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName      , "Find processes with executable basenames that match a string." },
-{ LLDB_OPT_SET_3            , true , "ends-with"  , 'e', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName      , "Find processes with executable basenames that end with a string." },
-{ LLDB_OPT_SET_4            , true , "starts-with", 's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName      , "Find processes with executable basenames that start with a string." },
-{ LLDB_OPT_SET_5            , true , "contains"   , 'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName      , "Find processes with executable basenames that contain a string." },
-{ LLDB_OPT_SET_6            , true , "regex"      , 'r', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeRegularExpression, "Find processes with executable basenames that match a regular expression." },
-{ LLDB_OPT_SET_FROM_TO(2, 6), false, "parent"     , 'P', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePid              , "Find processes that have a matching parent process ID." },
-{ LLDB_OPT_SET_FROM_TO(2, 6), false, "uid"        , 'u', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger  , "Find processes that have a matching user ID." },
-{ LLDB_OPT_SET_FROM_TO(2, 6), false, "euid"       , 'U', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger  , "Find processes that have a matching effective user ID." },
-{ LLDB_OPT_SET_FROM_TO(2, 6), false, "gid"        , 'g', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger  , "Find processes that have a matching group ID." },
-{ LLDB_OPT_SET_FROM_TO(2, 6), false, "egid"       , 'G', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger  , "Find processes that have a matching effective group ID." },
-{ LLDB_OPT_SET_FROM_TO(2, 6), false, "arch"       , 'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeArchitecture     , "Find processes that have a matching architecture." },
-{ LLDB_OPT_SET_FROM_TO(1, 6), false, "show-args"  , 'A', OptionParser::eNoArgument      , nullptr, nullptr, 0, eArgTypeNone             , "Show process arguments instead of the process executable basename." },
-{ LLDB_OPT_SET_FROM_TO(1, 6), false, "verbose"    , 'v', OptionParser::eNoArgument      , nullptr, nullptr, 0, eArgTypeNone             , "Enable verbose output." },
-{ 0                         , false, nullptr         ,  0 , 0                           , nullptr, nullptr, 0, eArgTypeNone             , nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1,             false, "pid",         'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePid,               "List the process info for a specific process ID."},
+  {LLDB_OPT_SET_2,             true,  "name",        'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName,       "Find processes with executable basenames that match a string."},
+  {LLDB_OPT_SET_3,             true,  "ends-with",   'e', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName,       "Find processes with executable basenames that end with a string."},
+  {LLDB_OPT_SET_4,             true,  "starts-with", 's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName,       "Find processes with executable basenames that start with a string."},
+  {LLDB_OPT_SET_5,             true,  "contains",    'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName,       "Find processes with executable basenames that contain a string."},
+  {LLDB_OPT_SET_6,             true,  "regex",       'r', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeRegularExpression, "Find processes with executable basenames that match a regular expression."},
+  {LLDB_OPT_SET_FROM_TO(2, 6), false, "parent",      'P', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePid,               "Find processes that have a matching parent process ID."},
+  {LLDB_OPT_SET_FROM_TO(2, 6), false, "uid",         'u', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger,   "Find processes that have a matching user ID."},
+  {LLDB_OPT_SET_FROM_TO(2, 6), false, "euid",        'U', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger,   "Find processes that have a matching effective user ID."},
+  {LLDB_OPT_SET_FROM_TO(2, 6), false, "gid",         'g', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger,   "Find processes that have a matching group ID."},
+  {LLDB_OPT_SET_FROM_TO(2, 6), false, "egid",        'G', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger,   "Find processes that have a matching effective group ID."},
+  {LLDB_OPT_SET_FROM_TO(2, 6), false, "arch",        'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeArchitecture,      "Find processes that have a matching architecture."},
+  {LLDB_OPT_SET_FROM_TO(1, 6), false, "show-args",   'A', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Show process arguments instead of the process executable basename."},
+  {LLDB_OPT_SET_FROM_TO(1, 6), false, "verbose",     'v', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,              "Enable verbose output."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //----------------------------------------------------------------------
@@ -1727,17 +1747,18 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-        Options(interpreter)
+        CommandOptions() :
+        Options()
         {
             // Keep default values of all options in one place: OptionParsingStarting ()
-            OptionParsingStarting ();
+            OptionParsingStarting(nullptr);
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue (uint32_t option_idx, const char *option_arg,
+                        ExecutionContext *execution_context) override
         {
             Error error;
             char short_option = (char) m_getopt_table[option_idx].val;
@@ -1778,7 +1799,7 @@ public:
         }
         
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             attach_info.Clear();
         }
@@ -1797,6 +1818,7 @@ public:
                                         int opt_element_index,
                                         int match_start_point,
                                         int max_return_elements,
+                                        CommandInterpreter &interpreter,
                                         bool &word_complete,
                                         StringList &matches) override
         {
@@ -1816,7 +1838,7 @@ public:
                 const char *partial_name = nullptr;
                 partial_name = input.GetArgumentAtIndex(opt_arg_pos);
                 
-                PlatformSP platform_sp (m_interpreter.GetPlatform (true));
+                PlatformSP platform_sp(interpreter.GetPlatform(true));
                 if (platform_sp)
                 {
                     ProcessInstanceInfoList process_infos;
@@ -1856,7 +1878,7 @@ public:
                          "platform process attach",
                          "Attach to a process.",
                          "platform process attach <cmd-options>"),
-    m_options (interpreter)
+    m_options()
     {
     }
 
@@ -1906,11 +1928,13 @@ protected:
 OptionDefinition
 CommandObjectPlatformProcessAttach::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_ALL, false, "plugin",  'P'  , OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePlugin,        "Name of the process plugin you want to use."},
-    { LLDB_OPT_SET_1,   false, "pid",     'p'  , OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePid,           "The process ID of an existing process to attach to."},
-    { LLDB_OPT_SET_2,   false, "name",    'n'  , OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName,  "The name of the process to attach to."},
-    { LLDB_OPT_SET_2,   false, "waitfor", 'w'  , OptionParser::eNoArgument      , nullptr, nullptr, 0, eArgTypeNone,              "Wait for the process with <process-name> to launch."},
-    { 0,                false, nullptr     , 0    , 0                           , nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "plugin",  'P', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePlugin,      "Name of the process plugin you want to use."},
+  {LLDB_OPT_SET_1,   false, "pid",     'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePid,         "The process ID of an existing process to attach to."},
+  {LLDB_OPT_SET_2,   false, "name",    'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName, "The name of the process to attach to."},
+  {LLDB_OPT_SET_2,   false, "waitfor", 'w', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,        "Wait for the process with <process-name> to launch."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 class CommandObjectPlatformProcess : public CommandObjectMultiword
@@ -1948,8 +1972,8 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-        Options(interpreter),
+        CommandOptions() :
+        Options(),
         timeout(10)
         {
         }
@@ -1970,7 +1994,8 @@ public:
         
         Error
         SetOptionValue (uint32_t option_idx,
-                        const char *option_value) override
+                        const char *option_value,
+                        ExecutionContext *execution_context) override
         {
             Error error;
             
@@ -1995,7 +2020,7 @@ public:
         }
         
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
         }
         
@@ -2008,7 +2033,7 @@ public:
     CommandObjectPlatformShell(CommandInterpreter &interpreter)
         : CommandObjectRaw(interpreter, "platform shell", "Run a shell command on the current platform.",
                            "platform shell <shell-command>", 0),
-          m_options(interpreter)
+          m_options()
     {
     }
 
@@ -2023,7 +2048,9 @@ public:
     bool
     DoExecute (const char *raw_command_line, CommandReturnObject &result) override
     {
-        m_options.NotifyOptionParsingStarting();
+        ExecutionContext exe_ctx =
+            GetCommandInterpreter().GetExecutionContext();
+        m_options.NotifyOptionParsingStarting(&exe_ctx);
         
         const char* expr = nullptr;
 
@@ -2116,8 +2143,10 @@ public:
 OptionDefinition
 CommandObjectPlatformShell::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_ALL, false, "timeout",      't', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeValue,    "Seconds to wait for the remote host to finish running the command."},
-    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "timeout", 't', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeValue, "Seconds to wait for the remote host to finish running the command."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //----------------------------------------------------------------------
