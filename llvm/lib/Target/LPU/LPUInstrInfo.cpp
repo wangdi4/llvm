@@ -993,10 +993,33 @@ LPUInstrInfo::
 convertTransformToReductionOp(unsigned transform_opcode,
                               unsigned* reduction_opcode) const {
   switch (transform_opcode) {
-    // TBD(jsukha): We don't have any of the reduction opcodes added
-    // to the compiler yet...
-    //
-    // Return false for now.
+
+  case LPU::FMAF64:
+    *reduction_opcode = LPU::FMSREDAF64;
+    return true;
+  case LPU::FMAF32:
+    *reduction_opcode = LPU::FMSREDAF32;
+    return true;
+
+  case LPU::ADDF64:
+    *reduction_opcode = LPU::SREDADDF64;
+    return true;
+  case LPU::ADDF32:
+    *reduction_opcode = LPU::SREDADDF32;
+    return true;
+    
+  case LPU::ADD64:
+    *reduction_opcode = LPU::SREDADD64;
+    return true;
+  case LPU::ADD32:
+    *reduction_opcode = LPU::SREDADD32;
+    return true;
+  case LPU::ADD16:
+    *reduction_opcode = LPU::SREDADD16;
+    return true;
+
+  // TBD: Figure out what to do with subtraction later.
+
   default:
     // No match. return false. 
     return false;

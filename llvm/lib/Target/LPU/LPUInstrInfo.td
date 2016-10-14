@@ -421,6 +421,22 @@ class StrideOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $base, $stride"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
 
+class SReduceOp<GenericOp gen, LPUOpInfo oi,
+                InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$result, oi.RC:$each),
+    (ins oi.RCL:$init, oi.RCL:$inval, I1:$ctl),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+
+class FMSReduceOp<GenericOp gen, LPUOpInfo oi,
+                  InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$result, oi.RC:$each),
+    (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, I1:$ctl),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+
 multiclass LdOp<string opStr, LPUOpInfo t,
            InstrItinClass itin = IILD> {
   let Predicates = [HasIndex], Itinerary = itin in {
@@ -1278,6 +1294,19 @@ def STRIDE8   : StrideOp<STRIDE, Ti8,  IIALU>;
 def STRIDE16  : StrideOp<STRIDE, Ti16, IIALU>;
 def STRIDE32  : StrideOp<STRIDE, Ti32, IIALU>;
 def STRIDE64  : StrideOp<STRIDE, Ti64, IIALU>;
+
+def SREDADD   : GenericOp<"sredadd">;
+def SREDADD8  : SReduceOp<SREDADD, Ti8,  IIALU>;
+def SREDADD16 : SReduceOp<SREDADD, Ti16, IIALU>;
+def SREDADD32 : SReduceOp<SREDADD, Ti32, IIALU>;
+def SREDADD64 : SReduceOp<SREDADD, Ti64, IIALU>;
+def SREDADDF32: SReduceOp<SREDADD, Tf32, IIALU>;
+def SREDADDF64: SReduceOp<SREDADD, Tf64, IIALU>;
+
+def FMSREDA   : GenericOp<"fmsreda">;
+def FMSREDAF32: FMSReduceOp<FMSREDA, Tf32, IIALU>;
+def FMSREDAF64: FMSReduceOp<FMSREDA, Tf64, IIALU>;
+
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.
