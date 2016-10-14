@@ -987,6 +987,19 @@ convertPickToRepeatOp(unsigned pick_opcode,
   }
 }
 
+bool
+LPUInstrInfo::
+isCommutingReductionTransform(MachineInstr* MI) const {
+  unsigned opcode = MI->getOpcode();
+  // NOTE: we are leaving out AND1, OR1, and XOR1.
+  // We don't have a 1-bit reduction op...
+  return (isAdd(MI) ||
+          isMul(MI) ||
+          ((LPU::AND16 <= opcode) && (opcode <= LPU::AND8)) ||
+          ((LPU::OR16 <= opcode) && (opcode <= LPU::OR8)) ||
+          ((LPU::XOR16 <= opcode) && (opcode <= LPU::XOR8)));
+}
+
 
 bool
 LPUInstrInfo::
@@ -1006,8 +1019,7 @@ convertTransformToReductionOp(unsigned transform_opcode,
     return true;
   case LPU::ADDF32:
     *reduction_opcode = LPU::SREDADDF32;
-    return true;
-    
+    return true;    
   case LPU::ADD64:
     *reduction_opcode = LPU::SREDADD64;
     return true;
@@ -1018,8 +1030,77 @@ convertTransformToReductionOp(unsigned transform_opcode,
     *reduction_opcode = LPU::SREDADD16;
     return true;
 
-  // TBD: Figure out what to do with subtraction later.
+  case LPU::SUBF64:
+    *reduction_opcode = LPU::SREDSUBF64;
+    return true;
+  case LPU::SUBF32:
+    *reduction_opcode = LPU::SREDSUBF32;
+    return true;    
+  case LPU::SUB64:
+    *reduction_opcode = LPU::SREDSUB64;
+    return true;
+  case LPU::SUB32:
+    *reduction_opcode = LPU::SREDSUB32;
+    return true;
+  case LPU::SUB16:
+    *reduction_opcode = LPU::SREDSUB16;
+    return true;
 
+  case LPU::MULF64:
+    *reduction_opcode = LPU::SREDMULF64;
+    return true;
+  case LPU::MULF32:
+    *reduction_opcode = LPU::SREDMULF32;
+    return true;    
+  case LPU::MUL64:
+    *reduction_opcode = LPU::SREDMUL64;
+    return true;
+  case LPU::MUL32:
+    *reduction_opcode = LPU::SREDMUL32;
+    return true;
+  case LPU::MUL16:
+    *reduction_opcode = LPU::SREDMUL16;
+    return true;
+
+  case LPU::AND64:
+    *reduction_opcode = LPU::SREDAND64;
+    return true;
+  case LPU::AND32:
+    *reduction_opcode = LPU::SREDAND32;
+    return true;
+  case LPU::AND16:
+    *reduction_opcode = LPU::SREDAND16;
+    return true;
+  case LPU::AND8:
+    *reduction_opcode = LPU::SREDAND8;
+    return true;
+
+  case LPU::OR64:
+    *reduction_opcode = LPU::SREDOR64;
+    return true;
+  case LPU::OR32:
+    *reduction_opcode = LPU::SREDOR32;
+    return true;
+  case LPU::OR16:
+    *reduction_opcode = LPU::SREDOR16;
+    return true;
+  case LPU::OR8:
+    *reduction_opcode = LPU::SREDOR8;
+    return true;
+
+  case LPU::XOR64:
+    *reduction_opcode = LPU::SREDXOR64;
+    return true;
+  case LPU::XOR32:
+    *reduction_opcode = LPU::SREDXOR32;
+    return true;
+  case LPU::XOR16:
+    *reduction_opcode = LPU::SREDXOR16;
+    return true;
+  case LPU::XOR8:
+    *reduction_opcode = LPU::SREDXOR8;
+    return true;
+    
   default:
     // No match. return false. 
     return false;

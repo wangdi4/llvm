@@ -1051,13 +1051,15 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
       // For a reduction, we want no other uses of top, except in the
       // the transforming instruction itself.
       if (getSingleUse(top_channel, MRI) == def_bottom) {
+        // 3 main cases of interesting reduction operations.
+        bool is_commuting_3op_reduction =
+          TII.isCommutingReductionTransform(def_bottom);
         bool is_fma = TII.isFMA(def_bottom);
-        bool is_add = TII.isAdd(def_bottom);
+        bool is_sub = TII.isSub(def_bottom);
 
-        if ( is_add ||
-             is_fma ||
-             TII.isSub(def_bottom) ) {
-
+        if ( is_fma ||
+             is_commuting_3op_reduction ||
+             is_sub ) {
           // Figure out whether the last operand of the transform
           // instruction is the output of the pick.
           // To do reductions for "fma" and "sub", it needs to be.
@@ -1076,11 +1078,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
           }
 
           MachineOperand* input0_op = NULL;
-          if (is_add) {
-            assert(num_operands == 3);
-            input0_op = (matched_last_use ? prev_op : last_op);
-          }
-          else if (is_fma) {
+          if (is_fma) {
             assert(num_operands == 4);
             if (!matched_last_use) {
               DEBUG(errs() << "WARNING: FMA reduction with transform "
@@ -1090,8 +1088,14 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
             // For FMA, we don't care about setting input0_op.
             // We will look it up from the transform instruction directly later. 
           }
+          else if (is_commuting_3op_reduction) {
+            // Ops that commute and
+            assert(num_operands == 3);
+            input0_op = (matched_last_use ? prev_op : last_op);
+          }
           else {
             // Should be subtraction.
+            assert(is_sub);
             assert(num_operands == 3);
             if (!matched_last_use) {
               DEBUG(errs() << "WARNING: FMA reduction with transform "
@@ -1822,10 +1826,9 @@ seq_add_reduction(LPUSeqCandidate& sc,
       addReg(pred_reg);       // control
   }
   else {
-    // Only one input argument for normal sequence/reduction.
-    // We saved the op away earlier (because we had to figure out
-    // which one of the two it is, when we allow the add arguments to
-    // commute.
+    // Only one input argument for normal sequence/reduction.  We
+    // saved the op away earlier (when we had to figure out which one
+    // of the two it is, in cases where the op can commute).
     MachineOperand* input0_op = sc.saved_op;
     red_inst =
       BuildMI(BB,
