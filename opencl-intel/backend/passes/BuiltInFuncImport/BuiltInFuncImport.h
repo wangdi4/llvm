@@ -50,14 +50,6 @@ namespace intel {
     }
 
   protected:
-    /// @brief nuke the unused globals so we could materializeAll() quickly
-    /// @param [IN] src_module RTL module to process
-    void CleanUnusedGlobalsInitializers(Module *src_module) const;
-
-    /// @brief nuke the unused functions bodies so we could materializeAll() quickly
-    /// @param [IN] src_module RTL module to process
-    void CleanUnusedFunctionsBodies(Module *src_module) const;
-
     /// @brief update svml function names from shared libraries to reflect cpu prefix
     /// @param [IN] fn function to process
     /// @param [IN] pCPUPrefix prefix that will replace 'shared' substr
@@ -68,20 +60,26 @@ namespace intel {
     /// @param [OUT] calledFuncs The list of all functions called by pFunc.
     void GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs) const;
 
-    /// @brief Find functions in the list of RTL builtin modules
-    /// @param [IN] funcName name of the function to find
-    /// @return found function, it is either materialized or materialazible, or nullptr otherwise
-    Function* FindFunctionBodyInModules(const std::string& funcName) const;
-
+    /// @brief Find all functions and global variables
+    ///        from the \p Modules used by the function \p Root
+    ///
+    /// ExploreUses will recursively look in the functions called by
+    /// the \p Root, gathering a complete list of \p Root dependencies.
+    ///
+    /// @param [IN] Root top level function for lookup
+    /// @param [IN] Modules modules with definitions of \p Root dependencies
+    /// @param [OUT] UsedFunctions functions used by the \p Root
+    /// @param [OUT] UsedGlobals global variables used by the \p Root
+    void ExploreUses(Function *Root,
+                     SmallVectorImpl<Module*> &Modules,
+                     SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
+                     SmallPtrSetImpl<GlobalVariable*> &UsedGlobals);
   protected:
     /// @brief holds cpu perfix that would replace 'shared' substr in svml funcs
     const std::string m_cpuPrefix;
 
     /// @brief Source module list - contains the source functions to import
     SmallVector<Module*, 2> m_runtimeModuleList;
-
-    /// @brief holds original source module functions
-    TFunctionsSet m_UserModuleFunctions;
   };
 
 } //namespace Intel {

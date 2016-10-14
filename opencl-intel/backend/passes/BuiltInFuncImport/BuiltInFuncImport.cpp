@@ -22,7 +22,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
-#include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/IR/Verifier.h>
 
@@ -43,23 +42,43 @@ namespace intel {
     : ModulePass(ID), m_cpuPrefix(CPUPrefix)
   { }
 
-  Function* BIImport::FindFunctionBodyInModules(const std::string& funcName) const
-  {
-    for (auto rtModule : m_runtimeModuleList)
-    {
-      assert(rtModule && "NULL pointer detected in BIImport::FindFunctionInModules");
+  static Function *FindFunctionDef(const Function *F,
+                                    SmallVectorImpl<Module *> &Modules) {
+    assert(F && "Invalid function.");
+    for (auto M:Modules ) {
+      assert(M && "Invalid module.");
 
-      Function* pRetFunction = rtModule->getFunction(funcName);
+      Function* Ret = M->getFunction(F->getName());
 
       // Test if the function body is contained in this module.
-      if (pRetFunction && !pRetFunction->isDeclaration())
-        return pRetFunction;
+      if (Ret && !Ret->isDeclaration()) {
+        return Ret;
+      }
     }
     return nullptr;
   }
 
-  // this function replaces keyword "shared" in the builtin name by current CPU prefix, for example:
-  // if CPU is l9, __ocl_svml_shared_acos1f to be changed to __ocl_svml_l9_acos1f
+  static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
+                                       SmallVectorImpl<Module *> &Modules) {
+    assert(GV && "Invalid global variable.");
+    for (auto M:Modules ) {
+      assert(M && "Invalid module.");
+
+      auto Ret = M->getGlobalVariable(GV->getName());
+
+      // check if it is a definition
+      if (Ret && Ret->hasInitializer()) {
+        return Ret;
+      }
+    }
+
+    return nullptr;
+  }
+
+  // this function replaces keyword "shared" in the builtin name by
+  // current CPU prefix, for example:
+  // if CPU is l9, __ocl_svml_shared_acos1f to be changed to
+  // __ocl_svml_l9_acos1f
   void BIImport::UpdateSvmlBuiltinName(Function* fn, const char* pCPUPrefix) const
   {
     llvm::StringRef fName = fn->getName();
@@ -112,193 +131,195 @@ namespace intel {
     }
   }
 
-  static bool materialized_use_empty(const Value *v)
-  {
-    return v->materialized_use_begin() == v->use_end();
-  }
+  void BIImport::ExploreUses(Function *Root,
+                             SmallVectorImpl<Module*> &Modules,
+                             SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
+                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals) {
+    assert(Root && "Invalid function.");
 
-  // nuke the unused globals so we could materializeAll() quickly
-  void BIImport::CleanUnusedGlobalsInitializers (Module *src_module) const
-  {
-    // Linker by default imports all globals, hence the functions that are stored
-    // as fp pointer there. To workaround this we delete unneeded GVs from src_module.
-    for (auto &GV : src_module->globals())
-    {
-      if (GV.hasInitializer()) {
-        bool has_materialized_uses_in_rt_modules = false;
-        for (auto M : m_runtimeModuleList)
-        {
-          auto srsGv = M->getGlobalVariable(GV.getName());
-          if (srsGv && !materialized_use_empty(srsGv))
-            has_materialized_uses_in_rt_modules |= true;
-        }
-        if (!has_materialized_uses_in_rt_modules) {
-          Constant *Init = GV.getInitializer();
-          GV.setInitializer(nullptr);
-          if (isSafeToDestroyConstant(Init))
-            Init->destroyConstant();
-        }
+    if (Root->isDeclaration()) {
+      Root = FindFunctionDef(Root, Modules);
+      if (!Root) {
+        return;
       }
     }
+
+    bool firstUse = UsedFunctions.insert(Root).second;
+    if (!firstUse) {
+      return;
+    }
+
+    if (Root->isMaterializable()) {
+      Root->materialize();
+    }
+
+    TFunctionsVec calledFuncs;
+    GetCalledFunctions(Root, calledFuncs);
+
+    for (auto Callee : calledFuncs) {
+      ExploreUses(Callee, Modules, UsedFunctions, UsedGlobals);
+    }
+
+    for (const BasicBlock &BB:*Root)
+      for (const Instruction &I:BB)
+        for (Value *Op:I.operands())
+          if (auto GV = dyn_cast<GlobalVariable>(Op))
+            if (auto G = FindGlobalDef(GV, Modules))
+              UsedGlobals.insert(G);
   }
 
-  // nuke the unused functions so we could materializeAll() quickly
-  void BIImport::CleanUnusedFunctionsBodies (Module *src_module) const
-  {
-    for (auto I = src_module->begin(), E = src_module->end(); I != E; )
-    {
-      auto *F = &(*I++);
-      if (F->isDeclaration() || F->isMaterializable())
-      {
-        if (materialized_use_empty(F))
-        {
-          F->deleteBody();
-        }
+  static std::unique_ptr<Module>
+  CloneModuleOnlyRequired(const Module *M, ValueToValueMapTy &VMap,
+                          SmallPtrSetImpl<GlobalValue*> &ReqFunctions,
+                          SmallPtrSetImpl<GlobalVariable*> &ReqGlobals) {
+    std::unique_ptr<Module> New =
+      llvm::make_unique<Module>(M->getModuleIdentifier(), M->getContext());
+
+    New->setDataLayout(M->getDataLayout());
+    New->setTargetTriple(M->getTargetTriple());
+    New->setModuleInlineAsm(M->getModuleInlineAsm());
+
+    // Create globals without initializers - they may contain function
+    // calls and they have not been cloned yet.
+    for (auto GV:ReqGlobals) {
+      if (GV->getParent() != M) {
+        continue;
+      }
+      GlobalVariable *NewGV = new GlobalVariable(*New,
+                                                 GV->getType()->getElementType(),
+                                                 GV->isConstant(), GV->getLinkage(),
+                                                 (Constant*) nullptr, GV->getName(),
+                                                 (GlobalVariable*) nullptr,
+                                                 GV->getThreadLocalMode(),
+                                                 GV->getType()->getAddressSpace());
+      NewGV->copyAttributesFrom(GV);
+      VMap[GV] = NewGV;
+    }
+
+    // Now do the same with the required functions
+    for (auto FGV:ReqFunctions) {
+      if (FGV->getParent() != M) {
+        continue;
+      }
+
+      auto F = cast<Function>(FGV);
+      Function *NF =
+        Function::Create(cast<FunctionType>(F->getType()->getElementType()),
+                         F->getLinkage(), F->getName(), New.get());
+      NF->copyAttributesFrom(NF);
+      VMap[F] = NF;
+    }
+
+    // Clone global initializers
+    for (auto GV:ReqGlobals) {
+      if (GV->getParent() != M) {
+        continue;
+      }
+
+      auto NewGV = cast<GlobalVariable>(VMap[GV]);
+
+      if (GV->hasInitializer()) {
+        NewGV->setInitializer(MapValue(GV->getInitializer(), VMap));
       }
     }
+
+    for (auto FGV:ReqFunctions) {
+      if (FGV->getParent() != M) {
+        continue;
+      }
+
+      auto F = cast<Function>(FGV);
+      Function *NF = cast<Function>(VMap[F]);
+
+      // Track args changes
+      Function::arg_iterator DestI = NF->arg_begin();
+      for (Function::const_arg_iterator J = F->arg_begin(); J != F->arg_end();
+           ++J) {
+        DestI->setName(J->getName());
+        VMap[&*J] = &*DestI++;
+      }
+
+      SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
+      CloneFunctionInto(NF, F, VMap, /*ModuleLevelChanges=*/true, Returns);
+
+      if (F->hasPersonalityFn())
+        NF->setPersonalityFn(MapValue(F->getPersonalityFn(), VMap));
+    }
+
+    return New;
   }
 
   bool BIImport::runOnModule(Module &M) {
     BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
-    auto rtlModuleBufferList = BLI.getBuiltinModuleBuffers();
+    m_runtimeModuleList = BLI.getBuiltinModules();
 
-    if (rtlModuleBufferList.empty()) {
-      // If there are no builtin modules, then nothing can be imported.
-      return false;
-    }
-
-    // Initialize members
-    m_UserModuleFunctions.clear();
-
-    // Copy buffers containing builtins bitcode so we could safely delete functions bodies
-    // in order to achieve faster materializing prior to linking.
-    // The lifetime of these copies is limitied to this function.
-
-    vector<unique_ptr<MemoryBuffer>> rtlModuleBufferListCopy;
-    for (auto rtlBuffer : rtlModuleBufferList)
-    {
-      auto rtlBufferCopy = MemoryBuffer::getMemBufferCopy(rtlBuffer->getBuffer(), rtlBuffer->getBufferIdentifier());
-      rtlModuleBufferListCopy.push_back(std::move(rtlBufferCopy));
-    }
-
-    vector<unique_ptr<Module>> rtlModulesList;
-    for (auto &runtimeBuffer : rtlModuleBufferListCopy)
-    {
-      // We could use getLazyIRModule to be able to handle not only bitcode
-      // as it handles both bitcode and assembly, but it is internal to IRReader.cpp.
-      // ToDo: make a patch, try to upstream.
-      llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr(llvm::getLazyBitcodeModule(std::move(runtimeBuffer), M.getContext()));
-      if (!spModuleOrErr)
-      {
-        assert(false && "Error while getLazyBitcodeModule in BIImport");
-      }
-      else
-      {
-        rtlModulesList.push_back(std::move(spModuleOrErr.get()));
-      }
-    }
-
-    for (auto &rtlModule : rtlModulesList)
-      m_runtimeModuleList.push_back(rtlModule.get());
-
-    // Copy target triple from dst module to avoid linker warnings
-    for (auto &rtlModule : rtlModulesList)
-    {
-      rtlModule.get()->setTargetTriple(M.getTargetTriple());
-      rtlModule.get()->setDataLayout(M.getDataLayout());
-    }
-
+    TFunctionsSet userModuleFunctions;
     // Remember user module function pointers, so we could set linkonce_odr
     // to only imported functions.
     for (auto &F : M)
       if (!F.isDeclaration())
-        m_UserModuleFunctions.insert(&F);
+        userModuleFunctions.insert(&F);
 
-    bool changed = false;
+    const int EST_FUNCTIONS_NUM = 64;
+    const int EST_GLOBALS_NUM = 64;
+    SmallPtrSet<GlobalValue*, EST_FUNCTIONS_NUM> usedFunctions;
+    SmallPtrSet<GlobalVariable*, EST_GLOBALS_NUM> usedGlobals;
 
-    std::function<void(Function*)> Explore = [&](Function *pRoot) -> void
-    {
-      TFunctionsVec calledFuncs;
-      GetCalledFunctions(pRoot, calledFuncs);
+    for (auto &F:M) {
+      ExploreUses(&F, m_runtimeModuleList, usedFunctions, usedGlobals);
+    }
 
-      for (auto *pCallee : calledFuncs)
-      {
-        Function *pFunc = nullptr;
-        if (pCallee->isDeclaration())
-        {
-          auto funcName = pCallee->getName();
-          Function* pSrcFunc = FindFunctionBodyInModules(funcName);
-          if (!pSrcFunc) continue;
-          pFunc = pSrcFunc;
-        }
-        else
-        {
-          pFunc = pCallee;
-        }
-
-        if (pFunc->isMaterializable())
-        {
-          changed = true;
-          pFunc->materialize();
-          Explore(pFunc);
+    size_t globalsNumBefore;
+    do {
+      globalsNumBefore = usedGlobals.size();
+      for (auto GV:usedGlobals) {
+        if (GV->hasInitializer()) {
+          Constant *init = GV->getInitializer();
+          for (auto &operand : init->operands())
+            if (auto func = dyn_cast<Function>(operand))
+              ExploreUses(func, m_runtimeModuleList,
+                          usedFunctions, usedGlobals);
         }
       }
-    };
+    } while (globalsNumBefore < usedGlobals.size());
 
-    for (auto &func : M)
-    {
-      Explore(&func);
+    // We now known which globals and functions we need.
+    // Lets clone rtl modules and filter out everything we don't need.
+    SmallVector<std::unique_ptr<Module>, 2> strippedRtlModules;
+    ValueToValueMapTy VMap;
+    for (auto rtl:m_runtimeModuleList) {
+      strippedRtlModules.push_back(
+        CloneModuleOnlyRequired(rtl, VMap, usedFunctions, usedGlobals));
     }
 
-    // nuke the unused globals so we could materializeAll() quickly
-    for (auto rtlModule : m_runtimeModuleList)
-      CleanUnusedGlobalsInitializers(rtlModule);
-
-    // Collect the functions mentioned in the globals.
-    TFunctionsVec glbsFuncList;
-    for (auto rtlModule : m_runtimeModuleList)
-      for (auto &GV : rtlModule->globals())
-        if (GV.hasInitializer())
-          if (auto CA = dyn_cast<ConstantArray>(GV.getInitializer()))
-            for (auto &operand : CA->operands())
-            {
-              auto func = dyn_cast<Function>(operand);
-              if (!func->isDeclaration())
-                glbsFuncList.push_back(func);
-            }
-
-    // Explore those functions
-    for (auto func : glbsFuncList)
-    {
-      func->materialize();
-      Explore(func);
+    for (const auto &rtl:strippedRtlModules) {
+      rtl->materializeAll();
     }
-
-    // nuke the unused functions so we could materializeAll() quickly
-    for (auto rtlModule : m_runtimeModuleList)
-      CleanUnusedFunctionsBodies(rtlModule);
-
-    for (auto rtlModule : m_runtimeModuleList)
-      rtlModule->materializeAll();
 
     // now perform the linking itself
     Linker ld(M);
 
-    for (auto &rtlModule : rtlModulesList)
-    {
-      // the flag Linker::OverrideFromSrc is needed as globals
-      // can have initializers in both modules.
-      if (ld.linkInModule(std::move(rtlModule), Linker::OverrideFromSrc))
-      {
+    for (auto &rtl:strippedRtlModules) {
+      rtl->materializeAll();
+
+      // Copy target triple from dst module to avoid linker warnings
+      // FIXME: remove x86_64-pc-windows-gnu-elf triple on Linux
+      rtl->setTargetTriple(M.getTargetTriple());
+      rtl->setDataLayout(M.getDataLayout());
+
+
+      // The flag Linker::OverrideFromSrc is needed as the same global
+      // variable may be initialized in both modules.  It is an error
+      // for the linker, but we don't care unless they initialized
+      // with different values.
+      if (ld.linkInModule(std::move(rtl), Linker::OverrideFromSrc)) {
         assert(false && "Error linking builtin module!");
       }
     }
 
-    rtlModulesList.clear();
-
     // Allow removal of function from module after it is inlined
     for (auto &F : M)
-      if (!m_UserModuleFunctions.count(&F) && !F.isDeclaration())
+      if (!userModuleFunctions.count(&F) && !F.isDeclaration())
         F.setLinkage(GlobalVariable::LinkOnceODRLinkage);
 
     // At link time we have a shared.rtl (with common built-ins) compiled for
@@ -326,7 +347,7 @@ namespace intel {
       F.removeAttributes(AttributeSet::FunctionIndex, IgnoreAttrs);
     }
 
-    return changed;
+    return true;
   }
 
 } //namespace intel {
