@@ -159,6 +159,7 @@ public:
   bool isAtomic(MachineInstr *) const;
   bool isOrderedAtomic(MachineInstr *) const;
   bool isSeqOT(MachineInstr *) const;
+
   
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
   unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
@@ -220,6 +221,13 @@ public:
   bool
   convertPickToRepeatOp(unsigned pick_opcode,
                         unsigned* repeat_opcode) const;
+
+
+  // Returns true if this op is one of the transform ops that
+  // corresponds to a 3-operand commuting reduction.
+  //
+  //  ADD, MUL, AND, OR, XOR
+  bool isCommutingReductionTransform(MachineInstr* ) const;
 
   // Convert an ADD/SUB/FMA code into a matching reduction opcode of
   // the same size. TBD(jsukha): Not implemented yet!

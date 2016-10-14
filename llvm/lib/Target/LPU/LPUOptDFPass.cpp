@@ -91,6 +91,13 @@ SeqBreakMemdep("lpu-seq-break-memdep", cl::Hidden,
                cl::desc("LPU Specific: Break memory dependencies for sequenced loops"),
                cl::init(0));
 
+// Enable or disable detection of reductions.
+static cl::opt<int>
+SeqReduction("lpu-seq-reduction", cl::Hidden,
+             cl::desc("LPU Specific: Enable reduction sequence transformation"),
+             cl::init(1));
+
+
 // Flag to specify the maximum number of sequence candidates we will
 // identify in a given loop.
 //
@@ -350,6 +357,15 @@ public:
                          MachineBasicBlock& BB,
                          MachineInstr* prev_inst);
 
+  MachineInstr*
+  seq_add_reduction(LPUSeqCandidate& sc,
+                    const LPUSeqHeader& loop_header,
+                    unsigned pred_reg,
+                    const LPUInstrInfo &TII,
+                    MachineBasicBlock& BB,
+                    MachineInstr* prev_inst,
+                    bool is_fma_reduction);
+
 
   // Replaces either defs (and or uses) or a particular channel with
   // %ign.
@@ -449,7 +465,7 @@ seq_debug_print_candidate(LPUSeqCandidate& x) {
   case LPUSeqCandidate::SeqType::STRIDE:
     DEBUG(errs() << "STRIDE: top = " << x.top
           << ", bottom = " << x.bottom << "\n");
-    DEBUG(errs() << "stride op = " << *x.stride_op << "\n");
+    DEBUG(errs() << "stride op = " << *x.saved_op << "\n");
     break;
   case LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP:
     DEBUG(errs() << "PARLOOP_MEM_DEP: top = " << x.top
@@ -891,12 +907,7 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
     DEBUG(errs() << "Done with sequence classification\n");
     if (seq_opt_level > 1) {
       // Actually do the transforms.
-
       std::set<MachineInstr*> insSetMarkedForDeletion;
-      // 
-      // TBD(jsukha): Fill in the code that does the sequence
-      // transformations.
-      DEBUG(errs() << "TBD: Performing sequence optimizations\n");
 
       int num_transformed = 0;
       int loop_count = 0;
@@ -1030,34 +1041,89 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
     if (!def_bottom)
       return LPUSeqCandidate::SeqType::UNKNOWN;
 
-    // Next, look for reductions or sequence values.
-    // To find these transforming bodies, we want
-    //  a single add/sub instruction, which
-    //  uses top_op's definition as one of its inputs. 
 
-    // For a reduction, we want no other uses of top, except in the
-    // the transforming instruction itself.
-    if (getSingleUse(top_channel, MRI) == def_bottom) {
-      if ( TII.isAdd(def_bottom) ||
-           TII.isSub(def_bottom) ||
-           TII.isFMA(def_bottom) ) {
-        unsigned reduction_opcode;
-        // TBD(jsukha): NOTE: This method always fails for now.
-        if (!TII.convertTransformToReductionOp(def_bottom->getOpcode(),
-                                               &reduction_opcode)) {
-          DEBUG(errs() << "WARNING: Potential reduction with transform "
-                << *def_bottom << " invalid or not implemented.\n");
-          return LPUSeqCandidate::SeqType::UNKNOWN;
-        }
+    if (SeqReduction) {
+      // Next, look for reductions or sequence values.
+      // To find these transforming bodies, we want
+      //  a single add/sub instruction, which
+      //  uses top_op's definition as one of its inputs. 
+
+      // For a reduction, we want no other uses of top, except in the
+      // the transforming instruction itself.
+      if (getSingleUse(top_channel, MRI) == def_bottom) {
+        // 3 main cases of interesting reduction operations.
+        bool is_commuting_3op_reduction =
+          TII.isCommutingReductionTransform(def_bottom);
+        bool is_fma = TII.isFMA(def_bottom);
+        bool is_sub = TII.isSub(def_bottom);
+
+        if ( is_fma ||
+             is_commuting_3op_reduction ||
+             is_sub ) {
+          // Figure out whether the last operand of the transform
+          // instruction is the output of the pick.
+          // To do reductions for "fma" and "sub", it needs to be.
+          // 
+          bool matched_last_use = false;
+          int num_operands = def_bottom->getNumOperands();
+          assert(num_operands >= 3);
+
+          // Look up the last three operands of the instruction.
+          MachineOperand* last_op = &def_bottom->getOperand(num_operands-1);
+          MachineOperand* prev_op = &def_bottom->getOperand(num_operands-2);
         
-        DEBUG(errs() << "Found reduction transform body " <<
-              *def_bottom << "\n");
-        x.opcode = reduction_opcode;
-        x.stype = LPUSeqCandidate::SeqType::REDUCTION;
-        x.transformInst = def_bottom;
-        x.top = top_channel;
-        x.bottom = bottom_channel;
-        return LPUSeqCandidate::SeqType::REDUCTION;
+          if (last_op->isReg() &&
+              (last_op->getReg() == top_channel)) {
+            matched_last_use = true;
+          }
+
+          MachineOperand* input0_op = NULL;
+          if (is_fma) {
+            assert(num_operands == 4);
+            if (!matched_last_use) {
+              DEBUG(errs() << "WARNING: FMA reduction with transform "
+                    << *def_bottom << " does not have last input == pick output.\n");
+              return LPUSeqCandidate::SeqType::UNKNOWN;
+            }
+            // For FMA, we don't care about setting input0_op.
+            // We will look it up from the transform instruction directly later. 
+          }
+          else if (is_commuting_3op_reduction) {
+            // Ops that commute and
+            assert(num_operands == 3);
+            input0_op = (matched_last_use ? prev_op : last_op);
+          }
+          else {
+            // Should be subtraction.
+            assert(is_sub);
+            assert(num_operands == 3);
+            if (!matched_last_use) {
+              DEBUG(errs() << "WARNING: FMA reduction with transform "
+                    << *def_bottom << " does not have last input == pick output.\n");
+              return LPUSeqCandidate::SeqType::UNKNOWN;
+            }
+            input0_op = prev_op;
+          }
+        
+        
+          unsigned reduction_opcode;
+          if (!TII.convertTransformToReductionOp(def_bottom->getOpcode(),
+                                                 &reduction_opcode)) {
+            DEBUG(errs() << "WARNING: Potential reduction with transform "
+                  << *def_bottom << " invalid or not implemented.\n");
+            return LPUSeqCandidate::SeqType::UNKNOWN;
+          }
+        
+          DEBUG(errs() << "Found reduction transform body " <<
+                *def_bottom << "\n");
+          x.opcode = reduction_opcode;
+          x.stype = LPUSeqCandidate::SeqType::REDUCTION;
+          x.transformInst = def_bottom;
+          x.top = top_channel;
+          x.bottom = bottom_channel;
+          x.saved_op = input0_op;
+          return LPUSeqCandidate::SeqType::REDUCTION;
+        }
       }
     }
   }
@@ -1131,7 +1197,7 @@ seq_classify_stride(LPUSeqCandidate& x,
               != repeat_channels.end()))) {
           x.top = top_channel;
           x.bottom = bottom_channel;
-          x.stride_op = &stride_op;
+          x.saved_op = &stride_op;
           x.stype = LPUSeqCandidate::SeqType::STRIDE;
           x.transformInst = def_bottom;
           x.opcode = stride_opcode;
@@ -1723,6 +1789,66 @@ seq_add_stride(LPUSeqCandidate& sc,
 
 MachineInstr*
 LPUOptDFPass::
+seq_add_reduction(LPUSeqCandidate& sc,
+                  const LPUSeqHeader& loop_header,
+                  unsigned pred_reg,
+                  const LPUInstrInfo &TII,
+                  MachineBasicBlock& BB,
+                  MachineInstr* prev_inst,
+                  bool is_fma_reduction) {
+  assert(sc.stype == LPUSeqCandidate::SeqType::REDUCTION);
+  assert(sc.opcode != LPUSeqCandidate::INVALID_OPCODE);
+
+  // Output register is the output of the switch.
+  MachineOperand* output_op = sc.get_switch_output_op(loop_header);
+  assert(output_op->isReg());
+  unsigned output_reg = output_op->getReg();
+
+  MachineInstr* red_inst;
+  if (is_fma_reduction) {
+    // FMAs have two inputs to the sequence reduction.
+    // Just look them up directly from the transform instruction.
+    MachineOperand* input0_op =
+      sc.get_fma_mul_op(0);
+    MachineOperand* input1_op =
+      sc.get_fma_mul_op(1);
+
+    red_inst =
+      BuildMI(BB,
+              prev_inst,
+              sc.pickInst->getDebugLoc(),
+              TII.get(sc.opcode),
+              output_reg).    // result
+      addReg(sc.bottom, RegState::Define).   // each == bottom
+      addOperand(*sc.get_pick_input_op(loop_header)).   // initial value
+      addOperand(*input0_op). // input0
+      addOperand(*input1_op). // input1
+      addReg(pred_reg);       // control
+  }
+  else {
+    // Only one input argument for normal sequence/reduction.  We
+    // saved the op away earlier (when we had to figure out which one
+    // of the two it is, in cases where the op can commute).
+    MachineOperand* input0_op = sc.saved_op;
+    red_inst =
+      BuildMI(BB,
+              prev_inst,
+              sc.pickInst->getDebugLoc(),
+              TII.get(sc.opcode),
+              output_reg).    // result
+      addReg(sc.bottom, RegState::Define      ).      // each == bottom
+      addOperand(*sc.get_pick_input_op(loop_header)). // initial value
+      addOperand(*input0_op). // input0
+      addReg(pred_reg);       // control
+  }
+
+  red_inst->setFlag(MachineInstr::NonSequential);
+  return red_inst;
+}
+
+
+MachineInstr*
+LPUOptDFPass::
 seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
                                         const LPUSeqHeader& loop_header,
                                         unsigned last_reg,
@@ -1763,7 +1889,7 @@ seq_lookup_stride_op(LPUSeqLoopInfo& loop,
   // look up the input of the matching repeat instead.
   //
   // Otherwise, it it should be a literal operand.
-  MachineOperand* in_s_op = scandidate.stride_op;
+  MachineOperand* in_s_op = scandidate.saved_op;
   LPUSeqCandidate* stride_repeat = NULL;
   if (in_s_op->isReg()) {
     unsigned bottom_s_reg = in_s_op->getReg();
@@ -1783,6 +1909,8 @@ seq_lookup_stride_op(LPUSeqLoopInfo& loop,
   }
   return in_s_op;
 }
+
+
 
 
 // Deletes any instructions stored in insMarkedForDeletion.  Also may
@@ -2139,8 +2267,7 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
   assert(scandidate.transformInst);
 
   // We should have already matched the opcodes at the time we
-  // classified the candidate.  TBD: We could store the match,
-  // instead of looking it up here again...
+  // classified the candidate.  
   assert(scandidate.opcode != LPUSeqCandidate::INVALID_OPCODE);
 
   MachineOperand* my_s_op =
@@ -2212,9 +2339,29 @@ seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
                                 const LPUSeqInstrInfo& seqInfo,
                                 const LPUInstrInfo& TII,
                                 SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion) {
-  assert(!scandidate.transformInst);
-  DEBUG(errs() << "ERROR: Reductions are not implemented yet\n");
+  assert(scandidate.transformInst);
+  bool is_fma = TII.isFMA(scandidate.transformInst);
+
+  // Check the number of operands for the transform instruction, to
+  // see which kind of transform we are dealing with.
+  unsigned expected_operands = (is_fma ? 4 : 3);
+  assert(scandidate.transformInst->getNumOperands() == expected_operands);
+  MachineInstr* red_inst =
+    seq_add_reduction(scandidate,
+                      loop.header,
+                      seqInfo.pred_reg,
+                      TII,
+                      *BB,
+                      seqInfo.seq_inst,
+                      is_fma);
+
+  DEBUG(errs() << "do_transform_loop_reduction: adding reduction = "
+        << *red_inst << "\n");
+  loopInsMarkedForDeletion.push_back(scandidate.pickInst);
+  loopInsMarkedForDeletion.push_back(scandidate.switchInst);
+  loopInsMarkedForDeletion.push_back(scandidate.transformInst);  
 }
+
 
 void
 LPUOptDFPass::

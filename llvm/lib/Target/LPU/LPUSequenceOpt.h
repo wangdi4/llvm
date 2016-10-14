@@ -344,7 +344,7 @@ namespace llvm {
     // We will save away the channel info for faster processing later.
     unsigned top;
     unsigned bottom;
-    MachineOperand* stride_op;
+    MachineOperand* saved_op;
 
 
     // The opcode that we would use for this transformed sequence
@@ -361,7 +361,7 @@ namespace llvm {
       , stype(UNKNOWN)
       , top(0)
       , bottom(0)
-      , stride_op(NULL)
+      , saved_op(NULL)
       , opcode(LPUSeqCandidate::INVALID_OPCODE)
     {
     }
@@ -393,6 +393,13 @@ namespace llvm {
     get_switch_output_op(const LPUSeqHeader& header) const {
       int idx = header.switch_output_op_idx();      
       return &switchInst->getOperand(idx);
+    }
+
+    inline MachineOperand*
+    get_fma_mul_op(int input_idx) const {
+      assert(this->transformInst);
+      assert((input_idx >= 0) && (input_idx <= 1));
+      return &this->transformInst->getOperand(1 + input_idx);
     }
   };
 
@@ -733,6 +740,7 @@ namespace llvm {
       }
       return in_b_op;
     }
+
 
     /*******************************************************************/
     // These methods below should only be called after we have found a

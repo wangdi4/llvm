@@ -421,6 +421,22 @@ class StrideOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $base, $stride"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
 
+class SReduceOp<GenericOp gen, LPUOpInfo oi,
+                InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$result, oi.RC:$each),
+    (ins oi.RCL:$init, oi.RCL:$inval, I1:$ctl),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+
+class FMSReduceOp<GenericOp gen, LPUOpInfo oi,
+                  InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$result, oi.RC:$each),
+    (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, I1:$ctl),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+
 multiclass LdOp<string opStr, LPUOpInfo t,
            InstrItinClass itin = IILD> {
   let Predicates = [HasIndex], Itinerary = itin in {
@@ -1278,6 +1294,56 @@ def STRIDE8   : StrideOp<STRIDE, Ti8,  IIALU>;
 def STRIDE16  : StrideOp<STRIDE, Ti16, IIALU>;
 def STRIDE32  : StrideOp<STRIDE, Ti32, IIALU>;
 def STRIDE64  : StrideOp<STRIDE, Ti64, IIALU>;
+
+// FMA reductions.
+
+def FMSREDA   : GenericOp<"fmsreda">;
+def FMSREDAF32: FMSReduceOp<FMSREDA, Tf32, IIALU>;
+def FMSREDAF64: FMSReduceOp<FMSREDA, Tf64, IIALU>;
+
+// Standard sequenced reductions.
+def SREDSUB   : GenericOp<"sredsub">;
+def SREDSUB8  : SReduceOp<SREDSUB, Ti8,  IIALU>;
+def SREDSUB16 : SReduceOp<SREDSUB, Ti16, IIALU>;
+def SREDSUB32 : SReduceOp<SREDSUB, Ti32, IIALU>;
+def SREDSUB64 : SReduceOp<SREDSUB, Ti64, IIALU>;
+def SREDSUBF32: SReduceOp<SREDSUB, Tf32, IIALU>;
+def SREDSUBF64: SReduceOp<SREDSUB, Tf64, IIALU>;
+
+def SREDADD   : GenericOp<"sredadd">;
+def SREDADD8  : SReduceOp<SREDADD, Ti8,  IIALU>;
+def SREDADD16 : SReduceOp<SREDADD, Ti16, IIALU>;
+def SREDADD32 : SReduceOp<SREDADD, Ti32, IIALU>;
+def SREDADD64 : SReduceOp<SREDADD, Ti64, IIALU>;
+def SREDADDF32: SReduceOp<SREDADD, Tf32, IIALU>;
+def SREDADDF64: SReduceOp<SREDADD, Tf64, IIALU>;
+
+def SREDMUL   : GenericOp<"sredmul">;
+def SREDMUL8  : SReduceOp<SREDMUL, Ti8,  IIALU>;
+def SREDMUL16 : SReduceOp<SREDMUL, Ti16, IIALU>;
+def SREDMUL32 : SReduceOp<SREDMUL, Ti32, IIALU>;
+def SREDMUL64 : SReduceOp<SREDMUL, Ti64, IIALU>;
+def SREDMULF32: SReduceOp<SREDMUL, Tf32, IIALU>;
+def SREDMULF64: SReduceOp<SREDMUL, Tf64, IIALU>;
+
+def SREDAND   : GenericOp<"sredand">;
+def SREDAND8  : SReduceOp<SREDAND, Ti8,  IIALU>;
+def SREDAND16 : SReduceOp<SREDAND, Ti16, IIALU>;
+def SREDAND32 : SReduceOp<SREDAND, Ti32, IIALU>;
+def SREDAND64 : SReduceOp<SREDAND, Ti64, IIALU>;
+
+def SREDOR    : GenericOp<"sredor">;
+def SREDOR8   : SReduceOp<SREDOR, Ti8,  IIALU>;
+def SREDOR16  : SReduceOp<SREDOR, Ti16, IIALU>;
+def SREDOR32  : SReduceOp<SREDOR, Ti32, IIALU>;
+def SREDOR64  : SReduceOp<SREDOR, Ti64, IIALU>;
+
+def SREDXOR   : GenericOp<"sredxor">;
+def SREDXOR8  : SReduceOp<SREDXOR, Ti8,  IIALU>;
+def SREDXOR16 : SReduceOp<SREDXOR, Ti16, IIALU>;
+def SREDXOR32 : SReduceOp<SREDXOR, Ti32, IIALU>;
+def SREDXOR64 : SReduceOp<SREDXOR, Ti64, IIALU>;
+
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.
