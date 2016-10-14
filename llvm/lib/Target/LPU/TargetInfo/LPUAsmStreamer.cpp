@@ -254,6 +254,7 @@ void LPUAsmStreamer::InitSections(bool NoExecStack) {
   // Add the global we'll lookup to find the CSA assembly
   OS << "\t.globl lpu_assembly\n\n";
   OS << "lpu_assembly:\n";
+  OS << "\t.ascii \"\\t.text\\n\"\n";
 }
 
 /// AddComment - Add a comment that can be emitted to the generated .s
