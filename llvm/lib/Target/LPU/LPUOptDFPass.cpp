@@ -325,6 +325,14 @@ public:
   seq_lookup_stride_op(LPUSeqLoopInfo& loop,
                        LPUSeqCandidate& scandidate);
 
+  MachineOperand*
+  seq_add_negate_stride_op(MachineOperand* in_stride_op,
+                           unsigned stride_opcode,
+                           const LPUInstrInfo &TII,
+                           LPUMachineFunctionInfo *LMFI,
+                           MachineBasicBlock& BB,
+                           MachineInstr* prev_inst);
+
   // Add a repeat instruction for the specified repeat candidate.
   // Returns the added instruction. 
   MachineInstr*
@@ -1157,37 +1165,65 @@ seq_classify_stride(LPUSeqCandidate& x,
     const LPUInstrInfo &TII =
       *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
-    if ((TII.isAdd(def_bottom)) || (TII.isSub(def_bottom))) {
+    bool is_add = TII.isAdd(def_bottom);
+    bool is_sub = TII.isSub(def_bottom);
 
-      // Bail out if our add instruction doesn't match one of our
-      // known striding operations yet.
-      // TBD(jsukha): We haven't added code to deal with "sub" yet. 
-      unsigned stride_opcode;
-      if (!TII.convertAddToStrideOp(def_bottom->getOpcode(),
-                                    &stride_opcode)) {
-        DEBUG(errs() << "WARNING: stride operation for transform "
-              << *def_bottom  << " not implemented yet...\n");
-        return x.stype;
-      }
-      
+    if (is_add || is_sub) {
       if (def_bottom->getNumOperands() == 3) {
-        // First, figure out the potential stride, by looking for the
-        // top input.
-        int stride_idx = 0;
-        MachineOperand& add0 = def_bottom->getOperand(1);
-        MachineOperand& add1 = def_bottom->getOperand(2);
+
+        // Bail out if our add instruction doesn't match one of our
+        // known striding operations yet.
+        // TBD(jsukha): We haven't added code to deal with "sub" yet.
+        unsigned stride_opcode;
+        int negate_input = is_sub;
+        int stride_idx;
         
-        if (add0.isReg() && (add0.getReg() == top_channel)) {
-          stride_idx = 2;
-        }
-        else if (add1.isReg() && (add1.getReg() == top_channel)) {
-          stride_idx = 1;
+        if (is_add) {
+          // First, figure out the potential stride, by looking for the
+          // top input.
+          MachineOperand& add0 = def_bottom->getOperand(1);
+          MachineOperand& add1 = def_bottom->getOperand(2);
+
+          if (add0.isReg() && (add0.getReg() == top_channel)) {
+            stride_idx = 2;
+          }
+          else if (add1.isReg() && (add1.getReg() == top_channel)) {
+            stride_idx = 1;
+          }
+          else {
+            // Neither matches top. We have something weird.
+            DEBUG(errs() << "Add inst " << *def_bottom
+                  << " doesn't match sequence we expect.\n");
+            return x.stype;
+          }
+
+          if (!TII.convertAddToStrideOp(def_bottom->getOpcode(),
+                                        &stride_opcode)) {
+            DEBUG(errs() << "WARNING: stride operation for add transform "
+                  << *def_bottom  << " not implemented yet...\n");
+            return x.stype;
+          }
         }
         else {
-          // Neither matches top. We have something weird. 
-          DEBUG(errs() << "Add inst " << *def_bottom
-                << " doesn't match sequence we expect.\n");
-          return x.stype;
+          assert(is_sub);
+          MachineOperand& sub0 = def_bottom->getOperand(1);
+          // For sub, the first input must be the top, and the second
+          // the stride.
+          if (sub0.isReg() && (sub0.getReg() == top_channel)) {
+            stride_idx = 2;
+          }
+          else {
+            // Neither matches top. We have something weird.
+            DEBUG(errs() << "Sub inst " << *def_bottom
+                  << " doesn't match sequence we expect.\n");
+            return x.stype;
+          }
+          if (!TII.convertSubToStrideOp(def_bottom->getOpcode(),
+                                        &stride_opcode)) {
+            DEBUG(errs() << "WARNING: stride operation for sub transform "
+                  << *def_bottom  << " not implemented yet...\n");
+            return x.stype;
+          }
         }
 
         MachineOperand& stride_op = def_bottom->getOperand(stride_idx);
@@ -1201,11 +1237,12 @@ seq_classify_stride(LPUSeqCandidate& x,
           x.stype = LPUSeqCandidate::SeqType::STRIDE;
           x.transformInst = def_bottom;
           x.opcode = stride_opcode;
+          x.negate_input = negate_input;
           return LPUSeqCandidate::SeqType::STRIDE;
         }
       }
       else {
-        DEBUG(errs() << "Found weird add/sub " << *def_bottom
+        DEBUG(errs() << "Classify stride found weird add/sub " << *def_bottom
               << " does not have 3 operands. Skipping\n");
       }
     }
@@ -1910,7 +1947,34 @@ seq_lookup_stride_op(LPUSeqLoopInfo& loop,
   return in_s_op;
 }
 
+// Creates a "NEG" instruction to negate the specified input stride
+// operation.
+//
+// Returns the output operand of this instruction.
+MachineOperand*
+LPUOptDFPass::
+seq_add_negate_stride_op(MachineOperand* in_stride_op,
+                         unsigned stride_opcode,
+                         const LPUInstrInfo &TII,
+                         LPUMachineFunctionInfo *LMFI,
+                         MachineBasicBlock& BB,
+                         MachineInstr* prev_inst) {
+  const TargetRegisterClass* myRC = TII.getStrideInputRC(stride_opcode);
+  unsigned new_input_reg = LMFI->allocateLIC(myRC);
+  unsigned neg_opcode;
+  bool matched = TII.negateOpForStride(stride_opcode, &neg_opcode);
+  assert(matched);
 
+  MachineInstr* neg_inst =
+    BuildMI(BB,
+            prev_inst,
+            prev_inst->getDebugLoc(),
+            TII.get(neg_opcode),
+            new_input_reg).
+    addOperand(*in_stride_op);
+  neg_inst->setFlag(MachineInstr::NonSequential);
+  return &neg_inst->getOperand(0);  
+}
 
 
 // Deletes any instructions stored in insMarkedForDeletion.  Also may
@@ -2138,8 +2202,19 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
   
   assert(indvarCandidate.transformInst);
 
-  MachineOperand* in_s_op = seq_lookup_stride_op(loop,
-                                                 indvarCandidate);
+  MachineOperand* input_s_op = seq_lookup_stride_op(loop,
+                                                    indvarCandidate);
+  MachineOperand* in_s_op = input_s_op;
+  if (indvarCandidate.negate_input) {
+    // Create a negation of the stride input, if neccesary.
+    in_s_op = seq_add_negate_stride_op(input_s_op,
+                                       indvarCandidate.opcode,
+                                       TII,
+                                       LMFI,
+                                       *BB,
+                                       indvarCandidate.pickInst);
+  }
+
 
   // All but one of the valid sequences in a loop are dependent.
   int num_dependent_sequences = loop.get_valid_sequence_count() - 1;
@@ -2270,9 +2345,21 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
   // classified the candidate.  
   assert(scandidate.opcode != LPUSeqCandidate::INVALID_OPCODE);
 
-  MachineOperand* my_s_op =
+  MachineOperand* in_s_op =
     seq_lookup_stride_op(loop,
                          scandidate);
+  MachineOperand* my_s_op = in_s_op;
+  if (scandidate.negate_input) {
+    LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+    // Create a negation of the stride input, if neccesary.
+    my_s_op = seq_add_negate_stride_op(in_s_op,
+                                       scandidate.opcode,
+                                       TII,
+                                       LMFI,
+                                       *BB,
+                                       scandidate.pickInst);
+  }
+
   MachineInstr* stride_inst =
     seq_add_stride(scandidate,
                    loop.header,

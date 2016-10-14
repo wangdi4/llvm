@@ -956,6 +956,78 @@ convertAddToStrideOp(unsigned add_opcode,
   }
 }
 
+bool
+LPUInstrInfo::
+convertSubToStrideOp(unsigned sub_opcode,
+                     unsigned* strideOpcode) const {
+  switch (sub_opcode) {
+  case LPU::SUB64:
+    *strideOpcode = LPU::STRIDE64;
+    return true;
+
+  case LPU::SUB32:
+    *strideOpcode = LPU::STRIDE32;
+    return true;
+    
+  case LPU::SUB16:
+    *strideOpcode = LPU::STRIDE16;
+    return true;
+
+  case LPU::SUB8:
+    *strideOpcode = LPU::STRIDE8;
+    return true;
+    
+  default:
+    // No match. return false. 
+    return false;
+  }
+}
+
+bool
+LPUInstrInfo::
+negateOpForStride(unsigned strideOpcode,
+                  unsigned* negOpcode) const {
+  switch (strideOpcode) {
+  case LPU::STRIDE64:
+    *negOpcode = LPU::NEG64;
+    return true;
+
+  case LPU::STRIDE32:
+    *negOpcode = LPU::NEG32;
+    return true;
+    
+  case LPU::STRIDE16:
+    *negOpcode = LPU::NEG16;
+    return true;
+
+  case LPU::STRIDE8:
+    *negOpcode = LPU::NEG8;
+    return true;
+
+  default:
+    // No match. return false. 
+    return false;
+  }
+}
+
+const TargetRegisterClass*
+LPUInstrInfo::
+getStrideInputRC(unsigned strideOpcode) const {
+  switch (strideOpcode) {
+  case LPU::STRIDE64:
+    return &LPU::CI64RegClass;
+  case LPU::STRIDE32:
+    return &LPU::CI32RegClass;
+  case LPU::STRIDE16:
+    return &LPU::CI16RegClass;
+  case LPU::STRIDE8:
+    return &LPU::CI8RegClass;
+  default:
+    // No match. return false.
+    return NULL;
+  }
+}
+
 
 bool
 LPUInstrInfo::

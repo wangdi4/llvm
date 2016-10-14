@@ -350,6 +350,7 @@ namespace llvm {
     // The opcode that we would use for this transformed sequence
     // instruction.
     unsigned opcode;
+    bool negate_input;
 
     static const unsigned INVALID_OPCODE = LPU::PHI;    
 
@@ -363,6 +364,7 @@ namespace llvm {
       , bottom(0)
       , saved_op(NULL)
       , opcode(LPUSeqCandidate::INVALID_OPCODE)
+      , negate_input(false)
     {
     }
 
