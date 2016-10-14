@@ -5,23 +5,23 @@
 
 ; CHECK: Predicator finished:
 ; CHECK: LOOP
-; CHECK: (2) ASSIGN{(18)EXPR{i32 (19)VALUE{i32 %0}} = (20)EXPR{i32 load (21)VALUE{i32* {al:4}(%a)[i1]}}}
+; CHECK: (2) ASSIGN{(18)EXPR{i32 (19)VALUE{i32 %0}} = (20)EXPR{i32 load (21)VALUE{i32* (%a)[i1]}}}
 ; CHECK: (54) PREDICATE {P54 := }
 ; CHECK: (3) if /P54/  ((4)EXPR{i1 (5)VALUE{i32 %0} icmp/sgt (6)VALUE{i32 0}})   {
 ; CHECK: (55) PREDICATE {P55 := (54) && (60)EXPR{i1 (58)VALUE{i1 &(4)} icmp/eq (59)VALUE{i1 true}}}
-; CHECK: (7) ASSIGN{/P55/ (22)EXPR{i32 (23)VALUE{i32 %1}} = (24)EXPR{i32 load (25)VALUE{i32* {al:4}(%b)[i1]}}}
-; CHECK: (8) ASSIGN{/P55/ (26)EXPR{i32 (27)VALUE{i32* {al:4}(%b)[i1]}} = (28)EXPR{i32 store (29)VALUE{i32 5 * %1}}}
+; CHECK: (7) ASSIGN{/P55/ (22)EXPR{i32 (23)VALUE{i32 %1}} = (24)EXPR{i32 load (25)VALUE{i32* (%b)[i1]}}}
+; CHECK: (8) ASSIGN{/P55/ (26)EXPR{i32 (27)VALUE{i32* (%b)[i1]}} = (28)EXPR{i32 store (29)VALUE{i32 5 * %1}}}
 ; CHECK: (57) PREDICATE {P57 := (54) && (63)EXPR{i1 (61)VALUE{i1 &(4)} icmp/eq (62)VALUE{i1 false}}}
-; CHECK: (9) ASSIGN{/P57/ (30)EXPR{i32 (31)VALUE{i32* {al:4}(%a)[i1]}} = (32)EXPR{i32 store (33)VALUE{i32 %0 + 5}}}
+; CHECK: (9) ASSIGN{/P57/ (30)EXPR{i32 (31)VALUE{i32* (%a)[i1]}} = (32)EXPR{i32 store (33)VALUE{i32 %0 + 5}}}
 ; CHECK: (56) PREDICATE {P56 := (57) || (55)}
-; CHECK: (10) ASSIGN{(34)EXPR{i32 (35)VALUE{i32 %3}} = (36)EXPR{i32 load (37)VALUE{i32* {al:4}(%c)[i1]}}}
-; CHECK: (11) ASSIGN{(38)EXPR{i32 (39)VALUE{i32* {al:4}(%c)[i1]}} = (40)EXPR{i32 store (41)VALUE{i32 (%N * %3)}}}
+; CHECK: (10) ASSIGN{(34)EXPR{i32 (35)VALUE{i32 %3}} = (36)EXPR{i32 load (37)VALUE{i32* (%c)[i1]}}}
+; CHECK: (11) ASSIGN{(38)EXPR{i32 (39)VALUE{i32* (%c)[i1]}} = (40)EXPR{i32 store (41)VALUE{i32 (%N * %3)}}}
 ; CHECK: (68) PREDICATE {P68 := }
 ; CHECK: (12) if /P68/  ((13)EXPR{i1 (14)VALUE{i32 (%N * %3)} icmp/sgt (15)VALUE{i32 0}})   {
 ; CHECK: (69) PREDICATE {P69 := (68) && (74)EXPR{i1 (72)VALUE{i1 &(13)} icmp/eq (73)VALUE{i1 true}}}
-; CHECK: (16) ASSIGN{/P69/ (42)EXPR{i32 (43)VALUE{i32* {al:4}(%a)[i1]}} = (44)EXPR{i32 store (45)VALUE{i32 (%N * %3) + -1 * %2}}}
+; CHECK: (16) ASSIGN{/P69/ (42)EXPR{i32 (43)VALUE{i32* (%a)[i1]}} = (44)EXPR{i32 store (45)VALUE{i32 (%N * %3) + -1 * %2}}}
 ; CHECK: (71) PREDICATE {P71 := (68) && (77)EXPR{i1 (75)VALUE{i1 &(13)} icmp/eq (76)VALUE{i1 false}}}
-; CHECK: (17) ASSIGN{/P71/ (46)EXPR{i32 (47)VALUE{i32* {al:4}(%b)[i1]}} = (48)EXPR{i32 store (49)VALUE{i32 (%N * %3 * %2)}}}
+; CHECK: (17) ASSIGN{/P71/ (46)EXPR{i32 (47)VALUE{i32* (%b)[i1]}} = (48)EXPR{i32 store (49)VALUE{i32 (%N * %3 * %2)}}}
 ; CHECK: (70) PREDICATE {P70 := (71) || (69)}
 
 

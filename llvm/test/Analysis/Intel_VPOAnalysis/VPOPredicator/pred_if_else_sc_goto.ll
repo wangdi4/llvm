@@ -11,12 +11,12 @@
 ; CHECK: (8) if /P49/  ((9)EXPR{i1 (10)VALUE{i32 %1} icmp/eq (11)VALUE{i32 0}})   {
 ; CHECK: (50) PREDICATE {P50 := (49) && (59)EXPR{i1 (57)VALUE{i1 &(9)} icmp/eq (58)VALUE{i1 true}}}
 ; CHECK: (53) PREDICATE {P53 := (49) && (65)EXPR{i1 (63)VALUE{i1 &(9)} icmp/eq (64)VALUE{i1 false}}}
-; CHECK: (13) ASSIGN{/P53/ (26)EXPR{i32 (27)VALUE{i32* {al:4}(%b)[i1]}} = (28)EXPR{i32 store (29)VALUE{i32 5 * %0}}}
+; CHECK: (13) ASSIGN{/P53/ (26)EXPR{i32 (27)VALUE{i32* (%b)[i1]}} = (28)EXPR{i32 store (29)VALUE{i32 5 * %0}}}
 ; CHECK: (51) PREDICATE {P51 := (48) && (62)EXPR{i1 (60)VALUE{i1 &(5)} icmp/eq (61)VALUE{i1 false}} || (50)}
-; CHECK: (15) ASSIGN{/P51/ (30)EXPR{i32 (31)VALUE{i32* {al:4}(%a)[i1]}} = (32)EXPR{i32 store (33)VALUE{i32 %2 + 5}}}
+; CHECK: (15) ASSIGN{/P51/ (30)EXPR{i32 (31)VALUE{i32* (%a)[i1]}} = (32)EXPR{i32 store (33)VALUE{i32 %2 + 5}}}
 ; CHECK: (52) PREDICATE {P52 := (51) || (53)}
-; CHECK: (16) ASSIGN{(34)EXPR{i32 (35)VALUE{i32 %3}} = (36)EXPR{i32 load (37)VALUE{i32* {al:4}(%c)[i1]}}}
-; CHECK: (17) ASSIGN{(38)EXPR{i32 (39)VALUE{i32* {al:4}(%c)[i1]}} = (40)EXPR{i32 store (41)VALUE{i32 (%N * %3)}}}
+; CHECK: (16) ASSIGN{(34)EXPR{i32 (35)VALUE{i32 %3}} = (36)EXPR{i32 load (37)VALUE{i32* (%c)[i1]}}}
+; CHECK: (17) ASSIGN{(38)EXPR{i32 (39)VALUE{i32* (%c)[i1]}} = (40)EXPR{i32 store (41)VALUE{i32 (%N * %3)}}}
 
 ; 1. icx test.c -o test_noopt.ll -fopenmp -Qoption,c,-fintel-openmp -O0 -restrict -S -emit-llvm
 ; 2. opt test_noopt.ll -O2 -debug-pass=Arguments

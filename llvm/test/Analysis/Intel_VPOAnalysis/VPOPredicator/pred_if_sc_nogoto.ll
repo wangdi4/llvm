@@ -12,10 +12,10 @@
 ; CHECK: (6) if /P47/  ((7)EXPR{i1 (8)VALUE{i1 %or.cond} icmp/eq (9)VALUE{i1 false}})   {
 ; CHECK: }
 ; CHECK: (48) PREDICATE {P48 := (47) && (52)EXPR{i1 (50)VALUE{i1 &(7)} icmp/eq (51)VALUE{i1 true}}}
-; CHECK: (10) ASSIGN{/P48/ (32)EXPR{i32 (33)VALUE{i32* {al:4}(%b)[i1]}} = (34)EXPR{i32 store (35)VALUE{i32 5 * %0}}}
+; CHECK: (10) ASSIGN{/P48/ (32)EXPR{i32 (33)VALUE{i32* (%b)[i1]}} = (34)EXPR{i32 store (35)VALUE{i32 5 * %0}}}
 ; CHECK: (49) PREDICATE {P49 := (47) && (55)EXPR{i1 (53)VALUE{i1 &(7)} icmp/eq (54)VALUE{i1 false}} || (48)}
-; CHECK: (11) ASSIGN{(36)EXPR{i32 (37)VALUE{i32 %1}} = (38)EXPR{i32 load (39)VALUE{i32* {al:4}(%c)[i1]}}}
-; CHECK: (12) ASSIGN{(40)EXPR{i32 (41)VALUE{i32* {al:4}(%c)[i1]}} = (42)EXPR{i32 store (43)VALUE{i32 (%N * %1)}}}
+; CHECK: (11) ASSIGN{(36)EXPR{i32 (37)VALUE{i32 %1}} = (38)EXPR{i32 load (39)VALUE{i32* (%c)[i1]}}}
+; CHECK: (12) ASSIGN{(40)EXPR{i32 (41)VALUE{i32* (%c)[i1]}} = (42)EXPR{i32 store (43)VALUE{i32 (%N * %1)}}}
 
 
 ; 1. icx test.c -o test_noopt.ll -fopenmp -Qoption,c,-fintel-openmp -O0 -restrict -S -emit-llvm
