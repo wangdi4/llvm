@@ -28,7 +28,6 @@ class MachineRegisterInfo;
 class SIMachineFunctionInfo final : public AMDGPUMachineFunction {
   // FIXME: This should be removed and getPreloadedValue moved here.
   friend struct SIRegisterInfo;
-  void anchor() override;
 
   unsigned TIDReg;
 
@@ -83,7 +82,6 @@ private:
   bool HasSpilledSGPRs;
   bool HasSpilledVGPRs;
   bool HasNonSpillStackObjects;
-  bool HasFlatInstructions;
 
   unsigned NumSpilledSGPRs;
   unsigned NumSpilledVGPRs;
@@ -307,14 +305,6 @@ public:
 
   void setHasNonSpillStackObjects(bool StackObject = true) {
     HasNonSpillStackObjects = StackObject;
-  }
-
-  bool hasFlatInstructions() const {
-    return HasFlatInstructions;
-  }
-
-  void setHasFlatInstructions(bool UseFlat = true) {
-    HasFlatInstructions = UseFlat;
   }
 
   unsigned getNumSpilledSGPRs() const {

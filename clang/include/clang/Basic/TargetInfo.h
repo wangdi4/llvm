@@ -40,6 +40,7 @@ struct fltSemantics;
 namespace clang {
 class DiagnosticsEngine;
 class LangOptions;
+class CodeGenOptions;
 class MacroBuilder;
 class SourceLocation;
 class SourceManager;
@@ -94,6 +95,8 @@ protected:
   unsigned ComplexLongDoubleUsesFP2Ret : 1;
 
   unsigned HasBuiltinMSVaList : 1;
+
+  unsigned IsRenderScriptTarget : 1;
 
   // TargetInfo Constructor.  Default initializes all fields.
   TargetInfo(const llvm::Triple &T);
@@ -292,6 +295,11 @@ public:
   }
   uint64_t getPointerAlign(unsigned AddrSpace) const {
     return AddrSpace == 0 ? PointerAlign : getPointerAlignV(AddrSpace);
+  }
+
+  /// \brief Return the maximum width of pointers on this target.
+  virtual uint64_t getMaxPointerWidth() const {
+    return PointerWidth;
   }
 
   /// \brief Return the size of '_Bool' and C++ 'bool' for this target, in bits.
@@ -568,6 +576,9 @@ public:
   /// available on this target.
   bool hasBuiltinMSVaList() const { return HasBuiltinMSVaList; }
 
+  /// Returns true for RenderScript.
+  bool isRenderScriptTarget() const { return IsRenderScriptTarget; }
+
   /// \brief Returns whether the passed in string is a valid clobber in an
   /// inline asm statement.
   ///
@@ -795,6 +806,10 @@ public:
   /// language options which change the target configuration.
   virtual void adjust(const LangOptions &Opts);
 
+  /// \brief Adjust target options based on codegen options.
+  virtual void adjustTargetOptions(const CodeGenOptions &CGOpts,
+                                   TargetOptions &TargetOpts) const {}
+
   /// \brief Initialize the map with the default set of target features for the
   /// CPU this should include all legal feature strings on the target.
   ///
@@ -982,6 +997,11 @@ public:
   /// \brief Get const supported OpenCL extensions and optional core features.
   const OpenCLOptions &getSupportedOpenCLOpts() const {
       return getTargetOpts().SupportedOpenCLOptions;
+  }
+
+  /// \brief Get OpenCL image type address space.
+  virtual LangAS::ID getOpenCLImageAddrSpace() const {
+    return LangAS::opencl_global;
   }
 
   /// \brief Check the target is valid after it is fully initialized.

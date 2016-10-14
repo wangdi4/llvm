@@ -1319,172 +1319,258 @@ HoistTerminator:
   return true;
 }
 
+// Return true if V0 and V1 are equivalent. This handles the obvious cases
+// where V0 == V1 and V0 and V1 are both identical instructions, but also
+// handles loads and stores with identical operands.
+//
+// Because determining if two memory instructions are equivalent
+// depends on control flow, the \c At0 and \c At1 parameters specify a
+// location for the query. This function is essentially answering the
+// query "If V0 were moved to At0, and V1 were moved to At1, are V0 and V1
+// equivalent?". In practice this means checking that moving V0 to At0
+// doesn't cross any other memory instructions.
+static bool areValuesTriviallySame(Value *V0, BasicBlock::const_iterator At0,
+                                   Value *V1, BasicBlock::const_iterator At1) {
+  if (V0 == V1)
+    return true;
+  
+  // Also check for instructions that are identical but not pointer-identical.
+  // This can include load instructions that haven't been CSE'd.
+  if (!isa<Instruction>(V0) || !isa<Instruction>(V1))
+    return false;
+  const auto *I0 = cast<Instruction>(V0);
+  const auto *I1 = cast<Instruction>(V1);
+  if (!I0->isIdenticalToWhenDefined(I1))
+    return false;
+
+  if (!I0->mayReadOrWriteMemory())
+    return true;
+
+  // Instructions that may read or write memory have extra restrictions. We
+  // must ensure we don't treat %a and %b as equivalent in code such as:
+  //
+  //  %a = load %x
+  //  store %x, 1
+  //  if (%c) {
+  //    %b = load %x
+  //    %d = add %b, 1
+  //  } else {
+  //    %d = add %a, 1
+  //  }
+
+  // Be conservative. We don't want to search the entire CFG between def
+  // and use; if the def isn't in the same block as the use just bail.
+  if (I0->getParent() != At0->getParent() ||
+      I1->getParent() != At1->getParent())
+    return false;
+
+  // Again, be super conservative. Ideally we'd be able to query AliasAnalysis
+  // but we currently don't have that available.
+  auto WritesMemory = [](const Instruction &I) {
+    return I.mayReadOrWriteMemory();
+  };
+  if (std::any_of(std::next(I0->getIterator()), At0, WritesMemory))
+    return false;
+  if (std::any_of(std::next(I1->getIterator()), At1, WritesMemory))
+    return false;
+  return true;
+}
+
+// Is it legal to place a variable in operand \c OpIdx of \c I?
+// FIXME: This should be promoted to Instruction.
+static bool canReplaceOperandWithVariable(const Instruction *I,
+                                          unsigned OpIdx) {
+  // Early exit.
+  if (!isa<Constant>(I->getOperand(OpIdx)))
+    return true;
+
+  switch (I->getOpcode()) {
+  default:
+    return true;
+  case Instruction::Call:
+  case Instruction::Invoke:
+    // FIXME: many arithmetic intrinsics have no issue taking a
+    // variable, however it's hard to distingish these from
+    // specials such as @llvm.frameaddress that require a constant.
+    return !isa<IntrinsicInst>(I);
+  case Instruction::ShuffleVector:
+    // Shufflevector masks are constant.
+    return OpIdx != 2;
+  case Instruction::ExtractValue:
+  case Instruction::InsertValue:
+    // All operands apart from the first are constant.
+    return OpIdx == 0;
+  case Instruction::Alloca:
+    return false;
+  case Instruction::GetElementPtr:
+    if (OpIdx == 0)
+      return true;
+    gep_type_iterator It = std::next(gep_type_begin(I), OpIdx - 1);
+    return !It->isStructTy();
+  }
+}
+
+// All blocks in Blocks unconditionally jump to a common successor. Analyze
+// the last non-terminator instruction in each block and return true if it would
+// be possible to sink them into their successor, creating one common
+// instruction instead. Set NumPHIsRequired to the number of PHI nodes that
+// would need to be created during sinking.
+static bool canSinkLastInstruction(ArrayRef<BasicBlock*> Blocks,
+                                   unsigned &NumPHIsRequired) {
+  SmallVector<Instruction*,4> Insts;
+  for (auto *BB : Blocks) {
+    if (BB->getTerminator() == &BB->front())
+      // Block was empty.
+      return false;
+    Insts.push_back(BB->getTerminator()->getPrevNode());
+  }
+
+  // Prune out obviously bad instructions to move. Any non-store instruction
+  // must have exactly one use, and we check later that use is by a single,
+  // common PHI instruction in the successor.
+  for (auto *I : Insts) {
+    // These instructions may change or break semantics if moved.
+    if (isa<PHINode>(I) || I->isEHPad() || isa<AllocaInst>(I) ||
+        I->getType()->isTokenTy())
+      return false;
+    // Apart from loads and stores, we won't move anything that could
+    // change memory or have sideeffects.
+    if (!isa<StoreInst>(I) && !isa<LoadInst>(I) &&
+        (I->mayHaveSideEffects() || I->mayHaveSideEffects()))
+      return false;
+    // Everything must have only one use too, apart from stores which
+    // have no uses.
+    if (!isa<StoreInst>(I) && !I->hasOneUse())
+      return false;
+  }
+
+  const Instruction *I0 = Insts.front();
+  for (auto *I : Insts)
+    if (!I->isSameOperationAs(I0))
+      return false;
+
+  // If this isn't a store, check the only user is a single PHI.
+  if (!isa<StoreInst>(I0)) {
+    auto *PNUse = dyn_cast<PHINode>(*I0->user_begin());
+    if (!PNUse ||
+        !all_of(Insts, [&PNUse](const Instruction *I) {
+          return *I->user_begin() == PNUse;
+        }))
+      return false;
+  }
+
+  NumPHIsRequired = 0;
+  for (unsigned OI = 0, OE = I0->getNumOperands(); OI != OE; ++OI) {
+    if (I0->getOperand(OI)->getType()->isTokenTy())
+      // Don't touch any operand of token type.
+      return false;
+    auto SameAsI0 = [&I0, OI](const Instruction *I) {
+      return areValuesTriviallySame(I->getOperand(OI), I->getIterator(),
+                                    I0->getOperand(OI), I0->getIterator());
+    };
+    if (!all_of(Insts, SameAsI0)) {
+      if (!canReplaceOperandWithVariable(I0, OI))
+        // We can't create a PHI from this GEP.
+        return false;
+      if ((isa<CallInst>(I0) || isa<InvokeInst>(I0)) && OI != 0)
+        // Don't create indirect calls!
+        // FIXME: if the call was *already* indirect, we should do this.
+        return false;
+      ++NumPHIsRequired;
+    }
+  }
+  return true;
+}
+
+// Assuming canSinkLastInstruction(Blocks) has returned true, sink the last
+// instruction of every block in Blocks to their common successor, commoning
+// into one instruction.
+static void sinkLastInstruction(ArrayRef<BasicBlock*> Blocks) {
+  unsigned Dummy;
+  (void)Dummy;
+  assert(canSinkLastInstruction(Blocks, Dummy) &&
+         "Must analyze before transforming!");
+  auto *BBEnd = Blocks[0]->getTerminator()->getSuccessor(0);
+
+  // canSinkLastInstruction returning true guarantees that every block has at
+  // least one non-terminator instruction.
+  SmallVector<Instruction*,4> Insts;
+  for (auto *BB : Blocks)
+    Insts.push_back(BB->getTerminator()->getPrevNode());
+
+  // We don't need to do any checking here; canSinkLastInstruction should have
+  // done it all for us.
+  Instruction *I0 = Insts.front();
+  SmallVector<Value*, 4> NewOperands;
+  for (unsigned O = 0, E = I0->getNumOperands(); O != E; ++O) {
+    // This check is different to that in canSinkLastInstruction. There, we
+    // cared about the global view once simplifycfg (and instcombine) have
+    // completed - it takes into account PHIs that become trivially
+    // simplifiable.  However here we need a more local view; if an operand
+    // differs we create a PHI and rely on instcombine to clean up the very
+    // small mess we may make.
+    bool NeedPHI = any_of(Insts, [&I0, O](const Instruction *I) {
+      return I->getOperand(O) != I0->getOperand(O);
+    });
+    if (!NeedPHI) {
+      NewOperands.push_back(I0->getOperand(O));
+      continue;
+    }
+
+    // Create a new PHI in the successor block and populate it.
+    auto *Op = I0->getOperand(O);
+    assert(!Op->getType()->isTokenTy() && "Can't PHI tokens!");
+    auto *PN = PHINode::Create(Op->getType(), Insts.size(),
+                               Op->getName() + ".sink", &BBEnd->front());
+    for (auto *I : Insts)
+      PN->addIncoming(I->getOperand(O), I->getParent());
+    NewOperands.push_back(PN);
+  }
+
+  // Arbitrarily use I0 as the new "common" instruction; remap its operands
+  // and move it to the start of the successor block.
+  for (unsigned O = 0, E = I0->getNumOperands(); O != E; ++O)
+    I0->getOperandUse(O).set(NewOperands[O]);
+  I0->moveBefore(&*BBEnd->getFirstInsertionPt());
+
+  if (!isa<StoreInst>(I0)) {
+    // canSinkLastInstruction checked that all instructions were used by
+    // one and only one PHI node. Find that now, RAUW it to our common
+    // instruction and nuke it.
+    assert(I0->hasOneUse());
+    auto *PN = cast<PHINode>(*I0->user_begin());
+    PN->replaceAllUsesWith(I0);
+    PN->eraseFromParent();
+  }
+
+  // Finally nuke all instructions apart from the common instruction.
+  for (auto *I : Insts)
+    if (I != I0)
+      I->eraseFromParent();
+}
+
 /// Given an unconditional branch that goes to BBEnd,
 /// check whether BBEnd has only two predecessors and the other predecessor
 /// ends with an unconditional branch. If it is true, sink any common code
 /// in the two predecessors to BBEnd.
 static bool SinkThenElseCodeToEnd(BranchInst *BI1) {
   assert(BI1->isUnconditional());
-  BasicBlock *BB1 = BI1->getParent();
   BasicBlock *BBEnd = BI1->getSuccessor(0);
 
-  // Check that BBEnd has two predecessors and the other predecessor ends with
-  // an unconditional branch.
-  pred_iterator PI = pred_begin(BBEnd), PE = pred_end(BBEnd);
-  BasicBlock *Pred0 = *PI++;
-  if (PI == PE) // Only one predecessor.
+  SmallVector<BasicBlock*,4> Blocks;
+  for (auto *BB : predecessors(BBEnd))
+    Blocks.push_back(BB);
+  if (Blocks.size() != 2 ||
+      !all_of(Blocks, [](const BasicBlock *BB) {
+        auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
+        return BI && BI->isUnconditional();
+      }))
     return false;
-  BasicBlock *Pred1 = *PI++;
-  if (PI != PE) // More than two predecessors.
-    return false;
-  BasicBlock *BB2 = (Pred0 == BB1) ? Pred1 : Pred0;
-  BranchInst *BI2 = dyn_cast<BranchInst>(BB2->getTerminator());
-  if (!BI2 || !BI2->isUnconditional())
-    return false;
-
-  // Gather the PHI nodes in BBEnd.
-  SmallDenseMap<std::pair<Value *, Value *>, PHINode *> JointValueMap;
-  Instruction *FirstNonPhiInBBEnd = nullptr;
-  for (BasicBlock::iterator I = BBEnd->begin(), E = BBEnd->end(); I != E; ++I) {
-    if (PHINode *PN = dyn_cast<PHINode>(I)) {
-      Value *BB1V = PN->getIncomingValueForBlock(BB1);
-      Value *BB2V = PN->getIncomingValueForBlock(BB2);
-      JointValueMap[std::make_pair(BB1V, BB2V)] = PN;
-    } else {
-      FirstNonPhiInBBEnd = &*I;
-      break;
-    }
-  }
-  if (!FirstNonPhiInBBEnd)
-    return false;
-
-  // This does very trivial matching, with limited scanning, to find identical
-  // instructions in the two blocks.  We scan backward for obviously identical
-  // instructions in an identical order.
-  BasicBlock::InstListType::reverse_iterator RI1 = BB1->getInstList().rbegin(),
-                                             RE1 = BB1->getInstList().rend(),
-                                             RI2 = BB2->getInstList().rbegin(),
-                                             RE2 = BB2->getInstList().rend();
-  // Skip debug info.
-  while (RI1 != RE1 && isa<DbgInfoIntrinsic>(&*RI1))
-    ++RI1;
-  if (RI1 == RE1)
-    return false;
-  while (RI2 != RE2 && isa<DbgInfoIntrinsic>(&*RI2))
-    ++RI2;
-  if (RI2 == RE2)
-    return false;
-  // Skip the unconditional branches.
-  ++RI1;
-  ++RI2;
 
   bool Changed = false;
-  while (RI1 != RE1 && RI2 != RE2) {
-    // Skip debug info.
-    while (RI1 != RE1 && isa<DbgInfoIntrinsic>(&*RI1))
-      ++RI1;
-    if (RI1 == RE1)
-      return Changed;
-    while (RI2 != RE2 && isa<DbgInfoIntrinsic>(&*RI2))
-      ++RI2;
-    if (RI2 == RE2)
-      return Changed;
-
-    Instruction *I1 = &*RI1, *I2 = &*RI2;
-    auto InstPair = std::make_pair(I1, I2);
-    // I1 and I2 should have a single use in the same PHI node, and they
-    // perform the same operation.
-    // Cannot move control-flow-involving, volatile loads, vaarg, etc.
-    if (isa<PHINode>(I1) || isa<PHINode>(I2) || isa<TerminatorInst>(I1) ||
-        isa<TerminatorInst>(I2) || I1->isEHPad() || I2->isEHPad() ||
-        isa<AllocaInst>(I1) || isa<AllocaInst>(I2) ||
-        I1->mayHaveSideEffects() || I2->mayHaveSideEffects() ||
-        I1->mayReadOrWriteMemory() || I2->mayReadOrWriteMemory() ||
-        !I1->hasOneUse() || !I2->hasOneUse() || !JointValueMap.count(InstPair))
-      return Changed;
-
-    // Check whether we should swap the operands of ICmpInst.
-    // TODO: Add support of communativity.
-    ICmpInst *ICmp1 = dyn_cast<ICmpInst>(I1), *ICmp2 = dyn_cast<ICmpInst>(I2);
-    bool SwapOpnds = false;
-    if (ICmp1 && ICmp2 && ICmp1->getOperand(0) != ICmp2->getOperand(0) &&
-        ICmp1->getOperand(1) != ICmp2->getOperand(1) &&
-        (ICmp1->getOperand(0) == ICmp2->getOperand(1) ||
-         ICmp1->getOperand(1) == ICmp2->getOperand(0))) {
-      ICmp2->swapOperands();
-      SwapOpnds = true;
-    }
-    if (!I1->isSameOperationAs(I2)) {
-      if (SwapOpnds)
-        ICmp2->swapOperands();
-      return Changed;
-    }
-
-    // The operands should be either the same or they need to be generated
-    // with a PHI node after sinking. We only handle the case where there is
-    // a single pair of different operands.
-    Value *DifferentOp1 = nullptr, *DifferentOp2 = nullptr;
-    unsigned Op1Idx = ~0U;
-    for (unsigned I = 0, E = I1->getNumOperands(); I != E; ++I) {
-      if (I1->getOperand(I) == I2->getOperand(I))
-        continue;
-      // Early exit if we have more-than one pair of different operands or if
-      // we need a PHI node to replace a constant.
-      if (Op1Idx != ~0U || isa<Constant>(I1->getOperand(I)) ||
-          isa<Constant>(I2->getOperand(I))) {
-        // If we can't sink the instructions, undo the swapping.
-        if (SwapOpnds)
-          ICmp2->swapOperands();
-        return Changed;
-      }
-      DifferentOp1 = I1->getOperand(I);
-      Op1Idx = I;
-      DifferentOp2 = I2->getOperand(I);
-    }
-
-    DEBUG(dbgs() << "SINK common instructions " << *I1 << "\n");
-    DEBUG(dbgs() << "                         " << *I2 << "\n");
-
-    // We insert the pair of different operands to JointValueMap and
-    // remove (I1, I2) from JointValueMap.
-    if (Op1Idx != ~0U) {
-      auto &NewPN = JointValueMap[std::make_pair(DifferentOp1, DifferentOp2)];
-      if (!NewPN) {
-        NewPN =
-            PHINode::Create(DifferentOp1->getType(), 2,
-                            DifferentOp1->getName() + ".sink", &BBEnd->front());
-        NewPN->addIncoming(DifferentOp1, BB1);
-        NewPN->addIncoming(DifferentOp2, BB2);
-        DEBUG(dbgs() << "Create PHI node " << *NewPN << "\n";);
-      }
-      // I1 should use NewPN instead of DifferentOp1.
-      I1->setOperand(Op1Idx, NewPN);
-    }
-    PHINode *OldPN = JointValueMap[InstPair];
-    JointValueMap.erase(InstPair);
-
-    // We need to update RE1 and RE2 if we are going to sink the first
-    // instruction in the basic block down.
-    bool UpdateRE1 = (I1 == &BB1->front()), UpdateRE2 = (I2 == &BB2->front());
-    // Sink the instruction.
-    BBEnd->getInstList().splice(FirstNonPhiInBBEnd->getIterator(),
-                                BB1->getInstList(), I1);
-    if (!OldPN->use_empty())
-      OldPN->replaceAllUsesWith(I1);
-    OldPN->eraseFromParent();
-
-    if (!I2->use_empty())
-      I2->replaceAllUsesWith(I1);
-    I1->intersectOptionalDataWith(I2);
-    // TODO: Use combineMetadata here to preserve what metadata we can
-    // (analogous to the hoisting case above).
-    I2->eraseFromParent();
-
-    if (UpdateRE1)
-      RE1 = BB1->getInstList().rend();
-    if (UpdateRE2)
-      RE2 = BB2->getInstList().rend();
-    FirstNonPhiInBBEnd = &*I1;
+  unsigned NumPHIsToInsert;
+  while (canSinkLastInstruction(Blocks, NumPHIsToInsert) && NumPHIsToInsert <= 1) {
+    sinkLastInstruction(Blocks);
     NumSinkCommons++;
     Changed = true;
   }
@@ -1539,7 +1625,7 @@ static Value *isSafeToSpeculateStore(Instruction *I, BasicBlock *BrBB,
       continue;
     --MaxNumInstToLookAt;
 
-    // Could be calling an instruction that effects memory like free().
+    // Could be calling an instruction that affects memory like free().
     if (CurI.mayHaveSideEffects() && !isa<StoreInst>(CurI))
       return nullptr;
 
@@ -1822,7 +1908,7 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL) {
     return false;
 
   // Can't fold blocks that contain noduplicate or convergent calls.
-  if (llvm::any_of(*BB, [](const Instruction &I) {
+  if (any_of(*BB, [](const Instruction &I) {
         const CallInst *CI = dyn_cast<CallInst>(&I);
         return CI && (CI->cannotDuplicate() || CI->isConvergent());
       }))
@@ -5038,6 +5124,111 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
   return true;
 }
 
+static bool isSwitchDense(ArrayRef<int64_t> Values) {
+  // See also SelectionDAGBuilder::isDense(), which this function was based on.
+  uint64_t Diff = (uint64_t)Values.back() - (uint64_t)Values.front();
+  uint64_t Range = Diff + 1;
+  uint64_t NumCases = Values.size();
+  // 40% is the default density for building a jump table in optsize/minsize mode.
+  uint64_t MinDensity = 40;
+
+  return NumCases * 100 >= Range * MinDensity;
+}
+
+// Try and transform a switch that has "holes" in it to a contiguous sequence
+// of cases.
+//
+// A switch such as: switch(i) {case 5: case 9: case 13: case 17:} can be
+// range-reduced to: switch ((i-5) / 4) {case 0: case 1: case 2: case 3:}.
+//
+// This converts a sparse switch into a dense switch which allows better
+// lowering and could also allow transforming into a lookup table.
+static bool ReduceSwitchRange(SwitchInst *SI, IRBuilder<> &Builder,
+                              const DataLayout &DL,
+                              const TargetTransformInfo &TTI) {
+  auto *CondTy = cast<IntegerType>(SI->getCondition()->getType());
+  if (CondTy->getIntegerBitWidth() > 64 ||
+      !DL.fitsInLegalInteger(CondTy->getIntegerBitWidth()))
+    return false;
+  // Only bother with this optimization if there are more than 3 switch cases;
+  // SDAG will only bother creating jump tables for 4 or more cases.
+  if (SI->getNumCases() < 4)
+    return false;
+
+  // This transform is agnostic to the signedness of the input or case values. We
+  // can treat the case values as signed or unsigned. We can optimize more common
+  // cases such as a sequence crossing zero {-4,0,4,8} if we interpret case values
+  // as signed.
+  SmallVector<int64_t,4> Values;
+  for (auto &C : SI->cases())
+    Values.push_back(C.getCaseValue()->getValue().getSExtValue());
+  std::sort(Values.begin(), Values.end());
+
+  // If the switch is already dense, there's nothing useful to do here.
+  if (isSwitchDense(Values))
+    return false;
+
+  // First, transform the values such that they start at zero and ascend.
+  int64_t Base = Values[0];
+  for (auto &V : Values)
+    V -= Base;
+
+  // Now we have signed numbers that have been shifted so that, given enough
+  // precision, there are no negative values. Since the rest of the transform
+  // is bitwise only, we switch now to an unsigned representation.
+  uint64_t GCD = 0;
+  for (auto &V : Values)
+    GCD = llvm::GreatestCommonDivisor64(GCD, (uint64_t)V);
+
+  // This transform can be done speculatively because it is so cheap - it results
+  // in a single rotate operation being inserted. This can only happen if the
+  // factor extracted is a power of 2.
+  // FIXME: If the GCD is an odd number we can multiply by the multiplicative
+  // inverse of GCD and then perform this transform.
+  // FIXME: It's possible that optimizing a switch on powers of two might also
+  // be beneficial - flag values are often powers of two and we could use a CLZ
+  // as the key function.
+  if (GCD <= 1 || !llvm::isPowerOf2_64(GCD))
+    // No common divisor found or too expensive to compute key function.
+    return false;
+
+  unsigned Shift = llvm::Log2_64(GCD);
+  for (auto &V : Values)
+    V = (int64_t)((uint64_t)V >> Shift);
+
+  if (!isSwitchDense(Values))
+    // Transform didn't create a dense switch.
+    return false;
+
+  // The obvious transform is to shift the switch condition right and emit a
+  // check that the condition actually cleanly divided by GCD, i.e.
+  //   C & (1 << Shift - 1) == 0
+  // inserting a new CFG edge to handle the case where it didn't divide cleanly.
+  //
+  // A cheaper way of doing this is a simple ROTR(C, Shift). This performs the
+  // shift and puts the shifted-off bits in the uppermost bits. If any of these
+  // are nonzero then the switch condition will be very large and will hit the
+  // default case.
+
+  auto *Ty = cast<IntegerType>(SI->getCondition()->getType());
+  Builder.SetInsertPoint(SI);
+  auto *ShiftC = ConstantInt::get(Ty, Shift);
+  auto *Sub = Builder.CreateSub(SI->getCondition(), ConstantInt::get(Ty, Base));
+  auto *LShr = Builder.CreateLShr(Sub, ShiftC);
+  auto *Shl = Builder.CreateShl(Sub, Ty->getBitWidth() - Shift);
+  auto *Rot = Builder.CreateOr(LShr, Shl);
+  SI->replaceUsesOfWith(SI->getCondition(), Rot);
+
+  for (SwitchInst::CaseIt C = SI->case_begin(), E = SI->case_end(); C != E;
+       ++C) {
+    auto *Orig = C.getCaseValue();
+    auto Sub = Orig->getValue() - APInt(Ty->getBitWidth(), Base);
+    C.setValue(
+        cast<ConstantInt>(ConstantInt::get(Ty, Sub.lshr(ShiftC->getValue()))));
+  }
+  return true;
+}
+
 bool SimplifyCFGOpt::SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
   BasicBlock *BB = SI->getParent();
 
@@ -5079,6 +5270,9 @@ bool SimplifyCFGOpt::SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
     return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
 
   if (SwitchToLookupTable(SI, Builder, DL, TTI))
+    return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
+
+  if (ReduceSwitchRange(SI, Builder, DL, TTI))
     return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
 
   return false;
@@ -5391,7 +5585,10 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I) {
 
     // Now make sure that there are no instructions in between that can alter
     // control flow (eg. calls)
-    for (BasicBlock::iterator i = ++BasicBlock::iterator(I); &*i != Use; ++i)
+    for (BasicBlock::iterator
+             i = ++BasicBlock::iterator(I),
+             UI = BasicBlock::iterator(dyn_cast<Instruction>(Use));
+         i != UI; ++i)
       if (i == I->getParent()->end() || i->mayHaveSideEffects())
         return false;
 

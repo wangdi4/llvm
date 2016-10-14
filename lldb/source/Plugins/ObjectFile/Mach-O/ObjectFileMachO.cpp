@@ -32,6 +32,7 @@
 #include "lldb/Host/FileSpec.h"
 #include "lldb/Symbol/DWARFCallFrameInfo.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Target/DynamicLoader.h"
 #include "lldb/Target/MemoryRegionInfo.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
@@ -2237,7 +2238,7 @@ ObjectFileMachO::GetSharedCacheUUID (FileSpec dyld_shared_cache, const ByteOrder
 size_t
 ObjectFileMachO::ParseSymtab ()
 {
-    Timer scoped_timer(__PRETTY_FUNCTION__,
+    Timer scoped_timer(LLVM_PRETTY_FUNCTION,
                        "ObjectFileMachO::ParseSymtab () module = %s",
                        m_file.GetFilename().AsCString(""));
     ModuleSP module_sp (GetModule());
@@ -2453,7 +2454,10 @@ ObjectFileMachO::ParseSymtab ()
 
                 if (!data_was_read)
                 {
-                    if (memory_module_load_level == eMemoryModuleLoadLevelComplete)
+                    // Always load dyld - the dynamic linker - from memory if we didn't find a binary anywhere else.
+                    // lldb will not register dylib/framework/bundle loads/unloads if we don't have the dyld symbols,
+                    // we force dyld to load from memory despite the user's target.memory-module-load-level setting.
+                    if (memory_module_load_level == eMemoryModuleLoadLevelComplete || m_header.filetype == llvm::MachO::MH_DYLINKER)
                     {
                         DataBufferSP nlist_data_sp (ReadMemory (process_sp, symoff_addr, nlist_data_byte_size));
                         if (nlist_data_sp)
@@ -2471,8 +2475,7 @@ ObjectFileMachO::ParseSymtab ()
                                 indirect_symbol_index_data.SetData (indirect_syms_data_sp, 0, indirect_syms_data_sp->GetByteSize());
                         }
                     }
-                    
-                    if (memory_module_load_level >= eMemoryModuleLoadLevelPartial)
+                    else if (memory_module_load_level >= eMemoryModuleLoadLevelPartial)
                     {
                         if (function_starts_load_command.cmd)
                         {
@@ -5449,70 +5452,13 @@ UUID
 ObjectFileMachO::GetProcessSharedCacheUUID (Process *process)
 {
     UUID uuid;
-
-    // First see if we can get the shared cache details from debugserver
-    if (process)
+    if (process && process->GetDynamicLoader())
     {
-        StructuredData::ObjectSP info = process->GetSharedCacheInfo();
-        StructuredData::Dictionary *info_dict = nullptr;
-        if (info.get() && info->GetAsDictionary())
-        {
-            info_dict = info->GetAsDictionary();
-        }
-
-        // {"shared_cache_base_address":140735683125248,"shared_cache_uuid":"DDB8D70C-C9A2-3561-B2C8-BE48A4F33F96","no_shared_cache":false,"shared_cache_private_cache":false}
-
-        if (info_dict
-            && info_dict->HasKey("shared_cache_uuid")
-            && info_dict->HasKey("no_shared_cache")
-            && info_dict->HasKey("shared_cache_base_address"))
-        {
-            bool process_using_shared_cache = info_dict->GetValueForKey("no_shared_cache")->GetBooleanValue() == false;
-            std::string uuid_str = info_dict->GetValueForKey("shared_cache_uuid")->GetStringValue();
-
-            if (process_using_shared_cache && !uuid_str.empty() && uuid.SetFromCString (uuid_str.c_str()) == 0)
-                return uuid;
-        }
-    }
-
-    // Fall back to trying to read the shared cache info out of dyld's internal data structures
-    if (process)
-    {
-        addr_t all_image_infos = process->GetImageInfoAddress();
-
-        // The address returned by GetImageInfoAddress may be the address of dyld (don't want)
-        // or it may be the address of the dyld_all_image_infos structure (want).  The first four
-        // bytes will be either the version field (all_image_infos) or a Mach-O file magic constant.
-        // Version 13 and higher of dyld_all_image_infos is required to get the sharedCacheUUID field.
-
-        Error err;
-        uint32_t version_or_magic = process->ReadUnsignedIntegerFromMemory (all_image_infos, 4, -1, err);
-        if (version_or_magic != static_cast<uint32_t>(-1)
-            && version_or_magic != MH_MAGIC
-            && version_or_magic != MH_CIGAM
-            && version_or_magic != MH_MAGIC_64
-            && version_or_magic != MH_CIGAM_64
-            && version_or_magic >= 13)
-        {
-            addr_t sharedCacheUUID_address = LLDB_INVALID_ADDRESS;
-            int wordsize = process->GetAddressByteSize();
-            if (wordsize == 8)
-            {
-                sharedCacheUUID_address = all_image_infos + 160;  // sharedCacheUUID <mach-o/dyld_images.h>
-            }
-            if (wordsize == 4)
-            {
-                sharedCacheUUID_address = all_image_infos + 84;   // sharedCacheUUID <mach-o/dyld_images.h>
-            }
-            if (sharedCacheUUID_address != LLDB_INVALID_ADDRESS)
-            {
-                uuid_t shared_cache_uuid;
-                if (process->ReadMemory (sharedCacheUUID_address, shared_cache_uuid, sizeof (uuid_t), err) == sizeof (uuid_t))
-                {
-                    uuid.SetBytes (shared_cache_uuid);
-                }
-            }
-        }
+        DynamicLoader *dl = process->GetDynamicLoader();
+        addr_t load_address;
+        LazyBool using_shared_cache;
+        LazyBool private_shared_cache;
+        dl->GetSharedCacheInformation (load_address, uuid, using_shared_cache, private_shared_cache);
     }
     return uuid;
 }

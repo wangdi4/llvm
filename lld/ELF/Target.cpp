@@ -10,7 +10,7 @@
 // Machine-specific things, such as applying relocations, creation of
 // GOT or PLT entries, etc., are handled in this file.
 //
-// Refer the ELF spec for the single letter varaibles, S, A or P, used
+// Refer the ELF spec for the single letter variables, S, A or P, used
 // in this file.
 //
 // Some functions defined in this file has "relaxTls" as part of their names.
@@ -214,6 +214,7 @@ public:
 TargetInfo *createTarget() {
   switch (Config->EMachine) {
   case EM_386:
+  case EM_IAMCU:
     return new X86TargetInfo();
   case EM_AARCH64:
     return new AArch64TargetInfo();
@@ -439,6 +440,7 @@ uint64_t X86TargetInfo::getImplicitAddend(const uint8_t *Buf,
   case R_386_GOTPC:
   case R_386_PC32:
   case R_386_PLT32:
+  case R_386_TLS_LE:
     return read32le(Buf);
   }
 }
@@ -544,6 +546,7 @@ void X86TargetInfo::relaxTlsLdToLe(uint8_t *Loc, uint32_t Type,
 }
 
 template <class ELFT> X86_64TargetInfo<ELFT>::X86_64TargetInfo() {
+  MaxPageSize = 0x200000; // 2MiB
   CopyRel = R_X86_64_COPY;
   GotRel = R_X86_64_GLOB_DAT;
   PltRel = R_X86_64_JUMP_SLOT;
@@ -1526,6 +1529,8 @@ RelExpr ARMTargetInfo::getRelExpr(uint32_t Type, const SymbolBody &S) const {
   case R_ARM_TLS_IE32:
     // GOT(S) + A - P
     return R_GOT_PC;
+  case R_ARM_TARGET1:
+    return Config->Target1Rel ? R_PC : R_ABS;
   case R_ARM_TLS_GD32:
     return R_TLSGD_PC;
   case R_ARM_TLS_LDM32:
@@ -1548,6 +1553,8 @@ RelExpr ARMTargetInfo::getRelExpr(uint32_t Type, const SymbolBody &S) const {
 }
 
 uint32_t ARMTargetInfo::getDynRel(uint32_t Type) const {
+  if (Type == R_ARM_TARGET1 && !Config->Target1Rel)
+    return R_ARM_ABS32;
   if (Type == R_ARM_ABS32)
     return Type;
   // Keep it going with a dummy value so that we can find more reloc errors.
@@ -1629,6 +1636,7 @@ void ARMTargetInfo::relocateOne(uint8_t *Loc, uint32_t Type,
   case R_ARM_GOT_BREL:
   case R_ARM_GOT_PREL:
   case R_ARM_REL32:
+  case R_ARM_TARGET1:
   case R_ARM_TLS_GD32:
   case R_ARM_TLS_IE32:
   case R_ARM_TLS_LDM32:
@@ -1757,6 +1765,7 @@ uint64_t ARMTargetInfo::getImplicitAddend(const uint8_t *Buf,
   case R_ARM_GOT_BREL:
   case R_ARM_GOT_PREL:
   case R_ARM_REL32:
+  case R_ARM_TARGET1:
   case R_ARM_TLS_GD32:
   case R_ARM_TLS_LDM32:
   case R_ARM_TLS_LDO32:
@@ -1893,7 +1902,11 @@ RelExpr MipsTargetInfo<ELFT>::getRelExpr(uint32_t Type,
       return R_MIPS_GOT_LOCAL_PAGE;
   // fallthrough
   case R_MIPS_CALL16:
+  case R_MIPS_CALL_HI16:
+  case R_MIPS_CALL_LO16:
   case R_MIPS_GOT_DISP:
+  case R_MIPS_GOT_HI16:
+  case R_MIPS_GOT_LO16:
   case R_MIPS_TLS_GOTTPREL:
     return R_MIPS_GOT_OFF;
   case R_MIPS_GOT_PAGE:
@@ -2120,6 +2133,8 @@ void MipsTargetInfo<ELFT>::relocateOne(uint8_t *Loc, uint32_t Type,
     checkInt<16>(Val, Type);
   // fallthrough
   case R_MIPS_CALL16:
+  case R_MIPS_CALL_LO16:
+  case R_MIPS_GOT_LO16:
   case R_MIPS_GOT_OFST:
   case R_MIPS_LO16:
   case R_MIPS_PCLO16:
@@ -2128,6 +2143,8 @@ void MipsTargetInfo<ELFT>::relocateOne(uint8_t *Loc, uint32_t Type,
   case R_MIPS_TLS_TPREL_LO16:
     writeMipsLo16<E>(Loc, Val);
     break;
+  case R_MIPS_CALL_HI16:
+  case R_MIPS_GOT_HI16:
   case R_MIPS_HI16:
   case R_MIPS_PCHI16:
   case R_MIPS_TLS_DTPREL_HI16:

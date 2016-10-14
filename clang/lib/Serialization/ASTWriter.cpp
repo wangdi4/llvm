@@ -4709,6 +4709,11 @@ void ASTWriter::WriteDeclUpdatesBlocks(RecordDataImpl &OffsetsRecord) {
             cast<ParmVarDecl>(Update.getDecl())->getDefaultArg()));
         break;
 
+      case UPD_CXX_INSTANTIATED_DEFAULT_MEMBER_INITIALIZER:
+        Record.AddStmt(
+            cast<FieldDecl>(Update.getDecl())->getInClassInitializer());
+        break;
+
       case UPD_CXX_INSTANTIATED_CLASS_DEFINITION: {
         auto *RD = cast<CXXRecordDecl>(D);
         UpdatedDeclContexts.insert(RD->getPrimaryContext());
@@ -5388,6 +5393,7 @@ void ASTRecordWriter::AddTemplateParameterList(
   AddSourceLocation(TemplateParams->getTemplateLoc());
   AddSourceLocation(TemplateParams->getLAngleLoc());
   AddSourceLocation(TemplateParams->getRAngleLoc());
+  // TODO: Concepts
   Record->push_back(TemplateParams->size());
   for (const auto &P : *TemplateParams)
     AddDeclRef(P);
@@ -5566,7 +5572,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
     Record->push_back(Lambda.NumCaptures);
     Record->push_back(Lambda.NumExplicitCaptures);
     Record->push_back(Lambda.ManglingNumber);
-    AddDeclRef(Lambda.ContextDecl);
+    AddDeclRef(D->getLambdaContextDecl());
     AddTypeSourceInfo(Lambda.MethodTyInfo);
     for (unsigned I = 0, N = Lambda.NumCaptures; I != N; ++I) {
       const LambdaCapture &Capture = Lambda.Captures[I];
@@ -5819,6 +5825,15 @@ void ASTWriter::DefaultArgumentInstantiated(const ParmVarDecl *D) {
 
   DeclUpdates[D].push_back(
       DeclUpdate(UPD_CXX_INSTANTIATED_DEFAULT_ARGUMENT, D));
+}
+
+void ASTWriter::DefaultMemberInitializerInstantiated(const FieldDecl *D) {
+  assert(!WritingAST && "Already writing the AST!");
+  if (!D->isFromASTFile())
+    return;
+
+  DeclUpdates[D].push_back(
+      DeclUpdate(UPD_CXX_INSTANTIATED_DEFAULT_MEMBER_INITIALIZER, D));
 }
 
 void ASTWriter::AddedObjCCategoryToInterface(const ObjCCategoryDecl *CatD,

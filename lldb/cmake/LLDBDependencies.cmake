@@ -27,6 +27,7 @@ set( LLDB_USED_LIBS
   lldbPluginJavaLanguage
   lldbPluginObjCLanguage
   lldbPluginObjCPlusPlusLanguage
+  lldbPluginOCamlLanguage
 
   lldbPluginObjectFileELF
   lldbPluginObjectFileJIT
@@ -46,6 +47,7 @@ set( LLDB_USED_LIBS
   lldbPluginObjectContainerMachOArchive
   lldbPluginObjectContainerBSDArchive
   lldbPluginPlatformMacOSX
+  lldbPluginStructuredDataDarwinLog
   lldbPluginDynamicLoaderMacOSXDYLD
   lldbPluginUnwindAssemblyInstEmulation
   lldbPluginUnwindAssemblyX86
@@ -201,6 +203,7 @@ set(LLVM_LINK_COMPONENTS
   option
   support
   coverage
+  target
   )
 
 if ( NOT LLDB_DISABLE_PYTHON )

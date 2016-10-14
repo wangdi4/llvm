@@ -1514,22 +1514,19 @@ void Parser::DiagnoseProhibitedAttributes(ParsedAttributesWithRange &attrs) {
     << attrs.Range;
 }
 
-void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &attrs) {
-  AttributeList *AttrList = attrs.getList();
-  while (AttrList) {
-    if (AttrList->isCXX11Attribute()) {
-#if INTEL_CUSTOMIZATION
-      // CQ#370092 - emit a warning, not error in IntelCompat mode
-      if (getLangOpts().IntelCompat)
-        Diag(AttrList->getLoc(), diag::warn_attribute_not_type_attr) 
-          << AttrList->getName();
-      else
-#endif // INTEL_CUSTOMIZATION
-      Diag(AttrList->getLoc(), diag::err_attribute_not_type_attr) 
-        << AttrList->getName();
-      AttrList->setInvalid();
+void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &Attrs,
+                                     unsigned DiagID) {
+  for (AttributeList *Attr = Attrs.getList(); Attr; Attr = Attr->getNext()) {
+    if (!Attr->isCXX11Attribute())
+      continue;
+    if (Attr->getKind() == AttributeList::UnknownAttribute)
+      Diag(Attr->getLoc(), diag::warn_unknown_attribute_ignored)
+          << Attr->getName();
+    else {
+      Diag(Attr->getLoc(), DiagID)
+        << Attr->getName();
+      Attr->setInvalid();
     }
-    AttrList = AttrList->getNext();
   }
 }
 
@@ -2875,7 +2872,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         // Reject C++11 attributes that appertain to decl specifiers as
         // we don't support any C++11 attributes that appertain to decl
         // specifiers. This also conforms to what g++ 4.8 is doing.
-        ProhibitCXX11Attributes(attrs);
+#if INTEL_CUSTOMIZATION
+        // CQ#370092 - emit a warning, not error in IntelCompat mode
+        ProhibitCXX11Attributes(attrs, getLangOpts().IntelCompat ?
+                                diag::warn_attribute_not_type_attr :
+                                diag::err_attribute_not_type_attr);
+#endif // INTEL_CUSTOMIZATION
 
         DS.takeAttributesFrom(attrs);
       }

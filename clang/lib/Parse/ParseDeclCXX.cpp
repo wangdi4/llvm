@@ -2065,6 +2065,7 @@ void Parser::HandleMemberFunctionDeclDelays(Declarator& DeclaratorInfo,
 ///       virt-specifier:
 ///         override
 ///         final
+///         __final
 VirtSpecifiers::Specifier Parser::isCXX11VirtSpecifier(const Token &Tok) const {
   if (!getLangOpts().CPlusPlus || Tok.isNot(tok::identifier))
     return VirtSpecifiers::VS_None;
@@ -2074,6 +2075,8 @@ VirtSpecifiers::Specifier Parser::isCXX11VirtSpecifier(const Token &Tok) const {
   // Initialize the contextual keywords.
   if (!Ident_final) {
     Ident_final = &PP.getIdentifierTable().get("final");
+    if (getLangOpts().GNUKeywords)
+      Ident_GNU_final = &PP.getIdentifierTable().get("__final");
     if (getLangOpts().MicrosoftExt)
       Ident_sealed = &PP.getIdentifierTable().get("sealed");
     Ident_override = &PP.getIdentifierTable().get("override");
@@ -2087,6 +2090,9 @@ VirtSpecifiers::Specifier Parser::isCXX11VirtSpecifier(const Token &Tok) const {
 
   if (II == Ident_final)
     return VirtSpecifiers::VS_Final;
+
+  if (II == Ident_GNU_final)
+    return VirtSpecifiers::VS_GNU_Final;
 
   return VirtSpecifiers::VS_None;
 }
@@ -2127,6 +2133,8 @@ void Parser::ParseOptionalCXX11VirtSpecifierSeq(VirtSpecifiers &VS,
         << VirtSpecifiers::getSpecifierName(Specifier);
     } else if (Specifier == VirtSpecifiers::VS_Sealed) {
       Diag(Tok.getLocation(), diag::ext_ms_sealed_keyword);
+    } else if (Specifier == VirtSpecifiers::VS_GNU_Final) {
+      Diag(Tok.getLocation(), diag::ext_warn_gnu_final);
     } else {
       Diag(Tok.getLocation(),
            getLangOpts().CPlusPlus11
@@ -2143,6 +2151,7 @@ void Parser::ParseOptionalCXX11VirtSpecifierSeq(VirtSpecifiers &VS,
 bool Parser::isCXX11FinalKeyword() const {
   VirtSpecifiers::Specifier Specifier = isCXX11VirtSpecifier();
   return Specifier == VirtSpecifiers::VS_Final ||
+         Specifier == VirtSpecifiers::VS_GNU_Final || 
          Specifier == VirtSpecifiers::VS_Sealed;
 }
 
@@ -3157,6 +3166,7 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
   if (getLangOpts().CPlusPlus && Tok.is(tok::identifier)) {
     VirtSpecifiers::Specifier Specifier = isCXX11VirtSpecifier(Tok);
     assert((Specifier == VirtSpecifiers::VS_Final ||
+            Specifier == VirtSpecifiers::VS_GNU_Final || 
             Specifier == VirtSpecifiers::VS_Sealed) &&
            "not a class definition");
     FinalLoc = ConsumeToken();
@@ -3172,6 +3182,8 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         << VirtSpecifiers::getSpecifierName(Specifier);
     else if (Specifier == VirtSpecifiers::VS_Sealed)
       Diag(FinalLoc, diag::ext_ms_sealed_keyword);
+    else if (Specifier == VirtSpecifiers::VS_GNU_Final)
+      Diag(FinalLoc, diag::ext_warn_gnu_final);
 
     // Parse any C++11 attributes after 'final' keyword.
     // These attributes are not allowed to appear here,
