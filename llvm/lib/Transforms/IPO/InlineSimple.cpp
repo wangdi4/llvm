@@ -72,7 +72,7 @@ public:
       return ACT->getAssumptionCache(F);
     };
     return llvm::getInlineCost(CS, DefaultThreshold, TTI,        // INTEL
-      GetAssumptionCache, PSI, AggI);                            // INTEL 
+      GetAssumptionCache, ILIC, PSI, AggI);                      // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;

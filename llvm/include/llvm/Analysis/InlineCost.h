@@ -14,9 +14,10 @@
 #ifndef LLVM_ANALYSIS_INLINECOST_H
 #define LLVM_ANALYSIS_INLINECOST_H
 
-#include "llvm/Analysis/CallGraphSCCPass.h" // INTEL 
-#include "llvm/Analysis/Intel_AggInline.h"  // INTEL
+#include "llvm/Analysis/CallGraphSCCPass.h"   // INTEL
+#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include <cassert>
 #include <climits>
 
@@ -42,11 +43,42 @@ namespace InlineConstants {
   /// Do not inline functions which allocate this many bytes on the stack
   /// when the caller is recursive.
   const unsigned TotalAllocaSizeRecursiveCaller = 1024;
-  const unsigned BasicBlockSuccRatio = 210; // INTEL 
+  const unsigned BasicBlockSuccRatio = 210; // INTEL
 }
 
 #if INTEL_CUSTOMIZATION
-namespace InlineReportTypes { 
+
+
+/// \brief A cache to save loop related info during inlining of an SCC.
+///
+/// This cache is used to store the DominatorTree and LoopInfo for called
+/// functions which are candidates for inlining.  Unnecessarily recomputing
+/// them can add significantly to compile time and memory consumption.
+///
+/// The DominatorTree and LoopInfo for a function is invalidated when
+/// some other function is inlined into it.
+///
+typedef std::map<Function*, DominatorTree*> DTMap;
+typedef std::map<Function*, LoopInfo*> LIMap;
+
+class InliningLoopInfoCache {
+
+  DTMap DTMapSCC;
+  LIMap LIMapSCC;
+
+public:
+
+  InliningLoopInfoCache() {}
+
+  ~InliningLoopInfoCache();
+
+  DominatorTree* getDT(Function *F);
+  LoopInfo* getLI(Function* F);
+  void invalidateFunction(Function *F);
+
+};
+
+namespace InlineReportTypes {
 
 /// \brief Inlining and non-inlining reasons
 ///
@@ -58,7 +90,7 @@ namespace InlineReportTypes {
 /// NOTE: The order of the values below is significant.  Those with a lower
 /// enum value are considered more significant and will be given preference
 /// when the inlining report is printed. (See the function bestInlineReason()
-/// in InlineCost.cpp. 
+/// in InlineCost.cpp.
 ///
 typedef enum {
    InlrFirst, // Just a marker placed before the first inlining reason
@@ -68,7 +100,7 @@ typedef enum {
    InlrSingleBasicBlock,
    InlrAlmostSingleBasicBlock,
    InlrEmptyFunction,
-   InlrDoubleLocalCall, 
+   InlrDoubleLocalCall,
    InlrVectorBonus,
    InlrAggInline,
    InlrProfitable,
@@ -124,8 +156,8 @@ extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
 /// based on the information available for a particular callsite. They can be
 /// directly tested to determine if inlining should occur given the cost and
 /// threshold for this cost metric.
-/// INTEL The Intel version is augmented with the InlineReason, which is the 
-/// INTEL principal reason that a call site was or was not inlined. 
+/// INTEL The Intel version is augmented with the InlineReason, which is the
+/// INTEL principal reason that a call site was or was not inlined.
 
 class InlineCost {
   enum SentinelValues {
@@ -143,9 +175,9 @@ class InlineCost {
 
   // Trivial constructor, interesting logic in the factory functions below.
 
-  InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason 
-    = InlineReportTypes::NinlrNoReason) : Cost(Cost), Threshold(Threshold), 
-    Reason(Reason) {} // INTEL 
+  InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason
+    = InlineReportTypes::NinlrNoReason) : Cost(Cost), Threshold(Threshold),
+    Reason(Reason) {} // INTEL
 
 public:
   static InlineCost get(int Cost, int Threshold) {
@@ -154,7 +186,7 @@ public:
     return InlineCost(Cost, Threshold);
   }
 #if INTEL_CUSTOMIZATION
-  static InlineCost get(int Cost, int Threshold, 
+  static InlineCost get(int Cost, int Threshold,
     InlineReportTypes::InlineReason Reason) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
@@ -197,10 +229,10 @@ public:
   /// value if the cost is too high to inline.
   int getCostDelta() const { return Threshold - getCost(); }
 
-#if INTEL_CUSTOMIZATION 
-  InlineReportTypes::InlineReason getInlineReason() const 
+#if INTEL_CUSTOMIZATION
+  InlineReportTypes::InlineReason getInlineReason() const
     { return Reason; }
-  void setInlineReason(InlineReportTypes::InlineReason MyReason) 
+  void setInlineReason(InlineReportTypes::InlineReason MyReason)
     { Reason = MyReason; }
 #endif // INTEL_CUSTOMIZATION
 
@@ -220,6 +252,7 @@ public:
 InlineCost
 getInlineCost(CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+              InliningLoopInfoCache *ILIC,     // INTEL
               ProfileSummaryInfo *PSI,         // INTEL
               InlineAggressiveInfo *AggI);     // INTEL
 
@@ -232,6 +265,7 @@ InlineCost
 getInlineCost(CallSite CS, Function *Callee, int DefaultThreshold,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+              InliningLoopInfoCache *ILIC,           // INTEL
               ProfileSummaryInfo *PSI,               // INTEL
               InlineAggressiveInfo *AggI);           // INTEL
 
