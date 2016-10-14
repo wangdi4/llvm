@@ -2458,9 +2458,9 @@ const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
   while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
     const GetElementPtrInst *GEPInst;
 
-    // Do not trace back to live range instructions.
     if ((GEPInst = dyn_cast<GetElementPtrInst>(TempGEPOp)) &&
-        SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
+        (SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange) ||
+        !RI->isSupported(GEPInst->getPointerOperand()->getType()))) {
       break;
     }
 
