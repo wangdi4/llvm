@@ -486,6 +486,12 @@ void Instruction::getAAMetadata(AAMDNodes &N, bool Merge) const {
         MDNode::intersect(N.NoAlias, getMetadata(LLVMContext::MD_noalias));
   else
     N.NoAlias = getMetadata(LLVMContext::MD_noalias);
+
+#if INTEL_CUSTOMIZATION
+  N.StdContainerPtr = getMetadata(LLVMContext::MD_std_container_ptr);
+
+  N.StdContainerPtrIter = getMetadata(LLVMContext::MD_std_container_ptr_iter);
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
@@ -667,7 +673,7 @@ bool TypeBasedAAResult::PathAliases(const MDNode *A, const MDNode *B, // INTEL
 
 char TypeBasedAA::PassID;
 
-TypeBasedAAResult TypeBasedAA::run(Function &F, AnalysisManager<Function> &AM) {
+TypeBasedAAResult TypeBasedAA::run(Function &F, FunctionAnalysisManager &AM) {
   return TypeBasedAAResult();
 }
 

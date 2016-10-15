@@ -53,7 +53,7 @@ CommandObjectHelp::CommandObjectHelp(CommandInterpreter &interpreter)
     : CommandObjectParsed(interpreter, "help",
                           "Show a list of all debugger commands, or give details about a specific command.",
                           "help [<cmd-name>]"),
-      m_options(interpreter)
+      m_options()
 {
     CommandArgumentEntry arg;
     CommandArgumentData command_arg;
@@ -74,10 +74,12 @@ CommandObjectHelp::~CommandObjectHelp() = default;
 OptionDefinition
 CommandObjectHelp::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_ALL, false, "hide-aliases", 'a', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone,         "Hide aliases in the command list."},
-    { LLDB_OPT_SET_ALL, false, "hide-user-commands", 'u', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone,         "Hide user-defined commands from the list."},
-    { LLDB_OPT_SET_ALL, false, "show-hidden-commands", 'h', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone,         "Include commands prefixed with an underscore."},
-    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "hide-aliases",         'a', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Hide aliases in the command list."},
+  {LLDB_OPT_SET_ALL, false, "hide-user-commands",   'u', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Hide user-defined commands from the list."},
+  {LLDB_OPT_SET_ALL, false, "show-hidden-commands", 'h', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Include commands prefixed with an underscore."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 bool

@@ -248,6 +248,14 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1,
 // scope global variables into the registers.
 FunctionPass *createNonLTOGlobalOptimizerPass();
 
+// StdContainerOptPass is a pass which generates the std container
+// metadata based on the analysis of std container intrinisc.
+FunctionPass *createStdContainerOptPass();
+
+// TbaaMDPropagationPass is a pass which recovers the tbaa information
+// for the return pointer dereferences.
+FunctionPass *createTbaaMDPropagationPass();
+
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info if possible 
 FunctionPass *createIndirectCallConvPass();

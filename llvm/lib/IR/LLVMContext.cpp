@@ -138,6 +138,18 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
   assert(TypeID == MD_type && "type kind id drifted");
   (void)TypeID;
 
+#if INTEL_CUSTOMIZATION
+  auto StdContainerPtrID = getMDKindID("std.container.ptr");
+  assert(StdContainerPtrID == MD_std_container_ptr &&
+         "std.container.ptr id drifted");
+  (void)StdContainerPtrID;
+
+  auto StdContainerPtrIterID = getMDKindID("std.container.ptr.iter");
+  assert(StdContainerPtrIterID == MD_std_container_ptr_iter &&
+         "std.container.ptr.iter id drifted");
+  (void)StdContainerPtrIterID;
+#endif // INTEL_CUSTOMIZATION
+
   auto *DeoptEntry = pImpl->getOrInsertBundleTag("deopt");
   assert(DeoptEntry->second == LLVMContext::OB_deopt &&
          "deopt operand bundle id drifted!");

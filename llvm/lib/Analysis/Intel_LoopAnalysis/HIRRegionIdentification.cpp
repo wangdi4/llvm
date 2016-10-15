@@ -329,11 +329,34 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
 
   while (DomNode != HeaderDomNode) {
     assert(DomNode && "Dominator tree node of a loop bblock is null!");
-    ++IfNestCount;
+
+    // Consider this a nested if scenario only if the dominator has a single
+    // predecessor otherwise sibling ifs may be counted as nested due to
+    // merge/join bblocks.
+    // Nested ifs look like this-
+    // if () {
+    //   if () {
+    //   }
+    // }
+    //
+    // As opposed to sibling ifs-
+    //
+    // if () {
+    // } else {
+    // }
+    //     <-- The merge point is a dominator of the sibling if.
+    // if() {
+    // }
+    //
+    if (DomNode->getBlock()->getSinglePredecessor()) {
+      ++IfNestCount;
+    }
+
     DomNode = DomNode->getIDom();
   }
 
-  if (IfNestCount > MaxIfNestThreshold) {
+  // Add 1 to include reaching header node.
+  if ((IfNestCount + 1) > MaxIfNestThreshold) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many nested ifs.\n");
     return false;
@@ -367,6 +390,11 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
 bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
 
   if (!CostModelThrottling) {
+    return false;
+  }
+
+  // SIMD loops should not be throttled.
+  if (isSIMDLoop(Lp)) {
     return false;
   }
 
@@ -414,10 +442,20 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  auto BECount = SE->getBackedgeTakenCount(&Lp);
+
   // Don't handle unknown loops for now.
-  if (!SE->hasLoopInvariantBackedgeTakenCount(&Lp)) {
+  if (isa<SCEVCouldNotCompute>(BECount)) {
     DEBUG(dbgs()
           << "LOOPOPT_OPTREPORT: Unknown loops currently not supported.\n");
+    return false;
+  }
+
+  auto UndefBECount = dyn_cast<SCEVUnknown>(BECount);
+
+  if (UndefBECount && isa<UndefValue>(UndefBECount->getValue())) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with undef backedge taken count "
+                    "currently not supported.\n");
     return false;
   }
 

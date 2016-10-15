@@ -15,7 +15,7 @@
 // See https://github.com/google/sanitizers/issues/209 for the details.
 //===----------------------------------------------------------------------===//
 
-// Only compile this code when buidling asan_dll_thunk.lib
+// Only compile this code when building asan_dll_thunk.lib
 // Using #ifdef rather than relying on Makefiles etc.
 // simplifies the build procedure.
 #ifdef ASAN_DLL_THUNK
@@ -261,6 +261,13 @@ INTERFACE_FUNCTION(__asan_memcpy);
 INTERFACE_FUNCTION(__asan_memset);
 INTERFACE_FUNCTION(__asan_memmove);
 
+INTERFACE_FUNCTION(__asan_set_shadow_00);
+INTERFACE_FUNCTION(__asan_set_shadow_f1);
+INTERFACE_FUNCTION(__asan_set_shadow_f2);
+INTERFACE_FUNCTION(__asan_set_shadow_f3);
+INTERFACE_FUNCTION(__asan_set_shadow_f5);
+INTERFACE_FUNCTION(__asan_set_shadow_f8);
+
 INTERFACE_FUNCTION(__asan_alloca_poison);
 INTERFACE_FUNCTION(__asan_allocas_unpoison);
 
@@ -316,11 +323,15 @@ INTERFACE_FUNCTION(__sanitizer_cov_module_init)
 INTERFACE_FUNCTION(__sanitizer_cov_trace_basic_block)
 INTERFACE_FUNCTION(__sanitizer_cov_trace_func_enter)
 INTERFACE_FUNCTION(__sanitizer_cov_trace_cmp)
+INTERFACE_FUNCTION(__sanitizer_cov_trace_cmp1)
+INTERFACE_FUNCTION(__sanitizer_cov_trace_cmp2)
+INTERFACE_FUNCTION(__sanitizer_cov_trace_cmp4)
+INTERFACE_FUNCTION(__sanitizer_cov_trace_cmp8)
 INTERFACE_FUNCTION(__sanitizer_cov_trace_switch)
 INTERFACE_FUNCTION(__sanitizer_cov_with_check)
 INTERFACE_FUNCTION(__sanitizer_get_allocated_size)
 INTERFACE_FUNCTION(__sanitizer_get_coverage_guards)
-INTERFACE_FUNCTION(__sanitizer_get_coverage_pc_buffer)
+INTERFACE_FUNCTION(__sanitizer_get_coverage_pc_buffer_pos)
 INTERFACE_FUNCTION(__sanitizer_get_current_allocated_bytes)
 INTERFACE_FUNCTION(__sanitizer_get_estimated_allocated_size)
 INTERFACE_FUNCTION(__sanitizer_get_free_bytes)
@@ -331,6 +342,7 @@ INTERFACE_FUNCTION(__sanitizer_get_total_unique_coverage)
 INTERFACE_FUNCTION(__sanitizer_get_unmapped_bytes)
 INTERFACE_FUNCTION(__sanitizer_maybe_open_cov_file)
 INTERFACE_FUNCTION(__sanitizer_print_stack_trace)
+INTERFACE_FUNCTION(__sanitizer_symbolize_pc)
 INTERFACE_FUNCTION(__sanitizer_ptr_cmp)
 INTERFACE_FUNCTION(__sanitizer_ptr_sub)
 INTERFACE_FUNCTION(__sanitizer_report_error_summary)
@@ -338,6 +350,7 @@ INTERFACE_FUNCTION(__sanitizer_reset_coverage)
 INTERFACE_FUNCTION(__sanitizer_get_number_of_counters)
 INTERFACE_FUNCTION(__sanitizer_update_counter_bitset_and_clear_counters)
 INTERFACE_FUNCTION(__sanitizer_sandbox_on_notify)
+INTERFACE_FUNCTION(__sanitizer_set_coverage_pc_buffer)
 INTERFACE_FUNCTION(__sanitizer_set_death_callback)
 INTERFACE_FUNCTION(__sanitizer_set_report_path)
 INTERFACE_FUNCTION(__sanitizer_set_report_fd)

@@ -25,8 +25,8 @@ class MachineRegisterInfo;
 
 struct SIRegisterInfo final : public AMDGPURegisterInfo {
 private:
-  unsigned SGPR32SetID;
-  unsigned VGPR32SetID;
+  unsigned SGPRSetID;
+  unsigned VGPRSetID;
   BitVector SGPRPressureSets;
   BitVector VGPRPressureSets;
 
@@ -137,12 +137,6 @@ public:
                             const TargetRegisterClass *SrcRC,
                             unsigned SrcSubReg) const override;
 
-  /// \p Channel This is the register channel (e.g. a value from 0-16), not the
-  ///            SubReg index.
-  /// \returns The sub-register of Reg that is in Channel.
-  unsigned getPhysRegSubReg(unsigned Reg, const TargetRegisterClass *SubRC,
-                            unsigned Channel) const;
-
   /// \returns True if operands defined with this operand type can accept
   /// a literal constant (i.e. any 32-bit immediate).
   bool opCanUseLiteralConstant(unsigned OpType) const;
@@ -185,12 +179,20 @@ public:
   unsigned getNumSGPRsAllowed(const SISubtarget &ST, unsigned WaveCount) const;
 
   unsigned findUnusedRegister(const MachineRegisterInfo &MRI,
-                              const TargetRegisterClass *RC) const;
+                              const TargetRegisterClass *RC,
+                              const MachineFunction &MF) const;
 
-  unsigned getSGPR32PressureSet() const { return SGPR32SetID; };
-  unsigned getVGPR32PressureSet() const { return VGPR32SetID; };
+  unsigned getSGPRPressureSet() const { return SGPRSetID; };
+  unsigned getVGPRPressureSet() const { return VGPRSetID; };
 
   bool isVGPR(const MachineRegisterInfo &MRI, unsigned Reg) const;
+
+  bool isSGPRPressureSet(unsigned SetID) const {
+    return SGPRPressureSets.test(SetID) && !VGPRPressureSets.test(SetID);
+  }
+  bool isVGPRPressureSet(unsigned SetID) const {
+    return VGPRPressureSets.test(SetID) && !SGPRPressureSets.test(SetID);
+  }
 
 private:
   void buildScratchLoadStore(MachineBasicBlock::iterator MI,

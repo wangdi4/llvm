@@ -17,9 +17,10 @@
 ; CHECK-NEXT: |   if (%len > 0)
 ; CHECK-NEXT: |   {
 ; CHECK-NEXT: |      + DO i2 = 0, %len + smax(-2, (-1 + (-1 * %len))) + 1, 1   <DO_LOOP>
-; CHECK-NEXT: |      |   %0 = {al:1}(%from)[i2];
-; CHECK-NEXT: |      |   {al:1}(%to.addr.130.out)[i2] = %0;
+; CHECK-NEXT: |      |   %0 = (%from)[i2];
+; CHECK-NEXT: |      |   (%to.addr.130.out)[i2] = %0;
 ; CHECK-NEXT: |      + END LOOP
+; CHECK-NEXT: |
 ; CHECK-NEXT: |      %to.addr.130 = &((%to.addr.130.out)[%len + smax(-2, (-1 + (-1 * %len))) + 2]);
 ; CHECK-NEXT: |   }
 ; CHECK-NEXT: + END LOOP

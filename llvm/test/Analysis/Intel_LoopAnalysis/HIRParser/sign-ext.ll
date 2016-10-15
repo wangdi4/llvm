@@ -4,7 +4,7 @@
 
 ; Check parsing output for the loop verifying that the subscript is parsed as a sign extended version.
 ; CHECK: DO i32 i1 = 0, 24
-; CHECK-NEXT: {al:4}(%A)[i1 + 7] = i1 + 7
+; CHECK-NEXT: (%A)[i1 + 7] = i1 + 7
 ; CHECK-NEXT: (LINEAR i32* %A)[LINEAR sext.i32.i64(i1 + 7)]
 
 

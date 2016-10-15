@@ -30,7 +30,7 @@ using namespace llvm::loopopt;
 BlobDDRef::BlobDDRef(unsigned Index, unsigned Level)
     : DDRef(DDRef::BlobDDRefVal, InvalidSymbase), ParentDDRef(nullptr) {
 
-  unsigned Symbase = BlobUtils::getBlobSymbase(Index);
+  unsigned Symbase = BlobUtils::getTempBlobSymbase(Index);
 
   CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
 
@@ -73,7 +73,12 @@ void BlobDDRef::setHLDDNode(HLDDNode *HNode) {
 
 void BlobDDRef::replaceBlob(unsigned NewIndex) {
   unsigned OldIndex = CE->getSingleBlobIndex();
-  unsigned NewSymbase = BlobUtils::getBlobSymbase(NewIndex);
+  unsigned NewSymbase = BlobUtils::getTempBlobSymbase(NewIndex);
+
+  // Resetting CE's source and dest. to corresp. type
+  Type *Ty = BlobUtils::getBlob(NewIndex)->getType();
+  CE->setSrcType(Ty);
+  CE->setDestType(Ty);
 
   CE->replaceBlob(OldIndex, NewIndex);
   setSymbase(NewSymbase);
@@ -87,7 +92,7 @@ void BlobDDRef::verify() const {
   assert(CE->isSelfBlob() && "BlobDDRefs should represent a self blob");
 
   unsigned Index = CE->getSingleBlobIndex();
-  unsigned Symbase = BlobUtils::getBlobSymbase(Index);
+  unsigned Symbase = BlobUtils::getTempBlobSymbase(Index);
 
   (void)Symbase;
   assert((getSymbase() == Symbase) && "blob index/symbase mismatch!");

@@ -3,7 +3,7 @@
 ; Check that we are able to compute the max trip count estimate of the loop.
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 40>
-; CHECK: |   {al:8}(@A)[0][i1] = i1;
+; CHECK: |   (@A)[0][i1] = i1;
 ; CHECK: + END LOOP
 
 ; ModuleID = 'max-tc.ll'

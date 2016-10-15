@@ -25,13 +25,13 @@ using namespace llvm::loopopt;
 HLRegion::HLRegion(IRRegion &IReg)
     : HLNode(HLNode::HLRegionVal), GenCode(false), IRReg(IReg) {}
 
-HLRegion *HLRegion::cloneImpl(GotoContainerTy *GotoList,
-                              LabelMapTy *LabelMap) const {
+HLRegion *HLRegion::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                              HLNodeMapper *NodeMapper) const {
   llvm_unreachable("Do not support HLRegion cloning.");
   return nullptr;
 }
 
-HLRegion *HLRegion::clone() const {
+HLRegion *HLRegion::clone(HLNodeMapper *NodeMapper) const {
 
   llvm_unreachable("Do not support HLRegion cloning.");
 

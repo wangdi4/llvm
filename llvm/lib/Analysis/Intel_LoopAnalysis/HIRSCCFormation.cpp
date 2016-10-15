@@ -247,8 +247,15 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
   }
 
   // Unary instruction types are alloca, cast, extractvalue, load and vaarg.
-  if (isa<UnaryInstruction>(Node) && !isa<CastInst>(Node)) {
-    return false;
+  if (isa<UnaryInstruction>(Node)) {
+    // Only allow single use non-(liveout copy) instructions as they can be
+    // removed as intermediate temps from the SCC and do not cause type mismatch
+    // issues.
+    if (!isa<CastInst>(Node) ||
+        (!SE->getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut) &&
+         !Node->hasOneUse())) {
+      return false;
+    }
   }
 
   // Phi SCCs do not have anything to do with memory.
@@ -295,10 +302,10 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
   return usedInHeaderPhi(Phi);
 }
 
-HIRSCCFormation::NodeTy::const_user_iterator
-HIRSCCFormation::getNextSucc(const NodeTy *Node,
-                             NodeTy::const_user_iterator PrevSucc) const {
-  NodeTy::const_user_iterator I;
+HIRSCCFormation::NodeTy::user_iterator
+HIRSCCFormation::getNextSucc(NodeTy *Node,
+                             NodeTy::user_iterator PrevSucc) const {
+  NodeTy::user_iterator I;
 
   // Called from getFirstSucc().
   if (PrevSucc == getLastSucc(Node)) {
@@ -318,52 +325,76 @@ HIRSCCFormation::getNextSucc(const NodeTy *Node,
   return I;
 }
 
-HIRSCCFormation::NodeTy::const_user_iterator
-HIRSCCFormation::getFirstSucc(const NodeTy *Node) const {
+HIRSCCFormation::NodeTy::user_iterator
+HIRSCCFormation::getFirstSucc(NodeTy *Node) const {
   return getNextSucc(Node, getLastSucc(Node));
 }
 
-HIRSCCFormation::NodeTy::const_user_iterator
-HIRSCCFormation::getLastSucc(const NodeTy *Node) const {
+HIRSCCFormation::NodeTy::user_iterator
+HIRSCCFormation::getLastSucc(NodeTy *Node) const {
   return Node->user_end();
 }
 
-void HIRSCCFormation::removeIntermediateNodes(SCCNodesTy &CurSCC) {
+bool HIRSCCFormation::removedIntermediateNodes(SCCTy &CurSCC) const {
 
-  SmallVector<const NodeTy *, 8> IntermediateNodes;
+  SmallVector<NodeTy *, 8> IntermediateNodes;
+  auto NodeCount = CurSCC.Nodes.size();
 
-  for (auto NodeIt = CurSCC.begin(), NodeEndIt = CurSCC.end();
-       NodeIt != NodeEndIt; ++NodeIt) {
-    if (isa<PHINode>(*NodeIt)) {
+  Type *RootTy = CurSCC.Root->getType();
+  bool IsSCEVable = SE->isSCEVable(RootTy);
+
+  for (auto Node : CurSCC.Nodes) {
+
+    if ((NodeCount > 2) && hasMultipleNonPhiSCCUses(Node, CurSCC.Nodes)) {
+      return false;
+    }
+
+    if (isa<PHINode>(Node)) {
       continue;
     }
 
-    bool IsUsedInPhi = false;
-    // Check whether this non-phi instruction is used in any phi contained in
-    // the SCC.
-    for (auto UseIt = (*NodeIt)->user_begin(), UseEndIt = (*NodeIt)->user_end();
-         UseIt != UseEndIt; ++UseIt) {
-      auto Use = cast<NodeTy>(*UseIt);
-
-      if (!isa<PHINode>(Use)) {
-        continue;
-      }
-
-      if (!CurSCC.count(Use)) {
-        continue;
-      }
-
-      IsUsedInPhi = true;
+    if (Node->getType() != RootTy) {
+      assert((!isa<CastInst>(Node) || Node->hasOneUse()) &&
+             "Unexpected SCC node!");
+      IntermediateNodes.push_back(Node);
+      continue;
+      // Liveout copies added by SSA deconstruction should be removed as
+      // intermediate nodes.
+    } else if (SE->getHIRMetadata(Node,
+                                  ScalarEvolution::HIRLiveKind::LiveOut)) {
+      IntermediateNodes.push_back(Node);
+      continue;
     }
 
-    if (!IsUsedInPhi) {
-      IntermediateNodes.push_back(*NodeIt);
+    // We can remove nodes which only have non-phi uses inside the SCC or use
+    // outside the region as they cannot cause live-range issues.
+    bool IsIntermediateNode = true;
+    for (auto UserIt = Node->user_begin(), E = Node->user_end(); UserIt != E;
+         ++UserIt) {
+      auto UserNode = cast<NodeTy>(*UserIt);
+
+      if (CurSCC.Nodes.count(UserNode)) {
+        if (isa<PHINode>(UserNode)) {
+          IsIntermediateNode = false;
+          break;
+        }
+      } else if (IsSCEVable &&
+                 CurRegIt->containsBBlock(UserNode->getParent())) {
+        IsIntermediateNode = false;
+        break;
+      }
+    }
+
+    if (IsIntermediateNode) {
+      IntermediateNodes.push_back(Node);
     }
   }
 
   for (auto &I : IntermediateNodes) {
-    CurSCC.erase(I);
+    CurSCC.Nodes.erase(I);
   }
+
+  return true;
 }
 
 unsigned HIRSCCFormation::getRegionIndex(
@@ -393,8 +424,7 @@ void HIRSCCFormation::setRegion(HIRRegionIdentification::const_iterator RegIt) {
   isNewRegion = true;
 }
 
-bool HIRSCCFormation::isUsedInSCCPhi(const PHINode *Phi,
-                                     const SCCNodesTy &Nodes) const {
+bool HIRSCCFormation::isUsedInSCCPhi(PHINode *Phi, const SCCNodesTy &Nodes) {
   bool UsedInPhi = false;
 
   for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
@@ -456,29 +486,59 @@ bool HIRSCCFormation::isProfitableSCC(const SCCNodesTy &Nodes) const {
   return true;
 }
 
-bool HIRSCCFormation::isValidSCC(const SCCNodesTy &Nodes) const {
-  SmallPtrSet<const BasicBlock *, 12> BBlocks;
-  Type *NodeTy = nullptr;
+bool HIRSCCFormation::hasMultipleNonPhiSCCUses(NodeTy *Node,
+                                               const SCCNodesTy &Nodes) const {
+  NodeTy *SCCUserNode = nullptr;
 
-  for (auto const &Inst : Nodes) {
-
-    // Check whether all the nodes have the same type. There can be type
-    // mismatch if we have traced through casts.
-    // TODO: is it worth tracing through casts?
-    if (!NodeTy) {
-      NodeTy = Inst->getType();
-
-    } else if (NodeTy != Inst->getType()) {
-      return false;
+  // Use in multiple non-phi nodes can lead to live-range issues which SSA
+  // deconstruction cannot handle.
+  // This SCC contains multiple cycles instead of a single simple cycle that we
+  // are looking for.
+  // Ref- https://en.wikipedia.org/wiki/Cycle_(graph_theory)
+  for (auto UserIt = Node->user_begin(), E = Node->user_end(); UserIt != E;
+       ++UserIt) {
+    if (isa<PHINode>(*UserIt)) {
+      continue;
     }
 
-    auto Phi = dyn_cast<PHINode>(Inst);
+    auto UserNode = cast<NodeTy>(*UserIt);
+
+    // After deconstruction the uses will be substituted by the liveout copy so
+    // check its uses.
+    if (SE->getHIRMetadata(UserNode, ScalarEvolution::HIRLiveKind::LiveOut)) {
+      return hasMultipleNonPhiSCCUses(UserNode, Nodes);
+    }
+
+    if (Nodes.count(UserNode)) {
+      if (SCCUserNode && SCCUserNode != UserNode) {
+        return true;
+      }
+      SCCUserNode = UserNode;
+    }
+  }
+
+  return false;
+}
+
+bool HIRSCCFormation::isValidSCC(const SCCTy &CurSCC) const {
+  SmallPtrSet<BasicBlock *, 12> BBlocks;
+  Type *RootTy = CurSCC.Root->getType();
+
+  for (auto Node : CurSCC.Nodes) {
+    auto Phi = dyn_cast<PHINode>(Node);
 
     if (!Phi) {
       continue;
     }
 
-    auto ParentBB = Inst->getParent();
+    // Check whether all phis have the same type. There can be type mismatch if
+    // we have traced through casts.
+    // TODO: is it worth tracing through casts?
+    if (Phi->getType() != RootTy) {
+      return false;
+    }
+
+    auto ParentBB = Node->getParent();
 
     if (BBlocks.count(ParentBB)) {
       // If any two phis in the SCC have the same bblock parent then we
@@ -513,7 +573,7 @@ bool HIRSCCFormation::isValidSCC(const SCCNodesTy &Nodes) const {
       continue;
     }
 
-    if (!isUsedInSCCPhi(Phi, Nodes)) {
+    if (!isUsedInSCCPhi(Phi, CurSCC.Nodes)) {
       return false;
     }
   }
@@ -521,7 +581,7 @@ bool HIRSCCFormation::isValidSCC(const SCCNodesTy &Nodes) const {
   return true;
 }
 
-void HIRSCCFormation::updateRoot(SCCTy &SCC, const NodeTy *NewRoot) const {
+void HIRSCCFormation::updateRoot(SCCTy &SCC, NodeTy *NewRoot) const {
 
   if (!isa<PHINode>(NewRoot)) {
     return;
@@ -550,7 +610,7 @@ void HIRSCCFormation::updateRoot(SCCTy &SCC, const NodeTy *NewRoot) const {
   }
 }
 
-unsigned HIRSCCFormation::findSCC(const NodeTy *Node) {
+unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
   unsigned Index = GlobalNodeIndex++;
   unsigned LowLink = Index;
 
@@ -596,7 +656,7 @@ unsigned HIRSCCFormation::findSCC(const NodeTy *Node) {
       // Create new SCC.
       SCCTy NewSCC(Node);
       auto &NewSCCNodes = NewSCC.Nodes;
-      const NodeTy *SCCNode;
+      NodeTy *SCCNode;
 
       // Insert Nodes in new SCC.
       do {
@@ -613,10 +673,8 @@ unsigned HIRSCCFormation::findSCC(const NodeTy *Node) {
              RI->isHeaderPhi(cast<PHINode>(NewSCC.Root)) &&
              "No phi found in SCC!");
 
-      // Remove nodes not directly associated with the phi nodes.
-      removeIntermediateNodes(NewSCCNodes);
-
-      if (isValidSCC(NewSCCNodes) && isProfitableSCC(NewSCCNodes)) {
+      if (removedIntermediateNodes(NewSCC) && isValidSCC(NewSCC) &&
+          isProfitableSCC(NewSCCNodes)) {
         // Add new SCC to the list.
         RegionSCCs.push_back(std::move(NewSCC));
 

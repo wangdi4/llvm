@@ -573,11 +573,11 @@ void SIInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                                       const TargetRegisterInfo *TRI) const {
   MachineFunction *MF = MBB.getParent();
   SIMachineFunctionInfo *MFI = MF->getInfo<SIMachineFunctionInfo>();
-  MachineFrameInfo *FrameInfo = MF->getFrameInfo();
+  MachineFrameInfo &FrameInfo = MF->getFrameInfo();
   DebugLoc DL = MBB.findDebugLoc(MI);
 
-  unsigned Size = FrameInfo->getObjectSize(FrameIndex);
-  unsigned Align = FrameInfo->getObjectAlignment(FrameIndex);
+  unsigned Size = FrameInfo.getObjectSize(FrameIndex);
+  unsigned Align = FrameInfo.getObjectAlignment(FrameIndex);
   MachinePointerInfo PtrInfo
     = MachinePointerInfo::getFixedStack(*MF, FrameIndex);
   MachineMemOperand *MMO
@@ -671,10 +671,10 @@ void SIInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                        const TargetRegisterInfo *TRI) const {
   MachineFunction *MF = MBB.getParent();
   const SIMachineFunctionInfo *MFI = MF->getInfo<SIMachineFunctionInfo>();
-  MachineFrameInfo *FrameInfo = MF->getFrameInfo();
+  MachineFrameInfo &FrameInfo = MF->getFrameInfo();
   DebugLoc DL = MBB.findDebugLoc(MI);
-  unsigned Align = FrameInfo->getObjectAlignment(FrameIndex);
-  unsigned Size = FrameInfo->getObjectSize(FrameIndex);
+  unsigned Align = FrameInfo.getObjectAlignment(FrameIndex);
+  unsigned Size = FrameInfo.getObjectSize(FrameIndex);
 
   MachinePointerInfo PtrInfo
     = MachinePointerInfo::getFixedStack(*MF, FrameIndex);
@@ -738,7 +738,8 @@ unsigned SIInstrInfo::calculateLDSSpillAddress(
     MachineBasicBlock::iterator Insert = Entry.front();
     DebugLoc DL = Insert->getDebugLoc();
 
-    TIDReg = RI.findUnusedRegister(MF->getRegInfo(), &AMDGPU::VGPR_32RegClass);
+    TIDReg = RI.findUnusedRegister(MF->getRegInfo(), &AMDGPU::VGPR_32RegClass,
+                                   *MF);
     if (TIDReg == AMDGPU::NoRegister)
       return TIDReg;
 
@@ -807,7 +808,7 @@ unsigned SIInstrInfo::calculateLDSSpillAddress(
   }
 
   // Add FrameIndex to LDS offset
-  unsigned LDSOffset = MFI->LDSSize + (FrameOffset * WorkGroupSize);
+  unsigned LDSOffset = MFI->getLDSSize() + (FrameOffset * WorkGroupSize);
   BuildMI(MBB, MI, DL, get(AMDGPU::V_ADD_I32_e32), TmpReg)
           .addImm(LDSOffset)
           .addReg(TIDReg);
@@ -879,36 +880,11 @@ bool SIInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     MI.eraseFromParent();
     break;
   }
-
-  case AMDGPU::V_CNDMASK_B64_PSEUDO: {
-    unsigned Dst = MI.getOperand(0).getReg();
-    unsigned DstLo = RI.getSubReg(Dst, AMDGPU::sub0);
-    unsigned DstHi = RI.getSubReg(Dst, AMDGPU::sub1);
-    unsigned Src0 = MI.getOperand(1).getReg();
-    unsigned Src1 = MI.getOperand(2).getReg();
-    const MachineOperand &SrcCond = MI.getOperand(3);
-
-    BuildMI(MBB, MI, DL, get(AMDGPU::V_CNDMASK_B32_e64), DstLo)
-      .addReg(RI.getSubReg(Src0, AMDGPU::sub0))
-      .addReg(RI.getSubReg(Src1, AMDGPU::sub0))
-      .addReg(SrcCond.getReg())
-      .addReg(Dst, RegState::Implicit | RegState::Define);
-    BuildMI(MBB, MI, DL, get(AMDGPU::V_CNDMASK_B32_e64), DstHi)
-      .addReg(RI.getSubReg(Src0, AMDGPU::sub1))
-      .addReg(RI.getSubReg(Src1, AMDGPU::sub1))
-      .addReg(SrcCond.getReg(), getKillRegState(SrcCond.isKill()))
-      .addReg(Dst, RegState::Implicit | RegState::Define);
-    MI.eraseFromParent();
-    break;
-  }
-
   case AMDGPU::SI_PC_ADD_REL_OFFSET: {
-    const SIRegisterInfo *TRI
-      = static_cast<const SIRegisterInfo *>(ST.getRegisterInfo());
     MachineFunction &MF = *MBB.getParent();
     unsigned Reg = MI.getOperand(0).getReg();
-    unsigned RegLo = TRI->getSubReg(Reg, AMDGPU::sub0);
-    unsigned RegHi = TRI->getSubReg(Reg, AMDGPU::sub1);
+    unsigned RegLo = RI.getSubReg(Reg, AMDGPU::sub0);
+    unsigned RegHi = RI.getSubReg(Reg, AMDGPU::sub1);
 
     // Create a bundle so these instructions won't be re-ordered by the
     // post-RA scheduler.
@@ -1516,6 +1492,24 @@ bool SIInstrInfo::isLiteralConstant(const MachineOperand &MO,
   return MO.isImm() && !isInlineConstant(MO, OpSize);
 }
 
+bool SIInstrInfo::isLiteralConstantLike(const MachineOperand &MO,
+                                        unsigned OpSize) const {
+  switch (MO.getType()) {
+  case MachineOperand::MO_Register:
+    return false;
+  case MachineOperand::MO_Immediate:
+    return !isInlineConstant(MO, OpSize);
+  case MachineOperand::MO_FrameIndex:
+  case MachineOperand::MO_MachineBasicBlock:
+  case MachineOperand::MO_ExternalSymbol:
+  case MachineOperand::MO_GlobalAddress:
+  case MachineOperand::MO_MCSymbol:
+    return true;
+  default:
+    llvm_unreachable("unexpected operand type");
+  }
+}
+
 static bool compareMachineOp(const MachineOperand &Op0,
                              const MachineOperand &Op1) {
   if (Op0.getType() != Op1.getType())
@@ -1704,7 +1698,7 @@ bool SIInstrInfo::verifyInstruction(const MachineInstr &MI,
         ErrInfo = "Expected immediate, but got non-immediate";
         return false;
       }
-      // Fall-through
+      LLVM_FALLTHROUGH;
     default:
       continue;
     }
@@ -3159,14 +3153,14 @@ unsigned SIInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
     if (Src0Idx == -1)
       return 4; // No operands.
 
-    if (isLiteralConstant(MI.getOperand(Src0Idx), getOpSize(MI, Src0Idx)))
+    if (isLiteralConstantLike(MI.getOperand(Src0Idx), getOpSize(MI, Src0Idx)))
       return 8;
 
     int Src1Idx = AMDGPU::getNamedOperandIdx(Opc, AMDGPU::OpName::src1);
     if (Src1Idx == -1)
       return 4;
 
-    if (isLiteralConstant(MI.getOperand(Src1Idx), getOpSize(MI, Src1Idx)))
+    if (isLiteralConstantLike(MI.getOperand(Src1Idx), getOpSize(MI, Src1Idx)))
       return 8;
 
     return 4;

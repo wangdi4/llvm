@@ -69,8 +69,8 @@ protected:
 
   /// \brief Clone Implementation
   /// Do not support Region cloning.
-  HLRegion *cloneImpl(GotoContainerTy *GotoList,
-                      LabelMapTy *LabelMap) const override;
+  HLRegion *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                      HLNodeMapper *NodeMapper) const override;
 
   // Returns contained IRRegion.
   IRRegion &getIRRegion() { return IRReg; }
@@ -121,8 +121,13 @@ public:
   }
 
   /// \brief Adds a live-out temp (represented using Symbase) to the region.
-  void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
-    IRReg.addLiveOutTemp(Temp, Symbase);
+  void addLiveOutTemp(unsigned Symbase, const Value *Temp) {
+    IRReg.addLiveOutTemp(Symbase, Temp);
+  }
+
+  /// Replaces \p OldSymbase by \p NewSymbase as the new liveout temp.
+  void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
+    IRReg.replaceLiveOutTemp(OldSymbase, NewSymbase);
   }
 
   /// \brief Returns true if this symbase is live in to this region.
@@ -192,7 +197,7 @@ public:
 
   /// clone() - Do not support Cloning of Region.
   /// This is LLVM Unreachable code.
-  HLRegion *clone() const override;
+  HLRegion *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
   /// \brief Verifies HLRegion integrity.
   virtual void verify() const override;

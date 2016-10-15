@@ -25,6 +25,7 @@ class SymbolBody;
 
 template <class ELFT> class ICF;
 template <class ELFT> class DefinedRegular;
+template <class ELFT> class DefinedCommon;
 template <class ELFT> class ObjectFile;
 template <class ELFT> class OutputSection;
 template <class ELFT> class OutputSectionBase;
@@ -47,7 +48,15 @@ protected:
   SmallVector<char, 0> Uncompressed;
 
 public:
-  enum Kind { Regular, EHFrame, Merge, MipsReginfo, MipsOptions };
+  enum Kind {
+    Regular,
+    EHFrame,
+    Merge,
+    MipsReginfo,
+    MipsOptions,
+    MipsAbiFlags,
+    Layout
+  };
   Kind SectionKind;
 
   InputSectionBase() : Repl(this) {}
@@ -145,6 +154,9 @@ public:
   const SectionPiece *getSectionPiece(uintX_t Offset) const;
 
 private:
+  std::vector<SectionPiece> splitStrings(ArrayRef<uint8_t> A, size_t Size);
+  std::vector<SectionPiece> splitNonStrings(ArrayRef<uint8_t> A, size_t Size);
+
   llvm::DenseMap<uintX_t, uintX_t> OffsetMap;
   llvm::DenseSet<uintX_t> LiveOffsets;
 };
@@ -255,6 +267,37 @@ public:
 
   const llvm::object::Elf_Mips_RegInfo<ELFT> *Reginfo = nullptr;
 };
+
+template <class ELFT>
+class MipsAbiFlagsInputSection : public InputSectionBase<ELFT> {
+  typedef typename ELFT::Shdr Elf_Shdr;
+
+public:
+  MipsAbiFlagsInputSection(ObjectFile<ELFT> *F, const Elf_Shdr *Hdr);
+  static bool classof(const InputSectionBase<ELFT> *S);
+
+  const llvm::object::Elf_Mips_ABIFlags<ELFT> *Flags = nullptr;
+};
+
+// Common symbols don't belong to any section. But it is easier for us
+// to handle them as if they belong to some input section. So we defined
+// this class. CommonInputSection is a virtual singleton class that
+// "contains" all common symbols.
+template <class ELFT> class CommonInputSection : public InputSection<ELFT> {
+  typedef typename ELFT::uint uintX_t;
+
+public:
+  CommonInputSection(std::vector<DefinedCommon<ELFT> *> Syms);
+
+  // The singleton instance of this class.
+  static CommonInputSection<ELFT> *X;
+
+private:
+  static typename ELFT::Shdr Hdr;
+};
+
+template <class ELFT> CommonInputSection<ELFT> *CommonInputSection<ELFT>::X;
+template <class ELFT> typename ELFT::Shdr CommonInputSection<ELFT>::Hdr;
 
 } // namespace elf
 } // namespace lld

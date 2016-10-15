@@ -24,6 +24,7 @@
 #define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionPreProcGraph.h"
+#include "Utils/AllSCCIterator.h"
 
 namespace llvm {
 
@@ -294,6 +295,7 @@ private:
 //
 template <> struct GraphTraits<PiGraph *> {
   typedef PiBlock NodeType;
+  typedef PiBlock *NodeRef;
 
   typedef PiGraph::children_iterator ChildIteratorType;
   static NodeType *getEntryNode(PiGraph *G) { return *(G->node_begin()); }
@@ -324,18 +326,14 @@ template <> struct GraphTraits<PiGraph *> {
 } /// llvm
 
 void llvm::loopopt::PiGraph::createNodes() {
-  {
-    scc_iterator<DistPPGraph *> I = scc_begin(PPGraph);
-
-    for (auto I = scc_begin(PPGraph), E = scc_end(PPGraph); I != E; ++I) {
-      addPiBlock(*I);
-    }
-
-    // scc_iterator uses tarjans algorithm, which emits scc's in
-    // reverse top sort order. Reverse piblock list to restore
-    // top sort order
-    std::reverse(PiBlocks.begin(), PiBlocks.end());
+  for (auto I = all_scc_begin(PPGraph), E = all_scc_end(PPGraph); I != E; ++I) {
+    addPiBlock(*I);
   }
+
+  // scc_iterator uses tarjans algorithm, which emits scc's in
+  // reverse top sort order. Reverse piblock list to restore
+  // top sort order
+  std::reverse(PiBlocks.begin(), PiBlocks.end());
 }
 
 #endif

@@ -56,7 +56,7 @@ protected:
   };
 
   enum X86ProcFamilyEnum {
-    Others, IntelAtom, IntelSLM
+    Others, IntelAtom, IntelSLM, IntelGLM //INTEL
   };
 
   /// X86 processor family: Intel Atom, and others
@@ -200,6 +200,14 @@ protected:
   /// True if there is no performance penalty to writing only the lower parts
   /// of a YMM register without clearing the upper part.
   bool HasFastPartialYMMWrite;
+
+  /// True if hardware SQRTSS instruction is at least as fast (latency) as
+  /// RSQRTSS followed by a Newton-Raphson iteration.
+  bool HasFastScalarFSQRT;
+
+  /// True if hardware SQRTPS/VSQRTPS instructions are at least as fast
+  /// (throughput) as RSQRTPS/VRSQRTPS followed by a Newton-Raphson iteration.
+  bool HasFastVectorFSQRT;
 
   /// True if 8-bit divisions are significantly faster than
   /// 32-bit divisions and should be used when possible.
@@ -436,6 +444,8 @@ public:
   bool hasCmpxchg16b() const { return HasCmpxchg16b; }
   bool useLeaForSP() const { return UseLeaForSP; }
   bool hasFastPartialYMMWrite() const { return HasFastPartialYMMWrite; }
+  bool hasFastScalarFSQRT() const { return HasFastScalarFSQRT; }
+  bool hasFastVectorFSQRT() const { return HasFastVectorFSQRT; }
   bool hasSlowDivide32() const { return HasSlowDivide32; }
   bool hasSlowDivide64() const { return HasSlowDivide64; }
   bool padShortFunctions() const { return PadShortFunctions; }
@@ -454,6 +464,7 @@ public:
 
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
   bool isSLM() const { return X86ProcFamily == IntelSLM; }
+  bool isGLM() const { return X86ProcFamily == IntelGLM; } //INTEL
   bool useSoftFloat() const { return UseSoftFloat; }
 
   /// Use mfence if we have SSE2 or we're on x86-64 (even if we asked for

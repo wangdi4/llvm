@@ -229,25 +229,34 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
   return HInst;
 }
 
-HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
-                                    RegDDRef *LvalRef) {
-  Value *InstVal;
-  Instruction *Inst;
-  HLInst *HInst;
-
-  checkUnaryInstOperands(LvalRef, RvalRef, nullptr);
-
+Instruction *HLNodeUtils::createCopyInstImpl(Type *Ty, const Twine &Name) {
   // Create dummy val.
-  auto DummyVal = UndefValue::get(RvalRef->getDestType());
+  auto DummyVal = UndefValue::get(Ty);
 
   // Cannot use IRBuilder here as it returns the same value for casts with
   // identical src and dest types.
-  InstVal = CastInst::Create(Instruction::BitCast, DummyVal,
+  Value *InstVal = CastInst::Create(Instruction::BitCast, DummyVal,
                              DummyVal->getType(), Name);
-  Inst = cast<Instruction>(InstVal);
+
+  auto Inst = cast<Instruction>(InstVal);
   Inst->insertBefore(&*(DummyIRBuilder->GetInsertPoint()));
 
-  HInst = createLvalHLInst(Inst, LvalRef);
+  return Inst;
+}
+
+RegDDRef *HLNodeUtils::createTemp(Type *Ty, const Twine &Name) {
+  auto Inst = createCopyInstImpl(Ty, Name); 
+
+  return DDRefUtils::createSelfBlobRef(Inst); 
+}
+
+HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
+                                    RegDDRef *LvalRef) {
+  checkUnaryInstOperands(LvalRef, RvalRef, nullptr);
+
+  auto Inst = createCopyInstImpl(RvalRef->getDestType(), Name);
+  
+  auto HInst = createLvalHLInst(Inst, LvalRef);
   HInst->setRvalDDRef(RvalRef);
 
   return HInst;
@@ -792,8 +801,6 @@ HLInst *HLNodeUtils::createCall(Function *Func,
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
   SmallVector<Value *, 8> Args;
-  const Twine NewName(HasReturn ? Name.isTriviallyEmpty() ? "dummy" : Name
-                                : "");
 
   for (unsigned I = 0; I < NumArgs; I++) {
     MetadataAsValue *Val = nullptr;
@@ -801,7 +808,8 @@ HLInst *HLNodeUtils::createCall(Function *Func,
                        ? cast<Value>(Val)
                        : UndefValue::get(CallArgs[I]->getDestType()));
   }
-  auto InstVal = DummyIRBuilder->CreateCall(Func, Args, NewName);
+  auto InstVal = DummyIRBuilder->CreateCall(
+      Func, Args, HasReturn ? (Name.isTriviallyEmpty() ? "dummy" : Name) : "");
   if (HasReturn) {
     //    HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
     HInst = createLvalHLInst(InstVal, LvalRef);
@@ -820,18 +828,19 @@ struct HLNodeUtils::CloneVisitor final : public HLNodeVisitorBase {
   HLContainerTy *CloneContainer;
   GotoContainerTy *GotoList;
   LabelMapTy *LabelMap;
+  HLNodeMapper *NodeMapper;
 
   CloneVisitor(HLContainerTy *Container, GotoContainerTy *GList,
-               LabelMapTy *LMap)
-      : CloneContainer(Container), GotoList(GList), LabelMap(LMap) {}
+               LabelMapTy *LMap, HLNodeMapper *NodeMapper)
+      : CloneContainer(Container), GotoList(GList), LabelMap(LMap),
+        NodeMapper(NodeMapper) {}
 
   void visit(const HLNode *Node) {
-    CloneContainer->push_back(Node->cloneImpl(GotoList, LabelMap));
+    CloneContainer->push_back(
+        HLNode::cloneBaseImpl(Node, GotoList, LabelMap, NodeMapper));
   }
 
   void postVisit(const HLNode *Node) {}
-
-  void postVisitUpdate() { updateGotos(GotoList, LabelMap); }
 };
 
 void HLNodeUtils::updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap) {
@@ -848,34 +857,24 @@ void HLNodeUtils::updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap) {
 }
 
 void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
-                                    const HLNode *Node1, const HLNode *Node2) {
+                                    const HLNode *Node1, const HLNode *Node2,
+                                    HLNodeMapper *NodeMapper) {
 
   GotoContainerTy GotoList;
   LabelMapTy LabelMap;
 
   // Check for Node2 as nullptr or a single node
   if (!Node2 || (Node1 == Node2)) {
-    CloneContainer->push_back(Node1->cloneImpl(&GotoList, &LabelMap));
+    CloneContainer->push_back(
+        HLNode::cloneBaseImpl(Node1, &GotoList, &LabelMap, NodeMapper));
     updateGotos(&GotoList, &LabelMap);
     return;
   }
 
-  HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap);
+  HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap,
+                                       NodeMapper);
   visitRange<false>(CloneVisit, Node1, Node2);
-  CloneVisit.postVisitUpdate();
-}
-
-// Used for cloning a sequence of nodes from Node1 to Node2.
-void HLNodeUtils::cloneSequence(HLContainerTy *CloneContainer,
-                                const HLNode *Node1, const HLNode *Node2) {
-  assert(Node1 && !isa<HLRegion>(Node1) &&
-         " Node1 - Region Cloning is not allowed.");
-  assert((!Node2 || !isa<HLRegion>(Node2)) &&
-         " Node 2 - Region Cloning is not allowed.");
-  assert(CloneContainer && " Clone Container is null.");
-  assert((!Node2 || (Node1->getParent() == Node2->getParent())) &&
-         " Parent of Node1 and Node2 don't match.");
-  cloneSequenceImpl(CloneContainer, Node1, Node2);
+  updateGotos(&GotoList, &LabelMap);
 }
 
 /// \brief Helper for updating loop info during insertion/removal.
@@ -1054,11 +1053,17 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
     if (UpdateSeparator) {
       // CaseNum is set to -1 by insertBefore(). It is a bit wasteful but
       // functionally correct to check all the cases.
-      unsigned E = (CaseNum == -1) ? Switch->getNumCases() : CaseNum;
+      // If CaseNum is 0 it's required to update all separators, as default
+      // separator is the last one by implementation.
+      bool UpdateAll = (CaseNum == -1 || CaseNum == 0);
+      unsigned E = UpdateAll ? Switch->getNumCases() : CaseNum;
       for (unsigned I = 0; I < E; ++I) {
         if (Pos == Switch->CaseBegin[I]) {
           Switch->CaseBegin[I] = std::prev(Pos, Count);
         }
+      }
+      if (UpdateAll && Pos == Switch->DefaultCaseBegin) {
+        Switch->DefaultCaseBegin = std::prev(Pos, Count);
       }
     }
 
@@ -1194,7 +1199,7 @@ void HLNodeUtils::insertAsChildImpl(HLSwitch *Switch,
                                     unsigned CaseNum, bool isFirstChild) {
   insertImpl(Switch, isFirstChild ? Switch->case_child_begin_internal(CaseNum)
                                   : Switch->case_child_end_internal(CaseNum),
-             OrigContainer, First, Last, (CaseNum != 0), false, CaseNum);
+             OrigContainer, First, Last, true, false, CaseNum);
 }
 
 void HLNodeUtils::insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node) {
@@ -1364,6 +1369,9 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
       if (First == Switch->CaseBegin[I]) {
         Switch->CaseBegin[I] = Last;
       }
+    }
+    if (First == Switch->DefaultCaseBegin) {
+      Switch->DefaultCaseBegin = Last;
     }
 
   } else {
@@ -1718,7 +1726,8 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
         TempSucc = &*(std::next(Iter));
 
         /// Check whether we are crossing separators.
-        if ((TempSucc != &*(If->ElseBegin))) {
+        if (If->ElseBegin == If->Children.end() ||
+            (TempSucc != &*(If->ElseBegin))) {
           Succ = TempSucc;
           break;
         }
@@ -1732,10 +1741,15 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
         bool IsSeparator = false;
         /// Check whether we are crossing separators.
         for (unsigned I = 0, E = Switch->getNumCases(); I < E; ++I) {
-          if ((TempSucc == &*(Switch->CaseBegin[I]))) {
+          if ((Switch->CaseBegin[I] != Switch->Children.end()) && 
+              (TempSucc == &*(Switch->CaseBegin[I]))) {
             IsSeparator = true;
             break;
           }
+        }
+        if ((Switch->DefaultCaseBegin != Switch->Children.end()) && 
+            (TempSucc == &*(Switch->DefaultCaseBegin))) {
+          IsSeparator = true;
         }
 
         if (!IsSeparator) {
@@ -1839,11 +1853,6 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
   unsigned PrevNum = 0;
   auto ParentLoop = dyn_cast<HLLoop>(Parent);
 
-  // We need to special case insertion of nodes at the begining and end of the
-  // switch container because the default case is located at the beginning of
-  // the link list even though it is the lexically cast case.
-  auto ParentSwitch = dyn_cast<HLSwitch>(Parent);
-
   if (Container.begin() != First) {
     // If we inserted nodes after the loop preheader, the previous num is loop's
     // top sort num.
@@ -1851,9 +1860,6 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
       PrevNum = ParentLoop->getTopSortNum();
       // If we inserted at the begining of the first non-default switch case,
       // switch is the lexically previous node.
-    } else if (ParentSwitch &&
-               (First == ParentSwitch->default_case_child_end())) {
-      PrevNum = ParentSwitch->getTopSortNum();
     } else {
       PrevNum = getPrevLinkListNode(&*First)->getMaxTopSortNum();
     }
@@ -1865,12 +1871,6 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
 
       PrevNum = PrevNode ? PrevNode->getMaxTopSortNum()
                          : Parent->getParent()->getTopSortNum();
-      // If we inserted at the begining of the default case of switch and the
-      // switch has children in other cases then the lexically previous node
-      // comes from the last node in the linklist.
-    } else if (ParentSwitch && ParentSwitch->hasDefaultCaseChildren() &&
-               (ParentSwitch->default_case_child_end() != Container.end())) {
-      PrevNum = (&Container.back())->getMaxTopSortNum();
     } else {
       PrevNum = Parent->getTopSortNum();
     }
@@ -1882,13 +1882,6 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
   // be loop's top sort num.
   if (ParentLoop && (Last == ParentLoop->pre_end())) {
     NextNum = Parent->getTopSortNum();
-    // If the last node inserted is the last (non-default) case child of
-    // switch and the switch has default case children then the lexically next
-    // node comes from first default case child.
-  } else if (ParentSwitch && ParentSwitch->hasDefaultCaseChildren() &&
-             (ParentSwitch->default_case_child_end() != Container.end()) &&
-             (Last == Container.end())) {
-    NextNum = ParentSwitch->getFirstDefaultCaseChild()->getMinTopSortNum();
   } else if (Container.end() != Last) {
     NextNum = Last->getMinTopSortNum();
   }
@@ -1997,9 +1990,10 @@ void HLNodeUtils::distributeTopSortNum(HLContainerTy::iterator First,
   }
 }
 
-bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
-                                      const HLNode *FirstNode,
-                                      const HLNode *LastNode) {
+template <bool IsMaxMode>
+bool HLNodeUtils::isInTopSortNumRangeImpl(const HLNode *Node,
+                                          const HLNode *FirstNode,
+                                          const HLNode *LastNode) {
   assert(Node && "Node is null!");
 
   if (!FirstNode) {
@@ -2009,10 +2003,24 @@ bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
   assert(LastNode && "Last node is null!");
 
   unsigned Num = Node->getTopSortNum();
-  unsigned FirstNum = FirstNode->getTopSortNum();
-  unsigned LastNum = LastNode->getTopSortNum();
+  unsigned FirstNum =
+      IsMaxMode ? FirstNode->getMinTopSortNum() : FirstNode->getTopSortNum();
+  unsigned LastNum =
+      IsMaxMode ? LastNode->getMaxTopSortNum() : LastNode->getTopSortNum();
 
   return (Num >= FirstNum && Num <= LastNum);
+}
+
+bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
+                                      const HLNode *FirstNode,
+                                      const HLNode *LastNode) {
+  return isInTopSortNumRangeImpl<false>(Node, FirstNode, LastNode);
+}
+
+bool HLNodeUtils::isInTopSortNumMaxRange(const HLNode *Node,
+                                         const HLNode *FirstNode,
+                                         const HLNode *LastNode) {
+  return isInTopSortNumRangeImpl<true>(Node, FirstNode, LastNode);
 }
 
 const HLNode *HLNodeUtils::getLexicalChildImpl(const HLNode *Parent,
@@ -2957,55 +2965,47 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
   return isKnownPositiveOrNegative(CE, ParentNode);
 }
 
-///  Set InnermostLoop in *Lp
-///
-bool HLNodeUtils::hasPerfectLoopProperties(const HLNode *Node,
-                                           const HLLoop **Lp,
+bool HLNodeUtils::hasPerfectLoopProperties(const HLLoop *Lp,
+                                           const HLLoop **InnerLp,
                                            bool AllowNearPerfect,
                                            bool *IsNearPerfectLoop) {
-  unsigned NumLoop = 0;
+  assert(Lp && "Lp is null!");
+  assert(!Lp->isInnermost() && "Innermost loop not expected!");
 
-  *Lp = dyn_cast<HLLoop>(Node);
-  const HLLoop *Loop = *Lp;
-
-  if (!Loop) {
-    // Caller will handle further
-    return true;
-  }
-  unsigned NumChild = Loop->getNumChildren();
-
-  if (Loop->isInnermost() || NumChild == 1) {
-    // Caller will handle further
-    return true;
-  }
-  if ((!AllowNearPerfect && NumChild > 1) || NumChild > 7) {
-    // For known benchmarks and compile time consideration,
-    // just process up to 6 now
-    return false;
-  }
+  unsigned NumChildren = 0;
+  // For known benchmarks and compile time considerations, allow up to 6
+  // children.
+  unsigned MaxChildren = AllowNearPerfect ? 6 : 1;
+  *InnerLp = nullptr;
 
   // Code below handles non-perfect loops
-  const HLLoop *InnermostLoop = nullptr;
-  // More than 1 innermost loop is not allowed
 
-  for (auto I = Loop->child_begin(), E = Loop->child_end(); I != E; ++I) {
-    const HLLoop *Lp2 = dyn_cast<HLLoop>(I);
-    if (Lp2) {
-      if (++NumLoop > 1) {
+  for (auto NodeIt = Lp->child_begin(), E = Lp->child_end(); NodeIt != E;
+       ++NodeIt) {
+    if (isa<HLLoop>(NodeIt)) {
+      if (*InnerLp) {
         return false;
       }
-      InnermostLoop = Lp2;
+      *InnerLp = cast<HLLoop>(NodeIt);
+    }
+
+    if (++NumChildren > MaxChildren) {
+      return false;
     }
   }
 
-  // Loop enclosed inside if or not innermost loop
-  if (!InnermostLoop || !InnermostLoop->isInnermost()) {
+  if (!*InnerLp) {
     return false;
   }
 
-  *Lp = InnermostLoop;
-  if (IsNearPerfectLoop) {
-    *IsNearPerfectLoop = true;
+  if (NumChildren > 1) {
+    if (!(*InnerLp)->isInnermost()) {
+      return false;
+    }
+
+    if (IsNearPerfectLoop) {
+      *IsNearPerfectLoop = true;
+    }
   }
 
   return true;
@@ -3013,20 +3013,23 @@ bool HLNodeUtils::hasPerfectLoopProperties(const HLNode *Node,
 
 ///  Check if Loop has perfect loop nests
 ///  Default to allow pre and post header is false
-///  Default to allow Triangular loop is false with  exceptions
-///  made for first iteration.
+///  Default to allow Triangular loop is false with exceptions made for first
+///  iteration.
 ///  Default for AllowNearPerfect is false
 ///  If AllowNearPerfect is true, this function will return true for
 ///     near-perfect loop of this form:
-///     (stmts found  before or after the innermost loop)
+///     (stmts found before or after the innermost loop)
 ///
 ///     do i1
-///       do i3
+///       do i2
 ///         do i3
 ///           s1
 ///           do i4
 ///           end do
 ///           s2
+///         end do
+///       end do
+///     end do
 ///
 ///     s1, s2 are siblings of the innermost loop.
 ///     This form may further be transformed to perfect loopnest.
@@ -3034,55 +3037,48 @@ bool HLNodeUtils::hasPerfectLoopProperties(const HLNode *Node,
 ///     In addition, if this bool is on, it will indicate if Near Perfect Lp is
 ///     found
 ///  endif
-///  Does not consider innermost loops as perfect loops
-///
 ///
 bool HLNodeUtils::isPerfectLoopNest(
     const HLLoop *Loop, const HLLoop **InnermostLoop, bool AllowPrePostHdr,
     bool AllowTriangularLoop, bool AllowNearPerfect, bool *IsNearPerfectLoop) {
 
-  bool FirstIter = true;
-  *InnermostLoop = nullptr;
+  assert(Loop && "Loop is null!");
+  assert(!Loop->isInnermost() && "Innermost loop not expected!");
+
+  if (!Loop->isDo()) {
+    return false;
+  }
+
   if (IsNearPerfectLoop) {
     *IsNearPerfectLoop = false;
   }
 
-  assert(Loop && "Loop must not be nullptr");
-
-  const HLLoop *Lp;
-  const HLNode *Node = Loop;
-
-  while (Node) {
-    if (!hasPerfectLoopProperties(Node, &Lp, AllowNearPerfect,
+  do {
+    if (!hasPerfectLoopProperties(Loop, &Loop, AllowNearPerfect,
                                   IsNearPerfectLoop)) {
       return false;
     }
 
-    if (!Lp || !Lp->isDo()) {
-      break;
-    }
-    if (!FirstIter && !AllowPrePostHdr &&
-        (Lp->hasPreheader() || Lp->hasPostexit())) {
-      break;
+    if (!Loop->isDo()) {
+      return false;
     }
 
-    if (!AllowTriangularLoop && !FirstIter && Lp->isTriangularLoop()) {
-      //  okay for outermost loop UB to have iv
-      break;
-    }
-    if (Lp->isInnermost()) {
-      if (FirstIter) {
-        return false;
-      }
-      *InnermostLoop = Lp;
-      return true;
+    if (!AllowPrePostHdr && (Loop->hasPreheader() || Loop->hasPostexit())) {
+      return false;
     }
 
-    FirstIter = false;
-    Node = Lp->getFirstChild();
+    // TODO: check if IV belongs to any loop within the perfect loopnest.
+    if (!AllowTriangularLoop && Loop->isTriangularLoop()) {
+      return false;
+    }
+
+  } while (!Loop->isInnermost());
+
+  if (InnermostLoop) {
+    *InnermostLoop = Loop;
   }
 
-  return false;
+  return true;
 }
 
 class NonUnitStrideMemRefs final : public HLNodeVisitorBase {
@@ -3176,16 +3172,15 @@ void HLNodeUtils::permuteLoopNests(
 
   for (auto &Lp : LoopPermutation) {
     assert(DstLoop && "Perfect loop nest expected");
-
     HLLoop *SrcLoop = nullptr;
-
-    // Loop is already in desired position.
+    // Loop is already in desired position
     if (Lp == DstLoop) {
+      DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
       continue;
     }
-
     for (auto &Lp1 : SavedLoops) {
-      // getNestingLevel() asserts for disconnected loops. It is set explicitly
+      // getNestingLevel() asserts for disconnected loops. It is set
+      // explicitly
       // for saved loops in the previous loop so we access it directly.
       if (Lp->getNestingLevel() == Lp1->NestingLevel) {
         SrcLoop = Lp1;
@@ -3261,3 +3256,50 @@ HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2) {
   return const_cast<HLLoop *>(getLowestCommonAncestorLoop(
       static_cast<const HLLoop *>(Lp1), static_cast<const HLLoop *>(Lp2)));
 }
+
+class LabelRemapVisitor final : public HLNodeVisitorBase {
+  const HLNodeMapper &Mapper;
+
+public:
+  LabelRemapVisitor(const HLNodeMapper &Mapper) : Mapper(Mapper) {}
+
+  void visit(HLGoto *Goto) {
+    if (!Goto->isExternal()) {
+      Goto->setTargetLabel(Mapper.getMapped(Goto->getTargetLabel()));
+    }
+  }
+
+  void visit(HLNode *) {}
+  void postVisit(HLNode *) {}
+};
+
+void HLNodeUtils::remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
+                                   HLNode *End) {
+  LabelRemapVisitor Visitor(Mapper);
+  visitRange(Visitor, Begin, End);
+}
+
+bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
+  if (NodeA->getNumPredicates() != NodeB->getNumPredicates()) {
+    return false;
+  }
+
+  for (auto IA = NodeA->pred_begin(), EA = NodeA->pred_end(),
+            IB = NodeB->pred_begin();
+       IA != EA; ++IA, ++IB) {
+
+    if (*IA != *IB) {
+      return false;
+    }
+
+    if (!DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, true),
+                              NodeB->getPredicateOperandDDRef(IB, true)) ||
+        !DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, false),
+                              NodeB->getPredicateOperandDDRef(IB, false))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+

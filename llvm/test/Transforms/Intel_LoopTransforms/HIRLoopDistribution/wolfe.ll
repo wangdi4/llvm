@@ -39,7 +39,7 @@
 ; ACHECK: (@E)[0][i1 + 2] 
 ; ACHECK-NEXT: END LOOP
 
-; CHECK-NEXT: DO i1 = 0, 98, 1
+; CHECK: DO i1 = 0, 98, 1
 ; CHECK: (@E)[0][i1 + 1] 
 ; CHECK: (@F)[0][i1 + 1] 
 ; CHECK-NEXT: END LOOP

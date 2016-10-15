@@ -170,7 +170,7 @@ public:
                             "watchpoint list",
                             "List all watchpoints at configurable levels of detail.",
                             nullptr),
-        m_options(interpreter)
+        m_options()
     {
         CommandArgumentEntry arg;
         CommandObject::AddIDsArgumentData(arg, eArgTypeWatchpointID, eArgTypeWatchpointIDRange);
@@ -189,8 +189,8 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options(interpreter),
+        CommandOptions() :
+            Options(),
             m_level(lldb::eDescriptionLevelBrief) // Watchpoint List defaults to brief descriptions
         {
         }
@@ -198,7 +198,8 @@ public:
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -223,7 +224,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_level = lldb::eDescriptionLevelFull;
         }
@@ -327,16 +328,12 @@ private:
 OptionDefinition
 CommandObjectWatchpointList::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_1, false, "brief",    'b', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone,
-        "Give a brief description of the watchpoint (no location info)."},
-
-    { LLDB_OPT_SET_2, false, "full",    'f', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone,
-        "Give a full description of the watchpoint and its locations."},
-
-    { LLDB_OPT_SET_3, false, "verbose", 'v', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone,
-        "Explain everything we know about the watchpoint (for debugging debugger bugs)." },
-
-    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "brief",   'b', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Give a brief description of the watchpoint (no location info)."},
+  {LLDB_OPT_SET_2, false, "full",    'f', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Give a full description of the watchpoint and its locations."},
+  {LLDB_OPT_SET_3, false, "verbose", 'v', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Explain everything we know about the watchpoint (for debugging debugger bugs)."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -589,7 +586,7 @@ public:
                             "watchpoint ignore",
                             "Set ignore count on the specified watchpoint(s).  If no watchpoints are specified, set them all.",
                             nullptr),
-        m_options (interpreter)
+        m_options()
     {
         CommandArgumentEntry arg;
         CommandObject::AddIDsArgumentData(arg, eArgTypeWatchpointID, eArgTypeWatchpointIDRange);
@@ -608,8 +605,8 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options (interpreter),
+        CommandOptions() :
+            Options(),
             m_ignore_count (0)
         {
         }
@@ -617,7 +614,8 @@ public:
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -638,7 +636,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_ignore_count = 0;
         }
@@ -719,8 +717,10 @@ private:
 OptionDefinition
 CommandObjectWatchpointIgnore::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_ALL, true, "ignore-count", 'i', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeCount, "Set the number of times this watchpoint is skipped before stopping." },
-    { 0,                false, nullptr,            0 , 0,                 nullptr, nullptr, 0,    eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, true, "ignore-count", 'i', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeCount, "Set the number of times this watchpoint is skipped before stopping."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -738,7 +738,7 @@ public:
                             "If no watchpoint is specified, act on the last created watchpoint.  "
                             "Passing an empty argument clears the modification.",
                             nullptr),
-        m_options (interpreter)
+        m_options()
     {
         CommandArgumentEntry arg;
         CommandObject::AddIDsArgumentData(arg, eArgTypeWatchpointID, eArgTypeWatchpointIDRange);
@@ -757,8 +757,8 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options (interpreter),
+        CommandOptions() :
+            Options(),
             m_condition (),
             m_condition_passed (false)
         {
@@ -767,7 +767,8 @@ public:
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -790,7 +791,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_condition.clear();
             m_condition_passed = false;
@@ -878,8 +879,10 @@ private:
 OptionDefinition
 CommandObjectWatchpointModify::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_ALL, false, "condition",    'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeExpression, "The watchpoint stops only if this condition expression evaluates to true."},
-{ 0,                false, nullptr,            0 , 0,                 nullptr, nullptr, 0,    eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "condition", 'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeExpression, "The watchpoint stops only if this condition expression evaluates to true."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -907,7 +910,7 @@ public:
                             eCommandTryTargetAPILock      |
                             eCommandProcessMustBeLaunched |
                             eCommandProcessMustBePaused   ),
-        m_option_group (interpreter),
+        m_option_group(),
         m_option_watchpoint ()
     {
         SetHelpLong(
@@ -1116,7 +1119,7 @@ public:
                          eCommandTryTargetAPILock      |
                          eCommandProcessMustBeLaunched |
                          eCommandProcessMustBePaused   ),
-        m_option_group (interpreter),
+        m_option_group(),
         m_option_watchpoint ()
     {
         SetHelpLong(
@@ -1162,7 +1165,8 @@ protected:
     bool
     DoExecute (const char *raw_command, CommandReturnObject &result) override
     {
-        m_option_group.NotifyOptionParsingStarting(); // This is a raw command, so notify the option group
+        auto exe_ctx = GetCommandInterpreter().GetExecutionContext();
+        m_option_group.NotifyOptionParsingStarting(&exe_ctx); // This is a raw command, so notify the option group
         
         Target *target = m_interpreter.GetDebugger().GetSelectedTarget().get();
         StackFrame *frame = m_exe_ctx.GetFramePtr();
@@ -1197,7 +1201,8 @@ protected:
                 if (!ParseOptions (args, result))
                     return false;
                 
-                Error error (m_option_group.NotifyOptionParsingFinished());
+                Error error(m_option_group.NotifyOptionParsingFinished(
+                                                                     &exe_ctx));
                 if (error.Fail())
                 {
                     result.AppendError (error.AsCString());

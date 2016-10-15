@@ -1,13 +1,15 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the outer loop IV which is the stride for inner loop IV is reverse engineering correctly.
-; CHECK: DO i1 = 0, 8190
-; CHECK-NEXT: DO i2 = 0, (8191 /u %i.015)
-; CHECK-NEXT: %0 = {al:8}(%A)[%i.015 * i2]
-; CHECK-NEXT: {al:8}(%A)[%i.015 * i2] = %i.015 * i2 + %0
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %i.015 = i1 + 2
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, 8190, 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, (8191 /u %i.015), 1   <DO_LOOP>
+; CHECK: |   |   %0 = (%A)[%i.015 * i2];
+; CHECK: |   |   (%A)[%i.015 * i2] = %i.015 * i2 + %0;
+; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |   %i.015 = i1 + 2;
+; CHECK: + END LOOP
+
 
 ; ModuleID = 't.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

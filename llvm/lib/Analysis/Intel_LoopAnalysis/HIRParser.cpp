@@ -111,10 +111,6 @@ const Instruction *HIRParser::getCurInst() const {
   llvm_unreachable("Unexpected CurNode type!");
 }
 
-void HIRParser::insertHIRLval(const Value *Lval, unsigned Symbase) {
-  ScalarSA->insertHIRLval(Lval, Symbase);
-}
-
 bool HIRParser::foundInBlobTable(unsigned Symbase) const {
   for (auto &BlobPair : BlobTable) {
     if (BlobPair.second == Symbase) {
@@ -162,7 +158,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
       return BlobIndex;
     }
 
-    return ReturnSymbase ? getBlobSymbase(It->second) : It->second;
+    return ReturnSymbase ? getTempBlobSymbase(It->second) : It->second;
   }
 
   if (Insert) {
@@ -172,10 +168,17 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
 
     BlobTable.push_back(std::make_pair(Blob, Symbase));
 
+    unsigned Index = BlobTable.size();
     // Store blob ptr and index mapping for faster lookup.
-    BlobToIndexMap.insert(std::make_pair(Blob, BlobTable.size()));
+    BlobToIndexMap.insert(std::make_pair(Blob, Index));
 
-    return BlobTable.size();
+    // Store symbase to blob index mapping for faster lookup.
+    if (Symbase > ConstantSymbase) {
+      auto Ret = SymbaseToIndexMap.insert(std::make_pair(Symbase, Index));
+      assert(Ret.second && "Duplicate insertion in symbase to index map!");
+    }
+
+    return Index;
   }
 
   return ReturnSymbase ? InvalidSymbase : InvalidBlobIndex;
@@ -185,8 +188,32 @@ unsigned HIRParser::findBlob(BlobTy Blob) {
   return findOrInsertBlobImpl(Blob, InvalidSymbase, false, false);
 }
 
-unsigned HIRParser::findBlobSymbase(BlobTy Blob) {
+unsigned HIRParser::findTempBlobSymbase(BlobTy Blob) {
   return findOrInsertBlobImpl(Blob, InvalidSymbase, false, true);
+}
+
+unsigned HIRParser::findTempBlobIndex(unsigned Symbase) const {
+  auto It = SymbaseToIndexMap.find(Symbase);
+
+  return (It != SymbaseToIndexMap.end()) ? It->second : InvalidBlobIndex;
+}
+
+unsigned HIRParser::findOrInsertTempBlobIndex(unsigned Symbase) {
+
+  auto It = SymbaseToIndexMap.find(Symbase);
+
+  if (It != SymbaseToIndexMap.end()) {
+    return It->second;
+  }
+  // Some lvals may not be parsed as blobs during parsing, insert them as blobs
+  // now.
+  assert((Symbase < getMaxScalarSymbase()) &&
+         "Blob index for symbase not found!");
+
+  auto Val = ScalarSA->getBaseScalar(Symbase);
+  auto Blob = SE->getUnknown(const_cast<Value *>(Val));
+
+  return findOrInsertBlob(Blob, Symbase);
 }
 
 unsigned HIRParser::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
@@ -203,9 +230,12 @@ BlobTy HIRParser::getBlob(unsigned Index) const {
   return BlobTable[Index - 1].first;
 }
 
-unsigned HIRParser::getBlobSymbase(unsigned Index) const {
+unsigned HIRParser::getTempBlobSymbase(unsigned Index) const {
   assert(isBlobIndexValid(Index) && "Index is out of bounds!");
-  return BlobTable[Index - 1].second;
+  auto Symbase = BlobTable[Index - 1].second;
+
+  assert(Symbase != InvalidSymbase && "Blob is not a temp!");
+  return Symbase;
 }
 
 bool HIRParser::isBlobIndexValid(unsigned Index) const {
@@ -536,6 +566,37 @@ bool HIRParser::isNestedBlob(BlobTy Blob) const {
   return NBC.isNestedBlob();
 }
 
+bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
+                                unsigned NewTempIndex, unsigned &NewBlobIndex) {
+  auto OldTempBlob = getBlob(OldTempIndex);
+  auto NewTempBlob = getBlob(NewTempIndex);
+
+  assert(isTempBlob(OldTempBlob) && "Old Index is not a temp!");
+  assert(isTempBlob(NewTempBlob) && "New Index is not a temp!");
+
+  if (BlobIndex == OldTempIndex) {
+    NewBlobIndex = NewTempIndex;
+    return true;
+  }
+
+  auto OldBlob = getBlob(BlobIndex);
+
+  ValueToValueMap Map;
+
+  Map.insert(std::make_pair(cast<SCEVUnknown>(OldTempBlob)->getValue(),
+                            cast<SCEVUnknown>(NewTempBlob)->getValue()));
+
+  auto NewBlob = SCEVParameterRewriter::rewrite(getBlob(BlobIndex), *SE, Map);
+
+  if (OldBlob == NewBlob) {
+    NewBlobIndex = BlobIndex;
+    return false;
+  }
+
+  NewBlobIndex = findOrInsertBlob(NewBlob, InvalidSymbase);
+  return true;
+}
+
 unsigned HIRParser::getMaxScalarSymbase() const {
   return ScalarSA->getMaxScalarSymbase();
 }
@@ -823,7 +884,9 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
       if (CurSCEV == SC) {
         return CurInst;
       }
-    } else if (isReplacable(SC, CurSCEV, IsTruncation, IsNegation,
+      // Original instruction should dominate the current instruction.
+    } else if (HIRP->DT->dominates(CurInst, HIRP->getCurInst()) &&
+               isReplacable(SC, CurSCEV, IsTruncation, IsNegation,
                             ConstMultiplier, Additive)) {
       return CurInst;
     }
@@ -1038,19 +1101,19 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
   // propagating wrap flags.
 
   // If OrigAddRec has NUW, NewAddRec should have it too.
-  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
+  // if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
   //    !(WrapFlags & SCEV::FlagNUW)) {
   //  return false;
   //}
   //
   // If OrigAddRec has NSW, NewAddRec should have it too.
-  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
+  // if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
   //    !(WrapFlags & SCEV::FlagNSW)) {
   //  return false;
   //}
   //
   // If OrigAddRec has NW, NewAddRec can cover it with any of NUW, NSW or NW.
-  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
+  // if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
   //    !(WrapFlags &
   //      (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
   //  return false;
@@ -1068,7 +1131,18 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
 }
 
 void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase) const {
-  ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
+
+  if (Symbase < getMaxScalarSymbase()) {
+    ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
+    return;
+  }
+
+  unsigned Index = findTempBlobIndex(Symbase);
+  auto Blob = getBlob(Index);
+
+  assert(isa<SCEVUnknown>(Blob) && "Unexpected blob type!");
+
+  cast<SCEVUnknown>(Blob)->getValue()->printAsOperand(OS, false);
 }
 
 void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
@@ -1258,25 +1332,30 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
 
   unsigned DefLevel = 0;
   bool IsRegionLivein = false;
-
-  Loop *DefLp = nullptr;
-  HLLoop *DefLoop = nullptr;
   HLLoop *LCALoop = nullptr;
+
+  auto ParentBB = Inst->getParent();
+  Loop *DefLp = LI->getLoopFor(Inst->getParent());
+
+  HLLoop *DefLoop = DefLp ? LF->findHLLoop(DefLp) : nullptr;
 
   HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
                                          : CurNode->getLexicalParentLoop();
 
   // Set region livein and def level.
-  if (!CurRegion->containsBBlock(Inst->getParent())) {
+  if (!CurRegion->containsBBlock(ParentBB)) {
     CurRegion->addLiveInTemp(Symbase, Inst);
     IsRegionLivein = true;
 
-    // We need to lookup DefLoop before UseLoop here as it is used later for
-    // livein/liveout analysis.
-  } else if ((DefLp = LI->getLoopFor(Inst->getParent())) &&
-             (DefLoop = LF->findHLLoop(DefLp)) && UseLoop &&
+    // If Inst is defined in another region, we need to add it as region
+    // liveout.
+    if (DefLoop) {
+      DefLoop->getParentRegion()->addLiveOutTemp(Symbase, Inst);
+    }
+
+  } else if (DefLoop && UseLoop &&
              (LCALoop =
-                  HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop))) {
+                  HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop))) {
     // If the current node where the blob is used and the blob definition are
     // both in some HLLoop, the defined at level should be the lowest common
     // ancestor loop. For example-
@@ -1719,9 +1798,9 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
 
   SmallVector<unsigned, 8> BlobIndices;
 
-  // For GEP DDRefs, some of the parsed blobs can get cancelled due to index
-  // merging. So we check whether there is a mismatch in collected blobs and
-  // actual blobs present in the DDRef.
+  // Some of the parsed blobs can get cancelled due to index merging or SCEV
+  // simplification so we need to check whether there is a mismatch in collected
+  // blobs and actual blobs present in the DDRef.
   //
   // Here's a very simple made up example composed of multiple GEPs-
   //
@@ -1732,7 +1811,7 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
   // When parsing %q, we parse %p (@A + %1) and %2 (-1 * %1) separately and then
   // merge them. On merging %1 will cancel out.
   //
-  if (Ref->hasGEPInfo()) {
+  if (!CurTempBlobLevelMap.empty()) {
     Ref->collectTempBlobIndices(BlobIndices);
   }
 
@@ -1777,18 +1856,18 @@ RegDDRef *HIRParser::createStrideDDRef(Type *IVType) {
 RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
                                       Type *IVType) {
   const Value *Val;
-
+  unsigned Symbase = 0;
   clearTempBlobLevelMap();
 
   if (auto ConstSCEV = dyn_cast<SCEVConstant>(BETC)) {
     Val = ConstSCEV->getValue();
+    Symbase = getOrAssignSymbase(Val);
   } else if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(BETC)) {
     Val = UnknownSCEV->getValue();
+    Symbase = getOrAssignSymbase(Val);
   } else {
-    Val = ScalarSA->getGenericLoopUpperVal();
+    Symbase = ScalarSA->getGenericRvalSymbase();
   }
-
-  auto Symbase = getOrAssignSymbase(Val);
 
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
   auto CE = CanonExprUtils::createCanonExpr(IVType);
@@ -1832,7 +1911,7 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   // Update DDRef's symbase to blob's symbase for self-blob DDRefs.
   if (CE->isSelfBlob()) {
-    Ref->setSymbase(getBlobSymbase(CE->getSingleBlobIndex()));
+    Ref->setSymbase(getTempBlobSymbase(CE->getSingleBlobIndex()));
   } else {
     populateBlobDDRefs(Ref);
   }
@@ -1840,8 +1919,8 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   return Ref;
 }
 
-void HIRParser::parse(HLRegion *Reg) { 
-  CurRegion = Reg; 
+void HIRParser::parse(HLRegion *Reg) {
+  CurRegion = Reg;
   // HIR cache built for another region may not be valid for this one.
   SE->clearHIRCache();
 }
@@ -1893,49 +1972,82 @@ void HIRParser::postParse(HLLoop *HLoop) {
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
-                             PredicateTy *Pred, RegDDRef **LHSDDRef,
-                             RegDDRef **RHSDDRef) {
+                             SmallVectorImpl<PredicateTy> &Preds,
+                             SmallVectorImpl<RegDDRef *> &Refs,
+                             bool AllowMultiplePreds) {
 
   if (auto CInst = dyn_cast<CmpInst>(Cond)) {
 
     // Suppress traceback if CInst's operand's type is not supported.
     if (RI->isSupported(CInst->getOperand(0)->getType()) &&
         RI->isSupported(CInst->getOperand(1)->getType())) {
-      *Pred = CInst->getPredicate();
 
-      *LHSDDRef = createRvalDDRef(CInst, 0, Level);
-      *RHSDDRef = createRvalDDRef(CInst, 1, Level);
+      Preds.push_back(CInst->getPredicate());
+
+      Refs.push_back(createRvalDDRef(CInst, 0, Level));
+      Refs.push_back(createRvalDDRef(CInst, 1, Level));
 
       return;
     }
   }
 
+  const BinaryOperator *BOp = nullptr;
+
+  if (AllowMultiplePreds && (BOp = dyn_cast<BinaryOperator>(Cond)) &&
+      (BOp->getOpcode() == Instruction::And)) {
+    auto Op1 = BOp->getOperand(0);
+    auto Op2 = BOp->getOperand(1);
+
+    // Do not bring in '&&' conditions from outside the region.
+    if (CurRegion->containsBBlock(BOp->getParent()) &&
+        RI->isSupported(Op1->getType()) && RI->isSupported(Op2->getType())) {
+      parseCompare(Op1, Level, Preds, Refs, true);
+      parseCompare(Op2, Level, Preds, Refs, true);
+      return;
+    }
+  }
+
   if (isa<UndefValue>(Cond)) {
-    *Pred = UNDEFINED_PREDICATE;
+    Preds.push_back(UNDEFINED_PREDICATE);
+    Refs.push_back(createUndefDDRef(Cond->getType()));
+    Refs.push_back(createUndefDDRef(Cond->getType()));
+
   } else if (auto ConstVal = dyn_cast<Constant>(Cond)) {
     if (ConstVal->isOneValue()) {
-      *Pred = PredicateTy::FCMP_TRUE;
+      Preds.push_back(PredicateTy::FCMP_TRUE);
     } else if (ConstVal->isZeroValue()) {
-      *Pred = PredicateTy::FCMP_FALSE;
+      Preds.push_back(PredicateTy::FCMP_FALSE);
     } else {
       llvm_unreachable("Unexpected conditional branch value");
     }
-  } else {
-    // TODO: Add parsing of predicates linked with && and ||
-    assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
-    *Pred = PredicateTy::ICMP_NE;
-    *LHSDDRef = createScalarDDRef(Cond, Level);
-    *RHSDDRef = DDRefUtils::createConstDDRef(Cond->getType(), 0);
-    return;
-  }
+    Refs.push_back(createUndefDDRef(Cond->getType()));
+    Refs.push_back(createUndefDDRef(Cond->getType()));
 
-  *LHSDDRef = createUndefDDRef(Cond->getType());
-  *RHSDDRef = createUndefDDRef(Cond->getType());
+  } else {
+    assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
+    Preds.push_back(PredicateTy::ICMP_NE);
+    Refs.push_back(createScalarDDRef(Cond, Level));
+    Refs.push_back(DDRefUtils::createConstDDRef(Cond->getType(), 0));
+  }
+}
+
+void HIRParser::parseCompare(const Value *Cond, unsigned Level,
+                             PredicateTy *Pred, RegDDRef **LHSDDRef,
+                             RegDDRef **RHSDDRef) {
+  SmallVector<PredicateTy, 1> Preds;
+  SmallVector<RegDDRef *, 2> Refs;
+
+  parseCompare(Cond, Level, Preds, Refs, false);
+  assert((Preds.size() == 1) && "Single predicate expected!");
+
+  *Pred = Preds[0];
+  *LHSDDRef = Refs[0];
+  *RHSDDRef = Refs[1];
 }
 
 void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
-  PredicateTy Pred;
-  RegDDRef *LHSDDRef, *RHSDDRef;
+  SmallVector<PredicateTy, 4> Preds;
+  SmallVector<RegDDRef *, 8> Refs;
 
   setCurNode(If);
 
@@ -1945,16 +2057,30 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   auto BeginPredIter = If->pred_begin();
   auto IfCond = cast<BranchInst>(SrcBB->getTerminator())->getCondition();
 
-  parseCompare(IfCond, CurLevel, &Pred, &LHSDDRef, &RHSDDRef);
+  parseCompare(IfCond, CurLevel, Preds, Refs, true);
+  assert(!Preds.empty() && "No predicates found for compare instruction!");
+  assert((Refs.size() == (2 * Preds.size())) &&
+         "Mismatch between number of predicates and DDRefs!");
 
   if (HLoop) {
-    HLoop->replaceZttPredicate(BeginPredIter, Pred);
-    HLoop->setZttPredicateOperandDDRef(LHSDDRef, BeginPredIter, true);
-    HLoop->setZttPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
+    if (LF->requiresZttInversion(HLoop)) {
+      Preds[0] = CmpInst::getInversePredicate(Preds[0]);
+      assert((Preds.size() == 1) &&
+             "Single predicate expected for inversion candidates!");
+    }
+
+    HLoop->replaceZttPredicate(BeginPredIter, Preds[0]);
+    HLoop->setZttPredicateOperandDDRef(Refs[0], BeginPredIter, true);
+    HLoop->setZttPredicateOperandDDRef(Refs[1], BeginPredIter, false);
   } else {
-    If->replacePredicate(BeginPredIter, Pred);
-    If->setPredicateOperandDDRef(LHSDDRef, BeginPredIter, true);
-    If->setPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
+    If->replacePredicate(BeginPredIter, Preds[0]);
+    If->setPredicateOperandDDRef(Refs[0], BeginPredIter, true);
+    If->setPredicateOperandDDRef(Refs[1], BeginPredIter, false);
+  }
+
+  for (unsigned I = 1, E = Preds.size(); I < E; ++I) {
+    HLoop ? HLoop->addZttPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1])
+          : If->addPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1]);
   }
 }
 
@@ -2518,7 +2644,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
   Ref->setSingleCanonExpr(CE);
 
   if (CE->isSelfBlob()) {
-    unsigned SB = getBlobSymbase(CE->getSingleBlobIndex());
+    unsigned SB = getTempBlobSymbase(CE->getSingleBlobIndex());
 
     // Update rval DDRef's symbase to blob's symbase for self-blob DDRefs.
     if (!IsLval) {
@@ -2536,6 +2662,11 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     }
 
   } else {
+    // Assign a generic symbase to non self-blob rvals to avoid unnecessary dd
+    // edges.
+    if (!IsLval) {
+      Ref->setSymbase(ScalarSA->getGenericRvalSymbase());
+    }
     populateBlobDDRefs(Ref);
   }
 
@@ -2587,6 +2718,18 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
   }
 
   return Ref;
+}
+
+bool HIRParser::isLiveinCopy(const HLInst *HInst) {
+  return HInst->isCopyInst() &&
+         SE->getHIRMetadata(HInst->getLLVMInstruction(),
+                            ScalarEvolution::HIRLiveKind::LiveIn);
+}
+
+bool HIRParser::isLiveoutCopy(const HLInst *HInst) {
+  return HInst->isCopyInst() &&
+         SE->getHIRMetadata(HInst->getLLVMInstruction(),
+                            ScalarEvolution::HIRLiveKind::LiveOut);
 }
 
 unsigned HIRParser::getNumRvalOperands(HLInst *HInst) {
@@ -2757,6 +2900,7 @@ void HIRParser::releaseMemory() {
   RequiredSymbases.clear();
   BlobTable.clear();
   BlobToIndexMap.clear();
+  SymbaseToIndexMap.clear();
 }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {

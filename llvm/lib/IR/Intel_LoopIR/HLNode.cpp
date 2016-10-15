@@ -261,3 +261,17 @@ unsigned HLNode::getMinTopSortNum() const {
   return getTopSortNum();
 }
 
+HLNode *HLNode::clone(HLNodeMapper *NodeMapper) const {
+  HLContainerTy NContainer;
+  HLNodeUtils::cloneSequence(&NContainer, this, nullptr, NodeMapper);
+  return NContainer.remove(NContainer.begin());
+}
+
+HLNode *HLNode::cloneBaseImpl(const HLNode *Node, GotoContainerTy *GotoList,
+                              LabelMapTy *LabelMap, HLNodeMapper *NodeMapper) {
+  HLNode *Clone = Node->cloneImpl(GotoList, LabelMap, NodeMapper);
+  if (NodeMapper) {
+    NodeMapper->map(Node, Clone);
+  }
+  return Clone;
+}

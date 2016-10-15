@@ -13,13 +13,12 @@
 ; CHECK: |      %mul26.lcssa95 = %mul26.lcssa.lcssa99 + 1;
 ; CHECK: |   + DO i2 = 0, i1 + -49, 1   <DO_LOOP>
 ; CHECK: |   |   + DO i3 = 0, 9, 1   <DO_LOOP>
-; CHECK: |   |   |   %0 = {al:4}(%g)[0][i3 + 1];
+; CHECK: |   |   |   %0 = (%g)[0][i3 + 1];
 ; CHECK: |   |   |   %mul26.lcssa95 = %mul26.lcssa95  *  %0;
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   + END LOOP
-; CHECK: |      {al:4}(%j0)[0] = 11;
+; CHECK: |      (%j0)[0] = 11;
 ; CHECK: |      %mul26.lcssa.lcssa98 = %mul26.lcssa95;
-; CHECK: |
 ; CHECK: |   %mul26.lcssa.lcssa99 = %mul26.lcssa.lcssa98;
 ; CHECK: + END LOOP
 

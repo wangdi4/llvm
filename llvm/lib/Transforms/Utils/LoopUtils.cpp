@@ -11,15 +11,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
-#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -27,7 +29,6 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -306,7 +307,7 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurrenceKind Kind,
         // The instruction used by an outside user must be the last instruction
         // before we feed back to the reduction phi. Otherwise, we loose VF-1
         // operations on the value.
-        if (std::find(Phi->op_begin(), Phi->op_end(), Cur) == Phi->op_end())
+        if (!is_contained(Phi->operands(), Cur))
           return false;
 
         ExitInstruction = Cur;
@@ -919,7 +920,7 @@ SmallVector<Instruction *, 8> llvm::findDefsUsedOutsideOfLoop(Loop *L) {
     // be adapted into a pointer.
     for (auto &Inst : *Block) {
       auto Users = Inst.users();
-      if (std::any_of(Users.begin(), Users.end(), [&](User *U) {
+      if (any_of(Users, [&](User *U) {
             auto *Use = cast<Instruction>(U);
             return !L->contains(Use->getParent());
           }))

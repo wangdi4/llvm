@@ -30,7 +30,10 @@
 
 #if SANITIZER_CAN_USE_ALLOCATOR64
 #if SANITIZER_WINDOWS
-static const uptr kAllocatorSpace = 0x10000000000ULL;
+// On Windows 64-bit there is no easy way to find a large enough fixed address
+// space that is always available. Thus, a dynamically allocated address space
+// is used instead (i.e. ~(uptr)0).
+static const uptr kAllocatorSpace = ~(uptr)0;
 static const uptr kAllocatorSize  =  0x10000000000ULL;  // 1T.
 static const u64 kAddressSpaceSize = 1ULL << 40;
 #else
@@ -39,11 +42,36 @@ static const uptr kAllocatorSize  = 0x010000000000ULL;  // 1T.
 static const u64 kAddressSpaceSize = 1ULL << 47;
 #endif
 
-typedef SizeClassAllocator64<
-  kAllocatorSpace, kAllocatorSize, 16, DefaultSizeClassMap> Allocator64;
+struct AP64 {  // Allocator Params. Short name for shorter demangled names..
+  static const uptr kSpaceBeg = kAllocatorSpace;
+  static const uptr kSpaceSize = kAllocatorSize;
+  static const uptr kMetadataSize = 16;
+  typedef DefaultSizeClassMap SizeClassMap;
+  typedef NoOpMapUnmapCallback MapUnmapCallback;
+  static const uptr kFlags = 0;
+};
 
-typedef SizeClassAllocator64<
-  kAllocatorSpace, kAllocatorSize, 16, CompactSizeClassMap> Allocator64Compact;
+struct AP64Dyn {
+  static const uptr kSpaceBeg = ~(uptr)0;
+  static const uptr kSpaceSize = kAllocatorSize;
+  static const uptr kMetadataSize = 16;
+  typedef DefaultSizeClassMap SizeClassMap;
+  typedef NoOpMapUnmapCallback MapUnmapCallback;
+  static const uptr kFlags = 0;
+};
+
+struct AP64Compact {
+  static const uptr kSpaceBeg = ~(uptr)0;
+  static const uptr kSpaceSize = kAllocatorSize;
+  static const uptr kMetadataSize = 16;
+  typedef DefaultSizeClassMap SizeClassMap;
+  typedef NoOpMapUnmapCallback MapUnmapCallback;
+  static const uptr kFlags = 0;
+};
+
+typedef SizeClassAllocator64<AP64> Allocator64;
+typedef SizeClassAllocator64<AP64Dyn> Allocator64Dynamic;
+typedef SizeClassAllocator64<AP64Compact> Allocator64Compact;
 #elif defined(__mips64)
 static const u64 kAddressSpaceSize = 1ULL << 40;
 #elif defined(__aarch64__)
@@ -94,8 +122,10 @@ void TestSizeClassAllocator() {
   memset(&cache, 0, sizeof(cache));
   cache.Init(0);
 
-  static const uptr sizes[] = {1, 16, 30, 40, 100, 1000, 10000,
-    50000, 60000, 100000, 120000, 300000, 500000, 1000000, 2000000};
+  static const uptr sizes[] = {
+    1, 16,  30, 40, 100, 1000, 10000,
+    50000, 60000, 100000, 120000, 300000, 500000, 1000000, 2000000
+  };
 
   std::vector<void *> allocated;
 
@@ -154,13 +184,21 @@ void TestSizeClassAllocator() {
 }
 
 #if SANITIZER_CAN_USE_ALLOCATOR64
+// These tests can fail on Windows if memory is somewhat full and lit happens
+// to run them all at the same time. FIXME: Make them not flaky and reenable.
+#if !SANITIZER_WINDOWS
 TEST(SanitizerCommon, SizeClassAllocator64) {
   TestSizeClassAllocator<Allocator64>();
+}
+
+TEST(SanitizerCommon, SizeClassAllocator64Dynamic) {
+  TestSizeClassAllocator<Allocator64Dynamic>();
 }
 
 TEST(SanitizerCommon, SizeClassAllocator64Compact) {
   TestSizeClassAllocator<Allocator64Compact>();
 }
+#endif
 #endif
 
 TEST(SanitizerCommon, SizeClassAllocator32Compact) {
@@ -198,13 +236,21 @@ void SizeClassAllocatorMetadataStress() {
 }
 
 #if SANITIZER_CAN_USE_ALLOCATOR64
+// These tests can fail on Windows if memory is somewhat full and lit happens
+// to run them all at the same time. FIXME: Make them not flaky and reenable.
+#if !SANITIZER_WINDOWS
 TEST(SanitizerCommon, SizeClassAllocator64MetadataStress) {
   SizeClassAllocatorMetadataStress<Allocator64>();
+}
+
+TEST(SanitizerCommon, SizeClassAllocator64DynamicMetadataStress) {
+  SizeClassAllocatorMetadataStress<Allocator64Dynamic>();
 }
 
 TEST(SanitizerCommon, SizeClassAllocator64CompactMetadataStress) {
   SizeClassAllocatorMetadataStress<Allocator64Compact>();
 }
+#endif
 #endif  // SANITIZER_CAN_USE_ALLOCATOR64
 TEST(SanitizerCommon, SizeClassAllocator32CompactMetadataStress) {
   SizeClassAllocatorMetadataStress<Allocator32Compact>();
@@ -218,7 +264,7 @@ void SizeClassAllocatorGetBlockBeginStress() {
   memset(&cache, 0, sizeof(cache));
   cache.Init(0);
 
-  uptr max_size_class = Allocator::kNumClasses - 1;
+  uptr max_size_class = Allocator::SizeClassMapT::kLargestClassID;
   uptr size = Allocator::SizeClassMapT::Size(max_size_class);
   u64 G8 = 1ULL << 33;
   // Make sure we correctly compute GetBlockBegin() w/o overflow.
@@ -235,8 +281,14 @@ void SizeClassAllocatorGetBlockBeginStress() {
 }
 
 #if SANITIZER_CAN_USE_ALLOCATOR64
+// These tests can fail on Windows if memory is somewhat full and lit happens
+// to run them all at the same time. FIXME: Make them not flaky and reenable.
+#if !SANITIZER_WINDOWS
 TEST(SanitizerCommon, SizeClassAllocator64GetBlockBegin) {
   SizeClassAllocatorGetBlockBeginStress<Allocator64>();
+}
+TEST(SanitizerCommon, SizeClassAllocator64DynamicGetBlockBegin) {
+  SizeClassAllocatorGetBlockBeginStress<Allocator64Dynamic>();
 }
 TEST(SanitizerCommon, SizeClassAllocator64CompactGetBlockBegin) {
   SizeClassAllocatorGetBlockBeginStress<Allocator64Compact>();
@@ -244,6 +296,7 @@ TEST(SanitizerCommon, SizeClassAllocator64CompactGetBlockBegin) {
 TEST(SanitizerCommon, SizeClassAllocator32CompactGetBlockBegin) {
   SizeClassAllocatorGetBlockBeginStress<Allocator32Compact>();
 }
+#endif
 #endif  // SANITIZER_CAN_USE_ALLOCATOR64
 
 struct TestMapUnmapCallback {
@@ -255,12 +308,23 @@ int TestMapUnmapCallback::map_count;
 int TestMapUnmapCallback::unmap_count;
 
 #if SANITIZER_CAN_USE_ALLOCATOR64
+// These tests can fail on Windows if memory is somewhat full and lit happens
+// to run them all at the same time. FIXME: Make them not flaky and reenable.
+#if !SANITIZER_WINDOWS
+
+struct AP64WithCallback {
+    static const uptr kSpaceBeg = kAllocatorSpace;
+    static const uptr kSpaceSize = kAllocatorSize;
+    static const uptr kMetadataSize = 16;
+    typedef DefaultSizeClassMap SizeClassMap;
+    typedef TestMapUnmapCallback MapUnmapCallback;
+    static const uptr kFlags = 0;
+};
+
 TEST(SanitizerCommon, SizeClassAllocator64MapUnmapCallback) {
   TestMapUnmapCallback::map_count = 0;
   TestMapUnmapCallback::unmap_count = 0;
-  typedef SizeClassAllocator64<
-      kAllocatorSpace, kAllocatorSize, 16, DefaultSizeClassMap,
-      TestMapUnmapCallback> Allocator64WithCallBack;
+  typedef SizeClassAllocator64<AP64WithCallback> Allocator64WithCallBack;
   Allocator64WithCallBack *a = new Allocator64WithCallBack;
   a->Init();
   EXPECT_EQ(TestMapUnmapCallback::map_count, 1);  // Allocator state.
@@ -269,12 +333,16 @@ TEST(SanitizerCommon, SizeClassAllocator64MapUnmapCallback) {
   cache.Init(0);
   AllocatorStats stats;
   stats.Init();
-  a->AllocateBatch(&stats, &cache, 32);
-  EXPECT_EQ(TestMapUnmapCallback::map_count, 3);  // State + alloc + metadata.
+  const size_t kNumChunks = 128;
+  uint32_t chunks[kNumChunks];
+  a->GetFromAllocator(&stats, 32, chunks, kNumChunks);
+  // State + alloc + metadata + freearray.
+  EXPECT_EQ(TestMapUnmapCallback::map_count, 4);
   a->TestOnlyUnmap();
   EXPECT_EQ(TestMapUnmapCallback::unmap_count, 1);  // The whole thing.
   delete a;
 }
+#endif
 #endif
 
 TEST(SanitizerCommon, SizeClassAllocator32MapUnmapCallback) {
@@ -328,8 +396,10 @@ void FailInAssertionOnOOM() {
   cache.Init(0);
   AllocatorStats stats;
   stats.Init();
+  const size_t kNumChunks = 128;
+  uint32_t chunks[kNumChunks];
   for (int i = 0; i < 1000000; i++) {
-    a.AllocateBatch(&stats, &cache, 52);
+    a.GetFromAllocator(&stats, 52, chunks, kNumChunks);
   }
 
   a.TestOnlyUnmap();
@@ -392,8 +462,10 @@ TEST(SanitizerCommon, LargeMmapAllocator) {
   }
   CHECK_EQ(a.TotalMemoryUsed(), 0);
 
-  // Test alignments.
-  uptr max_alignment = SANITIZER_WORDSIZE == 64 ? (1 << 28) : (1 << 24);
+  // Test alignments. Test with 512MB alignment on x64 non-Windows machines.
+  // Windows doesn't overcommit, and many machines do not have 51.2GB of swap.
+  uptr max_alignment =
+      (SANITIZER_WORDSIZE == 64 && !SANITIZER_WINDOWS) ? (1 << 28) : (1 << 24);
   for (uptr alignment = 8; alignment <= max_alignment; alignment *= 2) {
     const uptr kNumAlignedAllocs = 100;
     for (uptr i = 0; i < kNumAlignedAllocs; i++) {
@@ -482,6 +554,12 @@ TEST(SanitizerCommon, CombinedAllocator64) {
       SizeClassAllocatorLocalCache<Allocator64> > ();
 }
 
+TEST(SanitizerCommon, CombinedAllocator64Dynamic) {
+  TestCombinedAllocator<Allocator64Dynamic,
+      LargeMmapAllocator<>,
+      SizeClassAllocatorLocalCache<Allocator64Dynamic> > ();
+}
+
 TEST(SanitizerCommon, CombinedAllocator64Compact) {
   TestCombinedAllocator<Allocator64Compact,
       LargeMmapAllocator<>,
@@ -530,15 +608,24 @@ void TestSizeClassAllocatorLocalCache() {
 }
 
 #if SANITIZER_CAN_USE_ALLOCATOR64
+// These tests can fail on Windows if memory is somewhat full and lit happens
+// to run them all at the same time. FIXME: Make them not flaky and reenable.
+#if !SANITIZER_WINDOWS
 TEST(SanitizerCommon, SizeClassAllocator64LocalCache) {
   TestSizeClassAllocatorLocalCache<
       SizeClassAllocatorLocalCache<Allocator64> >();
+}
+
+TEST(SanitizerCommon, SizeClassAllocator64DynamicLocalCache) {
+  TestSizeClassAllocatorLocalCache<
+      SizeClassAllocatorLocalCache<Allocator64Dynamic> >();
 }
 
 TEST(SanitizerCommon, SizeClassAllocator64CompactLocalCache) {
   TestSizeClassAllocatorLocalCache<
       SizeClassAllocatorLocalCache<Allocator64Compact> >();
 }
+#endif
 #endif
 
 TEST(SanitizerCommon, SizeClassAllocator32CompactLocalCache) {
@@ -705,9 +792,16 @@ void TestSizeClassAllocatorIteration() {
 }
 
 #if SANITIZER_CAN_USE_ALLOCATOR64
+// These tests can fail on Windows if memory is somewhat full and lit happens
+// to run them all at the same time. FIXME: Make them not flaky and reenable.
+#if !SANITIZER_WINDOWS
 TEST(SanitizerCommon, SizeClassAllocator64Iteration) {
   TestSizeClassAllocatorIteration<Allocator64>();
 }
+TEST(SanitizerCommon, SizeClassAllocator64DynamicIteration) {
+  TestSizeClassAllocatorIteration<Allocator64Dynamic>();
+}
+#endif
 #endif
 
 TEST(SanitizerCommon, SizeClassAllocator32Iteration) {
@@ -782,12 +876,20 @@ TEST(SanitizerCommon, LargeMmapAllocatorBlockBegin) {
 // Don't test OOM conditions on Win64 because it causes other tests on the same
 // machine to OOM.
 #if SANITIZER_CAN_USE_ALLOCATOR64 && !SANITIZER_WINDOWS64
+typedef SizeClassMap<63, 128, 16> SpecialSizeClassMap;
+struct AP64_SpecialSizeClassMap {
+  static const uptr kSpaceBeg = kAllocatorSpace;
+  static const uptr kSpaceSize = kAllocatorSize;
+  static const uptr kMetadataSize = 0;
+  typedef SpecialSizeClassMap SizeClassMap;
+  typedef NoOpMapUnmapCallback MapUnmapCallback;
+  static const uptr kFlags = 0;
+};
+
 // Regression test for out-of-memory condition in PopulateFreeList().
 TEST(SanitizerCommon, SizeClassAllocator64PopulateFreeListOOM) {
   // In a world where regions are small and chunks are huge...
-  typedef SizeClassMap<63, 126, 16> SpecialSizeClassMap;
-  typedef SizeClassAllocator64<kAllocatorSpace, kAllocatorSize, 0,
-                               SpecialSizeClassMap> SpecialAllocator64;
+  typedef SizeClassAllocator64<AP64_SpecialSizeClassMap> SpecialAllocator64;
   const uptr kRegionSize =
       kAllocatorSize / SpecialSizeClassMap::kNumClassesRounded;
   SpecialAllocator64 *a = new SpecialAllocator64;

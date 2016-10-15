@@ -37,16 +37,18 @@ using namespace lldb_private;
 //
 
 CommandObjectArgs::CommandOptions::CommandOptions (CommandInterpreter &interpreter) :
-    Options(interpreter)
+    Options()
 {
     // Keep only one place to reset the values to their defaults
-    OptionParsingStarting();
+    OptionParsingStarting(nullptr);
 }
 
 CommandObjectArgs::CommandOptions::~CommandOptions() = default;
 
 Error
-CommandObjectArgs::CommandOptions::SetOptionValue (uint32_t option_idx, const char *option_arg)
+CommandObjectArgs::CommandOptions::SetOptionValue(uint32_t option_idx,
+                                                  const char *option_arg,
+                                            ExecutionContext *execution_context)
 {
     Error error;
     
@@ -57,7 +59,8 @@ CommandObjectArgs::CommandOptions::SetOptionValue (uint32_t option_idx, const ch
 }
 
 void
-CommandObjectArgs::CommandOptions::OptionParsingStarting ()
+CommandObjectArgs::CommandOptions::OptionParsingStarting(
+                                            ExecutionContext *execution_context)
 {
 }
 
@@ -256,6 +259,8 @@ CommandObjectArgs::DoExecute (Args& args, CommandReturnObject &result)
 OptionDefinition
 CommandObjectArgs::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_1, false, "debug", 'g', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Enable verbose debug logging of the expression parsing and evaluation."},
-    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "debug", 'g', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Enable verbose debug logging of the expression parsing and evaluation."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };

@@ -157,7 +157,7 @@ public:
                             "target create",
                             "Create a target using the argument as the main executable.",
                             nullptr),
-        m_option_group (interpreter),
+        m_option_group (),
         m_arch_option (),
         m_core_file (LLDB_OPT_SET_1, false, "core", 'c', 0, eArgTypeFilename, "Fullpath to a core file to use for this target."),
         m_platform_path (LLDB_OPT_SET_1, false, "platform-path", 'P', 0, eArgTypePath, "Path to the remote file to use for this target."),
@@ -208,7 +208,7 @@ public:
         std::string completion_str (input.GetArgumentAtIndex(cursor_index));
         completion_str.erase (cursor_char_position);
 
-        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+        CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                             CommandCompletions::eDiskFileCompletion,
                                                             completion_str.c_str(),
                                                             match_start_point,
@@ -269,7 +269,7 @@ protected:
             }
 
             const char *file_path = command.GetArgumentAtIndex(0);
-            Timer scoped_timer(__PRETTY_FUNCTION__, "(lldb) target create '%s'", file_path);
+            Timer scoped_timer(LLVM_PRETTY_FUNCTION, "(lldb) target create '%s'", file_path);
             FileSpec file_spec;
 
             if (file_path)
@@ -594,7 +594,7 @@ public:
                             "target delete",
                             "Delete one or more targets by target index.",
                             nullptr),
-        m_option_group(interpreter),
+        m_option_group(),
         m_all_option(LLDB_OPT_SET_1, false, "all", 'a', "Delete all targets.", false, true),
         m_cleanup_option(
             LLDB_OPT_SET_1,
@@ -728,7 +728,7 @@ public:
         : CommandObjectParsed(interpreter, "target variable",
                               "Read global variables for the current target, before or while running a process.",
                               nullptr, eCommandRequiresTarget),
-          m_option_group(interpreter),
+          m_option_group(),
           m_option_variable(false), // Don't include frame options
           m_option_format(eFormatDefault),
           m_option_compile_units(LLDB_OPT_SET_1, false, "file", SHORT_OPTION_FILE, 0, eArgTypeFilename,
@@ -2068,7 +2068,7 @@ public:
         std::string completion_str (input.GetArgumentAtIndex(cursor_index));
         completion_str.erase (cursor_char_position);
 
-        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+        CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                             CommandCompletions::eModuleCompletion,
                                                             completion_str.c_str(),
                                                             match_start_point,
@@ -2127,7 +2127,7 @@ public:
         std::string completion_str (input.GetArgumentAtIndex(cursor_index));
         completion_str.erase (cursor_char_position);
 
-        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+        CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                             CommandCompletions::eSourceFileCompletion,
                                                             completion_str.c_str(),
                                                             match_start_point,
@@ -2220,7 +2220,7 @@ public:
                                                      "target modules dump symtab",
                                                      "Dump the symbol table from one or more target modules.",
                                                      nullptr),
-        m_options(interpreter)
+        m_options()
     {
     }
 
@@ -2235,16 +2235,17 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-        Options(interpreter),
-        m_sort_order (eSortOrderNone)
+        CommandOptions() :
+        Options(),
+        m_sort_order(eSortOrderNone)
         {
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -2266,7 +2267,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_sort_order = eSortOrderNone;
         }
@@ -2387,8 +2388,10 @@ g_sort_option_enumeration[4] =
 OptionDefinition
 CommandObjectTargetModulesDumpSymtab::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_1, false, "sort", 's', OptionParser::eRequiredArgument, nullptr, g_sort_option_enumeration, 0, eArgTypeSortOrder, "Supply a sort order when dumping the symbol table."},
-    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "sort", 's', OptionParser::eRequiredArgument, nullptr, g_sort_option_enumeration, 0, eArgTypeSortOrder, "Supply a sort order when dumping the symbol table."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 #pragma mark CommandObjectTargetModulesDumpSections
@@ -2704,7 +2707,7 @@ public:
                              "target modules add",
                              "Add a new module to the current target's modules.",
                              "target modules add [<module>]"),
-        m_option_group (interpreter),
+        m_option_group(),
         m_symbol_file (LLDB_OPT_SET_1, false, "symfile", 's', 0, eArgTypeFilename, "Fullpath to a stand alone debug symbols file for when debug symbols are not in the executable.")
     {
         m_option_group.Append (&m_uuid_option_group, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
@@ -2733,7 +2736,7 @@ public:
         std::string completion_str (input.GetArgumentAtIndex(cursor_index));
         completion_str.erase (cursor_char_position);
 
-        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+        CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                             CommandCompletions::eDiskFileCompletion,
                                                             completion_str.c_str(),
                                                             match_start_point,
@@ -2900,7 +2903,7 @@ public:
                                                       "target modules load",
                                                       "Set the load addresses for one or more sections in a target module.",
                                                       "target modules load [--file <module> --uuid <uuid>] <sect-name> <address> [<sect-name> <address> ....]"),
-        m_option_group (interpreter),
+        m_option_group(),
         m_file_option (LLDB_OPT_SET_1, false, "file", 'f', 0, eArgTypeName, "Fullpath or basename for module to load.", ""),
         m_slide_option(LLDB_OPT_SET_1, false, "slide", 's', 0, eArgTypeOffset, "Set the load address for all sections to be the virtual address in the file plus the offset.", 0)
     {
@@ -3155,8 +3158,8 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options(interpreter),
+        CommandOptions() :
+            Options(),
             m_format_array(),
             m_use_global_module_list (false),
             m_module_addr (LLDB_INVALID_ADDRESS)
@@ -3166,7 +3169,8 @@ public:
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
 
@@ -3177,8 +3181,10 @@ public:
             }
             else if (short_option == 'a')
             {
-                ExecutionContext exe_ctx (m_interpreter.GetExecutionContext());
-                m_module_addr = Args::StringToAddress(&exe_ctx, option_arg, LLDB_INVALID_ADDRESS, &error);
+                m_module_addr = Args::StringToAddress(execution_context,
+                                                      option_arg,
+                                                      LLDB_INVALID_ADDRESS,
+                                                      &error);
             }
             else
             {
@@ -3191,7 +3197,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_format_array.clear();
             m_use_global_module_list = false;
@@ -3220,7 +3226,7 @@ public:
                              "target modules list",
                              "List current executable and dependent shared library images.",
                              "target modules list [<cmd-options>]"),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -3554,22 +3560,24 @@ protected:
 OptionDefinition
 CommandObjectTargetModulesList::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_1, false, "address",    'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeAddressOrExpression, "Display the image at this address."},
-    { LLDB_OPT_SET_1, false, "arch",       'A', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,   "Display the architecture when listing images."},
-    { LLDB_OPT_SET_1, false, "triple",     't', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,   "Display the triple when listing images."},
-    { LLDB_OPT_SET_1, false, "header",     'h', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,    "Display the image header address as a load address if debugging, a file address otherwise."},
-    { LLDB_OPT_SET_1, false, "offset",     'o', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,    "Display the image header address offset from the header file address (the slide amount)."},
-    { LLDB_OPT_SET_1, false, "uuid",       'u', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,    "Display the UUID when listing images."},
-    { LLDB_OPT_SET_1, false, "fullpath",   'f', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,   "Display the fullpath to the image object file."},
-    { LLDB_OPT_SET_1, false, "directory",  'd', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,   "Display the directory with optional width for the image object file."},
-    { LLDB_OPT_SET_1, false, "basename",   'b', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,   "Display the basename with optional width for the image object file."},
-    { LLDB_OPT_SET_1, false, "symfile",    's', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,   "Display the fullpath to the image symbol file with optional width."},
-    { LLDB_OPT_SET_1, false, "symfile-unique", 'S', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,   "Display the symbol file with optional width only if it is different from the executable object file."},
-    { LLDB_OPT_SET_1, false, "mod-time",   'm', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,   "Display the modification time with optional width of the module."},
-    { LLDB_OPT_SET_1, false, "ref-count",  'r', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,   "Display the reference count if the module is still in the shared module cache."},
-    { LLDB_OPT_SET_1, false, "pointer",    'p', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeNone,    "Display the module pointer."},
-    { LLDB_OPT_SET_1, false, "global",     'g', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,    "Display the modules from the global module list, not just the current target."},
-    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "address",        'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeAddressOrExpression, "Display the image at this address."},
+  {LLDB_OPT_SET_1, false, "arch",           'A', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,               "Display the architecture when listing images."},
+  {LLDB_OPT_SET_1, false, "triple",         't', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,               "Display the triple when listing images."},
+  {LLDB_OPT_SET_1, false, "header",         'h', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,                "Display the image header address as a load address if debugging, a file address otherwise."},
+  {LLDB_OPT_SET_1, false, "offset",         'o', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,                "Display the image header address offset from the header file address (the slide amount)."},
+  {LLDB_OPT_SET_1, false, "uuid",           'u', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,                "Display the UUID when listing images."},
+  {LLDB_OPT_SET_1, false, "fullpath",       'f', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,               "Display the fullpath to the image object file."},
+  {LLDB_OPT_SET_1, false, "directory",      'd', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,               "Display the directory with optional width for the image object file."},
+  {LLDB_OPT_SET_1, false, "basename",       'b', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,               "Display the basename with optional width for the image object file."},
+  {LLDB_OPT_SET_1, false, "symfile",        's', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,               "Display the fullpath to the image symbol file with optional width."},
+  {LLDB_OPT_SET_1, false, "symfile-unique", 'S', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,               "Display the symbol file with optional width only if it is different from the executable object file."},
+  {LLDB_OPT_SET_1, false, "mod-time",       'm', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,               "Display the modification time with optional width of the module."},
+  {LLDB_OPT_SET_1, false, "ref-count",      'r', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeWidth,               "Display the reference count if the module is still in the shared module cache."},
+  {LLDB_OPT_SET_1, false, "pointer",        'p', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypeNone,                "Display the module pointer."},
+  {LLDB_OPT_SET_1, false, "global",         'g', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,                "Display the modules from the global module list, not just the current target."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 #pragma mark CommandObjectTargetModulesShowUnwind
@@ -3594,8 +3602,8 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options(interpreter),
+        CommandOptions() :
+            Options(),
             m_type(eLookupTypeInvalid),
             m_str(),
             m_addr(LLDB_INVALID_ADDRESS)
@@ -3605,7 +3613,8 @@ public:
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
 
@@ -3615,10 +3624,12 @@ public:
             {
                 case 'a':
                 {
-                    ExecutionContext exe_ctx (m_interpreter.GetExecutionContext());
                     m_str = option_arg;
                     m_type = eLookupTypeAddress;
-                    m_addr = Args::StringToAddress(&exe_ctx, option_arg, LLDB_INVALID_ADDRESS, &error);
+                    m_addr = Args::StringToAddress(execution_context,
+                                                   option_arg,
+                                                   LLDB_INVALID_ADDRESS,
+                                                   &error);
                     if (m_addr == LLDB_INVALID_ADDRESS)
                         error.SetErrorStringWithFormat ("invalid address string '%s'", option_arg);
                     break;
@@ -3638,7 +3649,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_type = eLookupTypeInvalid;
             m_str.clear();
@@ -3671,7 +3682,7 @@ public:
                             eCommandRequiresProcess       |
                             eCommandProcessMustBeLaunched |
                             eCommandProcessMustBePaused   ),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -3874,9 +3885,11 @@ protected:
 OptionDefinition
 CommandObjectTargetModulesShowUnwind::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_1,   false,  "name",       'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFunctionName, "Show unwind instructions for a function or symbol name."},
-    { LLDB_OPT_SET_2,   false,  "address",    'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeAddressOrExpression, "Show unwind instructions for a function or symbol containing an address"},
-    { 0,                false, nullptr,           0, 0,                 nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1, false, "name",    'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFunctionName,        "Show unwind instructions for a function or symbol name."},
+  {LLDB_OPT_SET_2, false, "address", 'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeAddressOrExpression, "Show unwind instructions for a function or symbol containing an address"},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 //----------------------------------------------------------------------
@@ -3900,16 +3913,17 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-        Options(interpreter)
+        CommandOptions() :
+            Options()
         {
-            OptionParsingStarting();
+            OptionParsingStarting(nullptr);
         }
 
         ~CommandOptions() override = default;
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue (uint32_t option_idx, const char *option_arg,
+                        ExecutionContext *execution_context) override
         {
             Error error;
 
@@ -3920,8 +3934,10 @@ public:
                 case 'a':
                     {
                         m_type = eLookupTypeAddress;
-                        ExecutionContext exe_ctx (m_interpreter.GetExecutionContext());
-                        m_addr = Args::StringToAddress(&exe_ctx, option_arg, LLDB_INVALID_ADDRESS, &error);
+                        m_addr = Args::StringToAddress(execution_context,
+                                                       option_arg,
+                                                       LLDB_INVALID_ADDRESS,
+                                                       &error);
                     }
                     break;
 
@@ -3986,7 +4002,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_type = eLookupTypeInvalid;
             m_str.clear();
@@ -4027,7 +4043,7 @@ public:
                             "Look up information within executable and dependent shared library images.",
                             nullptr,
                             eCommandRequiresTarget),
-        m_options (interpreter)
+        m_options()
     {
         CommandArgumentEntry arg;
         CommandArgumentData file_arg;
@@ -4190,7 +4206,10 @@ public:
                 break;
 
             default:
-                m_options.GenerateOptionUsage (result.GetErrorStream(), this);
+                m_options.GenerateOptionUsage(result.GetErrorStream(), this,
+                                              GetCommandInterpreter()
+                                                .GetDebugger()
+                                                .GetTerminalWidth());
                 syntax_error = true;
                 break;
         }
@@ -4306,22 +4325,22 @@ protected:
 OptionDefinition
 CommandObjectTargetModulesLookup::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_1,   true,  "address",    'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeAddressOrExpression, "Lookup an address in one or more target modules."},
-    { LLDB_OPT_SET_1,   false, "offset",     'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeOffset,           "When looking up an address subtract <offset> from any addresses before doing the lookup."},
-    { LLDB_OPT_SET_2| LLDB_OPT_SET_4 | LLDB_OPT_SET_5
-      /* FIXME: re-enable this for types when the LookupTypeInModule actually uses the regex option: | LLDB_OPT_SET_6 */ ,
-                        false, "regex",      'r', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,             "The <name> argument for name lookups are regular expressions."},
-    { LLDB_OPT_SET_2,   true,  "symbol",     's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeSymbol,           "Lookup a symbol by name in the symbol tables in one or more target modules."},
-    { LLDB_OPT_SET_3,   true,  "file",       'f', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFilename,         "Lookup a file by fullpath or basename in one or more target modules."},
-    { LLDB_OPT_SET_3,   false, "line",       'l', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeLineNum,          "Lookup a line number in a file (must be used in conjunction with --file)."},
-    { LLDB_OPT_SET_FROM_TO(3,5),
-                        false, "no-inlines", 'i', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,             "Ignore inline entries (must be used in conjunction with --file or --function)."},
-    { LLDB_OPT_SET_4,   true,  "function",   'F', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFunctionName,     "Lookup a function by name in the debug symbols in one or more target modules."},
-    { LLDB_OPT_SET_5,   true,  "name",       'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFunctionOrSymbol, "Lookup a function or symbol by name in one or more target modules."},
-    { LLDB_OPT_SET_6,   true,  "type",       't', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeName,             "Lookup a type by name in the debug symbols in one or more target modules."},
-    { LLDB_OPT_SET_ALL, false, "verbose",    'v', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,             "Enable verbose lookup information."},
-    { LLDB_OPT_SET_ALL, false, "all",        'A', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,             "Print all matches, not just the best match, if a best match is available."},
-    { 0,                false, nullptr,           0, 0,                 nullptr, nullptr, 0, eArgTypeNone,             nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_1,                                  true,  "address",    'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeAddressOrExpression, "Lookup an address in one or more target modules."},
+  {LLDB_OPT_SET_1,                                  false, "offset",     'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeOffset,              "When looking up an address subtract <offset> from any addresses before doing the lookup."},
+  /* FIXME: re-enable regex for types when the LookupTypeInModule actually uses the regex option: | LLDB_OPT_SET_6 */
+  {LLDB_OPT_SET_2| LLDB_OPT_SET_4 | LLDB_OPT_SET_5, false, "regex",      'r', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,                "The <name> argument for name lookups are regular expressions."},
+  {LLDB_OPT_SET_2,                                  true,  "symbol",     's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeSymbol,              "Lookup a symbol by name in the symbol tables in one or more target modules."},
+  {LLDB_OPT_SET_3,                                  true,  "file",       'f', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFilename,            "Lookup a file by fullpath or basename in one or more target modules."},
+  {LLDB_OPT_SET_3,                                  false, "line",       'l', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeLineNum,             "Lookup a line number in a file (must be used in conjunction with --file)."},
+  {LLDB_OPT_SET_FROM_TO(3,5),                       false, "no-inlines", 'i', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,                "Ignore inline entries (must be used in conjunction with --file or --function)."},
+  {LLDB_OPT_SET_4,                                  true,  "function",   'F', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFunctionName,        "Lookup a function by name in the debug symbols in one or more target modules."},
+  {LLDB_OPT_SET_5,                                  true,  "name",       'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFunctionOrSymbol,    "Lookup a function or symbol by name in one or more target modules."},
+  {LLDB_OPT_SET_6,                                  true,  "type",       't', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeName,                "Lookup a type by name in the debug symbols in one or more target modules."},
+  {LLDB_OPT_SET_ALL,                                false, "verbose",    'v', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,                "Enable verbose lookup information."},
+  {LLDB_OPT_SET_ALL,                                false, "all",        'A', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,                "Print all matches, not just the best match, if a best match is available."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
+  // clang-format on
 };
 
 #pragma mark CommandObjectMultiwordImageSearchPaths
@@ -4392,7 +4411,7 @@ public:
                              "target symbols add",
                              "Add a debug symbol file to one of the target's current modules by specifying a path to a debug symbols file, or using the options to specify a module to download symbols for.",
                              "target symbols add [<symfile>]", eCommandRequiresTarget),
-        m_option_group (interpreter),
+        m_option_group(),
         m_file_option (LLDB_OPT_SET_1, false, "shlib", 's', CommandCompletions::eModuleCompletion, eArgTypeShlibName, "Fullpath or basename for module to find debug symbols for."),
         m_current_frame_option (LLDB_OPT_SET_2, false, "frame", 'F', "Locate the debug symbols the currently selected frame.", false, true)
 
@@ -4418,7 +4437,7 @@ public:
         std::string completion_str (input.GetArgumentAtIndex(cursor_index));
         completion_str.erase (cursor_char_position);
 
-        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+        CommandCompletions::InvokeCommonCompletionCallbacks(GetCommandInterpreter(),
                                                             CommandCompletions::eDiskFileCompletion,
                                                             completion_str.c_str(),
                                                             match_start_point,
@@ -4847,8 +4866,8 @@ public:
     class CommandOptions : public Options
     {
     public:
-        CommandOptions (CommandInterpreter &interpreter) :
-            Options(interpreter),
+        CommandOptions() :
+            Options(),
             m_line_start(0),
             m_line_end (UINT_MAX),
             m_func_name_type_mask (eFunctionNameTypeAuto),
@@ -4868,7 +4887,8 @@ public:
         }
 
         Error
-        SetOptionValue (uint32_t option_idx, const char *option_arg) override
+        SetOptionValue(uint32_t option_idx, const char *option_arg,
+                       ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = m_getopt_table[option_idx].val;
@@ -4958,7 +4978,7 @@ public:
         }
 
         void
-        OptionParsingStarting () override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             m_class_name.clear();
             m_function_name.clear();
@@ -5007,7 +5027,7 @@ public:
                              "Add a hook to be executed when the target stops.",
                              "target stop-hook add"),
         IOHandlerDelegateMultiline ("DONE", IOHandlerDelegate::Completion::LLDBCommand),
-        m_options (interpreter)
+        m_options()
     {
     }
 
@@ -5170,29 +5190,20 @@ private:
 OptionDefinition
 CommandObjectTargetStopHookAdd::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_ALL, false, "one-liner", 'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeOneLiner,
-        "Specify a one-line breakpoint command inline. Be sure to surround it with quotes." },
-    { LLDB_OPT_SET_ALL, false, "shlib", 's', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eModuleCompletion, eArgTypeShlibName,
-        "Set the module within which the stop-hook is to be run."},
-    { LLDB_OPT_SET_ALL, false, "thread-index", 'x', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeThreadIndex,
-        "The stop hook is run only for the thread whose index matches this argument."},
-    { LLDB_OPT_SET_ALL, false, "thread-id", 't', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeThreadID,
-        "The stop hook is run only for the thread whose TID matches this argument."},
-    { LLDB_OPT_SET_ALL, false, "thread-name", 'T', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeThreadName,
-        "The stop hook is run only for the thread whose thread name matches this argument."},
-    { LLDB_OPT_SET_ALL, false, "queue-name", 'q', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeQueueName,
-        "The stop hook is run only for threads in the queue whose name is given by this argument."},
-    { LLDB_OPT_SET_1, false, "file", 'f', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eSourceFileCompletion, eArgTypeFilename,
-        "Specify the source file within which the stop-hook is to be run." },
-    { LLDB_OPT_SET_1, false, "start-line", 'l', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeLineNum,
-        "Set the start of the line range for which the stop-hook is to be run."},
-    { LLDB_OPT_SET_1, false, "end-line", 'e', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeLineNum,
-        "Set the end of the line range for which the stop-hook is to be run."},
-    { LLDB_OPT_SET_2, false, "classname", 'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeClassName,
-        "Specify the class within which the stop-hook is to be run." },
-    { LLDB_OPT_SET_3, false, "name", 'n', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eSymbolCompletion, eArgTypeFunctionName,
-        "Set the function name within which the stop hook will be run." },
-    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "one-liner",    'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeOneLiner,                                         "Specify a one-line breakpoint command inline. Be sure to surround it with quotes."},
+  {LLDB_OPT_SET_ALL, false, "shlib",        's', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eModuleCompletion, eArgTypeShlibName,    "Set the module within which the stop-hook is to be run."},
+  {LLDB_OPT_SET_ALL, false, "thread-index", 'x', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeThreadIndex,                                      "The stop hook is run only for the thread whose index matches this argument."},
+  {LLDB_OPT_SET_ALL, false, "thread-id",    't', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeThreadID,                                         "The stop hook is run only for the thread whose TID matches this argument."},
+  {LLDB_OPT_SET_ALL, false, "thread-name",  'T', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeThreadName,                                       "The stop hook is run only for the thread whose thread name matches this argument."},
+  {LLDB_OPT_SET_ALL, false, "queue-name",   'q', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeQueueName,                                        "The stop hook is run only for threads in the queue whose name is given by this argument."},
+  {LLDB_OPT_SET_1,   false, "file",         'f', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eSourceFileCompletion, eArgTypeFilename, "Specify the source file within which the stop-hook is to be run."},
+  {LLDB_OPT_SET_1,   false, "start-line",   'l', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeLineNum,                                          "Set the start of the line range for which the stop-hook is to be run."},
+  {LLDB_OPT_SET_1,   false, "end-line",     'e', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeLineNum,                                          "Set the end of the line range for which the stop-hook is to be run."},
+  {LLDB_OPT_SET_2,   false, "classname",    'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeClassName,                                        "Specify the class within which the stop-hook is to be run."},
+  {LLDB_OPT_SET_3,   false, "name",         'n', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eSymbolCompletion, eArgTypeFunctionName, "Set the function name within which the stop hook will be run."},
+  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
+  // clang-format on
 };
 
 #pragma mark CommandObjectTargetStopHookDelete

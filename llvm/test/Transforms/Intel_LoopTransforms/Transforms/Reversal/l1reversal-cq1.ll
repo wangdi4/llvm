@@ -59,18 +59,18 @@
 ; 
 ;          BEGIN REGION { }
 ;<17>            + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-;<3>             |   %0 = {al:2}(%p)[-1 * i1 + -1];
+;<3>             |   %0 = (%p)[-1 * i1 + -1];
 ;<8>             |   %conv3 = (%0 < %wsize) ? 0 : -1 * %wsize + zext.i16.i32(%0);
-;<9>             |   {al:2}(%p)[-1 * i1 + -1] = %conv3;
+;<9>             |   (%p)[-1 * i1 + -1] = %conv3;
 ;<17>            + END LOOP
 ;          END REGION
 ;
 ;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:        + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; BEFORE:        |   %0 = {al:2}(%p)[-1 * i1 + -1];
+; BEFORE:        |   %0 = (%p)[-1 * i1 + -1];
 ; BEFORE:        |   %conv3 = (%0 < %wsize) ? 0 : -1 * %wsize + zext.i16.i32(%0);
-; BEFORE:        |   {al:2}(%p)[-1 * i1 + -1] = %conv3;
+; BEFORE:        |   (%p)[-1 * i1 + -1] = %conv3;
 ; BEFORE:        + END LOOP
 ; BEFORE:  END REGION
 
@@ -82,18 +82,18 @@
 ;
 ;          BEGIN REGION { modified }
 ;<17>            + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-;<3>             |   %0 = {al:2}(%p)[i1 + -1 * zext.i32.i64((-1 + %n)) + -1];
+;<3>             |   %0 = (%p)[i1 + -1 * zext.i32.i64((-1 + %n)) + -1];
 ;<8>             |   %conv3 = (%0 < %wsize) ? 0 : -1 * %wsize + zext.i16.i32(%0);
-;<9>             |   {al:2}(%p)[i1 + -1 * zext.i32.i64((-1 + %n)) + -1] = %conv3;
+;<9>             |   (%p)[i1 + -1 * zext.i32.i64((-1 + %n)) + -1] = %conv3;
 ;<17>            + END LOOP
 ;          END REGION
 ;
 ;
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:         + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; AFTER:         |   %0 = {al:2}(%p)[i1 + -1 * zext.i32.i64((-1 + %n)) + -1];
+; AFTER:         |   %0 = (%p)[i1 + -1 * zext.i32.i64((-1 + %n)) + -1];
 ; AFTER:         |   %conv3 = (%0 < %wsize) ? 0 : -1 * %wsize + zext.i16.i32(%0);
-; AFTER:         |   {al:2}(%p)[i1 + -1 * zext.i32.i64((-1 + %n)) + -1] = %conv3;
+; AFTER:         |   (%p)[i1 + -1 * zext.i32.i64((-1 + %n)) + -1] = %conv3;
 ; AFTER:         + END LOOP
 ; AFTER:   END REGION
 ;

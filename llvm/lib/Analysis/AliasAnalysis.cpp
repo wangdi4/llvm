@@ -32,6 +32,7 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
 #include "llvm/Analysis/ObjCARCAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -578,6 +579,7 @@ INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ObjCARCAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(SCEVAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(StdContainerAAWrapperPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
 INITIALIZE_PASS_END(AAResultsWrapperPass, "aa",
                     "Function Alias Analysis Results", false, true)
@@ -614,6 +616,10 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
   // Populate the results with the currently available AAs.
   if (auto *WrapperPass = getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
+#if INTEL_CUSTOMIZATION
+  if (auto *WrapperPass = getAnalysisIfAvailable<StdContainerAAWrapperPass>())
+    AAR->addAAResult(WrapperPass->getResult());
+#endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass =
@@ -652,6 +658,7 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   // preserves them. This hard coding of lists of alias analyses is specific to
   // the legacy pass manager.
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
+  AU.addUsedIfAvailable<StdContainerAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
   AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
@@ -673,6 +680,10 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
   if (auto *WrapperPass =
           P.getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
+#if INTEL_CUSTOMIZATION
+  if (auto *WrapperPass = P.getAnalysisIfAvailable<StdContainerAAWrapperPass>())
+    AAR.addAAResult(WrapperPass->getResult());
+#endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass =
@@ -726,6 +737,7 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   // to be added here also.
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
+  AU.addUsedIfAvailable<StdContainerAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
   AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();

@@ -2,14 +2,16 @@
 
 ; Check parsing output for the loop verifying that we do not create the SCC (%e.sroa.3.042 -> %e.sroa.3.1 -> %e.sroa.3.1.lcssa) because of loop liveout phi's (%e.sroa.3.1) dependence on the same bblock phi %k.0.
 
-; CHECK: DO i1 = 0, 47, 1   <DO_LOOP>
-; CHECK-NEXT: %e.sroa.3.1 = %e.sroa.3.042;
-; CHECK-NEXT: DO i2 = 0, i1, 1   <DO_LOOP>
-; CHECK-NEXT: %e.sroa.3.1.out = %e.sroa.3.1;
-; CHECK-NEXT: %e.sroa.3.1 = i1 + -1 * i2 + 1;
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %e.sroa.3.042 = %e.sroa.3.1.out;
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, 47, 1   <DO_LOOP>
+; CHECK: |   %e.sroa.3.1 = %e.sroa.3.042;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, i1, 1   <DO_LOOP>
+; CHECK: |   |   %e.sroa.3.1.out = %e.sroa.3.1;
+; CHECK: |   |   %e.sroa.3.1 = i1 + -1 * i2 + 1;
+; CHECK: |   + END LOOP
+; CHECK: |   %e.sroa.3.042 = %e.sroa.3.1.out;
+; CHECK: + END LOOP
+
 
 ;Module Before HIR; ModuleID = 'cq213070.cpp'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
