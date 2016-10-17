@@ -196,7 +196,11 @@ static bool mergeConstants(Module &M) {
 PreservedAnalyses ConstantMergePass::run(Module &M, ModuleAnalysisManager &) {
   if (!mergeConstants(M))
     return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+
+  auto PA = PreservedAnalyses();        // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
+
+  return PA;                            // INTEL
 }
 
 namespace {
@@ -205,6 +209,12 @@ struct ConstantMergeLegacyPass : public ModulePass {
   ConstantMergeLegacyPass() : ModulePass(ID) {
     initializeConstantMergeLegacyPassPass(*PassRegistry::getPassRegistry());
   }
+
+#if INTEL_CUSTOMIZATION
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<WholeProgramWrapperPass>();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // For this pass, process all of the globals in the module, eliminating
   // duplicate constants.

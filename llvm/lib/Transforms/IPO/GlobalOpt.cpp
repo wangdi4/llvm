@@ -21,6 +21,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/Intel_AggInline.h"        // INTEL
+#include "llvm/Analysis/Intel_Andersens.h"        // INTEL
 #include "llvm/Analysis/Intel_WP.h"               // INTEL
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -2577,7 +2579,13 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     };
     if (!optimizeGlobalsInModule(M, DL, &TLI, LookupDomTree))
       return PreservedAnalyses::all();
-    return PreservedAnalyses::none();
+
+    auto PA = PreservedAnalyses();        // INTEL
+    PA.preserve<WholeProgramAnalysis>();  // INTEL
+    PA.preserve<AndersensAA>();           // INTEL
+    PA.preserve<InlineAggAnalysis>();     // INTEL
+
+    return PA;                            // INTEL
 }
 
 namespace {
@@ -2602,6 +2610,9 @@ struct GlobalOptLegacyPass : public ModulePass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();            // INTEL
+    AU.addPreserved<AndersensAAWrapperPass>();             // INTEL
+    AU.addPreserved<InlineAggressiveWrapperPass>();        // INTEL
   }
 };
 }

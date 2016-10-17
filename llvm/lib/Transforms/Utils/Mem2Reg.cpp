@@ -65,11 +65,11 @@ PreservedAnalyses PromotePass::run(Function &F, FunctionAnalysisManager &AM) {
     return PreservedAnalyses::all();
 
   // FIXME: This should also 'preserve the CFG'.
-#if INTEL_CUSTOMIZATION
-  PreservedAnalyses PA;
-  PA.preserve<GlobalsAA>();
-  return PA;
-#endif // INTEL_CUSTOMIZATION
+  auto PA = PreservedAnalyses();        // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
+  PA.preserve<GlobalsAA>();             // INTEL
+
+  return PA;                            // INTEL
 }
 
 namespace {
@@ -101,6 +101,7 @@ struct PromoteLegacyPass : public FunctionPass {
     AU.addPreserved<GlobalsAAWrapperPass>();
 #endif // INTEL_CUSTOMIZATION
     AU.addPreserved<GlobalsAAWrapperPass>();       // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
   }
   };
 }  // end of anonymous namespace

@@ -94,6 +94,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeStdContainerOptPass(Registry);
   initializeTbaaMDPropagationPass(Registry); 
 #endif // INTEL_CUSTOMIZATION
+  initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);
   initializeLoopSimplifyCFGLegacyPassPass(Registry);
   initializeLoopVersioningPassPass(Registry);

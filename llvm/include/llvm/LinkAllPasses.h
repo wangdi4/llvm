@@ -72,6 +72,7 @@ namespace {
         return;
 
       (void) llvm::createAAEvalPass();
+      (void) llvm::createAggInlAALegacyPass();  // INTEL
       (void) llvm::createAggressiveDCEPass();
       (void) llvm::createBitTrackingDCEPass();
       (void) llvm::createArgumentPromotionPass();

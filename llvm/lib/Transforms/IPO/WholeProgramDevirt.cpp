@@ -34,6 +34,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/Analysis/Intel_WP.h"      // INTEL
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
 #include "llvm/IR/CallSite.h"
@@ -323,6 +324,12 @@ struct WholeProgramDevirt : public ModulePass {
     initializeWholeProgramDevirtPass(*PassRegistry::getPassRegistry());
   }
 
+#if INTEL_CUSTOMIZATION
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<WholeProgramWrapperPass>();
+  }
+#endif // INTEL_CUSTOMIZATION
+
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
@@ -345,7 +352,11 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
                                               ModuleAnalysisManager &) {
   if (!DevirtModule(M).run())
     return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+
+  auto PA = PreservedAnalyses();        // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
+
+  return PA;                            // INTEL
 }
 
 void DevirtModule::buildTypeIdentifierMap(

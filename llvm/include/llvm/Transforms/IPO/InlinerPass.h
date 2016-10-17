@@ -88,6 +88,7 @@ private:
 
 protected:
   AssumptionCacheTracker *ACT;
+  InliningLoopInfoCache *ILIC; // INTEL
   ProfileSummaryInfo *PSI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
 };

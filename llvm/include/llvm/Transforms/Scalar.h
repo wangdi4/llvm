@@ -259,6 +259,8 @@ FunctionPass *createTbaaMDPropagationPass();
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info if possible 
 FunctionPass *createIndirectCallConvPass();
+
+FunctionPass *createAggInlAALegacyPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
