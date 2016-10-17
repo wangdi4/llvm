@@ -378,8 +378,6 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
     // generate switch op
     const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
 		MachineInstr *switchInst;
-		MachineInstr *DefMI = MRI->getVRegDef(Reg);
-		 
     switchInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(switchOpcode),
       switchFalseReg).
       addReg(switchTrueReg, RegState::Define).
