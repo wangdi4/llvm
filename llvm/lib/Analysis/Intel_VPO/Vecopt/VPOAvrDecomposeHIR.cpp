@@ -45,9 +45,8 @@ FunctionPass *llvm::createAVRDecomposeHIRPass() {
 // Utility Functions
 //
 
-AVRContainerTy AVRLog;
-// TODO
-//iplist<Constant> ConstLog;
+SmallVector<AVR *, 32> AVRLog;
+SmallVector<Constant *, 16> ConstLog;
 
 static AVRValueHIR *decomposeCoeff(Constant *Const) {
   AVRValueHIR *AVal = AVRUtilsHIR::createAVRValueHIR(Const, nullptr /*Parent*/);
@@ -56,9 +55,8 @@ static AVRValueHIR *decomposeCoeff(Constant *Const) {
 }
 
 static AVRValueHIR *decomposeCoeff(int64_t Coeff, Type *Type) {
-  // CHECKME: getSigned
   Constant *ConstCoeff = ConstantInt::getSigned(Type, Coeff);
-  //ConstLog.push_back(ConstCoeff);
+  ConstLog.push_back(ConstCoeff);
   return decomposeCoeff(ConstCoeff);
 }
 
@@ -73,8 +71,7 @@ static AVR *combineSubTrees(AVR *LHS, AVR *RHS, Type *Ty, unsigned OpCode) {
   else if (RHS == nullptr)
     return LHS;
   else {
-    AVRExpressionHIR *AExpr =
-        AVRUtilsHIR::createAVRExpressionHIR(LHS, RHS, Ty, OpCode);
+    AVRExpression *AExpr = AVRUtils::createAVRExpression(LHS, RHS, OpCode, Ty);
     AVRLog.push_back(AExpr);
     return AExpr;
   }
@@ -149,16 +146,19 @@ AVR *BlobDecompVisitor::visitConstant(const SCEVConstant *Constant) {
 
 // TODO: Skipping conversions by now
 AVR *BlobDecompVisitor::visitTruncateExpr(const SCEVTruncateExpr *Expr) {
+  DEBUG(dbgs() << "Warning: Skipping SCEVTruncatedExpr!:\n");
   return visit(Expr->getOperand());
 }
 
 // TODO: Skipping conversions by now
 AVR *BlobDecompVisitor::visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr) {
+  DEBUG(dbgs() << "Warning: Skipping SCEVZeroExtendExpr!:\n");
   return visit(Expr->getOperand());
 }
 
 // TODO: Skipping conversions by now
 AVR *BlobDecompVisitor::visitSignExtendExpr(const SCEVSignExtendExpr *Expr) {
+  DEBUG(dbgs() << "Warning: Skipping SCEVSignExtendExpr!:\n");
   return visit(Expr->getOperand());
 }
 
@@ -207,7 +207,7 @@ private:
   AVR *decompose(AVRValueHIR *AVal);
 
   AVR *decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE);
-  AVR *decomposeMemoryOp() {return nullptr; /*TODO*/}
+  AVRExpression *decomposeMemoryOp(RegDDRef *RDDR);
   AVR *decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel, Type *Ty);
   AVR *decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx, int64_t BlobCoeff);
 
@@ -228,22 +228,20 @@ bool HIRDecomposer::needsDecomposition(AVRValueHIR *AVal) {
   //   - Constants
   //   - BlobDDRefs (already decomposed)
   //   - IVs (already decomposed)
-  if (AVal->isConstant() || isa<BlobDDRef>(AVal->getValue()) ||
-      AVal->isIVValue())
+  if (AVal->isConstant() || AVal->isIVValue() ||
+      isa<BlobDDRef>(AVal->getValue()))
     return false;
 
   // At this point, the incoming AVRValueHIR must have a RegDDRef pointer
-  assert(isa<RegDDRef>(AVal->getValue()) && "Expected a RegDDRef" );
+  assert(AVal->isDDRefValue() && isa<RegDDRef>(AVal->getValue()) &&
+         "Expected a RegDDRef");
   RegDDRef * RDDR = cast<RegDDRef>(AVal->getValue());
  
   // We don't need to decompose:
   //   - Self blobs
   //   - Null pointers
   //   - Metadata
-  // TODO:
-  //   - Memory Ops (GEP + SingleCanonExpr)
-  if (RDDR->isSelfBlob() || RDDR->isMetadata() || RDDR->isNull() ||
-      RDDR->isLval() || RDDR->hasGEPInfo() || !RDDR->isSingleCanonExpr()) {
+  if (RDDR->isSelfBlob() || RDDR->isMetadata() || RDDR->isNull()) {
     return false;
   }
 
@@ -254,34 +252,32 @@ AVR * HIRDecomposer::decompose(AVRValueHIR *AVal) {
   assert(isa<RegDDRef>(AVal->getValue()) && "Expected a RegDDRef" );
   RegDDRef * RDDR = cast<RegDDRef>(AVal->getValue());
 
-  //TODO: Memory ops
-  assert(RDDR->isSingleCanonExpr() && "Expected a single CanonExpr" );
-  
-  return decomposeCanonExpr(RDDR, RDDR->getSingleCanonExpr());
+  if (RDDR->isTerminalRef()) {
+    assert(RDDR->isSingleCanonExpr() && "Expected a single CanonExpr");
+    return decomposeCanonExpr(RDDR, RDDR->getSingleCanonExpr());
+  } else {
+    // Memory ops
+    return decomposeMemoryOp(RDDR);
+  }
 }
 
 AVR *HIRDecomposer::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
-  AVR *CETree = nullptr;
 
-  // TODO: The type of new AVRExpressionHIRs/AVRValueHIRs is not set
-  // appropriately. Currently I'm mainly using the src type of the CE, which is
-  // wrong. As AVRExpressionHIR/AVValueHIR will have type, I wonder if it's worth
-  // moving Type to AVR even though some sub-classes will set it to nullptr.
-  // This is to avoid:
-  //
-  // Type * type;
-  // if (AVRExpression expr = dyn_cast<AVRExpression>(CETree))
-  //   type = expr.getType();
-  // else AVRValue val = dyn_cast...
-  //   type = val.getType();
-  // else
-  //   llvm_unreachable(...);
+  DEBUG(dbgs() << "  Decomposing CanonExpr: ");
+  DEBUG(CE->dump());
+  DEBUG(dbgs() << "\n");
+
+  // Special case for constant CanonExprs
+  if (CE->isConstant()) {
+    return decomposeCoeff(CE->getConstant(), CE->getDestType());
+  }
+
+  AVR *CETree = nullptr;
 
   // Constant Additive
   int64_t AddCoeff = CE->getConstant();
   if (AddCoeff != 0) {
-    // TODO: Type
-    CETree = decomposeCoeff(AddCoeff, CE->getSrcType());
+    CETree = decomposeCoeff(AddCoeff, CE->getDestType());
   }
 
   // Decompose inductive expression
@@ -290,9 +286,8 @@ AVR *HIRDecomposer::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     int64_t IVConstCoeff = CE->getIVConstCoeff(IVIt);
 
     if (IVConstCoeff != 0) {
-      // TODO: Type
-      AVR *IVTree = decomposeIV(RDDR, CE, i, CE->getSrcType());
-      CETree = combineSubTrees(CETree, IVTree, CE->getSrcType(),
+      AVR *IVTree = decomposeIV(RDDR, CE, i, CE->getDestType());
+      CETree = combineSubTrees(CETree, IVTree, CE->getDestType(),
                                Instruction::Add);
     }
   }
@@ -307,9 +302,8 @@ AVR *HIRDecomposer::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
 
       if (BlobCoeff != 0) {
         AVR *BlobTree = decomposeBlob(RDDR, BlobIdx, BlobCoeff);
-        //TODO: Type
-        CETree =
-            combineSubTrees(CETree, BlobTree, CE->getSrcType(), Instruction::Add);
+        CETree = combineSubTrees(CETree, BlobTree, CE->getDestType(),
+                                 Instruction::Add);
       }
     }
   }
@@ -317,13 +311,45 @@ AVR *HIRDecomposer::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   // Decompose denominator
   int64_t Denominator = CE->getDenominator();
   if (Denominator != 1) {
-    // TODO: type
-    AVR *DenomTree = decomposeCoeff(Denominator, CE->getSrcType());
+    AVR *DenomTree = decomposeCoeff(Denominator, CE->getDestType());
     CETree =
-        combineSubTrees(CETree, DenomTree, CE->getSrcType(), Instruction::UDiv);
+        combineSubTrees(CETree, DenomTree, CE->getDestType(), Instruction::UDiv);
   }
 
+  assert (CETree && "CanonExpr has not been decomposed");
   return CETree;
+}
+
+AVRExpression *HIRDecomposer::decomposeMemoryOp(RegDDRef *RDDR) {
+
+  DEBUG(dbgs() << "  Decomposing MemOp:  ");
+  DEBUG(RDDR->dump());
+  DEBUG(dbgs() << "\n");
+
+  assert (RDDR->hasGEPInfo() && "Expected a GEP RegDDRef");
+  SmallVector<AVR *, 2> GepOperands;
+
+  DEBUG(dbgs() << "  Base: ");
+  DEBUG(RDDR->getBaseCE()->dump());
+  DEBUG(dbgs() << "\n");
+ 
+  // Decompose Base
+  AVR *BaseTree = decomposeCanonExpr(RDDR, RDDR->getBaseCE());
+  GepOperands.push_back(BaseTree);
+
+  unsigned numDims = RDDR->getNumDimensions();
+  DEBUG(dbgs() << "  NumDims: " << numDims << "\n");
+  assert (numDims > 0 && "The number of dimensions is 0");
+
+  // Decompose Subscripts
+  for (unsigned i = numDims; i > 0; --i) {
+    DEBUG(dbgs() << "  Decomposing Dim: " << i << "\n");
+    AVR *DimIdx = decomposeCanonExpr(RDDR, RDDR->getDimensionIndex(i));
+    GepOperands.push_back(DimIdx);
+  }
+
+  return AVRUtils::createAVRExpression(GepOperands, Instruction::GetElementPtr,
+                                       RDDR->getDestType()->getPointerTo());
 }
 
 AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,
@@ -344,7 +370,6 @@ AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,
   }
 
   if (IVConstCoeff != 1) {
-    // CHECKME: SrcType
     AVR *IVCoeffValue = decomposeCoeff(IVConstCoeff, Ty);
     IVSubTree = combineSubTrees(IVCoeffValue, IVSubTree, Ty, Instruction::Mul);
   }
@@ -357,13 +382,12 @@ AVR *HIRDecomposer::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
   BlobTy Blob = BlobUtils::getBlob(BlobIdx);
   AVR *BlobSubTree;
 
-  // TODO: Reuse the visitor: One visitor for all blobs. RDDR is the same
+  // Decompose Blob
   BlobDecompVisitor BlobDecomp(*RDDR);
   BlobSubTree = BlobDecomp.visit(Blob);
 
   // Create AVRExpression for Coeff * Blob
   if (BlobCoeff != 1) {
-    // CHECKME: type
     AVR *BlobCoeffValue = decomposeCoeff(BlobCoeff, Blob->getType());
     BlobSubTree = combineSubTrees(BlobCoeffValue, BlobSubTree, Blob->getType(),
                                  Instruction::Mul);
@@ -373,13 +397,17 @@ AVR *HIRDecomposer::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
 }
 
 void HIRDecomposer::visit(AVRValueHIR *AVal) {
-  
+
+  DEBUG(dbgs() << "Visiting AVRValue: ");
+  DEBUG(AVal->dump());
+  DEBUG(dbgs() << "\n");
+ 
   if (needsDecomposition(AVal)) {
     AVR *SubTree = decompose(AVal);
 
-    assert(SubTree != nullptr && isa<AVRExpression>(SubTree) &&
+    assert(SubTree && isa<AVRExpression>(SubTree) &&
            "Decomposition is unnecessary");
-    AVRUtils::setDecompTree(AVal, SubTree);
+    AVRUtils::setDecompTree(AVal, cast<AVRExpression>(SubTree));
   }
 }
 
@@ -408,9 +436,14 @@ bool AVRDecomposeHIR::runOnFunction(Function &F) {
 
   AVRG = &getAnalysis<AVRGenerateHIR>();
 
+  DEBUG(dbgs() << "AVRDecomposerHIR\n");
+
   HIRDecomposer HIRDecomp;
   AVRVisitor<HIRDecomposer> AVisitor(HIRDecomp);
   AVisitor.forwardVisitAll(AVRG);
+
+  DEBUG(dbgs() << "Abstract Layer After Decomposition:\n");
+  DEBUG(this->dump(PrintAvrDecomp));
 
   return false;
 }
@@ -436,6 +469,5 @@ void AVRDecomposeHIR::dump(VerbosityLevel VLevel) const {
 
 void AVRDecomposeHIR::releaseMemory() {
   AVRLog.clear();
-  //ConstLog.clear();
+  ConstLog.clear();
 }
-

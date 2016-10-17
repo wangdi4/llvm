@@ -112,10 +112,14 @@ public:
   static AVRValue *createAVRValue(AVRExpression *ReachingDef);
 
   /// \brief Returns a new AVRExpression node.
-  static AVRExpression *createAVRExpression(Type *ValType,
-                                            const SmallVectorImpl<AVR*>& Operands,
-                                            unsigned Operation,
-                                            CmpInst::Predicate Predicate = CmpInst::BAD_ICMP_PREDICATE);
+  static AVRExpression *createAVRExpression(AVR *LHS, AVR *RHS,
+                                            unsigned Operation, Type *ExprType);
+
+  /// \brief Returns a new AVRExpression node.
+  static AVRExpression *
+  createAVRExpression(const SmallVectorImpl<AVR *> &Operands,
+                      unsigned Operation, Type *ExprType,
+                      ConditionTy Condition = CmpInst::BAD_ICMP_PREDICATE);
 
   /// \brief Returns a new AVRBranch node.
   static AVRBranch *createAVRBranch(AVRLabel *Sucessor);
@@ -135,7 +139,7 @@ public:
   static void setParent(AVR *Avr, AVR* Parent);
 
   /// \brief Sets the decomposed sub-expression tree for this value.
-  static void setDecompTree(AVRValue *AVal, AVR *DecompTree);
+  static void setDecompTree(AVRValue *AVal, AVRExpression *DecompTree);
 
   /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
   static void addAVRPredicateIncoming(AVRPredicate *APredicate,
@@ -150,6 +154,10 @@ public:
 
   /// \brief Sets AvrPhi's LHS to Node.
   static void setAVRPhiLHS(AVRPhi *APhi, AVRValue *AValue);
+
+  /// \brief Sets condition of an AVRExpression representing a compare operation.
+  static void setAVRExpressionCondition(AVRExpression *AExpr,
+                                        CmpInst::Predicate Condition);
 
   /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
   static void addAVRPhiIncoming(AVRPhi *APhi, AVRValue *AValue,

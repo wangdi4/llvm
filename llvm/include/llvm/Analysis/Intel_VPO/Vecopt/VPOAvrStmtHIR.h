@@ -130,7 +130,7 @@ public:
 /// See AVRValue class for more information.
 class AVRValueHIR : public AVRValue {
 
-protected:
+public:
   /// Information at AVR level for an AVRValueHIR that represents an IV 
   struct IVValueInfo {
     CanonExpr *CE;

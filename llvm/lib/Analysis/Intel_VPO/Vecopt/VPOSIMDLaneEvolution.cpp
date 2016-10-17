@@ -12,20 +12,23 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
+#include "llvm/ADT/GraphTraits.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrDecomposeHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPODefUse.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-
-#include "llvm/PassSupport.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/IR/PassManager.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSLEV.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/PassSupport.h"
+#include "llvm/Support/DOTGraphTraits.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/GraphWriter.h"
-#include "llvm/Support/FileSystem.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 
 #define DEBUG_TYPE "vpo-simd-lane-evolution"
 
@@ -108,7 +111,23 @@ public:
   void visit(AVR* ANode) {}
   void postVisit(AVR* ANode) {}
   void postVisit(AVRExpression* AExpr) { SLEV.construct(AExpr); }
-  void visit(AVRValueIR* AValueIR) { SLEV.construct(AValueIR); }
+  void visit(AVRValue *AVal) {
+    // Construct only SLEV for AVRValues that are not a wrapper (haven't been
+    // decomposed)
+    if (!AVal->hasDecompTree())
+      SLEV.construct(AVal);
+  }
+  void postVisit(AVRValue *AVal) {
+    // Propagate SLEV from DecomTree to wrapper AVRValue
+    if (AVal->hasDecompTree()) 
+      SLEV.propagateSLEV(AVal);
+  }
+  void visit(AVRValueIR* AValueIR) {
+    // Construct only SLEV for AVRValues that are not a wrapper (haven't been
+    // decomposed)
+    if (!AValueIR->hasDecompTree())
+      SLEV.construct(AValueIR);
+  }
   void visit(AVRPhiIR *APhiIR) { SLEV.construct(APhiIR); }
   void visit(AVRLabelIR *ALabelIR) { SLEV.construct(ALabelIR); }
   void visit(AVRCallIR *ACallIR) { SLEV.construct(ACallIR); }
@@ -117,7 +136,12 @@ public:
   void visit(AVRCompareIR *ACompareIR) { SLEV.construct(ACompareIR); }
   void visit(AVRBranchIR *ABranchIR) { SLEV.construct(ABranchIR); }
   void visit(AVRIfIR *AIfIR) { SLEV.construct(AIfIR); }
-  void visit(AVRValueHIR* AValueHIR) { SLEV.construct(AValueHIR); }
+  void visit(AVRValueHIR* AValueHIR) {
+    // Construct only SLEV for AVRValues that are not a wrapper (haven't been
+    // decomposed)
+    if (!AValueHIR->hasDecompTree())
+      SLEV.construct(AValueHIR);
+  }
   void visit(AVRLoopIR *ALoopIR) { SLEV.entering(ALoopIR); }
   void postVisit(AVRLoopIR *ALoopIR) { SLEV.exiting(ALoopIR); }
   void visit(AVRLoopHIR *ALoopHIR) { SLEV.entering(ALoopHIR); }
@@ -126,17 +150,18 @@ public:
 
 void DDRef2AVR::visit(AVRValueHIR* AValueHIR) {
 
-  // FIXME: AVRValueHIR may not be a RegDDRef
-  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
+  if (DDRef *DDR = AValueHIR->getValue()) {
     if (AvrDefUseHIR::isDef(AValueHIR)) {
 
       // This value is a Def - map its underlying RefDDRef to it.
-      Map[RDDF] = AValueHIR;
+      Map[DDR] = AValueHIR;
     } else {
 
-      // This value is a Use - map all its underlying RegDDRef's blobs to it.
-      for (auto I = RDDF->blob_cbegin(), E = RDDF->blob_cend(); I != E; ++I)
-        Map[*I] = AValueHIR;
+      if (RegDDRef *RDDR = dyn_cast<RegDDRef>(DDR)) {
+        // This value is a Use - map all its underlying RegDDRef's blobs to it.
+        for (auto I = RDDR->blob_cbegin(), E = RDDR->blob_cend(); I != E; ++I)
+          Map[*I] = AValueHIR;
+      }
     }
   }
 }
@@ -219,8 +244,7 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
 
   SLEVConstructor Constructor(*this);
   AVRVisitor<SLEVConstructor> AVisitor(Constructor);
-  AVisitor.forwardVisit(Begin, End, true, true,
-                        false /*RecursiveInsideValues*/);
+  AVisitor.forwardVisit(Begin, End, true, true, true /*RecurseInsideValues*/);
 
   // Add any reaching SLEVs that were not present during construction due to
   // visit order.
@@ -387,6 +411,34 @@ void SIMDLaneEvolutionAnalysisBase::construct(AVRExpression* AExpr) {
   }
 
   setSLEV(AExpr, ExprSLEV);
+}
+
+void SIMDLaneEvolutionAnalysisBase::construct(AVRValue* AVal) {
+  assert(!AVal->hasDecompTree() &&
+         "Unexpected AVRValueHIRs with decomposition!");
+
+  setSLEV(AVal, constructSLEV(AVal));
+}
+
+void SIMDLaneEvolutionAnalysisBase::propagateSLEV(AVRValue* AVal) {
+  assert(AVal->hasDecompTree() &&
+         "Unexpected AVRValueHIRs without decomposition!");
+
+  // Propagate DecompTree's SLEV to wrapper AVRValue
+  setSLEV(AVal, new SLEVIdentity(*SLEVs[AVal->getDecompTree()]));
+}
+
+SLEVInstruction *SIMDLaneEvolutionAnalysisBase::constructSLEV(AVRValue *AValue) {
+  // SLEV for Constants
+  assert(AValue->isConstant() && "Only constat AVRValues are expected here");
+
+  const Constant *C = AValue->getConstant();
+  if (const ConstantInt *CInt = dyn_cast<ConstantInt>(C))
+    return createPredefinedSLEV(SLEV(CONSTANT, toAPSInt(CInt->getValue())));
+  else if (const ConstantFP *CFP = dyn_cast<ConstantFP>(C))
+    return createPredefinedSLEV(SLEV(CONSTANT, CFP->getValueAPF()));
+  else
+    llvm_unreachable("Unexpected type of Constant");
 }
 
 void SIMDLaneEvolutionAnalysisBase::setSLEV(AVR* Avr, SLEVInstruction* Slev) {
@@ -853,6 +905,14 @@ SIMDLaneEvolution::~SIMDLaneEvolution() {
   SLEV = nullptr;
 }
 
+void SIMDLaneEvolution::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<AvrDefUse>();
+  AU.addRequired<AvrCFG>();
+  AU.addRequired<AVRGenerate>();
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
+  AU.setPreservesAll();
+}
+
 SLEVInstruction* SIMDLaneEvolutionAnalysis::constructValueSLEV(const Value* Val,
                                                                const ReachingAvrsTy& ReachingVars) {
 
@@ -1109,8 +1169,8 @@ public:
     SLEVPropagator Propagator;
     AVRVisitor<SLEVPropagator> AVisitor(Propagator);
     assert(AAssign->hasLHS() && "Assign without an LHS");
-    AVisitor.visit(AAssign->getLHS(), true, false,
-                   false /*RecurseInsideValues*/, true);
+    AVisitor.visit(AAssign->getLHS(), true, false, true /*RecurseInsideValues*/,
+                   true);
   }
   void visit(AVRExpression* AExpr) {
     // This is LHS - take its parent's SLEV.
@@ -1140,7 +1200,7 @@ void SIMDLaneEvolutionAnalysisUtilBase::runOnAvr(AvrItr Begin, AvrItr End) {
   // Propagate the immediate results to the rest of the nodes.
   SLEVPropagator Propagator;
   AVRVisitor<SLEVPropagator> AVisitor(Propagator);
-  AVisitor.forwardVisit(Begin, End, true, true, false /*RecurseInsideValues*/);
+  AVisitor.forwardVisit(Begin, End, true, true, true /*RecurseInsideValues*/);
 }
 
 bool SIMDLaneEvolution::runOnFunction(Function &F) {
@@ -1170,8 +1230,9 @@ bool SIMDLaneEvolution::runOnFunction(Function &F) {
 INITIALIZE_PASS_BEGIN(SIMDLaneEvolutionHIR, "slev-hir",
                       "VPO SIMD Lane Evolution Analysis for HIR",
                       false, true)
-INITIALIZE_PASS_DEPENDENCY(AvrDefUseHIR)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
+INITIALIZE_PASS_DEPENDENCY(AvrDefUseHIR)
+INITIALIZE_PASS_DEPENDENCY(AVRDecomposeHIR)
 INITIALIZE_PASS_END(SIMDLaneEvolutionHIR, "slev-hir",
                     "VPO SIMD Lane Evolution Analysis for HIR",
                     false, true)
@@ -1186,6 +1247,15 @@ SIMDLaneEvolutionHIR::~SIMDLaneEvolutionHIR() {
   if (SLEV)
     delete SLEV;
   SLEV = nullptr;
+}
+
+void SIMDLaneEvolutionHIR::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<AVRGenerateHIR>();
+  AU.addRequired<AVRDecomposeHIR>();
+  AU.addRequired<AvrDefUseHIR>();
+  AU.addRequired<AvrCFGHIR>();
+  AU.addRequiredTransitive<HIRParser>();
+  AU.setPreservesAll();
 }
 
 bool SIMDLaneEvolutionHIR::runOnFunction(Function &F) {
@@ -1342,26 +1412,58 @@ SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValue
     return NBSC.getGeneratedSLEV();
   }
 
+  assert(isa<RegDDRef>(AValueHIR->getValue()) && "Expected a RegDDRef");
+  RegDDRef *RDDR = cast<RegDDRef>(AValueHIR->getValue());
+
   DDRef* DDR = nullptr;
+  if (RDDR->isSelfBlob()) {
 
-  // FIXME: AVRValueHIR may not be a RegDDRef
-  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
-    if (RDDF->isSelfBlob()) {
+    DDR = RDDR;
+  } else {
 
-      DDR = RDDF;
-    } else {
+    for (RegDDRef::const_blob_iterator It = RDDR->blob_cbegin(),
+                                       E = RDDR->blob_cend();
+         It != E; ++It) {
 
-      for (RegDDRef::const_blob_iterator It = RDDF->blob_cbegin(),
-                                         E = RDDF->blob_cend();
-           It != E; ++It) {
-
-        if ((*It)->getBlobIndex() == BlobIndex) {
-          DDR = *It;
-          break;
-        }
+      if ((*It)->getBlobIndex() == BlobIndex) {
+        DDR = *It;
+        break;
       }
     }
-    assert(DDR && "Blob has no BlobDDRef");
+  }
+  assert(DDR && "Blob has no BlobDDRef");
+  const AvrSetTy &ReachingDefs = getDefUse()->getReachingDefs(AValueHIR, DDR);
+  if (ReachingDefs.empty()) {
+
+    // No reaching Defs means this symbase is defined outside the WRN, which
+    // means it is UNIFORM within the WRN.
+    return createPredefinedSLEV(UNIFORM);
+  } else {
+
+    // At least one Def exists.
+    SLEVUse *SU = new SLEVUse();
+    for (AVR *ReachingDef : ReachingDefs)
+      addReaching(SU, ReachingDef, DDR);
+    return SU;
+  }
+}
+
+SLEVInstruction *
+SIMDLaneEvolutionAnalysisHIR::constructBasicSLEV(AVRValueHIR *AValueHIR,
+                                                 unsigned VectorizedDim) {
+
+  // SLEV for Constants
+  if (AValueHIR->isConstant()) {
+    return SIMDLaneEvolutionAnalysisBase::constructSLEV(AValueHIR);
+  }
+
+  // SLEV for DDRefs
+  if (AValueHIR->isDDRefValue()) {
+    DDRef *DDR = AValueHIR->getValue();
+    assert((isa<BlobDDRef>(DDR) ||
+            (isa<RegDDRef>(DDR) && cast<RegDDRef>(DDR)->isSelfBlob())) &&
+           "Only BlobDDRefs are expected");
+
     const AvrSetTy &ReachingDefs = getDefUse()->getReachingDefs(AValueHIR, DDR);
     if (ReachingDefs.empty()) {
 
@@ -1377,8 +1479,17 @@ SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValue
       return SU;
     }
   }
-  
-  return nullptr;
+
+  // SLEV for IVs
+  if (AValueHIR->isIVValue()) {
+    AVRValueHIR::IVValueInfo *IVInfo = AValueHIR->getIVValue();
+    if (IVInfo->Index == VectorizedDim)
+      return createPredefinedSLEV(SLEV(STRIDED, SLEV::One));
+    else
+      return createPredefinedSLEV(UNIFORM);
+  }
+
+  llvm_unreachable("Unexpected decomposed AVRValueHIR");
 }
 
 SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValueHIR,
@@ -1473,52 +1584,56 @@ SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValue
   return SLEVTree;
 }
 
-void SIMDLaneEvolutionAnalysisHIR::construct(AVRValueHIR* AValueHIR) {
-  
-  // FIXME: AVRValueHIR may not be a RegDDRef
-  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
-    unsigned VectorizedDim = 1; // TODO - current: outermost
+void SIMDLaneEvolutionAnalysisHIR::construct(AVRValueHIR *AValueHIR) {
 
-    if (DefUseHIR->isDef(AValueHIR)) {
+  assert(!AValueHIR->hasDecompTree() &&
+         "Unexpected AVRValueHIRs with decomposition!");
 
-      // AVRValueHIRs are (ironically) not Defs if their RegDDRef is an HIR Def
-      // (i.e. if they are scalar lvalues). The actual Def is the RHS
-      // AVRExpression. We therefore do not construct a SLEV for them - the SLEV
-      // of the RHS will be propagated to them later.
-      return;
+  unsigned VectorizedDim = 1; // TODO - current: outermost
+
+  if (DefUseHIR->isDef(AValueHIR)) {
+
+    // AVRValueHIRs are (ironically) not Defs if their RegDDRef is an HIR Def
+    // (i.e. if they are scalar lvalues). The actual Def is the RHS
+    // AVRExpression. We therefore do not construct a SLEV for them - the SLEV
+    // of the RHS will be propagated to them later.
+    return;
+  }
+
+  // This AVR-VALUE-HIR is a computation, and as such is a Def and a Use and
+  // should have a SLEV tracking its computation.
+  RegDDRef *RDDR = nullptr;
+
+  if (AValueHIR->isIVValue() || isa<BlobDDRef>(AValueHIR->getValue()) ||
+      ((RDDR = dyn_cast<RegDDRef>(AValueHIR->getValue())) &&
+       RDDR->isTerminalRef())) {
+
+    setSLEV(AValueHIR, constructBasicSLEV(AValueHIR, VectorizedDim));
+  } else {
+
+    assert(RDDR && "Expected a RegDDRef");
+
+    // This is a memory access (either a[i] or *p) - we construct a SLEV for
+    // the address it represents (the memory operation itself is represented
+    // explicitly in AVR (e.g. EXPR(load (VALUE(RegDDRef)))).
+
+    CanonExpr *BaseCE = RDDR->getBaseCE();
+    assert(BaseCE && "Expected memref to have a base");
+
+    SLEVInstruction *BaseSLEV =
+        constructSLEV(AValueHIR, *BaseCE, VectorizedDim);
+    unsigned BaseSize = 100; // TODO
+    SLEVAddress *AddressSlev = new SLEVAddress(BaseSLEV, BaseSize);
+    for (auto It = RDDR->canon_rbegin(), E = RDDR->canon_rend(); It != E;
+         ++It) {
+      CanonExpr *DimCE = *It;
+      SLEVInstruction *IndexSLEV =
+          constructSLEV(AValueHIR, *DimCE, VectorizedDim);
+      unsigned IndexSize = 100; // TODO
+      AddressSlev->addIndex(IndexSLEV, IndexSize);
     }
 
-    // This AVR-VALUE-HIR is a computation, and as such is a Def and a Use and
-    // should have a SLEV tracking its computation.
-
-    if (RDDF->isTerminalRef()) {
-
-      CanonExpr *CE = RDDF->getSingleCanonExpr();
-      setSLEV(AValueHIR, constructSLEV(AValueHIR, *CE, VectorizedDim));
-    } else {
-
-      // This is a memory access (either a[i] or *p) - we construct a SLEV for
-      // the address it represents (the memory operation itself is represented
-      // explicitly in AVR (e.g. EXPR(load (VALUE(RegDDRef)))).
-
-      CanonExpr *BaseCE = RDDF->getBaseCE();
-      assert(BaseCE && "Expected memref to have a base");
-
-      SLEVInstruction *BaseSLEV =
-          constructSLEV(AValueHIR, *BaseCE, VectorizedDim);
-      unsigned BaseSize = 100; // TODO
-      SLEVAddress *AddressSlev = new SLEVAddress(BaseSLEV, BaseSize);
-      for (auto It = RDDF->canon_rbegin(), E = RDDF->canon_rend(); It != E;
-           ++It) {
-        CanonExpr *DimCE = *It;
-        SLEVInstruction *IndexSLEV =
-            constructSLEV(AValueHIR, *DimCE, VectorizedDim);
-        unsigned IndexSize = 100; // TODO
-        AddressSlev->addIndex(IndexSLEV, IndexSize);
-      }
-
-      setSLEV(AValueHIR, AddressSlev);
-    }
+    setSLEV(AValueHIR, AddressSlev);
   }
 }
 

@@ -14,22 +14,18 @@
 #ifndef LLVM_ANALYSIS_VPO_SLEV_ANALYSIS_H
 #define LLVM_ANALYSIS_VPO_SLEV_ANALYSIS_H
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSLEV.h"
 #include "llvm/ADT/DenseMap.h"
-
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPODefUse.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOCFG.h"
-
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
-
-#include "llvm/ADT/GraphTraits.h"
-#include "llvm/Support/DOTGraphTraits.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOCFG.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPODefUse.h"
 
 namespace llvm { // LLVM Namespace
 
 namespace vpo {  // VPO Vectorizer Namespace
 
+//TODO: non-deterministic behavior?
 typedef SmallPtrSet<AVR*, 2> AvrSetTy;
 
 class SIMDLaneEvolutionAnalysisBase;
@@ -962,7 +958,7 @@ private:
 
 protected:
 
-  DenseMap<AVR*, SLEVInstruction*> SLEVs;
+  MapVector<AVR*, SLEVInstruction*> SLEVs;
 
   std::vector<SLEVInstruction*>* FirstCalcQueue = nullptr;
 
@@ -1073,6 +1069,7 @@ public:
   const AvrCFGBase* getCFG() { return CFG; }
 
   virtual void construct(AVRExpression* AExpr);
+  virtual void construct(AVRValue* AVal);
   virtual void construct(AVRValueIR* AValueIR) { llvm_unreachable("Base"); }
   virtual void construct(AVRPhiIR *APhiIR) { llvm_unreachable("Base"); }
   virtual void construct(AVRLabelIR *ALabelIR) { llvm_unreachable("Base"); }
@@ -1088,11 +1085,18 @@ public:
   virtual void entering(AVRLoopHIR *ALoopHIR) { llvm_unreachable("Base"); }
   virtual void exiting(AVRLoopHIR *ALoopHIR) { llvm_unreachable("Base"); }
 
+  void propagateSLEV(AVRValue* AVal);
+  SLEVInstruction *constructSLEV(AVRValue *AValue);
+
   void print(raw_ostream &OS) const;
+
+  static APSInt toAPSInt(const APInt &Val) {
+    return APSInt(Val, false); // int64_t, so isUnsigned = false.
+  }
 
   static APSInt toAPSInt(int64_t Val) {
     APInt IntVal(64, Val); // int64_t, so bitwidth = 64 bit
-    return APSInt(IntVal, false); // int64_t, so isUnsigned = false.
+    return toAPSInt(IntVal);
   }
 };
 
@@ -1207,14 +1211,7 @@ public:
 
   virtual ~SIMDLaneEvolution();
 
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AvrDefUse>();
-    AU.addRequired<AvrCFG>();
-    AU.addRequired<AVRGenerate>();
-    AU.addRequiredTransitive<LoopInfoWrapperPass>();
-    AU.setPreservesAll();
-  }
-
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F) override;
 
   void print(raw_ostream &OS, const Module* = nullptr) const override {
@@ -1269,11 +1266,17 @@ public:
   /// @return The constructed SLEV
   SLEVInstruction* constructSLEV(AVRValueHIR* AValueHIR, unsigned BlobIndex);
 
-  /// \brief Utility function that onstructs a SLEV for a single canon-expr
+  /// \brief Utility function that constructs a SLEV for a single canon-expr
   /// @param AValueHIR The AVRValue whose RegDDRef contains the canon-expr.
   /// @return The constructed SLEV
   SLEVInstruction* constructSLEV(AVRValueHIR* AValueHIR, CanonExpr& CE,
                                  unsigned VectorizedDim);
+
+  /// \brief Utility function that constructs a SLEV for a simple (decomposed)
+  /// @param AValueHIR
+  /// @return The constructed SLEV
+  SLEVInstruction *constructBasicSLEV(AVRValueHIR *AValueHIR,
+                                      unsigned VectorizedDim);
 
   void construct(AVRValueHIR* AValueHIR) override;
   void entering(AVRLoopHIR *ALoopHIR) override;
@@ -1326,14 +1329,7 @@ public:
 
   virtual ~SIMDLaneEvolutionHIR();
 
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AvrDefUseHIR>();
-    AU.addRequired<AvrCFGHIR>();
-    AU.addRequired<AVRGenerateHIR>();
-    AU.addRequiredTransitive<HIRParser>();
-    AU.setPreservesAll();
-  }
-
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F) override;
 
   void print(raw_ostream &OS, const Module* = nullptr) const override {

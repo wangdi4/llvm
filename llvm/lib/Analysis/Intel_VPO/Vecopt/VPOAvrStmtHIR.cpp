@@ -52,9 +52,9 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
   const Instruction* LLVMInstruction = HLInst->getLLVMInstruction();
   Opcode = LLVMInstruction->getOpcode();
   if (const CmpInst* LLVMCmpInst = dyn_cast<CmpInst>(LLVMInstruction))
-    Predicate = LLVMCmpInst->getPredicate();
+    Condition = LLVMCmpInst->getPredicate();
   else
-    Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
+    Condition = CmpInst::Predicate::BAD_ICMP_PREDICATE;
 
   this->setParent(HLAssign); // Set Parent
 
@@ -107,8 +107,8 @@ AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
 
   const HLIf *HIf = AIf->getCompareInstruction();
   HIRNode = nullptr; // this is an HLIf predicate - no underlying HLInst.
-  Predicate = *PredIt;
-  if (Predicate <= CmpInst::Predicate::LAST_FCMP_PREDICATE)
+  Condition = *PredIt;
+  if (Condition <= CmpInst::Predicate::LAST_FCMP_PREDICATE)
     this->Opcode = Instruction::FCmp;
   else
     this->Opcode = Instruction::ICmp;
@@ -143,7 +143,6 @@ AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR *LHS, AVRExpressionHIR *RHS)
   assert(!RHS->getType()->isVectorTy() && "RHS has vector type");
 
   HIRNode = nullptr; // no underlying HLInst.
-  this->Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
   this->Opcode = Instruction::And;
   this->Operation = this->Opcode;
 
@@ -165,7 +164,6 @@ AVRExpressionHIR::AVRExpressionHIR(AVR* LHS,
   assert(Ty && "Expression type is null");
 
   HIRNode = nullptr; // no underlying HLInst.
-  this->Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
   // Why do we need Opcode and Operation?
   this->Opcode = Opcode;
   this->Operation = this->Opcode;
@@ -303,7 +301,7 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   // Close up open braces
-  if (VLevel >= PrintAvrDecomp)
+  if (VLevel >= PrintAvrType)
     OS << "}";
 }
 

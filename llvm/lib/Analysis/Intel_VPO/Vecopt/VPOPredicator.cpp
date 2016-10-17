@@ -742,11 +742,12 @@ void VPOPredicator::predicate(AVRBlock* Entry) {
         }
         else
           llvm_unreachable("Unknown AVR condition");
+
         Constant *CompareTo = ConstantInt::get(ConstTy, 1 - Ordinal);
         Operands.push_back(AVRUtils::createAVRValue(CompareTo));
-        AVRExpression *IncomingCondition =
-          AVRUtils::createAVRExpression(ConstTy, Operands,
-                                        Instruction::ICmp, CmpInst::ICMP_EQ);
+
+        AVRExpression *IncomingCondition = AVRUtils::createAVRExpression(
+            Operands, Instruction::ICmp, ConstTy, CmpInst::ICMP_EQ);
         AVRUtils::addAVRPredicateIncoming(ABlock->getPredicate(),
                                           Predecessor->getPredicate(),
                                           IncomingCondition);
@@ -765,18 +766,20 @@ void VPOPredicator::predicate(AVRBlock* Entry) {
           for (unsigned Case = 1; Case <= NumCases; ++Case) {
             SmallVector<AVR*, 2> Operands;
             Operands.push_back(SwitchCondition); // TODO - clone to keep AVR a tree.
+
             Constant* CaseConst = ConstantInt::get(ConstTy, Case);
             Operands.push_back(AVRUtils::createAVRValue(CaseConst));
-            AVRExpression *IncomingCondition =
-              AVRUtils::createAVRExpression(ConstTy, Operands,
-                                            Instruction::ICmp, CmpInst::ICMP_NE);
+
+            AVRExpression *IncomingCondition = AVRUtils::createAVRExpression(
+                Operands, Instruction::ICmp, ConstTy, CmpInst::ICMP_NE);
+
             if (DefaultCondition) {
               SmallVector<AVR*, 2> Operands;
               Operands.push_back(DefaultCondition);
               Operands.push_back(IncomingCondition);
-              DefaultCondition = AVRUtils::createAVRExpression(ConstTy,
-                                                               Operands,
-                                                               Instruction::And);
+              DefaultCondition = AVRUtils::createAVRExpression(Operands,
+                                                               Instruction::And,
+                                                               ConstTy);
             }
             else {
               DefaultCondition = IncomingCondition;
@@ -792,11 +795,12 @@ void VPOPredicator::predicate(AVRBlock* Entry) {
           // condition 'C == caseX'
           SmallVector<AVR*, 2> Operands;
           Operands.push_back(SwitchCondition); // TODO - clone to keep AVR a tree.
+
           Constant* CaseConst = ConstantInt::get(ConstTy, Ordinal);
           Operands.push_back(AVRUtils::createAVRValue(CaseConst));
-          AVRExpression *IncomingCondition =
-            AVRUtils::createAVRExpression(ConstTy, Operands,
-                                          Instruction::ICmp, CmpInst::ICMP_EQ);
+
+          AVRExpression *IncomingCondition = AVRUtils::createAVRExpression(
+              Operands, Instruction::ICmp, ConstTy, CmpInst::ICMP_EQ);
           AVRUtils::addAVRPredicateIncoming(ABlock->getPredicate(),
                                             Predecessor->getPredicate(),
                                             IncomingCondition);

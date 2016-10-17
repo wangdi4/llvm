@@ -316,11 +316,13 @@ public:
   virtual ~AvrDefUseHIR();
 
   static bool isDef(AVRValueHIR *AValueHIR) {
-    DDRef * DDF = AValueHIR->getValue();
+    // TODO: AVRValueHIR representing IVs
+    if (DDRef *DDF = AValueHIR->getValue()) {
 
-    // CHECKME: A BlobDDRef will never be a definition
-    if (RegDDRef *RDDF = dyn_cast<RegDDRef>(DDF)) {
-      return RDDF->isLval() && RDDF->isTerminalRef();
+      // CHECKME: A BlobDDRef will never be a definition
+      if (RegDDRef *RDDF = dyn_cast<RegDDRef>(DDF)) {
+        return RDDF->isLval() && RDDF->isTerminalRef();
+      }
     }
     return false;
   }
