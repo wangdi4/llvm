@@ -1742,6 +1742,7 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 		}
 	} //end of for MO
 
+  unsigned dst = MI->getOperand(0).getReg();
 	//if we have two-way predMerge available, use predmerge/pick combination to generated pick directly
 	if (predMergeInstr) {
 		assert(MI->getNumOperands() == 5);
@@ -1750,11 +1751,21 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 		const TargetRegisterClass *TRC = MRI->getRegClass(reg1);
 		unsigned pickPred = predMergeInstr->getOperand(1).getReg();
 		const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
-		unsigned dst = MI->getOperand(0).getReg();
 		BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(pickPred).addReg(reg1).addReg(reg2);
 	}	else {
+    MachineInstr* xphi = nullptr;
 		//TODO::generated xphi sequence
-		assert(false && "to be implemented");
+    for (unsigned i = 0; i < pred2values.size(); i++) {
+      std::pair<unsigned, unsigned>* pred2value = pred2values[i];
+      if (i == 0) {
+        xphi = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(LPU::XPHI), dst).addReg(pred2value->first).addReg(pred2value->second);
+      } else {
+        MachineOperand edgeOp = MachineOperand::CreateReg(pred2value->first, true);
+        MachineOperand valueOp = MachineOperand::CreateReg(pred2value->second, true);
+        xphi->addOperand(edgeOp);
+        xphi->addOperand(valueOp);
+      }
+    }
 	}
 	//release memory
 	for (unsigned i = 0; i < pred2values.size(); i++) {
