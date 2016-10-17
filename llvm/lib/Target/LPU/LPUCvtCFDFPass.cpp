@@ -124,6 +124,7 @@ namespace llvm {
 		void setEdgePred(MachineBasicBlock* fromBB, unsigned childType, unsigned ch);
 		unsigned getBBPred(MachineBasicBlock* inBB);
 		void setBBPred(MachineBasicBlock* inBB, unsigned ch);
+		MachineInstr* getOrInsertPredMerge(MachineBasicBlock* mbb, MachineInstr* loc, unsigned e1, unsigned e2);
 		unsigned computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB);
 		unsigned computeEdgePred(MachineBasicBlock* fromBB, unsigned childType);
 		unsigned computeBBPred(MachineBasicBlock *inBB);
@@ -214,6 +215,7 @@ namespace llvm {
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2pick;  //switch for Reg added in bb
 		DenseMap<MachineBasicBlock*, SmallVectorImpl<unsigned>* > edgepreds;
 		DenseMap<MachineBasicBlock *, unsigned> bbpreds;
+		DenseMap<MachineBasicBlock*, MachineInstr*> bb2predmerge;
     std::set<MachineInstr *> multiInputsPick;
   };
 }
@@ -1595,15 +1597,49 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, unsigned chi
 		return edgeReg;
 	}
 	unsigned bbPredReg = computeBBPred(fromBB);
-	unsigned falseEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
-	unsigned trueEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
-	MachineBasicBlock::iterator loc = fromBB->getFirstTerminator();
-	MachineInstr* bi = loc;
-	BuildMI(*fromBB, loc, DebugLoc(), TII.get(LPU::PREDPROP),
-		falseEdge).addReg(trueEdge, RegState::Define).addReg(bbPredReg).addReg(bi->getOperand(0).getReg());
-	setEdgePred(fromBB, 0, falseEdge);
-	setEdgePred(fromBB, 1, trueEdge);
-	return getEdgePred(fromBB, childType);
+
+	ControlDependenceNode* fromNode = CDG->getNode(fromBB);
+	ControlDependenceNode* toNode;
+	if (childType == 0) {
+		//TODO:: assert only have one false child.
+		toNode = *fromNode->false_begin();
+	}	else {
+		toNode = *fromNode->true_begin();
+	}
+	MachineBasicBlock* toBB = toNode->getBlock();
+	//using loop as the unit of the region
+	//reaching the boundary, generate switch 
+  if (MLI->getLoopFor(toBB) && MLI->getLoopFor(toBB)->getHeader() == toBB) {
+		MachineInstr* bi = fromBB->getFirstTerminator();
+		unsigned switchFalseReg = MRI->createVirtualRegister(&LPU::I1RegClass);
+		unsigned switchTrueReg = MRI->createVirtualRegister(&LPU::I1RegClass);
+		assert(bi->getOperand(0).isReg());
+		// generate switch op
+		const unsigned switchOpcode = TII.getPickSwitchOpcode(&LPU::I1RegClass, false /*not pick op*/);
+		//special handling for predprop/premerge in loop to avoid cycle of dependence
+		BuildMI(*fromBB, bi, DebugLoc(), TII.get(switchOpcode),
+			switchFalseReg).
+			addReg(switchTrueReg, RegState::Define).
+			addReg(bi->getOperand(0).getReg()).
+			addReg(bbPredReg);
+		setEdgePred(fromBB, 0, switchFalseReg);
+		setEdgePred(fromBB, 1, switchTrueReg);
+		if (childType == 0) {
+			return switchFalseReg;
+		}	else {
+			return switchTrueReg;
+		}
+	}	else {
+		unsigned falseEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
+		unsigned trueEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
+		MachineBasicBlock::iterator loc = fromBB->getFirstTerminator();
+		MachineInstr* bi = loc;
+		BuildMI(*fromBB, loc, DebugLoc(), TII.get(LPU::PREDPROP),
+			falseEdge).addReg(trueEdge, RegState::Define).addReg(bbPredReg).addReg(bi->getOperand(0).getReg());
+		setEdgePred(fromBB, 0, falseEdge);
+		setEdgePred(fromBB, 1, trueEdge);
+		return getEdgePred(fromBB, childType);
+	}
 }
 
 unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
@@ -1663,6 +1699,24 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
 }
 
 
+MachineInstr* LPUCvtCFDFPass::getOrInsertPredMerge(MachineBasicBlock* mbb, MachineInstr* loc, unsigned e1, unsigned e2) {
+	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+	MachineInstr* predMergeInstr = nullptr;
+	if (bb2predmerge.find(mbb) == bb2predmerge.end()) {
+		unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
+		predMergeInstr = BuildMI(*mbb, loc, DebugLoc(), TII.get(LPU::PREDMERGE),
+			LPU::IGN).
+			addReg(indexReg, RegState::Define). //eat the BB's pred, they will be computed using "or" consistently
+			addReg(e1).   //last processed edge
+			addReg(e2); //current edge
+		bb2predmerge[mbb] = predMergeInstr;
+	}	else {
+		predMergeInstr = bb2predmerge[mbb];
+	}
+	return predMergeInstr;
+}
+
 void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 	assert(MI->isPHI());
 	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
@@ -1689,12 +1743,8 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 				predBB = edgePred;
 			}	else if (MI->getNumOperands() == 5) {
 				//two input phi: use PREDMERGE to avoid further lowering.
-				unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
-				predMergeInstr = BuildMI(*mbb, MI, DebugLoc(), TII.get(LPU::PREDMERGE),
-					LPU::IGN).
-					addReg(indexReg, RegState::Define). //eat the BB's pred, they will be computed using "or" consistently
-					addReg(predBB).   //last processed edge
-					addReg(edgePred); //current edge
+				predMergeInstr = getOrInsertPredMerge(mbb, MI, predBB,      //last processed edge
+					                                             edgePred);   //current edge
 			}
 		}
 	} //end of for MO
@@ -1819,7 +1869,6 @@ bool LPUCvtCFDFPass::CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock*
 		
 		++numCtrl;
 		if (numCtrl > 1) return false;
-
 		if (!PDT->dominates(mbb, ctrlBB)) {
 			return false;
 		}
