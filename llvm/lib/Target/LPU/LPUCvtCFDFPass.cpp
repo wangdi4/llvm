@@ -120,13 +120,13 @@ namespace llvm {
 		void generateCompletePickTreeForPhi(MachineInstr *);
 		void generateDynamicPickTreeForPhi(MachineInstr *);
 		void generateDynamicPreds();
-		unsigned getEdgePred(MachineBasicBlock* fromBB, unsigned childType);
-		void setEdgePred(MachineBasicBlock* fromBB, unsigned childType, unsigned ch);
+		unsigned getEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType);
+		void setEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType, unsigned ch);
 		unsigned getBBPred(MachineBasicBlock* inBB);
 		void setBBPred(MachineBasicBlock* inBB, unsigned ch);
 		MachineInstr* getOrInsertPredMerge(MachineBasicBlock* mbb, MachineInstr* loc, unsigned e1, unsigned e2);
 		unsigned computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB);
-		unsigned computeEdgePred(MachineBasicBlock* fromBB, unsigned childType);
+		unsigned computeEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType, MachineBasicBlock* toBB = nullptr);
 		unsigned computeBBPred(MachineBasicBlock *inBB);
 		void TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI);
 		bool CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb);
@@ -1548,12 +1548,12 @@ void LPUCvtCFDFPass::generateCompletePickTreeForPhi(MachineInstr* MI) {
 	MI->removeFromParent();
 }
 
-unsigned LPUCvtCFDFPass::getEdgePred(MachineBasicBlock* mbb, unsigned childType) {
+unsigned LPUCvtCFDFPass::getEdgePred(MachineBasicBlock* mbb, ControlDependenceNode::EdgeType childType) {
 	if (edgepreds.find(mbb) == edgepreds.end()) return 0;
 	return (*edgepreds[mbb])[childType];
 }
 
-void LPUCvtCFDFPass::setEdgePred(MachineBasicBlock* mbb, unsigned childType, unsigned ch) {
+void LPUCvtCFDFPass::setEdgePred(MachineBasicBlock* mbb, ControlDependenceNode::EdgeType childType, unsigned ch) {
 	if (edgepreds.find(mbb) == edgepreds.end()) {
 		SmallVectorImpl<unsigned>* childVect = new SmallVector<unsigned, 2>;
 		childVect->push_back(0);
@@ -1578,17 +1578,21 @@ void LPUCvtCFDFPass::setBBPred(MachineBasicBlock* mbb, unsigned ch) {
 unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB) {
 	ControlDependenceNode* fromNode = CDG->getNode(fromBB);
 	ControlDependenceNode* toNode = CDG->getNode(toBB);
-	if (fromBB->succ_size() == 1 || fromNode->isParent(fromNode)) {
+	if (fromBB->succ_size() == 1 || fromNode->isParent(fromNode) || fromNode->isChild(fromNode)) {
 		return computeBBPred(fromBB);
 	} else if (fromNode->isFalseChild(toNode)) {
-		return computeEdgePred(fromBB, (unsigned)0);
-	}	else {
-		return computeEdgePred(fromBB, (unsigned)1);
+		return computeEdgePred(fromBB, ControlDependenceNode::FALSE);
+	}	else if (fromNode->isTrueChild(toNode)) {
+		return computeEdgePred(fromBB, ControlDependenceNode::TRUE);
+	} else {
+		assert(toBB->isPredecessor(fromBB));
+		ControlDependenceNode::EdgeType edgeType = CDG->getEdgeType(fromBB, toBB);
+		return computeEdgePred(fromBB, edgeType, toBB);
 	}
 }
 
 	
-unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, unsigned childType) {
+unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType, MachineBasicBlock* toBB) {
 	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 	MachineRegisterInfo* MRI = &thisMF->getRegInfo();
 
@@ -1597,16 +1601,17 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, unsigned chi
 		return edgeReg;
 	}
 	unsigned bbPredReg = computeBBPred(fromBB);
-
-	ControlDependenceNode* fromNode = CDG->getNode(fromBB);
-	ControlDependenceNode* toNode;
-	if (childType == 0) {
-		//TODO:: assert only have one false child.
-		toNode = *fromNode->false_begin();
-	}	else {
-		toNode = *fromNode->true_begin();
+	if (!toBB) {
+		ControlDependenceNode* fromNode = CDG->getNode(fromBB);
+		ControlDependenceNode* toNode;
+		if (childType == ControlDependenceNode::FALSE) {
+			//TODO:: assert only have one false child.
+			toNode = *fromNode->false_begin();
+		}	else {
+			toNode = *fromNode->true_begin();
+		}
+		toBB = toNode->getBlock();
 	}
-	MachineBasicBlock* toBB = toNode->getBlock();
 	//using loop as the unit of the region
 	//reaching the boundary, generate switch 
   if (MLI->getLoopFor(toBB) && MLI->getLoopFor(toBB)->getHeader() == toBB) {
@@ -1622,8 +1627,8 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, unsigned chi
 			addReg(switchTrueReg, RegState::Define).
 			addReg(bi->getOperand(0).getReg()).
 			addReg(bbPredReg);
-		setEdgePred(fromBB, 0, switchFalseReg);
-		setEdgePred(fromBB, 1, switchTrueReg);
+		setEdgePred(fromBB, ControlDependenceNode::FALSE, switchFalseReg);
+		setEdgePred(fromBB, ControlDependenceNode::TRUE, switchTrueReg);
 		if (childType == 0) {
 			return switchFalseReg;
 		}	else {
@@ -1636,8 +1641,8 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, unsigned chi
 		MachineInstr* bi = loc;
 		BuildMI(*fromBB, loc, DebugLoc(), TII.get(LPU::PREDPROP),
 			falseEdge).addReg(trueEdge, RegState::Define).addReg(bbPredReg).addReg(bi->getOperand(0).getReg());
-		setEdgePred(fromBB, 0, falseEdge);
-		setEdgePred(fromBB, 1, trueEdge);
+		setEdgePred(fromBB, ControlDependenceNode::FALSE, falseEdge);
+		setEdgePred(fromBB, ControlDependenceNode::TRUE, trueEdge);
 		return getEdgePred(fromBB, childType);
 	}
 }
@@ -1673,8 +1678,8 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
 				continue;
 			assert(ctrlBB->succ_size() == 2 && "LPU: bb has more than 2 successor");
 			computeBBPred(ctrlBB);
-			unsigned falseEdgeReg = computeEdgePred(ctrlBB, (unsigned)0);
-			unsigned trueEdgeReg = computeEdgePred(ctrlBB, (unsigned)1);
+			unsigned falseEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::FALSE);
+			unsigned trueEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::TRUE);
 			if (ctrlNode->isFalseChild(inNode)) {
 				ctrlEdge = falseEdgeReg;
 			}	else {

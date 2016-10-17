@@ -31,7 +31,7 @@ namespace llvm {
 
   class ControlDependenceNode {
   public:
-    enum EdgeType { TRUE, FALSE, OTHER };
+    enum EdgeType { FALSE = 0, TRUE, OTHER };
     typedef std::set<ControlDependenceNode *>::iterator       node_iterator;
     typedef std::set<ControlDependenceNode *>::const_iterator const_node_iterator;
 
