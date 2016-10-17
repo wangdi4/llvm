@@ -88,14 +88,16 @@ bool LPUDAGToDAGISel::SelectRegImm(SDValue Opnd,
                                          SDValue &Result)
 {
   if (ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Opnd)) {
+    SDLoc dl(Opnd);
     const ConstantInt &ci = *(CN->getConstantIntValue());
-    Result = CurDAG->getTargetConstant(ci, CN->getValueType(0));
+    Result = CurDAG->getTargetConstant(ci, dl, CN->getValueType(0));
     return true;
   }
 
   // Get the bits for FP types
   // See also LPUMCInstLower.cpp::Lower, case MO_FPImmediate
   if (ConstantFPSDNode *CN = dyn_cast<ConstantFPSDNode>(Opnd)) {
+    SDLoc dl(Opnd);
     const ConstantFP* f = CN->getConstantFPValue();
     APFloat apf = f->getValueAPF();
     bool ignored;
@@ -103,16 +105,16 @@ bool LPUDAGToDAGISel::SelectRegImm(SDValue Opnd,
       apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &ignored);
     double d = apf.convertToDouble();
     if (f->getType()->getTypeID() == Type::FloatTyID) {
-      // Result = CurDAG->getTargetConstantFP(f, EVT(MVT::f32)); ?
+      // Result = CurDAG->getTargetConstantFP(f, dl, EVT(MVT::f32)); ?
       union { int i; float f; } ifu;
       ifu.f = d;
-      Result = CurDAG->getTargetConstant(ifu.i, MVT::i64);
+      Result = CurDAG->getTargetConstant(ifu.i, dl, MVT::i64);
       return true;
     } else if (f->getType()->getTypeID() == Type::DoubleTyID) {
-      // Result = CurDAG->getTargetConstantFP(f, EVT(MVT::f64)); ?
+      // Result = CurDAG->getTargetConstantFP(f, dl, EVT(MVT::f64)); ?
       union { long long l; double d; } ldu;
       ldu.d = d;
-      Result = CurDAG->getTargetConstant(ldu.l, MVT::i64);
+      Result = CurDAG->getTargetConstant(ldu.l, dl, MVT::i64);
       return true;
     }
   }
@@ -170,7 +172,8 @@ bool LPUDAGToDAGISel::SelectAddrRegImm(SDNode *Parent, SDValue Addr,
       else {
         Base = Addr.getOperand(0);
       }
-      Offset = CurDAG->getTargetConstant(CN->getSExtValue(), MVT::i64);      
+      SDLoc dl(Parent);
+      Offset = CurDAG->getTargetConstant(CN->getSExtValue(), dl, MVT::i64);
       return true;
     }
   }
@@ -207,7 +210,8 @@ bool LPUDAGToDAGISel::SelectAddrImm(SDNode *Parent, SDValue Addr,
     }
 
     if (ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Addr)) {
-      Base = CurDAG->getTargetConstant(CN->getZExtValue(), MVT::i64);
+      SDLoc dl(Parent);
+      Base = CurDAG->getTargetConstant(CN->getZExtValue(), dl, MVT::i64);
       return true;
     }
   }

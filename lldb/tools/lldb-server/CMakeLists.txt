@@ -2,6 +2,7 @@ set(LLVM_NO_RTTI 1)
 
 if ( CMAKE_SYSTEM_NAME MATCHES "Linux" )
 include_directories(
+  ../../../../llvm/include
   ../../source/Plugins/Process/Linux
   ../../source/Plugins/Process/POSIX
   )
@@ -9,6 +10,7 @@ endif ()
 
 if ( CMAKE_SYSTEM_NAME MATCHES "FreeBSD" )
 include_directories(
+  ../../../../llvm/include
   ../../source/Plugins/Process/FreeBSD
   ../../source/Plugins/Process/POSIX
   )
@@ -31,7 +33,6 @@ else()
     lldb-server.cpp
     lldb-gdbserver.cpp
     lldb-platform.cpp
-    ../../source/lldb-log.cpp
     ../../source/lldb.cpp
     )
 

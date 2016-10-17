@@ -17,6 +17,10 @@ class RegisterCommandsTestCase(TestBase):
         TestBase.setUp(self)
         self.has_teardown = False
 
+    def tearDown(self):
+        self.dbg.GetSelectedTarget().GetProcess().Destroy()
+        TestBase.tearDown(self)
+
     def test_register_commands(self):
         """Test commands related to registers, in particular vector registers."""
         if not self.getArchitecture() in ['amd64', 'i386', 'x86_64']:
@@ -84,6 +88,8 @@ class RegisterCommandsTestCase(TestBase):
 
     # platform specific logging of the specified category
     def log_enable(self, category):
+        # This intentionally checks the host platform rather than the target
+        # platform as logging is host side.
         self.platform = ""
         if sys.platform.startswith("darwin"):
             self.platform = "" # TODO: add support for "log enable darwin registers"

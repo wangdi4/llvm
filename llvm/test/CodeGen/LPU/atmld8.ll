@@ -11,7 +11,7 @@ define i8 @f_atmld8(i8* %m) #0 {
 ; LPU_CHECK-NOT: atomic
 ; LPU_CHECK-NOT: sync
 entry:
-  %0 = load atomic i8* %m seq_cst, align 8
+  %0 = load atomic i8, i8* %m seq_cst, align 8
   ret i8 %0
 }
 

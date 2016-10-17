@@ -12,8 +12,8 @@ define float @riFF(float* %p) #0 {
 entry:
   %p.addr = alloca float*, align 8
   store float* %p, float** %p.addr, align 8
-  %0 = load float** %p.addr, align 8
-  %1 = load float* %0, align 4
+  %0 = load float*, float** %p.addr, align 8
+  %1 = load float, float* %0, align 4
   ret float %1
 }
 

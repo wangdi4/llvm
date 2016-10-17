@@ -1097,9 +1097,8 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
 
 
 void LPUCvtCFDFPass::assignLicForDF() {
-  const TargetMachine &TM = thisMF->getTarget();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
   std::deque<unsigned> renameQueue;
@@ -1383,8 +1382,7 @@ MachineInstr* LPUCvtCFDFPass::PatchOrInsertPickAtFork(
   MachineInstr* phi,         //the multi-input phi
   unsigned pickReg)          //pick output
 {
-  const TargetMachine &TM = thisMF->getTarget();
-  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   MachineInstr *pickInstr = nullptr;
   bool patched = false;
   DenseMap<unsigned, MachineInstr *>* reg2pick = nullptr;

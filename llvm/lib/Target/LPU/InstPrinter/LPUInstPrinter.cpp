@@ -47,7 +47,7 @@ LPUInstPrinter::LPUInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
 }
 
 void LPUInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
-                                  StringRef Annot) {
+                                  StringRef Annot, const MCSubtargetInfo &STI) {
   printInstruction(MI, O);
   printAnnotation(O, Annot);
 }

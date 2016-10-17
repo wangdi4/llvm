@@ -201,7 +201,7 @@
     <li><code>cd libcxx</code></li>
     <li><code>mkdir build &amp;&amp; cd build</code></li>
     <li><code>cmake -DLIBCXX_CXX_ABI=libcxxabi
-        -DLIBCXX_LIBCXXABI_INCLUDE_PATHS=path/to/libcxxabi/include
+        -DLIBCXX_CXX_ABI_INCLUDE_PATHS=path/to/libcxxabi/include
         -DLIT_EXECUTABLE=path/to/llvm/utils/lit/lit.py .. # Linux may require
         -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++</code></li>
     <li><code>make</code></li>
@@ -239,17 +239,26 @@
 
   <p>
     Mac users, remember to be careful when replacing the system's libc++.
-    <strong>Your system will not be able to boot without a funcioning
+    <strong>Your system will not be able to boot without a functioning
     libc++.</strong>
   </p>
 
   <!--=====================================================================-->
-  <h3>Notes</h3>
+  <h3>Notes and Known Issues</h3>
   <!--=====================================================================-->
 
   <p>
-    Building libc++ with <code>-fno-rtti</code> is not supported.  However
-    linking against it with <code>-fno-rtti</code> is supported.
+    <ul>
+      <li>
+        Building libc++ with <code>-fno-rtti</code> is not supported. However
+        linking against it with <code>-fno-rtti</code> is supported.
+      </li>
+      <li>
+        On OS X v10.8 and older the CMake option
+        <code>-DLIBCXX_LIBCPPABI_VERSION=""</code> must be used during
+        configuration.
+      </li>
+    </ul>
   </p>
 
   <p>Send discussions to the
@@ -373,7 +382,7 @@ End of search list.
      <ul>
        <li><code>CC=clang CXX=clang++ cmake -G "Unix Makefiles"
                 -DLIBCXX_CXX_ABI=libstdc++
-                -DLIBCXX_LIBSUPCXX_INCLUDE_PATHS="/usr/include/c++/4.7/;/usr/include/c++/4.7/x86_64-linux-gnu/"
+                -DLIBCXX_CXX_ABI_INCLUDE_PATHS="/usr/include/c++/4.7/;/usr/include/c++/4.7/x86_64-linux-gnu/"
                 -DCMAKE_BUILD_TYPE=Release
                 -DCMAKE_INSTALL_PREFIX=/usr
                 &lt;libc++-source-dir&gt;</code></li>
@@ -408,7 +417,7 @@ End of search list.
      <ul>
        <li><code>CC=clang CXX=clang++ cmake -G "Unix Makefiles"
                 -DLIBCXX_CXX_ABI=libcxxrt
-                -DLIBCXX_LIBCXXRT_INCLUDE_PATHS="&lt;libcxxrt-source-dir&gt;/src"
+                -DLIBCXX_CXX_ABI_INCLUDE_PATHS="&lt;libcxxrt-source-dir&gt;/src"
                 -DCMAKE_BUILD_TYPE=Release
                 -DCMAKE_INSTALL_PREFIX=/usr
                 &lt;libc++-source-dir&gt;</code></li>
@@ -450,7 +459,7 @@ End of search list.
     <ul>
     <li><code>CC=clang CXX=clang++ cmake
               -DLIBCXX_CXX_ABI=libc++abi
-              -DLIBCXX_LIBCXXABI_INCLUDE_PATHS="/path/to/libcxxabi/include"
+              -DLIBCXX_CXX_ABI_INCLUDE_PATHS="/path/to/libcxxabi/include"
               -DLIBCXX_CXX_ABI_LIBRARY_PATH="/path/to/libcxxabi-build/lib"
               path/to/libcxx</code></li>
     <li><code>make</code></li>

@@ -39,7 +39,6 @@ public:
 } // end anonymous namespace
 
 char StripDeadPrototypesPass::ID = 0;
-
 INITIALIZE_PASS(StripDeadPrototypesPass, "strip-dead-prototypes",
                 "Strip Unused Function Prototypes", false, false)
 

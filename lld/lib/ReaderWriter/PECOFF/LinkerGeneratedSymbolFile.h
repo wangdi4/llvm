@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Atoms.h"
-#include "lld/Core/ArchiveLibraryFile.h"
 #include "lld/Core/Simple.h"
 #include "lld/ReaderWriter/PECOFFLinkingContext.h"
 #include "llvm/Support/Allocator.h"
@@ -36,7 +35,7 @@ public:
   uint64_t ordinal() const override { return _ordinal; }
   Scope scope() const override { return scopeGlobal; }
   ContentType contentType() const override { return typeData; }
-  Alignment alignment() const override { return Alignment(4); }
+  Alignment alignment() const override { return 16; }
   ContentPermissions permissions() const override { return permR__; }
 
 private:
@@ -49,13 +48,19 @@ public:
                 bool is64)
       : SimpleFile(defsym), _undefined(*this, undefsym),
         _defined(*this, defsym, ordinal) {
-    auto *ref = is64 ? new COFFReference(&_undefined, 0,
-                                         llvm::COFF::IMAGE_REL_AMD64_ADDR32,
-                                         Reference::KindArch::x86_64)
-                     : new COFFReference(&_undefined, 0,
-                                         llvm::COFF::IMAGE_REL_I386_DIR32,
-                                         Reference::KindArch::x86);
-    _defined.addReference(std::unique_ptr<COFFReference>(ref));
+    SimpleReference *ref;
+    if (is64) {
+      ref = new SimpleReference(Reference::KindNamespace::COFF,
+                                Reference::KindArch::x86_64,
+                                llvm::COFF::IMAGE_REL_AMD64_ADDR32,
+                                0, &_undefined, 0);
+    } else {
+      ref = new SimpleReference(Reference::KindNamespace::COFF,
+                                Reference::KindArch::x86,
+                                llvm::COFF::IMAGE_REL_I386_DIR32,
+                                0, &_undefined, 0);
+    }
+    _defined.addReference(std::unique_ptr<SimpleReference>(ref));
     addAtom(_defined);
     addAtom(_undefined);
   };
@@ -63,39 +68,6 @@ public:
 private:
   SimpleUndefinedAtom _undefined;
   ImpPointerAtom _defined;
-};
-
-class VirtualArchiveLibraryFile : public ArchiveLibraryFile {
-public:
-  VirtualArchiveLibraryFile(StringRef filename)
-      : ArchiveLibraryFile(filename) {}
-
-  const atom_collection<DefinedAtom> &defined() const override {
-    return _definedAtoms;
-  }
-
-  const atom_collection<UndefinedAtom> &undefined() const override {
-    return _undefinedAtoms;
-  }
-
-  const atom_collection<SharedLibraryAtom> &sharedLibrary() const override {
-    return _sharedLibraryAtoms;
-  }
-
-  const atom_collection<AbsoluteAtom> &absolute() const override {
-    return _absoluteAtoms;
-  }
-
-  std::error_code
-  parseAllMembers(std::vector<std::unique_ptr<File>> &result) override {
-    return std::error_code();
-  }
-
-private:
-  atom_collection_vector<DefinedAtom> _definedAtoms;
-  atom_collection_vector<UndefinedAtom> _undefinedAtoms;
-  atom_collection_vector<SharedLibraryAtom> _sharedLibraryAtoms;
-  atom_collection_vector<AbsoluteAtom> _absoluteAtoms;
 };
 
 // A file to make Resolver to resolve a symbol TO instead of a symbol FROM,
@@ -131,7 +103,7 @@ public:
   };
 
 private:
-  COFFAbsoluteAtom _imageBaseAtom;
+  SimpleAbsoluteAtom _imageBaseAtom;
 };
 
 // A LocallyImporteSymbolFile is an archive file containing __imp_
@@ -153,10 +125,10 @@ private:
 //   }
 //
 // This odd feature is for the compatibility with MSVC link.exe.
-class LocallyImportedSymbolFile : public impl::VirtualArchiveLibraryFile {
+class LocallyImportedSymbolFile : public SimpleArchiveLibraryFile {
 public:
   LocallyImportedSymbolFile(const PECOFFLinkingContext &ctx)
-      : VirtualArchiveLibraryFile("__imp_"), _is64(ctx.is64Bit()),
+      : SimpleArchiveLibraryFile("__imp_"), _is64(ctx.is64Bit()),
         _ordinal(0) {}
 
   File *find(StringRef sym, bool dataSymbolOnly) override {
@@ -169,8 +141,8 @@ public:
 
 private:
   bool _is64;
-  mutable uint64_t _ordinal;
-  mutable llvm::BumpPtrAllocator _alloc;
+  uint64_t _ordinal;
+  llvm::BumpPtrAllocator _alloc;
 };
 
 // A ExportedSymbolRenameFile is a virtual archive file for dllexported symbols.
@@ -203,10 +175,10 @@ private:
 // prefix, it returns an atom to rename the dllexported symbol, hoping that
 // Resolver will find the new symbol with atsign from an archive file at the
 // next visit.
-class ExportedSymbolRenameFile : public impl::VirtualArchiveLibraryFile {
+class ExportedSymbolRenameFile : public SimpleArchiveLibraryFile {
 public:
   ExportedSymbolRenameFile(const PECOFFLinkingContext &ctx)
-      : VirtualArchiveLibraryFile("<export>"),
+      : SimpleArchiveLibraryFile("<export>"),
         _ctx(const_cast<PECOFFLinkingContext *>(&ctx)) {
     for (PECOFFLinkingContext::ExportDesc &desc : _ctx->getDllExports())
       _exportedSyms.insert(desc.name);
@@ -230,8 +202,8 @@ public:
 
 private:
   std::set<std::string> _exportedSyms;
-  mutable llvm::BumpPtrAllocator _alloc;
-  mutable PECOFFLinkingContext *_ctx;
+  llvm::BumpPtrAllocator _alloc;
+  PECOFFLinkingContext *_ctx;
 };
 
 // Windows has not only one but many entry point functions. The
@@ -245,12 +217,12 @@ public:
       : SimpleFile("<entry>"), _ctx(const_cast<PECOFFLinkingContext *>(&ctx)),
         _firstTime(true) {}
 
-  const atom_collection<UndefinedAtom> &undefined() const override {
+  const AtomVector<UndefinedAtom> &undefined() const override {
     return const_cast<EntryPointFile *>(this)->getUndefinedAtoms();
   }
 
 private:
-  const atom_collection<UndefinedAtom> &getUndefinedAtoms() {
+  const AtomVector<UndefinedAtom> &getUndefinedAtoms() {
     std::lock_guard<std::mutex> lock(_mutex);
     if (!_firstTime)
       return _undefinedAtoms;
@@ -258,7 +230,7 @@ private:
 
     if (_ctx->hasEntry()) {
       StringRef entrySym = _ctx->allocate(getEntry());
-      _undefinedAtoms._atoms.push_back(
+      _undefinedAtoms.push_back(
           new (_alloc) SimpleUndefinedAtom(*this, entrySym));
       _ctx->setHasEntry(true);
       _ctx->setEntrySymbolName(entrySym);
@@ -327,7 +299,7 @@ private:
   }
 
   PECOFFLinkingContext *_ctx;
-  atom_collection_vector<UndefinedAtom> _undefinedAtoms;
+  AtomVector<UndefinedAtom> _undefinedAtoms;
   std::mutex _mutex;
   llvm::BumpPtrAllocator _alloc;
   bool _firstTime;

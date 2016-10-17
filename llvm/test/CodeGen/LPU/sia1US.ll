@@ -14,8 +14,8 @@ define void @sia1US(i16* %p) #0 {
 entry:
   %p.addr = alloca i16*, align 8
   store i16* %p, i16** %p.addr, align 8
-  %0 = load i16** %p.addr, align 8
-  %1 = load i16* %0, align 2
+  %0 = load i16*, i16** %p.addr, align 8
+  %1 = load i16, i16* %0, align 2
   %conv = zext i16 %1 to i32
   %add = add nsw i32 %conv, 1
   %conv1 = trunc i32 %add to i16

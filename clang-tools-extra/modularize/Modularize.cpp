@@ -73,9 +73,9 @@
 // you will likely need to pass in additional compiler front-end
 // arguments to match those passed in by default by the driver.
 //
-// Note that by default, the underlying Clang front end assumes .h files
-// contain C source.  If your .h files in the file list contain C++ source,
-// you should append the following to your command lines: -x c++
+// Note that by default, the modularize assumes .h files contain C++ source.
+// If your .h files in the file list contain another language, you should
+// append an appropriate -x option to your command line, i.e.:  -x c
 //
 // Modularization Issue Checks
 //
@@ -252,18 +252,18 @@ using namespace llvm::opt;
 using namespace Modularize;
 
 // Option to specify a file name for a list of header files to check.
-cl::list<std::string>
-ListFileNames(cl::Positional, cl::value_desc("list"),
-              cl::desc("<list of one or more header list files>"),
-              cl::CommaSeparated);
+static cl::list<std::string>
+    ListFileNames(cl::Positional, cl::value_desc("list"),
+                  cl::desc("<list of one or more header list files>"),
+                  cl::CommaSeparated);
 
 // Collect all other arguments, which will be passed to the front end.
-cl::list<std::string>
-CC1Arguments(cl::ConsumeAfter,
-             cl::desc("<arguments to be passed to front end>..."));
+static cl::list<std::string>
+    CC1Arguments(cl::ConsumeAfter,
+                 cl::desc("<arguments to be passed to front end>..."));
 
 // Option to specify a prefix to be prepended to the header names.
-cl::opt<std::string> HeaderPrefix(
+static cl::opt<std::string> HeaderPrefix(
     "prefix", cl::init(""),
     cl::desc(
         "Prepend header file paths with this prefix."
@@ -272,7 +272,7 @@ cl::opt<std::string> HeaderPrefix(
 
 // Option for assistant mode, telling modularize to output a module map
 // based on the headers list, and where to put it.
-cl::opt<std::string> ModuleMapPath(
+static cl::opt<std::string> ModuleMapPath(
     "module-map-path", cl::init(""),
     cl::desc("Turn on module map output and specify output path or file name."
              " If no path is specified and if prefix option is specified,"
@@ -280,7 +280,7 @@ cl::opt<std::string> ModuleMapPath(
 
 // Option for assistant mode, telling modularize to output a module map
 // based on the headers list, and where to put it.
-cl::opt<std::string>
+static cl::opt<std::string>
 RootModule("root-module", cl::init(""),
            cl::desc("Specify the name of the root module."));
 
@@ -314,7 +314,7 @@ const char *Argv0;
 std::string CommandLine;
 
 // Helper function for finding the input file in an arguments list.
-std::string findInputFile(const CommandLineArguments &CLArgs) {
+static std::string findInputFile(const CommandLineArguments &CLArgs) {
   std::unique_ptr<OptTable> Opts(createDriverOptTable());
   const unsigned IncludedFlagsBitmask = options::CC1Option;
   unsigned MissingArgIndex, MissingArgCount;
@@ -331,8 +331,10 @@ std::string findInputFile(const CommandLineArguments &CLArgs) {
 }
 
 // This arguments adjuster inserts "-include (file)" arguments for header
-// dependencies.
-ArgumentsAdjuster getAddDependenciesAdjuster(DependencyMap &Dependencies) {
+// dependencies.  It also insertts a "-w" option and a "-x c++",
+// if no other "-x" option is present.
+static ArgumentsAdjuster
+getAddDependenciesAdjuster(DependencyMap &Dependencies) {
   return [&Dependencies](const CommandLineArguments &Args) {
     std::string InputFile = findInputFile(Args);
     DependentsVector &FileDependents = Dependencies[InputFile];
@@ -344,6 +346,13 @@ ArgumentsAdjuster getAddDependenciesAdjuster(DependencyMap &Dependencies) {
                          std::string("\""));
         NewArgs.push_back(FileDependents[Index]);
       }
+    }
+    // Ignore warnings.  (Insert after "clang_tool" at beginning.)
+    NewArgs.insert(NewArgs.begin() + 1, "-w");
+    // Since we are compiling .h files, assume C++ unless given a -x option.
+    if (std::find(NewArgs.begin(), NewArgs.end(), "-x") == NewArgs.end()) {
+      NewArgs.insert(NewArgs.begin() + 2, "-x");
+      NewArgs.insert(NewArgs.begin() + 3, "c++");
     }
     return NewArgs;
   };
@@ -630,9 +639,9 @@ public:
     PPTracker.handlePreprocessorEntry(PP, InFile);
   }
 
-  ~CollectEntitiesConsumer() { PPTracker.handlePreprocessorExit(); }
+  ~CollectEntitiesConsumer() override { PPTracker.handlePreprocessorExit(); }
 
-  virtual void HandleTranslationUnit(ASTContext &Ctx) {
+  void HandleTranslationUnit(ASTContext &Ctx) override {
     SourceManager &SM = Ctx.getSourceManager();
 
     // Collect declared entities.
@@ -643,7 +652,7 @@ public:
     for (Preprocessor::macro_iterator M = PP.macro_begin(),
                                       MEnd = PP.macro_end();
          M != MEnd; ++M) {
-      Location Loc(SM, M->second->getLocation());
+      Location Loc(SM, M->second.getLatest()->getLocation());
       if (!Loc)
         continue;
 
@@ -690,7 +699,7 @@ public:
       : Entities(Entities), PPTracker(preprocessorTracker),
         HadErrors(HadErrors) {}
 
-  virtual CollectEntitiesAction *create() {
+  CollectEntitiesAction *create() override {
     return new CollectEntitiesAction(Entities, PPTracker, HadErrors);
   }
 

@@ -161,7 +161,7 @@ unsigned LPUTTIImpl::getRegisterBitWidth(bool Vector) {
   return 32;
 }
 
-unsigned LPUTTIImpl::getMaxInterleaveFactor() {
+unsigned LPUTTIImpl::getMaxInterleaveFactor(unsigned VF) {
   return 1;
 }
 

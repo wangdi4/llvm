@@ -21,7 +21,7 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 2, %for.body.preheader ]
   %i.08 = phi i32 [ %add, %for.body ], [ 0, %for.body.preheader ]
   %idxprom = sext i32 %i.08 to i64
-  %arrayidx = getelementptr inbounds i32* %ip, i64 %idxprom
+  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %idxprom
   store i32 %i.08, i32* %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %0 = trunc i64 %indvars.iv.next to i32

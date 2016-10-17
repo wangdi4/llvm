@@ -14,8 +14,8 @@ define void @sia1DF(double* %p) #0 {
 entry:
   %p.addr = alloca double*, align 8
   store double* %p, double** %p.addr, align 8
-  %0 = load double** %p.addr, align 8
-  %1 = load double* %0, align 8
+  %0 = load double*, double** %p.addr, align 8
+  %1 = load double, double* %0, align 8
   %add = fadd double %1, 1.000000e+00
   store double %add, double* %0, align 8
   ret void

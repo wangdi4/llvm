@@ -30,8 +30,8 @@
 
 using namespace llvm;
 
-void LPUFrameLowering::emitPrologue(MachineFunction &MF) const {
-  MachineBasicBlock &MBB = MF.front();
+void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const {
+  assert(&MBB == &MF.front() && "Shrink-wrapping not yet implemented");
   MachineFrameInfo *MFI  = MF.getFrameInfo();
   LPUMachineFunctionInfo *LMFI  = MF.getInfo<LPUMachineFunctionInfo>();
   const LPUInstrInfo &TII =

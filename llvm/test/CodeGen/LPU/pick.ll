@@ -21,7 +21,7 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
   store i32 %1, i32* %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

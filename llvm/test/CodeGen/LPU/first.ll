@@ -18,18 +18,18 @@ entry:
   store i32 %b, i32* %b.addr, align 4
   store i16* %c, i16** %c.addr, align 8
   store i32* %ip, i32** %ip.addr, align 8
-  %0 = load i32* %a.addr, align 4
-  %1 = load i32* %b.addr, align 4
+  %0 = load i32, i32* %a.addr, align 4
+  %1 = load i32, i32* %b.addr, align 4
   %mul = mul nsw i32 %0, %1
-  %2 = load i32* %a.addr, align 4
+  %2 = load i32, i32* %a.addr, align 4
   %add = add nsw i32 %2, 2
   %idxprom = sext i32 %add to i64
-  %3 = load i32** %ip.addr, align 8
-  %arrayidx = getelementptr inbounds i32* %3, i64 %idxprom
-  %4 = load i32* %arrayidx, align 4
+  %3 = load i32*, i32** %ip.addr, align 8
+  %arrayidx = getelementptr inbounds i32, i32* %3, i64 %idxprom
+  %4 = load i32, i32* %arrayidx, align 4
   %add1 = add nsw i32 %mul, %4
-  %5 = load i16** %c.addr, align 8
-  %6 = load i16* %5, align 2
+  %5 = load i16*, i16** %c.addr, align 8
+  %6 = load i16, i16* %5, align 2
   %conv = sext i16 %6 to i32
   %add2 = add nsw i32 %add1, %conv
   ret i32 %add2

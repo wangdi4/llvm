@@ -12,7 +12,7 @@ define float @cvtFFDF(double %d) #0 {
 entry:
   %d.addr = alloca double, align 8
   store double %d, double* %d.addr, align 8
-  %0 = load double* %d.addr, align 8
+  %0 = load double, double* %d.addr, align 8
   %conv = fptrunc double %0 to float
   ret float %conv
 }

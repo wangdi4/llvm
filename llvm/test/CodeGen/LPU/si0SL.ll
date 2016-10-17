@@ -13,7 +13,7 @@ define void @si0SL(i64* %p) #0 {
 entry:
   %p.addr = alloca i64*, align 8
   store i64* %p, i64** %p.addr, align 8
-  %0 = load i64** %p.addr, align 8
+  %0 = load i64*, i64** %p.addr, align 8
   store i64 0, i64* %0, align 8
   ret void
 }

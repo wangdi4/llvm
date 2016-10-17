@@ -12,7 +12,7 @@ define double @cvtDFSI(i32 %i) #0 {
 entry:
   %i.addr = alloca i32, align 4
   store i32 %i, i32* %i.addr, align 4
-  %0 = load i32* %i.addr, align 4
+  %0 = load i32, i32* %i.addr, align 4
   %conv = sitofp i32 %0 to double
   ret double %conv
 }

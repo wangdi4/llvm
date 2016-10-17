@@ -11,7 +11,7 @@ define i32 @f_atmld32(i32* %m) #0 {
 ; LPU_CHECK-NOT: atomic
 ; LPU_CHECK-NOT: sync
 entry:
-  %0 = load atomic i32* %m seq_cst, align 8
+  %0 = load atomic i32, i32* %m seq_cst, align 8
   ret i32 %0
 }
 

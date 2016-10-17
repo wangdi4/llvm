@@ -27,7 +27,7 @@ namespace lld {
 ///
 class ArchiveLibraryFile : public File {
 public:
-  static inline bool classof(const File *f) {
+  static bool classof(const File *f) {
     return f->kind() == kindArchiveLibrary;
   }
 
@@ -49,8 +49,6 @@ public:
   virtual std::set<StringRef> getDefinedSymbols() {
     return std::set<StringRef>();
   }
-
-  virtual ~ArchiveLibraryFile() {}
 
 protected:
   /// only subclasses of ArchiveLibraryFile can be instantiated

@@ -124,6 +124,12 @@ public:
     FileSpecList &
     GetDebugFileSearchPaths ();
     
+    FileSpecList &
+    GetClangModuleSearchPaths ();
+    
+    bool
+    GetEnableAutoImportClangModules () const;
+    
     bool
     GetEnableSyntheticValue () const;
     
@@ -183,6 +189,9 @@ public:
 
     void
     SetUserSpecifiedTrapHandlerNames (const Args &args);
+
+    bool
+    GetNonStopModeEnabled () const;
     
     bool
     GetDisplayRuntimeSupportValues () const;
@@ -494,6 +503,57 @@ public:
     {
         return GetStaticBroadcasterClass();
     }
+
+    // This event data class is for use by the TargetList to broadcast new target notifications.
+    class TargetEventData : public EventData
+    {
+    public:
+        TargetEventData (const lldb::TargetSP &target_sp);
+
+        TargetEventData (const lldb::TargetSP &target_sp, const ModuleList &module_list);
+
+        virtual
+        ~TargetEventData();
+
+        static const ConstString &
+        GetFlavorString ();
+
+        virtual const ConstString &
+        GetFlavor () const
+        {
+            return TargetEventData::GetFlavorString ();
+        }
+
+        virtual void
+        Dump (Stream *s) const;
+
+        static const TargetEventData *
+        GetEventDataFromEvent (const Event *event_ptr);
+
+        static lldb::TargetSP
+        GetTargetFromEvent (const Event *event_ptr);
+
+        static ModuleList
+        GetModuleListFromEvent (const Event *event_ptr);
+
+        const lldb::TargetSP &
+        GetTarget() const
+        {
+            return m_target_sp;
+        }
+
+        const ModuleList &
+        GetModuleList() const
+        {
+            return m_module_list;
+        }
+
+    private:
+        lldb::TargetSP m_target_sp;
+        ModuleList     m_module_list;
+
+        DISALLOW_COPY_AND_ASSIGN (TargetEventData);
+    };
     
     static void
     SettingsInitialize ();
@@ -506,6 +566,9 @@ public:
 
     static FileSpecList
     GetDefaultDebugFileSearchPaths ();
+    
+    static FileSpecList
+    GetDefaultClangModuleSearchPaths ();
 
     static ArchSpec
     GetDefaultArchitecture ();
@@ -670,7 +733,8 @@ public:
 
     // Use this to create a function breakpoint by name in containingModule, or all modules if it is NULL
     // When "skip_prologue is set to eLazyBoolCalculate, we use the current target 
-    // setting, else we use the values passed in
+    // setting, else we use the values passed in.
+    // func_name_type_mask is or'ed values from the FunctionNameType enum.
     lldb::BreakpointSP
     CreateBreakpoint (const FileSpecList *containingModules,
                       const FileSpecList *containingSourceFiles,
@@ -681,11 +745,17 @@ public:
                       bool request_hardware);
                       
     lldb::BreakpointSP
-    CreateExceptionBreakpoint (enum lldb::LanguageType language, bool catch_bp, bool throw_bp, bool internal);
+    CreateExceptionBreakpoint (enum lldb::LanguageType language,
+                               bool catch_bp,
+                               bool throw_bp,
+                               bool internal,
+                               Args *additional_args = nullptr,
+                               Error *additional_args_error = nullptr);
     
     // This is the same as the func_name breakpoint except that you can specify a vector of names.  This is cheaper
     // than a regular expression breakpoint in the case where you just want to set a breakpoint on a set of names
     // you already know.
+    // func_name_type_mask is or'ed values from the FunctionNameType enum.
     lldb::BreakpointSP
     CreateBreakpoint (const FileSpecList *containingModules,
                       const FileSpecList *containingSourceFiles,
@@ -993,12 +1063,6 @@ public:
     bool
     ModuleIsExcludedForUnconstrainedSearches (const lldb::ModuleSP &module_sp);
 
-    ArchSpec &
-    GetArchitecture ()
-    {
-        return m_arch;
-    }
-    
     const ArchSpec &
     GetArchitecture () const
     {
@@ -1025,6 +1089,9 @@ public:
     //------------------------------------------------------------------
     bool
     SetArchitecture (const ArchSpec &arch_spec);
+
+    bool
+    MergeArchitecture (const ArchSpec &arch_spec);
 
     Debugger &
     GetDebugger ()

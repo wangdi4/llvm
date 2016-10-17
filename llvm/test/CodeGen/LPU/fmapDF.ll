@@ -19,12 +19,12 @@ entry:
   store double %b, double* %b.addr, align 8
   store double %c, double* %c.addr, align 8
   store double %d, double* %d.addr, align 8
-  %0 = load double* %a.addr, align 8
-  %1 = load double* %b.addr, align 8
+  %0 = load double, double* %a.addr, align 8
+  %1 = load double, double* %b.addr, align 8
   %mul = fmul double %0, %1
-  %2 = load double* %c.addr, align 8
+  %2 = load double, double* %c.addr, align 8
   %add = fadd double %mul, %2
-  %3 = load double* %d.addr, align 8
+  %3 = load double, double* %d.addr, align 8
   %add1 = fadd double %add, %3
   ret double %add1
 }

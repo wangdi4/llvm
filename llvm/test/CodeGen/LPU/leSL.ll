@@ -14,8 +14,8 @@ entry:
   %b.addr = alloca i64, align 8
   store i64 %a, i64* %a.addr, align 8
   store i64 %b, i64* %b.addr, align 8
-  %0 = load i64* %a.addr, align 8
-  %1 = load i64* %b.addr, align 8
+  %0 = load i64, i64* %a.addr, align 8
+  %1 = load i64, i64* %b.addr, align 8
   %cmp = icmp sle i64 %0, %1
   %conv = zext i1 %cmp to i32
   ret i32 %conv

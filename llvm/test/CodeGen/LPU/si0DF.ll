@@ -13,7 +13,7 @@ define void @si0DF(double* %p) #0 {
 entry:
   %p.addr = alloca double*, align 8
   store double* %p, double** %p.addr, align 8
-  %0 = load double** %p.addr, align 8
+  %0 = load double*, double** %p.addr, align 8
   store double 0.000000e+00, double* %0, align 8
   ret void
 }

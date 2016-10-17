@@ -7,18 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-//++
-// File:        MIDriverMgr.cpp
-//
-// Overview:    CMIDriverMgr implementation.
-//
-// Environment: Compilers:  Visual C++ 12.
-//                          gcc (Ubuntu/Linaro 4.8.1-10ubuntu9) 4.8.1
-//              Libraries:  See MIReadmetxt.
-//
-// Copyright:   None.
-//--
-
 // Third Party Headers:
 #include "lldb/API/SBError.h"
 
@@ -28,7 +16,6 @@
 #include "MICmnLog.h"
 #include "MICmnLogMediumFile.h"
 #include "MIDriver.h"
-#include "MIUtilTermios.h"
 #include "MICmnStreamStdout.h"
 #include "MIUtilSingletonHelper.h"
 
@@ -82,11 +69,6 @@ CMIDriverMgr::Initialize(void)
     MI::ModuleInit<CMICmnLog>(IDS_MI_INIT_ERR_LOG, bOk, errMsg);
     MI::ModuleInit<CMICmnResources>(IDS_MI_INIT_ERR_RESOURCES, bOk, errMsg);
 
-    if (bOk)
-    {
-        MIUtilTermios::StdinTermiosSet();
-    }
-
     m_bInitialized = bOk;
 
     if (!bOk)
@@ -116,37 +98,10 @@ CMIDriverMgr::Shutdown(void)
     // if( --m_clientUsageRefCnt > 0 )
     //  return MIstatus::success;
 
-    bool vbAppExitOk = true;
-
     ClrErrorDescription();
 
     if (!m_bInitialized)
         return MIstatus::success;
-
-    if (vbAppExitOk)
-    {
-#if _DEBUG
-        CMICmnStreamStdout::Instance().Write(MIRSRC(IDE_MI_APP_EXIT_OK)); // Both stdout and Log
-#else
-        CMICmnLog::WriteLog(MIRSRC(IDE_MI_APP_EXIT_OK)); // Just to the Log
-#endif // _DEBUG
-    }
-    else
-    {
-        CMICmnLog &rAppLog = CMICmnLog::Instance();
-        if (rAppLog.GetEnabled())
-        {
-            const CMIUtilString msg(
-                CMIUtilString::Format(MIRSRC(IDE_MI_APP_EXIT_WITH_PROBLEM), CMICmnLogMediumFile::Instance().GetFileName().c_str()));
-            CMICmnStreamStdout::Instance().Write(msg);
-        }
-        else
-        {
-            const CMIUtilString msg(
-                CMIUtilString::Format(MIRSRC(IDE_MI_APP_EXIT_WITH_PROBLEM_NO_LOG), CMICmnLogMediumFile::Instance().GetFileName().c_str()));
-            CMICmnStreamStdout::Instance().Write(msg);
-        }
-    }
 
     m_bInitialized = false;
 
@@ -155,7 +110,6 @@ CMIDriverMgr::Shutdown(void)
 
     // Tidy up
     UnregisterDriverAll();
-    MIUtilTermios::StdinTermiosReset();
 
     // Note shutdown order is important here
     MI::ModuleShutdown<CMICmnResources>(IDE_MI_SHTDWN_ERR_RESOURCES, bOk, errMsg);
@@ -355,26 +309,6 @@ CMIDriverMgr::DriverMainLoop(void)
 }
 
 //++ ------------------------------------------------------------------------------------
-// Details: Call *this driver to resize the console window.
-// Type:    Method.
-// Args:    vWindowSizeWsCol  - (R) New window column size.
-// Return:  MIstatus::success - Functional succeeded.
-//          MIstatus::failure - Functional failed.
-// Throws:  None.
-//--
-void
-CMIDriverMgr::DriverResizeWindow(const uint32_t vWindowSizeWsCol)
-{
-    if (m_pDriverCurrent != nullptr)
-        return m_pDriverCurrent->DoResizeWindow(vWindowSizeWsCol);
-    else
-    {
-        const CMIUtilString errMsg(CMIUtilString::Format(MIRSRC(IDS_DRIVER_ERR_CURRENT_NOT_SET)));
-        CMICmnStreamStdout::Instance().Write(errMsg, true);
-    }
-}
-
-//++ ------------------------------------------------------------------------------------
 // Details: Get the current driver to validate executable command line arguments.
 // Type:    Method.
 // Args:    argc        - (R)   An integer that contains the count of arguments that follow in
@@ -493,6 +427,7 @@ CMIDriverMgr::DriverGetTheDebugger(void)
 //              --versionLong
 //              --log
 //              --executable
+//              --log-dir
 //          The above arguments are not handled by any driver object except for --executable.
 //          The options --interpreter and --executable in code act very similar. The
 //          --executable is necessary to differentiate whither the MI Driver is being using
@@ -502,7 +437,8 @@ CMIDriverMgr::DriverGetTheDebugger(void)
 //          Driver is being called the command line and that the executable argument is indeed
 //          a specified executable an so actions commands to set up the executable for a
 //          debug session. Using --interpreter on the commnd line does not action additional
-//          commands to initialise a debug session and so be able to launch the process.
+//          commands to initialise a debug session and so be able to launch the process. The directory
+//          where the log file is created is specified using --log-dir.
 // Type:    Method.
 // Args:    argc        - (R)   An integer that contains the count of arguments that follow in
 //                              argv. The argc parameter is always greater than or equal to 1.
@@ -549,13 +485,11 @@ CMIDriverMgr::ParseArgs(const int argc, const char *argv[], bool &vwbExiting)
     bool bHaveArgVersion = false;
     bool bHaveArgVersionLong = false;
     bool bHaveArgLog = false;
+    bool bHaveArgLogDir = false;
     bool bHaveArgHelp = false;
+    CMIUtilString strLogDir;
 
-// Hardcode the use of the MI driver
-#if MICONFIG_DEFAULT_TO_MI_DRIVER
     bHaveArgInterpret = true;
-#endif // MICONFIG_DEFAULT_TO_MI_DRIVER
-
     if (bHaveArgs)
     {
         // CODETAG_MIDRIVE_CMD_LINE_ARG_HANDLING
@@ -582,6 +516,11 @@ CMIDriverMgr::ParseArgs(const int argc, const char *argv[], bool &vwbExiting)
             {
                 bHaveArgLog = true;
             }
+            if (0 == strArg.compare(0,10,"--log-dir="))
+            {
+                strLogDir = strArg.substr(10,CMIUtilString::npos);
+                bHaveArgLogDir = true;
+            }
             if ((0 == strArg.compare("--help")) || (0 == strArg.compare("-h")))
             {
                 bHaveArgHelp = true;
@@ -592,6 +531,11 @@ CMIDriverMgr::ParseArgs(const int argc, const char *argv[], bool &vwbExiting)
     if (bHaveArgLog)
     {
         CMICmnLog::Instance().SetEnabled(true);
+    }
+
+    if (bHaveArgLogDir)
+    {
+        bOk = bOk && CMICmnLogMediumFile::Instance().SetDirectory(strLogDir);
     }
 
     // Todo: Remove this output when MI is finished. It is temporary to persuade Ecllipse plugin to work.
@@ -684,6 +628,7 @@ CMIDriverMgr::GetHelpOnCmdLineArgOptions(void) const
         MIRSRC(IDE_MI_APP_ARG_INTERPRETER),
         MIRSRC(IDE_MI_APP_ARG_EXECUTEABLE),
         CMIUtilString::Format(MIRSRC(IDE_MI_APP_ARG_APP_LOG), CMICmnLogMediumFile::Instance().GetFileName().c_str()),
+        MIRSRC(IDE_MI_APP_ARG_APP_LOG_DIR),
         MIRSRC(IDE_MI_APP_ARG_EXECUTABLE),
         MIRSRC(IDS_CMD_QUIT_HELP),
         MIRSRC(IDE_MI_APP_ARG_EXAMPLE)};

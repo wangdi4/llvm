@@ -99,7 +99,7 @@ public:
   /// @{
 
   unsigned getNumberOfRegisters(bool Vector);
-  unsigned getMaxInterleaveFactor();
+  unsigned getMaxInterleaveFactor(unsigned VF);
   unsigned getRegisterBitWidth(bool Vector);
   unsigned getArithmeticInstrCost(unsigned Opcode, Type *Ty,
           TTI::OperandValueKind = TTI::OK_AnyValue,

@@ -16,10 +16,10 @@ entry:
   store double %a, double* %a.addr, align 8
   store double %b, double* %b.addr, align 8
   store double %c, double* %c.addr, align 8
-  %0 = load double* %a.addr, align 8
-  %1 = load double* %b.addr, align 8
+  %0 = load double, double* %a.addr, align 8
+  %1 = load double, double* %b.addr, align 8
   %mul = fmul double %0, %1
-  %2 = load double* %c.addr, align 8
+  %2 = load double, double* %c.addr, align 8
   %add = fadd double %mul, %2
   ret double %add
 }

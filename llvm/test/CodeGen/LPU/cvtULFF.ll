@@ -12,7 +12,7 @@ define i64 @cvtULFF(float %f) #0 {
 entry:
   %f.addr = alloca float, align 4
   store float %f, float* %f.addr, align 4
-  %0 = load float* %f.addr, align 4
+  %0 = load float, float* %f.addr, align 4
   %conv = fptoui float %0 to i64
   ret i64 %conv
 }

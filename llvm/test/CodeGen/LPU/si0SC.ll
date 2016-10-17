@@ -12,7 +12,7 @@ define void @si0SC(i8* %p) #0 {
 entry:
   %p.addr = alloca i8*, align 8
   store i8* %p, i8** %p.addr, align 8
-  %0 = load i8** %p.addr, align 8
+  %0 = load i8*, i8** %p.addr, align 8
   store i8 0, i8* %0, align 1
   ret void
 }

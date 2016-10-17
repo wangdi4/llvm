@@ -99,14 +99,26 @@ public:
     virtual Error
     ClearAllHardwareWatchpoints ();
 
+    virtual Error
+    IsWatchpointHit(uint32_t wp_index, bool &is_hit);
+
+    virtual Error
+    GetWatchpointHitIndex(uint32_t &wp_index);
+
+    virtual Error
+    IsWatchpointVacant (uint32_t wp_index, bool &is_vacant);
+
+    virtual lldb::addr_t
+    GetWatchpointAddress (uint32_t wp_index);
+
     virtual bool
     HardwareSingleStep (bool enable);
 
     virtual Error
-    ReadRegisterValueFromMemory (const lldb_private::RegisterInfo *reg_info, lldb::addr_t src_addr, lldb::addr_t src_len, RegisterValue &reg_value);
+    ReadRegisterValueFromMemory (const lldb_private::RegisterInfo *reg_info, lldb::addr_t src_addr, size_t src_len, RegisterValue &reg_value);
 
     virtual Error
-    WriteRegisterValueToMemory (const lldb_private::RegisterInfo *reg_info, lldb::addr_t dst_addr, lldb::addr_t dst_len, const RegisterValue &reg_value);
+    WriteRegisterValueToMemory (const lldb_private::RegisterInfo *reg_info, lldb::addr_t dst_addr, size_t dst_len, const RegisterValue &reg_value);
 
     //------------------------------------------------------------------
     // Subclasses should not override these

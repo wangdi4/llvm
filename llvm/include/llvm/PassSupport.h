@@ -54,20 +54,17 @@ class TargetMachine;
   TsanHappensAfter(&initialized);
 
 #define INITIALIZE_PASS(passName, arg, name, cfg, analysis) \
-namespace llvm { \
   static void* initialize##passName##PassOnce(PassRegistry &Registry) { \
     PassInfo *PI = new PassInfo(name, arg, & passName ::ID, \
       PassInfo::NormalCtor_t(callDefaultCtor< passName >), cfg, analysis); \
     Registry.registerPass(*PI, true); \
     return PI; \
   } \
-  void initialize##passName##Pass(PassRegistry &Registry) { \
+  void llvm::initialize##passName##Pass(PassRegistry &Registry) { \
     CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
-  } \
-} 
+  }
 
 #define INITIALIZE_PASS_BEGIN(passName, arg, name, cfg, analysis) \
-  namespace llvm { \
   static void* initialize##passName##PassOnce(PassRegistry &Registry) {
 
 #define INITIALIZE_PASS_DEPENDENCY(depName) \
@@ -81,10 +78,9 @@ namespace llvm { \
     Registry.registerPass(*PI, true); \
     return PI; \
   } \
-  void initialize##passName##Pass(PassRegistry &Registry) { \
+  void llvm::initialize##passName##Pass(PassRegistry &Registry) { \
     CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
-  } \
-} // end namespace llvm
+  }
 
 #define INITIALIZE_PASS_WITH_OPTIONS(PassName, Arg, Name, Cfg, Analysis) \
   INITIALIZE_PASS_BEGIN(PassName, Arg, Name, Cfg, Analysis) \
@@ -174,21 +170,18 @@ struct RegisterAnalysisGroup : public RegisterAGBase {
 };
 
 #define INITIALIZE_ANALYSIS_GROUP(agName, name, defaultPass) \
-namespace llvm { \
   static void* initialize##agName##AnalysisGroupOnce(PassRegistry &Registry) { \
     initialize##defaultPass##Pass(Registry); \
     PassInfo *AI = new PassInfo(name, & agName :: ID); \
     Registry.registerAnalysisGroup(& agName ::ID, 0, *AI, false, true); \
     return AI; \
   } \
-  void initialize##agName##AnalysisGroup(PassRegistry &Registry) { \
+  void llvm::initialize##agName##AnalysisGroup(PassRegistry &Registry) { \
     CALL_ONCE_INITIALIZATION(initialize##agName##AnalysisGroupOnce) \
-  } \
-}
+  }
 
 
 #define INITIALIZE_AG_PASS(passName, agName, arg, name, cfg, analysis, def) \
-namespace llvm { \
   static void* initialize##passName##PassOnce(PassRegistry &Registry) { \
     if (!def) initialize##agName##AnalysisGroup(Registry); \
     PassInfo *PI = new PassInfo(name, arg, & passName ::ID, \
@@ -200,13 +193,12 @@ namespace llvm { \
                                    *AI, def, true); \
     return AI; \
   } \
-  void initialize##passName##Pass(PassRegistry &Registry) {       \
+  void llvm::initialize##passName##Pass(PassRegistry &Registry) { \
     CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
-  } \
-}
+  }
+
 
 #define INITIALIZE_AG_PASS_BEGIN(passName, agName, arg, n, cfg, analysis, def) \
-namespace llvm { \
   static void* initialize##passName##PassOnce(PassRegistry &Registry) { \
     if (!def) initialize##agName##AnalysisGroup(Registry);
 
@@ -220,10 +212,9 @@ namespace llvm { \
                                    *AI, def, true); \
     return AI; \
   } \
-  void initialize##passName##Pass(PassRegistry &Registry) { \
+  void llvm::initialize##passName##Pass(PassRegistry &Registry) { \
     CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
-  } \
-} // end namespace llvm
+  }
 
 //===---------------------------------------------------------------------------
 /// PassRegistrationListener class - This class is meant to be derived from by

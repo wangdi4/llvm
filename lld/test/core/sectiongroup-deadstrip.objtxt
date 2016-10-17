@@ -1,6 +1,6 @@
 # Test for section group members be preserved even if there is a
 # reference to only one functions in the group.
-# RUN: lld -core --dead-strip %s | FileCheck %s
+# RUN: lld -core --dead-strip %s %p/Inputs/sectiongroup-deadstrip.objtxt | FileCheck %s
 
 #
 # Test that section groups are parsed properly when there is a reference to a
@@ -18,6 +18,9 @@ defined-atoms:
   - name:            f1
     scope:           global
     type:            code
+    references:
+      - kind:            layout-after
+        target:          anotherfunction
   - name:            f2
     scope:           global
     type:            code
@@ -42,13 +45,6 @@ defined-atoms:
   - name:            anotherfunction
     scope:           global
     type:            data
-    references:
-      - kind:            layout-before
-        target:          f1
----
-undefined-atoms:
-    - name:              f1
-      can-be-null:       never
 ...
 
 #CHECK: defined-atoms:
@@ -71,6 +67,10 @@ undefined-atoms:
 #CHECK:         target:          [[GCHILD:[a-zA-Z\.0-9_]+]]
 #CHECK:   - name:            f1
 #CHECK:     scope:           global
+#CHECK:     references:
+#CHECK:       - kind:            layout-after
+#CHECK:         offset:          0
+#CHECK:         target:          anotherfunction
 #CHECK:   - name:            f2
 #CHECK:     scope:           global
 #CHECK:   - name:            d1
@@ -82,7 +82,3 @@ undefined-atoms:
 #CHECK:   - name:            anotherfunction
 #CHECK:     scope:           global
 #CHECK:     type:            data
-#CHECK:     references:
-#CHECK:       - kind:            layout-before
-#CHECK:         offset:          0
-#CHECK:         target:          f1

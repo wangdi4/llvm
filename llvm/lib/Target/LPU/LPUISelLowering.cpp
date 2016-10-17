@@ -45,10 +45,8 @@ static cl::opt<bool>
 EnableLPUTailCalls("enable-lpu-tail-calls",
                     cl::desc("LPU: Enable tail calls."));
 
-LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
+LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget &ST)
     : TargetLowering(TM) {
-
-  const LPUSubtarget& ST = TM.getSubtarget<LPUSubtarget>();
 
   // Set up the register classes.
   // The actual allocation should depend on the context (serial vs. parallel)
@@ -623,7 +621,7 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     ++NumTailCalls;
 
   if (!isTailCall)
-    Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, true), dl);
+    Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, dl, true), dl);
 
   SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, LPU::SP, getPointerTy());
 
@@ -670,13 +668,13 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     // emit ISD::STORE whichs stores the
     // parameter value to a stack Location
     unsigned LocMemOffset = VA.getLocMemOffset();
-    SDValue PtrOff = DAG.getIntPtrConstant(LocMemOffset);
+    SDValue PtrOff = DAG.getIntPtrConstant(LocMemOffset, dl);
     PtrOff = DAG.getNode(ISD::ADD, dl, getPointerTy(), StackPtr, PtrOff);
     if (Flags.isByVal()) {
-      SDValue SizeNode = DAG.getConstant(Flags.getByValSize(), MVT::i32);
+      SDValue SizeNode = DAG.getConstant(Flags.getByValSize(), dl, MVT::i32);
       MemOpChains.push_back(
         DAG.getMemcpy(Chain, dl, PtrOff, Arg, SizeNode, Flags.getByValAlign(),
-                      /*isVolatile=*/false, /*AlwaysInline=*/false,
+                      /*isVolatile=*/false, /*AlwaysInline=*/false, /*isTailCall=*/false,
                       MachinePointerInfo(), MachinePointerInfo()));
     } else {
       MemOpChains.push_back(
@@ -738,8 +736,8 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   InFlag = Chain.getValue(1);
 
   // Create the CALLSEQ_END node.
-  Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, true),
-                             DAG.getIntPtrConstant(0, true), InFlag, dl);
+  Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, dl, true),
+                             DAG.getIntPtrConstant(0, dl, true), InFlag, dl);
   if (!Ins.empty())
     InFlag = Chain.getValue(1);
 

@@ -13,13 +13,16 @@
 #include "lldb/Core/Log.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Host/HostInfo.h"
+#include "Utility/UriParser.h"
 
 // Project includes
+#include "AdbClient.h"
 #include "PlatformAndroid.h"
 #include "PlatformAndroidRemoteGDBServer.h"
 
 using namespace lldb;
 using namespace lldb_private;
+using namespace lldb_private::platform_android;
 
 static uint32_t g_initialize_count = 0;
 
@@ -58,7 +61,7 @@ PlatformAndroid::Terminate ()
 PlatformSP
 PlatformAndroid::CreateInstance (bool force, const ArchSpec *arch)
 {
-    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PLATFORM));
+    Log *log(GetLogIfAllCategoriesSet (LIBLLDB_LOG_PLATFORM));
     if (log)
     {
         const char *arch_name;
@@ -138,7 +141,7 @@ PlatformAndroid::~PlatformAndroid()
 {
 }
 
-lldb_private::ConstString
+ConstString
 PlatformAndroid::GetPluginNameStatic (bool is_host)
 {
     if (is_host)
@@ -162,15 +165,17 @@ PlatformAndroid::GetPluginDescriptionStatic (bool is_host)
         return "Remote Android user platform plug-in.";
 }
 
-lldb_private::ConstString
+ConstString
 PlatformAndroid::GetPluginName()
 {
     return GetPluginNameStatic(IsHost());
 }
 
 Error
-PlatformAndroid::ConnectRemote (Args& args)
+PlatformAndroid::ConnectRemote(Args& args)
 {
+    m_device_id.clear();
+
     if (IsHost())
     {
         return Error ("can't connect to the host platform '%s', always connected", GetPluginName().GetCString());
@@ -178,5 +183,32 @@ PlatformAndroid::ConnectRemote (Args& args)
 
     if (!m_remote_platform_sp)
         m_remote_platform_sp = PlatformSP(new PlatformAndroidRemoteGDBServer());
-    return PlatformLinux::ConnectRemote (args);
+
+    int port;
+    std::string scheme, host, path;
+    const char *url = args.GetArgumentAtIndex(0);
+    if (!url)
+        return Error("URL is null.");
+    if (!UriParser::Parse(url, scheme, host, port, path))
+        return Error("Invalid URL: %s", url);
+    if (scheme == "adb")
+        m_device_id = host;
+
+    auto error = PlatformLinux::ConnectRemote(args);
+    if (error.Success())
+    {
+        AdbClient adb;
+        error = AdbClient::CreateByDeviceID(m_device_id, adb);
+        if (error.Fail())
+            return error;
+
+        m_device_id = adb.GetDeviceID();
+    }
+    return error;
+}
+
+const char *
+PlatformAndroid::GetCacheHostname ()
+{
+    return m_device_id.c_str ();
 }

@@ -1,8 +1,18 @@
 add_llvm_library(lldELF
+  Atoms.cpp
+  DynamicFile.cpp
+  ELFFile.cpp
   ELFLinkingContext.cpp
+  FileCommon.cpp
+  HeaderChunks.cpp
+  OutputELFWriter.cpp
   Reader.cpp
+  SectionChunks.cpp
+  SegmentChunks.cpp
+  TargetLayout.cpp
   Writer.cpp
   LINK_LIBS
+    lldReaderWriter
     lldCore
     lldYAML
     LLVMSupport

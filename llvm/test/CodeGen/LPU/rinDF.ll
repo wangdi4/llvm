@@ -13,8 +13,8 @@ define double @rinDF(double* %p) #0 {
 entry:
   %p.addr = alloca double*, align 8
   store double* %p, double** %p.addr, align 8
-  %0 = load double** %p.addr, align 8
-  %1 = load double* %0, align 8
+  %0 = load double*, double** %p.addr, align 8
+  %1 = load double, double* %0, align 8
   %sub = fsub double -0.000000e+00, %1
   ret double %sub
 } 

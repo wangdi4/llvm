@@ -72,7 +72,7 @@ public:
   bool validateImpl(raw_ostream &diagnostics) override;
   std::string demangle(StringRef symbolName) const override;
 
-  bool createImplicitFiles(std::vector<std::unique_ptr<File>> &) override;
+  void createImplicitFiles(std::vector<std::unique_ptr<File>> &) override;
 
   uint32_t getCPUType() const;
   uint32_t getCPUSubType() const;
@@ -228,10 +228,10 @@ public:
   const StringRefVector &rpaths() const { return _rpaths; }
 
   /// Add section alignment constraint on final layout.
-  void addSectionAlignment(StringRef seg, StringRef sect, uint8_t align2);
+  void addSectionAlignment(StringRef seg, StringRef sect, uint16_t align);
 
   /// Returns true if specified section had alignment constraints.
-  bool sectionAligned(StringRef seg, StringRef sect, uint8_t &align2) const;
+  bool sectionAligned(StringRef seg, StringRef sect, uint16_t &align) const;
 
   StringRef dyldPath() const { return "/usr/lib/dyld"; }
 
@@ -271,8 +271,7 @@ public:
 
   /// If the memoryBuffer is a fat file with a slice for the current arch,
   /// this method will return the offset and size of that slice.
-  bool sliceFromFatFile(const MemoryBuffer &mb, uint32_t &offset,
-                        uint32_t &size);
+  bool sliceFromFatFile(MemoryBufferRef mb, uint32_t &offset, uint32_t &size);
 
   /// Returns if a command line option specified dylib is an upward link.
   bool isUpwardDylib(StringRef installName) const;
@@ -291,7 +290,7 @@ public:
   /// bits are xxxx.yy.zz.  Largest number is 65535.255.255
   static bool parsePackedVersion(StringRef str, uint32_t &result);
 
-  void maybeSortInputFiles() override;
+  void finalizeInputFiles() override;
 
   bool customAtomOrderer(const DefinedAtom *left, const DefinedAtom *right,
                          bool &leftBeforeRight) const;
@@ -312,7 +311,7 @@ private:
   struct SectionAlign {
     StringRef segmentName;
     StringRef sectionName;
-    uint8_t   align2;
+    uint16_t  align;
   };
 
   struct OrderFileNode {
@@ -356,6 +355,7 @@ private:
   mutable std::set<mach_o::MachODylibFile*> _allDylibs;
   mutable std::set<mach_o::MachODylibFile*> _upwardDylibs;
   mutable std::vector<std::unique_ptr<File>> _indirectDylibs;
+  mutable std::mutex _dylibsMutex;
   ExportMode _exportMode;
   llvm::StringSet<> _exportedSymbols;
   DebugInfoMode _debugInfoMode;

@@ -588,7 +588,7 @@ IRExecutionUnit::MemoryManager::allocateCodeSection(uintptr_t Size,
     if (log)
     {
         log->Printf("IRExecutionUnit::allocateCodeSection(Size=0x%" PRIx64 ", Alignment=%u, SectionID=%u) = %p",
-                    (uint64_t)Size, Alignment, SectionID, return_value);
+                    (uint64_t)Size, Alignment, SectionID, (void *)return_value);
     }
 
     return return_value;
@@ -605,8 +605,11 @@ IRExecutionUnit::MemoryManager::allocateDataSection(uintptr_t Size,
 
     uint8_t *return_value = m_default_mm_ap->allocateDataSection(Size, Alignment, SectionID, SectionName, IsReadOnly);
 
+    uint32_t permissions = lldb::ePermissionsReadable;
+    if (!IsReadOnly)
+        permissions |= lldb::ePermissionsWritable;
     m_parent.m_records.push_back(AllocationRecord((uintptr_t)return_value,
-                                                  lldb::ePermissionsReadable | (IsReadOnly ? 0 : lldb::ePermissionsWritable),
+                                                  permissions,
                                                   GetSectionTypeFromSectionName (SectionName, AllocationKind::Data),
                                                   Size,
                                                   Alignment,
@@ -615,7 +618,7 @@ IRExecutionUnit::MemoryManager::allocateDataSection(uintptr_t Size,
     if (log)
     {
         log->Printf("IRExecutionUnit::allocateDataSection(Size=0x%" PRIx64 ", Alignment=%u, SectionID=%u) = %p",
-                    (uint64_t)Size, Alignment, SectionID, return_value);
+                    (uint64_t)Size, Alignment, SectionID, (void *)return_value);
     }
 
     return return_value;

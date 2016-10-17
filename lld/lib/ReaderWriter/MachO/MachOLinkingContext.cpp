@@ -133,8 +133,7 @@ bool MachOLinkingContext::isThinObjectFile(StringRef path, Arch &arch) {
   return mach_o::normalized::isThinObjectFile(path, arch);
 }
 
-bool MachOLinkingContext::sliceFromFatFile(const MemoryBuffer &mb,
-                                           uint32_t &offset,
+bool MachOLinkingContext::sliceFromFatFile(MemoryBufferRef mb, uint32_t &offset,
                                            uint32_t &size) {
   return mach_o::normalized::sliceFromFatFile(mb, _arch, offset, size);
 }
@@ -214,7 +213,7 @@ void MachOLinkingContext::configure(HeaderFileType type, Arch arch, OS os,
     }
     break;
   case llvm::MachO::MH_DYLIB:
-    _globalsAreDeadStripRoots = true;
+    setGlobalsAreDeadStripRoots(true);
     break;
   case llvm::MachO::MH_BUNDLE:
     break;
@@ -570,7 +569,7 @@ bool MachOLinkingContext::validateImpl(raw_ostream &diagnostics) {
       addDeadStripRoot(binderSymbolName());
     // If using -exported_symbols_list, make all exported symbols live.
     if (_exportMode == ExportMode::whiteList) {
-      _globalsAreDeadStripRoots = false;
+      setGlobalsAreDeadStripRoots(false);
       for (const auto &symbol : _exportedSymbols)
         addDeadStripRoot(symbol.getKey());
     }
@@ -613,7 +612,7 @@ MachOLinkingContext::getMemoryBuffer(StringRef path) {
   // and switch buffer to point to just that required slice.
   uint32_t offset;
   uint32_t size;
-  if (sliceFromFatFile(*mb, offset, size))
+  if (sliceFromFatFile(mb->getMemBufferRef(), offset, size))
     return MemoryBuffer::getFileSlice(path, size, offset);
   return std::move(mb);
 }
@@ -623,14 +622,15 @@ MachODylibFile* MachOLinkingContext::loadIndirectDylib(StringRef path) {
   if (mbOrErr.getError())
     return nullptr;
 
-  std::vector<std::unique_ptr<File>> files;
-  if (registry().loadFile(std::move(mbOrErr.get()), files))
+  ErrorOr<std::unique_ptr<File>> fileOrErr =
+      registry().loadFile(std::move(mbOrErr.get()));
+  if (!fileOrErr)
     return nullptr;
-  assert(files.size() == 1 && "expected one file in dylib");
-  files[0]->parse();
-  MachODylibFile* result = reinterpret_cast<MachODylibFile*>(files[0].get());
+  std::unique_ptr<File> &file = fileOrErr.get();
+  file->parse();
+  MachODylibFile *result = reinterpret_cast<MachODylibFile *>(file.get());
   // Node object now owned by _indirectDylibs vector.
-  _indirectDylibs.push_back(std::move(files[0]));
+  _indirectDylibs.push_back(std::move(file));
   return result;
 }
 
@@ -685,7 +685,7 @@ uint32_t MachOLinkingContext::dylibCompatVersion(StringRef installName) const {
     return 0x1000; // 1.0
 }
 
-bool MachOLinkingContext::createImplicitFiles(
+void MachOLinkingContext::createImplicitFiles(
                             std::vector<std::unique_ptr<File> > &result) {
   // Add indirect dylibs by asking each linked dylib to add its indirects.
   // Iterate until no more dylibs get loaded.
@@ -699,12 +699,13 @@ bool MachOLinkingContext::createImplicitFiles(
   }
 
   // Let writer add output type specific extras.
-  return writer().createImplicitFiles(result);
+  writer().createImplicitFiles(result);
 }
 
 
 void MachOLinkingContext::registerDylib(MachODylibFile *dylib,
                                         bool upward) const {
+  std::lock_guard<std::mutex> lock(_dylibsMutex);
   _allDylibs.insert(dylib);
   _pathToDylibMap[dylib->installName()] = dylib;
   // If path is different than install name, register path too.
@@ -731,19 +732,16 @@ ArchHandler &MachOLinkingContext::archHandler() const {
 
 
 void MachOLinkingContext::addSectionAlignment(StringRef seg, StringRef sect,
-                                                               uint8_t align2) {
-  SectionAlign entry;
-  entry.segmentName = seg;
-  entry.sectionName = sect;
-  entry.align2 = align2;
+                                              uint16_t align) {
+  SectionAlign entry = { seg, sect, align };
   _sectAligns.push_back(entry);
 }
 
 bool MachOLinkingContext::sectionAligned(StringRef seg, StringRef sect,
-                                                        uint8_t &align2) const {
+                                         uint16_t &align) const {
   for (const SectionAlign &entry : _sectAligns) {
     if (seg.equals(entry.segmentName) && sect.equals(entry.sectionName)) {
-      align2 = entry.align2;
+      align = entry.align;
       return true;
     }
   }
@@ -955,7 +953,7 @@ static bool isLibrary(const std::unique_ptr<Node> &elem) {
 // comes before any library file. We also make a group for the library files
 // so that the Resolver will reiterate over the libraries as long as we find
 // new undefines from libraries.
-void MachOLinkingContext::maybeSortInputFiles() {
+void MachOLinkingContext::finalizeInputFiles() {
   std::vector<std::unique_ptr<Node>> &elements = getNodes();
   std::stable_sort(elements.begin(), elements.end(),
                    [](const std::unique_ptr<Node> &a,

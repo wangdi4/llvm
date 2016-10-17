@@ -14,9 +14,9 @@ entry:
   %b.addr = alloca i16, align 2
   store i16 %a, i16* %a.addr, align 2
   store i16 %b, i16* %b.addr, align 2
-  %0 = load i16* %a.addr, align 2
+  %0 = load i16, i16* %a.addr, align 2
   %conv = zext i16 %0 to i32
-  %1 = load i16* %b.addr, align 2
+  %1 = load i16, i16* %b.addr, align 2
   %conv1 = zext i16 %1 to i32
   %cmp = icmp sgt i32 %conv, %conv1
   %conv2 = zext i1 %cmp to i32

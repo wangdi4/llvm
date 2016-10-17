@@ -66,7 +66,7 @@ LPUStatisticsPass("lpu-statistics", cl::Hidden,
 
 
 
-namespace llvm {
+namespace {
   class LPUStatistics : public MachineFunctionPass {
   public:
     static char ID;
@@ -82,15 +82,18 @@ namespace llvm {
   };
 }
 
+namespace llvm {
+    void initializeLPUStatisticsPass(PassRegistry&);
+}
+
 //  Because of the namespace-related syntax limitations of gcc, we need
 //  To hoist init out of namespace blocks. 
 char LPUStatistics::ID = 0;
 INITIALIZE_PASS(LPUStatistics, "lpu-statistics", "LPU Statistics", true, true)
 
 LPUStatistics::LPUStatistics() : MachineFunctionPass(ID) {
-  initializeLPUStatisticsPass(*PassRegistry::getPassRegistry());
+    initializeLPUStatisticsPass(*PassRegistry::getPassRegistry());
 }
-
 
 MachineFunctionPass *llvm::createLPUStatisticsPass() {
   return new LPUStatistics();

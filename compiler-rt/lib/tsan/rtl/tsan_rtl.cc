@@ -24,6 +24,7 @@
 #include "tsan_mman.h"
 #include "tsan_suppressions.h"
 #include "tsan_symbolize.h"
+#include "ubsan/ubsan_init.h"
 
 #ifdef __SSE3__
 // <emmintrin.h> transitively includes <stdlib.h>,
@@ -133,7 +134,7 @@ static void MemoryProfiler(Context *ctx, fd_t fd, int i) {
   ctx->thread_registry->GetNumberOfThreads(&n_threads, &n_running_threads);
   InternalScopedBuffer<char> buf(4096);
   WriteMemoryProfile(buf.data(), buf.size(), n_threads, n_running_threads);
-  internal_write(fd, buf.data(), internal_strlen(buf.data()));
+  WriteToFile(fd, buf.data(), internal_strlen(buf.data()));
 }
 
 static void BackgroundThread(void *arg) {
@@ -153,12 +154,12 @@ static void BackgroundThread(void *arg) {
     } else {
       InternalScopedString filename(kMaxPathLength);
       filename.append("%s.%d", flags()->profile_memory, (int)internal_getpid());
-      uptr openrv = OpenFile(filename.data(), true);
-      if (internal_iserror(openrv)) {
+      fd_t fd = OpenFile(filename.data(), WrOnly);
+      if (fd == kInvalidFd) {
         Printf("ThreadSanitizer: failed to open memory profile file '%s'\n",
             &filename[0]);
       } else {
-        mprof_fd = openrv;
+        mprof_fd = fd;
       }
     }
   }
@@ -350,6 +351,9 @@ void Initialize(ThreadState *thr) {
   int tid = ThreadCreate(thr, 0, 0, true);
   CHECK_EQ(tid, 0);
   ThreadStart(thr, tid, internal_getpid());
+#if TSAN_CONTAINS_UBSAN
+  __ubsan::InitAsPlugin();
+#endif
   ctx->initialized = true;
 
   if (flags()->stop_on_start) {
@@ -461,7 +465,7 @@ void GrowShadowStack(ThreadState *thr) {
 #endif
 
 u32 CurrentStackId(ThreadState *thr, uptr pc) {
-  if (thr->shadow_stack_pos == 0)  // May happen during bootstrap.
+  if (!thr->is_inited)  // May happen during bootstrap.
     return 0;
   if (pc != 0) {
 #ifndef SANITIZER_GO

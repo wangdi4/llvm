@@ -12,7 +12,7 @@ define double @cvtDFUI(i32 %u) #0 {
 entry:
   %u.addr = alloca i32, align 4
   store i32 %u, i32* %u.addr, align 4
-  %0 = load i32* %u.addr, align 4
+  %0 = load i32, i32* %u.addr, align 4
   %conv = uitofp i32 %0 to double
   ret double %conv
 }

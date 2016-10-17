@@ -67,12 +67,11 @@ static MCCodeGenInfo *createLPUMCCodeGenInfo(StringRef TT, Reloc::Model RM,
   return X;
 }
 
-static MCInstPrinter *createLPUMCInstPrinter(const Target &T,
+static MCInstPrinter *createLPUMCInstPrinter(const Triple &T,
                                                 unsigned SyntaxVariant,
                                                 const MCAsmInfo &MAI,
                                                 const MCInstrInfo &MII,
-                                                const MCRegisterInfo &MRI,
-                                                const MCSubtargetInfo &STI) {
+                                                const MCRegisterInfo &MRI) {
   if (SyntaxVariant == 0)
     return new LPUInstPrinter(MAI, MII, MRI);
   return nullptr;

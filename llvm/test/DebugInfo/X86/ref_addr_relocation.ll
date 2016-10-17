@@ -2,6 +2,7 @@
 ; RUN: llc -filetype=obj -O0 %s -mtriple=x86_64-linux-gnu -o %t
 ; RUN: llvm-dwarfdump %t | FileCheck %s -check-prefix=CHECK-DWARF
 
+; RUN: llc -filetype=asm -O0 -mtriple=x86_64-apple-darwin < %s | FileCheck --check-prefix=DARWIN-ASM %s
 ; RUN: llc -filetype=obj %s -mtriple=x86_64-apple-darwin -o %t2
 ; RUN: llvm-dwarfdump %t2 | FileCheck %s -check-prefix=DARWIN-DWARF
 
@@ -23,7 +24,7 @@
 ; CHECK: DW_TAG_variable
 ; CHECK: .long [[TYPE:.*]] # DW_AT_type
 ; CHECK: DW_TAG_structure_type
-; CHECK: debug_info_begin1
+; CHECK: cu_begin1
 ; CHECK: DW_TAG_compile_unit
 ; CHECK-NOT: DW_TAG_structure_type
 ; This variable's type is in the 1st CU.
@@ -32,6 +33,10 @@
 ; CHECK: .quad .Lsection_info+[[TYPE]] # DW_AT_type
 ; CHECK-NOT: DW_TAG_structure_type
 ; CHECK: .section
+
+; test that we don't create useless labels
+; DARWIN-ASM: .long [[TYPE:.*]] ## DW_AT_type
+; DARWIN-ASM: .quad [[TYPE]] ## DW_AT_type
 
 ; CHECK-DWARF: DW_TAG_compile_unit
 ; CHECK-DWARF: 0x[[ADDR:.*]]: DW_TAG_structure_type
@@ -53,19 +58,19 @@
 !llvm.dbg.cu = !{!0, !9}
 !llvm.module.flags = !{!14, !15}
 
-!0 = !MDCompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.4 (trunk 191799)", isOptimized: false, emissionKind: 0, file: !1, enums: !2, retainedTypes: !3, subprograms: !2, globals: !6, imports: !2)
-!1 = !MDFile(filename: "tu1.cpp", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
+!0 = !DICompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.4 (trunk 191799)", isOptimized: false, emissionKind: 0, file: !1, enums: !2, retainedTypes: !3, subprograms: !2, globals: !6, imports: !2)
+!1 = !DIFile(filename: "tu1.cpp", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
 !2 = !{}
 !3 = !{!4}
-!4 = !MDCompositeType(tag: DW_TAG_structure_type, name: "foo", line: 1, size: 8, align: 8, file: !5, elements: !2, identifier: "_ZTS3foo")
-!5 = !MDFile(filename: "./hdr.h", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
+!4 = !DICompositeType(tag: DW_TAG_structure_type, name: "foo", line: 1, size: 8, align: 8, file: !5, elements: !2, identifier: "_ZTS3foo")
+!5 = !DIFile(filename: "./hdr.h", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
 !6 = !{!7}
-!7 = !MDGlobalVariable(name: "f", line: 2, isLocal: false, isDefinition: true, scope: null, file: !8, type: !4, variable: %struct.foo* @f)
-!8 = !MDFile(filename: "tu1.cpp", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
-!9 = !MDCompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.4 (trunk 191799)", isOptimized: false, emissionKind: 0, file: !10, enums: !2, retainedTypes: !3, subprograms: !2, globals: !11, imports: !2)
-!10 = !MDFile(filename: "tu2.cpp", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
+!7 = !DIGlobalVariable(name: "f", line: 2, isLocal: false, isDefinition: true, scope: null, file: !8, type: !4, variable: %struct.foo* @f)
+!8 = !DIFile(filename: "tu1.cpp", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
+!9 = !DICompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.4 (trunk 191799)", isOptimized: false, emissionKind: 0, file: !10, enums: !2, retainedTypes: !3, subprograms: !2, globals: !11, imports: !2)
+!10 = !DIFile(filename: "tu2.cpp", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
 !11 = !{!12}
-!12 = !MDGlobalVariable(name: "g", line: 2, isLocal: false, isDefinition: true, scope: null, file: !13, type: !4, variable: %struct.foo* @g)
-!13 = !MDFile(filename: "tu2.cpp", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
+!12 = !DIGlobalVariable(name: "g", line: 2, isLocal: false, isDefinition: true, scope: null, file: !13, type: !4, variable: %struct.foo* @g)
+!13 = !DIFile(filename: "tu2.cpp", directory: "/Users/manmanren/test-Nov/type_unique_air/ref_addr")
 !14 = !{i32 2, !"Dwarf Version", i32 2}
 !15 = !{i32 1, !"Debug Info Version", i32 3}

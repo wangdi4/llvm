@@ -11,7 +11,7 @@ define i16 @f_atmld16(i16* %m) #0 {
 ; LPU_CHECK-NOT: atomic
 ; LPU_CHECK-NOT: sync
 entry:
-  %0 = load atomic i16* %m seq_cst, align 8
+  %0 = load atomic i16, i16* %m seq_cst, align 8
   ret i16 %0
 }
 

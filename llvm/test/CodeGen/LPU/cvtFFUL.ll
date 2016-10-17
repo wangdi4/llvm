@@ -12,7 +12,7 @@ define float @cvtFFUL(i64 %u) #0 {
 entry:
   %u.addr = alloca i64, align 8
   store i64 %u, i64* %u.addr, align 8
-  %0 = load i64* %u.addr, align 8
+  %0 = load i64, i64* %u.addr, align 8
   %conv = uitofp i64 %0 to float
   ret float %conv
 }

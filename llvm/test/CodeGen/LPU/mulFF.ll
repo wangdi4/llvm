@@ -14,8 +14,8 @@ entry:
   %b.addr = alloca float, align 4
   store float %a, float* %a.addr, align 4
   store float %b, float* %b.addr, align 4
-  %0 = load float* %a.addr, align 4
-  %1 = load float* %b.addr, align 4
+  %0 = load float, float* %a.addr, align 4
+  %1 = load float, float* %b.addr, align 4
   %mul = fmul float %0, %1
   ret float %mul
 }

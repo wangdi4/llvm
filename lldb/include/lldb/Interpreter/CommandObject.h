@@ -98,7 +98,7 @@ public:
         return m_interpreter;
     }
 
-    const char *
+    virtual const char *
     GetHelp ();
 
     virtual const char *
@@ -113,6 +113,9 @@ public:
     void
     SetHelp (const char * str);
 
+    void
+    SetHelp (std::string str);
+    
     void
     SetHelpLong (const char * str);
 
@@ -192,7 +195,7 @@ public:
     static lldb::CommandArgumentType
     LookupArgumentName (const char *arg_name);
 
-    static ArgumentTableEntry *
+    static const ArgumentTableEntry *
     FindArgumentDataByType (lldb::CommandArgumentType arg_type);
 
     int

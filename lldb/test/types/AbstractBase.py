@@ -33,10 +33,10 @@ class GenericTester(TestBase):
 
     def tearDown(self):
         """Cleanup the test byproducts."""
-        TestBase.tearDown(self)
         #print "Removing golden-output.txt..."
         if os.path.exists(self.golden_filename):
             os.remove(self.golden_filename)
+        TestBase.tearDown(self)
 
     #==========================================================================#
     # Functions build_and_run() and build_and_run_expr() are generic functions #
@@ -86,7 +86,7 @@ class GenericTester(TestBase):
         if lldb.remote_platform:
             # process launch -o requires a path that is valid on the target
             self.assertIsNotNone(lldb.remote_platform.GetWorkingDirectory())
-            remote_path = os.path.join(lldb.remote_platform.GetWorkingDirectory(), "lldb-stdout-redirect.txt")
+            remote_path = lldbutil.append_to_remote_wd("lldb-stdout-redirect.txt")
             self.runCmd('process launch -o {remote}'.format(remote=remote_path))
             # copy remote_path to local host
             self.runCmd('platform get-file {remote} "{local}"'.format(
@@ -176,6 +176,7 @@ class GenericTester(TestBase):
             nv = ("%s = '%s'" if quotedDisplay else "%s = %s") % (var, val)
             self.expect(output, Msg(var, val, True), exe=False,
                 substrs = [nv])
+        pass
 
     def generic_type_expr_tester(self, exe_name, atoms, quotedDisplay=False, blockCaptured=False):
         """Test that variable expressions with basic types are evaluated correctly."""
@@ -259,3 +260,4 @@ class GenericTester(TestBase):
             valPart = ("'%s'" if quotedDisplay else "%s") % val
             self.expect(output, Msg(var, val, False), exe=False,
                 substrs = [valPart])
+        pass

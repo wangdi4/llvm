@@ -12,8 +12,8 @@ define i64 @riSLSI(i32* %p) #0 {
 entry:
   %p.addr = alloca i32*, align 8
   store i32* %p, i32** %p.addr, align 8
-  %0 = load i32** %p.addr, align 8
-  %1 = load i32* %0, align 4
+  %0 = load i32*, i32** %p.addr, align 8
+  %1 = load i32, i32* %0, align 4
   %conv = sext i32 %1 to i64
   ret i64 %conv
 }

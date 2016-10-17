@@ -13,24 +13,24 @@ entry:
   %retval = alloca i64, align 8
   %i.addr = alloca i64, align 8
   store i64 %i, i64* %i.addr, align 8
-  %0 = load i64* %i.addr, align 8
+  %0 = load i64, i64* %i.addr, align 8
   %tobool = icmp ne i64 %0, 0
   br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %1 = load i64* %i.addr, align 8
+  %1 = load i64, i64* %i.addr, align 8
   %add = add nsw i64 %1, 1
   store i64 %add, i64* %retval
   br label %return
 
 if.end:                                           ; preds = %entry
-  %2 = load i64* %i.addr, align 8
+  %2 = load i64, i64* %i.addr, align 8
   %mul = mul nsw i64 %2, 2
   store i64 %mul, i64* %retval
   br label %return
 
 return:                                           ; preds = %if.end, %if.then
-  %3 = load i64* %retval
+  %3 = load i64, i64* %retval
   ret i64 %3
 }
 

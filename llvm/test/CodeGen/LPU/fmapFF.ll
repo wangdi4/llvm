@@ -18,12 +18,12 @@ entry:
   store float %b, float* %b.addr, align 4
   store float %c, float* %c.addr, align 4
   store float %d, float* %d.addr, align 4
-  %0 = load float* %a.addr, align 4
-  %1 = load float* %b.addr, align 4
+  %0 = load float, float* %a.addr, align 4
+  %1 = load float, float* %b.addr, align 4
   %mul = fmul float %0, %1
-  %2 = load float* %c.addr, align 4
+  %2 = load float, float* %c.addr, align 4
   %add = fadd float %mul, %2
-  %3 = load float* %d.addr, align 4
+  %3 = load float, float* %d.addr, align 4
   %add1 = fadd float %add, %3
   ret float %add1
 }

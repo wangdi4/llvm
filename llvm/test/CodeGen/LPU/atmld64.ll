@@ -11,7 +11,7 @@ define i64 @f_atmld64(i64* %m) #0 {
 ; LPU_CHECK-NOT: atomic
 ; LPU_CHECK-NOT: sync
 entry:
-  %0 = load atomic i64* %m seq_cst, align 8
+  %0 = load atomic i64, i64* %m seq_cst, align 8
   ret i64 %0
 }
 

@@ -282,9 +282,6 @@ bool DominatorTree::isReachableFromEntry(const Use &U) const {
 }
 
 void DominatorTree::verifyDomTree() const {
-  if (!VerifyDomInfo)
-    return;
-
   Function &F = *getRoot()->getParent();
 
   DominatorTree OtherDT;
@@ -342,7 +339,6 @@ PreservedAnalyses DominatorTreeVerifierPass::run(Function &F,
 //===----------------------------------------------------------------------===//
 
 char DominatorTreeWrapperPass::ID = 0;
-
 INITIALIZE_PASS(DominatorTreeWrapperPass, "domtree",
                 "Dominator Tree Construction", true, true)
 
@@ -351,7 +347,10 @@ bool DominatorTreeWrapperPass::runOnFunction(Function &F) {
   return false;
 }
 
-void DominatorTreeWrapperPass::verifyAnalysis() const { DT.verifyDomTree(); }
+void DominatorTreeWrapperPass::verifyAnalysis() const {
+    if (VerifyDomInfo)
+      DT.verifyDomTree();
+}
 
 void DominatorTreeWrapperPass::print(raw_ostream &OS, const Module *) const {
   DT.print(OS);
