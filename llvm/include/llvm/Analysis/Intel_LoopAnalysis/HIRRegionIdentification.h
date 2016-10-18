@@ -38,6 +38,7 @@ class ScalarEvolution;
 class GetElementPtrInst;
 class GEPOperator;
 class SCEV;
+class TargetLibraryInfo;
 
 namespace loopopt {
 
@@ -56,20 +57,23 @@ public:
   typedef IRRegionsTy::const_reverse_iterator const_reverse_iterator;
 
 private:
-  /// IRRegions - Vector of IRRegion.
+  /// Vector of IRRegion.
   IRRegionsTy IRRegions;
 
-  /// LI - The loop information for the function we are currently analyzing.
+  /// The loop information for the function we are currently analyzing.
   LoopInfo *LI;
 
-  /// DT - The dominator tree.
+  /// The dominator tree.
   DominatorTree *DT;
 
-  /// PDT - The post-dominator tree.
+  /// The post-dominator tree.
   PostDominatorTree *PDT;
 
-  /// SE - Scalar Evolution analysis for the function.
+  /// Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
+
+  /// Target library information for the target.
+  TargetLibraryInfo *TLI;
 
   /// CostModelAnalyzer - Used to determine whether creating HIR for a loop
   /// would be profitable.
