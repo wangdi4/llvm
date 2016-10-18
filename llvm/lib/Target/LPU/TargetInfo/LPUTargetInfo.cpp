@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "LPU.h"
+#include "LPUAsmStreamer.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/TargetRegistry.h"
 using namespace llvm;

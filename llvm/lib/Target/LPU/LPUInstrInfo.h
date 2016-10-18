@@ -215,6 +215,20 @@ public:
   bool
   convertAddToStrideOp(unsigned add_opcode,
                        unsigned* strideOpcode) const;
+  bool
+  convertSubToStrideOp(unsigned sub_opcode,
+                       unsigned* strideOpcode) const;
+
+  // Get the corresponding "neg" statement which matches a given
+  // stride.
+  bool
+  negateOpForStride(unsigned strideOpcode,
+                    unsigned* negateOpcode) const;
+
+  // Get channel register class that is the same size as this stride
+  // operation.
+  const TargetRegisterClass*
+  getStrideInputRC(unsigned stride_opcode) const;
 
   // Convert a pick opcode into a matching repeat opcode (of the same
   // size).
