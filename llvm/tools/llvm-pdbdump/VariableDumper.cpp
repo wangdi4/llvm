@@ -17,6 +17,7 @@
 #include "llvm/DebugInfo/PDB/PDBSymbolData.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolFunc.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeArray.h"
+#include "llvm/DebugInfo/PDB/PDBSymbolTypeEnum.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeFunctionSig.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypePointer.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeTypedef.h"
@@ -36,32 +37,38 @@ void VariableDumper::start(const PDBSymbolData &Var) {
   if (Printer.IsSymbolExcluded(Var.getName()))
     return;
 
-  Printer.NewLine();
-  Printer << "data ";
-
   auto VarType = Var.getType();
 
   switch (auto LocType = Var.getLocationType()) {
   case PDB_LocType::Static:
-    Printer << "[";
+    Printer.NewLine();
+    Printer << "data [";
     WithColor(Printer, PDB_ColorItem::Address).get()
-        << format_hex(Var.getRelativeVirtualAddress(), 10);
+        << format_hex(Var.getVirtualAddress(), 10);
     Printer << "] ";
     WithColor(Printer, PDB_ColorItem::Keyword).get() << "static ";
     dumpSymbolTypeAndName(*VarType, Var.getName());
     break;
   case PDB_LocType::Constant:
+    if (isa<PDBSymbolTypeEnum>(*VarType))
+      break;
+    Printer.NewLine();
+    Printer << "data ";
     WithColor(Printer, PDB_ColorItem::Keyword).get() << "const ";
     dumpSymbolTypeAndName(*VarType, Var.getName());
     Printer << " = ";
     WithColor(Printer, PDB_ColorItem::LiteralValue).get() << Var.getValue();
     break;
   case PDB_LocType::ThisRel:
+    Printer.NewLine();
+    Printer << "data ";
     WithColor(Printer, PDB_ColorItem::Offset).get()
         << "+" << format_hex(Var.getOffset(), 4) << " ";
     dumpSymbolTypeAndName(*VarType, Var.getName());
     break;
   case PDB_LocType::BitField:
+    Printer.NewLine();
+    Printer << "data ";
     WithColor(Printer, PDB_ColorItem::Offset).get()
         << "+" << format_hex(Var.getOffset(), 4) << " ";
     dumpSymbolTypeAndName(*VarType, Var.getName());
@@ -69,6 +76,8 @@ void VariableDumper::start(const PDBSymbolData &Var) {
     WithColor(Printer, PDB_ColorItem::LiteralValue).get() << Var.getLength();
     break;
   default:
+    Printer.NewLine();
+    Printer << "data ";
     Printer << "unknown(" << LocType << ") ";
     WithColor(Printer, PDB_ColorItem::Identifier).get() << Var.getName();
     break;

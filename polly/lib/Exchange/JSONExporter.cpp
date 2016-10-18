@@ -12,25 +12,23 @@
 //===----------------------------------------------------------------------===//
 
 #include "polly/LinkAllPasses.h"
-#include "polly/Dependences.h"
+#include "polly/DependenceInfo.h"
 #include "polly/Options.h"
 #include "polly/ScopInfo.h"
 #include "polly/ScopPass.h"
-
+#include "polly/Support/ScopLocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/RegionInfo.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ToolOutputFile.h"
-
+#include "isl/constraint.h"
+#include "isl/map.h"
+#include "isl/printer.h"
+#include "isl/set.h"
 #include "json/reader.h"
 #include "json/writer.h"
-
-#include "isl/set.h"
-#include "isl/map.h"
-#include "isl/constraint.h"
-#include "isl/printer.h"
-
 #include <memory>
 #include <string>
 #include <system_error>
@@ -89,9 +87,19 @@ void JSONExporter::printScop(raw_ostream &OS, Scop &S) const { S.print(OS); }
 
 Json::Value JSONExporter::getJSON(Scop &S) const {
   Json::Value root;
+  unsigned LineBegin, LineEnd;
+  std::string FileName;
+
+  getDebugLocation(&S.getRegion(), LineBegin, LineEnd, FileName);
+  std::string Location;
+  if (LineBegin != (unsigned)-1)
+    Location = FileName + ":" + std::to_string(LineBegin) + "-" +
+               std::to_string(LineEnd);
 
   root["name"] = S.getRegion().getNameStr();
   root["context"] = S.getContextStr();
+  if (LineBegin != (unsigned)-1)
+    root["location"] = Location;
   root["statements"];
 
   for (Scop::iterator SI = S.begin(), SE = S.end(); SI != SE; ++SI) {
@@ -101,7 +109,7 @@ Json::Value JSONExporter::getJSON(Scop &S) const {
 
     statement["name"] = Stmt->getBaseName();
     statement["domain"] = Stmt->getDomainStr();
-    statement["schedule"] = Stmt->getScatteringStr();
+    statement["schedule"] = Stmt->getScheduleStr();
     statement["accesses"];
 
     for (MemoryAccess *MA : *Stmt) {
@@ -182,8 +190,9 @@ typedef Dependences::StatementToIslMapTy StatementToIslMapTy;
 
 bool JSONImporter::runOnScop(Scop &S) {
   Region &R = S.getRegion();
-  Dependences *D = &getAnalysis<Dependences>();
-  const DataLayout &DL = getAnalysis<DataLayoutPass>().getDataLayout();
+  const Dependences &D = getAnalysis<DependenceInfo>().getDependences();
+  const DataLayout &DL =
+      S.getRegion().getEntry()->getParent()->getParent()->getDataLayout();
 
   std::string FileName = ImportDir + "/" + getFileName(S);
 
@@ -221,7 +230,7 @@ bool JSONImporter::runOnScop(Scop &S) {
   isl_set_free(OldContext);
   S.setContext(NewContext);
 
-  StatementToIslMapTy &NewScattering = *(new StatementToIslMapTy());
+  StatementToIslMapTy NewSchedule;
 
   int index = 0;
 
@@ -231,19 +240,23 @@ bool JSONImporter::runOnScop(Scop &S) {
     isl_space *Space = (*SI)->getDomainSpace();
 
     // Copy the old tuple id. This is necessary to retain the user pointer,
-    // that stores the reference to the ScopStmt this scattering belongs to.
+    // that stores the reference to the ScopStmt this schedule belongs to.
     m = isl_map_set_tuple_id(m, isl_dim_in,
                              isl_space_get_tuple_id(Space, isl_dim_set));
+    for (unsigned i = 0; i < isl_space_dim(Space, isl_dim_param); i++) {
+      isl_id *id = isl_space_get_dim_id(Space, isl_dim_param, i);
+      m = isl_map_set_dim_id(m, isl_dim_param, i, id);
+    }
     isl_space_free(Space);
-    NewScattering[*SI] = m;
+    NewSchedule[*SI] = m;
     index++;
   }
 
-  if (!D->isValidScattering(&NewScattering)) {
-    errs() << "JScop file contains a scattering that changes the "
+  if (!D.isValidSchedule(S, &NewSchedule)) {
+    errs() << "JScop file contains a schedule that changes the "
            << "dependences. Use -disable-polly-legality to continue anyways\n";
-    for (StatementToIslMapTy::iterator SI = NewScattering.begin(),
-                                       SE = NewScattering.end();
+    for (StatementToIslMapTy::iterator SI = NewSchedule.begin(),
+                                       SE = NewSchedule.end();
          SI != SE; ++SI)
       isl_map_free(SI->second);
     return false;
@@ -252,8 +265,8 @@ bool JSONImporter::runOnScop(Scop &S) {
   for (Scop::iterator SI = S.begin(), SE = S.end(); SI != SE; ++SI) {
     ScopStmt *Stmt = *SI;
 
-    if (NewScattering.find(Stmt) != NewScattering.end())
-      Stmt->setScattering(NewScattering[Stmt]);
+    if (NewSchedule.find(Stmt) != NewSchedule.end())
+      Stmt->setSchedule(NewSchedule[Stmt]);
   }
 
   int statementIdx = 0;
@@ -355,8 +368,7 @@ bool JSONImporter::runOnScop(Scop &S) {
 
 void JSONImporter::getAnalysisUsage(AnalysisUsage &AU) const {
   ScopPass::getAnalysisUsage(AU);
-  AU.addRequired<Dependences>();
-  AU.addRequired<DataLayoutPass>();
+  AU.addRequired<DependenceInfo>();
 }
 Pass *polly::createJSONImporterPass() { return new JSONImporter(); }
 
@@ -364,7 +376,7 @@ INITIALIZE_PASS_BEGIN(JSONExporter, "polly-export-jscop",
                       "Polly - Export Scops as JSON"
                       " (Writes a .jscop file for each Scop)",
                       false, false);
-INITIALIZE_PASS_DEPENDENCY(Dependences)
+INITIALIZE_PASS_DEPENDENCY(DependenceInfo)
 INITIALIZE_PASS_END(JSONExporter, "polly-export-jscop",
                     "Polly - Export Scops as JSON"
                     " (Writes a .jscop file for each Scop)",
@@ -374,8 +386,7 @@ INITIALIZE_PASS_BEGIN(JSONImporter, "polly-import-jscop",
                       "Polly - Import Scops from JSON"
                       " (Reads a .jscop file for each Scop)",
                       false, false);
-INITIALIZE_PASS_DEPENDENCY(Dependences)
-INITIALIZE_PASS_DEPENDENCY(DataLayoutPass)
+INITIALIZE_PASS_DEPENDENCY(DependenceInfo)
 INITIALIZE_PASS_END(JSONImporter, "polly-import-jscop",
                     "Polly - Import Scops from JSON"
                     " (Reads a .jscop file for each Scop)",

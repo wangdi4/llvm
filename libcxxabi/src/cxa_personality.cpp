@@ -14,6 +14,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include <typeinfo>
 
 #include "config.h"
@@ -23,7 +24,7 @@
 #include "unwind.h"
 
 #if LIBCXXABI_ARM_EHABI
-#include "Unwind/libunwind_ext.h"
+#include "libunwind_ext.h"
 #endif
 
 /*
@@ -141,6 +142,19 @@ Notes:
 namespace __cxxabiv1
 {
 
+namespace
+{
+
+template <class AsType>
+uintptr_t readPointerHelper(const uint8_t*& p) {
+    AsType value;
+    memcpy(&value, p, sizeof(AsType));
+    p += sizeof(AsType);
+    return static_cast<uintptr_t>(value);
+}
+
+} // end namespace
+
 extern "C"
 {
 
@@ -235,8 +249,7 @@ readEncodedPointer(const uint8_t** data, uint8_t encoding)
     switch (encoding & 0x0F)
     {
     case DW_EH_PE_absptr:
-        result = *((uintptr_t*)p);
-        p += sizeof(uintptr_t);
+        result = readPointerHelper<uintptr_t>(p);
         break;
     case DW_EH_PE_uleb128:
         result = readULEB128(&p);
@@ -245,28 +258,22 @@ readEncodedPointer(const uint8_t** data, uint8_t encoding)
         result = static_cast<uintptr_t>(readSLEB128(&p));
         break;
     case DW_EH_PE_udata2:
-        result = *((uint16_t*)p);
-        p += sizeof(uint16_t);
+        result = readPointerHelper<uint16_t>(p);
         break;
     case DW_EH_PE_udata4:
-        result = *((uint32_t*)p);
-        p += sizeof(uint32_t);
+        result = readPointerHelper<uint32_t>(p);
         break;
     case DW_EH_PE_udata8:
-        result = static_cast<uintptr_t>(*((uint64_t*)p));
-        p += sizeof(uint64_t);
+        result = readPointerHelper<uint64_t>(p);
         break;
     case DW_EH_PE_sdata2:
-        result = static_cast<uintptr_t>(*((int16_t*)p));
-        p += sizeof(int16_t);
+        result = readPointerHelper<int16_t>(p);
         break;
     case DW_EH_PE_sdata4:
-        result = static_cast<uintptr_t>(*((int32_t*)p));
-        p += sizeof(int32_t);
+        result = readPointerHelper<int32_t>(p);
         break;
     case DW_EH_PE_sdata8:
-        result = static_cast<uintptr_t>(*((int64_t*)p));
-        p += sizeof(int64_t);
+        result = readPointerHelper<int64_t>(p);
         break;
     default:
         // not supported 

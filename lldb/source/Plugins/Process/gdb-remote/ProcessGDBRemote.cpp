@@ -24,8 +24,12 @@
 // C++ Includes
 #include <algorithm>
 #include <map>
+#include <mutex>
 
 // Other libraries and framework includes
+#if defined( LIBXML2_DEFINED )
+#include <libxml/xmlreader.h>
+#endif
 
 #include "lldb/Breakpoint/Watchpoint.h"
 #include "lldb/Interpreter/Args.h"
@@ -50,9 +54,8 @@
 #include "lldb/Interpreter/CommandObject.h"
 #include "lldb/Interpreter/CommandObjectMultiword.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
-#ifndef LLDB_DISABLE_PYTHON
-#include "lldb/Interpreter/PythonDataObjects.h"
-#endif
+#include "lldb/Interpreter/OptionValueProperties.h"
+#include "lldb/Interpreter/Property.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/DynamicLoader.h"
 #include "lldb/Target/Target.h"
@@ -66,6 +69,7 @@
 #include "Plugins/Process/Utility/FreeBSDSignals.h"
 #include "Plugins/Process/Utility/InferiorCallPOSIX.h"
 #include "Plugins/Process/Utility/LinuxSignals.h"
+#include "Plugins/Process/Utility/MipsLinuxSignals.h"
 #include "Plugins/Process/Utility/StopInfoMachException.h"
 #include "Plugins/Platform/MacOSX/PlatformRemoteiOS.h"
 #include "Utility/StringExtractorGDBRemote.h"
@@ -74,6 +78,10 @@
 #include "ProcessGDBRemoteLog.h"
 #include "ThreadGDBRemote.h"
 
+#define DEBUGSERVER_BASENAME    "debugserver"
+using namespace lldb;
+using namespace lldb_private;
+using namespace lldb_private::process_gdb_remote;
 
 namespace lldb
 {
@@ -86,17 +94,12 @@ namespace lldb
     void
     DumpProcessGDBRemotePacketHistory (void *p, const char *path)
     {
-        lldb_private::StreamFile strm;
-        lldb_private::Error error (strm.GetFile().Open(path, lldb_private::File::eOpenOptionWrite | lldb_private::File::eOpenOptionCanCreate));
+        StreamFile strm;
+        Error error (strm.GetFile().Open(path, File::eOpenOptionWrite | File::eOpenOptionCanCreate));
         if (error.Success())
             ((ProcessGDBRemote *)p)->GetGDBRemote().DumpHistory (strm);
     }
 }
-
-#define DEBUGSERVER_BASENAME    "debugserver"
-using namespace lldb;
-using namespace lldb_private;
-
 
 namespace {
 
@@ -171,6 +174,107 @@ namespace {
     
 } // anonymous namespace end
 
+class ProcessGDBRemote::GDBLoadedModuleInfoList
+{
+public:
+
+    class LoadedModuleInfo
+    {
+    public:
+
+        enum e_data_point
+        {
+            e_has_name      = 0,
+            e_has_base      ,
+            e_has_dynamic   ,
+            e_has_link_map  ,
+            e_num
+        };
+
+        LoadedModuleInfo ()
+        {
+            for (uint32_t i = 0; i < e_num; ++i)
+                m_has[i] = false;
+        };
+
+        void set_name (const std::string & name)
+        {
+            m_name = name;
+            m_has[e_has_name] = true;
+        }
+        bool get_name (std::string & out) const
+        {
+            out = m_name;
+            return m_has[e_has_name];
+        }
+
+        void set_base (const lldb::addr_t base)
+        {
+            m_base = base;
+            m_has[e_has_base] = true;
+        }
+        bool get_base (lldb::addr_t & out) const
+        {
+            out = m_base;
+            return m_has[e_has_base];
+        }
+
+        void set_link_map (const lldb::addr_t addr)
+        {
+            m_link_map = addr;
+            m_has[e_has_link_map] = true;
+        }
+        bool get_link_map (lldb::addr_t & out) const
+        {
+            out = m_link_map;
+            return m_has[e_has_link_map];
+        }
+
+        void set_dynamic (const lldb::addr_t addr)
+        {
+            m_dynamic = addr;
+            m_has[e_has_dynamic] = true;
+        }
+        bool get_dynamic (lldb::addr_t & out) const
+        {
+            out = m_dynamic;
+            return m_has[e_has_dynamic];
+        }
+
+        bool has_info (e_data_point datum)
+        {
+            assert (datum < e_num);
+            return m_has[datum];
+        }
+
+    protected:
+
+        bool m_has[e_num];
+        std::string m_name;
+        lldb::addr_t m_link_map;
+        lldb::addr_t m_base;
+        lldb::addr_t m_dynamic;
+    };
+
+    GDBLoadedModuleInfoList ()
+        : m_list ()
+        , m_link_map (LLDB_INVALID_ADDRESS)
+    {}
+
+    void add (const LoadedModuleInfo & mod)
+    {
+        m_list.push_back (mod);
+    }
+
+    void clear ()
+    {
+        m_list.clear ();
+    }
+
+    std::vector<LoadedModuleInfo> m_list;
+    lldb::addr_t m_link_map;
+};
+
 // TODO Randomly assigning a port is unsafe.  We should get an unused
 // ephemeral port from the kernel and make sure we reserve it before passing
 // it to debugserver.
@@ -200,7 +304,7 @@ get_random_port ()
 }
 #endif
 
-lldb_private::ConstString
+ConstString
 ProcessGDBRemote::GetPluginNameStatic()
 {
     static ConstString g_name("gdb-remote");
@@ -287,7 +391,8 @@ ProcessGDBRemote::ProcessGDBRemote(Target& target, Listener &listener) :
     m_waiting_for_attach (false),
     m_destroy_tried_resuming (false),
     m_command_sp (),
-    m_breakpoint_pc_offset (0)
+    m_breakpoint_pc_offset (0),
+    m_initial_tid (LLDB_INVALID_THREAD_ID)
 {
     m_async_broadcaster.SetEventName (eBroadcastBitAsyncThreadShouldExit,   "async thread should exit");
     m_async_broadcaster.SetEventName (eBroadcastBitAsyncContinue,           "async thread continue");
@@ -335,41 +440,47 @@ ProcessGDBRemote::GetPluginVersion()
 bool
 ProcessGDBRemote::ParsePythonTargetDefinition(const FileSpec &target_definition_fspec)
 {
-#ifndef LLDB_DISABLE_PYTHON
     ScriptInterpreter *interpreter = GetTarget().GetDebugger().GetCommandInterpreter().GetScriptInterpreter();
     Error error;
-    lldb::ScriptInterpreterObjectSP module_object_sp (interpreter->LoadPluginModule(target_definition_fspec, error));
+    StructuredData::ObjectSP module_object_sp(interpreter->LoadPluginModule(target_definition_fspec, error));
     if (module_object_sp)
     {
-        lldb::ScriptInterpreterObjectSP target_definition_sp (interpreter->GetDynamicSettings(module_object_sp,
-                                                                                              &GetTarget(),
-                                                                                              "gdb-server-target-definition",
-                                                                                              error));
-        
-        PythonDictionary target_dict(target_definition_sp);
+        StructuredData::DictionarySP target_definition_sp(
+            interpreter->GetDynamicSettings(module_object_sp, &GetTarget(), "gdb-server-target-definition", error));
 
-        if (target_dict)
+        if (target_definition_sp)
         {
-            PythonDictionary host_info_dict (target_dict.GetItemForKey("host-info"));
-            if (host_info_dict)
+            StructuredData::ObjectSP target_object(target_definition_sp->GetValueForKey("host-info"));
+            if (target_object)
             {
-                ArchSpec host_arch (host_info_dict.GetItemForKeyAsString(PythonString("triple")));
-                
-                if (!host_arch.IsCompatibleMatch(GetTarget().GetArchitecture()))
+                if (auto host_info_dict = target_object->GetAsDictionary())
                 {
-                    GetTarget().SetArchitecture(host_arch);
+                    StructuredData::ObjectSP triple_value = host_info_dict->GetValueForKey("triple");
+                    if (auto triple_string_value = triple_value->GetAsString())
+                    {
+                        std::string triple_string = triple_string_value->GetValue();
+                        ArchSpec host_arch(triple_string.c_str());
+                        if (!host_arch.IsCompatibleMatch(GetTarget().GetArchitecture()))
+                        {
+                            GetTarget().SetArchitecture(host_arch);
+                        }
+                    }
                 }
-                    
             }
-            m_breakpoint_pc_offset = target_dict.GetItemForKeyAsInteger("breakpoint-pc-offset", 0);
+            m_breakpoint_pc_offset = 0;
+            StructuredData::ObjectSP breakpoint_pc_offset_value = target_definition_sp->GetValueForKey("breakpoint-pc-offset");
+            if (breakpoint_pc_offset_value)
+            {
+                if (auto breakpoint_pc_int_value = breakpoint_pc_offset_value->GetAsInteger())
+                    m_breakpoint_pc_offset = breakpoint_pc_int_value->GetValue();
+            }
 
-            if (m_register_info.SetRegisterInfo (target_dict, GetTarget().GetArchitecture().GetByteOrder()) > 0)
+            if (m_register_info.SetRegisterInfo(*target_definition_sp, GetTarget().GetArchitecture().GetByteOrder()) > 0)
             {
                 return true;
             }
         }
     }
-#endif
     return false;
 }
 
@@ -565,6 +676,10 @@ ProcessGDBRemote::BuildDynamicRegisterInfo (bool force)
 
     if (reg_num == 0)
     {
+        // try to extract information from servers target.xml
+        if (GetGDBServerRegisterInfo ())
+            return;
+
         FileSpec target_definition_fspec = GetGlobalPluginProperties()->GetTargetDefinitionFile ();
         
         if (target_definition_fspec)
@@ -655,8 +770,13 @@ ProcessGDBRemote::DoConnectRemote (Stream *strm, const char *remote_url)
         // We have a valid process
         SetID (pid);
         GetThreadList();
-        if (m_gdb_comm.SendPacketAndWaitForResponse("?", 1, m_last_stop_packet, false) == GDBRemoteCommunication::PacketResult::Success)
+        if (m_gdb_comm.GetStopReply(m_last_stop_packet))
         {
+
+            // '?' Packets must be handled differently in non-stop mode
+            if (GetTarget().GetNonStopModeEnabled())
+                HandleStopReplySequence();
+
             if (!m_target.GetArchitecture().IsValid()) 
             {
                 if (m_gdb_comm.GetProcessArchitecture().IsValid())
@@ -703,7 +823,7 @@ ProcessGDBRemote::DoConnectRemote (Stream *strm, const char *remote_url)
     // FIXME Add a gdb-remote packet to discover dynamically.
     if (error.Success ())
     {
-        const ArchSpec arch_spec = GetTarget ().GetArchitecture ();
+        const ArchSpec arch_spec = m_gdb_comm.GetHostArchitecture();
         if (arch_spec.IsValid ())
         {
             if (log)
@@ -712,7 +832,10 @@ ProcessGDBRemote::DoConnectRemote (Stream *strm, const char *remote_url)
             switch (arch_spec.GetTriple ().getOS ())
             {
             case llvm::Triple::Linux:
-                SetUnixSignals (UnixSignalsSP (new process_linux::LinuxSignals ()));
+                if (arch_spec.GetTriple ().getArch () == llvm::Triple::mips64 || arch_spec.GetTriple ().getArch () == llvm::Triple::mips64el)
+                    SetUnixSignals (UnixSignalsSP (new process_linux::MipsLinuxSignals ()));
+                else
+                    SetUnixSignals (UnixSignalsSP (new process_linux::LinuxSignals ()));
                 if (log)
                     log->Printf ("ProcessGDBRemote::%s using Linux unix signals type for pid %" PRIu64, __FUNCTION__, GetID ());
                 break;
@@ -935,18 +1058,24 @@ ProcessGDBRemote::DoLaunch (Module *exe_module, ProcessLaunchInfo &launch_info)
                 return error;
             }
 
-            if (m_gdb_comm.SendPacketAndWaitForResponse("?", 1, m_last_stop_packet, false) == GDBRemoteCommunication::PacketResult::Success)
+            if (m_gdb_comm.GetStopReply(m_last_stop_packet))
             {
-                if (!m_target.GetArchitecture().IsValid()) 
+
+                // '?' Packets must be handled differently in non-stop mode
+                if (GetTarget().GetNonStopModeEnabled())
+                    HandleStopReplySequence();
+
+                const ArchSpec &process_arch = m_gdb_comm.GetProcessArchitecture();
+
+                if (process_arch.IsValid())
                 {
-                    if (m_gdb_comm.GetProcessArchitecture().IsValid())
-                    {
-                        m_target.SetArchitecture(m_gdb_comm.GetProcessArchitecture());
-                    }
-                    else
-                    {
-                        m_target.SetArchitecture(m_gdb_comm.GetHostArchitecture());
-                    }
+                    m_target.MergeArchitecture(process_arch);
+                }
+                else
+                {
+                    const ArchSpec &host_arch = m_gdb_comm.GetHostArchitecture();
+                    if (host_arch.IsValid())
+                        m_target.MergeArchitecture(host_arch);
                 }
 
                 SetPrivateState (SetThreadStopInfo (m_last_stop_packet));
@@ -1035,12 +1164,22 @@ ProcessGDBRemote::ConnectToDebugserver (const char *connect_url)
             error.SetErrorString("not connected to remote gdb server");
         return error;
     }
+
+    // Send $QNonStop:1 packet on startup if required
+    if (GetTarget().GetNonStopModeEnabled())
+        m_gdb_comm.SetNonStopMode(true);
+
     m_gdb_comm.GetThreadSuffixSupported ();
     m_gdb_comm.GetListThreadsInStopReplySupported ();
     m_gdb_comm.GetHostInfo ();
     m_gdb_comm.GetVContSupported ('c');
     m_gdb_comm.GetVAttachOrWaitSupported();
-    
+
+    // Ask the remote server for the default thread id
+    if (GetTarget().GetNonStopModeEnabled())
+        m_gdb_comm.GetDefaultThreadId(m_initial_tid);
+
+
     size_t num_cmds = GetExtraStartupCommands().GetArgumentCount();
     for (size_t idx = 0; idx < num_cmds; idx++)
     {
@@ -1089,7 +1228,7 @@ ProcessGDBRemote::DidLaunchOrAttach (ArchSpec& process_arch)
 
         if (process_arch.IsValid())
         {
-            ArchSpec &target_arch = GetTarget().GetArchitecture();
+            const ArchSpec &target_arch = GetTarget().GetArchitecture();
             if (target_arch.IsValid())
             {
                 if (log)
@@ -1119,20 +1258,23 @@ ProcessGDBRemote::DidLaunchOrAttach (ArchSpec& process_arch)
                 {
                     // Fill in what is missing in the triple
                     const llvm::Triple &remote_triple = process_arch.GetTriple();
-                    llvm::Triple &target_triple = target_arch.GetTriple();
-                    if (target_triple.getVendorName().size() == 0)
+                    llvm::Triple new_target_triple = target_arch.GetTriple();
+                    if (new_target_triple.getVendorName().size() == 0)
                     {
-                        target_triple.setVendor (remote_triple.getVendor());
+                        new_target_triple.setVendor (remote_triple.getVendor());
 
-                        if (target_triple.getOSName().size() == 0)
+                        if (new_target_triple.getOSName().size() == 0)
                         {
-                            target_triple.setOS (remote_triple.getOS());
+                            new_target_triple.setOS (remote_triple.getOS());
 
-                            if (target_triple.getEnvironmentName().size() == 0)
-                                target_triple.setEnvironment (remote_triple.getEnvironment());
+                            if (new_target_triple.getEnvironmentName().size() == 0)
+                                new_target_triple.setEnvironment (remote_triple.getEnvironment());
                         }
-                    }
 
+                        ArchSpec new_target_arch = target_arch;
+                        new_target_arch.SetTriple(new_target_triple);
+                        GetTarget().SetArchitecture(new_target_arch);
+                    }
                 }
 
                 if (log)
@@ -1156,13 +1298,6 @@ ProcessGDBRemote::DidLaunch ()
 {
     ArchSpec process_arch;
     DidLaunchOrAttach (process_arch);
-}
-
-Error
-ProcessGDBRemote::DoAttachToProcessWithID (lldb::pid_t attach_pid)
-{
-    ProcessAttachInfo attach_info;
-    return DoAttachToProcessWithID(attach_pid, attach_info);
 }
 
 Error
@@ -1309,11 +1444,12 @@ ProcessGDBRemote::DoResume ()
         bool continue_packet_error = false;
         if (m_gdb_comm.HasAnyVContSupport ())
         {
-            if (m_continue_c_tids.size() == num_threads ||
+            if (!GetTarget().GetNonStopModeEnabled() &&
+                (m_continue_c_tids.size() == num_threads ||
                 (m_continue_c_tids.empty() &&
                  m_continue_C_tids.empty() &&
                  m_continue_s_tids.empty() &&
-                 m_continue_S_tids.empty()))
+                 m_continue_S_tids.empty())))
             {
                 // All threads are continuing, just send a "c" packet
                 continue_packet.PutCString ("c");
@@ -1538,6 +1674,27 @@ ProcessGDBRemote::DoResume ()
     }
 
     return error;
+}
+
+void
+ProcessGDBRemote::HandleStopReplySequence ()
+{
+    while(true)
+    {
+        // Send vStopped
+        StringExtractorGDBRemote response;
+        m_gdb_comm.SendPacketAndWaitForResponse("vStopped", response, false);
+
+        // OK represents end of signal list
+        if (response.IsOKResponse())
+            break;
+
+        // If not OK or a normal packet we have a problem
+        if (!response.IsNormalResponse())
+            break;
+
+        SetLastStopPacket(response);
+    }
 }
 
 void
@@ -1974,6 +2131,13 @@ ProcessGDBRemote::RefreshStateAfterStop ()
         UpdateThreadIDList();
     }
 
+    // If we have queried for a default thread id
+    if (m_initial_tid != LLDB_INVALID_THREAD_ID)
+    {
+        m_thread_list.SetSelectedThreadByID(m_initial_tid);
+        m_initial_tid = LLDB_INVALID_THREAD_ID;
+    }
+
     // Let all threads recover from stopping and do any clean up based
     // on the previous thread state (if any).
     m_thread_list_real.RefreshStateAfterStop();
@@ -2146,7 +2310,7 @@ ProcessGDBRemote::DoDestroy ()
                         }
                     }
                     Resume ();
-                    return Destroy();
+                    return Destroy(false);
                 }
             }
         }
@@ -2231,7 +2395,7 @@ ProcessGDBRemote::DoDestroy ()
 void
 ProcessGDBRemote::SetLastStopPacket (const StringExtractorGDBRemote &response)
 {
-    lldb_private::Mutex::Locker locker (m_last_stop_packet_mutex);
+    Mutex::Locker locker (m_last_stop_packet_mutex);
     const bool did_exec = response.GetStringRef().find(";reason:exec;") != std::string::npos;
     if (did_exec)
     {
@@ -2261,7 +2425,18 @@ ProcessGDBRemote::IsAlive ()
 addr_t
 ProcessGDBRemote::GetImageInfoAddress()
 {
-    return m_gdb_comm.GetShlibInfoAddr();
+    // request the link map address via the $qShlibInfoAddr packet
+    lldb::addr_t addr = m_gdb_comm.GetShlibInfoAddr();
+
+    // the loaded module list can also provides a link map address
+    if (addr == LLDB_INVALID_ADDRESS)
+    {
+        GDBLoadedModuleInfoList list;
+        if (GetLoadedModuleList (list).Success())
+            addr = list.m_link_map;
+    }
+
+    return addr;
 }
 
 //------------------------------------------------------------------
@@ -2371,7 +2546,7 @@ ProcessGDBRemote::DoWriteMemory (addr_t addr, const void *buf, size_t size, Erro
 lldb::addr_t
 ProcessGDBRemote::DoAllocateMemory (size_t size, uint32_t permissions, Error &error)
 {
-    lldb_private::Log *log (lldb_private::GetLogIfAnyCategoriesSet (LIBLLDB_LOG_PROCESS|LIBLLDB_LOG_EXPRESSIONS));
+    Log *log (GetLogIfAnyCategoriesSet (LIBLLDB_LOG_PROCESS|LIBLLDB_LOG_EXPRESSIONS));
     addr_t allocated_addr = LLDB_INVALID_ADDRESS;
     
     LazyBool supported = m_gdb_comm.SupportsAllocDeallocMemory();
@@ -2950,28 +3125,19 @@ ProcessGDBRemote::KillDebugserverProcess ()
 void
 ProcessGDBRemote::Initialize()
 {
-    static bool g_initialized = false;
+    static std::once_flag g_once_flag;
 
-    if (g_initialized == false)
+    std::call_once(g_once_flag, []()
     {
-        g_initialized = true;
         PluginManager::RegisterPlugin (GetPluginNameStatic(),
                                        GetPluginDescriptionStatic(),
                                        CreateInstance,
                                        DebuggerInitialize);
-
-        Log::Callbacks log_callbacks = {
-            ProcessGDBRemoteLog::DisableLog,
-            ProcessGDBRemoteLog::EnableLog,
-            ProcessGDBRemoteLog::ListLogCategories
-        };
-
-        Log::RegisterLogChannel (ProcessGDBRemote::GetPluginNameStatic(), log_callbacks);
-    }
+    });
 }
 
 void
-ProcessGDBRemote::DebuggerInitialize (lldb_private::Debugger &debugger)
+ProcessGDBRemote::DebuggerInitialize (Debugger &debugger)
 {
     if (!PluginManager::GetSettingForProcessPlugin(debugger, PluginProperties::GetSettingName()))
     {
@@ -3023,6 +3189,7 @@ ProcessGDBRemote::StopAsyncThread ()
 
         // Stop the stdio thread
         m_async_thread.Join(nullptr);
+        m_async_thread.Reset();
     }
     else if (log)
         log->Printf("ProcessGDBRemote::%s () - Called when Async thread was not running.", __FUNCTION__);
@@ -3167,7 +3334,6 @@ ProcessGDBRemote::AsyncThread (void *arg)
     if (log)
         log->Printf ("ProcessGDBRemote::%s (arg = %p, pid = %" PRIu64 ") thread exiting...", __FUNCTION__, arg, process->GetID());
 
-    process->m_async_thread.Reset();
     return NULL;
 }
 
@@ -3190,13 +3356,13 @@ ProcessGDBRemote::AsyncThread (void *arg)
 //
 bool
 ProcessGDBRemote::NewThreadNotifyBreakpointHit (void *baton,
-                             lldb_private::StoppointCallbackContext *context,
+                             StoppointCallbackContext *context,
                              lldb::user_id_t break_id,
                              lldb::user_id_t break_loc_id)
 {
     // I don't think I have to do anything here, just make sure I notice the new thread when it starts to 
     // run so I can stop it if that's what I want to do.
-    Log *log (lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_STEP));
+    Log *log (GetLogIfAllCategoriesSet (LIBLLDB_LOG_STEP));
     if (log)
         log->Printf("Hit New Thread Notification breakpoint.");
     return false;
@@ -3206,7 +3372,7 @@ ProcessGDBRemote::NewThreadNotifyBreakpointHit (void *baton,
 bool
 ProcessGDBRemote::StartNoticingNewThreads()
 {
-    Log *log (lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_STEP));
+    Log *log (GetLogIfAllCategoriesSet (LIBLLDB_LOG_STEP));
     if (m_thread_create_bp_sp)
     {
         if (log && log->GetVerbose())
@@ -3238,7 +3404,7 @@ ProcessGDBRemote::StartNoticingNewThreads()
 bool
 ProcessGDBRemote::StopNoticingNewThreads()
 {   
-    Log *log (lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_STEP));
+    Log *log (GetLogIfAllCategoriesSet (LIBLLDB_LOG_STEP));
     if (log && log->GetVerbose())
         log->Printf ("Disabling new thread notification breakpoint.");
 
@@ -3248,7 +3414,7 @@ ProcessGDBRemote::StopNoticingNewThreads()
     return true;
 }
     
-lldb_private::DynamicLoader *
+DynamicLoader *
 ProcessGDBRemote::GetDynamicLoader ()
 {
     if (m_dyld_ap.get() == NULL)
@@ -3397,6 +3563,752 @@ ProcessGDBRemote::SetUserSpecifiedMaxMemoryTransferSize (uint64_t user_specified
     }
 }
 
+bool
+ProcessGDBRemote::GetModuleSpec(const FileSpec& module_file_spec,
+                                const ArchSpec& arch,
+                                ModuleSpec &module_spec)
+{
+    Log *log = GetLogIfAnyCategoriesSet (LIBLLDB_LOG_PLATFORM);
+
+    if (!m_gdb_comm.GetModuleInfo (module_file_spec, arch, module_spec))
+    {
+        if (log)
+            log->Printf ("ProcessGDBRemote::%s - failed to get module info for %s:%s",
+                         __FUNCTION__, module_file_spec.GetPath ().c_str (),
+                         arch.GetTriple ().getTriple ().c_str ());
+        return false;
+    }
+
+    if (log)
+    {
+        StreamString stream;
+        module_spec.Dump (stream);
+        log->Printf ("ProcessGDBRemote::%s - got module info for (%s:%s) : %s",
+                     __FUNCTION__, module_file_spec.GetPath ().c_str (),
+                     arch.GetTriple ().getTriple ().c_str (), stream.GetString ().c_str ());
+    }
+
+    return true;
+}
+
+#if defined( LIBXML2_DEFINED )
+namespace {
+
+typedef std::vector<std::string> stringVec;
+typedef std::vector<xmlNodePtr> xmlNodePtrVec;
+
+struct GdbServerRegisterInfo
+{
+
+    struct
+    {
+        bool m_has_name     : 1;
+        bool m_has_bitSize  : 1;
+        bool m_has_type     : 1;
+        bool m_has_group    : 1;
+        bool m_has_regNum   : 1;
+    }
+    m_flags;
+
+    std::string m_name;
+    std::string m_group;
+    uint32_t    m_bitSize;
+    uint32_t    m_regNum;
+
+    enum RegType
+    {
+        eUnknown   ,
+        eCodePtr   ,
+        eDataPtr   ,
+        eInt32     ,
+        eI387Ext   ,
+    }
+    m_type;
+
+    void clear()
+    {
+        memset(&m_flags, 0, sizeof(m_flags));
+    }
+};
+
+typedef std::vector<struct GdbServerRegisterInfo> GDBServerRegisterVec;
+
+struct GdbServerTargetInfo
+{
+    std::string m_arch;
+    std::string m_osabi;
+};
+
+// conversion table between gdb register type and enum
+struct
+{
+    const char * m_name;
+    GdbServerRegisterInfo::RegType m_type;
+}
+RegTypeTable[] =
+{
+    { "int32"   , GdbServerRegisterInfo::eInt32    },
+    { "int"     , GdbServerRegisterInfo::eInt32    },
+    { "data_ptr", GdbServerRegisterInfo::eDataPtr  },
+    { "code_ptr", GdbServerRegisterInfo::eCodePtr  },
+    { "i387_ext", GdbServerRegisterInfo::eI387Ext  }, // 80bit fpu
+    { nullptr   , GdbServerRegisterInfo::eUnknown  }  // sentinel
+};
+
+// find the first sibling with a matching name
+xmlNodePtr
+xmlExFindSibling (xmlNodePtr node,
+                  const std::string & name)
+{
+
+    if ( !node ) return nullptr;
+    // iterate through all siblings
+    for ( xmlNodePtr temp = node; temp; temp=temp->next ) {
+        // we are looking for elements
+        if ( temp->type != XML_ELEMENT_NODE )
+            continue;
+        // check element name matches
+        if ( !temp->name ) continue;
+        if ( std::strcmp((const char*)temp->name, name.c_str() ) == 0 )
+            return temp;
+    }
+    // no sibling found
+    return nullptr;
+}
+
+// find an element from a given element path
+xmlNodePtr
+xmlExFindElement (xmlNodePtr node,
+                  const stringVec & path)
+{
+
+    if (!node)
+        return nullptr;
+    xmlNodePtr temp = node;
+    // iterate all elements in path
+    for (uint32_t i = 0; i < path.size(); i++)
+    {
+
+        // search for a sibling with this name
+        temp = xmlExFindSibling(temp, path[i]);
+        if (!temp)
+            return nullptr;
+        // enter this node if we still need to search
+        if ((i + 1) < path.size())
+            // enter the node we have found
+            temp = temp->children;
+    }
+    // note: node may still be nullptr at this step
+    return temp;
+}
+
+// locate a specific attribute in an element
+xmlAttr *
+xmlExFindAttribute (xmlNodePtr node,
+                    const std::string & name)
+{
+
+    if (!node)
+        return nullptr;
+    if (node->type != XML_ELEMENT_NODE)
+        return nullptr;
+    // iterate over all attributes
+    for (xmlAttrPtr attr = node->properties; attr != nullptr; attr=attr->next)
+    {
+        // check if name matches
+        if (!attr->name)
+            continue;
+        if (std::strcmp((const char*) attr->name, name.c_str()) == 0)
+            return attr;
+    }
+    return nullptr;
+}
+
+// find all child elements with given name and add them to a vector
+//
+// input:   node = xml element to search
+//          name = name used when matching child elements
+// output:  out  = list of matches
+// return:  number of children added to 'out'
+int
+xmlExFindChildren (xmlNodePtr node,
+                   const std::string & name,
+                   xmlNodePtrVec & out)
+{
+
+    if (!node)
+        return 0;
+    int count = 0;
+    // iterate over all children
+    for (xmlNodePtr child = node->children; child; child = child->next)
+    {
+        // if name matches
+        if (!child->name)
+            continue;
+        if (std::strcmp((const char*) child->name, name.c_str()) == 0)
+        {
+            // add to output list
+            out.push_back(child);
+            ++count;
+        }
+    }
+    return count;
+}
+
+// get the text content from an attribute
+std::string
+xmlExGetTextContent (xmlAttrPtr attr)
+{
+    if (!attr)
+        return std::string();
+    if (attr->type != XML_ATTRIBUTE_NODE)
+        return std::string();
+    // check child is a text node
+    xmlNodePtr child = attr->children;
+    if (child->type != XML_TEXT_NODE)
+        return std::string();
+    // access the content
+    assert(child->content != nullptr);
+    return std::string((const char*) child->content);
+}
+
+// get the text content from an node
+std::string
+xmlExGetTextContent (xmlNodePtr node)
+{
+    if (!node)
+        return std::string();
+    if (node->type != XML_ELEMENT_NODE)
+        return std::string();
+    // check child is a text node
+    xmlNodePtr child = node->children;
+    if (child->type != XML_TEXT_NODE)
+        return std::string();
+    // access the content
+    assert(child->content != nullptr);
+    return std::string((const char*) child->content);
+}
+
+// compile a list of xml includes from the target file
+// input:   doc = target.xml
+// output:  includes = list of .xml names specified in target.xml
+// return:  number of .xml files specified in target.xml and added to includes
+int
+parseTargetIncludes (xmlDocPtr doc, stringVec & includes)
+{
+    if (!doc)
+        return 0;
+    int count = 0;
+    xmlNodePtr elm = xmlExFindElement(doc->children, {"target"});
+    if (!elm)
+        return 0;
+    xmlNodePtrVec nodes;
+    xmlExFindChildren(elm, "xi:include", nodes);
+    // iterate over all includes
+    for (uint32_t i = 0; i < nodes.size(); i++)
+    {
+        xmlAttrPtr attr = xmlExFindAttribute(nodes[i], "href");
+        if (attr != nullptr)
+        {
+            std::string text = xmlExGetTextContent(attr);
+            includes.push_back(text);
+            ++count;
+        }
+    }
+    return count;
+}
+
+// extract target arch information from the target.xml file
+// input:   doc = target.xml document
+// output:  out = remote target information
+// return:  'true'  on success
+//          'false' on failure
+bool
+parseTargetInfo (xmlDocPtr doc, GdbServerTargetInfo & out)
+{
+    if (!doc)
+        return false;
+    xmlNodePtr e1 = xmlExFindElement (doc->children, {"target", "architecture"});
+    if (!e1)
+        return false;
+    out.m_arch = xmlExGetTextContent (e1);
+
+    xmlNodePtr e2 = xmlExFindElement (doc->children, {"target", "osabi"});
+    if (!e2)
+        return false;
+    out.m_osabi = xmlExGetTextContent (e2);
+
+    return true;
+}
+
+// extract register information from one of the xml files specified in target.xml
+// input:   doc = xml document
+// output:  regList = list of extracted register info
+// return:  'true'  on success
+//          'false' on failure
+bool
+parseRegisters (xmlDocPtr doc, GDBServerRegisterVec & regList)
+{
+
+    if (!doc)
+        return false;
+    xmlNodePtr elm = xmlExFindElement (doc->children, {"feature"});
+    if (!elm)
+        return false;
+
+    xmlAttrPtr attr = nullptr;
+
+    xmlNodePtrVec regs;
+    xmlExFindChildren (elm, "reg", regs);
+    for (unsigned long i = 0; i < regs.size(); i++)
+    {
+
+        GdbServerRegisterInfo reg;
+        reg.clear();
+
+        if ((attr = xmlExFindAttribute(regs[i], "name")))
+        {
+            reg.m_name = xmlExGetTextContent(attr).c_str();
+            reg.m_flags.m_has_name = true;
+        }
+
+        if ((attr = xmlExFindAttribute( regs[i], "bitsize")))
+        {
+            const std::string v = xmlExGetTextContent(attr);
+            reg.m_bitSize = atoi(v.c_str());
+            reg.m_flags.m_has_bitSize = true;
+        }
+
+        if ((attr = xmlExFindAttribute(regs[i], "type")))
+        {
+            const std::string v = xmlExGetTextContent(attr);
+            reg.m_type = GdbServerRegisterInfo::eUnknown;
+
+            // search the type table for a match
+            for (int j = 0; RegTypeTable[j].m_name !=nullptr; ++j)
+            {
+                if (RegTypeTable[j].m_name == v)
+                {
+                    reg.m_type = RegTypeTable[j].m_type;
+                    break;
+                }
+            }
+
+            reg.m_flags.m_has_type = (reg.m_type != GdbServerRegisterInfo::eUnknown);
+        }
+
+        if ((attr = xmlExFindAttribute( regs[i], "group")))
+        {
+            reg.m_group = xmlExGetTextContent(attr);
+            reg.m_flags.m_has_group = true;
+        }
+
+        if ((attr = xmlExFindAttribute(regs[i], "regnum")))
+        {
+            const std::string v = xmlExGetTextContent(attr);
+            reg.m_regNum = atoi(v.c_str());
+            reg.m_flags.m_has_regNum = true;
+        }
+
+        regList.push_back(reg);
+    }
+
+    //TODO: there is also a "vector" element to parse
+    //TODO: there is also eflags to parse
+
+    return true;
+}
+
+// build lldb gdb-remote's dynamic register info from a vector of gdb provided registers
+// input:   regList = register information provided by gdbserver
+// output:  regInfo = dynamic register information required by gdb-remote
+void
+BuildRegisters (const GDBServerRegisterVec & regList,
+                GDBRemoteDynamicRegisterInfo & regInfo)
+{
+
+    using namespace lldb_private;
+
+    const uint32_t defSize    = 32;
+          uint32_t regNum     = 0;
+          uint32_t byteOffset = 0;
+
+    for (uint32_t i = 0; i < regList.size(); ++i)
+    {
+
+        const GdbServerRegisterInfo & gdbReg = regList[i];
+
+        std::string name     = gdbReg.m_flags.m_has_name    ? gdbReg.m_name        : "unknown";
+        std::string group    = gdbReg.m_flags.m_has_group   ? gdbReg.m_group       : "general";
+        uint32_t    byteSize = gdbReg.m_flags.m_has_bitSize ? (gdbReg.m_bitSize/8) : defSize;
+
+        if (gdbReg.m_flags.m_has_regNum)
+            regNum = gdbReg.m_regNum;
+
+        uint32_t regNumGcc     = LLDB_INVALID_REGNUM;
+        uint32_t regNumDwarf   = LLDB_INVALID_REGNUM;
+        uint32_t regNumGeneric = LLDB_INVALID_REGNUM;
+        uint32_t regNumGdb     = regNum;
+        uint32_t regNumNative  = regNum;
+
+        if (name == "eip" || name == "pc")
+        {
+            regNumGeneric = LLDB_REGNUM_GENERIC_PC;
+        }
+        if (name == "esp" || name == "sp")
+        {
+            regNumGeneric = LLDB_REGNUM_GENERIC_SP;
+        }
+        if (name == "ebp")
+        {
+            regNumGeneric = LLDB_REGNUM_GENERIC_FP;
+        }
+        if (name == "lr")
+        {
+            regNumGeneric = LLDB_REGNUM_GENERIC_RA;
+        }
+
+        RegisterInfo info =
+        {
+            name.c_str(),
+            nullptr     ,
+            byteSize    ,
+            byteOffset  ,
+            lldb::Encoding::eEncodingUint,
+            lldb::Format::eFormatDefault,
+            { regNumGcc    ,
+              regNumDwarf  ,
+              regNumGeneric,
+              regNumGdb    ,
+              regNumNative },
+            nullptr,
+            nullptr
+        };
+
+        ConstString regName    = ConstString(gdbReg.m_name);
+        ConstString regAltName = ConstString();
+        ConstString regGroup   = ConstString(group);
+        regInfo.AddRegister(info, regName, regAltName, regGroup);
+
+        // advance register info
+        byteOffset += byteSize;
+        regNum     += 1;
+    }
+
+    regInfo.Finalize ();
+}
+
+} // namespace {}
+
+void XMLCDECL
+libxml2NullErrorFunc (void *ctx, const char *msg, ...)
+{
+    // do nothing currently
+}
+
+// query the target of gdb-remote for extended target information
+// return:  'true'  on success
+//          'false' on failure
+bool
+ProcessGDBRemote::GetGDBServerRegisterInfo ()
+{
+
+    // redirect libxml2's error handler since the default prints to stdout
+    xmlGenericErrorFunc func = libxml2NullErrorFunc;
+    initGenericErrorDefaultFunc( &func );
+
+    GDBRemoteCommunicationClient & comm = m_gdb_comm;
+    GDBRemoteDynamicRegisterInfo & regInfo = m_register_info;
+
+    // check that we have extended feature read support
+    if ( !comm.GetQXferFeaturesReadSupported( ) )
+        return false;
+
+    // request the target xml file
+    std::string raw;
+    lldb_private::Error lldberr;
+    if (!comm.ReadExtFeature(ConstString("features"),
+                             ConstString("target.xml"),
+                             raw,
+                             lldberr))
+    {
+        return false;
+    }
+
+    // parse the xml file in memory
+    xmlDocPtr doc = xmlReadMemory(raw.c_str(), raw.size(), "noname.xml", nullptr, 0);
+    if (doc == nullptr)
+        return false;
+
+    // extract target info from target.xml
+    GdbServerTargetInfo gdbInfo;
+    if (parseTargetInfo(doc, gdbInfo))
+    {
+        // NOTE: We could deduce triple from gdbInfo if lldb doesn't already have one set
+    }
+
+    // collect registers from all of the includes
+    GDBServerRegisterVec regList;
+    stringVec includes;
+    if (parseTargetIncludes(doc, includes) > 0)
+    {
+
+        for (uint32_t i = 0; i < includes.size(); ++i)
+        {
+
+            // request register file
+            if (!comm.ReadExtFeature(ConstString("features"),
+                                     ConstString(includes[i]),
+                                     raw,
+                                     lldberr))
+                continue;
+
+            // parse register file
+            xmlDocPtr regXml = xmlReadMemory(raw.c_str(),
+                                             raw.size( ),
+                                             includes[i].c_str(),
+                                             nullptr,
+                                             0);
+            if (!regXml)
+                continue;
+
+            // pass registers to lldb
+            parseRegisters(regXml, regList);
+        }
+    }
+
+    // pass all of these registers to lldb
+    BuildRegisters(regList, regInfo);
+
+    return true;
+}
+
+Error
+ProcessGDBRemote::GetLoadedModuleList (GDBLoadedModuleInfoList & list)
+{
+    Log *log = GetLogIfAnyCategoriesSet (LIBLLDB_LOG_PROCESS);
+    if (log)
+        log->Printf ("ProcessGDBRemote::%s", __FUNCTION__);
+
+    // redirect libxml2's error handler since the default prints to stdout
+    xmlGenericErrorFunc func = libxml2NullErrorFunc;
+    initGenericErrorDefaultFunc (&func);
+
+    GDBRemoteCommunicationClient & comm = m_gdb_comm;
+
+    // check that we have extended feature read support
+    if (!comm.GetQXferLibrariesSVR4ReadSupported ())
+        return Error (0, ErrorType::eErrorTypeGeneric);
+
+    list.clear ();
+
+    // request the loaded library list
+    std::string raw;
+    lldb_private::Error lldberr;
+    if (!comm.ReadExtFeature (ConstString ("libraries-svr4"), ConstString (""), raw, lldberr))
+        return Error (0, ErrorType::eErrorTypeGeneric);
+
+    // parse the xml file in memory
+    if (log)
+        log->Printf ("parsing: %s", raw.c_str());
+    xmlDocPtr doc = xmlReadMemory (raw.c_str(), raw.size(), "noname.xml", nullptr, 0);
+    if (doc == nullptr)
+        return Error (0, ErrorType::eErrorTypeGeneric);
+
+    xmlNodePtr elm = xmlExFindElement (doc->children, {"library-list-svr4"});
+    if (!elm)
+        return Error();
+
+    // main link map structure
+    xmlAttr * attr = xmlExFindAttribute (elm, "main-lm");
+    if (attr)
+    {
+        std::string val = xmlExGetTextContent (attr);
+        if (val.length() > 2)
+        {
+            uint32_t process_lm = std::stoul (val.c_str()+2, 0, 16);
+            list.m_link_map = process_lm;
+        }
+    }
+
+    // parse individual library entries
+    for (xmlNode * child = elm->children; child; child=child->next)
+    {
+        if (!child->name)
+            continue;
+
+        if (strcmp ((const char*)child->name, "library") != 0)
+            continue;
+
+        GDBLoadedModuleInfoList::LoadedModuleInfo module;
+
+        for (xmlAttrPtr prop = child->properties; prop; prop=prop->next)
+        {
+            if (strcmp ((const char*)prop->name, "name") == 0)
+                module.set_name (xmlExGetTextContent (prop));
+
+            // the address of the link_map struct.
+            if (strcmp ((const char*)prop->name, "lm") == 0)
+            {
+                std::string val = xmlExGetTextContent (prop);
+                if (val.length() > 2)
+                {
+                    uint32_t module_lm = std::stoul (val.c_str()+2, 0, 16);
+                    module.set_link_map (module_lm);
+                }
+            }
+
+            // the displacement as read from the field 'l_addr' of the link_map struct.
+            if (strcmp ((const char*)prop->name, "l_addr") == 0)
+            {
+                std::string val = xmlExGetTextContent (prop);
+                if (val.length() > 2)
+                {
+                    uint32_t module_base = std::stoul (val.c_str()+2, 0, 16);
+                    module.set_base (module_base);
+                }
+            }
+
+            // the memory address of the libraries PT_DYAMIC section.
+            if (strcmp ((const char*)prop->name, "l_ld") == 0)
+            {
+                std::string val = xmlExGetTextContent (prop);
+                if (val.length() > 2)
+                {
+                    uint32_t module_dyn = std::stoul (val.c_str()+2, 0, 16);
+                    module.set_dynamic (module_dyn);
+                }
+            }
+        }
+
+        if (log)
+        {
+            std::string name ("");
+            lldb::addr_t lm=0, base=0, ld=0;
+
+            module.get_name (name);
+            module.get_link_map (lm);
+            module.get_base (base);
+            module.get_dynamic (ld);
+
+            log->Printf ("found (link_map:0x08%" PRIx64 ", base:0x08%" PRIx64 ", ld:0x08%" PRIx64 ", name:'%s')", lm, base, ld, name.c_str());
+        }
+
+        list.add (module);
+    }
+
+    if (log)
+        log->Printf ("found %" PRId32 " modules in total", (int) list.m_list.size());
+
+    return Error();
+}
+
+#else // if defined( LIBXML2_DEFINED )
+
+Error
+ProcessGDBRemote::GetLoadedModuleList (GDBLoadedModuleInfoList &)
+{
+    // stub (libxml2 not present)
+    Error err;
+    err.SetError (0, ErrorType::eErrorTypeGeneric);
+    return err;
+}
+
+bool
+ProcessGDBRemote::GetGDBServerRegisterInfo ()
+{
+    // stub (libxml2 not present)
+    return false;
+}
+
+#endif // if defined( LIBXML2_DEFINED )
+
+lldb::ModuleSP
+ProcessGDBRemote::LoadModuleAtAddress (const FileSpec &file, lldb::addr_t base_addr)
+{
+    Target &target = m_process->GetTarget();
+    ModuleList &modules = target.GetImages();
+    ModuleSP module_sp;
+
+    bool changed = false;
+
+    ModuleSpec module_spec (file, target.GetArchitecture());
+    if ((module_sp = modules.FindFirstModule (module_spec)))
+    {
+        module_sp->SetLoadAddress (target, base_addr, true, changed);
+    }
+    else if ((module_sp = target.GetSharedModule (module_spec)))
+    {
+        module_sp->SetLoadAddress (target, base_addr, true, changed);
+    }
+
+    return module_sp;
+}
+
+size_t
+ProcessGDBRemote::LoadModules ()
+{
+    using lldb_private::process_gdb_remote::ProcessGDBRemote;
+
+    // request a list of loaded libraries from GDBServer
+    GDBLoadedModuleInfoList module_list;
+    if (GetLoadedModuleList (module_list).Fail())
+        return 0;
+
+    // get a list of all the modules
+    ModuleList new_modules;
+
+    for (GDBLoadedModuleInfoList::LoadedModuleInfo & modInfo : module_list.m_list)
+    {
+        std::string  mod_name;
+        lldb::addr_t mod_base;
+
+        bool valid = true;
+        valid &= modInfo.get_name (mod_name);
+        valid &= modInfo.get_base (mod_base);
+        if (!valid)
+            continue;
+
+        // hack (cleaner way to get file name only?) (win/unix compat?)
+        size_t marker = mod_name.rfind ('/');
+        if (marker == std::string::npos)
+            marker = 0;
+        else
+            marker += 1;
+
+        FileSpec file (mod_name.c_str()+marker, true);
+        lldb::ModuleSP module_sp = LoadModuleAtAddress (file, mod_base);
+
+        if (module_sp.get())
+            new_modules.Append (module_sp);
+    }
+
+    if (new_modules.GetSize() > 0)
+    {
+        Target & target = m_target;
+
+        new_modules.ForEach ([&target](const lldb::ModuleSP module_sp) -> bool
+        {
+            lldb_private::ObjectFile * obj = module_sp->GetObjectFile ();
+            if (!obj)
+                return true;
+
+            if (obj->GetType () != ObjectFile::Type::eTypeExecutable)
+                return true;
+
+            lldb::ModuleSP module_copy_sp = module_sp;
+            target.SetExecutableModule (module_copy_sp, false);
+            return false;
+        });
+
+        ModuleList &loaded_modules = m_process->GetTarget().GetImages();
+        loaded_modules.AppendIfNeeded (new_modules);
+        m_process->GetTarget().ModulesDidLoad (new_modules);
+    }
+
+    return new_modules.GetSize();
+}
+
 class CommandObjectProcessGDBRemotePacketHistory : public CommandObjectParsed
 {
 private:
@@ -3415,7 +4327,7 @@ public:
     }
     
     bool
-    DoExecute (Args& command, CommandReturnObject &result)
+    DoExecute (Args& command, CommandReturnObject &result) override
     {
         const size_t argc = command.GetArgumentCount();
         if (argc == 0)
@@ -3455,7 +4367,7 @@ public:
     }
     
     bool
-    DoExecute (Args& command, CommandReturnObject &result)
+    DoExecute (Args& command, CommandReturnObject &result) override
     {
         const size_t argc = command.GetArgumentCount();
         if (argc == 0)
@@ -3503,7 +4415,7 @@ public:
     }
     
     bool
-    DoExecute (Args& command, CommandReturnObject &result)
+    DoExecute (Args& command, CommandReturnObject &result) override
     {
         const size_t argc = command.GetArgumentCount();
         if (argc == 0)
@@ -3561,7 +4473,7 @@ public:
     }
     
     bool
-    DoExecute (const char *command, CommandReturnObject &result)
+    DoExecute (const char *command, CommandReturnObject &result) override
     {
         if (command == NULL || command[0] == '\0')
         {

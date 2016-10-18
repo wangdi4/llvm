@@ -66,17 +66,18 @@ void DwarfExpression::AddShr(unsigned ShiftBy) {
 }
 
 bool DwarfExpression::AddMachineRegIndirect(unsigned MachineReg, int Offset) {
-  int DwarfReg = TRI.getDwarfRegNum(MachineReg, false);
-  if (DwarfReg < 0)
-    return false;
-
   if (isFrameRegister(MachineReg)) {
     // If variable offset is based in frame register then use fbreg.
     EmitOp(dwarf::DW_OP_fbreg);
     EmitSigned(Offset);
-  } else {
-    AddRegIndirect(DwarfReg, Offset);
+    return true;
   }
+
+  int DwarfReg = TRI.getDwarfRegNum(MachineReg, false);
+  if (DwarfReg < 0)
+    return false;
+
+  AddRegIndirect(DwarfReg, Offset);
   return true;
 }
 
@@ -191,38 +192,42 @@ static unsigned getOffsetOrZero(unsigned OffsetInBits,
   return OffsetInBits;
 }
 
-bool DwarfExpression::AddMachineRegExpression(DIExpression Expr,
+bool DwarfExpression::AddMachineRegExpression(const DIExpression *Expr,
                                               unsigned MachineReg,
                                               unsigned PieceOffsetInBits) {
-  auto I = Expr.begin();
-  // Pattern-match combinations for which more efficient representations exist
-  // first.
-  if (I == Expr.end())
+  auto I = Expr->expr_op_begin();
+  auto E = Expr->expr_op_end();
+  if (I == E)
     return AddMachineRegPiece(MachineReg);
 
+  // Pattern-match combinations for which more efficient representations exist
+  // first.
   bool ValidReg = false;
-  switch (*I) {
+  switch (I->getOp()) {
   case dwarf::DW_OP_bit_piece: {
-    unsigned OffsetInBits = I->getArg(1);
-    unsigned SizeInBits   = I->getArg(2);
+    unsigned OffsetInBits = I->getArg(0);
+    unsigned SizeInBits   = I->getArg(1);
     // Piece always comes at the end of the expression.
     return AddMachineRegPiece(MachineReg, SizeInBits,
                getOffsetOrZero(OffsetInBits, PieceOffsetInBits));
   }
-  case dwarf::DW_OP_plus:
+  case dwarf::DW_OP_plus: {
     // [DW_OP_reg,Offset,DW_OP_plus,DW_OP_deref] --> [DW_OP_breg,Offset].
-    if (I->getNext() == dwarf::DW_OP_deref) {
-      unsigned Offset = I->getArg(1);
+    auto N = I.getNext();
+    if (N != E && N->getOp() == dwarf::DW_OP_deref) {
+      unsigned Offset = I->getArg(0);
       ValidReg = AddMachineRegIndirect(MachineReg, Offset);
       std::advance(I, 2);
       break;
     } else
       ValidReg = AddMachineRegPiece(MachineReg);
-  case dwarf::DW_OP_deref:
-    // [DW_OP_reg,DW_OP_deref] --> [DW_OP_breg].
-    ValidReg = AddMachineRegIndirect(MachineReg);
-    ++I;
-    break;
+  }
+  case dwarf::DW_OP_deref: {
+      // [DW_OP_reg,DW_OP_deref] --> [DW_OP_breg].
+      ValidReg = AddMachineRegIndirect(MachineReg);
+      ++I;
+      break;
+  }
   default:
     llvm_unreachable("unsupported operand");
   }
@@ -231,30 +236,30 @@ bool DwarfExpression::AddMachineRegExpression(DIExpression Expr,
     return false;
 
   // Emit remaining elements of the expression.
-  AddExpression(I, Expr.end(), PieceOffsetInBits);
+  AddExpression(I, E, PieceOffsetInBits);
   return true;
 }
 
-void DwarfExpression::AddExpression(DIExpression::iterator I,
-                                    DIExpression::iterator E,
+void DwarfExpression::AddExpression(DIExpression::expr_op_iterator I,
+                                    DIExpression::expr_op_iterator E,
                                     unsigned PieceOffsetInBits) {
   for (; I != E; ++I) {
-    switch (*I) {
+    switch (I->getOp()) {
     case dwarf::DW_OP_bit_piece: {
-      unsigned OffsetInBits = I->getArg(1);
-      unsigned SizeInBits   = I->getArg(2);
+      unsigned OffsetInBits = I->getArg(0);
+      unsigned SizeInBits   = I->getArg(1);
       AddOpPiece(SizeInBits, getOffsetOrZero(OffsetInBits, PieceOffsetInBits));
       break;
     }
     case dwarf::DW_OP_plus:
       EmitOp(dwarf::DW_OP_plus_uconst);
-      EmitUnsigned(I->getArg(1));
+      EmitUnsigned(I->getArg(0));
       break;
     case dwarf::DW_OP_deref:
       EmitOp(dwarf::DW_OP_deref);
       break;
     default:
-      llvm_unreachable("unhandled opcode found in DIExpression");
+      llvm_unreachable("unhandled opcode found in expression");
     }
   }
 }

@@ -1,10 +1,12 @@
 set( LLDB_USED_LIBS
+  lldbBase
   lldbBreakpoint
   lldbCommands
   lldbDataFormatters
   lldbHost
   lldbCore
   lldbExpression
+  lldbInitialization
   lldbInterpreter
   lldbSymbol
   lldbTarget
@@ -39,16 +41,20 @@ set( LLDB_USED_LIBS
   lldbPluginUnwindAssemblyInstEmulation
   lldbPluginUnwindAssemblyX86
   lldbPluginAppleObjCRuntime
+  lldbPluginRenderScriptRuntime
   lldbPluginCXXItaniumABI
   lldbPluginABIMacOSX_arm
   lldbPluginABIMacOSX_arm64
   lldbPluginABIMacOSX_i386
+  lldbPluginABISysV_arm
+  lldbPluginABISysV_arm64
   lldbPluginABISysV_x86_64
   lldbPluginABISysV_hexagon
   lldbPluginABISysV_ppc
   lldbPluginABISysV_ppc64
   lldbPluginInstructionARM
   lldbPluginInstructionARM64
+  lldbPluginInstructionMIPS64
   lldbPluginObjectFilePECOFF
   lldbPluginOSPython
   lldbPluginMemoryHistoryASan
@@ -125,7 +131,12 @@ set( CLANG_USED_LIBS
 
 set(LLDB_SYSTEM_LIBS)
 if (NOT CMAKE_SYSTEM_NAME MATCHES "Windows" AND NOT __ANDROID_NDK__)
-  list(APPEND LLDB_SYSTEM_LIBS edit panel ncurses)
+  if (NOT LLDB_DISABLE_LIBEDIT)
+    list(APPEND LLDB_SYSTEM_LIBS edit)
+  endif()
+  if (NOT LLDB_DISABLE_CURSES)
+    list(APPEND LLDB_SYSTEM_LIBS panel ncurses)
+  endif()
 endif()
 # On FreeBSD backtrace() is provided by libexecinfo, not libc.
 if (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
@@ -165,6 +176,9 @@ if ( NOT LLDB_DISABLE_PYTHON )
   set(LLDB_WRAP_PYTHON ${LLDB_BINARY_DIR}/scripts/LLDBWrapPython.cpp)
 
   set_source_files_properties(${LLDB_WRAP_PYTHON} PROPERTIES GENERATED 1)
+  if (CLANG_CL)
+    set_source_files_properties(${LLDB_WRAP_PYTHON} PROPERTIES COMPILE_FLAGS -Wno-unused-function)
+  endif()
   if (LLVM_COMPILER_IS_GCC_COMPATIBLE AND
       NOT "${CMAKE_SYSTEM_NAME}" MATCHES "Darwin")
     set_property(SOURCE ${LLDB_WRAP_PYTHON}

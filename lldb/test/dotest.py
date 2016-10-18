@@ -32,6 +32,7 @@ import textwrap
 import time
 import inspect
 import unittest2
+import lldbtest_config
 
 if sys.version_info >= (2, 7):
     argparse = __import__('argparse')
@@ -125,19 +126,8 @@ just_do_lldbmi_test = False
 # By default, benchmarks tests are not run.
 just_do_benchmarks_test = False
 
-# By default, both dsym and dwarf tests are performed.
-# Use @dsym_test or @dwarf_test decorators, defined in lldbtest.py, to mark a test
-# as a dsym or dwarf test.  Use '-N dsym' or '-N dwarf' to exclude dsym or dwarf
-# tests from running.
-dont_do_dsym_test = "linux" in sys.platform or "freebsd" in sys.platform
+dont_do_dsym_test = False
 dont_do_dwarf_test = False
-
-# Don't do debugserver tests on everything except OS X.
-# Something for Windows here?
-dont_do_debugserver_test = "linux" in sys.platform or "freebsd" in sys.platform
-
-# Don't do lldb-gdbserver (llgs) tests on anything except Linux.
-dont_do_llgs_test = not ("linux" in sys.platform)
 
 # The blacklist is optional (-b blacklistFile) and allows a central place to skip
 # testclass's and/or testclass.testmethod's.
@@ -263,7 +253,9 @@ verbose = 1
 progress_bar = False
 
 # By default, search from the script directory.
-testdirs = [ sys.path[0] ]
+# We can't use sys.path[0] to determine the script directory
+# because it doesn't work under a debugger
+testdirs = [ os.path.dirname(os.path.realpath(__file__)) ]
 
 # Separator string.
 separator = '-' * 70
@@ -348,7 +340,36 @@ notify the directory containing the session logs for test failures or errors.
 In case there is any test failure/error, a similar message is appended at the
 end of the stderr output for your convenience.
 
-Environment variables related to loggings:
+ENABLING LOGS FROM TESTS
+
+Option 1:
+
+Writing logs into different files per test case::
+
+This option is particularly useful when multiple dotest instances are created
+by dosep.py
+
+$ ./dotest.py --channel "lldb all"
+
+$ ./dotest.py --channel "lldb all" --channel "gdb-remote packets"
+
+These log files are written to:
+
+<session-dir>/<test-id>.log (logs from lldb host process)
+<session-dir>/<test-id>-server.log (logs from debugserver/lldb-server)
+<session-dir>/<test-id>-trace-<test-result>.log (console logs)
+
+By default, logs from successful runs are deleted.  Use the --log-success flag
+to create reference logs for debugging.
+
+$ ./dotest.py --log-success
+
+Option 2: (DEPRECATED)
+
+The following options can only enable logs from the host lldb process.
+Only categories from the "lldb" or "gdb-remote" channels can be enabled
+They also do not automatically enable logs in locally running debug servers.
+Also, logs from all test case are written into each log file
 
 o LLDB_LOG: if defined, specifies the log file pathname for the 'lldb' subsystem
   with a default option of 'event process' if LLDB_LOG_OPTION is not defined.
@@ -356,6 +377,7 @@ o LLDB_LOG: if defined, specifies the log file pathname for the 'lldb' subsystem
 o GDB_REMOTE_LOG: if defined, specifies the log file pathname for the
   'process.gdb-remote' subsystem with a default option of 'packets' if
   GDB_REMOTE_LOG_OPTION is not defined.
+
 """
     sys.exit(0)
 
@@ -416,14 +438,27 @@ def setupCrashInfoHook():
     global setCrashInfoHook
     setCrashInfoHook = setCrashInfoHook_NonMac # safe default
     if platform.system() == "Darwin":
+        import lock
         test_dir = os.environ['LLDB_TEST']
         if not test_dir or not os.path.exists(test_dir):
             return
+        dylib_lock = os.path.join(test_dir,"crashinfo.lock")
         dylib_src = os.path.join(test_dir,"crashinfo.c")
         dylib_dst = os.path.join(test_dir,"crashinfo.so")
-        cmd = "SDKROOT= xcrun clang %s -o %s -framework Python -Xlinker -dylib -iframework /System/Library/Frameworks/ -Xlinker -F /System/Library/Frameworks/" % (dylib_src,dylib_dst)
-        if subprocess.call(cmd,shell=True) == 0 and os.path.exists(dylib_dst):
-            setCrashInfoHook = setCrashInfoHook_Mac
+        try:
+            compile_lock = lock.Lock(dylib_lock)
+            compile_lock.acquire()
+            if not os.path.isfile(dylib_dst) or os.path.getmtime(dylib_dst) < os.path.getmtime(dylib_src):
+                # we need to compile
+                cmd = "SDKROOT= xcrun clang %s -o %s -framework Python -Xlinker -dylib -iframework /System/Library/Frameworks/ -Xlinker -F /System/Library/Frameworks/" % (dylib_src,dylib_dst)
+                if subprocess.call(cmd,shell=True) != 0 or not os.path.isfile(dylib_dst):
+                    raise Exception('command failed: "{}"'.format(cmd))
+        finally:
+            compile_lock.release()
+            del compile_lock
+
+        setCrashInfoHook = setCrashInfoHook_Mac
+
     else:
         pass
 
@@ -533,6 +568,8 @@ def parseOptionsAndInitTestdirs():
     group.add_argument('-x', metavar='breakpoint-spec', help='Specify the breakpoint specification for the benchmark executable')
     group.add_argument('-y', type=int, metavar='count', help="Specify the iteration count used to collect our benchmarks. An example is the number of times to do 'thread step-over' to measure stepping speed.")
     group.add_argument('-#', type=int, metavar='sharp', dest='sharp', help='Repeat the test suite for a specified number of times')
+    group.add_argument('--channel', metavar='channel', dest='channels', action='append', help=textwrap.dedent("Specify the log channels (and optional categories) e.g. 'lldb all' or 'gdb-remote packets' if no categories are specified, 'default' is used"))
+    group.add_argument('--log-success', dest='log_success', action='store_true', help="Leave logs/traces even for successful test runs (useful for creating reference log files during debugging.)")
 
     # Configuration options
     group = parser.add_argument_group('Remote platform options')
@@ -599,6 +636,12 @@ def parseOptionsAndInitTestdirs():
             compilers = [commands.getoutput('xcrun -sdk "%s" -find clang 2> /dev/null' % (args.apple_sdk))]
         else:
             compilers = ['clang']
+
+    if args.channels:
+        lldbtest_config.channels = args.channels
+
+    if args.log_success:
+        lldbtest_config.log_success = args.log_success
 
     # Set SDKROOT if we are using an Apple SDK
     if platform_system == 'Darwin' and args.apple_sdk:
@@ -906,10 +949,10 @@ def setupSysPath():
     global lldbExecutablePath
 
     # Get the directory containing the current script.
-    if ("DOTEST_PROFILE" in os.environ or "DOTEST_PDB" in os.environ) and "DOTEST_SCRIPT_DIR" in os.environ:
+    if "DOTEST_PROFILE" in os.environ and "DOTEST_SCRIPT_DIR" in os.environ:
         scriptPath = os.environ["DOTEST_SCRIPT_DIR"]
     else:
-        scriptPath = sys.path[0]
+        scriptPath = os.path.dirname(os.path.realpath(__file__))
     if not scriptPath.endswith('test'):
         print "This script expects to reside in lldb's test directory."
         sys.exit(-1)
@@ -928,18 +971,24 @@ def setupSysPath():
 
     # Set up the LLDB_SRC environment variable, so that the tests can locate
     # the LLDB source code.
-    os.environ["LLDB_SRC"] = os.path.join(sys.path[0], os.pardir)
+    os.environ["LLDB_SRC"] = os.path.join(scriptPath, os.pardir)
 
     pluginPath = os.path.join(scriptPath, 'plugins')
     pexpectPath = os.path.join(scriptPath, 'pexpect-2.4')
+    toolsLLDBMIPath = os.path.join(scriptPath, 'tools', 'lldb-mi')
+    toolsLLDBServerPath = os.path.join(scriptPath, 'tools', 'lldb-server')
 
     # Put embedded pexpect at front of the load path so we ensure we
     # use that version.
     sys.path.insert(0, pexpectPath)
 
-    # Append script dir and plugin dir to the sys.path.
-    sys.path.append(scriptPath)
-    sys.path.append(pluginPath)
+    # Insert script dir, plugin dir, lldb-mi dir and lldb-server dir to the sys.path.
+    sys.path.insert(0, scriptPath)
+    sys.path.insert(0, pluginPath)
+    sys.path.insert(0, toolsLLDBMIPath)      # Adding test/tools/lldb-mi to the path makes it easy
+                                             # to "import lldbmi_testcase" from the MI tests
+    sys.path.insert(0, toolsLLDBServerPath)  # Adding test/tools/lldb-server to the path makes it easy
+                                             # to "import lldbgdbserverutils" from the lldb-server tests
 
     # This is our base name component.
     base = os.path.abspath(os.path.join(scriptPath, os.pardir))
@@ -1013,9 +1062,13 @@ def setupSysPath():
     
     if lldbHere:
         os.environ["LLDB_HERE"] = lldbHere
-        os.environ["LLDB_LIB_DIR"] = os.path.split(lldbHere)[0]
+        lldbLibDir = os.path.split(lldbHere)[0]  # confusingly, this is the "bin" directory
+        os.environ["LLDB_LIB_DIR"] = lldbLibDir
+        lldbImpLibDir = os.path.join(lldbLibDir, '..', 'lib') if sys.platform.startswith('win32') else lldbLibDir
+        os.environ["LLDB_IMPLIB_DIR"] = lldbImpLibDir
         if not noHeaders:
             print "LLDB library dir:", os.environ["LLDB_LIB_DIR"]
+            print "LLDB import library dir:", os.environ["LLDB_IMPLIB_DIR"]
             os.system('%s -v' % lldbHere)
 
     if not lldbExec:
@@ -1065,13 +1118,12 @@ def setupSysPath():
             return
         
         # If our lldb supports the -P option, use it to find the python path:
-        init_in_python_dir = 'lldb/__init__.py'
+        init_in_python_dir = os.path.join('lldb', '__init__.py')
         lldb_dash_p_result = None
 
-        if lldbHere:
-            lldb_dash_p_result = subprocess.check_output([lldbHere, "-P"], stderr=subprocess.STDOUT)
-        elif lldbExec:
-            lldb_dash_p_result = subprocess.check_output([lldbExec, "-P"], stderr=subprocess.STDOUT)
+        lldbExecutable = lldbHere if lldbHere else lldbExec
+        if lldbExecutable:
+            lldb_dash_p_result = subprocess.check_output([lldbExecutable, "-P"], stderr=subprocess.STDOUT)
 
         if lldb_dash_p_result and not lldb_dash_p_result.startswith(("<", "lldb: invalid option:")) \
 							  and not lldb_dash_p_result.startswith("Traceback"):
@@ -1093,38 +1145,51 @@ def setupSysPath():
                 if "freebsd" in sys.platform or "linux" in sys.platform:
                     os.environ['LLDB_LIB_DIR'] = os.path.join(lldbPath, '..', '..')
         
-        if not lldbPath: 
-            dbgPath  = os.path.join(base, *(xcode3_build_dir + dbg + python_resource_dir))
-            dbgPath2 = os.path.join(base, *(xcode4_build_dir + dbg + python_resource_dir))
-            dbcPath  = os.path.join(base, *(xcode3_build_dir + dbc + python_resource_dir))
-            dbcPath2 = os.path.join(base, *(xcode4_build_dir + dbc + python_resource_dir))
-            relPath  = os.path.join(base, *(xcode3_build_dir + rel + python_resource_dir))
-            relPath2 = os.path.join(base, *(xcode4_build_dir + rel + python_resource_dir))
-            baiPath  = os.path.join(base, *(xcode3_build_dir + bai + python_resource_dir))
-            baiPath2 = os.path.join(base, *(xcode4_build_dir + bai + python_resource_dir))
-    
-            if os.path.isfile(os.path.join(dbgPath, init_in_python_dir)):
-                lldbPath = dbgPath
-            elif os.path.isfile(os.path.join(dbgPath2, init_in_python_dir)):
-                lldbPath = dbgPath2
-            elif os.path.isfile(os.path.join(dbcPath, init_in_python_dir)):
-                lldbPath = dbcPath
-            elif os.path.isfile(os.path.join(dbcPath2, init_in_python_dir)):
-                lldbPath = dbcPath2
-            elif os.path.isfile(os.path.join(relPath, init_in_python_dir)):
-                lldbPath = relPath
-            elif os.path.isfile(os.path.join(relPath2, init_in_python_dir)):
-                lldbPath = relPath2
-            elif os.path.isfile(os.path.join(baiPath, init_in_python_dir)):
-                lldbPath = baiPath
-            elif os.path.isfile(os.path.join(baiPath2, init_in_python_dir)):
-                lldbPath = baiPath2
-
         if not lldbPath:
-            print 'This script requires lldb.py to be in either ' + dbgPath + ',',
-            print relPath + ', or ' + baiPath + '. Some tests might fail.'
+            if platform.system() == "Darwin":
+                dbgPath  = os.path.join(base, *(xcode3_build_dir + dbg + python_resource_dir))
+                dbgPath2 = os.path.join(base, *(xcode4_build_dir + dbg + python_resource_dir))
+                dbcPath  = os.path.join(base, *(xcode3_build_dir + dbc + python_resource_dir))
+                dbcPath2 = os.path.join(base, *(xcode4_build_dir + dbc + python_resource_dir))
+                relPath  = os.path.join(base, *(xcode3_build_dir + rel + python_resource_dir))
+                relPath2 = os.path.join(base, *(xcode4_build_dir + rel + python_resource_dir))
+                baiPath  = os.path.join(base, *(xcode3_build_dir + bai + python_resource_dir))
+                baiPath2 = os.path.join(base, *(xcode4_build_dir + bai + python_resource_dir))
+
+                if os.path.isfile(os.path.join(dbgPath, init_in_python_dir)):
+                    lldbPath = dbgPath
+                elif os.path.isfile(os.path.join(dbgPath2, init_in_python_dir)):
+                    lldbPath = dbgPath2
+                elif os.path.isfile(os.path.join(dbcPath, init_in_python_dir)):
+                    lldbPath = dbcPath
+                elif os.path.isfile(os.path.join(dbcPath2, init_in_python_dir)):
+                    lldbPath = dbcPath2
+                elif os.path.isfile(os.path.join(relPath, init_in_python_dir)):
+                    lldbPath = relPath
+                elif os.path.isfile(os.path.join(relPath2, init_in_python_dir)):
+                    lldbPath = relPath2
+                elif os.path.isfile(os.path.join(baiPath, init_in_python_dir)):
+                    lldbPath = baiPath
+                elif os.path.isfile(os.path.join(baiPath2, init_in_python_dir)):
+                    lldbPath = baiPath2
+
+                if not lldbPath:
+                    print 'This script requires lldb.py to be in either ' + dbgPath + ',',
+                    print relPath + ', or ' + baiPath + '. Some tests might fail.'
+            else:
+                print "Unable to load lldb extension module.  Possible reasons for this include:"
+                print "  1) LLDB was built with LLDB_DISABLE_PYTHON=1"
+                print "  2) PYTHONPATH and PYTHONHOME are not set correctly.  PYTHONHOME should refer to"
+                print "     the version of Python that LLDB built and linked against, and PYTHONPATH"
+                print "     should contain the Lib directory for the same python distro, as well as the"
+                print "     location of LLDB\'s site-packages folder."
+                print "  3) A different version of Python than that which was built against is exported in"
+                print "     the system\'s PATH environment variable, causing conflicts."
+                print "  4) The executable '%s' could not be found.  Please check " % lldbExecutable
+                print "     that it exists and is executable."
 
     if lldbPath:
+        lldbPath = os.path.normpath(lldbPath)
         # Some of the code that uses this path assumes it hasn't resolved the Versions... link.  
         # If the path we've constructed looks like that, then we'll strip out the Versions/A part.
         (before, frameWithVersion, after) = lldbPath.rpartition("LLDB.framework/Versions/A")
@@ -1309,16 +1374,6 @@ setupCrashInfoHook()
 if not skip_long_running_test:
     os.environ["LLDB_SKIP_LONG_RUNNING_TEST"] = "NO"
 
-#
-# Walk through the testdirs while collecting tests.
-#
-for testdir in testdirs:
-    os.path.walk(testdir, visit, 'Test')
-
-#
-# Now that we have loaded all the test cases, run the whole test suite.
-#
-
 # For the time being, let's bracket the test runner within the
 # lldb.SBDebugger.Initialize()/Terminate() pair.
 import lldb
@@ -1335,14 +1390,17 @@ if lldb_platform_name:
     if lldb_platform_url:
         # We must connect to a remote platform if a LLDB platform URL was specified
         print "Connecting to remote platform '%s' at '%s'..." % (lldb_platform_name, lldb_platform_url)
-        platform_connect_options = lldb.SBPlatformConnectOptions(lldb_platform_url); 
+        lldb.platform_url = lldb_platform_url
+        platform_connect_options = lldb.SBPlatformConnectOptions(lldb_platform_url)
         err = lldb.remote_platform.ConnectRemote(platform_connect_options)
         if err.Success():
             print "Connected."
         else:
             print "error: failed to connect to remote platform using URL '%s': %s" % (lldb_platform_url, err)
             exitTestSuite(1)
-    
+    else:
+        lldb.platform_url = None
+
     if lldb_platform_working_dir:
         print "Setting remote platform working directory to '%s'..." % (lldb_platform_working_dir)
         lldb.remote_platform.SetWorkingDirectory(lldb_platform_working_dir)
@@ -1352,6 +1410,32 @@ if lldb_platform_name:
 else:
     lldb.remote_platform = None
     lldb.remote_platform_working_dir = None
+    lldb.platform_url = None
+
+target_platform = lldb.DBG.GetSelectedPlatform().GetTriple().split('-')[2]
+
+# By default, both dsym and dwarf tests are performed.
+# Use @dsym_test or @dwarf_test decorators, defined in lldbtest.py, to mark a test
+# as a dsym or dwarf test.  Use '-N dsym' or '-N dwarf' to exclude dsym or dwarf
+# tests from running.
+dont_do_dsym_test = dont_do_dsym_test or "linux" in target_platform or "freebsd" in target_platform or "windows" in target_platform
+
+# Don't do debugserver tests on everything except OS X.
+dont_do_debugserver_test = "linux" in target_platform or "freebsd" in target_platform or "windows" in target_platform
+
+# Don't do lldb-server (llgs) tests on anything except Linux.
+dont_do_llgs_test = not ("linux" in target_platform)
+
+#
+# Walk through the testdirs while collecting tests.
+#
+for testdir in testdirs:
+    os.path.walk(testdir, visit, 'Test')
+
+#
+# Now that we have loaded all the test cases, run the whole test suite.
+#
+
 # Put the blacklist in the lldb namespace, to be used by lldb.TestBase.
 lldb.blacklist = blacklist
 

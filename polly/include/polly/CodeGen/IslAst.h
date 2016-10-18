@@ -24,13 +24,13 @@
 
 #include "polly/Config/config.h"
 #include "polly/ScopPass.h"
-
 #include "isl/ast.h"
 
 namespace llvm {
 class raw_ostream;
 }
 
+struct isl_pw_aff;
 struct isl_ast_node;
 struct isl_ast_expr;
 struct isl_ast_build;

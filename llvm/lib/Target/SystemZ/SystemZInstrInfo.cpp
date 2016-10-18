@@ -578,6 +578,12 @@ SystemZInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     Opcode = SystemZ::LDR;
   else if (SystemZ::FP128BitRegClass.contains(DestReg, SrcReg))
     Opcode = SystemZ::LXR;
+  else if (SystemZ::VR32BitRegClass.contains(DestReg, SrcReg))
+    Opcode = SystemZ::VLR32;
+  else if (SystemZ::VR64BitRegClass.contains(DestReg, SrcReg))
+    Opcode = SystemZ::VLR64;
+  else if (SystemZ::VR128BitRegClass.contains(DestReg, SrcReg))
+    Opcode = SystemZ::VLR;
   else
     llvm_unreachable("Impossible reg-to-reg copy");
 
@@ -723,9 +729,12 @@ SystemZInstrInfo::convertToThreeAddress(MachineFunction::iterator &MFI,
     unsigned Start, End;
     if (isRxSBGMask(Imm, And.RegSize, Start, End)) {
       unsigned NewOpcode;
-      if (And.RegSize == 64)
+      if (And.RegSize == 64) {
         NewOpcode = SystemZ::RISBG;
-      else {
+        // Prefer RISBGN if available, since it does not clobber CC.
+        if (STI.hasMiscellaneousExtensions())
+          NewOpcode = SystemZ::RISBGN;
+      } else {
         NewOpcode = SystemZ::RISBMux;
         Start &= 31;
         End &= 31;
@@ -1113,6 +1122,16 @@ void SystemZInstrInfo::getLoadStoreOpcodes(const TargetRegisterClass *RC,
   } else if (RC == &SystemZ::FP128BitRegClass) {
     LoadOpcode = SystemZ::LX;
     StoreOpcode = SystemZ::STX;
+  } else if (RC == &SystemZ::VR32BitRegClass) {
+    LoadOpcode = SystemZ::VL32;
+    StoreOpcode = SystemZ::VST32;
+  } else if (RC == &SystemZ::VR64BitRegClass) {
+    LoadOpcode = SystemZ::VL64;
+    StoreOpcode = SystemZ::VST64;
+  } else if (RC == &SystemZ::VF128BitRegClass ||
+             RC == &SystemZ::VR128BitRegClass) {
+    LoadOpcode = SystemZ::VL;
+    StoreOpcode = SystemZ::VST;
   } else
     llvm_unreachable("Unsupported regclass to load or store");
 }
@@ -1146,17 +1165,22 @@ unsigned SystemZInstrInfo::getOpcodeForOffset(unsigned Opcode,
 
 unsigned SystemZInstrInfo::getLoadAndTest(unsigned Opcode) const {
   switch (Opcode) {
-  case SystemZ::L:    return SystemZ::LT;
-  case SystemZ::LY:   return SystemZ::LT;
-  case SystemZ::LG:   return SystemZ::LTG;
-  case SystemZ::LGF:  return SystemZ::LTGF;
-  case SystemZ::LR:   return SystemZ::LTR;
-  case SystemZ::LGFR: return SystemZ::LTGFR;
-  case SystemZ::LGR:  return SystemZ::LTGR;
-  case SystemZ::LER:  return SystemZ::LTEBR;
-  case SystemZ::LDR:  return SystemZ::LTDBR;
-  case SystemZ::LXR:  return SystemZ::LTXBR;
-  default:            return 0;
+  case SystemZ::L:      return SystemZ::LT;
+  case SystemZ::LY:     return SystemZ::LT;
+  case SystemZ::LG:     return SystemZ::LTG;
+  case SystemZ::LGF:    return SystemZ::LTGF;
+  case SystemZ::LR:     return SystemZ::LTR;
+  case SystemZ::LGFR:   return SystemZ::LTGFR;
+  case SystemZ::LGR:    return SystemZ::LTGR;
+  case SystemZ::LER:    return SystemZ::LTEBR;
+  case SystemZ::LDR:    return SystemZ::LTDBR;
+  case SystemZ::LXR:    return SystemZ::LTXBR;
+  // On zEC12 we prefer to use RISBGN.  But if there is a chance to
+  // actually use the condition code, we may turn it back into RISGB.
+  // Note that RISBG is not really a "load-and-test" instruction,
+  // but sets the same condition code values, so is OK to use here.
+  case SystemZ::RISBGN: return SystemZ::RISBG;
+  default:              return 0;
   }
 }
 
@@ -1177,6 +1201,7 @@ static bool isStringOfOnes(uint64_t Mask, unsigned &LSB, unsigned &Length) {
 bool SystemZInstrInfo::isRxSBGMask(uint64_t Mask, unsigned BitSize,
                                    unsigned &Start, unsigned &End) const {
   // Reject trivial all-zero masks.
+  Mask &= allOnes(BitSize);
   if (Mask == 0)
     return false;
 

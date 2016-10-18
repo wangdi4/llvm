@@ -264,6 +264,11 @@ public:
   }
 
   /// operator< - Compare two classes.
+  // FIXME: This ordering seems to be broken. For example:
+  // u64 < i64, i64 < s8, s8 < u64, forming a cycle
+  // u64 is a subset of i64
+  // i64 and s8 are not subsets of each other, so are ordered by name
+  // s8 and u64 are not subsets of each other, so are ordered by name
   bool operator<(const ClassInfo &RHS) const {
     if (this == &RHS)
       return false;
@@ -1865,7 +1870,7 @@ static void emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
           break;
 
         CvtOS << "    case " << Name << ":\n"
-              << "      Inst.addOperand(MCOperand::CreateImm(" << Val << "));\n"
+              << "      Inst.addOperand(MCOperand::createImm(" << Val << "));\n"
               << "      break;\n";
 
         OpOS << "    case " << Name << ":\n"
@@ -1896,7 +1901,7 @@ static void emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
         if (!IsNewConverter)
           break;
         CvtOS << "    case " << Name << ":\n"
-              << "      Inst.addOperand(MCOperand::CreateReg(" << Reg << "));\n"
+              << "      Inst.addOperand(MCOperand::createReg(" << Reg << "));\n"
               << "      break;\n";
 
         OpOS << "    case " << Name << ":\n"
@@ -2882,7 +2887,7 @@ void AsmMatcherEmitter::run(raw_ostream &OS) {
   OS << "  uint64_t MissingFeatures = ~0ULL;\n";
   OS << "  // Set ErrorInfo to the operand that mismatches if it is\n";
   OS << "  // wrong for all instances of the instruction.\n";
-  OS << "  ErrorInfo = ~0U;\n";
+  OS << "  ErrorInfo = ~0ULL;\n";
 
   // Emit code to search the table.
   OS << "  // Find the appropriate table for this asm variant.\n";

@@ -16,6 +16,7 @@
 
 // C++ Includes
 // Other libraries and framework includes
+#include "clang/AST/Decl.h"
 // Project includes
 #include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/DataExtractor.h"
@@ -24,6 +25,7 @@
 #include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObjectMemory.h"
 #include "lldb/DataFormatters/ValueObjectPrinter.h"
+#include "lldb/Expression/ClangPersistentVariables.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -532,7 +534,7 @@ protected:
                 clang::TypeDecl *tdecl = target->GetPersistentVariables().GetPersistentType(ConstString(lookup_type_name));
                 if (tdecl)
                 {
-                    clang_ast_type.SetClangType(&tdecl->getASTContext(),(lldb::clang_type_t)tdecl->getTypeForDecl());
+                    clang_ast_type.SetClangType(&tdecl->getASTContext(),(const lldb::clang_type_t)tdecl->getTypeForDecl());
                 }
             }
             
@@ -742,6 +744,7 @@ protected:
             auto data_addr = addr;
             auto count = item_count;
             item_count = 0;
+            bool break_on_no_NULL = false;
             while (item_count < count)
             {
                 std::string buffer;
@@ -754,17 +757,24 @@ protected:
                     result.SetStatus(eReturnStatusFailed);
                     return false;
                 }
+                
                 if (item_byte_size == read)
                 {
                     result.AppendWarningWithFormat("unable to find a NULL terminated string at 0x%" PRIx64 ".Consider increasing the maximum read length.\n", data_addr);
-                    break;
+                    --read;
+                    break_on_no_NULL = true;
                 }
-                read+=1; // account for final NULL byte
+                else
+                    ++read; // account for final NULL byte
+                
                 memcpy(data_ptr, &buffer[0], read);
                 data_ptr += read;
                 data_addr += read;
                 bytes_read += read;
                 item_count++; // if we break early we know we only read item_count strings
+                
+                if (break_on_no_NULL)
+                    break;
             }
             data_sp.reset(new DataBufferHeap(data_sp->GetBytes(),bytes_read+1));
         }

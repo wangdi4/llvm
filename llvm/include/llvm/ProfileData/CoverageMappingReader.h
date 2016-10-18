@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/ProfileData/CoverageMapping.h"
 #include "llvm/ProfileData/InstrProf.h"
@@ -78,12 +79,6 @@ public:
 class RawCoverageReader {
 protected:
   StringRef Data;
-
-  /// \brief Return the error code.
-  std::error_code error(std::error_code EC) { return EC; }
-
-  /// \brief Clear the current error code and return a successful one.
-  std::error_code success() { return error(instrprof_error::success); }
 
   RawCoverageReader(StringRef Data) : Data(Data) {}
 
@@ -175,7 +170,8 @@ private:
 
 public:
   static ErrorOr<std::unique_ptr<BinaryCoverageReader>>
-  create(std::unique_ptr<MemoryBuffer> &ObjectBuffer);
+  create(std::unique_ptr<MemoryBuffer> &ObjectBuffer,
+         Triple::ArchType Arch = Triple::ArchType::UnknownArch);
 
   std::error_code readNextRecord(CoverageMappingRecord &Record) override;
 };

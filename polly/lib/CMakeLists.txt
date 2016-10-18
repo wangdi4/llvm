@@ -1,9 +1,5 @@
 set(LLVM_NO_RTTI 1)
 
-if (PLUTO_FOUND)
-  set(POLLY_PLUTO_FILES Transform/Pluto.cpp)
-endif (PLUTO_FOUND)
-
 set(POLLY_JSON_FILES
     JSON/json_reader.cpp
     JSON/json_value.cpp
@@ -13,7 +9,8 @@ set(POLLY_JSON_FILES
 set(ISL_CODEGEN_FILES
     CodeGen/IslAst.cpp
     CodeGen/IslExprBuilder.cpp
-    CodeGen/IslCodeGeneration.cpp)
+    CodeGen/IslNodeBuilder.cpp
+    CodeGen/CodeGeneration.cpp)
 
 if (GPU_CODEGEN)
   set (GPGPU_CODEGEN_FILES
@@ -39,7 +36,6 @@ set (ISL_FILES
     External/isl/isl_convex_hull.c
     External/isl/isl_ctx.c
     External/isl/isl_deprecated.c
-    External/isl/isl_dim.c
     External/isl/isl_dim_map.c
     External/isl/isl_equalities.c
     External/isl/isl_factorization.c
@@ -104,7 +100,7 @@ set (ISL_FILES
 
 
 add_polly_library(Polly
-  Analysis/Dependences.cpp
+  Analysis/DependenceInfo.cpp
   Analysis/ScopDetection.cpp
   Analysis/ScopDetectionDiagnostic.cpp
   Analysis/ScopInfo.cpp
@@ -123,13 +119,13 @@ add_polly_library(Polly
   Support/SCEVValidator.cpp
   Support/RegisterPasses.cpp
   Support/ScopHelper.cpp
+  Support/ScopLocation.cpp
   ${POLLY_JSON_FILES}
   Transform/Canonicalization.cpp
   Transform/CodePreparation.cpp
   Transform/DeadCodeElimination.cpp
   Transform/IndependentBlocks.cpp
   Transform/ScheduleOptimizer.cpp
-  ${POLLY_PLUTO_FILES}
   ${ISL_FILES}
   )
 
@@ -142,6 +138,10 @@ if (BUILD_SHARED_LIBS)
     LLVMTransformUtils
     LLVMAnalysis
     LLVMipo
+    LLVMMC
+  )
+  link_directories(
+    ${LLVM_LIBRARY_DIR}
   )
 endif()
 

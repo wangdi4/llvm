@@ -25,9 +25,23 @@ namespace __sanitizer {
 const char *ExtractToken(const char *str, const char *delims, char **result);
 const char *ExtractInt(const char *str, const char *delims, int *result);
 const char *ExtractUptr(const char *str, const char *delims, uptr *result);
+const char *ExtractTokenUpToDelimiter(const char *str, const char *delimiter,
+                                      char **result);
 
+const char *DemangleCXXABI(const char *name);
+
+// SymbolizerTool is an interface that is implemented by individual "tools"
+// that can perform symbolication (external llvm-symbolizer, libbacktrace,
+// Windows DbgHelp symbolizer, etc.).
 class SymbolizerTool {
  public:
+  // The main |Symbolizer| class implements a "fallback chain" of symbolizer
+  // tools. In a request to symbolize an address, if one tool returns false,
+  // the next tool in the chain will be tried.
+  SymbolizerTool *next;
+
+  SymbolizerTool() : next(nullptr) { }
+
   // Can't declare pure virtual functions in sanitizer runtimes:
   // __cxa_pure_virtual might be unavailable.
 
@@ -46,8 +60,9 @@ class SymbolizerTool {
 
   virtual void Flush() {}
 
+  // Return nullptr to fallback to the default platform-specific demangler.
   virtual const char *Demangle(const char *name) {
-    return name;
+    return nullptr;
   }
 };
 
@@ -56,7 +71,7 @@ class SymbolizerTool {
 // SymbolizerProcess may not be used from two threads simultaneously.
 class SymbolizerProcess {
  public:
-  explicit SymbolizerProcess(const char *path);
+  explicit SymbolizerProcess(const char *path, bool use_forkpty = false);
   const char *SendCommand(const char *command);
 
  private:
@@ -86,6 +101,7 @@ class SymbolizerProcess {
   uptr times_restarted_;
   bool failed_to_start_;
   bool reported_invalid_path_;
+  bool use_forkpty_;
 };
 
 }  // namespace __sanitizer

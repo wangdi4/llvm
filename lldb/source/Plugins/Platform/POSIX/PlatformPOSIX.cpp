@@ -24,6 +24,7 @@
 #include "lldb/Host/FileSpec.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
+#include "lldb/Target/Process.h"
 #include "lldb/Target/ProcessLaunchInfo.h"
 
 using namespace lldb;
@@ -47,6 +48,17 @@ m_remote_platform_sp ()
 //------------------------------------------------------------------
 PlatformPOSIX::~PlatformPOSIX()
 {
+}
+
+bool
+PlatformPOSIX::GetModuleSpec (const FileSpec& module_file_spec,
+                              const ArchSpec& arch,
+                              ModuleSpec &module_spec)
+{
+    if (m_remote_platform_sp)
+        return m_remote_platform_sp->GetModuleSpec (module_file_spec, arch, module_spec);
+
+    return Platform::GetModuleSpec (module_file_spec, arch, module_spec);
 }
 
 lldb_private::OptionGroupOptions*
@@ -653,9 +665,9 @@ PlatformPOSIX::ConnectRemote (Args& args)
         if (m_options.get())
         {
             OptionGroupOptions* options = m_options.get();
-            OptionGroupPlatformRSync* m_rsync_options = (OptionGroupPlatformRSync*)options->GetGroupWithOption('r');
-            OptionGroupPlatformSSH* m_ssh_options = (OptionGroupPlatformSSH*)options->GetGroupWithOption('s');
-            OptionGroupPlatformCaching* m_cache_options = (OptionGroupPlatformCaching*)options->GetGroupWithOption('c');
+            const OptionGroupPlatformRSync* m_rsync_options = (OptionGroupPlatformRSync*)options->GetGroupWithOption('r');
+            const OptionGroupPlatformSSH* m_ssh_options = (OptionGroupPlatformSSH*)options->GetGroupWithOption('s');
+            const OptionGroupPlatformCaching* m_cache_options = (OptionGroupPlatformCaching*)options->GetGroupWithOption('c');
 
             if (m_rsync_options->m_rsync)
             {
@@ -764,9 +776,8 @@ PlatformPOSIX::Attach (ProcessAttachInfo &attach_info,
             if (log)
             {
                 ModuleSP exe_module_sp = target->GetExecutableModule ();
-                log->Printf ("PlatformPOSIX::%s set selected target to %p %s", __FUNCTION__,
-                             target,
-                             exe_module_sp ? exe_module_sp->GetFileSpec().GetPath().c_str () : "<null>" );
+                log->Printf("PlatformPOSIX::%s set selected target to %p %s", __FUNCTION__, (void *)target,
+                            exe_module_sp ? exe_module_sp->GetFileSpec().GetPath().c_str() : "<null>");
             }
 
 

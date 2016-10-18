@@ -141,6 +141,28 @@ void MachineOperand::ChangeToFPImmediate(const ConstantFP *FPImm) {
   Contents.CFP = FPImm;
 }
 
+void MachineOperand::ChangeToES(const char *SymName, unsigned char TargetFlags) {
+  assert((!isReg() || !isTied()) &&
+         "Cannot change a tied operand into an external symbol");
+
+  removeRegFromUses();
+
+  OpKind = MO_ExternalSymbol;
+  Contents.OffsetedInfo.Val.SymbolName = SymName;
+  setOffset(0); // Offset is always 0.
+  setTargetFlags(TargetFlags);
+}
+
+void MachineOperand::ChangeToMCSymbol(MCSymbol *Sym) {
+  assert((!isReg() || !isTied()) &&
+         "Cannot change a tied operand into an MCSymbol");
+
+  removeRegFromUses();
+
+  OpKind = MO_MCSymbol;
+  Contents.Sym = Sym;
+}
+
 /// ChangeToRegister - Replace this operand with a new register operand of
 /// the specified value.  If an operand is known to be an register already,
 /// the setReg method should be used.
@@ -881,8 +903,8 @@ bool MachineInstr::isIdenticalTo(const MachineInstr *Other,
   }
   // If DebugLoc does not match then two dbg.values are not identical.
   if (isDebugValue())
-    if (!getDebugLoc().isUnknown() && !Other->getDebugLoc().isUnknown()
-        && getDebugLoc() != Other->getDebugLoc())
+    if (getDebugLoc() && Other->getDebugLoc() &&
+        getDebugLoc() != Other->getDebugLoc())
       return false;
   return true;
 }
@@ -1619,12 +1641,9 @@ void MachineInstr::print(raw_ostream &OS, bool SkipOpers) const {
     }
     if (isDebugValue() && MO.isMetadata()) {
       // Pretty print DBG_VALUE instructions.
-      const MDNode *MD = MO.getMetadata();
-      DIDescriptor DI(MD);
-      DIVariable DIV(MD);
-
-      if (DI.isVariable() && !DIV.getName().empty())
-        OS << "!\"" << DIV.getName() << '\"';
+      auto *DIV = dyn_cast<DILocalVariable>(MO.getMetadata());
+      if (DIV && !DIV->getName().empty())
+        OS << "!\"" << DIV->getName() << '\"';
       else
         MO.print(OS, TRI);
     } else if (TRI && (isInsertSubreg() || isRegSequence()) && MO.isImm()) {
@@ -1711,13 +1730,13 @@ void MachineInstr::print(raw_ostream &OS, bool SkipOpers) const {
   }
 
   // Print debug location information.
-  if (isDebugValue() && getOperand(e - 1).isMetadata()) {
+  if (isDebugValue() && getOperand(e - 2).isMetadata()) {
     if (!HaveSemi) OS << ";";
-    DIVariable DV(getOperand(e - 1).getMetadata());
-    OS << " line no:" <<  DV.getLineNumber();
-    if (MDNode *InlinedAt = DV.getInlinedAt()) {
-      DebugLoc InlinedAtDL = DebugLoc::getFromDILocation(InlinedAt);
-      if (!InlinedAtDL.isUnknown() && MF) {
+    auto *DV = cast<DILocalVariable>(getOperand(e - 2).getMetadata());
+    OS << " line no:" <<  DV->getLine();
+    if (auto *InlinedAt = debugLoc->getInlinedAt()) {
+      DebugLoc InlinedAtDL(InlinedAt);
+      if (InlinedAtDL && MF) {
         OS << " inlined @[ ";
 	InlinedAtDL.print(OS);
         OS << " ]";
@@ -1725,7 +1744,7 @@ void MachineInstr::print(raw_ostream &OS, bool SkipOpers) const {
     }
     if (isIndirectDebugValue())
       OS << " indirect";
-  } else if (!debugLoc.isUnknown() && MF) {
+  } else if (debugLoc && MF) {
     if (!HaveSemi) OS << ";";
     OS << " dbg:";
     debugLoc.print(OS);

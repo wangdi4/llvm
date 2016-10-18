@@ -15,6 +15,7 @@
 
 #include "llvm-pdbdump.h"
 #include "CompilandDumper.h"
+#include "ExternalSymbolDumper.h"
 #include "FunctionDumper.h"
 #include "LinePrinter.h"
 #include "TypeDumper.h"
@@ -58,6 +59,7 @@ cl::list<std::string> InputFilenames(cl::Positional,
 
 cl::OptionCategory TypeCategory("Symbol Type Options");
 cl::OptionCategory FilterCategory("Filtering Options");
+cl::OptionCategory OtherOptions("Other Options");
 
 cl::opt<bool> Compilands("compilands", cl::desc("Display compilands"),
                          cl::cat(TypeCategory));
@@ -65,14 +67,17 @@ cl::opt<bool> Symbols("symbols", cl::desc("Display symbols for each compiland"),
                       cl::cat(TypeCategory));
 cl::opt<bool> Globals("globals", cl::desc("Dump global symbols"),
                       cl::cat(TypeCategory));
+cl::opt<bool> Externals("externals", cl::desc("Dump external symbols"),
+                        cl::cat(TypeCategory));
 cl::opt<bool> Types("types", cl::desc("Display types"), cl::cat(TypeCategory));
-cl::opt<bool>
-    ClassDefs("class-definitions",
-              cl::desc("Display full class definitions (implies -types)"),
-              cl::cat(TypeCategory));
 cl::opt<bool>
     All("all", cl::desc("Implies all other options in 'Symbol Types' category"),
         cl::cat(TypeCategory));
+
+cl::opt<uint64_t> LoadAddress(
+    "load-address",
+    cl::desc("Assume the module is loaded at the specified address"),
+    cl::cat(OtherOptions));
 
 cl::list<std::string>
     ExcludeTypes("exclude-types",
@@ -94,12 +99,18 @@ cl::opt<bool>
     ExcludeSystemLibraries("no-system-libs",
                            cl::desc("Don't show symbols from system libraries"),
                            cl::cat(FilterCategory));
+cl::opt<bool> NoClassDefs("no-class-definitions",
+                          cl::desc("Don't display full class definitions"),
+                          cl::cat(FilterCategory));
+cl::opt<bool> NoEnumDefs("no-enum-definitions",
+                         cl::desc("Don't display full enum definitions"),
+                         cl::cat(FilterCategory));
 }
 
 static void dumpInput(StringRef Path) {
   std::unique_ptr<IPDBSession> Session;
   PDB_ErrorCode Error =
-      llvm::createPDBReader(PDB_ReaderType::DIA, Path, Session);
+      llvm::loadDataForPDB(PDB_ReaderType::DIA, Path, Session);
   switch (Error) {
   case PDB_ErrorCode::Success:
     break;
@@ -119,6 +130,8 @@ static void dumpInput(StringRef Path) {
            << "'.  An unknown error occured.\n";
     return;
   }
+  if (opts::LoadAddress)
+    Session->setLoadAddress(opts::LoadAddress);
 
   LinePrinter Printer(2, outs());
 
@@ -171,7 +184,7 @@ static void dumpInput(StringRef Path) {
     Printer.NewLine();
     WithColor(Printer, PDB_ColorItem::SectionHeader).get() << "---TYPES---";
     Printer.Indent();
-    TypeDumper Dumper(Printer, opts::ClassDefs);
+    TypeDumper Dumper(Printer);
     Dumper.start(*GlobalScope);
     Printer.Unindent();
   }
@@ -213,6 +226,13 @@ static void dumpInput(StringRef Path) {
     }
     Printer.Unindent();
   }
+  if (opts::Externals) {
+    Printer.NewLine();
+    WithColor(Printer, PDB_ColorItem::SectionHeader).get() << "---EXTERNALS---";
+    Printer.Indent();
+    ExternalSymbolDumper Dumper(Printer);
+    Dumper.start(*GlobalScope);
+  }
   outs().flush();
 }
 
@@ -233,14 +253,12 @@ int main(int argc_, const char *argv_[]) {
   llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
 
   cl::ParseCommandLineOptions(argv.size(), argv.data(), "LLVM PDB Dumper\n");
-  if (opts::ClassDefs)
-    opts::Types = true;
   if (opts::All) {
     opts::Compilands = true;
     opts::Symbols = true;
     opts::Globals = true;
     opts::Types = true;
-    opts::ClassDefs = true;
+    opts::Externals = true;
   }
   if (opts::ExcludeCompilerGenerated) {
     opts::ExcludeTypes.push_back("__vc_attributes");

@@ -7,7 +7,7 @@ declare float @llvm.fabs.f32(float) nounwind readnone
 ; GCN-LABEL: {{^}}madmk_f32:
 ; GCN-DAG: buffer_load_dword [[VA:v[0-9]+]], {{v\[[0-9]+:[0-9]+\]}}, {{s\[[0-9]+:[0-9]+\]}}, 0 addr64{{$}}
 ; GCN-DAG: buffer_load_dword [[VB:v[0-9]+]], {{v\[[0-9]+:[0-9]+\]}}, {{s\[[0-9]+:[0-9]+\]}}, 0 addr64 offset:4
-; GCN: v_madmk_f32 {{v[0-9]+}}, [[VA]], [[VB]], 0x41200000
+; GCN: v_madmk_f32_e32 {{v[0-9]+}}, [[VA]], [[VB]], 0x41200000
 define void @madmk_f32(float addrspace(1)* noalias %out, float addrspace(1)* noalias %in) nounwind {
   %tid = tail call i32 @llvm.r600.read.tidig.x() nounwind readnone
   %gep.0 = getelementptr float, float addrspace(1)* %in, i32 %tid
@@ -178,4 +178,28 @@ define void @madmk_add_inline_imm_f32(float addrspace(1)* noalias %out, float ad
   %madmk = fadd float %mul, 2.0
   store float %madmk, float addrspace(1)* %out.gep, align 4
   ret void
+}
+
+; SI-LABEL: {{^}}kill_madmk_verifier_error:
+; SI: s_xor_b64
+; SI: v_madmk_f32_e32 {{v[0-9]+}}, {{v[0-9]+}}, {{v[0-9]+}}, 0x472aee8c
+; SI: s_or_b64
+define void @kill_madmk_verifier_error() nounwind {
+bb:
+  br label %bb2
+
+bb1:                                              ; preds = %bb2
+  ret void
+
+bb2:                                              ; preds = %bb6, %bb
+  %tmp = phi float [ undef, %bb ], [ %tmp8, %bb6 ]
+  %tmp3 = fsub float undef, %tmp
+  %tmp5 = fcmp oeq float %tmp3, 1.000000e+04
+  br i1 %tmp5, label %bb1, label %bb6
+
+bb6:                                              ; preds = %bb2
+  %tmp4 = fmul float %tmp, undef
+  %tmp7 = fmul float %tmp4, 0x40E55DD180000000
+  %tmp8 = fadd float %tmp7, undef
+  br label %bb2
 }

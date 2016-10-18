@@ -253,9 +253,9 @@ kmp_nested_proc_bind_t __kmp_nested_proc_bind = { NULL, 0, 0 };
 int __kmp_affinity_num_places = 0;
 #endif
 
-unsigned int __kmp_place_num_cores = 0;
-unsigned int __kmp_place_num_threads_per_core = 0;
-unsigned int __kmp_place_core_offset = 0;
+int __kmp_place_num_cores = 0;
+int __kmp_place_num_threads_per_core = 0;
+int __kmp_place_core_offset = 0;
 
 kmp_tasking_mode_t __kmp_tasking_mode = tskm_task_teams;
 
@@ -277,7 +277,7 @@ int     __kmp_settings = FALSE;
 int     __kmp_duplicate_library_ok = 0;
 #if USE_ITT_BUILD
 int     __kmp_forkjoin_frames = 1;
-int     __kmp_forkjoin_frames_mode = 0;
+int     __kmp_forkjoin_frames_mode = 3;
 #endif
 PACKED_REDUCTION_METHOD_T __kmp_force_reduction_method = reduction_method_not_defined;
 int     __kmp_determ_red = FALSE;

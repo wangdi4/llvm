@@ -7,18 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-//++
-// File:        MIUtilStreamStdin.h
-//
-// Overview:    CMICmnStreamStdin interface.
-//
-// Environment: Compilers:  Visual C++ 12.
-//                          gcc (Ubuntu/Linaro 4.8.1-10ubuntu9) 4.8.1
-//              Libraries:  See MIReadmetxt.
-//
-// Copyright:   None.
-//--
-
 #pragma once
 
 // In-house headers:
@@ -68,7 +56,6 @@ class CMICmnStreamStdin : public CMICmnBase, public MI::ISingleton<CMICmnStreamS
   private:
     CMIUtilString m_strPromptCurrent; // Command line prompt as shown to the user
     bool m_bShowPrompt;               // True = Yes prompt is shown/output to the user (stdout), false = no prompt
-    bool m_bRedrawPrompt;             // True = Prompt needs to be redrawn
     static const int m_constBufferSize = 2048;
     MIchar *m_pCmdBuffer;
 };

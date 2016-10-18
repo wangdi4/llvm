@@ -12,8 +12,6 @@
 #include "lldb/Core/Log.h"
 #include "lldb/Core/RegisterValue.h"
 
-#include "lldb/lldb-private-log.h"
-
 #include "lldb/Host/common/NativeProcessProtocol.h"
 #include "lldb/Host/common/NativeThreadProtocol.h"
 
@@ -303,6 +301,33 @@ NativeRegisterContext::ClearAllHardwareWatchpoints ()
     return Error ("not implemented");
 }
 
+Error
+NativeRegisterContext::IsWatchpointHit(uint32_t wp_index, bool &is_hit)
+{
+    is_hit = false;
+    return Error ("not implemented");
+}
+
+Error
+NativeRegisterContext::GetWatchpointHitIndex(uint32_t &wp_index)
+{
+    wp_index = LLDB_INVALID_INDEX32;
+    return Error ("not implemented");
+}
+
+Error
+NativeRegisterContext::IsWatchpointVacant (uint32_t wp_index, bool &is_vacant)
+{
+    is_vacant = false;
+    return Error ("not implemented");
+}
+
+lldb::addr_t
+NativeRegisterContext::GetWatchpointAddress (uint32_t wp_index)
+{
+    return LLDB_INVALID_ADDRESS;
+}
+
 bool
 NativeRegisterContext::HardwareSingleStep (bool enable)
 {
@@ -313,7 +338,7 @@ Error
 NativeRegisterContext::ReadRegisterValueFromMemory (
     const RegisterInfo *reg_info,
     lldb::addr_t src_addr,
-    lldb::addr_t src_len,
+    size_t src_len,
     RegisterValue &reg_value)
 {
     Error error;
@@ -346,11 +371,12 @@ NativeRegisterContext::ReadRegisterValueFromMemory (
         return error;
     }
 
-    const lldb::addr_t dst_len = reg_info->byte_size;
+    const size_t dst_len = reg_info->byte_size;
 
     if (src_len > dst_len)
     {
-        error.SetErrorStringWithFormat("%" PRIu64 " bytes is too big to store in register %s (%" PRIu64 " bytes)", src_len, reg_info->name, dst_len);
+        error.SetErrorStringWithFormat("%" PRIu64 " bytes is too big to store in register %s (%" PRIu64 " bytes)",
+                static_cast<uint64_t>(src_len), reg_info->name, static_cast<uint64_t>(dst_len));
         return error;
     }
 
@@ -364,7 +390,7 @@ NativeRegisterContext::ReadRegisterValueFromMemory (
     uint8_t src[RegisterValue::kMaxRegisterByteSize];
 
     // Read the memory
-    lldb::addr_t bytes_read;
+    size_t bytes_read;
     error = process_sp->ReadMemory (src_addr, src, src_len, bytes_read);
     if (error.Fail ())
         return error;
@@ -373,7 +399,8 @@ NativeRegisterContext::ReadRegisterValueFromMemory (
     if (bytes_read != src_len)
     {
         // This might happen if we read _some_ bytes but not all
-        error.SetErrorStringWithFormat("read %" PRIu64 " of %" PRIu64 " bytes", bytes_read, src_len);
+        error.SetErrorStringWithFormat("read %" PRIu64 " of %" PRIu64 " bytes",
+                static_cast<uint64_t>(bytes_read), static_cast<uint64_t>(src_len));
         return error;
     }
 
@@ -403,7 +430,7 @@ Error
 NativeRegisterContext::WriteRegisterValueToMemory (
     const RegisterInfo *reg_info,
     lldb::addr_t dst_addr,
-    lldb::addr_t dst_len,
+    size_t dst_len,
     const RegisterValue &reg_value)
 {
     
@@ -422,7 +449,7 @@ NativeRegisterContext::WriteRegisterValueToMemory (
         if (!process_sp->GetByteOrder (byte_order))
             return Error ("NativeProcessProtocol::GetByteOrder () failed");
 
-        const lldb::addr_t bytes_copied = reg_value.GetAsMemoryData (
+        const size_t bytes_copied = reg_value.GetAsMemoryData (
             reg_info,
             dst,
             dst_len,
@@ -437,15 +464,16 @@ NativeRegisterContext::WriteRegisterValueToMemory (
             }
             else
             {
-                lldb::addr_t bytes_written;
-                error = process_sp->WriteMemory (dst_addr, dst, bytes_copied, bytes_written);
+                size_t bytes_written;
+                error = process_sp->WriteMemory(dst_addr, dst, bytes_copied, bytes_written);
                 if (error.Fail ())
                     return error;
 
                 if (bytes_written != bytes_copied)
                 {
                     // This might happen if we read _some_ bytes but not all
-                    error.SetErrorStringWithFormat("only wrote %" PRIu64 " of %" PRIu64 " bytes", bytes_written, bytes_copied);
+                    error.SetErrorStringWithFormat("only wrote %" PRIu64 " of %" PRIu64 " bytes",
+                            static_cast<uint64_t>(bytes_written), static_cast<uint64_t>(bytes_copied));
                 }
             }
         }
