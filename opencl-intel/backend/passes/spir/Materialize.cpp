@@ -42,7 +42,10 @@ static bool isPointerToOpaqueStructType(llvm::Type *Ty) {
 static std::string updateImageTypeName(StringRef Name, StringRef Acc) {
   std::string AccessQual = Acc.str();
   std::string Res = Name.str();
-  Res.insert(Res.end() - 1, AccessQual.begin(), AccessQual.end());
+
+  assert(Res.find("_t") && "Invalid image type name");
+  Res.insert(Res.find("_t") + 1, AccessQual);
+
   return Res;
 }
 
@@ -66,7 +69,7 @@ static PointerType *getOrCreateOpaquePtrType(Module *M,
 static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
   assert(isPointerToOpaqueStructType(T) && "Invalid type");
   auto Name = T->getPointerElementType()->getStructName();
-#define CASE(X, Y) Case("opencl.image" #X, reflection::PRIMITIVE_IMAGE_##Y)
+#define CASE(X, Y) StartsWith("opencl.image" #X, reflection::PRIMITIVE_IMAGE_##Y)
   return StringSwitch<reflection::TypePrimitiveEnum>(Name)
     .CASE(1d_ro_t, 1D_RO_T)
     .CASE(1d_wo_t, 1D_WO_T)
@@ -100,10 +103,13 @@ static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
 
 // Basic block functors, to be applied on each block in the module.
 // 1. Replaces calling conventions in calling sites.
+// 2. Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names.
 class MaterializeBlockFunctor : public BlockFunctor {
 public:
   void operator()(llvm::BasicBlock &BB) {
     auto M = BB.getModule();
+    llvm::SmallVector<Instruction *, 4> InstToRemove;
+
     for (llvm::BasicBlock::iterator b = BB.begin(), e = BB.end(); e != b; ++b) {
       if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&*b)) {
         if ((llvm::CallingConv::SPIR_FUNC == CI->getCallingConv()) ||
@@ -114,9 +120,12 @@ public:
         auto *F = CI->getCalledFunction();
         if (!F)
           continue;
+
         StringRef FName = F->getName();
         if (!isMangledName(FName.data()))
           continue;
+
+        // Update image type names with image access qualifiers
         if (FName.find("image") != std::string::npos) {
           auto FD = demangle(FName.data());
           auto AccQ = StringSwitch<std::string>(FD.name)
@@ -168,11 +177,15 @@ public:
           if (CI->isTailCall())
             New->setTailCall();
           New->setDebugLoc(CI->getDebugLoc());
+
+          // Replace old call instruction with updated one
           CI->replaceAllUsesWith(New);
+          InstToRemove.push_back(CI);
 
           m_isChanged = true;
         }
 
+        // Updates address space qualifier function names with unmangled ones
         if (FName.find("to_global") != std::string::npos ||
             FName.find("to_local") != std::string::npos ||
             FName.find("to_private") != std::string::npos) {
@@ -182,6 +195,12 @@ public:
           m_isChanged = true;
         }
       }
+    }
+
+    // Remove unused instructions
+    for (auto inst : InstToRemove) {
+      assert(inst->use_empty() && "Cannot erase used instructions");
+      inst->eraseFromParent();
     }
   }
 };
