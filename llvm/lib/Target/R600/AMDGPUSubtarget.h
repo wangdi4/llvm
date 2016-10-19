@@ -76,6 +76,7 @@ private:
   bool GCN3Encoding;
   bool CIInsts;
   bool FeatureDisable;
+  int LDSBankCount;
 
   AMDGPUFrameLowering FrameLowering;
   std::unique_ptr<AMDGPUTargetLowering> TLInfo;
@@ -228,6 +229,10 @@ public:
     return SGPRInitBug;
   }
 
+  int getLDSBankCount() const {
+    return LDSBankCount;
+  }
+
   unsigned getAmdKernelCodeChipID() const;
 
   bool enableMachineScheduler() const override {
@@ -267,7 +272,7 @@ public:
   }
 
   bool enableSubRegLiveness() const override {
-    return false;
+    return true;
   }
 };
 

@@ -102,17 +102,15 @@ Json::Value JSONExporter::getJSON(Scop &S) const {
     root["location"] = Location;
   root["statements"];
 
-  for (Scop::iterator SI = S.begin(), SE = S.end(); SI != SE; ++SI) {
-    ScopStmt *Stmt = *SI;
-
+  for (ScopStmt &Stmt : S) {
     Json::Value statement;
 
-    statement["name"] = Stmt->getBaseName();
-    statement["domain"] = Stmt->getDomainStr();
-    statement["schedule"] = Stmt->getScheduleStr();
+    statement["name"] = Stmt.getBaseName();
+    statement["domain"] = Stmt.getDomainStr();
+    statement["schedule"] = Stmt.getScheduleStr();
     statement["accesses"];
 
-    for (MemoryAccess *MA : *Stmt) {
+    for (MemoryAccess *MA : Stmt) {
       Json::Value access;
 
       access["kind"] = MA->isRead() ? "read" : "write";
@@ -234,10 +232,10 @@ bool JSONImporter::runOnScop(Scop &S) {
 
   int index = 0;
 
-  for (Scop::iterator SI = S.begin(), SE = S.end(); SI != SE; ++SI) {
+  for (ScopStmt &Stmt : S) {
     Json::Value schedule = jscop["statements"][index]["schedule"];
     isl_map *m = isl_map_read_from_str(S.getIslCtx(), schedule.asCString());
-    isl_space *Space = (*SI)->getDomainSpace();
+    isl_space *Space = Stmt.getDomainSpace();
 
     // Copy the old tuple id. This is necessary to retain the user pointer,
     // that stores the reference to the ScopStmt this schedule belongs to.
@@ -248,7 +246,7 @@ bool JSONImporter::runOnScop(Scop &S) {
       m = isl_map_set_dim_id(m, isl_dim_param, i, id);
     }
     isl_space_free(Space);
-    NewSchedule[*SI] = m;
+    NewSchedule[&Stmt] = m;
     index++;
   }
 
@@ -262,19 +260,15 @@ bool JSONImporter::runOnScop(Scop &S) {
     return false;
   }
 
-  for (Scop::iterator SI = S.begin(), SE = S.end(); SI != SE; ++SI) {
-    ScopStmt *Stmt = *SI;
-
-    if (NewSchedule.find(Stmt) != NewSchedule.end())
-      Stmt->setSchedule(NewSchedule[Stmt]);
+  for (ScopStmt &Stmt : S) {
+    if (NewSchedule.find(&Stmt) != NewSchedule.end())
+      Stmt.setSchedule(NewSchedule[&Stmt]);
   }
 
   int statementIdx = 0;
-  for (Scop::iterator SI = S.begin(), SE = S.end(); SI != SE; ++SI) {
-    ScopStmt *Stmt = *SI;
-
+  for (ScopStmt &Stmt : S) {
     int memoryAccessIdx = 0;
-    for (MemoryAccess *MA : *Stmt) {
+    for (MemoryAccess *MA : Stmt) {
       Json::Value accesses = jscop["statements"][statementIdx]["accesses"]
                                   [memoryAccessIdx]["relation"];
       isl_map *newAccessMap =
@@ -349,6 +343,28 @@ bool JSONImporter::runOnScop(Scop &S) {
         isl_map_free(newAccessMap);
         return false;
       }
+
+      auto NewAccessDomain = isl_map_domain(isl_map_copy(newAccessMap));
+      auto CurrentAccessDomain = isl_map_domain(isl_map_copy(currentAccessMap));
+
+      NewAccessDomain =
+          isl_set_intersect_params(NewAccessDomain, S.getContext());
+      CurrentAccessDomain =
+          isl_set_intersect_params(CurrentAccessDomain, S.getContext());
+
+      if (isl_set_is_subset(CurrentAccessDomain, NewAccessDomain) ==
+          isl_bool_false) {
+        errs() << "Mapping not defined for all iteration domain elements\n";
+        isl_set_free(CurrentAccessDomain);
+        isl_set_free(NewAccessDomain);
+        isl_map_free(currentAccessMap);
+        isl_map_free(newAccessMap);
+        return false;
+      }
+
+      isl_set_free(CurrentAccessDomain);
+      isl_set_free(NewAccessDomain);
+
       if (!isl_map_is_equal(newAccessMap, currentAccessMap)) {
         // Statistics.
         ++NewAccessMapFound;

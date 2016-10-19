@@ -14,12 +14,15 @@
 #ifndef LLVM_MC_MCSYMBOL_H
 #define LLVM_MC_MCSYMBOL_H
 
-#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class MCExpr;
+class MCSymbol;
+class MCFragment;
 class MCSection;
 class MCContext;
 class raw_ostream;
@@ -35,17 +38,26 @@ class MCSymbol {
   // Special sentinal value for the absolute pseudo section.
   //
   // FIXME: Use a PointerInt wrapper for this?
-  static const MCSection *AbsolutePseudoSection;
+  static MCSection *AbsolutePseudoSection;
 
   /// Name - The name of the symbol.  The referred-to string data is actually
   /// held by the StringMap that lives in MCContext.
-  StringRef Name;
+  const StringMapEntry<bool> *Name;
 
-  /// Section - The section the symbol is defined in. This is null for
-  /// undefined symbols, and the special AbsolutePseudoSection value for
-  /// absolute symbols. If this is a variable symbol, this caches the
-  /// variable value's section.
-  mutable const MCSection *Section;
+  /// If a symbol has a Fragment, the section is implied, so we only need
+  /// one pointer.
+  /// FIXME: We might be able to simplify this by having the asm streamer create
+  /// dummy fragments.
+  union {
+    /// The section the symbol is defined in. This is null for undefined
+    /// symbols, and the special AbsolutePseudoSection value for absolute
+    /// symbols. If this is a variable symbol, this caches the variable value's
+    /// section.
+    mutable MCSection *Section;
+
+    /// The fragment this symbol's value is relative to, if any.
+    mutable MCFragment *Fragment;
+  };
 
   /// Value - If non-null, the value for a variable symbol.
   const MCExpr *Value;
@@ -61,24 +73,67 @@ class MCSymbol {
   /// IsUsed - True if this symbol has been used.
   mutable unsigned IsUsed : 1;
 
-private: // MCContext creates and uniques these.
+  mutable bool IsRegistered : 1;
+
+  /// This symbol is visible outside this translation unit.
+  mutable unsigned IsExternal : 1;
+
+  /// This symbol is private extern.
+  mutable unsigned IsPrivateExtern : 1;
+
+  mutable unsigned HasFragment : 1;
+
+  unsigned IsELF : 1;
+
+  /// Index field, for use by the object file implementation.
+  mutable uint32_t Index = 0;
+
+  union {
+    /// The offset to apply to the fragment address to form this symbol's value.
+    uint64_t Offset;
+
+    /// The size of the symbol, if it is 'common'.
+    uint64_t CommonSize;
+  };
+
+  /// The alignment of the symbol, if it is 'common', or -1.
+  //
+  // FIXME: Pack this in with other fields?
+  unsigned CommonAlign = -1U;
+
+  /// The Flags field is used by object file implementations to store
+  /// additional per symbol information which is not easily classified.
+  mutable uint32_t Flags = 0;
+
+protected: // MCContext creates and uniques these.
   friend class MCExpr;
   friend class MCContext;
-  MCSymbol(StringRef name, bool isTemporary)
-      : Name(name), Section(nullptr), Value(nullptr), IsTemporary(isTemporary),
-        IsRedefinable(false), IsUsed(false) {}
+  MCSymbol(bool IsELF, const StringMapEntry<bool> *Name, bool isTemporary)
+      : Name(Name), Section(nullptr), Value(nullptr), IsTemporary(isTemporary),
+        IsRedefinable(false), IsUsed(false), IsRegistered(false),
+        IsExternal(false), IsPrivateExtern(false), HasFragment(false),
+        IsELF(IsELF) {
+    Offset = 0;
+  }
 
+private:
   MCSymbol(const MCSymbol &) = delete;
   void operator=(const MCSymbol &) = delete;
-  const MCSection *getSectionPtr() const {
+  MCSection *getSectionPtr() const {
+    if (MCFragment *F = getFragment())
+      return F->getParent();
+    assert(!HasFragment);
     if (Section || !Value)
       return Section;
-    return Section = Value->FindAssociatedSection();
+    return Section = Value->findAssociatedSection();
   }
 
 public:
   /// getName - Get the symbol name.
-  StringRef getName() const { return Name; }
+  StringRef getName() const { return Name ? Name->first() : ""; }
+
+  bool isRegistered() const { return IsRegistered; }
+  void setIsRegistered(bool Value) const { IsRegistered = Value; }
 
   /// \name Accessors
   /// @{
@@ -99,6 +154,7 @@ public:
     if (IsRedefinable) {
       Value = nullptr;
       Section = nullptr;
+      HasFragment = false;
       IsRedefinable = false;
     }
   }
@@ -122,21 +178,26 @@ public:
   /// isAbsolute - Check if this is an absolute symbol.
   bool isAbsolute() const { return getSectionPtr() == AbsolutePseudoSection; }
 
-  /// getSection - Get the section associated with a defined, non-absolute
-  /// symbol.
-  const MCSection &getSection() const {
+  /// Get the section associated with a defined, non-absolute symbol.
+  MCSection &getSection() const {
     assert(isInSection() && "Invalid accessor!");
     return *getSectionPtr();
   }
 
-  /// setSection - Mark the symbol as defined in the section \p S.
-  void setSection(const MCSection &S) {
+  /// Mark the symbol as defined in the section \p S.
+  void setSection(MCSection &S) {
     assert(!isVariable() && "Cannot set section of variable");
+    assert(!HasFragment);
     Section = &S;
   }
 
-  /// setUndefined - Mark the symbol as undefined.
-  void setUndefined() { Section = nullptr; }
+  /// Mark the symbol as undefined.
+  void setUndefined() {
+    HasFragment = false;
+    Section = nullptr;
+  }
+
+  bool isELF() const { return IsELF; }
 
   /// @}
   /// \name Variable Symbols
@@ -155,6 +216,77 @@ public:
   void setVariableValue(const MCExpr *Value);
 
   /// @}
+
+  /// Get the (implementation defined) index.
+  uint32_t getIndex() const {
+    return Index;
+  }
+
+  /// Set the (implementation defined) index.
+  void setIndex(uint32_t Value) const {
+    Index = Value;
+  }
+
+  uint64_t getOffset() const {
+    assert(!isCommon());
+    return Offset;
+  }
+  void setOffset(uint64_t Value) {
+    assert(!isCommon());
+    Offset = Value;
+  }
+
+  /// Return the size of a 'common' symbol.
+  uint64_t getCommonSize() const {
+    assert(isCommon() && "Not a 'common' symbol!");
+    return CommonSize;
+  }
+
+  /// Mark this symbol as being 'common'.
+  ///
+  /// \param Size - The size of the symbol.
+  /// \param Align - The alignment of the symbol.
+  void setCommon(uint64_t Size, unsigned Align) {
+    assert(getOffset() == 0);
+    CommonSize = Size;
+    CommonAlign = Align;
+  }
+
+  ///  Return the alignment of a 'common' symbol.
+  unsigned getCommonAlignment() const {
+    assert(isCommon() && "Not a 'common' symbol!");
+    return CommonAlign;
+  }
+
+  /// Is this a 'common' symbol.
+  bool isCommon() const { return CommonAlign != -1U; }
+
+  /// Get the (implementation defined) symbol flags.
+  uint32_t getFlags() const { return Flags; }
+
+  /// Set the (implementation defined) symbol flags.
+  void setFlags(uint32_t Value) const { Flags = Value; }
+
+  /// Modify the flags via a mask
+  void modifyFlags(uint32_t Value, uint32_t Mask) const {
+    Flags = (Flags & ~Mask) | Value;
+  }
+
+  MCFragment *getFragment() const {
+    if (!HasFragment)
+      return nullptr;
+    return Fragment;
+  }
+  void setFragment(MCFragment *Value) const {
+    HasFragment = true;
+    Fragment = Value;
+  }
+
+  bool isExternal() const { return IsExternal; }
+  void setExternal(bool Value) const { IsExternal = Value; }
+
+  bool isPrivateExtern() const { return IsPrivateExtern; }
+  void setPrivateExtern(bool Value) { IsPrivateExtern = Value; }
 
   /// print - Print the value to the stream \p OS.
   void print(raw_ostream &OS) const;

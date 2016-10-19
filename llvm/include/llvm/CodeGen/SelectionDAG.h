@@ -112,6 +112,7 @@ private:
 /// motion, and debug info for them is potentially useful even if the parameter
 /// is unused.  Right now only byval parameters are handled separately.
 class SDDbgInfo {
+  BumpPtrAllocator Alloc;
   SmallVector<SDDbgValue*, 32> DbgValues;
   SmallVector<SDDbgValue*, 32> ByvalParmDbgValues;
   typedef DenseMap<const SDNode*, SmallVector<SDDbgValue*, 2> > DbgValMapType;
@@ -138,7 +139,10 @@ public:
     DbgValMap.clear();
     DbgValues.clear();
     ByvalParmDbgValues.clear();
+    Alloc.Reset();
   }
+
+  BumpPtrAllocator &getAlloc() { return Alloc; }
 
   bool empty() const {
     return DbgValues.empty() && ByvalParmDbgValues.empty();
@@ -874,6 +878,10 @@ public:
   /// Return an MDNodeSDNode which holds an MDNode.
   SDValue getMDNode(const MDNode *MD);
 
+  /// Return a bitcast using the SDLoc of the value operand, and casting to the
+  /// provided type. Use getNode to set a custom SDLoc.
+  SDValue getBitcast(EVT VT, SDValue V);
+
   /// Return an AddrSpaceCastSDNode.
   SDValue getAddrSpaceCast(SDLoc dl, EVT VT, SDValue Ptr,
                            unsigned SrcAS, unsigned DestAS);
@@ -1127,6 +1135,10 @@ public:
 
   SDValue FoldConstantArithmetic(unsigned Opcode, SDLoc DL, EVT VT,
                                  SDNode *Cst1, SDNode *Cst2);
+
+  SDValue FoldConstantArithmetic(unsigned Opcode, SDLoc DL, EVT VT,
+                                 const ConstantSDNode *Cst1,
+                                 const ConstantSDNode *Cst2);
 
   /// Constant fold a setcc to true or false.
   SDValue FoldSetCC(EVT VT, SDValue N1,

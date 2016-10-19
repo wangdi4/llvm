@@ -120,7 +120,8 @@ namespace llvm {
       EmitInstrWithCustomInserter(MachineInstr *MI,
                                   MachineBasicBlock *MBB) const override;
 
-    bool isLegalAddressingMode(const AddrMode &AM, Type *Ty) const override;
+    bool isLegalAddressingMode(const AddrMode &AM, Type *Ty,
+                               unsigned AS) const override;
 
   private:
     const TargetMachine &TM;
@@ -176,12 +177,6 @@ namespace llvm {
     getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
                                  const std::string &Constraint,
                                  MVT VT) const override;
-
-    unsigned getInlineAsmMemConstraint(
-        const std::string &ConstraintCode) const override {
-      // FIXME: Map different constraints differently.
-      return InlineAsm::Constraint_m;
-    }
 
     // Expand specifics
     SDValue TryExpandADDWithMul(SDNode *Op, SelectionDAG &DAG) const;

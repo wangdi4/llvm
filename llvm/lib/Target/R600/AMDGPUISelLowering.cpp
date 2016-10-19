@@ -257,9 +257,22 @@ AMDGPUTargetLowering::AMDGPUTargetLowering(TargetMachine &TM,
   setOperationAction(ISD::FP16_TO_FP, MVT::f64, Expand);
 
   setLoadExtAction(ISD::EXTLOAD, MVT::f32, MVT::f16, Expand);
+  setLoadExtAction(ISD::EXTLOAD, MVT::v2f32, MVT::v2f16, Expand);
+  setLoadExtAction(ISD::EXTLOAD, MVT::v4f32, MVT::v4f16, Expand);
+  setLoadExtAction(ISD::EXTLOAD, MVT::v8f32, MVT::v8f16, Expand);
+
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f16, Expand);
+  setLoadExtAction(ISD::EXTLOAD, MVT::v2f64, MVT::v2f16, Expand);
+  setLoadExtAction(ISD::EXTLOAD, MVT::v4f64, MVT::v4f16, Expand);
+  setLoadExtAction(ISD::EXTLOAD, MVT::v8f64, MVT::v8f16, Expand);
+
   setTruncStoreAction(MVT::f32, MVT::f16, Expand);
+  setTruncStoreAction(MVT::v2f32, MVT::v2f16, Expand);
+  setTruncStoreAction(MVT::v4f32, MVT::v4f16, Expand);
+  setTruncStoreAction(MVT::v8f32, MVT::v8f16, Expand);
+
   setTruncStoreAction(MVT::f64, MVT::f16, Expand);
+  setTruncStoreAction(MVT::f64, MVT::f32, Expand);
 
   const MVT ScalarIntVTs[] = { MVT::i32, MVT::i64 };
   for (MVT VT : ScalarIntVTs) {
@@ -507,6 +520,12 @@ bool AMDGPUTargetLowering::isFAbsFree(EVT VT) const {
 bool AMDGPUTargetLowering::isFNegFree(EVT VT) const {
   assert(VT.isFloatingPoint());
   return VT == MVT::f32 || VT == MVT::f64;
+}
+
+bool AMDGPUTargetLowering:: storeOfVectorConstantIsCheap(EVT MemVT,
+                                                         unsigned NumElem,
+                                                         unsigned AS) const {
+  return true;
 }
 
 bool AMDGPUTargetLowering::isTruncateFree(EVT Source, EVT Dest) const {
@@ -1445,22 +1464,34 @@ SDValue AMDGPUTargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
       ExtType == ISD::NON_EXTLOAD || Load->getMemoryVT().bitsGE(MVT::i32))
     return SDValue();
 
+  // <SI && AS=PRIVATE && EXTLOAD && size < 32bit,
+  // register (2-)byte extract.
 
+  // Get Register holding the target.
   SDValue Ptr = DAG.getNode(ISD::SRL, DL, MVT::i32, Load->getBasePtr(),
                             DAG.getConstant(2, DL, MVT::i32));
+  // Load the Register.
   SDValue Ret = DAG.getNode(AMDGPUISD::REGISTER_LOAD, DL, Op.getValueType(),
                             Load->getChain(), Ptr,
                             DAG.getTargetConstant(0, DL, MVT::i32),
                             Op.getOperand(2));
+
+  // Get offset within the register.
   SDValue ByteIdx = DAG.getNode(ISD::AND, DL, MVT::i32,
                                 Load->getBasePtr(),
                                 DAG.getConstant(0x3, DL, MVT::i32));
+
+  // Bit offset of target byte (byteIdx * 8).
   SDValue ShiftAmt = DAG.getNode(ISD::SHL, DL, MVT::i32, ByteIdx,
                                  DAG.getConstant(3, DL, MVT::i32));
 
+  // Shift to the right.
   Ret = DAG.getNode(ISD::SRL, DL, MVT::i32, Ret, ShiftAmt);
 
+  // Eliminate the upper bits by setting them to ...
   EVT MemEltVT = MemVT.getScalarType();
+
+  // ... ones.
   if (ExtType == ISD::SEXTLOAD) {
     SDValue MemEltVTNode = DAG.getValueType(MemEltVT);
 
@@ -1472,6 +1503,7 @@ SDValue AMDGPUTargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
     return DAG.getMergeValues(Ops, DL);
   }
 
+  // ... or zeros.
   SDValue Ops[] = {
     DAG.getZeroExtendInReg(Ret, DL, MemEltVT),
     Load->getChain()

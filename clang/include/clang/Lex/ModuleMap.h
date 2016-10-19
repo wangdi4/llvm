@@ -272,16 +272,11 @@ public:
   /// used from.  Used to disambiguate if a header is present in multiple
   /// modules.
   ///
-  /// \param IncludeTextualHeaders If \c true, also find textual headers. By
-  /// default, these are treated like excluded headers and result in no known
-  /// header being found.
-  ///
   /// \returns The module KnownHeader, which provides the module that owns the
   /// given header file.  The KnownHeader is default constructed to indicate
   /// that no module owns this header file.
   KnownHeader findModuleForHeader(const FileEntry *File,
-                                  Module *RequestingModule = nullptr,
-                                  bool IncludeTextualHeaders = false);
+                                  Module *RequestingModule = nullptr);
 
   /// \brief Reports errors if a module must not include a specific file.
   ///
@@ -437,11 +432,13 @@ public:
   
   /// \brief Sets the umbrella header of the given module to the given
   /// header.
-  void setUmbrellaHeader(Module *Mod, const FileEntry *UmbrellaHeader);
+  void setUmbrellaHeader(Module *Mod, const FileEntry *UmbrellaHeader,
+                         Twine NameAsWritten);
 
   /// \brief Sets the umbrella directory of the given module to the given
   /// directory.
-  void setUmbrellaDir(Module *Mod, const DirectoryEntry *UmbrellaDir);
+  void setUmbrellaDir(Module *Mod, const DirectoryEntry *UmbrellaDir,
+                      Twine NameAsWritten);
 
   /// \brief Adds this header to the given module.
   /// \param Role The role of the header wrt the module.

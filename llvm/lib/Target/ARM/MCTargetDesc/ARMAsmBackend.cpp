@@ -154,7 +154,7 @@ void ARMAsmBackend::handleAssemblerFlag(MCAssemblerFlag Flag) {
 } // end anonymous namespace
 
 unsigned ARMAsmBackend::getRelaxedOpcode(unsigned Op) const {
-  bool HasThumb2 = STI->getFeatureBits() & ARM::FeatureThumb2;
+  bool HasThumb2 = STI->getFeatureBits()[ARM::FeatureThumb2];
 
   switch (Op) {
   default:
@@ -260,9 +260,9 @@ bool ARMAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
         hasNOP() ? Thumb2_16bitNopEncoding : Thumb1_16bitNopEncoding;
     uint64_t NumNops = Count / 2;
     for (uint64_t i = 0; i != NumNops; ++i)
-      OW->Write16(nopEncoding);
+      OW->write16(nopEncoding);
     if (Count & 1)
-      OW->Write8(0);
+      OW->write8(0);
     return true;
   }
   // ARM mode
@@ -270,21 +270,21 @@ bool ARMAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
       hasNOP() ? ARMv6T2_NopEncoding : ARMv4_NopEncoding;
   uint64_t NumNops = Count / 4;
   for (uint64_t i = 0; i != NumNops; ++i)
-    OW->Write32(nopEncoding);
+    OW->write32(nopEncoding);
   // FIXME: should this function return false when unable to write exactly
   // 'Count' bytes with NOP encodings?
   switch (Count % 4) {
   default:
     break; // No leftover bytes to write
   case 1:
-    OW->Write8(0);
+    OW->write8(0);
     break;
   case 2:
-    OW->Write16(0);
+    OW->write16(0);
     break;
   case 3:
-    OW->Write16(0);
-    OW->Write8(0xa0);
+    OW->write16(0);
+    OW->write8(0xa0);
     break;
   }
 
@@ -373,7 +373,7 @@ static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
       isAdd = false;
     }
     if (Ctx && Value >= 4096)
-      Ctx->FatalError(Fixup.getLoc(), "out of range pc-relative fixup value");
+      Ctx->reportFatalError(Fixup.getLoc(), "out of range pc-relative fixup value");
     Value |= isAdd << 23;
 
     // Same addressing mode as fixup_arm_pcrel_10,
@@ -394,7 +394,7 @@ static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
       opc = 2; // 0b0010
     }
     if (Ctx && ARM_AM::getSOImmVal(Value) == -1)
-      Ctx->FatalError(Fixup.getLoc(), "out of range pc-relative fixup value");
+      Ctx->reportFatalError(Fixup.getLoc(), "out of range pc-relative fixup value");
     // Encode the immediate and shift the opcode into place.
     return ARM_AM::getSOImmVal(Value) | (opc << 21);
   }
@@ -543,7 +543,7 @@ static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
     }
     // The value has the low 4 bits encoded in [3:0] and the high 4 in [11:8].
     if (Ctx && Value >= 256)
-      Ctx->FatalError(Fixup.getLoc(), "out of range pc-relative fixup value");
+      Ctx->reportFatalError(Fixup.getLoc(), "out of range pc-relative fixup value");
     Value = (Value & 0xf) | ((Value & 0xf0) << 4);
     return Value | (isAdd << 23);
   }
@@ -562,7 +562,7 @@ static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
     // These values don't encode the low two bits since they're always zero.
     Value >>= 2;
     if (Ctx && Value >= 256)
-      Ctx->FatalError(Fixup.getLoc(), "out of range pc-relative fixup value");
+      Ctx->reportFatalError(Fixup.getLoc(), "out of range pc-relative fixup value");
     Value |= isAdd << 23;
 
     // Same addressing mode as fixup_arm_pcrel_10, but with 16-bit halfwords
@@ -601,8 +601,7 @@ void ARMAsmBackend::processFixupValue(const MCAssembler &Asm,
   // the offset when the destination has the same MCFragment.
   if (A && (unsigned)Fixup.getKind() == ARM::fixup_arm_thumb_bl) {
     const MCSymbol &Sym = A->getSymbol();
-    const MCSymbolData &SymData = Asm.getSymbolData(Sym);
-    IsResolved = (SymData.getFragment() == DF);
+    IsResolved = (Sym.getFragment() == DF);
   }
   // We must always generate a relocation for BL/BLX instructions if we have
   // a symbol to reference, as the linker relies on knowing the destination

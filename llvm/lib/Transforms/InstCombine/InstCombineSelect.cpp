@@ -292,10 +292,28 @@ static Value *SimplifyWithOpReplaced(Value *V, Value *Op, Value *RepOp,
 
   // If this is a binary operator, try to simplify it with the replaced op.
   if (BinaryOperator *B = dyn_cast<BinaryOperator>(I)) {
+    Value *Simplified = nullptr;
     if (B->getOperand(0) == Op)
-      return SimplifyBinOp(B->getOpcode(), RepOp, B->getOperand(1), DL, TLI);
-    if (B->getOperand(1) == Op)
-      return SimplifyBinOp(B->getOpcode(), B->getOperand(0), RepOp, DL, TLI);
+      Simplified =
+          SimplifyBinOp(B->getOpcode(), RepOp, B->getOperand(1), DL, TLI);
+    if (!Simplified && B->getOperand(1) == Op)
+      Simplified =
+          SimplifyBinOp(B->getOpcode(), B->getOperand(0), RepOp, DL, TLI);
+    if (Simplified) {
+      // Consider:
+      //   %cmp = icmp eq i32 %x, 2147483647
+      //   %add = add nsw i32 %x, 1
+      //   %sel = select i1 %cmp, i32 -2147483648, i32 %add
+      //
+      // We can't replace %sel with %add unless we strip away the flags.
+      if (isa<OverflowingBinaryOperator>(B)) {
+        B->setHasNoSignedWrap(false);
+        B->setHasNoUnsignedWrap(false);
+      }
+      if (isa<PossiblyExactOperator>(B))
+        B->setIsExact(false);
+    }
+    return Simplified;
   }
 
   // Same for CmpInsts.
@@ -1154,18 +1172,30 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
       }
 
   // See if we can fold the select into one of our operands.
-  if (SI.getType()->isIntegerTy()) {
+  if (SI.getType()->isIntOrIntVectorTy()) {
     if (Instruction *FoldI = FoldSelectIntoOp(SI, TrueVal, FalseVal))
       return FoldI;
 
     Value *LHS, *RHS, *LHS2, *RHS2;
-    SelectPatternFlavor SPF = matchSelectPattern(&SI, LHS, RHS);
+    Instruction::CastOps CastOp;
+    SelectPatternFlavor SPF = matchSelectPattern(&SI, LHS, RHS, &CastOp);
 
-    // MAX(MAX(a, b), a) -> MAX(a, b)
-    // MIN(MIN(a, b), a) -> MIN(a, b)
-    // MAX(MIN(a, b), a) -> a
-    // MIN(MAX(a, b), a) -> a
     if (SPF) {
+      // Canonicalize so that type casts are outside select patterns.
+      if (LHS->getType()->getPrimitiveSizeInBits() !=
+          SI.getType()->getPrimitiveSizeInBits()) {
+        CmpInst::Predicate Pred = getICmpPredicateForMinMax(SPF);
+        Value *Cmp = Builder->CreateICmp(Pred, LHS, RHS);
+        Value *NewSI = Builder->CreateCast(CastOp,
+                                           Builder->CreateSelect(Cmp, LHS, RHS),
+                                           SI.getType());
+        return ReplaceInstUsesWith(SI, NewSI);
+      }
+
+      // MAX(MAX(a, b), a) -> MAX(a, b)
+      // MIN(MIN(a, b), a) -> MIN(a, b)
+      // MAX(MIN(a, b), a) -> a
+      // MIN(MAX(a, b), a) -> a
       if (SelectPatternFlavor SPF2 = matchSelectPattern(LHS, LHS2, RHS2))
         if (Instruction *R = FoldSPFofSPF(cast<Instruction>(LHS),SPF2,LHS2,RHS2,
                                           SI, SPF, RHS))

@@ -75,7 +75,8 @@ static MCSubtargetInfo *createMipsMCSubtargetInfo(StringRef TT, StringRef CPU,
   return X;
 }
 
-static MCAsmInfo *createMipsMCAsmInfo(const MCRegisterInfo &MRI, StringRef TT) {
+static MCAsmInfo *createMipsMCAsmInfo(const MCRegisterInfo &MRI,
+                                      const Triple &TT) {
   MCAsmInfo *MAI = new MipsMCAsmInfo(TT);
 
   unsigned SP = MRI.getDwarfRegNum(Mips::SP, true);
@@ -93,7 +94,7 @@ static MCCodeGenInfo *createMipsMCCodeGenInfo(StringRef TT, Reloc::Model RM,
     RM = Reloc::Static;
   else if (RM == Reloc::Default)
     RM = Reloc::PIC_;
-  X->InitMCCodeGenInfo(RM, CM, OL);
+  X->initMCCodeGenInfo(RM, CM, OL);
   return X;
 }
 

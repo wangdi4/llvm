@@ -152,7 +152,14 @@ Pass *createLoopInterchangePass();
 //
 Pass *createLoopStrengthReducePass();
 
-Pass *createGlobalMergePass(const TargetMachine *TM, unsigned MaximalOffset);
+//===----------------------------------------------------------------------===//
+//
+// GlobalMerge - This pass merges internal (by default) globals into structs
+// to enable reuse of a base pointer by indexed addressing modes.
+// It can also be configured to focus on size optimizations only.
+//
+Pass *createGlobalMergePass(const TargetMachine *TM, unsigned MaximalOffset,
+                            bool OnlyOptimizeForSize = false);
 
 //===----------------------------------------------------------------------===//
 //
@@ -423,6 +430,13 @@ createSeparateConstOffsetFromGEPPass(const TargetMachine *TM = nullptr,
 
 //===----------------------------------------------------------------------===//
 //
+// SpeculativeExecution - Aggressively hoist instructions to enable
+// speculative execution on targets where branches are expensive.
+//
+FunctionPass *createSpeculativeExecutionPass();
+
+//===----------------------------------------------------------------------===//
+//
 // LoadCombine - Combine loads into bigger loads.
 //
 BasicBlockPass *createLoadCombinePass();
@@ -449,7 +463,7 @@ FunctionPass *createPlaceSafepointsPass();
 // RewriteStatepointsForGC - Rewrite any gc.statepoints which do not yet have
 // explicit relocations to include explicit relocations.
 //
-FunctionPass *createRewriteStatepointsForGCPass();
+ModulePass *createRewriteStatepointsForGCPass();
 
 //===----------------------------------------------------------------------===//
 //

@@ -659,16 +659,6 @@ TSAN_INTERCEPTOR(char*, strncpy, char *dst, char *src, uptr n) {
   return REAL(strncpy)(dst, src, n);
 }
 
-TSAN_INTERCEPTOR(const char*, strstr, const char *s1, const char *s2) {
-  SCOPED_TSAN_INTERCEPTOR(strstr, s1, s2);
-  const char *res = REAL(strstr)(s1, s2);
-  uptr len1 = internal_strlen(s1);
-  uptr len2 = internal_strlen(s2);
-  MemoryAccessRange(thr, pc, (uptr)s1, len1 + 1, false);
-  MemoryAccessRange(thr, pc, (uptr)s2, len2 + 1, false);
-  return res;
-}
-
 TSAN_INTERCEPTOR(char*, strdup, const char *str) {
   SCOPED_TSAN_INTERCEPTOR(strdup, str);
   // strdup will call malloc, so no instrumentation is required here.
@@ -2285,6 +2275,14 @@ static void HandleRecvmsg(ThreadState *thr, uptr pc,
   HandleRecvmsg(((TsanInterceptorContext *)ctx)->thr, \
       ((TsanInterceptorContext *)ctx)->pc, msg)
 
+#define COMMON_INTERCEPTOR_GET_TLS_RANGE(begin, end)                           \
+  if (TsanThread *t = GetCurrentThread()) {                                    \
+    *begin = t->tls_begin();                                                   \
+    *end = t->tls_end();                                                       \
+  } else {                                                                     \
+    *begin = *end = 0;                                                         \
+  }
+
 #include "sanitizer_common/sanitizer_common_interceptors.inc"
 
 #define TSAN_SYSCALL() \
@@ -2464,7 +2462,6 @@ void InitializeInterceptors() {
   TSAN_INTERCEPT(strrchr);
   TSAN_INTERCEPT(strcpy);  // NOLINT
   TSAN_INTERCEPT(strncpy);
-  TSAN_INTERCEPT(strstr);
   TSAN_INTERCEPT(strdup);
 
   TSAN_INTERCEPT(pthread_create);

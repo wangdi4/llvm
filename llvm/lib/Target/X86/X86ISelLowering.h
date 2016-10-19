@@ -56,10 +56,6 @@ namespace llvm {
       /// corresponds to X86::ANDNPS or X86::ANDNPD.
       FANDN,
 
-      /// Bitwise logical right shift of floating point values. This
-      /// corresponds to X86::PSRLDQ.
-      FSRL,
-
       /// These operations represent an abstract X86 call
       /// instruction, which includes a bunch of information.  In particular the
       /// operands of these node are:
@@ -184,6 +180,9 @@ namespace llvm {
       /// Shuffle 16 8-bit values within a vector.
       PSHUFB,
 
+      /// Compute Sum of Absolute Differences.
+      PSADBW,
+
       /// Bitwise Logical AND NOT of Packed FP values.
       ANDNP,
 
@@ -200,6 +199,7 @@ namespace llvm {
 
       /// Combined add and sub on an FP vector.
       ADDSUB,
+
       //  FP vector ops with rounding mode.
       FADD_RND,
       FSUB_RND,
@@ -207,7 +207,11 @@ namespace llvm {
       FDIV_RND,
       FMAX_RND,
       FMIN_RND,
-      
+      FSQRT_RND,
+
+      // FP vector get exponent 
+      FGETEXP_RND,
+
       // Integer add/sub with unsigned saturation.
       ADDUS,
       SUBUS,
@@ -355,6 +359,8 @@ namespace llvm {
       PSHUFHW,
       PSHUFLW,
       SHUFP,
+      //Shuffle Packed Values at 128-bit granularity
+      SHUF128,
       MOVDDUP,
       MOVSHDUP,
       MOVSLDUP,
@@ -374,7 +380,14 @@ namespace llvm {
       VPERMIV3,
       VPERMI,
       VPERM2X128,
+      //Fix Up Special Packed Float32/64 values
+      VFIXUPIMM,
+      //Range Restriction Calculation For Packed Pairs of Float32/64 values
+      VRANGE,
+      // Broadcast scalar to vector
       VBROADCAST,
+      // Broadcast subvector to vector
+      SUBV_BROADCAST,
       // Insert/Extract vector element
       VINSERT,
       VEXTRACT,
@@ -704,8 +717,15 @@ namespace llvm {
 
     unsigned getInlineAsmMemConstraint(
         const std::string &ConstraintCode) const override {
-      // FIXME: Map different constraints differently.
-      return InlineAsm::Constraint_m;
+      if (ConstraintCode == "i")
+        return InlineAsm::Constraint_i;
+      else if (ConstraintCode == "o")
+        return InlineAsm::Constraint_o;
+      else if (ConstraintCode == "v")
+        return InlineAsm::Constraint_v;
+      else if (ConstraintCode == "X")
+        return InlineAsm::Constraint_X;
+      return TargetLowering::getInlineAsmMemConstraint(ConstraintCode);
     }
 
     /// Given a physical register constraint
@@ -719,7 +739,8 @@ namespace llvm {
 
     /// Return true if the addressing mode represented
     /// by AM is legal for this target, for a load/store of the specified type.
-    bool isLegalAddressingMode(const AddrMode &AM, Type *Ty) const override;
+    bool isLegalAddressingMode(const AddrMode &AM, Type *Ty,
+                               unsigned AS) const override;
 
     /// Return true if the specified immediate is legal
     /// icmp immediate, that is the target has icmp instructions which can
@@ -738,7 +759,8 @@ namespace llvm {
     /// of the specified type.
     /// If the AM is supported, the return value must be >= 0.
     /// If the AM is not supported, it returns a negative value.
-    int getScalingFactorCost(const AddrMode &AM, Type *Ty) const override;
+    int getScalingFactorCost(const AddrMode &AM, Type *Ty,
+                             unsigned AS) const override;
 
     bool isVectorShiftByScalarCheap(Type *Ty) const override;
 

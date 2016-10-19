@@ -25,6 +25,9 @@
 #include "llvm/Analysis/RegionPass.h"
 #include "isl/ctx.h"
 
+#include <forward_list>
+#include <deque>
+
 using namespace llvm;
 
 namespace llvm {
@@ -69,10 +72,10 @@ public:
   /// @brief Construct a ScopArrayInfo object.
   ///
   /// @param BasePtr        The array base pointer.
-  /// @param AccessType     The type used to access this array.
+  /// @param ElementType    The type of the elements stored in the array.
   /// @param IslCtx         The isl context used to create the base pointer id.
   /// @param DimensionSizes A vector containing the size of each dimension.
-  ScopArrayInfo(Value *BasePtr, Type *AccessType, isl_ctx *IslCtx,
+  ScopArrayInfo(Value *BasePtr, Type *ElementType, isl_ctx *IslCtx,
                 const SmallVector<const SCEV *, 4> &DimensionSizes);
 
   /// @brief Destructor to free the isl id of the base pointer.
@@ -90,8 +93,14 @@ public:
     return DimensionSizes[dim];
   }
 
-  /// @brief Return the type used to access this array in the SCoP.
-  Type *getType() const { return AccessType; }
+  /// @brief Get the type of the elements stored in this array.
+  Type *getElementType() const { return ElementType; }
+
+  /// @brief Get element size in bytes.
+  int getElemSizeInBytes() const;
+
+  /// @brief Get the name of this memory reference.
+  std::string getName() const;
 
   /// @brief Return the isl id for the base pointer.
   __isl_give isl_id *getBasePtrId() const;
@@ -113,8 +122,8 @@ private:
   /// @brief The base pointer.
   Value *BasePtr;
 
-  /// @brief The type used to access this array.
-  Type *AccessType;
+  /// @brief The type of the elements stored in this array.
+  Type *ElementType;
 
   /// @brief The isl id for the base pointer.
   isl_id *Id;
@@ -206,6 +215,12 @@ private:
   /// Updated access relation read from JSCOP file.
   isl_map *newAccessRelation;
 
+  /// @brief A unique identifier for this memory access.
+  ///
+  /// The identifier is unique between all memory accesses belonging to the same
+  /// scop statement.
+  isl_id *Id;
+
   void assumeNoOutOfBound(const IRAccess &Access);
 
   /// @brief Compute bounds on an over approximated  access relation.
@@ -257,12 +272,14 @@ private:
 public:
   /// @brief Create a memory access from an access in LLVM-IR.
   ///
-  /// @param Access    The memory access.
-  /// @param AccInst   The access instruction.
-  /// @param Statement The statement that contains the access.
-  /// @param SAI       The ScopArrayInfo object for this base pointer.
+  /// @param Access     The memory access.
+  /// @param AccInst    The access instruction.
+  /// @param Statement  The statement that contains the access.
+  /// @param SAI        The ScopArrayInfo object for this base pointer.
+  /// @param Identifier An identifier that is unique for all memory accesses
+  ///                   belonging to the same scop statement.
   MemoryAccess(const IRAccess &Access, Instruction *AccInst,
-               ScopStmt *Statement, const ScopArrayInfo *SAI);
+               ScopStmt *Statement, const ScopArrayInfo *SAI, int Identifier);
 
   ~MemoryAccess();
 
@@ -369,6 +386,12 @@ public:
   /// @brief Align the parameters in the access relation to the scop context
   void realignParams();
 
+  /// @brief Get identifier for the memory access.
+  ///
+  /// This identifier is unique for all accesses that belong to the same scop
+  /// statement.
+  __isl_give isl_id *getId() const;
+
   /// @brief Print the MemoryAccess.
   ///
   /// @param OS The output stream the MemoryAccess is printed to.
@@ -390,10 +413,24 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS,
 /// accesses.
 /// At the moment every statement represents a single basic block of LLVM-IR.
 class ScopStmt {
-  //===-------------------------------------------------------------------===//
+public:
+  /// @brief List to hold all (scalar) memory accesses mapped to an instruction.
+  using MemoryAccessList = std::forward_list<MemoryAccess>;
+
   ScopStmt(const ScopStmt &) = delete;
   const ScopStmt &operator=(const ScopStmt &) = delete;
 
+  /// Create the ScopStmt from a BasicBlock.
+  ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion,
+           BasicBlock &bb, SmallVectorImpl<Loop *> &NestLoops,
+           SmallVectorImpl<unsigned> &ScheduleVec);
+
+  /// Create an overapproximating ScopStmt for the region @p R.
+  ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion, Region &R,
+           SmallVectorImpl<Loop *> &NestLoops,
+           SmallVectorImpl<unsigned> &ScheduleVec);
+
+private:
   /// Polyhedral description
   //@{
 
@@ -456,7 +493,9 @@ class ScopStmt {
   /// The only side effects of a statement are its memory accesses.
   typedef SmallVector<MemoryAccess *, 8> MemoryAccessVec;
   MemoryAccessVec MemAccs;
-  std::map<const Instruction *, MemoryAccess *> InstructionToAccess;
+
+  /// @brief Mapping from instructions to (scalar) memory accesses.
+  DenseMap<const Instruction *, MemoryAccessList *> InstructionToAccess;
 
   //@}
 
@@ -545,18 +584,6 @@ class ScopStmt {
   /// @brief Scan @p Block and derive assumptions about parameter values.
   void deriveAssumptions(BasicBlock *Block);
 
-  /// Create the ScopStmt from a BasicBlock.
-  ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion,
-           BasicBlock &bb, SmallVectorImpl<Loop *> &NestLoops,
-           SmallVectorImpl<unsigned> &ScheduleVec);
-
-  /// Create an overapproximating ScopStmt for the region @p R.
-  ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion, Region &R,
-           SmallVectorImpl<Loop *> &NestLoops,
-           SmallVectorImpl<unsigned> &ScheduleVec);
-
-  friend class Scop;
-
 public:
   ~ScopStmt();
 
@@ -608,16 +635,31 @@ public:
   /// @brief Return true if this statement represents a whole region.
   bool isRegionStmt() const { return R != nullptr; }
 
-  const MemoryAccess &getAccessFor(const Instruction *Inst) const {
-    MemoryAccess *A = lookupAccessFor(Inst);
-    assert(A && "Cannot get memory access because it does not exist!");
-    return *A;
+  /// @brief Return the (scalar) memory accesses for @p Inst.
+  const MemoryAccessList &getAccessesFor(const Instruction *Inst) const {
+    MemoryAccessList *MAL = lookupAccessesFor(Inst);
+    assert(MAL && "Cannot get memory accesses because they do not exist!");
+    return *MAL;
   }
 
+  /// @brief Return the (scalar) memory accesses for @p Inst if any.
+  MemoryAccessList *lookupAccessesFor(const Instruction *Inst) const {
+    auto It = InstructionToAccess.find(Inst);
+    return It == InstructionToAccess.end() ? nullptr : It->getSecond();
+  }
+
+  /// @brief Return the __first__ (scalar) memory access for @p Inst.
+  const MemoryAccess &getAccessFor(const Instruction *Inst) const {
+    MemoryAccess *MA = lookupAccessFor(Inst);
+    assert(MA && "Cannot get memory access because it does not exist!");
+    return *MA;
+  }
+
+  /// @brief Return the __first__ (scalar) memory access for @p Inst if any.
   MemoryAccess *lookupAccessFor(const Instruction *Inst) const {
-    std::map<const Instruction *, MemoryAccess *>::const_iterator at =
-        InstructionToAccess.find(Inst);
-    return at == InstructionToAccess.end() ? NULL : at->second;
+    auto It = InstructionToAccess.find(Inst);
+    return It == InstructionToAccess.end() ? nullptr
+                                           : &It->getSecond()->front();
   }
 
   void setBasicBlock(BasicBlock *Block) {
@@ -723,7 +765,7 @@ private:
   /// Max loop depth.
   unsigned MaxLoopDepth;
 
-  typedef std::vector<ScopStmt *> StmtSet;
+  typedef std::deque<ScopStmt> StmtSet;
   /// The statements in this Scop.
   StmtSet Stmts;
 
@@ -744,7 +786,8 @@ private:
   /// Constraints on parameters.
   isl_set *Context;
 
-  typedef MapVector<const Value *, const ScopArrayInfo *> ArrayInfoMapTy;
+  typedef MapVector<const Value *, std::unique_ptr<ScopArrayInfo>>
+      ArrayInfoMapTy;
   /// @brief A map to remember ScopArrayInfo objects for all base pointers.
   ArrayInfoMapTy ScopArrayInfoMap;
 
@@ -824,6 +867,7 @@ private:
   ///
   ///{
   void printContext(raw_ostream &OS) const;
+  void printArrayInfo(raw_ostream &OS) const;
   void printStatements(raw_ostream &OS) const;
   void printAliasAssumptions(raw_ostream &OS) const;
   ///}
@@ -900,8 +944,8 @@ public:
   inline unsigned getScheduleDim() const {
     unsigned maxScheduleDim = 0;
 
-    for (const_iterator SI = begin(), SE = end(); SI != SE; ++SI)
-      maxScheduleDim = std::max(maxScheduleDim, (*SI)->getNumSchedule());
+    for (const ScopStmt &Stmt : *this)
+      maxScheduleDim = std::max(maxScheduleDim, Stmt.getNumSchedule());
 
     return maxScheduleDim;
   }
@@ -992,8 +1036,10 @@ public:
   //@}
 
   /// @brief Return the (possibly new) ScopArrayInfo object for @p Access.
+  ///
+  /// @param ElementType The type of the elements stored in this array.
   const ScopArrayInfo *
-  getOrCreateScopArrayInfo(Value *BasePtr, Type *AccessType,
+  getOrCreateScopArrayInfo(Value *BasePtr, Type *ElementType,
                            const SmallVector<const SCEV *, 4> &Sizes);
 
   /// @brief Return the cached ScopArrayInfo object for @p BasePtr.

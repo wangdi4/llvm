@@ -453,10 +453,8 @@ TargetMachine *EmitAssemblyHelper::CreateTargetMachine(bool MustCreateTM) {
   std::string FeaturesStr;
   if (!TargetOpts.Features.empty()) {
     SubtargetFeatures Features;
-    for (std::vector<std::string>::const_iterator
-           it = TargetOpts.Features.begin(),
-           ie = TargetOpts.Features.end(); it != ie; ++it)
-      Features.AddFeature(*it);
+    for (const std::string &Feature : TargetOpts.Features)
+      Features.AddFeature(Feature);
     FeaturesStr = Features.getString();
   }
 
@@ -490,15 +488,6 @@ TargetMachine *EmitAssemblyHelper::CreateTargetMachine(bool MustCreateTM) {
 
   if (CodeGenOpts.CompressDebugSections)
     Options.CompressDebugSections = true;
-
-  // Set frame pointer elimination mode.
-  if (!CodeGenOpts.DisableFPElim) {
-    Options.NoFramePointerElim = false;
-  } else if (CodeGenOpts.OmitLeafFramePointer) {
-    Options.NoFramePointerElim = false;
-  } else {
-    Options.NoFramePointerElim = true;
-  }
 
   if (CodeGenOpts.UseInitArray)
     Options.UseInitArray = true;

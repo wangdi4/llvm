@@ -439,11 +439,15 @@ template <class ELFT> void TargetLayout<ELFT>::assignSectionsToSegments() {
   }
 }
 
+template <class ELFT> void TargetLayout<ELFT>::sortSegments() {
+  std::sort(_segments.begin(), _segments.end(), Segment<ELFT>::compareSegments);
+}
+
 template <class ELFT> void TargetLayout<ELFT>::assignVirtualAddress() {
   if (_segments.empty())
     return;
 
-  std::sort(_segments.begin(), _segments.end(), Segment<ELFT>::compareSegments);
+  sortSegments();
 
   uint64_t baseAddress = _ctx.getBaseAddress();
 
@@ -667,9 +671,9 @@ void TargetLayout<ELFT>::addExtraChunksToSegment(Segment<ELFT> *segment,
 template <class ELFT>
 RelocationTable<ELFT> *TargetLayout<ELFT>::getDynamicRelocationTable() {
   if (!_dynamicRelocationTable) {
-    _dynamicRelocationTable = std::move(createRelocationTable(
+    _dynamicRelocationTable = createRelocationTable(
         _ctx.isRelaOutputFormat() ? ".rela.dyn" : ".rel.dyn",
-        ORDER_DYNAMIC_RELOCS));
+        ORDER_DYNAMIC_RELOCS);
     addSection(_dynamicRelocationTable.get());
   }
   return _dynamicRelocationTable.get();
@@ -678,9 +682,9 @@ RelocationTable<ELFT> *TargetLayout<ELFT>::getDynamicRelocationTable() {
 template <class ELFT>
 RelocationTable<ELFT> *TargetLayout<ELFT>::getPLTRelocationTable() {
   if (!_pltRelocationTable) {
-    _pltRelocationTable = std::move(createRelocationTable(
+    _pltRelocationTable = createRelocationTable(
         _ctx.isRelaOutputFormat() ? ".rela.plt" : ".rel.plt",
-        ORDER_DYNAMIC_PLT_RELOCS));
+        ORDER_DYNAMIC_PLT_RELOCS);
     addSection(_pltRelocationTable.get());
   }
   return _pltRelocationTable.get();

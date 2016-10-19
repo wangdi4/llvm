@@ -175,12 +175,12 @@ X86RegisterInfo::getPointerRegClass(const MachineFunction &MF,
       return &X86::GR64_NOSPRegClass;
     return &X86::GR32_NOSPRegClass;
   case 2: // Available for tailcall (not callee-saved GPRs).
-    if (IsWin64)
+    const Function *F = MF.getFunction();
+    if (IsWin64 || (F && F->getCallingConv() == CallingConv::X86_64_Win64))
       return &X86::GR64_TCW64RegClass;
     else if (Is64Bit)
       return &X86::GR64_TCRegClass;
 
-    const Function *F = MF.getFunction();
     bool hasHipeCC = (F ? F->getCallingConv() == CallingConv::HiPE : false);
     if (hasHipeCC)
       return &X86::GR32RegClass;
@@ -492,7 +492,8 @@ X86RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   unsigned BasePtr;
 
   unsigned Opc = MI.getOpcode();
-  bool AfterFPPop = Opc == X86::TAILJMPm64 || Opc == X86::TAILJMPm;
+  bool AfterFPPop = Opc == X86::TAILJMPm64 || Opc == X86::TAILJMPm ||
+                    Opc == X86::TCRETURNmi || Opc == X86::TCRETURNmi64;
   if (hasBasePointer(MF))
     BasePtr = (FrameIndex < 0 ? FramePtr : getBaseRegister());
   else if (needsStackRealignment(MF))

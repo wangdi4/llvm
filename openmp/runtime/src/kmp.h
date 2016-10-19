@@ -157,16 +157,8 @@ class kmp_stats_list;
 // #define USE_QUEUING_LOCK_FOR_BGET
 // #endif
 
-#ifndef NSEC_PER_SEC
-# define NSEC_PER_SEC 1000000000L
-#endif
-
-#ifndef USEC_PER_SEC
-# define USEC_PER_SEC 1000000L
-#endif
-
-// For error messages
-#define KMP_IOMP_NAME       "Intel(R) OMP"
+#define KMP_NSEC_PER_SEC 1000000000L
+#define KMP_USEC_PER_SEC 1000000L
 
 /*!
 @ingroup BASIC_TYPES
@@ -1660,7 +1652,7 @@ typedef struct KMP_ALIGN_CACHE kmp_bstate {
     kmp_uint32 *skip_per_level;
     kmp_uint32 my_level;
     kmp_int32 parent_tid;
-    kmp_uint32 old_tid;
+    kmp_int32 old_tid;
     kmp_uint32 depth;
     struct kmp_bstate *parent_bar;
     kmp_team_t *team;
@@ -2545,7 +2537,7 @@ extern char const   *__kmp_barrier_pattern_name        [ bp_last_bar ];
 
 /* Global Locks */
 extern kmp_bootstrap_lock_t __kmp_initz_lock;     /* control initialization */
-extern kmp_bootstrap_lock_t __kmp_forkjoin_lock;  /* control fork/join access and load calculation if rml is used*/
+extern kmp_bootstrap_lock_t __kmp_forkjoin_lock;  /* control fork/join access */
 extern kmp_bootstrap_lock_t __kmp_exit_lock;      /* exit() is not always thread-safe */
 extern kmp_bootstrap_lock_t __kmp_monitor_lock;   /* control monitor thread creation */
 extern kmp_bootstrap_lock_t __kmp_tp_cached_lock; /* used for the hack to allow threadprivate cache and __kmp_threads expansion to co-exist */
