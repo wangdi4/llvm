@@ -72,7 +72,7 @@ static MCCodeGenInfo *createHexagonMCCodeGenInfo(StringRef TT, Reloc::Model RM,
   MCCodeGenInfo *X = new MCCodeGenInfo();
   // For the time being, use static relocations, since there's really no
   // support for PIC yet.
-  X->InitMCCodeGenInfo(Reloc::Static, CM, OL);
+  X->initMCCodeGenInfo(Reloc::Static, CM, OL);
   return X;
 }
 
@@ -112,11 +112,11 @@ extern "C" void LLVMInitializeHexagonTargetMC() {
   TargetRegistry::RegisterMCCodeEmitter(TheHexagonTarget,
                                         createHexagonMCCodeEmitter);
 
-  // Register the MC Inst Printer
-  TargetRegistry::RegisterMCInstPrinter(TheHexagonTarget,
-                                        createHexagonMCInstPrinter);
-
   // Register the asm backend
   TargetRegistry::RegisterMCAsmBackend(TheHexagonTarget,
                                        createHexagonAsmBackend);
+
+  // Register the MC Inst Printer
+  TargetRegistry::RegisterMCInstPrinter(TheHexagonTarget,
+                                        createHexagonMCInstPrinter);
 }

@@ -52,7 +52,6 @@ public:
     ORDER_FINI = 90,
     ORDER_REL = 95,
     ORDER_RODATA = 100,
-    ORDER_ARM_EXIDX = 105,
     ORDER_EH_FRAME = 110,
     ORDER_EH_FRAMEHDR = 120,
     ORDER_TDATA = 124,
@@ -302,6 +301,9 @@ protected:
   }
 
   virtual uint64_t getLookupSectionFlags(const OutputSection<ELFT> *os) const;
+
+  /// \brief Sort segements stored in the _segments
+  virtual void sortSegments();
 
 protected:
   llvm::BumpPtrAllocator _allocator;

@@ -46,10 +46,10 @@ std::unique_ptr<ELFLinkingContext> createMipsLinkingContext(llvm::Triple);
 std::unique_ptr<ELFLinkingContext> createX86LinkingContext(llvm::Triple);
 std::unique_ptr<ELFLinkingContext> createX86_64LinkingContext(llvm::Triple);
 
-typedef llvm::object::ELFType<llvm::support::little, 2, false> ELF32LE;
-typedef llvm::object::ELFType<llvm::support::big, 2, false> ELF32BE;
-typedef llvm::object::ELFType<llvm::support::little, 2, true> ELF64LE;
-typedef llvm::object::ELFType<llvm::support::big, 2, true> ELF64BE;
+typedef llvm::object::ELFType<llvm::support::little, false> ELF32LE;
+typedef llvm::object::ELFType<llvm::support::big, false> ELF32BE;
+typedef llvm::object::ELFType<llvm::support::little, true> ELF64LE;
+typedef llvm::object::ELFType<llvm::support::big, true> ELF64BE;
 
 class TargetRelocationHandler {
 public:
@@ -95,6 +95,12 @@ public:
     // Disallow shared libraries and don't align sections,
     // Mark Text Segment/Data segment RW
     OMAGIC,
+  };
+
+  /// \brief ELF DT_FLAGS.
+  enum DTFlag : uint32_t {
+    DT_NOW = 1 << 1,
+    DT_ORIGIN = 1 << 2,
   };
 
   llvm::Triple getTriple() const { return _triple; }
@@ -329,6 +335,10 @@ public:
   // --wrap option.
   void addWrapForSymbol(StringRef sym) { _wrapCalls.insert(sym); }
 
+  // \brief Set DT_FLAGS flag.
+  void setDTFlag(DTFlag f) { _dtFlags |= f; };
+  bool getDTFlag(DTFlag f) { return (_dtFlags & f); };
+
   const llvm::StringSet<> &wrapCalls() const { return _wrapCalls; }
 
   void setUndefinesResolver(std::unique_ptr<File> resolver);
@@ -383,6 +393,7 @@ protected:
   bool _armTarget1Rel = false;
   bool _mipsPcRelEhRel = false;
   uint64_t _maxPageSize = 0x1000;
+  uint32_t _dtFlags = 0;
 
   OutputMagic _outputMagic = OutputMagic::DEFAULT;
   StringRefVector _inputSearchPaths;

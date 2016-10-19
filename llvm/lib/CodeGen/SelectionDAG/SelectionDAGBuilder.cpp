@@ -2257,19 +2257,47 @@ void SelectionDAGBuilder::visitSelect(const User &I) {
 
   SmallVector<SDValue, 4> Values(NumValues);
   SDValue Cond     = getValue(I.getOperand(0));
-  SDValue TrueVal  = getValue(I.getOperand(1));
-  SDValue FalseVal = getValue(I.getOperand(2));
+  SDValue LHSVal   = getValue(I.getOperand(1));
+  SDValue RHSVal   = getValue(I.getOperand(2));
+  auto BaseOps = {Cond};
   ISD::NodeType OpCode = Cond.getValueType().isVector() ?
     ISD::VSELECT : ISD::SELECT;
 
-  for (unsigned i = 0; i != NumValues; ++i)
+  // Min/max matching is only viable if all output VTs are the same.
+  if (std::equal(ValueVTs.begin(), ValueVTs.end(), ValueVTs.begin())) {
+    Value *LHS, *RHS;
+    SelectPatternFlavor SPF = matchSelectPattern(const_cast<User*>(&I), LHS, RHS);
+    ISD::NodeType Opc = ISD::DELETED_NODE;
+    switch (SPF) {
+    case SPF_UMAX: Opc = ISD::UMAX; break;
+    case SPF_UMIN: Opc = ISD::UMIN; break;
+    case SPF_SMAX: Opc = ISD::SMAX; break;
+    case SPF_SMIN: Opc = ISD::SMIN; break;
+    default: break;
+    }
+
+    EVT VT = ValueVTs[0];
+    LLVMContext &Ctx = *DAG.getContext();
+    auto &TLI = DAG.getTargetLoweringInfo();
+    while (TLI.getTypeAction(Ctx, VT) == TargetLoweringBase::TypeSplitVector)
+      VT = TLI.getTypeToTransformTo(Ctx, VT);
+
+    if (Opc != ISD::DELETED_NODE && TLI.isOperationLegalOrCustom(Opc, VT)) {
+      OpCode = Opc;
+      LHSVal = getValue(LHS);
+      RHSVal = getValue(RHS);
+      BaseOps = {};
+    }
+  }
+
+  for (unsigned i = 0; i != NumValues; ++i) {
+    SmallVector<SDValue, 3> Ops(BaseOps.begin(), BaseOps.end());
+    Ops.push_back(SDValue(LHSVal.getNode(), LHSVal.getResNo() + i));
+    Ops.push_back(SDValue(RHSVal.getNode(), RHSVal.getResNo() + i));
     Values[i] = DAG.getNode(OpCode, getCurSDLoc(),
-                            TrueVal.getNode()->getValueType(TrueVal.getResNo()+i),
-                            Cond,
-                            SDValue(TrueVal.getNode(),
-                                    TrueVal.getResNo() + i),
-                            SDValue(FalseVal.getNode(),
-                                    FalseVal.getResNo() + i));
+                            LHSVal.getNode()->getValueType(LHSVal.getResNo()+i),
+                            Ops);
+  }
 
   setValue(&I, DAG.getNode(ISD::MERGE_VALUES, getCurSDLoc(),
                            DAG.getVTList(ValueVTs), Values));
@@ -2820,7 +2848,17 @@ void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
 
   bool isVolatile = I.isVolatile();
   bool isNonTemporal = I.getMetadata(LLVMContext::MD_nontemporal) != nullptr;
-  bool isInvariant = I.getMetadata(LLVMContext::MD_invariant_load) != nullptr;
+
+  // The IR notion of invariant_load only guarantees that all *non-faulting*
+  // invariant loads result in the same value.  The MI notion of invariant load
+  // guarantees that the load can be legally moved to any location within its
+  // containing function.  The MI notion of invariant_load is stronger than the
+  // IR notion of invariant_load -- an MI invariant_load is an IR invariant_load
+  // with a guarantee that the location being loaded from is dereferenceable
+  // throughout the function's lifetime.
+
+  bool isInvariant = I.getMetadata(LLVMContext::MD_invariant_load) != nullptr &&
+    isDereferenceablePointer(SV, *DAG.getTarget().getDataLayout());
   unsigned Alignment = I.getAlignment();
 
   AAMDNodes AAInfo;
@@ -4017,16 +4055,20 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     return nullptr;
   case Intrinsic::read_register: {
     Value *Reg = I.getArgOperand(0);
+    SDValue Chain = getRoot();
     SDValue RegName =
         DAG.getMDNode(cast<MDNode>(cast<MetadataAsValue>(Reg)->getMetadata()));
     EVT VT = TLI.getValueType(I.getType());
-    setValue(&I, DAG.getNode(ISD::READ_REGISTER, sdl, VT, RegName));
+    Res = DAG.getNode(ISD::READ_REGISTER, sdl,
+      DAG.getVTList(VT, MVT::Other), Chain, RegName);
+    setValue(&I, Res);
+    DAG.setRoot(Res.getValue(1));
     return nullptr;
   }
   case Intrinsic::write_register: {
     Value *Reg = I.getArgOperand(0);
     Value *RegValue = I.getArgOperand(1);
-    SDValue Chain = getValue(RegValue).getOperand(0);
+    SDValue Chain = getRoot();
     SDValue RegName =
         DAG.getMDNode(cast<MDNode>(cast<MetadataAsValue>(Reg)->getMetadata()));
     DAG.setRoot(DAG.getNode(ISD::WRITE_REGISTER, sdl, MVT::Other, Chain,
@@ -4947,7 +4989,7 @@ SelectionDAGBuilder::lowerInvokable(TargetLowering::CallLoweringInfo &CLI,
   if (LandingPad) {
     // Insert a label before the invoke call to mark the try range.  This can be
     // used to detect deletion of the invoke via the MachineModuleInfo.
-    BeginLabel = MMI.getContext().CreateTempSymbol();
+    BeginLabel = MMI.getContext().createTempSymbol();
 
     // For SjLj, keep track of which landing pads go with which invokes
     // so as to maintain the ordering of pads in the LSDA.
@@ -4990,7 +5032,7 @@ SelectionDAGBuilder::lowerInvokable(TargetLowering::CallLoweringInfo &CLI,
   if (LandingPad) {
     // Insert a label at the end of the invoke call to mark the try range.  This
     // can be used to detect deletion of the invoke via the MachineModuleInfo.
-    MCSymbol *EndLabel = MMI.getContext().CreateTempSymbol();
+    MCSymbol *EndLabel = MMI.getContext().createTempSymbol();
     DAG.setRoot(DAG.getEHLabel(getCurSDLoc(), getRoot(), EndLabel));
 
     // Inform MachineModuleInfo of range.
@@ -5418,7 +5460,7 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
             return;
         }
       }
-      if (unsigned IID = F->getIntrinsicID()) {
+      if (Intrinsic::ID IID = F->getIntrinsicID()) {
         RenameFn = visitIntrinsicCall(I, IID);
         if (!RenameFn)
           return;
@@ -7417,7 +7459,7 @@ bool SelectionDAGBuilder::buildJumpTable(CaseClusterVector &Clusters,
   JumpTableHeader JTH(Clusters[First].Low->getValue(),
                       Clusters[Last].High->getValue(), SI->getCondition(),
                       nullptr, false);
-  JTCases.push_back(JumpTableBlock(JTH, JT));
+  JTCases.emplace_back(std::move(JTH), std::move(JT));
 
   JTCluster = CaseCluster::jumpTable(Clusters[First].Low, Clusters[Last].High,
                                      JTCases.size() - 1, Weight);
@@ -7630,9 +7672,9 @@ bool SelectionDAGBuilder::buildBitTests(CaseClusterVector &Clusters,
         FuncInfo.MF->CreateMachineBasicBlock(SI->getParent());
     BTI.push_back(BitTestCase(CB.Mask, BitTestBB, CB.BB, CB.ExtraWeight));
   }
-  BitTestCases.push_back(BitTestBlock(LowBound, CmpRange, SI->getCondition(),
-                                      -1U, MVT::Other, false, nullptr,
-                                      nullptr, std::move(BTI)));
+  BitTestCases.emplace_back(std::move(LowBound), std::move(CmpRange),
+                            SI->getCondition(), -1U, MVT::Other, false, nullptr,
+                            nullptr, std::move(BTI));
 
   BTCluster = CaseCluster::bitTests(Clusters[First].Low, Clusters[Last].High,
                                     BitTestCases.size() - 1, TotalWeight);

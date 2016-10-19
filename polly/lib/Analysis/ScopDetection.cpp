@@ -170,7 +170,7 @@ static cl::opt<bool, true> XPollyModelPHINodes(
     "polly-model-phi-nodes",
     cl::desc("Allow PHI nodes in the input [Unsafe with code-generation!]."),
     cl::location(PollyModelPHINodes), cl::Hidden, cl::ZeroOrMore,
-    cl::init(false), cl::cat(PollyCategory));
+    cl::init(true), cl::cat(PollyCategory));
 
 bool polly::PollyModelPHINodes = false;
 bool polly::PollyTrackFailures = false;
@@ -351,7 +351,7 @@ bool ScopDetection::isValidCFG(BasicBlock &BB,
     // TODO: This is not sufficient and just hides bugs. However it does pretty
     // well.
     if (ICmp->isUnsigned() && !AllowUnsigned)
-      return false;
+      return invalid<ReportUnsignedCond>(Context, /*Assert=*/true, Br, &BB);
 
     // Are both operands of the ICmp affine?
     if (isa<UndefValue>(ICmp->getOperand(0)) ||
@@ -452,7 +452,7 @@ bool ScopDetection::isInvariant(const Value &Val, const Region &Reg) const {
   // When the instruction is a load instruction, check that no write to memory
   // in the region aliases with the load.
   if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
-    AliasAnalysis::Location Loc = AA->getLocation(LI);
+    auto Loc = MemoryLocation::get(LI);
 
     // Check if any basic block in the region can modify the location pointed to
     // by 'Loc'.  If so, 'Val' is (likely) not invariant in the region.
@@ -738,9 +738,6 @@ Region *ScopDetection::expandRegion(Region &R) {
       //  - if true, a valid region was found => store it + keep expanding
       //  - if false, .tbd. => stop  (should this really end the loop?)
       if (!allBlocksValid(Context) || Context.Log.hasErrors())
-        break;
-
-      if (Context.Log.hasErrors())
         break;
 
       // Delete unnecessary regions (allocated by getExpandedRegion)

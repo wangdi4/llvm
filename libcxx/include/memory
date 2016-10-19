@@ -75,6 +75,8 @@ struct allocator_traits
           | false_type                   propagate_on_container_move_assignment;
     typedef Alloc::propagate_on_container_swap
           | false_type                   propagate_on_container_swap;
+    typedef Alloc::is_always_equal
+          | is_empty                     is_always_equal;
 
     template <class T> using rebind_alloc  = Alloc::rebind<U>::other | Alloc<T, Args...>;
     template <class T> using rebind_traits = allocator_traits<rebind_alloc<T>>;
@@ -1144,6 +1146,29 @@ struct __propagate_on_container_swap<_Alloc, true>
     typedef typename _Alloc::propagate_on_container_swap type;
 };
 
+template <class _Tp>
+struct __has_is_always_equal
+{
+private:
+    struct __two {char __lx; char __lxx;};
+    template <class _Up> static __two __test(...);
+    template <class _Up> static char __test(typename _Up::is_always_equal* = 0);
+public:
+    static const bool value = sizeof(__test<_Tp>(0)) == 1;
+};
+
+template <class _Alloc, bool = __has_is_always_equal<_Alloc>::value>
+struct __is_always_equal
+{
+    typedef typename _VSTD::is_empty<_Alloc>::type type;
+};
+
+template <class _Alloc>
+struct __is_always_equal<_Alloc, true>
+{
+    typedef typename _Alloc::is_always_equal type;
+};
+
 template <class _Tp, class _Up, bool = __has_rebind<_Tp, _Up>::value>
 struct __has_rebind_other
 {
@@ -1423,6 +1448,8 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
                      propagate_on_container_move_assignment;
     typedef typename __propagate_on_container_swap<allocator_type>::type
                      propagate_on_container_swap;
+    typedef typename __is_always_equal<allocator_type>::type
+                     is_always_equal;
 
 #ifndef _LIBCPP_HAS_NO_TEMPLATE_ALIASES
     template <class _Tp> using rebind_alloc =
@@ -1521,8 +1548,11 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
         __construct_forward(allocator_type& __a, _Tp* __begin1, _Tp* __end1, _Tp*& __begin2)
         {
             ptrdiff_t _Np = __end1 - __begin1;
-            _VSTD::memcpy(__begin2, __begin1, _Np * sizeof(_Tp));
-            __begin2 += _Np;
+            if (_Np > 0)
+            {
+                _VSTD::memcpy(__begin2, __begin1, _Np * sizeof(_Tp));
+                __begin2 += _Np;
+            }
         }
 
     template <class _Iter, class _Ptr>
@@ -1549,8 +1579,11 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
         {
             typedef typename remove_const<_Tp>::type _Vp;
             ptrdiff_t _Np = __end1 - __begin1;
-            _VSTD::memcpy(const_cast<_Vp*>(__begin2), __begin1, _Np * sizeof(_Tp));
-            __begin2 += _Np;
+            if (_Np > 0)
+            {
+                _VSTD::memcpy(const_cast<_Vp*>(__begin2), __begin1, _Np * sizeof(_Tp));
+                __begin2 += _Np;
+            }
         }
 
     template <class _Ptr>
@@ -1580,7 +1613,8 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
         {
             ptrdiff_t _Np = __end1 - __begin1;
             __end2 -= _Np;
-            _VSTD::memcpy(__end2, __begin1, _Np * sizeof(_Tp));
+            if (_Np > 0)
+                _VSTD::memcpy(__end2, __begin1, _Np * sizeof(_Tp));
         }
 
 private:
@@ -1660,6 +1694,7 @@ public:
     typedef _Tp               value_type;
 
     typedef true_type propagate_on_container_move_assignment;
+    typedef true_type is_always_equal;
 
     template <class _Up> struct rebind {typedef allocator<_Up> other;};
 
@@ -3527,8 +3562,8 @@ uninitialized_copy(_InputIterator __f, _InputIterator __l, _ForwardIterator __r)
     try
     {
 #endif
-        for (; __f != __l; ++__f, ++__r)
-            ::new(&*__r) value_type(*__f);
+        for (; __f != __l; ++__f, (void) ++__r)
+            ::new (static_cast<void*>(_VSTD::addressof(*__r))) value_type(*__f);
 #ifndef _LIBCPP_NO_EXCEPTIONS
     }
     catch (...)
@@ -3551,8 +3586,8 @@ uninitialized_copy_n(_InputIterator __f, _Size __n, _ForwardIterator __r)
     try
     {
 #endif
-        for (; __n > 0; ++__f, ++__r, --__n)
-            ::new(&*__r) value_type(*__f);
+        for (; __n > 0; ++__f, (void) ++__r, (void) --__n)
+            ::new (static_cast<void*>(_VSTD::addressof(*__r))) value_type(*__f);
 #ifndef _LIBCPP_NO_EXCEPTIONS
     }
     catch (...)
@@ -3576,7 +3611,7 @@ uninitialized_fill(_ForwardIterator __f, _ForwardIterator __l, const _Tp& __x)
     {
 #endif
         for (; __f != __l; ++__f)
-            ::new(&*__f) value_type(__x);
+            ::new (static_cast<void*>(_VSTD::addressof(*__f))) value_type(__x);
 #ifndef _LIBCPP_NO_EXCEPTIONS
     }
     catch (...)
@@ -3598,8 +3633,8 @@ uninitialized_fill_n(_ForwardIterator __f, _Size __n, const _Tp& __x)
     try
     {
 #endif
-        for (; __n > 0; ++__f, --__n)
-            ::new(&*__f) value_type(__x);
+        for (; __n > 0; ++__f, (void) --__n)
+            ::new (static_cast<void*>(_VSTD::addressof(*__f))) value_type(__x);
 #ifndef _LIBCPP_NO_EXCEPTIONS
     }
     catch (...)
@@ -4047,7 +4082,7 @@ private:
         }
 
     _LIBCPP_INLINE_VISIBILITY
-    void __enable_weak_this(const void*) _NOEXCEPT {}
+    void __enable_weak_this(const volatile void*) _NOEXCEPT {}
 
     template <class _Up> friend class _LIBCPP_TYPE_VIS_ONLY shared_ptr;
     template <class _Up> friend class _LIBCPP_TYPE_VIS_ONLY weak_ptr;

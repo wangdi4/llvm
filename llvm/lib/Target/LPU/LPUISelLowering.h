@@ -87,7 +87,8 @@ namespace llvm {
 
     bool isTruncateFree(EVT VT1, EVT VT2) const override;
     bool isTruncateFree(Type *Ty1, Type *Ty2) const override;
-    bool isLegalAddressingMode(const AddrMode &AM, Type *Ty) const override;
+    bool isLegalAddressingMode(const AddrMode &AM, Type *Ty,
+                               unsigned AddrSpace = 0) const override;
     /// isZExtFree - Return true if any actual instruction that defines a value
     /// of type Ty1 implicit zero-extends the value to Ty2 in the result
     /// register. This does not necessarily include registers defined in unknown

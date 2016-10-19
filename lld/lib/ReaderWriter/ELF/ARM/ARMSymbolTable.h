@@ -10,6 +10,10 @@
 #ifndef LLD_READER_WRITER_ELF_ARM_ARM_SYMBOL_TABLE_H
 #define LLD_READER_WRITER_ELF_ARM_ARM_SYMBOL_TABLE_H
 
+#include "SectionChunks.h"
+#include "TargetLayout.h"
+#include "ARMELFFile.h"
+
 namespace lld {
 namespace elf {
 
@@ -31,7 +35,8 @@ void ARMSymbolTable::addDefinedAtom(Elf_Sym &sym, const DefinedAtom *da,
                                     int64_t addr) {
   SymbolTable::addDefinedAtom(sym, da, addr);
 
-  if (da->contentType() == DefinedAtom::typeARMExidx)
+  if ((ARMELFDefinedAtom::ARMContentType)da->contentType() ==
+      ARMELFDefinedAtom::typeARMExidx)
     sym.st_value = addr;
 
   // Set zero bit to distinguish real symbols addressing Thumb instructions.

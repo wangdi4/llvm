@@ -496,7 +496,7 @@ bool LPUTargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
 // isLegalAddressingMode - Return true if the addressing mode represented
 // by AM is legal for this target, for a load/store of the specified type.
 bool LPUTargetLowering::isLegalAddressingMode(const AddrMode &AM,
-  Type *Ty) const {
+  Type *Ty, unsigned AddrSpace) const {
   /**/
   // X86 supports extremely general addressing modes.
   //  CodeModel::Model M = getTargetMachine().getCodeModel();

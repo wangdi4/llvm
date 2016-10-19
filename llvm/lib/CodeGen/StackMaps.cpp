@@ -274,7 +274,7 @@ void StackMaps::recordStackMapOpers(const MachineInstr &MI, uint64_t ID,
                                     bool recordResult) {
 
   MCContext &OutContext = AP.OutStreamer->getContext();
-  MCSymbol *MILabel = OutContext.CreateTempSymbol();
+  MCSymbol *MILabel = OutContext.createTempSymbol();
   AP.OutStreamer->EmitLabel(MILabel);
 
   LocationVec Locations;
@@ -315,9 +315,9 @@ void StackMaps::recordStackMapOpers(const MachineInstr &MI, uint64_t ID,
 
   // Create an expression to calculate the offset of the callsite from function
   // entry.
-  const MCExpr *CSOffsetExpr = MCBinaryExpr::CreateSub(
-    MCSymbolRefExpr::Create(MILabel, OutContext),
-    MCSymbolRefExpr::Create(AP.CurrentFnSymForSize, OutContext),
+  const MCExpr *CSOffsetExpr = MCBinaryExpr::createSub(
+    MCSymbolRefExpr::create(MILabel, OutContext),
+    MCSymbolRefExpr::create(AP.CurrentFnSymForSize, OutContext),
     OutContext);
 
   CSInfos.emplace_back(CSOffsetExpr, ID, std::move(Locations),
@@ -524,12 +524,12 @@ void StackMaps::serializeToStackMapSection() {
   MCStreamer &OS = *AP.OutStreamer;
 
   // Create the section.
-  const MCSection *StackMapSection =
-    OutContext.getObjectFileInfo()->getStackMapSection();
+  MCSection *StackMapSection =
+      OutContext.getObjectFileInfo()->getStackMapSection();
   OS.SwitchSection(StackMapSection);
 
   // Emit a dummy symbol to force section inclusion.
-  OS.EmitLabel(OutContext.GetOrCreateSymbol(Twine("__LLVM_StackMaps")));
+  OS.EmitLabel(OutContext.getOrCreateSymbol(Twine("__LLVM_StackMaps")));
 
   // Serialize data.
   DEBUG(dbgs() << "********** Stack Map Output **********\n");

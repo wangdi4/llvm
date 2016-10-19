@@ -123,7 +123,7 @@ __kmp_affinity_entire_machine_mask(kmp_affin_mask_t *mask)
 //
 // Unfortunately, my attempts to reproduce it in a smaller example have
 // failed - I'm not sure what the prospects are of getting it fixed
-// properly - but we need a reproducer smaller than all of libiomp.
+// properly - but we need a reproducer smaller than all of libomp.
 //
 // Work around the problem by avoiding inline constructors in such builds.
 // We do this for all platforms, not just Linux* OS - non-inline functions are
@@ -3810,7 +3810,7 @@ __kmp_aux_affinity_initialize(void)
         goto sortAddresses;
 
         case affinity_balanced:
-        // Balanced works only for the case of a single package and uniform topology
+        // Balanced works only for the case of a single package
         if( nPackages > 1 ) {
             if( __kmp_affinity_verbose || __kmp_affinity_warnings ) {
                 KMP_WARNING( AffBalancedNotAvail, "KMP_AFFINITY" );

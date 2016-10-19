@@ -557,7 +557,7 @@ static void __kmp_fini_allocator_thread() {}
 
 /* ------------------------------------------------------------------------ */
 
-#ifdef GUIDEDLL_EXPORTS
+#ifdef KMP_DYNAMIC_LIB
 # if KMP_OS_WINDOWS
 
 
@@ -681,7 +681,7 @@ DllMain( HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpReserved ) {
 }
 
 # endif /* KMP_OS_WINDOWS */
-#endif /* GUIDEDLL_EXPORTS */
+#endif /* KMP_DYNAMIC_LIB */
 
 
 /* ------------------------------------------------------------------------ */
@@ -870,7 +870,6 @@ __kmp_reserve_threads( kmp_root_t *root, kmp_team_t *parent_team,
 {
     int capacity;
     int new_nthreads;
-    int use_rml_to_adjust_nth;
     KMP_DEBUG_ASSERT( __kmp_init_serial );
     KMP_DEBUG_ASSERT( root && parent_team );
 
@@ -897,7 +896,6 @@ __kmp_reserve_threads( kmp_root_t *root, kmp_team_t *parent_team,
     // according to the method specified by dynamic_mode.
     //
     new_nthreads = set_nthreads;
-    use_rml_to_adjust_nth = FALSE;
     if ( ! get__dynamic_2( parent_team, master_tid ) ) {
         ;
     }
@@ -3507,7 +3505,7 @@ __kmp_expand_threads(int nWish, int nNeed) {
 
     if(nNeed > nWish) /* normalize the arguments */
         nWish = nNeed;
-#if KMP_OS_WINDOWS && !defined GUIDEDLL_EXPORTS
+#if KMP_OS_WINDOWS && !defined KMP_DYNAMIC_LIB
 /* only for Windows static library */
     /* reclaim array entries for root threads that are already dead */
     added = __kmp_reclaim_dead_roots();
@@ -5060,6 +5058,7 @@ __kmp_allocate_team( kmp_root_t *root, int new_nproc, int max_nproc,
                 for (f=0;  f < team->t.t_nproc; ++f) {
                     __kmp_initialize_info( team->t.t_threads[ f ], team, f, __kmp_gtid_from_tid( f, team ) );
                     team->t.t_threads[f]->th.th_task_state = old_state;
+                    team->t.t_threads[f]->th.th_task_team = team->t.t_task_team[old_state];
                 }
             }
 
@@ -5610,10 +5609,10 @@ __kmp_internal_end_dest( void *specific_gtid )
     __kmp_internal_end_thread( gtid );
 }
 
-#if KMP_OS_UNIX && GUIDEDLL_EXPORTS
+#if KMP_OS_UNIX && KMP_DYNAMIC_LIB
 
 // 2009-09-08 (lev): It looks the destructor does not work. In simple test cases destructors work
-// perfectly, but in real libiomp5.so I have no evidence it is ever called. However, -fini linker
+// perfectly, but in real libomp.so I have no evidence it is ever called. However, -fini linker
 // option in makefile.mk works fine.
 
 __attribute__(( destructor ))
@@ -6071,7 +6070,7 @@ __kmp_internal_end_thread( int gtid_req )
             return;
         }
     }
-    #if defined GUIDEDLL_EXPORTS
+    #if defined KMP_DYNAMIC_LIB
     // AC: lets not shutdown the Linux* OS dynamic library at the exit of uber thread,
     //     because we will better shutdown later in the library destructor.
     //     The reason of this change is performance problem when non-openmp thread
@@ -6518,7 +6517,7 @@ __kmp_do_serial_initialize( void )
         __kmp_register_atfork();
     #endif
 
-    #if ! defined GUIDEDLL_EXPORTS
+    #if ! defined KMP_DYNAMIC_LIB
         {
             /* Invoke the exit handler when the program finishes, only for static library.
                For dynamic library, we already have _fini and DllMain.
@@ -6625,7 +6624,7 @@ __kmp_do_middle_initialize( void )
 
     // If there were empty places in num_threads list (OMP_NUM_THREADS=,,2,3), correct them now
     j = 0;
-    while ( __kmp_nested_nth.used && ! __kmp_nested_nth.nth[ j ] ) {
+    while ( ( j < __kmp_nested_nth.used ) && ! __kmp_nested_nth.nth[ j ] ) {
         __kmp_nested_nth.nth[ j ] = __kmp_dflt_team_nth = __kmp_dflt_team_nth_ub = __kmp_avail_proc;
         j++;
     }

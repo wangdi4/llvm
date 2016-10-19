@@ -835,7 +835,7 @@ __kmp_runtime_initialize( void )
         return;
     };
 
-#if GUIDEDLL_EXPORTS
+#if KMP_DYNAMIC_LIB
     /* Pin dynamic library for the lifetime of application */
     {
         // First, turn off error message boxes
@@ -863,7 +863,7 @@ __kmp_runtime_initialize( void )
     #endif /* KMP_ARCH_X86 || KMP_ARCH_X86_64 */
 
     /* Set up minimum number of threads to switch to TLS gtid */
-    #if KMP_OS_WINDOWS && ! defined GUIDEDLL_EXPORTS
+    #if KMP_OS_WINDOWS && ! defined KMP_DYNAMIC_LIB
         // Windows* OS, static library.
         /*
             New thread may use stack space previously used by another thread, currently terminated.
@@ -874,7 +874,7 @@ __kmp_runtime_initialize( void )
             foreign tread.
 
             Setting __kmp_tls_gtid_min to 0 workarounds this problem: __kmp_get_global_thread_id()
-            does not search through stacks, but get gtid from TLS immediatelly.
+            does not search through stacks, but get gtid from TLS immediately.
 
             --ln
         */
