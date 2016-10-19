@@ -403,13 +403,13 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
 
     bool SCCLiveInProcessed = false;
     // This call sets SCC's root node as the base temp.
-    unsigned Symbase = getOrAssignScalarSymbase(SCCIt->Root, *RegIt);
+    unsigned Symbase = getOrAssignScalarSymbase(SCCIt->getRoot(), *RegIt);
 
     // Traverse SCC instructions
-    for (auto SCCInstIt = SCCIt->Nodes.begin(), EndIt = SCCIt->Nodes.end();
+    for (auto SCCInstIt = SCCIt->begin(), EndIt = SCCIt->end();
          SCCInstIt != EndIt; ++SCCInstIt) {
 
-      if ((*SCCInstIt) != SCCIt->Root) {
+      if ((*SCCInstIt) != SCCIt->getRoot()) {
         // Assign same symbase to all instructions in the SCC.
         insertTempSymbase(*SCCInstIt, Symbase);
         populateLoopSCCPhiLiveouts(*SCCInstIt, Symbase);

@@ -335,17 +335,18 @@ HIRSCCFormation::getLastSucc(NodeTy *Node) const {
   return Node->user_end();
 }
 
-bool HIRSCCFormation::removedIntermediateNodes(SCCTy &CurSCC) const {
+bool HIRSCCFormation::removedIntermediateNodes(SCC &CurSCC) const {
 
+  auto NodeCount = CurSCC.size();
   SmallVector<NodeTy *, 8> IntermediateNodes;
-  auto NodeCount = CurSCC.Nodes.size();
 
-  Type *RootTy = CurSCC.Root->getType();
+  Type *RootTy = CurSCC.getRoot()->getType();
   bool IsSCEVable = SE->isSCEVable(RootTy);
 
-  for (auto Node : CurSCC.Nodes) {
+  // Collect all the intermediate nodes of the SCC for removal afterwards.
+  for (auto Node : CurSCC) {
 
-    if ((NodeCount > 2) && hasMultipleNonPhiSCCUses(Node, CurSCC.Nodes)) {
+    if ((NodeCount > 2) && hasMultipleNonPhiSCCUses(Node, CurSCC)) {
       return false;
     }
 
@@ -358,10 +359,11 @@ bool HIRSCCFormation::removedIntermediateNodes(SCCTy &CurSCC) const {
              "Unexpected SCC node!");
       IntermediateNodes.push_back(Node);
       continue;
-      // Liveout copies added by SSA deconstruction should be removed as
-      // intermediate nodes.
+
     } else if (SE->getHIRMetadata(Node,
                                   ScalarEvolution::HIRLiveKind::LiveOut)) {
+      // Liveout copies added by SSA deconstruction should be removed as
+      // intermediate nodes.
       IntermediateNodes.push_back(Node);
       continue;
     }
@@ -373,7 +375,7 @@ bool HIRSCCFormation::removedIntermediateNodes(SCCTy &CurSCC) const {
          ++UserIt) {
       auto UserNode = cast<NodeTy>(*UserIt);
 
-      if (CurSCC.Nodes.count(UserNode)) {
+      if (CurSCC.contains(UserNode)) {
         if (isa<PHINode>(UserNode)) {
           IsIntermediateNode = false;
           break;
@@ -390,8 +392,10 @@ bool HIRSCCFormation::removedIntermediateNodes(SCCTy &CurSCC) const {
     }
   }
 
-  for (auto &I : IntermediateNodes) {
-    CurSCC.Nodes.erase(I);
+  for (auto InterNode : IntermediateNodes) {
+    auto NodeIt = std::find(CurSCC.begin(), CurSCC.end(), InterNode);
+    assert((NodeIt != CurSCC.end()) && "SCC node not found!"); 
+    CurSCC.remove(NodeIt);
   }
 
   return true;
@@ -424,7 +428,7 @@ void HIRSCCFormation::setRegion(HIRRegionIdentification::const_iterator RegIt) {
   isNewRegion = true;
 }
 
-bool HIRSCCFormation::isUsedInSCCPhi(PHINode *Phi, const SCCNodesTy &Nodes) {
+bool HIRSCCFormation::isUsedInSCCPhi(PHINode *Phi, const SCC &CurSCC) {
   bool UsedInPhi = false;
 
   for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
@@ -434,7 +438,7 @@ bool HIRSCCFormation::isUsedInSCCPhi(PHINode *Phi, const SCCNodesTy &Nodes) {
       continue;
     }
 
-    if (Nodes.count(UserPhi)) {
+    if (CurSCC.contains(UserPhi)) {
       UsedInPhi = true;
       break;
     }
@@ -463,10 +467,10 @@ bool HIRSCCFormation::isRegionLiveOut(
   return false;
 }
 
-bool HIRSCCFormation::isProfitableSCC(const SCCNodesTy &Nodes) const {
+bool HIRSCCFormation::isProfitableSCC(const SCC &CurSCC) const {
   bool LiveoutValueFound = false;
 
-  for (auto const &Inst : Nodes) {
+  for (auto const &Inst : CurSCC) {
 
     if (isRegionLiveOut(CurRegIt, Inst)) {
       // We skip SCC formation if multiple values are live outside the region.
@@ -493,7 +497,7 @@ bool HIRSCCFormation::isCmpAndSelectPattern(Instruction *Inst1,
 
   if (!isa<CmpInst>(CInst)) {
     std::swap(CInst, SelInst);
-  } 
+  }
 
   if (!isa<CmpInst>(CInst) || !isa<SelectInst>(SelInst)) {
     return false;
@@ -503,7 +507,7 @@ bool HIRSCCFormation::isCmpAndSelectPattern(Instruction *Inst1,
 }
 
 bool HIRSCCFormation::hasMultipleNonPhiSCCUses(NodeTy *Node,
-                                               const SCCNodesTy &Nodes) const {
+                                               const SCC &CurSCC) const {
   NodeTy *SCCUserNode = nullptr;
 
   // Use in multiple non-phi nodes can lead to live-range issues which SSA
@@ -522,10 +526,10 @@ bool HIRSCCFormation::hasMultipleNonPhiSCCUses(NodeTy *Node,
     // After deconstruction the uses will be substituted by the liveout copy so
     // check its uses.
     if (SE->getHIRMetadata(UserNode, ScalarEvolution::HIRLiveKind::LiveOut)) {
-      return hasMultipleNonPhiSCCUses(UserNode, Nodes);
+      return hasMultipleNonPhiSCCUses(UserNode, CurSCC);
     }
 
-    if (Nodes.count(UserNode)) {
+    if (CurSCC.contains(UserNode)) {
       if (SCCUserNode && (SCCUserNode != UserNode) &&
           // Used to identify min/max reductions.
           !isCmpAndSelectPattern(SCCUserNode, UserNode)) {
@@ -538,11 +542,11 @@ bool HIRSCCFormation::hasMultipleNonPhiSCCUses(NodeTy *Node,
   return false;
 }
 
-bool HIRSCCFormation::isValidSCC(const SCCTy &CurSCC) const {
+bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
   SmallPtrSet<BasicBlock *, 12> BBlocks;
-  Type *RootTy = CurSCC.Root->getType();
+  Type *RootTy = CurSCC.getRoot()->getType();
 
-  for (auto Node : CurSCC.Nodes) {
+  for (auto Node : CurSCC) {
     auto Phi = dyn_cast<PHINode>(Node);
 
     if (!Phi) {
@@ -591,7 +595,7 @@ bool HIRSCCFormation::isValidSCC(const SCCTy &CurSCC) const {
       continue;
     }
 
-    if (!isUsedInSCCPhi(Phi, CurSCC.Nodes)) {
+    if (!isUsedInSCCPhi(Phi, CurSCC)) {
       return false;
     }
   }
@@ -599,7 +603,7 @@ bool HIRSCCFormation::isValidSCC(const SCCTy &CurSCC) const {
   return true;
 }
 
-void HIRSCCFormation::updateRoot(SCCTy &SCC, NodeTy *NewRoot) const {
+void HIRSCCFormation::updateRoot(SCC &CurSCC, NodeTy *NewRoot) const {
 
   if (!isa<PHINode>(NewRoot)) {
     return;
@@ -607,8 +611,8 @@ void HIRSCCFormation::updateRoot(SCCTy &SCC, NodeTy *NewRoot) const {
 
   // Update blindly if NewRoot is a phi and old root is not. This avoids loop
   // lookup for single phi SCCs.
-  if (!isa<PHINode>(SCC.Root)) {
-    SCC.Root = NewRoot;
+  if (!isa<PHINode>(CurSCC.getRoot())) {
+    CurSCC.setRoot(NewRoot);
     return;
   }
 
@@ -620,11 +624,11 @@ void HIRSCCFormation::updateRoot(SCCTy &SCC, NodeTy *NewRoot) const {
     return;
   }
 
-  auto OldLp = LI->getLoopFor(SCC.Root->getParent());
+  auto OldLp = LI->getLoopFor(CurSCC.getRoot()->getParent());
 
   // If new loop contains old loop, we have found an outer loop header phi.
   if (NewLp->contains(OldLp)) {
-    SCC.Root = NewRoot;
+    CurSCC.setRoot(NewRoot);
   }
 }
 
@@ -672,14 +676,13 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
       VisitedNodes[Node] = 0;
     } else {
       // Create new SCC.
-      SCCTy NewSCC(Node);
-      auto &NewSCCNodes = NewSCC.Nodes;
+      SCC NewSCC(Node);
       NodeTy *SCCNode;
 
       // Insert Nodes in new SCC.
       do {
         SCCNode = NodeStack.pop_back_val();
-        NewSCCNodes.insert(SCCNode);
+        NewSCC.add(SCCNode);
 
         updateRoot(NewSCC, SCCNode);
 
@@ -687,12 +690,12 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
 
-      assert(isa<PHINode>(NewSCC.Root) &&
-             RI->isHeaderPhi(cast<PHINode>(NewSCC.Root)) &&
+      assert(isa<PHINode>(NewSCC.getRoot()) &&
+             RI->isHeaderPhi(cast<PHINode>(NewSCC.getRoot())) &&
              "No phi found in SCC!");
 
       if (removedIntermediateNodes(NewSCC) && isValidSCC(NewSCC) &&
-          isProfitableSCC(NewSCCNodes)) {
+          isProfitableSCC(NewSCC)) {
         // Add new SCC to the list.
         RegionSCCs.push_back(std::move(NewSCC));
 
@@ -824,9 +827,9 @@ void HIRSCCFormation::print(
     }
 
     OS << "\n   SCC" << Count << ": ";
-    for (auto InstI = SCCIt->Nodes.begin(), InstE = SCCIt->Nodes.end();
-         InstI != InstE; ++InstI) {
-      if (InstI != SCCIt->Nodes.begin()) {
+    for (auto InstI = SCCIt->begin(), InstE = SCCIt->end(); InstI != InstE;
+         ++InstI) {
+      if (InstI != SCCIt->begin()) {
         OS << " -> ";
       }
       (*InstI)->printAsOperand(OS, false);

@@ -19,7 +19,6 @@
 
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
 
 namespace llvm {
 

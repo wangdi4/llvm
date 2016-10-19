@@ -28,11 +28,13 @@ using namespace llvm::loopopt;
 IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs)
     : EntryBBlock(EntryBB), ExitBBlock(nullptr), BBlocks(BBs) {
   assert(EntryBB && "Entry basic block cannot be null!");
+  BBlocksSet.insert(BBs.begin(), BBs.end());
 }
 
 IRRegion::IRRegion(IRRegion &&Reg)
     : EntryBBlock(Reg.EntryBBlock), ExitBBlock(Reg.ExitBBlock),
-      BBlocks(std::move(Reg.BBlocks)), LiveInSet(std::move(Reg.LiveInSet)),
+      BBlocks(std::move(Reg.BBlocks)), BBlocksSet(std::move(Reg.BBlocksSet)),
+      LiveInSet(std::move(Reg.LiveInSet)),
       LiveOutSet(std::move(Reg.LiveOutSet)) {}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -91,12 +93,12 @@ BasicBlock *IRRegion::getPredBBlock() const {
 
   /// In some cases the entry bblock is also the loop header, so the predecessor
   /// can be the loop latch. We need to skip it, if that is the case.
-  if (BBlocks.count(*PredI)) {
+  if (containsBBlock(*PredI)) {
     PredI++;
     auto TempPredI = PredI;
 
     (void)TempPredI;
-    assert(!BBlocks.count(*PredI) &&
+    assert(!containsBBlock(*PredI) &&
            "Both region predecessors lie inside the reigon!");
     assert((++TempPredI == pred_end(EntryBBlock)) &&
            "Region has more than two predecessors!");
@@ -115,12 +117,12 @@ BasicBlock *IRRegion::getSuccBBlock() const {
 
   /// In some cases the exit bblock is also the loop latch, so the successor
   /// can be the loop header. We need to skip it, if that is the case.
-  if (BBlocks.count(*SuccI)) {
+  if (containsBBlock(*SuccI)) {
     SuccI++;
     auto TempSuccI = SuccI;
 
     (void)TempSuccI;
-    assert(!BBlocks.count(*SuccI) &&
+    assert(!containsBBlock(*SuccI) &&
            "Both region successors lie inside the reigon!");
     assert((++TempSuccI == succ_end(ExitBBlock)) &&
            "Region has more than two successors!");

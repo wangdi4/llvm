@@ -615,7 +615,7 @@ void HIRRegionIdentification::addBBlocks(
     IRRegion::RegionBBlocksTy &RegBBlocks) const {
 
   for (auto TempBB = BeginBB;; TempBB = TempBB->getSingleSuccessor()) {
-    RegBBlocks.insert(TempBB);
+    RegBBlocks.push_back(TempBB);
 
     if (TempBB == EndBB) {
       break;

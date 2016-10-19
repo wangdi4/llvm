@@ -18,7 +18,6 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_SCCFORMATION_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Pass.h"
 
@@ -44,21 +43,39 @@ namespace loopopt {
 class HIRSCCFormation : public FunctionPass {
 public:
   typedef Instruction NodeTy;
-  typedef SmallPtrSet<NodeTy *, 8> SCCNodesTy;
+  typedef SmallVector<NodeTy *, 8> SCCNodesTy;
 
   struct SCC {
+  private:
     // Outermost loop's header phi is set as the root.
     NodeTy *Root;
     SCCNodesTy Nodes;
 
+  public:
     SCC(NodeTy *R) : Root(R) {}
+
+    NodeTy *getRoot() const { return Root; }
+    void setRoot(NodeTy *NewRoot) { Root = NewRoot; }
+
+    unsigned size() const { return Nodes.size(); }
+
+    void add(NodeTy *Node) { Nodes.push_back(Node); }
+    void remove(SCCNodesTy::const_iterator It) { Nodes.erase(It); }
+
+    bool contains(NodeTy *Node) const {
+      return (std::find(Nodes.begin(), Nodes.end(), Node) != Nodes.end());
+    }
+
+    SCCNodesTy::iterator begin() { return Nodes.begin(); }
+    SCCNodesTy::const_iterator begin() const { return Nodes.begin(); }
+
+    SCCNodesTy::iterator end() { return Nodes.end(); }
+    SCCNodesTy::const_iterator end() const { return Nodes.end(); }
   };
 
-  typedef struct SCC SCCTy;
-
-  typedef SmallVector<SCCTy, 32> RegionSCCTy;
+  typedef SmallVector<SCC, 32> RegionSCC;
   /// Iterators to iterate over regions
-  typedef RegionSCCTy::const_iterator const_iterator;
+  typedef RegionSCC::const_iterator const_iterator;
 
   /// Vector of pair of begin/end indices into RegionSCCs vector.
   typedef SmallVector<std::pair<int, int>, 16> RegionSCCBeginTy;
@@ -77,7 +94,7 @@ private:
   const HIRRegionIdentification *RI;
 
   /// RegionSCCs - Vector of SCCs identified by this pass.
-  RegionSCCTy RegionSCCs;
+  RegionSCC RegionSCCs;
 
   /// RegionSCCBegin - Vector of indices pointing to first SCC of regions in
   /// RegionSCCs. If there are no SCCs for the region, index is set to NO_SCC.
@@ -142,7 +159,7 @@ private:
   /// \brief Removes non-phi nodes which are not directly connected to phi nodes
   /// in the SCC.
   /// Returns false if intermediate nodes cannot be removed (invalid SCC).
-  bool removedIntermediateNodes(SCCTy &CurSCC) const;
+  bool removedIntermediateNodes(SCC &CurSCC) const;
 
   /// \brief Sets the RegionSCCBegin iterator for a new region.
   void setRegionSCCBegin();
@@ -154,7 +171,7 @@ private:
   void setRegion(HIRRegionIdentification::const_iterator RegIt);
 
   /// \brief Returns true if forming this SCC results in a cleaner HIR.
-  bool isProfitableSCC(const SCCNodesTy &Nodes) const;
+  bool isProfitableSCC(const SCC &CurSCC) const;
 
   /// Returns true if one of \p Inst1 and \p Inst2 is a CmpInst and the other is
   /// a SelectInst and CmpInst's only use is in the SelectInst. This is used to
@@ -162,18 +179,18 @@ private:
   static bool isCmpAndSelectPattern(Instruction *Inst1, Instruction *Inst2);
 
   /// Returns true if Node has multiple non-phi uses in the SCC.
-  bool hasMultipleNonPhiSCCUses(NodeTy *Node, const SCCNodesTy &Nodes) const;
+  bool hasMultipleNonPhiSCCUses(NodeTy *Node, const SCC &CurSCC) const;
 
   /// \brief Checks the validity of an SCC w.r.t assigning the same symbase to
   /// all its nodes.
-  bool isValidSCC(const SCCTy &CurSCC) const;
+  bool isValidSCC(const SCC &CurSCC) const;
 
   /// \brief Checks that Phi is used in another phi in the SCC.
-  static bool isUsedInSCCPhi(PHINode *Phi, const SCCNodesTy &NewSCC);
+  static bool isUsedInSCCPhi(PHINode *Phi, const SCC &CurSCC);
 
   /// Used to set the outermost loop header phi amongst the nodes as the root
   /// node.
-  void updateRoot(SCCTy &SCC, NodeTy *NewRoot) const;
+  void updateRoot(SCC &CurSCC, NodeTy *NewRoot) const;
 
   /// \brief Runs Tarjan's algorithm on this node. Returns the lowlink for this
   /// node.

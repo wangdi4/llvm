@@ -19,8 +19,7 @@
 #include <iterator>
 #include <set>
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallVector.h"
 
 namespace llvm {
@@ -37,7 +36,8 @@ namespace loopopt {
 /// of basic blocks (including the entry basic block).
 class IRRegion {
 public:
-  typedef SmallPtrSet<const BasicBlock *, 32> RegionBBlocksTy;
+  typedef DenseSet<const BasicBlock *> RegionBBlocksSetTy;
+  typedef SmallVector<const BasicBlock *, 32> RegionBBlocksTy;
   typedef SmallDenseMap<unsigned, const Value *, 16> LiveInSetTy;
   typedef LiveInSetTy LiveOutSetTy;
 
@@ -56,7 +56,11 @@ protected:
 private:
   BasicBlock *EntryBBlock;
   BasicBlock *ExitBBlock;
+  // SmallVector of bblocks is used for deterministic iteration.
   RegionBBlocksTy BBlocks;
+  // DenseSet of bblocks is used for faster query results to containsBBlock().
+  RegionBBlocksSetTy BBlocksSet;
+
   // Set of (symbase - initial value) pairs which need to be materialized into
   // a store during HIRCG.
   LiveInSetTy LiveInSet;
@@ -94,9 +98,14 @@ public:
   BasicBlock *getSuccBBlock() const;
 
   /// \brief Returns true if this region contains BB.
-  bool containsBBlock(const BasicBlock *BB) const { return BBlocks.count(BB); }
+  bool containsBBlock(const BasicBlock *BB) const {
+    return BBlocksSet.count(BB);
+  }
 
-  void addBBlock(const BasicBlock *BB) { BBlocks.insert(BB); }
+  void addBBlock(const BasicBlock *BB) {
+    BBlocks.push_back(BB);
+    BBlocksSet.insert(BB);
+  }
 
   /// \brief Adds a live-in temp (represented using Symbase) with initial value
   /// InitVal to the region.
