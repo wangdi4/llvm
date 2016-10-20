@@ -30,7 +30,7 @@ LPUSubtarget &LPUSubtarget::initializeSubtargetDependencies(StringRef CPU, Strin
   return *this;
 }
 
-LPUSubtarget::LPUSubtarget(const std::string &TT, const std::string &CPU,
+LPUSubtarget::LPUSubtarget(const Triple &TT, const std::string &CPU,
                                  const std::string &FS, const TargetMachine &TM)
     : LPUGenSubtargetInfo(TT, CPU, FS),
       FrameLowering(),

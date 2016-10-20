@@ -84,7 +84,7 @@ public:
   /// This constructor initializes the data members to match that
   /// of the specified triple.
   ///
-  LPUSubtarget(const std::string &TT, const std::string &CPU,
+  LPUSubtarget(const Triple &TT, const std::string &CPU,
                   const std::string &FS, const TargetMachine &TM);
 
   LPUSubtarget &initializeSubtargetDependencies(StringRef CPU, StringRef FS);

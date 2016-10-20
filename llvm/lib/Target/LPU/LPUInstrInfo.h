@@ -132,7 +132,7 @@ public:
 
   unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB,
-                        const SmallVectorImpl<MachineOperand> &Cond,
+                        ArrayRef<MachineOperand> Cond,
                         DebugLoc DL) const override;
 
   // Convert opcode of LD/ST into a corresponding opcode for OLD/OST.

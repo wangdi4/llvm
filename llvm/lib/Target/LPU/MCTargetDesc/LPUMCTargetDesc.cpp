@@ -52,7 +52,7 @@ static MCRegisterInfo *createLPUMCRegisterInfo(StringRef TT) {
   return X;
 }
 
-static MCSubtargetInfo *createLPUMCSubtargetInfo(StringRef TT, StringRef CPU,
+static MCSubtargetInfo *createLPUMCSubtargetInfo(const Triple &TT, StringRef CPU,
                                                     StringRef FS) {
   MCSubtargetInfo *X = new MCSubtargetInfo();
   InitLPUMCSubtargetInfo(X, TT, CPU, FS);
