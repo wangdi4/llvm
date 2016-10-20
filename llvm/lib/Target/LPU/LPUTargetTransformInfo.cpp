@@ -26,7 +26,7 @@ bool LPUTTIImpl::isLegalICmpImmediate(int64_t imm) const {
 
 bool LPUTTIImpl::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
                                      int64_t BaseOffset, bool HasBaseReg,
-                                     int64_t Scale) const {
+                                     int64_t Scale, unsigned AddressSpace) const {
   TargetLoweringBase::AddrMode AM;
   AM.BaseGV = BaseGV;
   AM.BaseOffs = BaseOffset;
@@ -37,7 +37,7 @@ bool LPUTTIImpl::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
 
 int LPUTTIImpl::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                    int64_t BaseOffset, bool HasBaseReg,
-                                   int64_t Scale) const {
+                                   int64_t Scale, unsigned AddressSpace) const {
   TargetLoweringBase::AddrMode AM;
   AM.BaseGV = BaseGV;
   AM.BaseOffs = BaseOffset;

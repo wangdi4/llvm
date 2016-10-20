@@ -49,17 +49,11 @@ bool link(int Argc, const char *Argv[]) {
   return Driver->link(Argc, Argv);
 }
 
-static std::string getOutputPath(llvm::opt::InputArgList *Args) {
-  if (auto *Arg = Args->getLastArg(OPT_out))
-    return Arg->getValue();
-  for (auto *Arg : Args->filtered(OPT_INPUT)) {
-    if (!StringRef(Arg->getValue()).endswith_lower(".obj"))
-      continue;
-    SmallString<128> Val = StringRef(Arg->getValue());
-    llvm::sys::path::replace_extension(Val, ".exe");
-    return Val.str();
-  }
-  llvm_unreachable("internal error");
+// Drop directory components and replace extension with ".exe".
+static std::string getOutputPath(StringRef Path) {
+  auto P = Path.find_last_of("\\/");
+  StringRef S = (P == StringRef::npos) ? Path : Path.substr(P + 1);
+  return (S.substr(0, S.rfind('.')) + ".exe").str();
 }
 
 // Opens a file. Path has to be resolved already.
@@ -78,18 +72,9 @@ ErrorOr<std::unique_ptr<InputFile>> LinkerDriver::openFile(StringRef Path) {
     return std::unique_ptr<InputFile>(new ArchiveFile(MBRef));
   if (Magic == file_magic::bitcode)
     return std::unique_ptr<InputFile>(new BitcodeFile(MBRef));
+  if (Config->OutputFile == "")
+    Config->OutputFile = getOutputPath(Path);
   return std::unique_ptr<InputFile>(new ObjectFile(MBRef));
-}
-
-namespace {
-class BumpPtrStringSaver : public llvm::cl::StringSaver {
-public:
-  BumpPtrStringSaver(lld::coff::StringAllocator *A) : Alloc(A) {}
-  const char *SaveString(const char *S) override {
-    return Alloc->save(S).data();
-  }
-  lld::coff::StringAllocator *Alloc;
-};
 }
 
 // Parses .drectve section contents and returns a list of files
@@ -97,15 +82,7 @@ public:
 std::error_code
 LinkerDriver::parseDirectives(StringRef S,
                               std::vector<std::unique_ptr<InputFile>> *Res) {
-  SmallVector<const char *, 16> Tokens;
-  Tokens.push_back("link"); // argv[0] value. Will be ignored.
-  BumpPtrStringSaver Saver(&Alloc);
-  llvm::cl::TokenizeWindowsCommandLine(S, Saver, Tokens);
-  Tokens.push_back(nullptr);
-  int Argc = Tokens.size() - 1;
-  const char **Argv = &Tokens[0];
-
-  auto ArgsOrErr = parseArgs(Argc, Argv);
+  auto ArgsOrErr = Parser.parse(S);
   if (auto EC = ArgsOrErr.getError())
     return EC;
   std::unique_ptr<llvm::opt::InputArgList> Args = std::move(ArgsOrErr.get());
@@ -185,7 +162,8 @@ Optional<StringRef> LinkerDriver::findLib(StringRef Filename) {
 // Parses LIB environment which contains a list of search paths.
 std::vector<StringRef> LinkerDriver::getSearchPaths() {
   std::vector<StringRef> Ret;
-  Ret.push_back(".");
+  // Add current directory as first item of the search paths.
+  Ret.push_back("");
   Optional<std::string> EnvOpt = Process::GetEnv("LIB");
   if (!EnvOpt.hasValue())
     return Ret;
@@ -208,7 +186,7 @@ bool LinkerDriver::link(int Argc, const char *Argv[]) {
   llvm::InitializeAllDisassemblers();
 
   // Parse command line options.
-  auto ArgsOrErr = parseArgs(Argc, Argv);
+  auto ArgsOrErr = Parser.parse(Argc, Argv);
   if (auto EC = ArgsOrErr.getError()) {
     llvm::errs() << EC.message() << "\n";
     return false;
@@ -225,6 +203,10 @@ bool LinkerDriver::link(int Argc, const char *Argv[]) {
     llvm::errs() << "no input files.\n";
     return false;
   }
+
+  // Handle /out
+  if (auto *Arg = Args->getLastArg(OPT_out))
+    Config->OutputFile = Arg->getValue();
 
   // Handle /verbose
   if (Args->hasArg(OPT_verbose))
@@ -302,6 +284,21 @@ bool LinkerDriver::link(int Argc, const char *Argv[]) {
     }
   }
 
+  // Handle /opt
+  for (auto *Arg : Args->filtered(OPT_opt)) {
+    std::string S = StringRef(Arg->getValue()).lower();
+    if (S == "noref") {
+      Config->DoGC = false;
+      continue;
+    }
+    if (S != "ref" && S != "icf" && S != "noicf" &&
+        S != "lbr" && S != "nolbr" &&
+        !StringRef(S).startswith("icf=")) {
+      llvm::errs() << "/opt: unknown option: " << S << "\n";
+      return false;
+    }
+  }
+
   // Handle /failifmismatch
   if (auto EC = checkFailIfMismatch(Args.get())) {
     llvm::errs() << "/failifmismatch: " << EC.message() << "\n";
@@ -338,6 +335,8 @@ bool LinkerDriver::link(int Argc, const char *Argv[]) {
       return false;
     }
     std::unique_ptr<InputFile> File = std::move(FileOrErr.get());
+    if (Config->Verbose)
+      llvm::outs() << "Reading " << File->getName() << "\n";
     if (auto EC = Symtab.addFile(std::move(File))) {
       llvm::errs() << Path << ": " << EC.message() << "\n";
       return false;
@@ -390,10 +389,6 @@ bool LinkerDriver::link(int Argc, const char *Argv[]) {
     return false;
   }
 
-  // /include option takes precedence over garbage collection.
-  for (auto *Arg : Args->filtered(OPT_incl))
-    Symtab.find(Arg->getValue())->markLive();
-
   // Windows specific -- if no /subsystem is given, we need to infer
   // that from entry point name.
   if (Config->Subsystem == IMAGE_SUBSYSTEM_UNKNOWN) {
@@ -412,7 +407,7 @@ bool LinkerDriver::link(int Argc, const char *Argv[]) {
 
   // Write the result.
   Writer Out(&Symtab);
-  if (auto EC = Out.write(getOutputPath(Args.get()))) {
+  if (auto EC = Out.write(Config->OutputFile)) {
     llvm::errs() << EC.message() << "\n";
     return false;
   }

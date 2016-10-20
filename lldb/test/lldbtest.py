@@ -329,7 +329,7 @@ class _RemoteProcess(_BaseProcess):
     def launch(self, executable, args):
         if self._install_remote:
             src_path = executable
-            dst_path = lldbutil.append_to_remote_wd(os.path.basename(executable))
+            dst_path = lldbutil.append_to_process_working_directory(os.path.basename(executable))
 
             dst_file_spec = lldb.SBFileSpec(dst_path, False)
             err = lldb.remote_platform.Install(lldb.SBFileSpec(src_path, True), dst_file_spec)
@@ -444,18 +444,20 @@ def run_adb_command(cmd, device_id):
     return p.returncode, stdout, stderr
 
 def android_device_api():
+    assert lldb.platform_url is not None
     device_id = None
-    if lldb.platform_url:
-        parsed = urlparse.urlparse(lldb.platform_url)
-        if parsed.scheme == "adb":
-            device_id = parsed.hostname
+    parsed_url = urlparse.urlparse(lldb.platform_url)
+    if parsed_url.scheme == "adb":
+        device_id = parsed_url.netloc.split(":")[0]
     retcode, stdout, stderr = run_adb_command(
         ["shell", "getprop", "ro.build.version.sdk"], device_id)
     if retcode == 0:
         return int(stdout)
     else:
         raise LookupError(
-            "Unable to determine the API level of the Android device.")
+            ">>> Unable to determine the API level of the Android device.\n"
+            ">>> stdout:\n%s\n"
+            ">>> stderr:\n%s\n" % (stdout, stderr))
 
 #
 # Decorators for categorizing test cases.
@@ -776,6 +778,10 @@ def skipIfWindows(func):
     """Decorate the item to skip tests that should be skipped on Windows."""
     return skipIfPlatform(["windows"])(func)
 
+def skipIfHostWindows(func):
+    """Decorate the item to skip tests that should be skipped on Windows."""
+    return skipIfHostPlatform(["windows"])(func)
+
 def skipUnlessDarwin(func):
     """Decorate the item to skip tests that should be skipped on any non Darwin platform."""
     return skipUnlessPlatform(getDarwinOSTriples())(func)
@@ -824,6 +830,16 @@ def skipIfHostIncompatibleWithRemote(func):
         else:
             func(*args, **kwargs)
     return wrapper
+
+def skipIfHostPlatform(oslist):
+    """Decorate the item to skip tests if running on one of the listed host platforms."""
+    return unittest2.skipIf(getHostPlatform() in oslist,
+                            "skip on %s" % (", ".join(oslist)))
+
+def skipUnlessHostPlatform(oslist):
+    """Decorate the item to skip tests unless running on one of the listed host platforms."""
+    return unittest2.skipUnless(getHostPlatform() in oslist,
+                                "requires on of %s" % (", ".join(oslist)))
 
 def skipIfPlatform(oslist):
     """Decorate the item to skip tests if running on one of the listed platforms."""
@@ -928,20 +944,33 @@ def skipIfi386(func):
             func(*args, **kwargs)
     return wrapper
 
-def skipIfTargetAndroid(func):
-    """Decorate the item to skip tests that should be skipped when the target is Android."""
-    if isinstance(func, type) and issubclass(func, unittest2.TestCase):
-        raise Exception("@skipIfTargetAndroid can only be used to decorate a test method")
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        from unittest2 import case
-        self = args[0]
-        triple = self.dbg.GetSelectedPlatform().GetTriple()
-        if re.match(".*-.*-.*-android", triple):
-            self.skipTest("skip on Android target")
-        else:
+def skipIfTargetAndroid(api_levels=None):
+    """Decorator to skip tests when the target is Android.
+
+    Arguments:
+        api_levels - The API levels for which the test should be skipped. If
+            it is None, then the test will be skipped for all API levels.
+    """
+    def myImpl(func):
+        if isinstance(func, type) and issubclass(func, unittest2.TestCase):
+            raise Exception("@skipIfTargetAndroid can only be used to "
+                            "decorate a test method")
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            from unittest2 import case
+            self = args[0]
+            triple = self.dbg.GetSelectedPlatform().GetTriple()
+            if re.match(".*-.*-.*-android", triple):
+                if api_levels:
+                    device_api = android_device_api()
+                    if device_api and (device_api in api_levels):
+                        self.skipTest(
+                            "skip on Android target with API %d" % device_api)
+                else:
+                    self.skipTest("skip on Android target")
             func(*args, **kwargs)
-    return wrapper
+        return wrapper
+    return myImpl
 
 def skipUnlessCompilerRt(func):
     """Decorate the item to skip tests if testing remotely."""
@@ -2181,7 +2210,7 @@ class TestBase(Base):
             if lldb.remote_platform:
                 # We must set the remote install location if we want the shared library
                 # to get uploaded to the remote target
-                remote_shlib_path = lldbutil.append_to_remote_wd(os.path.basename(local_shlib_path))
+                remote_shlib_path = lldbutil.append_to_process_working_directory(os.path.basename(local_shlib_path))
                 shlib_module.SetRemoteInstallFileSpec(lldb.SBFileSpec(remote_shlib_path, False))
 
         return environment

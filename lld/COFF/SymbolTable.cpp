@@ -40,6 +40,23 @@ std::error_code SymbolTable::addFile(std::unique_ptr<InputFile> File) {
   return addImport(cast<ImportFile>(FileP));
 }
 
+std::error_code SymbolTable::addDirectives(InputFile *File) {
+  StringRef S = File->getDirectives();
+  if (S.empty())
+    return std::error_code();
+  std::vector<std::unique_ptr<InputFile>> Libs;
+  if (auto EC = Driver->parseDirectives(S, &Libs))
+    return EC;
+  for (std::unique_ptr<InputFile> &Lib : Libs) {
+    if (Config->Verbose) {
+      llvm::outs() << "Reading " << Lib->getName()
+                   << " for " << File->getName() << "\n";
+    }
+    addFile(std::move(Lib));
+  }
+  return std::error_code();
+}
+
 std::error_code SymbolTable::addObject(ObjectFile *File) {
   ObjectFiles.emplace_back(File);
   for (SymbolBody *Body : File->getSymbols())
@@ -49,15 +66,7 @@ std::error_code SymbolTable::addObject(ObjectFile *File) {
 
   // If an object file contains .drectve section, read it and add
   // files listed in the section.
-  StringRef Dir = File->getDirectives();
-  if (!Dir.empty()) {
-    std::vector<std::unique_ptr<InputFile>> Libs;
-    if (auto EC = Driver->parseDirectives(Dir, &Libs))
-      return EC;
-    for (std::unique_ptr<InputFile> &Lib : Libs)
-      addFile(std::move(Lib));
-  }
-  return std::error_code();
+  return addDirectives(File);
 }
 
 std::error_code SymbolTable::addArchive(ArchiveFile *File) {
@@ -75,8 +84,8 @@ std::error_code SymbolTable::addBitcode(BitcodeFile *File) {
       if (auto EC = resolve(Body))
         return EC;
 
-  // TODO: Handle linker directives.
-  return std::error_code();
+  // Add any linker directives from the module flags metadata.
+  return addDirectives(File);
 }
 
 std::error_code SymbolTable::addImport(ImportFile *File) {
@@ -155,7 +164,7 @@ std::error_code SymbolTable::addMemberFile(Lazy *Body) {
   if (!File)
     return std::error_code();
   if (Config->Verbose)
-    llvm::dbgs() << "Loaded " << File->getShortName() << " for "
+    llvm::outs() << "Loaded " << File->getShortName() << " for "
                  << Body->getName() << "\n";
   return addFile(std::move(File));
 }
@@ -260,12 +269,18 @@ std::error_code SymbolTable::addCombinedLTOObject() {
     if (!Body->isExternal())
       continue;
 
-    // Find an existing Symbol. We should not see any new symbols at this point.
+    // Find an existing Symbol. We should not see any new undefined symbols at
+    // this point.
     StringRef Name = Body->getName();
-    Symbol *Sym = Symtab[Name];
+    Symbol *&Sym = Symtab[Name];
     if (!Sym) {
-      llvm::errs() << "LTO: unexpected new symbol: " << Name << '\n';
-      return make_error_code(LLDError::BrokenFile);
+      if (!isa<Defined>(Body)) {
+        llvm::errs() << "LTO: undefined symbol: " << Name << '\n';
+        return make_error_code(LLDError::BrokenFile);
+      }
+      Sym = new (Alloc) Symbol(Body);
+      Body->setBackref(Sym);
+      continue;
     }
     Body->setBackref(Sym);
 
@@ -277,7 +292,25 @@ std::error_code SymbolTable::addCombinedLTOObject() {
       }
       Sym->Body = Body;
     }
+
+    // We may see new references to runtime library symbols such as __chkstk
+    // here. These symbols must be wholly defined in non-bitcode files.
+    if (auto *B = dyn_cast<Lazy>(Sym->Body)) {
+      size_t NumBitcodeFiles = BitcodeFiles.size();
+      if (auto EC = addMemberFile(B))
+        return EC;
+      if (BitcodeFiles.size() != NumBitcodeFiles) {
+        llvm::errs()
+            << "LTO: late loaded symbol created new bitcode reference: " << Name
+            << "\n";
+        return make_error_code(LLDError::BrokenFile);
+      }
+    }
   }
+
+  // New runtime library symbol references may have created undefined references.
+  if (reportRemainingUndefines())
+    return make_error_code(LLDError::BrokenFile);
 
   return std::error_code();
 }

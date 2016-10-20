@@ -81,10 +81,10 @@ public:
   bool isLegalICmpImmediate(int64_t imm) const;
   bool isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
                              int64_t BaseOffset, bool HasBaseReg,
-                             int64_t Scale) const;
+                             int64_t Scale, unsigned AS = 0) const;
   int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                            int64_t BaseOffset, bool HasBaseReg,
-                           int64_t Scale) const;
+                           int64_t Scale, unsigned AS = 0) const;
   bool isTruncateFree(Type *Ty1, Type *Ty2) const;
   bool isTypeLegal(Type *Ty) const;
   unsigned getJumpBufAlignment() const;
