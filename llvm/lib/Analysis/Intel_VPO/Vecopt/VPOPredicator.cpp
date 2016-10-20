@@ -7,7 +7,7 @@
 //
 //   Source file:
 //   ------------
-//   VPOCFG.cpp -- Implements the AVR-level Control Flow Graph.
+//   VPOPredicator.cpp -- Implements the VPO Predication pass.
 //
 //===----------------------------------------------------------------------===//
 

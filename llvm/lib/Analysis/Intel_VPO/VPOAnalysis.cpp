@@ -9,7 +9,7 @@
 //
 //   Source file:
 //   ------------
-//   VPOVecoptAnalysis.cpp -- Vecopt Analysis Passes initializers.
+//   VPOAnalysis.cpp -- VPO Analysis Passes initializers.
 //
 //===----------------------------------------------------------------------===//
 

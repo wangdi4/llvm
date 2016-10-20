@@ -1,4 +1,4 @@
-//===-- VPODriver.h ---------------------------------------------*- C++ -*-===//
+//===-- VPOPredicator.h -----------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
