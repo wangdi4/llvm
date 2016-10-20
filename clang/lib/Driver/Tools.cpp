@@ -537,85 +537,13 @@ static void getARMHWDivFeatures(const Driver &D, const Arg *A,
 }
 
 // Handle -mfpu=.
-//
-// FIXME: Centralize feature selection, defaulting shouldn't be also in the
-// frontend target.
 static void getARMFPUFeatures(const Driver &D, const Arg *A,
                               const ArgList &Args,
                               std::vector<const char *> &Features) {
   StringRef FPU = A->getValue();
-
-  // FIXME: Why does "none" disable more than "invalid"?
-  if (FPU == "none") {
-    Features.push_back("-vfp2");
-    Features.push_back("-vfp3");
-    Features.push_back("-vfp4");
-    Features.push_back("-fp-armv8");
-    Features.push_back("-crypto");
-    Features.push_back("-neon");
-    return;
-  }
-
-  // FIXME: Make sure we differentiate sp-only.
-  if (FPU.find("-sp-") != StringRef::npos) {
-    Features.push_back("+fp-only-sp");
-  }
-
-  // All other FPU types, valid or invalid.
-  switch(llvm::ARMTargetParser::parseFPU(FPU)) {
-  case llvm::ARM::FK_INVALID:
-  case llvm::ARM::FK_SOFTVFP:
-    Features.push_back("-vfp2");
-    Features.push_back("-vfp3");
-    Features.push_back("-neon");
-    break;
-  case llvm::ARM::FK_VFP:
-  case llvm::ARM::FK_VFPV2:
-    Features.push_back("+vfp2");
-    Features.push_back("-neon");
-    break;
-  case llvm::ARM::FK_VFPV3_D16:
-    Features.push_back("+d16");
-    // fall-through
-  case llvm::ARM::FK_VFPV3:
-    Features.push_back("+vfp3");
-    Features.push_back("-neon");
-    break;
-  case llvm::ARM::FK_VFPV4_D16:
-    Features.push_back("+d16");
-    // fall-through
-  case llvm::ARM::FK_VFPV4:
-    Features.push_back("+vfp4");
-    Features.push_back("-neon");
-    break;
-  case llvm::ARM::FK_FPV5_D16:
-    Features.push_back("+d16");
-    // fall-through
-  case llvm::ARM::FK_FP_ARMV8:
-    Features.push_back("+fp-armv8");
-    Features.push_back("-neon");
-    Features.push_back("-crypto");
-    break;
-  case llvm::ARM::FK_NEON_FP_ARMV8:
-    Features.push_back("+fp-armv8");
-    Features.push_back("+neon");
-    Features.push_back("-crypto");
-    break;
-  case llvm::ARM::FK_CRYPTO_NEON_FP_ARMV8:
-    Features.push_back("+fp-armv8");
-    Features.push_back("+neon");
-    Features.push_back("+crypto");
-    break;
-  case llvm::ARM::FK_NEON:
-    Features.push_back("+neon");
-    break;
-  case llvm::ARM::FK_NEON_VFPV4:
-    Features.push_back("+neon");
-    Features.push_back("+vfp4");
-    break;
-  default:
+  unsigned FPUID = llvm::ARMTargetParser::parseFPU(FPU);
+  if (!llvm::ARMTargetParser::getFPUFeatures(FPUID, Features))
     D.Diag(diag::err_drv_clang_unsupported) << A->getAsString(Args);
-  }
 }
 
 static int getARMSubArchVersionNumber(const llvm::Triple &Triple) {
@@ -758,7 +686,6 @@ static void getARMTargetFeatures(const Driver &D, const llvm::Triple &Triple,
   // to handle -march=native correctly.
   if (const Arg *A = Args.getLastArg(options::OPT_march_EQ)) {
     StringRef Arch = arm::getARMArch(Args, Triple);
-    Arch = llvm::ARMTargetParser::getCanonicalArchName(Arch);
     if (llvm::ARMTargetParser::parseArch(Arch) == llvm::ARM::AK_INVALID)
       D.Diag(diag::err_drv_clang_unsupported) << A->getAsString(Args);
   }
@@ -767,7 +694,7 @@ static void getARMTargetFeatures(const Driver &D, const llvm::Triple &Triple,
   // the only function we have to check if a cpu is valid is
   // getLLVMArchSuffixForARM which also needs an architecture.
   if (const Arg *A = Args.getLastArg(options::OPT_mcpu_EQ)) {
-    StringRef CPU = arm::getARMTargetCPU(Args, Triple);
+    std::string CPU = arm::getARMTargetCPU(Args, Triple);
     StringRef Arch = arm::getARMArch(Args, Triple);
     if (strcmp(arm::getLLVMArchSuffixForARM(CPU, Arch), "") == 0)
       D.Diag(diag::err_drv_clang_unsupported) << A->getAsString(Args);
@@ -5748,12 +5675,12 @@ const char *arm::getARMCPUForMArch(const ArgList &Args,
 }
 
 /// getARMTargetCPU - Get the (LLVM) name of the ARM cpu we are targeting.
-StringRef arm::getARMTargetCPU(const ArgList &Args,
+std::string arm::getARMTargetCPU(const ArgList &Args,
                                const llvm::Triple &Triple) {
   // FIXME: Warn on inconsistent use of -mcpu and -march.
   // If we have -mcpu=, use that.
   if (Arg *A = Args.getLastArg(options::OPT_mcpu_EQ)) {
-    StringRef MCPU = A->getValue();
+    std::string MCPU = StringRef(A->getValue()).lower();
     // Handle -mcpu=native.
     if (MCPU == "native")
       return llvm::sys::getHostCPUName();
@@ -5768,12 +5695,9 @@ StringRef arm::getARMTargetCPU(const ArgList &Args,
 /// CPU  (or Arch, if CPU is generic).
 // FIXME: This is redundant with -mcpu, why does LLVM use this.
 const char *arm::getLLVMArchSuffixForARM(StringRef CPU, StringRef Arch) {
-  if (CPU == "generic") {
-    unsigned ArchKind = llvm::ARMTargetParser::parseArch(
-                        llvm::ARMTargetParser::getCanonicalArchName(Arch));
-    if (ArchKind == llvm::ARM::AK_ARMV8_1A)
-      return "v8.1a";
-  }
+  if (CPU == "generic" &&
+      llvm::ARMTargetParser::parseArch(Arch) == llvm::ARM::AK_ARMV8_1A)
+    return "v8.1a";
 
   unsigned ArchKind = llvm::ARMTargetParser::parseCPUArch(CPU);
   if (ArchKind == llvm::ARM::AK_INVALID)
@@ -7255,7 +7179,7 @@ void netbsd::Assemble::ConstructJob(Compilation &C, const JobAction &JA,
   case llvm::Triple::armeb:
   case llvm::Triple::thumb:
   case llvm::Triple::thumbeb: {
-    std::string MArch(arm::getARMTargetCPU(Args, getToolChain().getTriple()));
+    std::string MArch = arm::getARMTargetCPU(Args, getToolChain().getTriple());
     CmdArgs.push_back(Args.MakeArgString("-mcpu=" + MArch));
     break;
   }
@@ -7602,7 +7526,7 @@ void gnutools::Assemble::ConstructJob(Compilation &C, const JobAction &JA,
     // march from being picked in the absence of a cpu flag.
     Arg *A;
     if ((A = Args.getLastArg(options::OPT_mcpu_EQ)) &&
-      StringRef(A->getValue()) == "krait")
+      StringRef(A->getValue()).lower() == "krait")
         CmdArgs.push_back("-march=armv7-a");
     else
       Args.AddLastArg(CmdArgs, options::OPT_mcpu_EQ);

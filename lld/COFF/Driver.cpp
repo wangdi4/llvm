@@ -110,6 +110,11 @@ LinkerDriver::parseDirectives(StringRef S,
     return EC;
   std::unique_ptr<llvm::opt::InputArgList> Args = std::move(ArgsOrErr.get());
 
+  // Handle /failifmismatch
+  if (auto EC = checkFailIfMismatch(Args.get()))
+    return EC;
+
+  // Handle /defaultlib
   for (auto *Arg : Args->filtered(OPT_defaultlib)) {
     if (Optional<StringRef> Path = findLib(Arg->getValue())) {
       auto FileOrErr = openFile(*Path);
@@ -297,6 +302,12 @@ bool LinkerDriver::link(int Argc, const char *Argv[]) {
     }
   }
 
+  // Handle /failifmismatch
+  if (auto EC = checkFailIfMismatch(Args.get())) {
+    llvm::errs() << "/failifmismatch: " << EC.message() << "\n";
+    return false;
+  }
+
   // Create a list of input files. Files can be given as arguments
   // for /defaultlib option.
   std::vector<StringRef> Inputs;
@@ -337,6 +348,7 @@ bool LinkerDriver::link(int Argc, const char *Argv[]) {
   // undefined symbols final chance to be resolved successfully.
   // This is symbol renaming.
   for (auto *Arg : Args->filtered(OPT_alternatename)) {
+    // Parse a string of the form of "/alternatename:From=To".
     StringRef From, To;
     std::tie(From, To) = StringRef(Arg->getValue()).split('=');
     if (From.empty() || To.empty()) {
@@ -344,7 +356,7 @@ bool LinkerDriver::link(int Argc, const char *Argv[]) {
                    << Arg->getValue() << "\n";
       return false;
     }
-    // If it's already resolved as some Defined type, do nothing.
+    // If From is already resolved to a Defined type, do nothing.
     // Otherwise, rename it to see if To can be resolved instead.
     if (Symtab.find(From))
       continue;

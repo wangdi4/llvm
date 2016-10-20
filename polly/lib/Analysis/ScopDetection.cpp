@@ -471,7 +471,7 @@ bool ScopDetection::hasAffineMemoryAccesses(DetectionContext &Context) const {
 
   for (const SCEVUnknown *BasePointer : Context.NonAffineAccesses) {
     Value *BaseValue = BasePointer->getValue();
-    ArrayShape *Shape = new ArrayShape(BasePointer);
+    auto Shape = std::shared_ptr<ArrayShape>(new ArrayShape(BasePointer));
     bool BasePtrHasNonAffine = false;
 
     // First step: collect parametric terms in all array references.
@@ -527,8 +527,8 @@ bool ScopDetection::hasAffineMemoryAccesses(DetectionContext &Context) const {
       const Instruction *Insn = Pair.first;
       const SCEVAddRecExpr *AF = dyn_cast<SCEVAddRecExpr>(Pair.second);
       bool IsNonAffine = false;
-      MemAcc *Acc = new MemAcc(Insn, Shape);
-      TempMemoryAccesses.insert({Insn, Acc});
+      TempMemoryAccesses.insert(std::make_pair(Insn, MemAcc(Insn, Shape)));
+      MemAcc *Acc = &TempMemoryAccesses.find(Insn)->second;
 
       if (!AF) {
         if (isAffineExpr(&CurRegion, Pair.second, *SE, BaseValue))
@@ -720,15 +720,15 @@ bool ScopDetection::isValidLoop(Loop *L, DetectionContext &Context) const {
 
 Region *ScopDetection::expandRegion(Region &R) {
   // Initial no valid region was found (greater than R)
-  Region *LastValidRegion = nullptr;
-  Region *ExpandedRegion = R.getExpandedRegion();
+  std::unique_ptr<Region> LastValidRegion;
+  auto ExpandedRegion = std::unique_ptr<Region>(R.getExpandedRegion());
 
   DEBUG(dbgs() << "\tExpanding " << R.getNameStr() << "\n");
 
   while (ExpandedRegion) {
     DetectionContext Context(
-        *ExpandedRegion, *AA, NonAffineSubRegionMap[ExpandedRegion],
-        BoxedLoopsMap[ExpandedRegion], false /* verifying */);
+        *ExpandedRegion, *AA, NonAffineSubRegionMap[ExpandedRegion.get()],
+        BoxedLoopsMap[ExpandedRegion.get()], false /* verifying */);
     DEBUG(dbgs() << "\t\tTrying " << ExpandedRegion->getNameStr() << "\n");
     // Only expand when we did not collect errors.
 
@@ -740,25 +740,18 @@ Region *ScopDetection::expandRegion(Region &R) {
       if (!allBlocksValid(Context) || Context.Log.hasErrors())
         break;
 
-      // Delete unnecessary regions (allocated by getExpandedRegion)
-      if (LastValidRegion)
-        delete LastValidRegion;
-
       // Store this region, because it is the greatest valid (encountered so
       // far).
-      LastValidRegion = ExpandedRegion;
+      LastValidRegion = std::move(ExpandedRegion);
 
       // Create and test the next greater region (if any)
-      ExpandedRegion = ExpandedRegion->getExpandedRegion();
+      ExpandedRegion =
+          std::unique_ptr<Region>(LastValidRegion->getExpandedRegion());
 
     } else {
       // Create and test the next greater region (if any)
-      Region *TmpRegion = ExpandedRegion->getExpandedRegion();
-
-      // Delete unnecessary regions (allocated by getExpandedRegion)
-      delete ExpandedRegion;
-
-      ExpandedRegion = TmpRegion;
+      ExpandedRegion =
+          std::unique_ptr<Region>(ExpandedRegion->getExpandedRegion());
     }
   }
 
@@ -769,7 +762,7 @@ Region *ScopDetection::expandRegion(Region &R) {
       dbgs() << "\tExpanding " << R.getNameStr() << " failed\n";
   });
 
-  return LastValidRegion;
+  return LastValidRegion.release();
 }
 static bool regionWithoutLoops(Region &R, LoopInfo *LI) {
   for (const BasicBlock *BB : R.blocks())

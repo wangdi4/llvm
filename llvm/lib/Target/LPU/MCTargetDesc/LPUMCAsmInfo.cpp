@@ -17,7 +17,7 @@ using namespace llvm;
 
 void LPUMCAsmInfo::anchor() { }
 
-LPUMCAsmInfo::LPUMCAsmInfo(StringRef TT) {
+LPUMCAsmInfo::LPUMCAsmInfo(const Triple &T) {
   PointerSize = CalleeSaveStackSlotSize = 8;
   // For now
   HasDotTypeDotSizeDirective = false;
