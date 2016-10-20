@@ -16,6 +16,7 @@
 
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Errc.h"
 #include "llvm/Support/ELF.h"
 
 namespace lld {
@@ -106,7 +107,7 @@ static llvm::ErrorOr<uint64_t> parseDecimal(StringRef str) {
   for (auto &c : str) {
     res *= 10;
     if (c < '0' || c > '9')
-      return llvm::ErrorOr<uint64_t>(std::make_error_code(std::errc::io_error));
+      return llvm::ErrorOr<uint64_t>(make_error_code(llvm::errc::io_error));
     res += c - '0';
   }
   return res;
@@ -117,7 +118,7 @@ static llvm::ErrorOr<uint64_t> parseOctal(StringRef str) {
   for (auto &c : str) {
     res <<= 3;
     if (c < '0' || c > '7')
-      return llvm::ErrorOr<uint64_t>(std::make_error_code(std::errc::io_error));
+      return llvm::ErrorOr<uint64_t>(make_error_code(llvm::errc::io_error));
     res += c - '0';
   }
   return res;
@@ -128,7 +129,7 @@ static llvm::ErrorOr<uint64_t> parseBinary(StringRef str) {
   for (auto &c : str) {
     res <<= 1;
     if (c != '0' && c != '1')
-      return llvm::ErrorOr<uint64_t>(std::make_error_code(std::errc::io_error));
+      return llvm::ErrorOr<uint64_t>(make_error_code(llvm::errc::io_error));
     res += c - '0';
   }
   return res;
@@ -145,7 +146,7 @@ static llvm::ErrorOr<uint64_t> parseHex(StringRef str) {
     else if (c >= 'A' && c <= 'F')
       res += c - 'A' + 10;
     else
-      return llvm::ErrorOr<uint64_t>(std::make_error_code(std::errc::io_error));
+      return llvm::ErrorOr<uint64_t>(make_error_code(llvm::errc::io_error));
   }
   return res;
 }
@@ -952,6 +953,9 @@ void PHDR::dump(raw_ostream &os) const {
   os << ";\n";
 }
 
+static PHDR none("NONE", 0, false, false, NULL, 0);
+const PHDR *PHDR::NONE = &none;
+
 void PHDRS::dump(raw_ostream &os) const {
   os << "PHDRS\n{\n";
   for (auto &&phdr : _phdrs) {
@@ -1637,7 +1641,7 @@ llvm::ErrorOr<InputSectionsCmd::VectorTy> Parser::parseExcludeFile() {
 
   if (!expectAndConsume(Token::l_paren, "expected ("))
     return llvm::ErrorOr<InputSectionsCmd::VectorTy>(
-        std::make_error_code(std::errc::io_error));
+        make_error_code(llvm::errc::io_error));
 
   while (_tok._kind == Token::identifier) {
     res.push_back(new (_alloc) InputSectionName(*this, _tok._range, true));
@@ -1646,7 +1650,7 @@ llvm::ErrorOr<InputSectionsCmd::VectorTy> Parser::parseExcludeFile() {
 
   if (!expectAndConsume(Token::r_paren, "expected )"))
     return llvm::ErrorOr<InputSectionsCmd::VectorTy>(
-        std::make_error_code(std::errc::io_error));
+        make_error_code(llvm::errc::io_error));
   return llvm::ErrorOr<InputSectionsCmd::VectorTy>(std::move(res));
 }
 
@@ -2352,10 +2356,7 @@ Extern *Parser::parseExtern() {
 }
 
 // Sema member functions
-Sema::Sema()
-    : _scripts(), _layoutCommands(), _memberToLayoutOrder(),
-      _memberNameWildcards(), _cacheSectionOrder(), _cacheExpressionOrder(),
-      _deliveredExprs(), _symbolTable() {}
+Sema::Sema() : _parsedPHDRS(false) {}
 
 void Sema::perform() {
   for (auto &parser : _scripts)
@@ -2462,6 +2463,18 @@ uint64_t Sema::getLinkerScriptExprValue(StringRef name) const {
   auto it = _symbolTable.find(name);
   assert (it != _symbolTable.end() && "Invalid symbol name!");
   return it->second;
+}
+
+std::error_code
+Sema::getPHDRsForOutputSection(StringRef name,
+                               std::vector<const PHDR *> &phdrs) const {
+  // Cache results if not done yet.
+  if (auto ec = const_cast<Sema *>(this)->buildSectionToPHDR())
+    return ec;
+
+  auto vec = _sectionToPHDR.lookup(name);
+  std::copy(std::begin(vec), std::end(vec), std::back_inserter(phdrs));
+  return std::error_code();
 }
 
 void Sema::dump() const {
@@ -2698,6 +2711,64 @@ bool Sema::localCompare(int order, const SectionKey &lhs,
 
   llvm_unreachable("");
   return false;
+}
+
+std::error_code Sema::buildSectionToPHDR() {
+  if (_parsedPHDRS)
+    return std::error_code();
+  _parsedPHDRS = true;
+
+  // No scripts - nothing to do.
+  if (_scripts.empty() || _layoutCommands.empty())
+    return std::error_code();
+
+  // Collect all header declarations.
+  llvm::StringMap<const PHDR *> phdrs;
+  for (auto &parser : _scripts) {
+    for (auto *cmd : parser->get()->_commands) {
+      if (auto *ph = dyn_cast<PHDRS>(cmd)) {
+        for (auto *p : *ph)
+          phdrs[p->name()] = p;
+      }
+    }
+  }
+  const bool noPhdrs = phdrs.empty();
+
+  // Add NONE header to the map provided there's no user-defined
+  // header with the same name.
+  if (!_sectionToPHDR.count(PHDR::NONE->name()))
+    phdrs[PHDR::NONE->name()] = PHDR::NONE;
+
+  // Match output sections to available headers.
+  llvm::SmallVector<const PHDR *, 2> phdrsCur, phdrsLast { PHDR::NONE };
+  for (const Command *cmd : _layoutCommands) {
+    auto osd = dyn_cast<OutputSectionDescription>(cmd);
+    if (!osd || osd->isDiscarded())
+      continue;
+
+    phdrsCur.clear();
+    for (StringRef name : osd->PHDRs()) {
+      auto it = phdrs.find(name);
+      if (it == phdrs.end()) {
+        return LinkerScriptReaderError::unknown_phdr_ids;
+      }
+      phdrsCur.push_back(it->second);
+    }
+
+    // If no headers and no errors - insert empty headers set.
+    // If the current set of headers is empty, then use the last non-empty
+    // set. Otherwise mark the current set to be the last non-empty set for
+    // successors.
+    if (noPhdrs)
+      phdrsCur.clear();
+    else if (phdrsCur.empty())
+      phdrsCur = phdrsLast;
+    else
+      phdrsLast = phdrsCur;
+
+    _sectionToPHDR[osd->name()] = phdrsCur;
+  }
+  return std::error_code();
 }
 
 static bool hasWildcard(StringRef name) {

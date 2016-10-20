@@ -11,13 +11,13 @@
 #define LLD_COFF_INPUT_FILES_H
 
 #include "Chunks.h"
-#include "Memory.h"
 #include "Symbols.h"
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/LTO/LTOModule.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/COFF.h"
+#include "llvm/Support/StringSaver.h"
 #include <memory>
 #include <set>
 #include <vector>
@@ -55,11 +55,12 @@ public:
   void setParentName(StringRef N) { ParentName = N; }
 
   // Returns .drectve section contents if exist.
-  virtual StringRef getDirectives() { return ""; }
+  StringRef getDirectives() { return StringRef(Directives).trim(); }
 
 protected:
   explicit InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
   MemoryBufferRef MB;
+  std::string Directives;
 
 private:
   const Kind FileKind;
@@ -105,8 +106,6 @@ public:
   // Returns the underying COFF file.
   COFFObjectFile *getCOFFObj() { return COFFObj.get(); }
 
-  StringRef getDirectives() override { return Directives; }
-
 private:
   std::error_code initializeChunks();
   std::error_code initializeSymbols();
@@ -115,7 +114,6 @@ private:
                                bool IsFirst);
 
   std::unique_ptr<COFFObjectFile> COFFObj;
-  StringRef Directives;
   llvm::BumpPtrAllocator Alloc;
 
   // List of all chunks defined by this file. This includes both section
@@ -144,7 +142,8 @@ private:
 // for details about the format.
 class ImportFile : public InputFile {
 public:
-  explicit ImportFile(MemoryBufferRef M) : InputFile(ImportKind, M) {}
+  explicit ImportFile(MemoryBufferRef M)
+      : InputFile(ImportKind, M), StringAlloc(StringAllocAux) {}
   static bool classof(const InputFile *F) { return F->kind() == ImportKind; }
   std::vector<SymbolBody *> &getSymbols() override { return SymbolBodies; }
 
@@ -153,7 +152,8 @@ private:
 
   std::vector<SymbolBody *> SymbolBodies;
   llvm::BumpPtrAllocator Alloc;
-  StringAllocator StringAlloc;
+  llvm::BumpPtrAllocator StringAllocAux;
+  llvm::BumpPtrStringSaver StringAlloc;
 };
 
 // Used for LTO.
@@ -166,16 +166,12 @@ public:
   LTOModule *getModule() const { return M.get(); }
   LTOModule *releaseModule() { return M.release(); }
 
-  // Returns linker directives from module flags metadata if present.
-  StringRef getDirectives() override { return Directives; }
-
 private:
   std::error_code parse() override;
 
   std::vector<SymbolBody *> SymbolBodies;
   llvm::BumpPtrAllocator Alloc;
   std::unique_ptr<LTOModule> M;
-  std::string Directives;
 };
 
 } // namespace coff

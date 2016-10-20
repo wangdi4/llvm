@@ -23,7 +23,6 @@ namespace lld {
 namespace coff {
 
 using llvm::object::Archive;
-using llvm::object::COFFObjectFile;
 using llvm::object::COFFSymbolRef;
 using llvm::object::coff_import_header;
 
@@ -45,14 +44,16 @@ class SymbolBody {
 public:
   enum Kind {
     DefinedFirst,
-    DefinedRegularKind,
+    DefinedBitcodeKind,
     DefinedAbsoluteKind,
     DefinedImportDataKind,
     DefinedImportThunkKind,
-    DefinedBitcodeKind,
+    DefinedLocalImportKind,
+    DefinedCommonKind,
+    DefinedRegularKind,
     DefinedLast,
-    UndefinedKind,
     LazyKind,
+    UndefinedKind,
   };
 
   Kind kind() const { return SymbolKind; }
@@ -77,6 +78,10 @@ public:
   // the Other. Returns 1 if this wins, -1 if the Other wins, or 0 if
   // they are duplicate (conflicting) symbols.
   virtual int compare(SymbolBody *Other) = 0;
+
+  // Returns a name of this symbol including source file name.
+  // Used only for debugging and logging.
+  virtual std::string getDebugName() { return getName(); }
 
 protected:
   SymbolBody(Kind K) : SymbolKind(K) {}
@@ -105,58 +110,89 @@ public:
   // The writer uses this information to apply relocations.
   virtual uint64_t getFileOff() = 0;
 
-  // Called by the garbage collector. All Defined subclasses should
-  // know how to call depending symbols' markLive functions.
-  virtual void markLive() {}
-
   int compare(SymbolBody *Other) override;
 };
 
 // Regular defined symbols read from object file symbol tables.
 class DefinedRegular : public Defined {
 public:
-  DefinedRegular(COFFObjectFile *F, COFFSymbolRef S, Chunk *C)
-      : Defined(DefinedRegularKind), COFFFile(F), Sym(S), Data(C) {}
+  DefinedRegular(ObjectFile *F, COFFSymbolRef S, SectionChunk *C)
+      : Defined(DefinedRegularKind), File(F), Sym(S), Data(&C->Ptr),
+        IsCOMDAT(C->isCOMDAT()) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == DefinedRegularKind;
   }
 
-  StringRef getName() override;
-  uint64_t getRVA() override { return Data->getRVA() + Sym.getValue(); }
-  bool isExternal() override { return Sym.isExternal(); }
-  void markLive() override { Data->markLive(); }
-  uint64_t getFileOff() override { return Data->getFileOff() + Sym.getValue(); }
-  bool isCOMDAT() const { return Data->isCOMDAT(); }
+  uint64_t getFileOff() override {
+    return (*Data)->getFileOff() + Sym.getValue();
+  }
 
-  // Returns true if this is a common symbol.
-  bool isCommon() const { return Sym.isCommon(); }
-  uint32_t getCommonSize() const { return Sym.getValue(); }
+  StringRef getName() override;
+  uint64_t getRVA() override { return (*Data)->getRVA() + Sym.getValue(); }
+  bool isExternal() override { return Sym.isExternal(); }
+  int compare(SymbolBody *Other) override;
+  std::string getDebugName() override;
+  bool isCOMDAT() { return IsCOMDAT; }
+  void markLive() { (*Data)->markLive(); }
+  Chunk *getChunk() { return *Data; }
 
 private:
   StringRef Name;
-  COFFObjectFile *COFFFile;
+  ObjectFile *File;
   COFFSymbolRef Sym;
-  Chunk *Data;
+  SectionChunk **Data;
+  bool IsCOMDAT;
+};
+
+class DefinedCommon : public Defined {
+public:
+  DefinedCommon(ObjectFile *F, COFFSymbolRef S, CommonChunk *C)
+      : Defined(DefinedCommonKind), File(F), Sym(S), Data(C) {}
+
+  static bool classof(const SymbolBody *S) {
+    return S->kind() == DefinedCommonKind;
+  }
+
+  StringRef getName() override;
+  uint64_t getRVA() override { return Data->getRVA(); }
+  bool isExternal() override { return Sym.isExternal(); }
+  uint64_t getFileOff() override { return Data->getFileOff(); }
+  int compare(SymbolBody *Other) override;
+  std::string getDebugName() override;
+
+private:
+  uint64_t getSize() { return Sym.getValue(); }
+
+  StringRef Name;
+  ObjectFile *File;
+  COFFSymbolRef Sym;
+  CommonChunk *Data;
 };
 
 // Absolute symbols.
 class DefinedAbsolute : public Defined {
 public:
-  DefinedAbsolute(StringRef N, uint64_t VA)
-      : Defined(DefinedAbsoluteKind), Name(N), RVA(VA - Config->ImageBase) {}
+  DefinedAbsolute(StringRef N, COFFSymbolRef S)
+      : Defined(DefinedAbsoluteKind), Name(N), VA(S.getValue()),
+        External(S.isExternal()) {}
+
+  DefinedAbsolute(StringRef N, uint64_t V)
+      : Defined(DefinedAbsoluteKind), Name(N), VA(V) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == DefinedAbsoluteKind;
   }
 
   StringRef getName() override { return Name; }
-  uint64_t getRVA() override { return RVA; }
+  uint64_t getRVA() override { return VA - Config->ImageBase; }
   uint64_t getFileOff() override { llvm_unreachable("internal error"); }
+  bool isExternal() override { return External; }
 
 private:
   StringRef Name;
-  uint64_t RVA;
+  uint64_t VA;
+  bool External = true;
 };
 
 // This class represents a symbol defined in an archive file. It is
@@ -265,6 +301,30 @@ private:
   ImportThunkChunk Data;
 };
 
+// If you have a symbol "__imp_foo" in your object file, a symbol name
+// "foo" becomes automatically available as a pointer to "__imp_foo".
+// This class is for such automatically-created symbols.
+// Yes, this is an odd feature. We didn't intend to implement that.
+// This is here just for compatibility with MSVC.
+class DefinedLocalImport : public Defined {
+public:
+  DefinedLocalImport(StringRef N, Defined *S)
+      : Defined(DefinedLocalImportKind), Name(N), Data(S) {}
+
+  static bool classof(const SymbolBody *S) {
+    return S->kind() == DefinedLocalImportKind;
+  }
+
+  StringRef getName() override { return Name; }
+  uint64_t getRVA() override { return Data.getRVA(); }
+  uint64_t getFileOff() override { return Data.getFileOff(); }
+  Chunk *getChunk() { return &Data; }
+
+private:
+  StringRef Name;
+  LocalImportChunk Data;
+};
+
 class DefinedBitcode : public Defined {
 public:
   DefinedBitcode(StringRef N, bool R)
@@ -278,7 +338,6 @@ public:
   uint64_t getRVA() override { llvm_unreachable("bitcode reached writer"); }
   uint64_t getFileOff() override { llvm_unreachable("bitcode reached writer"); }
   int compare(SymbolBody *Other) override;
-  bool isReplaceable() const { return Replaceable; }
 
 private:
   StringRef Name;

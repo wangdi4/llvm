@@ -1133,7 +1133,7 @@ case "$enableval" in
         hexagon)  TARGETS_TO_BUILD="Hexagon $TARGETS_TO_BUILD" ;;
         nvptx)    TARGETS_TO_BUILD="NVPTX $TARGETS_TO_BUILD" ;;
         systemz)  TARGETS_TO_BUILD="SystemZ $TARGETS_TO_BUILD" ;;
-        amdgpu)  ;&
+        amdgpu)   TARGETS_TO_BUILD="AMDGPU $TARGETS_TO_BUILD" ;;
         r600)     TARGETS_TO_BUILD="AMDGPU $TARGETS_TO_BUILD" ;;
         host) case "$llvm_cv_target_arch" in
             x86)         TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
@@ -1633,6 +1633,7 @@ dnl===-----------------------------------------------------------------------===
 AC_CHECK_LIB(m,sin)
 if test "$llvm_cv_os_type" = "MingW" ; then
   AC_CHECK_LIB(imagehlp, main)
+  AC_CHECK_LIB(ole32, main)
   AC_CHECK_LIB(psapi, main)
   AC_CHECK_LIB(shell32, main)
 fi
@@ -2173,7 +2174,10 @@ dnl contains the same list of files as AC_CONFIG_HEADERS below. This ensures the
 dnl files can be updated automatically when their *.in sources change.
 AC_CONFIG_HEADERS([include/llvm/Config/config.h include/llvm/Config/llvm-config.h])
 AH_TOP([#ifndef CONFIG_H
-#define CONFIG_H])
+#define CONFIG_H
+
+/* Exported configuration */
+#include "llvm/Config/llvm-config.h"])
 AH_BOTTOM([#endif])
 
 AC_CONFIG_FILES([include/llvm/Config/Targets.def])

@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <functional>
 #include <map>
+#include <unordered_set>
 #include <utility>
 
 using namespace llvm;
@@ -40,14 +41,20 @@ namespace coff {
 // The main function of the writer.
 std::error_code Writer::write(StringRef OutputPath) {
   markLive();
+  dedupCOMDATs();
   createSections();
+  createMiscChunks();
   createImportTables();
+  createExportTable();
+  if (Config->Relocatable)
+    createSection(".reloc");
   assignAddresses();
   removeEmptySections();
   if (auto EC = openFile(OutputPath))
     return EC;
   writeHeader();
   writeSections();
+  sortExceptionTable();
   return Buffer->commit();
 }
 
@@ -70,6 +77,7 @@ void OutputSection::setFileOffset(uint64_t Off) {
 
 void OutputSection::addChunk(Chunk *C) {
   Chunks.push_back(C);
+  C->setOutputSection(this);
   uint64_t Off = Header.VirtualSize;
   Off = RoundUpToAlignment(Off, C->getAlign());
   C->setRVA(Off);
@@ -81,7 +89,7 @@ void OutputSection::addChunk(Chunk *C) {
 }
 
 void OutputSection::addPermissions(uint32_t C) {
-  Header.Characteristics = Header.Characteristics | (C & PermMask);
+  Header.Characteristics |= C & PermMask;
 }
 
 // Write the section header to a given buffer.
@@ -104,10 +112,18 @@ void Writer::markLive() {
   if (!Config->DoGC)
     return;
   for (StringRef Name : Config->GCRoots)
-    cast<Defined>(Symtab->find(Name))->markLive();
+    if (auto *D = dyn_cast<DefinedRegular>(Symtab->find(Name)))
+      D->markLive();
   for (Chunk *C : Symtab->getChunks())
-    if (C->isRoot())
-      C->markLive();
+    if (auto *SC = dyn_cast<SectionChunk>(C))
+      if (SC->isRoot())
+        SC->markLive();
+}
+
+// Merge identical COMDAT sections.
+void Writer::dedupCOMDATs() {
+  if (Config->ICF)
+    doICF(Symtab->getChunks());
 }
 
 // Create output section objects and add them to OutputSections.
@@ -115,10 +131,13 @@ void Writer::createSections() {
   // First, bin chunks by name.
   std::map<StringRef, std::vector<Chunk *>> Map;
   for (Chunk *C : Symtab->getChunks()) {
-    if (Config->DoGC && !C->isLive()) {
-      if (Config->Verbose)
-        C->printDiscardedMessage();
-      continue;
+    if (Config->DoGC) {
+      auto *SC = dyn_cast<SectionChunk>(C);
+      if (SC && !SC->isLive()) {
+        if (Config->Verbose)
+          SC->printDiscardedMessage();
+        continue;
+      }
     }
     Map[C->getSectionName()].push_back(C);
   }
@@ -140,11 +159,18 @@ void Writer::createSections() {
     }
     std::vector<Chunk *> &Chunks = P.second;
     for (Chunk *C : Chunks) {
-      C->setOutputSection(Sec);
       Sec->addChunk(C);
       Sec->addPermissions(C->getPermissions());
     }
   }
+}
+
+void Writer::createMiscChunks() {
+  if (Symtab->LocalImportChunks.empty())
+    return;
+  OutputSection *Sec = createSection(".rdata");
+  for (Chunk *C : Symtab->LocalImportChunks)
+    Sec->addChunk(C);
 }
 
 // Create .idata section for the DLL-imported symbol table.
@@ -155,21 +181,46 @@ void Writer::createImportTables() {
   if (Symtab->ImportFiles.empty())
     return;
   OutputSection *Text = createSection(".text");
-  Idata.reset(new IdataContents());
-  for (std::unique_ptr<ImportFile> &File : Symtab->ImportFiles) {
-    for (SymbolBody *Body : File->getSymbols()) {
-      if (auto *Import = dyn_cast<DefinedImportData>(Body)) {
-        Idata->add(Import);
+  for (ImportFile *File : Symtab->ImportFiles) {
+    for (SymbolBody *B : File->getSymbols()) {
+      auto *Import = dyn_cast<DefinedImportData>(B);
+      if (!Import) {
+        // Linker-created function thunks for DLL symbols are added to
+        // .text section.
+        Text->addChunk(cast<DefinedImportThunk>(B)->getChunk());
         continue;
       }
-      // Linker-created function thunks for DLL symbols are added to
-      // .text section.
-      Text->addChunk(cast<DefinedImportThunk>(Body)->getChunk());
+      if (Config->DelayLoads.count(Import->getDLLName())) {
+        DelayIdata.add(Import);
+      } else {
+        Idata.add(Import);
+      }
     }
   }
-  OutputSection *Sec = createSection(".idata");
-  for (Chunk *C : Idata->getChunks())
-    Sec->addChunk(C);
+  if (!Idata.empty()) {
+    OutputSection *Sec = createSection(".idata");
+    for (Chunk *C : Idata.getChunks())
+      Sec->addChunk(C);
+  }
+  if (!DelayIdata.empty()) {
+    OutputSection *Sec = createSection(".didat");
+    for (Chunk *C : DelayIdata.getChunks(Symtab->find("__delayLoadHelper2")))
+      Sec->addChunk(C);
+    Sec = createSection(".text");
+    for (std::unique_ptr<Chunk> &C : DelayIdata.getCodeChunks())
+      Sec->addChunk(C.get());
+    Sec = createSection(".data");
+    for (std::unique_ptr<Chunk> &C : DelayIdata.getDataChunks())
+      Sec->addChunk(C.get());
+  }
+}
+
+void Writer::createExportTable() {
+  if (Config->Exports.empty())
+    return;
+  OutputSection *Sec = createSection(".edata");
+  for (std::unique_ptr<Chunk> &C : Edata.Chunks)
+    Sec->addChunk(C.get());
 }
 
 // The Windows loader doesn't seem to like empty sections,
@@ -192,6 +243,8 @@ void Writer::assignAddresses() {
   uint64_t RVA = 0x1000; // The first page is kept unmapped.
   uint64_t FileOff = SizeOfHeaders;
   for (OutputSection *Sec : OutputSections) {
+    if (Sec->getName() == ".reloc")
+      addBaserels(Sec);
     Sec->setRVA(RVA);
     Sec->setFileOffset(FileOff);
     RVA += RoundUpToAlignment(Sec->getVirtualSize(), PageSize);
@@ -203,10 +256,10 @@ void Writer::assignAddresses() {
 }
 
 static MachineTypes
-inferMachineType(std::vector<std::unique_ptr<ObjectFile>> &ObjectFiles) {
-  for (std::unique_ptr<ObjectFile> &File : ObjectFiles) {
+inferMachineType(const std::vector<ObjectFile *> &Files) {
+  for (ObjectFile *F : Files) {
     // Try to infer machine type from the magic byte of the object file.
-    auto MT = static_cast<MachineTypes>(File->getCOFFObj()->getMachine());
+    auto MT = static_cast<MachineTypes>(F->getCOFFObj()->getMachine());
     if (MT != IMAGE_FILE_MACHINE_UNKNOWN)
       return MT;
   }
@@ -237,9 +290,12 @@ void Writer::writeHeader() {
   Buf += sizeof(*COFF);
   COFF->Machine = MachineType;
   COFF->NumberOfSections = OutputSections.size();
-  COFF->Characteristics =
-      (IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_RELOCS_STRIPPED |
-       IMAGE_FILE_LARGE_ADDRESS_AWARE);
+  COFF->Characteristics = IMAGE_FILE_EXECUTABLE_IMAGE;
+  COFF->Characteristics |= IMAGE_FILE_LARGE_ADDRESS_AWARE;
+  if (Config->DLL)
+    COFF->Characteristics |= IMAGE_FILE_DLL;
+  if (!Config->Relocatable)
+    COFF->Characteristics |= IMAGE_FILE_RELOCS_STRIPPED;
   COFF->SizeOfOptionalHeader =
       sizeof(pe32plus_header) + sizeof(data_directory) * NumberfOfDataDirectory;
 
@@ -265,6 +321,18 @@ void Writer::writeHeader() {
   PE->SizeOfStackCommit = Config->StackCommit;
   PE->SizeOfHeapReserve = Config->HeapReserve;
   PE->SizeOfHeapCommit = Config->HeapCommit;
+  if (Config->DynamicBase)
+    PE->DLLCharacteristics |= IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE;
+  if (Config->HighEntropyVA)
+    PE->DLLCharacteristics |= IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA;
+  if (!Config->AllowBind)
+    PE->DLLCharacteristics |= IMAGE_DLL_CHARACTERISTICS_NO_BIND;
+  if (Config->NxCompat)
+    PE->DLLCharacteristics |= IMAGE_DLL_CHARACTERISTICS_NX_COMPAT;
+  if (!Config->AllowIsolation)
+    PE->DLLCharacteristics |= IMAGE_DLL_CHARACTERISTICS_NO_ISOLATION;
+  if (Config->TerminalServerAware)
+    PE->DLLCharacteristics |= IMAGE_DLL_CHARACTERISTICS_TERMINAL_SERVER_AWARE;
   PE->NumberOfRvaAndSize = NumberfOfDataDirectory;
   if (OutputSection *Text = findSection(".text")) {
     PE->BaseOfCode = Text->getRVA();
@@ -273,13 +341,34 @@ void Writer::writeHeader() {
   PE->SizeOfInitializedData = getSizeOfInitializedData();
 
   // Write data directory
-  auto *DataDirectory = reinterpret_cast<data_directory *>(Buf);
-  Buf += sizeof(*DataDirectory) * NumberfOfDataDirectory;
-  if (Idata) {
-    DataDirectory[IMPORT_TABLE].RelativeVirtualAddress = Idata->getDirRVA();
-    DataDirectory[IMPORT_TABLE].Size = Idata->getDirSize();
-    DataDirectory[IAT].RelativeVirtualAddress = Idata->getIATRVA();
-    DataDirectory[IAT].Size = Idata->getIATSize();
+  auto *Dir = reinterpret_cast<data_directory *>(Buf);
+  Buf += sizeof(*Dir) * NumberfOfDataDirectory;
+  if (OutputSection *Sec = findSection(".edata")) {
+    Dir[EXPORT_TABLE].RelativeVirtualAddress = Sec->getRVA();
+    Dir[EXPORT_TABLE].Size = Sec->getVirtualSize();
+  }
+  if (!Idata.empty()) {
+    Dir[IMPORT_TABLE].RelativeVirtualAddress = Idata.getDirRVA();
+    Dir[IMPORT_TABLE].Size = Idata.getDirSize();
+    Dir[IAT].RelativeVirtualAddress = Idata.getIATRVA();
+    Dir[IAT].Size = Idata.getIATSize();
+  }
+  if (!DelayIdata.empty()) {
+    Dir[DELAY_IMPORT_DESCRIPTOR].RelativeVirtualAddress =
+        DelayIdata.getDirRVA();
+    Dir[DELAY_IMPORT_DESCRIPTOR].Size = DelayIdata.getDirSize();
+  }
+  if (OutputSection *Sec = findSection(".rsrc")) {
+    Dir[RESOURCE_TABLE].RelativeVirtualAddress = Sec->getRVA();
+    Dir[RESOURCE_TABLE].Size = Sec->getVirtualSize();
+  }
+  if (OutputSection *Sec = findSection(".reloc")) {
+    Dir[BASE_RELOCATION_TABLE].RelativeVirtualAddress = Sec->getRVA();
+    Dir[BASE_RELOCATION_TABLE].Size = Sec->getVirtualSize();
+  }
+  if (OutputSection *Sec = findSection(".pdata")) {
+    Dir[EXCEPTION_TABLE].RelativeVirtualAddress = Sec->getRVA();
+    Dir[EXCEPTION_TABLE].Size = Sec->getVirtualSize();
   }
 
   // Section table
@@ -342,6 +431,18 @@ void Writer::writeSections() {
   }
 }
 
+// Sort .pdata section contents according to PE/COFF spec 5.5.
+void Writer::sortExceptionTable() {
+  if (auto *Sec = findSection(".pdata")) {
+    // We assume .pdata contains function table entries only.
+    struct Entry { ulittle32_t Begin, End, Unwind; };
+    uint8_t *Buf = Buffer->getBufferStart() + Sec->getFileOff();
+    std::sort(reinterpret_cast<Entry *>(Buf),
+              reinterpret_cast<Entry *>(Buf + Sec->getVirtualSize()),
+              [](const Entry &A, const Entry &B) { return A.Begin < B.Begin; });
+  }
+}
+
 OutputSection *Writer::findSection(StringRef Name) {
   for (OutputSection *Sec : OutputSections)
     if (Sec->getName() == Name)
@@ -364,16 +465,19 @@ OutputSection *Writer::createSection(StringRef Name) {
   const auto DATA = IMAGE_SCN_CNT_INITIALIZED_DATA;
   const auto BSS = IMAGE_SCN_CNT_UNINITIALIZED_DATA;
   const auto CODE = IMAGE_SCN_CNT_CODE;
+  const auto DISCARDABLE = IMAGE_SCN_MEM_DISCARDABLE;
   const auto R = IMAGE_SCN_MEM_READ;
   const auto W = IMAGE_SCN_MEM_WRITE;
-  const auto E = IMAGE_SCN_MEM_EXECUTE;
+  const auto X = IMAGE_SCN_MEM_EXECUTE;
   uint32_t Perms = StringSwitch<uint32_t>(Name)
                        .Case(".bss", BSS | R | W)
                        .Case(".data", DATA | R | W)
                        .Case(".didat", DATA | R)
+                       .Case(".edata", DATA | R)
                        .Case(".idata", DATA | R)
                        .Case(".rdata", DATA | R)
-                       .Case(".text", CODE | R | E)
+                       .Case(".reloc", DATA | DISCARDABLE | R)
+                       .Case(".text", CODE | R | X)
                        .Default(0);
   if (!Perms)
     llvm_unreachable("unknown section name");
@@ -382,6 +486,43 @@ OutputSection *Writer::createSection(StringRef Name) {
   Sec->addPermissions(Perms);
   OutputSections.push_back(Sec);
   return Sec;
+}
+
+// Dest is .reloc section. Add contents to that section.
+void Writer::addBaserels(OutputSection *Dest) {
+  std::vector<uint32_t> V;
+  Defined *ImageBase = cast<Defined>(Symtab->find("__ImageBase"));
+  for (OutputSection *Sec : OutputSections) {
+    if (Sec == Dest)
+      continue;
+    // Collect all locations for base relocations.
+    for (Chunk *C : Sec->getChunks())
+      C->getBaserels(&V, ImageBase);
+    // Add the addresses to .reloc section.
+    if (!V.empty())
+      addBaserelBlocks(Dest, V);
+    V.clear();
+  }
+}
+
+// Add addresses to .reloc section. Note that addresses are grouped by page.
+void Writer::addBaserelBlocks(OutputSection *Dest, std::vector<uint32_t> &V) {
+  const uint32_t Mask = ~uint32_t(PageSize - 1);
+  uint32_t Page = V[0] & Mask;
+  size_t I = 0, J = 1;
+  for (size_t E = V.size(); J < E; ++J) {
+    uint32_t P = V[J] & Mask;
+    if (P == Page)
+      continue;
+    BaserelChunk *Buf = BAlloc.Allocate();
+    Dest->addChunk(new (Buf) BaserelChunk(Page, &V[I], &V[0] + J));
+    I = J;
+    Page = P;
+  }
+  if (I == J)
+    return;
+  BaserelChunk *Buf = BAlloc.Allocate();
+  Dest->addChunk(new (Buf) BaserelChunk(Page, &V[I], &V[0] + J));
 }
 
 } // namespace coff
