@@ -369,7 +369,15 @@ public:
   /// values.
   bool isNullVector() const;
 
-  /// \brief Returns true if this canon expr looks soemthing like (1 * %t).
+  /// \brief Returns true if this canon expr is a standalone IV (it looks
+  /// something like (1 * i3)). 
+  bool isStandAloneIV() const;
+
+  /// \brief Returns the level of the first IV with coeff different from 0.
+  /// It returns 0 if no IV is found with coeff different from 0.
+  unsigned getFirstIVLevel() const;
+
+  /// \brief Returns true if this canon expr looks something like (1 * %t).
   /// This is a broader check than isSelfBlob() because it allows the blob to
   /// be a FP constant or even metadata.
   bool isStandAloneBlob() const {

@@ -421,6 +421,10 @@ public:
   /// \brief Returns true if the DDRef is a memory reference
   bool isMemRef() const { return hasGEPInfo() && !isAddressOf(); }
 
+  /// \brief Returns true if the RegDDRef represents a standalone IV like (1 *
+  /// i3).
+  bool isStandAloneIV() const;
+
   /// \brief Returns true if the DDRef represents a self-blob like (1 * %t). In
   /// addition DDRef's symbase should be the same as %t's symbase. This is so
   /// because for some livein copies %t1 = %t2, lval %t1 is parsed as 1 * %t2.

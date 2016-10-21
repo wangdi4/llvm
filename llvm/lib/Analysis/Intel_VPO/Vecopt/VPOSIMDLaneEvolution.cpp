@@ -1457,6 +1457,16 @@ SIMDLaneEvolutionAnalysisHIR::constructBasicSLEV(AVRValueHIR *AValueHIR,
     return SIMDLaneEvolutionAnalysisBase::constructSLEV(AValueHIR);
   }
 
+  // SLEV for IVs. 
+  // StandAloneIVs must be processed as IVs and not as DDRefValues
+  if (AValueHIR->isIVValue()) {
+    AVRValueHIR::IVValueInfo *IVInfo = AValueHIR->getIVValue();
+    if (IVInfo->Level == VectorizedDim)
+      return createPredefinedSLEV(SLEV(STRIDED, SLEV::One));
+    else
+      return createPredefinedSLEV(UNIFORM);
+  }
+
   // SLEV for DDRefs
   if (AValueHIR->isDDRefValue()) {
     DDRef *DDR = AValueHIR->getValue();
@@ -1478,15 +1488,6 @@ SIMDLaneEvolutionAnalysisHIR::constructBasicSLEV(AVRValueHIR *AValueHIR,
         addReaching(SU, ReachingDef, DDR);
       return SU;
     }
-  }
-
-  // SLEV for IVs
-  if (AValueHIR->isIVValue()) {
-    AVRValueHIR::IVValueInfo *IVInfo = AValueHIR->getIVValue();
-    if (IVInfo->Index == VectorizedDim)
-      return createPredefinedSLEV(SLEV(STRIDED, SLEV::One));
-    else
-      return createPredefinedSLEV(UNIFORM);
   }
 
   llvm_unreachable("Unexpected decomposed AVRValueHIR");

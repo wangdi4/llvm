@@ -27,9 +27,6 @@ static cl::opt<unsigned> DefaultVF("default-vpo-vf", cl::init(0),
                                    cl::desc("Default vector length"));
 static cl::opt<unsigned> EnableVectVLS("enable-vect-vls", cl::init(1),
                              cl::desc("Enable VLS group analysis by default"));
-static cl::opt<bool>
-    EnableValueDecomp("enable-value-decomp", cl::init(false),
-                      cl::desc("Enable AVRValueHIR decomposition"));
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -127,16 +124,6 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
   if (!AvrLoop)
     return VectCand; 
 #endif
-
-  if (EnableValueDecomp) {
-    if (VPOScenarioEvaluationHIR *SEHIR =
-            dyn_cast<VPOScenarioEvaluationHIR>(this)) {
-
-      SEHIR->getValueDecomposerUtil().runOnAvr(AvrLoop);
-      DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After DecomposerHIR:\n";
-            AvrLoop->print(FOS, 1, PrintAvrDecomp));
-    }
-  }
 
   // Loop over search space of candidates within AWrn. In the future this will
   // examine all candidate ALoops (and combinations thereof) within the AWrn.

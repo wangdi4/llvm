@@ -192,12 +192,12 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
   setParent(Parent);
 
   Type *DataType;
-  const CanonExpr *CE = nullptr;
+  CanonExpr *CE = nullptr;
 
   if (DDRef->hasGEPInfo()) {
     CE = DDRef->getBaseCE();
-    PointerType *BaseTy = cast<PointerType>(CE->getSrcType()); //CHECKME: getDestType?
-    Type *ElemTy = DDRef->getSrcType(); //CHECKME: getDestType?
+    PointerType *BaseTy = cast<PointerType>(CE->getDestType());
+    Type *ElemTy = DDRef->getDestType();
     // In the case of array of ints for example (int a[300]):
     // ElemTy is i32  (int)
     // BaseTy is [300 x i32]*  (pointer to array)
@@ -205,10 +205,9 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
     DataType = ElemTy->getPointerTo(BaseTy->getPointerAddressSpace()); 
   }
   else {
-    // CHECKME: DDRef->getSrcType? getDestType?
     CE = DDRef->getSingleCanonExpr();
     assert(CE && "DDRef is empty!");
-    DataType = CE->getSrcType();
+    DataType = CE->getDestType();
   }
 
   this->setType(DataType);
@@ -233,6 +232,16 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
       llvm_unreachable("CanonExpr has an unexpected constant value!");
     }
   }
+
+  // Add IVValue info if RegDDRef is a standalone IV (1 * i3)
+  if (DDRef->isStandAloneIV()) {
+    assert(DDRef->isSingleCanonExpr() &&
+           "Standalone IV must have a single canon expr");
+    CE = DDRef->getSingleCanonExpr();
+    assert(CE->isStandAloneIV() && "Standalone IV CanonExpr expected");
+
+    setIVValue(new AVRValueHIR::IVValueInfo(CE, CE->getFirstIVLevel()));
+  }
 }
 
 //TODO
@@ -245,12 +254,6 @@ AVRValueHIR::AVRValueHIR(BlobDDRef *DDRef, AVR *Parent)
 AVRValueHIR::AVRValueHIR(IVValueInfo *IVV, Type *Ty, AVR *Parent)
     : AVRValue(AVR::AVRValueHIRNode, Ty), Val(nullptr), IVVal(IVV),
       HNode(nullptr) {
-  setParent(Parent);
-}
-
-//TODO
-AVRValueHIR::AVRValueHIR(Constant *Const, AVR *Parent)
-    : AVRValue(Const), Val(nullptr), HNode(nullptr) {
   setParent(Parent);
 }
 
@@ -291,7 +294,7 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
       Val->print(OS, false);
     } else { // IV Value
       assert(IVVal != nullptr && "IVValue is null");
-      OS << "i" << IVVal->Index;
+      OS << "i" << IVVal->Level;
     }
 
     break;

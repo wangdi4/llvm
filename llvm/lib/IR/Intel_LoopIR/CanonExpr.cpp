@@ -391,6 +391,63 @@ bool CanonExpr::isNullVector() const {
   return isNullImpl();
 }
 
+bool CanonExpr::isStandAloneIV() const {
+
+  if ((getSrcType() == getDestType()) && !hasBlob() && !getConstant() &&
+      (getDenominator() == 1)) {
+
+    unsigned NumIVs = 0;
+    // This loop checks that there is only one IV with BlobCoeff == 0 and Coeff
+    // == 1
+    for (auto IV = iv_begin(), E = iv_end(); IV != E; ++IV) {
+      int64_t Coeff;
+      unsigned BlobCoeff;
+      getIVCoeff(IV, &BlobCoeff, &Coeff);
+
+      if (Coeff == 0) {
+        continue;
+      }
+
+      ++NumIVs;
+
+      // A standalone IV has only one IV
+      if (NumIVs > 1) {
+        return false;
+      }
+
+      // A standalone IV has no blob coeffs
+      if (BlobCoeff != 0) {
+        return false;
+      }
+
+      // A standalone IV has coeff 1
+      if (Coeff != 1) {
+        return false;
+      }
+    }
+
+    // After the loop, if NumIVs == 1, then Coeff == 1 and BlobCoeff == 0 for
+    // that IV, so it's standalone
+    if (NumIVs == 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+unsigned CanonExpr::getFirstIVLevel() const {
+
+  // We know there is at least one IV with coeff != 0
+  for (auto IV = iv_begin(), E = iv_end(); IV != E; ++IV) {
+    if (getIVConstCoeff(IV) != 0) {
+      return getLevel(IV);
+    }
+  }
+
+  return 0;
+}
+
 unsigned CanonExpr::numIVImpl(bool CheckIVPresence,
                               bool CheckBlobCoeffs) const {
   unsigned Count = 0;

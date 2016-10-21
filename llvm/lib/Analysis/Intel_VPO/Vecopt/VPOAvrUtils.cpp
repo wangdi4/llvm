@@ -56,6 +56,13 @@ AVRValue *AVRUtils::createAVRValue(AVRExpression *ReachingDef) {
   return new AVRValue(ReachingDef);
 }
 
+AVRExpression *AVRUtils::createAVRExpression(AVR *RHS, unsigned OpCode,
+                                             Type *ExprTy) {
+  SmallVector<AVR *, 1> Operands;
+  Operands.push_back(RHS);
+  return new AVRExpression(Operands, OpCode, ExprTy);
+}
+
 AVRExpression *AVRUtils::createAVRExpression(AVR *LHS, AVR *RHS,
                                              unsigned OpCode, Type *ExprTy) {
   SmallVector<AVR *, 2> Operands;

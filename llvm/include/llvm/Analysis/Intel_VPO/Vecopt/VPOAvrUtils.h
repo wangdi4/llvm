@@ -112,6 +112,10 @@ public:
   static AVRValue *createAVRValue(AVRExpression *ReachingDef);
 
   /// \brief Returns a new AVRExpression node.
+  static AVRExpression *createAVRExpression(AVR *RHS, unsigned Operation,
+                                            Type *ExprType);
+
+  /// \brief Returns a new AVRExpression node.
   static AVRExpression *createAVRExpression(AVR *LHS, AVR *RHS,
                                             unsigned Operation, Type *ExprType);
 

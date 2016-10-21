@@ -414,6 +414,14 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
   return true;
 }
 
+bool RegDDRef::isStandAloneIV() const {
+  if (isTerminalRef()) {
+    return getSingleCanonExpr()->isStandAloneIV();
+  }
+
+  return false;
+}
+
 bool RegDDRef::isSelfBlob() const {
   if (!isTerminalRef()) {
     return false;
