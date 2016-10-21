@@ -208,6 +208,9 @@ const CanonExpr *DDTest::getInvariant(const CanonExpr *CE) {
 
   CE2->clearIVs();
 
+  // TODO: note that it could be unsafe to simplify denominator in constant CEs.
+  CE2->simplify(false);
+
   push(CE2);
   return CE2;
 }
@@ -256,19 +259,16 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVNum,
 }
 
 const CanonExpr *DDTest::getFirstCoeff(const CanonExpr *CE) {
-
-  CanonExpr *CE2 = const_cast<CanonExpr *>(getCoeff(CE, 1, false));
   // No need to push(CE2) because it's done in getCoeff
-  return CE2;
+  return getCoeff(CE, 1, false);
 }
 
 const CanonExpr *DDTest::getSecondCoeff(const CanonExpr *CE) {
   // for  1 * i1 + 3 * i2
   // return second  coeff, 3 in this case
 
-  CanonExpr *CE2 = const_cast<CanonExpr *>(getCoeff(CE, 2, false));
   // No need to push(CE2) because it's done in getCoeff
-  return CE2;
+  return getCoeff(CE, 2, false);
 }
 
 static const HLLoop *getLoop(const CanonExpr *CE, const HLLoop *ParentLoop) {
@@ -362,6 +362,9 @@ const CanonExpr *DDTest::getMinus(const CanonExpr *SrcConst,
   if (!CE) {
     return nullptr;
   }
+
+  CE->simplify(false);
+
   push(CE);
   return CE;
 }
@@ -376,6 +379,9 @@ const CanonExpr *DDTest::getAdd(const CanonExpr *SrcConst,
   if (!CE) {
     return nullptr;
   }
+
+  CE->simplify(false);
+
   push(CE);
   return CE;
 }

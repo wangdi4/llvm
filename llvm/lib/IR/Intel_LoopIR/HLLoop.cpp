@@ -626,7 +626,8 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
     return nullptr;
   }
   Result->addConstant(StrideConst, true);
-  Result->divide(StrideConst, true);
+  Result->divide(StrideConst);
+  Result->simplify(true);
   return Result;
 }
 

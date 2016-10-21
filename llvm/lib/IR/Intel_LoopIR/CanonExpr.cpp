@@ -187,7 +187,7 @@ bool CanonExpr::isSelfBlob() const {
           BlobUtils::isTempBlob(BlobUtils::getBlob(getSingleBlobIndex())));
 }
 
-void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
+void CanonExpr::setDenominator(int64_t Val) {
   assert((Val != 0) && "Denominator cannot be zero!");
 
   // Negate the canon expr instead of storing negative denominators.
@@ -197,14 +197,10 @@ void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
   } else {
     Denominator = Val;
   }
-
-  if (Simplify) {
-    simplify();
-  }
 }
 
-void CanonExpr::divide(int64_t Val, bool Simplify) {
-  setDenominator(Denominator * Val, Simplify);
+void CanonExpr::divide(int64_t Val) {
+  setDenominator(Denominator * Val);
 }
 
 bool CanonExpr::isExtImpl(bool IsSigned, bool IsTrunc) const {
@@ -975,6 +971,55 @@ void CanonExpr::collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
   collectBlobIndicesImpl(Indices, MakeUnique, true);
 }
 
+void CanonExpr::simplifyConstantDenom() {
+  // Handle non-unit denominator.
+  auto DenomConst = getDenominator();
+  if (DenomConst == 1) {
+    return;
+  }
+
+  auto Val = getConstant();
+
+  unsigned SrcBitWidth =
+      getSrcType()->getScalarType()->getPrimitiveSizeInBits();
+
+  bool IsSignedDiv = isSignedDiv();
+
+  APInt Constant(SrcBitWidth, Val, IsSignedDiv);
+  APInt Denom(SrcBitWidth, DenomConst, IsSignedDiv);
+
+  auto DivOp = IsSignedDiv ? APIntOps::sdiv : APIntOps::udiv;
+
+  Val = DivOp(Constant, Denom).getSExtValue();
+
+  setDenominator(1);
+  setConstant(Val);
+}
+
+void CanonExpr::simplifyConstantCast() {
+  Type *SrcType = getSrcType();
+  Type *DstType = getDestType();
+  // TODO: support vector types?
+
+  // Handle cast of constant canon expression.
+  if (!SrcType->isIntegerTy() || SrcType == DstType) {
+    return;
+  }
+
+  auto Val = getConstant();
+  unsigned DstBitWidth = DstType->getPrimitiveSizeInBits();
+  bool IsSigned = isSExt();
+
+  APInt Constant(SrcType->getPrimitiveSizeInBits(), Val, IsSigned);
+
+  Val = (IsSigned ? Constant.sextOrTrunc(DstBitWidth)
+                  : Constant.zextOrTrunc(DstBitWidth))
+            .getSExtValue();
+
+  setSrcType(DstType);
+  setConstant(Val);
+}
+
 int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
 
   if (CurrentGCD == -1) {
@@ -986,8 +1031,18 @@ int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
   return CurrentGCD;
 }
 
-void CanonExpr::simplify() {
+void CanonExpr::simplify(bool SimplifyCast) {
   int64_t Denom = 0, NumeratorGCD = -1, CommonGCD = 0;
+
+  // Numerator is constant, we can evaluate value of the CE.
+  if (!hasIV() && !hasBlob()) {
+    simplifyConstantDenom();
+    if (SimplifyCast) {
+      simplifyConstantCast();
+    }
+
+    return;
+  }
 
   // Nothing to simplify...
   if ((Denom = getDenominator()) == 1) {
@@ -1013,11 +1068,7 @@ void CanonExpr::simplify() {
     NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
   }
 
-  // Dealing with constant negative numerator during unsigned division is
-  // complicated so we avoid simplification.
-  if ((NumeratorGCD == -1) && (C0 < 0) && isUnsignedDiv()) {
-    return;
-  }
+  assert(NumeratorGCD != -1 && "Constant numerator is found.");
 
   if (C0) {
     NumeratorGCD = simplifyGCDHelper(NumeratorGCD, C0);
@@ -1332,6 +1383,12 @@ void CanonExpr::verify(unsigned NestingLevel) const {
   if (isConstant()) {
     assert(isProperLinear() &&
            " Defined at Level should be 0 for constant canonexpr!");
+    assert(getDenominator() == 1 &&
+           "Constant CEs should have unit denominator");
+
+    // Allow non simplified casts in HIR.
+    //assert(!isTrunc() && !isSExt() && !isZExt() &&
+    //       "Casts in constant CEs should be simplified");
   }
 
   verifyNestingLevel(NestingLevel);

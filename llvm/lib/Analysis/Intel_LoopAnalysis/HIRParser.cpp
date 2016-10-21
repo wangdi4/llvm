@@ -2413,7 +2413,8 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
           parseRecursive(BaseSCEV, BaseCE, Level);
 
           // Normalize with repsect to element size.
-          LastIndexCE->divide(ElementSize, true);
+          LastIndexCE->divide(ElementSize);
+          LastIndexCE->simplify(true);
         }
       }
       // Decompose phi into base and index ourselves.
@@ -2424,7 +2425,8 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
           BaseCE = createHeaderPhiInitCE(BasePhi, Level);
 
           // Normalize with respect to element size.
-          LastIndexCE->divide(ElementSize, true);
+          LastIndexCE->divide(ElementSize);
+          LastIndexCE->simplify(true);
         }
       }
     }

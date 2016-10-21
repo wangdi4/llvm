@@ -192,7 +192,7 @@ private:
   SmallVectorImpl<int64_t> *TripValues;
 
   void processRegDDRef(RegDDRef *RegDD);
-  void processCanonExpr(CanonExpr *CExpr);
+  void processCanonExpr(CanonExpr *CExpr, bool IsTerminal);
 
 public:
   CanonExprVisitor(HLLoop *OutLoop, SmallVectorImpl<int64_t> &TripValVec)
@@ -319,15 +319,12 @@ void HIRCompleteUnroll::CanonExprVisitor::visit(HLDDNode *Node) {
 /// processRegDDRef - Processes RegDDRef to call the Canon Exprs
 /// present inside it. This is an internal helper function.
 void HIRCompleteUnroll::CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
+  bool IsTerminal = RegDD->isTerminalRef();
+
   // Process CanonExprs inside the RegDDRefs
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
        ++Iter) {
-    processCanonExpr(*Iter);
-  }
-
-  // Process GEP Base
-  if (RegDD->hasGEPInfo()) {
-    processCanonExpr(RegDD->getBaseCE());
+    processCanonExpr(*Iter, IsTerminal);
   }
 
   RegDD->makeConsistent();
@@ -342,13 +339,15 @@ void HIRCompleteUnroll::CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
 
 /// Processes CanonExpr to replace IV by TripVal.
 /// This is an internal helper function.
-void HIRCompleteUnroll::CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
+void HIRCompleteUnroll::CanonExprVisitor::processCanonExpr(CanonExpr *CExpr,
+                                                           bool IsTerminal) {
 
   // Start replacing the IV's from OuterLoop level to current loop level.
   int64_t LoopLevel = OuterLoop->getNestingLevel();
   for (auto &TripV : *TripValues) {
     DEBUG(dbgs() << "Replacing CanonExpr IV by tripval :" << TripV << " \n");
     CExpr->replaceIVByConstant(LoopLevel, TripV);
+    CExpr->simplify(IsTerminal);
     LoopLevel++;
   }
 }
@@ -994,6 +993,7 @@ int64_t computeUB(HLLoop *Loop, HLLoop *OuterLoop,
   int64_t LoopLevel = OuterLoop->getNestingLevel();
   for (auto TripV : TripValues) {
     UBCE->replaceIVByConstant(LoopLevel, TripV);
+    UBCE->simplify(true);
     LoopLevel++;
   }
 

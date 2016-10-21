@@ -131,7 +131,8 @@ bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
                                                 OrigLoop->getUpperDDRef()};
 
     // Use the same canon expr to generate the division.
-    TripCE->divide(UnrollOrVecFactor, true);
+    TripCE->divide(UnrollOrVecFactor);
+    TripCE->simplify(true);
 
     Ref->setSymbase(getHIRFramework()->getNewSymbase());
 

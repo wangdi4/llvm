@@ -3002,21 +3002,13 @@ bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
     return true;
   }
 
-  // TODO: Temporaty skip constants with casts. The check below should be
-  // removed after simplification of CEs.
-  if (LHS->getSrcType() != LHS->getDestType() ||
-      RHS->getSrcType() != RHS->getDestType()) {
-    return false;
-  }
-
   int64_t LHSVal, RHSVal;
   if (LHS->isIntConstant(&LHSVal) && RHS->isIntConstant(&RHSVal)) {
     bool IsSigned = CmpInst::isSigned(Pred);
     unsigned BitWidth = LHS->getDestType()->getIntegerBitWidth();
 
-    // TODO: uncomment asserts after simplifications of CEs.
-    //assert(LHS->getSrcType() == LHS->getDestType() &&
-    //       RHS->getSrcType() == RHS->getDestType() && "Cast is not expected");
+    assert(LHS->getSrcType() == LHS->getDestType() &&
+           RHS->getSrcType() == RHS->getDestType() && "Cast is not expected");
     assert(LHS->getDestType() == RHS->getDestType() && "LHS/RHS type mismatch");
 
     APInt LHSAPInt(BitWidth, LHSVal, IsSigned);

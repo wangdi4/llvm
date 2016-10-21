@@ -304,7 +304,6 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
 
   if (CE2->isZero()) {
-    Result->simplify();
     return Result;
   }
 
@@ -378,9 +377,6 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
              NewCE2->getDefinedAtLevel() > Result->getDefinedAtLevel()) {
     Result->setDefinedAtLevel(NewCE2->getDefinedAtLevel());
   }
-
-  // Simplify resulting canon expr before returning.
-  Result->simplify();
 
   // Destroy auxiliary canon expr.
   if (CreatedAuxCE) {
@@ -491,7 +487,7 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   // CE2 = C1*C2 * B1*B2
 
   // Set denominator from CE1 to CE2
-  Term->divide(CE1->getDenominator(), false);
+  Term->divide(CE1->getDenominator());
 
   // CE1 = C1*C2 * B1*B2 + C3*i2 + ...
   CanonExpr *AddResult = CanonExprUtils::add(CE1, Term.get(), RelaxedMode);

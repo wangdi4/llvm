@@ -183,6 +183,7 @@ IVSegment::IVSegment(const RefGroupTy &Group) {
   CanonExpr *UpperCE = *Upper->canon_begin();
   auto DiffCE = CanonExprUtils::cloneAndSubtract(UpperCE, LowerCE, false);
   assert(DiffCE && " CanonExpr difference failed.");
+  DiffCE->simplify(true);
   if (DiffCE->isIntConstant(&DiffValue)) {
     assert(DiffValue >= 0 && "Segment wrong direction");
   } else {
@@ -270,6 +271,7 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
     if (BoundCE->getDenominator() == 1 &&
         CanonExprUtils::mergeable(CE, BoundCE, true)) {
       Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE, true);
+      CE->simplify(false);
     } else {
       // Have to treat bound as blob and then truncate or extend it.
       std::unique_ptr<CanonExpr> NewBoundCE(BoundCE->clone());

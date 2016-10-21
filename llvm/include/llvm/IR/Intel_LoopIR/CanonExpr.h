@@ -176,7 +176,7 @@ protected:
   /// existing coefficient is either overwritten or added to.
   void addBlobInternal(unsigned BlobIndex, int64_t BlobCoeff, bool overwrite);
 
-  /// \brief Helper to calculate gcd for simplify(). Handles negative integers
+  /// Helper to calculate gcd for simplify(). Handles negative integers
   /// as well.
   int64_t simplifyGCDHelper(int64_t CurrentGCD, int64_t Num);
 
@@ -238,6 +238,11 @@ protected:
 
   /// \brief Returns true if canon expr represents null pointer value.
   bool isNullImpl() const;
+
+  /// Evaluates the canon expression if it represents constant value and stores
+  /// it as C0.
+  void simplifyConstantDenom();
+  void simplifyConstantCast();
 
 public:
   CanonExpr *clone() const;
@@ -446,11 +451,11 @@ public:
   /// denominators.
   /// If Simplifiy is set, we call simplify() on the canon expr after setting
   /// the denominator.
-  void setDenominator(int64_t Val, bool Simplify = false);
+  void setDenominator(int64_t Val);
 
   /// \brief Multiplies the constant value (Val) with the existing denominator
   /// of the canon expr. The new denominator equals (Old denominator * Val).
-  void divide(int64_t Val, bool Simplify = false);
+  void divide(int64_t Val);
 
   /// \brief Returns true if the division in the canon expr is a signed
   /// division.
@@ -644,7 +649,7 @@ public:
                               bool MakeUnique = true) const;
 
   /// \brief Simplifies canon expr by dividing numerator and denominator by gcd.
-  void simplify();
+  void simplify(bool SimplifyCast = false);
 
   /// \brief Multiplies the canon expr by Val.
   void multiplyByConstant(int64_t Val);

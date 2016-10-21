@@ -137,7 +137,7 @@ private:
   unsigned UnrollCnt;
 
   void processRegDDRef(RegDDRef *RegDD);
-  void processCanonExpr(CanonExpr *CExpr);
+  void processCanonExpr(CanonExpr *CExpr, bool IsTerminal);
 
 public:
   CanonExprUpdater(unsigned Level, unsigned UF)
@@ -777,24 +777,23 @@ void CanonExprUpdater::visit(HLDDNode *Node) {
 }
 
 void CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
+  bool IsTerminal = RegDD->isTerminalRef();
+
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
        ++Iter) {
-    processCanonExpr(*Iter);
-  }
-
-  if (RegDD->hasGEPInfo()) {
-    processCanonExpr(RegDD->getBaseCE());
+    processCanonExpr(*Iter, IsTerminal);
   }
 }
 
 /// Processes CanonExpr to modify IV to:
 /// IV*UF + (Original IVCoeff)*UnrollCnt.
-void CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
+void CanonExprUpdater::processCanonExpr(CanonExpr *CExpr, bool IsTerminal) {
   if (UnrollCnt) {
     CExpr->shift(Level, UnrollCnt);
   }
 
   CExpr->multiplyIVByConstant(Level, UnrollFactor);
+  CExpr->simplify(IsTerminal);
 }
 
 void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop, unsigned UnrollFactor,
