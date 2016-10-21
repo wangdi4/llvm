@@ -145,8 +145,9 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
         llvm::IndexedInstrProfReader::create(CodeGenOpts.InstrProfileInput);
     if (std::error_code EC = ReaderOrErr.getError()) {
       unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                              "Could not read profile: %0");
-      getDiags().Report(DiagID) << EC.message();
+                                              "Could not read profile %0: %1");
+      getDiags().Report(DiagID) << CodeGenOpts.InstrProfileInput
+                                << EC.message();
     } else
       PGOReader = std::move(ReaderOrErr.get());
   }
@@ -205,11 +206,9 @@ void CodeGenModule::addReplacement(StringRef Name, llvm::Constant *C) {
 }
 
 void CodeGenModule::applyReplacements() {
-  for (ReplacementsTy::iterator I = Replacements.begin(),
-                                E = Replacements.end();
-       I != E; ++I) {
-    StringRef MangledName = I->first();
-    llvm::Constant *Replacement = I->second;
+  for (auto &I : Replacements) {
+    StringRef MangledName = I.first();
+    llvm::Constant *Replacement = I.second;
     llvm::GlobalValue *Entry = GetGlobalValue(MangledName);
     if (!Entry)
       continue;
@@ -261,9 +260,7 @@ void CodeGenModule::checkAliases() {
   // and aliases during codegen.
   bool Error = false;
   DiagnosticsEngine &Diags = getDiags();
-  for (std::vector<GlobalDecl>::iterator I = Aliases.begin(),
-         E = Aliases.end(); I != E; ++I) {
-    const GlobalDecl &GD = *I;
+  for (const GlobalDecl &GD : Aliases) {
     const auto *D = cast<ValueDecl>(GD.getDecl());
     const AliasAttr *AA = D->getAttr<AliasAttr>();
     StringRef MangledName = getMangledName(GD);
@@ -310,9 +307,7 @@ void CodeGenModule::checkAliases() {
   if (!Error)
     return;
 
-  for (std::vector<GlobalDecl>::iterator I = Aliases.begin(),
-         E = Aliases.end(); I != E; ++I) {
-    const GlobalDecl &GD = *I;
+  for (const GlobalDecl &GD : Aliases) {
     StringRef MangledName = getMangledName(GD);
     llvm::GlobalValue *Entry = GetGlobalValue(MangledName);
     auto *Alias = cast<llvm::GlobalAlias>(Entry);
@@ -637,15 +632,14 @@ void CodeGenModule::EmitCtorList(const CtorList &Fns, const char *GlobalName) {
       Int32Ty, llvm::PointerType::getUnqual(CtorFTy), VoidPtrTy, nullptr);
 
   // Construct the constructor and destructor arrays.
-  SmallVector<llvm::Constant*, 8> Ctors;
-  for (CtorList::const_iterator I = Fns.begin(), E = Fns.end(); I != E; ++I) {
+  SmallVector<llvm::Constant *, 8> Ctors;
+  for (const auto &I : Fns) {
     llvm::Constant *S[] = {
-      llvm::ConstantInt::get(Int32Ty, I->Priority, false),
-      llvm::ConstantExpr::getBitCast(I->Initializer, CtorPFTy),
-      (I->AssociatedData
-           ? llvm::ConstantExpr::getBitCast(I->AssociatedData, VoidPtrTy)
-           : llvm::Constant::getNullValue(VoidPtrTy))
-    };
+        llvm::ConstantInt::get(Int32Ty, I.Priority, false),
+        llvm::ConstantExpr::getBitCast(I.Initializer, CtorPFTy),
+        (I.AssociatedData
+             ? llvm::ConstantExpr::getBitCast(I.AssociatedData, VoidPtrTy)
+             : llvm::Constant::getNullValue(VoidPtrTy))};
     Ctors.push_back(llvm::ConstantStruct::get(CtorStructTy, S));
   }
 
@@ -836,7 +830,7 @@ void CodeGenModule::setNonAliasAttributes(const Decl *D,
   if (const SectionAttr *SA = D->getAttr<SectionAttr>())
     GO->setSection(SA->getName());
 
-  getTargetCodeGenInfo().SetTargetAttributes(D, GO, *this);
+  getTargetCodeGenInfo().setTargetAttributes(D, GO, *this);
 }
 
 void CodeGenModule::SetInternalFunctionAttributes(const Decl *D,
@@ -1029,12 +1023,9 @@ void CodeGenModule::EmitModuleLinkOptions() {
   SmallVector<clang::Module *, 16> Stack;
 
   // Seed the stack with imported modules.
-  for (llvm::SetVector<clang::Module *>::iterator M = ImportedModules.begin(),
-                                               MEnd = ImportedModules.end();
-       M != MEnd; ++M) {
-    if (Visited.insert(*M).second)
-      Stack.push_back(*M);
-  }
+  for (Module *M : ImportedModules)
+    if (Visited.insert(M).second)
+      Stack.push_back(M);
 
   // Find all of the modules to import, making a little effort to prune
   // non-leaf modules.
@@ -1070,12 +1061,9 @@ void CodeGenModule::EmitModuleLinkOptions() {
   // to linker options inserted by things like #pragma comment().
   SmallVector<llvm::Metadata *, 16> MetadataArgs;
   Visited.clear();
-  for (llvm::SetVector<clang::Module *>::iterator M = LinkModules.begin(),
-                                               MEnd = LinkModules.end();
-       M != MEnd; ++M) {
-    if (Visited.insert(*M).second)
-      addLinkOptionsPostorder(*this, *M, MetadataArgs, Visited);
-  }
+  for (Module *M : LinkModules)
+    if (Visited.insert(M).second)
+      addLinkOptionsPostorder(*this, M, MetadataArgs, Visited);
   std::reverse(MetadataArgs.begin(), MetadataArgs.end());
   LinkerOptionsMetadata.append(MetadataArgs.begin(), MetadataArgs.end());
 
@@ -1231,8 +1219,9 @@ bool CodeGenModule::isInSanitizerBlacklist(llvm::Function *Fn,
 bool CodeGenModule::isInSanitizerBlacklist(llvm::GlobalVariable *GV,
                                            SourceLocation Loc, QualType Ty,
                                            StringRef Category) const {
-  // For now globals can be blacklisted only in ASan.
-  if (!LangOpts.Sanitize.has(SanitizerKind::Address))
+  // For now globals can be blacklisted only in ASan and KASan.
+  if (!LangOpts.Sanitize.hasOneOf(
+          SanitizerKind::Address | SanitizerKind::KernelAddress))
     return false;
   const auto &SanitizerBL = getContext().getSanitizerBlacklist();
   if (SanitizerBL.isBlacklistedGlobal(GV->getName(), Category))
@@ -1436,7 +1425,7 @@ namespace {
         return false;
       }
       unsigned BuiltinID = FD->getBuiltinID();
-      if (!BuiltinID)
+      if (!BuiltinID || !BI.isLibFunction(BuiltinID))
         return true;
       StringRef BuiltinName = BI.GetName(BuiltinID);
       if (BuiltinName.startswith("__builtin_") &&
@@ -1465,7 +1454,12 @@ CodeGenModule::isTriviallyRecursive(const FunctionDecl *FD) {
     Name = FD->getName();
   }
 
-  FunctionIsDirectlyRecursive Walker(Name, Context.BuiltinInfo);
+  auto &BI = Context.BuiltinInfo;
+  unsigned BuiltinID = Context.Idents.get(Name).getBuiltinID();
+  if (!BuiltinID || !BI.isPredefinedLibFunction(BuiltinID))
+    return false;
+
+  FunctionIsDirectlyRecursive Walker(Name, BI);
   Walker.TraverseFunctionDecl(const_cast<FunctionDecl*>(FD));
   return Walker.Result;
 }
@@ -3510,11 +3504,9 @@ static void EmitGlobalDeclMetadata(CodeGenModule &CGM,
 /// to such functions with an unmangled name from inline assembly within the
 /// same translation unit.
 void CodeGenModule::EmitStaticExternCAliases() {
-  for (StaticExternCMap::iterator I = StaticExternCValues.begin(),
-                                  E = StaticExternCValues.end();
-       I != E; ++I) {
-    IdentifierInfo *Name = I->first;
-    llvm::GlobalValue *Val = I->second;
+  for (auto &I : StaticExternCValues) {
+    IdentifierInfo *Name = I.first;
+    llvm::GlobalValue *Val = I.second;
     if (Val && !getModule().getNamedValue(Name->getName()))
       addUsedGlobal(llvm::GlobalAlias::create(Name->getName(), Val));
   }
@@ -3673,4 +3665,18 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
             VD, GetAddrOfGlobalVar(VD), RefExpr->getLocStart(), PerformInit))
       CXXGlobalInits.push_back(InitFunction);
   }
+}
+
+llvm::MDTuple *CodeGenModule::CreateVTableBitSetEntry(
+    llvm::GlobalVariable *VTable, CharUnits Offset, const CXXRecordDecl *RD) {
+  std::string OutName;
+  llvm::raw_string_ostream Out(OutName);
+  getCXXABI().getMangleContext().mangleCXXVTableBitSet(RD, Out);
+
+  llvm::Metadata *BitsetOps[] = {
+      llvm::MDString::get(getLLVMContext(), Out.str()),
+      llvm::ConstantAsMetadata::get(VTable),
+      llvm::ConstantAsMetadata::get(
+          llvm::ConstantInt::get(Int64Ty, Offset.getQuantity()))};
+  return llvm::MDTuple::get(getLLVMContext(), BitsetOps);
 }

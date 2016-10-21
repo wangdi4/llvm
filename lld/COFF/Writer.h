@@ -10,6 +10,7 @@
 #ifndef LLD_COFF_WRITER_H
 #define LLD_COFF_WRITER_H
 
+#include "DLL.h"
 #include "InputFiles.h"
 #include "SymbolTable.h"
 #include "llvm/Support/FileOutputBuffer.h"
@@ -19,9 +20,12 @@
 namespace lld {
 namespace coff {
 
-// Mask for section types (code, data or bss) and permissions
-// (writable, readable or executable).
-const uint32_t PermMask = 0xF00000F0;
+// Mask for section types (code, data, bss, disacardable, etc.)
+// and permissions (writable, readable or executable).
+const uint32_t PermMask = 0xFF0000F0;
+
+// Implemented in ICF.cpp.
+void doICF(const std::vector<Chunk *> &Chunks);
 
 // OutputSection represents a section in an output file. It's a
 // container of chunks. OutputSection and Chunk are 1:N relationship.
@@ -43,7 +47,7 @@ public:
   uint32_t getCharacteristics() { return Header.Characteristics; }
   uint64_t getRVA() { return Header.VirtualAddress; }
   uint64_t getFileOff() { return Header.PointerToRawData; }
-  void writeHeader(uint8_t *Buf);
+  void writeHeaderTo(uint8_t *Buf);
 
   // Returns the size of this section in an executable memory image.
   // This may be smaller than the raw size (the raw size is multiple
@@ -75,17 +79,23 @@ public:
 
 private:
   void markLive();
+  void dedupCOMDATs();
   void createSections();
+  void createMiscChunks();
   void createImportTables();
+  void createExportTable();
   void assignAddresses();
   void removeEmptySections();
   std::error_code openFile(StringRef OutputPath);
   void writeHeader();
   void writeSections();
+  void sortExceptionTable();
   void applyRelocations();
 
   OutputSection *findSection(StringRef Name);
   OutputSection *createSection(StringRef Name);
+  void addBaserels(OutputSection *Dest);
+  void addBaserelBlocks(OutputSection *Dest, std::vector<uint32_t> &V);
 
   uint32_t getSizeOfInitializedData();
   std::map<StringRef, std::vector<DefinedImportData *>> binImports();
@@ -93,10 +103,11 @@ private:
   SymbolTable *Symtab;
   std::unique_ptr<llvm::FileOutputBuffer> Buffer;
   llvm::SpecificBumpPtrAllocator<OutputSection> CAlloc;
+  llvm::SpecificBumpPtrAllocator<BaserelChunk> BAlloc;
   std::vector<OutputSection *> OutputSections;
-  Chunk *ImportAddressTable = nullptr;
-  uint32_t ImportDirectoryTableSize = 0;
-  uint32_t ImportAddressTableSize = 0;
+  IdataContents Idata;
+  DelayLoadContents DelayIdata;
+  EdataContents Edata;
 
   uint64_t FileSize;
   uint64_t SizeOfImage;
@@ -105,7 +116,7 @@ private:
   std::vector<std::unique_ptr<Chunk>> Chunks;
 };
 
-} // namespace pecoff
+} // namespace coff
 } // namespace lld
 
 #endif

@@ -45,7 +45,7 @@ static cl::opt<int> OptComputeOut(
     "polly-dependences-computeout",
     cl::desc("Bound the dependence analysis by a maximal amount of "
              "computational steps (0 means no bound)"),
-    cl::Hidden, cl::init(250000), cl::ZeroOrMore, cl::cat(PollyCategory));
+    cl::Hidden, cl::init(410000), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 static cl::opt<bool> LegalityCheckDisabled(
     "disable-polly-legality", cl::desc("Disable polly legality check"),
@@ -351,7 +351,7 @@ void Dependences::calculateDependences(Scop &S) {
   // 2) Intersect them with the actual RAW & WAW dependences to the get the
   //    actual reduction dependences. This will ensure the load/store memory
   //    addresses were __identical__ in the two iterations of the statement.
-  // 3) Relax the original RAW and WAW dependences by substracting the actual
+  // 3) Relax the original RAW and WAW dependences by subtracting the actual
   //    reduction dependences. Binary reductions (sum += A[i]) cause both, and
   //    the same, RAW and WAW dependences.
   // 4) Add the privatization dependences which are widened versions of

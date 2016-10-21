@@ -189,10 +189,6 @@ namespace llvm {
       // Vector bitwise select
       VBSL,
 
-      // Pseudo-instruction representing a memory copy using ldm/stm
-      // instructions.
-      MCOPY,
-
       // Vector load N-element structure to all lanes:
       VLD2DUP = ISD::FIRST_TARGET_MEMORY_OPCODE,
       VLD3DUP,
@@ -436,6 +432,15 @@ namespace llvm {
                           bool IsStore, bool IsLoad) const override;
     Instruction* emitTrailingFence(IRBuilder<> &Builder, AtomicOrdering Ord,
                            bool IsStore, bool IsLoad) const override;
+
+    unsigned getMaxSupportedInterleaveFactor() const override { return 4; }
+
+    bool lowerInterleavedLoad(LoadInst *LI,
+                              ArrayRef<ShuffleVectorInst *> Shuffles,
+                              ArrayRef<unsigned> Indices,
+                              unsigned Factor) const override;
+    bool lowerInterleavedStore(StoreInst *SI, ShuffleVectorInst *SVI,
+                               unsigned Factor) const override;
 
     bool shouldExpandAtomicLoadInIR(LoadInst *LI) const override;
     bool shouldExpandAtomicStoreInIR(StoreInst *SI) const override;

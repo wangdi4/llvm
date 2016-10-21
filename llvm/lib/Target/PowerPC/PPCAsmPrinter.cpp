@@ -181,14 +181,14 @@ void PPCAsmPrinter::printOperand(const MachineInstr *MI, unsigned OpNo,
     return;
 
   case MachineOperand::MO_MachineBasicBlock:
-    O << *MO.getMBB()->getSymbol();
+    MO.getMBB()->getSymbol()->print(O, MAI);
     return;
   case MachineOperand::MO_ConstantPoolIndex:
     O << DL->getPrivateGlobalPrefix() << "CPI" << getFunctionNumber()
       << '_' << MO.getIndex();
     return;
   case MachineOperand::MO_BlockAddress:
-    O << *GetBlockAddressSymbol(MO.getBlockAddress());
+    GetBlockAddressSymbol(MO.getBlockAddress())->print(O, MAI);
     return;
   case MachineOperand::MO_GlobalAddress: {
     // Computing the address of a global symbol, not calling it.
@@ -222,8 +222,8 @@ void PPCAsmPrinter::printOperand(const MachineInstr *MI, unsigned OpNo,
     } else {
       SymToPrint = getSymbol(GV);
     }
-    
-    O << *SymToPrint;
+
+    SymToPrint->print(O, MAI);
 
     printOffset(MO.getOffset(), O);
     return;
@@ -440,7 +440,7 @@ void PPCAsmPrinter::EmitTlsCall(const MachineInstr *MI,
 void PPCAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   MCInst TmpInst;
   bool isPPC64 = Subtarget->isPPC64();
-  bool isDarwin = Triple(TM.getTargetTriple()).isOSDarwin();
+  bool isDarwin = TM.getTargetTriple().isOSDarwin();
   const Module *M = MF->getFunction()->getParent();
   PICLevel::Level PL = M->getPICLevel();
   
@@ -1276,7 +1276,8 @@ EmitFunctionStubs(const MachineModuleInfoMachO::SymbolListTy &Stubs) {
   // freed) and since we're at the global level we can use the default
   // constructed subtarget.
   std::unique_ptr<MCSubtargetInfo> STI(TM.getTarget().createMCSubtargetInfo(
-      TM.getTargetTriple(), TM.getTargetCPU(), TM.getTargetFeatureString()));
+      TM.getTargetTriple().str(), TM.getTargetCPU(),
+      TM.getTargetFeatureString()));
   auto EmitToStreamer = [&STI] (MCStreamer &S, const MCInst &Inst) {
     S.EmitInstruction(Inst, *STI);
   };
@@ -1510,7 +1511,7 @@ bool PPCDarwinAsmPrinter::doFinalization(Module &M) {
 static AsmPrinter *
 createPPCAsmPrinterPass(TargetMachine &tm,
                         std::unique_ptr<MCStreamer> &&Streamer) {
-  if (Triple(tm.getTargetTriple()).isMacOSX())
+  if (tm.getTargetTriple().isMacOSX())
     return new PPCDarwinAsmPrinter(tm, std::move(Streamer));
   return new PPCLinuxAsmPrinter(tm, std::move(Streamer));
 }
