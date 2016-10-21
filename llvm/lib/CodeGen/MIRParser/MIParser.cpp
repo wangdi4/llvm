@@ -14,9 +14,11 @@
 #include "MIParser.h"
 #include "MILexer.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/AsmParser/SlotMapping.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
@@ -32,14 +34,22 @@ class MIParser {
   SMDiagnostic &Error;
   StringRef Source, CurrentSource;
   MIToken Token;
+  /// Maps from basic block numbers to MBBs.
+  const DenseMap<unsigned, MachineBasicBlock *> &MBBSlots;
+  /// Maps from indices to unnamed global values and metadata nodes.
+  const SlotMapping &IRSlots;
   /// Maps from instruction names to op codes.
   StringMap<unsigned> Names2InstrOpCodes;
   /// Maps from register names to registers.
   StringMap<unsigned> Names2Regs;
+  /// Maps from register mask names to register masks.
+  StringMap<const uint32_t *> Names2RegMasks;
 
 public:
   MIParser(SourceMgr &SM, MachineFunction &MF, SMDiagnostic &Error,
-           StringRef Source);
+           StringRef Source,
+           const DenseMap<unsigned, MachineBasicBlock *> &MBBSlots,
+           const SlotMapping &IRSlots);
 
   void lex();
 
@@ -58,9 +68,16 @@ public:
   bool parseRegister(unsigned &Reg);
   bool parseRegisterOperand(MachineOperand &Dest, bool IsDef = false);
   bool parseImmediateOperand(MachineOperand &Dest);
+  bool parseMBBOperand(MachineOperand &Dest);
+  bool parseGlobalAddressOperand(MachineOperand &Dest);
   bool parseMachineOperand(MachineOperand &Dest);
 
 private:
+  /// Convert the integer literal in the current token into an unsigned integer.
+  ///
+  /// Return true if an error occurred.
+  bool getUnsigned(unsigned &Result);
+
   void initNames2InstrOpCodes();
 
   /// Try to convert an instruction name to an opcode. Return true if the
@@ -74,14 +91,24 @@ private:
   /// Try to convert a register name to a register number. Return true if the
   /// register name is invalid.
   bool getRegisterByName(StringRef RegName, unsigned &Reg);
+
+  void initNames2RegMasks();
+
+  /// Check if the given identifier is a name of a register mask.
+  ///
+  /// Return null if the identifier isn't a register mask.
+  const uint32_t *getRegMask(StringRef Identifier);
 };
 
 } // end anonymous namespace
 
 MIParser::MIParser(SourceMgr &SM, MachineFunction &MF, SMDiagnostic &Error,
-                   StringRef Source)
+                   StringRef Source,
+                   const DenseMap<unsigned, MachineBasicBlock *> &MBBSlots,
+                   const SlotMapping &IRSlots)
     : SM(SM), MF(MF), Error(Error), Source(Source), CurrentSource(Source),
-      Token(MIToken::Error, StringRef()) {}
+      Token(MIToken::Error, StringRef()), MBBSlots(MBBSlots), IRSlots(IRSlots) {
+}
 
 void MIParser::lex() {
   CurrentSource = lexMIToken(
@@ -150,7 +177,8 @@ MachineInstr *MIParser::parse() {
       // Mark this register as implicit to prevent an assertion when it's added
       // to an instruction. This is a temporary workaround until the implicit
       // register flag can be parsed.
-      Operands[I].setImplicit();
+      if (Operands[I].isReg())
+        Operands[I].setImplicit();
     }
   }
 
@@ -178,7 +206,7 @@ bool MIParser::parseRegister(unsigned &Reg) {
     Reg = 0;
     break;
   case MIToken::NamedRegister: {
-    StringRef Name = Token.stringValue().drop_front(1); // Drop the '%'
+    StringRef Name = Token.stringValue();
     if (getRegisterByName(Name, Reg))
       return error(Twine("unknown register name '") + Name + "'");
     break;
@@ -212,6 +240,64 @@ bool MIParser::parseImmediateOperand(MachineOperand &Dest) {
   return false;
 }
 
+bool MIParser::getUnsigned(unsigned &Result) {
+  assert(Token.hasIntegerValue() && "Expected a token with an integer value");
+  const uint64_t Limit = uint64_t(std::numeric_limits<unsigned>::max()) + 1;
+  uint64_t Val64 = Token.integerValue().getLimitedValue(Limit);
+  if (Val64 == Limit)
+    return error("expected 32-bit integer (too large)");
+  Result = Val64;
+  return false;
+}
+
+bool MIParser::parseMBBOperand(MachineOperand &Dest) {
+  assert(Token.is(MIToken::MachineBasicBlock));
+  unsigned Number;
+  if (getUnsigned(Number))
+    return true;
+  auto MBBInfo = MBBSlots.find(Number);
+  if (MBBInfo == MBBSlots.end())
+    return error(Twine("use of undefined machine basic block #") +
+                 Twine(Number));
+  MachineBasicBlock *MBB = MBBInfo->second;
+  if (!Token.stringValue().empty() && Token.stringValue() != MBB->getName())
+    return error(Twine("the name of machine basic block #") + Twine(Number) +
+                 " isn't '" + Token.stringValue() + "'");
+  Dest = MachineOperand::CreateMBB(MBB);
+  lex();
+  return false;
+}
+
+bool MIParser::parseGlobalAddressOperand(MachineOperand &Dest) {
+  switch (Token.kind()) {
+  case MIToken::NamedGlobalValue: {
+    auto Name = Token.stringValue();
+    const Module *M = MF.getFunction()->getParent();
+    if (const auto *GV = M->getNamedValue(Name)) {
+      Dest = MachineOperand::CreateGA(GV, /*Offset=*/0);
+      break;
+    }
+    return error(Twine("use of undefined global value '@") + Name + "'");
+  }
+  case MIToken::GlobalValue: {
+    unsigned GVIdx;
+    if (getUnsigned(GVIdx))
+      return true;
+    if (GVIdx >= IRSlots.GlobalValues.size())
+      return error(Twine("use of undefined global value '@") + Twine(GVIdx) +
+                   "'");
+    Dest = MachineOperand::CreateGA(IRSlots.GlobalValues[GVIdx],
+                                    /*Offset=*/0);
+    break;
+  }
+  default:
+    llvm_unreachable("The current token should be a global value");
+  }
+  // TODO: Parse offset and target flags.
+  lex();
+  return false;
+}
+
 bool MIParser::parseMachineOperand(MachineOperand &Dest) {
   switch (Token.kind()) {
   case MIToken::underscore:
@@ -219,8 +305,20 @@ bool MIParser::parseMachineOperand(MachineOperand &Dest) {
     return parseRegisterOperand(Dest);
   case MIToken::IntegerLiteral:
     return parseImmediateOperand(Dest);
+  case MIToken::MachineBasicBlock:
+    return parseMBBOperand(Dest);
+  case MIToken::GlobalValue:
+  case MIToken::NamedGlobalValue:
+    return parseGlobalAddressOperand(Dest);
   case MIToken::Error:
     return true;
+  case MIToken::Identifier:
+    if (const auto *RegMask = getRegMask(Token.stringValue())) {
+      Dest = MachineOperand::CreateRegMask(RegMask);
+      lex();
+      break;
+    }
+  // fallthrough
   default:
     // TODO: parse the other machine operands.
     return error("expected a machine operand");
@@ -271,7 +369,30 @@ bool MIParser::getRegisterByName(StringRef RegName, unsigned &Reg) {
   return false;
 }
 
-MachineInstr *llvm::parseMachineInstr(SourceMgr &SM, MachineFunction &MF,
-                                      StringRef Src, SMDiagnostic &Error) {
-  return MIParser(SM, MF, Error, Src).parse();
+void MIParser::initNames2RegMasks() {
+  if (!Names2RegMasks.empty())
+    return;
+  const auto *TRI = MF.getSubtarget().getRegisterInfo();
+  assert(TRI && "Expected target register info");
+  ArrayRef<const uint32_t *> RegMasks = TRI->getRegMasks();
+  ArrayRef<const char *> RegMaskNames = TRI->getRegMaskNames();
+  assert(RegMasks.size() == RegMaskNames.size());
+  for (size_t I = 0, E = RegMasks.size(); I < E; ++I)
+    Names2RegMasks.insert(
+        std::make_pair(StringRef(RegMaskNames[I]).lower(), RegMasks[I]));
+}
+
+const uint32_t *MIParser::getRegMask(StringRef Identifier) {
+  initNames2RegMasks();
+  auto RegMaskInfo = Names2RegMasks.find(Identifier);
+  if (RegMaskInfo == Names2RegMasks.end())
+    return nullptr;
+  return RegMaskInfo->getValue();
+}
+
+MachineInstr *
+llvm::parseMachineInstr(SourceMgr &SM, MachineFunction &MF, StringRef Src,
+                        const DenseMap<unsigned, MachineBasicBlock *> &MBBSlots,
+                        const SlotMapping &IRSlots, SMDiagnostic &Error) {
+  return MIParser(SM, MF, Error, Src, MBBSlots, IRSlots).parse();
 }

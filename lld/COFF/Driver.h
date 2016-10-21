@@ -44,13 +44,15 @@ public:
   // Parses command line options.
   ErrorOr<llvm::opt::InputArgList> parse(llvm::ArrayRef<const char *> Args);
 
+  // Concatenate LINK environment varirable and given arguments and parse them.
+  ErrorOr<llvm::opt::InputArgList> parseLINK(llvm::ArrayRef<const char *> Args);
+
   // Tokenizes a given string and then parses as command line options.
   ErrorOr<llvm::opt::InputArgList> parse(StringRef S) {
     return parse(tokenize(S));
   }
 
 private:
-  ErrorOr<llvm::opt::InputArgList> parse(std::vector<const char *> Argv);
   std::vector<const char *> tokenize(StringRef S);
 
   ErrorOr<std::vector<const char *>>
@@ -91,6 +93,16 @@ private:
   std::set<std::string> VisitedFiles;
 
   void addUndefined(StringRef Sym);
+
+  // Windows specific -- "main" is not the only main function in Windows.
+  // You can choose one from these four -- {w,}{WinMain,main}.
+  // There are four different entry point functions for them,
+  // {w,}{WinMain,main}CRTStartup, respectively. The linker needs to
+  // choose the right one depending on which "main" function is defined.
+  // This function looks up the symbol table and resolve corresponding
+  // entry point name.
+  StringRef findDefaultEntry();
+  WindowsSubsystem inferSubsystem();
 
   // Driver is the owner of all opened files.
   // InputFiles have MemoryBufferRefs to them.
@@ -145,6 +157,8 @@ std::error_code checkFailIfMismatch(StringRef Arg);
 // using cvtres.exe.
 ErrorOr<std::unique_ptr<MemoryBuffer>>
 convertResToCOFF(const std::vector<MemoryBufferRef> &MBs);
+
+void touchFile(StringRef Path);
 
 // Create enum with OPT_xxx values for each option in Options.td
 enum {

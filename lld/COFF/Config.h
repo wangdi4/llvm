@@ -22,13 +22,13 @@ namespace coff {
 
 using llvm::COFF::WindowsSubsystem;
 using llvm::StringRef;
-class Defined;
+struct Symbol;
 
 // Represents an /export option.
 struct Export {
   StringRef Name;
   StringRef ExtName;
-  Defined *Sym = nullptr;
+  Symbol *Sym = nullptr;
   uint16_t Ordinal = 0;
   bool Noname = false;
   bool Data = false;
@@ -43,9 +43,11 @@ struct Configuration {
   bool Verbose = false;
   WindowsSubsystem Subsystem = llvm::COFF::IMAGE_SUBSYSTEM_UNKNOWN;
   StringRef EntryName;
+  bool NoEntry = false;
   std::string OutputFile;
   bool DoGC = true;
   bool Relocatable = true;
+  bool Force = false;
 
   // Symbols in this set are considered as live by the garbage collector.
   std::set<StringRef> GCRoots;

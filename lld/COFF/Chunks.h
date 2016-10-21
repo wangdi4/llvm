@@ -151,7 +151,7 @@ private:
 
   const coff_section *Header;
   StringRef SectionName;
-  std::vector<Chunk *> AssocChildren;
+  std::vector<SectionChunk *> AssocChildren;
   llvm::iterator_range<const coff_relocation *> Relocs;
   size_t NumRelocs;
 
@@ -198,7 +198,7 @@ static const uint8_t ImportThunkData[] = {
 // contents will be a JMP instruction to some __imp_ symbol.
 class ImportThunkChunk : public Chunk {
 public:
-  explicit ImportThunkChunk(Defined *S) : ImpSymbol(S) {}
+  explicit ImportThunkChunk(Defined *ImpSymbol);
   size_t getSize() const override { return sizeof(ImportThunkData); }
   void writeTo(uint8_t *Buf) override;
 

@@ -15,6 +15,7 @@
 #include "llvm/LTO/LTOCodeGenerator.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <utility>
 
 using namespace llvm;
 
@@ -71,15 +72,12 @@ bool SymbolTable::reportRemainingUndefines() {
     if (!Undef)
       continue;
     StringRef Name = Undef->getName();
+    // The weak alias may have been resovled, so check for that.
     if (SymbolBody *Alias = Undef->getWeakAlias()) {
-      Sym->Body = Alias->getReplacement();
-      if (!isa<Defined>(Sym->Body)) {
-        // Aliases are yet another symbols pointed by other symbols
-        // that could also remain undefined.
-        llvm::errs() << "undefined symbol: " << Name << "\n";
-        Ret = true;
+      if (auto *D = dyn_cast<Defined>(Alias->getReplacement())) {
+        Sym->Body = D;
+        continue;
       }
-      continue;
     }
     // If we can resolve a symbol by removing __imp_ prefix, do that.
     // This odd rule is for compatibility with MSVC linker.
@@ -92,6 +90,12 @@ bool SymbolTable::reportRemainingUndefines() {
       }
     }
     llvm::errs() << "undefined symbol: " << Name << "\n";
+    // Remaining undefined symbols are not fatal if /force is specified.
+    // They are replaced with dummy defined symbols.
+    if (Config->Force) {
+      Sym->Body = new (Alloc) DefinedAbsolute(Name, 0);
+      continue;
+    }
     Ret = true;
   }
   return Ret;
@@ -170,39 +174,49 @@ Defined *SymbolTable::find(StringRef Name) {
   return nullptr;
 }
 
-std::error_code SymbolTable::resolveLazy(StringRef Name) {
+// Find a given symbol. If a lazy symbol is found,
+// resolve that before returning.
+Defined *SymbolTable::findLazy(StringRef Name) {
   auto It = Symtab.find(Name);
   if (It == Symtab.end())
-    return std::error_code();
-  if (auto *B = dyn_cast<Lazy>(It->second->Body)) {
-    if (auto EC = addMemberFile(B))
-      return EC;
-    return run();
+    return nullptr;
+  Symbol *Sym = It->second;
+  if (auto *B = dyn_cast<Defined>(Sym->Body))
+    return B;
+  if (auto *B = dyn_cast<Lazy>(Sym->Body)) {
+    if (addMemberFile(B))
+      return nullptr;
+    if (run())
+      return nullptr;
+    return cast<Defined>(Sym->Body);
   }
-  return std::error_code();
+  return nullptr;
 }
 
-// Windows specific -- Link default entry point name.
-ErrorOr<StringRef> SymbolTable::findDefaultEntry() {
-  // User-defined main functions and their corresponding entry points.
-  static const char *Entries[][2] = {
-      {"main", "mainCRTStartup"},
-      {"wmain", "wmainCRTStartup"},
-      {"WinMain", "WinMainCRTStartup"},
-      {"wWinMain", "wWinMainCRTStartup"},
-  };
-  for (auto E : Entries) {
-    resolveLazy(E[1]);
-    if (find(E[1]))
-      return StringRef(E[1]);
-    if (!find(E[0]))
-      continue;
-    if (auto EC = resolve(new (Alloc) Undefined(E[1])))
-      return EC;
-    return StringRef(E[1]);
+// Find a given symbol or its mangled symbol.
+std::pair<StringRef, Symbol *> SymbolTable::findMangled(StringRef S) {
+  auto It = Symtab.find(S);
+  if (It != Symtab.end()) {
+    Symbol *Sym = It->second;
+    if (isa<Defined>(Sym->Body))
+      return std::make_pair(S, Sym);
   }
-  llvm::errs() << "entry point must be defined\n";
-  return make_error_code(LLDError::InvalidOption);
+
+  // In Microsoft ABI, a non-member function name is mangled this way.
+  std::string Prefix = ("?" + S + "@@Y").str();
+  for (auto I : Symtab) {
+    StringRef Name = I.first;
+    Symbol *Sym = I.second;
+    if (!Name.startswith(Prefix))
+      continue;
+    if (auto *B = dyn_cast<Lazy>(Sym->Body)) {
+      addMemberFile(B);
+      run();
+    }
+    if (isa<Defined>(Sym->Body))
+      return std::make_pair(Name, Sym);
+  }
+  return std::make_pair(S, nullptr);
 }
 
 std::error_code SymbolTable::addUndefined(StringRef Name) {
@@ -222,18 +236,23 @@ std::error_code SymbolTable::rename(StringRef From, StringRef To) {
   SymbolBody *Body = new (Alloc) Undefined(To);
   if (auto EC = resolve(Body))
     return EC;
-  Sym->Body = Body->getReplacement();
+  SymbolBody *Repl = Body->getReplacement();
+  if (isa<Undefined>(Repl))
+    return std::error_code();
+  Sym->Body = Repl;
   Body->setBackref(Sym);
   ++Version;
   return std::error_code();
 }
 
-void SymbolTable::dump() {
-  for (auto &P : Symtab) {
-    Symbol *Ref = P.second;
-    if (auto *Body = dyn_cast<Defined>(Ref->Body))
-      llvm::dbgs() << Twine::utohexstr(Config->ImageBase + Body->getRVA())
-                   << " " << Body->getName() << "\n";
+void SymbolTable::printMap(llvm::raw_ostream &OS) {
+  for (ObjectFile *File : ObjectFiles) {
+    OS << File->getShortName() << ":\n";
+    for (SymbolBody *Body : File->getSymbols())
+      if (auto *R = dyn_cast<DefinedRegular>(Body))
+        if (R->isLive())
+          OS << Twine::utohexstr(Config->ImageBase + R->getRVA())
+             << " " << R->getName() << "\n";
   }
 }
 

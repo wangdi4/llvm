@@ -203,14 +203,15 @@ void Writer::createImportTables() {
       Sec->addChunk(C);
   }
   if (!DelayIdata.empty()) {
+    DelayIdata.create(Symtab->find("__delayLoadHelper2"));
     OutputSection *Sec = createSection(".didat");
-    for (Chunk *C : DelayIdata.getChunks(Symtab->find("__delayLoadHelper2")))
+    for (Chunk *C : DelayIdata.getChunks())
+      Sec->addChunk(C);
+    Sec = createSection(".data");
+    for (Chunk *C : DelayIdata.getDataChunks())
       Sec->addChunk(C);
     Sec = createSection(".text");
     for (std::unique_ptr<Chunk> &C : DelayIdata.getCodeChunks())
-      Sec->addChunk(C.get());
-    Sec = createSection(".data");
-    for (std::unique_ptr<Chunk> &C : DelayIdata.getDataChunks())
       Sec->addChunk(C.get());
   }
 }
@@ -315,8 +316,10 @@ void Writer::writeHeader() {
   PE->Subsystem = Config->Subsystem;
   PE->SizeOfImage = SizeOfImage;
   PE->SizeOfHeaders = SizeOfHeaders;
-  Defined *Entry = cast<Defined>(Symtab->find(Config->EntryName));
-  PE->AddressOfEntryPoint = Entry->getRVA();
+  if (!Config->NoEntry) {
+    Defined *Entry = cast<Defined>(Symtab->find(Config->EntryName));
+    PE->AddressOfEntryPoint = Entry->getRVA();
+  }
   PE->SizeOfStackReserve = Config->StackReserve;
   PE->SizeOfStackCommit = Config->StackCommit;
   PE->SizeOfHeapReserve = Config->HeapReserve;

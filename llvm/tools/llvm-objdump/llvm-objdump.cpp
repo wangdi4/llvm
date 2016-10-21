@@ -321,6 +321,14 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
   const ELFFile<ELFT> &EF = *Obj->getELFFile();
 
   const Elf_Shdr *sec = EF.getSection(Rel.d.a);
+  const Elf_Shdr *SymTab = EF.getSection(sec->sh_link);
+  assert(SymTab->sh_type == ELF::SHT_SYMTAB ||
+         SymTab->sh_type == ELF::SHT_DYNSYM);
+  const Elf_Shdr *StrTabSec = EF.getSection(SymTab->sh_link);
+  ErrorOr<StringRef> StrTabOrErr = EF.getStringTable(StrTabSec);
+  if (std::error_code EC = StrTabOrErr.getError())
+    return EC;
+  StringRef StrTab = *StrTabOrErr;
   uint8_t type;
   StringRef res;
   int64_t addend = 0;
@@ -351,8 +359,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
       return EC;
     Target = *SecName;
   } else {
-    ErrorOr<StringRef> SymName =
-        EF.getSymbolName(EF.getSection(sec->sh_link), symb);
+    ErrorOr<StringRef> SymName = EF.getSymbolName(StrTab, symb);
     if (!SymName)
       return SymName.getError();
     Target = *SymName;
@@ -677,7 +684,7 @@ static std::error_code getRelocationValueString(const MachOObjectFile *Obj,
 
 static std::error_code getRelocationValueString(const RelocationRef &Rel,
                                                 SmallVectorImpl<char> &Result) {
-  const ObjectFile *Obj = Rel.getObjectFile();
+  const ObjectFile *Obj = Rel.getObject();
   if (auto *ELF = dyn_cast<ELFObjectFileBase>(Obj))
     return getRelocationValueString(ELF, Rel, Result);
   if (auto *COFF = dyn_cast<COFFObjectFile>(Obj))
@@ -1078,12 +1085,10 @@ void llvm::PrintSymbolTable(const ObjectFile *o) {
   }
   for (const SymbolRef &Symbol : o->symbols()) {
     uint64_t Address;
-    SymbolRef::Type Type;
+    SymbolRef::Type Type = Symbol.getType();
     uint32_t Flags = Symbol.getFlags();
     section_iterator Section = o->section_end();
     if (error(Symbol.getAddress(Address)))
-      continue;
-    if (error(Symbol.getType(Type)))
       continue;
     if (error(Symbol.getSection(Section)))
       continue;

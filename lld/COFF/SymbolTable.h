@@ -11,8 +11,10 @@
 #define LLD_COFF_SYMBOL_TABLE_H
 
 #include "InputFiles.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/Support/Allocator.h"
-#include <unordered_map>
+#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 struct LTOCodeGenerator;
@@ -49,18 +51,15 @@ public:
   // mechanisms to allow aliases, a name can be resolved to a
   // different symbol). Returns a nullptr if not found.
   Defined *find(StringRef Name);
+  Defined *findLazy(StringRef Name);
 
-  // Windows specific -- `main` is not the only main function in Windows.
-  // You can choose one from these four -- {w,}{WinMain,main}.
-  // There are four different entry point functions for them,
-  // {w,}{WinMain,main}CRTStartup, respectively. The linker needs to
-  // choose the right one depending on which `main` function is defined.
-  // This function looks up the symbol table and resolve corresponding
-  // entry point name.
-  ErrorOr<StringRef> findDefaultEntry();
+  // Find a symbol assuming that Name is a function name.
+  // Not only a given string but its mangled names (in MSVC C++ manner)
+  // will be searched.
+  std::pair<StringRef, Symbol *> findMangled(StringRef Name);
 
-  // Dump contents of the symbol table to stderr.
-  void dump();
+  // Print a layout map to OS.
+  void printMap(llvm::raw_ostream &OS);
 
   // Build a COFF object representing the combined contents of BitcodeFiles
   // and add it to the symbol table. Called after all files are added and
@@ -85,11 +84,10 @@ public:
 
 private:
   std::error_code resolve(SymbolBody *Body);
-  std::error_code resolveLazy(StringRef Name);
   std::error_code addMemberFile(Lazy *Body);
   ErrorOr<ObjectFile *> createLTOObject(llvm::LTOCodeGenerator *CG);
 
-  std::unordered_map<StringRef, Symbol *> Symtab;
+  llvm::DenseMap<StringRef, Symbol *> Symtab;
   std::vector<std::unique_ptr<InputFile>> Files;
   size_t FileIdx = 0;
   std::vector<ArchiveFile *> ArchiveFiles;

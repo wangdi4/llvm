@@ -134,8 +134,10 @@ public:
   int compare(SymbolBody *Other) override;
   std::string getDebugName() override;
   bool isCOMDAT() { return IsCOMDAT; }
+  bool isLive() const { return (*Data)->isLive(); }
   void markLive() { (*Data)->markLive(); }
   Chunk *getChunk() { return *Data; }
+  uint64_t getValue() { return Sym.getValue(); }
 
 private:
   StringRef Name;
