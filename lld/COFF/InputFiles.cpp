@@ -168,7 +168,14 @@ std::error_code ObjectFile::initializeSymbols() {
       AuxP = COFFObj->getSymbol(I + 1)->getRawPtr();
     bool IsFirst = (LastSectionNumber != Sym.getSectionNumber());
 
-    SymbolBody *Body = createSymbolBody(Sym, AuxP, IsFirst);
+    SymbolBody *Body = nullptr;
+    if (Sym.isUndefined()) {
+      Body = createUndefined(Sym);
+    } else if (Sym.isWeakExternal()) {
+      Body = createWeakExternal(Sym, AuxP);
+    } else {
+      Body = createDefined(Sym, AuxP, IsFirst);
+    }
     if (Body) {
       SymbolBodies.push_back(Body);
       SparseSymbolBodies[I] = Body;
@@ -179,13 +186,22 @@ std::error_code ObjectFile::initializeSymbols() {
   return std::error_code();
 }
 
-SymbolBody *ObjectFile::createSymbolBody(COFFSymbolRef Sym, const void *AuxP,
-                                         bool IsFirst) {
+Undefined *ObjectFile::createUndefined(COFFSymbolRef Sym) {
   StringRef Name;
-  if (Sym.isUndefined()) {
-    COFFObj->getSymbolName(Sym, Name);
-    return new (Alloc) Undefined(Name);
-  }
+  COFFObj->getSymbolName(Sym, Name);
+  return new (Alloc) Undefined(Name);
+}
+
+Undefined *ObjectFile::createWeakExternal(COFFSymbolRef Sym, const void *AuxP) {
+  StringRef Name;
+  COFFObj->getSymbolName(Sym, Name);
+  auto *Aux = (const coff_aux_weak_external *)AuxP;
+  return new (Alloc) Undefined(Name, &SparseSymbolBodies[Aux->TagIndex]);
+}
+
+Defined *ObjectFile::createDefined(COFFSymbolRef Sym, const void *AuxP,
+                                   bool IsFirst) {
+  StringRef Name;
   if (Sym.isCommon()) {
     auto *C = new (Alloc) CommonChunk(Sym);
     Chunks.push_back(C);
@@ -200,32 +216,26 @@ SymbolBody *ObjectFile::createSymbolBody(COFFSymbolRef Sym, const void *AuxP,
   }
   if (Sym.getSectionNumber() == llvm::COFF::IMAGE_SYM_DEBUG)
     return nullptr;
-  // TODO: Handle IMAGE_WEAK_EXTERN_SEARCH_ALIAS
-  if (Sym.isWeakExternal()) {
-    COFFObj->getSymbolName(Sym, Name);
-    auto *Aux = (const coff_aux_weak_external *)AuxP;
-    return new (Alloc) Undefined(Name, &SparseSymbolBodies[Aux->TagIndex]);
-  }
+
+  // Nothing else to do without a section chunk.
+  auto *SC = cast_or_null<SectionChunk>(SparseChunks[Sym.getSectionNumber()]);
+  if (!SC)
+    return nullptr;
+
   // Handle associative sections
   if (IsFirst && AuxP) {
-    if (Chunk *C = SparseChunks[Sym.getSectionNumber()]) {
-      auto *Aux = reinterpret_cast<const coff_aux_section_definition *>(AuxP);
-      if (Aux->Selection == IMAGE_COMDAT_SELECT_ASSOCIATIVE) {
-        auto *Parent =
-          (SectionChunk *)(SparseChunks[Aux->getNumber(Sym.isBigObj())]);
-        if (Parent)
-          Parent->addAssociative((SectionChunk *)C);
-      }
-    }
+    auto *Aux = reinterpret_cast<const coff_aux_section_definition *>(AuxP);
+    if (Aux->Selection == IMAGE_COMDAT_SELECT_ASSOCIATIVE)
+      if (auto *ParentSC = cast_or_null<SectionChunk>(
+              SparseChunks[Aux->getNumber(Sym.isBigObj())]))
+        ParentSC->addAssociative(SC);
   }
-  Chunk *C = SparseChunks[Sym.getSectionNumber()];
-  if (auto *SC = cast_or_null<SectionChunk>(C)) {
-    auto *B = new (Alloc) DefinedRegular(this, Sym, SC);
-    if (SC->isCOMDAT() && Sym.getValue() == 0 && !AuxP)
-      SC->setSymbol(B);
-    return B;
-  }
-  return nullptr;
+
+  auto *B = new (Alloc) DefinedRegular(this, Sym, SC);
+  if (SC->isCOMDAT() && Sym.getValue() == 0 && !AuxP)
+    SC->setSymbol(B);
+
+  return B;
 }
 
 std::error_code ImportFile::parse() {
@@ -282,33 +292,10 @@ std::error_code BitcodeFile::parse() {
       bool Replaceable = (SymbolDef == LTO_SYMBOL_DEFINITION_TENTATIVE ||
                           (Attrs & LTO_SYMBOL_COMDAT));
       SymbolBodies.push_back(new (Alloc) DefinedBitcode(SymName, Replaceable));
-
-      const llvm::GlobalValue *GV = M->getSymbolGV(I);
-      if (GV && GV->hasDLLExportStorageClass()) {
-        Directives += " /export:";
-        Directives += SymName;
-        if (!GV->getValueType()->isFunctionTy())
-          Directives += ",data";
-      }
     }
   }
 
-  // Extract any linker directives from the bitcode file, which are represented
-  // as module flags with the key "Linker Options".
-  llvm::SmallVector<llvm::Module::ModuleFlagEntry, 8> Flags;
-  M->getModule().getModuleFlagsMetadata(Flags);
-  for (auto &&Flag : Flags) {
-    if (Flag.Key->getString() != "Linker Options")
-      continue;
-
-    for (llvm::Metadata *Op : cast<llvm::MDNode>(Flag.Val)->operands()) {
-      for (llvm::Metadata *InnerOp : cast<llvm::MDNode>(Op)->operands()) {
-        Directives += " ";
-        Directives += cast<llvm::MDString>(InnerOp)->getString();
-      }
-    }
-  }
-
+  Directives = M->getLinkerOpts();
   return std::error_code();
 }
 
