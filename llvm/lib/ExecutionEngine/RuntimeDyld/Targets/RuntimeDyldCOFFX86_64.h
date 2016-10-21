@@ -125,8 +125,7 @@ public:
     const bool IsExtern = SecI == Obj.section_end();
 
     // Determine the Addend used to adjust the relocation value.
-    uint64_t RelType;
-    Check(RelI->getType(RelType));
+    uint64_t RelType = RelI->getType();
     uint64_t Offset = RelI->getOffset();
     uint64_t Addend = 0;
     SectionEntry &Section = Sections[SectionID];
@@ -156,8 +155,10 @@ public:
       break;
     }
 
-    StringRef TargetName;
-    Symbol->getName(TargetName);
+    ErrorOr<StringRef> TargetNameOrErr = Symbol->getName();
+    if (std::error_code EC = TargetNameOrErr.getError())
+      report_fatal_error(EC.message());
+    StringRef TargetName = *TargetNameOrErr;
 
     DEBUG(dbgs() << "\t\tIn Section " << SectionID << " Offset " << Offset
                  << " RelType: " << RelType << " TargetName: " << TargetName

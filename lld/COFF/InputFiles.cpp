@@ -18,6 +18,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/raw_ostream.h"
+#include <mutex>
 
 using namespace llvm::object;
 using namespace llvm::support::endian;
@@ -31,6 +32,8 @@ using llvm::sys::fs::file_magic;
 
 namespace lld {
 namespace coff {
+
+int InputFile::NextIndex = 0;
 
 // Returns the last element of a path, which is supposed to be a filename.
 static StringRef getBasename(StringRef Path) {
@@ -60,7 +63,7 @@ std::error_code ArchiveFile::parse() {
   size_t NumSyms = File->getNumberOfSymbols();
   size_t BufSize = NumSyms * sizeof(Lazy);
   Lazy *Buf = (Lazy *)Alloc.Allocate(BufSize, llvm::alignOf<Lazy>());
-  SymbolBodies.reserve(NumSyms);
+  LazySymbols.reserve(NumSyms);
 
   // Read the symbol table to construct Lazy objects.
   uint32_t I = 0;
@@ -68,12 +71,19 @@ std::error_code ArchiveFile::parse() {
     auto *B = new (&Buf[I++]) Lazy(this, Sym);
     // Skip special symbol exists in import library files.
     if (B->getName() != "__NULL_IMPORT_DESCRIPTOR")
-      SymbolBodies.push_back(B);
+      LazySymbols.push_back(B);
   }
+
+  // Seen is a map from member files to boolean values. Initially
+  // all members are mapped to false, which indicates all these files
+  // are not read yet.
+  for (const Archive::Child &Child : File->children())
+    Seen[Child.getBuffer().data()].clear();
   return std::error_code();
 }
 
 // Returns a buffer pointing to a member file containing a given symbol.
+// This function is thread-safe.
 ErrorOr<MemoryBufferRef> ArchiveFile::getMember(const Archive::Symbol *Sym) {
   auto ItOrErr = Sym->getMember();
   if (auto EC = ItOrErr.getError())
@@ -82,8 +92,7 @@ ErrorOr<MemoryBufferRef> ArchiveFile::getMember(const Archive::Symbol *Sym) {
 
   // Return an empty buffer if we have already returned the same buffer.
   const char *StartAddr = It->getBuffer().data();
-  auto Pair = Seen.insert(StartAddr);
-  if (!Pair.second)
+  if (Seen[StartAddr].test_and_set())
     return MemoryBufferRef();
   return It->getMemoryBufferRef();
 }
@@ -195,8 +204,10 @@ Undefined *ObjectFile::createUndefined(COFFSymbolRef Sym) {
 Undefined *ObjectFile::createWeakExternal(COFFSymbolRef Sym, const void *AuxP) {
   StringRef Name;
   COFFObj->getSymbolName(Sym, Name);
+  auto *U = new (Alloc) Undefined(Name);
   auto *Aux = (const coff_aux_weak_external *)AuxP;
-  return new (Alloc) Undefined(Name, &SparseSymbolBodies[Aux->TagIndex]);
+  U->WeakAlias = SparseSymbolBodies[Aux->TagIndex];
+  return U;
 }
 
 Defined *ObjectFile::createDefined(COFFSymbolRef Sym, const void *AuxP,
@@ -289,9 +300,13 @@ std::error_code BitcodeFile::parse() {
     if (SymbolDef == LTO_SYMBOL_DEFINITION_UNDEFINED) {
       SymbolBodies.push_back(new (Alloc) Undefined(SymName));
     } else {
-      bool Replaceable = (SymbolDef == LTO_SYMBOL_DEFINITION_TENTATIVE ||
-                          (Attrs & LTO_SYMBOL_COMDAT));
-      SymbolBodies.push_back(new (Alloc) DefinedBitcode(SymName, Replaceable));
+      bool Replaceable =
+          (SymbolDef == LTO_SYMBOL_DEFINITION_TENTATIVE || // common
+           (Attrs & LTO_SYMBOL_COMDAT) ||                  // comdat
+           (SymbolDef == LTO_SYMBOL_DEFINITION_WEAK &&     // weak external
+            (Attrs & LTO_SYMBOL_ALIAS)));
+      SymbolBodies.push_back(new (Alloc) DefinedBitcode(this, SymName,
+                                                        Replaceable));
     }
   }
 

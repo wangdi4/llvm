@@ -30,6 +30,7 @@ using llvm::object::COFFSymbolRef;
 
 class Chunk;
 class Defined;
+class Lazy;
 class SymbolBody;
 class Undefined;
 
@@ -61,8 +62,15 @@ public:
   // Returns .drectve section contents if exist.
   StringRef getDirectives() { return StringRef(Directives).trim(); }
 
+  // Each file has a unique index. The index number is used to
+  // resolve ties in symbol resolution.
+  int Index;
+  static int NextIndex;
+
 protected:
-  InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
+  InputFile(Kind K, MemoryBufferRef M)
+      : Index(NextIndex++), MB(M), FileKind(K) {}
+
   MemoryBufferRef MB;
   std::string Directives;
 
@@ -83,14 +91,18 @@ public:
   // (So that we don't instantiate same members more than once.)
   ErrorOr<MemoryBufferRef> getMember(const Archive::Symbol *Sym);
 
-  // NB: All symbols returned by ArchiveFiles are of Lazy type.
-  std::vector<SymbolBody *> &getSymbols() override { return SymbolBodies; }
+  std::vector<Lazy *> &getLazySymbols() { return LazySymbols; }
+
+  // All symbols returned by ArchiveFiles are of Lazy type.
+  std::vector<SymbolBody *> &getSymbols() override {
+    llvm_unreachable("internal error");
+  }
 
 private:
   std::unique_ptr<Archive> File;
   std::string Filename;
-  std::vector<SymbolBody *> SymbolBodies;
-  std::set<const char *> Seen;
+  std::vector<Lazy *> LazySymbols;
+  std::map<const char *, std::atomic_flag> Seen;
   llvm::MallocAllocator Alloc;
 };
 

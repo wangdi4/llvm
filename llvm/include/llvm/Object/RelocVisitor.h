@@ -100,9 +100,9 @@ private:
       case Triple::mips64:
         switch (RelocType) {
         case llvm::ELF::R_MIPS_32:
-          return visitELF_MIPS_32(R, Value);
+          return visitELF_MIPS64_32(R, Value);
         case llvm::ELF::R_MIPS_64:
-          return visitELF_MIPS_64(R, Value);
+          return visitELF_MIPS64_64(R, Value);
         default:
           HasError = true;
           return RelocToApply();
@@ -240,9 +240,7 @@ private:
   }
 
   int64_t getELFAddend(RelocationRef R) {
-    const auto *Obj = cast<ELFObjectFileBase>(R.getObject());
-    DataRefImpl DRI = R.getRawDataRefImpl();
-    ErrorOr<int64_t> AddendOrErr = Obj->getRelocationAddend(DRI);
+    ErrorOr<int64_t> AddendOrErr = ELFRelocationRef(R).getAddend();
     if (std::error_code EC = AddendOrErr.getError())
       report_fatal_error(EC.message());
     return *AddendOrErr;
@@ -315,11 +313,18 @@ private:
 
   /// MIPS ELF
   RelocToApply visitELF_MIPS_32(RelocationRef R, uint64_t Value) {
-    uint32_t Res = (Value)&0xFFFFFFFF;
+    uint32_t Res = Value & 0xFFFFFFFF;
     return RelocToApply(Res, 4);
   }
 
-  RelocToApply visitELF_MIPS_64(RelocationRef R, uint64_t Value) {
+  /// MIPS64 ELF
+  RelocToApply visitELF_MIPS64_32(RelocationRef R, uint64_t Value) {
+    int64_t Addend = getELFAddend(R);
+    uint32_t Res = (Value + Addend) & 0xFFFFFFFF;
+    return RelocToApply(Res, 4);
+  }
+
+  RelocToApply visitELF_MIPS64_64(RelocationRef R, uint64_t Value) {
     int64_t Addend = getELFAddend(R);
     uint64_t Res = (Value + Addend);
     return RelocToApply(Res, 8);

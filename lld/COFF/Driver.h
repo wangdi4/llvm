@@ -92,7 +92,7 @@ private:
   std::vector<StringRef> SearchPaths;
   std::set<std::string> VisitedFiles;
 
-  void addUndefined(StringRef Sym);
+  Undefined *addUndefined(StringRef Sym);
 
   // Windows specific -- "main" is not the only main function in Windows.
   // You can choose one from these four -- {w,}{WinMain,main}.
@@ -132,6 +132,7 @@ std::error_code parseSubsystem(StringRef Arg, WindowsSubsystem *Sys,
                                uint32_t *Major, uint32_t *Minor);
 
 std::error_code parseAlternateName(StringRef);
+std::error_code parseMerge(StringRef);
 
 // Parses a string in the form of "EMBED[,=<integer>]|NO".
 std::error_code parseManifest(StringRef Arg);

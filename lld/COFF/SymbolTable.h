@@ -41,28 +41,26 @@ struct Symbol;
 // to replace the lazy symbol. The logic is implemented in resolve().
 class SymbolTable {
 public:
-  SymbolTable();
   void addFile(std::unique_ptr<InputFile> File);
+  std::error_code step();
   std::error_code run();
-  size_t getVersion() { return Version; }
+  bool queueEmpty();
 
-  // Print an error message on undefined symbols.
-  bool reportRemainingUndefines();
+  // Print an error message on undefined symbols. If Resolve is true, try to
+  // resolve any undefined symbols and update the symbol table accordingly.
+  bool reportRemainingUndefines(bool Resolve);
 
   // Returns a list of chunks of selected symbols.
   std::vector<Chunk *> getChunks();
 
-  // Returns a symbol for a given name. It's not guaranteed that the
-  // returned symbol actually has the same name (because of various
-  // mechanisms to allow aliases, a name can be resolved to a
-  // different symbol). Returns a nullptr if not found.
-  Defined *find(StringRef Name);
-  Defined *findLazy(StringRef Name);
+  // Returns a symbol for a given name. Returns a nullptr if not found.
+  Symbol *find(StringRef Name);
 
-  // Find a symbol assuming that Name is a function name.
-  // Not only a given string but its mangled names (in MSVC C++ manner)
-  // will be searched.
-  std::pair<StringRef, Symbol *> findMangled(StringRef Name);
+  // Occasionally we have to resolve an undefined symbol to its
+  // mangled symbol. This function tries to find a mangled name
+  // for U from the symbol table, and if found, set the symbol as
+  // a weak alias for U.
+  void mangleMaybe(Undefined *U);
 
   // Print a layout map to OS.
   void printMap(llvm::raw_ostream &OS);
@@ -80,29 +78,32 @@ public:
   std::vector<ObjectFile *> ObjectFiles;
 
   // Creates an Undefined symbol for a given name.
-  std::error_code addUndefined(StringRef Name);
-
-  // Rename From -> To in the symbol table.
-  std::error_code rename(StringRef From, StringRef To);
+  Undefined *addUndefined(StringRef Name);
+  void addAbsolute(StringRef Name, uint64_t VA);
 
   // A list of chunks which to be added to .rdata.
   std::vector<Chunk *> LocalImportChunks;
 
 private:
-  std::error_code resolve(SymbolBody *Body);
+  std::error_code readArchives();
+  std::error_code readObjects();
+
+  std::error_code addSymbol(SymbolBody *New);
+  void addLazy(Lazy *New, std::vector<Symbol *> *Accum);
+  Symbol *insert(SymbolBody *New);
+
   std::error_code addMemberFile(Lazy *Body);
   ErrorOr<ObjectFile *> createLTOObject(llvm::LTOCodeGenerator *CG);
 
   llvm::DenseMap<StringRef, Symbol *> Symtab;
+
   std::vector<std::unique_ptr<InputFile>> Files;
-  size_t FileIdx = 0;
-  std::vector<ArchiveFile *> ArchiveFiles;
+  std::vector<ArchiveFile *> ArchiveQueue;
+  std::vector<InputFile *> ObjectQueue;
+
   std::vector<BitcodeFile *> BitcodeFiles;
   std::unique_ptr<MemoryBuffer> LTOMB;
   llvm::BumpPtrAllocator Alloc;
-
-  // This variable is incremented every time Symtab is updated.
-  size_t Version = 0;
 };
 
 } // namespace coff

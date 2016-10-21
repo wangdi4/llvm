@@ -16,6 +16,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/COFF.h"
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -25,8 +26,10 @@ namespace coff {
 using llvm::object::Archive;
 using llvm::object::COFFSymbolRef;
 using llvm::object::coff_import_header;
+using llvm::object::coff_symbol_generic;
 
 class ArchiveFile;
+class BitcodeFile;
 class InputFile;
 class ObjectFile;
 class SymbolBody;
@@ -36,7 +39,7 @@ class SymbolBody;
 // The resolver updates SymbolBody pointers as it resolves symbols.
 struct Symbol {
   explicit Symbol(SymbolBody *P) : Body(P) {}
-  SymbolBody *Body;
+  std::atomic<SymbolBody *> Body;
 };
 
 // The base class for real symbol classes.
@@ -56,8 +59,8 @@ public:
     DefinedAbsoluteKind,
     DefinedBitcodeKind,
 
-    LazyKind,
     UndefinedKind,
+    LazyKind,
 
     LastDefinedCOFFKind = DefinedCommonKind,
     LastDefinedKind = DefinedBitcodeKind,
@@ -78,7 +81,7 @@ public:
   // has chosen the object among other objects having the same name,
   // you can access P->Backref->Body to get the resolver's result.
   void setBackref(Symbol *P) { Backref = P; }
-  SymbolBody *getReplacement() { return Backref ? Backref->Body : this; }
+  SymbolBody *repl() { return Backref ? Backref->Body.load() : this; }
 
   // Decides which symbol should "win" in the symbol table, this or
   // the Other. Returns 1 if this wins, -1 if the Other wins, or 0 if
@@ -131,15 +134,17 @@ class DefinedCOFF : public Defined {
   friend SymbolBody;
 public:
   DefinedCOFF(Kind K, ObjectFile *F, COFFSymbolRef S)
-      : Defined(K), File(F), Sym(S) {}
+      : Defined(K), File(F), Sym(S.getGeneric()) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() <= LastDefinedCOFFKind;
   }
 
+  int getFileIndex() { return File->Index; }
+
 protected:
   ObjectFile *File;
-  COFFSymbolRef Sym;
+  const coff_symbol_generic *Sym;
 };
 
 // Regular defined symbols read from object file symbol tables.
@@ -147,7 +152,7 @@ class DefinedRegular : public DefinedCOFF {
 public:
   DefinedRegular(ObjectFile *F, COFFSymbolRef S, SectionChunk *C)
       : DefinedCOFF(DefinedRegularKind, F, S), Data(&C->Ptr) {
-    IsExternal = Sym.isExternal();
+    IsExternal = S.isExternal();
     IsCOMDAT = C->isCOMDAT();
   }
 
@@ -156,15 +161,15 @@ public:
   }
 
   uint64_t getFileOff() {
-    return (*Data)->getFileOff() + Sym.getValue();
+    return (*Data)->getFileOff() + Sym->Value;
   }
 
-  uint64_t getRVA() { return (*Data)->getRVA() + Sym.getValue(); }
+  uint64_t getRVA() { return (*Data)->getRVA() + Sym->Value; }
   bool isCOMDAT() { return IsCOMDAT; }
   bool isLive() const { return (*Data)->isLive(); }
   void markLive() { (*Data)->markLive(); }
   SectionChunk *getChunk() { return *Data; }
-  uint64_t getValue() { return Sym.getValue(); }
+  uint32_t getValue() { return Sym->Value; }
 
 private:
   SectionChunk **Data;
@@ -174,7 +179,7 @@ class DefinedCommon : public DefinedCOFF {
 public:
   DefinedCommon(ObjectFile *F, COFFSymbolRef S, CommonChunk *C)
       : DefinedCOFF(DefinedCommonKind, F, S), Data(C) {
-    IsExternal = Sym.isExternal();
+    IsExternal = S.isExternal();
   }
 
   static bool classof(const SymbolBody *S) {
@@ -187,7 +192,7 @@ public:
 private:
   friend SymbolBody;
 
-  uint64_t getSize() { return Sym.getValue(); }
+  uint64_t getSize() { return Sym->Value; }
 
   CommonChunk *Data;
 };
@@ -229,6 +234,8 @@ public:
   // was already returned.
   ErrorOr<std::unique_ptr<InputFile>> getMember();
 
+  int getFileIndex() { return File->Index; }
+
 private:
   ArchiveFile *File;
   const Archive::Symbol Sym;
@@ -237,8 +244,7 @@ private:
 // Undefined symbols.
 class Undefined : public SymbolBody {
 public:
-  explicit Undefined(StringRef N, SymbolBody **S = nullptr)
-      : SymbolBody(UndefinedKind, N), Alias(S) {}
+  explicit Undefined(StringRef N) : SymbolBody(UndefinedKind, N) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == UndefinedKind;
@@ -248,10 +254,12 @@ public:
   // undefined symbol a second chance if it would remain undefined.
   // If it remains undefined, it'll be replaced with whatever the
   // Alias pointer points to.
-  SymbolBody *getWeakAlias() { return Alias ? *Alias : nullptr; }
+  SymbolBody *WeakAlias = nullptr;
 
-private:
-  SymbolBody **Alias;
+  // If this symbol is external weak, try to resolve it to a defined
+  // symbol by searching the chain of fallback symbols. Returns the symbol if
+  // successful, otherwise returns null.
+  Defined *getWeakAlias();
 };
 
 // Windows-specific classes.
@@ -333,18 +341,31 @@ private:
 };
 
 class DefinedBitcode : public Defined {
+  friend SymbolBody;
 public:
-  DefinedBitcode(StringRef N, bool IsReplaceable)
-      : Defined(DefinedBitcodeKind, N) {
+  DefinedBitcode(BitcodeFile *F, StringRef N, bool IsReplaceable)
+      : Defined(DefinedBitcodeKind, N), File(F) {
     this->IsReplaceable = IsReplaceable;
   }
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == DefinedBitcodeKind;
   }
+
+private:
+  BitcodeFile *File;
 };
 
 } // namespace coff
 } // namespace lld
+
+// Support isa<>, cast<> and dyn_cast<> for Symbol::Body.
+namespace llvm {
+template <typename T>
+struct simplify_type<std::atomic<T *>> {
+  typedef T *SimpleType;
+  static T *getSimplifiedValue(std::atomic<T *> &A) { return A.load(); }
+};
+}
 
 #endif
