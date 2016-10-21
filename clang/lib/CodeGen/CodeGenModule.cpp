@@ -765,6 +765,17 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
   else if (LangOpts.getStackProtector() == LangOptions::SSPReq)
     B.addAttribute(llvm::Attribute::StackProtectReq);
 
+ //LPU EDIT
+#if 1
+  const llvm::Triple& lputriple = Target.getTriple();
+  if (lputriple.getArch() == llvm::Triple::lpu) {
+    const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+    if (FD->isInlineSpecified()) {
+      B.addAttribute(llvm::Attribute::AlwaysInline);
+    }
+  }
+#endif
+  
   F->addAttributes(llvm::AttributeSet::FunctionIndex,
                    llvm::AttributeSet::get(
                        F->getContext(), llvm::AttributeSet::FunctionIndex, B));
