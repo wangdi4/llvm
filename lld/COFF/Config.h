@@ -20,6 +20,8 @@
 namespace lld {
 namespace coff {
 
+using llvm::COFF::IMAGE_FILE_MACHINE_AMD64;
+using llvm::COFF::IMAGE_FILE_MACHINE_UNKNOWN;
 using llvm::COFF::WindowsSubsystem;
 using llvm::StringRef;
 class Undefined;
@@ -44,8 +46,9 @@ struct Export {
 // Global configuration.
 struct Configuration {
   enum ManifestKind { SideBySide, Embed, No };
+  bool is64() { return MachineType == IMAGE_FILE_MACHINE_AMD64; }
 
-  llvm::COFF::MachineTypes MachineType = llvm::COFF::IMAGE_FILE_MACHINE_AMD64;
+  llvm::COFF::MachineTypes MachineType = IMAGE_FILE_MACHINE_UNKNOWN;
   bool Verbose = false;
   WindowsSubsystem Subsystem = llvm::COFF::IMAGE_SUBSYSTEM_UNKNOWN;
   Undefined *Entry = nullptr;
@@ -67,6 +70,7 @@ struct Configuration {
   StringRef Implib;
   std::vector<Export> Exports;
   std::set<std::string> DelayLoads;
+  Undefined *DelayLoadHelper = nullptr;
 
   // Used for /opt:icf
   bool ICF = false;

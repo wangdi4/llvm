@@ -16,8 +16,3 @@ using namespace llvm;
 
 #define DEBUG_TYPE "lpu-selectiondag-info"
 
-LPUSelectionDAGInfo::LPUSelectionDAGInfo(const DataLayout &DL)
-    : TargetSelectionDAGInfo(&DL) {}
-
-LPUSelectionDAGInfo::~LPUSelectionDAGInfo() {
-}

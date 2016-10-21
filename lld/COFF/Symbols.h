@@ -27,6 +27,8 @@ using llvm::object::Archive;
 using llvm::object::COFFSymbolRef;
 using llvm::object::coff_import_header;
 using llvm::object::coff_symbol_generic;
+using llvm::object::coff_symbol16;
+using llvm::object::coff_symbol32;
 
 class ArchiveFile;
 class BitcodeFile;
@@ -141,6 +143,8 @@ public:
   }
 
   int getFileIndex() { return File->Index; }
+
+  COFFSymbolRef getCOFFSymbol();
 
 protected:
   ObjectFile *File;
@@ -355,6 +359,29 @@ public:
 private:
   BitcodeFile *File;
 };
+
+inline uint64_t Defined::getRVA() {
+  switch (kind()) {
+  case DefinedAbsoluteKind:
+    return cast<DefinedAbsolute>(this)->getRVA();
+  case DefinedImportDataKind:
+    return cast<DefinedImportData>(this)->getRVA();
+  case DefinedImportThunkKind:
+    return cast<DefinedImportThunk>(this)->getRVA();
+  case DefinedLocalImportKind:
+    return cast<DefinedLocalImport>(this)->getRVA();
+  case DefinedCommonKind:
+    return cast<DefinedCommon>(this)->getRVA();
+  case DefinedRegularKind:
+    return cast<DefinedRegular>(this)->getRVA();
+  case DefinedBitcodeKind:
+    llvm_unreachable("There is no address for a bitcode symbol.");
+  case LazyKind:
+  case UndefinedKind:
+    llvm_unreachable("Cannot get the address for an undefined symbol.");
+  }
+  llvm_unreachable("unknown symbol kind");
+}
 
 } // namespace coff
 } // namespace lld

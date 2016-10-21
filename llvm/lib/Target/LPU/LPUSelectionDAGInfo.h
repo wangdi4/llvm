@@ -22,8 +22,7 @@ class LPUTargetMachine;
 
 class LPUSelectionDAGInfo : public TargetSelectionDAGInfo {
 public:
-  explicit LPUSelectionDAGInfo(const DataLayout &DL);
-  ~LPUSelectionDAGInfo();
+  explicit LPUSelectionDAGInfo() = default;
 };
 
 }

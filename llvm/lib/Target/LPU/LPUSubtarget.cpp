@@ -35,6 +35,6 @@ LPUSubtarget::LPUSubtarget(const Triple &TT, const std::string &CPU,
     : LPUGenSubtargetInfo(TT, CPU, FS),
       FrameLowering(),
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM, *this),
-      TSInfo(*TM.getDataLayout()),
+      TSInfo(),
       LPUName(CPU.empty() ? "autounit" : CPU)
   {}
