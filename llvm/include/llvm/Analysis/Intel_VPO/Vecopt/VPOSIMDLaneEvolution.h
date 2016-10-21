@@ -1351,7 +1351,7 @@ template <> struct GraphTraits<vpo::SLEVInstruction*> {
   typedef vpo::SLEVInstruction NodeType;
   typedef vpo::SLEVInstruction *NodeRef;
   typedef vpo::SLEVInstruction::SLEVUsersTy::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::SLEVInstruction *> nodes_iterator;
+  typedef standard_df_iterator2<vpo::SLEVInstruction *> nodes_iterator;
 
   static NodeType *getEntryNode(vpo::SLEVInstruction *N) {
     return N;

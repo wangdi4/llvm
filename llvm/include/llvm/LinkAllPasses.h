@@ -273,6 +273,7 @@ namespace {
       // VPO Vectorizer Passes
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createAVRGenerateHIRPass();
+      (void) llvm::createVPOPredicatorPass();
       (void) llvm::createVPODriverPass();
       (void) llvm::createVPODriverHIRPass();
       (void) llvm::createVPODirectiveCleanupPass();
@@ -283,6 +284,11 @@ namespace {
       (void) llvm::createAvrCFGHIRPass();
       (void) llvm::createSIMDLaneEvolutionPass();
       (void) llvm::createSIMDLaneEvolutionHIRPass();
+      (void) llvm::createVectorGraphInfoPass();
+      (void) llvm::createVectorGraphPredicatorPass();
+
+      // VPO Paropt Prepare Passes
+      (void) llvm::createVPOParoptPreparePass();
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();

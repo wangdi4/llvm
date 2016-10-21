@@ -110,7 +110,7 @@ void ParVecDirectiveInsertion::Visitor::insertVecDirectives(HLLoop *Lp,
 
   // Insert END SIMD directives
   // insertDirective(Lp, DIR_QUAL_LIST_END, true  /* append  */);
-  // insertDirective(Lp, DIR_OMP_END_SIMD,  true  /* append  */);
+  insertDirective(Lp, DIR_OMP_END_SIMD,  true  /* append  */);
 
   //  L->getParentRegion()->setGenCode();
 }

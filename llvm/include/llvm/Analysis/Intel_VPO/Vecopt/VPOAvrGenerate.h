@@ -156,8 +156,11 @@ public:
 
   AVRGenerateBase(char &ID);
 
+  //TODO: Implement these two lists in a generic way?
   /// AvrLabels - Map of avr labels and basic blocks generated in AL.
   SmallDenseMap<BasicBlock *, AVRLabelIR *, 64> AvrLabels;
+  /// AvrLabels - Map of avr labels and HLLabels generated in AL.
+  SmallDenseMap<HLLabel *, AVRLabelHIR *, 64> AvrLabelsHIR;
 
   bool runOnFunction(Function &F);
   void create();
@@ -218,7 +221,12 @@ private:
   HIRParser *HIRP;
 
   class AVRGenerateVisitor : public HIRVisitor<AVRGenerateVisitor, AVR *> {
+
+    SmallDenseMap<HLLabel *, AVRLabelHIR *, 64> &AvrLabels;
+
   public:
+    AVRGenerateVisitor(SmallDenseMap<HLLabel *, AVRLabelHIR *, 64> &ALabels)
+        : AvrLabels(ALabels) {}
     AVR *visitRegion(HLRegion *R);
     AVR *visitLoop(HLLoop *L);
     AVR *visitIf(HLIf *I);

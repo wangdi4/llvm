@@ -122,6 +122,7 @@ void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
   // Always print avr loop type name.
   case PrintDataType:

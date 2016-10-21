@@ -22,6 +22,7 @@ void llvm::initializeIntel_VPOTransforms(PassRegistry &Registry) {
   initializeVPODriverHIRPass(Registry);
   initializeVPODirectiveCleanupPass(Registry);
 
+  initializeVPOParoptPreparePass(Registry);
   initializeVPOParoptPass(Registry);
 
   initializeVPOCFGRestructuringPass(Registry);

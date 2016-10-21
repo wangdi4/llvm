@@ -153,6 +153,10 @@ private:
   /// block as a successor of the branch.
   void addBranchSuccessor(AVRBranchIR *ABranch, BasicBlock *SuccBBlock);
 
+  /// \brief Utility function for adding the AVR label of a successor HLLabel as
+  /// a successor of the branch.
+  void addBranchSuccessor(AVRBranchHIR *ABranch, HLLabel *SuccHLabel);
+
 public:
   AVRAddLabelReferences(AVRGenerateBase *AbstractLayer) : AL(AbstractLayer) {}
 
@@ -160,6 +164,7 @@ public:
   void visit(AVR *ANode) {}
   void postVisit(AVR *ANode) {}
   void visit(AVRBranchIR *ABranchIR);
+  void visit(AVRBranchHIR *ABranchHIR); 
   void postVisit(AVRPhiIR *APhiIR);
   bool isDone() { return false; }
   bool skipRecursion(AVR *ANode) { return false; }
@@ -176,6 +181,17 @@ void AVRAddLabelReferences::addBranchSuccessor(AVRBranchIR *ABranch,
   ABranch->addSuccessor(ChildrenBegin);
 }
 
+void AVRAddLabelReferences::addBranchSuccessor(AVRBranchHIR *ABranch,
+                                               HLLabel *SuccHLabel) {
+
+  // Search AL for AVRLabel generated for this HLabel.
+  auto Itr = AL->AvrLabelsHIR.find(SuccHLabel);
+  assert(Itr != AL->AvrLabelsHIR.end() &&
+         "Avr Label for HLabel not found in abstract layer!");
+  AVRLabel *ALabel = Itr->second;
+  ABranch->addSuccessor(ALabel);
+}
+
 void AVRAddLabelReferences::visit(AVRBranchIR *ABranchIR) {
 
   if (ABranchIR->isConditional()) {
@@ -186,6 +202,17 @@ void AVRAddLabelReferences::visit(AVRBranchIR *ABranchIR) {
 
     addBranchSuccessor(ABranchIR, ABranchIR->getNextBBlock());
   }
+}
+
+void AVRAddLabelReferences::visit(AVRBranchHIR *ABranchHIR) {
+
+  assert(!ABranchHIR->isConditional() &&
+         "Unexpected conditional branch in HIR");
+  assert(isa<HLGoto>(ABranchHIR->getHIRInstruction()) &&
+         "Unexpected ABranchHIR");
+  const HLGoto *HGoto = cast<HLGoto>(ABranchHIR->getHIRInstruction());
+
+  addBranchSuccessor(ABranchHIR, HGoto->getTargetLabel());
 }
 
 void AVRAddLabelReferences::postVisit(AVRPhiIR *APhiIR) {
@@ -912,7 +939,7 @@ void AVRGenerate::buildAvrsForVectorCandidates() {
   // added to the Abstract Layer after the preorder build is completed.
   for (auto Itr = WR->begin(), End = WR->end(); Itr != End; ++Itr) {
 
-    if (WRNVecLoopNode *WRNVecNode = dyn_cast<WRNVecLoopNode>(Itr)) {
+    if (WRNVecLoopNode *WRNVecNode = dyn_cast<WRNVecLoopNode>(*Itr)) {
 
       AvrWrn = AVRUtils::createAVRWrn(WRNVecNode);
       preorderTravAvrBuild(WRNVecNode->getEntryBBlock(), AvrItr(AvrWrn));
@@ -1308,13 +1335,13 @@ bool AVRGenerateHIR::runOnFunction(Function &F) {
 }
 
 void AVRGenerateHIR::buildAbstractLayer() {
-  AVRGenerateVisitor AG;
+  AVRGenerateVisitor AG(AvrLabelsHIR);
 
   // Walk the HIR and build WRGraph based on HIR
-  WRContainerTy *WRGraph = WRegionUtils::buildWRGraphFromHIR();
+  WRContainerImpl *WRGraph = WRegionUtils::buildWRGraphFromHIR();
   DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
   for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
-    DEBUG(I->dump());
+    DEBUG((*I)->dump());
   }
 
   // TBD: Using WRN nodes directly for now. This needs to be changed
@@ -1323,12 +1350,12 @@ void AVRGenerateHIR::buildAbstractLayer() {
   // forward.
   for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
     DEBUG(errs() << "Starting AVR gen for \n");
-    DEBUG(I->dump());
+    DEBUG((*I)->dump());
     AVRWrn *AWrn;
     AVR *Avr;
     WRNVecLoopNode *WVecNode;
 
-    if (!(WVecNode = dyn_cast<WRNVecLoopNode>(I)))
+    if (!(WVecNode = dyn_cast<WRNVecLoopNode>(*I)))
       continue;
 
     // Create an AVRWrn and insert AVR for contained loop as child
@@ -1352,7 +1379,9 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitInst(HLInst *I) {
 }
 
 AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLabel(HLLabel *L) {
-  return AVRUtilsHIR::createAVRLabelHIR(L);
+  AVRLabelHIR *ALabel = AVRUtilsHIR::createAVRLabelHIR(L);
+  AvrLabels[L] = ALabel;
+  return ALabel;
 }
 
 AVR *AVRGenerateHIR::AVRGenerateVisitor::visitGoto(HLGoto *G) {

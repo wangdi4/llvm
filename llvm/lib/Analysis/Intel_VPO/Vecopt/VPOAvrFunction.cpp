@@ -55,6 +55,7 @@ void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName();
   case PrintDataType:

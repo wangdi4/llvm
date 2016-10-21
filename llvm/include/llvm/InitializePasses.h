@@ -421,11 +421,15 @@ void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 // VPO Utility Pass
 void initializeVPOCFGRestructuringPass(PassRegistry&);
+// VPO Paropt Prepare Pass
+void initializeVPOParoptPreparePass(PassRegistry&);
 // VPO Parallelizer Pass
 void initializeVPOParoptPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
+void initializeAVRDecomposeHIRPass(PassRegistry&);
+void initializeVPOPredicatorPass(PassRegistry&);
 void initializeVecClonePass(PassRegistry&);
 void initializeAvrDefUsePass(PassRegistry&);
 void initializeAvrDefUseHIRPass(PassRegistry&);
@@ -437,6 +441,7 @@ void initializeVPODriverPass(PassRegistry&);
 void initializeVPODriverHIRPass(PassRegistry&);
 void initializeVPODirectiveCleanupPass(PassRegistry&);
 void initializeVectorGraphInfoPass(PassRegistry&);
+void initializeVectorGraphPredicatorPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
 void initializeSjLjEHPreparePass(PassRegistry&);

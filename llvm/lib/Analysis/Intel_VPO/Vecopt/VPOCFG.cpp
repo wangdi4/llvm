@@ -417,7 +417,8 @@ void AvrCFGBase::DeepBuilder::visit(AVRIf* AIf) {
     AvrCFGBase::DeepBuilder ConditionCFGDeepBuilder(CFG, CurrentPredecessor);
     AVRVisitor<AvrCFGBase::DeepBuilder> ConditionVisitor(ConditionCFGDeepBuilder);
     AVR* Condition = AIf->getCondition();
-    ConditionVisitor.visit(Condition, true, true, true);
+    ConditionVisitor.visit(Condition, true, true, false /*RecurseInsideValues*/,
+                           true);
     clearCurrentPredecessors();
     assert(ConditionCFGDeepBuilder.CurrentPredecessors.size() == 1 &&
            "Expected a single predecessor from the condition visit");
@@ -441,7 +442,8 @@ void AvrCFGBase::DeepBuilder::visit(AVRIf* AIf) {
   // Recurse into 'then' block.
   AvrCFGBase::DeepBuilder ThenCFGDeepBuilder(CFG, CurrentPredecessor);
   AVRVisitor<AvrCFGBase::DeepBuilder> ThenVisitor(ThenCFGDeepBuilder);
-  ThenVisitor.forwardVisit(AIf->then_begin(), AIf->then_end(), true, true);
+  ThenVisitor.forwardVisit(AIf->then_begin(), AIf->then_end(), true, true,
+                           false /*RecurseInsideValues*/);
   // Set any dangling predecessors of the 'then' block as predecessors.
   CurrentPredecessors.insert(ThenCFGDeepBuilder.CurrentPredecessors.begin(),
                              ThenCFGDeepBuilder.CurrentPredecessors.end());
@@ -451,7 +453,8 @@ void AvrCFGBase::DeepBuilder::visit(AVRIf* AIf) {
     // This is an if-then-else.
     AvrCFGBase::DeepBuilder ElseCFGDeepBuilder(CFG, CurrentPredecessor);
     AVRVisitor<AvrCFGBase::DeepBuilder> ElseVisitor(ElseCFGDeepBuilder);
-    ElseVisitor.forwardVisit(AIf->else_begin(), AIf->else_end(), true, true);
+    ElseVisitor.forwardVisit(AIf->else_begin(), AIf->else_end(), true, true,
+                             false /*RecurseInsideValues*/);
     // Set any dangling predecessors of the 'else' block as predecessors.
     CurrentPredecessors.insert(ElseCFGDeepBuilder.CurrentPredecessors.begin(),
                                ElseCFGDeepBuilder.CurrentPredecessors.end());
@@ -476,7 +479,8 @@ void AvrCFGBase::DeepBuilder::visit(AVRSwitch* ASwitch) {
   AvrCFGBase::DeepBuilder DefaultCFGDeepBuilder(CFG, CurrentPredecessor);
   AVRVisitor<AvrCFGBase::DeepBuilder> DefaultVisitor(DefaultCFGDeepBuilder);
   DefaultVisitor.forwardVisit(ASwitch->default_case_child_begin(),
-                           ASwitch->default_case_child_end(), true, true);
+                              ASwitch->default_case_child_end(), true, true,
+                              false /*RecurseInsideValues*/);
   // Set any dangling predecessors of the case as predecessors.
   CurrentPredecessors.insert(DefaultCFGDeepBuilder.CurrentPredecessors.begin(),
                              DefaultCFGDeepBuilder.CurrentPredecessors.end());
@@ -488,7 +492,8 @@ void AvrCFGBase::DeepBuilder::visit(AVRSwitch* ASwitch) {
     AvrCFGBase::DeepBuilder CaseCFGDeepBuilder(CFG, CurrentPredecessor);
     AVRVisitor<AvrCFGBase::DeepBuilder> CaseVisitor(CaseCFGDeepBuilder);
     CaseVisitor.forwardVisit(ASwitch->case_child_begin(I),
-                             ASwitch->case_child_end(I), true, true);
+                             ASwitch->case_child_end(I), true, true,
+                             false /*RecurseInsideValues*/);
     // Set any dangling predecessors of the case as predecessors.
     CurrentPredecessors.insert(CaseCFGDeepBuilder.CurrentPredecessors.begin(),
                                CaseCFGDeepBuilder.CurrentPredecessors.end());
@@ -504,10 +509,8 @@ void AvrCFGBase::DeepBuilder::visit(AVRLoopHIR *ALoopHIR) {
   // Recurse into loop body.
   AvrCFGBase::DeepBuilder LoopCFGDeepBuilder(CFG, TempHeader);
   AVRVisitor<AvrCFGBase::DeepBuilder> LoopVisitor(LoopCFGDeepBuilder);
-  LoopVisitor.forwardVisit(ALoopHIR->child_begin(),
-                           ALoopHIR->child_end(),
-                           true,
-                           true);
+  LoopVisitor.forwardVisit(ALoopHIR->child_begin(), ALoopHIR->child_end(), true,
+                           true, false /*RecurseInsideVisitor*/);
 
   // Create an empty basic block as the latch, link it to the temporary header
   // and then remove the temporary header.
@@ -544,7 +547,8 @@ void AvrCFGBase::ShallowBuilder::visit(AVRIf* AIf) {
   // Recurse into 'then' block.
   AvrCFGBase::ShallowBuilder ThenCFGShallowBuilder(CFG, CurrentPredecessor);
   AVRVisitor<AvrCFGBase::ShallowBuilder> ThenVisitor(ThenCFGShallowBuilder);
-  ThenVisitor.forwardVisit(AIf->then_begin(), AIf->then_end(), true, true);
+  ThenVisitor.forwardVisit(AIf->then_begin(), AIf->then_end(), true, true,
+                           false /*RecurseInsideValues*/);
   // Set any dangling predecessors of the 'then' block as predecessors.
   CurrentPredecessors.insert(ThenCFGShallowBuilder.CurrentPredecessors.begin(),
                              ThenCFGShallowBuilder.CurrentPredecessors.end());
@@ -554,7 +558,8 @@ void AvrCFGBase::ShallowBuilder::visit(AVRIf* AIf) {
     // This is an if-then-else.
     AvrCFGBase::ShallowBuilder ElseCFGShallowBuilder(CFG, CurrentPredecessor);
     AVRVisitor<AvrCFGBase::ShallowBuilder> ElseVisitor(ElseCFGShallowBuilder);
-    ElseVisitor.forwardVisit(AIf->else_begin(), AIf->else_end(), true, true);
+    ElseVisitor.forwardVisit(AIf->else_begin(), AIf->else_end(), true, true,
+                             false /*RecurseInsideValues*/);
     // Set any dangling predecessors of the 'else' block as predecessors.
     CurrentPredecessors.insert(ElseCFGShallowBuilder.CurrentPredecessors.begin(),
                                ElseCFGShallowBuilder.CurrentPredecessors.end());
@@ -579,7 +584,8 @@ void AvrCFGBase::ShallowBuilder::visit(AVRSwitch* ASwitch) {
   AvrCFGBase::ShallowBuilder DefaultCFGShallowBuilder(CFG, CurrentPredecessor);
   AVRVisitor<AvrCFGBase::ShallowBuilder> DefaultVisitor(DefaultCFGShallowBuilder);
   DefaultVisitor.forwardVisit(ASwitch->default_case_child_begin(),
-                           ASwitch->default_case_child_end(), true, true);
+                              ASwitch->default_case_child_end(), true, true,
+                              false /*RecurseInsideValues*/);
   // Set any dangling predecessors of the case as predecessors.
   CurrentPredecessors.insert(DefaultCFGShallowBuilder.CurrentPredecessors.begin(),
                              DefaultCFGShallowBuilder.CurrentPredecessors.end());
@@ -591,7 +597,8 @@ void AvrCFGBase::ShallowBuilder::visit(AVRSwitch* ASwitch) {
     AvrCFGBase::ShallowBuilder CaseCFGShallowBuilder(CFG, CurrentPredecessor);
     AVRVisitor<AvrCFGBase::ShallowBuilder> CaseVisitor(CaseCFGShallowBuilder);
     CaseVisitor.forwardVisit(ASwitch->case_child_begin(I),
-                             ASwitch->case_child_end(I), true, true);
+                             ASwitch->case_child_end(I), true, true,
+                             false /*RecurseInsideValues*/);
     // Set any dangling predecessors of the case as predecessors.
     CurrentPredecessors.insert(CaseCFGShallowBuilder.CurrentPredecessors.begin(),
                                CaseCFGShallowBuilder.CurrentPredecessors.end());
@@ -643,13 +650,15 @@ void AvrCFGBase::runOnAvr(AvrItr Begin, AvrItr End, bool Deep, bool Compress) {
   if (Deep) {
     DeepBuilder &CFGDeepBuilder = *new DeepBuilder(*this, Entry);
     AVRVisitor<DeepBuilder> AVisitor(CFGDeepBuilder);
-    AVisitor.forwardVisit(Begin, End, true, true);
+    AVisitor.forwardVisit(Begin, End, true, true,
+                          false /*RecurseInsideValues*/);
     Builder = &CFGDeepBuilder;
   }
   else {
     ShallowBuilder &CFGShallowBuilder = * new ShallowBuilder(*this, Entry);
     AVRVisitor<ShallowBuilder> AVisitor(CFGShallowBuilder);
-    AVisitor.forwardVisit(Begin, End, true, true);
+    AVisitor.forwardVisit(Begin, End, true, true,
+                          false /*RecurseInsideValues*/);
     Builder = &CFGShallowBuilder;
   }
 
