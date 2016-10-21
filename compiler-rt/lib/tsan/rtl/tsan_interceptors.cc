@@ -826,7 +826,7 @@ extern "C" void *__tsan_thread_start_func(void *arg) {
     ScopedIgnoreInterceptors ignore;
     ThreadIgnoreBegin(thr, 0);
     if (pthread_setspecific(g_thread_finalize_key,
-                            (void *)kPthreadDestructorIterations)) {
+                            (void *)GetPthreadDestructorIterations())) {
       Printf("ThreadSanitizer: failed to set thread key\n");
       Die();
     }
@@ -992,8 +992,8 @@ INTERCEPTOR(int, pthread_cond_init, void *c, void *a) {
 INTERCEPTOR(int, pthread_cond_wait, void *c, void *m) {
   void *cond = init_cond(c);
   SCOPED_TSAN_INTERCEPTOR(pthread_cond_wait, cond, m);
-  MutexUnlock(thr, pc, (uptr)m);
   MemoryAccessRange(thr, pc, (uptr)c, sizeof(uptr), false);
+  MutexUnlock(thr, pc, (uptr)m);
   CondMutexUnlockCtx arg = {&si, thr, pc, m};
   int res = 0;
   // This ensures that we handle mutex lock even in case of pthread_cancel.
@@ -1014,8 +1014,8 @@ INTERCEPTOR(int, pthread_cond_wait, void *c, void *m) {
 INTERCEPTOR(int, pthread_cond_timedwait, void *c, void *m, void *abstime) {
   void *cond = init_cond(c);
   SCOPED_TSAN_INTERCEPTOR(pthread_cond_timedwait, cond, m, abstime);
-  MutexUnlock(thr, pc, (uptr)m);
   MemoryAccessRange(thr, pc, (uptr)c, sizeof(uptr), false);
+  MutexUnlock(thr, pc, (uptr)m);
   CondMutexUnlockCtx arg = {&si, thr, pc, m};
   int res = 0;
   // This ensures that we handle mutex lock even in case of pthread_cancel.
@@ -2153,6 +2153,10 @@ struct dl_iterate_phdr_data {
   void *data;
 };
 
+static bool IsAppNotRodata(uptr addr) {
+  return IsAppMem(addr) && *(u64*)MemToShadow(addr) != kShadowRodata;
+}
+
 static int dl_iterate_phdr_cb(__sanitizer_dl_phdr_info *info, SIZE_T size,
                               void *data) {
   dl_iterate_phdr_data *cbdata = (dl_iterate_phdr_data *)data;
@@ -2161,13 +2165,13 @@ static int dl_iterate_phdr_cb(__sanitizer_dl_phdr_info *info, SIZE_T size,
   // inside of dynamic linker, so we "unpoison" it here in order to not
   // produce false reports. Ignoring malloc/free in dlopen/dlclose is not enough
   // because some libc functions call __libc_dlopen.
-  bool reset = info && IsAppMem((uptr)info->dlpi_name) &&
-      *(u64*)MemToShadow((uptr)info->dlpi_name) != kShadowRodata;
-  if (reset)
+  if (info && IsAppNotRodata((uptr)info->dlpi_name))
     MemoryResetRange(cbdata->thr, cbdata->pc, (uptr)info->dlpi_name,
                      internal_strlen(info->dlpi_name));
   int res = cbdata->cb(info, size, cbdata->data);
-  if (reset)
+  // Perform the check one more time in case info->dlpi_name was overwritten
+  // by user callback.
+  if (info && IsAppNotRodata((uptr)info->dlpi_name))
     MemoryResetRange(cbdata->thr, cbdata->pc, (uptr)info->dlpi_name,
                      internal_strlen(info->dlpi_name));
   return res;

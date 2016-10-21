@@ -10,8 +10,6 @@
 #ifndef LLD_COFF_INPUT_FILES_H
 #define LLD_COFF_INPUT_FILES_H
 
-#include "Chunks.h"
-#include "Symbols.h"
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/LTO/LTOModule.h"
@@ -26,8 +24,17 @@ namespace lld {
 namespace coff {
 
 using llvm::LTOModule;
+using llvm::COFF::IMAGE_FILE_MACHINE_UNKNOWN;
+using llvm::COFF::MachineTypes;
 using llvm::object::Archive;
 using llvm::object::COFFObjectFile;
+using llvm::object::COFFSymbolRef;
+
+class Chunk;
+class Defined;
+class Lazy;
+class SymbolBody;
+class Undefined;
 
 // The root class of input files.
 class InputFile {
@@ -46,6 +53,9 @@ public:
   // file is broken.
   virtual std::error_code parse() = 0;
 
+  // Returns the CPU type this file was compiled to.
+  virtual MachineTypes getMachineType() { return IMAGE_FILE_MACHINE_UNKNOWN; }
+
   // Returns a short, human-friendly filename. If this is a member of
   // an archive file, a returned value includes parent's filename.
   // Used for logging or debugging.
@@ -57,8 +67,15 @@ public:
   // Returns .drectve section contents if exist.
   StringRef getDirectives() { return StringRef(Directives).trim(); }
 
+  // Each file has a unique index. The index number is used to
+  // resolve ties in symbol resolution.
+  int Index;
+  static int NextIndex;
+
 protected:
-  InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
+  InputFile(Kind K, MemoryBufferRef M)
+      : Index(NextIndex++), MB(M), FileKind(K) {}
+
   MemoryBufferRef MB;
   std::string Directives;
 
@@ -79,14 +96,18 @@ public:
   // (So that we don't instantiate same members more than once.)
   ErrorOr<MemoryBufferRef> getMember(const Archive::Symbol *Sym);
 
-  // NB: All symbols returned by ArchiveFiles are of Lazy type.
-  std::vector<SymbolBody *> &getSymbols() override { return SymbolBodies; }
+  std::vector<Lazy *> &getLazySymbols() { return LazySymbols; }
+
+  // All symbols returned by ArchiveFiles are of Lazy type.
+  std::vector<SymbolBody *> &getSymbols() override {
+    llvm_unreachable("internal error");
+  }
 
 private:
   std::unique_ptr<Archive> File;
   std::string Filename;
-  std::vector<SymbolBody *> SymbolBodies;
-  std::set<const char *> Seen;
+  std::vector<Lazy *> LazySymbols;
+  std::map<uint64_t, std::atomic_flag> Seen;
   llvm::MallocAllocator Alloc;
 };
 
@@ -96,13 +117,14 @@ public:
   explicit ObjectFile(MemoryBufferRef M) : InputFile(ObjectKind, M) {}
   static bool classof(const InputFile *F) { return F->kind() == ObjectKind; }
   std::error_code parse() override;
+  MachineTypes getMachineType() override;
   std::vector<Chunk *> &getChunks() { return Chunks; }
   std::vector<SymbolBody *> &getSymbols() override { return SymbolBodies; }
 
   // Returns a SymbolBody object for the SymbolIndex'th symbol in the
   // underlying object file.
   SymbolBody *getSymbolBody(uint32_t SymbolIndex) {
-    return SparseSymbolBodies[SymbolIndex]->getReplacement();
+    return SparseSymbolBodies[SymbolIndex];
   }
 
   // Returns the underying COFF file.
@@ -112,8 +134,9 @@ private:
   std::error_code initializeChunks();
   std::error_code initializeSymbols();
 
-  SymbolBody *createSymbolBody(COFFSymbolRef Sym, const void *Aux,
-                               bool IsFirst);
+  Defined *createDefined(COFFSymbolRef Sym, const void *Aux, bool IsFirst);
+  Undefined *createUndefined(COFFSymbolRef Sym);
+  Undefined *createWeakExternal(COFFSymbolRef Sym, const void *Aux);
 
   std::unique_ptr<COFFObjectFile> COFFObj;
   llvm::BumpPtrAllocator Alloc;
@@ -164,6 +187,7 @@ public:
   explicit BitcodeFile(MemoryBufferRef M) : InputFile(BitcodeKind, M) {}
   static bool classof(const InputFile *F) { return F->kind() == BitcodeKind; }
   std::vector<SymbolBody *> &getSymbols() override { return SymbolBodies; }
+  MachineTypes getMachineType() override;
 
   LTOModule *getModule() const { return M.get(); }
   LTOModule *releaseModule() { return M.release(); }

@@ -525,6 +525,39 @@ protected:
   Tool *buildLinker() const override;
 };
 
+class LLVM_LIBRARY_VISIBILITY MinGW : public ToolChain {
+public:
+  MinGW(const Driver &D, const llvm::Triple &Triple,
+        const llvm::opt::ArgList &Args);
+
+  bool IsIntegratedAssemblerDefault() const override;
+  bool IsUnwindTablesDefault() const override;
+  bool isPICDefault() const override;
+  bool isPIEDefault() const override;
+  bool isPICDefaultForced() const override;
+  bool UseSEHExceptions() const;
+
+  void
+  AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
+                            llvm::opt::ArgStringList &CC1Args) const override;
+  void AddClangCXXStdlibIncludeArgs(
+      const llvm::opt::ArgList &DriverArgs,
+      llvm::opt::ArgStringList &CC1Args) const override;
+
+protected:
+  Tool *getTool(Action::ActionClass AC) const override;
+  Tool *buildLinker() const override;
+  Tool *buildAssembler() const override;
+
+private:
+  std::string Base;
+  std::string GccLibDir;
+  std::string Ver;
+  std::string Arch;
+  mutable std::unique_ptr<tools::gcc::Preprocessor> Preprocessor;
+  mutable std::unique_ptr<tools::gcc::Compiler> Compiler;
+};
+
 class LLVM_LIBRARY_VISIBILITY OpenBSD : public Generic_ELF {
 public:
   OpenBSD(const Driver &D, const llvm::Triple &Triple,
@@ -666,6 +699,18 @@ private:
   std::string computeSysRoot() const;
 };
 
+class LLVM_LIBRARY_VISIBILITY CudaToolChain : public Linux {
+public:
+  CudaToolChain(const Driver &D, const llvm::Triple &Triple,
+                const llvm::opt::ArgList &Args);
+
+  llvm::opt::DerivedArgList *
+  TranslateArgs(const llvm::opt::DerivedArgList &Args,
+                const char *BoundArch) const override;
+  void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                             llvm::opt::ArgStringList &CC1Args) const override;
+};
+
 class LLVM_LIBRARY_VISIBILITY Hexagon_TC : public Linux {
 protected:
   GCCVersion GCCLibAndIncVersion;
@@ -714,7 +759,9 @@ public:
   void AddCXXStdlibLibArgs(const llvm::opt::ArgList &Args,
                            llvm::opt::ArgStringList &CmdArgs) const override;
 
-  bool IsIntegratedAssemblerDefault() const override { return false; }
+  bool IsIntegratedAssemblerDefault() const override {
+    return getTriple().getArch() == llvm::Triple::mipsel;
+  }
 
   // Get the path to the file containing NaCl's ARM macros. It lives in NaCl_TC
   // because the AssembleARM tool needs a const char * that it can pass around

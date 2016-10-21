@@ -22,7 +22,7 @@ using namespace lldb_private::process_linux;
 NativeRegisterContextLinux::NativeRegisterContextLinux(NativeThreadProtocol &native_thread,
                                                        uint32_t concrete_frame_idx,
                                                        RegisterInfoInterface *reg_info_interface_p) :
-	NativeRegisterContextRegisterInfo(native_thread, concrete_frame_idx, reg_info_interface_p)
+    NativeRegisterContextRegisterInfo(native_thread, concrete_frame_idx, reg_info_interface_p)
 {}
 
 lldb::ByteOrder
@@ -48,7 +48,7 @@ NativeRegisterContextLinux::ReadRegisterRaw(uint32_t reg_index, RegisterValue &r
 {
     const RegisterInfo *const reg_info = GetRegisterInfoAtIndex(reg_index);
     if (!reg_info)
-    	return Error("register %" PRIu32 " not found", reg_index);
+        return Error("register %" PRIu32 " not found", reg_index);
 
     NativeProcessProtocolSP process_sp(m_thread.GetProcess());
     if (!process_sp)
@@ -70,7 +70,7 @@ NativeRegisterContextLinux::WriteRegisterRaw(uint32_t reg_index, const RegisterV
     const RegisterInfo *reg_info = GetRegisterInfoAtIndex(reg_index);
     if (reg_info->invalidate_regs && (reg_info->invalidate_regs[0] != LLDB_INVALID_REGNUM))
     {
-		Error error;
+        Error error;
 
         RegisterValue full_value;
         uint32_t full_reg = reg_info->invalidate_regs[0];
@@ -110,7 +110,7 @@ NativeRegisterContextLinux::WriteRegisterRaw(uint32_t reg_index, const RegisterV
 
     NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
     if (!process_sp)
-	    return Error("NativeProcessProtocol is NULL");
+        return Error("NativeProcessProtocol is NULL");
 
     const RegisterInfo *const register_to_write_info_p = GetRegisterInfoAtIndex (reg_to_write);
     assert (register_to_write_info_p && "register to write does not have valid RegisterInfo");
@@ -126,13 +126,13 @@ NativeRegisterContextLinux::WriteRegisterRaw(uint32_t reg_index, const RegisterV
 Error
 NativeRegisterContextLinux::ReadGPR()
 {
-	NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
+    NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
     if (!process_sp)
         return Error("NativeProcessProtocol is NULL");
 
     void* buf = GetGPRBuffer();
     if (!buf)
-    	return Error("GPR buffer is NULL");
+        return Error("GPR buffer is NULL");
     size_t buf_size = GetGPRSize();
 
     NativeProcessLinux* process_p = static_cast<NativeProcessLinux*>(process_sp.get());
@@ -142,13 +142,13 @@ NativeRegisterContextLinux::ReadGPR()
 Error
 NativeRegisterContextLinux::WriteGPR()
 {
-	NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
+    NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
     if (!process_sp)
         return Error("NativeProcessProtocol is NULL");
 
     void* buf = GetGPRBuffer();
     if (!buf)
-    	return Error("GPR buffer is NULL");
+        return Error("GPR buffer is NULL");
     size_t buf_size = GetGPRSize();
 
     NativeProcessLinux* process_p = static_cast<NativeProcessLinux*>(process_sp.get());
@@ -158,13 +158,13 @@ NativeRegisterContextLinux::WriteGPR()
 Error
 NativeRegisterContextLinux::ReadFPR()
 {
-	NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
+    NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
     if (!process_sp)
         return Error("NativeProcessProtocol is NULL");
 
     void* buf = GetFPRBuffer();
     if (!buf)
-    	return Error("GPR buffer is NULL");
+        return Error("GPR buffer is NULL");
     size_t buf_size = GetFPRSize();
 
     NativeProcessLinux* process_p = static_cast<NativeProcessLinux*>(process_sp.get());
@@ -174,13 +174,13 @@ NativeRegisterContextLinux::ReadFPR()
 Error
 NativeRegisterContextLinux::WriteFPR()
 {
-	NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
+    NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
     if (!process_sp)
         return Error("NativeProcessProtocol is NULL");
 
     void* buf = GetFPRBuffer();
     if (!buf)
-    	return Error("GPR buffer is NULL");
+        return Error("GPR buffer is NULL");
     size_t buf_size = GetFPRSize();
 
     NativeProcessLinux* process_p = static_cast<NativeProcessLinux*>(process_sp.get());
@@ -196,10 +196,8 @@ NativeRegisterContextLinux::ReadRegisterSet(void *buf, size_t buf_size, unsigned
     NativeProcessLinux* process_p = static_cast<NativeProcessLinux*>(process_sp.get());
 
     return process_p->DoOperation([&] {
-        Error error;
-        NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_thread.GetID(),
-                static_cast<void *>(&regset), buf, buf_size, error);
-        return error;
+        return NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_thread.GetID(),
+                static_cast<void *>(&regset), buf, buf_size);
     });
 }
 
@@ -212,10 +210,8 @@ NativeRegisterContextLinux::WriteRegisterSet(void *buf, size_t buf_size, unsigne
     NativeProcessLinux* process_p = static_cast<NativeProcessLinux*>(process_sp.get());
 
     return process_p->DoOperation([&] {
-        Error error;
-        NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_thread.GetID(),
-                static_cast<void *>(&regset), buf, buf_size, error);
-        return error;
+        return NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_thread.GetID(),
+                static_cast<void *>(&regset), buf, buf_size);
     });
 }
 
@@ -226,16 +222,17 @@ NativeRegisterContextLinux::DoReadRegisterValue(uint32_t offset,
                                                 RegisterValue &value)
 {
     Log *log (ProcessPOSIXLog::GetLogIfAllCategoriesSet (POSIX_LOG_REGISTERS));
-    Error error;
 
-    lldb::addr_t data = NativeProcessLinux::PtraceWrapper(
-            PTRACE_PEEKUSER, m_thread.GetID(), reinterpret_cast<void *>(offset), nullptr, 0, error);
+    long data;
+    Error error = NativeProcessLinux::PtraceWrapper(
+            PTRACE_PEEKUSER, m_thread.GetID(), reinterpret_cast<void *>(offset), nullptr, 0, &data);
 
     if (error.Success())
-        value = data;
+        // First cast to an unsigned of the same size to avoid sign extension.
+        value.SetUInt64(static_cast<unsigned long>(data));
 
     if (log)
-        log->Printf ("NativeRegisterContextLinux::%s() reg %s: 0x%" PRIx64, __FUNCTION__, reg_name, data);
+        log->Printf ("NativeRegisterContextLinux::%s() reg %s: 0x%lx", __FUNCTION__, reg_name, data);
 
     return error;
 }
@@ -252,41 +249,30 @@ NativeRegisterContextLinux::DoWriteRegisterValue(uint32_t offset,
     if (log)
         log->Printf ("NativeRegisterContextLinux::%s() reg %s: %p", __FUNCTION__, reg_name, buf);
 
-    Error error;
-    NativeProcessLinux::PtraceWrapper(
-            PTRACE_POKEUSER, m_thread.GetID(), reinterpret_cast<void *>(offset), buf, 0, error);
-
-    return error;
+    return NativeProcessLinux::PtraceWrapper(
+            PTRACE_POKEUSER, m_thread.GetID(), reinterpret_cast<void *>(offset), buf);
 }
 
 Error
 NativeRegisterContextLinux::DoReadGPR(void *buf, size_t buf_size)
 {
-    Error error;
-    NativeProcessLinux::PtraceWrapper(PTRACE_GETREGS, m_thread.GetID(), nullptr, buf, buf_size, error);
-    return error;
+    return NativeProcessLinux::PtraceWrapper(PTRACE_GETREGS, m_thread.GetID(), nullptr, buf, buf_size);
 }
 
 Error
 NativeRegisterContextLinux::DoWriteGPR(void *buf, size_t buf_size)
 {
-    Error error;
-    NativeProcessLinux::PtraceWrapper(PTRACE_SETREGS, m_thread.GetID(), nullptr, buf, buf_size, error);
-    return error;
+    return NativeProcessLinux::PtraceWrapper(PTRACE_SETREGS, m_thread.GetID(), nullptr, buf, buf_size);
 }
 
 Error
 NativeRegisterContextLinux::DoReadFPR(void *buf, size_t buf_size)
 {
-    Error error;
-    NativeProcessLinux::PtraceWrapper(PTRACE_GETFPREGS, m_thread.GetID(), nullptr, buf, buf_size, error);
-    return error;
+    return NativeProcessLinux::PtraceWrapper(PTRACE_GETFPREGS, m_thread.GetID(), nullptr, buf, buf_size);
 }
 
 Error
 NativeRegisterContextLinux::DoWriteFPR(void *buf, size_t buf_size)
 {
-    Error error;
-    NativeProcessLinux::PtraceWrapper(PTRACE_SETFPREGS, m_thread.GetID(), nullptr, buf, buf_size, error);
-    return error;
+    return NativeProcessLinux::PtraceWrapper(PTRACE_SETFPREGS, m_thread.GetID(), nullptr, buf, buf_size);
 }

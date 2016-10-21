@@ -112,12 +112,19 @@ struct FormatStyle {
   /// single line.
   bool AllowShortLoopsOnASingleLine;
 
-  /// \brief If \c true, always break after function definition return types.
-  ///
-  /// More truthfully called 'break before the identifier following the type
-  /// in a function definition'. PenaltyReturnTypeOnItsOwnLine becomes
-  /// irrelevant.
-  bool AlwaysBreakAfterDefinitionReturnType;
+  /// \brief Different ways to break after the function definition return type.
+  enum DefinitionReturnTypeBreakingStyle {
+    /// Break after return type automatically.
+    /// \c PenaltyReturnTypeOnItsOwnLine is taken into account.
+    DRTBS_None,
+    /// Always break after the return type.
+    DRTBS_All,
+    /// Always break after the return types of top level functions.
+    DRTBS_TopLevel,
+  };
+
+  /// \brief The function definition return type breaking style to use.
+  DefinitionReturnTypeBreakingStyle AlwaysBreakAfterDefinitionReturnType;
 
   /// \brief If \c true, always break before multiline string literals.
   ///
@@ -159,6 +166,9 @@ struct FormatStyle {
     /// Like \c Attach, but break before braces on function, namespace and
     /// class definitions.
     BS_Linux,
+    /// Like ``Attach``, but break before braces on enum, function, and record
+    /// definitions.
+    BS_Mozilla,
     /// Like \c Attach, but break before function definitions, and 'else'.
     BS_Stroustrup,
     /// Always break before braces.
@@ -282,6 +292,12 @@ struct FormatStyle {
 
   /// \brief Language, this format style is targeted at.
   LanguageKind Language;
+
+  /// \brief A regular expression matching macros that start a block.
+  std::string MacroBlockBegin;
+
+  /// \brief A regular expression matching macros that end a block.
+  std::string MacroBlockEnd;
 
   /// \brief The maximum number of consecutive empty lines to keep.
   unsigned MaxEmptyLinesToKeep;
@@ -427,12 +443,15 @@ struct FormatStyle {
   bool operator==(const FormatStyle &R) const {
     return AccessModifierOffset == R.AccessModifierOffset &&
            AlignAfterOpenBracket == R.AlignAfterOpenBracket &&
+           AlignConsecutiveAssignments == R.AlignConsecutiveAssignments &&
            AlignEscapedNewlinesLeft == R.AlignEscapedNewlinesLeft &&
            AlignOperands == R.AlignOperands &&
            AlignTrailingComments == R.AlignTrailingComments &&
            AllowAllParametersOfDeclarationOnNextLine ==
                R.AllowAllParametersOfDeclarationOnNextLine &&
            AllowShortBlocksOnASingleLine == R.AllowShortBlocksOnASingleLine &&
+           AllowShortCaseLabelsOnASingleLine ==
+               R.AllowShortCaseLabelsOnASingleLine &&
            AllowShortFunctionsOnASingleLine ==
                R.AllowShortFunctionsOnASingleLine &&
            AllowShortIfStatementsOnASingleLine ==
@@ -460,6 +479,7 @@ struct FormatStyle {
            ContinuationIndentWidth == R.ContinuationIndentWidth &&
            Cpp11BracedListStyle == R.Cpp11BracedListStyle &&
            DerivePointerAlignment == R.DerivePointerAlignment &&
+           DisableFormat == R.DisableFormat &&
            ExperimentalAutoDetectBinPacking ==
                R.ExperimentalAutoDetectBinPacking &&
            ForEachMacros == R.ForEachMacros &&
@@ -468,11 +488,15 @@ struct FormatStyle {
            IndentWrappedFunctionNames == R.IndentWrappedFunctionNames &&
            KeepEmptyLinesAtTheStartOfBlocks ==
                R.KeepEmptyLinesAtTheStartOfBlocks &&
+           MacroBlockBegin == R.MacroBlockBegin &&
+           MacroBlockEnd == R.MacroBlockEnd &&
            MaxEmptyLinesToKeep == R.MaxEmptyLinesToKeep &&
            NamespaceIndentation == R.NamespaceIndentation &&
            ObjCBlockIndentWidth == R.ObjCBlockIndentWidth &&
            ObjCSpaceAfterProperty == R.ObjCSpaceAfterProperty &&
            ObjCSpaceBeforeProtocolList == R.ObjCSpaceBeforeProtocolList &&
+           PenaltyBreakBeforeFirstCallParameter ==
+               R.PenaltyBreakBeforeFirstCallParameter &&
            PenaltyBreakComment == R.PenaltyBreakComment &&
            PenaltyBreakFirstLessLess == R.PenaltyBreakFirstLessLess &&
            PenaltyBreakString == R.PenaltyBreakString &&

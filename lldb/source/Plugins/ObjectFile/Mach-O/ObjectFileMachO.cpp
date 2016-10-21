@@ -3386,7 +3386,11 @@ ObjectFileMachO::ParseSymtab ()
                                                         ConstString const_symbol_name(symbol_name);
                                                         sym[sym_idx].GetMangled().SetValue(const_symbol_name, symbol_name_is_mangled);
                                                         if (is_gsym && is_debug)
-                                                            N_GSYM_name_to_sym_idx[sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled).GetCString()] = sym_idx;
+                                                        {
+                                                            const char *gsym_name = sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled).GetCString();
+                                                            if (gsym_name)
+                                                                N_GSYM_name_to_sym_idx[gsym_name] = sym_idx;
+                                                        }
                                                     }
                                                 }
                                                 if (symbol_section)
@@ -3513,21 +3517,25 @@ ObjectFileMachO::ParseSymtab ()
                                                         }
                                                         else
                                                         {
-                                                            // Combine N_GSYM stab entries with the non stab symbol
-                                                            ConstNameToSymbolIndexMap::const_iterator pos = N_GSYM_name_to_sym_idx.find(sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled).GetCString());
-                                                            if (pos != N_GSYM_name_to_sym_idx.end())
+                                                            const char *gsym_name = sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled).GetCString();
+                                                            if (gsym_name)
                                                             {
-                                                                const uint32_t GSYM_sym_idx = pos->second;
-                                                                m_nlist_idx_to_sym_idx[nlist_idx] = GSYM_sym_idx;
-                                                                // Copy the address, because often the N_GSYM address has an invalid address of zero
-                                                                // when the global is a common symbol
-                                                                sym[GSYM_sym_idx].GetAddressRef().SetSection (symbol_section);
-                                                                sym[GSYM_sym_idx].GetAddressRef().SetOffset (symbol_value);
-                                                                // We just need the flags from the linker symbol, so put these flags
-                                                                // into the N_GSYM flags to avoid duplicate symbols in the symbol table
-                                                                sym[GSYM_sym_idx].SetFlags (nlist.n_type << 16 | nlist.n_desc);
-                                                                sym[sym_idx].Clear();
-                                                                continue;
+                                                                // Combine N_GSYM stab entries with the non stab symbol
+                                                                ConstNameToSymbolIndexMap::const_iterator pos = N_GSYM_name_to_sym_idx.find(gsym_name);
+                                                                if (pos != N_GSYM_name_to_sym_idx.end())
+                                                                {
+                                                                    const uint32_t GSYM_sym_idx = pos->second;
+                                                                    m_nlist_idx_to_sym_idx[nlist_idx] = GSYM_sym_idx;
+                                                                    // Copy the address, because often the N_GSYM address has an invalid address of zero
+                                                                    // when the global is a common symbol
+                                                                    sym[GSYM_sym_idx].GetAddressRef().SetSection (symbol_section);
+                                                                    sym[GSYM_sym_idx].GetAddressRef().SetOffset (symbol_value);
+                                                                    // We just need the flags from the linker symbol, so put these flags
+                                                                    // into the N_GSYM flags to avoid duplicate symbols in the symbol table
+                                                                    sym[GSYM_sym_idx].SetFlags (nlist.n_type << 16 | nlist.n_desc);
+                                                                    sym[sym_idx].Clear();
+                                                                    continue;
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -3845,7 +3853,7 @@ ObjectFileMachO::ParseSymtab ()
                             {
                                 // This is usually the second N_SO entry that contains just the filename,
                                 // so here we combine it with the first one if we are minimizing the symbol table
-                                const char *so_path = sym[sym_idx - 1].GetMangled().GetDemangledName().AsCString();
+                                const char *so_path = sym[sym_idx - 1].GetMangled().GetDemangledName(lldb::eLanguageTypeUnknown).AsCString();
                                 if (so_path && so_path[0])
                                 {
                                     std::string full_so_path (so_path);
@@ -4235,7 +4243,11 @@ ObjectFileMachO::ParseSymtab ()
                     }
 
                     if (is_gsym)
-                        N_GSYM_name_to_sym_idx[sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled).GetCString()] = sym_idx;
+                    {
+                        const char *gsym_name = sym[sym_idx].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled).GetCString();
+                        if (gsym_name)
+                            N_GSYM_name_to_sym_idx[gsym_name] = sym_idx;
+                    }
 
                     if (symbol_section)
                     {
@@ -4300,7 +4312,7 @@ ObjectFileMachO::ParseSymtab ()
                                 bool found_it = false;
                                 for (ValueToSymbolIndexMap::const_iterator pos = range.first; pos != range.second; ++pos)
                                 {
-                                    if (sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled) == sym[pos->second].GetMangled().GetName(Mangled::ePreferMangled))
+                                    if (sym[sym_idx].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled) == sym[pos->second].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled))
                                     {
                                         m_nlist_idx_to_sym_idx[nlist_idx] = pos->second;
                                         // We just need the flags from the linker symbol, so put these flags
@@ -4339,7 +4351,7 @@ ObjectFileMachO::ParseSymtab ()
                                 bool found_it = false;
                                 for (ValueToSymbolIndexMap::const_iterator pos = range.first; pos != range.second; ++pos)
                                 {
-                                    if (sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled) == sym[pos->second].GetMangled().GetName(Mangled::ePreferMangled))
+                                    if (sym[sym_idx].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled) == sym[pos->second].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled))
                                     {
                                         m_nlist_idx_to_sym_idx[nlist_idx] = pos->second;
                                         // We just need the flags from the linker symbol, so put these flags
@@ -4357,20 +4369,24 @@ ObjectFileMachO::ParseSymtab ()
                             else
                             {
                                 // Combine N_GSYM stab entries with the non stab symbol
-                                ConstNameToSymbolIndexMap::const_iterator pos = N_GSYM_name_to_sym_idx.find(sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled).GetCString());
-                                if (pos != N_GSYM_name_to_sym_idx.end())
+                                const char *gsym_name = sym[sym_idx].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled).GetCString();
+                                if (gsym_name)
                                 {
-                                    const uint32_t GSYM_sym_idx = pos->second;
-                                    m_nlist_idx_to_sym_idx[nlist_idx] = GSYM_sym_idx;
-                                    // Copy the address, because often the N_GSYM address has an invalid address of zero
-                                    // when the global is a common symbol
-                                    sym[GSYM_sym_idx].GetAddressRef().SetSection (symbol_section);
-                                    sym[GSYM_sym_idx].GetAddressRef().SetOffset (symbol_value);
-                                    // We just need the flags from the linker symbol, so put these flags
-                                    // into the N_GSYM flags to avoid duplicate symbols in the symbol table
-                                    sym[GSYM_sym_idx].SetFlags (nlist.n_type << 16 | nlist.n_desc);
-                                    sym[sym_idx].Clear();
-                                    continue;
+                                    ConstNameToSymbolIndexMap::const_iterator pos = N_GSYM_name_to_sym_idx.find(gsym_name);
+                                    if (pos != N_GSYM_name_to_sym_idx.end())
+                                    {
+                                        const uint32_t GSYM_sym_idx = pos->second;
+                                        m_nlist_idx_to_sym_idx[nlist_idx] = GSYM_sym_idx;
+                                        // Copy the address, because often the N_GSYM address has an invalid address of zero
+                                        // when the global is a common symbol
+                                        sym[GSYM_sym_idx].GetAddressRef().SetSection (symbol_section);
+                                        sym[GSYM_sym_idx].GetAddressRef().SetOffset (symbol_value);
+                                        // We just need the flags from the linker symbol, so put these flags
+                                        // into the N_GSYM flags to avoid duplicate symbols in the symbol table
+                                        sym[GSYM_sym_idx].SetFlags (nlist.n_type << 16 | nlist.n_desc);
+                                        sym[sym_idx].Clear();
+                                        continue;
+                                    }
                                 }
                             }
                         }

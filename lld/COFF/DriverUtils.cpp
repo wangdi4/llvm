@@ -79,21 +79,31 @@ private:
 } // anonymous namespace
 
 // Returns /machine's value.
-ErrorOr<MachineTypes> getMachineType(llvm::opt::InputArgList *Args) {
-  if (auto *Arg = Args->getLastArg(OPT_machine)) {
-    StringRef S(Arg->getValue());
-    MachineTypes MT = StringSwitch<MachineTypes>(S.lower())
-                          .Case("arm", IMAGE_FILE_MACHINE_ARMNT)
-                          .Case("x64", IMAGE_FILE_MACHINE_AMD64)
-                          .Case("x86", IMAGE_FILE_MACHINE_I386)
-                          .Default(IMAGE_FILE_MACHINE_UNKNOWN);
-    if (MT == IMAGE_FILE_MACHINE_UNKNOWN) {
-      llvm::errs() << "unknown /machine argument" << S << "\n";
-      return make_error_code(LLDError::InvalidOption);
-    }
+ErrorOr<MachineTypes> getMachineType(StringRef S) {
+  MachineTypes MT = StringSwitch<MachineTypes>(S.lower())
+                        .Case("x64", IMAGE_FILE_MACHINE_AMD64)
+                        .Case("amd64", IMAGE_FILE_MACHINE_AMD64)
+                        .Case("x86", IMAGE_FILE_MACHINE_I386)
+                        .Case("i386", IMAGE_FILE_MACHINE_I386)
+                        .Case("arm", IMAGE_FILE_MACHINE_ARMNT)
+                        .Default(IMAGE_FILE_MACHINE_UNKNOWN);
+  if (MT != IMAGE_FILE_MACHINE_UNKNOWN)
     return MT;
+  llvm::errs() << "unknown /machine argument" << S << "\n";
+  return make_error_code(LLDError::InvalidOption);
+}
+
+StringRef machineTypeToStr(MachineTypes MT) {
+  switch (MT) {
+  case IMAGE_FILE_MACHINE_ARMNT:
+    return "arm";
+  case IMAGE_FILE_MACHINE_AMD64:
+    return "x64";
+  case IMAGE_FILE_MACHINE_I386:
+    return "x86";
+  default:
+    llvm_unreachable("unknown machine type");
   }
-  return IMAGE_FILE_MACHINE_UNKNOWN;
 }
 
 // Parses a string in the form of "<integer>[,<integer>]".
@@ -169,6 +179,26 @@ std::error_code parseAlternateName(StringRef S) {
     return make_error_code(LLDError::InvalidOption);
   }
   Config->AlternateNames.insert(It, std::make_pair(From, To));
+  return std::error_code();
+}
+
+// Parse a string of the form of "<from>=<to>".
+// Results are directly written to Config.
+std::error_code parseMerge(StringRef S) {
+  StringRef From, To;
+  std::tie(From, To) = S.split('=');
+  if (From.empty() || To.empty()) {
+    llvm::errs() << "/merge: invalid argument: " << S << "\n";
+    return make_error_code(LLDError::InvalidOption);
+  }
+  auto Pair = Config->Merge.insert(std::make_pair(From, To));
+  bool Inserted = Pair.second;
+  if (!Inserted) {
+    StringRef Existing = Pair.first->second;
+    if (Existing != To)
+      llvm::errs() << "warning: " << S << ": already merged into "
+                   << Existing << "\n";
+  }
   return std::error_code();
 }
 
@@ -396,14 +426,20 @@ std::error_code fixupExports() {
   }
 
   // Uniquefy by name.
-  std::set<StringRef> Names;
+  std::map<StringRef, Export *> Map;
   std::vector<Export> V;
   for (Export &E : Config->Exports) {
-    if (!Names.insert(E.Name).second) {
-      llvm::errs() << "warning: duplicate /export option: " << E.Name << "\n";
+    auto Pair = Map.insert(std::make_pair(E.Name, &E));
+    bool Inserted = Pair.second;
+    if (Inserted) {
+      V.push_back(E);
       continue;
     }
-    V.push_back(E);
+    Export *Existing = Pair.first->second;
+    if (E == *Existing)
+      continue;
+    llvm::errs() << "warning: duplicate /export option: " << E.Name << "\n";
+    continue;
   }
   Config->Exports = std::move(V);
 
@@ -452,7 +488,7 @@ convertResToCOFF(const std::vector<MemoryBufferRef> &MBs) {
 
   // Execute cvtres.exe.
   Executor E("cvtres.exe");
-  E.add("/machine:x64");
+  E.add("/machine:" + machineTypeToStr(Config->MachineType));
   E.add("/readonly");
   E.add("/nologo");
   E.add("/out:" + Path);
@@ -505,7 +541,7 @@ std::error_code writeImportLibrary() {
 
   Executor E("lib.exe");
   E.add("/nologo");
-  E.add("/machine:x64");
+  E.add("/machine:" + machineTypeToStr(Config->MachineType));
   E.add(Twine("/def:") + Def);
   if (Config->Implib.empty()) {
     SmallString<128> Out = StringRef(Config->OutputFile);
@@ -515,6 +551,13 @@ std::error_code writeImportLibrary() {
     E.add("/out:" + Config->Implib);
   }
   return E.run();
+}
+
+void touchFile(StringRef Path) {
+  int FD;
+  if (sys::fs::openFileForWrite(Path, FD, sys::fs::F_Append))
+    report_fatal_error("failed to create a file");
+  sys::Process::SafelyCloseFileDescriptor(FD);
 }
 
 // Create OptTable

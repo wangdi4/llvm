@@ -40,21 +40,17 @@ namespace process_linux {
     /// Changes in the inferior process state are broadcasted.
     class NativeProcessLinux: public NativeProcessProtocol
     {
+        friend Error
+        NativeProcessProtocol::Launch (ProcessLaunchInfo &launch_info,
+                NativeDelegate &native_delegate,
+                NativeProcessProtocolSP &process_sp);
+
+        friend Error
+        NativeProcessProtocol::Attach (lldb::pid_t pid,
+            NativeProcessProtocol::NativeDelegate &native_delegate,
+            NativeProcessProtocolSP &native_process_sp);
+
     public:
-
-        static Error
-        LaunchProcess (
-            Module *exe_module,
-            ProcessLaunchInfo &launch_info,
-            NativeProcessProtocol::NativeDelegate &native_delegate,
-            NativeProcessProtocolSP &native_process_sp);
-
-        static Error
-        AttachToProcess (
-            lldb::pid_t pid,
-            NativeProcessProtocol::NativeDelegate &native_delegate,
-            NativeProcessProtocolSP &native_process_sp);
-
         //------------------------------------------------------------------------------
         /// @class Operation
         /// @brief Represents a NativeProcessLinux operation.
@@ -141,8 +137,13 @@ namespace process_linux {
         Error
         DoOperation(const Operation &op);
 
-        static long
-        PtraceWrapper(int req, lldb::pid_t pid, void *addr, void *data, size_t data_size, Error& error);
+        static Error
+        PtraceWrapper(int req,
+                      lldb::pid_t pid,
+                      void *addr = nullptr,
+                      void *data = nullptr,
+                      size_t data_size = 0,
+                      long *result = nullptr);
 
     protected:
         // ---------------------------------------------------------------------

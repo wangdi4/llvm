@@ -580,6 +580,8 @@ public:
   PS4OSTargetInfo(const llvm::Triple &Triple) : OSTargetInfo<Target>(Triple) {
     this->WCharType = this->UnsignedShort;
 
+    // On PS4, TLS variable cannot be aligned to more than 32 bytes (256 bits).
+    this->MaxTLSAlign = 256;
     this->UserLabelPrefix = "";
 
     switch (Triple.getArch()) {
@@ -759,6 +761,7 @@ public:
       HasP8Crypto(false), HasDirectMove(false), HasQPX(false), HasHTM(false),
       HasBPERMD(false), HasExtDiv(false) {
     BigEndian = (Triple.getArch() != llvm::Triple::ppc64le);
+    SimdDefaultAlign = 128;
     LongDoubleWidth = LongDoubleAlign = 128;
     LongDoubleFormat = &llvm::APFloat::PPCDoubleDouble;
   }
@@ -862,6 +865,8 @@ public:
   bool handleTargetFeatures(std::vector<std::string> &Features,
                             DiagnosticsEngine &Diags) override;
   bool hasFeature(StringRef Feature) const override;
+  void setFeatureEnabled(llvm::StringMap<bool> &Features, StringRef Name,
+                         bool Enabled) const override;
 
   void getGCCRegNames(const char * const *&Names,
                       unsigned &NumNames) const override;
@@ -1035,7 +1040,6 @@ bool PPCTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 
     if (Feature == "power8-vector") {
       HasP8Vector = true;
-      HasVSX = true;
       continue;
     }
 
@@ -1046,7 +1050,6 @@ bool PPCTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 
     if (Feature == "direct-move") {
       HasDirectMove = true;
-      HasVSX = true;
       continue;
     }
 
@@ -1062,6 +1065,15 @@ bool PPCTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 
     // TODO: Finish this list and add an assert that we've handled them
     // all.
+  }
+  if (!HasVSX && (HasP8Vector || HasDirectMove)) {
+    if (HasP8Vector)
+      Diags.Report(diag::err_opt_not_valid_with_opt) << "-mpower8-vector" <<
+                                                        "-mno-vsx";
+    else if (HasDirectMove)
+      Diags.Report(diag::err_opt_not_valid_with_opt) << "-mdirect-move" <<
+                                                        "-mno-vsx";
+    return false;
   }
 
   return true;
@@ -1284,6 +1296,11 @@ void PPCTargetInfo::getDefaultFeatures(llvm::StringMap<bool> &Features) const {
     .Case("ppc64le", true)
     .Case("pwr8", true)
     .Default(false);
+  Features["vsx"] = llvm::StringSwitch<bool>(CPU)
+    .Case("ppc64le", true)
+    .Case("pwr8", true)
+    .Case("pwr7", true)
+    .Default(false);
 }
 
 bool PPCTargetInfo::hasFeature(StringRef Feature) const {
@@ -1298,6 +1315,39 @@ bool PPCTargetInfo::hasFeature(StringRef Feature) const {
     .Case("bpermd", HasBPERMD)
     .Case("extdiv", HasExtDiv)
     .Default(false);
+}
+
+/*  There is no clear way for the target to know which of the features in the
+    final feature vector came from defaults and which are actually specified by
+    the user. To that end, we use the fact that this function is not called on
+    default features - only user specified ones. By the first time this
+    function is called, the default features are populated.
+    We then keep track of the features that the user specified so that we
+    can ensure we do not override a user's request (only defaults).
+    For example:
+    -mcpu=pwr8 -mno-vsx (should disable vsx and everything that depends on it)
+    -mcpu=pwr8 -mdirect-move -mno-vsx (should actually be diagnosed)
+
+NOTE: Do not call this from PPCTargetInfo::getDefaultFeatures
+*/
+void PPCTargetInfo::setFeatureEnabled(llvm::StringMap<bool> &Features,
+                                      StringRef Name, bool Enabled) const {
+  static llvm::StringMap<bool> ExplicitFeatures;
+  ExplicitFeatures[Name] = Enabled;
+
+  // At this point, -mno-vsx turns off the dependent features but we respect
+  // the user's requests.
+  if (!Enabled && Name == "vsx") {
+    Features["direct-move"] = ExplicitFeatures["direct-move"];
+    Features["power8-vector"] = ExplicitFeatures["power8-vector"];
+  }
+  if ((Enabled && Name == "power8-vector") ||
+      (Enabled && Name == "direct-move")) {
+    if (ExplicitFeatures.find("vsx") == ExplicitFeatures.end()) {
+      Features["vsx"] = true;
+    }
+  }
+  Features[Name] = Enabled;
 }
 
 const char * const PPCTargetInfo::GCCRegNames[] = {
@@ -1471,7 +1521,7 @@ public:
   BuiltinVaListKind getBuiltinVaListKind() const override {
     return TargetInfo::CharPtrBuiltinVaList;
   }
-  // PPC64 Linux-specifc ABI options.
+  // PPC64 Linux-specific ABI options.
   bool setABI(const std::string &Name) override {
     if (Name == "elfv1" || Name == "elfv1-qpx" || Name == "elfv2") {
       ABI = Name;
@@ -2215,6 +2265,7 @@ public:
     Names = AddlRegNames;
     NumNames = llvm::array_lengthof(AddlRegNames);
   }
+  bool validateCpuSupports(StringRef Name) const override;
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &info) const override;
 
@@ -2727,7 +2778,11 @@ void X86TargetInfo::setXOPLevel(llvm::StringMap<bool> &Features, XOPEnum Level,
 
 void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
                                           StringRef Name, bool Enabled) {
-  Features[Name] = Enabled;
+  // This is a bit of a hack to deal with the sse4 target feature when used
+  // as part of the target attribute. We handle sse4 correctly everywhere
+  // else. See below for more information on how we handle the sse4 options.
+  if (Name != "sse4")
+    Features[Name] = Enabled;
 
   if (Name == "mmx") {
     setMMXLevel(Features, MMX, Enabled);
@@ -2778,6 +2833,15 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   } else if (Name == "sha") {
     if (Enabled)
       setSSELevel(Features, SSE2, Enabled);
+  } else if (Name == "sse4") {
+    // We can get here via the __target__ attribute since that's not controlled
+    // via the -msse4/-mno-sse4 command line alias. Handle this the same way
+    // here - turn on the sse4.2 if enabled, turn off the sse4.1 level if
+    // disabled.
+    if (Enabled)
+      setSSELevel(Features, SSE42, Enabled);
+    else
+      setSSELevel(Features, SSE41, Enabled);
   }
 }
 
@@ -2974,6 +3038,9 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     Features.erase(it);
   else if (SSELevel > NoSSE)
     MMX3DNowLevel = std::max(MMX3DNowLevel, MMX);
+
+  SimdDefaultAlign =
+      (getABI() == "avx512") ? 512 : (getABI() == "avx") ? 256 : 128;
   return true;
 }
 
@@ -3335,6 +3402,33 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("x86_32", getTriple().getArch() == llvm::Triple::x86)
       .Case("x86_64", getTriple().getArch() == llvm::Triple::x86_64)
       .Case("xop", XOPLevel >= XOP)
+      .Default(false);
+}
+
+// We can't use a generic validation scheme for the features accepted here
+// versus subtarget features accepted in the target attribute because the
+// bitfield structure that's initialized in the runtime only supports the
+// below currently rather than the full range of subtarget features. (See
+// X86TargetInfo::hasFeature for a somewhat comprehensive list).
+bool X86TargetInfo::validateCpuSupports(StringRef FeatureStr) const {
+  return llvm::StringSwitch<bool>(FeatureStr)
+      .Case("cmov", true)
+      .Case("mmx", true)
+      .Case("popcnt", true)
+      .Case("sse", true)
+      .Case("sse2", true)
+      .Case("sse3", true)
+      .Case("sse4.1", true)
+      .Case("sse4.2", true)
+      .Case("avx", true)
+      .Case("avx2", true)
+      .Case("sse4a", true)
+      .Case("fma4", true)
+      .Case("xop", true)
+      .Case("fma", true)
+      .Case("avx512f", true)
+      .Case("bmi", true)
+      .Case("bmi2", true)
       .Default(false);
 }
 
@@ -4179,7 +4273,9 @@ public:
     // zero length bitfield.
     UseZeroLengthBitfieldAlignment = true;
   }
+
   StringRef getABI() const override { return ABI; }
+
   bool setABI(const std::string &Name) override {
     ABI = Name;
 
@@ -6720,6 +6816,19 @@ void PNaClTargetInfo::getGCCRegAliases(const GCCRegAlias *&Aliases,
   NumAliases = 0;
 }
 
+// We attempt to use PNaCl (le32) frontend and Mips32EL backend.
+class NaClMips32ELTargetInfo : public Mips32ELTargetInfo {
+public:
+  NaClMips32ELTargetInfo(const llvm::Triple &Triple) :
+    Mips32ELTargetInfo(Triple)  {
+      MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 0;
+  }
+
+  BuiltinVaListKind getBuiltinVaListKind() const override {
+    return TargetInfo::PNaClABIBuiltinVaList;
+  }
+};
+
 class Le64TargetInfo : public TargetInfo {
   static const Builtin::Info BuiltinInfo[];
 
@@ -7093,7 +7202,7 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
     case llvm::Triple::NetBSD:
       return new NetBSDTargetInfo<Mips32ELTargetInfo>(Triple);
     case llvm::Triple::NaCl:
-      return new NaClTargetInfo<Mips32ELTargetInfo>(Triple);
+      return new NaClTargetInfo<NaClMips32ELTargetInfo>(Triple);
     default:
       return new Mips32ELTargetInfo(Triple);
     }

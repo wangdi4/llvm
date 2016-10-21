@@ -17,6 +17,7 @@
 
 #include "Plugins/DynamicLoader/MacOSX-DYLD/DynamicLoaderMacOSXDYLD.h"
 #include "Plugins/DynamicLoader/POSIX-DYLD/DynamicLoaderPOSIXDYLD.h"
+#include "Plugins/DynamicLoader/Windows-DYLD/DynamicLoaderWindowsDYLD.h"
 #include "Plugins/Instruction/ARM/EmulateInstructionARM.h"
 #include "Plugins/Instruction/MIPS/EmulateInstructionMIPS.h"
 #include "Plugins/Instruction/MIPS64/EmulateInstructionMIPS64.h"
@@ -106,7 +107,8 @@ SystemInitializerCommon::Initialize()
     ObjectFileELF::Initialize();
     ObjectFilePECOFF::Initialize();
     DynamicLoaderPOSIXDYLD::Initialize();
-    PlatformFreeBSD::Initialize();
+    DynamicLoaderWindowsDYLD::Initialize();
+    platform_freebsd::PlatformFreeBSD::Initialize();
     platform_linux::PlatformLinux::Initialize();
     PlatformWindows::Initialize();
     PlatformKalimba::Initialize();
@@ -152,7 +154,8 @@ SystemInitializerCommon::Terminate()
     ObjectFileELF::Terminate();
     ObjectFilePECOFF::Terminate();
     DynamicLoaderPOSIXDYLD::Terminate();
-    PlatformFreeBSD::Terminate();
+    DynamicLoaderWindowsDYLD::Terminate();
+    platform_freebsd::PlatformFreeBSD::Terminate();
     platform_linux::PlatformLinux::Terminate();
     PlatformWindows::Terminate();
     PlatformKalimba::Terminate();

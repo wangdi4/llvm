@@ -30,9 +30,7 @@
 #include <memory>
 
 using namespace llvm;
-using llvm::COFF::IMAGE_SUBSYSTEM_UNKNOWN;
-using llvm::COFF::IMAGE_SUBSYSTEM_WINDOWS_CUI;
-using llvm::COFF::IMAGE_SUBSYSTEM_WINDOWS_GUI;
+using namespace llvm::COFF;
 using llvm::sys::Process;
 using llvm::sys::fs::OpenFlags;
 using llvm::sys::fs::file_magic;
@@ -110,6 +108,8 @@ LinkerDriver::parseDirectives(StringRef S) {
       ErrorOr<Export> E = parseExport(Arg->getValue());
       if (auto EC = E.getError())
         return EC;
+      if (!Config->is64() && E->ExtName.startswith("_"))
+        E->ExtName = E->ExtName.substr(1);
       Config->Exports.push_back(E.get());
       break;
     }
@@ -121,7 +121,8 @@ LinkerDriver::parseDirectives(StringRef S) {
       addUndefined(Arg->getValue());
       break;
     case OPT_merge:
-      // Ignore /merge for now.
+      if (auto EC = parseMerge(Arg->getValue()))
+        return EC;
       break;
     case OPT_nodefaultlib:
       Config->NoDefaultLibs.insert(doFindLib(Arg->getValue()));
@@ -202,20 +203,45 @@ void LinkerDriver::addLibSearchPaths() {
   }
 }
 
-void LinkerDriver::addUndefined(StringRef Sym) {
-  Symtab.addUndefined(Sym);
-  Config->GCRoots.insert(Sym);
+Undefined *LinkerDriver::addUndefined(StringRef Name) {
+  Undefined *U = Symtab.addUndefined(Name);
+  Config->GCRoot.insert(U);
+  return U;
 }
 
-static WindowsSubsystem inferSubsystem() {
+// Symbol names are mangled by appending "_" prefix on x86.
+StringRef LinkerDriver::mangle(StringRef Sym) {
+  assert(Config->MachineType != IMAGE_FILE_MACHINE_UNKNOWN);
+  if (Config->MachineType == IMAGE_FILE_MACHINE_I386)
+    return Alloc.save("_" + Sym);
+  return Sym;
+}
+
+// Windows specific -- find default entry point name.
+StringRef LinkerDriver::findDefaultEntry() {
+  // User-defined main functions and their corresponding entry points.
+  static const char *Entries[][2] = {
+      {"main", "mainCRTStartup"},
+      {"wmain", "wmainCRTStartup"},
+      {"WinMain", "WinMainCRTStartup"},
+      {"wWinMain", "wWinMainCRTStartup"},
+  };
+  for (auto E : Entries) {
+    StringRef Entry = Symtab.findMangle(mangle(E[0]));
+    if (!Entry.empty() && !isa<Undefined>(Symtab.find(Entry)->Body))
+      return mangle(E[1]);
+  }
+  return "";
+}
+
+WindowsSubsystem LinkerDriver::inferSubsystem() {
   if (Config->DLL)
     return IMAGE_SUBSYSTEM_WINDOWS_GUI;
-  return StringSwitch<WindowsSubsystem>(Config->EntryName)
-      .Case("mainCRTStartup", IMAGE_SUBSYSTEM_WINDOWS_CUI)
-      .Case("wmainCRTStartup", IMAGE_SUBSYSTEM_WINDOWS_CUI)
-      .Case("WinMainCRTStartup", IMAGE_SUBSYSTEM_WINDOWS_GUI)
-      .Case("wWinMainCRTStartup", IMAGE_SUBSYSTEM_WINDOWS_GUI)
-      .Default(IMAGE_SUBSYSTEM_UNKNOWN);
+  if (Symtab.find(mangle("main")) || Symtab.find(mangle("wmain")))
+    return IMAGE_SUBSYSTEM_WINDOWS_CUI;
+  if (Symtab.find(mangle("WinMain")) || Symtab.find(mangle("wWinMain")))
+    return IMAGE_SUBSYSTEM_WINDOWS_GUI;
+  return IMAGE_SUBSYSTEM_UNKNOWN;
 }
 
 bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
@@ -265,20 +291,28 @@ bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   if (Args.hasArg(OPT_verbose))
     Config->Verbose = true;
 
-  // Handle /entry
-  if (auto *Arg = Args.getLastArg(OPT_entry)) {
-    Config->EntryName = Arg->getValue();
-    addUndefined(Config->EntryName);
+  // Handle /force or /force:unresolved
+  if (Args.hasArg(OPT_force) || Args.hasArg(OPT_force_unresolved))
+    Config->Force = true;
+
+  // Handle /debug
+  if (Args.hasArg(OPT_debug))
+    Config->Debug = true;
+
+  // Handle /noentry
+  if (Args.hasArg(OPT_noentry)) {
+    if (!Args.hasArg(OPT_dll)) {
+      llvm::errs() << "/noentry must be specified with /dll\n";
+      return false;
+    }
+    Config->NoEntry = true;
   }
 
   // Handle /dll
   if (Args.hasArg(OPT_dll)) {
     Config->DLL = true;
+    Config->ImageBase = 0x180000000U;
     Config->ManifestID = 2;
-    if (Config->EntryName.empty()) {
-      Config->EntryName = "_DllMainCRTStartup";
-      addUndefined("_DllMainCRTStartup");
-    }
   }
 
   // Handle /fixed
@@ -292,12 +326,12 @@ bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   }
 
   // Handle /machine
-  auto MTOrErr = getMachineType(&Args);
-  if (auto EC = MTOrErr.getError()) {
-    llvm::errs() << EC.message() << "\n";
-    return false;
+  if (auto *Arg = Args.getLastArg(OPT_machine)) {
+    ErrorOr<MachineTypes> MTOrErr = getMachineType(Arg->getValue());
+    if (MTOrErr.getError())
+      return false;
+    Config->MachineType = MTOrErr.get();
   }
-  Config->MachineType = MTOrErr.get();
 
   // Handle /nodefaultlib:<filename>
   for (auto *Arg : Args.filtered(OPT_nodefaultlib))
@@ -384,36 +418,15 @@ bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
     }
   }
 
-  // Handle /export
-  for (auto *Arg : Args.filtered(OPT_export)) {
-    ErrorOr<Export> E = parseExport(Arg->getValue());
-    if (E.getError())
-      return false;
-    Config->Exports.push_back(E.get());
-  }
-
-  // Handle /delayload
-  for (auto *Arg : Args.filtered(OPT_delayload)) {
-    Config->DelayLoads.insert(Arg->getValue());
-    addUndefined("__delayLoadHelper2");
-  }
-
   // Handle /failifmismatch
   for (auto *Arg : Args.filtered(OPT_failifmismatch))
     if (checkFailIfMismatch(Arg->getValue()))
       return false;
 
-  // Handle /def
-  if (auto *Arg = Args.getLastArg(OPT_deffile)) {
-    ErrorOr<MemoryBufferRef> MBOrErr = openFile(Arg->getValue());
-    if (auto EC = MBOrErr.getError()) {
-      llvm::errs() << "/def: " << EC.message() << "\n";
+  // Handle /merge
+  for (auto *Arg : Args.filtered(OPT_merge))
+    if (parseMerge(Arg->getValue()))
       return false;
-    }
-    // parseModuleDefs mutates Config object.
-    if (parseModuleDefs(MBOrErr.get()))
-      return false;
-  }
 
   // Handle /manifest
   if (auto *Arg = Args.getLastArg(OPT_manifest_colon)) {
@@ -455,21 +468,21 @@ bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
 
   // Create a list of input files. Files can be given as arguments
   // for /defaultlib option.
-  std::vector<StringRef> InputPaths;
-  std::vector<MemoryBufferRef> Inputs;
+  std::vector<StringRef> Paths;
+  std::vector<MemoryBufferRef> MBs;
   for (auto *Arg : Args.filtered(OPT_INPUT))
     if (Optional<StringRef> Path = findFile(Arg->getValue()))
-      InputPaths.push_back(*Path);
+      Paths.push_back(*Path);
   for (auto *Arg : Args.filtered(OPT_defaultlib))
     if (Optional<StringRef> Path = findLib(Arg->getValue()))
-      InputPaths.push_back(*Path);
-  for (StringRef Path : InputPaths) {
+      Paths.push_back(*Path);
+  for (StringRef Path : Paths) {
     ErrorOr<MemoryBufferRef> MBOrErr = openFile(Path);
     if (auto EC = MBOrErr.getError()) {
       llvm::errs() << "cannot open " << Path << ": " << EC.message() << "\n";
       return false;
     }
-    Inputs.push_back(MBOrErr.get());
+    MBs.push_back(MBOrErr.get());
   }
 
   // Windows specific -- Create a resource file containing a manifest file.
@@ -478,84 +491,161 @@ bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
     if (MBOrErr.getError())
       return false;
     std::unique_ptr<MemoryBuffer> MB = std::move(MBOrErr.get());
-    Inputs.push_back(MB->getMemBufferRef());
+    MBs.push_back(MB->getMemBufferRef());
     OwningMBs.push_back(std::move(MB)); // take ownership
   }
 
   // Windows specific -- Input files can be Windows resource files (.res files).
   // We invoke cvtres.exe to convert resource files to a regular COFF file
   // then link the result file normally.
+  std::vector<MemoryBufferRef> Resources;
   auto NotResource = [](MemoryBufferRef MB) {
     return identify_magic(MB.getBuffer()) != file_magic::windows_resource;
   };
-  auto It = std::stable_partition(Inputs.begin(), Inputs.end(), NotResource);
-  if (It != Inputs.end()) {
-    std::vector<MemoryBufferRef> Files(It, Inputs.end());
-    auto MBOrErr = convertResToCOFF(Files);
+  auto It = std::stable_partition(MBs.begin(), MBs.end(), NotResource);
+  if (It != MBs.end()) {
+    Resources.insert(Resources.end(), It, MBs.end());
+    MBs.erase(It, MBs.end());
+  }
+
+  // Read all input files given via the command line. Note that step()
+  // doesn't read files that are specified by directive sections.
+  for (MemoryBufferRef MB : MBs)
+    Symtab.addFile(createFile(MB));
+  if (auto EC = Symtab.step()) {
+    llvm::errs() << EC.message() << "\n";
+    return false;
+  }
+
+  // Determine machine type and check if all object files are
+  // for the same CPU type. Note that this needs to be done before
+  // any call to mangle().
+  for (std::unique_ptr<InputFile> &File : Symtab.getFiles()) {
+    MachineTypes MT = File->getMachineType();
+    if (MT == IMAGE_FILE_MACHINE_UNKNOWN)
+      continue;
+    if (Config->MachineType == IMAGE_FILE_MACHINE_UNKNOWN) {
+      Config->MachineType = MT;
+      continue;
+    }
+    if (Config->MachineType != MT) {
+      llvm::errs() << File->getShortName() << ": machine type "
+                   << machineTypeToStr(MT) << " conflicts with "
+                   << machineTypeToStr(Config->MachineType) << "\n";
+      return false;
+    }
+  }
+  if (Config->MachineType == IMAGE_FILE_MACHINE_UNKNOWN) {
+    llvm::errs() << "warning: /machine is not specified. x64 is assumed.\n";
+    Config->MachineType = IMAGE_FILE_MACHINE_AMD64;
+  }
+
+  // Windows specific -- Convert Windows resource files to a COFF file.
+  if (!Resources.empty()) {
+    auto MBOrErr = convertResToCOFF(Resources);
     if (MBOrErr.getError())
       return false;
     std::unique_ptr<MemoryBuffer> MB = std::move(MBOrErr.get());
-    Inputs.erase(It, Inputs.end());
-    Inputs.push_back(MB->getMemBufferRef());
+    Symtab.addFile(createFile(MB->getMemBufferRef()));
     OwningMBs.push_back(std::move(MB)); // take ownership
   }
 
-  // Parse all input files and put all symbols to the symbol table.
-  // The symbol table will take care of name resolution.
-  for (MemoryBufferRef MB : Inputs)
-    Symtab.addFile(createFile(MB));
+  // Handle /entry and /dll
+  if (auto *Arg = Args.getLastArg(OPT_entry)) {
+    Config->Entry = addUndefined(mangle(Arg->getValue()));
+  } else if (Args.hasArg(OPT_dll) && !Config->NoEntry) {
+    StringRef S =
+        Config->is64() ? "_DllMainCRTStartup" : "__DllMainCRTStartup@12";
+    Config->Entry = addUndefined(S);
+  } else if (!Config->NoEntry) {
+    // Windows specific -- If entry point name is not given, we need to
+    // infer that from user-defined entry name.
+    StringRef S = findDefaultEntry();
+    if (S.empty()) {
+      llvm::errs() << "entry point must be defined\n";
+      return false;
+    }
+    Config->Entry = addUndefined(S);
+    if (Config->Verbose)
+      llvm::outs() << "Entry name inferred: " << S << "\n";
+  }
+
+  // Handle /export
+  for (auto *Arg : Args.filtered(OPT_export)) {
+    ErrorOr<Export> E = parseExport(Arg->getValue());
+    if (E.getError())
+      return false;
+    if (!Config->is64() && !E->Name.startswith("_@?"))
+      E->Name = mangle(E->Name);
+    Config->Exports.push_back(E.get());
+  }
+
+  // Handle /def
+  if (auto *Arg = Args.getLastArg(OPT_deffile)) {
+    ErrorOr<MemoryBufferRef> MBOrErr = openFile(Arg->getValue());
+    if (auto EC = MBOrErr.getError()) {
+      llvm::errs() << "/def: " << EC.message() << "\n";
+      return false;
+    }
+    // parseModuleDefs mutates Config object.
+    if (parseModuleDefs(MBOrErr.get(), &Alloc))
+      return false;
+  }
+
+  // Handle /delayload
+  for (auto *Arg : Args.filtered(OPT_delayload)) {
+    Config->DelayLoads.insert(StringRef(Arg->getValue()).lower());
+    if (Config->is64()) {
+      Config->DelayLoadHelper = addUndefined("__delayLoadHelper2");
+    } else {
+      Config->DelayLoadHelper = addUndefined("___delayLoadHelper2@8");
+    }
+  }
+
+  Symtab.addAbsolute(mangle("__ImageBase"), Config->ImageBase);
+
+  // Read as much files as we can from directives sections.
   if (auto EC = Symtab.run()) {
     llvm::errs() << EC.message() << "\n";
     return false;
   }
 
-  // Resolve auxiliary symbols until converge.
+  // Resolve auxiliary symbols until we get a convergence.
   // (Trying to resolve a symbol may trigger a Lazy symbol to load a new file.
   // A new file may contain a directive section to add new command line options.
   // That's why we have to repeat until converge.)
   for (;;) {
-    size_t Ver = Symtab.getVersion();
+    // Windows specific -- if entry point is not found,
+    // search for its mangled names.
+    if (Config->Entry)
+      Symtab.mangleMaybe(Config->Entry);
 
     // Windows specific -- Make sure we resolve all dllexported symbols.
-    for (Export &E : Config->Exports)
-      addUndefined(E.Name);
+    for (Export &E : Config->Exports) {
+      E.Sym = addUndefined(E.Name);
+      Symtab.mangleMaybe(E.Sym);
+    }
 
     // Add weak aliases. Weak aliases is a mechanism to give remaining
     // undefined symbols final chance to be resolved successfully.
-    // This is symbol renaming.
-    for (auto &P : Config->AlternateNames) {
-      StringRef From = P.first;
-      StringRef To = P.second;
-      if (auto EC = Symtab.rename(From, To)) {
-        llvm::errs() << EC.message() << "\n";
-        return false;
-      }
+    for (auto Pair : Config->AlternateNames) {
+      StringRef From = Pair.first;
+      StringRef To = Pair.second;
+      Symbol *Sym = Symtab.find(From);
+      if (!Sym)
+        continue;
+      if (auto *U = dyn_cast<Undefined>(Sym->Body))
+        if (!U->WeakAlias)
+          U->WeakAlias = Symtab.addUndefined(To);
     }
 
-    // Windows specific -- If entry point name is not given, we need to
-    // infer that from user-defined entry name. The symbol table takes
-    // care of details.
-    if (Config->EntryName.empty()) {
-      auto EntryOrErr = Symtab.findDefaultEntry();
-      if (auto EC = EntryOrErr.getError()) {
-        llvm::errs() << EC.message() << "\n";
-        return false;
-      }
-      Config->EntryName = EntryOrErr.get();
-    }
-    addUndefined(Config->EntryName);
-
+    if (Symtab.queueEmpty())
+      break;
     if (auto EC = Symtab.run()) {
       llvm::errs() << EC.message() << "\n";
       return false;
     }
-    if (Ver == Symtab.getVersion())
-      break;
   }
-
-  // Make sure we have resolved all symbols.
-  if (Symtab.reportRemainingUndefines())
-    return false;
 
   // Do LTO by compiling bitcode input files to a native COFF file
   // then link that file.
@@ -563,6 +653,10 @@ bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
     llvm::errs() << EC.message() << "\n";
     return false;
   }
+
+  // Make sure we have resolved all symbols.
+  if (Symtab.reportRemainingUndefines(/*Resolve=*/true))
+    return false;
 
   // Windows specific -- if no /subsystem is given, we need to infer
   // that from entry point name.
@@ -580,17 +674,18 @@ bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
     writeImportLibrary();
 
   // Windows specific -- fix up dllexported symbols.
-  if (!Config->Exports.empty()) {
-    for (Export &E : Config->Exports)
-      E.Sym = Symtab.find(E.Name);
+  if (!Config->Exports.empty())
     if (fixupExports())
       return false;
-  }
 
   // Windows specific -- Create a side-by-side manifest file.
   if (Config->Manifest == Configuration::SideBySide)
     if (createSideBySideManifest())
       return false;
+
+  // Create a dummy PDB file to satisfy build sytem rules.
+  if (auto *Arg = Args.getLastArg(OPT_pdb))
+    touchFile(Arg->getValue());
 
   // Write the result.
   Writer Out(&Symtab);
@@ -599,6 +694,8 @@ bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
     return false;
   }
 
+  // Create a symbol map file containing symbol VAs and their names
+  // to help debugging.
   if (auto *Arg = Args.getLastArg(OPT_lldmap)) {
     std::error_code EC;
     llvm::raw_fd_ostream Out(Arg->getValue(), EC, OpenFlags::F_Text);
@@ -608,8 +705,8 @@ bool LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
     }
     Symtab.printMap(Out);
   }
-
-  return true;
+  // Call exit to avoid calling destructors.
+  exit(0);
 }
 
 } // namespace coff

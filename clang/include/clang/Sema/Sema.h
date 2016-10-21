@@ -1387,7 +1387,8 @@ public:
 
   /// Determine if \p D has a visible definition. If not, suggest a declaration
   /// that should be made visible to expose the definition.
-  bool hasVisibleDefinition(NamedDecl *D, NamedDecl **Suggested);
+  bool hasVisibleDefinition(NamedDecl *D, NamedDecl **Suggested,
+                            bool OnlyNeedComplete = false);
   bool hasVisibleDefinition(const NamedDecl *D) {
     NamedDecl *Hidden;
     return hasVisibleDefinition(const_cast<NamedDecl*>(D), &Hidden);
@@ -1690,6 +1691,7 @@ public:
                             bool TypeMayContainAuto);
   void ActOnUninitializedDecl(Decl *dcl, bool TypeMayContainAuto);
   void ActOnInitializerError(Decl *Dcl);
+  void ActOnPureSpecifier(Decl *D, SourceLocation PureSpecLoc);
   void ActOnCXXForRangeDecl(Decl *D);
   StmtResult ActOnCXXForRangeIdentifier(Scope *S, SourceLocation IdentLoc,
                                         IdentifierInfo *Ident,
@@ -1847,7 +1849,7 @@ public:
   bool isAcceptableTagRedeclaration(const TagDecl *Previous,
                                     TagTypeKind NewTag, bool isDefinition,
                                     SourceLocation NewTagLoc,
-                                    const IdentifierInfo &Name);
+                                    const IdentifierInfo *Name);
 
   enum TagUseKind {
     TUK_Reference,   // Reference to a tag:  'struct foo *X;'
@@ -2186,6 +2188,7 @@ public:
   void HandleFunctionTypeMismatch(PartialDiagnostic &PDiag,
                                   QualType FromType, QualType ToType);
 
+  void maybeExtendBlockObject(ExprResult &E);
   CastKind PrepareCastToObjCObjectPointer(ExprResult &E);
   bool CheckPointerConversion(Expr *From, QualType ToType,
                               CastKind &Kind,
@@ -7087,16 +7090,44 @@ public:
   };
   ObjCContainerKind getObjCContainerKind() const;
 
-  Decl *ActOnStartClassInterface(SourceLocation AtInterfaceLoc,
+  DeclResult actOnObjCTypeParam(Scope *S,
+                                ObjCTypeParamVariance variance,
+                                SourceLocation varianceLoc,
+                                unsigned index,
+                                IdentifierInfo *paramName,
+                                SourceLocation paramLoc,
+                                SourceLocation colonLoc,
+                                ParsedType typeBound);
+
+  ObjCTypeParamList *actOnObjCTypeParamList(Scope *S, SourceLocation lAngleLoc,
+                                            ArrayRef<Decl *> typeParams,
+                                            SourceLocation rAngleLoc);
+  void popObjCTypeParamList(Scope *S, ObjCTypeParamList *typeParamList);
+
+  Decl *ActOnStartClassInterface(Scope *S,
+                                 SourceLocation AtInterfaceLoc,
                                  IdentifierInfo *ClassName,
                                  SourceLocation ClassLoc,
+                                 ObjCTypeParamList *typeParamList,
                                  IdentifierInfo *SuperName,
                                  SourceLocation SuperLoc,
+                                 ArrayRef<ParsedType> SuperTypeArgs,
+                                 SourceRange SuperTypeArgsRange,
                                  Decl * const *ProtoRefs,
                                  unsigned NumProtoRefs,
                                  const SourceLocation *ProtoLocs,
                                  SourceLocation EndProtoLoc,
                                  AttributeList *AttrList);
+    
+  void ActOnSuperClassOfClassInterface(Scope *S,
+                                       SourceLocation AtInterfaceLoc,
+                                       ObjCInterfaceDecl *IDecl,
+                                       IdentifierInfo *ClassName,
+                                       SourceLocation ClassLoc,
+                                       IdentifierInfo *SuperName,
+                                       SourceLocation SuperLoc,
+                                       ArrayRef<ParsedType> SuperTypeArgs,
+                                       SourceRange SuperTypeArgsRange);
   
   void ActOnTypedefedProtocols(SmallVectorImpl<Decl *> &ProtocolRefs,
                                IdentifierInfo *SuperName,
@@ -7123,6 +7154,7 @@ public:
   Decl *ActOnStartCategoryInterface(SourceLocation AtInterfaceLoc,
                                     IdentifierInfo *ClassName,
                                     SourceLocation ClassLoc,
+                                    ObjCTypeParamList *typeParamList,
                                     IdentifierInfo *CategoryName,
                                     SourceLocation CategoryLoc,
                                     Decl * const *ProtoRefs,
@@ -7146,9 +7178,10 @@ public:
                                                ArrayRef<Decl *> Decls);
 
   DeclGroupPtrTy ActOnForwardClassDeclaration(SourceLocation Loc,
-                                     IdentifierInfo **IdentList,
-                                     SourceLocation *IdentLocs,
-                                     unsigned NumElts);
+                   IdentifierInfo **IdentList,
+                   SourceLocation *IdentLocs,
+                   ArrayRef<ObjCTypeParamList *> TypeParamLists,
+                   unsigned NumElts);
 
   DeclGroupPtrTy ActOnForwardProtocolDeclaration(SourceLocation AtProtoclLoc,
                                         const IdentifierLocPair *IdentList,
@@ -7159,6 +7192,61 @@ public:
                                const IdentifierLocPair *ProtocolId,
                                unsigned NumProtocols,
                                SmallVectorImpl<Decl *> &Protocols);
+
+  /// Given a list of identifiers (and their locations), resolve the
+  /// names to either Objective-C protocol qualifiers or type
+  /// arguments, as appropriate.
+  void actOnObjCTypeArgsOrProtocolQualifiers(
+         Scope *S,
+         ParsedType baseType,
+         SourceLocation lAngleLoc,
+         ArrayRef<IdentifierInfo *> identifiers,
+         ArrayRef<SourceLocation> identifierLocs,
+         SourceLocation rAngleLoc,
+         SourceLocation &typeArgsLAngleLoc,
+         SmallVectorImpl<ParsedType> &typeArgs,
+         SourceLocation &typeArgsRAngleLoc,
+         SourceLocation &protocolLAngleLoc,
+         SmallVectorImpl<Decl *> &protocols,
+         SourceLocation &protocolRAngleLoc,
+         bool warnOnIncompleteProtocols);
+
+  /// Build a an Objective-C protocol-qualified 'id' type where no
+  /// base type was specified.
+  TypeResult actOnObjCProtocolQualifierType(
+               SourceLocation lAngleLoc,
+               ArrayRef<Decl *> protocols,
+               ArrayRef<SourceLocation> protocolLocs,
+               SourceLocation rAngleLoc);
+
+  /// Build a specialized and/or protocol-qualified Objective-C type.
+  TypeResult actOnObjCTypeArgsAndProtocolQualifiers(
+               Scope *S,
+               SourceLocation Loc,
+               ParsedType BaseType,
+               SourceLocation TypeArgsLAngleLoc,
+               ArrayRef<ParsedType> TypeArgs,
+               SourceLocation TypeArgsRAngleLoc,
+               SourceLocation ProtocolLAngleLoc,
+               ArrayRef<Decl *> Protocols,
+               ArrayRef<SourceLocation> ProtocolLocs,
+               SourceLocation ProtocolRAngleLoc);
+
+  /// Build an Objective-C object pointer type.
+  QualType BuildObjCObjectType(QualType BaseType,
+                               SourceLocation Loc,
+                               SourceLocation TypeArgsLAngleLoc,
+                               ArrayRef<TypeSourceInfo *> TypeArgs,
+                               SourceLocation TypeArgsRAngleLoc,
+                               SourceLocation ProtocolLAngleLoc,
+                               ArrayRef<ObjCProtocolDecl *> Protocols,
+                               ArrayRef<SourceLocation> ProtocolLocs,
+                               SourceLocation ProtocolRAngleLoc,
+                               bool FailOnError = false);
+
+  /// Check the application of the Objective-C '__kindof' qualifier to
+  /// the given type.
+  bool checkObjCKindOfType(QualType &type, SourceLocation loc);
 
   /// Ensure attributes are consistent with type.
   /// \param [in, out] Attributes The attributes to check; they will
@@ -7609,13 +7697,13 @@ private:
   void DestroyDataSharingAttributesStack();
   ExprResult VerifyPositiveIntegerConstantInClause(Expr *Op,
                                                    OpenMPClauseKind CKind);
-  /// \brief Checks if the specified variable is used in one of the private
+public:
+  /// \brief Check if the specified variable is used in a private clause in
+  /// Checks if the specified variable is used in one of the private
   /// clauses in OpenMP constructs.
   bool IsOpenMPCapturedVar(VarDecl *VD);
 
-public:
-  /// \brief Check if the specified variable is used in one of the private
-  /// clauses in OpenMP constructs.
+  /// OpenMP constructs.
   /// \param Level Relative level of nested OpenMP construct for that the check
   /// is performed.
   bool isOpenMPPrivateVar(VarDecl *VD, unsigned Level);
@@ -7663,12 +7751,10 @@ public:
   ///
   /// \returns Statement for finished OpenMP region.
   StmtResult ActOnOpenMPRegionEnd(StmtResult S, ArrayRef<OMPClause *> Clauses);
-  StmtResult ActOnOpenMPExecutableDirective(OpenMPDirectiveKind Kind,
-                                            const DeclarationNameInfo &DirName,
-                                            ArrayRef<OMPClause *> Clauses,
-                                            Stmt *AStmt,
-                                            SourceLocation StartLoc,
-                                            SourceLocation EndLoc);
+  StmtResult ActOnOpenMPExecutableDirective(
+      OpenMPDirectiveKind Kind, const DeclarationNameInfo &DirName,
+      OpenMPDirectiveKind CancelRegion, ArrayRef<OMPClause *> Clauses,
+      Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
   /// \brief Called on well-formed '\#pragma omp parallel' after parsing
   /// of the  associated statement.
   StmtResult ActOnOpenMPParallelDirective(ArrayRef<OMPClause *> Clauses,
@@ -7774,6 +7860,15 @@ public:
   StmtResult ActOnOpenMPTeamsDirective(ArrayRef<OMPClause *> Clauses,
                                        Stmt *AStmt, SourceLocation StartLoc,
                                        SourceLocation EndLoc);
+  /// \brief Called on well-formed '\#pragma omp cancellation point'.
+  StmtResult
+  ActOnOpenMPCancellationPointDirective(SourceLocation StartLoc,
+                                        SourceLocation EndLoc,
+                                        OpenMPDirectiveKind CancelRegion);
+  /// \brief Called on well-formed '\#pragma omp cancel'.
+  StmtResult ActOnOpenMPCancelDirective(SourceLocation StartLoc,
+                                        SourceLocation EndLoc,
+                                        OpenMPDirectiveKind CancelRegion);
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,
@@ -8734,6 +8829,7 @@ private:
   bool SemaBuiltinARMSpecialReg(unsigned BuiltinID, CallExpr *TheCall,
                                 int ArgNum, unsigned ExpectedFieldNum,
                                 bool AllowName);
+  bool SemaBuiltinCpuSupports(CallExpr *TheCall);
 public:
   enum FormatStringType {
     FST_Scanf,

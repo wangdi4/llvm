@@ -18,19 +18,20 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/raw_ostream.h"
+#include <mutex>
 
+using namespace llvm::COFF;
 using namespace llvm::object;
 using namespace llvm::support::endian;
-using llvm::COFF::ImportHeader;
-using llvm::COFF::IMAGE_COMDAT_SELECT_ASSOCIATIVE;
-using llvm::COFF::IMAGE_FILE_MACHINE_AMD64;
-using llvm::COFF::IMAGE_FILE_MACHINE_UNKNOWN;
 using llvm::RoundUpToAlignment;
-using llvm::sys::fs::identify_magic;
+using llvm::Triple;
 using llvm::sys::fs::file_magic;
+using llvm::sys::fs::identify_magic;
 
 namespace lld {
 namespace coff {
+
+int InputFile::NextIndex = 0;
 
 // Returns the last element of a path, which is supposed to be a filename.
 static StringRef getBasename(StringRef Path) {
@@ -60,7 +61,7 @@ std::error_code ArchiveFile::parse() {
   size_t NumSyms = File->getNumberOfSymbols();
   size_t BufSize = NumSyms * sizeof(Lazy);
   Lazy *Buf = (Lazy *)Alloc.Allocate(BufSize, llvm::alignOf<Lazy>());
-  SymbolBodies.reserve(NumSyms);
+  LazySymbols.reserve(NumSyms);
 
   // Read the symbol table to construct Lazy objects.
   uint32_t I = 0;
@@ -68,12 +69,19 @@ std::error_code ArchiveFile::parse() {
     auto *B = new (&Buf[I++]) Lazy(this, Sym);
     // Skip special symbol exists in import library files.
     if (B->getName() != "__NULL_IMPORT_DESCRIPTOR")
-      SymbolBodies.push_back(B);
+      LazySymbols.push_back(B);
   }
+
+  // Seen is a map from member files to boolean values. Initially
+  // all members are mapped to false, which indicates all these files
+  // are not read yet.
+  for (const Archive::Child &Child : File->children())
+    Seen[Child.getChildOffset()].clear();
   return std::error_code();
 }
 
 // Returns a buffer pointing to a member file containing a given symbol.
+// This function is thread-safe.
 ErrorOr<MemoryBufferRef> ArchiveFile::getMember(const Archive::Symbol *Sym) {
   auto ItOrErr = Sym->getMember();
   if (auto EC = ItOrErr.getError())
@@ -81,9 +89,7 @@ ErrorOr<MemoryBufferRef> ArchiveFile::getMember(const Archive::Symbol *Sym) {
   Archive::child_iterator It = ItOrErr.get();
 
   // Return an empty buffer if we have already returned the same buffer.
-  const char *StartAddr = It->getBuffer().data();
-  auto Pair = Seen.insert(StartAddr);
-  if (!Pair.second)
+  if (Seen[It->getChildOffset()].test_and_set())
     return MemoryBufferRef();
   return It->getMemoryBufferRef();
 }
@@ -100,11 +106,6 @@ std::error_code ObjectFile::parse() {
     COFFObj.reset(Obj);
   } else {
     llvm::errs() << getName() << " is not a COFF file.\n";
-    return make_error_code(LLDError::InvalidFile);
-  }
-  if (COFFObj->getMachine() != IMAGE_FILE_MACHINE_AMD64 &&
-      COFFObj->getMachine() != IMAGE_FILE_MACHINE_UNKNOWN) {
-    llvm::errs() << getName() << " is not an x64 object file.\n";
     return make_error_code(LLDError::InvalidFile);
   }
 
@@ -137,7 +138,8 @@ std::error_code ObjectFile::initializeChunks() {
       Directives = std::string((const char *)Data.data(), Data.size());
       continue;
     }
-    if (Name.startswith(".debug"))
+    // We want to preserve DWARF debug sections only when /debug is on.
+    if (!Config->Debug && Name.startswith(".debug"))
       continue;
     if (Sec->Characteristics & llvm::COFF::IMAGE_SCN_LNK_REMOVE)
       continue;
@@ -168,7 +170,14 @@ std::error_code ObjectFile::initializeSymbols() {
       AuxP = COFFObj->getSymbol(I + 1)->getRawPtr();
     bool IsFirst = (LastSectionNumber != Sym.getSectionNumber());
 
-    SymbolBody *Body = createSymbolBody(Sym, AuxP, IsFirst);
+    SymbolBody *Body = nullptr;
+    if (Sym.isUndefined()) {
+      Body = createUndefined(Sym);
+    } else if (Sym.isWeakExternal()) {
+      Body = createWeakExternal(Sym, AuxP);
+    } else {
+      Body = createDefined(Sym, AuxP, IsFirst);
+    }
     if (Body) {
       SymbolBodies.push_back(Body);
       SparseSymbolBodies[I] = Body;
@@ -179,13 +188,24 @@ std::error_code ObjectFile::initializeSymbols() {
   return std::error_code();
 }
 
-SymbolBody *ObjectFile::createSymbolBody(COFFSymbolRef Sym, const void *AuxP,
-                                         bool IsFirst) {
+Undefined *ObjectFile::createUndefined(COFFSymbolRef Sym) {
   StringRef Name;
-  if (Sym.isUndefined()) {
-    COFFObj->getSymbolName(Sym, Name);
-    return new (Alloc) Undefined(Name);
-  }
+  COFFObj->getSymbolName(Sym, Name);
+  return new (Alloc) Undefined(Name);
+}
+
+Undefined *ObjectFile::createWeakExternal(COFFSymbolRef Sym, const void *AuxP) {
+  StringRef Name;
+  COFFObj->getSymbolName(Sym, Name);
+  auto *U = new (Alloc) Undefined(Name);
+  auto *Aux = (const coff_aux_weak_external *)AuxP;
+  U->WeakAlias = SparseSymbolBodies[Aux->TagIndex];
+  return U;
+}
+
+Defined *ObjectFile::createDefined(COFFSymbolRef Sym, const void *AuxP,
+                                   bool IsFirst) {
+  StringRef Name;
   if (Sym.isCommon()) {
     auto *C = new (Alloc) CommonChunk(Sym);
     Chunks.push_back(C);
@@ -200,32 +220,38 @@ SymbolBody *ObjectFile::createSymbolBody(COFFSymbolRef Sym, const void *AuxP,
   }
   if (Sym.getSectionNumber() == llvm::COFF::IMAGE_SYM_DEBUG)
     return nullptr;
-  // TODO: Handle IMAGE_WEAK_EXTERN_SEARCH_ALIAS
-  if (Sym.isWeakExternal()) {
-    COFFObj->getSymbolName(Sym, Name);
-    auto *Aux = (const coff_aux_weak_external *)AuxP;
-    return new (Alloc) Undefined(Name, &SparseSymbolBodies[Aux->TagIndex]);
-  }
+
+  // Nothing else to do without a section chunk.
+  auto *SC = cast_or_null<SectionChunk>(SparseChunks[Sym.getSectionNumber()]);
+  if (!SC)
+    return nullptr;
+
   // Handle associative sections
   if (IsFirst && AuxP) {
-    if (Chunk *C = SparseChunks[Sym.getSectionNumber()]) {
-      auto *Aux = reinterpret_cast<const coff_aux_section_definition *>(AuxP);
-      if (Aux->Selection == IMAGE_COMDAT_SELECT_ASSOCIATIVE) {
-        auto *Parent =
-          (SectionChunk *)(SparseChunks[Aux->getNumber(Sym.isBigObj())]);
-        if (Parent)
-          Parent->addAssociative((SectionChunk *)C);
-      }
-    }
+    auto *Aux = reinterpret_cast<const coff_aux_section_definition *>(AuxP);
+    if (Aux->Selection == IMAGE_COMDAT_SELECT_ASSOCIATIVE)
+      if (auto *ParentSC = cast_or_null<SectionChunk>(
+              SparseChunks[Aux->getNumber(Sym.isBigObj())]))
+        ParentSC->addAssociative(SC);
   }
-  Chunk *C = SparseChunks[Sym.getSectionNumber()];
-  if (auto *SC = cast_or_null<SectionChunk>(C)) {
-    auto *B = new (Alloc) DefinedRegular(this, Sym, SC);
-    if (SC->isCOMDAT() && Sym.getValue() == 0 && !AuxP)
-      SC->setSymbol(B);
-    return B;
-  }
-  return nullptr;
+
+  auto *B = new (Alloc) DefinedRegular(this, Sym, SC);
+  if (SC->isCOMDAT() && Sym.getValue() == 0 && !AuxP)
+    SC->setSymbol(B);
+
+  return B;
+}
+
+MachineTypes ObjectFile::getMachineType() {
+  if (COFFObj)
+    return static_cast<MachineTypes>(COFFObj->getMachine());
+  return IMAGE_FILE_MACHINE_UNKNOWN;
+}
+
+StringRef ltrim1(StringRef S, const char *Chars) {
+  if (!S.empty() && strchr(Chars, S[0]))
+    return S.substr(1);
+  return S;
 }
 
 std::error_code ImportFile::parse() {
@@ -243,11 +269,23 @@ std::error_code ImportFile::parse() {
   StringRef Name = StringAlloc.save(StringRef(Buf + sizeof(*Hdr)));
   StringRef ImpName = StringAlloc.save(Twine("__imp_") + Name);
   StringRef DLLName(Buf + sizeof(coff_import_header) + Name.size() + 1);
-  StringRef ExternalName = Name;
-  if (Hdr->getNameType() == llvm::COFF::IMPORT_ORDINAL)
-    ExternalName = "";
-  auto *ImpSym = new (Alloc) DefinedImportData(DLLName, ImpName, ExternalName,
-                                               Hdr);
+  StringRef ExtName;
+  switch (Hdr->getNameType()) {
+  case IMPORT_ORDINAL:
+    ExtName = "";
+    break;
+  case IMPORT_NAME:
+    ExtName = Name;
+    break;
+  case IMPORT_NAME_NOPREFIX:
+    ExtName = ltrim1(Name, "?@_");
+    break;
+  case IMPORT_NAME_UNDECORATE:
+    ExtName = ltrim1(Name, "?@_");
+    ExtName = ExtName.substr(0, ExtName.find('@'));
+    break;
+  }
+  auto *ImpSym = new (Alloc) DefinedImportData(DLLName, ImpName, ExtName, Hdr);
   SymbolBodies.push_back(ImpSym);
 
   // If type is function, we need to create a thunk which jump to an
@@ -279,37 +317,33 @@ std::error_code BitcodeFile::parse() {
     if (SymbolDef == LTO_SYMBOL_DEFINITION_UNDEFINED) {
       SymbolBodies.push_back(new (Alloc) Undefined(SymName));
     } else {
-      bool Replaceable = (SymbolDef == LTO_SYMBOL_DEFINITION_TENTATIVE ||
-                          (Attrs & LTO_SYMBOL_COMDAT));
-      SymbolBodies.push_back(new (Alloc) DefinedBitcode(SymName, Replaceable));
-
-      const llvm::GlobalValue *GV = M->getSymbolGV(I);
-      if (GV && GV->hasDLLExportStorageClass()) {
-        Directives += " /export:";
-        Directives += SymName;
-        if (!GV->getValueType()->isFunctionTy())
-          Directives += ",data";
-      }
+      bool Replaceable =
+          (SymbolDef == LTO_SYMBOL_DEFINITION_TENTATIVE || // common
+           (Attrs & LTO_SYMBOL_COMDAT) ||                  // comdat
+           (SymbolDef == LTO_SYMBOL_DEFINITION_WEAK &&     // weak external
+            (Attrs & LTO_SYMBOL_ALIAS)));
+      SymbolBodies.push_back(new (Alloc) DefinedBitcode(this, SymName,
+                                                        Replaceable));
     }
   }
 
-  // Extract any linker directives from the bitcode file, which are represented
-  // as module flags with the key "Linker Options".
-  llvm::SmallVector<llvm::Module::ModuleFlagEntry, 8> Flags;
-  M->getModule().getModuleFlagsMetadata(Flags);
-  for (auto &&Flag : Flags) {
-    if (Flag.Key->getString() != "Linker Options")
-      continue;
-
-    for (llvm::Metadata *Op : cast<llvm::MDNode>(Flag.Val)->operands()) {
-      for (llvm::Metadata *InnerOp : cast<llvm::MDNode>(Op)->operands()) {
-        Directives += " ";
-        Directives += cast<llvm::MDString>(InnerOp)->getString();
-      }
-    }
-  }
-
+  Directives = M->getLinkerOpts();
   return std::error_code();
+}
+
+MachineTypes BitcodeFile::getMachineType() {
+  if (!M)
+    return IMAGE_FILE_MACHINE_UNKNOWN;
+  switch (Triple(M->getTargetTriple()).getArch()) {
+  case Triple::x86_64:
+    return IMAGE_FILE_MACHINE_AMD64;
+  case Triple::x86:
+    return IMAGE_FILE_MACHINE_I386;
+  case Triple::arm:
+    return IMAGE_FILE_MACHINE_ARMNT;
+  default:
+    return IMAGE_FILE_MACHINE_UNKNOWN;
+  }
 }
 
 } // namespace coff

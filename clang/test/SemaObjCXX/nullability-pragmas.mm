@@ -2,9 +2,14 @@
 
 #include "nullability-pragmas-1.h"
 #include "nullability-pragmas-2.h"
+#include "nullability-pragmas-generics-1.h"
 
 #if !__has_feature(assume_nonnull)
 #  error assume_nonnull feature is not set
+#endif
+
+#if !__has_extension(assume_nonnull)
+#  error assume_nonnull extension is not set
 #endif
 
 void test_pragmas_1(A * _Nonnull a, AA * _Nonnull aa) {
@@ -38,4 +43,15 @@ void test_pragmas_1(A * _Nonnull a, AA * _Nonnull aa) {
 
   ptr = aa->ivar1; // expected-error{{from incompatible type 'id'}}
   ptr = aa->ivar2; // expected-error{{from incompatible type 'id _Nonnull'}}
+}
+
+void test_pragmas_generics(void) {
+  float *fp;
+
+  NSGeneric<C *> *genC;
+  fp = [genC tee]; // expected-error{{from incompatible type 'C *'}}
+  fp = [genC maybeTee]; // expected-error{{from incompatible type 'C * _Nullable'}}
+
+  Generic_with_C genC2;
+  fp = genC2; // expected-error{{from incompatible type 'Generic_with_C' (aka 'NSGeneric<C *> *')}}
 }
