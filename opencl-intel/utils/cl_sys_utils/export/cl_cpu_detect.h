@@ -57,6 +57,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         CFS_AVX512VL = 0x4000   // SKX
     };
 
+    // Processor microarchitecture
     enum EMicroArchitecture
     {
         MA_ALL,

@@ -380,7 +380,7 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
   // check availability of masked store BI
   std::string funcName =
     Mangler::getMaskedLoadStoreBuiltinName(true, vecType, isBitMask(*vecType));
-    
+
   Function* loadFuncRT = m_rtServices->findInRuntimeModule(funcName);
 
   if (loadFuncRT) {
