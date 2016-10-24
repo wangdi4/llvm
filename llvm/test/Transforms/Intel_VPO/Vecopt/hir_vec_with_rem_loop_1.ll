@@ -12,14 +12,14 @@
 ;   return 0;
 ; }
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-parser -hir-dd-analysis -hir-vec-dir-insert -disable-hir-vec-dir-insert=false -VPODriverHIR -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
 ;
 ; HIR Test.
 ; CHECK: DO i1 = 0, 1019, 4   <DO_LOOP>
-; CHECK: {al:4}(<4 x i32>*)(@arr)[0][i1] = i1 + 
+; CHECK: (<4 x i32>*)(@arr)[0][i1] = i1 + 
 ; CHECK: END LOOP
-; CHECK-NEXT: DO i1 = 1020, 1022, 1   <DO_LOOP>
-; CHECK: {al:4}(@arr)[0][i1] = i1 + 
+; CHECK: DO i1 = 1020, 1022, 1   <DO_LOOP>
+; CHECK: (@arr)[0][i1] = i1 + 
 ; CHECK: END LOOP
 ; source_filename = "rem2.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

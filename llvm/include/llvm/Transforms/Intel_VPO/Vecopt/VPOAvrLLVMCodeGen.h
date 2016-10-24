@@ -80,9 +80,18 @@ public:
 
   ~AVRCodeGen() { WidenMap.clear(); }
 
-  // Perform the actual loop widening (vectorization) using VL as the
+  // Perform the actual loop widening (vectorization) using VF as the
   // vectorization factor.
-  bool vectorize(int VL);
+  bool vectorize(unsigned int VF);
+
+  // Check if loop is currently suported by AVRCodeGen. If \p VF is 0 ignore 
+  // it (which means that checks such as whether the trip count is evenly
+  // divisible by VF will not be done).  
+  bool loopIsHandled(unsigned int VF);
+
+  // Return the cost of remainder loop code, if a remainder loop is needed.
+  int getRemainderLoopCost(Loop *Loop, unsigned int VF, 
+                           unsigned int &TripCount); 
 
 private:
   AVR *Avr;
@@ -142,8 +151,10 @@ private:
   void setNewInductionVal(Value *V) { NewInductionVal = V; }
 
   // Check for currently handled loops. Initial implementations
-  // punts on seeing any control flow.
-  bool loopIsHandled();
+  // punts on seeing any control flow. 
+  // The output parameter \p TripCount holds the tripCount of the loop if it is
+  // a constant, zero otherwise.
+  bool loopIsHandledImpl(unsigned int &TripCount);
 
   // Create the vector loop skeleton which iterates from StartIndex
   // to StartIndex +  VL * Stride * TripCount. We also setup the control

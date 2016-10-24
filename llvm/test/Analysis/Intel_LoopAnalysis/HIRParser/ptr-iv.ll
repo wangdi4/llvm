@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that the pointer IV is handled correctly.
 ; CHECK: DO i1 = 0, (-1 * %p + %q + -4)/u4
-; CHECK-NEXT: {al:4}(%p)[2 * i1] = i1;
+; CHECK-NEXT: (%p)[2 * i1] = i1;
 ; CHECK-NEXT:  END LOOP
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck -check-prefix=DETAIL %s

@@ -21,11 +21,16 @@
 
 using namespace llvm;
 
+static cl::opt<bool> EnableSubRegLiveness("enable-subreg-liveness", cl::Hidden,
+  cl::init(true), cl::desc("Enable subregister liveness tracking."));
+
 // Pin the vtable to this file.
 void MachineRegisterInfo::Delegate::anchor() {}
 
 MachineRegisterInfo::MachineRegisterInfo(MachineFunction *MF)
-    : MF(MF), TheDelegate(nullptr), TracksSubRegLiveness(false) {
+    : MF(MF), TheDelegate(nullptr),
+      TracksSubRegLiveness(MF->getSubtarget().enableSubRegLiveness() &&
+                           EnableSubRegLiveness) {
   unsigned NumRegs = getTargetRegisterInfo()->getNumRegs();
   VRegInfo.reserve(256);
   RegAllocHints.reserve(256);
@@ -134,6 +139,20 @@ MachineRegisterInfo::createGenericVirtualRegister(unsigned Size) {
   if (TheDelegate)
     TheDelegate->MRI_NoteNewVirtualRegister(Reg);
   return Reg;
+}
+
+void MachineRegisterInfo::clearVirtRegSizes() {
+#ifndef NDEBUG
+  // Verify that the size of the now-constrained vreg is unchanged.
+  for (auto &VRegToSize : getVRegToSize()) {
+    auto *RC = getRegClass(VRegToSize.first);
+    if (VRegToSize.second != (RC->getSize() * 8))
+      llvm_unreachable(
+          "Virtual register has explicit size different from its class size");
+  }
+#endif
+
+  getVRegToSize().clear();
 }
 
 /// clearVirtRegs - Remove all virtual registers (after physreg assignment).

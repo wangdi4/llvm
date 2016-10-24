@@ -462,6 +462,11 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
 
   case Intrinsic::annotation:
   case Intrinsic::ptr_annotation:
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::intel_std_container_ptr:
+  case Intrinsic::intel_std_container_ptr_iter:
+  case Intrinsic::intel_fakeload: 
+#endif // INTEL_CUSTOMIZATION
     // Just drop the annotation, but forward the value
     CI->replaceAllUsesWith(CI->getOperand(0));
     break;

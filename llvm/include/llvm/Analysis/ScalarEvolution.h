@@ -1524,8 +1524,8 @@ namespace llvm {
     const SCEV *getBackedgeTakenCountForHIR(const Loop *Lp, 
                                             const Loop *OutermostLoop);
 
-    /// isLoopZtt - Returns true if ZttInst represents the ztt of the loop. 
-    bool isLoopZtt(const Loop *Lp, const BranchInst *ZttInst);
+    /// Returns true if ZttInst represents the ztt of the loop. 
+    bool isLoopZtt(const Loop *Lp, const BranchInst *ZttInst, bool Inverse);
 #endif  // INTEL_CUSTOMIZATION
 
     /// Similar to getBackedgeTakenCount, except it will add a set of
@@ -1809,7 +1809,7 @@ namespace llvm {
   public:
     typedef ScalarEvolution Result;
 
-    ScalarEvolution run(Function &F, AnalysisManager<Function> &AM);
+    ScalarEvolution run(Function &F, FunctionAnalysisManager &AM);
   };
 
   /// Printer pass for the \c ScalarEvolutionAnalysis results.
@@ -1819,7 +1819,7 @@ namespace llvm {
 
   public:
     explicit ScalarEvolutionPrinterPass(raw_ostream &OS) : OS(OS) {}
-    PreservedAnalyses run(Function &F, AnalysisManager<Function> &AM);
+    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   };
 
   class ScalarEvolutionWrapperPass : public FunctionPass {

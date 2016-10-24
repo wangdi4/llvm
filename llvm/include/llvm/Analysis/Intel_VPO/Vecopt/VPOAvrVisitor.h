@@ -377,6 +377,53 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     }
 
     callPostVisit<AVRSwitch, AVRSwitchIR, AVRSwitchHIR>(ASwitch);
+  } else if (AVRBlock *ABlock = dyn_cast<AVRBlock>(Node)) {
+
+    callVisit<AVRBlock>(ABlock);
+    if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+
+      Ret = Forward ? forwardVisit(ABlock->child_begin(), ABlock->child_end(),
+                                   RecurseInsideLoops, true)
+                    : backwardVisit(ABlock->child_begin(), ABlock->child_end(),
+                                    RecurseInsideLoops, true);
+
+      if (Ret)
+        return true;
+
+      callPostVisit<AVRBlock>(ABlock);
+    }
+  } else if (AVRPredicate *APredicate = dyn_cast<AVRPredicate>(Node)) {
+    callVisit<AVRPredicate>(APredicate);
+
+    if (Visitor.isDone())
+      return true;
+
+    if (!Recursive || Visitor.skipRecursion(Node))
+      return false;
+
+    auto& IncomingPredicates = APredicate->getIncoming();
+    unsigned NumIncoming = IncomingPredicates.size();
+    for (unsigned IncomingIt = 1; IncomingIt <= NumIncoming; ++IncomingIt) {
+      unsigned IncomingIndex =
+        Forward ? IncomingIt - 1 : NumIncoming - IncomingIt;
+      auto& Pair = IncomingPredicates[IncomingIndex];
+      if (Forward) {
+        if (visit(Pair.first, Recursive, RecurseInsideLoops, Forward))
+          return true;
+        if (Pair.second &&
+            visit(Pair.second, Recursive, RecurseInsideLoops, Forward))
+          return true;
+      }
+      else {
+        if (Pair.second &&
+            visit(Pair.second, Recursive, RecurseInsideLoops, Forward))
+          return true;
+        if (visit(Pair.first, Recursive, RecurseInsideLoops, Forward))
+          return true;
+      }
+    }
+
+    callPostVisit<AVRPredicate>(APredicate);
   } else if (AVRAssign *AAssign = dyn_cast<AVRAssign>(Node)) {
     callVisit<AVRAssignIR, AVRAssignHIR, AVRAssign>(AAssign);
 

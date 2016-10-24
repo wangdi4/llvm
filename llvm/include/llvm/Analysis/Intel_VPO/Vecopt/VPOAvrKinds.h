@@ -104,7 +104,9 @@ enum AVRVal {
   AVRUnreachableLastNode,
 
   AVRWrnNode,
-  AVRNOPNode
+  AVRNOPNode,
+  AVRBlockNode,
+  AVRPredicateNode,
 
 };
 

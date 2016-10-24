@@ -74,7 +74,7 @@ bool VPOParopt::runOnModule(Module &M) {
 
   bool Changed = false;
 
-  VPOParoptMode Mode;
+  VPOParoptMode Mode = OMPPAR;
 
   /// \brief As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.
@@ -84,6 +84,7 @@ bool VPOParopt::runOnModule(Module &M) {
     // TODO: need Front-End to set F->hasOpenMPDirective()
     if (F->isDeclaration()) // if(!F->hasOpenMPDirective()))
       continue;
+    DEBUG(dbgs() << "\n=== VPOParopt func: " << F->getName() <<" {\n");
     FnList.push_back(&*F);
   }
 

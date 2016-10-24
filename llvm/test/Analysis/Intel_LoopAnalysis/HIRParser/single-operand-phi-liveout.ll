@@ -4,8 +4,8 @@
 ; + DO i1 = 0, 49, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 38, 1   <DO_LOOP>
 ; |   |   + DO i3 = 0, zext.i32.i64((trunc.i64.i32(%indvars.iv) + umax(-2, (-1 * trunc.i64.i32(%indvars.iv))))), 1   <DO_LOOP>
-; |   |   |   %1 = {al:4}(%s)[0][i1 + -1 * i3 + 3][i1 + -1 * i3 + 2];
-; |   |   |   {al:4}(%h5)[0][i1 + -1 * i3 + 2] = %1;
+; |   |   |   %1 = (%s)[0][i1 + -1 * i3 + 3][i1 + -1 * i3 + 2];
+; |   |   |   (%h5)[0][i1 + -1 * i3 + 2] = %1;
 ; |   |   + END LOOP
 ; |   |   %mul66 = %1  *  %1;
 ; |   + END LOOP

@@ -26,6 +26,8 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/Intel_Andersens.h"           // INTEL
+#include "llvm/Analysis/Intel_WP.h"                  // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -332,43 +334,18 @@ struct ArgumentUsesTracker : public CaptureTracker {
 
 namespace llvm {
 template <> struct GraphTraits<ArgumentGraphNode *> {
-  typedef ArgumentGraphNode NodeType;
+  typedef ArgumentGraphNode *NodeRef;
   typedef SmallVectorImpl<ArgumentGraphNode *>::iterator ChildIteratorType;
 
-  static inline NodeType *getEntryNode(NodeType *A) { return A; }
-  static inline ChildIteratorType child_begin(NodeType *N) {
+  static inline NodeRef getEntryNode(NodeRef A) { return A; }
+  static inline ChildIteratorType child_begin(NodeRef N) {
     return N->Uses.begin();
   }
-  static inline ChildIteratorType child_end(NodeType *N) {
-    return N->Uses.end();
-  }
+  static inline ChildIteratorType child_end(NodeRef N) { return N->Uses.end(); }
 };
 template <>
 struct GraphTraits<ArgumentGraph *> : public GraphTraits<ArgumentGraphNode *> {
-
-#ifdef INTEL_CUSTOMIZATION
-  //Intel's variant of SCCIterator requires full implementation of GraphTraits
-  //interface. These functions were not used by others in llvm, so the missing
-  //functions were never noticed.
-  typedef std::pointer_to_unary_function<NodeType*, NodeType &>
-      DerefFun;
-
-  // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
-  typedef mapped_iterator<ChildIteratorType, DerefFun> nodes_iterator;
-
-  //GraphTraits requires argument to this be a pointer to template argument type
-  static nodes_iterator nodes_begin(ArgumentGraph **G) {
-    return map_iterator((*G)->begin(), DerefFun(NodeDeref));
-  }
-  static nodes_iterator nodes_end(ArgumentGraph **G) {
-    return map_iterator((*G)->end(), DerefFun(NodeDeref));
-  }
-
-  static NodeType &NodeDeref(NodeType *Node) { return *Node; }
-#endif // INTEL_CUSTOMIZATION
-  static NodeType *getEntryNode(ArgumentGraph *AG) {
-    return AG->getEntryNode();
-  }
+  static NodeRef getEntryNode(ArgumentGraph *AG) { return AG->getEntryNode(); }
   static ChildIteratorType nodes_begin(ArgumentGraph *AG) {
     return AG->begin();
   }
@@ -468,8 +445,8 @@ determinePointerReadAttrs(Argument *A,
       // to a operand bundle use, these cannot participate in the optimistic SCC
       // analysis.  Instead, we model the operand bundle uses as arguments in
       // call to a function external to the SCC.
-      if (!SCCNodes.count(&*std::next(F->arg_begin(), UseIndex)) ||
-          IsOperandBundleUse) {
+      if (IsOperandBundleUse ||
+          !SCCNodes.count(&*std::next(F->arg_begin(), UseIndex))) {
 
         // The accessors used on CallSite here do the right thing for calls and
         // invokes with operand bundles.
@@ -795,7 +772,8 @@ static bool isFunctionMallocLike(Function *F, const SCCNodeSet &SCCNodes) {
           break;
         if (CS.getCalledFunction() && SCCNodes.count(CS.getCalledFunction()))
           break;
-      } // fall-through
+        LLVM_FALLTHROUGH;
+      }
       default:
         return false; // Did not come from an allocation.
       }
@@ -1055,9 +1033,11 @@ static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
 }
 
 PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
-                                                  CGSCCAnalysisManager &AM) {
+                                                  CGSCCAnalysisManager &AM,
+                                                  LazyCallGraph &CG,
+                                                  CGSCCUpdateResult &) {
   FunctionAnalysisManager &FAM =
-      AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C).getManager();
+      AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
 
   // We pass a lambda into functions to wire them up to the analysis manager
   // for getting function analyses.
@@ -1107,7 +1087,13 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     Changed |= addNoRecurseAttrs(SCCNodes);
   }
 
-  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  if (!Changed)                           // INTEL
+    return PreservedAnalyses::all();      // INTEL
+
+  PreservedAnalyses PA;                   // INTEL
+  PA.preserve<WholeProgramAnalysis>();    // INTEL
+  PA.preserve<AndersensAA>();             // INTEL
+  return PA;                              // INTEL
 }
 
 namespace {
@@ -1121,6 +1107,9 @@ struct PostOrderFunctionAttrsLegacyPass : public CallGraphSCCPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<AndersensAAWrapperPass>();                // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>();               // INTEL
+    AU.addUsedIfAvailable<WholeProgramWrapperPass>();         // INTEL
     AU.addRequired<AssumptionCacheTracker>();
     getAAResultsAnalysisUsage(AU);
     CallGraphSCCPass::getAnalysisUsage(AU);
@@ -1139,7 +1128,8 @@ INITIALIZE_PASS_END(PostOrderFunctionAttrsLegacyPass, "functionattrs",
 Pass *llvm::createPostOrderFunctionAttrsLegacyPass() { return new PostOrderFunctionAttrsLegacyPass(); }
 
 template <typename AARGetterT>
-static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter) {
+static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter,   // INTEL
+  WholeProgramWrapperPass* WPA) {                              // INTEL
   bool Changed = false;
 
   // Fill SCCNodes with the elements of the SCC. Used for quickly looking up
@@ -1156,6 +1146,16 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter) {
       ExternalNode = true;
       continue;
     }
+
+#if INTEL_CUSTOMIZATION
+  // Treat “main” as non-recursive function if there are no uses
+  // when whole-program-safe is true.
+  if (F->getName() == "main" && F->use_empty()) {
+    if (WPA && WPA->getResult().isWholeProgramSafe()) {
+      Changed |= setDoesNotRecurse(*F);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
     SCCNodes.insert(F);
   }
@@ -1191,7 +1191,8 @@ bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {
     return *AAR;
   };
 
-  return runImpl(SCC, AARGetter);
+  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>(); // INTEL
+  return runImpl(SCC, AARGetter, WPA);                           // INTEL
 }
 
 namespace {
@@ -1205,6 +1206,8 @@ struct ReversePostOrderFunctionAttrsLegacyPass : public ModulePass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     AU.addRequired<CallGraphWrapperPass>();
     AU.addPreserved<CallGraphWrapperPass>();
   }
@@ -1287,13 +1290,22 @@ bool ReversePostOrderFunctionAttrsLegacyPass::runOnModule(Module &M) {
 }
 
 PreservedAnalyses
-ReversePostOrderFunctionAttrsPass::run(Module &M, AnalysisManager<Module> &AM) {
+ReversePostOrderFunctionAttrsPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &CG = AM.getResult<CallGraphAnalysis>(M);
 
   bool Changed = deduceFunctionAttributeInRPO(M, CG);
+
+  // CallGraphAnalysis holds AssertingVH and must be invalidated eagerly so
+  // that other passes don't delete stuff from under it.
+  // FIXME: We need to invalidate this to avoid PR28400. Is there a better
+  // solution?
+  AM.invalidate<CallGraphAnalysis>(M);
+
   if (!Changed)
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<CallGraphAnalysis>();
+  PA.preserve<AndersensAA>();              // INTEL
+  PA.preserve<WholeProgramAnalysis>();     // INTEL
   return PA;
 }

@@ -41,196 +41,196 @@ class Clause;
 
 // *** Begin OpenMP Directives ***
 
-def DIR_OMP_PARALLEL : Directive;
-def DIR_OMP_END_PARALLEL : Directive;
+def "DIR.OMP.PARALLEL" : Directive;
+def "DIR.OMP.END.PARALLEL" : Directive;
 
-def DIR_OMP_PARALLEL_LOOP : Directive;
-def DIR_OMP_END_PARALLEL_LOOP : Directive;
+def "DIR.OMP.PARALLEL.LOOP" : Directive;
+def "DIR.OMP.END.PARALLEL.LOOP" : Directive;
 
-def DIR_OMP_LOOP_SIMD : Directive;
-def DIR_OMP_END_LOOP_SIMD : Directive;
+def "DIR.OMP.LOOP.SIMD" : Directive;
+def "DIR.OMP.END.LOOP.SIMD" : Directive;
 
-def DIR_OMP_PARALLEL_LOOP_SIMD : Directive;
-def DIR_OMP_END_PARALLEL_LOOP_SIMD : Directive;
+def "DIR.OMP.PARALLEL.LOOP.SIMD" : Directive;
+def "DIR.OMP.END.PARALLEL.LOOP.SIMD" : Directive;
 
-def DIR_OMP_SECTIONS : Directive;
-def DIR_OMP_END_SECTIONS : Directive;
+def "DIR.OMP.SECTIONS" : Directive;
+def "DIR.OMP.END.SECTIONS" : Directive;
 
-def DIR_OMP_PARALLEL_SECTIONS : Directive;
-def DIR_OMP_END_PARALLEL_SECTIONS : Directive;
+def "DIR.OMP.PARALLEL.SECTIONS" : Directive;
+def "DIR.OMP.END.PARALLEL.SECTIONS" : Directive;
 
-def DIR_OMP_WORKSHARE : Directive;
-def DIR_OMP_END_WORKSHARE : Directive;
+def "DIR.OMP.WORKSHARE" : Directive;
+def "DIR.OMP.END.WORKSHARE" : Directive;
 
-def DIR_OMP_PARALLEL_WORKSHARE : Directive;
-def DIR_OMP_END_PARALLEL_WORKSHARE : Directive;
+def "DIR.OMP.PARALLEL.WORKSHARE" : Directive;
+def "DIR.OMP.END.PARALLEL.WORKSHARE" : Directive;
 
-def DIR_OMP_SECTION : Directive;
-def DIR_OMP_END_SECTION : Directive;
+def "DIR.OMP.SECTION" : Directive;
+def "DIR.OMP.END.SECTION" : Directive;
 
-def DIR_OMP_SINGLE : Directive;
-def DIR_OMP_END_SINGLE : Directive;
+def "DIR.OMP.SINGLE" : Directive;
+def "DIR.OMP.END.SINGLE" : Directive;
 
-def DIR_OMP_TASK : Directive;
-def DIR_OMP_END_TASK : Directive;
+def "DIR.OMP.TASK" : Directive;
+def "DIR.OMP.END.TASK" : Directive;
 
-def DIR_OMP_MASTER : Directive;
-def DIR_OMP_END_MASTER : Directive;
+def "DIR.OMP.MASTER" : Directive;
+def "DIR.OMP.END.MASTER" : Directive;
 
-def DIR_OMP_CRITICAL : Directive;
-def DIR_OMP_END_CRITICAL : Directive;
+def "DIR.OMP.CRITICAL" : Directive;
+def "DIR.OMP.END.CRITICAL" : Directive;
 
-def DIR_OMP_BARRIER : Directive;
+def "DIR.OMP.BARRIER" : Directive;
 
-def DIR_OMP_TASKWAIT : Directive;
+def "DIR.OMP.TASKWAIT" : Directive;
 
-def DIR_OMP_TASKYIELD : Directive;
+def "DIR.OMP.TASKYIELD" : Directive;
 
-def DIR_OMP_ATOMIC : Directive;
-def DIR_OMP_END_ATOMIC : Directive;
+def "DIR.OMP.ATOMIC" : Directive;
+def "DIR.OMP.END.ATOMIC" : Directive;
 
-def DIR_OMP_FLUSH : Directive;
+def "DIR.OMP.FLUSH" : Directive;
 
-// def DIR_OMP_THREADPRIVATE : Directive;
+// def DIR.OMP.THREADPRIVATE" : Directive;
 
-def DIR_OMP_ORDERED : Directive;
-def DIR_OMP_END_ORDERED : Directive;
+def "DIR.OMP.ORDERED" : Directive;
+def "DIR.OMP.END.ORDERED" : Directive;
 
-def DIR_OMP_SIMD : Directive;
-def DIR_OMP_END_SIMD : Directive;
+def "DIR.OMP.SIMD" : Directive;
+def "DIR.OMP.END.SIMD" : Directive;
 
-def DIR_OMP_TASKLOOP : Directive;
-def DIR_OMP_END_TASKLOOP : Directive;
+def "DIR.OMP.TASKLOOP" : Directive;
+def "DIR.OMP.END.TASKLOOP" : Directive;
 
-def DIR_OMP_TASKLOOP_SIMD : Directive;
-def DIR_OMP_END_TASKLOOP_SIMD : Directive;
+def "DIR.OMP.TASKLOOP.SIMD" : Directive;
+def "DIR.OMP.END.TASKLOOP.SIMD" : Directive;
 
-def DIR_OMP_TARGET : Directive;
-def DIR_OMP_END_TARGET : Directive;
+def "DIR.OMP.TARGET" : Directive;
+def "DIR.OMP.END.TARGET" : Directive;
 
-def DIR_OMP_TARGET_DATA : Directive;
-def DIR_OMP_END_TARGET_DATA : Directive;
+def "DIR.OMP.TARGET.DATA" : Directive;
+def "DIR.OMP.END.TARGET.DATA" : Directive;
 
-def DIR_OMP_TARGET_UPDATE : Directive;
-def DIR_OMP_END_TARGET_UPDATE : Directive;
+def "DIR.OMP.TARGET.UPDATE" : Directive;
+def "DIR.OMP.END.TARGET.UPDATE" : Directive;
 
-def DIR_OMP_TEAMS : Directive;
-def DIR_OMP_END_TEAMS : Directive;
+def "DIR.OMP.TEAMS" : Directive;
+def "DIR.OMP.END.TEAMS" : Directive;
 
-def DIR_OMP_TEAMS_DISTRIBUTE : Directive;
-def DIR_OMP_END_TEAMS_DISTRIBUTE : Directive;
+def "DIR.OMP.TEAMS.DISTRIBUTE" : Directive;
+def "DIR.OMP.END.TEAMS.DISTRIBUTE" : Directive;
 
-def DIR_OMP_TEAMS_SIMD : Directive;
-def DIR_OMP_END_TEAMS_SIMD : Directive;
+def "DIR.OMP.TEAMS.SIMD" : Directive;
+def "DIR.OMP.END.TEAMS.SIMD" : Directive;
 
-def DIR_OMP_TEAMS_DISTRIBUTE_SIMD : Directive;
-def DIR_OMP_END_TEAMS_DISTRIBUTE_SIMD : Directive;
+def "DIR.OMP.TEAMS.DISTRIBUTE.SIMD" : Directive;
+def "DIR.OMP.END.TEAMS.DISTRIBUTE.SIMD" : Directive;
 
-def DIR_OMP_DISTRIBUTE : Directive;
-def DIR_OMP_END_DISTRIBUTE : Directive;
+def "DIR.OMP.DISTRIBUTE" : Directive;
+def "DIR.OMP.END.DISTRIBUTE" : Directive;
 
-def DIR_OMP_DISTRIBUTE_PARLOOP : Directive;
-def DIR_OMP_END_DISTRIBUTE_PARLOOP : Directive;
+def "DIR.OMP.DISTRIBUTE.PARLOOP" : Directive;
+def "DIR.OMP.END.DISTRIBUTE.PARLOOP" : Directive;
 
-def DIR_OMP_DISTRIBUTE_SIMD : Directive;
-def DIR_OMP_END_DISTRIBUTE_SIMD : Directive;
+def "DIR.OMP.DISTRIBUTE.SIMD" : Directive;
+def "DIR.OMP.END.DISTRIBUTE.SIMD" : Directive;
 
-def DIR_OMP_DISTRIBUTE_PARLOOP_SIMD : Directive;
-def DIR_OMP_END_DISTRIBUTE_PARLOOP_SIMD : Directive;
+def "DIR.OMP.DISTRIBUTE.PARLOOP.SIMD" : Directive;
+def "DIR.OMP.END.DISTRIBUTE.PARLOOP.SIMD" : Directive;
 
-def DIR_OMP_TARGET_ENTER_DATA : Directive;
-def DIR_OMP_TARGET_EXIT_DATA : Directive;
+def "DIR.OMP.TARGET.ENTER.DATA" : Directive;
+def "DIR.OMP.TARGET.EXIT.DATA" : Directive;
 
-def DIR_OMP_TARGET_TEAMS : Directive;
-def DIR_OMP_END_TARGET_TEAMS : Directive;
+def "DIR.OMP.TARGET.TEAMS" : Directive;
+def "DIR.OMP.END.TARGET.TEAMS" : Directive;
 
-def DIR_OMP_TEAMS_DISTRIBUTE_PARLOOP : Directive;
-def DIR_OMP_END_TEAMS_DISTRIBUTE_PARLOOP : Directive;
+def "DIR.OMP.TEAMS.DISTRIBUTE.PARLOOP" : Directive;
+def "DIR.OMP.END.TEAMS.DISTRIBUTE.PARLOOP" : Directive;
 
-def DIR_OMP_TEAMS_DISTRIBUTE_PARLOOP_SIMD : Directive;
-def DIR_OMP_END_TEAMS_DISTRIBUTE_PARLOOP_SIMD : Directive;
+def "DIR.OMP.TEAMS.DISTRIBUTE.PARLOOP.SIMD" : Directive;
+def "DIR.OMP.END.TEAMS.DISTRIBUTE.PARLOOP.SIMD" : Directive;
 
-def DIR_OMP_TARGET_TEAMS_DISTRIBUTE : Directive;
-def DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE : Directive;
+def "DIR.OMP.TARGET.TEAMS.DISTRIBUTE" : Directive;
+def "DIR.OMP.END.TARGET.TEAMS.DISTRIBUTE" : Directive;
 
-def DIR_OMP_TARGET_TEAMS_DISTRIBUTE_PARLOOP : Directive;
-def DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARLOOP : Directive;
+def "DIR.OMP.TARGET.TEAMS.DISTRIBUTE.PARLOOP" : Directive;
+def "DIR.OMP.END.TARGET.TEAMS.DISTRIBUTE.PARLOOP" : Directive;
 
-def DIR_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD : Directive;
-def DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_SIMD : Directive;
+def "DIR.OMP.TARGET.TEAMS.DISTRIBUTE.SIMD" : Directive;
+def "DIR.OMP.END.TARGET.TEAMS.DISTRIBUTE.SIMD" : Directive;
 
-def DIR_OMP_TARGET_TEAMS_DISTRIBUTE_PARLOOP_SIMD : Directive;
-def DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARLOOP_SIMD : Directive;
+def "DIR.OMP.TARGET.TEAMS.DISTRIBUTE.PARLOOP.SIMD" : Directive;
+def "DIR.OMP.END.TARGET.TEAMS.DISTRIBUTE.PARLOOP.SIMD" : Directive;
 
-def DIR_OMP_CANCEL : Directive;
-def DIR_OMP_CANCELLATION_POINT : Directive;
+def "DIR.OMP.CANCEL" : Directive;
+def "DIR.OMP.CANCELLATION.POINT" : Directive;
 
 // *** Begin OpenMP Clauses ***
 
-def QUAL_OMP_DEFAULT_NONE : Clause;
-def QUAL_OMP_DEFAULT_SHARED : Clause;
-def QUAL_OMP_DEFAULT_PRIVATE : Clause;
-def QUAL_OMP_DEFAULT_FIRSTPRIVATE : Clause;
-def QUAL_OMP_MERGEABLE : Clause;
-def QUAL_OMP_NOWAIT : Clause;
-def QUAL_OMP_NOGROUP : Clause;
-def QUAL_OMP_UNTIED : Clause;
-def QUAL_OMP_READ : Clause;
-def QUAL_OMP_READ_SEQ_CST : Clause;
-def QUAL_OMP_WRITE : Clause;
-def QUAL_OMP_WRITE_SEQ_CST : Clause;
-def QUAL_OMP_UPDATE : Clause;
-def QUAL_OMP_UPDATE_SEQ_CST : Clause;
-def QUAL_OMP_CAPTURE : Clause;
-def QUAL_OMP_CAPTURE_SEQ_CST : Clause;
-def QUAL_OMP_SCHEDULE_AUTO : Clause;
-def QUAL_OMP_SCHEDULE_RUNTIME : Clause;
-def QUAL_OMP_PROC_BIND_MASTER : Clause;
-def QUAL_OMP_PROC_BIND_CLOSE : Clause;
-def QUAL_OMP_PROC_BIND_SPREAD : Clause;
-def QUAL_OMP_IF : Clause;
-def QUAL_OMP_COLLAPSE : Clause;
-def QUAL_OMP_NUM_THREADS : Clause;
-def QUAL_OMP_ORDERED : Clause;
-def QUAL_OMP_SAFELEN : Clause;
-def QUAL_OMP_SIMDLEN : Clause;
-def QUAL_OMP_FINAL : Clause;
-def QUAL_OMP_GRAINSIZE : Clause;
-def QUAL_OMP_NUM_TASKS : Clause;
-def QUAL_OMP_PRIORITY : Clause;
-def QUAL_OMP_NUM_TEAMS : Clause;
-def QUAL_OMP_THREAD_LIMIT : Clause;
-def QUAL_OMP_DIST_SCHEDULE_STATIC : Clause;
-def QUAL_OMP_SCHEDULE_STATIC : Clause;
-def QUAL_OMP_SCHEDULE_DYNAMIC : Clause;
-def QUAL_OMP_SCHEDULE_GUIDED : Clause;
-def QUAL_OMP_SHARED : Clause;
-def QUAL_OMP_PRIVATE : Clause;
-def QUAL_OMP_FIRSTPRIVATE : Clause;
-def QUAL_OMP_LASTPRIVATE : Clause;
-def QUAL_OMP_COPYIN : Clause;
-def QUAL_OMP_COPYPRIVATE : Clause;
-def QUAL_OMP_REDUCTION : Clause;
-def QUAL_OMP_REDUCTION_ADD : Clause;
-def QUAL_OMP_REDUCTION_SUB : Clause;
-def QUAL_OMP_REDUCTION_MUL : Clause;
-def QUAL_OMP_REDUCTION_AND : Clause;
-def QUAL_OMP_REDUCTION_OR : Clause;
-def QUAL_OMP_REDUCTION_XOR : Clause;
-def QUAL_OMP_REDUCTION_BAND : Clause;
-def QUAL_OMP_REDUCTION_BOR : Clause;
-def QUAL_OMP_REDUCTION_UDR : Clause;
-def QUAL_OMP_TO : Clause;
-def QUAL_OMP_FROM : Clause;
-def QUAL_OMP_LINEAR : Clause;
-def QUAL_OMP_UNIFORM : Clause;
-def QUAL_OMP_ALIGNED : Clause;
-def QUAL_OMP_FLUSH : Clause;
-def QUAL_OMP_THREADPRIVATE : Clause;
-def QUAL_OMP_MAP_TO : Clause;
-def QUAL_OMP_MAP_FROM : Clause;
-def QUAL_OMP_MAP_TOFROM : Clause;
-def QUAL_OMP_DEPEND_IN : Clause;
-def QUAL_OMP_DEPEND_OUT : Clause;
-def QUAL_OMP_DEPEND_INOUT : Clause;
-def QUAL_OMP_NAME : Clause;
+def "QUAL.OMP.DEFAULT.NONE" : Clause;
+def "QUAL.OMP.DEFAULT.SHARED" : Clause;
+def "QUAL.OMP.DEFAULT.PRIVATE" : Clause;
+def "QUAL.OMP.DEFAULT.FIRSTPRIVATE" : Clause;
+def "QUAL.OMP.MERGEABLE" : Clause;
+def "QUAL.OMP.NOWAIT" : Clause;
+def "QUAL.OMP.NOGROUP" : Clause;
+def "QUAL.OMP.UNTIED" : Clause;
+def "QUAL.OMP.READ" : Clause;
+def "QUAL.OMP.READ.SEQ_CST" : Clause;
+def "QUAL.OMP.WRITE" : Clause;
+def "QUAL.OMP.WRITE.SEQ_CST" : Clause;
+def "QUAL.OMP.UPDATE" : Clause;
+def "QUAL.OMP.UPDATE.SEQ_CST" : Clause;
+def "QUAL.OMP.CAPTURE" : Clause;
+def "QUAL.OMP.CAPTURE.SEQ_CST" : Clause;
+def "QUAL.OMP.SCHEDULE.AUTO" : Clause;
+def "QUAL.OMP.SCHEDULE.RUNTIME" : Clause;
+def "QUAL.OMP.PROC.BIND.MASTER" : Clause;
+def "QUAL.OMP.PROC.BIND.CLOSE" : Clause;
+def "QUAL.OMP.PROC.BIND.SPREAD" : Clause;
+def "QUAL.OMP.IF" : Clause;
+def "QUAL.OMP.COLLAPSE" : Clause;
+def "QUAL.OMP.NUM_THREADS" : Clause;
+def "QUAL.OMP.ORDERED" : Clause;
+def "QUAL.OMP.SAFELEN" : Clause;
+def "QUAL.OMP.SIMDLEN" : Clause;
+def "QUAL.OMP.FINAL" : Clause;
+def "QUAL.OMP.GRAINSIZE" : Clause;
+def "QUAL.OMP.NUM_TASKS" : Clause;
+def "QUAL.OMP.PRIORITY" : Clause;
+def "QUAL.OMP.NUM_TEAMS" : Clause;
+def "QUAL.OMP.THREAD_LIMIT" : Clause;
+def "QUAL.OMP.DIST.SCHEDULE.STATIC" : Clause;
+def "QUAL.OMP.SCHEDULE.STATIC" : Clause;
+def "QUAL.OMP.SCHEDULE.DYNAMIC" : Clause;
+def "QUAL.OMP.SCHEDULE.GUIDED" : Clause;
+def "QUAL.OMP.SHARED" : Clause;
+def "QUAL.OMP.PRIVATE" : Clause;
+def "QUAL.OMP.FIRSTPRIVATE" : Clause;
+def "QUAL.OMP.LASTPRIVATE" : Clause;
+def "QUAL.OMP.COPYIN" : Clause;
+def "QUAL.OMP.COPYPRIVATE" : Clause;
+def "QUAL.OMP.REDUCTION" : Clause;
+def "QUAL.OMP.REDUCTION.ADD" : Clause;
+def "QUAL.OMP.REDUCTION.SUB" : Clause;
+def "QUAL.OMP.REDUCTION.MUL" : Clause;
+def "QUAL.OMP.REDUCTION.AND" : Clause;
+def "QUAL.OMP.REDUCTION.OR" : Clause;
+def "QUAL.OMP.REDUCTION.XOR" : Clause;
+def "QUAL.OMP.REDUCTION.BAND" : Clause;
+def "QUAL.OMP.REDUCTION.BOR" : Clause;
+def "QUAL.OMP.REDUCTION.UDR" : Clause;
+def "QUAL.OMP.TO" : Clause;
+def "QUAL.OMP.FROM" : Clause;
+def "QUAL.OMP.LINEAR" : Clause;
+def "QUAL.OMP.UNIFORM" : Clause;
+def "QUAL.OMP.ALIGNED" : Clause;
+def "QUAL.OMP.FLUSH" : Clause;
+def "QUAL.OMP.THREADPRIVATE" : Clause;
+def "QUAL.OMP.MAP.TO" : Clause;
+def "QUAL.OMP.MAP.FROM" : Clause;
+def "QUAL.OMP.MAP.TOFROM" : Clause;
+def "QUAL.OMP.DEPEND.IN" : Clause;
+def "QUAL.OMP.DEPEND.OUT" : Clause;
+def "QUAL.OMP.DEPEND.INOUT" : Clause;
+def "QUAL.OMP.NAME" : Clause;

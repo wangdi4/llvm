@@ -606,11 +606,20 @@ public:
 /// memory access used by the alias-analysis infrastructure.
 struct AAMDNodes {
   explicit AAMDNodes(MDNode *T = nullptr, MDNode *S = nullptr,
-                     MDNode *N = nullptr)
-      : TBAA(T), Scope(S), NoAlias(N) {}
+#if INTEL_CUSTOMIZATION
+                     MDNode *N = nullptr,
+                     MDNode *P = nullptr, MDNode *I = nullptr)
+      : TBAA(T), Scope(S), NoAlias(N), StdContainerPtr(P),
+        StdContainerPtrIter(I) { 
+  } 
+#endif // INTEL_CUSTOMIZATION
 
   bool operator==(const AAMDNodes &A) const {
-    return TBAA == A.TBAA && Scope == A.Scope && NoAlias == A.NoAlias;
+    return TBAA == A.TBAA && Scope == A.Scope && NoAlias == A.NoAlias &&
+#if INTEL_CUSTOMIZATION
+           StdContainerPtr == A.StdContainerPtr &&
+           StdContainerPtrIter == A.StdContainerPtrIter;
+#endif // INTEL_CUSTOMIZATION
   }
 
   bool operator!=(const AAMDNodes &A) const { return !(*this == A); }
@@ -625,6 +634,14 @@ struct AAMDNodes {
 
   /// \brief The tag specifying the noalias scope.
   MDNode *NoAlias;
+
+#if INTEL_CUSTOMIZATION
+  /// \brief The tag for std container ptr.
+  MDNode *StdContainerPtr;
+
+  /// \brief The tag for std container ptr iterator.
+  MDNode *StdContainerPtrIter;
+#endif // INTEL_CUSTOMIZATION
 };
 
 // Specialize DenseMapInfo for AAMDNodes.
@@ -641,7 +658,11 @@ struct DenseMapInfo<AAMDNodes> {
   static unsigned getHashValue(const AAMDNodes &Val) {
     return DenseMapInfo<MDNode *>::getHashValue(Val.TBAA) ^
            DenseMapInfo<MDNode *>::getHashValue(Val.Scope) ^
-           DenseMapInfo<MDNode *>::getHashValue(Val.NoAlias);
+           DenseMapInfo<MDNode *>::getHashValue(Val.NoAlias) ^
+#if INTEL_CUSTOMIZATION
+           DenseMapInfo<MDNode *>::getHashValue(Val.StdContainerPtr) ^
+           DenseMapInfo<MDNode *>::getHashValue(Val.StdContainerPtrIter);
+#endif // INTEL_CUSTOMIZATION
   }
   static bool isEqual(const AAMDNodes &LHS, const AAMDNodes &RHS) {
     return LHS == RHS;

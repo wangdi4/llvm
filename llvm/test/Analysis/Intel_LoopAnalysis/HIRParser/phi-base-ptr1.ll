@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that store with indirect linear phi base is parsed correctly.
 ; CHECK: DO i1 = 0, 999
-; CHECK-NEXT: {al:4}(%p)[i1 + 1] = i1
+; CHECK-NEXT: (%p)[i1 + 1] = i1
 ; CHECK-NEXT: END LOOP
 
 

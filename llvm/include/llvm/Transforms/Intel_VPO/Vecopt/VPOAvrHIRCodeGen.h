@@ -41,8 +41,8 @@ public:
   /// \brief Return address, where initial value is stored.
   const RegDDRef *getReductionValuePtr(ReductionItem *RI);
 
-  /// \brief Build internal maps for the given \p Region
-  void mapHLNodes(const HLRegion *Region);
+  /// \brief Build internal maps for the given loop \p OrigLoop.
+  void mapHLNodes(const HLLoop *OrigLoop);
 
   /// \brief Return identity vector corresponding to the recurrence kind.
   /// The recurrence kind is taken from \p RI. \p VL - vector length of
@@ -74,7 +74,14 @@ public:
 
   // Perform the actual loop widening (vectorization) using VL as the
   // vectorization factor.
-  bool vectorize(int VL);
+  bool vectorize(unsigned int VF);
+
+  // Check if loop is currently suported by AVRCodeGen.
+  bool loopIsHandled(unsigned int VF);
+
+  // Return the cost of remainder loop code, if a remainder loop is needed.
+  int getRemainderLoopCost(HLLoop *Loop, unsigned int VF, 
+                           unsigned int &TripCount); 
 
   // Return true if \p Ref is a constant stride reference at loop
   // nesting level \p Level. Return stride coefficient in \p CoeffPtr
@@ -125,7 +132,10 @@ private:
 
   // Check for currently handled loops. Initial implementations
   // punts on seeing any control flow.
-  bool loopIsHandled();
+  // The output parameter \p TripCount holds the tripCount of the loop if it is
+  // a constant, zero otherwise.
+  bool loopIsHandledImpl(int64_t &TripCount);
+
   void widenNode(const HLNode *Node);
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node);

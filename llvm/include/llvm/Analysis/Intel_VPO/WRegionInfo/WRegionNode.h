@@ -51,25 +51,12 @@ template <>
 struct ilist_traits<vpo::WRegionNode>
     : public ilist_default_traits<vpo::WRegionNode> {
 
-  vpo::WRegionNode *createSentinel() const;
-
-  static void destroySentinel(vpo::WRegionNode *) {}
-
-  vpo::WRegionNode *provideInitialHead() const { return createSentinel(); }
-  vpo::WRegionNode *ensureHead(vpo::WRegionNode *) const {
-    return createSentinel();
-  }
-  static void noteHead(vpo::WRegionNode *, vpo::WRegionNode *) {}
-
   static vpo::WRegionNode *createWRegionNode(const vpo::WRegionNode &) {
-    llvm_unreachable("WRegionNodes should be explicitly created via" 
+    llvm_unreachable("WRegionNodes should be explicitly created via"
                      "WRegionUtils class");
     return nullptr;
   }
   static void deleteWRegionNode(vpo::WRegionNode *) {}
-
-private:
-  mutable ilist_half_node<vpo::WRegionNode> Sentinel;
 };
 
 
@@ -195,6 +182,9 @@ protected:
   virtual void setHasSeqCstClause(bool SC)      {errorClause("SEQ_CST");      }
   virtual bool getHasSeqCstClause()       const {errorClause("SEQ_CST");
                                                  return false;                }
+  virtual void setUserLockName(StringRef LN)    {errorClause(QUAL_OMP_NAME);  }
+  virtual StringRef getUserLockName()     const {errorClause(QUAL_OMP_NAME);
+                                                 return "";                   }
   virtual void setCollapse(int N)            {errorClause(QUAL_OMP_COLLAPSE); }
   virtual int getCollapse()            const {errorClause(QUAL_OMP_COLLAPSE);
                                               return 0;                       }

@@ -21,6 +21,7 @@
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -147,6 +148,7 @@ struct LoopContext {
 class HIRRuntimeDD : public HIRTransformPass {
 public:
   static char ID;
+  HIRLoopStatistics *HLS;
 
   HIRRuntimeDD() : HIRTransformPass(ID) {
     initializeHIRRuntimeDDPass(*PassRegistry::getPassRegistry());
@@ -158,6 +160,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
+    AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.setPreservesAll();
   }
 
@@ -169,7 +172,7 @@ private:
   struct LoopAnalyzer;
 
   /// Returns true if \p Loop is considered as profitable for multiversioning.
-  static bool isProfitable(const HLLoop *Loop);
+  bool isProfitable(const HLLoop *Loop);
 
   // \brief The method processes each IV segment and updates bounds according to
   // a specified loopnest.
@@ -186,7 +189,7 @@ private:
                                         const RegDDRef *Ref2);
 
   // \brief Returns required DD tests for an arbitrary loop L.
-  static RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
+  RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
 
   static HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
                                            Segment &S2);
@@ -197,7 +200,6 @@ private:
   // \brief Marks all DDRefs independent across groups.
   static void markDDRefsIndep(HLLoop *Loop);
 };
-
 }
 }
 }

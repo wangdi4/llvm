@@ -584,7 +584,7 @@ void GVN::ValueTable::verifyRemoved(const Value *V) const {
 //                                GVN Pass
 //===----------------------------------------------------------------------===//
 
-PreservedAnalyses GVN::run(Function &F, AnalysisManager<Function> &AM) {
+PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
   // FIXME: The order of evaluation of these 'getResult' calls is very
   // significant! Re-ordering these variables will cause GVN when run alone to
   // be less effective! We should fix memdep and basic-aa to not exhibit this
@@ -726,8 +726,9 @@ static Value *CoerceAvailableValueToLoadType(Value *StoredVal, Type *LoadedTy,
   assert(CanCoerceMustAliasedValueToLoad(StoredVal, LoadedTy, DL) &&
          "precondition violation - materialization can't fail");
 
-  if (auto *CExpr = dyn_cast<ConstantExpr>(StoredVal))
-    StoredVal = ConstantFoldConstantExpression(CExpr, DL);
+  if (auto *C = dyn_cast<Constant>(StoredVal))
+    if (auto *FoldedStoredVal = ConstantFoldConstant(C, DL))
+      StoredVal = FoldedStoredVal;
 
   // If this is already the right type, just return it.
   Type *StoredValTy = StoredVal->getType();
@@ -760,8 +761,9 @@ static Value *CoerceAvailableValueToLoadType(Value *StoredVal, Type *LoadedTy,
         StoredVal = IRB.CreateIntToPtr(StoredVal, LoadedTy);
     }
 
-    if (auto *CExpr = dyn_cast<ConstantExpr>(StoredVal))
-      StoredVal = ConstantFoldConstantExpression(CExpr, DL);
+    if (auto *C = dyn_cast<ConstantExpr>(StoredVal))
+      if (auto *FoldedStoredVal = ConstantFoldConstant(C, DL))
+        StoredVal = FoldedStoredVal;
 
     return StoredVal;
   }
@@ -805,8 +807,9 @@ static Value *CoerceAvailableValueToLoadType(Value *StoredVal, Type *LoadedTy,
       StoredVal = IRB.CreateBitCast(StoredVal, LoadedTy, "bitcast");
   }
 
-  if (auto *CExpr = dyn_cast<ConstantExpr>(StoredVal))
-    StoredVal = ConstantFoldConstantExpression(CExpr, DL);
+  if (auto *C = dyn_cast<Constant>(StoredVal))
+    if (auto *FoldedStoredVal = ConstantFoldConstant(C, DL))
+      StoredVal = FoldedStoredVal;
 
   return StoredVal;
 }
@@ -1780,6 +1783,10 @@ static void patchReplacementInstruction(Instruction *I, Value *Repl) {
       LLVMContext::MD_tbaa,           LLVMContext::MD_alias_scope,
       LLVMContext::MD_noalias,        LLVMContext::MD_range,
       LLVMContext::MD_fpmath,         LLVMContext::MD_invariant_load,
+#if INTEL_CUSTOMIZATION
+      LLVMContext::MD_std_container_ptr,
+      LLVMContext::MD_std_container_ptr_iter,
+#endif // INTEL_CUSTOMIZATION
       LLVMContext::MD_invariant_group};
   combineMetadata(ReplInst, I, KnownIDs);
 }

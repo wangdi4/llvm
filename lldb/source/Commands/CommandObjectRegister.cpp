@@ -50,7 +50,7 @@ public:
                             eCommandRequiresRegContext    |
                             eCommandProcessMustBeLaunched |
                             eCommandProcessMustBePaused   ),
-        m_option_group (interpreter),
+        m_option_group(),
         m_format_options (eFormatDefault),
         m_command_options ()
     {
@@ -279,7 +279,7 @@ protected:
         }
         
         void
-        OptionParsingStarting (CommandInterpreter &interpreter) override
+        OptionParsingStarting(ExecutionContext *execution_context) override
         {
             set_indexes.Clear();
             dump_all_sets.Clear();
@@ -287,9 +287,9 @@ protected:
         }
 
         Error
-        SetOptionValue (CommandInterpreter &interpreter,
-                        uint32_t option_idx,
-                        const char *option_value) override
+        SetOptionValue (uint32_t option_idx,
+                        const char *option_value,
+                        ExecutionContext *execution_context) override
         {
             Error error;
             const int short_option = g_option_table[option_idx].short_option;
@@ -344,9 +344,11 @@ protected:
 const OptionDefinition
 CommandObjectRegisterRead::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_ALL, false, "alternate", 'A', OptionParser::eNoArgument      , nullptr, nullptr, 0, eArgTypeNone      , "Display register names using the alternate register name if there is one."},
-    { LLDB_OPT_SET_1  , false, "set"      , 's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeIndex     , "Specify which register sets to dump by index."},
-    { LLDB_OPT_SET_2  , false, "all"      , 'a', OptionParser::eNoArgument      , nullptr, nullptr, 0, eArgTypeNone      , "Show all register sets."},
+  // clang-format off
+  {LLDB_OPT_SET_ALL, false, "alternate", 'A', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,  "Display register names using the alternate register name if there is one."},
+  {LLDB_OPT_SET_1,   false, "set",       's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeIndex, "Specify which register sets to dump by index."},
+  {LLDB_OPT_SET_2,   false, "all",       'a', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,  "Show all register sets."},
+  // clang-format on
 };
 
 uint32_t

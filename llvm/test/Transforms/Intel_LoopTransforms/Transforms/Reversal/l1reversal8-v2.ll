@@ -63,17 +63,17 @@
 ; 
 ;          BEGIN REGION { }
 ;<19>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<5>          |   %2 = {al:4}(%A)[-2 * i1 + 10];
-;<8>          |   %3 = {al:4}(%A)[%2];
-;<12>         |   {al:4}(%B)[-2 * i1 + 50] = %3 + 1;
+;<5>          |   %2 = (%A)[-2 * i1 + 10];
+;<8>          |   %3 = (%A)[%2];
+;<12>         |   (%B)[-2 * i1 + 50] = %3 + 1;
 ;<19>         + END LOOP
 ;          END REGION
 ; 
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:      + DO i1 = 0, 4, 1   <DO_LOOP>
-; BEFORE:     |   %2 = {al:4}(%A)[-2 * i1 + 10];
-; BEFORE:     |   %3 = {al:4}(%A)[%2];
-; BEFORE:     |   {al:4}(%B)[-2 * i1 + 50] = %3 + 1;
+; BEFORE:     |   %2 = (%A)[-2 * i1 + 10];
+; BEFORE:     |   %3 = (%A)[%2];
+; BEFORE:     |   (%B)[-2 * i1 + 50] = %3 + 1;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -86,17 +86,17 @@
 ; 
 ;          BEGIN REGION { modified }
 ;<19>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<5>          |   %2 = {al:4}(%A)[2 * i1 + 2];
-;<8>          |   %3 = {al:4}(%A)[%2];
-;<12>         |   {al:4}(%B)[2 * i1 + 42] = %3 + 1;
+;<5>          |   %2 = (%A)[2 * i1 + 2];
+;<8>          |   %3 = (%A)[%2];
+;<12>         |   (%B)[2 * i1 + 42] = %3 + 1;
 ;<19>         + END LOOP
 ;          END REGION
 ;
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:      + DO i1 = 0, 4, 1   <DO_LOOP>
-; AFTER:      |   %2 = {al:4}(%A)[2 * i1 + 2];
-; AFTER:      |   %3 = {al:4}(%A)[%2];
-; AFTER:      |   {al:4}(%B)[2 * i1 + 42] = %3 + 1;
+; AFTER:      |   %2 = (%A)[2 * i1 + 2];
+; AFTER:      |   %3 = (%A)[%2];
+; AFTER:      |   (%B)[2 * i1 + 42] = %3 + 1;
 ; AFTER:      + END LOOP
 ; AFTER:   END REGION
 ;

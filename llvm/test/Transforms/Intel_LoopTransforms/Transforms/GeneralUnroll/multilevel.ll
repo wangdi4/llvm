@@ -10,7 +10,7 @@
 ; CHECK-NEXT: (@A)[0][i1 + 16 * i2 + -1];
 ; CHECK: END LOOP
 ; Remainder loop.
-; CHECK-NEXT: DO i2 = 544, 549, 1
+; CHECK: DO i2 = 544, 549, 1
 ; CHECK-NEXT: (@A)[0][i1 + 2 * i2 + -1]
 ; CHECK: END LOOP
 

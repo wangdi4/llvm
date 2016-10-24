@@ -21,6 +21,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/Intel_WP.h"          // INTEL
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/Constant.h"
@@ -59,6 +60,12 @@ namespace {
     DAE() : ModulePass(ID) {
       initializeDAEPass(*PassRegistry::getPassRegistry());
     }
+
+#if INTEL_CUSTOMIZATION
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<WholeProgramWrapperPass>();
+  }
+#endif // INTEL_CUSTOMIZATION
 
     bool runOnModule(Module &M) override {
       if (skipModule(M))
@@ -1068,5 +1075,9 @@ PreservedAnalyses DeadArgumentEliminationPass::run(Module &M,
 
   if (!Changed)
     return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+
+  auto PA = PreservedAnalyses();        // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
+
+  return PA;                            // INTEL
 }

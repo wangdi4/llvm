@@ -26,6 +26,8 @@ using namespace llvm::loopopt;
 HLSwitch::HLSwitch(RegDDRef *ConditionRef) : HLDDNode(HLNode::HLSwitchVal) {
   unsigned NumOp;
 
+  DefaultCaseBegin = Children.end();
+
   /// This call is to get around calling virtual functions in the constructor.
   NumOp = getNumOperandsInternal();
 
@@ -34,13 +36,13 @@ HLSwitch::HLSwitch(RegDDRef *ConditionRef) : HLDDNode(HLNode::HLSwitchVal) {
   setConditionDDRef(ConditionRef);
 }
 
-HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,
-                   LabelMapTy *LabelMap)
+HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj)
     : HLDDNode(HLSwitchObj) {
   const RegDDRef *TRef;
   RegDDRef *Ref;
 
   CaseBegin.resize(HLSwitchObj.getNumCases(), Children.end());
+  DefaultCaseBegin = Children.end();
   RegDDRefs.resize(getNumOperandsInternal(), nullptr);
 
   /// Clone switch condition DDRef
@@ -52,39 +54,36 @@ HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,
     Ref = (TRef = HLSwitchObj.getCaseValueDDRef(I)) ? TRef->clone() : nullptr;
     setCaseValueDDRef(Ref, I);
   }
+}
+
+HLSwitch *HLSwitch::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                              HLNodeMapper *NodeMapper) const {
+  // Call the Copy Constructor
+  HLSwitch *NewHLSwitch = new HLSwitch(*this);
 
   /// Clone default case children
-  for (auto It = HLSwitchObj.default_case_child_begin(),
-            EndIt = HLSwitchObj.default_case_child_end();
+  for (auto It = this->default_case_child_begin(),
+            EndIt = this->default_case_child_end();
        It != EndIt; It++) {
-    HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap);
-    HLNodeUtils::insertAsLastDefaultChild(this, NewHLNode);
+    HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap, NodeMapper);
+    HLNodeUtils::insertAsLastDefaultChild(NewHLSwitch, NewHLNode);
   }
 
   /// Clone case children
-  for (unsigned I = 1, E = HLSwitchObj.getNumCases(); I <= E; I++) {
-    for (auto It = HLSwitchObj.case_child_begin(I),
-              EndIt = HLSwitchObj.case_child_end(I);
+  for (unsigned I = 1, E = this->getNumCases(); I <= E; I++) {
+    for (auto It = this->case_child_begin(I),
+              EndIt = this->case_child_end(I);
          It != EndIt; It++) {
-      HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap);
-      HLNodeUtils::insertAsLastChild(this, NewHLNode, I);
+      HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap, NodeMapper);
+      HLNodeUtils::insertAsLastChild(NewHLSwitch, NewHLNode, I);
     }
   }
-}
-
-HLSwitch *HLSwitch::cloneImpl(GotoContainerTy *GotoList,
-                              LabelMapTy *LabelMap) const {
-  // Call the Copy Constructor
-  HLSwitch *NewHLSwitch = new HLSwitch(*this, GotoList, LabelMap);
 
   return NewHLSwitch;
 }
 
-HLSwitch *HLSwitch::clone() const {
-  HLContainerTy NContainer;
-  HLNodeUtils::cloneSequence(&NContainer, this);
-  HLSwitch *NewSwitch = cast<HLSwitch>(NContainer.remove(NContainer.begin()));
-  return NewSwitch;
+HLSwitch *HLSwitch::clone(HLNodeMapper *NodeMapper) const {
+  return cast<HLSwitch>(HLNode::clone(NodeMapper));
 }
 
 void HLSwitch::print_break(formatted_raw_ostream &OS, unsigned Depth,
@@ -148,7 +147,7 @@ void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
 HLSwitch::case_child_iterator
 HLSwitch::case_child_begin_internal(unsigned CaseNum) {
   if (CaseNum == 0) {
-    return Children.begin();
+    return DefaultCaseBegin;
   } else {
     return CaseBegin[CaseNum - 1];
   }
@@ -161,8 +160,10 @@ HLSwitch::case_child_begin_internal(unsigned CaseNum) const {
 
 HLSwitch::case_child_iterator
 HLSwitch::case_child_end_internal(unsigned CaseNum) {
-  if (CaseNum == getNumCases()) {
+  if (CaseNum == 0) {
     return Children.end();
+  } else if (CaseNum == getNumCases()) {
+    return DefaultCaseBegin;
   } else {
     return CaseBegin[CaseNum];
   }
@@ -175,8 +176,10 @@ HLSwitch::case_child_end_internal(unsigned CaseNum) const {
 
 HLSwitch::reverse_case_child_iterator
 HLSwitch::case_child_rbegin_internal(unsigned CaseNum) {
-  if (CaseNum == getNumCases()) {
+  if (CaseNum == 0) {
     return Children.rbegin();
+  } else if (CaseNum == getNumCases()) {
+    return reverse_case_child_iterator(DefaultCaseBegin);
   } else {
     return reverse_case_child_iterator(CaseBegin[CaseNum]);
   }
@@ -190,7 +193,7 @@ HLSwitch::case_child_rbegin_internal(unsigned CaseNum) const {
 HLSwitch::reverse_case_child_iterator
 HLSwitch::case_child_rend_internal(unsigned CaseNum) {
   if (CaseNum == 0) {
-    return Children.rend();
+    return reverse_case_child_iterator(DefaultCaseBegin);
   } else {
     return reverse_case_child_iterator(CaseBegin[CaseNum - 1]);
   }
@@ -268,7 +271,7 @@ RegDDRef *HLSwitch::removeCaseValueDDRef(unsigned CaseNum) {
 void HLSwitch::addCase(RegDDRef *ValueRef) {
   unsigned NumOp;
 
-  CaseBegin.push_back(Children.end());
+  CaseBegin.push_back(DefaultCaseBegin);
 
   NumOp = getNumOperandsInternal();
   RegDDRefs.resize(NumOp, nullptr);

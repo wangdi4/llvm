@@ -71,18 +71,17 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
 
   setIVType(LowerDDRef->getDestType());
 
-  assert(
-      ((!getLowerDDRef()->containsUndef() &&
-        !getUpperDDRef()->containsUndef() &&
-        !getStrideDDRef()->containsUndef()) ||
-       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
-        getStrideDDRef()->containsUndef())) &&
-      "Lower, Upper and Stride DDRefs "
-      "should be all defined or all undefined");
+  assert(((!getLowerDDRef()->isUndefSelfBlob() &&
+           !getUpperDDRef()->isUndefSelfBlob() &&
+           !getStrideDDRef()->isUndefSelfBlob()) ||
+          (getLowerDDRef()->isUndefSelfBlob() &&
+           getUpperDDRef()->isUndefSelfBlob() &&
+           getStrideDDRef()->isUndefSelfBlob())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
 }
 
-HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
-               LabelMapTy *LabelMap, bool CloneChildren)
+HLLoop::HLLoop(const HLLoop &HLLoopObj)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
       IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
@@ -111,38 +110,6 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   setLowerDDRef(HLLoopObj.getLowerDDRef()->clone());
   setUpperDDRef(HLLoopObj.getUpperDDRef()->clone());
   setStrideDDRef(HLLoopObj.getStrideDDRef()->clone());
-
-  // Avoid cloning children and preheader/postexit.
-  if (!CloneChildren) {
-    return;
-  }
-
-  // Assert is placed here since empty loop cloning will not use it.
-  assert(GotoList && " GotoList is null.");
-  assert(LabelMap && " LabelMap is null.");
-
-  /// Loop over children, preheader and postexit
-  for (auto PreIter = HLLoopObj.pre_begin(), PreIterEnd = HLLoopObj.pre_end();
-       PreIter != PreIterEnd; ++PreIter) {
-    HLNode *NewHLNode = PreIter->clone();
-    HLNodeUtils::insertAsLastPreheaderNode(this, NewHLNode);
-  }
-
-  // Clone the children.
-  // The goto target label's will not be updated and would be done by caller.
-  for (auto ChildIter = HLLoopObj.child_begin(),
-            ChildIterEnd = HLLoopObj.child_end();
-       ChildIter != ChildIterEnd; ++ChildIter) {
-    HLNode *NewHLNode = cloneBaseImpl(&*ChildIter, GotoList, LabelMap);
-    HLNodeUtils::insertAsLastChild(this, NewHLNode);
-  }
-
-  for (auto PostIter = HLLoopObj.post_begin(),
-            PostIterEnd = HLLoopObj.post_end();
-       PostIter != PostIterEnd; ++PostIter) {
-    HLNode *NewHLNode = PostIter->clone();
-    HLNodeUtils::insertAsLastPostexitNode(this, NewHLNode);
-  }
 }
 
 HLLoop &HLLoop::operator=(HLLoop &&Lp) {
@@ -168,41 +135,61 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   return *this;
 }
 
-HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList,
-                          LabelMapTy *LabelMap) const {
+HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                          HLNodeMapper *NodeMapper) const {
 
   // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this, GotoList, LabelMap, true);
+  HLLoop *NewHLLoop = new HLLoop(*this);
+
+  // Assert is placed here since empty loop cloning will not use it.
+  assert(GotoList && " GotoList is null.");
+  assert(LabelMap && " LabelMap is null.");
+
+  /// Loop over children, preheader and postexit
+  for (auto PreIter = this->pre_begin(), PreIterEnd = this->pre_end();
+       PreIter != PreIterEnd; ++PreIter) {
+    HLNode *NewHLNode = cloneBaseImpl(&*PreIter, nullptr, nullptr, NodeMapper);
+    HLNodeUtils::insertAsLastPreheaderNode(NewHLLoop, NewHLNode);
+  }
+
+  // Clone the children.
+  // The goto target label's will not be updated and would be done by caller.
+  for (auto ChildIter = this->child_begin(), ChildIterEnd = this->child_end();
+       ChildIter != ChildIterEnd; ++ChildIter) {
+    HLNode *NewHLNode =
+        cloneBaseImpl(&*ChildIter, GotoList, LabelMap, NodeMapper);
+    HLNodeUtils::insertAsLastChild(NewHLLoop, NewHLNode);
+  }
+
+  for (auto PostIter = this->post_begin(), PostIterEnd = this->post_end();
+       PostIter != PostIterEnd; ++PostIter) {
+    HLNode *NewHLNode = cloneBaseImpl(&*PostIter, nullptr, nullptr, NodeMapper);
+    HLNodeUtils::insertAsLastPostexitNode(NewHLLoop, NewHLNode);
+  }
 
   return NewHLLoop;
 }
 
-HLLoop *HLLoop::clone() const {
-
-  HLContainerTy NContainer;
-  HLNodeUtils::cloneSequence(&NContainer, this);
-  HLLoop *NewLoop = cast<HLLoop>(NContainer.remove(NContainer.begin()));
-  return NewLoop;
+HLLoop *HLLoop::clone(HLNodeMapper *NodeMapper) const {
+  return cast<HLLoop>(HLNode::clone(NodeMapper));
 }
 
 HLLoop *HLLoop::cloneEmptyLoop() const {
-
   // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this, nullptr, nullptr, false);
-
-  return NewHLLoop;
+  return new HLLoop(*this);
 }
 
 void HLLoop::printPreheader(formatted_raw_ostream &OS, unsigned Depth,
                             bool Detailed) const {
-  bool FirstPreInst = true;
+  auto Parent = getParent();
+
+  // If a previous node exists, add a newline.
+  if (Parent && (this != HLNodeUtils::getFirstLexicalChild(Parent, this))) {
+    indent(OS, Depth);
+    OS << "\n";
+  }
 
   for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
-    if (FirstPreInst) {
-      indent(OS, Depth);
-      OS << "\n";
-      FirstPreInst = false;
-    }
     I->print(OS, Depth + 1, Detailed);
   }
 }
@@ -343,7 +330,10 @@ void HLLoop::printPostexit(formatted_raw_ostream &OS, unsigned Depth,
     I->print(OS, Depth + 1, Detailed);
   }
 
-  if (hasPostexit()) {
+  auto Parent = getParent();
+
+  // If a next node exists, add a newline.
+  if (Parent && (this != HLNodeUtils::getLastLexicalChild(Parent, this))) {
     indent(OS, Depth);
     OS << "\n";
   }
@@ -381,6 +371,8 @@ void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
   Ztt->addPredicate(Pred, Ref1, Ref2);
 
   const_ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
+
+  RegDDRefs.resize(getNumOperandsInternal(), nullptr);
 
   /// Move the RegDDRefs to loop.
   setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, true),
@@ -837,14 +829,14 @@ void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
 void HLLoop::verify() const {
   HLDDNode::verify();
 
-  assert(
-      ((!getLowerDDRef()->containsUndef() &&
-        !getUpperDDRef()->containsUndef() &&
-        !getStrideDDRef()->containsUndef()) ||
-       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
-        getStrideDDRef()->containsUndef())) &&
-      "Lower, Upper and Stride DDRefs "
-      "should be all defined or all undefined");
+  assert(((!getLowerDDRef()->isUndefSelfBlob() &&
+           !getUpperDDRef()->isUndefSelfBlob() &&
+           !getStrideDDRef()->isUndefSelfBlob()) ||
+          (getLowerDDRef()->isUndefSelfBlob() &&
+           getUpperDDRef()->isUndefSelfBlob() &&
+           getStrideDDRef()->isUndefSelfBlob())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
 
   assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
          "Loop lower cannot be non-linear!");
@@ -876,15 +868,15 @@ bool HLLoop::isSIMD() const {
   while (Iter != FIter) {
     --Iter;
     const HLInst *I = dyn_cast<HLInst>(Iter);
-    if (!I)
-      return false; // Loop, IF, Switch, etc.
-    Intrinsic::ID IntrinID;
-    if (!I->isIntrinCall(IntrinID) ||
-        !vpo::VPOUtils::isIntelDirectiveOrClause(IntrinID))
-      return false; // Expecting just directives and clauses between SIMD
-                    // and Loop.
-    if (I->isSIMDDirective())
+
+    // Loop, IF, Switch, etc.
+    if (!I) {
+      return false;
+    }
+
+    if (I->isSIMDDirective()) {
       return true;
+    }
   }
 
   return false;
@@ -979,20 +971,16 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
 void HLLoop::markDoNotVectorize() {
   LLVMContext &Context = HIRUtils::getContext();
 
-  Metadata *One = ConstantAsMetadata::get(
-      ConstantInt::get(Type::getInt32Ty(Context), 1));
+  Metadata *One =
+      ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Context), 1));
 
   Metadata *MDVectorWidth[] = {
-      MDString::get(Context, "llvm.loop.vectorize.width"), One
-  };
+      MDString::get(Context, "llvm.loop.vectorize.width"), One};
   Metadata *MDInterleaveCount[] = {
-      MDString::get(Context, "llvm.loop.interleave.count"), One
-  };
+      MDString::get(Context, "llvm.loop.interleave.count"), One};
 
-  MDNode *MDs[] = {
-      MDNode::get(Context, MDVectorWidth),
-      MDNode::get(Context, MDInterleaveCount)
-  };
+  MDNode *MDs[] = {MDNode::get(Context, MDVectorWidth),
+                   MDNode::get(Context, MDInterleaveCount)};
 
   addLoopMetadata(MDs);
 }

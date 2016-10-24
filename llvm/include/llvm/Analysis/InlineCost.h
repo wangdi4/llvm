@@ -14,8 +14,10 @@
 #ifndef LLVM_ANALYSIS_INLINECOST_H
 #define LLVM_ANALYSIS_INLINECOST_H
 
-#include "llvm/Analysis/CallGraphSCCPass.h" // INTEL 
+#include "llvm/Analysis/CallGraphSCCPass.h"   // INTEL
+#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include <cassert>
 #include <climits>
 
@@ -29,22 +31,64 @@ class TargetTransformInfo;
 
 
 namespace InlineConstants {
-  // Various magic constants used to adjust heuristics.
-  const int InstrCost = 5;
-  const int IndirectCallThreshold = 100;
-  const int CallPenalty = 25;
-  const int LastCallToStaticBonus = -15000;
-  const int SecondToLastCallToStaticBonus = -410; // INTEL
-  const int ColdccPenalty = 2000;
-  const int NoreturnPenalty = 10000;
-  /// Do not inline functions which allocate this many bytes on the stack
-  /// when the caller is recursive.
-  const unsigned TotalAllocaSizeRecursiveCaller = 1024;
-  const unsigned BasicBlockSuccRatio = 210; // INTEL 
+// Various thresholds used by inline cost analysis.
+// Use when optsize (-Os) is specified.
+const int OptSizeThreshold = 75;
+
+// Use when minsize (-Oz) is specified.
+const int OptMinSizeThreshold = 25;
+
+// Use when -O3 is specified.
+const int OptAggressiveThreshold = 275;
+
+// Various magic constants used to adjust heuristics.
+const int InstrCost = 5;
+const int IndirectCallThreshold = 100;
+const int CallPenalty = 25;
+const int LastCallToStaticBonus = 15000;
+const int SecondToLastCallToStaticBonus = 410; // INTEL
+const int AggressiveInlineCallBonus = 5000;    // INTEL
+const int ColdccPenalty = 2000;
+const int NoreturnPenalty = 10000;
+/// Do not inline functions which allocate this many bytes on the stack
+/// when the caller is recursive.
+const unsigned TotalAllocaSizeRecursiveCaller = 1024;
+const unsigned BasicBlockSuccRatio = 210; // INTEL
 }
 
 #if INTEL_CUSTOMIZATION
-namespace InlineReportTypes { 
+
+
+/// \brief A cache to save loop related info during inlining of an SCC.
+///
+/// This cache is used to store the DominatorTree and LoopInfo for called
+/// functions which are candidates for inlining.  Unnecessarily recomputing
+/// them can add significantly to compile time and memory consumption.
+///
+/// The DominatorTree and LoopInfo for a function is invalidated when
+/// some other function is inlined into it.
+///
+typedef std::map<Function*, DominatorTree*> DTMap;
+typedef std::map<Function*, LoopInfo*> LIMap;
+
+class InliningLoopInfoCache {
+
+  DTMap DTMapSCC;
+  LIMap LIMapSCC;
+
+public:
+
+  InliningLoopInfoCache() {}
+
+  ~InliningLoopInfoCache();
+
+  DominatorTree* getDT(Function *F);
+  LoopInfo* getLI(Function* F);
+  void invalidateFunction(Function *F);
+
+};
+
+namespace InlineReportTypes {
 
 /// \brief Inlining and non-inlining reasons
 ///
@@ -56,7 +100,7 @@ namespace InlineReportTypes {
 /// NOTE: The order of the values below is significant.  Those with a lower
 /// enum value are considered more significant and will be given preference
 /// when the inlining report is printed. (See the function bestInlineReason()
-/// in InlineCost.cpp. 
+/// in InlineCost.cpp.
 ///
 typedef enum {
    InlrFirst, // Just a marker placed before the first inlining reason
@@ -66,8 +110,9 @@ typedef enum {
    InlrSingleBasicBlock,
    InlrAlmostSingleBasicBlock,
    InlrEmptyFunction,
-   InlrDoubleLocalCall, 
+   InlrDoubleLocalCall,
    InlrVectorBonus,
+   InlrAggInline,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -121,8 +166,8 @@ extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
 /// based on the information available for a particular callsite. They can be
 /// directly tested to determine if inlining should occur given the cost and
 /// threshold for this cost metric.
-/// INTEL The Intel version is augmented with the InlineReason, which is the 
-/// INTEL principal reason that a call site was or was not inlined. 
+/// INTEL The Intel version is augmented with the InlineReason, which is the
+/// INTEL principal reason that a call site was or was not inlined.
 
 class InlineCost {
   enum SentinelValues {
@@ -140,9 +185,9 @@ class InlineCost {
 
   // Trivial constructor, interesting logic in the factory functions below.
 
-  InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason 
-    = InlineReportTypes::NinlrNoReason) : Cost(Cost), Threshold(Threshold), 
-    Reason(Reason) {} // INTEL 
+  InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason
+    = InlineReportTypes::NinlrNoReason) : Cost(Cost), Threshold(Threshold),
+    Reason(Reason) {} // INTEL
 
 public:
   static InlineCost get(int Cost, int Threshold) {
@@ -151,7 +196,7 @@ public:
     return InlineCost(Cost, Threshold);
   }
 #if INTEL_CUSTOMIZATION
-  static InlineCost get(int Cost, int Threshold, 
+  static InlineCost get(int Cost, int Threshold,
     InlineReportTypes::InlineReason Reason) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
@@ -194,14 +239,60 @@ public:
   /// value if the cost is too high to inline.
   int getCostDelta() const { return Threshold - getCost(); }
 
-#if INTEL_CUSTOMIZATION 
-  InlineReportTypes::InlineReason getInlineReason() const 
+#if INTEL_CUSTOMIZATION
+  InlineReportTypes::InlineReason getInlineReason() const
     { return Reason; }
-  void setInlineReason(InlineReportTypes::InlineReason MyReason) 
+  void setInlineReason(InlineReportTypes::InlineReason MyReason)
     { Reason = MyReason; }
 #endif // INTEL_CUSTOMIZATION
 
 };
+
+/// Thresholds to tune inline cost analysis. The inline cost analysis decides
+/// the condition to apply a threshold and applies it. Otherwise,
+/// DefaultThreshold is used. If a threshold is Optional, it is applied only
+/// when it has a valid value. Typically, users of inline cost analysis
+/// obtain an InlineParams object through one of the \c getInlineParams methods
+/// and pass it to \c getInlineCost. Some specialized versions of inliner
+/// (such as the pre-inliner) might have custom logic to compute \c InlineParams
+/// object.
+
+struct InlineParams {
+  /// The default threshold to start with for a callee.
+  int DefaultThreshold;
+
+  /// Threshold to use for callees with inline hint.
+  Optional<int> HintThreshold;
+
+  /// Threshold to use for cold callees.
+  Optional<int> ColdThreshold;
+
+  /// Threshold to use when the caller is optimized for size.
+  Optional<int> OptSizeThreshold;
+
+  /// Threshold to use when the caller is optimized for minsize.
+  Optional<int> OptMinSizeThreshold;
+
+  /// Threshold to use when the callsite is considered hot.
+  Optional<int> HotCallSiteThreshold;
+};
+
+/// Generate the parameters to tune the inline cost analysis based only on the
+/// commandline options.
+InlineParams getInlineParams();
+
+/// Generate the parameters to tune the inline cost analysis based on command
+/// line options. If -inline-threshold option is not explicitly passed,
+/// \p Threshold is used as the default threshold.
+InlineParams getInlineParams(int Threshold);
+
+/// Generate the parameters to tune the inline cost analysis based on command
+/// line options. If -inline-threshold option is not explicitly passed,
+/// the default threshold is computed from \p OptLevel and \p SizeOptLevel.
+/// An \p OptLevel value above 3 is considered an aggressive optimization mode.
+/// \p SizeOptLevel of 1 corresponds to the the -Os flag and 2 corresponds to
+/// the -Oz flag.
+InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel);
 
 /// \brief Get an InlineCost object representing the cost of inlining this
 /// callsite.
@@ -215,9 +306,12 @@ public:
 /// Also note that calling this function *dynamically* computes the cost of
 /// inlining the callsite. It is an expensive, heavyweight call.
 InlineCost
-getInlineCost(CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
+getInlineCost(CallSite CS, const InlineParams &Params,
+              TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-              ProfileSummaryInfo *PSI);
+              InliningLoopInfoCache *ILIC,     // INTEL
+              ProfileSummaryInfo *PSI,         // INTEL
+              InlineAggressiveInfo *AggI);     // INTEL
 
 /// \brief Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -225,28 +319,12 @@ getInlineCost(CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
 /// parameter in all other respects.
 //
 InlineCost
-getInlineCost(CallSite CS, Function *Callee, int DefaultThreshold,
+getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-              ProfileSummaryInfo *PSI);
-
-int computeThresholdFromOptLevels(unsigned OptLevel, unsigned SizeOptLevel);
-
-/// \brief Return the default value of -inline-threshold.
-int getDefaultInlineThreshold();
-
-#if INTEL_CUSTOMIZATION
-
-/// \brief Return the default value of -inlinehint-threshold.
-int getHintThreshold();
-
-/// \brief Return the default value of -inlineoptsize-threshold.
-int getOptSizeThreshold();
-
-/// \brief Return the default value of -inlinecold-threshold.
-int getColdThreshold();
-
-#endif // INTEL_CUSTOMIZATION
+              InliningLoopInfoCache *ILIC,           // INTEL
+              ProfileSummaryInfo *PSI,               // INTEL
+              InlineAggressiveInfo *AggI);           // INTEL
 
 /// \brief Minimal filter to detect invalid constructs for inlining.
 bool isInlineViable(Function &Callee,                         // INTEL

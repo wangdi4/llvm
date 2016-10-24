@@ -161,8 +161,8 @@ Value *InstCombiner::EvaluateInDifferentType(Value *V, Type *Ty,
   if (Constant *C = dyn_cast<Constant>(V)) {
     C = ConstantExpr::getIntegerCast(C, Ty, isSigned /*Sext or ZExt*/);
     // If we got a constantexpr back, try to simplify it with DL info.
-    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(C))
-      C = ConstantFoldConstantExpression(CE, DL, TLI);
+    if (Constant *FoldedC = ConstantFoldConstant(C, DL, &TLI))
+      C = FoldedC;
     return C;
   }
 
@@ -450,13 +450,13 @@ Instruction *InstCombiner::visitTrunc(TruncInst &CI) {
 
   // Test if the trunc is the user of a select which is part of a
   // minimum or maximum operation. If so, don't do any more simplification.
-  // Even simplifying demanded bits can break the canonical form of a 
+  // Even simplifying demanded bits can break the canonical form of a
   // min/max.
   Value *LHS, *RHS;
   if (SelectInst *SI = dyn_cast<SelectInst>(CI.getOperand(0)))
     if (matchSelectPattern(SI, LHS, RHS).Flavor != SPF_UNKNOWN)
       return nullptr;
-  
+
   // See if we can simplify any instructions used by the input whose sole
   // purpose is to compute bits we don't care about.
   if (SimplifyDemandedInstructionBits(CI))
@@ -623,7 +623,9 @@ Instruction *InstCombiner::transformZExtICmp(ICmpInst *ICI, ZExtInst &CI,
 
         if (CI.getType() == In->getType())
           return replaceInstUsesWith(CI, In);
-        return CastInst::CreateIntegerCast(In, CI.getType(), false/*ZExt*/);
+
+        Value *IntCast = Builder->CreateIntCast(In, CI.getType(), false);
+        return replaceInstUsesWith(CI, IntCast);
       }
     }
   }
@@ -890,16 +892,26 @@ Instruction *InstCombiner::visitZExt(ZExtInst &CI) {
 
   BinaryOperator *SrcI = dyn_cast<BinaryOperator>(Src);
   if (SrcI && SrcI->getOpcode() == Instruction::Or) {
-    // zext (or icmp, icmp) --> or (zext icmp), (zext icmp) if at least one
-    // of the (zext icmp) will be transformed.
+    // zext (or icmp, icmp) -> or (zext icmp), (zext icmp) if at least one
+    // of the (zext icmp) can be eliminated. If so, immediately perform the
+    // according elimination.
     ICmpInst *LHS = dyn_cast<ICmpInst>(SrcI->getOperand(0));
     ICmpInst *RHS = dyn_cast<ICmpInst>(SrcI->getOperand(1));
     if (LHS && RHS && LHS->hasOneUse() && RHS->hasOneUse() &&
         (transformZExtICmp(LHS, CI, false) ||
          transformZExtICmp(RHS, CI, false))) {
+      // zext (or icmp, icmp) -> or (zext icmp), (zext icmp)
       Value *LCast = Builder->CreateZExt(LHS, CI.getType(), LHS->getName());
       Value *RCast = Builder->CreateZExt(RHS, CI.getType(), RHS->getName());
-      return BinaryOperator::Create(Instruction::Or, LCast, RCast);
+      BinaryOperator *Or = BinaryOperator::Create(Instruction::Or, LCast, RCast);
+
+      // Perform the elimination.
+      if (auto *LZExt = dyn_cast<ZExtInst>(LCast))
+        transformZExtICmp(LHS, *LZExt);
+      if (auto *RZExt = dyn_cast<ZExtInst>(RCast))
+        transformZExtICmp(RHS, *RZExt);
+
+      return Or;
     }
   }
 
@@ -1092,7 +1104,7 @@ Instruction *InstCombiner::visitSExt(SExtInst &CI) {
   Type *SrcTy = Src->getType(), *DestTy = CI.getType();
 
   // If we know that the value being extended is positive, we can use a zext
-  // instead. 
+  // instead.
   bool KnownZero, KnownOne;
   ComputeSignBit(Src, KnownZero, KnownOne, 0, &CI);
   if (KnownZero) {
@@ -1227,6 +1239,28 @@ Instruction *InstCombiner::visitFPTrunc(FPTruncInst &CI) {
   if (OpI && OpI->hasOneUse()) {
     Value *LHSOrig = lookThroughFPExtensions(OpI->getOperand(0));
     Value *RHSOrig = lookThroughFPExtensions(OpI->getOperand(1));
+#if INTEL_CUSTOMIZATION
+    // When this binary operator has fast math flag, we can eliminate some
+    // float-double casts at a cost of precision loss. For example, we can
+    // transform:
+    //     %a = fpext float %x to double
+    //     %b = fadd fast double %a, C (a 64-bit fp-constant)
+    //     %c = fptrunc double %b to float
+    // into:
+    //     %c = fadd fast float %x, C' (32-bit representation of C)
+    // Same for fsub, fmul and fdiv.
+    if (OpI->getFastMathFlags().unsafeAlgebra() && CI.getType()->isFloatTy() &&
+        OpI->getOpcode() != Instruction::FRem) {
+      // Here we just cast the double constant to float, then the following
+      // optimzations will take care of the elimination.
+      if (isa<ConstantFP>(RHSOrig) && RHSOrig->getType()->isDoubleTy() &&
+          LHSOrig->getType()->isFloatTy())
+        RHSOrig = Builder->CreateFPTrunc(RHSOrig, CI.getType());
+      else if (isa<ConstantFP>(LHSOrig) && LHSOrig->getType()->isDoubleTy() &&
+          RHSOrig->getType()->isFloatTy())
+        LHSOrig = Builder->CreateFPTrunc(LHSOrig, CI.getType());
+    }
+#endif // INTEL_CUSTOMIZATION
     unsigned OpWidth = OpI->getType()->getFPMantissaWidth();
     unsigned LHSWidth = LHSOrig->getType()->getFPMantissaWidth();
     unsigned RHSWidth = RHSOrig->getType()->getFPMantissaWidth();

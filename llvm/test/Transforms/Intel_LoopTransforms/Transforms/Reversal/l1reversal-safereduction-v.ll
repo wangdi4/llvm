@@ -56,14 +56,14 @@
 ; 
 ;          BEGIN REGION { }
 ;<12>            + DO i1 = 0, 10, 1   <DO_LOOP>
-;<4>             |   %2 = {al:4}(%A)[-1 * i1 + sext.i32.i64(%n)];
+;<4>             |   %2 = (%A)[-1 * i1 + sext.i32.i64(%n)];
 ;<5>             |   %s.06 = %2  +  %s.06;
 ;<12>            + END LOOP
 ;          END REGION
 ;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:       + DO i1 = 0, 10, 1   <DO_LOOP>
-; BEFORE        |   %2 = {al:4}(%A)[-1 * i1 + sext.i32.i64(%n)];
+; BEFORE        |   %2 = (%A)[-1 * i1 + sext.i32.i64(%n)];
 ; BEFORE        |   %s.06 = %2  +  %s.06;
 ; BEFORE        + END LOOP
 ; BEFORE   END REGION
@@ -77,7 +77,7 @@
 ;
 ;          BEGIN REGION { modified }
 ;<12>            + DO i1 = 0, 10, 1   <DO_LOOP>
-;<4>             |   %2 = {al:4}(%A)[i1 + sext.i32.i64(%n) + -10];
+;<4>             |   %2 = (%A)[i1 + sext.i32.i64(%n) + -10];
 ;<5>             |   %s.07 = %2  +  %s.07;
 ;<12>            + END LOOP
 ;          END REGION
@@ -86,7 +86,7 @@
 ;
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:         + DO i1 = 0, 10, 1   <DO_LOOP>
-; AFTER:         |   %2 = {al:4}(%A)[i1 + sext.i32.i64(%n) + -10];
+; AFTER:         |   %2 = (%A)[i1 + sext.i32.i64(%n) + -10];
 ; AFTER:         |   %s.07 = %2  +  %s.07;
 ; AFTER:         + END LOOP
 ; AFTER:   END REGION

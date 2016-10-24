@@ -69,14 +69,14 @@
 ; 
 ;          BEGIN REGION { modified }
 ;<12>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<5>          | {al:4}(%A)[i1 + 96] = -1 * i1 + 4;
+;<5>          | (%A)[i1 + 96] = -1 * i1 + 4;
 ;<12>         + END LOOP
 ;          END REGION
 ;
 ; 
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:      + DO i1 = 0, 4, 1   <DO_LOOP>
-; AFTER:      | {al:4}(%A)[i1 + 96] = -1 * i1 + 4;
+; AFTER:      | (%A)[i1 + 96] = -1 * i1 + 4;
 ; AFTER:      + END LOOP
 ; AFTER:   END REGION
 ; 

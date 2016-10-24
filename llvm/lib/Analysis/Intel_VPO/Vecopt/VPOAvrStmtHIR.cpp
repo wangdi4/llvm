@@ -86,12 +86,12 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
 
   if (Operand == LeftHand) {
 
+    IsLHSExpr = true;
     RegDDRef *DDRef = HLInst->getLvalDDRef();
     if (DDRef) {
 
       AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(DDRef, HLInst, this);
       this->Operands.push_back(AvrVal);
-      IsLHSExpr = true;
     }
     else
       DEBUG(dbgs() << "NO LHS\n"); // TODO: is this reachable (IsLHSExpr = ?)?
@@ -156,10 +156,6 @@ std::string AVRExpressionHIR::getAvrValueName() const {
   return "";
 }
 
-std::string AVRExpressionHIR::getOpCodeName() const {
-  return Instruction::getOpcodeName(Opcode);
-}
-
 //----------AVR Value for HIR Implementation----------//
 AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
   : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {
@@ -186,6 +182,27 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
   }
 
   this->setType(DataType);
+
+  // In HIR, Null and Metadata are considered constant values
+  // because they do not affect DDs.
+  // We do not take them into account at AVR level by now.
+  if (DDRef->isConstant() && !DDRef->isNull() && !DDRef->isMetadata()) {
+    ConstantFP *FPConst = nullptr;
+    Constant *Const = nullptr;
+    int64_t IntConst;
+
+    if (DDRef->isIntConstant(&IntConst)) {
+      IntegerType *IntDataType = cast<IntegerType>(DataType);
+      Const = ConstantInt::getSigned(IntDataType, IntConst);
+      this->setConstant(Const);
+    } else if (DDRef->isFPConstant(&FPConst)) {
+      this->setConstant(FPConst);
+    } else if (DDRef->isConstantVector(&Const)) {
+      this->setConstant(Const);
+    } else {
+      llvm_unreachable("CanonExpr has an unexpected constant value!");
+    }
+  }
 }
 
 AVRValueHIR *AVRValueHIR::clone() const {

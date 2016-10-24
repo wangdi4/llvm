@@ -87,9 +87,6 @@ private:
   /// Opcode - The LLVM opcode for this expression.
   unsigned Opcode;
 
-  /// Predicate - The LLVM predicate if this expression is a comparison.
-  CmpInst::Predicate Predicate;
-
 protected:
   /// \brief Constructs an AVRExpressionHIR given an AVRAssignHIR node and
   /// LHS/RHS specifier.
@@ -122,9 +119,6 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;
-
-  /// \brief Returns the Opcode name of this expression's operation.
-  virtual std::string getOpCodeName() const override;
 };
 
 //----------AVR Value Node for HIR----------//
@@ -172,9 +166,6 @@ public:
 
   /// \brief Returns the HLNode associated with this node.
   HLNode *getNode() { return HNode; }
-
-  /// \brief Returns whether the associated RegDDRef is a constant.
-  bool isConstant() const override { return Val->isConstant(); }
 };
 
 //----------AVR Label Node for HIR----------//

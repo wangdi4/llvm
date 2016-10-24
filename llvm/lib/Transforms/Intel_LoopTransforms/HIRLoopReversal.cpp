@@ -97,85 +97,27 @@ const unsigned DefaultReadWeight = 1;         // default Weight for a Read is 1
 const unsigned DefaultWriteWeight = 2;        // default Weight for a Write is 2
 const unsigned DefaultShortTripThreshold = 4; // default short trip threshold
 
-// LoopStatistics Visitor to Count Node of Various Types in The Given Loop
-struct LoopStatistics final : public HLNodeVisitorBase {
-  unsigned NumCalls, NumLabels, NumGotos, NumSwitches, NumIfs, NumNodes,
-      NumLoops;
-
-  void visit(const HLLoop *Loop) { NumLoops++; }
-  void visit(const HLSwitch *Switch) { NumSwitches++; }
-  void visit(const HLLabel *Label) { NumLabels++; }
-  void visit(const HLGoto *Goto) { NumGotos++; }
-  void visit(const HLIf *If) { NumIfs++; }
-  void visit(const HLNode *Node) { NumNodes++; }
-  void visit(const HLInst *Inst) {
-    if (Inst->isCallInst()) {
-      NumCalls++;
-    }
-  }
-
-  void postVisit(const HLNode *) {}
-  bool isDone() const override { return (NumCalls || NumLabels || NumGotos); }
-
-  LoopStatistics()
-      : NumCalls(0), NumLabels(0), NumGotos(0), NumSwitches(0), NumIfs(0),
-        NumNodes(0), NumLoops(0) {}
-
-#ifndef NDEBUG
-  /// \brief Print the LoopStatistics Info
-  LLVM_DUMP_METHOD
-  void dump(void) {
-    dbgs() << "LoopStatistics Info Dump: \n"
-           << "  # Calls: " << NumCalls << "\n"
-           << "  # Labels: " << NumLabels << "\n"
-           << "  # Gotos: " << NumGotos << "\n"
-           << "  # Switches: " << NumSwitches << "\n"
-           << "  # Nodes: " << NumNodes << "\n"
-           << "  # Loops: " << NumLoops << "\n";
-  }
-#endif
-
-  // Getters:
-  unsigned getNumCalls(void) const { return NumCalls; }
-  unsigned getNumLabels(void) const { return NumLabels; }
-  unsigned getNumGotos(void) const { return NumGotos; }
-  unsigned getNumSwitches(void) const { return NumSwitches; }
-  unsigned getNumNodes(void) const { return NumNodes; }
-  unsigned getNumLoops(void) const { return NumLoops; }
-
-  // Boolean Getters:
-  bool hasCall(void) const { return (NumCalls > 0); }
-  bool hasLabel(void) const { return (NumLabels > 0); }
-  bool hasGoto(void) const { return (NumGotos > 0); }
-  bool hasSwitch(void) const { return (NumSwitches > 0); }
-  bool hasNode(void) const { return (NumNodes > 0); }
-  bool hasLoop(void) const { return (NumLoops > 0); }
-};
-
 ///\brief Collect all suitable MarkedCanonExprs on MemRef type of DDReg from the
 /// given loop.
 class MarkedCECollector final : public HLNodeVisitorBase {
 private:
   SmallVectorImpl<MarkedCanonExpr> &CEVAP; // Vector of Collected MarkedCE
   unsigned LoopLevel = 0;                  // Current Loop Level
-  bool AbortCollector = false; // Abort, if there is any non-linear DDRef on a
-                               // CE with an IV matching on loop level.
 
 public:
   explicit MarkedCECollector(SmallVectorImpl<MarkedCanonExpr>
                                  &InitMCER, // Vector of MarkedCanonExpr (MCE)
                              unsigned InitLevel)
-      : CEVAP(InitMCER), LoopLevel(InitLevel), AbortCollector(false) {
+      : CEVAP(InitMCER), LoopLevel(InitLevel) {
     assert(LoopLevel <= MaxLoopNestLevel);
   }
 
   /// \brief Do not allow default constructor
   MarkedCECollector() = delete;
 
-  // Getter: any prematurely abort?
-  bool getCollectionAborted(void) const { return AbortCollector; }
-
   void visit(HLDDNode *Node) {
+    // DEBUG(dbgs() << "Collecting on Node: "; Node->dump(););
+
     for (auto I = Node->op_ddref_begin(), E = Node->op_ddref_end(); I != E;
          ++I) {
       checkAndCollectMCE(*I);
@@ -191,43 +133,35 @@ public:
   }
   void postVisit(HLNode *Node) {}
 
-  // Early BailOut: once AbortCollector is true
-  bool isDone() const override { return AbortCollector; }
-
-  // ----------------------------------------------------
-  // |     | HasIV   |  HasNonLinear | Collect Decision |
-  // ----------------------------------------------------
-  // |Base |   NA    |  Y/N          |    N             |
-  // ----------------------------------------------------
-  // |Subs |   Y     |  N            |    Y             |
-  // ----------------------------------------------------
-  //
+  // -------------------------------------
+  // |     | HasIV   |  Collect Decision |
+  // -------------------------------------
+  // |Base |   N/A   |     N             |
+  // -------------------------------------
+  // |Subs |   Y     |     Y             |
+  // -------------------------------------
   // Note:
-  // bool CollectDecision = HasIV && !HasNonLinear;
-  //
-  // Since the BaseCE CAN'T have any IV (with matching loop level), we don't
-  // bother to collect from the base.
-  //
   // We only collect the CE from the Subs section if it hasIV(LoopLevel)
-  // AND is !NonLinear.
   //
-  // Collection aborts if hasIV is true and AND NonLinear is also true at any
-  // moment in the collection process.
   void checkAndCollectMCE(const RegDDRef *RegDD) {
     // 0.Setup
     assert(RegDD && "RegDDRef* can't be a nullptr\n");
-    unsigned Dimension = 1; // Dimension begins from 1, in sync with iterator I
+    unsigned Dimension = 1; // Dimension needs to be in sync with iterator I
+    bool IsMemRef = RegDD->isMemRef();
+    bool IsWrite = RegDD->isLval();
 
     // Debug Printer
     // formatted_raw_ostream FOS(dbgs());
 
     // 1. Check the Subs part only (refer to the table and analysis above)
-    for (auto I = RegDD->canon_begin(), E = RegDD->canon_end(); I != E; ++I) {
-      bool HasIV = false, HasNonLinear = false;
+    for (auto I = RegDD->canon_begin(), E = RegDD->canon_end(); I != E;
+         ++I, ++Dimension // Dimension is in sync with I
+         ) {
+      bool HasIV = false;
       CanonExpr *CE = (*I);
       assert(CE && "checkAndCollectMCE(.) -- CanonExpr* can't be nullptr\n");
 
-      // See what we are checking:
+      // Examine current CE
       // DEBUG(FOS << "Checking: "; CE->print(FOS); FOS << "\n";);
 
       // 2. Check if the current CE has an IV on the matching loop level
@@ -235,28 +169,10 @@ public:
         HasIV = true;
       }
 
-      // 3. Check if the current CE is NonLinear
-      if (CE->isNonLinear()) {
-        HasNonLinear = true;
-      }
-
-      // 4. Decide whether to collect the current CE
-      //    also decide on collection abortion.
-      // Abort collection if HasIV AND HasNonLinear are BOTH true
-      AbortCollector = HasIV && HasNonLinear;
-      if (AbortCollector) {
-        return;
-      }
-
-      bool CollectCE = HasIV && !HasNonLinear;
-
-      // 5. Collect if suitable
-      if (CollectCE) {
+      // 3. Collect if suitable
+      if (HasIV) {
         // See what we are collecting
         // DEBUG(FOS << "Collect: "; CE->print(FOS); FOS << "\n";);
-
-        bool IsMemRef = RegDD->isMemRef();
-        bool IsWrite = RegDD->isLval();
 
         // This CAN'T be moved out of loop, because the Stride's value depends
         // on Dimension, and Dimension adjusts per iteration.
@@ -269,10 +185,7 @@ public:
         CEVAP.push_back(MarkedCanonExpr(CE, IsWrite, IsMemRef, Stride,
                                         const_cast<RegDDRef *>(RegDD)));
       }
-      // end_if: CollectCE
-
-      // 6. update Dimension to match I
-      Dimension++;
+      // end_if: HasIV
     }
     // end_for: I
 
@@ -287,6 +200,8 @@ INITIALIZE_PASS_BEGIN(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                     false, false)
 
@@ -375,6 +290,7 @@ void HIRLoopReversal::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFramework>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRLoopStatistics>();
   AU.setPreservesAll();
 }
 
@@ -448,23 +364,19 @@ bool HIRLoopReversal::doLoopCollection(HLLoop *Lp) {
   MarkedCECollector MCEC(CEAV, LoopLevel);
   HLNodeUtils::visitRange(MCEC, Lp->getFirstChild(), Lp->getLastChild());
 
-  // 2.Check if Collection aborts prematurely
-  bool CollectionAborted = MCEC.getCollectionAborted();
-  if (CollectionAborted) {
-    return false;
-  }
-
-  // Debug: see all MCEs we have collected
+  // Examine all MCEs we have collected
   // DEBUG(::dump(CEAV, StringRef("All Collected MCEs:")););
 
-  // 3.Collection Good if not aborted
+  // 2.Collection is Good
   return true;
 }
 
 ///\brief A dedicated routine to handle all command-line arguments.
-bool HIRLoopReversal::handleCmdlineArgs(void) {
+bool HIRLoopReversal::handleCmdlineArgs(Function &F) {
   // 1. Skip the Pass if DisableHIRLoopReversal flag is enabled
-  if (DisableHIRLoopReversal) {
+  // or
+  // support opt-bisect via skipFunction() call
+  if (DisableHIRLoopReversal || skipFunction(F)) {
     DEBUG(dbgs() << "HIR Loop Reversal Transformation Disabled through "
                     "DisableHIRLoopReversal flag\n");
     return false;
@@ -479,7 +391,7 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
   // 0. Sanity+Setup
 
   // process cmdline argument(s)
-  bool CmdLineOptions = handleCmdlineArgs();
+  bool CmdLineOptions = handleCmdlineArgs(F);
   if (!CmdLineOptions) {
     return false;
   }
@@ -497,6 +409,7 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
   // Obtain Analysis Result(s)
   DDA = &getAnalysis<HIRDDAnalysis>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   // TODO:
   // Re-Build DDA on demand if needed
@@ -552,11 +465,10 @@ bool HIRLoopReversal::isApplicable(HLLoop *Lp) {
   // - No function call
   // - No label
   // - No goto
-  LoopStatistics LS;
-  HLNodeUtils::visitRange(LS, Lp->getFirstChild(), Lp->getLastChild());
+  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
 
   // DEBUG(LS.dump(););
-  if (LS.hasCall() || LS.hasGoto() || LS.hasLabel()) {
+  if (LS.hasCalls() || LS.hasGotos() || LS.hasLabels()) {
     return false;
   }
 
@@ -897,7 +809,8 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
       }
 
       // DEBUG(::dump(UBCEClone, "UBCEClone [AFTER]: "));
-      // Note: the CastToStandaloneBlob is may NOT necessarily return true, and
+      // Note: the CastToStandaloneBlob is may NOT necessarily return true,
+      // and
       // it is not an error if not!
       // assert(CastToStandaloneBlob &&
       //      "Expect castToStandAloneBlob() to be always succeed\n");
@@ -958,18 +871,18 @@ bool HIRLoopReversal::runOnLoop(
     HLLoop *Lp,          // INPUT + OUTPUT PARAM: a given loop
     bool DoReverse,      // INPUT PARAM: true to reverse if the loop is suitable
     HIRDDAnalysis &HDDA, // INPUT PARAM: an existing HIRDDAnalysis
-    bool &LoopReversed   // OUTPUT PARAM: true if the loop is successfully
-                         // reversed
+    HIRSafeReductionAnalysis &HSRA, HIRLoopStatistics &LS,
+    bool &LoopReversed // OUTPUT PARAM: true if the loop is successfully
+                       // reversed
     ) {
   // 0.Sanity
   assert(Lp &&
          "HIRLoopReversal.runOnLoop(.) assert -- Loop can't be nullptr\n");
 
   // Obtain DDA Analysis Result from Parameter
-  // (Expect it be a valid DDA)
   DDA = &HDDA;
-  // TODO:
-  // - Rebuild DDA on demand if it is null.
+  SRA = &HSRA;
+  HLS = &LS;
 
   // 1. Check if the loop is suitable for reversal
   bool ReversibleLoop = isReversible(Lp);

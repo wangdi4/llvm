@@ -4,8 +4,8 @@
 
 ; CHECK: DO i1 = 0, %n + -1
 ; CHECK-NEXT: DO i2 = 0, %n + -1
-; CHECK-NEXT: %0 = {al:4}(@B)[0][i2][i1]
-; CHECK-NEXT: {al:4}(@A)[0][i1][i2] = %0
+; CHECK-NEXT: %0 = (@B)[0][i2][i1]
+; CHECK-NEXT: (@A)[0][i1][i2] = %0
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP
 

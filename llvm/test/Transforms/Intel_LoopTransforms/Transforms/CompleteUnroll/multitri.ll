@@ -4,15 +4,15 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: %0 = {al:8}(%B)[0]
-; CHECK: %1 = {al:4}(%0)[1]
-; CHECK: %2 = {al:8}(%A)[1]
-; CHECK: {al:4}(%2)[0] = %1
-; CHECK: %4 = {al:4}(%3)[0]
-; CHECK: {al:4}(%3)[0] = sext.i32.i64(%4) + 1
-; CHECK: %4 = {al:4}(%3)[0]
-; CHECK: {al:4}(%3)[0] = sext.i32.i64(%4) + 2
-; CHECK: {al:4}(%3)[1] = sext.i32.i64(%4) + 2
+; CHECK: %0 = (%B)[0]
+; CHECK: %1 = (%0)[1]
+; CHECK: %2 = (%A)[1]
+; CHECK: (%2)[0] = %1
+; CHECK: %4 = (%3)[0]
+; CHECK: (%3)[0] = sext.i32.i64(%4) + 1
+; CHECK: %4 = (%3)[0]
+; CHECK: (%3)[0] = sext.i32.i64(%4) + 2
+; CHECK: (%3)[1] = sext.i32.i64(%4) + 2
 ; CHECK: END REGION
 
 

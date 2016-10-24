@@ -2,7 +2,7 @@
 ; INTEL_CUSTOMIZATION: operations with unset 'fast-math' settings.
 
 ; REQUIRES: asserts
-; RUN: llc -verify-machineinstrs -mtriple=x86_64-apple-darwin -mcpu=corei7-avx -mattr=+fma -do-x86-global-fma -debug-x86-global-fma -enable-unsafe-fp-math -fp-contract=fast -debug -o /dev/null < %s 2>&1 | FileCheck %s
+; RUN: llc -verify-machineinstrs -mtriple=x86_64-apple-darwin -mcpu=corei7-avx -mattr=+fma -debug-x86-global-fma -enable-unsafe-fp-math -fp-contract=fast -debug -o /dev/null < %s 2>&1 | FileCheck %s
 
 define double @func(double %a, double %b, double %c) #0 {
 entry:

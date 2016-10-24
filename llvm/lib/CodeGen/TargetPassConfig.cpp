@@ -18,6 +18,7 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -97,6 +98,12 @@ static cl::opt<std::string>
 PrintMachineInstrs("print-machineinstrs", cl::ValueOptional,
                    cl::desc("Print machine instrs"),
                    cl::value_desc("pass-name"), cl::init("option-unspecified"));
+
+static cl::opt<bool> EnableGlobalISelAbort(
+    "global-isel-abort", cl::Hidden,
+    cl::desc("Enable abort calls when \"global\" instruction selection "
+             "fails to lower/select an instruction"),
+    cl::init(true));
 
 // Temporary option to allow experimenting with MachineScheduler as a post-RA
 // scheduler. Targets can "properly" enable this with
@@ -439,6 +446,7 @@ void TargetPassConfig::addIRPasses() {
   // Add TypeBasedAliasAnalysis before BasicAliasAnalysis so that
   // BasicAliasAnalysis wins if they disagree. This is intended to help
   // support "obvious" type-punning idioms.
+  addPass(createStdContainerAAWrapperPass()); // INTEL
   addPass(createTypeBasedAAWrapperPass());
   addPass(createScopedNoAliasAAWrapperPass());
   addPass(createBasicAAWrapperPass());
@@ -474,7 +482,9 @@ void TargetPassConfig::addIRPasses() {
 /// Turn exception handling constructs into something the code generators can
 /// handle.
 void TargetPassConfig::addPassesToHandleExceptions() {
-  switch (TM->getMCAsmInfo()->getExceptionHandlingType()) {
+  const MCAsmInfo *MCAI = TM->getMCAsmInfo();
+  assert(MCAI && "No MCAsmInfo");
+  switch (MCAI->getExceptionHandlingType()) {
   case ExceptionHandling::SjLj:
     // SjLj piggy-backs on dwarf for this bit. The cleanups done apply to both
     // Dwarf EH prepare needs to be run after SjLj prepare. Otherwise,
@@ -483,7 +493,7 @@ void TargetPassConfig::addPassesToHandleExceptions() {
     // pad is shared by multiple invokes and is also a target of a normal
     // edge from elsewhere.
     addPass(createSjLjEHPreparePass());
-    // FALLTHROUGH
+    LLVM_FALLTHROUGH;
   case ExceptionHandling::DwarfCFI:
   case ExceptionHandling::ARM:
     addPass(createDwarfEHPass(TM));
@@ -891,4 +901,11 @@ void TargetPassConfig::addBlockPlacement() {
     if (EnableBlockPlacementStats)
       addPass(&MachineBlockPlacementStatsID);
   }
+}
+
+//===---------------------------------------------------------------------===//
+/// GlobalISel Configuration
+//===---------------------------------------------------------------------===//
+bool TargetPassConfig::isGlobalISelAbortEnabled() const {
+  return EnableGlobalISelAbort;
 }

@@ -249,6 +249,19 @@ def FeatureSoftFloat
 def FeatureFastPartialYMMWrite
     : SubtargetFeature<"fast-partial-ymm-write", "HasFastPartialYMMWrite",
                        "true", "Partial writes to YMM registers are fast">;
+// FeatureFastScalarFSQRT should be enabled if scalar FSQRT has shorter latency
+// than the corresponding NR code. FeatureFastVectorFSQRT should be enabled if
+// vector FSQRT has higher throughput than the corresponding NR code.
+// The idea is that throughput bound code is likely to be vectorized, so for
+// vectorized code we should care about the throughput of SQRT operations.
+// But if the code is scalar that probably means that the code has some kind of
+// dependency and we should care more about reducing the latency.
+def FeatureFastScalarFSQRT
+    : SubtargetFeature<"fast-scalar-fsqrt", "HasFastScalarFSQRT",
+                       "true", "Scalar SQRT is fast (disable Newton-Raphson)">;
+def FeatureFastVectorFSQRT
+    : SubtargetFeature<"fast-vector-fsqrt", "HasFastVectorFSQRT",
+                       "true", "Vector SQRT is fast (disable Newton-Raphson)">;
 
 //===----------------------------------------------------------------------===//
 // X86 processors supported.
@@ -260,6 +273,8 @@ def ProcIntelAtom : SubtargetFeature<"atom", "X86ProcFamily", "IntelAtom",
                     "Intel Atom processors">;
 def ProcIntelSLM  : SubtargetFeature<"slm", "X86ProcFamily", "IntelSLM",
                     "Intel Silvermont processors">;
+def ProcIntelGLM : SubtargetFeature<"glm", "X86ProcFamily", "IntelGLM",
+                                    "Intel Goldmont processors">; // INTEL
 
 class Proc<string Name, list<SubtargetFeature> Features>
  : ProcessorModel<Name, GenericModel, Features>;
@@ -389,6 +404,43 @@ class SilvermontProc<string Name> : ProcessorModel<Name, SLMModel, [
 def : SilvermontProc<"silvermont">;
 def : SilvermontProc<"slm">; // Legacy alias.
 
+// if INTEL_CUSTOMIZATION
+// FIXME: Goldmont inheritor most of his feature from Silvermont.
+//       Need to re-write SLM and GLM in the same way SandyBridge
+//       and IvyBridge defined, see lines: 455-501.
+class GoldmontProc<string Name> : ProcessorModel<Name, SLMModel, [
+  ProcIntelGLM,
+  FeatureX87,
+  FeatureMMX,
+  FeatureSSE42,
+  FeatureFXSR,
+  FeatureCMPXCHG16B,
+  FeatureMOVBE,
+  FeaturePOPCNT,
+  FeaturePCLMUL,
+  FeatureAES,
+  FeatureSlowDivide64,
+  FeatureCallRegIndirect,
+  FeaturePRFCHW,
+  FeatureSlowLEA,
+  FeatureSlowIncDec,
+  FeatureSlowBTMem,
+  FeatureLAHFSAHF,
+  FeatureMPX,
+  FeatureSMAP,
+  FeatureSHA,
+  FeatureRDSEED,
+  FeatureXSAVE,
+  FeatureXSAVEOPT,
+  FeatureXSAVEC,
+  FeatureXSAVES,
+  FeatureCLFLUSHOPT,
+  FeatureFSGSBase
+]>;
+def : GoldmontProc<"goldmont">;
+def : GoldmontProc<"glm">;
+// endif INTEL_CUSTOMIZATION
+
 // "Arrandale" along with corei3 and corei5
 class NehalemProc<string Name> : ProcessorModel<Name, SandyBridgeModel, [
   FeatureX87,
@@ -442,7 +494,8 @@ def SNBFeatures : ProcessorFeatures<[], [
   FeaturePCLMUL,
   FeatureXSAVE,
   FeatureXSAVEOPT,
-  FeatureLAHFSAHF
+  FeatureLAHFSAHF,
+  FeatureFastScalarFSQRT
 ]>;
 
 class SandyBridgeProc<string Name> : ProcModel<Name, SandyBridgeModel,
@@ -500,7 +553,8 @@ def SKLFeatures : ProcessorFeatures<BDWFeatures.Value, [
   FeatureXSAVEC,
   FeatureXSAVES,
   FeatureSGX,
-  FeatureCLFLUSHOPT
+  FeatureCLFLUSHOPT,
+  FeatureFastVectorFSQRT
 ]>;
 
 // FIXME: define SKL model

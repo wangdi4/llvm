@@ -197,10 +197,14 @@ private:
                                         RegDDRef *LvalRef, bool HasNUWOrExact,
                                         bool HasNSW, MDNode *FPMathTag);
 
+  /// Creates and inserts a dummy copy instruction.
+  static Instruction *createCopyInstImpl(Type *Ty, const Twine &Name);
+
   /// \brief Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
   static void cloneSequenceImpl(HLContainerTy *CloneContainer,
-                                const HLNode *Node1, const HLNode *Node2);
+                                const HLNode *Node1, const HLNode *Node2,
+                                HLNodeMapper *NodeMapper);
 
   /// \brief Returns successor of Node assuming control flows in strict lexical
   /// order (by ignoring jumps(gotos)).
@@ -418,41 +422,18 @@ private:
   static bool getMinMaxValueImpl(const CanonExpr *CE, const HLNode *ParentNode,
                                  bool IsMin, bool IsExact, int64_t &Val);
 
-  // Checks if *IF* or *Switch* or *Call* statement is present inside HIR tree.
-  template <bool SearchIf, bool SearchSwitch, bool SearchCall>
-  struct NodeKindVisitor final : public HLNodeVisitorBase {
-    bool Found;
+  /// Checks if Loop has perfect/near-perfect loop properties.
+  /// Expects non-innermost incoming \p Lp.
+  /// Sets inner loop in \p InnerLp.
+  /// Return true if it has perfect/near-perfect loop properties
+  static bool hasPerfectLoopProperties(const HLLoop *Lp, const HLLoop **InnerLp,
+                                       bool AllowNearPerfect,
+                                       bool *IsNearPerfectLoop);
 
-    static_assert(SearchIf || SearchSwitch || SearchCall,
-                  "At least one flag should be true");
-
-    void visit(const HLIf *If) {
-      if (SearchIf) {
-        Found = true;
-      }
-    }
-
-    void visit(const HLSwitch *Switch) {
-      if (SearchSwitch) {
-        Found = true;
-      }
-    }
-
-    void visit(const HLInst *Inst) {
-      if (SearchCall && Inst->isCallInst()) {
-        Found = true;
-      }
-    }
-
-    void visit(const HLNode *Node) {}
-    void postVisit(const HLNode *) {}
-
-    bool isDone() const override {
-      return Found;
-    }
-
-    NodeKindVisitor() : Found(false) {}
-  };
+  template <bool IsMaxMode>
+  static bool isInTopSortNumRangeImpl(const HLNode *Node,
+                                      const HLNode *FirstNode,
+                                      const HLNode *LastNode);
 
 public:
   /// \brief Returns the first dummy instruction of the function.
@@ -488,6 +469,12 @@ public:
   /// defaults to null and hence follows rval ref arguments in the function
   /// signature. A new non-linear self blob ref is created if the LvalRef is set
   /// to null.
+
+  /// Creates a new underlying instruction and returns a self-blob DDRef
+  /// representing that instruction.
+  /// TODO: Although this interface has nothing to do with HLNodes, all the
+  /// underlying setup exists here. Can we move this to DDRefUtils()?
+  static RegDDRef *createTemp(Type *Ty, const Twine &Name = "temp");
 
   /// \brief Used to create copy instructions of the form: Lval = Rval;
   static HLInst *createCopyInst(RegDDRef *RvalRef, const Twine &Name = "copy",
@@ -703,12 +690,25 @@ public:
                                           const Twine &Name = "extract",
                                           RegDDRef *LvalRef = nullptr);
 
-  /// \brief Creates a clones sequence from Node1 to Node2, including both
-  /// the nodes and all the nodes in between them. If Node2 is null or Node1
-  /// equals Node2, then the utility just clones Node1 and inserts into the
-  /// CloneContainer. This utility does not support Region cloning.
+  /// Creates a clones sequence from Node1 to Node2, including both the nodes
+  /// and all the nodes in between them. If Node2 is null or Node1 equals
+  /// Node2, then the utility just clones Node1 and inserts into the
+  /// CloneContainer. If \p NodeMapper is not null, every node will be mapped
+  /// to the cloned node. This is used for accessing clones having original
+  /// node pointers.
+  /// This utility does not support Region cloning.
   static void cloneSequence(HLContainerTy *CloneContainer, const HLNode *Node1,
-                            const HLNode *Node2 = nullptr);
+                            const HLNode *Node2 = nullptr,
+                            HLNodeMapper *NodeMapper = nullptr) {
+    assert(Node1 && !isa<HLRegion>(Node1) &&
+           " Node1 - Region Cloning is not allowed.");
+    assert((!Node2 || !isa<HLRegion>(Node2)) &&
+           " Node 2 - Region Cloning is not allowed.");
+    assert(CloneContainer && " Clone Container is null.");
+    assert((!Node2 || (Node1->getParent() == Node2->getParent())) &&
+           " Parent of Node1 and Node2 don't match.");
+    cloneSequenceImpl(CloneContainer, Node1, Node2, NodeMapper);
+  }
 
   /// \brief Visits the passed in HLNode.
   template <bool Recursive = true, bool RecurseInsideLoops = true,
@@ -1019,6 +1019,14 @@ public:
   static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
                                   const HLNode *LastNode);
 
+  /// Returns true if \p Node top sort number is in range
+  /// [FirstNode->getMinTopSortNum(), LastNode->getMaxTopSortNum].
+  /// The \p FirstNode could be a nullptr, the method will return false in this
+  /// case.
+  static bool isInTopSortNumMaxRange(const HLNode *Node,
+                                     const HLNode *FirstNode,
+                                     const HLNode *LastNode);
+
   /// \brief Returns true if the Loop level is in a valid range from
   /// [1, MaxLoopNestLevel].
   static bool isLoopLevelValid(unsigned Level) {
@@ -1153,29 +1161,6 @@ public:
     gatherAllLoops(const_cast<HLNode *>(Node), Loops);
   }
 
-  /// \brief Returns true if HLSwitch or HLCall exists between NodeStart and
-  /// NodeEnd. RecurseInsideLoops flag denotes if we want to check switch
-  /// or call inside nested loops. Usually, this flag is used to for
-  /// optimizations where checks have already been made for child loops.
-  template <bool RecurseInsideLoops = true>
-  static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd) {
-    assert(NodeStart && NodeEnd && " Node Start/End is null.");
-    NodeKindVisitor<false, true, true> SCVisit;
-    HLNodeUtils::visitRange<true, RecurseInsideLoops>(SCVisit, NodeStart,
-                                                      NodeEnd);
-    return SCVisit.isDone();
-  }
-
-  template <bool RecurseInsideLoops = true>
-  static bool hasSwitchOrCallOrIf(const HLNode *NodeStart,
-                                  const HLNode *NodeEnd) {
-    assert(NodeStart && NodeEnd && " Node Start/End is null.");
-    NodeKindVisitor<true, true, true> SCVisit;
-    HLNodeUtils::visitRange<true, RecurseInsideLoops>(SCVisit, NodeStart,
-                                                      NodeEnd);
-    return SCVisit.isDone();
-  }
-
   /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
   ///   Used by Interchange now. Could be used later for blocking
   /// Loops are added to \p LoopPermutation in the desired permuted order.
@@ -1183,21 +1168,16 @@ public:
   permuteLoopNests(HLLoop *OutermostLoop,
                    const SmallVectorImpl<HLLoop *> &LoopPermutation);
 
-  /// \brief Returns true if Loop is a perfect Loop nest
-  /// and the innermost loop
+  /// \brief Returns true if Loop is a perfect Loop nest. Also returns the
+  /// innermost loop.
+  /// Asserts if incoming loop is innermost.
+  /// TODO: AllowPrePostHdr is unused, remove it?
   static bool isPerfectLoopNest(const HLLoop *Loop,
-                                const HLLoop **InnermostLoop,
+                                const HLLoop **InnermostLoop = nullptr,
                                 bool AllowPrePostHdr = false,
                                 bool AllowTriangularLoop = false,
                                 bool AllowNearPerfect = false,
                                 bool *IsNearPerfect = nullptr);
-
-  /// \breif Check if Loop has perfect/near-perfect loop properties
-  ///  set  innermost loop in *Lp if it is hit
-  ///  Return true if it has perfect/near-perfect loop properties
-  static bool hasPerfectLoopProperties(const HLNode *Node, const HLLoop **Lp,
-                                       bool AllowNearPerfect,
-                                       bool *IsNearPerfectLoop);
 
   ///  \brief Any memref with non-unit stride?
   ///   Will take innermost loop for now
@@ -1302,6 +1282,13 @@ public:
   /// \brief return true if positive or negative.
   static bool isKnownPositiveOrNegative(const CanonExpr *CE,
                                         const HLNode *ParentNode = nullptr);
+
+  /// Updates target HLLabel in every HLGoto node according to the mapping.
+  static void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
+                               HLNode *End);
+
+  // Returns true if both HLIf nodes are equal.
+  static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
 };
 
 } // End namespace loopopt

@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
+#include "llvm/Analysis/Intel_WP.h"                 // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/IR/Function.h"
@@ -34,7 +35,7 @@ static bool inferAllPrototypeAttributes(Module &M,
 }
 
 PreservedAnalyses InferFunctionAttrsPass::run(Module &M,
-                                              AnalysisManager<Module> &AM) {
+                                              ModuleAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
 
   if (!inferAllPrototypeAttributes(M, TLI))
@@ -55,6 +56,7 @@ struct InferFunctionAttrsLegacyPass : public ModulePass {
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<WholeProgramWrapperPass>();               // INTEL
     AU.addRequired<TargetLibraryInfoWrapperPass>();
   }
 

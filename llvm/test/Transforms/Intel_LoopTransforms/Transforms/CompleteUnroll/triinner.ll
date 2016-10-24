@@ -5,13 +5,13 @@
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: DO i1 = 0, 39, 1
-; CHECK: %0 = {al:8}(%B)[0]
-; CHECK: %1 = {al:4}(%0)[1]
-; CHECK: {al:4}(%2)[0] = i1 + sext.i32.i64(%1)
-; CHECK: %2 = {al:8}(%A)[2]
-; CHECK: %0 = {al:8}(%B)[1]
-; CHECK: %1 = {al:4}(%0)[2]
-; CHECK: {al:4}(%2)[1] = i1 + sext.i32.i64(%1)
+; CHECK: %0 = (%B)[0]
+; CHECK: %1 = (%0)[1]
+; CHECK: (%2)[0] = i1 + sext.i32.i64(%1)
+; CHECK: %2 = (%A)[2]
+; CHECK: %0 = (%B)[1]
+; CHECK: %1 = (%0)[2]
+; CHECK: (%2)[1] = i1 + sext.i32.i64(%1)
 ; CHECK: END REGION
 
 ; Source Code

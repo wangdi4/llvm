@@ -15,6 +15,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
 using namespace llvm;
@@ -22,9 +23,11 @@ using namespace llvm;
 namespace {
 
 // Return a string with the special characters in \p Str escaped.
-std::string escape(StringRef Str) {
+std::string escape(StringRef Str, const CoverageViewOptions &Opts) {
   std::string Result;
+  unsigned ColNum = 0; // Record the column number.
   for (char C : Str) {
+    ++ColNum;
     if (C == '&')
       Result += "&amp;";
     else if (C == '<')
@@ -33,7 +36,16 @@ std::string escape(StringRef Str) {
       Result += "&gt;";
     else if (C == '\"')
       Result += "&quot;";
-    else
+    else if (C == '\n' || C == '\r') {
+      Result += C;
+      ColNum = 0;
+    } else if (C == '\t') {
+      // Replace '\t' with TabSize spaces.
+      unsigned NumSpaces = Opts.TabSize - (--ColNum % Opts.TabSize);
+      for (unsigned I = 0; I < NumSpaces; ++I)
+        Result += "&nbsp;";
+      ColNum += NumSpaces;
+    } else
       Result += C;
   }
   return Result;
@@ -77,10 +89,11 @@ pre {
   padding: 5px 10px;
   border-bottom: 1px solid #dbdbdb;
   background-color: #eee;
+  line-height: 35px;
 }
 .centered {
   display: table;
-  margin-left: auto;
+  margin-left: left;
   margin-right: auto;
   border: 1px solid #dbdbdb;
   border-radius: 3px;
@@ -158,6 +171,23 @@ td:first-child {
 td:last-child {
   border-right: none;
 }
+.project-title {
+  font-size:36.0pt;
+  line-height:200%;
+  font-family:Calibri;
+  font-weight: bold;
+}
+.report-title {
+  font-size:16.0pt;
+  line-height:120%;
+  font-family:Arial;
+  font-weight: bold;
+}
+.created-time {
+  font-size:14.0pt;
+  line-height:120%;
+  font-family:Arial;
+}
 )";
 
 const char *EndHeader = "</head>";
@@ -186,6 +216,20 @@ const char *BeginTable = "<table>";
 
 const char *EndTable = "</table>";
 
+const char *BeginProjectTitleDiv = "<div class='project-title'>";
+
+const char *EndProjectTitleDiv = "</div>";
+
+const char *BeginReportTitleDiv = "<div class='report-title'>";
+
+const char *EndReportTitleDiv = "</div>";
+
+const char *BeginCreatedTimeDiv = "<div class='created-time'>";
+
+const char *EndCreatedTimeDiv = "</div>";
+
+const char *LineBreak = "<br>";
+
 std::string getPathToStyle(StringRef ViewPath) {
   std::string PathToStyle = "";
   std::string PathSep = sys::path::get_separator();
@@ -195,7 +239,8 @@ std::string getPathToStyle(StringRef ViewPath) {
   return PathToStyle + "style.css";
 }
 
-void emitPrelude(raw_ostream &OS, const std::string &PathToStyle = "") {
+void emitPrelude(raw_ostream &OS, const CoverageViewOptions &Opts,
+                 const std::string &PathToStyle = "") {
   OS << "<!doctype html>"
         "<html>"
      << BeginHeader;
@@ -204,15 +249,15 @@ void emitPrelude(raw_ostream &OS, const std::string &PathToStyle = "") {
   if (PathToStyle.empty())
     OS << "<style>" << CSSForCoverage << "</style>";
   else
-    OS << "<link rel='stylesheet' type='text/css' href='" << escape(PathToStyle)
-       << "'>";
+    OS << "<link rel='stylesheet' type='text/css' href='"
+       << escape(PathToStyle, Opts) << "'>";
 
-  OS << EndHeader << "<body>" << BeginCenteredDiv;
+  OS << EndHeader << "<body>";
 }
 
 void emitEpilog(raw_ostream &OS) {
-  OS << EndCenteredDiv << "</body>"
-                          "</html>";
+  OS << "</body>"
+     << "</html>";
 }
 
 } // anonymous namespace
@@ -226,10 +271,10 @@ CoveragePrinterHTML::createViewFile(StringRef Path, bool InToplevel) {
   OwnedStream OS = std::move(OSOrErr.get());
 
   if (!Opts.hasOutputDirectory()) {
-    emitPrelude(*OS.get());
+    emitPrelude(*OS.get(), Opts);
   } else {
     std::string ViewPath = getOutputPath(Path, "html", InToplevel);
-    emitPrelude(*OS.get(), getPathToStyle(ViewPath));
+    emitPrelude(*OS.get(), Opts, getPathToStyle(ViewPath));
   }
 
   return std::move(OS);
@@ -248,16 +293,27 @@ Error CoveragePrinterHTML::createIndexFile(ArrayRef<StringRef> SourceFiles) {
 
   // Emit a table containing links to reports for each file in the covmapping.
   assert(Opts.hasOutputDirectory() && "No output directory for index file");
-  emitPrelude(OSRef, getPathToStyle(""));
+  emitPrelude(OSRef, Opts, getPathToStyle(""));
+  if (Opts.hasProjectTitle())
+    OSRef << BeginProjectTitleDiv
+          << tag("span", escape(Opts.ProjectTitle, Opts)) << EndProjectTitleDiv;
+  OSRef << BeginReportTitleDiv
+        << tag("span", escape("Code Coverage Report", Opts))
+        << EndReportTitleDiv;
+  if (Opts.hasCreatedTime())
+    OSRef << BeginCreatedTimeDiv
+          << tag("span", escape(Opts.CreatedTimeStr, Opts))
+          << EndCreatedTimeDiv;
+  OSRef << LineBreak;
+  OSRef << BeginCenteredDiv << BeginTable;
   OSRef << BeginSourceNameDiv << "Index" << EndSourceNameDiv;
-  OSRef << BeginTable;
   for (StringRef SF : SourceFiles) {
-    std::string LinkText = escape(sys::path::relative_path(SF));
+    std::string LinkText = escape(sys::path::relative_path(SF), Opts);
     std::string LinkTarget =
-        escape(getOutputPath(SF, "html", /*InToplevel=*/false));
+        escape(getOutputPath(SF, "html", /*InToplevel=*/false), Opts);
     OSRef << tag("tr", tag("td", tag("pre", a(LinkTarget, LinkText), "code")));
   }
-  OSRef << EndTable;
+  OSRef << EndTable << EndCenteredDiv;
   emitEpilog(OSRef);
 
   // Emit the default stylesheet.
@@ -272,16 +328,24 @@ Error CoveragePrinterHTML::createIndexFile(ArrayRef<StringRef> SourceFiles) {
 }
 
 void SourceCoverageViewHTML::renderViewHeader(raw_ostream &OS) {
-  OS << BeginTable;
+  OS << LineBreak << BeginCenteredDiv << BeginTable;
 }
 
 void SourceCoverageViewHTML::renderViewFooter(raw_ostream &OS) {
-  OS << EndTable;
+  OS << EndTable << EndCenteredDiv;
 }
 
-void SourceCoverageViewHTML::renderSourceName(raw_ostream &OS) {
-  OS << BeginSourceNameDiv << tag("pre", escape(getSourceName()))
-     << EndSourceNameDiv;
+void SourceCoverageViewHTML::renderSourceName(raw_ostream &OS, bool WholeFile) {
+  OS << BeginSourceNameDiv;
+  // Render the source name for the view.
+  std::string SourceFile = isFunctionView() ? "Function: " : "Source: ";
+  SourceFile += getSourceName().str();
+  OS << tag("pre", escape(SourceFile, getOptions()));
+  // Render the object file name for the view.
+  if (WholeFile)
+    OS << tag("pre",
+              escape("Binary: " + getOptions().ObjectFilename, getOptions()));
+  OS << EndSourceNameDiv;
 }
 
 void SourceCoverageViewHTML::renderLinePrefix(raw_ostream &OS, unsigned) {
@@ -304,6 +368,7 @@ void SourceCoverageViewHTML::renderLine(
     raw_ostream &OS, LineRef L, const coverage::CoverageSegment *WrappedSegment,
     CoverageSegmentArray Segments, unsigned ExpansionCol, unsigned) {
   StringRef Line = L.Line;
+  unsigned LineNo = L.LineNo;
 
   // Steps for handling text-escaping, highlighting, and tooltip creation:
   //
@@ -335,29 +400,36 @@ void SourceCoverageViewHTML::renderLine(
   // 2. Escape all of the snippets.
 
   for (unsigned I = 0, E = Snippets.size(); I < E; ++I)
-    Snippets[I] = escape(Snippets[I]);
+    Snippets[I] = escape(Snippets[I], getOptions());
 
-  // 3. Use \p WrappedSegment to set the highlight for snippets 0 and 1. Use
-  //    segment 1 to set the highlight for snippet 2, segment 2 to set the
-  //    highlight for snippet 3, and so on.
+  // 3. Use \p WrappedSegment to set the highlight for snippet 0. Use segment
+  //    1 to set the highlight for snippet 2, segment 2 to set the highlight for
+  //    snippet 3, and so on.
 
   Optional<std::string> Color;
-  auto Highlight = [&](const std::string &Snippet) {
+  SmallVector<std::pair<unsigned, unsigned>, 4> HighlightedRanges;
+  auto Highlight = [&](const std::string &Snippet, unsigned LC, unsigned RC) {
+    if (getOptions().Debug) {
+      if (!HighlightedRanges.empty() &&
+          HighlightedRanges.back().second == LC - 1) {
+        HighlightedRanges.back().second = RC;
+      } else
+        HighlightedRanges.emplace_back(LC, RC);
+    }
     return tag("span", Snippet, Color.getValue());
   };
 
   auto CheckIfUncovered = [](const coverage::CoverageSegment *S) {
-    return S && S->HasCount && S->Count == 0;
+    return S && (S->HasCount && S->Count == 0);
   };
 
   if (CheckIfUncovered(WrappedSegment) ||
       CheckIfUncovered(Segments.empty() ? nullptr : Segments.front())) {
     Color = "red";
-    Snippets[0] = Highlight(Snippets[0]);
-    Snippets[1] = Highlight(Snippets[1]);
+    Snippets[0] = Highlight(Snippets[0], 0, Snippets[0].size());
   }
 
-  for (unsigned I = 1, E = Segments.size(); I < E; ++I) {
+  for (unsigned I = 0, E = Segments.size(); I < E; ++I) {
     const auto *CurSeg = Segments[I];
     if (CurSeg->Col == ExpansionCol)
       Color = "cyan";
@@ -367,7 +439,23 @@ void SourceCoverageViewHTML::renderLine(
       Color = None;
 
     if (Color.hasValue())
-      Snippets[I + 1] = Highlight(Snippets[I + 1]);
+      Snippets[I + 1] = Highlight(Snippets[I + 1], CurSeg->Col,
+                                  CurSeg->Col + Snippets[I + 1].size());
+  }
+
+  if (Color.hasValue() && Segments.empty())
+    Snippets.back() = Highlight(Snippets.back(), Snippets[0].size(), 0);
+
+  if (getOptions().Debug) {
+    for (const auto &Range : HighlightedRanges) {
+      errs() << "Highlighted line " << LineNo << ", " << Range.first + 1
+             << " -> ";
+      if (Range.second == 0)
+        errs() << "?";
+      else
+        errs() << Range.second + 1;
+      errs() << "\n";
+    }
   }
 
   // 4. Snippets[1:N+1] correspond to \p Segments[0:N]: use these to generate
@@ -390,7 +478,7 @@ void SourceCoverageViewHTML::renderLine(
 
       Snippets[I + 1] =
           tag("div", Snippets[I + 1] + tag("span", formatCount(CurSeg->Count),
-                                          "tooltip-content"),
+                                           "tooltip-content"),
               "tooltip");
     }
   }
@@ -452,4 +540,29 @@ void SourceCoverageViewHTML::renderInstantiationView(raw_ostream &OS,
   OS << BeginExpansionDiv;
   ISV.View->print(OS, /*WholeFile=*/false, /*ShowSourceName=*/true, ViewDepth);
   OS << EndExpansionDiv;
+}
+
+void SourceCoverageViewHTML::renderCellInTitle(raw_ostream &OS,
+                                               StringRef CellText) {
+  if (getOptions().hasProjectTitle())
+    OS << BeginProjectTitleDiv
+       << tag("span", escape(getOptions().ProjectTitle, getOptions()))
+       << EndProjectTitleDiv;
+
+  OS << BeginReportTitleDiv << tag("span", escape(CellText, getOptions()))
+     << EndReportTitleDiv;
+
+  if (getOptions().hasCreatedTime())
+    OS << BeginCreatedTimeDiv
+       << tag("span", escape(getOptions().CreatedTimeStr, getOptions()))
+       << EndCreatedTimeDiv;
+}
+
+void SourceCoverageViewHTML::renderTableHeader(raw_ostream &OS,
+                                               unsigned ViewDepth) {
+  renderLinePrefix(OS, ViewDepth);
+  OS << tag("td", tag("span", tag("pre", escape("Line No.", getOptions()))))
+     << tag("td", tag("span", tag("pre", escape("Count No.", getOptions()))))
+     << tag("td", tag("span", tag("pre", escape("Source", getOptions()))));
+  renderLineSuffix(OS, ViewDepth);
 }

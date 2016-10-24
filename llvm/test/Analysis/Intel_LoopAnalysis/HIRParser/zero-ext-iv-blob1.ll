@@ -3,25 +3,25 @@
 ; Check parsing output for the loop verifying that the zero extended iv representation of %6: (2 * (zext i31 {-4,+,1}<%for.body> to i64)), is reverse engineered successfully into %6 blob.
 
 ; CHECK: + DO i1 = 0, 4, 1   <DO_LOOP>
-; CHECK: |   %3 = {al:4}(%ok)[0][2 * i1 + 1];
+; CHECK: |   %3 = (%ok)[0][2 * i1 + 1];
 ; CHECK: |   %0 = %0  -  %3;
 ; CHECK: |   if (2 * i1 + 1 < 2)
 ; CHECK: |   {
 ; CHECK: |      %4 = trunc.i64.i32(2 * i1 + 1);
 ; CHECK: |      %6 = 2 * i1 + 4294967289  &&  4294967294;
-; CHECK: |      %.pre = {al:4}(%ok)[0][3];
-; CHECK: |      {al:4}(%ok)[0][3] = %.pre + -22;
+; CHECK: |      %.pre = (%ok)[0][3];
+; CHECK: |      (%ok)[0][3] = %.pre + -22;
 ; CHECK: |      if (%6 >= 2)
 ; CHECK: |      {
-; CHECK: |         %7 = {al:8}(%ok)[0][2];
-; CHECK: |         {al:4}(%ok)[0][1] = %7;
+; CHECK: |         %7 = (%ok)[0][2];
+; CHECK: |         (%ok)[0][1] = %7;
 ; CHECK: |      }
-; CHECK: |      %8 = {al:8}(%ok)[0][2];
-; CHECK: |      {al:8}(%ok)[0][2] = %8 + -1 * (%4 * %0);
-; CHECK: |      %9 = {al:4}(%v4)[0][2 * i1 + 1][2 * i1 + 1];
-; CHECK: |      %10 = {al:4}(%up)[0];
-; CHECK: |      {al:4}(%up)[0] = -1 * %9 + %10;
-; CHECK: |      {al:4}(%gb)[0][1][2 * i1 + 2] = (((-1 * %9) + %10) * %0);
+; CHECK: |      %8 = (%ok)[0][2];
+; CHECK: |      (%ok)[0][2] = %8 + -1 * (%4 * %0);
+; CHECK: |      %9 = (%v4)[0][2 * i1 + 1][2 * i1 + 1];
+; CHECK: |      %10 = (%up)[0];
+; CHECK: |      (%up)[0] = -1 * %9 + %10;
+; CHECK: |      (%gb)[0][1][2 * i1 + 2] = (((-1 * %9) + %10) * %0);
 ; CHECK: |   }
 ; CHECK: + END LOOP
 

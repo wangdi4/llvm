@@ -37,7 +37,7 @@ template void llvm::Calculate<AvrCFGBase, Inverse<AvrBasicBlock *>>(
 
 unsigned long long AvrBasicBlock::NextId = 0;
 
-AvrCFGBase::Visitor::Visitor(AvrCFGBase& C,
+AvrCFGBase::BuilderBase::BuilderBase(AvrCFGBase& C,
                              AvrBasicBlock* CurrentPredecessor) : CFG(C) {
 
   if (CurrentPredecessor)
@@ -261,7 +261,7 @@ bool AvrCFGBase::findSimplePathsImpl(const PathTy& Schema,
   return false;
 }
 
-AvrBasicBlock* AvrCFGBase::Visitor::getOrCreateInstruction(AVR* A) {
+AvrBasicBlock* AvrCFGBase::BuilderBase::getOrCreateInstruction(AVR* A) {
 
   auto It = CFG.BasicBlocks.find(A);
   if (It != CFG.BasicBlocks.end())
@@ -271,17 +271,67 @@ AvrBasicBlock* AvrCFGBase::Visitor::getOrCreateInstruction(AVR* A) {
   return BB;
 }
 
-void AvrCFGBase::Visitor::linkWithCurrentPredecessors(AvrBasicBlock* VI) {
+void AvrCFGBase::BuilderBase::linkWithCurrentPredecessors(AvrBasicBlock* VI) {
   for (auto It : CurrentPredecessors)
     AvrBasicBlock::link(*It, *VI);
 }
 
-void AvrCFGBase::Visitor::setNextInstruction(AvrBasicBlock* VI) {
+void AvrCFGBase::BuilderBase::setNextInstruction(AvrBasicBlock* VI) {
   linkWithCurrentPredecessors(VI);
   setCurrentPredecessor(VI);
 }
 
-void AvrCFGBase::Visitor::visit(AVRValue* AValue) {
+void AvrCFGBase::BuilderBase::construct(AVRCall *ACall) {
+
+  setNextInstruction(getOrCreateInstruction(ACall));
+}
+
+void AvrCFGBase::BuilderBase::construct(AVRBackEdge *ABackEdge) {
+  llvm_unreachable("AVRBackEdge nodes are never actually constructed");
+}
+
+void AvrCFGBase::BuilderBase::construct(AVREntry *AEntry) {
+  llvm_unreachable("AVREntry nodes are never actually constructed");
+}
+
+void AvrCFGBase::BuilderBase::construct(AVRReturn *AReturn) {
+
+  // Just link with any current predecessor and then clear the predecessors set.
+  linkWithCurrentPredecessors(getOrCreateInstruction(AReturn));
+  clearCurrentPredecessors();
+}
+
+void AvrCFGBase::BuilderBase::construct(AVRSelect *ASelect) {
+
+  setNextInstruction(getOrCreateInstruction(ASelect));
+}
+
+void AvrCFGBase::BuilderBase::construct(AVRCompare *ACompare) {
+
+  setNextInstruction(getOrCreateInstruction(ACompare));
+}
+
+void AvrCFGBase::BuilderBase::construct(AVRLabel* ALabel) {
+
+  setNextInstruction(getOrCreateInstruction(ALabel));
+}
+
+void AvrCFGBase::BuilderBase::construct(AVRBranch* ABranch) {
+
+  AvrBasicBlock* BranchInst = getOrCreateInstruction(ABranch);
+
+  // Just link with any current predecessor and then clear the predecessors set.
+  linkWithCurrentPredecessors(BranchInst);
+  clearCurrentPredecessors();
+
+  // Explicitly link to all successors.
+  for (AVRLabel* ALabel : ABranch->getSuccessors()) {
+    AvrBasicBlock* SuccessorInst = getOrCreateInstruction(ALabel);
+    AvrBasicBlock::link(*BranchInst, *SuccessorInst);
+  }
+}
+
+void AvrCFGBase::DeepBuilder::visit(AVRValue* AValue) {
 
   AVRExpression* TopLevelExpr = nullptr;
   AVR* Parent;
@@ -318,13 +368,13 @@ void AvrCFGBase::Visitor::visit(AVRValue* AValue) {
   }
 }
 
-void AvrCFGBase::Visitor::postVisit(AVRExpression* AExpr) {
+void AvrCFGBase::DeepBuilder::postVisit(AVRExpression* AExpr) {
 
   if (!AExpr->isLHSExpr())
     setNextInstruction(getOrCreateInstruction(AExpr));
 }
 
-void AvrCFGBase::Visitor::visit(AVRPhi* APhi) {
+void AvrCFGBase::DeepBuilder::visit(AVRPhi* APhi) {
 
   // Handle the incoming values.
   auto& IncomingValues = APhi->getIncomingValues();
@@ -351,62 +401,7 @@ void AvrCFGBase::Visitor::visit(AVRPhi* APhi) {
   setNextInstruction(getOrCreateInstruction(APhi));
 }
 
-void AvrCFGBase::Visitor::visit(AVRCall *ACall) {
-
-  setNextInstruction(getOrCreateInstruction(ACall));
-}
-
-void AvrCFGBase::Visitor::visit(AVRBackEdge *ABackEdge) {
-  llvm_unreachable("AVRBackEdge nodes are never actually constructed");
-}
-
-void AvrCFGBase::Visitor::visit(AVREntry *AEntry) {
-  llvm_unreachable("AVREntry nodes are never actually constructed");
-}
-
-void AvrCFGBase::Visitor::visit(AVRReturn *AReturn) {
-
-  // Just link with any current predecessor and then clear the predecessors set.
-  linkWithCurrentPredecessors(getOrCreateInstruction(AReturn));
-  clearCurrentPredecessors();
-}
-
-void AvrCFGBase::Visitor::visit(AVRSelect *ASelect) {
-
-  setNextInstruction(getOrCreateInstruction(ASelect));
-}
-
-void AvrCFGBase::Visitor::visit(AVRCompare *ACompare) {
-
-  setNextInstruction(getOrCreateInstruction(ACompare));
-}
-
-void AvrCFGBase::Visitor::visit(AVRLabel* ALabel) {
-
-  setNextInstruction(getOrCreateInstruction(ALabel));
-}
-
-void AvrCFGBase::Visitor::visit(AVRBranch* ABranch) {
-
-  AvrBasicBlock* BranchInst = getOrCreateInstruction(ABranch);
-
-  // Just link with any current predecessor and then clear the predecessors set.
-  linkWithCurrentPredecessors(BranchInst);
-  clearCurrentPredecessors();
-
-  // Explicitly link to all successors.
-#if 0
-  for (auto It : ABranch->getSuccessors()) {
-    AvrBasicBlock* SuccessorInst = getOrCreateInstruction(&*It);
-#else
-  for (AVRLabel* ALabel : ABranch->getSuccessors()) {
-    AvrBasicBlock* SuccessorInst = getOrCreateInstruction(ALabel);
-#endif
-    AvrBasicBlock::link(*BranchInst, *SuccessorInst);
-  }
-}
-
-void AvrCFGBase::Visitor::visit(AVRIf* AIf) {
+void AvrCFGBase::DeepBuilder::visit(AVRIf* AIf) {
 
   AvrBasicBlock* CurrentPredecessor = nullptr;
 
@@ -419,14 +414,14 @@ void AvrCFGBase::Visitor::visit(AVRIf* AIf) {
     // recursion on AVRIfs anyhow).
 
     CurrentPredecessor = *CurrentPredecessors.begin();
-    AvrCFGBase::Visitor ConditionCFGVisitor(CFG, CurrentPredecessor);
-    AVRVisitor<AvrCFGBase::Visitor> ConditionVisitor(ConditionCFGVisitor);
+    AvrCFGBase::DeepBuilder ConditionCFGDeepBuilder(CFG, CurrentPredecessor);
+    AVRVisitor<AvrCFGBase::DeepBuilder> ConditionVisitor(ConditionCFGDeepBuilder);
     AVR* Condition = AIf->getCondition();
     ConditionVisitor.visit(Condition, true, true, true);
     clearCurrentPredecessors();
-    assert(ConditionCFGVisitor.CurrentPredecessors.size() == 1 &&
+    assert(ConditionCFGDeepBuilder.CurrentPredecessors.size() == 1 &&
            "Expected a single predecessor from the condition visit");
-    CurrentPredecessors.insert(*ConditionCFGVisitor.CurrentPredecessors.begin());
+    CurrentPredecessors.insert(*ConditionCFGDeepBuilder.CurrentPredecessors.begin());
   }
   else {
 
@@ -444,22 +439,22 @@ void AvrCFGBase::Visitor::visit(AVRIf* AIf) {
   clearCurrentPredecessors();
 
   // Recurse into 'then' block.
-  AvrCFGBase::Visitor ThenCFGVisitor(CFG, CurrentPredecessor);
-  AVRVisitor<AvrCFGBase::Visitor> ThenVisitor(ThenCFGVisitor);
+  AvrCFGBase::DeepBuilder ThenCFGDeepBuilder(CFG, CurrentPredecessor);
+  AVRVisitor<AvrCFGBase::DeepBuilder> ThenVisitor(ThenCFGDeepBuilder);
   ThenVisitor.forwardVisit(AIf->then_begin(), AIf->then_end(), true, true);
   // Set any dangling predecessors of the 'then' block as predecessors.
-  CurrentPredecessors.insert(ThenCFGVisitor.CurrentPredecessors.begin(),
-                             ThenCFGVisitor.CurrentPredecessors.end());
+  CurrentPredecessors.insert(ThenCFGDeepBuilder.CurrentPredecessors.begin(),
+                             ThenCFGDeepBuilder.CurrentPredecessors.end());
 
   // Recurse into 'else' block.
   if (AIf->else_begin() != AIf->else_end()) {
     // This is an if-then-else.
-    AvrCFGBase::Visitor ElseCFGVisitor(CFG, CurrentPredecessor);
-    AVRVisitor<AvrCFGBase::Visitor> ElseVisitor(ElseCFGVisitor);
+    AvrCFGBase::DeepBuilder ElseCFGDeepBuilder(CFG, CurrentPredecessor);
+    AVRVisitor<AvrCFGBase::DeepBuilder> ElseVisitor(ElseCFGDeepBuilder);
     ElseVisitor.forwardVisit(AIf->else_begin(), AIf->else_end(), true, true);
     // Set any dangling predecessors of the 'else' block as predecessors.
-    CurrentPredecessors.insert(ElseCFGVisitor.CurrentPredecessors.begin(),
-                               ElseCFGVisitor.CurrentPredecessors.end());
+    CurrentPredecessors.insert(ElseCFGDeepBuilder.CurrentPredecessors.begin(),
+                               ElseCFGDeepBuilder.CurrentPredecessors.end());
   }
   else {
     // This is an if-then.
@@ -468,7 +463,7 @@ void AvrCFGBase::Visitor::visit(AVRIf* AIf) {
   }
 }
 
-void AvrCFGBase::Visitor::visit(AVRSwitch* ASwitch) {
+void AvrCFGBase::DeepBuilder::visit(AVRSwitch* ASwitch) {
 
   AvrBasicBlock* CurrentPredecessor = nullptr;
 
@@ -477,38 +472,38 @@ void AvrCFGBase::Visitor::visit(AVRSwitch* ASwitch) {
   CurrentPredecessor = *CurrentPredecessors.begin();
   clearCurrentPredecessors();
 
+  // Recurse into default case first to order it 1st among switch's successors.
+  AvrCFGBase::DeepBuilder DefaultCFGDeepBuilder(CFG, CurrentPredecessor);
+  AVRVisitor<AvrCFGBase::DeepBuilder> DefaultVisitor(DefaultCFGDeepBuilder);
+  DefaultVisitor.forwardVisit(ASwitch->default_case_child_begin(),
+                           ASwitch->default_case_child_end(), true, true);
+  // Set any dangling predecessors of the case as predecessors.
+  CurrentPredecessors.insert(DefaultCFGDeepBuilder.CurrentPredecessors.begin(),
+                             DefaultCFGDeepBuilder.CurrentPredecessors.end());
+
   unsigned NumCases = ASwitch->getNumCases();
   for (unsigned I = 1; I <= NumCases; ++I) {
 
     // Recurse into case.
-    AvrCFGBase::Visitor CaseCFGVisitor(CFG, CurrentPredecessor);
-    AVRVisitor<AvrCFGBase::Visitor> CaseVisitor(CaseCFGVisitor);
+    AvrCFGBase::DeepBuilder CaseCFGDeepBuilder(CFG, CurrentPredecessor);
+    AVRVisitor<AvrCFGBase::DeepBuilder> CaseVisitor(CaseCFGDeepBuilder);
     CaseVisitor.forwardVisit(ASwitch->case_child_begin(I),
                              ASwitch->case_child_end(I), true, true);
     // Set any dangling predecessors of the case as predecessors.
-    CurrentPredecessors.insert(CaseCFGVisitor.CurrentPredecessors.begin(),
-                               CaseCFGVisitor.CurrentPredecessors.end());
+    CurrentPredecessors.insert(CaseCFGDeepBuilder.CurrentPredecessors.begin(),
+                               CaseCFGDeepBuilder.CurrentPredecessors.end());
   }
-
-  // Recurse into default case.
-  AvrCFGBase::Visitor DefaultCFGVisitor(CFG, CurrentPredecessor);
-  AVRVisitor<AvrCFGBase::Visitor> DefaultVisitor(DefaultCFGVisitor);
-  DefaultVisitor.forwardVisit(ASwitch->default_case_child_begin(),
-                           ASwitch->default_case_child_end(), true, true);
-  // Set any dangling predecessors of the case as predecessors.
-  CurrentPredecessors.insert(DefaultCFGVisitor.CurrentPredecessors.begin(),
-                             DefaultCFGVisitor.CurrentPredecessors.end());
 }
 
-void AvrCFGBase::Visitor::visit(AVRLoopHIR *ALoopHIR) {
+void AvrCFGBase::DeepBuilder::visit(AVRLoopHIR *ALoopHIR) {
 
   // Create an empty basic block with as a temporary header.
   AvrBasicBlock* TempHeader = CFG.createBasicBlock();
   setNextInstruction(TempHeader);
 
   // Recurse into loop body.
-  AvrCFGBase::Visitor LoopCFGVisitor(CFG, TempHeader);
-  AVRVisitor<AvrCFGBase::Visitor> LoopVisitor(LoopCFGVisitor);
+  AvrCFGBase::DeepBuilder LoopCFGDeepBuilder(CFG, TempHeader);
+  AVRVisitor<AvrCFGBase::DeepBuilder> LoopVisitor(LoopCFGDeepBuilder);
   LoopVisitor.forwardVisit(ALoopHIR->child_begin(),
                            ALoopHIR->child_end(),
                            true,
@@ -522,22 +517,101 @@ void AvrCFGBase::Visitor::visit(AVRLoopHIR *ALoopHIR) {
   CFG.deleteBasicBlock(TempHeader);
 
   // Set any dangling predecessors of loop body as predecessors of the latch.
-  for (AvrBasicBlock* DanglingBB : LoopCFGVisitor.CurrentPredecessors)
+  for (AvrBasicBlock* DanglingBB : LoopCFGDeepBuilder.CurrentPredecessors)
     AvrBasicBlock::link(*DanglingBB, *Latch);
 
   // Set the latch as the current predecessor of the CFG.
   setCurrentPredecessor(Latch);
 }
 
+void AvrCFGBase::ShallowBuilder::visit(AVRAssign* AAssign) {
+  setNextInstruction(getOrCreateInstruction(AAssign));
+}
+
+void AvrCFGBase::ShallowBuilder::visit(AVRPhi* APhi) {
+  setNextInstruction(getOrCreateInstruction(APhi));
+}
+
+void AvrCFGBase::ShallowBuilder::visit(AVRIf* AIf) {
+
+  AvrBasicBlock* CurrentPredecessor = nullptr;
+
+  setNextInstruction(getOrCreateInstruction(AIf));
+
+  CurrentPredecessor = *CurrentPredecessors.begin();
+  clearCurrentPredecessors();
+
+  // Recurse into 'then' block.
+  AvrCFGBase::ShallowBuilder ThenCFGShallowBuilder(CFG, CurrentPredecessor);
+  AVRVisitor<AvrCFGBase::ShallowBuilder> ThenVisitor(ThenCFGShallowBuilder);
+  ThenVisitor.forwardVisit(AIf->then_begin(), AIf->then_end(), true, true);
+  // Set any dangling predecessors of the 'then' block as predecessors.
+  CurrentPredecessors.insert(ThenCFGShallowBuilder.CurrentPredecessors.begin(),
+                             ThenCFGShallowBuilder.CurrentPredecessors.end());
+
+  // Recurse into 'else' block.
+  if (AIf->else_begin() != AIf->else_end()) {
+    // This is an if-then-else.
+    AvrCFGBase::ShallowBuilder ElseCFGShallowBuilder(CFG, CurrentPredecessor);
+    AVRVisitor<AvrCFGBase::ShallowBuilder> ElseVisitor(ElseCFGShallowBuilder);
+    ElseVisitor.forwardVisit(AIf->else_begin(), AIf->else_end(), true, true);
+    // Set any dangling predecessors of the 'else' block as predecessors.
+    CurrentPredecessors.insert(ElseCFGShallowBuilder.CurrentPredecessors.begin(),
+                               ElseCFGShallowBuilder.CurrentPredecessors.end());
+  }
+  else {
+    // This is an if-then.
+    // Re-insert the AVRIf as a predecessor.
+    CurrentPredecessors.insert(CurrentPredecessor);
+  }
+}
+
+void AvrCFGBase::ShallowBuilder::visit(AVRSwitch* ASwitch) {
+
+  AvrBasicBlock* CurrentPredecessor = nullptr;
+
+  setNextInstruction(getOrCreateInstruction(ASwitch));
+
+  CurrentPredecessor = *CurrentPredecessors.begin();
+  clearCurrentPredecessors();
+
+  // Recurse into default case first to order it 1st among switch's successors.
+  AvrCFGBase::ShallowBuilder DefaultCFGShallowBuilder(CFG, CurrentPredecessor);
+  AVRVisitor<AvrCFGBase::ShallowBuilder> DefaultVisitor(DefaultCFGShallowBuilder);
+  DefaultVisitor.forwardVisit(ASwitch->default_case_child_begin(),
+                           ASwitch->default_case_child_end(), true, true);
+  // Set any dangling predecessors of the case as predecessors.
+  CurrentPredecessors.insert(DefaultCFGShallowBuilder.CurrentPredecessors.begin(),
+                             DefaultCFGShallowBuilder.CurrentPredecessors.end());
+
+  unsigned NumCases = ASwitch->getNumCases();
+  for (unsigned I = 1; I <= NumCases; ++I) {
+
+    // Recurse into case.
+    AvrCFGBase::ShallowBuilder CaseCFGShallowBuilder(CFG, CurrentPredecessor);
+    AVRVisitor<AvrCFGBase::ShallowBuilder> CaseVisitor(CaseCFGShallowBuilder);
+    CaseVisitor.forwardVisit(ASwitch->case_child_begin(I),
+                             ASwitch->case_child_end(I), true, true);
+    // Set any dangling predecessors of the case as predecessors.
+    CurrentPredecessors.insert(CaseCFGShallowBuilder.CurrentPredecessors.begin(),
+                               CaseCFGShallowBuilder.CurrentPredecessors.end());
+  }
+}
+
+void AvrCFGBase::ShallowBuilder::visit(AVRLoop *ALoop) {
+  setNextInstruction(getOrCreateInstruction(ALoop));
+}
+
 AvrCFGBase::AvrCFGBase(AvrItr Begin, AvrItr End,
                        const std::string& T,
+                       bool Deep,
                        bool Compress) : Title(T) {
   
   Entry = nullptr;
   Exit = nullptr;
   Size = 0;
 
-  runOnAvr(Begin, End, Compress);
+  runOnAvr(Begin, End, Deep, Compress);
 }
 
 AvrCFGBase::~AvrCFGBase() {
@@ -557,16 +631,27 @@ AvrCFGBase::~AvrCFGBase() {
   }
 }
 
-void AvrCFGBase::runOnAvr(AvrItr Begin, AvrItr End, bool Compress) {
+void AvrCFGBase::runOnAvr(AvrItr Begin, AvrItr End, bool Deep, bool Compress) {
 
   // Create a temporary entry node. We remove this node after construction
   // if it is empty and its only successor has no other predecessors.
   Entry = createBasicBlock();
 
+  BuilderBase* Builder;
+
   // Walk down the AVR tree and generate the CFG.
-  Visitor CFGVisitor(*this, Entry);
-  AVRVisitor<Visitor> AVisitor(CFGVisitor);
-  AVisitor.forwardVisit(Begin, End, true, true);
+  if (Deep) {
+    DeepBuilder &CFGDeepBuilder = *new DeepBuilder(*this, Entry);
+    AVRVisitor<DeepBuilder> AVisitor(CFGDeepBuilder);
+    AVisitor.forwardVisit(Begin, End, true, true);
+    Builder = &CFGDeepBuilder;
+  }
+  else {
+    ShallowBuilder &CFGShallowBuilder = * new ShallowBuilder(*this, Entry);
+    AVRVisitor<ShallowBuilder> AVisitor(CFGShallowBuilder);
+    AVisitor.forwardVisit(Begin, End, true, true);
+    Builder = &CFGShallowBuilder;
+  }
 
   // Add all pending phi-incoming values to the CFG right after the designated
   // label.
@@ -603,7 +688,7 @@ void AvrCFGBase::runOnAvr(AvrItr Begin, AvrItr End, bool Compress) {
   //   linked to the exit node).
 
   const SmallPtrSetImpl<AvrBasicBlock*>& LastBasicBlocks =
-    CFGVisitor.getPredecessors();
+    Builder->getPredecessors();
 
   SmallPtrSet<AvrBasicBlock*, 1> deadEnds;
   for (AvrBasicBlock* CFGInst : depth_first(Entry))
@@ -628,6 +713,8 @@ void AvrCFGBase::runOnAvr(AvrItr Begin, AvrItr End, bool Compress) {
 
   if (Compress)
     compress();
+
+  delete Builder;
 }
 
 void AvrCFGBase::compress() {
@@ -721,13 +808,7 @@ void AvrCFGBase::deleteBasicBlock(AvrBasicBlock* BB,
     Successors = BB->Successors;
   }
 
-  for (AvrBasicBlock* Predecessor : BB->Predecessors) {
-    AvrBasicBlock::unlink(*Predecessor, *BB);
-  }
-
-  for (AvrBasicBlock* Successor : BB->Successors) {
-    AvrBasicBlock::unlink(*BB, *Successor);
-  }
+  AvrBasicBlock::unlink(*BB);
 
   delete BB;
   Size--;
@@ -758,6 +839,7 @@ bool AvrCFGBase::mergeWithDominatedSuccessor(AvrBasicBlock* BB) {
   // itself.
   assert(Successor != BB && "Single BB infinite loop detected");
 
+#if 0
   // Do not merge the succesor if it is a branch condition.
   // While we definitely can merge, this will complicate user's code involving
   // finding simple paths between instructions which would need to take into
@@ -770,6 +852,7 @@ bool AvrCFGBase::mergeWithDominatedSuccessor(AvrBasicBlock* BB) {
   if (!Successor->Instructions.empty() &&
       isBranchCondition(Successor->Instructions.front()))
     return false;
+#endif
 
   // Append Successors's Instructions to BB's
   for (AVR* MergedInstruction : Successor->Instructions) {
@@ -815,7 +898,7 @@ bool AvrCFG::runOnFunction(Function &F) {
   if (AV.isAbstractLayerEmpty())
     return false;
 
-  CFG = new AvrCFGBase(AV.begin(), AV.end(), F.getName(), true);
+  CFG = new AvrCFGBase(AV.begin(), AV.end(), F.getName(), true , true);
 
   return false;
 }
@@ -857,7 +940,7 @@ bool AvrCFGHIR::runOnFunction(Function &F) {
   if (AV.isAbstractLayerEmpty())
     return false;
 
-  CFG = new AvrCFGBase(AV.begin(), AV.end(), F.getName(), true);
+  CFG = new AvrCFGBase(AV.begin(), AV.end(), F.getName(), true, true);
 
   return false;
 }

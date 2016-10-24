@@ -163,12 +163,12 @@ public:
 
   bool operator==(OVLSType Rhs) const {
     return ElementSize == Rhs.ElementSize &&
-	   NumElements == Rhs.NumElements;
+           NumElements == Rhs.NumElements;
   }
 
   bool operator!=(OVLSType Rhs) const {
     return ElementSize != Rhs.ElementSize ||
-	   NumElements != Rhs.NumElements;
+           NumElements != Rhs.NumElements;
   }
 
   bool isValid() const { return ElementSize != 0 && NumElements != 0; }
@@ -268,14 +268,52 @@ public:
   virtual bool isAConstDistanceFrom(const OVLSMemref& Memref,
                                     int64_t *Dist) = 0;
 
-  // Returns true if this and Memref have the same number of elements.
+  /// \brief Returns true if this and Memref have the same number of elements.
   virtual bool haveSameNumElements(const OVLSMemref& Memref) = 0;
 
-  // Returns true if this can move to the location of Memref. This means it
-  // does not violate any program/control flow semantics nor any memory
-  // dependencies. I.e., this is still alive at the location of Memref and
-  // there are no loads/stores of this in between the location of this and the
-  // location of Memref.
+  /// \brief Returns true if this can move to the location of \p Memref. This 
+  /// means it does not violate any program/control flow semantics nor any 
+  /// memory dependencies. I.e., this is still alive at the location of 
+  /// \p Memref and there are no loads/stores that may alias with this in 
+  /// between the location of this and the location of \p Memref.
+  /// canMoveTo() only answers the individual legality question that it is
+  /// asked; it does not know if the move will actually be carried out by the
+  /// caller, and has no context/memory of moves that had been asked before.
+  /// Therefore, if the caller uses canMoveTo multiple times to ask about 
+  /// accumulative moves, the answers may not be valid, unless the following
+  /// two conditions are met:
+  /// 1) caller only moves loads up, and only moves stores down, based on the 
+  /// getLocation() function; This will guarantee that no new Write-After-Read
+  /// (WAR) dependencies will be introduced. (A TODO on the server side).
+  /// 2) canMoveTo will not allow any moves in the face of any Read-After-Write
+  /// (RAW) dependences. (A TODO on the client canMoveTo side)
+  ///
+  /// Here's an example where individual moves can be legal independently, but
+  /// not together (accumulatively):
+  ///
+  /// For i:
+  ///   …  =  b[4*i + 4]      // ld1
+  ///   b[4*i - 1] = …        // st1
+  ///   …  =  b[4*i + 1]      // ld2
+  ///   b[4*i] = …            // st2
+  ///
+  /// (the only dependence is a forward Write-After-Read (WAR) dep between
+  /// ld1-->st2); Consider the following sequence of calls to canMoveTo:
+  ///
+  /// ld1->canMoveTo(ld2): returns true
+  /// st2->canMoveTo(st1): returns true, but this is wrong if previous
+  ///                      canMoveTo was actually committed.
+  ///
+  /// Validity of canMoveTo answers upon multiple calls that assume 
+  /// accumulative moves will be guaranteed with the following sequence of 
+  /// calls, in which loads are hoisted up, namely -- moved towards the 
+  /// load with the smaller getLocation() between this and Memref; And 
+  /// stores are only sinked down, namely moved towards the store with 
+  /// larger getLocation() among this and Memref:
+  ///
+  /// ld2->canMoveTo(ld1): returns true
+  /// st1->canMoveTo(st2): returns true, and this is valid even if previous 
+  ///                      move took place.
   virtual bool canMoveTo(const OVLSMemref& Memref) = 0;
 
   /// \brief Returns true if this is a strided access and it has a constant
@@ -284,6 +322,19 @@ public:
   /// Inverting the return value does not invert the functionality(false does
   /// not mean that it has a variable stride)
   virtual bool hasAConstStride(int64_t *Stride) = 0;
+
+  /// \brief Return the location of this in the code. The location should be
+  /// relative to other Memrefs sent by the client to the VLS engine. 
+  /// getLocation can be used for a location-based group-formation heuristic.
+  /// A location-based heuristic can be useful in order to use canMoveTo()
+  /// *multiple* times, to ask about *accumulative* moves (moves that are all
+  /// assumed to take place, if approved). The scheme is to only move loads up
+  /// and only move stores down. 
+  /// So, for every pair of loads (ld1,ld2) that the caller wants 
+  /// to put together in one group, the caller would ask about moving ld1 to 
+  /// the location of ld2 only if ld2->getLocation() < ld1->getLocation(). 
+  /// Otherwise, the caller should ask about moving ld2 to the location of ld1. 
+  virtual unsigned getLocation() const = 0; 
 
 private:
   unsigned Id;          // A unique Id, helps debugging.
@@ -375,6 +426,9 @@ public:
   // of elements.
   uint32_t getNumElems() const { return MemrefVec[0]->getType().getNumElements(); }
 
+  /// \brief Return the vector of memrefs of this group.
+  const OVLSMemrefVector &getMemrefVec() const { return MemrefVec; }
+
   void print(OVLSostream &OS, unsigned SpaceCount) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -428,8 +482,16 @@ enum OperandKind { OK_Address, OK_Instruction, OK_Constant };
   OperandKind getKind() const { return Kind; }
   OVLSType getType() const { return Type; }
 
+  virtual void print(OVLSostream &OS, unsigned NumSpaces) const { }
+
+  virtual void printAsOperand(OVLSostream &OS) const {
+    OS << Type << "undef";
+  }
+
 private:
   OperandKind Kind;
+
+protected:
   OVLSType Type;
 };
 
@@ -441,7 +503,7 @@ private:
   uint8_t ConstValue[BitWidth / 8];
 
 public:
-  explicit OVLSConstant(OVLSType T, uint8_t *V) :
+  explicit OVLSConstant(OVLSType T, int8_t *V) :
     OVLSOperand(OK_Constant, T) {
     assert(T.getSize() <= BitWidth && "Unsupported OVLSConstant size!");
     memcpy(ConstValue, V, T.getSize());
@@ -449,6 +511,27 @@ public:
 
   static bool classof(const OVLSOperand *Operand) {
     return Operand->getKind() == OK_Constant;
+  }
+
+  void print(OVLSostream &OS, unsigned NumSpaces) const {
+    OVLSType Type = getType();
+    uint32_t NumElems = Type.getNumElements();
+    OS << Type;
+
+    switch (Type.getElementSize()) {
+    case 32:
+    {
+      OS << "<" << *(reinterpret_cast<const int*> (&ConstValue[0]));
+      for (uint32_t i = 1; i < NumElems; i++)
+        OS << ", " << *(reinterpret_cast<const int*> (&ConstValue[i * 4]));
+
+	OS << ">";
+      break;
+    }
+    default:
+      OVLSdbgs() << "Not supported\n";
+      break;
+    }
   }
 };
 
@@ -502,15 +585,16 @@ public:
   enum OperationCode { OC_Load, OC_Store, OC_Shuffle };
 
   explicit OVLSInstruction(OperationCode OC,  OVLSType T) :
-    OVLSOperand(OK_Instruction), OPCode(OC) {
-    DType = T;
+    OVLSOperand(OK_Instruction, T), OPCode(OC) {
     static uint64_t InstructionId = 1;
     Id = InstructionId++;
   }
 
   virtual ~OVLSInstruction() {}
 
-  virtual void print(OVLSostream &OS, unsigned NumSpaces) const = 0;
+  static bool classof(const OVLSOperand *Operand) {
+    return Operand->getKind() == OK_Instruction;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// This method is used for debugging.
@@ -518,18 +602,15 @@ public:
   virtual void dump() const = 0;
 #endif
 
-  OVLSType getType() const { return DType; }
-  void setType(OVLSType T) { DType = T; }
-
   uint64_t getId() const { return Id; }
 
+  void printAsOperand(OVLSostream &OS) const {
+    OS << Type << " %" << Id;
+  }
   OperationCode getKind() const { return OPCode; }
 private:
   OperationCode OPCode;
 
-  /// \brief An instruction can be an operand or result of an instruction.
-  ///  If so, this defines the operand type.
-  OVLSType DType;
   /// \brief Class identification, helps debugging.
   uint64_t Id;
 };
@@ -539,10 +620,13 @@ class OVLSLoad : public OVLSInstruction {
 public:
   /// \brief Load <ESize x NElems> bits from S using \p EMask (element mask).
   explicit OVLSLoad(OVLSType T, const OVLSOperand& S,
-		    uint64_t EMask) :
+                    uint64_t EMask) :
     OVLSInstruction(OC_Load, T), ElemMask(EMask) {
     Src = S;
   }
+
+  /// \brief Return the Address (Src) member of the Load.
+  OVLSAddress getSrc() const { return Src; }
 
   static bool classof(const OVLSInstruction *I) {
     return I->getKind() == OC_Load;
@@ -573,13 +657,13 @@ private:
 
 /// OVLSShuffle instruction combines elements from the first two input vectors
 /// into a new vector, with the selection and ordering of elements determined
-/// by the 3rd vector, referred to as the shuffle mask. The length of the
-/// shuffle mask can be of any length that is less than or equal to the total
-/// length of the input vectors. Therefore, the length of the result vector can
-/// be of any size that is the same as the shuffle mask and the element size is
-/// the same as the element size of the first two input vectors. The shuffle
-/// mask operand is required to be a constant vector with either constant
-/// integer or undef values(-1).
+/// by the 3rd vector, referred to as the shuffle mask. The first two operands
+/// are vectors with the same type. The length of the shuffle mask can be of any
+/// length that is less than or equal to twice the input vectors.
+/// Therefore, the length of the result vector can be of any size that is the
+/// same as the shuffle mask and the element size is the same as the element
+/// size of the first two input vectors. The shuffle mask operand is required to
+/// be a constant vector with either constant integer or undef values(~0).
 /// For input vectors of width N, mask selector can be of 0..N-1
 /// referring to the elements from the 1st input, and selector from N to 2N-1
 /// refer to the 2nd input vector.
@@ -598,9 +682,9 @@ private:
 class OVLSShuffle : public OVLSInstruction {
 
 public:
-  explicit OVLSShuffle(OVLSOperand O1, OVLSOperand O2, OVLSOperand O3) :
-    OVLSInstruction(OC_Shuffle, OVLSType(O1.getType().getElementSize(),
-                                         O3.getType().getNumElements())) {
+  explicit OVLSShuffle(OVLSOperand *O1, OVLSOperand *O2, OVLSOperand *O3) :
+    OVLSInstruction(OC_Shuffle, OVLSType(O1->getType().getElementSize(),
+                                         O3->getType().getNumElements())) {
     assert(hasValidOperands(O1, O2, O3) &&
            "Invalid shuffle vector instruction operand!");
     Op1 = O1;
@@ -610,7 +694,7 @@ public:
 
   /// isValidOperands - Return true if a shufflevector instruction can be
   /// formed with the specified operands.
-  static bool hasValidOperands(OVLSOperand O1, OVLSOperand O2, OVLSOperand Mask);
+  bool hasValidOperands(OVLSOperand *O1, OVLSOperand *O2, OVLSOperand *Mask) const;
 
   static bool classof(const OVLSInstruction *I) {
     return I->getKind() == OC_Shuffle;
@@ -626,22 +710,19 @@ public:
 #endif
 
 private:
-  OVLSOperand Op1;
-  OVLSOperand Op2;
+  const OVLSOperand *Op1;
+  const OVLSOperand *Op2;
 
   /// \p Op3 defines the shuffle mask, specifies for each element of the result
   /// vector, which element of the two source vectors the result element gets.
   /// Having -1 as a shuffle selector means "don't care".
-  OVLSOperand Op3;
+  const OVLSOperand *Op3;
 };
 
 
-// Printing of OVLSInstruction.
-static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSInstruction& I) {
-  if (isa<OVLSLoad>(&I)) {
-    const OVLSLoad *LI = cast<const OVLSLoad>(&I);
-    LI->print(OS, 2);
-  }
+// Printing of OVLSOperand.
+static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSOperand& Op) {
+  Op.print(OS, 2);
   return OS;
 }
 
@@ -663,6 +744,9 @@ public:
   /// the OVLS clients to help getting the target-specific instruction cost.
   virtual uint64_t getInstructionCost(const OVLSInstruction *I) const = 0;
 
+  /// \brief Returns target-specific cost for loading/storing \p Mrf
+  /// using a gather/scatter.
+  virtual uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const = 0;
 };
 
 // OptVLS public Interface class that operates on OptVLS Abstract types.
@@ -691,11 +775,15 @@ public:
                         uint32_t VectorLength,
                         OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
 
-  /// \brief getGroupCost() returns a relative cost/benefit of performing
+  /// \brief getGroupCost() examines if it is beneficial to perform
   /// adjacent gather/scatter optimization for a group (of gathers/scatters).
   /// Adj. gather/scatter optimization replaces a set of gathers/scatters by a
   /// set of contiguous loads/stores followed by a sequence of shuffle
-  /// instructions.
+  /// instructions. This method returns the minimum between these two costs;
+  /// It computes the cost of the load/store+shuffle sequence, it computes the
+  /// cost of the gathers/shuffles, and returns the lower of the two. This is 
+  /// how the vectorizer client currently uses this method: it assumes that it
+  /// provides the absolute cost of the best way to vectorize this group.
   static int64_t getGroupCost(const OVLSGroup& Group,
                               const OVLSCostModelAnalysis& CM);
 
@@ -708,7 +796,7 @@ public:
   /// relative cost/benefit analysis (which is gather/scatter vs. the generated
   /// sequence). The main purpose of this function is to help diagnostics.
   static bool getSequence(const OVLSGroup& Group,
-			  OVLSInstructionVector& InstVector);
+                          OVLSInstructionVector& InstVector);
 
 };
 

@@ -264,8 +264,8 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
           OS << "{vol}";
         }
 
-        if (auto Alignment = getAlignment()) {
-          OS << "{al:" << Alignment << "}";
+        if (Detailed && getAlignment()) {
+          OS << "{al:" << getAlignment() << "}";
         }
       }
 
@@ -369,32 +369,6 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   }
 }
 
-Type *RegDDRef::getSrcType() const { return getTypeImpl(true); }
-
-Type *RegDDRef::getDestType() const { return getTypeImpl(false); }
-
-Type *RegDDRef::getBaseTypeImpl(bool IsSrc) const {
-  if (hasGEPInfo()) {
-    return IsSrc ? getBaseCE()->getSrcType() : getBaseCE()->getDestType();
-  }
-
-  return nullptr;
-}
-
-Type *RegDDRef::getBaseSrcType() const { return getBaseTypeImpl(true); }
-
-Type *RegDDRef::getBaseDestType() const { return getBaseTypeImpl(false); }
-
-void RegDDRef::setBaseSrcType(Type *SrcTy) {
-  assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
-  getBaseCE()->setSrcType(SrcTy);
-}
-
-void RegDDRef::setBaseDestType(Type *DestTy) {
-  assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
-  getBaseCE()->setDestType(DestTy);
-}
-
 bool RegDDRef::isLval() const {
   auto HNode = getHLDDNode();
 
@@ -419,16 +393,6 @@ bool RegDDRef::isFake() const {
   return HNode->isFake(this);
 }
 
-bool RegDDRef::isTerminalRef() const {
-  // Check GEP and Single CanonExpr
-  if (!hasGEPInfo()) {
-    assert(isSingleCanonExpr() && "Scalar ref has more than one dimension!");
-    return true;
-  }
-
-  return false;
-}
-
 bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
   // Check the Base CE.
   if (hasGEPInfo() && !getBaseCE()->isInvariantAtLevel(LoopLevel)) {
@@ -450,13 +414,6 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
   return true;
 }
 
-void RegDDRef::addDimension(CanonExpr *Canon, CanonExpr *Stride) {
-  assert(Canon && "Canon is null!");
-  assert((CanonExprs.empty() || Stride) && "Stride is null!");
-}
-
-bool RegDDRef::isMemRef() const { return hasGEPInfo() && !isAddressOf(); }
-
 bool RegDDRef::isSelfBlob() const {
   if (!isTerminalRef()) {
     return false;
@@ -468,9 +425,42 @@ bool RegDDRef::isSelfBlob() const {
     return false;
   }
 
-  unsigned SB = BlobUtils::getBlobSymbase(CE->getSingleBlobIndex());
+  unsigned SB = BlobUtils::getTempBlobSymbase(CE->getSingleBlobIndex());
 
   return (getSymbase() == SB);
+}
+
+bool RegDDRef::isUndefSelfBlob() const {
+  if (!isSelfBlob()) {
+    return false;
+  }
+
+  return getSingleCanonExpr()->isUndefSelfBlob();
+}
+
+void RegDDRef::replaceSelfBlobIndex(unsigned NewIndex) {
+  assert(isSelfBlob() && "DDRef is not a self blob!");
+  getSingleCanonExpr()->replaceSingleBlobIndex(NewIndex);
+  setSymbase(BlobUtils::getTempBlobSymbase(NewIndex));
+}
+
+void RegDDRef::makeSelfBlob() {
+  assert(isLval() && "DDRef is expected to be an lval ref!");
+  assert(isTerminalRef() && "DDRef is expected to be a terminal ref!");
+
+  unsigned Index = BlobUtils::findOrInsertTempBlobIndex(getSymbase());
+
+  auto CE = getSingleCanonExpr();
+
+  CE->clear();
+
+  // In case there is currently a cast.
+  CE->setSrcType(CE->getDestType());
+
+  CE->addBlob(Index, 1);
+  CE->setNonLinear();
+
+  removeAllBlobDDRefs();
 }
 
 CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
@@ -536,18 +526,6 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   return StrideAtLevel;
 }
 
-void RegDDRef::addDimension(CanonExpr *IndexCE) {
-  assert(IndexCE && "IndexCE is null!");
-  CanonExprs.push_back(IndexCE);
-}
-
-void RegDDRef::removeDimension(unsigned DimensionNum) {
-  assert(isDimensionValid(DimensionNum) && "DimensionNum is out of range!");
-  assert((getNumDimensions() > 1) && "Attempt to remove the only dimension!");
-
-  CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
-}
-
 uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
   assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
@@ -610,6 +588,45 @@ void RegDDRef::addBlobDDRef(unsigned Index, unsigned Level) {
   addBlobDDRef(BRef);
 }
 
+BlobDDRef *RegDDRef::getBlobDDRef(unsigned Index) {
+
+  // Find the blob DDRef with the input Index
+  for (auto BDDR : BlobDDRefs) {
+    if (BDDR->getBlobIndex() == Index) {
+      return BDDR;
+    }
+  }
+
+  return nullptr;
+}
+
+const BlobDDRef *RegDDRef::getBlobDDRef(unsigned Index) const {
+  return const_cast<RegDDRef *>(this)->getBlobDDRef(Index);
+}
+
+bool RegDDRef::usesTempBlob(unsigned Index, bool *IsSelfBlob) const {
+
+  if (IsSelfBlob) {
+    *IsSelfBlob = false;
+  }
+
+  if (isSelfBlob()) {
+    unsigned SelfBlobIndex = getSingleCanonExpr()->getSingleBlobIndex();
+
+    if (Index != SelfBlobIndex) {
+      return false;
+    }
+
+    if (IsSelfBlob) {
+      *IsSelfBlob = true;
+    }
+
+    return true;
+  }
+
+  return getBlobDDRef(Index);
+}
+
 RegDDRef::blob_iterator
 RegDDRef::getNonConstBlobIterator(const_blob_iterator CBlobI) {
   blob_iterator BlobI(blob_begin());
@@ -629,6 +646,36 @@ BlobDDRef *RegDDRef::removeBlobDDRef(const_blob_iterator CBlobI) {
   return BRef;
 }
 
+bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex) {
+  if (!usesTempBlob(OldIndex)) {
+    return false;
+  }
+
+  if (isSelfBlob()) {
+    replaceSelfBlobIndex(NewIndex);
+    return true;
+  }
+
+  bool Replaced = false;
+
+  if (hasGEPInfo() && getBaseCE()->replaceTempBlob(OldIndex, NewIndex)) {
+    Replaced = true;
+  }
+
+  for (auto CEIt = canon_begin(), EndIt = canon_end(); CEIt != EndIt; ++CEIt) {
+    if ((*CEIt)->replaceTempBlob(OldIndex, NewIndex)) {
+      Replaced = true;
+    }
+  }
+
+  auto BRef = getBlobDDRef(OldIndex);
+  assert(Replaced && BRef && "Inconsistent DDRef found!");
+
+  BRef->replaceBlob(NewIndex);
+
+  return true;
+}
+
 void RegDDRef::removeAllBlobDDRefs() {
 
   while (!BlobDDRefs.empty()) {
@@ -638,12 +685,12 @@ void RegDDRef::removeAllBlobDDRefs() {
   }
 }
 
-void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices) {
+void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices,
+                                     SmallVectorImpl<BlobDDRef *> &StaleBlobs) {
 
-  // Iteratre through blob DDRefs.
-  for (auto It = blob_cbegin(); It != blob_cend();) {
+  auto RemovePred = [&](BlobDDRef *BRef) {
 
-    unsigned Index = (*It)->getBlobIndex();
+    unsigned Index = BRef->getBlobIndex();
 
     auto BlobIt =
         std::lower_bound(BlobIndices.begin(), BlobIndices.end(), Index);
@@ -653,29 +700,18 @@ void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices) {
       // Remove index for the existing blob DDRef.
       BlobIndices.erase(BlobIt);
 
-      ++It;
-      continue;
+      return false;
     }
 
-    bool ResetToBegin = (It == blob_cbegin());
-    const_blob_iterator J(It);
+    // Save stale blob's reference for further potential use
+    StaleBlobs.push_back(BRef);
 
-    // Save the previous iterator for recovering the next iterator to be
-    // processed after erasure. vector erase() invalidates all the iterators at
-    // and after the point of erasure.
-    if (!ResetToBegin) {
-      --It;
-    }
+    return true;
+  };
 
-    removeBlobDDRef(J);
-
-    // Get the next iterator to be processed.
-    if (!ResetToBegin) {
-      ++It;
-    } else {
-      It = blob_cbegin();
-    }
-  }
+  BlobDDRefs.erase(
+      std::remove_if(BlobDDRefs.begin(), BlobDDRefs.end(), RemovePred),
+      BlobDDRefs.end());
 }
 
 void RegDDRef::collectTempBlobIndices(
@@ -733,12 +769,13 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
 void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
                                 bool AssumeLvalIfDetached) {
   SmallVector<unsigned, 8> BlobIndices;
+  SmallVector<BlobDDRef *, 8> StaleBlobs;
 
   bool IsLvalAssumed = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
 
   if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
-    unsigned SB =
-        BlobUtils::getBlobSymbase(getSingleCanonExpr()->getSingleBlobIndex());
+    unsigned SB = BlobUtils::getTempBlobSymbase(
+        getSingleCanonExpr()->getSingleBlobIndex());
 
     // We need to modify the symbase if this DDRef was turned into a self blob
     // as the associated blob DDRef is removed.
@@ -777,11 +814,21 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   collectTempBlobIndices(BlobIndices);
 
   // Remove stale BlobDDRefs.
-  removeStaleBlobDDRefs(BlobIndices);
+  removeStaleBlobDDRefs(BlobIndices, StaleBlobs);
 
   // Add new BlobDDRefs.
   for (auto &I : BlobIndices) {
-    auto BRef = DDRefUtils::createBlobDDRef(I, 0);
+
+    BlobDDRef *BRef;
+    if (!StaleBlobs.empty()) {
+      BRef = StaleBlobs.pop_back_val();
+      BRef->replaceBlob(I);
+      BRef->setDefinedAtLevel(0);
+      // Detaching blob from parent DDRef
+      BRef->setParentDDRef(nullptr);
+    } else {
+      BRef = DDRefUtils::createBlobDDRef(I, 0);
+    }
 
     addBlobDDRef(BRef);
 
@@ -883,6 +930,7 @@ void RegDDRef::verify() const {
     assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
     assert(isa<PointerType>(CE->getSrcType()) && "Invalid BaseCE src type!");
     assert(isa<PointerType>(CE->getDestType()) && "Invalid BaseCE dest type!");
+    assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
   }
 
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {

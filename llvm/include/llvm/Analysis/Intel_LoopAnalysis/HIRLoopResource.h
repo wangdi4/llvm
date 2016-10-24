@@ -215,7 +215,7 @@ public:
 
   /// \brief This method will mark the loop and all its parent loops as
   /// modified. If loop changes, resources of the loop and all its parents loops
-  /// needs to recomputed.
+  /// needs to be recomputed.
   void markLoopBodyModified(const HLLoop *Loop) override;
 
   /// \brief Returns the loop resource of the specified loop. This excludes loop
@@ -224,7 +224,7 @@ public:
 
   /// \brief Returns the loop resource of the specified loop including children
   /// loops.
-  /// NOTE: Children loop's resouce is added assuming a trip count of one. No
+  /// NOTE: Children loop's resource is added assuming a trip count of one. No
   /// multiplier is involved.
   const LoopResourceInfo &getTotalLoopResource(const HLLoop *Loop);
 

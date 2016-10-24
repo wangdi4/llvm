@@ -43,6 +43,8 @@ void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintDataType:
     printSLEV(OS);
   case PrintBase:
+    if (getPredicate())
+      OS << "/P" << getPredicate()->getNumber() << "/ ";
     if (hasLHS() && hasRHS()) {
 
       // Print avr assign node which contains avr expressions.
@@ -91,6 +93,26 @@ void AVRAssign::shallowPrint(formatted_raw_ostream &OS) const {
 StringRef AVRAssign::getAvrTypeName() const { return StringRef("ASSIGN"); }
 
 //----------AVR Expression Implementation----------//
+AVRExpression::AVRExpression(Type *ValType,
+                             const SmallVectorImpl<AVR *>& Operands,
+                             unsigned Operation,
+                             CmpInst::Predicate Predicate)
+    : AVR(AVR::AVRExpressionNode) {
+
+  IsLHSExpr = false;
+  this->Operation = Operation; // Set Operation Type
+  this->Predicate = Predicate;
+  for (AVR *Operand : Operands)
+    this->Operands.push_back(Operand);
+  this->setType(ValType);      // Set the Data Type.
+}
+
+AVRExpression::AVRExpression(Type *ValType, bool isLHS) : AVR(AVR::AVRExpressionNode) {
+
+  IsLHSExpr = isLHS;
+  this->setType(ValType);      // Set the Data Type.
+}
+
 AVRExpression::AVRExpression(unsigned SCID, Type *ExprType) : AVR(SCID), ExprType(ExprType) {}
 
 AVRExpression *AVRExpression::clone() const { return nullptr; }
@@ -175,11 +197,60 @@ void AVRExpression::shallowPrint(formatted_raw_ostream &OS) const {
 StringRef AVRExpression::getAvrTypeName() const { return StringRef("EXPR"); }
 
 //----------AVR Value Implementation----------//
-AVRValue::AVRValue(unsigned SCID, Type *ValType) : AVR(SCID), ValType(ValType) {}
+
+AVRValue::AVRValue(Constant *ConstVal) : AVR(AVR::AVRValueNode) {
+
+  this->ConstVal = ConstVal;
+  ValType = ConstVal->getType();
+}
+
+AVRValue::AVRValue(AVRExpression *ReachingDef)
+    : AVR(AVR::AVRValueNode), ValType(ReachingDef->getType()) {
+
+  ReachingDefs.insert(ReachingDef);
+}
+
+AVRValue::AVRValue(unsigned SCID, Type *ValType)
+    : AVR(SCID), ValType(ValType) {}
 
 AVRValue *AVRValue::clone() const { return nullptr; }
 
 StringRef AVRValue::getAvrTypeName() const { return StringRef("VALUE"); }
+
+void AVRValue::print(formatted_raw_ostream &OS, unsigned Depth,
+                     VerbosityLevel VLevel) const {
+
+  // Print AVR Value Node.
+  switch (VLevel) {
+  case PrintNumber:
+    OS << "(" << getNumber() << ")";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+    printSLEV(OS);
+    OS << *ValType << " ";
+  case PrintBase:
+    if (ConstVal) {
+      OS << *ConstVal;
+    }
+    else {
+      bool First = true;
+      for (AVRExpression *ReachingDef : ReachingDefs) {
+        if (!First)
+          OS << "|";
+        OS << "&" << "(" << ReachingDef->getNumber() << ")";
+        First = false;
+      }
+    }
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+
+  // Close up open braces
+  if (VLevel >= PrintAvrType)
+    OS << "}";
+}
 
 //----------AVR Label Implementation----------//
 AVRLabel::AVRLabel(unsigned SCID) : AVR(SCID) {}
@@ -467,3 +538,124 @@ StringRef AVRUnreachable::getAvrTypeName() const {
 }
 
 std::string AVRUnreachable::getAvrValueName() const { return "unreachable"; }
+
+//----------AVR Block Implementation----------//
+AVRBlock::AVRBlock() : AVR(AVR::AVRBlockNode) {}
+
+AVRBlock *AVRBlock::clone() const { return nullptr; }
+
+void AVRBlock::print(formatted_raw_ostream &OS, unsigned Depth,
+                   VerbosityLevel VLevel) const {
+
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+  case PrintDataType:
+  case PrintBase:
+    if (getPredicate())
+      OS << "/P" << getPredicate()->getNumber() << "/ ";
+    OS << getAvrTypeName() << "--> [";
+    for (AVRBlock* Successor : Successors)
+      OS << " (" << Successor->getNumber() << ")";
+    OS << " ]\n";
+    OS << Indent << "{\n";
+    Depth++;
+
+    for (auto Itr = child_begin(), End = child_end(); Itr != End; ++Itr)
+      Itr->print(OS, Depth, VLevel);
+
+    OS << Indent << "}\n";
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+}
+
+void AVRBlock::shallowPrint(formatted_raw_ostream &OS) const {
+  
+  OS << "(" << getNumber() << ") " << getAvrTypeName();
+  if (getPredicate())
+    OS << " /P" << getPredicate()->getNumber() << "/ ";
+  OS  << "--> [";
+    for (AVRBlock* Successor : Successors)
+      OS << " (" << Successor->getNumber() << ")";
+    OS << " ]";
+}
+
+StringRef AVRBlock::getAvrTypeName() const { return StringRef("BLOCK"); }
+
+std::string AVRBlock::getAvrValueName() const { return ""; }
+
+//----------AVR Predicate Implementation----------//
+AVRPredicate::AVRPredicate() : AVR(AVR::AVRPredicateNode) {}
+
+AVRPredicate *AVRPredicate::clone() const { return nullptr; }
+
+void AVRPredicate::print(formatted_raw_ostream &OS, unsigned Depth,
+                   VerbosityLevel VLevel) const {
+
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+      OS << getAvrTypeName() << " {";
+  case PrintDataType:
+  case PrintBase:
+    {
+      OS << "P" << getNumber() << " := ";
+      unsigned IncomingNum = IncomingPredicates.size();
+      for (unsigned Ind = 0; Ind < IncomingNum; ++Ind) {
+        if (Ind > 0)
+          OS << " || ";
+        auto& Incoming = IncomingPredicates[Ind];
+        OS << "(" << Incoming.first->getNumber() << ")";
+        if (Incoming.second) {
+          OS << " && ";
+          Incoming.second->print(OS, 0, VLevel);
+        }
+      }
+    }
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+
+  // Close up open braces
+  if (VLevel >= PrintAvrType)
+    OS << "}";
+
+  OS << "\n";
+}
+
+void AVRPredicate::shallowPrint(formatted_raw_ostream &OS) const {
+
+  OS << "(" << getNumber() << ") ";
+  printSLEV(OS);
+  OS << getAvrTypeName() << "{P" << getNumber() << " := ";
+
+  unsigned IncomingNum = IncomingPredicates.size();
+  for (unsigned Ind = 0; Ind < IncomingNum; ++Ind) {
+    if (Ind > 0)
+      OS << " || ";
+    auto& Incoming = IncomingPredicates[Ind];
+    OS << "(" << Incoming.first->getNumber() << ")";
+    if (Incoming.second) {
+      OS << " && ";
+      Incoming.second->shallowPrint(OS);
+    }
+  }
+  OS << "}";
+}
+
+StringRef AVRPredicate::getAvrTypeName() const { return StringRef("PREDICATE"); }
+
+std::string AVRPredicate::getAvrValueName() const { return ""; }

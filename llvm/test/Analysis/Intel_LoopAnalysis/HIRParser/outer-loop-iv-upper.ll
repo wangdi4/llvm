@@ -2,7 +2,7 @@
 
 ; Check parsing output for the innermost loop verifying that loop upper composed of non-generable outer loop IVs is parsed correctly.
 ; CHECK: DO i1 = 0, -1 * %m.047 + -1 * %l.043 + %n + -3
-; CHECK-NEXT: {al:4}(%A)[i1 + %m.047 + %l.043 + 2] = i1 + %m.047 + %l.043 + zext.i32.i64(%i.045) + %j.041 + 2
+; CHECK-NEXT: (%A)[i1 + %m.047 + %l.043 + 2] = i1 + %m.047 + %l.043 + zext.i32.i64(%i.045) + %j.041 + 2
 ; CHECK-NEXT: END LOOP
 
 

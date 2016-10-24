@@ -477,10 +477,6 @@ basic_string<char32_t> operator "" s( const char32_t *str, size_t len ); // C++1
 #ifndef _LIBCPP_HAS_NO_UNICODE_CHARS
 #include <cstdint>
 #endif
-#if defined(_LIBCPP_NO_EXCEPTIONS)
-#include <cassert>
-#endif
-
 
 #include <__undef_min_max>
 
@@ -556,30 +552,22 @@ template <bool>
 class _LIBCPP_TYPE_VIS_ONLY __basic_string_common
 {
 protected:
-    void __throw_length_error() const;
-    void __throw_out_of_range() const;
+    _LIBCPP_NORETURN void __throw_length_error() const;
+    _LIBCPP_NORETURN void __throw_out_of_range() const;
 };
 
 template <bool __b>
 void
 __basic_string_common<__b>::__throw_length_error() const
 {
-#ifndef _LIBCPP_NO_EXCEPTIONS
-    throw length_error("basic_string");
-#else
-    assert(!"basic_string length_error");
-#endif
+    _VSTD::__throw_length_error("basic_string");
 }
 
 template <bool __b>
 void
 __basic_string_common<__b>::__throw_out_of_range() const
 {
-#ifndef _LIBCPP_NO_EXCEPTIONS
-    throw out_of_range("basic_string");
-#else
-    assert(!"basic_string out_of_range");
-#endif
+    _VSTD::__throw_out_of_range("basic_string");
 }
 
 #ifdef _LIBCPP_MSVC
@@ -1442,6 +1430,7 @@ basic_string<_CharT, _Traits, _Allocator>::basic_string(const allocator_type& __
 }
 
 template <class _CharT, class _Traits, class _Allocator>
+inline _LIBCPP_INLINE_VISIBILITY
 void
 basic_string<_CharT, _Traits, _Allocator>::__init(const value_type* __s, size_type __sz, size_type __reserve)
 {
@@ -1466,6 +1455,7 @@ basic_string<_CharT, _Traits, _Allocator>::__init(const value_type* __s, size_ty
 }
 
 template <class _CharT, class _Traits, class _Allocator>
+inline _LIBCPP_INLINE_VISIBILITY
 void
 basic_string<_CharT, _Traits, _Allocator>::__init(const value_type* __s, size_type __sz)
 {
@@ -1603,6 +1593,7 @@ basic_string<_CharT, _Traits, _Allocator>::basic_string(basic_string&& __str, co
 #endif  // _LIBCPP_HAS_NO_RVALUE_REFERENCES
 
 template <class _CharT, class _Traits, class _Allocator>
+inline _LIBCPP_INLINE_VISIBILITY
 void
 basic_string<_CharT, _Traits, _Allocator>::__init(size_type __n, value_type __c)
 {
@@ -1699,6 +1690,7 @@ basic_string<_CharT, _Traits, _Allocator>::basic_string(__self_view __sv, const 
 
 template <class _CharT, class _Traits, class _Allocator>
 template <class _InputIterator>
+inline _LIBCPP_INLINE_VISIBILITY
 typename enable_if
 <
     __is_exactly_input_iterator<_InputIterator>::value,
@@ -1726,6 +1718,7 @@ basic_string<_CharT, _Traits, _Allocator>::__init(_InputIterator __first, _Input
 
 template <class _CharT, class _Traits, class _Allocator>
 template <class _ForwardIterator>
+inline _LIBCPP_INLINE_VISIBILITY
 typename enable_if
 <
     __is_forward_iterator<_ForwardIterator>::value,

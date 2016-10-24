@@ -75,8 +75,8 @@ HLLabel::~HLLabel() {
 #endif
 }
 
-HLLabel *HLLabel::cloneImpl(GotoContainerTy *GotoList,
-                            LabelMapTy *LabelMap) const {
+HLLabel *HLLabel::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                            HLNodeMapper *NodeMapper) const {
   // Call Copy constructor
   HLLabel *NewHLLabel = new HLLabel(*this);
 
@@ -87,7 +87,9 @@ HLLabel *HLLabel::cloneImpl(GotoContainerTy *GotoList,
   return NewHLLabel;
 }
 
-HLLabel *HLLabel::clone() const { return cloneImpl(nullptr, nullptr); }
+HLLabel *HLLabel::clone(HLNodeMapper *NodeMapper) const {
+  return cast<HLLabel>(cloneBaseImpl(this, nullptr, nullptr, NodeMapper));
+}
 
 void HLLabel::print(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const {

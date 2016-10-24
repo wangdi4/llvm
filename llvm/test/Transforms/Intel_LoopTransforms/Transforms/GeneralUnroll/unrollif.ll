@@ -14,7 +14,7 @@
 ; CHECK: if
 ; CHECK: if (8 * i1 + 8 > 1)
 ; CHECK: END LOOP
-; CHECK-NEXT: DO i1 = 992, 998, 1
+; CHECK: DO i1 = 992, 998, 1
 ; CHECK: if (i1 + 1 > 1)
 ; CHECK: END LOOP
 ; CHECK-NEXT: END REGION

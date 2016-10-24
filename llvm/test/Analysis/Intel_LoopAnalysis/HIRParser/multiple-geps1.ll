@@ -3,7 +3,7 @@
 ; Check parsing output for the loop verifying that the load whose address is formed using multiple geps is parsed correctly.
 
 ; CHECK: DO i1 = 0, 99
-; CHECK-NEXT: {al:4}(%0)[i1 + 2] = i1
+; CHECK-NEXT: (%0)[i1 + 2] = i1
 ; CHECK-NEXT: END LOOP
 
 

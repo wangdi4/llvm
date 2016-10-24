@@ -120,16 +120,24 @@ bool VPOParoptTransform::ParoptTransformer() {
   //   char      *psource;
   // } ident_t;
   //
-  // The bits that the flags field can hold are defined as KMP_IDENT_* before
+  // The bits that the flags field can hold are defined as KMP_IDENT_* before.
   //
-  Type *IdentFieldTy[] = {Type::getInt32Ty(C),    // reserved_1
-                          Type::getInt32Ty(C),    // flags
-                          Type::getInt32Ty(C),    // reserved_2
-                          Type::getInt32Ty(C),    // reserved_3
-                          Type::getInt8PtrTy(C)}; // *psource
-
-  IdentTy = StructType::create(ArrayRef<Type *>(IdentFieldTy, 5), "ident_t",
-                               false); // isPacked = false
+  // Note: IdentTy needs to be an anonymous struct. This is because if we use
+  // a named struct type, then different Types are created for each function
+  // encountered. For example, consider a module with two functions `foo1()`
+  // and `foo2()`. When handling foo1(), a named struct type `ident_t` would
+  // be created and used for generating function declarations and calls for
+  // KMPC routines such as `__kmpc_global_thread_num(ident_t*)`. When it comes
+  // to handling `foo2()`, a new named IdentTy would be created, say
+  // `ident_t.0`, but when trying to emit a call to `__kmpc_global_thread_num`,
+  // there would be a type mismatch between the expected argument type in the
+  // declaration (ident_t *) and actual type of the argument (ident_t.0 *).
+  IdentTy = StructType::get(C, {Type::getInt32Ty(C),   // reserved_1
+                                Type::getInt32Ty(C),   // flags
+                                Type::getInt32Ty(C),   // reserved_2
+                                Type::getInt32Ty(C),   // reserved_3
+                                Type::getInt8PtrTy(C)} // *psource
+                            );
 
   StringRef S = F->getName();
 
@@ -212,14 +220,29 @@ bool VPOParoptTransform::ParoptTransformer() {
     case WRegionNode::WRNVecLoop:
     case WRegionNode::WRNWksLoop:
     case WRegionNode::WRNWksSections:
+      break;
     case WRegionNode::WRNSection:
+      break;
     case WRegionNode::WRNSingle:
+      DEBUG(dbgs() << "\nWRegionNode::WRNSingle - Transformation \n\n");
+      Changed = genSingleThreadCode(W);
+      break;
     case WRegionNode::WRNMaster:
+      DEBUG(dbgs() << "\nWRegionNode::WRNMaster - Transformation \n\n");
+      Changed = genMasterThreadCode(W);
+      break;
     case WRegionNode::WRNBarrier:
     case WRegionNode::WRNCancel:
     case WRegionNode::WRNCritical:
+      DEBUG(dbgs() << "\nWRegionNode::WRNCritical - Transformation \n\n");
+      Changed = genCriticalCode(dyn_cast<WRNCriticalNode>(W));
+      break;
     case WRegionNode::WRNFlush:
+      break;
     case WRegionNode::WRNOrdered:
+      DEBUG(dbgs() << "\nWRegionNode::WRNOrdered - Transformation \n\n");
+      Changed = genOrderedThreadCode(W);
+      break;
     case WRegionNode::WRNTaskgroup:
       break;
     default:
@@ -572,7 +595,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     // Geneate _kmpc_fork_call for multithreaded execution of MTFn call
     CallInst* ForkCI = genForkCallInst(W, MTFnCI);
 
-    // Geneate _kmpc_fork_call for multithreaded execution of MTFn call
+    // Geneate __kmpc_ok_to_fork test Call Instruction
     CallInst* ForkTestCI = VPOParoptUtils::genKmpcForkTest(W, IdentTy, ForkCI);
 
     // 
@@ -683,7 +706,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  AllocaInst *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+  GlobalVariable *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
       F, CI, IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
 
   CallSite CS(CI);
@@ -798,3 +821,220 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn,
   }
   return NFn;
 }
+
+// Generate code for master/end master construct and update LLVM control-flow 
+// and dominator tree accordingly 
+bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
+  bool Changed = false;
+
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *ExitBB = W->getExitBBlock();
+
+  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+
+  // Geneate __kmpc_master Call Instruction
+  CallInst* MasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W, 
+                         IdentTy, TidPtr, InsertPt, true);
+  MasterCI->insertBefore(InsertPt);
+
+  //DEBUG(dbgs() << " MasterCI: " << *MasterCI << "\n\n");
+
+  Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
+
+  // Geneate __kmpc_end_master Call Instruction
+  CallInst* EndMasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W, 
+                            IdentTy, TidPtr, InsertEndPt, false);
+  EndMasterCI->insertBefore(InsertEndPt);
+
+  // Generate (int)__kmpc_master(&loc, tid) test for executing code using 
+  // Master thread. 
+  //
+  // __kmpc_master return: 1: master thread, 0: non master thread 
+  // 
+  //      MasterBBTest
+  //         /    \
+  //        /      \
+  //   MasterBB   emptyBB 
+  //        \      / 
+  //         \    /
+  //   SuccessorOfMasterBB
+  //
+  BasicBlock *MasterTestBB = MasterCI->getParent();
+  BasicBlock *MasterBB = EndMasterCI->getParent();
+
+  BasicBlock *ThenMasterBB = MasterTestBB->getTerminator()->getSuccessor(0);
+  BasicBlock *SuccEndMasterBB = MasterBB->getTerminator()->getSuccessor(0);
+
+  ThenMasterBB->setName("if.then.master." + Twine(W->getNumber()));
+
+  Function *F = MasterTestBB->getParent();
+  LLVMContext &C = F->getContext();
+
+  ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
+
+  TerminatorInst *TermInst = MasterTestBB->getTerminator();
+
+  ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ, 
+                                    MasterCI, ValueOne, "");
+
+  TerminatorInst *NewTermInst = BranchInst::Create(ThenMasterBB, 
+                                                   SuccEndMasterBB, CondInst);
+  ReplaceInstWithInst(TermInst, NewTermInst);
+
+  DT->changeImmediateDominator(MasterCI->getParent(),
+                               ThenMasterBB->getTerminator()->getSuccessor(0));
+
+  // Remove calls to directive intrinsics since the LLVM back end does not
+  // know how to translate them.
+  WRegionUtils::stripDirectives(W);
+
+  return Changed;
+}
+
+// Generate code for single/end single construct and update LLVM control-flow
+// and dominator tree accordingly
+bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
+  bool Changed = false;
+
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *ExitBB = W->getExitBBlock();
+
+  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+
+  // Geneate __kmpc_single Call Instruction
+  CallInst* SingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(W,
+                         IdentTy, TidPtr, InsertPt, true);
+  SingleCI->insertBefore(InsertPt);
+
+  Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
+
+  // Geneate __kmpc_end_single Call Instruction
+  CallInst* EndSingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(W,
+                            IdentTy, TidPtr, InsertEndPt, false);
+  EndSingleCI->insertBefore(InsertEndPt);
+
+  // Generate (int)__kmpc_single(&loc, tid) test for executing code using 
+  // Single thread, the  __kmpc_single return: 
+  // 
+  //    1: the single region can be executed by the current encounting 
+  //       thread in the team.
+  // 
+  //    0: the single region can not be executed by the current encounting 
+  //       thread, as it has been executed by another thread in the team.
+  //
+  //      SingleBBTest
+  //         /    \
+  //        /      \
+  //   SingleBB   emptyBB
+  //        \      /
+  //         \    /
+  //   SuccessorOfSingleBB
+  //
+  BasicBlock *SingleTestBB = SingleCI->getParent();
+  BasicBlock *EndSingleBB = EndSingleCI->getParent();
+
+  BasicBlock *ThenSingleBB = SingleTestBB->getTerminator()->getSuccessor(0);
+  BasicBlock *EndSingleSuccBB = EndSingleBB->getTerminator()->getSuccessor(0);
+
+  ThenSingleBB->setName("if.then.single." + Twine(W->getNumber()));
+
+  Function *F = SingleTestBB->getParent();
+  LLVMContext &C = F->getContext();
+
+  ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
+
+  TerminatorInst *TermInst = SingleTestBB->getTerminator();
+
+  ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
+                                    SingleCI, ValueOne, "");
+
+  TerminatorInst *NewTermInst = BranchInst::Create(ThenSingleBB,
+                                                   EndSingleSuccBB, CondInst);
+  ReplaceInstWithInst(TermInst, NewTermInst);
+
+  DT->changeImmediateDominator(SingleCI->getParent(),
+                               ThenSingleBB->getTerminator()->getSuccessor(0));
+
+  // Remove calls to directive intrinsics since the LLVM back end does not
+  // know how to translate them.
+  WRegionUtils::stripDirectives(W);
+
+  return Changed;
+}
+
+// Generate code for ordered/end ordered construct for preserving ordered
+// region execution order
+bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
+  bool Changed = false;
+
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *ExitBB = W->getExitBBlock();
+
+  // Generate (void)__kmpc_ordered(&loc, tid) and 
+  //          (void)__kmpc_end_ordered(&loc, tid) calls
+  // for executing the ordered code region
+  //
+  //       OrderedBB
+  //         /    \
+  //        /      \
+  //       BB ...  BB
+  //        \      /
+  //         \    /
+  //      EndOrderedBB
+
+  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+
+  // Geneate __kmpc_ordered Call Instruction
+  CallInst* OrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(W,
+                          IdentTy, TidPtr, InsertPt, true);
+  OrderedCI->insertBefore(InsertPt);
+
+  Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
+
+  // Geneate __kmpc_end_ordered Call Instruction
+  CallInst* EndOrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(W,
+                             IdentTy, TidPtr, InsertEndPt, false);
+  EndOrderedCI->insertBefore(InsertEndPt);
+
+  //BasicBlock *OrderedBB = OrderedCI->getParent();
+  //DEBUG(dbgs() << " Ordered Entry BBlock: " << *OrderedBB << "\n\n");
+
+  //BasicBlock *EndOrderedBB = EndOrderedCI->getParent();
+  //DEBUG(dbgs() << " Ordered Exit BBlock: " << *EndOrderedBB << "\n\n");
+
+  // Remove calls to directive intrinsics since the LLVM back end does not
+  // know how to translate them.
+  WRegionUtils::stripDirectives(W);
+
+  return Changed;
+}
+
+// Generates code for the OpenMP critical construct.
+bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
+  assert(CriticalNode != nullptr && "Critical node is null.");
+
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+
+  StringRef LockNameSuffix = CriticalNode->getUserLockName();
+
+  bool CriticalCallsInserted =
+      LockNameSuffix.empty()
+          ? VPOParoptUtils::genKmpcCriticalSection(CriticalNode, IdentTy,
+                                                   TidPtr)
+          : VPOParoptUtils::genKmpcCriticalSection(CriticalNode, IdentTy,
+                                                   TidPtr, LockNameSuffix);
+
+  DEBUG(dbgs() << __FUNCTION__ << ": Handling of Critical Node: "
+               << (CriticalCallsInserted ? "Successful" : "Failed") << ".\n");
+
+  assert(CriticalCallsInserted && "Failed to create critical section. \n");
+
+  // Remove calls to directive intrinsics since the LLVM back end does not
+  // know how to translate them.
+  if (CriticalCallsInserted)
+    WRegionUtils::stripDirectives(CriticalNode);
+
+  return CriticalCallsInserted;
+}
+

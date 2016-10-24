@@ -16,6 +16,10 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -O2 -S -loopopt -debug 2>&1 | FileCheck %s
 ;
+;
+; TODO: fix CQ413511 and remove XFAIL
+; XFAIL: *
+;
 ; CHECK: Printing Groups- Total Groups 2
 ; CHECK-DAG: AccessMask(per byte, R to L): 111111111111
 ; CHECK-DAG: AccessMask(per byte, R to L): 111111111111
