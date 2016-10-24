@@ -639,7 +639,7 @@ StmtResult Sema::BuildIfStmt(SourceLocation IfLoc, bool IsConstexpr,
   if (Cond.isInvalid())
     return StmtError();
 
-  if (IsConstexpr)
+  if (IsConstexpr || isa<ObjCAvailabilityCheckExpr>(Cond.get().second))
     getCurFunction()->setHasBranchProtectedScope();
 
   DiagnoseUnusedExprResult(thenStmt);

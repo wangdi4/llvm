@@ -527,6 +527,10 @@ private:
   /// MDNodes.
   llvm::DenseMap<QualType, llvm::Metadata *> MetadataIdMap;
 
+  /// Diags gathered from FunctionDecl::takeDeferredDiags().  Emitted at the
+  /// very end of codegen.
+  std::vector<std::pair<SourceLocation, PartialDiagnostic>> DeferredDiags;
+
 public:
   CodeGenModule(ASTContext &C, const HeaderSearchOptions &headersearchopts,
                 const PreprocessorOptions &ppopts,
@@ -1277,6 +1281,9 @@ public:
   llvm::Constant *getTerminateFn();
 
   llvm::SanitizerStatReport &getSanStats();
+
+  llvm::Value *
+  createOpenCLIntToSamplerConversion(const Expr *E, CodeGenFunction &CGF);
 
 private:
   llvm::Constant *

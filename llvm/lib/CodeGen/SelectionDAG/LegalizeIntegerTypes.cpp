@@ -427,7 +427,7 @@ SDValue DAGTypeLegalizer::PromoteIntRes_FP_TO_XINT(SDNode *N) {
   // Assert that the converted value fits in the original type.  If it doesn't
   // (eg: because the value being converted is too big), then the result of the
   // original operation was undefined anyway, so the assert is still correct.
-  return DAG.getNode(N->getOpcode() == ISD::FP_TO_UINT ?
+  return DAG.getNode(NewOpc == ISD::FP_TO_UINT ?
                      ISD::AssertZext : ISD::AssertSext, dl, NVT, Res,
                      DAG.getValueType(N->getValueType(0).getScalarType()));
 }
@@ -946,14 +946,16 @@ void DAGTypeLegalizer::PromoteSetCCOperands(SDValue &NewLHS,SDValue &NewRHS,
     SDValue OpL = GetPromotedInteger(NewLHS);
     SDValue OpR = GetPromotedInteger(NewRHS);
 
-    // We would prefer to promote the comparison operand with sign extension,
-    // if we find the operand is actually to truncate an AssertSext. With this
-    // optimization, we can avoid inserting real truncate instruction, which
-    // is redudant eventually.
-    if (OpL->getOpcode() == ISD::AssertSext &&
-        cast<VTSDNode>(OpL->getOperand(1))->getVT() == NewLHS.getValueType() &&
-        OpR->getOpcode() == ISD::AssertSext &&
-        cast<VTSDNode>(OpR->getOperand(1))->getVT() == NewRHS.getValueType()) {
+    // We would prefer to promote the comparison operand with sign extension.
+    // If the width of OpL/OpR excluding the duplicated sign bits is no greater
+    // than the width of NewLHS/NewRH, we can avoid inserting real truncate
+    // instruction, which is redudant eventually.
+    unsigned OpLEffectiveBits =
+        OpL.getValueType().getSizeInBits() - DAG.ComputeNumSignBits(OpL) + 1;
+    unsigned OpREffectiveBits =
+        OpR.getValueType().getSizeInBits() - DAG.ComputeNumSignBits(OpR) + 1;
+    if (OpLEffectiveBits <= NewLHS.getValueType().getSizeInBits() &&
+        OpREffectiveBits <= NewRHS.getValueType().getSizeInBits()) {
       NewLHS = OpL;
       NewRHS = OpR;
     } else {
@@ -1774,7 +1776,7 @@ void DAGTypeLegalizer::ExpandIntRes_ADDSUB(SDNode *N,
     switch (BoolType) {
     case TargetLoweringBase::UndefinedBooleanContent:
       OVF = DAG.getNode(ISD::AND, dl, NVT, DAG.getConstant(1, dl, NVT), OVF);
-      // Fallthrough
+      LLVM_FALLTHROUGH;
     case TargetLoweringBase::ZeroOrOneBooleanContent:
       Hi = DAG.getNode(N->getOpcode(), dl, NVT, Hi, OVF);
       break;
