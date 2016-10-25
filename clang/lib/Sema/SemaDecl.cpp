@@ -3452,6 +3452,9 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     Diag(OldLocation, PrevDiag) << Old << Old->getType();
     if (isOldAADefiniton)
       New->setInvalidDecl(/*Invalid=*/true);
+    else if (Old->isImplicit() && BuiltinID &&
+        !New->getLexicalDeclContext()->isFunctionOrMethod())
+      New->getIdentifier()->revertBuiltin();
     return false;
   }
 #endif
