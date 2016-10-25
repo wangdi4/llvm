@@ -1530,8 +1530,11 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
   //  1. KNC/KNL
   //  2. Load/Store type is a vector with less than 16 elements
 
-  if (!type || !Intel::CPUId::HasGatherScatter(m_Cpu))
+  if(!type)
     return false;
+
+  if(EnableScatterGatherSubscript && (type->getNumElements() < 16))
+    return true;
 
   if ((m_Cpu == Intel::MIC_KNC) && (type->getNumElements() < 16))
     return true;
