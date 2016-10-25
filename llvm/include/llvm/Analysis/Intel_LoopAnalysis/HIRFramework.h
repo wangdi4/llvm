@@ -72,37 +72,43 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  /// Region iterator methods
-  HIRCreation::iterator hir_begin() { return HIRP->hir_begin(); }
-  HIRCreation::const_iterator hir_cbegin() const { return HIRP->hir_cbegin(); }
-  HIRCreation::iterator hir_end() { return HIRP->hir_end(); }
-  HIRCreation::const_iterator hir_cend() const { return HIRP->hir_cend(); }
+  /// Returns HLNodeUtils object.
+  HLNodeUtils &getHLNodeUtils() const { return HIRP->getHLNodeUtils(); }
 
-  HIRCreation::reverse_iterator hir_rbegin() { return HIRP->hir_rbegin(); }
-  HIRCreation::const_reverse_iterator hir_crbegin() const {
-    return HIRP->hir_crbegin();
+  /// Returns DDRefUtils object.
+  DDRefUtils &getDDRefUtils() const { return HIRP->getDDRefUtils(); }
+
+  /// Returns CanonExprUtils object.
+  CanonExprUtils &getCanonExprUtils() const {
+    return HIRP->getCanonExprUtils();
   }
-  HIRCreation::reverse_iterator hir_rend() { return HIRP->hir_rend(); }
-  HIRCreation::const_reverse_iterator hir_crend() const {
-    return HIRP->hir_crend();
-  }
+
+  /// Returns BlobUtils object.
+  BlobUtils &getBlobUtils() const { return HIRP->getBlobUtils(); }
+
+  /// Region iterator methods
+  iterator hir_begin() { return HIRP->hir_begin(); }
+  const_iterator hir_cbegin() const { return HIRP->hir_cbegin(); }
+  iterator hir_end() { return HIRP->hir_end(); }
+  const_iterator hir_cend() const { return HIRP->hir_cend(); }
+
+  reverse_iterator hir_rbegin() { return HIRP->hir_rbegin(); }
+  const_reverse_iterator hir_crbegin() const { return HIRP->hir_crbegin(); }
+  reverse_iterator hir_rend() { return HIRP->hir_rend(); }
+  const_reverse_iterator hir_crend() const { return HIRP->hir_crend(); }
 
   /// Returns true if \p HInst is a livein copy.
-  bool isLiveinCopy(const HLInst *HInst) {
-    return HIRP->isLiveinCopy(HInst);
-  }
+  bool isLiveinCopy(const HLInst *HInst) { return HIRP->isLiveinCopy(HInst); }
 
   /// Returns true if \p HInst is a liveout copy.
-  bool isLiveoutCopy(const HLInst *HInst) {
-    return HIRP->isLiveoutCopy(HInst);
-  }
+  bool isLiveoutCopy(const HLInst *HInst) { return HIRP->isLiveoutCopy(HInst); }
 
   /// Returns a brand new symbase.
   unsigned getNewSymbase() { return SA->getNewSymbase(); }
 
   /// Returns Function object.
   Function &getFunction() const { return HIRP->getFunction(); }
-  
+
   /// Returns Module object.
   Module &getModule() const { return HIRP->getModule(); }
 

@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
@@ -269,6 +269,7 @@ bool DDUtils::enablePerfectLPLegalityCheckPre(
     SmallVectorImpl<HLInst *> &ValidatedStores) {
 
   const DDRef *LRef, *RRef;
+  auto &HNU = InnermostLoop->getHLNodeUtils();
 
   for (auto &Inst : PreLoopInsts) {
     const Instruction *LLVMInst;
@@ -297,8 +298,7 @@ bool DDUtils::enablePerfectLPLegalityCheckPre(
     //            the same store for A[x] is needed in PostLoop stmts
     LRef = Inst->getLvalDDRef();
     RRef = Inst->getRvalDDRef();
-    HLInst *ForwardSInst =
-        HLNodeUtils::findForwardSubInst(LRef, ForwardSubInsts);
+    HLInst *ForwardSInst = HNU.findForwardSubInst(LRef, ForwardSubInsts);
     LRef = ForwardSInst ? ForwardSInst->getLvalDDRef() : Inst->getLvalDDRef();
     HLInst *StoreInst = nullptr;
     if (!canMoveLoadIntoLoop(LRef, RRef, InnermostLoop, PostLoopInsts,
@@ -474,14 +474,16 @@ bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
     return false;
   }
 
+  auto &HNU = InnermostLoop->getHLNodeUtils();
+
   // (4) Move Stmts into Innermost Loop
   for (auto I = PreLoopInsts.rbegin(), E = PreLoopInsts.rend(); I != E; ++I) {
     HLNode *Node = cast<HLNode>(*I);
-    HLNodeUtils::moveAsFirstChild(InnermostLoop, Node);
+    HNU.moveAsFirstChild(InnermostLoop, Node);
   }
   for (auto &I : PostLoopInsts) {
     HLNode *Node = cast<HLNode>(I);
-    HLNodeUtils::moveAsLastChild(InnermostLoop, Node);
+    HNU.moveAsLastChild(InnermostLoop, Node);
   }
 
   // Call Util to update the temp DDRefs from linear-at-level to non-linear
@@ -498,6 +500,7 @@ bool DDUtils::singleUseInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
 
   assert(LvalRef && LvalRef->isLval() && "DDRef must be lval");
   assert(Loop && "Loop  must be supplied");
+  auto &HNU = Loop->getHLNodeUtils();
 
   unsigned NumUse = 0;
   for (auto I1 = DDG.outgoing_edges_begin(LvalRef),
@@ -507,7 +510,7 @@ bool DDUtils::singleUseInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
     DDRef *DDRefSink = (*I1)->getSink();
 
     // Skip Sink outside loop, including prehdr/postexit
-    if (!(HLNodeUtils::contains(Loop, DDRefSink->getHLDDNode()))) {
+    if (!(HNU.contains(Loop, DDRefSink->getHLDDNode()))) {
       continue;
     }
 

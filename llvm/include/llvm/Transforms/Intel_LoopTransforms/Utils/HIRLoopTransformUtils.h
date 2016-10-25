@@ -19,20 +19,21 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRLOOPTRANSFORM_UTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRLOOPTRANSFORM_UTILS_H
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
+#include <stdint.h>
 
 namespace llvm {
 
 namespace loopopt {
 
+class RegDDRef;
+class HLLoop;
 class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 class HIRLoopStatistics;
 
 /// \brief Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
-class HIRLoopTransformUtils : public HIRUtils {
+class HIRLoopTransformUtils {
 private:
   /// \brief Do not allow instantiation
   HIRLoopTransformUtils() = delete;

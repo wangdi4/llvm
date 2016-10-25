@@ -38,7 +38,7 @@ private:
   PredicateTy CmpOrSelectPred;
 
 protected:
-  explicit HLInst(Instruction *In);
+  explicit HLInst(HLNodeUtils &HNU, Instruction *Inst);
   virtual ~HLInst() override {}
 
   /// Copy constructor used by cloning.

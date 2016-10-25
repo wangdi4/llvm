@@ -25,7 +25,7 @@
 
 ;
 ; CHECK: BEGIN REGION
-; CHECK-NEXT: DO i1 = 0, 98, 1
+; CHECK: DO i1 = 0, 98, 1
 ; CHECK: (@A)[0][i1 + 1] = 
 ; CHECK: END LOOP
 

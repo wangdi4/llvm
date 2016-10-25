@@ -66,8 +66,8 @@ public:
       : OVLSTTICostModel(TTI, C) {}
 
   Type *getMrfDataType(const OVLSMemref *Mrf) const override {
-    assert(isa<HIRVLSClientMemref>(Mrf) && "Expecting HIR Memref.\n");
-    return (cast<HIRVLSClientMemref>(Mrf))->getRef()->getSrcType();
+    assert(isa<loopopt::HIRVLSClientMemref>(Mrf) && "Expecting HIR Memref.\n");
+    return (cast<loopopt::HIRVLSClientMemref>(Mrf))->getRef()->getSrcType();
   }
   unsigned getMrfAddressSpace(const OVLSMemref &Mrf) const override;
   uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const override;

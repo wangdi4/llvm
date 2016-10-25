@@ -1297,13 +1297,13 @@ AVRGenerateHIR::AVRGenerateHIR() : AVRGenerateBase(ID) {
 
 void AVRGenerateHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AVRGenerateBase::getAnalysisUsage(AU);
-  AU.addRequiredTransitive<HIRParser>();
+  AU.addRequiredTransitive<HIRFramework>();
   AU.addRequiredTransitive<HIRLocalityAnalysis>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
 }
 
 bool AVRGenerateHIR::runOnFunction(Function &F) {
-  HIRP = &getAnalysis<HIRParser>();
+  HIRF = &getAnalysis<HIRFramework>();
   return AVRGenerateBase::runOnFunction(F);
 }
 
@@ -1311,7 +1311,7 @@ void AVRGenerateHIR::buildAbstractLayer() {
   AVRGenerateVisitor AG;
 
   // Walk the HIR and build WRGraph based on HIR
-  WRContainerTy *WRGraph = WRegionUtils::buildWRGraphFromHIR();
+  WRContainerTy *WRGraph = WRegionUtils::buildWRGraphFromHIR(*HIRF);
   DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
   for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
     DEBUG(I->dump());

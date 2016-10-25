@@ -258,11 +258,13 @@ private:
 // as GraphTraits
 //===--------------------------------------------------------------------===//
 //
-template <> struct GraphTraits<PiGraph *> {
-  typedef PiBlock NodeType;
+template <> struct GraphTraits<loopopt::PiGraph *> {
+  typedef loopopt::PiBlock NodeType;
 
-  typedef PiGraph::children_iterator ChildIteratorType;
-  static NodeType *getEntryNode(PiGraph *G) { return *(G->node_begin()); }
+  typedef loopopt::PiGraph::children_iterator ChildIteratorType;
+  static NodeType *getEntryNode(loopopt::PiGraph *G) {
+    return *(G->node_begin());
+  }
 
   static inline ChildIteratorType child_begin(NodeType *N) {
     return N->getGraph()->children_begin(N);
@@ -271,21 +273,25 @@ template <> struct GraphTraits<PiGraph *> {
     return N->getGraph()->children_end(N);
   }
 
-  typedef std::pointer_to_unary_function<PiBlock *, PiBlock &> DerefFun;
+  typedef std::pointer_to_unary_function<loopopt::PiBlock *, loopopt::PiBlock &>
+      DerefFun;
 
-  typedef mapped_iterator<SmallVectorImpl<PiBlock *>::iterator, DerefFun>
+  typedef mapped_iterator<SmallVectorImpl<loopopt::PiBlock *>::iterator,
+                          DerefFun>
       nodes_iterator;
 
-  static nodes_iterator nodes_begin(PiGraph **G) {
+  static nodes_iterator nodes_begin(loopopt::PiGraph **G) {
     return map_iterator((*G)->node_begin(), DerefFun(NodePtrDeref));
   }
-  static nodes_iterator nodes_end(PiGraph **G) {
+  static nodes_iterator nodes_end(loopopt::PiGraph **G) {
     return map_iterator((*G)->node_end(), DerefFun(NodePtrDeref));
   }
 
-  static PiBlock &NodePtrDeref(PiBlock *PNode) { return *PNode; }
+  static loopopt::PiBlock &NodePtrDeref(loopopt::PiBlock *PNode) {
+    return *PNode;
+  }
 
-  static unsigned size(PiGraph *G) { return G->size(); }
+  static unsigned size(loopopt::PiGraph *G) { return G->size(); }
 };
 } /// llvm
 

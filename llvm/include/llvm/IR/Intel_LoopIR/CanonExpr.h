@@ -36,6 +36,9 @@ class Constant;
 
 namespace loopopt {
 
+class CanonExprUtils;
+class BlobUtils;
+
 /// \brief The maximum loopnest level allowed in HIR.
 const unsigned MaxLoopNestLevel = 9;
 /// \brief Value to represent non-linear level.
@@ -120,11 +123,8 @@ private:
   /// \brief Make class unassignable.
   void operator=(const CanonExpr &) = delete;
 
-  /// \brief Destroys all objects of this class. Should only be called after
-  /// code gen.
-  static void destroyAll();
-  // Keeps track of objects of this class.
-  static std::set<CanonExpr *> Objs;
+  /// Reference to parent utils object. This is needed to access util functions.
+  CanonExprUtils &CEU;
 
   // SrcTy and DestTy hide one level of casting applied on top of the
   // canonical form.
@@ -144,17 +144,12 @@ private:
   bool IsSignedDiv;
 
 protected:
-  CanonExpr(Type *SrcType, Type *DestType, bool IsSExt, unsigned DefLevel,
-            int64_t ConstVal, int64_t Denom, bool IsSignedDiv);
-  virtual ~CanonExpr(){};
+  CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType, bool IsSExt,
+            unsigned DefLevel, int64_t ConstVal, int64_t Denom,
+            bool IsSignedDiv);
+  virtual ~CanonExpr() {}
 
   friend class CanonExprUtils;
-  // Calls verifyNestingLevel().
-  friend class HLNodeUtils;
-  friend class HIRParser;
-
-  /// \brief Destroys the object.
-  void destroy();
 
   /// \brief Implements hasIV()/numIV() and
   /// hasBlobIVCoeffs()/numBlobIVCoeffs() functionality.
@@ -229,13 +224,6 @@ protected:
     return IsMathAdd ? (getDenominator() * Coeff) : Coeff;
   }
 
-  /// Verifies that the incoming nesting level is valid for this CE, asserts
-  /// otherwise.
-  bool verifyNestingLevel(unsigned NestingLevel) const;
-
-  /// Verifies that all IVs contained in CE are valid, asserts otherwise.
-  bool verifyIVs(unsigned NestingLevel) const;
-
   /// \brief Returns true if canon expr represents null pointer value.
   bool isNullImpl() const;
 
@@ -245,6 +233,12 @@ protected:
   void simplifyConstantCast();
 
 public:
+  /// Returns parent CanonExprUtils object.
+  CanonExprUtils &getCanonExprUtils() const { return CEU; }
+
+  /// Returns parent BlobUtils object.
+  BlobUtils &getBlobUtils() const;
+
   CanonExpr *clone() const;
 
   /// \brief Dumps CanonExpr.
@@ -657,8 +651,15 @@ public:
   /// \brief Negates canon expr.
   void negate() { multiplyByConstant(-1); }
 
+  /// Verifies that all IVs contained in CE are valid, asserts otherwise.
+  bool verifyIVs(unsigned NestingLevel) const;
+
   /// \brief Verifies canon expression
   void verify(unsigned NestingLevel) const;
+
+  /// Verifies that the incoming nesting level is valid for this CE, asserts
+  /// otherwise.
+  bool verifyNestingLevel(unsigned NestingLevel) const;
 };
 
 } // End loopopt namespace

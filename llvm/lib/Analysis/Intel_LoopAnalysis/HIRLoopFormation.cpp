@@ -260,24 +260,23 @@ bool HIRLoopFormation::populatedPreheaderPostexitNodes(
   auto PostBegIt = std::next(HLoop->getIterator());
   auto PostEndIt =
       !PredicateInversion ? IfParent->then_end() : IfParent->else_end();
-  ;
+
+  auto &HNU = HLoop->getHLNodeUtils();
 
   bool HasPreheader = (PreBegIt != PreEndIt);
   bool HasPostexit = (PostBegIt != PostEndIt);
 
-  if ((HasPreheader &&
-       !HLNodeUtils::validPreheaderPostexitNodes(PreBegIt, PreEndIt)) ||
-      (HasPostexit &&
-       !HLNodeUtils::validPreheaderPostexitNodes(PostBegIt, PostEndIt))) {
+  if ((HasPreheader && !HNU.validPreheaderPostexitNodes(PreBegIt, PreEndIt)) ||
+      (HasPostexit && !HNU.validPreheaderPostexitNodes(PostBegIt, PostEndIt))) {
     return false;
   }
 
   if (HasPreheader) {
-    HLNodeUtils::moveAsFirstPreheaderNodes(HLoop, PreBegIt, PreEndIt);
+    HNU.moveAsFirstPreheaderNodes(HLoop, PreBegIt, PreEndIt);
   }
 
   if (HasPostexit) {
-    HLNodeUtils::moveAsFirstPostexitNodes(HLoop, PostBegIt, PostEndIt);
+    HNU.moveAsFirstPostexitNodes(HLoop, PostBegIt, PostEndIt);
   }
 
   return true;
@@ -331,8 +330,8 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
           (PredicateInversion && (IfParent->getNumElseChildren() == 1))) &&
          "Something went wrong during ztt recognition!");
 
-  HLNodeUtils::moveBefore(IfParent, HLoop);
-  HLNodeUtils::remove(IfParent);
+  HIR->getHLNodeUtils().moveBefore(IfParent, HLoop);
+  HIR->getHLNodeUtils().remove(IfParent);
 
   HLoop->setZtt(IfParent);
 
@@ -371,18 +370,18 @@ void HIRLoopFormation::formLoops() {
     }
 
     // Create a new loop and move its children inside.
-    HLLoop *HLoop = HLNodeUtils::createHLLoop(Lp);
+    HLLoop *HLoop = HIR->getHLNodeUtils().createHLLoop(Lp);
     setIVType(HLoop);
-    HLNodeUtils::moveAsFirstChildren(HLoop, std::next(LabelIter),
-                                     BottomTestIter);
+    HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, std::next(LabelIter),
+                                              BottomTestIter);
 
     // Hook loop into HIR.
-    HLNodeUtils::insertBefore(&*LabelIter, HLoop);
+    HIR->getHLNodeUtils().insertBefore(&*LabelIter, HLoop);
 
     // Remove label and bottom test.
     // Can bottom test contain anything else??? Should probably assert on it.
-    HLNodeUtils::erase(&*LabelIter);
-    HLNodeUtils::erase(&*BottomTestIter);
+    HIR->getHLNodeUtils().erase(&*LabelIter);
+    HIR->getHLNodeUtils().erase(&*BottomTestIter);
 
     setZtt(HLoop);
 
@@ -404,7 +403,7 @@ bool HIRLoopFormation::runOnFunction(Function &F) {
   return false;
 }
 
-void HIRLoopFormation::releaseMemory() { 
+void HIRLoopFormation::releaseMemory() {
   Loops.clear();
   InvertedZttLoops.clear();
 }

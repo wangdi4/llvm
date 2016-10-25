@@ -14,8 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -35,8 +33,8 @@ void HLInst::initialize() {
   RegDDRefs.resize(NumOp, nullptr);
 }
 
-HLInst::HLInst(Instruction *In)
-    : HLDDNode(HLNode::HLInstVal), Inst(In),
+HLInst::HLInst(HLNodeUtils &HNU, Instruction *Inst)
+    : HLDDNode(HNU, HLNode::HLInstVal), Inst(Inst),
       CmpOrSelectPred(PredicateTy::FCMP_TRUE) {
   assert(Inst && "LLVM Instruction for HLInst cannot be null!");
   initialize();

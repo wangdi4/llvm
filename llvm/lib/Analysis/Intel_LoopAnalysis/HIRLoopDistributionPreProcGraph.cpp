@@ -93,8 +93,8 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
   DDGraph DDG = DDA->getGraph(Loop);
 
   DistributionEdgeCreator EdgeCreator(&DDG, this, Loop);
-  HLNodeUtils::visitRange(EdgeCreator, Loop->getFirstChild(),
-                          Loop->getLastChild());
+  Loop->getHLNodeUtils().visitRange(EdgeCreator, Loop->getFirstChild(),
+                                    Loop->getLastChild());
 
   if (EdgeCreator.EdgeCount > MaxDDEdges) {
     setInvalid("Too many DD edges for proper analysis");
@@ -104,8 +104,8 @@ void DistPPGraph::createNodes(HLLoop *Loop) {
   const unsigned MaxDistPPSize = 128;
 
   DistributionNodeCreator NodeCreator(this);
-  HLNodeUtils::visitRange(NodeCreator, Loop->getFirstChild(),
-                          Loop->getLastChild());
+  Loop->getHLNodeUtils().visitRange(NodeCreator, Loop->getFirstChild(),
+                                    Loop->getLastChild());
   // Bail early before DD for invalid cases
   if (getNodeCount() > MaxDistPPSize) {
     setInvalid("Too many stmts to analyze");

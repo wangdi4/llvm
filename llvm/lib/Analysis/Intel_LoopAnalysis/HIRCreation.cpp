@@ -96,33 +96,33 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
       // Create dummy if condition for now. Later on the compare instruction
       // operands will be substituted here and eliminated. If this is a bottom
       // test, it will be eliminated anyway.
-      auto If = HLNodeUtils::createHLIf(CmpInst::Predicate::FCMP_TRUE, nullptr,
-                                        nullptr);
+      auto If = getHLNodeUtils().createHLIf(CmpInst::Predicate::FCMP_TRUE,
+                                            nullptr, nullptr);
 
       Ifs[If] = BB;
 
       // TODO: HLGoto targets should be assigned in a later pass.
       // TODO: Redundant gotos should be cleaned up during lexlink cleanup.
-      HLGoto *ThenGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(0));
-      HLNodeUtils::insertAsFirstChild(If, ThenGoto, true);
+      HLGoto *ThenGoto = getHLNodeUtils().createHLGoto(BI->getSuccessor(0));
+      getHLNodeUtils().insertAsFirstChild(If, ThenGoto, true);
       Gotos.push_back(ThenGoto);
 
-      HLGoto *ElseGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(1));
-      HLNodeUtils::insertAsFirstChild(If, ElseGoto, false);
+      HLGoto *ElseGoto = getHLNodeUtils().createHLGoto(BI->getSuccessor(1));
+      getHLNodeUtils().insertAsFirstChild(If, ElseGoto, false);
       Gotos.push_back(ElseGoto);
 
-      HLNodeUtils::insertAfter(InsertionPos, If);
+      getHLNodeUtils().insertAfter(InsertionPos, If);
       InsertionPos = If;
     } else {
-      auto Goto = HLNodeUtils::createHLGoto(BI->getSuccessor(0));
+      auto Goto = getHLNodeUtils().createHLGoto(BI->getSuccessor(0));
 
       Gotos.push_back(Goto);
 
-      HLNodeUtils::insertAfter(InsertionPos, Goto);
+      getHLNodeUtils().insertAfter(InsertionPos, Goto);
       InsertionPos = Goto;
     }
   } else if (SwitchInst *SI = dyn_cast<SwitchInst>(Terminator)) {
-    auto Switch = HLNodeUtils::createHLSwitch(nullptr);
+    auto Switch = getHLNodeUtils().createHLSwitch(nullptr);
 
     Switches[Switch] = BB;
 
@@ -133,23 +133,23 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
     // Add gotos to all the cases. They are added for convenience in forming
     // lexical links and will be eliminated later.
-    auto DefaultGoto = HLNodeUtils::createHLGoto(SI->getDefaultDest());
-    HLNodeUtils::insertAsFirstDefaultChild(Switch, DefaultGoto);
+    auto DefaultGoto = getHLNodeUtils().createHLGoto(SI->getDefaultDest());
+    getHLNodeUtils().insertAsFirstDefaultChild(Switch, DefaultGoto);
     Gotos.push_back(DefaultGoto);
 
     unsigned Count = 1;
 
     for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, ++Count) {
-      auto CaseGoto = HLNodeUtils::createHLGoto(I.getCaseSuccessor());
-      HLNodeUtils::insertAsFirstChild(Switch, CaseGoto, Count);
+      auto CaseGoto = getHLNodeUtils().createHLGoto(I.getCaseSuccessor());
+      getHLNodeUtils().insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
     }
 
-    HLNodeUtils::insertAfter(InsertionPos, Switch);
+    getHLNodeUtils().insertAfter(InsertionPos, Switch);
     InsertionPos = Switch;
   } else if (ReturnInst *RI = dyn_cast<ReturnInst>(Terminator)) {
-    auto Inst = HLNodeUtils::createHLInst(RI);
-    HLNodeUtils::insertAfter(InsertionPos, Inst);
+    auto Inst = getHLNodeUtils().createHLInst(RI);
+    getHLNodeUtils().insertAfter(InsertionPos, Inst);
     InsertionPos = Inst;
   } else {
     assert(0 && "Unhandled terminator type!");
@@ -160,22 +160,22 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
 HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
                                           HLNode *InsertionPos) {
-  auto Label = HLNodeUtils::createHLLabel(BB);
+  auto Label = getHLNodeUtils().createHLLabel(BB);
 
   Labels[BB] = Label;
 
   if (auto Region = dyn_cast<HLRegion>(InsertionPos)) {
-    HLNodeUtils::insertAsFirstChild(Region, Label);
+    getHLNodeUtils().insertAsFirstChild(Region, Label);
   } else {
-    HLNodeUtils::insertAfter(InsertionPos, Label);
+    getHLNodeUtils().insertAfter(InsertionPos, Label);
   }
 
   InsertionPos = Label;
 
   for (auto I = BB->getFirstInsertionPt(), E = std::prev(BB->end()); I != E;
        ++I) {
-    auto Inst = HLNodeUtils::createHLInst(&*I);
-    HLNodeUtils::insertAfter(InsertionPos, Inst);
+    auto Inst = getHLNodeUtils().createHLInst(&*I);
+    getHLNodeUtils().insertAfter(InsertionPos, Inst);
     InsertionPos = Inst;
   }
 
@@ -325,7 +325,7 @@ void HIRCreation::create() {
 
   for (auto &I : *RI) {
 
-    CurRegion = HLNodeUtils::createHLRegion(I);
+    CurRegion = getHLNodeUtils().createHLRegion(I);
 
     HLNode *LastNode =
         doPreOrderRegionWalk(CurRegion->getEntryBBlock(), CurRegion);
@@ -345,6 +345,8 @@ bool HIRCreation::runOnFunction(Function &F) {
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   RI = &getAnalysis<HIRRegionIdentification>();
 
+  HNU.reset(F);
+
   create();
 
   return false;
@@ -361,7 +363,7 @@ void HIRCreation::releaseMemory() {
   Switches.clear();
 
   // Destroy all HLNodes.
-  HLNodeUtils::destroyAll();
+  getHLNodeUtils().destroyAll();
 }
 
 void HIRCreation::print(raw_ostream &OS, const Module *M) const {

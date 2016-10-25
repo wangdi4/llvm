@@ -190,6 +190,7 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "General unrolling for Function : " << F.getName() << "\n");
 
+  auto HIRF = &getAnalysis<HIRFramework>();
   HLR = &getAnalysis<HIRLoopResource>();
   HLS = &getAnalysis<HIRLoopStatistics>();
 
@@ -199,7 +200,7 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
 
   // Gather the innermost loops as candidates.
   SmallVector<HLLoop *, 64> CandidateLoops;
-  HLNodeUtils::gatherInnermostLoops(CandidateLoops);
+  HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
   // Process General Unrolling
   processGeneralUnroll(CandidateLoops);
@@ -320,4 +321,3 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop,
 
   return true;
 }
-

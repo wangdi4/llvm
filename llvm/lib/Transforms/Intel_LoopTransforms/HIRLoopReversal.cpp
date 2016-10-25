@@ -97,9 +97,9 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 
@@ -231,8 +231,8 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
     }
     // 3.2 IV with blob and
     // If IV has a valid blob, decide IV-Blob's sign
-    else if (HLNodeUtils::isKnownPositiveOrNegative(IVIndex, ImmedParent,
-                                                    BlobVal)) {
+    else if (ImmedParent->getHLNodeUtils().isKnownPositiveOrNegative(
+                 IVIndex, ImmedParent, BlobVal)) {
       CalculatedWeight = IVConstCoeff * BlobVal;
     }
     // 3.3 Error: IVExpr without known sign, abort collection!
@@ -357,7 +357,8 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
       // DEBUG(Edge->print(dbgs()););
 
       // 1.Ignore any edge if its sink is out of the current loop
-      if (!(HLNodeUtils::contains(Lp, Edge->getSink()->getHLDDNode()))) {
+      if (!(DDNode->getHLNodeUtils().contains(
+              Lp, Edge->getSink()->getHLDDNode()))) {
         continue;
       }
 
@@ -417,19 +418,20 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "HIR LoopReversal on Function : " << F.getName() << "\n");
 
+  // Obtain/Setup Analysis Result(s)
+  auto HIRF = &getAnalysis<HIRFramework>();
+  HDDA = &getAnalysis<HIRDDAnalysis>();
+  HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
+
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
-  HLNodeUtils::gatherInnermostLoops(CandidateLoops);
+  HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
   // DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size()
   // <<"\n");
   if (CandidateLoops.empty()) {
     return false;
   }
-
-  // Obtain/Setup Analysis Result(s)
-  HDDA = &getAnalysis<HIRDDAnalysis>();
-  HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
-  HLS = &getAnalysis<HIRLoopStatistics>();
 
   // TODO:
   // Re-Build DDA on demand if needed
@@ -548,7 +550,8 @@ bool HIRLoopReversal::doCollection(HLLoop *Lp) {
 
   // 1. Do a loop collection on MCEs
   MarkedCECollector MCEC(MCEAV, Lp, LoopLevel, this);
-  HLNodeUtils::visitRange(MCEC, Lp->getFirstChild(), Lp->getLastChild());
+  Lp->getHLNodeUtils().visitRange(MCEC, Lp->getFirstChild(),
+                                  Lp->getLastChild());
 
   // 2. Check if Collection aborts prematurely
   bool MCECollectionAbortion = MCEC.getCollectionAborted();
@@ -658,7 +661,7 @@ bool HIRLoopReversal::isLegal(const HLLoop *Lp) {
   // 1. Analyze all DVs from the Loop
   // Note: legality test is inside AnalyzeDDInfo, no DV is ever saved!
   AnalyzeDDInfo ADDI(DDG, Lp, this, LoopLevel);
-  HLNodeUtils::visitRange(ADDI, Lp->child_begin(), Lp->child_end());
+  Lp->getHLNodeUtils().visitRange(ADDI, Lp->child_begin(), Lp->child_end());
 
   // 2. Check DDInfoAnalysis's early abortion
   bool CollectionAborted = ADDI.getCollectionAborted();
@@ -833,6 +836,8 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
 
   // 1.1 Get Loop's UpperBound (UB)
   CanonExpr *UBCE = Lp->getUpperCanonExpr();
+  auto &CEU = UBCE->getCanonExprUtils();
+
   // DEBUG(::dump(UBCE, "Loop's UpperBound (UB) CE:"););
   // DEBUG(dbgs() << "UBCEDenom: " << UBCE->getDenominator() << "\n");
 
@@ -852,7 +857,7 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
     CanonExpr *CE = MCE.getCE();
 
     // 2.1 Build CE' = -IV on the matching LoopLevel
-    CanonExpr *CEPrime = CanonExprUtils::createExtCanonExpr(
+    CanonExpr *CEPrime = CEU.createExtCanonExpr(
         CE->getSrcType(), CE->getDestType(), CE->isSExt());
     CEPrime->setIVCoeff(LoopLevel, InvalidBlobIndex, -1);
 
@@ -862,14 +867,14 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
     // Handle merge-able case: Merge directly
     if (MergeableCase) {
       // 2.3 Update: CE' = UB - IV; (LB is always 0)
-      CEPrime = CanonExprUtils::add(CEPrime, UBCE, true);
+      CEPrime = CEU.add(CEPrime, UBCE, true);
       assert(CEPrime && "CanonExprUtils::add(.) failed on UBCE\n ");
       // DEBUG(::dump(CEPrime, "CEPrime, Expect: CE' = UB - IV"));
 
       // 2.4 Replace original IV with CE' = UB - IV;
       // DEBUG(::dump(CE, "CE [BEFORE replaceIVByCanonExpr(.)]\n"););
       bool ReplaceIVByCE =
-          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
+          CEU.replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
       (void)ReplaceIVByCE;
       assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
       // DEBUG(::dump(CE, "CE [AFTER replaceIVByCanonExpr(.)]\n"););
@@ -909,19 +914,19 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
       (void)CastToStandaloneBlob;
 
       // 2.6 Build: CE' = UBCEClone - iv;
-      CEPrime = CanonExprUtils::add(CEPrime, UBCEClone, true);
+      CEPrime = CEU.add(CEPrime, UBCEClone, true);
       assert(CEPrime && "CanonExprUtils::add(.) failed on UBCE\n ");
       // DEBUG(::dump(CEPrime, "Expect: CE' = UB - iv"));
 
       // 2.7 Replace CE's original IV with the CE' = UB - IV;
       bool ReplaceIVByCE =
-          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
+          CEU.replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
       assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
       (void)ReplaceIVByCE;
       // DEBUG(::dump(CE, "CE After replaceIVByCanonExpr(.)\n"););
 
       // 2.8 Cleanup: remove UBCEClone
-      CanonExprUtils::destroy(UBCEClone);
+      CEU.destroy(UBCEClone);
     }
 
     // 3. Make the corresponding RegDDRef consistent with the new CE

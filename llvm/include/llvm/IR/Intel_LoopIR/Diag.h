@@ -23,11 +23,11 @@ namespace llvm {
 namespace loopopt {
 
 class OptReportDiag {
-  int   Id;
+  int Id;
   const char *Msg;
   OptReportDiag(int Id, const char *Msg) : Id(Id), Msg(Msg) {}
-  const char *getMsg()   { return Msg; }
-  int   getMsgId() { return Id; }
+  const char *getMsg() { return Msg; }
+  int getMsgId() { return Id; }
   /// \brief Array of actual diagnistics IDs and messages.
   static OptReportDiag Diags[];
   /// \brief Size of Diags[] array.
@@ -42,6 +42,7 @@ class OptReportDiag {
   static const int LoopBegin = 25481;
   /// \brief Loop-report ID used in ASM/OBJ ends at 25531.
   static const int LoopEnd = 25531;
+
 public:
   /// \brief Retrieve message string from the diagnostic ID.
   static const char *getMsg(int Id);

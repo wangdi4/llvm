@@ -58,7 +58,6 @@ enum DDVerificationLevel {
   Innermost
 };
 
-
 // HIRDDAnalysis returns instances of this to ensure clients can access graph,
 // but not modify it. Convenient places to reimplement iterators or filter
 // graph as well
@@ -211,7 +210,9 @@ private:
 
   // GraphState initializes to NoData by default.
   enum class GraphState : unsigned char {
-    NoData, Invalid, Valid,
+    NoData,
+    Invalid,
+    Valid,
   };
 
   DenseMap<const HLNode *, GraphState> ValidationMap;
@@ -265,7 +266,6 @@ private:
     void postVisit(HLNode *Node) {}
   };
 };
-
 }
 }
 

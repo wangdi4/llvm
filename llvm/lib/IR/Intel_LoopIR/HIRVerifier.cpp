@@ -44,7 +44,7 @@ class HIRVerifierImpl final : public HLNodeVisitorBase {
 
 public:
   static void verifyNode(const HLNode *N, bool Recursive = true);
-  static void verifyAll();
+  static void verifyAll(const HIRFramework &HIRF);
 
   HIRVerifierImpl()
       : TopSortNum(0), InnermostLoop(nullptr), CurrentLoop(nullptr) {}
@@ -105,10 +105,10 @@ public:
 
 template <bool Recursive> void HIRVerifier::verifyNode(const HLNode *N) {
   HIRVerifierImpl V;
-  HLNodeUtils::visit<Recursive>(V, N);
+  N->getHLNodeUtils().visit<Recursive>(V, N);
 }
 
-void HIRVerifier::verifyAll() {
+void HIRVerifier::verifyAll(const HIRFramework &HIRF) {
   HIRVerifierImpl V;
-  HLNodeUtils::visitAll(V);
+  HIRF.getHLNodeUtils().visitAll(V);
 }

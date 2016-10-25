@@ -181,7 +181,8 @@ IVSegment::IVSegment(const RefGroupTy &Group) {
   int64_t DiffValue;
   CanonExpr *LowerCE = *Lower->canon_begin();
   CanonExpr *UpperCE = *Upper->canon_begin();
-  auto DiffCE = CanonExprUtils::cloneAndSubtract(UpperCE, LowerCE, false);
+  auto DiffCE =
+      UpperCE->getCanonExprUtils().cloneAndSubtract(UpperCE, LowerCE, false);
   assert(DiffCE && " CanonExpr difference failed.");
   DiffCE->simplify(true);
   if (DiffCE->isIntConstant(&DiffValue)) {
@@ -189,7 +190,7 @@ IVSegment::IVSegment(const RefGroupTy &Group) {
   } else {
     llvm_unreachable("Non-constant segment length");
   }
-  CanonExprUtils::destroy(DiffCE);
+  UpperCE->getCanonExprUtils().destroy(DiffCE);
 #endif
 }
 
@@ -203,11 +204,11 @@ IVSegment::IVSegment(IVSegment &&Segment)
 
 IVSegment::~IVSegment() {
   if (Lower) {
-    DDRefUtils::destroy(Lower);
+    Lower->getDDRefUtils().destroy(Lower);
   }
 
   if (Upper) {
-    DDRefUtils::destroy(Upper);
+    Upper->getDDRefUtils().destroy(Upper);
   }
 }
 
@@ -243,14 +244,16 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
     int64_t Direction = 1;
     if (IVBlobIndex != InvalidBlobIndex) {
       // IVBlobExpr is a helper CE to use HLNodeUtils::isKnownNegative
-      std::unique_ptr<CanonExpr> IVBlobExpr(CanonExprUtils::createExtCanonExpr(
-          CE->getSrcType(), CE->getDestType(), CE->isSExt()));
+      std::unique_ptr<CanonExpr> IVBlobExpr(
+          CE->getCanonExprUtils().createExtCanonExpr(
+              CE->getSrcType(), CE->getDestType(), CE->isSExt()));
       IVBlobExpr->addBlob(IVBlobIndex, IVCoeff);
 
       // At this point IVBlobIndex is KnownPositive or KnownNegative, as we
       // dropped others as non supported
       // The utility checks both blob and coeff sign.
-      if (HLNodeUtils::isKnownNegative(IVBlobExpr.get(), InnerLoop)) {
+      if (InnerLoop->getHLNodeUtils().isKnownNegative(IVBlobExpr.get(),
+                                                      InnerLoop)) {
         Direction *= -1;
       }
     } else {
@@ -270,7 +273,8 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
     bool Ret;
     if (BoundCE->getDenominator() == 1 &&
         CanonExprUtils::mergeable(CE, BoundCE, true)) {
-      Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE, true);
+      Ret = CE->getCanonExprUtils().replaceIVByCanonExpr(CE, Level, BoundCE,
+                                                         true);
       CE->simplify(false);
     } else {
       // Have to treat bound as blob and then truncate or extend it.
@@ -285,8 +289,8 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
       assert(Ret && "convertToStandAloneBlob() should always succeed as we"
                     "already checked if it's convertible");
 
-      Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewBoundCE.get(),
-                                                 true);
+      Ret = CE->getCanonExprUtils().replaceIVByCanonExpr(
+          CE, Level, NewBoundCE.get(), true);
     }
     assert(Ret &&
            "Assuming replace will always succeed as we already checked if both "
@@ -357,13 +361,13 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
 
       if (IVBlobIndex != InvalidBlobIndex) {
         std::unique_ptr<CanonExpr> IVBlobExpr(
-            CanonExprUtils::createExtCanonExpr(
+            CE->getCanonExprUtils().createExtCanonExpr(
                 CE->getSrcType(), CE->getDestType(), CE->isSExt()));
 
         IVBlobExpr->addBlob(IVBlobIndex, IVConstCoeff);
 
-        if (!HLNodeUtils::isKnownPositiveOrNegative(IVBlobExpr.get(),
-                                                    InnermostLoop)) {
+        if (!InnermostLoop->getHLNodeUtils().isKnownPositiveOrNegative(
+                IVBlobExpr.get(), InnermostLoop)) {
           return BLOB_IV_COEFF;
         }
       }
@@ -525,7 +529,8 @@ bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
   auto I = Ref1->canon_begin();
   auto J = Ref2->canon_begin();
 
-  const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(*I, *J, true);
+  const CanonExpr *Result =
+      Ref1->getCanonExprUtils().cloneAndSubtract(*I, *J, true);
   if (!Result) {
     return false;
   }
@@ -564,7 +569,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   const HLLoop *InnermostLoop = Loop;
   if (!Loop->isInnermost() &&
-      !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
+      !Loop->getHLNodeUtils().isPerfectLoopNest(Loop, &InnermostLoop)) {
     return NON_PERFECT_LOOPNEST;
   }
 
@@ -670,11 +675,13 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   return OK;
 }
 
-HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLContainerTy &Nodes,
+HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLLoop *OrigLoop,
+                                                HLContainerTy &Nodes,
                                                 Segment &S1, Segment &S2) {
   Segment *S[] = {&S1, &S2};
   Type *S1Type = S[0]->getType()->getPointerElementType();
   Type *S2Type = S[1]->getType()->getPointerElementType();
+  auto &HNU = OrigLoop->getHLNodeUtils();
 
   // In case of different types, bitcast one segment bounds to another to
   // be in compliance with LLVM IR. (see ex. in lit test ptr-types.ll)
@@ -686,8 +693,8 @@ HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLContainerTy &Nodes,
     Segment *BS = S[BiggerTypeIdx];
     Type *DestType = S[!BiggerTypeIdx]->getType();
 
-    HLInst *BCIL = HLNodeUtils::createBitCast(DestType, BS->Lower);
-    HLInst *BCIU = HLNodeUtils::createBitCast(DestType, BS->Upper);
+    HLInst *BCIL = HNU.createBitCast(DestType, BS->Lower);
+    HLInst *BCIU = HNU.createBitCast(DestType, BS->Upper);
     Nodes.push_back(BCIL);
     Nodes.push_back(BCIU);
 
@@ -695,7 +702,7 @@ HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLContainerTy &Nodes,
     BS->Upper = BCIU->getLvalDDRef()->clone();
   }
 
-  HLIf *If = HLNodeUtils::createHLIf(PredicateTy::ICMP_UGE, S1.Upper, S2.Lower);
+  HLIf *If = HNU.createHLIf(PredicateTy::ICMP_UGE, S1.Upper, S2.Lower);
   If->addPredicate(PredicateTy::ICMP_UGE, S2.Upper, S1.Lower);
 
   Nodes.push_back(If);
@@ -729,18 +736,20 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   HLLoop *OrigLoop = Context.Loop;
   HLLoop *ModifiedLoop = Context.Loop->clone();
 
-  HLNodeUtils::insertBefore(OrigLoop, ModifiedLoop);
+  auto &HNU = OrigLoop->getHLNodeUtils();
 
-  HLLabel *OrigLabel = HLNodeUtils::createHLLabel("mv.orig");
-  HLNodeUtils::insertBefore(OrigLoop, OrigLabel);
+  HNU.insertBefore(OrigLoop, ModifiedLoop);
 
-  HLLabel *EscapeLabel = HLNodeUtils::createHLLabel("mv.escape");
-  HLNodeUtils::insertAfter(OrigLoop, EscapeLabel);
+  HLLabel *OrigLabel = HNU.createHLLabel("mv.orig");
+  HNU.insertBefore(OrigLoop, OrigLabel);
 
-  HLGoto *EscapeGoto = HLNodeUtils::createHLGoto(EscapeLabel);
-  HLNodeUtils::insertAfter(ModifiedLoop, EscapeGoto);
+  HLLabel *EscapeLabel = HNU.createHLLabel("mv.escape");
+  HNU.insertAfter(OrigLoop, EscapeLabel);
 
-  HLGoto *OrigGoto = HLNodeUtils::createHLGoto(OrigLabel);
+  HLGoto *EscapeGoto = HNU.createHLGoto(EscapeLabel);
+  HNU.insertAfter(ModifiedLoop, EscapeGoto);
+
+  HLGoto *OrigGoto = HNU.createHLGoto(OrigLabel);
 
   // Generate tripcount test
   if (Context.GenTripCountTest) {
@@ -750,12 +759,12 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
     assert(TripCountRef != nullptr &&
            "getTripCountDDRef() unexpectedly returned nullptr");
     HLIf *LowTripCountIf =
-        HLNodeUtils::createHLIf(PredicateTy::ICMP_ULT, TripCountRef,
-                                DDRefUtils::createConstDDRef(
-                                    TripCountRef->getDestType(), MinTripCount));
+        HNU.createHLIf(PredicateTy::ICMP_ULT, TripCountRef,
+                       HNU.getDDRefUtils().createConstDDRef(
+                           TripCountRef->getDestType(), MinTripCount));
 
-    HLNodeUtils::insertAsFirstChild(LowTripCountIf, OrigGoto, true);
-    HLNodeUtils::insertBefore(ModifiedLoop, LowTripCountIf);
+    HNU.insertAsFirstChild(LowTripCountIf, OrigGoto, true);
+    HNU.insertBefore(ModifiedLoop, LowTripCountIf);
   }
   //////////////////////////
 
@@ -765,10 +774,10 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
     auto &S2 = Context.SegmentList[i + 1];
 
     HLContainerTy Nodes;
-    HLIf *DDCheck = createIfStmtForIntersection(Nodes, S1, S2);
+    HLIf *DDCheck = createIfStmtForIntersection(OrigLoop, Nodes, S1, S2);
 
-    HLNodeUtils::insertAsFirstChild(DDCheck, OrigGoto->clone(), true);
-    HLNodeUtils::insertBefore(ModifiedLoop, &Nodes);
+    HNU.insertAsFirstChild(DDCheck, OrigGoto->clone(), true);
+    HNU.insertBefore(ModifiedLoop, &Nodes);
   }
 
   unsigned MVTag = ModifiedLoop->getNumber();
@@ -795,7 +804,7 @@ void HIRRuntimeDD::markDDRefsIndep(HLLoop *Loop) {
   DDRefGrouping::createGroups(Groups, RefMap, isGroupMemRefMatchForRTDD);
 
   auto Size = Groups.size();
-  MDBuilder MDB(HIRUtils::getContext());
+  MDBuilder MDB(Loop->getHLNodeUtils().getHIRFramework().getContext());
 
   MDNode *Domain = MDB.createAnonymousAliasScopeDomain();
   SmallVector<MDNode *, ExpectedNumberOfTests> NewScopes;
@@ -831,10 +840,11 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
   }
 
   HLS = &getAnalysis<HIRLoopStatistics>();
+  auto HIRF = &getAnalysis<HIRFramework>();
   DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
 
   LoopAnalyzer LA(this);
-  HLNodeUtils::visitAll(LA);
+  HIRF->getHLNodeUtils().visitAll(LA);
 
   if (LA.LoopContexts.size() == 0) {
     return false;

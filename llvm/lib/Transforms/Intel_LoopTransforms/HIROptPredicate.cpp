@@ -70,8 +70,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-STATISTIC(IfsUnswitched,
-          "Number of HLIfs optimized (hoisted)");
+STATISTIC(IfsUnswitched, "Number of HLIfs optimized (hoisted)");
 // This will also count if the loop has been analyzed multiple times
 // due to nested/multiple if.
 STATISTIC(IfsAnalyzed, "Number of HLIfs analyzed for loop unswitching");
@@ -83,13 +82,14 @@ static cl::opt<unsigned> NumPredicateThreshold(
     cl::desc("Don't opt predicate a loop which has been transformed greater"
              "than this threshold."));
 
-static cl::opt<bool> DisableLoopUnswitch(
-    "disable-" OPT_SWITCH, cl::init(false), cl::Hidden,
-    cl::desc("Disable HIR Loop unswitching"));
+static cl::opt<bool>
+    DisableLoopUnswitch("disable-" OPT_SWITCH, cl::init(false), cl::Hidden,
+                        cl::desc("Disable HIR Loop unswitching"));
 
-static cl::opt<bool> DisableCostModel(
-    "disable-" OPT_SWITCH "-cost-model", cl::init(false), cl::Hidden,
-    cl::desc("Disable " OPT_DESC " cost model related checks"));
+static cl::opt<bool> DisableCostModel("disable-" OPT_SWITCH "-cost-model",
+                                      cl::init(false), cl::Hidden,
+                                      cl::desc("Disable " OPT_DESC
+                                               " cost model related checks"));
 
 namespace {
 
@@ -255,7 +255,6 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 };
-
 }
 
 bool HIROptPredicate::CandidateLookup::isCandidate(const RegDDRef *Ref) const {
@@ -325,8 +324,8 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   }
 
   CandidateLookup Lookup(Pass, Level);
-  HLNodeUtils::visitRange(Lookup, If->then_begin(), If->then_end());
-  HLNodeUtils::visitRange(Lookup, If->else_begin(), If->else_end());
+  If->getHLNodeUtils().visitRange(Lookup, If->then_begin(), If->then_end());
+  If->getHLNodeUtils().visitRange(Lookup, If->else_begin(), If->else_end());
   if (!IsCandidate || Lookup.HasLabel) {
     return;
   }
@@ -347,19 +346,16 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   SkipNode = Loop;
 
   CandidateLookup Lookup(Pass, MinLevel);
-  HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
+  Loop->getHLNodeUtils().visitRange(Lookup, Loop->child_begin(),
+                                    Loop->child_end());
 }
 
 char HIROptPredicate::ID = 0;
-INITIALIZE_PASS_BEGIN(HIROptPredicate, OPT_SWITCH, OPT_DESC,
-                      false, false)
+INITIALIZE_PASS_BEGIN(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_END(HIROptPredicate, OPT_SWITCH, OPT_DESC,
-                    false, false)
+INITIALIZE_PASS_END(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
 
-FunctionPass *llvm::createHIROptPredicatePass() {
-  return new HIROptPredicate;
-}
+FunctionPass *llvm::createHIROptPredicatePass() { return new HIROptPredicate; }
 
 void HIROptPredicate::sortCandidates() {
   std::sort(Candidates.begin(), Candidates.end(),
@@ -380,7 +376,7 @@ bool HIROptPredicate::runOnFunction(Function &F) {
     HLRegion *Region = cast<HLRegion>(&Node);
 
     CandidateLookup Lookup(*this);
-    HLNodeUtils::visit(Lookup, Region);
+    Region->getHLNodeUtils().visit(Lookup, Region);
     sortCandidates();
 
     if (processOptPredicate()) {
@@ -434,7 +430,7 @@ HLLoop *HIROptPredicate::findTargetLoopAtLevel(const HLIf *If,
          "HLIf added as a candidate, but the proper level is equal to the "
          "nesting level of the parent loop");
 
-  while(Level < ParentLoop->getNestingLevel() - 1) {
+  while (Level < ParentLoop->getNestingLevel() - 1) {
     HLLoop *TargetLoop = ParentLoop->getParentLoop();
 
     ParentLoop = TargetLoop;
@@ -528,6 +524,7 @@ bool HIROptPredicate::isLoopSupported(const HLLoop *Loop) const {
 void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
                                          HoistCandidate &Candidate) {
   HLIf *If = Candidate.If;
+  auto &HNU = If->getHLNodeUtils();
 
   // Remove the Then and Else block as they will be inserted after cloning. This
   // is done to avoid cloning of children when creating the new loop.
@@ -543,22 +540,22 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
 
   // Insert then-case after the HLIf
   if (!ThenContainer.empty()) {
-    HLNodeUtils::insertAfter(If, &ThenContainer);
+    HNU.insertAfter(If, &ThenContainer);
   }
   // Insert else-case afther the cloned HLIf
   if (!ElseContainer.empty()) {
     // Update HLGotos to new cloned targets
-    HLNodeUtils::remapLabelsRange(CloneMapper, &ElseContainer.front(),
-                                  &ElseContainer.back());
-    HLNodeUtils::insertAfter(ClonnedIf, &ElseContainer);
+    HNU.remapLabelsRange(CloneMapper, &ElseContainer.front(),
+                         &ElseContainer.back());
+    HNU.insertAfter(ClonnedIf, &ElseContainer);
   }
 
   // Move the If condition outside.
   hoistIf(If, TargetLoop);
-  HLNodeUtils::remove(ClonnedIf);
+  HNU.remove(ClonnedIf);
 
-  HLNodeUtils::moveAsFirstChild(If, TargetLoop, true);
-  HLNodeUtils::insertAsFirstChild(If, NewElseLoop, false);
+  HNU.moveAsFirstChild(If, TargetLoop, true);
+  HNU.insertAsFirstChild(If, NewElseLoop, false);
 }
 
 bool HIROptPredicate::transformClones(HLLoop *TargetLoop,
@@ -567,8 +564,10 @@ bool HIROptPredicate::transformClones(HLLoop *TargetLoop,
   HoistCandidate *NewCandidatePtr = nullptr;
 
   for (HLIf *Clone : Candidate.Clones) {
-    if (HLNodeUtils::contains(Candidate.If, Clone, false)) {
-      HLNodeUtils::replaceNodeWithBody(Clone, Candidate.If->isThenChild(Clone));
+    auto &HNU = Clone->getHLNodeUtils();
+
+    if (HNU.contains(Candidate.If, Clone, false)) {
+      HNU.replaceNodeWithBody(Clone, Candidate.If->isThenChild(Clone));
     } else {
       if (!NewCandidatePtr) {
         DEBUG(dbgs() << "Found new candidate: ");
@@ -594,22 +593,22 @@ void HIROptPredicate::removeThenElseChildren(HLIf *If,
 
   // Collect Then Children.
   if (If->hasThenChildren()) {
-    HLNodeUtils::remove(ThenContainer, If->getFirstThenChild(),
-                        If->getLastThenChild());
+    If->getHLNodeUtils().remove(ThenContainer, If->getFirstThenChild(),
+                                If->getLastThenChild());
   }
 
   // Collect Else Children.
   if (If->hasElseChildren()) {
-    HLNodeUtils::remove(ElseContainer, If->getFirstElseChild(),
-                        If->getLastElseChild());
+    If->getHLNodeUtils().remove(ElseContainer, If->getFirstElseChild(),
+                                If->getLastElseChild());
   }
 }
 
 void HIROptPredicate::hoistIf(HLIf *If, HLLoop *OrigLoop) {
-  //TODO: remove loop live-ins
+  // TODO: remove loop live-ins
 
   // Hoist the If outside the loop.
-  HLNodeUtils::moveBefore(OrigLoop, If);
+  If->getHLNodeUtils().moveBefore(OrigLoop, If);
 
   // Update the DDRefs inside the HLIf.
   for (auto Ref : make_range(If->ddref_begin(), If->ddref_end())) {

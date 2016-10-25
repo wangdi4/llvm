@@ -46,13 +46,14 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
     return false;
   }
 
+  auto HIRF = &getAnalysis<HIRFramework>();
   DDA = &getAnalysis<HIRDDAnalysis>();
   SmallVector<HLLoop *, 64> Loops;
 
   if (DistCostModel == DistHeuristics::BreakMemRec) {
-    HLNodeUtils::gatherInnermostLoops(Loops);
+    HIRF->getHLNodeUtils().gatherInnermostLoops(Loops);
   } else {
-    HLNodeUtils::gatherAllLoops(Loops);
+    HIRF->getHLNodeUtils().gatherAllLoops(Loops);
     // Work from innermost to outermost
     std::sort(Loops.begin(), Loops.end(), [](HLLoop *A, HLLoop *B) -> bool {
       return A->getNestingLevel() > B->getNestingLevel();
@@ -130,6 +131,7 @@ void HIRLoopDistribution::distributeLoop(
   unsigned LastLoopNum = DistPoints.size();
   unsigned Num = 0;
   bool CopyPreHeader = true;
+  auto &HNU = Loop->getHLNodeUtils();
 
   for (PiBlockList &PList : DistPoints) {
     // Each PiBlockList forms a new loop
@@ -139,21 +141,21 @@ void HIRLoopDistribution::distributeLoop(
 
     HLLoop *NewLoop = Loop->cloneEmptyLoop();
     if (CopyPreHeader) {
-      HLNodeUtils::moveAsFirstPreheaderNodes(NewLoop, Loop->pre_begin(),
-                                             Loop->pre_end());
+      HNU.moveAsFirstPreheaderNodes(NewLoop, Loop->pre_begin(),
+                                    Loop->pre_end());
       CopyPreHeader = false;
     }
     if (++Num == LastLoopNum) {
-      HLNodeUtils::moveAsFirstPostexitNodes(NewLoop, Loop->post_begin(),
-                                            Loop->post_end());
+      HNU.moveAsFirstPostexitNodes(NewLoop, Loop->post_begin(),
+                                   Loop->post_end());
     }
 
-    HLNodeUtils::insertBefore(Loop, NewLoop);
+    HNU.insertBefore(Loop, NewLoop);
     // Each piblock is comprised of multiple HLNodes
     for (PiBlock *PiBlk : PList) {
       for (auto NodeI = PiBlk->nodes_begin(), E = PiBlk->nodes_end();
            NodeI != E; ++NodeI) {
-        HLNodeUtils::moveAsLastChild(NewLoop, *NodeI);
+        HNU.moveAsLastChild(NewLoop, *NodeI);
       }
     }
   }
@@ -164,7 +166,7 @@ void HIRLoopDistribution::distributeLoop(
   // The loop is now empty, all its children moved into new loops
   assert(!Loop->hasChildren() &&
          "Loop Distribution failed to account for all Loop Children");
-  HLNodeUtils::remove(Loop);
+  HNU.remove(Loop);
 }
 
 // Form perfect loop candidates by grouping stmt only piblocks
@@ -195,7 +197,8 @@ void HIRLoopDistribution::formPerfectLoopNests(
         assert(SingleLoop && "SingleLoop piblock did not contain a loop");
         // perfect subloops are distributed into their own loop
         if (SingleLoop->isInnermost() ||
-            HLNodeUtils::isPerfectLoopNest(SingleLoop, &InnermostLoop)) {
+            SingleLoop->getHLNodeUtils().isPerfectLoopNest(SingleLoop,
+                                                           &InnermostLoop)) {
           DistPoints.push_back(PiBlockList(1, Blk));
         } else {
           CurLoopPiBlkList.push_back(Blk);
@@ -211,7 +214,8 @@ void HIRLoopDistribution::formPerfectLoopNests(
             dyn_cast<HLLoop>((*(Blk->dist_node_begin()))->HNode);
         assert(SingleLoop && "SingleLoop piblock did not contain a loop");
         if (SingleLoop->isInnermost() ||
-            HLNodeUtils::isPerfectLoopNest(SingleLoop, &InnermostLoop)) {
+            SingleLoop->getHLNodeUtils().isPerfectLoopNest(SingleLoop,
+                                                           &InnermostLoop)) {
           // terminate our current loop and append it to loop list
           if (!CurLoopPiBlkList.empty()) {
             DistPoints.push_back(CurLoopPiBlkList);
@@ -286,10 +290,11 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
     // j loop
 
     const HLLoop *InnermostLoop;
+    auto &HNU = Lp->getHLNodeUtils();
+
     // Why ruin perfection
     // Should we run distribution in perfect loopnest mode on innermost loops?
-    if (!Lp->isInnermost() &&
-        HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLoop)) {
+    if (!Lp->isInnermost() && HNU.isPerfectLoopNest(Lp, &InnermostLoop)) {
       return false;
     }
 
@@ -299,8 +304,7 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
 
     SmallVector<HLLoop *, 12> InnermostLPVector;
 
-    HLNodeUtils::gatherInnermostLoops(InnermostLPVector,
-                                      const_cast<HLLoop *>(Lp));
+    HNU.gatherInnermostLoops(InnermostLPVector, const_cast<HLLoop *>(Lp));
     if (InnermostLPVector.size() > 2) {
       return false;
     }
@@ -309,7 +313,7 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
       if ((Loop->getNestingLevel() - Lp->getNestingLevel()) > 2) {
         return false;
       }
-      if (!NonUnitStride && HLNodeUtils::hasNonUnitStrideRefs(Loop)) {
+      if (!NonUnitStride && HNU.hasNonUnitStrideRefs(Loop)) {
         NonUnitStride = true;
       }
     }

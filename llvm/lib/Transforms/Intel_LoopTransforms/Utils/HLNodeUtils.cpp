@@ -14,14 +14,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/Debug.h"
-
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 #include <memory>
 
@@ -29,52 +26,94 @@
 using namespace llvm;
 using namespace loopopt;
 
-HLNodeUtils::DummyIRBuilderTy *HLNodeUtils::DummyIRBuilder(nullptr);
-Instruction *HLNodeUtils::FirstDummyInst(nullptr);
-Instruction *HLNodeUtils::LastDummyInst(nullptr);
+CanonExprUtils &HLNodeUtils::getCanonExprUtils() {
+  return getDDRefUtils().getCanonExprUtils();
+}
+
+const CanonExprUtils &HLNodeUtils::getCanonExprUtils() const {
+  return getDDRefUtils().getCanonExprUtils();
+}
+
+BlobUtils &HLNodeUtils::getBlobUtils() {
+  return getDDRefUtils().getBlobUtils();
+}
+const BlobUtils &HLNodeUtils::getBlobUtils() const {
+  return getDDRefUtils().getBlobUtils();
+}
+
+Function &HLNodeUtils::getFunction() const {
+  return getHIRFramework().getFunction();
+}
+
+Module &HLNodeUtils::getModule() const { return getHIRFramework().getModule(); }
+
+LLVMContext &HLNodeUtils::getContext() const {
+  return getHIRFramework().getContext();
+}
+
+const DataLayout &HLNodeUtils::getDataLayout() const {
+  return getHIRFramework().getDataLayout();
+}
+
+void HLNodeUtils::reset(Function &F) {
+  DDRU = nullptr;
+
+  DummyIRBuilder = new DummyIRBuilderTy(F.getContext());
+  DummyIRBuilder->SetInsertPoint(F.getEntryBlock().getTerminator());
+
+  FirstDummyInst = nullptr;
+  LastDummyInst = nullptr;
+}
 
 HLRegion *HLNodeUtils::createHLRegion(IRRegion &IRReg) {
-  return new HLRegion(IRReg);
+  return new HLRegion(*this, IRReg);
 }
 
 HLSwitch *HLNodeUtils::createHLSwitch(RegDDRef *ConditionRef) {
-  return new HLSwitch(ConditionRef);
+  return new HLSwitch(*this, ConditionRef);
 }
 
 HLLabel *HLNodeUtils::createHLLabel(BasicBlock *SrcBB) {
-  return new HLLabel(SrcBB);
+  return new HLLabel(*this, SrcBB);
 }
 
 HLLabel *HLNodeUtils::createHLLabel(const Twine &Name) {
-  return new HLLabel(Name);
+  return new HLLabel(*this, Name);
 }
 
 HLGoto *HLNodeUtils::createHLGoto(BasicBlock *TargetBB) {
-  return new HLGoto(TargetBB);
+  return new HLGoto(*this, TargetBB);
 }
 
 HLGoto *HLNodeUtils::createHLGoto(HLLabel *TargetL) {
-  return new HLGoto(TargetL);
+  return new HLGoto(*this, TargetL);
 }
 
-HLInst *HLNodeUtils::createHLInst(Instruction *In) { return new HLInst(In); }
+HLInst *HLNodeUtils::createHLInst(Instruction *Inst) {
+  return new HLInst(*this, Inst);
+}
 
 HLIf *HLNodeUtils::createHLIf(PredicateTy FirstPred, RegDDRef *Ref1,
                               RegDDRef *Ref2) {
-  return new HLIf(FirstPred, Ref1, Ref2);
+  return new HLIf(*this, FirstPred, Ref1, Ref2);
 }
 
 HLLoop *HLNodeUtils::createHLLoop(const Loop *LLVMLoop) {
-  return new HLLoop(LLVMLoop);
+  return new HLLoop(*this, LLVMLoop);
 }
 
 HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef,
                                   RegDDRef *UpperDDRef, RegDDRef *StrideDDRef,
                                   unsigned NumEx) {
-  return new HLLoop(ZttIf, LowerDDRef, UpperDDRef, StrideDDRef, NumEx);
+  return new HLLoop(*this, ZttIf, LowerDDRef, UpperDDRef, StrideDDRef, NumEx);
 }
 
-void HLNodeUtils::destroy(HLNode *Node) { Node->destroy(); }
+void HLNodeUtils::destroy(HLNode *Node) {
+  auto Count = Objs.erase(Node);
+  assert(Count && "Node not found in objects!");
+
+  delete Node;
+}
 
 void HLNodeUtils::setFirstAndLastDummyInst(Instruction *Inst) {
   if (!FirstDummyInst) {
@@ -84,17 +123,13 @@ void HLNodeUtils::setFirstAndLastDummyInst(Instruction *Inst) {
   LastDummyInst = Inst;
 }
 
-void HLNodeUtils::initialize() {
-
-  DummyIRBuilder = new DummyIRBuilderTy(getContext());
-  DummyIRBuilder->SetInsertPoint(getFunction().getEntryBlock().getTerminator());
-
-  FirstDummyInst = nullptr;
-  LastDummyInst = nullptr;
-}
-
 void HLNodeUtils::destroyAll() {
-  HLNode::destroyAll();
+  for (auto &I : Objs) {
+    delete I;
+  }
+
+  Objs.clear();
+
   delete DummyIRBuilder;
 }
 
@@ -129,7 +164,7 @@ HLInst *HLNodeUtils::createLvalHLInst(Instruction *Inst, RegDDRef *LvalRef) {
   auto HInst = createHLInst(Inst);
 
   if (!LvalRef) {
-    LvalRef = DDRefUtils::createSelfBlobRef(Inst);
+    LvalRef = getDDRefUtils().createSelfBlobRef(Inst);
   }
 
   HInst->setLvalDDRef(LvalRef);
@@ -236,7 +271,7 @@ Instruction *HLNodeUtils::createCopyInstImpl(Type *Ty, const Twine &Name) {
   // Cannot use IRBuilder here as it returns the same value for casts with
   // identical src and dest types.
   Value *InstVal = CastInst::Create(Instruction::BitCast, DummyVal,
-                             DummyVal->getType(), Name);
+                                    DummyVal->getType(), Name);
 
   auto Inst = cast<Instruction>(InstVal);
   Inst->insertBefore(&*(DummyIRBuilder->GetInsertPoint()));
@@ -245,9 +280,9 @@ Instruction *HLNodeUtils::createCopyInstImpl(Type *Ty, const Twine &Name) {
 }
 
 RegDDRef *HLNodeUtils::createTemp(Type *Ty, const Twine &Name) {
-  auto Inst = createCopyInstImpl(Ty, Name); 
+  auto Inst = createCopyInstImpl(Ty, Name);
 
-  return DDRefUtils::createSelfBlobRef(Inst); 
+  return getDDRefUtils().createSelfBlobRef(Inst);
 }
 
 HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
@@ -255,7 +290,7 @@ HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
   checkUnaryInstOperands(LvalRef, RvalRef, nullptr);
 
   auto Inst = createCopyInstImpl(RvalRef->getDestType(), Name);
-  
+
   auto HInst = createLvalHLInst(Inst, LvalRef);
   HInst->setRvalDDRef(RvalRef);
 
@@ -558,11 +593,11 @@ HLInst *HLNodeUtils::CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
   Value *MaskVecValue = Inst->getOperand(2);
   RegDDRef *MaskVecDDRef;
   if (isa<ConstantAggregateZero>(MaskVecValue))
-    MaskVecDDRef =
-        DDRefUtils::createConstDDRef(cast<ConstantAggregateZero>(MaskVecValue));
+    MaskVecDDRef = getDDRefUtils().createConstDDRef(
+        cast<ConstantAggregateZero>(MaskVecValue));
   else if (isa<ConstantDataVector>(MaskVecValue))
-    MaskVecDDRef =
-        DDRefUtils::createConstDDRef(cast<ConstantDataVector>(MaskVecValue));
+    MaskVecDDRef = getDDRefUtils().createConstDDRef(
+        cast<ConstantDataVector>(MaskVecValue));
   else
     llvm_unreachable("Unexpected Mask vector type");
   HInst->setOperandDDRef(MaskVecDDRef, 3);
@@ -587,7 +622,7 @@ HLInst *HLNodeUtils::CreateExtractElementInst(RegDDRef *OpRef, unsigned Idx,
   HInst->setOperandDDRef(OpRef, 1);
 
   RegDDRef *IdxDDref =
-      DDRefUtils::createConstDDRef(Inst->getOperand(1)->getType(), Idx);
+      getDDRefUtils().createConstDDRef(Inst->getOperand(1)->getType(), Idx);
   HInst->setOperandDDRef(IdxDDref, 2);
 
   return HInst;
@@ -778,7 +813,7 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
 
   auto CmpVal =
-      UndefValue::get(Type::getInt1Ty(getHIRFramework()->getContext()));
+      UndefValue::get(Type::getInt1Ty(getHIRFramework().getContext()));
   auto DummyVal = UndefValue::get(OpRef3->getDestType());
 
   InstVal = DummyIRBuilder->CreateSelect(CmpVal, DummyVal, DummyVal, Name);
@@ -898,7 +933,7 @@ struct HLNodeUtils::LoopFinderUpdater final : public HLNodeVisitorBase {
     if (FinderMode) {
       FoundLoop = true;
     } else {
-      HLNodeUtils::updateLoopInfo(Loop);
+      Loop->getHLNodeUtils().updateLoopInfo(Loop);
     }
   }
 
@@ -1773,8 +1808,8 @@ HLNode *HLNodeUtils::getLinkListNodeImpl(HLNode *Node, bool Prev) {
 
   if (!Parent) {
     assert(isa<HLRegion>(Node) && "getPrev() called on detached node!");
-    auto FirstOrLastRegIter = Prev ? getHIRFramework()->hir_begin()
-                                   : std::prev(getHIRFramework()->hir_end());
+    auto FirstOrLastRegIter = Prev ? getHIRFramework().hir_begin()
+                                   : std::prev(getHIRFramework().hir_end());
     auto NodeIter = Node->getIterator();
 
     if (NodeIter != FirstOrLastRegIter) {
@@ -2540,12 +2575,12 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
   auto BoundCoeff = BoundCE->getSingleBlobCoeff();
   auto BoundBlobIdx = BoundCE->getSingleBlobIndex();
 
-  BlobTy Blob = BlobUtils::getBlob(BlobIdx);
+  BlobTy Blob = getBlobUtils().getBlob(BlobIdx);
   // Strip sign extend cast from Blob
-  while (BlobUtils::isSignExtendBlob(Blob, &Blob))
+  while (getBlobUtils().isSignExtendBlob(Blob, &Blob))
     ;
 
-  BlobTy BoundBlob = BlobUtils::getBlob(BoundBlobIdx);
+  BlobTy BoundBlob = getBlobUtils().getBlob(BoundBlobIdx);
 
   if (Blob != BoundBlob) {
     return VALType::IsUnknown;
@@ -2657,7 +2692,7 @@ HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
 
   // Lhs < Rhs
   // CE = Rhs - Lhs
-  std::unique_ptr<CanonExpr> ConditionCE(CanonExprUtils::cloneAndSubtract(
+  std::unique_ptr<CanonExpr> ConditionCE(getCanonExprUtils().cloneAndSubtract(
       Rhs->getSingleCanonExpr(), Lhs->getSingleCanonExpr(), true));
 
   if (!ConditionCE.get()) {
@@ -3025,7 +3060,7 @@ bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
     return true;
   }
 
-  //TODO: add support for IVs and Blobs
+  // TODO: add support for IVs and Blobs
 
   return false;
 }
@@ -3357,10 +3392,10 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
       return false;
     }
 
-    if (!DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, true),
-                              NodeB->getPredicateOperandDDRef(IB, true)) ||
-        !DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, false),
-                              NodeB->getPredicateOperandDDRef(IB, false))) {
+    if (!getDDRefUtils().areEqual(NodeA->getPredicateOperandDDRef(IA, true),
+                                  NodeB->getPredicateOperandDDRef(IB, true)) ||
+        !getDDRefUtils().areEqual(NodeA->getPredicateOperandDDRef(IA, false),
+                                  NodeB->getPredicateOperandDDRef(IB, false))) {
       return false;
     }
   }
@@ -3370,11 +3405,11 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
 
 void HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
   if (ThenBody) {
-    HLNodeUtils::moveAfter(If, If->then_begin(), If->then_end());
+    moveAfter(If, If->then_begin(), If->then_end());
   } else {
-    HLNodeUtils::moveAfter(If, If->else_begin(), If->else_end());
+    moveAfter(If, If->else_begin(), If->else_end());
   }
-  HLNodeUtils::remove(If);
+  remove(If);
 }
 
 class RedundantIfLookup final : public HLNodeVisitorBase {
@@ -3400,11 +3435,11 @@ public:
       // always TRUE the else branch will be removed.
       RedundantIfLookup Lookup(Candidates);
       if (IsTrue) {
-        HLNodeUtils::visitRange<true, false>(Lookup,
-                                             If->then_begin(), If->then_end());
+        If->getHLNodeUtils().visitRange<true, false>(Lookup, If->then_begin(),
+                                                     If->then_end());
       } else {
-        HLNodeUtils::visitRange<true, false>(Lookup,
-                                             If->else_begin(), If->else_end());
+        If->getHLNodeUtils().visitRange<true, false>(Lookup, If->else_begin(),
+                                                     If->else_end());
       }
     }
   }
@@ -3422,13 +3457,14 @@ STATISTIC(RedundantPredicates, "Redundant predicates removed");
 bool HLNodeUtils::eliminateRedundantPredicates(HLContainerTy::iterator First,
                                                HLContainerTy::iterator Last) {
   DEBUG(dbgs() << "Eliminating redundant predicates\n ");
-  assert(((First != Last) || First->getParent() == Last->getParent())
-         && "Both nodes should have the same parent"); 
+  assert(((First != Last) || First->getParent() == Last->getParent()) &&
+         "Both nodes should have the same parent");
 
   RedundantIfLookup::CandidatesVector Candidates;
   RedundantIfLookup Lookup(Candidates);
 
-  HLNodeUtils::visitRange<true, false>(Lookup, First, Last);
+  visitRange<true, false>(Lookup, First, Last);
+
   for (auto Candidate : Candidates) {
     HLIf *If = std::get<0>(Candidate);
 
@@ -3436,7 +3472,7 @@ bool HLNodeUtils::eliminateRedundantPredicates(HLContainerTy::iterator First,
     DEBUG(If->dumpHeader());
     DEBUG(dbgs() << "\n");
 
-    HLNodeUtils::replaceNodeWithBody(If, std::get<1>(Candidate));
+    replaceNodeWithBody(If, std::get<1>(Candidate));
 
     RedundantPredicates++;
   }
@@ -3451,4 +3487,3 @@ bool HLNodeUtils::eliminateRedundantPredicates(HLContainerTy::iterator First,
 
   return false;
 }
-

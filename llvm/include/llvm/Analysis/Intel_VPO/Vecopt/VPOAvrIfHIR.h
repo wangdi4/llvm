@@ -64,7 +64,7 @@ public:
   AVR *getCondition() const override { return Condition; }
 
   /// \brief Returns the underlying HLIf node for this AvrIf.
-  const HLIf *getCompareInstruction() const { return CompareInstruction; }
+  HLIf *getCompareInstruction() const { return CompareInstruction; }
 
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,

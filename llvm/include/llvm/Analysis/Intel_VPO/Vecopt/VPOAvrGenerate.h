@@ -22,7 +22,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsHIR.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
@@ -215,7 +215,7 @@ class AVRGenerateHIR : public AVRGenerateBase {
 
 private:
   /// HIRP - HIR Parser
-  HIRParser *HIRP;
+  HIRFramework *HIRF;
 
   class AVRGenerateVisitor : public HIRVisitor<AVRGenerateVisitor, AVR *> {
   public:

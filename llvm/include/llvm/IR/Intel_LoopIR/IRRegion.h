@@ -30,6 +30,8 @@ class raw_ostream;
 
 namespace loopopt {
 
+class HLRegion;
+
 /// \brief Section of LLVM IR which can be transformed into HLRegion.
 ///
 /// IRRegion can be minimally defined as a pair of entry basic block and a set
@@ -53,6 +55,9 @@ protected:
   /// \brief Make class unassignable.
   void operator=(const IRRegion &) = delete;
 
+  // Sets parent region.
+  friend HLRegion;
+
 private:
   BasicBlock *EntryBBlock;
   BasicBlock *ExitBBlock;
@@ -67,6 +72,7 @@ private:
   // Set of symbases/values whose live-out uses need to be materialized into a
   // load during HIRCG.
   LiveOutSetTy LiveOutSet;
+  HLRegion *ParentRegion;
 
 public:
   IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks);

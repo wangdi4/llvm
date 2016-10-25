@@ -18,6 +18,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/Intel_LoopIR/HLRegion.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
@@ -26,7 +27,8 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs)
-    : EntryBBlock(EntryBB), ExitBBlock(nullptr), BBlocks(BBs) {
+    : EntryBBlock(EntryBB), ExitBBlock(nullptr), BBlocks(BBs),
+      ParentRegion(nullptr) {
   assert(EntryBB && "Entry basic block cannot be null!");
   BBlocksSet.insert(BBs.begin(), BBs.end());
 }
@@ -35,7 +37,7 @@ IRRegion::IRRegion(IRRegion &&Reg)
     : EntryBBlock(Reg.EntryBBlock), ExitBBlock(Reg.ExitBBlock),
       BBlocks(std::move(Reg.BBlocks)), BBlocksSet(std::move(Reg.BBlocksSet)),
       LiveInSet(std::move(Reg.LiveInSet)),
-      LiveOutSet(std::move(Reg.LiveOutSet)) {}
+      LiveOutSet(std::move(Reg.LiveOutSet)), ParentRegion(Reg.ParentRegion) {}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void IRRegion::dump() const { print(dbgs(), 0); }
@@ -68,7 +70,13 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
     if (I != LiveInSet.begin()) {
       OS << ", ";
     }
-    BlobUtils::printScalar(OS, I->first);
+
+    if (ParentRegion) {
+      ParentRegion->getBlobUtils().printScalar(OS, I->first);
+    } else {
+      OS << "I->first";
+    }
+
     OS << "(";
     I->second->printAsOperand(OS, false);
     OS << ")";

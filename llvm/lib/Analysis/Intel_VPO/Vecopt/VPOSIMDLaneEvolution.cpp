@@ -1228,7 +1228,7 @@ public:
 
   void constructBlobSLEV(const SCEV *SC) {
 
-    unsigned BlobIndex = BlobUtils::findBlob(SC);
+    unsigned BlobIndex = AValueHIR->getNode()->getBlobUtils().findBlob(SC);
     assert(BlobIndex != InvalidBlobIndex && "SCEV is not a Blob");
 
     GeneratedSLEV = SLEVHIR.constructSLEV(AValueHIR, BlobIndex);
@@ -1317,20 +1317,22 @@ public:
 SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValueHIR,
                                                              unsigned BlobIndex) {
 
-  BlobTy Blob = BlobUtils::getBlob(BlobIndex);
+  auto &BU = AValueHIR->getNode()->getBlobUtils();
+
+  BlobTy Blob = BU.getBlob(BlobIndex);
   int64_t ConstInt;
 
-  if (BlobUtils::isConstantIntBlob(Blob, &ConstInt))
+  if (BU.isConstantIntBlob(Blob, &ConstInt))
     return createPredefinedSLEV(SLEV(CONSTANT, toAPSInt(ConstInt)));
   
-  if (BlobUtils::isConstantFPBlob(Blob)) {
+  if (BU.isConstantFPBlob(Blob)) {
 
     const SCEVUnknown* UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
     ConstantFP* ConstFP = cast<ConstantFP>(UnknownSCEV->getValue());
     return createPredefinedSLEV(SLEV(CONSTANT, ConstFP->getValueAPF()));
   }
 
-  if (BlobUtils::isNestedBlob(Blob)) {
+  if (BU.isNestedBlob(Blob)) {
 
     // This is a SCEV expression kept as-is during canon-expr construction (i.e.
     // has an internal structure opaque to the canon-expr).

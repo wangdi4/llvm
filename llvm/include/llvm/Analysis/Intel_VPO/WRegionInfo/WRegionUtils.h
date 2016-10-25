@@ -25,6 +25,10 @@
 
 namespace llvm {
 
+namespace loopopt {
+class HIRFramework;
+}
+
 namespace vpo {
 
 
@@ -213,7 +217,7 @@ public:
                                            loopopt::HLNode *H);
 
   /// \brief Driver routine to build WRGraph based on HIR representation
-  static WRContainerTy *buildWRGraphFromHIR();
+  static WRContainerTy *buildWRGraphFromHIR(loopopt::HIRFramework &HIRF);
 
   /// \brief Extract the operands for a list-type clause.
   /// This is called by WRegionNode::handleQualOpndList()

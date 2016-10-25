@@ -17,7 +17,7 @@
 
 #include "llvm/IR/Function.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 using namespace llvm;
@@ -38,21 +38,19 @@ public:
       : FunctionPass(ID), OS(OS), Banner(Banner) {}
 
   bool runOnFunction(Function &F) override {
-    auto &HIR = getAnalysis<HIRCreation>();
+    auto &HIRF = getAnalysis<HIRFramework>();
 
     OS << Banner << "\n";
     OS << "Function: " << F.getName() << "\n";
 
-    HIR.print(OS);
+    HIRF.print(OS);
 
     return false;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequired<HIRCreation>();
-    // HIRParser is required, as it's implicitly used during printing.
-    AU.addRequired<HIRParser>();
+    AU.addRequired<HIRFramework>();
   }
 };
 }

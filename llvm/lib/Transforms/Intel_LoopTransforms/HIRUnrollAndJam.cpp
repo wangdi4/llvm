@@ -322,8 +322,8 @@ FunctionPass *llvm::createHIRUnrollAndJamPass() {
 }
 
 bool LegalityChecker::isLegal() {
-  HLNodeUtils::visitRange(*this, CandidateLoop->child_begin(),
-                          CandidateLoop->child_end());
+  CandidateLoop->getHLNodeUtils().visitRange(
+      *this, CandidateLoop->child_begin(), CandidateLoop->child_end());
   return IsLegal;
 }
 
@@ -427,7 +427,7 @@ void LegalityChecker::visit(const HLDDNode *Node) {
       const DDEdge *Edge = *EdgeIt;
 
       auto SinkNode = Edge->getSink()->getHLDDNode();
-      if (!HLNodeUtils::contains(CandidateLoop, SinkNode)) {
+      if (!CandidateLoop->getHLNodeUtils().contains(CandidateLoop, SinkNode)) {
         continue;
       }
 
@@ -539,7 +539,7 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
       HUAJ.throttle(Lp);
       return;
 
-    } else if (!HLNodeUtils::isPerfectLoopNest(Lp)) {
+    } else if (!Lp->getHLNodeUtils().isPerfectLoopNest(Lp)) {
       // TODO: Extend to handle imperfect loopnests using instruction renaming.
       HUAJ.throttleRecursively(Lp);
       return;
@@ -665,7 +665,7 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
 }
 
 void HIRUnrollAndJam::Analyzer::analyze(HLLoop *Lp) {
-  HLNodeUtils::visit(*this, Lp);
+  Lp->getHLNodeUtils().visit(*this, Lp);
 }
 
 void HIRUnrollAndJam::sanitizeOptions() {
@@ -741,6 +741,7 @@ bool HIRUnrollAndJam::runOnFunction(Function &F) {
     return false;
   }
 
+  auto HIRF = &getAnalysis<HIRFramework>();
   HLR = &getAnalysis<HIRLoopResource>();
   HLA = &getAnalysis<HIRLocalityAnalysis>();
   DDA = &getAnalysis<HIRDDAnalysis>();
@@ -749,7 +750,7 @@ bool HIRUnrollAndJam::runOnFunction(Function &F) {
 
   SmallVector<HLLoop *, 16> OutermostLoops;
 
-  HLNodeUtils::gatherOutermostLoops(OutermostLoops);
+  HIRF->getHLNodeUtils().gatherOutermostLoops(OutermostLoops);
 
   Analyzer AY(*this);
 
@@ -800,6 +801,7 @@ void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop, unsigned UnrollFactor,
                     bool NeedRemainderLoop, LoopMapTy *LoopMap) {
   auto OrigInnermostLoop = OrigLoop;
   auto NewInnermostLoop = MainLoop;
+  auto &HNU = OrigLoop->getHLNodeUtils();
 
   // Unroll & Jam mode
   while (!OrigInnermostLoop->isInnermost()) {
@@ -812,7 +814,7 @@ void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop, unsigned UnrollFactor,
 
     LoopMap->emplace_back(OrigInnerLoop, NewInnerLoop);
 
-    HLNodeUtils::insertAsFirstChild(NewInnermostLoop, NewInnerLoop);
+    HNU.insertAsFirstChild(NewInnermostLoop, NewInnerLoop);
     NewInnermostLoop = NewInnerLoop;
     OrigInnermostLoop = OrigInnerLoop;
   }
@@ -832,25 +834,24 @@ void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop, unsigned UnrollFactor,
   // References based on unroll factor.
   for (; UnrollCnt < UnrollTrip; ++UnrollCnt) {
     // Clone original body.
-    HLNodeUtils::cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
+    HNU.cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
 
     // Store references as LoopBody will be empty after insertion.
     HLNode *CurFirstChild = &(LoopBody.front());
     HLNode *CurLastChild = &(LoopBody.back());
 
-    HLNodeUtils::insertAsLastChildren(NewInnermostLoop, &LoopBody);
+    HNU.insertAsLastChildren(NewInnermostLoop, &LoopBody);
     CEUpdater.setUnrollCount(UnrollCnt);
-    HLNodeUtils::visitRange(CEUpdater, CurFirstChild, CurLastChild);
+    HNU.visitRange(CEUpdater, CurFirstChild, CurLastChild);
   }
 
   // Move over original loop's children to the new loop for the last unrolled
   // iteration.
   if (!NeedRemainderLoop) {
-    HLNodeUtils::moveAsLastChildren(NewInnermostLoop,
-                                    OrigInnermostLoop->child_begin(),
-                                    OrigInnermostLoop->child_end());
+    HNU.moveAsLastChildren(NewInnermostLoop, OrigInnermostLoop->child_begin(),
+                           OrigInnermostLoop->child_end());
     CEUpdater.setUnrollCount(UnrollCnt);
-    HLNodeUtils::visitRange(CEUpdater, OrigFirstChild, OrigLastChild);
+    HNU.visitRange(CEUpdater, OrigFirstChild, OrigLastChild);
   }
 }
 
@@ -868,6 +869,6 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (!NeedRemainderLoop) {
-    HLNodeUtils::remove(Loop);
+    Loop->getHLNodeUtils().remove(Loop);
   }
 }

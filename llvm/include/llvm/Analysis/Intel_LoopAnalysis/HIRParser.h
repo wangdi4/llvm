@@ -26,12 +26,14 @@
 #include "llvm/Pass.h"
 
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SmallVector.h"
 
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Module.h"
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 namespace llvm {
 
@@ -44,15 +46,17 @@ class SCEVConstant;
 class SCEVUnknown;
 class GEPOperator;
 class Value;
-class LoopInfo;
 class ConstantFP;
 class Loop;
+class LoopInfo;
+class DominatorTree;
 
 namespace loopopt {
 
+class HIRRegionIdentification;
+class HIRCreation;
 class HIRScalarSymbaseAssignment;
 class HIRLoopFormation;
-class HLNode;
 class HLDDNode;
 class HLRegion;
 class HLLoop;
@@ -64,8 +68,8 @@ class HLSwitch;
 class RegDDRef;
 class DDRef;
 class CanonExpr;
+class HLNodeUtils;
 
-typedef const SCEV *BlobTy;
 const unsigned InvalidBlobIndex = 0;
 
 /// This analysis creates DDRefs and parses SCEVs into CanonExprs for HLNodes
@@ -87,6 +91,9 @@ private:
 
   typedef std::pair<BlobTy, unsigned> BlobSymbasePairTy;
   typedef SmallVector<BlobSymbasePairTy, 64> BlobTableTy;
+
+  // DDRefUtils object for the framework.
+  DDRefUtils DDRU;
 
   /// DT - The dominator tree.
   DominatorTree *DT;
@@ -304,7 +311,7 @@ private:
   /// AllowMultiplePreds indicates whether we should break '&&' conditions into
   /// different predicates.
   void parseCompare(const Value *Cond, unsigned Level,
-                    SmallVectorImpl<PredicateTy> &Preds,
+                    SmallVectorImpl<CmpInst::Predicate> &Preds,
                     SmallVectorImpl<RegDDRef *> &Refs, bool AllowMultiplePreds);
 
   /// Parses the i1 condition associated with conditional branches and select
@@ -510,7 +517,7 @@ private:
   /// Replaces \p OldTempIndex by \p NewTempIndex in \p BlobIndex and returns
   /// the new blob in \p NewBlobIndex. Returns true if blob was replaced.
   bool replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                          unsigned NewTempIndex, unsigned &NewBlobIndex);
+                       unsigned NewTempIndex, unsigned &NewBlobIndex);
 
   /// Returns the max symbase assigned to any temp.
   unsigned getMaxScalarSymbase() const;
@@ -559,6 +566,39 @@ private:
   /// Returns true if \p HInst is a liveout copy.
   bool isLiveoutCopy(const HLInst *HInst);
 
+  /// Returns HLNodeUtils object.
+  HLNodeUtils &getHLNodeUtils();
+
+  /// Returns DDRefUtils object.
+  DDRefUtils &getDDRefUtils() { return DDRU; }
+
+  /// Returns CanonExprUtils object.
+  CanonExprUtils &getCanonExprUtils() { return DDRU.getCanonExprUtils(); }
+
+  /// Returns BlobUtils object.
+  BlobUtils &getBlobUtils() { return DDRU.getBlobUtils(); }
+
+  /// Region iterator methods
+  HLContainerTy::iterator hir_begin();
+  HLContainerTy::const_iterator hir_cbegin() const;
+  HLContainerTy::iterator hir_end();
+  HLContainerTy::const_iterator hir_cend() const;
+
+  HLContainerTy::reverse_iterator hir_rbegin();
+  HLContainerTy::const_reverse_iterator hir_crbegin() const;
+  HLContainerTy::reverse_iterator hir_rend();
+  HLContainerTy::const_reverse_iterator hir_crend() const;
+
+public:
+  static char ID; // Pass identification
+  HIRParser();
+
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void print(raw_ostream &OS, const Module * = nullptr) const override;
+  void verifyAnalysis() const override;
+
   /// Returns Function object.
   Function &getFunction() const { return *Func; }
 
@@ -572,29 +612,6 @@ private:
   const DataLayout &getDataLayout() const {
     return getModule().getDataLayout();
   }
-
-  /// Region iterator methods
-  HIRCreation::iterator hir_begin() { return HIR->begin(); }
-  HIRCreation::const_iterator hir_cbegin() const { return HIR->begin(); }
-  HIRCreation::iterator hir_end() { return HIR->end(); }
-  HIRCreation::const_iterator hir_cend() const { return HIR->end(); }
-
-  HIRCreation::reverse_iterator hir_rbegin() { return HIR->rbegin(); }
-  HIRCreation::const_reverse_iterator hir_crbegin() const {
-    return HIR->rbegin();
-  }
-  HIRCreation::reverse_iterator hir_rend() { return HIR->rend(); }
-  HIRCreation::const_reverse_iterator hir_crend() const { return HIR->rend(); }
-
-public:
-  static char ID; // Pass identification
-  HIRParser();
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void verifyAnalysis() const override;
 };
 
 } // End namespace loopopt

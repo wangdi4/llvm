@@ -17,16 +17,31 @@
 
 #include "llvm/IR/Constants.h" // needed for UndefValue class
 #include "llvm/IR/Metadata.h"  // needed for MetadataAsValue -> Value
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 using namespace llvm;
 using namespace loopopt;
 
 #define DEBUG_TYPE "ddref-utils"
 
-RegDDRef *DDRefUtils::createRegDDRef(unsigned SB) { return new RegDDRef(SB); }
+Function &DDRefUtils::getFunction() const {
+  return getHIRParser().getFunction();
+}
+
+Module &DDRefUtils::getModule() const { return getHIRParser().getModule(); }
+
+LLVMContext &DDRefUtils::getContext() const {
+  return getHIRParser().getContext();
+}
+
+const DataLayout &DDRefUtils::getDataLayout() const {
+  return getHIRParser().getDataLayout();
+}
+
+RegDDRef *DDRefUtils::createRegDDRef(unsigned SB) {
+  return new RegDDRef(*this, SB);
+}
 
 RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
   assert(CE && " CanonExpr is null.");
@@ -37,7 +52,7 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
 
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
-  CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, 0, Val);
+  CanonExpr *CE = getCanonExprUtils().createCanonExpr(Ty, 0, Val);
   NewRegDD->setSingleCanonExpr(CE);
 
   return NewRegDD;
@@ -46,7 +61,7 @@ RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
 RegDDRef *DDRefUtils::createMetadataDDRef(MetadataAsValue *Val) {
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   // Create a linear self-blob constant canon expr.
-  auto CE = CanonExprUtils::createMetadataCanonExpr(Val);
+  auto CE = getCanonExprUtils().createMetadataCanonExpr(Val);
   NewRegDD->setSingleCanonExpr(CE);
 
   return NewRegDD;
@@ -55,7 +70,7 @@ RegDDRef *DDRefUtils::createMetadataDDRef(MetadataAsValue *Val) {
 RegDDRef *DDRefUtils::createConstDDRef(ConstantAggregateZero *Val) {
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   // Create a linear self-blob constant canon expr.
-  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, ConstantSymbase);
+  auto CE = getCanonExprUtils().createSelfBlobCanonExpr(Val, ConstantSymbase);
   NewRegDD->setSingleCanonExpr(CE);
   CE->setDefinedAtLevel(0);
 
@@ -65,7 +80,7 @@ RegDDRef *DDRefUtils::createConstDDRef(ConstantAggregateZero *Val) {
 RegDDRef *DDRefUtils::createConstDDRef(ConstantDataVector *Val) {
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   // Create a linear self-blob constant canon expr.
-  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, ConstantSymbase);
+  auto CE = getCanonExprUtils().createSelfBlobCanonExpr(Val, ConstantSymbase);
   NewRegDD->setSingleCanonExpr(CE);
   CE->setDefinedAtLevel(0);
 
@@ -73,8 +88,8 @@ RegDDRef *DDRefUtils::createConstDDRef(ConstantDataVector *Val) {
 }
 
 RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
-  auto Blob = BlobUtils::createBlob(UndefValue::get(Ty), false);
-  unsigned BlobIndex = BlobUtils::findBlob(Blob);
+  auto Blob = getBlobUtils().createBlob(UndefValue::get(Ty), false);
+  unsigned BlobIndex = getBlobUtils().findBlob(Blob);
 
   if (BlobIndex != InvalidBlobIndex) {
     return createSelfBlobRef(BlobIndex, 0);
@@ -85,25 +100,39 @@ RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
 }
 
 BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, unsigned Level) {
-  return new BlobDDRef(Index, Level);
+  return new BlobDDRef(*this, Index, Level);
 }
 
-void DDRefUtils::destroy(DDRef *Ref) { Ref->destroy(); }
+void DDRefUtils::destroy(DDRef *Ref) {
+  auto Count = Objs.erase(Ref);
+  assert(Count && "Ref not found in objects!");
+  delete Ref;
+}
 
-void DDRefUtils::destroyAll() { DDRef::destroyAll(); }
+void DDRefUtils::destroyAll() {
+  for (auto &I : Objs) {
+    delete I;
+  }
+
+  Objs.clear();
+
+  getCanonExprUtils().destroyAll();
+}
 
 RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
-  unsigned Symbase = getHIRFramework()->getNewSymbase();
+  unsigned Symbase = getHIRSymbaseAssignment().getNewSymbase();
 
   // Create a non-linear self-blob canon expr.
-  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Temp, Symbase);
+  auto CE = getCanonExprUtils().createSelfBlobCanonExpr(Temp, Symbase);
 
   // Create a RegDDRef with the new symbase and canon expr.
-  auto Ref = DDRefUtils::createRegDDRef(Symbase);
+  auto Ref = createRegDDRef(Symbase);
   Ref->setSingleCanonExpr(CE);
 
   return Ref;
 }
+
+unsigned DDRefUtils::getNewSymbase() { return HIRSA->getNewSymbase(); }
 
 bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
 
@@ -220,7 +249,7 @@ bool DDRefUtils::getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
     uint64_t DimStride = Ref1->getDimensionStride(I);
 
     // Diff the CanonExprs.
-    CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
+    CanonExpr *Result = getCanonExprUtils().cloneAndSubtract(Ref1CE, Ref2CE);
 
     // Subtract operation can fail
     if (!Result) {
@@ -229,20 +258,20 @@ bool DDRefUtils::getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
 
     // TODO: Being conservative with Denom.
     if (Result->getDenominator() > 1) {
-      CanonExprUtils::destroy(Result);
+      getCanonExprUtils().destroy(Result);
       return false;
     }
 
     // DEBUG(dbgs() << "\n    Delta for Dim = "; Result->dump());
 
     if (!Result->isIntConstant()) {
-      CanonExprUtils::destroy(Result);
+      getCanonExprUtils().destroy(Result);
       return false;
     }
 
     int64_t Diff = Result->getConstant();
     Delta += Diff * DimStride;
-    CanonExprUtils::destroy(Result);
+    getCanonExprUtils().destroy(Result);
   }
 
   *Distance = Delta;
@@ -250,32 +279,30 @@ bool DDRefUtils::getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
 }
 
 RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, unsigned Level) {
-  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
-  unsigned Symbase = BlobUtils::getTempBlobSymbase(Index);
+  auto CE = getCanonExprUtils().createSelfBlobCanonExpr(Index, Level);
+  unsigned Symbase = getBlobUtils().getTempBlobSymbase(Index);
 
-  auto Ref = DDRefUtils::createRegDDRef(Symbase);
+  auto Ref = createRegDDRef(Symbase);
   Ref->setSingleCanonExpr(CE);
 
   return Ref;
 }
 
 void DDRefUtils::printMDNodes(formatted_raw_ostream &OS,
-                              const RegDDRef::MDNodesTy &MDNodes) {
+                              const RegDDRef::MDNodesTy &MDNodes) const {
 
   SmallVector<StringRef, 8> MDNames;
-  auto HIRF = getHIRFramework();
+  auto &HIRP = getHIRParser();
 
-  if (HIRF) {
-    HIRF->getContext().getMDKindNames(MDNames);
-  }
+  HIRP.getContext().getMDKindNames(MDNames);
 
   for (auto const &I : MDNodes) {
     OS << " ";
-    if (HIRF && I.first < MDNames.size()) {
+    if (I.first < MDNames.size()) {
       OS << "!";
       OS << MDNames[I.first] << " ";
     }
 
-    I.second->printAsOperand(OS, HIRF ? &HIRF->getModule() : nullptr);
+    I.second->printAsOperand(OS, &HIRP.getModule());
   }
 }

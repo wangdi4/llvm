@@ -27,7 +27,7 @@
 
 ; CHECK:      IR Dump After
 ; CHECK:      BEGIN REGION { modified }
-; CHECK-NEXT:            if (%m > 100)
+; CHECK:                 if (%m > 100)
 ; CHECK-NEXT:            {
 ; CHECK-NEXT:               + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK-NEXT:               |   %0 = (%a)[i1];

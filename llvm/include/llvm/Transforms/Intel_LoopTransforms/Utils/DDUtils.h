@@ -17,7 +17,6 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDUTILS_H
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 namespace llvm {
 namespace loopopt {
@@ -30,7 +29,7 @@ namespace loopopt {
 class HIRFramework;
 class DDGraph;
 
-class DDUtils : public HIRUtils {
+class DDUtils {
 private:
   /// \brief Do not allow instantiation
   DDUtils() = delete;

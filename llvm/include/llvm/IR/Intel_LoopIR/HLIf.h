@@ -16,8 +16,8 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLIF_H
 #define LLVM_IR_INTEL_LOOPIR_HLIF_H
 
-#include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
 namespace llvm {
 
@@ -66,7 +66,7 @@ private:
   ChildNodeTy::iterator ElseBegin;
 
 protected:
-  HLIf(PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2);
+  HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to access and destroy the nodes if we don't clear them out here.

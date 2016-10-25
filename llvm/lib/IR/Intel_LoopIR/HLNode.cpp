@@ -30,37 +30,32 @@ static cl::opt<bool> PrintTopSortNum("hir-details-topsort", cl::init(false),
                                      cl::Hidden,
                                      cl::desc("Print HLNode TopSort numbers"));
 
-std::set<HLNode *> HLNode::Objs;
-unsigned HLNode::GlobalNum(0);
+HLNode::HLNode(HLNodeUtils &HNU, unsigned SCID)
+    : HNU(HNU), SubClassID(SCID), Parent(nullptr), TopSortNum(0),
+      MaxTopSortNum(0) {
 
-HLNode::HLNode(unsigned SCID)
-    : SubClassID(SCID), Parent(nullptr), TopSortNum(0), MaxTopSortNum(0) {
-  Objs.insert(this);
-  setNextNumber();
+  HNU.Objs.insert(this);
+  Number = HNU.Objs.size();
 }
 
 HLNode::HLNode(const HLNode &HLNodeObj)
-    : SubClassID(HLNodeObj.SubClassID), Parent(nullptr), TopSortNum(0),
-      MaxTopSortNum(0) {
-  Objs.insert(this);
-  setNextNumber();
+    : HNU(HLNodeObj.HNU), SubClassID(HLNodeObj.SubClassID), Parent(nullptr),
+      TopSortNum(0), MaxTopSortNum(0) {
+
+  HNU.Objs.insert(this);
+  Number = HNU.Objs.size();
 }
 
-void HLNode::destroy() {
-  Objs.erase(this);
-  delete this;
+DDRefUtils &HLNode::getDDRefUtils() const {
+  return getHLNodeUtils().getDDRefUtils();
 }
 
-void HLNode::destroyAll() {
+CanonExprUtils &HLNode::getCanonExprUtils() const {
+  return getHLNodeUtils().getCanonExprUtils();
+}
 
-  for (auto &I : Objs) {
-    delete I;
-  }
-
-  Objs.clear();
-
-  // Reset HLNode numbering.
-  GlobalNum = 0;
+BlobUtils &HLNode::getBlobUtils() const {
+  return getHLNodeUtils().getBlobUtils();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -164,8 +159,6 @@ void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
   }
 }
 
-void HLNode::setNextNumber() { Number = GlobalNum++; }
-
 HLLoop *HLNode::getParentLoop() const {
   assert(!isa<HLRegion>(this) && "Region cannot have a parent!");
 
@@ -203,8 +196,8 @@ HLLoop *HLNode::getOutermostParentLoop() const {
 }
 
 HLLoop *HLNode::getParentLoopAtLevel(unsigned Level) const {
-  assert(HLNodeUtils::isLoopLevelValid(Level) && "Invalid loop level!");
-  assert((getNodeLevel() >= Level) && "Invalid level w.r.t this node!"); 
+  assert(getHLNodeUtils().isLoopLevelValid(Level) && "Invalid loop level!");
+  assert((getNodeLevel() >= Level) && "Invalid level w.r.t this node!");
 
   HLLoop *ParLoop = getParentLoop();
 
@@ -260,7 +253,7 @@ unsigned HLNode::getMinTopSortNum() const {
   auto Lp = dyn_cast<HLLoop>(this);
 
   if (Lp && Lp->hasPreheader()) {
-    return Lp->pre_begin()->getTopSortNum(); 
+    return Lp->pre_begin()->getTopSortNum();
   }
 
   return getTopSortNum();
@@ -268,7 +261,7 @@ unsigned HLNode::getMinTopSortNum() const {
 
 HLNode *HLNode::clone(HLNodeMapper *NodeMapper) const {
   HLContainerTy NContainer;
-  HLNodeUtils::cloneSequence(&NContainer, this, nullptr, NodeMapper);
+  getHLNodeUtils().cloneSequence(&NContainer, this, nullptr, NodeMapper);
   return NContainer.remove(NContainer.begin());
 }
 

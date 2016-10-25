@@ -19,12 +19,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
@@ -68,8 +68,9 @@ struct NodeVisitor final : public HLNodeVisitorBase {
   NodeVisitor() : Num(0) {}
 
   void insertLabel(HLInst *I) {
-    HLLabel *Label = HLNodeUtils::createHLLabel("L" + std::to_string(Num++));
-    HLNodeUtils::insertBefore(I, Label);
+    HLLabel *Label =
+        I->getHLNodeUtils().createHLLabel("L" + std::to_string(Num++));
+    I->getHLNodeUtils().insertBefore(I, Label);
   }
 
   void visit(HLInst *I) {
@@ -105,9 +106,9 @@ FunctionPass *llvm::createHIRDummyTransformationPass() {
 bool HIRDummyTransformation::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Dummy Transformation for Function : " << F.getName()
                << "\n");
-
+  auto HIRF = &getAnalysis<HIRFramework>();
   NodeVisitor V;
-  HLNodeUtils::visitAll(V);
+  HIRF->getHLNodeUtils().visitAll(V);
 
   return false;
 }

@@ -120,11 +120,13 @@ bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
   // the trip count of the original loop.
   HLInst *TempInst = nullptr;
   CanonExpr *TripCE = Ref->getSingleCanonExpr();
+  auto &HNU = OrigLoop->getHLNodeUtils();
+
   if (TripCE->isSignedDiv() && (TripCE->getDenominator() != 1)) {
     // Create DDRef for Unroll Factor.
-    RegDDRef *UFDD =
-        DDRefUtils::createConstDDRef(Ref->getDestType(), UnrollOrVecFactor);
-    TempInst = HLNodeUtils::createUDiv(Ref, UFDD, "tgu");
+    RegDDRef *UFDD = Ref->getDDRefUtils().createConstDDRef(Ref->getDestType(),
+                                                           UnrollOrVecFactor);
+    TempInst = OrigLoop->getHLNodeUtils().createUDiv(Ref, UFDD, "tgu");
   } else {
     SmallVector<const RegDDRef *, 3> AuxRefs = {OrigLoop->getStrideDDRef(),
                                                 OrigLoop->getLowerDDRef(),
@@ -134,13 +136,13 @@ bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
     TripCE->divide(UnrollOrVecFactor);
     TripCE->simplify(true);
 
-    Ref->setSymbase(getHIRFramework()->getNewSymbase());
+    Ref->setSymbase(Ref->getDDRefUtils().getNewSymbase());
 
     Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
 
-    TempInst = HLNodeUtils::createCopyInst(Ref, "tgu");
+    TempInst = HNU.createCopyInst(Ref, "tgu");
   }
-  HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
+  HNU.insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
   *NewTCRef = TempInst->getLvalDDRef();
 
   return true;
@@ -150,7 +152,7 @@ void HIRLoopTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
                                              unsigned BlobIndex,
                                              unsigned DefLevel) {
   // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
-  BoundRef->setSymbase(getHIRFramework()->getNewSymbase());
+  BoundRef->setSymbase(BoundRef->getDDRefUtils().getNewSymbase());
 
   // Add blob DDRef for the temp in UB.
   BoundRef->addBlobDDRef(BlobIndex, DefLevel);
@@ -169,7 +171,7 @@ HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
     NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollOrVecFactor + 1);
   }
 
-  HLNodeUtils::insertBefore(OrigLoop, NewLoop);
+  OrigLoop->getHLNodeUtils().insertBefore(OrigLoop, NewLoop);
 
   // Update the loop upper bound.
   if (NewTripCount != 0) {

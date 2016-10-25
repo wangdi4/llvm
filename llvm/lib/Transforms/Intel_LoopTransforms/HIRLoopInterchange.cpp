@@ -166,23 +166,24 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       SkipNode = Loop;
       return;
     }
+    auto &HNU = Loop->getHLNodeUtils();
 
     DEBUG(dbgs() << "In collect Perfect loopnest\n");
     // Last 3 arguments of next call:
     // Allow PrePost Hdr, allow Triangular loop, allow Near Perfect loop
     bool IsNearPerfectLoop = false;
-    if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
-                                       &IsNearPerfectLoop)) {
+    if (HNU.isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
+                              &IsNearPerfectLoop)) {
       if (!IsNearPerfectLoop) {
         DEBUG(dbgs() << "Is Perfect");
-        if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
+        if (HNU.hasNonUnitStrideRefs(InnermostLoop)) {
           DEBUG(dbgs() << "\nHas non unit stride");
           CandidateLoops.push_back(
               std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
         } else {
           DEBUG(dbgs() << "MemRefs are in unit stride or non-linear Defs");
         }
-      } else if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop) ||
+      } else if (HNU.hasNonUnitStrideRefs(InnermostLoop) ||
                  isBlockingCandidate(Loop)) {
         // Near perfect loops found
         DEBUG(dbgs() << "is NearPerfect Loop:\n");
@@ -223,6 +224,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Loop Interchange for Function : " << F.getName() << "\n");
 
   this->F = &F;
+  auto HIRF = &getAnalysis<HIRFramework>();
   DDA = &getAnalysis<HIRDDAnalysis>();
   LA = &getAnalysis<HIRLocalityAnalysis>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
@@ -232,7 +234,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
   // 1) Walk all loops, look for outer loops that are perfectly nested
 
   CollectCandidateLoops CCL(this, CandidateLoops, DDA);
-  HLNodeUtils::visitAll(CCL);
+  HIRF->getHLNodeUtils().visitAll(CCL);
 
   for (auto &Iter : CandidateLoops) {
     HLLoop *Loop = Iter.first;
@@ -552,7 +554,8 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         // Examining outoging edges is sufficent
         const DDEdge *Edge = *II;
         DDRef *DDref = Edge->getSink();
-        if (!(HLNodeUtils::contains(CandidateLoop, DDref->getHLDDNode()))) {
+        if (!(DDNode->getHLNodeUtils().contains(CandidateLoop,
+                                                DDref->getHLDDNode()))) {
           continue;
         }
         if (ignoreEdge(Edge, CandidateLoop)) {
@@ -748,7 +751,7 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   // HIRLoopInterchange::DVs;
 
   CollectDDInfo CDD(*this, Lp, false);
-  HLNodeUtils::visit(CDD, Lp);
+  Lp->getHLNodeUtils().visit(CDD, Lp);
 
   // If edges are selected,
   // there are dependencies to check out w.r.t to interchange order
@@ -874,7 +877,7 @@ void HIRLoopInterchange::updateLoopBody(HLLoop *Loop) {
   UpdateDDRef UpdateDDRef(OutmostNestingLevel, InnermostNestingLevel,
                           &NewLoopLevels[0]);
 
-  HLNodeUtils::visit(UpdateDDRef, Loop);
+  Loop->getHLNodeUtils().visit(UpdateDDRef, Loop);
 }
 
 void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
@@ -883,7 +886,7 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   HIRInvalidationUtils::invalidateBounds(InnermostLoop);
   HIRInvalidationUtils::invalidateBody(InnermostLoop);
   DEBUG(dbgs() << "\tBefore permuteloopNests:"; Loop->dump());
-  HLNodeUtils::permuteLoopNests(Loop, LoopPermutation);
+  Loop->getHLNodeUtils().permuteLoopNests(Loop, LoopPermutation);
 
   updateLoopBody(Loop);
   printOptReport(Loop);

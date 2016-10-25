@@ -358,8 +358,8 @@ void HIRCompleteUnroll::CanonExprVisitor::processCanonExpr(CanonExpr *CExpr,
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
 
-  HLNodeUtils::visitRange<true, false>(*this, CurLoop->child_begin(),
-                                       CurLoop->child_end());
+  CurLoop->getHLNodeUtils().visitRange<true, false>(
+      *this, CurLoop->child_begin(), CurLoop->child_end());
 
   // Scale results by loop's average trip count.
   auto It = HCU.AvgTripCount.find(CurLoop);
@@ -634,7 +634,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processBlob(
   SmallVector<unsigned, 8> Indices;
   int LinearityIndex = 0;
 
-  BlobUtils::collectTempBlobs(Index, Indices);
+  ParentRef->getBlobUtils().collectTempBlobs(Index, Indices);
 
   if (CEIsLinear) {
     LinearityIndex = Indices.size();
@@ -688,12 +688,13 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
     return false;
   }
 
+  auto HIRF = &getAnalysis<HIRFramework>();
   HLS = &getAnalysis<HIRLoopStatistics>();
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
   // Gather the outermost loops
-  HLNodeUtils::gatherOutermostLoops(OuterLoops);
+  HIRF->getHLNodeUtils().gatherOutermostLoops(OuterLoops);
 
   // Process Loop Complete Unrolling
   processCompleteUnroll(OuterLoops);
@@ -729,7 +730,8 @@ void HIRCompleteUnroll::checkDependentLoops() {
 
     HLLoop *OuterCandidateLoop = CandidateLoops[Index];
     SmallVector<HLLoop *, 8> ChildLoops;
-    HLNodeUtils::gatherAllLoops(OuterCandidateLoop, ChildLoops);
+    OuterCandidateLoop->getHLNodeUtils().gatherAllLoops(OuterCandidateLoop,
+                                                        ChildLoops);
     // Check if the dependency of loops is satisfied. If not, then we add
     // the children loop as candidate and remove the current outermost loops.
     if (checkDependency(OuterCandidateLoop->getNestingLevel(), ChildLoops)) {
@@ -738,9 +740,9 @@ void HIRCompleteUnroll::checkDependentLoops() {
     }
 
     if (!OuterCandidateLoop->isInnermost()) {
-      HLNodeUtils::gatherLoopsWithLevel(OuterCandidateLoop, CandidateLoops,
-                                        OuterCandidateLoop->getNestingLevel() +
-                                            1);
+      OuterCandidateLoop->getHLNodeUtils().gatherLoopsWithLevel(
+          OuterCandidateLoop, CandidateLoops,
+          OuterCandidateLoop->getNestingLevel() + 1);
     }
     CandidateLoops.erase(CandidateLoops.begin() + Index);
   }
@@ -847,7 +849,8 @@ int64_t HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
   // If we reached here, we should be able to compute the min/max trip count of
   // this loop.
-  bool HasMin = HLNodeUtils::getExactMinValue(UpperCE, Loop, MinUpper);
+  bool HasMin =
+      Loop->getHLNodeUtils().getExactMinValue(UpperCE, Loop, MinUpper);
   (void)HasMin;
   assert(HasMin && "Could not compute min value of upper!");
 
@@ -855,7 +858,8 @@ int64_t HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
   // average trip count for profitability analysis, we take the absolute value.
   MinUpper = (MinUpper > 0) ? MinUpper : -MinUpper;
 
-  bool HasMax = HLNodeUtils::getExactMaxValue(UpperCE, Loop, MaxUpper);
+  bool HasMax =
+      Loop->getHLNodeUtils().getExactMaxValue(UpperCE, Loop, MaxUpper);
   (void)HasMax;
   assert(HasMax && "Could not compute max value of upper!");
 
@@ -895,8 +899,8 @@ int64_t HIRCompleteUnroll::processLoop(HLLoop *Loop) {
   if (!Loop->isInnermost()) {
     SmallVector<HLLoop *, 8> ChildLoops;
     // 1. Gather Loops starting from the outer-most level
-    HLNodeUtils::gatherLoopsWithLevel(Loop, ChildLoops,
-                                      Loop->getNestingLevel() + 1);
+    Loop->getHLNodeUtils().gatherLoopsWithLevel(Loop, ChildLoops,
+                                                Loop->getNestingLevel() + 1);
 
     // 2.Process each Loop for Complete Unrolling
     bool HasValidChildren = true;
@@ -974,8 +978,8 @@ void HIRCompleteUnroll::transformLoops() {
     transformLoop(Loop, Loop, TripValues);
 
     if (ParentLoop) {
-      HLNodeUtils::eliminateRedundantPredicates(ParentLoop->child_begin(),
-                                                ParentLoop->child_end());
+      ParentLoop->getHLNodeUtils().eliminateRedundantPredicates(
+          ParentLoop->child_begin(), ParentLoop->child_end());
     }
   }
 }
@@ -1012,6 +1016,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
 
   // Container for cloning body.
   HLContainerTy LoopBody;
+  HLNodeUtils &HNU = Loop->getHLNodeUtils();
 
   CanonExprVisitor CEVisit(OuterLoop, TripValues);
 
@@ -1023,12 +1028,12 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
   // so we need to handle postexit explicitly.
   if (UB < 0) {
     Loop->removePostexit();
-    HLNodeUtils::remove(Loop);
+    HNU.remove(Loop);
     return;
   }
 
   if (Loop != OuterLoop) {
-    HLNodeUtils::visitRange(CEVisit, Loop->post_begin(), Loop->post_end());
+    HNU.visitRange(CEVisit, Loop->post_begin(), Loop->post_end());
   }
 
   // Ztt is not needed since it has ateast one trip.
@@ -1039,14 +1044,13 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.
   for (int64_t TripVal = LB; TripVal <= UB; TripVal += Step) {
     // Clone iteration
-    HLNodeUtils::cloneSequence(&LoopBody, Loop->getFirstChild(),
-                               Loop->getLastChild());
+    HNU.cloneSequence(&LoopBody, Loop->getFirstChild(), Loop->getLastChild());
 
     // Store references as LoopBody will be empty after insertion.
     HLNode *CurFirstChild = &(LoopBody.front());
     HLNode *CurLastChild = &(LoopBody.back());
 
-    HLNodeUtils::insertBefore(Loop, &LoopBody);
+    HNU.insertBefore(Loop, &LoopBody);
 
     // Trip Values vector is used to store the current IV
     // trip value for substitution inside the canon expr.
@@ -1054,12 +1058,12 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
 
     // Update the CanonExpr
     CanonExprVisitor CEVisit(OuterLoop, TripValues);
-    HLNodeUtils::visitRange<true, false>(CEVisit, CurFirstChild, CurLastChild);
+    HNU.visitRange<true, false>(CEVisit, CurFirstChild, CurLastChild);
 
     TripValues.pop_back();
   }
 
-  HLNodeUtils::remove(Loop);
+  HNU.remove(Loop);
 }
 
 void HIRCompleteUnroll::releaseMemory() { CandidateLoops.clear(); }

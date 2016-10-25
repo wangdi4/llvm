@@ -162,7 +162,7 @@ public:
   unsigned getSymbase() const { return getDDRef()->getSymbase(); }
   unsigned getRvalSymbase() const {
     assert(!isLoad() && "Attempt to access load temp's rval symbase!");
-    return BlobUtils::getTempBlobSymbase(getRvalBlobIndex());
+    return DefInst->getBlobUtils().getTempBlobSymbase(getRvalBlobIndex());
   }
 };
 
@@ -238,7 +238,7 @@ void TempInfo::processInnerLoopUses(HLLoop *InvalidatingLoop) {
     auto TempLoop = getLoop();
 
     for (auto UseRef : InnerLoopUses) {
-      auto LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(
+      auto LCALoop = DefInst->getHLNodeUtils().getLowestCommonAncestorLoop(
           InvalidatingLoop, UseRef->getLexicalParentLoop());
 
       if (LCALoop == TempLoop) {
@@ -379,7 +379,7 @@ void TempSubstituter::visit(HLDDNode *Node) {
           HLLoop *ParentLoop;
 
           if ((ParentLoop = Node->getParentLoop()) &&
-              !HLNodeUtils::contains(ParentLoop, Temp.getDefInst())) {
+              !Node->getHLNodeUtils().contains(ParentLoop, Temp.getDefInst())) {
             // Inner loop uses are handled when either the temp is marked as
             // non-substitutable or after traversing the region.
             Temp.addInnerLoopUse(Ref);
@@ -421,9 +421,10 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
   RegDDRef *LvalRef = HInst->getLvalDDRef();
 
   if (LvalRef && LvalRef->isTerminalRef()) {
-    LvalBlobIndex = LvalRef->isSelfBlob()
-                        ? LvalRef->getSelfBlobIndex()
-                        : BlobUtils::findTempBlobIndex(LvalRef->getSymbase());
+    LvalBlobIndex =
+        LvalRef->isSelfBlob()
+            ? LvalRef->getSelfBlobIndex()
+            : HInst->getBlobUtils().findTempBlobIndex(LvalRef->getSymbase());
   }
 
   if (!InvalidateLoads && (LvalBlobIndex == InvalidBlobIndex)) {
@@ -455,8 +456,8 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
 
         if (auto LastUseLoop = Temp.getLastUseLoop()) {
           auto TempLoop = Temp.getLoop();
-          auto LCALoop =
-              HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, TempLoop);
+          auto LCALoop = HInst->getHLNodeUtils().getLowestCommonAncestorLoop(
+              LastUseLoop, TempLoop);
 
           auto NewSymbase = Temp.getRvalSymbase();
 
@@ -557,8 +558,8 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
       // from loop liveouts based on performed substitutions.
       if (auto LastUseLoop = Temp.getLastUseLoop()) {
         HLLoop *ParentLoop = Temp.getLoop();
-        auto LCALoop =
-            HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, ParentLoop);
+        auto LCALoop = Reg->getHLNodeUtils().getLowestCommonAncestorLoop(
+            LastUseLoop, ParentLoop);
 
         while (ParentLoop != LCALoop) {
           ParentLoop->removeLiveOutTemp(Symbase);
@@ -573,14 +574,14 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
     }
 
     // Temp is deemed unnecessary.
-    HLNodeUtils::remove(Temp.getDefInst());
+    Reg->getHLNodeUtils().remove(Temp.getDefInst());
   }
 
   CandidateTemps.clear();
 }
 
 void TempSubstituter::substituteTemps(HLRegion *Reg) {
-  HLNodeUtils::visitRange(*this, Reg->child_begin(), Reg->child_end());
+  Reg->getHLNodeUtils().visitRange(*this, Reg->child_begin(), Reg->child_end());
   eliminateSubstitutedTemps(Reg);
 }
 

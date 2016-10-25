@@ -15,7 +15,7 @@
 ;          END REGION
 
 ; CHECK: BEGIN REGION
-; CHECK-NEXT: DO i1 = 0, 127, 1
+; CHECK: DO i1 = 0, 127, 1
 ; CHECK-DAG: [[B_LD:%.*]] = (@B)[0][i1]
 ; CHECK-DAG: [[C_LD:%.*]] = (@C)[0][i1]
 ; CHECK-NEXT: [[ADD:%.*]] = [[B_LD]] + [[C_LD]]

@@ -37,8 +37,8 @@ void HLLoop::initialize() {
 }
 
 // IsInnermost flag is initialized to true, please refer to the header file.
-HLLoop::HLLoop(const Loop *LLVMLoop)
-    : HLDDNode(HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
+HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
+    : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
       LoopMetadata(LLVMLoop->getLoopID()), MaxTripCountEstimate(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
@@ -51,9 +51,9 @@ HLLoop::HLLoop(const Loop *LLVMLoop)
 }
 
 // IsInnermost flag is initialized to true, please refer to the header file.
-HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
-               RegDDRef *StrideDDRef, unsigned NumEx)
-    : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
+HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
+               RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx)
+    : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IsNSW(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0) {
   initialize();
@@ -148,9 +148,8 @@ HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
   /// Loop over children, preheader and postexit
   for (auto PreIter = this->pre_begin(), PreIterEnd = this->pre_end();
        PreIter != PreIterEnd; ++PreIter) {
-    HLNode *NewHLNode =
-        cloneBaseImpl(&*PreIter, nullptr, nullptr, NodeMapper);
-    HLNodeUtils::insertAsLastPreheaderNode(NewHLLoop, NewHLNode);
+    HLNode *NewHLNode = cloneBaseImpl(&*PreIter, nullptr, nullptr, NodeMapper);
+    getHLNodeUtils().insertAsLastPreheaderNode(NewHLLoop, NewHLNode);
   }
 
   // Clone the children.
@@ -159,15 +158,13 @@ HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
        ChildIter != ChildIterEnd; ++ChildIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ChildIter, GotoList, LabelMap, NodeMapper);
-    HLNodeUtils::insertAsLastChild(NewHLLoop, NewHLNode);
+    getHLNodeUtils().insertAsLastChild(NewHLLoop, NewHLNode);
   }
 
-  for (auto PostIter = this->post_begin(),
-            PostIterEnd = this->post_end();
+  for (auto PostIter = this->post_begin(), PostIterEnd = this->post_end();
        PostIter != PostIterEnd; ++PostIter) {
-    HLNode *NewHLNode =
-        cloneBaseImpl(&*PostIter, nullptr, nullptr, NodeMapper);
-    HLNodeUtils::insertAsLastPostexitNode(NewHLLoop, NewHLNode);
+    HLNode *NewHLNode = cloneBaseImpl(&*PostIter, nullptr, nullptr, NodeMapper);
+    getHLNodeUtils().insertAsLastPostexitNode(NewHLLoop, NewHLNode);
   }
 
   return NewHLLoop;
@@ -187,7 +184,7 @@ void HLLoop::printPreheader(formatted_raw_ostream &OS, unsigned Depth,
   auto Parent = getParent();
 
   // If a previous node exists, add a newline.
-  if (Parent && (this != HLNodeUtils::getFirstLexicalChild(Parent, this))) {
+  if (Parent && (this != getHLNodeUtils().getFirstLexicalChild(Parent, this))) {
     indent(OS, Depth);
     OS << "\n";
   }
@@ -257,7 +254,7 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
   if (auto Node = getLoopMetadata()) {
     RegDDRef::MDNodesTy Nodes = {
         RegDDRef::MDPairTy{LLVMContext::MD_loop, Node}};
-    DDRefUtils::printMDNodes(OS, Nodes);
+    getDDRefUtils().printMDNodes(OS, Nodes);
   } else {
     OS << " No";
   }
@@ -336,7 +333,7 @@ void HLLoop::printPostexit(formatted_raw_ostream &OS, unsigned Depth,
   auto Parent = getParent();
 
   // If a next node exists, add a newline.
-  if (Parent && (this != HLNodeUtils::getLastLexicalChild(Parent, this))) {
+  if (Parent && (this != getHLNodeUtils().getLastLexicalChild(Parent, this))) {
     indent(OS, Depth);
     OS << "\n";
   }
@@ -620,7 +617,7 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
 
   // TripCount Canon Expr = (UB-LB+Stride)/Stride;
   int64_t StrideConst = getStrideCanonExpr()->getConstant();
-  Result = CanonExprUtils::cloneAndSubtract(UBCE, getLowerCanonExpr());
+  Result = getCanonExprUtils().cloneAndSubtract(UBCE, getLowerCanonExpr());
   assert(Result && " Trip Count computation failed.");
   if (!Result) {
     return nullptr;
@@ -640,8 +637,8 @@ RegDDRef *HLLoop::getTripCountDDRef(unsigned NestingLevel) const {
     return nullptr;
   }
 
-  RegDDRef *TripRef =
-      DDRefUtils::createScalarRegDDRef(getUpperDDRef()->getSymbase(), TripCE);
+  RegDDRef *TripRef = getDDRefUtils().createScalarRegDDRef(
+      getUpperDDRef()->getSymbase(), TripCE);
 
   LoopRefs.push_back(getLowerDDRef());
   LoopRefs.push_back(getStrideDDRef());
@@ -772,13 +769,14 @@ void HLLoop::createZtt(bool IsOverwrite) {
   RegDDRef *TripRef = getTripCountDDRef(getNestingLevel());
   assert(TripRef && " Trip Count DDRef is null.");
   if (TripRef->getSingleCanonExpr()->isIntConstant()) {
-    DDRefUtils::destroy(TripRef);
+    getDDRefUtils().destroy(TripRef);
     return;
   }
 
   // (Trip > 0)
-  RegDDRef *ZeroDD = DDRefUtils::createConstDDRef(TripRef->getDestType(), 0);
-  HLIf *ZttIf = HLNodeUtils::createHLIf(CmpInst::ICMP_UGT, TripRef, ZeroDD);
+  RegDDRef *ZeroDD =
+      getDDRefUtils().createConstDDRef(TripRef->getDestType(), 0);
+  HLIf *ZttIf = getHLNodeUtils().createHLIf(CmpInst::ICMP_UGT, TripRef, ZeroDD);
   setZtt(ZttIf);
 }
 
@@ -790,8 +788,8 @@ HLIf *HLLoop::extractZtt() {
 
   HLIf *Ztt = removeZtt();
 
-  HLNodeUtils::insertBefore(this, Ztt);
-  HLNodeUtils::moveAsFirstChild(Ztt, this, true);
+  getHLNodeUtils().insertBefore(this, Ztt);
+  getHLNodeUtils().moveAsFirstChild(Ztt, this, true);
 
   std::for_each(Ztt->ddref_begin(), Ztt->ddref_end(),
                 [](RegDDRef *Ref) { Ref->updateDefLevel(); });
@@ -807,7 +805,7 @@ void HLLoop::extractPreheader() {
 
   extractZtt();
 
-  HLNodeUtils::moveBefore(this, pre_begin(), pre_end());
+  getHLNodeUtils().moveBefore(this, pre_begin(), pre_end());
 }
 
 void HLLoop::extractPostexit() {
@@ -818,7 +816,7 @@ void HLLoop::extractPostexit() {
 
   extractZtt();
 
-  HLNodeUtils::moveAfter(this, post_begin(), post_end());
+  getHLNodeUtils().moveAfter(this, post_begin(), post_end());
 }
 
 void HLLoop::extractPreheaderAndPostexit() {
@@ -826,9 +824,13 @@ void HLLoop::extractPreheaderAndPostexit() {
   extractPostexit();
 }
 
-void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
+void HLLoop::removePreheader() {
+  getHLNodeUtils().remove(pre_begin(), pre_end());
+}
 
-void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
+void HLLoop::removePostexit() {
+  getHLNodeUtils().remove(post_begin(), post_end());
+}
 
 void HLLoop::verify() const {
   HLDDNode::verify();
@@ -873,7 +875,7 @@ void HLLoop::verify() const {
 
 bool HLLoop::isSIMD() const {
   HLContainerTy::const_iterator Iter(*this);
-  auto First = HLNodeUtils::getFirstLexicalChild(getParent(), this);
+  auto First = getHLNodeUtils().getFirstLexicalChild(getParent(), this);
   HLContainerTy::const_iterator FIter(*First);
 
   while (Iter != FIter) {
@@ -917,7 +919,7 @@ bool HLLoop::isTriangularLoop() const {
 
 void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
                                        StringRef *RemoveID) {
-  LLVMContext &Context = HLNodeUtils::getContext();
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
 
   // Reserve space for the unique identifier
   SmallVector<Metadata *, 4> NewMDs(1);
@@ -980,7 +982,7 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
 }
 
 void HLLoop::markDoNotVectorize() {
-  LLVMContext &Context = HIRUtils::getContext();
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
 
   Metadata *One =
       ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Context), 1));

@@ -42,8 +42,7 @@ class HLNode;
 // This was meant to be the basis of a general graph class
 // focused on fast iteration at the cost of slow modification
 // and extra memory
-template <typename GraphNode, typename GraphEdge>
-class HIRGraph {
+template <typename GraphNode, typename GraphEdge> class HIRGraph {
   typedef SmallVector<GraphEdge *, 4> GraphEdgeContainerTy;
 
   void addImpl(GraphEdge *EdgePtr) {
@@ -70,23 +69,19 @@ public:
 
   // Don't let others modify edges. We can only remove or add
   // edges
-  EdgeIterator
-  incoming_edges_begin(const GraphNode *Node) {
+  EdgeIterator incoming_edges_begin(const GraphNode *Node) {
     return InEdges[Node].begin();
   }
 
-  EdgeIterator
-  incoming_edges_end(const GraphNode *Node) {
+  EdgeIterator incoming_edges_end(const GraphNode *Node) {
     return InEdges[Node].end();
   }
 
-  EdgeIterator
-  outgoing_edges_begin(const GraphNode *Node) {
+  EdgeIterator outgoing_edges_begin(const GraphNode *Node) {
     return OutEdges[Node].begin();
   }
 
-  EdgeIterator
-  outgoing_edges_end(const GraphNode *Node) {
+  EdgeIterator outgoing_edges_end(const GraphNode *Node) {
     return OutEdges[Node].end();
   }
 

@@ -348,7 +348,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     if (Edge->getDVAtLevel(LoopLevel) == DVKind::LE) {
       HLNode *SrcHIR = DDRefSrc->getHLDDNode();
       HLNode *DstHIR = DDRefSink->getHLDDNode();
-      if (!HLNodeUtils::dominates(SrcHIR, DstHIR)) {
+      if (!SrcHIR->getHLNodeUtils().dominates(SrcHIR, DstHIR)) {
         return true;
       }
     }
@@ -410,10 +410,12 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
 // as GraphTraits
 //===--------------------------------------------------------------------===//
 //
-template <> struct GraphTraits<DistPPGraph *> {
-  typedef DistPPNode NodeType;
-  typedef DistPPGraph::children_iterator ChildIteratorType;
-  static NodeType *getEntryNode(DistPPGraph *G) { return *(G->node_begin()); }
+template <> struct GraphTraits<loopopt::DistPPGraph *> {
+  typedef loopopt::DistPPNode NodeType;
+  typedef loopopt::DistPPGraph::children_iterator ChildIteratorType;
+  static NodeType *getEntryNode(loopopt::DistPPGraph *G) {
+    return *(G->node_begin());
+  }
 
   static inline ChildIteratorType child_begin(NodeType *N) {
     return N->getGraph()->children_begin(N);
@@ -422,25 +424,30 @@ template <> struct GraphTraits<DistPPGraph *> {
     return N->getGraph()->children_end(N);
   }
 
-  typedef std::pointer_to_unary_function<DistPPNode *, DistPPNode &> DerefFun;
+  typedef std::pointer_to_unary_function<loopopt::DistPPNode *,
+                                         loopopt::DistPPNode &>
+      DerefFun;
 
   // nodes_iterator/begin/end - Allow iteration over all nodes(not node ptrs)
   // in the graph
-  typedef mapped_iterator<SmallVectorImpl<DistPPNode *>::iterator, DerefFun>
+  typedef mapped_iterator<SmallVectorImpl<loopopt::DistPPNode *>::iterator,
+                          DerefFun>
       nodes_iterator;
 
   // GraphTraits requires argument to this be a pointer to template argument
   // type
-  static nodes_iterator nodes_begin(DistPPGraph **G) {
+  static nodes_iterator nodes_begin(loopopt::DistPPGraph **G) {
     return map_iterator((*G)->node_begin(), DerefFun(NodePtrDeref));
   }
-  static nodes_iterator nodes_end(DistPPGraph **G) {
+  static nodes_iterator nodes_end(loopopt::DistPPGraph **G) {
     return map_iterator((*G)->node_end(), DerefFun(NodePtrDeref));
   }
 
-  static DistPPNode &NodePtrDeref(DistPPNode *DNode) { return *DNode; }
+  static loopopt::DistPPNode &NodePtrDeref(loopopt::DistPPNode *DNode) {
+    return *DNode;
+  }
 
-  static unsigned size(DistPPGraph *G) { return G->getNodeCount(); }
+  static unsigned size(loopopt::DistPPGraph *G) { return G->getNodeCount(); }
 };
 } // llvm
 
