@@ -99,18 +99,17 @@ unsigned long long SLEVInstruction::NextId = 0;
 class SLEVConstructor {
 
 private:
-  SIMDLaneEvolutionAnalysisBase& SLEV;
+  SIMDLaneEvolutionAnalysisBase &SLEV;
 
 public:
-
-  SLEVConstructor(SIMDLaneEvolutionAnalysisBase& S) : SLEV(S) {}
+  SLEVConstructor(SIMDLaneEvolutionAnalysisBase &S) : SLEV(S) {}
 
   /// Visit Functions
   bool isDone() { return false; }
   bool skipRecursion(AVR *ANode) { return false; }
-  void visit(AVR* ANode) {}
-  void postVisit(AVR* ANode) {}
-  void postVisit(AVRExpression* AExpr) { SLEV.construct(AExpr); }
+  void visit(AVR *ANode) {}
+  void postVisit(AVR *ANode) {}
+  void postVisit(AVRExpression *AExpr) { SLEV.construct(AExpr); }
   void visit(AVRValue *AVal) {
     // Construct only SLEV for AVRValues that are not a wrapper (haven't been
     // decomposed)
@@ -119,10 +118,10 @@ public:
   }
   void postVisit(AVRValue *AVal) {
     // Propagate SLEV from DecomTree to wrapper AVRValue
-    if (AVal->hasDecompTree()) 
+    if (AVal->hasDecompTree())
       SLEV.propagateSLEV(AVal);
   }
-  void visit(AVRValueIR* AValueIR) {
+  void visit(AVRValueIR *AValueIR) {
     // Construct only SLEV for AVRValues that are not a wrapper (haven't been
     // decomposed)
     if (!AValueIR->hasDecompTree())
@@ -136,7 +135,7 @@ public:
   void visit(AVRCompareIR *ACompareIR) { SLEV.construct(ACompareIR); }
   void visit(AVRBranchIR *ABranchIR) { SLEV.construct(ABranchIR); }
   void visit(AVRIfIR *AIfIR) { SLEV.construct(AIfIR); }
-  void visit(AVRValueHIR* AValueHIR) {
+  void visit(AVRValueHIR *AValueHIR) {
     // Construct only SLEV for AVRValues that are not a wrapper (haven't been
     // decomposed)
     if (!AValueHIR->hasDecompTree())
@@ -148,7 +147,7 @@ public:
   void postVisit(AVRLoopHIR *ALoopHIR) { SLEV.exiting(ALoopHIR); }
 };
 
-void DDRef2AVR::visit(AVRValueHIR* AValueHIR) {
+void DDRef2AVR::visit(AVRValueHIR *AValueHIR) {
 
   if (DDRef *DDR = AValueHIR->getValue()) {
     if (AvrDefUseHIR::isDef(AValueHIR)) {
@@ -166,17 +165,18 @@ void DDRef2AVR::visit(AVRValueHIR* AValueHIR) {
   }
 }
 
-SIMDLaneEvolutionAnalysisBase::SIMDLaneEvolutionAnalysisBase(AvrDefUseBase* DUBase) : DefUseBase(DUBase) {
-}
+SIMDLaneEvolutionAnalysisBase::SIMDLaneEvolutionAnalysisBase(
+    AvrDefUseBase *DUBase)
+    : DefUseBase(DUBase) {}
 
 SIMDLaneEvolutionAnalysisBase::~SIMDLaneEvolutionAnalysisBase() {
 
-  std::set<SLEVInstruction*> AllSlevs;
+  std::set<SLEVInstruction *> AllSlevs;
 
   for (auto It : SLEVs)
     It.second->collectGarbage(AllSlevs);
 
-  for (SLEVInstruction* S : AllSlevs)
+  for (SLEVInstruction *S : AllSlevs)
     delete S;
 
   SLEVs.clear();
@@ -188,22 +188,22 @@ SIMDLaneEvolutionAnalysisBase::~SIMDLaneEvolutionAnalysisBase() {
 }
 
 SIMDLaneEvolutionAnalysisBase::InfluenceRegion
-SIMDLaneEvolutionAnalysisBase::calculateInfluenceRegion(AVR* Avr) {
+SIMDLaneEvolutionAnalysisBase::calculateInfluenceRegion(AVR *Avr) {
 
   assert(CFG->isBranchCondition(Avr) && "AVR is not a branch condition");
 
-  AvrBasicBlock* BasicBlock = CFG->getBasicBlock(Avr);
-  AvrBasicBlock* PostDom =
-    PostDominatorTree->getNode(BasicBlock)->getIDom()->getBlock();
+  AvrBasicBlock *BasicBlock = CFG->getBasicBlock(Avr);
+  AvrBasicBlock *PostDom =
+      PostDominatorTree->getNode(BasicBlock)->getIDom()->getBlock();
 
   InfluenceRegion IR(BasicBlock, PostDom);
-  SmallVector<AvrBasicBlock*, 3> Worklist;
+  SmallVector<AvrBasicBlock *, 3> Worklist;
   Worklist.push_back(BasicBlock);
 
   while (!Worklist.empty()) {
-    AvrBasicBlock* Current = Worklist.back();
+    AvrBasicBlock *Current = Worklist.back();
     Worklist.pop_back();
-    for (AvrBasicBlock* Successor : Current->getSuccessors()) {
+    for (AvrBasicBlock *Successor : Current->getSuccessors()) {
       if (Successor == PostDom || IR.InfluencedBasicBlocks.count(Successor))
         continue;
       IR.InfluencedBasicBlocks.insert(Successor);
@@ -215,7 +215,7 @@ SIMDLaneEvolutionAnalysisBase::calculateInfluenceRegion(AVR* Avr) {
 }
 
 void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
-                                             IRValuePrinterBase* ValuePrinter) {
+                                             IRValuePrinterBase *ValuePrinter) {
 
   Begin = B;
   End = E;
@@ -224,12 +224,11 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
 
   CFG = new AvrCFGBase(Begin, End, "SLEV", true, false);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "SLEV: Analyzing AVR:\n";
+  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: Analyzing AVR:\n";
         for (auto I = Begin, E = End; I != E; ++I)
-          I->print(FOS, 1, PrintNumber);
-        FOS << "SLEV: "; CFG->print(FOS);
-        FOS << "SLEV: "; DefUseBase->print(FOS));
+            I->print(FOS, 1, PrintNumber);
+        FOS << "SLEV: "; CFG->print(FOS); FOS << "SLEV: ";
+        DefUseBase->print(FOS));
 
   DominatorTree = new AvrDominatorTree(false);
   DominatorTree->recalculate(*CFG);
@@ -240,7 +239,7 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
   DEBUG(dbgs() << "SLEV: PostDominator Tree:\n";
         PostDominatorTree->print(dbgs()));
 
-  FirstCalcQueue = new std::vector<SLEVInstruction*>();
+  FirstCalcQueue = new std::vector<SLEVInstruction *>();
 
   SLEVConstructor Constructor(*this);
   AVRVisitor<SLEVConstructor> AVisitor(Constructor);
@@ -248,29 +247,24 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
 
   // Add any reaching SLEVs that were not present during construction due to
   // visit order.
-  for (auto& It : UsesPendingDefs) {
-    SLEVUse* SU = It.first;
-    for (auto& AVRVarIt : It.second) {
-      AVR* ReachingDef = AVRVarIt.first;
-      const void* IRUse = AVRVarIt.second;
+  for (auto &It : UsesPendingDefs) {
+    SLEVUse *SU = It.first;
+    for (auto &AVRVarIt : It.second) {
+      AVR *ReachingDef = AVRVarIt.first;
+      const void *IRUse = AVRVarIt.second;
       SU->addReaching(SLEVs[ReachingDef], IRUse);
       DEBUG(formatted_raw_ostream FOS(dbgs());
             FOS << "SLEV: Added pending SLEV:\n";
-            FOS << "SLEV: ... Reaching Def: ";
-            ReachingDef->shallowPrint(FOS);
-            FOS << "\n";
-            FOS << "SLEV: ... IR Use: ";
-            ValuePrinter->print(FOS, IRUse);
-            FOS << "\n";
-            FOS << "SLEV: ... Now: ";
-            SU->print(FOS, false);
-            FOS << "\n");
+            FOS << "SLEV: ... Reaching Def: "; ReachingDef->shallowPrint(FOS);
+            FOS << "\n"; FOS << "SLEV: ... IR Use: ";
+            ValuePrinter->print(FOS, IRUse); FOS << "\n";
+            FOS << "SLEV: ... Now: "; SU->print(FOS, false); FOS << "\n");
     }
   }
   UsesPendingDefs.clear();
 
   // First calculation of all AVR SLEVs (users will be affected).
-  for (SLEVInstruction* S : *FirstCalcQueue)
+  for (SLEVInstruction *S : *FirstCalcQueue)
     calculate(S);
   delete FirstCalcQueue;
   FirstCalcQueue = nullptr;
@@ -284,19 +278,19 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
     // Prepare new affected-SLEVs set to receive affected SLEV.
     AffectedNew->clear();
 
-    for (SLEVInstruction* Slev : *AffectedOld) {
+    for (SLEVInstruction *Slev : *AffectedOld) {
       calculate(Slev);
     }
   }
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "SLEV: Done\n");
+  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: Done\n");
 
   DefUseBase = nullptr;
 }
 
-template<typename SLEVT, typename... OTHERS>
-SLEVT* SIMDLaneEvolutionAnalysisBase::createBinarySLEV(AVRExpression* AExpr, OTHERS... Tail) {
+template <typename SLEVT, typename... OTHERS>
+SLEVT *SIMDLaneEvolutionAnalysisBase::createBinarySLEV(AVRExpression *AExpr,
+                                                       OTHERS... Tail) {
   assert(AExpr->getNumOperands() == 2 && "Not a binary expression");
   AVR *LHS = AExpr->getOperand(0);
   SLEVInstruction *LHSSlev = SLEVs[LHS];
@@ -307,10 +301,11 @@ SLEVT* SIMDLaneEvolutionAnalysisBase::createBinarySLEV(AVRExpression* AExpr, OTH
   return new SLEVT(*LHSSlev, *RHSSlev, Tail...);
 }
 
-SLEVPreserveUniformity*
-SIMDLaneEvolutionAnalysisBase::createPreservingUniformitySLEV(AVRExpression* AExpr) {
+SLEVPreserveUniformity *
+SIMDLaneEvolutionAnalysisBase::createPreservingUniformitySLEV(
+    AVRExpression *AExpr) {
 
-  SLEVPreserveUniformity* SPU = new SLEVPreserveUniformity();
+  SLEVPreserveUniformity *SPU = new SLEVPreserveUniformity();
   for (unsigned I = 0; I < AExpr->getNumOperands(); ++I) {
     AVR *Op = AExpr->getOperand(0);
     SLEVInstruction *OpSlev = SLEVs[Op];
@@ -321,7 +316,7 @@ SIMDLaneEvolutionAnalysisBase::createPreservingUniformitySLEV(AVRExpression* AEx
   return SPU;
 }
 
-void SIMDLaneEvolutionAnalysisBase::construct(AVRExpression* AExpr) {
+void SIMDLaneEvolutionAnalysisBase::construct(AVRExpression *AExpr) {
 
   if (AExpr->isLHSExpr()) {
 
@@ -331,7 +326,7 @@ void SIMDLaneEvolutionAnalysisBase::construct(AVRExpression* AExpr) {
     return;
   }
 
-  SLEVInstruction* ExprSLEV;
+  SLEVInstruction *ExprSLEV;
   switch (AExpr->getOperation()) {
   case Instruction::SExt:
   case Instruction::ZExt:
@@ -384,18 +379,16 @@ void SIMDLaneEvolutionAnalysisBase::construct(AVRExpression* AExpr) {
     assert(SLEVs.count(AExpr->getOperand(0)) && "Operand has no SLEV");
     ExprSLEV = new SLEVIdentity(*SLEVs[AExpr->getOperand(0)]);
     break;
-  case Instruction::GetElementPtr:
-    {
-      assert(SLEVs.count(AExpr->getOperand(0)) && "Base has no SLEV");
-      SLEVAddress* AddressSLEV =
+  case Instruction::GetElementPtr: {
+    assert(SLEVs.count(AExpr->getOperand(0)) && "Base has no SLEV");
+    SLEVAddress *AddressSLEV =
         new SLEVAddress(SLEVs[AExpr->getOperand(0)], 1 /*TODO*/);
-      for (unsigned Index = 1; Index < AExpr->getNumOperands(); ++Index) {
-        assert(SLEVs.count(AExpr->getOperand(Index)) && "Index has no SLEV");
-        AddressSLEV->addIndex(SLEVs[AExpr->getOperand(Index)], 1 /*TODO*/);
-      }
-      ExprSLEV = AddressSLEV;
+    for (unsigned Index = 1; Index < AExpr->getNumOperands(); ++Index) {
+      assert(SLEVs.count(AExpr->getOperand(Index)) && "Index has no SLEV");
+      AddressSLEV->addIndex(SLEVs[AExpr->getOperand(Index)], 1 /*TODO*/);
     }
-    break;
+    ExprSLEV = AddressSLEV;
+  } break;
   case Instruction::Load:
   case Instruction::Store:
     // We do not support SLEV memory addresses. Still, if all arguments are
@@ -413,14 +406,14 @@ void SIMDLaneEvolutionAnalysisBase::construct(AVRExpression* AExpr) {
   setSLEV(AExpr, ExprSLEV);
 }
 
-void SIMDLaneEvolutionAnalysisBase::construct(AVRValue* AVal) {
+void SIMDLaneEvolutionAnalysisBase::construct(AVRValue *AVal) {
   assert(!AVal->hasDecompTree() &&
          "Unexpected AVRValueHIRs with decomposition!");
 
   setSLEV(AVal, constructSLEV(AVal));
 }
 
-void SIMDLaneEvolutionAnalysisBase::propagateSLEV(AVRValue* AVal) {
+void SIMDLaneEvolutionAnalysisBase::propagateSLEV(AVRValue *AVal) {
   assert(AVal->hasDecompTree() &&
          "Unexpected AVRValueHIRs without decomposition!");
 
@@ -428,8 +421,9 @@ void SIMDLaneEvolutionAnalysisBase::propagateSLEV(AVRValue* AVal) {
   setSLEV(AVal, new SLEVIdentity(*SLEVs[AVal->getDecompTree()]));
 }
 
-SLEVInstruction *SIMDLaneEvolutionAnalysisBase::constructSLEV(AVRValue *AValue) {
-  // SLEV for Constants
+// SLEV for constant AVRValues: Common implementation for LLVM-IR and HIR
+SLEVInstruction *
+SIMDLaneEvolutionAnalysisBase::constructSLEV(AVRValue *AValue) {
   assert(AValue->isConstant() && "Only constat AVRValues are expected here");
 
   const Constant *C = AValue->getConstant();
@@ -441,27 +435,23 @@ SLEVInstruction *SIMDLaneEvolutionAnalysisBase::constructSLEV(AVRValue *AValue) 
     llvm_unreachable("Unexpected type of Constant");
 }
 
-void SIMDLaneEvolutionAnalysisBase::setSLEV(AVR* Avr, SLEVInstruction* Slev) {
+void SIMDLaneEvolutionAnalysisBase::setSLEV(AVR *Avr, SLEVInstruction *Slev) {
 
   Slev->setAVR(Avr);
 
   if (CFG->isBranchCondition(Avr))
     Slev->setBranchCondition();
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "SLEV: Setting ";
-        Slev->print(FOS, false);
-        FOS << " for ";
-        Avr->shallowPrint(FOS);
+  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: Setting ";
+        Slev->print(FOS, false); FOS << " for "; Avr->shallowPrint(FOS);
         FOS << "\n");
 
   SLEVs[Avr] = Slev;
 }
 
-void SIMDLaneEvolutionAnalysisBase::calculate(SLEVInstruction* Slev) {
+void SIMDLaneEvolutionAnalysisBase::calculate(SLEVInstruction *Slev) {
 
-  DEBUG(dbgs() << "SLEV: Calculating ";
-        Slev->print(dbgs(), false);
+  DEBUG(dbgs() << "SLEV: Calculating "; Slev->print(dbgs(), false);
         dbgs() << "\n");
 
   SLEV LastSLEV(*Slev);
@@ -475,17 +465,14 @@ void SIMDLaneEvolutionAnalysisBase::calculate(SLEVInstruction* Slev) {
   }
 
   // This SLEV has changed - insert all its users into the work list.
-  DEBUG(dbgs() << "SLEV: ... Now: ";
-        Slev->print(dbgs(), true);
-        dbgs() << "\n";
-        dbgs() << "SLEV: ... Change affects:";
-        for (SLEVInstruction* User : Slev->Users) {
+  DEBUG(dbgs() << "SLEV: ... Now: "; Slev->print(dbgs(), true); dbgs() << "\n";
+        dbgs() << "SLEV: ... Change affects:"; for (SLEVInstruction *User
+                                                    : Slev->Users) {
           dbgs() << " ";
           User->print(dbgs(), true);
-        }
-        dbgs() << "\n");
+        } dbgs() << "\n");
 
-  for (SLEVInstruction* User : Slev->Users)
+  for (SLEVInstruction *User : Slev->Users)
     if (!User->isRANDOM())
       AffectedNew->insert(User);
 
@@ -493,68 +480,67 @@ void SIMDLaneEvolutionAnalysisBase::calculate(SLEVInstruction* Slev) {
     handleControlDivergence(Slev);
 }
 
-void SIMDLaneEvolutionAnalysisBase::handleControlDivergence(SLEVInstruction* Slev) {
+void SIMDLaneEvolutionAnalysisBase::handleControlDivergence(
+    SLEVInstruction *Slev) {
 
-  AVR* Avr = Slev->getAVR();
+  AVR *Avr = Slev->getAVR();
   assert(Avr && "Control-diverging SLEV has no AVR");
   DEBUG(formatted_raw_ostream FOS(dbgs());
         FOS << "SLEV: ... Control-flow is now diverging at: ";
-        Avr->shallowPrint(FOS);
-        FOS << "\n");
+        Avr->shallowPrint(FOS); FOS << "\n");
 
-  AvrBasicBlock* ConditionBB = getCFG()->getBasicBlock(Avr);
+  AvrBasicBlock *ConditionBB = getCFG()->getBasicBlock(Avr);
   InfluenceRegion IR = calculateInfluenceRegion(Avr);
 
   DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "SLEV: ...... Influence Region: ";
-        IR.print(FOS);
-        FOS << "\n");
+        FOS << "SLEV: ...... Influence Region: "; IR.print(FOS); FOS << "\n");
 
-  // For each Def AVR in the Influence Region, check for Uses tainted by
-  // the control-flow divergence introduced by the non-UNIFORM branch condition.
+// For each Def AVR in the Influence Region, check for Uses tainted by
+// the control-flow divergence introduced by the non-UNIFORM branch condition.
 
 #ifdef HAS_LOOP_INFO
-  AVRLoop* DivergingBranchLoop = Avr->getParentLoop(); // TODO getLexicalParentloop?
+  AVRLoop *DivergingBranchLoop =
+      Avr->getParentLoop(); // TODO getLexicalParentloop?
 #endif
-  for (AvrBasicBlock* IRBB : IR.getInfluencedBasicBlocks()) {
+  for (AvrBasicBlock *IRBB : IR.getInfluencedBasicBlocks()) {
 
     bool CheckedBlockForBeingPartiallyKilling = false;
     AvrCFGBase::PathTy PartiallyKillingPath;
 
-    for (AVR* Def : IRBB->getInstructions()) {
+    for (AVR *Def : IRBB->getInstructions()) {
 
       auto DefSlevIt = SLEVs.find(Def);
       if (DefSlevIt != SLEVs.end() && DefSlevIt->second->isRANDOM())
         continue; // Any user already is (or will be soon) RANDOM anyway.
 
-      const auto& Uses = getDefUse()->getUses(Def);
+      const auto &Uses = getDefUse()->getUses(Def);
       if (Uses.empty())
         continue; // Not a Def.
 
-      AvrBasicBlock* DefBB = getCFG()->getBasicBlock(Def);
-      const auto& DefDom = DominatorTree->getNode(DefBB);
+      AvrBasicBlock *DefBB = getCFG()->getBasicBlock(Def);
+      const auto &DefDom = DominatorTree->getNode(DefBB);
 
 #ifdef HAS_LOOP_INFO
-      AVRLoop* DefLoop = Def->getParentLoop();
+      AVRLoop *DefLoop = Def->getParentLoop();
       if (DefLoop != DivergingBranchLoop)
         continue; // Diverging branch and Def not in the same loop.
 #endif
 
-      for (auto& It : Uses) {
+      for (auto &It : Uses) {
 
-        AVR* Use = It.first;
+        AVR *Use = It.first;
 
         // Get the SLEV of this Use if there is one.
         auto UseSlevIt = SLEVs.find(Use);
         if (UseSlevIt == SLEVs.end())
           continue; // to next Use.
-        SLEVInstruction* UseSlev = UseSlevIt->second;
+        SLEVInstruction *UseSlev = UseSlevIt->second;
 
         // No point in tainting already random/tainted Uses.
         if (UseSlev->isRANDOM() || UseSlev->isTainted())
           continue; // to next Use.
 
-        AvrBasicBlock* UseBB = getCFG()->getBasicBlock(Use);
+        AvrBasicBlock *UseBB = getCFG()->getBasicBlock(Use);
 
         // Uses in the Def's basic block cannot be tainted by control flow.
         if (UseBB == DefBB)
@@ -568,7 +554,7 @@ void SIMDLaneEvolutionAnalysisBase::handleControlDivergence(SLEVInstruction* Sle
         }
 
         // Check if this Def is partially-killing w.r.t this Use.
-        const auto& UseDom = DominatorTree->getNode(UseBB);
+        const auto &UseDom = DominatorTree->getNode(UseBB);
         bool DefDominatesUse = DominatorTree->dominates(DefDom, UseDom);
         if (!DefDominatesUse) {
 
@@ -586,15 +572,11 @@ void SIMDLaneEvolutionAnalysisBase::handleControlDivergence(SLEVInstruction* Sle
             // Def's block is partially-killing: taint Use.
             DEBUG(formatted_raw_ostream FOS(dbgs());
                   FOS << "SLEV: ...... Partially-killing Def detected:\n";
-                  FOS << "SLEV: ......... Def: ";
-                  Def->shallowPrint(FOS);
-                  FOS << "\n";
-                  FOS << "SLEV: ......... Use: ";
-                  Use->shallowPrint(FOS);
-                  FOS << "\n";
+                  FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS);
+                  FOS << "\n"; FOS << "SLEV: ......... Use: ";
+                  Use->shallowPrint(FOS); FOS << "\n";
                   FOS << "SLEV: ......... Path: ";
-                  getCFG()->print(FOS, PartiallyKillingPath);
-                  FOS << "\n");
+                  getCFG()->print(FOS, PartiallyKillingPath); FOS << "\n");
 
             taint(Use, It.second);
             continue; // to next Use
@@ -611,42 +593,39 @@ void SIMDLaneEvolutionAnalysisBase::handleControlDivergence(SLEVInstruction* Sle
   }
 }
 
-void SIMDLaneEvolutionAnalysisBase::taint(AVR* Use,
-        const AvrDefUseBase::VarSetTy& Vars) {
+void SIMDLaneEvolutionAnalysisBase::taint(AVR *Use,
+                                          const AvrDefUseBase::VarSetTy &Vars) {
 
   assert(SLEVs.count(Use) && "Use without a SLEV?");
-  SLEVInstruction* Slev = SLEVs[Use];
-  std::set<SLEVInstruction*> Affected;
+  SLEVInstruction *Slev = SLEVs[Use];
+  std::set<SLEVInstruction *> Affected;
 
-  for (const void* Var : Vars)
+  for (const void *Var : Vars)
     Slev->taint(Var, Affected);
 
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "SLEV: ......... Tainted: ";
-        Slev->print(FOS, true);
-        FOS << "\n";
-        FOS << "SLEV: ............ Change affects:";
-        for (SLEVInstruction* T : Affected) {
+  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "SLEV: ......... Tainted: ";
+        Slev->print(FOS, true); FOS << "\n";
+        FOS << "SLEV: ............ Change affects:"; for (SLEVInstruction *T
+                                                          : Affected) {
           FOS << " ";
           T->print(FOS, true);
-        }
-        FOS << "\n");
+        } FOS << "\n");
 
   // Every SLEV actually tainted (unless already RANDOM) needs recalculation.
-  for (SLEVInstruction* T : Affected) {
+  for (SLEVInstruction *T : Affected) {
 
     if (!T->isRANDOM())
       AffectedNew->insert(T);
   }
 }
 
-void SIMDLaneEvolutionAnalysisBase::findPartiallyKillingPath(AvrBasicBlock* ConditionBB,
-        AvrBasicBlock* DefBB,
-        AvrCFGBase::PathTy& Result) {
+void SIMDLaneEvolutionAnalysisBase::findPartiallyKillingPath(
+    AvrBasicBlock *ConditionBB, AvrBasicBlock *DefBB,
+    AvrCFGBase::PathTy &Result) {
 
   // Look for a simple path Successor -> ConditionBB -> DefBB
 
-  for (AvrBasicBlock* Successor : ConditionBB->getSuccessors()) {
+  for (AvrBasicBlock *Successor : ConditionBB->getSuccessors()) {
 
     AvrCFGBase::PathTy PartiallyKillingDefSchema;
     PartiallyKillingDefSchema.push_back(Successor);
@@ -662,25 +641,24 @@ void SIMDLaneEvolutionAnalysisBase::findPartiallyKillingPath(AvrBasicBlock* Cond
   }
 }
 
-bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByLeakingIterations(AVR* Condition,
-                                                            AVR* Def,
-                                                            AVR* Use) {
+bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByLeakingIterations(
+    AVR *Condition, AVR *Def, AVR *Use) {
 
   // Does Def's loop leak iterations onto Use?
 
-  AvrBasicBlock* ConditionBB = getCFG()->getBasicBlock(Condition);
-  AvrBasicBlock* DefBB = getCFG()->getBasicBlock(Def);
-  AvrBasicBlock* UseBB = getCFG()->getBasicBlock(Use);
+  AvrBasicBlock *ConditionBB = getCFG()->getBasicBlock(Condition);
+  AvrBasicBlock *DefBB = getCFG()->getBasicBlock(Def);
+  AvrBasicBlock *UseBB = getCFG()->getBasicBlock(Use);
   assert(ConditionBB && "Condition not in CFG?");
   assert(DefBB && "Def not in CFG?");
   assert(UseBB && "Use not in CFG?");
 
 #ifdef HAS_LOOP_INFO
   bool UseInDefsLoop = false;
-  for (AVRLoop* UseLoop = Use->getParentLoop(); UseLoop != nullptr;
-      UseLoop = UseLoop->getParentLoop()) {
+  for (AVRLoop *UseLoop = Use->getParentLoop(); UseLoop != nullptr;
+       UseLoop = UseLoop->getParentLoop()) {
 
-      if (UseLoop == DefLoop) {
+    if (UseLoop == DefLoop) {
       UseInDefsLoop = true;
       break;
     }
@@ -692,7 +670,7 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByLeakingIterations(AVR* Conditi
   if (UseInDefsLoop)
     return false; // Use is inside Def's loop
 
-  for (AvrBasicBlock* Successor : ConditionBB->getSuccessors()) {
+  for (AvrBasicBlock *Successor : ConditionBB->getSuccessors()) {
 
     AvrCFGBase::PathTy LeakingIterationsSchema;
     LeakingIterationsSchema.push_back(Successor);
@@ -706,21 +684,16 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByLeakingIterations(AVR* Conditi
     LeakingIterationsSchema.push_back(UseBB);
 
     AvrCFGBase::PathTy Path =
-      getCFG()->findSimplePath(LeakingIterationsSchema, true);
+        getCFG()->findSimplePath(LeakingIterationsSchema, true);
 
     if (!Path.empty()) {
 
       // Yes. Taint this use.
       DEBUG(formatted_raw_ostream FOS(dbgs());
             FOS << "SLEV: ...... Leaking iterations detected:\n";
-            FOS << "SLEV: ......... Def: ";
-            Def->shallowPrint(FOS);
-            FOS << "\n";
-            FOS << "SLEV: ......... Use: ";
-            Use->shallowPrint(FOS);
-            FOS << "\n";
-            FOS << "SLEV: ......... Path: ";
-            getCFG()->print(FOS, Path);
+            FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS); FOS << "\n";
+            FOS << "SLEV: ......... Use: "; Use->shallowPrint(FOS); FOS << "\n";
+            FOS << "SLEV: ......... Path: "; getCFG()->print(FOS, Path);
             FOS << "\n");
       return true;
     }
@@ -729,16 +702,15 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByLeakingIterations(AVR* Conditi
   return false;
 }
 
-bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByTwoReachingDefs(AVR* Condition,
-                                                          AVR* Def,
-                                                          AVR* Use) {
+bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByTwoReachingDefs(
+    AVR *Condition, AVR *Def, AVR *Use) {
 
   // Is there a second Def (Def') reaching Use s.t. Def and Def' reach Use
   // by distinct paths (except the diverging condition and Use itself)?
 
-  AvrBasicBlock* ConditionBB = getCFG()->getBasicBlock(Condition);
-  AvrBasicBlock* DefBB = getCFG()->getBasicBlock(Def);
-  AvrBasicBlock* UseBB = getCFG()->getBasicBlock(Use);
+  AvrBasicBlock *ConditionBB = getCFG()->getBasicBlock(Condition);
+  AvrBasicBlock *DefBB = getCFG()->getBasicBlock(Def);
+  AvrBasicBlock *UseBB = getCFG()->getBasicBlock(Use);
   assert(ConditionBB && "Condition not in CFG?");
   assert(DefBB && "Def not in CFG?");
   assert(UseBB && "Use not in CFG?");
@@ -750,23 +722,23 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByTwoReachingDefs(AVR* Condition
   ConditionDefUseSchema.push_back(DefBB);
 
   std::set<AvrCFGBase::PathTy> ConditionDefUsePaths =
-    getCFG()->findSimplePaths(ConditionDefUseSchema, false, true);
+      getCFG()->findSimplePaths(ConditionDefUseSchema, false, true);
 
-  SmallPtrSet<const AvrBasicBlock*, 3> AllowedCommonBasicBlocksInPath;
+  SmallPtrSet<const AvrBasicBlock *, 3> AllowedCommonBasicBlocksInPath;
   AllowedCommonBasicBlocksInPath.insert(ConditionBB);
   AllowedCommonBasicBlocksInPath.insert(UseBB);
 
-  const auto& UsedVarsMap = getDefUse()->getUses(Def);
+  const auto &UsedVarsMap = getDefUse()->getUses(Def);
   assert(UsedVarsMap.count(Use) && "Def not related to Use?");
-  for (const void* Var : UsedVarsMap.find(Use)->second) {
+  for (const void *Var : UsedVarsMap.find(Use)->second) {
 
-    const AvrSetTy& ReachingDefs = getDefUse()->getReachingDefs(Use, Var);
-    for (AVR* ReachingDef : ReachingDefs) {
+    const AvrSetTy &ReachingDefs = getDefUse()->getReachingDefs(Use, Var);
+    for (AVR *ReachingDef : ReachingDefs) {
 
       if (ReachingDef == Def)
         continue;
 
-      AvrBasicBlock* ReachingDefBB = getCFG()->getBasicBlock(ReachingDef);
+      AvrBasicBlock *ReachingDefBB = getCFG()->getBasicBlock(ReachingDef);
 
       // Find all paths: Condition -> .. -> Reaching Def -> .. -> Use
       AvrCFGBase::PathTy C_RD_USchema;
@@ -776,34 +748,25 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByTwoReachingDefs(AVR* Condition
       C_RD_USchema.push_back(nullptr); // allow a gap
       C_RD_USchema.push_back(UseBB);
       std::set<AvrCFGBase::PathTy> C_RD_UPaths =
-        getCFG()->findSimplePaths(C_RD_USchema, false, true);
+          getCFG()->findSimplePaths(C_RD_USchema, false, true);
 
       // Check if the paths are distinct excluding Condition and Use.
-      DistinctPathsTy C_RD_UConflict =
-        findDistinctPaths(ConditionDefUsePaths,
-                          C_RD_UPaths,
-                          AllowedCommonBasicBlocksInPath);
+      DistinctPathsTy C_RD_UConflict = findDistinctPaths(
+          ConditionDefUsePaths, C_RD_UPaths, AllowedCommonBasicBlocksInPath);
 
       if (std::get<0>(C_RD_UConflict)) {
 
         // Yes. Taint this Use.
         DEBUG(formatted_raw_ostream FOS(dbgs());
               FOS << "SLEV: ...... Conflicting Defs detected:\n";
-              FOS << "SLEV: ......... Def: ";
-              Def->shallowPrint(FOS);
-              FOS << "\n";
-              FOS << "SLEV: ......... 2nd Def: ";
-              ReachingDef->shallowPrint(FOS);
-              FOS << "\n";
-              FOS << "SLEV: ......... Use: ";
-              Use->shallowPrint(FOS);
-              FOS << "\n";
-              FOS << "SLEV: ......... Path: ";
-              getCFG()->print(FOS, *std::get<1>(C_RD_UConflict));
-              FOS << "\n";
+              FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS);
+              FOS << "\n"; FOS << "SLEV: ......... 2nd Def: ";
+              ReachingDef->shallowPrint(FOS); FOS << "\n";
+              FOS << "SLEV: ......... Use: "; Use->shallowPrint(FOS);
+              FOS << "\n"; FOS << "SLEV: ......... Path: ";
+              getCFG()->print(FOS, *std::get<1>(C_RD_UConflict)); FOS << "\n";
               FOS << "SLEV: ......... 2nd Path: ";
-              getCFG()->print(FOS, *std::get<2>(C_RD_UConflict));
-              FOS << "\n");
+              getCFG()->print(FOS, *std::get<2>(C_RD_UConflict)); FOS << "\n");
         return true;
       }
 
@@ -815,34 +778,25 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByTwoReachingDefs(AVR* Condition
       RD_C_USchema.push_back(nullptr); // allow a gap
       RD_C_USchema.push_back(UseBB);
       std::set<AvrCFGBase::PathTy> RD_C_UPaths =
-        getCFG()->findSimplePaths(RD_C_USchema, false, true);
+          getCFG()->findSimplePaths(RD_C_USchema, false, true);
 
       // Check if the paths are distinct excluding Condition and Use.
-      DistinctPathsTy RD_C_UConflict =
-        findDistinctPaths(ConditionDefUsePaths,
-                          RD_C_UPaths,
-                          AllowedCommonBasicBlocksInPath);
+      DistinctPathsTy RD_C_UConflict = findDistinctPaths(
+          ConditionDefUsePaths, RD_C_UPaths, AllowedCommonBasicBlocksInPath);
 
       if (std::get<0>(RD_C_UConflict)) {
 
         // Yes. Taint this Use.
         DEBUG(formatted_raw_ostream FOS(dbgs());
               FOS << "SLEV: ...... Conflicting Defs detected:\n";
-              FOS << "SLEV: ......... Def: ";
-              Def->shallowPrint(FOS);
-              FOS << "\n";
-              FOS << "SLEV: ......... 2nd Def: ";
-              Def->shallowPrint(FOS);
-              FOS << "\n";
-              FOS << "SLEV: ......... Use: ";
-              Use->shallowPrint(FOS);
-              FOS << "\n";
-              FOS << "SLEV: ......... Path: ";
-              getCFG()->print(FOS, *std::get<1>(RD_C_UConflict));
-              FOS << "\n";
+              FOS << "SLEV: ......... Def: "; Def->shallowPrint(FOS);
+              FOS << "\n"; FOS << "SLEV: ......... 2nd Def: ";
+              Def->shallowPrint(FOS); FOS << "\n";
+              FOS << "SLEV: ......... Use: "; Use->shallowPrint(FOS);
+              FOS << "\n"; FOS << "SLEV: ......... Path: ";
+              getCFG()->print(FOS, *std::get<1>(RD_C_UConflict)); FOS << "\n";
               FOS << "SLEV: ......... 2nd Path: ";
-              getCFG()->print(FOS, *std::get<2>(RD_C_UConflict));
-              FOS << "\n");
+              getCFG()->print(FOS, *std::get<2>(RD_C_UConflict)); FOS << "\n");
 
         return true;
       }
@@ -852,22 +806,23 @@ bool SIMDLaneEvolutionAnalysisBase::isUseTaintedByTwoReachingDefs(AVR* Condition
   return false;
 }
 
-SIMDLaneEvolutionAnalysisBase::DistinctPathsTy SIMDLaneEvolutionAnalysisBase::findDistinctPaths(
-    const std::set<AvrCFGBase::PathTy>& Lefts,
-    const std::set<AvrCFGBase::PathTy>& Rights,
-    const SmallPtrSet<const AvrBasicBlock*, 3>& Except) const {
+SIMDLaneEvolutionAnalysisBase::DistinctPathsTy
+SIMDLaneEvolutionAnalysisBase::findDistinctPaths(
+    const std::set<AvrCFGBase::PathTy> &Lefts,
+    const std::set<AvrCFGBase::PathTy> &Rights,
+    const SmallPtrSet<const AvrBasicBlock *, 3> &Except) const {
 
-  for (const AvrCFGBase::PathTy& L : Lefts) {
+  for (const AvrCFGBase::PathTy &L : Lefts) {
 
-    SmallPtrSet<const AvrBasicBlock*, 32> Ls;
-    for (const AvrBasicBlock* BB : L)
+    SmallPtrSet<const AvrBasicBlock *, 32> Ls;
+    for (const AvrBasicBlock *BB : L)
       if (!Except.count(BB))
         Ls.insert(BB);
 
-    for (const AvrCFGBase::PathTy& R : Rights) {
+    for (const AvrCFGBase::PathTy &R : Rights) {
 
       bool FoundCommonNode = false;
-      for (const AvrBasicBlock* BB : R)
+      for (const AvrBasicBlock *BB : R)
         if (Ls.count(BB)) {
           FoundCommonNode = true;
           break;
@@ -887,7 +842,7 @@ void SIMDLaneEvolutionAnalysisBase::print(raw_ostream &OS) const {
 
   FOS << "AVR SIMD Lane Evolution Analysis:\n";
 
-  for (auto& Entry : SLEVs) {
+  for (auto &Entry : SLEVs) {
     Entry.first->shallowPrint(FOS);
     FOS << " ===> ";
     Entry.second->print(FOS, true);
@@ -913,21 +868,21 @@ void SIMDLaneEvolution::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
 }
 
-SLEVInstruction* SIMDLaneEvolutionAnalysis::constructValueSLEV(const Value* Val,
-                                                               const ReachingAvrsTy& ReachingVars) {
+SLEVInstruction *SIMDLaneEvolutionAnalysis::constructValueSLEV(
+    const Value *Val, const ReachingAvrsTy &ReachingVars) {
 
-  if (const ConstantInt* Const = dyn_cast<ConstantInt>(Val)) {
+  if (const ConstantInt *Const = dyn_cast<ConstantInt>(Val)) {
     return createPredefinedSLEV(SLEV(CONSTANT, APSInt(Const->getValue())));
   }
 
-  if (const ConstantFP* Const = dyn_cast<ConstantFP>(Val)) {
+  if (const ConstantFP *Const = dyn_cast<ConstantFP>(Val)) {
     return createPredefinedSLEV(SLEV(CONSTANT, Const->getValueAPF()));
   }
 
-  const auto& ReachingDefs = ReachingVars.find(Val);
+  const auto &ReachingDefs = ReachingVars.find(Val);
   if (ReachingDefs != ReachingVars.end()) {
-    SLEVUse* SU = new SLEVUse();
-    for (AVR* ReachingDef : ReachingDefs->second)
+    SLEVUse *SU = new SLEVUse();
+    for (AVR *ReachingDef : ReachingDefs->second)
       addReaching(SU, ReachingDef, Val);
     return SU;
   }
@@ -935,9 +890,9 @@ SLEVInstruction* SIMDLaneEvolutionAnalysis::constructValueSLEV(const Value* Val,
   return createPredefinedSLEV(UNIFORM);
 }
 
-void SIMDLaneEvolutionAnalysis::construct(AVRValueIR* AValueIR) {
+void SIMDLaneEvolutionAnalysis::construct(AVRValueIR *AValueIR) {
 
-  const Value* Val = AValueIR->getLLVMValue();
+  const Value *Val = AValueIR->getLLVMValue();
 
   if (InductionVariableDefs.count(AValueIR)) {
 
@@ -967,7 +922,7 @@ void SIMDLaneEvolutionAnalysis::construct(AVRValueIR* AValueIR) {
     return;
   }
 
-  const auto& ReachingVars = getDefUse()->getReachingDefs(AValueIR);
+  const auto &ReachingVars = getDefUse()->getReachingDefs(AValueIR);
 
   setSLEV(AValueIR, constructValueSLEV(Val, ReachingVars));
 }
@@ -981,11 +936,11 @@ void SIMDLaneEvolutionAnalysis::construct(AVRLabelIR *ALabelIR) {
 void SIMDLaneEvolutionAnalysis::construct(AVRPhiIR *APhiIR) {
 
   assert(isa<PHINode>(APhiIR->getLLVMInstruction()) && "Not a PHINode?");
-  PHINode* Phi = cast<PHINode>(APhiIR->getLLVMInstruction());
-  SLEVUse* SU = new SLEVUse();
+  PHINode *Phi = cast<PHINode>(APhiIR->getLLVMInstruction());
+  SLEVUse *SU = new SLEVUse();
 
-  for (const auto& Use : getDefUse()->getReachingDefs(APhiIR))
-    for (AVR* ReachingDef : Use.second)
+  for (const auto &Use : getDefUse()->getReachingDefs(APhiIR))
+    for (AVR *ReachingDef : Use.second)
       addReaching(SU, ReachingDef, Phi);
 
   setSLEV(APhiIR, SU);
@@ -993,23 +948,22 @@ void SIMDLaneEvolutionAnalysis::construct(AVRPhiIR *APhiIR) {
 
 void SIMDLaneEvolutionAnalysis::construct(AVRCallIR *ACallIR) {
 
-  SLEVInstruction* S;
+  SLEVInstruction *S;
 
   assert(isa<CallInst>(ACallIR->getLLVMInstruction()) && "Not a CallInst?");
-  const CallInst* Call = cast<CallInst>(ACallIR->getLLVMInstruction());
+  const CallInst *Call = cast<CallInst>(ACallIR->getLLVMInstruction());
 
   if (Call->doesNotAccessMemory() ||
       (Call->onlyAccessesArgMemory() && Call->onlyReadsMemory())) {
 
     // Functions that have no side effects are UNIFORM iff all their arguments
     // are.
-    const auto& ReachingVars = getDefUse()->getReachingDefs(ACallIR);
+    const auto &ReachingVars = getDefUse()->getReachingDefs(ACallIR);
     SLEVPreserveUniformity *SPU = new SLEVPreserveUniformity();
-    for (Value* Arg : Call->arg_operands())
+    for (Value *Arg : Call->arg_operands())
       SPU->addDependency(constructValueSLEV(Arg, ReachingVars));
     S = SPU;
-  }
-  else {
+  } else {
 
     // Can't assume anything about non-pure functions
     S = createPredefinedSLEV(RANDOM);
@@ -1021,7 +975,7 @@ void SIMDLaneEvolutionAnalysis::construct(AVRCallIR *ACallIR) {
 
 void SIMDLaneEvolutionAnalysis::construct(AVRReturnIR *AReturnIR) {
 
-  const auto& ReachingVars = getDefUse()->getReachingDefs(AReturnIR);
+  const auto &ReachingVars = getDefUse()->getReachingDefs(AReturnIR);
   const ReturnInst *Return = cast<ReturnInst>(AReturnIR->getLLVMInstruction());
   Value *ReturnValue = Return->getReturnValue();
 
@@ -1030,6 +984,7 @@ void SIMDLaneEvolutionAnalysis::construct(AVRReturnIR *AReturnIR) {
 }
 
 void SIMDLaneEvolutionAnalysis::construct(AVRSelect *ASelect) {
+  llvm_unreachable("Select not implemented yet in SLEV!");
 }
 
 void SIMDLaneEvolutionAnalysis::construct(AVRCompareIR *ACompareIR) {
@@ -1048,13 +1003,13 @@ void SIMDLaneEvolutionAnalysis::construct(AVRCompareIR *ACompareIR) {
     return;
   }
 
-  const auto& ReachingVars = getDefUse()->getReachingDefs(ACompareIR);
-  Instruction* Inst = ACompareIR->getLLVMInstruction();
+  const auto &ReachingVars = getDefUse()->getReachingDefs(ACompareIR);
+  Instruction *Inst = ACompareIR->getLLVMInstruction();
 
-  Value* LHS = Inst->getOperand(0);
-  SLEVInstruction* LHSSlev = constructValueSLEV(LHS, ReachingVars);
-  Value* RHS = Inst->getOperand(1);
-  SLEVInstruction* RHSSlev = constructValueSLEV(RHS, ReachingVars);
+  Value *LHS = Inst->getOperand(0);
+  SLEVInstruction *LHSSlev = constructValueSLEV(LHS, ReachingVars);
+  Value *RHS = Inst->getOperand(1);
+  SLEVInstruction *RHSSlev = constructValueSLEV(RHS, ReachingVars);
 
   setSLEV(ACompareIR, new SLEVCmp(*LHSSlev, *RHSSlev));
 }
@@ -1065,7 +1020,7 @@ void SIMDLaneEvolutionAnalysis::construct(AVRBranchIR *ABranchIR) {
   if (!Branch->isConditional())
     return;
 
-  const auto& ReachingVars = getDefUse()->getReachingDefs(ABranchIR);
+  const auto &ReachingVars = getDefUse()->getReachingDefs(ABranchIR);
   Value *Condition = Branch->getCondition();
 
   setSLEV(ABranchIR, constructValueSLEV(Condition, ReachingVars));
@@ -1073,7 +1028,7 @@ void SIMDLaneEvolutionAnalysis::construct(AVRBranchIR *ABranchIR) {
 
 void SIMDLaneEvolutionAnalysis::construct(AVRIfIR *AIfIR) {
 
-  AVR* Condition = AIfIR->getCondition();
+  AVR *Condition = AIfIR->getCondition();
 
   assert(SLEVs.count(Condition) && "Expected condition to have a SLEV by now");
 
@@ -1099,12 +1054,12 @@ void SIMDLaneEvolutionAnalysis::entering(AVRLoopIR *ALoopIR) {
   PHINode *IndVar = IRLoop->getCanonicalInductionVariable();
   assert(IndVar && "Underlying loop has no canonical induction variable");
 
-  const IR2AVRVisitor& IR2AVR = DefUse->getIR2AVR();
-  AVRPhi* AIndVar = cast<AVRPhi>(IR2AVR.getDefAVR(IndVar));
+  const IR2AVRVisitor &IR2AVR = DefUse->getIR2AVR();
+  AVRPhi *AIndVar = cast<AVRPhi>(IR2AVR.getDefAVR(IndVar));
 
-  for (auto& Incoming : AIndVar->getIncomingValues()) {
+  for (auto &Incoming : AIndVar->getIncomingValues()) {
 
-    AVRValue* IncomingValue = Incoming.first;
+    AVRValue *IncomingValue = Incoming.first;
     if (IncomingValue->isConstant())
       InductionVariableDefs.insert(IncomingValue);
   }
@@ -1141,24 +1096,23 @@ void SIMDLaneEvolutionAnalysis::exiting(AVRLoopIR *ALoopIR) {
 class SLEVPropagator {
 
 public:
-
   /// Visit Functions
   bool isDone() { return false; }
   bool skipRecursion(AVR *ANode) { return isa<AVRAssign>(ANode); }
-  void visit(AVR* ANode) {}
-  void postVisit(AVR* ANode) {}
-  void postVisit(AVRLoop* ALoop) {
+  void visit(AVR *ANode) {}
+  void postVisit(AVR *ANode) {}
+  void postVisit(AVRLoop *ALoop) {
     // TODO: a loop is divergent if any of its exits is, uniform otherwise.
   }
-  void visit(AVRIfHIR* AIfHIR) {
+  void visit(AVRIfHIR *AIfHIR) {
     // Propagate from condition's SLEV.
     AVRUtils::setSLEV(AIfHIR, AIfHIR->getCondition()->getSLEV());
   }
-  void visit(AVRSwitch* ASwitch) {
+  void visit(AVRSwitch *ASwitch) {
     // Propagate from condition's SLEV.
     AVRUtils::setSLEV(ASwitch, ASwitch->getCondition()->getSLEV());
   }
-  void visit(AVRAssign* AAssign) {
+  void visit(AVRAssign *AAssign) {
     // RHS' SLEV is the Assign's SLEV.
     assert(AAssign->hasRHS() && "Assign without an RHS");
     AVRUtils::setSLEV(AAssign, AAssign->getRHS()->getSLEV());
@@ -1172,12 +1126,12 @@ public:
     AVisitor.visit(AAssign->getLHS(), true, false, true /*RecurseInsideValues*/,
                    true);
   }
-  void visit(AVRExpression* AExpr) {
+  void visit(AVRExpression *AExpr) {
     // This is LHS - take its parent's SLEV.
     assert(AExpr->getParent() && "Expression without a parent");
     AVRUtils::setSLEV(AExpr, AExpr->getParent()->getSLEV());
   }
-  void visit(AVRValue* AValue) {
+  void visit(AVRValue *AValue) {
     // This is LHS - take its parent's SLEV.
     assert(AValue->getParent() && "AValue without a parent");
     AVRUtils::setSLEV(AValue, AValue->getParent()->getSLEV());
@@ -1187,11 +1141,11 @@ public:
 void SIMDLaneEvolutionAnalysisUtilBase::runOnAvr(AvrItr Begin, AvrItr End) {
 
   // Run the analysis.
-  SIMDLaneEvolutionAnalysisBase* Analysis = createAnalysis();
+  SIMDLaneEvolutionAnalysisBase *Analysis = createAnalysis();
   Analysis->runOnAvr(Begin, End, &ValuePrinterBase);
 
   // Write to the nodes we ran classified.
-  for (auto& It : Analysis->SLEVs) {
+  for (auto &It : Analysis->SLEVs) {
     AVRUtils::setSLEV(It.first, *It.second);
   }
 
@@ -1210,7 +1164,7 @@ bool SIMDLaneEvolution::runOnFunction(Function &F) {
     SLEV = nullptr;
   }
 
-  AVRGenerate* AV = &getAnalysis<AVRGenerate>();
+  AVRGenerate *AV = &getAnalysis<AVRGenerate>();
 
   if (AV->isAbstractLayerEmpty()) {
     return false;
@@ -1218,7 +1172,7 @@ bool SIMDLaneEvolution::runOnFunction(Function &F) {
 
   DEBUG(AV->dump(PrintNumber));
 
-  AvrDefUse* DefUse = &getAnalysis<AvrDefUse>();
+  AvrDefUse *DefUse = &getAnalysis<AvrDefUse>();
 
   SLEV = new SIMDLaneEvolutionAnalysis(DefUse);
   IRValuePrinter ValuePrinter;
@@ -1228,14 +1182,12 @@ bool SIMDLaneEvolution::runOnFunction(Function &F) {
 }
 
 INITIALIZE_PASS_BEGIN(SIMDLaneEvolutionHIR, "slev-hir",
-                      "VPO SIMD Lane Evolution Analysis for HIR",
-                      false, true)
+                      "VPO SIMD Lane Evolution Analysis for HIR", false, true)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
 INITIALIZE_PASS_DEPENDENCY(AvrDefUseHIR)
 INITIALIZE_PASS_DEPENDENCY(AVRDecomposeHIR)
 INITIALIZE_PASS_END(SIMDLaneEvolutionHIR, "slev-hir",
-                    "VPO SIMD Lane Evolution Analysis for HIR",
-                    false, true)
+                    "VPO SIMD Lane Evolution Analysis for HIR", false, true)
 
 char SIMDLaneEvolutionHIR::ID = 0;
 
@@ -1260,13 +1212,13 @@ void SIMDLaneEvolutionHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool SIMDLaneEvolutionHIR::runOnFunction(Function &F) {
 
-  AVRGenerateBase* AV = &getAnalysis<AVRGenerateHIR>();
+  AVRGenerateBase *AV = &getAnalysis<AVRGenerateHIR>();
 
   if (AV->isAbstractLayerEmpty()) {
     return false;
   }
 
-  AvrDefUseHIR* DefUseHIR = &getAnalysis<AvrDefUseHIR>();
+  AvrDefUseHIR *DefUseHIR = &getAnalysis<AvrDefUseHIR>();
 
   SLEV = new SIMDLaneEvolutionAnalysisHIR(DefUseHIR);
   IRValuePrinterHIR ValuePrinter;
@@ -1275,182 +1227,9 @@ bool SIMDLaneEvolutionHIR::runOnFunction(Function &F) {
   return false;
 }
 
-/// \brief Visitor class for SCEV expressions. Used for constructing SLEVs for
-/// nested blobs. Such blobs are opaque to the canon-expr, but SLEV needs to take
-/// into account the operations in the expression so it must dig into the SCEV
-/// expression.
-class NestedBLOBSLEVConstructor {
-
-private:
-
-  SIMDLaneEvolutionAnalysisHIR& SLEVHIR;
-  AVRValueHIR* AValueHIR;
-
-  SLEVInstruction* GeneratedSLEV;
-
-public:
-
-  NestedBLOBSLEVConstructor(SIMDLaneEvolutionAnalysisHIR& SH,
-                        AVRValueHIR* AVH) : SLEVHIR(SH), AValueHIR(AVH) {
-
-    GeneratedSLEV = nullptr;
-  }
-
-  SLEVInstruction* getGeneratedSLEV() { return GeneratedSLEV; }
-
-  void constructBlobSLEV(const SCEV *SC) {
-
-    unsigned BlobIndex = BlobUtils::findBlob(SC);
-    assert(BlobIndex != InvalidBlobIndex && "SCEV is not a Blob");
-
-    GeneratedSLEV = SLEVHIR.constructSLEV(AValueHIR, BlobIndex);
-    assert(GeneratedSLEV && "Failed to get a SLEV for Blob");
-  }
-
-  template<typename T> void constructUnarySLEV(const SCEV *SC) {
-
-    NestedBLOBSLEVConstructor OperandConstructor(SLEVHIR, AValueHIR);
-    SCEVTraversal<NestedBLOBSLEVConstructor> Visitor(OperandConstructor);
-
-    const SCEV* Operand = cast<SCEVCastExpr>(SC)->getOperand();
-    Visitor.visitAll(Operand);
-
-    GeneratedSLEV = new T(*OperandConstructor.GeneratedSLEV);
-  }
-
-  template<typename T> void constructBinarySLEV(const SCEV *SC) {
-
-    SmallVector<SLEVInstruction*, 2> OperandSLEVs;
-    for (const auto *Op : cast<SCEVNAryExpr>(SC)->operands()) {
-
-      NestedBLOBSLEVConstructor OperandConstructor(SLEVHIR, AValueHIR);
-      SCEVTraversal<NestedBLOBSLEVConstructor> Visitor(OperandConstructor);
-      Visitor.visitAll(Op);
-      OperandSLEVs.push_back(OperandConstructor.GeneratedSLEV);
-    }
-
-    assert(OperandSLEVs.size() == 2 && "SCEV type is not a binary operation");
-    GeneratedSLEV = new T(*OperandSLEVs[0], *OperandSLEVs[1]);
-  }
-
-  void constructPSUSLEV(const SCEV* SC) {
-
-    SLEVPreserveUniformity* PSU = new SLEVPreserveUniformity();
-    for (const auto *Op : cast<SCEVNAryExpr>(SC)->operands()) {
-
-      NestedBLOBSLEVConstructor OperandConstructor(SLEVHIR, AValueHIR);
-      SCEVTraversal<NestedBLOBSLEVConstructor> Visitor(OperandConstructor);
-      Visitor.visitAll(Op);
-      PSU->addDependency(OperandConstructor.GeneratedSLEV);
-    }
-
-    GeneratedSLEV = PSU;
-  }
-
-  bool follow(const SCEV *SC) {
-
-    switch (SC->getSCEVType()) {
-    case scConstant:
-    case scUnknown:
-      constructBlobSLEV(SC);
-      break;
-    case scTruncate:
-    case scZeroExtend:
-    case scSignExtend:
-      constructUnarySLEV<SLEVIdentity>(SC);
-      break;
-    case scAddExpr:
-      constructBinarySLEV<SLEVAdd>(SC);
-      break;
-    case scMulExpr:
-      constructBinarySLEV<SLEVMul>(SC);
-      break;
-    case scUDivExpr:
-      constructBinarySLEV<SLEVDiv>(SC);
-      break;
-    case scSMaxExpr:
-    case scUMaxExpr:
-      constructPSUSLEV(SC);
-      break;
-    case scAddRecExpr:
-      llvm_unreachable("Expected add-recs to be broken by canon-expr");
-    case scCouldNotCompute:
-      llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
-    default:
-      llvm_unreachable("Unknown SCEV kind!");
-    }
-
-    return !isDone();
-  }
-
-  bool isDone() const { return true; }
-};
-
-SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValueHIR,
-                                                             unsigned BlobIndex) {
-
-  BlobTy Blob = BlobUtils::getBlob(BlobIndex);
-  int64_t ConstInt;
-
-  if (BlobUtils::isConstantIntBlob(Blob, &ConstInt))
-    return createPredefinedSLEV(SLEV(CONSTANT, toAPSInt(ConstInt)));
-  
-  if (BlobUtils::isConstantFPBlob(Blob)) {
-
-    const SCEVUnknown* UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
-    ConstantFP* ConstFP = cast<ConstantFP>(UnknownSCEV->getValue());
-    return createPredefinedSLEV(SLEV(CONSTANT, ConstFP->getValueAPF()));
-  }
-
-  if (BlobUtils::isNestedBlob(Blob)) {
-
-    // This is a SCEV expression kept as-is during canon-expr construction (i.e.
-    // has an internal structure opaque to the canon-expr).
-    NestedBLOBSLEVConstructor NBSC(*this, AValueHIR);
-    SCEVTraversal<NestedBLOBSLEVConstructor> Visitor(NBSC);
-    Visitor.visitAll(Blob);
-    return NBSC.getGeneratedSLEV();
-  }
-
-  assert(isa<RegDDRef>(AValueHIR->getValue()) && "Expected a RegDDRef");
-  RegDDRef *RDDR = cast<RegDDRef>(AValueHIR->getValue());
-
-  DDRef* DDR = nullptr;
-  if (RDDR->isSelfBlob()) {
-
-    DDR = RDDR;
-  } else {
-
-    for (RegDDRef::const_blob_iterator It = RDDR->blob_cbegin(),
-                                       E = RDDR->blob_cend();
-         It != E; ++It) {
-
-      if ((*It)->getBlobIndex() == BlobIndex) {
-        DDR = *It;
-        break;
-      }
-    }
-  }
-  assert(DDR && "Blob has no BlobDDRef");
-  const AvrSetTy &ReachingDefs = getDefUse()->getReachingDefs(AValueHIR, DDR);
-  if (ReachingDefs.empty()) {
-
-    // No reaching Defs means this symbase is defined outside the WRN, which
-    // means it is UNIFORM within the WRN.
-    return createPredefinedSLEV(UNIFORM);
-  } else {
-
-    // At least one Def exists.
-    SLEVUse *SU = new SLEVUse();
-    for (AVR *ReachingDef : ReachingDefs)
-      addReaching(SU, ReachingDef, DDR);
-    return SU;
-  }
-}
-
 SLEVInstruction *
-SIMDLaneEvolutionAnalysisHIR::constructBasicSLEV(AVRValueHIR *AValueHIR,
-                                                 unsigned VectorizedDim) {
+SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR *AValueHIR,
+                                            unsigned VectorizedDim) {
 
   // SLEV for Constants
   if (AValueHIR->isConstant()) {
@@ -1493,98 +1272,6 @@ SIMDLaneEvolutionAnalysisHIR::constructBasicSLEV(AVRValueHIR *AValueHIR,
   llvm_unreachable("Unexpected decomposed AVRValueHIR");
 }
 
-SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValueHIR,
-      CanonExpr& CE,
-      unsigned VectorizedDim) {
-
-  SLEVInstruction* SLEVTree = nullptr;
-
-  // build SLEVs for IV coefficients.
-
-  for (unsigned Level = 1; Level < MaxLoopNestLevel; ++Level) {
-
-    if (!CE.hasIV(Level))
-      continue;
-
-    SLEVInstruction* IVSlev;
-    if (Level == VectorizedDim)
-      IVSlev = createPredefinedSLEV(SLEV(STRIDED, SLEV::One));
-    else
-      IVSlev = createPredefinedSLEV(UNIFORM);
-
-    unsigned BlobIndex;
-    int64_t Coeff;
-    CE.getIVCoeff(Level, &BlobIndex, &Coeff);
-
-    if (BlobIndex != InvalidBlobIndex) {
-
-      SLEVInstruction* BlobSlev = constructSLEV(AValueHIR, BlobIndex);
-      IVSlev = new SLEVMul(*BlobSlev, *IVSlev);
-    }
-
-    if (Coeff != 1) {
-
-      SLEVInstruction* CoeffSlev = createPredefinedSLEV(SLEV(CONSTANT,
-                                                             toAPSInt(Coeff)));
-      IVSlev = new SLEVMul(*CoeffSlev, *IVSlev);
-    }
-
-    if (SLEVTree == nullptr)
-      SLEVTree = IVSlev;
-    else {
-      SLEVTree = new SLEVAdd(*SLEVTree, *IVSlev);
-    }
-  }
-
-  // Build SLEVs for Blob coefficients.
-
-  for (auto It = CE.blob_begin(), E = CE.blob_end(); It != E; ++It) {
-
-    unsigned BlobIndex = CE.getBlobIndex(It);
-    SLEVInstruction* BlobSlev = constructSLEV(AValueHIR, BlobIndex);
-
-    int64_t Coeff = CE.getBlobCoeff(It);
-    if (Coeff != 1) {
-
-      SLEVInstruction* CoeffSlev = createPredefinedSLEV(SLEV(CONSTANT,
-                                                             toAPSInt(Coeff)));
-      BlobSlev = new SLEVMul(*CoeffSlev, *BlobSlev);
-    }
-
-    if (SLEVTree == nullptr)
-      SLEVTree = BlobSlev;
-    else {
-      SLEVTree = new SLEVAdd(*SLEVTree, *BlobSlev);
-    }
-  }
-
-  // Build a SLEV for the constant additive. We can skip a zero constant
-  // additive unless the SLEVTree is empty (which means the constant additive is
-  // the entire CE).
-
-  int64_t ConstantAdditive = CE.getConstant();
-  if (ConstantAdditive != 0 || SLEVTree == nullptr) {
-    SLEVInstruction* ConstantAdditiveSlev =
-      createPredefinedSLEV(SLEV(CONSTANT, toAPSInt(ConstantAdditive)));
-    if (SLEVTree == nullptr)
-      SLEVTree = ConstantAdditiveSlev;
-    else
-      SLEVTree = new SLEVAdd(*SLEVTree, *ConstantAdditiveSlev);
-  }
-
-  // Build a SLEV for the denominator.
-
-  int64_t Denominator = CE.getDenominator();
-  if (Denominator != 1) {
-    SLEVInstruction* DenominatorSlev =
-      createPredefinedSLEV(SLEV(CONSTANT, toAPSInt(Denominator)));
-    SLEVTree = new SLEVDiv(*SLEVTree, *DenominatorSlev);
-  }
-
-  assert(SLEVTree && "NO Slev constructed for canon-expr");
-  return SLEVTree;
-}
-
 void SIMDLaneEvolutionAnalysisHIR::construct(AVRValueHIR *AValueHIR) {
 
   assert(!AValueHIR->hasDecompTree() &&
@@ -1603,46 +1290,17 @@ void SIMDLaneEvolutionAnalysisHIR::construct(AVRValueHIR *AValueHIR) {
 
   // This AVR-VALUE-HIR is a computation, and as such is a Def and a Use and
   // should have a SLEV tracking its computation.
-  RegDDRef *RDDR = nullptr;
+  assert((AValueHIR->isIVValue() || isa<BlobDDRef>(AValueHIR->getValue()) ||
+          (isa<RegDDRef>(AValueHIR->getValue()) &&
+           cast<RegDDRef>(AValueHIR->getValue())->isTerminalRef())) &&
+         "Unexpected AVRValueHIR");
 
-  if (AValueHIR->isIVValue() || isa<BlobDDRef>(AValueHIR->getValue()) ||
-      ((RDDR = dyn_cast<RegDDRef>(AValueHIR->getValue())) &&
-       RDDR->isTerminalRef())) {
-
-    setSLEV(AValueHIR, constructBasicSLEV(AValueHIR, VectorizedDim));
-  } else {
-
-    assert(RDDR && "Expected a RegDDRef");
-
-    // This is a memory access (either a[i] or *p) - we construct a SLEV for
-    // the address it represents (the memory operation itself is represented
-    // explicitly in AVR (e.g. EXPR(load (VALUE(RegDDRef)))).
-
-    CanonExpr *BaseCE = RDDR->getBaseCE();
-    assert(BaseCE && "Expected memref to have a base");
-
-    SLEVInstruction *BaseSLEV =
-        constructSLEV(AValueHIR, *BaseCE, VectorizedDim);
-    unsigned BaseSize = 100; // TODO
-    SLEVAddress *AddressSlev = new SLEVAddress(BaseSLEV, BaseSize);
-    for (auto It = RDDR->canon_rbegin(), E = RDDR->canon_rend(); It != E;
-         ++It) {
-      CanonExpr *DimCE = *It;
-      SLEVInstruction *IndexSLEV =
-          constructSLEV(AValueHIR, *DimCE, VectorizedDim);
-      unsigned IndexSize = 100; // TODO
-      AddressSlev->addIndex(IndexSLEV, IndexSize);
-    }
-
-    setSLEV(AValueHIR, AddressSlev);
-  }
+  setSLEV(AValueHIR, constructSLEV(AValueHIR, VectorizedDim));
 }
 
-void SIMDLaneEvolutionAnalysisHIR::entering(AVRLoopHIR *ALoopHIR) {
-}
+void SIMDLaneEvolutionAnalysisHIR::entering(AVRLoopHIR *ALoopHIR) {}
 
-void SIMDLaneEvolutionAnalysisHIR::exiting(AVRLoopHIR *ALoopHIR) {
-}
+void SIMDLaneEvolutionAnalysisHIR::exiting(AVRLoopHIR *ALoopHIR) {}
 
 FunctionPass *llvm::createSIMDLaneEvolutionPass() {
   return new SIMDLaneEvolution();
