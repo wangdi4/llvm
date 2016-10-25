@@ -19,7 +19,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
-#include "llvm/Analysis/Intel_OptVLSClientUtils.h"
 
 #define DEBUG_TYPE "VPOScenarioEvaluation"
 

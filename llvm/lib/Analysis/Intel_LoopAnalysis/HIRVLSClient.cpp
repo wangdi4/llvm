@@ -164,3 +164,61 @@ bool HIRVLSClientMemref::setStridedAccess() {
 #endif
   return true;
 }
+
+// --------- client specific parts of the TTI Cost Model utilities
+
+// Helper function: Return the data type of the pointer that accesses Mrf.
+PointerType *getPtrType(const OVLSMemref &Mrf) {
+  assert(isa<HIRVLSClientMemref>(Mrf) && "Expecting HIR Memref.\n");
+  const RegDDRef *DDRef = (cast<HIRVLSClientMemref>(Mrf)).getRef();
+  assert(DDRef->hasGEPInfo() && "Expecting a memref DDReft, not a terminal");
+  const CanonExpr *CE = DDRef->getBaseCE();
+  PointerType *BaseTy = cast<PointerType>(CE->getSrcType());
+  return BaseTy;
+}
+
+// Helper function: Return the underlying LLVMIR Value of the pointer that
+// accesses Mrf.
+Value *getPtrVal(const OVLSMemref &Mrf) {
+  assert(isa<HIRVLSClientMemref>(Mrf) && "Expecting HIR Memref.\n");
+  const RegDDRef *DDRef = (cast<HIRVLSClientMemref>(Mrf)).getRef();
+  assert(DDRef->hasGEPInfo() && "Expecting a memref DDReft, not a terminal");
+  const HLNode *Node = DDRef->getHLDDNode();
+  const HLInst *INode = dyn_cast<HLInst>(Node);
+  assert(INode && "not an HLIInst Node");
+  const Instruction *ConstInst = INode->getLLVMInstruction();
+  Instruction *I = const_cast<Instruction *>(ConstInst);
+  StoreInst *SI = dyn_cast<StoreInst>(I);
+  LoadInst *LI = dyn_cast<LoadInst>(I);
+  Value *PtrVal = SI ? SI->getPointerOperand() : LI->getPointerOperand();
+  return PtrVal;
+}
+
+unsigned OVLSTTICostModelHIR::getMrfAddressSpace(const OVLSMemref &Mrf) const {
+  PointerType *BaseTy = getPtrType(Mrf);
+  return BaseTy->getPointerAddressSpace();
+}
+
+uint64_t
+OVLSTTICostModelHIR::getGatherScatterOpCost(const OVLSMemref &Mrf) const {
+  bool isLoad = Mrf.getAccessType().isStridedLoad();
+  uint64_t GatherScatterCost;
+  PointerType *BaseTy = getPtrType(Mrf);
+  Type *DataTy = BaseTy->getElementType();
+  bool isGatherOrScatterLegal = (isLoad && TTI.isLegalMaskedGather(DataTy)) ||
+                                (!isLoad && TTI.isLegalMaskedScatter(DataTy));
+  if (!isGatherOrScatterLegal)
+    return 0;
+  unsigned Opcode = isLoad ? Instruction::Load : Instruction::Store;
+  uint32_t NumElements = Mrf.getType().getNumElements();
+  assert(NumElements > 1 && "Unexpected NumElements");
+  Type *VectorTy = VectorType::get(DataTy, NumElements);
+  Value *PtrVal = getPtrVal(Mrf);
+  bool isMaskRequired = false; // TODO
+  unsigned Alignment = 0;      // TODO
+  GatherScatterCost = TTI.getGatherScatterOpCost(Opcode, VectorTy, PtrVal,
+                                                 isMaskRequired, Alignment);
+  GatherScatterCost += TTI.getAddressComputationCost(VectorTy);
+  return GatherScatterCost;
+}
+
