@@ -928,108 +928,6 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__sync_swap_4:
   case Builtin::BI__sync_swap_8:
   case Builtin::BI__sync_swap_16:
-#if INTEL_CUSTOMIZATION
-  case Builtin::BI__atomic_store_explicit:
-  case Builtin::BI__atomic_store_explicit_1:
-  case Builtin::BI__atomic_store_explicit_2:
-  case Builtin::BI__atomic_store_explicit_4:
-  case Builtin::BI__atomic_store_explicit_8:
-  case Builtin::BI__atomic_store_explicit_16:
-  case Builtin::BI__atomic_load_explicit:
-  case Builtin::BI__atomic_load_explicit_1:
-  case Builtin::BI__atomic_load_explicit_2:
-  case Builtin::BI__atomic_load_explicit_4:
-  case Builtin::BI__atomic_load_explicit_8:
-  case Builtin::BI__atomic_load_explicit_16:
-  case Builtin::BI__atomic_exchange_explicit:
-  case Builtin::BI__atomic_exchange_explicit_1:
-  case Builtin::BI__atomic_exchange_explicit_2:
-  case Builtin::BI__atomic_exchange_explicit_4:
-  case Builtin::BI__atomic_exchange_explicit_8:
-  case Builtin::BI__atomic_exchange_explicit_16:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_1:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_2:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_4:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_8:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_1:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_2:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_4:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_8:
-  case Builtin::BI__atomic_fetch_add_explicit:
-  case Builtin::BI__atomic_fetch_add_explicit_1:
-  case Builtin::BI__atomic_fetch_add_explicit_2:
-  case Builtin::BI__atomic_fetch_add_explicit_4:
-  case Builtin::BI__atomic_fetch_add_explicit_8:
-  case Builtin::BI__atomic_fetch_add_explicit_16:
-  case Builtin::BI__atomic_fetch_sub_explicit:
-  case Builtin::BI__atomic_fetch_sub_explicit_1:
-  case Builtin::BI__atomic_fetch_sub_explicit_2:
-  case Builtin::BI__atomic_fetch_sub_explicit_4:
-  case Builtin::BI__atomic_fetch_sub_explicit_8:
-  case Builtin::BI__atomic_fetch_sub_explicit_16:
-  case Builtin::BI__atomic_fetch_and_explicit:
-  case Builtin::BI__atomic_fetch_and_explicit_1:
-  case Builtin::BI__atomic_fetch_and_explicit_2:
-  case Builtin::BI__atomic_fetch_and_explicit_4:
-  case Builtin::BI__atomic_fetch_and_explicit_8:
-  case Builtin::BI__atomic_fetch_and_explicit_16:
-  case Builtin::BI__atomic_fetch_nand_explicit:
-  case Builtin::BI__atomic_fetch_nand_explicit_1:
-  case Builtin::BI__atomic_fetch_nand_explicit_2:
-  case Builtin::BI__atomic_fetch_nand_explicit_4:
-  case Builtin::BI__atomic_fetch_nand_explicit_8:
-  case Builtin::BI__atomic_fetch_nand_explicit_16:
-  case Builtin::BI__atomic_fetch_or_explicit:
-  case Builtin::BI__atomic_fetch_or_explicit_1:
-  case Builtin::BI__atomic_fetch_or_explicit_2:
-  case Builtin::BI__atomic_fetch_or_explicit_4:
-  case Builtin::BI__atomic_fetch_or_explicit_8:
-  case Builtin::BI__atomic_fetch_or_explicit_16:
-  case Builtin::BI__atomic_fetch_xor_explicit:
-  case Builtin::BI__atomic_fetch_xor_explicit_1:
-  case Builtin::BI__atomic_fetch_xor_explicit_2:
-  case Builtin::BI__atomic_fetch_xor_explicit_4:
-  case Builtin::BI__atomic_fetch_xor_explicit_8:
-  case Builtin::BI__atomic_fetch_xor_explicit_16:
-  case Builtin::BI__atomic_add_fetch_explicit:
-  case Builtin::BI__atomic_add_fetch_explicit_1:
-  case Builtin::BI__atomic_add_fetch_explicit_2:
-  case Builtin::BI__atomic_add_fetch_explicit_4:
-  case Builtin::BI__atomic_add_fetch_explicit_8:
-  case Builtin::BI__atomic_add_fetch_explicit_16:
-  case Builtin::BI__atomic_sub_fetch_explicit:
-  case Builtin::BI__atomic_sub_fetch_explicit_1:
-  case Builtin::BI__atomic_sub_fetch_explicit_2:
-  case Builtin::BI__atomic_sub_fetch_explicit_4:
-  case Builtin::BI__atomic_sub_fetch_explicit_8:
-  case Builtin::BI__atomic_sub_fetch_explicit_16:
-  case Builtin::BI__atomic_and_fetch_explicit:
-  case Builtin::BI__atomic_and_fetch_explicit_1:
-  case Builtin::BI__atomic_and_fetch_explicit_2:
-  case Builtin::BI__atomic_and_fetch_explicit_4:
-  case Builtin::BI__atomic_and_fetch_explicit_8:
-  case Builtin::BI__atomic_and_fetch_explicit_16:
-  case Builtin::BI__atomic_nand_fetch_explicit:
-  case Builtin::BI__atomic_nand_fetch_explicit_1:
-  case Builtin::BI__atomic_nand_fetch_explicit_2:
-  case Builtin::BI__atomic_nand_fetch_explicit_4:
-  case Builtin::BI__atomic_nand_fetch_explicit_8:
-  case Builtin::BI__atomic_nand_fetch_explicit_16:
-  case Builtin::BI__atomic_or_fetch_explicit:
-  case Builtin::BI__atomic_or_fetch_explicit_1:
-  case Builtin::BI__atomic_or_fetch_explicit_2:
-  case Builtin::BI__atomic_or_fetch_explicit_4:
-  case Builtin::BI__atomic_or_fetch_explicit_8:
-  case Builtin::BI__atomic_or_fetch_explicit_16:
-  case Builtin::BI__atomic_xor_fetch_explicit:
-  case Builtin::BI__atomic_xor_fetch_explicit_1:
-  case Builtin::BI__atomic_xor_fetch_explicit_2:
-  case Builtin::BI__atomic_xor_fetch_explicit_4:
-  case Builtin::BI__atomic_xor_fetch_explicit_8:
-  case Builtin::BI__atomic_xor_fetch_explicit_16:
-#endif  // INTEL_CUSTOMIZATION
     return SemaBuiltinAtomicOverloaded(TheCallResult);
   case Builtin::BI__builtin_nontemporal_load:
   case Builtin::BI__builtin_nontemporal_store:
@@ -2500,12 +2398,28 @@ static bool isValidOrderingForOp(int64_t Ordering, AtomicExpr::AtomicOp Op) {
   case AtomicExpr::AO__c11_atomic_init:
     llvm_unreachable("There is no ordering argument for an init");
 
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_load_explicit:
+  case AtomicExpr::AO__atomic_load_explicit_1:
+  case AtomicExpr::AO__atomic_load_explicit_2:
+  case AtomicExpr::AO__atomic_load_explicit_4:
+  case AtomicExpr::AO__atomic_load_explicit_8:
+  case AtomicExpr::AO__atomic_load_explicit_16:
+#endif //INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_load:
   case AtomicExpr::AO__atomic_load_n:
   case AtomicExpr::AO__atomic_load:
     return OrderingCABI != llvm::AtomicOrderingCABI::release &&
            OrderingCABI != llvm::AtomicOrderingCABI::acq_rel;
 
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_store_explicit:
+  case AtomicExpr::AO__atomic_store_explicit_1:
+  case AtomicExpr::AO__atomic_store_explicit_2:
+  case AtomicExpr::AO__atomic_store_explicit_4:
+  case AtomicExpr::AO__atomic_store_explicit_8:
+  case AtomicExpr::AO__atomic_store_explicit_16:
+#endif //INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_store:
   case AtomicExpr::AO__atomic_store:
   case AtomicExpr::AO__atomic_store_n:
@@ -2517,6 +2431,105 @@ static bool isValidOrderingForOp(int64_t Ordering, AtomicExpr::AtomicOp Op) {
     return true;
   }
 }
+
+#if INTEL_CUSTOMIZATION
+static unsigned IntelTypeCoerceSizeCalc(AtomicExpr::AtomicOp p) {
+  switch (p) {
+  case AtomicExpr::AO__atomic_store_explicit_1:
+  case AtomicExpr::AO__atomic_load_explicit_1:
+  case AtomicExpr::AO__atomic_exchange_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_1:
+    return 1;
+  case AtomicExpr::AO__atomic_store_explicit_2:
+  case AtomicExpr::AO__atomic_load_explicit_2:
+  case AtomicExpr::AO__atomic_exchange_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_2:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_2:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_2:
+    return 2;
+  case AtomicExpr::AO__atomic_store_explicit_4:
+  case AtomicExpr::AO__atomic_load_explicit_4:
+  case AtomicExpr::AO__atomic_exchange_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_4:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_4:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_4:
+    return 4;
+  case AtomicExpr::AO__atomic_store_explicit_8:
+  case AtomicExpr::AO__atomic_load_explicit_8:
+  case AtomicExpr::AO__atomic_exchange_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_8:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_8:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_8:
+    return 8;
+  case AtomicExpr::AO__atomic_store_explicit_16:
+  case AtomicExpr::AO__atomic_load_explicit_16:
+  case AtomicExpr::AO__atomic_exchange_explicit_16:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_16:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
+    return 16;
+  default: 
+    return 0;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
                                          AtomicExpr::AtomicOp Op) {
@@ -2541,11 +2554,13 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     GNUXchg,
     // bool __c11_atomic_compare_exchange_strong(A *, C *, CP, int, int)
     C11CmpXchg,
+    // bool __atomic_compare_exchange_weak_explicit(A*, C*, C, int, int) // INTEL
+    IntelCmpXchg,  // INTEL
     // bool __atomic_compare_exchange(A *, C *, CP, bool, int, int)
     GNUCmpXchg
   } Form = Init;
-  const unsigned NumArgs[] = { 2, 2, 3, 3, 3, 3, 4, 5, 6 };
-  const unsigned NumVals[] = { 1, 0, 1, 1, 1, 1, 2, 2, 3 };
+  const unsigned NumArgs[] = { 2, 2, 3, 3, 3, 3, 4, 5, 5, 6 }; // INTEL
+  const unsigned NumVals[] = { 1, 0, 1, 1, 1, 1, 2, 2, 2, 3 }; // INTEL
   // where:
   //   C is an appropriate type,
   //   A is volatile _Atomic(C) for __c11 builtins and is C for GNU builtins,
@@ -2564,6 +2579,10 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
              Op == AtomicExpr::AO__atomic_exchange_n ||
              Op == AtomicExpr::AO__atomic_compare_exchange_n;
   bool IsAddSub = false;
+  // Used for the Intel versions where we type-coerce the _N values to match
+  // the function, rather than erroring on mismatch, so these are used to store
+  // that we need to coerce, and what size to coerce to.
+  unsigned IntelTypeCoerceSize = IntelTypeCoerceSizeCalc(Op); // INTEL
 
   switch (Op) {
   case AtomicExpr::AO__c11_atomic_init:
@@ -2606,6 +2625,128 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   case AtomicExpr::AO__atomic_nand_fetch:
     Form = Arithmetic;
     break;
+
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_store_explicit_1:
+  case AtomicExpr::AO__atomic_store_explicit_2:
+  case AtomicExpr::AO__atomic_store_explicit_4:
+  case AtomicExpr::AO__atomic_store_explicit_8:
+  case AtomicExpr::AO__atomic_store_explicit_16:
+  case AtomicExpr::AO__atomic_store_explicit:
+    Form = Copy;
+    IsN = true;
+    break;
+  case AtomicExpr::AO__atomic_load_explicit_1:
+  case AtomicExpr::AO__atomic_load_explicit_2:
+  case AtomicExpr::AO__atomic_load_explicit_4:
+  case AtomicExpr::AO__atomic_load_explicit_8:
+  case AtomicExpr::AO__atomic_load_explicit_16:
+  case AtomicExpr::AO__atomic_load_explicit:
+    Form = Load;
+    IsN = true;
+    break;
+  case AtomicExpr::AO__atomic_exchange_explicit_1:
+  case AtomicExpr::AO__atomic_exchange_explicit_2:
+  case AtomicExpr::AO__atomic_exchange_explicit_4:
+  case AtomicExpr::AO__atomic_exchange_explicit_8:
+  case AtomicExpr::AO__atomic_exchange_explicit_16:
+  case AtomicExpr::AO__atomic_exchange_explicit:
+    Form = Xchg;
+    IsN = true;
+    break;
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_16:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit:
+    Form = IntelCmpXchg;
+    IsN = true;
+    break;
+  case AtomicExpr::AO__atomic_fetch_add_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_2:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_4:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_8:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_add_explicit:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit:
+  case AtomicExpr::AO__atomic_add_fetch_explicit:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit:
+    IsAddSub = true;
+    Form = Arithmetic;
+    break;
+  case AtomicExpr::AO__atomic_fetch_and_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_2:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_4:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_8:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_and_explicit:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit:
+  case AtomicExpr::AO__atomic_fetch_or_explicit:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit:
+  case AtomicExpr::AO__atomic_and_fetch_explicit:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit:
+  case AtomicExpr::AO__atomic_or_fetch_explicit:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit:
+    Form = Arithmetic;
+    break;
+#endif // INTEL_CUSTOMIZATION
 
   case AtomicExpr::AO__c11_atomic_exchange:
   case AtomicExpr::AO__atomic_exchange_n:
@@ -2680,15 +2821,19 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
 
   // For an arithmetic operation, the implied arithmetic must be well-formed.
   if (Form == Arithmetic) {
-    // gcc does not enforce these rules for GNU atomics, but we do so for sanity.
-    if (IsAddSub && !ValType->isIntegerType() && !ValType->isPointerType()) {
+    // gcc does not enforce these rules for GNU atomics, but we do so for
+    // sanity.
+    if (IntelTypeCoerceSize == 0 && // INTEL
+        IsAddSub && !ValType->isIntegerType() &&
+        !ValType->isPointerType()) { // INTEL
       Diag(DRE->getLocStart(), diag::err_atomic_op_needs_atomic_int_or_ptr)
-        << IsC11 << Ptr->getType() << Ptr->getSourceRange();
+          << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
-    if (!IsAddSub && !ValType->isIntegerType()) {
+    if (IntelTypeCoerceSize == 0 && !IsAddSub &&
+        !ValType->isIntegerType()) { // INTEL
       Diag(DRE->getLocStart(), diag::err_atomic_op_bitwise_needs_atomic_int)
-        << IsC11 << Ptr->getType() << Ptr->getSourceRange();
+          << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
     if (IsC11 && ValType->isPointerType() &&
@@ -2696,15 +2841,18 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
                             diag::err_incomplete_type)) {
       return ExprError();
     }
-  } else if (IsN && !ValType->isIntegerType() && !ValType->isPointerType()) {
+  } else if (IntelTypeCoerceSize == 0 && // INTEL
+             IsN && !ValType->isIntegerType() &&
+             !ValType->isPointerType()) { // INTEL
     // For __atomic_*_n operations, the value type must be a scalar integral or
     // pointer type which is 1, 2, 4, 8 or 16 bytes in length.
     Diag(DRE->getLocStart(), diag::err_atomic_op_needs_atomic_int_or_ptr)
-      << IsC11 << Ptr->getType() << Ptr->getSourceRange();
+        << IsC11 << Ptr->getType() << Ptr->getSourceRange();
     return ExprError();
   }
 
   if (!IsC11 && !AtomTy.isTriviallyCopyableType(Context) &&
+      (IntelTypeCoerceSize == 0 || !AtomTy->isVoidType()) && // INTEL
       !AtomTy->isScalarType()) {
     // For GNU atomics, require a trivially-copyable type. This is not part of
     // the GNU atomics specification, but we enforce it for sanity.
@@ -2729,6 +2877,41 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     return ExprError();
   }
 
+#if INTEL_CUSTOMIZATION
+  if (IntelTypeCoerceSize != 0) {
+    switch (IntelTypeCoerceSize) {
+    case 1:
+      ValType = Context.CharTy;
+      break;
+    case 2:
+      ValType = Context.ShortTy;
+      break;
+    case 4:
+      ValType = Context.IntTy;
+      break;
+    case 8:
+      ValType = Context.LongTy;
+      break;
+    case 16:
+      ValType = Context.Int128Ty;
+      break;
+    }
+    assert(Context.getTypeSizeInChars(ValType).getQuantity() ==
+           IntelTypeCoerceSize);
+
+    if (AtomTy->isVoidType() || !AtomTy->isScalarType()) {
+      // Allowing void pointer and struct-type pointers requires
+      // conversion.
+      auto CastType = Context.getPointerType(ValType);
+      auto Cast = CStyleCastExpr::Create(
+          Context, CastType, Ptr->getValueKind(), CK_BitCast, Ptr, nullptr,
+          Context.getTrivialTypeSourceInfo(CastType, SourceLocation()),
+          SourceLocation(), SourceLocation());
+      Ptr = Cast;
+    }
+  }
+#endif //INTEL_CUSTOMIZATION
+
   // atomic_fetch_or takes a pointer to a volatile 'A'.  We shouldn't let the
   // volatile-ness of the pointee-type inject itself into the result or the
   // other operands. Similarly atomic_load can take a pointer to a const 'A'.
@@ -2737,7 +2920,8 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   QualType ResultType = ValType;
   if (Form == Copy || Form == LoadCopy || Form == GNUXchg || Form == Init)
     ResultType = Context.VoidTy;
-  else if (Form == C11CmpXchg || Form == GNUCmpXchg)
+  else if (Form == C11CmpXchg || Form == GNUCmpXchg ||
+           Form == IntelCmpXchg) // INTEL
     ResultType = Context.BoolTy;
 
   // The type of a parameter passed 'by value'. In the GNU atomics, such
@@ -2775,6 +2959,24 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
           }
           Ty = Context.getPointerType(
               Context.getAddrSpaceQualType(ValType.getUnqualifiedType(), AS));
+#if INTEL_CUSTOMIZATION
+          if (IntelTypeCoerceSize != 0) { 
+            // Cast the 3rd param to silence the warning
+            auto tmp = TheCall->getArg(i);
+            // Only valid if tmp is a ptr!
+            if (!tmp->getType()->isPointerType()) {
+              Diag(DRE->getLocStart(), diag::err_atomic_builtin_must_be_pointer)
+                << tmp->getType() << tmp->getSourceRange();
+              return ExprError();
+            }
+
+            auto Cast = CStyleCastExpr::Create( 
+                Context, Ty, tmp->getValueKind(), CK_BitCast, tmp, nullptr,
+                Context.getTrivialTypeSourceInfo(Ty, SourceLocation()),
+                SourceLocation(), SourceLocation());
+            TheCall->setArg(i, Cast);
+          }
+#endif // INTEL_CUSTOMIZATION
         }
         break;
       case 2:
@@ -2831,6 +3033,14 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     SubExprs.push_back(TheCall->getArg(4)); // OrderFail
     SubExprs.push_back(TheCall->getArg(2)); // Val2
     break;
+#if INTEL_CUSTOMIZATION
+  case IntelCmpXchg:
+    SubExprs.push_back(TheCall->getArg(3)); // Order
+    SubExprs.push_back(TheCall->getArg(1)); // Val1
+    SubExprs.push_back(TheCall->getArg(4)); // OrderFail
+    SubExprs.push_back(TheCall->getArg(2)); // Val2
+    break;
+#endif // INTEL_CUSTOMIZATION
   case GNUCmpXchg:
     SubExprs.push_back(TheCall->getArg(4)); // Order
     SubExprs.push_back(TheCall->getArg(1)); // Val1
@@ -2983,26 +3193,6 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     BUILTIN_ROW(__sync_lock_test_and_set),
     BUILTIN_ROW(__sync_lock_release),
     BUILTIN_ROW(__sync_swap)
-#if INTEL_CUSTOMIZATION
-        ,
-    BUILTIN_ROW(__atomic_store_explicit),
-    BUILTIN_ROW(__atomic_load_explicit),
-    BUILTIN_ROW(__atomic_exchange_explicit),
-    BUILTIN_ROW(__atomic_compare_exchange_weak_explicit),
-    BUILTIN_ROW(__atomic_compare_exchange_strong_explicit),
-    BUILTIN_ROW(__atomic_fetch_add_explicit),
-    BUILTIN_ROW(__atomic_fetch_sub_explicit),
-    BUILTIN_ROW(__atomic_fetch_and_explicit),
-    BUILTIN_ROW(__atomic_fetch_nand_explicit),
-    BUILTIN_ROW(__atomic_fetch_or_explicit),
-    BUILTIN_ROW(__atomic_fetch_xor_explicit),
-    BUILTIN_ROW(__atomic_add_fetch_explicit),
-    BUILTIN_ROW(__atomic_sub_fetch_explicit),
-    BUILTIN_ROW(__atomic_and_fetch_explicit),
-    BUILTIN_ROW(__atomic_nand_fetch_explicit),
-    BUILTIN_ROW(__atomic_or_fetch_explicit),
-    BUILTIN_ROW(__atomic_xor_fetch_explicit)
-#endif  // INTEL_CUSTOMIZATION
   };
 #undef BUILTIN_ROW
 
@@ -3188,166 +3378,6 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
   case Builtin::BI__sync_swap_16:
     BuiltinIndex = 16; 
     break;
-#if INTEL_CUSTOMIZATION
-  case Builtin::BI__atomic_store_explicit:
-  case Builtin::BI__atomic_store_explicit_1:
-  case Builtin::BI__atomic_store_explicit_2:
-  case Builtin::BI__atomic_store_explicit_4:
-  case Builtin::BI__atomic_store_explicit_8:
-  case Builtin::BI__atomic_store_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 17;
-    ResultType = Context.VoidTy;
-    break;
-
-  case Builtin::BI__atomic_load_explicit:
-  case Builtin::BI__atomic_load_explicit_1:
-  case Builtin::BI__atomic_load_explicit_2:
-  case Builtin::BI__atomic_load_explicit_4:
-  case Builtin::BI__atomic_load_explicit_8:
-  case Builtin::BI__atomic_load_explicit_16:
-    NumFixed = 1;
-    BuiltinIndex = 18;
-    break;
-
-  case Builtin::BI__atomic_exchange_explicit:
-  case Builtin::BI__atomic_exchange_explicit_1:
-  case Builtin::BI__atomic_exchange_explicit_2:
-  case Builtin::BI__atomic_exchange_explicit_4:
-  case Builtin::BI__atomic_exchange_explicit_8:
-  case Builtin::BI__atomic_exchange_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 19;
-    break;
-
-  case Builtin::BI__atomic_compare_exchange_weak_explicit:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_1:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_2:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_4:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_8:
-    NumFixed = 4;
-    BuiltinIndex = 20;
-    ResultType = Context.IntTy;
-    break;
-
-  case Builtin::BI__atomic_compare_exchange_strong_explicit:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_1:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_2:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_4:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_8:
-    NumFixed = 4;
-    BuiltinIndex = 21;
-    ResultType = Context.IntTy;
-    break;
-  case Builtin::BI__atomic_fetch_add_explicit:
-  case Builtin::BI__atomic_fetch_add_explicit_1:
-  case Builtin::BI__atomic_fetch_add_explicit_2:
-  case Builtin::BI__atomic_fetch_add_explicit_4:
-  case Builtin::BI__atomic_fetch_add_explicit_8:
-  case Builtin::BI__atomic_fetch_add_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 22;
-    break;
-  case Builtin::BI__atomic_fetch_sub_explicit:
-  case Builtin::BI__atomic_fetch_sub_explicit_1:
-  case Builtin::BI__atomic_fetch_sub_explicit_2:
-  case Builtin::BI__atomic_fetch_sub_explicit_4:
-  case Builtin::BI__atomic_fetch_sub_explicit_8:
-  case Builtin::BI__atomic_fetch_sub_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 23;
-    break;
-  case Builtin::BI__atomic_fetch_and_explicit:
-  case Builtin::BI__atomic_fetch_and_explicit_1:
-  case Builtin::BI__atomic_fetch_and_explicit_2:
-  case Builtin::BI__atomic_fetch_and_explicit_4:
-  case Builtin::BI__atomic_fetch_and_explicit_8:
-  case Builtin::BI__atomic_fetch_and_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 24;
-    break;
-  case Builtin::BI__atomic_fetch_nand_explicit:
-  case Builtin::BI__atomic_fetch_nand_explicit_1:
-  case Builtin::BI__atomic_fetch_nand_explicit_2:
-  case Builtin::BI__atomic_fetch_nand_explicit_4:
-  case Builtin::BI__atomic_fetch_nand_explicit_8:
-  case Builtin::BI__atomic_fetch_nand_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 25;
-    break;
-  case Builtin::BI__atomic_fetch_or_explicit:
-  case Builtin::BI__atomic_fetch_or_explicit_1:
-  case Builtin::BI__atomic_fetch_or_explicit_2:
-  case Builtin::BI__atomic_fetch_or_explicit_4:
-  case Builtin::BI__atomic_fetch_or_explicit_8:
-  case Builtin::BI__atomic_fetch_or_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 26;
-    break;
-  case Builtin::BI__atomic_fetch_xor_explicit:
-  case Builtin::BI__atomic_fetch_xor_explicit_1:
-  case Builtin::BI__atomic_fetch_xor_explicit_2:
-  case Builtin::BI__atomic_fetch_xor_explicit_4:
-  case Builtin::BI__atomic_fetch_xor_explicit_8:
-  case Builtin::BI__atomic_fetch_xor_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 27;
-    break;
-  case Builtin::BI__atomic_add_fetch_explicit:
-  case Builtin::BI__atomic_add_fetch_explicit_1:
-  case Builtin::BI__atomic_add_fetch_explicit_2:
-  case Builtin::BI__atomic_add_fetch_explicit_4:
-  case Builtin::BI__atomic_add_fetch_explicit_8:
-  case Builtin::BI__atomic_add_fetch_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 28;
-    break;
-  case Builtin::BI__atomic_sub_fetch_explicit:
-  case Builtin::BI__atomic_sub_fetch_explicit_1:
-  case Builtin::BI__atomic_sub_fetch_explicit_2:
-  case Builtin::BI__atomic_sub_fetch_explicit_4:
-  case Builtin::BI__atomic_sub_fetch_explicit_8:
-  case Builtin::BI__atomic_sub_fetch_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 29;
-    break;
-  case Builtin::BI__atomic_and_fetch_explicit:
-  case Builtin::BI__atomic_and_fetch_explicit_1:
-  case Builtin::BI__atomic_and_fetch_explicit_2:
-  case Builtin::BI__atomic_and_fetch_explicit_4:
-  case Builtin::BI__atomic_and_fetch_explicit_8:
-  case Builtin::BI__atomic_and_fetch_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 30;
-    break;
-  case Builtin::BI__atomic_nand_fetch_explicit:
-  case Builtin::BI__atomic_nand_fetch_explicit_1:
-  case Builtin::BI__atomic_nand_fetch_explicit_2:
-  case Builtin::BI__atomic_nand_fetch_explicit_4:
-  case Builtin::BI__atomic_nand_fetch_explicit_8:
-  case Builtin::BI__atomic_nand_fetch_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 31;
-    break;
-  case Builtin::BI__atomic_or_fetch_explicit:
-  case Builtin::BI__atomic_or_fetch_explicit_1:
-  case Builtin::BI__atomic_or_fetch_explicit_2:
-  case Builtin::BI__atomic_or_fetch_explicit_4:
-  case Builtin::BI__atomic_or_fetch_explicit_8:
-  case Builtin::BI__atomic_or_fetch_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 32;
-    break;
-  case Builtin::BI__atomic_xor_fetch_explicit:
-  case Builtin::BI__atomic_xor_fetch_explicit_1:
-  case Builtin::BI__atomic_xor_fetch_explicit_2:
-  case Builtin::BI__atomic_xor_fetch_explicit_4:
-  case Builtin::BI__atomic_xor_fetch_explicit_8:
-  case Builtin::BI__atomic_xor_fetch_explicit_16:
-    NumFixed = 2;
-    BuiltinIndex = 33;
-    break;
-#endif  // INTEL_CUSTOMIZATION
   }
 
   // Now that we know how many fixed arguments we expect, first check that we
@@ -3381,153 +3411,6 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     if (!NewBuiltinDecl)
       return ExprError();
   }
-#if INTEL_CUSTOMIZATION
-  switch (NewBuiltinID) {
-  case Builtin::BI__atomic_store_explicit_1:
-  case Builtin::BI__atomic_store_explicit_2:
-  case Builtin::BI__atomic_store_explicit_4:
-  case Builtin::BI__atomic_store_explicit_8:
-  case Builtin::BI__atomic_store_explicit_16:
-  case Builtin::BI__atomic_load_explicit_1:
-  case Builtin::BI__atomic_load_explicit_2:
-  case Builtin::BI__atomic_load_explicit_4:
-  case Builtin::BI__atomic_load_explicit_8:
-  case Builtin::BI__atomic_load_explicit_16:
-  case Builtin::BI__atomic_exchange_explicit_1:
-  case Builtin::BI__atomic_exchange_explicit_2:
-  case Builtin::BI__atomic_exchange_explicit_4:
-  case Builtin::BI__atomic_exchange_explicit_8:
-  case Builtin::BI__atomic_exchange_explicit_16:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_1:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_2:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_4:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit_8:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_1:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_2:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_4:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit_8:
-  case Builtin::BI__atomic_fetch_add_explicit_1:
-  case Builtin::BI__atomic_fetch_add_explicit_2:
-  case Builtin::BI__atomic_fetch_add_explicit_4:
-  case Builtin::BI__atomic_fetch_add_explicit_8:
-  case Builtin::BI__atomic_fetch_add_explicit_16:
-  case Builtin::BI__atomic_fetch_sub_explicit_1:
-  case Builtin::BI__atomic_fetch_sub_explicit_2:
-  case Builtin::BI__atomic_fetch_sub_explicit_4:
-  case Builtin::BI__atomic_fetch_sub_explicit_8:
-  case Builtin::BI__atomic_fetch_sub_explicit_16:
-  case Builtin::BI__atomic_fetch_and_explicit_1:
-  case Builtin::BI__atomic_fetch_and_explicit_2:
-  case Builtin::BI__atomic_fetch_and_explicit_4:
-  case Builtin::BI__atomic_fetch_and_explicit_8:
-  case Builtin::BI__atomic_fetch_and_explicit_16:
-  case Builtin::BI__atomic_fetch_nand_explicit_1:
-  case Builtin::BI__atomic_fetch_nand_explicit_2:
-  case Builtin::BI__atomic_fetch_nand_explicit_4:
-  case Builtin::BI__atomic_fetch_nand_explicit_8:
-  case Builtin::BI__atomic_fetch_nand_explicit_16:
-  case Builtin::BI__atomic_fetch_or_explicit_1:
-  case Builtin::BI__atomic_fetch_or_explicit_2:
-  case Builtin::BI__atomic_fetch_or_explicit_4:
-  case Builtin::BI__atomic_fetch_or_explicit_8:
-  case Builtin::BI__atomic_fetch_or_explicit_16:
-  case Builtin::BI__atomic_fetch_xor_explicit_1:
-  case Builtin::BI__atomic_fetch_xor_explicit_2:
-  case Builtin::BI__atomic_fetch_xor_explicit_4:
-  case Builtin::BI__atomic_fetch_xor_explicit_8:
-  case Builtin::BI__atomic_fetch_xor_explicit_16:
-  case Builtin::BI__atomic_add_fetch_explicit_1:
-  case Builtin::BI__atomic_add_fetch_explicit_2:
-  case Builtin::BI__atomic_add_fetch_explicit_4:
-  case Builtin::BI__atomic_add_fetch_explicit_8:
-  case Builtin::BI__atomic_add_fetch_explicit_16:
-  case Builtin::BI__atomic_sub_fetch_explicit_1:
-  case Builtin::BI__atomic_sub_fetch_explicit_2:
-  case Builtin::BI__atomic_sub_fetch_explicit_4:
-  case Builtin::BI__atomic_sub_fetch_explicit_8:
-  case Builtin::BI__atomic_sub_fetch_explicit_16:
-  case Builtin::BI__atomic_and_fetch_explicit_1:
-  case Builtin::BI__atomic_and_fetch_explicit_2:
-  case Builtin::BI__atomic_and_fetch_explicit_4:
-  case Builtin::BI__atomic_and_fetch_explicit_8:
-  case Builtin::BI__atomic_and_fetch_explicit_16:
-  case Builtin::BI__atomic_nand_fetch_explicit_1:
-  case Builtin::BI__atomic_nand_fetch_explicit_2:
-  case Builtin::BI__atomic_nand_fetch_explicit_4:
-  case Builtin::BI__atomic_nand_fetch_explicit_8:
-  case Builtin::BI__atomic_nand_fetch_explicit_16:
-  case Builtin::BI__atomic_or_fetch_explicit_1:
-  case Builtin::BI__atomic_or_fetch_explicit_2:
-  case Builtin::BI__atomic_or_fetch_explicit_4:
-  case Builtin::BI__atomic_or_fetch_explicit_8:
-  case Builtin::BI__atomic_or_fetch_explicit_16:
-  case Builtin::BI__atomic_xor_fetch_explicit_1:
-  case Builtin::BI__atomic_xor_fetch_explicit_2:
-  case Builtin::BI__atomic_xor_fetch_explicit_4:
-  case Builtin::BI__atomic_xor_fetch_explicit_8:
-  case Builtin::BI__atomic_xor_fetch_explicit_16: {
-    // The first argument --- the pointer --- has a fixed type; we
-    // deduce the types of the rest of the arguments accordingly.  Walk
-    // the remaining arguments, converting them to the deduced value type.
-    for (unsigned i = 0, e = NewBuiltinDecl->getNumParams(); i < e; ++i) {
-      ExprResult Arg = TheCall->getArg(i);
-      ValType = NewBuiltinDecl->getParamDecl(i)->getType();
-      ExprResult Res = DefaultLvalueConversion(Arg.get());
-      if (Res.isUsable())
-        Arg = Res;
-      Res = Arg;
-      auto CK = PrepareScalarCast(Res, ValType);
-      if (CK != CK_NoOp && Res.isUsable())
-        Res = ImpCastExprToType(Res.get(), ValType, CK);
-      if (Res.isUsable())
-        Arg = Res;
-
-      // GCC does an implicit conversion to the pointer or integer ValType. This
-      // can fail in some cases (1i -> int**), check for this error case now.
-      // Initialize the argument.
-      InitializedEntity Entity = InitializedEntity::InitializeParameter(
-          Context, ValType, /*consume*/ false);
-      Arg = PerformCopyInitialization(Entity, SourceLocation(), Arg);
-      if (Arg.isInvalid())
-        return ExprError();
-
-      // Okay, we have something that *can* be converted to the right type.
-      // Check to see if there is a potentially weird extension going on here.
-      // This can happen when you do an atomic operation on something like an
-      // char* and pass in 42.  The 42 gets converted to char.  This is even
-      // more strange for things like 45.123 -> char, etc.
-      // FIXME: Do this check.
-      TheCall->setArg(i, Arg.get());
-    }
-
-    // Create a new DeclRefExpr to refer to the new decl.
-    DeclRefExpr *NewDRE = DeclRefExpr::Create(
-        Context, DRE->getQualifierLoc(), SourceLocation(), NewBuiltinDecl,
-        /*enclosing*/ false, DRE->getLocation(), Context.BuiltinFnTy,
-        DRE->getValueKind());
-
-    // Set the callee in the CallExpr.
-    // FIXME: This loses syntactic information.
-    QualType CalleePtrTy = Context.getPointerType(NewBuiltinDecl->getType());
-    ExprResult PromotedCall =
-        ImpCastExprToType(NewDRE, CalleePtrTy, CK_BuiltinFnToFnPtr);
-    TheCall->setCallee(PromotedCall.get());
-
-    // Change the result type of the call to match the original value type. This
-    // is arbitrary, but the codegen for these builtins ins design to handle it
-    // gracefully.
-    TheCall->setType(NewBuiltinDecl->getCallResultType());
-
-    ExprResult Res = TheCall;
-    auto CK = PrepareScalarCast(Res, ResultType);
-    if (CK != CK_NoOp && Res.isUsable())
-      Res = ImpCastExprToType(Res.get(), ValType, CK);
-    return Res;
-  }
-  default:
-    break;
-  }
-#endif  // INTEL_CUSTOMIZATION
   // The first argument --- the pointer --- has a fixed type; we
   // deduce the types of the rest of the arguments accordingly.  Walk
   // the remaining arguments, converting them to the deduced value type.

@@ -3117,7 +3117,13 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       //   static const bool __is_signed;
       //
       // then treat __is_signed as an identifier rather than as a keyword.
-      if (DS.getTypeSpecType() == TST_bool &&
+      if ((DS.getTypeSpecType() == TST_bool ||  // INTEL
+      // CQ414772: ensure __is_signed is still an identifier in libstdc++
+      // even if the return type is hidden by a typedef.
+           (DS.getTypeSpecType() == TST_typename && // INTEL
+            DS.isTypeRep() &&// INTEL
+            DS.getRepAsType().get().getTypePtr()->isBooleanType()) // INTEL
+          ) &&
           DS.getTypeQualifiers() == DeclSpec::TQ_const &&
           DS.getStorageClassSpec() == DeclSpec::SCS_static)
         TryKeywordIdentFallback(true);

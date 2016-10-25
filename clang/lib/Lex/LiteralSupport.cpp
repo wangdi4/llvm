@@ -532,6 +532,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isFloat128 = false;
   MicrosoftInteger = 0;
   hadError = false;
+  hadDSuffix = false; //INTEL
 
   if (*s == '0') { // parse radix
     ParseNumberStartingWithZero(TokLoc);
@@ -569,6 +570,19 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (isHalf || isFloat || isLong) break; // HH, FH, LH invalid.
       isHalf = true;
       continue;  // Success.
+#if INTEL_CUSTOMIZATION
+    // CQ#412550: GNU extension: d-suffix of floating constant
+    case 'd':
+    case 'D':
+      if (!PP.getLangOpts().IntelCompat || s + 1 != ThisTokEnd)
+        break;
+      if (!isFPConstant)
+        break; // Error for integer constant.
+      if (isHalf || isFloat || isLong || isFloat128)
+        break;     // HD, FD, LD, QD invalid.
+      hadDSuffix = true;
+      continue;    // Success.
+#endif // INTEL_CUSTOMIZATION
     case 'f':      // FP Suffix for "float"
     case 'F':
       if (!isFPConstant) break;  // Error for integer constant.
@@ -696,6 +710,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       isHalf = false;
       isImaginary = false;
       MicrosoftInteger = 0;
+      hadDSuffix = false; // INTEL
 
       saw_ud_suffix = true;
       return;

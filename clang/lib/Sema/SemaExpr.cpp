@@ -3424,6 +3424,13 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
       Ty = Context.LongDoubleTy;
     else if (Literal.isFloat128)
       Ty = Context.Float128Ty;
+#if INTEL_CUSTOMIZATION
+    // CQ#412550: GNU extension: d-suffix of floating constant
+    else if (Literal.hadDSuffix) {
+      Diag(Tok.getLocation(),diag::warn_d_suffix);
+      Ty = Context.DoubleTy;
+    }
+#endif // INTEL_CUSTOMIZATION
     else
       Ty = Context.DoubleTy;
 
