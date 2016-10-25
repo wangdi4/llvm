@@ -125,7 +125,7 @@ let Types = [v4i8, v4i16, v4i32, v4f32],
   def __ocl_masked_load_transpose4x8     : OclBuiltin<"__ocl_masked_load_transpose_$Arg0BaseType_4x8",    (outs), (ins pgentype:$pLoadAdd, pv8gentype:$xOut, pv8gentype:$yOut, pv8gentype:$zOut, pv8gentype:$wOut, v8i32:$mask), [], [], 0, 0>, PRIVATE;
   def __ocl_masked_transpose_store4x8    : OclBuiltin<"__ocl_masked_transpose_store_$Arg0BaseType_4x8",   (outs), (ins pgentype:$pStoreAdd, v8gentype:$xIn, v8gentype:$yIn, v8gentype:$zIn, v8gentype:$wIn, v8i32:$mask), [], [], 0, 0>, PRIVATE;
   def __ocl_masked_gather_transpose4x8   : OclBuiltin<"__ocl_masked_gather_transpose_$Arg0BaseType_4x8",  (outs), (ins pgentype:$pLoadAdd0, pgentype:$pLoadAdd1, pgentype:$pLoadAdd2, pgentype:$pLoadAdd3, pgentype:$pLoadAdd4, pgentype:$pLoadAdd5, pgentype:$pLoadAdd6, pgentype:$pLoadAdd7, pv8gentype:$xOut, pv8gentype:$yOut, pv8gentype:$zOut, pv8gentype:$wOut, v8i32:$mask), [], [], 0, 0>, PRIVATE;
-  def __ocl_masked_transpose_scatter4x8  : OclBuiltin<"__ocl_masked_transpose_scatter_$Arg0BaseType_4x8", (outs), (ins pgentype:$pStoreAdd0, pgentype:$pStoreAdd1, pgentype:$pStoreAdd2, pgentype:$pStoreAdd3, pgentype:$pStoreAdd4, pgentype:$pStoreAdd5, pgentype:$pStoreAdd6, pgentype:$pStoreAdd7, v8gentype:$xIn, v8gentype:$yIn, v8gentype:$zIn, v8gentype:$wIn, v8i32:$mask ), [], [], 0, 0>, PRIVATE;  
+  def __ocl_masked_transpose_scatter4x8  : OclBuiltin<"__ocl_masked_transpose_scatter_$Arg0BaseType_4x8", (outs), (ins pgentype:$pStoreAdd0, pgentype:$pStoreAdd1, pgentype:$pStoreAdd2, pgentype:$pStoreAdd3, pgentype:$pStoreAdd4, pgentype:$pStoreAdd5, pgentype:$pStoreAdd6, pgentype:$pStoreAdd7, v8gentype:$xIn, v8gentype:$yIn, v8gentype:$zIn, v8gentype:$wIn, v8i32:$mask ), [], [], 0, 0>, PRIVATE;
 }
 
 let Types = [v4i8, v4i16, v2i32, v2f32],

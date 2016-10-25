@@ -1,5 +1,5 @@
 ;; ------------------------------------
-;;       GATHER/SCATTER 
+;;       GATHER/SCATTER
 ;; ------------------------------------
 declare <16 x float> @llvm.x86.avx512.gather.dps.512 (<16 x float>, i8*, <16 x i32>, i16, i32);
 declare void @llvm.x86.avx512.scatter.dps.512 (i8*, i16, <16 x i32>, <16 x float>, i32)
@@ -513,7 +513,7 @@ define void @scatter.v8f64 (double* %addr, <8 x i32>%index, <8 x double> %data) 
   ret void
 }
 
-define void @masked_scatter.v16f64 (<16 x i1> %mask, double* %addr, 
+define void @masked_scatter.v16f64 (<16 x i1> %mask, double* %addr,
                                     <16 x i32>%index, <16 x double> %data) {
   %ptr = bitcast double *%addr to i8*
   %mask0 = shufflevector <16 x i1> %mask, <16 x i1> undef,

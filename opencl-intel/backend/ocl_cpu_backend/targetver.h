@@ -29,7 +29,7 @@
 
 #ifdef __AVX2__
 #define __AVX__
-#endif 
+#endif
 
 #ifdef __AVX__
 #define __SSE4_2__
