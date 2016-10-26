@@ -140,6 +140,9 @@ public:
   typedef typename std::vector<BlockT*>::const_iterator block_iterator;
   block_iterator block_begin() const { return Blocks.begin(); }
   block_iterator block_end() const { return Blocks.end(); }
+  inline iterator_range<block_iterator> blocks() const {
+    return iterator_range<block_iterator>(block_begin(), block_end());
+  }
 
   /// getNumBlocks - Get the number of blocks in this loop in constant time.
   unsigned getNumBlocks() const {
@@ -622,7 +625,7 @@ public:
   }
 
   /// Create the loop forest using a stable algorithm.
-  void Analyze(DominatorTreeBase<BlockT> &DomTree);
+  void analyze(const DominatorTreeBase<BlockT> &DomTree);
 
   // Debugging
   void print(raw_ostream &OS) const;
@@ -642,6 +645,7 @@ class LoopInfo : public LoopInfoBase<BasicBlock, Loop> {
   LoopInfo(const LoopInfo &) = delete;
 public:
   LoopInfo() {}
+  explicit LoopInfo(const DominatorTreeBase<BasicBlock> &DomTree);
 
   LoopInfo(LoopInfo &&Arg) : BaseT(std::move(static_cast<BaseT &>(Arg))) {}
   LoopInfo &operator=(LoopInfo &&RHS) {

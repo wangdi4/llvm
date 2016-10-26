@@ -24,6 +24,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
+#include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
@@ -42,7 +43,7 @@
   OPERATOR(PostInc) OPERATOR(PostDec) OPERATOR(PreInc) OPERATOR(PreDec)        \
       OPERATOR(AddrOf) OPERATOR(Deref) OPERATOR(Plus) OPERATOR(Minus)          \
       OPERATOR(Not) OPERATOR(LNot) OPERATOR(Real) OPERATOR(Imag)               \
-      OPERATOR(Extension)
+      OPERATOR(Extension) OPERATOR(Coawait)
 
 // All binary operators (excluding compound assign operators).
 #define BINOP_LIST()                                                           \
@@ -253,6 +254,12 @@ public:
   ///
   /// \returns false if the visitation was terminated early, true otherwise.
   bool TraverseLambdaBody(LambdaExpr *LE);
+
+  /// \brief Recursively visit the syntactic or semantic form of an
+  /// initialization list.
+  ///
+  /// \returns false if the visitation was terminated early, true otherwise.
+  bool TraverseSynOrSemInitListExpr(InitListExpr *S);
 
   // ---- Methods on Attrs ----
 
@@ -2055,28 +2062,30 @@ DEF_TRAVERSE_STMT(CXXStaticCastExpr, {
   TRY_TO(TraverseTypeLoc(S->getTypeInfoAsWritten()->getTypeLoc()));
 })
 
-// InitListExpr is a tricky one, because we want to do all our work on
-// the syntactic form of the listexpr, but this method takes the
-// semantic form by default.  We can't use the macro helper because it
-// calls WalkUp*() on the semantic form, before our code can convert
-// to the syntactic form.
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::TraverseSynOrSemInitListExpr(InitListExpr *S) {
+  if (S) {
+    TRY_TO(WalkUpFromInitListExpr(S));
+    // All we need are the default actions.  FIXME: use a helper function.
+    for (Stmt *SubStmt : S->children()) {
+      TRY_TO(TraverseStmt(SubStmt));
+    }
+  }
+  return true;
+}
+
+// This method is called once for each pair of syntactic and semantic
+// InitListExpr, and it traverses the subtrees defined by the two forms. This
+// may cause some of the children to be visited twice, if they appear both in
+// the syntactic and the semantic form.
+//
+// There is no guarantee about which form \p S takes when this method is called.
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::TraverseInitListExpr(InitListExpr *S) {
-  InitListExpr *Syn = S->isSemanticForm() ? S->getSyntacticForm() : S;
-  if (Syn) {
-    TRY_TO(WalkUpFromInitListExpr(Syn));
-    // All we need are the default actions.  FIXME: use a helper function.
-    for (Stmt *SubStmt : Syn->children()) {
-      TRY_TO(TraverseStmt(SubStmt));
-    }
-  }
-  InitListExpr *Sem = S->isSemanticForm() ? S : S->getSemanticForm();
-  if (Sem) {
-    TRY_TO(WalkUpFromInitListExpr(Sem));
-    for (Stmt *SubStmt : Sem->children()) {
-      TRY_TO(TraverseStmt(SubStmt));
-    }
-  }
+  TRY_TO(TraverseSynOrSemInitListExpr(
+      S->isSemanticForm() ? S->getSyntacticForm() : S));
+  TRY_TO(TraverseSynOrSemInitListExpr(
+      S->isSemanticForm() ? S : S->getSemanticForm()));
   return true;
 }
 
@@ -2235,6 +2244,7 @@ DEF_TRAVERSE_STMT(CXXMemberCallExpr, {})
 // over the children.
 DEF_TRAVERSE_STMT(AddrLabelExpr, {})
 DEF_TRAVERSE_STMT(ArraySubscriptExpr, {})
+DEF_TRAVERSE_STMT(OMPArraySectionExpr, {})
 DEF_TRAVERSE_STMT(BlockExpr, {
   TRY_TO(TraverseDecl(S->getBlockDecl()));
   return true; // no child statements to loop through.
@@ -2335,6 +2345,34 @@ DEF_TRAVERSE_STMT(FunctionParmPackExpr, {})
 DEF_TRAVERSE_STMT(MaterializeTemporaryExpr, {})
 DEF_TRAVERSE_STMT(CXXFoldExpr, {})
 DEF_TRAVERSE_STMT(AtomicExpr, {})
+
+// For coroutines expressions, traverse either the operand
+// as written or the implied calls, depending on what the
+// derived class requests.
+DEF_TRAVERSE_STMT(CoroutineBodyStmt, {
+  if (!getDerived().shouldVisitImplicitCode()) {
+    TRY_TO(TraverseStmt(S->getBody()));
+    return true;
+  }
+})
+DEF_TRAVERSE_STMT(CoreturnStmt, {
+  if (!getDerived().shouldVisitImplicitCode()) {
+    TRY_TO(TraverseStmt(S->getOperand()));
+    return true;
+  }
+})
+DEF_TRAVERSE_STMT(CoawaitExpr, {
+  if (!getDerived().shouldVisitImplicitCode()) {
+    TRY_TO(TraverseStmt(S->getOperand()));
+    return true;
+  }
+})
+DEF_TRAVERSE_STMT(CoyieldExpr, {
+  if (!getDerived().shouldVisitImplicitCode()) {
+    TRY_TO(TraverseStmt(S->getOperand()));
+    return true;
+  }
+})
 
 // These literals (all of them) do not need any action.
 DEF_TRAVERSE_STMT(IntegerLiteral, {})
@@ -2437,6 +2475,9 @@ DEF_TRAVERSE_STMT(OMPAtomicDirective,
 DEF_TRAVERSE_STMT(OMPTargetDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+DEF_TRAVERSE_STMT(OMPTargetDataDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
 DEF_TRAVERSE_STMT(OMPTeamsDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
@@ -2484,6 +2525,12 @@ bool RecursiveASTVisitor<Derived>::VisitOMPSafelenClause(OMPSafelenClause *C) {
 }
 
 template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPSimdlenClause(OMPSimdlenClause *C) {
+  TRY_TO(TraverseStmt(C->getSimdlen()));
+  return true;
+}
+
+template <typename Derived>
 bool
 RecursiveASTVisitor<Derived>::VisitOMPCollapseClause(OMPCollapseClause *C) {
   TRY_TO(TraverseStmt(C->getNumForLoops()));
@@ -2509,7 +2556,8 @@ RecursiveASTVisitor<Derived>::VisitOMPScheduleClause(OMPScheduleClause *C) {
 }
 
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPOrderedClause(OMPOrderedClause *) {
+bool RecursiveASTVisitor<Derived>::VisitOMPOrderedClause(OMPOrderedClause *C) {
+  TRY_TO(TraverseStmt(C->getNumForLoops()));
   return true;
 }
 
@@ -2551,6 +2599,16 @@ bool RecursiveASTVisitor<Derived>::VisitOMPCaptureClause(OMPCaptureClause *) {
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPSeqCstClause(OMPSeqCstClause *) {
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPThreadsClause(OMPThreadsClause *) {
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPSIMDClause(OMPSIMDClause *) {
   return true;
 }
 
@@ -2615,6 +2673,9 @@ bool RecursiveASTVisitor<Derived>::VisitOMPLinearClause(OMPLinearClause *C) {
   TRY_TO(TraverseStmt(C->getStep()));
   TRY_TO(TraverseStmt(C->getCalcStep()));
   TRY_TO(VisitOMPClauseList(C));
+  for (auto *E : C->privates()) {
+    TRY_TO(TraverseStmt(E));
+  }
   for (auto *E : C->inits()) {
     TRY_TO(TraverseStmt(E));
   }
@@ -2671,6 +2732,9 @@ RecursiveASTVisitor<Derived>::VisitOMPReductionClause(OMPReductionClause *C) {
   TRY_TO(TraverseNestedNameSpecifierLoc(C->getQualifierLoc()));
   TRY_TO(TraverseDeclarationNameInfo(C->getNameInfo()));
   TRY_TO(VisitOMPClauseList(C));
+  for (auto *E : C->privates()) {
+    TRY_TO(TraverseStmt(E));
+  }
   for (auto *E : C->lhs_exprs()) {
     TRY_TO(TraverseStmt(E));
   }
@@ -2692,6 +2756,12 @@ bool RecursiveASTVisitor<Derived>::VisitOMPFlushClause(OMPFlushClause *C) {
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPDependClause(OMPDependClause *C) {
   TRY_TO(VisitOMPClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPDeviceClause(OMPDeviceClause *C) {
+  TRY_TO(TraverseStmt(C->getDevice()));
   return true;
 }
 

@@ -58,12 +58,13 @@ enum NodeType : unsigned {
   SBCS,
   ANDS,
 
+  // Conditional compares. Operands: left,right,falsecc,cc,flags
+  CCMP,
+  CCMN,
+  FCCMP,
+
   // Floating point comparison
   FCMP,
-
-  // Floating point max and min instructions.
-  FMAX,
-  FMIN,
 
   // Scalar extract
   EXTR,
@@ -217,8 +218,6 @@ class AArch64Subtarget;
 class AArch64TargetMachine;
 
 class AArch64TargetLowering : public TargetLowering {
-  bool RequireStrictAlign;
-
 public:
   explicit AArch64TargetLowering(const TargetMachine &TM,
                                  const AArch64Subtarget &STI);
@@ -239,14 +238,7 @@ public:
   /// unaligned memory accesses of the specified type.
   bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AddrSpace = 0,
                                       unsigned Align = 1,
-                                      bool *Fast = nullptr) const override {
-    if (RequireStrictAlign)
-      return false;
-    // FIXME: True for Cyclone, but not necessary others.
-    if (Fast)
-      *Fast = true;
-    return true;
-  }
+                                      bool *Fast = nullptr) const override;
 
   /// LowerOperation - Provide custom lowering hooks for some operations.
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
@@ -351,20 +343,28 @@ public:
   bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
                                          Type *Ty) const override;
 
-  bool hasLoadLinkedStoreConditional() const override;
   Value *emitLoadLinked(IRBuilder<> &Builder, Value *Addr,
                         AtomicOrdering Ord) const override;
   Value *emitStoreConditional(IRBuilder<> &Builder, Value *Val,
                               Value *Addr, AtomicOrdering Ord) const override;
 
-  bool shouldExpandAtomicLoadInIR(LoadInst *LI) const override;
+  void emitAtomicCmpXchgNoStoreLLBalance(IRBuilder<> &Builder) const override;
+
+  TargetLoweringBase::AtomicExpansionKind
+  shouldExpandAtomicLoadInIR(LoadInst *LI) const override;
   bool shouldExpandAtomicStoreInIR(StoreInst *SI) const override;
-  TargetLoweringBase::AtomicRMWExpansionKind
+  TargetLoweringBase::AtomicExpansionKind
   shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const override;
+
+  bool shouldExpandAtomicCmpXchgInIR(AtomicCmpXchgInst *AI) const override;
 
   bool useLoadStackGuardNode() const override;
   TargetLoweringBase::LegalizeTypeAction
   getPreferredVectorAction(EVT VT) const override;
+
+  /// If the target has a standard location for the unsafe stack pointer,
+  /// returns the address of that location. Otherwise, returns nullptr.
+  Value *getSafeStackPointerLocation(IRBuilder<> &IRB) const override;
 
 private:
   bool isExtFreeImpl(const Instruction *Ext) const override;
@@ -391,6 +391,8 @@ private:
                           const SmallVectorImpl<ISD::InputArg> &Ins, SDLoc DL,
                           SelectionDAG &DAG, SmallVectorImpl<SDValue> &InVals,
                           bool isThisReturn, SDValue ThisVal) const;
+
+  SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
 
   bool isEligibleForTailCallOptimization(
       SDValue Callee, CallingConv::ID CalleeCC, bool isVarArg,
@@ -470,7 +472,7 @@ private:
 
   SDValue BuildSDIVPow2(SDNode *N, const APInt &Divisor, SelectionDAG &DAG,
                         std::vector<SDNode *> *Created) const override;
-  bool combineRepeatedFPDivisors(unsigned NumUsers) const override;
+  unsigned combineRepeatedFPDivisors() const override;
 
   ConstraintType getConstraintType(StringRef Constraint) const override;
   unsigned getRegisterByName(const char* RegName, EVT VT,
@@ -516,6 +518,8 @@ private:
   bool functionArgumentNeedsConsecutiveRegisters(Type *Ty,
                                                  CallingConv::ID CallConv,
                                                  bool isVarArg) const override;
+
+  bool shouldNormalizeToSelectSequence(LLVMContext &, EVT) const override;
 };
 
 namespace AArch64 {

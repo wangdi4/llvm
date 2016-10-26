@@ -80,8 +80,8 @@ void ARMAsmPrinter::EmitFunctionEntryLabel() {
   OutStreamer->EmitLabel(CurrentFnSym);
 }
 
-void ARMAsmPrinter::EmitXXStructor(const Constant *CV) {
-  uint64_t Size = TM.getDataLayout()->getTypeAllocSize(CV->getType());
+void ARMAsmPrinter::EmitXXStructor(const DataLayout &DL, const Constant *CV) {
+  uint64_t Size = getDataLayout().getTypeAllocSize(CV->getType());
   assert(Size && "C++ constructor pointer had zero size!");
 
   const GlobalValue *GV = dyn_cast<GlobalValue>(CV->stripPointerCasts());
@@ -198,19 +198,10 @@ void ARMAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
 
 MCSymbol *ARMAsmPrinter::
 GetARMJTIPICJumpTableLabel(unsigned uid) const {
-  const DataLayout *DL = TM.getDataLayout();
+  const DataLayout &DL = getDataLayout();
   SmallString<60> Name;
-  raw_svector_ostream(Name) << DL->getPrivateGlobalPrefix() << "JTI"
+  raw_svector_ostream(Name) << DL.getPrivateGlobalPrefix() << "JTI"
                             << getFunctionNumber() << '_' << uid;
-  return OutContext.getOrCreateSymbol(Name);
-}
-
-
-MCSymbol *ARMAsmPrinter::GetARMSJLJEHLabel() const {
-  const DataLayout *DL = TM.getDataLayout();
-  SmallString<60> Name;
-  raw_svector_ostream(Name) << DL->getPrivateGlobalPrefix() << "SJLJEH"
-    << getFunctionNumber();
   return OutContext.getOrCreateSymbol(Name);
 }
 
@@ -532,7 +523,7 @@ static ARMBuildAttrs::CPUArch getArchForCPU(StringRef CPU,
   if (Subtarget->hasV8Ops())
     return ARMBuildAttrs::v8;
   else if (Subtarget->hasV7Ops()) {
-    if (Subtarget->isMClass() && Subtarget->hasThumb2DSP())
+    if (Subtarget->isMClass() && Subtarget->hasDSP())
       return ARMBuildAttrs::v7E_M;
     return ARMBuildAttrs::v7;
   } else if (Subtarget->hasV6T2Ops())
@@ -587,7 +578,7 @@ void ARMAsmPrinter::emitAttributes() {
       // We consider krait as a "cortex-a9" + hwdiv CPU
       // Enable hwdiv through ".arch_extension idiv"
       if (STI.hasDivide() || STI.hasDivideInARMMode())
-        ATS.emitArchExtension(ARM::AEK_HWDIV);
+        ATS.emitArchExtension(ARM::AEK_HWDIV | ARM::AEK_HWDIVARM);
     } else
       ATS.emitTextAttribute(ARMBuildAttrs::CPU_name, CPUString);
   }
@@ -828,8 +819,7 @@ getModifierVariantKind(ARMCP::ARMCPModifier Modifier) {
   case ARMCP::TLSGD:       return MCSymbolRefExpr::VK_TLSGD;
   case ARMCP::TPOFF:       return MCSymbolRefExpr::VK_TPOFF;
   case ARMCP::GOTTPOFF:    return MCSymbolRefExpr::VK_GOTTPOFF;
-  case ARMCP::GOT:         return MCSymbolRefExpr::VK_GOT;
-  case ARMCP::GOTOFF:      return MCSymbolRefExpr::VK_GOTOFF;
+  case ARMCP::GOT_PREL:    return MCSymbolRefExpr::VK_ARM_GOT_PREL;
   }
   llvm_unreachable("Invalid ARMCPModifier!");
 }
@@ -875,8 +865,8 @@ MCSymbol *ARMAsmPrinter::GetARMGVSymbol(const GlobalValue *GV,
 
 void ARMAsmPrinter::
 EmitMachineConstantPoolValue(MachineConstantPoolValue *MCPV) {
-  const DataLayout *DL = TM.getDataLayout();
-  int Size = TM.getDataLayout()->getTypeAllocSize(MCPV->getType());
+  const DataLayout &DL = getDataLayout();
+  int Size = DL.getTypeAllocSize(MCPV->getType());
 
   ARMConstantPoolValue *ACPV = static_cast<ARMConstantPoolValue*>(MCPV);
 
@@ -909,10 +899,9 @@ EmitMachineConstantPoolValue(MachineConstantPoolValue *MCPV) {
                             OutContext);
 
   if (ACPV->getPCAdjustment()) {
-    MCSymbol *PCLabel = getPICLabel(DL->getPrivateGlobalPrefix(),
-                                    getFunctionNumber(),
-                                    ACPV->getLabelId(),
-                                    OutContext);
+    MCSymbol *PCLabel =
+        getPICLabel(DL.getPrivateGlobalPrefix(), getFunctionNumber(),
+                    ACPV->getLabelId(), OutContext);
     const MCExpr *PCRelExpr = MCSymbolRefExpr::create(PCLabel, OutContext);
     PCRelExpr =
       MCBinaryExpr::createAdd(PCRelExpr,
@@ -1198,7 +1187,7 @@ void ARMAsmPrinter::EmitUnwindingInstruction(const MachineInstr *MI) {
 #include "ARMGenMCPseudoLowering.inc"
 
 void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
-  const DataLayout *DL = TM.getDataLayout();
+  const DataLayout &DL = getDataLayout();
 
   // If we just ended a constant pool, mark it as such.
   if (InConstantPool && MI->getOpcode() != ARM::CONSTPOOL_ENTRY) {
@@ -1355,9 +1344,9 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     MCSymbol *GVSym = GetARMGVSymbol(GV, TF);
     const MCExpr *GVSymExpr = MCSymbolRefExpr::create(GVSym, OutContext);
 
-    MCSymbol *LabelSym = getPICLabel(DL->getPrivateGlobalPrefix(),
-                                     getFunctionNumber(),
-                                     MI->getOperand(2).getImm(), OutContext);
+    MCSymbol *LabelSym =
+        getPICLabel(DL.getPrivateGlobalPrefix(), getFunctionNumber(),
+                    MI->getOperand(2).getImm(), OutContext);
     const MCExpr *LabelSymExpr= MCSymbolRefExpr::create(LabelSym, OutContext);
     unsigned PCAdj = (Opc == ARM::MOVi16_ga_pcrel) ? 8 : 4;
     const MCExpr *PCRelExpr =
@@ -1388,9 +1377,9 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     MCSymbol *GVSym = GetARMGVSymbol(GV, TF);
     const MCExpr *GVSymExpr = MCSymbolRefExpr::create(GVSym, OutContext);
 
-    MCSymbol *LabelSym = getPICLabel(DL->getPrivateGlobalPrefix(),
-                                     getFunctionNumber(),
-                                     MI->getOperand(3).getImm(), OutContext);
+    MCSymbol *LabelSym =
+        getPICLabel(DL.getPrivateGlobalPrefix(), getFunctionNumber(),
+                    MI->getOperand(3).getImm(), OutContext);
     const MCExpr *LabelSymExpr= MCSymbolRefExpr::create(LabelSym, OutContext);
     unsigned PCAdj = (Opc == ARM::MOVTi16_ga_pcrel) ? 8 : 4;
     const MCExpr *PCRelExpr =
@@ -1414,10 +1403,9 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     // This adds the address of LPC0 to r0.
 
     // Emit the label.
-    OutStreamer->EmitLabel(getPICLabel(DL->getPrivateGlobalPrefix(),
+    OutStreamer->EmitLabel(getPICLabel(DL.getPrivateGlobalPrefix(),
                                        getFunctionNumber(),
-                                       MI->getOperand(2).getImm(),
-                                       OutContext));
+                                       MI->getOperand(2).getImm(), OutContext));
 
     // Form and emit the add.
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tADDhirr)
@@ -1436,10 +1424,9 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     // This adds the address of LPC0 to r0.
 
     // Emit the label.
-    OutStreamer->EmitLabel(getPICLabel(DL->getPrivateGlobalPrefix(),
+    OutStreamer->EmitLabel(getPICLabel(DL.getPrivateGlobalPrefix(),
                                        getFunctionNumber(),
-                                       MI->getOperand(2).getImm(),
-                                       OutContext));
+                                       MI->getOperand(2).getImm(), OutContext));
 
     // Form and emit the add.
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::ADDrr)
@@ -1468,10 +1455,9 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     // a PC-relative address at the ldr instruction.
 
     // Emit the label.
-    OutStreamer->EmitLabel(getPICLabel(DL->getPrivateGlobalPrefix(),
+    OutStreamer->EmitLabel(getPICLabel(DL.getPrivateGlobalPrefix(),
                                        getFunctionNumber(),
-                                       MI->getOperand(2).getImm(),
-                                       OutContext));
+                                       MI->getOperand(2).getImm(), OutContext));
 
     // Form and emit the load
     unsigned Opcode;
@@ -1519,7 +1505,7 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     if (MCPE.isMachineConstantPoolEntry())
       EmitMachineConstantPoolValue(MCPE.Val.MachineCPVal);
     else
-      EmitGlobalConstant(MCPE.Val.ConstVal);
+      EmitGlobalConstant(DL, MCPE.Val.ConstVal);
     return;
   }
   case ARM::JUMPTABLE_ADDRS:
@@ -1653,12 +1639,12 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     // adds $val, #7
     // str $val, [$src, #4]
     // movs r0, #0
-    // b 1f
+    // b LSJLJEH
     // movs r0, #1
-    // 1:
+    // LSJLJEH:
     unsigned SrcReg = MI->getOperand(0).getReg();
     unsigned ValReg = MI->getOperand(1).getReg();
-    MCSymbol *Label = GetARMSJLJEHLabel();
+    MCSymbol *Label = OutContext.createTempSymbol("SJLJEH", false, true);
     OutStreamer->AddComment("eh_setjmp begin");
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tMOVr)
       .addReg(ValReg)

@@ -635,7 +635,7 @@ private:
   unsigned Reg;
   const MCRegisterInfo *MCRI;
   bool IncludeSelf;
-  
+
   MCRegUnitIterator RI;
   MCRegUnitRootIterator RRI;
   MCSuperRegIterator SI;
@@ -655,10 +655,8 @@ public:
     }
   }
 
-  bool isValid() const {
-    return RI.isValid();
-  }
-  
+  bool isValid() const { return RI.isValid(); }
+
   unsigned operator*() const {
     assert (SI.isValid() && "Cannot dereference an invalid iterator.");
     return *SI;

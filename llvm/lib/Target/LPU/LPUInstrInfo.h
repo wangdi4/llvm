@@ -96,7 +96,7 @@ public:
 
   bool isProfitableToIfCvt(MachineBasicBlock &MBB,
                           unsigned NumCycles, unsigned ExtraPredCycles,
-                          const BranchProbability &Probability) const override {
+                          BranchProbability Probability) const override {
     return true;
   }
 
@@ -104,15 +104,15 @@ public:
                            unsigned NumT, unsigned ExtraT,
                            MachineBasicBlock &FMBB,
                            unsigned NumF, unsigned ExtraF,
-                           const BranchProbability &Probability)
+                           BranchProbability Probability)
                            const override {
     return true;
   }
 
   bool isProfitableToDupForIfCvt(MachineBasicBlock &MBB,
                                  unsigned NumCycles,
-                                 const BranchProbability
-                                 &Probability) const override {
+                                 BranchProbability Probability)
+                                 const override {
     return true;
   }
 

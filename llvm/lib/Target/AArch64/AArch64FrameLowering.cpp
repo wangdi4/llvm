@@ -72,9 +72,9 @@
 //
 // For most functions, some of the frame areas are empty. For those functions,
 // it may not be necessary to set up fp or bp:
-// * A base pointer is definitly needed when there are both VLAs and local
+// * A base pointer is definitely needed when there are both VLAs and local
 //   variables with more-than-default alignment requirements.
-// * A frame pointer is definitly needed when there are local variables with
+// * A frame pointer is definitely needed when there are local variables with
 //   more-than-default alignment requirements.
 //
 // In some cases when a base pointer is not strictly needed, it is generated
@@ -216,11 +216,11 @@ void AArch64FrameLowering::emitCalleeSavedFrameMoves(
   if (CSI.empty())
     return;
 
-  const DataLayout *TD = MF.getTarget().getDataLayout();
+  const DataLayout &TD = MF.getDataLayout();
   bool HasFP = hasFP(MF);
 
   // Calculate amount of bytes used for return address storing.
-  int stackGrowth = -TD->getPointerSize(0);
+  int stackGrowth = -TD.getPointerSize(0);
 
   // Calculate offsets.
   int64_t saveAreaOffset = (HasFP ? 2 : 1) * stackGrowth;
@@ -399,8 +399,8 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
   }
 
   if (needsFrameMoves) {
-    const DataLayout *TD = MF.getTarget().getDataLayout();
-    const int StackGrowth = -TD->getPointerSize(0);
+    const DataLayout &TD = MF.getDataLayout();
+    const int StackGrowth = -TD.getPointerSize(0);
     unsigned FramePtr = RegInfo->getFrameRegister(MF);
     // An example of the prologue:
     //
@@ -634,14 +634,6 @@ void AArch64FrameLowering::emitEpilogue(MachineFunction &MF,
   if (NumBytes || MFI->hasVarSizedObjects())
     emitFrameOffset(MBB, LastPopI, DL, AArch64::SP, AArch64::FP,
                     -(NumRestores - 1) * 16, TII, MachineInstr::NoFlags);
-}
-
-/// getFrameIndexOffset - Returns the displacement from the frame register to
-/// the stack frame of the specified index.
-int AArch64FrameLowering::getFrameIndexOffset(const MachineFunction &MF,
-                                              int FI) const {
-  unsigned FrameReg;
-  return getFrameIndexReference(MF, FI, FrameReg);
 }
 
 /// getFrameIndexReference - Provide a base+offset reference to an FI slot for
@@ -910,7 +902,7 @@ void AArch64FrameLowering::determineCalleeSaves(MachineFunction &MF,
   unsigned NumFPRSpilled = 0;
   bool ExtraCSSpill = false;
   bool CanEliminateFrame = true;
-  DEBUG(dbgs() << "*** processFunctionBeforeCalleeSavedScan\nUsed CSRs:");
+  DEBUG(dbgs() << "*** determineCalleeSaves\nUsed CSRs:");
   const MCPhysReg *CSRegs = RegInfo->getCalleeSavedRegs(&MF);
 
   // Check pairs of consecutive callee-saved registers.

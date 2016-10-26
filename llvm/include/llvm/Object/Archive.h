@@ -37,7 +37,7 @@ struct ArchiveMemberHeader {
   llvm::StringRef getName() const;
 
   /// Members are not larger than 4GB.
-  uint32_t getSize() const;
+  ErrorOr<uint32_t> getSize() const;
 
   sys::fs::perms getAccessMode() const;
   sys::TimeValue getLastModified() const;
@@ -62,6 +62,8 @@ public:
       return reinterpret_cast<const ArchiveMemberHeader *>(Data.data());
     }
 
+    bool isThinMember() const;
+
   public:
     Child(const Archive *Parent, const char *Start);
 
@@ -74,6 +76,7 @@ public:
       return Data.begin() < other.Data.begin();
     }
 
+    const Archive *getParent() const { return Parent; }
     Child getNext() const;
 
     ErrorOr<StringRef> getName() const;

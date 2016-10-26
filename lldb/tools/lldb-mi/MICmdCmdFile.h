@@ -31,29 +31,27 @@
 //          This command does not follow the MI documentation exactly.
 // Gotchas: This command has additional flags that were not available in GDB MI.
 //          See MIextensions.txt for details.
-// Authors: Illya Rudkin 25/02/2014.
-// Changes: None.
 //--
 class CMICmdCmdFileExecAndSymbols : public CMICmdBase
 {
     // Statics:
   public:
     // Required by the CMICmdFactory when registering *this command
-    static CMICmdBase *CreateSelf(void);
+    static CMICmdBase *CreateSelf();
 
     // Methods:
   public:
-    /* ctor */ CMICmdCmdFileExecAndSymbols(void);
+    /* ctor */ CMICmdCmdFileExecAndSymbols();
 
     // Overridden:
   public:
     // From CMICmdInvoker::ICmd
-    bool Execute(void) override;
-    bool Acknowledge(void) override;
-    bool ParseArgs(void) override;
+    bool Execute() override;
+    bool Acknowledge() override;
+    bool ParseArgs() override;
     // From CMICmnBase
-    /* dtor */ ~CMICmdCmdFileExecAndSymbols(void) override;
-    bool GetExitAppOnCommandFailure(void) const override;
+    /* dtor */ ~CMICmdCmdFileExecAndSymbols() override;
+    bool GetExitAppOnCommandFailure() const override;
 
     // Attributes:
   private:

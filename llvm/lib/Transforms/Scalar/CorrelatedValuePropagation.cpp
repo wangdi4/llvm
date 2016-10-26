@@ -13,6 +13,7 @@
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/IR/CFG.h"
@@ -43,6 +44,7 @@ namespace {
     bool processMemAccess(Instruction *I);
     bool processCmp(CmpInst *C);
     bool processSwitch(SwitchInst *SI);
+    bool processCallSite(CallSite CS);
 
   public:
     static char ID;
@@ -54,6 +56,7 @@ namespace {
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<LazyValueInfo>();
+      AU.addPreserved<GlobalsAAWrapperPass>();
     }
   };
 }
@@ -178,44 +181,24 @@ bool CorrelatedValuePropagation::processMemAccess(Instruction *I) {
   return true;
 }
 
-/// processCmp - If the value of this comparison could be determined locally,
-/// constant propagation would already have figured it out.  Instead, walk
-/// the predecessors and statically evaluate the comparison based on information
-/// available on that edge.  If a given static evaluation is true on ALL
-/// incoming edges, then it's true universally and we can simplify the compare.
+/// processCmp - See if LazyValueInfo's ability to exploit edge conditions,
+/// or range information is sufficient to prove this comparison.  Even for
+/// local conditions, this can sometimes prove conditions instcombine can't by
+/// exploiting range information.
 bool CorrelatedValuePropagation::processCmp(CmpInst *C) {
   Value *Op0 = C->getOperand(0);
-  if (isa<Instruction>(Op0) &&
-      cast<Instruction>(Op0)->getParent() == C->getParent())
-    return false;
-
   Constant *Op1 = dyn_cast<Constant>(C->getOperand(1));
   if (!Op1) return false;
 
-  pred_iterator PI = pred_begin(C->getParent()), PE = pred_end(C->getParent());
-  if (PI == PE) return false;
-
-  LazyValueInfo::Tristate Result = LVI->getPredicateOnEdge(C->getPredicate(),
-                                    C->getOperand(0), Op1, *PI,
-                                    C->getParent(), C);
+  LazyValueInfo::Tristate Result =
+    LVI->getPredicateAt(C->getPredicate(), Op0, Op1, C);
   if (Result == LazyValueInfo::Unknown) return false;
 
-  ++PI;
-  while (PI != PE) {
-    LazyValueInfo::Tristate Res = LVI->getPredicateOnEdge(C->getPredicate(),
-                                    C->getOperand(0), Op1, *PI,
-                                    C->getParent(), C);
-    if (Res != Result) return false;
-    ++PI;
-  }
-
   ++NumCmps;
-
   if (Result == LazyValueInfo::True)
     C->replaceAllUsesWith(ConstantInt::getTrue(C->getContext()));
   else
     C->replaceAllUsesWith(ConstantInt::getFalse(C->getContext()));
-
   C->eraseFromParent();
 
   return true;
@@ -307,6 +290,32 @@ bool CorrelatedValuePropagation::processSwitch(SwitchInst *SI) {
   return Changed;
 }
 
+/// processCallSite - Infer nonnull attributes for the arguments at the
+/// specified callsite.
+bool CorrelatedValuePropagation::processCallSite(CallSite CS) {
+  bool Changed = false;
+
+  unsigned ArgNo = 0;
+  for (Value *V : CS.args()) {
+    PointerType *Type = dyn_cast<PointerType>(V->getType());
+
+    if (Type && !CS.paramHasAttr(ArgNo + 1, Attribute::NonNull) &&
+        LVI->getPredicateAt(ICmpInst::ICMP_EQ, V,
+                            ConstantPointerNull::get(Type),
+                            CS.getInstruction()) == LazyValueInfo::False) {
+      AttributeSet AS = CS.getAttributes();
+      AS = AS.addAttribute(CS.getInstruction()->getContext(), ArgNo + 1,
+                           Attribute::NonNull);
+      CS.setAttributes(AS);
+      Changed = true;
+    }
+    ArgNo++;
+  }
+  assert(ArgNo == CS.arg_size() && "sanity check");
+
+  return Changed;
+}
+
 bool CorrelatedValuePropagation::runOnFunction(Function &F) {
   if (skipOptnoneFunction(F))
     return false;
@@ -318,7 +327,7 @@ bool CorrelatedValuePropagation::runOnFunction(Function &F) {
   for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE; ++FI) {
     bool BBChanged = false;
     for (BasicBlock::iterator BI = FI->begin(), BE = FI->end(); BI != BE; ) {
-      Instruction *II = BI++;
+      Instruction *II = &*BI++;
       switch (II->getOpcode()) {
       case Instruction::Select:
         BBChanged |= processSelect(cast<SelectInst>(II));
@@ -333,6 +342,10 @@ bool CorrelatedValuePropagation::runOnFunction(Function &F) {
       case Instruction::Load:
       case Instruction::Store:
         BBChanged |= processMemAccess(II);
+        break;
+      case Instruction::Call:
+      case Instruction::Invoke:
+        BBChanged |= processCallSite(CallSite(II));
         break;
       }
     }
