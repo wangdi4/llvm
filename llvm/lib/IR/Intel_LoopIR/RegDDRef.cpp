@@ -413,6 +413,14 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
   return true;
 }
 
+bool RegDDRef::isStandAloneIV(bool AllowConversion) const {
+  if (isTerminalRef()) {
+    return getSingleCanonExpr()->isStandAloneIV(AllowConversion);
+  }
+
+  return false;
+}
+
 bool RegDDRef::isSelfBlob() const {
   if (!isTerminalRef()) {
     return false;
@@ -427,6 +435,20 @@ bool RegDDRef::isSelfBlob() const {
   unsigned SB = getBlobUtils().getTempBlobSymbase(CE->getSingleBlobIndex());
 
   return (getSymbase() == SB);
+}
+
+bool RegDDRef::isStandAloneBlob(bool AllowConversion) const {
+  if (!isTerminalRef()) {
+    return false;
+  }
+
+  auto CE = getSingleCanonExpr();
+
+  if (!CE->isStandAloneBlob(AllowConversion)) {
+    return false;
+  }
+
+  return true;
 }
 
 void RegDDRef::replaceSelfBlobIndex(unsigned NewIndex) {

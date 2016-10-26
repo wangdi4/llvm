@@ -421,12 +421,28 @@ public:
   /// \brief Returns true if the DDRef is a memory reference
   bool isMemRef() const { return hasGEPInfo() && !isAddressOf(); }
 
+  /// \brief Returns true if the RegDDRef represents a standalone IV like (1 *
+  /// i3).
+  /// If \p AllowConversion is true, conversions are allowed to be part of a
+  /// standalone IV.
+  /// Otherwise, an IV with a conversion is not considered a standalone IV.
+  bool isStandAloneIV(bool AllowConversion = true) const;
+
   /// \brief Returns true if the DDRef represents a self-blob like (1 * %t). In
   /// addition DDRef's symbase should be the same as %t's symbase. This is so
   /// because for some livein copies %t1 = %t2, lval %t1 is parsed as 1 * %t2.
   /// But since %t1 has a different symbase than %t2 we still need to add a blob
   /// DDRef for %t2 to the DDRef.
   bool isSelfBlob() const override;
+
+  /// \brief Returns true if the DDRef represents a blob like (1 * %t).
+  /// This is a broader check than isSelfBlob() because DDRef's symbase is not
+  /// taken into account. In addition, a standalone blob allows a FP constant or
+  /// even metadata.
+  /// If \p AllowConversion is true, conversions are allowed to be part of a
+  /// standalone blob. Otherwise, a blob with a conversion is not considered a
+  /// standalone blob.
+  bool isStandAloneBlob(bool AllowConversion = true) const;
 
   /// \brief Returns true if this DDRef contains undefined canon expressions.
   bool containsUndef() const override;
