@@ -168,7 +168,7 @@ class MachineFrameInfo {
   /// SP then OffsetAdjustment is zero; if FP is used, OffsetAdjustment is set
   /// to the distance between the initial SP and the value in FP.  For many
   /// targets, this value is only used when generating debug info (via
-  /// TargetRegisterInfo::getFrameIndexOffset); when generating code, the
+  /// TargetRegisterInfo::getFrameIndexReference); when generating code, the
   /// corresponding adjustments are performed directly.
   int OffsetAdjustment;
 
@@ -288,6 +288,7 @@ public:
   /// Return the index for the stack protector object.
   int getStackProtectorIndex() const { return StackProtectorIdx; }
   void setStackProtectorIndex(int I) { StackProtectorIdx = I; }
+  bool hasStackProtectorIndex() const { return StackProtectorIdx != -1; }
 
   /// Return the index for the function context object.
   /// This object is used for SjLj exceptions.
@@ -337,14 +338,14 @@ public:
   }
 
   /// Get the local offset mapping for a for an object.
-  std::pair<int, int64_t> getLocalFrameObjectMap(int i) {
+  std::pair<int, int64_t> getLocalFrameObjectMap(int i) const {
     assert (i >= 0 && (unsigned)i < LocalFrameObjects.size() &&
             "Invalid local object reference!");
     return LocalFrameObjects[i];
   }
 
   /// Return the number of objects allocated into the local object block.
-  int64_t getLocalFrameObjectCount() { return LocalFrameObjects.size(); }
+  int64_t getLocalFrameObjectCount() const { return LocalFrameObjects.size(); }
 
   /// Set the size of the local object blob.
   void setLocalFrameSize(int64_t sz) { LocalFrameSize = sz; }
@@ -361,7 +362,9 @@ public:
 
   /// Get whether the local allocation blob should be allocated together or
   /// let PEI allocate the locals in it directly.
-  bool getUseLocalStackAllocationBlock() {return UseLocalStackAllocationBlock;}
+  bool getUseLocalStackAllocationBlock() const {
+    return UseLocalStackAllocationBlock;
+  }
 
   /// setUseLocalStackAllocationBlock - Set whether the local allocation blob
   /// should be allocated together or let PEI allocate the locals in it

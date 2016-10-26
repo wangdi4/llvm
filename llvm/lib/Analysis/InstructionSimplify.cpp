@@ -123,9 +123,9 @@ static bool ValueDominatesPHI(Value *V, PHINode *P, const DominatorTree *DT) {
   }
 
   // Otherwise, if the instruction is in the entry block, and is not an invoke,
-  // then it obviously dominates all phi nodes.
+  // and is not a catchpad, then it obviously dominates all phi nodes.
   if (I->getParent() == &I->getParent()->getParent()->getEntryBlock() &&
-      !isa<InvokeInst>(I))
+      !isa<InvokeInst>(I) && !isa<CatchPadInst>(I))
     return true;
 
   return false;
@@ -2128,6 +2128,54 @@ static Constant *computePointerICmp(const DataLayout &DL,
   return nullptr;
 }
 
+/// Return true if B is known to be implied by A.  A & B must be i1 (boolean)
+/// values or a vector of such values. Note that the truth table for
+/// implication is the same as <=u on i1 values (but not <=s!).  The truth
+/// table for both is: 
+///    | T | F (B)
+///  T | T | F
+///  F | T | T
+/// (A)
+static bool implies(Value *A, Value *B) {
+  assert(A->getType() == B->getType() && "mismatched type");
+  Type *OpTy = A->getType();
+  assert(OpTy->getScalarType()->isIntegerTy(1));
+  
+  // A ==> A by definition
+  if (A == B) return true;
+
+  if (OpTy->isVectorTy())
+    // TODO: extending the code below to handle vectors
+    return false;
+  assert(OpTy->isIntegerTy(1) && "implied by above");
+
+  ICmpInst::Predicate APred, BPred;
+  Value *I;
+  Value *L;
+  ConstantInt *CI;
+  // i +_{nsw} C_{>0} <s L ==> i <s L
+  if (match(A, m_ICmp(APred,
+                      m_NSWAdd(m_Value(I), m_ConstantInt(CI)),
+                      m_Value(L))) &&
+      APred == ICmpInst::ICMP_SLT &&
+      !CI->isNegative() &&
+      match(B, m_ICmp(BPred, m_Specific(I), m_Specific(L))) &&
+      BPred == ICmpInst::ICMP_SLT)
+    return true;
+
+  // i +_{nuw} C_{>0} <u L ==> i <u L
+  if (match(A, m_ICmp(APred,
+                      m_NUWAdd(m_Value(I), m_ConstantInt(CI)),
+                      m_Value(L))) &&
+      APred == ICmpInst::ICMP_ULT &&
+      !CI->isNegative() &&
+      match(B, m_ICmp(BPred, m_Specific(I), m_Specific(L))) &&
+      BPred == ICmpInst::ICMP_ULT)
+    return true;
+
+  return false;
+}
+
 /// SimplifyICmpInst - Given operands for an ICmpInst, see if we can
 /// fold the result.  If not, this returns null.
 static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
@@ -2176,6 +2224,8 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       // X >=u 1 -> X
       if (match(RHS, m_One()))
         return LHS;
+      if (implies(RHS, LHS))
+        return getTrue(ITy);
       break;
     case ICmpInst::ICMP_SLT:
       // X <s 0 -> X
@@ -2186,6 +2236,10 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       // X <=s -1 -> X
       if (match(RHS, m_One()))
         return LHS;
+      break;
+    case ICmpInst::ICMP_ULE:
+      if (implies(LHS, RHS))
+        return getTrue(ITy);
       break;
     }
   }
@@ -2360,12 +2414,46 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
     } else if (match(LHS, m_And(m_Value(), m_ConstantInt(CI2)))) {
       // 'and x, CI2' produces [0, CI2].
       Upper = CI2->getValue() + 1;
+    } else if (match(LHS, m_NUWAdd(m_Value(), m_ConstantInt(CI2)))) {
+      // 'add nuw x, CI2' produces [CI2, UINT_MAX].
+      Lower = CI2->getValue();
     }
-    if (Lower != Upper) {
-      ConstantRange LHS_CR = ConstantRange(Lower, Upper);
+
+    ConstantRange LHS_CR = Lower != Upper ? ConstantRange(Lower, Upper)
+                                          : ConstantRange(Width, true);
+
+    if (auto *I = dyn_cast<Instruction>(LHS))
+      if (auto *Ranges = I->getMetadata(LLVMContext::MD_range))
+        LHS_CR = LHS_CR.intersectWith(getConstantRangeFromMetadata(*Ranges));
+
+    if (!LHS_CR.isFullSet()) {
       if (RHS_CR.contains(LHS_CR))
         return ConstantInt::getTrue(RHS->getContext());
       if (RHS_CR.inverse().contains(LHS_CR))
+        return ConstantInt::getFalse(RHS->getContext());
+    }
+  }
+
+  // If both operands have range metadata, use the metadata
+  // to simplify the comparison.
+  if (isa<Instruction>(RHS) && isa<Instruction>(LHS)) {
+    auto RHS_Instr = dyn_cast<Instruction>(RHS);
+    auto LHS_Instr = dyn_cast<Instruction>(LHS);
+
+    if (RHS_Instr->getMetadata(LLVMContext::MD_range) &&
+        LHS_Instr->getMetadata(LLVMContext::MD_range)) {
+      auto RHS_CR = getConstantRangeFromMetadata(
+          *RHS_Instr->getMetadata(LLVMContext::MD_range));
+      auto LHS_CR = getConstantRangeFromMetadata(
+          *LHS_Instr->getMetadata(LLVMContext::MD_range));
+
+      auto Satisfied_CR = ConstantRange::makeSatisfyingICmpRegion(Pred, RHS_CR);
+      if (Satisfied_CR.contains(LHS_CR))
+        return ConstantInt::getTrue(RHS->getContext());
+
+      auto InversedSatisfied_CR = ConstantRange::makeSatisfyingICmpRegion(
+                CmpInst::getInversePredicate(Pred), RHS_CR);
+      if (InversedSatisfied_CR.contains(LHS_CR))
         return ConstantInt::getFalse(RHS->getContext());
     }
   }
@@ -2529,6 +2617,14 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
     }
   }
 
+  // icmp eq|ne X, Y -> false|true if X != Y
+  if ((Pred == ICmpInst::ICMP_EQ || Pred == ICmpInst::ICMP_NE) &&
+      isKnownNonEqual(LHS, RHS, Q.DL, Q.AC, Q.CxtI, Q.DT)) {
+    LLVMContext &Ctx = LHS->getType()->getContext();
+    return Pred == ICmpInst::ICMP_NE ?
+      ConstantInt::getTrue(Ctx) : ConstantInt::getFalse(Ctx);
+  }
+  
   // Special logic for binary operators.
   BinaryOperator *LBO = dyn_cast<BinaryOperator>(LHS);
   BinaryOperator *RBO = dyn_cast<BinaryOperator>(RHS);
@@ -3574,18 +3670,9 @@ static Value *SimplifyExtractElementInst(Value *Vec, Value *Idx, const Query &,
 
   // If extracting a specified index from the vector, see if we can recursively
   // find a previously computed scalar that was inserted into the vector.
-  if (auto *IdxC = dyn_cast<ConstantInt>(Idx)) {
-    unsigned IndexVal = IdxC->getZExtValue();
-    unsigned VectorWidth = Vec->getType()->getVectorNumElements();
-
-    // If this is extracting an invalid index, turn this into undef, to avoid
-    // crashing the code below.
-    if (IndexVal >= VectorWidth)
-      return UndefValue::get(Vec->getType()->getVectorElementType());
-
-    if (Value *Elt = findScalarElement(Vec, IndexVal))
+  if (auto *IdxC = dyn_cast<ConstantInt>(Idx))
+    if (Value *Elt = findScalarElement(Vec, IdxC->getZExtValue()))
       return Elt;
-  }
 
   return nullptr;
 }
@@ -4031,6 +4118,17 @@ Value *llvm::SimplifyInstruction(Instruction *I, const DataLayout &DL,
     Result =
         SimplifyTruncInst(I->getOperand(0), I->getType(), DL, TLI, DT, AC, I);
     break;
+  }
+
+  // In general, it is possible for computeKnownBits to determine all bits in a
+  // value even when the operands are not all constants.
+  if (!Result && I->getType()->isIntegerTy()) {
+    unsigned BitWidth = I->getType()->getScalarSizeInBits();
+    APInt KnownZero(BitWidth, 0);
+    APInt KnownOne(BitWidth, 0);
+    computeKnownBits(I, KnownZero, KnownOne, DL, /*Depth*/0, AC, I, DT);
+    if ((KnownZero | KnownOne).isAllOnesValue())
+      Result = ConstantInt::get(I->getContext(), KnownOne);
   }
 
   /// If called on unreachable code, the above logic may report that the

@@ -108,6 +108,10 @@ namespace ISD {
     /// and returns an outchain.
     EH_SJLJ_LONGJMP,
 
+    /// OUTCHAIN = EH_SJLJ_SETUP_DISPATCH(INCHAIN)
+    /// The target initializes the dispatch table here.
+    EH_SJLJ_SETUP_DISPATCH,
+
     /// TargetConstant* - Like Constant*, but the DAG does not do any folding,
     /// simplification, or lowering of the constant. They are used for constants
     /// which are known to fit in the immediate fields of their users, or for
@@ -334,6 +338,10 @@ namespace ISD {
     /// Byte Swap and Counting operators.
     BSWAP, CTTZ, CTLZ, CTPOP,
 
+    /// [SU]ABSDIFF - Signed/Unsigned absolute difference of two input integer
+    /// vector. These nodes are generated from llvm.*absdiff* intrinsics.
+    SABSDIFF, UABSDIFF,
+
     /// Bit counting operators with an undefined result for zero inputs.
     CTTZ_ZERO_UNDEF, CTLZ_ZERO_UNDEF,
 
@@ -506,7 +514,15 @@ namespace ISD {
     FNEG, FABS, FSQRT, FSIN, FCOS, FPOWI, FPOW,
     FLOG, FLOG2, FLOG10, FEXP, FEXP2,
     FCEIL, FTRUNC, FRINT, FNEARBYINT, FROUND, FFLOOR,
+    /// FMINNUM/FMAXNUM - Perform floating-point minimum or maximum on two
+    /// values.
+    /// In the case where a single input is NaN, the non-NaN input is returned.
+    ///
+    /// The return value of (FMINNUM 0.0, -0.0) could be either 0.0 or -0.0.
     FMINNUM, FMAXNUM,
+    /// FMINNAN/FMAXNAN - Behave identically to FMINNUM/FMAXNUM, except that
+    /// when a single input is NaN, NaN is returned.
+    FMINNAN, FMAXNAN,
 
     /// FSINCOS - Compute both fsin and fcos as a single operation.
     FSINCOS,
@@ -575,6 +591,15 @@ namespace ISD {
     /// take a chain as input and return a chain.
     EH_LABEL,
 
+    /// CATCHRET - Represents a return from a catch block funclet. Used for
+    /// MSVC compatible exception handling. Takes a chain operand and a
+    /// destination basic block operand.
+    CATCHRET,
+
+    /// CLEANUPRET - Represents a return from a cleanup block funclet.  Used for
+    /// MSVC compatible exception handling. Takes only a chain operand.
+    CLEANUPRET,
+
     /// STACKSAVE - STACKSAVE has one operand, an input chain.  It produces a
     /// value, the same type as the pointer type for the system, and an output
     /// chain.
@@ -618,9 +643,11 @@ namespace ISD {
     PCMARKER,
 
     /// READCYCLECOUNTER - This corresponds to the readcyclecounter intrinsic.
-    /// The only operand is a chain and a value and a chain are produced.  The
-    /// value is the contents of the architecture specific cycle counter like
-    /// register (or other high accuracy low latency clock source)
+    /// It produces a chain and one i64 value. The only operand is a chain.
+    /// If i64 is not legal, the result will be expanded into smaller values.
+    /// Still, it returns an i64, so targets should set legality for i64.
+    /// The result is the content of the architecture-specific cycle
+    /// counter-like register (or other high accuracy low latency clock source).
     READCYCLECOUNTER,
 
     /// HANDLENODE node - Used as a handle for various purposes.

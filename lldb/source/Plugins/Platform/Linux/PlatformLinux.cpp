@@ -575,10 +575,17 @@ PlatformLinux::GetSoftwareBreakpointTrapOpcode (Target &target,
             AddressClass addr_class = eAddressClassUnknown;
 
             if (bp_loc_sp)
+            {
                 addr_class = bp_loc_sp->GetAddress ().GetAddressClass ();
 
-            if (addr_class == eAddressClassCodeAlternateISA
-                || (addr_class == eAddressClassUnknown && (bp_site->GetLoadAddress() & 1)))
+                if (addr_class == eAddressClassUnknown &&
+                    (bp_loc_sp->GetAddress ().GetFileAddress () & 1))
+                {
+                    addr_class = eAddressClassCodeAlternateISA;
+                }
+            }
+
+            if (addr_class == eAddressClassCodeAlternateISA)
             {
                 trap_opcode = g_thumb_breakpoint_opcode;
                 trap_opcode_size = sizeof(g_thumb_breakpoint_opcode);
@@ -853,4 +860,15 @@ PlatformLinux::ConvertMmapFlagsToPlatform(const ArchSpec &arch, unsigned flags)
     if (flags & eMmapFlagsAnon)
         flags_platform |= map_anon;
     return flags_platform;
+}
+
+ConstString
+PlatformLinux::GetFullNameForDylib (ConstString basename)
+{
+    if (basename.IsEmpty())
+        return basename;
+    
+    StreamString stream;
+    stream.Printf("lib%s.so", basename.GetCString());
+    return ConstString(stream.GetData());
 }

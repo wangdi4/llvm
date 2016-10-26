@@ -43,10 +43,10 @@ StringRef ArchiveMemberHeader::getName() const {
   return llvm::StringRef(Name, end);
 }
 
-uint32_t ArchiveMemberHeader::getSize() const {
+ErrorOr<uint32_t> ArchiveMemberHeader::getSize() const {
   uint32_t Ret;
   if (llvm::StringRef(Size, sizeof(Size)).rtrim(" ").getAsInteger(10, Ret))
-    llvm_unreachable("Size is not a decimal number.");
+    return object_error::parse_failed;
   return Ret;
 }
 
@@ -87,17 +87,17 @@ Archive::Child::Child(const Archive *Parent, const char *Start)
   if (!Start)
     return;
 
-  const ArchiveMemberHeader *Header =
-      reinterpret_cast<const ArchiveMemberHeader *>(Start);
   uint64_t Size = sizeof(ArchiveMemberHeader);
-  if (!Parent->IsThin || Header->getName() == "/" || Header->getName() == "//")
-    Size += Header->getSize();
   Data = StringRef(Start, Size);
+  if (!isThinMember()) {
+    Size += getRawSize();
+    Data = StringRef(Start, Size);
+  }
 
   // Setup StartOfFile and PaddingBytes.
   StartOfFile = sizeof(ArchiveMemberHeader);
   // Don't include attached name.
-  StringRef Name = Header->getName();
+  StringRef Name = getRawName();
   if (Name.startswith("#1/")) {
     uint64_t NameSize;
     if (Name.substr(3).rtrim(" ").getAsInteger(10, NameSize))
@@ -107,24 +107,35 @@ Archive::Child::Child(const Archive *Parent, const char *Start)
 }
 
 uint64_t Archive::Child::getSize() const {
-  if (Parent->IsThin)
-    return getHeader()->getSize();
+  if (Parent->IsThin) {
+    ErrorOr<uint32_t> Size = getHeader()->getSize();
+    if (Size.getError())
+      return 0;
+    return Size.get();
+  }
   return Data.size() - StartOfFile;
 }
 
 uint64_t Archive::Child::getRawSize() const {
-  return getHeader()->getSize();
+  ErrorOr<uint32_t> Size = getHeader()->getSize();
+  if (Size.getError())
+    return 0;
+  return Size.get();
+}
+
+bool Archive::Child::isThinMember() const {
+  StringRef Name = getHeader()->getName();
+  return Parent->IsThin && Name != "/" && Name != "//";
 }
 
 ErrorOr<StringRef> Archive::Child::getBuffer() const {
-  if (!Parent->IsThin)
+  if (!isThinMember())
     return StringRef(Data.data() + StartOfFile, getSize());
   ErrorOr<StringRef> Name = getName();
   if (std::error_code EC = Name.getError())
     return EC;
-  SmallString<128> FullName =
-      Parent->getMemoryBufferRef().getBufferIdentifier();
-  sys::path::remove_filename(FullName);
+  SmallString<128> FullName = sys::path::parent_path(
+      Parent->getMemoryBufferRef().getBufferIdentifier());
   sys::path::append(FullName, *Name);
   ErrorOr<std::unique_ptr<MemoryBuffer>> Buf = MemoryBuffer::getFile(FullName);
   if (std::error_code EC = Buf.getError())
@@ -506,12 +517,12 @@ Archive::symbol_iterator Archive::symbol_begin() const {
 }
 
 Archive::symbol_iterator Archive::symbol_end() const {
-  if (!hasSymbolTable())
-    return symbol_iterator(Symbol(this, 0, 0));
   return symbol_iterator(Symbol(this, getNumberOfSymbols(), 0));
 }
 
 uint32_t Archive::getNumberOfSymbols() const {
+  if (!hasSymbolTable())
+    return 0;
   const char *buf = getSymbolTable().begin();
   if (kind() == K_GNU)
     return read32be(buf);

@@ -79,6 +79,7 @@ namespace llvm {
 
       EH_SJLJ_SETJMP,         // SjLj exception handling setjmp.
       EH_SJLJ_LONGJMP,        // SjLj exception handling longjmp.
+      EH_SJLJ_SETUP_DISPATCH, // SjLj exception handling setup_dispatch.
 
       TC_RETURN,    // Tail call return pseudo.
 
@@ -91,6 +92,7 @@ namespace llvm {
       PRELOAD,      // Preload
 
       WIN__CHKSTK,  // Windows' __chkstk call to do stack probing.
+      WIN__DBZCHK,  // Windows' divide by zero check
 
       VCEQ,         // Vector compare equal.
       VCEQZ,        // Vector compare equal to zero.
@@ -172,12 +174,6 @@ namespace llvm {
       // BUILD_VECTOR for this purpose.
       BUILD_VECTOR,
 
-      // Floating-point max and min:
-      FMAX,
-      FMIN,
-      VMAXNM,
-      VMINNM,
-
       // Bit-field insert
       BFI,
 
@@ -188,6 +184,10 @@ namespace llvm {
 
       // Vector bitwise select
       VBSL,
+
+      // Pseudo-instruction representing a memory copy using ldm/stm
+      // instructions.
+      MEMCPY,
 
       // Vector load N-element structure to all lanes:
       VLD2DUP = ISD::FIRST_TARGET_MEMORY_OPCODE,
@@ -420,12 +420,13 @@ namespace llvm {
     bool functionArgumentNeedsConsecutiveRegisters(
         Type *Ty, CallingConv::ID CallConv, bool isVarArg) const override;
 
-    bool hasLoadLinkedStoreConditional() const override;
     Instruction *makeDMB(IRBuilder<> &Builder, ARM_MB::MemBOpt Domain) const;
     Value *emitLoadLinked(IRBuilder<> &Builder, Value *Addr,
                           AtomicOrdering Ord) const override;
     Value *emitStoreConditional(IRBuilder<> &Builder, Value *Val,
                                 Value *Addr, AtomicOrdering Ord) const override;
+
+    void emitAtomicCmpXchgNoStoreLLBalance(IRBuilder<> &Builder) const override;
 
     Instruction* emitLeadingFence(IRBuilder<> &Builder, AtomicOrdering Ord,
                           bool IsStore, bool IsLoad) const override;
@@ -441,10 +442,12 @@ namespace llvm {
     bool lowerInterleavedStore(StoreInst *SI, ShuffleVectorInst *SVI,
                                unsigned Factor) const override;
 
-    bool shouldExpandAtomicLoadInIR(LoadInst *LI) const override;
+    TargetLoweringBase::AtomicExpansionKind
+    shouldExpandAtomicLoadInIR(LoadInst *LI) const override;
     bool shouldExpandAtomicStoreInIR(StoreInst *SI) const override;
-    TargetLoweringBase::AtomicRMWExpansionKind
+    TargetLoweringBase::AtomicExpansionKind
     shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const override;
+    bool shouldExpandAtomicCmpXchgInIR(AtomicCmpXchgInst *AI) const override;
 
     bool useLoadStackGuardNode() const override;
 
@@ -496,6 +499,7 @@ namespace llvm {
                              ISD::ArgFlagsTy Flags) const;
     SDValue LowerEH_SJLJ_SETJMP(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerEH_SJLJ_LONGJMP(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerEH_SJLJ_SETUP_DISPATCH(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG,
                                     const ARMSubtarget *Subtarget) const;
     SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
@@ -526,6 +530,12 @@ namespace llvm {
                               const ARMSubtarget *ST) const;
     SDValue LowerFSINCOS(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerDivRem(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerDIV_Windows(SDValue Op, SelectionDAG &DAG, bool Signed) const;
+    void ExpandDIV_Windows(SDValue Op, SelectionDAG &DAG, bool Signed,
+                           SmallVectorImpl<SDValue> &Results) const;
+    SDValue LowerWindowsDIVLibCall(SDValue Op, SelectionDAG &DAG, bool Signed,
+                                   SDValue &Chain) const;
+    SDValue LowerREM(SDNode *N, SelectionDAG &DAG) const;
     SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFP_ROUND(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG) const;
@@ -634,6 +644,8 @@ namespace llvm {
                                        MachineBasicBlock *MBB) const;
 
     MachineBasicBlock *EmitLowered__chkstk(MachineInstr *MI,
+                                           MachineBasicBlock *MBB) const;
+    MachineBasicBlock *EmitLowered__dbzchk(MachineInstr *MI,
                                            MachineBasicBlock *MBB) const;
   };
 

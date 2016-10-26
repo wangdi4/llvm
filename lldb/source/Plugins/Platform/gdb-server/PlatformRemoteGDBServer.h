@@ -225,16 +225,29 @@ protected:
 
     lldb::UnixSignalsSP m_remote_signals_sp;
 
-    // Launch the lldb-gdbserver on the remote host and return the port it is listening on or 0 on
-    // failure. Subclasses should override this method if they want to do extra actions before or
-    // after launching the lldb-gdbserver.
-    virtual uint16_t
-    LaunchGDBserverAndGetPort (lldb::pid_t &pid);
+    // Launch the debug server on the remote host - caller connects to launched
+    // debug server using connect_url.
+    // Subclasses should override this method if they want to do extra actions before or
+    // after launching the debug server.
+    virtual bool
+    LaunchGDBServer (lldb::pid_t &pid, std::string &connect_url);
 
     virtual bool
     KillSpawnedProcess (lldb::pid_t pid);
 
+    virtual std::string
+    MakeUrl(const char* scheme,
+            const char* hostname,
+            uint16_t port,
+            const char* path);
+
 private:
+    std::string
+    MakeGdbServerUrl(const std::string &platform_scheme,
+                     const std::string &platform_hostname,
+                     uint16_t port,
+                     const char* socket_name);
+
     DISALLOW_COPY_AND_ASSIGN (PlatformRemoteGDBServer);
 
 };

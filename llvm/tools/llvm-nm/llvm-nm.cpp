@@ -44,6 +44,7 @@
 #include <cstring>
 #include <system_error>
 #include <vector>
+
 using namespace llvm;
 using namespace object;
 
@@ -159,7 +160,7 @@ bool MultipleFiles = false;
 bool HadError = false;
 
 std::string ToolName;
-}
+} // anonymous namespace
 
 static void error(Twine Message, Twine Path = Twine()) {
   HadError = true;
@@ -182,7 +183,7 @@ struct NMSymbol {
   StringRef Name;
   BasicSymbolRef Sym;
 };
-}
+} // anonymous namespace
 
 static bool compareSymbolAddress(const NMSymbol &A, const NMSymbol &B) {
   bool ADefined = !(A.Sym.getFlags() & SymbolRef::SF_Undefined);
@@ -314,8 +315,7 @@ static void darwinPrintSymbol(MachOObjectFile *MachO, SymbolListT::iterator I,
     outs() << "(indirect) ";
     break;
   case MachO::N_SECT: {
-    section_iterator Sec = MachO->section_end();
-    MachO->getSymbolSection(I->Sym.getRawDataRefImpl(), Sec);
+    section_iterator Sec = *MachO->getSymbolSection(I->Sym.getRawDataRefImpl());
     DataRefImpl Ref = Sec->getRawDataRefImpl();
     StringRef SectionName;
     MachO->getSectionName(Ref, SectionName);
@@ -440,13 +440,14 @@ static const struct DarwinStabName DarwinStabNames[] = {
     {MachO::N_ECOMM, "ECOMM"},
     {MachO::N_ECOML, "ECOML"},
     {MachO::N_LENG, "LENG"},
-    {0, 0}};
+    {0, nullptr}};
+
 static const char *getDarwinStabString(uint8_t NType) {
   for (unsigned i = 0; DarwinStabNames[i].Name; i++) {
     if (DarwinStabNames[i].NType == NType)
       return DarwinStabNames[i].Name;
   }
-  return 0;
+  return nullptr;
 }
 
 // darwinPrintStab() prints the n_sect, n_desc along with a symbolic name of
@@ -594,10 +595,11 @@ static char getSymbolNMTypeChar(ELFObjectFileBase &Obj,
   // OK, this is ELF
   elf_symbol_iterator SymI(I);
 
-  elf_section_iterator SecI = Obj.section_end();
-  if (error(SymI->getSection(SecI)))
+  ErrorOr<elf_section_iterator> SecIOrErr = SymI->getSection();
+  if (error(SecIOrErr.getError()))
     return '?';
 
+  elf_section_iterator SecI = *SecIOrErr;
   if (SecI != Obj.section_end()) {
     switch (SecI->getType()) {
     case ELF::SHT_PROGBITS:
@@ -651,9 +653,10 @@ static char getSymbolNMTypeChar(COFFObjectFile &Obj, symbol_iterator I) {
 
   uint32_t Characteristics = 0;
   if (!COFF::isReservedSectionNumber(Symb.getSectionNumber())) {
-    section_iterator SecI = Obj.section_end();
-    if (error(SymI->getSection(SecI)))
+    ErrorOr<section_iterator> SecIOrErr = SymI->getSection();
+    if (error(SecIOrErr.getError()))
       return '?';
+    section_iterator SecI = *SecIOrErr;
     const coff_section *Section = Obj.getCOFFSection(*SecI);
     Characteristics = Section->Characteristics;
   }
@@ -701,8 +704,7 @@ static char getSymbolNMTypeChar(MachOObjectFile &Obj, basic_symbol_iterator I) {
   case MachO::N_INDR:
     return 'i';
   case MachO::N_SECT: {
-    section_iterator Sec = Obj.section_end();
-    Obj.getSymbolSection(Symb, Sec);
+    section_iterator Sec = *Obj.getSymbolSection(Symb);
     DataRefImpl Ref = Sec->getRawDataRefImpl();
     StringRef SectionName;
     Obj.getSectionName(Ref, SectionName);
@@ -1150,7 +1152,6 @@ static void dumpSymbolNamesFromFile(std::string &Filename) {
     return;
   }
   error("unrecognizable file type", Filename);
-  return;
 }
 
 int main(int argc, char **argv) {

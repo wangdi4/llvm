@@ -49,24 +49,6 @@ class DwarfUnit;
 class MachineModuleInfo;
 
 //===----------------------------------------------------------------------===//
-/// This class is used to record source line correspondence.
-class SrcLineInfo {
-  unsigned Line;     // Source line number.
-  unsigned Column;   // Source column.
-  unsigned SourceID; // Source ID number.
-  MCSymbol *Label;   // Label in code ID number.
-public:
-  SrcLineInfo(unsigned L, unsigned C, unsigned S, MCSymbol *label)
-      : Line(L), Column(C), SourceID(S), Label(label) {}
-
-  // Accessors
-  unsigned getLine() const { return Line; }
-  unsigned getColumn() const { return Column; }
-  unsigned getSourceID() const { return SourceID; }
-  MCSymbol *getLabel() const { return Label; }
-};
-
-//===----------------------------------------------------------------------===//
 /// This class is used to track local variable information.
 ///
 /// Variables can be created from allocas, in which case they're generated from
@@ -127,14 +109,14 @@ public:
   // Accessors.
   const DILocalVariable *getVariable() const { return Var; }
   const DILocation *getInlinedAt() const { return IA; }
-  const ArrayRef<const DIExpression *> getExpression() const { return Expr; }
+  ArrayRef<const DIExpression *> getExpression() const { return Expr; }
   void setDIE(DIE &D) { TheDIE = &D; }
   DIE *getDIE() const { return TheDIE; }
   void setDebugLocListIndex(unsigned O) { DebugLocListIndex = O; }
   unsigned getDebugLocListIndex() const { return DebugLocListIndex; }
   StringRef getName() const { return Var->getName(); }
   const MachineInstr *getMInsn() const { return MInsn; }
-  const ArrayRef<int> getFrameIndex() const { return FrameIndex; }
+  ArrayRef<int> getFrameIndex() const { return FrameIndex; }
 
   void addMMIEntry(const DbgVariable &V) {
     assert(DebugLocListIndex == ~0U && !MInsn && "not an MMI entry");
@@ -156,7 +138,8 @@ public:
 
   // Translate tag to proper Dwarf tag.
   dwarf::Tag getTag() const {
-    if (Var->getTag() == dwarf::DW_TAG_arg_variable)
+    // FIXME: Why don't we just infer this tag and store it all along?
+    if (Var->isParameter())
       return dwarf::DW_TAG_formal_parameter;
 
     return dwarf::DW_TAG_variable;
@@ -201,6 +184,30 @@ struct SymbolCU {
   SymbolCU(DwarfCompileUnit *CU, const MCSymbol *Sym) : Sym(Sym), CU(CU) {}
   const MCSymbol *Sym;
   DwarfCompileUnit *CU;
+};
+
+/// Identify a debugger for "tuning" the debug info.
+///
+/// The "debugger tuning" concept allows us to present a more intuitive
+/// interface that unpacks into different sets of defaults for the various
+/// individual feature-flag settings, that suit the preferences of the
+/// various debuggers.  However, it's worth remembering that debuggers are
+/// not the only consumers of debug info, and some variations in DWARF might
+/// better be treated as target/platform issues. Fundamentally,
+/// o if the feature is useful (or not) to a particular debugger, regardless
+///   of the target, that's a tuning decision;
+/// o if the feature is useful (or not) on a particular platform, regardless
+///   of the debugger, that's a target decision.
+/// It's not impossible to see both factors in some specific case.
+///
+/// The "tuning" should be used to set defaults for individual feature flags
+/// in DwarfDebug; if a given feature has a more specific command-line option,
+/// that option should take precedence over the tuning.
+enum class DebuggerKind {
+  Default,  // No specific tuning requested.
+  GDB,      // Tune debug info for gdb.
+  LLDB,     // Tune debug info for lldb.
+  SCE       // Tune debug info for SCE targets (e.g. PS4).
 };
 
 /// Collects and handles dwarf debug information.
@@ -298,15 +305,11 @@ class DwarfDebug : public AsmPrinterHandler {
   /// Whether to emit the pubnames/pubtypes sections.
   bool HasDwarfPubSections;
 
-  /// Whether or not to use AT_ranges for compilation units.
-  bool HasCURanges;
-
-  /// Whether we emitted a function into a section other than the
-  /// default text.
-  bool UsedNonDefaultText;
-
   /// Whether to use the GNU TLS opcode (instead of the standard opcode).
   bool UseGNUTLSOpcode;
+
+  /// Whether to emit DW_AT_[MIPS_]linkage_name.
+  bool UseLinkageNames;
 
   /// Version of dwarf we're emitting.
   unsigned DwarfVersion;
@@ -338,7 +341,6 @@ class DwarfDebug : public AsmPrinterHandler {
   /// True iff there are multiple CUs in this module.
   bool SingleCU;
   bool IsDarwin;
-  bool IsPS4;
 
   AddressPool AddrPool;
 
@@ -348,6 +350,9 @@ class DwarfDebug : public AsmPrinterHandler {
   DwarfAccelTable AccelTypes;
 
   DenseMap<const Function *, DISubprogram *> FunctionDIs;
+
+  // Identify a debugger for "tuning" the debug info.
+  DebuggerKind DebuggerTuning;
 
   MCDwarfDwoLineTable *getDwoLineTable(const DwarfCompileUnit &);
 
@@ -371,12 +376,6 @@ class DwarfDebug : public AsmPrinterHandler {
 
   /// Construct a DIE for this abstract scope.
   void constructAbstractSubprogramScopeDIE(LexicalScope *Scope);
-
-  /// Compute the size and offset of a DIE given an incoming Offset.
-  unsigned computeSizeAndOffset(DIE *Die, unsigned Offset);
-
-  /// Compute the size and offset of all the DIEs.
-  void computeSizeAndOffsets();
 
   /// Collect info for variables that were optimized out.
   void collectDeadVariables();
@@ -443,9 +442,6 @@ class DwarfDebug : public AsmPrinterHandler {
   /// Emit visible names into a debug ranges section.
   void emitDebugRanges();
 
-  /// Emit inline info using custom format.
-  void emitDebugInlineInfo();
-
   /// DWARF 5 Experimental Split Dwarf Emitters
 
   /// Initialize common features of skeleton units.
@@ -455,10 +451,6 @@ class DwarfDebug : public AsmPrinterHandler {
   /// Construct the split debug info compile unit for the debug info
   /// section.
   DwarfCompileUnit &constructSkeletonCU(const DwarfCompileUnit &CU);
-
-  /// Construct the split debug info compile unit for the debug info
-  /// section.
-  DwarfTypeUnit &constructSkeletonTU(DwarfTypeUnit &TU);
 
   /// Emit the debug info dwo section.
   void emitDebugInfoDWO();
@@ -544,6 +536,9 @@ public:
   /// Process end of an instruction.
   void endInstruction() override;
 
+  /// Perform an MD5 checksum of \p Identifier and return the lower 64 bits.
+  static uint64_t makeTypeSignature(StringRef Identifier);
+
   /// Add a DIE to the set of types that we're going to pull into
   /// type units.
   void addDwarfTypeUnitType(DwarfCompileUnit &CU, StringRef Identifier,
@@ -558,9 +553,21 @@ public:
     SymSize[Sym] = Size;
   }
 
+  /// Returns whether to emit DW_AT_[MIPS_]linkage_name.
+  bool useLinkageNames() const { return UseLinkageNames; }
+
   /// Returns whether to use DW_OP_GNU_push_tls_address, instead of the
   /// standard DW_OP_form_tls_address opcode
   bool useGNUTLSOpcode() const { return UseGNUTLSOpcode; }
+
+  /// \defgroup DebuggerTuning Predicates to tune DWARF for a given debugger.
+  ///
+  /// Returns whether we are "tuning" for a given debugger.
+  /// @{
+  bool tuneForGDB() const { return DebuggerTuning == DebuggerKind::GDB; }
+  bool tuneForLLDB() const { return DebuggerTuning == DebuggerKind::LLDB; }
+  bool tuneForSCE() const { return DebuggerTuning == DebuggerKind::SCE; }
+  /// @}
 
   // Experimental DWARF5 features.
 
@@ -604,9 +611,6 @@ public:
   DwarfCompileUnit *lookupUnit(const DIE *CU) const {
     return CUDieMap.lookup(CU);
   }
-  /// isSubprogramContext - Return true if Context is either a subprogram
-  /// or another context nested inside a subprogram.
-  bool isSubprogramContext(const MDNode *Context);
 
   void addSubprogramNames(const DISubprogram *SP, DIE &Die);
 

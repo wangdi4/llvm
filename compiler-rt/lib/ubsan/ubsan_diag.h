@@ -150,7 +150,7 @@ public:
 
   /// An individual diagnostic message argument.
   struct Arg {
-    Arg() {}
+    Arg() = default;
     Arg(const char *String) : Kind(AK_String), String(String) {}
     Arg(TypeName TN) : Kind(AK_TypeName), String(TN.getName()) {}
     Arg(UIntMax UInt) : Kind(AK_UInt), UInt(UInt) {}
@@ -219,6 +219,12 @@ struct ReportOptions {
   uptr bp;
 };
 
+enum class ErrorType {
+#define UBSAN_CHECK(Name, SummaryKind, FlagName) Name,
+#include "ubsan_checks.inc"
+#undef UBSAN_CHECK
+};
+
 #define GET_REPORT_OPTIONS(die_after_report) \
     GET_CALLER_PC_BP; \
     ReportOptions Opts = {die_after_report, pc, bp}
@@ -229,9 +235,12 @@ struct ReportOptions {
 class ScopedReport {
   ReportOptions Opts;
   Location SummaryLoc;
+  ErrorType Type;
 
 public:
-  ScopedReport(ReportOptions Opts, Location SummaryLoc);
+  ScopedReport(ReportOptions Opts, Location SummaryLoc,
+               ErrorType Type = ErrorType::GenericUB);
+  void setErrorType(ErrorType T) { Type = T; }
   ~ScopedReport();
 };
 

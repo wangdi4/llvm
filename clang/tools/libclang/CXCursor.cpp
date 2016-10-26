@@ -58,6 +58,7 @@ static CXCursorKind GetCursorKind(const Attr *A) {
     case attr::CUDAGlobal: return CXCursor_CUDAGlobalAttr;
     case attr::CUDAHost: return CXCursor_CUDAHostAttr;
     case attr::CUDAShared: return CXCursor_CUDASharedAttr;
+    case attr::Visibility: return CXCursor_VisibilityAttr;
   }
 
   return CXCursor_UnexposedAttr;
@@ -328,6 +329,10 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     K = CXCursor_ArraySubscriptExpr;
     break;
 
+  case Stmt::OMPArraySectionExprClass:
+    K = CXCursor_OMPArraySectionExpr;
+    break;
+
   case Stmt::BinaryOperatorClass:
     K = CXCursor_BinaryOperator;
     break;
@@ -584,6 +589,9 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     break;
   case Stmt::OMPTargetDirectiveClass:
     K = CXCursor_OMPTargetDirective;
+    break;
+  case Stmt::OMPTargetDataDirectiveClass:
+    K = CXCursor_OMPTargetDataDirective;
     break;
   case Stmt::OMPTeamsDirectiveClass:
     K = CXCursor_OMPTeamsDirective;

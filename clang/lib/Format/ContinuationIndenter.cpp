@@ -158,6 +158,9 @@ bool ContinuationIndenter::mustBreak(const LineState &State) {
           getColumnLimit(State))
     return true;
   if (Current.is(TT_CtorInitializerColon) &&
+      (State.Column + State.Line->Last->TotalLength - Current.TotalLength + 2 >
+           getColumnLimit(State) ||
+       State.Stack.back().BreakBeforeParameter) &&
       ((Style.AllowShortFunctionsOnASingleLine != FormatStyle::SFS_All) ||
        Style.BreakConstructorInitializersBeforeComma || Style.ColumnLimit != 0))
     return true;
@@ -225,7 +228,8 @@ bool ContinuationIndenter::mustBreak(const LineState &State) {
   }
 
   // If the return type spans multiple lines, wrap before the function name.
-  if (Current.isOneOf(TT_FunctionDeclarationName, tok::kw_operator) &&
+  if ((Current.is(TT_FunctionDeclarationName) ||
+       (Current.is(tok::kw_operator) && !Previous.is(tok::coloncolon))) &&
       State.Stack.back().BreakBeforeParameter)
     return true;
 
@@ -500,6 +504,7 @@ unsigned ContinuationIndenter::addTokenOnNewLine(LineState &State,
   // Any break on this level means that the parent level has been broken
   // and we need to avoid bin packing there.
   bool NestedBlockSpecialCase =
+      Style.Language != FormatStyle::LK_Cpp &&
       Current.is(tok::r_brace) && State.Stack.size() > 1 &&
       State.Stack[State.Stack.size() - 2].NestedBlockInlined;
   if (!NestedBlockSpecialCase)
@@ -678,8 +683,13 @@ unsigned ContinuationIndenter::moveStateToNextToken(LineState &State,
   if (Current.isMemberAccess())
     State.Stack.back().StartOfFunctionCall =
         Current.LastOperator ? 0 : State.Column;
-  if (Current.is(TT_SelectorName))
+  if (Current.is(TT_SelectorName)) {
     State.Stack.back().ObjCSelectorNameFound = true;
+    if (Style.IndentWrappedFunctionNames) {
+      State.Stack.back().Indent =
+          State.FirstIndent + Style.ContinuationIndentWidth;
+    }
+  }
   if (Current.is(TT_CtorInitializerColon)) {
     // Indent 2 from the column, so:
     // SomeClass::SomeClass()

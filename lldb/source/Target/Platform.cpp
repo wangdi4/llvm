@@ -39,8 +39,10 @@
 #include "lldb/Target/UnixSignals.h"
 #include "lldb/Utility/Utils.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 
 #include "Utility/ModuleCache.h"
+
 
 // Define these constants from POSIX mman.h rather than include the file
 // so that they will be correct even when compiled on Linux.
@@ -99,13 +101,17 @@ PlatformProperties::PlatformProperties ()
     m_collection_sp->Initialize (g_properties);
 
     auto module_cache_dir = GetModuleCacheDirectory ();
-    if (!module_cache_dir)
-    {
-        if (!HostInfo::GetLLDBPath (ePathTypeGlobalLLDBTempSystemDir, module_cache_dir))
-            module_cache_dir = FileSpec ("/tmp/lldb", false);
-        module_cache_dir.AppendPathComponent ("module_cache");
-        SetModuleCacheDirectory (module_cache_dir);
-    }
+    if (module_cache_dir)
+        return;
+
+    llvm::SmallString<64> user_home_dir;
+    if (!llvm::sys::path::home_directory (user_home_dir))
+        return;
+
+    module_cache_dir = FileSpec (user_home_dir.c_str(), false);
+    module_cache_dir.AppendPathComponent (".lldb");
+    module_cache_dir.AppendPathComponent ("module_cache");
+    SetModuleCacheDirectory (module_cache_dir);
 }
 
 bool
@@ -272,8 +278,11 @@ Platform::GetSharedModule (const ModuleSpec &module_spec,
                                   module_sp,
                                   [&](const ModuleSpec &spec)
                                   {
-                                      return ModuleList::GetSharedModule (
+                                      Error error = ModuleList::GetSharedModule (
                                           spec, module_sp, module_search_paths_ptr, old_module_sp_ptr, did_create_ptr, false);
+                                      if (error.Success() && module_sp)
+                                          module_sp->SetPlatformFileSpec(spec.GetFileSpec());
+                                      return error;
                                   },
                                   did_create_ptr);
 }
@@ -466,7 +475,11 @@ Platform::GetStatus (Stream &strm)
     if (arch.IsValid())
     {
         if (!arch.GetTriple().str().empty())
-        strm.Printf("    Triple: %s\n", arch.GetTriple().str().c_str());        
+        {
+            strm.Printf("    Triple: ");
+            arch.DumpTriple(strm);
+            strm.EOL();
+        }
     }
 
     if (GetOSVersion(major, minor, update))
@@ -945,6 +958,12 @@ Platform::GetHostname ()
     if (m_name.empty())        
         return NULL;
     return m_name.c_str();
+}
+
+ConstString
+Platform::GetFullNameForDylib (ConstString basename)
+{
+    return basename;
 }
 
 bool
@@ -1811,7 +1830,7 @@ Platform::GetRemoteSharedModule (const ModuleSpec &module_spec,
     {
         // Try to get module information from the process
         if (process->GetModuleSpec (module_spec.GetFileSpec (), module_spec.GetArchitecture (), resolved_module_spec))
-          got_module_spec = true;
+            got_module_spec = true;
     }
 
     if (!got_module_spec)
@@ -1838,7 +1857,8 @@ Platform::GetCachedSharedModule (const ModuleSpec &module_spec,
                                  bool *did_create_ptr)
 {
     if (IsHost() ||
-        !GetGlobalPlatformProperties ()->GetUseModuleCache ())
+        !GetGlobalPlatformProperties ()->GetUseModuleCache () ||
+        !GetGlobalPlatformProperties ()->GetModuleCacheDirectory ())
         return false;
 
     Log *log = GetLogIfAnyCategoriesSet (LIBLLDB_LOG_PLATFORM);
@@ -1848,13 +1868,17 @@ Platform::GetCachedSharedModule (const ModuleSpec &module_spec,
         GetModuleCacheRoot (),
         GetCacheHostname (),
         module_spec,
-        [=](const ModuleSpec &module_spec, const FileSpec &tmp_download_file_spec)
+        [this](const ModuleSpec &module_spec, const FileSpec &tmp_download_file_spec)
         {
             return DownloadModuleSlice (module_spec.GetFileSpec (),
                                         module_spec.GetObjectOffset (),
                                         module_spec.GetObjectSize (),
                                         tmp_download_file_spec);
 
+        },
+        [this](const ModuleSP& module_sp, const FileSpec& tmp_download_file_spec)
+        {
+            return DownloadSymbolFile (module_sp, tmp_download_file_spec);
         },
         module_sp,
         did_create_ptr);
@@ -1916,6 +1940,12 @@ Platform::DownloadModuleSlice (const FileSpec& src_file_spec,
     CloseFile (src_fd, close_error);  // Ignoring close error.
 
     return error;
+}
+
+Error
+Platform::DownloadSymbolFile (const lldb::ModuleSP& module_sp, const FileSpec& dst_file_spec)
+{
+    return Error ("Symbol file downloading not supported by the default platform.");
 }
 
 FileSpec

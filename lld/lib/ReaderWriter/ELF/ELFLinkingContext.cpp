@@ -61,6 +61,8 @@ uint16_t ELFLinkingContext::getOutputMachine() const {
     return llvm::ELF::EM_AARCH64;
   case llvm::Triple::arm:
     return llvm::ELF::EM_ARM;
+  case llvm::Triple::amdgcn:
+    return llvm::ELF::EM_AMDGPU;
   default:
     llvm_unreachable("Unhandled arch");
   }
@@ -233,7 +235,7 @@ std::string ELFLinkingContext::demangle(StringRef symbolName) const {
   const char *cstr = nullTermSym.data();
   int status;
   char *demangled = abi::__cxa_demangle(cstr, nullptr, nullptr, &status);
-  if (demangled == NULL)
+  if (!demangled)
     return symbolName;
   std::string result(demangled);
   // __cxa_demangle() always uses a malloc'ed buffer to return the result.
@@ -254,8 +256,10 @@ void ELFLinkingContext::notifyInputSectionName(StringRef name) {
   if (name.find_first_not_of("0123456789"
                              "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                              "abcdefghijklmnopqrstuvwxyz"
-                             "_") == StringRef::npos)
+                             "_") == StringRef::npos) {
+    std::lock_guard<std::mutex> lock(_cidentMutex);
     _cidentSections.insert(name);
+  }
 }
 
 } // end namespace lld

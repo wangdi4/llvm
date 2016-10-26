@@ -375,14 +375,19 @@ namespace llvm {
         DIType *UnderlyingType, StringRef UniqueIdentifier = "");
 
     /// Create subroutine type.
-    /// \param File            File in which this subroutine is defined.
     /// \param ParameterTypes  An array of subroutine parameter types. This
     ///                        includes return type at 0th index.
     /// \param Flags           E.g.: LValueReference.
     ///                        These flags are used to emit dwarf attributes.
-    DISubroutineType *createSubroutineType(DIFile *File,
-                                           DITypeRefArray ParameterTypes,
+    DISubroutineType *createSubroutineType(DITypeRefArray ParameterTypes,
                                            unsigned Flags = 0);
+
+    /// Create an external type reference.
+    /// \param Tag              Dwarf TAG.
+    /// \param File             File in which the type is defined.
+    /// \param UniqueIdentifier A unique identifier for the type.
+    DICompositeType *createExternalTypeRef(unsigned Tag, DIFile *File,
+                                           StringRef UniqueIdentifier);
 
     /// Create a new DIType* with "artificial" flag set.
     DIType *createArtificialType(DIType *Ty);
@@ -450,26 +455,36 @@ namespace llvm {
         unsigned LineNo, DIType *Ty, bool isLocalToUnit, llvm::Constant *Val,
         MDNode *Decl = nullptr);
 
-    /// Create a new descriptor for the specified
-    /// local variable.
-    /// \param Tag         Dwarf TAG. Usually DW_TAG_auto_variable or
-    ///                    DW_TAG_arg_variable.
-    /// \param Scope       Variable scope.
-    /// \param Name        Variable name.
-    /// \param File        File where this variable is defined.
-    /// \param LineNo      Line number.
-    /// \param Ty          Variable Type
-    /// \param AlwaysPreserve Boolean. Set to true if debug info for this
-    ///                       variable should be preserved in optimized build.
-    /// \param Flags       Flags, e.g. artificial variable.
-    /// \param ArgNo       If this variable is an argument then this argument's
-    ///                    number. 1 indicates 1st argument.
-    DILocalVariable *createLocalVariable(unsigned Tag, DIScope *Scope,
-                                         StringRef Name, DIFile *File,
-                                         unsigned LineNo, DIType *Ty,
+    /// Create a new descriptor for an auto variable.  This is a local variable
+    /// that is not a subprogram parameter.
+    ///
+    /// \c Scope must be a \a DILocalScope, and thus its scope chain eventually
+    /// leads to a \a DISubprogram.
+    ///
+    /// If \c AlwaysPreserve, this variable will be referenced from its
+    /// containing subprogram, and will survive some optimizations.
+    DILocalVariable *createAutoVariable(DIScope *Scope, StringRef Name,
+                                         DIFile *File, unsigned LineNo,
+                                         DIType *Ty,
                                          bool AlwaysPreserve = false,
-                                         unsigned Flags = 0,
-                                         unsigned ArgNo = 0);
+                                         unsigned Flags = 0);
+
+    /// Create a new descriptor for a parameter variable.
+    ///
+    /// \c Scope must be a \a DILocalScope, and thus its scope chain eventually
+    /// leads to a \a DISubprogram.
+    ///
+    /// \c ArgNo is the index (starting from \c 1) of this variable in the
+    /// subprogram parameters.  \c ArgNo should not conflict with other
+    /// parameters of the same subprogram.
+    ///
+    /// If \c AlwaysPreserve, this variable will be referenced from its
+    /// containing subprogram, and will survive some optimizations.
+    DILocalVariable *createParameterVariable(DIScope *Scope, StringRef Name,
+                                             unsigned ArgNo, DIFile *File,
+                                             unsigned LineNo, DIType *Ty,
+                                             bool AlwaysPreserve = false,
+                                             unsigned Flags = 0);
 
     /// Create a new descriptor for the specified
     /// variable which has a complex address expression for its address.
@@ -685,7 +700,7 @@ namespace llvm {
     /// has a self-reference -- \a DIBuilder needs to track the array to
     /// resolve cycles.
     void replaceArrays(DICompositeType *&T, DINodeArray Elements,
-                       DINodeArray TParems = DINodeArray());
+                       DINodeArray TParams = DINodeArray());
 
     /// Replace a temporary node.
     ///
