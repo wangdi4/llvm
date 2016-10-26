@@ -1651,7 +1651,13 @@ float4 __attribute__((overloadable)) read_imagef_2d_array (__private image_aux_d
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, internal_coord, dummy0, dummy1, pData);
 }
 
-float4 __attribute__((overloadable)) read_imagef (image2d_array_t image, int4 coord)
+float4 __attribute__((overloadable)) read_imagef (__read_only image2d_array_t image, int4 coord)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return read_imagef_2d_array(pImage, coord);
+}
+
+float4 __attribute__((overloadable)) read_imagef (__read_write image2d_array_t image, int4 coord)
 {
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     return read_imagef_2d_array(pImage, coord);
@@ -1683,7 +1689,7 @@ int4 __attribute__((overloadable)) read_imagei (__read_write image2d_array_t ima
     return read_imagei(__builtin_astype(image, __read_only image2d_array_t), coord);
 }
 
-uint4 __attribute__((overloadable)) read_imageui (image2d_array_t image, int4 coord)
+uint4 __attribute__((overloadable)) read_imageui (__read_only image2d_array_t image, int4 coord)
 {
     int4 internal_coord = coord;
     internal_coord.z = 0;
@@ -1692,6 +1698,12 @@ uint4 __attribute__((overloadable)) read_imageui (image2d_array_t image, int4 co
     Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
     return call_Image_UI_READ_CBK(read_cbk, (__private void*)pImage, internal_coord, pData);
 }
+
+uint4 __attribute__((overloadable)) read_imageui (__read_write image2d_array_t image, int4 coord)
+{
+    return read_imageui(__builtin_astype(image, __read_only image2d_array_t), coord);
+}
+
 
 float4 __attribute__((overloadable)) read_imagef (__read_only image1d_t image, int coord)
 {

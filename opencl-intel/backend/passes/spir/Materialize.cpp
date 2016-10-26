@@ -42,7 +42,10 @@ static bool isPointerToOpaqueStructType(llvm::Type *Ty) {
 static std::string updateImageTypeName(StringRef Name, StringRef Acc) {
   std::string AccessQual = Acc.str();
   std::string Res = Name.str();
-  Res.insert(Res.end() - 1, AccessQual.begin(), AccessQual.end());
+
+  assert(Res.find("_t") && "Invalid image type name");
+  Res.insert(Res.find("_t") + 1, AccessQual);
+
   return Res;
 }
 
@@ -66,7 +69,7 @@ static PointerType *getOrCreateOpaquePtrType(Module *M,
 static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
   assert(isPointerToOpaqueStructType(T) && "Invalid type");
   auto Name = T->getPointerElementType()->getStructName();
-#define CASE(X, Y) Case("opencl.image" #X, reflection::PRIMITIVE_IMAGE_##Y)
+#define CASE(X, Y) StartsWith("opencl.image" #X, reflection::PRIMITIVE_IMAGE_##Y)
   return StringSwitch<reflection::TypePrimitiveEnum>(Name)
     .CASE(1d_ro_t, 1D_RO_T)
     .CASE(1d_wo_t, 1D_WO_T)
@@ -100,10 +103,13 @@ static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
 
 // Basic block functors, to be applied on each block in the module.
 // 1. Replaces calling conventions in calling sites.
+// 2. Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names.
 class MaterializeBlockFunctor : public BlockFunctor {
 public:
   void operator()(llvm::BasicBlock &BB) {
     auto M = BB.getModule();
+    llvm::SmallVector<Instruction *, 4> InstToRemove;
+
     for (llvm::BasicBlock::iterator b = BB.begin(), e = BB.end(); e != b; ++b) {
       if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&*b)) {
         if ((llvm::CallingConv::SPIR_FUNC == CI->getCallingConv()) ||
@@ -114,63 +120,87 @@ public:
         auto *F = CI->getCalledFunction();
         if (!F)
           continue;
+
         StringRef FName = F->getName();
-        if (!isMangledName(FName.data()) || FName.find("image") == std::string::npos)
+        if (!isMangledName(FName.data()))
           continue;
-        auto FD = demangle(FName.data());
-        auto AccQ = StringSwitch<std::string>(FD.name)
-                        .Case("write_imagef", "wo_")
-                        .Case("write_imagei", "wo_")
-                        .Case("write_imageui", "wo_")
-                        .Default("ro_");
-        auto ImgArg = CI->getArgOperand(0);
-        auto ImgArgTy = ImgArg->getType();
-        assert(isPointerToOpaqueStructType(ImgArgTy) &&
-               "Expect image type argument");
-        auto STName = ImgArgTy->getPointerElementType()->getStructName();
-        assert(STName.startswith("opencl.image") &&
-               "Expect image type argument");
-        if (STName.find("_ro_t") != std::string::npos ||
-            STName.find("_wo_t") != std::string::npos ||
-            STName.find("_rw_t") != std::string::npos)
-          continue;
-        std::vector<Value *> Args;
-        std::vector<Type *> ArgTys;
-        ArgTys.push_back(
-            getOrCreateOpaquePtrType(M, updateImageTypeName(STName, AccQ)));
-        Args.push_back(BitCastInst::CreatePointerCast(CI->getArgOperand(0),
-                                                      ArgTys[0], "", CI));
-        for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
-          Args.push_back(CI->getArgOperand(i));
-          ArgTys.push_back(CI->getArgOperand(i)->getType());
+
+        // Update image type names with image access qualifiers
+        if (FName.find("image") != std::string::npos) {
+          auto FD = demangle(FName.data());
+          auto AccQ = StringSwitch<std::string>(FD.name)
+                          .Case("write_imagef", "wo_")
+                          .Case("write_imagei", "wo_")
+                          .Case("write_imageui", "wo_")
+                          .Default("ro_");
+          auto ImgArg = CI->getArgOperand(0);
+          auto ImgArgTy = ImgArg->getType();
+          assert(isPointerToOpaqueStructType(ImgArgTy) &&
+                 "Expect image type argument");
+          auto STName = ImgArgTy->getPointerElementType()->getStructName();
+          assert(STName.startswith("opencl.image") &&
+                 "Expect image type argument");
+          if (STName.find("_ro_t") != std::string::npos ||
+              STName.find("_wo_t") != std::string::npos ||
+              STName.find("_rw_t") != std::string::npos)
+            continue;
+          std::vector<Value *> Args;
+          std::vector<Type *> ArgTys;
+          ArgTys.push_back(
+              getOrCreateOpaquePtrType(M, updateImageTypeName(STName, AccQ)));
+          Args.push_back(BitCastInst::CreatePointerCast(CI->getArgOperand(0),
+                                                        ArgTys[0], "", CI));
+          for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
+            Args.push_back(CI->getArgOperand(i));
+            ArgTys.push_back(CI->getArgOperand(i)->getType());
+          }
+          auto *FT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
+          dyn_cast<reflection::PrimitiveType>(
+              (reflection::ParamType *)FD.parameters[0])
+              ->setPrimitive(getPrimitiveType(ArgTys[0]));
+          auto NewName = mangle(FD);
+
+          // Check if a new function is already added to the module.
+          auto NewF = F->getParent()->getFunction(NewName);
+          if (!NewF) {
+            // Create function with updated name
+            NewF = Function::Create(FT, F->getLinkage(), NewName);
+            NewF->copyAttributesFrom(F);
+
+            F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
+          }
+
+          CallInst *New = CallInst::Create(NewF, Args, "", CI);
+          //assert(New->getType() == Call->getType());
+          New->setCallingConv(CI->getCallingConv());
+          New->setAttributes(NewF->getAttributes());
+          if (CI->isTailCall())
+            New->setTailCall();
+          New->setDebugLoc(CI->getDebugLoc());
+
+          // Replace old call instruction with updated one
+          CI->replaceAllUsesWith(New);
+          InstToRemove.push_back(CI);
+
+          m_isChanged = true;
         }
-        auto *FT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
-        dyn_cast<reflection::PrimitiveType>(
-            (reflection::ParamType *)FD.parameters[0])
-            ->setPrimitive(getPrimitiveType(ArgTys[0]));
-        auto NewName = mangle(FD);
 
-        // Check if a new function is already added to the module.
-        auto NewF = F->getParent()->getFunction(NewName);
-        if (!NewF) {
-          // Create function with updated name
-          NewF = Function::Create(FT, F->getLinkage(), NewName);
-          NewF->copyAttributesFrom(F);
+        // Updates address space qualifier function names with unmangled ones
+        if (FName.find("to_global") != std::string::npos ||
+            FName.find("to_local") != std::string::npos ||
+            FName.find("to_private") != std::string::npos) {
+          reflection::FunctionDescriptor FD = demangle(FName.data());
+          F->setName("__" + FD.name);
 
-          F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
+          m_isChanged = true;
         }
-
-        CallInst *New = CallInst::Create(NewF, Args, "", CI);
-        //assert(New->getType() == Call->getType());
-        New->setCallingConv(CI->getCallingConv());
-        New->setAttributes(NewF->getAttributes());
-        if (CI->isTailCall())
-          New->setTailCall();
-        New->setDebugLoc(CI->getDebugLoc());
-        CI->replaceAllUsesWith(New);
-
-        m_isChanged = true;
       }
+    }
+
+    // Remove unused instructions
+    for (auto inst : InstToRemove) {
+      assert(inst->use_empty() && "Cannot erase used instructions");
+      inst->eraseFromParent();
     }
   }
 };
