@@ -1158,7 +1158,9 @@ void DDTest::removeMatchingExtensions(Subscript *Pair) {
 bool DDTest::checkSrcSubscript(const CanonExpr *Src, const HLLoop *LoopNest,
                                SmallBitVector &Loops) {
 
-  if (Src->isNonLinear()) {
+  // TODO: Disable denom != 1 now
+  // Need more work later. A[(i+1)/2] += 1  has loop carried  dep
+  if (Src->isNonLinear() || Src->getDenominator() != 1) {
     return false;
   }
 
@@ -1183,7 +1185,7 @@ bool DDTest::checkDstSubscript(const CanonExpr *Dst, const HLLoop *LoopNest,
 
   // TODO: this can be combined with previous one
 
-  if (Dst->isNonLinear()) {
+  if (Dst->isNonLinear() || Dst->getDenominator() != 1) {
     return false;
   }
 
