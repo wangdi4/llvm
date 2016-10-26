@@ -17,9 +17,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm-objdump.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/CodeGen/FaultMaps.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDisassembler.h"
@@ -39,6 +41,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Errc.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/GraphWriter.h"
@@ -148,6 +151,13 @@ static cl::alias
 PrivateHeadersShort("p", cl::desc("Alias for --private-headers"),
                     cl::aliasopt(PrivateHeaders));
 
+cl::opt<bool>
+    llvm::PrintImmHex("print-imm-hex",
+                      cl::desc("Use hex format for immediate values"));
+
+cl::opt<bool> PrintFaultMaps("fault-map-section",
+                             cl::desc("Display contents of faultmap section"));
+
 static StringRef ToolName;
 static int ReturnValue = EXIT_SUCCESS;
 
@@ -159,6 +169,12 @@ bool llvm::error(std::error_code EC) {
   outs().flush();
   ReturnValue = EXIT_FAILURE;
   return true;
+}
+
+static void report_error(StringRef File, std::error_code EC) {
+  assert(EC);
+  errs() << ToolName << ": '" << File << "': " << EC.message() << ".\n";
+  ReturnValue = EXIT_FAILURE;
 }
 
 static const Target *getTarget(const ObjectFile *Obj = nullptr) {
@@ -389,7 +405,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
   }
   if (Result.empty())
     Result.append(res.begin(), res.end());
-  return object_error::success;
+  return std::error_code();
 }
 
 static std::error_code getRelocationValueString(const ELFObjectFileBase *Obj,
@@ -414,7 +430,7 @@ static std::error_code getRelocationValueString(const COFFObjectFile *Obj,
   if (std::error_code EC = SymI->getName(SymName))
     return EC;
   Result.append(SymName.begin(), SymName.end());
-  return object_error::success;
+  return std::error_code();
 }
 
 static void printRelocationTargetName(const MachOObjectFile *O,
@@ -558,7 +574,7 @@ static std::error_code getRelocationValueString(const MachOObjectFile *Obj,
     // Generic relocation types...
     switch (Type) {
     case MachO::GENERIC_RELOC_PAIR: // prints no info
-      return object_error::success;
+      return std::error_code();
     case MachO::GENERIC_RELOC_SECTDIFF: {
       DataRefImpl RelNext = Rel;
       Obj->moveRelocationNext(RelNext);
@@ -656,7 +672,7 @@ static std::error_code getRelocationValueString(const MachOObjectFile *Obj,
 
   fmt.flush();
   Result.append(fmtbuf.begin(), fmtbuf.end());
-  return object_error::success;
+  return std::error_code();
 }
 
 static std::error_code getRelocationValueString(const RelocationRef &Rel,
@@ -736,6 +752,7 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
       << '\n';
     return;
   }
+  IP->setPrintImmHex(PrintImmHex);
   PrettyPrinter &PIP = selectPrettyPrinter(Triple(TripleName));
 
   StringRef Fmt = Obj->getBytesInAddress() > 4 ? "\t\t%016" PRIx64 ":  " :
@@ -767,7 +784,7 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
         uint64_t Address;
         if (error(Symbol.getAddress(Address)))
           break;
-        if (Address == UnknownAddressOrSize)
+        if (Address == UnknownAddress)
           continue;
         Address -= SectionAddr;
         if (Address >= SectSize)
@@ -809,11 +826,9 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
       outs() << SegmentName << ",";
     outs() << name << ':';
 
-    // If the section has no symbols just insert a dummy one and disassemble
-    // the whole section.
-    if (Symbols.empty())
-      Symbols.push_back(std::make_pair(0, name));
-
+    // If the section has no symbol at the start, just insert a dummy one.
+    if (Symbols.empty() || Symbols[0].first != 0)
+      Symbols.insert(Symbols.begin(), std::make_pair(0, name));
 
     SmallString<40> Comments;
     raw_svector_ostream CommentStream(Comments);
@@ -1070,7 +1085,6 @@ void llvm::PrintSymbolTable(const ObjectFile *o) {
       continue;
     if (error(Symbol.getType(Type)))
       continue;
-    uint64_t Size = Symbol.getSize();
     if (error(Symbol.getSection(Section)))
       continue;
     StringRef Name;
@@ -1086,15 +1100,11 @@ void llvm::PrintSymbolTable(const ObjectFile *o) {
     bool Common = Flags & SymbolRef::SF_Common;
     bool Hidden = Flags & SymbolRef::SF_Hidden;
 
-    if (Common) {
-      uint32_t Alignment = Symbol.getAlignment();
-      Address = Size;
-      Size = Alignment;
-    }
-    if (Address == UnknownAddressOrSize)
+    if (Common)
+      Address = Symbol.getCommonSize();
+
+    if (Address == UnknownAddress)
       Address = 0;
-    if (Size == UnknownAddressOrSize)
-      Size = 0;
     char GlobLoc = ' ';
     if (Type != SymbolRef::ST_Unknown)
       GlobLoc = Global ? 'g' : 'l';
@@ -1136,8 +1146,14 @@ void llvm::PrintSymbolTable(const ObjectFile *o) {
         SectionName = "";
       outs() << SectionName;
     }
-    outs() << '\t'
-           << format("%08" PRIx64 " ", Size);
+
+    outs() << '\t';
+    if (Common || isa<ELFObjectFileBase>(o)) {
+      uint64_t Val =
+          Common ? Symbol.getAlignment() : ELFSymbolRef(Symbol).getSize();
+      outs() << format("\t %08" PRIx64 " ", Val);
+    }
+
     if (Hidden) {
       outs() << ".hidden ";
     }
@@ -1216,6 +1232,49 @@ void llvm::printWeakBindTable(const ObjectFile *o) {
   }
 }
 
+static void printFaultMaps(const ObjectFile *Obj) {
+  const char *FaultMapSectionName = nullptr;
+
+  if (isa<ELFObjectFileBase>(Obj)) {
+    FaultMapSectionName = ".llvm_faultmaps";
+  } else if (isa<MachOObjectFile>(Obj)) {
+    FaultMapSectionName = "__llvm_faultmaps";
+  } else {
+    errs() << "This operation is only currently supported "
+              "for ELF and Mach-O executable files.\n";
+    return;
+  }
+
+  Optional<object::SectionRef> FaultMapSection;
+
+  for (auto Sec : Obj->sections()) {
+    StringRef Name;
+    Sec.getName(Name);
+    if (Name == FaultMapSectionName) {
+      FaultMapSection = Sec;
+      break;
+    }
+  }
+
+  outs() << "FaultMap table:\n";
+
+  if (!FaultMapSection.hasValue()) {
+    outs() << "<not found>\n";
+    return;
+  }
+
+  StringRef FaultMapContents;
+  if (error(FaultMapSection.getValue().getContents(FaultMapContents))) {
+    errs() << "Could not read the " << FaultMapContents << " section!\n";
+    return;
+  }
+
+  FaultMapParser FMP(FaultMapContents.bytes_begin(),
+                     FaultMapContents.bytes_end());
+
+  outs() << FMP;
+}
+
 static void printPrivateFileHeader(const ObjectFile *o) {
   if (o->isELF()) {
     printELFFileHeader(o);
@@ -1255,6 +1314,8 @@ static void DumpObject(const ObjectFile *o) {
     printLazyBindTable(o);
   if (WeakBind)
     printWeakBindTable(o);
+  if (PrintFaultMaps)
+    printFaultMaps(o);
 }
 
 /// @brief Dump each object file in \a a;
@@ -1265,15 +1326,13 @@ static void DumpArchive(const Archive *a) {
     if (std::error_code EC = ChildOrErr.getError()) {
       // Ignore non-object files.
       if (EC != object_error::invalid_file_type)
-        errs() << ToolName << ": '" << a->getFileName() << "': " << EC.message()
-               << ".\n";
+        report_error(a->getFileName(), EC);
       continue;
     }
     if (ObjectFile *o = dyn_cast<ObjectFile>(&*ChildOrErr.get()))
       DumpObject(o);
     else
-      errs() << ToolName << ": '" << a->getFileName() << "': "
-              << "Unrecognized file type.\n";
+      report_error(a->getFileName(), object_error::invalid_file_type);
   }
 }
 
@@ -1281,7 +1340,7 @@ static void DumpArchive(const Archive *a) {
 static void DumpInput(StringRef file) {
   // If file isn't stdin, check that it exists.
   if (file != "-" && !sys::fs::exists(file)) {
-    errs() << ToolName << ": '" << file << "': " << "No such file\n";
+    report_error(file, errc::no_such_file_or_directory);
     return;
   }
 
@@ -1296,7 +1355,7 @@ static void DumpInput(StringRef file) {
   // Attempt to open the binary.
   ErrorOr<OwningBinary<Binary>> BinaryOrErr = createBinary(file);
   if (std::error_code EC = BinaryOrErr.getError()) {
-    errs() << ToolName << ": '" << file << "': " << EC.message() << ".\n";
+    report_error(file, EC);
     return;
   }
   Binary &Binary = *BinaryOrErr.get().getBinary();
@@ -1306,7 +1365,7 @@ static void DumpInput(StringRef file) {
   else if (ObjectFile *o = dyn_cast<ObjectFile>(&Binary))
     DumpObject(o);
   else
-    errs() << ToolName << ": '" << file << "': " << "Unrecognized file type.\n";
+    report_error(file, object_error::invalid_file_type);
 }
 
 int main(int argc, char **argv) {
@@ -1354,7 +1413,8 @@ int main(int argc, char **argv) {
       && !(DylibsUsed && MachOOpt)
       && !(DylibId && MachOOpt)
       && !(ObjcMetaData && MachOOpt)
-      && !(DumpSections.size() != 0 && MachOOpt)) {
+      && !(DumpSections.size() != 0 && MachOOpt)
+      && !PrintFaultMaps) {
     cl::PrintHelpMessage();
     return 2;
   }

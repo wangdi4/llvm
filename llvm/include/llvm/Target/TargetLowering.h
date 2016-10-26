@@ -1457,9 +1457,12 @@ public:
   /// The type may be VoidTy, in which case only return true if the addressing
   /// mode is legal for a load/store of any legal type.  TODO: Handle
   /// pre/postinc as well.
+  ///
+  /// If the address space cannot be determined, it will be -1.
+  ///
   /// TODO: Remove default argument
   virtual bool isLegalAddressingMode(const AddrMode &AM, Type *Ty,
-                                     unsigned AS = 0) const;
+                                     unsigned AddrSpace) const;
 
   /// \brief Return the cost of the scaling factor used in the addressing mode
   /// represented by AM for this target, for a load/store of the specified type.
@@ -1591,6 +1594,35 @@ public:
 
   virtual bool hasPairedLoad(EVT /*LoadedType*/,
                              unsigned & /*RequiredAligment*/) const {
+    return false;
+  }
+
+  /// \brief Get the maximum supported factor for interleaved memory accesses.
+  /// Default to be the minimum interleave factor: 2.
+  virtual unsigned getMaxSupportedInterleaveFactor() const { return 2; }
+
+  /// \brief Lower an interleaved load to target specific intrinsics. Return
+  /// true on success.
+  ///
+  /// \p LI is the vector load instruction.
+  /// \p Shuffles is the shufflevector list to DE-interleave the loaded vector.
+  /// \p Indices is the corresponding indices for each shufflevector.
+  /// \p Factor is the interleave factor.
+  virtual bool lowerInterleavedLoad(LoadInst *LI,
+                                    ArrayRef<ShuffleVectorInst *> Shuffles,
+                                    ArrayRef<unsigned> Indices,
+                                    unsigned Factor) const {
+    return false;
+  }
+
+  /// \brief Lower an interleaved store to target specific intrinsics. Return
+  /// true on success.
+  ///
+  /// \p SI is the vector store instruction.
+  /// \p SVI is the shufflevector to RE-interleave the stored vector.
+  /// \p Factor is the interleave factor.
+  virtual bool lowerInterleavedStore(StoreInst *SI, ShuffleVectorInst *SVI,
+                                     unsigned Factor) const {
     return false;
   }
 
@@ -2391,7 +2423,7 @@ public:
   /// outgoing token chain. It calls LowerCall to do the actual lowering.
   std::pair<SDValue, SDValue> LowerCallTo(CallLoweringInfo &CLI) const;
 
-  /// This hook must be implemented to lower calls into the the specified
+  /// This hook must be implemented to lower calls into the specified
   /// DAG. The outgoing arguments to the call are described by the Outs array,
   /// and the values to be returned by the call are described by the Ins
   /// array. The implementation should fill in the InVals array with legal-type

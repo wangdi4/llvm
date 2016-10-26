@@ -11,9 +11,12 @@
 #define LLD_COFF_SYMBOL_TABLE_H
 
 #include "InputFiles.h"
-#include "Memory.h"
 #include "llvm/Support/Allocator.h"
 #include <unordered_map>
+
+namespace llvm {
+struct LTOCodeGenerator;
+}
 
 namespace lld {
 namespace coff {
@@ -31,8 +34,9 @@ namespace coff {
 class SymbolTable {
 public:
   SymbolTable();
-
-  std::error_code addFile(std::unique_ptr<InputFile> File);
+  void addFile(std::unique_ptr<InputFile> File);
+  std::error_code run();
+  size_t getVersion() { return Version; }
 
   // Print an error message on undefined symbols.
   bool reportRemainingUndefines();
@@ -65,10 +69,10 @@ public:
 
   // The writer needs to handle DLL import libraries specially in
   // order to create the import descriptor table.
-  std::vector<std::unique_ptr<ImportFile>> ImportFiles;
+  std::vector<ImportFile *> ImportFiles;
 
   // The writer needs to infer the machine type from the object files.
-  std::vector<std::unique_ptr<ObjectFile>> ObjectFiles;
+  std::vector<ObjectFile *> ObjectFiles;
 
   // Creates an Undefined symbol for a given name.
   std::error_code addUndefined(StringRef Name);
@@ -76,23 +80,28 @@ public:
   // Rename From -> To in the symbol table.
   std::error_code rename(StringRef From, StringRef To);
 
-private:
-  std::error_code addObject(ObjectFile *File);
-  std::error_code addArchive(ArchiveFile *File);
-  std::error_code addImport(ImportFile *File);
-  std::error_code addBitcode(BitcodeFile *File);
+  // A list of chunks which to be added to .rdata.
+  std::vector<Chunk *> LocalImportChunks;
 
+private:
   std::error_code resolve(SymbolBody *Body);
+  std::error_code resolveLazy(StringRef Name);
   std::error_code addMemberFile(Lazy *Body);
+  ErrorOr<ObjectFile *> createLTOObject(llvm::LTOCodeGenerator *CG);
 
   std::unordered_map<StringRef, Symbol *> Symtab;
-  std::vector<std::unique_ptr<ArchiveFile>> ArchiveFiles;
-  std::vector<std::unique_ptr<BitcodeFile>> BitcodeFiles;
-  std::unique_ptr<MemoryBuffer> LTOObjectFile;
+  std::vector<std::unique_ptr<InputFile>> Files;
+  size_t FileIdx = 0;
+  std::vector<ArchiveFile *> ArchiveFiles;
+  std::vector<BitcodeFile *> BitcodeFiles;
+  std::unique_ptr<MemoryBuffer> LTOMB;
   llvm::BumpPtrAllocator Alloc;
+
+  // This variable is incremented every time Symtab is updated.
+  size_t Version = 0;
 };
 
-} // namespace pecoff
+} // namespace coff
 } // namespace lld
 
 #endif

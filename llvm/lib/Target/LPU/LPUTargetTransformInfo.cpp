@@ -26,7 +26,7 @@ bool LPUTTIImpl::isLegalICmpImmediate(int64_t imm) const {
 
 bool LPUTTIImpl::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
                                      int64_t BaseOffset, bool HasBaseReg,
-                                     int64_t Scale) const {
+                                     int64_t Scale, unsigned AddressSpace) const {
   TargetLoweringBase::AddrMode AM;
   AM.BaseGV = BaseGV;
   AM.BaseOffs = BaseOffset;
@@ -37,7 +37,7 @@ bool LPUTTIImpl::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
 
 int LPUTTIImpl::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                    int64_t BaseOffset, bool HasBaseReg,
-                                   int64_t Scale) const {
+                                   int64_t Scale, unsigned AddressSpace) const {
   TargetLoweringBase::AddrMode AM;
   AM.BaseGV = BaseGV;
   AM.BaseOffs = BaseOffset;
@@ -104,7 +104,7 @@ void LPUTTIImpl::getUnrollingPreferences(Loop *L, TTI::UnrollingPreferences &UP)
     /* MaxOps = ST->getSchedModel().LoopMicroOpBufferSize */ ;
   //LPU edit: set up runtime unroll threshold for LPU target to UINT32_MAX
   else {
-    assert(ST->getTargetTriple().substr(0, 3) == "lpu");
+    assert(ST->getTargetTriple().str().substr(0, 3) == "lpu");
     if (!LPUUnrollingThreshold) {
       return;
     } 

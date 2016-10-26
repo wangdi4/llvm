@@ -75,43 +75,45 @@ append_list_if(ANDROID log ASAN_DYNAMIC_LIBS)
 
 # Compile ASan sources into an object library.
 if(APPLE)
-  foreach(os ${SANITIZER_COMMON_SUPPORTED_DARWIN_OS})
-    add_compiler_rt_darwin_object_library(RTAsan ${os}
-      ARCH ${ASAN_SUPPORTED_ARCH}
-      SOURCES ${ASAN_SOURCES} ${ASAN_CXX_SOURCES}
-      CFLAGS ${ASAN_DYNAMIC_CFLAGS}
-      DEFS ${ASAN_DYNAMIC_DEFINITIONS})
-  endforeach()
+  add_compiler_rt_object_libraries(RTAsan
+    OS ${SANITIZER_COMMON_SUPPORTED_OS}
+    ARCHS ${ASAN_SUPPORTED_ARCH}
+    SOURCES ${ASAN_SOURCES} ${ASAN_CXX_SOURCES}
+    CFLAGS ${ASAN_DYNAMIC_CFLAGS}
+    DEFS ${ASAN_DYNAMIC_DEFINITIONS})
 else()
-  foreach(arch ${ASAN_SUPPORTED_ARCH})
-    add_compiler_rt_object_library(RTAsan ${arch}
-      SOURCES ${ASAN_SOURCES} CFLAGS ${ASAN_CFLAGS}
-      DEFS ${ASAN_COMMON_DEFINITIONS})
-    add_compiler_rt_object_library(RTAsan_cxx ${arch}
-      SOURCES ${ASAN_CXX_SOURCES} CFLAGS ${ASAN_CFLAGS}
-      DEFS ${ASAN_COMMON_DEFINITIONS})
-    add_compiler_rt_object_library(RTAsan_preinit ${arch}
-      SOURCES ${ASAN_PREINIT_SOURCES} CFLAGS ${ASAN_CFLAGS}
-      DEFS ${ASAN_COMMON_DEFINITIONS})
-    add_compiler_rt_object_library(RTAsan_dynamic ${arch}
-      SOURCES ${ASAN_SOURCES} ${ASAN_CXX_SOURCES}
-      CFLAGS ${ASAN_DYNAMIC_CFLAGS}
-      DEFS ${ASAN_DYNAMIC_DEFINITIONS})
+  add_compiler_rt_object_libraries(RTAsan 
+    ARCHS ${ASAN_SUPPORTED_ARCH}
+    SOURCES ${ASAN_SOURCES} CFLAGS ${ASAN_CFLAGS}
+    DEFS ${ASAN_COMMON_DEFINITIONS})
+  add_compiler_rt_object_libraries(RTAsan_cxx 
+    ARCHS ${ASAN_SUPPORTED_ARCH}
+    SOURCES ${ASAN_CXX_SOURCES} CFLAGS ${ASAN_CFLAGS}
+    DEFS ${ASAN_COMMON_DEFINITIONS})
+  add_compiler_rt_object_libraries(RTAsan_preinit 
+    ARCHS ${ASAN_SUPPORTED_ARCH}
+    SOURCES ${ASAN_PREINIT_SOURCES} CFLAGS ${ASAN_CFLAGS}
+    DEFS ${ASAN_COMMON_DEFINITIONS})
+  add_compiler_rt_object_libraries(RTAsan_dynamic 
+    ARCHS ${ASAN_SUPPORTED_ARCH}
+    SOURCES ${ASAN_SOURCES} ${ASAN_CXX_SOURCES}
+    CFLAGS ${ASAN_DYNAMIC_CFLAGS}
+    DEFS ${ASAN_DYNAMIC_DEFINITIONS})
 
-    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc "")
-    add_compiler_rt_object_library(RTAsan_dynamic_version_script_dummy ${arch}
-      SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc
-      CFLAGS ${ASAN_DYNAMIC_CFLAGS}
-      DEFS ${ASAN_DYNAMIC_DEFINITIONS})
-  endforeach()
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc "")
+  add_compiler_rt_object_libraries(RTAsan_dynamic_version_script_dummy
+    ARCHS ${ASAN_SUPPORTED_ARCH}
+    SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc
+    CFLAGS ${ASAN_DYNAMIC_CFLAGS}
+    DEFS ${ASAN_DYNAMIC_DEFINITIONS})
 endif()
 
 # Build ASan runtimes shipped with Clang.
 add_custom_target(asan)
 if(APPLE)
-  foreach (os ${SANITIZER_COMMON_SUPPORTED_DARWIN_OS})
+  foreach (os ${SANITIZER_COMMON_SUPPORTED_OS})
     add_compiler_rt_darwin_dynamic_runtime(clang_rt.asan_${os}_dynamic ${os}
-      ARCH ${ASAN_SUPPORTED_ARCH}
+      ARCHS ${ASAN_SUPPORTED_ARCH}
       SOURCES $<TARGET_OBJECTS:RTAsan.${os}>
               $<TARGET_OBJECTS:RTInterception.${os}>
               $<TARGET_OBJECTS:RTSanitizerCommon.${os}>
@@ -154,7 +156,7 @@ else()
 
     if (UNIX AND NOT ${arch} MATCHES "i386|i686")
       add_sanitizer_rt_version_list(clang_rt.asan-dynamic-${arch}
-                                    LIB clang_rt.asan-${arch} clang_rt.asan_cxx-${arch}
+                                    LIBS clang_rt.asan-${arch} clang_rt.asan_cxx-${arch}
                                     EXTRA asan.syms.extra)
       set(VERSION_SCRIPT_FLAG
            -Wl,--version-script,${CMAKE_CURRENT_BINARY_DIR}/clang_rt.asan-dynamic-${arch}.vers)

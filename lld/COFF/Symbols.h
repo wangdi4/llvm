@@ -44,14 +44,16 @@ class SymbolBody {
 public:
   enum Kind {
     DefinedFirst,
-    DefinedRegularKind,
+    DefinedBitcodeKind,
     DefinedAbsoluteKind,
     DefinedImportDataKind,
     DefinedImportThunkKind,
-    DefinedBitcodeKind,
+    DefinedLocalImportKind,
+    DefinedCommonKind,
+    DefinedRegularKind,
     DefinedLast,
-    UndefinedKind,
     LazyKind,
+    UndefinedKind,
   };
 
   Kind kind() const { return SymbolKind; }
@@ -61,7 +63,7 @@ public:
   virtual bool isExternal() { return true; }
 
   // Returns the symbol name.
-  StringRef getName() { return Name; }
+  virtual StringRef getName() = 0;
 
   // A SymbolBody has a backreference to a Symbol. Originally they are
   // doubly-linked. A backreference will never change. But the pointer
@@ -77,12 +79,15 @@ public:
   // they are duplicate (conflicting) symbols.
   virtual int compare(SymbolBody *Other) = 0;
 
+  // Returns a name of this symbol including source file name.
+  // Used only for debugging and logging.
+  virtual std::string getDebugName() { return getName(); }
+
 protected:
-  SymbolBody(Kind K, StringRef N) : SymbolKind(K), Name(N) {}
+  SymbolBody(Kind K) : SymbolKind(K) {}
 
 private:
   const Kind SymbolKind;
-  StringRef Name;
   Symbol *Backref = nullptr;
 };
 
@@ -90,7 +95,7 @@ private:
 // etc.
 class Defined : public SymbolBody {
 public:
-  Defined(Kind K, StringRef Name) : SymbolBody(K, Name) {}
+  Defined(Kind K) : SymbolBody(K) {}
 
   static bool classof(const SymbolBody *S) {
     Kind K = S->kind();
@@ -105,53 +110,89 @@ public:
   // The writer uses this information to apply relocations.
   virtual uint64_t getFileOff() = 0;
 
-  // Called by the garbage collector. All Defined subclasses should
-  // know how to call depending symbols' markLive functions.
-  virtual void markLive() {}
-
   int compare(SymbolBody *Other) override;
 };
 
 // Regular defined symbols read from object file symbol tables.
 class DefinedRegular : public Defined {
 public:
-  DefinedRegular(StringRef Name, COFFSymbolRef S, Chunk *C)
-      : Defined(DefinedRegularKind, Name), Sym(S), Data(C) {}
+  DefinedRegular(ObjectFile *F, COFFSymbolRef S, SectionChunk *C)
+      : Defined(DefinedRegularKind), File(F), Sym(S), Data(&C->Ptr),
+        IsCOMDAT(C->isCOMDAT()) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == DefinedRegularKind;
   }
 
-  uint64_t getRVA() override { return Data->getRVA() + Sym.getValue(); }
-  bool isExternal() override { return Sym.isExternal(); }
-  void markLive() override { Data->markLive(); }
-  uint64_t getFileOff() override { return Data->getFileOff() + Sym.getValue(); }
-  bool isCOMDAT() const { return Data->isCOMDAT(); }
+  uint64_t getFileOff() override {
+    return (*Data)->getFileOff() + Sym.getValue();
+  }
 
-  // Returns true if this is a common symbol.
-  bool isCommon() const { return Sym.isCommon(); }
-  uint32_t getCommonSize() const { return Sym.getValue(); }
+  StringRef getName() override;
+  uint64_t getRVA() override { return (*Data)->getRVA() + Sym.getValue(); }
+  bool isExternal() override { return Sym.isExternal(); }
+  int compare(SymbolBody *Other) override;
+  std::string getDebugName() override;
+  bool isCOMDAT() { return IsCOMDAT; }
+  void markLive() { (*Data)->markLive(); }
+  Chunk *getChunk() { return *Data; }
 
 private:
+  StringRef Name;
+  ObjectFile *File;
   COFFSymbolRef Sym;
-  Chunk *Data;
+  SectionChunk **Data;
+  bool IsCOMDAT;
+};
+
+class DefinedCommon : public Defined {
+public:
+  DefinedCommon(ObjectFile *F, COFFSymbolRef S, CommonChunk *C)
+      : Defined(DefinedCommonKind), File(F), Sym(S), Data(C) {}
+
+  static bool classof(const SymbolBody *S) {
+    return S->kind() == DefinedCommonKind;
+  }
+
+  StringRef getName() override;
+  uint64_t getRVA() override { return Data->getRVA(); }
+  bool isExternal() override { return Sym.isExternal(); }
+  uint64_t getFileOff() override { return Data->getFileOff(); }
+  int compare(SymbolBody *Other) override;
+  std::string getDebugName() override;
+
+private:
+  uint64_t getSize() { return Sym.getValue(); }
+
+  StringRef Name;
+  ObjectFile *File;
+  COFFSymbolRef Sym;
+  CommonChunk *Data;
 };
 
 // Absolute symbols.
 class DefinedAbsolute : public Defined {
 public:
-  DefinedAbsolute(StringRef Name, uint64_t VA)
-      : Defined(DefinedAbsoluteKind, Name), RVA(VA - Config->ImageBase) {}
+  DefinedAbsolute(StringRef N, COFFSymbolRef S)
+      : Defined(DefinedAbsoluteKind), Name(N), VA(S.getValue()),
+        External(S.isExternal()) {}
+
+  DefinedAbsolute(StringRef N, uint64_t V)
+      : Defined(DefinedAbsoluteKind), Name(N), VA(V) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == DefinedAbsoluteKind;
   }
 
-  uint64_t getRVA() override { return RVA; }
+  StringRef getName() override { return Name; }
+  uint64_t getRVA() override { return VA - Config->ImageBase; }
   uint64_t getFileOff() override { llvm_unreachable("internal error"); }
+  bool isExternal() override { return External; }
 
 private:
-  uint64_t RVA;
+  StringRef Name;
+  uint64_t VA;
+  bool External = true;
 };
 
 // This class represents a symbol defined in an archive file. It is
@@ -162,9 +203,10 @@ private:
 class Lazy : public SymbolBody {
 public:
   Lazy(ArchiveFile *F, const Archive::Symbol S)
-      : SymbolBody(LazyKind, S.getName()), File(F), Sym(S) {}
+      : SymbolBody(LazyKind), Name(S.getName()), File(F), Sym(S) {}
 
   static bool classof(const SymbolBody *S) { return S->kind() == LazyKind; }
+  StringRef getName() override { return Name; }
 
   // Returns an object file for this symbol, or a nullptr if the file
   // was already returned.
@@ -173,6 +215,7 @@ public:
   int compare(SymbolBody *Other) override;
 
 private:
+  StringRef Name;
   ArchiveFile *File;
   const Archive::Symbol Sym;
 };
@@ -180,12 +223,13 @@ private:
 // Undefined symbols.
 class Undefined : public SymbolBody {
 public:
-  explicit Undefined(StringRef Name, SymbolBody **S = nullptr)
-      : SymbolBody(UndefinedKind, Name), Alias(S) {}
+  explicit Undefined(StringRef N, SymbolBody **S = nullptr)
+      : SymbolBody(UndefinedKind), Name(N), Alias(S) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == UndefinedKind;
   }
+  StringRef getName() override { return Name; }
 
   // An undefined symbol can have a fallback symbol which gives an
   // undefined symbol a second chance if it would remain undefined.
@@ -196,6 +240,7 @@ public:
   int compare(SymbolBody *Other) override;
 
 private:
+  StringRef Name;
   SymbolBody **Alias;
 };
 
@@ -207,15 +252,16 @@ private:
 // table in an output. The former has "__imp_" prefix.
 class DefinedImportData : public Defined {
 public:
-  DefinedImportData(StringRef D, StringRef Name, StringRef E,
+  DefinedImportData(StringRef D, StringRef N, StringRef E,
                     const coff_import_header *H)
-      : Defined(DefinedImportDataKind, Name), DLLName(D),
-        ExternalName(E), Hdr(H) {}
+      : Defined(DefinedImportDataKind), Name(N), DLLName(D), ExternalName(E),
+        Hdr(H) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == DefinedImportDataKind;
   }
 
+  StringRef getName() override { return Name; }
   uint64_t getRVA() override { return Location->getRVA(); }
   uint64_t getFileOff() override { return Location->getFileOff(); }
   StringRef getDLLName() { return DLLName; }
@@ -224,6 +270,7 @@ public:
   uint16_t getOrdinal() { return Hdr->OrdinalHint; }
 
 private:
+  StringRef Name;
   StringRef DLLName;
   StringRef ExternalName;
   const coff_import_header *Hdr;
@@ -237,31 +284,64 @@ private:
 // a regular name. A function pointer is given as a DefinedImportData.
 class DefinedImportThunk : public Defined {
 public:
-  DefinedImportThunk(StringRef Name, DefinedImportData *S)
-      : Defined(DefinedImportThunkKind, Name), Data(S) {}
+  DefinedImportThunk(StringRef N, DefinedImportData *S)
+      : Defined(DefinedImportThunkKind), Name(N), Data(S) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == DefinedImportThunkKind;
   }
 
+  StringRef getName() override { return Name; }
   uint64_t getRVA() override { return Data.getRVA(); }
   uint64_t getFileOff() override { return Data.getFileOff(); }
   Chunk *getChunk() { return &Data; }
 
 private:
+  StringRef Name;
   ImportThunkChunk Data;
+};
+
+// If you have a symbol "__imp_foo" in your object file, a symbol name
+// "foo" becomes automatically available as a pointer to "__imp_foo".
+// This class is for such automatically-created symbols.
+// Yes, this is an odd feature. We didn't intend to implement that.
+// This is here just for compatibility with MSVC.
+class DefinedLocalImport : public Defined {
+public:
+  DefinedLocalImport(StringRef N, Defined *S)
+      : Defined(DefinedLocalImportKind), Name(N), Data(S) {}
+
+  static bool classof(const SymbolBody *S) {
+    return S->kind() == DefinedLocalImportKind;
+  }
+
+  StringRef getName() override { return Name; }
+  uint64_t getRVA() override { return Data.getRVA(); }
+  uint64_t getFileOff() override { return Data.getFileOff(); }
+  Chunk *getChunk() { return &Data; }
+
+private:
+  StringRef Name;
+  LocalImportChunk Data;
 };
 
 class DefinedBitcode : public Defined {
 public:
-  DefinedBitcode(StringRef Name) : Defined(DefinedBitcodeKind, Name) {}
+  DefinedBitcode(StringRef N, bool R)
+      : Defined(DefinedBitcodeKind), Name(N), Replaceable(R) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == DefinedBitcodeKind;
   }
 
+  StringRef getName() override { return Name; }
   uint64_t getRVA() override { llvm_unreachable("bitcode reached writer"); }
   uint64_t getFileOff() override { llvm_unreachable("bitcode reached writer"); }
+  int compare(SymbolBody *Other) override;
+
+private:
+  StringRef Name;
+  bool Replaceable;
 };
 
 } // namespace coff

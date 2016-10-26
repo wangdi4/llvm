@@ -78,7 +78,7 @@ static void printSymbolOperand(X86AsmPrinter &P, const MachineOperand &MO,
   switch (MO.getType()) {
   default: llvm_unreachable("unknown symbol type!");
   case MachineOperand::MO_ConstantPoolIndex:
-    O << *P.GetCPISymbol(MO.getIndex());
+    P.GetCPISymbol(MO.getIndex())->print(O, P.MAI);
     P.printOffset(MO.getOffset(), O);
     break;
   case MachineOperand::MO_GlobalAddress: {
@@ -127,9 +127,12 @@ static void printSymbolOperand(X86AsmPrinter &P, const MachineOperand &MO,
     // If the name begins with a dollar-sign, enclose it in parens.  We do this
     // to avoid having it look like an integer immediate to the assembler.
     if (GVSym->getName()[0] != '$')
-      O << *GVSym;
-    else
-      O << '(' << *GVSym << ')';
+      GVSym->print(O, P.MAI);
+    else {
+      O << '(';
+      GVSym->print(O, P.MAI);
+      O << ')';
+    }
     P.printOffset(MO.getOffset(), O);
     break;
   }
@@ -146,12 +149,15 @@ static void printSymbolOperand(X86AsmPrinter &P, const MachineOperand &MO,
     // These affect the name of the symbol, not any suffix.
     break;
   case X86II::MO_GOT_ABSOLUTE_ADDRESS:
-    O << " + [.-" << *P.MF->getPICBaseSymbol() << ']';
+    O << " + [.-";
+    P.MF->getPICBaseSymbol()->print(O, P.MAI);
+    O << ']';
     break;
   case X86II::MO_PIC_BASE_OFFSET:
   case X86II::MO_DARWIN_NONLAZY_PIC_BASE:
   case X86II::MO_DARWIN_HIDDEN_NONLAZY_PIC_BASE:
-    O << '-' << *P.MF->getPICBaseSymbol();
+    O << '-';
+    P.MF->getPICBaseSymbol()->print(O, P.MAI);
     break;
   case X86II::MO_TLSGD:     O << "@TLSGD";     break;
   case X86II::MO_TLSLD:     O << "@TLSLD";     break;
@@ -168,7 +174,8 @@ static void printSymbolOperand(X86AsmPrinter &P, const MachineOperand &MO,
   case X86II::MO_PLT:       O << "@PLT";       break;
   case X86II::MO_TLVP:      O << "@TLVP";      break;
   case X86II::MO_TLVP_PIC_BASE:
-    O << "@TLVP" << '-' << *P.MF->getPICBaseSymbol();
+    O << "@TLVP" << '-';
+    P.MF->getPICBaseSymbol()->print(O, P.MAI);
     break;
   case X86II::MO_SECREL:    O << "@SECREL32";  break;
   }
@@ -504,7 +511,7 @@ bool X86AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 }
 
 void X86AsmPrinter::EmitStartOfAsmFile(Module &M) {
-  Triple TT(TM.getTargetTriple());
+  const Triple &TT = TM.getTargetTriple();
 
   if (TT.isOSBinFormatMachO())
     OutStreamer->SwitchSection(getObjFileLowering().getTextSection());
@@ -578,7 +585,7 @@ void X86AsmPrinter::GenerateExportDirective(const MCSymbol *Sym, bool IsData) {
   SmallString<128> Directive;
   raw_svector_ostream OS(Directive);
   StringRef Name = Sym->getName();
-  Triple TT(TM.getTargetTriple());
+  const Triple &TT = TM.getTargetTriple();
 
   if (TT.isKnownWindowsMSVCEnvironment())
     OS << " /EXPORT:";
@@ -603,7 +610,7 @@ void X86AsmPrinter::GenerateExportDirective(const MCSymbol *Sym, bool IsData) {
 }
 
 void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
-  Triple TT(TM.getTargetTriple());
+  const Triple &TT = TM.getTargetTriple();
 
   if (TT.isOSBinFormatMachO()) {
     // All darwin targets use mach-o.
@@ -667,6 +674,7 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
     }
 
     SM.serializeToStackMapSection();
+    FM.serializeToFaultMapSection();
 
     // Funny Darwin hack: This flag tells the linker that no global symbols
     // contain code that falls through to other global symbols (e.g. the obvious
@@ -717,10 +725,14 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
       for (auto & Symbol : DLLExportedFns)
         GenerateExportDirective(Symbol, /*IsData=*/false);
     }
+
+    SM.serializeToStackMapSection();
   }
 
-  if (TT.isOSBinFormatELF())
+  if (TT.isOSBinFormatELF()) {
     SM.serializeToStackMapSection();
+    FM.serializeToFaultMapSection();
+  }
 }
 
 //===----------------------------------------------------------------------===//

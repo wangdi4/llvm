@@ -16,6 +16,8 @@
 #include "Plugins/Process/Utility/RegisterContext_mips64.h"
 #include "Plugins/Process/Utility/lldb-mips64-register-enums.h"
 
+#define MAX_NUM_WP 8
+
 namespace lldb_private {
 namespace process_linux {
 
@@ -30,6 +32,9 @@ namespace process_linux {
 
         uint32_t
         GetRegisterSetCount () const override;
+
+        lldb::addr_t
+        GetPCfromBreakpointLocation (lldb::addr_t fail_value = LLDB_INVALID_ADDRESS) override;
 
         const RegisterSet *
         GetRegisterSet (uint32_t set_index) const override;
@@ -47,7 +52,16 @@ namespace process_linux {
         WriteAllRegisterValues (const lldb::DataBufferSP &data_sp) override;
 
         Error
+        ReadFPR() override;
+
+        Error
+        WriteFPR() override;
+
+        Error
         IsWatchpointHit (uint32_t wp_index, bool &is_hit) override;
+
+        Error
+        GetWatchpointHitIndex(uint32_t &wp_index, lldb::addr_t trap_addr) override;
 
         Error
         IsWatchpointVacant (uint32_t wp_index, bool &is_vacant) override;
@@ -84,6 +98,17 @@ namespace process_linux {
                                        const char* reg_name,
                                        const RegisterValue &value) override;
 
+        NativeProcessLinux::OperationUP
+        GetReadWatchPointRegisterValueOperation(lldb::tid_t tid,
+                                                void* watch_readback);
+
+        NativeProcessLinux::OperationUP
+        GetWriteWatchPointRegisterValueOperation(lldb::tid_t tid,
+                                                 void* watch_readback);
+
+        bool
+        IsFR0();
+
         bool
         IsFPR(uint32_t reg_index) const;
 
@@ -114,6 +139,8 @@ namespace process_linux {
         uint64_t m_gpr_mips64[k_num_gpr_registers_mips64];
 
         FPR_mips m_fpr;
+
+        lldb::addr_t hw_addr_map[MAX_NUM_WP];
     };
 
 } // namespace process_linux

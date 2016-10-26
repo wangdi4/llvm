@@ -125,7 +125,7 @@ CMICmdCmdDataEvaluateExpression::Execute(void)
     lldb::SBValue value = frame.EvaluateExpression(rExpression.c_str());
     if (!value.IsValid() || value.GetError().Fail())
         value = frame.FindVariable(rExpression.c_str());
-    const CMICmnLLDBUtilSBValue utilValue(value);
+    const CMICmnLLDBUtilSBValue utilValue(value, true);
     if (!utilValue.IsValid() || utilValue.IsValueUnknown())
     {
         m_bEvaluatedExpression = false;
@@ -153,12 +153,7 @@ CMICmdCmdDataEvaluateExpression::Execute(void)
     {
         const lldb::ValueType eValueType = value.GetValueType();
         MIunused(eValueType);
-        m_strValue = utilValue.GetValue();
-        CMIUtilString strCString;
-        if (CMICmnLLDBProxySBValue::GetCString(value, strCString))
-        {
-            m_strValue += CMIUtilString::Format(" '%s'", strCString.c_str());
-        }
+        m_strValue = utilValue.GetValue().Escape().AddSlashes();
         return MIstatus::success;
     }
 
@@ -614,21 +609,6 @@ CMICmdCmdDataReadMemoryBytes::Execute(void)
     {
         SetError(CMIUtilString::Format(MIRSRC(IDS_CMD_ERR_OPTION_NOT_FOUND),
                  m_cmdData.strMiCmd.c_str(), m_constStrArgByteOffset.c_str()));
-        return MIstatus::failure;
-    }
-
-    // FIXME: shouldn't have to ensure mandatory arguments are present, that should've been handled
-    // in ParseArgs(), unfortunately that seems kinda sorta broken right now if options are provided
-    // but mandatory arguments are missing, so here we go...
-    if (!pArgAddrExpr->GetFound())
-    {
-        SetError(CMIUtilString::Format(MIRSRC(IDS_CMD_ARGS_ERR_VALIDATION_MANDATORY), m_constStrArgAddrExpr.c_str()));
-        return MIstatus::failure;
-    }
-
-    if (!pArgNumBytes->GetFound())
-    {
-        SetError(CMIUtilString::Format(MIRSRC(IDS_CMD_ARGS_ERR_VALIDATION_MANDATORY), m_constStrArgNumBytes.c_str()));
         return MIstatus::failure;
     }
 

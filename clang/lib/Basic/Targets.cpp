@@ -992,6 +992,12 @@ public:
   bool hasSjLjLowering() const override {
     return true;
   }
+
+  bool useFloat128ManglingForLongDouble() const override {
+    return LongDoubleWidth == 128 &&
+           LongDoubleFormat == &llvm::APFloat::PPCDoubleDouble &&
+           getTriple().isOSBinFormatELF();
+  }
 };
 
 const Builtin::Info PPCTargetInfo::BuiltinInfo[] = {
@@ -1661,7 +1667,7 @@ public:
     }
   };
 
-static const unsigned R600AddrSpaceMap[] = {
+static const unsigned AMDGPUAddrSpaceMap[] = {
   1,    // opencl_global
   3,    // opencl_local
   2,    // opencl_constant
@@ -1687,11 +1693,11 @@ static const char *DescriptionStringSI =
   "-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128"
   "-v192:256-v256:256-v512:512-v1024:1024-v2048:2048-n32:64";
 
-class R600TargetInfo : public TargetInfo {
+class AMDGPUTargetInfo : public TargetInfo {
   static const Builtin::Info BuiltinInfo[];
   static const char * const GCCRegNames[];
 
-  /// \brief The GPU profiles supported by the R600 target.
+  /// \brief The GPU profiles supported by the AMDGPU target.
   enum GPUKind {
     GK_NONE,
     GK_R600,
@@ -1703,7 +1709,8 @@ class R600TargetInfo : public TargetInfo {
     GK_NORTHERN_ISLANDS,
     GK_CAYMAN,
     GK_SOUTHERN_ISLANDS,
-    GK_SEA_ISLANDS
+    GK_SEA_ISLANDS,
+    GK_VOLCANIC_ISLANDS
   } GPU;
 
   bool hasFP64:1;
@@ -1711,8 +1718,8 @@ class R600TargetInfo : public TargetInfo {
   bool hasLDEXPF:1;
 
 public:
-  R600TargetInfo(const llvm::Triple &Triple)
-      : TargetInfo(Triple) {
+  AMDGPUTargetInfo(const llvm::Triple &Triple)
+    : TargetInfo(Triple) {
 
     if (Triple.getArch() == llvm::Triple::amdgcn) {
       DescriptionString = DescriptionStringSI;
@@ -1727,7 +1734,7 @@ public:
       hasFMAF = false;
       hasLDEXPF = false;
     }
-    AddrSpaceMap = &R600AddrSpaceMap;
+    AddrSpaceMap = &AMDGPUAddrSpaceMap;
     UseAddrSpaceMapMangling = true;
   }
 
@@ -1766,7 +1773,7 @@ public:
   void getTargetBuiltins(const Builtin::Info *&Records,
                          unsigned &NumRecords) const override {
     Records = BuiltinInfo;
-    NumRecords = clang::R600::LastTSBuiltin - Builtin::FirstTSBuiltin;
+    NumRecords = clang::AMDGPU::LastTSBuiltin - Builtin::FirstTSBuiltin;
   }
 
   void getTargetDefines(const LangOptions &Opts,
@@ -1822,6 +1829,9 @@ public:
       .Case("kaveri",   GK_SEA_ISLANDS)
       .Case("hawaii",   GK_SEA_ISLANDS)
       .Case("mullins",  GK_SEA_ISLANDS)
+      .Case("tonga",    GK_VOLCANIC_ISLANDS)
+      .Case("iceland",  GK_VOLCANIC_ISLANDS)
+      .Case("carrizo",  GK_VOLCANIC_ISLANDS)
       .Default(GK_NONE);
 
     if (GPU == GK_NONE) {
@@ -1851,6 +1861,7 @@ public:
       break;
     case GK_SOUTHERN_ISLANDS:
     case GK_SEA_ISLANDS:
+    case GK_VOLCANIC_ISLANDS:
       DescriptionString = DescriptionStringSI;
       hasFP64 = true;
       hasFMAF = true;
@@ -1862,12 +1873,12 @@ public:
   }
 };
 
-const Builtin::Info R600TargetInfo::BuiltinInfo[] = {
+const Builtin::Info AMDGPUTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS)                \
   { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
-#include "clang/Basic/BuiltinsR600.def"
+#include "clang/Basic/BuiltinsAMDGPU.def"
 };
-const char * const R600TargetInfo::GCCRegNames[] = {
+const char * const AMDGPUTargetInfo::GCCRegNames[] = {
   "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
   "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15",
   "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",
@@ -1920,8 +1931,8 @@ const char * const R600TargetInfo::GCCRegNames[] = {
   "vcc_lo", "vcc_hi", "flat_scr_lo", "flat_scr_hi"
 };
 
-void R600TargetInfo::getGCCRegNames(const char * const *&Names,
-                                    unsigned &NumNames) const {
+void AMDGPUTargetInfo::getGCCRegNames(const char * const *&Names,
+                                      unsigned &NumNames) const {
   Names = GCCRegNames;
   NumNames = llvm::array_lengthof(GCCRegNames);
 }
@@ -2238,7 +2249,9 @@ public:
   bool handleTargetFeatures(std::vector<std::string> &Features,
                             DiagnosticsEngine &Diags) override;
   StringRef getABI() const override {
-    if (getTriple().getArch() == llvm::Triple::x86_64 && SSELevel >= AVX)
+    if (getTriple().getArch() == llvm::Triple::x86_64 && SSELevel >= AVX512F)
+      return "avx512";
+    else if (getTriple().getArch() == llvm::Triple::x86_64 && SSELevel >= AVX)
       return "avx";
     else if (getTriple().getArch() == llvm::Triple::x86 &&
              MMX3DNowLevel == NoMMX3DNow)
@@ -4188,9 +4201,7 @@ public:
   // FIXME: This should be based on Arch attributes, not CPU names.
   void getDefaultFeatures(llvm::StringMap<bool> &Features) const override {
     StringRef ArchName = getTriple().getArchName();
-    unsigned ArchKind =
-                llvm::ARMTargetParser::parseArch(
-                llvm::ARMTargetParser::getCanonicalArchName(ArchName));
+    unsigned ArchKind = llvm::ARMTargetParser::parseArch(ArchName);
     bool IsV8 = (ArchKind == llvm::ARM::AK_ARMV8A ||
                  ArchKind == llvm::ARM::AK_ARMV8_1A);
 
@@ -4235,6 +4246,9 @@ public:
     SoftFloat = SoftFloatABI = false;
     HWDiv = 0;
 
+    // This does not diagnose illegal cases like having both
+    // "+vfpv2" and "+vfpv3" or having "+neon" and "+fp-only-sp".
+    uint32_t HW_FP_remove = 0;
     for (const auto &Feature : Features) {
       if (Feature == "+soft-float") {
         SoftFloat = true;
@@ -4242,19 +4256,19 @@ public:
         SoftFloatABI = true;
       } else if (Feature == "+vfp2") {
         FPU |= VFP2FPU;
-        HW_FP = HW_FP_SP | HW_FP_DP;
+        HW_FP |= HW_FP_SP | HW_FP_DP;
       } else if (Feature == "+vfp3") {
         FPU |= VFP3FPU;
-        HW_FP = HW_FP_SP | HW_FP_DP;
+        HW_FP |= HW_FP_SP | HW_FP_DP;
       } else if (Feature == "+vfp4") {
         FPU |= VFP4FPU;
-        HW_FP = HW_FP_SP | HW_FP_DP | HW_FP_HP;
+        HW_FP |= HW_FP_SP | HW_FP_DP | HW_FP_HP;
       } else if (Feature == "+fp-armv8") {
         FPU |= FPARMV8;
-        HW_FP = HW_FP_SP | HW_FP_DP | HW_FP_HP;
+        HW_FP |= HW_FP_SP | HW_FP_DP | HW_FP_HP;
       } else if (Feature == "+neon") {
         FPU |= NeonFPU;
-        HW_FP = HW_FP_SP | HW_FP_DP;
+        HW_FP |= HW_FP_SP | HW_FP_DP;
       } else if (Feature == "+hwdiv") {
         HWDiv |= HWDivThumb;
       } else if (Feature == "+hwdiv-arm") {
@@ -4264,9 +4278,10 @@ public:
       } else if (Feature == "+crypto") {
         Crypto = 1;
       } else if (Feature == "+fp-only-sp") {
-        HW_FP &= ~HW_FP_DP;
+        HW_FP_remove |= HW_FP_DP | HW_FP_HP;
       }
     }
+    HW_FP &= ~HW_FP_remove;
 
     if (!(FPU & NeonFPU) && FPMath == FP_Neon) {
       Diags.Report(diag::err_target_unsupported_fpmath) << "neon";
@@ -5501,6 +5516,16 @@ class SparcV8TargetInfo : public SparcTargetInfo {
 public:
   SparcV8TargetInfo(const llvm::Triple &Triple) : SparcTargetInfo(Triple) {
     DescriptionString = "E-m:e-p:32:32-i64:64-f128:64-n32-S64";
+    // NetBSD uses long (same as llvm default); everyone else uses int.
+    if (getTriple().getOS() == llvm::Triple::NetBSD) {
+      SizeType = UnsignedLong;
+      IntPtrType = SignedLong;
+      PtrDiffType = SignedLong;
+    } else {
+      SizeType = UnsignedInt;
+      IntPtrType = SignedInt;
+      PtrDiffType = SignedInt;
+    }
   }
 
   void getTargetDefines(const LangOptions &Opts,
@@ -5570,15 +5595,6 @@ public:
     // No need to store the CPU yet.  There aren't any CPU-specific
     // macros to define.
     return CPUKnown;
-  }
-};
-
-class SolarisSparcV8TargetInfo : public SolarisTargetInfo<SparcV8TargetInfo> {
-public:
-  SolarisSparcV8TargetInfo(const llvm::Triple &Triple)
-      : SolarisTargetInfo<SparcV8TargetInfo>(Triple) {
-    SizeType = UnsignedInt;
-    PtrDiffType = SignedInt;
   }
 };
 
@@ -5688,6 +5704,10 @@ public:
     if (HasVector)
       return "vector";
     return "";
+  }
+
+  bool useFloat128ManglingForLongDouble() const override {
+    return true;
   }
 };
 
@@ -5890,6 +5910,60 @@ validateAsmConstraint(const char *&Name,
     void getGCCRegAliases(const GCCRegAlias *&Aliases,
                           unsigned &NumAliases) const override {}
   };
+
+class BPFTargetInfo : public TargetInfo {
+public:
+  BPFTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
+    LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
+    SizeType    = UnsignedLong;
+    PtrDiffType = SignedLong;
+    IntPtrType  = SignedLong;
+    IntMaxType  = SignedLong;
+    Int64Type   = SignedLong;
+    RegParmMax = 5;
+    if (Triple.getArch() == llvm::Triple::bpfeb) {
+      BigEndian = true;
+      DescriptionString = "E-m:e-p:64:64-i64:64-n32:64-S128";
+    } else {
+      BigEndian = false;
+      DescriptionString = "e-m:e-p:64:64-i64:64-n32:64-S128";
+    }
+    MaxAtomicPromoteWidth = 64;
+    MaxAtomicInlineWidth = 64;
+    TLSSupported = false;
+  }
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override {
+    DefineStd(Builder, "bpf", Opts);
+    Builder.defineMacro("__BPF__");
+  }
+  bool hasFeature(StringRef Feature) const override {
+    return Feature == "bpf";
+  }
+
+  void getTargetBuiltins(const Builtin::Info *&Records,
+                         unsigned &NumRecords) const override {}
+  const char *getClobbers() const override {
+    return "";
+  }
+  BuiltinVaListKind getBuiltinVaListKind() const override {
+    return TargetInfo::VoidPtrBuiltinVaList;
+  }
+  void getGCCRegNames(const char * const *&Names,
+                      unsigned &NumNames) const override {
+    Names = nullptr;
+    NumNames = 0;
+  }
+  bool validateAsmConstraint(const char *&Name,
+                             TargetInfo::ConstraintInfo &info) const override {
+    return true;
+  }
+  void getGCCRegAliases(const GCCRegAlias *&Aliases,
+                        unsigned &NumAliases) const override {
+    Aliases = nullptr;
+    NumAliases = 0;
+  }
+};
 
 class MipsTargetInfoBase : public TargetInfo {
   virtual void setDescriptionString() = 0;
@@ -6889,6 +6963,10 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
       return new ARMbeTargetInfo(Triple);
     }
 
+  case llvm::Triple::bpfeb:
+  case llvm::Triple::bpfel:
+    return new BPFTargetInfo(Triple);
+
   case llvm::Triple::msp430:
     return new MSP430TargetInfo(Triple);
 
@@ -7016,14 +7094,14 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
 
   case llvm::Triple::amdgcn:
   case llvm::Triple::r600:
-    return new R600TargetInfo(Triple);
+    return new AMDGPUTargetInfo(Triple);
 
   case llvm::Triple::sparc:
     switch (os) {
     case llvm::Triple::Linux:
       return new LinuxTargetInfo<SparcV8TargetInfo>(Triple);
     case llvm::Triple::Solaris:
-      return new SolarisSparcV8TargetInfo(Triple);
+      return new SolarisTargetInfo<SparcV8TargetInfo>(Triple);
     case llvm::Triple::NetBSD:
       return new NetBSDTargetInfo<SparcV8TargetInfo>(Triple);
     case llvm::Triple::OpenBSD:
@@ -7081,6 +7159,8 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
       return new DarwinI386TargetInfo(Triple);
 
     switch (os) {
+    case llvm::Triple::CloudABI:
+      return new CloudABITargetInfo<X86_32TargetInfo>(Triple);
     case llvm::Triple::Linux: {
       switch (Triple.getEnvironment()) {
       default:

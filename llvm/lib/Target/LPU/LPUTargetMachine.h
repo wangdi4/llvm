@@ -23,7 +23,7 @@ class LPUTargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   LPUSubtarget Subtarget;
 public:
-  LPUTargetMachine(const Target &T, StringRef TT,
+  LPUTargetMachine(const Target &T, const Triple &TT,
                  StringRef CPU, StringRef FS, const TargetOptions &Options,
                  Reloc::Model RM, CodeModel::Model CM,
 		   CodeGenOpt::Level OL);

@@ -57,7 +57,13 @@ void ReportFile::ReopenIfNecessary() {
       CloseFile(fd);
   }
 
-  internal_snprintf(full_path, kMaxPathLength, "%s.%zu", path_prefix, pid);
+  const char *exe_name = GetBinaryBasename();
+  if (common_flags()->log_exe_name && exe_name) {
+    internal_snprintf(full_path, kMaxPathLength, "%s.%s.%zu", path_prefix,
+                      exe_name, pid);
+  } else {
+    internal_snprintf(full_path, kMaxPathLength, "%s.%zu", path_prefix, pid);
+  }
   fd = OpenFile(full_path, WrOnly);
   if (fd == kInvalidFd) {
     const char *ErrorMsgPrefix = "ERROR: Can't open file: ";
@@ -340,10 +346,6 @@ bool TemplateMatch(const char *templ, const char *str) {
 
 static char binary_name_cache_str[kMaxPathLength];
 static const char *binary_basename_cache_str;
-
-const char *GetBinaryName() {
-  return binary_name_cache_str;
-}
 
 const char *GetBinaryBasename() {
   return binary_basename_cache_str;

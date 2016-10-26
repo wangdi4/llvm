@@ -28,6 +28,7 @@
 #include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/MCParser/MCAsmLexer.h"
 #include "llvm/MC/MCParser/MCAsmParser.h"
+#include "llvm/MC/MCParser/MCAsmParserUtils.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSection.h"
@@ -1051,7 +1052,7 @@ public:
     if (!CE) return false;
     int64_t Value = CE->getValue();
     return (ARM_AM::getSOImmVal(Value) != -1 ||
-            ARM_AM::getSOImmVal(-Value) != -1);;
+            ARM_AM::getSOImmVal(-Value) != -1);
   }
   bool isT2SOImm() const {
     if (!isImm()) return false;
@@ -5841,7 +5842,7 @@ bool ARMAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   // do and don't have a cc_out optional-def operand. With some spot-checks
   // of the operand list, we can figure out which variant we're trying to
   // parse and adjust accordingly before actually matching. We shouldn't ever
-  // try to remove a cc_out operand that was explicitly set on the the
+  // try to remove a cc_out operand that was explicitly set on the
   // mnemonic, of course (CarrySetting == true). Reason number #317 the
   // table driven matcher doesn't fit well with the ARM instruction set.
   if (!CarrySetting && shouldOmitCCOutOperand(Mnemonic, Operands))
@@ -9181,60 +9182,6 @@ bool ARMAsmParser::parseDirectiveCPU(SMLoc L) {
 
   return false;
 }
-
-// FIXME: This is duplicated in getARMFPUFeatures() in
-// tools/clang/lib/Driver/Tools.cpp
-static const struct {
-  const unsigned ID;
-  const FeatureBitset Enabled;
-  const FeatureBitset Disabled;
-} FPUs[] = {
-    {/* ID */ ARM::FK_VFP, 
-     /* Enabled */ {ARM::FeatureVFP2}, 
-     /* Disabled */ {ARM::FeatureNEON}},
-    {/* ID */ ARM::FK_VFPV2, 
-     /* Enabled */ {ARM::FeatureVFP2}, 
-     /* Disabled */ {ARM::FeatureNEON}},
-    {/* ID */ ARM::FK_VFPV3, 
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3},  
-     /* Disabled */ {ARM::FeatureNEON, ARM::FeatureD16}},
-    {/* ID */ ARM::FK_VFPV3_D16, 
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3, ARM::FeatureD16},
-     /* Disabled */ {ARM::FeatureNEON}},
-    {/* ID */ ARM::FK_VFPV4, 
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3, ARM::FeatureVFP4},
-     /* Disabled */ {ARM::FeatureNEON, ARM::FeatureD16}},
-    {/* ID */ ARM::FK_VFPV4_D16, 
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3, ARM::FeatureVFP4,
-                    ARM::FeatureD16},
-     /* Disabled */ {ARM::FeatureNEON}},
-    {/* ID */ ARM::FK_FPV5_D16, 
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3, ARM::FeatureVFP4,
-                    ARM::FeatureFPARMv8, ARM::FeatureD16},
-     /* Disabled */ {ARM::FeatureNEON, ARM::FeatureCrypto}},
-    {/* ID */ ARM::FK_FP_ARMV8, 
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3, ARM::FeatureVFP4,
-                    ARM::FeatureFPARMv8},
-     /* Disabled */ {ARM::FeatureNEON, ARM::FeatureCrypto, ARM::FeatureD16}},
-    {/* ID */ ARM::FK_NEON, 
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3, ARM::FeatureNEON}, 
-     /* Disabled */ {ARM::FeatureD16}},
-    {/* ID */ ARM::FK_NEON_VFPV4, 
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3, ARM::FeatureVFP4,
-                    ARM::FeatureNEON}, 
-     /* Disabled */ {ARM::FeatureD16}},
-    {/* ID */ ARM::FK_NEON_FP_ARMV8, 
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3, ARM::FeatureVFP4,
-                    ARM::FeatureFPARMv8, ARM::FeatureNEON},
-     /* Disabled */ {ARM::FeatureCrypto, ARM::FeatureD16}},
-    {/* ID */ ARM::FK_CRYPTO_NEON_FP_ARMV8,
-     /* Enabled */ {ARM::FeatureVFP2, ARM::FeatureVFP3, ARM::FeatureVFP4,
-                    ARM::FeatureFPARMv8, ARM::FeatureNEON, 
-                    ARM::FeatureCrypto},
-     /* Disabled */ {ARM::FeatureD16}},
-    {ARM::FK_SOFTVFP, {}, {}},
-};
-
 /// parseDirectiveFPU
 ///  ::= .fpu str
 bool ARMAsmParser::parseDirectiveFPU(SMLoc L) {
@@ -9242,23 +9189,15 @@ bool ARMAsmParser::parseDirectiveFPU(SMLoc L) {
   StringRef FPU = getParser().parseStringToEndOfStatement().trim();
 
   unsigned ID = ARMTargetParser::parseFPU(FPU);
-
-  if (ID == ARM::FK_INVALID) {
+  std::vector<const char *> Features;
+  if (!ARMTargetParser::getFPUFeatures(ID, Features)) {
     Error(FPUNameLoc, "Unknown FPU name");
     return false;
   }
 
-  for (const auto &Entry : FPUs) {
-    if (Entry.ID != ID)
-      continue;
-
-    // Need to toggle features that should be on but are off and that
-    // should off but are on.
-    FeatureBitset Toggle = (Entry.Enabled & ~STI.getFeatureBits()) |
-                           (Entry.Disabled & STI.getFeatureBits());
-    setAvailableFeatures(ComputeAvailableFeatures(STI.ToggleFeature(Toggle)));
-    break;
-  }
+  for (auto Feature : Features)
+    STI.ApplyFeatureFlag(Feature);
+  setAvailableFeatures(ComputeAvailableFeatures(STI.getFeatureBits()));
 
   getTargetStreamer().emitFPU(ID);
   return false;
@@ -9949,22 +9888,13 @@ bool ARMAsmParser::parseDirectiveThumbSet(SMLoc L) {
   }
   Lex();
 
+  MCSymbol *Sym;
   const MCExpr *Value;
-  if (Parser.parseExpression(Value)) {
-    TokError("missing expression");
-    Parser.eatToEndOfStatement();
-    return false;
-  }
+  if (MCParserUtils::parseAssignmentExpression(Name, /* allow_redef */ true,
+                                               Parser, Sym, Value))
+    return true;
 
-  if (getLexer().isNot(AsmToken::EndOfStatement)) {
-    TokError("unexpected token");
-    Parser.eatToEndOfStatement();
-    return false;
-  }
-  Lex();
-
-  MCSymbol *Alias = getContext().getOrCreateSymbol(Name);
-  getTargetStreamer().emitThumbSet(Alias, Value);
+  getTargetStreamer().emitThumbSet(Sym, Value);
   return false;
 }
 

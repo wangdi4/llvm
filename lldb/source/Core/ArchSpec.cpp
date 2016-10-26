@@ -283,7 +283,7 @@ static const ArchDefinitionEntry g_elf_arch_entries[] =
 {
     { ArchSpec::eCore_sparc_generic   , llvm::ELF::EM_SPARC  , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // Sparc
     { ArchSpec::eCore_x86_32_i386     , llvm::ELF::EM_386    , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // Intel 80386
-    { ArchSpec::eCore_x86_32_i486     , llvm::ELF::EM_486    , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // Intel 486 (deprecated)
+    { ArchSpec::eCore_x86_32_i486     , llvm::ELF::EM_IAMCU  , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // Intel MCU // FIXME: is this correct?
     { ArchSpec::eCore_ppc_generic     , llvm::ELF::EM_PPC    , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // PowerPC
     { ArchSpec::eCore_ppc64_generic   , llvm::ELF::EM_PPC64  , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // PowerPC64
     { ArchSpec::eCore_arm_generic     , llvm::ELF::EM_ARM    , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // ARM
@@ -840,7 +840,7 @@ ArchSpec::MergeFrom(const ArchSpec &other)
 }
 
 bool
-ArchSpec::SetArchitecture (ArchitectureType arch_type, uint32_t cpu, uint32_t sub)
+ArchSpec::SetArchitecture (ArchitectureType arch_type, uint32_t cpu, uint32_t sub, uint32_t os)
 {
     m_core = kCore_invalid;
     bool update_triple = true;
@@ -884,6 +884,23 @@ ArchSpec::SetArchitecture (ArchitectureType arch_type, uint32_t cpu, uint32_t su
                             m_triple.setOS (llvm::Triple::MacOSX);
                             break;
                     }
+                }
+                else if (arch_type == eArchTypeELF)
+                {
+                    llvm::Triple::OSType ostype;
+                    switch (os)
+                    {
+                        case llvm::ELF::ELFOSABI_AIX:      ostype = llvm::Triple::OSType::AIX; break;
+                        case llvm::ELF::ELFOSABI_FREEBSD:  ostype = llvm::Triple::OSType::FreeBSD; break;
+                        case llvm::ELF::ELFOSABI_GNU:      ostype = llvm::Triple::OSType::Linux; break;
+                        case llvm::ELF::ELFOSABI_NETBSD:   ostype = llvm::Triple::OSType::NetBSD; break;
+                        case llvm::ELF::ELFOSABI_OPENBSD:  ostype = llvm::Triple::OSType::OpenBSD; break;
+                        case llvm::ELF::ELFOSABI_SOLARIS:  ostype = llvm::Triple::OSType::Solaris; break;
+                        default:
+                            ostype = llvm::Triple::OSType::UnknownOS;
+                    }
+                    m_triple.setOS (ostype);
+                    m_triple.setVendor (llvm::Triple::UnknownVendor);
                 }
                 // Fall back onto setting the machine type if the arch by name failed...
                 if (m_triple.getArch () == llvm::Triple::UnknownArch)
@@ -1074,6 +1091,8 @@ cores_match (const ArchSpec::Core core1, const ArchSpec::Core core2, bool try_in
             try_inverse = false;
             if (core2 == ArchSpec::eCore_arm_armv7)
                 return true;
+            if (core2 == ArchSpec::eCore_arm_armv6m)
+                return true;
         }
         break;
 
@@ -1082,8 +1101,36 @@ cores_match (const ArchSpec::Core core1, const ArchSpec::Core core2, bool try_in
             return true;
         break;
 
-    case ArchSpec::eCore_arm_armv7m:
     case ArchSpec::eCore_arm_armv7em:
+        if (!enforce_exact_match)
+        {
+            if (core2 == ArchSpec::eCore_arm_generic)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv7m)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv6m)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv7)
+                return true;
+            try_inverse = true;
+        }
+        break;
+
+    case ArchSpec::eCore_arm_armv7m:
+        if (!enforce_exact_match)
+        {
+            if (core2 == ArchSpec::eCore_arm_generic)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv6m)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv7)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv7em)
+                return true;
+            try_inverse = true;
+        }
+        break;
+
     case ArchSpec::eCore_arm_armv7f:
     case ArchSpec::eCore_arm_armv7k:
     case ArchSpec::eCore_arm_armv7s:

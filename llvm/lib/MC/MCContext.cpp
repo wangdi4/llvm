@@ -20,7 +20,9 @@
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSymbolCOFF.h"
 #include "llvm/MC/MCSymbolELF.h"
+#include "llvm/MC/MCSymbolMachO.h"
 #include "llvm/Support/ELF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
@@ -133,7 +135,7 @@ MCSymbolELF *MCContext::getOrCreateSectionSymbol(const MCSectionELF &Section) {
   }
 
   auto NameIter = UsedNames.insert(std::make_pair(Name, true)).first;
-  Sym = new (*this) MCSymbolELF(&*NameIter, /*isTemporary*/ false);
+  Sym = new (&*NameIter, *this) MCSymbolELF(&*NameIter, /*isTemporary*/ false);
 
   if (!OldSym)
     OldSym = Sym;
@@ -159,21 +161,29 @@ MCSymbol *MCContext::getOrCreateLSDASymbol(StringRef FuncName) {
 
 MCSymbol *MCContext::createSymbolImpl(const StringMapEntry<bool> *Name,
                                       bool IsTemporary) {
-  bool IsELF = MOFI && MOFI->getObjectFileType() == MCObjectFileInfo::IsELF;
-  if (IsELF)
-    return new (*this) MCSymbolELF(Name, IsTemporary);
-  return new (*this) MCSymbol(false, Name, IsTemporary);
+  if (MOFI) {
+    switch (MOFI->getObjectFileType()) {
+    case MCObjectFileInfo::IsCOFF:
+      return new (Name, *this) MCSymbolCOFF(Name, IsTemporary);
+    case MCObjectFileInfo::IsELF:
+      return new (Name, *this) MCSymbolELF(Name, IsTemporary);
+    case MCObjectFileInfo::IsMachO:
+      return new (Name, *this) MCSymbolMachO(Name, IsTemporary);
+    }
+  }
+  return new (Name, *this) MCSymbol(MCSymbol::SymbolKindUnset, Name,
+                                    IsTemporary);
 }
 
 MCSymbol *MCContext::createSymbol(StringRef Name, bool AlwaysAddSuffix,
-                                  bool IsTemporary) {
-  if (IsTemporary && !UseNamesOnTempLabels)
+                                  bool CanBeUnnamed) {
+  if (CanBeUnnamed && !UseNamesOnTempLabels)
     return createSymbolImpl(nullptr, true);
 
   // Determine whether this is an user writter assembler temporary or normal
   // label, if used.
-  IsTemporary = false;
-  if (AllowTemporaryLabels)
+  bool IsTemporary = CanBeUnnamed;
+  if (AllowTemporaryLabels && !IsTemporary)
     IsTemporary = Name.startswith(MAI->getPrivateGlobalPrefix());
 
   SmallString<128> NewName = Name;
@@ -196,10 +206,11 @@ MCSymbol *MCContext::createSymbol(StringRef Name, bool AlwaysAddSuffix,
   llvm_unreachable("Infinite loop");
 }
 
-MCSymbol *MCContext::createTempSymbol(const Twine &Name, bool AlwaysAddSuffix) {
+MCSymbol *MCContext::createTempSymbol(const Twine &Name, bool AlwaysAddSuffix,
+                                      bool CanBeUnnamed) {
   SmallString<128> NameSV;
   raw_svector_ostream(NameSV) << MAI->getPrivateGlobalPrefix() << Name;
-  return createSymbol(NameSV, AlwaysAddSuffix, true);
+  return createSymbol(NameSV, AlwaysAddSuffix, CanBeUnnamed);
 }
 
 MCSymbol *MCContext::createLinkerPrivateTempSymbol() {
@@ -208,8 +219,8 @@ MCSymbol *MCContext::createLinkerPrivateTempSymbol() {
   return createSymbol(NameSV, true, false);
 }
 
-MCSymbol *MCContext::createTempSymbol() {
-  return createTempSymbol("tmp", true);
+MCSymbol *MCContext::createTempSymbol(bool CanBeUnnamed) {
+  return createTempSymbol("tmp", true, CanBeUnnamed);
 }
 
 unsigned MCContext::NextInstance(unsigned LocalLabelVal) {
@@ -230,7 +241,7 @@ MCSymbol *MCContext::getOrCreateDirectionalLocalSymbol(unsigned LocalLabelVal,
                                                        unsigned Instance) {
   MCSymbol *&Sym = LocalSymbols[std::make_pair(LocalLabelVal, Instance)];
   if (!Sym)
-    Sym = createTempSymbol();
+    Sym = createTempSymbol(false);
   return Sym;
 }
 

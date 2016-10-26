@@ -60,7 +60,7 @@ extern "C" void LLVMInitializeLPUTarget() {
   RegisterTargetMachine<LPUTargetMachine> X(TheLPUTarget);
 }
 
-LPUTargetMachine::LPUTargetMachine(const Target &T, StringRef TT,
+LPUTargetMachine::LPUTargetMachine(const Target &T, const Triple &TT,
                                          StringRef CPU, StringRef FS,
                                          const TargetOptions &Options,
                                          Reloc::Model RM, CodeModel::Model CM,
