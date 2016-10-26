@@ -597,6 +597,8 @@ public:
   void releaseMemory() override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
+  void print(bool FrameworkDetails, raw_ostream &OS,
+             const Module * = nullptr) const;
   void verifyAnalysis() const override;
 
   /// Returns Function object.

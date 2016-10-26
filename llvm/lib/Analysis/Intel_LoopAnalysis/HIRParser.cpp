@@ -2963,7 +2963,12 @@ void HIRParser::releaseMemory() {
 }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {
-  HIR->printWithFrameworkDetails(OS);
+  print(true, OS, M);
+}
+
+void HIRParser::print(bool FrameworkDetails, raw_ostream &OS,
+                      const Module *M) const {
+  HIR->print(FrameworkDetails, OS, M);
 }
 
 // Verification is done by HIRVerifier.

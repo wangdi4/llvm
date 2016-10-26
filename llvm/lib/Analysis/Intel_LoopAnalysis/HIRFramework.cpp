@@ -232,7 +232,12 @@ void HIRFramework::estimateMaxTripCounts() const {
 }
 
 void HIRFramework::print(raw_ostream &OS, const Module *M) const {
-  HIRP->print(OS);
+  print(true, OS, M);
+}
+
+void HIRFramework::print(bool FrameworkDetails, raw_ostream &OS,
+                         const Module *M) const {
+  HIRP->print(FrameworkDetails, OS, M);
 }
 
 void HIRFramework::verifyAnalysis() const {

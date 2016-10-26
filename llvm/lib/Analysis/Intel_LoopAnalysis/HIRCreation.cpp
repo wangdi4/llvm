@@ -367,14 +367,11 @@ void HIRCreation::releaseMemory() {
 }
 
 void HIRCreation::print(raw_ostream &OS, const Module *M) const {
-  printImpl(OS, HIRPrinterDetailed);
+  print(HIRPrinterDetailed, OS, M);
 }
 
-void HIRCreation::printWithFrameworkDetails(raw_ostream &OS) const {
-  printImpl(OS, true);
-}
-
-void HIRCreation::printImpl(raw_ostream &OS, bool FrameworkDetails) const {
+void HIRCreation::print(bool FrameworkDetails, raw_ostream &OS,
+                        const Module *M) const {
   formatted_raw_ostream FOS(OS);
   auto RegBegin = RI->begin();
   auto SCCF = &getAnalysis<HIRSCCFormation>();

@@ -128,9 +128,8 @@ public:
   void releaseMemory() override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
-  /// \brief Prints framework details along with HLRegion like IRRegion and
-  /// SCCs.
-  void printWithFrameworkDetails(raw_ostream &OS) const;
+  void print(bool FrameworkDetails, raw_ostream &OS,
+             const Module * = nullptr) const;
   void verifyAnalysis() const override;
 
   /// Returns HLNodeUtils object.
