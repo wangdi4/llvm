@@ -1,4 +1,4 @@
-//===-- TypeCategoryMap.h ----------------------------------------*- C++ -*-===//
+//===-- TypeCategoryMap.h ---------------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,6 +12,8 @@
 
 // C Includes
 // C++ Includes
+#include <list>
+#include <map>
 
 // Other libraries and framework includes
 // Project includes
@@ -88,11 +90,11 @@ namespace lldb_private {
         GetAtIndex (uint32_t);
         
         bool
-        AnyMatches (ConstString type_name,
-                    TypeCategoryImpl::FormatCategoryItems items = TypeCategoryImpl::ALL_ITEM_TYPES,
-                    bool only_enabled = true,
-                    const char** matching_category = NULL,
-                    TypeCategoryImpl::FormatCategoryItems* matching_type = NULL);
+        AnyMatches(ConstString type_name,
+                   TypeCategoryImpl::FormatCategoryItems items = TypeCategoryImpl::ALL_ITEM_TYPES,
+                   bool only_enabled = true,
+                   const char** matching_category = nullptr,
+                   TypeCategoryImpl::FormatCategoryItems* matching_type = nullptr);
         
         uint32_t
         GetCount ()
@@ -101,25 +103,20 @@ namespace lldb_private {
         }
 
         lldb::TypeFormatImplSP
-        GetFormat (ValueObject& valobj,
-                   lldb::DynamicValueType use_dynamic);
+        GetFormat (FormattersMatchData& match_data);
         
         lldb::TypeSummaryImplSP
-        GetSummaryFormat (ValueObject& valobj,
-                          lldb::DynamicValueType use_dynamic);
+        GetSummaryFormat (FormattersMatchData& match_data);
         
 #ifndef LLDB_DISABLE_PYTHON
         lldb::SyntheticChildrenSP
-        GetSyntheticChildren (ValueObject& valobj,
-                              lldb::DynamicValueType use_dynamic);
+        GetSyntheticChildren (FormattersMatchData& match_data);
 #endif
         
-    lldb::TypeValidatorImplSP
-    GetValidator (ValueObject& valobj,
-                  lldb::DynamicValueType use_dynamic);
+        lldb::TypeValidatorImplSP
+        GetValidator(FormattersMatchData& match_data);
         
     private:
-        
         class delete_matching_categories
         {
             lldb::TypeCategoryImplSP ptr;
@@ -159,4 +156,4 @@ namespace lldb_private {
     };
 } // namespace lldb_private
 
-#endif	// lldb_TypeCategoryMap_h_
+#endif // lldb_TypeCategoryMap_h_

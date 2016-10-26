@@ -35,7 +35,13 @@ protected:
   /// without an associated EH frame section.
   bool SupportsCompactUnwindWithoutEHFrame;
 
-  /// Some encoding values for EH.
+  /// OmitDwarfIfHaveCompactUnwind - True if the target object file
+  /// supports having some functions with compact unwind and other with
+  /// dwarf unwind.
+  bool OmitDwarfIfHaveCompactUnwind;
+
+  /// PersonalityEncoding, LSDAEncoding, TTypeEncoding - Some encoding values
+  /// for EH.
   unsigned PersonalityEncoding;
   unsigned LSDAEncoding;
   unsigned FDECFIEncoding;
@@ -200,6 +206,10 @@ public:
   bool getSupportsCompactUnwindWithoutEHFrame() const {
     return SupportsCompactUnwindWithoutEHFrame;
   }
+  bool getOmitDwarfIfHaveCompactUnwind() const {
+    return OmitDwarfIfHaveCompactUnwind;
+  }
+
   bool getCommDirectiveSupportsAlignment() const {
     return CommDirectiveSupportsAlignment;
   }
@@ -216,6 +226,7 @@ public:
   MCSection *getTextSection() const { return TextSection; }
   MCSection *getDataSection() const { return DataSection; }
   MCSection *getBSSSection() const { return BSSSection; }
+  MCSection *getReadOnlySection() const { return ReadOnlySection; }
   MCSection *getLSDASection() const { return LSDASection; }
   MCSection *getCompactUnwindSection() const { return CompactUnwindSection; }
   MCSection *getDwarfAbbrevSection() const { return DwarfAbbrevSection; }

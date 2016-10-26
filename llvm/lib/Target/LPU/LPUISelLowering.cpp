@@ -71,9 +71,6 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget
 
   // Provide all sorts of operation actions
 
-  // Division is expensive
-  setIntDivIsCheap(false);
-
   // Operations we want expanded for all types
   for (MVT VT : MVT::integer_valuetypes()) {
     // If this type is generally supported
@@ -691,7 +688,7 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     } else {
       MemOpChains.push_back(
         DAG.getStore(Chain, dl, Arg, PtrOff,
-                     MachinePointerInfo::getStack(LocMemOffset),
+                     MachinePointerInfo::getStack(MF, LocMemOffset),
                      false, false, 0));
     }
   }
@@ -870,7 +867,7 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
         SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
         // Create load to retrieve the argument from the stack
         InVals.push_back(DAG.getLoad(VA.getValVT(), dl, Chain, FIN,
-	    MachinePointerInfo::getFixedStack(FI, 0), false, false, false, 0));
+	    MachinePointerInfo::getFixedStack(MF, FI, 0), false, false, false, 0));
       }
       /*
       unsigned ArgSize = VA.getLocVT().getSizeInBits()/8;

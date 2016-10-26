@@ -50,7 +50,7 @@ class LPUTTIImpl : public BasicTTIImplBase<LPUTTIImpl> {
   }
 
 public:
-  explicit LPUTTIImpl(const LPUTargetMachine *TM, Function &F)
+  explicit LPUTTIImpl(const LPUTargetMachine *TM, const Function &F)
       : BaseT(TM, F.getParent()->getDataLayout()), ST(TM->getSubtargetImpl()),
         TLI(ST->getTargetLowering()) {}
 

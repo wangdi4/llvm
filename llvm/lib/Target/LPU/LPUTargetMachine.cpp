@@ -76,7 +76,7 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, const Triple &TT,
 
 
 TargetIRAnalysis LPUTargetMachine::getTargetIRAnalysis() {
-  return TargetIRAnalysis([this](Function &F) {
+  return TargetIRAnalysis([this](const Function &F) {
     return TargetTransformInfo(LPUTTIImpl(this, F));
   });
 }

@@ -139,15 +139,17 @@ class CudaDeviceAction : public Action {
   virtual void anchor();
   /// GPU architecture to bind -- e.g 'sm_35'.
   const char *GpuArchName;
+  const char *DeviceTriple;
   /// True when action results are not consumed by the host action (e.g when
   /// -fsyntax-only or --cuda-device-only options are used).
   bool AtTopLevel;
 
 public:
   CudaDeviceAction(std::unique_ptr<Action> Input, const char *ArchName,
-                   bool AtTopLevel);
+                   const char *DeviceTriple, bool AtTopLevel);
 
   const char *getGpuArchName() const { return GpuArchName; }
+  const char *getDeviceTriple() const { return DeviceTriple; }
   bool isAtTopLevel() const { return AtTopLevel; }
 
   static bool classof(const Action *A) {
@@ -158,14 +160,16 @@ public:
 class CudaHostAction : public Action {
   virtual void anchor();
   ActionList DeviceActions;
+  const char *DeviceTriple;
 
 public:
-  CudaHostAction(std::unique_ptr<Action> Input,
-                 const ActionList &DeviceActions);
+  CudaHostAction(std::unique_ptr<Action> Input, const ActionList &DeviceActions,
+                 const char *DeviceTriple);
   ~CudaHostAction() override;
 
   ActionList &getDeviceActions() { return DeviceActions; }
   const ActionList &getDeviceActions() const { return DeviceActions; }
+  const char *getDeviceTriple() const { return DeviceTriple; }
 
   static bool classof(const Action *A) { return A->getKind() == CudaHostClass; }
 };
@@ -288,7 +292,6 @@ class VerifyJobAction : public JobAction {
 public:
   VerifyJobAction(ActionClass Kind, std::unique_ptr<Action> Input,
                   types::ID Type);
-  VerifyJobAction(ActionClass Kind, ActionList &Inputs, types::ID Type);
   static bool classof(const Action *A) {
     return A->getKind() == VerifyDebugInfoJobClass ||
            A->getKind() == VerifyPCHJobClass;

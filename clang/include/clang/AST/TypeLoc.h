@@ -151,6 +151,14 @@ public:
 
   TypeLoc IgnoreParens() const;
 
+  /// \brief Find a type with the location of an explicit type qualifier.
+  ///
+  /// The result, if non-null, will be one of:
+  ///   QualifiedTypeLoc
+  ///   AtomicTypeLoc
+  ///   AttributedTypeLoc, for those type attributes that behave as qualifiers
+  TypeLoc findExplicitQualifierLoc() const;
+
   /// \brief Initializes this to state that every location in this
   /// type is the given location.
   ///
@@ -206,6 +214,7 @@ private:
 
 /// \brief Return the TypeLoc for a type source info.
 inline TypeLoc TypeSourceInfo::getTypeLoc() const {
+  // TODO: is this alignment already sufficient?
   return TypeLoc(Ty, const_cast<void*>(static_cast<const void*>(this + 1)));
 }
 
@@ -734,6 +743,10 @@ public:
 
   bool hasAttrOperand() const {
     return hasAttrExprOperand() || hasAttrEnumOperand();
+  }
+
+  bool isQualifier() const {
+    return getTypePtr()->isQualifier();
   }
 
   /// The modified type, which is generally canonically different from

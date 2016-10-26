@@ -11,6 +11,7 @@
 //
 // This file contains error reporting code.
 //===----------------------------------------------------------------------===//
+
 #include "asan_flags.h"
 #include "asan_internal.h"
 #include "asan_mapping.h"
@@ -27,9 +28,10 @@ namespace __asan {
 
 // -------------------- User-specified callbacks ----------------- {{{1
 static void (*error_report_callback)(const char*);
-static char *error_message_buffer = 0;
+static char *error_message_buffer = nullptr;
 static uptr error_message_buffer_pos = 0;
 static uptr error_message_buffer_size = 0;
+static BlockingMutex error_message_buf_mutex(LINKER_INITIALIZED);
 
 struct ReportData {
   uptr pc;
@@ -45,16 +47,21 @@ static bool report_happened = false;
 static ReportData report_data = {};
 
 void AppendToErrorMessageBuffer(const char *buffer) {
-  if (error_message_buffer) {
-    uptr length = internal_strlen(buffer);
-    CHECK_GE(error_message_buffer_size, error_message_buffer_pos);
-    uptr remaining = error_message_buffer_size - error_message_buffer_pos;
-    internal_strncpy(error_message_buffer + error_message_buffer_pos,
-                     buffer, remaining);
-    error_message_buffer[error_message_buffer_size - 1] = '\0';
-    // FIXME: reallocate the buffer instead of truncating the message.
-    error_message_buffer_pos += Min(remaining, length);
+  BlockingMutexLock l(&error_message_buf_mutex);
+  if (!error_message_buffer) {
+    error_message_buffer_size = 1 << 16;
+    error_message_buffer =
+      (char*)MmapOrDie(error_message_buffer_size, __func__);
+    error_message_buffer_pos = 0;
   }
+  uptr length = internal_strlen(buffer);
+  CHECK_GE(error_message_buffer_size, error_message_buffer_pos);
+  uptr remaining = error_message_buffer_size - error_message_buffer_pos;
+  internal_strncpy(error_message_buffer + error_message_buffer_pos,
+                   buffer, remaining);
+  error_message_buffer[error_message_buffer_size - 1] = '\0';
+  // FIXME: reallocate the buffer instead of truncating the message.
+  error_message_buffer_pos += Min(remaining, length);
 }
 
 // ---------------------- Decorator ------------------------------ {{{1
@@ -373,7 +380,7 @@ static void PrintAccessAndVarIntersection(const StackVarDescr &var, uptr addr,
                                           uptr next_var_beg) {
   uptr var_end = var.beg + var.size;
   uptr addr_end = addr + access_size;
-  const char *pos_descr = 0;
+  const char *pos_descr = nullptr;
   // If the variable [var.beg, var_end) is the nearest variable to the
   // current memory access, indicate it in the log.
   if (addr >= var.beg) {
@@ -544,7 +551,7 @@ void DescribeHeapAddress(uptr addr, uptr access_size) {
   StackTrace alloc_stack = chunk.GetAllocStack();
   char tname[128];
   Decorator d;
-  AsanThreadContext *free_thread = 0;
+  AsanThreadContext *free_thread = nullptr;
   if (chunk.FreeTid() != kInvalidTid) {
     free_thread = GetThreadContextByTidLocked(chunk.FreeTid());
     Printf("%sfreed by thread T%d%s here:%s\n", d.Allocation(),
@@ -639,7 +646,7 @@ class ScopedInErrorReport {
       }
       // If we're still not dead for some reason, use raw _exit() instead of
       // Die() to bypass any additional checks.
-      internal__exit(flags()->exitcode);
+      internal__exit(common_flags()->exitcode);
     }
     if (report) report_data = *report;
     report_happened = true;
@@ -663,8 +670,13 @@ class ScopedInErrorReport {
     // Print memory stats.
     if (flags()->print_stats)
       __asan_print_accumulated_stats();
-    if (error_report_callback) {
-      error_report_callback(error_message_buffer);
+    {
+      BlockingMutexLock l(&error_message_buf_mutex);
+      LogFullErrorReport(error_message_buffer);
+
+      if (error_report_callback) {
+        error_report_callback(error_message_buffer);
+      }
     }
     Report("ABORTING\n");
     Die();
@@ -686,7 +698,7 @@ void ReportStackOverflow(const SignalContext &sig) {
   ReportErrorSummary("stack-overflow", &stack);
 }
 
-void ReportSIGSEGV(const char *description, const SignalContext &sig) {
+void ReportDeadlySignal(const char *description, const SignalContext &sig) {
   ScopedInErrorReport in_report;
   Decorator d;
   Printf("%s", d.Warning());
@@ -703,7 +715,7 @@ void ReportSIGSEGV(const char *description, const SignalContext &sig) {
   stack.Print();
   MaybeDumpInstructionBytes(sig.pc);
   Printf("AddressSanitizer can not provide additional info.\n");
-  ReportErrorSummary("SEGV", &stack);
+  ReportErrorSummary(description, &stack);
 }
 
 void ReportDoubleFree(uptr addr, BufferedStackTrace *free_stack) {
@@ -958,7 +970,7 @@ void ReportMacCfReallocUnknown(uptr addr, uptr zone_ptr, const char *zone_name,
   DescribeHeapAddress(addr, 1);
 }
 
-}  // namespace __asan
+} // namespace __asan
 
 // --------------------------- Interface --------------------- {{{1
 using namespace __asan;  // NOLINT
@@ -1060,13 +1072,8 @@ void __asan_report_error(uptr pc, uptr bp, uptr sp, uptr addr, int is_write,
 }
 
 void NOINLINE __asan_set_error_report_callback(void (*callback)(const char*)) {
+  BlockingMutexLock l(&error_message_buf_mutex);
   error_report_callback = callback;
-  if (callback) {
-    error_message_buffer_size = 1 << 16;
-    error_message_buffer =
-        (char*)MmapOrDie(error_message_buffer_size, __func__);
-    error_message_buffer_pos = 0;
-  }
 }
 
 void __asan_describe_address(uptr addr) {
@@ -1117,7 +1124,7 @@ SANITIZER_INTERFACE_ATTRIBUTE
 void __sanitizer_ptr_cmp(void *a, void *b) {
   CheckForInvalidPointerPair(a, b);
 }
-}  // extern "C"
+} // extern "C"
 
 #if !SANITIZER_SUPPORTS_WEAK_HOOKS
 // Provide default implementation of __asan_on_error that does nothing

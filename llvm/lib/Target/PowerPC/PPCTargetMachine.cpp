@@ -57,6 +57,11 @@ EnableExtraTOCRegDeps("enable-ppc-extra-toc-reg-deps",
                       cl::desc("Add extra TOC register dependencies"),
                       cl::init(true), cl::Hidden);
 
+static cl::opt<bool>
+EnableMachineCombinerPass("ppc-machine-combiner",
+                          cl::desc("Enable the machine combiner pass"),
+                          cl::init(true), cl::Hidden);
+
 extern "C" void LLVMInitializePowerPCTarget() {
   // Register the targets
   RegisterTargetMachine<PPC32TargetMachine> A(ThePPC32Target);
@@ -118,7 +123,7 @@ static std::string computeFSAdditions(StringRef FS, CodeGenOpt::Level OL,
   }
 
   if (OL != CodeGenOpt::None) {
-     if (!FullFS.empty())
+    if (!FullFS.empty())
       FullFS = "+invariant-function-descriptors," + FullFS;
     else
       FullFS = "+invariant-function-descriptors";
@@ -144,7 +149,7 @@ static PPCTargetMachine::PPCABI computeTargetABI(const Triple &TT,
     return PPCTargetMachine::PPC_ABI_ELFv2;
 
   assert(Options.MCOptions.getABIName().empty() &&
-	 "Unknown target-abi option!");
+         "Unknown target-abi option!");
 
   if (!TT.isMacOSX()) {
     switch (TT.getArch()) {
@@ -160,9 +165,9 @@ static PPCTargetMachine::PPCABI computeTargetABI(const Triple &TT,
   return PPCTargetMachine::PPC_ABI_UNKNOWN;
 }
 
-// The FeatureString here is a little subtle. We are modifying the feature string
-// with what are (currently) non-function specific overrides as it goes into the
-// LLVMTargetMachine constructor and then using the stored value in the
+// The FeatureString here is a little subtle. We are modifying the feature
+// string with what are (currently) non-function specific overrides as it goes
+// into the LLVMTargetMachine constructor and then using the stored value in the
 // Subtarget constructor below it.
 PPCTargetMachine::PPCTargetMachine(const Target &T, const Triple &TT,
                                    StringRef CPU, StringRef FS,
@@ -316,6 +321,10 @@ bool PPCPassConfig::addPreISel() {
 
 bool PPCPassConfig::addILPOpts() {
   addPass(&EarlyIfConverterID);
+
+  if (EnableMachineCombinerPass)
+    addPass(&MachineCombinerID);
+
   return true;
 }
 
@@ -364,6 +373,7 @@ void PPCPassConfig::addPreEmitPass() {
 }
 
 TargetIRAnalysis PPCTargetMachine::getTargetIRAnalysis() {
-  return TargetIRAnalysis(
-      [this](Function &F) { return TargetTransformInfo(PPCTTIImpl(this, F)); });
+  return TargetIRAnalysis([this](const Function &F) {
+    return TargetTransformInfo(PPCTTIImpl(this, F));
+  });
 }

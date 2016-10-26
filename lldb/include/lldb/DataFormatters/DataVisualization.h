@@ -1,4 +1,4 @@
-//===-- DataVisualization.h ----------------------------------------*- C++ -*-===//
+//===-- DataVisualization.h -------------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -28,7 +28,6 @@ namespace lldb_private {
 class DataVisualization
 {
 public:
-    
     // use this call to force the FM to consider itself updated even when there is no apparent reason for that
     static void
     ForceUpdate();
@@ -83,8 +82,8 @@ public:
     AnyMatches(ConstString type_name,
                TypeCategoryImpl::FormatCategoryItems items = TypeCategoryImpl::ALL_ITEM_TYPES,
                bool only_enabled = true,
-               const char** matching_category = NULL,
-               TypeCategoryImpl::FormatCategoryItems* matching_type = NULL);
+               const char** matching_category = nullptr,
+               TypeCategoryImpl::FormatCategoryItems* matching_type = nullptr);
     
     class NamedSummaryFormats
     {
@@ -111,7 +110,6 @@ public:
     class Categories
     {
     public:
-        
         static bool
         GetCategory (const ConstString &category,
                      lldb::TypeCategoryImplSP &entry,
@@ -134,7 +132,13 @@ public:
                 TypeCategoryMap::Position = TypeCategoryMap::Default);
         
         static void
+        Enable (lldb::LanguageType lang_type);
+        
+        static void
         Disable (const ConstString& category);
+        
+        static void
+        Disable (lldb::LanguageType lang_type);
 
         static void
         Enable (const lldb::TypeCategoryImplSP& category,
@@ -160,7 +164,6 @@ public:
     };
 };
 
-    
 } // namespace lldb_private
 
-#endif	// lldb_DataVisualization_h_
+#endif// lldb_DataVisualization_h_
