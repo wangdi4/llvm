@@ -42,7 +42,7 @@ struct LPUSaveRawBC: public ImmutablePass {
     return false;
   }  // doInitialization
 
-#if 1
+#if 0
   bool doFinalization(Module &M) override {
     dumpBC(M);
     return false;

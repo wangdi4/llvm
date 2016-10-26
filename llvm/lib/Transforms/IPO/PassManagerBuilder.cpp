@@ -28,6 +28,8 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
 
+#include "llvm/Analysis/LPUSaveRawBC.h"
+
 using namespace llvm;
 
 static cl::opt<bool>
@@ -151,6 +153,11 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
 void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
+
+  // Add the LPUSaveRawBC pass which will preserve the initial IR
+  // for a module. This must be added early so it gets IR that's
+  // equivalent to the Bitcode emmitted by the -flto option
+  FPM.add(createLPUSaveRawBCPass());
 
   // Add LibraryInfo if we have some.
   if (LibraryInfo)

@@ -38,6 +38,7 @@ add_llvm_library(LLVMAnalysis
   LoopAccessAnalysis.cpp
   LoopInfo.cpp
   LoopPass.cpp
+  LPUSaveRawBC.cpp
   MemDepPrinter.cpp
   MemDerefPrinter.cpp
   MemoryBuiltins.cpp
