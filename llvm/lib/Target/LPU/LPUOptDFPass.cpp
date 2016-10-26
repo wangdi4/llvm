@@ -1683,6 +1683,18 @@ seq_identify_induction_variable(LPUSeqLoopInfo& loop) {
     return false;
   }
 
+  bool last_transform_check = loop.sequence_opcode_transform_check(TII);
+  if (!last_transform_check) {
+
+    DEBUG(errs() << "Failing last seq transform check...\n");
+    DEBUG(errs() << "Indvar idx is " << loop.indvarIdx() << "\n");
+    if (loop.indvarIdx() >= 0) {
+      DEBUG(errs() << "Induction variable sequence is ...\n");
+      seq_debug_print_candidate(loop.candidates[loop.indvarIdx()]);
+    }
+
+  }
+
   return loop.sequence_opcode_transform_check(TII);
 }
 
