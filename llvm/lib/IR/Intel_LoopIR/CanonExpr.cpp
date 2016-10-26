@@ -183,8 +183,8 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
 }
 
 bool CanonExpr::isSelfBlob() const {
-  return ((getSrcType() == getDestType()) && isStandAloneBlob() &&
-          BlobUtils::isTempBlob(BlobUtils::getBlob(getSingleBlobIndex())));
+  return isStandAloneBlob(false /*AllowConversion*/) &&
+         BlobUtils::isTempBlob(BlobUtils::getBlob(getSingleBlobIndex()));
 }
 
 bool CanonExpr::isUndefSelfBlob() const {
@@ -391,10 +391,10 @@ bool CanonExpr::isNullVector() const {
   return isNullImpl();
 }
 
-bool CanonExpr::isStandAloneIV() const {
+bool CanonExpr::isStandAloneIV(bool AllowConversion) const {
 
-  if ((getSrcType() == getDestType()) && !hasBlob() && !getConstant() &&
-      (getDenominator() == 1)) {
+  if ((AllowConversion || (getSrcType() == getDestType())) && !hasBlob() &&
+      !getConstant() && (getDenominator() == 1)) {
 
     unsigned NumIVs = 0;
     // This loop checks that there is only one IV with BlobCoeff == 0 and Coeff

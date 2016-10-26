@@ -370,8 +370,11 @@ public:
   bool isNullVector() const;
 
   /// \brief Returns true if this canon expr is a standalone IV (it looks
-  /// something like (1 * i3)). 
-  bool isStandAloneIV() const;
+  /// something like (1 * i3)).
+  /// If \p AllowConversion is true, conversions are allowed to be part of a
+  /// standalone IV. Otherwise, an IV with a conversion is not considered a
+  /// standalone IV.
+  bool isStandAloneIV(bool AllowConversion = true) const;
 
   /// \brief Returns the level of the first IV with coeff different from 0.
   /// It returns 0 if no IV is found with coeff different from 0.
@@ -380,9 +383,13 @@ public:
   /// \brief Returns true if this canon expr looks something like (1 * %t).
   /// This is a broader check than isSelfBlob() because it allows the blob to
   /// be a FP constant or even metadata.
-  bool isStandAloneBlob() const {
-    return (!hasIV() && !getConstant() && (getDenominator() == 1) &&
-            (numBlobs() == 1) && (getSingleBlobCoeff() == 1));
+  /// If \p AllowConversion is true, conversions are allowed to be part of a
+  /// standalone blob. Otherwise, a blob with a conversion is not considered a
+  /// standalone blob.
+  bool isStandAloneBlob(bool AllowConversion = true) const {
+    return ((AllowConversion || (getSrcType() == getDestType())) &&
+            !getConstant() && (getDenominator() == 1) && (numBlobs() == 1) &&
+            (getSingleBlobCoeff() == 1) && !hasIV());
   }
 
   /// Returns true if CanonExpr can be converted into a stand alone blob.

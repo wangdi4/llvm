@@ -414,9 +414,9 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
   return true;
 }
 
-bool RegDDRef::isStandAloneIV() const {
+bool RegDDRef::isStandAloneIV(bool AllowConversion) const {
   if (isTerminalRef()) {
-    return getSingleCanonExpr()->isStandAloneIV();
+    return getSingleCanonExpr()->isStandAloneIV(AllowConversion);
   }
 
   return false;
@@ -436,6 +436,20 @@ bool RegDDRef::isSelfBlob() const {
   unsigned SB = BlobUtils::getTempBlobSymbase(CE->getSingleBlobIndex());
 
   return (getSymbase() == SB);
+}
+
+bool RegDDRef::isStandAloneBlob(bool AllowConversion) const {
+  if (!isTerminalRef()) {
+    return false;
+  }
+
+  auto CE = getSingleCanonExpr();
+
+  if (!CE->isStandAloneBlob(AllowConversion)) {
+    return false;
+  }
+
+  return true;
 }
 
 bool RegDDRef::isUndefSelfBlob() const {
@@ -938,7 +952,7 @@ void RegDDRef::verify() const {
     assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
     assert(isa<PointerType>(CE->getSrcType()) && "Invalid BaseCE src type!");
     assert(isa<PointerType>(CE->getDestType()) && "Invalid BaseCE dest type!");
-    assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
+    //assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
   }
 
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
