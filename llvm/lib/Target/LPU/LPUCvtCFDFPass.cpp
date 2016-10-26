@@ -1,4 +1,4 @@
-#//===-- LPUCvtCFDFPass.cpp - LPU convert control flow to data flow --------===//
+//===-- LPUCvtCFDFPass.cpp - LPU convert control flow to data flow --------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -129,6 +129,7 @@ namespace llvm {
 		unsigned computeEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType, MachineBasicBlock* toBB);
 		unsigned computeBBPred(MachineBasicBlock *inBB);
 		void TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI);
+    void LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr *MI);
 		bool CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb);
     void replaceIfFooterPhiSeq();
   	void assignLicForDF();
@@ -340,7 +341,12 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 #endif
 
 	insertSWITCHForIf();
-
+#if 0
+  {
+    errs() << "LPUCvtCFDFPass before xphi" << ":\n";
+    MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
+  }
+#endif
 	generateDynamicPreds();
 
 	insertSWITCHForRepeat();
@@ -354,6 +360,12 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 	}
 #endif
   assignLicForDF();
+#if 0
+  {
+    errs() << "LPUCvtCFDFPass after LIC allocation" << ":\n";
+    MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
+  }
+#endif
   if (!RunSXU) {
     removeBranch();
     linearizeCFG();
@@ -1132,7 +1144,10 @@ void LPUCvtCFDFPass::assignLicForDF() {
 
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
-      if (TII.isPick(MI) || TII.isSwitch(MI)) {
+      if (TII.isPick(MI) || TII.isSwitch(MI) || 
+          MI->getOpcode() == LPU::PREDMERGE || 
+          MI->getOpcode() == LPU::PREDPROP || 
+          MI->getOpcode() == LPU::OR1) {
         for (MIOperands MO(MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();
@@ -1677,7 +1692,7 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
 			predBB = ctrlEdge;
 		}	else {
 			unsigned mergeEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
-			MachineBasicBlock::iterator loc = inBB->getFirstNonPHI();
+      MachineBasicBlock::iterator loc = inBB->getFirstTerminator();
 			BuildMI(*inBB, loc, DebugLoc(), TII.get(LPU::OR1), mergeEdge).addReg(predBB).addReg(ctrlEdge);
 			predBB = mergeEdge;
 		}
@@ -1697,8 +1712,8 @@ MachineInstr* LPUCvtCFDFPass::getOrInsertPredMerge(MachineBasicBlock* mbb, Machi
 	if (bb2predmerge.find(mbb) == bb2predmerge.end()) {
 		unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
 		predMergeInstr = BuildMI(*mbb, loc, DebugLoc(), TII.get(LPU::PREDMERGE),
-			LPU::IGN).
-			addReg(indexReg, RegState::Define). //eat the BB's pred, they will be computed using "or" consistently
+			LPU::IGN).    //in a two-way merge, it is %IGN to eat the BB's pred, they will be computed using "or" consistently
+			addReg(indexReg, RegState::Define). 
 			addReg(e1).   //last processed edge
 			addReg(e2); //current edge
 		bb2predmerge[mbb] = predMergeInstr;
@@ -1751,6 +1766,7 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 		const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
 		BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(pickPred).addReg(reg1).addReg(reg2);
 	}	else {
+#if 0
     MachineInstr* xphi = nullptr;
 		//TODO::generated xphi sequence
     for (unsigned i = 0; i < pred2values.size(); i++) {
@@ -1764,6 +1780,9 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
         xphi->addOperand(valueOp);
       }
     }
+#else 
+    LowerXPhi(pred2values, MI);
+#endif 
 	}
 	//release memory
 	for (unsigned i = 0; i < pred2values.size(); i++) {
@@ -1773,6 +1792,59 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 	MI->removeFromParent();
 }
 
+
+
+void LPUCvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* loc) {
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  if (pred2values.empty()) return;
+  SmallVector<std::pair<unsigned, unsigned> *, 4> vpair;
+  unsigned j = pred2values.size() - 1;
+  unsigned i = 0;
+  while (i <= j) {
+    if (i == j) {
+      //singular
+      vpair.push_back(pred2values[i]);
+    } else {
+      std::pair<unsigned, unsigned> *pair1 = pred2values[i];
+      std::pair<unsigned, unsigned> *pair2 = pred2values[j];
+      //const TargetRegisterClass *pTRC = MRI->getRegClass(pair1->first);
+      //MachineInstr* predMerge = getOrInsertPredMerge(loc->getParent(), loc, pair1->first, pair2->first);
+
+      unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
+      unsigned bbpredReg = MRI->createVirtualRegister(&LPU::I1RegClass);
+      BuildMI(*loc->getParent(), loc, DebugLoc(), TII.get(LPU::PREDMERGE),
+        bbpredReg).
+        addReg(indexReg, RegState::Define).
+        addReg(pair1->first).   //last processed edge
+        addReg(pair2->first); //current edge
+
+      const TargetRegisterClass *vTRC = MRI->getRegClass(pair1->second);
+      const unsigned pickOpcode = TII.getPickSwitchOpcode(vTRC, true /*pick op*/);
+      unsigned pickDst;
+      if (pred2values.size() == 2) {
+        pickDst = loc->getOperand(0).getReg();
+      } else {
+        pickDst = MRI->createVirtualRegister(vTRC);
+      }
+      BuildMI(*loc->getParent(), loc, loc->getDebugLoc(),
+        TII.get(pickOpcode), pickDst).
+        addReg(indexReg).
+        addReg(pair1->second).
+        addReg(pair2->second);
+      pair1->first = bbpredReg;
+      pair1->second = pickDst;
+      if (pred2values.size() > 2) {
+        vpair.push_back(pair1);
+      }
+    }
+    ++i;
+    --j;
+  }
+  if (vpair.size() > 1) {
+    LowerXPhi(vpair, loc);
+  }
+}
 
 
 void LPUCvtCFDFPass::generateDynamicPreds() {
