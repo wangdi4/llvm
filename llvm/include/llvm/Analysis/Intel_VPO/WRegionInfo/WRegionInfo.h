@@ -80,7 +80,7 @@ public:
   void buildWRGraph(WRegionCollection::InputIRKind IR);
 
   /// WRN Graph
-  WRContainerTy *getWRGraph() const { return WRC->getWRGraph(); }
+  WRContainerImpl *getWRGraph() const { return WRC->getWRGraph(); }
 
   /// \brief Getter methods for analyses done
   DominatorTree *getDomTree() { return DT; }

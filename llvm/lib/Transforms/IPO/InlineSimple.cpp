@@ -39,20 +39,15 @@ namespace {
 /// inliner pass and the always inliner pass. The two passes use different cost
 /// analyses to determine when to inline.
 class SimpleInliner : public Inliner {
-  // This field is populated based on one of the following:
-  //  * optimization or size-optimization levels,
-  //  * the --inline-threshold flag, or
-  //  * a user specified value.
-  int DefaultThreshold;
+
+  InlineParams Params;
 
 public:
-  SimpleInliner()
-      : Inliner(ID), DefaultThreshold(llvm::getDefaultInlineThreshold()) {
+  SimpleInliner() : Inliner(ID), Params(llvm::getInlineParams()) {
     initializeSimpleInlinerPass(*PassRegistry::getPassRegistry());
   }
 
-  explicit SimpleInliner(int Threshold)
-      : Inliner(ID), DefaultThreshold(Threshold) {
+  explicit SimpleInliner(InlineParams Params) : Inliner(ID), Params(Params) {
     initializeSimpleInlinerPass(*PassRegistry::getPassRegistry());
   }
 
@@ -61,18 +56,18 @@ public:
   InlineCost getInlineCost(CallSite CS) override {
     Function *Callee = CS.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
-
-#if INTEL_CUSTOMIZATION
-    InlineAggressiveAnalysis *AggI 
-      = getAnalysisIfAvailable<InlineAggressiveAnalysis>();
-#endif // INTEL_CUSTOMIZATION
-
-    std::function<AssumptionCache &(Function &)> GetAssumptionCache = [&](
-        Function &F) -> AssumptionCache & {
+    std::function<AssumptionCache &(Function &)> GetAssumptionCache =
+        [&](Function &F) -> AssumptionCache & {
       return ACT->getAssumptionCache(F);
     };
-    return llvm::getInlineCost(CS, DefaultThreshold, TTI,        // INTEL
-      GetAssumptionCache, PSI, AggI);                            // INTEL 
+
+#if INTEL_CUSTOMIZATION
+    auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
+    InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
+#endif // INTEL_CUSTOMIZATION
+
+    return llvm::getInlineCost(CS, Params, TTI,
+                               GetAssumptionCache, ILIC, PSI, AggI); // INTEL 
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
@@ -80,32 +75,36 @@ public:
 
 private:
   TargetTransformInfoWrapperPass *TTIWP;
+
 };
 
 } // end anonymous namespace
 
 char SimpleInliner::ID = 0;
-INITIALIZE_PASS_BEGIN(SimpleInliner, "inline",
-                "Function Integration/Inlining", false, false)
+INITIALIZE_PASS_BEGIN(SimpleInliner, "inline", "Function Integration/Inlining",
+                      false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(InlineAggressiveAnalysis)          // INTEL
-INITIALIZE_PASS_END(SimpleInliner, "inline",
-                "Function Integration/Inlining", false, false)
+INITIALIZE_PASS_DEPENDENCY(InlineAggressiveWrapperPass)        // INTEL
+INITIALIZE_PASS_END(SimpleInliner, "inline", "Function Integration/Inlining",
+                    false, false)
 
 Pass *llvm::createFunctionInliningPass() { return new SimpleInliner(); }
 
 Pass *llvm::createFunctionInliningPass(int Threshold) {
-  return new SimpleInliner(Threshold);
+  return new SimpleInliner(llvm::getInlineParams(Threshold));
 }
 
 Pass *llvm::createFunctionInliningPass(unsigned OptLevel,
                                        unsigned SizeOptLevel) {
-  return new SimpleInliner(
-      llvm::computeThresholdFromOptLevels(OptLevel, SizeOptLevel));
+  return new SimpleInliner(llvm::getInlineParams(OptLevel, SizeOptLevel));
+}
+
+Pass *llvm::createFunctionInliningPass(InlineParams &Params) {
+  return new SimpleInliner(Params);
 }
 
 bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
@@ -115,6 +114,6 @@ bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
 
 void SimpleInliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addUsedIfAvailable<InlineAggressiveAnalysis>();            // INTEL
+  AU.addUsedIfAvailable<InlineAggressiveWrapperPass>();        // INTEL
   Inliner::getAnalysisUsage(AU);
 }

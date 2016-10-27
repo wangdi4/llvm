@@ -42,6 +42,7 @@
 
 #define DEBUG_TYPE "VPOParopt"
 
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -55,9 +56,14 @@ INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
 
 char VPOParopt::ID = 0;
 
-ModulePass *llvm::createVPOParoptPass() { return new VPOParopt(); }
+ModulePass *llvm::createVPOParoptPass(unsigned Mode) { 
+  assert(Mode >= OmpPar && ((Mode & (Mode-1)) == 0) &&
+         "Expect the VPO Mode is OmpPar, OmpVec or OmpOffload.");
+  return new VPOParopt(ParTrans | Mode); 
+}
 
-VPOParopt::VPOParopt() : ModulePass(ID) {
+VPOParopt::VPOParopt(unsigned MyMode)
+    : ModulePass(ID), Mode(MyMode) {
   DEBUG(dbgs() << "\n\n====== Start VPO Paropt Pass ======\n\n");
   initializeVPOParoptPass(*PassRegistry::getPassRegistry());
 }
@@ -73,8 +79,6 @@ bool VPOParopt::runOnModule(Module &M) {
     return false;
 
   bool Changed = false;
-
-  VPOParoptMode Mode = OMPPAR;
 
   /// \brief As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.
@@ -118,7 +122,7 @@ bool VPOParopt::runOnModule(Module &M) {
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
     VPOParoptTransform VP(F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
                           Mode);
-    Changed = Changed | VP.ParoptTransformer();
+    Changed = Changed | VP.paroptTransforms();
 
     DEBUG(dbgs() << "\n}=== VPOParopt after ParoptTransformer\n");
 

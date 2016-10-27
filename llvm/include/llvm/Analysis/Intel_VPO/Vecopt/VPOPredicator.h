@@ -24,12 +24,19 @@ namespace vpo {
 
 class SESERegion;
 
-class VPOPredicator {
+class VPOPredicator : public FunctionPass {
 
 public:
+  /// Pass Identification
+  static char ID;
+
+  /// Incoming AVR
+  AVRGenerateBase *AVRG;
 
   VPOPredicator();
 
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool runOnFunction(Function &F); 
   void runOnAvr(AVRLoop* ALoop);
 
 private:

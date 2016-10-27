@@ -80,6 +80,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   SSERegParmMax = 0;
   HasAlignMac68kSupport = false;
   HasBuiltinMSVaList = false;
+  IsRenderScriptTarget = false;
 
   // Default to no types using fpret.
   RealTypeUsesObjCFPRet = 0;
@@ -305,8 +306,9 @@ void TargetInfo::adjust(const LangOptions &Opts) {
     }
     LongDoubleWidth = LongDoubleAlign = 128;
 
-    assert(PointerWidth == 32 || PointerWidth == 64);
-    bool Is32BitArch = PointerWidth == 32;
+    unsigned MaxPointerWidth = getMaxPointerWidth();
+    assert(MaxPointerWidth == 32 || MaxPointerWidth == 64);
+    bool Is32BitArch = MaxPointerWidth == 32;
     SizeType = Is32BitArch ? UnsignedInt : UnsignedLong;
     PtrDiffType = Is32BitArch ? SignedInt : SignedLong;
     IntPtrType = Is32BitArch ? SignedInt : SignedLong;

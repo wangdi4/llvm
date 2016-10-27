@@ -242,18 +242,6 @@ template <>
 struct ilist_traits<loopopt::HLNode>
     : public ilist_default_traits<loopopt::HLNode> {
 
-  loopopt::HLNode *createSentinel() const {
-    return static_cast<loopopt::HLNode *>(&Sentinel);
-  }
-
-  static void destroySentinel(loopopt::HLNode *) {}
-
-  loopopt::HLNode *provideInitialHead() const { return createSentinel(); }
-  loopopt::HLNode *ensureHead(loopopt::HLNode *) const {
-    return createSentinel();
-  }
-  static void noteHead(loopopt::HLNode *, loopopt::HLNode *) {}
-
   static loopopt::HLNode *createNode(const loopopt::HLNode &) {
     llvm_unreachable("HLNodes should be explicitly created via HLNodeUtils"
                      "class");
@@ -263,9 +251,6 @@ struct ilist_traits<loopopt::HLNode>
 
   // Deletion of nodes intentionally leaved empty to save compile time
   static void deleteNode(loopopt::HLNode *Node) {}
-
-private:
-  mutable ilist_node<loopopt::HLNode> Sentinel;
 };
 
 } // End llvm namespace

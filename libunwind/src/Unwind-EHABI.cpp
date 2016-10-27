@@ -574,7 +574,7 @@ static _Unwind_Reason_Code unwind_phase2(unw_context_t *uc, unw_cursor_t *cursor
     unw_get_reg(cursor, UNW_REG_SP, &sp);
     if (unw_get_proc_info(cursor, &frameInfo) != UNW_ESUCCESS) {
       _LIBUNWIND_TRACE_UNWINDING("unwind_phase2(ex_ojb=%p): unw_get_proc_info "
-                                 "failed => _URC_FATAL_PHASE1_ERROR\n",
+                                 "failed => _URC_FATAL_PHASE2_ERROR\n",
                                  static_cast<void *>(exception_object));
       return _URC_FATAL_PHASE2_ERROR;
     }
@@ -804,6 +804,10 @@ _Unwind_VRS_Set(_Unwind_Context *context, _Unwind_VRS_RegClass regclass,
                            *(unw_fpreg_t *)valuep) == UNW_ESUCCESS
                  ? _UVRSR_OK
                  : _UVRSR_FAILED;
+#else
+    case _UVRSC_WMMXC:
+    case _UVRSC_WMMXD:
+      break;
 #endif
   }
   _LIBUNWIND_ABORT("unsupported register class");
@@ -854,6 +858,10 @@ _Unwind_VRS_Get_Internal(_Unwind_Context *context,
                            (unw_fpreg_t *)valuep) == UNW_ESUCCESS
                  ? _UVRSR_OK
                  : _UVRSR_FAILED;
+#else
+    case _UVRSC_WMMXC:
+    case _UVRSC_WMMXD:
+      break;
 #endif
   }
   _LIBUNWIND_ABORT("unsupported register class");
@@ -885,8 +893,11 @@ _Unwind_VRS_Pop(_Unwind_Context *context, _Unwind_VRS_RegClass regclass,
                        static_cast<void *>(context), regclass, discriminator,
                        representation);
   switch (regclass) {
-    case _UVRSC_CORE:
-    case _UVRSC_WMMXC: {
+    case _UVRSC_WMMXC:
+#if !defined(__ARM_WMMX)
+      break;
+#endif
+    case _UVRSC_CORE: {
       if (representation != _UVRSD_UINT32)
         return _UVRSR_FAILED;
       // When popping SP from the stack, we don't want to override it from the
@@ -914,8 +925,11 @@ _Unwind_VRS_Pop(_Unwind_Context *context, _Unwind_VRS_RegClass regclass,
       }
       return _UVRSR_OK;
     }
-    case _UVRSC_VFP:
-    case _UVRSC_WMMXD: {
+    case _UVRSC_WMMXD:
+#if !defined(__ARM_WMMX)
+      break;
+#endif
+    case _UVRSC_VFP: {
       if (representation != _UVRSD_VFPX && representation != _UVRSD_DOUBLE)
         return _UVRSR_FAILED;
       uint32_t first = discriminator >> 16;

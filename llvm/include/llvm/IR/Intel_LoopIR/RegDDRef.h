@@ -435,6 +435,9 @@ public:
   /// DDRef for %t2 to the DDRef.
   bool isSelfBlob() const override;
 
+  /// Returns true if this ref looks like 1 * undef.
+  bool isUndefSelfBlob() const override;
+
   /// \brief Returns true if the DDRef represents a blob like (1 * %t).
   /// This is a broader check than isSelfBlob() because DDRef's symbase is not
   /// taken into account. In addition, a standalone blob allows a FP constant or

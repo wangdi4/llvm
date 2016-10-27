@@ -543,6 +543,38 @@ typedef enum WRNScheduleKind {
 } WRNScheduleKind;
 
 
+class ScheduleClause 
+{
+  private:
+    WRNScheduleKind Kind;
+    EXPR            ChunkExpr;
+    int             Chunk;
+    bool            IsSchedMonotonic:1;
+    bool            IsSchedNonmonotonic:1;
+    bool            IsSchedSimd:1;
+
+  public:
+    void setKind(WRNScheduleKind K)        { Kind = K; }
+    void setChunkExpr(EXPR E)              { ChunkExpr = E; }
+    void setChunk(int C)                   { Chunk= C; }
+    void setIsSchedMonotonic(bool Flag)    { IsSchedMonotonic = Flag; }
+    void setIsSchedNonmonotonic(bool Flag) { IsSchedNonmonotonic = Flag; }
+    void setIsSchedSimd(bool Flag)         { IsSchedSimd = Flag; }
+
+    // constructor: default schedule when clause is not specified is
+    // STATIC with unspecified chunksize or modifiers
+    ScheduleClause(): Kind(WRNScheduleStaticEven), ChunkExpr(nullptr), 
+                      Chunk(0), IsSchedMonotonic(false), 
+                      IsSchedNonmonotonic(false), IsSchedSimd(false) {}
+    WRNScheduleKind getKind()      const   { return Kind; }
+    EXPR getChunkExpr()            const   { return ChunkExpr; }
+    int  getChunk()                const   { return Chunk; }
+    bool getIsSchedMonotonic()     const   { return IsSchedMonotonic; }
+    bool getIsSchedNonmonotonic()  const   { return IsSchedNonmonotonic; }
+    bool getIsSchedSimd()          const   { return IsSchedSimd; }
+};
+
+
 } // End namespace vpo
 
 } // End namespace llvm

@@ -71,14 +71,14 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
 
   setIVType(LowerDDRef->getDestType());
 
-  assert(
-      ((!getLowerDDRef()->containsUndef() &&
-        !getUpperDDRef()->containsUndef() &&
-        !getStrideDDRef()->containsUndef()) ||
-       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
-        getStrideDDRef()->containsUndef())) &&
-      "Lower, Upper and Stride DDRefs "
-      "should be all defined or all undefined");
+  assert(((!getLowerDDRef()->isUndefSelfBlob() &&
+           !getUpperDDRef()->isUndefSelfBlob() &&
+           !getStrideDDRef()->isUndefSelfBlob()) ||
+          (getLowerDDRef()->isUndefSelfBlob() &&
+           getUpperDDRef()->isUndefSelfBlob() &&
+           getStrideDDRef()->isUndefSelfBlob())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
 }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj)
@@ -835,14 +835,14 @@ void HLLoop::removePostexit() {
 void HLLoop::verify() const {
   HLDDNode::verify();
 
-  assert(
-      ((!getLowerDDRef()->containsUndef() &&
-        !getUpperDDRef()->containsUndef() &&
-        !getStrideDDRef()->containsUndef()) ||
-       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
-        getStrideDDRef()->containsUndef())) &&
-      "Lower, Upper and Stride DDRefs "
-      "should be all defined or all undefined");
+  assert(((!getLowerDDRef()->isUndefSelfBlob() &&
+           !getUpperDDRef()->isUndefSelfBlob() &&
+           !getStrideDDRef()->isUndefSelfBlob()) ||
+          (getLowerDDRef()->isUndefSelfBlob() &&
+           getUpperDDRef()->isUndefSelfBlob() &&
+           getStrideDDRef()->isUndefSelfBlob())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
 
   auto StrideCE = getStrideDDRef()->getSingleCanonExpr();
 

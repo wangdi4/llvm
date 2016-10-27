@@ -449,10 +449,20 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  auto BECount = SE->getBackedgeTakenCount(&Lp);
+
   // Don't handle unknown loops for now.
-  if (!SE->hasLoopInvariantBackedgeTakenCount(&Lp)) {
+  if (isa<SCEVCouldNotCompute>(BECount)) {
     DEBUG(dbgs()
           << "LOOPOPT_OPTREPORT: Unknown loops currently not supported.\n");
+    return false;
+  }
+
+  auto UndefBECount = dyn_cast<SCEVUnknown>(BECount);
+
+  if (UndefBECount && isa<UndefValue>(UndefBECount->getValue())) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with undef backedge taken count "
+                    "currently not supported.\n");
     return false;
   }
 

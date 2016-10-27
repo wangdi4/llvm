@@ -83,8 +83,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SCCIterator.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/AllSCCIterator.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
@@ -411,16 +411,16 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
 //===--------------------------------------------------------------------===//
 //
 template <> struct GraphTraits<loopopt::DistPPGraph *> {
-  typedef loopopt::DistPPNode NodeType;
+  typedef loopopt::DistPPNode *NodeRef;
   typedef loopopt::DistPPGraph::children_iterator ChildIteratorType;
-  static NodeType *getEntryNode(loopopt::DistPPGraph *G) {
+  static NodeRef getEntryNode(loopopt::DistPPGraph *G) {
     return *(G->node_begin());
   }
 
-  static inline ChildIteratorType child_begin(NodeType *N) {
+  static inline ChildIteratorType child_begin(NodeRef N) {
     return N->getGraph()->children_begin(N);
   }
-  static inline ChildIteratorType child_end(NodeType *N) {
+  static inline ChildIteratorType child_end(NodeRef N) {
     return N->getGraph()->children_end(N);
   }
 

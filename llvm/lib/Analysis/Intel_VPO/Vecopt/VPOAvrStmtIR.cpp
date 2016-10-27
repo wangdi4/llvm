@@ -145,6 +145,7 @@ void AVRValueIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ")";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType: {
@@ -182,6 +183,7 @@ void AVRLabelIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -229,6 +231,7 @@ void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -286,6 +289,7 @@ void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -336,11 +340,9 @@ AVRBranchIR::AVRBranchIR(Instruction *In, AVR *Cond)
   if (BranchInst *BI = dyn_cast<BranchInst>(In)) {
 
     if (BI->isConditional()) {
-      setIsConditional(true);
       ThenBBlock = BI->getSuccessor(0);
       ElseBBlock = BI->getSuccessor(1);
     } else {
-      setIsConditional(false);
       NextBBlock = BI->getSuccessor(0);
     }
   }
@@ -359,6 +361,7 @@ void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -416,6 +419,7 @@ void AVRBackEdgeIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -468,6 +472,7 @@ void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -522,6 +527,7 @@ void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -584,6 +590,7 @@ void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -645,6 +652,7 @@ void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:

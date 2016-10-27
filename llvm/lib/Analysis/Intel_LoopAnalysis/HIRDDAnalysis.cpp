@@ -15,6 +15,7 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -78,6 +79,7 @@ INITIALIZE_PASS_BEGIN(HIRDDAnalysis, "hir-dd-analysis",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(StdContainerAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(HIRDDAnalysis, "hir-dd-analysis",
                     "HIR Data Dependence Analysis", false, true)
@@ -90,6 +92,7 @@ void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
+  AU.addUsedIfAvailable<StdContainerAAWrapperPass>();
   // TODO: Do we need to add scev alias analysis??
 }
 
@@ -105,6 +108,10 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
   }
 
   if (auto *Pass = getAnalysisIfAvailable<TypeBasedAAWrapperPass>()) {
+    AAR->addAAResult(Pass->getResult());
+  }
+
+  if (auto *Pass = getAnalysisIfAvailable<StdContainerAAWrapperPass>()) {
     AAR->addAAResult(Pass->getResult());
   }
 

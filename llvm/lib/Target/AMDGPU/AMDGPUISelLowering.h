@@ -70,6 +70,9 @@ protected:
   SDValue performSraCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performSrlCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performMulCombine(SDNode *N, DAGCombinerInfo &DCI) const;
+  SDValue performMulhsCombine(SDNode *N, DAGCombinerInfo &DCI) const;
+  SDValue performMulhuCombine(SDNode *N, DAGCombinerInfo &DCI) const;
+  SDValue performMulLoHi24Combine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performCtlzCombine(const SDLoc &SL, SDValue Cond, SDValue LHS,
                              SDValue RHS, DAGCombinerInfo &DCI) const;
   SDValue performSelectCombine(SDNode *N, DAGCombinerInfo &DCI) const;
@@ -166,6 +169,9 @@ public:
 
   const char* getTargetNodeName(unsigned Opcode) const override;
 
+  bool isFsqrtCheap(SDValue Operand, SelectionDAG &DAG) const override {
+    return true;
+  }
   SDValue getRsqrtEstimate(SDValue Operand,
                            DAGCombinerInfo &DCI,
                            unsigned &RefinementSteps,
@@ -223,6 +229,9 @@ enum NodeType : unsigned {
   DWORDADDR,
   FRACT,
   CLAMP,
+  // This is SETCC with the full mask result which is used for a compare with a
+  // result bit per item in the wavefront.
+  SETCC,
 
   // SIN_HW, COS_HW - f32 for SI, 1 ULP max error, valid from -100 pi to 100 pi.
   // Denormals handled on some parts.
@@ -249,7 +258,9 @@ enum NodeType : unsigned {
   //            For f64, max error 2^29 ULP, handles denormals.
   RCP,
   RSQ,
+  RCP_LEGACY,
   RSQ_LEGACY,
+  FMUL_LEGACY,
   RSQ_CLAMP,
   LDEXP,
   FP_CLASS,
@@ -264,8 +275,12 @@ enum NodeType : unsigned {
   FFBH_I32,
   MUL_U24,
   MUL_I24,
+  MULHI_U24,
+  MULHI_I24,
   MAD_U24,
   MAD_I24,
+  MUL_LOHI_I24,
+  MUL_LOHI_U24,
   TEXTURE_FETCH,
   EXPORT,
   CONST_ADDRESS,

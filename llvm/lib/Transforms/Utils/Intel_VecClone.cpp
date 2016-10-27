@@ -513,8 +513,8 @@ Instruction* VecClone::expandVectorParameters(
       //
       // We do this to put the geps in a more scalar form.
 
-      AllocaInst *VecAlloca = new AllocaInst(VecType,
-                                             Twine("vec.", ArgIt->getName()));
+      AllocaInst *VecAlloca =
+        new AllocaInst(VecType, "vec." + ArgIt->getName());
       insertInstruction(VecAlloca, EntryBlock);
       PointerType *ElemTypePtr =
           PointerType::get(VecType->getElementType(),
@@ -525,8 +525,7 @@ Instruction* VecClone::expandVectorParameters(
         Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
       } else {
         VecParmCast = new BitCastInst(VecAlloca, ElemTypePtr,
-                                      Twine("vec." + ArgIt->getName()
-                                                   + ".cast"));
+                                      "vec." + ArgIt->getName() + ".cast");
         insertInstruction(VecParmCast, EntryBlock);
       }
 
@@ -586,7 +585,7 @@ Instruction* VecClone::createExpandedReturn(Function *Clone,
 
   VectorType *AllocaType = dyn_cast<VectorType>(Clone->getReturnType());
 
-  AllocaInst *VecAlloca = new AllocaInst(AllocaType, Twine("vec.retval"));
+  AllocaInst *VecAlloca = new AllocaInst(AllocaType, "vec.retval");
   insertInstruction(VecAlloca, EntryBlock);
   PointerType *ElemTypePtr =
       PointerType::get(ReturnType->getElementType(),
@@ -701,9 +700,8 @@ Instruction* VecClone::expandReturn(Function *Clone, BasicBlock *EntryBlock,
     // Generate a gep from the bitcast of the vector alloca used for the return
     // vector.
     GetElementPtrInst *VecGep =
-        GetElementPtrInst::Create(ReturnType->getElementType(),
-                                  VecReturn, Phi,
-                                  Twine(VecReturn->getName(), ".gep"));
+        GetElementPtrInst::Create(ReturnType->getElementType(), VecReturn, Phi,
+                                  VecReturn->getName() + ".gep");
     VecGep->insertAfter(InsertPt);
 
     // Store the constant or temp to the appropriate lane in the return vector.
@@ -916,8 +914,7 @@ void VecClone::updateScalarMemRefsWithVector(
 
         GetElementPtrInst *VecGep =
             GetElementPtrInst::Create(PointeeType, BitCast, Phi,
-                                      Twine(BitCast->getName(), ".gep"),
-                                      User);
+                                      BitCast->getName() + ".gep", User);
 
         unsigned NumOps = User->getNumOperands();
         for (unsigned I = 0; I < NumOps; ++I) {
@@ -940,8 +937,7 @@ void VecClone::updateScalarMemRefsWithVector(
               // using it. This effectively loads the particular element from
               // the vector parameter.
               LoadInst *ParmElemLoad =
-                       new LoadInst(VecGep,
-                                    Twine("vec." + Parm->getName() + ".elem")); 
+                new LoadInst(VecGep, "vec." + Parm->getName() + ".elem"); 
               ParmElemLoad->insertAfter(VecGep);
               User->setOperand(I, ParmElemLoad);
             }
@@ -1016,7 +1012,7 @@ Instruction* VecClone::generateStrideForParameter(
     // gep can use a base address of one type with an index of another type.
     GetElementPtrInst *LinearParmGep =
         GetElementPtrInst::Create(ParmPtrType->getElementType(),
-                                  BaseAddr, Mul, Twine(RefName, ".gep"));
+                                  BaseAddr, Mul, RefName + ".gep");
 
     LinearParmGep->insertAfter(Mul);
     StrideInst = LinearParmGep;
@@ -1284,9 +1280,9 @@ void VecClone::updateReturnBlockInstructions(
           PointerType::get(Clone->getReturnType(),
                            Alloca->getType()->getAddressSpace());
       BitCastInst *BitCast =
-          new BitCastInst(ExpandedReturn, PtrVecType,
-                          Twine("vec.", ExpandedReturn->getName()),
-                          ReturnBlock);
+        new BitCastInst(ExpandedReturn, PtrVecType,
+                        "vec." + ExpandedReturn->getName(),
+                        ReturnBlock);
       Return = BitCast;
   } else {
       Return = ExpandedReturn;
@@ -1479,7 +1475,7 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
       GetElementPtrInst::Create(PointeeType, Mask, Phi, "mask.gep",
                                 LoopBlock->getTerminator());
 
-  LoadInst *MaskLoad = new LoadInst(MaskGep, Twine("mask.parm"),
+  LoadInst *MaskLoad = new LoadInst(MaskGep, "mask.parm",
                                     LoopBlock->getTerminator());
 
   Type *CompareTy = MaskLoad->getType();
@@ -1663,6 +1659,10 @@ bool VecClone::runOnModule(Module &M) {
       // Remove the old scalar allocas associated with vector parameters since
       // these have now been replaced with vector ones.
       removeScalarAllocasForVectorParams(VectorParmMap);
+
+      for (auto *Parm : VectorParmMap) {
+        delete Parm;
+      }
       VectorParmMap.clear();
 
       // If this is the masked vector variant, insert the mask condition and

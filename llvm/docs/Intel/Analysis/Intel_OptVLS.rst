@@ -458,7 +458,8 @@ This section describes more details for each interface function and abstract typ
      A valid instruction generally have maximum 2 inputs, and this initial graph allows any number of inputs to feed a gather result,
      thus it would take many real 2-input instruction to compute each final output result.
 
-     Here is an example whose initial graph would contain gather nodes with more than 2-input source nodes:
+     Here is an example whose initial graph would contain gather nodes with more than 2-input source nodes. Let's call it example-2
+     for future reference:
 
 .. code-block::  c++
 
@@ -467,45 +468,65 @@ This section describes more details for each interface function and abstract typ
     const int j = n[k];
     double p = x[j  ];
     double q = x[j + 1];
+    double r = x[j + 2];
+    double s = x[j + 3];
     ...
   }
 
 ...
 
      One possible scenario of the loads from multiple consecutive iterations could be thought of laid out in the
-     linear memory space of x such as: p1 q1 ... p2 q2 ... p3 q3 ... p4 q4 ...
+     linear memory space of x such as: p1 q1 r1 s1... p2 q2 r2 s2... p3 q3 r3 s3... p4 q4 r4 s4...
      With VF = 4, each gather will contain 4 elements.
 
      genLoads() will generate 4 contiguous loads and the following initial graph:
 
-     %1 = mask.load.64.4 (<Base:0xf7ced0 Offset:0>, 11)
+     %1 = mask.load.64.4 (<Base:0xf7ced0 Offset:0>, 1111)
 
-     %2 = mask.load.64.4 (<Base:0xf7cdd0 Offset:0>, 11)
+     %2 = mask.load.64.4 (<Base:0xf7cdd0 Offset:0>, 1111)
 
-     %3 = mask.load.64.4 (<Base:0xf7cde0 Offset:0>, 11)
+     %3 = mask.load.64.4 (<Base:0xf7cde0 Offset:0>, 1111)
 
-     %4 = mask.load.64.4 (<Base:0xf7eed0 Offset:0>, 11)
+     %4 = mask.load.64.4 (<Base:0xf7eed0 Offset:0>, 1111)
 
 
 .. graphviz::
 
    digraph Initial_Graph {
 
-      V2 -> V0[label="0:63",weight="0:63"];
+      graph[ordering=in];
 
-      V2 -> V1[label="64:127",weight="64:127"];
+      V5 -> V4[label="192:255",weight="192:255"];
 
-      V3 -> V0[label="0:63",weight="0:63"];
+      V6 -> V4[label="192:255",weight="192:255"];
 
-      V3 -> V1[label="64:127",weight="64:127"];
+      V7 -> V4[label="192:255",weight="192:255"];
 
-      V4 -> V0[label="0:63",weight="0:63"];
+      V8 -> V4[label="192:255",weight="192:255"];
 
-      V4 -> V1[label="64:127",weight="64:127"];
+      V5 -> V1[label="0:63",weight="0:63"];
 
-      V5 -> V0[label="0:63",weight="0:63"];
+      V6 -> V1[label="0:63",weight="0:63"];
 
-      V5 -> V1[label="64:127",weight="64:127"];
+      V7 -> V1[label="0:63",weight="0:63"];
+
+      V8 -> V1[label="0:63",weight="0:63"];
+
+      V5 -> V2[label="64:127",weight="64:127"];
+
+      V6 -> V2[label="64:127",weight="64:127"];
+
+      V7 -> V2[label="64:127",weight="64:127"];
+
+      V8 -> V2[label="64:127",weight="64:127"];
+
+      V5 -> V3[label="128:191",weight="128:191"];
+
+      V6 -> V3[label="128:191",weight="128:191"];
+
+      V7 -> V3[label="128:191",weight="128:191"];
+
+      V8 -> V3[label="128:191",weight="128:191"];
 
    }
 
@@ -523,37 +544,71 @@ This section describes more details for each interface function and abstract typ
 
    digraph Initial_Graph {
 
-      V2 -> V6[label="0:63",weight="0:63"];
+      graph[ordering=in];
 
-      V2 -> V8[label="64:127",weight="64:127"];
+      V5 -> V15[label="192:255",weight="192:255"];
 
-      V3 -> V6[label="0:63",weight="0:63"];
+      V6 -> V15[label="192:255",weight="192:255"];
 
-      V6 -> V0[label="0:63",weight="0:63"];
+      V7 -> V16[label="128:191",weight="128:191"];
 
-      V6 -> V0[label="64:127",weight="64:127"];
+      V8 -> V16[label="192:255",weight="192:255"];
 
-      V3 -> V8[label="64:127",weight="64:127"];
+      V5 -> V11[label="64:127",weight="64:127"];
 
-      V4 -> V7[label="0:63",weight="0:63"];
+      V6 -> V11[label="64:127",weight="64:127"];
 
-      V4 -> V9[label="64:127",weight="64:127"];
+      V7 -> V12[label="64:127",weight="64:127"];
 
-      V5 -> V9[label="64:127",weight="64:127"];
+      V8 -> V12[label="64:127",weight="64:127"];
 
-      V5 -> V7[label="0:63",weight="0:63"];
+      V5 -> V9[label="0:63",weight="0:63"];
 
-      V7 -> V0[label="0:63",weight="0:63"];
+      V6 -> V9[label="0:63",weight="0:63"];
 
-      V7 -> V0[label="64:127",weight="64:127"];
+      V7 -> V10[label="0:63",weight="0:63"];
 
-      V8 -> V1[label="0:63",weight="0:63"];
+      V8 -> V10[label="0:63",weight="0:63"];
 
-      V8 -> V1[label="64:127",weight="64:127"];
+      V5 -> V13[label="128:191",weight="128:191"];
+
+      V6 -> V13[label="128:191",weight="128:191"];
+
+      V7 -> V14[label="192:255",weight="192:255"];
+
+      V8 -> V14[label="128:191",weight="128:191"];
+
+      V15 -> V4[label="0:63",weight="0:63"];
+
+      V15 -> V4[label="64:127",weight="64:127"];
+
+      V16 -> V4[label="0:63",weight="0:63"];
+
+      V16 -> V4[label="64:127",weight="64:127"];
+
+      V11 -> V2[label="0:63",weight="0:63"];
+
+      V11 -> V2[label="64:127",weight="64:127"];
+
+      V12 -> V2[label="0:63",weight="0:63"];
+
+      V12 -> V2[label="64:127",weight="64:127"];
 
       V9 -> V1[label="0:63",weight="0:63"];
 
       V9 -> V1[label="64:127",weight="64:127"];
+
+      V10 -> V1[label="0:63",weight="0:63"];
+
+      V10 -> V1[label="64:127",weight="64:127"];
+
+      V13 -> V3[label="0:63",weight="0:63"];
+
+      V13 -> V3[label="64:127",weight="64:127"];
+
+      V14 -> V3[label="0:63",weight="0:63"];
+
+      V14 -> V3[label="64:127",weight="64:127"];
 
    }
 
@@ -569,10 +624,43 @@ This section describes more details for each interface function and abstract typ
 
      Before trying to find the exact (opcodes/) instructions we perform an additional optimization step that attempts to exploit
      data parallelism available in the rearrangement operations. We do this by merging similar nodes, which we do by test-merging
-     different combination of nodes that have the same sources. A merge is deemed successful, if an instruction(/a set of instructions)
+     different combination of nodes. A test-merge is deemed successful, if an instruction(/a set of instructions)
      exits that performs the merged function and that instruction has minimum instruction cost. Minimum instruction cost is determined
      by server querying back to the client and asking for a cost of the instructions. The client is responsible for using the TTI cost-model
      (or something better) that gives us a target specific instruction cost.
+
+     Primarily we perform 3 tasks in this phase:
+       a. Simulation of test-merges
+
+       b. Cost estimation of test-merges
+
+       c. Commit the test-merge with the lowest cost.
+
+a. Simulation of test-merges:
+"""""""""""""""""""""""""""""
+
+     A test merge is simulated by computing a mask for the merge.
+
+     Two nodes, N1 and N2 are eligible to be merged if:
+       #. They have the same sources or one has the subset of sources of the other. Sources need to have the same type.
+       #. Total size of N1 and N2 fits into the vector register
+       #. elem_size of N1 matches the elem_size of N2
+
+     Under the merge consideration we get the following choices for example-2:
+       v9 can be merged with v11, mask: <0 4 1 5 >
+       V9 can be merged with V13, mask: <0 4 2 6 >
+       V9 can be merged with V15, mask: <0 4 3 7 >
+       V10 can be merged with V12, mask: <0 4 1 5 >
+       V10 can be merged with V14, mask: <0 4 2 6 >
+       V10 can be merged with V16, mask: <0 4 3 7 >
+       V11 can be merged with V13, mask: <1 5 2 6 >
+       V11 can be merged with V15, mask: <1 5 3 7 >
+       V12 can be merged with V14, mask: <1 5 2 6 >
+       V12 can be merged with V16, mask: <1 5 3 7 >
+       V13 can be merged with V15, mask: <2 6 3 7 >
+       V14 can be merged with V16, mask: <2 6 3 7 >
+
+...
 
      For our simple example, splitting is not required since each node in the graph has maximum two input nodes. There are no
      intermediate nodes other than the load/gather-nodes, so no room for exploiting data parallelism or additional optimization.

@@ -176,6 +176,12 @@ bool CanonExpr::isSelfBlob() const {
              getBlobUtils().getBlob(getSingleBlobIndex()));
 }
 
+bool CanonExpr::isUndefSelfBlob() const {
+  return (
+      isSelfBlob() &&
+      getBlobUtils().isUndefBlob(getBlobUtils().getBlob(getSingleBlobIndex())));
+}
+
 void CanonExpr::setDenominator(int64_t Val) {
   assert((Val != 0) && "Denominator cannot be zero!");
 
@@ -188,9 +194,7 @@ void CanonExpr::setDenominator(int64_t Val) {
   }
 }
 
-void CanonExpr::divide(int64_t Val) {
-  setDenominator(Denominator * Val);
-}
+void CanonExpr::divide(int64_t Val) { setDenominator(Denominator * Val); }
 
 bool CanonExpr::isExtImpl(bool IsSigned, bool IsTrunc) const {
   // Account for vector Src/Dest types.
@@ -1439,7 +1443,7 @@ void CanonExpr::verify(unsigned NestingLevel) const {
            "Constant CEs should have unit denominator");
 
     // Allow non simplified casts in HIR.
-    //assert(!isTrunc() && !isSExt() && !isZExt() &&
+    // assert(!isTrunc() && !isSExt() && !isZExt() &&
     //       "Casts in constant CEs should be simplified");
   }
 

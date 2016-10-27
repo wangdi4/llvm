@@ -122,6 +122,9 @@ public:
   /// DDRef for %t2 to the DDRef.
   virtual bool isSelfBlob() const = 0;
 
+  /// Returns true if this ref looks like 1 * undef.
+  virtual bool isUndefSelfBlob() const = 0;
+
   /// \brief Returns true if this DDRef contains undefined canon expressions.
   virtual bool containsUndef() const = 0;
 

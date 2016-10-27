@@ -66,10 +66,6 @@ public:
   /// \brief Returns the underlying HLIf node for this AvrIf.
   HLIf *getCompareInstruction() const { return CompareInstruction; }
 
-  /// \brief Prints the AvrIf node.
-  void print(formatted_raw_ostream &OS, unsigned Depth,
-             VerbosityLevel VLevel) const override;
-
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;
 

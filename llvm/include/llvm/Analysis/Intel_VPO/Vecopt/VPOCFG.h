@@ -524,7 +524,7 @@ public:
 /// makes it incompatible with LLVM's dominator tree construction facilities.
 /// This class is a minimal wrapper to bridge this gap.
 template<class GraphT, class GT = GraphTraits<GraphT> >
-class standard_df_iterator :
+class standard_df_iterator2 :
     public std::iterator<std::forward_iterator_tag,
                          typename GT::NodeType> {
 
@@ -532,37 +532,37 @@ private:
 
   df_iterator<GraphT> impl;
 
-  standard_df_iterator() {}
+  standard_df_iterator2() {}
 
 public:
 
   typedef std::iterator<std::forward_iterator_tag,
                         typename GT::NodeType> super;
 
-  standard_df_iterator(const GraphT &G, bool Begin)
+  standard_df_iterator2(const GraphT &G, bool Begin)
       : impl(Begin ?
              df_iterator<GraphT>::begin(G) :
              df_iterator<GraphT>::end(G)) {}
 
-  typename super::reference operator*() const {
-    return *(*impl);
+  typename super::pointer operator*() const {
+    return *impl;
   }
 
-  bool operator==(const standard_df_iterator &x) const {
+  bool operator==(const standard_df_iterator2 &x) const {
     return impl == x.impl;
   }
 
-  bool operator!=(const standard_df_iterator &x) const {
+  bool operator!=(const standard_df_iterator2 &x) const {
     return !(*this == x);
   }
 
-  standard_df_iterator &operator++() { // Preincrement
+  standard_df_iterator2 &operator++() { // Preincrement
     impl++;
     return *this;
   }
 
-  standard_df_iterator operator++(int) { // Postincrement
-    standard_df_iterator tmp = *this;
+  standard_df_iterator2 operator++(int) { // Postincrement
+    standard_df_iterator2 tmp = *this;
     ++*this;
     return tmp;
   }
@@ -571,8 +571,9 @@ public:
 
 template <> struct GraphTraits<vpo::AvrBasicBlock*> {
   typedef vpo::AvrBasicBlock NodeType;
+  typedef vpo::AvrBasicBlock *NodeRef;
   typedef vpo::AvrBasicBlock::CFGEdgesTy::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::AvrBasicBlock *> nodes_iterator;
+  typedef standard_df_iterator2<vpo::AvrBasicBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(vpo::AvrBasicBlock *N) {
     return N;
@@ -597,8 +598,9 @@ template <> struct GraphTraits<vpo::AvrBasicBlock*> {
 
 template <> struct GraphTraits<Inverse<vpo::AvrBasicBlock*> > {
   typedef vpo::AvrBasicBlock NodeType;
+  typedef vpo::AvrBasicBlock *NodeRef;
   typedef vpo::AvrBasicBlock::CFGEdgesTy::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::AvrBasicBlock *> nodes_iterator;
+  typedef standard_df_iterator2<vpo::AvrBasicBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(Inverse<vpo::AvrBasicBlock *> G) {
     return G.Graph;
@@ -623,8 +625,9 @@ template <> struct GraphTraits<Inverse<vpo::AvrBasicBlock*> > {
 
 template <> struct GraphTraits<const vpo::AvrBasicBlock*> {
   typedef const vpo::AvrBasicBlock NodeType;
+  typedef const vpo::AvrBasicBlock *NodeRef;
   typedef vpo::AvrBasicBlock::CFGEdgesTy::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const vpo::AvrBasicBlock *> nodes_iterator;
+  typedef standard_df_iterator2<const vpo::AvrBasicBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(const vpo::AvrBasicBlock *N) {
     return N;
@@ -649,8 +652,9 @@ template <> struct GraphTraits<const vpo::AvrBasicBlock*> {
 
 template <> struct GraphTraits<Inverse<const vpo::AvrBasicBlock*> > {
   typedef const vpo::AvrBasicBlock NodeType;
+  typedef const vpo::AvrBasicBlock *NodeRef;
   typedef vpo::AvrBasicBlock::CFGEdgesTy::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const vpo::AvrBasicBlock *> nodes_iterator;
+  typedef standard_df_iterator2<const vpo::AvrBasicBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(Inverse<const vpo::AvrBasicBlock *> G) {
     return G.Graph;

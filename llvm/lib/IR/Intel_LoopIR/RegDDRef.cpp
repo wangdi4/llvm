@@ -437,6 +437,14 @@ bool RegDDRef::isSelfBlob() const {
   return (getSymbase() == SB);
 }
 
+bool RegDDRef::isUndefSelfBlob() const {
+  if (!isSelfBlob()) {
+    return false;
+  }
+
+  return getSingleCanonExpr()->isUndefSelfBlob();
+}
+
 bool RegDDRef::isStandAloneBlob(bool AllowConversion) const {
   if (!isTerminalRef()) {
     return false;

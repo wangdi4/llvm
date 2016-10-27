@@ -268,7 +268,7 @@ static bool isObjectSize(const Value *V, uint64_t Size, const DataLayout &DL,
           Offset = 0;
           return V;
         }
-      // FALL THROUGH.
+        LLVM_FALLTHROUGH;
       case Instruction::Add:
         V = GetLinearExpression(BOp->getOperand(0), Scale, Offset, ZExtBits,
                                 SExtBits, DL, Depth + 1, AC, DT, NSW, NUW);
@@ -822,6 +822,32 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
   if (isIntrinsicCall(CS, Intrinsic::experimental_guard))
     return MRI_Ref;
 
+  // Like assumes, invariant.start intrinsics were also marked as arbitrarily
+  // writing so that proper control dependencies are maintained but they never
+  // mod any particular memory location visible to the IR.
+  // *Unlike* assumes (which are now modeled as NoModRef), invariant.start
+  // intrinsic is now modeled as reading memory. This prevents hoisting the
+  // invariant.start intrinsic over stores. Consider:
+  // *ptr = 40;
+  // *ptr = 50;
+  // invariant_start(ptr)
+  // int val = *ptr;
+  // print(val);
+  //
+  // This cannot be transformed to:
+  //
+  // *ptr = 40;
+  // invariant_start(ptr)
+  // *ptr = 50;
+  // int val = *ptr;
+  // print(val);
+  //
+  // The transformation will cause the second store to be ignored (based on
+  // rules of invariant.start)  and print 40, while the first program always
+  // prints 50.
+  if (isIntrinsicCall(CS, Intrinsic::invariant_start))
+    return MRI_Ref;
+
   // The AAResultBase base class has some smarts, lets use them.
   return AAResultBase::getModRefInfo(CS, Loc);
 }
@@ -1157,7 +1183,8 @@ AliasResult BasicAAResult::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
       return MayAlias;
 
     AliasResult R = aliasCheck(UnderlyingV1, MemoryLocation::UnknownSize,
-                               AAMDNodes(), V2, V2Size, V2AAInfo);
+                               AAMDNodes(), V2, V2Size, V2AAInfo,
+                               nullptr, UnderlyingV2);
     if (R != MustAlias)
       // If V2 may alias GEP base pointer, conservatively returns MayAlias.
       // If V2 is known not to alias GEP base pointer, then the two values
@@ -1314,7 +1341,8 @@ static AliasResult MergeAliasResults(AliasResult A, AliasResult B) {
 AliasResult BasicAAResult::aliasSelect(const SelectInst *SI, uint64_t SISize,
                                        const AAMDNodes &SIAAInfo,
                                        const Value *V2, uint64_t V2Size,
-                                       const AAMDNodes &V2AAInfo) {
+                                       const AAMDNodes &V2AAInfo,
+                                       const Value *UnderV2) {
   // If the values are Selects with the same condition, we can do a more precise
   // check: just check for aliases between the values on corresponding arms.
   if (const SelectInst *SI2 = dyn_cast<SelectInst>(V2))
@@ -1332,12 +1360,14 @@ AliasResult BasicAAResult::aliasSelect(const SelectInst *SI, uint64_t SISize,
   // If both arms of the Select node NoAlias or MustAlias V2, then returns
   // NoAlias / MustAlias. Otherwise, returns MayAlias.
   AliasResult Alias =
-      aliasCheck(V2, V2Size, V2AAInfo, SI->getTrueValue(), SISize, SIAAInfo);
+      aliasCheck(V2, V2Size, V2AAInfo, SI->getTrueValue(),
+                 SISize, SIAAInfo, UnderV2);
   if (Alias == MayAlias)
     return MayAlias;
 
   AliasResult ThisAlias =
-      aliasCheck(V2, V2Size, V2AAInfo, SI->getFalseValue(), SISize, SIAAInfo);
+      aliasCheck(V2, V2Size, V2AAInfo, SI->getFalseValue(), SISize, SIAAInfo,
+                 UnderV2);
   return MergeAliasResults(ThisAlias, Alias);
 }
 
@@ -1345,8 +1375,8 @@ AliasResult BasicAAResult::aliasSelect(const SelectInst *SI, uint64_t SISize,
 /// another.
 AliasResult BasicAAResult::aliasPHI(const PHINode *PN, uint64_t PNSize,
                                     const AAMDNodes &PNAAInfo, const Value *V2,
-                                    uint64_t V2Size,
-                                    const AAMDNodes &V2AAInfo) {
+                                    uint64_t V2Size, const AAMDNodes &V2AAInfo,
+                                    const Value *UnderV2) {
   // Track phi nodes we have visited. We use this information when we determine
   // value equivalence.
   VisitedPhiBBs.insert(PN->getParent());
@@ -1425,7 +1455,8 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, uint64_t PNSize,
     PNSize = MemoryLocation::UnknownSize;
 
   AliasResult Alias =
-      aliasCheck(V2, V2Size, V2AAInfo, V1Srcs[0], PNSize, PNAAInfo);
+      aliasCheck(V2, V2Size, V2AAInfo, V1Srcs[0],
+                 PNSize, PNAAInfo, UnderV2);
 
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
@@ -1438,7 +1469,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, uint64_t PNSize,
     Value *V = V1Srcs[i];
 
     AliasResult ThisAlias =
-        aliasCheck(V2, V2Size, V2AAInfo, V, PNSize, PNAAInfo);
+        aliasCheck(V2, V2Size, V2AAInfo, V, PNSize, PNAAInfo, UnderV2);
     Alias = MergeAliasResults(ThisAlias, Alias);
     if (Alias == MayAlias)
       break;
@@ -1470,7 +1501,8 @@ const Value* BasicAAResult::getBaseValue(const Value *V1)
 /// array references.
 AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
                                       AAMDNodes V1AAInfo, const Value *V2,
-                                      uint64_t V2Size, AAMDNodes V2AAInfo) {
+                                      uint64_t V2Size, AAMDNodes V2AAInfo, 
+                                      const Value *O1, const Value *O2) {
   // If either of the memory references is empty, it doesn't matter what the
   // pointer values are.
   if (V1Size == 0 || V2Size == 0)
@@ -1516,8 +1548,11 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
     return NoAlias; // Scalars cannot alias each other
 
   // Figure out what objects these things are pointing to if we can.
-  const Value *O1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
-  const Value *O2 = GetUnderlyingObject(V2, DL, MaxLookupSearchDepth);
+  if (O1 == nullptr)
+    O1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
+
+  if (O2 == nullptr)
+    O2 = GetUnderlyingObject(V2, DL, MaxLookupSearchDepth);
 
   // Null values in the default address space don't point to any object, so they
   // don't alias any other pointer.
@@ -1613,23 +1648,26 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
 
   if (isa<PHINode>(V2) && !isa<PHINode>(V1)) {
     std::swap(V1, V2);
+    std::swap(O1, O2);
     std::swap(V1Size, V2Size);
     std::swap(V1AAInfo, V2AAInfo);
   }
   if (const PHINode *PN = dyn_cast<PHINode>(V1)) {
-    AliasResult Result = aliasPHI(PN, V1Size, V1AAInfo, V2, V2Size, V2AAInfo);
+    AliasResult Result = aliasPHI(PN, V1Size, V1AAInfo,
+                                  V2, V2Size, V2AAInfo, O2);
     if (Result != MayAlias)
       return AliasCache[Locs] = Result;
   }
 
   if (isa<SelectInst>(V2) && !isa<SelectInst>(V1)) {
     std::swap(V1, V2);
+    std::swap(O1, O2);
     std::swap(V1Size, V2Size);
     std::swap(V1AAInfo, V2AAInfo);
   }
   if (const SelectInst *S1 = dyn_cast<SelectInst>(V1)) {
     AliasResult Result =
-        aliasSelect(S1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo);
+        aliasSelect(S1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O2);
     if (Result != MayAlias)
       return AliasCache[Locs] = Result;
   }
@@ -1782,7 +1820,7 @@ bool BasicAAResult::constantOffsetHeuristic(
 
 char BasicAA::PassID;
 
-BasicAAResult BasicAA::run(Function &F, AnalysisManager<Function> &AM) {
+BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
   return BasicAAResult(F.getParent()->getDataLayout(),
                        AM.getResult<TargetLibraryAnalysis>(F),
                        AM.getResult<AssumptionAnalysis>(F),

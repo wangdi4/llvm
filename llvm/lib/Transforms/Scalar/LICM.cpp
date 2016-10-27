@@ -173,7 +173,7 @@ private:
 };
 }
 
-PreservedAnalyses LICMPass::run(Loop &L, AnalysisManager<Loop> &AM) {
+PreservedAnalyses LICMPass::run(Loop &L, LoopAnalysisManager &AM) {
   const auto &FAM =
       AM.getResult<FunctionAnalysisManagerLoopProxy>(L).getManager();
   Function *F = L.getHeader()->getParent();
@@ -728,12 +728,16 @@ static bool hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
   // Conservatively strip all metadata on the instruction unless we were
   // guaranteed to execute I if we entered the loop, in which case the metadata
   // is valid in the loop preheader.
+#if INTEL_CUSTOMIZATION
+  const unsigned KnownIDs[] = {LLVMContext::MD_std_container_ptr,
+                               LLVMContext::MD_std_container_ptr_iter};
+#endif // INTEL_CUSTOMIZATION
   if (I.hasMetadataOtherThanDebugLoc() &&
       // The check on hasMetadataOtherThanDebugLoc is to prevent us from burning
       // time in isGuaranteedToExecute if we don't actually have anything to
       // drop.  It is a compile time optimization, not required for correctness.
       !isGuaranteedToExecute(I, DT, CurLoop, SafetyInfo))
-    I.dropUnknownNonDebugMetadata();
+    I.dropUnknownNonDebugMetadata(KnownIDs); // INTEL
 
   // Move the new node to the Preheader, before its terminator.
   I.moveBefore(Preheader->getTerminator());
@@ -1071,8 +1075,8 @@ bool llvm::promoteLoopAccessesToScalars(
 
 /// Returns an owning pointer to an alias set which incorporates aliasing info
 /// from L and all subloops of L.
-/// FIXME: In new pass manager, there is no helper functions to handle loop
-/// analysis such as cloneBasicBlockAnalysis. So the AST needs to be recompute
+/// FIXME: In new pass manager, there is no helper function to handle loop
+/// analysis such as cloneBasicBlockAnalysis, so the AST needs to be recomputed
 /// from scratch for every loop. Hook up with the helper functions when
 /// available in the new pass manager to avoid redundant computation.
 AliasSetTracker *

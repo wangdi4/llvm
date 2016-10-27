@@ -129,8 +129,14 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeMemCpyOptLegacyPassPass(R);
   initializeDCELegacyPassPass(R);
   initializeCFGSimplifyPassPass(R);
-  initializeWholeProgramWrapperPassPass(R);  // INTEL
-  initializeInlineAggressiveAnalysisPass(R);  // INTEL
+  initializeWholeProgramWrapperPassPass(R);      // INTEL
+  initializeInlineAggressiveWrapperPassPass(R);  // INTEL
+}
+
+void LTOCodeGenerator::setAsmUndefinedRefs(LTOModule *Mod) {
+  const std::vector<const char *> &undefs = Mod->getAsmUndefinedRefs();
+  for (int i = 0, e = undefs.size(); i != e; ++i)
+    AsmUndefinedRefs[undefs[i]] = 1;
 }
 
 bool LTOCodeGenerator::addModule(LTOModule *Mod) {
@@ -138,10 +144,7 @@ bool LTOCodeGenerator::addModule(LTOModule *Mod) {
          "Expected module in same context");
 
   bool ret = TheLinker->linkInModule(Mod->takeModule());
-
-  const std::vector<const char *> &undefs = Mod->getAsmUndefinedRefs();
-  for (int i = 0, e = undefs.size(); i != e; ++i)
-    AsmUndefinedRefs[undefs[i]] = 1;
+  setAsmUndefinedRefs(Mod);
 
   // We've just changed the input, so let's make sure we verify it.
   HasVerifiedInput = false;
@@ -157,10 +160,7 @@ void LTOCodeGenerator::setModule(std::unique_ptr<LTOModule> Mod) {
 
   MergedModule = Mod->takeModule();
   TheLinker = make_unique<Linker>(*MergedModule);
-
-  const std::vector<const char*> &Undefs = Mod->getAsmUndefinedRefs();
-  for (int I = 0, E = Undefs.size(); I != E; ++I)
-    AsmUndefinedRefs[Undefs[I]] = 1;
+  setAsmUndefinedRefs(&*Mod);
 
   // We've just changed the input, so let's make sure we verify it.
   HasVerifiedInput = false;
@@ -188,17 +188,18 @@ void LTOCodeGenerator::setOptLevel(unsigned Level) {
   switch (OptLevel) {
   case 0:
     CGOptLevel = CodeGenOpt::None;
-    break;
+    return;
   case 1:
     CGOptLevel = CodeGenOpt::Less;
-    break;
+    return;
   case 2:
     CGOptLevel = CodeGenOpt::Default;
-    break;
+    return;
   case 3:
     CGOptLevel = CodeGenOpt::Aggressive;
-    break;
+    return;
   }
+  llvm_unreachable("Unknown optimization level!");
 }
 
 bool LTOCodeGenerator::writeMergedModules(const char *Path) {

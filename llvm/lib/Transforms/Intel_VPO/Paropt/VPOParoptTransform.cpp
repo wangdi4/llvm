@@ -27,6 +27,7 @@
 
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptAtomics.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 #include "llvm/IR/Function.h"
@@ -98,7 +99,14 @@ void VPOParoptTransform::gatherWRegionNodeList() {
   return;
 }
 
-bool VPOParoptTransform::ParoptTransformer() {
+//
+// ParPrepare mode: 
+//   Perform Paropt prepare transformations for lowering and privitizing   
+//
+// ParTrans mode: 
+//   Paropt transformations for loop partitioning and outlining
+//
+bool VPOParoptTransform::paroptTransforms() {
 
   LLVMContext &C = F->getContext();
   bool Changed = false;
@@ -165,8 +173,10 @@ bool VPOParoptTransform::ParoptTransformer() {
   TidPtr = new AllocaInst(Int32Ty, "tid.addr", AI);
   TidPtr->setAlignment(4);
 
-  BidPtr = new AllocaInst(Int32Ty, "bid.addr", AI);
-  BidPtr->setAlignment(4);
+  if ((Mode & OmpPar) && (Mode & ParTrans)) {
+    BidPtr = new AllocaInst(Int32Ty, "bid.addr", AI);
+    BidPtr->setAlignment(4);
+  }
 
   CallInst *RI = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, AI, IdentTy);
   RI->insertBefore(AI);
@@ -177,8 +187,10 @@ bool VPOParoptTransform::ParoptTransformer() {
   // Constant Definitions
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
-  StoreInst *Tmp1 = new StoreInst(ValueZero, BidPtr, false, AI);
-  Tmp1->setAlignment(4);
+  if ((Mode & OmpPar) && (Mode & ParTrans)) {
+    StoreInst *Tmp1 = new StoreInst(ValueZero, BidPtr, false, AI);
+    Tmp1->setAlignment(4);
+  }
 
   gatherWRegionNodeList();
 
@@ -196,13 +208,21 @@ bool VPOParoptTransform::ParoptTransformer() {
     case WRegionNode::WRNParallel:
       DEBUG(dbgs() << "\n WRegionNode::WRNParallel - Transformation \n\n");
       Changed = genPrivatizationCode(W);
-      Changed |= genMultiThreadedCode(W);
+
+      if ((Mode & OmpPar) && (Mode & ParTrans))
+        Changed |= genMultiThreadedCode(W);
       break;
     case WRegionNode::WRNParallelLoop:
       DEBUG(dbgs() << "\n WRegionNode::WRNParallelLoop - Transformation \n\n");
-      Changed = genLoopSchedulingCode(W);
+
+      if ((Mode & OmpPar) && (Mode & ParTrans))
+        Changed = genLoopSchedulingCode(W);
+  
       Changed |= genPrivatizationCode(W);
-      Changed |= genMultiThreadedCode(W);
+
+      if ((Mode & OmpPar) && (Mode & ParTrans))
+        Changed |= genMultiThreadedCode(W);
+
     case WRegionNode::WRNParallelSections:
       break;
 
@@ -214,8 +234,9 @@ bool VPOParoptTransform::ParoptTransformer() {
     // Constructs do not need to perform outlining
     case WRegionNode::WRNAtomic:
       DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
-      Changed = VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
-                                               IdentTy, TidPtr);
+      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+        Changed |= VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
+                                                  IdentTy, TidPtr);
       break;
     case WRegionNode::WRNVecLoop:
     case WRegionNode::WRNWksLoop:
@@ -225,23 +246,27 @@ bool VPOParoptTransform::ParoptTransformer() {
       break;
     case WRegionNode::WRNSingle:
       DEBUG(dbgs() << "\nWRegionNode::WRNSingle - Transformation \n\n");
-      Changed = genSingleThreadCode(W);
+      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+        Changed = genSingleThreadCode(W);
       break;
     case WRegionNode::WRNMaster:
       DEBUG(dbgs() << "\nWRegionNode::WRNMaster - Transformation \n\n");
-      Changed = genMasterThreadCode(W);
+      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+        Changed |= genMasterThreadCode(W);
       break;
     case WRegionNode::WRNBarrier:
     case WRegionNode::WRNCancel:
     case WRegionNode::WRNCritical:
       DEBUG(dbgs() << "\nWRegionNode::WRNCritical - Transformation \n\n");
-      Changed = genCriticalCode(dyn_cast<WRNCriticalNode>(W));
+      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+        Changed |= genCriticalCode(dyn_cast<WRNCriticalNode>(W));
       break;
     case WRegionNode::WRNFlush:
       break;
     case WRegionNode::WRNOrdered:
       DEBUG(dbgs() << "\nWRegionNode::WRNOrdered - Transformation \n\n");
-      Changed = genOrderedThreadCode(W);
+      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+        Changed = genOrderedThreadCode(W);
       break;
     case WRegionNode::WRNTaskgroup:
       break;

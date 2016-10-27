@@ -36,6 +36,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"   // INTEL
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h" // INTEL
+#include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -43,6 +44,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/ObjCARC.h"
@@ -70,6 +72,7 @@ namespace {
         return;
 
       (void) llvm::createAAEvalPass();
+      (void) llvm::createAggInlAALegacyPass();  // INTEL
       (void) llvm::createAggressiveDCEPass();
       (void) llvm::createBitTrackingDCEPass();
       (void) llvm::createArgumentPromotionPass();
@@ -77,7 +80,9 @@ namespace {
 #if INTEL_CUSTOMIZATION 
       (void) llvm::createAndersensAAWrapperPass(); 
       (void) llvm::createNonLTOGlobalOptimizerPass(); 
-      (void)llvm::createTbaaMDPropagationPass();    
+      (void) llvm::createTbaaMDPropagationPass();    
+      (void) llvm::createStdContainerOptPass();      
+      (void) llvm::createStdContainerAAWrapperPass();  
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
@@ -111,7 +116,7 @@ namespace {
       (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
-      (void) llvm::createAlwaysInlinerPass();
+      (void) llvm::createAlwaysInlinerLegacyPass();
       (void) llvm::createGlobalDCEPass();
       (void) llvm::createGlobalOptimizerPass();
       (void) llvm::createGlobalsAAWrapperPass();
@@ -271,6 +276,7 @@ namespace {
       // VPO Vectorizer Passes
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createAVRGenerateHIRPass();
+      (void) llvm::createVPOPredicatorPass();
       (void) llvm::createVPODriverPass();
       (void) llvm::createVPODriverHIRPass();
       (void) llvm::createVPODirectiveCleanupPass();
@@ -281,6 +287,11 @@ namespace {
       (void) llvm::createAvrCFGHIRPass();
       (void) llvm::createSIMDLaneEvolutionPass();
       (void) llvm::createSIMDLaneEvolutionHIRPass();
+      (void) llvm::createVectorGraphInfoPass();
+      (void) llvm::createVectorGraphPredicatorPass();
+
+      // VPO Paropt Prepare Passes
+      (void) llvm::createVPOParoptPreparePass();
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();

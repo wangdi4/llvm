@@ -61,9 +61,7 @@ void PiBlock::setPiBlockType(const std::vector<DistPPNode *> &SCCNodes) {
 
 void llvm::loopopt::PiGraph::createNodes() {
 
-  scc_iterator<DistPPGraph *> I = scc_begin(PPGraph);
-
-  for (auto I = scc_begin(PPGraph), E = scc_end(PPGraph); I != E; ++I) {
+  for (auto I = all_scc_begin(PPGraph), E = all_scc_end(PPGraph); I != E; ++I) {
     addPiBlock(*I);
   }
 

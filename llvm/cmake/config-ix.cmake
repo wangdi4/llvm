@@ -128,7 +128,8 @@ if( NOT PURE_WINDOWS AND NOT LLVM_USE_SANITIZER MATCHES "Memory.*")
   else()
     set(HAVE_LIBZ 0)
   endif()
-  if (HAVE_HISTEDIT_H)
+  # Skip libedit if using ASan as it contains memory leaks.
+  if (HAVE_HISTEDIT_H AND NOT LLVM_USE_SANITIZER MATCHES ".*Address.*")
     check_library_exists(edit el_init "" HAVE_LIBEDIT)
   endif()
   if(LLVM_ENABLE_TERMINFO)
@@ -169,7 +170,8 @@ if( HAVE_SETJMP_H )
   check_symbol_exists(siglongjmp setjmp.h HAVE_SIGLONGJMP)
   check_symbol_exists(sigsetjmp setjmp.h HAVE_SIGSETJMP)
 endif()
-if( HAVE_SIGNAL_H )
+# AddressSanitizer conflicts with lib/Support/Unix/Signals.inc
+if( HAVE_SIGNAL_H AND NOT LLVM_USE_SANITIZER MATCHES ".*Address.*")
   check_symbol_exists(sigaltstack signal.h HAVE_SIGALTSTACK)
 endif()
 if( HAVE_SYS_UIO_H )
@@ -548,8 +550,19 @@ find_program(GOLD_EXECUTABLE NAMES ${LLVM_DEFAULT_TARGET_TRIPLE}-ld.gold ld.gold
 set(LLVM_BINUTILS_INCDIR "" CACHE PATH
 	"PATH to binutils/include containing plugin-api.h for gold plugin.")
 
-if(APPLE)
-  find_program(LD64_EXECUTABLE NAMES ld DOC "The ld64 linker")
+if(CMAKE_HOST_APPLE AND APPLE)
+  if(CMAKE_XCRUN)
+    execute_process(COMMAND ${CMAKE_XCRUN} -find ld
+      OUTPUT_VARIABLE LD64_EXECUTABLE
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+  else()
+    find_program(LD64_EXECUTABLE NAMES ld DOC "The ld64 linker")
+  endif()
+
+  if(LD64_EXECUTABLE)
+    set(LD64_EXECUTABLE ${LD64_EXECUTABLE} CACHE PATH "ld64 executable")
+    message(STATUS "Found ld64 - ${LD64_EXECUTABLE}")
+  endif()
 endif()
 
 include(FindOCaml)

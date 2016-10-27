@@ -233,10 +233,20 @@ namespace OptVLS {
     inline iterator                begin() { return IncomingEdges.begin(); }
     inline iterator                end  () { return IncomingEdges.end();   }
 
+    typedef OVLSVector<Edge *>::const_iterator const_iterator;
+    inline const_iterator       begin() const { return IncomingEdges.begin(); }
+    inline const_iterator       end  () const { return IncomingEdges.end();   }
+
+    inline iterator_range<const_iterator> edges() const {
+      return make_range(begin(), end());
+    }
+
     uint32_t getId() const { return Id; }
     OVLSInstruction* getInstruction() const { return Inst; }
     bool isALoad() const { return Inst && isa<OVLSLoad>(Inst); }
     bool isUndefined() const { return Inst == nullptr; }
+    OVLSType type() const { return Type; }
+    void setType(OVLSType T) { Type = T; }
 
     // Returns the current total number of incoming bits.
     uint32_t size() const { return TotalIncomingBits; }
@@ -301,11 +311,10 @@ namespace OptVLS {
     /// A node can have multiple edges coming from the same source node.
     /// Therefore, the size of IncomingEdges will not be equal to the number of
     /// unique source nodes.
-    uint32_t getNumUniqueSources() {
-      SmallSetVector<Edge *, 4> UniqueEdges;
+    uint32_t getNumUniqueSources(std::set<GraphNode *> &UniqueSources) const {
       for (Edge *E : IncomingEdges)
-        UniqueEdges.insert(E);
-      return UniqueEdges.size();
+        UniqueSources.insert(E->getSource());
+      return UniqueSources.size();
     }
 
     /// Split the edge E:(src->dst) by inserting a NewNode such as
@@ -338,7 +347,8 @@ namespace OptVLS {
     /// src1(0, 1, 2, 3) src2(4, 5, 6, 7)
     /// dst could be dst(0, 3, 6) but not dst(0, 6, 3)
     bool splitSourceNodes(GraphNodeVector &NewNodes) {
-      uint32_t NumUniqueSources = getNumUniqueSources();
+      std::set<GraphNode *> UniqueSources;
+      uint32_t NumUniqueSources = getNumUniqueSources(UniqueSources);
 
       if (NumUniqueSources <= 2) return false;
 
@@ -446,7 +456,11 @@ namespace OptVLS {
     /// appear before a source node in the NodeVector.
     GraphNodeVector Nodes;
 
+    uint32_t VectorLength;
+
   public:
+    explicit Graph(uint32_t VLen) : VectorLength(VLen) {}
+
     ~Graph() {
       for (GraphNode *N : Nodes)
         delete N;
@@ -524,6 +538,99 @@ namespace OptVLS {
         }
       }
     }
+    /// When we are trying to merge two nodes, there are various ways to merge
+    /// them.
+    /// For example,
+    /// N1:
+    ///     [0:63] = V5[0:63]
+    ///	    [64:127] = V6[0:63]
+    /// N2:
+    ///     [0:63] = V5[64:127]
+    ///	    [64:127] = V6[64:127]
+    /// We can merge them as N12: N1 N2 N1 N2, N1 N1 N2 N2, N2 N2 N1 N1,
+    /// N2 N1 N2 N1, etc.
+    /// It makes more sense to merge as N1 N1 N2 N2 which will most likely lead
+    /// to vperm or vinsert.
+    OVLSVector<uint32_t> getShuffleMask(const GraphNode &N1,
+                                        const GraphNode &N2) const {
+      OVLSVector<uint32_t> Mask;
+
+      std::set<GraphNode *> UniqueSources;
+      N1.getNumUniqueSources(UniqueSources);
+      uint32_t NumUniqueSources = N2.getNumUniqueSources(UniqueSources);
+
+      assert(NumUniqueSources <= 2 && "Invalid total sources!");
+
+      std::set<GraphNode *>::iterator It = UniqueSources.begin();
+      GraphNode *Src1 = *It;
+
+      OVLSType SrcType = Src1->type();
+      uint32_t S1StartIndex = 0;
+      uint32_t S2StartIndex = SrcType.getNumElements();
+      uint32_t ElemSize = SrcType.getElementSize();
+
+      // Traverse through the edges of N1 and compute mask.
+      for (const auto &Edge : N1.edges()) {
+        GraphNode *Src = Edge->getSource();
+        uint32_t BIndex = Edge->getBitRange().getBitIndex();
+
+        if (Src == nullptr)
+          Mask.push_back(-1);
+        else if (Src == Src1)
+          Mask.push_back(BIndex / ElemSize + S1StartIndex);
+        else
+          Mask.push_back(BIndex / ElemSize + S2StartIndex);
+      }
+
+      // Traverse through the edges of N2 and compute mask.
+      for (const auto &Edge : N2.edges()) {
+        GraphNode *Src = Edge->getSource();
+        uint32_t BIndex = Edge->getBitRange().getBitIndex();
+
+        if (Src == nullptr)
+          Mask.push_back(-1);
+        else if (Src == Src1)
+          Mask.push_back(BIndex / ElemSize + S1StartIndex);
+        else
+          Mask.push_back(BIndex / ElemSize + S2StartIndex);
+      }
+
+      return Mask;
+    }
+
+    /// N1 and N2 can be merged if
+    ///  - They have the same sources or one has the subset of sources of the
+    ///    others' where the sources have the same type
+    ///  - Total size of N1 and N2 fits into the vector register
+    ///  - elem_size of N1 matches the elem_size of N2
+    bool canBeMerged(const GraphNode &N1, const GraphNode &N2) const {
+      if (N1.type().getElementSize() != N2.type().getElementSize())
+        return false;
+
+      if (N1.size() == 0 || N2.size() == 0 ||
+          N1.size() + N2.size() > VectorLength * BYTE)
+        return false;
+
+      std::set<GraphNode *> UniqueSources;
+      N1.getNumUniqueSources(UniqueSources);
+      uint32_t NumUniqueSources = N2.getNumUniqueSources(UniqueSources);
+
+      if (NumUniqueSources > 2)
+        return false;
+
+      std::set<GraphNode *>::iterator It = UniqueSources.begin();
+      GraphNode *Src = *It;
+
+      OVLSType SrcType = Src->type();
+      if (SrcType.getElementSize() != N1.type().getElementSize())
+        return false;
+
+      if (++It != UniqueSources.end() && SrcType != (*It)->type())
+        return false;
+
+      return true;
+    }
+
     /// Returns false if verification fails. Verification fails if total number
     /// of gathers in the \p Group does not match the total number of gather-nodes
     /// (nodes with the incoming edges) in this(graph). Verification also fails
@@ -1073,7 +1180,7 @@ bool OptVLSInterface::getSequence(const OVLSGroup& Group,
   if (!OptVLS::isSupported(Group))
     return false;
 
-  OptVLS::Graph G;
+  OptVLS::Graph G(Group.getVectorLength());
 
   OptVLS::getDefaultLoads(Group, G);
 

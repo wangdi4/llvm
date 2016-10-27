@@ -164,7 +164,10 @@ protected:
 
 public:
   /// \brief Returns the data type of this expression
-  Type *getType() const { assert (ExprType && "Data type not set"); return ExprType; }
+  Type *getType() const {
+    assert(ExprType && "Data type not set");
+    return ExprType;
+  }
 
   /// \brief Clone method for AVRExpression.
   AVRExpression *clone() const override;
@@ -268,7 +271,10 @@ private:
  
   /// \p ConstVal - The constant value this value refers to.
   const Constant *ConstVal = nullptr;
- 
+
+  /// Decomposed sub-expression tree for this value.
+  AVR *DecompTree = nullptr;
+
 protected:
   /// Set the data type of this Value.
   void setType(Type *DataType) { ValType = DataType; } 
@@ -286,6 +292,9 @@ protected:
 
   // \brief Set the constant value for this AVRValue 
   void setConstant(const Constant *Const) { ConstVal = Const; }
+
+  // \brief Sets the decomposed sub-expression tree for this AVRValue. 
+  void setDecompTree(AVR *Tree) { DecompTree = Tree; }
 
   /// \brief Destructor for this object.
   virtual ~AVRValue() override {}
@@ -319,6 +328,13 @@ public:
 
   /// \brief Returns the constant value for this AVR value
   virtual const Constant* getConstant() const { return ConstVal; }
+
+  /// \brief Returns true if this AVRValue has been decomposed into a
+  /// sub-expression tree.
+  bool hasDecompTree() const { return DecompTree != nullptr; }
+
+  /// \brief Returns the decomposed sub-expression tree for this AVRValue.
+  AVR *getDecompTree() const { return DecompTree; }
 };
 
 //----------AVR Label Node----------//
@@ -480,7 +496,7 @@ private:
 
   /// Condition - If conditional branch, pointer to the AVR which generates the
   /// true/false bit for conditional branch.
-  AVR *Condition;
+  AVR *Condition = nullptr;
 
   // TODO: Consolidate Successors/ThenBBlock/ElseBBlock.
   /// Successors - Vector containing avr labels which are the labels of the
@@ -499,11 +515,11 @@ protected:
 
   virtual ~AVRBranch() override {}
 
-  /// \brief Sets the conditional branch flag.
-  void setIsConditional(bool IC) { IsConditional = IC; }
-
   /// \brief Sets the Avr Condition node for a conditional branch.
-  void setCondition(AVR *Cond) { Condition = Cond; }
+  void setCondition(AVR *Cond) {
+    Condition = Cond;
+    IsConditional = Condition != nullptr ? true : false;
+  }
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
@@ -1021,7 +1037,7 @@ private:
 
   SmallVector<AVRBlock*, 2> Predecessors;
   SmallVector<AVRBlock*, 2> Successors;
-  SmallPtrSet<AVRBlock*, 2> SchedConstraints;
+  SmallVector<AVRBlock*, 2> SchedConstraints;
 
   /// Condition - pointer to the AVR which generates the true/false bit for
   /// that selects between (the two) successors.
@@ -1037,7 +1053,7 @@ private:
   }
 
   void addSchedulingConstraint(AVRBlock* Block) {
-    SchedConstraints.insert(Block);
+    SchedConstraints.push_back(Block);
   }
 
 protected:
@@ -1053,7 +1069,7 @@ public:
 
   const SmallVectorImpl<AVRBlock*>& getSuccessors() const { return Successors; }
 
-  const SmallPtrSetImpl<AVRBlock*>& getSchedConstraints() { return SchedConstraints; }
+  const SmallVectorImpl<AVRBlock*>& getSchedConstraints() { return SchedConstraints; }
 
   SmallVectorImpl<AVRBlock*>::const_iterator pred_begin() const { return Predecessors.begin(); }
   SmallVectorImpl<AVRBlock*>::const_iterator pred_end() const { return Predecessors.end(); }

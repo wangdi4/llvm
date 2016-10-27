@@ -25,7 +25,10 @@ FunctionPass *createVPODriverPass();
 FunctionPass *createVPODriverHIRPass();
 FunctionPass *createVPODirectiveCleanupPass();
 FunctionPass *createVPOCFGRestructuringPass();
-ModulePass   *createVPOParoptPass();
+// 0x5 is equivalent to ParPrepare | OmpPar
+FunctionPass *createVPOParoptPreparePass(unsigned Mode = 0x5);
+// 0x6 is equivalent to ParTrans | OmpPar
+ModulePass   *createVPOParoptPass(unsigned Mode = 0x6);
 }
 
 #endif // LLVM_TRANSFORMS_VPO_VPOPASSES_H

@@ -421,6 +421,8 @@ public:
   /// self-blob. Please refer to description of isSelfBlob() in DDRef.h.
   bool isSelfBlob() const;
 
+  bool isUndefSelfBlob() const;
+ 
   /// \brief return true if the CanonExpr is zero
   bool isZero() const {
     int64_t Val;
