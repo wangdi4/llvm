@@ -576,14 +576,11 @@ namespace llvm {
                                 const LPUInstrInfo &TII,
                                 unsigned* indvar_opcode) {
 
-      // Invert the comparison opcode if needed.
+      // Transform the comparison opcode if needed.
       unsigned compareOp = ciOp;
-      if (commute_compare_operands) {
-        compareOp = TII.commuteCompareOpcode(compareOp);
-      }
-      if (negate_compare) {
-        compareOp = TII.negateCompareOpcode(compareOp);
-      }
+      compareOp = TII.commuteNegateCompareOpcode(compareOp,
+                                                 commute_compare_operands,
+                                                 negate_compare);
 
       // Find a sequence opcode that matches our compare opcode.
       unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);

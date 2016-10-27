@@ -545,8 +545,15 @@ LPUInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
 
 // TBD(jsukha): This table lookup works for now, but there must be a
 // better way to implement this matching operation...
-unsigned LPUInstrInfo::commuteNegateCompareHelper(unsigned cmp_opcode,
-                                                  bool negate_eq) const {  
+unsigned LPUInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
+                                                  bool commute_compare_operands,
+                                                  bool negate_eq) const {
+
+    // We need to a switch a "<" to a ">=" if we swap the operands,
+    // and if we negate the output.  If we do both, then they cancel
+    // each other out.
+    bool swap_ltgt = commute_compare_operands ^ negate_eq;
+      
     switch (cmp_opcode) {
       // == maps to == (self)
     case LPU::CMPEQ8:
@@ -560,75 +567,75 @@ unsigned LPUInstrInfo::commuteNegateCompareHelper(unsigned cmp_opcode,
       
     // ">=" maps to "<"
     case LPU::CMPGES8:
-      return LPU::CMPLTS8;
+      return swap_ltgt ? LPU::CMPLTS8 : LPU::CMPGES8;
     case LPU::CMPGES16:
-      return LPU::CMPLTS16;
+      return swap_ltgt ? LPU::CMPLTS16 : LPU::CMPGES16;      
     case LPU::CMPGES32:
-      return LPU::CMPLTS32;
+      return swap_ltgt ? LPU::CMPLTS32 : LPU::CMPGES32;      
     case LPU::CMPGES64:
-      return LPU::CMPLTS64;
+      return swap_ltgt ? LPU::CMPLTS64 : LPU::CMPGES64;      
     case LPU::CMPGEU8:
-      return LPU::CMPLTU8;
+      return swap_ltgt ? LPU::CMPLTU8 : LPU::CMPGEU8;
     case LPU::CMPGEU16:
-      return LPU::CMPLTU16;
+      return swap_ltgt ? LPU::CMPLTU16 : LPU::CMPGEU16;      
     case LPU::CMPGEU32:
-      return LPU::CMPLTU32;
+      return swap_ltgt ? LPU::CMPLTU32 : LPU::CMPGEU32;
     case LPU::CMPGEU64:
-      return LPU::CMPLTU64;
+      return swap_ltgt ? LPU::CMPLTU64 : LPU::CMPGEU64;
 
     // ">" maps to "<="
     case LPU::CMPGTS8:
-      return LPU::CMPLES8;
+      return swap_ltgt ? LPU::CMPLES8 : LPU::CMPGTS8;
     case LPU::CMPGTS16:
-      return LPU::CMPLES16;
+      return swap_ltgt ? LPU::CMPLES16 : LPU::CMPGTS16;      
     case LPU::CMPGTS32:
-      return LPU::CMPLES32;
+      return swap_ltgt ? LPU::CMPLES32 : LPU::CMPGTS32;      
     case LPU::CMPGTS64:
-      return LPU::CMPLES64;
+      return swap_ltgt ? LPU::CMPLES64 : LPU::CMPGTS64;      
     case LPU::CMPGTU8:
-      return LPU::CMPLEU8;
+      return swap_ltgt ? LPU::CMPLEU8 : LPU::CMPGTU8;
     case LPU::CMPGTU16:
-      return LPU::CMPLEU16;
+      return swap_ltgt ? LPU::CMPLEU16 : LPU::CMPGTU16;      
     case LPU::CMPGTU32:
-      return LPU::CMPLEU32;
+      return swap_ltgt ? LPU::CMPLEU32 : LPU::CMPGTU32;      
     case LPU::CMPGTU64:
-      return LPU::CMPLEU64;
+      return swap_ltgt ? LPU::CMPLEU64 : LPU::CMPGTU64;      
 
     // "<=" maps to ">"
     case LPU::CMPLES8:
-      return LPU::CMPGTS8;
+      return swap_ltgt ? LPU::CMPGTS8 : LPU::CMPLES8;
     case LPU::CMPLES16:
-      return LPU::CMPGTS16;
+      return swap_ltgt ? LPU::CMPGTS16 : LPU::CMPLES16;      
     case LPU::CMPLES32:
-      return LPU::CMPGTS32;
+      return swap_ltgt ? LPU::CMPGTS32 : LPU::CMPLES32;      
     case LPU::CMPLES64:
-      return LPU::CMPGTS64;
+      return swap_ltgt ? LPU::CMPGTS64 : LPU::CMPLES64;      
     case LPU::CMPLEU8:
-      return LPU::CMPGTU8;
+      return swap_ltgt ? LPU::CMPGTU8 : LPU::CMPLEU8;
     case LPU::CMPLEU16:
-      return LPU::CMPGTU16;
+      return swap_ltgt ? LPU::CMPGTU16 : LPU::CMPLEU16;
     case LPU::CMPLEU32:
-      return LPU::CMPGTU32;
+      return swap_ltgt ? LPU::CMPGTU32 : LPU::CMPLEU32;      
     case LPU::CMPLEU64:
-      return LPU::CMPGTU64;
+      return swap_ltgt ? LPU::CMPGTU64 : LPU::CMPLEU64;            
 
     // "<" maps to ">="
     case LPU::CMPLTS8:
-      return LPU::CMPGES8;
+      return swap_ltgt ? LPU::CMPGES8 : LPU::CMPLTS8;
     case LPU::CMPLTS16:
-      return LPU::CMPGES16;
+      return swap_ltgt ? LPU::CMPGES16 : LPU::CMPLTS16;      
     case LPU::CMPLTS32:
-      return LPU::CMPGES32;
+      return swap_ltgt ? LPU::CMPGES32 : LPU::CMPLTS32;      
     case LPU::CMPLTS64:
-      return LPU::CMPGES64;
+      return swap_ltgt ? LPU::CMPGES64 : LPU::CMPLTS64;      
     case LPU::CMPLTU8:
-      return LPU::CMPGEU8;
+      return swap_ltgt ? LPU::CMPGEU8 : LPU::CMPLTU8;
     case LPU::CMPLTU16:
-      return LPU::CMPGEU16;
+      return swap_ltgt ? LPU::CMPGEU16 : LPU::CMPLTU16;
     case LPU::CMPLTU32:
-      return LPU::CMPGEU32;
+      return swap_ltgt ? LPU::CMPGEU32 : LPU::CMPLTU32;      
     case LPU::CMPLTU64:
-      return LPU::CMPGEU64;
+      return swap_ltgt ? LPU::CMPGEU64 : LPU::CMPLTU64;      
 
     // != maps to !=  (self)
     case LPU::CMPNE8:
@@ -657,59 +664,59 @@ unsigned LPUInstrInfo::commuteNegateCompareHelper(unsigned cmp_opcode,
 
     // >= to <
     case LPU::CMPOGEF16:
-      return LPU::CMPOLTF16;
+      return swap_ltgt ? LPU::CMPOLTF16 : LPU::CMPOGEF16;
     case LPU::CMPOGEF32:
-      return LPU::CMPOLTF32;
+      return swap_ltgt ? LPU::CMPOLTF32 : LPU::CMPOGEF32;      
     case LPU::CMPOGEF64:
-      return LPU::CMPOLTF64;
+      return swap_ltgt ? LPU::CMPOLTF64 : LPU::CMPOGEF64;      
     case LPU::CMPUGEF16:
-      return LPU::CMPULTF16;
+      return swap_ltgt ? LPU::CMPULTF16 : LPU::CMPUGEF16;
     case LPU::CMPUGEF32:
-      return LPU::CMPULTF32;
+      return swap_ltgt ? LPU::CMPULTF32 : LPU::CMPUGEF32;
     case LPU::CMPUGEF64:
-      return LPU::CMPULTF64;
+      return swap_ltgt ? LPU::CMPULTF64 : LPU::CMPUGEF64;      
       
     // > to <=
     case LPU::CMPOGTF16:
-      return LPU::CMPOLEF16;
+      return swap_ltgt ? LPU::CMPOLEF16 : LPU::CMPOGTF16;
     case LPU::CMPOGTF32:
-      return LPU::CMPOLEF32;
+      return swap_ltgt ? LPU::CMPOLEF32 : LPU::CMPOGTF32;      
     case LPU::CMPOGTF64:
-      return LPU::CMPOLEF64;
+      return swap_ltgt ? LPU::CMPOLEF64 : LPU::CMPOGTF64;      
     case LPU::CMPUGTF16:
-      return LPU::CMPULEF16;
+      return swap_ltgt ? LPU::CMPULEF16 : LPU::CMPUGTF16;
     case LPU::CMPUGTF32:
-      return LPU::CMPULEF32;
+      return swap_ltgt ? LPU::CMPULEF32 : LPU::CMPUGTF32;      
     case LPU::CMPUGTF64:
-      return LPU::CMPULEF64;
+      return swap_ltgt ? LPU::CMPULEF64 : LPU::CMPUGTF64;      
       
     // <= to >
     case LPU::CMPOLEF16:
-      return LPU::CMPOGTF16;
+      return swap_ltgt ? LPU::CMPOGTF16 : LPU::CMPOLEF16;
     case LPU::CMPOLEF32:
-      return LPU::CMPOGTF32;
+      return swap_ltgt ? LPU::CMPOGTF32 : LPU::CMPOLEF32;
     case LPU::CMPOLEF64:
-      return LPU::CMPOGTF64;
+      return swap_ltgt ? LPU::CMPOGTF64 : LPU::CMPOLEF64;      
     case LPU::CMPULEF16:
-      return LPU::CMPUGTF16;
+      return swap_ltgt ? LPU::CMPUGTF16 : LPU::CMPULEF16;
     case LPU::CMPULEF32:
-      return LPU::CMPUGTF32;
+      return swap_ltgt ? LPU::CMPUGTF32 : LPU::CMPULEF32;      
     case LPU::CMPULEF64:
-      return LPU::CMPUGTF64;
+      return swap_ltgt ? LPU::CMPUGTF64 : LPU::CMPULEF64;            
       
     // < to >=
     case LPU::CMPOLTF16:
-      return LPU::CMPOGEF16;
+      return swap_ltgt ? LPU::CMPOGEF16 : LPU::CMPOLTF16;
     case LPU::CMPOLTF32:
-      return LPU::CMPOGEF32;
+      return swap_ltgt ? LPU::CMPOGEF32 : LPU::CMPOLTF32;
     case LPU::CMPOLTF64:
-      return LPU::CMPOGEF64;
+      return swap_ltgt ? LPU::CMPOGEF64 : LPU::CMPOLTF64;      
     case LPU::CMPULTF16:
-      return LPU::CMPUGEF16;
+      return swap_ltgt ? LPU::CMPUGEF16 : LPU::CMPULTF16;
     case LPU::CMPULTF32:
-      return LPU::CMPUGEF32;
+      return swap_ltgt ? LPU::CMPUGEF32 : LPU::CMPULTF32;      
     case LPU::CMPULTF64:
-      return LPU::CMPUGEF64;
+      return swap_ltgt ? LPU::CMPUGEF64 : LPU::CMPULTF64;            
 
     // != maps to !=
     case LPU::CMPONEF16:
@@ -731,13 +738,6 @@ unsigned LPUInstrInfo::commuteNegateCompareHelper(unsigned cmp_opcode,
       assert(0);
       return cmp_opcode;
     }
-}
-
-unsigned LPUInstrInfo::commuteCompareOpcode(unsigned cmp_opcode) const {
-  return commuteNegateCompareHelper(cmp_opcode, false);
-}
-unsigned LPUInstrInfo::negateCompareOpcode(unsigned cmp_opcode) const {
-  return commuteNegateCompareHelper(cmp_opcode, true);
 }
 
 
