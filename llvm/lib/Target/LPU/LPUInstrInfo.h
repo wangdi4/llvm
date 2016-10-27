@@ -166,28 +166,38 @@ public:
   unsigned getInitOpcode(const TargetRegisterClass *RC) const;
 
 
-  
-  // Methods for mapping opcodes, primarily for sequence optimization.
 
   // Takes an opcode for a compare instruction, and returns the opcode
-  // that you would use if you swapped the input operands to the
-  // comparison.
+  // that you would use if (a) you swapped the input operands to the
+  // comparison, and/or (b) you negate the output of the compare.
   //
-  //  >=  maps to <
-  //  >   maps to <=
-  //  <=  maps to >
-  //  <   maps to >=
-  //  ==  maps to ==
-  //  !=  maps to !=
+  //
+  // The method for transforming a compare for commuting the operands
+  // or negating the output.
+  //
+  // Let swap_ltgt = (commute_compare_operands ^ negate_eq)
+  //
+  // If swap_ltgt:
+  //     >= maps to <
+  //     > maps to <=
+  //     <= maps to >
+  //     < maps to >=
+  // else:
+  //     >=, >, <=, < remains the same.
+  //
+  // if negate_eq: 
+  //     == maps to !=
+  //     != maps to ==
+  // else:
+  //     ==  maps to ==
+  //     !=  maps to !=
   //
   // This method covers:
   //    Signed/unsigned integer comparison 8, 16, 32, 64-bit types
   //    Floating-point comparisons for 16, 32, 64-bit types.
-  //
-  // This method dies if passed in an opcode which is not an
-  // appropriate compare.
-  unsigned commuteCompareOpcode(unsigned cmp_opcode) const;
-
+  unsigned commuteNegateCompareOpcode(unsigned cmp_opcode,
+                                      bool commute_compare_operands,
+                                      bool negate_eq) const;
 
   // Takes in an opcode for a comparison operation, and returns the
   // opcode for a sequence instruction corresponding to that op.

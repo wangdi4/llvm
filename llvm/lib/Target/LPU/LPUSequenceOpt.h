@@ -541,8 +541,26 @@ namespace llvm {
     // Both conditions together will cancel each other out.  Thus, we
     // xor the booleans together to figure out whether need to invert
     // the compare.
-    bool invert_compare() const {
-      return this->compare_sense ^ this->header.switcherSense;
+    //    bool invert_compare() const {
+    //      return this->compare_sense ^ this->header.switcherSense;
+    //    }
+
+    // Returns true if we need a sequence instruction whose operand
+    // order is swapped from the compare instruction that we find.
+    //
+    // If commute_compare() is false, we expect
+    //   compare indvar, bound
+    // else
+    //   compare bound indvar
+    //
+    bool commute_compare_operands() const {
+      return this->compare_sense;
+    }
+
+    // 2. If the switcher sense is 1 (so it expects 0, 0, 0, ... 1 for
+    // its control), then we need to negate the output of the compare.
+    bool negate_compare_output() const {
+      return this->header.switcherSense;
     }
 
     // Helper method: looks up the right opcode for the sequence for
@@ -553,15 +571,16 @@ namespace llvm {
     bool
     compute_matching_seq_opcode(unsigned ciOp,
                                 unsigned tOp,
-                                bool invert_compare,
+                                bool commute_compare_operands,
+                                bool negate_compare, 
                                 const LPUInstrInfo &TII,
                                 unsigned* indvar_opcode) {
 
-      // Invert the comparison opcode if needed.
+      // Transform the comparison opcode if needed.
       unsigned compareOp = ciOp;
-      if (invert_compare) {
-        compareOp = TII.commuteCompareOpcode(ciOp);
-      }
+      compareOp = TII.commuteNegateCompareOpcode(compareOp,
+                                                 commute_compare_operands,
+                                                 negate_compare);
 
       // Find a sequence opcode that matches our compare opcode.
       unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);
@@ -753,14 +772,14 @@ namespace llvm {
     bool sequence_opcode_transform_check(const LPUInstrInfo &TII) {
       if (this->indvar_idx >= 0) {
         LPUSeqCandidate& indvarCandidate = this->candidates[this->indvar_idx];
-        bool invert_compare = this->invert_compare();
         unsigned compare_opcode = this->header.compareInst->getOpcode();
         unsigned transform_opcode = indvarCandidate.transformInst->getOpcode();
 
         this->valid_to_transform =
           LPUSeqLoopInfo::compute_matching_seq_opcode(compare_opcode,
                                                       transform_opcode,
-                                                      invert_compare,
+                                                      this->commute_compare_operands(),
+                                                      this->negate_compare_output(),
                                                       TII, 
                                                       &this->seq_opcode);
         return this->valid_to_transform;
