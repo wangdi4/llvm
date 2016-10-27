@@ -173,21 +173,37 @@ public:
   // that you would use if you swapped the input operands to the
   // comparison.
   //
-  //  >=  maps to <
-  //  >   maps to <=
-  //  <=  maps to >
-  //  <   maps to >=
-  //  ==  maps to ==
-  //  !=  maps to !=
+  // Equivalent to commuteNegateCompareHelper(cmp_opcode, false);
+  unsigned commuteCompareOpcode(unsigned cmp_opcode) const;
+
+
+  // Takes an opcode for a compare instruction, and returns the opcode
+  // that you would use if you need to negate the result. 
+  //
+  // Equivalent to commuteNegateCompareHelper(cmp_opcode, true);
+  unsigned negateCompareOpcode(unsigned cmp_opcode) const;
+
+
+  // The helper method for computing both the commute/negate opcode
+  // functions.
+  //
+  // >= maps to <
+  // > maps to <=
+  // <= maps to >
+  // < maps to >=
+  //
+  // if negate_eq: 
+  //     == maps to !=
+  //     != maps to ==
+  // else:
+  //     ==  maps to ==
+  //     !=  maps to !=
   //
   // This method covers:
   //    Signed/unsigned integer comparison 8, 16, 32, 64-bit types
   //    Floating-point comparisons for 16, 32, 64-bit types.
-  //
-  // This method dies if passed in an opcode which is not an
-  // appropriate compare.
-  unsigned commuteCompareOpcode(unsigned cmp_opcode) const;
-
+  unsigned commuteNegateCompareHelper(unsigned cmp_opcode,
+                                      bool negate_eq) const;
 
   // Takes in an opcode for a comparison operation, and returns the
   // opcode for a sequence instruction corresponding to that op.

@@ -545,17 +545,18 @@ LPUInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
 
 // TBD(jsukha): This table lookup works for now, but there must be a
 // better way to implement this matching operation...
-unsigned LPUInstrInfo::commuteCompareOpcode(unsigned cmp_opcode) const {  
+unsigned LPUInstrInfo::commuteNegateCompareHelper(unsigned cmp_opcode,
+                                                  bool negate_eq) const {  
     switch (cmp_opcode) {
       // == maps to == (self)
     case LPU::CMPEQ8:
-      return LPU::CMPEQ8;
+      return negate_eq ? LPU::CMPNE8 :  LPU::CMPEQ8;
     case LPU::CMPEQ16:
-      return LPU::CMPEQ16;
+      return negate_eq ? LPU::CMPNE16 :  LPU::CMPEQ16;      
     case LPU::CMPEQ32:
-      return LPU::CMPEQ32;
+      return negate_eq ? LPU::CMPNE32 :  LPU::CMPEQ32;            
     case LPU::CMPEQ64:
-      return LPU::CMPEQ64;
+      return negate_eq ? LPU::CMPNE64 :  LPU::CMPEQ64;
       
     // ">=" maps to "<"
     case LPU::CMPGES8:
@@ -631,28 +632,28 @@ unsigned LPUInstrInfo::commuteCompareOpcode(unsigned cmp_opcode) const {
 
     // != maps to !=  (self)
     case LPU::CMPNE8:
-      return LPU::CMPNE8;
+      return negate_eq ? LPU::CMPEQ8 : LPU::CMPNE8;
     case LPU::CMPNE16:
-      return LPU::CMPNE16;
+      return negate_eq ? LPU::CMPEQ16 : LPU::CMPNE16;      
     case LPU::CMPNE32:
-      return LPU::CMPNE32;
+      return negate_eq ? LPU::CMPEQ32 : LPU::CMPNE32;      
     case LPU::CMPNE64:
-      return LPU::CMPNE64;
-      
+      return negate_eq ? LPU::CMPEQ64 : LPU::CMPNE64;      
+
     // Floating-point equal: maps to self. 
     // == maps to ==
     case LPU::CMPOEQF16:
-      return LPU::CMPOEQF16;
+      return negate_eq ? LPU::CMPONEF16 : LPU::CMPOEQF16;
     case LPU::CMPOEQF32:
-      return LPU::CMPOEQF32;
+      return negate_eq ? LPU::CMPONEF32 : LPU::CMPOEQF32;      
     case LPU::CMPOEQF64:
-      return LPU::CMPOEQF64;
+      return negate_eq ? LPU::CMPONEF64 : LPU::CMPOEQF64;
     case LPU::CMPUEQF16:
-      return LPU::CMPUEQF16;
+      return negate_eq ? LPU::CMPUNEF16 : LPU::CMPUEQF16;
     case LPU::CMPUEQF32:
-      return LPU::CMPUEQF32;
+      return negate_eq ? LPU::CMPUNEF32 : LPU::CMPUEQF32;      
     case LPU::CMPUEQF64:
-      return LPU::CMPUEQF64;
+      return negate_eq ? LPU::CMPUNEF64 : LPU::CMPUEQF64;      
 
     // >= to <
     case LPU::CMPOGEF16:
@@ -712,17 +713,17 @@ unsigned LPUInstrInfo::commuteCompareOpcode(unsigned cmp_opcode) const {
 
     // != maps to !=
     case LPU::CMPONEF16:
-      return LPU::CMPONEF16;
+      return negate_eq ? LPU::CMPOEQF16 : LPU::CMPONEF16;
     case LPU::CMPONEF32:
-      return LPU::CMPONEF32;
+      return negate_eq ? LPU::CMPOEQF32 : LPU::CMPONEF32;
     case LPU::CMPONEF64:
-      return LPU::CMPONEF64;
+      return negate_eq ? LPU::CMPOEQF64 : LPU::CMPONEF64;
     case LPU::CMPUNEF16:
-      return LPU::CMPUNEF16;
+      return negate_eq ? LPU::CMPUEQF16 : LPU::CMPUNEF16;
     case LPU::CMPUNEF32:
-      return LPU::CMPUNEF32;
+      return negate_eq ? LPU::CMPUEQF32 : LPU::CMPUNEF32;      
     case LPU::CMPUNEF64:
-      return LPU::CMPUNEF64;
+      return negate_eq ? LPU::CMPUEQF64 : LPU::CMPUNEF64;      
 
     // Die by default.  We should never call this method on any opcode
     // which is not a compare.
@@ -732,6 +733,12 @@ unsigned LPUInstrInfo::commuteCompareOpcode(unsigned cmp_opcode) const {
     }
 }
 
+unsigned LPUInstrInfo::commuteCompareOpcode(unsigned cmp_opcode) const {
+  return commuteNegateCompareHelper(cmp_opcode, false);
+}
+unsigned LPUInstrInfo::negateCompareOpcode(unsigned cmp_opcode) const {
+  return commuteNegateCompareHelper(cmp_opcode, true);
+}
 
 
 unsigned LPUInstrInfo::
