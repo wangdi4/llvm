@@ -314,6 +314,21 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
 
+#if 0
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    MachineBasicBlock* mbb = BB;
+    for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
+      if (MI->getOpcode() == LPU::JSR || MI->getOpcode() == LPU::JSRi) {
+        //function call inside control region need to run on SXU
+        ControlDependenceNode* mnode = CDG->getNode(mbb);
+        if (mnode->getNumParents() > 1 || mnode->enclosingRegion()->getBlock()) {
+          return false;
+        }
+      }
+    }
+  }
+#endif
+
   bool Modified = false;
 #if 0
   // for now only well formed innermost loop regions are processed in this pass
@@ -1131,6 +1146,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
 	renameQueue.clear();
 	std::set<unsigned> pinedVReg;
 	for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    MachineBasicBlock* mbb = BB;
 		for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
 			if (MI->isPHI()) {
 				for (MIOperands MO(MI); MO.isValid(); ++MO) {
@@ -1138,13 +1154,22 @@ void LPUCvtCFDFPass::assignLicForDF() {
 					unsigned Reg = MO->getReg();
 					pinedVReg.insert(Reg);
 				}
-			}
+      } else if (MI->getOpcode() == LPU::JSR || MI->getOpcode() == LPU::JSRi) {
+        //function call inside control region need to run on SXU
+        ControlDependenceNode* mnode = CDG->getNode(mbb);
+        if (mnode->getNumParents() > 1 || 
+            (mnode->getNumParents() == 1 && (*mnode->parent_begin())->getBlock())) {
+          RunSXU = true;
+        }
+      }
 		}
 	}
 
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
-      if (TII.isPick(MI) || TII.isSwitch(MI) || 
+      if (TII.isPick(MI) || TII.isSwitch(MI) ||  MI->getOpcode() == LPU::MERGE64f ||
+          TII.isFMA(MI) || TII.isDiv(MI) || TII.isMul(MI) ||
+          TII.isAdd(MI) || TII.isSub(MI) ||
           MI->getOpcode() == LPU::PREDMERGE || 
           MI->getOpcode() == LPU::PREDPROP || 
           MI->getOpcode() == LPU::OR1) {
