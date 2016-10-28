@@ -1123,14 +1123,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   V_ASSERT(BaseTy && "Base is not a pointer!");
   PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
   
-  // AVX-512. Strange: This became...
-  // MO.Base = CastInst::CreatePointerCast(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
-  // ...this:
-  Type *IntptrTy = Type::getInt64Ty(MO.Orig->getContext());
-  Instruction *Cast1 = CastInst::Create(Instruction::PtrToInt, MO.Base, IntptrTy, "ptrToInt", MO.Orig);
-  MO.Base = CastInst::Create(Instruction::IntToPtr, Cast1, StrippedBaseTy, "stripAS", MO.Orig);
-  // And previous version was just commented out. 
-
+  MO.Base = CastInst::CreatePointerCast(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
 
   SmallVector<Value*, 8> args;
   // Fill the arguments of the internal gather/scatter, these are the variants:
