@@ -114,6 +114,8 @@ namespace {
     void EmitFunctionBodyStart() override;
     void EmitFunctionBodyEnd() override;
     void EmitInstruction(const MachineInstr *MI) override;
+
+    void EmitLpuCodeSection();
   };
 } // end of anonymous namespace
 
@@ -336,13 +338,32 @@ void LPUAsmPrinter::writeAsmLine(const char *text) {
   OutStreamer->EmitRawText(O.str());
 }
 
+void LPUAsmPrinter::EmitLpuCodeSection() {
+  // The .section directive for an ELF object as a name and 3 optional,
+  // comma separated parts as detailed at
+  // https://sourceware.org/binutils/docs/as/Section.html
+  //
+  // The LPU code section uses the following:
+  //
+  // Name: ".lpu.code". I may want to append the module name.
+  //
+  // Flag values:
+  // - a - Section is allocatable - Which tells us very little. The ELF
+  //       docs expand this to explain that SHF_ALLOC means that the
+  //       section occupies memory during process execution
+  // - S - Section contains zero terminated strings
+  //
+  // Type: "@progbits" - section contains data
+  OutStreamer->EmitRawText("\t.section .lpu.code,\"aS\",@progbits");
+}
+
 void LPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
 
   if (LPUInstPrinter::WrapLpuAsm()) {
-    // Put the code in the .lpu section. Note that we are NOT
+    // Put the code in the .lpu.code  section. Note that we are NOT
     // using SwitchSection because then we'll fight with the
     // AmsPrinter::EmitFunctionHeader
-    OutStreamer->EmitRawText("\t.section .lpu.code");
+    EmitLpuCodeSection();
     writeAsmLine("\t.text");
   }
   
@@ -370,7 +391,7 @@ void LPUAsmPrinter::EmitEndOfAsmFile(Module &M) {
     // Add the terminating null for the .lpu section. Note
     // that we are NOT using SwitchSection because then we'll
     // fight with the AmsPrinter::EmitFunctionHeader
-    OutStreamer->EmitRawText("\t.section .lpu.code");
+    EmitLpuCodeSection();
     OutStreamer->EmitRawText("\t.asciz \"\"");
   }
 }
