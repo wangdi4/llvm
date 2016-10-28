@@ -19,9 +19,15 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/CommandLine.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
+
+static cl::opt<bool>
+WrapAsmOpt("lpu-wrap-asm", cl::Hidden,
+           cl::desc("LPU Specific: Wrap assembly for x86"),
+           cl::init(true));
 
 static std::map<int,const char*> FUName;
 
@@ -46,9 +52,31 @@ LPUInstPrinter::LPUInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
   FUName[LPU::FUNCUNIT::SPD] = "spd";// Scratchpad
 }
 
+bool LPUInstPrinter::WrapAsm() {
+  return WrapAsmOpt;
+}
+
+const char *LPUInstPrinter::WrapAsmLinePrefix() {
+  if (WrapAsmOpt) {
+    return "\t.ascii \"";
+  } else {
+    return "";
+  }
+}
+
+const char *LPUInstPrinter::WrapAsmLineSuffix() {
+  if (WrapAsmOpt) {
+    return "\\n\"";
+  } else {
+    return "";
+  }
+}
+
 void LPUInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
                                   StringRef Annot, const MCSubtargetInfo &STI) {
+  O << WrapAsmLinePrefix();
   printInstruction(MI, O);
+  O << WrapAsmLineSuffix();
   printAnnotation(O, Annot);
 }
 
