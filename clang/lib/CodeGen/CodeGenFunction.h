@@ -1481,6 +1481,9 @@ private:
 
   /// The current lexical scope.
   LexicalScope *CurLexicalScope;
+#if INTEL_CUSTOMIZATION
+  bool StdContainerOptKindDetermined;
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether exceptions are currently disabled.
   bool ExceptionsDisabled;
@@ -1562,6 +1565,10 @@ public:
     if (!EHStack.requiresLandingPad()) return nullptr;
     return getInvokeDestImpl();
   }
+#if INTEL_CUSTOMIZATION
+  llvm::Intrinsic::ID getContainerIntrinsic(
+      CodeGenModule::StdContainerOptKind OptKind, StringRef FieldName);
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
   void disableExceptions() { ExceptionsDisabled = true; }
   void enableExceptions() { ExceptionsDisabled = false; }

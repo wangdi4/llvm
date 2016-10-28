@@ -948,6 +948,41 @@ public:
                        bool DontDefer = false, bool IsForDefinition = false);
 
 #if INTEL_CUSTOMIZATION
+  // StdContainerOptKind describes the type of Intel intrinsic we want to
+  // insert into the code to help the back end with memory disambiguation for
+  // std containers.
+  //   SCOK_ContainerPtr corresponds to intel_std_container_ptr.  The parameter
+  //    and return value correspond to the base of the element storage.  So
+  //    for vector<int> this would be an int* for the first element.
+  //   SCOK_ContainerIteratorPtr corresponds to intel_std_container_ptr_iter.
+  //    The parameter and return value are the element pointer associated with
+  //    that iterator at the point it is constructed.
+  // which Intel pragma
+  enum StdContainerOptKind { SCOK_ContainerPtr, SCOK_ContainerPtrIterator };
+
+  class StdContainerOptDescription {
+    StdContainerOptKind Kind;
+    StringRef ContainerName;
+    StringRef NamespaceName;
+    StringRef FunctionName;
+    Decl::Kind FunctionKind;
+    StringRef FieldName;
+  public:
+    StdContainerOptDescription(StdContainerOptKind K, StringRef CName,
+                               StringRef NName, StringRef FName,
+                               Decl::Kind FKind, StringRef FldName)
+        : Kind(K), ContainerName(CName), NamespaceName(NName),
+          FunctionName(FName), FunctionKind(FKind), FieldName(FldName) {}
+
+    bool operator==(const StdContainerOptDescription &RHS) const {
+      return Kind == RHS.Kind && ContainerName == RHS.ContainerName &&
+             NamespaceName == RHS.NamespaceName &&
+             FunctionName == RHS.FunctionName &&
+             FunctionKind == RHS.FunctionKind && FieldName == RHS.FieldName;
+    }
+  };
+  SmallVector<StdContainerOptDescription, 8> StdContainerOptDescriptions;
+
   /// getBuiltinIntelLibFunction - Given a builtin id for a function like
   /// "__apply_args", return a Function* for "__apply_args".
   llvm::Value *getBuiltinIntelLibFunction(const FunctionDecl *FD,

@@ -1520,10 +1520,23 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_ToUnion:
     llvm_unreachable("scalar cast to non-scalar value");
 
-  case CK_LValueToRValue:
+  case CK_LValueToRValue: { // INTEL
     assert(CGF.getContext().hasSameUnqualifiedType(E->getType(), DestTy));
     assert(E->isGLValue() && "lvalue-to-rvalue applied to r-value!");
-    return Visit(const_cast<Expr*>(E));
+#if INTEL_CUSTOMIZATION
+    auto SV = Visit(const_cast<Expr *>(E));
+    if (CGF.CGM.getCodeGenOpts().OptimizationLevel >= 2 && isa<MemberExpr>(E)) {
+      NamedDecl *ND = cast<MemberExpr>(E)->getMemberDecl();
+      auto Intrin = CGF.getContainerIntrinsic(CodeGenModule::SCOK_ContainerPtr,
+                                              ND->getName());
+      if (Intrin != llvm::Intrinsic::not_intrinsic) {
+        auto IFunc = CGF.CGM.getIntrinsic(Intrin, ConvertType(E->getType()));
+        return Builder.CreateCall(IFunc, {SV});
+      }
+    }
+    return SV;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case CK_IntegralToPointer: {
     Value *Src = Visit(const_cast<Expr*>(E));

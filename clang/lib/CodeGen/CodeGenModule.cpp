@@ -146,6 +146,44 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
   if (C.getLangOpts().ObjC1)
     ObjCData.reset(new ObjCEntrypoints());
 
+#if INTEL_CUSTOMIZATION
+  if (getCodeGenOpts().OptimizationLevel >= 2) {
+
+    // If we somehow know which C++ library we are using we could only enter
+    // those specific descriptions.  These are fairly specific so I don't
+    // expect adding them all will cause any issue other than extra compile
+    // time.
+
+    // GNU libstdc++
+    StdContainerOptDescriptions.push_back(
+        StdContainerOptDescription(SCOK_ContainerPtr, "vector", "std",
+                                   "operator[]", Decl::CXXMethod, "_M_start"));
+    StdContainerOptDescriptions.push_back(
+        StdContainerOptDescription(SCOK_ContainerPtrIterator, "", "__gnu_cxx",
+                                   "__normal_iterator", Decl::CXXConstructor,
+                                   "_M_current"));
+
+    // Visual Studio
+    StdContainerOptDescriptions.push_back(
+        StdContainerOptDescription(SCOK_ContainerPtr, "vector", "std",
+                                   "operator[]", Decl::CXXMethod, "_Myfirst"));
+
+    StdContainerOptDescriptions.push_back(
+        StdContainerOptDescription(SCOK_ContainerPtrIterator, "", "std",
+                                   "_Vector_const_iterator",
+                                   Decl::CXXConstructor, "_Ptr"));
+
+    // LLVM libc++
+    StdContainerOptDescriptions.push_back(
+        StdContainerOptDescription(SCOK_ContainerPtr, "vector", "std",
+                                   "operator[]", Decl::CXXMethod, "__begin_"));
+
+    StdContainerOptDescriptions.push_back(
+        StdContainerOptDescription(SCOK_ContainerPtrIterator, "", "std",
+                                   "__wrap_iter", Decl::CXXConstructor, "__i"));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (CodeGenOpts.hasProfileClangUse()) {
     auto ReaderOrErr = llvm::IndexedInstrProfReader::create(
         CodeGenOpts.ProfileInstrumentUsePath);

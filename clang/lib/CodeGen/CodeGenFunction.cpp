@@ -66,6 +66,9 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       CXXStructorImplicitParamDecl(nullptr),
       CXXStructorImplicitParamValue(nullptr), OutermostConditional(nullptr),
       CurLexicalScope(nullptr),
+#if INTEL_CUSTOMIZATION
+      StdContainerOptKindDetermined(false),
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
       ExceptionsDisabled(false),
 #endif // INTEL_SPECIFIC_CILKPLUS
@@ -1034,6 +1037,96 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
 
   return ResTy;
 }
+
+#if INTEL_CUSTOMIZATION
+// The FieldName has been encountered in a context that could require addition
+// of our Intel container intrinsics.  Determine and return the correct
+// intrinsic or llvm::Intrinsic::not_intrinsic if no intrinsic is desired for
+// this field.
+//
+// This works by looking for a particular field in a particular routine in a
+// particular context specified by OptKind.  The particulars are described in
+// StdContainerOptDescriptions.
+//
+// This routine should bail out as soon as possible since it will need to be
+// called at least once per function when one of the contexts occur.
+llvm::Intrinsic::ID CodeGenFunction::getContainerIntrinsic(
+    CodeGenModule::StdContainerOptKind OptKind, StringRef FieldName) {
+  // Check if we've already seen this routine and know it isn't interesting
+  if (StdContainerOptKindDetermined)
+    return llvm::Intrinsic::not_intrinsic;
+
+  const Decl *D = CurGD.getDecl();
+
+  // CodeGenFunction routines can be called when not generating a function
+  if (!D || !getLangOpts().CPlusPlus) {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+
+  // Gather info about the function
+  const FunctionDecl *FD = cast<FunctionDecl>(D);
+  const NamedDecl *ND = dyn_cast<NamedDecl>(FD);
+  if (!ND) {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+  const DeclContext *DC = D->getDeclContext();
+  if (!DC || !DC->getParent()) {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+
+  // Get the function name with getNameAsString() since getName() is not
+  // valid for constructors.
+  std::string FuncName = ND->getNameAsString();
+  StringRef ContainerName;
+  StringRef NamespaceName;
+  auto DeclKind = D->getKind();
+
+  // Currently there are only two kinds we care about (member functions and
+  // constructors).
+  if (DeclKind == Decl::CXXMethod) {
+    if (DC->getDeclKind() == Decl::ClassTemplateSpecialization) {
+      const NamedDecl *NDD = dyn_cast<NamedDecl>(DC);
+      if (NDD) {
+        ContainerName = NDD->getName();
+      }
+    }
+  } else if (DeclKind == Decl::CXXConstructor && FD->getNumParams() > 0) {
+    // We cannot get the container from the iterator so nothing to do here.
+  } else {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+
+  const DeclContext *PDC = DC->getParent();
+  if (PDC->isNamespace())
+    NamespaceName = cast<NamespaceDecl>(PDC)->getName();
+
+  if (NamespaceName.empty() ||
+      (DeclKind == Decl::CXXMethod && ContainerName.empty())) {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+
+  // Create a description for this instance
+  CodeGenModule::StdContainerOptDescription SCOD(
+      OptKind, ContainerName, NamespaceName, StringRef(FuncName), DeclKind,
+      FieldName);
+
+  // Check for a matching description.
+  for (auto &Desc : CGM.StdContainerOptDescriptions) {
+    if (SCOD == Desc) {
+      StdContainerOptKindDetermined = true;
+      if (OptKind == CodeGenModule::SCOK_ContainerPtrIterator)
+        return llvm::Intrinsic::intel_std_container_ptr_iter;
+      return llvm::Intrinsic::intel_std_container_ptr;
+    }
+  }
+  return llvm::Intrinsic::not_intrinsic;
+}
+#endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                    const CGFunctionInfo &FnInfo) {
