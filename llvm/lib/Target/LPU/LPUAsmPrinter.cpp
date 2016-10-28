@@ -278,9 +278,9 @@ void LPUAsmPrinter::emitParamList(const Function *F) {
     if (!first) {
       O << '\n';
     }
-    O << LPUInstPrinter::WrapAsmLinePrefix();
+    O << LPUInstPrinter::WrapLpuAsmLinePrefix();
     O << "\t.param .reg " << typeStr << sz << " %r" << paramReg++;
-    O << LPUInstPrinter::WrapAsmLineSuffix();
+    O << LPUInstPrinter::WrapLpuAsmLineSuffix();
     first = false;
   }
   if (!first)
@@ -297,7 +297,7 @@ void LPUAsmPrinter::emitReturnVal(const Function *F) {
   if (Ty->getTypeID() == Type::VoidTyID)
     return;
 
-  O << LPUInstPrinter::WrapAsmLinePrefix();
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
   O << "\t.result .reg";
 
   if (Ty->isFloatingPointTy() || Ty->isIntegerTy()) {
@@ -321,7 +321,7 @@ void LPUAsmPrinter::emitReturnVal(const Function *F) {
   // Hack: For now, we simply go with the standard return register.
   // (Should really use the allocation.)
   O << " %r0";
-  O << LPUInstPrinter::WrapAsmLineSuffix();
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
 
   OutStreamer->EmitRawText(O.str());
 }
@@ -330,18 +330,21 @@ void LPUAsmPrinter::writeAsmLine(const char *text) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
 
-  O << LPUInstPrinter::WrapAsmLinePrefix();
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
   O << text;
-  O << LPUInstPrinter::WrapAsmLineSuffix();
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 }
 
 void LPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
 
-  // Put the code in the .lpu section. Note that we are NOT
-  // using SwitchSection because then we'll fight with the
-  // AmsPrinter::EmitFunctionHeader
-  OutStreamer->EmitRawText("\t.section .lpu.code");
+  if (LPUInstPrinter::WrapLpuAsm()) {
+    // Put the code in the .lpu section. Note that we are NOT
+    // using SwitchSection because then we'll fight with the
+    // AmsPrinter::EmitFunctionHeader
+    OutStreamer->EmitRawText("\t.section .lpu.code");
+    writeAsmLine("\t.text");
+  }
   
   /* Disabled 2016/3/31.  Long term, we should only put this out if it
    * is not autounit.  The theory is if the compiler has done tailoring
@@ -351,10 +354,10 @@ void LPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
   raw_svector_ostream O(Str);
   const LPUTargetMachine *LPUTM = static_cast<const LPUTargetMachine*>(&TM);
   assert(LPUTM && LPUTM->getSubtargetImpl());
-  O << LPUInstPrinter::WrapAsmLinePrefix();
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
   O << "\t# .processor ";  // note - commented out...
   O << LPUTM->getSubtargetImpl()->lpuName();
-  O << LPUInstPrinter::WrapAsmLineSuffix();
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 
   writeAsmLine("\t.version 0,6,0");
@@ -363,10 +366,10 @@ void LPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
 
 void LPUAsmPrinter::EmitEndOfAsmFile(Module &M) {
 
-  if (LPUInstPrinter::WrapAsm()) {
-    // Put the code in the .lpu section. Note that we are NOT
-    // using SwitchSection because then we'll fight with the
-    // AmsPrinter::EmitFunctionHeader
+  if (LPUInstPrinter::WrapLpuAsm()) {
+    // Add the terminating null for the .lpu section. Note
+    // that we are NOT using SwitchSection because then we'll
+    // fight with the AmsPrinter::EmitFunctionHeader
     OutStreamer->EmitRawText("\t.section .lpu.code");
     OutStreamer->EmitRawText("\t.asciz \"\"");
   }
@@ -380,18 +383,18 @@ void LPUAsmPrinter::EmitFunctionEntryLabel() {
   MRI = &MF->getRegInfo();
   F = MF->getFunction();
 
-  O << LPUInstPrinter::WrapAsmLinePrefix();
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
   O << "\t.global\t" << *CurrentFnSym;
-  O << LPUInstPrinter::WrapAsmLineSuffix();
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
   O << "\n";
-  O << LPUInstPrinter::WrapAsmLinePrefix();
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
   O << "\t.entry\t" << *CurrentFnSym;
-  O << LPUInstPrinter::WrapAsmLineSuffix();
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
   O << "\n";
   // For now, assume control flow (sequential) entry
-  O << LPUInstPrinter::WrapAsmLinePrefix();
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
   O << *CurrentFnSym << ":";
-  O << LPUInstPrinter::WrapAsmLineSuffix();
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 
   // Start a scope for this routine to localize the LIC names
@@ -420,7 +423,7 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
     if (LMFI->isAllocated(reg)) {
       SmallString<128> Str;
       raw_svector_ostream O(Str);
-      O << LPUInstPrinter::WrapAsmLinePrefix();
+      O << LPUInstPrinter::WrapLpuAsmLinePrefix();
       O << "\t";
       // LIC or register
       O << (LPU::ANYCRegClass.contains(reg) ? ".lic " : ".reg ");
@@ -432,7 +435,7 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
       else if (LPU::CI1RegClass.contains(reg))  O << ".i1";
       else if (LPU::CI0RegClass.contains(reg))  O << ".i0";
       O << " " << LPUInstPrinter::getRegisterName(reg);
-      O << LPUInstPrinter::WrapAsmLineSuffix();
+      O << LPUInstPrinter::WrapLpuAsmLineSuffix();
       OutStreamer->EmitRawText(O.str());
     }
   }
@@ -445,11 +448,11 @@ void LPUAsmPrinter::EmitFunctionBodyEnd() {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
 
-  if (LPUInstPrinter::WrapAsm()) {
+  if (LPUInstPrinter::WrapLpuAsm()) {
     O << "\t.asciz \"";
   }
   O << "}";
-  O << LPUInstPrinter::WrapAsmLineSuffix();
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 #endif
 }

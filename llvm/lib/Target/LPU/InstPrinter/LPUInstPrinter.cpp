@@ -27,7 +27,7 @@ using namespace llvm;
 static cl::opt<bool>
 WrapAsmOpt("lpu-wrap-asm", cl::Hidden,
            cl::desc("LPU Specific: Wrap assembly for x86"),
-           cl::init(true));
+           cl::init(false));
 
 static std::map<int,const char*> FUName;
 
@@ -52,11 +52,11 @@ LPUInstPrinter::LPUInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
   FUName[LPU::FUNCUNIT::SPD] = "spd";// Scratchpad
 }
 
-bool LPUInstPrinter::WrapAsm() {
+bool LPUInstPrinter::WrapLpuAsm() {
   return WrapAsmOpt;
 }
 
-const char *LPUInstPrinter::WrapAsmLinePrefix() {
+const char *LPUInstPrinter::WrapLpuAsmLinePrefix() {
   if (WrapAsmOpt) {
     return "\t.ascii \"";
   } else {
@@ -64,7 +64,7 @@ const char *LPUInstPrinter::WrapAsmLinePrefix() {
   }
 }
 
-const char *LPUInstPrinter::WrapAsmLineSuffix() {
+const char *LPUInstPrinter::WrapLpuAsmLineSuffix() {
   if (WrapAsmOpt) {
     return "\\n\"";
   } else {
@@ -74,9 +74,9 @@ const char *LPUInstPrinter::WrapAsmLineSuffix() {
 
 void LPUInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
                                   StringRef Annot, const MCSubtargetInfo &STI) {
-  O << WrapAsmLinePrefix();
+  O << WrapLpuAsmLinePrefix();
   printInstruction(MI, O);
-  O << WrapAsmLineSuffix();
+  O << WrapLpuAsmLineSuffix();
   printAnnotation(O, Annot);
 }
 
