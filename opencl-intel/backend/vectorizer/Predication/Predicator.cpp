@@ -817,10 +817,9 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       Type* pMaskTy = pMaskedfunc->getFunctionType()->getParamType(0);
       pred = CastInst::CreateSExtOrBitCast(pred, pMaskTy, "", call);
       Module* pCurrentModule = call->getParent()->getParent()->getParent();
-      func = cast<Function>( pCurrentModule->getOrInsertFunction(
-        maskedName,
-        pMaskedfunc->getFunctionType())
-      );
+
+      func = cast<Function>(VectorizerUtils::importFunctionDecl(pCurrentModule,
+                                                                pMaskedfunc));
     }
     const FunctionType* pFuncTy = func->getFunctionType();
     std::vector<Value*> params;

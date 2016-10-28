@@ -909,9 +909,8 @@ bool VectModuleManager::resolveSelectCalls(Function * specialCaseFunc, Function 
 	}
 	
 	// Find (or create) declaration for select function
-	Constant * VectSelectFunc = CURRENT_MODULE->getOrInsertFunction(selectFuncName, 
-																   LibSelectFunc->getFunctionType(),
-																   LibSelectFunc->getAttributes());
+	auto *VectSelectFunc = dyn_cast<Function *>(
+          VectorizerUtils::importFunctionDecl(CURRENT_MODULE, LibSelectFunc));
 	if (!VectSelectFunc)
 	{
 		V_UNEXPECTED("failed generating function in current module");
@@ -994,9 +993,8 @@ bool VectModuleManager::resolveGeometricFuncCalls(Function * specialCaseFunc, Fu
 	}
 	
 	// Find (or create) declaration for transposed function
-	Constant * transposedGeometricFunc = CURRENT_MODULE->getOrInsertFunction(realFuncName, 
-																			 LibTranspFunc->getFunctionType(),
-																			 LibTranspFunc->getAttributes());
+	auto *transposedGeometricFunc = dyn_cast<Function *>(
+          VectorizerUtils::importFunction(CURRENT_MODULE, LibTranspFunc));
 	if (!transposedGeometricFunc)
 	{
 		V_UNEXPECTED("failed generating function in current module");
@@ -1114,9 +1112,8 @@ bool VectModuleManager::resolveCIGammaCalls(Function * specialCaseFunc, Function
 	}
 	
 	// Find (or create) declaration for transposed function
-	Constant * transposedGammaConst = CURRENT_MODULE->getOrInsertFunction(funcName, 
-																		  LibTranspFunc->getFunctionType(),
-																		  LibTranspFunc->getAttributes());
+	Constant * transposedGammaConst = dyn_cast<Function *>(
+          VectorizerUtils::importFunctionDecl(CURRENT_MODULE, LibTranspFunc));
 	if (!transposedGammaConst)
 	{
 		V_UNEXPECTED("failed generating function in current module");

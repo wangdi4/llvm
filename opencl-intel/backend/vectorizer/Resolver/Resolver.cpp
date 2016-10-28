@@ -629,8 +629,8 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   // Find (or create) declaration for newly called function
   Function *newFunction = currFunc->getParent()->getFunction(LibFunc->getName());
   if (!newFunction) {
-    Constant *newFunctionConst = currFunc->getParent()->getOrInsertFunction(
-        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+    Constant *newFunctionConst =
+      VectorizerUtils::importFunctionDecl(currFunc->getParent(), LibFunc);
     V_ASSERT(newFunctionConst && "failed generating function in current module");
     newFunction = dyn_cast<Function>(newFunctionConst);
     V_ASSERT(newFunction && "Function type mismatch, caused a constant expression cast!");

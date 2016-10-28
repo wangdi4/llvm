@@ -119,6 +119,32 @@ public:
   /// @param insertPoint instruction to insert before
   static llvm::Instruction *TruncValToType(llvm::Value *orig, llvm::Type *targetType, llvm::Instruction *insertPoint);
 
+  /// @brief Import a declaration of \p Orig into module \p Dst
+  ///
+  /// Parameter types will be translated to match the corresponding
+  /// types in the \p Dst.
+  ///
+  /// @return function declaration Function* (if import succeed) or a
+  /// bitcast if a function with the same name, but different type, is
+  /// already exist in the \p Dst.
+  static llvm::Constant *importFunctionDecl(llvm::Module *Dst,
+                                            const llvm::Function *Orig);
+
+
+
+  /// @brief Check if two types are pointers to the same opaque type
+  /// @see isSameStructType
+  static bool isSameStructPtrType(llvm::Type *Ty1, llvm::Type *Ty2);
+
+  /// @brief Check if two types actually have the same opaque ptr type.
+  ///
+  /// Such types appear when 2 or more types were created with the same name.
+  /// These types differ only in .N name suffix, e.g.:
+  /// %opencl.image2d_ro_t and %opencl.image2d_ro_t.0
+  static bool isSameStructType(llvm::StructType *STy1, llvm::StructType *Ty2);
+
+  static llvm::StringRef stripStructNameTrailingDigits(llvm::StringRef TyName);
+
 private:
 
   /// @brief Generate type-conversion and place in given location

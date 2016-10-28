@@ -21,6 +21,7 @@ File Name:  SinCosFold.cpp
 #include "ParameterType.h"
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
+#include "VectorizerUtils.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -75,7 +76,7 @@ namespace intel {
     assert(sinCosF && "sincos function should exist!");
 
     // Find (or create) declaration for newly called function
-    Constant * sinCosFunc = M.getOrInsertFunction(sinCosF->getName(), sinCosF->getFunctionType(), sinCosF->getAttributes());
+    Constant * sinCosFunc = VectorizerUtils::importFunctionDecl(&M, sinCosF);
     assert(sinCosFunc && "Failed generating function in current module");
     Function * f = dyn_cast<Function>(sinCosFunc);
     assert(f && "Function type mismatch, caused a constant expression cast!");

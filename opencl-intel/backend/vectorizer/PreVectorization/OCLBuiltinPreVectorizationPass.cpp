@@ -200,8 +200,7 @@ Function *OCLBuiltinPreVectorizationPass::getOrInsertFakeDeclarationToModule(con
   V_ASSERT(FuncRT && "function was not found in RT module!!!");
   if (!FuncRT) return NULL;
 
-  Constant * funcConst = m_curModule->getOrInsertFunction(MangledFuncName,
-    FuncRT->getFunctionType(), FuncRT->getAttributes());
+  auto *funcConst = VectorizerUtils::importFunctionDecl(m_curModule, FuncRT);
   V_ASSERT(funcConst && "failed generating function in current module");
   Function *func = dyn_cast<Function>(funcConst);
   V_ASSERT(func && "Function type mismatch, caused a constant expression cast!");

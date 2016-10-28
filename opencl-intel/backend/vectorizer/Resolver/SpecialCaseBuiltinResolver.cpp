@@ -174,8 +174,8 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   Function *resolvedFunc = m_curModule->getFunction(resolvedName);
   if (!resolvedFunc)  {
     Function *LibFunc = m_runtimeServices->findInRuntimeModule(resolvedName);
-    Constant *resolvedFunctionConst = F->getParent()->getOrInsertFunction(
-        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+    Constant *resolvedFunctionConst = VectorizerUtils::importFunctionDecl(
+      F->getParent(), LibFunc);
     resolvedFunc = dyn_cast<Function>(resolvedFunctionConst);
   }
   V_ASSERT(resolvedFunc && "resolvedFunc is nullptr");

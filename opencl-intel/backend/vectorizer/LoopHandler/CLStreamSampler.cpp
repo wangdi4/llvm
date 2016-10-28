@@ -432,8 +432,7 @@ Function *CLStreamSampler::getLibraryFunc(Function *LibFunc) {
   // and only if we don't, insert it.
   Constant* funcConst = m_M->getFunction(LibFunc->getName());
   if (!funcConst) {
-    funcConst = m_M->getOrInsertFunction(LibFunc->getName(),
-                                         LibFunc->getFunctionType(), LibFunc->getAttributes());
+    funcConst = VectorizerUtils::importFunctionDecl(m_M, LibFunc);
   }
     
   Function *F = dyn_cast<Function>(funcConst);

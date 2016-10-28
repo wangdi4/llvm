@@ -1719,9 +1719,23 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     return duplicateNonPacketizableInst(CI);
   }
 
+  // Change function type to match new args:
+  // it is required if parameters are not exactly match between
+  // user module and rtl module, e.g. if opaque types was renamed
+  // with .N suffix
+  SmallVector<Type *, 8> newArgTypes;
+  for (auto *Arg : newArgs) {
+    newArgTypes.push_back(Arg->getType());
+  }
+  auto *oldFnType = LibFunc->getFunctionType();
+  auto *newFnType = FunctionType::get(oldFnType->getReturnType(),
+                                      newArgTypes,
+                                      oldFnType->isVarArg());
+
   // Find (or create) declaration for newly called function
   Constant * vectFunctionConst = m_currFunc->getParent()->getOrInsertFunction(
-      LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+      LibFunc->getName(), newFnType, LibFunc->getAttributes());
+
   V_ASSERT(vectFunctionConst && "failed generating function in current module");
   Function *vectorFunction = dyn_cast<Function>(vectFunctionConst);
   V_ASSERT(vectorFunction && "Function type mismatch, caused a constant expression cast!");
@@ -1834,8 +1848,16 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       // is a struct, we use bitcast.
       Value *multiScalarVals[MAX_PACKET_WIDTH];
       obtainMultiScalarValues(multiScalarVals, curScalarArg, CI);
-      operand = VectorizerUtils::getCastedArgIfNeeded(multiScalarVals[0], neededType, CI);
-      newArgs.push_back(operand);
+      if (VectorizerUtils::isSameStructPtrType(
+            neededType, multiScalarVals[0]->getType())) {
+
+        // use the 'target' type, we will change function type later
+        operand = multiScalarVals[0];
+        newArgs.push_back(operand);
+      } else {
+        operand = VectorizerUtils::getCastedArgIfNeeded(multiScalarVals[0], neededType, CI);
+        newArgs.push_back(operand);
+      }
     } else if (curScalarArgType->isVectorTy()) {
       // If vectors are not spread then vector arguments should be packetized
       // in SOA form using array of vectors.
@@ -2654,8 +2676,8 @@ Function* PacketizeFunction::getTransposeFunc(bool isLoad, VectorType * origVecT
   V_ASSERT(loadTransposeFuncRT && "Transpose function should exist!");
 
   // Find (or create) declaration for newly called function
-  Constant* loadTransposeFunc = m_currFunc->getParent()->getOrInsertFunction(
-    loadTransposeFuncRT->getName(), loadTransposeFuncRT->getFunctionType(), loadTransposeFuncRT->getAttributes());
+  Constant* loadTransposeFunc = VectorizerUtils::importFunctionDecl(
+    m_currFunc->getParent(), loadTransposeFuncRT);
   V_ASSERT(loadTransposeFunc && "Failed generating function in current module");
   Function* transposeFunc = dyn_cast<Function>(loadTransposeFunc);
   V_ASSERT(transposeFunc && "Function type mismatch, caused a constant expression cast!");
