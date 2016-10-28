@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-//  Declarations that describe the LPU register file 
+//  Declarations that describe the LPU register file
 //===----------------------------------------------------------------------===//
 
 // The LPU has no "global" registers, though there will likely be registers
@@ -83,7 +83,8 @@ foreach i = 0-59 in {
   def R#i : LPUReg<"%r"#i>;
 }
 
-def IGN : LPUReg<"%ign">; // Ignored (always writeable, never readable)
+def IGN : LPUReg<"%ign">; // Ignored (always writeable and readable)
+def NA  : LPUReg<"%na">;  // Not available (never writeable or readable)
 
 // special regs (60-63).  (SP, FP might want to be in low regs)
 def FP : LPUReg<"%fp">;  // preserved (conventional FP)
