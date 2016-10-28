@@ -804,3 +804,83 @@ entry:
   ret i1 %res
 }
 
+define i1 @__ocl_allOne(i1 %pred) nounwind readnone {
+entry:
+  ret i1 %pred
+}
+
+define i1 @__ocl_allZero(i1 %t) nounwind readnone {
+entry:
+  %pred = xor i1 %t, true
+  ret i1 %pred
+}
+
+define <16 x double> @masked_gather.v16f64_ind_v16i32(<16 x i1> %mask, double* %addr, <16 x i32>%index) {
+  %ptr = bitcast double *%addr to i8*
+  %index0 = shufflevector <16 x i32> %index, <16 x i32> undef,
+            <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  %index1 = shufflevector <16 x i32> %index, <16 x i32> undef,
+            <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %mask0 = shufflevector <16 x i1> %mask, <16 x i1> undef,
+            <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  %imask0 = bitcast <8 x i1> %mask0 to i8
+
+  %mask1 = shufflevector <16 x i1> %mask, <16 x i1> undef,
+            <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %imask1 = bitcast <8 x i1> %mask1 to i8
+  %t0 = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x double> undef, i8* %ptr, <8 x i32> %index0, i8 %imask0, i32 8)
+  %t1 = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x double> undef, i8* %ptr, <8 x i32> %index1, i8 %imask1, i32 8)
+  %t2 = shufflevector <8 x double> %t0, <8 x double> %t1,
+            <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7,
+             i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  ret <16 x double> %t2
+}
+
+define <16 x i64> @masked_gather.v16i64_ind_v16i32(<16 x i1> %mask, i64* %addr, <16 x i32>%index) {
+  %ptr = bitcast i64 *%addr to i8*
+  %index0 = shufflevector <16 x i32> %index, <16 x i32> undef,
+            <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  %index1 = shufflevector <16 x i32> %index, <16 x i32> undef,
+            <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %mask0 = shufflevector <16 x i1> %mask, <16 x i1> undef,
+            <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  %imask0 = bitcast <8 x i1> %mask0 to i8
+
+  %mask1 = shufflevector <16 x i1> %mask, <16 x i1> undef,
+            <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %imask1 = bitcast <8 x i1> %mask1 to i8
+  %t0 = call <8 x i64> @llvm.x86.avx512.gather.dpq.512(<8 x i64> undef, i8* %ptr, <8 x i32> %index0, i8 %imask0, i32 8)
+  %t1 = call <8 x i64> @llvm.x86.avx512.gather.dpq.512(<8 x i64> undef, i8* %ptr, <8 x i32> %index1, i8 %imask1, i32 8)
+  %t2 = shufflevector <8 x i64> %t0, <8 x i64> %t1,
+            <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7,
+             i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  ret <16 x i64> %t2
+}
+
+define void @masked_scatter.v16f64_ind_v16i32 (<16 x i1> %mask, double* %addr,
+                                               <16 x i32> %index,
+                                               <16 x double> %data) {
+  %ptr = bitcast double *%addr to i8*
+  %data0 = shufflevector <16 x double> %data, <16 x double> undef,
+            <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  %index0 = shufflevector <16 x i32> %index, <16 x i32> undef,
+            <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  %mask0 = shufflevector <16 x i1> %mask, <16 x i1> undef,
+            <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  %imask0 = bitcast <8 x i1> %mask0 to i8
+  %data1 = shufflevector <16 x double> %data, <16 x double> undef,
+            <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %index1 = shufflevector <16 x i32> %index, <16 x i32> undef,
+            <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %mask1 = shufflevector <16 x i1> %mask, <16 x i1> undef,
+            <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %imask1 = bitcast <8 x i1> %mask1 to i8
+  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr, i8 %imask0, <8 x i32> %index0,
+                                    <8 x double> %data0,
+                                    i32 8) ; scale 4
+  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr, i8 %imask1, <8 x i32> %index1,
+                                    <8 x double> %data1,
+                                    i32 8) ; scale 4
+  ret void
+}
+
