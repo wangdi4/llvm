@@ -129,14 +129,11 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget
     setOperationAction(ISD::ATOMIC_STORE,     VT,    Custom);
 
     setOperationAction(ISD::DYNAMIC_STACKALLOC,VT,   Expand);
-
-    setOperationAction(ISD::UNDEF,            VT,    Custom);
   }
 
   for (MVT VT : MVT::fp_valuetypes()) {
     setOperationAction(ISD::BR_CC,            VT,    Expand);
     setOperationAction(ISD::SELECT_CC,        VT,    Expand);
-    setOperationAction(ISD::UNDEF,            VT,    Custom);
   }
 
   setOperationAction(ISD::BR_JT,              MVT::Other, Expand);
@@ -314,7 +311,6 @@ SDValue LPUTargetLowering::LowerOperation(SDValue Op,
     */
   case ISD::ATOMIC_LOAD:      return LowerAtomicLoad(Op, DAG);
   case ISD::ATOMIC_STORE:     return LowerAtomicStore(Op, DAG);
-  case ISD::UNDEF:            return LowerUndef(Op, DAG);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -407,21 +403,6 @@ SDValue LPUTargetLowering::LowerAtomicStore(SDValue Op,
             AS->getPointerInfo(),
             false, false, AS->getAlignment());
 }
-
-SDValue LPUTargetLowering::LowerUndef(SDValue Op, SelectionDAG &DAG) const {
-    SDLoc dl(Op);
-    EVT vt = Op.getValueType();
-
-    if(vt.isFloatingPoint())
-      return DAG.getConstantFP(0.0, dl, vt);
-
-    if(vt.isInteger())
-      return DAG.getConstant(0, dl, vt);
-
-    // Don't know what this is. Conservatively do nothing.
-    return Op;
-}
-
 //===----------------------------------------------------------------------===//
 //                       LPU Inline Assembly Support
 //===----------------------------------------------------------------------===//

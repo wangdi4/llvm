@@ -19,6 +19,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SparseSet.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -138,6 +139,7 @@ namespace llvm {
     unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb);
     void handleAllConstantInputs();
     void releaseMemory() override;
+    bool replaceUndefWithIgn();
 
 
     // TBD(jsukha): Experimental code for ordering of memory ops.
@@ -338,6 +340,8 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     return false;
   }
 #endif
+
+  replaceUndefWithIgn();
 
   // TBD(jsukha): Experimental code to add dependencies for memory
   // operations.
@@ -2357,7 +2361,53 @@ unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
   return current_mem_reg;
 }
 
+/* Find all implicitly defined vregs. These are problematic with dataflow
+ * conversion: LLVM will automatically expand them to registers (LICs, in our
+ * case). While registers can be read without any value previously having been
+ * written, LICs are different. We must replace the undef with a read from
+ * %IGN, equivalent to reading 0. Note that we can do this even if we're not
+ * sure that the instructions in question will be successfully converted to
+ * data flow. Returns a boolean indicating modification.
+ */
+bool LPUCvtCFDFPass::replaceUndefWithIgn() {
+  bool modified = false;
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  SmallPtrSet<MachineInstr*, 4> implicitDefs;
+  DEBUG(errs() << "Finding implicit defs:\n");
+  for (MachineFunction::iterator BB = thisMF->begin(); BB != thisMF->end(); ++BB) {
+    for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
+      MachineInstr *MI = I;
+      // We're looking for instructions like '%vreg26<def> = IMPLICIT_DEF;'.
+      if(MI->isImplicitDef()) {
+        implicitDefs.insert(MI);
+        DEBUG(errs() << "\tFound: " << *MI);
+      }
+    }
+  }
 
+  if(implicitDefs.empty()) {
+    DEBUG(errs() << "(No implicit defs found.)\n");
+  }
+
+  for (SmallPtrSet<MachineInstr*, 4>::iterator I = implicitDefs.begin(), E = implicitDefs.end(); I != E; ++I) {
+    MachineInstr *uMI = *I;
+    MachineOperand uMO = uMI->getOperand(0);
+    // Ensure we're dealing with a register definition.
+    assert(uMO.isDef() && uMO.isReg());
+    // Ensure SSA form and that we have right defining instruction.
+    assert(MRI->getUniqueVRegDef(uMO.getReg()) &&
+        MRI->getUniqueVRegDef(uMO.getReg()) == uMI);
+
+    // Erase the implicit definition.
+    uMI->eraseFromParent();
+    // Replace all uses of this register with IGN.
+    MRI->replaceRegWith(uMO.getReg(), LPU::IGN);
+    modified = true;
+  }
+
+  DEBUG(errs() << "Finished converting implicit defs to %IGN reads.\n\n");
+  return modified;
+}
 
 void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
 
