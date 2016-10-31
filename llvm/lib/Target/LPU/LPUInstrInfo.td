@@ -571,7 +571,7 @@ multiclass OStOp<string opStr, LPUOpInfo t,
       []>;
   }
 
-  let Predicates = [HasDispl], Itinerary = itin in {
+  let Predicates = [HasDispl], mayStore = 1, Itinerary = itin in {
     def D : FMTGEN<
       (outs I0:$issued),
       (ins ADDR_RI:$addr, t.RCL:$data, I0:$ready),
@@ -584,7 +584,7 @@ multiclass OStOp<string opStr, LPUOpInfo t,
       []>;
   }
 
-  let Itinerary = itin in {
+  let Itinerary = itin, mayStore = 1 in {
       def "" : FMTGEN<
         (outs I0:$issued),
         (ins ADDR_R:$addr, t.RCL:$data, I0:$ready),
