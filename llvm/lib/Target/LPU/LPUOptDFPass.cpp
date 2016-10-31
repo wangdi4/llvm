@@ -268,33 +268,45 @@ public:
   void
   seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
                             MachineBasicBlock* BB,
-                            LPUSeqInstrInfo* seqInfo);
+                            LPUSeqInstrInfo* seqInfo,
+                            SmallVector<MachineInstr*,
+                                        SEQ_VEC_WIDTH>& insToDisconnect);                            
   void
   seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
                                LPUSeqLoopInfo& loop,
                                MachineBasicBlock* BB,
                                const LPUSeqInstrInfo& seqInfo,
-                               const LPUInstrInfo& TII);
-
+                               const LPUInstrInfo& TII,
+                               SmallVector<MachineInstr*,
+                                           SEQ_VEC_WIDTH>& insToDisconnect);
+                               
   void
   seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
                                LPUSeqLoopInfo& loop,
                                MachineBasicBlock* BB,
                                const LPUSeqInstrInfo& seqInfo,
-                               const LPUInstrInfo& TII);
-
+                               const LPUInstrInfo& TII,
+                               SmallVector<MachineInstr*,
+                                           SEQ_VEC_WIDTH>& insToDisconnect);                            
+                               
   void
   seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
                                        LPUSeqLoopInfo& loop,
                                        MachineBasicBlock* BB,
                                        const LPUSeqInstrInfo& seqInfo,
-                                       const LPUInstrInfo& TII);
+                                       const LPUInstrInfo& TII,
+                                       SmallVector<MachineInstr*,
+                                                   SEQ_VEC_WIDTH>& insToDisconnect);                            
+                                       
   void
   seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
                                   LPUSeqLoopInfo& loop,
                                   MachineBasicBlock* BB,
                                   const LPUSeqInstrInfo& seqInfo,
-                                  const LPUInstrInfo& TII);
+                                  const LPUInstrInfo& TII,
+                                  SmallVector<MachineInstr*,
+                                              SEQ_VEC_WIDTH>& insToDisconnect);
+                                  
 
 
   // Add a switch instruction after "prev_inst" in basic block BB,
@@ -1935,7 +1947,9 @@ void
 LPUOptDFPass::
 seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
                           MachineBasicBlock* BB,
-                          LPUSeqInstrInfo* seqInfo) {
+                          LPUSeqInstrInfo* seqInfo,
+                          SmallVector<MachineInstr*,
+                                      SEQ_VEC_WIDTH>& insToDisconnect) {
 
   assert(loop.sequence_transform_is_valid());
   int indvarIdx = loop.indvarIdx();
@@ -2038,9 +2052,9 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
                                             switcher_def_inst);
   // For the sequence operator, mark the compare, pick and switch for
   // deletion.
-  disconnect_instruction(loop.header.compareInst);
-  disconnect_instruction(indvarCandidate.pickInst);
-  disconnect_instruction(indvarCandidate.switchInst);
+  insToDisconnect.push_back(loop.header.compareInst);
+  insToDisconnect.push_back(indvarCandidate.pickInst);
+  insToDisconnect.push_back(indvarCandidate.switchInst);  
 
   DEBUG(errs() << "Transform loop_seq: adding a new sequence instruction "
         << *seqInfo->seq_inst << "\n");
@@ -2058,7 +2072,10 @@ seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
                              LPUSeqLoopInfo& loop,
                              MachineBasicBlock* BB,
                              const LPUSeqInstrInfo& seqInfo,
-                             const LPUInstrInfo& TII) {
+                             const LPUInstrInfo& TII,
+                             SmallVector<MachineInstr*,
+                                         SEQ_VEC_WIDTH>& insToDisconnect) {
+                             
   assert(!scandidate.transformInst);
   MachineInstr* repinst =
     seq_add_repeat(scandidate,
@@ -2082,8 +2099,8 @@ seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
           << *out_switch << "\n");
   }
 
-  disconnect_instruction(scandidate.pickInst);
-  disconnect_instruction(scandidate.switchInst);
+  insToDisconnect.push_back(scandidate.pickInst);
+  insToDisconnect.push_back(scandidate.switchInst);
 
 }
 
@@ -2094,7 +2111,10 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
                              LPUSeqLoopInfo& loop,
                              MachineBasicBlock* BB,
                              const LPUSeqInstrInfo& seqInfo,
-                             const LPUInstrInfo& TII) {
+                             const LPUInstrInfo& TII,
+                             SmallVector<MachineInstr*,
+                                         SEQ_VEC_WIDTH>& insToDisconnect) {
+
   assert(scandidate.transformInst);
 
   // We should have already matched the opcodes at the time we
@@ -2139,8 +2159,8 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
           << *out_switch << "\n");
   }
 
-  disconnect_instruction(scandidate.pickInst);
-  disconnect_instruction(scandidate.switchInst);
+  insToDisconnect.push_back(scandidate.pickInst);
+  insToDisconnect.push_back(scandidate.switchInst);
   // We should NOT mark scandidate.transformInst for deletion
   // here.  In cases where the channel at the bottom of the
   // loop is also used, we still need the add instruction.
@@ -2156,7 +2176,9 @@ seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
                                      LPUSeqLoopInfo& loop,
                                      MachineBasicBlock* BB,
                                      const LPUSeqInstrInfo& seqInfo,
-                                     const LPUInstrInfo& TII) {
+                                     const LPUInstrInfo& TII,
+                                     SmallVector<MachineInstr*,
+                                                 SEQ_VEC_WIDTH>& insToDisconnect) {
   assert(!scandidate.transformInst);
   MachineInstr* onend_inst =
     seq_add_parloop_memdep(scandidate,
@@ -2168,8 +2190,8 @@ seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
   DEBUG(errs() << "do_transform_parloop_memdep: adding onend = "
         << *onend_inst << "\n");
 
-  disconnect_instruction(scandidate.pickInst);
-  disconnect_instruction(scandidate.switchInst);
+  insToDisconnect.push_back(scandidate.pickInst);
+  insToDisconnect.push_back(scandidate.switchInst);
 }
 
 void
@@ -2178,7 +2200,9 @@ seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
                                 LPUSeqLoopInfo& loop,
                                 MachineBasicBlock* BB,
                                 const LPUSeqInstrInfo& seqInfo,
-                                const LPUInstrInfo& TII) {
+                                const LPUInstrInfo& TII,
+                                SmallVector<MachineInstr*,
+                                            SEQ_VEC_WIDTH>& insToDisconnect) {
   assert(scandidate.transformInst);
   bool is_fma = TII.isFMA(scandidate.transformInst);
 
@@ -2198,9 +2222,9 @@ seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
   DEBUG(errs() << "do_transform_loop_reduction: adding reduction = "
         << *red_inst << "\n");
 
-  disconnect_instruction(scandidate.pickInst);
-  disconnect_instruction(scandidate.switchInst);
-  disconnect_instruction(scandidate.transformInst);
+  insToDisconnect.push_back(scandidate.pickInst);
+  insToDisconnect.push_back(scandidate.switchInst);
+  insToDisconnect.push_back(scandidate.transformInst);
 }
 
 
@@ -2214,13 +2238,16 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
   LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
   MachineBasicBlock* BB = indvarCandidate.pickInst->getParent();
 
+  SmallVector<MachineInstr*, SEQ_VEC_WIDTH> insToDisconnect;
+  
   // Summary information about the sequence instruction.
   LPUSeqInstrInfo seqInfo;
 
   // Transform the induction variable into a sequence instruction.
   seq_do_transform_loop_seq(loop,
                             BB,
-                            &seqInfo);
+                            &seqInfo,
+                            insToDisconnect);
 
   // Now process all the dependent sequences.
   //
@@ -2238,7 +2265,8 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
                                      loop,
                                      BB,
                                      seqInfo,
-                                     TII);
+                                     TII,
+                                     insToDisconnect);
         break;
 
       case LPUSeqCandidate::SeqType::STRIDE:
@@ -2246,7 +2274,8 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
                                      loop,
                                      BB,
                                      seqInfo,
-                                     TII);
+                                     TII,
+                                     insToDisconnect);
         break;
 
       case LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP:
@@ -2254,7 +2283,8 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
                                              loop,
                                              BB,
                                              seqInfo,
-                                             TII);
+                                             TII,
+                                             insToDisconnect);
         break;
 
 
@@ -2264,7 +2294,8 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
                                         loop,
                                         BB,
                                         seqInfo,
-                                        TII);
+                                        TII,
+                                        insToDisconnect);
         break;
 
 
@@ -2273,5 +2304,12 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
         seq_debug_print_candidate(scandidate);
       }
     }
+  }
+
+  // Disconnect all the instructions for all candidates at once.
+  for (auto it = insToDisconnect.begin();
+       it != insToDisconnect.end();
+       ++it) {
+    disconnect_instruction(*it);
   }
 }
