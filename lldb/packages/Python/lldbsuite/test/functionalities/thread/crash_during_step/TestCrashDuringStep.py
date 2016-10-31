@@ -4,12 +4,12 @@ Test that step-inst over a crash behaves correctly.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class CreateDuringStepTestCase(TestBase):
 
@@ -21,6 +21,7 @@ class CreateDuringStepTestCase(TestBase):
 
     @expectedFailureWindows("llvm.org/pr24778")
     @expectedFailureAndroid("llvm.org/pr24497", archs=['arm', 'aarch64'])
+    @expectedFailureAll(archs=['mips', 'mipsel', 'mips64', 'mips64el'])    # IO error due to breakpoint at invalid address
     def test_step_inst_with(self):
         """Test thread creation during step-inst handling."""
         self.build(dictionary=self.getBuildFlags())

@@ -35,7 +35,6 @@
 #include "llvm/Target/TargetSubtargetInfo.h"
 
 using namespace llvm;
-namespace llvm { extern raw_ostream *CreateInfoOutputFile(); }
 
 static cl::opt<int>
 ConvertControlPass("lpu-cvt-ctrl-pass", cl::Hidden,
@@ -102,8 +101,6 @@ private:
   MachineFunction *thisMF;
   MachineBasicBlock *loopBackedgeBB;
   MachineBasicBlock *loopPreheader;
-
-  raw_ostream *thisOS;
 
   MachineDominatorTree *DT;
 
@@ -692,7 +689,7 @@ bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
     MachineInstr *MI = I;
 
     //DEBUG(errs() << "processing inst: ");
-    //DEBUG(MI->print(*thisOS));
+    //DEBUG(errs() << *MI);
 
     // TODO: do we need to process all insts?
     // what about picks/switches/cmps/brs?
@@ -704,10 +701,6 @@ bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
 
   } // for each instruction in BB
   DEBUG(errs() << "end BB# - " <<  BB->getNumber() << "\n");
-
-#ifndef NDEBUG
-  thisOS->flush();
-#endif
 
   return genDFInst;
 }
@@ -868,7 +861,7 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
       MachineInstr *MI = I;
 
       DEBUG(errs() << "gen pick/switch DF ops: processing inst: ");
-      DEBUG(MI->print(*thisOS));
+      DEBUG(errs() << *MI);
 
       // TODO: do we need to process all insts?
       // what about picks/switches/cmps/brs?
@@ -911,7 +904,6 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
   if (ConvertControlPass == 0) return false;
 
   thisMF = &MF;
-  thisOS = CreateInfoOutputFile();
 
   DT = &getAnalysis<MachineDominatorTree>();
 
@@ -958,7 +950,6 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
     }
 
 #ifndef NDEBUG
-    thisOS->flush();
     assert(ConvertControlPass > 0 && "ConvertControlPass has invalid value!");
     if (loopModified) loopProcessedCnt++;
     if (loopProcessedCnt == ConvertControlPass) return Modified;

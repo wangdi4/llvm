@@ -4,18 +4,21 @@ Test getting return-values correctly when stepping out
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import re
-import lldb, lldbutil
-from lldbtest import *
+import lldb
+import lldbsuite.test.lldbutil as lldbutil
+from lldbsuite.test.lldbtest import *
 
 class ReturnValueTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    @expectedFailurei386
+    @expectedFailureAll(oslist=["macosx","freebsd"], archs=["i386"])
+    @expectedFailureAll(oslist=["linux"], compiler="clang", compiler_version=["<=", "3.6"], archs=["i386"])
+    @expectedFailureAll(bugnumber="llvm.org/pr25785", hostoslist=["windows"], compiler="gcc", archs=["i386"], triple='.*-android')
     @expectedFailureWindows("llvm.org/pr24778")
     @add_test_categories(['pyapi'])
     def test_with_python(self):

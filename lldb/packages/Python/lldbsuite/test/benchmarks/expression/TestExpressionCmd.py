@@ -2,11 +2,12 @@
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, sys
 import lldb
-from lldbbench import *
+from lldbsuite.test import configuration
+from lldbsuite.test.lldbbench import *
 
 class ExpressionEvaluationCase(BenchBase):
 
@@ -16,9 +17,7 @@ class ExpressionEvaluationCase(BenchBase):
         BenchBase.setUp(self)
         self.source = 'main.cpp'
         self.line_to_break = line_number(self.source, '// Set breakpoint here.')
-        self.count = lldb.bmIterationCount
-        if self.count <= 0:
-            self.count = 25
+        self.count = 25
 
     @benchmarks_test
     @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")

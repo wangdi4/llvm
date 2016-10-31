@@ -5,12 +5,12 @@ many commands remain available even after we add/delete commands in the future.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class CommonShortSpellingsTestCase(TestBase):
     
@@ -29,6 +29,7 @@ class CommonShortSpellingsTestCase(TestBase):
             ('dis', 'disassemble'),
             ('ta st a', 'target stop-hook add'),
             ('fr v', 'frame variable'),
+            ('f 1', 'frame select 1'),
             ('ta st li', 'target stop-hook list'),
         ]
 

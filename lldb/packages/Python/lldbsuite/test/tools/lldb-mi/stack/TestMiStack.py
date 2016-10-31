@@ -4,10 +4,10 @@ Test lldb-mi -stack-xxx commands.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import lldbmi_testcase
-from lldbtest import *
+from lldbsuite.test.lldbtest import *
 
 class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
@@ -441,7 +441,7 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test that -stack-select-frame requires 1 mandatory argument
         self.runCmd("-stack-select-frame")
-        self.expect("\^error,msg=\"Command 'stack-select-frame'\. Command Args\. Validation failed. Mandatory args not found: frame\"")
+        self.expect("\^error,msg=\"Command 'stack-select-frame'\. Command Args\. Validation failed. Mandatory args not found: frame_id\"")
 
         # Test that -stack-select-frame fails on invalid frame number
         self.runCmd("-stack-select-frame 99")

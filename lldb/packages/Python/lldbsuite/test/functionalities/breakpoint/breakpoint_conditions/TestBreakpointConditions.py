@@ -4,12 +4,13 @@ Test breakpoint conditions with 'breakpoint modify -c <expr> id'.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import re
-import lldb, lldbutil
-from lldbtest import *
+import lldb
+import lldbsuite.test.lldbutil as lldbutil
+from lldbsuite.test.lldbtest import *
 
 class BreakpointConditionsTestCase(TestBase):
 
@@ -102,12 +103,15 @@ class BreakpointConditionsTestCase(TestBase):
         self.runCmd("breakpoint disable")
 
         self.runCmd("breakpoint set -p Loop")
-        if self.getArchitecture() in ['x86_64', 'i386']:
+        arch = self.getArchitecture()
+        if arch in ['x86_64', 'i386']:
             self.runCmd("breakpoint modify -c ($eax&&i)")
-        elif self.getArchitecture() in ['aarch64']:
+        elif arch in ['aarch64']:
             self.runCmd("breakpoint modify -c ($x1&&i)")
-        elif self.getArchitecture() in ['arm']:
+        elif arch in ['arm']:
             self.runCmd("breakpoint modify -c ($r0&&i)")
+        elif re.match("mips",arch):
+            self.runCmd("breakpoint modify -c ($r2&&i)")
         self.runCmd("run")
 
         self.expect("process status", PROCESS_STOPPED,
@@ -163,7 +167,7 @@ class BreakpointConditionsTestCase(TestBase):
         self.assertTrue(process, PROCESS_IS_VALID)
 
         # Frame #0 should be on self.line1 and the break condition should hold.
-        from lldbutil import get_stopped_thread
+        from lldbsuite.test.lldbutil import get_stopped_thread
         thread = get_stopped_thread(process, lldb.eStopReasonBreakpoint)
         self.assertTrue(thread.IsValid(), "There should be a thread stopped due to breakpoint condition")
         frame0 = thread.GetFrameAtIndex(0)

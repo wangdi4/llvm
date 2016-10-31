@@ -5,11 +5,11 @@ should compile and link with the LLDB framework."""
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, re
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class SBDirCheckerCase(TestBase):
 
@@ -26,8 +26,8 @@ class SBDirCheckerCase(TestBase):
         """Test the SB API directory and make sure there's no unwanted stuff."""
 
         # Only proceed if this is an Apple OS, "x86_64", and local platform.
-        if not (self.platformIsDarwin() and self.getArchitecture() == "x86_64" and not lldb.test_remote):
-            self.skipTest("This test is only for LLDB.framework built 64-bit and !lldb.test_remote")
+        if not (self.platformIsDarwin() and self.getArchitecture() == "x86_64"):
+            self.skipTest("This test is only for LLDB.framework built 64-bit")
         if self.getArchitecture() == "i386":
             self.skipTest("LLDB is 64-bit and cannot be linked to 32-bit test program.")
 

@@ -85,11 +85,11 @@ bool LPUIfConversion::ReverseBranchCondition(BBInfo &BBI) {
 /// getNextBlock - Returns the next block in the function blocks ordering. If
 /// it is the end, returns NULL.
 static inline MachineBasicBlock *getNextBlock(MachineBasicBlock *BB) {
-  MachineFunction::iterator I = BB;
+  MachineFunction::iterator I = BB->getIterator();
   MachineFunction::iterator E = BB->getParent()->end();
   if (++I == E)
     return nullptr;
-  return I;
+  return &*I;
 }
 
 /// ValidSimple - Returns true if the 'true' block (along with its
@@ -153,10 +153,10 @@ bool LPUIfConversion::ValidTriangle(BBInfo &TrueBBI, BBInfo &FalseBBI,
 
   MachineBasicBlock *TExit = FalseBranch ? TrueBBI.FalseBB : TrueBBI.TrueBB;
   if (!TExit && blockAlwaysFallThrough(TrueBBI)) {
-    MachineFunction::iterator I = TrueBBI.BB;
+    MachineFunction::iterator I = TrueBBI.BB->getIterator();
     if (++I == TrueBBI.BB->getParent()->end())
       return false;
-    TExit = I;
+    TExit = &*I;
   }
   return TExit && TExit == FalseBBI.BB;
 }

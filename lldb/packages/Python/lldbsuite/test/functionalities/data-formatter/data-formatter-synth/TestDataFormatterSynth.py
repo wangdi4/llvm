@@ -4,12 +4,12 @@ Test lldb data formatter subsystem.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class SynthDataFormatterTestCase(TestBase):
 
@@ -21,7 +21,6 @@ class SynthDataFormatterTestCase(TestBase):
         # Find the line number to break at.
         self.line = line_number('main.cpp', '// Set break point at this line.')
 
-    @expectedFailureAll("llvm.org/pr23139", oslist=["linux"], compiler="gcc", compiler_version=[">=","4.9"], archs=["x86_64","i386"])
     def test_with_run_command(self):
         """Test that that file and class static variables display correctly."""
         self.build()

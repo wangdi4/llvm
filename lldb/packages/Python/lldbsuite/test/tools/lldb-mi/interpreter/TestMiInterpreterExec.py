@@ -4,10 +4,10 @@ Test lldb-mi -interpreter-exec command.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import lldbmi_testcase
-from lldbtest import *
+from lldbsuite.test.lldbtest import *
 
 class MiInterpreterExecTestCase(lldbmi_testcase.MiTestCaseBase):
 
@@ -205,6 +205,7 @@ class MiInterpreterExecTestCase(lldbmi_testcase.MiTestCaseBase):
 
     @skipIfWindows #llvm.org/pr24452: Get lldb-mi tests working on Windows
     @skipIfFreeBSD # llvm.org/pr22411: Failure presumably due to known thread races
+    @expectedFlakeyLinux("llvm.org/pr25470")
     def test_lldbmi_thread_continue(self):
         """Test that 'lldb-mi --interpreter' can continue execution by "thread continue" command."""
 

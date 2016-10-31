@@ -4,13 +4,13 @@ Test the 'memory read' command.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import re
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class MemoryReadTestCase(TestBase):
 
@@ -22,7 +22,6 @@ class MemoryReadTestCase(TestBase):
         # Find the line number to break inside main().
         self.line = line_number('main.cpp', '// Set break point at this line.')
 
-    @expectedFailureAll("llvm.org/pr23139", oslist=["linux"], compiler="gcc", compiler_version=[">=","4.9"], archs=["i386"])
     def test_memory_read(self):
         """Test the 'memory read' command with plain and vector formats."""
         self.build()
@@ -89,3 +88,12 @@ class MemoryReadTestCase(TestBase):
         # 0x7fff5fbff598: error: unsupported byte size (20) for float format
         self.expect("memory read --format 'float' --count 1 --size 20 `&my_double`",
             substrs = ['unsupported byte size (20) for float format'])
+
+        self.expect('memory read --type int --count 5 `&my_ints[0]`',
+            substrs=['(int) 0x', '2','4','6','8','10'])
+
+        self.expect('memory read --type int --count 5 --format hex `&my_ints[0]`',
+            substrs=['(int) 0x', '0x','0a'])
+
+        self.expect('memory read --type int --count 5 --offset 5 `&my_ints[0]`',
+            substrs=['(int) 0x', '12', '14','16','18', '20'])

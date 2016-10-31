@@ -32,6 +32,7 @@ static uint8_t getMinVisibility(uint8_t VA, uint8_t VB) {
 // Returns 1, 0 or -1 if this symbol should take precedence
 // over the Other, tie or lose, respectively.
 template <class ELFT> int SymbolBody::compare(SymbolBody *Other) {
+  typedef typename ELFFile<ELFT>::uintX_t uintX_t;
   assert(!isLazy() && !Other->isLazy());
   std::pair<bool, bool> L(isDefined(), !isWeak());
   std::pair<bool, bool> R(Other->isDefined(), !Other->isWeak());
@@ -57,20 +58,54 @@ template <class ELFT> int SymbolBody::compare(SymbolBody *Other) {
   if (isCommon()) {
     if (!Other->isCommon())
       return -1;
-    auto *ThisC = cast<DefinedCommon<ELFT>>(this);
-    auto *OtherC = cast<DefinedCommon<ELFT>>(Other);
-    typename DefinedCommon<ELFT>::uintX_t MaxAlign =
-        std::max(ThisC->MaxAlignment, OtherC->MaxAlignment);
-    if (ThisC->Sym.st_size >= OtherC->Sym.st_size) {
-      ThisC->MaxAlignment = MaxAlign;
+    auto *ThisC = cast<DefinedCommon>(this);
+    auto *OtherC = cast<DefinedCommon>(Other);
+    uintX_t Align = std::max(ThisC->MaxAlignment, OtherC->MaxAlignment);
+    if (ThisC->Size >= OtherC->Size) {
+      ThisC->MaxAlignment = Align;
       return 1;
     }
-    OtherC->MaxAlignment = MaxAlign;
+    OtherC->MaxAlignment = Align;
     return -1;
   }
   if (Other->isCommon())
     return 1;
   return 0;
+}
+
+Defined::Defined(Kind K, StringRef Name, bool IsWeak, uint8_t Visibility,
+                 bool IsTls)
+    : SymbolBody(K, Name, IsWeak, Visibility, IsTls) {}
+
+Undefined::Undefined(SymbolBody::Kind K, StringRef N, bool IsWeak,
+                     uint8_t Visibility, bool IsTls)
+    : SymbolBody(K, N, IsWeak, Visibility, IsTls), CanKeepUndefined(false) {}
+
+Undefined::Undefined(StringRef N, bool IsWeak, uint8_t Visibility,
+                     bool CanKeepUndefined)
+    : Undefined(SymbolBody::UndefinedKind, N, IsWeak, Visibility,
+                /*IsTls*/ false) {
+  this->CanKeepUndefined = CanKeepUndefined;
+}
+
+template <typename ELFT>
+UndefinedElf<ELFT>::UndefinedElf(StringRef N, const Elf_Sym &Sym)
+    : Undefined(SymbolBody::UndefinedElfKind, N,
+                Sym.getBinding() == llvm::ELF::STB_WEAK, Sym.getVisibility(),
+                Sym.getType() == llvm::ELF::STT_TLS),
+      Sym(Sym) {}
+
+template <typename ELFT>
+DefinedSynthetic<ELFT>::DefinedSynthetic(StringRef N, uintX_t Value,
+                                         OutputSectionBase<ELFT> &Section)
+    : Defined(SymbolBody::DefinedSyntheticKind, N, false, STV_DEFAULT, false),
+      Value(Value), Section(Section) {}
+
+DefinedCommon::DefinedCommon(StringRef N, uint64_t Size, uint64_t Alignment,
+                             bool IsWeak, uint8_t Visibility)
+    : Defined(SymbolBody::DefinedCommonKind, N, IsWeak, Visibility, false) {
+  MaxAlignment = Alignment;
+  this->Size = Size;
 }
 
 std::unique_ptr<InputFile> Lazy::getMember() {
@@ -80,17 +115,18 @@ std::unique_ptr<InputFile> Lazy::getMember() {
   // read from the library.
   if (MBRef.getBuffer().empty())
     return std::unique_ptr<InputFile>(nullptr);
-
-  return createELFFile<ObjectFile>(MBRef);
+  return createObjectFile(MBRef);
 }
 
 template <class ELFT> static void doInitSymbols() {
-  DefinedAbsolute<ELFT>::IgnoreUndef.setBinding(STB_WEAK);
-  DefinedAbsolute<ELFT>::IgnoreUndef.setVisibility(STV_HIDDEN);
-  Undefined<ELFT>::Optional.setVisibility(STV_HIDDEN);
+  ElfSym<ELFT>::End.setBinding(STB_GLOBAL);
+  ElfSym<ELFT>::IgnoredWeak.setBinding(STB_WEAK);
+  ElfSym<ELFT>::IgnoredWeak.setVisibility(STV_HIDDEN);
+  ElfSym<ELFT>::Ignored.setBinding(STB_GLOBAL);
+  ElfSym<ELFT>::Ignored.setVisibility(STV_HIDDEN);
 }
 
-void lld::elf2::initSymbols() {
+void elf2::initSymbols() {
   doInitSymbols<ELF32LE>();
   doInitSymbols<ELF32BE>();
   doInitSymbols<ELF64LE>();
@@ -101,3 +137,13 @@ template int SymbolBody::compare<ELF32LE>(SymbolBody *Other);
 template int SymbolBody::compare<ELF32BE>(SymbolBody *Other);
 template int SymbolBody::compare<ELF64LE>(SymbolBody *Other);
 template int SymbolBody::compare<ELF64BE>(SymbolBody *Other);
+
+template class elf2::UndefinedElf<ELF32LE>;
+template class elf2::UndefinedElf<ELF32BE>;
+template class elf2::UndefinedElf<ELF64LE>;
+template class elf2::UndefinedElf<ELF64BE>;
+
+template class elf2::DefinedSynthetic<ELF32LE>;
+template class elf2::DefinedSynthetic<ELF32BE>;
+template class elf2::DefinedSynthetic<ELF64LE>;
+template class elf2::DefinedSynthetic<ELF64BE>;

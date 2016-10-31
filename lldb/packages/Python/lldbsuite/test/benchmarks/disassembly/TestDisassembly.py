@@ -2,11 +2,12 @@
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, sys
 import lldb
-from lldbbench import *
+from lldbsuite.test import configuration
+from lldbsuite.test.lldbbench import *
 
 def is_exe(fpath):
     """Returns true if fpath is an executable."""
@@ -35,9 +36,7 @@ class DisassembleDriverMainLoop(BenchBase):
         self.function = 'Driver::MainLoop()'
         self.lldb_avg = None
         self.gdb_avg = None
-        self.count = lldb.bmIterationCount
-        if self.count <= 0:
-            self.count = 5
+        self.count = 5
 
     @benchmarks_test
     @no_debug_info_test

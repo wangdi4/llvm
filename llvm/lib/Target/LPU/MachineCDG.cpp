@@ -190,14 +190,15 @@ void ControlDependenceGraphBase::computeDependencies(MachineFunction &F, Machine
   root = new ControlDependenceNode();
   nodes.insert(root);
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    ControlDependenceNode *bn = new ControlDependenceNode(BB);
+    MachineBasicBlock *mbb = &*BB;
+    ControlDependenceNode *bn = new ControlDependenceNode(mbb);
     nodes.insert(bn);
-    bb2cdg[BB] = bn;
-    cdg2bb[bn] = BB;
+    bb2cdg[mbb] = bn;
+    cdg2bb[bn] = mbb;
   }
 
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    MachineBasicBlock *A = BB;
+    MachineBasicBlock *A = &*BB;
     ControlDependenceNode *AN = bb2cdg[A];
 
     for (MachineBasicBlock::succ_iterator succ = A->succ_begin(), end = A->succ_end(); succ != end; ++succ) {
@@ -398,7 +399,7 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
   }
 
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    MachineBasicBlock *A = BB;
+    MachineBasicBlock *A = &*BB;
     for (MachineBasicBlock::succ_iterator succ = A->succ_begin(), end = A->succ_end(); succ != end; ++succ) {
       MachineBasicBlock *B = *succ;
       assert(A && B);

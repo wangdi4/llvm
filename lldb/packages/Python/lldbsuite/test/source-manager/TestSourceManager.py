@@ -11,11 +11,11 @@ o test_modify_source_file_while_debugging:
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class SourceManagerTestCase(TestBase):
 
@@ -26,7 +26,6 @@ class SourceManagerTestCase(TestBase):
         TestBase.setUp(self)
         # Find the line number to break inside main().
         self.line = line_number('main.c', '// Set break point at this line.')
-        lldb.skip_build_and_cleanup = False
 
     @add_test_categories(['pyapi'])
     def test_display_source_python(self):

@@ -325,7 +325,6 @@ std::unique_ptr<ELFLinkingContext>
 GnuLdDriver::createELFLinkingContext(llvm::Triple triple) {
   std::unique_ptr<ELFLinkingContext> p;
   if ((p = elf::createAArch64LinkingContext(triple))) return p;
-  if ((p = elf::createAMDGPULinkingContext(triple))) return p;
   if ((p = elf::createARMLinkingContext(triple))) return p;
   if ((p = elf::createExampleLinkingContext(triple))) return p;
   if ((p = elf::createHexagonLinkingContext(triple))) return p;
@@ -636,6 +635,10 @@ bool GnuLdDriver::parse(llvm::ArrayRef<const char *> args,
   ctx->registry().addSupportYamlFiles();
   if (ctx->allowLinkWithDynamicLibraries())
     ctx->registry().addSupportELFDynamicSharedObjects(*ctx);
+
+  // Parse the LLVM options before we process files in case the file handling
+  // makes use of things like DEBUG().
+  parseLLVMOptions(*ctx);
 
   std::stack<int> groupStack;
   int numfiles = 0;

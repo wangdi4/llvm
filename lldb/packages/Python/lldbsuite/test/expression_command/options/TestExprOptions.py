@@ -9,12 +9,12 @@ o test_expr_options:
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import lldb
-import lldbutil
-from lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
+from lldbsuite.test.lldbtest import *
 
 class ExprOptionsTestCase(TestBase):
 
@@ -56,7 +56,7 @@ class ExprOptionsTestCase(TestBase):
 
         # test --language on C++ expression using the SB API's
 
-        # Make sure we can evaluate 'ns::func'.
+        # Make sure we can evaluate a C++11 expression.
         val = frame.EvaluateExpression('foo != nullptr')
         self.assertTrue(val.IsValid())
         self.assertTrue(val.GetError().Success())

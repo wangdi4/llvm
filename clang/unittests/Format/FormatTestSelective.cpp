@@ -162,6 +162,13 @@ TEST_F(FormatTestSelective, FormatsCommentsLocally) {
                    "// This is\n"
                    "// not formatted.   ",
                    0, 0));
+  EXPECT_EQ("int x;  // Format this line.\n"
+            "int xx; //\n"
+            "int xxxxx; //",
+            format("int x; // Format this line.\n"
+                   "int xx; //\n"
+                   "int xxxxx; //",
+                   0, 0));
 }
 
 TEST_F(FormatTestSelective, IndividualStatementsOfNestedBlocks) {
@@ -271,6 +278,27 @@ TEST_F(FormatTestSelective, IndividualStatementsOfNestedBlocks) {
                    "  };\n"
                    "});",
                    0, 0));
+}
+
+TEST_F(FormatTestSelective, WrongIndent) {
+  EXPECT_EQ("namespace {\n"
+            "int i;\n"
+            "int j;\n"
+            "}",
+            format("namespace {\n"
+                   "  int i;\n" // Format here.
+                   "  int j;\n"
+                   "}",
+                   15, 0));
+  EXPECT_EQ("namespace {\n"
+            "  int i;\n"
+            "  int j;\n"
+            "}",
+            format("namespace {\n"
+                   "  int i;\n"
+                   "  int j;\n" // Format here.
+                   "}",
+                   24, 0));
 }
 
 TEST_F(FormatTestSelective, AlwaysFormatsEntireMacroDefinitions) {
@@ -444,6 +472,27 @@ TEST_F(FormatTestSelective, UnderstandsTabs) {
                    "  \tg();\n"
                    "}",
                    21, 0));
+}
+
+TEST_F(FormatTestSelective, StopFormattingWhenLeavingScope) {
+  EXPECT_EQ(
+      "void f() {\n"
+      "  if (a) {\n"
+      "    g();\n"
+      "    h();\n"
+      "}\n"
+      "\n"
+      "void g() {\n"
+      "}",
+      format("void f() {\n"
+             "  if (a) {\n" // Assume this was added without the closing brace.
+             "  g();\n"
+             "  h();\n"
+             "}\n"
+             "\n"
+             "void g() {\n" // Make sure not to format this.
+             "}",
+             15, 0));
 }
 
 } // end namespace

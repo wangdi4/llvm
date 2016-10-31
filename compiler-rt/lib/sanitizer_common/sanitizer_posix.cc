@@ -112,14 +112,14 @@ uptr GetMaxVirtualAddress() {
 #endif  // SANITIZER_WORDSIZE
 }
 
-void *MmapOrDie(uptr size, const char *mem_type) {
+void *MmapOrDie(uptr size, const char *mem_type, bool raw_report) {
   size = RoundUpTo(size, GetPageSizeCached());
   uptr res = internal_mmap(nullptr, size,
                            PROT_READ | PROT_WRITE,
                            MAP_PRIVATE | MAP_ANON, -1, 0);
   int reserrno;
   if (internal_iserror(res, &reserrno))
-    ReportMmapFailureAndDie(size, mem_type, reserrno);
+    ReportMmapFailureAndDie(size, mem_type, "allocate", reserrno, raw_report);
   IncreaseTotalMmap(size);
   return (void *)res;
 }
@@ -143,12 +143,8 @@ void *MmapNoReserveOrDie(uptr size, const char *mem_type) {
                          MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,
                          -1, 0);
   int reserrno;
-  if (internal_iserror(p, &reserrno)) {
-    Report("ERROR: %s failed to "
-           "allocate noreserve 0x%zx (%zd) bytes for '%s' (errno: %d)\n",
-           SanitizerToolName, size, size, mem_type, reserrno);
-    CHECK("unable to mmap" && 0);
-  }
+  if (internal_iserror(p, &reserrno))
+    ReportMmapFailureAndDie(size, mem_type, "allocate noreserve", reserrno);
   IncreaseTotalMmap(size);
   return (void *)p;
 }
@@ -162,10 +158,10 @@ void *MmapFixedOrDie(uptr fixed_addr, uptr size) {
       -1, 0);
   int reserrno;
   if (internal_iserror(p, &reserrno)) {
-    Report("ERROR: %s failed to "
-           "allocate 0x%zx (%zd) bytes at address %zx (errno: %d)\n",
-           SanitizerToolName, size, size, fixed_addr, reserrno);
-    CHECK("unable to mmap" && 0);
+    char mem_type[30];
+    internal_snprintf(mem_type, sizeof(mem_type), "memory at address 0x%zx",
+                      fixed_addr);
+    ReportMmapFailureAndDie(size, mem_type, "allocate", reserrno);
   }
   IncreaseTotalMmap(size);
   return (void *)p;
@@ -323,22 +319,6 @@ SignalContext SignalContext::Create(void *siginfo, void *context) {
   uptr pc, sp, bp;
   GetPcSpBp(context, &pc, &sp, &bp);
   return SignalContext(context, addr, pc, sp, bp);
-}
-
-// This function check is the built VMA matches the runtime one for
-// architectures with multiple VMA size.
-void CheckVMASize() {
-#ifdef __aarch64__
-  static const unsigned kBuiltVMA = SANITIZER_AARCH64_VMA;
-  unsigned maxRuntimeVMA =
-    (MostSignificantSetBitIndex(GET_CURRENT_FRAME()) + 1);
-  if (kBuiltVMA != maxRuntimeVMA) {
-    Printf("WARNING: %s runtime VMA is not the one built for.\n",
-      SanitizerToolName);
-    Printf("\tBuilt VMA:   %u bits\n", kBuiltVMA);
-    Printf("\tRuntime VMA: %u bits\n", maxRuntimeVMA);
-  }
-#endif
 }
 
 } // namespace __sanitizer

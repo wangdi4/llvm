@@ -42,7 +42,6 @@ if (LIBCXX_BUILT_STANDALONE AND NOT LLVM_FOUND)
                   "or -DLLVM_PATH=path/to/llvm-source-root.")
 endif()
 
-
 #===============================================================================
 # Setup CMake Options
 #===============================================================================
@@ -121,6 +120,7 @@ option(LIBCXX_ENABLE_THREAD_UNSAFE_C_FUNCTIONS "Build libc++ with support for th
 option(LIBCXX_ENABLE_MONOTONIC_CLOCK
   "Build libc++ with support for a monotonic clock.
    This option may only be set to OFF when LIBCXX_ENABLE_THREADS=OFF." ON)
+option(LIBCXX_HAS_MUSL_LIBC "Build libc++ with support for the Musl C library" OFF)
 
 # Misc options ----------------------------------------------------------------
 # FIXME: Turn -pedantic back ON. It is currently off because it warns
@@ -148,6 +148,13 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin" AND NOT LIBCXX_OVERRIDE_DARWIN_INSTALL
     set(LIBCXX_INSTALL_LIBRARY OFF)
   endif()
 endif()
+
+set(LIBCXX_CONFIGURE_IDE_DEFAULT OFF)
+if (XCODE OR MSVC_IDE)
+  set(LIBCXX_CONFIGURE_IDE_DEFAULT ON)
+endif()
+option(LIBCXX_CONFIGURE_IDE "Configure libcxx for use within an IDE"
+      ${LIBCXX_CONFIGURE_IDE_DEFAULT})
 
 #===============================================================================
 # Check option configurations
@@ -198,6 +205,11 @@ if (LIBCXX_ENABLE_STATIC_ABI_LIBRARY AND LIBCXX_ENABLE_ABI_LINKER_SCRIPT)
     message(FATAL_ERROR "Conflicting options given.
         LIBCXX_ENABLE_STATIC_ABI_LIBRARY cannot be specified with
         LIBCXX_ENABLE_ABI_LINKER_SCRIPT")
+endif()
+
+if (LIBCXX_HAS_MUSL_LIBC AND NOT LIBCXX_INSTALL_SUPPORT_HEADERS)
+  message(FATAL_ERROR "LIBCXX_INSTALL_SUPPORT_HEADERS can not be turned off"
+                      "when building for Musl with LIBCXX_HAS_MUSL_LIBC.")
 endif()
 
 #===============================================================================
@@ -363,6 +375,8 @@ config_define_if_not(LIBCXX_ENABLE_STDOUT _LIBCPP_HAS_NO_STDOUT)
 config_define_if_not(LIBCXX_ENABLE_THREADS _LIBCPP_HAS_NO_THREADS)
 config_define_if_not(LIBCXX_ENABLE_MONOTONIC_CLOCK _LIBCPP_HAS_NO_MONOTONIC_CLOCK)
 config_define_if_not(LIBCXX_ENABLE_THREAD_UNSAFE_C_FUNCTIONS _LIBCPP_HAS_NO_THREAD_UNSAFE_C_FUNCTIONS)
+
+config_define_if(LIBCXX_HAS_MUSL_LIBC _LIBCPP_HAS_MUSL_LIBC)
 
 if (LIBCXX_NEEDS_SITE_CONFIG)
   configure_file(

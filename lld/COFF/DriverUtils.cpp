@@ -321,7 +321,8 @@ void createSideBySideManifest() {
 }
 
 // Parse a string in the form of
-// "<name>[=<internalname>][,@ordinal[,NONAME]][,DATA][,PRIVATE]".
+// "<name>[=<internalname>][,@ordinal[,NONAME]][,DATA][,PRIVATE]"
+// or "<name>=<dllname>.<name>".
 // Used for parsing /export arguments.
 Export parseExport(StringRef Arg) {
   Export E;
@@ -329,12 +330,25 @@ Export parseExport(StringRef Arg) {
   std::tie(E.Name, Rest) = Arg.split(",");
   if (E.Name.empty())
     goto err;
+
   if (E.Name.find('=') != StringRef::npos) {
-    std::tie(E.ExtName, E.Name) = E.Name.split("=");
+    StringRef X, Y;
+    std::tie(X, Y) = E.Name.split("=");
+
+    // If "<name>=<dllname>.<name>".
+    if (Y.find(".") != StringRef::npos) {
+      E.Name = X;
+      E.ForwardTo = Y;
+      return E;
+    }
+
+    E.ExtName = X;
+    E.Name = Y;
     if (E.Name.empty())
       goto err;
   }
 
+  // If "<name>=<internalname>[,@ordinal[,NONAME]][,DATA][,PRIVATE]"
   while (!Rest.empty()) {
     StringRef Tok;
     std::tie(Tok, Rest) = Rest.split(",");
@@ -388,15 +402,22 @@ void fixupExports() {
   }
 
   for (Export &E : Config->Exports) {
-    if (Undefined *U = cast_or_null<Undefined>(E.Sym->WeakAlias)) {
+    if (!E.ForwardTo.empty()) {
+      E.SymbolName = E.Name;
+    } else if (Undefined *U = cast_or_null<Undefined>(E.Sym->WeakAlias)) {
       E.SymbolName = U->getName();
     } else {
       E.SymbolName = E.Sym->getName();
     }
   }
 
-  for (Export &E : Config->Exports)
-    E.ExportName = undecorate(E.ExtName.empty() ? E.Name : E.ExtName);
+  for (Export &E : Config->Exports) {
+    if (!E.ForwardTo.empty()) {
+      E.ExportName = undecorate(E.Name);
+    } else {
+      E.ExportName = undecorate(E.ExtName.empty() ? E.Name : E.ExtName);
+    }
+  }
 
   // Uniquefy by name.
   std::map<StringRef, Export *> Map;
@@ -521,7 +542,9 @@ static std::unique_ptr<MemoryBuffer> createEmptyImportLibrary() {
 static std::vector<NewArchiveIterator>
 readMembers(const object::Archive &Archive) {
   std::vector<NewArchiveIterator> V;
-  for (const object::Archive::Child &C : Archive.children()) {
+  for (const auto &ChildOrErr : Archive.children()) {
+    error(ChildOrErr, "Archive::Child::getName failed");
+    const object::Archive::Child C(*ChildOrErr);
     ErrorOr<StringRef> NameOrErr = C.getName();
     error(NameOrErr, "Archive::Child::getName failed");
     V.emplace_back(C, *NameOrErr);
@@ -570,7 +593,9 @@ public:
     P += Sym.size() + 1;
     memcpy(P, DLLName.data(), DLLName.size());
 
-    object::Archive::Child C(Parent, Buf);
+    std::error_code EC;
+    object::Archive::Child C(Parent, Buf, &EC);
+    assert(!EC && "We created an invalid buffer");
     return NewArchiveIterator(C, DLLName);
   }
 

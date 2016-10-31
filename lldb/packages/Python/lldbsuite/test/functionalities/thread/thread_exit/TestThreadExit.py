@@ -4,12 +4,12 @@ Test number of threads.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class ThreadExitTestCase(TestBase):
 
@@ -24,7 +24,6 @@ class ThreadExitTestCase(TestBase):
         self.break_3 = line_number('main.cpp', '// Set third breakpoint here')
         self.break_4 = line_number('main.cpp', '// Set fourth breakpoint here')
 
-    @expectedFailureFreeBSD("llvm.org/pr18190") # thread states not properly maintained
     @expectedFailureWindows("llvm.org/pr24681")
     def test(self):
         """Test thread exit handling."""

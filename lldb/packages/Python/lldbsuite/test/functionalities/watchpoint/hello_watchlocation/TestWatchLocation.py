@@ -4,13 +4,13 @@ Test lldb watchpoint that uses '-s size' to watch a pointed location with size.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import re
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class HelloWatchLocationTestCase(TestBase):
 
@@ -31,6 +31,7 @@ class HelloWatchLocationTestCase(TestBase):
 
     @expectedFailureAndroid(archs=['arm', 'aarch64']) # Watchpoints not supported
     @expectedFailureWindows("llvm.org/pr24446") # WINDOWS XFAIL TRIAGE - Watchpoints not supported on Windows
+    @expectedFailureAll(archs=['mips', 'mipsel', 'mips64', 'mips64el']) # Most of the MIPS boards provide only one H/W watchpoints, and S/W watchpoints are not supported yet
     def test_hello_watchlocation(self):
         """Test watching a location with '-s size' option."""
         self.build(dictionary=self.d)

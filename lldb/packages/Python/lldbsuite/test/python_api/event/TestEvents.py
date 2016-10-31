@@ -4,13 +4,16 @@ Test lldb Python event APIs.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import re
-import lldb, lldbutil
-from lldbtest import *
+import lldb
+import lldbsuite.test.lldbutil as lldbutil
+from lldbsuite.test.lldbtest import *
 
+@skipIfDarwin  # llvm.org/pr25924, sometimes generating SIGSEGV
+@skipIfLinux   # llvm.org/pr25924, sometimes generating SIGSEGV
 class EventAPITestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
@@ -23,7 +26,6 @@ class EventAPITestCase(TestBase):
 
     @add_test_categories(['pyapi'])
     @expectedFailureLinux("llvm.org/pr23730") # Flaky, fails ~1/10 cases
-    @skipIfLinux # skip to avoid crashes
     def test_listen_for_and_print_event(self):
         """Exercise SBEvent API."""
         self.build()
@@ -101,6 +103,7 @@ class EventAPITestCase(TestBase):
         my_thread.join()
 
     @add_test_categories(['pyapi'])
+    @expectedFlakeyLinux("llvm.org/pr23730") # Flaky, fails ~1/100 cases
     def test_wait_for_event(self):
         """Exercise SBListener.WaitForEvent() API."""
         self.build()
@@ -173,7 +176,7 @@ class EventAPITestCase(TestBase):
 
     @skipIfFreeBSD # llvm.org/pr21325
     @add_test_categories(['pyapi'])
-    @expectedFlakeyLinux("llvm.org/pr23617")  # Flaky, fails ~1/10 cases
+    @expectedFailureLinux("llvm.org/pr23617")  # Flaky, fails ~1/10 cases
     @expectedFailureWindows("llvm.org/pr24778")
     def test_add_listener_to_broadcaster(self):
         """Exercise some SBBroadcaster APIs."""

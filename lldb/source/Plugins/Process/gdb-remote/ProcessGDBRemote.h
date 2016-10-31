@@ -27,6 +27,7 @@
 #include "lldb/Core/StringList.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Core/ThreadSafeValue.h"
+#include "lldb/Core/LoadedModuleInfoList.h"
 #include "lldb/Host/HostThread.h"
 #include "lldb/lldb-private-forward.h"
 #include "lldb/Utility/StringExtractor.h"
@@ -239,6 +240,14 @@ public:
                   const ArchSpec& arch,
                   ModuleSpec &module_spec) override;
 
+    bool
+    GetHostOSVersion(uint32_t &major,
+                     uint32_t &minor,
+                     uint32_t &update) override;
+
+    size_t
+    LoadModules(LoadedModuleInfoList &module_list) override;
+
     size_t
     LoadModules() override;
 
@@ -255,8 +264,6 @@ protected:
     friend class ThreadGDBRemote;
     friend class GDBRemoteCommunicationClient;
     friend class GDBRemoteRegisterContext;
-
-    class GDBLoadedModuleInfoList;
 
     //------------------------------------------------------------------
     /// Broadcaster event bits definitions.
@@ -283,6 +290,7 @@ protected:
     typedef std::map<lldb::addr_t, lldb::addr_t> MMapMap;
     typedef std::map<uint32_t, std::string> ExpeditedRegisterMap;
     tid_collection m_thread_ids; // Thread IDs for all threads. This list gets updated after stopping
+    std::vector<lldb::addr_t> m_thread_pcs; // PC values for all the threads.
     StructuredData::ObjectSP m_jstopinfo_sp; // Stop info only for any threads that have valid stop infos
     StructuredData::ObjectSP m_jthreadsinfo_sp; // Full stop info, expedited registers and memory for all threads if "jThreadsInfo" packet is supported
     tid_collection m_continue_c_tids;                  // 'c' for continue
@@ -349,6 +357,9 @@ protected:
                       ThreadList &new_thread_list) override;
 
     Error
+    EstablishConnectionIfNeeded (const ProcessInfo &process_info);
+
+    Error
     LaunchAndConnectToDebugserver (const ProcessInfo &process_info);
 
     void
@@ -374,6 +385,9 @@ protected:
 
     bool
     CalculateThreadStopInfo (ThreadGDBRemote *thread);
+
+    size_t
+    UpdateThreadPCsFromStopReplyThreadsValue (std::string &value);
 
     size_t
     UpdateThreadIDsFromStopReplyThreadsValue (std::string &value);
@@ -417,6 +431,8 @@ protected:
                        const std::vector<lldb::addr_t> &exc_data,
                        lldb::addr_t thread_dispatch_qaddr,
                        bool queue_vars_valid,
+                       lldb_private::LazyBool associated_with_libdispatch_queue,
+                       lldb::addr_t dispatch_queue_t,
                        std::string &queue_name,
                        lldb::QueueKind queue_kind,
                        uint64_t queue_serial);
@@ -449,7 +465,7 @@ protected:
 
     // Query remote GDBServer for a detailed loaded library list
     Error
-    GetLoadedModuleList (GDBLoadedModuleInfoList &);
+    GetLoadedModuleList (LoadedModuleInfoList &);
 
     lldb::ModuleSP
     LoadModuleAtAddress (const FileSpec &file, lldb::addr_t base_addr, bool value_is_offset);

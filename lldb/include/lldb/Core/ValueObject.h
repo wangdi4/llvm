@@ -424,8 +424,11 @@ public:
     virtual bool
     IsPossibleDynamicType ();
 
-    virtual bool
-    IsObjCNil ();
+    bool
+    IsNilReference ();
+    
+    bool
+    IsUninitializedReference ();
     
     virtual bool
     IsBaseClass ()
@@ -604,6 +607,12 @@ public:
 
     virtual bool
     ResolveValue (Scalar &scalar);
+    
+    // return 'false' whenever you set the error, otherwise
+    // callers may assume true means everything is OK - this will
+    // break breakpoint conditions among potentially a few others
+    virtual bool
+    IsLogicalTrue (Error& error);
     
     virtual const char *
     GetLocationAsCString ();
@@ -834,7 +843,7 @@ public:
     bool
     IsCStringContainer (bool check_pointer = false);
     
-    size_t
+    std::pair<size_t,bool>
     ReadPointedString (lldb::DataBufferSP& buffer_sp,
                        Error& error,
                        uint32_t max_length = 0,
@@ -998,8 +1007,20 @@ public:
     virtual bool
     MightHaveChildren();
     
+    virtual lldb::VariableSP
+    GetVariable ()
+    {
+        return nullptr;
+    }
+
     virtual bool
     IsRuntimeSupportValue ();
+    
+    virtual uint64_t
+    GetLanguageFlags ();
+    
+    virtual void
+    SetLanguageFlags (uint64_t flags);
 
 protected:
     typedef ClusterManager<ValueObject> ValueObjectManager;
@@ -1117,6 +1138,8 @@ protected:
     llvm::SmallVector<uint8_t, 16> m_value_checksum;
     
     lldb::LanguageType m_preferred_display_language;
+    
+    uint64_t m_language_flags;
     
     bool                m_value_is_valid:1,
                         m_value_did_change:1,

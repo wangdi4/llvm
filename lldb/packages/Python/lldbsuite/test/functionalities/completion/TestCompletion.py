@@ -4,11 +4,11 @@ Test the lldb command line completion mechanism.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os
 import lldb
-from lldbtest import *
+from lldbsuite.test.lldbtest import *
 
 class CommandLineCompletionTestCase(TestBase):
 
@@ -254,6 +254,7 @@ class CommandLineCompletionTestCase(TestBase):
         self.complete_from_to('target va', 'target variable ')
 
     @expectedFailureHostWindows("llvm.org/pr24679")
+    @expectedFailureDarwin("llvm.org/pr25485")
     def test_symbol_name(self):
         self.build()
         self.complete_from_to('''file a.out

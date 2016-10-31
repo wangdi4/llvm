@@ -491,9 +491,9 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
     MachineBasicBlock* ctrlBB = (*latchNode->parent_begin())->getBlock();
 
     assert(ctrlBB);
-    bi = ctrlBB->getFirstInstrTerminator();
+    bi = &*ctrlBB->getFirstInstrTerminator();
   } else {
-    bi = cdgpBB->getFirstInstrTerminator();
+    bi = &*cdgpBB->getFirstInstrTerminator();
   }
   MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
   unsigned predReg = bi->getOperand(0).getReg();
@@ -1099,7 +1099,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
         ControlDependenceNode* latchNode = CDG->getNode(latchBB);
         assert(latchNode->getNumParents() == 1);
         ControlDependenceNode* ctrlNode = *latchNode->parent_begin();
-        MachineInstr* bi = ctrlNode->getBlock()->getFirstInstrTerminator();
+        MachineInstr* bi = &*ctrlNode->getBlock()->getFirstInstrTerminator();
         if (CDG->getEdgeType(bi->getParent(), latchBB, true) == ControlDependenceNode::FALSE) {
 					pickFalse = backEdgeInput;
 					pickTrue = initInput;
@@ -1150,7 +1150,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
 	renameQueue.clear();
 	std::set<unsigned> pinedVReg;
 	for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-    MachineBasicBlock* mbb = BB;
+    MachineBasicBlock* mbb = &*BB;
 		for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
 			if (MI->isPHI()) {
 				for (MIOperands MO(MI); MO.isValid(); ++MO) {
@@ -1295,7 +1295,7 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
 
   std::deque<unsigned> renameQueue;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-		MachineBasicBlock* mbb = BB;
+		MachineBasicBlock* mbb = &*BB;
     MachineBasicBlock::iterator iterMI = BB->begin();
     while(iterMI != BB->end()) {
       MachineInstr* MI = iterMI;
@@ -1312,7 +1312,7 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
       }
       if (allConst) {
         const TargetRegisterClass *TRC = MRI->getRegClass(MI->getOperand(0).getReg());
-        ControlDependenceNode* mNode = CDG->getNode(BB);
+        ControlDependenceNode* mNode = CDG->getNode(mbb);
 				MachineInstr *pickInst = nullptr;
 				MachineInstr *switchInst = nullptr;
 				const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false);
@@ -1410,7 +1410,7 @@ void LPUCvtCFDFPass::removeBranch() {
 
 void LPUCvtCFDFPass::linearizeCFG() {
   typedef po_iterator<MachineBasicBlock *> po_mbb_iterator;
-  MachineBasicBlock *root = thisMF->begin();
+  MachineBasicBlock *root = &*thisMF->begin();
   std::stack<MachineBasicBlock *> mbbStack;
   for (po_mbb_iterator mbb = po_mbb_iterator::begin(root), END = po_mbb_iterator::end(root); mbb != END; ++mbb) {
     mbbStack.push(*mbb);
@@ -1697,7 +1697,7 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
 		if (!ctrlBB) { //root node has no bb
 			//mov 1
 			// Look up target register class corresponding to this register.
-			MachineBasicBlock* entryBB = thisMF->begin();
+			MachineBasicBlock* entryBB = &*thisMF->begin();
       unsigned cpyReg = MRI->createVirtualRegister(&LPU::I1RegClass);
 			const unsigned moveOpcode = TII.getMoveOpcode(&LPU::I1RegClass);
 			BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addImm(1);
@@ -1878,7 +1878,7 @@ void LPUCvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> 
 
 void LPUCvtCFDFPass::generateDynamicPreds() {
 	typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
-	MachineBasicBlock *root = thisMF->begin();
+	MachineBasicBlock *root = &*thisMF->begin();
 	for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
 		MachineBasicBlock* mbb = *itermbb;
 		//skip loop hdr phi
@@ -1916,7 +1916,7 @@ void LPUCvtCFDFPass::generateDynamicPreds() {
 
 void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
   typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
-  MachineBasicBlock *root = thisMF->begin();
+  MachineBasicBlock *root = &*thisMF->begin();
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
     MachineBasicBlock::iterator iterI = mbb->begin();
@@ -2298,7 +2298,7 @@ unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
   unsigned current_mem_reg = mem_in_reg;
   SmallVector<unsigned, MEMDEP_VEC_WIDTH> current_wavefront;
   current_wavefront.clear();
-  DEBUG(errs() << "Wavefront memory ordering for block " << BB << "\n");
+  DEBUG(errs() << "Wavefront memory ordering for block " << &*BB << "\n");
 
   MachineBasicBlock::iterator iterMI = BB->begin();
   while (iterMI != BB->end()) {
@@ -2465,8 +2465,8 @@ void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
     // Save mem_in_reg and mem_out_reg for each block into a DenseMap,
     // so that we can create a PHI instruction as an input to the
     // block.
-    blockToMemIn[BB] = mem_in_reg;
-    blockToMemOut[BB] = mem_out_reg;
+    blockToMemIn[&*BB] = mem_in_reg;
+    blockToMemOut[&*BB] = mem_out_reg;
 
     DEBUG(errs() << "After memop conversion of function: " << *BB << "\n");
   }

@@ -4,12 +4,12 @@ Test lldb watchpoint that uses 'watchpoint set -w write -s size' to watch a poin
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class WatchLocationUsingWatchpointSetTestCase(TestBase):
 
@@ -27,6 +27,7 @@ class WatchLocationUsingWatchpointSetTestCase(TestBase):
         # Build dictionary to have unique executable names for each test method.
 
     @expectedFailureAndroid(archs=['arm', 'aarch64']) # Watchpoints not supported
+    @expectedFailureLinux(bugnumber="llvm.org/pr26031", archs=['arm'])
     @expectedFailureWindows("llvm.org/pr24446") # WINDOWS XFAIL TRIAGE - Watchpoints not supported on Windows
     def test_watchlocation_using_watchpoint_set(self):
         """Test watching a location with 'watchpoint set expression -w write -s size' option."""
@@ -80,8 +81,10 @@ class WatchLocationUsingWatchpointSetTestCase(TestBase):
             endstr = ' = 99')
 
         # Use the '-v' option to do verbose listing of the watchpoint.
-        # The hit count should now be 1.
+        # The hit count should now be the same as the number of threads that
+        # stopped on a watchpoint.
+        threads = lldbutil.get_stopped_threads(self.process(), lldb.eStopReasonWatchpoint)
         self.expect("watchpoint list -v",
-            substrs = ['hit_count = 1'])
+            substrs = ['hit_count = %d' % len(threads)])
 
         self.runCmd("thread backtrace all")

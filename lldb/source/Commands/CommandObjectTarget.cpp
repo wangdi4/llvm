@@ -256,7 +256,7 @@ protected:
                 {
                     if (!symfile.Readable())
                     {
-                        result.AppendErrorWithFormat("symbol file '%s' is not readable", core_file.GetPath().c_str());
+                        result.AppendErrorWithFormat("symbol file '%s' is not readable", symfile.GetPath().c_str());
                         result.SetStatus (eReturnStatusFailed);
                         return false;
                     }
@@ -2577,8 +2577,9 @@ protected:
 
         if (command.GetArgumentCount() == 0)
         {
-            result.AppendErrorWithFormat ("\nSyntax: %s\n", m_cmd_syntax.c_str());
+            result.AppendError ("file option must be specified.");
             result.SetStatus (eReturnStatusFailed);
+            return result.Succeeded();
         }
         else
         {

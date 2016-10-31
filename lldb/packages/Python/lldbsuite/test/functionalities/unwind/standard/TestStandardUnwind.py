@@ -12,13 +12,13 @@ after escaping some special characters).
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import unittest2
 import os, time
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 test_source_dirs = ["."]
 
@@ -117,7 +117,7 @@ for d in test_source_dirs:
 # Generate test cases based on the collected source files
 for f in test_source_files:
     if f.endswith(".cpp") or f.endswith(".c"):
-        @dwarf_test
+        @add_test_categories(["dwarf"])
         @unittest2.skipIf(TestBase.skipLongRunningTest(), "Skip this long running test")
         def test_function_dwarf(self, f=f):
             if f.endswith(".cpp"):

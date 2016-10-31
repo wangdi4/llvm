@@ -102,6 +102,8 @@ public:
                            unsigned AddressSpace);
   unsigned getIntrinsicInstrCost(Intrinsic::ID, Type *RetTy,
                                  ArrayRef<Type*> Tys);
+  unsigned getIntrinsicInstrCost(Intrinsic::ID, Type *RetTy,
+                                 ArrayRef<Value*> Args);
   unsigned getNumberOfParts(Type *Tp);
   unsigned getAddressComputationCost( Type *Ty, bool IsComplex);
   unsigned getReductionCost(unsigned Opcode, Type *Ty,

@@ -27,8 +27,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "polly/CodeGen/CodeGeneration.h"
 #include "polly/CodeGen/IslAst.h"
+#include "polly/CodeGen/CodeGeneration.h"
 #include "polly/DependenceInfo.h"
 #include "polly/LinkAllPasses.h"
 #include "polly/Options.h"
@@ -70,11 +70,6 @@ static cl::opt<bool> DetectParallel("polly-ast-detect-parallel",
                                     cl::desc("Detect parallelism"), cl::Hidden,
                                     cl::init(false), cl::ZeroOrMore,
                                     cl::cat(PollyCategory));
-
-static cl::opt<bool> EarlyExit("polly-no-early-exit",
-                               cl::desc("Dummy flag to keep LNT builders run"),
-                               cl::Hidden, cl::ZeroOrMore,
-                               cl::cat(PollyCategory));
 
 namespace polly {
 class IslAst {

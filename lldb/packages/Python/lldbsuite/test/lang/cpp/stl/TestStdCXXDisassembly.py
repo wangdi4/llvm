@@ -4,13 +4,13 @@ Test the lldb disassemble command on lib stdc++.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import unittest2
 import os, time
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class StdCXXDisassembleTestCase(TestBase):
 
@@ -56,7 +56,8 @@ class StdCXXDisassembleTestCase(TestBase):
         for i in range(depth - 1):
             frame = thread.GetFrameAtIndex(i)
             function = frame.GetFunction()
-            self.runCmd("disassemble -n '%s'" % function.GetName())
+            if function.GetName():
+                self.runCmd("disassemble -n '%s'" % function.GetName())
 
         lib_stdcxx = "FAILHORRIBLYHERE"
         # Iterate through the available modules, looking for stdc++ library...

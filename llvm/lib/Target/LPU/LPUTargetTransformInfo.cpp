@@ -95,7 +95,7 @@ void LPUTTIImpl::getUnrollingPreferences(Loop *L, TTI::UnrollingPreferences &UP)
 
     for (BasicBlock::iterator J = BB->begin(), JE = BB->end(); J != JE; ++J)
       if (isa<CallInst>(J) || isa<InvokeInst>(J)) {
-        ImmutableCallSite CS(J);
+        ImmutableCallSite CS(&*J);
         if (const Function *F = CS.getCalledFunction()) {
           if (!BaseT::isLoweredToCall(F))
             continue;
@@ -386,6 +386,18 @@ unsigned LPUTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   }
 
   return Cost;
+}
+
+unsigned LPUTTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
+                                         ArrayRef<Value *> Args) {
+  switch (IID) {
+    default: {
+               SmallVector<Type *, 4> Types;
+               for (Value *Op : Args)
+                 Types.push_back(Op->getType());
+               return getIntrinsicInstrCost(IID, RetTy, Types);
+             }
+  }
 }
 
 unsigned LPUTTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,

@@ -4,12 +4,13 @@ Test some SBValue APIs.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import re
-import lldb, lldbutil
-from lldbtest import *
+import lldb
+import lldbsuite.test.lldbutil as lldbutil
+from lldbsuite.test.lldbtest import *
 
 class ChangeValueAPITestCase(TestBase):
 
@@ -27,6 +28,7 @@ class ChangeValueAPITestCase(TestBase):
 
     @expectedFailureWindows("llvm.org/pr24772")
     @add_test_categories(['pyapi'])
+    @expectedFlakeyLinux("llvm.org/pr25652")
     def test_change_value(self):
         """Exercise the SBValue::SetValueFromCString API."""
         d = {'EXE': self.exe_name}

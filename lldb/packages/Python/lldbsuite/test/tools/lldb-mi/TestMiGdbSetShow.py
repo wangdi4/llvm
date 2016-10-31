@@ -4,11 +4,11 @@ Test lldb-mi -gdb-set and -gdb-show commands.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import unittest2
 import lldbmi_testcase
-from lldbtest import *
+from lldbsuite.test.lldbtest import *
 
 class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
 
@@ -35,6 +35,7 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
 
     @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
     @skipIfFreeBSD # llvm.org/pr22411: Failure presumably due to known thread races
+    @expectedFlakeyLinux("llvm.org/pr26028") # Fails in ~1% of cases
     def test_lldbmi_gdb_set_target_async_on(self):
         """Test that 'lldb-mi --interpreter' can execute commands in async mode."""
 

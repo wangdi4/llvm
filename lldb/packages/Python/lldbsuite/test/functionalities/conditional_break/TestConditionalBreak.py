@@ -4,12 +4,13 @@ Test conditionally break on a function and inspect its variables.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import re
-import lldb, lldbutil
-from lldbtest import *
+import lldb
+import lldbsuite.test.lldbutil as lldbutil
+from lldbsuite.test.lldbtest import *
 
 # rdar://problem/8532131
 # lldb not able to digest the clang-generated debug info correctly with respect to function name
@@ -20,7 +21,6 @@ class ConditionalBreakTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    @expectedFailureWindows("llvm.org/pr24778")
     @add_test_categories(['pyapi'])
     def test_with_python(self):
         """Exercise some thread and frame APIs to break if c() is called by a()."""

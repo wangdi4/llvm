@@ -63,7 +63,8 @@ namespace lldb_private {
         {
             eSummaryString,
             eScript,
-            eCallback
+            eCallback,
+            eInternal
         };
 
         virtual
@@ -405,8 +406,6 @@ namespace lldb_private {
         }
         
         typedef std::shared_ptr<TypeSummaryImpl> SharedPointer;
-        typedef std::function<bool(void*, ConstString, TypeSummaryImpl::SharedPointer)> SummaryCallback;
-        typedef std::function<bool(void*, lldb::RegularExpressionSP, TypeSummaryImpl::SharedPointer)> RegexSummaryCallback;
         
     protected:
         uint32_t m_my_revision;

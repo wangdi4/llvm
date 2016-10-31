@@ -67,7 +67,7 @@ def no_allow_shlib_undefined : Flag<["--"], "no-allow-shlib-undefined">;
 
 def no_as_needed : Flag<["--"], "no-as-needed">;
 
-def no_whole_archive : Flag<["--"], "no-whole-archive">,
+def no_whole_archive : Flag<["--", "-"], "no-whole-archive">,
   HelpText<"Restores the default behavior of loading archive members">;
 
 def noinhibit_exec : Flag<["--"], "noinhibit-exec">,
@@ -79,8 +79,13 @@ def no_undefined : Flag<["--"], "no-undefined">,
 def o : Separate<["-"], "o">, MetaVarName<"<path>">,
   HelpText<"Path to file to write output">;
 
+def print_gc_sections: Flag<["--"], "print-gc-sections">,
+  HelpText<"List removed unused sections">;
+
 def rpath : Separate<["-"], "rpath">,
   HelpText<"Add a DT_RUNPATH to the output">;
+
+def relocatable : Flag<["--"], "relocatable">;
 
 def script : Separate<["--"], "script">, HelpText<"Read linker script">;
 
@@ -101,8 +106,11 @@ def undefined : Joined<["--"], "undefined=">,
 
 def verbose : Flag<["--"], "verbose">;
 
-def whole_archive : Flag<["--"], "whole-archive">,
+def whole_archive : Flag<["--", "-"], "whole-archive">,
   HelpText<"Force load of all members in a static library">;
+
+def wrap : Separate<["--", "-"], "wrap">, MetaVarName<"<symbol>">,
+  HelpText<"Use wrapper functions for symbol">;
 
 def z : JoinedOrSeparate<["-"], "z">, MetaVarName<"<option>">,
   HelpText<"Linker option extensions">;
@@ -117,31 +125,41 @@ def alias_L__library_path : Joined<["--"], "library-path=">, Alias<L>;
 def alias_discard_all_x: Flag<["-"], "x">, Alias<discard_all>;
 def alias_discard_locals_X: Flag<["-"], "X">, Alias<discard_locals>;
 def alias_entry_e : Separate<["-"], "e">, Alias<entry>;
+def alias_export_dynamic_E: Flag<["-"], "E">, Alias<export_dynamic>;
 def alias_fini_fini : Joined<["-"], "fini=">, Alias<fini>;
 def alias_hash_style_hash_style : Joined<["--", "-"], "hash-style=">, Alias<hash_style>;
 def alias_init_init : Joined<["-"], "init=">, Alias<init>;
 def alias_l__library : Joined<["--"], "library=">, Alias<l>;
 def alias_o_output : Joined<["--"], "output=">, Alias<o>;
 def alias_rpath_rpath : Joined<["-"], "rpath=">, Alias<rpath>;
+def alias_relocatable_r : Flag<["-"], "r">, Alias<relocatable>;
 def alias_shared_Bshareable : Flag<["-"], "Bshareable">, Alias<shared>;
 def alias_soname_h : Separate<["-"], "h">, Alias<soname>;
 def alias_soname_soname : Separate<["-"], "soname">, Alias<soname>;
 def alias_script_T : Separate<["-"], "T">, Alias<script>;
 def alias_strip_all: Flag<["-"], "s">, Alias<strip_all>;
 def alias_undefined_u : Separate<["-"], "u">, Alias<undefined>;
+def alias_wrap_wrap : Joined<["--", "-"], "wrap=">, Alias<wrap>;
 
-// Options listed below are silently ignored now.
-def build_id : Flag<["--"], "build-id">;
-def eh_frame_hdr : Flag<["--"], "eh-frame-hdr">;
+// Our symbol resolution algorithm handles symbols in archive files differently
+// than traditional linkers, so we don't need --start-group and --end-group.
+// These options are recongized for compatibility but ignored.
 def end_group : Flag<["--"], "end-group">;
 def end_group_paren: Flag<["-"], ")">;
+def start_group : Flag<["--"], "start-group">;
+def start_group_paren: Flag<["-"], "(">;
+
+// Options listed below are silently ignored for now for compatibility.
+def build_id : Flag<["--"], "build-id">;
+def eh_frame_hdr : Flag<["--"], "eh-frame-hdr">;
 def fatal_warnings : Flag<["--"], "fatal-warnings">;
 def no_add_needed : Flag<["--"], "no-add-needed">;
 def no_fatal_warnings : Flag<["--"], "no-fatal-warnings">;
 def no_warn_mismatch : Flag<["--"], "no-warn-mismatch">;
-def start_group : Flag<["--"], "start-group">;
-def start_group_paren: Flag<["-"], "(">;
 def version_script : Separate<["--"], "version-script">;
 def warn_common : Flag<["--"], "warn-common">;
 def warn_shared_textrel : Flag<["--"], "warn-shared-textrel">;
 def G : Separate<["-"], "G">;
+
+// Aliases for ignored options
+def alias_version_script_version_script : Joined<["--"], "version-script=">, Alias<version_script>;

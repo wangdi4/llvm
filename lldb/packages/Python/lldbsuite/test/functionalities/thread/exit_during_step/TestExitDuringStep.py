@@ -4,12 +4,12 @@ Test number of threads.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import lldb
-from lldbtest import *
-import lldbutil
+from lldbsuite.test.lldbtest import *
+import lldbsuite.test.lldbutil as lldbutil
 
 class ExitDuringStepTestCase(TestBase):
 
@@ -98,7 +98,8 @@ class ExitDuringStepTestCase(TestBase):
         stepping_thread = None
         for thread in process:
             expected_bp_desc = "breakpoint %s." % self.bp_num
-            if expected_bp_desc in thread.GetStopDescription(100):
+            stop_desc = thread.GetStopDescription(100)
+            if stop_desc and (expected_bp_desc in stop_desc):
                 stepping_thread = thread
                 break
         self.assertTrue(stepping_thread != None, "unable to find thread stopped at %s" % expected_bp_desc)

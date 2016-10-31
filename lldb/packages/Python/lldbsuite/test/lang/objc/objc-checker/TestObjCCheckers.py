@@ -4,12 +4,13 @@ Use lldb Python API to make sure the dynamic checkers are doing their jobs.
 
 from __future__ import print_function
 
-import use_lldb_suite
+
 
 import os, time
 import re
-import lldb, lldbutil
-from lldbtest import *
+import lldb
+import lldbsuite.test.lldbutil as lldbutil
+from lldbsuite.test.lldbtest import *
 
 class ObjCCheckerTestCase(TestBase):
 
@@ -67,7 +68,7 @@ class ObjCCheckerTestCase(TestBase):
         
         # Make sure the call produced no NSLog stdout.
         stdout = process.GetSTDOUT(100)
-        self.assertTrue (len(stdout) == 0)
+        self.assertTrue (stdout is None or (len(stdout) == 0))
         
         # Make sure the error is helpful:
         err_string = expr_error.GetCString()
