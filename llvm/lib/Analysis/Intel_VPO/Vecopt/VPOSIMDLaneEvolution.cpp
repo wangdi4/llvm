@@ -399,6 +399,42 @@ void SIMDLaneEvolutionAnalysisBase::construct(AVRExpression *AExpr) {
     // Can't assume anything about non-pure functions
     ExprSLEV = createPredefinedSLEV(RANDOM);
     break;
+  case Instruction::Select:
+
+    // Temporal implementation. It returns RANDOM for Select instructions.
+    // TODO: Option 2
+    ExprSLEV = createPredefinedSLEV(RANDOM);
+    break;
+
+    // Option 2: We need some kind of conditional blend or select node in SLEV
+    // if we want to properly support Select with uniform conditions. For
+    // example, a select with a uniform condition and two constant operands
+    // should return constant and not random.
+
+    // unsigned NumOps = AExpr->getNumOperands();
+    // assert ((NumOps == 3  || NumOps == 4) && "Expected 3 or 4 operands");
+
+    // SLEVInstruction *CondSlev;
+    // if (numOps == 3) {
+    //   CondSlev = SLEVs[AExpr->getOperand(0)];
+    // }
+    // else {
+    //   CondSlev = createBinarySLEV<SLEVCmp>(AExpr);
+    // }
+
+    // ExprSLEV = new SLEVUse();
+
+    // // Select's SLEV base the last two operands
+    // for (unsigned i = NumOps - 2; i < NumOps; i++) {
+    //   AVR *Op = AExpr->getOperand(i);
+    //   SLEVInstruction *OpSlev = SLEVs[Op];
+    //   assert(OpSlev && "Op has no SLEV");
+
+    //   // Add Operand's SLEV as "reaching definitions" of the Select instruction
+    //   for (AVR *ReachingDef : ReachingDefs)
+    //     addReaching(ExprSLEV, ReachingDef);
+    // }
+    // break;
   default:
     llvm_unreachable("unsupported expression kind");
   }
@@ -984,7 +1020,8 @@ void SIMDLaneEvolutionAnalysis::construct(AVRReturnIR *AReturnIR) {
 }
 
 void SIMDLaneEvolutionAnalysis::construct(AVRSelect *ASelect) {
-  llvm_unreachable("Select not implemented yet in SLEV!");
+  // Temporal implementation. It returns RANDOM for Select instructions.
+  setSLEV(ASelect, createPredefinedSLEV(RANDOM));
 }
 
 void SIMDLaneEvolutionAnalysis::construct(AVRCompareIR *ACompareIR) {
@@ -1035,6 +1072,7 @@ void SIMDLaneEvolutionAnalysis::construct(AVRIfIR *AIfIR) {
   setSLEV(AIfIR, new SLEVIdentity(*SLEVs[Condition]));
 }
 
+// TODO: Unify AVRLoopIR and AVRLoopHIR
 void SIMDLaneEvolutionAnalysis::entering(AVRLoopIR *ALoopIR) {
 
   // TODO: remove this when there is actually just one vector candidate.
@@ -1084,6 +1122,7 @@ void SIMDLaneEvolutionAnalysis::entering(AVRLoopIR *ALoopIR) {
   LatchCondition = cast<AVRCompare>(Condition);
 }
 
+// TODO: Unify ALoopIR and ALoopHIR
 void SIMDLaneEvolutionAnalysis::exiting(AVRLoopIR *ALoopIR) {
 
   if (ALoopIR == VectorCandidate) {
@@ -1228,8 +1267,7 @@ bool SIMDLaneEvolutionHIR::runOnFunction(Function &F) {
 }
 
 SLEVInstruction *
-SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR *AValueHIR,
-                                            unsigned VectorizedDim) {
+SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR *AValueHIR) {
 
   // SLEV for Constants
   if (AValueHIR->isConstant()) {
@@ -1240,7 +1278,7 @@ SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR *AValueHIR,
   // StandAloneIVs must be processed as IVs and not as DDRefValues
   if (AValueHIR->isIVValue()) {
     AVRValueHIR::IVValueInfo *IVInfo = AValueHIR->getIVValue();
-    if (IVInfo->Level == VectorizedDim)
+    if (IVInfo->Level == VectorCandidate->getNestingLevel())
       return createPredefinedSLEV(SLEV(STRIDED, SLEV::One));
     else
       return createPredefinedSLEV(UNIFORM);
@@ -1277,8 +1315,6 @@ void SIMDLaneEvolutionAnalysisHIR::construct(AVRValueHIR *AValueHIR) {
   assert(!AValueHIR->hasDecompTree() &&
          "Unexpected AVRValueHIRs with decomposition!");
 
-  unsigned VectorizedDim = 1; // TODO - current: outermost
-
   if (DefUseHIR->isDef(AValueHIR)) {
 
     // AVRValueHIRs are (ironically) not Defs if their RegDDRef is an HIR Def
@@ -1295,12 +1331,31 @@ void SIMDLaneEvolutionAnalysisHIR::construct(AVRValueHIR *AValueHIR) {
            cast<RegDDRef>(AValueHIR->getValue())->isTerminalRef())) &&
          "Unexpected AVRValueHIR");
 
-  setSLEV(AValueHIR, constructSLEV(AValueHIR, VectorizedDim));
+  setSLEV(AValueHIR, constructSLEV(AValueHIR));
 }
 
-void SIMDLaneEvolutionAnalysisHIR::entering(AVRLoopHIR *ALoopHIR) {}
+// TODO: Unify AVRLoopIR and AVRLoopHIR
+void SIMDLaneEvolutionAnalysisHIR::entering(AVRLoopHIR *ALoopHIR) {
+  
+  // TODO: remove this when there is actually just one vector candidate.
+  if (VectorCandidate)
+    return;
 
-void SIMDLaneEvolutionAnalysisHIR::exiting(AVRLoopHIR *ALoopHIR) {}
+  if (!ALoopHIR->isVectorCandidate())
+    return;
+
+  assert(!VectorCandidate && "Nested vector candidates");
+
+  VectorCandidate = ALoopHIR;
+}
+
+// TODO: Unify AVRLoopIR and AVRLoopHIR
+void SIMDLaneEvolutionAnalysisHIR::exiting(AVRLoopHIR *ALoopHIR) {
+
+  if (ALoopHIR == VectorCandidate) {
+    VectorCandidate = nullptr;
+  }
+}
 
 FunctionPass *llvm::createSIMDLaneEvolutionPass() {
   return new SIMDLaneEvolution();

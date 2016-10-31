@@ -930,6 +930,9 @@ private:
 protected:
   MapVector<AVR *, SLEVInstruction *> SLEVs;
 
+  /// \brief During SLEV construction, this is vector candidate loop.
+  AVRLoop *VectorCandidate = nullptr;
+
   std::vector<SLEVInstruction *> *FirstCalcQueue = nullptr;
 
   /// SLEVUse's may be constructed before all their reaching SLEVs are. This
@@ -1103,9 +1106,6 @@ private:
     return AValueIR->getLLVMValue() == AValueIR->getLLVMInstruction();
   }
 
-  /// \brief During SLEV construction, this is vector candidate loop.
-  AVRLoopIR *VectorCandidate = nullptr;
-
   /// \brief During SLEV construction, this is the induction variable that
   /// induces a linear stride in the vector candidate loop.
   SmallPtrSet<AVR *, 2> InductionVariableDefs;
@@ -1219,8 +1219,7 @@ public:
   /// \brief Utility function that constructs a SLEV for a simple (decomposed)
   /// @param AValueHIR
   /// @return The constructed SLEV
-  SLEVInstruction *constructSLEV(AVRValueHIR *AValueHIR,
-                                 unsigned VectorizedDim);
+  SLEVInstruction *constructSLEV(AVRValueHIR *AValueHIR);
 
   void construct(AVRValueHIR *AValueHIR) override;
   void entering(AVRLoopHIR *ALoopHIR) override;

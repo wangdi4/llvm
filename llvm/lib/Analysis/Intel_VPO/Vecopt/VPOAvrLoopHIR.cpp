@@ -23,7 +23,7 @@ using namespace llvm::vpo;
 
 AVRLoopHIR::AVRLoopHIR(HLLoop *Lp) : AVRLoop(AVR::AVRLoopHIRNode) {
 
-  setNestingLevel(0);     // TODO
+  setNestingLevel(Lp->getNestingLevel());
   setNumberOfExits(0);    // TODO
   setIsDoWhileLoop(true); // TODO
   setIsInnerMost(false);  // TODO
