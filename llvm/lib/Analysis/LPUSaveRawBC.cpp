@@ -1,105 +1,114 @@
 #include "llvm/Pass.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/raw_ostream.h"
-#if 1
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#endif
+#include "llvm/Support/CommandLine.h"
 
 #include "llvm/Analysis/LPUSaveRawBC.h"
 
 using namespace llvm;
 
-namespace llvm {
-  void initializeLPUSaveRawBCPass(PassRegistry &);
-}
-
-namespace {
-
-struct LPUSaveRawBC: public ImmutablePass {
-  static char ID;
-
-  std::string BcData;
-
-  // Constructor
-  LPUSaveRawBC() : ImmutablePass(ID) {
-    initializeLPUSaveRawBCPass(*PassRegistry::getPassRegistry());
-  }
-
-  // Initialization - Pretty much all that we have to work with. Called before
-  // any module of function passes. Save away a copy of the raw (unoptimized)
-  // IR so we have it if anybody wants it later
-  bool doInitialization(Module &M) override {
-//    errs() << "LPUSaveRawBC::doInitialization\n";
-    // Get the BitCode for the module
-    assert(BcData.empty() && "Expected string to be empty - called for multiple modules!");
-    {
-      raw_string_ostream OS(BcData);
-      WriteBitcodeToFile(&M, OS);
-    }
-
-    return false;
-  }  // doInitialization
-
-#if 0
-  bool doFinalization(Module &M) override {
-    dumpBC(M);
-    return false;
-  }
-#endif
-
-  const char* getPassName() const override {
-    return "LPU Save Raw BitCode";
-  }
-
-private:
-  void dumpBC(Module &M) {
-    assert(!BcData.empty() && "Expected string to be filled by doInitialization!");
-
-    // Create output file
-    std::string bcName = M.getName().str() + ".bc";
-    std::error_code EC;
-    tool_output_file Out(bcName.c_str(), EC, sys::fs::F_None);
-    if (EC) {
-      errs() << "could not open bitcode file for writing: ";
-      errs() << bcName;
-      errs() << "\n";
-      return;
-    }
-
-    // Write the generated bitstream to "Out".
-    Out.os().write(BcData.c_str(), BcData.size());
-
-    // Close the file
-    Out.os().close();
-
-    if (Out.os().has_error()) {
-      errs() << "could not write bitcode file: " << bcName << "\n";
-      Out.os().clear_error();
-      return;
-    }
-
-    Out.keep();
-  }
-
-}; // struct LPUSaveRawBC
-
-}  // anonymous namespace
-
-
 char LPUSaveRawBC::ID = 0;
 
-ImmutablePass *llvm::createLPUSaveRawBCPass() {
-  return new LPUSaveRawBC();
-}
+std::string LPUSaveRawBC::BcData;
+
+static cl::opt<bool>
+DumpRawBc("lpu-dump-raw-bc", cl::Hidden,
+           cl::desc("LPU Specific: Dump raw bitcode to file"),
+           cl::init(false));
 
 static void initializePassOnce(PassRegistry &Registry) {
-  PassInfo *PI = new PassInfo("LPU Save Raw BC", "lpu-save-raw-bc",
-                              &LPUSaveRawBC::ID, nullptr, false, false);
+  PassInfo *PI =
+    new PassInfo("LPU Save Raw BC",  // name
+                 "lpu-save-raw-bc",  // arg
+                 &LPUSaveRawBC::ID,  // pointer to ID
+                 nullptr,            // normal ctor
+                 true,               // only looks at CFG
+                 true);              // is analysis pass
   Registry.registerPass(*PI, true);
 }
 
-void llvm::initializeLPUSaveRawBCPass(PassRegistry &Registry) {
+namespace llvm {
+
+ImmutablePass *createLPUSaveRawBCPass() {
+  return new LPUSaveRawBC();
+}
+
+void initializeLPUSaveRawBCPass(PassRegistry &Registry) {
   CALL_ONCE_INITIALIZATION(initializePassOnce);
 }
+
+LPUSaveRawBC::LPUSaveRawBC() : ImmutablePass(ID) {
+  initializeLPUSaveRawBCPass(*PassRegistry::getPassRegistry());
+}
+
+bool LPUSaveRawBC::doInitialization(Module &M) {
+//    errs() << "LPUSaveRawBC::doInitialization\n";
+
+  // Multiple instances of the analyzer are created by LLVM. We
+  // only need to save the raw IR once. If the string is already
+  // filled, we're done
+  if (! BcData.empty()) {
+    return false;
+  }
+
+  // Fetch the raw IR
+  {
+    raw_string_ostream OS(BcData);
+    WriteBitcodeToFile(&M, OS);
+  }
+
+  // If asked, dump the serialized IR to a file
+  if (DumpRawBc) {
+    dumpBC(M.getName());
+  }
+
+    return false;
+}
+
+// Dump the raw IR to a .bc file
+void LPUSaveRawBC::dumpBC(StringRef modName) {
+
+  // Generate the name for the file by appending ".bc" to the
+  // file name. So we'll get something like foo.cpp.bc
+  std::string bcName = modName.str() + ".bc";
+
+  // Get the raw IR serialized as a bitcode file
+  const std::string &data = getRawBC();
+  if (data.empty()) {
+    errs() << "serialized IR not available. " << bcName << " not created\n";
+    return;
+  }
+
+  // Create output file
+  std::error_code EC;
+  tool_output_file Out(bcName.c_str(), EC, sys::fs::F_None);
+  if (EC) {
+    errs() << "could not open bitcode file for writing: ";
+    errs() << bcName;
+    errs() << "\n";
+    return;
+  }
+
+  // Write the generated bitstream to the file
+  Out.os().write(data.c_str(), data.size());
+  Out.os().close();
+
+  if (Out.os().has_error()) {
+    errs() << "could not write bitcode file: " << bcName << "\n";
+    Out.os().clear_error();
+    return;
+  }
+
+  Out.keep();
+}
+
+const std::string &LPUSaveRawBC::getRawBC() const {
+  assert(!BcData.empty() && "Expected string to be filled by doInitialization!");
+
+  return BcData;
+}
+
+} // namespace llvm

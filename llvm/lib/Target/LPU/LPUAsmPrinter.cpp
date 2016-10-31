@@ -35,8 +35,10 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ELF.h"
+#include "llvm/Analysis/LPUSaveRawBC.h"
 #include <fstream>
 #include <sstream>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
@@ -354,7 +356,7 @@ void LPUAsmPrinter::EmitLpuCodeSection() {
   // - S - Section contains zero terminated strings
   //
   // Type: "@progbits" - section contains data
-  OutStreamer->EmitRawText("\t.section .lpu.code,\"aS\",@progbits");
+  OutStreamer->EmitRawText("\t.section\t\".lpu.code\",\"aS\",@progbits");
 }
 
 void LPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
@@ -393,6 +395,19 @@ void LPUAsmPrinter::EmitEndOfAsmFile(Module &M) {
     // fight with the AmsPrinter::EmitFunctionHeader
     EmitLpuCodeSection();
     OutStreamer->EmitRawText("\t.asciz \"\"");
+
+    // Dump the raw IR to the file as data. This information does
+    // not need to be loaded into the address space, so we're not
+    // giving it the "a" flag
+    auto *SRB = getAnalysisIfAvailable<LPUSaveRawBC>();
+    assert(SRB && "LPUSaveRawBC should always be available!");
+
+    const std::string &rawBC = SRB->getRawBC();
+    OutStreamer->EmitRawText("\t.section\t\".lpu.raw.bc\",\"\",@progbits");
+
+    for (int i = 0; i < rawBC.size(); ++i) {
+      OutStreamer->EmitIntValue(rawBC[i], 1);
+    }
   }
 }
 
@@ -470,17 +485,6 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
 
 void LPUAsmPrinter::EmitFunctionBodyEnd() {
   writeAsmLine("}");
-#if 0
-  SmallString<128> Str;
-  raw_svector_ostream O(Str);
-
-  if (LPUInstPrinter::WrapLpuAsm()) {
-    O << "\t.asciz \"";
-  }
-  O << "}";
-  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
-  OutStreamer->EmitRawText(O.str());
-#endif
 }
 
 void LPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {

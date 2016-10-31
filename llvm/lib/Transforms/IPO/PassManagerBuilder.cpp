@@ -140,6 +140,12 @@ void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
 
 void PassManagerBuilder::addInitialAliasAnalysisPasses(
     legacy::PassManagerBase &PM) const {
+
+  // Add the LPUSaveRawBC pass which will preserve the initial IR
+  // for a module. This must be added early so it gets IR that's
+  // equivalent to the Bitcode emmitted by the -flto option
+  PM.add(createLPUSaveRawBCPass());
+
   // Add TypeBasedAliasAnalysis before BasicAliasAnalysis so that
   // BasicAliasAnalysis wins if they disagree. This is intended to help
   // support "obvious" type-punning idioms.
@@ -153,11 +159,6 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
 void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
-
-  // Add the LPUSaveRawBC pass which will preserve the initial IR
-  // for a module. This must be added early so it gets IR that's
-  // equivalent to the Bitcode emmitted by the -flto option
-  FPM.add(createLPUSaveRawBCPass());
 
   // Add LibraryInfo if we have some.
   if (LibraryInfo)

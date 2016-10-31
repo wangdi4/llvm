@@ -28,6 +28,8 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 
+#include "llvm/Analysis/LPUSaveRawBC.h"
+
 using namespace llvm;
 
 static cl::opt<bool> DisablePostRA("disable-post-ra", cl::Hidden,
@@ -373,6 +375,12 @@ void TargetPassConfig::addVerifyPass(const std::string &Banner) {
 /// Add common target configurable passes that perform LLVM IR to IR transforms
 /// following machine independent optimization.
 void TargetPassConfig::addIRPasses() {
+
+  // Add the LPUSaveRawBC pass which will preserve the initial IR
+  // for a module. This must be added early so it gets IR that's
+  // equivalent to the Bitcode emmitted by the -flto option
+  addPass(createLPUSaveRawBCPass());
+
   // Basic AliasAnalysis support.
   // Add TypeBasedAliasAnalysis before BasicAliasAnalysis so that
   // BasicAliasAnalysis wins if they disagree. This is intended to help
