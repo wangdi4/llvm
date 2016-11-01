@@ -132,6 +132,24 @@ namespace intel {
     }
   }
 
+  static void ExploreOperand(Value *Op,
+                             SmallVectorImpl<Module*> &Modules,
+                             SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
+                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals) {
+    // operand may be a ConstantExpr, so we need to recursively check its
+    // operands
+    if (auto *CE = dyn_cast<ConstantExpr>(Op)) {
+      for (size_t i = 0; i < CE->getNumOperands(); ++i) {
+        ExploreOperand(CE->getOperand(i), Modules, UsedFunctions, UsedGlobals);
+      }
+      return;
+    }
+
+    if (auto GV = dyn_cast<GlobalVariable>(Op))
+      if (auto G = FindGlobalDef(GV, Modules))
+        UsedGlobals.insert(G);
+  }
+
   void BIImport::ExploreUses(Function *Root,
                              SmallVectorImpl<Module*> &Modules,
                              SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
@@ -161,12 +179,10 @@ namespace intel {
       ExploreUses(Callee, Modules, UsedFunctions, UsedGlobals);
     }
 
-    for (const BasicBlock &BB:*Root)
-      for (const Instruction &I:BB)
-        for (Value *Op:I.operands())
-          if (auto GV = dyn_cast<GlobalVariable>(Op))
-            if (auto G = FindGlobalDef(GV, Modules))
-              UsedGlobals.insert(G);
+    for (const BasicBlock &BB : *Root)
+      for (const Instruction &I : BB)
+        for (Value *Op : I.operands())
+          ExploreOperand(Op, Modules, UsedFunctions, UsedGlobals);
   }
 
   static std::unique_ptr<Module>
