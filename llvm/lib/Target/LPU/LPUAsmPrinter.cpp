@@ -366,6 +366,8 @@ void LPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
     // using SwitchSection because then we'll fight with the
     // AmsPrinter::EmitFunctionHeader
     EmitLpuCodeSection();
+    OutStreamer->EmitRawText("\t.globl\t__lpu_assembly__\n");
+    OutStreamer->EmitRawText("__lpu_assembly__:\n");
     writeAsmLine("\t.text");
   }
   
@@ -405,7 +407,7 @@ void LPUAsmPrinter::EmitEndOfAsmFile(Module &M) {
     const std::string &rawBC = SRB->getRawBC();
     OutStreamer->EmitRawText("\t.section\t\".lpu.raw.bc\",\"\",@progbits");
 
-    for (int i = 0; i < rawBC.size(); ++i) {
+    for (size_t i = 0; i < rawBC.size(); ++i) {
       OutStreamer->EmitIntValue(rawBC[i], 1);
     }
   }
