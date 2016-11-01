@@ -25,6 +25,7 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
+#include "clang/Basic/TargetBuiltins.h" // INTEL
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
@@ -3136,7 +3137,23 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
       if (NewDeclaredReturnType->isObjCObjectPointerType() &&
           OldDeclaredReturnType->isObjCObjectPointerType())
         ResQT = Context.mergeObjCGCQualifiers(NewQType, OldQType);
-      if (ResQT.isNull()) {
+#if INTEL_CUSTOMIZATION
+      if (ResQT.isNull() && getLangOpts().IntelCompat &&
+          Old->getBuiltinID() == X86::BI_rdtsc &&
+          NewDeclaredReturnType.getTypePtr()->isIntegerType() &&
+          Context.getTypeSize(OldDeclaredReturnType) >=
+              Context.getTypeSize(NewDeclaredReturnType)) {
+        // CQ415508: Some of the Intrinsics seem to have _rtdsc in
+        // them, just written with a slightly different return type.
+        // This checks to ensure that the return type is similar
+        // enough, warns, and replaces the 'new' signature with
+        // the old one.
+        Diag(New->getLocation(), diag::warn_ovl_diff_return_type)
+            << New->getReturnTypeSourceRange();
+        New->setType(Old->getType());
+        NewQType = Old->getType();
+      } else if (ResQT.isNull()) {
+#endif // INTEL_COMPATIBILITY
         if (New->isCXXClassMember() && New->isOutOfLine())
           Diag(New->getLocation(), diag::err_member_def_does_not_match_ret_type)
               << New << New->getReturnTypeSourceRange();

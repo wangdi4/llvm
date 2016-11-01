@@ -520,4 +520,6 @@ def warn_d_suffix : ExtWarn<"d-suffix in FP literal is a GNU extension">,
   InGroup<GNULiteralSuffix>;
 }
 // endif INTEL_SPECIFIC_IL0_BACKEND
+def warn_ovl_diff_return_type : Warning<
+  "functions that differ only in their return type cannot be overloaded, new definition ignored">, InGroup<IntelCompat>;
 } // end of sema component.
