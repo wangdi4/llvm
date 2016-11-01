@@ -32,6 +32,7 @@
 #include "Plugins/ABI/MacOSX-arm64/ABIMacOSX_arm64.h"
 #include "Plugins/ABI/SysV-arm/ABISysV_arm.h"
 #include "Plugins/ABI/SysV-arm64/ABISysV_arm64.h"
+#include "Plugins/ABI/SysV-hexagon/ABISysV_hexagon.h"
 #include "Plugins/ABI/SysV-i386/ABISysV_i386.h"
 #include "Plugins/ABI/SysV-x86_64/ABISysV_x86_64.h"
 #include "Plugins/ABI/SysV-ppc/ABISysV_ppc.h"
@@ -44,6 +45,7 @@
 #include "Plugins/InstrumentationRuntime/AddressSanitizer/AddressSanitizerRuntime.h"
 #include "Plugins/JITLoader/GDB/JITLoaderGDB.h"
 #include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
+#include "Plugins/Language/Go/GoLanguage.h"
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
 #include "Plugins/Language/ObjCPlusPlus/ObjCPlusPlusLanguage.h"
 #include "Plugins/LanguageRuntime/CPlusPlus/ItaniumABI/ItaniumABILanguageRuntime.h"
@@ -68,6 +70,10 @@
 #include "Plugins/Process/mach-core/ProcessMachCore.h"
 #include "Plugins/Process/MacOSX-Kernel/ProcessKDP.h"
 #include "Plugins/SymbolVendor/MacOSX/SymbolVendorMacOSX.h"
+#include "Plugins/Platform/MacOSX/PlatformAppleTVSimulator.h"
+#include "Plugins/Platform/MacOSX/PlatformAppleWatchSimulator.h"
+#include "Plugins/Platform/MacOSX/PlatformRemoteAppleTV.h"
+#include "Plugins/Platform/MacOSX/PlatformRemoteAppleWatch.h"
 #endif
 
 #if defined(__FreeBSD__)
@@ -76,7 +82,7 @@
 
 #if defined(_MSC_VER)
 #include "lldb/Host/windows/windows.h"
-#include "Plugins/Process/Windows/Live/ProcessWindows.h"
+#include "Plugins/Process/Windows/Live/ProcessWindowsLive.h"
 #include "Plugins/Process/Windows/MiniDump/ProcessWinMiniDump.h"
 #endif
 
@@ -96,7 +102,7 @@ PyInit__lldb(void);
 #define LLDBSwigPyInit PyInit__lldb
 
 #else
-extern "C" void 
+extern "C" void
 init_lldb(void);
 
 #define LLDBSwigPyInit init_lldb
@@ -272,6 +278,7 @@ SystemInitializerFull::Initialize()
     ABIMacOSX_arm64::Initialize();
     ABISysV_arm::Initialize();
     ABISysV_arm64::Initialize();
+    ABISysV_hexagon::Initialize();
     ABISysV_i386::Initialize();
     ABISysV_x86_64::Initialize();
     ABISysV_ppc::Initialize();
@@ -301,13 +308,14 @@ SystemInitializerFull::Initialize()
     SystemRuntimeMacOSX::Initialize();
     RenderScriptRuntime::Initialize();
     GoLanguageRuntime::Initialize();
-    
+
     CPlusPlusLanguage::Initialize();
+    GoLanguage::Initialize();
     ObjCLanguage::Initialize();
     ObjCPlusPlusLanguage::Initialize();
 
 #if defined(_MSC_VER)
-    ProcessWindows::Initialize();
+    ProcessWindowsLive::Initialize();
 #endif
 #if defined(__FreeBSD__)
     ProcessFreeBSD::Initialize();
@@ -316,6 +324,10 @@ SystemInitializerFull::Initialize()
     SymbolVendorMacOSX::Initialize();
     ProcessKDP::Initialize();
     ProcessMachCore::Initialize();
+    PlatformAppleTVSimulator::Initialize();
+    PlatformAppleWatchSimulator::Initialize();
+    PlatformRemoteAppleTV::Initialize();
+    PlatformRemoteAppleWatch::Initialize();
 #endif
     //----------------------------------------------------------------------
     // Platform agnostic plugins
@@ -385,6 +397,7 @@ SystemInitializerFull::Terminate()
     ABIMacOSX_arm64::Terminate();
     ABISysV_arm::Terminate();
     ABISysV_arm64::Terminate();
+    ABISysV_hexagon::Terminate();
     ABISysV_i386::Terminate();
     ABISysV_x86_64::Terminate();
     ABISysV_ppc::Terminate();
@@ -414,13 +427,18 @@ SystemInitializerFull::Terminate()
     RenderScriptRuntime::Terminate();
 
     CPlusPlusLanguage::Terminate();
+    GoLanguage::Terminate();
     ObjCLanguage::Terminate();
     ObjCPlusPlusLanguage::Terminate();
-    
+
 #if defined(__APPLE__)
     ProcessMachCore::Terminate();
     ProcessKDP::Terminate();
     SymbolVendorMacOSX::Terminate();
+    PlatformAppleTVSimulator::Terminate();
+    PlatformAppleWatchSimulator::Terminate();
+    PlatformRemoteAppleTV::Terminate();
+    PlatformRemoteAppleWatch::Terminate();
 #endif
 
 #if defined(__FreeBSD__)

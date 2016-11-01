@@ -12,6 +12,8 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Target/LanguageRuntime.h"
+#include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
+#include "Plugins/Language/ObjC/ObjCLanguage.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Core/PluginManager.h"
@@ -161,10 +163,12 @@ public:
     void
     GetDescription (Stream *s) override
     {
-        s->Printf ("Exception breakpoint (catch: %s throw: %s)",
-                   m_catch_bp ? "on" : "off",
-                   m_throw_bp ? "on" : "off");
-        
+       Language *language_plugin = Language::FindPlugin(m_language);
+       if (language_plugin)
+           language_plugin->GetExceptionResolverDescription(m_catch_bp, m_throw_bp, *s);
+       else
+           Language::GetDefaultExceptionResolverDescription(m_catch_bp, m_throw_bp, *s);
+           
         SetActualResolver();
         if (m_actual_resolver_sp)
         {

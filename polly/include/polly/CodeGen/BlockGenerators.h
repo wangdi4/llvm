@@ -550,6 +550,11 @@ protected:
   /// @returns The newest version (e.g., reloaded) of the scalar value.
   Value *getNewScalarValue(Value *ScalarValue, const Region &R, ScopStmt &,
                            LoopToScevMapT &LTS, ValueMapT &BBMap);
+
+  /// @brief Helper to determine if @p Inst can be synthezised in @p Stmt.
+  ///
+  /// @returns false, iff @p Inst can be synthesized in @p Stmt.
+  bool canSyntheziseInStmt(ScopStmt &Stmt, Instruction *Inst);
 };
 
 /// @brief Generate a new vector basic block for a polyhedral statement.
@@ -708,6 +713,18 @@ private:
                            VectorValueMapT &ScalarMaps);
 
   bool hasVectorOperands(const Instruction *Inst, ValueMapT &VectorMap);
+
+  /// @brief Generate vector loads for scalars.
+  ///
+  /// @param Stmt           The scop statement for which to generate the loads.
+  /// @param VectorBlockMap A map that will be updated to relate the original
+  ///                       values with the newly generated vector loads.
+  void generateScalarVectorLoads(ScopStmt &Stmt, ValueMapT &VectorBlockMap);
+
+  /// @brief Verify absence of scalar stores.
+  ///
+  /// @param Stmt The scop statement to check for scalar stores.
+  void verifyNoScalarStores(ScopStmt &Stmt);
 
   /// @param NewAccesses A map from memory access ids to new ast expressions,
   ///                    which may contain new access expressions for certain

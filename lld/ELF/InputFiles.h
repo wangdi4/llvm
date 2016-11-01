@@ -49,6 +49,8 @@ private:
 template <typename ELFT> class ELFFileBase : public InputFile {
 public:
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Shdr Elf_Shdr;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym Elf_Sym;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Word Elf_Word;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym_Range Elf_Sym_Range;
 
   ELFFileBase(Kind K, MemoryBufferRef M);
@@ -57,17 +59,7 @@ public:
     return K == ObjectKind || K == SharedKind;
   }
 
-  static ELFKind getELFKind() {
-    if (!ELFT::Is64Bits) {
-      if (ELFT::TargetEndianness == llvm::support::little)
-        return ELF32LEKind;
-      return ELF32BEKind;
-    }
-    if (ELFT::TargetEndianness == llvm::support::little)
-      return ELF64LEKind;
-    return ELF64BEKind;
-  }
-
+  static ELFKind getELFKind();
   const llvm::object::ELFFile<ELFT> &getObj() const { return ELFObj; }
   llvm::object::ELFFile<ELFT> &getObj() { return ELFObj; }
 
@@ -78,9 +70,12 @@ public:
 
   StringRef getStringTable() const { return StringTable; }
 
+  uint32_t getSectionIndex(const Elf_Sym &Sym) const;
+
 protected:
   llvm::object::ELFFile<ELFT> ELFObj;
   const Elf_Shdr *Symtab = nullptr;
+  ArrayRef<Elf_Word> SymtabSHNDX;
   StringRef StringTable;
   void initStringTable();
   Elf_Sym_Range getNonLocalSymbols();
@@ -96,20 +91,23 @@ template <class ELFT> class ObjectFile : public ELFFileBase<ELFT> {
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Word Elf_Word;
   typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
 
+  // uint32 in ELFT's byte order
   typedef llvm::support::detail::packed_endian_specific_integral<
-      uint32_t, ELFT::TargetEndianness, 2> GroupEntryType;
+      uint32_t, ELFT::TargetEndianness, 2>
+      uint32_X;
+
   StringRef getShtGroupSignature(const Elf_Shdr &Sec);
-  ArrayRef<GroupEntryType> getShtGroupEntries(const Elf_Shdr &Sec);
+  ArrayRef<uint32_X> getShtGroupEntries(const Elf_Shdr &Sec);
 
 public:
   static bool classof(const InputFile *F) {
     return F->kind() == Base::ObjectKind;
   }
 
-  ArrayRef<SymbolBody *> getSymbols() { return this->SymbolBodies; }
+  ArrayRef<SymbolBody *> getSymbols() { return SymbolBodies; }
 
   explicit ObjectFile(MemoryBufferRef M);
-  void parse(llvm::DenseSet<StringRef> &Comdats);
+  void parse(llvm::DenseSet<StringRef> &ComdatGroups);
 
   ArrayRef<InputSectionBase<ELFT> *> getSections() const { return Sections; }
   InputSectionBase<ELFT> *getSection(const Elf_Sym &Sym) const;
@@ -118,30 +116,38 @@ public:
     uint32_t FirstNonLocal = this->Symtab->sh_info;
     if (SymbolIndex < FirstNonLocal)
       return nullptr;
-    return this->SymbolBodies[SymbolIndex - FirstNonLocal];
+    return SymbolBodies[SymbolIndex - FirstNonLocal];
   }
 
   Elf_Sym_Range getLocalSymbols();
   const Elf_Sym *getLocalSymbol(uintX_t SymIndex);
 
   const Elf_Shdr *getSymbolTable() const { return this->Symtab; };
-  ArrayRef<Elf_Word> getSymbolTableShndx() const { return SymtabSHNDX; };
+
+  // Get MIPS GP0 value defined by this file. This value represents the gp value
+  // used to create the relocatable object and required to support
+  // R_MIPS_GPREL16 / R_MIPS_GPREL32 relocations.
+  uint32_t getMipsGp0() const;
 
 private:
-  void initializeSections(llvm::DenseSet<StringRef> &Comdats);
+  void initializeSections(llvm::DenseSet<StringRef> &ComdatGroups);
   void initializeSymbols();
+  InputSectionBase<ELFT> *createInputSection(const Elf_Shdr &Sec);
 
   SymbolBody *createSymbolBody(StringRef StringTable, const Elf_Sym *Sym);
 
   // List of all sections defined by this file.
   std::vector<InputSectionBase<ELFT> *> Sections;
 
-  ArrayRef<Elf_Word> SymtabSHNDX;
-
   // List of all symbols referenced or defined by this file.
   std::vector<SymbolBody *> SymbolBodies;
 
+  // MIPS .reginfo section defined by this file.
+  MipsReginfoInputSection<ELFT> *MipsReginfo = nullptr;
+
   llvm::BumpPtrAllocator Alloc;
+  llvm::SpecificBumpPtrAllocator<MergeInputSection<ELFT>> MAlloc;
+  llvm::SpecificBumpPtrAllocator<EHInputSection<ELFT>> EHAlloc;
 };
 
 class ArchiveFile : public InputFile {
@@ -156,7 +162,6 @@ public:
   MemoryBufferRef getMember(const Archive::Symbol *Sym);
 
   llvm::MutableArrayRef<Lazy> getLazySymbols() { return LazySymbols; }
-  std::vector<MemoryBufferRef> getMembers();
 
 private:
   std::unique_ptr<Archive> File;
@@ -169,6 +174,7 @@ template <class ELFT> class SharedFile : public ELFFileBase<ELFT> {
   typedef ELFFileBase<ELFT> Base;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Shdr Elf_Shdr;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym Elf_Sym;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Word Elf_Word;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym_Range Elf_Sym_Range;
 
   std::vector<SharedSymbol<ELFT>> SymbolBodies;
@@ -180,7 +186,7 @@ public:
   llvm::MutableArrayRef<SharedSymbol<ELFT>> getSharedSymbols() {
     return SymbolBodies;
   }
-
+  const Elf_Shdr *getSection(const Elf_Sym &Sym) const;
   llvm::ArrayRef<StringRef> getUndefinedSymbols() { return Undefs; }
 
   static bool classof(const InputFile *F) {
@@ -190,7 +196,7 @@ public:
   explicit SharedFile(MemoryBufferRef M);
 
   void parseSoName();
-  void parse();
+  void parseRest();
 
   // Used for --as-needed
   bool AsNeeded = false;
@@ -198,8 +204,8 @@ public:
   bool isNeeded() const { return !AsNeeded || IsUsed; }
 };
 
-template <template <class> class T>
-std::unique_ptr<InputFile> createELFFile(MemoryBufferRef MB);
+std::unique_ptr<InputFile> createObjectFile(MemoryBufferRef MB);
+std::unique_ptr<InputFile> createSharedFile(MemoryBufferRef MB);
 
 } // namespace elf2
 } // namespace lld

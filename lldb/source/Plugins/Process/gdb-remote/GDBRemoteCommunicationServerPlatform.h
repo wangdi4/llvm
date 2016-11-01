@@ -29,7 +29,8 @@ class GDBRemoteCommunicationServerPlatform :
 public:
     typedef std::map<uint16_t, lldb::pid_t> PortMap;
 
-    GDBRemoteCommunicationServerPlatform(const Socket::SocketProtocol socket_protocol);
+    GDBRemoteCommunicationServerPlatform(const Socket::SocketProtocol socket_protocol,
+                                         const char* socket_scheme);
 
     ~GDBRemoteCommunicationServerPlatform() override;
 
@@ -65,17 +66,35 @@ public:
     void
     SetPortOffset (uint16_t port_offset);
 
+    void
+    SetInferiorArguments (const lldb_private::Args& args);
+
+    Error
+    LaunchGDBServer(const lldb_private::Args& args,
+                    std::string hostname,
+                    lldb::pid_t& pid,
+                    uint16_t& port,
+                    std::string& socket_name);
+
+    void
+    SetPendingGdbServer(lldb::pid_t pid, uint16_t port, const std::string& socket_name);
+
 protected:
     const Socket::SocketProtocol m_socket_protocol;
+    const std::string m_socket_scheme;
     Mutex m_spawned_pids_mutex;
     std::set<lldb::pid_t> m_spawned_pids;
     lldb::PlatformSP m_platform_sp;
 
     PortMap m_port_map;
     uint16_t m_port_offset;
+    struct { lldb::pid_t pid; uint16_t port; std::string socket_name; } m_pending_gdb_server;
 
     PacketResult
     Handle_qLaunchGDBServer (StringExtractorGDBRemote &packet);
+
+    PacketResult
+    Handle_qQueryGDBServer (StringExtractorGDBRemote &packet);
 
     PacketResult
     Handle_qKillSpawnedProcess (StringExtractorGDBRemote &packet);

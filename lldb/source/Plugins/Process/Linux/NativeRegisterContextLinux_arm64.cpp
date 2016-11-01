@@ -9,6 +9,7 @@
 
 #if defined (__arm64__) || defined (__aarch64__)
 
+#include "NativeRegisterContextLinux_arm.h"
 #include "NativeRegisterContextLinux_arm64.h"
 
 // C Includes
@@ -23,6 +24,7 @@
 
 #include "Plugins/Process/Linux/NativeProcessLinux.h"
 #include "Plugins/Process/Linux/Procfs.h"
+#include "Plugins/Process/POSIX/ProcessPOSIXLog.h"
 #include "Plugins/Process/Utility/RegisterContextLinux_arm64.h"
 
 // System includes - They have to be included after framework includes because they define some
@@ -142,7 +144,19 @@ NativeRegisterContextLinux::CreateHostNativeRegisterContextLinux(const ArchSpec&
                                                                  NativeThreadProtocol &native_thread,
                                                                  uint32_t concrete_frame_idx)
 {
-    return new NativeRegisterContextLinux_arm64(target_arch, native_thread, concrete_frame_idx);
+    Log *log  = ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_REGISTERS);
+    switch (target_arch.GetMachine())
+    {
+        case llvm::Triple::arm:
+            return new NativeRegisterContextLinux_arm(target_arch, native_thread, concrete_frame_idx);
+        case llvm::Triple::aarch64:
+            return new NativeRegisterContextLinux_arm64(target_arch, native_thread, concrete_frame_idx);
+        default:
+            if (log)
+                log->Printf("NativeRegisterContextLinux::%s() have no register context for architecture: %s\n", __FUNCTION__,
+                            target_arch.GetTriple().getArchName().str().c_str());
+            return nullptr;
+    }
 }
 
 NativeRegisterContextLinux_arm64::NativeRegisterContextLinux_arm64 (const ArchSpec& target_arch,
@@ -435,7 +449,7 @@ NativeRegisterContextLinux_arm64::SetHardwareBreakpoint (lldb::addr_t addr, size
      if (bp_index == LLDB_INVALID_INDEX32)
         return LLDB_INVALID_INDEX32;
 
-    // Add new or update existing watchpoint
+    // Add new or update existing breakpoint
     if ((m_hbr_regs[bp_index].control & 1) == 0)
     {
         m_hbr_regs[bp_index].address = addr;
@@ -446,7 +460,13 @@ NativeRegisterContextLinux_arm64::SetHardwareBreakpoint (lldb::addr_t addr, size
         error = WriteHardwareDebugRegs(eDREGTypeBREAK);
 
         if (error.Fail())
+        {
+            m_hbr_regs[bp_index].address = 0;
+            m_hbr_regs[bp_index].control &= ~1;
+            m_hbr_regs[bp_index].refcount = 0;
+
             return LLDB_INVALID_INDEX32;
+        }
     }
     else
         m_hbr_regs[bp_index].refcount++;
@@ -481,6 +501,11 @@ NativeRegisterContextLinux_arm64::ClearHardwareBreakpoint (uint32_t hw_idx)
     }
     else if (m_hbr_regs[hw_idx].refcount == 1)
     {
+        // Create a backup we can revert to in case of failure.
+        lldb::addr_t tempAddr = m_hbr_regs[hw_idx].address;
+        uint32_t tempControl = m_hbr_regs[hw_idx].control;
+        uint32_t tempRefCount = m_hbr_regs[hw_idx].refcount;
+
         m_hbr_regs[hw_idx].control &= ~1;
         m_hbr_regs[hw_idx].address = 0;
         m_hbr_regs[hw_idx].refcount = 0;
@@ -489,7 +514,13 @@ NativeRegisterContextLinux_arm64::ClearHardwareBreakpoint (uint32_t hw_idx)
         WriteHardwareDebugRegs(eDREGTypeBREAK);
 
         if (error.Fail())
+        {
+            m_hbr_regs[hw_idx].control = tempControl;
+            m_hbr_regs[hw_idx].address = tempAddr;
+            m_hbr_regs[hw_idx].refcount = tempRefCount;
+
             return false;
+        }
 
         return true;
     }
@@ -595,7 +626,13 @@ NativeRegisterContextLinux_arm64::SetHardwareWatchpoint (lldb::addr_t addr, size
         error = WriteHardwareDebugRegs(eDREGTypeWATCH);
 
         if (error.Fail())
+        {
+            m_hwp_regs[wp_index].address = 0;
+            m_hwp_regs[wp_index].control &= ~1;
+            m_hwp_regs[wp_index].refcount = 0;
+
             return LLDB_INVALID_INDEX32;
+        }
     }
     else
         m_hwp_regs[wp_index].refcount++;
@@ -630,6 +667,11 @@ NativeRegisterContextLinux_arm64::ClearHardwareWatchpoint (uint32_t wp_index)
     }
     else if (m_hwp_regs[wp_index].refcount == 1)
     {
+        // Create a backup we can revert to in case of failure.
+        lldb::addr_t tempAddr = m_hwp_regs[wp_index].address;
+        uint32_t tempControl = m_hwp_regs[wp_index].control;
+        uint32_t tempRefCount = m_hwp_regs[wp_index].refcount;
+
         // Update watchpoint in local cache
         m_hwp_regs[wp_index].control &= ~1;
         m_hwp_regs[wp_index].address = 0;
@@ -639,7 +681,13 @@ NativeRegisterContextLinux_arm64::ClearHardwareWatchpoint (uint32_t wp_index)
         error = WriteHardwareDebugRegs(eDREGTypeWATCH);
 
         if (error.Fail())
+        {
+            m_hwp_regs[wp_index].control = tempControl;
+            m_hwp_regs[wp_index].address = tempAddr;
+            m_hwp_regs[wp_index].refcount = tempRefCount;
+
             return false;
+        }
 
         return true;
     }
@@ -663,10 +711,18 @@ NativeRegisterContextLinux_arm64::ClearAllHardwareWatchpoints ()
     if (error.Fail())
         return error;
 
+    lldb::addr_t tempAddr = 0;
+    uint32_t tempControl = 0, tempRefCount = 0;
+
     for (uint32_t i = 0; i < m_max_hwp_supported; i++)
     {
         if (m_hwp_regs[i].control & 0x01)
         {
+            // Create a backup we can revert to in case of failure.
+            tempAddr = m_hwp_regs[i].address;
+            tempControl = m_hwp_regs[i].control;
+            tempRefCount = m_hwp_regs[i].refcount;
+
             // Clear watchpoints in local cache
             m_hwp_regs[i].control &= ~1;
             m_hwp_regs[i].address = 0;
@@ -676,7 +732,13 @@ NativeRegisterContextLinux_arm64::ClearAllHardwareWatchpoints ()
             error = WriteHardwareDebugRegs(eDREGTypeWATCH);
 
             if (error.Fail())
+            {
+                m_hwp_regs[i].control = tempControl;
+                m_hwp_regs[i].address = tempAddr;
+                m_hwp_regs[i].refcount = tempRefCount;
+
                 return error;
+            }
         }
     }
 

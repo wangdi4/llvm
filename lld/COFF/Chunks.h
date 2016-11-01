@@ -204,8 +204,7 @@ private:
   void replace(SectionChunk *Other);
   std::atomic<uint64_t> GroupID = { 0 };
 
-  // Chunks are basically unnamed chunks of bytes.
-  // Symbols are associated for debugging and logging purposs only.
+  // Sym points to a section symbol if this is a COMDAT chunk.
   DefinedRegular *Sym = nullptr;
 };
 
@@ -326,6 +325,10 @@ public:
   uint32_t RVA;
   uint8_t Type;
 };
+
+inline uint64_t align(uint64_t Value, uint64_t Align) {
+  return llvm::RoundUpToAlignment(Value, Align);
+}
 
 } // namespace coff
 } // namespace lld

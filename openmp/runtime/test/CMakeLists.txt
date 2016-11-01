@@ -1,11 +1,22 @@
 # CMakeLists.txt file for unit testing OpenMP Library
 include(FindPythonInterp)
 include(CheckTypeSize)
+
 if(NOT PYTHONINTERP_FOUND)
   libomp_warning_say("Could not find Python.")
   libomp_warning_say("The check-libomp target will not be available!")
   return()
 endif()
+
+macro(pythonize_bool var)
+  if (${var})
+    set(${var} True)
+  else()
+    set(${var} False)
+  endif()
+endmacro()
+
+pythonize_bool(LIBOMP_USE_HWLOC)
 
 set(LIBOMP_TEST_CFLAGS "" CACHE STRING
   "Extra compiler flags to send to the test compiler")
@@ -34,7 +45,7 @@ if(${LIBOMP_STANDALONE_BUILD})
   # The -j 1 lets the actual tests run with the entire machine.
   # We have one test thread that spawns the tests serially.  This allows
   # Each test to use the entire machine.
-  set(LIBOMP_LIT_ARGS_DEFAULT "-sv --show-unsupported --show-xfail -j 1")
+  set(LIBOMP_LIT_ARGS_DEFAULT "-sv --show-unsupported --show-xfail")
   if(MSVC OR XCODE)
     set(LIBOMP_LIT_ARGS_DEFAULT "${LIBOMP_LIT_ARGS_DEFAULT} --no-progress-bar")
   endif()
@@ -56,11 +67,10 @@ else()
   endif()
   set(LIBOMP_TEST_OPENMP_FLAG -fopenmp=libomp)
   # Use add_lit_testsuite() from LLVM CMake.
-  add_lit_testsuite(check-libomp 
+  add_lit_testsuite(check-libomp
     "Running libomp tests"
     ${CMAKE_CURRENT_BINARY_DIR}
-    ARGS "-j 1"
-    DEPENDS omp
+    DEPENDS clang clang-headers FileCheck omp
   )
 endif()
 

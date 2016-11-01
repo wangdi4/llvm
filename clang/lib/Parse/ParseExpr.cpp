@@ -1048,7 +1048,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     SourceLocation CoawaitLoc = ConsumeToken();
     Res = ParseCastExpression(false);
     if (!Res.isInvalid())
-      Res = Actions.ActOnCoawaitExpr(CoawaitLoc, Res.get());
+      Res = Actions.ActOnCoawaitExpr(getCurScope(), CoawaitLoc, Res.get());
     return Res;
   }
 
@@ -1334,8 +1334,23 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     return ExprError();
   }
 
+  // Check to see whether Res is a function designator only. If it is and we
+  // are compiling for OpenCL, we need to return an error as this implies
+  // that the address of the function is being taken, which is illegal in CL.
+
   // These can be followed by postfix-expr pieces.
-  return ParsePostfixExpressionSuffix(Res);
+  Res = ParsePostfixExpressionSuffix(Res);
+  if (getLangOpts().OpenCL)
+    if (Expr *PostfixExpr = Res.get()) {
+      QualType Ty = PostfixExpr->getType();
+      if (!Ty.isNull() && Ty->isFunctionType()) {
+        Diag(PostfixExpr->getExprLoc(),
+             diag::err_opencl_taking_function_address_parser);
+        return ExprError();
+      }
+    }
+
+  return Res;
 }
 
 /// \brief Once the leading part of a postfix-expression is parsed, this
