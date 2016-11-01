@@ -34,8 +34,11 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ELF.h"
+#include "llvm/Analysis/LPUSaveRawBC.h"
 #include <fstream>
 #include <sstream>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
@@ -94,6 +97,9 @@ namespace {
     LineReader* getReader(std::string);
     void emitParamList(const Function *);
     void emitReturnVal(const Function*);
+
+    void writeAsmLine(const char *);
+
   public:
     LPUAsmPrinter(TargetMachine &TM,
             std::unique_ptr<MCStreamer> Streamer)
@@ -104,10 +110,14 @@ namespace {
     }
 
     void EmitStartOfAsmFile(Module &) override;
+    void EmitEndOfAsmFile(Module &) override;
+
     void EmitFunctionEntryLabel() override;
     void EmitFunctionBodyStart() override;
     void EmitFunctionBodyEnd() override;
     void EmitInstruction(const MachineInstr *MI) override;
+
+    void EmitLpuCodeSection();
   };
 } // end of anonymous namespace
 
@@ -269,8 +279,12 @@ void LPUAsmPrinter::emitParamList(const Function *F) {
     } else {
       sz = Ty->getPrimitiveSizeInBits();
     }
-    if (!first) O << '\n';
+    if (!first) {
+      O << '\n';
+    }
+    O << LPUInstPrinter::WrapLpuAsmLinePrefix();
     O << "\t.param .reg " << typeStr << sz << " %r" << paramReg++;
+    O << LPUInstPrinter::WrapLpuAsmLineSuffix();
     first = false;
   }
   if (!first)
@@ -287,6 +301,7 @@ void LPUAsmPrinter::emitReturnVal(const Function *F) {
   if (Ty->getTypeID() == Type::VoidTyID)
     return;
 
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
   O << "\t.result .reg";
 
   if (Ty->isFloatingPointTy() || Ty->isIntegerTy()) {
@@ -310,25 +325,92 @@ void LPUAsmPrinter::emitReturnVal(const Function *F) {
   // Hack: For now, we simply go with the standard return register.
   // (Should really use the allocation.)
   O << " %r0";
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
 
   OutStreamer->EmitRawText(O.str());
 }
 
-void LPUAsmPrinter::EmitStartOfAsmFile(Module &) {
+void LPUAsmPrinter::writeAsmLine(const char *text) {
+  SmallString<128> Str;
+  raw_svector_ostream O(Str);
+
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+  O << text;
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+  OutStreamer->EmitRawText(O.str());
+}
+
+void LPUAsmPrinter::EmitLpuCodeSection() {
+  // The .section directive for an ELF object as a name and 3 optional,
+  // comma separated parts as detailed at
+  // https://sourceware.org/binutils/docs/as/Section.html
+  //
+  // The LPU code section uses the following:
+  //
+  // Name: ".lpu.code". I may want to append the module name.
+  //
+  // Flag values:
+  // - a - Section is allocatable - Which tells us very little. The ELF
+  //       docs expand this to explain that SHF_ALLOC means that the
+  //       section occupies memory during process execution
+  // - S - Section contains zero terminated strings
+  //
+  // Type: "@progbits" - section contains data
+  OutStreamer->EmitRawText("\t.section\t\".lpu.code\",\"aS\",@progbits");
+}
+
+void LPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
+
+  if (LPUInstPrinter::WrapLpuAsm()) {
+    // Put the code in the .lpu.code  section. Note that we are NOT
+    // using SwitchSection because then we'll fight with the
+    // AmsPrinter::EmitFunctionHeader
+    EmitLpuCodeSection();
+    OutStreamer->EmitRawText("\t.globl\t__lpu_assembly__\n");
+    OutStreamer->EmitRawText("__lpu_assembly__:\n");
+    writeAsmLine("\t.text");
+  }
+  
   /* Disabled 2016/3/31.  Long term, we should only put this out if it
    * is not autounit.  The theory is if the compiler has done tailoring
    * for a specific target, that should be reflected in the file.
    */
-  const LPUTargetMachine *LPUTM = static_cast<const LPUTargetMachine*>(&TM);
-  assert(LPUTM && LPUTM->getSubtargetImpl());
   SmallString<128> Str;
   raw_svector_ostream O(Str);
+  const LPUTargetMachine *LPUTM = static_cast<const LPUTargetMachine*>(&TM);
+  assert(LPUTM && LPUTM->getSubtargetImpl());
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
   O << "\t# .processor ";  // note - commented out...
   O << LPUTM->getSubtargetImpl()->lpuName();
-
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
-  OutStreamer->EmitRawText("\t.version 0,6,0");
-  OutStreamer->EmitRawText("\t.unit sxu");
+
+  writeAsmLine("\t.version 0,6,0");
+  writeAsmLine("\t.unit sxu");
+}
+
+void LPUAsmPrinter::EmitEndOfAsmFile(Module &M) {
+
+  if (LPUInstPrinter::WrapLpuAsm()) {
+    // Add the terminating null for the .lpu section. Note
+    // that we are NOT using SwitchSection because then we'll
+    // fight with the AmsPrinter::EmitFunctionHeader
+    EmitLpuCodeSection();
+    OutStreamer->EmitRawText("\t.asciz \"\"");
+
+    // Dump the raw IR to the file as data. This information does
+    // not need to be loaded into the address space, so we're not
+    // giving it the "a" flag
+    auto *SRB = getAnalysisIfAvailable<LPUSaveRawBC>();
+    assert(SRB && "LPUSaveRawBC should always be available!");
+
+    const std::string &rawBC = SRB->getRawBC();
+    OutStreamer->EmitRawText("\t.section\t\".lpu.raw.bc\",\"\",@progbits");
+
+    for (size_t i = 0; i < rawBC.size(); ++i) {
+      OutStreamer->EmitIntValue(rawBC[i], 1);
+    }
+  }
 }
 
 void LPUAsmPrinter::EmitFunctionEntryLabel() {
@@ -339,14 +421,28 @@ void LPUAsmPrinter::EmitFunctionEntryLabel() {
   MRI = &MF->getRegInfo();
   F = MF->getFunction();
 
-  O << "\t.entry\t" << *CurrentFnSym << "\n";
+  // If we're wrapping the LPU assembly, the global symbol declaration
+  // generated by MCAsmStreamer::EmitSymbolAttribute() will be commented
+  // out, so we need to create our own
+  if (LPUInstPrinter::WrapLpuAsm()) {
+    O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+    O << "\t.globl\t" << *CurrentFnSym;
+    O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+    O << "\n";
+  }
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+  O << "\t.entry\t" << *CurrentFnSym;
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+  O << "\n";
   // For now, assume control flow (sequential) entry
+  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
   O << *CurrentFnSym << ":";
+  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 
   // Start a scope for this routine to localize the LIC names
   // For now, this includes parameters and results
-  OutStreamer->EmitRawText("{");
+  writeAsmLine("{");
 
   emitReturnVal(F);
 
@@ -370,6 +466,7 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
     if (LMFI->isAllocated(reg)) {
       SmallString<128> Str;
       raw_svector_ostream O(Str);
+      O << LPUInstPrinter::WrapLpuAsmLinePrefix();
       O << "\t";
       // LIC or register
       O << (LPU::ANYCRegClass.contains(reg) ? ".lic " : ".reg ");
@@ -381,6 +478,7 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
       else if (LPU::CI1RegClass.contains(reg))  O << ".i1";
       else if (LPU::CI0RegClass.contains(reg))  O << ".i0";
       O << " " << LPUInstPrinter::getRegisterName(reg);
+      O << LPUInstPrinter::WrapLpuAsmLineSuffix();
       OutStreamer->EmitRawText(O.str());
     }
   }
@@ -388,7 +486,7 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
 }
 
 void LPUAsmPrinter::EmitFunctionBodyEnd() {
-  OutStreamer->EmitRawText("}");
+  writeAsmLine("}");
 }
 
 void LPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {

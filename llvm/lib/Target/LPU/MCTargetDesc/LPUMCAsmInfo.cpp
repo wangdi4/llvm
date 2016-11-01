@@ -13,6 +13,7 @@
 
 #include "LPUMCAsmInfo.h"
 #include "llvm/ADT/StringRef.h"
+#include "../InstPrinter/LPUInstPrinter.h"
 using namespace llvm;
 
 void LPUMCAsmInfo::anchor() { }
@@ -35,4 +36,11 @@ LPUMCAsmInfo::LPUMCAsmInfo(const Triple &T) {
 
   // Maybe someday
   // UseIntegratedAssembler = true;
+
+  // Override the global directive when we're wrapping LPU assembly. Since
+  // we cannot wrap symbols written by MCAsmStreamer::EmitSymbolAttribute,
+  //we'll write our own global symbols
+  if (LPUInstPrinter::WrapLpuAsm()) {
+    GlobalDirective = "#\t.globl\t";
+  }
 }
