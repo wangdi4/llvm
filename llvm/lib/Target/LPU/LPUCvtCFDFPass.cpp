@@ -19,6 +19,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SparseSet.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -75,7 +76,7 @@ const TargetRegisterClass* MemopRC = &LPU::I1RegClass;
 
 // Width of vectors we are using for memory op calculations.
 // TBD(jsukha): As far as I know, this value only affects performance,
-// not correctness? 
+// not correctness?
 #define MEMDEP_VEC_WIDTH 8
 
 #define DEBUG_TYPE "lpu-cvt-cf-df-pass"
@@ -138,6 +139,7 @@ namespace llvm {
     unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb);
     void handleAllConstantInputs();
     void releaseMemory() override;
+    bool replaceUndefWithIgn();
 
 
     // TBD(jsukha): Experimental code for ordering of memory ops.
@@ -199,12 +201,12 @@ namespace llvm {
                                       SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
                                       unsigned input_mem_reg);
 
-      
+
     void createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
                                  DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut);
-    
-                                        
-    
+
+
+
   private:
     MachineFunction *thisMF;
     MachineDominatorTree *DT;
@@ -222,7 +224,7 @@ namespace llvm {
 }
 
 //  Because of the namespace-related syntax limitations of gcc, we need
-//  To hoist init out of namespace blocks. 
+//  To hoist init out of namespace blocks.
 char LPUCvtCFDFPass::ID = 0;
 //declare LPUCvtCFDFPass Pass
 INITIALIZE_PASS(LPUCvtCFDFPass, "lpu-cvt-cfdf", "LPU Convert Control Flow to Data Flow", true, true)
@@ -300,7 +302,7 @@ ControlDependenceNode* LPUCvtCFDFPass::getNonLatchParent(ControlDependenceNode* 
 		}
 	}
 	return pcdn;
-} 
+}
 
 
 bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
@@ -314,6 +316,21 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
 
+#if 0
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    MachineBasicBlock* mbb = BB;
+    for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
+      if (MI->getOpcode() == LPU::JSR || MI->getOpcode() == LPU::JSRi) {
+        //function call inside control region need to run on SXU
+        ControlDependenceNode* mnode = CDG->getNode(mbb);
+        if (mnode->getNumParents() > 1 || mnode->enclosingRegion()->getBlock()) {
+          return false;
+        }
+      }
+    }
+  }
+#endif
+
   bool Modified = false;
 #if 0
   // for now only well formed innermost loop regions are processed in this pass
@@ -323,6 +340,8 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     return false;
   }
 #endif
+
+  replaceUndefWithIgn();
 
   // TBD(jsukha): Experimental code to add dependencies for memory
   // operations.
@@ -451,7 +470,7 @@ MachineInstr* LPUCvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasic
   } else {
     defSwitchInstr = (*reg2switch)[Reg];
   }
-  
+
   return defSwitchInstr;
 }
 
@@ -466,7 +485,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
   if (cdgpBB->succ_size() == 1) {
     //LLVM 3.6 buggy loop latch with no exit edge from latch, fixed in 3.9
     ControlDependenceNode* latchNode = CDG->getNode(cdgpBB);
-    //closed edge latchNode has loop hdr as control parent, 
+    //closed edge latchNode has loop hdr as control parent,
     //nesting loop controls its loop hdr first, then the closed latch
     assert(latchNode->getNumParents() == 1);
     MachineBasicBlock* ctrlBB = (*latchNode->parent_begin())->getBlock();
@@ -640,7 +659,7 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 					}
 					if (DT->dominates(dmbb, upbb)) 	{ //including dmbb itself
 						numIfParent++;
-						
+
 						assert((MLI->getLoopFor(dmbb) == NULL ||
 							MLI->getLoopFor(dmbb) != MLI->getLoopFor(upbb) ||
 							MLI->getLoopFor(dmbb)->getLoopLatch() != dmbb) &&
@@ -656,7 +675,7 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 							//rename it to switchTrueReg
 							newVReg = switchTrueReg;
 						}
-						SSAUpdate.AddAvailableValue(upbb, newVReg);	
+						SSAUpdate.AddAvailableValue(upbb, newVReg);
 					}
 				} //end of for (parent
 
@@ -815,7 +834,7 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 					                        MLI->getLoopFor(UseBB) == MLI->getLoopFor(mbb)->getParentLoop();
 				//only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
 				if (isUseEnclosingDef) {
-					//this is case 1, can only have one level nesting difference 
+					//this is case 1, can only have one level nesting difference
 					MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
 
 					unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
@@ -836,7 +855,7 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 					UseMO.setReg(newVReg);
 				} else {
 					// use not enclosing def, def and use in different regions
-					// assert(use have to be a switch from the repeat handling pass, or def is a switch from the if handling pass  
+					// assert(use have to be a switch from the repeat handling pass, or def is a switch from the if handling pass
 					// or loop hdr Phi generated by SSAUpdater in handling repeat case)
 				}
 			}
@@ -937,7 +956,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
     if (!mloop) continue;
     MachineBasicBlock *latchBB = mloop->getLoopLatch();
     ControlDependenceNode *mLatch = CDG->getNode(latchBB);
-    //make sure loop is properly formed with exit edge from latch block. 
+    //make sure loop is properly formed with exit edge from latch block.
     //LLVM 3.6 has this buggy issue that was subsequently fixed in 3.9
     //TBD:: reenable it:
     //assert(latchBB->succ_size() == 2);
@@ -962,7 +981,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
                                    MLI->getLoopFor(mbb)->getParentLoop() == MLI->getLoopFor(DefBB);
 
           if (isDefEnclosingUse && DT->dominates(DefBB, mbb)) {
-            unsigned newVReg;  
+            unsigned newVReg;
             MachineInstr *defInstr = getOrInsertSWITCHForReg(Reg, latchBB);
             if (TII.isSwitch(defInstr)) {
               unsigned switchFalseReg = defInstr->getOperand(0).getReg();
@@ -980,7 +999,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
               assert(TII.isMOV(defInstr));
               newVReg = defInstr->getOperand(0).getReg();
             }
-      
+
             SmallVector<MachineInstr*, 8> NewPHIs;
             MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
             SSAUpdate.Initialize(newVReg);
@@ -1107,7 +1126,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
 				pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
 				                  	addOperand(*pickFalse).addOperand(*pickTrue);
 			}
-      
+
 			pickInst->setFlag(MachineInstr::NonSequential);
 			MI->removeFromParent();
 			if (numUse > 2) {
@@ -1131,6 +1150,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
 	renameQueue.clear();
 	std::set<unsigned> pinedVReg;
 	for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    MachineBasicBlock* mbb = BB;
 		for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
 			if (MI->isPHI()) {
 				for (MIOperands MO(MI); MO.isValid(); ++MO) {
@@ -1138,13 +1158,22 @@ void LPUCvtCFDFPass::assignLicForDF() {
 					unsigned Reg = MO->getReg();
 					pinedVReg.insert(Reg);
 				}
-			}
+      } else if (MI->getOpcode() == LPU::JSR || MI->getOpcode() == LPU::JSRi) {
+        //function call inside control region need to run on SXU
+        ControlDependenceNode* mnode = CDG->getNode(mbb);
+        if (mnode->getNumParents() > 1 || 
+            (mnode->getNumParents() == 1 && (*mnode->parent_begin())->getBlock())) {
+          RunSXU = true;
+        }
+      }
 		}
 	}
 
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
-      if (TII.isPick(MI) || TII.isSwitch(MI) || 
+      if (TII.isPick(MI) || TII.isSwitch(MI) ||  MI->getOpcode() == LPU::MERGE64f ||
+          TII.isFMA(MI) || TII.isDiv(MI) || TII.isMul(MI) ||
+          TII.isAdd(MI) || TII.isSub(MI) ||
           MI->getOpcode() == LPU::PREDMERGE || 
           MI->getOpcode() == LPU::PREDPROP || 
           MI->getOpcode() == LPU::OR1) {
@@ -1192,7 +1221,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
 				continue;
 			}
 		}
-		
+
 		DefMI->substituteRegister(dReg, phyReg, 0, TRI);
 
     MachineRegisterInfo::use_iterator UI = MRI->use_begin(dReg);
@@ -1201,7 +1230,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
       ++UI;
 			UseMO.setReg(phyReg);
     }
-		
+
     for (MIOperands MO(DefMI); MO.isValid(); ++MO) {
       if (!MO->isReg() || &*MO == DefMO || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
       unsigned Reg = MO->getReg();
@@ -1247,11 +1276,11 @@ void LPUCvtCFDFPass::assignLicForDF() {
           break;
         }
       }
-      
+
       //DEBUG(errs() << "Machine ins " << *MI << ": allLics = " << allLics << ", allImmediateUses = " << allImmediateUses << "\n");
       if (allLics && !allImmediateUses) {
         MI->setFlag(MachineInstr::NonSequential);
-			}	
+			}
 			if (!allLics && TII.isSwitch(MI)) {
 				MI->clearFlag(MachineInstr::NonSequential);
 			}
@@ -1263,14 +1292,14 @@ void LPUCvtCFDFPass::assignLicForDF() {
 void LPUCvtCFDFPass::handleAllConstantInputs() {
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  
+
   std::deque<unsigned> renameQueue;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
 		MachineBasicBlock* mbb = BB;
     MachineBasicBlock::iterator iterMI = BB->begin();
     while(iterMI != BB->end()) {
       MachineInstr* MI = iterMI;
-      ++iterMI;      
+      ++iterMI;
       if (!TII.isMOV(MI)) continue;
 
       bool allConst = true;
@@ -1452,7 +1481,7 @@ MachineInstr* LPUCvtCFDFPass::PatchOrInsertPickAtFork(
       //make sure input src is before the pick
       assert(DefMI->getParent() == pickInstr->getParent());
       pickInstr->removeFromParent();
-      DefMI->getParent()->insertAfter(DefMI, pickInstr); 
+      DefMI->getParent()->insertAfter(DefMI, pickInstr);
     }
     patched = true;
   }
@@ -1969,7 +1998,7 @@ MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
   //  3. Add new ones, in the right order.
   //
   // This operation doesn't work, because the cloned instruction gets created
-  // with too few operands. 
+  // with too few operands.
   //
   // MachineInstr* new_inst = thisMF->CloneMachineInstr(MI);
   // BB->insert(iterMI, new_inst);
@@ -2042,7 +2071,7 @@ MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
   //
   // Ideally, we'd be able to just call this function instead,
   // but with a different opcode that reserves more space for
-  // operands. 
+  // operands.
   //   MachineInstr(MachineFunction &, const MachineInstr &);
   new_inst->setFlags(MI->getFlags());
   new_inst->setMemRefs(MI->memoperands_begin(),
@@ -2056,7 +2085,7 @@ MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
   }
 
   DEBUG(errs() << "   Original ins modified: " << *MI << "\n");
-  
+
   return new_inst;
 }
 
@@ -2086,7 +2115,7 @@ void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsign
                                              DebugLoc(),
                                              TII.get(TargetOpcode::PHI),
                                              mem_in_reg);
-                                     
+
       // Scan the predecessors, and add the PHI value for each.
       for (MachineBasicBlock::pred_iterator PI = BB->pred_begin();
            PI != BB->pred_end();
@@ -2128,18 +2157,18 @@ void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsign
     DEBUG(errs() << "After createMemInRegisterDefs: " << *BB << "\n");
   }
 }
-                                                 
+
 
 
 unsigned LPUCvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& BB,
-                                                     unsigned mem_in_reg) 
+                                                     unsigned mem_in_reg)
 
 {
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  
+
   unsigned current_mem_reg = mem_in_reg;
-  
+
   MachineBasicBlock::iterator iterMI = BB->begin();
   while (iterMI != BB->end()) {
     MachineInstr* MI = iterMI;
@@ -2190,7 +2219,7 @@ unsigned LPUCvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
     DEBUG(errs() << "Merging dependency signals from " << current_wavefront->size() << " register " << "\n");
 
     // BFS-like algorithm for merging the registers together.
-    // Merge consecutive pairs of dependency signals together, 
+    // Merge consecutive pairs of dependency signals together,
     // and push the output into "next_level".
     SmallVector<unsigned, MEMDEP_VEC_WIDTH> tmp_buffer;
     SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_level;
@@ -2250,7 +2279,7 @@ unsigned LPUCvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
     // Clear both vectors, just to be certain.
     current_level->clear();
     next_level->clear();
-    
+
     return ans;
   }
   else {
@@ -2261,7 +2290,7 @@ unsigned LPUCvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
 
 
 unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterator& BB,
-                                                        unsigned mem_in_reg) 
+                                                        unsigned mem_in_reg)
 {
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
@@ -2270,7 +2299,7 @@ unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
   SmallVector<unsigned, MEMDEP_VEC_WIDTH> current_wavefront;
   current_wavefront.clear();
   DEBUG(errs() << "Wavefront memory ordering for block " << BB << "\n");
-  
+
   MachineBasicBlock::iterator iterMI = BB->begin();
   while (iterMI != BB->end()) {
     MachineInstr* MI = iterMI;
@@ -2314,7 +2343,7 @@ unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
       if (is_store) {
         current_mem_reg = next_out_reg;
       }
-      
+
       // Erase the old instruction.
       iterMI = BB->erase(iterMI);
     }
@@ -2332,7 +2361,53 @@ unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
   return current_mem_reg;
 }
 
+/* Find all implicitly defined vregs. These are problematic with dataflow
+ * conversion: LLVM will automatically expand them to registers (LICs, in our
+ * case). While registers can be read without any value previously having been
+ * written, LICs are different. We must replace the undef with a read from
+ * %IGN, equivalent to reading 0. Note that we can do this even if we're not
+ * sure that the instructions in question will be successfully converted to
+ * data flow. Returns a boolean indicating modification.
+ */
+bool LPUCvtCFDFPass::replaceUndefWithIgn() {
+  bool modified = false;
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  SmallPtrSet<MachineInstr*, 4> implicitDefs;
+  DEBUG(errs() << "Finding implicit defs:\n");
+  for (MachineFunction::iterator BB = thisMF->begin(); BB != thisMF->end(); ++BB) {
+    for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
+      MachineInstr *MI = I;
+      // We're looking for instructions like '%vreg26<def> = IMPLICIT_DEF;'.
+      if(MI->isImplicitDef()) {
+        implicitDefs.insert(MI);
+        DEBUG(errs() << "\tFound: " << *MI);
+      }
+    }
+  }
 
+  if(implicitDefs.empty()) {
+    DEBUG(errs() << "(No implicit defs found.)\n");
+  }
+
+  for (SmallPtrSet<MachineInstr*, 4>::iterator I = implicitDefs.begin(), E = implicitDefs.end(); I != E; ++I) {
+    MachineInstr *uMI = *I;
+    MachineOperand uMO = uMI->getOperand(0);
+    // Ensure we're dealing with a register definition.
+    assert(uMO.isDef() && uMO.isReg());
+    // Ensure SSA form and that we have right defining instruction.
+    assert(MRI->getUniqueVRegDef(uMO.getReg()) &&
+        MRI->getUniqueVRegDef(uMO.getReg()) == uMI);
+
+    // Erase the implicit definition.
+    uMI->eraseFromParent();
+    // Replace all uses of this register with IGN.
+    MRI->replaceRegWith(uMO.getReg(), LPU::IGN);
+    modified = true;
+  }
+
+  DEBUG(errs() << "Finished converting implicit defs to %IGN reads.\n\n");
+  return modified;
+}
 
 void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
 
@@ -2341,7 +2416,7 @@ void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
 
   DenseMap<MachineBasicBlock*, unsigned> blockToMemIn;
   DenseMap<MachineBasicBlock*, unsigned> blockToMemOut;
-  
+
 
   DEBUG(errs() << "Before addMemoryOrderingConstraints");
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
@@ -2364,7 +2439,7 @@ void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
 
     }
     else {
-      // ERROR: unsupported memory ordering. 
+      // ERROR: unsupported memory ordering.
       assert(((OrderMemops ==1) || (OrderMemops == 2))
              && "Only linear and wavefront memory ordering implemented now.");
     }
@@ -2382,7 +2457,7 @@ void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
     MachineInstr* mem_out_def = BuildMI(*BB,
                                         BB->getFirstTerminator(),
                                         DebugLoc(),
-                                        TII.get(LPU::MOV1),
+                                        TII.get(LPU::MOV0),
                                         mem_out_reg).addReg(last_mem_reg);
 
     DEBUG(errs() << "Inserted mem_out_def instruction " << *mem_out_def << "\n");
@@ -2395,9 +2470,9 @@ void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
 
     DEBUG(errs() << "After memop conversion of function: " << *BB << "\n");
   }
-  
+
   // Another walk over basic blocks: add in definitions for mem_in
   // register for each block, based on predecessors.
   createMemInRegisterDefs(blockToMemIn, blockToMemOut);
 }
- 
+

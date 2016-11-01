@@ -50,8 +50,9 @@ class LPUTTIImpl : public BasicTTIImplBase<LPUTTIImpl> {
   }
 
 public:
-  explicit LPUTTIImpl(const LPUTargetMachine *TM)
-      : BaseT(TM), ST(TM->getSubtargetImpl()), TLI(ST->getTargetLowering()) {}
+  explicit LPUTTIImpl(const LPUTargetMachine *TM, const Function &F)
+      : BaseT(TM, F.getParent()->getDataLayout()), ST(TM->getSubtargetImpl()),
+        TLI(ST->getTargetLowering()) {}
 
   // Provide value semantics. MSVC requires that we spell all of these out.
   LPUTTIImpl(const LPUTTIImpl &Arg)
@@ -59,18 +60,6 @@ public:
   LPUTTIImpl(LPUTTIImpl &&Arg)
       : BaseT(std::move(static_cast<BaseT &>(Arg))), ST(std::move(Arg.ST)),
       TLI(std::move(Arg.TLI)) {}
-  LPUTTIImpl &operator=(const LPUTTIImpl &RHS) {
-      BaseT::operator=(static_cast<const BaseT &>(RHS));
-      ST = RHS.ST;
-      TLI = RHS.TLI;
-      return *this;
-  }
-  LPUTTIImpl &operator=(LPUTTIImpl &&RHS) {
-      BaseT::operator=(std::move(static_cast<BaseT &>(RHS)));
-      ST = std::move(RHS.ST);
-      TLI = std::move(RHS.TLI);
-      return *this;
-  }
 
   bool hasBranchDivergence() const;
 
@@ -79,12 +68,6 @@ public:
 
   bool isLegalAddImmediate(int64_t imm) const;
   bool isLegalICmpImmediate(int64_t imm) const;
-  bool isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
-                             int64_t BaseOffset, bool HasBaseReg,
-                             int64_t Scale, unsigned AS = 0) const;
-  int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
-                           int64_t BaseOffset, bool HasBaseReg,
-                           int64_t Scale, unsigned AS = 0) const;
   bool isTruncateFree(Type *Ty1, Type *Ty2) const;
   bool isTypeLegal(Type *Ty) const;
   unsigned getJumpBufAlignment() const;

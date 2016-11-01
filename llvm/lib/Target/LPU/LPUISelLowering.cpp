@@ -71,9 +71,6 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget
 
   // Provide all sorts of operation actions
 
-  // Division is expensive
-  setIntDivIsCheap(false);
-
   // Operations we want expanded for all types
   for (MVT VT : MVT::integer_valuetypes()) {
     // If this type is generally supported
@@ -296,7 +293,7 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget
   //setOperationAction(ISD::READCYCLECOUNTER,   MVT::i64,   Legal);
 }
 
-EVT LPUTargetLowering::getSetCCResultType(LLVMContext &Context, EVT VT) const {
+EVT LPUTargetLowering::getSetCCResultType(const DataLayout &DL, LLVMContext &Context, EVT VT) const {
   return MVT::i1;
 }
 
@@ -336,30 +333,38 @@ SDValue LPUTargetLowering::LowerGlobalAddress(SDValue Op,
   int64_t Offset = cast<GlobalAddressSDNode>(Op)->getOffset();
 
   // Create the TargetGlobalAddress node, folding in the constant offset.
-  SDValue Result = DAG.getTargetGlobalAddress(GV, SDLoc(Op), getPointerTy(),
+  SDValue Result = DAG.getTargetGlobalAddress(GV, SDLoc(Op),
+                                              getPointerTy(DAG.getDataLayout()),
                                               Offset);
-  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op), getPointerTy(), Result);
+  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op),
+                     getPointerTy(DAG.getDataLayout()), Result);
 }
 
 SDValue LPUTargetLowering::LowerExternalSymbol(SDValue Op,
                                                   SelectionDAG &DAG) const {
   const char *Sym = cast<ExternalSymbolSDNode>(Op)->getSymbol();
-  SDValue Result = DAG.getTargetExternalSymbol(Sym, getPointerTy());
-  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op), getPointerTy(), Result);
+  SDValue Result = DAG.getTargetExternalSymbol(Sym,
+                                          getPointerTy(DAG.getDataLayout()));
+  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op),
+                     getPointerTy(DAG.getDataLayout()), Result);
 }
 
 SDValue LPUTargetLowering::LowerBlockAddress(SDValue Op,
                                                 SelectionDAG &DAG) const {
   const BlockAddress *BA = cast<BlockAddressSDNode>(Op)->getBlockAddress();
-  SDValue Result =  DAG.getTargetBlockAddress(BA, getPointerTy());
-  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op), getPointerTy(), Result);
+  SDValue Result = DAG.getTargetBlockAddress(BA,
+                                        getPointerTy(DAG.getDataLayout()));
+  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op),
+                                getPointerTy(DAG.getDataLayout()), Result);
 }
 
 SDValue LPUTargetLowering::LowerJumpTable(SDValue Op,
                                              SelectionDAG &DAG) const {
   JumpTableSDNode *JT = cast<JumpTableSDNode>(Op);
-  SDValue Result = DAG.getTargetJumpTable(JT->getIndex(), getPointerTy());
-  return DAG.getNode(LPUISD::Wrapper, SDLoc(JT), getPointerTy(), Result);
+  SDValue Result = DAG.getTargetJumpTable(JT->getIndex(),
+                                    getPointerTy(DAG.getDataLayout()));
+  return DAG.getNode(LPUISD::Wrapper, SDLoc(JT),
+                            getPointerTy(DAG.getDataLayout()), Result);
 }
 
 SDValue LPUTargetLowering::LowerAtomicLoad(SDValue Op,
@@ -495,8 +500,10 @@ bool LPUTargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
 
 // isLegalAddressingMode - Return true if the addressing mode represented
 // by AM is legal for this target, for a load/store of the specified type.
-bool LPUTargetLowering::isLegalAddressingMode(const AddrMode &AM,
-  Type *Ty, unsigned AddrSpace) const {
+bool LPUTargetLowering::isLegalAddressingMode(const DataLayout &DL,
+                                              const AddrMode &AM,
+                                              Type *Ty,
+                                              unsigned AddrSpace) const {
   /**/
   // X86 supports extremely general addressing modes.
   //  CodeModel::Model M = getTargetMachine().getCodeModel();
@@ -623,7 +630,8 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (!isTailCall)
     Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, dl, true), dl);
 
-  SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, LPU::SP, getPointerTy());
+  SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, LPU::SP,
+                                        getPointerTy(DAG.getDataLayout()));
 
   SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
   SmallVector<SDValue, 8> MemOpChains;
@@ -669,7 +677,8 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     // parameter value to a stack Location
     unsigned LocMemOffset = VA.getLocMemOffset();
     SDValue PtrOff = DAG.getIntPtrConstant(LocMemOffset, dl);
-    PtrOff = DAG.getNode(ISD::ADD, dl, getPointerTy(), StackPtr, PtrOff);
+    PtrOff = DAG.getNode(ISD::ADD, dl, getPointerTy(DAG.getDataLayout()),
+        StackPtr, PtrOff);
     if (Flags.isByVal()) {
       SDValue SizeNode = DAG.getConstant(Flags.getByValSize(), dl, MVT::i32);
       MemOpChains.push_back(
@@ -679,7 +688,7 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     } else {
       MemOpChains.push_back(
         DAG.getStore(Chain, dl, Arg, PtrOff,
-                     MachinePointerInfo::getStack(LocMemOffset),
+                     MachinePointerInfo::getStack(MF, LocMemOffset),
                      false, false, 0));
     }
   }
@@ -705,10 +714,12 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // node so that legalize doesn't hack it.
   if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee)) {
     const GlobalValue *GV = G->getGlobal();
-    Callee = DAG.getTargetGlobalAddress(GV, dl, getPointerTy());
+    Callee = DAG.getTargetGlobalAddress(GV, dl,
+        getPointerTy(DAG.getDataLayout()));
   } else if (ExternalSymbolSDNode *S = dyn_cast<ExternalSymbolSDNode>(Callee)) {
     const char *Sym = S->getSymbol();
-    Callee = DAG.getTargetExternalSymbol(Sym, getPointerTy());
+    Callee = DAG.getTargetExternalSymbol(Sym,
+        getPointerTy(DAG.getDataLayout()));
   }
 
   // MipsJmpLink = #chain, #target_address, #opt_in_flags...
@@ -849,13 +860,14 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
         // as this is used to determine the offset of the FrameIndex in 'eliminateFrameIndex'. The +8
         // and negative are removed then...
         int FI = MFI->CreateFixedObject(flags.getByValSize(), -((int64_t)VA.getLocMemOffset() + 8LL), true);
-        InVals.push_back(DAG.getFrameIndex(FI, getPointerTy()));
+        InVals.push_back(DAG.getFrameIndex(FI,
+              getPointerTy(DAG.getDataLayout())));
       } else {
         int FI = MFI->CreateFixedObject(VA.getLocVT().getSizeInBits()/8, -((int64_t)VA.getLocMemOffset() + 8LL), true);
-        SDValue FIN = DAG.getFrameIndex(FI, getPointerTy());
+        SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
         // Create load to retrieve the argument from the stack
         InVals.push_back(DAG.getLoad(VA.getValVT(), dl, Chain, FIN,
-	    MachinePointerInfo::getFixedStack(FI, 0), false, false, false, 0));
+	    MachinePointerInfo::getFixedStack(MF, FI, 0), false, false, false, 0));
       }
       /*
       unsigned ArgSize = VA.getLocVT().getSizeInBits()/8;
@@ -863,7 +875,7 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
       int FI = MFI->CreateFixedObject(ArgSize, -Offset, true);
 
       // Create load nodes to retrieve arguments from the stack
-      SDValue FIN = DAG.getFrameIndex(FI, getPointerTy());
+      SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
       InVals.push_back(
         DAG.getLoad(VA.getValVT(), dl, Chain, FIN,
                     MachinePointerInfo::getFixedStack(FI, 0),
@@ -944,7 +956,7 @@ LPUTargetLowering::getReturnAddressFrameIndex(SelectionDAG &DAG) const {
     FuncInfo->setRAIndex(ReturnAddrIndex);
   }
 
-  return DAG.getFrameIndex(ReturnAddrIndex, getPointerTy());
+  return DAG.getFrameIndex(ReturnAddrIndex, getPointerTy(DAG.getDataLayout()));
 }
 
 SDValue LPUTargetLowering::LowerRETURNADDR(SDValue Op,
@@ -962,15 +974,15 @@ SDValue LPUTargetLowering::LowerRETURNADDR(SDValue Op,
     SDValue FrameAddr = LowerFRAMEADDR(Op, DAG);
     SDValue Offset =
         DAG.getConstant(getDataLayout()->getPointerSize(), MVT::i16);
-    return DAG.getLoad(getPointerTy(), dl, DAG.getEntryNode(),
-                       DAG.getNode(ISD::ADD, dl, getPointerTy(),
+    return DAG.getLoad(getPointerTy(DAG.getDataLayout()), dl, DAG.getEntryNode(),
+                       DAG.getNode(ISD::ADD, dl, getPointerTy(DAG.getDataLayout()),
                                    FrameAddr, Offset),
                        MachinePointerInfo(), false, false, false, 0);
   }
 
   // Just load the return address.
   SDValue RetAddrFI = getReturnAddressFrameIndex(DAG);
-  return DAG.getLoad(getPointerTy(), dl, DAG.getEntryNode(),
+  return DAG.getLoad(getPointerTy(DAG.getDataLayout()), dl, DAG.getEntryNode(),
                      RetAddrFI, MachinePointerInfo(), false, false, false, 0);
 }
 
@@ -998,7 +1010,7 @@ SDValue LPUTargetLowering::LowerVASTART(SDValue Op,
 
   // Frame index of first vararg argument
   SDValue FrameIndex = DAG.getFrameIndex(FuncInfo->getVarArgsFrameIndex(),
-                                         getPointerTy());
+                                         getPointerTy(DAG.getDataLayout()));
   const Value *SV = cast<SrcValueSDNode>(Op.getOperand(2))->getValue();
 
   // Create a store of the frame index to the location operand

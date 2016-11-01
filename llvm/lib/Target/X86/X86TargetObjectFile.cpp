@@ -16,6 +16,7 @@
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCValue.h"
+#include "llvm/Support/COFF.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Target/TargetLowering.h"
 
@@ -139,18 +140,21 @@ static std::string scalarConstantToHexString(const Constant *C) {
     return APIntToHexString(CFP->getValueAPF().bitcastToAPInt());
   } else if (const auto *CI = dyn_cast<ConstantInt>(C)) {
     return APIntToHexString(CI->getValue());
-  } else if (const auto *VTy = dyn_cast<VectorType>(Ty)) {
+  } else {
+    unsigned NumElements;
+    if (isa<VectorType>(Ty))
+      NumElements = Ty->getVectorNumElements();
+    else
+      NumElements = Ty->getArrayNumElements();
     std::string HexString;
-    for (int I = VTy->getNumElements() - 1, E = -1; I != E; --I)
+    for (int I = NumElements - 1, E = -1; I != E; --I)
       HexString += scalarConstantToHexString(C->getAggregateElement(I));
     return HexString;
   }
-  llvm_unreachable("unexpected constant pool element type!");
 }
 
-MCSection *
-X86WindowsTargetObjectFile::getSectionForConstant(SectionKind Kind,
-                                                  const Constant *C) const {
+MCSection *X86WindowsTargetObjectFile::getSectionForConstant(
+    const DataLayout &DL, SectionKind Kind, const Constant *C) const {
   if (Kind.isMergeableConst() && C) {
     const unsigned Characteristics = COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
                                      COFF::IMAGE_SCN_MEM_READ |
@@ -167,5 +171,5 @@ X86WindowsTargetObjectFile::getSectionForConstant(SectionKind Kind,
                                          COFF::IMAGE_COMDAT_SELECT_ANY);
   }
 
-  return TargetLoweringObjectFile::getSectionForConstant(Kind, C);
+  return TargetLoweringObjectFile::getSectionForConstant(DL, Kind, C);
 }

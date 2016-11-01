@@ -46,7 +46,7 @@ static MCInstrInfo *createLPUMCInstrInfo() {
   return X;
 }
 
-static MCRegisterInfo *createLPUMCRegisterInfo(StringRef TT) {
+static MCRegisterInfo *createLPUMCRegisterInfo(const Triple &TT) {
   MCRegisterInfo *X = new MCRegisterInfo();
   InitLPUMCRegisterInfo(X, LPU::FP); // TODO: Fix R0 - just picked a reg...
   return X;
@@ -54,12 +54,10 @@ static MCRegisterInfo *createLPUMCRegisterInfo(StringRef TT) {
 
 static MCSubtargetInfo *createLPUMCSubtargetInfo(const Triple &TT, StringRef CPU,
                                                     StringRef FS) {
-  MCSubtargetInfo *X = new MCSubtargetInfo();
-  InitLPUMCSubtargetInfo(X, TT, CPU, FS);
-  return X;
+  return createLPUMCSubtargetInfoImpl(TT, CPU, FS);
 }
 
-static MCCodeGenInfo *createLPUMCCodeGenInfo(StringRef TT, Reloc::Model RM,
+static MCCodeGenInfo *createLPUMCCodeGenInfo(const Triple &TT, Reloc::Model RM,
                                                 CodeModel::Model CM,
                                                 CodeGenOpt::Level OL) {
   MCCodeGenInfo *X = new MCCodeGenInfo();

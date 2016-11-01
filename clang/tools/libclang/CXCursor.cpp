@@ -58,6 +58,7 @@ static CXCursorKind GetCursorKind(const Attr *A) {
     case attr::CUDAGlobal: return CXCursor_CUDAGlobalAttr;
     case attr::CUDAHost: return CXCursor_CUDAHostAttr;
     case attr::CUDAShared: return CXCursor_CUDASharedAttr;
+    case attr::Visibility: return CXCursor_VisibilityAttr;
   }
 
   return CXCursor_UnexposedAttr;
@@ -226,6 +227,10 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::AtomicExprClass:
   case Stmt::BinaryConditionalOperatorClass:
   case Stmt::TypeTraitExprClass:
+  case Stmt::CoroutineBodyStmtClass:
+  case Stmt::CoawaitExprClass:
+  case Stmt::CoreturnStmtClass:
+  case Stmt::CoyieldExprClass:
   case Stmt::CXXBindTemporaryExprClass:
   case Stmt::CXXDefaultArgExprClass:
   case Stmt::CXXDefaultInitExprClass:
@@ -326,6 +331,10 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
 
   case Stmt::ArraySubscriptExprClass:
     K = CXCursor_ArraySubscriptExpr;
+    break;
+
+  case Stmt::OMPArraySectionExprClass:
+    K = CXCursor_OMPArraySectionExpr;
     break;
 
   case Stmt::BinaryOperatorClass:
@@ -585,8 +594,17 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPTargetDirectiveClass:
     K = CXCursor_OMPTargetDirective;
     break;
+  case Stmt::OMPTargetDataDirectiveClass:
+    K = CXCursor_OMPTargetDataDirective;
+    break;
   case Stmt::OMPTeamsDirectiveClass:
     K = CXCursor_OMPTeamsDirective;
+    break;
+  case Stmt::OMPCancellationPointDirectiveClass:
+    K = CXCursor_OMPCancellationPointDirective;
+    break;
+  case Stmt::OMPCancelDirectiveClass:
+    K = CXCursor_OMPCancelDirective;
     break;
   }
 
@@ -1292,6 +1310,7 @@ CXCompletionString clang_getCursorCompletionString(CXCursor cursor) {
       CodeCompletionString *String
         = Result.CreateCodeCompletionString(unit->getASTContext(),
                                             unit->getPreprocessor(),
+                                            CodeCompletionContext::CCC_Other,
                                  unit->getCodeCompletionTUInfo().getAllocator(),
                                  unit->getCodeCompletionTUInfo(),
                                  true);
@@ -1302,10 +1321,13 @@ CXCompletionString clang_getCursorCompletionString(CXCursor cursor) {
     const IdentifierInfo *MacroInfo = definition->getName();
     ASTUnit *unit = getCursorASTUnit(cursor);
     CodeCompletionResult Result(MacroInfo);
-    CodeCompletionString *String = Result.CreateCodeCompletionString(
-        unit->getASTContext(), unit->getPreprocessor(),
-        unit->getCodeCompletionTUInfo().getAllocator(),
-        unit->getCodeCompletionTUInfo(), false);
+    CodeCompletionString *String
+      = Result.CreateCodeCompletionString(unit->getASTContext(),
+                                          unit->getPreprocessor(),
+                                          CodeCompletionContext::CCC_Other,
+                                 unit->getCodeCompletionTUInfo().getAllocator(),
+                                 unit->getCodeCompletionTUInfo(),
+                                 false);
     return String;
   }
   return nullptr;

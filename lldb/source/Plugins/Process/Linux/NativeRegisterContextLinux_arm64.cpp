@@ -137,327 +137,6 @@ g_reg_sets_arm64[k_num_register_sets] =
     { "Floating Point Registers",   "fpu", k_num_fpr_registers_arm64, g_fpu_regnums_arm64 }
 };
 
-namespace
-{
-
-class ReadRegOperation : public NativeProcessLinux::Operation
-{
-public:
-    ReadRegOperation(lldb::tid_t tid, uint32_t offset, const char *reg_name, RegisterValue &value) :
-        m_tid(tid),
-        m_offset(static_cast<uintptr_t>(offset)),
-        m_reg_name(reg_name),
-        m_value(value)
-    { }
-
-    void
-    Execute(NativeProcessLinux *monitor) override;
-
-private:
-    lldb::tid_t m_tid;
-    uintptr_t m_offset;
-    const char *m_reg_name;
-    RegisterValue &m_value;
-};
-
-class WriteRegOperation : public NativeProcessLinux::Operation
-{
-public:
-    WriteRegOperation(lldb::tid_t tid, unsigned offset, const char *reg_name, const RegisterValue &value) :
-        m_tid(tid),
-        m_offset(offset),
-        m_reg_name(reg_name),
-        m_value(value)
-    { }
-
-    void
-    Execute(NativeProcessLinux *monitor) override;
-
-private:
-    lldb::tid_t m_tid;
-    uintptr_t m_offset;
-    const char *m_reg_name;
-    const RegisterValue &m_value;
-};
-
-class ReadGPROperation : public NativeProcessLinux::Operation
-{
-public:
-    ReadGPROperation(lldb::tid_t tid, void *buf, size_t buf_size)
-        : m_tid(tid), m_buf(buf), m_buf_size(buf_size)
-        { }
-
-    void Execute(NativeProcessLinux *monitor) override;
-
-private:
-    lldb::tid_t m_tid;
-    void *m_buf;
-    size_t m_buf_size;
-};
-
-class WriteGPROperation : public NativeProcessLinux::Operation
-{
-public:
-    WriteGPROperation(lldb::tid_t tid, void *buf, size_t buf_size) :
-        m_tid(tid), m_buf(buf), m_buf_size(buf_size)
-    { }
-
-    void Execute(NativeProcessLinux *monitor) override;
-
-private:
-    lldb::tid_t m_tid;
-    void *m_buf;
-    size_t m_buf_size;
-};
-
-class ReadFPROperation : public NativeProcessLinux::Operation
-{
-public:
-    ReadFPROperation(lldb::tid_t tid, void *buf, size_t buf_size)
-        : m_tid(tid),
-          m_buf(buf),
-          m_buf_size(buf_size)
-        { }
-
-    void Execute(NativeProcessLinux *monitor) override;
-
-private:
-    lldb::tid_t m_tid;
-    void *m_buf;
-    size_t m_buf_size;
-};
-
-class WriteFPROperation : public NativeProcessLinux::Operation
-{
-public:
-    WriteFPROperation(lldb::tid_t tid, void *buf, size_t buf_size)
-        : m_tid(tid), m_buf(buf), m_buf_size(buf_size)
-        { }
-
-    void Execute(NativeProcessLinux *monitor) override;
-
-private:
-    lldb::tid_t m_tid;
-    void *m_buf;
-    size_t m_buf_size;
-};
-
-class ReadDBGROperation : public NativeProcessLinux::Operation
-{
-public:
-    ReadDBGROperation(lldb::tid_t tid, unsigned int &count_wp, unsigned int &count_bp)
-        : m_tid(tid),
-          m_count_wp(count_wp),
-          m_count_bp(count_bp)
-        { }
-
-    void Execute(NativeProcessLinux *monitor) override;
-
-private:
-    lldb::tid_t m_tid;
-    unsigned int &m_count_wp;
-    unsigned int &m_count_bp;
-};
-
-class WriteDBGROperation : public NativeProcessLinux::Operation
-{
-public:
-    WriteDBGROperation(lldb::tid_t tid, lldb::addr_t *addr_buf,
-                       uint32_t *cntrl_buf, int type, int count)
-        : m_tid(tid),
-          m_address(addr_buf),
-          m_control(cntrl_buf),
-          m_type(type),
-          m_count(count)
-        { }
-
-    void Execute(NativeProcessLinux *monitor) override;
-
-private:
-    lldb::tid_t m_tid;
-    lldb::addr_t * m_address;
-    uint32_t * m_control;
-    int m_type;
-    int m_count;
-};
-
-} // end of anonymous namespace
-
-void
-ReadRegOperation::Execute(NativeProcessLinux *monitor)
-{
-    if (m_offset > sizeof(struct user_pt_regs))
-    {
-        uintptr_t offset = m_offset - sizeof(struct user_pt_regs);
-        if (offset > sizeof(struct user_fpsimd_state))
-        {
-            m_error.SetErrorString("invalid offset value");
-            return;
-        }
-        elf_fpregset_t regs;
-        int regset = NT_FPREGSET;
-        struct iovec ioVec;
-
-        ioVec.iov_base = &regs;
-        ioVec.iov_len = sizeof regs;
-        NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
-        if (m_error.Success())
-        {
-            ArchSpec arch;
-            if (monitor->GetArchitecture(arch))
-                m_value.SetBytes((void *)(((unsigned char *)(&regs)) + offset), 16, arch.GetByteOrder());
-            else
-                m_error.SetErrorString("failed to get architecture");
-        }
-    }
-    else
-    {
-        elf_gregset_t regs;
-        int regset = NT_PRSTATUS;
-        struct iovec ioVec;
-
-        ioVec.iov_base = &regs;
-        ioVec.iov_len = sizeof regs;
-        NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
-        if (m_error.Success())
-        {
-            ArchSpec arch;
-            if (monitor->GetArchitecture(arch))
-                m_value.SetBytes((void *)(((unsigned char *)(regs)) + m_offset), 8, arch.GetByteOrder());
-            else
-                m_error.SetErrorString("failed to get architecture");
-        }
-    }
-}
-
-void
-WriteRegOperation::Execute(NativeProcessLinux *monitor)
-{
-    if (m_offset > sizeof(struct user_pt_regs))
-    {
-        uintptr_t offset = m_offset - sizeof(struct user_pt_regs);
-        if (offset > sizeof(struct user_fpsimd_state))
-        {
-            m_error.SetErrorString("invalid offset value");
-            return;
-        }
-        elf_fpregset_t regs;
-        int regset = NT_FPREGSET;
-        struct iovec ioVec;
-
-        ioVec.iov_base = &regs;
-        ioVec.iov_len = sizeof regs;
-        NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
-        if (m_error.Success())
-        {
-            ::memcpy((void *)(((unsigned char *)(&regs)) + offset), m_value.GetBytes(), 16);
-            NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
-        }
-    }
-    else
-    {
-        elf_gregset_t regs;
-        int regset = NT_PRSTATUS;
-        struct iovec ioVec;
-
-        ioVec.iov_base = &regs;
-        ioVec.iov_len = sizeof regs;
-        NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
-        if (m_error.Success())
-        {
-            ::memcpy((void *)(((unsigned char *)(&regs)) + m_offset), m_value.GetBytes(), 8);
-            NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
-        }
-    }
-}
-
-void
-ReadGPROperation::Execute(NativeProcessLinux *monitor)
-{
-    int regset = NT_PRSTATUS;
-    struct iovec ioVec;
-
-    ioVec.iov_base = m_buf;
-    ioVec.iov_len = m_buf_size;
-    NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_tid, &regset, &ioVec, m_buf_size, m_error);
-}
-
-void
-WriteGPROperation::Execute(NativeProcessLinux *monitor)
-{
-    int regset = NT_PRSTATUS;
-    struct iovec ioVec;
-
-    ioVec.iov_base = m_buf;
-    ioVec.iov_len = m_buf_size;
-    NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_tid, &regset, &ioVec, m_buf_size, m_error);
-}
-
-void
-ReadFPROperation::Execute(NativeProcessLinux *monitor)
-{
-    int regset = NT_FPREGSET;
-    struct iovec ioVec;
-
-    ioVec.iov_base = m_buf;
-    ioVec.iov_len = m_buf_size;
-    NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_tid, &regset, &ioVec, m_buf_size, m_error);
-}
-
-void
-WriteFPROperation::Execute(NativeProcessLinux *monitor)
-{
-    int regset = NT_FPREGSET;
-    struct iovec ioVec;
-
-    ioVec.iov_base = m_buf;
-    ioVec.iov_len = m_buf_size;
-    NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_tid, &regset, &ioVec, m_buf_size, m_error);
-}
-
-void
-ReadDBGROperation::Execute(NativeProcessLinux *monitor)
-{
-   int regset = NT_ARM_HW_WATCH;
-   struct iovec ioVec;
-   struct user_hwdebug_state dreg_state;
-
-   ioVec.iov_base = &dreg_state;
-   ioVec.iov_len = sizeof (dreg_state);
-
-   NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_tid, &regset, &ioVec, ioVec.iov_len, m_error);
-
-   m_count_wp = dreg_state.dbg_info & 0xff;
-   regset = NT_ARM_HW_BREAK;
-
-   NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_tid, &regset, &ioVec, ioVec.iov_len, m_error);
-   m_count_bp = dreg_state.dbg_info & 0xff;
-}
-
-void
-WriteDBGROperation::Execute(NativeProcessLinux *monitor)
-{
-    struct iovec ioVec;
-    struct user_hwdebug_state dreg_state;
-
-    memset (&dreg_state, 0, sizeof (dreg_state));
-    ioVec.iov_base = &dreg_state;
-    ioVec.iov_len = sizeof (dreg_state);
-
-    if (m_type == 0)
-        m_type = NT_ARM_HW_WATCH;
-    else
-        m_type = NT_ARM_HW_BREAK;
-
-    for (int i = 0; i < m_count; i++)
-    {
-        dreg_state.dbg_regs[i].addr = m_address[i];
-        dreg_state.dbg_regs[i].ctrl = m_control[i];
-    }
-
-    NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_tid, &m_type, &ioVec, ioVec.iov_len, m_error);
-}
-
 NativeRegisterContextLinux*
 NativeRegisterContextLinux::CreateHostNativeRegisterContextLinux(const ArchSpec& target_arch,
                                                                  NativeThreadProtocol &native_thread,
@@ -514,6 +193,15 @@ NativeRegisterContextLinux_arm64::GetRegisterSet (uint32_t set_index) const
     return nullptr;
 }
 
+uint32_t
+NativeRegisterContextLinux_arm64::GetUserRegisterCount() const
+{
+    uint32_t count = 0;
+    for (uint32_t set_index = 0; set_index < k_num_register_sets; ++set_index)
+        count += g_reg_sets_arm64[set_index].num_registers;
+    return count;
+}
+
 Error
 NativeRegisterContextLinux_arm64::ReadRegister (const RegisterInfo *reg_info, RegisterValue &reg_value)
 {
@@ -561,24 +249,10 @@ NativeRegisterContextLinux_arm64::ReadRegister (const RegisterInfo *reg_info, Re
     }
 
     // Get pointer to m_fpr variable and set the data from it.
-    assert (reg_info->byte_offset < sizeof m_fpr);
-    uint8_t *src = (uint8_t *)&m_fpr + reg_info->byte_offset;
-    switch (reg_info->byte_size)
-    {
-        case 2:
-            reg_value.SetUInt16(*(uint16_t *)src);
-            break;
-        case 4:
-            reg_value.SetUInt32(*(uint32_t *)src);
-            break;
-        case 8:
-            reg_value.SetUInt64(*(uint64_t *)src);
-            break;
-        default:
-            assert(false && "Unhandled data size.");
-            error.SetErrorStringWithFormat ("unhandled byte size: %" PRIu32, reg_info->byte_size);
-            break;
-    }
+    uint32_t fpr_offset = CalculateFprOffset(reg_info);
+    assert (fpr_offset < sizeof m_fpr);
+    uint8_t *src = (uint8_t *)&m_fpr + fpr_offset;
+    reg_value.SetFromMemoryData(reg_info, src, reg_info->byte_size, eByteOrderLittle, error);
 
     return error;
 }
@@ -599,8 +273,9 @@ NativeRegisterContextLinux_arm64::WriteRegister (const RegisterInfo *reg_info, c
     if (IsFPR(reg_index))
     {
         // Get pointer to m_fpr variable and set the data to it.
-        assert (reg_info->byte_offset < sizeof(m_fpr));
-        uint8_t *dst = (uint8_t *)&m_fpr + reg_info->byte_offset;
+        uint32_t fpr_offset = CalculateFprOffset(reg_info);
+        assert (fpr_offset < sizeof m_fpr);
+        uint8_t *dst = (uint8_t *)&m_fpr + fpr_offset;
         switch (reg_info->byte_size)
         {
             case 2:
@@ -718,18 +393,15 @@ NativeRegisterContextLinux_arm64::SetHardwareBreakpoint (lldb::addr_t addr, size
     if (log)
         log->Printf ("NativeRegisterContextLinux_arm64::%s()", __FUNCTION__);
 
-    NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
-    if (!process_sp)
-        return false;
+    Error error;
 
-    // Check if our hardware breakpoint and watchpoint information is updated.
-    if (m_refresh_hwdebug_info)
-    {
-        ReadHardwareDebugInfo (m_max_hwp_supported, m_max_hbp_supported);
-        m_refresh_hwdebug_info = false;
-    }
+    // Read hardware breakpoint and watchpoint information.
+    error = ReadHardwareDebugInfo ();
 
-    uint32_t control_value, bp_index;
+    if (error.Fail())
+        return LLDB_INVALID_INDEX32;
+
+    uint32_t control_value = 0, bp_index = 0;
 
     // Check if size has a valid hardware breakpoint length.
     if (size != 4)
@@ -770,7 +442,11 @@ NativeRegisterContextLinux_arm64::SetHardwareBreakpoint (lldb::addr_t addr, size
         m_hbr_regs[bp_index].control = control_value;
         m_hbr_regs[bp_index].refcount = 1;
 
-        //TODO: PTRACE CALL HERE for an UPDATE
+        // PTRACE call to set corresponding hardware breakpoint register.
+        error = WriteHardwareDebugRegs(eDREGTypeBREAK);
+
+        if (error.Fail())
+            return LLDB_INVALID_INDEX32;
     }
     else
         m_hbr_regs[bp_index].refcount++;
@@ -785,6 +461,14 @@ NativeRegisterContextLinux_arm64::ClearHardwareBreakpoint (uint32_t hw_idx)
 
     if (log)
         log->Printf ("NativeRegisterContextLinux_arm64::%s()", __FUNCTION__);
+
+    Error error;
+
+    // Read hardware breakpoint and watchpoint information.
+    error = ReadHardwareDebugInfo ();
+
+    if (error.Fail())
+        return false;
 
     if (hw_idx >= m_max_hbp_supported)
         return false;
@@ -801,7 +485,12 @@ NativeRegisterContextLinux_arm64::ClearHardwareBreakpoint (uint32_t hw_idx)
         m_hbr_regs[hw_idx].address = 0;
         m_hbr_regs[hw_idx].refcount = 0;
 
-        //TODO: PTRACE CALL HERE for an UPDATE
+        // PTRACE call to clear corresponding hardware breakpoint register.
+        WriteHardwareDebugRegs(eDREGTypeBREAK);
+
+        if (error.Fail())
+            return false;
+
         return true;
     }
 
@@ -816,6 +505,14 @@ NativeRegisterContextLinux_arm64::NumSupportedHardwareWatchpoints ()
     if (log)
         log->Printf ("NativeRegisterContextLinux_arm64::%s()", __FUNCTION__);
 
+    Error error;
+
+    // Read hardware breakpoint and watchpoint information.
+    error = ReadHardwareDebugInfo ();
+
+    if (error.Fail())
+        return LLDB_INVALID_INDEX32;
+
     return m_max_hwp_supported;
 }
 
@@ -826,33 +523,41 @@ NativeRegisterContextLinux_arm64::SetHardwareWatchpoint (lldb::addr_t addr, size
 
     if (log)
         log->Printf ("NativeRegisterContextLinux_arm64::%s()", __FUNCTION__);
-
-    NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
-    if (!process_sp)
-        return false;
-
     
-    // Check if our hardware breakpoint and watchpoint information is updated.
-    if (m_refresh_hwdebug_info)
-    {
-        ReadHardwareDebugInfo (m_max_hwp_supported, m_max_hbp_supported);
-        m_refresh_hwdebug_info = false;
-    }
+    Error error;
+
+    // Read hardware breakpoint and watchpoint information.
+    error = ReadHardwareDebugInfo ();
+
+    if (error.Fail())
+        return LLDB_INVALID_INDEX32;
 		
-    uint32_t control_value, wp_index;
+    uint32_t control_value = 0, wp_index = 0;
 
-
-    if (watch_flags != 0x1 && watch_flags != 0x2 && watch_flags != 0x3)
-        return 0;//Error ("Invalid read/write bits for watchpoint");
+    // Check if we are setting watchpoint other than read/write/access
+    // Also update watchpoint flag to match AArch64 write-read bit configuration.
+    switch (watch_flags)
+    {
+        case 1:
+            watch_flags = 2;
+            break;
+        case 2:
+            watch_flags = 1;
+            break;
+        case 3:
+            break;
+        default:
+            return LLDB_INVALID_INDEX32;
+    }
 
     // Check if size has a valid hardware watchpoint length.
     if (size != 1 && size != 2 && size != 4 && size != 8)
-        return 0;//Error ("Invalid size for watchpoint");
+        return LLDB_INVALID_INDEX32;
 
     // Check 8-byte alignment for hardware watchpoint target address.
     // TODO: Add support for watching un-aligned addresses
     if (addr & 0x07)
-        return 0;//Error ("LLDB for AArch64 currently supports 8-byte alignment for hardware watchpoint target address.");
+        return LLDB_INVALID_INDEX32;
 
     // Setup control value
     control_value = watch_flags << 3;
@@ -881,12 +586,16 @@ NativeRegisterContextLinux_arm64::SetHardwareWatchpoint (lldb::addr_t addr, size
     // Add new or update existing watchpoint
     if ((m_hwp_regs[wp_index].control & 1) == 0)
     {
+        // Update watchpoint in local cache
         m_hwp_regs[wp_index].address = addr;
         m_hwp_regs[wp_index].control = control_value;
         m_hwp_regs[wp_index].refcount = 1;
 
         // PTRACE call to set corresponding watchpoint register.
-        WriteHardwareDebugRegs(&addr, &control_value, 0, wp_index);
+        error = WriteHardwareDebugRegs(eDREGTypeWATCH);
+
+        if (error.Fail())
+            return LLDB_INVALID_INDEX32;
     }
     else
         m_hwp_regs[wp_index].refcount++;
@@ -902,8 +611,12 @@ NativeRegisterContextLinux_arm64::ClearHardwareWatchpoint (uint32_t wp_index)
     if (log)
         log->Printf ("NativeRegisterContextLinux_arm64::%s()", __FUNCTION__);
 
-    NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
-    if (!process_sp)
+    Error error;
+
+    // Read hardware breakpoint and watchpoint information.
+    error = ReadHardwareDebugInfo ();
+
+    if (error.Fail())
         return false;
 
     if (wp_index >= m_max_hwp_supported)
@@ -917,12 +630,17 @@ NativeRegisterContextLinux_arm64::ClearHardwareWatchpoint (uint32_t wp_index)
     }
     else if (m_hwp_regs[wp_index].refcount == 1)
     {
+        // Update watchpoint in local cache
         m_hwp_regs[wp_index].control &= ~1;
         m_hwp_regs[wp_index].address = 0;
         m_hwp_regs[wp_index].refcount = 0;
 
-        //TODO: PTRACE CALL HERE for an UPDATE
-        WriteHardwareDebugRegs(&m_hwp_regs[wp_index].address, &m_hwp_regs[wp_index].control, 0, wp_index);
+        // Ptrace call to update hardware debug registers
+        error = WriteHardwareDebugRegs(eDREGTypeWATCH);
+
+        if (error.Fail())
+            return false;
+
         return true;
     }
 
@@ -937,22 +655,28 @@ NativeRegisterContextLinux_arm64::ClearAllHardwareWatchpoints ()
     if (log)
         log->Printf ("NativeRegisterContextLinux_arm64::%s()", __FUNCTION__);
 
-    NativeProcessProtocolSP process_sp (m_thread.GetProcess ());
+    Error error;
 
-    Error ml_error;
-    ml_error.SetErrorToErrno();
-    if (!process_sp)
-        return ml_error;
+    // Read hardware breakpoint and watchpoint information.
+    error = ReadHardwareDebugInfo ();
+
+    if (error.Fail())
+        return error;
 
     for (uint32_t i = 0; i < m_max_hwp_supported; i++)
     {
         if (m_hwp_regs[i].control & 0x01)
         {
+            // Clear watchpoints in local cache
             m_hwp_regs[i].control &= ~1;
             m_hwp_regs[i].address = 0;
             m_hwp_regs[i].refcount = 0;
 
-            WriteHardwareDebugRegs(&m_hwp_regs[i].address, &m_hwp_regs[i].control, 0, i);
+            // Ptrace call to update hardware debug registers
+            error = WriteHardwareDebugRegs(eDREGTypeWATCH);
+
+            if (error.Fail())
+                return error;
         }
     }
 
@@ -1039,72 +763,232 @@ NativeRegisterContextLinux_arm64::GetWatchpointAddress (uint32_t wp_index)
 }
 
 Error
-NativeRegisterContextLinux_arm64::ReadHardwareDebugInfo(unsigned int &watch_count,
-                                                        unsigned int &break_count)
+NativeRegisterContextLinux_arm64::ReadHardwareDebugInfo()
 {
-    NativeProcessProtocolSP process_sp (m_thread.GetProcess());
-    if (!process_sp)
-        return Error("NativeProcessProtocol is NULL");
-    NativeProcessLinux *const process_p = reinterpret_cast<NativeProcessLinux*>(process_sp.get());
+    if (!m_refresh_hwdebug_info)
+    {
+        return Error();
+    }
 
-    ReadDBGROperation op(m_thread.GetID(), watch_count, break_count);
-    return process_p->DoOperation(&op);
+    ::pid_t tid = m_thread.GetID();
+
+    int regset = NT_ARM_HW_WATCH;
+    struct iovec ioVec;
+    struct user_hwdebug_state dreg_state;
+    Error error;
+
+    ioVec.iov_base = &dreg_state;
+    ioVec.iov_len = sizeof (dreg_state);
+    error = NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, tid, &regset, &ioVec, ioVec.iov_len);
+
+    if (error.Fail())
+        return error;
+
+    m_max_hwp_supported = dreg_state.dbg_info & 0xff;
+
+    regset = NT_ARM_HW_BREAK;
+    error = NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, tid, &regset, &ioVec, ioVec.iov_len);
+
+    if (error.Fail())
+        return error;
+	
+    m_max_hbp_supported = dreg_state.dbg_info & 0xff;
+    m_refresh_hwdebug_info = false;
+
+    return error;
 }
 
 Error
-NativeRegisterContextLinux_arm64::WriteHardwareDebugRegs(lldb::addr_t *addr_buf,
-                                                         uint32_t *cntrl_buf,
-                                                         int type,
-                                                         int count)
+NativeRegisterContextLinux_arm64::WriteHardwareDebugRegs(int hwbType)
 {
-    NativeProcessProtocolSP process_sp (m_thread.GetProcess());
-    if (!process_sp)
-        return Error("NativeProcessProtocol is NULL");
-    NativeProcessLinux *const process_p = reinterpret_cast<NativeProcessLinux*>(process_sp.get());
+    struct iovec ioVec;
+    struct user_hwdebug_state dreg_state;
+    Error error;
 
-    WriteDBGROperation op(m_thread.GetID(), addr_buf, cntrl_buf, type, count);
-    return process_p->DoOperation(&op);
+    memset (&dreg_state, 0, sizeof (dreg_state));
+    ioVec.iov_base = &dreg_state;
+
+    if (hwbType == eDREGTypeWATCH)
+    {
+        hwbType = NT_ARM_HW_WATCH;
+        ioVec.iov_len = sizeof (dreg_state.dbg_info) + sizeof (dreg_state.pad)
+                + (sizeof (dreg_state.dbg_regs [0]) * m_max_hwp_supported);
+
+        for (uint32_t i = 0; i < m_max_hwp_supported; i++)
+        {
+            dreg_state.dbg_regs[i].addr = m_hwp_regs[i].address;
+            dreg_state.dbg_regs[i].ctrl = m_hwp_regs[i].control;
+        }
+    }
+    else
+    {
+        hwbType = NT_ARM_HW_BREAK;
+        ioVec.iov_len = sizeof (dreg_state.dbg_info) + sizeof (dreg_state.pad)
+                + (sizeof (dreg_state.dbg_regs [0]) * m_max_hbp_supported);
+
+        for (uint32_t i = 0; i < m_max_hbp_supported; i++)
+        {
+            dreg_state.dbg_regs[i].addr = m_hbr_regs[i].address;
+            dreg_state.dbg_regs[i].ctrl = m_hbr_regs[i].control;
+        }
+    }
+
+    return NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_thread.GetID(), &hwbType, &ioVec, ioVec.iov_len);
 }
 
-NativeProcessLinux::OperationUP
-NativeRegisterContextLinux_arm64::GetReadRegisterValueOperation(uint32_t offset,
-                                                                const char* reg_name,
-                                                                uint32_t size,
-                                                                RegisterValue &value)
+Error
+NativeRegisterContextLinux_arm64::DoReadRegisterValue(uint32_t offset,
+                                                      const char* reg_name,
+                                                      uint32_t size,
+                                                      RegisterValue &value)
 {
-    return NativeProcessLinux::OperationUP(new ReadRegOperation(m_thread.GetID(), offset, reg_name, value));
+    Error error;
+    if (offset > sizeof(struct user_pt_regs))
+    {
+        uintptr_t offset = offset - sizeof(struct user_pt_regs);
+        if (offset > sizeof(struct user_fpsimd_state))
+        {
+            error.SetErrorString("invalid offset value");
+            return error;
+        }
+        elf_fpregset_t regs;
+        int regset = NT_FPREGSET;
+        struct iovec ioVec;
+
+        ioVec.iov_base = &regs;
+        ioVec.iov_len = sizeof regs;
+        error = NativeProcessLinux::PtraceWrapper(
+                PTRACE_GETREGSET, m_thread.GetID(), &regset, &ioVec, sizeof regs);
+        if (error.Success())
+        {
+            ArchSpec arch;
+            if (m_thread.GetProcess()->GetArchitecture(arch))
+                value.SetBytes((void *)(((unsigned char *)(&regs)) + offset), 16, arch.GetByteOrder());
+            else
+                error.SetErrorString("failed to get architecture");
+        }
+    }
+    else
+    {
+        elf_gregset_t regs;
+        int regset = NT_PRSTATUS;
+        struct iovec ioVec;
+
+        ioVec.iov_base = &regs;
+        ioVec.iov_len = sizeof regs;
+        error = NativeProcessLinux::PtraceWrapper(
+                PTRACE_GETREGSET, m_thread.GetID(), &regset, &ioVec, sizeof regs);
+        if (error.Success())
+        {
+            ArchSpec arch;
+            if (m_thread.GetProcess()->GetArchitecture(arch))
+                value.SetBytes((void *)(((unsigned char *)(regs)) + offset), 8, arch.GetByteOrder());
+            else
+                error.SetErrorString("failed to get architecture");
+        }
+    }
+    return error;
 }
 
-NativeProcessLinux::OperationUP
-NativeRegisterContextLinux_arm64::GetWriteRegisterValueOperation(uint32_t offset,
-                                                                 const char* reg_name,
-                                                                 const RegisterValue &value)
+Error
+NativeRegisterContextLinux_arm64::DoWriteRegisterValue(uint32_t offset,
+                                                       const char* reg_name,
+                                                       const RegisterValue &value)
 {
-    return NativeProcessLinux::OperationUP(new WriteRegOperation(m_thread.GetID(), offset, reg_name, value));
+    Error error;
+    ::pid_t tid = m_thread.GetID();
+    if (offset > sizeof(struct user_pt_regs))
+    {
+        uintptr_t offset = offset - sizeof(struct user_pt_regs);
+        if (offset > sizeof(struct user_fpsimd_state))
+        {
+            error.SetErrorString("invalid offset value");
+            return error;
+        }
+        elf_fpregset_t regs;
+        int regset = NT_FPREGSET;
+        struct iovec ioVec;
+
+        ioVec.iov_base = &regs;
+        ioVec.iov_len = sizeof regs;
+        error = NativeProcessLinux::PtraceWrapper( PTRACE_GETREGSET, tid, &regset, &ioVec, sizeof regs);
+
+        if (error.Success())
+        {
+            ::memcpy((void *)(((unsigned char *)(&regs)) + offset), value.GetBytes(), 16);
+            error = NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, tid, &regset, &ioVec, sizeof regs);
+        }
+    }
+    else
+    {
+        elf_gregset_t regs;
+        int regset = NT_PRSTATUS;
+        struct iovec ioVec;
+
+        ioVec.iov_base = &regs;
+        ioVec.iov_len = sizeof regs;
+        error = NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, tid, &regset, &ioVec, sizeof regs);
+        if (error.Success())
+        {
+            ::memcpy((void *)(((unsigned char *)(&regs)) + offset), value.GetBytes(), 8);
+            error = NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, tid, &regset, &ioVec, sizeof regs);
+        }
+    }
+    return error;
 }
 
-NativeProcessLinux::OperationUP
-NativeRegisterContextLinux_arm64::GetReadGPROperation(void *buf, size_t buf_size)
+Error
+NativeRegisterContextLinux_arm64::DoReadGPR(void *buf, size_t buf_size)
 {
-    return NativeProcessLinux::OperationUP(new ReadGPROperation(m_thread.GetID(), buf, buf_size));
+    int regset = NT_PRSTATUS;
+    struct iovec ioVec;
+    Error error;
+
+    ioVec.iov_base = buf;
+    ioVec.iov_len = buf_size;
+    return NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_thread.GetID(), &regset, &ioVec, buf_size);
 }
 
-NativeProcessLinux::OperationUP
-NativeRegisterContextLinux_arm64::GetWriteGPROperation(void *buf, size_t buf_size)
+Error
+NativeRegisterContextLinux_arm64::DoWriteGPR(void *buf, size_t buf_size)
 {
-    return NativeProcessLinux::OperationUP(new WriteGPROperation(m_thread.GetID(), buf, buf_size));
+    int regset = NT_PRSTATUS;
+    struct iovec ioVec;
+    Error error;
+
+    ioVec.iov_base = buf;
+    ioVec.iov_len = buf_size;
+    return NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_thread.GetID(), &regset, &ioVec, buf_size);
 }
 
-NativeProcessLinux::OperationUP
-NativeRegisterContextLinux_arm64::GetReadFPROperation(void *buf, size_t buf_size)
+Error
+NativeRegisterContextLinux_arm64::DoReadFPR(void *buf, size_t buf_size)
 {
-    return NativeProcessLinux::OperationUP(new ReadFPROperation(m_thread.GetID(), buf, buf_size));
+    int regset = NT_FPREGSET;
+    struct iovec ioVec;
+    Error error;
+
+    ioVec.iov_base = buf;
+    ioVec.iov_len = buf_size;
+    return NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, m_thread.GetID(), &regset, &ioVec, buf_size);
 }
 
-NativeProcessLinux::OperationUP
-NativeRegisterContextLinux_arm64::GetWriteFPROperation(void *buf, size_t buf_size)
+Error
+NativeRegisterContextLinux_arm64::DoWriteFPR(void *buf, size_t buf_size)
 {
-    return NativeProcessLinux::OperationUP(new WriteFPROperation(m_thread.GetID(), buf, buf_size));
+    int regset = NT_FPREGSET;
+    struct iovec ioVec;
+    Error error;
+
+    ioVec.iov_base = buf;
+    ioVec.iov_len = buf_size;
+    return NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_thread.GetID(), &regset, &ioVec, buf_size);
+}
+
+uint32_t
+NativeRegisterContextLinux_arm64::CalculateFprOffset(const RegisterInfo* reg_info) const
+{
+    return reg_info->byte_offset - GetRegisterInfoAtIndex(m_reg_info.first_fpr)->byte_offset;
 }
 
 #endif // defined (__arm64__) || defined (__aarch64__)

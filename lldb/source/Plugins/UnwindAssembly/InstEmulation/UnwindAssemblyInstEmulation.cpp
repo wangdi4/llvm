@@ -117,21 +117,13 @@ UnwindAssemblyInstEmulation::GetNonCallSiteUnwindPlanFromAssembly (AddressRange&
 
                 // cache the pc register number (in whatever register numbering this UnwindPlan uses) for
                 // quick reference during instruction parsing.
-                uint32_t pc_reg_num = LLDB_INVALID_REGNUM;
                 RegisterInfo pc_reg_info;
-                if (m_inst_emulator_ap->GetRegisterInfo (eRegisterKindGeneric, LLDB_REGNUM_GENERIC_PC, pc_reg_info))
-                    pc_reg_num = pc_reg_info.kinds[unwind_plan.GetRegisterKind()];
-                else
-                    pc_reg_num = LLDB_INVALID_REGNUM;
+                m_inst_emulator_ap->GetRegisterInfo (eRegisterKindGeneric, LLDB_REGNUM_GENERIC_PC, pc_reg_info);
 
                 // cache the return address register number (in whatever register numbering this UnwindPlan uses) for
                 // quick reference during instruction parsing.
-                uint32_t ra_reg_num = LLDB_INVALID_REGNUM;
                 RegisterInfo ra_reg_info;
-                if (m_inst_emulator_ap->GetRegisterInfo (eRegisterKindGeneric, LLDB_REGNUM_GENERIC_RA, ra_reg_info))
-                    ra_reg_num = ra_reg_info.kinds[unwind_plan.GetRegisterKind()];
-                else
-                    ra_reg_num = LLDB_INVALID_REGNUM;
+                m_inst_emulator_ap->GetRegisterInfo (eRegisterKindGeneric, LLDB_REGNUM_GENERIC_RA, ra_reg_info);
 
                 for (size_t idx=0; idx<num_instructions; ++idx)
                 {
@@ -422,13 +414,17 @@ UnwindAssemblyInstEmulation::WriteMemory (EmulateInstruction *instruction,
         case EmulateInstruction::eContextPushRegisterOnStack:
             {
                 uint32_t reg_num = LLDB_INVALID_REGNUM;
-                const uint32_t unwind_reg_kind = m_unwind_plan_ptr->GetRegisterKind();
+                uint32_t generic_regnum = LLDB_INVALID_REGNUM;
                 if (context.info_type == EmulateInstruction::eInfoTypeRegisterToRegisterPlusOffset)
+                {
+                    const uint32_t unwind_reg_kind = m_unwind_plan_ptr->GetRegisterKind();
                     reg_num = context.info.RegisterToRegisterPlusOffset.data_reg.kinds[unwind_reg_kind];
+                    generic_regnum = context.info.RegisterToRegisterPlusOffset.data_reg.kinds[eRegisterKindGeneric];
+                }
                 else
                     assert (!"unhandled case, add code to handle this!");
 
-                if (reg_num != LLDB_INVALID_REGNUM)
+                if (reg_num != LLDB_INVALID_REGNUM && generic_regnum != LLDB_REGNUM_GENERIC_SP)
                 {
                     if (m_pushed_regs.find (reg_num) == m_pushed_regs.end())
                     {
@@ -507,7 +503,8 @@ UnwindAssemblyInstEmulation::WriteRegister (EmulateInstruction *instruction,
         log->PutCString(strm.GetData());
     }
 
-    SetRegisterValue (*reg_info, reg_value);
+    if (!instruction->IsInstructionConditional())
+        SetRegisterValue (*reg_info, reg_value);
 
     switch (context.type)
     {
@@ -569,17 +566,45 @@ UnwindAssemblyInstEmulation::WriteRegister (EmulateInstruction *instruction,
 
         case EmulateInstruction::eContextPopRegisterOffStack:
             {
-                const uint32_t reg_num = reg_info->kinds[m_unwind_plan_ptr->GetRegisterKind()];
-                if (reg_num != LLDB_INVALID_REGNUM)
+                if (!instruction->IsInstructionConditional())
                 {
-                    m_curr_row->SetRegisterLocationToSame (reg_num, /*must_replace*/ false);
-                    m_curr_row_modified = true;
+                    const uint32_t reg_num = reg_info->kinds[m_unwind_plan_ptr->GetRegisterKind()];
+                    const uint32_t generic_regnum = reg_info->kinds[eRegisterKindGeneric];
+                    if (reg_num != LLDB_INVALID_REGNUM && generic_regnum != LLDB_REGNUM_GENERIC_SP)
+                    {
+                        switch (context.info_type)
+                        {
+                            case EmulateInstruction::eInfoTypeAddress:
+                                if (m_pushed_regs.find(reg_num) != m_pushed_regs.end() &&
+                                    context.info.address == m_pushed_regs[reg_num])
+                                {
+                                    m_curr_row->SetRegisterLocationToSame(reg_num,
+                                                                          false /*must_replace*/);
+                                    m_curr_row_modified = true;
+                                }
+                                break;
+                            case EmulateInstruction::eInfoTypeISA:
+                                assert((generic_regnum == LLDB_REGNUM_GENERIC_PC ||
+                                        generic_regnum == LLDB_REGNUM_GENERIC_FLAGS) &&
+                                       "eInfoTypeISA used for poping a register other the the PC/FLAGS");
+                                if (generic_regnum != LLDB_REGNUM_GENERIC_FLAGS)
+                                {
+                                    m_curr_row->SetRegisterLocationToSame(reg_num,
+                                                                          false /*must_replace*/);
+                                    m_curr_row_modified = true;
+                                }
+                                break;
+                            default:
+                                assert(false && "unhandled case, add code to handle this!");
+                                break;
+                        }
+                    }
                 }
             }
             break;
 
         case EmulateInstruction::eContextSetFramePointer:
-            if (!m_fp_is_cfa)
+            if (!m_fp_is_cfa && !instruction->IsInstructionConditional())
             {
                 m_fp_is_cfa = true;
                 m_cfa_reg_info = *reg_info;
@@ -594,7 +619,7 @@ UnwindAssemblyInstEmulation::WriteRegister (EmulateInstruction *instruction,
         case EmulateInstruction::eContextAdjustStackPointer:
             // If we have created a frame using the frame pointer, don't follow
             // subsequent adjustments to the stack pointer.
-            if (!m_fp_is_cfa)
+            if (!m_fp_is_cfa && !instruction->IsInstructionConditional())
             {
                 m_curr_row->GetCFAValue().SetIsRegisterPlusOffset(
                         m_curr_row->GetCFAValue().GetRegisterNumber(),

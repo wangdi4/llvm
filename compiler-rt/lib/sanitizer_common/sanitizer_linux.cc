@@ -13,9 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "sanitizer_platform.h"
+
 #if SANITIZER_FREEBSD || SANITIZER_LINUX
 
-#include "sanitizer_allocator_internal.h"
 #include "sanitizer_common.h"
 #include "sanitizer_flags.h"
 #include "sanitizer_internal_defs.h"
@@ -74,11 +74,6 @@ extern char **environ;  // provided by crt1
 #include <sys/signal.h>
 #endif
 
-#if SANITIZER_ANDROID
-#include <android/log.h>
-#include <sys/system_properties.h>
-#endif
-
 #if SANITIZER_LINUX
 // <linux/time.h>
 struct kernel_timeval {
@@ -104,13 +99,15 @@ namespace __sanitizer {
 
 #if SANITIZER_LINUX && defined(__x86_64__)
 #include "sanitizer_syscall_linux_x86_64.inc"
+#elif SANITIZER_LINUX && defined(__aarch64__)
+#include "sanitizer_syscall_linux_aarch64.inc"
 #else
 #include "sanitizer_syscall_generic.inc"
 #endif
 
 // --------------- sanitizer_libc.h
 uptr internal_mmap(void *addr, uptr length, int prot, int flags, int fd,
-                   u64 offset) {
+                   OFF_T offset) {
 #if SANITIZER_FREEBSD || SANITIZER_LINUX_USES_64BIT_SYSCALLS
   return internal_syscall(SYSCALL(mmap), (uptr)addr, length, prot, flags, fd,
                           offset);
@@ -375,23 +372,23 @@ const char *GetEnv(const char *name) {
   if (!inited) {
     inited = true;
     uptr environ_size;
-    len = ReadFileToBuffer("/proc/self/environ",
-                           &environ, &environ_size, 1 << 26);
+    if (!ReadFileToBuffer("/proc/self/environ", &environ, &environ_size, &len))
+      environ = nullptr;
   }
-  if (!environ || len == 0) return 0;
+  if (!environ || len == 0) return nullptr;
   uptr namelen = internal_strlen(name);
   const char *p = environ;
   while (*p != '\0') {  // will happen at the \0\0 that terminates the buffer
     // proc file has the format NAME=value\0NAME=value\0NAME=value\0...
     const char* endp =
         (char*)internal_memchr(p, '\0', len - (p - environ));
-    if (endp == 0)  // this entry isn't NUL terminated
-      return 0;
+    if (!endp)  // this entry isn't NUL terminated
+      return nullptr;
     else if (!internal_memcmp(p, name, namelen) && p[namelen] == '=')  // Match.
       return p + namelen + 1;  // point after =
     p = endp + 1;
   }
-  return 0;  // Not found.
+  return nullptr;  // Not found.
 #else
 #error "Unsupported platform"
 #endif
@@ -405,9 +402,13 @@ extern "C" {
 static void ReadNullSepFileToArray(const char *path, char ***arr,
                                    int arr_size) {
   char *buff;
-  uptr buff_size = 0;
+  uptr buff_size;
+  uptr buff_len;
   *arr = (char **)MmapOrDie(arr_size * sizeof(char *), "NullSepFileArray");
-  ReadFileToBuffer(path, &buff, &buff_size, 1024 * 1024);
+  if (!ReadFileToBuffer(path, &buff, &buff_size, &buff_len, 1024 * 1024)) {
+    (*arr)[0] = nullptr;
+    return;
+  }
   (*arr)[0] = buff;
   int count, i;
   for (count = 1, i = 1; ; i++) {
@@ -418,7 +419,7 @@ static void ReadNullSepFileToArray(const char *path, char ***arr,
       count++;
     }
   }
-  (*arr)[count] = 0;
+  (*arr)[count] = nullptr;
 }
 #endif
 
@@ -496,7 +497,7 @@ void BlockingMutex::CheckLocked() {
 // Note that getdents64 uses a different structure format. We only provide the
 // 32-bit syscall here.
 struct linux_dirent {
-#if SANITIZER_X32
+#if SANITIZER_X32 || defined(__aarch64__)
   u64 d_ino;
   u64 d_off;
 #else
@@ -504,6 +505,9 @@ struct linux_dirent {
   unsigned long      d_off;
 #endif
   unsigned short     d_reclen;
+#ifdef __aarch64__
+  unsigned char      d_type;
+#endif
   char               d_name[256];
 };
 
@@ -585,8 +589,8 @@ int internal_sigaction_norestorer(int signum, const void *act, void *oldact) {
   }
 
   uptr result = internal_syscall(SYSCALL(rt_sigaction), (uptr)signum,
-      (uptr)(u_act ? &k_act : NULL),
-      (uptr)(u_oldact ? &k_oldact : NULL),
+      (uptr)(u_act ? &k_act : nullptr),
+      (uptr)(u_oldact ? &k_oldact : nullptr),
       (uptr)sizeof(__sanitizer_kernel_sigset_t));
 
   if ((result == 0) && u_oldact) {
@@ -730,6 +734,21 @@ uptr ReadBinaryName(/*out*/char *buf, uptr buf_len) {
     CHECK_LT(module_name_len, buf_len);
   }
   return module_name_len;
+}
+
+uptr ReadLongProcessName(/*out*/ char *buf, uptr buf_len) {
+#if SANITIZER_LINUX
+  char *tmpbuf;
+  uptr tmpsize;
+  uptr tmplen;
+  if (ReadFileToBuffer("/proc/self/cmdline", &tmpbuf, &tmpsize, &tmplen,
+                       1024 * 1024)) {
+    internal_strncpy(buf, tmpbuf, buf_len);
+    UnmapOrDie(tmpbuf, tmpsize);
+    return internal_strlen(buf);
+  }
+#endif
+  return ReadBinaryName(buf, buf_len);
 }
 
 // Match full names of the form /path/to/base_name{-,.}*
@@ -913,38 +932,66 @@ uptr internal_clone(int (*fn)(void *), void *child_stack, int flags, void *arg,
                        : "memory", "$29" );
   return res;
 }
+#elif defined(__aarch64__)
+uptr internal_clone(int (*fn)(void *), void *child_stack, int flags, void *arg,
+                    int *parent_tidptr, void *newtls, int *child_tidptr) {
+  long long res;
+  if (!fn || !child_stack)
+    return -EINVAL;
+  CHECK_EQ(0, (uptr)child_stack % 16);
+  child_stack = (char *)child_stack - 2 * sizeof(unsigned long long);
+  ((unsigned long long *)child_stack)[0] = (uptr)fn;
+  ((unsigned long long *)child_stack)[1] = (uptr)arg;
+
+  register int (*__fn)(void *)  __asm__("x0") = fn;
+  register void *__stack __asm__("x1") = child_stack;
+  register int   __flags __asm__("x2") = flags;
+  register void *__arg   __asm__("x3") = arg;
+  register int  *__ptid  __asm__("x4") = parent_tidptr;
+  register void *__tls   __asm__("x5") = newtls;
+  register int  *__ctid  __asm__("x6") = child_tidptr;
+
+  __asm__ __volatile__(
+                       "mov x0,x2\n" /* flags  */
+                       "mov x2,x4\n" /* ptid  */
+                       "mov x3,x5\n" /* tls  */
+                       "mov x4,x6\n" /* ctid  */
+                       "mov x8,%9\n" /* clone  */
+
+                       "svc 0x0\n"
+
+                       /* if (%r0 != 0)
+                        *   return %r0;
+                        */
+                       "cmp x0, #0\n"
+                       "bne 1f\n"
+
+                       /* In the child, now. Call "fn(arg)". */
+                       "ldp x1, x0, [sp], #16\n"
+                       "blr x1\n"
+
+                       /* Call _exit(%r0).  */
+                       "mov x8, %10\n"
+                       "svc 0x0\n"
+                     "1:\n"
+
+                       : "=r" (res)
+                       : "i"(-EINVAL),
+                         "r"(__fn), "r"(__stack), "r"(__flags), "r"(__arg),
+                         "r"(__ptid), "r"(__tls), "r"(__ctid),
+                         "i"(__NR_clone), "i"(__NR_exit)
+                       : "x30", "memory");
+  return res;
+}
 #endif  // defined(__x86_64__) && SANITIZER_LINUX
 
 #if SANITIZER_ANDROID
-static atomic_uint8_t android_log_initialized;
-
-void AndroidLogInit() {
-  atomic_store(&android_log_initialized, 1, memory_order_release);
-}
-// This thing is not, strictly speaking, async signal safe, but it does not seem
-// to cause any issues. Alternative is writing to log devices directly, but
-// their location and message format might change in the future, so we'd really
-// like to avoid that.
-void AndroidLogWrite(const char *buffer) {
-  if (!atomic_load(&android_log_initialized, memory_order_acquire))
-    return;
-
-  char *copy = internal_strdup(buffer);
-  char *p = copy;
-  char *q;
-  // __android_log_write has an implicit message length limit.
-  // Print one line at a time.
-  do {
-    q = internal_strchr(p, '\n');
-    if (q) *q = '\0';
-    __android_log_write(ANDROID_LOG_INFO, NULL, p);
-    if (q) p = q + 1;
-  } while (q);
-  InternalFree(copy);
-}
-
+#define PROP_VALUE_MAX 92
+extern "C" SANITIZER_WEAK_ATTRIBUTE int __system_property_get(const char *name,
+                                                              char *value);
 void GetExtraActivationFlags(char *buf, uptr size) {
   CHECK(size > PROP_VALUE_MAX);
+  CHECK(&__system_property_get);
   __system_property_get("asan.options", buf);
 }
 
@@ -955,7 +1002,7 @@ extern "C" __attribute__((weak)) int dl_iterate_phdr(
 
 static int dl_iterate_phdr_test_cb(struct dl_phdr_info *info, size_t size,
                                    void *data) {
-  // Any name starting with "lib" indicated a bug in L where library base names
+  // Any name starting with "lib" indicates a bug in L where library base names
   // are returned instead of paths.
   if (info->dlpi_name && info->dlpi_name[0] == 'l' &&
       info->dlpi_name[1] == 'i' && info->dlpi_name[2] == 'b') {
@@ -967,20 +1014,21 @@ static int dl_iterate_phdr_test_cb(struct dl_phdr_info *info, size_t size,
 
 static atomic_uint32_t android_api_level;
 
-static u32 AndroidDetectApiLevel() {
+static AndroidApiLevel AndroidDetectApiLevel() {
   if (!&dl_iterate_phdr)
-    return 19; // K or lower
+    return ANDROID_KITKAT; // K or lower
   bool base_name_seen = false;
   dl_iterate_phdr(dl_iterate_phdr_test_cb, &base_name_seen);
   if (base_name_seen)
-    return 22; // L MR1
-  return 23;   // post-L
+    return ANDROID_LOLLIPOP_MR1; // L MR1
+  return ANDROID_POST_LOLLIPOP;   // post-L
   // Plain L (API level 21) is completely broken wrt ASan and not very
   // interesting to detect.
 }
 
-u32 AndroidGetApiLevel() {
-  u32 level = atomic_load(&android_api_level, memory_order_relaxed);
+AndroidApiLevel AndroidGetApiLevel() {
+  AndroidApiLevel level =
+      (AndroidApiLevel)atomic_load(&android_api_level, memory_order_relaxed);
   if (level) return level;
   level = AndroidDetectApiLevel();
   atomic_store(&android_api_level, level, memory_order_relaxed);
@@ -992,6 +1040,8 @@ u32 AndroidGetApiLevel() {
 bool IsDeadlySignal(int signum) {
   if (common_flags()->handle_abort && signum == SIGABRT)
     return true;
+  if (common_flags()->handle_sigfpe && signum == SIGFPE)
+    return true;
   return (signum == SIGSEGV || signum == SIGBUS) && common_flags()->handle_segv;
 }
 
@@ -1000,20 +1050,20 @@ void *internal_start_thread(void(*func)(void *arg), void *arg) {
   // Start the thread with signals blocked, otherwise it can steal user signals.
   __sanitizer_sigset_t set, old;
   internal_sigfillset(&set);
-#if SANITIZER_LINUX
+#if SANITIZER_LINUX && !SANITIZER_ANDROID
   // Glibc uses SIGSETXID signal during setuid call. If this signal is blocked
   // on any thread, setuid call hangs (see test/tsan/setuid.c).
   internal_sigdelset(&set, 33);
 #endif
   internal_sigprocmask(SIG_SETMASK, &set, &old);
   void *th;
-  real_pthread_create(&th, 0, (void*(*)(void *arg))func, arg);
-  internal_sigprocmask(SIG_SETMASK, &old, 0);
+  real_pthread_create(&th, nullptr, (void*(*)(void *arg))func, arg);
+  internal_sigprocmask(SIG_SETMASK, &old, nullptr);
   return th;
 }
 
 void internal_join_thread(void *th) {
-  real_pthread_join(th, 0);
+  real_pthread_join(th, nullptr);
 }
 #else
 void *internal_start_thread(void (*func)(void *), void *arg) { return 0; }
@@ -1093,6 +1143,6 @@ void GetPcSpBp(void *context, uptr *pc, uptr *sp, uptr *bp) {
 #endif
 }
 
-}  // namespace __sanitizer
+} // namespace __sanitizer
 
-#endif  // SANITIZER_FREEBSD || SANITIZER_LINUX
+#endif // SANITIZER_FREEBSD || SANITIZER_LINUX

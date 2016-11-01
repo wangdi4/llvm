@@ -1,4 +1,4 @@
-//===-- TypeSummary.h --------------------------------------------*- C++ -*-===//
+//===-- TypeSummary.h -------------------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -14,11 +14,11 @@
 #include <stdint.h>
 
 // C++ Includes
+#include <functional>
+#include <memory>
 #include <string>
-#include <vector>
 
 // Other libraries and framework includes
-
 // Project includes
 #include "lldb/lldb-public.h"
 #include "lldb/lldb-enumerations.h"
@@ -26,8 +26,6 @@
 #include "lldb/Core/Error.h"
 #include "lldb/Core/FormatEntity.h"
 #include "lldb/Core/StructuredData.h"
-#include "lldb/Core/ValueObject.h"
-#include "lldb/Symbol/Type.h"
 
 namespace lldb_private {
     class TypeSummaryOptions
@@ -36,6 +34,8 @@ namespace lldb_private {
         TypeSummaryOptions ();
         TypeSummaryOptions (const TypeSummaryOptions& rhs);
         
+        ~TypeSummaryOptions() = default;
+
         TypeSummaryOptions&
         operator = (const TypeSummaryOptions& rhs);
         
@@ -50,8 +50,7 @@ namespace lldb_private {
         
         TypeSummaryOptions&
         SetCapping (lldb::TypeSummaryCapping);
-        
-        ~TypeSummaryOptions() = default;
+
     private:
         lldb::LanguageType m_lang;
         lldb::TypeSummaryCapping m_capping;
@@ -60,10 +59,25 @@ namespace lldb_private {
     class TypeSummaryImpl
     {
     public:
+        enum class Kind
+        {
+            eSummaryString,
+            eScript,
+            eCallback
+        };
+
+        virtual
+        ~TypeSummaryImpl() = default;
+
+        Kind
+        GetKind () const
+        {
+            return m_kind;
+        }
+        
         class Flags
         {
         public:
-            
             Flags () :
             m_flags (lldb::eTypeOptionCascade)
             {}
@@ -162,6 +176,22 @@ namespace lldb_private {
                     m_flags &= ~lldb::eTypeOptionHideChildren;
                 return *this;
             }
+
+            bool
+            GetHideEmptyAggregates () const
+            {
+                return (m_flags & lldb::eTypeOptionHideEmptyAggregates) == lldb::eTypeOptionHideEmptyAggregates;
+            }
+
+            Flags&
+            SetHideEmptyAggregates (bool value = true)
+            {
+                if (value)
+                    m_flags |= lldb::eTypeOptionHideEmptyAggregates;
+                else
+                    m_flags &= ~lldb::eTypeOptionHideEmptyAggregates;
+                return *this;
+            }
             
             bool
             GetDontShowValue () const
@@ -211,6 +241,22 @@ namespace lldb_private {
                 return *this;
             }
             
+            bool
+            GetNonCacheable () const
+            {
+                return (m_flags & lldb::eTypeOptionNonCacheable) == lldb::eTypeOptionNonCacheable;
+            }
+            
+            Flags&
+            SetNonCacheable (bool value = true)
+            {
+                if (value)
+                    m_flags |= lldb::eTypeOptionNonCacheable;
+                else
+                    m_flags &= ~lldb::eTypeOptionNonCacheable;
+                return *this;
+            }
+            
             uint32_t
             GetValue ()
             {
@@ -227,36 +273,40 @@ namespace lldb_private {
             uint32_t m_flags;
         };
         
-        typedef enum Type
-        {
-            eTypeUnknown,
-            eTypeString,
-            eTypeScript,
-            eTypeCallback
-        } Type;
-        
-        TypeSummaryImpl (const TypeSummaryImpl::Flags& flags);
-        
         bool
         Cascades () const
         {
             return m_flags.GetCascades();
         }
+
         bool
         SkipsPointers () const
         {
             return m_flags.GetSkipPointers();
         }
+
         bool
         SkipsReferences () const
         {
             return m_flags.GetSkipReferences();
+        }
+
+        bool
+        NonCacheable () const
+        {
+            return m_flags.GetNonCacheable();
         }
         
         virtual bool
         DoesPrintChildren (ValueObject* valobj) const
         {
             return !m_flags.GetDontShowChildren();
+        }
+
+        virtual bool
+        DoesPrintEmptyAggregates () const
+        {
+            return !m_flags.GetHideEmptyAggregates();
         }
         
         virtual bool
@@ -319,6 +369,12 @@ namespace lldb_private {
             m_flags.SetHideItemNames(value);
         }
         
+        virtual void
+        SetNonCacheable (bool value)
+        {
+            m_flags.SetNonCacheable(value);
+        }
+        
         uint32_t
         GetOptions ()
         {
@@ -329,11 +385,6 @@ namespace lldb_private {
         SetOptions (uint32_t value)
         {
             m_flags.SetValue(value);
-        }
-        
-        virtual
-        ~TypeSummaryImpl ()
-        {
         }
         
         // we are using a ValueObject* instead of a ValueObjectSP because we do not need to hold on to this for
@@ -347,12 +398,6 @@ namespace lldb_private {
         virtual std::string
         GetDescription () = 0;
         
-        virtual bool
-        IsScripted () = 0;
-        
-        virtual Type
-        GetType () = 0;
-        
         uint32_t&
         GetRevision ()
         {
@@ -360,14 +405,18 @@ namespace lldb_private {
         }
         
         typedef std::shared_ptr<TypeSummaryImpl> SharedPointer;
-        typedef bool(*SummaryCallback)(void*, ConstString, const lldb::TypeSummaryImplSP&);
-        typedef bool(*RegexSummaryCallback)(void*, lldb::RegularExpressionSP, const lldb::TypeSummaryImplSP&);
+        typedef std::function<bool(void*, ConstString, TypeSummaryImpl::SharedPointer)> SummaryCallback;
+        typedef std::function<bool(void*, lldb::RegularExpressionSP, TypeSummaryImpl::SharedPointer)> RegexSummaryCallback;
         
     protected:
         uint32_t m_my_revision;
         Flags m_flags;
         
+        TypeSummaryImpl (Kind kind,
+                         const TypeSummaryImpl::Flags& flags);
+        
     private:
+        Kind m_kind;
         DISALLOW_COPY_AND_ASSIGN(TypeSummaryImpl);
     };
     
@@ -380,11 +429,8 @@ namespace lldb_private {
         
         StringSummaryFormat(const TypeSummaryImpl::Flags& flags,
                             const char* f);
-        
-        virtual
-        ~StringSummaryFormat()
-        {
-        }
+
+        ~StringSummaryFormat() override = default;
 
         const char*
         GetSummaryString () const
@@ -395,25 +441,17 @@ namespace lldb_private {
         void
         SetSummaryString (const char* f);
 
-        virtual bool
+        bool
         FormatObject(ValueObject *valobj,
                      std::string& dest,
-                     const TypeSummaryOptions& options);
+                     const TypeSummaryOptions& options) override;
         
-        virtual std::string
-        GetDescription();
+        std::string
+        GetDescription() override;
         
-        virtual bool
-        IsScripted ()
+        static bool classof(const TypeSummaryImpl* S)
         {
-            return false;
-        }
-        
-        
-        virtual Type
-        GetType ()
-        {
-            return TypeSummaryImpl::eTypeString;
+            return S->GetKind() == Kind::eSummaryString;
         }
         
     private:
@@ -425,9 +463,9 @@ namespace lldb_private {
     {
         // we should convert these to SBValue and SBStream if we ever cross
         // the boundary towards the external world
-        typedef bool (*Callback)(ValueObject&,
-                                 Stream&,
-                                 const TypeSummaryOptions&);
+        typedef std::function<bool(ValueObject&,
+                                   Stream&,
+                                   const TypeSummaryOptions&)> Callback;
         
         Callback m_impl;
         std::string m_description;
@@ -435,7 +473,9 @@ namespace lldb_private {
         CXXFunctionSummaryFormat (const TypeSummaryImpl::Flags& flags,
                                   Callback impl,
                                   const char* description);
-        
+
+        ~CXXFunctionSummaryFormat() override = default;
+
         Callback
         GetBackendFunction () const
         {
@@ -462,30 +502,18 @@ namespace lldb_private {
             else
                 m_description.clear();
         }
+
+        bool
+        FormatObject(ValueObject *valobj,
+		     std::string& dest,
+		     const TypeSummaryOptions& options) override;
         
-        virtual
-        ~CXXFunctionSummaryFormat ()
+        std::string
+        GetDescription() override;
+        
+        static bool classof(const TypeSummaryImpl* S)
         {
-        }
-        
-        virtual bool
-        FormatObject (ValueObject *valobj,
-                      std::string& dest,
-                      const TypeSummaryOptions& options);
-        
-        virtual std::string
-        GetDescription ();
-        
-        virtual bool
-        IsScripted ()
-        {
-            return false;
-        }
-        
-        virtual Type
-        GetType ()
-        {
-            return TypeSummaryImpl::eTypeCallback;
+            return S->GetKind() == Kind::eCallback;
         }
         
         typedef std::shared_ptr<CXXFunctionSummaryFormat> SharedPointer;
@@ -493,8 +521,6 @@ namespace lldb_private {
     private:
         DISALLOW_COPY_AND_ASSIGN(CXXFunctionSummaryFormat);
     };
-    
-#ifndef LLDB_DISABLE_PYTHON
     
     // Python-based summaries, running script code to show data
     struct ScriptSummaryFormat : public TypeSummaryImpl
@@ -505,8 +531,10 @@ namespace lldb_private {
 
         ScriptSummaryFormat(const TypeSummaryImpl::Flags& flags,
                             const char *function_name,
-                            const char* python_script = NULL);
-        
+                            const char* python_script = nullptr);
+
+        ~ScriptSummaryFormat() override = default;
+
         const char*
         GetFunctionName () const
         {
@@ -538,38 +566,24 @@ namespace lldb_private {
                 m_python_script.clear();
         }
         
-        virtual
-        ~ScriptSummaryFormat ()
+        bool
+        FormatObject(ValueObject *valobj,
+		     std::string& dest,
+		     const TypeSummaryOptions& options) override;
+        
+        std::string
+        GetDescription() override;
+        
+        static bool classof(const TypeSummaryImpl* S)
         {
-        }
-        
-        virtual bool
-        FormatObject (ValueObject *valobj,
-                      std::string& dest,
-                      const TypeSummaryOptions& options);
-        
-        virtual std::string
-        GetDescription ();
-        
-        virtual bool
-        IsScripted ()
-        {
-            return true;
-        }
-        
-        virtual Type
-        GetType ()
-        {
-            return TypeSummaryImpl::eTypeScript;
+            return S->GetKind() == Kind::eScript;
         }
         
         typedef std::shared_ptr<ScriptSummaryFormat> SharedPointer;
         
-        
     private:
         DISALLOW_COPY_AND_ASSIGN(ScriptSummaryFormat);
     };
-#endif
 } // namespace lldb_private
 
-#endif	// lldb_TypeSummary_h_
+#endif // lldb_TypeSummary_h_

@@ -13,6 +13,7 @@ TOOLNAME = lldb-mi
 NO_PEDANTIC = 1
 
 LLVMLibsOptions += -ledit -llldb -llldbUtility
+LINK_COMPONENTS := support
 
 include $(LLDB_LEVEL)/Makefile
 
@@ -22,11 +23,11 @@ ifeq ($(HOST_OS),Darwin)
 endif
 
 ifneq (,$(filter $(HOST_OS), Linux GNU/kFreeBSD))
-	LLVMLibsOptions += -Wl,-rpath,$(LibDir)
+	LLVMLibsOptions += -Wl,-rpath,$(LibDir) -lpthread
 endif
 
 ifeq ($(HOST_OS),FreeBSD)
 	CPP.Flags += -I/usr/include/edit #-v
-	LLVMLibsOptions += -Wl,-rpath,$(LibDir)
+	LLVMLibsOptions += -Wl,-rpath,$(LibDir) -lpthread
 endif
 

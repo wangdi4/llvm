@@ -258,7 +258,7 @@ void LPUAsmPrinter::emitParamList(const Function *F) {
   const TargetLowering *TLI = MF->getSubtarget<LPUSubtarget>().getTargetLowering();
   Function::const_arg_iterator I, E;
   unsigned paramIndex = 0;
-  MVT thePointerTy = TLI->getPointerTy();
+  MVT thePointerTy = TLI->getPointerTy(MF->getDataLayout());
 
   // Stride through parameters, putting out a .param {type} .reg %r{num}
   // This is a hack mostly taken from NVPTX.  This assumes successive
@@ -316,7 +316,7 @@ void LPUAsmPrinter::emitReturnVal(const Function *F) {
     }
     
   } else if (isa<PointerType>(Ty)) {
-    O << " .i" << TLI->getPointerTy().getSizeInBits();
+    O << " .i" << TLI->getPointerTy(MF->getDataLayout()).getSizeInBits();
   } else if ((Ty->getTypeID() == Type::StructTyID) || isa<VectorType>(Ty)) {
     llvm_unreachable("NYI: aggregate result");
   } else

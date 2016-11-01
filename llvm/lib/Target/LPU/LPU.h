@@ -31,6 +31,7 @@ namespace llvm {
   MachineFunctionPass *createLPUCvtCFDFPass();
   MachineFunctionPass *createLPUStatisticsPass();
   MachineFunctionPass *createLPUOptDFPass();
+  MachineFunctionPass *createLPUDeadInstructionElimPass();
   MachineFunctionPass *createLPUAllocUnitPass();
   MachineFunctionPass *createLPUPrologEpilogPass();
   /// \brief Creates an LPU-specific Target Transformation Info pass.

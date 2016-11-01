@@ -178,10 +178,11 @@ am__libisl_la_SOURCES_DIST = mp_get_memory_functions.c isl_int_gmp.h \
 	isl_coalesce.c isl_constraint.c isl_constraint_private.h \
 	isl_convex_hull.c isl_ctx.c isl_ctx_private.h isl_deprecated.c \
 	isl_dim_map.h isl_dim_map.c isl_equalities.c isl_equalities.h \
-	isl_factorization.c isl_factorization.h isl_farkas.c \
-	isl_flow.c isl_fold.c isl_hash.c isl_id_to_ast_expr.c \
-	isl_id_to_pw_aff.c isl_ilp.c isl_ilp_private.h isl_input.c \
-	isl_int.h isl_local_space_private.h isl_local_space.c isl_lp.c \
+	isl_factorization.c isl_factorization.h isl_farkas.c isl_ffs.c \
+	isl_flow.c isl_fold.c isl_hash.c isl_hash_private.h \
+	isl_id_to_ast_expr.c isl_id_to_pw_aff.c isl_ilp.c \
+	isl_ilp_private.h isl_input.c isl_int.h \
+	isl_local_space_private.h isl_local_space.c isl_lp.c \
 	isl_lp_private.h isl_map.c isl_map_list.c isl_map_simplify.c \
 	isl_map_subtract.c isl_map_private.h isl_map_to_basic_set.c \
 	isl_mat.c isl_mat_private.h isl_morph.c isl_morph.h isl_id.c \
@@ -225,19 +226,20 @@ am_libisl_la_OBJECTS = $(am__objects_4) $(am__objects_5) isl_aff.lo \
 	isl_bound.lo isl_coalesce.lo isl_constraint.lo \
 	isl_convex_hull.lo isl_ctx.lo isl_deprecated.lo isl_dim_map.lo \
 	isl_equalities.lo isl_factorization.lo isl_farkas.lo \
-	isl_flow.lo isl_fold.lo isl_hash.lo isl_id_to_ast_expr.lo \
-	isl_id_to_pw_aff.lo isl_ilp.lo isl_input.lo isl_local_space.lo \
-	isl_lp.lo isl_map.lo isl_map_list.lo isl_map_simplify.lo \
-	isl_map_subtract.lo isl_map_to_basic_set.lo isl_mat.lo \
-	isl_morph.lo isl_id.lo isl_obj.lo isl_options.lo isl_output.lo \
-	isl_point.lo isl_polynomial.lo isl_printer.lo print.lo \
-	isl_range.lo isl_reordering.lo isl_sample.lo isl_scan.lo \
-	isl_schedule.lo isl_schedule_band.lo isl_schedule_node.lo \
-	isl_schedule_read.lo isl_schedule_tree.lo isl_scheduler.lo \
-	isl_set_list.lo isl_sort.lo isl_space.lo isl_stream.lo \
-	isl_seq.lo isl_tab.lo isl_tab_pip.lo isl_tarjan.lo \
-	isl_transitive_closure.lo isl_union_map.lo isl_val.lo \
-	isl_vec.lo isl_version.lo isl_vertices.lo
+	isl_ffs.lo isl_flow.lo isl_fold.lo isl_hash.lo \
+	isl_id_to_ast_expr.lo isl_id_to_pw_aff.lo isl_ilp.lo \
+	isl_input.lo isl_local_space.lo isl_lp.lo isl_map.lo \
+	isl_map_list.lo isl_map_simplify.lo isl_map_subtract.lo \
+	isl_map_to_basic_set.lo isl_mat.lo isl_morph.lo isl_id.lo \
+	isl_obj.lo isl_options.lo isl_output.lo isl_point.lo \
+	isl_polynomial.lo isl_printer.lo print.lo isl_range.lo \
+	isl_reordering.lo isl_sample.lo isl_scan.lo isl_schedule.lo \
+	isl_schedule_band.lo isl_schedule_node.lo isl_schedule_read.lo \
+	isl_schedule_tree.lo isl_scheduler.lo isl_set_list.lo \
+	isl_sort.lo isl_space.lo isl_stream.lo isl_seq.lo isl_tab.lo \
+	isl_tab_pip.lo isl_tarjan.lo isl_transitive_closure.lo \
+	isl_union_map.lo isl_val.lo isl_vec.lo isl_version.lo \
+	isl_vertices.lo
 libisl_la_OBJECTS = $(am_libisl_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -844,9 +846,11 @@ libisl_la_SOURCES = \
 	isl_factorization.c \
 	isl_factorization.h \
 	isl_farkas.c \
+	isl_ffs.c \
 	isl_flow.c \
 	isl_fold.c \
 	isl_hash.c \
+	isl_hash_private.h \
 	isl_id_to_ast_expr.c \
 	isl_id_to_pw_aff.c \
 	isl_ilp.c \
@@ -1041,6 +1045,17 @@ deprecated_HEADERS = \
 	include/isl/deprecated/val_int.h \
 	include/isl/deprecated/vec_int.h
 
+BUILT_SOURCES = gitversion.h
+CLEANFILES = \
+	gitversion.h
+
+DISTCLEANFILES = \
+	isl-uninstalled.sh \
+	isl-uninstalled.pc \
+	isl.pc \
+	isl.pc.in \
+	include/isl/stdint.h
+
 EXTRA_DIST = \
 	LICENSE \
 	isl_config_post.h \
@@ -1055,13 +1070,19 @@ EXTRA_DIST = \
 	isl_multi_apply_templ.c \
 	isl_multi_apply_set.c \
 	isl_multi_apply_union_set.c \
+	isl_multi_coalesce.c \
 	isl_multi_floor.c \
 	isl_multi_gist.c \
 	isl_multi_intersect.c \
 	print_templ.c \
 	isl_power_templ.c \
 	isl_pw_templ.c \
+	isl_union_macro.h \
 	isl_union_templ.c \
+	isl_union_single.c \
+	isl_union_multi.c \
+	isl_union_eval.c \
+	isl_union_neg.c \
 	isl.py \
 	doc/CodingStyle \
 	doc/SubmittingPatches \
@@ -1084,7 +1105,7 @@ EXTRA_DIST = \
 
 pkgconfigdir = $(pkgconfig_libdir)
 pkgconfig_DATA = $(pkgconfig_libfile)
-all: isl_config.h
+all: $(BUILT_SOURCES) isl_config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
 .SUFFIXES:
@@ -1287,6 +1308,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/isl_equalities.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/isl_factorization.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/isl_farkas.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/isl_ffs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/isl_flow.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/isl_fold.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/isl_gmp.Plo@am__quote@
@@ -1969,7 +1991,8 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
-check: check-recursive
+check: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) check-recursive
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(DATA) $(HEADERS) \
 		isl_config.h
 installdirs: installdirs-recursive
@@ -1977,7 +2000,8 @@ installdirs-am:
 	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(pkgconfigdir)" "$(DESTDIR)$(deprecateddir)" "$(DESTDIR)$(pkgincludedir)" "$(DESTDIR)$(pkgincludedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
-install: install-recursive
+install: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) install-recursive
 install-exec: install-exec-recursive
 install-data: install-data-recursive
 uninstall: uninstall-recursive
@@ -2002,16 +2026,19 @@ mostlyclean-generic:
 	-test -z "$(TEST_SUITE_LOG)" || rm -f $(TEST_SUITE_LOG)
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
 	-rm -f imath_wrap/$(DEPDIR)/$(am__dirstamp)
 	-rm -f imath_wrap/$(am__dirstamp)
+	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-recursive
 
 clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
@@ -2087,10 +2114,11 @@ ps: ps-recursive
 ps-am:
 
 uninstall-am: uninstall-deprecatedHEADERS uninstall-libLTLIBRARIES \
-	uninstall-nodist_pkgincludeHEADERS uninstall-pkgconfigDATA \
-	uninstall-pkgincludeHEADERS
+	uninstall-local uninstall-nodist_pkgincludeHEADERS \
+	uninstall-pkgconfigDATA uninstall-pkgincludeHEADERS
 
-.MAKE: $(am__recursive_targets) all check-am install-am install-strip
+.MAKE: $(am__recursive_targets) all check check-am install install-am \
+	install-strip
 
 .PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am \
 	am--refresh check check-TESTS check-am clean clean-cscope \
@@ -2114,8 +2142,8 @@ uninstall-am: uninstall-deprecatedHEADERS uninstall-libLTLIBRARIES \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	recheck tags tags-am uninstall uninstall-am \
 	uninstall-deprecatedHEADERS uninstall-libLTLIBRARIES \
-	uninstall-nodist_pkgincludeHEADERS uninstall-pkgconfigDATA \
-	uninstall-pkgincludeHEADERS
+	uninstall-local uninstall-nodist_pkgincludeHEADERS \
+	uninstall-pkgconfigDATA uninstall-pkgincludeHEADERS
 
 
 dist-hook:
@@ -2135,6 +2163,13 @@ install-data-local: $(srcdir)/isl.py
 		$(DESTDIR)$(libdir)/$$libisl-gdb.py; \
 	test -z "$(libdir)" || $(MKDIR_P) "$(DESTDIR)$(libdir)"; \
 	$(INSTALL_DATA) $(srcdir)/isl.py $(DESTDIR)$(libdir)/$$libisl-gdb.py; esac
+
+uninstall-local:
+	@libisl=`sed -ne "/^library_names=/{s/.*='//;s/'$$//;s/ .*//;p;}" \
+		 $(builddir)/libisl.la`; \
+	if test -n "$${libisl}"; then \
+		rm -f $(DESTDIR)$(libdir)/$$libisl-gdb.py; \
+	fi
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

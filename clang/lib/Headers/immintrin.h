@@ -56,6 +56,8 @@
 
 #include <avx512bwintrin.h>
 
+#include <avx512cdintrin.h>
+
 #include <avx512dqintrin.h>
 
 #include <avx512vlbwintrin.h>
@@ -139,6 +141,16 @@ _writegsbase_u64(unsigned long long __V)
 #include <xtestintrin.h>
 
 #include <shaintrin.h>
+
+#include <fxsrintrin.h>
+
+#include <xsaveintrin.h>
+
+#include <xsaveoptintrin.h>
+
+#include <xsavecintrin.h>
+
+#include <xsavesintrin.h>
 
 /* Some intrinsics inside adxintrin.h are available only on processors with ADX,
  * whereas others are also available at all times. */

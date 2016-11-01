@@ -19,7 +19,6 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/SemaConsumer.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
-#include "llvm/Support/raw_ostream.h"
 #include <string>
 
 using namespace clang;
@@ -27,9 +26,10 @@ using namespace clang;
 PCHGenerator::PCHGenerator(const Preprocessor &PP, StringRef OutputFile,
                            clang::Module *Module, StringRef isysroot,
                            std::shared_ptr<PCHBuffer> Buffer,
-                           bool AllowASTWithErrors)
+                           bool AllowASTWithErrors, bool IncludeTimestamps)
     : PP(PP), OutputFile(OutputFile), Module(Module), isysroot(isysroot.str()),
-      SemaPtr(nullptr), Buffer(Buffer), Stream(Buffer->Data), Writer(Stream),
+      SemaPtr(nullptr), Buffer(Buffer), Stream(Buffer->Data),
+      Writer(Stream, IncludeTimestamps),
       AllowASTWithErrors(AllowASTWithErrors) {
   Buffer->IsComplete = false;
 }
@@ -48,7 +48,8 @@ void PCHGenerator::HandleTranslationUnit(ASTContext &Ctx) {
 
   // Emit the PCH file to the Buffer.
   assert(SemaPtr && "No Sema?");
-  Writer.WriteAST(*SemaPtr, OutputFile, Module, isysroot, hasErrors);
+  Buffer->Signature =
+      Writer.WriteAST(*SemaPtr, OutputFile, Module, isysroot, hasErrors);
 
   Buffer->IsComplete = true;
 }

@@ -24,34 +24,12 @@ bool LPUTTIImpl::isLegalICmpImmediate(int64_t imm) const {
   return getTLI()->isLegalICmpImmediate(imm);
 }
 
-bool LPUTTIImpl::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
-                                     int64_t BaseOffset, bool HasBaseReg,
-                                     int64_t Scale, unsigned AddressSpace) const {
-  TargetLoweringBase::AddrMode AM;
-  AM.BaseGV = BaseGV;
-  AM.BaseOffs = BaseOffset;
-  AM.HasBaseReg = HasBaseReg;
-  AM.Scale = Scale;
-  return getTLI()->isLegalAddressingMode(AM, Ty);
-}
-
-int LPUTTIImpl::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
-                                   int64_t BaseOffset, bool HasBaseReg,
-                                   int64_t Scale, unsigned AddressSpace) const {
-  TargetLoweringBase::AddrMode AM;
-  AM.BaseGV = BaseGV;
-  AM.BaseOffs = BaseOffset;
-  AM.HasBaseReg = HasBaseReg;
-  AM.Scale = Scale;
-  return getTLI()->getScalingFactorCost(AM, Ty);
-}
-
 bool LPUTTIImpl::isTruncateFree(Type *Ty1, Type *Ty2) const {
   return getTLI()->isTruncateFree(Ty1, Ty2);
 }
 
 bool LPUTTIImpl::isTypeLegal(Type *Ty) const {
-  EVT T = getTLI()->getValueType(Ty);
+  EVT T = getTLI()->getValueType(DL, Ty);
   return getTLI()->isTypeLegal(T);
 }
 
@@ -71,7 +49,7 @@ bool LPUTTIImpl::shouldBuildLookupTables() const {
 
 bool LPUTTIImpl::haveFastSqrt(Type *Ty) const {
   const TargetLoweringBase *TLI = getTLI();
-  EVT VT = TLI->getValueType(Ty);
+  EVT VT = TLI->getValueType(DL, Ty);
   return TLI->isTypeLegal(VT) && TLI->isOperationLegalOrCustom(ISD::FSQRT, VT);
 }
 
@@ -174,7 +152,7 @@ unsigned LPUTTIImpl::getArithmeticInstrCost(unsigned Opcode, Type *Ty,
   int ISD = TLI->InstructionOpcodeToISD(Opcode);
   assert(ISD && "Invalid opcode");
 
-  std::pair<unsigned, MVT> LT = TLI->getTypeLegalizationCost(Ty);
+  std::pair<unsigned, MVT> LT = TLI->getTypeLegalizationCost(DL, Ty);
 
   bool IsFloat = Ty->getScalarType()->isFloatingPointTy();
   // Assume that floating point arithmetic operations cost twice as much as
@@ -241,8 +219,8 @@ unsigned LPUTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
   int ISD = TLI->InstructionOpcodeToISD(Opcode);
   assert(ISD && "Invalid opcode");
 
-  std::pair<unsigned, MVT> SrcLT = TLI->getTypeLegalizationCost(Src);
-  std::pair<unsigned, MVT> DstLT = TLI->getTypeLegalizationCost(Dst);
+  std::pair<unsigned, MVT> SrcLT = TLI->getTypeLegalizationCost(DL, Src);
+  std::pair<unsigned, MVT> DstLT = TLI->getTypeLegalizationCost(DL, Dst);
 
   // Check for NOOP conversions.
   if (SrcLT.first == DstLT.first &&
@@ -343,7 +321,7 @@ unsigned LPUTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
       ISD = ISD::VSELECT;
   }
 
-  std::pair<unsigned, MVT> LT = TLI->getTypeLegalizationCost(ValTy);
+  std::pair<unsigned, MVT> LT = TLI->getTypeLegalizationCost(DL, ValTy);
 
   if (!(ValTy->isVectorTy() && !LT.second.isVector()) &&
       !TLI->isOperationExpand(ISD, LT.second)) {
@@ -371,7 +349,7 @@ unsigned LPUTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
 
 unsigned LPUTTIImpl::getVectorInstrCost(unsigned Opcode, Type *Val,
                                       unsigned Index) {
-  std::pair<unsigned, MVT> LT =  getTLI()->getTypeLegalizationCost(Val->getScalarType());
+  std::pair<unsigned, MVT> LT =  getTLI()->getTypeLegalizationCost(DL, Val->getScalarType());
 
   return LT.first;
 }
@@ -380,7 +358,7 @@ unsigned LPUTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
                                    unsigned Alignment,
                                    unsigned AddressSpace) {
   assert(!Src->isVoidTy() && "Invalid type");
-  std::pair<unsigned, MVT> LT = getTLI()->getTypeLegalizationCost(Src);
+  std::pair<unsigned, MVT> LT = getTLI()->getTypeLegalizationCost(DL, Src);
 
   // Assuming that all loads of legal types cost 1.
   unsigned Cost = LT.first;
@@ -391,7 +369,7 @@ unsigned LPUTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
     // itself. Unless the corresponding extending load or truncating store is
     // legal, then this will scalarize.
     TargetLowering::LegalizeAction LA = TargetLowering::Expand;
-    EVT MemVT = getTLI()->getValueType(Src, true);
+    EVT MemVT = getTLI()->getValueType(DL, Src, true);
     if (MemVT.isSimple() && MemVT != MVT::Other) {
       if (Opcode == Instruction::Store)
         LA = getTLI()->getTruncStoreAction(LT.second, MemVT.getSimpleVT());
@@ -462,7 +440,7 @@ unsigned LPUTTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
   }
 
   const TargetLoweringBase *TLI = getTLI();
-  std::pair<unsigned, MVT> LT = TLI->getTypeLegalizationCost(RetTy);
+  std::pair<unsigned, MVT> LT = TLI->getTypeLegalizationCost(DL, RetTy);
 
   if (TLI->isOperationLegalOrPromote(ISD, LT.second)) {
     // The operation is legal. Assume it costs 1.
@@ -501,7 +479,7 @@ unsigned LPUTTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
 }
 
 unsigned LPUTTIImpl::getNumberOfParts(Type *Tp) {
-  std::pair<unsigned, MVT> LT = getTLI()->getTypeLegalizationCost(Tp);
+  std::pair<unsigned, MVT> LT = getTLI()->getTypeLegalizationCost(DL, Tp);
   return LT.first;
 }
 

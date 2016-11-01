@@ -39,13 +39,14 @@ namespace llvm {
   public:
     explicit LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget &ST);
 
-    EVT getSetCCResultType(LLVMContext &Context, EVT VT) const override;
+    EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
+                           EVT VT) const override;
 
     // Returns the type that the value to shift-by should have
     // given the EVT of that operand. Since the LPU supports
     // all types save i1, that is what we return.
     // (Copied from FFWD)
-    MVT getScalarShiftAmountTy(EVT LHSTy) const override {
+    MVT getScalarShiftAmountTy(const DataLayout &, EVT LHSTy) const override {
       return MVT::i8;
       /*
       switch(LHSTy.getSimpleVT().SimpleTy) {
@@ -87,7 +88,7 @@ namespace llvm {
 
     bool isTruncateFree(EVT VT1, EVT VT2) const override;
     bool isTruncateFree(Type *Ty1, Type *Ty2) const override;
-    bool isLegalAddressingMode(const AddrMode &AM, Type *Ty,
+    bool isLegalAddressingMode(const DataLayout &DL, const AddrMode &AM, Type *Ty,
                                unsigned AddrSpace = 0) const override;
     /// isZExtFree - Return true if any actual instruction that defines a value
     /// of type Ty1 implicit zero-extends the value to Ty2 in the result

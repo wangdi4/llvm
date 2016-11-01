@@ -1,4 +1,4 @@
-//===-- PlatformKalimba.h -----------------------------------------*- C++ -*-===//
+//===-- PlatformKalimba.h ---------------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -21,6 +21,9 @@ namespace lldb_private {
     class PlatformKalimba : public Platform
     {
     public:
+        PlatformKalimba(bool is_host);
+
+        ~PlatformKalimba() override;
 
         static void
         Initialize ();
@@ -28,11 +31,6 @@ namespace lldb_private {
         static void
         Terminate ();
         
-        PlatformKalimba (bool is_host);
-
-        virtual
-        ~PlatformKalimba();
-
         //------------------------------------------------------------
         // lldb_private::PluginInterface functions
         //------------------------------------------------------------
@@ -89,23 +87,13 @@ namespace lldb_private {
 
         void CalculateTrapHandlerSymbolNames() override;
 
-        Error
-        LaunchNativeProcess (
-            ProcessLaunchInfo &launch_info,
-            lldb_private::NativeProcessProtocol::NativeDelegate &native_delegate,
-            NativeProcessProtocolSP &process_sp) override;
-
-        Error
-        AttachNativeProcess (lldb::pid_t pid,
-                             lldb_private::NativeProcessProtocol::NativeDelegate &native_delegate,
-                             NativeProcessProtocolSP &process_sp) override;
-
     protected:
         lldb::PlatformSP m_remote_platform_sp;
 
     private:
         DISALLOW_COPY_AND_ASSIGN (PlatformKalimba);
     };
+
 } // namespace lldb_private
 
-#endif  // liblldb_PlatformKalimba_h_
+#endif // liblldb_PlatformKalimba_h_

@@ -70,8 +70,8 @@ class CXXScopeSpec {
   NestedNameSpecifierLocBuilder Builder;
 
 public:
-  const SourceRange &getRange() const { return Range; }
-  void setRange(const SourceRange &R) { Range = R; }
+  SourceRange getRange() const { return Range; }
+  void setRange(SourceRange R) { Range = R; }
   void setBeginLoc(SourceLocation Loc) { Range.setBegin(Loc); }
   void setEndLoc(SourceLocation Loc) { Range.setEnd(Loc); }
   SourceLocation getBeginLoc() const { return Range.getBegin(); }
@@ -358,6 +358,9 @@ private:
   // constexpr-specifier
   unsigned Constexpr_specified : 1;
 
+  // concept-specifier
+  unsigned Concept_specified : 1;
+
   union {
     UnionParsedType TypeRep;
     Decl *DeclRep;
@@ -369,14 +372,6 @@ private:
 
   // Scope specifier for the type spec, if applicable.
   CXXScopeSpec TypeScope;
-
-  // List of protocol qualifiers for objective-c classes.  Used for
-  // protocol-qualified interfaces "NString<foo>" and protocol-qualified id
-  // "id<foo>".
-  Decl * const *ProtocolQualifiers;
-  unsigned NumProtocolQualifiers;
-  SourceLocation ProtocolLAngleLoc;
-  SourceLocation *ProtocolLocs;
 
   // SourceLocation info.  These are null if the item wasn't specified or if
   // the setting was synthesized.
@@ -393,7 +388,7 @@ private:
   SourceLocation TQ_constLoc, TQ_restrictLoc, TQ_volatileLoc, TQ_atomicLoc;
   SourceLocation FS_inlineLoc, FS_virtualLoc, FS_explicitLoc, FS_noreturnLoc;
   SourceLocation FS_forceinlineLoc;
-  SourceLocation FriendLoc, ModulePrivateLoc, ConstexprLoc;
+  SourceLocation FriendLoc, ModulePrivateLoc, ConstexprLoc, ConceptLoc;
 
   WrittenBuiltinSpecs writtenBS;
   void SaveWrittenBuiltinSpecs();
@@ -437,17 +432,12 @@ public:
       FS_noreturn_specified(false),
       Friend_specified(false),
       Constexpr_specified(false),
+      Concept_specified(false),
       Attrs(attrFactory),
-      ProtocolQualifiers(nullptr),
-      NumProtocolQualifiers(0),
-      ProtocolLocs(nullptr),
       writtenBS(),
       ObjCQualifiers(nullptr) {
   }
-  ~DeclSpec() {
-    delete [] ProtocolQualifiers;
-    delete [] ProtocolLocs;
-  }
+
   // storage-class-specifier
   SCS getStorageClassSpec() const { return (SCS)StorageClassSpec; }
   TSCS getThreadStorageClassSpec() const {
@@ -486,6 +476,8 @@ public:
   bool isTypeAltiVecPixel() const { return TypeAltiVecPixel; }
   bool isTypeAltiVecBool() const { return TypeAltiVecBool; }
   bool isTypeSpecOwned() const { return TypeSpecOwned; }
+  bool isTypeRep() const { return isTypeRep((TST) TypeSpecType); }
+
   ParsedType getRepAsType() const {
     assert(isTypeRep((TST) TypeSpecType) && "DeclSpec does not store a type");
     return TypeRep;
@@ -501,7 +493,7 @@ public:
   CXXScopeSpec &getTypeSpecScope() { return TypeScope; }
   const CXXScopeSpec &getTypeSpecScope() const { return TypeScope; }
 
-  const SourceRange &getSourceRange() const LLVM_READONLY { return Range; }
+  SourceRange getSourceRange() const LLVM_READONLY { return Range; }
   SourceLocation getLocStart() const LLVM_READONLY { return Range.getBegin(); }
   SourceLocation getLocEnd() const LLVM_READONLY { return Range.getEnd(); }
 
@@ -688,6 +680,8 @@ public:
                             unsigned &DiagID);
   bool SetConstexprSpec(SourceLocation Loc, const char *&PrevSpec,
                         unsigned &DiagID);
+  bool SetConceptSpec(SourceLocation Loc, const char *&PrevSpec,
+                      unsigned &DiagID);
 
   bool isFriendSpecified() const { return Friend_specified; }
   SourceLocation getFriendSpecLoc() const { return FriendLoc; }
@@ -698,9 +692,17 @@ public:
   bool isConstexprSpecified() const { return Constexpr_specified; }
   SourceLocation getConstexprSpecLoc() const { return ConstexprLoc; }
 
+  bool isConceptSpecified() const { return Concept_specified; }
+  SourceLocation getConceptSpecLoc() const { return ConceptLoc; }
+
   void ClearConstexprSpec() {
     Constexpr_specified = false;
     ConstexprLoc = SourceLocation();
+  }
+
+  void ClearConceptSpec() {
+    Concept_specified = false;
+    ConceptLoc = SourceLocation();
   }
 
   AttributePool &getAttributePool() const {
@@ -736,19 +738,6 @@ public:
   void takeAttributesFrom(ParsedAttributes &attrs) {
     Attrs.takeAllFrom(attrs);
   }
-
-  typedef Decl * const *ProtocolQualifierListTy;
-  ProtocolQualifierListTy getProtocolQualifiers() const {
-    return ProtocolQualifiers;
-  }
-  SourceLocation *getProtocolLocs() const { return ProtocolLocs; }
-  unsigned getNumProtocolQualifiers() const {
-    return NumProtocolQualifiers;
-  }
-  SourceLocation getProtocolLAngleLoc() const { return ProtocolLAngleLoc; }
-  void setProtocolQualifiers(Decl * const *Protos, unsigned NP,
-                             SourceLocation *ProtoLocs,
-                             SourceLocation LAngleLoc);
 
   /// Finish - This does final analysis of the declspec, issuing diagnostics for
   /// things like "_Imaginary" (lacking an FP type).  After calling this method,
@@ -1266,8 +1255,11 @@ struct DeclaratorChunk {
     /// any.
     unsigned MutableLoc;
 
-    /// \brief The location of the keyword introducing the spec, if any.
-    unsigned ExceptionSpecLoc;
+    /// \brief The beginning location of the exception specification, if any.
+    unsigned ExceptionSpecLocBeg;
+
+    /// \brief The end location of the exception specification, if any.
+    unsigned ExceptionSpecLocEnd;
 
     /// Params - This is a pointer to a new[]'d array of ParamInfo objects that
     /// describe the parameters specified by this function declarator.  null if
@@ -1334,8 +1326,16 @@ struct DeclaratorChunk {
       return SourceLocation::getFromRawEncoding(RParenLoc);
     }
 
-    SourceLocation getExceptionSpecLoc() const {
-      return SourceLocation::getFromRawEncoding(ExceptionSpecLoc);
+    SourceLocation getExceptionSpecLocBeg() const {
+      return SourceLocation::getFromRawEncoding(ExceptionSpecLocBeg);
+    }
+
+    SourceLocation getExceptionSpecLocEnd() const {
+      return SourceLocation::getFromRawEncoding(ExceptionSpecLocEnd);
+    }
+
+    SourceRange getExceptionSpecRange() const {
+      return SourceRange(getExceptionSpecLocBeg(), getExceptionSpecLocEnd());
     }
 
     /// \brief Retrieve the location of the ref-qualifier, if any.
@@ -1507,7 +1507,7 @@ struct DeclaratorChunk {
                                      SourceLocation RestrictQualifierLoc,
                                      SourceLocation MutableLoc,
                                      ExceptionSpecificationType ESpecType,
-                                     SourceLocation ESpecLoc,
+                                     SourceRange ESpecRange,
                                      ParsedType *Exceptions,
                                      SourceRange *ExceptionRanges,
                                      unsigned NumExceptions,
@@ -1715,7 +1715,7 @@ public:
   }
 
   /// \brief Get the source range that spans this declarator.
-  const SourceRange &getSourceRange() const LLVM_READONLY { return Range; }
+  SourceRange getSourceRange() const LLVM_READONLY { return Range; }
   SourceLocation getLocStart() const LLVM_READONLY { return Range.getBegin(); }
   SourceLocation getLocEnd() const LLVM_READONLY { return Range.getEnd(); }
 
@@ -1735,7 +1735,7 @@ public:
   /// given declspec, unless its location is invalid. Adopts the range start if
   /// the current range start is invalid.
   void ExtendWithDeclSpec(const DeclSpec &DS) {
-    const SourceRange &SR = DS.getSourceRange();
+    SourceRange SR = DS.getSourceRange();
     if (Range.getBegin().isInvalid())
       Range.setBegin(SR.getBegin());
     if (!SR.getEnd().isInvalid())
@@ -2207,6 +2207,9 @@ public:
   /// declarator outside of a MemberContext because we won't know until
   /// redeclaration time if the decl is static.
   bool isStaticMember();
+
+  /// Returns true if this declares a constructor or a destructor.
+  bool isCtorOrDtor();
 
   void setRedeclaration(bool Val) { Redeclaration = Val; }
   bool isRedeclaration() const { return Redeclaration; }

@@ -251,7 +251,8 @@ SDNode *LPUDAGToDAGISel::Select(SDNode *Node) {
   default: break;
   case ISD::FrameIndex: {
     int FI = cast<FrameIndexSDNode>(Node)->getIndex();
-    SDValue TFI = CurDAG->getTargetFrameIndex(FI, TLI->getPointerTy());
+    SDValue TFI = CurDAG->getTargetFrameIndex(FI,
+        TLI->getPointerTy(MF->getDataLayout()));
     return CurDAG->SelectNodeTo(Node, LPU::MOV64, MVT::i64, TFI);
   }
   }

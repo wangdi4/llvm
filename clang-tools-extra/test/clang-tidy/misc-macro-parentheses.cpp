@@ -1,5 +1,4 @@
-// RUN: $(dirname %s)/check_clang_tidy.sh %s misc-macro-parentheses %t
-// REQUIRES: shell
+// RUN: %check_clang_tidy %s misc-macro-parentheses %t
 
 #define BAD1              -1
 // CHECK-MESSAGES: :[[@LINE-1]]:27: warning: macro replacement list should be enclosed in parentheses [misc-macro-parentheses]
@@ -32,6 +31,9 @@
 #define GOOD20            void*
 #define GOOD21(a)         case Fred::a:
 #define GOOD22(a)         if (verbose) return a;
+#define GOOD23(type)      (type::Field)
+#define GOOD24(t)         std::set<t> s
+#define GOOD25(t)         std::set<t,t,t> s
 
 // These are allowed for now..
 #define MAYBE1            *12.34

@@ -5,6 +5,7 @@ set(files
   arm_acle.h
   avx2intrin.h
   avx512bwintrin.h
+  avx512cdintrin.h
   avx512erintrin.h
   avx512fintrin.h
   avx512vlbwintrin.h
@@ -21,6 +22,7 @@ set(files
   float.h
   fma4intrin.h
   fmaintrin.h
+  fxsrintrin.h
   htmintrin.h
   htmxlintrin.h
   ia32intrin.h
@@ -57,12 +59,17 @@ set(files
   unwind.h
   vadefs.h
   varargs.h
+  vecintrin.h
   __wmmintrin_aes.h
   wmmintrin.h
   __wmmintrin_pclmul.h
   x86intrin.h
   xmmintrin.h
   xopintrin.h
+  xsaveintrin.h
+  xsaveoptintrin.h
+  xsavecintrin.h
+  xsavesintrin.h
   xtestintrin.h
   )
 

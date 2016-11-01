@@ -1,4 +1,4 @@
-//===-- TypeCategory.h -------------------------------------------*- C++ -*-===//
+//===-- TypeCategory.h ------------------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,6 +12,10 @@
 
 // C Includes
 // C++ Includes
+#include <initializer_list>
+#include <memory>
+#include <string>
+#include <vector>
 
 // Other libraries and framework includes
 // Project includes
@@ -75,10 +79,9 @@ namespace lldb_private {
         
 #ifndef LLDB_DISABLE_PYTHON
         typedef FormatterContainerPair<ScriptedSyntheticChildren> SynthContainer;
-#endif // #ifndef LLDB_DISABLE_PYTHON
+#endif // LLDB_DISABLE_PYTHON
 
     public:
-        
         typedef uint16_t FormatCategoryItems;
         static const uint16_t ALL_ITEM_TYPES = UINT16_MAX;
 
@@ -93,13 +96,14 @@ namespace lldb_private {
 #ifndef LLDB_DISABLE_PYTHON
         typedef SynthContainer::ExactMatchContainerSP SynthContainerSP;
         typedef SynthContainer::RegexMatchContainerSP RegexSynthContainerSP;
-#endif // #ifndef LLDB_DISABLE_PYTHON
+#endif // LLDB_DISABLE_PYTHON
         
         typedef ValidatorContainer::ExactMatchContainerSP ValidatorContainerSP;
         typedef ValidatorContainer::RegexMatchContainerSP RegexValidatorContainerSP;
         
         TypeCategoryImpl (IFormatChangeListener* clist,
-                          ConstString name);
+                          ConstString name,
+                          std::initializer_list<lldb::LanguageType> langs = {});
         
         FormatContainerSP
         GetTypeFormatsContainer ()
@@ -190,7 +194,7 @@ namespace lldb_private {
         
         lldb::TypeNameSpecifierImplSP
         GetTypeNameSpecifierForSyntheticAtIndex (size_t index);
-#endif // #ifndef LLDB_DISABLE_PYTHON
+#endif // LLDB_DISABLE_PYTHON
         
         ValidatorContainerSP
         GetTypeValidatorsContainer ()
@@ -226,28 +230,28 @@ namespace lldb_private {
         }
         
         bool
-        Get (ValueObject& valobj,
-             const FormattersMatchVector& candidates,
-             lldb::TypeFormatImplSP& entry,
-             uint32_t* reason = NULL);
+        Get(ValueObject& valobj,
+            const FormattersMatchVector& candidates,
+            lldb::TypeFormatImplSP& entry,
+            uint32_t* reason = nullptr);
         
         bool
-        Get (ValueObject& valobj,
-             const FormattersMatchVector& candidates,
-             lldb::TypeSummaryImplSP& entry,
-             uint32_t* reason = NULL);
+        Get(ValueObject& valobj,
+            const FormattersMatchVector& candidates,
+            lldb::TypeSummaryImplSP& entry,
+            uint32_t* reason = nullptr);
         
         bool
-        Get (ValueObject& valobj,
-             const FormattersMatchVector& candidates,
-             lldb::SyntheticChildrenSP& entry,
-             uint32_t* reason = NULL);
+        Get(ValueObject& valobj,
+            const FormattersMatchVector& candidates,
+            lldb::SyntheticChildrenSP& entry,
+            uint32_t* reason = nullptr);
         
         bool
-        Get (ValueObject& valobj,
-             const FormattersMatchVector& candidates,
-             lldb::TypeValidatorImplSP& entry,
-             uint32_t* reason = NULL);
+        Get(ValueObject& valobj,
+            const FormattersMatchVector& candidates,
+            lldb::TypeValidatorImplSP& entry,
+            uint32_t* reason = nullptr);
         
         void
         Clear (FormatCategoryItems items = ALL_ITEM_TYPES);
@@ -264,13 +268,28 @@ namespace lldb_private {
         {
             return m_name.GetCString();
         }
+
+        size_t
+        GetNumLanguages ();
+        
+        lldb::LanguageType
+        GetLanguageAtIndex (size_t idx);
+        
+        void
+        AddLanguage (lldb::LanguageType lang);
         
         bool
-        AnyMatches (ConstString type_name,
-                    FormatCategoryItems items = ALL_ITEM_TYPES,
-                    bool only_enabled = true,
-                    const char** matching_category = NULL,
-                    FormatCategoryItems* matching_type = NULL);
+        HasLanguage (lldb::LanguageType lang);
+        
+        std::string
+        GetDescription ();
+        
+        bool
+        AnyMatches(ConstString type_name,
+                   FormatCategoryItems items = ALL_ITEM_TYPES,
+                   bool only_enabled = true,
+                   const char** matching_category = nullptr,
+                   FormatCategoryItems* matching_type = nullptr);
         
         typedef std::shared_ptr<TypeCategoryImpl> SharedPointer;
         
@@ -280,7 +299,7 @@ namespace lldb_private {
         FilterContainer m_filter_cont;
 #ifndef LLDB_DISABLE_PYTHON
         SynthContainer m_synth_cont;
-#endif // #ifndef LLDB_DISABLE_PYTHON
+#endif // LLDB_DISABLE_PYTHON
         ValidatorContainer m_validator_cont;
         
         bool m_enabled;
@@ -291,6 +310,8 @@ namespace lldb_private {
         
         ConstString m_name;
         
+        std::vector<lldb::LanguageType> m_languages;
+
         uint32_t m_enabled_position;
         
         void
@@ -302,6 +323,9 @@ namespace lldb_private {
             Enable(false, UINT32_MAX);
         }
         
+        bool
+        IsApplicable (ValueObject& valobj);
+
         uint32_t
         GetLastEnabledPosition ()
         {
@@ -314,6 +338,8 @@ namespace lldb_private {
             m_enabled_position = p;
         }
         
+        friend class FormatManager;
+        friend class LanguageCategory;
         friend class TypeCategoryMap;
         
         friend class FormattersContainer<ConstString, TypeFormatImpl>;
@@ -328,7 +354,7 @@ namespace lldb_private {
 #ifndef LLDB_DISABLE_PYTHON
         friend class FormattersContainer<ConstString, ScriptedSyntheticChildren>;
         friend class FormattersContainer<lldb::RegularExpressionSP, ScriptedSyntheticChildren>;
-#endif // #ifndef LLDB_DISABLE_PYTHON
+#endif // LLDB_DISABLE_PYTHON
         
         friend class FormattersContainer<ConstString, TypeValidatorImpl>;
         friend class FormattersContainer<lldb::RegularExpressionSP, TypeValidatorImpl>;
@@ -336,4 +362,4 @@ namespace lldb_private {
     
 } // namespace lldb_private
 
-#endif	// lldb_TypeCategory_h_
+#endif // lldb_TypeCategory_h_

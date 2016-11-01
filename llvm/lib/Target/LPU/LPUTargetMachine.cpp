@@ -47,8 +47,8 @@ using namespace llvm;
 
 static cl::opt<int>
 RunLPUStatistics("lpu-run-statistics", cl::Hidden,
-	cl::desc("LPU Specific: collect statistics for DF instructions"),
-	cl::init(0));
+              cl::desc("LPU Specific: collect statistics for DF instructions"),
+              cl::init(0));
 
 // Helper function to build a DataLayout string
 static std::string computeDataLayout() {
@@ -76,8 +76,9 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, const Triple &TT,
 
 
 TargetIRAnalysis LPUTargetMachine::getTargetIRAnalysis() {
-    return TargetIRAnalysis(
-    [this](Function &) { return TargetTransformInfo(LPUTTIImpl(this)); });
+  return TargetIRAnalysis([this](const Function &F) {
+    return TargetTransformInfo(LPUTTIImpl(this, F));
+  });
 }
 
 
@@ -108,7 +109,7 @@ public:
     return false;
   }
 
-  
+
 #define DEBUG_TYPE "lpu-convert-control"
   void addPreRegAlloc() override {
     std::string Banner;
@@ -116,9 +117,9 @@ public:
     Banner = std::string("Before Machine Block Placement Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-	addBlockPlacement();
-	Banner = std::string("After Machine Block Placement Pass");
-	DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    addBlockPlacement();
+    Banner = std::string("After Machine Block Placement Pass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
     addPass(createControlDepenceGraph(), false);
     Banner = std::string("After Machine CDG Pass");
@@ -131,9 +132,14 @@ public:
     addPass(createLPUOptDFPass(), false);
     Banner = std::string("After LPUOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-		if (RunLPUStatistics) {
-			addPass(createLPUStatisticsPass(), false);
-		}
+
+    addPass(createLPUDeadInstructionElimPass(), false);
+    Banner = std::string("After LPUDeadInstructionElim");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
+    if (RunLPUStatistics) {
+      addPass(createLPUStatisticsPass(), false);
+    }
 #else
     Banner = std::string("Before LPUConvertControlPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));

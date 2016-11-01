@@ -10,6 +10,7 @@
 #include "lldb/Host/FileSystem.h"
 
 // C includes
+#include <dirent.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -19,6 +20,9 @@
 #include <sys/mount.h>
 #include <linux/magic.h>
 #endif
+#if defined(__NetBSD__)
+#include <sys/statvfs.h>
+#endif
 
 // lldb Includes
 #include "lldb/Core/Error.h"
@@ -27,6 +31,9 @@
 
 using namespace lldb;
 using namespace lldb_private;
+
+const char *
+FileSystem::DEV_NULL = "/dev/null";
 
 FileSpec::PathSyntax
 FileSystem::GetNativePathSyntax()
@@ -81,13 +88,43 @@ FileSystem::DeleteDirectory(const FileSpec &file_spec, bool recurse)
     {
         if (recurse)
         {
-            StreamString command;
-            command.Printf("rm -rf \"%s\"", file_spec.GetCString());
-            int status = ::system(command.GetString().c_str());
-            if (status != 0)
-                error.SetError(status, eErrorTypeGeneric);
+            // Save all sub directories in a list so we don't recursively call this function
+            // and possibly run out of file descriptors if the directory is too deep.
+            std::vector<FileSpec> sub_directories;
+
+            FileSpec::ForEachItemInDirectory (file_spec.GetCString(), [&error, &sub_directories](FileSpec::FileType file_type, const FileSpec &spec) -> FileSpec::EnumerateDirectoryResult {
+                if (file_type == FileSpec::eFileTypeDirectory)
+                {
+                    // Save all directorires and process them after iterating through this directory
+                    sub_directories.push_back(spec);
+                }
+                else
+                {
+                    // Update sub_spec to point to the current file and delete it
+                    error = FileSystem::Unlink(spec);
+                }
+                // If anything went wrong, stop iterating, else process the next file
+                if (error.Fail())
+                    return FileSpec::eEnumerateDirectoryResultQuit;
+                else
+                    return FileSpec::eEnumerateDirectoryResultNext;
+            });
+
+            if (error.Success())
+            {
+                // Now delete all sub directories with separate calls that aren't
+                // recursively calling into this function _while_ this function is
+                // iterating through the current directory.
+                for (const auto &sub_directory : sub_directories)
+                {
+                    error = DeleteDirectory(sub_directory, recurse);
+                    if (error.Fail())
+                        break;
+                }
+            }
         }
-        else
+
+        if (error.Success())
         {
             if (::rmdir(file_spec.GetCString()) != 0)
                 error.SetErrorToErrno();
@@ -148,6 +185,16 @@ FileSystem::Hardlink(const FileSpec &src, const FileSpec &dst)
     return error;
 }
 
+int
+FileSystem::GetHardlinkCount(const FileSpec &file_spec)
+{
+    struct stat file_stat;
+    if (::stat(file_spec.GetCString(), &file_stat) == 0)
+        return file_stat.st_nlink;
+
+    return -1;
+}
+
 Error
 FileSystem::Symlink(const FileSpec &src, const FileSpec &dst)
 {
@@ -182,6 +229,34 @@ FileSystem::Readlink(const FileSpec &src, FileSpec &dst)
     return error;
 }
 
+Error
+FileSystem::ResolveSymbolicLink(const FileSpec &src, FileSpec &dst)
+{
+    char resolved_path[PATH_MAX];
+    if (!src.GetPath (resolved_path, sizeof (resolved_path)))
+    {
+        return Error("Couldn't get the canonical path for %s", src.GetCString());
+    }
+    
+    char real_path[PATH_MAX + 1];
+    if (realpath(resolved_path, real_path) == nullptr)
+    {
+        Error err;
+        err.SetErrorToErrno();
+        return err;
+    }
+    
+    dst = FileSpec(real_path, false);
+    
+    return Error();
+}
+
+#if defined(__NetBSD__)
+static bool IsLocal(const struct statvfs& info)
+{
+    return (info.f_flag & MNT_LOCAL) != 0;
+}
+#else
 static bool IsLocal(const struct statfs& info)
 {
 #ifdef __linux__
@@ -199,7 +274,19 @@ static bool IsLocal(const struct statfs& info)
     return (info.f_flags & MNT_LOCAL) != 0;
 #endif
 }
+#endif
 
+#if defined(__NetBSD__)
+bool
+FileSystem::IsLocal(const FileSpec &spec)
+{
+    struct statvfs statfs_info;
+    std::string path (spec.GetPath());
+    if (statvfs(path.c_str(), &statfs_info) == 0)
+        return ::IsLocal(statfs_info);
+    return false;
+}
+#else
 bool
 FileSystem::IsLocal(const FileSpec &spec)
 {
@@ -209,3 +296,4 @@ FileSystem::IsLocal(const FileSpec &spec)
         return ::IsLocal(statfs_info);
     return false;
 }
+#endif

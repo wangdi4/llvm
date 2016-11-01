@@ -21,119 +21,194 @@ using llvm::sys::fs::file_magic;
 namespace lld {
 namespace coff {
 
-// Returns 1, 0 or -1 if this symbol should take precedence
-// over the Other, tie or lose, respectively.
-int DefinedRegular::compare(SymbolBody *Other) {
-  if (Other->kind() < kind())
-    return -Other->compare(this);
-  if (auto *D = dyn_cast<DefinedRegular>(Other)) {
-    if (isCOMDAT() && D->isCOMDAT())
-      return 1;
-    return 0;
-  }
-  return 1;
-}
-
-int DefinedCommon::compare(SymbolBody *Other) {
-  if (Other->kind() < kind())
-    return -Other->compare(this);
-  if (auto *D = dyn_cast<DefinedCommon>(Other))
-    return getSize() > D->getSize() ? 1 : -1;
-  if (isa<Lazy>(Other) || isa<Undefined>(Other))
-    return 1;
-  return -1;
-}
-
-int DefinedBitcode::compare(SymbolBody *Other) {
-  assert(Other->kind() >= kind());
-  if (!isa<Defined>(Other))
-    return 1;
-
-  if (auto *B = dyn_cast<DefinedBitcode>(Other)) {
-    if (!Replaceable && !B->Replaceable)
-      return 0;
-    // Non-replaceable symbols win.
-    return Replaceable ? -1 : 1;
-  }
-
-  // As an approximation, regular symbols win over bitcode symbols,
-  // but we definitely have a conflict if the regular symbol is not
-  // replaceable and neither is the bitcode symbol. We do not
-  // replicate the rest of the symbol resolution logic here; symbol
-  // resolution will be done accurately after lowering bitcode symbols
-  // to regular symbols in addCombinedLTOObject().
-  if (auto *D = dyn_cast<DefinedRegular>(Other)) {
-    if (Replaceable || D->isCOMDAT())
-      return -1;
-    return 0;
-  }
-  if (isa<DefinedCommon>(Other))
-    return -1;
-  return 0;
-}
-
-int Defined::compare(SymbolBody *Other) {
-  if (Other->kind() < kind())
-    return -Other->compare(this);
-  if (isa<Defined>(Other))
-    return 0;
-  return 1;
-}
-
-int Lazy::compare(SymbolBody *Other) {
-  if (Other->kind() < kind())
-    return -Other->compare(this);
-
-  // Undefined symbols with weak aliases will turn into defined
-  // symbols if they remain undefined, so we don't need to resolve
-  // such symbols.
-  if (auto *U = dyn_cast<Undefined>(Other))
-    if (U->getWeakAlias())
-      return -1;
-  return 1;
-}
-
-int Undefined::compare(SymbolBody *Other) {
-  if (Other->kind() < kind())
-    return -Other->compare(this);
-  if (cast<Undefined>(Other)->getWeakAlias())
-    return -1;
-  return 1;
-}
-
-StringRef DefinedRegular::getName() {
-  // DefinedSymbol's name is read lazily for a performance reason.
-  // Non-external symbol names are never used by the linker
-  // except for logging or debugging.
-  // Their internal references are resolved not by name but by symbol index.
-  // And because they are not external, no one can refer them by name.
-  // Object files contain lots of non-external symbols, and creating
+StringRef SymbolBody::getName() {
+  // DefinedCOFF names are read lazily for a performance reason.
+  // Non-external symbol names are never used by the linker except for logging
+  // or debugging. Their internal references are resolved not by name but by
+  // symbol index. And because they are not external, no one can refer them by
+  // name. Object files contain lots of non-external symbols, and creating
   // StringRefs for them (which involves lots of strlen() on the string table)
   // is a waste of time.
-  if (Name.empty())
-    File->getCOFFObj()->getSymbolName(Sym, Name);
+  if (Name.empty()) {
+    auto *D = cast<DefinedCOFF>(this);
+    D->File->getCOFFObj()->getSymbolName(D->Sym, Name);
+  }
   return Name;
 }
 
-StringRef DefinedCommon::getName() {
-  if (Name.empty())
-    File->getCOFFObj()->getSymbolName(Sym, Name);
-  return Name;
+// Returns 1, 0 or -1 if this symbol should take precedence
+// over the Other, tie or lose, respectively.
+int SymbolBody::compare(SymbolBody *Other) {
+  Kind LK = kind(), RK = Other->kind();
+
+  // Normalize so that the smaller kind is on the left.
+  if (LK > RK)
+    return -Other->compare(this);
+
+  // First handle comparisons between two different kinds.
+  if (LK != RK) {
+    if (RK > LastDefinedKind) {
+      if (LK == LazyKind && cast<Undefined>(Other)->WeakAlias)
+        return -1;
+
+      // The LHS is either defined or lazy and so it wins.
+      assert((LK <= LastDefinedKind || LK == LazyKind) && "Bad kind!");
+      return 1;
+    }
+
+    // Bitcode has special complexities.
+    if (RK == DefinedBitcodeKind) {
+      auto *RHS = cast<DefinedBitcode>(Other);
+
+      switch (LK) {
+      case DefinedCommonKind:
+        return 1;
+
+      case DefinedRegularKind:
+        // As an approximation, regular symbols win over bitcode symbols,
+        // but we definitely have a conflict if the regular symbol is not
+        // replaceable and neither is the bitcode symbol. We do not
+        // replicate the rest of the symbol resolution logic here; symbol
+        // resolution will be done accurately after lowering bitcode symbols
+        // to regular symbols in addCombinedLTOObject().
+        if (cast<DefinedRegular>(this)->isCOMDAT() || RHS->IsReplaceable)
+          return 1;
+
+        // Fallthrough to the default of a tie otherwise.
+      default:
+        return 0;
+      }
+    }
+
+    // Either of the object file kind will trump a higher kind.
+    if (LK <= LastDefinedCOFFKind)
+      return 1;
+
+    // The remaining kind pairs are ties amongst defined symbols.
+    return 0;
+  }
+
+  // Now handle the case where the kinds are the same.
+  switch (LK) {
+  case DefinedRegularKind: {
+    auto *LHS = cast<DefinedRegular>(this);
+    auto *RHS = cast<DefinedRegular>(Other);
+    if (LHS->isCOMDAT() && RHS->isCOMDAT())
+      return LHS->getFileIndex() < RHS->getFileIndex() ? 1 : -1;
+    return 0;
+  }
+
+  case DefinedCommonKind: {
+    auto *LHS = cast<DefinedCommon>(this);
+    auto *RHS = cast<DefinedCommon>(Other);
+    if (LHS->getSize() == RHS->getSize())
+      return LHS->getFileIndex() < RHS->getFileIndex() ? 1 : -1;
+    return LHS->getSize() > RHS->getSize() ? 1 : -1;
+  }
+
+  case DefinedBitcodeKind: {
+    auto *LHS = cast<DefinedBitcode>(this);
+    auto *RHS = cast<DefinedBitcode>(Other);
+    // If both are non-replaceable, we have a tie.
+    if (!LHS->IsReplaceable && !RHS->IsReplaceable)
+      return 0;
+
+    // Non-replaceable symbols win, but even two replaceable symboles don't
+    // tie. If both symbols are replaceable, choice is arbitrary.
+    if (RHS->IsReplaceable && LHS->IsReplaceable)
+      return uintptr_t(LHS) < uintptr_t(RHS) ? 1 : -1;
+    return LHS->IsReplaceable ? -1 : 1;
+  }
+
+  case LazyKind: {
+    // Don't tie, pick the earliest.
+    auto *LHS = cast<Lazy>(this);
+    auto *RHS = cast<Lazy>(Other);
+    return LHS->getFileIndex() < RHS->getFileIndex() ? 1 : -1;
+  }
+
+  case UndefinedKind: {
+    auto *LHS = cast<Undefined>(this);
+    auto *RHS = cast<Undefined>(Other);
+    // Tie if both undefined symbols have different weak aliases.
+    if (LHS->WeakAlias && RHS->WeakAlias) {
+      if (LHS->WeakAlias->getName() != RHS->WeakAlias->getName())
+        return 0;
+      return uintptr_t(LHS) < uintptr_t(RHS) ? 1 : -1;
+    }
+    return LHS->WeakAlias ? 1 : -1;
+  }
+
+  case DefinedLocalImportKind:
+  case DefinedImportThunkKind:
+  case DefinedImportDataKind:
+  case DefinedAbsoluteKind:
+  case DefinedRelativeKind:
+    // These all simply tie.
+    return 0;
+  }
+  llvm_unreachable("unknown symbol kind");
 }
 
-std::string DefinedRegular::getDebugName() {
-  return (getName() + " " + File->getShortName()).str();
+std::string SymbolBody::getDebugName() {
+  std::string N = getName().str();
+  if (auto *D = dyn_cast<DefinedCOFF>(this)) {
+    N += " ";
+    N += D->File->getShortName();
+  } else if (auto *D = dyn_cast<DefinedBitcode>(this)) {
+    N += " ";
+    N += D->File->getShortName();
+  }
+  return N;
 }
 
-std::string DefinedCommon::getDebugName() {
-  return (getName() + " " + File->getShortName()).str();
+uint64_t Defined::getFileOff() {
+  switch (kind()) {
+  case DefinedImportDataKind:
+    return cast<DefinedImportData>(this)->getFileOff();
+  case DefinedImportThunkKind:
+    return cast<DefinedImportThunk>(this)->getFileOff();
+  case DefinedLocalImportKind:
+    return cast<DefinedLocalImport>(this)->getFileOff();
+  case DefinedCommonKind:
+    return cast<DefinedCommon>(this)->getFileOff();
+  case DefinedRegularKind:
+    return cast<DefinedRegular>(this)->getFileOff();
+
+  case DefinedBitcodeKind:
+    llvm_unreachable("There is no file offset for a bitcode symbol.");
+  case DefinedAbsoluteKind:
+    llvm_unreachable("Cannot get a file offset for an absolute symbol.");
+  case DefinedRelativeKind:
+    llvm_unreachable("Cannot get a file offset for a relative symbol.");
+  case LazyKind:
+  case UndefinedKind:
+    llvm_unreachable("Cannot get a file offset for an undefined symbol.");
+  }
+  llvm_unreachable("unknown symbol kind");
 }
 
-ErrorOr<std::unique_ptr<InputFile>> Lazy::getMember() {
-  auto MBRefOrErr = File->getMember(&Sym);
-  if (auto EC = MBRefOrErr.getError())
-    return EC;
-  MemoryBufferRef MBRef = MBRefOrErr.get();
+COFFSymbolRef DefinedCOFF::getCOFFSymbol() {
+  size_t SymSize = File->getCOFFObj()->getSymbolTableEntrySize();
+  if (SymSize == sizeof(coff_symbol16))
+    return COFFSymbolRef(reinterpret_cast<const coff_symbol16 *>(Sym));
+  assert(SymSize == sizeof(coff_symbol32));
+  return COFFSymbolRef(reinterpret_cast<const coff_symbol32 *>(Sym));
+}
+
+DefinedImportThunk::DefinedImportThunk(StringRef Name, DefinedImportData *S,
+                                       uint16_t Machine)
+    : Defined(DefinedImportThunkKind, Name) {
+  switch (Machine) {
+  case AMD64: Data.reset(new ImportThunkChunkX64(S)); return;
+  case I386:  Data.reset(new ImportThunkChunkX86(S)); return;
+  case ARMNT: Data.reset(new ImportThunkChunkARM(S)); return;
+  default:    llvm_unreachable("unknown machine type");
+  }
+}
+
+std::unique_ptr<InputFile> Lazy::getMember() {
+  MemoryBufferRef MBRef = File->getMember(&Sym);
 
   // getMember returns an empty buffer if the member was already
   // read from the library.
@@ -141,19 +216,27 @@ ErrorOr<std::unique_ptr<InputFile>> Lazy::getMember() {
     return std::unique_ptr<InputFile>(nullptr);
 
   file_magic Magic = identify_magic(MBRef.getBuffer());
-  if (Magic == file_magic::bitcode)
-    return std::unique_ptr<InputFile>(new BitcodeFile(MBRef));
   if (Magic == file_magic::coff_import_library)
     return std::unique_ptr<InputFile>(new ImportFile(MBRef));
 
-  if (Magic != file_magic::coff_object) {
-    llvm::errs() << File->getName() << ": unknown file type\n";
-    return make_error_code(LLDError::InvalidFile);
-  }
+  std::unique_ptr<InputFile> Obj;
+  if (Magic == file_magic::coff_object)
+    Obj.reset(new ObjectFile(MBRef));
+  else if (Magic == file_magic::bitcode)
+    Obj.reset(new BitcodeFile(MBRef));
+  else
+    error(Twine(File->getName()) + ": unknown file type");
 
-  std::unique_ptr<InputFile> Obj(new ObjectFile(MBRef));
   Obj->setParentName(File->getName());
-  return std::move(Obj);
+  return Obj;
+}
+
+Defined *Undefined::getWeakAlias() {
+  // A weak alias may be a weak alias to another symbol, so check recursively.
+  for (SymbolBody *A = WeakAlias; A; A = cast<Undefined>(A)->WeakAlias)
+    if (auto *D = dyn_cast<Defined>(A->repl()))
+      return D;
+  return nullptr;
 }
 
 } // namespace coff

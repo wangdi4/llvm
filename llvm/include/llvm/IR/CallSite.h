@@ -38,8 +38,10 @@ class CallInst;
 class InvokeInst;
 
 template <typename FunTy = const Function,
+          typename BBTy = const BasicBlock,
           typename ValTy = const Value,
           typename UserTy = const User,
+          typename UseTy = const Use,
           typename InstrTy = const Instruction,
           typename CallTy = const CallInst,
           typename InvokeTy = const InvokeInst,
@@ -68,6 +70,7 @@ private:
     }
     return CallSiteBase();
   }
+
 public:
   /// isCall - true if a CallInst is enclosed.
   /// Note that !isCall() does not mean it is an InvokeInst enclosed,
@@ -81,6 +84,9 @@ public:
   InstrTy *getInstruction() const { return I.getPointer(); }
   InstrTy *operator->() const { return I.getPointer(); }
   explicit operator bool() const { return I.getPointer(); }
+
+  /// Get the basic block containing the call site
+  BBTy* getParent() const { return getInstruction()->getParent(); }
 
   /// getCalledValue - Return the pointer to function that is being called.
   ///
@@ -189,6 +195,20 @@ public:
   else                                   \
     cast<InvokeInst>(II)->METHOD
 
+  unsigned getNumArgOperands() const {
+    CALLSITE_DELEGATE_GETTER(getNumArgOperands());
+  }
+
+  ValTy *getArgOperand(unsigned i) const {
+    CALLSITE_DELEGATE_GETTER(getArgOperand(i));
+  }
+
+  bool isInlineAsm() const {
+    if (isCall())
+      return cast<CallInst>(getInstruction())->isInlineAsm();
+    return false;
+  }
+
   /// getCallingConv/setCallingConv - get or set the calling convention of the
   /// call.
   CallingConv::ID getCallingConv() const {
@@ -235,13 +255,20 @@ public:
   uint64_t getDereferenceableBytes(uint16_t i) const {
     CALLSITE_DELEGATE_GETTER(getDereferenceableBytes(i));
   }
-  
+
   /// @brief Extract the number of dereferenceable_or_null bytes for a call or
   /// parameter (0=unknown).
   uint64_t getDereferenceableOrNullBytes(uint16_t i) const {
     CALLSITE_DELEGATE_GETTER(getDereferenceableOrNullBytes(i));
   }
-  
+
+  /// @brief Determine if the parameter or return value is marked with NoAlias
+  /// attribute.
+  /// @param n The parameter to check. 1 is the first parameter, 0 is the return
+  bool doesNotAlias(unsigned n) const {
+    CALLSITE_DELEGATE_GETTER(doesNotAlias(n));
+  }
+
   /// \brief Return true if the call should not be treated as a call to a
   /// builtin.
   bool isNoBuiltin() const {
@@ -272,6 +299,15 @@ public:
     CALLSITE_DELEGATE_SETTER(setOnlyReadsMemory());
   }
 
+  /// @brief Determine if the call can access memmory only using pointers based
+  /// on its arguments.
+  bool onlyAccessesArgMemory() const {
+    CALLSITE_DELEGATE_GETTER(onlyAccessesArgMemory());
+  }
+  void setOnlyAccessesArgMemory() {
+    CALLSITE_DELEGATE_SETTER(setOnlyAccessesArgMemory());
+  }
+
   /// @brief Determine if the call cannot return.
   bool doesNotReturn() const {
     CALLSITE_DELEGATE_GETTER(doesNotReturn());
@@ -286,6 +322,26 @@ public:
   }
   void setDoesNotThrow() {
     CALLSITE_DELEGATE_SETTER(setDoesNotThrow());
+  }
+
+  int getNumOperandBundles() const {
+    CALLSITE_DELEGATE_GETTER(getNumOperandBundles());
+  }
+
+  bool hasOperandBundles() const {
+    CALLSITE_DELEGATE_GETTER(hasOperandBundles());
+  }
+
+  int getNumTotalBundleOperands() const {
+    CALLSITE_DELEGATE_GETTER(getNumTotalBundleOperands());
+  }
+
+  OperandBundleUse getOperandBundle(unsigned Index) const {
+    CALLSITE_DELEGATE_GETTER(getOperandBundle(Index));
+  }
+
+  Optional<OperandBundleUse> getOperandBundle(StringRef Name) const {
+    CALLSITE_DELEGATE_GETTER(getOperandBundle(Name));
   }
 
 #undef CALLSITE_DELEGATE_GETTER
@@ -352,10 +408,15 @@ public:
 
 private:
   unsigned getArgumentEndOffset() const {
-    if (isCall())
-      return 1; // Skip Callee
-    else
-      return 3; // Skip BB, BB, Callee
+    if (isCall()) {
+      // Skip [ operand bundles ], Callee
+      auto *CI = cast<CallInst>(getInstruction());
+      return 1 + CI->getNumTotalBundleOperands();
+    } else {
+      // Skip [ operand bundles ], BB, BB, Callee
+      auto *II = cast<InvokeInst>(getInstruction());
+      return 3 + II->getNumTotalBundleOperands();
+    }
   }
 
   IterTy getCallee() const {
@@ -366,8 +427,9 @@ private:
   }
 };
 
-class CallSite : public CallSiteBase<Function, Value, User, Instruction,
-                                     CallInst, InvokeInst, User::op_iterator> {
+class CallSite : public CallSiteBase<Function, BasicBlock, Value, User, Use,
+                                     Instruction, CallInst, InvokeInst,
+                                     User::op_iterator> {
 public:
   CallSite() {}
   CallSite(CallSiteBase B) : CallSiteBase(B) {}

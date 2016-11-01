@@ -35,7 +35,7 @@
 #include "LPUSequenceOpt.h"
 // Width of vectors we are using for sequence op calculation.
 // TBD(jsukha): As far as I know, this value only affects performance,
-// not correctness? 
+// not correctness?
 #define SEQ_VEC_WIDTH 8
 
 using namespace llvm;
@@ -48,7 +48,7 @@ OptDFPass("lpu-opt-df-pass",
 
 #define DEBUG_TYPE "lpu-opt-df"
 
-const TargetRegisterClass* SeqPredRC = &LPU::CI1RegClass;
+const TargetRegisterClass* const SeqPredRC = &LPU::CI1RegClass;
 
 // Flag for enabling sequence optimizations.
 //
@@ -69,13 +69,13 @@ RunSequenceOpt("lpu-seq-opt", cl::Hidden,
 // Test flag, for breaking all memory dependencies for loops that are
 // controlled by a sequence.
 //
-//   0: Disabled 
+//   0: Disabled
 //   1: Break memory dependencies for any sequence loop if we can find a
 //      reasonable subgraph walking back from the switch to the pick.
 //      (TBD(jsukha): I think this graph walk is conservative, and
 //       guaranteed not to misidentify the memory dependency graph,
 //       but I'm not 100% sure.)
-// 
+//
 //   2. Break memory dependencies whenever we find a sequence.  This
 //      setting is likely to be incorrect for arbitrary programs, but
 //      may be true for many small parallel kernels we are trying to
@@ -110,6 +110,7 @@ SequenceMaxPerLoop("lpu-seq-max",
 
 
 namespace {
+
 class LPUOptDFPass : public MachineFunctionPass {
 public:
   static char ID;
@@ -142,7 +143,7 @@ public:
   void runSequenceOptimizations(int seq_opt_level);
 
   // Helper methods for sequence
-  
+
   // Debug print methods.
   //
   // Print header
@@ -150,9 +151,9 @@ public:
 
   // Print the information out of a sequence candidate.
   void seq_debug_print_candidate(LPUSeqCandidate& x);
-  
+
   //
-  // Print loop info. 
+  // Print loop info.
   void seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
 
 
@@ -171,7 +172,7 @@ public:
                               unsigned* switcher_channel);
 
   // Returns true if we found the sequence of LPU instructions that
-  // forms the header of a loop.  If true, fills in "header" 
+  // forms the header of a loop.  If true, fills in "header"
   // with the info.
   bool seq_identify_header(MachineInstr* MI,
                            LPUSeqHeader* header);
@@ -185,7 +186,7 @@ public:
                            const LPUSeqHeader& header,
                            const LPUInstrInfo& TII,
                            DenseMap<unsigned, MachineInstr*>& pickMap);
-  
+
   // Returns matching pick instruction if MI is a switch instruction
   // that matches a pick in the specified loop.  Otherwise, returns
   // NULL.
@@ -204,7 +205,7 @@ public:
   // reduction.  If yes, then it modifies x.stype.
   //
   // If it is a repeat, save its channel into "repeat_channels".
-  // Returns one of: 
+  // Returns one of:
   //
   //  SeqType::UNKNOWN
   //  SeqType::REPEAT
@@ -218,7 +219,7 @@ public:
                       const DenseMap<unsigned, int>& repeat_channels);
 
   // Check whether this candidate sequence represents a memory dependency
-  // chain. 
+  // chain.
   LPUSeqCandidate::SeqType
   seq_classify_memdep_graph(LPUSeqCandidate& x);
 
@@ -231,7 +232,7 @@ public:
   //
   // The three "seq_classify_loop" methods handle together handle the
   // classification of all the sequence candidates for a given loop.
-  // 
+  //
   void
   seq_classify_loop_repeats(LPUSeqLoopInfo& current_loop,
                             SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& repeats,
@@ -253,55 +254,59 @@ public:
   // Returns true if we found a valid induction variable and bound.
   bool seq_identify_induction_variable(LPUSeqLoopInfo& loop);
 
-  
+
   // The actual sequence transformation.
   // This method should only get called once we've passed all our checks for
-  // validity in the transform. 
-  void seq_do_transform_loop(LPUSeqLoopInfo& loop,
-                             std::set<MachineInstr*>& insSetMarkedForDeletion);
+  // validity in the transform.
+  void seq_do_transform_loop(LPUSeqLoopInfo& loop);
 
   // Helper methods for do_transform_loop.
-  
+
   // Transform the induction variable fo the loop.  Modify the seqInfo
   // structure to save the info about the sequence instruction we
   // created.
   void
   seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
-                            MachineBasicBlock* BB,                             
+                            MachineBasicBlock* BB,
                             LPUSeqInstrInfo* seqInfo,
-                            SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion);
+                            SmallVector<MachineInstr*,
+                                        SEQ_VEC_WIDTH>& insToDisconnect);                            
   void
   seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
                                LPUSeqLoopInfo& loop,
                                MachineBasicBlock* BB,
                                const LPUSeqInstrInfo& seqInfo,
                                const LPUInstrInfo& TII,
-                               SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion);
-
+                               SmallVector<MachineInstr*,
+                                           SEQ_VEC_WIDTH>& insToDisconnect);
+                               
   void
   seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
                                LPUSeqLoopInfo& loop,
                                MachineBasicBlock* BB,
                                const LPUSeqInstrInfo& seqInfo,
                                const LPUInstrInfo& TII,
-                               SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion);
-
+                               SmallVector<MachineInstr*,
+                                           SEQ_VEC_WIDTH>& insToDisconnect);                            
+                               
   void
   seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
                                        LPUSeqLoopInfo& loop,
                                        MachineBasicBlock* BB,
                                        const LPUSeqInstrInfo& seqInfo,
                                        const LPUInstrInfo& TII,
-                                       SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion);
+                                       SmallVector<MachineInstr*,
+                                                   SEQ_VEC_WIDTH>& insToDisconnect);                            
+                                       
   void
   seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
                                   LPUSeqLoopInfo& loop,
                                   MachineBasicBlock* BB,
                                   const LPUSeqInstrInfo& seqInfo,
                                   const LPUInstrInfo& TII,
-                                  SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion);
-  
-  
+                                  SmallVector<MachineInstr*,
+                                              SEQ_VEC_WIDTH>& insToDisconnect);
+                                  
 
 
   // Add a switch instruction after "prev_inst" in basic block BB,
@@ -310,7 +315,7 @@ public:
   //
   // Returns NULL if no switch instruction is necessary (because the
   //  output channel of the candidate is %ign).
-  // Otherwise, returns a pointer to the instruction we created. 
+  // Otherwise, returns a pointer to the instruction we created.
   MachineInstr*
   seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
                                           const LPUSeqHeader& loop_header,
@@ -320,7 +325,7 @@ public:
                                           MachineInstr* prev_inst);
 
   // Look up the stride operation that corresponds to a given sequence
-  // candidate.  
+  // candidate.
   MachineOperand*
   seq_lookup_stride_op(LPUSeqLoopInfo& loop,
                        LPUSeqCandidate& scandidate);
@@ -334,7 +339,7 @@ public:
                            MachineInstr* prev_inst);
 
   // Add a repeat instruction for the specified repeat candidate.
-  // Returns the added instruction. 
+  // Returns the added instruction.
   MachineInstr*
   seq_add_repeat(LPUSeqCandidate& repeat_candidate,
                  const LPUSeqHeader& loop_header,
@@ -344,10 +349,10 @@ public:
                  MachineInstr* prev_inst);
 
   // Add a stride instruction for the specified stride candidate.
-  // Returns the added instruction. 
+  // Returns the added instruction.
   MachineInstr*
   seq_add_stride(LPUSeqCandidate& repeat_candidate,
-                 const LPUSeqHeader& loop_header,                 
+                 const LPUSeqHeader& loop_header,
                  unsigned pred_reg,
                  MachineOperand* in_stride_op,
                  const LPUInstrInfo &TII,
@@ -375,33 +380,29 @@ public:
                     bool is_fma_reduction);
 
 
-  // Replaces either defs (and or uses) or a particular channel with
-  // %ign.
-  // Returns true if all defs in this instruction are %ign, and at least
-  // one replacement has occurred (either of a use or def) has occurred.
-  bool
-  seq_replace_channel_with_ign(MachineInstr* MI,
-                               unsigned channel_to_replace,
-                               MachineRegisterInfo* MRI,
-                               const TargetRegisterInfo &TRI,
-                               bool replace_uses,
-                               bool replace_defs);
-
+  // Replace all inputs (uses) of the specified instruction with %na and all
+  // outputs (defs) with %ign, thus completely disconnecting the instruction
+  // from the graph.  The instruction will be removed during the
+  // dead-instruction pass, as will any other instructions that transitively
+  // become dead because of this disconnection.
   void
-  seq_mark_loop_ins_for_deletion(LPUSeqLoopInfo& loop,
-                                 MachineBasicBlock& BB,
-                                 SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& ins_for_deletion);
-  
+  disconnect_instruction(MachineInstr* MI);
+
 private:
   MachineFunction *thisMF;
 };
-}
+} // Close unnamed namespace
 
 MachineFunctionPass *llvm::createLPUOptDFPass() {
   return new LPUOptDFPass();
 }
 
 char LPUOptDFPass::ID = 0;
+
+static
+RegisterPass<LPUOptDFPass> LPUOptRegistration("lpuopt-df",
+                                              "LPU Optimize Dataflow pass",
+                                              false, false);
 
 bool LPUOptDFPass::runOnMachineFunction(MachineFunction &MF) {
 
@@ -506,7 +507,7 @@ bool LPUOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo* MRI,
             int pickval = picker_def.getReg();
             // TBD(jsukha): I can't figure out how to query the register
             // class of a channel here.  Bcause it is a physical
-            // register, I can't seem to use the normal getRegClass methods. 
+            // register, I can't seem to use the normal getRegClass methods.
             // But I'm going to assume that knowing that the
             // opcode was INIT1 was enough...
             if (!TargetRegisterInfo::isVirtualRegister(pickval)) {
@@ -562,7 +563,7 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  
+
   // Look for an "<picker> = INIT1 0" instruction.
   unsigned pickerChannel;
   bool pickerSense = 0;
@@ -603,7 +604,7 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
 
     DEBUG(errs() << "Found pickerMov1 instruction " << *pickerMov1);
     DEBUG(errs() << " with switcher channel " << switcherChannel << "\n");
-    
+
     // If we make it here, then we have both a picker and a switcher.
     // Next, check if the switcher is defined by a compare.
     int def2_count = 0;
@@ -645,7 +646,7 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
 void LPUOptDFPass::
 seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
-  DEBUG(errs() << "************************\n");  
+  DEBUG(errs() << "************************\n");
   DEBUG(errs() << "SEQ LOOP INFO:  " << loops->size() << " loops\n");
 
   for (unsigned i = 0; i < loops->size(); ++i) {
@@ -694,7 +695,7 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
     DEBUG(errs() << "*****************\n");
   }
-  DEBUG(errs() << "************************\n");  
+  DEBUG(errs() << "************************\n");
 }
 
 
@@ -708,7 +709,7 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 // header.pickerChannel.
 //
 // For example, if header.pickerSense == 0, we will match the
-// following pick: 
+// following pick:
 //
 //   pick[n] top_val, p, init_val, loop_back
 //
@@ -717,7 +718,7 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 MachineInstr*
 LPUOptDFPass::
 seq_candidate_match_pick(MachineInstr* MI,
-                         const LPUSeqHeader& header, 
+                         const LPUSeqHeader& header,
                          const LPUInstrInfo& TII,
                          DenseMap<unsigned, MachineInstr*>& pickMap) {
   if (TII.isPick(MI)) {
@@ -730,7 +731,7 @@ seq_candidate_match_pick(MachineInstr* MI,
     // header.
     int loopback_idx = header.pick_loopback_op_idx();
     MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
-            
+
     if (selectOp.isReg() && loopbackOp.isReg()) {
       unsigned select_reg = selectOp.getReg();
       unsigned loopback_reg = loopbackOp.getReg();
@@ -746,7 +747,7 @@ seq_candidate_match_pick(MachineInstr* MI,
         }
         else {
           // Success! save everything away.
-          pickMap[loopback_reg] = MI;          
+          pickMap[loopback_reg] = MI;
           return MI;
         }
       }
@@ -771,7 +772,7 @@ seq_candidate_match_switch(MachineInstr* MI,
   // Look for:
   //   switch[n] final, loopback, switcherChannel, bottom_val
   if (TII.isSwitch(MI)) {
-    
+
     assert(MI->getNumOperands() == 4);
     int loopback_idx = header.switch_loopback_op_idx();
     MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
@@ -823,7 +824,7 @@ seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   int loop_id_counter = 0;
-  
+
   for (MachineFunction::iterator BB = thisMF->begin(), E=thisMF->end();
        BB != E;
        ++BB) {
@@ -853,7 +854,7 @@ seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
              ++it) {
           MachineInstr* MI = &(*it);
           seq_candidate_match_pick(MI,
-                                   current_loop.header, 
+                                   current_loop.header,
                                    TII,
                                    pickMap);
         }
@@ -888,6 +889,7 @@ seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
       else {
         //        DEBUG(errs() << "No match for header instruction " << *MI << "\n");
       }
+
       ++iterMI;
     }
   }
@@ -897,14 +899,14 @@ seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
   if (seq_opt_level > 0) {
 
-    // Do analysis to identify candidates for sequence optimization. 
+    // Do analysis to identify candidates for sequence optimization.
     DEBUG(errs() << "Running analysis for sequence optimizations\n");
 
     // Look for the candidates we might replace with sequences.
     SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH> loops;
     seq_find_candidate_loops(&loops);
-    
-    // Only print after classification now. 
+
+    // Only print after classification now.
     //    seq_print_loop_info(&loops);
 
     DEBUG(errs() << "Classifying sequence op types\n");
@@ -915,7 +917,6 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
     DEBUG(errs() << "Done with sequence classification\n");
     if (seq_opt_level > 1) {
       // Actually do the transforms.
-      std::set<MachineInstr*> insSetMarkedForDeletion;
 
       int num_transformed = 0;
       int loop_count = 0;
@@ -925,8 +926,7 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
         LPUSeqLoopInfo& loop = *it;
 
         if (loop.sequence_transform_is_valid()) {
-          seq_do_transform_loop(loop,
-                                insSetMarkedForDeletion);
+          seq_do_transform_loop(loop);
           num_transformed++;
           DEBUG(errs() << "Successful transform of loop "
                 << loop_count << ".\n");
@@ -936,7 +936,7 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
                 << loop_count << ".\n");
         }
         loop_count++;
-        
+
         if (num_transformed > SequenceMaxPerLoop) {
           DEBUG(errs() << "Reached transform loop limit. Stopping\n");
           break;
@@ -944,20 +944,6 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
       }
       DEBUG(errs() << "Done with seq opt. Transformed "
             <<  num_transformed << " loops\n");
-
-      // Finally delete the instructions we found.
-      int num_deleted = 0;
-      for (auto it = insSetMarkedForDeletion.begin();
-           it != insSetMarkedForDeletion.end();
-           ++it) {
-        num_deleted++;
-        MachineInstr* MI = *it;
-        assert(MI);
-        DEBUG(errs() << "Final deletion: ins = " << *MI << "\n");
-        MI->eraseFromParent();
-      }
-      DEBUG(errs() << "Final deletion: " << num_deleted
-            << " instructions.\n");
     }
   }
   else {
@@ -1008,7 +994,7 @@ LPUOptDFPass::
 seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
   assert(x.pickInst && x.switchInst);
 
-  // Example: 
+  // Example:
   // %CI64_10 = PICK64 %CI1_0, %CI64_11, %CI64_12
   // %IGN, %CI64_12 = SWITCH64 %CI1_8, %CI64_13
 
@@ -1016,7 +1002,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
   // is %CI64_13.
   MachineOperand* bottom_op = x.get_switch_bottom_op();
   MachineOperand* top_op = x.get_pick_top_op();
-  
+
   if (bottom_op->isReg() &&
       (!TargetRegisterInfo::isVirtualRegister(bottom_op->getReg())) &&
       top_op->isReg() &&
@@ -1024,13 +1010,13 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
 
     unsigned bottom_channel = bottom_op->getReg();
     unsigned top_channel = top_op->getReg();
-    MachineRegisterInfo *MRI = &thisMF->getRegInfo();  
+    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     // Look at the instruction that defines bottom_op.
     MachineInstr* def_bottom = getSingleDef(bottom_channel, MRI);
 
     const LPUInstrInfo &TII =
       *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-    
+
     // First, if the defining instruction is the pick itself, then
     // there is no transform body.  We have a repeat.
     if (def_bottom == x.pickInst) {
@@ -1044,7 +1030,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
       x.top = top_channel;
       x.bottom = bottom_channel;
       return LPUSeqCandidate::SeqType::REPEAT;
-    } 
+    }
 
     if (!def_bottom)
       return LPUSeqCandidate::SeqType::UNKNOWN;
@@ -1054,7 +1040,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
       // Next, look for reductions or sequence values.
       // To find these transforming bodies, we want
       //  a single add/sub instruction, which
-      //  uses top_op's definition as one of its inputs. 
+      //  uses top_op's definition as one of its inputs.
 
       // For a reduction, we want no other uses of top, except in the
       // the transforming instruction itself.
@@ -1071,7 +1057,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
           // Figure out whether the last operand of the transform
           // instruction is the output of the pick.
           // To do reductions for "fma" and "sub", it needs to be.
-          // 
+          //
           bool matched_last_use = false;
           int num_operands = def_bottom->getNumOperands();
           assert(num_operands >= 3);
@@ -1079,7 +1065,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
           // Look up the last three operands of the instruction.
           MachineOperand* last_op = &def_bottom->getOperand(num_operands-1);
           MachineOperand* prev_op = &def_bottom->getOperand(num_operands-2);
-        
+
           if (last_op->isReg() &&
               (last_op->getReg() == top_channel)) {
             matched_last_use = true;
@@ -1094,7 +1080,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
               return LPUSeqCandidate::SeqType::UNKNOWN;
             }
             // For FMA, we don't care about setting input0_op.
-            // We will look it up from the transform instruction directly later. 
+            // We will look it up from the transform instruction directly later.
           }
           else if (is_commuting_3op_reduction) {
             // Ops that commute and
@@ -1112,8 +1098,8 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
             }
             input0_op = prev_op;
           }
-        
-        
+
+
           unsigned reduction_opcode;
           if (!TII.convertTransformToReductionOp(def_bottom->getOpcode(),
                                                  &reduction_opcode)) {
@@ -1121,7 +1107,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
                   << *def_bottom << " invalid or not implemented.\n");
             return LPUSeqCandidate::SeqType::UNKNOWN;
           }
-        
+
           DEBUG(errs() << "Found reduction transform body " <<
                 *def_bottom << "\n");
           x.opcode = reduction_opcode;
@@ -1147,7 +1133,7 @@ seq_classify_stride(LPUSeqCandidate& x,
   assert(x.pickInst && x.switchInst);
   MachineOperand* bottom_op = x.get_switch_bottom_op();
   MachineOperand* top_op = x.get_pick_top_op();
-  
+
   if (bottom_op->isReg() &&
       (!TargetRegisterInfo::isVirtualRegister(bottom_op->getReg())) &&
       top_op->isReg() &&
@@ -1155,13 +1141,13 @@ seq_classify_stride(LPUSeqCandidate& x,
 
     unsigned bottom_channel = bottom_op->getReg();
     unsigned top_channel = top_op->getReg();
-    MachineRegisterInfo *MRI = &thisMF->getRegInfo();  
+    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     // Look at the instruction that defines bottom_op.
     MachineInstr* def_bottom = getSingleDef(bottom_channel, MRI);
 
     if (!def_bottom)
       return x.stype;
-    
+
     const LPUInstrInfo &TII =
       *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
@@ -1177,7 +1163,7 @@ seq_classify_stride(LPUSeqCandidate& x,
         unsigned stride_opcode;
         int negate_input = is_sub;
         int stride_idx;
-        
+
         if (is_add) {
           // First, figure out the potential stride, by looking for the
           // top input.
@@ -1287,11 +1273,11 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
     //
     // We are walking back through the def/use through MOV1, MERGE1,
     // PICK1, SWITCH1, and any OLD* or OST* instructions.
-    
+
     MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-    
+
     const int MAX_LEVELS = 10000;
     int num_levels = 0;
 
@@ -1313,10 +1299,10 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
            it != p_current->end();
            ++it) {
         MachineInstr* MI = *it;
-        
+
         DEBUG(errs() << " MemGraph processing: current ins = "
               <<  *MI << "\n");
-        
+
         if (MI == x.pickInst) {
           if ((p_current->size() == 1) &&
               (p_next->size() == 0)) {
@@ -1341,7 +1327,7 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
           nextOp[0] = NULL;
           nextOp[1] = NULL;
           int num_ops = 0;
-          
+
           // Handle 3 different types of instructions.  Look up the
           // previous op in the chain.
           if (current_op == LPU::MOV1) {
@@ -1426,9 +1412,9 @@ inline bool update_header_cmp_channels(LPUSeqLoopInfo& current_loop,
 
   switch (ctype) {
   case LPUSeqLoopInfo::CmpMatchType::Match0:
-  case LPUSeqLoopInfo::CmpMatchType::Match1:    
+  case LPUSeqLoopInfo::CmpMatchType::Match1:
     return true;
-    
+
   case LPUSeqLoopInfo::CmpMatchType::Dup0:
     DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp0. Ignoring\n");
     DEBUG(errs() << "Duplicate def of " << bottom <<
@@ -1443,7 +1429,7 @@ inline bool update_header_cmp_channels(LPUSeqLoopInfo& current_loop,
 
   case LPUSeqLoopInfo::CmpMatchType::NoMatch:
     return false;
-    
+
   case LPUSeqLoopInfo::CmpMatchType::OtherError:
   default:
     DEBUG(errs() << "ERROR: encountering bad bottom channel in loop...\n");
@@ -1462,7 +1448,7 @@ seq_classify_loop_repeats(LPUSeqLoopInfo& current_loop,
   repeats.clear();
   reductions.clear();
   other.clear();
-  
+
   // First pass: look for repeat / reduction.
   for (auto it = current_loop.candidates.begin();
        it != current_loop.candidates.end();
@@ -1524,7 +1510,7 @@ seq_classify_loop_reductions_as_strides(SmallVector<LPUSeqCandidate, SEQ_VEC_WID
   for (int i = 0; i < (int)reductions.size(); ++i) {
     LPUSeqCandidate& x = reductions[i];
     int idx = current_loop.candidates.size();
-    LPUSeqCandidate::SeqType stype;    
+    LPUSeqCandidate::SeqType stype;
     stype = seq_classify_stride(x,
                                 current_loop.repeat_channels);
 
@@ -1549,13 +1535,13 @@ seq_classify_loop_reductions_as_strides(SmallVector<LPUSeqCandidate, SEQ_VEC_WID
 
 // Classify any candidates in "remaining".
 // Push them into current_loop.candidates if they are successfully classified,
-// or into "other" if they are unknown. 
+// or into "other" if they are unknown.
 void
 LPUOptDFPass::
 seq_classify_loop_remaining(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaining,
                             LPUSeqLoopInfo& current_loop,
                             SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other) {
-  
+
   for (auto it = remaining.begin();
        it != remaining.end();
        ++it) {
@@ -1603,7 +1589,7 @@ seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> repeat_candidates;
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> reductions;
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> remaining;
-      
+
       // Step 1: scan for repeats, and partition the candidates into
       // repeats/reductions/remaining.
       seq_classify_loop_repeats(current_loop,
@@ -1611,7 +1597,7 @@ seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
                                 reductions,
                                 remaining);
 
-      // Move the repeat candidates into the current loop. 
+      // Move the repeat candidates into the current loop.
       // current loop.
       current_loop.candidates.clear();
       current_loop.candidates.insert(current_loop.candidates.end(),
@@ -1646,12 +1632,12 @@ seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
         seq_debug_print_candidate(other[j]);
       }
 
-      // NOTE: If we wanted to keep track of the invalid candidates 
+      // NOTE: If we wanted to keep track of the invalid candidates
       // in a loop, we could insert it into the list.  But we aren't here.
       //
       //  current_loop.candidates.insert(current_loop.candidates.end(),
       //                                 other.begin(), other.end());
-      
+
       bool can_transform = seq_identify_induction_variable(current_loop);
       DEBUG(errs() << "Loop " << current_loop.loop_id
             << ": can transform = " << can_transform << "\n");
@@ -1659,7 +1645,7 @@ seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
   }
 }
 
-bool 
+bool
 LPUOptDFPass::
 seq_identify_induction_variable(LPUSeqLoopInfo& loop) {
   const LPUInstrInfo &TII =
@@ -1683,63 +1669,43 @@ seq_identify_induction_variable(LPUSeqLoopInfo& loop) {
     return false;
   }
 
+  bool last_transform_check = loop.sequence_opcode_transform_check(TII);
+  if (!last_transform_check) {
+
+    DEBUG(errs() << "Failing last seq transform check...\n");
+    DEBUG(errs() << "Indvar idx is " << loop.indvarIdx() << "\n");
+    if (loop.indvarIdx() >= 0) {
+      DEBUG(errs() << "Induction variable sequence is ...\n");
+      seq_debug_print_candidate(loop.candidates[loop.indvarIdx()]);
+    }
+
+  }
+
   return loop.sequence_opcode_transform_check(TII);
 }
 
 
 
 
-
-// Returns true if all defs in this instruction are %ign, and at least
-// one replacement has occurred (either of a use or def) has occurred.
-bool LPUOptDFPass::
-seq_replace_channel_with_ign(MachineInstr* MI,
-                             unsigned channel_to_replace,
-                             MachineRegisterInfo* MRI,
-                             const TargetRegisterInfo &TRI,
-                             bool replace_uses, 
-                             bool replace_defs) {
-  int num_replacements = 0;
-  int num_defs = 0;
-  int num_null_defs = 0;
-  
-  assert(channel_to_replace != LPU::IGN);
+void
+LPUOptDFPass::disconnect_instruction(MachineInstr* MI)
+{
   for (MachineOperand &MO : MI->operands()) {
-    if (MO.isReg()) {
-      unsigned creg = MO.getReg();
-      if (MO.isDef()) {
-        num_defs++;
-        if (replace_defs && (creg == channel_to_replace)) {
-          MO.substPhysReg(LPU::IGN, TRI);
-          num_replacements++;
-          num_null_defs++;
-        }
-        else if (creg == LPU::IGN) {
-          num_null_defs++;
-        }
-      }
-      else if (replace_uses && MO.isUse()) {
-        if (creg == channel_to_replace) {
-          MO.substPhysReg(LPU::IGN, TRI);
-          num_replacements++;
-        }
-      }
-    }
-  }
+    if (!MO.isReg())
+      continue;
 
-  // This instruction can be deleted if all its definitions are NULL.
-  //
-  // TBD: Should we care if any replacements happened?
-  // What should we do with an instruction that we are passed in which has
-  // all its def's as %ign to start with? 
-  return ((num_replacements > 0) && (num_null_defs == num_defs));
+    unsigned replacement = MO.isDef() ? LPU::IGN : LPU::NA;
+
+    const TargetRegisterInfo& TRI = *thisMF->getSubtarget().getRegisterInfo();
+    MO.substPhysReg(replacement, TRI);
+  }
 }
 
 
 MachineInstr*
 LPUOptDFPass::
 seq_add_parloop_memdep(LPUSeqCandidate& sc,
-                       const LPUSeqHeader& loop_header,                       
+                       const LPUSeqHeader& loop_header,
                        unsigned pred_reg,
                        const LPUInstrInfo &TII,
                        MachineBasicBlock& BB,
@@ -1758,7 +1724,7 @@ seq_add_parloop_memdep(LPUSeqCandidate& sc,
 
   MachineOperand* out_s_op = sc.get_switch_output_op(loop_header);
   assert(out_s_op->isReg());
-  
+
   MachineInstr* onend_inst =
     BuildMI(BB,
             repinst,
@@ -1800,7 +1766,7 @@ seq_add_repeat(LPUSeqCandidate& sc,
 MachineInstr*
 LPUOptDFPass::
 seq_add_stride(LPUSeqCandidate& sc,
-               const LPUSeqHeader& loop_header,               
+               const LPUSeqHeader& loop_header,
                unsigned pred_reg,
                MachineOperand* in_stride_op,
                const LPUInstrInfo &TII,
@@ -1814,7 +1780,7 @@ seq_add_stride(LPUSeqCandidate& sc,
     BuildMI(BB,
             prev_inst,
             sc.pickInst->getDebugLoc(),
-            TII.get(sc.opcode), 
+            TII.get(sc.opcode),
             sc.top).
     addReg(pred_reg).
     addOperand(*sc.get_pick_input_op(loop_header)).
@@ -1922,7 +1888,7 @@ seq_lookup_stride_op(LPUSeqLoopInfo& loop,
                      LPUSeqCandidate& scandidate) {
   // For stride, first look in the sequence candidate op.
   //
-  // If this stride op is a LIC (instead of an immediate), we 
+  // If this stride op is a LIC (instead of an immediate), we
   // look up the input of the matching repeat instead.
   //
   // Otherwise, it it should be a literal operand.
@@ -1973,211 +1939,17 @@ seq_add_negate_stride_op(MachineOperand* in_stride_op,
             new_input_reg).
     addOperand(*in_stride_op);
   neg_inst->setFlag(MachineInstr::NonSequential);
-  return &neg_inst->getOperand(0);  
-}
-
-
-// Deletes any instructions stored in insMarkedForDeletion.  Also may
-// find new instructions to remove, for any unused channels we may
-// have created, and push them into insMarkedForDeletion.
-//
-// NOTE: insMarkedForDeletion is NOT guaranteed to have unique
-// elements after this call.
-//
-// Two cases for any instruction I in insMarkedForDeletion:
-//
-//   1. For any channel x defined by I, replace all uses of x with
-//      %ign, IF I is the ONLY definition of x.
-// 
-//      In a correct dataflow program, we expect exactly one
-//      definition of x.  However, this specification allows us to add
-//      an extra definition of x, and then delete the old one.
-//
-//   2. For any channel x used by I, if I is the only use of x, then
-//      replace all definitions of x in all defining instructions D.
-//      If a defining instruction D has no other definitions, also
-//      mark D for deletion.
-//
-// 
-// TBD(jsukha): WARNING: It is not clear whether this method can be a
-// general cleanup /deletion method.
-//
-// In theory, in step 1, if we have replaced a use of x with %ign in
-// instruction K, then (depending on the kind of instruction K is),
-// that instruction K may become invalid.  Only some instructions can
-// allow some of their uses to be %ign.  Should we continue to mark
-// "K" for deletion?
-//
-// For example, if we change "add %ci64_0, %ci64_1, %ci64_2" into
-//            "add $ci64_0, %ign, %ci64_2"
-//
-// we have technically changed the meaning of the program.  In the
-//  worst case, this program may no longer be correct (e.g., if we had
-//  an add where the "%ci64_2" is replaced with a literal).
-//
-void
-LPUOptDFPass::
-seq_mark_loop_ins_for_deletion(LPUSeqLoopInfo& loop,
-                               MachineBasicBlock& BB,
-                               SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& insMarkedForDeletion) {
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();  
-  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
-
-  DEBUG(errs() << "TBD: Initial set of instructions to delete: \n");
-  for (auto it = insMarkedForDeletion.begin();
-       it != insMarkedForDeletion.end();
-       ++it) {
-    MachineInstr* mi = *it;
-    DEBUG(errs() << "    " << *mi);
-  }
-
-
-  SmallVector<MachineInstr*, SEQ_VEC_WIDTH> deleteQ;
-  deleteQ.insert(deleteQ.end(),
-                 insMarkedForDeletion.begin(),
-                 insMarkedForDeletion.end());
-
-  while (deleteQ.size() > 0) {
-    MachineInstr* cMI = deleteQ.back();
-    deleteQ.pop_back();
-
-    DEBUG(errs() << "Deleting: instruction = " << *cMI << "\n");
-    for (MachineOperand& MO : cMI->operands()) {
-
-      DEBUG(errs() << " Deleting: processing operand " << MO << "\n");
-      if (MO.isReg()) {
-        unsigned current_channel = MO.getReg();
-        
-        // Skip any channel that is already IGN.
-        if (current_channel == LPU::IGN) {
-          continue;
-        }
-
-        assert(TargetRegisterInfo::isPhysicalRegister(current_channel));
-
-        if (MO.isUse()) {
-          MachineInstr* single_use =
-            getSingleUse(current_channel, MRI);
-
-          if (single_use) {
-            DEBUG(errs() << "Instr " << *cMI
-                  << " is the only use of " << MO << "\n");
-
-            // Build a list of the defining instructions.
-            SmallVector<MachineInstr*, SEQ_VEC_WIDTH> def_instr;
-            for (auto def_it = MRI->def_instr_begin(current_channel);
-                 def_it != MRI->def_instr_end();
-                 ++def_it) {
-              def_instr.push_back(&(*def_it));
-            }
-
-            // Replace all the def's of this channel with LPU::IGN.
-            // If that instruction has all its def's replaced, then
-            // delete that instruction. 
-            for (auto def_it = def_instr.begin();
-                 def_it != def_instr.end();
-                 ++def_it) {
-              MachineInstr* def_ins = *def_it;
-              assert(def_ins != cMI);
-
-              bool should_delete =
-                seq_replace_channel_with_ign(def_ins,
-                                             current_channel,
-                                             MRI,
-                                             TRI,
-                                             false,
-                                             true);
-
-              if (should_delete) {
-                DEBUG(errs() << " Replaced all defs of " << MO
-                      << ". Marking for deletion: "
-                      << *def_ins << "\n");
-                deleteQ.push_back(def_ins);
-                insMarkedForDeletion.push_back(def_ins);
-
-                // TBD(jsukha): Dump contents for debugging only.
-                // Delete me when we are happy that this method works.
-                //
-                // for (int i = 0; i < deleteQ.size(); ++i) {
-                //   DEBUG(errs() << "DeleteQ " << i << ":"
-                //         << deleteQ[i] << " = "
-                //         << *(deleteQ[i]) << "\n");
-                // }
-                // for (int i = 0; i < insMarkedForDeletion.size(); ++i) {
-                //   DEBUG(errs() << "insMarkedForDeletion " << i << ":"
-                //         << insMarkedForDeletion[i] << " = "
-                //         << *(insMarkedForDeletion[i]) << "\n");
-                // }
-              }
-            }
-          }
-          
-          // Substitute the use in this register.
-          MO.substPhysReg(LPU::IGN, TRI);
-        }
-        else if (MO.isDef()) {
-          MachineInstr* single_def =
-            getSingleDef(current_channel, MRI);
-          
-          if (single_def) {
-            // Walk over all uses of this channel.  These instructions
-            // must be deleted, since we are deleting their only def.
-
-            
-            // Build a list of the using instructions.
-            SmallVector<MachineInstr*, SEQ_VEC_WIDTH> use_instr;
-            for (auto use_it = MRI->use_instr_begin(current_channel);
-                 use_it != MRI->use_instr_end();
-                 ++use_it) {
-              use_instr.push_back(&(*use_it));
-            }
-
-            
-            for (auto use_it = use_instr.begin();
-                 use_it != use_instr.end();
-                 ++use_it) {
-              MachineInstr* use_ins = *use_it;
-              assert(use_ins != cMI);
-
-              seq_replace_channel_with_ign(use_ins,
-                                           current_channel,
-                                           MRI,
-                                           TRI,
-                                           true,
-                                           false);
-              // TBD(jsukha): We are only replacing the use of the
-              // definition with %ign; we are not checking to see if
-              // we should continue to delete the instruction which is
-              // now using the "%ign" value.
-            }
-          } // if (single_def)
-          
-          MO.substPhysReg(LPU::IGN, TRI);
-        }
-        else {
-          DEBUG(errs() << "ERROR: Found reg operand " << MO
-                << " which is neither def nor use...\n");
-        }
-      }
-    }
-  }
-  
-  DEBUG(errs() << "TBD: Final list of instructions to delete: \n");
-  for (auto it = insMarkedForDeletion.begin();
-       it != insMarkedForDeletion.end();
-       ++it) {
-    MachineInstr* mi = *it;
-    DEBUG(errs() << "    " << *mi);
-  }
+  return &neg_inst->getOperand(0);
 }
 
 
 void
 LPUOptDFPass::
 seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
-                          MachineBasicBlock* BB,                           
+                          MachineBasicBlock* BB,
                           LPUSeqInstrInfo* seqInfo,
-                          SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion) {
+                          SmallVector<MachineInstr*,
+                                      SEQ_VEC_WIDTH>& insToDisconnect) {
 
   assert(loop.sequence_transform_is_valid());
   int indvarIdx = loop.indvarIdx();
@@ -2198,7 +1970,7 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
 
   // Get the operand we should use for <in_b>.
   MachineOperand* in_b_op = loop.get_input_bound_op();
-  
+
   assert(indvarCandidate.transformInst);
 
   MachineOperand* input_s_op = seq_lookup_stride_op(loop,
@@ -2218,7 +1990,7 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
   // All but one of the valid sequences in a loop are dependent.
   int num_dependent_sequences = loop.get_valid_sequence_count() - 1;
   assert(num_dependent_sequences >= 0);
-  
+
   DEBUG(errs() << "For loop " << loop.loop_id
         << ", dependent sequences = " <<
         num_dependent_sequences << "\n");
@@ -2244,7 +2016,7 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
     addOperand(*in_b_op).
     addOperand(*in_s_op);
   seqInfo->seq_inst->setFlag(MachineInstr::NonSequential);
-  
+
 
   // If the switcher is expecting 1, 1, 1, ... 1, 0, then
   // loop.header.switcherSense should be 0, and we want a NOT1 to
@@ -2257,8 +2029,8 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
   // later optimization phase can probably eliminate the redundancy
   // fairly easily.
   //
-  unsigned switcher_ctrl_opcode = ( loop.header.switcherSense ? LPU::MOV1 : LPU::NOT1 );  
-  
+  unsigned switcher_ctrl_opcode = ( loop.header.switcherSense ? LPU::MOV1 : LPU::NOT1 );
+
   MachineInstr* switcher_def_inst =
     BuildMI(*BB,
             seqInfo->seq_inst,
@@ -2280,9 +2052,9 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
                                             switcher_def_inst);
   // For the sequence operator, mark the compare, pick and switch for
   // deletion.
-  loopInsMarkedForDeletion.push_back(loop.header.compareInst);
-  loopInsMarkedForDeletion.push_back(indvarCandidate.pickInst);
-  loopInsMarkedForDeletion.push_back(indvarCandidate.switchInst);
+  insToDisconnect.push_back(loop.header.compareInst);
+  insToDisconnect.push_back(indvarCandidate.pickInst);
+  insToDisconnect.push_back(indvarCandidate.switchInst);  
 
   DEBUG(errs() << "Transform loop_seq: adding a new sequence instruction "
         << *seqInfo->seq_inst << "\n");
@@ -2301,7 +2073,9 @@ seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
                              MachineBasicBlock* BB,
                              const LPUSeqInstrInfo& seqInfo,
                              const LPUInstrInfo& TII,
-                             SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion) {
+                             SmallVector<MachineInstr*,
+                                         SEQ_VEC_WIDTH>& insToDisconnect) {
+                             
   assert(!scandidate.transformInst);
   MachineInstr* repinst =
     seq_add_repeat(scandidate,
@@ -2325,8 +2099,9 @@ seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
           << *out_switch << "\n");
   }
 
-  loopInsMarkedForDeletion.push_back(scandidate.pickInst);
-  loopInsMarkedForDeletion.push_back(scandidate.switchInst);
+  insToDisconnect.push_back(scandidate.pickInst);
+  insToDisconnect.push_back(scandidate.switchInst);
+
 }
 
 
@@ -2337,11 +2112,13 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
                              MachineBasicBlock* BB,
                              const LPUSeqInstrInfo& seqInfo,
                              const LPUInstrInfo& TII,
-                             SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion) {
+                             SmallVector<MachineInstr*,
+                                         SEQ_VEC_WIDTH>& insToDisconnect) {
+
   assert(scandidate.transformInst);
 
   // We should have already matched the opcodes at the time we
-  // classified the candidate.  
+  // classified the candidate.
   assert(scandidate.opcode != LPUSeqCandidate::INVALID_OPCODE);
 
   MachineOperand* in_s_op =
@@ -2382,8 +2159,8 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
           << *out_switch << "\n");
   }
 
-  loopInsMarkedForDeletion.push_back(scandidate.pickInst);
-  loopInsMarkedForDeletion.push_back(scandidate.switchInst);
+  insToDisconnect.push_back(scandidate.pickInst);
+  insToDisconnect.push_back(scandidate.switchInst);
   // We should NOT mark scandidate.transformInst for deletion
   // here.  In cases where the channel at the bottom of the
   // loop is also used, we still need the add instruction.
@@ -2400,7 +2177,8 @@ seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
                                      MachineBasicBlock* BB,
                                      const LPUSeqInstrInfo& seqInfo,
                                      const LPUInstrInfo& TII,
-                                     SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion) {
+                                     SmallVector<MachineInstr*,
+                                                 SEQ_VEC_WIDTH>& insToDisconnect) {
   assert(!scandidate.transformInst);
   MachineInstr* onend_inst =
     seq_add_parloop_memdep(scandidate,
@@ -2411,11 +2189,10 @@ seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
                            seqInfo.seq_inst);
   DEBUG(errs() << "do_transform_parloop_memdep: adding onend = "
         << *onend_inst << "\n");
-  
-  loopInsMarkedForDeletion.push_back(scandidate.pickInst);
-  loopInsMarkedForDeletion.push_back(scandidate.switchInst);
-}
 
+  insToDisconnect.push_back(scandidate.pickInst);
+  insToDisconnect.push_back(scandidate.switchInst);
+}
 
 void
 LPUOptDFPass::
@@ -2424,7 +2201,8 @@ seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
                                 MachineBasicBlock* BB,
                                 const LPUSeqInstrInfo& seqInfo,
                                 const LPUInstrInfo& TII,
-                                SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& loopInsMarkedForDeletion) {
+                                SmallVector<MachineInstr*,
+                                            SEQ_VEC_WIDTH>& insToDisconnect) {
   assert(scandidate.transformInst);
   bool is_fma = TII.isFMA(scandidate.transformInst);
 
@@ -2443,16 +2221,15 @@ seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
 
   DEBUG(errs() << "do_transform_loop_reduction: adding reduction = "
         << *red_inst << "\n");
-  loopInsMarkedForDeletion.push_back(scandidate.pickInst);
-  loopInsMarkedForDeletion.push_back(scandidate.switchInst);
-  loopInsMarkedForDeletion.push_back(scandidate.transformInst);  
+
+  insToDisconnect.push_back(scandidate.pickInst);
+  insToDisconnect.push_back(scandidate.switchInst);
+  insToDisconnect.push_back(scandidate.transformInst);
 }
 
 
 void
-LPUOptDFPass::
-seq_do_transform_loop(LPUSeqLoopInfo& loop,
-                      std::set<MachineInstr*>& insSetMarkedForDeletion) {
+LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
@@ -2460,25 +2237,20 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   assert(indvarIdx >= 0);
   LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
   MachineBasicBlock* BB = indvarCandidate.pickInst->getParent();
-  
-  // The set of (initial) instructions that we want to delete from
-  // transforming this loop.  Once we are done adding instructions, we
-  // will walk from these instructions to identify additional unused
-  // instructions, and then add these sets to the global set to
-  // delete.
-  SmallVector<MachineInstr*, SEQ_VEC_WIDTH> loopInsMarkedForDeletion;
 
+  SmallVector<MachineInstr*, SEQ_VEC_WIDTH> insToDisconnect;
+  
   // Summary information about the sequence instruction.
   LPUSeqInstrInfo seqInfo;
 
-  // Transform the induction variable into a sequence instruction.  
+  // Transform the induction variable into a sequence instruction.
   seq_do_transform_loop_seq(loop,
-                            BB, 
+                            BB,
                             &seqInfo,
-                            loopInsMarkedForDeletion);
+                            insToDisconnect);
 
   // Now process all the dependent sequences.
-  //  
+  //
   // Dispatch to the corresponding functions for each kind of
   // dependent sequence.
   for (unsigned idx = 0; idx < loop.candidates.size(); ++idx) {
@@ -2494,25 +2266,25 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
                                      BB,
                                      seqInfo,
                                      TII,
-                                     loopInsMarkedForDeletion);
+                                     insToDisconnect);
         break;
-        
+
       case LPUSeqCandidate::SeqType::STRIDE:
         seq_do_transform_loop_stride(scandidate,
                                      loop,
                                      BB,
                                      seqInfo,
                                      TII,
-                                     loopInsMarkedForDeletion);
+                                     insToDisconnect);
         break;
-          
+
       case LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP:
         seq_do_transform_loop_parloop_memdep(scandidate,
                                              loop,
                                              BB,
                                              seqInfo,
                                              TII,
-                                             loopInsMarkedForDeletion);
+                                             insToDisconnect);
         break;
 
 
@@ -2523,10 +2295,10 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
                                         BB,
                                         seqInfo,
                                         TII,
-                                        loopInsMarkedForDeletion);
+                                        insToDisconnect);
         break;
 
-        
+
       default:
         DEBUG(errs() << "do_transform: Ignoring sequence candidate in transform: ");
         seq_debug_print_candidate(scandidate);
@@ -2534,18 +2306,10 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
     }
   }
 
-  // Grow the set "loopInsMarkedForDeletion", to find any additional
-  // instructions become unnecessary.
-  seq_mark_loop_ins_for_deletion(loop,
-                                 *BB,
-                                 loopInsMarkedForDeletion);
-
-  // Add our final set to the global set of instructions we are
-  // deleting.  We will delete them all at the end.
-  for (auto it = loopInsMarkedForDeletion.begin();
-       it != loopInsMarkedForDeletion.end();
+  // Disconnect all the instructions for all candidates at once.
+  for (auto it = insToDisconnect.begin();
+       it != insToDisconnect.end();
        ++it) {
-    insSetMarkedForDeletion.insert(*it);
+    disconnect_instruction(*it);
   }
 }
-
