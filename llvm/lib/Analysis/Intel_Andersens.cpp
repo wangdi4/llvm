@@ -132,13 +132,25 @@ AndersIndirectCallsLimit("anders-indirect-calls-limit", cl::ReallyHidden, cl::in
 // if number of constraints exceeds this limit (i.e no points-to info 
 // available). This check is done after collecting constraints. 
 // No limit check if it is set to -1.
+// CQ412448: Reduce this limit to fix compile-time issue for 483.xalan
+// Ex:  constraints.sizes() for some benchmarks before opt:
+//          483.xalan:      394K
+//          403.gcc:        331K
+//          400.perlbench:  132K
+//          471.omnetpp:    61K
+//
 static cl::opt<int>
 AndersNumConstraintsBeforeOptLimit("anders-num-constraints-before-opt-limit", 
-                             cl::ReallyHidden, cl::init(550000));
+                             cl::ReallyHidden, cl::init(350000));
 // Points-to propagation is disabled if number of constraints after
 // optimization exceeds this limit (i.e no points-to info available).
 // This check is done after optimizing constraints.
 // No limit check if it is set to -1.
+// Ex:  constraints.sizes() for some benchmarks after opt:
+//          483.xalan:      149K
+//          403.gcc:         72K
+//          400.perlbench:   29K
+//          471.omnetpp:     22K
 static cl::opt<int>
 AndersNumConstraintsAfterOptLimit("anders-num-constraints-after-opt-limit",
                             cl::ReallyHidden, cl::init(140000));
