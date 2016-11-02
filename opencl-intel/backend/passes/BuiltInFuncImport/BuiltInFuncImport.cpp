@@ -39,14 +39,14 @@ namespace intel {
   OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
   OCL_INITIALIZE_PASS_END(BIImport, "builtin-import", "Built-in function pass", false, true)
 
-  BIImport::BIImport(const char* CPUPrefix)
+  BIImport::BIImport(const char *CPUPrefix)
     : ModulePass(ID), m_cpuPrefix(CPUPrefix)
   { }
 
   static Function *FindFunctionDef(const Function *F,
-                                    SmallVectorImpl<Module *> &Modules) {
+                                   SmallVectorImpl<Module *> &Modules) {
     assert(F && "Invalid function.");
-    for (auto M:Modules ) {
+    for (auto M : Modules ) {
       assert(M && "Invalid module.");
 
       Function* Ret = M->getFunction(F->getName());
@@ -62,7 +62,7 @@ namespace intel {
   static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
                                        SmallVectorImpl<Module *> &Modules) {
     assert(GV && "Invalid global variable.");
-    for (auto M:Modules ) {
+    for (auto M : Modules ) {
       assert(M && "Invalid module.");
 
       auto Ret = M->getGlobalVariable(GV->getName());
@@ -80,38 +80,40 @@ namespace intel {
   // current CPU prefix, for example:
   // if CPU is l9, __ocl_svml_shared_acos1f to be changed to
   // __ocl_svml_l9_acos1f
-  void BIImport::UpdateSvmlBuiltinName(Function* fn, const char* pCPUPrefix) const
+  void BIImport::UpdateSvmlBuiltinName(Function *F, const char *CPUPrefix) const
   {
-    llvm::StringRef fName = fn->getName();
-    if (fName.startswith("__ocl_svml_shared"))
+    llvm::StringRef FName = F->getName();
+    if (FName.startswith("__ocl_svml_shared"))
     {
-      std::string s = fName.str();
-      s.replace(11, 6, pCPUPrefix);
-      fn->setName(s);
+      std::string NewName = FName.str();
+      NewName.replace(11, 6, CPUPrefix);
+      F->setName(NewName);
     }
   }
 
-  void BIImport::GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs) const
+  void BIImport::GetCalledFunctions(const Function *F,
+                                    FunctionsVec &CalledFuncs) const
   {
-    TFunctionsSet visitedSet;
+    FunctionsSet VisitedSet;
 
     // Iterate over function instructions and look for call instructions
-    for (auto &I : instructions(pFunc))
+    for (auto &I : instructions(F))
     {
-      const CallInst *pInstCall = dyn_cast<CallInst>(&I);
-      if (!pInstCall) continue;
+      const CallInst *InstCall = dyn_cast<CallInst>(&I);
+      if (!InstCall) continue;
 
-      Function* pCalledFunc = pInstCall->getCalledFunction();
-      if (!pCalledFunc)
+      Function* CalledFunc = InstCall->getCalledFunction();
+      if (!CalledFunc)
       {
-        // This case can occur only if CallInst is calling something other than LLVM function,
-        // meaning the call is indirect. We need to check if a called value is ConstantExpr that can
-        // use the function defined in source module.
-        auto CE = dyn_cast<ConstantExpr>(pInstCall->getCalledValue());
+        // This case can occur only if CallInst is calling something other than
+        // LLVM function, meaning the call is indirect. We need to check if a
+        // called value is ConstantExpr that can use the function defined in
+        // source module.
+        auto CE = dyn_cast<ConstantExpr>(InstCall->getCalledValue());
         if (CE && CE->getOpcode() == Instruction::BitCast) {
-          Value* CEOperand = CE->getOperand(0);
+          Value *CEOperand = CE->getOperand(0);
           if (auto CEFuncOperand = dyn_cast<Function>(CEOperand))
-            pCalledFunc = CEFuncOperand;
+            CalledFunc = CEFuncOperand;
           else
             continue;
         }
@@ -121,14 +123,14 @@ namespace intel {
         }
       }
 
-      if (visitedSet.count(pCalledFunc)) continue;
+      if (VisitedSet.count(CalledFunc)) continue;
 
       // skip svml name renaming when empty cpu prefix is provided.
       if (!m_cpuPrefix.empty())
-        UpdateSvmlBuiltinName(pCalledFunc, m_cpuPrefix.c_str());
+        UpdateSvmlBuiltinName(CalledFunc, m_cpuPrefix.c_str());
 
-      visitedSet.insert(pCalledFunc);
-      calledFuncs.push_back(pCalledFunc);
+      VisitedSet.insert(CalledFunc);
+      CalledFuncs.push_back(CalledFunc);
     }
   }
 
@@ -163,8 +165,8 @@ namespace intel {
       }
     }
 
-    bool firstUse = UsedFunctions.insert(Root).second;
-    if (!firstUse) {
+    bool FirstUse = UsedFunctions.insert(Root).second;
+    if (!FirstUse) {
       return;
     }
 
@@ -172,10 +174,10 @@ namespace intel {
       Root->materialize();
     }
 
-    TFunctionsVec calledFuncs;
-    GetCalledFunctions(Root, calledFuncs);
+    FunctionsVec CalledFuncs;
+    GetCalledFunctions(Root, CalledFuncs);
 
-    for (auto Callee : calledFuncs) {
+    for (auto Callee : CalledFuncs) {
       ExploreUses(Callee, Modules, UsedFunctions, UsedGlobals);
     }
 
@@ -197,24 +199,26 @@ namespace intel {
     New->setModuleInlineAsm(M->getModuleInlineAsm());
 
     // Create globals without initializers - they may contain function
-    // calls and they have not been cloned yet.
-    for (auto GV:ReqGlobals) {
+    // calls which have not been cloned yet.
+    for (auto GV : ReqGlobals) {
       if (GV->getParent() != M) {
         continue;
       }
-      GlobalVariable *NewGV = new GlobalVariable(*New,
-                                                 GV->getType()->getElementType(),
-                                                 GV->isConstant(), GV->getLinkage(),
-                                                 (Constant*) nullptr, GV->getName(),
-                                                 (GlobalVariable*) nullptr,
-                                                 GV->getThreadLocalMode(),
-                                                 GV->getType()->getAddressSpace());
+      GlobalVariable *NewGV = new GlobalVariable(
+        *New,
+        GV->getType()->getElementType(),
+        GV->isConstant(), GV->getLinkage(),
+        (Constant*) nullptr, GV->getName(),
+        (GlobalVariable*) nullptr,
+        GV->getThreadLocalMode(),
+        GV->getType()->getAddressSpace());
+
       NewGV->copyAttributesFrom(GV);
       VMap[GV] = NewGV;
     }
 
     // Now do the same with the required functions
-    for (auto FGV:ReqFunctions) {
+    for (auto FGV : ReqFunctions) {
       if (FGV->getParent() != M) {
         continue;
       }
@@ -228,7 +232,7 @@ namespace intel {
     }
 
     // Clone global initializers
-    for (auto GV:ReqGlobals) {
+    for (auto GV : ReqGlobals) {
       if (GV->getParent() != M) {
         continue;
       }
@@ -240,7 +244,8 @@ namespace intel {
       }
     }
 
-    for (auto FGV:ReqFunctions) {
+    // ... and the functions bodies
+    for (auto FGV : ReqFunctions) {
       if (FGV->getParent() != M) {
         continue;
       }
@@ -250,10 +255,9 @@ namespace intel {
 
       // Track args changes
       Function::arg_iterator DestI = NF->arg_begin();
-      for (Function::const_arg_iterator J = F->arg_begin(); J != F->arg_end();
-           ++J) {
-        DestI->setName(J->getName());
-        VMap[&*J] = &*DestI++;
+      for (const auto &Arg : F->args()) {
+        DestI->setName(Arg.getName());
+        VMap[&Arg] = &*DestI++;
       }
 
       SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
@@ -270,74 +274,76 @@ namespace intel {
     BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
     m_runtimeModuleList = BLI.getBuiltinModules();
 
-    TFunctionsSet userModuleFunctions;
+    FunctionsSet UserModuleFunctions;
     // Remember user module function pointers, so we could set linkonce_odr
     // to only imported functions.
     for (auto &F : M)
       if (!F.isDeclaration())
-        userModuleFunctions.insert(&F);
+        UserModuleFunctions.insert(&F);
 
     const int EST_FUNCTIONS_NUM = 64;
     const int EST_GLOBALS_NUM = 64;
-    SmallPtrSet<GlobalValue*, EST_FUNCTIONS_NUM> usedFunctions;
-    SmallPtrSet<GlobalVariable*, EST_GLOBALS_NUM> usedGlobals;
+    SmallPtrSet<GlobalValue*, EST_FUNCTIONS_NUM> UsedFunctions;
+    SmallPtrSet<GlobalVariable*, EST_GLOBALS_NUM> UsedGlobals;
 
-    for (auto &F:M) {
-      ExploreUses(&F, m_runtimeModuleList, usedFunctions, usedGlobals);
+    for (auto &F : M) {
+      ExploreUses(&F, m_runtimeModuleList, UsedFunctions, UsedGlobals);
     }
 
-    size_t globalsNumBefore;
+    // Globals can have other function calls in their initializers,
+    // which can have other globals in their bodies, so we must loop
+    // until no new globals discovered.
+    size_t GlobalsNumBefore;
     do {
-      globalsNumBefore = usedGlobals.size();
-      for (auto GV:usedGlobals) {
+      GlobalsNumBefore = UsedGlobals.size();
+      for (auto GV : UsedGlobals) {
         if (GV->hasInitializer()) {
-          Constant *init = GV->getInitializer();
-          for (auto &operand : init->operands())
-            if (auto func = dyn_cast<Function>(operand))
+          Constant *Init = GV->getInitializer();
+          for (auto &Op : Init->operands())
+            if (auto func = dyn_cast<Function>(Op))
               ExploreUses(func, m_runtimeModuleList,
-                          usedFunctions, usedGlobals);
+                          UsedFunctions, UsedGlobals);
         }
       }
-    } while (globalsNumBefore < usedGlobals.size());
+    } while (GlobalsNumBefore < UsedGlobals.size());
 
     // We now known which globals and functions we need.
     // Lets clone rtl modules and filter out everything we don't need.
-    SmallVector<std::unique_ptr<Module>, 2> strippedRtlModules;
+    SmallVector<std::unique_ptr<Module>, 2> ClonedRtlModules;
     ValueToValueMapTy VMap;
-    for (auto rtl:m_runtimeModuleList) {
-      strippedRtlModules.push_back(
-        CloneModuleOnlyRequired(rtl, VMap, usedFunctions, usedGlobals));
+    for (auto RTL : m_runtimeModuleList) {
+      ClonedRtlModules.push_back(
+        CloneModuleOnlyRequired(RTL, VMap, UsedFunctions, UsedGlobals));
     }
 
-    for (const auto &rtl:strippedRtlModules) {
-      rtl->materializeAll();
+    for (const auto &RTL : ClonedRtlModules) {
+      RTL->materializeAll();
     }
 
     // now perform the linking itself
-    Linker ld(M);
+    Linker LD(M);
 
-    for (auto &rtl:strippedRtlModules) {
-      rtl->materializeAll();
+    for (auto &RTL : ClonedRtlModules) {
+      RTL->materializeAll();
 
       // Copy target triple from dst module to avoid linker warnings
       // FIXME: remove x86_64-pc-windows-gnu-elf triple on Linux
-      rtl->setTargetTriple(M.getTargetTriple());
-      rtl->setDataLayout(M.getDataLayout());
+      RTL->setTargetTriple(M.getTargetTriple());
+      RTL->setDataLayout(M.getDataLayout());
 
 
       // The flag Linker::OverrideFromSrc is needed as the same global
       // variable may be initialized in both modules.  It is an error
       // for the linker, but we don't care unless they initialized
       // with different values.
-      if (ld.linkInModule(std::move(rtl), Linker::OverrideFromSrc)) {
+      if (LD.linkInModule(std::move(RTL), Linker::OverrideFromSrc)) {
         assert(false && "Error linking builtin module!");
       }
     }
 
-
     // Allow removal of function from module after it is inlined
     for (auto &F : M)
-      if (!userModuleFunctions.count(&F) && !F.isDeclaration())
+      if (!UserModuleFunctions.count(&F) && !F.isDeclaration())
         F.setLinkage(GlobalVariable::LinkOnceODRLinkage);
 
     // At link time we have a shared.rtl (with common built-ins) compiled for

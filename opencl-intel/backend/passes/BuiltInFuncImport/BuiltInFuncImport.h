@@ -23,25 +23,25 @@ namespace intel {
   class BIImport : public ModulePass {
   protected:
     // Type used to hold a vector of Functions during traversal.
-    typedef std::vector<llvm::Function*>       TFunctionsVec;
+    typedef std::vector<llvm::Function *>       FunctionsVec;
 
     // Type used to hold a set of Functions during traversal.
-    typedef std::set<llvm::Function*>          TFunctionsSet;
+    typedef std::set<llvm::Function *>          FunctionsSet;
 
   public:
     // Pass identification, replacement for typeid.
     static char ID;
 
     /// @brief Constructor
-    BIImport(const char* CPUPrefix = "");
+    BIImport(const char *CPUPrefix = "");
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
       return "BIImport";
     }
 
-    /// @brief Main entry point.
-    ///        Find all builtins to import, and import them along with callees and globals.
+    /// @brief Main entry point. Find all builtins to import, and import them
+    ///        along with callees and globals.
     /// @param M The destination module.
     bool runOnModule(Module &M);
 
@@ -50,15 +50,17 @@ namespace intel {
     }
 
   protected:
-    /// @brief update svml function names from shared libraries to reflect cpu prefix
+    /// @brief update svml function names from shared libraries to
+    ///        reflect cpu prefix
     /// @param [IN] fn function to process
     /// @param [IN] pCPUPrefix prefix that will replace 'shared' substr
-    void UpdateSvmlBuiltinName(Function* fn, const char* pCPUPrefix) const;
+    void UpdateSvmlBuiltinName(Function *F, const char *CPUPrefix) const;
 
     /// @brief Get all the functions called by given function.
     /// @param [IN] pFunc The given function.
     /// @param [OUT] calledFuncs The list of all functions called by pFunc.
-    void GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs) const;
+    void GetCalledFunctions(const Function *Func,
+                            FunctionsVec &CalledFuncs) const;
 
     /// @brief Find all functions and global variables
     ///        from the \p Modules used by the function \p Root
@@ -71,15 +73,15 @@ namespace intel {
     /// @param [OUT] UsedFunctions functions used by the \p Root
     /// @param [OUT] UsedGlobals global variables used by the \p Root
     void ExploreUses(Function *Root,
-                     SmallVectorImpl<Module*> &Modules,
-                     SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
-                     SmallPtrSetImpl<GlobalVariable*> &UsedGlobals);
+                     SmallVectorImpl<Module *> &Modules,
+                     SmallPtrSetImpl<GlobalValue *> &UsedFunctions,
+                     SmallPtrSetImpl<GlobalVariable *> &UsedGlobals);
   protected:
     /// @brief holds cpu perfix that would replace 'shared' substr in svml funcs
     const std::string m_cpuPrefix;
 
     /// @brief Source module list - contains the source functions to import
-    SmallVector<Module*, 2> m_runtimeModuleList;
+    SmallVector<Module *, 2> m_runtimeModuleList;
   };
 
 } //namespace Intel {

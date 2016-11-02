@@ -17,7 +17,7 @@ using namespace llvm;
 
 static cl::list<std::string>
 RuntimeLib(cl::CommaSeparated, "runtimelib",
-                  cl::desc("Runtime declarations (bitCode) libraries (comma separated)"),
+                  cl::desc("Runtime declarations (bitcode) libraries (comma separated)"),
                   cl::value_desc("filename1,filename2"));
 
 // BIImport pass resolves svml calls of "shared" functions:
