@@ -360,6 +360,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 #endif
 
 	insertSWITCHForIf();
+        insertSWITCHForLoopExit();
 #if 0
   {
     errs() << "LPUCvtCFDFPass before xphi" << ":\n";
@@ -370,7 +371,6 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 	generateDynamicPreds();
 
 	insertSWITCHForRepeat();
-  insertSWITCHForLoopExit();
   replacePhiWithPICK();
   handleAllConstantInputs();
 #if 0
