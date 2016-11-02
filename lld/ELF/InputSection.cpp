@@ -67,8 +67,13 @@ typename ELFT::uint InputSectionBase<ELFT>::getOffset(uintX_t Offset) {
   case MipsReginfo:
   case MipsOptions:
     // MIPS .reginfo and .MIPS.options sections are consumed by the linker,
-    // so they should never be copied to output.
-    llvm_unreachable("MIPS reginfo/options section reached writeTo().");
+    // and the linker produces a single output section. It is possible that
+    // input files contain section symbol points to the corresponding input
+    // section. Redirect it to the produced output section.
+    if (Offset != 0)
+      fatal("Unsupported reference to the middle of '" + getSectionName() +
+            "' section");
+    return this->OutSec->getVA();
   }
   llvm_unreachable("invalid section kind");
 }
@@ -136,44 +141,16 @@ static uint64_t getAArch64Page(uint64_t Expr) {
   return Expr & (~static_cast<uint64_t>(0xFFF));
 }
 
-// For computing values, each R_RELAX_TLS_* corresponds to whatever expression
-// the target uses in the mode this is being relaxed into. For example, anything
-// that relaxes to LE just needs an R_TLS since that is what is used if we
-// had a local exec expression to begin with.
-static RelExpr getRelaxedExpr(RelExpr Expr) {
-  switch (Expr) {
-  default:
-    return Expr;
-  case R_RELAX_TLS_GD_TO_LE:
-    if (Config->EMachine == EM_386)
-      return R_NEG_TLS;
-    return R_TLS;
-  case R_RELAX_TLS_GD_TO_IE:
-    if (Config->EMachine == EM_386)
-      return R_GOT_FROM_END;
-    return R_GOT_PC;
-  case R_RELAX_TLS_IE_TO_LE:
-  case R_RELAX_TLS_LD_TO_LE:
-    return R_TLS;
-  }
-}
-
 template <class ELFT>
 static typename ELFT::uint
 getSymVA(uint32_t Type, typename ELFT::uint A, typename ELFT::uint P,
          const SymbolBody &Body, uint8_t *BufLoc,
          const elf::ObjectFile<ELFT> &File, RelExpr Expr) {
   typedef typename ELFT::uint uintX_t;
-  Expr = getRelaxedExpr(Expr);
 
   switch (Expr) {
   case R_HINT:
     llvm_unreachable("cannot relocate hint relocs");
-  case R_RELAX_TLS_GD_TO_LE:
-  case R_RELAX_TLS_GD_TO_IE:
-  case R_RELAX_TLS_IE_TO_LE:
-  case R_RELAX_TLS_LD_TO_LE:
-    llvm_unreachable("Should have been mapped");
   case R_TLSLD:
     return Out<ELFT>::Got->getTlsIndexOff() + A -
            Out<ELFT>::Got->getNumEntries() * sizeof(uintX_t);
@@ -188,6 +165,11 @@ getSymVA(uint32_t Type, typename ELFT::uint A, typename ELFT::uint P,
            Out<ELFT>::Got->getNumEntries() * sizeof(uintX_t);
   case R_TLSGD_PC:
     return Out<ELFT>::Got->getGlobalDynAddr(Body) + A - P;
+  case R_TLSDESC:
+    return Out<ELFT>::Got->getGlobalDynAddr(Body) + A;
+  case R_TLSDESC_PAGE:
+    return getAArch64Page(Out<ELFT>::Got->getGlobalDynAddr(Body) + A) -
+           getAArch64Page(P);
   case R_PLT:
     return Body.getPltVA<ELFT>() + A;
   case R_PLT_PC:
@@ -197,25 +179,34 @@ getSymVA(uint32_t Type, typename ELFT::uint A, typename ELFT::uint P,
     return Body.getSize<ELFT>() + A;
   case R_GOTREL:
     return Body.getVA<ELFT>(A) - Out<ELFT>::Got->getVA();
+  case R_RELAX_TLS_GD_TO_IE_END:
   case R_GOT_FROM_END:
     return Body.getGotOffset<ELFT>() + A -
            Out<ELFT>::Got->getNumEntries() * sizeof(uintX_t);
+  case R_RELAX_TLS_GD_TO_IE_ABS:
   case R_GOT:
     return Body.getGotVA<ELFT>() + A;
+  case R_RELAX_TLS_GD_TO_IE_PAGE_PC:
   case R_GOT_PAGE_PC:
     return getAArch64Page(Body.getGotVA<ELFT>() + A) - getAArch64Page(P);
+  case R_RELAX_TLS_GD_TO_IE:
   case R_GOT_PC:
     return Body.getGotVA<ELFT>() + A - P;
   case R_GOTONLY_PC:
     return Out<ELFT>::Got->getVA() + A - P;
+  case R_RELAX_TLS_LD_TO_LE:
+  case R_RELAX_TLS_IE_TO_LE:
+  case R_RELAX_TLS_GD_TO_LE:
   case R_TLS:
     if (Target->TcbSize)
       return Body.getVA<ELFT>(A) +
              alignTo(Target->TcbSize, Out<ELFT>::TlsPhdr->p_align);
     return Body.getVA<ELFT>(A) - Out<ELFT>::TlsPhdr->p_memsz;
+  case R_RELAX_TLS_GD_TO_LE_NEG:
   case R_NEG_TLS:
     return Out<ELF32LE>::TlsPhdr->p_memsz - Body.getVA<ELFT>(A);
   case R_ABS:
+  case R_RELAX_GOT_PC_NOPIC:
     return Body.getVA<ELFT>(A);
   case R_GOT_OFF:
     return Body.getGotOffset<ELFT>() + A;
@@ -250,7 +241,9 @@ getSymVA(uint32_t Type, typename ELFT::uint A, typename ELFT::uint P,
     return SymVA - P;
   }
   case R_PC:
+  case R_RELAX_GOT_PC:
     return Body.getVA<ELFT>(A) - P;
+  case R_PLT_PAGE_PC:
   case R_PAGE_PC:
     return getAArch64Page(Body.getVA<ELFT>(A)) - getAArch64Page(P);
   }
@@ -317,13 +310,11 @@ void InputSectionBase<ELFT>::relocate(uint8_t *Buf, uint8_t *BufEnd) {
     uint64_t SymVA = SignExtend64<Bits>(
         getSymVA<ELFT>(Type, A, AddrLoc, *Rel.Sym, BufLoc, *File, Expr));
 
-    if (Expr == R_PPC_PLT_OPD) {
-      uint32_t Nop = 0x60000000;
-      if (BufLoc + 8 <= BufEnd && read32be(BufLoc + 4) == Nop)
-        write32be(BufLoc + 4, 0xe8410028); // ld %r2, 40(%r1)
-    }
-
     switch (Expr) {
+    case R_RELAX_GOT_PC:
+    case R_RELAX_GOT_PC_NOPIC:
+      Target->relaxGot(BufLoc, SymVA);
+      break;
     case R_RELAX_TLS_IE_TO_LE:
       Target->relaxTlsIeToLe(BufLoc, Type, SymVA);
       break;
@@ -331,11 +322,20 @@ void InputSectionBase<ELFT>::relocate(uint8_t *Buf, uint8_t *BufEnd) {
       Target->relaxTlsLdToLe(BufLoc, Type, SymVA);
       break;
     case R_RELAX_TLS_GD_TO_LE:
+    case R_RELAX_TLS_GD_TO_LE_NEG:
       Target->relaxTlsGdToLe(BufLoc, Type, SymVA);
       break;
     case R_RELAX_TLS_GD_TO_IE:
+    case R_RELAX_TLS_GD_TO_IE_ABS:
+    case R_RELAX_TLS_GD_TO_IE_PAGE_PC:
+    case R_RELAX_TLS_GD_TO_IE_END:
       Target->relaxTlsGdToIe(BufLoc, Type, SymVA);
       break;
+    case R_PPC_PLT_OPD:
+      // Patch a nop (0x60000000) to a ld.
+      if (BufLoc + 8 <= BufEnd && read32be(BufLoc + 4) == 0x60000000)
+        write32be(BufLoc + 4, 0xe8410028); // ld %r2, 40(%r1)
+      // fallthrough
     default:
       Target->relocateOne(BufLoc, Type, SymVA);
       break;
@@ -415,10 +415,10 @@ void EhInputSection<ELFT>::split() {
   ArrayRef<uint8_t> Data = this->getSectionData();
   for (size_t Off = 0, End = Data.size(); Off != End;) {
     size_t Size = readEhRecordSize<ELFT>(Data.slice(Off));
+    this->Pieces.emplace_back(Off, Data.slice(Off, Size));
     // The empty record is the end marker.
     if (Size == 4)
       break;
-    this->Pieces.emplace_back(Off, Data.slice(Off, Size));
     Off += Size;
   }
 }
@@ -505,6 +505,7 @@ bool MergeInputSection<ELFT>::classof(const InputSectionBase<ELFT> *S) {
   return S->SectionKind == InputSectionBase<ELFT>::Merge;
 }
 
+// Do binary search to get a section piece at a given input offset.
 template <class ELFT>
 SectionPiece *SplitInputSection<ELFT>::getSectionPiece(uintX_t Offset) {
   ArrayRef<uint8_t> D = this->getSectionData();
@@ -521,23 +522,39 @@ SectionPiece *SplitInputSection<ELFT>::getSectionPiece(uintX_t Offset) {
   return &*I;
 }
 
+// Returns the offset in an output section for a given input offset.
+// Because contents of a mergeable section is not contiguous in output,
+// it is not just an addition to a base output offset.
 template <class ELFT>
 typename ELFT::uint MergeInputSection<ELFT>::getOffset(uintX_t Offset) {
+  auto It = OffsetMap.find(Offset);
+  if (It != OffsetMap.end())
+    return It->second;
+
+  // If Offset is not at beginning of a section piece, it is not in the map.
+  // In that case we need to search from the original section piece vector.
   SectionPiece &Piece = *this->getSectionPiece(Offset);
   assert(Piece.Live);
-
-  // Compute the Addend and if the Base is cached, return.
   uintX_t Addend = Offset - Piece.InputOff;
-  if (Piece.OutputOff != size_t(-1))
-    return Piece.OutputOff + Addend;
-
-  // Map the base to the offset in the output section and cache it.
-  ArrayRef<uint8_t> D = this->getSectionData();
-  StringRef Data((const char *)D.data(), D.size());
-  StringRef Entry = Data.substr(Piece.InputOff, Piece.size());
-  auto *MOS = static_cast<MergeOutputSection<ELFT> *>(this->OutSec);
-  Piece.OutputOff = MOS->getOffset(Entry);
   return Piece.OutputOff + Addend;
+}
+
+// Create a map from input offsets to output offsets for all section pieces.
+// It is called after finalize().
+template <class ELFT> void  MergeInputSection<ELFT>::finalizePieces() {
+  OffsetMap.grow(this->Pieces.size());
+  for (SectionPiece &Piece : this->Pieces) {
+    if (!Piece.Live)
+      continue;
+    if (Piece.OutputOff == size_t(-1)) {
+      // Offsets of tail-merged strings are computed lazily.
+      auto *OutSec = static_cast<MergeOutputSection<ELFT> *>(this->OutSec);
+      ArrayRef<uint8_t> D = Piece.data();
+      StringRef S((const char *)D.data(), D.size());
+      Piece.OutputOff = OutSec->getOffset(S);
+    }
+    OffsetMap[Piece.InputOff] = Piece.OutputOff;
+  }
 }
 
 template <class ELFT>

@@ -14,7 +14,12 @@ add_llvm_tool(llvm-pdbdump
   ExternalSymbolDumper.cpp
   FunctionDumper.cpp
   LinePrinter.cpp
+  LLVMOutputStyle.cpp
   TypeDumper.cpp
   TypedefDumper.cpp
   VariableDumper.cpp
   )
+
+if(LLVM_USE_SANITIZE_COVERAGE)
+  add_subdirectory(fuzzer)
+endif()

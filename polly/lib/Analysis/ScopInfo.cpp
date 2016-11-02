@@ -95,6 +95,7 @@ static cl::opt<unsigned> RunTimeChecksMaxArraysPerGroup(
     "polly-rtc-max-arrays-per-group",
     cl::desc("The maximal number of arrays to compare in each alias group."),
     cl::Hidden, cl::ZeroOrMore, cl::init(20), cl::cat(PollyCategory));
+
 static cl::opt<std::string> UserContextStr(
     "polly-context", cl::value_desc("isl parameter set"),
     cl::desc("Provide additional constraints on the context parameters"),
@@ -2044,6 +2045,9 @@ void Scop::realignParams() {
 
   for (ScopStmt &Stmt : *this)
     Stmt.realignParams();
+
+  // Simplify the schedule according to the context too.
+  Schedule = isl_schedule_gist_domain_params(Schedule, getContext());
 }
 
 static __isl_give isl_set *
@@ -2867,12 +2871,12 @@ bool Scop::hasNonHoistableBasePtrInScop(MemoryAccess *MA,
   return false;
 }
 
-void Scop::buildAliasChecks(AliasAnalysis &AA) {
+bool Scop::buildAliasChecks(AliasAnalysis &AA) {
   if (!PollyUseRuntimeAliasChecks)
-    return;
+    return true;
 
   if (buildAliasGroups(AA))
-    return;
+    return true;
 
   // If a problem occurs while building the alias groups we need to delete
   // this SCoP and pretend it wasn't valid in the first place. To this end
@@ -2885,6 +2889,7 @@ void Scop::buildAliasChecks(AliasAnalysis &AA) {
                   "dismissed.\nUse:\n\t--polly-rtc-max-parameters=X\nto adjust "
                   "the maximal number of parameters but be advised that the "
                   "compile time might increase exponentially.\n\n");
+  return false;
 }
 
 bool Scop::buildAliasGroups(AliasAnalysis &AA) {
@@ -3048,7 +3053,7 @@ bool Scop::buildAliasGroups(AliasAnalysis &AA) {
     // Bail out if the number of values we need to compare is too large.
     // This is important as the number of comparisions grows quadratically with
     // the number of values we need to compare.
-    if (!Valid || (MinMaxAccessesNonReadOnly.size() + !ReadOnlyPairs.empty() >
+    if (!Valid || (MinMaxAccessesNonReadOnly.size() + ReadOnlyPairs.size() >
                    RunTimeChecksMaxArraysPerGroup))
       return false;
 
@@ -3140,7 +3145,8 @@ void Scop::init(AliasAnalysis &AA, AssumptionCache &AC, DominatorTree &DT,
   addRecordedAssumptions();
 
   simplifyContexts();
-  buildAliasChecks(AA);
+  if (!buildAliasChecks(AA))
+    return;
 
   hoistInvariantLoads();
   verifyInvariantLoads();
@@ -4236,8 +4242,8 @@ int Scop::getRelativeLoopDepth(const Loop *L) const {
   return L->getLoopDepth() - OuterLoop->getLoopDepth();
 }
 
-void ScopInfo::buildPHIAccesses(PHINode *PHI, Region *NonAffineSubRegion,
-                                bool IsExitBlock) {
+void ScopBuilder::buildPHIAccesses(PHINode *PHI, Region *NonAffineSubRegion,
+                                   bool IsExitBlock) {
 
   // PHI nodes that are in the exit block of the region, hence if IsExitBlock is
   // true, are not modeled as ordinary PHI nodes as they are not part of the
@@ -4247,8 +4253,8 @@ void ScopInfo::buildPHIAccesses(PHINode *PHI, Region *NonAffineSubRegion,
   // If we can synthesize a PHI we can skip it, however only if it is in
   // the region. If it is not it can only be in the exit block of the region.
   // In this case we model the operands but not the PHI itself.
-  auto *Scope = LI->getLoopFor(PHI->getParent());
-  if (!IsExitBlock && canSynthesize(PHI, *scop, LI, SE, Scope))
+  auto *Scope = LI.getLoopFor(PHI->getParent());
+  if (!IsExitBlock && canSynthesize(PHI, *scop, &LI, &SE, Scope))
     return;
 
   // PHI nodes are modeled as if they had been demoted prior to the SCoP
@@ -4272,7 +4278,7 @@ void ScopInfo::buildPHIAccesses(PHINode *PHI, Region *NonAffineSubRegion,
   }
 }
 
-void ScopInfo::buildScalarDependences(Instruction *Inst) {
+void ScopBuilder::buildScalarDependences(Instruction *Inst) {
   assert(!isa<PHINode>(Inst));
 
   // Pull-in required operands.
@@ -4280,7 +4286,7 @@ void ScopInfo::buildScalarDependences(Instruction *Inst) {
     ensureValueRead(Op.get(), Inst->getParent());
 }
 
-void ScopInfo::buildEscapingDependences(Instruction *Inst) {
+void ScopBuilder::buildEscapingDependences(Instruction *Inst) {
   // Check for uses of this instruction outside the scop. Because we do not
   // iterate over such instructions and therefore did not "ensure" the existence
   // of a write, we must determine such use here.
@@ -4307,13 +4313,13 @@ void ScopInfo::buildEscapingDependences(Instruction *Inst) {
   }
 }
 
-bool ScopInfo::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
+bool ScopBuilder::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
   Value *Val = Inst.getValueOperand();
   Type *ElementType = Val->getType();
   Value *Address = Inst.getPointerOperand();
-  const SCEV *AccessFunction = SE->getSCEVAtScope(Address, L);
+  const SCEV *AccessFunction = SE.getSCEVAtScope(Address, L);
   const SCEVUnknown *BasePointer =
-      dyn_cast<SCEVUnknown>(SE->getPointerBase(AccessFunction));
+      dyn_cast<SCEVUnknown>(SE.getPointerBase(AccessFunction));
   enum MemoryAccess::AccessType AccType =
       isa<LoadInst>(Inst) ? MemoryAccess::READ : MemoryAccess::MUST_WRITE;
 
@@ -4327,8 +4333,8 @@ bool ScopInfo::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
       return false;
     }
     if (SrcTy->isPointerTy() && DstTy->isPointerTy() &&
-        DL->getTypeAllocSize(SrcTy->getPointerElementType()) ==
-            DL->getTypeAllocSize(DstTy->getPointerElementType()))
+        DL.getTypeAllocSize(SrcTy->getPointerElementType()) ==
+            DL.getTypeAllocSize(DstTy->getPointerElementType()))
       Address = Src;
   }
 
@@ -4338,7 +4344,7 @@ bool ScopInfo::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
 
   std::vector<const SCEV *> Subscripts;
   std::vector<int> Sizes;
-  std::tie(Subscripts, Sizes) = getIndexExpressionsFromGEP(GEP, *SE);
+  std::tie(Subscripts, Sizes) = getIndexExpressionsFromGEP(GEP, SE);
   auto *BasePtr = GEP->getOperand(0);
 
   if (auto *BasePtrCast = dyn_cast<BitCastInst>(BasePtr))
@@ -4354,7 +4360,7 @@ bool ScopInfo::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
   const InvariantLoadsSetTy &ScopRIL = scop->getRequiredInvariantLoads();
   for (auto *Subscript : Subscripts) {
     InvariantLoadsSetTy AccessILS;
-    if (!isAffineExpr(&scop->getRegion(), L, Subscript, *SE, &AccessILS))
+    if (!isAffineExpr(&scop->getRegion(), L, Subscript, SE, &AccessILS))
       return false;
 
     for (LoadInst *LInst : AccessILS)
@@ -4366,7 +4372,7 @@ bool ScopInfo::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
     return false;
 
   for (auto V : Sizes)
-    SizesSCEV.push_back(SE->getSCEV(
+    SizesSCEV.push_back(SE.getSCEV(
         ConstantInt::get(IntegerType::getInt64Ty(BasePtr->getContext()), V)));
 
   addArrayAccess(Inst, AccType, BasePointer->getValue(), ElementType, true,
@@ -4374,20 +4380,20 @@ bool ScopInfo::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
   return true;
 }
 
-bool ScopInfo::buildAccessMultiDimParam(MemAccInst Inst, Loop *L) {
+bool ScopBuilder::buildAccessMultiDimParam(MemAccInst Inst, Loop *L) {
   if (!PollyDelinearize)
     return false;
 
   Value *Address = Inst.getPointerOperand();
   Value *Val = Inst.getValueOperand();
   Type *ElementType = Val->getType();
-  unsigned ElementSize = DL->getTypeAllocSize(ElementType);
+  unsigned ElementSize = DL.getTypeAllocSize(ElementType);
   enum MemoryAccess::AccessType AccType =
       isa<LoadInst>(Inst) ? MemoryAccess::READ : MemoryAccess::MUST_WRITE;
 
-  const SCEV *AccessFunction = SE->getSCEVAtScope(Address, L);
+  const SCEV *AccessFunction = SE.getSCEVAtScope(Address, L);
   const SCEVUnknown *BasePointer =
-      dyn_cast<SCEVUnknown>(SE->getPointerBase(AccessFunction));
+      dyn_cast<SCEVUnknown>(SE.getPointerBase(AccessFunction));
 
   assert(BasePointer && "Could not find base pointer");
 
@@ -4416,20 +4422,20 @@ bool ScopInfo::buildAccessMultiDimParam(MemAccInst Inst, Loop *L) {
   return true;
 }
 
-bool ScopInfo::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
+bool ScopBuilder::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   auto *MemIntr = dyn_cast_or_null<MemIntrinsic>(Inst);
 
   if (MemIntr == nullptr)
     return false;
 
-  auto *LengthVal = SE->getSCEVAtScope(MemIntr->getLength(), L);
+  auto *LengthVal = SE.getSCEVAtScope(MemIntr->getLength(), L);
   assert(LengthVal);
 
   // Check if the length val is actually affine or if we overapproximate it
   InvariantLoadsSetTy AccessILS;
   const InvariantLoadsSetTy &ScopRIL = scop->getRequiredInvariantLoads();
   bool LengthIsAffine =
-      isAffineExpr(&scop->getRegion(), L, LengthVal, *SE, &AccessILS);
+      isAffineExpr(&scop->getRegion(), L, LengthVal, SE, &AccessILS);
   for (LoadInst *LInst : AccessILS)
     if (!ScopRIL.count(LInst))
       LengthIsAffine = false;
@@ -4439,7 +4445,7 @@ bool ScopInfo::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   auto *DestPtrVal = MemIntr->getDest();
   assert(DestPtrVal);
 
-  auto *DestAccFunc = SE->getSCEVAtScope(DestPtrVal, L);
+  auto *DestAccFunc = SE.getSCEVAtScope(DestPtrVal, L);
   assert(DestAccFunc);
   // Ignore accesses to "NULL".
   // TODO: We could use this to optimize the region further, e.g., intersect
@@ -4449,9 +4455,9 @@ bool ScopInfo::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   if (DestAccFunc->isZero())
     return true;
 
-  auto *DestPtrSCEV = dyn_cast<SCEVUnknown>(SE->getPointerBase(DestAccFunc));
+  auto *DestPtrSCEV = dyn_cast<SCEVUnknown>(SE.getPointerBase(DestAccFunc));
   assert(DestPtrSCEV);
-  DestAccFunc = SE->getMinusSCEV(DestAccFunc, DestPtrSCEV);
+  DestAccFunc = SE.getMinusSCEV(DestAccFunc, DestPtrSCEV);
   addArrayAccess(Inst, MemoryAccess::MUST_WRITE, DestPtrSCEV->getValue(),
                  IntegerType::getInt8Ty(DestPtrVal->getContext()), false,
                  {DestAccFunc, LengthVal}, {}, Inst.getValueOperand());
@@ -4463,16 +4469,16 @@ bool ScopInfo::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   auto *SrcPtrVal = MemTrans->getSource();
   assert(SrcPtrVal);
 
-  auto *SrcAccFunc = SE->getSCEVAtScope(SrcPtrVal, L);
+  auto *SrcAccFunc = SE.getSCEVAtScope(SrcPtrVal, L);
   assert(SrcAccFunc);
   // Ignore accesses to "NULL".
   // TODO: See above TODO
   if (SrcAccFunc->isZero())
     return true;
 
-  auto *SrcPtrSCEV = dyn_cast<SCEVUnknown>(SE->getPointerBase(SrcAccFunc));
+  auto *SrcPtrSCEV = dyn_cast<SCEVUnknown>(SE.getPointerBase(SrcAccFunc));
   assert(SrcPtrSCEV);
-  SrcAccFunc = SE->getMinusSCEV(SrcAccFunc, SrcPtrSCEV);
+  SrcAccFunc = SE.getMinusSCEV(SrcAccFunc, SrcPtrSCEV);
   addArrayAccess(Inst, MemoryAccess::READ, SrcPtrSCEV->getValue(),
                  IntegerType::getInt8Ty(SrcPtrVal->getContext()), false,
                  {SrcAccFunc, LengthVal}, {}, Inst.getValueOperand());
@@ -4480,7 +4486,7 @@ bool ScopInfo::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   return true;
 }
 
-bool ScopInfo::buildAccessCallInst(MemAccInst Inst, Loop *L) {
+bool ScopBuilder::buildAccessCallInst(MemAccInst Inst, Loop *L) {
   auto *CI = dyn_cast_or_null<CallInst>(Inst);
 
   if (CI == nullptr)
@@ -4490,9 +4496,9 @@ bool ScopInfo::buildAccessCallInst(MemAccInst Inst, Loop *L) {
     return true;
 
   bool ReadOnly = false;
-  auto *AF = SE->getConstant(IntegerType::getInt64Ty(CI->getContext()), 0);
+  auto *AF = SE.getConstant(IntegerType::getInt64Ty(CI->getContext()), 0);
   auto *CalledFunction = CI->getCalledFunction();
-  switch (AA->getModRefBehavior(CalledFunction)) {
+  switch (AA.getModRefBehavior(CalledFunction)) {
   case llvm::FMRB_UnknownModRefBehavior:
     llvm_unreachable("Unknown mod ref behaviour cannot be represented.");
   case llvm::FMRB_DoesNotAccessMemory:
@@ -4509,11 +4515,11 @@ bool ScopInfo::buildAccessCallInst(MemAccInst Inst, Loop *L) {
       if (!Arg->getType()->isPointerTy())
         continue;
 
-      auto *ArgSCEV = SE->getSCEVAtScope(Arg, L);
+      auto *ArgSCEV = SE.getSCEVAtScope(Arg, L);
       if (ArgSCEV->isZero())
         continue;
 
-      auto *ArgBasePtr = cast<SCEVUnknown>(SE->getPointerBase(ArgSCEV));
+      auto *ArgBasePtr = cast<SCEVUnknown>(SE.getPointerBase(ArgSCEV));
       addArrayAccess(Inst, AccType, ArgBasePtr->getValue(),
                      ArgBasePtr->getType(), false, {AF}, {}, CI);
     }
@@ -4523,19 +4529,19 @@ bool ScopInfo::buildAccessCallInst(MemAccInst Inst, Loop *L) {
   return true;
 }
 
-void ScopInfo::buildAccessSingleDim(MemAccInst Inst, Loop *L) {
+void ScopBuilder::buildAccessSingleDim(MemAccInst Inst, Loop *L) {
   Value *Address = Inst.getPointerOperand();
   Value *Val = Inst.getValueOperand();
   Type *ElementType = Val->getType();
   enum MemoryAccess::AccessType AccType =
       isa<LoadInst>(Inst) ? MemoryAccess::READ : MemoryAccess::MUST_WRITE;
 
-  const SCEV *AccessFunction = SE->getSCEVAtScope(Address, L);
+  const SCEV *AccessFunction = SE.getSCEVAtScope(Address, L);
   const SCEVUnknown *BasePointer =
-      dyn_cast<SCEVUnknown>(SE->getPointerBase(AccessFunction));
+      dyn_cast<SCEVUnknown>(SE.getPointerBase(AccessFunction));
 
   assert(BasePointer && "Could not find base pointer");
-  AccessFunction = SE->getMinusSCEV(AccessFunction, BasePointer);
+  AccessFunction = SE.getMinusSCEV(AccessFunction, BasePointer);
 
   // Check if the access depends on a loop contained in a non-affine subregion.
   bool isVariantInNonAffineLoop = false;
@@ -4549,7 +4555,7 @@ void ScopInfo::buildAccessSingleDim(MemAccInst Inst, Loop *L) {
   InvariantLoadsSetTy AccessILS;
   bool IsAffine =
       !isVariantInNonAffineLoop &&
-      isAffineExpr(&scop->getRegion(), L, AccessFunction, *SE, &AccessILS);
+      isAffineExpr(&scop->getRegion(), L, AccessFunction, SE, &AccessILS);
 
   const InvariantLoadsSetTy &ScopRIL = scop->getRequiredInvariantLoads();
   for (LoadInst *LInst : AccessILS)
@@ -4563,7 +4569,7 @@ void ScopInfo::buildAccessSingleDim(MemAccInst Inst, Loop *L) {
                  {AccessFunction}, {}, Val);
 }
 
-void ScopInfo::buildMemoryAccess(MemAccInst Inst, Loop *L) {
+void ScopBuilder::buildMemoryAccess(MemAccInst Inst, Loop *L) {
 
   if (buildAccessMemIntrinsic(Inst, L))
     return;
@@ -4580,7 +4586,7 @@ void ScopInfo::buildMemoryAccess(MemAccInst Inst, Loop *L) {
   buildAccessSingleDim(Inst, L);
 }
 
-void ScopInfo::buildAccessFunctions(Region &SR) {
+void ScopBuilder::buildAccessFunctions(Region &SR) {
 
   if (scop->isNonAffineSubRegion(&SR)) {
     for (BasicBlock *BB : SR.blocks())
@@ -4595,7 +4601,7 @@ void ScopInfo::buildAccessFunctions(Region &SR) {
       buildAccessFunctions(*I->getNodeAs<BasicBlock>());
 }
 
-void ScopInfo::buildStmts(Region &SR) {
+void ScopBuilder::buildStmts(Region &SR) {
 
   if (scop->isNonAffineSubRegion(&SR)) {
     scop->addScopStmt(nullptr, &SR);
@@ -4609,14 +4615,15 @@ void ScopInfo::buildStmts(Region &SR) {
       scop->addScopStmt(I->getNodeAs<BasicBlock>(), nullptr);
 }
 
-void ScopInfo::buildAccessFunctions(BasicBlock &BB, Region *NonAffineSubRegion,
-                                    bool IsExitBlock) {
+void ScopBuilder::buildAccessFunctions(BasicBlock &BB,
+                                       Region *NonAffineSubRegion,
+                                       bool IsExitBlock) {
   // We do not build access functions for error blocks, as they may contain
   // instructions we can not model.
-  if (isErrorBlock(BB, scop->getRegion(), *LI, *DT) && !IsExitBlock)
+  if (isErrorBlock(BB, scop->getRegion(), LI, DT) && !IsExitBlock)
     return;
 
-  Loop *L = LI->getLoopFor(&BB);
+  Loop *L = LI.getLoopFor(&BB);
 
   for (Instruction &Inst : BB) {
     PHINode *PHI = dyn_cast<PHINode>(&Inst);
@@ -4645,13 +4652,11 @@ void ScopInfo::buildAccessFunctions(BasicBlock &BB, Region *NonAffineSubRegion,
   }
 }
 
-MemoryAccess *ScopInfo::addMemoryAccess(BasicBlock *BB, Instruction *Inst,
-                                        MemoryAccess::AccessType AccType,
-                                        Value *BaseAddress, Type *ElementType,
-                                        bool Affine, Value *AccessValue,
-                                        ArrayRef<const SCEV *> Subscripts,
-                                        ArrayRef<const SCEV *> Sizes,
-                                        ScopArrayInfo::MemoryKind Kind) {
+MemoryAccess *ScopBuilder::addMemoryAccess(
+    BasicBlock *BB, Instruction *Inst, MemoryAccess::AccessType AccType,
+    Value *BaseAddress, Type *ElementType, bool Affine, Value *AccessValue,
+    ArrayRef<const SCEV *> Subscripts, ArrayRef<const SCEV *> Sizes,
+    ScopArrayInfo::MemoryKind Kind) {
   ScopStmt *Stmt = scop->getStmtFor(BB);
 
   // Do not create a memory access for anything not in the SCoP. It would be
@@ -4674,7 +4679,7 @@ MemoryAccess *ScopInfo::addMemoryAccess(BasicBlock *BB, Instruction *Inst,
     // executed. In non-affine regions there may exist MK_Values that do not
     // dominate the exit. MK_Values will always dominate the exit and MK_PHIs
     // only if there is at most one PHI_WRITE in the non-affine region.
-    if (DT->dominates(BB, Stmt->getRegion()->getExit()))
+    if (DT.dominates(BB, Stmt->getRegion()->getExit()))
       isKnownMustAccess = true;
   }
 
@@ -4693,19 +4698,17 @@ MemoryAccess *ScopInfo::addMemoryAccess(BasicBlock *BB, Instruction *Inst,
   return &AccList.back();
 }
 
-void ScopInfo::addArrayAccess(MemAccInst MemAccInst,
-                              MemoryAccess::AccessType AccType,
-                              Value *BaseAddress, Type *ElementType,
-                              bool IsAffine, ArrayRef<const SCEV *> Subscripts,
-                              ArrayRef<const SCEV *> Sizes,
-                              Value *AccessValue) {
+void ScopBuilder::addArrayAccess(
+    MemAccInst MemAccInst, MemoryAccess::AccessType AccType, Value *BaseAddress,
+    Type *ElementType, bool IsAffine, ArrayRef<const SCEV *> Subscripts,
+    ArrayRef<const SCEV *> Sizes, Value *AccessValue) {
   ArrayBasePointers.insert(BaseAddress);
   addMemoryAccess(MemAccInst->getParent(), MemAccInst, AccType, BaseAddress,
                   ElementType, IsAffine, AccessValue, Subscripts, Sizes,
                   ScopArrayInfo::MK_Array);
 }
 
-void ScopInfo::ensureValueWrite(Instruction *Inst) {
+void ScopBuilder::ensureValueWrite(Instruction *Inst) {
   ScopStmt *Stmt = scop->getStmtFor(Inst);
 
   // Inst not defined within this SCoP.
@@ -4721,7 +4724,7 @@ void ScopInfo::ensureValueWrite(Instruction *Inst) {
                   ArrayRef<const SCEV *>(), ScopArrayInfo::MK_Value);
 }
 
-void ScopInfo::ensureValueRead(Value *V, BasicBlock *UserBB) {
+void ScopBuilder::ensureValueRead(Value *V, BasicBlock *UserBB) {
 
   // There cannot be an "access" for literal constants. BasicBlock references
   // (jump destinations) also never change.
@@ -4730,8 +4733,8 @@ void ScopInfo::ensureValueRead(Value *V, BasicBlock *UserBB) {
 
   // If the instruction can be synthesized and the user is in the region we do
   // not need to add a value dependences.
-  auto *Scope = LI->getLoopFor(UserBB);
-  if (canSynthesize(V, *scop, LI, SE, Scope))
+  auto *Scope = LI.getLoopFor(UserBB);
+  if (canSynthesize(V, *scop, &LI, &SE, Scope))
     return;
 
   // Do not build scalar dependences for required invariant loads as we will
@@ -4776,8 +4779,8 @@ void ScopInfo::ensureValueRead(Value *V, BasicBlock *UserBB) {
     ensureValueWrite(ValueInst);
 }
 
-void ScopInfo::ensurePHIWrite(PHINode *PHI, BasicBlock *IncomingBlock,
-                              Value *IncomingValue, bool IsExitBlock) {
+void ScopBuilder::ensurePHIWrite(PHINode *PHI, BasicBlock *IncomingBlock,
+                                 Value *IncomingValue, bool IsExitBlock) {
   // As the incoming block might turn out to be an error statement ensure we
   // will create an exit PHI SAI object. It is needed during code generation
   // and would be created later anyway.
@@ -4812,14 +4815,14 @@ void ScopInfo::ensurePHIWrite(PHINode *PHI, BasicBlock *IncomingBlock,
   Acc->addIncoming(IncomingBlock, IncomingValue);
 }
 
-void ScopInfo::addPHIReadAccess(PHINode *PHI) {
+void ScopBuilder::addPHIReadAccess(PHINode *PHI) {
   addMemoryAccess(PHI->getParent(), PHI, MemoryAccess::READ, PHI,
                   PHI->getType(), true, PHI, ArrayRef<const SCEV *>(),
                   ArrayRef<const SCEV *>(), ScopArrayInfo::MK_PHI);
 }
 
-void ScopInfo::buildScop(Region &R, AssumptionCache &AC) {
-  scop.reset(new Scop(R, *SE, *LI, *SD->getDetectionContext(&R)));
+void ScopBuilder::buildScop(Region &R, AssumptionCache &AC) {
+  scop.reset(new Scop(R, SE, LI, *SD.getDetectionContext(&R)));
 
   buildStmts(R);
   buildAccessFunctions(R);
@@ -4836,55 +4839,21 @@ void ScopInfo::buildScop(Region &R, AssumptionCache &AC) {
                          /* IsExitBlock */ true);
 
   // Create memory accesses for global reads since all arrays are now known.
-  auto *AF = SE->getConstant(IntegerType::getInt64Ty(SE->getContext()), 0);
+  auto *AF = SE.getConstant(IntegerType::getInt64Ty(SE.getContext()), 0);
   for (auto *GlobalRead : GlobalReads)
     for (auto *BP : ArrayBasePointers)
       addArrayAccess(MemAccInst(GlobalRead), MemoryAccess::READ, BP,
                      BP->getType(), false, {AF}, {}, GlobalRead);
 
-  scop->init(*AA, AC, *DT, *LI);
+  scop->init(AA, AC, DT, LI);
 }
 
-void ScopInfo::print(raw_ostream &OS, const Module *) const {
-  if (!scop) {
-    OS << "Invalid Scop!\n";
-    return;
-  }
-
-  scop->print(OS);
-}
-
-void ScopInfo::clear() { scop.reset(); }
-
-//===----------------------------------------------------------------------===//
-ScopInfo::ScopInfo() : RegionPass(ID) {}
-
-ScopInfo::~ScopInfo() { clear(); }
-
-void ScopInfo::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<LoopInfoWrapperPass>();
-  AU.addRequired<RegionInfoPass>();
-  AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<ScopDetection>();
-  AU.addRequired<AAResultsWrapperPass>();
-  AU.addRequired<AssumptionCacheTracker>();
-  AU.setPreservesAll();
-}
-
-bool ScopInfo::runOnRegion(Region *R, RGPassManager &RGM) {
-  SD = &getAnalysis<ScopDetection>();
-
-  if (!SD->isMaxRegionInScop(*R))
-    return false;
+ScopBuilder::ScopBuilder(Region *R, AssumptionCache &AC, AliasAnalysis &AA,
+                         const DataLayout &DL, DominatorTree &DT, LoopInfo &LI,
+                         ScopDetection &SD, ScalarEvolution &SE)
+    : AA(AA), DL(DL), DT(DT), LI(LI), SD(SD), SE(SE) {
 
   Function *F = R->getEntry()->getParent();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DL = &F->getParent()->getDataLayout();
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
 
   DebugLoc Beg, End;
   getDebugLocations(getBBPairForRegion(R), Beg, End);
@@ -4906,15 +4875,56 @@ bool ScopInfo::runOnRegion(Region *R, RGPassManager &RGM) {
   }
 
   emitOptimizationRemarkAnalysis(F->getContext(), DEBUG_TYPE, *F, End, Msg);
+}
 
+void ScopBuilder::clear() { scop.reset(); }
+
+//===----------------------------------------------------------------------===//
+void ScopInfoRegionPass::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<RegionInfoPass>();
+  AU.addRequired<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
+  AU.addRequiredTransitive<ScopDetection>();
+  AU.addRequired<AAResultsWrapperPass>();
+  AU.addRequired<AssumptionCacheTracker>();
+  AU.setPreservesAll();
+}
+
+bool ScopInfoRegionPass::runOnRegion(Region *R, RGPassManager &RGM) {
+  auto &SD = getAnalysis<ScopDetection>();
+
+  if (!SD.isMaxRegionInScop(*R))
+    return false;
+
+  Function *F = R->getEntry()->getParent();
+  auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
+  auto const &DL = F->getParent()->getDataLayout();
+  auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
+
+  SI.reset(new ScopBuilder(R, AC, AA, DL, DT, LI, SD, SE));
   return false;
 }
 
-char ScopInfo::ID = 0;
+void ScopInfoRegionPass::print(raw_ostream &OS, const Module *) const {
+  Scop *scop;
+  if (SI) {
+    if ((scop = SI->getScop())) {
+      scop->print(OS);
+      return;
+    }
+  }
+  OS << "Invalid Scop!\n";
+}
 
-Pass *polly::createScopInfoPass() { return new ScopInfo(); }
+char ScopInfoRegionPass::ID = 0;
 
-INITIALIZE_PASS_BEGIN(ScopInfo, "polly-scops",
+Pass *polly::createScopInfoRegionPassPass() { return new ScopInfoRegionPass(); }
+
+INITIALIZE_PASS_BEGIN(ScopInfoRegionPass, "polly-scops",
                       "Polly - Create polyhedral description of Scops", false,
                       false);
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass);
@@ -4924,6 +4934,6 @@ INITIALIZE_PASS_DEPENDENCY(RegionInfoPass);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(ScopDetection);
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass);
-INITIALIZE_PASS_END(ScopInfo, "polly-scops",
+INITIALIZE_PASS_END(ScopInfoRegionPass, "polly-scops",
                     "Polly - Create polyhedral description of Scops", false,
                     false)

@@ -101,19 +101,26 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   };
   FunctionInfo *CurFn;
 
+  /// The set of comdat .debug$S sections that we've seen so far. Each section
+  /// must start with a magic version number that must only be emitted once.
+  /// This set tracks which sections we've already opened.
+  DenseSet<MCSectionCOFF *> ComdatDebugSections;
+
+  /// Switch to the appropriate .debug$S section for GVSym. If GVSym, the symbol
+  /// of an emitted global value, is in a comdat COFF section, this will switch
+  /// to a new .debug$S section in that comdat. This method ensures that the
+  /// section starts with the magic version number on first use. If GVSym is
+  /// null, uses the main .debug$S section.
+  void switchToDebugSectionForSymbol(const MCSymbol *GVSym);
+
   /// The next available function index for use with our .cv_* directives. Not
   /// to be confused with type indices for LF_FUNC_ID records.
   unsigned NextFuncId = 0;
 
-  codeview::TypeIndex VoidFnTyIdx;
-
-  /// Get a type index for a generic void function type.
-  codeview::TypeIndex getGenericFunctionTypeIndex();
-
   InlineSite &getInlineSite(const DILocation *InlinedAt,
                             const DISubprogram *Inlinee);
 
-  void recordFuncIdForSubprogram(const DISubprogram *SP);
+  codeview::TypeIndex getFuncIdForSubprogram(const DISubprogram *SP);
 
   static void collectInlineSiteChildren(SmallVectorImpl<unsigned> &Children,
                                         const FunctionInfo &FI,
@@ -133,6 +140,10 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   /// DIType* and DISubprogram*.
   DenseMap<const DINode *, codeview::TypeIndex> TypeIndices;
 
+  /// Map from DICompositeType* to complete type index. Non-record types are
+  /// always looked up in the normal TypeIndices map.
+  DenseMap<const DICompositeType *, codeview::TypeIndex> CompleteTypeIndices;
+
   typedef std::map<const DIFile *, std::string> FileToFilepathMapTy;
   FileToFilepathMapTy FileToFilepathMap;
   StringRef getFullFilepath(const DIFile *S);
@@ -148,9 +159,13 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
     FileToFilepathMap.clear();
   }
 
+  /// Emit the magic version number at the start of a CodeView type or symbol
+  /// section. Appears at the front of every .debug$S or .debug$T section.
+  void emitCodeViewMagicVersion();
+
   void emitTypeInformation();
 
-  void emitInlineeFuncIdsAndLines();
+  void emitInlineeLinesSubsection();
 
   void emitDebugInfoForFunction(const Function *GV, FunctionInfo &FI);
 
@@ -168,6 +183,39 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   void recordLocalVariable(LocalVariable &&Var, const DILocation *Loc);
 
   void emitLocalVariable(const LocalVariable &Var);
+
+  /// Translates the DIType to codeview if necessary and returns a type index
+  /// for it.
+  codeview::TypeIndex getTypeIndex(DITypeRef TypeRef);
+
+  codeview::TypeIndex lowerType(const DIType *Ty);
+  codeview::TypeIndex lowerTypeAlias(const DIDerivedType *Ty);
+  codeview::TypeIndex lowerTypeBasic(const DIBasicType *Ty);
+  codeview::TypeIndex lowerTypePointer(const DIDerivedType *Ty);
+  codeview::TypeIndex lowerTypeMemberPointer(const DIDerivedType *Ty);
+  codeview::TypeIndex lowerTypeModifier(const DIDerivedType *Ty);
+  codeview::TypeIndex lowerTypeFunction(const DISubroutineType *Ty);
+  codeview::TypeIndex lowerTypeClass(const DICompositeType *Ty);
+  codeview::TypeIndex lowerTypeUnion(const DICompositeType *Ty);
+
+  /// Symbol records should point to complete types, but type records should
+  /// always point to incomplete types to avoid cycles in the type graph. Only
+  /// use this entry point when generating symbol records. The complete and
+  /// incomplete type indices only differ for record types. All other types use
+  /// the same index.
+  codeview::TypeIndex getCompleteTypeIndex(DITypeRef TypeRef);
+
+  codeview::TypeIndex lowerCompleteTypeClass(const DICompositeType *Ty);
+  codeview::TypeIndex lowerCompleteTypeUnion(const DICompositeType *Ty);
+
+  /// Common record member lowering functionality for record types, which are
+  /// structs, classes, and unions. Returns the field list index and the member
+  /// count.
+  std::pair<codeview::TypeIndex, unsigned>
+  lowerRecordFieldList(const DICompositeType *Ty);
+
+  /// Inserts {Node, TI} into TypeIndices and checks for duplicates.
+  void recordTypeIndexForDINode(const DINode *Node, codeview::TypeIndex TI);
 
 public:
   CodeViewDebug(AsmPrinter *Asm);

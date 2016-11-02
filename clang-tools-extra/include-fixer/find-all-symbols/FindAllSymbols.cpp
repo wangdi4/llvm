@@ -9,6 +9,7 @@
 
 #include "FindAllSymbols.h"
 #include "HeaderMapCollector.h"
+#include "PathConfig.h"
 #include "SymbolInfo.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
@@ -92,18 +93,11 @@ CreateSymbolInfo(const NamedDecl *ND, const SourceManager &SM,
                  << ") has invalid declaration location.";
     return llvm::None;
   }
-  llvm::StringRef FilePath = SM.getFilename(Loc);
-  if (FilePath.empty())
-    return llvm::None;
 
-  // If Collector is not nullptr, check pragma remapping header.
-  if (Collector) {
-    auto Iter = Collector->getHeaderMappingTable().find(FilePath);
-    if (Iter != Collector->getHeaderMappingTable().end())
-      FilePath = Iter->second;
-  }
+  std::string FilePath = getIncludePath(SM, Loc, Collector);
+  if (FilePath.empty()) return llvm::None;
 
-  return SymbolInfo(ND->getNameAsString(), Type, FilePath.str(),
+  return SymbolInfo(ND->getNameAsString(), Type, FilePath,
                     SM.getExpansionLineNumber(Loc), GetContexts(ND));
 }
 

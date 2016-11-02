@@ -336,7 +336,7 @@ public:
   }
 
   // Return true if any runtime check is added.
-  bool IsSafetyChecksAdded() { return AddedSafetyChecks; }
+  bool areSafetyChecksAdded() { return AddedSafetyChecks; }
 
   virtual ~InnerLoopVectorizer() {}
 
@@ -421,6 +421,14 @@ protected:
   /// Step is a SCEV. In order to get StepValue it takes the existing value
   /// from SCEV or creates a new using SCEVExpander.
   virtual Value *getStepVector(Value *Val, int StartIdx, const SCEV *Step);
+
+  /// Create a vector induction variable based on an existing scalar one.
+  /// Currently only works for integer primary induction variables with
+  /// a constant step.
+  /// If TruncType is provided, instead of widening the original IV, we
+  /// widen a version of the IV truncated to TruncType.
+  void widenInductionVariable(const InductionDescriptor &II, VectorParts &Entry,
+                              IntegerType *TruncType = nullptr);
 
   /// When we go over instructions in the basic block we rely on previous
   /// values within the current basic block or on loop invariant values.
@@ -586,7 +594,7 @@ protected:
   MapVector<Instruction *, uint64_t> MinBWs;
   LoopVectorizationLegality *Legal;
 
-  // Record whether runtime check is added.
+  // Record whether runtime checks are added.
   bool AddedSafetyChecks;
 };
 
@@ -1314,7 +1322,7 @@ public:
   /// to be vectorized.
   bool blockNeedsPredication(BasicBlock *BB);
 
-  /// Check if this  pointer is consecutive when vectorizing. This happens
+  /// Check if this pointer is consecutive when vectorizing. This happens
   /// when the last index of the GEP is the induction variable, or that the
   /// pointer itself is an induction variable.
   /// This check allows us to vectorize A[idx] into a wide load/store.
@@ -2013,7 +2021,7 @@ struct LoopVectorize : public FunctionPass {
 
     if (!VectorizeLoop) {
       assert(IC > 1 && "interleave count should not be 1 or 0");
-      // If we decided that it is not legal to vectorize the loop then
+      // If we decided that it is not legal to vectorize the loop, then
       // interleave it.
       InnerLoopUnroller Unroller(L, PSE, LI, DT, TLI, TTI, AC, IC);
       Unroller.vectorize(&LVL, CM.MinBWs);
@@ -2022,15 +2030,15 @@ struct LoopVectorize : public FunctionPass {
                              Twine("interleaved loop (interleaved count: ") +
                                  Twine(IC) + ")");
     } else {
-      // If we decided that it is *legal* to vectorize the loop then do it.
+      // If we decided that it is *legal* to vectorize the loop, then do it.
       InnerLoopVectorizer LB(L, PSE, LI, DT, TLI, TTI, AC, VF.Width, IC);
       LB.vectorize(&LVL, CM.MinBWs);
       ++LoopsVectorized;
 
-      // Add metadata to disable runtime unrolling scalar loop when there's no
-      // runtime check about strides and memory. Because at this situation,
-      // scalar loop is rarely used not worthy to be unrolled.
-      if (!LB.IsSafetyChecksAdded())
+      // Add metadata to disable runtime unrolling a scalar loop when there are
+      // no runtime checks about strides and memory. A scalar loop that is
+      // rarely used is not worth unrolling.
+      if (!LB.areSafetyChecksAdded())
         AddRuntimeUnrollDisableMetaData(L);
 
       // Report the vectorization decision.
@@ -2099,6 +2107,40 @@ Value *InnerLoopVectorizer::getStepVector(Value *Val, int StartIdx,
   return getStepVector(Val, StartIdx, StepValue);
 }
 
+void InnerLoopVectorizer::widenInductionVariable(const InductionDescriptor &II,
+                                                 VectorParts &Entry,
+                                                 IntegerType *TruncType) {
+  Value *Start = II.getStartValue();
+  ConstantInt *Step = II.getConstIntStepValue();
+  assert(Step && "Can not widen an IV with a non-constant step");
+
+  // Construct the initial value of the vector IV in the vector loop preheader
+  auto CurrIP = Builder.saveIP();
+  Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
+  if (TruncType) {
+    Step = ConstantInt::getSigned(TruncType, Step->getSExtValue());
+    Start = Builder.CreateCast(Instruction::Trunc, Start, TruncType);
+  }
+  Value *SplatStart = Builder.CreateVectorSplat(VF, Start);
+  Value *SteppedStart = getStepVector(SplatStart, 0, Step);
+  Builder.restoreIP(CurrIP);
+
+  Value *SplatVF =
+      ConstantVector::getSplat(VF, ConstantInt::get(Start->getType(), VF));
+  // We may need to add the step a number of times, depending on the unroll
+  // factor. The last of those goes into the PHI.
+  PHINode *VecInd = PHINode::Create(SteppedStart->getType(), 2, "vec.ind",
+                                    &*LoopVectorBody->getFirstInsertionPt());
+  Value *LastInduction = VecInd;
+  for (unsigned Part = 0; Part < UF; ++Part) {
+    Entry[Part] = LastInduction;
+    LastInduction = Builder.CreateAdd(LastInduction, SplatVF, "step.add");
+  }
+
+  VecInd->addIncoming(SteppedStart, LoopVectorPreHeader);
+  VecInd->addIncoming(LastInduction, LoopVectorBody);
+}
+
 Value *InnerLoopVectorizer::getStepVector(Value *Val, int StartIdx,
                                           Value *Step) {
   assert(Val->getType()->isVectorTy() && "Must be a vector");
@@ -2134,7 +2176,7 @@ int LoopVectorizationLegality::isConsecutivePtr(Value *Ptr) {
   if (Ptr->getType()->getPointerElementType()->isAggregateType())
     return 0;
 
-  // If this value is a pointer induction variable we know it is consecutive.
+  // If this value is a pointer induction variable, we know it is consecutive.
   PHINode *Phi = dyn_cast_or_null<PHINode>(Ptr);
   if (Phi && Inductions.count(Phi)) {
     InductionDescriptor II = Inductions[Phi];
@@ -2148,7 +2190,7 @@ int LoopVectorizationLegality::isConsecutivePtr(Value *Ptr) {
   unsigned NumOperands = Gep->getNumOperands();
   Value *GpPtr = Gep->getPointerOperand();
   // If this GEP value is a consecutive pointer induction variable and all of
-  // the indices are constant then we know it is consecutive. We can
+  // the indices are constant, then we know it is consecutive.
   Phi = dyn_cast<PHINode>(GpPtr);
   if (Phi && Inductions.count(Phi)) {
 
@@ -4056,19 +4098,25 @@ void InnerLoopVectorizer::widenPHIInstruction(
     llvm_unreachable("Unknown induction");
   case InductionDescriptor::IK_IntInduction: {
     assert(P->getType() == II.getStartValue()->getType() && "Types must match");
-    // Handle other induction variables that are now based on the
-    // canonical one.
-    Value *V = Induction;
-    if (P != OldInduction) {
-      V = Builder.CreateSExtOrTrunc(Induction, P->getType());
-      V = II.transform(Builder, V, PSE.getSE(), DL);
-      V->setName("offset.idx");
+    if (P != OldInduction || VF == 1) {
+      Value *V = Induction;
+      // Handle other induction variables that are now based on the
+      // canonical one.
+      if (P != OldInduction) {
+        V = Builder.CreateSExtOrTrunc(Induction, P->getType());
+        V = II.transform(Builder, V, PSE.getSE(), DL);
+        V->setName("offset.idx");
+      }
+      Value *Broadcasted = getBroadcastInstrs(V);
+      // After broadcasting the induction variable we need to make the vector
+      // consecutive by adding 0, 1, 2, etc.
+      for (unsigned part = 0; part < UF; ++part)
+        Entry[part] = getStepVector(Broadcasted, VF * part, II.getStep());
+    } else {
+      // Instead of re-creating the vector IV by splatting the scalar IV
+      // in each iteration, we can make a new independent vector IV.
+      widenInductionVariable(II, Entry);
     }
-    Value *Broadcasted = getBroadcastInstrs(V);
-    // After broadcasting the induction variable we need to make the vector
-    // consecutive by adding 0, 1, 2, etc.
-    for (unsigned part = 0; part < UF; ++part)
-      Entry[part] = getStepVector(Broadcasted, VF * part, II.getStep());
     return;
   }
   case InductionDescriptor::IK_PtrInduction:
@@ -4239,15 +4287,23 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
       if (CI->getOperand(0) == OldInduction &&
           it->getOpcode() == Instruction::Trunc) {
         InductionDescriptor II =
-          Legal->getInductionVars()->lookup(OldInduction);
+            Legal->getInductionVars()->lookup(OldInduction);
         if (auto StepValue = II.getConstIntStepValue()) {
-          StepValue = ConstantInt::getSigned(cast<IntegerType>(CI->getType()),
-                                             StepValue->getSExtValue());
-          Value *ScalarCast = Builder.CreateCast(CI->getOpcode(), Induction,
-                                                 CI->getType());
-          Value *Broadcasted = getBroadcastInstrs(ScalarCast);
-          for (unsigned Part = 0; Part < UF; ++Part)
-            Entry[Part] = getStepVector(Broadcasted, VF * Part, StepValue);
+          IntegerType *TruncType = cast<IntegerType>(CI->getType());
+          if (VF == 1) {
+            StepValue =
+                ConstantInt::getSigned(TruncType, StepValue->getSExtValue());
+            Value *ScalarCast =
+                Builder.CreateCast(CI->getOpcode(), Induction, CI->getType());
+            Value *Broadcasted = getBroadcastInstrs(ScalarCast);
+            for (unsigned Part = 0; Part < UF; ++Part)
+              Entry[Part] = getStepVector(Broadcasted, VF * Part, StepValue);
+          } else {
+            // Truncating a vector induction variable on each iteration
+            // may be expensive. Instead, truncate the initial value, and create
+            // a new, truncated, vector IV based on that.
+            widenInductionVariable(II, Entry, TruncType);
+          }
           addMetadata(Entry, &*it);
           break;
         }
@@ -5971,7 +6027,7 @@ unsigned LoopVectorizationCostModel::getInstructionCost(Instruction *I,
                           VectorTy->getVectorNumElements() * InterleaveFactor);
 
       // Holds the indices of existing members in an interleaved load group.
-      // An interleaved store group doesn't need this as it dones't allow gaps.
+      // An interleaved store group doesn't need this as it doesn't allow gaps.
       SmallVector<unsigned, 4> Indices;
       if (LI) {
         for (unsigned i = 0; i < InterleaveFactor; i++)

@@ -625,7 +625,12 @@ public:
   /// Negates *this using two's complement logic.
   ///
   /// \returns An APInt value representing the negation of *this.
-  APInt operator-() const { return APInt(BitWidth, 0) - (*this); }
+  APInt operator-() const {
+    APInt Result(*this);
+    Result.flipAllBits();
+    ++Result;
+    return Result;
+  }
 
   /// \brief Logical negation operator.
   ///
@@ -835,13 +840,13 @@ public:
   ///
   /// Adds RHS to this APInt and returns the result.
   APInt operator+(const APInt &RHS) const;
-  APInt operator+(uint64_t RHS) const { return (*this) + APInt(BitWidth, RHS); }
+  APInt operator+(uint64_t RHS) const;
 
   /// \brief Subtraction operator.
   ///
   /// Subtracts RHS from this APInt and returns the result.
   APInt operator-(const APInt &RHS) const;
-  APInt operator-(uint64_t RHS) const { return (*this) - APInt(BitWidth, RHS); }
+  APInt operator-(uint64_t RHS) const;
 
   /// \brief Left logical shift operator.
   ///

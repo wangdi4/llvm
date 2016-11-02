@@ -920,14 +920,21 @@ void EhOutputSection<ELFT>::forEachInputSection(
 // Returns the first relocation that points to a region
 // between Begin and Begin+Size.
 template <class IntTy, class RelTy>
-static const RelTy *getReloc(IntTy Begin, IntTy Size, ArrayRef<RelTy> Rels) {
-  size_t I = 0;
-  size_t E = Rels.size();
-  while (I != E && Rels[I].r_offset < Begin)
-    ++I;
-  if (I == E || Begin + Size <= Rels[I].r_offset)
+static const RelTy *getReloc(IntTy Begin, IntTy Size, ArrayRef<RelTy> &Rels) {
+  for (auto I = Rels.begin(), E = Rels.end(); I != E; ++I) {
+    if (I->r_offset < Begin)
+      continue;
+
+    // Truncate Rels for fast access. That means we expect that the
+    // relocations are sorted and we are looking up symbols in
+    // sequential order. It is naturally satisfied for .eh_frame.
+    Rels = Rels.slice(I - Rels.begin());
+    if (I->r_offset < Begin + Size)
+      return I;
     return nullptr;
-  return &Rels[I];
+  }
+  Rels = ArrayRef<RelTy>();
+  return nullptr;
 }
 
 // Search for an existing CIE record or create a new one.
@@ -937,9 +944,9 @@ template <class ELFT>
 template <class RelTy>
 CieRecord *EhOutputSection<ELFT>::addCie(SectionPiece &Piece,
                                          EhInputSection<ELFT> *Sec,
-                                         ArrayRef<RelTy> Rels) {
+                                         ArrayRef<RelTy> &Rels) {
   const endianness E = ELFT::TargetEndianness;
-  if (read32<E>(Piece.Data.data() + 4) != 0)
+  if (read32<E>(Piece.data().data() + 4) != 0)
     fatal("CIE expected at beginning of .eh_frame: " + Sec->getSectionName());
 
   SymbolBody *Personality = nullptr;
@@ -947,7 +954,7 @@ CieRecord *EhOutputSection<ELFT>::addCie(SectionPiece &Piece,
     Personality = &Sec->getFile()->getRelocTargetSym(*Rel);
 
   // Search for an existing CIE by CIE contents/relocation target pair.
-  CieRecord *Cie = &CieMap[{Piece.Data, Personality}];
+  CieRecord *Cie = &CieMap[{Piece.data(), Personality}];
 
   // If not found, create a new one.
   if (Cie->Piece == nullptr) {
@@ -957,21 +964,13 @@ CieRecord *EhOutputSection<ELFT>::addCie(SectionPiece &Piece,
   return Cie;
 }
 
-template <class ELFT> static void validateFde(SectionPiece &Piece) {
-  // We assume that all FDEs refer the first CIE in the same object file.
-  const endianness E = ELFT::TargetEndianness;
-  uint32_t ID = read32<E>(Piece.Data.data() + 4);
-  if (Piece.InputOff + 4 - ID != 0)
-    fatal("invalid CIE reference");
-}
-
 // There is one FDE per function. Returns true if a given FDE
 // points to a live function.
 template <class ELFT>
 template <class RelTy>
 bool EhOutputSection<ELFT>::isFdeLive(SectionPiece &Piece,
                                       EhInputSection<ELFT> *Sec,
-                                      ArrayRef<RelTy> Rels) {
+                                      ArrayRef<RelTy> &Rels) {
   const RelTy *Rel = getReloc(Piece.InputOff, Piece.size(), Rels);
   if (!Rel)
     fatal("FDE doesn't reference another section");
@@ -991,15 +990,29 @@ template <class ELFT>
 template <class RelTy>
 void EhOutputSection<ELFT>::addSectionAux(EhInputSection<ELFT> *Sec,
                                           ArrayRef<RelTy> Rels) {
-  SectionPiece &CiePiece = Sec->Pieces[0];
-  CieRecord *Cie = addCie(CiePiece, Sec, Rels);
+  const endianness E = ELFT::TargetEndianness;
 
-  for (size_t I = 1, End = Sec->Pieces.size(); I != End; ++I) {
-    SectionPiece &FdePiece = Sec->Pieces[I];
-    validateFde<ELFT>(FdePiece);
-    if (!isFdeLive(FdePiece, Sec, Rels))
+  DenseMap<size_t, CieRecord *> OffsetToCie;
+  for (SectionPiece &Piece : Sec->Pieces) {
+    // The empty record is the end marker.
+    if (Piece.size() == 4)
+      return;
+
+    size_t Offset = Piece.InputOff;
+    uint32_t ID = read32<E>(Piece.data().data() + 4);
+    if (ID == 0) {
+      OffsetToCie[Offset] = addCie(Piece, Sec, Rels);
       continue;
-    Cie->FdePieces.push_back(&FdePiece);
+    }
+
+    uint32_t CieOffset = Offset + 4 - ID;
+    CieRecord *Cie = OffsetToCie[CieOffset];
+    if (!Cie)
+      fatal("invalid CIE reference");
+
+    if (!isFdeLive(Piece, Sec, Rels))
+      continue;
+    Cie->FdePieces.push_back(&Piece);
     NumFdes++;
   }
 }
@@ -1093,11 +1106,11 @@ template <class ELFT> void EhOutputSection<ELFT>::writeTo(uint8_t *Buf) {
   const endianness E = ELFT::TargetEndianness;
   for (CieRecord *Cie : Cies) {
     size_t CieOffset = Cie->Piece->OutputOff;
-    writeCieFde<ELFT>(Buf + CieOffset, Cie->Piece->Data);
+    writeCieFde<ELFT>(Buf + CieOffset, Cie->Piece->data());
 
     for (SectionPiece *Fde : Cie->FdePieces) {
       size_t Off = Fde->OutputOff;
-      writeCieFde<ELFT>(Buf + Off, Fde->Data);
+      writeCieFde<ELFT>(Buf + Off, Fde->data());
 
       // FDE's second word should have the offset to an associated CIE.
       // Write it.
@@ -1113,7 +1126,7 @@ template <class ELFT> void EhOutputSection<ELFT>::writeTo(uint8_t *Buf) {
   // we obtain two addresses and pass them to EhFrameHdr object.
   if (Out<ELFT>::EhFrameHdr) {
     for (CieRecord *Cie : Cies) {
-      uint8_t Enc = getFdeEncoding<ELFT>(Cie->Piece->Data);
+      uint8_t Enc = getFdeEncoding<ELFT>(Cie->Piece->data());
       for (SectionPiece *Fde : Cie->FdePieces) {
         uintX_t Pc = getFdePc(Buf, Fde->OutputOff, Enc);
         uintX_t FdeVA = this->getVA() + Fde->OutputOff;
@@ -1151,13 +1164,14 @@ void MergeOutputSection<ELFT>::addSection(InputSectionBase<ELFT> *C) {
   Sec->OutSec = this;
   this->updateAlign(Sec->Align);
   this->Header.sh_entsize = Sec->getSectionHdr()->sh_entsize;
+  Sections.push_back(Sec);
 
   bool IsString = this->Header.sh_flags & SHF_STRINGS;
 
   for (SectionPiece &Piece : Sec->Pieces) {
     if (!Piece.Live)
       continue;
-    uintX_t OutputOffset = Builder.add(toStringRef(Piece.Data));
+    uintX_t OutputOffset = Builder.add(toStringRef(Piece.data()));
     if (!IsString || !shouldTailMerge())
       Piece.OutputOff = OutputOffset;
   }
@@ -1176,6 +1190,11 @@ template <class ELFT> void MergeOutputSection<ELFT>::finalize() {
   if (shouldTailMerge())
     Builder.finalize();
   this->Header.sh_size = Builder.getSize();
+}
+
+template <class ELFT> void MergeOutputSection<ELFT>::finalizePieces() {
+  for (MergeInputSection<ELFT> *Sec : Sections)
+    Sec->finalizePieces();
 }
 
 template <class ELFT>
@@ -1569,6 +1588,7 @@ void MipsReginfoOutputSection<ELFT>::addSection(InputSectionBase<ELFT> *C) {
   // Copy input object file's .reginfo gprmask to output.
   auto *S = cast<MipsReginfoInputSection<ELFT>>(C);
   GprMask |= S->Reginfo->ri_gprmask;
+  S->OutSec = this;
 }
 
 template <class ELFT>
@@ -1597,6 +1617,7 @@ void MipsOptionsOutputSection<ELFT>::addSection(InputSectionBase<ELFT> *C) {
   auto *S = cast<MipsOptionsInputSection<ELFT>>(C);
   if (S->Reginfo)
     GprMask |= S->Reginfo->ri_gprmask;
+  S->OutSec = this;
 }
 
 namespace lld {

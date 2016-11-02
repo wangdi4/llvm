@@ -93,6 +93,7 @@ public:
   bool PageAlign = false;
 
   virtual void finalize() {}
+  virtual void finalizePieces() {}
   virtual void
   forEachInputSection(std::function<void(InputSectionBase<ELFT> *)> F) {}
   virtual void writeTo(uint8_t *Buf) {}
@@ -320,10 +321,12 @@ public:
   void writeTo(uint8_t *Buf) override;
   unsigned getOffset(StringRef Val);
   void finalize() override;
+  void finalizePieces() override;
   bool shouldTailMerge() const;
 
 private:
   llvm::StringTableBuilder Builder;
+  std::vector<MergeInputSection<ELFT> *> Sections;
 };
 
 struct CieRecord {
@@ -357,11 +360,11 @@ private:
 
   template <class RelTy>
   CieRecord *addCie(SectionPiece &Piece, EhInputSection<ELFT> *Sec,
-                    ArrayRef<RelTy> Rels);
+                    ArrayRef<RelTy> &Rels);
 
   template <class RelTy>
   bool isFdeLive(SectionPiece &Piece, EhInputSection<ELFT> *Sec,
-                 ArrayRef<RelTy> Rels);
+                 ArrayRef<RelTy> &Rels);
 
   uintX_t getFdePc(uint8_t *Buf, size_t Off, uint8_t Enc);
 

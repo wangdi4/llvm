@@ -5,6 +5,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Threading.h"
 
 #include "llvm/Bitcode/LPUSaveRawBC.h"
 
@@ -13,6 +14,8 @@ using namespace llvm;
 char LPUSaveRawBC::ID = 0;
 
 std::string LPUSaveRawBC::BcData;
+
+LLVM_DEFINE_ONCE_FLAG(save_raw_bc_init_flag);
 
 static cl::opt<bool>
 DumpRawBc("lpu-dump-raw-bc", cl::Hidden,
@@ -37,7 +40,7 @@ ImmutablePass *createLPUSaveRawBCPass() {
 }
 
 void initializeLPUSaveRawBCPass(PassRegistry &Registry) {
-  CALL_ONCE_INITIALIZATION(initializePassOnce);
+  llvm::call_once(save_raw_bc_init_flag, initializePassOnce, std::ref(Registry));
 }
 
 LPUSaveRawBC::LPUSaveRawBC() : ImmutablePass(ID) {

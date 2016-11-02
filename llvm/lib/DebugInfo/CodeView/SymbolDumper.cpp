@@ -11,6 +11,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/DebugInfo/CodeView/CVSymbolVisitor.h"
+#include "llvm/DebugInfo/CodeView/EnumTables.h"
 #include "llvm/DebugInfo/CodeView/SymbolDumpDelegate.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeDumper.h"
@@ -22,161 +23,7 @@
 using namespace llvm;
 using namespace llvm::codeview;
 
-static const EnumEntry<SymbolKind> SymbolTypeNames[] = {
-#define CV_SYMBOL(enum, val) {#enum, enum},
-#include "llvm/DebugInfo/CodeView/CVSymbolTypes.def"
-};
-
 namespace {
-#define CV_ENUM_CLASS_ENT(enum_class, enum)                                    \
-  { #enum, std::underlying_type < enum_class > ::type(enum_class::enum) }
-
-#define CV_ENUM_ENT(ns, enum)                                                  \
-  { #enum, ns::enum }
-
-static const EnumEntry<uint8_t> ProcSymFlagNames[] = {
-    CV_ENUM_CLASS_ENT(ProcSymFlags, HasFP),
-    CV_ENUM_CLASS_ENT(ProcSymFlags, HasIRET),
-    CV_ENUM_CLASS_ENT(ProcSymFlags, HasFRET),
-    CV_ENUM_CLASS_ENT(ProcSymFlags, IsNoReturn),
-    CV_ENUM_CLASS_ENT(ProcSymFlags, IsUnreachable),
-    CV_ENUM_CLASS_ENT(ProcSymFlags, HasCustomCallingConv),
-    CV_ENUM_CLASS_ENT(ProcSymFlags, IsNoInline),
-    CV_ENUM_CLASS_ENT(ProcSymFlags, HasOptimizedDebugInfo),
-};
-
-static const EnumEntry<uint16_t> LocalFlags[] = {
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsParameter),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsAddressTaken),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsCompilerGenerated),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsAggregate),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsAggregated),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsAliased),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsAlias),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsReturnValue),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsOptimizedOut),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsEnregisteredGlobal),
-    CV_ENUM_CLASS_ENT(LocalSymFlags, IsEnregisteredStatic),
-};
-
-static const EnumEntry<uint32_t> FrameCookieKinds[] = {
-    CV_ENUM_CLASS_ENT(FrameCookieKind, Copy),
-    CV_ENUM_CLASS_ENT(FrameCookieKind, XorStackPointer),
-    CV_ENUM_CLASS_ENT(FrameCookieKind, XorFramePointer),
-    CV_ENUM_CLASS_ENT(FrameCookieKind, XorR13),
-};
-
-static const EnumEntry<codeview::SourceLanguage> SourceLanguages[] = {
-    CV_ENUM_ENT(SourceLanguage, C),       CV_ENUM_ENT(SourceLanguage, Cpp),
-    CV_ENUM_ENT(SourceLanguage, Fortran), CV_ENUM_ENT(SourceLanguage, Masm),
-    CV_ENUM_ENT(SourceLanguage, Pascal),  CV_ENUM_ENT(SourceLanguage, Basic),
-    CV_ENUM_ENT(SourceLanguage, Cobol),   CV_ENUM_ENT(SourceLanguage, Link),
-    CV_ENUM_ENT(SourceLanguage, Cvtres),  CV_ENUM_ENT(SourceLanguage, Cvtpgd),
-    CV_ENUM_ENT(SourceLanguage, CSharp),  CV_ENUM_ENT(SourceLanguage, VB),
-    CV_ENUM_ENT(SourceLanguage, ILAsm),   CV_ENUM_ENT(SourceLanguage, Java),
-    CV_ENUM_ENT(SourceLanguage, JScript), CV_ENUM_ENT(SourceLanguage, MSIL),
-    CV_ENUM_ENT(SourceLanguage, HLSL),
-};
-
-static const EnumEntry<uint32_t> CompileSym3FlagNames[] = {
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, EC),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, NoDbgInfo),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, LTCG),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, NoDataAlign),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, ManagedPresent),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, SecurityChecks),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, HotPatch),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, CVTCIL),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, MSILModule),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, Sdl),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, PGO),
-    CV_ENUM_CLASS_ENT(CompileSym3Flags, Exp),
-};
-
-static const EnumEntry<unsigned> CPUTypeNames[] = {
-    CV_ENUM_CLASS_ENT(CPUType, Intel8080),
-    CV_ENUM_CLASS_ENT(CPUType, Intel8086),
-    CV_ENUM_CLASS_ENT(CPUType, Intel80286),
-    CV_ENUM_CLASS_ENT(CPUType, Intel80386),
-    CV_ENUM_CLASS_ENT(CPUType, Intel80486),
-    CV_ENUM_CLASS_ENT(CPUType, Pentium),
-    CV_ENUM_CLASS_ENT(CPUType, PentiumPro),
-    CV_ENUM_CLASS_ENT(CPUType, Pentium3),
-    CV_ENUM_CLASS_ENT(CPUType, MIPS),
-    CV_ENUM_CLASS_ENT(CPUType, MIPS16),
-    CV_ENUM_CLASS_ENT(CPUType, MIPS32),
-    CV_ENUM_CLASS_ENT(CPUType, MIPS64),
-    CV_ENUM_CLASS_ENT(CPUType, MIPSI),
-    CV_ENUM_CLASS_ENT(CPUType, MIPSII),
-    CV_ENUM_CLASS_ENT(CPUType, MIPSIII),
-    CV_ENUM_CLASS_ENT(CPUType, MIPSIV),
-    CV_ENUM_CLASS_ENT(CPUType, MIPSV),
-    CV_ENUM_CLASS_ENT(CPUType, M68000),
-    CV_ENUM_CLASS_ENT(CPUType, M68010),
-    CV_ENUM_CLASS_ENT(CPUType, M68020),
-    CV_ENUM_CLASS_ENT(CPUType, M68030),
-    CV_ENUM_CLASS_ENT(CPUType, M68040),
-    CV_ENUM_CLASS_ENT(CPUType, Alpha),
-    CV_ENUM_CLASS_ENT(CPUType, Alpha21164),
-    CV_ENUM_CLASS_ENT(CPUType, Alpha21164A),
-    CV_ENUM_CLASS_ENT(CPUType, Alpha21264),
-    CV_ENUM_CLASS_ENT(CPUType, Alpha21364),
-    CV_ENUM_CLASS_ENT(CPUType, PPC601),
-    CV_ENUM_CLASS_ENT(CPUType, PPC603),
-    CV_ENUM_CLASS_ENT(CPUType, PPC604),
-    CV_ENUM_CLASS_ENT(CPUType, PPC620),
-    CV_ENUM_CLASS_ENT(CPUType, PPCFP),
-    CV_ENUM_CLASS_ENT(CPUType, PPCBE),
-    CV_ENUM_CLASS_ENT(CPUType, SH3),
-    CV_ENUM_CLASS_ENT(CPUType, SH3E),
-    CV_ENUM_CLASS_ENT(CPUType, SH3DSP),
-    CV_ENUM_CLASS_ENT(CPUType, SH4),
-    CV_ENUM_CLASS_ENT(CPUType, SHMedia),
-    CV_ENUM_CLASS_ENT(CPUType, ARM3),
-    CV_ENUM_CLASS_ENT(CPUType, ARM4),
-    CV_ENUM_CLASS_ENT(CPUType, ARM4T),
-    CV_ENUM_CLASS_ENT(CPUType, ARM5),
-    CV_ENUM_CLASS_ENT(CPUType, ARM5T),
-    CV_ENUM_CLASS_ENT(CPUType, ARM6),
-    CV_ENUM_CLASS_ENT(CPUType, ARM_XMAC),
-    CV_ENUM_CLASS_ENT(CPUType, ARM_WMMX),
-    CV_ENUM_CLASS_ENT(CPUType, ARM7),
-    CV_ENUM_CLASS_ENT(CPUType, Omni),
-    CV_ENUM_CLASS_ENT(CPUType, Ia64),
-    CV_ENUM_CLASS_ENT(CPUType, Ia64_2),
-    CV_ENUM_CLASS_ENT(CPUType, CEE),
-    CV_ENUM_CLASS_ENT(CPUType, AM33),
-    CV_ENUM_CLASS_ENT(CPUType, M32R),
-    CV_ENUM_CLASS_ENT(CPUType, TriCore),
-    CV_ENUM_CLASS_ENT(CPUType, X64),
-    CV_ENUM_CLASS_ENT(CPUType, EBC),
-    CV_ENUM_CLASS_ENT(CPUType, Thumb),
-    CV_ENUM_CLASS_ENT(CPUType, ARMNT),
-    CV_ENUM_CLASS_ENT(CPUType, D3D11_Shader),
-};
-
-static const EnumEntry<uint32_t> FrameProcSymFlags[] = {
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, HasAlloca),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, HasSetJmp),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, HasLongJmp),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, HasInlineAssembly),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, HasExceptionHandling),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, MarkedInline),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, HasStructuredExceptionHandling),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, Naked),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, SecurityChecks),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, AsynchronousExceptionHandling),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, NoStackOrderingForSecurityChecks),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, Inlined),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, StrictSecurityChecks),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, SafeBuffers),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, ProfileGuidedOptimization),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, ValidProfileCounts),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, OptimizedForSpeed),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, GuardCfg),
-    CV_ENUM_CLASS_ENT(FrameProcedureOptions, GuardCfw),
-};
-
 /// Use this private dumper implementation to keep implementation details about
 /// the visitor out of SymbolDumper.h.
 class CVSymbolDumperImpl : public CVSymbolVisitor<CVSymbolDumperImpl> {
@@ -254,6 +101,54 @@ void CVSymbolDumperImpl::visitBlockSym(SymbolKind Kind, BlockSym &Block) {
   W.printString("LinkageName", LinkageName);
 }
 
+void CVSymbolDumperImpl::visitThunk32Sym(SymbolKind Kind, Thunk32Sym &Thunk) {
+  DictScope S(W, "Thunk32");
+  W.printNumber("Parent", Thunk.Header.Parent);
+  W.printNumber("End", Thunk.Header.End);
+  W.printNumber("Next", Thunk.Header.Next);
+  W.printNumber("Off", Thunk.Header.Off);
+  W.printNumber("Seg", Thunk.Header.Seg);
+  W.printNumber("Len", Thunk.Header.Len);
+  W.printEnum("Ordinal", Thunk.Header.Ord, getThunkOrdinalNames());
+}
+
+void CVSymbolDumperImpl::visitTrampolineSym(SymbolKind Kind,
+                                            TrampolineSym &Tramp) {
+  DictScope S(W, "Trampoline");
+  W.printEnum("Type", Tramp.Header.Type, getTrampolineNames());
+  W.printNumber("Size", Tramp.Header.Size);
+  W.printNumber("ThunkOff", Tramp.Header.ThunkOff);
+  W.printNumber("TargetOff", Tramp.Header.TargetOff);
+  W.printNumber("ThunkSection", Tramp.Header.ThunkSection);
+  W.printNumber("TargetSection", Tramp.Header.TargetSection);
+}
+
+void CVSymbolDumperImpl::visitSectionSym(SymbolKind Kind, SectionSym &Section) {
+  DictScope S(W, "Section");
+  W.printNumber("SectionNumber", Section.Header.SectionNumber);
+  W.printNumber("Alignment", Section.Header.Alignment);
+  W.printNumber("Reserved", Section.Header.Reserved);
+  W.printNumber("Rva", Section.Header.Rva);
+  W.printNumber("Length", Section.Header.Length);
+  W.printFlags("Characteristics", Section.Header.Characteristics,
+               getImageSectionCharacteristicNames(),
+               COFF::SectionCharacteristics(0x00F00000));
+
+  W.printString("Name", Section.Name);
+}
+
+void CVSymbolDumperImpl::visitCoffGroupSym(SymbolKind Kind,
+                                           CoffGroupSym &CoffGroup) {
+  DictScope S(W, "COFF Group");
+  W.printNumber("Size", CoffGroup.Header.Size);
+  W.printFlags("Characteristics", CoffGroup.Header.Characteristics,
+               getImageSectionCharacteristicNames(),
+               COFF::SectionCharacteristics(0x00F00000));
+  W.printNumber("Offset", CoffGroup.Header.Offset);
+  W.printNumber("Segment", CoffGroup.Header.Segment);
+  W.printString("Name", CoffGroup.Name);
+}
+
 void CVSymbolDumperImpl::visitBPRelativeSym(SymbolKind Kind,
                                             BPRelativeSym &BPRel) {
   DictScope S(W, "BPRelativeSym");
@@ -287,16 +182,70 @@ void CVSymbolDumperImpl::visitCallSiteInfoSym(SymbolKind Kind,
     W.printString("LinkageName", LinkageName);
 }
 
+void CVSymbolDumperImpl::visitEnvBlockSym(SymbolKind Kind,
+                                          EnvBlockSym &EnvBlock) {
+  DictScope S(W, "EnvBlock");
+
+  W.printNumber("Reserved", EnvBlock.Header.Reserved);
+  ListScope L(W, "Entries");
+  for (auto Entry : EnvBlock.Fields) {
+    W.printString(Entry);
+  }
+}
+
+void CVSymbolDumperImpl::visitFileStaticSym(SymbolKind Kind,
+                                            FileStaticSym &FileStatic) {
+  DictScope S(W, "FileStatic");
+  W.printNumber("Index", FileStatic.Header.Index);
+  W.printNumber("ModFilenameOffset", FileStatic.Header.ModFilenameOffset);
+  W.printFlags("Flags", uint16_t(FileStatic.Header.Flags), getLocalFlagNames());
+  W.printString("Name", FileStatic.Name);
+}
+
+void CVSymbolDumperImpl::visitExportSym(SymbolKind Kind, ExportSym &Export) {
+  DictScope S(W, "Export");
+  W.printNumber("Ordinal", Export.Header.Ordinal);
+  W.printFlags("Flags", Export.Header.Flags, getExportSymFlagNames());
+  W.printString("Name", Export.Name);
+}
+
+void CVSymbolDumperImpl::visitCompile2Sym(SymbolKind Kind,
+                                          Compile2Sym &Compile2) {
+  DictScope S(W, "CompilerFlags2");
+
+  W.printEnum("Language", Compile2.Header.getLanguage(),
+              getSourceLanguageNames());
+  W.printFlags("Flags", Compile2.Header.flags & ~0xff,
+               getCompileSym2FlagNames());
+  W.printEnum("Machine", unsigned(Compile2.Header.Machine), getCPUTypeNames());
+  std::string FrontendVersion;
+  {
+    raw_string_ostream Out(FrontendVersion);
+    Out << Compile2.Header.VersionFrontendMajor << '.'
+        << Compile2.Header.VersionFrontendMinor << '.'
+        << Compile2.Header.VersionFrontendBuild;
+  }
+  std::string BackendVersion;
+  {
+    raw_string_ostream Out(BackendVersion);
+    Out << Compile2.Header.VersionBackendMajor << '.'
+        << Compile2.Header.VersionBackendMinor << '.'
+        << Compile2.Header.VersionBackendBuild;
+  }
+  W.printString("FrontendVersion", FrontendVersion);
+  W.printString("BackendVersion", BackendVersion);
+  W.printString("VersionName", Compile2.Version);
+}
+
 void CVSymbolDumperImpl::visitCompile3Sym(SymbolKind Kind,
                                           Compile3Sym &Compile3) {
-  DictScope S(W, "CompilerFlags");
+  DictScope S(W, "CompilerFlags3");
 
   W.printEnum("Language", Compile3.Header.getLanguage(),
-              makeArrayRef(SourceLanguages));
+              getSourceLanguageNames());
   W.printFlags("Flags", Compile3.Header.flags & ~0xff,
-               makeArrayRef(CompileSym3FlagNames));
-  W.printEnum("Machine", unsigned(Compile3.Header.Machine),
-              makeArrayRef(CPUTypeNames));
+               getCompileSym3FlagNames());
+  W.printEnum("Machine", unsigned(Compile3.Header.Machine), getCPUTypeNames());
   std::string FrontendVersion;
   {
     raw_string_ostream Out(FrontendVersion);
@@ -403,12 +352,12 @@ void CVSymbolDumperImpl::visitDefRangeSubfieldSym(
 
   if (ObjDelegate) {
     StringRef StringTable = ObjDelegate->getStringTable();
-    if (!StringTable.empty()) {
-      W.printString("Program",
-                    StringTable.drop_front(DefRangeSubfield.Header.Program)
-                        .split('\0')
-                        .first);
-    }
+    auto ProgramStringTableOffset = DefRangeSubfield.Header.Program;
+    if (ProgramStringTableOffset >= StringTable.size())
+      return parseError();
+    StringRef Program =
+        StringTable.drop_front(ProgramStringTableOffset).split('\0').first;
+    W.printString("Program", Program);
   }
   W.printNumber("OffsetInParent", DefRangeSubfield.Header.OffsetInParent);
   printLocalVariableAddrRange(DefRangeSubfield.Header.Range,
@@ -422,11 +371,12 @@ void CVSymbolDumperImpl::visitDefRangeSym(SymbolKind Kind,
 
   if (ObjDelegate) {
     StringRef StringTable = ObjDelegate->getStringTable();
-    if (!StringTable.empty()) {
-      W.printString(
-          "Program",
-          StringTable.drop_front(DefRange.Header.Program).split('\0').first);
-    }
+    auto ProgramStringTableOffset = DefRange.Header.Program;
+    if (ProgramStringTableOffset >= StringTable.size())
+      return parseError();
+    StringRef Program =
+        StringTable.drop_front(ProgramStringTableOffset).split('\0').first;
+    W.printString("Program", Program);
   }
   printLocalVariableAddrRange(DefRange.Header.Range,
                               DefRange.getRelocationOffset());
@@ -445,7 +395,7 @@ void CVSymbolDumperImpl::visitFrameCookieSym(SymbolKind Kind,
   }
   W.printHex("Register", FrameCookie.Header.Register);
   W.printEnum("CookieKind", uint16_t(FrameCookie.Header.CookieKind),
-              makeArrayRef(FrameCookieKinds));
+              getFrameCookieKindNames());
 }
 
 void CVSymbolDumperImpl::visitFrameProcSym(SymbolKind Kind,
@@ -461,8 +411,7 @@ void CVSymbolDumperImpl::visitFrameProcSym(SymbolKind Kind,
              FrameProc.Header.OffsetOfExceptionHandler);
   W.printHex("SectionIdOfExceptionHandler",
              FrameProc.Header.SectionIdOfExceptionHandler);
-  W.printFlags("Flags", FrameProc.Header.Flags,
-               makeArrayRef(FrameProcSymFlags));
+  W.printFlags("Flags", FrameProc.Header.Flags, getFrameProcSymFlagNames());
 }
 
 void CVSymbolDumperImpl::visitHeapAllocationSiteSym(
@@ -537,6 +486,31 @@ void CVSymbolDumperImpl::visitInlineSiteSym(SymbolKind Kind,
   }
 }
 
+void CVSymbolDumperImpl::visitRegisterSym(SymbolKind Kind,
+                                          RegisterSym &Register) {
+  DictScope S(W, "RegisterSym");
+  W.printNumber("Type", Register.Header.Index);
+  W.printEnum("Seg", uint16_t(Register.Header.Register), getRegisterNames());
+  W.printString("Name", Register.Name);
+}
+
+void CVSymbolDumperImpl::visitPublicSym32(SymbolKind Kind,
+                                          PublicSym32 &Public) {
+  DictScope S(W, "PublicSym");
+  W.printNumber("Type", Public.Header.Index);
+  W.printNumber("Seg", Public.Header.Seg);
+  W.printNumber("Off", Public.Header.Off);
+  W.printString("Name", Public.Name);
+}
+
+void CVSymbolDumperImpl::visitProcRefSym(SymbolKind Kind, ProcRefSym &ProcRef) {
+  DictScope S(W, "ProcRef");
+  W.printNumber("SumName", ProcRef.Header.SumName);
+  W.printNumber("SymOffset", ProcRef.Header.SymOffset);
+  W.printNumber("Mod", ProcRef.Header.Mod);
+  W.printString("Name", ProcRef.Name);
+}
+
 void CVSymbolDumperImpl::visitLabelSym(SymbolKind Kind, LabelSym &Label) {
   DictScope S(W, "Label");
 
@@ -547,7 +521,7 @@ void CVSymbolDumperImpl::visitLabelSym(SymbolKind Kind, LabelSym &Label) {
   }
   W.printHex("Segment", Label.Header.Segment);
   W.printHex("Flags", Label.Header.Flags);
-  W.printFlags("Flags", Label.Header.Flags, makeArrayRef(ProcSymFlagNames));
+  W.printFlags("Flags", Label.Header.Flags, getProcSymFlagNames());
   W.printString("DisplayName", Label.Name);
   if (!LinkageName.empty())
     W.printString("LinkageName", LinkageName);
@@ -557,7 +531,7 @@ void CVSymbolDumperImpl::visitLocalSym(SymbolKind Kind, LocalSym &Local) {
   DictScope S(W, "Local");
 
   CVTD.printTypeIndex("Type", Local.Header.Type);
-  W.printFlags("Flags", uint16_t(Local.Header.Flags), makeArrayRef(LocalFlags));
+  W.printFlags("Flags", uint16_t(Local.Header.Flags), getLocalFlagNames());
   W.printString("VarName", Local.Name);
 }
 
@@ -590,7 +564,7 @@ void CVSymbolDumperImpl::visitProcSym(SymbolKind Kind, ProcSym &Proc) {
   }
   W.printHex("Segment", Proc.Header.Segment);
   W.printFlags("Flags", static_cast<uint8_t>(Proc.Header.Flags),
-               makeArrayRef(ProcSymFlagNames));
+               getProcSymFlagNames());
   W.printString("DisplayName", Proc.Name);
   if (!LinkageName.empty())
     W.printString("LinkageName", LinkageName);
@@ -599,9 +573,9 @@ void CVSymbolDumperImpl::visitProcSym(SymbolKind Kind, ProcSym &Proc) {
 void CVSymbolDumperImpl::visitScopeEndSym(SymbolKind Kind,
                                           ScopeEndSym &ScopeEnd) {
   if (Kind == SymbolKind::S_END)
-    W.startLine() << "BlockEnd\n";
+    DictScope S(W, "BlockEnd");
   else if (Kind == SymbolKind::S_PROC_ID_END)
-    W.startLine() << "ProcEnd\n";
+    DictScope S(W, "ProcEnd");
   else if (Kind == SymbolKind::S_INLINESITE_END)
     DictScope S(W, "InlineSiteEnd");
 
@@ -648,18 +622,18 @@ void CVSymbolDumperImpl::visitUDTSym(SymbolKind Kind, UDTSym &UDT) {
 void CVSymbolDumperImpl::visitUnknownSymbol(SymbolKind Kind,
                                             ArrayRef<uint8_t> Data) {
   DictScope S(W, "UnknownSym");
-  W.printHex("Kind", unsigned(Kind));
-  W.printHex("Size", Data.size());
+  W.printEnum("Kind", uint16_t(Kind), getSymbolTypeNames());
+  W.printNumber("Length", uint32_t(Data.size()));
 }
 
-bool CVSymbolDumper::dump(const SymbolIterator::Record &Record) {
+bool CVSymbolDumper::dump(const CVRecord<SymbolKind> &Record) {
   CVSymbolDumperImpl Dumper(CVTD, ObjDelegate.get(), W, PrintRecordBytes);
   Dumper.visitSymbolRecord(Record);
   return !Dumper.hadError();
 }
 
-bool CVSymbolDumper::dump(ArrayRef<uint8_t> Data) {
+bool CVSymbolDumper::dump(const CVSymbolArray &Symbols) {
   CVSymbolDumperImpl Dumper(CVTD, ObjDelegate.get(), W, PrintRecordBytes);
-  Dumper.visitSymbolStream(Data);
+  Dumper.visitSymbolStream(Symbols);
   return !Dumper.hadError();
 }

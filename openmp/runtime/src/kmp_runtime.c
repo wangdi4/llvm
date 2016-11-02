@@ -70,7 +70,7 @@ void __kmp_cleanup( void );
 static void __kmp_initialize_info( kmp_info_t *, kmp_team_t *, int tid, int gtid );
 static void __kmp_initialize_team( kmp_team_t * team, int new_nproc, kmp_internal_control_t * new_icvs, ident_t * loc );
 #if OMP_40_ENABLED && KMP_AFFINITY_SUPPORTED
-static void __kmp_partition_places( kmp_team_t *team );
+static void __kmp_partition_places( kmp_team_t *team, int update_master_only=0 );
 #endif
 static void __kmp_do_serial_initialize( void );
 void __kmp_fork_barrier( int gtid, int tid );
@@ -489,7 +489,7 @@ __kmp_print_thread_storage_map( kmp_info_t *thr, int gtid )
 static void
 __kmp_print_team_storage_map( const char *header, kmp_team_t *team, int team_id, int num_thr )
 {
-    int num_disp_buff = team->t.t_max_nproc > 1 ? KMP_MAX_DISP_BUF : 2;
+    int num_disp_buff = team->t.t_max_nproc > 1 ? __kmp_dispatch_num_buffers : 2;
     __kmp_print_storage_map_gtid( -1, team, team + 1, sizeof(kmp_team_t), "%s_%d",
                              header, team_id );
 
@@ -2967,7 +2967,7 @@ static void
 __kmp_allocate_team_arrays(kmp_team_t *team, int max_nth)
 {
     int i;
-    int num_disp_buff = max_nth > 1 ? KMP_MAX_DISP_BUF : 2;
+    int num_disp_buff = max_nth > 1 ? __kmp_dispatch_num_buffers : 2;
     team->t.t_threads = (kmp_info_t**) __kmp_allocate( sizeof(kmp_info_t*) * max_nth );
     team->t.t_disp_buffer = (dispatch_shared_info_t*)
         __kmp_allocate( sizeof(dispatch_shared_info_t) * num_disp_buff );
@@ -3734,7 +3734,9 @@ __kmp_register_root( int initial_thread )
     /* prepare the master thread for get_gtid() */
     __kmp_gtid_set_specific( gtid );
 
+#if USE_ITT_BUILD
     __kmp_itt_thread_name( gtid );
+#endif /* USE_ITT_BUILD */
 
     #ifdef KMP_TDATA_GTID
         __kmp_gtid = gtid;
@@ -3908,7 +3910,7 @@ __kmp_unregister_root_current_thread( int gtid )
         // the runtime is shutting down so we won't report any events
         thread->th.ompt_thread_info.state = ompt_state_undefined;
 #endif
-        __kmp_task_team_wait(thread, team, NULL );
+        __kmp_task_team_wait(thread, team USE_ITT_BUILD_ARG(NULL));
    }
 #endif
 
@@ -4038,7 +4040,7 @@ __kmp_initialize_info( kmp_info_t *this_thr, kmp_team_t *team, int tid, int gtid
          * Use team max_nproc since this will never change for the team.
          */
         size_t disp_size = sizeof( dispatch_private_info_t ) *
-            ( team->t.t_max_nproc == 1 ? 1 : KMP_MAX_DISP_BUF );
+            ( team->t.t_max_nproc == 1 ? 1 : __kmp_dispatch_num_buffers );
         KD_TRACE( 10, ("__kmp_initialize_info: T#%d max_nproc: %d\n", gtid, team->t.t_max_nproc ) );
         KMP_ASSERT( dispatch );
         KMP_DEBUG_ASSERT( team->t.t_dispatch );
@@ -4053,7 +4055,7 @@ __kmp_initialize_info( kmp_info_t *this_thr, kmp_team_t *team, int tid, int gtid
 
             if ( __kmp_storage_map ) {
                 __kmp_print_storage_map_gtid( gtid, &dispatch->th_disp_buffer[ 0 ],
-                                         &dispatch->th_disp_buffer[ team->t.t_max_nproc == 1 ? 1 : KMP_MAX_DISP_BUF ],
+                                         &dispatch->th_disp_buffer[ team->t.t_max_nproc == 1 ? 1 : __kmp_dispatch_num_buffers ],
                                          disp_size, "th_%d.th_dispatch.th_disp_buffer "
                                          "(team_%d.t_dispatch[%d].th_disp_buffer)",
                                          gtid, team->t.t_id, gtid );
@@ -4436,7 +4438,7 @@ __kmp_set_thread_affinity_mask_full_tmp( kmp_affin_mask_t *old_mask )
 // The master thread's partition should already include its current binding.
 //
 static void
-__kmp_partition_places( kmp_team_t *team )
+__kmp_partition_places( kmp_team_t *team, int update_master_only )
 {
     //
     // Copy the master thread's place partion to the team struct
@@ -4582,6 +4584,7 @@ __kmp_partition_places( kmp_team_t *team )
             int f;
             int n_th = team->t.t_nproc;
             int n_places;
+            int thidx;
             if ( first_place <= last_place ) {
                 n_places = last_place - first_place + 1;
             }
@@ -4595,7 +4598,10 @@ __kmp_partition_places( kmp_team_t *team )
                 rem = n_places - n_th*S;
                 gap = rem ? n_th/rem : 1;
                 gap_ct = gap;
-                for ( f = 0; f < n_th; f++ ) {
+                thidx = n_th;
+                if (update_master_only == 1)
+                    thidx = 1;
+                for ( f = 0; f < thidx; f++ ) {
                     kmp_info_t *th = team->t.t_threads[f];
                     KMP_DEBUG_ASSERT( th != NULL );
 
@@ -4655,7 +4661,10 @@ __kmp_partition_places( kmp_team_t *team )
                 gap = rem > 0 ? n_places/rem : n_places;
                 int place = masters_place;
                 int gap_ct = gap;
-                for ( f = 0; f < n_th; f++ ) {
+                thidx = n_th;
+                if (update_master_only == 1)
+                    thidx = 1;
+                for ( f = 0; f < thidx; f++ ) {
                     kmp_info_t *th = team->t.t_threads[f];
                     KMP_DEBUG_ASSERT( th != NULL );
 
@@ -4802,6 +4811,9 @@ __kmp_allocate_team( kmp_root_t *root, int new_nproc, int max_nproc,
 # if KMP_AFFINITY_SUPPORTED
             if ( ( team->t.t_size_changed == 0 )
               && ( team->t.t_proc_bind == new_proc_bind ) ) {
+                if (new_proc_bind == proc_bind_spread) {
+                    __kmp_partition_places(team, 1); // add flag to update only master for spread
+                }
                 KA_TRACE( 200, ("__kmp_allocate_team: reusing hot team #%d bindings: proc_bind = %d, partition = [%d,%d]\n",
                   team->t.t_id, new_proc_bind, team->t.t_first_place,
                   team->t.t_last_place ) );
@@ -6985,7 +6997,7 @@ __kmp_internal_fork( ident_t *id, int gtid, kmp_team_t *team )
     KMP_DEBUG_ASSERT( team->t.t_disp_buffer );
     if ( team->t.t_max_nproc > 1 ) {
         int i;
-        for (i = 0; i <  KMP_MAX_DISP_BUF; ++i) {
+        for (i = 0; i <  __kmp_dispatch_num_buffers; ++i) {
             team->t.t_disp_buffer[ i ].buffer_index = i;
 #if OMP_41_ENABLED
             team->t.t_disp_buffer[i].doacross_buf_idx = i;

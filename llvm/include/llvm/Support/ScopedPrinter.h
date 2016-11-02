@@ -78,7 +78,12 @@ public:
     IndentLevel = std::max(0, IndentLevel - Levels);
   }
 
+  void resetIndent() { IndentLevel = 0; }
+
+  void setPrefix(StringRef P) { Prefix = P; }
+
   void printIndent() {
+    OS << Prefix;
     for (int i = 0; i < IndentLevel; ++i)
       OS << "  ";
   }
@@ -211,6 +216,19 @@ public:
     OS << "]\n";
   }
 
+  template <typename T, typename U>
+  void printList(StringRef Label, const T &List, const U &Printer) {
+    startLine() << Label << ": [";
+    bool Comma = false;
+    for (const auto &Item : List) {
+      if (Comma)
+        OS << ", ";
+      Printer(OS, Item);
+      Comma = true;
+    }
+    OS << "]\n";
+  }
+
   template <typename T> void printHexList(StringRef Label, const T &List) {
     startLine() << Label << ": [";
     bool Comma = false;
@@ -319,6 +337,7 @@ private:
 
   raw_ostream &OS;
   int IndentLevel;
+  StringRef Prefix;
 };
 
 template <>

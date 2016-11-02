@@ -94,7 +94,9 @@ public:
 
     checkNestedNameSpecifierLoc(Expr->getQualifierLoc());
     if (getUSRForDecl(Decl) == USR) {
-      LocationsFound.push_back(Expr->getLocation());
+      const SourceManager &Manager = Decl->getASTContext().getSourceManager();
+      SourceLocation Location = Manager.getSpellingLoc(Expr->getLocation());
+      LocationsFound.push_back(Location);
     }
 
     return true;
@@ -107,6 +109,17 @@ public:
       SourceLocation Location = Manager.getSpellingLoc(Expr->getMemberLoc());
       LocationsFound.push_back(Location);
     }
+    return true;
+  }
+
+  bool VisitCXXConstructExpr(const CXXConstructExpr *Expr) {
+    CXXConstructorDecl *Decl = Expr->getConstructor();
+
+    if (getUSRForDecl(Decl) == USR) {
+      // This takes care of 'new <name>' expressions.
+      LocationsFound.push_back(Expr->getLocation());
+    }
+
     return true;
   }
 

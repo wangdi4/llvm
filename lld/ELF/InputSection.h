@@ -11,6 +11,7 @@
 #define LLD_ELF_INPUT_SECTION_H
 
 #include "Config.h"
+#include "Relocations.h"
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/TinyPtrVector.h"
@@ -26,54 +27,6 @@ template <class ELFT> class DefinedRegular;
 template <class ELFT> class ObjectFile;
 template <class ELFT> class OutputSection;
 template <class ELFT> class OutputSectionBase;
-
-enum RelExpr {
-  R_ABS,
-  R_GOT,
-  R_GOTONLY_PC,
-  R_GOTREL,
-  R_GOT_FROM_END,
-  R_GOT_OFF,
-  R_GOT_PAGE_PC,
-  R_GOT_PC,
-  R_HINT,
-  R_MIPS_GOT_LOCAL,
-  R_MIPS_GOT_LOCAL_PAGE,
-  R_NEG_TLS,
-  R_PAGE_PC,
-  R_PC,
-  R_PLT,
-  R_PLT_PC,
-  R_PPC_OPD,
-  R_PPC_PLT_OPD,
-  R_PPC_TOC,
-  R_RELAX_TLS_GD_TO_IE,
-  R_RELAX_TLS_GD_TO_LE,
-  R_RELAX_TLS_IE_TO_LE,
-  R_RELAX_TLS_LD_TO_LE,
-  R_SIZE,
-  R_THUNK,
-  R_TLS,
-  R_TLSGD,
-  R_TLSGD_PC,
-  R_TLSLD,
-  R_TLSLD_PC
-};
-
-inline bool refersToGotEntry(RelExpr Expr) {
-  return Expr == R_GOT || Expr == R_GOT_OFF || Expr == R_MIPS_GOT_LOCAL ||
-         Expr == R_MIPS_GOT_LOCAL_PAGE || Expr == R_GOT_PAGE_PC ||
-         Expr == R_GOT_PC || Expr == R_GOT_FROM_END || Expr == R_TLSGD ||
-         Expr == R_TLSGD_PC;
-}
-
-struct Relocation {
-  RelExpr Expr;
-  uint32_t Type;
-  uint64_t Offset;
-  uint64_t Addend;
-  SymbolBody *Sym;
-};
 
 // This corresponds to a section of an input file.
 template <class ELFT> class InputSectionBase {
@@ -134,13 +87,24 @@ template <class ELFT> InputSectionBase<ELFT> InputSectionBase<ELFT>::Discarded;
 // SectionPiece represents a piece of splittable section contents.
 struct SectionPiece {
   SectionPiece(size_t Off, ArrayRef<uint8_t> Data)
-      : InputOff(Off), Data(Data), Live(!Config->GcSections) {}
-  size_t size() const { return Data.size(); }
+      : InputOff(Off), Data((const uint8_t *)Data.data()), Size(Data.size()),
+        Live(!Config->GcSections) {}
+
+  ArrayRef<uint8_t> data() { return {Data, Size}; }
+  size_t size() const { return Size; }
 
   size_t InputOff;
   size_t OutputOff = -1;
-  ArrayRef<uint8_t> Data; // slice of the input section
-  bool Live;
+
+private:
+  // We use bitfields because SplitInputSection is accessed by
+  // std::upper_bound very often.
+  // We want to save bits to make it cache friendly.
+  const uint8_t *Data;
+  uint32_t Size : 31;
+
+public:
+  uint32_t Live : 1;
 };
 
 // Usually sections are copied to the output as atomic chunks of data,
@@ -181,7 +145,10 @@ public:
   // in the output section.
   uintX_t getOffset(uintX_t Offset);
 
+  void finalizePieces();
+
 private:
+  llvm::DenseMap<uintX_t, uintX_t> OffsetMap;
   llvm::DenseSet<uintX_t> LiveOffsets;
 };
 

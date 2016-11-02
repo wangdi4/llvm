@@ -252,7 +252,7 @@ void LPUDAGToDAGISel::Select(SDNode *Node) {
     int FI = cast<FrameIndexSDNode>(Node)->getIndex();
     SDValue TFI = CurDAG->getTargetFrameIndex(FI,
         TLI->getPointerTy(MF->getDataLayout()));
-    ReplaceNode(Node, CurDAG->SelectNodeTo(Node, LPU::MOV64, MVT::i64, TFI));
+    CurDAG->SelectNodeTo(Node, LPU::MOV64, MVT::i64, TFI);
     return;
   }
   }
@@ -267,6 +267,7 @@ void LPUDAGToDAGISel::Select(SDNode *Node) {
     DEBUG(ResNode->dump(CurDAG));
   DEBUG(errs() << "\n");
 
-  ReplaceNode(Node, ResNode);
+  if (ResNode)
+    ReplaceNode(Node, ResNode);
   return;
 }

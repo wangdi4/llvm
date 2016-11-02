@@ -185,7 +185,8 @@ static bool CC_Sparc64_Half(unsigned &ValNo, MVT &ValVT,
 // callee's register window. This function translates registers to the
 // corresponding caller window %o register.
 static unsigned toCallerWindow(unsigned Reg) {
-  assert(SP::I0 + 7 == SP::I7 && SP::O0 + 7 == SP::O7 && "Unexpected enum");
+  static_assert(SP::I0 + 7 == SP::I7 && SP::O0 + 7 == SP::O7,
+                "Unexpected enum");
   if (Reg >= SP::I0 && Reg <= SP::I7)
     return Reg - SP::I0 + SP::O0;
   return Reg;
@@ -774,16 +775,22 @@ SparcTargetLowering::LowerCall_32(TargetLowering::CallLoweringInfo &CLI,
     unsigned Size = Flags.getByValSize();
     unsigned Align = Flags.getByValAlign();
 
-    int FI = MFI->CreateStackObject(Size, Align, false);
-    SDValue FIPtr = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
-    SDValue SizeNode = DAG.getConstant(Size, dl, MVT::i32);
+    if (Size > 0U) {
+      int FI = MFI->CreateStackObject(Size, Align, false);
+      SDValue FIPtr = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
+      SDValue SizeNode = DAG.getConstant(Size, dl, MVT::i32);
 
-    Chain = DAG.getMemcpy(Chain, dl, FIPtr, Arg, SizeNode, Align,
-                          false,        // isVolatile,
-                          (Size <= 32), // AlwaysInline if size <= 32,
-                          false,        // isTailCall
-                          MachinePointerInfo(), MachinePointerInfo());
-    ByValArgs.push_back(FIPtr);
+      Chain = DAG.getMemcpy(Chain, dl, FIPtr, Arg, SizeNode, Align,
+                            false,        // isVolatile,
+                            (Size <= 32), // AlwaysInline if size <= 32,
+                            false,        // isTailCall
+                            MachinePointerInfo(), MachinePointerInfo());
+      ByValArgs.push_back(FIPtr);
+    }
+    else {
+      SDValue nullVal;
+      ByValArgs.push_back(nullVal);
+    }
   }
 
   Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(ArgsSize, dl, true),
@@ -804,8 +811,12 @@ SparcTargetLowering::LowerCall_32(TargetLowering::CallLoweringInfo &CLI,
     ISD::ArgFlagsTy Flags = Outs[realArgIdx].Flags;
 
     // Use local copy if it is a byval arg.
-    if (Flags.isByVal())
+    if (Flags.isByVal()) {
       Arg = ByValArgs[byvalArgIdx++];
+      if (!Arg) {
+        continue;
+      }
+    }
 
     // Promote the value if needed.
     switch (VA.getLocInfo()) {

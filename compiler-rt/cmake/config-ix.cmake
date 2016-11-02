@@ -100,40 +100,6 @@ macro(add_default_target_arch arch)
   list(APPEND COMPILER_RT_SUPPORTED_ARCH ${arch})
 endmacro()
 
-macro(detect_target_arch)
-  check_symbol_exists(__arm__ "" __ARM)
-  check_symbol_exists(__aarch64__ "" __AARCH64)
-  check_symbol_exists(__x86_64__ "" __X86_64)
-  check_symbol_exists(__i686__ "" __I686)
-  check_symbol_exists(__i386__ "" __I386)
-  check_symbol_exists(__mips__ "" __MIPS)
-  check_symbol_exists(__mips64__ "" __MIPS64)
-  check_symbol_exists(__s390x__ "" __S390X)
-  check_symbol_exists(__wasm32__ "" __WEBASSEMBLY32)
-  check_symbol_exists(__wasm64__ "" __WEBASSEMBLY64)
-  if(__ARM)
-    add_default_target_arch(arm)
-  elseif(__AARCH64)
-    add_default_target_arch(aarch64)
-  elseif(__X86_64)
-    add_default_target_arch(x86_64)
-  elseif(__I686)
-    add_default_target_arch(i686)
-  elseif(__I386)
-    add_default_target_arch(i386)
-  elseif(__MIPS64) # must be checked before __MIPS
-    add_default_target_arch(mips64)
-  elseif(__MIPS)
-    add_default_target_arch(mips)
-  elseif(__S390X)
-    add_default_target_arch(s390x)
-  elseif(__WEBASSEMBLY32)
-    add_default_target_arch(wasm32)
-  elseif(__WEBASSEMBLY64)
-    add_default_target_arch(wasm64)
-  endif()
-endmacro()
-
 # Detect whether the current target platform is 32-bit or 64-bit, and setup
 # the correct commandline flags needed to attempt to target 32-bit and 64-bit.
 if (NOT CMAKE_SIZEOF_VOID_P EQUAL 4 AND
@@ -288,7 +254,7 @@ if(APPLE)
         set(DARWIN_${platform}sim_CFLAGS
           ${DARWIN_COMMON_CFLAGS}
           ${DARWIN_${platform}_SANITIZER_MIN_VER_FLAG}
-          -isysroot ${DARWIN_iossim_SYSROOT})
+          -isysroot ${DARWIN_${platform}sim_SYSROOT})
         set(DARWIN_${platform}sim_LINKFLAGS
           ${DARWIN_COMMON_LINKFLAGS}
           ${DARWIN_${platform}_SANITIZER_MIN_VER_FLAG}
@@ -429,15 +395,13 @@ else()
   set(COMPILER_RT_HAS_SANITIZER_COMMON FALSE)
 endif()
 
-if (COMPILER_RT_HAS_SANITIZER_COMMON AND
-    (NOT OS_NAME MATCHES "Windows" OR CMAKE_SIZEOF_VOID_P EQUAL 4))
+if (COMPILER_RT_HAS_SANITIZER_COMMON)
   set(COMPILER_RT_HAS_INTERCEPTION TRUE)
 else()
   set(COMPILER_RT_HAS_INTERCEPTION FALSE)
 endif()
 
-if (COMPILER_RT_HAS_SANITIZER_COMMON AND ASAN_SUPPORTED_ARCH AND
-    (NOT OS_NAME MATCHES "Windows" OR CMAKE_SIZEOF_VOID_P EQUAL 4))
+if (COMPILER_RT_HAS_SANITIZER_COMMON AND ASAN_SUPPORTED_ARCH)
   set(COMPILER_RT_HAS_ASAN TRUE)
 else()
   set(COMPILER_RT_HAS_ASAN FALSE)

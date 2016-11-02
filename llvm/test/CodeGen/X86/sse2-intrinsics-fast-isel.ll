@@ -1280,11 +1280,10 @@ define <2 x i64> @test_mm_cvttps_epi32(<4 x float> %a0) nounwind {
 ; X64:       # BB#0:
 ; X64-NEXT:    cvttps2dq %xmm0, %xmm0
 ; X64-NEXT:    retq
-  %res = call <4 x i32> @llvm.x86.sse2.cvttps2dq(<4 x float> %a0)
+  %res = fptosi <4 x float> %a0 to <4 x i32>
   %bc = bitcast <4 x i32> %res to <2 x i64>
   ret <2 x i64> %bc
 }
-declare <4 x i32> @llvm.x86.sse2.cvttps2dq(<4 x float>) nounwind readnone
 
 define i32 @test_mm_cvttsd_si32(<2 x double> %a0) nounwind {
 ; X32-LABEL: test_mm_cvttsd_si32:
@@ -3104,6 +3103,25 @@ define void @test_mm_store_pd(double *%a0, <2 x double> %a1) {
   ret void
 }
 
+define void @test_mm_store_pd1(double *%a0, <2 x double> %a1) {
+; X32-LABEL: test_mm_store_pd1:
+; X32:       # BB#0:
+; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
+; X32-NEXT:    movaps %xmm0, (%eax)
+; X32-NEXT:    retl
+;
+; X64-LABEL: test_mm_store_pd1:
+; X64:       # BB#0:
+; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
+; X64-NEXT:    movaps %xmm0, (%rdi)
+; X64-NEXT:    retq
+  %arg0 = bitcast double * %a0 to <2 x double>*
+  %shuf = shufflevector <2 x double> %a1, <2 x double> undef, <2 x i32> zeroinitializer
+  store <2 x double> %shuf, <2 x double>* %arg0, align 16
+  ret void
+}
+
 define void @test_mm_store_sd(double *%a0, <2 x double> %a1) {
 ; X32-LABEL: test_mm_store_sd:
 ; X32:       # BB#0:
@@ -3135,24 +3153,22 @@ define void @test_mm_store_si128(<2 x i64> *%a0, <2 x i64> %a1) {
   ret void
 }
 
-define void @test_mm_store1_sd(double *%a0, <2 x double> %a1) {
-; X32-LABEL: test_mm_store1_sd:
+define void @test_mm_store1_pd(double *%a0, <2 x double> %a1) {
+; X32-LABEL: test_mm_store1_pd:
 ; X32:       # BB#0:
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X32-NEXT:    movsd %xmm0, (%eax)
-; X32-NEXT:    movsd %xmm0, 8(%eax)
+; X32-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
+; X32-NEXT:    movaps %xmm0, (%eax)
 ; X32-NEXT:    retl
 ;
-; X64-LABEL: test_mm_store1_sd:
+; X64-LABEL: test_mm_store1_pd:
 ; X64:       # BB#0:
-; X64-NEXT:    movsd %xmm0, (%rdi)
-; X64-NEXT:    movsd %xmm0, 8(%rdi)
+; X64-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
+; X64-NEXT:    movaps %xmm0, (%rdi)
 ; X64-NEXT:    retq
-  %ext = extractelement <2 x double> %a1, i32 0
-  %ptr0 = getelementptr inbounds double, double* %a0, i32 0
-  %ptr1 = getelementptr inbounds double, double* %a0, i32 1
-  store double %ext, double* %ptr0, align 1
-  store double %ext, double* %ptr1, align 1
+  %arg0 = bitcast double * %a0 to <2 x double>*
+  %shuf = shufflevector <2 x double> %a1, <2 x double> undef, <2 x i32> zeroinitializer
+  store <2 x double> %shuf, <2 x double>* %arg0, align 16
   ret void
 }
 

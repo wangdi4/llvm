@@ -81,13 +81,13 @@ void GlobalObject::setAlignment(unsigned Align) {
 
 unsigned GlobalObject::getGlobalObjectSubClassData() const {
   unsigned ValueData = getGlobalValueSubClassData();
-  return ValueData >> AlignmentBits;
+  return ValueData >> GlobalObjectBits;
 }
 
 void GlobalObject::setGlobalObjectSubClassData(unsigned Val) {
   unsigned OldData = getGlobalValueSubClassData();
-  setGlobalValueSubClassData((OldData & AlignmentMask) |
-                             (Val << AlignmentBits));
+  setGlobalValueSubClassData((OldData & GlobalObjectMask) |
+                             (Val << GlobalObjectBits));
   assert(getGlobalObjectSubClassData() == Val && "representation error");
 }
 
@@ -96,6 +96,7 @@ void GlobalObject::copyAttributesFrom(const GlobalValue *Src) {
   if (const auto *GV = dyn_cast<GlobalObject>(Src)) {
     setAlignment(GV->getAlignment());
     setSection(GV->getSection());
+    setComdat(const_cast<GlobalObject *>(GV)->getComdat());
   }
 }
 
@@ -300,6 +301,10 @@ void GlobalVariable::copyAttributesFrom(const GlobalValue *Src) {
   }
 }
 
+void GlobalVariable::dropAllReferences() {
+  User::dropAllReferences();
+  clearMetadata();
+}
 
 //===----------------------------------------------------------------------===//
 // GlobalIndirectSymbol Implementation

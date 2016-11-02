@@ -10,18 +10,26 @@
 #ifndef LLVM_DEBUGINFO_PDB_RAW_PDBDBISTREAM_H
 #define LLVM_DEBUGINFO_PDB_RAW_PDBDBISTREAM_H
 
+#include "llvm/DebugInfo/CodeView/ModuleSubstream.h"
+#include "llvm/DebugInfo/CodeView/StreamArray.h"
+#include "llvm/DebugInfo/CodeView/StreamRef.h"
 #include "llvm/DebugInfo/PDB/PDBTypes.h"
-#include "llvm/DebugInfo/PDB/Raw/ByteStream.h"
 #include "llvm/DebugInfo/PDB/Raw/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Raw/ModInfo.h"
 #include "llvm/DebugInfo/PDB/Raw/NameHashTable.h"
 #include "llvm/DebugInfo/PDB/Raw/RawConstants.h"
+#include "llvm/DebugInfo/PDB/Raw/RawTypes.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/Error.h"
 
 namespace llvm {
+namespace object {
+struct coff_section;
+}
+
 namespace pdb {
 class PDBFile;
+class ISectionContribVisitor;
 
 class DbiStream {
   struct HeaderInfo;
@@ -34,6 +42,7 @@ public:
   PdbRaw_DbiVer getDbiVersion() const;
   uint32_t getAge() const;
   uint16_t getPublicSymbolStreamIndex() const;
+  uint16_t getGlobalSymbolStreamIndex() const;
 
   bool isIncrementallyLinked() const;
   bool hasCTypes() const;
@@ -48,9 +57,21 @@ public:
 
   PDB_Machine getMachineType() const;
 
+  uint32_t getDebugStreamIndex(DbgHeaderType Type) const;
+
   ArrayRef<ModuleInfoEx> modules() const;
 
+  Expected<StringRef> getFileNameForIndex(uint32_t Index) const;
+
+  codeview::FixedStreamArray<object::coff_section> getSectionHeaders();
+
+  codeview::FixedStreamArray<SecMapEntry> getSectionMap() const;
+  void visitSectionContributions(ISectionContribVisitor &Visitor) const;
+
 private:
+  Error initializeSectionContributionData();
+  Error initializeSectionHeadersData();
+  Error initializeSectionMapData();
   Error initializeFileInfo();
 
   PDBFile &Pdb;
@@ -59,15 +80,27 @@ private:
   std::vector<ModuleInfoEx> ModuleInfos;
   NameHashTable ECNames;
 
-  ByteStream ModInfoSubstream;
-  ByteStream SecContrSubstream;
-  ByteStream SecMapSubstream;
-  ByteStream FileInfoSubstream;
-  ByteStream TypeServerMapSubstream;
-  ByteStream ECSubstream;
-  ByteStream DbgHeader;
+  codeview::StreamRef ModInfoSubstream;
+  codeview::StreamRef SecContrSubstream;
+  codeview::StreamRef SecMapSubstream;
+  codeview::StreamRef FileInfoSubstream;
+  codeview::StreamRef TypeServerMapSubstream;
+  codeview::StreamRef ECSubstream;
 
-  std::unique_ptr<HeaderInfo> Header;
+  codeview::StreamRef NamesBuffer;
+
+  codeview::FixedStreamArray<support::ulittle16_t> DbgStreams;
+
+  PdbRaw_DbiSecContribVer SectionContribVersion;
+  codeview::FixedStreamArray<SectionContrib> SectionContribs;
+  codeview::FixedStreamArray<SectionContrib2> SectionContribs2;
+  codeview::FixedStreamArray<SecMapEntry> SectionMap;
+  codeview::FixedStreamArray<support::little32_t> FileNameOffsets;
+
+  std::unique_ptr<MappedBlockStream> SectionHeaderStream;
+  codeview::FixedStreamArray<object::coff_section> SectionHeaders;
+
+  const HeaderInfo *Header;
 };
 }
 }

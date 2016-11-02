@@ -17,6 +17,8 @@ class I {
   static int ii;
 };
 template <typename T> class J {};
+class G;
+class H;
 
 class Base {
  public:
@@ -33,6 +35,7 @@ template <typename T> int UnusedTemplateFunc() { return 1; }
 template <typename T> int UsedInTemplateFunc() { return 1; }
 void OverloadFunc(int);
 void OverloadFunc(double);
+int FuncUsedByUsingDeclInMacro() { return 1; }
 
 class ostream {
 public:
@@ -93,6 +96,29 @@ using n::OverloadFunc; // OverloadFunc
 DEFINE_INT(test);
 #undef DEFIND_INT
 
+#define USING_FUNC \
+  using n::FuncUsedByUsingDeclInMacro;
+USING_FUNC
+#undef USING_FUNC
+
+namespace N1 {
+// n::G is used in namespace N2.
+// Currently, the check doesn't support multiple scopes. All the relevant
+// using-decls will be marked as used once we see an usage even the usage is in
+// other scope.
+using n::G;
+}
+
+namespace N2 {
+using n::G;
+void f(G g);
+}
+
+void IgnoreFunctionScope() {
+// Using-decls defined in function scope will be ignored.
+using n::H;
+}
+
 // ----- Usages -----
 void f(B b);
 void g() {
@@ -106,4 +132,3 @@ void g() {
   UsedTemplateFunc<int>();
   cout << endl;
 }
-

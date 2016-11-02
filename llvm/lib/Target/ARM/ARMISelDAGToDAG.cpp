@@ -1936,8 +1936,9 @@ void ARMDAGToDAGISel::SelectVLD(SDNode *N, bool isUpdating, unsigned NumVecs,
 
   // Extract out the subregisters.
   SDValue SuperReg = SDValue(VLd, 0);
-  assert(ARM::dsub_7 == ARM::dsub_0+7 &&
-         ARM::qsub_3 == ARM::qsub_0+3 && "Unexpected subreg numbering");
+  static_assert(ARM::dsub_7 == ARM::dsub_0 + 7 &&
+                    ARM::qsub_3 == ARM::qsub_0 + 3,
+                "Unexpected subreg numbering");
   unsigned Sub0 = (is64BitVector ? ARM::dsub_0 : ARM::qsub_0);
   for (unsigned Vec = 0; Vec < NumVecs; ++Vec)
     ReplaceUses(SDValue(N, Vec),
@@ -2205,8 +2206,9 @@ void ARMDAGToDAGISel::SelectVLDSTLane(SDNode *N, bool IsLoad, bool isUpdating,
 
   // Extract the subregisters.
   SuperReg = SDValue(VLdLn, 0);
-  assert(ARM::dsub_7 == ARM::dsub_0+7 &&
-         ARM::qsub_3 == ARM::qsub_0+3 && "Unexpected subreg numbering");
+  static_assert(ARM::dsub_7 == ARM::dsub_0 + 7 &&
+                    ARM::qsub_3 == ARM::qsub_0 + 3,
+                "Unexpected subreg numbering");
   unsigned Sub0 = is64BitVector ? ARM::dsub_0 : ARM::qsub_0;
   for (unsigned Vec = 0; Vec < NumVecs; ++Vec)
     ReplaceUses(SDValue(N, Vec),
@@ -2288,7 +2290,7 @@ void ARMDAGToDAGISel::SelectVLDDup(SDNode *N, bool isUpdating, unsigned NumVecs,
   SuperReg = SDValue(VLdDup, 0);
 
   // Extract the subregisters.
-  assert(ARM::dsub_7 == ARM::dsub_0+7 && "Unexpected subreg numbering");
+  static_assert(ARM::dsub_7 == ARM::dsub_0 + 7, "Unexpected subreg numbering");
   unsigned SubIdx = ARM::dsub_0;
   for (unsigned Vec = 0; Vec < NumVecs; ++Vec)
     ReplaceUses(SDValue(N, Vec),
@@ -2409,6 +2411,27 @@ bool ARMDAGToDAGISel::tryV6T2BitfieldExtractOp(SDNode *N, bool isSigned) {
       SDValue Reg0 = CurDAG->getRegister(0, MVT::i32);
       SDValue Ops[] = { N->getOperand(0).getOperand(0),
                         CurDAG->getTargetConstant(LSB, dl, MVT::i32),
+                        CurDAG->getTargetConstant(Width, dl, MVT::i32),
+                        getAL(CurDAG, dl), Reg0 };
+      CurDAG->SelectNodeTo(N, Opc, MVT::i32, Ops);
+      return true;
+    }
+  }
+
+  // Or we are looking for a shift of an and, with a mask operand
+  if (isOpcWithIntImmediate(N->getOperand(0).getNode(), ISD::AND, And_imm) &&
+      isShiftedMask_32(And_imm)) {
+    unsigned Srl_imm = 0;
+    unsigned LSB = countTrailingZeros(And_imm);
+    // Shift must be the same as the ands lsb
+    if (isInt32Immediate(N->getOperand(1), Srl_imm) && Srl_imm == LSB) {
+      assert(Srl_imm > 0 && Srl_imm < 32 && "bad amount in shift node!");
+      unsigned MSB = 31 - countLeadingZeros(And_imm);
+      // Note: The width operand is encoded as width-1.
+      unsigned Width = MSB - LSB;
+      SDValue Reg0 = CurDAG->getRegister(0, MVT::i32);
+      SDValue Ops[] = { N->getOperand(0).getOperand(0),
+                        CurDAG->getTargetConstant(Srl_imm, dl, MVT::i32),
                         CurDAG->getTargetConstant(Width, dl, MVT::i32),
                         getAL(CurDAG, dl), Reg0 };
       CurDAG->SelectNodeTo(N, Opc, MVT::i32, Ops);

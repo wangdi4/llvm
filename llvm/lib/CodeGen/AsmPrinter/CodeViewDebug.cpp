@@ -13,13 +13,17 @@
 
 #include "CodeViewDebug.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
+#include "llvm/DebugInfo/CodeView/FieldListRecordBuilder.h"
 #include "llvm/DebugInfo/CodeView/Line.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
+#include "llvm/DebugInfo/CodeView/TypeDumper.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/MC/MCExpr.h"
+#include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/COFF.h"
+#include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetFrameLowering.h"
@@ -114,31 +118,35 @@ CodeViewDebug::getInlineSite(const DILocation *InlinedAt,
     Site->SiteFuncId = NextFuncId++;
     Site->Inlinee = Inlinee;
     InlinedSubprograms.insert(Inlinee);
-    recordFuncIdForSubprogram(Inlinee);
+    getFuncIdForSubprogram(Inlinee);
   }
   return *Site;
 }
 
-TypeIndex CodeViewDebug::getGenericFunctionTypeIndex() {
-  if (VoidFnTyIdx.getIndex() != 0)
-    return VoidFnTyIdx;
+TypeIndex CodeViewDebug::getFuncIdForSubprogram(const DISubprogram *SP) {
+  // It's possible to ask for the FuncId of a function which doesn't have a
+  // subprogram: inlining a function with debug info into a function with none.
+  if (!SP)
+    return TypeIndex::None();
 
-  ArrayRef<TypeIndex> NoArgs;
-  ArgListRecord ArgListRec(TypeRecordKind::ArgList, NoArgs);
-  TypeIndex ArgListIndex = TypeTable.writeArgList(ArgListRec);
+  // Check if we've already translated this subprogram.
+  auto I = TypeIndices.find(SP);
+  if (I != TypeIndices.end())
+    return I->second;
 
-  ProcedureRecord Procedure(TypeIndex::Void(), CallingConvention::NearC,
-                            FunctionOptions::None, 0, ArgListIndex);
-  VoidFnTyIdx = TypeTable.writeProcedure(Procedure);
-  return VoidFnTyIdx;
-}
-
-void CodeViewDebug::recordFuncIdForSubprogram(const DISubprogram *SP) {
   TypeIndex ParentScope = TypeIndex(0);
   StringRef DisplayName = SP->getDisplayName();
-  FuncIdRecord FuncId(ParentScope, getGenericFunctionTypeIndex(), DisplayName);
+  FuncIdRecord FuncId(ParentScope, getTypeIndex(SP->getType()), DisplayName);
   TypeIndex TI = TypeTable.writeFuncId(FuncId);
-  TypeIndices[SP] = TI;
+
+  recordTypeIndexForDINode(SP, TI);
+  return TI;
+}
+
+void CodeViewDebug::recordTypeIndexForDINode(const DINode *Node, TypeIndex TI) {
+  auto InsertResult = TypeIndices.insert({Node, TI});
+  (void)InsertResult;
+  assert(InsertResult.second && "DINode was already assigned a type index");
 }
 
 void CodeViewDebug::recordLocalVariable(LocalVariable &&Var,
@@ -217,19 +225,17 @@ void CodeViewDebug::maybeRecordLocation(DebugLoc DL,
                         /*IsStmt=*/false, DL->getFilename());
 }
 
+void CodeViewDebug::emitCodeViewMagicVersion() {
+  OS.EmitValueToAlignment(4);
+  OS.AddComment("Debug section magic");
+  OS.EmitIntValue(COFF::DEBUG_SECTION_MAGIC, 4);
+}
+
 void CodeViewDebug::endModule() {
   if (FnDebugInfo.empty())
     return;
 
-  emitTypeInformation();
-
-  // FIXME: For functions that are comdat, we should emit separate .debug$S
-  // sections that are comdat associative with the main function instead of
-  // having one big .debug$S section.
   assert(Asm != nullptr);
-  OS.SwitchSection(Asm->getObjFileLowering().getCOFFDebugSymbolsSection());
-  OS.AddComment("Debug section magic");
-  OS.EmitIntValue(COFF::DEBUG_SECTION_MAGIC, 4);
 
   // The COFF .debug$S section consists of several subsections, each starting
   // with a 4-byte control code (e.g. 0xF1, 0xF2, etc) and then a 4-byte length
@@ -237,11 +243,15 @@ void CodeViewDebug::endModule() {
   // aligned.
 
   // Make a subsection for all the inlined subprograms.
-  emitInlineeFuncIdsAndLines();
+  emitInlineeLinesSubsection();
 
   // Emit per-function debug information.
   for (auto &P : FnDebugInfo)
     emitDebugInfoForFunction(P.first, P.second);
+
+  // Switch back to the generic .debug$S section after potentially processing
+  // comdat symbol sections.
+  switchToDebugSectionForSymbol(nullptr);
 
   // This subsection holds a file index to offset in string table table.
   OS.AddComment("File index to string table offset subsection");
@@ -250,6 +260,10 @@ void CodeViewDebug::endModule() {
   // This subsection holds the string table.
   OS.AddComment("String table");
   OS.EmitCVStringTableDirective();
+
+  // Emit type information last, so that any types we translate while emitting
+  // function info are included.
+  emitTypeInformation();
 
   clear();
 }
@@ -275,32 +289,45 @@ void CodeViewDebug::emitTypeInformation() {
 
   // Start the .debug$T section with 0x4.
   OS.SwitchSection(Asm->getObjFileLowering().getCOFFDebugTypesSection());
-  OS.AddComment("Debug section magic");
-  OS.EmitValueToAlignment(4);
-  OS.EmitIntValue(COFF::DEBUG_SECTION_MAGIC, 4);
+  emitCodeViewMagicVersion();
 
+  SmallString<8> CommentPrefix;
+  if (OS.isVerboseAsm()) {
+    CommentPrefix += '\t';
+    CommentPrefix += Asm->MAI->getCommentString();
+    CommentPrefix += ' ';
+  }
+
+  CVTypeDumper CVTD(nullptr, /*PrintRecordBytes=*/false);
   TypeTable.ForEachRecord(
-      [&](TypeIndex Index, const MemoryTypeTableBuilder::Record *R) {
-        // Each record should be 4 byte aligned. We achieve that by emitting
-        // LF_PAD padding bytes. The on-disk record size includes the padding
-        // bytes so that consumers don't have to skip past them.
-        uint64_t RecordSize = R->size() + 2;
-        uint64_t AlignedSize = alignTo(RecordSize, 4);
-        uint64_t AlignedRecordSize = AlignedSize - 2;
-        assert(AlignedRecordSize < (1 << 16) && "type record size overflow");
-        OS.AddComment("Type record length");
-        OS.EmitIntValue(AlignedRecordSize, 2);
-        OS.AddComment("Type record data");
-        OS.EmitBytes(StringRef(R->data(), R->size()));
-        // Pad the record with LF_PAD bytes.
-        for (unsigned I = AlignedSize - RecordSize; I > 0; --I)
-          OS.EmitIntValue(LF_PAD0 + I, 1);
+      [&](TypeIndex Index, StringRef Record) {
+        if (OS.isVerboseAsm()) {
+          // Emit a block comment describing the type record for readability.
+          SmallString<512> CommentBlock;
+          raw_svector_ostream CommentOS(CommentBlock);
+          ScopedPrinter SP(CommentOS);
+          SP.setPrefix(CommentPrefix);
+          CVTD.setPrinter(&SP);
+          bool DumpSuccess =
+              CVTD.dump({Record.bytes_begin(), Record.bytes_end()});
+          (void)DumpSuccess;
+          assert(DumpSuccess && "produced malformed type record");
+          // emitRawComment will insert its own tab and comment string before
+          // the first line, so strip off our first one. It also prints its own
+          // newline.
+          OS.emitRawComment(
+              CommentOS.str().drop_front(CommentPrefix.size() - 1).rtrim());
+        }
+        OS.EmitBinaryData(Record);
       });
 }
 
-void CodeViewDebug::emitInlineeFuncIdsAndLines() {
+void CodeViewDebug::emitInlineeLinesSubsection() {
   if (InlinedSubprograms.empty())
     return;
+
+  // Use the generic .debug$S section.
+  switchToDebugSectionForSymbol(nullptr);
 
   MCSymbol *InlineBegin = MMI->getContext().createTempSymbol(),
            *InlineEnd = MMI->getContext().createTempSymbol();
@@ -401,12 +428,35 @@ void CodeViewDebug::emitInlinedCallSite(const FunctionInfo &FI,
   OS.EmitIntValue(SymbolKind::S_INLINESITE_END, 2); // RecordKind
 }
 
+void CodeViewDebug::switchToDebugSectionForSymbol(const MCSymbol *GVSym) {
+  // If we have a symbol, it may be in a section that is COMDAT. If so, find the
+  // comdat key. A section may be comdat because of -ffunction-sections or
+  // because it is comdat in the IR.
+  MCSectionCOFF *GVSec =
+      GVSym ? dyn_cast<MCSectionCOFF>(&GVSym->getSection()) : nullptr;
+  const MCSymbol *KeySym = GVSec ? GVSec->getCOMDATSymbol() : nullptr;
+
+  MCSectionCOFF *DebugSec = cast<MCSectionCOFF>(
+      Asm->getObjFileLowering().getCOFFDebugSymbolsSection());
+  DebugSec = OS.getContext().getAssociativeCOFFSection(DebugSec, KeySym);
+
+  OS.SwitchSection(DebugSec);
+
+  // Emit the magic version number if this is the first time we've switched to
+  // this section.
+  if (ComdatDebugSections.insert(DebugSec).second)
+    emitCodeViewMagicVersion();
+}
+
 void CodeViewDebug::emitDebugInfoForFunction(const Function *GV,
                                              FunctionInfo &FI) {
   // For each function there is a separate subsection
   // which holds the PC to file:line table.
   const MCSymbol *Fn = Asm->getSymbol(GV);
   assert(Fn);
+
+  // Switch to the to a comdat section, if appropriate.
+  switchToDebugSectionForSymbol(Fn);
 
   StringRef FuncName;
   if (auto *SP = GV->getSubprogram())
@@ -450,7 +500,7 @@ void CodeViewDebug::emitDebugInfoForFunction(const Function *GV,
     OS.AddComment("Offset before epilogue");
     OS.EmitIntValue(0, 4);
     OS.AddComment("Function type index");
-    OS.EmitIntValue(0, 4);
+    OS.EmitIntValue(getFuncIdForSubprogram(GV->getSubprogram()).getIndex(), 4);
     OS.AddComment("Function section relative address");
     OS.EmitCOFFSecRel32(Fn);
     OS.AddComment("Function section index");
@@ -683,6 +733,449 @@ void CodeViewDebug::beginFunction(const MachineFunction *MF) {
   }
 }
 
+TypeIndex CodeViewDebug::lowerType(const DIType *Ty) {
+  // Generic dispatch for lowering an unknown type.
+  switch (Ty->getTag()) {
+  case dwarf::DW_TAG_typedef:
+    return lowerTypeAlias(cast<DIDerivedType>(Ty));
+  case dwarf::DW_TAG_base_type:
+    return lowerTypeBasic(cast<DIBasicType>(Ty));
+  case dwarf::DW_TAG_pointer_type:
+  case dwarf::DW_TAG_reference_type:
+  case dwarf::DW_TAG_rvalue_reference_type:
+    return lowerTypePointer(cast<DIDerivedType>(Ty));
+  case dwarf::DW_TAG_ptr_to_member_type:
+    return lowerTypeMemberPointer(cast<DIDerivedType>(Ty));
+  case dwarf::DW_TAG_const_type:
+  case dwarf::DW_TAG_volatile_type:
+    return lowerTypeModifier(cast<DIDerivedType>(Ty));
+  case dwarf::DW_TAG_subroutine_type:
+    return lowerTypeFunction(cast<DISubroutineType>(Ty));
+  case dwarf::DW_TAG_class_type:
+  case dwarf::DW_TAG_structure_type:
+    return lowerTypeClass(cast<DICompositeType>(Ty));
+  case dwarf::DW_TAG_union_type:
+    return lowerTypeUnion(cast<DICompositeType>(Ty));
+  default:
+    // Use the null type index.
+    return TypeIndex();
+  }
+}
+
+TypeIndex CodeViewDebug::lowerTypeAlias(const DIDerivedType *Ty) {
+  // TODO: MSVC emits a S_UDT record.
+  DITypeRef UnderlyingTypeRef = Ty->getBaseType();
+  TypeIndex UnderlyingTypeIndex = getTypeIndex(UnderlyingTypeRef);
+  if (UnderlyingTypeIndex == TypeIndex(SimpleTypeKind::Int32Long) &&
+      Ty->getName() == "HRESULT")
+    return TypeIndex(SimpleTypeKind::HResult);
+  if (UnderlyingTypeIndex == TypeIndex(SimpleTypeKind::UInt16Short) &&
+      Ty->getName() == "wchar_t")
+    return TypeIndex(SimpleTypeKind::WideCharacter);
+  return UnderlyingTypeIndex;
+}
+
+TypeIndex CodeViewDebug::lowerTypeBasic(const DIBasicType *Ty) {
+  TypeIndex Index;
+  dwarf::TypeKind Kind;
+  uint32_t ByteSize;
+
+  Kind = static_cast<dwarf::TypeKind>(Ty->getEncoding());
+  ByteSize = Ty->getSizeInBits() / 8;
+
+  SimpleTypeKind STK = SimpleTypeKind::None;
+  switch (Kind) {
+  case dwarf::DW_ATE_address:
+    // FIXME: Translate
+    break;
+  case dwarf::DW_ATE_boolean:
+    switch (ByteSize) {
+    case 1:  STK = SimpleTypeKind::Boolean8;   break;
+    case 2:  STK = SimpleTypeKind::Boolean16;  break;
+    case 4:  STK = SimpleTypeKind::Boolean32;  break;
+    case 8:  STK = SimpleTypeKind::Boolean64;  break;
+    case 16: STK = SimpleTypeKind::Boolean128; break;
+    }
+    break;
+  case dwarf::DW_ATE_complex_float:
+    switch (ByteSize) {
+    case 2:  STK = SimpleTypeKind::Complex16;  break;
+    case 4:  STK = SimpleTypeKind::Complex32;  break;
+    case 8:  STK = SimpleTypeKind::Complex64;  break;
+    case 10: STK = SimpleTypeKind::Complex80;  break;
+    case 16: STK = SimpleTypeKind::Complex128; break;
+    }
+    break;
+  case dwarf::DW_ATE_float:
+    switch (ByteSize) {
+    case 2:  STK = SimpleTypeKind::Float16;  break;
+    case 4:  STK = SimpleTypeKind::Float32;  break;
+    case 6:  STK = SimpleTypeKind::Float48;  break;
+    case 8:  STK = SimpleTypeKind::Float64;  break;
+    case 10: STK = SimpleTypeKind::Float80;  break;
+    case 16: STK = SimpleTypeKind::Float128; break;
+    }
+    break;
+  case dwarf::DW_ATE_signed:
+    switch (ByteSize) {
+    case 1:  STK = SimpleTypeKind::SByte;      break;
+    case 2:  STK = SimpleTypeKind::Int16Short; break;
+    case 4:  STK = SimpleTypeKind::Int32;      break;
+    case 8:  STK = SimpleTypeKind::Int64Quad;  break;
+    case 16: STK = SimpleTypeKind::Int128Oct;  break;
+    }
+    break;
+  case dwarf::DW_ATE_unsigned:
+    switch (ByteSize) {
+    case 1:  STK = SimpleTypeKind::Byte;        break;
+    case 2:  STK = SimpleTypeKind::UInt16Short; break;
+    case 4:  STK = SimpleTypeKind::UInt32;      break;
+    case 8:  STK = SimpleTypeKind::UInt64Quad;  break;
+    case 16: STK = SimpleTypeKind::UInt128Oct;  break;
+    }
+    break;
+  case dwarf::DW_ATE_UTF:
+    switch (ByteSize) {
+    case 2: STK = SimpleTypeKind::Character16; break;
+    case 4: STK = SimpleTypeKind::Character32; break;
+    }
+    break;
+  case dwarf::DW_ATE_signed_char:
+    if (ByteSize == 1)
+      STK = SimpleTypeKind::SignedCharacter;
+    break;
+  case dwarf::DW_ATE_unsigned_char:
+    if (ByteSize == 1)
+      STK = SimpleTypeKind::UnsignedCharacter;
+    break;
+  default:
+    break;
+  }
+
+  // Apply some fixups based on the source-level type name.
+  if (STK == SimpleTypeKind::Int32 && Ty->getName() == "long int")
+    STK = SimpleTypeKind::Int32Long;
+  if (STK == SimpleTypeKind::UInt32 && Ty->getName() == "long unsigned int")
+    STK = SimpleTypeKind::UInt32Long;
+  if (STK == SimpleTypeKind::UInt16Short &&
+      (Ty->getName() == "wchar_t" || Ty->getName() == "__wchar_t"))
+    STK = SimpleTypeKind::WideCharacter;
+  if ((STK == SimpleTypeKind::SignedCharacter ||
+       STK == SimpleTypeKind::UnsignedCharacter) &&
+      Ty->getName() == "char")
+    STK = SimpleTypeKind::NarrowCharacter;
+
+  return TypeIndex(STK);
+}
+
+TypeIndex CodeViewDebug::lowerTypePointer(const DIDerivedType *Ty) {
+  TypeIndex PointeeTI = getTypeIndex(Ty->getBaseType());
+
+  // Pointers to simple types can use SimpleTypeMode, rather than having a
+  // dedicated pointer type record.
+  if (PointeeTI.isSimple() &&
+      PointeeTI.getSimpleMode() == SimpleTypeMode::Direct &&
+      Ty->getTag() == dwarf::DW_TAG_pointer_type) {
+    SimpleTypeMode Mode = Ty->getSizeInBits() == 64
+                              ? SimpleTypeMode::NearPointer64
+                              : SimpleTypeMode::NearPointer32;
+    return TypeIndex(PointeeTI.getSimpleKind(), Mode);
+  }
+
+  PointerKind PK =
+      Ty->getSizeInBits() == 64 ? PointerKind::Near64 : PointerKind::Near32;
+  PointerMode PM = PointerMode::Pointer;
+  switch (Ty->getTag()) {
+  default: llvm_unreachable("not a pointer tag type");
+  case dwarf::DW_TAG_pointer_type:
+    PM = PointerMode::Pointer;
+    break;
+  case dwarf::DW_TAG_reference_type:
+    PM = PointerMode::LValueReference;
+    break;
+  case dwarf::DW_TAG_rvalue_reference_type:
+    PM = PointerMode::RValueReference;
+    break;
+  }
+  // FIXME: MSVC folds qualifiers into PointerOptions in the context of a method
+  // 'this' pointer, but not normal contexts. Figure out what we're supposed to
+  // do.
+  PointerOptions PO = PointerOptions::None;
+  PointerRecord PR(PointeeTI, PK, PM, PO, Ty->getSizeInBits() / 8);
+  return TypeTable.writePointer(PR);
+}
+
+TypeIndex CodeViewDebug::lowerTypeMemberPointer(const DIDerivedType *Ty) {
+  assert(Ty->getTag() == dwarf::DW_TAG_ptr_to_member_type);
+  TypeIndex ClassTI = getTypeIndex(Ty->getClassType());
+  TypeIndex PointeeTI = getTypeIndex(Ty->getBaseType());
+  PointerKind PK = Asm->MAI->getPointerSize() == 8 ? PointerKind::Near64
+                                                   : PointerKind::Near32;
+  PointerMode PM = isa<DISubroutineType>(Ty->getBaseType())
+                       ? PointerMode::PointerToMemberFunction
+                       : PointerMode::PointerToDataMember;
+  PointerOptions PO = PointerOptions::None; // FIXME
+  // FIXME: Thread this ABI info through metadata.
+  PointerToMemberRepresentation PMR = PointerToMemberRepresentation::Unknown;
+  MemberPointerInfo MPI(ClassTI, PMR);
+  PointerRecord PR(PointeeTI, PK, PM, PO, Ty->getSizeInBits() / 8, MPI);
+  return TypeTable.writePointer(PR);
+}
+
+TypeIndex CodeViewDebug::lowerTypeModifier(const DIDerivedType *Ty) {
+  ModifierOptions Mods = ModifierOptions::None;
+  bool IsModifier = true;
+  const DIType *BaseTy = Ty;
+  while (IsModifier && BaseTy) {
+    // FIXME: Need to add DWARF tag for __unaligned.
+    switch (BaseTy->getTag()) {
+    case dwarf::DW_TAG_const_type:
+      Mods |= ModifierOptions::Const;
+      break;
+    case dwarf::DW_TAG_volatile_type:
+      Mods |= ModifierOptions::Volatile;
+      break;
+    default:
+      IsModifier = false;
+      break;
+    }
+    if (IsModifier)
+      BaseTy = cast<DIDerivedType>(BaseTy)->getBaseType().resolve();
+  }
+  TypeIndex ModifiedTI = getTypeIndex(BaseTy);
+  ModifierRecord MR(ModifiedTI, Mods);
+  return TypeTable.writeModifier(MR);
+}
+
+TypeIndex CodeViewDebug::lowerTypeFunction(const DISubroutineType *Ty) {
+  SmallVector<TypeIndex, 8> ReturnAndArgTypeIndices;
+  for (DITypeRef ArgTypeRef : Ty->getTypeArray())
+    ReturnAndArgTypeIndices.push_back(getTypeIndex(ArgTypeRef));
+
+  TypeIndex ReturnTypeIndex = TypeIndex::Void();
+  ArrayRef<TypeIndex> ArgTypeIndices = None;
+  if (!ReturnAndArgTypeIndices.empty()) {
+    auto ReturnAndArgTypesRef = makeArrayRef(ReturnAndArgTypeIndices);
+    ReturnTypeIndex = ReturnAndArgTypesRef.front();
+    ArgTypeIndices = ReturnAndArgTypesRef.drop_front();
+  }
+
+  ArgListRecord ArgListRec(TypeRecordKind::ArgList, ArgTypeIndices);
+  TypeIndex ArgListIndex = TypeTable.writeArgList(ArgListRec);
+
+  // TODO: We should use DW_AT_calling_convention to determine what CC this
+  // procedure record should have.
+  // TODO: Some functions are member functions, we should use a more appropriate
+  // record for those.
+  ProcedureRecord Procedure(ReturnTypeIndex, CallingConvention::NearC,
+                            FunctionOptions::None, ArgTypeIndices.size(),
+                            ArgListIndex);
+  return TypeTable.writeProcedure(Procedure);
+}
+
+static MemberAccess translateAccessFlags(unsigned RecordTag,
+                                         const DIType *Member) {
+  switch (Member->getFlags() & DINode::FlagAccessibility) {
+  case DINode::FlagPrivate:   return MemberAccess::Private;
+  case DINode::FlagPublic:    return MemberAccess::Public;
+  case DINode::FlagProtected: return MemberAccess::Protected;
+  case 0:
+    // If there was no explicit access control, provide the default for the tag.
+    return RecordTag == dwarf::DW_TAG_class_type ? MemberAccess::Private
+                                                 : MemberAccess::Public;
+  }
+  llvm_unreachable("access flags are exclusive");
+}
+
+static TypeRecordKind getRecordKind(const DICompositeType *Ty) {
+  switch (Ty->getTag()) {
+  case dwarf::DW_TAG_class_type:     return TypeRecordKind::Class;
+  case dwarf::DW_TAG_structure_type: return TypeRecordKind::Struct;
+  }
+  llvm_unreachable("unexpected tag");
+}
+
+/// Return the HasUniqueName option if it should be present in ClassOptions, or
+/// None otherwise.
+static ClassOptions getRecordUniqueNameOption(const DICompositeType *Ty) {
+  // MSVC always sets this flag now, even for local types. Clang doesn't always
+  // appear to give every type a linkage name, which may be problematic for us.
+  // FIXME: Investigate the consequences of not following them here.
+  return !Ty->getIdentifier().empty() ? ClassOptions::HasUniqueName
+                                      : ClassOptions::None;
+}
+
+TypeIndex CodeViewDebug::lowerTypeClass(const DICompositeType *Ty) {
+  // First, construct the forward decl.  Don't look into Ty to compute the
+  // forward decl options, since it might not be available in all TUs.
+  TypeRecordKind Kind = getRecordKind(Ty);
+  ClassOptions CO =
+      ClassOptions::ForwardReference | getRecordUniqueNameOption(Ty);
+  TypeIndex FwdDeclTI = TypeTable.writeClass(ClassRecord(
+      Kind, 0, CO, HfaKind::None, WindowsRTClassKind::None, TypeIndex(),
+      TypeIndex(), TypeIndex(), 0, Ty->getName(), Ty->getIdentifier()));
+  return FwdDeclTI;
+}
+
+TypeIndex CodeViewDebug::lowerCompleteTypeClass(const DICompositeType *Ty) {
+  // Construct the field list and complete type record.
+  TypeRecordKind Kind = getRecordKind(Ty);
+  // FIXME: Other ClassOptions, like ContainsNestedClass and NestedClass.
+  ClassOptions CO = ClassOptions::None | getRecordUniqueNameOption(Ty);
+  TypeIndex FTI;
+  unsigned FieldCount;
+  std::tie(FTI, FieldCount) = lowerRecordFieldList(Ty);
+
+  uint64_t SizeInBytes = Ty->getSizeInBits() / 8;
+  return TypeTable.writeClass(ClassRecord(Kind, FieldCount, CO, HfaKind::None,
+                                          WindowsRTClassKind::None, FTI,
+                                          TypeIndex(), TypeIndex(), SizeInBytes,
+                                          Ty->getName(), Ty->getIdentifier()));
+  // FIXME: Make an LF_UDT_SRC_LINE record.
+}
+
+TypeIndex CodeViewDebug::lowerTypeUnion(const DICompositeType *Ty) {
+  ClassOptions CO =
+      ClassOptions::ForwardReference | getRecordUniqueNameOption(Ty);
+  TypeIndex FwdDeclTI =
+      TypeTable.writeUnion(UnionRecord(0, CO, HfaKind::None, TypeIndex(), 0,
+                                       Ty->getName(), Ty->getIdentifier()));
+  return FwdDeclTI;
+}
+
+TypeIndex CodeViewDebug::lowerCompleteTypeUnion(const DICompositeType *Ty) {
+  ClassOptions CO = ClassOptions::None | getRecordUniqueNameOption(Ty);
+  TypeIndex FTI;
+  unsigned FieldCount;
+  std::tie(FTI, FieldCount) = lowerRecordFieldList(Ty);
+  uint64_t SizeInBytes = Ty->getSizeInBits() / 8;
+  return TypeTable.writeUnion(UnionRecord(FieldCount, CO, HfaKind::None, FTI,
+                                          SizeInBytes, Ty->getName(),
+                                          Ty->getIdentifier()));
+  // FIXME: Make an LF_UDT_SRC_LINE record.
+}
+
+std::pair<TypeIndex, unsigned>
+CodeViewDebug::lowerRecordFieldList(const DICompositeType *Ty) {
+  // Manually count members. MSVC appears to count everything that generates a
+  // field list record. Each individual overload in a method overload group
+  // contributes to this count, even though the overload group is a single field
+  // list record.
+  unsigned MemberCount = 0;
+  FieldListRecordBuilder Fields;
+  for (const DINode *Element : Ty->getElements()) {
+    // We assume that the frontend provides all members in source declaration
+    // order, which is what MSVC does.
+    if (!Element)
+      continue;
+    if (auto *SP = dyn_cast<DISubprogram>(Element)) {
+      // C++ method.
+      // FIXME: Overloaded methods are grouped together, so we'll need two
+      // passes to group them.
+      (void)SP;
+    } else if (auto *Member = dyn_cast<DIDerivedType>(Element)) {
+      if (Member->getTag() == dwarf::DW_TAG_member) {
+        if (Member->isStaticMember()) {
+          // Static data member.
+          Fields.writeStaticDataMember(StaticDataMemberRecord(
+              translateAccessFlags(Ty->getTag(), Member),
+              getTypeIndex(Member->getBaseType()), Member->getName()));
+          MemberCount++;
+        } else {
+          // Data member.
+          // FIXME: Make a BitFieldRecord for bitfields.
+          Fields.writeDataMember(DataMemberRecord(
+              translateAccessFlags(Ty->getTag(), Member),
+              getTypeIndex(Member->getBaseType()),
+              Member->getOffsetInBits() / 8, Member->getName()));
+          MemberCount++;
+        }
+      } else if (Member->getTag() == dwarf::DW_TAG_friend) {
+        // Ignore friend members. It appears that MSVC emitted info about
+        // friends in the past, but modern versions do not.
+      }
+      // FIXME: Get clang to emit nested types here and do something with
+      // them.
+    }
+    // Skip other unrecognized kinds of elements.
+  }
+  return {TypeTable.writeFieldList(Fields), MemberCount};
+}
+
+TypeIndex CodeViewDebug::getTypeIndex(DITypeRef TypeRef) {
+  const DIType *Ty = TypeRef.resolve();
+
+  // The null DIType is the void type. Don't try to hash it.
+  if (!Ty)
+    return TypeIndex::Void();
+
+  // Check if we've already translated this type. Don't try to do a
+  // get-or-create style insertion that caches the hash lookup across the
+  // lowerType call. It will update the TypeIndices map.
+  auto I = TypeIndices.find(Ty);
+  if (I != TypeIndices.end())
+    return I->second;
+
+  TypeIndex TI = lowerType(Ty);
+
+  recordTypeIndexForDINode(Ty, TI);
+  return TI;
+}
+
+TypeIndex CodeViewDebug::getCompleteTypeIndex(DITypeRef TypeRef) {
+  const DIType *Ty = TypeRef.resolve();
+
+  // The null DIType is the void type. Don't try to hash it.
+  if (!Ty)
+    return TypeIndex::Void();
+
+  // If this is a non-record type, the complete type index is the same as the
+  // normal type index. Just call getTypeIndex.
+  switch (Ty->getTag()) {
+  case dwarf::DW_TAG_class_type:
+  case dwarf::DW_TAG_structure_type:
+  case dwarf::DW_TAG_union_type:
+    break;
+  default:
+    return getTypeIndex(Ty);
+  }
+
+  // Check if we've already translated the complete record type.  Lowering a
+  // complete type should never trigger lowering another complete type, so we
+  // can reuse the hash table lookup result.
+  const auto *CTy = cast<DICompositeType>(Ty);
+  auto InsertResult = CompleteTypeIndices.insert({CTy, TypeIndex()});
+  if (!InsertResult.second)
+    return InsertResult.first->second;
+
+  // Make sure the forward declaration is emitted first. It's unclear if this
+  // is necessary, but MSVC does it, and we should follow suit until we can show
+  // otherwise.
+  TypeIndex FwdDeclTI = getTypeIndex(CTy);
+
+  // Just use the forward decl if we don't have complete type info. This might
+  // happen if the frontend is using modules and expects the complete definition
+  // to be emitted elsewhere.
+  if (CTy->isForwardDecl())
+    return FwdDeclTI;
+
+  TypeIndex TI;
+  switch (CTy->getTag()) {
+  case dwarf::DW_TAG_class_type:
+  case dwarf::DW_TAG_structure_type:
+    TI = lowerCompleteTypeClass(CTy);
+    break;
+  case dwarf::DW_TAG_union_type:
+    TI = lowerCompleteTypeUnion(CTy);
+    break;
+  default:
+    llvm_unreachable("not a record");
+  }
+
+  InsertResult.first->second = TI;
+  return TI;
+}
+
 void CodeViewDebug::emitLocalVariable(const LocalVariable &Var) {
   // LocalSym record, see SymbolRecord.h for more info.
   MCSymbol *LocalBegin = MMI->getContext().createTempSymbol(),
@@ -701,7 +1194,8 @@ void CodeViewDebug::emitLocalVariable(const LocalVariable &Var) {
     Flags |= LocalSymFlags::IsOptimizedOut;
 
   OS.AddComment("TypeIndex");
-  OS.EmitIntValue(TypeIndex::Int32().getIndex(), 4);
+  TypeIndex TI = getCompleteTypeIndex(Var.DIVar->getType());
+  OS.EmitIntValue(TI.getIndex(), 4);
   OS.AddComment("Flags");
   OS.EmitIntValue(static_cast<uint16_t>(Flags), 2);
   // Truncate the name so we won't overflow the record length field.

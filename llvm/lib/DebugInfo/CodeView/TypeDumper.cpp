@@ -12,7 +12,7 @@
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
-#include "llvm/DebugInfo/CodeView/TypeStream.h"
+#include "llvm/DebugInfo/CodeView/ByteStream.h"
 #include "llvm/Support/ScopedPrinter.h"
 
 using namespace llvm;
@@ -209,6 +209,7 @@ public:
 #include "llvm/DebugInfo/CodeView/TypeRecords.def"
 
   void visitUnknownMember(TypeLeafKind Leaf);
+  void visitUnknownType(TypeLeafKind Leaf, ArrayRef<uint8_t> LeafData);
 
   void visitTypeBegin(TypeLeafKind Leaf, ArrayRef<uint8_t> LeafData);
   void visitTypeEnd(TypeLeafKind Leaf, ArrayRef<uint8_t> LeafData);
@@ -472,7 +473,8 @@ void CVTypeDumperImpl::visitPointer(TypeLeafKind Leaf, PointerRecord &Ptr) {
     else if (Ptr.getMode() == PointerMode::Pointer)
       TypeName.append("*");
 
-    Name = CVTD.saveName(TypeName);
+    if (!TypeName.empty())
+      Name = CVTD.saveName(TypeName);
   }
 }
 
@@ -491,6 +493,13 @@ void CVTypeDumperImpl::visitModifier(TypeLeafKind Leaf, ModifierRecord &Mod) {
     TypeName.append("__unaligned ");
   TypeName.append(ModifiedName);
   Name = CVTD.saveName(TypeName);
+}
+
+void CVTypeDumperImpl::visitBitField(TypeLeafKind Leaf,
+                                     BitFieldRecord &BitField) {
+  printTypeIndex("Type", BitField.getType());
+  W.printNumber("BitSize", BitField.getBitSize());
+  W.printNumber("BitOffset", BitField.getBitOffset());
 }
 
 void CVTypeDumperImpl::visitVFTableShape(TypeLeafKind Leaf,
@@ -536,6 +545,13 @@ void CVTypeDumperImpl::printMemberAttributes(MemberAccess Access,
 
 void CVTypeDumperImpl::visitUnknownMember(TypeLeafKind Leaf) {
   W.printHex("UnknownMember", unsigned(Leaf));
+}
+
+void CVTypeDumperImpl::visitUnknownType(TypeLeafKind Leaf,
+                                        ArrayRef<uint8_t> RecordData) {
+  DictScope S(W, "UnknownType");
+  W.printEnum("Kind", uint16_t(Leaf), makeArrayRef(LeafTypeNames));
+  W.printNumber("Length", uint32_t(RecordData.size()));
 }
 
 void CVTypeDumperImpl::visitNestedType(TypeLeafKind Leaf,
@@ -625,7 +641,7 @@ void CVTypeDumperImpl::visitVirtualBaseClass(TypeLeafKind Leaf,
 }
 
 StringRef CVTypeDumper::getTypeName(TypeIndex TI) {
-  if (TI.isNoType())
+  if (TI.isNoneType())
     return "<no type>";
 
   if (TI.isSimple()) {
@@ -653,22 +669,41 @@ StringRef CVTypeDumper::getTypeName(TypeIndex TI) {
 
 void CVTypeDumper::printTypeIndex(StringRef FieldName, TypeIndex TI) {
   StringRef TypeName;
-  if (!TI.isNoType())
+  if (!TI.isNoneType())
     TypeName = getTypeName(TI);
   if (!TypeName.empty())
-    W.printHex(FieldName, TypeName, TI.getIndex());
+    W->printHex(FieldName, TypeName, TI.getIndex());
   else
-    W.printHex(FieldName, TI.getIndex());
+    W->printHex(FieldName, TI.getIndex());
 }
 
-bool CVTypeDumper::dump(const TypeIterator::Record &Record) {
-  CVTypeDumperImpl Dumper(*this, W, PrintRecordBytes);
+bool CVTypeDumper::dump(const CVRecord<TypeLeafKind> &Record) {
+  assert(W && "printer should not be null");
+  CVTypeDumperImpl Dumper(*this, *W, PrintRecordBytes);
   Dumper.visitTypeRecord(Record);
   return !Dumper.hadError();
 }
 
-bool CVTypeDumper::dump(ArrayRef<uint8_t> Data) {
-  CVTypeDumperImpl Dumper(*this, W, PrintRecordBytes);
-  Dumper.visitTypeStream(Data);
+bool CVTypeDumper::dump(const CVTypeArray &Types) {
+  assert(W && "printer should not be null");
+  CVTypeDumperImpl Dumper(*this, *W, PrintRecordBytes);
+  Dumper.visitTypeStream(Types);
   return !Dumper.hadError();
+}
+
+bool CVTypeDumper::dump(ArrayRef<uint8_t> Data) {
+  ByteStream Stream(Data);
+  CVTypeArray Types;
+  StreamReader Reader(Stream);
+  if (auto EC = Reader.readArray(Types, Reader.getLength())) {
+    consumeError(std::move(EC));
+    return false;
+  }
+
+  return dump(Types);
+}
+
+void CVTypeDumper::setPrinter(ScopedPrinter *P) {
+  static ScopedPrinter NullP(llvm::nulls());
+  W = P ? P : &NullP;
 }

@@ -5987,8 +5987,10 @@ define <8 x i16>@test_int_x86_avx512_mask_pshufh_w_128(<8 x i16> %x0, i32 %x1, <
 ; CHECK:       ## BB#0:
 ; CHECK-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
 ; CHECK-NEXT:    vpshufhw $3, %xmm0, %xmm1 {%k1} ## encoding: [0x62,0xf1,0x7e,0x09,0x70,0xc8,0x03]
+; CHECK-NEXT:    ## xmm1 = xmm1[0,1,2,3,7,4,4,4]
 ; CHECK-NEXT:    vpshufhw $3, %xmm0, %xmm2 {%k1} {z} ## encoding: [0x62,0xf1,0x7e,0x89,0x70,0xd0,0x03]
-; CHECK-NEXT:    vpshufhw $3, %xmm0, %xmm0 ## encoding: [0xc5,0xfa,0x70,0xc0,0x03]
+; CHECK-NEXT:    ## xmm2 = k1[0,1,2,3,7,4,4,4]
+; CHECK-NEXT:    vpshufhw $3, %xmm0, %xmm0 ## encoding: [0x62,0xf1,0x7e,0x08,0x70,0xc0,0x03]
 ; CHECK-NEXT:    ## xmm0 = xmm0[0,1,2,3,7,4,4,4]
 ; CHECK-NEXT:    vpaddw %xmm2, %xmm1, %xmm1 ## encoding: [0x62,0xf1,0x75,0x08,0xfd,0xca]
 ; CHECK-NEXT:    vpaddw %xmm0, %xmm1, %xmm0 ## encoding: [0x62,0xf1,0x75,0x08,0xfd,0xc0]
@@ -6008,8 +6010,10 @@ define <16 x i16>@test_int_x86_avx512_mask_pshufh_w_256(<16 x i16> %x0, i32 %x1,
 ; CHECK:       ## BB#0:
 ; CHECK-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
 ; CHECK-NEXT:    vpshufhw $3, %ymm0, %ymm1 {%k1} ## encoding: [0x62,0xf1,0x7e,0x29,0x70,0xc8,0x03]
+; CHECK-NEXT:    ## ymm1 = ymm1[0,1,2,3,7,4,4,4,8,9,10,11,15,12,12,12]
 ; CHECK-NEXT:    vpshufhw $3, %ymm0, %ymm2 {%k1} {z} ## encoding: [0x62,0xf1,0x7e,0xa9,0x70,0xd0,0x03]
-; CHECK-NEXT:    vpshufhw $3, %ymm0, %ymm0 ## encoding: [0xc5,0xfe,0x70,0xc0,0x03]
+; CHECK-NEXT:    ## ymm2 = k1[0,1,2,3,7,4,4,4,8,9,10,11,15,12,12,12]
+; CHECK-NEXT:    vpshufhw $3, %ymm0, %ymm0 ## encoding: [0x62,0xf1,0x7e,0x28,0x70,0xc0,0x03]
 ; CHECK-NEXT:    ## ymm0 = ymm0[0,1,2,3,7,4,4,4,8,9,10,11,15,12,12,12]
 ; CHECK-NEXT:    vpaddw %ymm2, %ymm1, %ymm1 ## encoding: [0x62,0xf1,0x75,0x28,0xfd,0xca]
 ; CHECK-NEXT:    vpaddw %ymm0, %ymm1, %ymm0 ## encoding: [0x62,0xf1,0x75,0x28,0xfd,0xc0]
@@ -6029,8 +6033,10 @@ define <8 x i16>@test_int_x86_avx512_mask_pshufl_w_128(<8 x i16> %x0, i32 %x1, <
 ; CHECK:       ## BB#0:
 ; CHECK-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
 ; CHECK-NEXT:    vpshuflw $3, %xmm0, %xmm1 {%k1} ## encoding: [0x62,0xf1,0x7f,0x09,0x70,0xc8,0x03]
+; CHECK-NEXT:    ## xmm1 = xmm1[3,0,0,0,4,5,6,7]
 ; CHECK-NEXT:    vpshuflw $3, %xmm0, %xmm2 {%k1} {z} ## encoding: [0x62,0xf1,0x7f,0x89,0x70,0xd0,0x03]
-; CHECK-NEXT:    vpshuflw $3, %xmm0, %xmm0 ## encoding: [0xc5,0xfb,0x70,0xc0,0x03]
+; CHECK-NEXT:    ## xmm2 = k1[3,0,0,0,4,5,6,7]
+; CHECK-NEXT:    vpshuflw $3, %xmm0, %xmm0 ## encoding: [0x62,0xf1,0x7f,0x08,0x70,0xc0,0x03]
 ; CHECK-NEXT:    ## xmm0 = xmm0[3,0,0,0,4,5,6,7]
 ; CHECK-NEXT:    vpaddw %xmm2, %xmm1, %xmm1 ## encoding: [0x62,0xf1,0x75,0x08,0xfd,0xca]
 ; CHECK-NEXT:    vpaddw %xmm0, %xmm1, %xmm0 ## encoding: [0x62,0xf1,0x75,0x08,0xfd,0xc0]
@@ -6050,8 +6056,10 @@ define <16 x i16>@test_int_x86_avx512_mask_pshufl_w_256(<16 x i16> %x0, i32 %x1,
 ; CHECK:       ## BB#0:
 ; CHECK-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
 ; CHECK-NEXT:    vpshuflw $3, %ymm0, %ymm1 {%k1} ## encoding: [0x62,0xf1,0x7f,0x29,0x70,0xc8,0x03]
+; CHECK-NEXT:    ## ymm1 = ymm1[3,0,0,0,4,5,6,7,11,8,8,8,12,13,14,15]
 ; CHECK-NEXT:    vpshuflw $3, %ymm0, %ymm2 {%k1} {z} ## encoding: [0x62,0xf1,0x7f,0xa9,0x70,0xd0,0x03]
-; CHECK-NEXT:    vpshuflw $3, %ymm0, %ymm0 ## encoding: [0xc5,0xff,0x70,0xc0,0x03]
+; CHECK-NEXT:    ## ymm2 = k1[3,0,0,0,4,5,6,7,11,8,8,8,12,13,14,15]
+; CHECK-NEXT:    vpshuflw $3, %ymm0, %ymm0 ## encoding: [0x62,0xf1,0x7f,0x28,0x70,0xc0,0x03]
 ; CHECK-NEXT:    ## ymm0 = ymm0[3,0,0,0,4,5,6,7,11,8,8,8,12,13,14,15]
 ; CHECK-NEXT:    vpaddw %ymm2, %ymm1, %ymm1 ## encoding: [0x62,0xf1,0x75,0x28,0xfd,0xca]
 ; CHECK-NEXT:    vpaddw %ymm0, %ymm1, %ymm0 ## encoding: [0x62,0xf1,0x75,0x28,0xfd,0xc0]
@@ -6225,78 +6233,6 @@ define <8 x i16>@test_int_x86_avx512_mask_psllv8_hi(<8 x i16> %x0, <8 x i16> %x1
   ret <8 x i16> %res4
 }
 
-declare <8 x i16> @llvm.x86.avx512.mask.loadu.w.128(i8*, <8 x i16>, i8)
-
-define <8 x i16>@test_int_x86_avx512_mask_loadu_w_128(i8* %ptr, i8* %ptr2, <8 x i16> %x1, i8 %mask) {
-; CHECK-LABEL: test_int_x86_avx512_mask_loadu_w_128:
-; CHECK:       ## BB#0:
-; CHECK-NEXT:    kmovw %edx, %k1 ## encoding: [0xc5,0xf8,0x92,0xca]
-; CHECK-NEXT:    vmovdqu16 (%rdi), %xmm0 ## encoding: [0x62,0xf1,0xff,0x08,0x6f,0x07]
-; CHECK-NEXT:    vmovdqu16 (%rsi), %xmm0 {%k1} ## encoding: [0x62,0xf1,0xff,0x09,0x6f,0x06]
-; CHECK-NEXT:    vmovdqu16 (%rdi), %xmm1 {%k1} {z} ## encoding: [0x62,0xf1,0xff,0x89,0x6f,0x0f]
-; CHECK-NEXT:    vpaddw %xmm1, %xmm0, %xmm0 ## encoding: [0x62,0xf1,0x7d,0x08,0xfd,0xc1]
-; CHECK-NEXT:    retq ## encoding: [0xc3]
-    %res0 = call <8 x i16> @llvm.x86.avx512.mask.loadu.w.128(i8* %ptr, <8 x i16> %x1, i8 -1)
-    %res = call <8 x i16> @llvm.x86.avx512.mask.loadu.w.128(i8* %ptr2, <8 x i16> %res0, i8 %mask)
-    %res1 = call <8 x i16> @llvm.x86.avx512.mask.loadu.w.128(i8* %ptr, <8 x i16> zeroinitializer, i8 %mask)
-    %res2 = add <8 x i16> %res, %res1
-    ret <8 x i16> %res2
-}
-
-declare <16 x i16> @llvm.x86.avx512.mask.loadu.w.256(i8*, <16 x i16>, i16)
-
-define <16 x i16>@test_int_x86_avx512_mask_loadu_w_256(i8* %ptr, i8* %ptr2, <16 x i16> %x1, i16 %mask) {
-; CHECK-LABEL: test_int_x86_avx512_mask_loadu_w_256:
-; CHECK:       ## BB#0:
-; CHECK-NEXT:    kmovw %edx, %k1 ## encoding: [0xc5,0xf8,0x92,0xca]
-; CHECK-NEXT:    vmovdqu16 (%rdi), %ymm0 ## encoding: [0x62,0xf1,0xff,0x28,0x6f,0x07]
-; CHECK-NEXT:    vmovdqu16 (%rsi), %ymm0 {%k1} ## encoding: [0x62,0xf1,0xff,0x29,0x6f,0x06]
-; CHECK-NEXT:    vmovdqu16 (%rdi), %ymm1 {%k1} {z} ## encoding: [0x62,0xf1,0xff,0xa9,0x6f,0x0f]
-; CHECK-NEXT:    vpaddw %ymm1, %ymm0, %ymm0 ## encoding: [0x62,0xf1,0x7d,0x28,0xfd,0xc1]
-; CHECK-NEXT:    retq ## encoding: [0xc3]
-    %res0 = call <16 x i16> @llvm.x86.avx512.mask.loadu.w.256(i8* %ptr, <16 x i16> %x1, i16 -1)
-    %res = call <16 x i16> @llvm.x86.avx512.mask.loadu.w.256(i8* %ptr2, <16 x i16> %res0, i16 %mask)
-    %res1 = call <16 x i16> @llvm.x86.avx512.mask.loadu.w.256(i8* %ptr, <16 x i16> zeroinitializer, i16 %mask)
-    %res2 = add <16 x i16> %res, %res1
-    ret <16 x i16> %res2
-}
-
-declare <16 x i8> @llvm.x86.avx512.mask.loadu.b.128(i8*, <16 x i8>, i16)
-
-define <16 x i8>@test_int_x86_avx512_mask_loadu_b_128(i8* %ptr, i8* %ptr2, <16 x i8> %x1, i16 %mask) {
-; CHECK-LABEL: test_int_x86_avx512_mask_loadu_b_128:
-; CHECK:       ## BB#0:
-; CHECK-NEXT:    kmovw %edx, %k1 ## encoding: [0xc5,0xf8,0x92,0xca]
-; CHECK-NEXT:    vmovdqu8 (%rdi), %xmm0 ## encoding: [0x62,0xf1,0x7f,0x08,0x6f,0x07]
-; CHECK-NEXT:    vmovdqu8 (%rsi), %xmm0 {%k1} ## encoding: [0x62,0xf1,0x7f,0x09,0x6f,0x06]
-; CHECK-NEXT:    vmovdqu8 (%rdi), %xmm1 {%k1} {z} ## encoding: [0x62,0xf1,0x7f,0x89,0x6f,0x0f]
-; CHECK-NEXT:    vpaddb %xmm1, %xmm0, %xmm0 ## encoding: [0x62,0xf1,0x7d,0x08,0xfc,0xc1]
-; CHECK-NEXT:    retq ## encoding: [0xc3]
-    %res0 = call <16 x i8> @llvm.x86.avx512.mask.loadu.b.128(i8* %ptr, <16 x i8> %x1, i16 -1)
-    %res = call <16 x i8> @llvm.x86.avx512.mask.loadu.b.128(i8* %ptr2, <16 x i8> %res0, i16 %mask)
-    %res1 = call <16 x i8> @llvm.x86.avx512.mask.loadu.b.128(i8* %ptr, <16 x i8> zeroinitializer, i16 %mask)
-    %res2 = add <16 x i8> %res, %res1
-    ret <16 x i8> %res2
-}
-
-declare <32 x i8> @llvm.x86.avx512.mask.loadu.b.256(i8*, <32 x i8>, i32)
-
-define <32 x i8>@test_int_x86_avx512_mask_loadu_b_256(i8* %ptr, i8* %ptr2, <32 x i8> %x1, i32 %mask) {
-; CHECK-LABEL: test_int_x86_avx512_mask_loadu_b_256:
-; CHECK:       ## BB#0:
-; CHECK-NEXT:    kmovd %edx, %k1 ## encoding: [0xc5,0xfb,0x92,0xca]
-; CHECK-NEXT:    vmovdqu8 (%rdi), %ymm0 ## encoding: [0x62,0xf1,0x7f,0x28,0x6f,0x07]
-; CHECK-NEXT:    vmovdqu8 (%rsi), %ymm0 {%k1} ## encoding: [0x62,0xf1,0x7f,0x29,0x6f,0x06]
-; CHECK-NEXT:    vmovdqu8 (%rdi), %ymm1 {%k1} {z} ## encoding: [0x62,0xf1,0x7f,0xa9,0x6f,0x0f]
-; CHECK-NEXT:    vpaddb %ymm1, %ymm0, %ymm0 ## encoding: [0x62,0xf1,0x7d,0x28,0xfc,0xc1]
-; CHECK-NEXT:    retq ## encoding: [0xc3]
-    %res0 = call <32 x i8> @llvm.x86.avx512.mask.loadu.b.256(i8* %ptr, <32 x i8> %x1, i32 -1)
-    %res = call <32 x i8> @llvm.x86.avx512.mask.loadu.b.256(i8* %ptr2, <32 x i8> %res0, i32 %mask)
-    %res1 = call <32 x i8> @llvm.x86.avx512.mask.loadu.b.256(i8* %ptr, <32 x i8> zeroinitializer, i32 %mask)
-    %res2 = add <32 x i8> %res, %res1
-    ret <32 x i8> %res2
-}
-
 declare <8 x i16> @llvm.x86.avx512.mask.pmovzxb.w.128(<16 x i8>, <8 x i16>, i8)
 
 define <8 x i16>@test_int_x86_avx512_mask_pmovzxb_w_128(<16 x i8> %x0, <8 x i16> %x1, i8 %x2) {
@@ -6430,9 +6366,9 @@ define <8 x i16>@test_int_x86_avx512_mask_permvar_hi_128(<8 x i16> %x0, <8 x i16
 ; CHECK-LABEL: test_int_x86_avx512_mask_permvar_hi_128:
 ; CHECK:       ## BB#0:
 ; CHECK-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
-; CHECK-NEXT:    vpermw %xmm1, %xmm0, %xmm2 {%k1} ## encoding: [0x62,0xf2,0xfd,0x09,0x8d,0xd1]
-; CHECK-NEXT:    vpermw %xmm1, %xmm0, %xmm3 {%k1} {z} ## encoding: [0x62,0xf2,0xfd,0x89,0x8d,0xd9]
-; CHECK-NEXT:    vpermw %xmm1, %xmm0, %xmm0 ## encoding: [0x62,0xf2,0xfd,0x08,0x8d,0xc1]
+; CHECK-NEXT:    vpermw %xmm0, %xmm1, %xmm2 {%k1} ## encoding: [0x62,0xf2,0xf5,0x09,0x8d,0xd0]
+; CHECK-NEXT:    vpermw %xmm0, %xmm1, %xmm3 {%k1} {z} ## encoding: [0x62,0xf2,0xf5,0x89,0x8d,0xd8]
+; CHECK-NEXT:    vpermw %xmm0, %xmm1, %xmm0 ## encoding: [0x62,0xf2,0xf5,0x08,0x8d,0xc0]
 ; CHECK-NEXT:    vpaddw %xmm3, %xmm2, %xmm1 ## encoding: [0x62,0xf1,0x6d,0x08,0xfd,0xcb]
 ; CHECK-NEXT:    vpaddw %xmm0, %xmm1, %xmm0 ## encoding: [0x62,0xf1,0x75,0x08,0xfd,0xc0]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
@@ -6450,9 +6386,9 @@ define <16 x i16>@test_int_x86_avx512_mask_permvar_hi_256(<16 x i16> %x0, <16 x 
 ; CHECK-LABEL: test_int_x86_avx512_mask_permvar_hi_256:
 ; CHECK:       ## BB#0:
 ; CHECK-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
-; CHECK-NEXT:    vpermw %ymm1, %ymm0, %ymm2 {%k1} ## encoding: [0x62,0xf2,0xfd,0x29,0x8d,0xd1]
-; CHECK-NEXT:    vpermw %ymm1, %ymm0, %ymm3 {%k1} {z} ## encoding: [0x62,0xf2,0xfd,0xa9,0x8d,0xd9]
-; CHECK-NEXT:    vpermw %ymm1, %ymm0, %ymm0 ## encoding: [0x62,0xf2,0xfd,0x28,0x8d,0xc1]
+; CHECK-NEXT:    vpermw %ymm0, %ymm1, %ymm2 {%k1} ## encoding: [0x62,0xf2,0xf5,0x29,0x8d,0xd0]
+; CHECK-NEXT:    vpermw %ymm0, %ymm1, %ymm3 {%k1} {z} ## encoding: [0x62,0xf2,0xf5,0xa9,0x8d,0xd8]
+; CHECK-NEXT:    vpermw %ymm0, %ymm1, %ymm0 ## encoding: [0x62,0xf2,0xf5,0x28,0x8d,0xc0]
 ; CHECK-NEXT:    vpaddw %ymm3, %ymm2, %ymm1 ## encoding: [0x62,0xf1,0x6d,0x28,0xfd,0xcb]
 ; CHECK-NEXT:    vpaddw %ymm0, %ymm1, %ymm0 ## encoding: [0x62,0xf1,0x75,0x28,0xfd,0xc0]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
@@ -6462,62 +6398,6 @@ define <16 x i16>@test_int_x86_avx512_mask_permvar_hi_256(<16 x i16> %x0, <16 x 
   %res3 = add <16 x i16> %res, %res1
   %res4 = add <16 x i16> %res3, %res2
   ret <16 x i16> %res4
-}
-
-declare void @llvm.x86.avx512.mask.storeu.b.128(i8*, <16 x i8>, i16)
-
-define void@test_int_x86_avx512_mask_storeu_b_128(i8* %ptr1, i8* %ptr2, <16 x i8> %x1, i16 %x2) {
-; CHECK-LABEL: test_int_x86_avx512_mask_storeu_b_128:
-; CHECK:       ## BB#0:
-; CHECK-NEXT:    kmovw %edx, %k1 ## encoding: [0xc5,0xf8,0x92,0xca]
-; CHECK-NEXT:    vmovdqu8 %xmm0, (%rdi) {%k1} ## encoding: [0x62,0xf1,0x7f,0x09,0x7f,0x07]
-; CHECK-NEXT:    vmovdqu8 %xmm0, (%rsi) ## encoding: [0x62,0xf1,0x7f,0x08,0x7f,0x06]
-; CHECK-NEXT:    retq ## encoding: [0xc3]
-  call void @llvm.x86.avx512.mask.storeu.b.128(i8* %ptr1, <16 x i8> %x1, i16 %x2)
-  call void @llvm.x86.avx512.mask.storeu.b.128(i8* %ptr2, <16 x i8> %x1, i16 -1)
-  ret void
-}
-
-declare void @llvm.x86.avx512.mask.storeu.b.256(i8*, <32 x i8>, i32)
-
-define void@test_int_x86_avx512_mask_storeu_b_256(i8* %ptr1, i8* %ptr2, <32 x i8> %x1, i32 %x2) {
-; CHECK-LABEL: test_int_x86_avx512_mask_storeu_b_256:
-; CHECK:       ## BB#0:
-; CHECK-NEXT:    kmovd %edx, %k1 ## encoding: [0xc5,0xfb,0x92,0xca]
-; CHECK-NEXT:    vmovdqu8 %ymm0, (%rdi) {%k1} ## encoding: [0x62,0xf1,0x7f,0x29,0x7f,0x07]
-; CHECK-NEXT:    vmovdqu8 %ymm0, (%rsi) ## encoding: [0x62,0xf1,0x7f,0x28,0x7f,0x06]
-; CHECK-NEXT:    retq ## encoding: [0xc3]
-  call void @llvm.x86.avx512.mask.storeu.b.256(i8* %ptr1, <32 x i8> %x1, i32 %x2)
-  call void @llvm.x86.avx512.mask.storeu.b.256(i8* %ptr2, <32 x i8> %x1, i32 -1)
-  ret void
-}
-
-declare void @llvm.x86.avx512.mask.storeu.w.128(i8*, <8 x i16>, i8)
-
-define void@test_int_x86_avx512_mask_storeu_w_128(i8* %ptr1, i8* %ptr2, <8 x i16> %x1, i8 %x2) {
-; CHECK-LABEL: test_int_x86_avx512_mask_storeu_w_128:
-; CHECK:       ## BB#0:
-; CHECK-NEXT:    kmovw %edx, %k1 ## encoding: [0xc5,0xf8,0x92,0xca]
-; CHECK-NEXT:    vmovdqu16 %xmm0, (%rdi) {%k1} ## encoding: [0x62,0xf1,0xff,0x09,0x7f,0x07]
-; CHECK-NEXT:    vmovdqu16 %xmm0, (%rsi) ## encoding: [0x62,0xf1,0xff,0x08,0x7f,0x06]
-; CHECK-NEXT:    retq ## encoding: [0xc3]
-  call void @llvm.x86.avx512.mask.storeu.w.128(i8* %ptr1, <8 x i16> %x1, i8 %x2)
-  call void @llvm.x86.avx512.mask.storeu.w.128(i8* %ptr2, <8 x i16> %x1, i8 -1)
-  ret void
-}
-
-declare void @llvm.x86.avx512.mask.storeu.w.256(i8*, <16 x i16>, i16)
-
-define void@test_int_x86_avx512_mask_storeu_w_256(i8* %ptr1, i8* %ptr2, <16 x i16> %x1, i16 %x2) {
-; CHECK-LABEL: test_int_x86_avx512_mask_storeu_w_256:
-; CHECK:       ## BB#0:
-; CHECK-NEXT:    kmovw %edx, %k1 ## encoding: [0xc5,0xf8,0x92,0xca]
-; CHECK-NEXT:    vmovdqu16 %ymm0, (%rdi) {%k1} ## encoding: [0x62,0xf1,0xff,0x29,0x7f,0x07]
-; CHECK-NEXT:    vmovdqu16 %ymm0, (%rsi) ## encoding: [0x62,0xf1,0xff,0x28,0x7f,0x06]
-; CHECK-NEXT:    retq ## encoding: [0xc3]
-  call void @llvm.x86.avx512.mask.storeu.w.256(i8* %ptr1, <16 x i16> %x1, i16 %x2)
-  call void @llvm.x86.avx512.mask.storeu.w.256(i8* %ptr2, <16 x i16> %x1, i16 -1)
-  ret void
 }
 
 declare <8 x i16> @llvm.x86.avx512.mask.movu.w.128(<8 x i16>, <8 x i16>, i8)

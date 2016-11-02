@@ -46,14 +46,12 @@ using namespace llvm;
 STATISTIC(NumClobberCacheLookups, "Number of Memory SSA version cache lookups");
 STATISTIC(NumClobberCacheHits, "Number of Memory SSA version cache hits");
 STATISTIC(NumClobberCacheInserts, "Number of MemorySSA version cache inserts");
-INITIALIZE_PASS_WITH_OPTIONS_BEGIN(MemorySSAPrinterPass, "print-memoryssa",
-                                   "Memory SSA", true, true)
+
+INITIALIZE_PASS_BEGIN(MemorySSAWrapperPass, "memoryssa", "Memory SSA", true,
+                      true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-INITIALIZE_PASS_END(MemorySSAPrinterPass, "print-memoryssa", "Memory SSA", true,
-                    true)
-INITIALIZE_PASS(MemorySSALazy, "memoryssalazy", "Memory SSA", true, true)
+INITIALIZE_PASS_END(MemorySSAWrapperPass, "memoryssa", "Memory SSA", true, true)
 
 namespace llvm {
 
@@ -203,9 +201,22 @@ void MemorySSA::markUnreachableAsLiveOnEntry(BasicBlock *BB) {
   }
 }
 
-MemorySSA::MemorySSA(Function &Func)
-    : AA(nullptr), DT(nullptr), F(Func), LiveOnEntryDef(nullptr),
-      Walker(nullptr), NextID(0) {}
+MemorySSA::MemorySSA(Function &Func, AliasAnalysis *AA, DominatorTree *DT)
+    : AA(AA), DT(DT), F(Func), LiveOnEntryDef(nullptr), Walker(nullptr),
+      NextID(0) {
+  getWalker(); // Ensure MemorySSA has been built.
+}
+
+MemorySSA::MemorySSA(MemorySSA &&MSSA)
+    : AA(MSSA.AA), DT(MSSA.DT), F(MSSA.F),
+      ValueToMemoryAccess(std::move(MSSA.ValueToMemoryAccess)),
+      PerBlockAccesses(std::move(MSSA.PerBlockAccesses)),
+      LiveOnEntryDef(std::move(MSSA.LiveOnEntryDef)),
+      Walker(std::move(MSSA.Walker)), NextID(MSSA.NextID) {
+  // Update the Walker MSSA pointer so it doesn't point to the moved-from MSSA
+  // object any more.
+  Walker->MSSA = this;
+}
 
 MemorySSA::~MemorySSA() {
   // Drop all our references
@@ -222,17 +233,11 @@ MemorySSA::AccessListType *MemorySSA::getOrCreateAccessList(BasicBlock *BB) {
   return Res.first->second.get();
 }
 
-MemorySSAWalker *MemorySSA::buildMemorySSA(AliasAnalysis *AA,
-                                           DominatorTree *DT) {
+MemorySSAWalker *MemorySSA::getWalker() {
   if (Walker)
-    return Walker;
+    return Walker.get();
 
-  assert(!this->AA && !this->DT &&
-         "MemorySSA without a walker already has AA or DT?");
-
-  Walker = new CachingMemorySSAWalker(this, AA, DT);
-  this->AA = AA;
-  this->DT = DT;
+  Walker = make_unique<CachingMemorySSAWalker>(this, AA, DT);
 
   // We create an access to represent "live on entry", for things like
   // arguments or users of globals, where the memory they use is defined before
@@ -255,7 +260,7 @@ MemorySSAWalker *MemorySSA::buildMemorySSA(AliasAnalysis *AA,
     bool InsertIntoDef = false;
     AccessListType *Accesses = nullptr;
     for (Instruction &I : B) {
-      MemoryUseOrDef *MUD = createNewAccess(&I, true);
+      MemoryUseOrDef *MUD = createNewAccess(&I);
       if (!MUD)
         continue;
       InsertIntoDef |= isa<MemoryDef>(MUD);
@@ -349,12 +354,19 @@ MemorySSAWalker *MemorySSA::buildMemorySSA(AliasAnalysis *AA,
     if (!Visited.count(&BB))
       markUnreachableAsLiveOnEntry(&BB);
 
-  return Walker;
+  return Walker.get();
 }
 
 /// \brief Helper function to create new memory accesses
-MemoryUseOrDef *MemorySSA::createNewAccess(Instruction *I,
-                                           bool IgnoreNonMemory) {
+MemoryUseOrDef *MemorySSA::createNewAccess(Instruction *I) {
+  // The assume intrinsic has a control dependency which we model by claiming
+  // that it writes arbitrarily. Ignore that fake memory dependency here.
+  // FIXME: Replace this special casing with a more accurate modelling of
+  // assume's control dependency.
+  if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I))
+    if (II->getIntrinsicID() == Intrinsic::assume)
+      return nullptr;
+
   // Find out what affect this instruction has on memory.
   ModRefInfo ModRef = AA->getModRefInfo(I);
   bool Def = bool(ModRef & MRI_Mod);
@@ -362,7 +374,7 @@ MemoryUseOrDef *MemorySSA::createNewAccess(Instruction *I,
 
   // It's possible for an instruction to not modify memory at all. During
   // construction, we ignore them.
-  if (IgnoreNonMemory && !Def && !Use)
+  if (!Def && !Use)
     return nullptr;
 
   assert((Def || Use) &&
@@ -677,69 +689,54 @@ void MemoryAccess::dump() const {
   dbgs() << "\n";
 }
 
-char MemorySSAPrinterPass::ID = 0;
+char MemorySSAAnalysis::PassID;
 
-MemorySSAPrinterPass::MemorySSAPrinterPass() : FunctionPass(ID) {
-  initializeMemorySSAPrinterPassPass(*PassRegistry::getPassRegistry());
+MemorySSA MemorySSAAnalysis::run(Function &F, AnalysisManager<Function> &AM) {
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &AA = AM.getResult<AAManager>(F);
+  return MemorySSA(F, &AA, &DT);
 }
 
-void MemorySSAPrinterPass::releaseMemory() {
-  // Subtlety: Be sure to delete the walker before MSSA, because the walker's
-  // dtor may try to access MemorySSA.
-  Walker.reset();
-  MSSA.reset();
+PreservedAnalyses MemorySSAPrinterPass::run(Function &F,
+                                            FunctionAnalysisManager &AM) {
+  OS << "MemorySSA for function: " << F.getName() << "\n";
+  AM.getResult<MemorySSAAnalysis>(F).print(OS);
+
+  return PreservedAnalyses::all();
 }
 
-void MemorySSAPrinterPass::getAnalysisUsage(AnalysisUsage &AU) const {
+PreservedAnalyses MemorySSAVerifierPass::run(Function &F,
+                                             FunctionAnalysisManager &AM) {
+  AM.getResult<MemorySSAAnalysis>(F).verifyMemorySSA();
+
+  return PreservedAnalyses::all();
+}
+
+char MemorySSAWrapperPass::ID = 0;
+
+MemorySSAWrapperPass::MemorySSAWrapperPass() : FunctionPass(ID) {
+  initializeMemorySSAWrapperPassPass(*PassRegistry::getPassRegistry());
+}
+
+void MemorySSAWrapperPass::releaseMemory() { MSSA.reset(); }
+
+void MemorySSAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequired<AAResultsWrapperPass>();
-  AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addPreserved<DominatorTreeWrapperPass>();
-  AU.addPreserved<GlobalsAAWrapperPass>();
+  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<AAResultsWrapperPass>();
 }
 
-bool MemorySSAPrinterPass::doInitialization(Module &M) {
-  VerifyMemorySSA = M.getContext()
-                        .getOption<bool, MemorySSAPrinterPass,
-                                   &MemorySSAPrinterPass::VerifyMemorySSA>();
+bool MemorySSAWrapperPass::runOnFunction(Function &F) {
+  auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
+  MSSA.reset(new MemorySSA(F, &AA, &DT));
   return false;
 }
 
-void MemorySSAPrinterPass::registerOptions() {
-  OptionRegistry::registerOption<bool, MemorySSAPrinterPass,
-                                 &MemorySSAPrinterPass::VerifyMemorySSA>(
-      "verify-memoryssa", "Run the Memory SSA verifier", false);
-}
+void MemorySSAWrapperPass::verifyAnalysis() const { MSSA->verifyMemorySSA(); }
 
-void MemorySSAPrinterPass::print(raw_ostream &OS, const Module *M) const {
+void MemorySSAWrapperPass::print(raw_ostream &OS, const Module *M) const {
   MSSA->print(OS);
-}
-
-bool MemorySSAPrinterPass::runOnFunction(Function &F) {
-  this->F = &F;
-  MSSA.reset(new MemorySSA(F));
-  AliasAnalysis *AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  Walker.reset(MSSA->buildMemorySSA(AA, DT));
-
-  if (VerifyMemorySSA) {
-    MSSA->verifyMemorySSA();
-  }
-
-  return false;
-}
-
-char MemorySSALazy::ID = 0;
-
-MemorySSALazy::MemorySSALazy() : FunctionPass(ID) {
-  initializeMemorySSALazyPass(*PassRegistry::getPassRegistry());
-}
-
-void MemorySSALazy::releaseMemory() { MSSA.reset(); }
-
-bool MemorySSALazy::runOnFunction(Function &F) {
-  MSSA.reset(new MemorySSA(F));
-  return false;
 }
 
 MemorySSAWalker::MemorySSAWalker(MemorySSA *M) : MSSA(M) {}
