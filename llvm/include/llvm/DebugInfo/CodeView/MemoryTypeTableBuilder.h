@@ -46,6 +46,8 @@ private:
 public:
   MemoryTypeTableBuilder() {}
 
+  bool empty() const { return Records.empty(); }
+
   template <typename TFunc> void ForEachRecord(TFunc Func) {
     uint32_t Index = TypeIndex::FirstNonSimpleIndex;
 
@@ -55,14 +57,15 @@ public:
     }
   }
 
-private:
-  virtual TypeIndex writeRecord(llvm::StringRef Data) override;
+protected:
+  TypeIndex writeRecord(llvm::StringRef Data) override;
 
 private:
   std::vector<std::unique_ptr<Record>> Records;
   std::unordered_map<llvm::StringRef, TypeIndex, RecordHash> HashedRecords;
 };
-}
-}
 
-#endif
+} // end namespace codeview
+} // end namespace llvm
+
+#endif // LLVM_DEBUGINFO_CODEVIEW_MEMORYTYPETABLEBUILDER_H

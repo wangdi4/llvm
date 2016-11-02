@@ -193,9 +193,9 @@ processFunctionBeforeFrameFinalized(MachineFunction &MF,
     LMFI->setRAFrameIndex(MFI->CreateSpillStackObject(8, 8));
 }
 
-void LPUFrameLowering::
-eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
-                              MachineBasicBlock::iterator I) const {
+MachineBasicBlock::iterator LPUFrameLowering::eliminateCallFramePseudoInstr(
+    MachineFunction &MF, MachineBasicBlock &MBB,
+    MachineBasicBlock::iterator I) const {
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(MF.getSubtarget().getInstrInfo());
@@ -219,6 +219,6 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
     }
   }
 
-  MBB.erase(I);
+  return MBB.erase(I);
 }
 

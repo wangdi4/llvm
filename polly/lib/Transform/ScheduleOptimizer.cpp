@@ -102,6 +102,12 @@ static cl::opt<std::string>
                       cl::desc("Maximize the band depth (yes/no)"), cl::Hidden,
                       cl::init("yes"), cl::ZeroOrMore, cl::cat(PollyCategory));
 
+static cl::opt<std::string> OuterCoincidence(
+    "polly-opt-outer-coincidence",
+    cl::desc("Try to construct schedules where the outer member of each band "
+             "satisfies the coincidence constraints (yes/no)"),
+    cl::Hidden, cl::init("no"), cl::ZeroOrMore, cl::cat(PollyCategory));
+
 static cl::opt<int> PrevectorWidth(
     "polly-prevect-width",
     cl::desc(
@@ -289,6 +295,10 @@ ScheduleTreeOptimizer::prevectSchedBand(__isl_take isl_schedule_node *Node,
       Node, isl_union_set_read_from_str(Ctx, "{ unroll[x]: 1 = 0 }"));
   Node = isl_schedule_node_band_sink(Node);
   Node = isl_schedule_node_child(Node, 0);
+  if (isl_schedule_node_get_type(Node) == isl_schedule_node_leaf)
+    Node = isl_schedule_node_parent(Node);
+  isl_id *LoopMarker = isl_id_alloc(Ctx, "SIMD", nullptr);
+  Node = isl_schedule_node_insert_mark(Node, LoopMarker);
   return Node;
 }
 
@@ -458,7 +468,8 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
     return false;
   }
 
-  const Dependences &D = getAnalysis<DependenceInfo>().getDependences();
+  const Dependences &D =
+      getAnalysis<DependenceInfo>().getDependences(Dependences::AL_Statement);
 
   if (!D.hasValidDependences())
     return false;
@@ -538,6 +549,20 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
     IslMaximizeBands = 1;
   }
 
+  int IslOuterCoincidence;
+
+  if (OuterCoincidence == "yes") {
+    IslOuterCoincidence = 1;
+  } else if (OuterCoincidence == "no") {
+    IslOuterCoincidence = 0;
+  } else {
+    errs() << "warning: Option -polly-opt-outer-coincidence should either be "
+              "'yes' or 'no'. Falling back to default: 'no'\n";
+    IslOuterCoincidence = 0;
+  }
+
+  isl_options_set_schedule_outer_coincidence(S.getIslCtx(),
+                                             IslOuterCoincidence);
   isl_options_set_schedule_serialize_sccs(S.getIslCtx(), IslSerializeSCCs);
   isl_options_set_schedule_maximize_band_depth(S.getIslCtx(), IslMaximizeBands);
   isl_options_set_schedule_max_constant_term(S.getIslCtx(), MaxConstantTerm);

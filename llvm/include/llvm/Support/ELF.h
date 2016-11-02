@@ -315,6 +315,11 @@ enum {
   // such numbers for an official value for WebAssembly. As soon as one is
   // allocated, this enum will be updated to use it.
   EM_WEBASSEMBLY   = 0x4157, // WebAssembly architecture
+
+  // A request has been made to the maintainer of the official registry for
+  // an official value for Lanai. As soon as one is allocated, this enum will be
+  // updated to use it.
+  EM_LANAI         = 0x8123, // Lanai 32-bit processor
 };
 
 // Object file classes.
@@ -589,6 +594,11 @@ enum {
 #include "ELFRelocs/Hexagon.def"
 };
 
+// ELF Relocation type for Lanai.
+enum {
+#include "ELFRelocs/Lanai.def"
+};
+
 // ELF Relocation types for S390/zSeries
 enum {
 #include "ELFRelocs/SystemZ.def"
@@ -729,6 +739,9 @@ enum : unsigned {
 
   // This section holds Thread-Local Storage.
   SHF_TLS = 0x400U,
+
+  // Identifies a section containing compressed data.
+  SHF_COMPRESSED = 0x800U,
 
   // This section is excluded from the final executable or shared library.
   SHF_EXCLUDE = 0x80000000U,
@@ -1116,6 +1129,8 @@ enum {
   DT_HIPROC       = 0x7FFFFFFF, // End of processor specific tags.
 
   DT_GNU_HASH     = 0x6FFFFEF5, // Reference to the GNU hash table.
+  DT_TLSDESC_PLT  = 0x6FFFFEF6, // Location of PLT entry for TLS descriptor resolver calls.
+  DT_TLSDESC_GOT  = 0x6FFFFEF7, // Location of GOT entry used by TLS descriptor resolver PLT entry.
   DT_RELACOUNT    = 0x6FFFFFF9, // ELF32_Rela count.
   DT_RELCOUNT     = 0x6FFFFFFA, // ELF32_Rel count.
 
@@ -1199,8 +1214,12 @@ enum {
   DT_MIPS_PLTGOT            = 0x70000032, // Address of the base of the PLTGOT.
   DT_MIPS_RWPLT             = 0x70000034, // Points to the base
                                           // of a writable PLT.
-  DT_MIPS_RLD_MAP_REL       = 0x70000035  // Relative offset of run time loader
+  DT_MIPS_RLD_MAP_REL       = 0x70000035, // Relative offset of run time loader
                                           // map, used for debugging.
+
+  // Sun machine-independent extensions.
+  DT_AUXILIARY              = 0x7FFFFFFD, // Shared object to load before self
+  DT_FILTER                 = 0x7FFFFFFF  // Shared object to get values from
 };
 
 // DT_FLAGS values.
@@ -1292,6 +1311,35 @@ enum {
 enum {
   VER_NEED_NONE = 0,
   VER_NEED_CURRENT = 1
+};
+
+// SHT_NOTE section types
+enum {
+  NT_GNU_BUILD_ID = 3
+};
+
+// Compressed section header for ELF32.
+struct Elf32_Chdr {
+  Elf32_Word ch_type;
+  Elf32_Word ch_size;
+  Elf32_Word ch_addralign;
+};
+
+// Compressed section header for ELF64.
+struct Elf64_Chdr {
+  Elf64_Word ch_type;
+  Elf64_Word ch_reserved;
+  Elf64_Xword ch_size;
+  Elf64_Xword ch_addralign;
+};
+
+// Legal values for ch_type field of compressed section header.
+enum {
+  ELFCOMPRESS_ZLIB = 1,            // ZLIB/DEFLATE algorithm.
+  ELFCOMPRESS_LOOS = 0x60000000,   // Start of OS-specific.
+  ELFCOMPRESS_HIOS = 0x6fffffff,   // End of OS-specific.
+  ELFCOMPRESS_LOPROC = 0x70000000, // Start of processor-specific.
+  ELFCOMPRESS_HIPROC = 0x7fffffff  // End of processor-specific.
 };
 
 } // end namespace ELF

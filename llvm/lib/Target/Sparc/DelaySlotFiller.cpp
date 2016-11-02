@@ -66,6 +66,11 @@ namespace {
       return Changed;
     }
 
+    MachineFunctionProperties getRequiredProperties() const override {
+      return MachineFunctionProperties().set(
+          MachineFunctionProperties::Property::AllVRegsAllocated);
+    }
+
     void insertCallDefsUses(MachineBasicBlock::iterator MI,
                             SmallSet<unsigned, 32>& RegDefs,
                             SmallSet<unsigned, 32>& RegUses);
@@ -268,6 +273,15 @@ bool Filler::delayHasHazard(MachineBasicBlock::iterator candidate,
         return true;
     }
   }
+
+  unsigned Opcode = candidate->getOpcode();
+  // LD and LDD may have NOPs inserted afterwards in the case of some LEON
+  // processors, so we can't use the delay slot if this feature is switched-on.
+  if (Subtarget->insertNOPLoad()
+      &&
+      Opcode >=  SP::LDDArr && Opcode <= SP::LDrr)
+    return true;
+
   return false;
 }
 
@@ -290,12 +304,12 @@ void Filler::insertCallDefsUses(MachineBasicBlock::iterator MI,
     assert(Reg.isUse() && "CALL first operand is not a use.");
     RegUses.insert(Reg.getReg());
 
-    const MachineOperand &RegOrImm = MI->getOperand(1);
-    if (RegOrImm.isImm())
+    const MachineOperand &Operand1 = MI->getOperand(1);
+    if (Operand1.isImm() || Operand1.isGlobal())
         break;
-    assert(RegOrImm.isReg() && "CALLrr second operand is not a register.");
-    assert(RegOrImm.isUse() && "CALLrr second operand is not a use.");
-    RegUses.insert(RegOrImm.getReg());
+    assert(Operand1.isReg() && "CALLrr second operand is not a register.");
+    assert(Operand1.isUse() && "CALLrr second operand is not a use.");
+    RegUses.insert(Operand1.getReg());
     break;
   }
 }

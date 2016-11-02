@@ -183,6 +183,12 @@ class MCStreamer {
   /// PushSection.
   SmallVector<std::pair<MCSectionSubPair, MCSectionSubPair>, 4> SectionStack;
 
+  /// The next unique ID to use when creating a WinCFI-related section (.pdata
+  /// or .xdata). This ID ensures that we have a one-to-one mapping from
+  /// code section to unwind info section, which MSVC's incremental linker
+  /// requires.
+  unsigned NextWinCFIID = 0;
+
 protected:
   MCStreamer(MCContext &Ctx);
 
@@ -221,6 +227,8 @@ public:
   ArrayRef<MCDwarfFrameInfo> getDwarfFrameInfos() const {
     return DwarfFrameInfos;
   }
+
+  bool hasUnfinishedDwarfFrameInfo();
 
   unsigned getNumWinFrameInfos() { return WinFrameInfos.size(); }
   ArrayRef<WinEH::FrameInfo *> getWinFrameInfos() const {
@@ -640,6 +648,40 @@ public:
                                      unsigned Isa, unsigned Discriminator,
                                      StringRef FileName);
 
+  /// \brief Associate a filename with a specified logical file number.  This
+  /// implements the '.cv_file 4 "foo.c"' assembler directive.
+  virtual unsigned EmitCVFileDirective(unsigned FileNo, StringRef Filename);
+
+  /// \brief This implements the CodeView '.cv_loc' assembler directive.
+  virtual void EmitCVLocDirective(unsigned FunctionId, unsigned FileNo,
+                                  unsigned Line, unsigned Column,
+                                  bool PrologueEnd, bool IsStmt,
+                                  StringRef FileName);
+
+  /// \brief This implements the CodeView '.cv_linetable' assembler directive.
+  virtual void EmitCVLinetableDirective(unsigned FunctionId,
+                                        const MCSymbol *FnStart,
+                                        const MCSymbol *FnEnd);
+
+  /// \brief This implements the CodeView '.cv_inline_linetable' assembler
+  /// directive.
+  virtual void EmitCVInlineLinetableDirective(
+      unsigned PrimaryFunctionId, unsigned SourceFileId, unsigned SourceLineNum,
+      const MCSymbol *FnStartSym, const MCSymbol *FnEndSym,
+      ArrayRef<unsigned> SecondaryFunctionIds);
+
+  /// \brief This implements the CodeView '.cv_def_range' assembler
+  /// directive.
+  virtual void EmitCVDefRangeDirective(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      StringRef FixedSizePortion);
+
+  /// \brief This implements the CodeView '.cv_stringtable' assembler directive.
+  virtual void EmitCVStringTableDirective() {}
+
+  /// \brief This implements the CodeView '.cv_filechecksums' assembler directive.
+  virtual void EmitCVFileChecksumsDirective() {}
+
   /// Emit the absolute difference between two symbols.
   ///
   /// \pre Offset of \c Hi is greater than the offset \c Lo.
@@ -683,6 +725,14 @@ public:
 
   virtual void EmitWinEHHandler(const MCSymbol *Sym, bool Unwind, bool Except);
   virtual void EmitWinEHHandlerData();
+
+  /// Get the .pdata section used for the given section. Typically the given
+  /// section is either the main .text section or some other COMDAT .text
+  /// section, but it may be any section containing code.
+  MCSection *getAssociatedPDataSection(const MCSection *TextSec);
+
+  /// Get the .xdata section used for the given section.
+  MCSection *getAssociatedXDataSection(const MCSection *TextSec);
 
   virtual void EmitSyntaxDirective();
 

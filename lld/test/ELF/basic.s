@@ -6,7 +6,7 @@
 # RUN:   | FileCheck %s
 
 # exits with return code 42 on linux
-.globl _start;
+.globl _start
 _start:
   mov $60, %rax
   mov $42, %rdi
@@ -213,4 +213,7 @@ _start:
 # DUP: duplicate symbol: _start in {{.*}} and {{.*}}
 
 # RUN: not ld.lld %t -o %t -m wrong_emul 2>&1 | FileCheck --check-prefix=UNKNOWN_EMUL %s
-# UNKNOWN_EMUL: Unknown emulation: wrong_emul
+# UNKNOWN_EMUL: unknown emulation: wrong_emul
+
+# RUN: not ld.lld %t --lto-jobs=0 2>&1 | FileCheck --check-prefix=NOTHREADS %s
+# NOTHREADS: number of threads must be > 0

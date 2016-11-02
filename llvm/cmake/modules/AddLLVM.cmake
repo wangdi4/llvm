@@ -8,9 +8,9 @@ function(llvm_update_compile_flags name)
     set(update_src_props ON)
   endif()
 
-  # LLVM_REQUIRES_EH is an internal flag that individual
-  # targets can use to force EH
-  if((LLVM_REQUIRES_EH OR LLVM_ENABLE_EH) AND NOT CLANG_CL)
+  # LLVM_REQUIRES_EH is an internal flag that individual targets can use to
+  # force EH
+  if(LLVM_REQUIRES_EH OR LLVM_ENABLE_EH)
     if(NOT (LLVM_REQUIRES_RTTI OR LLVM_ENABLE_RTTI))
       message(AUTHOR_WARNING "Exception handling requires RTTI. Enabling RTTI for ${name}")
       set(LLVM_REQUIRES_RTTI ON)
@@ -468,20 +468,23 @@ function(llvm_add_library name)
     endif()
   endif()
 
-  # Add the explicit dependency information for this library.
-  #
-  # It would be nice to verify that we have the dependencies for this library
-  # name, but using get_property(... SET) doesn't suffice to determine if a
-  # property has been set to an empty value.
-  get_property(lib_deps GLOBAL PROPERTY LLVMBUILD_LIB_DEPS_${name})
-
-  if (LLVM_LINK_LLVM_DYLIB AND NOT ARG_STATIC AND NOT ARG_DISABLE_LLVM_LINK_LLVM_DYLIB)
-    set(llvm_libs LLVM)
+  if (DEFINED LLVM_LINK_COMPONENTS OR DEFINED ARG_LINK_COMPONENTS)
+    if (LLVM_LINK_LLVM_DYLIB AND NOT ARG_DISABLE_LLVM_LINK_LLVM_DYLIB)
+      set(llvm_libs LLVM)
+    else()
+      llvm_map_components_to_libnames(llvm_libs
+       ${ARG_LINK_COMPONENTS}
+       ${LLVM_LINK_COMPONENTS}
+       )
+    endif()
   else()
-    llvm_map_components_to_libnames(llvm_libs
-      ${ARG_LINK_COMPONENTS}
-      ${LLVM_LINK_COMPONENTS}
-      )
+    # Components have not been defined explicitly in CMake, so add the
+    # dependency information for this library as defined by LLVMBuild.
+    #
+    # It would be nice to verify that we have the dependencies for this library
+    # name, but using get_property(... SET) doesn't suffice to determine if a
+    # property has been set to an empty value.
+    get_property(lib_deps GLOBAL PROPERTY LLVMBUILD_LIB_DEPS_${name})
   endif()
 
   if(CMAKE_VERSION VERSION_LESS 2.8.12)
@@ -764,8 +767,8 @@ function(canonicalize_tool_name name output)
 endfunction(canonicalize_tool_name)
 
 # Custom add_subdirectory wrapper
-# Takes in a project name (i.e. LLVM), the the subdirectory name, and an
-# and an optional path if it differs from the name.
+# Takes in a project name (i.e. LLVM), the subdirectory name, and an optional
+# path if it differs from the name.
 macro(add_llvm_subdirectory project type name)
   set(add_llvm_external_dir "${ARGN}")
   if("${add_llvm_external_dir}" STREQUAL "")
@@ -847,13 +850,13 @@ function(create_llvm_tool_options)
   create_subdirectory_options(LLVM TOOL)
 endfunction(create_llvm_tool_options)
 
-function(add_llvm_implicit_projects)
+function(llvm_add_implicit_projects project)
   set(list_of_implicit_subdirs "")
   file(GLOB sub-dirs "${CMAKE_CURRENT_SOURCE_DIR}/*")
   foreach(dir ${sub-dirs})
     if(IS_DIRECTORY "${dir}" AND EXISTS "${dir}/CMakeLists.txt")
       canonicalize_tool_name(${dir} name)
-      if (LLVM_TOOL_${name}_BUILD)
+      if (${project}_TOOL_${name}_BUILD)
         get_filename_component(fn "${dir}" NAME)
         list(APPEND list_of_implicit_subdirs "${fn}")
       endif()
@@ -861,8 +864,12 @@ function(add_llvm_implicit_projects)
   endforeach()
 
   foreach(external_proj ${list_of_implicit_subdirs})
-    add_llvm_external_project("${external_proj}")
+    add_llvm_subdirectory(${project} TOOL "${external_proj}" ${ARGN})
   endforeach()
+endfunction(llvm_add_implicit_projects)
+
+function(add_llvm_implicit_projects)
+  llvm_add_implicit_projects(LLVM)
 endfunction(add_llvm_implicit_projects)
 
 # Generic support for adding a unittest.
@@ -882,14 +889,11 @@ function(add_unittest test_suite test_name)
 
   set(LLVM_REQUIRES_RTTI OFF)
 
+  list(APPEND LLVM_LINK_COMPONENTS Support) # gtest needs it for raw_ostream
   add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO ${ARGN})
   set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
   set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
-  target_link_libraries(${test_name}
-    gtest
-    gtest_main
-    LLVMSupport # gtest needs it for raw_ostream.
-    )
+  target_link_libraries(${test_name} gtest_main gtest)
 
   add_dependencies(${test_suite} ${test_name})
   get_target_property(test_suite_folder ${test_suite} FOLDER)
@@ -913,13 +917,8 @@ function(llvm_add_go_executable binary pkgpath)
       set(cppflags "${cppflags} -I${d}")
     endforeach(d)
     set(ldflags "${CMAKE_EXE_LINKER_FLAGS}")
-    if (LLVM_LINK_LLVM_DYLIB)
-      set(linkmode "dylib")
-    else()
-      set(linkmode "component-libs")
-    endif()
     add_custom_command(OUTPUT ${binpath}
-      COMMAND ${CMAKE_BINARY_DIR}/bin/llvm-go "go=${GO_EXECUTABLE}" "cc=${cc}" "cxx=${cxx}" "cppflags=${cppflags}" "ldflags=${ldflags}" "linkmode=${linkmode}"
+      COMMAND ${CMAKE_BINARY_DIR}/bin/llvm-go "go=${GO_EXECUTABLE}" "cc=${cc}" "cxx=${cxx}" "cppflags=${cppflags}" "ldflags=${ldflags}"
               ${ARG_GOFLAGS} build -o ${binpath} ${pkgpath}
       DEPENDS llvm-config ${CMAKE_BINARY_DIR}/bin/llvm-go${CMAKE_EXECUTABLE_SUFFIX}
               ${llvmlibs} ${ARG_DEPENDS}
@@ -983,6 +982,8 @@ function(configure_lit_site_cfg input output)
   set(HOST_CC "${CMAKE_C_COMPILER} ${CMAKE_C_COMPILER_ARG1}")
   set(HOST_CXX "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_COMPILER_ARG1}")
   set(HOST_LDFLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+
+  set(LIT_SITE_CFG_IN_HEADER  "## Autogenerated from ${input}\n## Do not edit!")
 
   configure_file(${input} ${output} @ONLY)
 endfunction()
@@ -1049,13 +1050,27 @@ endfunction()
 function(add_lit_testsuites project directory)
   if (NOT CMAKE_CONFIGURATION_TYPES)
     cmake_parse_arguments(ARG "" "" "PARAMS;DEPENDS;ARGS" ${ARGN})
-    file(GLOB_RECURSE litCfg ${directory}/lit*.cfg)
+
+    # Search recursively for test directories by assuming anything not
+    # in a directory called Inputs contains tests.
     set(lit_suites)
-    foreach(f ${litCfg})
-      get_filename_component(dir ${f} DIRECTORY)
-      set(lit_suites ${lit_suites} ${dir})
-    endforeach()
-    list(REMOVE_DUPLICATES lit_suites)
+    file(GLOB to_process ${directory}/*)
+    while(to_process)
+      set(cur_to_process ${to_process})
+      set(to_process)
+      foreach(lit_suite ${cur_to_process})
+        if(IS_DIRECTORY ${lit_suite})
+          string(FIND ${lit_suite} Inputs is_inputs)
+          if (is_inputs EQUAL -1)
+            list(APPEND lit_suites "${lit_suite}")
+            file(GLOB subdirs ${lit_suite}/*)
+            list(APPEND to_process ${subdirs})
+          endif()
+        endif()
+      endforeach()
+    endwhile()
+
+    # Now create a check- target for each test directory.
     foreach(dir ${lit_suites})
       string(REPLACE ${directory} "" name_slash ${dir})
       if (name_slash)
@@ -1186,6 +1201,10 @@ function(llvm_externalize_debuginfo name)
     return()
   endif()
 
+  if(NOT LLVM_EXTERNALIZE_DEBUGINFO_SKIP_STRIP)
+    set(strip_command COMMAND xcrun strip -Sxl $<TARGET_FILE:${name}>)
+  endif()
+
   if(APPLE)
     if(CMAKE_CXX_FLAGS MATCHES "-flto"
       OR CMAKE_CXX_FLAGS_${uppercase_CMAKE_BUILD_TYPE} MATCHES "-flto")
@@ -1196,7 +1215,8 @@ function(llvm_externalize_debuginfo name)
     endif()
     add_custom_command(TARGET ${name} POST_BUILD
       COMMAND xcrun dsymutil $<TARGET_FILE:${name}>
-      COMMAND xcrun strip -Sl $<TARGET_FILE:${name}>)
+      ${strip_command}
+      )
   else()
     message(FATAL_ERROR "LLVM_EXTERNALIZE_DEBUGINFO isn't implemented for non-darwin platforms!")
   endif()

@@ -66,7 +66,7 @@ count_reg_uses(MachineRegisterInfo* MRI,
     // Walk over the operands in the use instruction.  Why do we need
     // a walk?  Because the instruction might use the register
     // multiple times...
-    for (MIOperands MO(&useMI); MO.isValid(); ++MO) {
+    for (MIOperands MO(useMI); MO.isValid(); ++MO) {
       if (MO->isReg() &&
           MO->isUse() &&
           (MO->getReg() == Reg)) {
@@ -318,7 +318,7 @@ allocateLicsInBlock(MachineBasicBlock* BB)
     }
     
     // Walk over machine operands in that instruction.
-    for (MIOperands MO(MI); MO.isValid(); ++MO) {
+    for (MIOperands MO(*MI); MO.isValid(); ++MO) {
       if (MO->isReg()) {
         DEBUG(errs() << "Reg  " << MO->getReg() << " corresponds to " << PrintReg(MO->getReg()) << " \n");
       }

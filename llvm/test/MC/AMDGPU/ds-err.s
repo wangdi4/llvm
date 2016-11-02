@@ -2,7 +2,7 @@
 // RUN: not llvm-mc -arch=amdgcn -mcpu=SI %s 2>&1 | FileCheck %s
 
 // offset too big
-// CHECK: invalid operand for instruction
+// CHECK: error: invalid operand for instruction
 ds_add_u32 v2, v4 offset:1000000000
 
 // offset0 twice

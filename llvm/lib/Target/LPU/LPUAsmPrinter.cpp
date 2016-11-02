@@ -24,6 +24,7 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
@@ -35,7 +36,7 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ELF.h"
-#include "llvm/Analysis/LPUSaveRawBC.h"
+#include "llvm/Bitcode/LPUSaveRawBC.h"
 #include <fstream>
 #include <sstream>
 

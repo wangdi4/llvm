@@ -35,9 +35,9 @@ public:
   void processFunctionBeforeFrameFinalized(MachineFunction &MF,
                                            RegScavenger *RS=nullptr) const override;
 
-  void eliminateCallFramePseudoInstr(MachineFunction &MF,
-                                     MachineBasicBlock &MBB,
-                                     MachineBasicBlock::iterator I) const override;
+  MachineBasicBlock::iterator
+  eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
+                                MachineBasicBlock::iterator I) const override;
 };
 
 } // End llvm namespace

@@ -67,7 +67,6 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/SimplifyIndVar.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
-#include <array>
 
 using namespace llvm;
 
@@ -114,12 +113,12 @@ class InductiveRangeCheck {
     RANGE_CHECK_UNKNOWN = (unsigned)-1
   };
 
-  static const char *rangeCheckKindToStr(RangeCheckKind);
+  static StringRef rangeCheckKindToStr(RangeCheckKind);
 
   const SCEV *Offset;
   const SCEV *Scale;
   Value *Length;
-  BranchInst *Branch;
+  Use *CheckUse;
   RangeCheckKind Kind;
 
   static RangeCheckKind parseRangeCheckICmp(Loop *L, ICmpInst *ICI,
@@ -130,8 +129,9 @@ class InductiveRangeCheck {
   parseRangeCheck(Loop *L, ScalarEvolution &SE, Value *Condition,
                   const SCEV *&Index, Value *&UpperLimit);
 
-  InductiveRangeCheck() :
-    Offset(nullptr), Scale(nullptr), Length(nullptr), Branch(nullptr) { }
+  InductiveRangeCheck()
+      : Offset(nullptr), Scale(nullptr), Length(nullptr),
+        CheckUse(nullptr) {}
 
 public:
   const SCEV *getOffset() const { return Offset; }
@@ -150,9 +150,9 @@ public:
       Length->print(OS);
     else
       OS << "(null)";
-    OS << "\n  Branch: ";
-    getBranch()->print(OS);
-    OS << "\n";
+    OS << "\n  CheckUse: ";
+    getCheckUse()->getUser()->print(OS);
+    OS << " Operand: " << getCheckUse()->getOperandNo() << "\n";
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -161,7 +161,7 @@ public:
   }
 #endif
 
-  BranchInst *getBranch() const { return Branch; }
+  Use *getCheckUse() const { return CheckUse; }
 
   /// Represents an signed integer range [Range.getBegin(), Range.getEnd()).  If
   /// R.getEnd() sle R.getBegin(), then R denotes the empty range.
@@ -180,8 +180,6 @@ public:
     const SCEV *getEnd() const { return End; }
   };
 
-  typedef SpecificBumpPtrAllocator<InductiveRangeCheck> AllocatorTy;
-
   /// This is the value the condition of the branch needs to evaluate to for the
   /// branch to take the hot successor (see (1) above).
   bool getPassingDirection() { return true; }
@@ -190,19 +188,15 @@ public:
   /// check is redundant and can be constant-folded away.  The induction
   /// variable is not required to be the canonical {0,+,1} induction variable.
   Optional<Range> computeSafeIterationSpace(ScalarEvolution &SE,
-                                            const SCEVAddRecExpr *IndVar,
-                                            IRBuilder<> &B) const;
+                                            const SCEVAddRecExpr *IndVar) const;
 
-  /// Create an inductive range check out of BI if possible, else return
-  /// nullptr.
-  static InductiveRangeCheck *create(AllocatorTy &Alloc, BranchInst *BI,
-                                     Loop *L, ScalarEvolution &SE,
-                                     BranchProbabilityInfo &BPI);
+  /// Create an inductive range check out of BI if possible, else return None.
+  static Optional<InductiveRangeCheck> create(BranchInst *BI, Loop *L,
+                                              ScalarEvolution &SE,
+                                              BranchProbabilityInfo &BPI);
 };
 
 class InductiveRangeCheckElimination : public LoopPass {
-  InductiveRangeCheck::AllocatorTy Allocator;
-
 public:
   static char ID;
   InductiveRangeCheckElimination() : LoopPass(ID) {
@@ -211,11 +205,8 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequiredID(LoopSimplifyID);
-    AU.addRequiredID(LCSSAID);
-    AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<BranchProbabilityInfoWrapperPass>();
+    getLoopAnalysisUsage(AU);
   }
 
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
@@ -226,15 +217,12 @@ char InductiveRangeCheckElimination::ID = 0;
 
 INITIALIZE_PASS_BEGIN(InductiveRangeCheckElimination, "irce",
                       "Inductive range check elimination", false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
-INITIALIZE_PASS_DEPENDENCY(LCSSA)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopPass)
 INITIALIZE_PASS_END(InductiveRangeCheckElimination, "irce",
                     "Inductive range check elimination", false, false)
 
-const char *InductiveRangeCheck::rangeCheckKindToStr(
+StringRef InductiveRangeCheck::rangeCheckKindToStr(
     InductiveRangeCheck::RangeCheckKind RCK) {
   switch (RCK) {
   case InductiveRangeCheck::RANGE_CHECK_UNKNOWN:
@@ -253,11 +241,9 @@ const char *InductiveRangeCheck::rangeCheckKindToStr(
   llvm_unreachable("unknown range check type!");
 }
 
-/// Parse a single ICmp instruction, `ICI`, into a range check.  If `ICI`
-/// cannot
+/// Parse a single ICmp instruction, `ICI`, into a range check.  If `ICI` cannot
 /// be interpreted as a range check, return `RANGE_CHECK_UNKNOWN` and set
-/// `Index` and `Length` to `nullptr`.  Otherwise set `Index` to the value
-/// being
+/// `Index` and `Length` to `nullptr`.  Otherwise set `Index` to the value being
 /// range checked, and set `Length` to the upper limit `Index` is being range
 /// checked with if (and only if) the range check type is stronger or equal to
 /// RANGE_CHECK_UPPER.
@@ -386,19 +372,17 @@ InductiveRangeCheck::parseRangeCheck(Loop *L, ScalarEvolution &SE,
   return InductiveRangeCheck::RANGE_CHECK_UNKNOWN;
 }
 
-
-InductiveRangeCheck *
-InductiveRangeCheck::create(InductiveRangeCheck::AllocatorTy &A, BranchInst *BI,
-                            Loop *L, ScalarEvolution &SE,
+Optional<InductiveRangeCheck>
+InductiveRangeCheck::create(BranchInst *BI, Loop *L, ScalarEvolution &SE,
                             BranchProbabilityInfo &BPI) {
 
   if (BI->isUnconditional() || BI->getParent() == L->getLoopLatch())
-    return nullptr;
+    return None;
 
   BranchProbability LikelyTaken(15, 16);
 
   if (BPI.getEdgeProbability(BI->getParent(), (unsigned) 0) < LikelyTaken)
-    return nullptr;
+    return None;
 
   Value *Length = nullptr;
   const SCEV *IndexSCEV = nullptr;
@@ -407,7 +391,7 @@ InductiveRangeCheck::create(InductiveRangeCheck::AllocatorTy &A, BranchInst *BI,
                                                      IndexSCEV, Length);
 
   if (RCKind == InductiveRangeCheck::RANGE_CHECK_UNKNOWN)
-    return nullptr;
+    return None;
 
   assert(IndexSCEV && "contract with SplitRangeCheckCondition!");
   assert((!(RCKind & InductiveRangeCheck::RANGE_CHECK_UPPER) || Length) &&
@@ -418,14 +402,14 @@ InductiveRangeCheck::create(InductiveRangeCheck::AllocatorTy &A, BranchInst *BI,
       IndexAddRec && (IndexAddRec->getLoop() == L) && IndexAddRec->isAffine();
 
   if (!IsAffineIndex)
-    return nullptr;
+    return None;
 
-  InductiveRangeCheck *IRC = new (A.Allocate()) InductiveRangeCheck;
-  IRC->Length = Length;
-  IRC->Offset = IndexAddRec->getStart();
-  IRC->Scale = IndexAddRec->getStepRecurrence(SE);
-  IRC->Branch = BI;
-  IRC->Kind = RCKind;
+  InductiveRangeCheck IRC;
+  IRC.Length = Length;
+  IRC.Offset = IndexAddRec->getStart();
+  IRC.Scale = IndexAddRec->getStepRecurrence(SE);
+  IRC.CheckUse = &BI->getOperandUse(0);
+  IRC.Kind = RCKind;
   return IRC;
 }
 
@@ -947,7 +931,7 @@ void LoopConstrainer::cloneLoop(LoopConstrainer::ClonedLoop &Result,
 
     for (Instruction &I : *ClonedBB)
       RemapInstruction(&I, Result.Map,
-                       RF_NoModuleLevelChanges | RF_IgnoreMissingEntries);
+                       RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
 
     // Exit blocks will now have one more predecessor and their PHI nodes need
     // to be edited to reflect that.  No phi nodes need to be introduced because
@@ -1305,9 +1289,8 @@ bool LoopConstrainer::run() {
 /// in which the range check can be safely elided.  If it cannot compute such a
 /// range, returns None.
 Optional<InductiveRangeCheck::Range>
-InductiveRangeCheck::computeSafeIterationSpace(ScalarEvolution &SE,
-                                               const SCEVAddRecExpr *IndVar,
-                                               IRBuilder<> &) const {
+InductiveRangeCheck::computeSafeIterationSpace(
+    ScalarEvolution &SE, const SCEVAddRecExpr *IndVar) const {
   // IndVar is of the form "A + B * I" (where "I" is the canonical induction
   // variable, that may or may not exist as a real llvm::Value in the loop) and
   // this inductive range check is a range check on the "C + D * I" ("C" is
@@ -1375,7 +1358,7 @@ InductiveRangeCheck::computeSafeIterationSpace(ScalarEvolution &SE,
 static Optional<InductiveRangeCheck::Range>
 IntersectRange(ScalarEvolution &SE,
                const Optional<InductiveRangeCheck::Range> &R1,
-               const InductiveRangeCheck::Range &R2, IRBuilder<> &B) {
+               const InductiveRangeCheck::Range &R2) {
   if (!R1.hasValue())
     return R2;
   auto &R1Value = R1.getValue();
@@ -1392,6 +1375,9 @@ IntersectRange(ScalarEvolution &SE,
 }
 
 bool InductiveRangeCheckElimination::runOnLoop(Loop *L, LPPassManager &LPM) {
+  if (skipLoop(L))
+    return false;
+
   if (L->getBlocks().size() >= LoopSizeCutoff) {
     DEBUG(dbgs() << "irce: giving up constraining loop, too large\n";);
     return false;
@@ -1404,17 +1390,15 @@ bool InductiveRangeCheckElimination::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   LLVMContext &Context = Preheader->getContext();
-  InductiveRangeCheck::AllocatorTy IRCAlloc;
-  SmallVector<InductiveRangeCheck *, 16> RangeChecks;
+  SmallVector<InductiveRangeCheck, 16> RangeChecks;
   ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   BranchProbabilityInfo &BPI =
       getAnalysis<BranchProbabilityInfoWrapperPass>().getBPI();
 
   for (auto BBI : L->getBlocks())
     if (BranchInst *TBI = dyn_cast<BranchInst>(BBI->getTerminator()))
-      if (InductiveRangeCheck *IRC =
-          InductiveRangeCheck::create(IRCAlloc, TBI, L, SE, BPI))
-        RangeChecks.push_back(IRC);
+      if (auto MaybeIRC = InductiveRangeCheck::create(TBI, L, SE, BPI))
+        RangeChecks.push_back(*MaybeIRC);
 
   if (RangeChecks.empty())
     return false;
@@ -1423,8 +1407,8 @@ bool InductiveRangeCheckElimination::runOnLoop(Loop *L, LPPassManager &LPM) {
     OS << "irce: looking at loop "; L->print(OS);
     OS << "irce: loop has " << RangeChecks.size()
        << " inductive range checks: \n";
-    for (InductiveRangeCheck *IRC : RangeChecks)
-      IRC->print(OS);
+    for (InductiveRangeCheck &IRC : RangeChecks)
+      IRC.print(OS);
   };
 
   DEBUG(PrintRecognizedRangeChecks(dbgs()));
@@ -1450,14 +1434,14 @@ bool InductiveRangeCheckElimination::runOnLoop(Loop *L, LPPassManager &LPM) {
   Optional<InductiveRangeCheck::Range> SafeIterRange;
   Instruction *ExprInsertPt = Preheader->getTerminator();
 
-  SmallVector<InductiveRangeCheck *, 4> RangeChecksToEliminate;
+  SmallVector<InductiveRangeCheck, 4> RangeChecksToEliminate;
 
   IRBuilder<> B(ExprInsertPt);
-  for (InductiveRangeCheck *IRC : RangeChecks) {
-    auto Result = IRC->computeSafeIterationSpace(SE, IndVar, B);
+  for (InductiveRangeCheck &IRC : RangeChecks) {
+    auto Result = IRC.computeSafeIterationSpace(SE, IndVar);
     if (Result.hasValue()) {
       auto MaybeSafeIterRange =
-        IntersectRange(SE, SafeIterRange, Result.getValue(), B);
+          IntersectRange(SE, SafeIterRange, Result.getValue());
       if (MaybeSafeIterRange.hasValue()) {
         RangeChecksToEliminate.push_back(IRC);
         SafeIterRange = MaybeSafeIterRange.getValue();
@@ -1487,11 +1471,11 @@ bool InductiveRangeCheckElimination::runOnLoop(Loop *L, LPPassManager &LPM) {
 
     // Optimize away the now-redundant range checks.
 
-    for (InductiveRangeCheck *IRC : RangeChecksToEliminate) {
-      ConstantInt *FoldedRangeCheck = IRC->getPassingDirection()
+    for (InductiveRangeCheck &IRC : RangeChecksToEliminate) {
+      ConstantInt *FoldedRangeCheck = IRC.getPassingDirection()
                                           ? ConstantInt::getTrue(Context)
                                           : ConstantInt::getFalse(Context);
-      IRC->getBranch()->setCondition(FoldedRangeCheck);
+      IRC.getCheckUse()->set(FoldedRangeCheck);
     }
   }
 

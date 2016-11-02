@@ -19,7 +19,6 @@
 #include "lldb/Host/Debug.h"
 #include "lldb/Host/FileSpec.h"
 #include "lldb/Host/HostThread.h"
-#include "lldb/Host/Mutex.h"
 #include "lldb/Target/MemoryRegionInfo.h"
 
 #include "lldb/Host/common/NativeProcessProtocol.h"
@@ -127,6 +126,9 @@ namespace process_linux {
                       size_t data_size = 0,
                       long *result = nullptr);
 
+        bool
+        SupportHardwareSingleStepping() const;
+
     protected:
         // ---------------------------------------------------------------------
         // NativeProcessProtocol protected interface
@@ -141,7 +143,6 @@ namespace process_linux {
 
         LazyBool m_supports_mem_region;
         std::vector<MemoryRegionInfo> m_mem_region_cache;
-        Mutex m_mem_region_cache_mutex;
 
         lldb::tid_t m_pending_notification_tid;
 
@@ -239,9 +240,6 @@ namespace process_linux {
         void
         MonitorSignal(const siginfo_t &info, NativeThreadLinux &thread, bool exited);
 
-        bool
-        SupportHardwareSingleStepping() const;
-
         Error
         SetupSoftwareSingleStepping(NativeThreadLinux &thread);
 
@@ -284,16 +282,6 @@ namespace process_linux {
         /// message.
         Error
         GetEventMessage(lldb::tid_t tid, unsigned long *message);
-
-        /// Resumes the given thread.  If @p signo is anything but
-        /// LLDB_INVALID_SIGNAL_NUMBER, deliver that signal to the thread.
-        Error
-        Resume(lldb::tid_t tid, uint32_t signo);
-
-        /// Single steps the given thread.  If @p signo is anything but
-        /// LLDB_INVALID_SIGNAL_NUMBER, deliver that signal to the thread.
-        Error
-        SingleStep(lldb::tid_t tid, uint32_t signo);
 
         void
         NotifyThreadDeath (lldb::tid_t tid);

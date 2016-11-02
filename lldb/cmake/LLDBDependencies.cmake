@@ -15,6 +15,7 @@ set( LLDB_USED_LIBS
   # Plugins
   lldbPluginDisassemblerLLVM
   lldbPluginSymbolFileDWARF
+  lldbPluginSymbolFilePDB
   lldbPluginSymbolFileSymtab
   lldbPluginDynamicLoaderStatic
   lldbPluginDynamicLoaderPosixDYLD
@@ -23,6 +24,7 @@ set( LLDB_USED_LIBS
   
   lldbPluginCPlusPlusLanguage
   lldbPluginGoLanguage
+  lldbPluginJavaLanguage
   lldbPluginObjCLanguage
   lldbPluginObjCPlusPlusLanguage
 
@@ -50,6 +52,7 @@ set( LLDB_USED_LIBS
   lldbPluginAppleObjCRuntime
   lldbPluginRenderScriptRuntime
   lldbPluginLanguageRuntimeGo
+  lldbPluginLanguageRuntimeJava
   lldbPluginCXXItaniumABI
   lldbPluginABIMacOSX_arm
   lldbPluginABIMacOSX_arm64
@@ -63,6 +66,7 @@ set( LLDB_USED_LIBS
   lldbPluginABISysV_ppc64
   lldbPluginABISysV_mips
   lldbPluginABISysV_mips64
+  lldbPluginABISysV_s390x
   lldbPluginInstructionARM
   lldbPluginInstructionARM64
   lldbPluginInstructionMIPS
@@ -72,6 +76,7 @@ set( LLDB_USED_LIBS
   lldbPluginOSPython
   lldbPluginMemoryHistoryASan
   lldbPluginInstrumentationRuntimeAddressSanitizer
+  lldbPluginInstrumentationRuntimeThreadSanitizer
   lldbPluginSystemRuntimeMacOSX
   lldbPluginProcessElfCore
   lldbPluginJITLoaderGDB
@@ -172,7 +177,7 @@ if (LLVM_BUILD_STATIC)
   endif()
 endif()
 
-set( LLVM_LINK_COMPONENTS
+set(LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
   interpreter
   asmparser
@@ -190,6 +195,7 @@ set( LLVM_LINK_COMPONENTS
   runtimedyld
   option
   support
+  coverage
   )
 
 if ( NOT LLDB_DISABLE_PYTHON )

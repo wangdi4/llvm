@@ -118,43 +118,44 @@ collectParamDecls(const CXXConstructorDecl *Ctor,
 
 PassByValueCheck::PassByValueCheck(StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      IncludeStyle(IncludeSorter::parseIncludeStyle(
+      IncludeStyle(utils::IncludeSorter::parseIncludeStyle(
           Options.get("IncludeStyle", "llvm"))) {}
 
 void PassByValueCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
-  Options.store(Opts, "IncludeStyle", IncludeSorter::toString(IncludeStyle));
+  Options.store(Opts, "IncludeStyle",
+                utils::IncludeSorter::toString(IncludeStyle));
 }
 
 void PassByValueCheck::registerMatchers(MatchFinder *Finder) {
   // Only register the matchers for C++; the functionality currently does not
   // provide any benefit to other languages, despite being benign.
-  if (getLangOpts().CPlusPlus) {
-    Finder->addMatcher(
-        cxxConstructorDecl(
-            forEachConstructorInitializer(
-                cxxCtorInitializer(
-                    // Clang builds a CXXConstructExpr only whin it knows which
-                    // constructor will be called. In dependent contexts a
-                    // ParenListExpr is generated instead of a CXXConstructExpr,
-                    // filtering out templates automatically for us.
-                    withInitializer(cxxConstructExpr(
-                        has(declRefExpr(to(
-                            parmVarDecl(
-                                hasType(qualType(
-                                    // Match only const-ref or a non-const value
-                                    // parameters. Rvalues and const-values
-                                    // shouldn't be modified.
-                                    anyOf(constRefType(),
-                                          nonConstValueType()))))
-                                .bind("Param")))),
-                        hasDeclaration(cxxConstructorDecl(
-                            isCopyConstructor(), unless(isDeleted()),
-                            hasDeclContext(
-                                cxxRecordDecl(isMoveConstructible())))))))
-                    .bind("Initializer")))
-            .bind("Ctor"),
-        this);
-  }
+  if (!getLangOpts().CPlusPlus)
+    return;
+
+  Finder->addMatcher(
+      cxxConstructorDecl(
+          forEachConstructorInitializer(
+              cxxCtorInitializer(
+                  // Clang builds a CXXConstructExpr only whin it knows which
+                  // constructor will be called. In dependent contexts a
+                  // ParenListExpr is generated instead of a CXXConstructExpr,
+                  // filtering out templates automatically for us.
+                  withInitializer(cxxConstructExpr(
+                      has(declRefExpr(to(
+                          parmVarDecl(
+                              hasType(qualType(
+                                  // Match only const-ref or a non-const value
+                                  // parameters. Rvalues and const-values
+                                  // shouldn't be modified.
+                                  anyOf(constRefType(), nonConstValueType()))))
+                              .bind("Param")))),
+                      hasDeclaration(cxxConstructorDecl(
+                          isCopyConstructor(), unless(isDeleted()),
+                          hasDeclContext(
+                              cxxRecordDecl(isMoveConstructible())))))))
+                  .bind("Initializer")))
+          .bind("Ctor"),
+      this);
 }
 
 void PassByValueCheck::registerPPCallbacks(CompilerInstance &Compiler) {
@@ -162,8 +163,8 @@ void PassByValueCheck::registerPPCallbacks(CompilerInstance &Compiler) {
   // currently does not provide any benefit to other languages, despite being
   // benign.
   if (getLangOpts().CPlusPlus) {
-    Inserter.reset(new IncludeInserter(Compiler.getSourceManager(),
-                                       Compiler.getLangOpts(), IncludeStyle));
+    Inserter.reset(new utils::IncludeInserter(
+        Compiler.getSourceManager(), Compiler.getLangOpts(), IncludeStyle));
     Compiler.getPreprocessor().addPPCallbacks(Inserter->CreatePPCallbacks());
   }
 }
@@ -208,11 +209,12 @@ void PassByValueCheck::check(const MatchFinder::MatchResult &Result) {
        << FixItHint::CreateInsertion(
               Initializer->getLParenLoc().getLocWithOffset(1), "std::move(");
 
-  auto Insertion =
-      Inserter->CreateIncludeInsertion(SM.getMainFileID(), "utility",
-                                       /*IsAngled=*/true);
-  if (Insertion.hasValue())
-    Diag << Insertion.getValue();
+  if (auto IncludeFixit = Inserter->CreateIncludeInsertion(
+          Result.SourceManager->getFileID(Initializer->getSourceLocation()),
+          "utility",
+          /*IsAngled=*/true)) {
+    Diag << *IncludeFixit;
+  }
 }
 
 } // namespace modernize

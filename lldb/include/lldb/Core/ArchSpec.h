@@ -69,7 +69,17 @@ public:
         eMIPSABI_O32        = 0x00002000,
         eMIPSABI_N32        = 0x00004000,
         eMIPSABI_N64        = 0x00008000,
+        eMIPSABI_O64        = 0x00020000,
+        eMIPSABI_EABI32     = 0x00040000,
+        eMIPSABI_EABI64     = 0x00080000,
         eMIPSABI_mask       = 0x000ff000
+    };
+
+    // ARM specific e_flags
+    enum ARMeflags
+    {
+        eARM_abi_soft_float = 0x00000200,
+        eARM_abi_hard_float = 0x00000400
     };
 
     enum Core
@@ -144,6 +154,8 @@ public:
         eCore_ppc64_generic,
         eCore_ppc64_ppc970_64,
         
+        eCore_s390x_generic,
+
         eCore_sparc_generic,
         
         eCore_sparc9_generic,
@@ -279,6 +291,24 @@ public:
     //------------------------------------------------------------------
     const char *
     GetArchitectureName () const;
+
+    //-----------------------------------------------------------------
+    /// if MIPS architecture return true.
+    ///
+    ///  @return a boolean value.
+    //-----------------------------------------------------------------
+    bool
+    IsMIPS() const;
+
+    //------------------------------------------------------------------
+    /// Returns a string representing current architecture as a target CPU
+    /// for tools like compiler, disassembler etc.
+    ///
+    /// @return A string representing target CPU for the current
+    ///         architecture.
+    //------------------------------------------------------------------
+    std::string
+    GetClangTargetCPU ();
 
     //------------------------------------------------------------------
     /// Clears the object state.
@@ -605,6 +635,22 @@ public:
                             bool &os_version_different,
                             bool &env_different);
     
+    //------------------------------------------------------------------
+    /// Detect whether this architecture uses thumb code exclusively
+    ///
+    /// Some embedded ARM chips (e.g. the ARM Cortex M0-7 line) can
+    /// only execute the Thumb instructions, never Arm.  We should normally
+    /// pick up arm/thumbness from their the processor status bits (cpsr/xpsr)
+    /// or hints on each function - but when doing bare-boards low level
+    /// debugging (especially common with these embedded processors), we may
+    /// not have those things easily accessible.
+    ///
+    /// @return true if this is an arm ArchSpec which can only execute Thumb
+    ///         instructions
+    //------------------------------------------------------------------
+    bool
+    IsAlwaysThumbInstructions () const;
+
     uint32_t
     GetFlags () const
     {

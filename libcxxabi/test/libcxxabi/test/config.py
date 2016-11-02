@@ -1,3 +1,11 @@
+#===----------------------------------------------------------------------===##
+#
+#                     The LLVM Compiler Infrastructure
+#
+# This file is dual licensed under the MIT and the University of Illinois Open
+# Source Licenses. See LICENSE.TXT for details.
+#
+#===----------------------------------------------------------------------===##
 import os
 import sys
 
@@ -24,6 +32,11 @@ class Configuration(LibcxxConfiguration):
     def configure_obj_root(self):
         self.libcxxabi_obj_root = self.get_lit_conf('libcxxabi_obj_root')
         super(Configuration, self).configure_obj_root()
+
+    def configure_features(self):
+        super(Configuration, self).configure_features()
+        if self.get_lit_bool('thread_atexit', True):
+            self.config.available_features.add('thread_atexit')
 
     def configure_compile_flags(self):
         self.cxx.compile_flags += ['-DLIBCXXABI_NO_TIMER']
@@ -55,13 +68,3 @@ class Configuration(LibcxxConfiguration):
 
     def configure_compile_flags_rtti(self):
         pass
-
-    # TODO(ericwf): Remove this. This is a hack for OS X.
-    # libc++ *should* export all of the symbols found in libc++abi on OS X.
-    # For this reason LibcxxConfiguration will not link libc++abi in OS X.
-    # However __cxa_throw_bad_new_array_length doesn't get exported into libc++
-    # yet so we still need to explicitly link libc++abi.
-    # See PR22654.
-    def configure_link_flags_abi_library(self):
-        self.cxx.link_flags += ['-lc++abi']
-

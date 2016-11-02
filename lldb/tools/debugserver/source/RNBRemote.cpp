@@ -1026,7 +1026,6 @@ RNBRemote::ThreadFunctionReadRemoteData(void *arg)
                 case rnb_success:
                     break;
 
-                default:
                 case rnb_err:
                     DNBLogThreadedIf (LOG_RNB_REMOTE, "RNBSocket::GetCommData returned error %u", err);
                     done = true;
@@ -1228,7 +1227,9 @@ RNBRemote::InitializeRegisters (bool force)
                 register_map_entry_t reg_entry = {
                     regnum++,                           // register number starts at zero and goes up with no gaps
                     reg_data_offset,                    // Offset into register context data, no gaps between registers
-                    reg_sets[set].registers[reg]        // DNBRegisterInfo
+                    reg_sets[set].registers[reg],       // DNBRegisterInfo
+                    {},
+                    {},
                 };
 
                 name_to_regnum[reg_entry.nub_info.name] = reg_entry.debugserver_regnum;
@@ -2571,13 +2572,13 @@ RNBRemote::DispatchQueueOffsets::GetThreadQueueInfo (nub_process_t pid,
                 nub_addr_t pointer_to_label_address = dispatch_queue_t + dqo_label;
                 nub_addr_t label_addr = DNBProcessMemoryReadPointer (pid, pointer_to_label_address);
                 if (label_addr)
-                    queue_name = std::move(DNBProcessMemoryReadCString (pid, label_addr));
+                    queue_name = DNBProcessMemoryReadCString(pid, label_addr);
             }
             else
             {
                 // libdispatch versions 1-3, dispatch name is a fixed width char array
                 // in the queue structure.
-                queue_name = std::move(DNBProcessMemoryReadCStringFixed(pid, dispatch_queue_t + dqo_label, dqo_label_size));
+                queue_name = DNBProcessMemoryReadCStringFixed(pid, dispatch_queue_t + dqo_label, dqo_label_size);
             }
         }
     }
@@ -3554,13 +3555,6 @@ RNBRemote::HandlePacket_v (const char *p)
     }
     else if (strstr (p, "vCont") == p)
     {
-        typedef struct
-        {
-            nub_thread_t tid;
-            char action;
-            int signal;
-        } vcont_action_t;
-
         DNBThreadResumeActions thread_actions;
         char *c = (char *)(p += strlen("vCont"));
         char *c_end = c + strlen(c);
@@ -4433,6 +4427,7 @@ RNBRemote::HandlePacket_stop_process (const char *p)
     {
         // If we failed to interrupt the process, then send a stop
         // reply packet as the process was probably already stopped
+        DNBLogThreaded ("RNBRemote::HandlePacket_stop_process() sending extra stop reply because DNBProcessInterrupt returned false");
         HandlePacket_last_signal (NULL);
     }
     return rnb_success;
@@ -4645,15 +4640,9 @@ RNBRemote::HandlePacket_qHostInfo (const char *p)
     uint64_t major, minor, patch;
     if (DNBGetOSVersionNumbers (&major, &minor, &patch))
     {
-        strm << "osmajor:" << major << ";";
-        strm << "osminor:" << minor << ";";
-        strm << "ospatch:" << patch << ";";
-
-        strm << "version:" << major << "." << minor;
-        if (patch != 0)
-        {
+        strm << "os_version:" << major << "." << minor;
+        if (patch != UINT64_MAX)
             strm << "." << patch;
-        }
         strm << ";";
     }
 
@@ -5693,7 +5682,7 @@ RNBRemote::HandlePacket_qSymbol (const char *command)
     if (*p)
     {
         // We have a symbol name
-        symbol_name = std::move(decode_hex_ascii_string(p));
+        symbol_name = decode_hex_ascii_string(p);
         if (!symbol_value_str.empty())
         {
             nub_addr_t symbol_value = decode_uint64(symbol_value_str.c_str(), 16);
@@ -5863,7 +5852,7 @@ RNBRemote::HandlePacket_qProcessInfo (const char *p)
                     DNBLogThreadedIf (LOG_RNB_PROC, "LC_VERSION_MIN_MACOSX -> 'ostype:macosx;'");
                     break;
 
-#if defined (TARGET_OS_TV) && TARGET_OS_TV == 1
+#if defined (LC_VERSION_MIN_TVOS)
                 case LC_VERSION_MIN_TVOS:
                     os_handled = true;
                     rep << "ostype:tvos;";
@@ -5871,7 +5860,7 @@ RNBRemote::HandlePacket_qProcessInfo (const char *p)
                     break;
 #endif
 
-#if defined (TARGET_OS_WATCH) && TARGET_OS_WATCH == 1
+#if defined (LC_VERSION_MIN_WATCHOS)
                 case LC_VERSION_MIN_WATCHOS:
                     os_handled = true;
                     rep << "ostype:watchos;";

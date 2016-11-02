@@ -497,7 +497,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
     swapPickSwitchRegs = true;
   }
 
-  for (MIOperands MO(MI); MO.isValid(); ++MO) {
+  for (MIOperands MO(*MI); MO.isValid(); ++MO) {
     if (!MO->isReg()) continue;
     unsigned Reg = MO->getReg();
 

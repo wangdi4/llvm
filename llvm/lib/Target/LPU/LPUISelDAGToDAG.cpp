@@ -24,7 +24,6 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
@@ -71,7 +70,7 @@ namespace {
 
     bool SelectAddrReg(SDNode *Parent, SDValue Addr, SDValue &Base);
 
-    SDNode *Select(SDNode *N) override;
+    void Select(SDNode *N) override;
   };
 }  // end anonymous namespace
 
@@ -229,7 +228,7 @@ bool LPUDAGToDAGISel::SelectAddrReg(SDNode *Parent, SDValue Addr,
   return false;
 }
 
-SDNode *LPUDAGToDAGISel::Select(SDNode *Node) {
+void LPUDAGToDAGISel::Select(SDNode *Node) {
   SDLoc dl(Node);
 
   // Dump information about the Node being selected
@@ -243,7 +242,7 @@ SDNode *LPUDAGToDAGISel::Select(SDNode *Node) {
           Node->dump(CurDAG);
           errs() << "\n");
     Node->setNodeId(-1);
-    return nullptr;
+    return;
   }
 
   // Custom selection
@@ -253,7 +252,8 @@ SDNode *LPUDAGToDAGISel::Select(SDNode *Node) {
     int FI = cast<FrameIndexSDNode>(Node)->getIndex();
     SDValue TFI = CurDAG->getTargetFrameIndex(FI,
         TLI->getPointerTy(MF->getDataLayout()));
-    return CurDAG->SelectNodeTo(Node, LPU::MOV64, MVT::i64, TFI);
+    ReplaceNode(Node, CurDAG->SelectNodeTo(Node, LPU::MOV64, MVT::i64, TFI));
+    return;
   }
   }
 
@@ -267,5 +267,6 @@ SDNode *LPUDAGToDAGISel::Select(SDNode *Node) {
     DEBUG(ResNode->dump(CurDAG));
   DEBUG(errs() << "\n");
 
-  return ResNode;
+  ReplaceNode(Node, ResNode);
+  return;
 }

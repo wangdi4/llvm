@@ -169,6 +169,18 @@ ObjectFilePECOFF::MagicBytesMatch (DataBufferSP& data_sp)
     return magic == IMAGE_DOS_SIGNATURE;
 }
 
+lldb::SymbolType
+ObjectFilePECOFF::MapSymbolType(uint16_t coff_symbol_type)
+{
+    // TODO:  We need to complete this mapping of COFF symbol types to LLDB ones.
+    // For now, here's a hack to make sure our function have types.
+    const auto complex_type = coff_symbol_type >> llvm::COFF::SCT_COMPLEX_TYPE_SHIFT;
+    if (complex_type == llvm::COFF::IMAGE_SYM_DTYPE_FUNCTION)
+    {
+        return lldb::eSymbolTypeCode;
+    }
+    return lldb::eSymbolTypeInvalid;
+}
 
 ObjectFilePECOFF::ObjectFilePECOFF (const lldb::ModuleSP &module_sp, 
                                     DataBufferSP& data_sp,
@@ -180,7 +192,8 @@ ObjectFilePECOFF::ObjectFilePECOFF (const lldb::ModuleSP &module_sp,
     m_dos_header (),
     m_coff_header (),
     m_coff_header_opt (),
-    m_sect_headers ()
+    m_sect_headers (),
+    m_entry_point_address ()
 {
     ::memset (&m_dos_header, 0, sizeof(m_dos_header));
     ::memset (&m_coff_header, 0, sizeof(m_coff_header));
@@ -199,7 +212,7 @@ ObjectFilePECOFF::ParseHeader ()
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         m_sect_headers.clear();
         m_data.SetByteOrder (eByteOrderLittle);
         lldb::offset_t offset = 0;
@@ -521,21 +534,21 @@ ObjectFilePECOFF::GetSymtab()
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         if (m_symtab_ap.get() == NULL)
         {
             SectionList *sect_list = GetSectionList();
             m_symtab_ap.reset(new Symtab(this));
-            Mutex::Locker symtab_locker (m_symtab_ap->GetMutex());
-            
+            std::lock_guard<std::recursive_mutex> guard(m_symtab_ap->GetMutex());
+
             const uint32_t num_syms = m_coff_header.nsyms;
 
             if (num_syms > 0 && m_coff_header.symoff > 0)
             {
                 const uint32_t symbol_size = 18;
                 const uint32_t addr_byte_size = GetAddressByteSize ();
-                const size_t symbol_data_size = num_syms * symbol_size; 
-                // Include the 4 bytes string table size at the end of the symbols
+                const size_t symbol_data_size = num_syms * symbol_size;
+                // Include the 4-byte string table size at the end of the symbols
                 DataBufferSP symtab_data_sp(m_file.ReadFileContents (m_coff_header.symoff, symbol_data_size + 4));
                 DataExtractor symtab_data (symtab_data_sp, GetByteOrder(), addr_byte_size);
                 lldb::offset_t offset = symbol_data_size;
@@ -556,8 +569,8 @@ ObjectFilePECOFF::GetSymtab()
                     coff_symbol_t symbol;
                     const uint32_t symbol_offset = offset;
                     const char *symbol_name_cstr = NULL;
-                    // If the first 4 bytes of the symbol string are zero, then we
-                    // it is followed by a 4 byte string table offset. Else these
+                    // If the first 4 bytes of the symbol string are zero, then they
+                    // are followed by a 4-byte string table offset. Else these
                     // 8 bytes contain the symbol name
                     if (symtab_data.GetU32 (&offset) == 0)
                     {
@@ -586,6 +599,7 @@ ObjectFilePECOFF::GetSymtab()
                     {
                         Address symbol_addr(sect_list->GetSectionAtIndex(symbol.sect-1), symbol.value);
                         symbols[i].GetAddressRef() = symbol_addr;
+                        symbols[i].SetType(MapSymbolType(symbol.type));
                     }
 
                     if (symbol.naux > 0)
@@ -649,6 +663,7 @@ ObjectFilePECOFF::GetSymtab()
                     symbols[i].SetDebug(true);
                 }
             }
+            m_symtab_ap->CalculateSymbolSizes();
         }
     }
     return m_symtab_ap.get();
@@ -674,7 +689,7 @@ ObjectFilePECOFF::CreateSections (SectionList &unified_section_list)
         ModuleSP module_sp(GetModule());
         if (module_sp)
         {
-            lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+            std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
             const uint32_t nsects = m_sect_headers.size();
             ModuleSP module_sp (GetModule());
             for (uint32_t idx = 0; idx<nsects; ++idx)
@@ -800,6 +815,25 @@ ObjectFilePECOFF::GetDependentModules (FileSpecList& files)
     return 0;
 }
 
+lldb_private::Address
+ObjectFilePECOFF::GetEntryPointAddress ()
+{
+    if (m_entry_point_address.IsValid())
+        return m_entry_point_address;
+
+    if (!ParseHeader() || !IsExecutable())
+        return m_entry_point_address;
+
+    SectionList *section_list = GetSectionList();
+    addr_t offset = m_coff_header_opt.entry;
+
+    if (!section_list)
+        m_entry_point_address.SetOffset(offset);
+    else
+        m_entry_point_address.ResolveAddressUsingFileSections(offset, section_list);
+    return m_entry_point_address;
+}
+
 
 //----------------------------------------------------------------------
 // Dump
@@ -813,7 +847,7 @@ ObjectFilePECOFF::Dump(Stream *s)
     ModuleSP module_sp(GetModule());
     if (module_sp)
     {
-        lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
         s->Printf("%p: ", static_cast<void*>(this));
         s->Indent();
         s->PutCString("ObjectFilePECOFF");

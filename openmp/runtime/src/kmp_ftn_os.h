@@ -45,6 +45,7 @@
     #define FTN_GET_AFFINITY_MASK_PROC           kmp_get_affinity_mask_proc
 
     #define FTN_MALLOC                           kmp_malloc
+    #define FTN_ALIGNED_MALLOC                   kmp_aligned_malloc
     #define FTN_CALLOC                           kmp_calloc
     #define FTN_REALLOC                          kmp_realloc
     #define FTN_FREE                             kmp_free
@@ -113,6 +114,16 @@
     #define FTN_GET_CANCELLATION_STATUS          kmp_get_cancellation_status
 #endif
 
+#if OMP_41_ENABLED
+    #define FTN_GET_MAX_TASK_PRIORITY            omp_get_max_task_priority
+    #define FTN_GET_NUM_PLACES                   omp_get_num_places
+    #define FTN_GET_PLACE_NUM_PROCS              omp_get_place_num_procs
+    #define FTN_GET_PLACE_PROC_IDS               omp_get_place_proc_ids
+    #define FTN_GET_PLACE_NUM                    omp_get_place_num
+    #define FTN_GET_PARTITION_NUM_PLACES         omp_get_partition_num_places
+    #define FTN_GET_PARTITION_PLACE_NUMS         omp_get_partition_place_nums
+#endif
+
 #endif /* KMP_FTN_PLAIN */
 
 /* ------------------------------------------------------------------------ */
@@ -141,6 +152,7 @@
     #define FTN_GET_AFFINITY_MASK_PROC           kmp_get_affinity_mask_proc_
 
     #define FTN_MALLOC                           kmp_malloc_
+    #define FTN_ALIGNED_MALLOC                   kmp_aligned_malloc_
     #define FTN_CALLOC                           kmp_calloc_
     #define FTN_REALLOC                          kmp_realloc_
     #define FTN_FREE                             kmp_free_
@@ -210,6 +222,16 @@
     #define FTN_GET_CANCELLATION_STATUS          kmp_get_cancellation_status_
 #endif
 
+#if OMP_41_ENABLED
+    #define FTN_GET_MAX_TASK_PRIORITY            omp_get_max_task_priority_
+    #define FTN_GET_NUM_PLACES                   omp_get_num_places_
+    #define FTN_GET_PLACE_NUM_PROCS              omp_get_place_num_procs_
+    #define FTN_GET_PLACE_PROC_IDS               omp_get_place_proc_ids_
+    #define FTN_GET_PLACE_NUM                    omp_get_place_num_
+    #define FTN_GET_PARTITION_NUM_PLACES         omp_get_partition_num_places_
+    #define FTN_GET_PARTITION_PLACE_NUMS         omp_get_partition_place_nums_
+#endif
+
 #endif /* KMP_FTN_APPEND */
 
 /* ------------------------------------------------------------------------ */
@@ -238,6 +260,7 @@
     #define FTN_GET_AFFINITY_MASK_PROC           KMP_GET_AFFINITY_MASK_PROC
 
     #define FTN_MALLOC                           KMP_MALLOC
+    #define FTN_ALIGNED_MALLOC                   KMP_ALIGNED_MALLOC
     #define FTN_CALLOC                           KMP_CALLOC
     #define FTN_REALLOC                          KMP_REALLOC
     #define FTN_FREE                             KMP_FREE
@@ -307,6 +330,16 @@
     #define FTN_GET_CANCELLATION_STATUS          KMP_GET_CANCELLATION_STATUS
 #endif
 
+#if OMP_41_ENABLED
+    #define FTN_GET_MAX_TASK_PRIORITY            OMP_GET_MAX_TASK_PRIORITY
+    #define FTN_GET_NUM_PLACES                   OMP_GET_NUM_PLACES
+    #define FTN_GET_PLACE_NUM_PROCS              OMP_GET_PLACE_NUM_PROCS
+    #define FTN_GET_PLACE_PROC_IDS               OMP_GET_PLACE_PROC_IDS
+    #define FTN_GET_PLACE_NUM                    OMP_GET_PLACE_NUM
+    #define FTN_GET_PARTITION_NUM_PLACES         OMP_GET_PARTITION_NUM_PLACES
+    #define FTN_GET_PARTITION_PLACE_NUMS         OMP_GET_PARTITION_PLACE_NUMS
+#endif
+
 #endif /* KMP_FTN_UPPER */
 
 /* ------------------------------------------------------------------------ */
@@ -335,6 +368,7 @@
     #define FTN_GET_AFFINITY_MASK_PROC           KMP_GET_AFFINITY_MASK_PROC_
 
     #define FTN_MALLOC                           KMP_MALLOC_
+    #define FTN_ALIGNED_MALLOC                   KMP_ALIGNED_MALLOC_
     #define FTN_CALLOC                           KMP_CALLOC_
     #define FTN_REALLOC                          KMP_REALLOC_
     #define FTN_FREE                             KMP_FREE_
@@ -402,6 +436,16 @@
 #if OMP_40_ENABLED
     #define FTN_GET_CANCELLATION                 OMP_GET_CANCELLATION_
     #define FTN_GET_CANCELLATION_STATUS          KMP_GET_CANCELLATION_STATUS_
+#endif
+
+#if OMP_41_ENABLED
+    #define FTN_GET_MAX_TASK_PRIORITY            OMP_GET_MAX_TASK_PRIORITY_
+    #define FTN_GET_NUM_PLACES                   OMP_GET_NUM_PLACES_
+    #define FTN_GET_PLACE_NUM_PROCS              OMP_GET_PLACE_NUM_PROCS_
+    #define FTN_GET_PLACE_PROC_IDS               OMP_GET_PLACE_PROC_IDS_
+    #define FTN_GET_PLACE_NUM                    OMP_GET_PLACE_NUM_
+    #define FTN_GET_PARTITION_NUM_PLACES         OMP_GET_PARTITION_NUM_PLACES_
+    #define FTN_GET_PARTITION_PLACE_NUMS         OMP_GET_PARTITION_PLACE_NUMS_
 #endif
 
 #endif /* KMP_FTN_UAPPEND */
@@ -474,7 +518,7 @@
 // All GOMP_3.0 symbols
 #define KMP_API_NAME_GOMP_TASKYIELD                      GOMP_taskyield
 
-// All GOMP_4.0 symbols 
+// All GOMP_4.0 symbols
 // TODO: As of 2013-10-14, none of the GOMP_4.0 functions are implemented in libomp
 #define KMP_API_NAME_GOMP_BARRIER_CANCEL                 GOMP_barrier_cancel
 #define KMP_API_NAME_GOMP_CANCEL                         GOMP_cancel

@@ -34,6 +34,7 @@ class ConstantArray;
 class DIE;
 class DIEAbbrev;
 class GCMetadataPrinter;
+class GlobalIndirectSymbol;
 class GlobalValue;
 class GlobalVariable;
 class MachineBasicBlock;
@@ -237,11 +238,6 @@ public:
   /// function to the current output stream.
   ///
   virtual void EmitJumpTableInfo();
-
-  /// Emit the control variable for an emulated TLS variable.
-  virtual void EmitEmulatedTLSControlVariable(const GlobalVariable *GV,
-                                              MCSymbol *EmittedSym,
-                                              bool AllZeroInitValue);
 
   /// Emit the specified global variable to the .s file.
   virtual void EmitGlobalVariable(const GlobalVariable *GV);
@@ -551,6 +547,9 @@ private:
   void EmitXXStructorList(const DataLayout &DL, const Constant *List,
                           bool isCtor);
   GCMetadataPrinter *GetOrCreateGCPrinter(GCStrategy &C);
+  /// Emit GlobalAlias or GlobalIFunc.
+  void emitGlobalIndirectSymbol(Module &M,
+                                const GlobalIndirectSymbol& GIS);
 };
 }
 

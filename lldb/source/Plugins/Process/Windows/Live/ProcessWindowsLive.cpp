@@ -47,6 +47,7 @@
 #include "ProcessWindowsLive.h"
 #include "TargetThreadWindowsLive.h"
 
+#include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -61,17 +62,19 @@ namespace
 std::string
 GetProcessExecutableName(HANDLE process_handle)
 {
-    std::vector<char> file_name;
+    std::vector<wchar_t> file_name;
     DWORD file_name_size = MAX_PATH;  // first guess, not an absolute limit
     DWORD copied = 0;
     do
     {
         file_name_size *= 2;
         file_name.resize(file_name_size);
-        copied = ::GetModuleFileNameEx(process_handle, NULL, file_name.data(), file_name_size);
+        copied = ::GetModuleFileNameExW(process_handle, NULL, file_name.data(), file_name_size);
     } while (copied >= file_name_size);
     file_name.resize(copied);
-    return std::string(file_name.begin(), file_name.end());
+    std::string result;
+    llvm::convertWideToUTF8(file_name.data(), result);
+    return result;
 }
 
 std::string
@@ -121,9 +124,9 @@ class ProcessWindowsData
 // Static functions.
 
 ProcessSP
-ProcessWindowsLive::CreateInstance(lldb::TargetSP target_sp, Listener &listener, const FileSpec *)
+ProcessWindowsLive::CreateInstance(lldb::TargetSP target_sp, lldb::ListenerSP listener_sp, const FileSpec *)
 {
-    return ProcessSP(new ProcessWindowsLive(target_sp, listener));
+    return ProcessSP(new ProcessWindowsLive(target_sp, listener_sp));
 }
 
 void
@@ -142,8 +145,8 @@ ProcessWindowsLive::Initialize()
 //------------------------------------------------------------------------------
 // Constructors and destructors.
 
-ProcessWindowsLive::ProcessWindowsLive(lldb::TargetSP target_sp, Listener &listener)
-    : lldb_private::ProcessWindows(target_sp, listener)
+ProcessWindowsLive::ProcessWindowsLive(lldb::TargetSP target_sp, lldb::ListenerSP listener_sp)
+    : lldb_private::ProcessWindows(target_sp, listener_sp)
 {
 }
 
@@ -189,7 +192,7 @@ ProcessWindowsLive::DisableBreakpointSite(BreakpointSite *bp_site)
 {
     WINLOG_IFALL(WINDOWS_LOG_BREAKPOINTS, "DisableBreakpointSite called with bp_site 0x%p "
                                           "(id=%d, addr=0x%x)",
-                 bp_site->GetID(), bp_site->GetLoadAddress());
+                 bp_site, bp_site->GetID(), bp_site->GetLoadAddress());
 
     Error error = DisableSoftwareBreakpoint(bp_site);
 
@@ -554,11 +557,25 @@ ProcessWindowsLive::RefreshStateAfterStop()
     {
         case EXCEPTION_SINGLE_STEP:
         {
-            stop_info = StopInfo::CreateStopReasonToTrace(*stop_thread);
-            stop_thread->SetStopInfo(stop_info);
-            WINLOG_IFANY(WINDOWS_LOG_EXCEPTION | WINDOWS_LOG_STEP, "RefreshStateAfterStop single stepping thread %u",
-                         stop_thread->GetID());
-            stop_thread->SetStopInfo(stop_info);
+            RegisterContextSP register_context = stop_thread->GetRegisterContext();
+            const uint64_t pc = register_context->GetPC();
+            BreakpointSiteSP site(GetBreakpointSiteList().FindByAddress(pc));
+            if (site && site->ValidForThisThread(stop_thread.get()))
+            {
+                WINLOG_IFANY(WINDOWS_LOG_BREAKPOINTS | WINDOWS_LOG_EXCEPTION | WINDOWS_LOG_STEP,
+                             "Single-stepped onto a breakpoint in process %I64u at "
+                             "address 0x%I64x with breakpoint site %d",
+                             m_session_data->m_debugger->GetProcess().GetProcessId(), pc, site->GetID());
+                stop_info = StopInfo::CreateStopReasonWithBreakpointSiteID(*stop_thread, site->GetID());
+                stop_thread->SetStopInfo(stop_info);
+            }
+            else
+            {
+                WINLOG_IFANY(WINDOWS_LOG_EXCEPTION | WINDOWS_LOG_STEP,
+                             "RefreshStateAfterStop single stepping thread %u", stop_thread->GetID());
+                stop_info = StopInfo::CreateStopReasonToTrace(*stop_thread);
+                stop_thread->SetStopInfo(stop_info);
+            }
             return;
         }
 
@@ -803,7 +820,7 @@ ProcessWindowsLive::OnExitProcess(uint32_t exit_code)
         target->ModulesDidUnload(unloaded_modules, true);
     }
 
-    SetProcessExitStatus(nullptr, GetID(), true, 0, exit_code);
+    SetProcessExitStatus(GetID(), true, 0, exit_code);
     SetPrivateState(eStateExited);
 }
 

@@ -1048,6 +1048,7 @@ MachProcess::Interrupt()
             if (Signal (m_sent_interrupt_signo))
             {
                 DNBLogThreadedIf(LOG_PROCESS, "MachProcess::Interrupt() - sent %i signal to interrupt process", m_sent_interrupt_signo);
+                return true;
             }
             else
             {
@@ -2274,9 +2275,9 @@ MachProcess::GetGenealogyImageInfo (size_t idx)
 bool
 MachProcess::GetOSVersionNumbers (uint64_t *major, uint64_t *minor, uint64_t *patch)
 {
-    bool success = false;
-
-#if (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101000)
+#if defined (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 101000)
+    return false;
+#else
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
     NSOperatingSystemVersion vers = [[NSProcessInfo processInfo] operatingSystemVersion];
@@ -2287,12 +2288,10 @@ MachProcess::GetOSVersionNumbers (uint64_t *major, uint64_t *minor, uint64_t *pa
     if (patch)
         *patch = vers.patchVersion;
 
-    success = true;
-
     [pool drain];
+    
+    return true;
 #endif
-
-    return success;
 }
 
 // Do the process specific setup for attach.  If this returns NULL, then there's no

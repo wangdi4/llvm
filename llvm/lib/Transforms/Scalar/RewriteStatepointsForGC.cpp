@@ -14,7 +14,6 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Analysis/CFG.h"
-#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/Statistic.h"
@@ -63,7 +62,7 @@ static cl::opt<unsigned>
 RematerializationThreshold("spp-rematerialization-threshold", cl::Hidden,
                            cl::init(6));
 
-#ifdef XDEBUG
+#ifdef EXPENSIVE_CHECKS
 static bool ClobberNonLive = true;
 #else
 static bool ClobberNonLive = false;
@@ -72,18 +71,9 @@ static cl::opt<bool, true> ClobberNonLiveOverride("rs4gc-clobber-non-live",
                                                   cl::location(ClobberNonLive),
                                                   cl::Hidden);
 
-static cl::opt<bool> UseDeoptBundles("rs4gc-use-deopt-bundles", cl::Hidden,
-                                     cl::init(false));
 static cl::opt<bool>
     AllowStatepointWithNoDeoptInfo("rs4gc-allow-statepoint-with-no-deopt-info",
                                    cl::Hidden, cl::init(true));
-
-/// Should we split vectors of pointers into their individual elements?  This
-/// is known to be buggy, but the alternate implementation isn't yet ready.
-/// This is purely to provide a debugging and dianostic hook until the vector
-/// split is replaced with vector relocations.
-static cl::opt<bool> UseVectorSplit("rs4gc-split-vector-values", cl::Hidden,
-                                    cl::init(true));
 
 namespace {
 struct RewriteStatepointsForGC : public ModulePass {
@@ -141,24 +131,25 @@ ModulePass *llvm::createRewriteStatepointsForGCPass() {
 INITIALIZE_PASS_BEGIN(RewriteStatepointsForGC, "rewrite-statepoints-for-gc",
                       "Make relocations explicit at statepoints", false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(RewriteStatepointsForGC, "rewrite-statepoints-for-gc",
                     "Make relocations explicit at statepoints", false, false)
 
 namespace {
 struct GCPtrLivenessData {
   /// Values defined in this block.
-  DenseMap<BasicBlock *, DenseSet<Value *>> KillSet;
+  MapVector<BasicBlock *, SetVector<Value *>> KillSet;
   /// Values used in this block (and thus live); does not included values
   /// killed within this block.
-  DenseMap<BasicBlock *, DenseSet<Value *>> LiveSet;
+  MapVector<BasicBlock *, SetVector<Value *>> LiveSet;
 
   /// Values live into this basic block (i.e. used by any
   /// instruction in this basic block or ones reachable from here)
-  DenseMap<BasicBlock *, DenseSet<Value *>> LiveIn;
+  MapVector<BasicBlock *, SetVector<Value *>> LiveIn;
 
   /// Values live out of this basic block (i.e. live into
   /// any successor block)
-  DenseMap<BasicBlock *, DenseSet<Value *>> LiveOut;
+  MapVector<BasicBlock *, SetVector<Value *>> LiveOut;
 };
 
 // The type of the internal cache used inside the findBasePointers family
@@ -171,9 +162,9 @@ struct GCPtrLivenessData {
 // Generally, after the execution of a full findBasePointer call, only the
 // base relation will remain.  Internally, we add a mixture of the two
 // types, then update all the second type to the first type
-typedef DenseMap<Value *, Value *> DefiningValueMapTy;
-typedef DenseSet<Value *> StatepointLiveSetTy;
-typedef DenseMap<AssertingVH<Instruction>, AssertingVH<Value>>
+typedef MapVector<Value *, Value *> DefiningValueMapTy;
+typedef SetVector<Value *> StatepointLiveSetTy;
+typedef MapVector<AssertingVH<Instruction>, AssertingVH<Value>>
   RematerializedValueMapTy;
 
 struct PartiallyConstructedSafepointRecord {
@@ -181,7 +172,7 @@ struct PartiallyConstructedSafepointRecord {
   StatepointLiveSetTy LiveSet;
 
   /// Mapping from live pointers to a base-defining-value
-  DenseMap<Value *, Value *> PointerToBase;
+  MapVector<Value *, Value *> PointerToBase;
 
   /// The *new* gc.statepoint instruction itself.  This produces the token
   /// that normal path gc.relocates and the gc.result are tied to.
@@ -199,9 +190,8 @@ struct PartiallyConstructedSafepointRecord {
 }
 
 static ArrayRef<Use> GetDeoptBundleOperands(ImmutableCallSite CS) {
-  assert(UseDeoptBundles && "Should not be called otherwise!");
-
-  Optional<OperandBundleUse> DeoptBundle = CS.getOperandBundle("deopt");
+  Optional<OperandBundleUse> DeoptBundle =
+      CS.getOperandBundle(LLVMContext::OB_deopt);
 
   if (!DeoptBundle.hasValue()) {
     assert(AllowStatepointWithNoDeoptInfo &&
@@ -273,19 +263,6 @@ static bool isUnhandledGCPointerType(Type *Ty) {
 }
 #endif
 
-static bool order_by_name(Value *a, Value *b) {
-  if (a->hasName() && b->hasName()) {
-    return -1 == a->getName().compare(b->getName());
-  } else if (a->hasName() && !b->hasName()) {
-    return true;
-  } else if (!a->hasName() && b->hasName()) {
-    return false;
-  } else {
-    // Better than nothing, but not stable
-    return a < b;
-  }
-}
-
 // Return the name of the value suffixed with the provided value, or if the
 // value didn't have a name, the default value specified.
 static std::string suffixed_name_or(Value *V, StringRef Suffix,
@@ -306,14 +283,8 @@ static void analyzeParsePointLiveness(
   findLiveSetAtInst(inst, OriginalLivenessData, LiveSet);
 
   if (PrintLiveSet) {
-    // Note: This output is used by several of the test cases
-    // The order of elements in a set is not stable, put them in a vec and sort
-    // by name
-    SmallVector<Value *, 64> Temp;
-    Temp.insert(Temp.end(), LiveSet.begin(), LiveSet.end());
-    std::sort(Temp.begin(), Temp.end(), order_by_name);
     errs() << "Live Variables:\n";
-    for (Value *V : Temp)
+    for (Value *V : LiveSet)
       dbgs() << " " << V->getName() << " " << *V << "\n";
   }
   if (PrintLiveSetSize) {
@@ -1028,68 +999,6 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
 
   }
 
-  // Now that we're done with the algorithm, see if we can optimize the 
-  // results slightly by reducing the number of new instructions needed. 
-  // Arguably, this should be integrated into the algorithm above, but 
-  // doing as a post process step is easier to reason about for the moment.
-  DenseMap<Value *, Value *> ReverseMap;
-  SmallPtrSet<Instruction *, 16> NewInsts;
-  SmallSetVector<AssertingVH<Instruction>, 16> Worklist;
-  // Note: We need to visit the states in a deterministic order.  We uses the
-  // Keys we sorted above for this purpose.  Note that we are papering over a
-  // bigger problem with the algorithm above - it's visit order is not
-  // deterministic.  A larger change is needed to fix this.
-  for (auto Pair : States) {
-    auto *BDV = Pair.first;
-    auto State = Pair.second;
-    Value *Base = State.getBase();
-    assert(BDV && Base);
-    assert(!isKnownBaseResult(BDV) && "why did it get added?");
-    assert(isKnownBaseResult(Base) &&
-           "must be something we 'know' is a base pointer");
-    if (!State.isConflict())
-      continue;
-
-    ReverseMap[Base] = BDV;
-    if (auto *BaseI = dyn_cast<Instruction>(Base)) {
-      NewInsts.insert(BaseI);
-      Worklist.insert(BaseI);
-    }
-  }
-  auto ReplaceBaseInstWith = [&](Value *BDV, Instruction *BaseI,
-                                 Value *Replacement) {
-    // Add users which are new instructions (excluding self references)
-    for (User *U : BaseI->users())
-      if (auto *UI = dyn_cast<Instruction>(U))
-        if (NewInsts.count(UI) && UI != BaseI)
-          Worklist.insert(UI);
-    // Then do the actual replacement
-    NewInsts.erase(BaseI);
-    ReverseMap.erase(BaseI);
-    BaseI->replaceAllUsesWith(Replacement);
-    assert(States.count(BDV));
-    assert(States[BDV].isConflict() && States[BDV].getBase() == BaseI);
-    States[BDV] = BDVState(BDVState::Conflict, Replacement);
-    BaseI->eraseFromParent();
-  };
-  const DataLayout &DL = cast<Instruction>(def)->getModule()->getDataLayout();
-  while (!Worklist.empty()) {
-    Instruction *BaseI = Worklist.pop_back_val();
-    assert(NewInsts.count(BaseI));
-    Value *Bdv = ReverseMap[BaseI];
-    if (auto *BdvI = dyn_cast<Instruction>(Bdv))
-      if (BaseI->isIdenticalTo(BdvI)) {
-        DEBUG(dbgs() << "Identical Base: " << *BaseI << "\n");
-        ReplaceBaseInstWith(Bdv, BaseI, Bdv);
-        continue;
-      }
-    if (Value *V = SimplifyInstruction(BaseI, DL)) {
-      DEBUG(dbgs() << "Base " << *BaseI << " simplified to " << *V << "\n");
-      ReplaceBaseInstWith(Bdv, BaseI, V);
-      continue;
-    }
-  }
-
   // Cache all of our results so we can cheaply reuse them
   // NOTE: This is actually two caches: one of the base defining value
   // relation and one of the base pointer relation!  FIXME
@@ -1097,6 +1006,7 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
     auto *BDV = Pair.first;
     Value *base = Pair.second.getBase();
     assert(BDV && base);
+    assert(!isKnownBaseResult(BDV) && "why did it get added?");
 
     std::string fromstr = cache.count(BDV) ? cache[BDV]->getName() : "none";
     DEBUG(dbgs() << "Updating base value cache"
@@ -1105,6 +1015,8 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
           << " to: " << base->getName() << "\n");
 
     if (cache.count(BDV)) {
+      assert(isKnownBaseResult(base) &&
+             "must be something we 'know' is a base pointer");
       // Once we transition from the BDV relation being store in the cache to
       // the base relation being stored, it must be stable
       assert((!isKnownBaseResult(cache[BDV]) || cache[BDV] == base) &&
@@ -1133,15 +1045,9 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
 // pointer was a base pointer.
 static void
 findBasePointers(const StatepointLiveSetTy &live,
-                 DenseMap<Value *, Value *> &PointerToBase,
+                 MapVector<Value *, Value *> &PointerToBase,
                  DominatorTree *DT, DefiningValueMapTy &DVCache) {
-  // For the naming of values inserted to be deterministic - which makes for
-  // much cleaner and more stable tests - we need to assign an order to the
-  // live values.  DenseSets do not provide a deterministic order across runs.
-  SmallVector<Value *, 64> Temp;
-  Temp.insert(Temp.end(), live.begin(), live.end());
-  std::sort(Temp.begin(), Temp.end(), order_by_name);
-  for (Value *ptr : Temp) {
+  for (Value *ptr : live) {
     Value *base = findBasePointer(ptr, DVCache);
     assert(base && "failed to find base pointer");
     PointerToBase[ptr] = base;
@@ -1149,14 +1055,6 @@ findBasePointers(const StatepointLiveSetTy &live,
             DT->dominates(cast<Instruction>(base)->getParent(),
                           cast<Instruction>(ptr)->getParent())) &&
            "The base we found better dominate the derived pointer");
-
-    // If you see this trip and like to live really dangerously, the code should
-    // be correct, just with idioms the verifier can't handle.  You can try
-    // disabling the verifier at your own substantial risk.
-    assert(!isa<ConstantPointerNull>(base) &&
-           "the relocation code needs adjustment to handle the relocation of "
-           "a null pointer constant without causing false positives in the "
-           "safepoint ir verifier.");
   }
 }
 
@@ -1165,25 +1063,16 @@ findBasePointers(const StatepointLiveSetTy &live,
 static void findBasePointers(DominatorTree &DT, DefiningValueMapTy &DVCache,
                              const CallSite &CS,
                              PartiallyConstructedSafepointRecord &result) {
-  DenseMap<Value *, Value *> PointerToBase;
+  MapVector<Value *, Value *> PointerToBase;
   findBasePointers(result.LiveSet, PointerToBase, &DT, DVCache);
 
   if (PrintBasePointers) {
-    // Note: Need to print these in a stable order since this is checked in
-    // some tests.
     errs() << "Base Pairs (w/o Relocation):\n";
-    SmallVector<Value *, 64> Temp;
-    Temp.reserve(PointerToBase.size());
-    for (auto Pair : PointerToBase) {
-      Temp.push_back(Pair.first);
-    }
-    std::sort(Temp.begin(), Temp.end(), order_by_name);
-    for (Value *Ptr : Temp) {
-      Value *Base = PointerToBase[Ptr];
+    for (auto &Pair : PointerToBase) {
       errs() << " derived ";
-      Ptr->printAsOperand(errs(), false);
+      Pair.first->printAsOperand(errs(), false);
       errs() << " base ";
-      Base->printAsOperand(errs(), false);
+      Pair.second->printAsOperand(errs(), false);
       errs() << "\n";;
     }
   }
@@ -1257,8 +1146,7 @@ static AttributeSet legalizeCallAttributes(AttributeSet AS) {
         // These attributes control the generation of the gc.statepoint call /
         // invoke itself; and once the gc.statepoint is in place, they're of no
         // use.
-        if (Attr.hasAttribute("statepoint-num-patch-bytes") ||
-            Attr.hasAttribute("statepoint-id"))
+        if (isStatepointDirectiveAttr(Attr))
           continue;
 
         Ret = Ret.addAttributes(
@@ -1349,11 +1237,37 @@ namespace {
 class DeferredReplacement {
   AssertingVH<Instruction> Old;
   AssertingVH<Instruction> New;
+  bool IsDeoptimize = false;
+
+  DeferredReplacement() {}
 
 public:
-  explicit DeferredReplacement(Instruction *Old, Instruction *New) :
-    Old(Old), New(New) {
-    assert(Old != New && "Not allowed!");
+  static DeferredReplacement createRAUW(Instruction *Old, Instruction *New) {
+    assert(Old != New && Old && New &&
+           "Cannot RAUW equal values or to / from null!");
+
+    DeferredReplacement D;
+    D.Old = Old;
+    D.New = New;
+    return D;
+  }
+
+  static DeferredReplacement createDelete(Instruction *ToErase) {
+    DeferredReplacement D;
+    D.Old = ToErase;
+    return D;
+  }
+
+  static DeferredReplacement createDeoptimizeReplacement(Instruction *Old) {
+#ifndef NDEBUG
+    auto *F = cast<CallInst>(Old)->getCalledFunction();
+    assert(F && F->getIntrinsicID() == Intrinsic::experimental_deoptimize &&
+           "Only way to construct a deoptimize deferred replacement");
+#endif
+    DeferredReplacement D;
+    D.Old = Old;
+    D.IsDeoptimize = true;
+    return D;
   }
 
   /// Does the task represented by this instance.
@@ -1362,12 +1276,23 @@ public:
     Instruction *NewI = New;
 
     assert(OldI != NewI && "Disallowed at construction?!");
+    assert((!IsDeoptimize || !New) &&
+           "Deoptimize instrinsics are not replaced!");
 
     Old = nullptr;
     New = nullptr;
 
     if (NewI)
       OldI->replaceAllUsesWith(NewI);
+
+    if (IsDeoptimize) {
+      // Note: we've inserted instructions, so the call to llvm.deoptimize may
+      // not necessarilly be followed by the matching return.
+      auto *RI = cast<ReturnInst>(OldI->getParent()->getTerminator());
+      new UnreachableInst(RI->getContext(), RI);
+      RI->eraseFromParent();
+    }
+
     OldI->eraseFromParent();
   }
 };
@@ -1380,8 +1305,6 @@ makeStatepointExplicitImpl(const CallSite CS, /* to replace */
                            PartiallyConstructedSafepointRecord &Result,
                            std::vector<DeferredReplacement> &Replacements) {
   assert(BasePtrs.size() == LiveVariables.size());
-  assert((UseDeoptBundles || isStatepoint(CS)) &&
-         "This method expects to be rewriting a statepoint");
 
   // Then go ahead and use the builder do actually do the inserts.  We insert
   // immediately before the previous instruction under the assumption that all
@@ -1391,47 +1314,53 @@ makeStatepointExplicitImpl(const CallSite CS, /* to replace */
   IRBuilder<> Builder(InsertBefore);
 
   ArrayRef<Value *> GCArgs(LiveVariables);
-  uint64_t StatepointID = 0xABCDEF00;
+  uint64_t StatepointID = StatepointDirectives::DefaultStatepointID;
   uint32_t NumPatchBytes = 0;
   uint32_t Flags = uint32_t(StatepointFlags::None);
 
-  ArrayRef<Use> CallArgs;
-  ArrayRef<Use> DeoptArgs;
+  ArrayRef<Use> CallArgs(CS.arg_begin(), CS.arg_end());
+  ArrayRef<Use> DeoptArgs = GetDeoptBundleOperands(CS);
   ArrayRef<Use> TransitionArgs;
+  if (auto TransitionBundle =
+      CS.getOperandBundle(LLVMContext::OB_gc_transition)) {
+    Flags |= uint32_t(StatepointFlags::GCTransition);
+    TransitionArgs = TransitionBundle->Inputs;
+  }
 
-  Value *CallTarget = nullptr;
+  // Instead of lowering calls to @llvm.experimental.deoptimize as normal calls
+  // with a return value, we lower then as never returning calls to
+  // __llvm_deoptimize that are followed by unreachable to get better codegen.
+  bool IsDeoptimize = false;
 
-  if (UseDeoptBundles) {
-    CallArgs = {CS.arg_begin(), CS.arg_end()};
-    DeoptArgs = GetDeoptBundleOperands(CS);
-    // TODO: we don't fill in TransitionArgs or Flags in this branch, but we
-    // could have an operand bundle for that too.
-    AttributeSet OriginalAttrs = CS.getAttributes();
+  StatepointDirectives SD =
+      parseStatepointDirectivesFromAttrs(CS.getAttributes());
+  if (SD.NumPatchBytes)
+    NumPatchBytes = *SD.NumPatchBytes;
+  if (SD.StatepointID)
+    StatepointID = *SD.StatepointID;
 
-    Attribute AttrID = OriginalAttrs.getAttribute(AttributeSet::FunctionIndex,
-                                                  "statepoint-id");
-    if (AttrID.isStringAttribute())
-      AttrID.getValueAsString().getAsInteger(10, StatepointID);
+  Value *CallTarget = CS.getCalledValue();
+  if (Function *F = dyn_cast<Function>(CallTarget)) {
+    if (F->getIntrinsicID() == Intrinsic::experimental_deoptimize) {
+      // Calls to llvm.experimental.deoptimize are lowered to calls to the
+      // __llvm_deoptimize symbol.  We want to resolve this now, since the
+      // verifier does not allow taking the address of an intrinsic function.
 
-    Attribute AttrNumPatchBytes = OriginalAttrs.getAttribute(
-        AttributeSet::FunctionIndex, "statepoint-num-patch-bytes");
-    if (AttrNumPatchBytes.isStringAttribute())
-      AttrNumPatchBytes.getValueAsString().getAsInteger(10, NumPatchBytes);
+      SmallVector<Type *, 8> DomainTy;
+      for (Value *Arg : CallArgs)
+        DomainTy.push_back(Arg->getType());
+      auto *FTy = FunctionType::get(Type::getVoidTy(F->getContext()), DomainTy,
+                                    /* isVarArg = */ false);
 
-    CallTarget = CS.getCalledValue();
-  } else {
-    // This branch will be gone soon, and we will soon only support the
-    // UseDeoptBundles == true configuration.
-    Statepoint OldSP(CS);
-    StatepointID = OldSP.getID();
-    NumPatchBytes = OldSP.getNumPatchBytes();
-    Flags = OldSP.getFlags();
+      // Note: CallTarget can be a bitcast instruction of a symbol if there are
+      // calls to @llvm.experimental.deoptimize with different argument types in
+      // the same module.  This is fine -- we assume the frontend knew what it
+      // was doing when generating this kind of IR.
+      CallTarget =
+          F->getParent()->getOrInsertFunction("__llvm_deoptimize", FTy);
 
-    CallArgs = {OldSP.arg_begin(), OldSP.arg_end()};
-    DeoptArgs = {OldSP.vm_state_begin(), OldSP.vm_state_end()};
-    TransitionArgs = {OldSP.gc_transition_args_begin(),
-                      OldSP.gc_transition_args_end()};
-    CallTarget = OldSP.getCalledValue();
+      IsDeoptimize = true;
+    }
   }
 
   // Create the statepoint given all the arguments
@@ -1514,7 +1443,13 @@ makeStatepointExplicitImpl(const CallSite CS, /* to replace */
   }
   assert(Token && "Should be set in one of the above branches!");
 
-  if (UseDeoptBundles) {
+  if (IsDeoptimize) {
+    // If we're wrapping an @llvm.experimental.deoptimize in a statepoint, we
+    // transform the tail-call like structure to a call to a void function
+    // followed by unreachable to get better codegen.
+    Replacements.push_back(
+        DeferredReplacement::createDeoptimizeReplacement(CS.getInstruction()));
+  } else {
     Token->setName("statepoint_token");
     if (!CS.getType()->isVoidTy() && !CS.getInstruction()->use_empty()) {
       StringRef Name =
@@ -1528,24 +1463,12 @@ makeStatepointExplicitImpl(const CallSite CS, /* to replace */
       // llvm::Instruction.  Instead, we defer the replacement and deletion to
       // after the live sets have been made explicit in the IR, and we no longer
       // have raw pointers to worry about.
-      Replacements.emplace_back(CS.getInstruction(), GCResult);
+      Replacements.emplace_back(
+          DeferredReplacement::createRAUW(CS.getInstruction(), GCResult));
     } else {
-      Replacements.emplace_back(CS.getInstruction(), nullptr);
+      Replacements.emplace_back(
+          DeferredReplacement::createDelete(CS.getInstruction()));
     }
-  } else {
-    assert(!CS.getInstruction()->hasNUsesOrMore(2) &&
-           "only valid use before rewrite is gc.result");
-    assert(!CS.getInstruction()->hasOneUse() ||
-           isGCResult(cast<Instruction>(*CS.getInstruction()->user_begin())));
-
-    // Take the name of the original statepoint token if there was one.
-    Token->takeName(CS.getInstruction());
-
-    // Update the gc.result of the original statepoint (if any) to use the newly
-    // inserted statepoint.  This is safe to do here since the token can't be
-    // considered a live reference.
-    CS.getInstruction()->replaceAllUsesWith(Token);
-    CS.getInstruction()->eraseFromParent();
   }
 
   Result.StatepointToken = Token;
@@ -1553,36 +1476,6 @@ makeStatepointExplicitImpl(const CallSite CS, /* to replace */
   // Second, create a gc.relocate for every live variable
   const unsigned LiveStartIdx = Statepoint(Token).gcArgsStartIdx();
   CreateGCRelocates(LiveVariables, LiveStartIdx, BasePtrs, Token, Builder);
-}
-
-namespace {
-struct NameOrdering {
-  Value *Base;
-  Value *Derived;
-
-  bool operator()(NameOrdering const &a, NameOrdering const &b) {
-    return -1 == a.Derived->getName().compare(b.Derived->getName());
-  }
-};
-}
-
-static void StabilizeOrder(SmallVectorImpl<Value *> &BaseVec,
-                           SmallVectorImpl<Value *> &LiveVec) {
-  assert(BaseVec.size() == LiveVec.size());
-
-  SmallVector<NameOrdering, 64> Temp;
-  for (size_t i = 0; i < BaseVec.size(); i++) {
-    NameOrdering v;
-    v.Base = BaseVec[i];
-    v.Derived = LiveVec[i];
-    Temp.push_back(v);
-  }
-
-  std::sort(Temp.begin(), Temp.end(), NameOrdering());
-  for (size_t i = 0; i < BaseVec.size(); i++) {
-    BaseVec[i] = Temp[i].Base;
-    LiveVec[i] = Temp[i].Derived;
-  }
 }
 
 // Replace an existing gc.statepoint with a new one and a set of gc.relocates
@@ -1609,11 +1502,6 @@ makeStatepointExplicit(DominatorTree &DT, const CallSite &CS,
   }
   assert(LiveVec.size() == BaseVec.size());
 
-  // To make the output IR slightly more stable (for use in diffs), ensure a
-  // fixed order of the values in the safepoint (by sorting the value name).
-  // The order is otherwise meaningless.
-  StabilizeOrder(BaseVec, LiveVec);
-
   // Do the actual rewriting and delete the old statepoint
   makeStatepointExplicitImpl(CS, BaseVec, LiveVec, Result, Replacements);
 }
@@ -1634,7 +1522,7 @@ insertRelocationStores(iterator_range<Value::user_iterator> GCRelocs,
     if (!Relocate)
       continue;
 
-    Value *OriginalValue = const_cast<Value *>(Relocate->getDerivedPtr());
+    Value *OriginalValue = Relocate->getDerivedPtr();
     assert(AllocaMap.count(OriginalValue));
     Value *Alloca = AllocaMap[OriginalValue];
 
@@ -1660,11 +1548,10 @@ insertRelocationStores(iterator_range<Value::user_iterator> GCRelocs,
 
 // Helper function for the "relocationViaAlloca". Similar to the
 // "insertRelocationStores" but works for rematerialized values.
-static void
-insertRematerializationStores(
-  RematerializedValueMapTy RematerializedValues,
-  DenseMap<Value *, Value *> &AllocaMap,
-  DenseSet<Value *> &VisitedLiveValues) {
+static void insertRematerializationStores(
+    const RematerializedValueMapTy &RematerializedValues,
+    DenseMap<Value *, Value *> &AllocaMap,
+    DenseSet<Value *> &VisitedLiveValues) {
 
   for (auto RematerializedValuePair: RematerializedValues) {
     Instruction *RematerializedValue = RematerializedValuePair.first;
@@ -1777,8 +1664,7 @@ static void relocationViaAlloca(
 
       auto InsertClobbersAt = [&](Instruction *IP) {
         for (auto *AI : ToClobber) {
-          auto AIType = cast<PointerType>(AI->getType());
-          auto PT = cast<PointerType>(AIType->getElementType());
+          auto PT = cast<PointerType>(AI->getAllocatedType());
           Constant *CPN = ConstantPointerNull::get(PT);
           StoreInst *Store = new StoreInst(CPN, AI);
           Store->insertBefore(IP);
@@ -1924,139 +1810,6 @@ static void findLiveReferences(
   }
 }
 
-/// Remove any vector of pointers from the live set by scalarizing them over the
-/// statepoint instruction.  Adds the scalarized pieces to the live set.  It
-/// would be preferable to include the vector in the statepoint itself, but
-/// the lowering code currently does not handle that.  Extending it would be
-/// slightly non-trivial since it requires a format change.  Given how rare
-/// such cases are (for the moment?) scalarizing is an acceptable compromise.
-static void splitVectorValues(Instruction *StatepointInst,
-                              StatepointLiveSetTy &LiveSet,
-                              DenseMap<Value *, Value *>& PointerToBase,
-                              DominatorTree &DT) {
-  SmallVector<Value *, 16> ToSplit;
-  for (Value *V : LiveSet)
-    if (isa<VectorType>(V->getType()))
-      ToSplit.push_back(V);
-
-  if (ToSplit.empty())
-    return;
-
-  DenseMap<Value *, SmallVector<Value *, 16>> ElementMapping;
-
-  Function &F = *(StatepointInst->getParent()->getParent());
-
-  DenseMap<Value *, AllocaInst *> AllocaMap;
-  // First is normal return, second is exceptional return (invoke only)
-  DenseMap<Value *, std::pair<Value *, Value *>> Replacements;
-  for (Value *V : ToSplit) {
-    AllocaInst *Alloca =
-        new AllocaInst(V->getType(), "", F.getEntryBlock().getFirstNonPHI());
-    AllocaMap[V] = Alloca;
-
-    VectorType *VT = cast<VectorType>(V->getType());
-    IRBuilder<> Builder(StatepointInst);
-    SmallVector<Value *, 16> Elements;
-    for (unsigned i = 0; i < VT->getNumElements(); i++)
-      Elements.push_back(Builder.CreateExtractElement(V, Builder.getInt32(i)));
-    ElementMapping[V] = Elements;
-
-    auto InsertVectorReform = [&](Instruction *IP) {
-      Builder.SetInsertPoint(IP);
-      Builder.SetCurrentDebugLocation(IP->getDebugLoc());
-      Value *ResultVec = UndefValue::get(VT);
-      for (unsigned i = 0; i < VT->getNumElements(); i++)
-        ResultVec = Builder.CreateInsertElement(ResultVec, Elements[i],
-                                                Builder.getInt32(i));
-      return ResultVec;
-    };
-
-    if (isa<CallInst>(StatepointInst)) {
-      BasicBlock::iterator Next(StatepointInst);
-      Next++;
-      Instruction *IP = &*(Next);
-      Replacements[V].first = InsertVectorReform(IP);
-      Replacements[V].second = nullptr;
-    } else {
-      InvokeInst *Invoke = cast<InvokeInst>(StatepointInst);
-      // We've already normalized - check that we don't have shared destination
-      // blocks
-      BasicBlock *NormalDest = Invoke->getNormalDest();
-      assert(!isa<PHINode>(NormalDest->begin()));
-      BasicBlock *UnwindDest = Invoke->getUnwindDest();
-      assert(!isa<PHINode>(UnwindDest->begin()));
-      // Insert insert element sequences in both successors
-      Instruction *IP = &*(NormalDest->getFirstInsertionPt());
-      Replacements[V].first = InsertVectorReform(IP);
-      IP = &*(UnwindDest->getFirstInsertionPt());
-      Replacements[V].second = InsertVectorReform(IP);
-    }
-  }
-
-  for (Value *V : ToSplit) {
-    AllocaInst *Alloca = AllocaMap[V];
-
-    // Capture all users before we start mutating use lists
-    SmallVector<Instruction *, 16> Users;
-    for (User *U : V->users())
-      Users.push_back(cast<Instruction>(U));
-
-    for (Instruction *I : Users) {
-      if (auto Phi = dyn_cast<PHINode>(I)) {
-        for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++)
-          if (V == Phi->getIncomingValue(i)) {
-            LoadInst *Load = new LoadInst(
-                Alloca, "", Phi->getIncomingBlock(i)->getTerminator());
-            Phi->setIncomingValue(i, Load);
-          }
-      } else {
-        LoadInst *Load = new LoadInst(Alloca, "", I);
-        I->replaceUsesOfWith(V, Load);
-      }
-    }
-
-    // Store the original value and the replacement value into the alloca
-    StoreInst *Store = new StoreInst(V, Alloca);
-    if (auto I = dyn_cast<Instruction>(V))
-      Store->insertAfter(I);
-    else
-      Store->insertAfter(Alloca);
-
-    // Normal return for invoke, or call return
-    Instruction *Replacement = cast<Instruction>(Replacements[V].first);
-    (new StoreInst(Replacement, Alloca))->insertAfter(Replacement);
-    // Unwind return for invoke only
-    Replacement = cast_or_null<Instruction>(Replacements[V].second);
-    if (Replacement)
-      (new StoreInst(Replacement, Alloca))->insertAfter(Replacement);
-  }
-
-  // apply mem2reg to promote alloca to SSA
-  SmallVector<AllocaInst *, 16> Allocas;
-  for (Value *V : ToSplit)
-    Allocas.push_back(AllocaMap[V]);
-  PromoteMemToReg(Allocas, DT);
-
-  // Update our tracking of live pointers and base mappings to account for the
-  // changes we just made.
-  for (Value *V : ToSplit) {
-    auto &Elements = ElementMapping[V];
-
-    LiveSet.erase(V);
-    LiveSet.insert(Elements.begin(), Elements.end());
-    // We need to update the base mapping as well.
-    assert(PointerToBase.count(V));
-    Value *OldBase = PointerToBase[V];
-    auto &BaseElements = ElementMapping[OldBase];
-    PointerToBase.erase(V);
-    assert(Elements.size() == BaseElements.size());
-    for (unsigned i = 0; i < Elements.size(); i++) {
-      Value *Elem = Elements[i];
-      PointerToBase[Elem] = BaseElements[i];
-    }
-  }
-}
-
 // Helper function for the "rematerializeLiveValues". It walks use chain
 // starting from the "CurrentValue" until it meets "BaseValue". Only "simple"
 // values are visited (currently it is GEP's and casts). Returns true if it
@@ -2109,7 +1862,7 @@ chainToBasePointerCost(SmallVectorImpl<Instruction*> &Chain,
 
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Instr)) {
       // Cost of the address calculation
-      Type *ValTy = GEP->getPointerOperandType()->getPointerElementType();
+      Type *ValTy = GEP->getSourceElementType();
       Cost += TTI.getAddressComputationCost(ValTy);
 
       // And cost of the GEP itself
@@ -2244,7 +1997,7 @@ static void rematerializeLiveValues(CallSite CS,
 
   // Remove rematerializaed values from the live set
   for (auto LiveValue: LiveValuesToBeDeleted) {
-    Info.LiveSet.erase(LiveValue);
+    Info.LiveSet.remove(LiveValue);
   }
 }
 
@@ -2257,11 +2010,8 @@ static bool insertParsePoints(Function &F, DominatorTree &DT,
   Uniqued.insert(ToUpdate.begin(), ToUpdate.end());
   assert(Uniqued.size() == ToUpdate.size() && "no duplicates please!");
 
-  for (CallSite CS : ToUpdate) {
-    assert(CS.getInstruction()->getParent()->getParent() == &F);
-    assert((UseDeoptBundles || isStatepoint(CS)) &&
-           "expected to already be a deopt statepoint");
-  }
+  for (CallSite CS : ToUpdate)
+    assert(CS.getInstruction()->getFunction() == &F);
 #endif
 
   // When inserting gc.relocates for invokes, we need to be able to insert at
@@ -2287,12 +2037,7 @@ static bool insertParsePoints(Function &F, DominatorTree &DT,
   for (CallSite CS : ToUpdate) {
     SmallVector<Value *, 64> DeoptValues;
 
-    iterator_range<const Use *> DeoptStateRange =
-        UseDeoptBundles
-            ? iterator_range<const Use *>(GetDeoptBundleOperands(CS))
-            : iterator_range<const Use *>(Statepoint(CS).vm_state_args());
-
-    for (Value *Arg : DeoptStateRange) {
+    for (Value *Arg : GetDeoptBundleOperands(CS)) {
       assert(!isUnhandledGCPointerType(Arg->getType()) &&
              "support for FCA unimplemented");
       if (isHandledGCPointerType(Arg->getType()))
@@ -2374,28 +2119,12 @@ static bool insertParsePoints(Function &F, DominatorTree &DT,
   for (auto &Info : Records)
     for (auto &BasePair : Info.PointerToBase)
       if (isa<Constant>(BasePair.second))
-        Info.LiveSet.erase(BasePair.first);
+        Info.LiveSet.remove(BasePair.first);
 
   for (CallInst *CI : Holders)
     CI->eraseFromParent();
 
   Holders.clear();
-
-  // Do a limited scalarization of any live at safepoint vector values which
-  // contain pointers.  This enables this pass to run after vectorization at
-  // the cost of some possible performance loss.  Note: This is known to not
-  // handle updating of the side tables correctly which can lead to relocation
-  // bugs when the same vector is live at multiple statepoints.  We're in the
-  // process of implementing the alternate lowering - relocating the
-  // vector-of-pointers as first class item and updating the backend to
-  // understand that - but that's not yet complete.  
-  if (UseVectorSplit)
-    for (size_t i = 0; i < Records.size(); i++) {
-      PartiallyConstructedSafepointRecord &Info = Records[i];
-      Instruction *Statepoint = ToUpdate[i].getInstruction();
-      splitVectorValues(cast<Instruction>(Statepoint), Info.LiveSet,
-                        Info.PointerToBase, DT);
-    }
 
   // In order to reduce live set of statepoint we might choose to rematerialize
   // some values instead of relocating them. This is purely an optimization and
@@ -2592,13 +2321,9 @@ bool RewriteStatepointsForGC::runOnFunction(Function &F) {
       getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
 
   auto NeedsRewrite = [](Instruction &I) {
-    if (UseDeoptBundles) {
-      if (ImmutableCallSite CS = ImmutableCallSite(&I))
-        return !callsGCLeafFunction(CS);
-      return false;
-    }
-
-    return isStatepoint(I);
+    if (ImmutableCallSite CS = ImmutableCallSite(&I))
+      return !callsGCLeafFunction(CS) && !isStatepoint(CS);
+    return false;
   };
 
   // Gather all the statepoints which need rewritten.  Be careful to only
@@ -2684,13 +2409,13 @@ bool RewriteStatepointsForGC::runOnFunction(Function &F) {
 /// the live-out set of the basic block
 static void computeLiveInValues(BasicBlock::reverse_iterator rbegin,
                                 BasicBlock::reverse_iterator rend,
-                                DenseSet<Value *> &LiveTmp) {
+                                SetVector<Value *> &LiveTmp) {
 
   for (BasicBlock::reverse_iterator ritr = rbegin; ritr != rend; ritr++) {
     Instruction *I = &*ritr;
 
     // KILL/Def - Remove this definition from LiveIn
-    LiveTmp.erase(I);
+    LiveTmp.remove(I);
 
     // Don't consider *uses* in PHI nodes, we handle their contribution to
     // predecessor blocks when we seed the LiveOut sets
@@ -2718,7 +2443,7 @@ static void computeLiveInValues(BasicBlock::reverse_iterator rbegin,
   }
 }
 
-static void computeLiveOutSeed(BasicBlock *BB, DenseSet<Value *> &LiveTmp) {
+static void computeLiveOutSeed(BasicBlock *BB, SetVector<Value *> &LiveTmp) {
 
   for (BasicBlock *Succ : successors(BB)) {
     const BasicBlock::iterator E(Succ->getFirstNonPHI());
@@ -2734,8 +2459,8 @@ static void computeLiveOutSeed(BasicBlock *BB, DenseSet<Value *> &LiveTmp) {
   }
 }
 
-static DenseSet<Value *> computeKillSet(BasicBlock *BB) {
-  DenseSet<Value *> KillSet;
+static SetVector<Value *> computeKillSet(BasicBlock *BB) {
+  SetVector<Value *> KillSet;
   for (Instruction &I : *BB)
     if (isHandledGCPointerType(I.getType()))
       KillSet.insert(&I);
@@ -2745,7 +2470,7 @@ static DenseSet<Value *> computeKillSet(BasicBlock *BB) {
 #ifndef NDEBUG
 /// Check that the items in 'Live' dominate 'TI'.  This is used as a basic
 /// sanity check for the liveness computation.
-static void checkBasicSSA(DominatorTree &DT, DenseSet<Value *> &Live,
+static void checkBasicSSA(DominatorTree &DT, SetVector<Value *> &Live,
                           TerminatorInst *TI, bool TermOkay = false) {
   for (Value *V : Live) {
     if (auto *I = dyn_cast<Instruction>(V)) {
@@ -2774,7 +2499,7 @@ static void checkBasicSSA(DominatorTree &DT, GCPtrLivenessData &Data,
 static void computeLiveInValues(DominatorTree &DT, Function &F,
                                 GCPtrLivenessData &Data) {
 
-  SmallSetVector<BasicBlock *, 200> Worklist;
+  SmallSetVector<BasicBlock *, 32> Worklist;
   auto AddPredsToWorklist = [&](BasicBlock *BB) {
     // We use a SetVector so that we don't have duplicates in the worklist.
     Worklist.insert(pred_begin(BB), pred_end(BB));
@@ -2796,11 +2521,11 @@ static void computeLiveInValues(DominatorTree &DT, Function &F,
       assert(!Data.LiveSet[&BB].count(Kill) && "live set contains kill");
 #endif
 
-    Data.LiveOut[&BB] = DenseSet<Value *>();
+    Data.LiveOut[&BB] = SetVector<Value *>();
     computeLiveOutSeed(&BB, Data.LiveOut[&BB]);
     Data.LiveIn[&BB] = Data.LiveSet[&BB];
-    set_union(Data.LiveIn[&BB], Data.LiveOut[&BB]);
-    set_subtract(Data.LiveIn[&BB], Data.KillSet[&BB]);
+    Data.LiveIn[&BB].set_union(Data.LiveOut[&BB]);
+    Data.LiveIn[&BB].set_subtract(Data.KillSet[&BB]);
     if (!Data.LiveIn[&BB].empty())
       AddPredsToWorklist(&BB);
   }
@@ -2811,11 +2536,11 @@ static void computeLiveInValues(DominatorTree &DT, Function &F,
 
     // Compute our new liveout set, then exit early if it hasn't changed
     // despite the contribution of our successor.
-    DenseSet<Value *> LiveOut = Data.LiveOut[BB];
+    SetVector<Value *> LiveOut = Data.LiveOut[BB];
     const auto OldLiveOutSize = LiveOut.size();
     for (BasicBlock *Succ : successors(BB)) {
       assert(Data.LiveIn.count(Succ));
-      set_union(LiveOut, Data.LiveIn[Succ]);
+      LiveOut.set_union(Data.LiveIn[Succ]);
     }
     // assert OutLiveOut is a subset of LiveOut
     if (OldLiveOutSize == LiveOut.size()) {
@@ -2827,12 +2552,12 @@ static void computeLiveInValues(DominatorTree &DT, Function &F,
     Data.LiveOut[BB] = LiveOut;
 
     // Apply the effects of this basic block
-    DenseSet<Value *> LiveTmp = LiveOut;
-    set_union(LiveTmp, Data.LiveSet[BB]);
-    set_subtract(LiveTmp, Data.KillSet[BB]);
+    SetVector<Value *> LiveTmp = LiveOut;
+    LiveTmp.set_union(Data.LiveSet[BB]);
+    LiveTmp.set_subtract(Data.KillSet[BB]);
 
     assert(Data.LiveIn.count(BB));
-    const DenseSet<Value *> &OldLiveIn = Data.LiveIn[BB];
+    const SetVector<Value *> &OldLiveIn = Data.LiveIn[BB];
     // assert: OldLiveIn is a subset of LiveTmp
     if (OldLiveIn.size() != LiveTmp.size()) {
       Data.LiveIn[BB] = LiveTmp;
@@ -2856,7 +2581,7 @@ static void findLiveSetAtInst(Instruction *Inst, GCPtrLivenessData &Data,
 
   // Note: The copy is intentional and required
   assert(Data.LiveOut.count(BB));
-  DenseSet<Value *> LiveOut = Data.LiveOut[BB];
+  SetVector<Value *> LiveOut = Data.LiveOut[BB];
 
   // We want to handle the statepoint itself oddly.  It's
   // call result is not live (normal), nor are it's arguments
@@ -2864,7 +2589,7 @@ static void findLiveSetAtInst(Instruction *Inst, GCPtrLivenessData &Data,
   // specifically what we need to relocate
   BasicBlock::reverse_iterator rend(Inst->getIterator());
   computeLiveInValues(BB->rbegin(), rend, LiveOut);
-  LiveOut.erase(Inst);
+  LiveOut.remove(Inst);
   Out.insert(LiveOut.begin(), LiveOut.end());
 }
 

@@ -280,6 +280,7 @@ public:
   static const TST TST_half = clang::TST_half;
   static const TST TST_float = clang::TST_float;
   static const TST TST_double = clang::TST_double;
+  static const TST TST_float128 = clang::TST_float128;
   static const TST TST_bool = clang::TST_bool;
   static const TST TST_decimal32 = clang::TST_decimal32;
   static const TST TST_decimal64 = clang::TST_decimal64;
@@ -299,6 +300,9 @@ public:
   static const TST TST_auto_type = clang::TST_auto_type;
   static const TST TST_unknown_anytype = clang::TST_unknown_anytype;
   static const TST TST_atomic = clang::TST_atomic;
+#define GENERIC_IMAGE_TYPE(ImgType, Id) \
+  static const TST TST_##ImgType##_t = clang::TST_##ImgType##_t;
+#include "clang/Basic/OpenCLImageTypes.def"
   static const TST TST_error = clang::TST_error;
 
   // type-qualifiers
@@ -309,7 +313,10 @@ public:
     TQ_volatile    = 4,
     // This has no corresponding Qualifiers::TQ value, because it's not treated
     // as a qualifier in our type system.
-    TQ_atomic      = 8
+    TQ_atomic      = 8,
+    // There is no corresponding Qualifiers::TQ value, but it's kept separately
+    // in a dedicated Qualifiers::Mask bit.
+    TQ_unaligned   = 16
   };
 
   /// ParsedSpecifiers - Flags to query which specifiers were applied.  This is
@@ -340,7 +347,7 @@ private:
   unsigned TypeSpecPipe : 1;
 
   // type-qualifiers
-  unsigned TypeQualifiers : 4;  // Bitwise OR of TQ.
+  unsigned TypeQualifiers : 5;  // Bitwise OR of TQ.
 
   // function-specifier
   unsigned FS_inline_specified : 1;
@@ -382,7 +389,8 @@ private:
   /// TSTNameLoc provides source range info for tag types.
   SourceLocation TSTNameLoc;
   SourceRange TypeofParensRange;
-  SourceLocation TQ_constLoc, TQ_restrictLoc, TQ_volatileLoc, TQ_atomicLoc;
+  SourceLocation TQ_constLoc, TQ_restrictLoc, TQ_volatileLoc, TQ_atomicLoc,
+      TQ_unalignedLoc;
   SourceLocation FS_inlineLoc, FS_virtualLoc, FS_explicitLoc, FS_noreturnLoc;
   SourceLocation FS_forceinlineLoc;
   SourceLocation FriendLoc, ModulePrivateLoc, ConstexprLoc, ConceptLoc;
@@ -536,6 +544,7 @@ public:
   SourceLocation getRestrictSpecLoc() const { return TQ_restrictLoc; }
   SourceLocation getVolatileSpecLoc() const { return TQ_volatileLoc; }
   SourceLocation getAtomicSpecLoc() const { return TQ_atomicLoc; }
+  SourceLocation getUnalignedSpecLoc() const { return TQ_unalignedLoc; }
   SourceLocation getPipeLoc() const { return TQ_pipeLoc; }
 
   /// \brief Clear out all of the type qualifiers.
@@ -545,6 +554,7 @@ public:
     TQ_restrictLoc = SourceLocation();
     TQ_volatileLoc = SourceLocation();
     TQ_atomicLoc = SourceLocation();
+    TQ_unalignedLoc = SourceLocation();
     TQ_pipeLoc = SourceLocation();
   }
 
@@ -800,7 +810,8 @@ public:
     DQ_PR_strong = 0x400,
     DQ_PR_unsafe_unretained = 0x800,
     DQ_PR_nullability = 0x1000,
-    DQ_PR_null_resettable = 0x2000
+    DQ_PR_null_resettable = 0x2000,
+    DQ_PR_class = 0x4000
   };
 
   ObjCDeclSpec()
@@ -860,7 +871,7 @@ private:
   ObjCDeclQualifier objcDeclQualifier : 7;
 
   // NOTE: VC++ treats enums as signed, avoid using ObjCPropertyAttributeKind
-  unsigned PropertyAttributes : 14;
+  unsigned PropertyAttributes : 15;
 
   unsigned Nullability : 2;
 
@@ -1109,8 +1120,8 @@ struct DeclaratorChunk {
   };
 
   struct PointerTypeInfo : TypeInfoCommon {
-    /// The type qualifiers: const/volatile/restrict/atomic.
-    unsigned TypeQuals : 4;
+    /// The type qualifiers: const/volatile/restrict/atomic/unaligned.
+    unsigned TypeQuals : 5;
 
     /// The location of the const-qualifier, if any.
     unsigned ConstQualLoc;
@@ -1123,6 +1134,9 @@ struct DeclaratorChunk {
 
     /// The location of the _Atomic-qualifier, if any.
     unsigned AtomicQualLoc;
+
+    /// The location of the __unaligned-qualifier, if any.
+    unsigned UnalignedQualLoc;
 
     void destroy() {
     }
@@ -1464,7 +1478,8 @@ struct DeclaratorChunk {
                                     SourceLocation ConstQualLoc,
                                     SourceLocation VolatileQualLoc,
                                     SourceLocation RestrictQualLoc,
-                                    SourceLocation AtomicQualLoc) {
+                                    SourceLocation AtomicQualLoc,
+                                    SourceLocation UnalignedQualLoc) {
     DeclaratorChunk I;
     I.Kind                = Pointer;
     I.Loc                 = Loc;
@@ -1473,6 +1488,7 @@ struct DeclaratorChunk {
     I.Ptr.VolatileQualLoc = VolatileQualLoc.getRawEncoding();
     I.Ptr.RestrictQualLoc = RestrictQualLoc.getRawEncoding();
     I.Ptr.AtomicQualLoc   = AtomicQualLoc.getRawEncoding();
+    I.Ptr.UnalignedQualLoc = UnalignedQualLoc.getRawEncoding();
     I.Ptr.AttrList        = nullptr;
     return I;
   }
@@ -1551,7 +1567,7 @@ struct DeclaratorChunk {
     I.Kind          = Pipe;
     I.Loc           = Loc;
     I.Cls.TypeQuals = TypeQuals;
-    I.Cls.AttrList  = 0;
+    I.Cls.AttrList  = nullptr;
     return I;
   }
 
@@ -2340,4 +2356,4 @@ struct LambdaIntroducer {
 
 } // end namespace clang
 
-#endif
+#endif // LLVM_CLANG_SEMA_DECLSPEC_H

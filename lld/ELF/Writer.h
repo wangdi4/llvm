@@ -11,13 +11,13 @@
 #define LLD_ELF_WRITER_H
 
 namespace lld {
-namespace elf2 {
+namespace elf {
 
 template <class ELFT> class SymbolTable;
 
 template <class ELFT> void writeResult(SymbolTable<ELFT> *Symtab);
 
-template <class ELFT> void markLive(SymbolTable<ELFT> *Symtab);
+template <class ELFT> void markLive();
 }
 }
 

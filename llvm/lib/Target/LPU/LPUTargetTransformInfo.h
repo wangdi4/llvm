@@ -101,9 +101,9 @@ public:
   unsigned getMemoryOpCost(unsigned Opcode, Type *Src, unsigned Alignment,
                            unsigned AddressSpace);
   unsigned getIntrinsicInstrCost(Intrinsic::ID, Type *RetTy,
-                                 ArrayRef<Type*> Tys);
+                                 ArrayRef<Type*> Tys, FastMathFlags FMF);
   unsigned getIntrinsicInstrCost(Intrinsic::ID, Type *RetTy,
-                                 ArrayRef<Value*> Args);
+                                 ArrayRef<Value*> Args, FastMathFlags FMF);
   unsigned getNumberOfParts(Type *Tp);
   unsigned getAddressComputationCost( Type *Ty, bool IsComplex);
   unsigned getReductionCost(unsigned Opcode, Type *Ty,

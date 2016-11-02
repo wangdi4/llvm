@@ -49,11 +49,12 @@ void GetAllocatorOptions(AllocatorOptions *options);
 class AsanChunkView {
  public:
   explicit AsanChunkView(AsanChunk *chunk) : chunk_(chunk) {}
-  bool IsValid();   // Checks if AsanChunkView points to a valid allocated
-                    // or quarantined chunk.
-  uptr Beg();       // First byte of user memory.
-  uptr End();       // Last byte of user memory.
-  uptr UsedSize();  // Size requested by the user.
+  bool IsValid();        // Checks if AsanChunkView points to a valid allocated
+                         // or quarantined chunk.
+  bool IsAllocated();    // Checks if the memory is currently allocated.
+  uptr Beg();            // First byte of user memory.
+  uptr End();            // Last byte of user memory.
+  uptr UsedSize();       // Size requested by the user.
   uptr AllocTid();
   uptr FreeTid();
   bool Eq(const AsanChunkView &c) const { return chunk_ == c.chunk_; }
@@ -171,7 +172,7 @@ void *asan_pvalloc(uptr size, BufferedStackTrace *stack);
 
 int asan_posix_memalign(void **memptr, uptr alignment, uptr size,
                         BufferedStackTrace *stack);
-uptr asan_malloc_usable_size(void *ptr, uptr pc, uptr bp);
+uptr asan_malloc_usable_size(const void *ptr, uptr pc, uptr bp);
 
 uptr asan_mz_size(const void *ptr);
 void asan_mz_force_lock();

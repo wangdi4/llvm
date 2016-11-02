@@ -569,7 +569,7 @@ void LPUCvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
 			if (MLI->getLoopFor(mbb) != mloop) continue;
 			for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
 				MachineInstr *MI = I;
-				for (MIOperands MO(MI); MO.isValid(); ++MO) {
+				for (MIOperands MO(*MI); MO.isValid(); ++MO) {
 					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 					unsigned Reg = MO->getReg();
 					if (MO->isUse()) {
@@ -725,7 +725,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 					if (!iPhi->isPHI()) {
 						break;
 					}
-					for (MIOperands MO(iPhi); MO.isValid(); ++MO) {
+					for (MIOperands MO(*iPhi); MO.isValid(); ++MO) {
 						if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 						unsigned Reg = MO->getReg();
 						// process uses
@@ -759,7 +759,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 				MachineInstr *MI = I;
 				//phi block control depends on its input blocks, need to handle it here
 				//if (MI->isPHI()) continue; //care about forks, not joints
-				for (MIOperands MO(MI); MO.isValid(); ++MO) {
+				for (MIOperands MO(*MI); MO.isValid(); ++MO) {
 					insertSWITCHForOperand(*MO, mbb);
 				}
 			}//end of for MI
@@ -837,7 +837,7 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
           MachineBasicBlock* exitingBlk = nullptr;
 
           if (UseMI->isPHI()) {
-            for (MIOperands MO(UseMI); MO.isValid(); ++MO) {
+            for (MIOperands MO(*UseMI); MO.isValid(); ++MO) {
               if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
               if (MO->isUse()) {
                 unsigned MOReg = MO->getReg();
@@ -948,7 +948,7 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
         LCSwitchs->insert(MI->getOperand(switchOut).getReg());
         continue;
       }
-      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
         // process defs
@@ -1013,7 +1013,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
         //we are workin from inner most out, no need to revisit the switch after it is inserted into the latch
         continue;
       }
-      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
         // process use at loop level
@@ -1102,7 +1102,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
 			unsigned backEdgeIndex = 0;
 			unsigned dst = MI->getOperand(0).getReg();
 
-      for (MIOperands MO(MI); MO.isValid(); ++MO, ++numOpnd) {
+      for (MIOperands MO(*MI); MO.isValid(); ++MO, ++numOpnd) {
         if (!MO->isReg()) continue;
         // process use at loop level
         if (MO->isUse()) {
@@ -1198,7 +1198,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
     MachineBasicBlock* mbb = &*BB;
 		for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
 			if (MI->isPHI()) {
-				for (MIOperands MO(MI); MO.isValid(); ++MO) {
+				for (MIOperands MO(*MI); MO.isValid(); ++MO) {
 					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 					unsigned Reg = MO->getReg();
 					pinedVReg.insert(Reg);
@@ -1222,7 +1222,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
           MI->getOpcode() == LPU::PREDMERGE || 
           MI->getOpcode() == LPU::PREDPROP || 
           MI->getOpcode() == LPU::OR1) {
-        for (MIOperands MO(MI); MO.isValid(); ++MO) {
+        for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();
           renameQueue.push_back(Reg);
@@ -1276,7 +1276,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
 			UseMO.setReg(phyReg);
     }
 
-    for (MIOperands MO(DefMI); MO.isValid(); ++MO) {
+    for (MIOperands MO(*DefMI); MO.isValid(); ++MO) {
       if (!MO->isReg() || &*MO == DefMO || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
       unsigned Reg = MO->getReg();
       renameQueue.push_back(Reg);
@@ -1286,7 +1286,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
       bool allLics = true;
-      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (!MO->isReg()) {
           if (MO->isImm() || MO->isCImm() || MO->isFPImm()) {
             continue;
@@ -1312,7 +1312,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
       // These instructions shouldn't be moved on to dataflow units,
       // because they keep firing infinitely.
       bool allImmediateUses = true;
-      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         // Skip defs.
         if (MO->isReg() && MO->isDef())
           continue;
@@ -1348,7 +1348,7 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
       if (!TII.isMOV(MI)) continue;
 
       bool allConst = true;
-      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (MO->isReg() && MO->isDef()) continue;
         if (!MO->isImm() && !MO->isCImm() && !MO->isFPImm()) {
             allConst = false;
@@ -1591,7 +1591,7 @@ void LPUCvtCFDFPass::generateCompletePickTreeForPhi(MachineInstr* MI) {
 	multiInputsPick.clear();
 	MachineBasicBlock* mbb = MI->getParent();
 	unsigned dst = MI->getOperand(0).getReg();
-	for (MIOperands MO(MI); MO.isValid(); ++MO) {
+	for (MIOperands MO(*MI); MO.isValid(); ++MO) {
 		if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 		if (MO->isUse()) {
 			unsigned Reg = MO->getReg();
@@ -1806,7 +1806,7 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 	unsigned predBB = 0;
 	MachineInstr* predMergeInstr = nullptr;
 
-	for (MIOperands MO(MI); MO.isValid(); ++MO) {
+	for (MIOperands MO(*MI); MO.isValid(); ++MO) {
 		if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 		if (MO->isUse()) {
 			unsigned Reg = MO->getReg();
@@ -1937,7 +1937,7 @@ void LPUCvtCFDFPass::generateDynamicPreds() {
 			if (!MI->isPHI()) continue;
 			//check to see if needs PREDPROP/PREDMERGE
 			if (!checked) {
-				for (MIOperands MO(MI); MO.isValid(); ++MO) {
+				for (MIOperands MO(*MI); MO.isValid(); ++MO) {
 					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 					if (MO->isUse()) {
 						//move to its incoming block operand

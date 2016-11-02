@@ -22,19 +22,20 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/Value.h"
-#include "lldb/Expression/UserExpression.h"
+#include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/FunctionCaller.h"
+#include "lldb/Expression/UserExpression.h"
 #include "lldb/Expression/UtilityFunction.h"
 #include "lldb/Host/FileSpec.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/Symbol.h"
 #include "lldb/Target/ABI.h"
+#include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
-#include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/ThreadPlanRunToAddress.h"
 
 #include "llvm/ADT/STLExtras.h"
@@ -461,7 +462,7 @@ AppleObjCTrampolineHandler::AppleObjCVTables::InitializeVTableSymbols ()
         Target &target = process_sp->GetTarget();
         
         const ModuleList &target_modules = target.GetImages();
-        Mutex::Locker modules_locker(target_modules.GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(target_modules.GetMutex());
         size_t num_modules = target_modules.GetSize();
         if (!m_objc_module_sp)
         {
@@ -738,18 +739,20 @@ AppleObjCTrampolineHandler::AppleObjCTrampolineHandler (const ProcessSP &process
 }
 
 lldb::addr_t
-AppleObjCTrampolineHandler::SetupDispatchFunction (Thread &thread, ValueList &dispatch_values)
+AppleObjCTrampolineHandler::SetupDispatchFunction(Thread &thread, ValueList &dispatch_values)
 {
-    ExecutionContext exe_ctx (thread.shared_from_this());
-    StreamString errors;
-    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_STEP));
+    ThreadSP thread_sp(thread.shared_from_this());
+    ExecutionContext exe_ctx (thread_sp);
+    DiagnosticManager diagnostics;
+    Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_STEP));
+
     lldb::addr_t args_addr = LLDB_INVALID_ADDRESS;
     FunctionCaller *impl_function_caller = nullptr;
 
     // Scope for mutex locker:
     {
-        Mutex::Locker locker(m_impl_function_mutex);
-        
+        std::lock_guard<std::mutex> guard(m_impl_function_mutex);
+
         // First stage is to make the ClangUtility to hold our injected function:
 
         if (!m_impl_code.get())
@@ -768,11 +771,14 @@ AppleObjCTrampolineHandler::SetupDispatchFunction (Thread &thread, ValueList &di
                     m_impl_code.reset();
                     return args_addr;
                 }
-                
-                if (!m_impl_code->Install(errors, exe_ctx))
+
+                if (!m_impl_code->Install(diagnostics, exe_ctx))
                 {
                     if (log)
-                        log->Printf ("Failed to install implementation lookup: %s.", errors.GetData());
+                    {
+                        log->Printf("Failed to install implementation lookup.");
+                        diagnostics.Dump(log);
+                    }
                     m_impl_code.reset();
                     return args_addr;
                 }
@@ -781,10 +787,8 @@ AppleObjCTrampolineHandler::SetupDispatchFunction (Thread &thread, ValueList &di
             {
                 if (log)
                     log->Printf("No method lookup implementation code.");
-                errors.Printf ("No method lookup implementation code found.");
                 return LLDB_INVALID_ADDRESS;
             }
-            
 
             // Next make the runner function for our implementation utility function.
             ClangASTContext *clang_ast_context = thread.GetProcess()->GetTarget().GetScratchClangASTContext();
@@ -793,6 +797,7 @@ AppleObjCTrampolineHandler::SetupDispatchFunction (Thread &thread, ValueList &di
             
             impl_function_caller = m_impl_code->MakeFunctionCaller(clang_void_ptr_type,
                                                                    dispatch_values,
+                                                                   thread_sp,
                                                                    error);
             if (error.Fail())
             {
@@ -806,20 +811,23 @@ AppleObjCTrampolineHandler::SetupDispatchFunction (Thread &thread, ValueList &di
             impl_function_caller = m_impl_code->GetFunctionCaller();
         }
     }
-    
-    errors.Clear();
-    
+
+    diagnostics.Clear();
+
     // Now write down the argument values for this particular call.  This looks like it might be a race condition
     // if other threads were calling into here, but actually it isn't because we allocate a new args structure for
     // this call by passing args_addr = LLDB_INVALID_ADDRESS...
 
-    if (impl_function_caller->WriteFunctionArguments (exe_ctx, args_addr, dispatch_values, errors))
+    if (impl_function_caller->WriteFunctionArguments(exe_ctx, args_addr, dispatch_values, diagnostics))
     {
         if (log)
-            log->Printf ("Error writing function arguments: \"%s\".", errors.GetData());
+        {
+            log->Printf("Error writing function arguments.");
+            diagnostics.Dump(log);
+        }
         return args_addr;
     }
-        
+
     return args_addr;
 }
 

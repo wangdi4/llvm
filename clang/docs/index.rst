@@ -28,8 +28,10 @@ Using Clang as a Compiler
    DataFlowSanitizer
    LeakSanitizer
    SanitizerCoverage
+   SanitizerStats
    SanitizerSpecialCaseList
    ControlFlowIntegrity
+   LTOVisibility
    SafeStack
    Modules
    MSVCCompatibility
@@ -75,6 +77,7 @@ Design Documents
    DriverInternals
    PTHInternals
    PCHInternals
+   ItaniumMangleAbiTags
 
 
 Indices and tables

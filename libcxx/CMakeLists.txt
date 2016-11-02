@@ -12,19 +12,31 @@ if(POLICY CMP0022)
   cmake_policy(SET CMP0022 NEW) # Required when interacting with LLVM and Clang
 endif()
 
-project(libcxx CXX C)
-
-set(PACKAGE_NAME libcxx)
-set(PACKAGE_VERSION trunk-svn)
-set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
-set(PACKAGE_BUGREPORT "llvm-bugs@lists.llvm.org")
-
 # Add path for custom modules
 set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
   ${CMAKE_MODULE_PATH}
   )
+
+# Find the LLVM sources and simulate LLVM CMake options.
+include(HandleOutOfTreeLLVM)
+
+if (LIBCXX_BUILT_STANDALONE)
+  project(libcxx CXX C)
+
+  set(PACKAGE_NAME libcxx)
+  set(PACKAGE_VERSION trunk-svn)
+  set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
+  set(PACKAGE_BUGREPORT "llvm-bugs@lists.llvm.org")
+endif ()
+
+if (LIBCXX_BUILT_STANDALONE AND NOT LLVM_FOUND)
+  message(WARNING "UNSUPPORTED LIBCXX CONFIGURATION DETECTED: "
+                  "llvm-config not found and LLVM_PATH not defined.\n"
+                  "Reconfigure with -DLLVM_CONFIG=path/to/llvm-config "
+                  "or -DLLVM_PATH=path/to/llvm-source-root.")
+endif()
 
 # Require out of source build.
 include(MacroEnsureOutOfSourceBuild)
@@ -33,15 +45,6 @@ MACRO_ENSURE_OUT_OF_SOURCE_BUILD(
  build directory and run 'cmake /path/to/${PROJECT_NAME} [options]' there."
  )
 
-# Find the LLVM sources and simulate LLVM CMake options.
-include(HandleOutOfTreeLLVM)
-if (LIBCXX_BUILT_STANDALONE AND NOT LLVM_FOUND)
-  message(WARNING "UNSUPPORTED LIBCXX CONFIGURATION DETECTED: "
-                  "llvm-config not found and LLVM_PATH not defined.\n"
-                  "Reconfigure with -DLLVM_CONFIG=path/to/llvm-config "
-                  "or -DLLVM_PATH=path/to/llvm-source-root.")
-endif()
-
 #===============================================================================
 # Setup CMake Options
 #===============================================================================
@@ -49,7 +52,7 @@ endif()
 # Basic options ---------------------------------------------------------------
 option(LIBCXX_ENABLE_ASSERTIONS "Enable assertions independent of build mode." ON)
 option(LIBCXX_ENABLE_SHARED "Build libc++ as a shared library." ON)
-
+option(LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY "Build libc++experimental.a" ON)
 option(LIBCXX_INCLUDE_TESTS "Build the libc++ tests." ${LLVM_INCLUDE_TESTS})
 option(LIBCXX_INCLUDE_DOCS "Build the libc++ documentation." ${LLVM_INCLUDE_DOCS})
 set(LIBCXX_LIBDIR_SUFFIX "${LLVM_LIBDIR_SUFFIX}" CACHE STRING
@@ -57,6 +60,7 @@ set(LIBCXX_LIBDIR_SUFFIX "${LLVM_LIBDIR_SUFFIX}" CACHE STRING
 option(LIBCXX_INSTALL_HEADERS "Install the libc++ headers." ON)
 option(LIBCXX_INSTALL_LIBRARY "Install the libc++ library." ON)
 option(LIBCXX_INSTALL_SUPPORT_HEADERS "Install libc++ support headers." ON)
+option(LIBCXX_INSTALL_EXPERIMENTAL_LIBRARY "Install libc++experimental.a" OFF)
 set(LIBCXX_ABI_VERSION 1 CACHE STRING "ABI version of libc++.")
 option(LIBCXX_ABI_UNSTABLE "Unstable ABI of libc++." OFF)
 
@@ -92,7 +96,8 @@ option(LIBCXX_ENABLE_STATIC_ABI_LIBRARY "Statically link the ABI library" OFF)
 set(ENABLE_LINKER_SCRIPT_DEFAULT_VALUE OFF)
 if (LLVM_HAVE_LINK_VERSION_SCRIPT AND NOT LIBCXX_ENABLE_STATIC_ABI_LIBRARY
       AND NOT LIBCXX_CXX_ABI_LIBNAME STREQUAL "none"
-      AND PYTHONINTERP_FOUND)
+      AND PYTHONINTERP_FOUND
+      AND LIBCXX_ENABLE_SHARED)
     set(ENABLE_LINKER_SCRIPT_DEFAULT_VALUE ON)
 endif()
 
@@ -199,6 +204,9 @@ if (LIBCXX_ENABLE_ABI_LINKER_SCRIPT)
     if (NOT PYTHONINTERP_FOUND)
       message(FATAL_ERROR "LIBCXX_ENABLE_ABI_LINKER_SCRIPT requires python but it was not found.")
     endif()
+    if (NOT LIBCXX_ENABLE_SHARED)
+      message(FATAL_ERROR "LIBCXX_ENABLE_ABI_LINKER_SCRIPT is only available for shared library builds.")
+    endif()
 endif()
 
 if (LIBCXX_ENABLE_STATIC_ABI_LIBRARY AND LIBCXX_ENABLE_ABI_LINKER_SCRIPT)
@@ -248,7 +256,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 # Setup Compiler Flags
 #===============================================================================
 
-include(HandleLibCXXABI) # Steup the ABI library flags
+include(HandleLibCXXABI) # Setup the ABI library flags
 
 # Include macros for adding and removing libc++ flags.
 include(HandleLibcxxFlags)

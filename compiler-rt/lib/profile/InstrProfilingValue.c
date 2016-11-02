@@ -9,6 +9,7 @@
 
 #include "InstrProfiling.h"
 #include "InstrProfilingInternal.h"
+#include "InstrProfilingUtil.h" /* For PS4 getenv shim. */
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,25 +18,32 @@
 #define INSTR_PROF_COMMON_API_IMPL
 #include "InstrProfData.inc"
 
-#define PROF_OOM(Msg) PROF_ERR(Msg ":%s\n", "Out of memory");
-#define PROF_OOM_RETURN(Msg)                                                   \
-  {                                                                            \
-    PROF_OOM(Msg)                                                              \
-    free(ValueDataArray);                                                      \
-    return NULL;                                                               \
-  }
+COMPILER_RT_VISIBILITY uint32_t VPMaxNumValsPerSite =
+    INSTR_PROF_MAX_NUM_VAL_PER_SITE;
 
-#if COMPILER_RT_HAS_ATOMICS != 1
-COMPILER_RT_VISIBILITY
-uint32_t BoolCmpXchg(void **Ptr, void *OldV, void *NewV) {
-  void *R = *Ptr;
-  if (R == OldV) {
-    *Ptr = NewV;
-    return 1;
+COMPILER_RT_VISIBILITY void lprofSetupValueProfiler() {
+  const char *Str = 0;
+  Str = getenv("LLVM_VP_MAX_NUM_VALS_PER_SITE");
+  if (Str && Str[0])
+    VPMaxNumValsPerSite = atoi(Str);
+  if (VPMaxNumValsPerSite > INSTR_PROF_MAX_NUM_VAL_PER_SITE)
+    VPMaxNumValsPerSite = INSTR_PROF_MAX_NUM_VAL_PER_SITE;
+
+  if (!(EndVNode > CurrentVNode)) {
+    CurrentVNode = 0;
+    EndVNode = 0;
   }
-  return 0;
+  /* Adjust max vals per site to a smaller value
+   * when static allocation is in use. */
+  else {
+    if (!Str || !Str[0])
+      VPMaxNumValsPerSite = 8;
+  }
 }
-#endif
+
+COMPILER_RT_VISIBILITY void lprofSetMaxValsPerSite(uint32_t MaxVals) {
+  VPMaxNumValsPerSite = MaxVals;
+}
 
 /* This method is only used in value profiler mock testing.  */
 COMPILER_RT_VISIBILITY void
@@ -62,9 +70,18 @@ __llvm_get_function_addr(const __llvm_profile_data *Data) {
  * 0 if allocation fails.
  */
 
+static int hasStaticCounters = 1;
+static int OutOfNodesWarnings = 0;
+#define MAX_VP_WARNS 10
+
 static int allocateValueProfileCounters(__llvm_profile_data *Data) {
   uint64_t NumVSites = 0;
   uint32_t VKI;
+
+  /* This function will never be called when value site array is allocated
+     statically at compile time.  */
+  hasStaticCounters = 0;
+
   for (VKI = IPVK_First; VKI <= IPVK_Last; ++VKI)
     NumVSites += Data->NumValueSites[VKI];
 
@@ -79,10 +96,27 @@ static int allocateValueProfileCounters(__llvm_profile_data *Data) {
   return 1;
 }
 
+static ValueProfNode *allocateOneNode(__llvm_profile_data *Data, uint32_t Index,
+                                      uint64_t Value) {
+  ValueProfNode *Node;
+
+  if (!hasStaticCounters)
+    return (ValueProfNode *)calloc(1, sizeof(ValueProfNode));
+
+  Node = COMPILER_RT_PTR_FETCH_ADD(ValueProfNode, CurrentVNode, 1);
+  if (Node >= EndVNode && (OutOfNodesWarnings ++ < MAX_VP_WARNS)) {
+    PROF_WARN("Unable to track new values: %s. "
+              " Consider using option -mllvm -vp-counters-per-site=<n> to allocate more" 
+              " value profile counters at compile time. \n", 
+              "Running out of static counters");
+    return 0;
+  }
+  return Node;
+}
+
 COMPILER_RT_VISIBILITY void
 __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
                                  uint32_t CounterIndex) {
-
   __llvm_profile_data *PData = (__llvm_profile_data *)Data;
   if (!PData)
     return;
@@ -94,28 +128,68 @@ __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
 
   ValueProfNode **ValueCounters = (ValueProfNode **)PData->Values;
   ValueProfNode *PrevVNode = NULL;
+  ValueProfNode *MinCountVNode = NULL;
   ValueProfNode *CurrentVNode = ValueCounters[CounterIndex];
+  uint64_t MinCount = UINT64_MAX;
 
   uint8_t VDataCount = 0;
   while (CurrentVNode) {
-    if (TargetValue == CurrentVNode->VData.Value) {
-      CurrentVNode->VData.Count++;
+    if (TargetValue == CurrentVNode->Value) {
+      CurrentVNode->Count++;
       return;
+    }
+    if (CurrentVNode->Count < MinCount) {
+      MinCount = CurrentVNode->Count;
+      MinCountVNode = CurrentVNode;
     }
     PrevVNode = CurrentVNode;
     CurrentVNode = CurrentVNode->Next;
     ++VDataCount;
   }
 
-  if (VDataCount >= INSTR_PROF_MAX_NUM_VAL_PER_SITE)
+  if (VDataCount >= VPMaxNumValsPerSite) {
+    /* Bump down the min count node's count. If it reaches 0,
+     * evict it. This eviction/replacement policy makes hot
+     * targets more sticky while cold targets less so. In other
+     * words, it makes it less likely for the hot targets to be
+     * prematurally evicted during warmup/establishment period,
+     * when their counts are still low. In a special case when
+     * the number of values tracked is reduced to only one, this
+     * policy will guarantee that the dominating target with >50%
+     * total count will survive in the end. Note that this scheme
+     * allows the runtime to track the min count node in an adaptive
+     * manner. It can correct previous mistakes and eventually
+     * lock on a cold target that is alread in stable state.
+     *
+     * In very rare cases,  this replacement scheme may still lead
+     * to target loss. For instance, out of \c N value slots, \c N-1
+     * slots are occupied by luke warm targets during the warmup
+     * period and the remaining one slot is competed by two or more
+     * very hot targets. If those hot targets occur in an interleaved
+     * way, none of them will survive (gain enough weight to throw out
+     * other established entries) due to the ping-pong effect.
+     * To handle this situation, user can choose to increase the max
+     * number of tracked values per value site. Alternatively, a more
+     * expensive eviction mechanism can be implemented. It requires
+     * the runtime to track the total number of evictions per-site.
+     * When the total number of evictions reaches certain threshold,
+     * the runtime can wipe out more than one lowest count entries
+     * to give space for hot targets.
+     */
+    if (!(--MinCountVNode->Count)) {
+      CurrentVNode = MinCountVNode;
+      CurrentVNode->Value = TargetValue;
+      CurrentVNode->Count++;
+    }
     return;
+  }
 
-  CurrentVNode = (ValueProfNode *)calloc(1, sizeof(ValueProfNode));
+  CurrentVNode = allocateOneNode(PData, CounterIndex, TargetValue);
   if (!CurrentVNode)
     return;
 
-  CurrentVNode->VData.Value = TargetValue;
-  CurrentVNode->VData.Count++;
+  CurrentVNode->Value = TargetValue;
+  CurrentVNode->Count++;
 
   uint32_t Success = 0;
   if (!ValueCounters[CounterIndex])
@@ -124,57 +198,115 @@ __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
   else if (PrevVNode && !PrevVNode->Next)
     Success = COMPILER_RT_BOOL_CMPXCHG(&(PrevVNode->Next), 0, CurrentVNode);
 
-  if (!Success) {
+  if (!Success && !hasStaticCounters) {
     free(CurrentVNode);
     return;
   }
 }
 
-COMPILER_RT_VISIBILITY ValueProfData **
-__llvm_profile_gather_value_data(uint64_t *ValueDataSize) {
-  size_t S = 0;
-  __llvm_profile_data *I;
-  ValueProfData **ValueDataArray;
+/*
+ * A wrapper struct that represents value profile runtime data.
+ * Like InstrProfRecord class which is used by profiling host tools,
+ * ValueProfRuntimeRecord also implements the abstract intefaces defined in
+ * ValueProfRecordClosure so that the runtime data can be serialized using
+ * shared C implementation.
+ */
+typedef struct ValueProfRuntimeRecord {
+  const __llvm_profile_data *Data;
+  ValueProfNode **NodesKind[IPVK_Last + 1];
+  uint8_t **SiteCountArray;
+} ValueProfRuntimeRecord;
 
-  const __llvm_profile_data *DataEnd = __llvm_profile_end_data();
-  const __llvm_profile_data *DataBegin = __llvm_profile_begin_data();
+/* ValueProfRecordClosure Interface implementation. */
 
-  if (!ValueDataSize)
-    return NULL;
+static uint32_t getNumValueSitesRT(const void *R, uint32_t VK) {
+  return ((const ValueProfRuntimeRecord *)R)->Data->NumValueSites[VK];
+}
 
-  ValueDataArray =
-      (ValueProfData **)calloc(DataEnd - DataBegin, sizeof(void *));
-  if (!ValueDataArray)
-    PROF_OOM_RETURN("Failed to write value profile data ");
+static uint32_t getNumValueDataRT(const void *R, uint32_t VK) {
+  uint32_t S = 0, I;
+  const ValueProfRuntimeRecord *Record = (const ValueProfRuntimeRecord *)R;
+  if (Record->SiteCountArray[VK] == INSTR_PROF_NULLPTR)
+    return 0;
+  for (I = 0; I < Record->Data->NumValueSites[VK]; I++)
+    S += Record->SiteCountArray[VK][I];
+  return S;
+}
 
-  /*
-   * Compute the total Size of the buffer to hold ValueProfData
-   * structures for functions with value profile data.
-   */
-  for (I = (__llvm_profile_data *)DataBegin; I != DataEnd; ++I) {
-    ValueProfRuntimeRecord R;
-    if (initializeValueProfRuntimeRecord(&R, I->NumValueSites, I->Values))
-      PROF_OOM_RETURN("Failed to write value profile data ");
+static uint32_t getNumValueDataForSiteRT(const void *R, uint32_t VK,
+                                         uint32_t S) {
+  const ValueProfRuntimeRecord *Record = (const ValueProfRuntimeRecord *)R;
+  return Record->SiteCountArray[VK][S];
+}
 
-    /* Compute the size of ValueProfData from this runtime record.  */
-    if (getNumValueKindsRT(&R) != 0) {
-      ValueProfData *VD = NULL;
-      uint32_t VS = getValueProfDataSizeRT(&R);
-      VD = (ValueProfData *)calloc(VS, sizeof(uint8_t));
-      if (!VD)
-        PROF_OOM_RETURN("Failed to write value profile data ");
-      serializeValueProfDataFromRT(&R, VD);
-      ValueDataArray[I - DataBegin] = VD;
-      S += VS;
+static ValueProfRuntimeRecord RTRecord;
+static ValueProfRecordClosure RTRecordClosure = {
+    &RTRecord,          INSTR_PROF_NULLPTR, /* GetNumValueKinds */
+    getNumValueSitesRT, getNumValueDataRT,  getNumValueDataForSiteRT,
+    INSTR_PROF_NULLPTR, /* RemapValueData */
+    INSTR_PROF_NULLPTR, /* GetValueForSite, */
+    INSTR_PROF_NULLPTR  /* AllocValueProfData */
+};
+
+static uint32_t
+initializeValueProfRuntimeRecord(const __llvm_profile_data *Data,
+                                 uint8_t *SiteCountArray[]) {
+  unsigned I, J, S = 0, NumValueKinds = 0;
+  ValueProfNode **Nodes = (ValueProfNode **)Data->Values;
+  RTRecord.Data = Data;
+  RTRecord.SiteCountArray = SiteCountArray;
+  for (I = 0; I <= IPVK_Last; I++) {
+    uint16_t N = Data->NumValueSites[I];
+    if (!N)
+      continue;
+
+    NumValueKinds++;
+
+    RTRecord.NodesKind[I] = Nodes ? &Nodes[S] : INSTR_PROF_NULLPTR;
+    for (J = 0; J < N; J++) {
+      /* Compute value count for each site. */
+      uint32_t C = 0;
+      ValueProfNode *Site =
+          Nodes ? RTRecord.NodesKind[I][J] : INSTR_PROF_NULLPTR;
+      while (Site) {
+        C++;
+        Site = Site->Next;
+      }
+      if (C > UCHAR_MAX)
+        C = UCHAR_MAX;
+      RTRecord.SiteCountArray[I][J] = C;
     }
-    finalizeValueProfRuntimeRecord(&R);
+    S += N;
   }
+  return NumValueKinds;
+}
 
-  if (!S) {
-    free(ValueDataArray);
-    ValueDataArray = NULL;
+static ValueProfNode *getNextNValueData(uint32_t VK, uint32_t Site,
+                                        InstrProfValueData *Dst,
+                                        ValueProfNode *StartNode, uint32_t N) {
+  unsigned I;
+  ValueProfNode *VNode = StartNode ? StartNode : RTRecord.NodesKind[VK][Site];
+  for (I = 0; I < N; I++) {
+    Dst[I].Value = VNode->Value;
+    Dst[I].Count = VNode->Count;
+    VNode = VNode->Next;
   }
+  return VNode;
+}
 
-  *ValueDataSize = S;
-  return ValueDataArray;
+static uint32_t getValueProfDataSizeWrapper() {
+  return getValueProfDataSize(&RTRecordClosure);
+}
+
+static uint32_t getNumValueDataForSiteWrapper(uint32_t VK, uint32_t S) {
+  return getNumValueDataForSiteRT(&RTRecord, VK, S);
+}
+
+static VPDataReaderType TheVPDataReader = {
+    initializeValueProfRuntimeRecord, getValueProfRecordHeaderSize,
+    getFirstValueProfRecord,          getNumValueDataForSiteWrapper,
+    getValueProfDataSizeWrapper,      getNextNValueData};
+
+COMPILER_RT_VISIBILITY VPDataReaderType *lprofGetVPDataReader() {
+  return &TheVPDataReader;
 }

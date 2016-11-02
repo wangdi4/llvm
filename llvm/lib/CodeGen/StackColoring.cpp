@@ -21,33 +21,30 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SparseSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/LiveInterval.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
-#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/PseudoSourceValue.h"
 #include "llvm/CodeGen/SlotIndexes.h"
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/CodeGen/WinEHFuncInfo.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -137,6 +134,9 @@ public:
 private:
   /// Debug.
   void dump() const;
+  void dumpIntervals() const;
+  void dumpBB(MachineBasicBlock *MBB) const;
+  void dumpBV(const char *tag, const BitVector &BV) const;
 
   /// Removes all of the lifetime marker instructions from the function.
   /// \returns true if any markers were removed.
@@ -179,51 +179,54 @@ char &llvm::StackColoringID = StackColoring::ID;
 
 INITIALIZE_PASS_BEGIN(StackColoring,
                    "stack-coloring", "Merge disjoint stack slots", false, false)
-INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(SlotIndexes)
 INITIALIZE_PASS_DEPENDENCY(StackProtector)
 INITIALIZE_PASS_END(StackColoring,
                    "stack-coloring", "Merge disjoint stack slots", false, false)
 
 void StackColoring::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<MachineDominatorTree>();
-  AU.addPreserved<MachineDominatorTree>();
   AU.addRequired<SlotIndexes>();
   AU.addRequired<StackProtector>();
   MachineFunctionPass::getAnalysisUsage(AU);
 }
 
-void StackColoring::dump() const {
+#ifndef NDEBUG
+
+LLVM_DUMP_METHOD void StackColoring::dumpBV(const char *tag,
+                                            const BitVector &BV) const {
+  DEBUG(dbgs() << tag << " : { ");
+  for (unsigned I = 0, E = BV.size(); I != E; ++I)
+    DEBUG(dbgs() << BV.test(I) << " ");
+  DEBUG(dbgs() << "}\n");
+}
+
+LLVM_DUMP_METHOD void StackColoring::dumpBB(MachineBasicBlock *MBB) const {
+  LivenessMap::const_iterator BI = BlockLiveness.find(MBB);
+  assert(BI != BlockLiveness.end() && "Block not found");
+  const BlockLifetimeInfo &BlockInfo = BI->second;
+
+  dumpBV("BEGIN", BlockInfo.Begin);
+  dumpBV("END", BlockInfo.End);
+  dumpBV("LIVE_IN", BlockInfo.LiveIn);
+  dumpBV("LIVE_OUT", BlockInfo.LiveOut);
+}
+
+LLVM_DUMP_METHOD void StackColoring::dump() const {
   for (MachineBasicBlock *MBB : depth_first(MF)) {
-    DEBUG(dbgs() << "Inspecting block #" << BasicBlocks.lookup(MBB) << " ["
+    DEBUG(dbgs() << "Inspecting block #" << MBB->getNumber() << " ["
                  << MBB->getName() << "]\n");
-
-    LivenessMap::const_iterator BI = BlockLiveness.find(MBB);
-    assert(BI != BlockLiveness.end() && "Block not found");
-    const BlockLifetimeInfo &BlockInfo = BI->second;
-
-    DEBUG(dbgs()<<"BEGIN  : {");
-    for (unsigned i=0; i < BlockInfo.Begin.size(); ++i)
-      DEBUG(dbgs()<<BlockInfo.Begin.test(i)<<" ");
-    DEBUG(dbgs()<<"}\n");
-
-    DEBUG(dbgs()<<"END    : {");
-    for (unsigned i=0; i < BlockInfo.End.size(); ++i)
-      DEBUG(dbgs()<<BlockInfo.End.test(i)<<" ");
-
-    DEBUG(dbgs()<<"}\n");
-
-    DEBUG(dbgs()<<"LIVE_IN: {");
-    for (unsigned i=0; i < BlockInfo.LiveIn.size(); ++i)
-      DEBUG(dbgs()<<BlockInfo.LiveIn.test(i)<<" ");
-
-    DEBUG(dbgs()<<"}\n");
-    DEBUG(dbgs()<<"LIVEOUT: {");
-    for (unsigned i=0; i < BlockInfo.LiveOut.size(); ++i)
-      DEBUG(dbgs()<<BlockInfo.LiveOut.test(i)<<" ");
-    DEBUG(dbgs()<<"}\n");
+    DEBUG(dumpBB(MBB));
   }
 }
+
+LLVM_DUMP_METHOD void StackColoring::dumpIntervals() const {
+  for (unsigned I = 0, E = Intervals.size(); I != E; ++I) {
+    DEBUG(dbgs() << "Interval[" << I << "]:\n");
+    DEBUG(Intervals[I]->dump());
+  }
+}
+
+#endif // not NDEBUG
 
 unsigned StackColoring::collectMarkers(unsigned NumSlot) {
   unsigned MarkersFound = 0;
@@ -248,11 +251,13 @@ unsigned StackColoring::collectMarkers(unsigned NumSlot) {
           MI.getOpcode() != TargetOpcode::LIFETIME_END)
         continue;
 
-      Markers.push_back(&MI);
-
       bool IsStart = MI.getOpcode() == TargetOpcode::LIFETIME_START;
       const MachineOperand &MO = MI.getOperand(0);
-      unsigned Slot = MO.getIndex();
+      int Slot = MO.getIndex();
+      if (Slot < 0)
+        continue;
+
+      Markers.push_back(&MI);
 
       MarkersFound++;
 
@@ -392,9 +397,10 @@ void StackColoring::calculateLiveIntervals(unsigned NumSlots) {
       bool IsStart = MI->getOpcode() == TargetOpcode::LIFETIME_START;
       const MachineOperand &Mo = MI->getOperand(0);
       int Slot = Mo.getIndex();
-      assert(Slot >= 0 && "Invalid slot");
+      if (Slot < 0)
+        continue;
 
-      SlotIndex ThisIndex = Indexes->getInstructionIndex(MI);
+      SlotIndex ThisIndex = Indexes->getInstructionIndex(*MI);
 
       if (IsStart) {
         if (!Starts[Slot].isValid() || Starts[Slot] > ThisIndex)
@@ -495,10 +501,21 @@ void StackColoring::remapInstructions(DenseMap<int, int> &SlotRemap) {
     // upcoming replacement.
     SP->adjustForColoring(From, To);
 
+    // The new alloca might not be valid in a llvm.dbg.declare for this
+    // variable, so undef out the use to make the verifier happy.
+    AllocaInst *FromAI = const_cast<AllocaInst *>(From);
+    if (FromAI->isUsedByMetadata())
+      ValueAsMetadata::handleRAUW(FromAI, UndefValue::get(FromAI->getType()));
+    for (auto &Use : FromAI->uses()) {
+      if (BitCastInst *BCI = dyn_cast<BitCastInst>(Use.get()))
+        if (BCI->isUsedByMetadata())
+          ValueAsMetadata::handleRAUW(BCI, UndefValue::get(BCI->getType()));
+    }
+
     // Note that this will not replace uses in MMOs (which we'll update below),
     // or anywhere else (which is why we won't delete the original
     // instruction).
-    const_cast<AllocaInst *>(From)->replaceAllUsesWith(Inst);
+    FromAI->replaceAllUsesWith(Inst);
   }
 
   // Remap all instructions to the new stack slots.
@@ -557,7 +574,7 @@ void StackColoring::remapInstructions(DenseMap<int, int> &SlotRemap) {
         // If we *don't* protect the user from escaped allocas, don't bother
         // validating the instructions.
         if (!I.isDebugValue() && TouchesMemory && ProtectFromEscapedAllocas) {
-          SlotIndex Index = Indexes->getInstructionIndex(&I);
+          SlotIndex Index = Indexes->getInstructionIndex(I);
           const LiveInterval *Interval = &*Intervals[FromSlot];
           assert(Interval->find(Index) != Interval->end() &&
                  "Found instruction usage outside of live range.");
@@ -616,7 +633,7 @@ void StackColoring::removeInvalidSlotRanges() {
         // Check that the used slot is inside the calculated lifetime range.
         // If it is not, warn about it and invalidate the range.
         LiveInterval *Interval = &*Intervals[Slot];
-        SlotIndex Index = Indexes->getInstructionIndex(&I);
+        SlotIndex Index = Indexes->getInstructionIndex(I);
         if (Interval->find(Index) == Interval->end()) {
           Interval->clear();
           DEBUG(dbgs()<<"Invalidating range #"<<Slot<<"\n");
@@ -643,7 +660,7 @@ void StackColoring::expungeSlotMap(DenseMap<int, int> &SlotRemap,
 }
 
 bool StackColoring::runOnMachineFunction(MachineFunction &Func) {
-  if (skipOptnoneFunction(*Func.getFunction()))
+  if (skipFunction(*Func.getFunction()))
     return false;
 
   DEBUG(dbgs() << "********** Stack Coloring **********\n"

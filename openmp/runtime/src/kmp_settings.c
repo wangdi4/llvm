@@ -21,6 +21,7 @@
 #include "kmp_str.h"
 #include "kmp_settings.h"
 #include "kmp_i18n.h"
+#include "kmp_lock.h"
 #include "kmp_io.h"
 
 static int __kmp_env_toPrint( char const * name, int flag );
@@ -712,6 +713,8 @@ __kmp_stg_print_inherit_fp_control( kmp_str_buf_t * buffer, char const * name, v
 // KMP_LIBRARY, OMP_WAIT_POLICY
 // -------------------------------------------------------------------------------------------------
 
+static char const *blocktime_str = NULL;
+
 static void
 __kmp_stg_parse_wait_policy( char const * name, char const * value, void * data ) {
 
@@ -725,9 +728,17 @@ __kmp_stg_parse_wait_policy( char const * name, char const * value, void * data 
 
     if ( wait->omp ) {
         if ( __kmp_str_match( "ACTIVE", 1, value ) ) {
-           __kmp_library = library_turnaround;
+            __kmp_library = library_turnaround;
+            if ( blocktime_str == NULL ) {
+                // KMP_BLOCKTIME not specified, so set default to "infinite".
+                __kmp_dflt_blocktime = KMP_MAX_BLOCKTIME;
+            }
         } else if ( __kmp_str_match( "PASSIVE", 1, value ) ) {
-           __kmp_library = library_throughput;
+            __kmp_library = library_throughput;
+            if ( blocktime_str == NULL ) {
+                // KMP_BLOCKTIME not specified, so set default to 0.
+                __kmp_dflt_blocktime = 0;
+            }
         } else {
             KMP_WARNING( StgInvalidValue, name, value );
         }; // if
@@ -1163,13 +1174,28 @@ __kmp_stg_print_task_stealing( kmp_str_buf_t * buffer, char const * name, void *
 
 static void
 __kmp_stg_parse_max_active_levels( char const * name, char const * value, void * data ) {
-	 __kmp_stg_parse_int( name, value, 0, KMP_MAX_ACTIVE_LEVELS_LIMIT, & __kmp_dflt_max_active_levels );
+    __kmp_stg_parse_int( name, value, 0, KMP_MAX_ACTIVE_LEVELS_LIMIT, & __kmp_dflt_max_active_levels );
 } // __kmp_stg_parse_max_active_levels
 
 static void
 __kmp_stg_print_max_active_levels( kmp_str_buf_t * buffer, char const * name, void * data ) {
     __kmp_stg_print_int( buffer, name, __kmp_dflt_max_active_levels );
 } // __kmp_stg_print_max_active_levels
+
+#if OMP_41_ENABLED
+// -------------------------------------------------------------------------------------------------
+// OpenMP 4.5: OMP_MAX_TASK_PRIORITY
+// -------------------------------------------------------------------------------------------------
+static void
+__kmp_stg_parse_max_task_priority(char const *name, char const *value, void *data) {
+    __kmp_stg_parse_int(name, value, 0, KMP_MAX_TASK_PRIORITY_LIMIT, &__kmp_max_task_priority);
+} // __kmp_stg_parse_max_task_priority
+
+static void
+__kmp_stg_print_max_task_priority(kmp_str_buf_t *buffer, char const *name, void *data) {
+    __kmp_stg_print_int(buffer, name, __kmp_max_task_priority);
+} // __kmp_stg_print_max_task_priority
+#endif // OMP_41_ENABLED
 
 #if KMP_NESTED_HOT_TEAMS
 // -------------------------------------------------------------------------------------------------
@@ -3854,7 +3880,6 @@ __kmp_stg_print_gtid_mode( kmp_str_buf_t * buffer, char const * name, void * dat
     }
 } // __kmp_stg_print_gtid_mode
 
-
 // -------------------------------------------------------------------------------------------------
 // KMP_NUM_LOCKS_IN_BLOCK
 // -------------------------------------------------------------------------------------------------
@@ -3900,7 +3925,7 @@ __kmp_stg_parse_lock_kind( char const * name, char const * value, void * data ) 
         __kmp_user_lock_kind = lk_tas;
         KMP_STORE_LOCK_SEQ(tas);
     }
-#if KMP_OS_LINUX && (KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_ARM)
+#if KMP_USE_FUTEX
     else if ( __kmp_str_match( "futex", 1, value ) ) {
         if ( __kmp_futex_determine_capable() ) {
             __kmp_user_lock_kind = lk_futex;
@@ -3974,7 +3999,7 @@ __kmp_stg_print_lock_kind( kmp_str_buf_t * buffer, char const * name, void * dat
         value = "tas";
         break;
 
-#if KMP_OS_LINUX && (KMP_ARCH_X86 || KMP_ARCH_X86_64)
+#if KMP_USE_FUTEX
         case lk_futex:
         value = "futex";
         break;
@@ -4011,6 +4036,102 @@ __kmp_stg_print_lock_kind( kmp_str_buf_t * buffer, char const * name, void * dat
     if ( value != NULL ) {
         __kmp_stg_print_str( buffer, name, value );
     }
+}
+
+// -------------------------------------------------------------------------------------------------
+// KMP_SPIN_BACKOFF_PARAMS
+// -------------------------------------------------------------------------------------------------
+
+// KMP_SPIN_BACKOFF_PARAMS=max_backoff[,min_tick] (max backoff size, min tick for machine pause)
+static void
+__kmp_stg_parse_spin_backoff_params(const char* name, const char* value, void* data)
+{
+    const char *next = value;
+
+    int total = 0;          // Count elements that were set. It'll be used as an array size
+    int prev_comma = FALSE; // For correct processing sequential commas
+    int i;
+
+    kmp_uint32 max_backoff = __kmp_spin_backoff_params.max_backoff;
+    kmp_uint32 min_tick = __kmp_spin_backoff_params.min_tick;
+
+    // Run only 3 iterations because it is enough to read two values or find a syntax error
+    for ( i = 0; i < 3 ; i++) {
+        SKIP_WS( next );
+
+        if ( *next == '\0' ) {
+            break;
+        }
+        // Next character is not an integer or not a comma OR number of values > 2 => end of list
+        if ( ( ( *next < '0' || *next > '9' ) && *next !=',' ) || total > 2 ) {
+            KMP_WARNING( EnvSyntaxError, name, value );
+            return;
+        }
+        // The next character is ','
+        if ( *next == ',' ) {
+            // ',' is the fisrt character
+            if ( total == 0 || prev_comma ) {
+                total++;
+            }
+            prev_comma = TRUE;
+            next++; //skip ','
+            SKIP_WS( next );
+        }
+        // Next character is a digit
+        if ( *next >= '0' && *next <= '9' ) {
+            int num;
+            const char *buf = next;
+            char const * msg  = NULL;
+            prev_comma = FALSE;
+            SKIP_DIGITS( next );
+            total++;
+
+            const char *tmp = next;
+            SKIP_WS( tmp );
+            if ( ( *next == ' ' || *next == '\t' ) && ( *tmp >= '0' && *tmp <= '9' ) ) {
+                KMP_WARNING( EnvSpacesNotAllowed, name, value );
+                return;
+            }
+
+            num = __kmp_str_to_int( buf, *next );
+            if ( num <= 0 ) { // The number of retries should be > 0
+                msg = KMP_I18N_STR( ValueTooSmall );
+                num = 1;
+            } else if ( num > KMP_INT_MAX ) {
+                msg = KMP_I18N_STR( ValueTooLarge );
+                num = KMP_INT_MAX;
+            }
+            if ( msg != NULL ) {
+                // Message is not empty. Print warning.
+                KMP_WARNING( ParseSizeIntWarn, name, value, msg );
+                KMP_INFORM( Using_int_Value, name, num );
+            }
+            if( total == 1 ) {
+                max_backoff = num;
+            } else if( total == 2 ) {
+                min_tick = num;
+            }
+        }
+    }
+    KMP_DEBUG_ASSERT( total > 0 );
+    if( total <= 0 ) {
+        KMP_WARNING( EnvSyntaxError, name, value );
+        return;
+    }
+    __kmp_spin_backoff_params.max_backoff = max_backoff;
+    __kmp_spin_backoff_params.min_tick    = min_tick;
+}
+
+static void
+__kmp_stg_print_spin_backoff_params(kmp_str_buf_t *buffer, char const* name, void* data)
+{
+    if( __kmp_env_format ) {
+        KMP_STR_BUF_PRINT_NAME_EX(name);
+    } else {
+        __kmp_str_buf_print( buffer, "   %s='", name );
+    }
+    __kmp_str_buf_print( buffer, "%d,%d'\n", __kmp_spin_backoff_params.max_backoff,
+                         __kmp_spin_backoff_params.min_tick );
 }
 
 #if KMP_USE_ADAPTIVE_LOCKS
@@ -4520,6 +4641,9 @@ static kmp_setting_t __kmp_stg_table[] = {
     { "KMP_TASKING",                       __kmp_stg_parse_tasking,            __kmp_stg_print_tasking,            NULL, 0, 0 },
     { "KMP_TASK_STEALING_CONSTRAINT",      __kmp_stg_parse_task_stealing,      __kmp_stg_print_task_stealing,      NULL, 0, 0 },
     { "OMP_MAX_ACTIVE_LEVELS",             __kmp_stg_parse_max_active_levels,  __kmp_stg_print_max_active_levels,  NULL, 0, 0 },
+#if OMP_41_ENABLED
+    { "OMP_MAX_TASK_PRIORITY",             __kmp_stg_parse_max_task_priority,  __kmp_stg_print_max_task_priority,  NULL, 0, 0 },
+#endif
     { "OMP_THREAD_LIMIT",                  __kmp_stg_parse_all_threads,        __kmp_stg_print_all_threads,        NULL, 0, 0 },
     { "OMP_WAIT_POLICY",                   __kmp_stg_parse_wait_policy,        __kmp_stg_print_wait_policy,        NULL, 0, 0 },
 #if KMP_NESTED_HOT_TEAMS
@@ -4626,6 +4750,7 @@ static kmp_setting_t __kmp_stg_table[] = {
 
     { "KMP_NUM_LOCKS_IN_BLOCK",            __kmp_stg_parse_lock_block,         __kmp_stg_print_lock_block,         NULL, 0, 0 },
     { "KMP_LOCK_KIND",                     __kmp_stg_parse_lock_kind,          __kmp_stg_print_lock_kind,          NULL, 0, 0 },
+    { "KMP_SPIN_BACKOFF_PARAMS",           __kmp_stg_parse_spin_backoff_params, __kmp_stg_print_spin_backoff_params, NULL, 0, 0 },
 #if KMP_USE_ADAPTIVE_LOCKS
     { "KMP_ADAPTIVE_LOCK_PROPS",           __kmp_stg_parse_adaptive_lock_props,__kmp_stg_print_adaptive_lock_props,  NULL, 0, 0 },
 #if KMP_DEBUG_ADAPTIVE_LOCKS
@@ -5008,6 +5133,9 @@ __kmp_env_initialize( char const * string ) {
         }
     }; // for i
 
+    // We need to know if blocktime was set when processing OMP_WAIT_POLICY
+    blocktime_str = __kmp_env_blk_var( & block, "KMP_BLOCKTIME" );
+
     // Special case. If we parse environment, not a string, process KMP_WARNINGS first.
     if ( string == NULL ) {
         char const * name  = "KMP_WARNINGS";
@@ -5153,7 +5281,20 @@ __kmp_env_initialize( char const * string ) {
             if(__kmp_affinity_verbose)
                 KMP_WARNING(AffHwlocErrorOccurred, var, "hwloc_topology_init()");
         }
+#  if HWLOC_API_VERSION >= 0x00020000
+        // new hwloc API
+        hwloc_topology_set_type_filter(__kmp_hwloc_topology, HWLOC_OBJ_L1CACHE, HWLOC_TYPE_FILTER_KEEP_NONE);
+        hwloc_topology_set_type_filter(__kmp_hwloc_topology, HWLOC_OBJ_L2CACHE, HWLOC_TYPE_FILTER_KEEP_NONE);
+        hwloc_topology_set_type_filter(__kmp_hwloc_topology, HWLOC_OBJ_L3CACHE, HWLOC_TYPE_FILTER_KEEP_NONE);
+        hwloc_topology_set_type_filter(__kmp_hwloc_topology, HWLOC_OBJ_L4CACHE, HWLOC_TYPE_FILTER_KEEP_NONE);
+        hwloc_topology_set_type_filter(__kmp_hwloc_topology, HWLOC_OBJ_L5CACHE, HWLOC_TYPE_FILTER_KEEP_NONE);
+        hwloc_topology_set_type_filter(__kmp_hwloc_topology, HWLOC_OBJ_L1ICACHE, HWLOC_TYPE_FILTER_KEEP_NONE);
+        hwloc_topology_set_type_filter(__kmp_hwloc_topology, HWLOC_OBJ_L2ICACHE, HWLOC_TYPE_FILTER_KEEP_NONE);
+        hwloc_topology_set_type_filter(__kmp_hwloc_topology, HWLOC_OBJ_L3ICACHE, HWLOC_TYPE_FILTER_KEEP_NONE);
+#  else
+        // old hwloc API
         hwloc_topology_ignore_type(__kmp_hwloc_topology, HWLOC_OBJ_CACHE);
+#  endif
 # endif
         if ( __kmp_affinity_type == affinity_disabled ) {
             KMP_AFFINITY_DISABLE();
@@ -5252,7 +5393,7 @@ __kmp_env_initialize( char const * string ) {
                     else if ( ( __kmp_affinity_gran != affinity_gran_group )
                       && ( __kmp_affinity_gran != affinity_gran_fine )
                       && ( __kmp_affinity_gran != affinity_gran_thread ) ) {
-                        char *str = NULL;
+                        const char *str = NULL;
                         switch ( __kmp_affinity_gran ) {
                             case affinity_gran_core: str = "core"; break;
                             case affinity_gran_package: str = "package"; break;
@@ -5268,7 +5409,7 @@ __kmp_env_initialize( char const * string ) {
                         __kmp_affinity_gran = affinity_gran_core;
                     }
                     else if ( __kmp_affinity_gran == affinity_gran_group ) {
-                        char *str = NULL;
+                        const char *str = NULL;
                         switch ( __kmp_affinity_type ) {
                             case affinity_physical: str = "physical"; break;
                             case affinity_logical: str = "logical"; break;

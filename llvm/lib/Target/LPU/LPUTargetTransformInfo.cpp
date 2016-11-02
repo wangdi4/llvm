@@ -389,19 +389,14 @@ unsigned LPUTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
 }
 
 unsigned LPUTTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
-                                         ArrayRef<Value *> Args) {
-  switch (IID) {
-    default: {
-               SmallVector<Type *, 4> Types;
-               for (Value *Op : Args)
-                 Types.push_back(Op->getType());
-               return getIntrinsicInstrCost(IID, RetTy, Types);
-             }
-  }
+                                         ArrayRef<Value *> Args,
+                                         FastMathFlags FMF) {
+  return BaseT::getIntrinsicInstrCost(IID, RetTy, Args, FMF);
 }
 
 unsigned LPUTTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
-                                         ArrayRef<Type *> Tys) {
+                                         ArrayRef<Type *> Tys,
+                                         FastMathFlags  FMF) {
   unsigned ISD = 0;
   switch (IID) {
   default: {
@@ -482,7 +477,7 @@ unsigned LPUTTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
   if (RetTy->isVectorTy()) {
     unsigned Num = RetTy->getVectorNumElements();
     unsigned Cost = BaseT::getIntrinsicInstrCost(IID, RetTy->getScalarType(),
-                                                  Tys);
+                                                  Tys, FMF);
     return 10 * Cost * Num;
   }
 

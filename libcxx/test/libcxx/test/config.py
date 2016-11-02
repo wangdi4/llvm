@@ -1,3 +1,12 @@
+#===----------------------------------------------------------------------===##
+#
+#                     The LLVM Compiler Infrastructure
+#
+# This file is dual licensed under the MIT and the University of Illinois Open
+# Source Licenses. See LICENSE.TXT for details.
+#
+#===----------------------------------------------------------------------===##
+
 import locale
 import os
 import platform
@@ -52,6 +61,7 @@ class Configuration(object):
         self.libcxx_src_root = None
         self.libcxx_obj_root = None
         self.cxx_library_root = None
+        self.cxx_runtime_root = None
         self.abi_library_root = None
         self.env = {}
         self.use_target = False
@@ -89,6 +99,7 @@ class Configuration(object):
         self.configure_cxx_library_root()
         self.configure_use_system_cxx_lib()
         self.configure_use_clang_verify()
+        self.configure_use_thread_safety()
         self.configure_execute_external()
         self.configure_ccache()
         self.configure_compile_flags()
@@ -185,6 +196,8 @@ class Configuration(object):
     def configure_cxx_library_root(self):
         self.cxx_library_root = self.get_lit_conf('cxx_library_root',
                                                   self.libcxx_obj_root)
+        self.cxx_runtime_root = self.get_lit_conf('cxx_runtime_root',
+                                                   self.cxx_library_root)
 
     def configure_use_system_cxx_lib(self):
         # This test suite supports testing against either the system library or
@@ -208,6 +221,14 @@ class Configuration(object):
                 ['-Xclang', '-verify-ignore-unexpected'])
             self.lit_config.note(
                 "inferred use_clang_verify as: %r" % self.use_clang_verify)
+
+    def configure_use_thread_safety(self):
+        '''If set, run clang with -verify on failing tests.'''
+        has_thread_safety = self.cxx.hasCompileFlag('-Werror=thread-safety')
+        if has_thread_safety:
+            self.cxx.compile_flags += ['-Werror=thread-safety']
+            self.config.available_features.add('thread-safety')
+            self.lit_config.note("enabling thread-safety annotations")
 
     def configure_execute_external(self):
         # Choose between lit's internal shell pipeline runner and a real shell.
@@ -272,6 +293,10 @@ class Configuration(object):
         no_default_flags = self.get_lit_bool('no_default_flags', False)
         if not no_default_flags:
             self.configure_default_compile_flags()
+        # This include is always needed so add so add it regardless of
+        # 'no_default_flags'.
+        support_path = os.path.join(self.libcxx_src_root, 'test/support')
+        self.cxx.compile_flags += ['-I' + support_path]
         # Configure extra flags
         compile_flags_str = self.get_lit_conf('compile_flags', '')
         self.cxx.compile_flags += shlex.split(compile_flags_str)
@@ -320,7 +345,6 @@ class Configuration(object):
 
     def configure_compile_flags_header_includes(self):
         support_path = os.path.join(self.libcxx_src_root, 'test/support')
-        self.cxx.compile_flags += ['-I' + support_path]
         self.cxx.compile_flags += ['-include', os.path.join(support_path, 'nasty_macros.hpp')]
         self.configure_config_site_header()
         libcxx_headers = self.get_lit_conf(
@@ -421,23 +445,11 @@ class Configuration(object):
         self.cxx.link_flags += shlex.split(link_flags_str)
 
     def configure_link_flags_cxx_library_path(self):
-        libcxx_library = self.get_lit_conf('libcxx_library')
-        # Configure libc++ library paths.
-        if libcxx_library is not None:
-            # Check that the given value for libcxx_library is valid.
-            if not os.path.isfile(libcxx_library):
-                self.lit_config.fatal(
-                    "libcxx_library='%s' is not a valid file." %
-                    libcxx_library)
-            if self.use_system_cxx_lib:
-                self.lit_config.fatal(
-                    "Conflicting options: 'libcxx_library' cannot be used "
-                    "with 'use_system_cxx_lib=true'")
-            self.cxx.link_flags += ['-Wl,-rpath,' +
-                                    os.path.dirname(libcxx_library)]
-        elif not self.use_system_cxx_lib and self.cxx_library_root:
-            self.cxx.link_flags += ['-L' + self.cxx_library_root,
-                                    '-Wl,-rpath,' + self.cxx_library_root]
+        if not self.use_system_cxx_lib:
+            if self.cxx_library_root:
+                self.cxx.link_flags += ['-L' + self.cxx_library_root]
+            if self.cxx_runtime_root:
+                self.cxx.link_flags += ['-Wl,-rpath,' + self.cxx_runtime_root]
 
     def configure_link_flags_abi_library_path(self):
         # Configure ABI library paths.
@@ -447,11 +459,20 @@ class Configuration(object):
                                     '-Wl,-rpath,' + self.abi_library_root]
 
     def configure_link_flags_cxx_library(self):
-        libcxx_library = self.get_lit_conf('libcxx_library')
-        if libcxx_library:
-            self.cxx.link_flags += [libcxx_library]
-        else:
+        libcxx_experimental = self.get_lit_bool('enable_experimental', default=False)
+        if libcxx_experimental:
+            self.config.available_features.add('c++experimental')
+            self.cxx.link_flags += ['-lc++experimental']
+        libcxx_shared = self.get_lit_bool('enable_shared', default=True)
+        if libcxx_shared:
             self.cxx.link_flags += ['-lc++']
+        else:
+            cxx_library_root = self.get_lit_conf('cxx_library_root')
+            if cxx_library_root:
+                abs_path = os.path.join(cxx_library_root, 'libc++.a')
+                self.cxx.link_flags += [abs_path]
+            else:
+                self.cxx.link_flags += ['-lc++']
 
     def configure_link_flags_abi_library(self):
         cxx_abi = self.get_lit_conf('cxx_abi', 'libcxxabi')
@@ -461,7 +482,16 @@ class Configuration(object):
             self.cxx.link_flags += ['-lsupc++']
         elif cxx_abi == 'libcxxabi':
             if self.target_info.allow_cxxabi_link():
-                self.cxx.link_flags += ['-lc++abi']
+                libcxxabi_shared = self.get_lit_bool('libcxxabi_shared', default=True)
+                if libcxxabi_shared:
+                    self.cxx.link_flags += ['-lc++abi']
+                else:
+                    cxxabi_library_root = self.get_lit_conf('abi_library_path')
+                    if cxxabi_library_root:
+                        abs_path = os.path.join(cxxabi_library_root, 'libc++abi.a')
+                        self.cxx.link_flags += [abs_path]
+                    else:
+                        self.cxx.link_flags += ['-lc++abi']
         elif cxx_abi == 'libcxxrt':
             self.cxx.link_flags += ['-lcxxrt']
         elif cxx_abi == 'none':
@@ -506,7 +536,7 @@ class Configuration(object):
         if enable_warnings:
             self.cxx.compile_flags += [
                 '-D_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER',
-                '-Wall', '-Werror'
+                '-Wall', '-Wextra', '-Werror'
             ]
             self.cxx.addWarningFlagIfSupported('-Wno-attributes')
             self.cxx.addWarningFlagIfSupported('-Wno-pessimizing-move')
@@ -516,6 +546,8 @@ class Configuration(object):
             # compiles clean with them.
             self.cxx.addWarningFlagIfSupported('-Wno-unused-local-typedef')
             self.cxx.addWarningFlagIfSupported('-Wno-unused-variable')
+            self.cxx.addWarningFlagIfSupported('-Wno-unused-parameter')
+            self.cxx.addWarningFlagIfSupported('-Wno-sign-compare')
             std = self.get_lit_conf('std', None)
             if std in ['c++98', 'c++03']:
                 # The '#define static_assert' provided by libc++ in C++03 mode
@@ -606,7 +638,7 @@ class Configuration(object):
         for k, v in self.env.items():
             exec_env_str += ' %s=%s' % (k, v)
         # Configure run env substitution.
-        exec_str = ''
+        exec_str = exec_env_str
         if self.lit_config.useValgrind:
             exec_str = ' '.join(self.lit_config.valgrindArgs) + exec_env_str
         sub.append(('%exec', exec_str))

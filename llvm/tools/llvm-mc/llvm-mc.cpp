@@ -20,11 +20,11 @@
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/MCParser/AsmLexer.h"
+#include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCTargetAsmParser.h"
 #include "llvm/MC/MCTargetOptionsCommandFlags.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compression.h"
@@ -115,20 +115,8 @@ MAttrs("mattr",
   cl::desc("Target specific attributes (-mattr=help for details)"),
   cl::value_desc("a1,+a2,-a3,..."));
 
-static cl::opt<Reloc::Model>
-RelocModel("relocation-model",
-             cl::desc("Choose relocation model"),
-             cl::init(Reloc::Default),
-             cl::values(
-            clEnumValN(Reloc::Default, "default",
-                       "Target default relocation model"),
-            clEnumValN(Reloc::Static, "static",
-                       "Non-relocatable code"),
-            clEnumValN(Reloc::PIC_, "pic",
-                       "Fully relocatable, position independent code"),
-            clEnumValN(Reloc::DynamicNoPIC, "dynamic-no-pic",
-                       "Relocatable external references, non-relocatable code"),
-            clEnumValEnd));
+static cl::opt<bool> PIC("position-independent",
+                         cl::desc("Position independent"), cl::init(false));
 
 static cl::opt<llvm::CodeModel::Model>
 CMModel("code-model",
@@ -432,7 +420,7 @@ int main(int argc, char **argv) {
   // MCObjectFileInfo needs a MCContext reference in order to initialize itself.
   MCObjectFileInfo MOFI;
   MCContext Ctx(MAI.get(), MRI.get(), &MOFI, &SrcMgr);
-  MOFI.InitMCObjectFileInfo(TheTriple, RelocModel, CMModel, Ctx);
+  MOFI.InitMCObjectFileInfo(TheTriple, PIC, CMModel, Ctx);
 
   if (SaveTempLabels)
     Ctx.setAllowTemporaryLabels(false);
@@ -452,6 +440,12 @@ int main(int argc, char **argv) {
     Ctx.setDwarfDebugProducer(StringRef(DwarfDebugProducer));
   if (!DebugCompilationDir.empty())
     Ctx.setCompilationDir(DebugCompilationDir);
+  else {
+    // If no compilation dir is set, try to use the current directory.
+    SmallString<128> CWD;
+    if (!sys::fs::current_path(CWD))
+      Ctx.setCompilationDir(CWD);
+  }
   if (!MainFileName.empty())
     Ctx.setMainFileName(MainFileName);
 

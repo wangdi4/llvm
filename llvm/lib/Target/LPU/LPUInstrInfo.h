@@ -90,7 +90,7 @@ public:
   */
 
   // ifConversion 
-  bool isPredicable(MachineInstr *MI) const override {
+  bool isPredicable(MachineInstr &MI) const override {
     return true;
   }
 
@@ -121,7 +121,7 @@ public:
   bool
   ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
   /*
-  bool isUnpredicatedTerminator(const MachineInstr *MI) const override;
+  bool isUnpredicatedTerminator(const MachineInstr &MI) const override;
   */
   bool AnalyzeBranch(MachineBasicBlock &MBB,
                      MachineBasicBlock *&TBB, MachineBasicBlock *&FBB,

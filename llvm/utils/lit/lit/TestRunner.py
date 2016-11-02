@@ -245,6 +245,10 @@ def _executeShCmd(cmd, shenv, results, timeoutHelper):
                 if r[2] is None:
                     if kAvoidDevNull and r[0] == '/dev/null':
                         r[2] = tempfile.TemporaryFile(mode=r[1])
+                    elif kIsWindows and r[0] == '/dev/tty':
+                        # Simulate /dev/tty on Windows.
+                        # "CON" is a special filename for the console.
+                        r[2] = open("CON", r[1])
                     else:
                         # Make sure relative paths are relative to the cwd.
                         redir_filename = os.path.join(cmd_shenv.cwd, r[0])
@@ -564,6 +568,24 @@ def getDefaultSubstitutions(test, tmpDir, tmpBase, normalize_slashes=False):
             ('%/t', tmpBase.replace('\\', '/') + '.tmp'),
             ('%/T', tmpDir.replace('\\', '/')),
             ])
+
+    # "%:[STpst]" are paths without colons.
+    if kIsWindows:
+        substitutions.extend([
+                ('%:s', re.sub(r'^(.):', r'\1', sourcepath)),
+                ('%:S', re.sub(r'^(.):', r'\1', sourcedir)),
+                ('%:p', re.sub(r'^(.):', r'\1', sourcedir)),
+                ('%:t', re.sub(r'^(.):', r'\1', tmpBase) + '.tmp'),
+                ('%:T', re.sub(r'^(.):', r'\1', tmpDir)),
+                ])
+    else:
+        substitutions.extend([
+                ('%:s', sourcepath),
+                ('%:S', sourcedir),
+                ('%:p', sourcedir),
+                ('%:t', tmpBase + '.tmp'),
+                ('%:T', tmpDir),
+                ])
     return substitutions
 
 def applySubstitutions(script, substitutions):

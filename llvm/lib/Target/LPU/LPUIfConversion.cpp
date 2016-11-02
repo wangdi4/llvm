@@ -208,7 +208,7 @@ bool LPUIfConversion::ValidDiamond(BBInfo &TrueBBI, BBInfo &FalseBBI,
       if (FIB == FIE)
         break;
     }
-    if (!TIB->isIdenticalTo(FIB))
+    if (!TIB->isIdenticalTo(*FIB))
       break;
     ++Dups1;
     ++TIB;
@@ -248,7 +248,7 @@ bool LPUIfConversion::ValidDiamond(BBInfo &TrueBBI, BBInfo &FalseBBI,
       if (FIE == FIB)
         break;
     }
-    if (!TIE->isIdenticalTo(FIE))
+    if (!TIE->isIdenticalTo(*FIE))
       break;
     ++Dups2;
     --TIE;
@@ -300,7 +300,7 @@ void LPUIfConversion::ScanInstructions(BBInfo &BBI) {
     if (I->isNotDuplicable())
       BBI.CannotBeCopied = true;
 
-    bool isPredicated = TII->isPredicated(I);
+    bool isPredicated = TII->isPredicated(*I);
     bool isCondBr = BBI.IsBrAnalyzable && I->isConditionalBranch();
 
     // A conditional branch is not predicable, but it may be eliminated.
@@ -309,7 +309,7 @@ void LPUIfConversion::ScanInstructions(BBInfo &BBI) {
 
     if (!isPredicated) {
       BBI.NonPredSize++;
-      unsigned ExtraPredCost = TII->getPredicationCost(&*I);
+      unsigned ExtraPredCost = TII->getPredicationCost(*I);
       unsigned NumCycles = SchedModel.computeInstrLatency(&*I, false);
       if (NumCycles > 1)
         BBI.ExtraCost += NumCycles-1;
@@ -334,10 +334,10 @@ void LPUIfConversion::ScanInstructions(BBInfo &BBI) {
     // FIXME: Make use of PredDefs? e.g. ADDC, SUBC sets predicates but are
     // still potentially predicable.
     std::vector<MachineOperand> PredDefs;
-    if (TII->DefinesPredicate(I, PredDefs))
+    if (TII->DefinesPredicate(*I, PredDefs))
       BBI.ClobbersPred = true;
 
-    if (!TII->isPredicable(I)) {
+    if (!TII->isPredicable(*I)) {
       BBI.IsUnpredicable = true;
       return;
     }

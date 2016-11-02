@@ -61,6 +61,7 @@ set(LLVM_TEST_DEPENDS
           obj2yaml
           opt
           sancov
+          sanstats
           verify-uselistorder
           yaml-bench
           yaml2obj
@@ -111,6 +112,9 @@ if(LLVM_BUILD_EXAMPLES)
     Kaleidoscope-Ch7
     )
 endif()
+
+add_custom_target(llvm-test-depends DEPENDS ${LLVM_TEST_DEPENDS})
+set_target_properties(llvm-test-depends PROPERTIES FOLDER "Tests")
 
 add_lit_testsuite(check-llvm "Running the LLVM regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}

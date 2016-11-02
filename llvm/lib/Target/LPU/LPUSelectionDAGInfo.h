@@ -7,20 +7,20 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the LPU subclass for TargetSelectionDAGInfo.
+// This file defines the LPU subclass for SelectionDAGTargetInfo.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_TARGET_LPU_LPUSELECTIONDAGINFO_H
 #define LLVM_LIB_TARGET_LPU_LPUSELECTIONDAGINFO_H
 
-#include "llvm/Target/TargetSelectionDAGInfo.h"
+#include "llvm/CodeGen/SelectionDAGTargetInfo.h"
 
 namespace llvm {
 
 class LPUTargetMachine;
 
-class LPUSelectionDAGInfo : public TargetSelectionDAGInfo {
+class LPUSelectionDAGInfo : public SelectionDAGTargetInfo {
 public:
   explicit LPUSelectionDAGInfo() = default;
 };

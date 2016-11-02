@@ -54,6 +54,7 @@ namespace format {
   TYPE(JsComputedPropertyName) \
   TYPE(JsFatArrow) \
   TYPE(JsTypeColon) \
+  TYPE(JsTypeOperator) \
   TYPE(JsTypeOptionalQuestion) \
   TYPE(LambdaArrow) \
   TYPE(LambdaLSquare) \
@@ -528,17 +529,23 @@ struct AdditionalKeywords {
     kw_final = &IdentTable.get("final");
     kw_override = &IdentTable.get("override");
     kw_in = &IdentTable.get("in");
+    kw_of = &IdentTable.get("of");
     kw_CF_ENUM = &IdentTable.get("CF_ENUM");
     kw_CF_OPTIONS = &IdentTable.get("CF_OPTIONS");
     kw_NS_ENUM = &IdentTable.get("NS_ENUM");
     kw_NS_OPTIONS = &IdentTable.get("NS_OPTIONS");
 
+    kw_as = &IdentTable.get("as");
+    kw_async = &IdentTable.get("async");
+    kw_await = &IdentTable.get("await");
     kw_finally = &IdentTable.get("finally");
+    kw_from = &IdentTable.get("from");
     kw_function = &IdentTable.get("function");
     kw_import = &IdentTable.get("import");
     kw_is = &IdentTable.get("is");
     kw_let = &IdentTable.get("let");
     kw_var = &IdentTable.get("var");
+    kw_yield = &IdentTable.get("yield");
 
     kw_abstract = &IdentTable.get("abstract");
     kw_assert = &IdentTable.get("assert");
@@ -571,6 +578,7 @@ struct AdditionalKeywords {
   IdentifierInfo *kw_final;
   IdentifierInfo *kw_override;
   IdentifierInfo *kw_in;
+  IdentifierInfo *kw_of;
   IdentifierInfo *kw_CF_ENUM;
   IdentifierInfo *kw_CF_OPTIONS;
   IdentifierInfo *kw_NS_ENUM;
@@ -578,12 +586,17 @@ struct AdditionalKeywords {
   IdentifierInfo *kw___except;
 
   // JavaScript keywords.
+  IdentifierInfo *kw_as;
+  IdentifierInfo *kw_async;
+  IdentifierInfo *kw_await;
   IdentifierInfo *kw_finally;
+  IdentifierInfo *kw_from;
   IdentifierInfo *kw_function;
   IdentifierInfo *kw_import;
   IdentifierInfo *kw_is;
   IdentifierInfo *kw_let;
   IdentifierInfo *kw_var;
+  IdentifierInfo *kw_yield;
 
   // Java keywords.
   IdentifierInfo *kw_abstract;

@@ -5,6 +5,7 @@ add_llvm_library(LLVMAnalysis
   Analysis.cpp
   AssumptionCache.cpp
   BasicAliasAnalysis.cpp
+  BitSetUtils.cpp
   BlockFrequencyInfo.cpp
   BlockFrequencyInfoImpl.cpp
   BranchProbabilityInfo.cpp
@@ -39,15 +40,17 @@ add_llvm_library(LLVMAnalysis
   Lint.cpp
   Loads.cpp
   LoopAccessAnalysis.cpp
+  LoopUnrollAnalyzer.cpp
   LoopInfo.cpp
   LoopPass.cpp
-  LPUSaveRawBC.cpp
+  LoopPassManager.cpp
   MemDepPrinter.cpp
   MemDerefPrinter.cpp
   MemoryBuiltins.cpp
   MemoryDependenceAnalysis.cpp
   MemoryLocation.cpp
   ModuleDebugInfoPrinter.cpp
+  ModuleSummaryAnalysis.cpp
   ObjCARCAliasAnalysis.cpp
   ObjCARCAnalysisUtils.cpp
   ObjCARCInstKind.cpp

@@ -153,8 +153,16 @@ void SetCheckFailedCallback(CheckFailedCallbackType callback) {
   CheckFailedCallback = callback;
 }
 
+const int kSecondsToSleepWhenRecursiveCheckFailed = 2;
+
 void NORETURN CheckFailed(const char *file, int line, const char *cond,
                           u64 v1, u64 v2) {
+  static atomic_uint32_t num_calls;
+  if (atomic_fetch_add(&num_calls, 1, memory_order_relaxed) > 10) {
+    SleepForSeconds(kSecondsToSleepWhenRecursiveCheckFailed);
+    Trap();
+  }
+
   if (CheckFailedCallback) {
     CheckFailedCallback(file, line, cond, v1, v2);
   }
@@ -228,27 +236,6 @@ static inline bool CompareLess(const T &a, const T &b) {
 
 void SortArray(uptr *array, uptr size) {
   InternalSort<uptr*, UptrComparisonFunction>(&array, size, CompareLess);
-}
-
-// We want to map a chunk of address space aligned to 'alignment'.
-// We do it by maping a bit more and then unmaping redundant pieces.
-// We probably can do it with fewer syscalls in some OS-dependent way.
-void *MmapAlignedOrDie(uptr size, uptr alignment, const char *mem_type) {
-// uptr PageSize = GetPageSizeCached();
-  CHECK(IsPowerOfTwo(size));
-  CHECK(IsPowerOfTwo(alignment));
-  uptr map_size = size + alignment;
-  uptr map_res = (uptr)MmapOrDie(map_size, mem_type);
-  uptr map_end = map_res + map_size;
-  uptr res = map_res;
-  if (res & (alignment - 1))  // Not aligned.
-    res = (map_res + alignment) & ~(alignment - 1);
-  uptr end = res + size;
-  if (res != map_res)
-    UnmapOrDie((void*)map_res, res - map_res);
-  if (end != map_end)
-    UnmapOrDie((void*)end, map_end - end);
-  return (void*)res;
 }
 
 const char *StripPathPrefix(const char *filepath,
@@ -355,9 +342,8 @@ void LoadedModule::addAddressRange(uptr beg, uptr end, bool executable) {
 }
 
 bool LoadedModule::containsAddress(uptr address) const {
-  for (Iterator iter = ranges(); iter.hasNext();) {
-    const AddressRange *r = iter.next();
-    if (r->beg <= address && address < r->end)
+  for (const AddressRange &r : ranges()) {
+    if (r.beg <= address && address < r.end)
       return true;
   }
   return false;
@@ -424,6 +410,10 @@ bool TemplateMatch(const char *templ, const char *str) {
 static const char kPathSeparator = SANITIZER_WINDOWS ? ';' : ':';
 
 char *FindPathToBinary(const char *name) {
+  if (FileExists(name)) {
+    return internal_strdup(name);
+  }
+
   const char *path = GetEnv("PATH");
   if (!path)
     return nullptr;
@@ -486,6 +476,15 @@ uptr ReadBinaryNameCached(/*out*/char *buf, uptr buf_len) {
   internal_memcpy(buf, binary_name_cache_str, name_len);
   buf[name_len] = '\0';
   return name_len;
+}
+
+void PrintCmdline() {
+  char **argv = GetArgv();
+  if (!argv) return;
+  Printf("\nCommand: ");
+  for (uptr i = 0; argv[i]; ++i)
+    Printf("%s ", argv[i]);
+  Printf("\n\n");
 }
 
 } // namespace __sanitizer

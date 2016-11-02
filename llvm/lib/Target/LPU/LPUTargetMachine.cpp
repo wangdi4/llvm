@@ -20,6 +20,7 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -60,12 +61,20 @@ extern "C" void LLVMInitializeLPUTarget() {
   RegisterTargetMachine<LPUTargetMachine> X(TheLPUTarget);
 }
 
+static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
+  if (!RM.hasValue())
+    return Reloc::Static;
+  return *RM;
+}
+
 LPUTargetMachine::LPUTargetMachine(const Target &T, const Triple &TT,
                                          StringRef CPU, StringRef FS,
                                          const TargetOptions &Options,
-                                         Reloc::Model RM, CodeModel::Model CM,
+                                         Optional<Reloc::Model> RM,
+                                         CodeModel::Model CM,
                                          CodeGenOpt::Level OL)
-    : LLVMTargetMachine(T, computeDataLayout(), TT, CPU, FS, Options, RM, CM, OL),
+    : LLVMTargetMachine(T, computeDataLayout(), TT, CPU, FS, Options,
+                        getEffectiveRelocModel(RM), CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
       Subtarget(TT, CPU, FS, *this) {
   // Not sure this is needed

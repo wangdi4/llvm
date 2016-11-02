@@ -27,5 +27,5 @@ parent = Target
 type = Library
 name = LPUCodeGen
 parent = LPU
-required_libraries = Analysis AsmPrinter CodeGen Core LPUAsmPrinter LPUDesc LPUInfo MC Scalar SelectionDAG Support Target TransformUtils
+required_libraries = Analysis AsmPrinter BitWriter CodeGen Core LPUAsmPrinter LPUDesc LPUInfo MC Scalar SelectionDAG Support Target TransformUtils
 add_to_library_groups = LPU

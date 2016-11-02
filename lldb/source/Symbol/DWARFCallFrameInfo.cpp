@@ -308,9 +308,9 @@ DWARFCallFrameInfo::GetFDEIndex ()
     
     if (m_fde_index_initialized)
         return;
-    
-    Mutex::Locker locker(m_fde_index_mutex);
-    
+
+    std::lock_guard<std::mutex> guard(m_fde_index_mutex);
+
     if (m_fde_index_initialized) // if two threads hit the locker
         return;
 
@@ -898,4 +898,18 @@ DWARFCallFrameInfo::HandleCommonDwarfOpcode(uint8_t primary_opcode,
         }
     }
     return false;
+}
+
+void
+DWARFCallFrameInfo::ForEachFDEEntries(
+    const std::function<bool(lldb::addr_t, uint32_t, dw_offset_t)>& callback)
+{
+    GetFDEIndex();
+
+    for (size_t i = 0, c = m_fde_index.GetSize(); i < c; ++i)
+    {
+        const FDEEntryMap::Entry& entry = m_fde_index.GetEntryRef(i);
+        if (!callback(entry.base, entry.size, entry.data))
+            break;
+    }
 }

@@ -37,7 +37,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/CommandLine.h"
 using namespace llvm;
 
 namespace {
@@ -555,10 +554,9 @@ bool AArch64FastISel::computeAddress(const Value *Obj, Address &Addr, Type *Ty)
 
     // Iterate through the GEP folding the constants into offsets where
     // we can.
-    gep_type_iterator GTI = gep_type_begin(U);
-    for (User::const_op_iterator i = U->op_begin() + 1, e = U->op_end(); i != e;
-         ++i, ++GTI) {
-      const Value *Op = *i;
+    for (gep_type_iterator GTI = gep_type_begin(U), E = gep_type_end(U);
+         GTI != E; ++GTI) {
+      const Value *Op = GTI.getOperand();
       if (StructType *STy = dyn_cast<StructType>(*GTI)) {
         const StructLayout *SL = DL.getStructLayout(STy);
         unsigned Idx = cast<ConstantInt>(Op)->getZExtValue();
@@ -947,10 +945,7 @@ bool AArch64FastISel::isValueAvailable(const Value *V) const {
     return true;
 
   const auto *I = cast<Instruction>(V);
-  if (FuncInfo.MBBMap[I->getParent()] == FuncInfo.MBB)
-    return true;
-
-  return false;
+  return FuncInfo.MBBMap[I->getParent()] == FuncInfo.MBB;
 }
 
 bool AArch64FastISel::simplifyAddress(Address &Addr, MVT VT) {
@@ -1904,6 +1899,21 @@ bool AArch64FastISel::selectLoad(const Instruction *I) {
       cast<LoadInst>(I)->isAtomic())
     return false;
 
+  const Value *SV = I->getOperand(0);
+  if (TLI.supportSwiftError()) {
+    // Swifterror values can come from either a function parameter with
+    // swifterror attribute or an alloca with swifterror attribute.
+    if (const Argument *Arg = dyn_cast<Argument>(SV)) {
+      if (Arg->hasSwiftErrorAttr())
+        return false;
+    }
+
+    if (const AllocaInst *Alloca = dyn_cast<AllocaInst>(SV)) {
+      if (Alloca->isSwiftError())
+        return false;
+    }
+  }
+
   // See if we can handle this address.
   Address Addr;
   if (!computeAddress(I->getOperand(0), Addr, I->getType()))
@@ -2067,6 +2077,21 @@ bool AArch64FastISel::selectStore(const Instruction *I) {
   if (!isTypeSupported(Op0->getType(), VT, /*IsVectorAllowed=*/true) ||
       cast<StoreInst>(I)->isAtomic())
     return false;
+
+  const Value *PtrV = I->getOperand(1);
+  if (TLI.supportSwiftError()) {
+    // Swifterror values can come from either a function parameter with
+    // swifterror attribute or an alloca with swifterror attribute.
+    if (const Argument *Arg = dyn_cast<Argument>(PtrV)) {
+      if (Arg->hasSwiftErrorAttr())
+        return false;
+    }
+
+    if (const AllocaInst *Alloca = dyn_cast<AllocaInst>(PtrV)) {
+      if (Alloca->isSwiftError())
+        return false;
+    }
+  }
 
   // Get the value to be stored into a register. Use the zero register directly
   // when possible to avoid an unnecessary copy and a wasted register.
@@ -2813,6 +2838,8 @@ bool AArch64FastISel::fastLowerArguments() {
     if (F->getAttributes().hasAttribute(Idx, Attribute::ByVal) ||
         F->getAttributes().hasAttribute(Idx, Attribute::InReg) ||
         F->getAttributes().hasAttribute(Idx, Attribute::StructRet) ||
+        F->getAttributes().hasAttribute(Idx, Attribute::SwiftSelf) ||
+        F->getAttributes().hasAttribute(Idx, Attribute::SwiftError) ||
         F->getAttributes().hasAttribute(Idx, Attribute::Nest))
       return false;
 
@@ -3064,7 +3091,8 @@ bool AArch64FastISel::fastLowerCall(CallLoweringInfo &CLI) {
     return false;
 
   for (auto Flag : CLI.OutFlags)
-    if (Flag.isInReg() || Flag.isSRet() || Flag.isNest() || Flag.isByVal())
+    if (Flag.isInReg() || Flag.isSRet() || Flag.isNest() || Flag.isByVal() ||
+        Flag.isSwiftSelf() || Flag.isSwiftError())
       return false;
 
   // Set up the argument vectors.
@@ -3644,6 +3672,10 @@ bool AArch64FastISel::selectRet(const Instruction *I) {
     return false;
 
   if (F.isVarArg())
+    return false;
+
+  if (TLI.supportSwiftError() &&
+      F.getAttributes().hasAttrSomewhere(Attribute::SwiftError))
     return false;
 
   if (TLI.supportSplitCSR(FuncInfo.MF))
@@ -4814,18 +4846,18 @@ bool AArch64FastISel::selectGetElementPtr(const Instruction *I) {
   // Keep a running tab of the total offset to coalesce multiple N = N + Offset
   // into a single N = N + TotalOffset.
   uint64_t TotalOffs = 0;
-  Type *Ty = I->getOperand(0)->getType();
   MVT VT = TLI.getPointerTy(DL);
-  for (auto OI = std::next(I->op_begin()), E = I->op_end(); OI != E; ++OI) {
-    const Value *Idx = *OI;
-    if (auto *StTy = dyn_cast<StructType>(Ty)) {
+  for (gep_type_iterator GTI = gep_type_begin(I), E = gep_type_end(I);
+       GTI != E; ++GTI) {
+    const Value *Idx = GTI.getOperand();
+    if (auto *StTy = dyn_cast<StructType>(*GTI)) {
       unsigned Field = cast<ConstantInt>(Idx)->getZExtValue();
       // N = N + Offset
       if (Field)
         TotalOffs += DL.getStructLayout(StTy)->getElementOffset(Field);
-      Ty = StTy->getElementType(Field);
     } else {
-      Ty = cast<SequentialType>(Ty)->getElementType();
+      Type *Ty = GTI.getIndexedType();
+
       // If this is a constant subscript, handle it quickly.
       if (const auto *CI = dyn_cast<ConstantInt>(Idx)) {
         if (CI->isZero())

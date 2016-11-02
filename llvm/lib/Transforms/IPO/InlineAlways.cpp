@@ -37,15 +37,16 @@ namespace {
 class AlwaysInliner : public Inliner {
 
 public:
-  // Use extremely low threshold.
-  AlwaysInliner() : Inliner(ID, -2000000000, /*InsertLifetime*/ true) {
+  AlwaysInliner() : Inliner(ID, /*InsertLifetime*/ true) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
   }
 
-  AlwaysInliner(bool InsertLifetime)
-      : Inliner(ID, -2000000000, InsertLifetime) {
+  AlwaysInliner(bool InsertLifetime) : Inliner(ID, InsertLifetime) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
   }
+
+  /// Main run interface method.  We override here to avoid calling skipSCC().
+  bool runOnSCC(CallGraphSCC &SCC) override { return inlineCalls(SCC); }
 
   static char ID; // Pass identification, replacement for typeid
 

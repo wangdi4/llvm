@@ -11,6 +11,7 @@ set(SANITIZER_SOURCES
   sanitizer_libc.cc
   sanitizer_libignore.cc
   sanitizer_linux.cc
+  sanitizer_linux_s390.cc
   sanitizer_mac.cc
   sanitizer_persistent_allocator.cc
   sanitizer_platform_limits_linux.cc
@@ -122,7 +123,7 @@ append_have_file_definition(rpc/xdr.h HAVE_RPC_XDR_H SANITIZER_COMMON_DEFINITION
 append_have_file_definition(tirpc/rpc/xdr.h HAVE_TIRPC_RPC_XDR_H SANITIZER_COMMON_DEFINITIONS)
 
 set(SANITIZER_CFLAGS ${SANITIZER_COMMON_CFLAGS})
-append_no_rtti_flag(SANITIZER_CFLAGS)
+append_rtti_flag(OFF SANITIZER_CFLAGS)
 
 append_list_if(SANITIZER_LIMIT_FRAME_SIZE -Wframe-larger-than=570
                SANITIZER_CFLAGS)

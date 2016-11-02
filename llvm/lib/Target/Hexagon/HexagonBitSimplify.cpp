@@ -9,18 +9,17 @@
 
 #define DEBUG_TYPE "hexbit"
 
-#include "llvm/CodeGen/Passes.h"
+#include "HexagonBitTracker.h"
+#include "HexagonTargetMachine.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/CommandLine.h"
+#include "llvm/CodeGen/Passes.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetInstrInfo.h"
-#include "HexagonTargetMachine.h"
-#include "HexagonBitTracker.h"
+#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 
@@ -876,6 +875,12 @@ const TargetRegisterClass *HexagonBitSimplify::getFinalVRegClass(
     case Hexagon::DoubleRegsRegClassID:
       VerifySR(RR.Sub);
       return &Hexagon::IntRegsRegClass;
+    case Hexagon::VecDblRegsRegClassID:
+      VerifySR(RR.Sub);
+      return &Hexagon::VectorRegsRegClass;
+    case Hexagon::VecDblRegs128BRegClassID:
+      VerifySR(RR.Sub);
+      return &Hexagon::VectorRegs128BRegClass;
   }
   return nullptr;
 }
@@ -1960,11 +1965,10 @@ bool BitSimplification::genExtractHalf(MachineInstr *MI,
     NewR = MRI.createVirtualRegister(&Hexagon::IntRegsRegClass);
     BuildMI(B, At, DL, HII.get(Hexagon::A2_zxth), NewR)
         .addReg(L.Reg, 0, L.Sub);
-  } else if (!L.Low && Opc != Hexagon::S2_extractu) {
+  } else if (!L.Low && Opc != Hexagon::S2_lsr_i_r) {
     NewR = MRI.createVirtualRegister(&Hexagon::IntRegsRegClass);
-    BuildMI(B, MI, DL, HII.get(Hexagon::S2_extractu), NewR)
+    BuildMI(B, MI, DL, HII.get(Hexagon::S2_lsr_i_r), NewR)
         .addReg(L.Reg, 0, L.Sub)
-        .addImm(16)
         .addImm(16);
   }
   if (NewR == 0)
@@ -2187,6 +2191,9 @@ bool BitSimplification::processBlock(MachineBasicBlock &B,
 
 
 bool HexagonBitSimplify::runOnMachineFunction(MachineFunction &MF) {
+  if (skipFunction(*MF.getFunction()))
+    return false;
+
   auto &HST = MF.getSubtarget<HexagonSubtarget>();
   auto &HRI = *HST.getRegisterInfo();
   auto &HII = *HST.getInstrInfo();
@@ -2729,6 +2736,9 @@ bool HexagonLoopRescheduling::processLoop(LoopCand &C) {
 
 
 bool HexagonLoopRescheduling::runOnMachineFunction(MachineFunction &MF) {
+  if (skipFunction(*MF.getFunction()))
+    return false;
+
   auto &HST = MF.getSubtarget<HexagonSubtarget>();
   HII = HST.getInstrInfo();
   HRI = HST.getRegisterInfo();

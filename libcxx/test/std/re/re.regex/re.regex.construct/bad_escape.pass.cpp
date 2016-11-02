@@ -17,6 +17,7 @@
 
 #include <regex>
 #include <cassert>
+#include "test_macros.h"
 
 static bool error_escape_thrown(const char *pat) 
 {
@@ -33,6 +34,7 @@ int main()
 {
     assert(error_escape_thrown("[\\a]"));
     assert(error_escape_thrown("\\a"));
+    assert(error_escape_thrown("\\"));
 
     assert(error_escape_thrown("[\\e]"));
     assert(error_escape_thrown("\\e"));

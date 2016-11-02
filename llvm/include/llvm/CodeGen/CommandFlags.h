@@ -46,20 +46,23 @@ MAttrs("mattr",
        cl::desc("Target specific attributes (-mattr=help for details)"),
        cl::value_desc("a1,+a2,-a3,..."));
 
-cl::opt<Reloc::Model>
-RelocModel("relocation-model",
-           cl::desc("Choose relocation model"),
-           cl::init(Reloc::Default),
-           cl::values(
-              clEnumValN(Reloc::Default, "default",
-                      "Target default relocation model"),
-              clEnumValN(Reloc::Static, "static",
-                      "Non-relocatable code"),
-              clEnumValN(Reloc::PIC_, "pic",
-                      "Fully relocatable, position independent code"),
-              clEnumValN(Reloc::DynamicNoPIC, "dynamic-no-pic",
-                      "Relocatable external references, non-relocatable code"),
-              clEnumValEnd));
+cl::opt<Reloc::Model> RelocModel(
+    "relocation-model", cl::desc("Choose relocation model"),
+    cl::values(
+        clEnumValN(Reloc::Static, "static", "Non-relocatable code"),
+        clEnumValN(Reloc::PIC_, "pic",
+                   "Fully relocatable, position independent code"),
+        clEnumValN(Reloc::DynamicNoPIC, "dynamic-no-pic",
+                   "Relocatable external references, non-relocatable code"),
+        clEnumValEnd));
+
+static inline Optional<Reloc::Model> getRelocModel() {
+  if (RelocModel.getNumOccurrences()) {
+    Reloc::Model R = RelocModel;
+    return R;
+  }
+  return None;
+}
 
 cl::opt<ThreadModel::Model>
 TMModel("thread-model",
@@ -177,6 +180,11 @@ DisableTailCalls("disable-tail-calls",
                  cl::desc("Never emit tail calls"),
                  cl::init(false));
 
+cl::opt<bool>
+StackSymbolOrdering("stack-symbol-ordering",
+                    cl::desc("Order local stack symbols."),
+                    cl::init(true));
+
 cl::opt<unsigned>
 OverrideStackAlignment("stack-alignment",
                        cl::desc("Override default stack alignment"),
@@ -191,11 +199,6 @@ cl::opt<std::string>
 TrapFuncName("trap-func", cl::Hidden,
         cl::desc("Emit a call to trap function rather than a trap instruction"),
         cl::init(""));
-
-cl::opt<bool>
-EnablePIE("enable-pie",
-          cl::desc("Assume the creation of a position independent executable."),
-          cl::init(false));
 
 cl::opt<bool>
 UseCtors("use-ctors",
@@ -284,7 +287,7 @@ static inline TargetOptions InitTargetOptionsFromCodeGenFlags() {
   Options.NoZerosInBSS = DontPlaceZerosInBSS;
   Options.GuaranteedTailCallOpt = EnableGuaranteedTailCallOpt;
   Options.StackAlignmentOverride = OverrideStackAlignment;
-  Options.PositionIndependentExecutable = EnablePIE;
+  Options.StackSymbolOrdering = StackSymbolOrdering;
   Options.UseInitArray = !UseCtors;
   Options.DataSections = DataSections;
   Options.FunctionSections = FunctionSections;

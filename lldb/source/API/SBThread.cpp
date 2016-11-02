@@ -35,12 +35,12 @@
 #include "lldb/Target/ThreadPlanStepRange.h"
 #include "lldb/Target/ThreadPlanStepInRange.h"
 
-
 #include "lldb/API/SBAddress.h"
 #include "lldb/API/SBDebugger.h"
 #include "lldb/API/SBEvent.h"
 #include "lldb/API/SBFrame.h"
 #include "lldb/API/SBProcess.h"
+#include "lldb/API/SBThreadCollection.h"
 #include "lldb/API/SBThreadPlan.h"
 #include "lldb/API/SBValue.h"
 
@@ -96,8 +96,8 @@ SBThread::GetQueue () const
 {
     SBQueue sb_queue;
     QueueSP queue_sp;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
     if (exe_ctx.HasThreadScope())
@@ -130,7 +130,19 @@ SBThread::GetQueue () const
 bool
 SBThread::IsValid() const
 {
-    return m_opaque_sp->GetThreadSP().get() != NULL;
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
+
+    Target *target = exe_ctx.GetTargetPtr();
+    Process *process = exe_ctx.GetProcessPtr();
+    if (target && process)
+    {
+        Process::StopLocker stop_locker;
+        if (stop_locker.TryLock(&process->GetRunLock()))
+        return m_opaque_sp->GetThreadSP().get() != NULL;
+    }
+    // Without a valid target & process, this thread can't be valid.
+    return false;
 }
 
 void
@@ -146,8 +158,8 @@ SBThread::GetStopReason()
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
     StopReason reason = eStopReasonInvalid;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -175,8 +187,8 @@ SBThread::GetStopReason()
 size_t
 SBThread::GetStopReasonDataCount ()
 {
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -235,8 +247,8 @@ SBThread::GetStopReasonDataCount ()
 uint64_t
 SBThread::GetStopReasonDataAtIndex (uint32_t idx)
 {
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -328,13 +340,37 @@ SBThread::GetStopReasonExtendedInfoAsJSON (lldb::SBStream &stream)
     return true;
 }
 
+SBThreadCollection
+SBThread::GetStopReasonExtendedBacktraces (InstrumentationRuntimeType type)
+{
+    ThreadCollectionSP threads;
+    threads.reset(new ThreadCollection());
+    
+    // We currently only support ThreadSanitizer.
+    if (type != eInstrumentationRuntimeTypeThreadSanitizer)
+        return threads;
+    
+    ExecutionContext exe_ctx (m_opaque_sp.get());
+    if (! exe_ctx.HasThreadScope())
+        return threads;
+    
+    ProcessSP process_sp = exe_ctx.GetProcessSP();
+    
+    StopInfoSP stop_info = exe_ctx.GetThreadPtr()->GetStopInfo();
+    StructuredData::ObjectSP info = stop_info->GetExtendedInfo();
+    if (! info)
+        return threads;
+    
+    return process_sp->GetInstrumentationRuntime(type)->GetBacktracesFromExtendedStopInfo(info);
+}
+
 size_t
 SBThread::GetStopDescription (char *dst, size_t dst_len)
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -465,8 +501,8 @@ SBThread::GetStopReturnValue ()
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
     ValueObjectSP return_valobj_sp;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -526,8 +562,8 @@ SBThread::GetName () const
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
     const char *name = NULL;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -556,8 +592,8 @@ const char *
 SBThread::GetQueueName () const
 {
     const char *name = NULL;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
     if (exe_ctx.HasThreadScope())
@@ -587,8 +623,8 @@ lldb::queue_id_t
 SBThread::GetQueueID () const
 {
     queue_id_t id = LLDB_INVALID_QUEUE_ID;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
     if (exe_ctx.HasThreadScope())
@@ -618,8 +654,8 @@ SBThread::GetInfoItemByPathAsString (const char *path, SBStream &strm)
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
     bool success = false;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -724,9 +760,8 @@ SBThread::StepOver (lldb::RunMode stop_other_threads)
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
-
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (log)
         log->Printf ("SBThread(%p)::StepOver (stop_other_threads='%s')",
@@ -774,10 +809,17 @@ SBThread::StepInto (lldb::RunMode stop_other_threads)
 void
 SBThread::StepInto (const char *target_name, lldb::RunMode stop_other_threads)
 {
+    SBError error;
+    StepInto(target_name, LLDB_INVALID_LINE_NUMBER, error, stop_other_threads);
+}
+
+void
+SBThread::StepInto (const char *target_name, uint32_t end_line, SBError &error, lldb::RunMode stop_other_threads)
+{
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (log)
         log->Printf ("SBThread(%p)::StepInto (target_name='%s', stop_other_threads='%s')",
@@ -795,11 +837,20 @@ SBThread::StepInto (const char *target_name, lldb::RunMode stop_other_threads)
 
         if (frame_sp && frame_sp->HasDebugInformation ())
         {
+            SymbolContext sc(frame_sp->GetSymbolContext(eSymbolContextEverything));
+            AddressRange range;
+            if (end_line == LLDB_INVALID_LINE_NUMBER)
+                range = sc.line_entry.range;
+            else
+            {
+                if (!sc.GetAddressRangeFromHereToEndLine(end_line, range, error.ref()))
+                    return;
+            }
+            
             const LazyBool step_out_avoids_code_without_debug_info = eLazyBoolCalculate;
             const LazyBool step_in_avoids_code_without_debug_info = eLazyBoolCalculate;
-            SymbolContext sc(frame_sp->GetSymbolContext(eSymbolContextEverything));
             new_plan_sp = thread->QueueThreadPlanForStepInRange (abort_other_plans,
-                                                              sc.line_entry,
+                                                              range,
                                                               sc,
                                                               target_name,
                                                               stop_other_threads,
@@ -813,8 +864,7 @@ SBThread::StepInto (const char *target_name, lldb::RunMode stop_other_threads)
                                                                            stop_other_threads);
         }
 
-        // This returns an error, we should use it!
-        ResumeNewPlan (exe_ctx, new_plan_sp.get());
+        error = ResumeNewPlan (exe_ctx, new_plan_sp.get());
     }
 }
 
@@ -823,8 +873,8 @@ SBThread::StepOut ()
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (log)
         log->Printf ("SBThread(%p)::StepOut ()",
@@ -857,8 +907,8 @@ SBThread::StepOutOfFrame (lldb::SBFrame &sb_frame)
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (!sb_frame.IsValid())
     {
@@ -910,10 +960,8 @@ SBThread::StepInstruction (bool step_over)
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
-
-
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (log)
         log->Printf ("SBThread(%p)::StepInstruction (step_over=%i)",
@@ -934,9 +982,8 @@ SBThread::RunToAddress (lldb::addr_t addr)
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
-
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (log)
         log->Printf ("SBThread(%p)::RunToAddress (addr=0x%" PRIx64 ")",
@@ -969,8 +1016,8 @@ SBThread::StepOverUntil (lldb::SBFrame &sb_frame,
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
     char path[PATH_MAX];
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     StackFrameSP frame_sp (sb_frame.GetFrameSP());
 
@@ -1113,8 +1160,8 @@ SBThread::StepUsingScriptedThreadPlan (const char *script_class_name)
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
     SBError sb_error;
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (log)
     {
@@ -1153,8 +1200,8 @@ SBThread::JumpToLine (lldb::SBFileSpec &file_spec, uint32_t line)
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
     SBError sb_error;
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (log)
         log->Printf ("SBThread(%p)::JumpToLine (file+line = %s:%u)",
@@ -1181,9 +1228,8 @@ SBThread::ReturnFromFrame (SBFrame &frame, SBValue &return_value)
 
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
-
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (log)
         log->Printf ("SBThread(%p)::ReturnFromFrame (frame=%d)",
@@ -1304,8 +1350,8 @@ SBThread::GetNumFrames ()
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
     uint32_t num_frames = 0;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -1336,8 +1382,8 @@ SBThread::GetFrameAtIndex (uint32_t idx)
 
     SBFrame sb_frame;
     StackFrameSP frame_sp;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -1375,8 +1421,8 @@ SBThread::GetSelectedFrame ()
 
     SBFrame sb_frame;
     StackFrameSP frame_sp;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -1414,8 +1460,8 @@ SBThread::SetSelectedFrame (uint32_t idx)
 
     SBFrame sb_frame;
     StackFrameSP frame_sp;
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
     if (exe_ctx.HasThreadScope())
     {
@@ -1518,8 +1564,8 @@ SBThread
 SBThread::GetExtendedBacktraceThread (const char *type)
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
-    Mutex::Locker api_locker;
-    ExecutionContext exe_ctx (m_opaque_sp.get(), api_locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
     SBThread sb_origin_thread;
 
     if (exe_ctx.HasThreadScope())

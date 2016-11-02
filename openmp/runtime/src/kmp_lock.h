@@ -1200,7 +1200,7 @@ extern kmp_indirect_lock_t * __kmp_allocate_indirect_lock(void **, kmp_int32, km
 // Cleans up global states and data structures for managing dynamic user locks.
 extern void __kmp_cleanup_indirect_user_locks();
 
-// Default user lock sequence when not using hinted locks. 
+// Default user lock sequence when not using hinted locks.
 extern kmp_dyna_lockseq_t __kmp_user_lock_seq;
 
 // Jump table for "set lock location", available only for indirect locks.
@@ -1264,6 +1264,19 @@ __kmp_get_user_lock_owner(kmp_user_lock_p, kmp_uint32);
 # define KMP_LOCK_STRIP(v)         (v)
 
 #endif // KMP_USE_DYNAMIC_LOCK
+
+// data structure for using backoff within spin locks.
+typedef struct {
+    kmp_uint32 step;        // current step
+    kmp_uint32 max_backoff; // upper bound of outer delay loop
+    kmp_uint32 min_tick;    // size of inner delay loop in ticks (machine-dependent)
+} kmp_backoff_t;
+
+// Runtime's default backoff parameters
+extern kmp_backoff_t __kmp_spin_backoff_params;
+
+// Backoff function
+extern void __kmp_spin_backoff(kmp_backoff_t *);
 
 #ifdef __cplusplus
 } // extern "C"

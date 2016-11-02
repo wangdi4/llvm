@@ -46,20 +46,20 @@ static inline uint64_t ScaleAddrDelta(MCContext &Context, uint64_t AddrDelta) {
 // and if there is information from the last .loc directive that has yet to have
 // a line entry made for it is made.
 //
-void MCLineEntry::Make(MCObjectStreamer *MCOS, MCSection *Section) {
+void MCDwarfLineEntry::Make(MCObjectStreamer *MCOS, MCSection *Section) {
   if (!MCOS->getContext().getDwarfLocSeen())
     return;
 
   // Create a symbol at in the current section for use in the line entry.
   MCSymbol *LineSym = MCOS->getContext().createTempSymbol();
-  // Set the value of the symbol to use for the MCLineEntry.
+  // Set the value of the symbol to use for the MCDwarfLineEntry.
   MCOS->EmitLabel(LineSym);
 
   // Get the current .loc info saved in the context.
   const MCDwarfLoc &DwarfLoc = MCOS->getContext().getCurrentDwarfLoc();
 
   // Create a (local) line entry with the symbol and the current .loc info.
-  MCLineEntry LineEntry(LineSym, DwarfLoc);
+  MCDwarfLineEntry LineEntry(LineSym, DwarfLoc);
 
   // clear DwarfLocSeen saying the current .loc info is now used.
   MCOS->getContext().clearDwarfLocSeen();
@@ -98,7 +98,7 @@ static inline const MCExpr *MakeStartMinusEndExpr(const MCStreamer &MCOS,
 //
 static inline void
 EmitDwarfLineTable(MCObjectStreamer *MCOS, MCSection *Section,
-                   const MCLineSection::MCLineEntryCollection &LineEntries) {
+                   const MCLineSection::MCDwarfLineEntryCollection &LineEntries) {
   unsigned FileNum = 1;
   unsigned LastLine = 1;
   unsigned Column = 0;
@@ -107,10 +107,12 @@ EmitDwarfLineTable(MCObjectStreamer *MCOS, MCSection *Section,
   unsigned Discriminator = 0;
   MCSymbol *LastLabel = nullptr;
 
-  // Loop through each MCLineEntry and encode the dwarf line number table.
+  // Loop through each MCDwarfLineEntry and encode the dwarf line number table.
   for (auto it = LineEntries.begin(),
             ie = LineEntries.end();
        it != ie; ++it) {
+
+    int64_t LineDelta = static_cast<int64_t>(it->getLine()) - LastLine;
 
     if (FileNum != it->getFileNum()) {
       FileNum = it->getFileNum();
@@ -146,7 +148,6 @@ EmitDwarfLineTable(MCObjectStreamer *MCOS, MCSection *Section,
     if (it->getFlags() & DWARF2_FLAG_EPILOGUE_BEGIN)
       MCOS->EmitIntValue(dwarf::DW_LNS_set_epilogue_begin, 1);
 
-    int64_t LineDelta = static_cast<int64_t>(it->getLine()) - LastLine;
     MCSymbol *Label = it->getLabel();
 
     // At this point we want to emit/create the sequence to encode the delta in
@@ -156,6 +157,7 @@ EmitDwarfLineTable(MCObjectStreamer *MCOS, MCSection *Section,
     MCOS->EmitDwarfAdvanceLineAddr(LineDelta, LastLabel, Label,
                                    asmInfo->getPointerSize());
 
+    Discriminator = 0;
     LastLine = it->getLine();
     LastLabel = Label;
   }
@@ -344,9 +346,9 @@ unsigned MCDwarfLineTableHeader::getFile(StringRef &Directory,
   }
   assert(!FileName.empty());
   if (FileNumber == 0) {
-    FileNumber = SourceIdMap.size() + 1;
-    assert((MCDwarfFiles.empty() || FileNumber == MCDwarfFiles.size()) &&
-           "Don't mix autonumbered and explicit numbered line table usage");
+    // File numbers start with 1 and/or after any file numbers
+    // allocated by inline-assembler .file directives.
+    FileNumber = MCDwarfFiles.empty() ? 1 : MCDwarfFiles.size();
     SmallString<256> Buffer;
     auto IterBool = SourceIdMap.insert(
         std::make_pair((Directory + Twine('\0') + FileName).toStringRef(Buffer),
@@ -452,7 +454,8 @@ void MCDwarfLineAddr::Encode(MCContext &Context, MCDwarfLineTableParams Params,
 
   // If the line increment is out of range of a special opcode, we must encode
   // it with DW_LNS_advance_line.
-  if (Temp >= Params.DWARF2LineRange) {
+  if (Temp >= Params.DWARF2LineRange ||
+      Temp + Params.DWARF2LineOpcodeBase > 255) {
     OS << char(dwarf::DW_LNS_advance_line);
     encodeSLEB128(LineDelta, OS);
 
@@ -494,8 +497,10 @@ void MCDwarfLineAddr::Encode(MCContext &Context, MCDwarfLineTableParams Params,
 
   if (NeedCopy)
     OS << char(dwarf::DW_LNS_copy);
-  else
+  else {
+    assert(Temp <= 255 && "Buggy special opcode encoding.");
     OS << char(Temp);
+  }
 }
 
 // Utility function to write a tuple for .debug_abbrev.

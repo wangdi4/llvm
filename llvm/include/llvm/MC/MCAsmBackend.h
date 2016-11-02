@@ -11,6 +11,7 @@
 #define LLVM_MC_MCASMBACKEND_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCFixup.h"
@@ -28,7 +29,7 @@ class MCRelaxableFragment;
 class MCObjectWriter;
 class MCSection;
 class MCValue;
-class raw_ostream;
+class raw_pwrite_stream;
 
 /// Generic interface to target specific assembler backends.
 class MCAsmBackend {
@@ -37,8 +38,6 @@ class MCAsmBackend {
 
 protected: // Can only create subclasses.
   MCAsmBackend();
-
-  unsigned HasDataInCodeSupport : 1;
 
 public:
   virtual ~MCAsmBackend();
@@ -57,10 +56,6 @@ public:
                      "backend");
   }
 
-  /// Check whether this target implements data-in-code markers. If not, data
-  /// region directives will be ignored.
-  bool hasDataInCodeSupport() const { return HasDataInCodeSupport; }
-
   /// \name Target Fixup Interfaces
   /// @{
 
@@ -68,9 +63,7 @@ public:
   virtual unsigned getNumFixupKinds() const = 0;
 
   /// Map a relocation name used in .reloc to a fixup kind.
-  /// Returns true and sets MappedKind if Name is successfully mapped.
-  /// Otherwise returns false and leaves MappedKind unchanged.
-  virtual bool getFixupKind(StringRef Name, MCFixupKind &MappedKind) const;
+  virtual Optional<MCFixupKind> getFixupKind(StringRef Name) const;
 
   /// Get information on a fixup kind.
   virtual const MCFixupKindInfo &getFixupKindInfo(MCFixupKind Kind) const;
@@ -132,6 +125,10 @@ public:
   ///
   /// \return - True on success.
   virtual bool writeNopData(uint64_t Count, MCObjectWriter *OW) const = 0;
+
+  /// Give backend an opportunity to finish layout after relaxation
+  virtual void finishLayout(MCAssembler const &Asm,
+                            MCAsmLayout &Layout) const {}
 
   /// Handle any target-specific assembler flags. By default, do nothing.
   virtual void handleAssemblerFlag(MCAssemblerFlag Flag) {}

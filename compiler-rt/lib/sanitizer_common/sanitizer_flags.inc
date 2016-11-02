@@ -182,12 +182,24 @@ COMMON_FLAG(bool, intercept_strspn, true,
 COMMON_FLAG(bool, intercept_strpbrk, true,
             "If set, uses custom wrappers for strpbrk function "
             "to find more errors.")
+COMMON_FLAG(bool, intercept_strlen, true,
+            "If set, uses custom wrappers for strlen and strnlen functions "
+            "to find more errors.")
+COMMON_FLAG(bool, intercept_strchr, true,
+            "If set, uses custom wrappers for strchr, strchrnul, and strrchr "
+            "functions to find more errors.")
 COMMON_FLAG(bool, intercept_memcmp, true,
             "If set, uses custom wrappers for memcmp function "
             "to find more errors.")
 COMMON_FLAG(bool, strict_memcmp, true,
           "If true, assume that memcmp(p1, p2, n) always reads n bytes before "
           "comparing p1 and p2.")
+COMMON_FLAG(bool, intercept_intrin, true,
+            "If set, uses custom wrappers for memset/memcpy/memmove "
+            "intrinsics to find more errors.")
+COMMON_FLAG(bool, intercept_stat, true,
+            "If set, uses custom wrappers for *stat functions "
+            "to find more errors.")
 COMMON_FLAG(bool, decorate_proc_maps, false, "If set, decorate sanitizer "
                                              "mappings in /proc/self/maps with "
                                              "user-readable names")
@@ -200,3 +212,7 @@ COMMON_FLAG(
 COMMON_FLAG(bool, suppress_equal_pcs, true,
             "Deduplicate multiple reports for single source location in "
             "halt_on_error=false mode (asan only).")
+COMMON_FLAG(bool, print_cmdline, false, "Print command line on crash "
+            "(asan only).")
+COMMON_FLAG(bool, html_cov_report, false, "Generate html coverage report.")
+COMMON_FLAG(const char *, sancov_path, "sancov", "Sancov tool location.")

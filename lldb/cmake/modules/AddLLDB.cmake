@@ -56,7 +56,7 @@ macro(add_lldb_library name)
   if (PARAM_OBJECT)
     add_library(${name} ${libkind} ${srcs})
   else()
-    llvm_add_library(${name} ${libkind} ${srcs})
+    llvm_add_library(${name} ${libkind} DISABLE_LLVM_LINK_LLVM_DYLIB ${srcs})
 
     lldb_link_common_libs(${name} "${libkind}")
 
@@ -68,7 +68,7 @@ macro(add_lldb_library name)
         target_link_libraries(${name} ${cmake_2_8_12_PUBLIC} ${CLANG_USED_LIBS})
       endif()
     endif()
-    llvm_config(${name} ${LLVM_LINK_COMPONENTS})
+    llvm_config(${name} ${LLVM_LINK_COMPONENTS} ${LLVM_PRIVATE_LINK_COMPONENTS})
 
     if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY OR ${name} STREQUAL "liblldb")
       if (PARAM_SHARED)
@@ -93,7 +93,7 @@ macro(add_lldb_library name)
 endmacro(add_lldb_library)
 
 macro(add_lldb_executable name)
-  add_llvm_executable(${name} ${ARGN})
+  add_llvm_executable(${name} DISABLE_LLVM_LINK_LLVM_DYLIB ${ARGN})
   set_target_properties(${name} PROPERTIES FOLDER "lldb executables")
 endmacro(add_lldb_executable)
 
