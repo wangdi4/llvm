@@ -30,17 +30,6 @@ using namespace polly;
 
 #define DEBUG_TYPE "polly-scop-helper"
 
-Value *polly::getPointerOperand(Instruction &Inst) {
-  if (LoadInst *load = dyn_cast<LoadInst>(&Inst))
-    return load->getPointerOperand();
-  else if (StoreInst *store = dyn_cast<StoreInst>(&Inst))
-    return store->getPointerOperand();
-  else if (GetElementPtrInst *gep = dyn_cast<GetElementPtrInst>(&Inst))
-    return gep->getPointerOperand();
-
-  return 0;
-}
-
 bool polly::hasInvokeEdge(const PHINode *PN) {
   for (unsigned i = 0, e = PN->getNumIncomingValues(); i < e; ++i)
     if (InvokeInst *II = dyn_cast<InvokeInst>(PN->getIncomingValue(i)))
@@ -260,10 +249,15 @@ private:
   const SCEV *visitUnknown(const SCEVUnknown *E) {
 
     // If a value mapping was given try if the underlying value is remapped.
-    if (VMap)
-      if (Value *NewVal = VMap->lookup(E->getValue()))
-        if (NewVal != E->getValue())
-          return visit(SE.getSCEV(NewVal));
+    Value *NewVal = VMap ? VMap->lookup(E->getValue()) : nullptr;
+    if (NewVal) {
+      auto *NewE = SE.getSCEV(NewVal);
+
+      // While the mapped value might be different the SCEV representation might
+      // not be. To this end we will check before we go into recursion here.
+      if (E != NewE)
+        return visit(NewE);
+    }
 
     Instruction *Inst = dyn_cast<Instruction>(E->getValue());
     if (!Inst || (Inst->getOpcode() != Instruction::SRem &&
@@ -275,11 +269,14 @@ private:
 
     Instruction *StartIP = R.getEnteringBlock()->getTerminator();
 
-    const SCEV *LHSScev = visit(SE.getSCEV(Inst->getOperand(0)));
-    const SCEV *RHSScev = visit(SE.getSCEV(Inst->getOperand(1)));
+    const SCEV *LHSScev = SE.getSCEV(Inst->getOperand(0));
+    const SCEV *RHSScev = SE.getSCEV(Inst->getOperand(1));
 
-    Value *LHS = Expander.expandCodeFor(LHSScev, E->getType(), StartIP);
-    Value *RHS = Expander.expandCodeFor(RHSScev, E->getType(), StartIP);
+    if (!SE.isKnownNonZero(RHSScev))
+      RHSScev = SE.getUMaxExpr(RHSScev, SE.getConstant(E->getType(), 1));
+
+    Value *LHS = expandCodeFor(LHSScev, E->getType(), StartIP);
+    Value *RHS = expandCodeFor(RHSScev, E->getType(), StartIP);
 
     Inst = BinaryOperator::Create((Instruction::BinaryOps)Inst->getOpcode(),
                                   LHS, RHS, Inst->getName() + Name, StartIP);
@@ -301,7 +298,10 @@ private:
     return SE.getSignExtendExpr(visit(E->getOperand()), E->getType());
   }
   const SCEV *visitUDivExpr(const SCEVUDivExpr *E) {
-    return SE.getUDivExpr(visit(E->getLHS()), visit(E->getRHS()));
+    auto *RHSScev = visit(E->getRHS());
+    if (!SE.isKnownNonZero(E->getRHS()))
+      RHSScev = SE.getUMaxExpr(RHSScev, SE.getConstant(E->getType(), 1));
+    return SE.getUDivExpr(visit(E->getLHS()), RHSScev);
   }
   const SCEV *visitAddExpr(const SCEVAddExpr *E) {
     SmallVector<const SCEV *, 4> NewOps;
@@ -441,15 +441,27 @@ bool polly::isIgnoredIntrinsic(const Value *V) {
   return false;
 }
 
-bool polly::canSynthesize(const Value *V, const llvm::LoopInfo *LI,
-                          ScalarEvolution *SE, const Region *R) {
+bool polly::canSynthesize(const Value *V, const Scop &S,
+                          const llvm::LoopInfo *LI, ScalarEvolution *SE,
+                          Loop *Scope) {
   if (!V || !SE->isSCEVable(V->getType()))
     return false;
 
-  if (const SCEV *Scev = SE->getSCEV(const_cast<Value *>(V)))
+  if (const SCEV *Scev = SE->getSCEVAtScope(const_cast<Value *>(V), Scope))
     if (!isa<SCEVCouldNotCompute>(Scev))
-      if (!hasScalarDepsInsideRegion(Scev, R))
+      if (!hasScalarDepsInsideRegion(Scev, &S.getRegion(), Scope, false))
         return true;
 
   return false;
+}
+
+llvm::BasicBlock *polly::getUseBlock(llvm::Use &U) {
+  Instruction *UI = dyn_cast<Instruction>(U.getUser());
+  if (!UI)
+    return nullptr;
+
+  if (PHINode *PHI = dyn_cast<PHINode>(UI))
+    return PHI->getIncomingBlock(U);
+
+  return UI->getParent();
 }

@@ -75,9 +75,9 @@ public:
   ///
   int alignSPAdjust(int SPAdj) const {
     if (SPAdj < 0) {
-      SPAdj = -RoundUpToAlignment(-SPAdj, StackAlignment);
+      SPAdj = -alignTo(-SPAdj, StackAlignment);
     } else {
-      SPAdj = RoundUpToAlignment(SPAdj, StackAlignment);
+      SPAdj = alignTo(SPAdj, StackAlignment);
     }
     return SPAdj;
   }
@@ -148,6 +148,13 @@ public:
 
   /// Returns true if the target will correctly handle shrink wrapping.
   virtual bool enableShrinkWrapping(const MachineFunction &MF) const {
+    return false;
+  }
+
+  /// Returns true if the stack slot holes in the fixed and callee-save stack
+  /// area should be used when allocating other stack locations to reduce stack
+  /// size.
+  virtual bool enableStackSlotScavenging(const MachineFunction &MF) const {
     return false;
   }
 
@@ -273,19 +280,30 @@ public:
     report_fatal_error("WinEH not implemented for this target");
   }
 
-  /// eliminateCallFramePseudoInstr - This method is called during prolog/epilog
-  /// code insertion to eliminate call frame setup and destroy pseudo
-  /// instructions (but only if the Target is using them).  It is responsible
-  /// for eliminating these instructions, replacing them with concrete
-  /// instructions.  This method need only be implemented if using call frame
-  /// setup/destroy pseudo instructions.
-  ///
-  virtual void
+  /// This method is called during prolog/epilog code insertion to eliminate
+  /// call frame setup and destroy pseudo instructions (but only if the Target
+  /// is using them).  It is responsible for eliminating these instructions,
+  /// replacing them with concrete instructions.  This method need only be
+  /// implemented if using call frame setup/destroy pseudo instructions.
+  /// Returns an iterator pointing to the instruction after the replaced one.
+  virtual MachineBasicBlock::iterator
   eliminateCallFramePseudoInstr(MachineFunction &MF,
                                 MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator MI) const {
     llvm_unreachable("Call Frame Pseudo Instructions do not exist on this "
                      "target!");
+  }
+
+
+  /// Order the symbols in the local stack frame.
+  /// The list of objects that we want to order is in \p objectsToAllocate as
+  /// indices into the MachineFrameInfo. The array can be reordered in any way
+  /// upon return. The contents of the array, however, may not be modified (i.e.
+  /// only their order may be changed).
+  /// By default, just maintain the original order.
+  virtual void
+  orderFrameObjects(const MachineFunction &MF,
+                    SmallVectorImpl<int> &objectsToAllocate) const {
   }
 
   /// Check whether or not the given \p MBB can be used as a prologue

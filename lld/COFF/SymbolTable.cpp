@@ -338,18 +338,22 @@ void SymbolTable::addCombinedLTOObject(ObjectFile *Obj) {
     // diagnose them later in reportRemainingUndefines().
     StringRef Name = Body->getName();
     Symbol *Sym = insert(Body);
+    SymbolBody *Existing = Sym->Body;
 
-    if (isa<DefinedBitcode>(Sym->Body)) {
+    if (Existing == Body)
+      continue;
+
+    if (isa<DefinedBitcode>(Existing)) {
       Sym->Body = Body;
       continue;
     }
-    if (auto *L = dyn_cast<Lazy>(Sym->Body)) {
+    if (auto *L = dyn_cast<Lazy>(Existing)) {
       // We may see new references to runtime library symbols such as __chkstk
       // here. These symbols must be wholly defined in non-bitcode files.
       addMemberFile(L);
       continue;
     }
-    SymbolBody *Existing = Sym->Body;
+
     int Comp = Existing->compare(Body);
     if (Comp == 0)
       error(Twine("LTO: unexpected duplicate symbol: ") + Name);
@@ -369,7 +373,7 @@ void SymbolTable::addCombinedLTOObjects() {
 
   // Create an object file and add it to the symbol table by replacing any
   // DefinedBitcode symbols with the definitions in the object file.
-  LTOCodeGenerator CG(getGlobalContext());
+  LTOCodeGenerator CG(BitcodeFile::Context);
   CG.setOptLevel(Config->LTOOptLevel);
   std::vector<ObjectFile *> Objs = createLTOObjects(&CG);
 
@@ -420,7 +424,7 @@ std::vector<ObjectFile *> SymbolTable::createLTOObjects(LTOCodeGenerator *CG) {
   // Use std::list to avoid invalidation of pointers in OSPtrs.
   std::list<raw_svector_ostream> OSs;
   std::vector<raw_pwrite_stream *> OSPtrs;
-  for (SmallVector<char, 0> &Obj : Objs) {
+  for (SmallString<0> &Obj : Objs) {
     OSs.emplace_back(Obj);
     OSPtrs.push_back(&OSs.back());
   }
@@ -429,9 +433,8 @@ std::vector<ObjectFile *> SymbolTable::createLTOObjects(LTOCodeGenerator *CG) {
     error(""); // compileOptimized() should have emitted any error message.
 
   std::vector<ObjectFile *> ObjFiles;
-  for (SmallVector<char, 0> &Obj : Objs) {
-    auto *ObjFile = new ObjectFile(
-        MemoryBufferRef(StringRef(Obj.data(), Obj.size()), "<LTO object>"));
+  for (SmallString<0> &Obj : Objs) {
+    auto *ObjFile = new ObjectFile(MemoryBufferRef(Obj, "<LTO object>"));
     Files.emplace_back(ObjFile);
     ObjectFiles.push_back(ObjFile);
     ObjFile->parse();

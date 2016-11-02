@@ -2153,7 +2153,7 @@ error:
 static int add_sub_vars(struct isl_coalesce_info *info,
 	__isl_keep isl_aff_list *list, int dim, int extra_var)
 {
-	int i, n;
+	int i, j, n;
 	isl_space *space;
 
 	space = isl_basic_map_get_space(info->bmap);
@@ -2179,8 +2179,8 @@ static int add_sub_vars(struct isl_coalesce_info *info,
 			return -1;
 		if (isl_basic_map_alloc_div(info->bmap) < 0)
 			return -1;
-		if (i != n - 1)
-			isl_basic_map_swap_div(info->bmap, i, n - 1);
+		for (j = n - 1; j > i; --j)
+			isl_basic_map_swap_div(info->bmap, j - 1, j);
 	}
 
 	return 0;
@@ -2190,6 +2190,9 @@ static int add_sub_vars(struct isl_coalesce_info *info,
  * variable in "tab" to the purely affine expression defined by the element.
  * "dim" is the offset in the variables of "tab" where we should
  * start considering the elements in "list".
+ *
+ * This function assumes that a sufficient number of rows and
+ * elements in the constraint array are available in the tableau.
  */
 static int add_sub_equalities(struct isl_tab *tab,
 	__isl_keep isl_aff_list *list, int dim)

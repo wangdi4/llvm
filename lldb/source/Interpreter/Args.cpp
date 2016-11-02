@@ -83,19 +83,22 @@ Args::~Args ()
 }
 
 void
-Args::Dump (Stream *s)
+Args::Dump (Stream &s, const char *label_name) const
 {
+    if (!label_name)
+        return;
+
     const size_t argc = m_argv.size();
     for (size_t i=0; i<argc; ++i)
     {
-        s->Indent();
+        s.Indent();
         const char *arg_cstr = m_argv[i];
         if (arg_cstr)
-            s->Printf("argv[%zi]=\"%s\"\n", i, arg_cstr);
+            s.Printf("%s[%zi]=\"%s\"\n", label_name, i, arg_cstr);
         else
-            s->Printf("argv[%zi]=NULL\n", i);
+            s.Printf("%s[%zi]=NULL\n", label_name, i);
     }
-    s->EOL();
+    s.EOL();
 }
 
 bool
@@ -575,8 +578,8 @@ Args::ParseOptions (Options &options)
             }
         }
     }
-    Mutex::Locker options_locker(NULL);
-    OptionParser::Prepare(options_locker);
+    std::unique_lock<std::mutex> lock;
+    OptionParser::Prepare(lock);
     int val;
     while (1)
     {
@@ -887,14 +890,43 @@ Args::StringToVersion (const char *s, uint32_t &major, uint32_t &minor, uint32_t
 }
 
 const char *
-Args::GetShellSafeArgument (const char *unsafe_arg, std::string &safe_arg)
+Args::GetShellSafeArgument (const FileSpec& shell,
+                            const char *unsafe_arg,
+                            std::string &safe_arg)
 {
+    struct ShellDescriptor
+    {
+        ConstString m_basename;
+        const char* m_escapables;
+    };
+    
+    static ShellDescriptor g_Shells[] = {
+        {ConstString("bash")," '\"<>()&"},
+        {ConstString("tcsh")," '\"<>()&$"},
+        {ConstString("sh")," '\"<>()&"}
+    };
+    
+    // safe minimal set
+    const char* escapables = " '\"";
+    
+    if (auto basename = shell.GetFilename())
+    {
+        for (const auto& Shell : g_Shells)
+        {
+            if (Shell.m_basename == basename)
+            {
+                escapables = Shell.m_escapables;
+                break;
+            }
+        }
+    }
+
     safe_arg.assign (unsafe_arg);
     size_t prev_pos = 0;
     while (prev_pos < safe_arg.size())
     {
         // Escape spaces and quotes
-        size_t pos = safe_arg.find_first_of(" '\"", prev_pos);
+        size_t pos = safe_arg.find_first_of(escapables, prev_pos);
         if (pos != std::string::npos)
         {
             safe_arg.insert (pos, 1, '\\');
@@ -905,7 +937,6 @@ Args::GetShellSafeArgument (const char *unsafe_arg, std::string &safe_arg)
     }
     return safe_arg.c_str();
 }
-
 
 int64_t
 Args::StringToOptionEnum (const char *s, OptionEnumValueElement *enum_values, int32_t fail_value, Error &error)
@@ -1190,8 +1221,8 @@ Args::ParseAliasOptions (Options &options,
         }
     }
 
-    Mutex::Locker options_locker(NULL);
-    OptionParser::Prepare(options_locker);
+    std::unique_lock<std::mutex> lock;
+    OptionParser::Prepare(lock);
     int val;
     while (1)
     {
@@ -1368,8 +1399,8 @@ Args::ParseArgsForCompletion
         }
     }
 
-    Mutex::Locker options_locker(NULL);
-    OptionParser::Prepare(options_locker);
+    std::unique_lock<std::mutex> lock;
+    OptionParser::Prepare(lock);
     OptionParser::EnableError(false);
 
     int val;

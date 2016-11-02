@@ -155,6 +155,8 @@ public:
   object_t *createCOFFEntity(StringRef Name, list_t &List);
 
   void defineSection(MCSectionCOFF const &Sec);
+
+  COFFSymbol *getLinkedSymbol(const MCSymbol &Symbol);
   void DefineSymbol(const MCSymbol &Symbol, MCAssembler &Assembler,
                     const MCAsmLayout &Layout);
 
@@ -353,33 +355,51 @@ static uint64_t getSymbolValue(const MCSymbol &Symbol,
   return Res;
 }
 
+COFFSymbol *WinCOFFObjectWriter::getLinkedSymbol(const MCSymbol &Symbol) {
+  if (!Symbol.isVariable())
+    return nullptr;
+
+  const MCSymbolRefExpr *SymRef =
+      dyn_cast<MCSymbolRefExpr>(Symbol.getVariableValue());
+  if (!SymRef)
+    return nullptr;
+
+  const MCSymbol &Aliasee = SymRef->getSymbol();
+  if (!Aliasee.isUndefined())
+    return nullptr;
+  return GetOrCreateCOFFSymbol(&Aliasee);
+}
+
 /// This function takes a symbol data object from the assembler
 /// and creates the associated COFF symbol staging object.
 void WinCOFFObjectWriter::DefineSymbol(const MCSymbol &Symbol,
                                        MCAssembler &Assembler,
                                        const MCAsmLayout &Layout) {
   COFFSymbol *coff_symbol = GetOrCreateCOFFSymbol(&Symbol);
+  const MCSymbol *Base = Layout.getBaseSymbol(Symbol);
+  COFFSection *Sec = nullptr;
+  if (Base && Base->getFragment()) {
+    Sec = SectionMap[Base->getFragment()->getParent()];
+    if (coff_symbol->Section && coff_symbol->Section != Sec)
+      report_fatal_error("conflicting sections for symbol");
+  }
 
+  COFFSymbol *Local = nullptr;
   if (cast<MCSymbolCOFF>(Symbol).isWeakExternal()) {
     coff_symbol->Data.StorageClass = COFF::IMAGE_SYM_CLASS_WEAK_EXTERNAL;
 
-    if (Symbol.isVariable()) {
-      const MCSymbolRefExpr *SymRef =
-          dyn_cast<MCSymbolRefExpr>(Symbol.getVariableValue());
-
-      if (!SymRef)
-        report_fatal_error("Weak externals may only alias symbols");
-
-      coff_symbol->Other = GetOrCreateCOFFSymbol(&SymRef->getSymbol());
-    } else {
+    COFFSymbol *WeakDefault = getLinkedSymbol(Symbol);
+    if (!WeakDefault) {
       std::string WeakName = (".weak." + Symbol.getName() + ".default").str();
-      COFFSymbol *WeakDefault = createSymbol(WeakName);
-      WeakDefault->Data.SectionNumber = COFF::IMAGE_SYM_ABSOLUTE;
-      WeakDefault->Data.StorageClass = COFF::IMAGE_SYM_CLASS_EXTERNAL;
-      WeakDefault->Data.Type = 0;
-      WeakDefault->Data.Value = 0;
-      coff_symbol->Other = WeakDefault;
+      WeakDefault = createSymbol(WeakName);
+      if (!Sec)
+        WeakDefault->Data.SectionNumber = COFF::IMAGE_SYM_ABSOLUTE;
+      else
+        WeakDefault->Section = Sec;
+      Local = WeakDefault;
     }
+
+    coff_symbol->Other = WeakDefault;
 
     // Setup the Weak External auxiliary symbol.
     coff_symbol->Aux.resize(1);
@@ -388,47 +408,37 @@ void WinCOFFObjectWriter::DefineSymbol(const MCSymbol &Symbol,
     coff_symbol->Aux[0].Aux.WeakExternal.TagIndex = 0;
     coff_symbol->Aux[0].Aux.WeakExternal.Characteristics =
         COFF::IMAGE_WEAK_EXTERN_SEARCH_LIBRARY;
-
-    coff_symbol->MC = &Symbol;
   } else {
-    const MCSymbol *Base = Layout.getBaseSymbol(Symbol);
-    coff_symbol->Data.Value = getSymbolValue(Symbol, Layout);
+    if (!Base)
+      coff_symbol->Data.SectionNumber = COFF::IMAGE_SYM_ABSOLUTE;
+    else
+      coff_symbol->Section = Sec;
+    Local = coff_symbol;
+  }
+
+  if (Local) {
+    Local->Data.Value = getSymbolValue(Symbol, Layout);
 
     const MCSymbolCOFF &SymbolCOFF = cast<MCSymbolCOFF>(Symbol);
-    coff_symbol->Data.Type = SymbolCOFF.getType();
-    coff_symbol->Data.StorageClass = SymbolCOFF.getClass();
+    Local->Data.Type = SymbolCOFF.getType();
+    Local->Data.StorageClass = SymbolCOFF.getClass();
 
     // If no storage class was specified in the streamer, define it here.
-    if (coff_symbol->Data.StorageClass == COFF::IMAGE_SYM_CLASS_NULL) {
+    if (Local->Data.StorageClass == COFF::IMAGE_SYM_CLASS_NULL) {
       bool IsExternal = Symbol.isExternal() ||
                         (!Symbol.getFragment() && !Symbol.isVariable());
 
-      coff_symbol->Data.StorageClass = IsExternal
-                                           ? COFF::IMAGE_SYM_CLASS_EXTERNAL
-                                           : COFF::IMAGE_SYM_CLASS_STATIC;
+      Local->Data.StorageClass = IsExternal ? COFF::IMAGE_SYM_CLASS_EXTERNAL
+                                            : COFF::IMAGE_SYM_CLASS_STATIC;
     }
-
-    if (!Base) {
-      coff_symbol->Data.SectionNumber = COFF::IMAGE_SYM_ABSOLUTE;
-    } else {
-      if (Base->getFragment()) {
-        COFFSection *Sec = SectionMap[Base->getFragment()->getParent()];
-
-        if (coff_symbol->Section && coff_symbol->Section != Sec)
-          report_fatal_error("conflicting sections for symbol");
-
-        coff_symbol->Section = Sec;
-      }
-    }
-
-    coff_symbol->MC = &Symbol;
   }
+
+  coff_symbol->MC = &Symbol;
 }
 
 // Maximum offsets for different string table entry encodings.
-static const unsigned Max6DecimalOffset = 999999;
-static const unsigned Max7DecimalOffset = 9999999;
-static const uint64_t MaxBase64Offset = 0xFFFFFFFFFULL; // 64^6, including 0
+enum : unsigned { Max7DecimalOffset = 9999999U };
+enum : uint64_t { MaxBase64Offset = 0xFFFFFFFFFULL }; // 64^6, including 0
 
 // Encode a string table entry offset in base 64, padded to 6 chars, and
 // prefixed with a double slash: '//AAAAAA', '//AAAAAB', ...
@@ -456,22 +466,21 @@ void WinCOFFObjectWriter::SetSectionName(COFFSection &S) {
   if (S.Name.size() > COFF::NameSize) {
     uint64_t StringTableEntry = Strings.getOffset(S.Name);
 
-    if (StringTableEntry <= Max6DecimalOffset) {
-      std::sprintf(S.Header.Name, "/%d", unsigned(StringTableEntry));
-    } else if (StringTableEntry <= Max7DecimalOffset) {
-      // With seven digits, we have to skip the terminating null. Because
-      // sprintf always appends it, we use a larger temporary buffer.
-      char buffer[9] = {};
-      std::sprintf(buffer, "/%d", unsigned(StringTableEntry));
-      std::memcpy(S.Header.Name, buffer, 8);
+    if (StringTableEntry <= Max7DecimalOffset) {
+      SmallVector<char, COFF::NameSize> Buffer;
+      Twine('/').concat(Twine(StringTableEntry)).toVector(Buffer);
+      assert(Buffer.size() <= COFF::NameSize && Buffer.size() >= 2);
+
+      std::memcpy(S.Header.Name, Buffer.data(), Buffer.size());
     } else if (StringTableEntry <= MaxBase64Offset) {
       // Starting with 10,000,000, offsets are encoded as base64.
       encodeBase64StringEntry(S.Header.Name, StringTableEntry);
     } else {
       report_fatal_error("COFF string table is greater than 64 GB.");
     }
-  } else
+  } else {
     std::memcpy(S.Header.Name, S.Name.c_str(), S.Name.size());
+  }
 }
 
 void WinCOFFObjectWriter::SetSymbolName(COFFSymbol &S) {
@@ -787,6 +796,10 @@ void WinCOFFObjectWriter::recordRelocation(
     }
   }
 
+  // The fixed value never makes sense for section indicies, ignore it.
+  if (Fixup.getKind() == FK_SecRel_2)
+    FixedValue = 0;
+
   if (TargetObjectWriter->recordRelocation(Fixup))
     coff_section->Relocations.push_back(Reloc);
 }
@@ -924,7 +937,7 @@ void WinCOFFObjectWriter::writeObject(MCAssembler &Asm,
 
     if (IsPhysicalSection(Sec)) {
       // Align the section data to a four byte boundary.
-      offset = RoundUpToAlignment(offset, 4);
+      offset = alignTo(offset, 4);
       Sec->Header.PointerToRawData = offset;
 
       offset += Sec->Header.SizeOfRawData;

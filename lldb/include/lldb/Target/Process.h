@@ -18,6 +18,7 @@
 // C++ Includes
 #include <list>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -30,6 +31,7 @@
 #include "lldb/Core/Communication.h"
 #include "lldb/Core/Error.h"
 #include "lldb/Core/Event.h"
+#include "lldb/Core/Listener.h"
 #include "lldb/Core/LoadedModuleInfoList.h"
 #include "lldb/Core/ThreadSafeValue.h"
 #include "lldb/Core/PluginInterface.h"
@@ -400,7 +402,7 @@ public:
         m_listener_sp = listener_sp;
     }
 
-    Listener &
+    lldb::ListenerSP
     GetListenerForProcess (Debugger &debugger);
 
 protected:
@@ -939,13 +941,13 @@ public:
     /// Construct with a shared pointer to a target, and the Process listener.
     /// Uses the Host UnixSignalsSP by default.
     //------------------------------------------------------------------
-    Process(lldb::TargetSP target_sp, Listener &listener);
+    Process(lldb::TargetSP target_sp, lldb::ListenerSP listener_sp);
 
     //------------------------------------------------------------------
     /// Construct with a shared pointer to a target, the Process listener,
     /// and the appropriate UnixSignalsSP for the process.
     //------------------------------------------------------------------
-    Process(lldb::TargetSP target_sp, Listener &listener, const lldb::UnixSignalsSP &unix_signals_sp);
+    Process(lldb::TargetSP target_sp, lldb::ListenerSP listener_sp, const lldb::UnixSignalsSP &unix_signals_sp);
 
     //------------------------------------------------------------------
     /// Destructor.
@@ -985,7 +987,7 @@ public:
     static lldb::ProcessSP
     FindPlugin (lldb::TargetSP target_sp,
                 const char *plugin_name, 
-                Listener &listener, 
+                lldb::ListenerSP listener_sp,
                 const FileSpec *crash_file_path);
 
     //------------------------------------------------------------------
@@ -998,16 +1000,14 @@ public:
     /// Subclasses should call Host::StartMonitoringChildProcess ()
     /// with:
     ///     callback = Process::SetHostProcessExitStatus
-    ///     callback_baton = nullptr
     ///     pid = Process::GetID()
     ///     monitor_signals = false
     //------------------------------------------------------------------
     static bool
-    SetProcessExitStatus(void *callback_baton,   // The callback baton which should be set to nullptr
-                         lldb::pid_t pid,        // The process ID we want to monitor
+    SetProcessExitStatus(lldb::pid_t pid, // The process ID we want to monitor
                          bool exited,
-                         int signo,              // Zero for no signal
-                         int status);            // Exit value of process if signal is zero
+                         int signo,   // Zero for no signal
+                         int status); // Exit value of process if signal is zero
 
     lldb::ByteOrder
     GetByteOrder () const;
@@ -1886,15 +1886,13 @@ public:
     //------------------------------------------------------------------
     lldb::StateType
     GetState ();
-    
+
     lldb::ExpressionResults
-    RunThreadPlan (ExecutionContext &exe_ctx,    
-                    lldb::ThreadPlanSP &thread_plan_sp,
-                    const EvaluateExpressionOptions &options,
-                    Stream &errors);
+    RunThreadPlan(ExecutionContext &exe_ctx, lldb::ThreadPlanSP &thread_plan_sp,
+                  const EvaluateExpressionOptions &options, DiagnosticManager &diagnostic_manager);
 
     static const char *
-    ExecutionResultAsCString (lldb::ExpressionResults result);
+    ExecutionResultAsCString(lldb::ExpressionResults result);
 
     void
     GetStatus (Stream &ostrm);
@@ -1961,6 +1959,9 @@ public:
     //------------------------------------------------------------------
     void
     PrintWarningOptimization (const SymbolContext &sc);
+
+    virtual bool
+    GetProcessInfo(ProcessInstanceInfo &info);
 
 public:
     //------------------------------------------------------------------
@@ -2232,11 +2233,11 @@ public:
     ///     order.
     //------------------------------------------------------------------
     uint64_t
-    ReadUnsignedIntegerFromMemory (lldb::addr_t load_addr, 
-                                   size_t byte_size,
-                                   uint64_t fail_value, 
-                                   Error &error);
-    
+    ReadUnsignedIntegerFromMemory(lldb::addr_t load_addr, size_t byte_size, uint64_t fail_value, Error &error);
+
+    int64_t
+    ReadSignedIntegerFromMemory(lldb::addr_t load_addr, size_t byte_size, int64_t fail_value, Error &error);
+
     lldb::addr_t
     ReadPointerFromMemory (lldb::addr_t vm_addr, 
                            Error &error);
@@ -2851,7 +2852,7 @@ public:
     WaitForProcessToStop(const TimeValue *timeout,
                          lldb::EventSP *event_sp_ptr = nullptr,
                          bool wait_always = true,
-                         Listener *hijack_listener = nullptr,
+                         lldb::ListenerSP hijack_listener = lldb::ListenerSP(),
                          Stream *stream = nullptr,
                          bool use_run_lock = true);
 
@@ -2877,7 +2878,7 @@ public:
     lldb::StateType
     WaitForStateChangedEvents(const TimeValue *timeout,
                               lldb::EventSP &event_sp,
-                              Listener *hijack_listener); // Pass nullptr to use builtin listener
+                              lldb::ListenerSP hijack_listener); // Pass an empty ListenerSP to use builtin listener
 
     //--------------------------------------------------------------------------------------
     /// Centralize the code that handles and prints descriptions for process state changes.
@@ -2908,10 +2909,10 @@ public:
     ProcessEventHijacker
     {
     public:
-        ProcessEventHijacker (Process &process, Listener *listener) :
+        ProcessEventHijacker (Process &process, lldb::ListenerSP listener_sp) :
             m_process (process)
         {
-            m_process.HijackProcessEvents (listener);
+            m_process.HijackProcessEvents (listener_sp);
         }
 
         ~ProcessEventHijacker ()
@@ -2940,7 +2941,7 @@ public:
     ///     \b false otherwise.
     //------------------------------------------------------------------
     bool
-    HijackProcessEvents (Listener *listener);
+    HijackProcessEvents (lldb::ListenerSP listener_sp);
     
     //------------------------------------------------------------------
     /// Restores the process event broadcasting to its normal state.
@@ -3343,8 +3344,7 @@ protected:
     ThreadSafeValue<lldb::StateType>  m_private_state; // The actual state of our process
     Broadcaster                 m_private_state_broadcaster;  // This broadcaster feeds state changed events into the private state thread's listener.
     Broadcaster                 m_private_state_control_broadcaster; // This is the control broadcaster, used to pause, resume & stop the private state thread.
-    Listener                    m_private_state_listener;     // This is the listener for the private state thread.
-    Predicate<bool>             m_private_state_control_wait; /// This Predicate is used to signal that a control operation is complete.
+    lldb::ListenerSP            m_private_state_listener_sp;     // This is the listener for the private state thread.
     HostThread                  m_private_state_thread; ///< Thread ID for the thread that watches internal state events
     ProcessModID                m_mod_id;               ///< Tracks the state of the process over stops and other alterations.
     uint32_t                    m_process_unique_id;    ///< Each lldb_private::Process class that is created gets a unique integer ID that increments with each new instance
@@ -3352,8 +3352,9 @@ protected:
     std::map<uint64_t, uint32_t> m_thread_id_to_index_id_map;
     int                         m_exit_status;          ///< The exit status of the process, or -1 if not set.
     std::string                 m_exit_string;          ///< A textual description of why a process exited.
-    Mutex                       m_exit_status_mutex;    ///< Mutex so m_exit_status m_exit_string can be safely accessed from multiple threads
-    Mutex                       m_thread_mutex;
+    std::mutex
+        m_exit_status_mutex; ///< Mutex so m_exit_status m_exit_string can be safely accessed from multiple threads
+    std::recursive_mutex m_thread_mutex;
     ThreadList                  m_thread_list_real;     ///< The threads for this process as are known to the protocol we are debugging with
     ThreadList                  m_thread_list;          ///< The threads for this process as the user will see them. This is usually the same as
                                                         ///< m_thread_list_real, but might be different if there is an OS plug-in creating memory threads
@@ -3363,7 +3364,7 @@ protected:
     uint32_t                    m_queue_list_stop_id;   ///< The natural stop id when queue list was last fetched
     std::vector<Notifications>  m_notifications;        ///< The list of notifications that this process can deliver.
     std::vector<lldb::addr_t>   m_image_tokens;
-    Listener                    &m_listener;
+    lldb::ListenerSP            m_listener_sp;          ///< Shared pointer to the listener used for public events.  Can not be empty.
     BreakpointSiteList          m_breakpoint_site_list; ///< This is the list of breakpoint locations we intend to insert in the target.
     lldb::DynamicLoaderUP       m_dyld_ap;
     lldb::JITLoaderListUP       m_jit_loaders_ap;
@@ -3374,11 +3375,11 @@ protected:
     lldb::ABISP                 m_abi_sp;
     lldb::IOHandlerSP           m_process_input_reader;
     Communication               m_stdio_communication;
-    Mutex                       m_stdio_communication_mutex;
+    std::recursive_mutex m_stdio_communication_mutex;
     bool                        m_stdin_forward;           /// Remember if stdin must be forwarded to remote debug server
     std::string                 m_stdout_data;
     std::string                 m_stderr_data;
-    Mutex                       m_profile_data_comm_mutex;
+    std::recursive_mutex m_profile_data_comm_mutex;
     std::vector<std::string>    m_profile_data;
     Predicate<uint32_t>         m_iohandler_sync;
     MemoryCache                 m_memory_cache;
@@ -3402,6 +3403,7 @@ protected:
     bool m_destroy_in_process;
     bool m_can_interpret_function_calls; // Some targets, e.g the OSX kernel, don't support the ability to modify the stack.
     WarningsCollection          m_warnings_issued;  // A set of object pointers which have already had warnings printed
+    std::mutex                  m_run_thread_plan_lock;
     
     enum {
         eCanJITDontKnow= 0,
@@ -3433,12 +3435,15 @@ protected:
     void
     ResumePrivateStateThread ();
 
+private:
     struct PrivateStateThreadArgs
     {
+        PrivateStateThreadArgs(Process *p, bool s) : process(p), is_secondary_thread(s) {};
         Process *process;
         bool is_secondary_thread;
     };
-
+    
+    // arg is a pointer to a new'ed PrivateStateThreadArgs structure.  PrivateStateThread will free it for you.
     static lldb::thread_result_t
     PrivateStateThread (void *arg);
 
@@ -3450,6 +3455,7 @@ protected:
     lldb::thread_result_t
     RunPrivateStateThread (bool is_secondary_thread);
 
+protected:
     void
     HandlePrivateEvent (lldb::EventSP &event_sp);
 

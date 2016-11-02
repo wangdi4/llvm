@@ -15,7 +15,6 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -639,6 +638,11 @@ bool llvm::canBeOmittedFromSymbolTable(const GlobalValue *GV) {
   if (isa<GlobalAlias>(GV))
     return false;
 
+  // If we don't see every use, we have to be conservative and assume the value
+  // address is significant.
+  if (GV->getParent()->getMaterializer())
+    return false;
+
   GlobalStatus GS;
   if (GlobalStatus::analyzeGlobal(GV, GS))
     return false;
@@ -646,35 +650,76 @@ bool llvm::canBeOmittedFromSymbolTable(const GlobalValue *GV) {
   return !GS.IsCompared;
 }
 
+// FIXME: make this a proper option
+static bool CanUseCopyRelocWithPIE = false;
+
+bool llvm::shouldAssumeDSOLocal(Reloc::Model RM, const Triple &TT,
+                                const Module &M, const GlobalValue *GV) {
+  // DLLImport explicitly marks the GV as external.
+  if (GV && GV->hasDLLImportStorageClass())
+    return false;
+
+  // Every other GV is local on COFF
+  if (TT.isOSBinFormatCOFF())
+    return true;
+
+  if (RM == Reloc::Static)
+    return true;
+
+  if (GV && (GV->hasLocalLinkage() || !GV->hasDefaultVisibility()))
+    return true;
+
+  if (TT.isOSBinFormatELF()) {
+    assert(RM != Reloc::DynamicNoPIC);
+    // Some linkers can use copy relocations with pie executables.
+    if (M.getPIELevel() != PIELevel::Default) {
+      if (CanUseCopyRelocWithPIE)
+        return true;
+
+      // If the symbol is defined, it cannot be preempted.
+      if (GV && !GV->isDeclarationForLinker())
+        return true;
+      return false;
+    }
+
+    // ELF supports preemption of other symbols.
+    return false;
+  }
+
+  assert(TT.isOSBinFormatMachO());
+  if (GV && GV->isStrongDefinitionForLinker())
+    return true;
+
+  return false;
+}
+
 static void collectFuncletMembers(
     DenseMap<const MachineBasicBlock *, int> &FuncletMembership, int Funclet,
     const MachineBasicBlock *MBB) {
-  // Add this MBB to our funclet.
-  auto P = FuncletMembership.insert(std::make_pair(MBB, Funclet));
+  SmallVector<const MachineBasicBlock *, 16> Worklist = {MBB};
+  while (!Worklist.empty()) {
+    const MachineBasicBlock *Visiting = Worklist.pop_back_val();
+    // Don't follow blocks which start new funclets.
+    if (Visiting->isEHPad() && Visiting != MBB)
+      continue;
 
-  // Don't revisit blocks.
-  if (!P.second) {
-    assert(P.first->second == Funclet && "MBB is part of two funclets!");
-    return;
+    // Add this MBB to our funclet.
+    auto P = FuncletMembership.insert(std::make_pair(Visiting, Funclet));
+
+    // Don't revisit blocks.
+    if (!P.second) {
+      assert(P.first->second == Funclet && "MBB is part of two funclets!");
+      continue;
+    }
+
+    // Returns are boundaries where funclet transfer can occur, don't follow
+    // successors.
+    if (Visiting->isReturnBlock())
+      continue;
+
+    for (const MachineBasicBlock *Succ : Visiting->successors())
+      Worklist.push_back(Succ);
   }
-
-  bool IsReturn = false;
-  int NumTerminators = 0;
-  for (const MachineInstr &MI : MBB->terminators()) {
-    IsReturn |= MI.isReturn();
-    ++NumTerminators;
-  }
-  assert((!IsReturn || NumTerminators == 1) &&
-         "Expected only one terminator when a return is present!");
-
-  // Returns are boundaries where funclet transfer can occur, don't follow
-  // successors.
-  if (IsReturn)
-    return;
-
-  for (const MachineBasicBlock *SMBB : MBB->successors())
-    if (!SMBB->isEHPad())
-      collectFuncletMembers(FuncletMembership, Funclet, SMBB);
 }
 
 DenseMap<const MachineBasicBlock *, int>

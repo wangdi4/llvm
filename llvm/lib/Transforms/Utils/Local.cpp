@@ -321,8 +321,12 @@ bool llvm::isInstructionTriviallyDead(Instruction *I,
         II->getIntrinsicID() == Intrinsic::lifetime_end)
       return isa<UndefValue>(II->getArgOperand(1));
 
-    // Assumptions are dead if their condition is trivially true.
-    if (II->getIntrinsicID() == Intrinsic::assume) {
+    // Assumptions are dead if their condition is trivially true.  Guards on
+    // true are operationally no-ops.  In the future we can consider more
+    // sophisticated tradeoffs for guards considering potential for check
+    // widening, but for now we keep things simple.
+    if (II->getIntrinsicID() == Intrinsic::assume ||
+        II->getIntrinsicID() == Intrinsic::experimental_guard) {
       if (ConstantInt *Cond = dyn_cast<ConstantInt>(II->getArgOperand(0)))
         return !Cond->isZero();
 
@@ -486,7 +490,8 @@ bool llvm::SimplifyInstructionsInBlock(BasicBlock *BB,
   // Iterate over the original function, only adding insts to the worklist
   // if they actually need to be revisited. This avoids having to pre-init
   // the worklist with the entire function's worth of instructions.
-  for (BasicBlock::iterator BI = BB->begin(), E = std::prev(BB->end()); BI != E;) {
+  for (BasicBlock::iterator BI = BB->begin(), E = std::prev(BB->end());
+       BI != E;) {
     assert(!BI->isTerminator());
     Instruction *I = &*BI;
     ++BI;
@@ -944,37 +949,44 @@ bool llvm::EliminateDuplicatePHINodes(BasicBlock *BB) {
 static unsigned enforceKnownAlignment(Value *V, unsigned Align,
                                       unsigned PrefAlign,
                                       const DataLayout &DL) {
+  assert(PrefAlign > Align);
+
   V = V->stripPointerCasts();
 
   if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+    // TODO: ideally, computeKnownBits ought to have used
+    // AllocaInst::getAlignment() in its computation already, making
+    // the below max redundant. But, as it turns out,
+    // stripPointerCasts recurses through infinite layers of bitcasts,
+    // while computeKnownBits is not allowed to traverse more than 6
+    // levels.
+    Align = std::max(AI->getAlignment(), Align);
+    if (PrefAlign <= Align)
+      return Align;
+
     // If the preferred alignment is greater than the natural stack alignment
     // then don't round up. This avoids dynamic stack realignment.
     if (DL.exceedsNaturalStackAlignment(PrefAlign))
       return Align;
-    // If there is a requested alignment and if this is an alloca, round up.
-    if (AI->getAlignment() >= PrefAlign)
-      return AI->getAlignment();
     AI->setAlignment(PrefAlign);
     return PrefAlign;
   }
 
   if (auto *GO = dyn_cast<GlobalObject>(V)) {
+    // TODO: as above, this shouldn't be necessary.
+    Align = std::max(GO->getAlignment(), Align);
+    if (PrefAlign <= Align)
+      return Align;
+
     // If there is a large requested alignment and we can, bump up the alignment
     // of the global.  If the memory we set aside for the global may not be the
     // memory used by the final program then it is impossible for us to reliably
     // enforce the preferred alignment.
-    if (!GO->isStrongDefinitionForLinker())
+    if (!GO->canIncreaseAlignment())
       return Align;
 
-    if (GO->getAlignment() >= PrefAlign)
-      return GO->getAlignment();
-    // We can only increase the alignment of the global if it has no alignment
-    // specified or if it is not assigned a section.  If it is assigned a
-    // section, the global could be densely packed with other objects in the
-    // section, increasing the alignment could cause padding issues.
-    if (!GO->hasSection() || GO->getAlignment() == 0)
-      GO->setAlignment(PrefAlign);
-    return GO->getAlignment();
+    GO->setAlignment(PrefAlign);
+    return PrefAlign;
   }
 
   return Align;
@@ -1018,7 +1030,8 @@ unsigned llvm::getOrEnforceKnownAlignment(Value *V, unsigned PrefAlign,
 ///
 
 /// See if there is a dbg.value intrinsic for DIVar before I.
-static bool LdStHasDebugValue(const DILocalVariable *DIVar, Instruction *I) {
+static bool LdStHasDebugValue(DILocalVariable *DIVar, DIExpression *DIExpr,
+                              Instruction *I) {
   // Since we can't guarantee that the original dbg.declare instrinsic
   // is removed by LowerDbgDeclare(), we need to make sure that we are
   // not inserting the same dbg.value intrinsic over and over.
@@ -1028,7 +1041,8 @@ static bool LdStHasDebugValue(const DILocalVariable *DIVar, Instruction *I) {
     if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(PrevI))
       if (DVI->getValue() == I->getOperand(0) &&
           DVI->getOffset() == 0 &&
-          DVI->getVariable() == DIVar)
+          DVI->getVariable() == DIVar &&
+          DVI->getExpression() == DIExpr)
         return true;
   }
   return false;
@@ -1041,9 +1055,6 @@ bool llvm::ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
   auto *DIVar = DDI->getVariable();
   auto *DIExpr = DDI->getExpression();
   assert(DIVar && "Missing variable");
-
-  if (LdStHasDebugValue(DIVar, SI))
-    return true;
 
   // If an argument is zero extended then use argument directly. The ZExt
   // may be zapped by an optimization pass in future.
@@ -1059,25 +1070,25 @@ bool llvm::ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
     // to the alloca described by DDI, if it's first operand is an extend,
     // we're guaranteed that before extension, the value was narrower than
     // the size of the alloca, hence the size of the described variable.
-    SmallVector<uint64_t, 3> NewDIExpr;
+    SmallVector<uint64_t, 3> Ops;
     unsigned PieceOffset = 0;
     // If this already is a bit piece, we drop the bit piece from the expression
     // and record the offset.
     if (DIExpr->isBitPiece()) {
-      NewDIExpr.append(DIExpr->elements_begin(), DIExpr->elements_end()-3);
+      Ops.append(DIExpr->elements_begin(), DIExpr->elements_end()-3);
       PieceOffset = DIExpr->getBitPieceOffset();
     } else {
-      NewDIExpr.append(DIExpr->elements_begin(), DIExpr->elements_end());
+      Ops.append(DIExpr->elements_begin(), DIExpr->elements_end());
     }
-    NewDIExpr.push_back(dwarf::DW_OP_bit_piece);
-    NewDIExpr.push_back(PieceOffset); //Offset
+    Ops.push_back(dwarf::DW_OP_bit_piece);
+    Ops.push_back(PieceOffset); // Offset
     const DataLayout &DL = DDI->getModule()->getDataLayout();
-    NewDIExpr.push_back(DL.getTypeSizeInBits(ExtendedArg->getType())); // Size
-    Builder.insertDbgValueIntrinsic(ExtendedArg, 0, DIVar,
-                                    Builder.createExpression(NewDIExpr),
-                                    DDI->getDebugLoc(), SI);
-  }
-  else
+    Ops.push_back(DL.getTypeSizeInBits(ExtendedArg->getType())); // Size
+    auto NewDIExpr = Builder.createExpression(Ops);
+    if (!LdStHasDebugValue(DIVar, NewDIExpr, SI))
+      Builder.insertDbgValueIntrinsic(ExtendedArg, 0, DIVar, NewDIExpr,
+                                      DDI->getDebugLoc(), SI);
+  } else if (!LdStHasDebugValue(DIVar, DIExpr, SI))
     Builder.insertDbgValueIntrinsic(SI->getOperand(0), 0, DIVar, DIExpr,
                                     DDI->getDebugLoc(), SI);
   return true;
@@ -1091,7 +1102,7 @@ bool llvm::ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
   auto *DIExpr = DDI->getExpression();
   assert(DIVar && "Missing variable");
 
-  if (LdStHasDebugValue(DIVar, LI))
+  if (LdStHasDebugValue(DIVar, DIExpr, LI))
     return true;
 
   // We are now tracking the loaded value instead of the address. In the
@@ -1133,12 +1144,14 @@ bool llvm::LowerDbgDeclare(Function &F) {
     // the stack slot (and at a lexical-scope granularity). Later
     // passes will attempt to elide the stack slot.
     if (AI && !isArray(AI)) {
-      for (User *U : AI->users())
-        if (StoreInst *SI = dyn_cast<StoreInst>(U))
-          ConvertDebugDeclareToDebugValue(DDI, SI, DIB);
-        else if (LoadInst *LI = dyn_cast<LoadInst>(U))
+      for (auto &AIUse : AI->uses()) {
+        User *U = AIUse.getUser();
+        if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+          if (AIUse.getOperandNo() == 1)
+            ConvertDebugDeclareToDebugValue(DDI, SI, DIB);
+        } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
           ConvertDebugDeclareToDebugValue(DDI, LI, DIB);
-        else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
           // This is a call by-value or some other instruction that
           // takes a pointer to the variable. Insert a *value*
           // intrinsic that describes the alloca.
@@ -1150,6 +1163,7 @@ bool llvm::LowerDbgDeclare(Function &F) {
                                       DIB.createExpression(NewDIExpr),
                                       DDI->getDebugLoc(), CI);
         }
+      }
       DDI->eraseFromParent();
     }
   }
@@ -1212,7 +1226,28 @@ bool llvm::replaceDbgDeclareForAlloca(AllocaInst *AI, Value *NewAllocaAddress,
                            Deref, Offset);
 }
 
-void llvm::changeToUnreachable(Instruction *I, bool UseLLVMTrap) {
+unsigned llvm::removeAllNonTerminatorAndEHPadInstructions(BasicBlock *BB) {
+  unsigned NumDeadInst = 0;
+  // Delete the instructions backwards, as it has a reduced likelihood of
+  // having to update as many def-use and use-def chains.
+  Instruction *EndInst = BB->getTerminator(); // Last not to be deleted.
+  while (EndInst != &BB->front()) {
+    // Delete the next to last instruction.
+    Instruction *Inst = &*--EndInst->getIterator();
+    if (!Inst->use_empty() && !Inst->getType()->isTokenTy())
+      Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
+    if (Inst->isEHPad() || Inst->getType()->isTokenTy()) {
+      EndInst = Inst;
+      continue;
+    }
+    if (!isa<DbgInfoIntrinsic>(Inst))
+      ++NumDeadInst;
+    Inst->eraseFromParent();
+  }
+  return NumDeadInst;
+}
+
+unsigned llvm::changeToUnreachable(Instruction *I, bool UseLLVMTrap) {
   BasicBlock *BB = I->getParent();
   // Loop over all of the successors, removing BB's entry from any PHI
   // nodes.
@@ -1230,12 +1265,15 @@ void llvm::changeToUnreachable(Instruction *I, bool UseLLVMTrap) {
   new UnreachableInst(I->getContext(), I);
 
   // All instructions after this are dead.
+  unsigned NumInstrsRemoved = 0;
   BasicBlock::iterator BBI = I->getIterator(), BBE = BB->end();
   while (BBI != BBE) {
     if (!BBI->use_empty())
       BBI->replaceAllUsesWith(UndefValue::get(BBI->getType()));
     BB->getInstList().erase(BBI++);
+    ++NumInstrsRemoved;
   }
+  return NumInstrsRemoved;
 }
 
 /// changeToCall - Convert the specified invoke into a normal call.
@@ -1277,7 +1315,7 @@ static bool markAliveBlocks(Function &F,
       // Assumptions that are known to be false are equivalent to unreachable.
       // Also, if the condition is undefined, then we make the choice most
       // beneficial to the optimizer, and choose that to also be unreachable.
-      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(BBI))
+      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(BBI)) {
         if (II->getIntrinsicID() == Intrinsic::assume) {
           bool MakeUnreachable = false;
           if (isa<UndefValue>(II->getArgOperand(0)))
@@ -1293,6 +1331,24 @@ static bool markAliveBlocks(Function &F,
             break;
           }
         }
+
+        if (II->getIntrinsicID() == Intrinsic::experimental_guard) {
+          // A call to the guard intrinsic bails out of the current compilation
+          // unit if the predicate passed to it is false.  If the predicate is a
+          // constant false, then we know the guard will bail out of the current
+          // compile unconditionally, so all code following it is dead.
+          //
+          // Note: unlike in llvm.assume, it is not "obviously profitable" for
+          // guards to treat `undef` as `false` since a guard on `undef` can
+          // still be useful for widening.
+          if (auto *CI = dyn_cast<ConstantInt>(II->getArgOperand(0)))
+            if (CI->isZero() && !isa<UnreachableInst>(II->getNextNode())) {
+              changeToUnreachable(II->getNextNode(), /*UseLLVMTrap=*/ false);
+              Changed = true;
+              break;
+            }
+        }
+      }
 
       if (CallInst *CI = dyn_cast<CallInst>(BBI)) {
         if (CI->doesNotReturn()) {
@@ -1431,7 +1487,7 @@ void llvm::removeUnwindEdge(BasicBlock *BB) {
 /// if they are in a dead cycle.  Return true if a change was made, false
 /// otherwise.
 bool llvm::removeUnreachableBlocks(Function &F, LazyValueInfo *LVI) {
-  SmallPtrSet<BasicBlock*, 128> Reachable;
+  SmallPtrSet<BasicBlock*, 16> Reachable;
   bool Changed = markAliveBlocks(F, Reachable);
 
   // If there are unreachable blocks in the CFG...
@@ -1488,6 +1544,7 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J,
         K->setMetadata(Kind, MDNode::getMostGenericAliasScope(JMD, KMD));
         break;
       case LLVMContext::MD_noalias:
+      case LLVMContext::MD_mem_parallel_loop_access:
         K->setMetadata(Kind, MDNode::intersect(JMD, KMD));
         break;
       case LLVMContext::MD_range:
@@ -1559,7 +1616,7 @@ unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
        UI != UE;) {
     Use &U = *UI++;
     auto *I = cast<Instruction>(U.getUser());
-    if (DT.dominates(BB, I->getParent())) {
+    if (DT.properlyDominates(BB, I->getParent())) {
       U.set(To);
       DEBUG(dbgs() << "Replace dominated use of '" << From->getName() << "' as "
                    << *To << " in " << *U << "\n");
@@ -1570,18 +1627,264 @@ unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
 }
 
 bool llvm::callsGCLeafFunction(ImmutableCallSite CS) {
-  if (isa<IntrinsicInst>(CS.getInstruction()))
-    // Most LLVM intrinsics are things which can never take a safepoint.
-    // As a result, we don't need to have the stack parsable at the
-    // callsite.  This is a highly useful optimization since intrinsic
-    // calls are fairly prevalent, particularly in debug builds.
-    return true;
-
   // Check if the function is specifically marked as a gc leaf function.
   if (CS.hasFnAttr("gc-leaf-function"))
     return true;
-  if (const Function *F = CS.getCalledFunction())
-    return F->hasFnAttribute("gc-leaf-function");
+  if (const Function *F = CS.getCalledFunction()) {
+    if (F->hasFnAttribute("gc-leaf-function"))
+      return true;
+
+    if (auto IID = F->getIntrinsicID())
+      // Most LLVM intrinsics do not take safepoints.
+      return IID != Intrinsic::experimental_gc_statepoint &&
+             IID != Intrinsic::experimental_deoptimize;
+  }
 
   return false;
+}
+
+/// A potential constituent of a bitreverse or bswap expression. See
+/// collectBitParts for a fuller explanation.
+struct BitPart {
+  BitPart(Value *P, unsigned BW) : Provider(P) {
+    Provenance.resize(BW);
+  }
+
+  /// The Value that this is a bitreverse/bswap of.
+  Value *Provider;
+  /// The "provenance" of each bit. Provenance[A] = B means that bit A
+  /// in Provider becomes bit B in the result of this expression.
+  SmallVector<int8_t, 32> Provenance; // int8_t means max size is i128.
+
+  enum { Unset = -1 };
+};
+
+/// Analyze the specified subexpression and see if it is capable of providing
+/// pieces of a bswap or bitreverse. The subexpression provides a potential
+/// piece of a bswap or bitreverse if it can be proven that each non-zero bit in
+/// the output of the expression came from a corresponding bit in some other
+/// value. This function is recursive, and the end result is a mapping of
+/// bitnumber to bitnumber. It is the caller's responsibility to validate that
+/// the bitnumber to bitnumber mapping is correct for a bswap or bitreverse.
+///
+/// For example, if the current subexpression if "(shl i32 %X, 24)" then we know
+/// that the expression deposits the low byte of %X into the high byte of the
+/// result and that all other bits are zero. This expression is accepted and a
+/// BitPart is returned with Provider set to %X and Provenance[24-31] set to
+/// [0-7].
+///
+/// To avoid revisiting values, the BitPart results are memoized into the
+/// provided map. To avoid unnecessary copying of BitParts, BitParts are
+/// constructed in-place in the \c BPS map. Because of this \c BPS needs to
+/// store BitParts objects, not pointers. As we need the concept of a nullptr
+/// BitParts (Value has been analyzed and the analysis failed), we an Optional
+/// type instead to provide the same functionality.
+///
+/// Because we pass around references into \c BPS, we must use a container that
+/// does not invalidate internal references (std::map instead of DenseMap).
+///
+static const Optional<BitPart> &
+collectBitParts(Value *V, bool MatchBSwaps, bool MatchBitReversals,
+                std::map<Value *, Optional<BitPart>> &BPS) {
+  auto I = BPS.find(V);
+  if (I != BPS.end())
+    return I->second;
+
+  auto &Result = BPS[V] = None;
+  auto BitWidth = cast<IntegerType>(V->getType())->getBitWidth();
+
+  if (Instruction *I = dyn_cast<Instruction>(V)) {
+    // If this is an or instruction, it may be an inner node of the bswap.
+    if (I->getOpcode() == Instruction::Or) {
+      auto &A = collectBitParts(I->getOperand(0), MatchBSwaps,
+                                MatchBitReversals, BPS);
+      auto &B = collectBitParts(I->getOperand(1), MatchBSwaps,
+                                MatchBitReversals, BPS);
+      if (!A || !B)
+        return Result;
+
+      // Try and merge the two together.
+      if (!A->Provider || A->Provider != B->Provider)
+        return Result;
+
+      Result = BitPart(A->Provider, BitWidth);
+      for (unsigned i = 0; i < A->Provenance.size(); ++i) {
+        if (A->Provenance[i] != BitPart::Unset &&
+            B->Provenance[i] != BitPart::Unset &&
+            A->Provenance[i] != B->Provenance[i])
+          return Result = None;
+
+        if (A->Provenance[i] == BitPart::Unset)
+          Result->Provenance[i] = B->Provenance[i];
+        else
+          Result->Provenance[i] = A->Provenance[i];
+      }
+
+      return Result;
+    }
+
+    // If this is a logical shift by a constant, recurse then shift the result.
+    if (I->isLogicalShift() && isa<ConstantInt>(I->getOperand(1))) {
+      unsigned BitShift =
+          cast<ConstantInt>(I->getOperand(1))->getLimitedValue(~0U);
+      // Ensure the shift amount is defined.
+      if (BitShift > BitWidth)
+        return Result;
+
+      auto &Res = collectBitParts(I->getOperand(0), MatchBSwaps,
+                                  MatchBitReversals, BPS);
+      if (!Res)
+        return Result;
+      Result = Res;
+
+      // Perform the "shift" on BitProvenance.
+      auto &P = Result->Provenance;
+      if (I->getOpcode() == Instruction::Shl) {
+        P.erase(std::prev(P.end(), BitShift), P.end());
+        P.insert(P.begin(), BitShift, BitPart::Unset);
+      } else {
+        P.erase(P.begin(), std::next(P.begin(), BitShift));
+        P.insert(P.end(), BitShift, BitPart::Unset);
+      }
+
+      return Result;
+    }
+
+    // If this is a logical 'and' with a mask that clears bits, recurse then
+    // unset the appropriate bits.
+    if (I->getOpcode() == Instruction::And &&
+        isa<ConstantInt>(I->getOperand(1))) {
+      APInt Bit(I->getType()->getPrimitiveSizeInBits(), 1);
+      const APInt &AndMask = cast<ConstantInt>(I->getOperand(1))->getValue();
+
+      // Check that the mask allows a multiple of 8 bits for a bswap, for an
+      // early exit.
+      unsigned NumMaskedBits = AndMask.countPopulation();
+      if (!MatchBitReversals && NumMaskedBits % 8 != 0)
+        return Result;
+      
+      auto &Res = collectBitParts(I->getOperand(0), MatchBSwaps,
+                                  MatchBitReversals, BPS);
+      if (!Res)
+        return Result;
+      Result = Res;
+
+      for (unsigned i = 0; i < BitWidth; ++i, Bit <<= 1)
+        // If the AndMask is zero for this bit, clear the bit.
+        if ((AndMask & Bit) == 0)
+          Result->Provenance[i] = BitPart::Unset;
+      return Result;
+    }
+
+    // If this is a zext instruction zero extend the result.
+    if (I->getOpcode() == Instruction::ZExt) {
+      auto &Res = collectBitParts(I->getOperand(0), MatchBSwaps,
+                                  MatchBitReversals, BPS);
+      if (!Res)
+        return Result;
+
+      Result = BitPart(Res->Provider, BitWidth);
+      auto NarrowBitWidth =
+          cast<IntegerType>(cast<ZExtInst>(I)->getSrcTy())->getBitWidth();
+      for (unsigned i = 0; i < NarrowBitWidth; ++i)
+        Result->Provenance[i] = Res->Provenance[i];
+      for (unsigned i = NarrowBitWidth; i < BitWidth; ++i)
+        Result->Provenance[i] = BitPart::Unset;
+      return Result;
+    }
+  }
+
+  // Okay, we got to something that isn't a shift, 'or' or 'and'.  This must be
+  // the input value to the bswap/bitreverse.
+  Result = BitPart(V, BitWidth);
+  for (unsigned i = 0; i < BitWidth; ++i)
+    Result->Provenance[i] = i;
+  return Result;
+}
+
+static bool bitTransformIsCorrectForBSwap(unsigned From, unsigned To,
+                                          unsigned BitWidth) {
+  if (From % 8 != To % 8)
+    return false;
+  // Convert from bit indices to byte indices and check for a byte reversal.
+  From >>= 3;
+  To >>= 3;
+  BitWidth >>= 3;
+  return From == BitWidth - To - 1;
+}
+
+static bool bitTransformIsCorrectForBitReverse(unsigned From, unsigned To,
+                                               unsigned BitWidth) {
+  return From == BitWidth - To - 1;
+}
+
+/// Given an OR instruction, check to see if this is a bitreverse
+/// idiom. If so, insert the new intrinsic and return true.
+bool llvm::recognizeBSwapOrBitReverseIdiom(
+    Instruction *I, bool MatchBSwaps, bool MatchBitReversals,
+    SmallVectorImpl<Instruction *> &InsertedInsts) {
+  if (Operator::getOpcode(I) != Instruction::Or)
+    return false;
+  if (!MatchBSwaps && !MatchBitReversals)
+    return false;
+  IntegerType *ITy = dyn_cast<IntegerType>(I->getType());
+  if (!ITy || ITy->getBitWidth() > 128)
+    return false;   // Can't do vectors or integers > 128 bits.
+  unsigned BW = ITy->getBitWidth();
+
+  unsigned DemandedBW = BW;
+  IntegerType *DemandedTy = ITy;
+  if (I->hasOneUse()) {
+    if (TruncInst *Trunc = dyn_cast<TruncInst>(I->user_back())) {
+      DemandedTy = cast<IntegerType>(Trunc->getType());
+      DemandedBW = DemandedTy->getBitWidth();
+    }
+  }
+
+  // Try to find all the pieces corresponding to the bswap.
+  std::map<Value *, Optional<BitPart>> BPS;
+  auto Res = collectBitParts(I, MatchBSwaps, MatchBitReversals, BPS);
+  if (!Res)
+    return false;
+  auto &BitProvenance = Res->Provenance;
+
+  // Now, is the bit permutation correct for a bswap or a bitreverse? We can
+  // only byteswap values with an even number of bytes.
+  bool OKForBSwap = DemandedBW % 16 == 0, OKForBitReverse = true;
+  for (unsigned i = 0; i < DemandedBW; ++i) {
+    OKForBSwap &=
+        bitTransformIsCorrectForBSwap(BitProvenance[i], i, DemandedBW);
+    OKForBitReverse &=
+        bitTransformIsCorrectForBitReverse(BitProvenance[i], i, DemandedBW);
+  }
+
+  Intrinsic::ID Intrin;
+  if (OKForBSwap && MatchBSwaps)
+    Intrin = Intrinsic::bswap;
+  else if (OKForBitReverse && MatchBitReversals)
+    Intrin = Intrinsic::bitreverse;
+  else
+    return false;
+
+  if (ITy != DemandedTy) {
+    Function *F = Intrinsic::getDeclaration(I->getModule(), Intrin, DemandedTy);
+    Value *Provider = Res->Provider;
+    IntegerType *ProviderTy = cast<IntegerType>(Provider->getType());
+    // We may need to truncate the provider.
+    if (DemandedTy != ProviderTy) {
+      auto *Trunc = CastInst::Create(Instruction::Trunc, Provider, DemandedTy,
+                                     "trunc", I);
+      InsertedInsts.push_back(Trunc);
+      Provider = Trunc;
+    }
+    auto *CI = CallInst::Create(F, Provider, "rev", I);
+    InsertedInsts.push_back(CI);
+    auto *ExtInst = CastInst::Create(Instruction::ZExt, CI, ITy, "zext", I);
+    InsertedInsts.push_back(ExtInst);
+    return true;
+  }
+
+  Function *F = Intrinsic::getDeclaration(I->getModule(), Intrin, ITy);
+  InsertedInsts.push_back(CallInst::Create(F, Res->Provider, "rev", I));
+  return true;
 }

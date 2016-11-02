@@ -6,6 +6,7 @@ add_subdirectory(clang-tidy)
 endif()
 
 add_subdirectory(clang-query)
+add_subdirectory(include-fixer)
 add_subdirectory(pp-trace)
 add_subdirectory(tool-template)
 
@@ -15,3 +16,10 @@ if(CLANG_ENABLE_STATIC_ANALYZER AND CLANG_INCLUDE_TESTS)
 add_subdirectory(test)
 add_subdirectory(unittests)
 endif()
+
+option(CLANG_TOOLS_EXTRA_INCLUDE_DOCS "Generate build targets for the Clang Extra Tools docs."
+  ${LLVM_INCLUDE_DOCS})
+if( CLANG_TOOLS_EXTRA_INCLUDE_DOCS )
+  add_subdirectory(docs)
+endif()
+

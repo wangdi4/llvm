@@ -140,21 +140,12 @@ __isl_take isl_schedule_tree *isl_schedule_tree_dup(
 
 /* Return an isl_schedule_tree that is equal to "tree" and that has only
  * a single reference.
- *
- * This function is called before a tree is modified.
- * A static tree (with negative reference count) should never be modified,
- * so it is not allowed to call this function on a static tree.
  */
 __isl_give isl_schedule_tree *isl_schedule_tree_cow(
 	__isl_take isl_schedule_tree *tree)
 {
 	if (!tree)
 		return NULL;
-
-	if (tree->ref < 0)
-		isl_die(isl_schedule_tree_get_ctx(tree), isl_error_internal,
-			"static trees cannot be modified",
-			return isl_schedule_tree_free(tree));
 
 	if (tree->ref == 1)
 		return tree;
@@ -163,18 +154,12 @@ __isl_give isl_schedule_tree *isl_schedule_tree_cow(
 }
 
 /* Return a new reference to "tree".
- *
- * A static tree (with negative reference count) does not keep track
- * of the number of references and should not be modified.
  */
 __isl_give isl_schedule_tree *isl_schedule_tree_copy(
 	__isl_keep isl_schedule_tree *tree)
 {
 	if (!tree)
 		return NULL;
-
-	if (tree->ref < 0)
-		return tree;
 
 	tree->ref++;
 	return tree;
@@ -186,8 +171,6 @@ __isl_null isl_schedule_tree *isl_schedule_tree_free(
 	__isl_take isl_schedule_tree *tree)
 {
 	if (!tree)
-		return NULL;
-	if (tree->ref < 0)
 		return NULL;
 	if (--tree->ref > 0)
 		return NULL;
@@ -606,6 +589,18 @@ __isl_give isl_schedule_tree *isl_schedule_tree_sequence_pair(
 {
 	return isl_schedule_tree_from_pair(isl_schedule_node_sequence,
 						tree1, tree2);
+}
+
+/* Construct a tree with a set root node and as children
+ * "tree1" and "tree2".
+ * If the root of one (or both) of the input trees is itself a set,
+ * then the tree is replaced by its children.
+ */
+__isl_give isl_schedule_tree *isl_schedule_tree_set_pair(
+	__isl_take isl_schedule_tree *tree1,
+	__isl_take isl_schedule_tree *tree2)
+{
+	return isl_schedule_tree_from_pair(isl_schedule_node_set, tree1, tree2);
 }
 
 /* Return the isl_ctx to which "tree" belongs.

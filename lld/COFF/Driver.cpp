@@ -14,6 +14,7 @@
 #include "SymbolTable.h"
 #include "Symbols.h"
 #include "Writer.h"
+#include "lld/Driver/Driver.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/LibDriver/LibDriver.h"
 #include "llvm/Option/Arg.h"
@@ -40,19 +41,21 @@ namespace coff {
 Configuration *Config;
 LinkerDriver *Driver;
 
-void link(llvm::ArrayRef<const char *> Args) {
+bool link(llvm::ArrayRef<const char *> Args) {
   Configuration C;
   LinkerDriver D;
   Config = &C;
   Driver = &D;
-  return Driver->link(Args);
+  Driver->link(Args);
+  return true;
 }
 
-// Drop directory components and replace extension with ".exe".
+// Drop directory components and replace extension with ".exe" or ".dll".
 static std::string getOutputPath(StringRef Path) {
   auto P = Path.find_last_of("\\/");
   StringRef S = (P == StringRef::npos) ? Path : Path.substr(P + 1);
-  return (S.substr(0, S.rfind('.')) + ".exe").str();
+  const char* E = Config->DLL ? ".dll" : ".exe";
+  return (S.substr(0, S.rfind('.')) + E).str();
 }
 
 // Opens a file. Path has to be resolved already.
@@ -117,6 +120,7 @@ void LinkerDriver::parseDirectives(StringRef S) {
       Config->NoDefaultLibs.insert(doFindLib(Arg->getValue()));
       break;
     case OPT_editandcontinue:
+    case OPT_fastfail:
     case OPT_guardsym:
     case OPT_throwingnew:
       break;
@@ -419,6 +423,10 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   // Handle /manifestfile
   if (auto *Arg = Args.getLastArg(OPT_manifestfile))
     Config->ManifestFile = Arg->getValue();
+
+  // Handle /manifestinput
+  for (auto *Arg : Args.filtered(OPT_manifestinput))
+    Config->ManifestInput.push_back(Arg->getValue());
 
   // Handle miscellaneous boolean flags.
   if (Args.hasArg(OPT_allowbind_no))

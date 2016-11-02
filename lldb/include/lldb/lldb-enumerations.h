@@ -378,7 +378,7 @@ namespace lldb {
     ///
     /// These enumerations use the same language enumerations as the DWARF
     /// specification for ease of use and consistency.
-    /// The enum -> string code is in LanguageRuntime.cpp, don't change this
+    /// The enum -> string code is in Language.cpp, don't change this
     /// table without updating that code as well.
     //----------------------------------------------------------------------
     enum LanguageType
@@ -434,6 +434,7 @@ namespace lldb {
     enum InstrumentationRuntimeType
     {
         eInstrumentationRuntimeTypeAddressSanitizer = 0x0000,
+        eInstrumentationRuntimeTypeThreadSanitizer = 0x0001,
         eNumInstrumentationRuntimeTypes
     };
 
@@ -622,6 +623,7 @@ namespace lldb {
         eSectionTypeARMextab,
         eSectionTypeCompactUnwind,        // compact unwind section in Mach-O, __TEXT,__unwind_info
         eSectionTypeGoSymtab,
+        eSectionTypeAbsoluteAddress,      // Dummy section for symbols with absolute address
         eSectionTypeOther
     };
 

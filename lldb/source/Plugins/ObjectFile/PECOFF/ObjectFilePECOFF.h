@@ -101,7 +101,10 @@ public:
 
     static bool
     MagicBytesMatch (lldb::DataBufferSP& data_sp);
-    
+
+    static lldb::SymbolType
+    MapSymbolType(uint16_t coff_symbol_type);
+
     bool
     ParseHeader() override;
     
@@ -116,7 +119,7 @@ public:
     
     uint32_t
     GetAddressByteSize() const override;
-    
+
 //    virtual lldb_private::AddressClass
 //    GetAddressClass (lldb::addr_t file_addr);
 
@@ -141,8 +144,8 @@ public:
     uint32_t
     GetDependentModules(lldb_private::FileSpecList& files) override;
     
-//    virtual lldb_private::Address
-//    GetEntryPointAddress ();
+    virtual lldb_private::Address
+    GetEntryPointAddress () override;
     
     ObjectFile::Type
     CalculateType() override;
@@ -298,6 +301,7 @@ private:
 	coff_opt_header_t	m_coff_header_opt;
 	SectionHeaderColl	m_sect_headers;
     lldb::addr_t		m_image_base;
+    lldb_private::Address	m_entry_point_address;
 };
 
 #endif // liblldb_ObjectFilePECOFF_h_

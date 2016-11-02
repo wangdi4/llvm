@@ -19,38 +19,52 @@ namespace misc {
 
 namespace {
 
-AST_MATCHER(NamedDecl, isHeaderFileExtension) {
-  SourceManager& SM = Finder->getASTContext().getSourceManager();
-  SourceLocation ExpansionLoc = SM.getExpansionLoc(Node.getLocStart());
-  StringRef Filename = SM.getFilename(ExpansionLoc);
-  return Filename.endswith(".h") || Filename.endswith(".hh") ||
-         Filename.endswith(".hpp") || Filename.endswith(".hxx") ||
-         llvm::sys::path::extension(Filename).empty();
+AST_MATCHER_P(NamedDecl, usesHeaderFileExtension,
+              utils::HeaderFileExtensionsSet, HeaderFileExtensions) {
+  return utils::isExpansionLocInHeaderFile(
+      Node.getLocStart(), Finder->getASTContext().getSourceManager(),
+      HeaderFileExtensions);
 }
 
 } // namespace
 
-DefinitionsInHeadersCheck::DefinitionsInHeadersCheck(
-    StringRef Name, ClangTidyContext *Context)
-      : ClangTidyCheck(Name, Context),
-        UseHeaderFileExtension(Options.get("UseHeaderFileExtension", true)) {}
+DefinitionsInHeadersCheck::DefinitionsInHeadersCheck(StringRef Name,
+                                                     ClangTidyContext *Context)
+    : ClangTidyCheck(Name, Context),
+      UseHeaderFileExtension(Options.get("UseHeaderFileExtension", true)),
+      RawStringHeaderFileExtensions(
+          Options.getLocalOrGlobal("HeaderFileExtensions", ",h,hh,hpp,hxx")) {
+  if (!utils::parseHeaderFileExtensions(RawStringHeaderFileExtensions,
+                                        HeaderFileExtensions,
+                                        ',')) {
+    // FIXME: Find a more suitable way to handle invalid configuration
+    // options.
+    llvm::errs() << "Invalid header file extension: "
+                 << RawStringHeaderFileExtensions << "\n";
+  }
+}
 
 void DefinitionsInHeadersCheck::storeOptions(
     ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "UseHeaderFileExtension", UseHeaderFileExtension);
+  Options.store(Opts, "HeaderFileExtensions", RawStringHeaderFileExtensions);
 }
 
 void DefinitionsInHeadersCheck::registerMatchers(MatchFinder *Finder) {
+  if (!getLangOpts().CPlusPlus)
+    return;
   if (UseHeaderFileExtension) {
     Finder->addMatcher(
         namedDecl(anyOf(functionDecl(isDefinition()), varDecl(isDefinition())),
-                  isHeaderFileExtension()).bind("name-decl"),
+                  usesHeaderFileExtension(HeaderFileExtensions))
+            .bind("name-decl"),
         this);
   } else {
     Finder->addMatcher(
         namedDecl(anyOf(functionDecl(isDefinition()), varDecl(isDefinition())),
-                  anyOf(isHeaderFileExtension(),
-                        unless(isExpansionInMainFile()))).bind("name-decl"),
+                  anyOf(usesHeaderFileExtension(HeaderFileExtensions),
+                        unless(isExpansionInMainFile())))
+            .bind("name-decl"),
         this);
   }
 }
@@ -66,6 +80,8 @@ void DefinitionsInHeadersCheck::check(const MatchFinder::MatchResult &Result) {
   // satisfy the following requirements.
   const auto *ND = Result.Nodes.getNodeAs<NamedDecl>("name-decl");
   assert(ND);
+  if (ND->isInvalidDecl())
+    return;
 
   // Internal linkage variable definitions are ignored for now:
   //   const int a = 1;
@@ -91,19 +107,21 @@ void DefinitionsInHeadersCheck::check(const MatchFinder::MatchResult &Result) {
     if (const auto *MD = dyn_cast<CXXMethodDecl>(FD)) {
       const auto *DC = MD->getDeclContext();
       while (DC->isRecord()) {
-        if (const auto *RD = dyn_cast<CXXRecordDecl>(DC))
+        if (const auto *RD = dyn_cast<CXXRecordDecl>(DC)) {
+          if (isa<ClassTemplatePartialSpecializationDecl>(RD))
+            return;
           if (RD->getDescribedClassTemplate())
             return;
+        }
         DC = DC->getParent();
       }
     }
 
     diag(FD->getLocation(),
-         "function '%0' defined in a header file; "
+         "function %0 defined in a header file; "
          "function definitions in header files can lead to ODR violations")
-        << FD->getNameInfo().getName().getAsString()
-        << FixItHint::CreateInsertion(FD->getSourceRange().getBegin(),
-                                      "inline ");
+        << FD << FixItHint::CreateInsertion(FD->getSourceRange().getBegin(),
+                                            "inline ");
   } else if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Static data members of a class template are allowed.
     if (VD->getDeclContext()->isDependentContext() && VD->isStaticDataMember())
@@ -115,9 +133,9 @@ void DefinitionsInHeadersCheck::check(const MatchFinder::MatchResult &Result) {
       return;
 
     diag(VD->getLocation(),
-         "variable '%0' defined in a header file; "
+         "variable %0 defined in a header file; "
          "variable definitions in header files can lead to ODR violations")
-        << VD->getName();
+        << VD;
   }
 }
 

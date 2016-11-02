@@ -1,3 +1,12 @@
+//===----------------------------------------------------------------------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef ATOMIC_HELPERS_H
 #define ATOMIC_HELPERS_H
 
@@ -15,10 +24,10 @@ struct UserAtomicType
     { return x.i == y.i; }
 };
 
-template < template <class TestArg> class TestFunctor > 
+template < template <class TestArg> class TestFunctor >
 struct TestEachIntegralType {
     void operator()() const {
-        TestFunctor<char>()(); 
+        TestFunctor<char>()();
         TestFunctor<signed char>()();
         TestFunctor<unsigned char>()();
         TestFunctor<short>()();
@@ -37,7 +46,7 @@ struct TestEachIntegralType {
     }
 };
 
-template < template <class TestArg> class TestFunctor > 
+template < template <class TestArg> class TestFunctor >
 struct TestEachAtomicType {
     void operator()() const {
         TestEachIntegralType<TestFunctor>()();

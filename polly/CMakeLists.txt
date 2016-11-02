@@ -154,6 +154,7 @@ install(DIRECTORY ${POLLY_BINARY_DIR}/include/
 
 add_definitions( -D_GNU_SOURCE )
 
+add_subdirectory(docs)
 add_subdirectory(lib)
 add_subdirectory(test)
 add_subdirectory(tools)
@@ -164,7 +165,7 @@ configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/include/polly/Config/config.h.cmake
                 ${POLLY_BINARY_DIR}/include/polly/Config/config.h )
 
 # Add target to check formatting of polly files
-file( GLOB_RECURSE files *.h *.cpp)
+file( GLOB_RECURSE files *.h lib/*.cpp lib/*.c tools/*.cpp tools/*.c tools/*.h)
 file( GLOB_RECURSE jsonfiles lib/JSON/*.h lib/JSON/*.cpp)
 file( GLOB_RECURSE islfiles lib/External/isl/*.h lib/External/isl/*.c
                    lib/External/isl/include/isl/*.h lib/External/isl/imath/*.h

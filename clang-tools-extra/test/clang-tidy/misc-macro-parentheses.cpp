@@ -36,6 +36,9 @@
 #define GOOD25(t)         std::set<t,t,t> s
 #define GOOD26(x)         (a->*x)
 #define GOOD27(x)         (a.*x)
+#define GOOD28(x)         namespace x {int b;}
+#define GOOD29(...)       std::cout << __VA_ARGS__;
+#define GOOD30(args...)   std::cout << args;
 
 // These are allowed for now..
 #define MAYBE1            *12.34

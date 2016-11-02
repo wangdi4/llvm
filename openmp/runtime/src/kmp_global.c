@@ -17,7 +17,9 @@
 
 kmp_key_t __kmp_gtid_threadprivate_key;
 
+#if KMP_ARCH_X86 || KMP_ARCH_X86_64
 kmp_cpuinfo_t   __kmp_cpuinfo = { 0 }; // Not initialized
+#endif
 
 #if KMP_STATS_ENABLED
 #include "kmp_stats.h"
@@ -126,6 +128,7 @@ int      __kmp_dflt_team_nth_ub = 0;
 int           __kmp_tp_capacity = 0;
 int             __kmp_tp_cached = 0;
 int           __kmp_dflt_nested = FALSE;
+int  __kmp_dispatch_num_buffers = KMP_DFLT_DISP_NUM_BUFF;
 int __kmp_dflt_max_active_levels = KMP_MAX_ACTIVE_LEVELS_LIMIT; /* max_active_levels limit */
 #if KMP_NESTED_HOT_TEAMS
 int __kmp_hot_teams_mode         = 0; /* 0 - free extra threads when reduced */
@@ -259,6 +262,9 @@ int __kmp_place_core_offset = 0;
 int __kmp_place_num_threads_per_core = 0;
 
 kmp_tasking_mode_t __kmp_tasking_mode = tskm_task_teams;
+#if OMP_41_ENABLED
+kmp_int32 __kmp_max_task_priority = 0;
+#endif
 
 /* This check ensures that the compiler is passing the correct data type
  * for the flags formal parameter of the function kmpc_omp_task_alloc().

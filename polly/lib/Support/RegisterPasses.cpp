@@ -30,6 +30,7 @@
 #include "polly/ScopInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -153,7 +154,7 @@ void initializePollyPasses(PassRegistry &Registry) {
   initializeIslScheduleOptimizerPass(Registry);
   initializePollyCanonicalizePass(Registry);
   initializeScopDetectionPass(Registry);
-  initializeScopInfoPass(Registry);
+  initializeScopInfoRegionPassPass(Registry);
   initializeCodegenCleanupPass(Registry);
 }
 
@@ -198,7 +199,7 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
   if (PollyOnlyPrinter)
     PM.add(polly::createDOTOnlyPrinterPass());
 
-  PM.add(polly::createScopInfoPass());
+  PM.add(polly::createScopInfoRegionPassPass());
 
   if (ImportJScop)
     PM.add(polly::createJSONImporterPass());
@@ -225,6 +226,11 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
   case CODEGEN_NONE:
     break;
   }
+
+  // FIXME: This dummy ModulePass keeps some programs from miscompiling,
+  // probably some not correctly preserved analyses. It acts as a barrier to
+  // force all analysis results to be recomputed.
+  PM.add(createBarrierNoopPass());
 
   if (CFGPrinter)
     PM.add(llvm::createCFGPrinterPass());

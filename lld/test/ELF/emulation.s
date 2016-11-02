@@ -60,6 +60,37 @@
 # X86-NEXT:   StringTableSectionIndex:
 # X86-NEXT: }
 
+# RUN: llvm-mc -filetype=obj -triple=i686-unknown-freebsd %s -o %tx86fbsd
+# RUN: ld.lld -m elf_i386_fbsd %tx86fbsd -o %t2x86_fbsd
+# RUN: llvm-readobj -file-headers %t2x86_fbsd | FileCheck --check-prefix=X86FBSD %s
+# RUN: ld.lld %tx86fbsd -o %t3x86fbsd
+# RUN: llvm-readobj -file-headers %t3x86fbsd | FileCheck --check-prefix=X86FBSD %s
+# X86FBSD:      ElfHeader {
+# X86FBSD-NEXT:   Ident {
+# X86FBSD-NEXT:     Magic: (7F 45 4C 46)
+# X86FBSD-NEXT:     Class: 32-bit (0x1)
+# X86FBSD-NEXT:     DataEncoding: LittleEndian (0x1)
+# X86FBSD-NEXT:     FileVersion: 1
+# X86FBSD-NEXT:     OS/ABI: FreeBSD (0x9)
+# X86FBSD-NEXT:     ABIVersion: 0
+# X86FBSD-NEXT:     Unused: (00 00 00 00 00 00 00)
+# X86FBSD-NEXT:   }
+# X86FBSD-NEXT:   Type: Executable (0x2)
+# X86FBSD-NEXT:   Machine: EM_386 (0x3)
+# X86FBSD-NEXT:   Version: 1
+# X86FBSD-NEXT:   Entry:
+# X86FBSD-NEXT:   ProgramHeaderOffset: 0x34
+# X86FBSD-NEXT:   SectionHeaderOffset:
+# X86FBSD-NEXT:   Flags [ (0x0)
+# X86FBSD-NEXT:   ]
+# X86FBSD-NEXT:   HeaderSize: 52
+# X86FBSD-NEXT:   ProgramHeaderEntrySize: 32
+# X86FBSD-NEXT:   ProgramHeaderCount:
+# X86FBSD-NEXT:   SectionHeaderEntrySize: 40
+# X86FBSD-NEXT:   SectionHeaderCount:
+# X86FBSD-NEXT:   StringTableSectionIndex:
+# X86FBSD-NEXT: }
+
 # RUN: llvm-mc -filetype=obj -triple=powerpc64-unknown-linux %s -o %tppc64
 # RUN: ld.lld -m elf64ppc %tppc64 -o %t2ppc64
 # RUN: llvm-readobj -file-headers %t2ppc64 | FileCheck --check-prefix=PPC64 %s
@@ -147,6 +178,60 @@
 # MIPSEL-NEXT:     EF_MIPS_CPIC
 # MIPSEL-NEXT:   ]
 
+# RUN: llvm-mc -filetype=obj -triple=mips64-unknown-linux %s -o %tmips64
+# RUN: ld.lld -m elf64btsmip -e _start %tmips64 -o %t2mips64
+# RUN: llvm-readobj -file-headers %t2mips64 | FileCheck --check-prefix=MIPS64 %s
+# RUN: ld.lld %tmips64 -e _start -o %t3mips64
+# RUN: llvm-readobj -file-headers %t3mips64 | FileCheck --check-prefix=MIPS64 %s
+# MIPS64:      ElfHeader {
+# MIPS64-NEXT:   Ident {
+# MIPS64-NEXT:     Magic: (7F 45 4C 46)
+# MIPS64-NEXT:     Class: 64-bit (0x2)
+# MIPS64-NEXT:     DataEncoding: BigEndian (0x2)
+# MIPS64-NEXT:     FileVersion: 1
+# MIPS64-NEXT:     OS/ABI: SystemV (0x0)
+# MIPS64-NEXT:     ABIVersion: 0
+# MIPS64-NEXT:     Unused: (00 00 00 00 00 00 00)
+# MIPS64-NEXT:   }
+# MIPS64-NEXT:   Type: Executable (0x2)
+# MIPS64-NEXT:   Machine: EM_MIPS (0x8)
+# MIPS64-NEXT:   Version: 1
+# MIPS64-NEXT:   Entry:
+# MIPS64-NEXT:   ProgramHeaderOffset: 0x40
+# MIPS64-NEXT:   SectionHeaderOffset:
+# MIPS64-NEXT:   Flags [
+# MIPS64-NEXT:     EF_MIPS_ARCH_64R2
+# MIPS64-NEXT:     EF_MIPS_CPIC
+# MIPS64-NEXT:     EF_MIPS_PIC
+# MIPS64-NEXT:   ]
+
+# RUN: llvm-mc -filetype=obj -triple=mips64el-unknown-linux %s -o %tmips64el
+# RUN: ld.lld -m elf64ltsmip -e _start %tmips64el -o %t2mips64el
+# RUN: llvm-readobj -file-headers %t2mips64el | FileCheck --check-prefix=MIPS64EL %s
+# RUN: ld.lld %tmips64el -e _start -o %t3mips64el
+# RUN: llvm-readobj -file-headers %t3mips64el | FileCheck --check-prefix=MIPS64EL %s
+# MIPS64EL:      ElfHeader {
+# MIPS64EL-NEXT:   Ident {
+# MIPS64EL-NEXT:     Magic: (7F 45 4C 46)
+# MIPS64EL-NEXT:     Class: 64-bit (0x2)
+# MIPS64EL-NEXT:     DataEncoding: LittleEndian (0x1)
+# MIPS64EL-NEXT:     FileVersion: 1
+# MIPS64EL-NEXT:     OS/ABI: SystemV (0x0)
+# MIPS64EL-NEXT:     ABIVersion: 0
+# MIPS64EL-NEXT:     Unused: (00 00 00 00 00 00 00)
+# MIPS64EL-NEXT:   }
+# MIPS64EL-NEXT:   Type: Executable (0x2)
+# MIPS64EL-NEXT:   Machine: EM_MIPS (0x8)
+# MIPS64EL-NEXT:   Version: 1
+# MIPS64EL-NEXT:   Entry:
+# MIPS64EL-NEXT:   ProgramHeaderOffset: 0x40
+# MIPS64EL-NEXT:   SectionHeaderOffset:
+# MIPS64EL-NEXT:   Flags [
+# MIPS64EL-NEXT:     EF_MIPS_ARCH_64R2
+# MIPS64EL-NEXT:     EF_MIPS_CPIC
+# MIPS64EL-NEXT:     EF_MIPS_PIC
+# MIPS64EL-NEXT:   ]
+
 # RUN: llvm-mc -filetype=obj -triple=aarch64-unknown-linux %s -o %taarch64
 # RUN: ld.lld -m aarch64linux %taarch64 -o %t2aarch64
 # RUN: llvm-readobj -file-headers %t2aarch64 | FileCheck --check-prefix=AARCH64 %s
@@ -173,5 +258,5 @@
 
 # REQUIRES: x86,ppc,mips,aarch64
 
-.globl _start;
+.globl _start
 _start:

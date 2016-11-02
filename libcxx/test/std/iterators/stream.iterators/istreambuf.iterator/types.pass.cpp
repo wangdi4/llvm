@@ -9,6 +9,9 @@
 
 // <iterator>
 
+// Test fails due to use of is_trivially_* trait.
+// XFAIL: gcc-4.9
+
 // template<class charT, class traits = char_traits<charT> >
 // class istreambuf_iterator
 //     : public iterator<input_iterator_tag, charT,
@@ -23,7 +26,7 @@
 //     typedef basic_istream<charT,traits>   istream_type;
 //     ...
 //
-// All specializations of istreambuf_iterator shall have a trivial copy constructor, 
+// All specializations of istreambuf_iterator shall have a trivial copy constructor,
 //    a constexpr default constructor and a trivial destructor.
 
 #include <iterator>

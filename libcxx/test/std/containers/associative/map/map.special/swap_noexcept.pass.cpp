@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: c++98, c++03
+
 // <map>
 
 // void swap(map& c)
@@ -15,13 +17,14 @@
 //
 //  In C++17, the standard says that swap shall have:
 //     noexcept(allocator_traits<Allocator>::is_always_equal::value &&
-//              noexcept(swap(declval<Compare&>(), declval<Compare&>())));                 
+//              noexcept(swap(declval<Compare&>(), declval<Compare&>())));
 
 // This tests a conforming extension
 
 #include <map>
 #include <cassert>
 
+#include "test_macros.h"
 #include "MoveOnly.h"
 #include "test_allocator.h"
 
@@ -29,7 +32,7 @@ template <class T>
 struct some_comp
 {
     typedef T value_type;
-    
+
     some_comp() {}
     some_comp(const some_comp&) {}
     void deallocate(void*, unsigned) {}
@@ -41,7 +44,7 @@ template <class T>
 struct some_comp2
 {
     typedef T value_type;
-    
+
     some_comp2() {}
     some_comp2(const some_comp2&) {}
     void deallocate(void*, unsigned) {}
@@ -57,7 +60,7 @@ template <class T>
 struct some_alloc
 {
     typedef T value_type;
-    
+
     some_alloc() {}
     some_alloc(const some_alloc&);
     void deallocate(void*, unsigned) {}
@@ -69,7 +72,7 @@ template <class T>
 struct some_alloc2
 {
     typedef T value_type;
-    
+
     some_alloc2() {}
     some_alloc2(const some_alloc2&);
     void deallocate(void*, unsigned) {}
@@ -82,7 +85,7 @@ template <class T>
 struct some_alloc3
 {
     typedef T value_type;
-    
+
     some_alloc3() {}
     some_alloc3(const some_alloc3&);
     void deallocate(void*, unsigned) {}
@@ -93,7 +96,6 @@ struct some_alloc3
 
 int main()
 {
-#if __has_feature(cxx_noexcept)
     typedef std::pair<const MoveOnly, MoveOnly> V;
     {
         typedef std::map<MoveOnly, MoveOnly> C;
@@ -145,5 +147,4 @@ int main()
     }
 #endif
 
-#endif
 }

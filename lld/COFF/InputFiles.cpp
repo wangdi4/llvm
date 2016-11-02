@@ -8,30 +8,41 @@
 //===----------------------------------------------------------------------===//
 
 #include "Chunks.h"
+#include "Config.h"
 #include "Error.h"
 #include "InputFiles.h"
 #include "Symbols.h"
-#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/LTO/LTOModule.h"
+#include "llvm/Object/Binary.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Support/COFF.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm-c/lto.h"
+#include <cstring>
+#include <system_error>
+#include <utility>
 
 using namespace llvm::COFF;
 using namespace llvm::object;
 using namespace llvm::support::endian;
+
 using llvm::Triple;
 using llvm::support::ulittle32_t;
-using llvm::sys::fs::file_magic;
-using llvm::sys::fs::identify_magic;
 
 namespace lld {
 namespace coff {
 
 int InputFile::NextIndex = 0;
+llvm::LLVMContext BitcodeFile::Context;
 
 // Returns the last element of a path, which is supposed to be a filename.
 static StringRef getBasename(StringRef Path) {
@@ -93,7 +104,9 @@ MemoryBufferRef ArchiveFile::getMember(const Archive::Symbol *Sym) {
 void ObjectFile::parse() {
   // Parse a memory buffer as a COFF file.
   auto BinOrErr = createBinary(MB);
-  error(BinOrErr, "Failed to parse object file");
+  if (!BinOrErr)
+    error(errorToErrorCode(BinOrErr.takeError()),
+                           "Failed to parse object file");
   std::unique_ptr<Binary> Bin = std::move(*BinOrErr);
 
   if (auto *Obj = dyn_cast<COFFObjectFile>(Bin.get())) {
@@ -149,7 +162,7 @@ void ObjectFile::initializeSymbols() {
   uint32_t NumSymbols = COFFObj->getNumberOfSymbols();
   SymbolBodies.reserve(NumSymbols);
   SparseSymbolBodies.resize(NumSymbols);
-  llvm::SmallVector<Undefined *, 8> WeakAliases;
+  llvm::SmallVector<std::pair<Undefined *, uint32_t>, 8> WeakAliases;
   int32_t LastSectionNumber = 0;
   for (uint32_t I = 0; I < NumSymbols; ++I) {
     // Get a COFFSymbolRef object.
@@ -167,8 +180,10 @@ void ObjectFile::initializeSymbols() {
     if (Sym.isUndefined()) {
       Body = createUndefined(Sym);
     } else if (Sym.isWeakExternal()) {
-      Body = createWeakExternal(Sym, AuxP);
-      WeakAliases.push_back((Undefined *)Body);
+      Body = createUndefined(Sym);
+      uint32_t TagIndex =
+          static_cast<const coff_aux_weak_external *>(AuxP)->TagIndex;
+      WeakAliases.emplace_back((Undefined *)Body, TagIndex);
     } else {
       Body = createDefined(Sym, AuxP, IsFirst);
     }
@@ -179,23 +194,14 @@ void ObjectFile::initializeSymbols() {
     I += Sym.getNumberOfAuxSymbols();
     LastSectionNumber = Sym.getSectionNumber();
   }
-  for (Undefined *U : WeakAliases)
-    U->WeakAlias = SparseSymbolBodies[(uintptr_t)U->WeakAlias];
+  for (auto WeakAlias : WeakAliases)
+    WeakAlias.first->WeakAlias = SparseSymbolBodies[WeakAlias.second];
 }
 
 Undefined *ObjectFile::createUndefined(COFFSymbolRef Sym) {
   StringRef Name;
   COFFObj->getSymbolName(Sym, Name);
   return new (Alloc) Undefined(Name);
-}
-
-Undefined *ObjectFile::createWeakExternal(COFFSymbolRef Sym, const void *AuxP) {
-  StringRef Name;
-  COFFObj->getSymbolName(Sym, Name);
-  auto *U = new (Alloc) Undefined(Name);
-  auto *Aux = (const coff_aux_weak_external *)AuxP;
-  U->WeakAlias = (Undefined *)(uintptr_t)Aux->TagIndex;
-  return U;
 }
 
 Defined *ObjectFile::createDefined(COFFSymbolRef Sym, const void *AuxP,
@@ -219,11 +225,21 @@ Defined *ObjectFile::createDefined(COFFSymbolRef Sym, const void *AuxP,
     }
     return new (Alloc) DefinedAbsolute(Name, Sym);
   }
-  if (Sym.getSectionNumber() == llvm::COFF::IMAGE_SYM_DEBUG)
+  int32_t SectionNumber = Sym.getSectionNumber();
+  if (SectionNumber == llvm::COFF::IMAGE_SYM_DEBUG)
     return nullptr;
 
+  // Reserved sections numbers don't have contents.
+  if (llvm::COFF::isReservedSectionNumber(SectionNumber))
+    error(Twine("broken object file: ") + getName());
+
+  // This symbol references a section which is not present in the section
+  // header.
+  if ((uint32_t)SectionNumber >= SparseChunks.size())
+    error(Twine("broken object file: ") + getName());
+
   // Nothing else to do without a section chunk.
-  auto *SC = cast_or_null<SectionChunk>(SparseChunks[Sym.getSectionNumber()]);
+  auto *SC = cast_or_null<SectionChunk>(SparseChunks[SectionNumber]);
   if (!SC)
     return nullptr;
 
@@ -315,9 +331,9 @@ void BitcodeFile::parse() {
   // Usually parse() is thread-safe, but bitcode file is an exception.
   std::lock_guard<std::mutex> Lock(Mu);
 
-  ErrorOr<std::unique_ptr<LTOModule>> ModOrErr =
-      LTOModule::createFromBuffer(llvm::getGlobalContext(), MB.getBufferStart(),
-                                  MB.getBufferSize(), llvm::TargetOptions());
+  Context.enableDebugTypeODRUniquing();
+  ErrorOr<std::unique_ptr<LTOModule>> ModOrErr = LTOModule::createFromBuffer(
+      Context, MB.getBufferStart(), MB.getBufferSize(), llvm::TargetOptions());
   error(ModOrErr, "Could not create lto module");
   M = std::move(*ModOrErr);
 
