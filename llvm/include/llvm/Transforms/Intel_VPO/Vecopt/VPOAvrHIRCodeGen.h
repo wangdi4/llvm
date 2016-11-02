@@ -32,6 +32,8 @@ class HIRSafeReductionAnalysis;
 
 namespace vpo { // VPO Vectorizer Namespace
 
+class WRNVecLoopNode;
+
 // ReductionHIRMngr keeps information about reduction variables.
 class ReductionHIRMngr {
 public:
@@ -128,12 +130,16 @@ private:
   // Reductions
   ReductionHIRMngr RHM;
 
+  // WRegion VecLoop Node corresponding to AVRLoop
+  WRNVecLoopNode *WVecNode;
+
   void setALoop(AVRLoop *L) { ALoop = L; }
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVL(int V) { VL = V; }
+  void setWVecNode(WRNVecLoopNode *Node) { WVecNode = Node; }
 
   // Check for currently handled loops. Initial implementations
   // punts on seeing any control flow.
@@ -144,7 +150,13 @@ private:
   void widenNode(const HLNode *Node);
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node);
-  void eraseIntrinsBeforeLoop();
+
+  // Erase loop intrinsics implementation - delete intel intrinsic directives
+  // before/after the loop based on the BeginDir which determines where we start
+  // the lookup.
+  void eraseLoopIntrinsImpl(bool BeginDir);
+
+  void eraseLoopIntrins();
   void processLoop();
   RegDDRef *widenRef(const RegDDRef *Ref);
 
@@ -154,7 +166,7 @@ private:
   bool isSmallShortAddRedLoop();
 
   // Given reduction operator identity value, insert vector reduction operand
-  // initialization to a vector of length VL identity values. Return the 
+  // initialization to a vector of length VL identity values. Return the
   // initialization instruction. The initialization is added before the loop
   // and the LVAL of this instruction is used as the widened reduction ref.
   HLInst *insertReductionInitializer(Constant *Iden);
@@ -162,7 +174,6 @@ private:
   // Add entry to WidenMap and handle generating code for liveout/reduction at
   // the end of loop.
   void addToMapAndHandleLiveOut(const RegDDRef *ScalRef, HLInst *WideInst);
-
 };
 
 } // End VPO Vectorizer Namespace

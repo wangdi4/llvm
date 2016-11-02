@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CommandLine.h"
@@ -28,6 +29,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
+
+STATISTIC(LoopsVectorized, "Number of HIR loops vectorized");
 
 static cl::opt<bool>
     DisableStressTest("disable-vpo-stress-test", cl::init(true), cl::Hidden,
@@ -418,6 +421,7 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   }
 
   setALoop(ALoop);
+  setWVecNode(WVecNode);
 
   DEBUG(errs() << "Handled loop\n");
   return true;
@@ -518,51 +522,70 @@ int AVRCodeGenHIR::getRemainderLoopCost(HLLoop *Loop, unsigned int VF,
   return 0;
 }
 
-void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {
-  // Erase intrinsics before the Loop - the code below mimics the code
-  // to check for a SIMD loop (HLLoop::isSIMD).
-  auto FirstChild = OrigLoop->getHLNodeUtils().getFirstLexicalChild(
-      OrigLoop->getParent(), OrigLoop);
-  HLContainerTy::iterator FIter(*FirstChild);
-  HLContainerTy::iterator Iter(OrigLoop);
+void AVRCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
+  HLContainerTy::iterator StartIter;
+  HLContainerTy::iterator EndIter;
+  if (BeginDir) {
+    auto BeginNode = WVecNode->getEntryHLNode();
+    assert(BeginNode && "Unexpected null entry node in WRNVecLoopNode");
+    StartIter = BeginNode->getIterator();
+    EndIter = OrigLoop->getIterator();
+  } else {
+    auto ExitNode = WVecNode->getExitHLNode();
+    assert(ExitNode && "Unexpected null exit node in WRNVecLoopNode");
+    StartIter = ExitNode->getIterator();
 
-  bool FirstDirItSet = false;
-  HLContainerTy::iterator FirstDirIt;
-  HLContainerTy::iterator LoopIt(OrigLoop);
-
-  while (Iter != FIter) {
-    --Iter;
-
-    auto Inst = dyn_cast<HLInst>(Iter);
-    if (!Inst)
-      break; // Loop, IF, Switch, etc.
-
-    Intrinsic::ID IntrinID;
-    // Expecting just directives and clauses between SIMD directive and Loop.
-    if (!Inst->isIntrinCall(IntrinID) ||
-        !vpo::VPOUtils::isIntelDirectiveOrClause(IntrinID))
-      break;
-
-    FirstDirItSet = true;
-    FirstDirIt = Iter;
+    auto LastNode = OrigLoop->getHLNodeUtils().getLastLexicalChild(
+        OrigLoop->getParent(), OrigLoop);
+    EndIter = std::next(LastNode->getIterator());
   }
 
-  // In cases where we have other HLInsts between the SIMD related directives
-  // and HLLoop, we will hit the following assert. As a workaround for now,
-  // do not assert. These directives will be deleted by the intrinsic cleanup
-  // pass that runs later.
-  // TODO: Modify this function to look for the first/last SIMD directive
-  // before a HLLoop ignoring other HLInsts before the loop before we hit the
-  // first SIMD related directive.
-  // assert(FirstDirItSet && "Expected SIMD directive not found");
+  int BeginOrEndDirID = BeginDir ? DIR_OMP_SIMD : DIR_OMP_END_SIMD;
+  for (auto Iter = StartIter; Iter != EndIter;) {
+    auto HInst = dyn_cast<HLInst>(&*Iter);
 
-  if (FirstDirItSet)
-    // Remove intrinsics and clauses before the loop
-    OrigLoop->getHLNodeUtils().remove(FirstDirIt, LoopIt);
+    if (!HInst) {
+      break;
+    }
+
+    // Move to the next iterator now as HInst may get removed below
+    ++Iter;
+
+    Intrinsic::ID IntrinID;
+    if (HInst->isIntrinCall(IntrinID)) {
+      if (vpo::VPOUtils::isIntelClause(IntrinID)) {
+        OrigLoop->getHLNodeUtils().remove(HInst);
+        continue;
+      }
+
+      if (vpo::VPOUtils::isIntelDirective(IntrinID)) {
+        auto Inst = cast<IntrinsicInst>(HInst->getLLVMInstruction());
+        StringRef DirStr = vpo::VPOUtils::getDirectiveMetadataString(
+            const_cast<IntrinsicInst *>(Inst));
+
+        int DirID = vpo::VPOUtils::getDirectiveID(DirStr);
+
+        if (DirID == BeginOrEndDirID) {
+          OrigLoop->getHLNodeUtils().remove(HInst);
+        } else if (VPOUtils::isListEndDirective(DirID)) {
+          OrigLoop->getHLNodeUtils().remove(HInst);
+          return;
+        }
+      }
+    }
+  }
+
+  assert(false && "Missing SIMD Begin/End directive");
+}
+
+void AVRCodeGenHIR::eraseLoopIntrins() {
+  eraseLoopIntrinsImpl(true /* Intrinsics before loop */);
+  eraseLoopIntrinsImpl(false /* Intrinsics before loop */);
 }
 
 void AVRCodeGenHIR::processLoop() {
-  eraseIntrinsBeforeLoop();
+  LoopsVectorized++;
+  eraseLoopIntrins();
 
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;

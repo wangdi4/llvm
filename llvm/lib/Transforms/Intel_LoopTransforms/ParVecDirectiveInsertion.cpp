@@ -103,15 +103,12 @@ void ParVecDirectiveInsertion::Visitor::insertVecDirectives(
 
   // Insert SIMD directives and clauses
   insertDirective(Lp, DIR_OMP_SIMD, false /* prepend */);
+  insertDirective(Lp, DIR_QUAL_LIST_END, false /* prepend */);
 
   // TODO: Clauses
 
   // End of SIMD directives and clauses insertion
-  // insertDirective(Lp, DIR_QUAL_LIST_END, false /* prepend */);
-
-  // Insert END SIMD directives
-  // insertDirective(Lp, DIR_QUAL_LIST_END, true  /* append  */);
-
+  insertDirective(Lp, DIR_QUAL_LIST_END, true /* append  */);
   insertDirective(Lp, DIR_OMP_END_SIMD, true /* append  */);
 }
 
