@@ -310,8 +310,16 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   if (hasGEPInfo()) {
     CE = getBaseCE();
 
+    auto BaseDestTy = CE->getDestType();
+
+    // For addressof DDREF, widening sets DestType appropriately to a vector of
+    // pointers - return the same.
+    if (!IsSrc && isAddressOf() && isa<VectorType>(BaseDestTy)) {
+      return BaseDestTy;
+    }
+
     PointerType *BaseTy = IsSrc ? cast<PointerType>(CE->getSrcType())
-                                : cast<PointerType>(CE->getDestType());
+                                : cast<PointerType>(BaseDestTy);
 
     // Get base pointer's contained type.
     // Assuming the base type is [7 x [101 x float]]*, this will give us [7 x
@@ -955,7 +963,15 @@ void RegDDRef::verify() const {
     (void)CE;
     assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
     assert(isa<PointerType>(CE->getSrcType()) && "Invalid BaseCE src type!");
-    assert(isa<PointerType>(CE->getDestType()) && "Invalid BaseCE dest type!");
+
+    if (isAddressOf()) {
+      // During vectorization DestType is set to a vector of pointers
+      assert(isa<PointerType>(CE->getDestType()->getScalarType()) &&
+             "Invalid BaseCE dest type!");
+    } else {
+      assert(isa<PointerType>(CE->getDestType()) &&
+             "Invalid BaseCE dest type!");
+    }
     assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
   }
 

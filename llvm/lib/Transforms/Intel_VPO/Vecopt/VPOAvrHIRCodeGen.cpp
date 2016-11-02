@@ -145,6 +145,9 @@ bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
   if (Ref->isTerminalRef())
     return false;
 
+  if (Ref->isAddressOf())
+    return false;
+
   const CanonExpr *FirstCE = nullptr;
 
   // Check that canon exprs for dimensions other than the first are
@@ -255,6 +258,7 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
   if (RegDD->hasGEPInfo()) {
     MemRefSeen = true;
 
+#if 0
     // Addressof computation not supported for now.
     if (RegDD->isAddressOf()) {
       DEBUG(errs()
@@ -262,6 +266,7 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
       IsHandled = false;
       return;
     }
+#endif
 
     auto BaseCE = RegDD->getBaseCE();
 
@@ -665,7 +670,8 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   WideRef = Ref->clone();
 
   // Set VectorType on WideRef base pointer - BaseDestType is set to pointer
-  // type of VL-wide vector of Ref's DestType.
+  // type of VL-wide vector of Ref's DestType. For addressof DDRef, desttype
+  // is set to vector of pointers(scalar desttype).
   if (WideRef->hasGEPInfo()) {
     PointerType *PtrType = cast<PointerType>(Ref->getBaseDestType());
     auto AddressSpace = PtrType->getAddressSpace();
@@ -675,7 +681,10 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     // type mismatch for range values.
     WideRef->setMetadata(LLVMContext::MD_range, nullptr);
 
-    WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
+    if (WideRef->isAddressOf())
+      WideRef->setBaseDestType(VecRefDestTy);
+    else
+      WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
   }
 
   // For unit stride ref, nothing else to do
@@ -966,6 +975,12 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node) {
     WideInst = Node->getHLNodeUtils().createCmp(
         INode->getPredicate(), WideOps[1], WideOps[2],
         CurInst->getName() + ".vec", WideOps[0]);
+  } else if (isa<GetElementPtrInst>(CurInst)) {
+    // Gep Instructions in LLVM may have any number of operands but the HIR
+    // representation for them is always a single rhs ddref - copy rval to
+    // lval.
+    WideInst = Node->getHLNodeUtils().createCopyInst(
+        WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
   } else {
     llvm_unreachable("Unimplemented widening for inst");
   }

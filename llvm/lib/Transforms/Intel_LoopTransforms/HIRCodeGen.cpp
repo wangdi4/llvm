@@ -709,7 +709,8 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     GEPVal = Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
   }
 
-  if (GEPVal->getType()->isVectorTy()) {
+  if (GEPVal->getType()->isVectorTy() &&
+      isa<PointerType>(Ref->getBaseDestType())) {
     // When we have a vector of pointers and base src and dest types do not
     // match, we need to bitcast from vector of pointers of src type to vector
     // of pointers of dest type. Example case, Src type is int * and Dest type
