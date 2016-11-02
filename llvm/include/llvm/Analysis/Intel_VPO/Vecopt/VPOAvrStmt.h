@@ -121,6 +121,20 @@ typedef CmpInst::Predicate ConditionTy;
 /// Layer as it is optimized.
 class AVRExpression : public AVR {
 
+public:
+  // This is the initial implementation to extend the operands supported by
+  // Instruction. As this is going to be isolated in the vectorizer, this
+  // should be enough by now. However, something more sophisticated as a union
+  // of enums might be interesting if it doesn't lead to usability issues
+  // (conversion between enums). An std::variant (C++17) could be another
+  // option to be taken into account.
+  enum AVRInstructions {
+    AVROpsStart = Instruction::OtherOpsEnd + 1,
+    UMax,
+    SMax,
+    AVROpsEnd
+  };
+
 private:
 
   /// \p ValType - type of this expression.

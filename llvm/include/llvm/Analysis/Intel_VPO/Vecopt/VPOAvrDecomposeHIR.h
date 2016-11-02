@@ -93,7 +93,6 @@ namespace vpo { // VPO Vectorizer namespace
 class AVRDecomposeHIR : public FunctionPass {
 
 protected:
-
   AVRGenerateHIR *AVRG;
 
 public:
@@ -102,7 +101,7 @@ public:
   AVRDecomposeHIR();
 
   bool runOnFunction(Function &F);
-  bool runOnAvr(AVR *ANode);
+  bool runOnAvr(AVR *ANode, const DataLayout& DL);
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void print(raw_ostream &OS, unsigned Depth = 1,

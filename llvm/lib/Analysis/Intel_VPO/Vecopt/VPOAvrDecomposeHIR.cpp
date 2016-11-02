@@ -99,7 +99,7 @@ class BlobDecompVisitor : public SCEVVisitor<BlobDecompVisitor, AVR *> {
 private:
   RegDDRef &RDDR;
 
-  AVRValueHIR *decomposeSelfBlobSLEV(const SCEV *SC);
+  AVRValueHIR *decomposeStandAloneBlob(const SCEV *SC);
   AVR *decomposeNAryOp(const SCEVNAryExpr *SC, unsigned OpCode);
   AVR *decomposeUDivOp(const SCEVUDivExpr *SC);
 
@@ -120,8 +120,11 @@ public:
   AVR *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
 };
 
-// It decomposes a blob DDRef given its SCEV
-AVRValueHIR *BlobDecompVisitor::decomposeSelfBlobSLEV(const SCEV *SC) {
+// It decomposes a standalone blob given its SCEV. A standalone blob is unitary
+// and doesn't need decomposition. However, a standalone blob can be part of a
+// more complex CanonExpr. This function is simply generating an AVRValue for a
+// standalone blob.
+AVRValueHIR *BlobDecompVisitor::decomposeStandAloneBlob(const SCEV *SC) {
 
   unsigned BlobIndex = BlobUtils::findBlob(SC);
   assert(BlobIndex != InvalidBlobIndex && "SCEV is not a Blob");
@@ -195,15 +198,15 @@ AVR *BlobDecompVisitor::visitAddRecExpr(const SCEVAddRecExpr *Expr) {
 }
 
 AVR *BlobDecompVisitor::visitSMaxExpr(const SCEVSMaxExpr *Expr) {
-  llvm_unreachable("SMaxExpr not supported yet!");
+  return decomposeNAryOp(Expr, AVRExpression::SMax);
 }
 
 AVR *BlobDecompVisitor::visitUMaxExpr(const SCEVUMaxExpr *Expr) {
-  llvm_unreachable("UMaxExpr not supported yet!");
+  return decomposeNAryOp(Expr, AVRExpression::UMax);
 }
 
 AVR *BlobDecompVisitor::visitUnknown(const SCEVUnknown *Expr) {
-  return decomposeSelfBlobSLEV(Expr);
+  return decomposeStandAloneBlob(Expr);
 }
 
 AVR *BlobDecompVisitor::visitCouldNotCompute(const SCEVCouldNotCompute *Expr) {
@@ -216,6 +219,8 @@ AVR *BlobDecompVisitor::visitCouldNotCompute(const SCEVCouldNotCompute *Expr) {
 class HIRDecomposer {
 
 private:
+  const DataLayout &DL;
+
   bool needsDecomposition(AVRValueHIR *AVal);
   AVR *decompose(AVRValueHIR *AVal);
 
@@ -226,7 +231,7 @@ private:
   AVR *decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx, int64_t BlobCoeff);
 
 public:
-  HIRDecomposer() {}
+  HIRDecomposer(const DataLayout &D) : DL(D) {}
 
   /// Visit Functions
   void visit(AVR *AVR){};
@@ -252,11 +257,12 @@ bool HIRDecomposer::needsDecomposition(AVRValueHIR *AVal) {
   RegDDRef * RDDR = cast<RegDDRef>(AVal->getValue());
  
   // We don't need to decompose:
-  //   - Self blobs
+  //   - Standalone blobs and IVs with the same Src and Dest types
   //   - Null pointers
   //   - Metadata
-  if (RDDR->isSelfBlob() || RDDR->isStandAloneIV() || RDDR->isMetadata() ||
-      RDDR->isNull()) {
+  if (RDDR->isMetadata() || RDDR->isNull() ||
+      RDDR->isStandAloneBlob(false /*AllowConversion*/) ||
+      RDDR->isStandAloneIV(false /*AllowConversion*/)) {
     return false;
   }
 
@@ -421,7 +427,30 @@ AVR *HIRDecomposer::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
 
   // Create AVRExpression for Coeff * Blob
   if (BlobCoeff != 1) {
-    AVR *BlobCoeffValue = decomposeCoeff(BlobCoeff, Blob->getType());
+    Type *BlobTy = Blob->getType();
+    Type *CoeffType = Blob->getType();
+
+    // If blob has pointer type, coeff must be integer
+    if (BlobTy->isPointerTy()) {
+      // If coeff != 1 and blob type is pointer, only -1 coeff is allowed by
+      // now.
+      assert((BlobCoeff == -1) &&
+             "Unexpected blob coefficient for pointer type");
+
+      unsigned PointerSize = DL.getPointerTypeSizeInBits(BlobTy);
+
+      if (PointerSize == 64) {
+        CoeffType = Type::getInt64Ty(BlobTy->getContext()); 
+      }
+      else if (PointerSize == 32) {
+        CoeffType = Type::getInt32Ty(BlobTy->getContext()); 
+      }
+      else {
+        llvm_unreachable("Unexpected pointer size!");
+      }
+    }
+
+    AVR *BlobCoeffValue = decomposeCoeff(BlobCoeff, CoeffType);
     BlobSubTree = combineSubTrees(BlobCoeffValue, BlobSubTree, Blob->getType(),
                                  Instruction::Mul);
   }
@@ -456,12 +485,12 @@ void AVRDecomposeHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 // Analysis Utility
-bool AVRDecomposeHIR::runOnAvr(AVR *ANode) {
+bool AVRDecomposeHIR::runOnAvr(AVR *ANode, const DataLayout& DL) {
 
-  HIRDecomposer HIRDecomp;
+  HIRDecomposer HIRDecomp(DL);
   AVRVisitor<HIRDecomposer> AVisitor(HIRDecomp);
   AVisitor.visit(ANode, true /*Recursive*/, true /*RecurseInsideLoops*/,
-                 true /*RecurseInsideValues*/, true /*Forward*/);
+                 false /*RecurseInsideValues*/, true /*Forward*/);
 
   return false;
 }
@@ -472,7 +501,7 @@ bool AVRDecomposeHIR::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "AVRDecomposerHIR\n");
 
-  HIRDecomposer HIRDecomp;
+  HIRDecomposer HIRDecomp(F.getParent()->getDataLayout());
   AVRVisitor<HIRDecomposer> AVisitor(HIRDecomp);
   AVisitor.forwardVisitAll(AVRG);
 

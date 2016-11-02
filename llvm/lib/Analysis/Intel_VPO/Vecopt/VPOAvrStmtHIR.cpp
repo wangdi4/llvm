@@ -234,11 +234,12 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
   }
 
   // Add IVValue info if RegDDRef is a standalone IV (1 * i3)
-  if (DDRef->isStandAloneIV()) {
+  if (DDRef->isStandAloneIV(false /*AllowConversion*/)) {
     assert(DDRef->isSingleCanonExpr() &&
            "Standalone IV must have a single canon expr");
     CE = DDRef->getSingleCanonExpr();
-    assert(CE->isStandAloneIV() && "Standalone IV CanonExpr expected");
+    assert(CE->isStandAloneIV(false /*AllowConversion*/) &&
+           "Standalone IV CanonExpr expected");
 
     setIVValue(new AVRValueHIR::IVValueInfo(CE, CE->getFirstIVLevel()));
   }

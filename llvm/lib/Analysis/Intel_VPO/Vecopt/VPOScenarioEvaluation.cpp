@@ -877,7 +877,7 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   assert(CostGatherer && "Invalid CostGatherer");
   AVRVisitor<VPOCostGathererBase> AVisitor(*CostGatherer);
   // Enabling RecursiveInsideValues to visit AVRValueHIR's sub-tree decomposition
-  AVisitor.visit(ALoop, true, true, true /*RecursiveInsideValues*/, true);
+  AVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/, true);
   unsigned int LoopBodyCost = CostGatherer->getLoopBodyCost();
 
   // Calculate OutOfLoop Costs. 
