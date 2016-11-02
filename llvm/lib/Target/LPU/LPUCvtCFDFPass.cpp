@@ -366,6 +366,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
   }
 #endif
+
 	generateDynamicPreds();
 
 	insertSWITCHForRepeat();
@@ -735,8 +736,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 								if (mbb->succ_size() == 1 ||
 									(mbb->succ_size() == 2 && MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getLoopLatch() == mbb)) {
 									insertSWITCHForOperand(mOpnd, mbb, iPhi);
-								}
-								else {
+								}	else {
 									//mbb itself is a fork
 									MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, mbb);
 									unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
@@ -744,8 +744,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 									unsigned newVReg;
 									if (CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::TRUE) {
 										newVReg = switchTrueReg;
-									}
-									else {
+									}	else {
 										assert(CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::FALSE);
 										newVReg = switchFalseReg;
 									}
@@ -772,9 +771,9 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 
 void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop) {
 	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-	MachineBasicBlock *latchBB = mloop->getLoopLatch();
-	ControlDependenceNode *mLatch = CDG->getNode(latchBB);
 	MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+  SmallVector<MachineBasicBlock*, 2> exitingBlks;
+  mloop->getExitingBlocks(exitingBlks);
 	while (UI != MRI->use_end()) {
 		MachineOperand &UseMO = *UI;
 		MachineInstr *UseMI = UseMO.getParent();
@@ -801,6 +800,8 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 					//no need to attend if-footer Phi inside the loop, still need to attend those outside the loop
 					continue;
 				}
+        MachineBasicBlock *latchBB = mloop->getLoopLatch();
+        ControlDependenceNode *mLatch = CDG->getNode(latchBB);
 				MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
 
 				unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
@@ -810,8 +811,7 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 				if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
 					//rename Reg to switchFalseReg
 					newVReg = switchFalseReg;
-				}
-				else {
+				}	else {
 					//rename it to switchTrueReg
 					newVReg = switchTrueReg;
 				}
@@ -823,8 +823,7 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 					//rename loop header Phi
 					UseMO.setReg(newVReg);
 				}
-			}
-			else {   //mloop != defLoop
+			}	else { //mloop != defLoop
 							 //two possibilites: a) def dom use;  b) def !dom use;
 							 //two cases: each can only have one nesting level difference
 							 // 1) def inside a loop, use outside the loop as LCSSA Phi with single input
@@ -834,21 +833,56 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 					                        MLI->getLoopFor(UseBB) == MLI->getLoopFor(mbb)->getParentLoop();
 				//only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
 				if (isUseEnclosingDef) {
+          MachineBasicBlock* anchorBB = nullptr;
+          MachineBasicBlock* exitingBlk = nullptr;
+
+          if (UseMI->isPHI()) {
+            for (MIOperands MO(UseMI); MO.isValid(); ++MO) {
+              if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+              if (MO->isUse()) {
+                unsigned MOReg = MO->getReg();
+                //move to its incoming block operand
+                ++MO;
+                MachineBasicBlock* inBB = MO->getMBB();
+                if (MOReg == Reg) {
+                  anchorBB = inBB;
+                  break;
+                }
+              }
+            }
+          } else {
+            anchorBB = UseBB;
+          }
+
+          assert(anchorBB);
+
+          for (unsigned i = 0; i < exitingBlks.size(); i++) {         
+            if (DT->dominates(exitingBlks[i], anchorBB)) {
+              exitingBlk = exitingBlks[i];
+              break;
+            }
+          }
+          assert(exitingBlk && "no exiting blk dominate use outside loop");
+          assert(exitingBlk->succ_size() == 2 && "exiting blok's # of successor not 2");
+          MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
+          MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
+          MachineBasicBlock* exitBlk = mloop->contains(succ1) ? succ2 : succ1;
+          assert(!mloop->contains(exitBlk));
+
 					//this is case 1, can only have one level nesting difference
-					MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
+					MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, exitingBlk);
 
 					unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
 					unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
-					MachineBasicBlock* mlphdr = mloop->getHeader();
+					//MachineBasicBlock* mlphdr = mloop->getHeader();
 					unsigned newVReg;
-					assert(latchBB->succ_size() > 1);
-					if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
+          if (CDG->getEdgeType(exitingBlk, exitBlk, true) == ControlDependenceNode::FALSE) {
 						//rename Reg to switchTrueReg
-						newVReg = switchTrueReg;
-					}
-					else {
-						//rename it to switchFalseReg
 						newVReg = switchFalseReg;
+					}	else {
+						//rename it to switchFalseReg
+            assert(CDG->getEdgeType(exitingBlk, exitBlk, true) == ControlDependenceNode::TRUE);
+						newVReg = switchTrueReg;
 					}
 					// Rewrite uses that outside of the original def's block, inside the loop
 					//renameLCSSAPhi or other cross boundary uses
@@ -876,42 +910,53 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
     MachineLoop* mloop = MLI->getLoopFor(mbb);
     //not inside a loop
     if (!mloop) continue;
-    MachineBasicBlock *latchBB = mloop->getLoopLatch();
+    //MachineBasicBlock *latchBB = mloop->getLoopLatch();
+    SmallVector<MachineBasicBlock*, 2> exitingBlks;
+    mloop->getExitingBlocks(exitingBlks);
+#if 0
     //LLVM3.6 buggy latch without exit edge
     if (latchBB->succ_size() == 1) {
      //no SWITCH is needed if loop latch has no exit edge
       continue;
     }
     ControlDependenceNode *mLatch = CDG->getNode(latchBB);
+#endif
+    MachineBasicBlock* exitingBlk = nullptr;
+    for (unsigned i = 0; i < exitingBlks.size(); i++) {
+      if (mbb == exitingBlks[i]) {
+        exitingBlk = exitingBlks[i];
+      }
+    }
     //inside a loop
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = I;
-
       //avoid infinitive recursive
-      if (TII.isSwitch(MI) && mbb == latchBB) {
-				MachineBasicBlock* exitBB = mloop->getExitBlock();
-				assert(exitBB && "multiple exit blocks from loop latch");
-
-				unsigned switchOut = (mLatch->isFalseChild(CDG->getNode(exitBB))) ? 0 : 1;
-				std::set<unsigned>* LCSwitchs;
-				if (LCSwitch.find(exitBB) == LCSwitch.end()) {
-					LCSwitchs = new std::set<unsigned>;
-					LCSwitch[exitBB] = LCSwitchs;
-				}	else {
-					LCSwitchs = LCSwitch.find(exitBB)->getSecond();
-				}
-				LCSwitchs->insert(MI->getOperand(switchOut).getReg());
-				continue;
+      if (TII.isSwitch(MI) && mbb == exitingBlk) {
+        assert(exitingBlk->succ_size() == 2 && "loop exiting blk's # of successor not 2");
+        MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
+        MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
+        MachineBasicBlock* exitBlk = mloop->contains(succ1) ? succ2 : succ1;
+        unsigned switchOut = (CDG->getEdgeType(exitingBlk, exitBlk, true) == ControlDependenceNode::FALSE) ? 0 : 1;
+        
+        std::set<unsigned>* LCSwitchs;
+        if (LCSwitch.find(exitBlk) == LCSwitch.end()) {
+          LCSwitchs = new std::set<unsigned>;
+          LCSwitch[exitBlk] = LCSwitchs;
+        } else {
+          LCSwitchs = LCSwitch.find(exitBlk)->getSecond();
+        }
+        LCSwitchs->insert(MI->getOperand(switchOut).getReg());
+        continue;
       }
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
         // process defs
         if (MO->isDef()) {
-					SwitchDefAcrossLatch(Reg, mbb, mloop);
+          SwitchDefAcrossLatch(Reg, mbb, mloop);
         }
       }
-    }//end of for MI
+    } //end of for MI
 
 		if (LCSwitch.find(mbb) != LCSwitch.end()) {
 			std::set<unsigned>* LCSwitchs = LCSwitch.find(mbb)->getSecond();
