@@ -106,6 +106,7 @@ public:
 
   bool addPreISel() override {
     //addPass(createUnifyFunctionExitNodesPass());
+    addPass(createLowerSwitchPass());
     return false;
   }
 
