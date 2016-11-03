@@ -1,5 +1,6 @@
-; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
-
+; RUN: llc -mtriple=lpu -lpu-seq-opt=0 < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; Disable sequence optimization here; we're testing for the generation of
+;esimple pick/switch loops.
 
 ; ModuleID = 'loopPick.cpp'
 target datalayout = "e-m:e-i64:64-n32:64"
