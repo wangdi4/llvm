@@ -44,7 +44,7 @@ static cl::opt<int>
 OptDFPass("lpu-opt-df-pass",
           cl::Hidden,
           cl::desc("LPU Specific: Optimize data flow pass"),
-          cl::init(0));
+          cl::init(1));
 
 #define DEBUG_TYPE "lpu-opt-df"
 
@@ -62,7 +62,7 @@ const TargetRegisterClass* const SeqPredRC = &LPU::CI1RegClass;
 static cl::opt<int>
 RunSequenceOpt("lpu-seq-opt", cl::Hidden,
                cl::desc("LPU Specific: Enable sequence optimizations"),
-               cl::init(1));
+               cl::init(2));
 
 
 
