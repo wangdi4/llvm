@@ -11,20 +11,28 @@
 #include "Config.h"
 
 #include "llvm/ADT/Twine.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/raw_ostream.h"
+
+using namespace llvm;
 
 namespace lld {
 namespace elf {
 
 bool HasError;
-llvm::raw_ostream *ErrorOS;
+raw_ostream *ErrorOS;
 
 void log(const Twine &Msg) {
   if (Config->Verbose)
-    llvm::outs() << Msg << "\n";
+    outs() << Msg << "\n";
 }
 
-void warning(const Twine &Msg) { llvm::errs() << Msg << "\n"; }
+void warning(const Twine &Msg) {
+  if (Config->FatalWarnings)
+    error(Msg);
+  else
+    *ErrorOS << Msg << "\n";
+}
 
 void error(const Twine &Msg) {
   *ErrorOS << Msg << "\n";
@@ -32,12 +40,11 @@ void error(const Twine &Msg) {
 }
 
 void error(std::error_code EC, const Twine &Prefix) {
-  if (EC)
-    error(Prefix + ": " + EC.message());
+  error(Prefix + ": " + EC.message());
 }
 
 void fatal(const Twine &Msg) {
-  llvm::errs() << Msg << "\n";
+  *ErrorOS << Msg << "\n";
   exit(1);
 }
 
@@ -48,6 +55,10 @@ void fatal(const Twine &Msg, const Twine &Prefix) {
 void check(std::error_code EC) {
   if (EC)
     fatal(EC.message());
+}
+
+void check(Error Err) {
+  check(errorToErrorCode(std::move(Err)));
 }
 
 } // namespace elf

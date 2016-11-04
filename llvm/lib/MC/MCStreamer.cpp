@@ -70,6 +70,9 @@ raw_ostream &MCStreamer::GetCommentOS() {
 
 void MCStreamer::emitRawComment(const Twine &T, bool TabPrefix) {}
 
+void MCStreamer::addExplicitComment(const Twine &T) {}
+void MCStreamer::emitExplicitComments() {}
+
 void MCStreamer::generateCompactUnwindEncodings(MCAsmBackend *MAB) {
   for (auto &FI : DwarfFrameInfos)
     FI.CompactUnwindEncoding =
@@ -734,7 +737,7 @@ void MCStreamer::emitAbsoluteSymbolDiff(const MCSymbol *Hi, const MCSymbol *Lo,
                               MCSymbolRefExpr::create(Lo, Context), Context);
 
   const MCAsmInfo *MAI = Context.getAsmInfo();
-  if (!MAI->doesSetDirectiveSuppressesReloc()) {
+  if (!MAI->doesSetDirectiveSuppressReloc()) {
     EmitValue(Diff, Size);
     return;
   }

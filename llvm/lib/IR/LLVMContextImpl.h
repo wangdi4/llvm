@@ -484,17 +484,19 @@ template <> struct MDNodeKeyImpl<DICompositeType> {
 
 template <> struct MDNodeKeyImpl<DISubroutineType> {
   unsigned Flags;
+  uint8_t CC;
   Metadata *TypeArray;
 
-  MDNodeKeyImpl(int64_t Flags, Metadata *TypeArray)
-      : Flags(Flags), TypeArray(TypeArray) {}
+  MDNodeKeyImpl(unsigned Flags, uint8_t CC, Metadata *TypeArray)
+      : Flags(Flags), CC(CC), TypeArray(TypeArray) {}
   MDNodeKeyImpl(const DISubroutineType *N)
-      : Flags(N->getFlags()), TypeArray(N->getRawTypeArray()) {}
+      : Flags(N->getFlags()), CC(N->getCC()), TypeArray(N->getRawTypeArray()) {}
 
   bool isKeyOf(const DISubroutineType *RHS) const {
-    return Flags == RHS->getFlags() && TypeArray == RHS->getRawTypeArray();
+    return Flags == RHS->getFlags() && CC == RHS->getCC() &&
+           TypeArray == RHS->getRawTypeArray();
   }
-  unsigned getHashValue() const { return hash_combine(Flags, TypeArray); }
+  unsigned getHashValue() const { return hash_combine(Flags, CC, TypeArray); }
 };
 
 template <> struct MDNodeKeyImpl<DIFile> {
@@ -526,6 +528,7 @@ template <> struct MDNodeKeyImpl<DISubprogram> {
   Metadata *ContainingType;
   unsigned Virtuality;
   unsigned VirtualIndex;
+  int ThisAdjustment;
   unsigned Flags;
   bool IsOptimized;
   Metadata *Unit;
@@ -537,15 +540,16 @@ template <> struct MDNodeKeyImpl<DISubprogram> {
                 Metadata *File, unsigned Line, Metadata *Type,
                 bool IsLocalToUnit, bool IsDefinition, unsigned ScopeLine,
                 Metadata *ContainingType, unsigned Virtuality,
-                unsigned VirtualIndex, unsigned Flags, bool IsOptimized,
-                Metadata *Unit, Metadata *TemplateParams, Metadata *Declaration,
-                Metadata *Variables)
+                unsigned VirtualIndex, int ThisAdjustment, unsigned Flags,
+                bool IsOptimized, Metadata *Unit, Metadata *TemplateParams,
+                Metadata *Declaration, Metadata *Variables)
       : Scope(Scope), Name(Name), LinkageName(LinkageName), File(File),
         Line(Line), Type(Type), IsLocalToUnit(IsLocalToUnit),
         IsDefinition(IsDefinition), ScopeLine(ScopeLine),
         ContainingType(ContainingType), Virtuality(Virtuality),
-        VirtualIndex(VirtualIndex), Flags(Flags), IsOptimized(IsOptimized),
-        Unit(Unit), TemplateParams(TemplateParams), Declaration(Declaration),
+        VirtualIndex(VirtualIndex), ThisAdjustment(ThisAdjustment),
+        Flags(Flags), IsOptimized(IsOptimized), Unit(Unit),
+        TemplateParams(TemplateParams), Declaration(Declaration),
         Variables(Variables) {}
   MDNodeKeyImpl(const DISubprogram *N)
       : Scope(N->getRawScope()), Name(N->getRawName()),
@@ -554,8 +558,9 @@ template <> struct MDNodeKeyImpl<DISubprogram> {
         IsLocalToUnit(N->isLocalToUnit()), IsDefinition(N->isDefinition()),
         ScopeLine(N->getScopeLine()), ContainingType(N->getRawContainingType()),
         Virtuality(N->getVirtuality()), VirtualIndex(N->getVirtualIndex()),
-        Flags(N->getFlags()), IsOptimized(N->isOptimized()),
-        Unit(N->getRawUnit()), TemplateParams(N->getRawTemplateParams()),
+        ThisAdjustment(N->getThisAdjustment()), Flags(N->getFlags()),
+        IsOptimized(N->isOptimized()), Unit(N->getRawUnit()),
+        TemplateParams(N->getRawTemplateParams()),
         Declaration(N->getRawDeclaration()), Variables(N->getRawVariables()) {}
 
   bool isKeyOf(const DISubprogram *RHS) const {
@@ -567,8 +572,10 @@ template <> struct MDNodeKeyImpl<DISubprogram> {
            ScopeLine == RHS->getScopeLine() &&
            ContainingType == RHS->getRawContainingType() &&
            Virtuality == RHS->getVirtuality() &&
-           VirtualIndex == RHS->getVirtualIndex() && Flags == RHS->getFlags() &&
-           IsOptimized == RHS->isOptimized() && Unit == RHS->getUnit() &&
+           VirtualIndex == RHS->getVirtualIndex() &&
+           ThisAdjustment == RHS->getThisAdjustment() &&
+           Flags == RHS->getFlags() && IsOptimized == RHS->isOptimized() &&
+           Unit == RHS->getUnit() &&
            TemplateParams == RHS->getRawTemplateParams() &&
            Declaration == RHS->getRawDeclaration() &&
            Variables == RHS->getRawVariables();
@@ -1036,6 +1043,7 @@ public:
   LLVMContext::DiagnosticHandlerTy DiagnosticHandler;
   void *DiagnosticContext;
   bool RespectDiagnosticFilters;
+  bool DiagnosticHotnessRequested;
 
   LLVMContext::YieldCallbackTy YieldCallback;
   void *YieldOpaqueHandle;

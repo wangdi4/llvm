@@ -272,7 +272,7 @@ void LPUIfConversion::ScanInstructions(BBInfo &BBI) {
   BBI.TrueBB = BBI.FalseBB = nullptr;
   BBI.BrCond.clear();
   BBI.IsBrAnalyzable =
-    !TII->AnalyzeBranch(*BBI.BB, BBI.TrueBB, BBI.FalseBB, BBI.BrCond);
+    !TII->analyzeBranch(*BBI.BB, BBI.TrueBB, BBI.FalseBB, BBI.BrCond);
   BBI.HasFallThrough = BBI.IsBrAnalyzable && BBI.FalseBB == nullptr;
 
   if (BBI.BrCond.size()) {

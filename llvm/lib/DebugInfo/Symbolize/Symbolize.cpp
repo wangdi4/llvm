@@ -20,6 +20,7 @@
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/DebugInfo/PDB/PDB.h"
 #include "llvm/DebugInfo/PDB/PDBContext.h"
+#include "llvm/Object/COFF.h"
 #include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Object/MachO.h"
 #include "llvm/Object/MachOUniversal.h"
@@ -325,7 +326,7 @@ LLVMSymbolizer::getOrCreateObject(const std::string &Path,
   if (I == BinaryForPath.end()) {
     Expected<OwningBinary<Binary>> BinOrErr = createBinary(Path);
     if (!BinOrErr) {
-      BinaryForPath.emplace(Path, OwningBinary<Binary>());
+      BinaryForPath.insert(std::make_pair(Path, OwningBinary<Binary>()));
       return BinOrErr.takeError();
     }
     Bin = BinOrErr->getBinary();

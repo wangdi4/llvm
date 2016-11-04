@@ -5,7 +5,7 @@ set(ASAN_DYNAMIC_TESTSUITES)
 
 # TODO(wwchrome): Re-enable Win64 asan tests when ready.
 # Disable tests for asan Win64 temporarily.
-if(NOT OS_NAME MATCHES "Windows" OR CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(OS_NAME MATCHES "Windows" AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(EXCLUDE_FROM_ALL TRUE)
 endif()
 
@@ -103,7 +103,7 @@ endif()
 add_lit_testsuite(check-asan "Running the AddressSanitizer tests"
   ${ASAN_TESTSUITES}
   DEPENDS ${ASAN_TEST_DEPS})
-set_target_properties(check-asan PROPERTIES FOLDER "ASan tests")
+set_target_properties(check-asan PROPERTIES FOLDER "Compiler-RT Misc")
 
 if(COMPILER_RT_ASAN_HAS_STATIC_RUNTIME)
   # Add check-dynamic-asan target. It is a part of check-all only on Windows,
@@ -117,13 +117,13 @@ if(COMPILER_RT_ASAN_HAS_STATIC_RUNTIME)
                     ${ASAN_DYNAMIC_TESTSUITES}
                     DEPENDS ${ASAN_DYNAMIC_TEST_DEPS})
   set_target_properties(check-asan-dynamic
-                        PROPERTIES FOLDER "ASan dynamic tests")
+                        PROPERTIES FOLDER "Compiler-RT Misc")
   if(NOT OS_NAME MATCHES "Windows")
     set(EXCLUDE_FROM_ALL FALSE)
   endif()
 endif()
 
 # TODO(wwchrome): Re-enable the tests for asan Win64 when ready.
-if(NOT OS_NAME MATCHES "Windows" OR CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(OS_NAME MATCHES "Windows" AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(EXCLUDE_FROM_ALL FALSE)
 endif()

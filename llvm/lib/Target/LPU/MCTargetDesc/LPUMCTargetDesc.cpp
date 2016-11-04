@@ -14,7 +14,6 @@
 #include "LPUMCTargetDesc.h"
 #include "InstPrinter/LPUInstPrinter.h"
 #include "LPUMCAsmInfo.h"
-#include "llvm/MC/MCCodeGenInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
@@ -57,14 +56,6 @@ static MCSubtargetInfo *createLPUMCSubtargetInfo(const Triple &TT, StringRef CPU
   return createLPUMCSubtargetInfoImpl(TT, CPU, FS);
 }
 
-static MCCodeGenInfo *createLPUMCCodeGenInfo(const Triple &TT, Reloc::Model RM,
-                                                CodeModel::Model CM,
-                                                CodeGenOpt::Level OL) {
-  MCCodeGenInfo *X = new MCCodeGenInfo();
-  X->initMCCodeGenInfo(RM, CM, OL);
-  return X;
-}
-
 static MCInstPrinter *createLPUMCInstPrinter(const Triple &T,
                                                 unsigned SyntaxVariant,
                                                 const MCAsmInfo &MAI,
@@ -78,10 +69,6 @@ static MCInstPrinter *createLPUMCInstPrinter(const Triple &T,
 extern "C" void LLVMInitializeLPUTargetMC() {
   // Register the MC asm info.
   RegisterMCAsmInfo<LPUMCAsmInfo> X(TheLPUTarget);
-
-  // Register the MC codegen info.
-  TargetRegistry::RegisterMCCodeGenInfo(TheLPUTarget,
-                                        createLPUMCCodeGenInfo);
 
   // Register the MC instruction info.
   TargetRegistry::RegisterMCInstrInfo(TheLPUTarget, createLPUMCInstrInfo);

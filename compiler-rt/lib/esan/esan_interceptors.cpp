@@ -17,6 +17,7 @@
 #include "interception/interception.h"
 #include "sanitizer_common/sanitizer_common.h"
 #include "sanitizer_common/sanitizer_libc.h"
+#include "sanitizer_common/sanitizer_linux.h"
 #include "sanitizer_common/sanitizer_stacktrace.h"
 
 using namespace __esan; // NOLINT
@@ -40,6 +41,9 @@ using namespace __esan; // NOLINT
 // intercepted!  We should try to parametrize that, though we'll
 // intercept malloc soon ourselves and can then remove this undef.
 #undef SANITIZER_INTERCEPT_REALPATH
+
+// We provide our own version:
+#undef SANITIZER_INTERCEPT_SIGPROCMASK
 
 #define COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED (!EsanIsInitialized)
 
@@ -337,6 +341,12 @@ INTERCEPTOR(int, rmdir, char *path) {
 
 INTERCEPTOR(void *, mmap, void *addr, SIZE_T sz, int prot, int flags,
                  int fd, OFF_T off) {
+  if (UNLIKELY(REAL(mmap) == nullptr)) {
+    // With esan init during interceptor init and a static libc preventing
+    // our early-calloc from triggering, we can end up here before our
+    // REAL pointer is set up.
+    return (void *)internal_mmap(addr, sz, prot, flags, fd, off);
+  }
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, mmap, addr, sz, prot, flags, fd, off);
   if (!fixMmapAddr(&addr, sz, flags))
@@ -397,6 +407,11 @@ INTERCEPTOR(int, sigaction, int signum, const struct sigaction *act,
 // This is required to properly use internal_sigaction.
 namespace __sanitizer {
 int real_sigaction(int signum, const void *act, void *oldact) {
+  if (REAL(sigaction) == nullptr) {
+    // With an instrumented allocator, this is called during interceptor init
+    // and we need a raw syscall solution.
+    return internal_sigaction_syscall(signum, act, oldact);
+  }
   return REAL(sigaction)(signum, (const struct sigaction *)act,
                          (struct sigaction *)oldact);
 }
@@ -407,6 +422,90 @@ int real_sigaction(int signum, const void *act, void *oldact) {
 #error Platform not supported
 #define ESAN_MAYBE_INTERCEPT_SIGACTION
 #endif
+
+#if SANITIZER_LINUX
+INTERCEPTOR(int, sigprocmask, int how, __sanitizer_sigset_t *set,
+            __sanitizer_sigset_t *oldset) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, sigprocmask, how, set, oldset);
+  int res = 0;
+  if (processSigprocmask(how, set, oldset))
+    res = REAL(sigprocmask)(how, set, oldset);
+  if (!res && oldset)
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, oldset, sizeof(*oldset));
+  return res;
+}
+#define ESAN_MAYBE_INTERCEPT_SIGPROCMASK INTERCEPT_FUNCTION(sigprocmask)
+#else
+#define ESAN_MAYBE_INTERCEPT_SIGPROCMASK
+#endif
+
+#if !SANITIZER_WINDOWS
+INTERCEPTOR(int, pthread_sigmask, int how, __sanitizer_sigset_t *set,
+            __sanitizer_sigset_t *oldset) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, pthread_sigmask, how, set, oldset);
+  int res = 0;
+  if (processSigprocmask(how, set, oldset))
+    res = REAL(sigprocmask)(how, set, oldset);
+  if (!res && oldset)
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, oldset, sizeof(*oldset));
+  return res;
+}
+#define ESAN_MAYBE_INTERCEPT_PTHREAD_SIGMASK INTERCEPT_FUNCTION(pthread_sigmask)
+#else
+#define ESAN_MAYBE_INTERCEPT_PTHREAD_SIGMASK
+#endif
+
+//===----------------------------------------------------------------------===//
+// Malloc interceptors
+//===----------------------------------------------------------------------===//
+
+static char early_alloc_buf[128];
+static bool used_early_alloc_buf;
+
+static void *handleEarlyAlloc(uptr size) {
+  // If esan is initialized during an interceptor (which happens with some
+  // tcmalloc implementations that call pthread_mutex_lock), the call from
+  // dlsym to calloc will deadlock.  There is only one such calloc (dlsym
+  // allocates a single pthread key), so we work around it by using a
+  // static buffer for the calloc request.  The loader currently needs
+  // 32 bytes but we size at 128 to allow for future changes.
+  // This solution will also allow us to deliberately intercept malloc & family
+  // in the future (to perform tool actions on each allocation, without
+  // replacing the allocator), as it also solves the problem of intercepting
+  // calloc when it will itself be called before its REAL pointer is
+  // initialized.
+  CHECK(!used_early_alloc_buf && size < sizeof(early_alloc_buf));
+  // We do not handle multiple threads here.  This only happens at process init
+  // time, and while it's possible for a shared library to create early threads
+  // that race here, we consider that to be a corner case extreme enough that
+  // it's not worth the effort to handle.
+  used_early_alloc_buf = true;
+  return (void *)early_alloc_buf;
+}
+
+INTERCEPTOR(void*, calloc, uptr size, uptr n) {
+  if (EsanDuringInit && REAL(calloc) == nullptr)
+    return handleEarlyAlloc(size * n);
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, calloc, size, n);
+  void *res = REAL(calloc)(size, n);
+  // The memory is zeroed and thus is all written.
+  COMMON_INTERCEPTOR_WRITE_RANGE(nullptr, (uptr)res, size * n);
+  return res;
+}
+
+INTERCEPTOR(void, free, void *p) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, free, p);
+  if (p == (void *)early_alloc_buf) {
+    // We expect just a singleton use but we clear this for cleanliness.
+    used_early_alloc_buf = false;
+    return;
+  }
+  REAL(free)(p);
+}
 
 namespace __esan {
 
@@ -431,9 +530,11 @@ void initializeInterceptors() {
 
   ESAN_MAYBE_INTERCEPT_SIGNAL;
   ESAN_MAYBE_INTERCEPT_SIGACTION;
+  ESAN_MAYBE_INTERCEPT_SIGPROCMASK;
+  ESAN_MAYBE_INTERCEPT_PTHREAD_SIGMASK;
 
-  // TODO(bruening): we should intercept calloc() and other memory allocation
-  // routines that zero memory and update our shadow memory appropriately.
+  INTERCEPT_FUNCTION(calloc);
+  INTERCEPT_FUNCTION(free);
 
   // TODO(bruening): intercept routines that other sanitizers intercept that
   // are not in the common pool or here yet, ideally by adding to the common

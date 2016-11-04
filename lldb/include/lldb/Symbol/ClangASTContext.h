@@ -689,7 +689,10 @@ public:
     
     bool
     IsIntegerType (lldb::opaque_compiler_type_t type, bool &is_signed) override;
-    
+
+    bool
+    IsEnumerationType (lldb::opaque_compiler_type_t type, bool &is_signed) override;
+
     static bool
     IsObjCClassType (const CompilerType& type);
     
@@ -1038,7 +1041,8 @@ public:
                                const char *name,  // the full symbol name as seen in the symbol table (lldb::opaque_compiler_type_t type, "-[NString stringWithCString:]")
                                const CompilerType &method_compiler_type,
                                lldb::AccessType access,
-                               bool is_artificial);
+                               bool is_artificial,
+                               bool is_variadic);
     
     static bool
     SetHasExternalStorage (lldb::opaque_compiler_type_t type, bool has_extern);

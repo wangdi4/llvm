@@ -74,11 +74,6 @@ Value *IslExprBuilder::getOverflowState() const {
 
 Value *IslExprBuilder::createBinOp(BinaryOperator::BinaryOps Opc, Value *LHS,
                                    Value *RHS, const Twine &Name) {
-  // @TODO Temporarily promote types of potentially overflowing binary
-  //       operations to at least i64.
-  Value *I64C = Builder.getInt64(0);
-  unifyTypes(LHS, RHS, I64C);
-
   // Handle the plain operation (without overflow tracking) first.
   if (!OverflowState) {
     switch (Opc) {
@@ -142,7 +137,7 @@ Value *IslExprBuilder::createMul(Value *LHS, Value *RHS, const Twine &Name) {
   return createBinOp(Instruction::Mul, LHS, RHS, Name);
 }
 
-static Type *getWidestType(Type *T1, Type *T2) {
+Type *IslExprBuilder::getWidestType(Type *T1, Type *T2) {
   assert(isa<IntegerType>(T1) && isa<IntegerType>(T2));
 
   if (T1->getPrimitiveSizeInBits() < T2->getPrimitiveSizeInBits())
@@ -151,29 +146,23 @@ static Type *getWidestType(Type *T1, Type *T2) {
     return T1;
 }
 
-void IslExprBuilder::unifyTypes(Value *&V0, Value *&V1, Value *&V2) {
-  auto *T0 = V0->getType();
-  auto *T1 = V1->getType();
-  auto *T2 = V2->getType();
-  if (T0 == T1 && T1 == T2)
-    return;
-  auto *MaxT = getWidestType(T0, T1);
-  MaxT = getWidestType(MaxT, T2);
-  V0 = Builder.CreateSExt(V0, MaxT);
-  V1 = Builder.CreateSExt(V1, MaxT);
-  V2 = Builder.CreateSExt(V2, MaxT);
-}
-
 Value *IslExprBuilder::createOpUnary(__isl_take isl_ast_expr *Expr) {
   assert(isl_ast_expr_get_op_type(Expr) == isl_ast_op_minus &&
          "Unsupported unary operation");
 
-  auto *V = create(isl_ast_expr_get_op_arg(Expr, 0));
-  assert(V->getType()->isIntegerTy() &&
+  Value *V;
+  Type *MaxType = getType(Expr);
+  assert(MaxType->isIntegerTy() &&
          "Unary expressions can only be created for integer types");
 
+  V = create(isl_ast_expr_get_op_arg(Expr, 0));
+  MaxType = getWidestType(MaxType, V->getType());
+
+  if (MaxType != V->getType())
+    V = Builder.CreateSExt(V, MaxType);
+
   isl_ast_expr_free(Expr);
-  return createSub(ConstantInt::getNullValue(V->getType()), V);
+  return createSub(ConstantInt::getNullValue(MaxType), V);
 }
 
 Value *IslExprBuilder::createOpNAry(__isl_take isl_ast_expr *Expr) {
@@ -181,18 +170,33 @@ Value *IslExprBuilder::createOpNAry(__isl_take isl_ast_expr *Expr) {
          "isl ast expression not of type isl_ast_op");
   assert(isl_ast_expr_get_op_n_arg(Expr) >= 2 &&
          "We need at least two operands in an n-ary operation");
-  assert((isl_ast_expr_get_op_type(Expr) == isl_ast_op_max ||
-          isl_ast_expr_get_op_type(Expr) == isl_ast_op_min) &&
-         "This is no n-ary isl ast expression");
 
-  bool IsMax = isl_ast_expr_get_op_type(Expr) == isl_ast_op_max;
-  auto Pred = IsMax ? CmpInst::ICMP_SGT : CmpInst::ICMP_SLT;
-  auto *V = create(isl_ast_expr_get_op_arg(Expr, 0));
+  CmpInst::Predicate Pred;
+  switch (isl_ast_expr_get_op_type(Expr)) {
+  default:
+    llvm_unreachable("This is not a an n-ary isl ast expression");
+  case isl_ast_op_max:
+    Pred = CmpInst::ICMP_SGT;
+    break;
+  case isl_ast_op_min:
+    Pred = CmpInst::ICMP_SLT;
+    break;
+  }
+
+  Value *V = create(isl_ast_expr_get_op_arg(Expr, 0));
 
   for (int i = 1; i < isl_ast_expr_get_op_n_arg(Expr); ++i) {
-    auto *OpV = create(isl_ast_expr_get_op_arg(Expr, i));
-    unifyTypes(V, OpV);
-    V = Builder.CreateSelect(Builder.CreateICmp(Pred, V, OpV), V, OpV);
+    Value *OpV = create(isl_ast_expr_get_op_arg(Expr, i));
+    Type *Ty = getWidestType(V->getType(), OpV->getType());
+
+    if (Ty != OpV->getType())
+      OpV = Builder.CreateSExt(OpV, Ty);
+
+    if (Ty != V->getType())
+      V = Builder.CreateSExt(V, Ty);
+
+    Value *Cmp = Builder.CreateICmp(Pred, V, OpV);
+    V = Builder.CreateSelect(Cmp, V, OpV);
   }
 
   // TODO: We can truncate the result, if it fits into a smaller type. This can
@@ -241,8 +245,18 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
     assert(NextIndex->getType()->isIntegerTy() &&
            "Access index should be an integer");
 
-    IndexOp = !IndexOp ? NextIndex : createAdd(IndexOp, NextIndex,
-                                               "polly.access.add." + BaseName);
+    if (!IndexOp) {
+      IndexOp = NextIndex;
+    } else {
+      Type *Ty = getWidestType(NextIndex->getType(), IndexOp->getType());
+
+      if (Ty != NextIndex->getType())
+        NextIndex = Builder.CreateIntCast(NextIndex, Ty, true);
+      if (Ty != IndexOp->getType())
+        IndexOp = Builder.CreateIntCast(IndexOp, Ty, true);
+
+      IndexOp = createAdd(IndexOp, NextIndex, "polly.access.add." + BaseName);
+    }
 
     // For every but the last dimension multiply the size, for the last
     // dimension we can exit the loop.
@@ -257,6 +271,14 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
         expandCodeFor(S, SE, DL, "polly", DimSCEV, DimSCEV->getType(),
                       &*Builder.GetInsertPoint());
 
+    Type *Ty = getWidestType(DimSize->getType(), IndexOp->getType());
+
+    if (Ty != IndexOp->getType())
+      IndexOp = Builder.CreateSExtOrTrunc(IndexOp, Ty,
+                                          "polly.access.sext." + BaseName);
+    if (Ty != DimSize->getType())
+      DimSize = Builder.CreateSExtOrTrunc(DimSize, Ty,
+                                          "polly.access.sext." + BaseName);
     IndexOp = createMul(IndexOp, DimSize, "polly.access.mul." + BaseName);
   }
 
@@ -274,6 +296,7 @@ Value *IslExprBuilder::createOpAccess(isl_ast_expr *Expr) {
 
 Value *IslExprBuilder::createOpBin(__isl_take isl_ast_expr *Expr) {
   Value *LHS, *RHS, *Res;
+  Type *MaxType;
   isl_ast_op_type OpType;
 
   assert(isl_ast_expr_get_type(Expr) == isl_ast_expr_op &&
@@ -286,24 +309,40 @@ Value *IslExprBuilder::createOpBin(__isl_take isl_ast_expr *Expr) {
   LHS = create(isl_ast_expr_get_op_arg(Expr, 0));
   RHS = create(isl_ast_expr_get_op_arg(Expr, 1));
 
-  // For possibly overflowing operations we will later adjust types but
-  // for others we do it now as we will directly create the operations.
+  Type *LHSType = LHS->getType();
+  Type *RHSType = RHS->getType();
+
+  MaxType = getWidestType(LHSType, RHSType);
+
+  // Take the result into account when calculating the widest type.
+  //
+  // For operations such as '+' the result may require a type larger than
+  // the type of the individual operands. For other operations such as '/', the
+  // result type cannot be larger than the type of the individual operand. isl
+  // does not calculate correct types for these operations and we consequently
+  // exclude those operations here.
   switch (OpType) {
   case isl_ast_op_pdiv_q:
   case isl_ast_op_pdiv_r:
   case isl_ast_op_div:
   case isl_ast_op_fdiv_q:
   case isl_ast_op_zdiv_r:
-    unifyTypes(LHS, RHS);
+    // Do nothing
     break;
   case isl_ast_op_add:
   case isl_ast_op_sub:
   case isl_ast_op_mul:
-    // Do nothing
+    MaxType = getWidestType(MaxType, getType(Expr));
     break;
   default:
     llvm_unreachable("This is no binary isl ast expression");
   }
+
+  if (MaxType != RHS->getType())
+    RHS = Builder.CreateSExt(RHS, MaxType);
+
+  if (MaxType != LHS->getType())
+    LHS = Builder.CreateSExt(LHS, MaxType);
 
   switch (OpType) {
   default:
@@ -335,15 +374,13 @@ Value *IslExprBuilder::createOpBin(__isl_take isl_ast_expr *Expr) {
     //       incorrect overflow in some bordercases.
     //
     // floord(n,d) ((n < 0) ? (n - d + 1) : n) / d
+    Value *One = ConstantInt::get(MaxType, 1);
+    Value *Zero = ConstantInt::get(MaxType, 0);
     Value *Sum1 = createSub(LHS, RHS, "pexp.fdiv_q.0");
-    Value *One = ConstantInt::get(Sum1->getType(), 1);
     Value *Sum2 = createAdd(Sum1, One, "pexp.fdiv_q.1");
-    Value *Zero = ConstantInt::get(LHS->getType(), 0);
     Value *isNegative = Builder.CreateICmpSLT(LHS, Zero, "pexp.fdiv_q.2");
-    unifyTypes(LHS, Sum2);
     Value *Dividend =
         Builder.CreateSelect(isNegative, Sum2, LHS, "pexp.fdiv_q.3");
-    unifyTypes(Dividend, RHS);
     Res = Builder.CreateSDiv(Dividend, RHS, "pexp.fdiv_q.4");
     break;
   }
@@ -368,6 +405,7 @@ Value *IslExprBuilder::createOpSelect(__isl_take isl_ast_expr *Expr) {
   assert(isl_ast_expr_get_op_type(Expr) == isl_ast_op_select &&
          "Unsupported unary isl ast expression");
   Value *LHS, *RHS, *Cond;
+  Type *MaxType = getType(Expr);
 
   Cond = create(isl_ast_expr_get_op_arg(Expr, 0));
   if (!Cond->getType()->isIntegerTy(1))
@@ -375,8 +413,17 @@ Value *IslExprBuilder::createOpSelect(__isl_take isl_ast_expr *Expr) {
 
   LHS = create(isl_ast_expr_get_op_arg(Expr, 1));
   RHS = create(isl_ast_expr_get_op_arg(Expr, 2));
-  unifyTypes(LHS, RHS);
 
+  MaxType = getWidestType(MaxType, LHS->getType());
+  MaxType = getWidestType(MaxType, RHS->getType());
+
+  if (MaxType != RHS->getType())
+    RHS = Builder.CreateSExt(RHS, MaxType);
+
+  if (MaxType != LHS->getType())
+    LHS = Builder.CreateSExt(LHS, MaxType);
+
+  // TODO: Do we want to truncate the result?
   isl_ast_expr_free(Expr);
   return Builder.CreateSelect(Cond, LHS, RHS);
 }
@@ -409,7 +456,16 @@ Value *IslExprBuilder::createOpICmp(__isl_take isl_ast_expr *Expr) {
   if (RHSTy->isPointerTy())
     RHS = Builder.CreatePtrToInt(RHS, PtrAsIntTy);
 
-  unifyTypes(LHS, RHS);
+  if (LHS->getType() != RHS->getType()) {
+    Type *MaxType = LHS->getType();
+    MaxType = getWidestType(MaxType, RHS->getType());
+
+    if (MaxType != RHS->getType())
+      RHS = Builder.CreateSExt(RHS, MaxType);
+
+    if (MaxType != LHS->getType())
+      LHS = Builder.CreateSExt(LHS, MaxType);
+  }
 
   isl_ast_op_type OpType = isl_ast_expr_get_op_type(Expr);
   assert(OpType >= isl_ast_op_eq && OpType <= isl_ast_op_gt &&

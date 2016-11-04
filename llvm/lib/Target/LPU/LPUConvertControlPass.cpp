@@ -260,7 +260,7 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
 
       SmallVector<MachineOperand, 4> predCond;
       MachineBasicBlock *predTBB = nullptr, *predFBB = nullptr;
-      if (TII.AnalyzeBranch(*branchBB, predTBB, predFBB, predCond, true)) {
+      if (TII.analyzeBranch(*branchBB, predTBB, predFBB, predCond, true)) {
         DEBUG(errs() << "Phi predBB branch not analyzable \n");
         return false;
       }
@@ -396,7 +396,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
 
         SmallVector<MachineOperand, 4> brCond;
         MachineBasicBlock *currTBB = nullptr, *currFBB = nullptr;
-        if (TII.AnalyzeBranch(*BB, currTBB, currFBB, brCond, true)) {
+        if (TII.analyzeBranch(*BB, currTBB, currFBB, brCond, true)) {
           DEBUG(errs() << "BB branch not analyzable \n");
           return false;
         }
@@ -475,7 +475,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 
   SmallVector<MachineOperand, 4> brCond;
   MachineBasicBlock *currTBB = nullptr, *currFBB = nullptr;
-  if (TII.AnalyzeBranch(*domBB, currTBB, currFBB, brCond, true)) {
+  if (TII.analyzeBranch(*domBB, currTBB, currFBB, brCond, true)) {
     DEBUG(errs() << "LPUIfConversion: domBB branch not analyzable \n");
     return false;
   }

@@ -72,6 +72,8 @@ def Containers : Package<"containers">, InPackage<CoreFoundation>;
 def LocalizabilityAlpha : Package<"localizability">, InPackage<CocoaAlpha>;
 def LocalizabilityOptIn : Package<"localizability">, InPackage<CocoaOptIn>;
 
+def MPI : Package<"mpi">, InPackage<OptIn>;
+
 def LLVM : Package<"llvm">;
 def Debug : Package<"debug">;
 
@@ -244,6 +246,10 @@ def NewDeleteChecker : Checker<"NewDelete">,
 def NewDeleteLeaksChecker : Checker<"NewDeleteLeaks">,
   HelpText<"Check for memory leaks. Traces memory managed by new/delete.">,
   DescFile<"MallocChecker.cpp">;
+
+def CXXSelfAssignmentChecker : Checker<"SelfAssignment">,
+  HelpText<"Checks C++ copy and move assignment operators for self assignment">,
+  DescFile<"CXXSelfAssignmentChecker.cpp">;
 
 } // end: "cplusplus"
 
@@ -575,6 +581,12 @@ let ParentPackage = LocalizabilityAlpha in {
 def PluralMisuseChecker : Checker<"PluralMisuseChecker">,
   HelpText<"Warns against using one vs. many plural pattern in code when generating localized strings.">,
   DescFile<"LocalizationChecker.cpp">;
+}
+
+let ParentPackage = MPI in {
+  def MPIChecker : Checker<"MPI-Checker">,
+  HelpText<"Checks MPI code">,
+  DescFile<"MPIChecker.cpp">;
 }
 
 //===----------------------------------------------------------------------===//

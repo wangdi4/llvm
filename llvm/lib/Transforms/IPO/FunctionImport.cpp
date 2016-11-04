@@ -58,6 +58,16 @@ static cl::opt<bool>
     DontForceImportReferencedDiscardableSymbols("disable-force-link-odr",
                                                 cl::init(false), cl::Hidden);
 
+static cl::opt<bool> EnableImportMetadata(
+    "enable-import-metadata", cl::init(
+#if !defined(NDEBUG)
+                                  true /*Enabled with asserts.*/
+#else
+                                  false
+#endif
+                                  ),
+    cl::Hidden, cl::desc("Enable import metadata like 'thinlto_src_module'"));
+
 // Load lazily a module from \p FileName in \p Context.
 static std::unique_ptr<Module> loadFile(const std::string &FileName,
                                         LLVMContext &Context) {
@@ -525,8 +535,19 @@ void llvm::thinLTOInternalizeModule(Module &TheModule,
           OrigName, GlobalValue::InternalLinkage,
           TheModule.getSourceFileName());
       const auto &GS = DefinedGlobals.find(GlobalValue::getGUID(OrigId));
-      assert(GS != DefinedGlobals.end());
-      Linkage = GS->second->linkage();
+      if (GS == DefinedGlobals.end()) {
+        // Also check the original non-promoted non-globalized name. In some
+        // cases a preempted weak value is linked in as a local copy because
+        // it is referenced by an alias (IRLinker::linkGlobalValueProto).
+        // In that case, since it was originally not a local value, it was
+        // recorded in the index using the original name.
+        // FIXME: This may not be needed once PR27866 is fixed.
+        const auto &GS = DefinedGlobals.find(GlobalValue::getGUID(OrigName));
+        assert(GS != DefinedGlobals.end());
+        Linkage = GS->second->linkage();
+      } else {
+        Linkage = GS->second->linkage();
+      }
     } else
       Linkage = GS->second->linkage();
     return !GlobalValue::isLocalLinkage(Linkage);
@@ -570,20 +591,29 @@ bool FunctionImporter::importFunctions(
     auto &ImportGUIDs = FunctionsToImportPerModule->second;
     // Find the globals to import
     DenseSet<const GlobalValue *> GlobalsToImport;
-    for (auto &GV : *SrcModule) {
-      if (!GV.hasName())
+    for (Function &F : *SrcModule) {
+      if (!F.hasName())
         continue;
-      auto GUID = GV.getGUID();
+      auto GUID = F.getGUID();
       auto Import = ImportGUIDs.count(GUID);
       DEBUG(dbgs() << (Import ? "Is" : "Not") << " importing function " << GUID
-                   << " " << GV.getName() << " from "
+                   << " " << F.getName() << " from "
                    << SrcModule->getSourceFileName() << "\n");
       if (Import) {
-        GV.materialize();
-        GlobalsToImport.insert(&GV);
+        F.materialize();
+        if (EnableImportMetadata) {
+          // Add 'thinlto_src_module' metadata for statistics and debugging.
+          F.setMetadata(
+              "thinlto_src_module",
+              llvm::MDNode::get(
+                  DestModule.getContext(),
+                  {llvm::MDString::get(DestModule.getContext(),
+                                       SrcModule->getSourceFileName())}));
+        }
+        GlobalsToImport.insert(&F);
       }
     }
-    for (auto &GV : SrcModule->globals()) {
+    for (GlobalVariable &GV : SrcModule->globals()) {
       if (!GV.hasName())
         continue;
       auto GUID = GV.getGUID();
@@ -596,20 +626,20 @@ bool FunctionImporter::importFunctions(
         GlobalsToImport.insert(&GV);
       }
     }
-    for (auto &GV : SrcModule->aliases()) {
-      if (!GV.hasName())
+    for (GlobalAlias &GA : SrcModule->aliases()) {
+      if (!GA.hasName())
         continue;
-      auto GUID = GV.getGUID();
+      auto GUID = GA.getGUID();
       auto Import = ImportGUIDs.count(GUID);
       DEBUG(dbgs() << (Import ? "Is" : "Not") << " importing alias " << GUID
-                   << " " << GV.getName() << " from "
+                   << " " << GA.getName() << " from "
                    << SrcModule->getSourceFileName() << "\n");
       if (Import) {
         // Alias can't point to "available_externally". However when we import
         // linkOnceODR the linkage does not change. So we import the alias
         // and aliasee only in this case. This has been handled by
         // computeImportForFunction()
-        GlobalObject *GO = GV.getBaseObject();
+        GlobalObject *GO = GA.getBaseObject();
         assert(GO->hasLinkOnceODRLinkage() &&
                "Unexpected alias to a non-linkonceODR in import list");
 #ifndef NDEBUG
@@ -620,8 +650,8 @@ bool FunctionImporter::importFunctions(
 #endif
         GO->materialize();
         GlobalsToImport.insert(GO);
-        GV.materialize();
-        GlobalsToImport.insert(&GV);
+        GA.materialize();
+        GlobalsToImport.insert(&GA);
       }
     }
 
@@ -668,9 +698,9 @@ static void diagnosticHandler(const DiagnosticInfo &DI) {
 
 /// Parse the summary index out of an IR file and return the summary
 /// index object if found, or nullptr if not.
-static std::unique_ptr<ModuleSummaryIndex>
-getModuleSummaryIndexForFile(StringRef Path, std::string &Error,
-                             DiagnosticHandlerFunction DiagnosticHandler) {
+static std::unique_ptr<ModuleSummaryIndex> getModuleSummaryIndexForFile(
+    StringRef Path, std::string &Error,
+    const DiagnosticHandlerFunction &DiagnosticHandler) {
   std::unique_ptr<MemoryBuffer> Buffer;
   ErrorOr<std::unique_ptr<MemoryBuffer>> BufferOrErr =
       MemoryBuffer::getFile(Path);

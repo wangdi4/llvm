@@ -386,7 +386,7 @@ SDValue LPUTargetLowering::LowerAtomicLoad(SDValue Op,
             AL->getChain(),
             AL->getBasePtr(),
             AL->getPointerInfo(),
-            false, false, false, AL->getAlignment());
+            AL->getAlignment());
 }
 
 SDValue LPUTargetLowering::LowerAtomicStore(SDValue Op,
@@ -404,7 +404,7 @@ SDValue LPUTargetLowering::LowerAtomicStore(SDValue Op,
             AS->getVal(),
             AS->getBasePtr(),
             AS->getPointerInfo(),
-            false, false, AS->getAlignment());
+            AS->getAlignment());
 }
 //===----------------------------------------------------------------------===//
 //                       LPU Inline Assembly Support
@@ -691,8 +691,7 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     } else {
       MemOpChains.push_back(
         DAG.getStore(Chain, dl, Arg, PtrOff,
-                     MachinePointerInfo::getStack(MF, LocMemOffset),
-                     false, false, 0));
+                     MachinePointerInfo::getStack(MF, LocMemOffset)));
     }
   }
 
@@ -767,7 +766,7 @@ SDValue
 LPUTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
                                     CallingConv::ID CallConv, bool isVarArg,
                                     const SmallVectorImpl<ISD::InputArg> &Ins,
-                                    SDLoc dl, SelectionDAG &DAG,
+                                    const SDLoc &dl, SelectionDAG &DAG,
                                     SmallVectorImpl<SDValue> &InVals) const {
 
   // Assign locations to each value returned by this call.
@@ -802,7 +801,7 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
                                         CallingConv::ID CallConv, bool isVarArg,
                                         const SmallVectorImpl<ISD::InputArg>
                                         &Ins,
-                                        SDLoc dl, SelectionDAG &DAG,
+                                        const SDLoc &dl, SelectionDAG &DAG,
                                         SmallVectorImpl<SDValue> &InVals)
                                           const {
 
@@ -870,7 +869,7 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
         SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
         // Create load to retrieve the argument from the stack
         InVals.push_back(DAG.getLoad(VA.getValVT(), dl, Chain, FIN,
-	    MachinePointerInfo::getFixedStack(MF, FI, 0), false, false, false, 0));
+	    MachinePointerInfo::getFixedStack(MF, FI, 0)));
       }
       /*
       unsigned ArgSize = VA.getLocVT().getSizeInBits()/8;
@@ -881,8 +880,7 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
       SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
       InVals.push_back(
         DAG.getLoad(VA.getValVT(), dl, Chain, FIN,
-                    MachinePointerInfo::getFixedStack(FI, 0),
-                    false, false, false, 0));
+                    MachinePointerInfo::getFixedStack(FI, 0));
       */
     }
   }
@@ -906,7 +904,7 @@ LPUTargetLowering::LowerReturn(SDValue Chain,
                                 CallingConv::ID CallConv, bool isVarArg,
                                 const SmallVectorImpl<ISD::OutputArg> &Outs,
                                 const SmallVectorImpl<SDValue> &OutVals,
-                                SDLoc dl, SelectionDAG &DAG) const {
+                                const SDLoc &dl, SelectionDAG &DAG) const {
 
   // CCValAssign - represent the assignment of the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
@@ -980,13 +978,13 @@ SDValue LPUTargetLowering::LowerRETURNADDR(SDValue Op,
     return DAG.getLoad(getPointerTy(DAG.getDataLayout()), dl, DAG.getEntryNode(),
                        DAG.getNode(ISD::ADD, dl, getPointerTy(DAG.getDataLayout()),
                                    FrameAddr, Offset),
-                       MachinePointerInfo(), false, false, false, 0);
+                       MachinePointerInfo());
   }
 
   // Just load the return address.
   SDValue RetAddrFI = getReturnAddressFrameIndex(DAG);
   return DAG.getLoad(getPointerTy(DAG.getDataLayout()), dl, DAG.getEntryNode(),
-                     RetAddrFI, MachinePointerInfo(), false, false, false, 0);
+                     RetAddrFI, MachinePointerInfo());
 }
 
 SDValue LPUTargetLowering::LowerFRAMEADDR(SDValue Op,
@@ -1001,8 +999,7 @@ SDValue LPUTargetLowering::LowerFRAMEADDR(SDValue Op,
                                          LPU::FP, VT);
   while (Depth--)
     FrameAddr = DAG.getLoad(VT, dl, DAG.getEntryNode(), FrameAddr,
-                            MachinePointerInfo(),
-                            false, false, false, 0);
+                            MachinePointerInfo());
   return FrameAddr;
 }
 
@@ -1018,8 +1015,7 @@ SDValue LPUTargetLowering::LowerVASTART(SDValue Op,
 
   // Create a store of the frame index to the location operand
   return DAG.getStore(Op.getOperand(0), SDLoc(Op), FrameIndex,
-                      Op.getOperand(1), MachinePointerInfo(SV),
-                      false, false, 0);
+                      Op.getOperand(1), MachinePointerInfo(SV));
 }
 
 */

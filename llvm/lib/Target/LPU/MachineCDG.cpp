@@ -104,11 +104,11 @@ bool ControlDependenceNode::isLatchNode() {
 
 ControlDependenceNode::EdgeType
 ControlDependenceGraphBase::getEdgeType(MachineBasicBlock *A, MachineBasicBlock *B, bool confirmAnalysiable) {
-  SmallVector<MachineOperand, 4> Cond; // For AnalyzeBranch.
+  SmallVector<MachineOperand, 4> Cond; // For analyzeBranch.
   Cond.clear();
-  MachineBasicBlock *TBB = nullptr, *FBB = nullptr; // For AnalyzeBranch
+  MachineBasicBlock *TBB = nullptr, *FBB = nullptr; // For analyzeBranch
   assert(A->isSuccessor(B) && "Asking for edge type between unconnected basic blocks!");
-  if (TII->AnalyzeBranch(*A, TBB, FBB, Cond)) { 
+  if (TII->analyzeBranch(*A, TBB, FBB, Cond)) { 
 		if (confirmAnalysiable) {
 			assert(false && "can't analyze branch");
 		}

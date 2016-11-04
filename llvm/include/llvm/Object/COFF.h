@@ -634,7 +634,6 @@ private:
   const char *StringTable;
   uint32_t StringTableSize;
   const import_directory_table_entry *ImportDirectory;
-  uint32_t NumberOfImportDirectory;
   const delay_import_directory_table_entry *DelayImportDirectory;
   uint32_t NumberOfDelayImportDirectory;
   const export_directory_table_entry *ExportDirectory;
@@ -722,7 +721,7 @@ public:
 protected:
   void moveSymbolNext(DataRefImpl &Symb) const override;
   Expected<StringRef> getSymbolName(DataRefImpl Symb) const override;
-  ErrorOr<uint64_t> getSymbolAddress(DataRefImpl Symb) const override;
+  Expected<uint64_t> getSymbolAddress(DataRefImpl Symb) const override;
   uint64_t getSymbolValueImpl(DataRefImpl Symb) const override;
   uint64_t getCommonSymbolSizeImpl(DataRefImpl Symb) const override;
   uint32_t getSymbolFlags(DataRefImpl Symb) const override;
@@ -768,6 +767,7 @@ public:
   uint8_t getBytesInAddress() const override;
   StringRef getFileFormatName() const override;
   unsigned getArch() const override;
+  SubtargetFeatures getFeatures() const override { return SubtargetFeatures(); }
 
   import_directory_iterator import_directory_begin() const;
   import_directory_iterator import_directory_end() const;
@@ -910,9 +910,6 @@ public:
   std::error_code
   getImportTableEntry(const import_directory_table_entry *&Result) const;
 
-  std::error_code
-  getImportLookupEntry(const import_lookup_table_entry32 *&Result) const;
-
 private:
   const import_directory_table_entry *ImportTable;
   uint32_t Index;
@@ -984,7 +981,9 @@ public:
   void moveNext();
 
   std::error_code getSymbolName(StringRef &Result) const;
+  std::error_code isOrdinal(bool &Result) const;
   std::error_code getOrdinal(uint16_t &Result) const;
+  std::error_code getHintNameRVA(uint32_t &Result) const;
 
 private:
   const import_lookup_table_entry32 *Entry32;
@@ -1010,6 +1009,30 @@ private:
   const coff_base_reloc_block_header *Header;
   uint32_t Index;
   const COFFObjectFile *OwningObject;
+};
+
+// Corresponds to `_FPO_DATA` structure in the PE/COFF spec.
+struct FpoData {
+  support::ulittle32_t Offset; // ulOffStart: Offset 1st byte of function code
+  support::ulittle32_t Size;   // cbProcSize: # bytes in function
+  support::ulittle32_t NumLocals; // cdwLocals: # bytes in locals/4
+  support::ulittle16_t NumParams; // cdwParams: # bytes in params/4
+  support::ulittle16_t Attributes;
+
+  // cbProlog: # bytes in prolog
+  int getPrologSize() const { return Attributes & 0xF; }
+
+  // cbRegs: # regs saved
+  int getNumSavedRegs() const { return (Attributes >> 8) & 0x7; }
+
+  // fHasSEH: true if seh is func
+  bool hasSEH() const { return (Attributes >> 9) & 1; }
+
+  // fUseBP: true if EBP has been allocated
+  bool useBP() const { return (Attributes >> 10) & 1; }
+
+  // cbFrame: frame pointer
+  int getFP() const { return Attributes >> 14; }
 };
 
 } // end namespace object

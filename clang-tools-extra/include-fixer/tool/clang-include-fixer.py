@@ -28,18 +28,53 @@ binary = 'clang-include-fixer'
 if vim.eval('exists("g:clang_include_fixer_path")') == "1":
   binary = vim.eval('g:clang_include_fixer_path')
 
-maximum_suggested_headers=3
+maximum_suggested_headers = 3
 if vim.eval('exists("g:clang_include_fixer_maximum_suggested_headers")') == "1":
   maximum_suggested_headers = max(
       1,
       vim.eval('g:clang_include_fixer_maximum_suggested_headers'))
 
+increment_num = 5
+if vim.eval('exists("g:clang_include_fixer_increment_num")') == "1":
+  increment_num = max(
+      1,
+      vim.eval('g:clang_include_fixer_increment_num'))
 
-def ShowDialog(message, choices, default_choice_index=0):
-  to_eval = "confirm('{0}', '{1}', '{2}')".format(message,
-                                                  choices.strip(),
-                                                  default_choice_index)
-  return int(vim.eval(to_eval));
+jump_to_include = False
+if vim.eval('exists("g:clang_include_fixer_jump_to_include")') == "1":
+  jump_to_include = vim.eval('g:clang_include_fixer_jump_to_include') != "0"
+
+
+def GetUserSelection(message, headers, maximum_suggested_headers):
+  eval_message = message + '\n'
+  for idx, header in enumerate(headers[0:maximum_suggested_headers]):
+    eval_message += "({0}). {1}\n".format(idx + 1, header)
+  eval_message += "Enter (q) to quit;"
+  if maximum_suggested_headers < len(headers):
+    eval_message += " (m) to show {0} more candidates.".format(
+        min(increment_num, len(headers) - maximum_suggested_headers))
+
+  eval_message += "\nSelect (default 1): "
+  res = vim.eval("input('{0}')".format(eval_message))
+  if res == '':
+    # choose the top ranked header by default
+    idx = 1
+  elif res == 'q':
+    raise Exception('   Insertion cancelled...')
+  elif res == 'm':
+    return GetUserSelection(message,
+                            headers, maximum_suggested_headers + increment_num)
+  else:
+    try:
+      idx = int(res)
+      if idx <= 0 or idx > len(headers):
+        raise Exception()
+    except Exception:
+      # Show a new prompt on invalid option instead of aborting so that users
+      # don't need to wait for another include-fixer run.
+      print >> sys.stderr, "Invalid option:", res
+      return GetUserSelection(message, headers, maximum_suggested_headers)
+  return headers[idx - 1]
 
 
 def execute(command, text):
@@ -50,15 +85,24 @@ def execute(command, text):
 
 
 def InsertHeaderToVimBuffer(header, text):
-  command = [binary, "-stdin", "-insert-header="+json.dumps(header),
+  command = [binary, "-stdin", "-insert-header=" + json.dumps(header),
              vim.current.buffer.name]
   stdout, stderr = execute(command, text)
+  if stderr:
+    raise Exception(stderr)
   if stdout:
     lines = stdout.splitlines()
     sequence = difflib.SequenceMatcher(None, vim.current.buffer, lines)
+    line_num = None
     for op in reversed(sequence.get_opcodes()):
-      if op[0] is not 'equal':
+      if op[0] != 'equal':
         vim.current.buffer[op[1]:op[2]] = lines[op[3]:op[4]]
+      if op[0] == 'insert':
+        # line_num in vim is 1-based.
+        line_num = op[1] + 1
+
+    if jump_to_include and line_num:
+      vim.current.window.cursor = (line_num, 0)
 
 
 def main():
@@ -75,8 +119,8 @@ def main():
   text = '\n'.join(buf)
 
   # Run command to get all headers.
-  command = [binary, "-stdin", "-output-headers", "-db="+args.db,
-             "-input="+args.input, vim.current.buffer.name]
+  command = [binary, "-stdin", "-output-headers", "-db=" + args.db,
+             "-input=" + args.input, vim.current.buffer.name]
   stdout, stderr = execute(command, text)
   if stderr:
     print >> sys.stderr, "Error while running clang-include-fixer: " + stderr
@@ -84,37 +128,48 @@ def main():
 
   include_fixer_context = json.loads(stdout)
   symbol = include_fixer_context["SymbolIdentifier"]
-  headers = include_fixer_context["Headers"]
+  # The header_infos is already sorted by include-fixer.
+  header_infos = include_fixer_context["HeaderInfos"]
+  # Deduplicate headers while keeping the order, so that the same header would
+  # not be suggested twice.
+  unique_headers = []
+  seen = set()
+  for header_info in header_infos:
+    header = header_info["Header"]
+    if header not in seen:
+      seen.add(header)
+      unique_headers.append(header)
 
   if not symbol:
-    print "The file is fine, no need to add a header.\n"
-    return;
-
-  if not headers:
-    print "Couldn't find a header for {0}.\n".format(symbol)
+    print "The file is fine, no need to add a header."
     return
 
-  # The first line is the symbol name.
-  # If there is only one suggested header, insert it directly.
-  if len(headers) == 1 or maximum_suggested_headers == 1:
+  if not unique_headers:
+    print "Couldn't find a header for {0}.".format(symbol)
+    return
+
+  try:
+    # If there is only one suggested header, insert it directly.
+    if len(unique_headers) == 1 or maximum_suggested_headers == 1:
+      InsertHeaderToVimBuffer({"SymbolIdentifier": symbol,
+                               "Range": include_fixer_context["Range"],
+                               "HeaderInfos": header_infos}, text)
+      print "Added #include {0} for {1}.".format(unique_headers[0], symbol)
+      return
+
+    selected = GetUserSelection("choose a header file for {0}.".format(symbol),
+                                unique_headers, maximum_suggested_headers)
+    selected_header_infos = [
+      header for header in header_infos if header["Header"] == selected]
+
+    # Insert a selected header.
     InsertHeaderToVimBuffer({"SymbolIdentifier": symbol,
-                             "Headers":[headers[0]]}, text)
-    print "Added #include {0} for {1}.\n".format(headers[0], symbol)
-    return
-
-  choices_message = ""
-  index = 1;
-  for header in headers[0:maximum_suggested_headers]:
-    choices_message += "&{0} {1}\n".format(index, header)
-    index += 1
-
-  select = ShowDialog("choose a header file for {0}.".format(symbol),
-                      choices_message)
-  # Insert a selected header.
-  InsertHeaderToVimBuffer({"SymbolIdentifier": symbol,
-                           "Headers":[headers[select-1]]}, text)
-  print "Added #include {0} for {1}.\n".format(headers[select-1], symbol)
-  return;
+                             "Range": include_fixer_context["Range"],
+                             "HeaderInfos": selected_header_infos}, text)
+    print "Added #include {0} for {1}.".format(selected, symbol)
+  except Exception as error:
+    print >> sys.stderr, error.message
+  return
 
 
 if __name__ == '__main__':

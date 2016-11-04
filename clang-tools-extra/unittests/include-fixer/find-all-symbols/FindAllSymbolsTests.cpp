@@ -66,15 +66,15 @@ public:
 
     std::string FileName = "symbol.cc";
 
-    const std::string InternalHeader = "internal/internal.h";
+    const std::string InternalHeader = "internal/internal_header.h";
     const std::string TopHeader = "<top>";
     // Test .inc header path. The header for `IncHeaderClass` should be
     // internal.h, which will eventually be mapped to <top>.
     std::string IncHeader = "internal/private.inc";
     std::string IncHeaderCode = "class IncHeaderClass {};";
 
-    HeaderMapCollector::HeaderMap PostfixMap = {
-        {"internal.h", TopHeader},
+    HeaderMapCollector::RegexHeaderMap RegexMap = {
+        {R"(internal_.*\.h$)", TopHeader.c_str()},
     };
 
     std::string InternalCode =
@@ -89,7 +89,7 @@ public:
                                 llvm::MemoryBuffer::getMemBuffer(InternalCode));
 
     std::unique_ptr<clang::tooling::FrontendActionFactory> Factory(
-        new FindAllSymbolsActionFactory(&Reporter, &PostfixMap));
+        new FindAllSymbolsActionFactory(&Reporter, &RegexMap));
 
     tooling::ToolInvocation Invocation(
         {std::string("find_all_symbols"), std::string("-fsyntax-only"),
@@ -102,10 +102,11 @@ public:
 
     std::string Content = "#include\"" + std::string(HeaderName) +
                           "\"\n"
-                          "#include \"internal/internal.h\"";
+                          "#include \"" +
+                          InternalHeader + "\"";
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
     // Test path cleaning for both decls and macros.
-    const std::string DirtyHeader = "./internal/../internal/./a/b.h";
+    const std::string DirtyHeader = "./internal/./a/b.h";
     Content += "\n#include \"" + DirtyHeader + "\"";
     const std::string CleanHeader = "internal/a/b.h";
     const std::string DirtyHeaderContent =
@@ -334,6 +335,7 @@ TEST_F(FindAllSymbolsTest, EnumTest) {
       public:
         enum A_ENUM { X1, X2 };
       };
+      enum DECL : int;
       )";
   runFindAllSymbols(Code);
 
@@ -375,6 +377,10 @@ TEST_F(FindAllSymbolsTest, EnumTest) {
   Symbol = SymbolInfo("X1", SymbolInfo::SymbolKind::EnumDecl, HeaderName, 7,
                       {{SymbolInfo::ContextType::EnumDecl, "A_ENUM"},
                        {SymbolInfo::ContextType::Record, "A"}});
+  EXPECT_FALSE(hasSymbol(Symbol));
+
+  Symbol =
+      SymbolInfo("DECL", SymbolInfo::SymbolKind::EnumDecl, HeaderName, 9, {});
   EXPECT_FALSE(hasSymbol(Symbol));
 }
 
@@ -426,6 +432,27 @@ TEST_F(FindAllSymbolsTest, MacroTestWithIWYU) {
 
   Symbol = SymbolInfo("MAX", SymbolInfo::SymbolKind::Macro, "bar.h", 5, {});
   EXPECT_TRUE(hasSymbol(Symbol));
+}
+
+TEST_F(FindAllSymbolsTest, NoFriendTest) {
+  static const char Code[] = R"(
+    class WorstFriend {
+      friend void Friend();
+      friend class BestFriend;
+    };
+  )";
+  runFindAllSymbols(Code);
+  SymbolInfo Symbol = SymbolInfo("WorstFriend", SymbolInfo::SymbolKind::Class,
+                                 HeaderName, 2, {});
+  EXPECT_TRUE(hasSymbol(Symbol));
+
+  Symbol = SymbolInfo("Friend", SymbolInfo::SymbolKind::Function, HeaderName,
+                      3, {});
+  EXPECT_FALSE(hasSymbol(Symbol));
+
+  Symbol = SymbolInfo("BestFriend", SymbolInfo::SymbolKind::Class, HeaderName,
+                      4, {});
+  EXPECT_FALSE(hasSymbol(Symbol));
 }
 
 } // namespace find_all_symbols

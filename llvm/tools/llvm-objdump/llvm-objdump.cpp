@@ -264,6 +264,12 @@ void llvm::error(std::error_code EC) {
   exit(1);
 }
 
+LLVM_ATTRIBUTE_NORETURN void llvm::error(Twine Message) {
+  errs() << ToolName << ": " << Message << ".\n";
+  errs().flush();
+  exit(1);
+}
+
 LLVM_ATTRIBUTE_NORETURN void llvm::report_error(StringRef File,
                                                 std::error_code EC) {
   assert(EC);
@@ -583,6 +589,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
   case ELF::EM_ARM:
   case ELF::EM_HEXAGON:
   case ELF::EM_MIPS:
+  case ELF::EM_BPF:
     res = Target;
     break;
   case ELF::EM_WEBASSEMBLY:
@@ -649,9 +656,14 @@ static void printRelocationTargetName(const MachOObjectFile *O,
 
     for (const SymbolRef &Symbol : O->symbols()) {
       std::error_code ec;
-      ErrorOr<uint64_t> Addr = Symbol.getAddress();
-      if ((ec = Addr.getError()))
-        report_fatal_error(ec.message());
+      Expected<uint64_t> Addr = Symbol.getAddress();
+      if (!Addr) {
+        std::string Buf;
+        raw_string_ostream OS(Buf);
+        logAllUnhandledErrors(Addr.takeError(), OS, "");
+        OS.flush();
+        report_fatal_error(Buf);
+      }
       if (*Addr != Val)
         continue;
       Expected<StringRef> Name = Symbol.getName();
@@ -931,12 +943,10 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
   const Target *TheTarget = getTarget(Obj);
 
   // Package up features to be passed to target/subtarget
-  std::string FeaturesStr;
+  SubtargetFeatures Features = Obj->getFeatures();
   if (MAttrs.size()) {
-    SubtargetFeatures Features;
     for (unsigned i = 0; i != MAttrs.size(); ++i)
       Features.AddFeature(MAttrs[i]);
-    FeaturesStr = Features.getString();
   }
 
   std::unique_ptr<const MCRegisterInfo> MRI(
@@ -950,7 +960,7 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
   if (!AsmInfo)
     report_fatal_error("error: no assembly info for target " + TripleName);
   std::unique_ptr<const MCSubtargetInfo> STI(
-      TheTarget->createMCSubtargetInfo(TripleName, MCPU, FeaturesStr));
+      TheTarget->createMCSubtargetInfo(TripleName, MCPU, Features.getString()));
   if (!STI)
     report_fatal_error("error: no subtarget info for target " + TripleName);
   std::unique_ptr<const MCInstrInfo> MII(TheTarget->createMCInstrInfo());
@@ -994,8 +1004,8 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
   typedef std::vector<std::pair<uint64_t, StringRef>> SectionSymbolsTy;
   std::map<SectionRef, SectionSymbolsTy> AllSymbols;
   for (const SymbolRef &Symbol : Obj->symbols()) {
-    ErrorOr<uint64_t> AddressOrErr = Symbol.getAddress();
-    error(AddressOrErr.getError());
+    Expected<uint64_t> AddressOrErr = Symbol.getAddress();
+    error(errorToErrorCode(AddressOrErr.takeError()));
     uint64_t Address = *AddressOrErr;
 
     Expected<StringRef> Name = Symbol.getName();
@@ -1391,8 +1401,9 @@ void llvm::PrintSymbolTable(const ObjectFile *o, StringRef ArchiveName,
     return;
   }
   for (const SymbolRef &Symbol : o->symbols()) {
-    ErrorOr<uint64_t> AddressOrError = Symbol.getAddress();
-    error(AddressOrError.getError());
+    Expected<uint64_t> AddressOrError = Symbol.getAddress();
+    if (!AddressOrError)
+      report_error(ArchiveName, o->getFileName(), AddressOrError.takeError());
     uint64_t Address = *AddressOrError;
     Expected<SymbolRef::Type> TypeOrError = Symbol.getType();
     if (!TypeOrError)
@@ -1692,10 +1703,8 @@ static void DumpObject(const ObjectFile *o, const Archive *a = nullptr) {
 
 /// @brief Dump each object file in \a a;
 static void DumpArchive(const Archive *a) {
-  for (auto &ErrorOrChild : a->children()) {
-    if (std::error_code EC = ErrorOrChild.getError())
-      report_error(a->getFileName(), EC);
-    const Archive::Child &C = *ErrorOrChild;
+  Error Err;
+  for (auto &C : a->children(Err)) {
     Expected<std::unique_ptr<Binary>> ChildOrErr = C.getAsBinary();
     if (!ChildOrErr) {
       if (auto E = isNotObjectErrorInvalidFileType(ChildOrErr.takeError()))
@@ -1707,6 +1716,8 @@ static void DumpArchive(const Archive *a) {
     else
       report_error(a->getFileName(), object_error::invalid_file_type);
   }
+  if (Err)
+    report_error(a->getFileName(), std::move(Err));
 }
 
 /// @brief Open file and figure out how to dump it.
@@ -1736,7 +1747,7 @@ static void DumpInput(StringRef file) {
 
 int main(int argc, char **argv) {
   // Print a stack trace if we signal out.
-  sys::PrintStackTraceOnErrorSignal();
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
 

@@ -2656,6 +2656,12 @@ Parser::ParseObjCAutoreleasePoolStmt(SourceLocation atLoc) {
 /// StashAwayMethodOrFunctionBodyTokens -  Consume the tokens and store them 
 /// for later parsing.
 void Parser::StashAwayMethodOrFunctionBodyTokens(Decl *MDecl) {
+  if (SkipFunctionBodies && (!MDecl || Actions.canSkipFunctionBody(MDecl)) &&
+      trySkippingFunctionBody()) {
+    Actions.ActOnSkippedFunctionBody(MDecl);
+    return;
+  }
+
   LexedMethod* LM = new LexedMethod(this, MDecl);
   CurParsedObjCImpl->LateParsedObjCMethods.push_back(LM);
   CachedTokens &Toks = LM->Toks;
@@ -2852,6 +2858,8 @@ ExprResult Parser::ParseObjCAtExpression(SourceLocation AtLoc) {
       return ParsePostfixExpressionSuffix(ParseObjCProtocolExpression(AtLoc));
     case tok::objc_selector:
       return ParsePostfixExpressionSuffix(ParseObjCSelectorExpression(AtLoc));
+    case tok::objc_available:
+      return ParseAvailabilityCheckExpr(AtLoc);
       default: {
         const char *str = nullptr;
         if (GetLookAheadToken(1).is(tok::l_brace)) {

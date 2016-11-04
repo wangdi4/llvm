@@ -68,9 +68,9 @@ LPUInstrInfo::LPUInstrInfo(LPUSubtarget &STI)
     RI(*this) {}
 
 void LPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
-                                  MachineBasicBlock::iterator I, DebugLoc DL,
-                                  unsigned DestReg, unsigned SrcReg,
-                                  bool KillSrc) const {
+                                  MachineBasicBlock::iterator I,
+                                  const DebugLoc &DL, unsigned DestReg,
+                                  unsigned SrcReg, bool KillSrc) const {
   // This could determine the opcode based on the minimum size of the source
   // and destination
   // For now, just use MOV64 to make sure all bits are moved.
@@ -175,7 +175,7 @@ bool LPUInstrInfo::isUnpredicatedTerminator(const MachineInstr &MI) const {
   return !isPredicated(MI);
 }
 */
-bool LPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
+bool LPUInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
                                     MachineBasicBlock *&TBB,
                                     MachineBasicBlock *&FBB,
                                     SmallVectorImpl<MachineOperand> &Cond,
@@ -263,7 +263,7 @@ unsigned
 LPUInstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                               MachineBasicBlock *FBB,
                               ArrayRef<MachineOperand> Cond,
-                              DebugLoc DL) const {
+                              const DebugLoc &DL) const {
   // Shouldn't be a fall through.
   assert(TBB && "InsertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 2 || Cond.size() == 0) &&

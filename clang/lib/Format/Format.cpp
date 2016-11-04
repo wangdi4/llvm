@@ -314,6 +314,8 @@ template <> struct MappingTraits<FormatStyle> {
     IO.mapOptional("IndentWidth", Style.IndentWidth);
     IO.mapOptional("IndentWrappedFunctionNames",
                    Style.IndentWrappedFunctionNames);
+    IO.mapOptional("JavaScriptQuotes", Style.JavaScriptQuotes);
+    IO.mapOptional("JavaScriptWrapImports", Style.JavaScriptWrapImports);
     IO.mapOptional("KeepEmptyLinesAtTheStartOfBlocks",
                    Style.KeepEmptyLinesAtTheStartOfBlocks);
     IO.mapOptional("MacroBlockBegin", Style.MacroBlockBegin);
@@ -353,7 +355,6 @@ template <> struct MappingTraits<FormatStyle> {
     IO.mapOptional("Standard", Style.Standard);
     IO.mapOptional("TabWidth", Style.TabWidth);
     IO.mapOptional("UseTab", Style.UseTab);
-    IO.mapOptional("JavaScriptQuotes", Style.JavaScriptQuotes);
   }
 };
 
@@ -531,6 +532,8 @@ FormatStyle getLLVMStyle() {
   LLVMStyle.IndentCaseLabels = false;
   LLVMStyle.IndentWrappedFunctionNames = false;
   LLVMStyle.IndentWidth = 2;
+  LLVMStyle.JavaScriptQuotes = FormatStyle::JSQS_Leave;
+  LLVMStyle.JavaScriptWrapImports = true;
   LLVMStyle.TabWidth = 8;
   LLVMStyle.MaxEmptyLinesToKeep = 1;
   LLVMStyle.KeepEmptyLinesAtTheStartOfBlocks = true;
@@ -609,10 +612,12 @@ FormatStyle getGoogleStyle(FormatStyle::LanguageKind Language) {
     GoogleStyle.AllowShortFunctionsOnASingleLine = FormatStyle::SFS_Inline;
     GoogleStyle.AlwaysBreakBeforeMultilineStrings = false;
     GoogleStyle.BreakBeforeTernaryOperators = false;
-    GoogleStyle.CommentPragmas = "@(export|return|see|visibility) ";
+    GoogleStyle.CommentPragmas = "@(export|requirecss|return|see|visibility) ";
     GoogleStyle.MaxEmptyLinesToKeep = 3;
+    GoogleStyle.NamespaceIndentation = FormatStyle::NI_All;
     GoogleStyle.SpacesInContainerLiterals = false;
     GoogleStyle.JavaScriptQuotes = FormatStyle::JSQS_Single;
+    GoogleStyle.JavaScriptWrapImports = false;
   } else if (Language == FormatStyle::LK_Proto) {
     GoogleStyle.AllowShortFunctionsOnASingleLine = FormatStyle::SFS_None;
     GoogleStyle.SpacesInContainerLiterals = false;
@@ -1388,27 +1393,29 @@ tooling::Replacements sortIncludes(const FormatStyle &Style, StringRef Code,
 }
 
 template <typename T>
-static tooling::Replacements
+static llvm::Expected<tooling::Replacements>
 processReplacements(T ProcessFunc, StringRef Code,
                     const tooling::Replacements &Replaces,
                     const FormatStyle &Style) {
   if (Replaces.empty())
     return tooling::Replacements();
 
-  std::string NewCode = applyAllReplacements(Code, Replaces);
+  auto NewCode = applyAllReplacements(Code, Replaces);
+  if (!NewCode)
+    return NewCode.takeError();
   std::vector<tooling::Range> ChangedRanges =
       tooling::calculateChangedRanges(Replaces);
   StringRef FileName = Replaces.begin()->getFilePath();
 
   tooling::Replacements FormatReplaces =
-      ProcessFunc(Style, NewCode, ChangedRanges, FileName);
+      ProcessFunc(Style, *NewCode, ChangedRanges, FileName);
 
   return mergeReplacements(Replaces, FormatReplaces);
 }
 
-tooling::Replacements formatReplacements(StringRef Code,
-                                         const tooling::Replacements &Replaces,
-                                         const FormatStyle &Style) {
+llvm::Expected<tooling::Replacements>
+formatReplacements(StringRef Code, const tooling::Replacements &Replaces,
+                   const FormatStyle &Style) {
   // We need to use lambda function here since there are two versions of
   // `sortIncludes`.
   auto SortIncludes = [](const FormatStyle &Style, StringRef Code,
@@ -1416,8 +1423,10 @@ tooling::Replacements formatReplacements(StringRef Code,
                          StringRef FileName) -> tooling::Replacements {
     return sortIncludes(Style, Code, Ranges, FileName);
   };
-  tooling::Replacements SortedReplaces =
+  auto SortedReplaces =
       processReplacements(SortIncludes, Code, Replaces, Style);
+  if (!SortedReplaces)
+    return SortedReplaces.takeError();
 
   // We need to use lambda function here since there are two versions of
   // `reformat`.
@@ -1426,7 +1435,7 @@ tooling::Replacements formatReplacements(StringRef Code,
                      StringRef FileName) -> tooling::Replacements {
     return reformat(Style, Code, Ranges, FileName);
   };
-  return processReplacements(Reformat, Code, SortedReplaces, Style);
+  return processReplacements(Reformat, Code, *SortedReplaces, Style);
 }
 
 namespace {
@@ -1436,9 +1445,51 @@ inline bool isHeaderInsertion(const tooling::Replacement &Replace) {
          llvm::Regex(IncludeRegexPattern).match(Replace.getReplacementText());
 }
 
+void skipComments(Lexer &Lex, Token &Tok) {
+  while (Tok.is(tok::comment))
+    if (Lex.LexFromRawLexer(Tok))
+      return;
+}
+
+// Check if a sequence of tokens is like "#<Name> <raw_identifier>". If it is,
+// \p Tok will be the token after this directive; otherwise, it can be any token
+// after the given \p Tok (including \p Tok).
+bool checkAndConsumeDirectiveWithName(Lexer &Lex, StringRef Name, Token &Tok) {
+  bool Matched = Tok.is(tok::hash) && !Lex.LexFromRawLexer(Tok) &&
+                 Tok.is(tok::raw_identifier) &&
+                 Tok.getRawIdentifier() == Name && !Lex.LexFromRawLexer(Tok) &&
+                 Tok.is(tok::raw_identifier);
+  if (Matched)
+    Lex.LexFromRawLexer(Tok);
+  return Matched;
+}
+
+unsigned getOffsetAfterHeaderGuardsAndComments(StringRef FileName,
+                                               StringRef Code,
+                                               const FormatStyle &Style) {
+  std::unique_ptr<Environment> Env =
+      Environment::CreateVirtualEnvironment(Code, FileName, /*Ranges=*/{});
+  const SourceManager &SourceMgr = Env->getSourceManager();
+  Lexer Lex(Env->getFileID(), SourceMgr.getBuffer(Env->getFileID()), SourceMgr,
+            getFormattingLangOpts(Style));
+  Token Tok;
+  // Get the first token.
+  Lex.LexFromRawLexer(Tok);
+  skipComments(Lex, Tok);
+  unsigned AfterComments = SourceMgr.getFileOffset(Tok.getLocation());
+  if (checkAndConsumeDirectiveWithName(Lex, "ifndef", Tok)) {
+    skipComments(Lex, Tok);
+    if (checkAndConsumeDirectiveWithName(Lex, "define", Tok))
+      return SourceMgr.getFileOffset(Tok.getLocation());
+  }
+  return AfterComments;
+}
+
+// FIXME: we also need to insert a '\n' at the end of the code if we have an
+// insertion with offset Code.size(), and there is no '\n' at the end of the
+// code.
 // FIXME: do not insert headers into conditional #include blocks, e.g. #includes
 // surrounded by compile condition "#if...".
-// FIXME: do not insert existing headers.
 // FIXME: insert empty lines between newly created blocks.
 tooling::Replacements
 fixCppIncludeInsertions(StringRef Code, const tooling::Replacements &Replaces,
@@ -1469,20 +1520,6 @@ fixCppIncludeInsertions(StringRef Code, const tooling::Replacements &Replaces,
   StringRef FileName = Replaces.begin()->getFilePath();
   IncludeCategoryManager Categories(Style, FileName);
 
-  std::unique_ptr<Environment> Env =
-      Environment::CreateVirtualEnvironment(Code, FileName, /*Ranges=*/{});
-  const SourceManager &SourceMgr = Env->getSourceManager();
-  Lexer Lex(Env->getFileID(), SourceMgr.getBuffer(Env->getFileID()), SourceMgr,
-            getFormattingLangOpts(Style));
-  Token Tok;
-  // All new headers should be inserted after this offset.
-  int MinInsertOffset = Code.size();
-  while (!Lex.LexFromRawLexer(Tok)) {
-    if (Tok.isNot(tok::comment)) {
-      MinInsertOffset = SourceMgr.getFileOffset(Tok.getLocation());
-      break;
-    }
-  }
   // Record the offset of the end of the last include in each category.
   std::map<int, int> CategoryEndOffsets;
   // All possible priorities.
@@ -1491,26 +1528,27 @@ fixCppIncludeInsertions(StringRef Code, const tooling::Replacements &Replaces,
   for (const auto &Category : Style.IncludeCategories)
     Priorities.insert(Category.Priority);
   int FirstIncludeOffset = -1;
-  bool HeaderGuardFound = false;
+  // All new headers should be inserted after this offset.
+  unsigned MinInsertOffset =
+      getOffsetAfterHeaderGuardsAndComments(FileName, Code, Style);
   StringRef TrimmedCode = Code.drop_front(MinInsertOffset);
   SmallVector<StringRef, 32> Lines;
   TrimmedCode.split(Lines, '\n');
-  int Offset = MinInsertOffset;
+  unsigned Offset = MinInsertOffset;
+  unsigned NextLineOffset;
+  std::set<StringRef> ExistingIncludes;
   for (auto Line : Lines) {
+    NextLineOffset = std::min(Code.size(), Offset + Line.size() + 1);
     if (IncludeRegex.match(Line, &Matches)) {
       StringRef IncludeName = Matches[2];
+      ExistingIncludes.insert(IncludeName);
       int Category = Categories.getIncludePriority(
           IncludeName, /*CheckMainHeader=*/FirstIncludeOffset < 0);
-      CategoryEndOffsets[Category] = Offset + Line.size() + 1;
+      CategoryEndOffsets[Category] = NextLineOffset;
       if (FirstIncludeOffset < 0)
         FirstIncludeOffset = Offset;
     }
-    Offset += Line.size() + 1;
-    // FIXME: make header guard matching stricter, e.g. consider #ifndef.
-    if (!HeaderGuardFound && DefineRegex.match(Line)) {
-      HeaderGuardFound = true;
-      MinInsertOffset = Offset;
-    }
+    Offset = NextLineOffset;
   }
 
   // Populate CategoryEndOfssets:
@@ -1539,6 +1577,11 @@ fixCppIncludeInsertions(StringRef Code, const tooling::Replacements &Replaces,
                       "'#include ...'");
     (void)Matched;
     auto IncludeName = Matches[2];
+    if (ExistingIncludes.find(IncludeName) != ExistingIncludes.end()) {
+      DEBUG(llvm::dbgs() << "Skip adding existing include : " << IncludeName
+                         << "\n");
+      continue;
+    }
     int Category =
         Categories.getIncludePriority(IncludeName, /*CheckMainHeader=*/true);
     Offset = CategoryEndOffsets[Category];
@@ -1552,7 +1595,7 @@ fixCppIncludeInsertions(StringRef Code, const tooling::Replacements &Replaces,
 
 } // anonymous namespace
 
-tooling::Replacements
+llvm::Expected<tooling::Replacements>
 cleanupAroundReplacements(StringRef Code, const tooling::Replacements &Replaces,
                           const FormatStyle &Style) {
   // We need to use lambda function here since there are two versions of

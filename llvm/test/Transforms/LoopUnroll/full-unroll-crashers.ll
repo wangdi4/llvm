@@ -188,3 +188,37 @@ for.inc:
 for.end:
   ret void
 }
+
+define void @cmp_type_mismatch() {
+entry:
+  br label %for.header
+
+for.header:
+  br label %for.body
+
+for.body:
+  %d = phi i32* [ null, %for.header ]
+  %cmp = icmp eq i32* %d, null
+  br i1 undef, label %for.end, label %for.header
+
+for.end:
+  ret void
+}
+
+define void @load_type_mismatch() {
+entry:
+  br label %for.body
+
+for.body:
+  %iv.0 = phi i64 [ 0, %entry ], [ %iv.1, %for.body ]
+  %arrayidx1 = getelementptr inbounds [10 x i32], [10 x i32]* @known_constant, i64 0, i64 %iv.0
+  %bc = bitcast i32* %arrayidx1 to i64*
+  %x1 = load i64, i64* %bc, align 4
+  %x2 = add i64 10, %x1
+  %iv.1 = add nuw nsw i64 %iv.0, 1
+  %exitcond = icmp eq i64 %iv.1, 10
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:
+  ret void
+}

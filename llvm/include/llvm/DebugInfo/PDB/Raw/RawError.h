@@ -22,7 +22,10 @@ enum class raw_error_code {
   corrupt_file,
   insufficient_buffer,
   no_stream,
-  index_out_of_bounds
+  index_out_of_bounds,
+  invalid_block_address,
+  not_writable,
+  invalid_tpi_hash,
 };
 
 /// Base class for errors originating when parsing raw PDB files

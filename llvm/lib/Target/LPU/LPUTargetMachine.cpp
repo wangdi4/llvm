@@ -77,8 +77,13 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, const Triple &TT,
                         getEffectiveRelocModel(RM), CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
       Subtarget(TT, CPU, FS, *this) {
-  // Not sure this is needed
-  //setRequiresStructuredCFG(true);
+
+  // Although it's still not clear from a performance point of view whether or
+  // not we need 'setRequiresStructuredCFG', we're enabling it because it
+  // disables certain machine-level transformations in MachineBlockPlacement.
+  // At The problematic transformation which prompted us to enable this again
+  // was tail merging, but this disables other transformations as well.
+  setRequiresStructuredCFG(true);
   initAsmInfo();
   //setAsmVerbosityDefault(true);
 }

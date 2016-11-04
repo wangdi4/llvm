@@ -25,9 +25,9 @@ protected:
                       const FormatStyle &Style = getLLVMStyle()) {
     tooling::Replacements Replaces = format::cleanup(Style, Code, Ranges);
 
-    std::string Result = applyAllReplacements(Code, Replaces);
-    EXPECT_NE("", Result);
-    return Result;
+    auto Result = applyAllReplacements(Code, Replaces);
+    EXPECT_TRUE(static_cast<bool>(Result));
+    return *Result;
   }
 };
 
@@ -254,16 +254,26 @@ protected:
 
   inline std::string apply(StringRef Code,
                            const tooling::Replacements Replaces) {
-    return applyAllReplacements(
-        Code, cleanupAroundReplacements(Code, Replaces, Style));
+    auto CleanReplaces = cleanupAroundReplacements(Code, Replaces, Style);
+    EXPECT_TRUE(static_cast<bool>(CleanReplaces))
+        << llvm::toString(CleanReplaces.takeError()) << "\n";
+    auto Result = applyAllReplacements(Code, *CleanReplaces);
+    EXPECT_TRUE(static_cast<bool>(Result));
+    return *Result;
   }
 
   inline std::string formatAndApply(StringRef Code,
                                     const tooling::Replacements Replaces) {
-    return applyAllReplacements(
-        Code,
-        formatReplacements(
-            Code, cleanupAroundReplacements(Code, Replaces, Style), Style));
+
+    auto CleanReplaces = cleanupAroundReplacements(Code, Replaces, Style);
+    EXPECT_TRUE(static_cast<bool>(CleanReplaces))
+        << llvm::toString(CleanReplaces.takeError()) << "\n";
+    auto FormattedReplaces = formatReplacements(Code, *CleanReplaces, Style);
+    EXPECT_TRUE(static_cast<bool>(FormattedReplaces))
+        << llvm::toString(FormattedReplaces.takeError()) << "\n";
+    auto Result = applyAllReplacements(Code, *FormattedReplaces);
+    EXPECT_TRUE(static_cast<bool>(Result));
+    return *Result;
   }
 
   int getOffset(StringRef Code, int Line, int Column) {
@@ -605,6 +615,109 @@ TEST_F(CleanUpReplacementsTest, CodeAfterComments) {
                          "#include <vector>\n"
                          "int x;\n";
   tooling::Replacements Replaces = {createInsertion("#include <vector>")};
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, FakeHeaderGuardIfDef) {
+  std::string Code = "// comment \n"
+                     "#ifdef X\n"
+                     "#define X\n";
+  std::string Expected = "// comment \n"
+                         "#include <vector>\n"
+                         "#ifdef X\n"
+                         "#define X\n";
+  tooling::Replacements Replaces = {createInsertion("#include <vector>")};
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, RealHeaderGuardAfterComments) {
+  std::string Code = "// comment \n"
+                     "#ifndef X\n"
+                     "#define X\n"
+                     "int x;\n"
+                     "#define Y 1\n";
+  std::string Expected = "// comment \n"
+                         "#ifndef X\n"
+                         "#define X\n"
+                         "#include <vector>\n"
+                         "int x;\n"
+                         "#define Y 1\n";
+  tooling::Replacements Replaces = {createInsertion("#include <vector>")};
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, IfNDefWithNoDefine) {
+  std::string Code = "// comment \n"
+                     "#ifndef X\n"
+                     "int x;\n"
+                     "#define Y 1\n";
+  std::string Expected = "// comment \n"
+                         "#include <vector>\n"
+                         "#ifndef X\n"
+                         "int x;\n"
+                         "#define Y 1\n";
+  tooling::Replacements Replaces = {createInsertion("#include <vector>")};
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, HeaderGuardWithComment) {
+  std::string Code = "// comment \n"
+                     "#ifndef X // comment\n"
+                     "// comment\n"
+                     "/* comment\n"
+                     "*/\n"
+                     "/* comment */ #define X\n"
+                     "int x;\n"
+                     "#define Y 1\n";
+  std::string Expected = "// comment \n"
+                         "#ifndef X // comment\n"
+                         "// comment\n"
+                         "/* comment\n"
+                         "*/\n"
+                         "/* comment */ #define X\n"
+                         "#include <vector>\n"
+                         "int x;\n"
+                         "#define Y 1\n";
+  tooling::Replacements Replaces = {createInsertion("#include <vector>")};
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, EmptyCode) {
+  std::string Code = "";
+  std::string Expected = "#include <vector>\n";
+  tooling::Replacements Replaces = {createInsertion("#include <vector>")};
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+// FIXME: although this case does not crash, the insertion is wrong. A '\n'
+// should be inserted between the two #includes.
+TEST_F(CleanUpReplacementsTest, NoNewLineAtTheEndOfCode) {
+  std::string Code = "#include <map>";
+  std::string Expected = "#include <map>#include <vector>\n";
+  tooling::Replacements Replaces = {createInsertion("#include <vector>")};
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, SkipExistingHeaders) {
+  std::string Code = "#include \"a.h\"\n"
+                     "#include <vector>\n";
+  std::string Expected = "#include \"a.h\"\n"
+                         "#include <vector>\n";
+  tooling::Replacements Replaces = {createInsertion("#include <vector>"),
+                                    createInsertion("#include \"a.h\"")};
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, AddIncludesWithDifferentForms) {
+  std::string Code = "#include \"a.h\"\n"
+                     "#include <vector>\n";
+  // FIXME: this might not be the best behavior.
+  std::string Expected = "#include \"a.h\"\n"
+                         "#include \"vector\"\n"
+                         "#include <vector>\n"
+                         "#include <a.h>\n";
+  tooling::Replacements Replaces = {createInsertion("#include \"vector\""),
+                                    createInsertion("#include <a.h>")};
   EXPECT_EQ(Expected, apply(Code, Replaces));
 }
 

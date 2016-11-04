@@ -69,7 +69,7 @@ public:
   const TargetRegisterInfo &getRegisterInfo() const { return RI; }
 
   void copyPhysReg(MachineBasicBlock &MBB,
-                   MachineBasicBlock::iterator I, DebugLoc DL,
+                   MachineBasicBlock::iterator I, const DebugLoc &DL,
                    unsigned DestReg, unsigned SrcReg,
                    bool KillSrc) const override;
 
@@ -123,7 +123,7 @@ public:
   /*
   bool isUnpredicatedTerminator(const MachineInstr &MI) const override;
   */
-  bool AnalyzeBranch(MachineBasicBlock &MBB,
+  bool analyzeBranch(MachineBasicBlock &MBB,
                      MachineBasicBlock *&TBB, MachineBasicBlock *&FBB,
                      SmallVectorImpl<MachineOperand> &Cond,
                      bool AllowModify) const override;
@@ -133,7 +133,7 @@ public:
   unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB,
                         ArrayRef<MachineOperand> Cond,
-                        DebugLoc DL) const override;
+                        const DebugLoc &DL) const override;
 
   // Convert opcode of LD/ST into a corresponding opcode for OLD/OST.
   // Returns current_opcode if it is not a LD or ST.

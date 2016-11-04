@@ -47,7 +47,10 @@ sections with improvements to Clang's support for those languages.
 Major New Features
 ------------------
 
-- Feature1...
+- Clang will no longer passes --build-id by default to the linker. In modern
+  linkers that is a relatively expensive option. It can be passed explicitly
+  with -Wl,--build-id. To have clang always pass it, build clang with
+  -DENABLE_LINKER_BUILD_ID.
 
 Improvements to Clang's diagnostics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -69,6 +72,16 @@ New Pragmas in Clang
 
 Clang now supports the ...
 
+
+Attribute Changes in Clang
+--------------------------
+
+- The ``nodebug`` attribute may now be applied to static, global, and local
+  variables (but not parameters or non-static data members). This will suppress
+  all debugging information for the variable (and its type, if there are no
+  other uses of the type).
+
+
 Windows Support
 ---------------
 
@@ -80,6 +93,11 @@ TLS is enabled for Cygwin defaults to -femulated-tls.
 C Language Changes in Clang
 ---------------------------
 The -faltivec and -maltivec flags no longer silently include altivec.h on Power platforms.
+
+`RenderScript
+<https://developer.android.com/guide/topics/renderscript/compute.html>`_
+support added to the Frontend and enabled by the '-x renderscript' option or
+the '.rs' file extension.
 
 ...
 
