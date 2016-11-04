@@ -131,6 +131,9 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget
     setOperationAction(ISD::DYNAMIC_STACKALLOC,VT,   Expand);
   }
 
+  setOperationAction(ISD::STACKSAVE,          MVT::Other, Expand);
+  setOperationAction(ISD::STACKRESTORE,       MVT::Other, Expand);
+
   for (MVT VT : MVT::fp_valuetypes()) {
     setOperationAction(ISD::BR_CC,            VT,    Expand);
     setOperationAction(ISD::SELECT_CC,        VT,    Expand);
