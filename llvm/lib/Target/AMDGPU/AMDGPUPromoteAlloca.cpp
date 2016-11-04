@@ -124,6 +124,10 @@ bool AMDGPUPromoteAlloca::runOnFunction(Function &F) {
   if (!TM || skipFunction(F))
     return false;
 
+  const AMDGPUSubtarget &ST = TM->getSubtarget<AMDGPUSubtarget>(F);
+  if (!ST.isPromoteAllocaEnabled())
+    return false;
+
   FunctionType *FTy = F.getFunctionType();
 
   // If the function has any arguments in the local address space, then it's
@@ -138,8 +142,6 @@ bool AMDGPUPromoteAlloca::runOnFunction(Function &F) {
       return false;
     }
   }
-
-  const AMDGPUSubtarget &ST = TM->getSubtarget<AMDGPUSubtarget>(F);
 
   LocalMemLimit = ST.getLocalMemorySize();
   if (LocalMemLimit == 0)
@@ -647,6 +649,12 @@ void AMDGPUPromoteAlloca::handleAlloca(AllocaInst &I) {
 
   const Function &ContainingFunction = *I.getParent()->getParent();
 
+  // Don't promote the alloca to LDS for shader calling conventions as the work
+  // item ID intrinsics are not supported for these calling conventions.
+  // Furthermore not all LDS is available for some of the stages.
+  if (AMDGPU::isShader(ContainingFunction.getCallingConv()))
+    return;
+
   // FIXME: We should also try to get this value from the reqd_work_group_size
   // function attribute if it is available.
   unsigned WorkGroupSize = AMDGPU::getMaximumWorkGroupSize(ContainingFunction);
@@ -694,7 +702,7 @@ void AMDGPUPromoteAlloca::handleAlloca(AllocaInst &I) {
       nullptr,
       GlobalVariable::NotThreadLocal,
       AMDGPUAS::LOCAL_ADDRESS);
-  GV->setUnnamedAddr(true);
+  GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
   GV->setAlignment(I.getAlignment());
 
   Value *TCntY, *TCntZ;

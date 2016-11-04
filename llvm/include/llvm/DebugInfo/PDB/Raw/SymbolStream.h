@@ -22,16 +22,18 @@ class PDBFile;
 
 class SymbolStream {
 public:
-  SymbolStream(PDBFile &File, uint32_t StreamNum);
+  SymbolStream(std::unique_ptr<MappedBlockStream> Stream);
   ~SymbolStream();
   Error reload();
 
   iterator_range<codeview::CVSymbolArray::Iterator>
   getSymbols(bool *HadError) const;
 
+  Error commit();
+
 private:
   codeview::CVSymbolArray SymbolRecords;
-  MappedBlockStream MappedStream;
+  std::unique_ptr<MappedBlockStream> Stream;
 };
 }
 }

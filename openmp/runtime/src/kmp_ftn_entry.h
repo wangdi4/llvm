@@ -270,9 +270,9 @@ FTN_GET_AFFINITY_MAX_PROC( void )
             return 0;
         }
 
-    #if KMP_GROUP_AFFINITY && !KMP_USE_HWLOC
+    #if KMP_GROUP_AFFINITY
         if ( __kmp_num_proc_groups > 1 ) {
-            return (int)KMP_CPU_SETSIZE;
+            return (int)(__kmp_num_proc_groups*sizeof(DWORD_PTR)*CHAR_BIT);
         }
     #endif /* KMP_GROUP_AFFINITY */
         return __kmp_xproc;
@@ -689,7 +689,7 @@ xexpand(FTN_GET_PROC_BIND)( void )
     #endif
 }
 
-#if OMP_41_ENABLED
+#if OMP_45_ENABLED
 int FTN_STDCALL
 FTN_GET_NUM_PLACES( void )
 {
@@ -718,8 +718,10 @@ FTN_GET_PLACE_NUM_PROCS( int place_num )
             return 0;
         kmp_affin_mask_t *mask = KMP_CPU_INDEX(__kmp_affinity_masks, place_num);
         KMP_CPU_SET_ITERATE(i, mask) {
-            if ( !KMP_CPU_ISSET(i, mask) )
+            if ((! KMP_CPU_ISSET(i, __kmp_affin_fullMask)) ||
+              (!KMP_CPU_ISSET(i, mask))) {
                 continue;
+            }
             ++retval;
         }
         return retval;
@@ -741,8 +743,10 @@ FTN_GET_PLACE_PROC_IDS( int place_num, int *ids )
         kmp_affin_mask_t *mask = KMP_CPU_INDEX(__kmp_affinity_masks, place_num);
         j = 0;
         KMP_CPU_SET_ITERATE(i, mask) {
-            if ( !KMP_CPU_ISSET(i, mask) )
+            if ((! KMP_CPU_ISSET(i, __kmp_affin_fullMask)) ||
+              (!KMP_CPU_ISSET(i, mask))) {
                 continue;
+            }
             ids[j++] = i;
         }
     #endif
@@ -949,7 +953,7 @@ xexpand(FTN_IS_INITIAL_DEVICE)( void )
 
 #endif // OMP_40_ENABLED
 
-#if OMP_41_ENABLED && defined(KMP_STUB)
+#if OMP_45_ENABLED && defined(KMP_STUB)
 // OpenMP 4.5 entries for stubs library
 
 int FTN_STDCALL
@@ -1004,7 +1008,7 @@ FTN_TARGET_DISASSOCIATE_PTR(void *host_ptr, int device_num)
 {
     return -1;
 }
-#endif // OMP_41_ENABLED && defined(KMP_STUB)
+#endif // OMP_45_ENABLED && defined(KMP_STUB)
 
 #ifdef KMP_STUB
 typedef enum { UNINIT = -1, UNLOCKED, LOCKED } kmp_stub_lock_t;
@@ -1296,7 +1300,7 @@ FTN_GET_CANCELLATION_STATUS(int cancel_kind) {
 
 #endif // OMP_40_ENABLED
 
-#if OMP_41_ENABLED
+#if OMP_45_ENABLED
 /* returns the maximum allowed task priority */
 int FTN_STDCALL
 FTN_GET_MAX_TASK_PRIORITY( void )
@@ -1390,8 +1394,8 @@ xaliasify(FTN_GET_CANCELLATION, 40);
 xaliasify(FTN_IS_INITIAL_DEVICE, 40);
 #endif /* OMP_40_ENABLED */
 
-#if OMP_41_ENABLED
-// OMP_4.1 aliases
+#if OMP_45_ENABLED
+// OMP_4.5 aliases
 #endif
 
 #if OMP_50_ENABLED
@@ -1459,8 +1463,8 @@ xversionify(FTN_GET_CANCELLATION,  40, "OMP_4.0");
 xversionify(FTN_IS_INITIAL_DEVICE, 40, "OMP_4.0");
 #endif /* OMP_40_ENABLED */
 
-#if OMP_41_ENABLED
-// OMP_4.1 versioned symbols
+#if OMP_45_ENABLED
+// OMP_4.5 versioned symbols
 #endif
 
 #if OMP_50_ENABLED

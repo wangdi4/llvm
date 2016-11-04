@@ -362,6 +362,9 @@ protected:
   /// construction (see LLVMTargetMachine::initAsmInfo()).
   bool UseIntegratedAssembler;
 
+  /// Preserve Comments in assembly
+  bool PreserveAsmComments;
+
   /// Compress DWARF debug sections. Defaults to no compression.
   DebugCompressionType CompressDebugSections;
 
@@ -371,7 +374,7 @@ protected:
 
   // If true, emit GOTPCRELX/REX_GOTPCRELX instead of GOTPCREL, on
   // X86_64 ELF.
-  bool RelaxELFRelocations = false;
+  bool RelaxELFRelocations = true;
 
 public:
   explicit MCAsmInfo();
@@ -497,7 +500,7 @@ public:
   bool getAlignmentIsInBytes() const { return AlignmentIsInBytes; }
   unsigned getTextAlignFillValue() const { return TextAlignFillValue; }
   const char *getGlobalDirective() const { return GlobalDirective; }
-  bool doesSetDirectiveSuppressesReloc() const {
+  bool doesSetDirectiveSuppressReloc() const {
     return SetDirectiveSuppressesReloc;
   }
   bool hasAggressiveSymbolFolding() const { return HasAggressiveSymbolFolding; }
@@ -573,6 +576,14 @@ public:
   /// Set whether assembly (inline or otherwise) should be parsed.
   virtual void setUseIntegratedAssembler(bool Value) {
     UseIntegratedAssembler = Value;
+  }
+
+  /// Return true if assembly (inline or otherwise) should be parsed.
+  bool preserveAsmComments() const { return PreserveAsmComments; }
+
+  /// Set whether assembly (inline or otherwise) should be parsed.
+  virtual void setPreserveAsmComments(bool Value) {
+    PreserveAsmComments = Value;
   }
 
   DebugCompressionType compressDebugSections() const {

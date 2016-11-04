@@ -10,6 +10,7 @@
 #include "llvm/DebugInfo/PDB/Raw/ModStream.h"
 
 #include "llvm/DebugInfo/CodeView/StreamReader.h"
+#include "llvm/DebugInfo/PDB/Raw/IndexedStreamData.h"
 #include "llvm/DebugInfo/PDB/Raw/ModInfo.h"
 #include "llvm/DebugInfo/PDB/Raw/PDBFile.h"
 #include "llvm/DebugInfo/PDB/Raw/RawError.h"
@@ -18,13 +19,14 @@
 using namespace llvm;
 using namespace llvm::pdb;
 
-ModStream::ModStream(PDBFile &File, const ModInfo &Module)
-    : Mod(Module), Stream(Module.getModuleStreamIndex(), File) {}
+ModStream::ModStream(const ModInfo &Module,
+                     std::unique_ptr<MappedBlockStream> Stream)
+    : Mod(Module), Stream(std::move(Stream)) {}
 
 ModStream::~ModStream() {}
 
 Error ModStream::reload() {
-  codeview::StreamReader Reader(Stream);
+  codeview::StreamReader Reader(*Stream);
 
   uint32_t SymbolSize = Mod.getSymbolDebugInfoByteSize();
   uint32_t C11Size = Mod.getLineInfoByteSize();
@@ -65,6 +67,9 @@ Error ModStream::reload() {
 
 iterator_range<codeview::CVSymbolArray::Iterator>
 ModStream::symbols(bool *HadError) const {
+  // It's OK if the stream is empty.
+  if (SymbolsSubstream.getUnderlyingStream().getLength() == 0)
+    return llvm::make_range(SymbolsSubstream.end(), SymbolsSubstream.end());
   return llvm::make_range(SymbolsSubstream.begin(HadError),
                           SymbolsSubstream.end());
 }
@@ -73,3 +78,5 @@ iterator_range<codeview::ModuleSubstreamArray::Iterator>
 ModStream::lines(bool *HadError) const {
   return llvm::make_range(LineInfo.begin(HadError), LineInfo.end());
 }
+
+Error ModStream::commit() { return Error::success(); }

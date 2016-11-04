@@ -125,7 +125,7 @@ IRExecutionUnit::DisassembleFunction (Stream &stream,
 
     for (JittedFunction &function : m_jitted_functions)
     {
-        if (function.m_name.AsCString() != m_name.AsCString())
+        if (function.m_name == m_name)
         {
             func_local_addr = function.m_local_addr;
             func_remote_addr = function.m_remote_addr;
@@ -216,10 +216,6 @@ IRExecutionUnit::DisassembleFunction (Stream &stream,
 
     InstructionList &instruction_list = disassembler_sp->GetInstructionList();
     instruction_list.Dump(&stream, true, true, &exe_ctx);
-
-    // FIXME: The DisassemblerLLVMC has a reference cycle and won't go away if it has any active instructions.
-    // I'll fix that but for now, just clear the list and it will go away nicely.
-    disassembler_sp->GetInstructionList().Clear();
     return ret;
 }
 

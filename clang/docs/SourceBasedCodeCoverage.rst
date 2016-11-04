@@ -78,6 +78,14 @@ directory structure will be created.  Additionally, the following special
 
 * "%h" expands out to the hostname of the machine running the program.
 
+* "%Nm" expands out to the instrumented binary's signature. When this pattern
+  is specified, the runtime creates a pool of N raw profiles which are used for
+  on-line profile merging. The runtime takes care of selecting a raw profile
+  from the pool, locking it, and updating it before the program exits.  If N is
+  not specified (i.e the pattern is "%m"), it's assumed that ``N = 1``. N must
+  be between 1 and 9. The merge pool specifier can only occur once per filename
+  pattern.
+
 .. code-block:: console
 
     # Step 2: Run the program.
@@ -103,7 +111,7 @@ generate a line-oriented report:
     # Step 3(b): Create a line-oriented coverage report.
     % llvm-cov show ./foo -instr-profile=foo.profdata
 
-To demangle any C++ identifiers in the ouput, use:
+To demangle any C++ identifiers in the output, use:
 
 .. code-block:: console
 
@@ -115,7 +123,7 @@ distinct views for ``foo<int>(...)`` and ``foo<float>(...)``.  If
 ``-show-line-counts-or-regions`` is enabled, ``llvm-cov`` displays sub-line
 region counts (even in macro expansions):
 
-.. code-block:: cpp
+.. code-block:: none
 
        20|    1|#define BAR(x) ((x) || (x))
                                ^20     ^2
@@ -185,11 +193,37 @@ Format compatibility guarantees
   into instrumented binaries. Tools must retain **backwards** compatibility
   with these formats. These formats are not forwards-compatible.
 
+Using the profiling runtime without static initializers
+=======================================================
+
+By default the compiler runtime uses a static initializer to determine the
+profile output path and to register a writer function. To collect profiles
+without using static initializers, do this manually:
+
+* Export a ``int __llvm_profile_runtime`` symbol from each instrumented shared
+  library and executable. When the linker finds a definition of this symbol, it
+  knows to skip loading the object which contains the profiling runtime's
+  static initializer.
+
+* Forward-declare ``void __llvm_profile_initialize_file(void)`` and call it
+  once from each instrumented executable. This function parses
+  ``LLVM_PROFILE_FILE``, sets the output path, and truncates any existing files
+  at that path. To get the same behavior without truncating existing files,
+  pass a filename pattern string to ``void __llvm_profile_set_filename(char
+  *)``.  These calls can be placed anywhere so long as they precede all calls
+  to ``__llvm_profile_write_file``.
+
+* Forward-declare ``int __llvm_profile_write_file(void)`` and call it to write
+  out a profile. This function returns 0 when it succeeds, and a non-zero value
+  otherwise. Calling this function multiple times appends profile data to an
+  existing on-disk raw profile.
+
 Drawbacks and limitations
 =========================
 
-* Code coverage does not handle stack unwinding in the presence of uncaught
-  exceptions precisely. Consider the following function:
+* Code coverage does not handle unpredictable changes in control flow or stack
+  unwinding in the presence of exceptions precisely. Consider the following
+  function:
 
   .. code-block:: cpp
 
@@ -198,6 +232,6 @@ Drawbacks and limitations
         return 0;
       }
 
-  If the function ``may_throw()`` propagates an exception into ``f``, the code
+  If the call to ``may_throw()`` propagates an exception into ``f``, the code
   coverage tool may mark the ``return`` statement as executed even though it is
-  not.
+  not. A call to ``longjmp()`` can have similar effects.

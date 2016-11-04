@@ -61,8 +61,6 @@ Value *polly::createLoop(Value *LB, Value *UB, Value *Stride,
   assert(LB->getType() == UB->getType() && "Types of loop bounds do not match");
   IntegerType *LoopIVType = dyn_cast<IntegerType>(UB->getType());
   assert(LoopIVType && "UB is not integer?");
-  assert((LoopIVType == LB->getType() && LoopIVType == Stride->getType()) &&
-         "LB, UB and Stride should have equal types.");
 
   BasicBlock *BeforeBB = Builder.GetInsertBlock();
   BasicBlock *GuardBB =
@@ -123,6 +121,7 @@ Value *polly::createLoop(Value *LB, Value *UB, Value *Stride,
   Builder.SetInsertPoint(HeaderBB);
   PHINode *IV = Builder.CreatePHI(LoopIVType, 2, "polly.indvar");
   IV->addIncoming(LB, PreHeaderBB);
+  Stride = Builder.CreateZExtOrBitCast(Stride, LoopIVType);
   Value *IncrementedIV = Builder.CreateNSWAdd(IV, Stride, "polly.indvar_next");
   Value *LoopCondition;
   UB = Builder.CreateSub(UB, Stride, "polly.adjust_ub");
@@ -148,12 +147,6 @@ Value *polly::createLoop(Value *LB, Value *UB, Value *Stride,
 Value *ParallelLoopGenerator::createParallelLoop(
     Value *LB, Value *UB, Value *Stride, SetVector<Value *> &UsedValues,
     ValueMapT &Map, BasicBlock::iterator *LoopBody) {
-
-  // Adjust the types to match the GOMP API.
-  LB = Builder.CreateSExt(LB, LongType);
-  UB = Builder.CreateSExt(UB, LongType);
-  Stride = Builder.CreateSExt(Stride, LongType);
-
   Function *SubFn;
 
   AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
@@ -296,7 +289,7 @@ ParallelLoopGenerator::storeValuesIntoStruct(SetVector<Value *> &Values) {
   BasicBlock &EntryBB = Builder.GetInsertBlock()->getParent()->getEntryBlock();
   Instruction *IP = &*EntryBB.getFirstInsertionPt();
   StructType *Ty = StructType::get(Builder.getContext(), Members);
-  AllocaInst *Struct = new AllocaInst(Ty, 0, "polly.par.userContext", IP);
+  AllocaInst *Struct = new AllocaInst(Ty, nullptr, "polly.par.userContext", IP);
 
   // Mark the start of the lifetime for the parameter struct.
   ConstantInt *SizeOf = Builder.getInt64(DL.getTypeAllocSize(Ty));
@@ -345,8 +338,8 @@ Value *ParallelLoopGenerator::createSubFn(Value *Stride, AllocaInst *StructData,
 
   // Fill up basic block HeaderBB.
   Builder.SetInsertPoint(HeaderBB);
-  LBPtr = Builder.CreateAlloca(LongType, 0, "polly.par.LBPtr");
-  UBPtr = Builder.CreateAlloca(LongType, 0, "polly.par.UBPtr");
+  LBPtr = Builder.CreateAlloca(LongType, nullptr, "polly.par.LBPtr");
+  UBPtr = Builder.CreateAlloca(LongType, nullptr, "polly.par.UBPtr");
   UserContext = Builder.CreateBitCast(
       &*SubFn->arg_begin(), StructData->getType(), "polly.par.userContext");
 

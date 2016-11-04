@@ -1402,9 +1402,7 @@ ClangASTContext::CreateFunctionTemplateSpecializationInfo (FunctionDecl *func_de
                                                            clang::FunctionTemplateDecl *func_tmpl_decl,
                                                            const TemplateParameterInfos &infos)
 {
-    TemplateArgumentList template_args (TemplateArgumentList::OnStack,
-                                        infos.args.data(), 
-                                        infos.args.size());
+    TemplateArgumentList template_args (TemplateArgumentList::OnStack, infos.args);
 
     func_decl->setFunctionTemplateSpecialization (func_tmpl_decl,
                                                   &template_args,
@@ -1502,8 +1500,7 @@ ClangASTContext::CreateClassTemplateSpecializationDecl (DeclContext *decl_ctx,
                                                                                                                    SourceLocation(), 
                                                                                                                    SourceLocation(),
                                                                                                                    class_template_decl,
-                                                                                                                   &template_param_infos.args.front(),
-                                                                                                                   template_param_infos.args.size(),
+                                                                                                                   template_param_infos.args,
                                                                                                                    nullptr);
     
     class_template_specialization_decl->setSpecializationKind(TSK_ExplicitSpecialization);
@@ -3293,6 +3290,23 @@ ClangASTContext::IsIntegerType (lldb::opaque_compiler_type_t type, bool &is_sign
 }
 
 bool
+ClangASTContext::IsEnumerationType(lldb::opaque_compiler_type_t type, bool &is_signed)
+{
+    if (type)
+    {
+        const clang::EnumType *enum_type = llvm::dyn_cast<clang::EnumType>(GetCanonicalQualType(type)->getCanonicalTypeInternal());
+
+        if (enum_type)
+        {
+            IsIntegerType(enum_type->getDecl()->getIntegerType().getAsOpaquePtr(), is_signed);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool
 ClangASTContext::IsPointerType (lldb::opaque_compiler_type_t type, CompilerType *pointee_type)
 {
     if (type)
@@ -3615,6 +3629,14 @@ ClangASTContext::IsPossibleDynamicType (lldb::opaque_compiler_type_t type, Compi
             case clang::Type::ObjCObjectPointer:
                 if (check_objc)
                 {
+                    if (auto objc_pointee_type = qual_type->getPointeeType().getTypePtrOrNull())
+                    {
+                        if (auto objc_object_type = llvm::dyn_cast_or_null<clang::ObjCObjectType>(objc_pointee_type))
+                        {
+                            if (objc_object_type->isObjCClass())
+                                return false;
+                        }
+                    }
                     if (dynamic_pointee_type)
                         dynamic_pointee_type->SetCompilerType(getASTContext(), llvm::cast<clang::ObjCObjectPointerType>(qual_type)->getPointeeType());
                     return true;
@@ -6252,12 +6274,20 @@ ClangASTContext::GetChildCompilerTypeAtIndex (lldb::opaque_compiler_type_t type,
                         CompilerType field_clang_type (getASTContext(), field->getType());
                         assert(field_idx < record_layout.getFieldCount());
                         child_byte_size = field_clang_type.GetByteSize(exe_ctx ? exe_ctx->GetBestExecutionContextScope() : NULL);
+                        const uint32_t child_bit_size = child_byte_size * 8;
                         
                         // Figure out the field offset within the current struct/union/class type
                         bit_offset = record_layout.getFieldOffset (field_idx);
-                        child_byte_offset = bit_offset / 8;
                         if (ClangASTContext::FieldIsBitfield (getASTContext(), *field, child_bitfield_bit_size))
-                            child_bitfield_bit_offset = bit_offset % 8;
+                        {
+                            child_bitfield_bit_offset = bit_offset % child_bit_size;
+                            const uint32_t child_bit_offset = bit_offset - child_bitfield_bit_offset;
+                            child_byte_offset =  child_bit_offset / 8;
+                        }
+                        else
+                        {
+                            child_byte_offset = bit_offset / 8;
+                        }
                         
                         return field_clang_type;
                     }
@@ -7748,8 +7778,7 @@ ClangASTContext::BuildIndirectFields (const CompilerType& type)
                                                                                                 clang::SourceLocation(),
                                                                                                 nested_field_decl->getIdentifier(),
                                                                                                 nested_field_decl->getType(),
-                                                                                                chain,
-                                                                                                2);
+                                                                                                {chain, 2});
                     
                     indirect_field->setImplicit();
                     
@@ -7760,7 +7789,7 @@ ClangASTContext::BuildIndirectFields (const CompilerType& type)
                 }
                 else if (clang::IndirectFieldDecl *nested_indirect_field_decl = llvm::dyn_cast<clang::IndirectFieldDecl>(*di))
                 {
-                    int nested_chain_size = nested_indirect_field_decl->getChainingSize();
+                    size_t nested_chain_size = nested_indirect_field_decl->getChainingSize();
                     clang::NamedDecl **chain = new (*ast->getASTContext()) clang::NamedDecl*[nested_chain_size + 1];
                     chain[0] = *field_pos;
                     
@@ -7779,8 +7808,7 @@ ClangASTContext::BuildIndirectFields (const CompilerType& type)
                                                                                                 clang::SourceLocation(),
                                                                                                 nested_indirect_field_decl->getIdentifier(),
                                                                                                 nested_indirect_field_decl->getType(),
-                                                                                                chain,
-                                                                                                nested_chain_size + 1);
+                                                                                                {chain, nested_chain_size + 1});
                     
                     indirect_field->setImplicit();
                     
@@ -8236,10 +8264,19 @@ ClangASTContext::AddObjCClassProperty (const CompilerType& type,
                     property_decl->setPropertyAttributes (clang::ObjCPropertyDecl::OBJC_PR_copy);
                 if (property_attributes & DW_APPLE_PROPERTY_nonatomic)
                     property_decl->setPropertyAttributes (clang::ObjCPropertyDecl::OBJC_PR_nonatomic);
-                
-                if (!getter_sel.isNull() && !class_interface_decl->lookupInstanceMethod(getter_sel))
+                if (property_attributes & clang::ObjCPropertyDecl::OBJC_PR_nullability)
+                    property_decl->setPropertyAttributes(clang::ObjCPropertyDecl::OBJC_PR_nullability);
+                if (property_attributes & clang::ObjCPropertyDecl::OBJC_PR_null_resettable)
+                    property_decl->setPropertyAttributes(clang::ObjCPropertyDecl::OBJC_PR_null_resettable);
+                if (property_attributes & clang::ObjCPropertyDecl::OBJC_PR_class)
+                    property_decl->setPropertyAttributes(clang::ObjCPropertyDecl::OBJC_PR_class);
+
+                const bool isInstance = (property_attributes & clang::ObjCPropertyDecl::OBJC_PR_class) == 0;
+
+                if (!getter_sel.isNull() &&
+                    !(isInstance ? class_interface_decl->lookupInstanceMethod(getter_sel)
+                                 : class_interface_decl->lookupClassMethod(getter_sel)))
                 {
-                    const bool isInstance = true;
                     const bool isVariadic = false;
                     const bool isSynthesized = false;
                     const bool isImplicitlyDeclared = true;
@@ -8263,12 +8300,12 @@ ClangASTContext::AddObjCClassProperty (const CompilerType& type,
                         class_interface_decl->addDecl(getter);
                     }
                 }
-                
-                if (!setter_sel.isNull() && !class_interface_decl->lookupInstanceMethod(setter_sel))
+
+                if (!setter_sel.isNull() &&
+                    !(isInstance ? class_interface_decl->lookupInstanceMethod(setter_sel)
+                                 : class_interface_decl->lookupClassMethod(setter_sel)))
                 {
                     clang::QualType result_type = clang_ast->VoidTy;
-                    
-                    const bool isInstance = true;
                     const bool isVariadic = false;
                     const bool isSynthesized = false;
                     const bool isImplicitlyDeclared = true;
@@ -8331,7 +8368,8 @@ ClangASTContext::AddMethodToObjCObjectType (const CompilerType& type,
                                             const char *name,  // the full symbol name as seen in the symbol table (lldb::opaque_compiler_type_t type, "-[NString stringWithCString:]")
                                             const CompilerType &method_clang_type,
                                             lldb::AccessType access,
-                                            bool is_artificial)
+                                            bool is_artificial,
+                                            bool is_variadic)
 {
     if (!type || !method_clang_type.IsValid())
         return nullptr;
@@ -8391,7 +8429,6 @@ ClangASTContext::AddMethodToObjCObjectType (const CompilerType& type,
         return nullptr;
     
     
-    bool is_variadic = false;
     bool is_synthesized = false;
     bool is_defined = false;
     clang::ObjCMethodDecl::ImplementationControl imp_control = clang::ObjCMethodDecl::None;

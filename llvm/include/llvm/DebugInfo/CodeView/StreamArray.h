@@ -97,6 +97,8 @@ public:
 
   const Extractor &getExtractor() const { return E; }
 
+  StreamRef getUnderlyingStream() const { return Stream; }
+
 private:
   StreamRef Stream;
   Extractor E;
@@ -110,10 +112,14 @@ public:
   VarStreamArrayIterator(const ArrayType &Array, const Extractor &E,
                          bool *HadError = nullptr)
       : IterRef(Array.Stream), Array(&Array), HadError(HadError), Extract(E) {
-    auto EC = Extract(IterRef, ThisLen, ThisValue);
-    if (EC) {
-      consumeError(std::move(EC));
-      markError();
+    if (IterRef.getLength() == 0)
+      moveToEnd();
+    else {
+      auto EC = Extract(IterRef, ThisLen, ThisValue);
+      if (EC) {
+        consumeError(std::move(EC));
+        markError();
+      }
     }
   }
   VarStreamArrayIterator() {}
@@ -223,6 +229,8 @@ public:
   FixedStreamArrayIterator<T> end() const {
     return FixedStreamArrayIterator<T>(*this, size());
   }
+
+  StreamRef getUnderlyingStream() const { return Stream; }
 
 private:
   StreamRef Stream;

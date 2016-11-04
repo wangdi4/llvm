@@ -156,6 +156,27 @@ VPDataReaderType *lprofGetVPDataReader();
 void lprofSetMaxValsPerSite(uint32_t MaxVals);
 void lprofSetupValueProfiler();
 
+/* Return the profile header 'signature' value associated with the current
+ * executable or shared library. The signature value can be used to for
+ * a profile name that is unique to this load module so that it does not
+ * collide with profiles from other binaries. It also allows shared libraries
+ * to dump merged profile data into its own profile file. */
+uint64_t lprofGetLoadModuleSignature();
+
+/* GCOV_PREFIX and GCOV_PREFIX_STRIP support */
+/* Return the path prefix specified by GCOV_PREFIX environment variable.
+ * If GCOV_PREFIX_STRIP is also specified, the strip level (integer value)
+ * is returned via \c *PrefixStrip. The prefix length is stored in *PrefixLen.
+ */
+const char *lprofGetPathPrefix(int *PrefixStrip, size_t *PrefixLen);
+/* Apply the path prefix specified in \c Prefix to path string in \c PathStr,
+ * and store the result to buffer pointed to by \c Buffer. If \c PrefixStrip
+ * is not zero, path prefixes are stripped from \c PathStr (the level of
+ * stripping is specified by \c PrefixStrip) before \c Prefix is added.
+ */
+void lprofApplyPathPrefix(char *Dest, const char *PathStr, const char *Prefix,
+                          size_t PrefixLen, int PrefixStrip);
+
 COMPILER_RT_VISIBILITY extern char *(*GetEnvHook)(const char *);
 COMPILER_RT_VISIBILITY extern void (*FreeHook)(void *);
 COMPILER_RT_VISIBILITY extern uint8_t *DynamicBufferIOBuffer;

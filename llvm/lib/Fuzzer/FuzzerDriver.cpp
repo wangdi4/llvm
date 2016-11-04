@@ -269,9 +269,9 @@ static bool AllInputsAreFiles() {
 int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
   using namespace fuzzer;
   assert(argc && argv && "Argument pointers cannot be nullptr");
-  fuzzer::ExternalFunctions EF;
-  if (EF.LLVMFuzzerInitialize)
-    EF.LLVMFuzzerInitialize(argc, argv);
+  EF = new ExternalFunctions();
+  if (EF->LLVMFuzzerInitialize)
+    EF->LLVMFuzzerInitialize(argc, argv);
   const std::vector<std::string> Args(*argv, *argv + *argc);
   assert(!Args.empty());
   ProgName = new std::string(Args[0]);
@@ -297,7 +297,7 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
 
   const size_t kMaxSaneLen = 1 << 20;
   const size_t kMinDefaultLen = 64;
-  Fuzzer::FuzzingOptions Options;
+  FuzzingOptions Options;
   Options.Verbosity = Flags.verbosity;
   Options.MaxLen = Flags.max_len;
   Options.UnitTimeoutSec = Flags.timeout;
@@ -309,6 +309,7 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
   Options.UseIndirCalls = Flags.use_indir_calls;
   Options.UseTraces = Flags.use_traces;
   Options.UseMemcmp = Flags.use_memcmp;
+  Options.UseMemmem = Flags.use_memmem;
   Options.ShuffleAtStartUp = Flags.shuffle;
   Options.PreferSmall = Flags.prefer_small;
   Options.Reload = Flags.reload;
@@ -336,6 +337,7 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
   Options.PrintNewCovPcs = Flags.print_new_cov_pcs;
   Options.PrintFinalStats = Flags.print_final_stats;
   Options.TruncateUnits = Flags.truncate_units;
+  Options.PruneCorpus = Flags.prune_corpus;
 
   unsigned Seed = Flags.seed;
   // Initialize Seed.
@@ -346,7 +348,7 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
     Printf("INFO: Seed: %u\n", Seed);
 
   Random Rand(Seed);
-  MutationDispatcher MD(Rand);
+  MutationDispatcher MD(Rand, Options);
   Fuzzer F(Callback, MD, Options);
 
   for (auto &U: Dictionary)
@@ -373,12 +375,12 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
            Inputs->size(), Runs);
     for (auto &Path : *Inputs) {
       auto StartTime = system_clock::now();
-      Printf("%s ... ", Path.c_str());
+      Printf("Running: %s\n", Path.c_str());
       for (int Iter = 0; Iter < Runs; Iter++)
         RunOneTest(&F, Path.c_str());
       auto StopTime = system_clock::now();
       auto MS = duration_cast<milliseconds>(StopTime - StartTime).count();
-      Printf("%zd ms\n", (long)MS);
+      Printf("Executed %s in %zd ms\n", Path.c_str(), (long)MS);
     }
     F.PrintFinalStats();
     exit(0);
@@ -421,4 +423,8 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
 
   exit(0);  // Don't let F destroy itself.
 }
+
+// Storage for global ExternalFunctions object.
+ExternalFunctions *EF = nullptr;
+
 }  // namespace fuzzer

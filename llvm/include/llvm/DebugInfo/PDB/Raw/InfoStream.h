@@ -21,12 +21,24 @@
 
 namespace llvm {
 namespace pdb {
+class InfoStreamBuilder;
 class PDBFile;
+
 class InfoStream {
+  friend class InfoStreamBuilder;
+
+  struct HeaderInfo {
+    support::ulittle32_t Version;
+    support::ulittle32_t Signature;
+    support::ulittle32_t Age;
+    PDB_UniqueId Guid;
+  };
+
 public:
-  InfoStream(PDBFile &File);
+  InfoStream(std::unique_ptr<MappedBlockStream> Stream);
 
   Error reload();
+  Error commit();
 
   PdbRaw_ImplVer getVersion() const;
   uint32_t getSignature() const;
@@ -36,11 +48,8 @@ public:
   uint32_t getNamedStreamIndex(llvm::StringRef Name) const;
   iterator_range<StringMapConstIterator<uint32_t>> named_streams() const;
 
-  PDBFile &getFile() { return Pdb; }
-
 private:
-  PDBFile &Pdb;
-  MappedBlockStream Stream;
+  std::unique_ptr<MappedBlockStream> Stream;
 
   // PDB file format version.  We only support VC70.  See the enumeration
   // `PdbRaw_ImplVer` for the other possible values.

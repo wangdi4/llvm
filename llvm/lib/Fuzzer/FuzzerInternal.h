@@ -203,9 +203,44 @@ private:
   size_t Size = 0;
 };
 
+struct FuzzingOptions {
+  int Verbosity = 1;
+  size_t MaxLen = 0;
+  int UnitTimeoutSec = 300;
+  int TimeoutExitCode = 77;
+  int ErrorExitCode = 77;
+  int MaxTotalTimeSec = 0;
+  int RssLimitMb = 0;
+  bool DoCrossOver = true;
+  int MutateDepth = 5;
+  bool UseCounters = false;
+  bool UseIndirCalls = true;
+  bool UseTraces = false;
+  bool UseMemcmp = true;
+  bool UseMemmem = true;
+  bool UseFullCoverageSet = false;
+  bool Reload = true;
+  bool ShuffleAtStartUp = true;
+  bool PreferSmall = true;
+  size_t MaxNumberOfRuns = ULONG_MAX;
+  int ReportSlowUnits = 10;
+  bool OnlyASCII = false;
+  std::string OutputCorpus;
+  std::string ArtifactPrefix = "./";
+  std::string ExactArtifactPath;
+  bool SaveArtifacts = true;
+  bool PrintNEW = true; // Print a status line when new units are found;
+  bool OutputCSV = false;
+  bool PrintNewCovPcs = false;
+  bool PrintFinalStats = false;
+  bool DetectLeaks = true;
+  bool TruncateUnits = false;
+  bool PruneCorpus = true;
+};
+
 class MutationDispatcher {
 public:
-  MutationDispatcher(Random &Rand);
+  MutationDispatcher(Random &Rand, const FuzzingOptions &Options);
   ~MutationDispatcher() {}
   /// Indicate that we are about to start a new sequence of mutations.
   void StartMutationSequence();
@@ -215,6 +250,8 @@ public:
   void RecordSuccessfulMutationSequence();
   /// Mutates data by invoking user-provided mutator.
   size_t Mutate_Custom(uint8_t *Data, size_t Size, size_t MaxSize);
+  /// Mutates data by invoking user-provided crossover.
+  size_t Mutate_CustomCrossOver(uint8_t *Data, size_t Size, size_t MaxSize);
   /// Mutates data by shuffling bytes.
   size_t Mutate_ShuffleBytes(uint8_t *Data, size_t Size, size_t MaxSize);
   /// Mutates data by erasing a byte.
@@ -257,7 +294,7 @@ public:
 
   void AddWordToManualDictionary(const Word &W);
 
-  void AddWordToAutoDictionary(const Word &W, size_t PositionHint);
+  void AddWordToAutoDictionary(DictionaryEntry DE);
   void ClearAutoDictionary();
   void PrintRecommendedDictionary();
 
@@ -277,10 +314,9 @@ private:
   size_t MutateImpl(uint8_t *Data, size_t Size, size_t MaxSize,
                     const std::vector<Mutator> &Mutators);
 
-  // Interface to functions that may or may not be available.
-  const ExternalFunctions EF;
-
   Random &Rand;
+  const FuzzingOptions Options;
+
   // Dictionary provided by the user via -dict=DICT_FILE.
   Dictionary ManualDictionary;
   // Temporary dictionary modified by the fuzzer itself,
@@ -300,38 +336,6 @@ private:
 
 class Fuzzer {
 public:
-  struct FuzzingOptions {
-    int Verbosity = 1;
-    size_t MaxLen = 0;
-    int UnitTimeoutSec = 300;
-    int TimeoutExitCode = 77;
-    int ErrorExitCode = 77;
-    int MaxTotalTimeSec = 0;
-    int RssLimitMb = 0;
-    bool DoCrossOver = true;
-    int MutateDepth = 5;
-    bool UseCounters = false;
-    bool UseIndirCalls = true;
-    bool UseTraces = false;
-    bool UseMemcmp = true;
-    bool UseFullCoverageSet = false;
-    bool Reload = true;
-    bool ShuffleAtStartUp = true;
-    bool PreferSmall = true;
-    size_t MaxNumberOfRuns = ULONG_MAX;
-    int ReportSlowUnits = 10;
-    bool OnlyASCII = false;
-    std::string OutputCorpus;
-    std::string ArtifactPrefix = "./";
-    std::string ExactArtifactPath;
-    bool SaveArtifacts = true;
-    bool PrintNEW = true; // Print a status line when new units are found;
-    bool OutputCSV = false;
-    bool PrintNewCovPcs = false;
-    bool PrintFinalStats = false;
-    bool DetectLeaks = true;
-    bool TruncateUnits = false;
-  };
 
   // Aggregates all available coverage measurements.
   struct Coverage {
@@ -480,11 +484,10 @@ private:
 
   // Need to know our own thread.
   static thread_local bool IsMyThread;
-
-  // Interface to functions that may or may not be available.
-  // For future use, currently not used.
-  const ExternalFunctions EF;
 };
+
+// Global interface to functions that may or may not be available.
+extern ExternalFunctions *EF;
 
 }; // namespace fuzzer
 

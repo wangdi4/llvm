@@ -184,6 +184,8 @@ void ASTStmtReader::VisitAttributedStmt(AttributedStmt *S) {
 
 void ASTStmtReader::VisitIfStmt(IfStmt *S) {
   VisitStmt(S);
+  S->setConstexpr(Record[Idx++]);
+  S->setInit(Reader.ReadSubStmt());
   S->setConditionVariable(Reader.getContext(),
                           ReadDeclAs<VarDecl>(Record, Idx));
   S->setCond(Reader.ReadSubExpr());
@@ -195,6 +197,7 @@ void ASTStmtReader::VisitIfStmt(IfStmt *S) {
 
 void ASTStmtReader::VisitSwitchStmt(SwitchStmt *S) {
   VisitStmt(S);
+  S->setInit(Reader.ReadSubStmt());
   S->setConditionVariable(Reader.getContext(),
                           ReadDeclAs<VarDecl>(Record, Idx));
   S->setCond(Reader.ReadSubExpr());
@@ -1179,6 +1182,14 @@ void ASTStmtReader::VisitObjCBoolLiteralExpr(ObjCBoolLiteralExpr *E) {
   E->setLocation(ReadSourceLocation(Record, Idx));
 }
 
+void ASTStmtReader::VisitObjCAvailabilityCheckExpr(ObjCAvailabilityCheckExpr *E) {
+  VisitExpr(E);
+  SourceRange R = Reader.ReadSourceRange(F, Record, Idx);
+  E->AtLoc = R.getBegin();
+  E->RParen = R.getEnd();
+  E->VersionToCheck = Reader.ReadVersionTuple(Record, Idx);
+}
+
 //===----------------------------------------------------------------------===//
 // C++ Expressions and Statements
 //===----------------------------------------------------------------------===//
@@ -1247,6 +1258,14 @@ void ASTStmtReader::VisitCXXConstructExpr(CXXConstructExpr *E) {
   E->setRequiresZeroInitialization(Record[Idx++]);
   E->setConstructionKind((CXXConstructExpr::ConstructionKind)Record[Idx++]);
   E->ParenOrBraceRange = ReadSourceRange(Record, Idx);
+}
+
+void ASTStmtReader::VisitCXXInheritedCtorInitExpr(CXXInheritedCtorInitExpr *E) {
+  VisitExpr(E);
+  E->Constructor = ReadDeclAs<CXXConstructorDecl>(Record, Idx);
+  E->Loc = ReadSourceLocation(Record, Idx);
+  E->ConstructsVirtualBase = Record[Idx++];
+  E->InheritedFromVirtualBase = Record[Idx++];
 }
 
 void ASTStmtReader::VisitCXXTemporaryObjectExpr(CXXTemporaryObjectExpr *E) {
@@ -1448,6 +1467,7 @@ void ASTStmtReader::VisitExprWithCleanups(ExprWithCleanups *E) {
     E->getTrailingObjects<BlockDecl *>()[i] =
         ReadDeclAs<BlockDecl>(Record, Idx);
 
+  E->ExprWithCleanupsBits.CleanupsHaveSideEffects = Record[Idx++];
   E->SubExpr = Reader.ReadSubExpr();
 }
 
@@ -1912,6 +1932,12 @@ OMPClause *OMPClauseReader::readClause() {
                                    NumComponents);
     break;
   }
+  case OMPC_use_device_ptr:
+    C = OMPUseDevicePtrClause::CreateEmpty(Context, Record[Idx++]);
+    break;
+  case OMPC_is_device_ptr:
+    C = OMPIsDevicePtrClause::CreateEmpty(Context, Record[Idx++]);
+    break;
   }
   Visit(C);
   C->setLocStart(Reader->ReadSourceLocation(Record, Idx));
@@ -2429,6 +2455,28 @@ void OMPClauseReader::VisitOMPFromClause(OMPFromClause *C) {
   C->setComponents(Components, ListSizes);
 }
 
+void OMPClauseReader::VisitOMPUseDevicePtrClause(OMPUseDevicePtrClause *C) {
+  C->setLParenLoc(Reader->ReadSourceLocation(Record, Idx));
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setVarRefs(Vars);
+  Vars.clear();
+}
+
+void OMPClauseReader::VisitOMPIsDevicePtrClause(OMPIsDevicePtrClause *C) {
+  C->setLParenLoc(Reader->ReadSourceLocation(Record, Idx));
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setVarRefs(Vars);
+  Vars.clear();
+}
+
 //===----------------------------------------------------------------------===//
 // OpenMP Directives.
 //===----------------------------------------------------------------------===//
@@ -2468,6 +2516,10 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
     D->setNextLowerBound(Reader.ReadSubExpr());
     D->setNextUpperBound(Reader.ReadSubExpr());
     D->setNumIterations(Reader.ReadSubExpr());
+  }
+  if (isOpenMPLoopBoundSharingDirective(D->getDirectiveKind())) {
+    D->setPrevLowerBoundVariable(Reader.ReadSubExpr());
+    D->setPrevUpperBoundVariable(Reader.ReadSubExpr());
   }
   SmallVector<Expr *, 4> Sub;
   unsigned CollapsedNum = D->getCollapsedNumber();
@@ -2700,6 +2752,25 @@ void ASTStmtReader::VisitOMPTargetUpdateDirective(OMPTargetUpdateDirective *D) {
   VisitStmt(D);
   ++Idx;
   VisitOMPExecutableDirective(D);
+}
+void ASTStmtReader::VisitOMPDistributeParallelForDirective(
+    OMPDistributeParallelForDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void ASTStmtReader::VisitOMPDistributeParallelForSimdDirective(
+    OMPDistributeParallelForSimdDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void ASTStmtReader::VisitOMPDistributeSimdDirective(
+    OMPDistributeSimdDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void ASTStmtReader::VisitOMPTargetParallelForSimdDirective(
+    OMPTargetParallelForSimdDirective *D) {
+  VisitOMPLoopDirective(D);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3158,6 +3229,9 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case EXPR_OBJC_BOOL_LITERAL:
       S = new (Context) ObjCBoolLiteralExpr(Empty);
       break;
+    case EXPR_OBJC_AVAILABILITY_CHECK:
+      S = new (Context) ObjCAvailabilityCheckExpr(Empty);
+      break;
     case STMT_SEH_LEAVE:
       S = new (Context) SEHLeaveStmt(Empty);
       break;
@@ -3377,6 +3451,39 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     }
 
+    case STMT_OMP_DISTRIBUTE_PARALLEL_FOR_DIRECTIVE: {
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPDistributeParallelForDirective::CreateEmpty(Context, NumClauses,
+                                                         CollapsedNum, Empty);
+      break;
+    }
+
+    case STMT_OMP_DISTRIBUTE_PARALLEL_FOR_SIMD_DIRECTIVE: {
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPDistributeParallelForSimdDirective::CreateEmpty(Context, NumClauses,
+                                                             CollapsedNum,
+                                                             Empty);
+      break;
+    }
+
+    case STMT_OMP_DISTRIBUTE_SIMD_DIRECTIVE: {
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPDistributeSimdDirective::CreateEmpty(Context, NumClauses,
+                                                  CollapsedNum, Empty);
+      break;
+    }
+
+    case STMT_OMP_TARGET_PARALLEL_FOR_SIMD_DIRECTIVE: {
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPTargetParallelForSimdDirective::CreateEmpty(Context, NumClauses,
+                                                         CollapsedNum, Empty);
+      break;
+    }
+
     case EXPR_CXX_OPERATOR_CALL:
       S = new (Context) CXXOperatorCallExpr(Context, Empty);
       break;
@@ -3387,6 +3494,10 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
 
     case EXPR_CXX_CONSTRUCT:
       S = new (Context) CXXConstructExpr(Empty);
+      break;
+
+    case EXPR_CXX_INHERITED_CTOR_INIT:
+      S = new (Context) CXXInheritedCtorInitExpr(Empty);
       break;
 
     case EXPR_CXX_TEMPORARY_OBJECT:

@@ -18,7 +18,9 @@ namespace fuzzer {
 
 const size_t Dictionary::kMaxDictSize;
 
-MutationDispatcher::MutationDispatcher(Random &Rand) : Rand(Rand) {
+MutationDispatcher::MutationDispatcher(Random &Rand,
+                                       const FuzzingOptions &Options)
+    : Rand(Rand), Options(Options) {
   DefaultMutators.insert(
       DefaultMutators.begin(),
       {
@@ -37,10 +39,14 @@ MutationDispatcher::MutationDispatcher(Random &Rand) : Rand(Rand) {
            "AddFromPersAutoDict"},
       });
 
-  if (EF.LLVMFuzzerCustomMutator)
+  if (EF->LLVMFuzzerCustomMutator)
     Mutators.push_back({&MutationDispatcher::Mutate_Custom, "Custom"});
   else
     Mutators = DefaultMutators;
+
+  if (EF->LLVMFuzzerCustomCrossOver)
+    Mutators.push_back(
+        {&MutationDispatcher::Mutate_CustomCrossOver, "CustomCrossOver"});
 }
 
 static char FlipRandomBit(char X, Random &Rand) {
@@ -63,7 +69,26 @@ static char RandCh(Random &Rand) {
 
 size_t MutationDispatcher::Mutate_Custom(uint8_t *Data, size_t Size,
                                          size_t MaxSize) {
-  return EF.LLVMFuzzerCustomMutator(Data, Size, MaxSize, Rand.Rand());
+  return EF->LLVMFuzzerCustomMutator(Data, Size, MaxSize, Rand.Rand());
+}
+
+size_t MutationDispatcher::Mutate_CustomCrossOver(uint8_t *Data, size_t Size,
+                                                  size_t MaxSize) {
+  if (!Corpus || Corpus->size() < 2 || Size == 0)
+    return 0;
+  size_t Idx = Rand(Corpus->size());
+  const Unit &Other = (*Corpus)[Idx];
+  if (Other.empty())
+    return 0;
+  MutateInPlaceHere.resize(MaxSize);
+  auto &U = MutateInPlaceHere;
+  size_t NewSize = EF->LLVMFuzzerCustomCrossOver(
+      Data, Size, Other.data(), Other.size(), U.data(), U.size(), Rand.Rand());
+  if (!NewSize)
+    return 0;
+  assert(NewSize <= MaxSize && "CustomCrossOver returned overisized unit");
+  memcpy(Data, U.data(), NewSize);
+  return NewSize;
 }
 
 size_t MutationDispatcher::Mutate_ShuffleBytes(uint8_t *Data, size_t Size,
@@ -262,6 +287,8 @@ size_t MutationDispatcher::MutateImpl(uint8_t *Data, size_t Size,
   if (Size == 0) {
     for (size_t i = 0; i < MaxSize; i++)
       Data[i] = RandCh(Rand);
+    if (Options.OnlyASCII)
+      ToASCII(Data, MaxSize);
     return MaxSize;
   }
   assert(Size > 0);
@@ -272,6 +299,8 @@ size_t MutationDispatcher::MutateImpl(uint8_t *Data, size_t Size,
     auto M = Mutators[Rand(Mutators.size())];
     size_t NewSize = (this->*(M.Fn))(Data, Size, MaxSize);
     if (NewSize) {
+      if (Options.OnlyASCII)
+        ToASCII(Data, NewSize);
       CurrentMutatorSequence.push_back(M);
       return NewSize;
     }
@@ -284,11 +313,10 @@ void MutationDispatcher::AddWordToManualDictionary(const Word &W) {
       {W, std::numeric_limits<size_t>::max()});
 }
 
-void MutationDispatcher::AddWordToAutoDictionary(const Word &W,
-                                                 size_t PositionHint) {
+void MutationDispatcher::AddWordToAutoDictionary(DictionaryEntry DE) {
   static const size_t kMaxAutoDictSize = 1 << 14;
   if (TempAutoDictionary.size() >= kMaxAutoDictSize) return;
-  TempAutoDictionary.push_back({W, PositionHint});
+  TempAutoDictionary.push_back(DE);
 }
 
 void MutationDispatcher::ClearAutoDictionary() {

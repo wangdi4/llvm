@@ -21,6 +21,7 @@
 #ifdef ASAN_DLL_THUNK
 #include "asan_init_version.h"
 #include "interception/interception.h"
+#include "sanitizer_common/sanitizer_platform_interceptors.h"
 
 // ---------- Function interception helper functions and macros ----------- {{{1
 extern "C" {
@@ -343,6 +344,9 @@ INTERFACE_FUNCTION(__sanitizer_unaligned_store16)
 INTERFACE_FUNCTION(__sanitizer_unaligned_store32)
 INTERFACE_FUNCTION(__sanitizer_unaligned_store64)
 INTERFACE_FUNCTION(__sanitizer_verify_contiguous_container)
+INTERFACE_FUNCTION(__sanitizer_install_malloc_and_free_hooks)
+INTERFACE_FUNCTION(__sanitizer_start_switch_fiber)
+INTERFACE_FUNCTION(__sanitizer_finish_switch_fiber)
 
 // TODO(timurrrr): Add more interface functions on the as-needed basis.
 
@@ -376,6 +380,10 @@ WRAP_W_W(_expand_dbg)
 
 INTERCEPT_LIBRARY_FUNCTION(atoi);
 INTERCEPT_LIBRARY_FUNCTION(atol);
+
+#ifdef _WIN64
+INTERCEPT_LIBRARY_FUNCTION(__C_specific_handler);
+#else
 INTERCEPT_LIBRARY_FUNCTION(_except_handler3);
 
 // _except_handler4 checks -GS cookie which is different for each module, so we
@@ -384,10 +392,13 @@ INTERCEPTOR(int, _except_handler4, void *a, void *b, void *c, void *d) {
   __asan_handle_no_return();
   return REAL(_except_handler4)(a, b, c, d);
 }
+#endif
 
 INTERCEPT_LIBRARY_FUNCTION(frexp);
 INTERCEPT_LIBRARY_FUNCTION(longjmp);
+#if SANITIZER_INTERCEPT_MEMCHR
 INTERCEPT_LIBRARY_FUNCTION(memchr);
+#endif
 INTERCEPT_LIBRARY_FUNCTION(memcmp);
 INTERCEPT_LIBRARY_FUNCTION(memcpy);
 INTERCEPT_LIBRARY_FUNCTION(memmove);
@@ -414,7 +425,9 @@ INTERCEPT_LIBRARY_FUNCTION(wcslen);
 // is defined.
 void InterceptHooks() {
   INTERCEPT_HOOKS();
+#ifndef _WIN64
   INTERCEPT_FUNCTION(_except_handler4);
+#endif
 }
 
 // We want to call __asan_init before C/C++ initializers/constructors are

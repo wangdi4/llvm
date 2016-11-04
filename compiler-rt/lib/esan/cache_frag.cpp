@@ -26,9 +26,14 @@ namespace __esan {
 // This should be kept consistent with LLVM's EfficiencySanitizer StructInfo.
 struct StructInfo {
   const char *StructName;
+  u32 Size;
   u32 NumFields;
+  u32 *FieldOffset;           // auxiliary struct field info.
+  u32 *FieldSize;             // auxiliary struct field info.
+  const char **FieldTypeName; // auxiliary struct field info.
   u64 *FieldCounters;
-  const char **FieldTypeNames;
+  u64 *ArrayCounter;
+  bool hasAuxFieldInfo() { return FieldOffset != nullptr; }
 };
 
 // This should be kept consistent with LLVM's EfficiencySanitizer CacheFragInfo.
@@ -41,8 +46,8 @@ struct CacheFragInfo {
 
 struct StructCounter {
   StructInfo *Struct;
-  u64 Count;      // The total access count of the struct.
-  u64 Ratio;      // Difference ratio for the struct layout access.
+  u64 Count; // The total access count of the struct.
+  u64 Ratio; // Difference ratio for the struct layout access.
 };
 
 // We use StructHashMap to keep track of an unique copy of StructCounter.
@@ -56,20 +61,24 @@ static Context *Ctx;
 
 static void reportStructSummary() {
   // FIXME: provide a better struct field access summary report.
-  Report("%s: total struct field access count = %llu\n",
-         SanitizerToolName, Ctx->TotalCount);
+  Report("%s: total struct field access count = %llu\n", SanitizerToolName,
+         Ctx->TotalCount);
 }
 
 // FIXME: we are still exploring proper ways to evaluate the difference between
 // struct field counts.  Currently, we use a simple formula to calculate the
 // difference ratio: V1/V2.
 static inline u64 computeDifferenceRatio(u64 Val1, u64 Val2) {
-  if (Val2 > Val1) { Swap(Val1, Val2); }
-  if (Val2 == 0) Val2 = 1;
+  if (Val2 > Val1) {
+    Swap(Val1, Val2);
+  }
+  if (Val2 == 0)
+    Val2 = 1;
   return (Val1 / Val2);
 }
 
 static void reportStructCounter(StructHashMap::Handle &Handle) {
+  const u32 TypePrintLimit = 512;
   const char *type, *start, *end;
   StructInfo *Struct = Handle->Struct;
   // Union field address calculation is done via bitcast instead of GEP,
@@ -89,10 +98,19 @@ static void reportStructCounter(StructHashMap::Handle &Handle) {
   end = strchr(start, '#');
   CHECK(end != nullptr);
   Report("  %s %.*s\n", type, end - start, start);
-  Report("   count = %llu, ratio = %llu\n", Handle->Count, Handle->Ratio);
-  for (u32 i = 0; i < Struct->NumFields; ++i) {
-    Report("   #%2u: count = %llu,\t type = %s\n", i, Struct->FieldCounters[i],
-           Struct->FieldTypeNames[i]);
+  Report("   size = %u, count = %llu, ratio = %llu, array access = %llu\n",
+         Struct->Size, Handle->Count, Handle->Ratio, *Struct->ArrayCounter);
+  if (Struct->hasAuxFieldInfo()) {
+    for (u32 i = 0; i < Struct->NumFields; ++i) {
+      Report("   #%2u: offset = %u,\t size = %u,"
+             "\t count = %llu,\t type = %.*s\n",
+             i, Struct->FieldOffset[i], Struct->FieldSize[i],
+             Struct->FieldCounters[i], TypePrintLimit, Struct->FieldTypeName[i]);
+    }
+  } else {
+    for (u32 i = 0; i < Struct->NumFields; ++i) {
+      Report("   #%2u: count = %llu\n", i, Struct->FieldCounters[i]);
+    }
   }
 }
 
@@ -105,7 +123,8 @@ static void computeStructRatio(StructHashMap::Handle &Handle) {
         Handle->Struct->FieldCounters[i - 1], Handle->Struct->FieldCounters[i]);
   }
   Ctx->TotalCount += Handle->Count;
-  if (Handle->Ratio >= (u64)getFlags()->report_threshold || Verbosity() >= 1)
+  if (Handle->Ratio >= (u64)getFlags()->report_threshold ||
+      (Verbosity() >= 1 && Handle->Count > 0))
     reportStructCounter(Handle);
 }
 
@@ -178,6 +197,12 @@ void initializeCacheFrag() {
 int finalizeCacheFrag() {
   VPrintf(2, "in esan::%s\n", __FUNCTION__);
   return 0;
+}
+
+void reportCacheFrag() {
+  VPrintf(2, "in esan::%s\n", __FUNCTION__);
+  // FIXME: Not yet implemented.  We need to iterate over all of the
+  // compilation unit data.
 }
 
 } // namespace __esan

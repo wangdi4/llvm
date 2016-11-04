@@ -24,12 +24,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Scalar/IndVarSimplify.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/LoopPassManager.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -67,9 +69,6 @@ STATISTIC(NumElimIV      , "Number of congruent IVs eliminated");
 static cl::opt<bool> VerifyIndvars(
   "verify-indvars", cl::Hidden,
   cl::desc("Verify the ScalarEvolution result after running indvars"));
-
-static cl::opt<bool> ReduceLiveIVs("liv-reduce", cl::Hidden,
-  cl::desc("Reduce live induction variables."));
 
 enum ReplaceExitVal { NeverRepl, OnlyCheapRepl, AlwaysRepl };
 
@@ -1344,8 +1343,7 @@ Instruction *WidenIV::widenIVUse(NarrowIVDefUse DU, SCEVExpander &Rewriter) {
   // Reuse the IV increment that SCEVExpander created as long as it dominates
   // NarrowUse.
   Instruction *WideUse = nullptr;
-  if (WideAddRec == WideIncExpr
-      && Rewriter.hoistIVInc(WideInc, DU.NarrowUse))
+  if (WideAddRec == WideIncExpr && Rewriter.hoistIVInc(WideInc, DU.NarrowUse))
     WideUse = WideInc;
   else {
     WideUse = cloneIVUser(DU, WideAddRec);
@@ -1417,9 +1415,10 @@ PHINode *WidenIV::createWideIV(SCEVExpander &Rewriter) {
   // An AddRec must have loop-invariant operands. Since this AddRec is
   // materialized by a loop header phi, the expression cannot have any post-loop
   // operands, so they must dominate the loop header.
-  assert(SE->properlyDominates(AddRec->getStart(), L->getHeader()) &&
-         SE->properlyDominates(AddRec->getStepRecurrence(*SE), L->getHeader())
-         && "Loop header phi recurrence inputs do not dominate the loop");
+  assert(
+      SE->properlyDominates(AddRec->getStart(), L->getHeader()) &&
+      SE->properlyDominates(AddRec->getStepRecurrence(*SE), L->getHeader()) &&
+      "Loop header phi recurrence inputs do not dominate the loop");
 
   // The rewriter provides a value for the desired IV expression. This may
   // either find an existing phi or materialize a new one. Either way, we
@@ -1489,8 +1488,6 @@ public:
     : SE(SCEV), TTI(TTI), IVPhi(IV) {
     DT = DTree;
     WI.NarrowIV = IVPhi;
-    if (ReduceLiveIVs)
-      setSplitOverflowIntrinsics();
   }
 
   // Implement the interface used by simplifyUsersOfIV.
@@ -1793,8 +1790,8 @@ static PHINode *FindLoopCounter(Loop *L, const SCEV *BECount,
       // the loop test. In this case we assume that performing LFTR could not
       // increase the number of undef users.
       if (ICmpInst *Cond = getLoopTest(L)) {
-        if (Phi != getLoopPhiForCounter(Cond->getOperand(0), L, DT)
-            && Phi != getLoopPhiForCounter(Cond->getOperand(1), L, DT)) {
+        if (Phi != getLoopPhiForCounter(Cond->getOperand(0), L, DT) &&
+            Phi != getLoopPhiForCounter(Cond->getOperand(1), L, DT)) {
           continue;
         }
       }
@@ -1836,9 +1833,7 @@ static Value *genLoopLimit(PHINode *IndVar, const SCEV *IVCount, Loop *L,
   // finds a valid pointer IV. Sign extend BECount in order to materialize a
   // GEP. Avoid running SCEVExpander on a new pointer value, instead reusing
   // the existing GEPs whenever possible.
-  if (IndVar->getType()->isPointerTy()
-      && !IVCount->getType()->isPointerTy()) {
-
+  if (IndVar->getType()->isPointerTy() && !IVCount->getType()->isPointerTy()) {
     // IVOffset will be the new GEP offset that is interpreted by GEP as a
     // signed value. IVCount on the other hand represents the loop trip count,
     // which is an unsigned value. FindLoopCounter only allows induction
@@ -1859,13 +1854,13 @@ static Value *genLoopLimit(PHINode *IndVar, const SCEV *IVCount, Loop *L,
     // We could handle pointer IVs other than i8*, but we need to compensate for
     // gep index scaling. See canExpandBackedgeTakenCount comments.
     assert(SE->getSizeOfExpr(IntegerType::getInt64Ty(IndVar->getContext()),
-             cast<PointerType>(GEPBase->getType())->getElementType())->isOne()
-           && "unit stride pointer IV must be i8*");
+                             cast<PointerType>(GEPBase->getType())
+                                 ->getElementType())->isOne() &&
+           "unit stride pointer IV must be i8*");
 
     IRBuilder<> Builder(L->getLoopPreheader()->getTerminator());
     return Builder.CreateGEP(nullptr, GEPBase, GEPOffset, "lftr.limit");
-  }
-  else {
+  } else {
     // In any other case, convert both IVInit and IVCount to integers before
     // comparing. This may result in SCEV expension of pointers, but in practice
     // SCEV will fold the pointer arithmetic away as such:
@@ -1939,8 +1934,9 @@ linearFunctionTestReplace(Loop *L,
   }
 
   Value *ExitCnt = genLoopLimit(IndVar, IVCount, L, Rewriter, SE);
-  assert(ExitCnt->getType()->isPointerTy() == IndVar->getType()->isPointerTy()
-         && "genLoopLimit missed a cast");
+  assert(ExitCnt->getType()->isPointerTy() ==
+             IndVar->getType()->isPointerTy() &&
+         "genLoopLimit missed a cast");
 
   // Insert a new icmp_ne or icmp_eq instruction before the branch.
   BranchInst *BI = cast<BranchInst>(L->getExitingBlock()->getTerminator());
@@ -2215,6 +2211,30 @@ bool IndVarSimplify::run(Loop *L) {
 #endif
 
   return Changed;
+}
+
+PreservedAnalyses IndVarSimplifyPass::run(Loop &L, AnalysisManager<Loop> &AM) {
+  auto &FAM = AM.getResult<FunctionAnalysisManagerLoopProxy>(L).getManager();
+  Function *F = L.getHeader()->getParent();
+  const DataLayout &DL = F->getParent()->getDataLayout();
+
+  auto *LI = FAM.getCachedResult<LoopAnalysis>(*F);
+  auto *SE = FAM.getCachedResult<ScalarEvolutionAnalysis>(*F);
+  auto *DT = FAM.getCachedResult<DominatorTreeAnalysis>(*F);
+
+  assert((LI && SE && DT) &&
+         "Analyses required for indvarsimplify not available!");
+
+  // Optional analyses.
+  auto *TTI = FAM.getCachedResult<TargetIRAnalysis>(*F);
+  auto *TLI = FAM.getCachedResult<TargetLibraryAnalysis>(*F);
+
+  IndVarSimplify IVS(LI, SE, DT, DL, TLI, TTI);
+  if (!IVS.run(&L))
+    return PreservedAnalyses::all();
+
+  // FIXME: This should also 'preserve the CFG'.
+  return getLoopPassPreservedAnalyses();
 }
 
 namespace {

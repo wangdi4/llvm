@@ -390,7 +390,14 @@ void IslNodeBuilder::createForVector(__isl_take isl_ast_node *For,
   Value *ValueLB = ExprBuilder.create(Init);
   Value *ValueInc = ExprBuilder.create(Inc);
 
-  ExprBuilder.unifyTypes(ValueLB, ValueInc);
+  Type *MaxType = ExprBuilder.getType(Iterator);
+  MaxType = ExprBuilder.getWidestType(MaxType, ValueLB->getType());
+  MaxType = ExprBuilder.getWidestType(MaxType, ValueInc->getType());
+
+  if (MaxType != ValueLB->getType())
+    ValueLB = Builder.CreateSExt(ValueLB, MaxType);
+  if (MaxType != ValueInc->getType())
+    ValueInc = Builder.CreateSExt(ValueInc, MaxType);
 
   std::vector<Value *> IVS(VectorWidth);
   IVS[0] = ValueLB;
@@ -438,6 +445,7 @@ void IslNodeBuilder::createForSequential(__isl_take isl_ast_node *For,
   isl_ast_expr *Init, *Inc, *Iterator, *UB;
   isl_id *IteratorID;
   Value *ValueLB, *ValueUB, *ValueInc;
+  Type *MaxType;
   BasicBlock *ExitBlock;
   Value *IV;
   CmpInst::Predicate Predicate;
@@ -464,7 +472,17 @@ void IslNodeBuilder::createForSequential(__isl_take isl_ast_node *For,
   ValueUB = ExprBuilder.create(UB);
   ValueInc = ExprBuilder.create(Inc);
 
-  ExprBuilder.unifyTypes(ValueLB, ValueUB, ValueInc);
+  MaxType = ExprBuilder.getType(Iterator);
+  MaxType = ExprBuilder.getWidestType(MaxType, ValueLB->getType());
+  MaxType = ExprBuilder.getWidestType(MaxType, ValueUB->getType());
+  MaxType = ExprBuilder.getWidestType(MaxType, ValueInc->getType());
+
+  if (MaxType != ValueLB->getType())
+    ValueLB = Builder.CreateSExt(ValueLB, MaxType);
+  if (MaxType != ValueUB->getType())
+    ValueUB = Builder.CreateSExt(ValueUB, MaxType);
+  if (MaxType != ValueInc->getType())
+    ValueInc = Builder.CreateSExt(ValueInc, MaxType);
 
   // If we can show that LB <Predicate> UB holds at least once, we can
   // omit the GuardBB in front of the loop.
@@ -536,6 +554,7 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
   isl_ast_expr *Init, *Inc, *Iterator, *UB;
   isl_id *IteratorID;
   Value *ValueLB, *ValueUB, *ValueInc;
+  Type *MaxType;
   Value *IV;
   CmpInst::Predicate Predicate;
 
@@ -564,7 +583,17 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
     ValueUB = Builder.CreateAdd(
         ValueUB, Builder.CreateSExt(Builder.getTrue(), ValueUB->getType()));
 
-  ExprBuilder.unifyTypes(ValueLB, ValueUB, ValueInc);
+  MaxType = ExprBuilder.getType(Iterator);
+  MaxType = ExprBuilder.getWidestType(MaxType, ValueLB->getType());
+  MaxType = ExprBuilder.getWidestType(MaxType, ValueUB->getType());
+  MaxType = ExprBuilder.getWidestType(MaxType, ValueInc->getType());
+
+  if (MaxType != ValueLB->getType())
+    ValueLB = Builder.CreateSExt(ValueLB, MaxType);
+  if (MaxType != ValueUB->getType())
+    ValueUB = Builder.CreateSExt(ValueUB, MaxType);
+  if (MaxType != ValueInc->getType())
+    ValueInc = Builder.CreateSExt(ValueInc, MaxType);
 
   BasicBlock::iterator LoopBody;
 
@@ -864,7 +893,7 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
         // Check if this invariant access class is empty, hence if we never
         // actually added a loads instruction to it. In that case it has no
         // (meaningful) users and we should not try to code generate it.
-        if (std::get<1>(*IAClass).empty())
+        if (IAClass->InvariantAccesses.empty())
           V = UndefValue::get(ParamSCEV->getType());
 
         if (!preloadInvariantEquivClass(*IAClass)) {
@@ -1035,7 +1064,7 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   // element with the unified execution context. However, we have to map all
   // elements of the class to the one preloaded load as they are referenced
   // during the code generation and therefor need to be mapped.
-  const MemoryAccessList &MAs = std::get<1>(IAClass);
+  const MemoryAccessList &MAs = IAClass.InvariantAccesses;
   if (MAs.empty())
     return true;
 
@@ -1050,12 +1079,12 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   // Check for recurrsion which can be caused by additional constraints, e.g.,
   // non-finitie loop contraints. In such a case we have to bail out and insert
   // a "false" runtime check that will cause the original code to be executed.
-  auto PtrId = std::make_pair(std::get<0>(IAClass), std::get<3>(IAClass));
+  auto PtrId = std::make_pair(IAClass.IdentifyingPointer, IAClass.AccessType);
   if (!PreloadedPtrs.insert(PtrId).second)
     return false;
 
   // The exectution context of the IAClass.
-  isl_set *&ExecutionCtx = std::get<2>(IAClass);
+  isl_set *&ExecutionCtx = IAClass.ExecutionContext;
 
   // If the base pointer of this class is dependent on another one we have to
   // make sure it was preloaded already.
@@ -1066,7 +1095,7 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
 
     // After we preloaded the BaseIAClass we adjusted the BaseExecutionCtx and
     // we need to refine the ExecutionCtx.
-    isl_set *BaseExecutionCtx = isl_set_copy(std::get<2>(*BaseIAClass));
+    isl_set *BaseExecutionCtx = isl_set_copy(BaseIAClass->ExecutionContext);
     ExecutionCtx = isl_set_intersect(ExecutionCtx, BaseExecutionCtx);
   }
 

@@ -326,7 +326,7 @@ clang_isFileMultipleIncludeGuarded(CXTranslationUnit tu, CXFile file);
  *
  * \param tu the translation unit
  *
- * \param file_name the name of the file.
+* \param file_name the name of the file.
  *
  * \returns the file handle for the named file in the translation unit \p tu,
  * or a NULL file handle if the file was not a part of this translation unit.
@@ -1932,7 +1932,7 @@ enum CXCursorKind {
    */
   CXCursor_CXXDeleteExpr                 = 135,
 
-  /** \brief A unary expression.
+  /** \brief A unary expression. (noexcept, sizeof, or other traits)
    */
   CXCursor_UnaryExpr                     = 136,
 
@@ -2014,7 +2014,11 @@ enum CXCursorKind {
    */
   CXCursor_OMPArraySectionExpr           = 147,
 
-  CXCursor_LastExpr                      = CXCursor_OMPArraySectionExpr,
+  /** \brief Represents an @available(...) check.
+   */
+  CXCursor_ObjCAvailabilityCheckExpr     = 148,
+
+  CXCursor_LastExpr                      = CXCursor_ObjCAvailabilityCheckExpr,
 
   /* Statements */
   CXCursor_FirstStmt                     = 200,
@@ -2305,7 +2309,23 @@ enum CXCursorKind {
    */
   CXCursor_OMPTargetUpdateDirective      = 265,
 
-  CXCursor_LastStmt                      = CXCursor_OMPTargetUpdateDirective,
+  /** \brief OpenMP distribute parallel for directive.
+   */
+  CXCursor_OMPDistributeParallelForDirective = 266,
+
+  /** \brief OpenMP distribute parallel for simd directive.
+   */
+  CXCursor_OMPDistributeParallelForSimdDirective = 267,
+
+  /** \brief OpenMP distribute simd directive.
+   */
+  CXCursor_OMPDistributeSimdDirective = 268,
+
+  /** \brief OpenMP target parallel for simd directive.
+   */
+  CXCursor_OMPTargetParallelForSimdDirective = 269,
+
+  CXCursor_LastStmt = CXCursor_OMPTargetParallelForSimdDirective,
 
   /**
    * \brief Cursor that represents the translation unit itself.
@@ -2359,8 +2379,12 @@ enum CXCursorKind {
    */
   CXCursor_ModuleImportDecl              = 600,
   CXCursor_TypeAliasTemplateDecl         = 601,
+  /**
+   * \brief A static_assert or _Static_assert node
+   */
+  CXCursor_StaticAssert                  = 602,
   CXCursor_FirstExtraDecl                = CXCursor_ModuleImportDecl,
-  CXCursor_LastExtraDecl                 = CXCursor_TypeAliasTemplateDecl,
+  CXCursor_LastExtraDecl                 = CXCursor_StaticAssert,
 
   /**
    * \brief A code completion overload candidate.
@@ -2562,7 +2586,7 @@ typedef struct CXPlatformAvailability {
    * \brief A string that describes the platform for which this structure
    * provides availability information.
    *
-   * Possible values are "ios" or "macosx".
+   * Possible values are "ios" or "macos".
    */
   CXString Platform;
   /**

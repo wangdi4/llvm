@@ -676,6 +676,24 @@ public:
   bool isImm() const override {
     return Kind == k_Immediate;
   }
+
+  bool isARMBranchTarget() const {
+    if (!isImm()) return false;
+
+    if (const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm()))
+      return CE->getValue() % 4 == 0;
+    return true;
+  }
+
+
+  bool isThumbBranchTarget() const {
+    if (!isImm()) return false;
+
+    if (const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm()))
+      return CE->getValue() % 2 == 0;
+    return true;
+  }
+
   // checks whether this operand is an unsigned offset which fits is a field
   // of specified width and scaled by a specific number of bits
   template<unsigned width, unsigned scale>
@@ -1713,7 +1731,7 @@ public:
     if (!CE) return false;
     uint64_t Value = CE->getValue();
     // i64 value with each byte being either 0 or 0xff.
-    for (unsigned i = 0; i < 8; ++i)
+    for (unsigned i = 0; i < 8; ++i, Value >>= 8)
       if ((Value & 0xff) != 0 && (Value & 0xff) != 0xff) return false;
     return true;
   }
@@ -1726,6 +1744,16 @@ public:
       Inst.addOperand(MCOperand::createImm(CE->getValue()));
     else
       Inst.addOperand(MCOperand::createExpr(Expr));
+  }
+
+  void addARMBranchTargetOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
+  }
+
+  void addThumbBranchTargetOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
   }
 
   void addCondCodeOperands(MCInst &Inst, unsigned N) const {
@@ -5420,6 +5448,7 @@ StringRef ARMAsmParser::splitMnemonic(StringRef Mnemonic,
         Mnemonic == "fsts" || Mnemonic == "fcpys" || Mnemonic == "fdivs" ||
         Mnemonic == "fmuls" || Mnemonic == "fcmps" || Mnemonic == "fcmpzs" ||
         Mnemonic == "vfms" || Mnemonic == "vfnms" || Mnemonic == "fconsts" ||
+        Mnemonic == "bxns" || Mnemonic == "blxns" ||
         (Mnemonic == "movs" && isThumb()))) {
     Mnemonic = Mnemonic.slice(0, Mnemonic.size() - 1);
     CarrySetting = true;
@@ -10071,7 +10100,7 @@ bool ARMAsmParser::parseDirectiveObjectArch(SMLoc L) {
 
   StringRef Arch = Parser.getTok().getString();
   SMLoc ArchLoc = Parser.getTok().getLoc();
-  getLexer().Lex();
+  Lex();
 
   unsigned ID = ARM::parseArch(Arch);
 
@@ -10194,7 +10223,7 @@ bool ARMAsmParser::parseDirectiveArchExtension(SMLoc L) {
 
   StringRef Name = Parser.getTok().getString();
   SMLoc ExtLoc = Parser.getTok().getLoc();
-  getLexer().Lex();
+  Lex();
 
   bool EnableFeature = true;
   if (Name.startswith_lower("no")) {

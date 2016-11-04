@@ -166,7 +166,8 @@ if( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32 )
   # TODO: support other platforms and toolchains.
   if( LLVM_BUILD_32_BITS )
     message(STATUS "Building 32 bits executables and libraries.")
-    add_llvm_definitions( -m32 )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
     set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -m32")
@@ -226,14 +227,12 @@ if( MSVC )
   
   include(ChooseMSVCCRT)
 
-  if( NOT (${CMAKE_VERSION} VERSION_LESS 2.8.11) )
-    # set stack reserved size to ~10MB
-    # CMake previously automatically set this value for MSVC builds, but the
-    # behavior was changed in CMake 2.8.11 (Issue 12437) to use the MSVC default
-    # value (1 MB) which is not enough for us in tasks such as parsing recursive
-    # C++ templates in Clang.
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10000000")
-  endif()
+  # set stack reserved size to ~10MB
+  # CMake previously automatically set this value for MSVC builds, but the
+  # behavior was changed in CMake 2.8.11 (Issue 12437) to use the MSVC default
+  # value (1 MB) which is not enough for us in tasks such as parsing recursive
+  # C++ templates in Clang.
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10000000")
 
   if( MSVC11 )
     add_llvm_definitions(-D_VARIADIC_MAX=10)
@@ -249,6 +248,12 @@ if( MSVC )
     -D_SCL_SECURE_NO_DEPRECATE
     -D_SCL_SECURE_NO_WARNINGS
     )
+
+  # Tell MSVC to use the Unicode version of the Win32 APIs instead of ANSI.
+  add_llvm_definitions(
+    -DUNICODE
+    -D_UNICODE
+  )
 
   set(msvc_warning_flags
     # Disabled warnings.
@@ -460,7 +465,21 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
   endif()
   if (LLVM_ENABLE_MODULES)
     set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fmodules -Xclang -fmodules-local-submodule-visibility -fmodules-cache-path=module.cache")
+    set(module_flags "-fmodules -fmodules-cache-path=module.cache")
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+      # On Darwin -fmodules does not imply -fcxx-modules.
+      set(module_flags "${module_flags} -fcxx-modules")
+    endif()
+    if (LLVM_ENABLE_LOCAL_SUBMODULE_VISIBILITY)
+      set(module_flags "${module_flags} -Xclang -fmodules-local-submodule-visibility")
+    endif()
+    if (LLVM_ENABLE_MODULE_DEBUGGING AND
+        ((uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG") OR
+         (uppercase_CMAKE_BUILD_TYPE STREQUAL "RELWITHDEBINFO")))
+      set(module_flags "${module_flags} -gmodules")
+    endif()
+    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${module_flags}")
+
     # Check that we can build code with modules enabled, and that repeatedly
     # including <cassert> still manages to respect NDEBUG properly.
     CHECK_CXX_SOURCE_COMPILES("#undef NDEBUG
@@ -471,7 +490,7 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
                                CXX_SUPPORTS_MODULES)
     set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
     if (CXX_SUPPORTS_MODULES)
-      append_if(CXX_SUPPORTS_MODULES "-fmodules -Xclang -fmodules-local-submodule-visibility -fmodules-cache-path=module.cache" CMAKE_CXX_FLAGS)
+      append("${module_flags}" CMAKE_CXX_FLAGS)
     else()
       message(FATAL_ERROR "LLVM_ENABLE_MODULES is not supported by this compiler")
     endif()
@@ -599,7 +618,15 @@ endif()
 
 option(LLVM_BUILD_INSTRUMENTED "Build LLVM and tools with PGO instrumentation (experimental)" Off)
 mark_as_advanced(LLVM_BUILD_INSTRUMENTED)
-append_if(LLVM_BUILD_INSTRUMENTED "-fprofile-instr-generate"
+append_if(LLVM_BUILD_INSTRUMENTED "-fprofile-instr-generate='${LLVM_PROFILE_FILE_PATTERN}'"
+  CMAKE_CXX_FLAGS
+  CMAKE_C_FLAGS
+  CMAKE_EXE_LINKER_FLAGS
+  CMAKE_SHARED_LINKER_FLAGS)
+
+option(LLVM_BUILD_INSTRUMENTED_COVERAGE "Build LLVM and tools with Code Coverage instrumentation (experimental)" Off)
+mark_as_advanced(LLVM_BUILD_INSTRUMENTED_COVERAGE)
+append_if(LLVM_BUILD_INSTRUMENTED_COVERAGE "-fprofile-instr-generate='${LLVM_PROFILE_FILE_PATTERN}' -fcoverage-mapping"
   CMAKE_CXX_FLAGS
   CMAKE_C_FLAGS
   CMAKE_EXE_LINKER_FLAGS
