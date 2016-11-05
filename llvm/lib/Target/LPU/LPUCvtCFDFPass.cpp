@@ -1187,8 +1187,9 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
         ControlDependenceNode* latchNode = CDG->getNode(latchBB);
         assert(latchNode->getNumParents() == 1);
         ControlDependenceNode* ctrlNode = *latchNode->parent_begin();
-        MachineInstr* bi = &*ctrlNode->getBlock()->getFirstInstrTerminator();
-        if (CDG->getEdgeType(bi->getParent(), latchBB, true) == ControlDependenceNode::FALSE) {
+        //MachineInstr* bi = &*ctrlNode->getBlock()->getFirstInstrTerminator();
+        //if (CDG->getEdgeType(bi->getParent(), latchBB, true) == ControlDependenceNode::FALSE) {
+        if (ctrlNode->isFalseChild(latchNode)) {
           pickFalse = backEdgeInput;
           pickTrue = initInput;
         } else {
