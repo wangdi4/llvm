@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "VectorizerUtils.h"
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -320,6 +321,46 @@ namespace intel {
       RTL->materializeAll();
     }
 
+    // Workaround: save StructType names to restore them later after
+    // Linker::linkInModule().
+    //
+    // We've cloned necessary functions and globals from RTLs into
+    // smaller modules, but they still refer the same Type objects,
+    // because they stored in the LLVMContext.
+    //
+    // However, when doing linkInModule(), Linker assumes that the
+    // module passed in as the Src will be destroyed. With this
+    // assumption in mind, it resets the names of all struct types
+    // from Src, which also have been found in the Dst module. This is
+    // done to maintain the Linker internal state and it is described
+    // in:
+    //
+    //   7a551b7c6dd012d67ddf27ab8d87c3e8742c5f11
+    //   Author:     Rafael Espindola <rafael.espindola@gmail.com>
+    //   git-svn-id: https://llvm.org/svn/llvm-project/llvm/trunk@222986
+    //               91177308-0d34-0410-b5e6-96231b3b80d8
+    //
+    //   Change how we keep track of which types are in the dest module.
+    //
+    //   Instead of keeping an explicit set, just drop the names of types we choose
+    //   to map to some other type.
+    //
+    //   This has the advantage that the name of the unused will not cause the context
+    //   to rename types on module read.
+    //
+    //
+    // It is perfectly valid for completely separated modules, because
+    // they do not share the Type objects, but we have a full RTL and
+    // small modules with such sharing. When linker changes the Type
+    // names in a temporary module, it also changes the Type names
+    // in the 'persistent' RTL module.
+    DenseMap<StructType *, std::string> STyNames;
+    for (const auto &RTL : ClonedRtlModules) {
+      for (auto *Ty : RTL->getIdentifiedStructTypes()) {
+        STyNames[Ty] = Ty->getName();
+      }
+    }
+
     // now perform the linking itself
     Linker LD(M);
 
@@ -339,6 +380,12 @@ namespace intel {
       if (LD.linkInModule(std::move(RTL), Linker::OverrideFromSrc)) {
         assert(false && "Error linking builtin module!");
       }
+    }
+
+    for (auto &TyNamePair : STyNames) {
+      using namespace Intel::OpenCL::DeviceBackend;
+      TyNamePair.first->setName(
+        CompilationUtils::stripStructNameTrailingDigits(TyNamePair.second));
     }
 
     // Allow removal of function from module after it is inlined
