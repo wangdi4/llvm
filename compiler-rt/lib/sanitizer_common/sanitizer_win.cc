@@ -27,6 +27,7 @@
 #include "sanitizer_libc.h"
 #include "sanitizer_mutex.h"
 #include "sanitizer_placement_new.h"
+#include "sanitizer_procmaps.h"
 #include "sanitizer_stacktrace.h"
 #include "sanitizer_symbolizer.h"
 
@@ -173,10 +174,10 @@ void *MmapFixedNoReserve(uptr fixed_addr, uptr size, const char *name) {
   // FIXME: is this really "NoReserve"? On Win32 this does not matter much,
   // but on Win64 it does.
   (void)name;  // unsupported
-#if SANITIZER_WINDOWS64
-  // On Windows64, use MEM_COMMIT would result in error
+#if !SANITIZER_GO && SANITIZER_WINDOWS64
+  // On asan/Windows64, use MEM_COMMIT would result in error
   // 1455:ERROR_COMMITMENT_LIMIT.
-  // We use exception handler to commit page on demand.
+  // Asan uses exception handler to commit page on demand.
   void *p = VirtualAlloc((LPVOID)fixed_addr, size, MEM_RESERVE, PAGE_READWRITE);
 #else
   void *p = VirtualAlloc((LPVOID)fixed_addr, size, MEM_RESERVE | MEM_COMMIT,
@@ -220,8 +221,12 @@ void *MmapFixedNoAccess(uptr fixed_addr, uptr size, const char *name) {
 }
 
 void *MmapNoAccess(uptr size) {
-  // FIXME: unsupported.
-  return nullptr;
+  void *res = VirtualAlloc(nullptr, size, MEM_RESERVE, PAGE_NOACCESS);
+  if (res == 0)
+    Report("WARNING: %s failed to "
+           "mprotect %p (%zd) bytes (error code: %d)\n",
+           SanitizerToolName, size, size, GetLastError());
+  return res;
 }
 
 bool MprotectNoAccess(uptr addr, uptr size) {
@@ -230,13 +235,13 @@ bool MprotectNoAccess(uptr addr, uptr size) {
 }
 
 
-void FlushUnneededShadowMemory(uptr addr, uptr size) {
+void ReleaseMemoryToOS(uptr addr, uptr size) {
   // This is almost useless on 32-bits.
   // FIXME: add madvise-analog when we move to 64-bits.
 }
 
 void NoHugePagesInRegion(uptr addr, uptr size) {
-  // FIXME: probably similar to FlushUnneededShadowMemory.
+  // FIXME: probably similar to ReleaseMemoryToOS.
 }
 
 void DontDumpShadowMemory(uptr addr, uptr length) {
@@ -329,8 +334,8 @@ void DumpProcessMap() {
   InternalScopedBuffer<ModuleInfo> module_infos(num_modules);
   for (size_t i = 0; i < num_modules; ++i) {
     module_infos[i].filepath = modules[i].full_name();
-    module_infos[i].base_address = modules[i].base_address();
-    module_infos[i].end_address = modules[i].ranges().front()->end;
+    module_infos[i].base_address = modules[i].ranges().front()->beg;
+    module_infos[i].end_address = modules[i].ranges().back()->end;
   }
   qsort(module_infos.data(), num_modules, sizeof(ModuleInfo),
         CompareModulesBase);
@@ -735,6 +740,8 @@ void BufferedStackTrace::SlowUnwindStackWithContext(uptr pc, void *context,
   STACKFRAME64 stack_frame;
   memset(&stack_frame, 0, sizeof(stack_frame));
 
+  InitializeDbgHelpIfNeeded();
+
   size = 0;
 #if defined(_WIN64)
   int machine_type = IMAGE_FILE_MACHINE_AMD64;
@@ -882,6 +889,22 @@ bool IsProcessRunning(pid_t pid) {
 
 int WaitForProcess(pid_t pid) { return -1; }
 
+// FIXME implement on this platform.
+void GetMemoryProfile(fill_profile_f cb, uptr *stats, uptr stats_size) { }
+
+
 }  // namespace __sanitizer
+
+// Workaround to implement weak hooks on Windows. COFF doesn't directly support
+// weak symbols, but it does support /alternatename, which is similar. If the
+// user does not override the hook, we will use this default definition instead
+// of null.
+extern "C" void __sanitizer_print_memory_profile(int top_percent) {}
+
+#ifdef _WIN64
+#pragma comment(linker, "/alternatename:__sanitizer_print_memory_profile=__sanitizer_default_print_memory_profile") // NOLINT
+#else
+#pragma comment(linker, "/alternatename:___sanitizer_print_memory_profile=___sanitizer_default_print_memory_profile") // NOLINT
+#endif
 
 #endif  // _WIN32

@@ -27,6 +27,7 @@
 #include "MisplacedWideningCastCheck.h"
 #include "MoveConstantArgumentCheck.h"
 #include "MoveConstructorInitCheck.h"
+#include "MoveForwardingReferenceCheck.h"
 #include "MultipleStatementMacroCheck.h"
 #include "NewDeleteOverloadsCheck.h"
 #include "NoexceptMoveConstructorCheck.h"
@@ -50,6 +51,7 @@
 #include "UnusedParametersCheck.h"
 #include "UnusedRAIICheck.h"
 #include "UnusedUsingDeclsCheck.h"
+#include "UseAfterMoveCheck.h"
 #include "VirtualNearMissCheck.h"
 
 namespace clang {
@@ -92,6 +94,8 @@ public:
         "misc-move-const-arg");
     CheckFactories.registerCheck<MoveConstructorInitCheck>(
         "misc-move-constructor-init");
+    CheckFactories.registerCheck<MoveForwardingReferenceCheck>(
+        "misc-move-forwarding-reference");
     CheckFactories.registerCheck<MultipleStatementMacroCheck>(
         "misc-multiple-statement-macro");
     CheckFactories.registerCheck<NewDeleteOverloadsCheck>(
@@ -120,7 +124,7 @@ public:
     CheckFactories.registerCheck<SuspiciousSemicolonCheck>(
         "misc-suspicious-semicolon");
     CheckFactories.registerCheck<SuspiciousStringCompareCheck>(
-        "misc-suspicious-string-compare");    
+        "misc-suspicious-string-compare");
     CheckFactories.registerCheck<SwappedArgumentsCheck>(
         "misc-swapped-arguments");
     CheckFactories.registerCheck<ThrowByValueCatchByReferenceCheck>(
@@ -136,6 +140,7 @@ public:
     CheckFactories.registerCheck<UnusedRAIICheck>("misc-unused-raii");
     CheckFactories.registerCheck<UnusedUsingDeclsCheck>(
         "misc-unused-using-decls");
+    CheckFactories.registerCheck<UseAfterMoveCheck>("misc-use-after-move");
     CheckFactories.registerCheck<VirtualNearMissCheck>(
         "misc-virtual-near-miss");
   }

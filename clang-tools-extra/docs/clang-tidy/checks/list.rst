@@ -1,7 +1,7 @@
 .. title:: clang-tidy - Clang-Tidy Checks
 
 Clang-Tidy Checks
-=========================
+=================
 
 .. toctree::
    boost-use-to-string
@@ -29,6 +29,8 @@ Clang-Tidy Checks
    cppcoreguidelines-pro-type-static-cast-downcast
    cppcoreguidelines-pro-type-union-access
    cppcoreguidelines-pro-type-vararg
+   cppcoreguidelines-slicing
+   cppcoreguidelines-special-member-functions
    google-build-explicit-make-pair
    google-build-namespaces
    google-build-using-namespace
@@ -38,8 +40,8 @@ Clang-Tidy Checks
    google-readability-braces-around-statements (redirects to readability-braces-around-statements) <google-readability-braces-around-statements>
    google-readability-casting
    google-readability-function-size (redirects to readability-function-size) <google-readability-function-size>
-   google-readability-namespace-comments
-   google-readability-redundant-smartptr-get
+   google-readability-namespace-comments (redirects to llvm-namespace-comment) <google-readability-namespace-comments>
+   google-readability-redundant-smartptr-get (redirects to readability-redundant-smartptr-get) <google-readability-redundant-smartptr-get>
    google-readability-todo
    google-runtime-int
    google-runtime-member-string-references
@@ -66,6 +68,7 @@ Clang-Tidy Checks
    misc-misplaced-widening-cast
    misc-move-const-arg
    misc-move-constructor-init
+   misc-move-forwarding-reference
    misc-multiple-statement-macro
    misc-new-delete-overloads
    misc-noexcept-move-constructor
@@ -90,6 +93,7 @@ Clang-Tidy Checks
    misc-unused-parameters
    misc-unused-raii
    misc-unused-using-decls
+   misc-use-after-move
    misc-virtual-near-miss
    modernize-avoid-bind
    modernize-deprecated-headers
@@ -108,9 +112,12 @@ Clang-Tidy Checks
    modernize-use-nullptr
    modernize-use-override
    modernize-use-using
+   mpi-buffer-deref
+   mpi-type-mismatch
    performance-faster-string-find
    performance-for-range-copy
    performance-implicit-cast-in-loop
+   performance-inefficient-string-concatenation
    performance-unnecessary-copy-initialization
    performance-unnecessary-value-param
    readability-avoid-const-params-in-decls
@@ -122,7 +129,9 @@ Clang-Tidy Checks
    readability-identifier-naming
    readability-implicit-bool-cast
    readability-inconsistent-declaration-parameter-name
+   readability-misplaced-array-index
    readability-named-parameter
+   readability-non-const-parameter
    readability-redundant-control-flow
    readability-redundant-smartptr-get
    readability-redundant-string-cstr

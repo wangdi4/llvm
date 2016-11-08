@@ -2,6 +2,8 @@
 Clang Compiler User's Manual
 ============================
 
+.. include:: <isonum.txt>
+
 .. contents::
    :local:
 
@@ -105,6 +107,8 @@ Options to Control Error and Warning Messages
 .. option:: -Wfoo
 
   Enable warning "foo".
+  See the :doc:`diagnostics reference <DiagnosticsReference>` for a complete
+  list of the warning flags that can be specified in this way.
 
 .. option:: -Wno-foo
 
@@ -312,6 +316,28 @@ output format of the diagnostics that it generates.
    This category can be used by clients that want to group diagnostics
    by category, so it should be a high level category. We want dozens
    of these, not hundreds or thousands of them.
+
+.. _opt_fdiagnostics-show-hotness:
+
+**-f[no-]diagnostics-show-hotness**
+   Enable profile hotness information in diagnostic line.
+
+   This option, which defaults to off, controls whether Clang prints the
+   profile hotness associated with a diagnostics in the presence of
+   profile-guided optimization information.  This is currently supported with
+   optimization remarks (see :ref:`Options to Emit Optimization Reports
+   <rpass>`).  The hotness information allows users to focus on the hot
+   optimization remarks that are likely to be more relevant for run-time
+   performance.
+
+   For example, in this output, the block containing the callsite of `foo` was
+   executed 3000 times according to the profile data:
+
+   ::
+
+         s.c:7:10: remark: foo inlined into bar (hotness: 3000) [-Rpass-analysis=inline]
+           sum += foo(x, x - 2);
+                  ^
 
 .. _opt_fdiagnostics-fixit-info:
 
@@ -531,6 +557,8 @@ control the crash diagnostics.
 The -fno-crash-diagnostics flag can be helpful for speeding the process
 of generating a delta reduced test case.
 
+.. _rpass:
+
 Options to Emit Optimization Reports
 ------------------------------------
 
@@ -573,6 +601,10 @@ made by the compiler. Optimization remarks do not really make sense
 outside of the major transformations (e.g., inlining, vectorization,
 loop optimizations) and not every optimization pass supports this
 feature.
+
+Note that when using profile-guided optimization information, profile hotness
+information can be included in the remarks (see
+:ref:`-fdiagnostics-show-hotness <opt_fdiagnostics-show-hotness>`).
 
 Current limitations
 ^^^^^^^^^^^^^^^^^^^
@@ -1073,6 +1105,15 @@ are listed below.
      ``Inf``, and
    * ``+0`` and ``-0`` are interchangeable.
 
+.. option:: -fdenormal-fp-math=[values]
+
+   Select which denormal numbers the code is permitted to require.
+
+   Valid values are: ``ieee``, ``preserve-sign``, and ``positive-zero``,
+   which correspond to IEEE 754 denormal numbers, the sign of a
+   flushed-to-zero number is preserved in the sign of 0, denormals are
+   flushed to positive zero, respectively.
+
 .. option:: -fwhole-program-vtables
 
    Enable whole-program vtable optimizations, such as single-implementation
@@ -1470,8 +1511,13 @@ instrumentation:
 
 2. Run the instrumented executable with inputs that reflect the typical usage.
    By default, the profile data will be written to a ``default.profraw`` file
-   in the current directory. You can override that default by setting the
-   ``LLVM_PROFILE_FILE`` environment variable to specify an alternate file.
+   in the current directory. You can override that default by using option
+   ``-fprofile-instr-generate=`` or by setting the ``LLVM_PROFILE_FILE`` 
+   environment variable to specify an alternate file. If non-default file name
+   is specified by both the environment variable and the command line option,
+   the environment variable takes precedence. The file name pattern specified
+   can include different modifiers: ``%p``, ``%h``, and ``%m``.
+
    Any instance of ``%p`` in that file name will be replaced by the process
    ID, so that you can easily distinguish the profile output from multiple
    runs.
@@ -1479,6 +1525,33 @@ instrumentation:
    .. code-block:: console
 
      $ LLVM_PROFILE_FILE="code-%p.profraw" ./code
+
+   The modifier ``%h`` can be used in scenarios where the same instrumented
+   binary is run in multiple different host machines dumping profile data
+   to a shared network based storage. The ``%h`` specifier will be substituted
+   with the hostname so that profiles collected from different hosts do not
+   clobber each other.
+
+   While the use of ``%p`` specifier can reduce the likelihood for the profiles
+   dumped from different processes to clobber each other, such clobbering can still
+   happen because of the ``pid`` re-use by the OS. Another side-effect of using
+   ``%p`` is that the storage requirement for raw profile data files is greatly
+   increased.  To avoid issues like this, the ``%m`` specifier can used in the profile
+   name.  When this specifier is used, the profiler runtime will substitute ``%m``
+   with a unique integer identifier associated with the instrumented binary. Additionally,
+   multiple raw profiles dumped from different processes that share a file system (can be
+   on different hosts) will be automatically merged by the profiler runtime during the
+   dumping. If the program links in multiple instrumented shared libraries, each library
+   will dump the profile data into its own profile data file (with its unique integer
+   id embedded in the profile name). Note that the merging enabled by ``%m`` is for raw
+   profile data generated by profiler runtime. The resulting merged "raw" profile data
+   file still needs to be converted to a different format expected by the compiler (
+   see step 3 below).
+
+   .. code-block:: console
+
+     $ LLVM_PROFILE_FILE="code-%m.profraw" ./code
+
 
 3. Combine profiles from multiple runs and convert the "raw" profile format to
    the input expected by clang. Use the ``merge`` command of the
@@ -1514,27 +1587,31 @@ profile creation and use.
   The ``-fprofile-generate`` and ``-fprofile-generate=`` flags will use
   an alterantive instrumentation method for profile generation. When
   given a directory name, it generates the profile file
-  ``default.profraw`` in the directory named ``dirname``. If ``dirname``
-  does not exist, it will be created at runtime. The environment variable
-  ``LLVM_PROFILE_FILE`` can be used to override the directory and
-  filename for the profile file at runtime. For example,
+  ``default_%m.profraw`` in the directory named ``dirname`` if specified.
+  If ``dirname`` does not exist, it will be created at runtime. ``%m`` specifier
+  will be substibuted with a unique id documented in step 2 above. In other words,
+  with ``-fprofile-generate[=<dirname>]`` option, the "raw" profile data automatic
+  merging is turned on by default, so there will no longer any risk of profile
+  clobbering from different running processes.  For example,
 
   .. code-block:: console
 
     $ clang++ -O2 -fprofile-generate=yyy/zzz code.cc -o code
 
   When ``code`` is executed, the profile will be written to the file
-  ``yyy/zzz/default.profraw``. This can be altered at runtime via the
-  ``LLVM_PROFILE_FILE`` environment variable:
+  ``yyy/zzz/default_xxxx.profraw``.
 
-  .. code-block:: console
+  To generate the profile data file with the compiler readable format, the 
+  ``llvm-profdata`` tool can be used with the profile directory as the input:
 
-    $ LLVM_PROFILE_FILE=/tmp/myprofile/code.profraw ./code
+   .. code-block:: console
 
-  The above invocation will produce the profile file
-  ``/tmp/myprofile/code.profraw`` instead of ``yyy/zzz/default.profraw``.
-  Notice that ``LLVM_PROFILE_FILE`` overrides the directory *and* the file
-  name for the profile file.
+     $ llvm-profdata merge -output=code.profdata yyy/zzz/
+
+ If the user wants to turn off the auto-merging feature, or simply override the
+ the profile dumping path specified at command line, the environment variable
+ ``LLVM_PROFILE_FILE`` can still be used to override
+ the directory and filename for the profile file at runtime.
 
 .. option:: -fprofile-use[=<pathname>]
 
@@ -1614,7 +1691,7 @@ features. You can "tune" the debug info for one of several different debuggers.
 
 .. option:: -ggdb, -glldb, -gsce
 
-  Tune the debug info for the ``gdb``, ``lldb``, or Sony Computer Entertainment
+  Tune the debug info for the ``gdb``, ``lldb``, or Sony PlayStation\ |reg|
   debugger, respectively. Each of these options implies **-g**. (Therefore, if
   you want both **-gline-tables-only** and debugger tuning, the tuning option
   must come first.)
@@ -2082,16 +2159,26 @@ Execute ``clang-cl /?`` to see a list of supported options:
       /fp:fast
       /fp:precise
       /fp:strict
+      /Fp<filename>          Set pch filename (with /Yc and /Yu)
       /GA                    Assume thread-local variables are defined in the executable
+      /Gd                    Set __cdecl as a default calling convention
       /GF-                   Disable string pooling
       /GR-                   Disable emission of RTTI data
       /GR                    Enable emission of RTTI data
+      /Gr                    Set __fastcall as a default calling convention
+      /GS-                   Disable buffer security check
+      /GS                    Enable buffer security check
       /Gs<value>             Set stack probe size
+      /Gv                    Set __vectorcall as a default calling convention
       /Gw-                   Don't put each data item in its own section
       /Gw                    Put each data item in its own section
+      /GX-                   Enable exception handling
+      /GX                    Enable exception handling
       /Gy-                   Don't put each function in its own section
       /Gy                    Put each function in its own section
+      /Gz                    Set __stdcall as a default calling convention
       /help                  Display available options
+      /imsvc <dir>           Add directory to system include search path, as if part of %INCLUDE%
       /I <dir>               Add directory to include search path
       /J                     Make char type unsigned
       /LDd                   Create debug DLL
@@ -2101,7 +2188,6 @@ Execute ``clang-cl /?`` to see a list of supported options:
       /MD                    Use DLL run-time
       /MTd                   Use static debug run-time
       /MT                    Use static run-time
-      /Ob0                   Disable inlining
       /Od                    Disable optimization
       /Oi-                   Disable use of builtin functions
       /Oi                    Enable use of builtin functions
@@ -2113,6 +2199,7 @@ Execute ``clang-cl /?`` to see a list of supported options:
       /Qvec-                 Disable the loop vectorization passes
       /Qvec                  Enable the loop vectorization passes
       /showIncludes          Print info about included files to stderr
+      /std:<value>           Language standard to compile for
       /TC                    Treat all source files as C
       /Tc <filename>         Specify a C source file
       /TP                    Treat all source files as C++
@@ -2135,6 +2222,9 @@ Execute ``clang-cl /?`` to see a list of supported options:
       /WX-                   Do not treat warnings as errors
       /WX                    Treat warnings as errors
       /w                     Disable all warnings
+      /Y-                    Disable precompiled headers, overrides /Yc and /Yu
+      /Yc<filename>          Generate a pch file for all code up to and including <filename>
+      /Yu<filename>          Load a pch file and use it instead of all code up to and including <filename>
       /Z7                    Enable CodeView debug information in object files
       /Zc:sizedDealloc-      Disable C++14 sized global deallocation functions
       /Zc:sizedDealloc       Enable C++14 sized global deallocation functions
@@ -2143,6 +2233,7 @@ Execute ``clang-cl /?`` to see a list of supported options:
       /Zc:threadSafeInit     Enable thread-safe initialization of static variables
       /Zc:trigraphs-         Disable trigraphs (default)
       /Zc:trigraphs          Enable trigraphs
+      /Zd                    Emit debug line number tables only
       /Zi                    Alias for /Z7. Does not produce PDBs.
       /Zl                    Don't mention any default libraries in the object file
       /Zp                    Set the default maximum struct packing alignment to 1
@@ -2179,6 +2270,8 @@ Execute ``clang-cl /?`` to see a list of supported options:
       -fsanitize=<check>      Turn on runtime checks for various forms of undefined or suspicious
                               behavior. See user manual for available checks
       -gcodeview              Generate CodeView debug information
+      -gline-tables-only      Emit debug line number tables only
+      -miamcu                 Use Intel MCU ABI
       -mllvm <value>          Additional arguments to forward to LLVM's option processing
       -Qunused-arguments      Don't emit warning for unused driver arguments
       -R<remark>              Enable the specified remark

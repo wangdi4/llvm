@@ -204,7 +204,7 @@ void WinException::beginFunclet(const MachineBasicBlock &MBB,
     if (F->hasPersonalityFn())
       PerFn = dyn_cast<Function>(F->getPersonalityFn()->stripPointerCasts());
     const MCSymbol *PersHandlerSym =
-        TLOF.getCFIPersonalitySymbol(PerFn, *Asm->Mang, Asm->TM, MMI);
+        TLOF.getCFIPersonalitySymbol(PerFn, Asm->TM, MMI);
 
     // Classify the personality routine so that we may reason about it.
     EHPersonality Per = EHPersonality::Unknown;
@@ -966,11 +966,11 @@ void WinException::emitExceptHandlerTable(const MachineFunction *MF) {
 
     // Retrieve the Guard Stack slot.
     int GSCookieOffset = -2;
-    const MachineFrameInfo *MFI = MF->getFrameInfo();
-    if (MFI->hasStackProtectorIndex()) {
+    const MachineFrameInfo &MFI = MF->getFrameInfo();
+    if (MFI.hasStackProtectorIndex()) {
       unsigned UnusedReg;
       const TargetFrameLowering *TFI = MF->getSubtarget().getFrameLowering();
-      int SSPIdx = MFI->getStackProtectorIndex();
+      int SSPIdx = MFI.getStackProtectorIndex();
       GSCookieOffset = TFI->getFrameIndexReference(*MF, SSPIdx, UnusedReg);
     }
 

@@ -28,6 +28,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPassManager.h"
@@ -742,14 +743,13 @@ public:
     DEBUG(Partitions.printBlocks());
 
     if (LDistVerify) {
-      LI->verify();
+      LI->verify(*DT);
       DT->verifyDomTree();
     }
 
     ++NumLoopsDistributed;
     // Report the success.
-    emitOptimizationRemark(F->getContext(), LDIST_NAME, *F, L->getStartLoc(),
-                           "distributed loop");
+    ORE->emitOptimizationRemark(LDIST_NAME, L, "distributed loop");
     return true;
   }
 
@@ -768,10 +768,10 @@ public:
 
     // With Rpass-analysis report why.  This is on by default if distribution
     // was requested explicitly.
-    emitOptimizationRemarkAnalysis(
-        Ctx, Forced ? DiagnosticInfoOptimizationRemarkAnalysis::AlwaysPrint
-                    : LDIST_NAME,
-        *F, L->getStartLoc(), Twine("loop not distributed: ") + Message);
+    ORE->emitOptimizationRemarkAnalysis(
+        Forced ? DiagnosticInfoOptimizationRemarkAnalysis::AlwaysPrint
+               : LDIST_NAME,
+        L, Twine("loop not distributed: ") + Message);
 
     // Also issue a warning if distribution was requested explicitly but it
     // failed.
@@ -931,6 +931,7 @@ public:
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
+    AU.addPreserved<GlobalsAAWrapperPass>();
   }
 
   static char ID;

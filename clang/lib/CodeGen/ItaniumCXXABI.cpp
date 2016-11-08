@@ -45,6 +45,7 @@ class ItaniumCXXABI : public CodeGen::CGCXXABI {
 protected:
   bool UseARMMethodPtrABI;
   bool UseARMGuardVarABI;
+  bool Use32BitVTableOffsetABI;
 
   ItaniumMangleContext &getMangleContext() {
     return cast<ItaniumMangleContext>(CodeGen::CGCXXABI::getMangleContext());
@@ -55,7 +56,8 @@ public:
                 bool UseARMMethodPtrABI = false,
                 bool UseARMGuardVarABI = false) :
     CGCXXABI(CGM), UseARMMethodPtrABI(UseARMMethodPtrABI),
-    UseARMGuardVarABI(UseARMGuardVarABI) { }
+    UseARMGuardVarABI(UseARMGuardVarABI),
+    Use32BitVTableOffsetABI(false) { }
 
   bool classifyReturnType(CGFunctionInfo &FI) const override;
 
@@ -425,7 +427,9 @@ public:
 
 class iOS64CXXABI : public ARMCXXABI {
 public:
-  iOS64CXXABI(CodeGen::CodeGenModule &CGM) : ARMCXXABI(CGM) {}
+  iOS64CXXABI(CodeGen::CodeGenModule &CGM) : ARMCXXABI(CGM) {
+    Use32BitVTableOffsetABI = true;
+  }
 
   // ARM64 libraries are prepared for non-unique RTTI.
   bool shouldRTTIBeUnique() const override { return false; }
@@ -579,9 +583,15 @@ llvm::Value *ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
     CGF.GetVTablePtr(Address(This, VTablePtrAlign), VTableTy, RD);
 
   // Apply the offset.
+  // On ARM64, to reserve extra space in virtual member function pointers,
+  // we only pay attention to the low 32 bits of the offset.
   llvm::Value *VTableOffset = FnAsInt;
   if (!UseARMMethodPtrABI)
     VTableOffset = Builder.CreateSub(VTableOffset, ptrdiff_1);
+  if (Use32BitVTableOffsetABI) {
+    VTableOffset = Builder.CreateTrunc(VTableOffset, CGF.Int32Ty);
+    VTableOffset = Builder.CreateZExt(VTableOffset, CGM.PtrDiffTy);
+  }
   VTable = Builder.CreateGEP(VTable, VTableOffset);
 
   // Load the virtual function to call.
@@ -1390,6 +1400,10 @@ void ItaniumCXXABI::addImplicitStructorParams(CodeGenFunction &CGF,
 }
 
 void ItaniumCXXABI::EmitInstanceFunctionProlog(CodeGenFunction &CGF) {
+  // Naked functions have no prolog.
+  if (CGF.CurFuncDecl && CGF.CurFuncDecl->hasAttr<NakedAttr>())
+    return;
+
   /// Initialize the 'this' slot.
   EmitThisParam(CGF);
 
@@ -1458,9 +1472,7 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
       CGM.GetAddrOfRTTIDescriptor(CGM.getContext().getTagDeclType(RD));
 
   // Create and set the initializer.
-  llvm::Constant *Init = CGVT.CreateVTableInitializer(
-      RD, VTLayout.vtable_component_begin(), VTLayout.getNumVTableComponents(),
-      VTLayout.vtable_thunk_begin(), VTLayout.getNumVTableThunks(), RTTI);
+  llvm::Constant *Init = CGVT.CreateVTableInitializer(VTLayout, RTTI);
   VTable->setInitializer(Init);
 
   // Set the correct linkage.
@@ -1571,7 +1583,7 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
 
   ItaniumVTableContext &VTContext = CGM.getItaniumVTableContext();
   llvm::ArrayType *ArrayType = llvm::ArrayType::get(
-      CGM.Int8PtrTy, VTContext.getVTableLayout(RD).getNumVTableComponents());
+      CGM.Int8PtrTy, VTContext.getVTableLayout(RD).vtable_components().size());
 
   VTable = CGM.CreateOrReplaceCXXRuntimeVariable(
       Name, ArrayType, llvm::GlobalValue::ExternalLinkage);
@@ -2342,8 +2354,7 @@ LValue ItaniumCXXABI::EmitThreadLocalVarDeclLValue(CodeGenFunction &CGF,
   llvm::Function *Wrapper = getOrCreateThreadLocalWrapper(VD, Val);
 
   llvm::CallInst *CallVal = CGF.Builder.CreateCall(Wrapper);
-  if (isThreadWrapperReplaceable(VD, CGF.CGM))
-    CallVal->setCallingConv(llvm::CallingConv::CXX_FAST_TLS);
+  CallVal->setCallingConv(Wrapper->getCallingConv());
 
   LValue LV;
   if (VD->getType()->isReferenceType())
@@ -3214,9 +3225,6 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   if (!RD->getNumBases())
     return;
 
-  llvm::Type *LongLTy =
-    CGM.getTypes().ConvertType(CGM.getContext().LongTy);
-
   // Now add the base class descriptions.
 
   // Itanium C++ ABI 2.9.5p6c:
@@ -3234,6 +3242,19 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   //       __offset_shift = 8
   //     };
   //   };
+
+  // If we're in mingw and 'long' isn't wide enough for a pointer, use 'long
+  // long' instead of 'long' for __offset_flags. libstdc++abi uses long long on
+  // LLP64 platforms.
+  // FIXME: Consider updating libc++abi to match, and extend this logic to all
+  // LLP64 platforms.
+  QualType OffsetFlagsTy = CGM.getContext().LongTy;
+  const TargetInfo &TI = CGM.getContext().getTargetInfo();
+  if (TI.getTriple().isOSCygMing() && TI.getPointerWidth(0) > TI.getLongWidth())
+    OffsetFlagsTy = CGM.getContext().LongLongTy;
+  llvm::Type *OffsetFlagsLTy =
+      CGM.getTypes().ConvertType(OffsetFlagsTy);
+
   for (const auto &Base : RD->bases()) {
     // The __base_type member points to the RTTI for the base type.
     Fields.push_back(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(Base.getType()));
@@ -3265,7 +3286,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
     if (Base.getAccessSpecifier() == AS_public)
       OffsetFlags |= BCTI_Public;
 
-    Fields.push_back(llvm::ConstantInt::get(LongLTy, OffsetFlags));
+    Fields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, OffsetFlags));
   }
 }
 

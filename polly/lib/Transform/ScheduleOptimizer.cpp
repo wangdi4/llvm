@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass generates an entirey new schedule tree from the data dependences
+// This pass generates an entirely new schedule tree from the data dependences
 // and iteration domains. The new schedule tree is computed in two steps:
 //
 // 1) The isl scheduling optimizer is run
@@ -134,6 +134,17 @@ static cl::opt<int> ThrougputVectorFma(
              "instructions per clock cycle."),
     cl::Hidden, cl::init(1), cl::ZeroOrMore, cl::cat(PollyCategory));
 
+static cl::list<int>
+    CacheLevelAssociativity("polly-target-cache-level-associativity",
+                            cl::desc("The associativity of each cache level."),
+                            cl::Hidden, cl::ZeroOrMore, cl::CommaSeparated,
+                            cl::cat(PollyCategory));
+
+static cl::list<int> CacheLevelSizes(
+    "polly-target-cache-level-sizes",
+    cl::desc("The size of each cache level specified in bytes."), cl::Hidden,
+    cl::ZeroOrMore, cl::CommaSeparated, cl::cat(PollyCategory));
+
 static cl::opt<int> FirstLevelDefaultTileSize(
     "polly-default-tile-size",
     cl::desc("The default tile size (if not enough were provided by"
@@ -186,8 +197,15 @@ static cl::opt<bool>
                 cl::desc("Perform optimizations based on pattern matching"),
                 cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
 
-/// @brief Create an isl_union_set, which describes the isolate option based
-///        on IsoalteDomain.
+static cl::opt<bool> OptimizedScops(
+    "polly-optimized-scops",
+    cl::desc("Polly - Dump polyhedral description of Scops optimized with "
+             "the isl scheduling optimizer and the set of post-scheduling "
+             "transformations is applied on the schedule tree"),
+    cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
+
+/// Create an isl_union_set, which describes the isolate option based on
+/// IsoalteDomain.
 ///
 /// @param IsolateDomain An isl_set whose last dimension is the only one that
 ///                      should belong to the current band node.
@@ -202,8 +220,8 @@ getIsolateOptions(__isl_take isl_set *IsolateDomain) {
   return isl_union_set_from_set(isl_set_set_tuple_id(IsolateOption, Id));
 }
 
-/// @brief Create an isl_union_set, which describes the atomic option for the
-///        dimension of the current node.
+/// Create an isl_union_set, which describes the atomic option for the dimension
+/// of the current node.
 ///
 /// It may help to reduce the size of generated code.
 ///
@@ -215,8 +233,7 @@ static __isl_give isl_union_set *getAtomicOptions(__isl_take isl_ctx *Ctx) {
   return isl_union_set_from_set(isl_set_set_tuple_id(AtomicOption, Id));
 }
 
-/// @brief Make the last dimension of Set to take values
-///        from 0 to VectorWidth - 1.
+/// Make the last dimension of Set to take values from 0 to VectorWidth - 1.
 ///
 /// @param Set         A set, which should be modified.
 /// @param VectorWidth A parameter, which determines the constraint.
@@ -238,7 +255,7 @@ static __isl_give isl_set *addExtentConstraints(__isl_take isl_set *Set,
   return isl_set_add_constraint(Set, ExtConstr);
 }
 
-/// @brief Build the desired set of partial tile prefixes.
+/// Build the desired set of partial tile prefixes.
 ///
 /// We build a set of partial tile prefixes, which are prefixes of the vector
 /// loop that have exactly VectorWidth iterations.
@@ -420,8 +437,8 @@ ScheduleTreeOptimizer::standardBandOpts(__isl_take isl_schedule_node *Node,
   return Node;
 }
 
-/// @brief Check whether output dimensions of the map rely on the specified
-///        input dimension.
+/// Check whether output dimensions of the map rely on the specified input
+/// dimension.
 ///
 /// @param IslMap The isl map to be considered.
 /// @param DimNum The number of an input dimension to be checked.
@@ -442,8 +459,8 @@ static bool isInputDimUsed(__isl_take isl_map *IslMap, unsigned DimNum) {
   return res;
 }
 
-/// @brief Check if the SCoP statement could probably be optimized with
-///        analytical modeling.
+/// Check if the SCoP statement could probably be optimized with analytical
+/// modeling.
 ///
 /// containsMatrMult tries to determine whether the following conditions
 /// are true:
@@ -480,7 +497,7 @@ static bool containsMatrMult(__isl_keep isl_map *PartialSchedule) {
   return !isInputDimUsed((*MemA)->getAccessRelation(), DimNum - 1);
 }
 
-/// @brief Circular shift of output dimensions of the integer map.
+/// Circular shift of output dimensions of the integer map.
 ///
 /// @param IslMap The isl map to be modified.
 static __isl_give isl_map *circularShiftOutputDims(__isl_take isl_map *IslMap) {
@@ -493,10 +510,67 @@ static __isl_give isl_map *circularShiftOutputDims(__isl_take isl_map *IslMap) {
   return isl_map_set_tuple_id(IslMap, isl_dim_in, InputDimsId);
 }
 
-__isl_give isl_schedule_node *ScheduleTreeOptimizer::optimizeMatMulPattern(
-    __isl_take isl_schedule_node *Node, const llvm::TargetTransformInfo *TTI) {
+/// Permute two dimensions of the band node.
+///
+/// Permute FirstDim and SecondDim dimensions of the Node.
+///
+/// @param Node The band node to be modified.
+/// @param FirstDim The first dimension to be permuted.
+/// @param SecondDim The second dimension to be permuted.
+static __isl_give isl_schedule_node *
+permuteBandNodeDimensions(__isl_take isl_schedule_node *Node, unsigned FirstDim,
+                          unsigned SecondDim) {
+  assert(isl_schedule_node_get_type(Node) == isl_schedule_node_band &&
+         isl_schedule_node_band_n_member(Node) > std::max(FirstDim, SecondDim));
+  auto PartialSchedule = isl_schedule_node_band_get_partial_schedule(Node);
+  auto PartialScheduleFirstDim =
+      isl_multi_union_pw_aff_get_union_pw_aff(PartialSchedule, FirstDim);
+  auto PartialScheduleSecondDim =
+      isl_multi_union_pw_aff_get_union_pw_aff(PartialSchedule, SecondDim);
+  PartialSchedule = isl_multi_union_pw_aff_set_union_pw_aff(
+      PartialSchedule, SecondDim, PartialScheduleFirstDim);
+  PartialSchedule = isl_multi_union_pw_aff_set_union_pw_aff(
+      PartialSchedule, FirstDim, PartialScheduleSecondDim);
+  Node = isl_schedule_node_delete(Node);
+  Node = isl_schedule_node_insert_partial_schedule(Node, PartialSchedule);
+  return Node;
+}
+
+__isl_give isl_schedule_node *ScheduleTreeOptimizer::createMicroKernel(
+    __isl_take isl_schedule_node *Node, MicroKernelParamsTy MicroKernelParams) {
+  return applyRegisterTiling(Node, {MicroKernelParams.Mr, MicroKernelParams.Nr},
+                             1);
+}
+
+__isl_give isl_schedule_node *ScheduleTreeOptimizer::createMacroKernel(
+    __isl_take isl_schedule_node *Node, MacroKernelParamsTy MacroKernelParams) {
+  assert(isl_schedule_node_get_type(Node) == isl_schedule_node_band);
+  if (MacroKernelParams.Mc == 1 && MacroKernelParams.Nc == 1 &&
+      MacroKernelParams.Kc == 1)
+    return Node;
+  Node = tileNode(
+      Node, "1st level tiling",
+      {MacroKernelParams.Mc, MacroKernelParams.Nc, MacroKernelParams.Kc}, 1);
+  Node = isl_schedule_node_parent(isl_schedule_node_parent(Node));
+  Node = permuteBandNodeDimensions(Node, 1, 2);
+  return isl_schedule_node_child(isl_schedule_node_child(Node, 0), 0);
+}
+
+/// Get parameters of the BLIS micro kernel.
+///
+/// We choose the Mr and Nr parameters of the micro kernel to be large enough
+/// such that no stalls caused by the combination of latencies and dependencies
+/// are introduced during the updates of the resulting matrix of the matrix
+/// multiplication. However, they should also be as small as possible to
+/// release more registers for entries of multiplied matrices.
+///
+/// @param TTI Target Transform Info.
+/// @return The structure of type MicroKernelParamsTy.
+/// @see MicroKernelParamsTy
+static struct MicroKernelParamsTy
+getMicroKernelParams(const llvm::TargetTransformInfo *TTI) {
   assert(TTI && "The target transform info should be provided.");
-  // Get a micro-kernel.
+
   // Nvec - Number of double-precision floating-point numbers that can be hold
   // by a vector register. Use 2 by default.
   auto Nvec = TTI->getRegisterBitWidth(true) / 64;
@@ -505,9 +579,373 @@ __isl_give isl_schedule_node *ScheduleTreeOptimizer::optimizeMatMulPattern(
   int Nr =
       ceil(sqrt(Nvec * LatencyVectorFma * ThrougputVectorFma) / Nvec) * Nvec;
   int Mr = ceil(Nvec * LatencyVectorFma * ThrougputVectorFma / Nr);
-  std::vector<int> MicroKernelParams{Mr, Nr};
-  Node = applyRegisterTiling(Node, MicroKernelParams, 1);
-  return Node;
+  return {Mr, Nr};
+}
+
+/// Get parameters of the BLIS macro kernel.
+///
+/// During the computation of matrix multiplication, blocks of partitioned
+/// matrices are mapped to different layers of the memory hierarchy.
+/// To optimize data reuse, blocks should be ideally kept in cache between
+/// iterations. Since parameters of the macro kernel determine sizes of these
+/// blocks, there are upper and lower bounds on these parameters.
+///
+/// @param MicroKernelParams Parameters of the micro-kernel
+///                          to be taken into account.
+/// @return The structure of type MacroKernelParamsTy.
+/// @see MacroKernelParamsTy
+/// @see MicroKernelParamsTy
+static struct MacroKernelParamsTy
+getMacroKernelParams(const MicroKernelParamsTy &MicroKernelParams) {
+  // According to www.cs.utexas.edu/users/flame/pubs/TOMS-BLIS-Analytical.pdf,
+  // it requires information about the first two levels of a cache to determine
+  // all the parameters of a macro-kernel. It also checks that an associativity
+  // degree of a cache level is greater than two. Otherwise, another algorithm
+  // for determination of the parameters should be used.
+  if (!(MicroKernelParams.Mr > 0 && MicroKernelParams.Nr > 0 &&
+        CacheLevelSizes.size() >= 2 && CacheLevelAssociativity.size() >= 2 &&
+        CacheLevelSizes[0] > 0 && CacheLevelSizes[1] > 0 &&
+        CacheLevelAssociativity[0] > 2 && CacheLevelAssociativity[1] > 2))
+    return {1, 1, 1};
+  int Cbr = floor(
+      (CacheLevelAssociativity[0] - 1) /
+      (1 + static_cast<double>(MicroKernelParams.Mr) / MicroKernelParams.Nr));
+  int Kc = (Cbr * CacheLevelSizes[0]) /
+           (MicroKernelParams.Nr * CacheLevelAssociativity[0] * 8);
+  double Cac = static_cast<double>(MicroKernelParams.Mr * Kc * 8 *
+                                   CacheLevelAssociativity[1]) /
+               CacheLevelSizes[1];
+  double Cbc = static_cast<double>(MicroKernelParams.Nr * Kc * 8 *
+                                   CacheLevelAssociativity[1]) /
+               CacheLevelSizes[1];
+  int Mc = floor(MicroKernelParams.Mr / Cac);
+  int Nc =
+      floor((MicroKernelParams.Nr * (CacheLevelAssociativity[1] - 2)) / Cbc);
+  return {Mc, Nc, Kc};
+}
+
+/// Identify a memory access through the shape of its memory access relation.
+///
+/// Identify the unique memory access in @p Stmt, that has an access relation
+/// equal to @p ExpectedAccessRelation.
+///
+/// @param Stmt The SCoP statement that contains the memory accesses under
+///             consideration.
+/// @param ExpectedAccessRelation The access relation that identifies
+///                               the memory access.
+/// @return  The memory access of @p Stmt whose memory access relation is equal
+///          to @p ExpectedAccessRelation. nullptr in case there is no or more
+///          than one such access.
+MemoryAccess *
+identifyAccessByAccessRelation(ScopStmt *Stmt,
+                               __isl_take isl_map *ExpectedAccessRelation) {
+  if (isl_map_has_tuple_id(ExpectedAccessRelation, isl_dim_out))
+    ExpectedAccessRelation =
+        isl_map_reset_tuple_id(ExpectedAccessRelation, isl_dim_out);
+  MemoryAccess *IdentifiedAccess = nullptr;
+  for (auto *Access : *Stmt) {
+    auto *AccessRelation = Access->getAccessRelation();
+    AccessRelation = isl_map_reset_tuple_id(AccessRelation, isl_dim_out);
+    if (isl_map_is_equal(ExpectedAccessRelation, AccessRelation)) {
+      if (IdentifiedAccess) {
+        isl_map_free(AccessRelation);
+        isl_map_free(ExpectedAccessRelation);
+        return nullptr;
+      }
+      IdentifiedAccess = Access;
+    }
+    isl_map_free(AccessRelation);
+  }
+  isl_map_free(ExpectedAccessRelation);
+  return IdentifiedAccess;
+}
+
+/// Add constrains to @Dim dimension of @p ExtMap.
+///
+/// If @ExtMap has the following form [O0, O1, O2]->[I1, I2, I3],
+/// the following constraint will be added
+/// Bound * OM <= IM <= Bound * (OM + 1) - 1,
+/// where M is @p Dim and Bound is @p Bound.
+///
+/// @param ExtMap The isl map to be modified.
+/// @param Dim The output dimension to be modfied.
+/// @param Bound The value that is used to specify the constraint.
+/// @return The modified isl map
+__isl_give isl_map *
+addExtensionMapMatMulDimConstraint(__isl_take isl_map *ExtMap, unsigned Dim,
+                                   unsigned Bound) {
+  assert(Bound != 0);
+  auto *ExtMapSpace = isl_map_get_space(ExtMap);
+  auto *ConstrSpace = isl_local_space_from_space(ExtMapSpace);
+  auto *Constr =
+      isl_constraint_alloc_inequality(isl_local_space_copy(ConstrSpace));
+  Constr = isl_constraint_set_coefficient_si(Constr, isl_dim_out, Dim, 1);
+  Constr =
+      isl_constraint_set_coefficient_si(Constr, isl_dim_in, Dim, Bound * (-1));
+  ExtMap = isl_map_add_constraint(ExtMap, Constr);
+  Constr = isl_constraint_alloc_inequality(ConstrSpace);
+  Constr = isl_constraint_set_coefficient_si(Constr, isl_dim_out, Dim, -1);
+  Constr = isl_constraint_set_coefficient_si(Constr, isl_dim_in, Dim, Bound);
+  Constr = isl_constraint_set_constant_si(Constr, Bound - 1);
+  return isl_map_add_constraint(ExtMap, Constr);
+}
+
+/// Create an access relation that is specific for matrix multiplication
+/// pattern.
+///
+/// Create an access relation of the following form:
+/// { [O0, O1, O2]->[I1, I2, I3] :
+///   FirstOutputDimBound * O0 <= I1 <= FirstOutputDimBound * (O0 + 1) - 1
+///   and SecondOutputDimBound * O1 <= I2 <= SecondOutputDimBound * (O1 + 1) - 1
+///   and ThirdOutputDimBound * O2 <= I3 <= ThirdOutputDimBound * (O2 + 1) - 1}
+///   where FirstOutputDimBound is @p FirstOutputDimBound,
+///   SecondOutputDimBound is @p SecondOutputDimBound,
+///   ThirdOutputDimBound is @p ThirdOutputDimBound
+///
+/// @param Ctx The isl context.
+/// @param FirstOutputDimBound,
+///        SecondOutputDimBound,
+///        ThirdOutputDimBound The parameters of the access relation.
+/// @return The specified access relation.
+__isl_give isl_map *getMatMulExt(isl_ctx *Ctx, unsigned FirstOutputDimBound,
+                                 unsigned SecondOutputDimBound,
+                                 unsigned ThirdOutputDimBound) {
+  auto *NewRelSpace = isl_space_alloc(Ctx, 0, 3, 3);
+  auto *extensionMap = isl_map_universe(NewRelSpace);
+  if (!FirstOutputDimBound)
+    extensionMap = isl_map_fix_si(extensionMap, isl_dim_out, 0, 0);
+  else
+    extensionMap = addExtensionMapMatMulDimConstraint(extensionMap, 0,
+                                                      FirstOutputDimBound);
+  if (!SecondOutputDimBound)
+    extensionMap = isl_map_fix_si(extensionMap, isl_dim_out, 1, 0);
+  else
+    extensionMap = addExtensionMapMatMulDimConstraint(extensionMap, 1,
+                                                      SecondOutputDimBound);
+  if (!ThirdOutputDimBound)
+    extensionMap = isl_map_fix_si(extensionMap, isl_dim_out, 2, 0);
+  else
+    extensionMap = addExtensionMapMatMulDimConstraint(extensionMap, 2,
+                                                      ThirdOutputDimBound);
+  return extensionMap;
+}
+
+/// Create an access relation that is specific to the matrix
+///        multiplication pattern.
+///
+/// Create an access relation of the following form:
+/// Stmt[O0, O1, O2]->[OI, OJ],
+/// where I is @p I, J is @J
+///
+/// @param Stmt The SCoP statement for which to generate the access relation.
+/// @param I The index of the input dimension that is mapped to the first output
+///          dimension.
+/// @param J The index of the input dimension that is mapped to the second
+///          output dimension.
+/// @return The specified access relation.
+__isl_give isl_map *
+getMatMulPatternOriginalAccessRelation(ScopStmt *Stmt, unsigned I, unsigned J) {
+  auto *AccessRelSpace = isl_space_alloc(Stmt->getIslCtx(), 0, 3, 2);
+  auto *AccessRel = isl_map_universe(AccessRelSpace);
+  AccessRel = isl_map_equate(AccessRel, isl_dim_in, I, isl_dim_out, 0);
+  AccessRel = isl_map_equate(AccessRel, isl_dim_in, J, isl_dim_out, 1);
+  AccessRel = isl_map_set_tuple_id(AccessRel, isl_dim_in, Stmt->getDomainId());
+  return AccessRel;
+}
+
+/// Identify the memory access that corresponds to the access to the second
+/// operand of the matrix multiplication.
+///
+/// Identify the memory access that corresponds to the access
+/// to the matrix B of the matrix multiplication C = A x B.
+///
+/// @param Stmt The SCoP statement that contains the memory accesses
+///             under consideration.
+/// @return The memory access of @p Stmt that corresponds to the access
+///         to the second operand of the matrix multiplication.
+MemoryAccess *identifyAccessA(ScopStmt *Stmt) {
+  auto *OriginalRel = getMatMulPatternOriginalAccessRelation(Stmt, 0, 2);
+  return identifyAccessByAccessRelation(Stmt, OriginalRel);
+}
+
+/// Identify the memory access that corresponds to the access to the first
+/// operand of the matrix multiplication.
+///
+/// Identify the memory access that corresponds to the access
+/// to the matrix A of the matrix multiplication C = A x B.
+///
+/// @param Stmt The SCoP statement that contains the memory accesses
+///             under consideration.
+/// @return The memory access of @p Stmt that corresponds to the access
+///         to the first operand of the matrix multiplication.
+MemoryAccess *identifyAccessB(ScopStmt *Stmt) {
+  auto *OriginalRel = getMatMulPatternOriginalAccessRelation(Stmt, 2, 1);
+  return identifyAccessByAccessRelation(Stmt, OriginalRel);
+}
+
+/// Create an access relation that is specific to
+///        the matrix multiplication pattern.
+///
+/// Create an access relation of the following form:
+/// [O0, O1, O2, O3, O4, O5, O6, O7, O8] -> [O5 + K * OI, OJ],
+/// where K is @p Coeff, I is @p FirstDim, J is @p SecondDim.
+///
+/// It can be used, for example, to create relations that helps to consequently
+/// access elements of operands of a matrix multiplication after creation of
+/// the BLIS micro and macro kernels.
+///
+/// @see ScheduleTreeOptimizer::createMicroKernel
+/// @see ScheduleTreeOptimizer::createMacroKernel
+///
+/// Subsequently, the described access relation is applied to the range of
+/// @p MapOldIndVar, that is used to map original induction variables to
+/// the ones, which are produced by schedule transformations. It helps to
+/// define relations using a new space and, at the same time, keep them
+/// in the original one.
+///
+/// @param MapOldIndVar The relation, which maps original induction variables
+///                     to the ones, which are produced by schedule
+///                     transformations.
+/// @param Coeff The coefficient that is used to define the specified access
+///              relation.
+/// @param FirstDim, SecondDim The input dimensions that are used to define
+///        the specified access relation.
+/// @return The specified access relation.
+__isl_give isl_map *getMatMulAccRel(__isl_take isl_map *MapOldIndVar,
+                                    unsigned Coeff, unsigned FirstDim,
+                                    unsigned SecondDim) {
+  auto *Ctx = isl_map_get_ctx(MapOldIndVar);
+  auto *AccessRelSpace = isl_space_alloc(Ctx, 0, 9, 2);
+  auto *AccessRel = isl_map_universe(isl_space_copy(AccessRelSpace));
+  auto *ConstrSpace = isl_local_space_from_space(AccessRelSpace);
+  auto *Constr = isl_constraint_alloc_equality(ConstrSpace);
+  Constr = isl_constraint_set_coefficient_si(Constr, isl_dim_out, 0, -1);
+  Constr = isl_constraint_set_coefficient_si(Constr, isl_dim_in, 5, 1);
+  Constr =
+      isl_constraint_set_coefficient_si(Constr, isl_dim_in, FirstDim, Coeff);
+  AccessRel = isl_map_add_constraint(AccessRel, Constr);
+  AccessRel = isl_map_equate(AccessRel, isl_dim_in, SecondDim, isl_dim_out, 1);
+  return isl_map_apply_range(MapOldIndVar, AccessRel);
+}
+
+__isl_give isl_schedule_node *
+createExtensionNode(__isl_take isl_schedule_node *Node,
+                    __isl_take isl_map *ExtensionMap) {
+  auto *Extension = isl_union_map_from_map(ExtensionMap);
+  auto *NewNode = isl_schedule_node_from_extension(Extension);
+  return isl_schedule_node_graft_before(Node, NewNode);
+}
+
+/// Apply the packing transformation.
+///
+/// The packing transformation can be described as a data-layout
+/// transformation that requires to introduce a new array, copy data
+/// to the array, and change memory access locations of the compute kernel
+/// to reference the array.
+///
+/// @param Node The schedule node to be optimized.
+/// @param MapOldIndVar The relation, which maps original induction variables
+///                     to the ones, which are produced by schedule
+///                     transformations.
+/// @param MicroParams, MacroParams Parameters of the BLIS kernel
+///                                 to be taken into account.
+/// @return The optimized schedule node.
+static __isl_give isl_schedule_node *optimizeDataLayoutMatrMulPattern(
+    __isl_take isl_schedule_node *Node, __isl_take isl_map *MapOldIndVar,
+    MicroKernelParamsTy MicroParams, MacroKernelParamsTy MacroParams) {
+  auto InputDimsId = isl_map_get_tuple_id(MapOldIndVar, isl_dim_in);
+  auto *Stmt = static_cast<ScopStmt *>(isl_id_get_user(InputDimsId));
+  isl_id_free(InputDimsId);
+  MemoryAccess *MemAccessA = identifyAccessA(Stmt);
+  MemoryAccess *MemAccessB = identifyAccessB(Stmt);
+  if (!MemAccessA || !MemAccessB) {
+    isl_map_free(MapOldIndVar);
+    return Node;
+  }
+  Node = isl_schedule_node_parent(isl_schedule_node_parent(Node));
+  Node = isl_schedule_node_parent(isl_schedule_node_parent(Node));
+  Node = isl_schedule_node_parent(Node);
+  Node = isl_schedule_node_child(isl_schedule_node_band_split(Node, 2), 0);
+  auto *AccRel =
+      getMatMulAccRel(isl_map_copy(MapOldIndVar), MacroParams.Kc, 3, 6);
+  unsigned FirstDimSize = MacroParams.Mc * MacroParams.Kc / MicroParams.Mr;
+  unsigned SecondDimSize = MicroParams.Mr;
+  auto *SAI = Stmt->getParent()->createScopArrayInfo(
+      MemAccessA->getElementType(), "Packed_A", {FirstDimSize, SecondDimSize});
+  AccRel = isl_map_set_tuple_id(AccRel, isl_dim_out, SAI->getBasePtrId());
+  auto *OldAcc = MemAccessA->getAccessRelation();
+  MemAccessA->setNewAccessRelation(AccRel);
+  auto *ExtMap =
+      getMatMulExt(Stmt->getIslCtx(), MacroParams.Mc, 0, MacroParams.Kc);
+  ExtMap = isl_map_project_out(ExtMap, isl_dim_in, 1, 1);
+  auto *Domain = Stmt->getDomain();
+  auto *NewStmt = Stmt->getParent()->addScopStmt(
+      OldAcc, MemAccessA->getAccessRelation(), isl_set_copy(Domain));
+  ExtMap = isl_map_set_tuple_id(ExtMap, isl_dim_out, NewStmt->getDomainId());
+  Node = createExtensionNode(Node, ExtMap);
+  Node = isl_schedule_node_child(Node, 0);
+  AccRel = getMatMulAccRel(MapOldIndVar, MacroParams.Kc, 4, 7);
+  FirstDimSize = MacroParams.Nc * MacroParams.Kc / MicroParams.Nr;
+  SecondDimSize = MicroParams.Nr;
+  SAI = Stmt->getParent()->createScopArrayInfo(
+      MemAccessB->getElementType(), "Packed_B", {FirstDimSize, SecondDimSize});
+  AccRel = isl_map_set_tuple_id(AccRel, isl_dim_out, SAI->getBasePtrId());
+  OldAcc = MemAccessB->getAccessRelation();
+  MemAccessB->setNewAccessRelation(AccRel);
+  ExtMap = getMatMulExt(Stmt->getIslCtx(), 0, MacroParams.Nc, MacroParams.Kc);
+  isl_map_move_dims(ExtMap, isl_dim_out, 0, isl_dim_in, 1, 1);
+  isl_map_move_dims(ExtMap, isl_dim_in, 2, isl_dim_out, 0, 1);
+  NewStmt = Stmt->getParent()->addScopStmt(
+      OldAcc, MemAccessB->getAccessRelation(), Domain);
+  ExtMap = isl_map_set_tuple_id(ExtMap, isl_dim_out, NewStmt->getDomainId());
+  Node = createExtensionNode(Node, ExtMap);
+  Node = isl_schedule_node_child(isl_schedule_node_child(Node, 0), 0);
+  return isl_schedule_node_child(isl_schedule_node_child(Node, 0), 0);
+}
+
+/// Get a relation mapping induction variables produced by schedule
+/// transformations to the original ones.
+///
+/// @param Node The schedule node produced as the result of creation
+///        of the BLIS kernels.
+/// @param MicroKernelParams, MacroKernelParams Parameters of the BLIS kernel
+///                                             to be taken into account.
+/// @return  The relation mapping original induction variables to the ones
+///          produced by schedule transformation.
+/// @see ScheduleTreeOptimizer::createMicroKernel
+/// @see ScheduleTreeOptimizer::createMacroKernel
+/// @see getMacroKernelParams
+__isl_give isl_map *
+getInductionVariablesSubstitution(__isl_take isl_schedule_node *Node,
+                                  MicroKernelParamsTy MicroKernelParams,
+                                  MacroKernelParamsTy MacroKernelParams) {
+  auto *Child = isl_schedule_node_get_child(Node, 0);
+  auto *UnMapOldIndVar = isl_schedule_node_get_prefix_schedule_union_map(Child);
+  isl_schedule_node_free(Child);
+  auto *MapOldIndVar = isl_map_from_union_map(UnMapOldIndVar);
+  if (isl_map_dim(MapOldIndVar, isl_dim_out) > 9)
+    MapOldIndVar =
+        isl_map_project_out(MapOldIndVar, isl_dim_out, 0,
+                            isl_map_dim(MapOldIndVar, isl_dim_out) - 9);
+  return MapOldIndVar;
+}
+
+__isl_give isl_schedule_node *ScheduleTreeOptimizer::optimizeMatMulPattern(
+    __isl_take isl_schedule_node *Node, const llvm::TargetTransformInfo *TTI) {
+  assert(TTI && "The target transform info should be provided.");
+  auto MicroKernelParams = getMicroKernelParams(TTI);
+  auto MacroKernelParams = getMacroKernelParams(MicroKernelParams);
+  Node = createMacroKernel(Node, MacroKernelParams);
+  Node = createMicroKernel(Node, MicroKernelParams);
+  if (MacroKernelParams.Mc == 1 || MacroKernelParams.Nc == 1 ||
+      MacroKernelParams.Kc == 1)
+    return Node;
+  auto *MapOldIndVar = getInductionVariablesSubstitution(
+      Node, MicroKernelParams, MacroKernelParams);
+  if (!MapOldIndVar)
+    return Node;
+  return optimizeDataLayoutMatrMulPattern(Node, MapOldIndVar, MicroKernelParams,
+                                          MacroKernelParams);
 }
 
 bool ScheduleTreeOptimizer::isMatrMultPattern(
@@ -564,7 +1002,7 @@ __isl_give isl_schedule_node *ScheduleTreeOptimizer::optimizeScheduleNode(
 }
 
 bool ScheduleTreeOptimizer::isProfitableSchedule(
-    Scop &S, __isl_keep isl_union_map *NewSchedule) {
+    Scop &S, __isl_keep isl_schedule *NewSchedule) {
   // To understand if the schedule has been optimized we check if the schedule
   // has changed at all.
   // TODO: We can improve this by tracking if any necessarily beneficial
@@ -574,9 +1012,15 @@ bool ScheduleTreeOptimizer::isProfitableSchedule(
   // optimizations, by comparing (yet to be defined) performance metrics
   // before/after the scheduling optimizer
   // (e.g., #stride-one accesses)
+  if (S.containsExtensionNode(NewSchedule))
+    return true;
+  auto *NewScheduleMap = isl_schedule_get_map(NewSchedule);
   isl_union_map *OldSchedule = S.getSchedule();
-  bool changed = !isl_union_map_is_equal(OldSchedule, NewSchedule);
+  assert(OldSchedule && "Only IslScheduleOptimizer can insert extension nodes "
+                        "that make Scop::getSchedule() return nullptr.");
+  bool changed = !isl_union_map_is_equal(OldSchedule, NewScheduleMap);
   isl_union_map_free(OldSchedule);
+  isl_union_map_free(NewScheduleMap);
   return changed;
 }
 
@@ -588,16 +1032,16 @@ public:
 
   ~IslScheduleOptimizer() { isl_schedule_free(LastSchedule); }
 
-  /// @brief Optimize the schedule of the SCoP @p S.
+  /// Optimize the schedule of the SCoP @p S.
   bool runOnScop(Scop &S) override;
 
-  /// @brief Print the new schedule for the SCoP @p S.
+  /// Print the new schedule for the SCoP @p S.
   void printScop(raw_ostream &OS, Scop &S) const override;
 
-  /// @brief Register all analyses and transformation required.
+  /// Register all analyses and transformation required.
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-  /// @brief Release the internal memory.
+  /// Release the internal memory.
   void releaseMemory() override {
     isl_schedule_free(LastSchedule);
     LastSchedule = nullptr;
@@ -753,10 +1197,8 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   isl_schedule *NewSchedule =
       ScheduleTreeOptimizer::optimizeSchedule(Schedule, TTI);
-  isl_union_map *NewScheduleMap = isl_schedule_get_map(NewSchedule);
 
-  if (!ScheduleTreeOptimizer::isProfitableSchedule(S, NewScheduleMap)) {
-    isl_union_map_free(NewScheduleMap);
+  if (!ScheduleTreeOptimizer::isProfitableSchedule(S, NewSchedule)) {
     isl_schedule_free(NewSchedule);
     return false;
   }
@@ -764,7 +1206,9 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
   S.setScheduleTree(NewSchedule);
   S.markAsOptimized();
 
-  isl_union_map_free(NewScheduleMap);
+  if (OptimizedScops)
+    S.dump();
+
   return false;
 }
 

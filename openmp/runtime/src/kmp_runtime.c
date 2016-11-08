@@ -1548,9 +1548,10 @@ __kmp_fork_call(
             }
 
 #if OMPT_SUPPORT
+            *exit_runtime_p = NULL;
             if (ompt_enabled) {
 #if OMPT_TRACE
-                lw_taskteam.ompt_task_info.frame.exit_runtime_frame = 0;
+                lw_taskteam.ompt_task_info.frame.exit_runtime_frame = NULL;
 
                 if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)) {
                     ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)(
@@ -1745,8 +1746,9 @@ __kmp_fork_call(
                 }
 
 #if OMPT_SUPPORT
+                *exit_runtime_p = NULL;
                 if (ompt_enabled) {
-                    lw_taskteam.ompt_task_info.frame.exit_runtime_frame = 0;
+                    lw_taskteam.ompt_task_info.frame.exit_runtime_frame = NULL;
 
 #if OMPT_TRACE
                     if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)) {
@@ -1851,9 +1853,10 @@ __kmp_fork_call(
                 }
 
 #if OMPT_SUPPORT
+                *exit_runtime_p = NULL;
                 if (ompt_enabled) {
 #if OMPT_TRACE
-                    lw_taskteam.ompt_task_info.frame.exit_runtime_frame = 0;
+                    lw_taskteam.ompt_task_info.frame.exit_runtime_frame = NULL;
 
                     if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)) {
                         ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)(
@@ -1885,7 +1888,7 @@ __kmp_fork_call(
                 unwrapped_task, ompt_parallel_id);
 
             lwt->ompt_task_info.task_id = __ompt_task_id_new(gtid);
-            lwt->ompt_task_info.frame.exit_runtime_frame = 0;
+            lwt->ompt_task_info.frame.exit_runtime_frame = NULL;
             __ompt_lw_taskteam_link(lwt, master_th);
 #endif
 
@@ -2228,12 +2231,13 @@ __kmp_join_ompt(
     ompt_parallel_id_t parallel_id,
     fork_context_e fork_context)
 {
+    ompt_task_info_t *task_info = __ompt_get_taskinfo(0);
     if (ompt_callbacks.ompt_callback(ompt_event_parallel_end)) {
-        ompt_task_info_t *task_info = __ompt_get_taskinfo(0);
         ompt_callbacks.ompt_callback(ompt_event_parallel_end)(
             parallel_id, task_info->task_id, OMPT_INVOKER(fork_context));
     }
 
+    task_info->frame.reenter_runtime_frame = NULL;
     __kmp_join_restore_state(thread,team);
 }
 #endif
@@ -2434,7 +2438,7 @@ __kmp_join_call(ident_t *loc, int gtid
              ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)(
                parallel_id, task_info->task_id);
         }
-        task_info->frame.exit_runtime_frame = 0;
+        task_info->frame.exit_runtime_frame = NULL;
         task_info->task_id = 0;
     }
 #endif
@@ -3035,6 +3039,7 @@ __kmp_get_global_icvs( void ) {
       r_sched,                      //kmp_r_sched_t sched;      //internal control for runtime schedule {sched,chunk} pair
 #if OMP_40_ENABLED
       __kmp_nested_proc_bind.bind_types[0],
+      __kmp_default_device,
 #endif /* OMP_40_ENABLED */
       NULL                          //struct kmp_internal_control *next;
     };
@@ -4848,6 +4853,19 @@ __kmp_allocate_team( kmp_root_t *root, int new_nproc, int max_nproc,
                 }
 #if KMP_NESTED_HOT_TEAMS
             } // (__kmp_hot_teams_mode == 0)
+            else {
+                // When keeping extra threads in team, switch threads to wait on own b_go flag
+                for (f=new_nproc; f<team->t.t_nproc; ++f) {
+                    KMP_DEBUG_ASSERT(team->t.t_threads[f]);
+                    kmp_balign_t *balign = team->t.t_threads[f]->th.th_bar;
+                    for (int b=0; b<bs_last_barrier; ++b) {
+                        if (balign[b].bb.wait_flag == KMP_BARRIER_PARENT_FLAG) {
+                            balign[b].bb.wait_flag = KMP_BARRIER_SWITCH_TO_OWN_FLAG;
+                        }
+                        KMP_CHECK_UPDATE(balign[b].bb.leaf_kids, 0);
+                    }
+                }
+            }
 #endif // KMP_NESTED_HOT_TEAMS
             team->t.t_nproc =  new_nproc;
             // TODO???: team->t.t_max_active_levels = new_max_active_levels;
@@ -5331,6 +5349,7 @@ __kmp_free_thread( kmp_info_t *this_th )
         if (balign[b].bb.wait_flag == KMP_BARRIER_PARENT_FLAG)
             balign[b].bb.wait_flag = KMP_BARRIER_SWITCH_TO_OWN_FLAG;
         balign[b].bb.team = NULL;
+        balign[b].bb.leaf_kids = 0;
     }
     this_th->th.th_task_state = 0;
 
@@ -5488,7 +5507,7 @@ __kmp_launch_thread( kmp_info_t *this_thr )
 #if OMPT_SUPPORT
                 if (ompt_enabled) {
                     /* no frame set while outside task */
-                    task_info->frame.exit_runtime_frame = 0;
+                    task_info->frame.exit_runtime_frame = NULL;
 
                     this_thr->th.ompt_thread_info.state = ompt_state_overhead;
                 }
@@ -5507,7 +5526,7 @@ __kmp_launch_thread( kmp_info_t *this_thr )
                     ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)(
                         my_parallel_id, task_info->task_id);
                 }
-                task_info->frame.exit_runtime_frame = 0;
+                task_info->frame.exit_runtime_frame = NULL;
                 task_info->task_id = 0;
             }
 #endif
@@ -6823,6 +6842,9 @@ __kmp_invoke_task_func( int gtid )
                                      , exit_runtime_p
 #endif
                                      );
+#if OMPT_SUPPORT
+        *exit_runtime_p = NULL;
+#endif
     }
 
 #if USE_ITT_BUILD
@@ -7571,27 +7593,34 @@ __kmp_determine_reduction_method( ident_t *loc, kmp_int32 global_tid,
     // method and stay with the unsynchronized method (empty_reduce_block)
     if( __kmp_force_reduction_method != reduction_method_not_defined && team_size != 1) {
 
-        PACKED_REDUCTION_METHOD_T forced_retval;
+        PACKED_REDUCTION_METHOD_T forced_retval = critical_reduce_block;
 
         int atomic_available, tree_available;
 
         switch( ( forced_retval = __kmp_force_reduction_method ) )
         {
-            case critical_reduce_block:
+        case critical_reduce_block:
                 KMP_ASSERT( lck );              // lck should be != 0
                 break;
 
             case atomic_reduce_block:
                 atomic_available = FAST_REDUCTION_ATOMIC_METHOD_GENERATED;
-                KMP_ASSERT( atomic_available ); // atomic_available should be != 0
+                if( ! atomic_available ) {
+                    KMP_WARNING(RedMethodNotSupported, "atomic");
+                    forced_retval = critical_reduce_block;
+                }
                 break;
 
             case tree_reduce_block:
                 tree_available = FAST_REDUCTION_TREE_METHOD_GENERATED;
-                KMP_ASSERT( tree_available );   // tree_available should be != 0
-                #if KMP_FAST_REDUCTION_BARRIER
-                forced_retval = TREE_REDUCE_BLOCK_WITH_REDUCTION_BARRIER;
-                #endif
+                if( ! tree_available ) {
+                    KMP_WARNING(RedMethodNotSupported, "tree");
+                    forced_retval = critical_reduce_block;
+                } else {
+                    #if KMP_FAST_REDUCTION_BARRIER
+                    forced_retval = TREE_REDUCE_BLOCK_WITH_REDUCTION_BARRIER;
+                    #endif
+                }
                 break;
 
             default:

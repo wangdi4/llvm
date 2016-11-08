@@ -114,6 +114,7 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<DependentTypeOfExprType> DependentTypeOfExprTypes;
   mutable llvm::FoldingSet<DependentDecltypeType> DependentDecltypeTypes;
   mutable llvm::FoldingSet<TemplateTypeParmType> TemplateTypeParmTypes;
+  mutable llvm::FoldingSet<ObjCTypeParamType> ObjCTypeParamTypes;
   mutable llvm::FoldingSet<SubstTemplateTypeParmType>
     SubstTemplateTypeParmTypes;
   mutable llvm::FoldingSet<SubstTemplateTypeParmPackType>
@@ -311,6 +312,24 @@ class ASTContext : public RefCountedBase<ASTContext> {
   /// than the owning module of the declaration) that contain merged
   /// definitions of that entity.
   llvm::DenseMap<NamedDecl*, llvm::TinyPtrVector<Module*>> MergedDefModules;
+
+  /// \brief Initializers for a module, in order. Each Decl will be either
+  /// something that has a semantic effect on startup (such as a variable with
+  /// a non-constant initializer), or an ImportDecl (which recursively triggers
+  /// initialization of another module).
+  struct PerModuleInitializers {
+    llvm::SmallVector<Decl*, 4> Initializers;
+    llvm::SmallVector<uint32_t, 4> LazyInitializers;
+
+    void resolve(ASTContext &Ctx);
+  };
+  llvm::DenseMap<Module*, PerModuleInitializers*> ModuleInitializers;
+
+  /// Diagnostics that are emitted if and only if the given function is
+  /// codegen'ed.  Access these through FunctionDecl::addDeferredDiag() and
+  /// FunctionDecl::takeDeferredDiags().
+  llvm::DenseMap<const FunctionDecl *, std::vector<PartialDiagnosticAt>>
+      DeferredDiags;
 
 public:
   /// \brief A type synonym for the TemplateOrInstantiation mapping.
@@ -583,6 +602,11 @@ public:
   
   PartialDiagnostic::StorageAllocator &getDiagAllocator() {
     return DiagAllocator;
+  }
+
+  decltype(DeferredDiags) &getDeferredDiags() { return DeferredDiags; }
+  const decltype(DeferredDiags) &getDeferredDiags() const {
+    return DeferredDiags;
   }
 
   const TargetInfo &getTargetInfo() const { return *Target; }
@@ -883,6 +907,17 @@ public:
     return MergedIt->second;
   }
 
+  /// Add a declaration to the list of declarations that are initialized
+  /// for a module. This will typically be a global variable (with internal
+  /// linkage) that runs module initializers, such as the iostream initializer,
+  /// or an ImportDecl nominating another module that has initializers.
+  void addModuleInitializer(Module *M, Decl *Init);
+
+  void addLazyModuleInitializers(Module *M, ArrayRef<uint32_t> IDs);
+
+  /// Get the initializations to perform when importing a module, if any.
+  ArrayRef<Decl*> getModuleInitializers(Module *M);
+
   TranslationUnitDecl *getTranslationUnitDecl() const { return TUDecl; }
 
   ExternCContextDecl *getExternCContextDecl() const;
@@ -995,6 +1030,14 @@ public:
   /// space. If T already has an address space specifier, it is silently
   /// replaced.
   QualType getAddrSpaceQualType(QualType T, unsigned AddressSpace) const;
+
+  /// \brief Apply Objective-C protocol qualifiers to the given type.
+  /// \param allowOnPointerType specifies if we can apply protocol
+  /// qualifiers on ObjCObjectPointerType. It can be set to true when
+  /// contructing the canonical type of a Objective-C type parameter.
+  QualType applyObjCProtocolQualifiers(QualType type,
+      ArrayRef<ObjCProtocolDecl *> protocols, bool &hasError,
+      bool allowOnPointerType = false) const;
 
   /// \brief Return the uniqued reference to the type for an Objective-C
   /// gc-qualified type.
@@ -1286,6 +1329,10 @@ public:
                              ArrayRef<QualType> typeArgs,
                              ArrayRef<ObjCProtocolDecl *> protocols,
                              bool isKindOf) const;
+
+  QualType getObjCTypeParamType(const ObjCTypeParamDecl *Decl,
+                                ArrayRef<ObjCProtocolDecl *> protocols,
+                                QualType Canonical = QualType()) const;
   
   bool ObjCObjectAdoptsQTypeProtocols(QualType QT, ObjCInterfaceDecl *Decl);
   /// QIdProtocolsAdoptObjCObjectProtocols - Checks that protocols in

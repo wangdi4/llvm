@@ -12,7 +12,7 @@ using namespace polly;
 #define DEBUG_TYPE "polly-scev-validator"
 
 namespace SCEVType {
-/// @brief The type of a SCEV
+/// The type of a SCEV
 ///
 /// To check for the validity of a SCEV we assign to each SCEV a type. The
 /// possible types are INT, PARAM, IV and INVALID. The order of the types is
@@ -34,58 +34,58 @@ enum TYPE {
 };
 } // namespace SCEVType
 
-/// @brief The result the validator returns for a SCEV expression.
+/// The result the validator returns for a SCEV expression.
 class ValidatorResult {
-  /// @brief The type of the expression
+  /// The type of the expression
   SCEVType::TYPE Type;
 
-  /// @brief The set of Parameters in the expression.
+  /// The set of Parameters in the expression.
   ParameterSetTy Parameters;
 
 public:
-  /// @brief The copy constructor
+  /// The copy constructor
   ValidatorResult(const ValidatorResult &Source) {
     Type = Source.Type;
     Parameters = Source.Parameters;
   }
 
-  /// @brief Construct a result with a certain type and no parameters.
+  /// Construct a result with a certain type and no parameters.
   ValidatorResult(SCEVType::TYPE Type) : Type(Type) {
     assert(Type != SCEVType::PARAM && "Did you forget to pass the parameter");
   }
 
-  /// @brief Construct a result with a certain type and a single parameter.
+  /// Construct a result with a certain type and a single parameter.
   ValidatorResult(SCEVType::TYPE Type, const SCEV *Expr) : Type(Type) {
     Parameters.insert(Expr);
   }
 
-  /// @brief Get the type of the ValidatorResult.
+  /// Get the type of the ValidatorResult.
   SCEVType::TYPE getType() { return Type; }
 
-  /// @brief Is the analyzed SCEV constant during the execution of the SCoP.
+  /// Is the analyzed SCEV constant during the execution of the SCoP.
   bool isConstant() { return Type == SCEVType::INT || Type == SCEVType::PARAM; }
 
-  /// @brief Is the analyzed SCEV valid.
+  /// Is the analyzed SCEV valid.
   bool isValid() { return Type != SCEVType::INVALID; }
 
-  /// @brief Is the analyzed SCEV of Type IV.
+  /// Is the analyzed SCEV of Type IV.
   bool isIV() { return Type == SCEVType::IV; }
 
-  /// @brief Is the analyzed SCEV of Type INT.
+  /// Is the analyzed SCEV of Type INT.
   bool isINT() { return Type == SCEVType::INT; }
 
-  /// @brief Is the analyzed SCEV of Type PARAM.
+  /// Is the analyzed SCEV of Type PARAM.
   bool isPARAM() { return Type == SCEVType::PARAM; }
 
-  /// @brief Get the parameters of this validator result.
+  /// Get the parameters of this validator result.
   const ParameterSetTy &getParameters() { return Parameters; }
 
-  /// @brief Add the parameters of Source to this result.
+  /// Add the parameters of Source to this result.
   void addParamsFrom(const ValidatorResult &Source) {
     Parameters.insert(Source.Parameters.begin(), Source.Parameters.end());
   }
 
-  /// @brief Merge a result.
+  /// Merge a result.
   ///
   /// This means to merge the parameters and to set the Type to the most
   /// specific Type that matches both.
@@ -232,8 +232,7 @@ public:
       return ValidatorResult(SCEVType::INVALID);
     }
 
-    assert(Start.isConstant() && Recurrence.isConstant() &&
-           "Expected 'Start' and 'Recurrence' to be constant");
+    assert(Recurrence.isConstant() && "Expected 'Recurrence' to be constant");
 
     // Directly generate ValidatorResult for Expr if 'start' is zero.
     if (Expr->getStart()->isZero())
@@ -388,7 +387,7 @@ public:
   }
 };
 
-/// @brief Check whether a SCEV refers to an SSA name defined inside a region.
+/// Check whether a SCEV refers to an SSA name defined inside a region.
 class SCEVInRegionDependences {
   const Region *R;
   Loop *Scope;
@@ -578,12 +577,10 @@ ParameterSetTy getParamsInAffineExpr(const Region *R, Loop *Scope,
 
 std::pair<const SCEVConstant *, const SCEV *>
 extractConstantFactor(const SCEV *S, ScalarEvolution &SE) {
-
-  auto *LeftOver = SE.getConstant(S->getType(), 1);
   auto *ConstPart = cast<SCEVConstant>(SE.getConstant(S->getType(), 1));
 
   if (auto *Constant = dyn_cast<SCEVConstant>(S))
-    return std::make_pair(Constant, LeftOver);
+    return std::make_pair(Constant, SE.getConstant(S->getType(), 1));
 
   auto *AddRec = dyn_cast<SCEVAddRecExpr>(S);
   if (AddRec) {
@@ -628,12 +625,13 @@ extractConstantFactor(const SCEV *S, ScalarEvolution &SE) {
   if (!Mul)
     return std::make_pair(ConstPart, S);
 
+  SmallVector<const SCEV *, 4> LeftOvers;
   for (auto *Op : Mul->operands())
     if (isa<SCEVConstant>(Op))
       ConstPart = cast<SCEVConstant>(SE.getMulExpr(ConstPart, Op));
     else
-      LeftOver = SE.getMulExpr(LeftOver, Op);
+      LeftOvers.push_back(Op);
 
-  return std::make_pair(ConstPart, LeftOver);
+  return std::make_pair(ConstPart, SE.getMulExpr(LeftOvers));
 }
 } // namespace polly

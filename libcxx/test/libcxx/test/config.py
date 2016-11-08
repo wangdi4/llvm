@@ -120,6 +120,8 @@ class Configuration(object):
         self.lit_config.note('Using flags: %s' % self.cxx.flags)
         self.lit_config.note('Using compile flags: %s'
                              % self.cxx.compile_flags)
+        if len(self.cxx.warning_flags):
+            self.lit_config.note('Using warnings: %s' % self.cxx.warning_flags)
         self.lit_config.note('Using link flags: %s' % self.cxx.link_flags)
         # Print as list to prevent "set([...])" from being printed.
         self.lit_config.note('Using available_features: %s' %
@@ -508,6 +510,10 @@ class Configuration(object):
                 self.cxx.link_flags += [abs_path]
             else:
                 self.cxx.link_flags += ['-lc++']
+        # This needs to come after -lc++ as we want its unresolved thread-api symbols
+        # to be picked up from this one.
+        if self.get_lit_bool('libcxx_external_thread_api', default=False):
+            self.cxx.link_flags += ['-lc++external_threads']
 
     def configure_link_flags_abi_library(self):
         cxx_abi = self.get_lit_conf('cxx_abi', 'libcxxabi')
@@ -569,7 +575,7 @@ class Configuration(object):
     def configure_warnings(self):
         enable_warnings = self.get_lit_bool('enable_warnings', False)
         if enable_warnings:
-            self.cxx.compile_flags += [
+            self.cxx.warning_flags += [
                 '-D_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER',
                 '-Wall', '-Wextra', '-Werror'
             ]
@@ -604,9 +610,17 @@ class Configuration(object):
                     os.pathsep + symbolizer_search_paths)
             llvm_symbolizer = lit.util.which('llvm-symbolizer',
                                              symbolizer_search_paths)
+
+            def add_ubsan():
+                self.cxx.flags += ['-fsanitize=undefined',
+                                   '-fno-sanitize=vptr,function,float-divide-by-zero',
+                                   '-fno-sanitize-recover=all']
+                self.env['UBSAN_OPTIONS'] = 'print_stacktrace=1'
+                self.config.available_features.add('ubsan')
+
             # Setup the sanitizer compile flags
             self.cxx.flags += ['-g', '-fno-omit-frame-pointer']
-            if san == 'Address':
+            if san == 'Address' or san == 'Address;Undefined' or san == 'Undefined;Address':
                 self.cxx.flags += ['-fsanitize=address']
                 if llvm_symbolizer is not None:
                     self.env['ASAN_SYMBOLIZER_PATH'] = llvm_symbolizer
@@ -615,6 +629,9 @@ class Configuration(object):
                 self.env['ASAN_OPTIONS'] = 'detect_odr_violation=0'
                 self.config.available_features.add('asan')
                 self.config.available_features.add('sanitizer-new-delete')
+                self.cxx.compile_flags += ['-O1']
+                if san == 'Address;Undefined' or san == 'Undefined;Address':
+                    add_ubsan()
             elif san == 'Memory' or san == 'MemoryWithOrigins':
                 self.cxx.flags += ['-fsanitize=memory']
                 if san == 'MemoryWithOrigins':
@@ -624,16 +641,10 @@ class Configuration(object):
                     self.env['MSAN_SYMBOLIZER_PATH'] = llvm_symbolizer
                 self.config.available_features.add('msan')
                 self.config.available_features.add('sanitizer-new-delete')
+                self.cxx.compile_flags += ['-O1']
             elif san == 'Undefined':
-                blacklist = os.path.join(self.libcxx_src_root,
-                                         'test/ubsan_blacklist.txt')
-                self.cxx.flags += ['-fsanitize=undefined',
-                                   '-fno-sanitize=vptr,function,float-divide-by-zero',
-                                   '-fno-sanitize-recover=all',
-                                   '-fsanitize-blacklist=' + blacklist]
-                self.cxx.compile_flags += ['-O3']
-                self.env['UBSAN_OPTIONS'] = 'print_stacktrace=1'
-                self.config.available_features.add('ubsan')
+                add_ubsan()
+                self.cxx.compile_flags += ['-O2']
             elif san == 'Thread':
                 self.cxx.flags += ['-fsanitize=thread']
                 self.config.available_features.add('tsan')
@@ -654,7 +665,7 @@ class Configuration(object):
 
     def configure_substitutions(self):
         sub = self.config.substitutions
-        # Configure compiler substitions
+        # Configure compiler substitutions
         sub.append(('%cxx', self.cxx.path))
         # Configure flags substitutions
         flags_str = ' '.join(self.cxx.flags)

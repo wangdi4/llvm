@@ -19,6 +19,7 @@ add_clang_library(clangTidyMiscModule
   MisplacedWideningCastCheck.cpp
   MoveConstantArgumentCheck.cpp
   MoveConstructorInitCheck.cpp
+  MoveForwardingReferenceCheck.cpp
   MultipleStatementMacroCheck.cpp
   NewDeleteOverloadsCheck.cpp
   NoexceptMoveConstructorCheck.cpp
@@ -42,9 +43,11 @@ add_clang_library(clangTidyMiscModule
   UnusedParametersCheck.cpp
   UnusedRAIICheck.cpp
   UnusedUsingDeclsCheck.cpp
+  UseAfterMoveCheck.cpp
   VirtualNearMissCheck.cpp
 
   LINK_LIBS
+  clangAnalysis
   clangAST
   clangASTMatchers
   clangBasic

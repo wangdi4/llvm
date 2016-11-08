@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Serialization/ASTWriter.h"
 #include "ASTCommon.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclContextInternals.h"
@@ -20,7 +19,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Serialization/ASTReader.h"
-#include "llvm/ADT/Twine.h"
+#include "clang/Serialization/ASTWriter.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Support/ErrorHandling.h"
 using namespace clang;
@@ -97,6 +96,8 @@ namespace clang {
     void VisitVarDecl(VarDecl *D);
     void VisitImplicitParamDecl(ImplicitParamDecl *D);
     void VisitParmVarDecl(ParmVarDecl *D);
+    void VisitDecompositionDecl(DecompositionDecl *D);
+    void VisitBindingDecl(BindingDecl *D);
     void VisitNonTypeTemplateParmDecl(NonTypeTemplateParmDecl *D);
     void VisitTemplateDecl(TemplateDecl *D);
     void VisitRedeclarableTemplateDecl(RedeclarableTemplateDecl *D);
@@ -109,6 +110,7 @@ namespace clang {
     void VisitUsingShadowDecl(UsingShadowDecl *D);
     void VisitConstructorUsingShadowDecl(ConstructorUsingShadowDecl *D);
     void VisitLinkageSpecDecl(LinkageSpecDecl *D);
+    void VisitExportDecl(ExportDecl *D);
     void VisitFileScopeAsmDecl(FileScopeAsmDecl *D);
     void VisitImportDecl(ImportDecl *D);
     void VisitAccessSpecDecl(AccessSpecDecl *D);
@@ -942,8 +944,7 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
       D->getFirstDecl() == D->getMostRecentDecl() &&
       D->getInitStyle() == VarDecl::CInit &&
       D->getInit() == nullptr &&
-      !isa<ParmVarDecl>(D) &&
-      !isa<VarTemplateSpecializationDecl>(D) &&
+      D->getKind() == Decl::Var &&
       !D->isInline() &&
       !D->isConstexpr() &&
       !D->isInitCapture() &&
@@ -1006,6 +1007,22 @@ void ASTDeclWriter::VisitParmVarDecl(ParmVarDecl *D) {
          "PARM_VAR_DECL can't be static data member");
 }
 
+void ASTDeclWriter::VisitDecompositionDecl(DecompositionDecl *D) {
+  // Record the number of bindings first to simplify deserialization.
+  Record.push_back(D->bindings().size());
+
+  VisitVarDecl(D);
+  for (auto *B : D->bindings())
+    Record.AddDeclRef(B);
+  Code = serialization::DECL_DECOMPOSITION;
+}
+
+void ASTDeclWriter::VisitBindingDecl(BindingDecl *D) {
+  VisitValueDecl(D);
+  Record.AddStmt(D->getBinding());
+  Code = serialization::DECL_BINDING;
+}
+
 void ASTDeclWriter::VisitFileScopeAsmDecl(FileScopeAsmDecl *D) {
   VisitDecl(D);
   Record.AddStmt(D->getAsmString());
@@ -1062,6 +1079,12 @@ void ASTDeclWriter::VisitLinkageSpecDecl(LinkageSpecDecl *D) {
   Record.AddSourceLocation(D->getExternLoc());
   Record.AddSourceLocation(D->getRBraceLoc());
   Code = serialization::DECL_LINKAGE_SPEC;
+}
+
+void ASTDeclWriter::VisitExportDecl(ExportDecl *D) {
+  VisitDecl(D);
+  Record.AddSourceLocation(D->getRBraceLoc());
+  Code = serialization::DECL_EXPORT;
 }
 
 void ASTDeclWriter::VisitLabelDecl(LabelDecl *D) {
@@ -2123,11 +2146,11 @@ static bool isRequiredDecl(const Decl *D, ASTContext &Context,
       D->hasAttr<OMPDeclareTargetDeclAttr>())
     return true;
 
-  // ImportDecl is used by codegen to determine the set of imported modules to
-  // search for inputs for automatic linking; include it if it has a semantic
-  // effect.
-  if (isa<ImportDecl>(D) && !WritingModule)
-    return true;
+  if (WritingModule && (isa<VarDecl>(D) || isa<ImportDecl>(D))) {
+    // These declarations are part of the module initializer, and are emitted
+    // if and when the module is imported, rather than being emitted eagerly.
+    return false;
+  }
 
   return Context.DeclMustBeEmitted(D);
 }

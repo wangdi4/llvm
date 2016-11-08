@@ -98,7 +98,7 @@ public:
     const VBTableGlobals &VBGlobals = enumerateVBTables(RD);
     for (const VPtrInfo *VBT : *VBGlobals.VBTables) {
       const ASTRecordLayout &SubobjectLayout =
-          Context.getASTRecordLayout(VBT->BaseWithVPtr);
+          Context.getASTRecordLayout(VBT->IntroducingObject);
       CharUnits Offs = VBT->NonVirtualOffset;
       Offs += SubobjectLayout.getVBPtrOffset();
       if (VBT->getVBaseWithVPtr())
@@ -794,6 +794,12 @@ MicrosoftCXXABI::getRecordArgABI(const CXXRecordDecl *RD) const {
     // FIXME: Implement for other architectures.
     return RAA_Default;
 
+  case llvm::Triple::thumb:
+    // Use the simple Itanium rules for now.
+    // FIXME: This is incompatible with MSVC for arguments with a dtor and no
+    // copy ctor.
+    return !canCopyArgument(RD) ? RAA_Indirect : RAA_Default;
+
   case llvm::Triple::x86:
     // All record arguments are passed in memory on x86.  Decide whether to
     // construct the object directly in argument memory, or to construct the
@@ -1211,7 +1217,7 @@ void MicrosoftCXXABI::EmitVBPtrStores(CodeGenFunction &CGF,
     const VPtrInfo *VBT = (*VBGlobals.VBTables)[I];
     llvm::GlobalVariable *GV = VBGlobals.Globals[I];
     const ASTRecordLayout &SubobjectLayout =
-        Context.getASTRecordLayout(VBT->BaseWithVPtr);
+        Context.getASTRecordLayout(VBT->IntroducingObject);
     CharUnits Offs = VBT->NonVirtualOffset;
     Offs += SubobjectLayout.getVBPtrOffset();
     if (VBT->getVBaseWithVPtr())
@@ -1220,7 +1226,7 @@ void MicrosoftCXXABI::EmitVBPtrStores(CodeGenFunction &CGF,
     llvm::Value *GVPtr =
         CGF.Builder.CreateConstInBoundsGEP2_32(GV->getValueType(), GV, 0, 0);
     VBPtr = CGF.Builder.CreateElementBitCast(VBPtr, GVPtr->getType(),
-                                      "vbptr." + VBT->ReusingBase->getName());
+                                      "vbptr." + VBT->ObjectWithVPtr->getName());
     CGF.Builder.CreateStore(GVPtr, VBPtr);
   }
 }
@@ -1417,6 +1423,10 @@ llvm::Value *MicrosoftCXXABI::adjustThisParameterInVirtualFunctionPrologue(
 }
 
 void MicrosoftCXXABI::EmitInstanceFunctionProlog(CodeGenFunction &CGF) {
+  // Naked functions have no prolog.
+  if (CGF.CurFuncDecl && CGF.CurFuncDecl->hasAttr<NakedAttr>())
+    return;
+
   EmitThisParam(CGF);
 
   /// If this is a function that the ABI specifies returns 'this', initialize
@@ -1514,20 +1524,20 @@ void MicrosoftCXXABI::emitVTableTypeMetadata(VPtrInfo *Info,
                 getContext().getTargetInfo().getPointerWidth(0))
           : CharUnits::Zero();
 
-  if (Info->PathToBaseWithVPtr.empty()) {
+  if (Info->PathToIntroducingObject.empty()) {
     CGM.AddVTableTypeMetadata(VTable, AddressPoint, RD);
     return;
   }
 
   // Add a bitset entry for the least derived base belonging to this vftable.
   CGM.AddVTableTypeMetadata(VTable, AddressPoint,
-                            Info->PathToBaseWithVPtr.back());
+                            Info->PathToIntroducingObject.back());
 
   // Add a bitset entry for each derived class that is laid out at the same
   // offset as the least derived base.
-  for (unsigned I = Info->PathToBaseWithVPtr.size() - 1; I != 0; --I) {
-    const CXXRecordDecl *DerivedRD = Info->PathToBaseWithVPtr[I - 1];
-    const CXXRecordDecl *BaseRD = Info->PathToBaseWithVPtr[I];
+  for (unsigned I = Info->PathToIntroducingObject.size() - 1; I != 0; --I) {
+    const CXXRecordDecl *DerivedRD = Info->PathToIntroducingObject[I - 1];
+    const CXXRecordDecl *BaseRD = Info->PathToIntroducingObject[I];
 
     const ASTRecordLayout &Layout =
         getContext().getASTRecordLayout(DerivedRD);
@@ -1565,10 +1575,7 @@ void MicrosoftCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
                [](const VTableComponent &VTC) { return VTC.isRTTIKind(); }))
       RTTI = getMSCompleteObjectLocator(RD, Info);
 
-    llvm::Constant *Init = CGVT.CreateVTableInitializer(
-        RD, VTLayout.vtable_component_begin(),
-        VTLayout.getNumVTableComponents(), VTLayout.vtable_thunk_begin(),
-        VTLayout.getNumVTableThunks(), RTTI);
+    llvm::Constant *Init = CGVT.CreateVTableInitializer(VTLayout, RTTI);
 
     VTable->setInitializer(Init);
 
@@ -1691,7 +1698,8 @@ llvm::GlobalVariable *MicrosoftCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
 
   uint64_t NumVTableSlots =
       VTContext.getVFTableLayout(RD, VFPtr->FullOffsetInMDC)
-          .getNumVTableComponents();
+          .vtable_components()
+          .size();
   llvm::GlobalValue::LinkageTypes VTableLinkage =
       VTableAliasIsRequred ? llvm::GlobalValue::PrivateLinkage : VFTableLinkage;
 
@@ -1972,7 +1980,7 @@ MicrosoftCXXABI::getAddrOfVBTable(const VPtrInfo &VBT, const CXXRecordDecl *RD,
   StringRef Name = OutName.str();
 
   llvm::ArrayType *VBTableType =
-      llvm::ArrayType::get(CGM.IntTy, 1 + VBT.ReusingBase->getNumVBases());
+      llvm::ArrayType::get(CGM.IntTy, 1 + VBT.ObjectWithVPtr->getNumVBases());
 
   assert(!CGM.getModule().getNamedGlobal(Name) &&
          "vbtable with this name already exists: mangling bug?");
@@ -1994,24 +2002,24 @@ MicrosoftCXXABI::getAddrOfVBTable(const VPtrInfo &VBT, const CXXRecordDecl *RD,
 void MicrosoftCXXABI::emitVBTableDefinition(const VPtrInfo &VBT,
                                             const CXXRecordDecl *RD,
                                             llvm::GlobalVariable *GV) const {
-  const CXXRecordDecl *ReusingBase = VBT.ReusingBase;
+  const CXXRecordDecl *ObjectWithVPtr = VBT.ObjectWithVPtr;
 
-  assert(RD->getNumVBases() && ReusingBase->getNumVBases() &&
+  assert(RD->getNumVBases() && ObjectWithVPtr->getNumVBases() &&
          "should only emit vbtables for classes with vbtables");
 
   const ASTRecordLayout &BaseLayout =
-      getContext().getASTRecordLayout(VBT.BaseWithVPtr);
+      getContext().getASTRecordLayout(VBT.IntroducingObject);
   const ASTRecordLayout &DerivedLayout = getContext().getASTRecordLayout(RD);
 
-  SmallVector<llvm::Constant *, 4> Offsets(1 + ReusingBase->getNumVBases(),
+  SmallVector<llvm::Constant *, 4> Offsets(1 + ObjectWithVPtr->getNumVBases(),
                                            nullptr);
 
-  // The offset from ReusingBase's vbptr to itself always leads.
+  // The offset from ObjectWithVPtr's vbptr to itself always leads.
   CharUnits VBPtrOffset = BaseLayout.getVBPtrOffset();
   Offsets[0] = llvm::ConstantInt::get(CGM.IntTy, -VBPtrOffset.getQuantity());
 
   MicrosoftVTableContext &Context = CGM.getMicrosoftVTableContext();
-  for (const auto &I : ReusingBase->vbases()) {
+  for (const auto &I : ObjectWithVPtr->vbases()) {
     const CXXRecordDecl *VBase = I.getType()->getAsCXXRecordDecl();
     CharUnits Offset = DerivedLayout.getVBaseClassOffset(VBase);
     assert(!Offset.isNegative());
@@ -2023,7 +2031,7 @@ void MicrosoftCXXABI::emitVBTableDefinition(const VPtrInfo &VBT,
           DerivedLayout.getVBaseClassOffset(VBT.getVBaseWithVPtr());
     Offset -= CompleteVBPtrOffset;
 
-    unsigned VBIndex = Context.getVBTableIndex(ReusingBase, VBase);
+    unsigned VBIndex = Context.getVBTableIndex(ObjectWithVPtr, VBase);
     assert(Offsets[VBIndex] == nullptr && "The same vbindex seen twice?");
     Offsets[VBIndex] = llvm::ConstantInt::get(CGM.IntTy, Offset.getQuantity());
   }
@@ -2203,6 +2211,14 @@ void MicrosoftCXXABI::EmitThreadLocalInitFuncs(
     CodeGenModule &CGM, ArrayRef<const VarDecl *> CXXThreadLocals,
     ArrayRef<llvm::Function *> CXXThreadLocalInits,
     ArrayRef<const VarDecl *> CXXThreadLocalInitVars) {
+  if (CXXThreadLocalInits.empty())
+    return;
+
+  CGM.AppendLinkerOptions(CGM.getTarget().getTriple().getArch() ==
+                                  llvm::Triple::x86
+                              ? "/include:___dyn_tls_init@12"
+                              : "/include:__dyn_tls_init");
+
   // This will create a GV in the .CRT$XDU section.  It will point to our
   // initialization function.  The CRT will call all of these function
   // pointers at start-up time and, eventually, at thread-creation time.

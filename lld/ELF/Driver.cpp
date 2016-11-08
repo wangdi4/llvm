@@ -50,16 +50,19 @@ bool elf::link(ArrayRef<const char *> Args, raw_ostream &Error) {
   ScriptConfig = &SC;
 
   Driver->main(Args);
+  InputFile::freePool();
   return !HasError;
 }
 
 // Parses a linker -m option.
-static std::pair<ELFKind, uint16_t> parseEmulation(StringRef S) {
+static std::pair<ELFKind, uint16_t> parseEmulation(StringRef Emul) {
+  StringRef S = Emul;
   if (S.endswith("_fbsd"))
     S = S.drop_back(5);
 
   std::pair<ELFKind, uint16_t> Ret =
       StringSwitch<std::pair<ELFKind, uint16_t>>(S)
+          .Case("aarch64elf", {ELF64LEKind, EM_AARCH64})
           .Case("aarch64linux", {ELF64LEKind, EM_AARCH64})
           .Case("armelf_linux_eabi", {ELF32LEKind, EM_ARM})
           .Case("elf32_x86_64", {ELF32LEKind, EM_X86_64})
@@ -69,15 +72,17 @@ static std::pair<ELFKind, uint16_t> parseEmulation(StringRef S) {
           .Case("elf64btsmip", {ELF64BEKind, EM_MIPS})
           .Case("elf64ltsmip", {ELF64LEKind, EM_MIPS})
           .Case("elf64ppc", {ELF64BEKind, EM_PPC64})
+          .Case("elf_amd64", {ELF64LEKind, EM_X86_64})
           .Case("elf_i386", {ELF32LEKind, EM_386})
+          .Case("elf_iamcu", {ELF32LEKind, EM_IAMCU})
           .Case("elf_x86_64", {ELF64LEKind, EM_X86_64})
           .Default({ELFNoneKind, EM_NONE});
 
   if (Ret.first == ELFNoneKind) {
     if (S == "i386pe" || S == "i386pep" || S == "thumb2pe")
-      error("Windows targets are not supported on the ELF frontend: " + S);
+      error("Windows targets are not supported on the ELF frontend: " + Emul);
     else
-      error("unknown emulation: " + S);
+      error("unknown emulation: " + Emul);
   }
   return Ret;
 }
@@ -112,7 +117,7 @@ LinkerDriver::getArchiveMembers(MemoryBufferRef MB) {
 
 // Opens and parses a file. Path has to be resolved already.
 // Newly created memory buffers are owned by this driver.
-void LinkerDriver::addFile(StringRef Path) {
+void LinkerDriver::addFile(StringRef Path, bool KnownScript) {
   using namespace sys::fs;
   if (Config->Verbose)
     outs() << Path << "\n";
@@ -121,6 +126,11 @@ void LinkerDriver::addFile(StringRef Path) {
   if (!Buffer.hasValue())
     return;
   MemoryBufferRef MBRef = *Buffer;
+
+  if (Config->Binary && !KnownScript) {
+    Files.push_back(new BinaryFile(MBRef));
+    return;
+  }
 
   switch (identify_magic(MBRef.getBuffer())) {
   case file_magic::unknown:
@@ -132,7 +142,7 @@ void LinkerDriver::addFile(StringRef Path) {
         Files.push_back(createObjectFile(MB, Path));
       return;
     }
-    Files.push_back(make_unique<ArchiveFile>(MBRef));
+    Files.push_back(new ArchiveFile(MBRef));
     return;
   case file_magic::elf_shared_object:
     if (Config->Relocatable) {
@@ -143,7 +153,7 @@ void LinkerDriver::addFile(StringRef Path) {
     return;
   default:
     if (InLib)
-      Files.push_back(make_unique<LazyObjectFile>(MBRef));
+      Files.push_back(new LazyObjectFile(MBRef));
     else
       Files.push_back(createObjectFile(MBRef));
   }
@@ -254,6 +264,17 @@ static bool hasZOption(opt::InputArgList &Args, StringRef Key) {
   return false;
 }
 
+static Optional<StringRef>
+getZOptionValue(opt::InputArgList &Args, StringRef Key) {
+  for (auto *Arg : Args.filtered(OPT_z)) {
+    StringRef Value = Arg->getValue();
+    size_t Pos = Value.find("=");
+    if (Pos != StringRef::npos && Key == Value.substr(0, Pos))
+      return Value.substr(Pos + 1);
+  }
+  return None;
+}
+
 void LinkerDriver::main(ArrayRef<const char *> ArgsArr) {
   ELFOptTable Parser;
   opt::InputArgList Args = Parser.parse(ArgsArr.slice(1));
@@ -261,19 +282,20 @@ void LinkerDriver::main(ArrayRef<const char *> ArgsArr) {
     printHelp(ArgsArr[0]);
     return;
   }
-  if (Args.hasArg(OPT_version)) {
+  if (Args.hasArg(OPT_version))
     outs() << getVersionString();
-    return;
-  }
 
   if (const char *Path = getReproduceOption(Args)) {
     // Note that --reproduce is a debug option so you can ignore it
     // if you are trying to understand the whole picture of the code.
-    Cpio.reset(CpioFile::create(Path));
-    if (Cpio) {
+    ErrorOr<CpioFile *> F = CpioFile::create(Path);
+    if (F) {
+      Cpio.reset(*F);
       Cpio->append("response.txt", createResponseFile(Args));
       Cpio->append("version.txt", getVersionString());
-    }
+    } else
+      error(F.getError(),
+            Twine("--reproduce: failed to open ") + Path + ".cpio");
   }
 
   readConfigs(Args);
@@ -297,7 +319,7 @@ void LinkerDriver::main(ArrayRef<const char *> ArgsArr) {
     link<ELF64BE>(Args);
     return;
   default:
-    error("-m or at least a .o file required");
+    error("target emulation unknown: -m or at least one .o file required");
   }
 }
 
@@ -314,10 +336,86 @@ static UnresolvedPolicy getUnresolvedSymbolOption(opt::InputArgList &Args) {
     if (S == "ignore-all" || S == "ignore-in-object-files")
       return UnresolvedPolicy::Ignore;
     if (S == "ignore-in-shared-libs" || S == "report-all")
-      return UnresolvedPolicy::Error;
+      return UnresolvedPolicy::ReportError;
     error("unknown --unresolved-symbols value: " + S);
   }
-  return UnresolvedPolicy::Error;
+  return UnresolvedPolicy::ReportError;
+}
+
+static bool isOutputFormatBinary(opt::InputArgList &Args) {
+  if (auto *Arg = Args.getLastArg(OPT_oformat)) {
+    StringRef S = Arg->getValue();
+    if (S == "binary")
+      return true;
+    error("unknown --oformat value: " + S);
+  }
+  return false;
+}
+
+static bool getArg(opt::InputArgList &Args, unsigned K1, unsigned K2,
+                   bool Default) {
+  if (auto *Arg = Args.getLastArg(K1, K2))
+    return Arg->getOption().getID() == K1;
+  return Default;
+}
+
+static DiscardPolicy getDiscardOption(opt::InputArgList &Args) {
+  auto *Arg =
+      Args.getLastArg(OPT_discard_all, OPT_discard_locals, OPT_discard_none);
+  if (!Arg)
+    return DiscardPolicy::Default;
+  if (Arg->getOption().getID() == OPT_discard_all)
+    return DiscardPolicy::All;
+  if (Arg->getOption().getID() == OPT_discard_locals)
+    return DiscardPolicy::Locals;
+  return DiscardPolicy::None;
+}
+
+static StripPolicy getStripOption(opt::InputArgList &Args) {
+  if (auto *Arg = Args.getLastArg(OPT_strip_all, OPT_strip_debug)) {
+    if (Arg->getOption().getID() == OPT_strip_all)
+      return StripPolicy::All;
+    return StripPolicy::Debug;
+  }
+  return StripPolicy::None;
+}
+
+static uint64_t parseSectionAddress(StringRef S, opt::Arg *Arg) {
+  uint64_t VA = 0;
+  if (S.startswith("0x"))
+    S = S.drop_front(2);
+  if (S.getAsInteger(16, VA))
+    error("invalid argument: " + stringize(Arg));
+  return VA;
+}
+
+static StringMap<uint64_t> getSectionStartMap(opt::InputArgList &Args) {
+  StringMap<uint64_t> Ret;
+  for (auto *Arg : Args.filtered(OPT_section_start)) {
+    StringRef Name;
+    StringRef Addr;
+    std::tie(Name, Addr) = StringRef(Arg->getValue()).split('=');
+    Ret[Name] = parseSectionAddress(Addr, Arg);
+  }
+
+  if (auto *Arg = Args.getLastArg(OPT_Ttext))
+    Ret[".text"] = parseSectionAddress(Arg->getValue(), Arg);
+  if (auto *Arg = Args.getLastArg(OPT_Tdata))
+    Ret[".data"] = parseSectionAddress(Arg->getValue(), Arg);
+  if (auto *Arg = Args.getLastArg(OPT_Tbss))
+    Ret[".bss"] = parseSectionAddress(Arg->getValue(), Arg);
+  return Ret;
+}
+
+static SortSectionPolicy getSortKind(opt::InputArgList &Args) {
+  StringRef S = getString(Args, OPT_sort_section);
+  if (S == "alignment")
+    return SortSectionPolicy::Alignment;
+  if (S == "name")
+    return SortSectionPolicy::Name;
+  if (!S.empty())
+    error("unknown --sort-section rule: " + S);
+  return SortSectionPolicy::Default;
 }
 
 // Initializes Config members by the command line options.
@@ -331,6 +429,8 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   if (!RPaths.empty())
     Config->RPath = llvm::join(RPaths.begin(), RPaths.end(), ":");
 
+  Config->SectionStartMap = getSectionStartMap(Args);
+
   if (auto *Arg = Args.getLastArg(OPT_m)) {
     // Parse ELF{32,64}{LE,BE} and CPU type.
     StringRef S = Arg->getValue();
@@ -341,26 +441,24 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->AllowMultipleDefinition = Args.hasArg(OPT_allow_multiple_definition);
   Config->Bsymbolic = Args.hasArg(OPT_Bsymbolic);
   Config->BsymbolicFunctions = Args.hasArg(OPT_Bsymbolic_functions);
-  Config->Demangle = !Args.hasArg(OPT_no_demangle);
+  Config->Demangle = getArg(Args, OPT_demangle, OPT_no_demangle, true);
   Config->DisableVerify = Args.hasArg(OPT_disable_verify);
-  Config->DiscardAll = Args.hasArg(OPT_discard_all);
-  Config->DiscardLocals = Args.hasArg(OPT_discard_locals);
-  Config->DiscardNone = Args.hasArg(OPT_discard_none);
+  Config->Discard = getDiscardOption(Args);
   Config->EhFrameHdr = Args.hasArg(OPT_eh_frame_hdr);
   Config->EnableNewDtags = !Args.hasArg(OPT_disable_new_dtags);
   Config->ExportDynamic = Args.hasArg(OPT_export_dynamic);
   Config->FatalWarnings = Args.hasArg(OPT_fatal_warnings);
-  Config->GcSections = Args.hasArg(OPT_gc_sections);
+  Config->GcSections = getArg(Args, OPT_gc_sections, OPT_no_gc_sections, false);
   Config->ICF = Args.hasArg(OPT_icf);
   Config->NoGnuUnique = Args.hasArg(OPT_no_gnu_unique);
   Config->NoUndefinedVersion = Args.hasArg(OPT_no_undefined_version);
+  Config->Nostdlib = Args.hasArg(OPT_nostdlib);
   Config->Pie = Args.hasArg(OPT_pie);
   Config->PrintGcSections = Args.hasArg(OPT_print_gc_sections);
   Config->Relocatable = Args.hasArg(OPT_relocatable);
   Config->SaveTemps = Args.hasArg(OPT_save_temps);
   Config->Shared = Args.hasArg(OPT_shared);
-  Config->StripAll = Args.hasArg(OPT_strip_all);
-  Config->StripDebug = Args.hasArg(OPT_strip_debug);
+  Config->Target1Rel = getArg(Args, OPT_target1_rel, OPT_target1_abs, false);
   Config->Threads = Args.hasArg(OPT_threads);
   Config->Trace = Args.hasArg(OPT_trace);
   Config->Verbose = Args.hasArg(OPT_verbose);
@@ -391,12 +489,12 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->ZOrigin = hasZOption(Args, "origin");
   Config->ZRelro = !hasZOption(Args, "norelro");
 
-  if (Config->Relocatable)
-    Config->StripAll = false;
+  if (!Config->Relocatable)
+    Config->Strip = getStripOption(Args);
 
-  // --strip-all implies --strip-debug.
-  if (Config->StripAll)
-    Config->StripDebug = true;
+  if (Optional<StringRef> Value = getZOptionValue(Args, "stack-size"))
+    if (Value->getAsInteger(0, Config->ZStackSize))
+      error("invalid stack size: " + *Value);
 
   // Config->Pic is true if we are generating position-independent code.
   Config->Pic = Config->Pie || Config->Shared;
@@ -414,13 +512,15 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
 
   // Parse --build-id or --build-id=<style>.
   if (Args.hasArg(OPT_build_id))
-    Config->BuildId = BuildIdKind::Fnv1;
+    Config->BuildId = BuildIdKind::Fast;
   if (auto *Arg = Args.getLastArg(OPT_build_id_eq)) {
     StringRef S = Arg->getValue();
     if (S == "md5") {
       Config->BuildId = BuildIdKind::Md5;
     } else if (S == "sha1") {
       Config->BuildId = BuildIdKind::Sha1;
+    } else if (S == "uuid") {
+      Config->BuildId = BuildIdKind::Uuid;
     } else if (S == "none") {
       Config->BuildId = BuildIdKind::None;
     } else if (S.startswith("0x")) {
@@ -431,8 +531,17 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
     }
   }
 
+  Config->OFormatBinary = isOutputFormatBinary(Args);
+
+  for (auto *Arg : Args.filtered(OPT_auxiliary))
+    Config->AuxiliaryList.push_back(Arg->getValue());
+  if (!Config->Shared && !Config->AuxiliaryList.empty())
+    error("-f may not be used without -shared");
+
   for (auto *Arg : Args.filtered(OPT_undefined))
     Config->Undefined.push_back(Arg->getValue());
+
+  Config->SortSection = getSortKind(Args);
 
   Config->UnresolvedSymbols = getUnresolvedSymbolOption(Args);
 
@@ -445,7 +554,7 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
 
   if (auto *Arg = Args.getLastArg(OPT_version_script))
     if (Optional<MemoryBufferRef> Buffer = readFile(Arg->getValue()))
-      parseVersionScript(*Buffer);
+      readVersionScript(*Buffer);
 }
 
 void LinkerDriver::createFiles(opt::InputArgList &Args) {
@@ -454,14 +563,27 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
     case OPT_l:
       addLibrary(Arg->getValue());
       break;
-    case OPT_alias_script_T:
     case OPT_INPUT:
-    case OPT_script:
       addFile(Arg->getValue());
+      break;
+    case OPT_alias_script_T:
+    case OPT_script:
+      addFile(Arg->getValue(), true);
       break;
     case OPT_as_needed:
       Config->AsNeeded = true;
       break;
+    case OPT_format: {
+      StringRef Val = Arg->getValue();
+      if (Val == "elf" || Val == "default")
+        Config->Binary = false;
+      else if (Val == "binary")
+        Config->Binary = true;
+      else
+        error("unknown " + Arg->getSpelling() + " format: " + Arg->getValue() +
+              " (supported formats: elf, default, binary)");
+      break;
+    }
     case OPT_no_as_needed:
       Config->AsNeeded = false;
       break;
@@ -491,7 +613,7 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
 
   // If -m <machine_type> was not given, infer it from object files.
   if (Config->EKind == ELFNoneKind) {
-    for (std::unique_ptr<InputFile> &F : Files) {
+    for (InputFile *F : Files) {
       if (F->EKind == ELFNoneKind)
         continue;
       Config->EKind = F->EKind;
@@ -510,16 +632,11 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   std::unique_ptr<TargetInfo> TI(createTarget());
   Target = TI.get();
   LinkerScript<ELFT> LS;
-  Script<ELFT>::X = &LS;
+  ScriptBase = Script<ELFT>::X = &LS;
 
   Config->Rela = ELFT::Is64Bits || Config->EMachine == EM_X86_64;
   Config->Mips64EL =
       (Config->EMachine == EM_MIPS && Config->EKind == ELF64LEKind);
-
-  // Add entry symbol. Note that AMDGPU binaries have no entry points.
-  if (Config->Entry.empty() && !Config->Shared && !Config->Relocatable &&
-      Config->EMachine != EM_AMDGPU)
-    Config->Entry = (Config->EMachine == EM_MIPS) ? "__start" : "_start";
 
   // Default output filename is "a.out" by the Unix tradition.
   if (Config->OutputFile.empty())
@@ -528,13 +645,6 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   // Handle --trace-symbol.
   for (auto *Arg : Args.filtered(OPT_trace_symbol))
     Symtab.trace(Arg->getValue());
-
-  // Set either EntryAddr (if S is a number) or EntrySym (otherwise).
-  if (!Config->Entry.empty()) {
-    StringRef S = Config->Entry;
-    if (S.getAsInteger(0, Config->EntryAddr))
-      Config->EntrySym = Symtab.addUndefined(S);
-  }
 
   // Initialize Config->ImageBase.
   if (auto *Arg = Args.getLastArg(OPT_image_base)) {
@@ -547,8 +657,26 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
     Config->ImageBase = Config->Pic ? 0 : Target->DefaultImageBase;
   }
 
-  for (std::unique_ptr<InputFile> &F : Files)
-    Symtab.addFile(std::move(F));
+  // Add all files to the symbol table. After this, the symbol table
+  // contains all known names except a few linker-synthesized symbols.
+  for (InputFile *F : Files)
+    Symtab.addFile(F);
+
+  // Add the start symbol.
+  // It initializes either Config->Entry or Config->EntryAddr.
+  // Note that AMDGPU binaries have no entries.
+  if (!Config->Entry.empty()) {
+    // It is either "-e <addr>" or "-e <symbol>".
+    Config->Entry.getAsInteger(0, Config->EntryAddr);
+  } else if (!Config->Shared && !Config->Relocatable &&
+             Config->EMachine != EM_AMDGPU) {
+    // -e was not specified. Use the default start symbol name
+    // if it is resolvable.
+    Config->Entry = (Config->EMachine == EM_MIPS) ? "__start" : "_start";
+  }
+  if (Symtab.find(Config->Entry))
+    Config->EntrySym = Symtab.addUndefined(Config->Entry);
+
   if (HasError)
     return; // There were duplicate symbols or incompatible files
 
@@ -556,7 +684,6 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   Symtab.scanShlibUndefined();
   Symtab.scanDynamicList();
   Symtab.scanVersionScript();
-  Symtab.scanSymbolVersions();
 
   Symtab.addCombinedLtoObject();
   if (HasError)
@@ -565,7 +692,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   for (auto *Arg : Args.filtered(OPT_wrap))
     Symtab.wrap(Arg->getValue());
 
-  // Write the result to the file.
+  // Do size optimizations: garbage collection and identical code folding.
   if (Config->GcSections)
     markLive<ELFT>();
   if (Config->ICF)
@@ -573,8 +700,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
 
   // MergeInputSection::splitIntoPieces needs to be called before
   // any call of MergeInputSection::getOffset. Do that.
-  for (const std::unique_ptr<elf::ObjectFile<ELFT>> &F :
-       Symtab.getObjectFiles())
+  for (elf::ObjectFile<ELFT> *F : Symtab.getObjectFiles()) {
     for (InputSectionBase<ELFT> *S : F->getSections()) {
       if (!S || S == &InputSection<ELFT>::Discarded || !S->Live)
         continue;
@@ -583,6 +709,8 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
       if (auto *MS = dyn_cast<MergeInputSection<ELFT>>(S))
         MS->splitIntoPieces();
     }
+  }
 
-  writeResult<ELFT>(&Symtab);
+  // Write the result to the file.
+  writeResult<ELFT>();
 }

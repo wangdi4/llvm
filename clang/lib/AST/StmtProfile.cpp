@@ -93,10 +93,6 @@ void StmtProfiler::VisitCompoundStmt(const CompoundStmt *S) {
   VisitStmt(S);
 }
 
-void StmtProfiler::VisitSwitchCase(const SwitchCase *S) {
-  VisitStmt(S);
-}
-
 void StmtProfiler::VisitCaseStmt(const CaseStmt *S) {
   VisitStmt(S);
 }
@@ -724,6 +720,16 @@ void StmtProfiler::VisitOMPDistributeSimdDirective(
 
 void StmtProfiler::VisitOMPTargetParallelForSimdDirective(
     const OMPTargetParallelForSimdDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPTargetSimdDirective(
+    const OMPTargetSimdDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPTeamsDistributeDirective(
+    const OMPTeamsDistributeDirective *S) {
   VisitOMPLoopDirective(S);
 }
 

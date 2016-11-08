@@ -73,8 +73,10 @@ math/atan2.cl
 math/atan2pi.cl
 math/atanh.cl
 math/atanpi.cl
+math/cbrt.cl
 math/copysign.cl
 math/cos.cl
+math/cosh.cl
 math/cospi.cl
 math/ep_log.cl
 math/erf.cl
@@ -95,6 +97,8 @@ math/hypot.cl
 math/ilogb.cl
 math/clc_ldexp.cl
 math/ldexp.cl
+math/lgamma.cl
+math/lgamma_r.cl
 math/log.cl
 math/log10.cl
 math/log1p.cl
@@ -115,6 +119,7 @@ math/clc_sqrt.cl
 math/sqrt.cl
 math/tan.cl
 math/tanh.cl
+math/tgamma.cl
 relational/all.cl
 relational/any.cl
 relational/bitselect.cl
@@ -137,6 +142,7 @@ shared/max.cl
 shared/min.cl
 shared/vload.cl
 shared/vstore.cl
+shared/vstore_half_helpers.ll
 workitem/get_global_id.cl
 workitem/get_global_size.cl
 image/get_image_dim.cl

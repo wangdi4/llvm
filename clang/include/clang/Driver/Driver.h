@@ -17,16 +17,14 @@
 #include "clang/Driver/Util.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
-#include "llvm/Support/Path.h" // FIXME: Kill when CompilationInfo lands.
 
 #include <list>
 #include <map>
-#include <memory>
-#include <set>
 #include <string>
 
 namespace llvm {
+class Triple;
+
 namespace opt {
   class Arg;
   class ArgList;
@@ -132,9 +130,6 @@ public:
   /// If the standard library is used
   bool UseStdLib;
 
-  /// Default target triple.
-  std::string DefaultTargetTriple;
-
   /// Driver title to use with help.
   std::string DriverTitle;
 
@@ -160,6 +155,9 @@ public:
   /// Whether the driver is just the preprocessor.
   bool CCCIsCPP() const { return Mode == CPPMode; }
 
+  /// Whether the driver should follow gcc like behavior.
+  bool CCCIsCC() const { return Mode == GCCMode; }
+
   /// Whether the driver should follow cl.exe like behavior.
   bool IsCLMode() const { return Mode == CLMode; }
 
@@ -183,6 +181,9 @@ public:
   unsigned CCGenDiagnostics : 1;
 
 private:
+  /// Default target triple.
+  std::string DefaultTargetTriple;
+
   /// Name to use when invoking gcc/g++.
   std::string CCCGenericGCCName;
 
@@ -293,7 +294,7 @@ public:
   /// @{
 
   /// ParseDriverMode - Look for and handle the driver mode option in Args.
-  void ParseDriverMode(ArrayRef<const char *> Args);
+  void ParseDriverMode(StringRef ProgramName, ArrayRef<const char *> Args);
 
   /// ParseArgStrings - Parse the given list of strings into an
   /// ArgList.
@@ -340,7 +341,7 @@ public:
   /// up response files, removing temporary files, etc.
   int ExecuteCompilation(Compilation &C,
      SmallVectorImpl< std::pair<int, const Command *> > &FailingCommands);
-  
+
   /// generateCompilationDiagnostics - Generate diagnostics information 
   /// including preprocessed source file(s).
   /// 
@@ -442,6 +443,10 @@ public:
   LTOKind getLTOMode() const { return LTOMode; }
 
 private:
+  /// Set the driver mode (cl, gcc, etc) from an option string of the form
+  /// --driver-mode=<mode>.
+  void setDriverModeFromOption(StringRef Opt);
+
   /// Parse the \p Args list for LTO options and record the type of LTO
   /// compilation based on which -f(no-)?lto(=.*)? option occurs last.
   void setLTOMode(const llvm::opt::ArgList &Args);

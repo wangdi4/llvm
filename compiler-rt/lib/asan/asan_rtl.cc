@@ -263,6 +263,7 @@ static NOINLINE void force_interface_symbols() {
   volatile int fake_condition = 0;  // prevent dead condition elimination.
   // __asan_report_* functions are noreturn, so we need a switch to prevent
   // the compiler from removing any of them.
+  // clang-format off
   switch (fake_condition) {
     case 1: __asan_report_load1(0); break;
     case 2: __asan_report_load2(0); break;
@@ -302,7 +303,14 @@ static NOINLINE void force_interface_symbols() {
     case 37: __asan_unpoison_stack_memory(0, 0); break;
     case 38: __asan_region_is_poisoned(0, 0); break;
     case 39: __asan_describe_address(0); break;
+    case 40: __asan_set_shadow_00(0, 0); break;
+    case 41: __asan_set_shadow_f1(0, 0); break;
+    case 42: __asan_set_shadow_f2(0, 0); break;
+    case 43: __asan_set_shadow_f3(0, 0); break;
+    case 44: __asan_set_shadow_f5(0, 0); break;
+    case 45: __asan_set_shadow_f8(0, 0); break;
   }
+  // clang-format on
 }
 
 static void asan_atexit() {
@@ -434,7 +442,6 @@ static void AsanInitInternal() {
 
   __sanitizer_set_report_path(common_flags()->log_path);
 
-  // Enable UAR detection, if required.
   __asan_option_detect_stack_use_after_return =
       flags()->detect_stack_use_after_return;
 

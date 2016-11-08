@@ -1350,7 +1350,7 @@ _mm_cvt_ps2pi(__m128 __a)
 static __inline__ int __DEFAULT_FN_ATTRS
 _mm_cvttss_si32(__m128 __a)
 {
-  return __a[0];
+  return __builtin_ia32_cvttss2si((__v4sf)__a);
 }
 
 /// \brief Converts a float value contained in the lower 32 bits of a vector of
@@ -1371,6 +1371,7 @@ _mm_cvtt_ss2si(__m128 __a)
   return _mm_cvttss_si32(__a);
 }
 
+#ifdef __x86_64__
 /// \brief Converts a float value contained in the lower 32 bits of a vector of
 ///    [4 x float] into a 64-bit integer, truncating the result when it is
 ///    inexact.
@@ -1386,8 +1387,9 @@ _mm_cvtt_ss2si(__m128 __a)
 static __inline__ long long __DEFAULT_FN_ATTRS
 _mm_cvttss_si64(__m128 __a)
 {
-  return __a[0];
+  return __builtin_ia32_cvttss2si64((__v4sf)__a);
 }
+#endif
 
 /// \brief Converts two low-order float values in a 128-bit vector of
 ///    [4 x float] into a 64-bit vector of [2 x i32], truncating the result
@@ -2092,11 +2094,10 @@ _mm_stream_ps(float *__p, __m128 __a)
 ///
 /// This intrinsic corresponds to the \c SFENCE instruction.
 ///
-static __inline__ void __DEFAULT_FN_ATTRS
-_mm_sfence(void)
-{
-  __builtin_ia32_sfence();
-}
+#if defined(__cplusplus)
+extern "C"
+#endif
+void _mm_sfence(void);
 
 /// \brief Extracts 16-bit element from a 64-bit vector of [4 x i16] and
 ///    returns it, as specified by the immediate integer operand.
@@ -2374,6 +2375,10 @@ _mm_sad_pu8(__m64 __a, __m64 __b)
   return (__m64)__builtin_ia32_psadbw((__v8qi)__a, (__v8qi)__b);
 }
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 /// \brief Returns the contents of the MXCSR register as a 32-bit unsigned
 ///    integer value. There are several groups of macros associated with this
 ///    intrinsic, including:
@@ -2406,11 +2411,7 @@ _mm_sad_pu8(__m64 __a, __m64 __b)
 ///
 /// \returns A 32-bit unsigned integer containing the contents of the MXCSR
 ///    register.
-static __inline__ unsigned int __DEFAULT_FN_ATTRS
-_mm_getcsr(void)
-{
-  return __builtin_ia32_stmxcsr();
-}
+unsigned int _mm_getcsr(void);
 
 /// \brief Sets the MXCSR register with the 32-bit unsigned integer value. There
 ///    are several groups of macros associated with this intrinsic, including:
@@ -2448,11 +2449,11 @@ _mm_getcsr(void)
 ///
 /// \param __i
 ///    A 32-bit unsigned integer value to be written to the MXCSR register.
-static __inline__ void __DEFAULT_FN_ATTRS
-_mm_setcsr(unsigned int __i)
-{
-  __builtin_ia32_ldmxcsr(__i);
-}
+void _mm_setcsr(unsigned int);
+
+#if defined(__cplusplus)
+} // extern "C"
+#endif
 
 /// \brief Selects 4 float values from the 128-bit operands of [4 x float], as
 ///    specified by the immediate value operand.

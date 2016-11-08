@@ -65,6 +65,8 @@ else() # Part of LLVM build
     set(LIBOMP_ARCH x86_64)
   elseif(LIBOMP_NATIVE_ARCH STREQUAL "x86_64")
     set(LIBOMP_ARCH x86_64)
+  elseif(LIBOMP_NATIVE_ARCH MATCHES "powerpc64le")
+    set(LIBOMP_ARCH ppc64le)
   elseif(LIBOMP_NATIVE_ARCH MATCHES "powerpc")
     set(LIBOMP_ARCH ppc64)
   elseif(LIBOMP_NATIVE_ARCH MATCHES "aarch64")
@@ -337,6 +339,10 @@ else()
 endif()
 
 set(LIBOMP_LIB_FILE ${LIBOMP_LIB_NAME}${LIBOMP_LIBRARY_SUFFIX})
+
+# Optional backwards compatibility aliases.
+set(LIBOMP_INSTALL_ALIASES TRUE CACHE BOOL
+  "Install libgomp and libiomp5 library aliases for backwards compatibility")
 
 # Print configuration after all variables are set.
 if(${LIBOMP_STANDALONE_BUILD})

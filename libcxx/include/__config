@@ -27,20 +27,24 @@
 #define _GNUC_VER 0
 #endif
 
-#define _LIBCPP_VERSION 3900
+#define _LIBCPP_VERSION 4000
 
 #ifndef _LIBCPP_ABI_VERSION
 #define _LIBCPP_ABI_VERSION 1
 #endif
 
 #if defined(_LIBCPP_ABI_UNSTABLE) || _LIBCPP_ABI_VERSION >= 2
-// Change short string represention so that string data starts at offset 0,
+// Change short string representation so that string data starts at offset 0,
 // improving its alignment in some cases.
 #define _LIBCPP_ABI_ALTERNATE_STRING_LAYOUT
 // Fix deque iterator type in order to support incomplete types.
 #define _LIBCPP_ABI_INCOMPLETE_TYPES_IN_DEQUE
 // Fix undefined behavior in how std::list stores it's linked nodes.
 #define _LIBCPP_ABI_LIST_REMOVE_NODE_POINTER_UB
+// Fix undefined behavior in  how __tree stores its end and parent nodes.
+#define _LIBCPP_ABI_TREE_REMOVE_NODE_POINTER_UB
+// Fix undefined behavior in how __hash_table stores it's pointer types
+#define _LIBCPP_ABI_FIX_UNORDERED_NODE_POINTER_UB
 #define _LIBCPP_ABI_FORWARD_LIST_REMOVE_NODE_POINTER_UB
 #define _LIBCPP_ABI_FIX_UNORDERED_CONTAINER_SIZE_TYPE
 #define _LIBCPP_ABI_VARIADIC_LOCK_GUARD
@@ -81,6 +85,13 @@
 #define __is_identifier(__x) 1
 #endif
 
+// Need to detect which libc we're using if we're on Linux.
+#if defined(__linux__)
+#include <features.h>
+#if !defined(__GLIBC_PREREQ)
+#define __GLIBC_PREREQ(a, b) 0
+#endif // !defined(__GLIBC_PREREQ)
+#endif // defined(__linux__)
 
 #ifdef __LITTLE_ENDIAN__
 #if __LITTLE_ENDIAN__
@@ -196,90 +207,6 @@
 #define _LIBCPP_NO_CFI __attribute__((__no_sanitize__("cfi")))
 #else
 #define _LIBCPP_NO_CFI
-#endif
-
-#ifdef _WIN32
-
-// only really useful for a DLL
-#ifdef _LIBCPP_DLL // this should be a compiler builtin define ideally...
-# ifdef cxx_EXPORTS
-#  define _LIBCPP_HIDDEN
-#  define _LIBCPP_FUNC_VIS __declspec(dllexport)
-#  define _LIBCPP_TYPE_VIS __declspec(dllexport)
-# else
-#  define _LIBCPP_HIDDEN
-#  define _LIBCPP_FUNC_VIS __declspec(dllimport)
-#  define _LIBCPP_TYPE_VIS __declspec(dllimport)
-# endif
-#else
-# define _LIBCPP_HIDDEN
-# define _LIBCPP_FUNC_VIS
-# define _LIBCPP_TYPE_VIS
-#endif
-
-#define _LIBCPP_TYPE_VIS_ONLY
-#define _LIBCPP_FUNC_VIS_ONLY
-
-#ifndef _LIBCPP_INLINE_VISIBILITY
-# ifdef _LIBCPP_MSVC
-#  define _LIBCPP_INLINE_VISIBILITY __forceinline
-# else // MinGW GCC and Clang
-#  define _LIBCPP_INLINE_VISIBILITY __attribute__ ((__always_inline__))
-# endif
-#endif
-
-#ifndef _LIBCPP_EXCEPTION_ABI
-#define _LIBCPP_EXCEPTION_ABI _LIBCPP_TYPE_VIS
-#endif
-
-#ifndef _LIBCPP_ALWAYS_INLINE
-# ifdef _LIBCPP_MSVC
-#  define _LIBCPP_ALWAYS_INLINE __forceinline
-# endif
-#endif
-
-#endif // _WIN32
-
-#ifndef _LIBCPP_HIDDEN
-#define _LIBCPP_HIDDEN __attribute__ ((__visibility__("hidden")))
-#endif
-
-#ifndef _LIBCPP_FUNC_VIS
-#define _LIBCPP_FUNC_VIS __attribute__ ((__visibility__("default")))
-#endif
-
-#ifndef _LIBCPP_TYPE_VIS
-#  if __has_attribute(__type_visibility__)
-#    define _LIBCPP_TYPE_VIS __attribute__ ((__type_visibility__("default")))
-#  else
-#    define _LIBCPP_TYPE_VIS __attribute__ ((__visibility__("default")))
-#  endif
-#endif
-
-#ifndef _LIBCPP_PREFERRED_OVERLOAD
-#  if __has_attribute(__enable_if__)
-#    define _LIBCPP_PREFERRED_OVERLOAD __attribute__ ((__enable_if__(true, "")))
-#  endif
-#endif
-
-#ifndef _LIBCPP_TYPE_VIS_ONLY
-# define _LIBCPP_TYPE_VIS_ONLY _LIBCPP_TYPE_VIS
-#endif
-
-#ifndef _LIBCPP_FUNC_VIS_ONLY
-# define _LIBCPP_FUNC_VIS_ONLY _LIBCPP_FUNC_VIS
-#endif
-
-#ifndef _LIBCPP_INLINE_VISIBILITY
-#define _LIBCPP_INLINE_VISIBILITY __attribute__ ((__visibility__("hidden"), __always_inline__))
-#endif
-
-#ifndef _LIBCPP_EXCEPTION_ABI
-#define _LIBCPP_EXCEPTION_ABI __attribute__ ((__visibility__("default")))
-#endif
-
-#ifndef _LIBCPP_ALWAYS_INLINE
-#define _LIBCPP_ALWAYS_INLINE  __attribute__ ((__visibility__("hidden"), __always_inline__))
 #endif
 
 #if defined(__clang__)
@@ -413,12 +340,9 @@ typedef __char32_t char32_t;
 #if defined(__FreeBSD__)
 #define _LIBCPP_HAS_QUICK_EXIT
 #define _LIBCPP_HAS_C11_FEATURES
-#elif defined(__ANDROID__)
-#define _LIBCPP_HAS_QUICK_EXIT
 #elif defined(__linux__)
 #if !defined(_LIBCPP_HAS_MUSL_LIBC)
-# include <features.h>
-#if __GLIBC_PREREQ(2, 15)
+#if __GLIBC_PREREQ(2, 15) || defined(__BIONIC__)
 #define _LIBCPP_HAS_QUICK_EXIT
 #endif
 #if __GLIBC_PREREQ(2, 17)
@@ -577,8 +501,6 @@ using namespace _LIBCPP_NAMESPACE __attribute__((__strong__));
 #define _ALIGNAS(x) __declspec(align(x))
 #define _LIBCPP_HAS_NO_VARIADICS
 
-
-
 #define _LIBCPP_BEGIN_NAMESPACE_STD namespace std {
 #define _LIBCPP_END_NAMESPACE_STD  }
 #define _VSTD std
@@ -623,6 +545,110 @@ namespace std {
 #define _LIBCPP_HAS_NO_ASAN
 
 #endif // __clang__ || __GNUC__ || _MSC_VER || __IBMCPP__
+
+
+#ifdef _WIN32
+// only really useful for a DLL. _LIBCPP_DLL should be a compiler builtin define ideally...
+#if defined(_LIBCPP_DLL) && defined(cxx_EXPORTS)
+# define _LIBCPP_DLL_VIS __declspec(dllexport)
+# define _LIBCPP_EXTERN_TEMPLATE_TYPE_VIS
+# define _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS _LIBCPP_DLL_VIS
+#elif defined(_LIBCPP_DLL)
+# define _LIBCPP_DLL_VIS __declspec(dllimport)
+# define _LIBCPP_EXTERN_TEMPLATE_TYPE_VIS _LIBCPP_DLL_VIS
+# define _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS
+#else
+# define _LIBCPP_DLL_VIS
+# define _LIBCPP_EXTERN_TEMPLATE_TYPE_VIS
+# define _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS
+#endif
+#define _LIBCPP_TYPE_VIS            _LIBCPP_DLL_VIS
+#define _LIBCPP_FUNC_VIS            _LIBCPP_DLL_VIS
+#define _LIBCPP_EXCEPTION_ABI       _LIBCPP_DLL_VIS
+#define _LIBCPP_HIDDEN
+#define _LIBCPP_TYPE_VIS_ONLY
+#define _LIBCPP_FUNC_VIS_ONLY
+#define _LIBCPP_ENUM_VIS
+#if defined(_LIBCPP_MSVC)
+# define _LIBCPP_INLINE_VISIBILITY __forceinline
+# define _LIBCPP_ALWAYS_INLINE     __forceinline
+# define _LIBCPP_EXTERN_TEMPLATE_INLINE_VISIBILITY __forceinline
+#else
+# define _LIBCPP_INLINE_VISIBILITY __attribute__ ((__always_inline__))
+# define _LIBCPP_ALWAYS_INLINE     __attribute__ ((__always_inline__))
+# define _LIBCPP_EXTERN_TEMPLATE_INLINE_VISIBILITY __attribute__ ((__always_inline__))
+#endif
+#endif // _WIN32
+
+#ifndef _LIBCPP_HIDDEN
+#define _LIBCPP_HIDDEN __attribute__ ((__visibility__("hidden")))
+#endif
+
+#ifndef _LIBCPP_FUNC_VIS
+#define _LIBCPP_FUNC_VIS __attribute__ ((__visibility__("default")))
+#endif
+
+#ifndef _LIBCPP_TYPE_VIS
+#  if __has_attribute(__type_visibility__)
+#    define _LIBCPP_TYPE_VIS __attribute__ ((__type_visibility__("default")))
+#  else
+#    define _LIBCPP_TYPE_VIS __attribute__ ((__visibility__("default")))
+#  endif
+#endif
+
+#ifndef _LIBCPP_TYPE_VIS_ONLY
+# define _LIBCPP_TYPE_VIS_ONLY _LIBCPP_TYPE_VIS
+#endif
+
+#ifndef _LIBCPP_FUNC_VIS_ONLY
+# define _LIBCPP_FUNC_VIS_ONLY _LIBCPP_FUNC_VIS
+#endif
+
+#ifndef _LIBCPP_EXCEPTION_ABI
+#define _LIBCPP_EXCEPTION_ABI __attribute__ ((__visibility__("default")))
+#endif
+
+#ifndef _LIBCPP_ENUM_VIS
+#  if __has_attribute(__type_visibility__)
+#    define _LIBCPP_ENUM_VIS __attribute__ ((__type_visibility__("default")))
+#  else
+#    define _LIBCPP_ENUM_VIS
+#  endif
+#endif
+
+#ifndef _LIBCPP_EXTERN_TEMPLATE_TYPE_VIS
+#  if __has_attribute(__type_visibility__)
+#    define _LIBCPP_EXTERN_TEMPLATE_TYPE_VIS __attribute__ ((__visibility__("default")))
+#  else
+#    define _LIBCPP_EXTERN_TEMPLATE_TYPE_VIS
+#  endif
+#endif
+
+#ifndef _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS
+#  define _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS
+#endif
+
+#ifndef _LIBCPP_INLINE_VISIBILITY
+#define _LIBCPP_INLINE_VISIBILITY __attribute__ ((__visibility__("hidden"), __always_inline__))
+#endif
+
+#ifndef _LIBCPP_ALWAYS_INLINE
+#define _LIBCPP_ALWAYS_INLINE  __attribute__ ((__visibility__("hidden"), __always_inline__))
+#endif
+
+#ifndef _LIBCPP_EXTERN_TEMPLATE_INLINE_VISIBILITY
+# ifdef _LIBCPP_BUILDING_LIBRARY
+#   define _LIBCPP_EXTERN_TEMPLATE_INLINE_VISIBILITY __attribute__((__visibility__("default"), __always_inline__))
+# else
+#   define _LIBCPP_EXTERN_TEMPLATE_INLINE_VISIBILITY _LIBCPP_INLINE_VISIBILITY
+# endif
+#endif
+
+#ifndef _LIBCPP_PREFERRED_OVERLOAD
+#  if __has_attribute(__enable_if__)
+#    define _LIBCPP_PREFERRED_OVERLOAD __attribute__ ((__enable_if__(true, "")))
+#  endif
+#endif
 
 #ifndef _LIBCPP_HAS_NO_NOEXCEPT
 #  define _NOEXCEPT noexcept
@@ -687,6 +713,12 @@ template <unsigned> struct __static_assert_check {};
 #define _NOALIAS
 #endif
 
+#ifdef __GNUC__
+#define _LIBCPP_MAY_ALIAS __attribute__((__may_alias__))
+#else
+#define _LIBCPP_MAY_ALIAS
+#endif
+
 #if __has_feature(cxx_explicit_conversions) || defined(__IBMCPP__)
 #   define _LIBCPP_EXPLICIT explicit
 #else
@@ -706,7 +738,7 @@ template <unsigned> struct __static_assert_check {};
     _LIBCPP_ALWAYS_INLINE operator int() const {return __v_;} \
     };
 #else  // _LIBCPP_HAS_NO_STRONG_ENUMS
-#define _LIBCPP_DECLARE_STRONG_ENUM(x) enum class _LIBCPP_TYPE_VIS x
+#define _LIBCPP_DECLARE_STRONG_ENUM(x) enum class _LIBCPP_ENUM_VIS x
 #define _LIBCPP_DECLARE_STRONG_ENUM_EPILOG(x)
 #endif  // _LIBCPP_HAS_NO_STRONG_ENUMS
 
@@ -740,7 +772,7 @@ template <unsigned> struct __static_assert_check {};
 
 #if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 // Most unix variants have catopen.  These are the specific ones that don't.
-#if !defined(_WIN32) && !defined(__ANDROID__) && !defined(_NEWLIB_VERSION)
+#if !defined(_WIN32) && !defined(__BIONIC__) && !defined(_NEWLIB_VERSION)
 #define _LIBCPP_HAS_CATOPEN 1
 #endif
 #endif
@@ -821,7 +853,9 @@ extern "C" void __sanitizer_annotate_contiguous_container(
 #endif
 
 // Thread API
-#if !defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_HAS_THREAD_API_PTHREAD)
+#if !defined(_LIBCPP_HAS_NO_THREADS) && \
+    !defined(_LIBCPP_HAS_THREAD_API_PTHREAD) && \
+    !defined(_LIBCPP_HAS_THREAD_API_EXTERNAL)
 # if defined(__FreeBSD__) || \
     defined(__NetBSD__) || \
     defined(__linux__) || \
@@ -837,6 +871,11 @@ extern "C" void __sanitizer_annotate_contiguous_container(
 #if defined(_LIBCPP_HAS_NO_THREADS) && defined(_LIBCPP_HAS_THREAD_API_PTHREAD)
 #  error _LIBCPP_HAS_THREAD_API_PTHREAD may only be defined when \
          _LIBCPP_HAS_NO_THREADS is not defined.
+#endif
+
+#if defined(_LIBCPP_HAS_NO_THREADS) && defined(_LIBCPP_HAS_THREAD_API_EXTERNAL)
+#  error _LIBCPP_HAS_EXTERNAL_THREAD_API may not be defined when \
+         _LIBCPP_HAS_NO_THREADS is defined.
 #endif
 
 #if defined(_LIBCPP_HAS_NO_MONOTONIC_CLOCK) && !defined(_LIBCPP_HAS_NO_THREADS)
@@ -859,7 +898,8 @@ extern "C" void __sanitizer_annotate_contiguous_container(
 #define _LIBCPP_HAS_NO_STDOUT
 #endif
 
-#if defined(__ANDROID__) || defined(__CloudABI__) || defined(_LIBCPP_HAS_MUSL_LIBC)
+#if defined(__BIONIC__) || defined(__CloudABI__) ||                            \
+    defined(_LIBCPP_HAS_MUSL_LIBC)
 #define _LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE
 #endif
 
@@ -895,6 +935,12 @@ extern "C" void __sanitizer_annotate_contiguous_container(
 #if (defined(_LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS) && defined(__clang__) \
       && __has_attribute(acquire_capability))
 #define _LIBCPP_HAS_THREAD_SAFETY_ANNOTATIONS
+#endif
+
+#if __has_attribute(require_constant_initialization)
+#define _LIBCPP_SAFE_STATIC __attribute__((__require_constant_initialization__))
+#else
+#define _LIBCPP_SAFE_STATIC
 #endif
 
 #endif // __cplusplus

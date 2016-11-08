@@ -77,6 +77,15 @@ macro(format_object_libs output suffix)
   endforeach()
 endmacro()
 
+function(add_compiler_rt_component name)
+  add_custom_target(${name})
+  set_target_properties(${name} PROPERTIES FOLDER "Compiler-RT Misc")
+  if(COMMAND runtime_register_component)
+    runtime_register_component(${name})
+  endif()
+  add_dependencies(compiler-rt ${name})
+endfunction()
+
 # Adds static or shared runtime for a list of architectures and operating
 # systems and puts it in the proper directory in the build and install trees.
 # add_compiler_rt_runtime(<name>
@@ -164,6 +173,7 @@ function(add_compiler_rt_runtime name type)
                                 -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
       set_target_properties(install-${LIB_PARENT_TARGET} PROPERTIES
                             FOLDER "Compiler-RT Misc")
+      add_dependencies(install-compiler-rt install-${LIB_PARENT_TARGET})
     endif()
   endif()
 
@@ -185,8 +195,14 @@ function(add_compiler_rt_runtime name type)
     set_target_properties(${libname} PROPERTIES
         OUTPUT_NAME ${output_name_${libname}})
     set_target_properties(${libname} PROPERTIES FOLDER "Compiler-RT Runtime")
-    if(LIB_LINK_LIBS AND ${type} STREQUAL "SHARED")
-      target_link_libraries(${libname} ${LIB_LINK_LIBS})
+    if(${type} STREQUAL "SHARED")
+      if(LIB_LINK_LIBS)
+        target_link_libraries(${libname} ${LIB_LINK_LIBS})
+      endif()
+      if(WIN32 AND NOT CYGWIN AND NOT MINGW)
+        set_target_properties(${libname} PROPERTIES IMPORT_PREFIX "")
+        set_target_properties(${libname} PROPERTIES IMPORT_SUFFIX ".lib")
+      endif()
     endif()
     install(TARGETS ${libname}
       ARCHIVE DESTINATION ${COMPILER_RT_LIBRARY_INSTALL_DIR}

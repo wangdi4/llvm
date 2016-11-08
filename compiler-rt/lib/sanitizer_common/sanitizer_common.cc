@@ -157,6 +157,7 @@ bool ReadFileToBuffer(const char *file_name, char **buff, uptr *buff_size,
 }
 
 typedef bool UptrComparisonFunction(const uptr &a, const uptr &b);
+typedef bool U32ComparisonFunction(const u32 &a, const u32 &b);
 
 template<class T>
 static inline bool CompareLess(const T &a, const T &b) {
@@ -165,6 +166,10 @@ static inline bool CompareLess(const T &a, const T &b) {
 
 void SortArray(uptr *array, uptr size) {
   InternalSort<uptr*, UptrComparisonFunction>(&array, size, CompareLess);
+}
+
+void SortArray(u32 *array, uptr size) {
+  InternalSort<u32*, U32ComparisonFunction>(&array, size, CompareLess);
 }
 
 const char *StripPathPrefix(const char *filepath,
@@ -483,4 +488,11 @@ int __sanitizer_install_malloc_and_free_hooks(void (*malloc_hook)(const void *,
                                               void (*free_hook)(const void *)) {
   return InstallMallocFreeHooks(malloc_hook, free_hook);
 }
+
+#if !SANITIZER_SUPPORTS_WEAK_HOOKS
+SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
+void __sanitizer_print_memory_profile(int top_percent) {
+  (void)top_percent;
+}
+#endif
 } // extern "C"

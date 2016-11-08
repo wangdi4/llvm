@@ -1,3 +1,5 @@
+include(AddLLVM) # for add_lit_testsuite
+
 macro(pythonize_bool var)
   if (${var})
     set(${var} True)
@@ -20,6 +22,7 @@ pythonize_bool(LIBCXXABI_ENABLE_SHARED)
 pythonize_bool(LIBCXXABI_USE_LLVM_UNWINDER)
 pythonize_bool(LIBCXX_HAS_ATOMIC_LIB)
 pythonize_bool(LIBCXX_HAVE_CXX_ATOMICS_WITH_LIB)
+pythonize_bool(LIBCXX_HAS_EXTERNAL_THREAD_API)
 
 # The tests shouldn't link to any ABI library when it has been linked into
 # libc++ statically or via a linker script.
@@ -50,10 +53,16 @@ if (LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY)
   set(experimental_dep cxx_experimental)
 endif()
 
-add_lit_testsuite(check-libcxx
+if (LIBCXX_HAS_EXTERNAL_THREAD_API)
+  set(external_threads_dep cxx_external_threads)
+endif()
+
+add_lit_testsuite(check-cxx
   "Running libcxx tests"
   ${CMAKE_CURRENT_BINARY_DIR}
-  DEPENDS cxx ${experimental_dep})
+  DEPENDS cxx ${experimental_dep} ${external_threads_dep})
+
+add_custom_target(check-libcxx DEPENDS check-cxx)
 
 if (LIBCXX_GENERATE_COVERAGE)
   include(CodeCoverage)

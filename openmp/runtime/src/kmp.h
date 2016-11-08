@@ -55,6 +55,12 @@
 #define KMP_CANCEL_THREADS
 #define KMP_THREAD_ATTR
 
+// Android does not have pthread_cancel.  Undefine KMP_CANCEL_THREADS if being
+// built on Android
+#if defined(__ANDROID__)
+#undef KMP_CANCEL_THREADS
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -1085,6 +1091,8 @@ extern int __kmp_place_num_threads_per_core;
 
 #define KMP_MAX_ACTIVE_LEVELS_LIMIT INT_MAX
 
+#define KMP_MAX_DEFAULT_DEVICE_LIMIT INT_MAX
+
 #define KMP_MAX_TASK_PRIORITY_LIMIT INT_MAX
 
 /* Minimum number of threads before switch to TLS gtid (experimentally determined) */
@@ -1806,6 +1814,7 @@ typedef struct kmp_internal_control {
     kmp_r_sched_t sched;                 /* internal control for runtime schedule {sched,chunk} pair */
 #if OMP_40_ENABLED
     kmp_proc_bind_t proc_bind;           /* internal control for affinity  */
+    kmp_int32       default_device;      /* internal control for default device */
 #endif // OMP_40_ENABLED
     struct kmp_internal_control *next;
 } kmp_internal_control_t;
@@ -2049,6 +2058,9 @@ typedef enum kmp_tasking_mode {
 
 extern kmp_tasking_mode_t __kmp_tasking_mode;         /* determines how/when to execute tasks */
 extern kmp_int32 __kmp_task_stealing_constraint;
+#if OMP_40_ENABLED
+    extern kmp_int32 __kmp_default_device; // Set via OMP_DEFAULT_DEVICE if specified, defaults to 0 otherwise
+#endif
 #if OMP_45_ENABLED
     extern kmp_int32 __kmp_max_task_priority; // Set via OMP_MAX_TASK_PRIORITY if specified, defaults to 0 otherwise
 #endif
@@ -3158,6 +3170,7 @@ extern void __kmp_affinity_set_place(int gtid);
 extern void __kmp_affinity_determine_capable( const char *env_var );
 extern int __kmp_aux_set_affinity(void **mask);
 extern int __kmp_aux_get_affinity(void **mask);
+extern int __kmp_aux_get_affinity_max_proc();
 extern int __kmp_aux_set_affinity_mask_proc(int proc, void **mask);
 extern int __kmp_aux_unset_affinity_mask_proc(int proc, void **mask);
 extern int __kmp_aux_get_affinity_mask_proc(int proc, void **mask);

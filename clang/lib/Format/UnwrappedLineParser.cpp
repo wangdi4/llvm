@@ -364,7 +364,8 @@ void UnwrappedLineParser::calculateBraceTypes(bool ExpectClassBody) {
           // We exclude + and - as they can be ObjC visibility modifiers.
           ProbablyBracedList =
               (Style.Language == FormatStyle::LK_JavaScript &&
-               NextTok->isOneOf(Keywords.kw_of, Keywords.kw_in)) ||
+               NextTok->isOneOf(Keywords.kw_of, Keywords.kw_in,
+                                Keywords.kw_as)) ||
               NextTok->isOneOf(tok::comma, tok::period, tok::colon,
                                tok::r_paren, tok::r_square, tok::l_brace,
                                tok::l_square, tok::l_paren, tok::ellipsis) ||
@@ -680,7 +681,9 @@ static bool mustBeJSIdent(const AdditionalKeywords &Keywords,
 
 static bool mustBeJSIdentOrValue(const AdditionalKeywords &Keywords,
                                  const FormatToken *FormatTok) {
-  return FormatTok->Tok.isLiteral() || mustBeJSIdent(Keywords, FormatTok);
+  return FormatTok->Tok.isLiteral() ||
+         FormatTok->isOneOf(tok::kw_true, tok::kw_false) ||
+         mustBeJSIdent(Keywords, FormatTok);
 }
 
 // isJSDeclOrStmt returns true if |FormatTok| starts a declaration or statement
@@ -906,8 +909,8 @@ void UnwrappedLineParser::parseStructuralElement() {
       if (FormatTok->is(tok::colon)) {
         nextToken();
         addUnwrappedLine();
+        return;
       }
-      return;
     }
     // In all other cases, parse the declaration.
     break;

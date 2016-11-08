@@ -39,8 +39,9 @@ public:
 } // namespace llvm
 
 namespace polly {
+class ScopArrayInfo;
 
-/// @brief LLVM-IR generator for isl_ast_expr[essions]
+/// LLVM-IR generator for isl_ast_expr[essions]
 ///
 /// This generator generates LLVM-IR that performs the computation described by
 /// an isl_ast_expr[ession].
@@ -89,10 +90,29 @@ namespace polly {
 ///
 class IslExprBuilder {
 public:
-  /// @brief A map from isl_ids to llvm::Values.
+  /// A map from isl_ids to llvm::Values.
   typedef llvm::MapVector<isl_id *, llvm::AssertingVH<llvm::Value>> IDToValueTy;
 
-  /// @brief Construct an IslExprBuilder.
+  typedef llvm::MapVector<isl_id *, const ScopArrayInfo *> IDToScopArrayInfoTy;
+
+  /// A map from isl_ids to ScopArrayInfo objects.
+  ///
+  /// This map is used to obtain ScopArrayInfo objects for isl_ids which do not
+  /// carry a ScopArrayInfo object in their user pointer. This is useful if the
+  /// construction of ScopArrayInfo objects happens only after references (e.g.
+  /// in an AST) to an isl_id are generated and the user pointer of the isl_id
+  /// can not be changed any more.
+  ///
+  /// This is useful for external users who just use the IslExprBuilder for
+  /// code generation.
+  IDToScopArrayInfoTy *IDToSAI = nullptr;
+
+  /// Set the isl_id to ScopArrayInfo map.
+  ///
+  /// @param NewIDToSAI The new isl_id to ScopArrayInfo map to use.
+  void setIDToSAI(IDToScopArrayInfoTy *NewIDToSAI) { IDToSAI = NewIDToSAI; }
+
+  /// Construct an IslExprBuilder.
   ///
   /// @param Builder The IRBuilder used to construct the isl_ast_expr[ession].
   ///                The insert location of this IRBuilder defines WHERE the
@@ -107,14 +127,14 @@ public:
                  llvm::ScalarEvolution &SE, llvm::DominatorTree &DT,
                  llvm::LoopInfo &LI);
 
-  /// @brief Create LLVM-IR for an isl_ast_expr[ession].
+  /// Create LLVM-IR for an isl_ast_expr[ession].
   ///
   /// @param Expr The ast expression for which we generate LLVM-IR.
   ///
   /// @return The llvm::Value* containing the result of the computation.
   llvm::Value *create(__isl_take isl_ast_expr *Expr);
 
-  /// @brief Return the largest of two types.
+  /// Return the largest of two types.
   ///
   /// @param T1 The first type.
   /// @param T2 The second type.
@@ -122,7 +142,7 @@ public:
   /// @return The largest of the two types.
   llvm::Type *getWidestType(llvm::Type *T1, llvm::Type *T2);
 
-  /// @brief Return the type with which this expression should be computed.
+  /// Return the type with which this expression should be computed.
   ///
   /// The type needs to be large enough to hold all possible input and all
   /// possible output values.
@@ -131,7 +151,7 @@ public:
   /// @return The type with which the expression should be computed.
   llvm::IntegerType *getType(__isl_keep isl_ast_expr *Expr);
 
-  /// @brief Change if runtime overflows are tracked or not.
+  /// Change if runtime overflows are tracked or not.
   ///
   /// @param Enable Flag to enable/disable the tracking.
   ///
@@ -139,17 +159,28 @@ public:
   /// allowed if the last tracked expression dominates the current insert point.
   void setTrackOverflow(bool Enable);
 
-  /// @brief Return the current overflow status or nullptr if it is not tracked.
+  /// Return the current overflow status or nullptr if it is not tracked.
   ///
   /// @return A nullptr if tracking is disabled or otherwise an i1 that has the
   ///         value of "0" if and only if no overflow happened since tracking
   ///         was enabled.
   llvm::Value *getOverflowState() const;
 
+  /// Create LLVM-IR that computes the memory location of an access expression.
+  ///
+  /// For a given isl_ast_expr[ession] of type isl_ast_op_access this function
+  /// creates IR that computes the address the access expression refers to.
+  ///
+  /// @param Expr The ast expression of type isl_ast_op_access
+  ///             for which we generate LLVM-IR.
+  ///
+  /// @return The llvm::Value* containing the result of the computation.
+  llvm::Value *createAccessAddress(__isl_take isl_ast_expr *Expr);
+
 private:
   Scop &S;
 
-  /// @brief Flag that will be set if an overflow occurred at runtime.
+  /// Flag that will be set if an overflow occurred at runtime.
   ///
   /// Note that this flag is by default a nullptr and if it is a nullptr
   /// we will not record overflows but simply perform the computations.
@@ -183,9 +214,8 @@ private:
   llvm::Value *createId(__isl_take isl_ast_expr *Expr);
   llvm::Value *createInt(__isl_take isl_ast_expr *Expr);
   llvm::Value *createOpAddressOf(__isl_take isl_ast_expr *Expr);
-  llvm::Value *createAccessAddress(__isl_take isl_ast_expr *Expr);
 
-  /// @brief Create a binary operation @p Opc and track overflows if requested.
+  /// Create a binary operation @p Opc and track overflows if requested.
   ///
   /// @param OpC  The binary operation that should be performed [Add/Sub/Mul].
   /// @param LHS  The left operand.
@@ -197,7 +227,7 @@ private:
                            llvm::Value *LHS, llvm::Value *RHS,
                            const llvm::Twine &Name);
 
-  /// @brief Create an addition and track overflows if requested.
+  /// Create an addition and track overflows if requested.
   ///
   /// @param LHS  The left operand.
   /// @param RHS  The right operand.
@@ -207,7 +237,7 @@ private:
   llvm::Value *createAdd(llvm::Value *LHS, llvm::Value *RHS,
                          const llvm::Twine &Name = "");
 
-  /// @brief Create a subtraction and track overflows if requested.
+  /// Create a subtraction and track overflows if requested.
   ///
   /// @param LHS  The left operand.
   /// @param RHS  The right operand.
@@ -217,7 +247,7 @@ private:
   llvm::Value *createSub(llvm::Value *LHS, llvm::Value *RHS,
                          const llvm::Twine &Name = "");
 
-  /// @brief Create a multiplication and track overflows if requested.
+  /// Create a multiplication and track overflows if requested.
   ///
   /// @param LHS  The left operand.
   /// @param RHS  The right operand.

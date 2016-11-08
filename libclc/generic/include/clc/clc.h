@@ -30,6 +30,7 @@
 #include <clc/workitem/get_local_id.h>
 #include <clc/workitem/get_num_groups.h>
 #include <clc/workitem/get_group_id.h>
+#include <clc/workitem/get_global_offset.h>
 
 /* 6.11.2 Math Functions */
 #include <clc/math/acos.h>
@@ -43,8 +44,10 @@
 #include <clc/math/atan2pi.h>
 #include <clc/math/atanh.h>
 #include <clc/math/atanpi.h>
+#include <clc/math/cbrt.h>
 #include <clc/math/copysign.h>
 #include <clc/math/cos.h>
+#include <clc/math/cosh.h>
 #include <clc/math/cospi.h>
 #include <clc/math/ceil.h>
 #include <clc/math/erf.h>
@@ -66,6 +69,8 @@
 #include <clc/math/hypot.h>
 #include <clc/math/ilogb.h>
 #include <clc/math/ldexp.h>
+#include <clc/math/lgamma.h>
+#include <clc/math/lgamma_r.h>
 #include <clc/math/log.h>
 #include <clc/math/log10.h>
 #include <clc/math/log1p.h>
@@ -83,6 +88,7 @@
 #include <clc/math/sqrt.h>
 #include <clc/math/tan.h>
 #include <clc/math/tanh.h>
+#include <clc/math/tgamma.h>
 #include <clc/math/trunc.h>
 #include <clc/math/native_cos.h>
 #include <clc/math/native_divide.h>
