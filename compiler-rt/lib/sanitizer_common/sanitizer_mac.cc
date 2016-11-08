@@ -387,6 +387,8 @@ bool IsHandledDeadlySignal(int signum) {
   if ((SANITIZER_WATCHOS || SANITIZER_TVOS) && !(SANITIZER_IOSSIM))
     // Handling fatal signals on watchOS and tvOS devices is disallowed.
     return false;
+  if (common_flags()->handle_abort && signum == SIGABRT)
+    return true;
   return (signum == SIGSEGV || signum == SIGBUS) && common_flags()->handle_segv;
 }
 
@@ -739,6 +741,9 @@ void MaybeReexec() {
 char **GetArgv() {
   return *_NSGetArgv();
 }
+
+// FIXME implement on this platform.
+void GetMemoryProfile(fill_profile_f cb, uptr *stats, uptr stats_size) { }
 
 }  // namespace __sanitizer
 

@@ -4,7 +4,7 @@ function(lldb_link_common_libs name targetkind)
   endif()
 
   if(${targetkind} MATCHES "SHARED")
-    set(LINK_KEYWORD ${cmake_2_8_12_PUBLIC})
+    set(LINK_KEYWORD PUBLIC)
   endif()
 
   if(${targetkind} MATCHES "SHARED" OR ${targetkind} MATCHES "EXE")
@@ -62,20 +62,24 @@ macro(add_lldb_library name)
 
     if (PARAM_SHARED)
       if (LLDB_LINKER_SUPPORTS_GROUPS)
-        target_link_libraries(${name} ${cmake_2_8_12_PUBLIC}
+        target_link_libraries(${name} PUBLIC
                     -Wl,--start-group ${CLANG_USED_LIBS} -Wl,--end-group)
       else()
-        target_link_libraries(${name} ${cmake_2_8_12_PUBLIC} ${CLANG_USED_LIBS})
+        target_link_libraries(${name} PUBLIC ${CLANG_USED_LIBS})
       endif()
     endif()
     llvm_config(${name} ${LLVM_LINK_COMPONENTS} ${LLVM_PRIVATE_LINK_COMPONENTS})
 
     if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY OR ${name} STREQUAL "liblldb")
       if (PARAM_SHARED)
+        set(out_dir lib${LLVM_LIBDIR_SUFFIX})
+        if(${name} STREQUAL "liblldb" AND LLDB_BUILD_FRAMEWORK)
+          set(out_dir ${LLDB_FRAMEWORK_INSTALL_DIR})
+        endif()
         install(TARGETS ${name}
           RUNTIME DESTINATION bin
-          LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-          ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+          LIBRARY DESTINATION ${out_dir}
+          ARCHIVE DESTINATION ${out_dir})
       else()
         install(TARGETS ${name}
           LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
@@ -93,8 +97,26 @@ macro(add_lldb_library name)
 endmacro(add_lldb_library)
 
 macro(add_lldb_executable name)
-  add_llvm_executable(${name} DISABLE_LLVM_LINK_LLVM_DYLIB ${ARGN})
-  set_target_properties(${name} PROPERTIES FOLDER "lldb executables")
+  cmake_parse_arguments(ARG "INCLUDE_IN_FRAMEWORK" "" "" ${ARGN})
+  add_llvm_executable(${name} DISABLE_LLVM_LINK_LLVM_DYLIB ${ARG_UNPARSED_ARGUMENTS})
+  set_target_properties(${name} PROPERTIES
+    FOLDER "lldb executables")
+
+  if(LLDB_BUILD_FRAMEWORK)
+    if(ARG_INCLUDE_IN_FRAMEWORK)
+      string(REGEX REPLACE "[^/]+" ".." _dots ${LLDB_FRAMEWORK_INSTALL_DIR})
+      set_target_properties(${name} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY $<TARGET_FILE_DIR:liblldb>/Resources
+            BUILD_WITH_INSTALL_RPATH On
+            INSTALL_RPATH "@loader_path/../../../../${_dots}/${LLDB_FRAMEWORK_INSTALL_DIR}")
+
+      add_llvm_tool_symlink(${name} $<TARGET_FILE:${name}> ARG_ALWAYS_GENERATE)
+    else()
+      set_target_properties(${name} PROPERTIES
+            BUILD_WITH_INSTALL_RPATH On
+            INSTALL_RPATH "@loader_path/../${LLDB_FRAMEWORK_INSTALL_DIR}")
+    endif()
+  endif()
 endmacro(add_lldb_executable)
 
 # Support appending linker flags to an existing target.

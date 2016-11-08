@@ -330,7 +330,7 @@ LocalAddressSpace::getEncodedP(pint_t &addr, pint_t end, uint8_t encoding,
         return false;
       const mach_header *mh = (const mach_header *)dlinfo.dli_saddr;
       
-      // Find dwarf unwind section in that image.
+      // Find DWARF unwind section in that image.
       unsigned long size;
       const uint8_t *p = getsectiondata(mh, "__TEXT", "__eh_frame", &size);
       if (!p)
@@ -373,7 +373,7 @@ inline bool LocalAddressSpace::findUnwindSections(pint_t targetAddr,
       (_Unwind_Ptr) targetAddr, &length);
   info.arm_section_length = (uintptr_t)length;
  #endif
-  _LIBUNWIND_TRACE_UNWINDING("findUnwindSections: section %X length %x\n",
+  _LIBUNWIND_TRACE_UNWINDING("findUnwindSections: section %X length %x",
                              info.arm_section, info.arm_section_length);
   if (info.arm_section && info.arm_section_length)
     return true;

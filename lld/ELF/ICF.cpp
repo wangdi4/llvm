@@ -137,7 +137,7 @@ template <class ELFT> bool ICF<ELFT>::isEligible(InputSectionBase<ELFT> *Sec) {
   // .init and .fini contains instructions that must be executed to
   // initialize and finalize the process. They cannot and should not
   // be merged.
-  StringRef Name = S->getSectionName();
+  StringRef Name = S->Name;
   if (Name == ".init" || Name == ".fini")
     return false;
 
@@ -148,8 +148,7 @@ template <class ELFT> bool ICF<ELFT>::isEligible(InputSectionBase<ELFT> *Sec) {
 template <class ELFT>
 std::vector<InputSection<ELFT> *> ICF<ELFT>::getSections() {
   std::vector<InputSection<ELFT> *> V;
-  for (const std::unique_ptr<ObjectFile<ELFT>> &F :
-       Symtab<ELFT>::X->getObjectFiles())
+  for (ObjectFile<ELFT> *F : Symtab<ELFT>::X->getObjectFiles())
     for (InputSectionBase<ELFT> *S : F->getSections())
       if (isEligible(S))
         V.push_back(cast<InputSection<ELFT>>(S));
@@ -233,8 +232,7 @@ bool ICF<ELFT>::equalsConstant(const InputSection<ELFT> *A,
   }
 
   return A->getSectionHdr()->sh_flags == B->getSectionHdr()->sh_flags &&
-         A->getSize() == B->getSize() &&
-         A->getSectionData() == B->getSectionData();
+         A->getSize() == B->getSize() && A->Data == B->Data;
 }
 
 template <class ELFT>
@@ -302,7 +300,11 @@ template <class ELFT> void ICF<ELFT>::run() {
   // the same group are consecutive in the vector.
   std::stable_sort(V.begin(), V.end(),
                    [](InputSection<ELFT> *A, InputSection<ELFT> *B) {
-                     return A->GroupId < B->GroupId;
+                     if (A->GroupId != B->GroupId)
+                       return A->GroupId < B->GroupId;
+                     // Within a group, put the highest alignment
+                     // requirement first, so that's the one we'll keep.
+                     return B->Alignment < A->Alignment;
                    });
 
   // Compare static contents and assign unique IDs for each static content.
@@ -327,10 +329,10 @@ template <class ELFT> void ICF<ELFT>::run() {
     });
     if (I == Bound)
       continue;
-    log("selected " + Head->getSectionName());
+    log("selected " + Head->Name);
     while (I != Bound) {
       InputSection<ELFT> *S = *I++;
-      log("  removed " + S->getSectionName());
+      log("  removed " + S->Name);
       Head->replace(S);
     }
   }

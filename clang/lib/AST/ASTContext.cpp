@@ -34,7 +34,6 @@
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/Capacity.h"
@@ -652,6 +651,10 @@ ASTContext::getCanonicalTemplateTemplateParmDecl(
                                            cast<TemplateTemplateParmDecl>(*P)));
   }
 
+  assert(!TTP->getRequiresClause() &&
+         "Unexpected requires-clause on template template-parameter");
+  Expr *const CanonRequiresClause = nullptr;
+
   TemplateTemplateParmDecl *CanonTTP
     = TemplateTemplateParmDecl::Create(*this, getTranslationUnitDecl(), 
                                        SourceLocation(), TTP->getDepth(),
@@ -661,7 +664,8 @@ ASTContext::getCanonicalTemplateTemplateParmDecl(
                          TemplateParameterList::Create(*this, SourceLocation(),
                                                        SourceLocation(),
                                                        CanonParams,
-                                                       SourceLocation()));
+                                                       SourceLocation(),
+                                                       CanonRequiresClause));
 
   // Get the new insert position for the node we care about.
   Canonical = CanonTemplateTemplateParms.FindNodeOrInsertPos(ID, InsertPos);
@@ -788,6 +792,9 @@ ASTContext::~ASTContext() {
        MaterializedTemporaryValues)
     MTVPair.second->~APValue();
 
+  for (const auto &Value : ModuleInitializers)
+    Value.second->~PerModuleInitializers();
+
   llvm::DeleteContainerSeconds(MangleNumberingContexts);
 }
 
@@ -900,6 +907,67 @@ void ASTContext::deduplicateMergedDefinitonsFor(NamedDecl *ND) {
     if (!Found.insert(M).second)
       M = nullptr;
   Merged.erase(std::remove(Merged.begin(), Merged.end(), nullptr), Merged.end());
+}
+
+void ASTContext::PerModuleInitializers::resolve(ASTContext &Ctx) {
+  if (LazyInitializers.empty())
+    return;
+
+  auto *Source = Ctx.getExternalSource();
+  assert(Source && "lazy initializers but no external source");
+
+  auto LazyInits = std::move(LazyInitializers);
+  LazyInitializers.clear();
+
+  for (auto ID : LazyInits)
+    Initializers.push_back(Source->GetExternalDecl(ID));
+
+  assert(LazyInitializers.empty() &&
+         "GetExternalDecl for lazy module initializer added more inits");
+}
+
+void ASTContext::addModuleInitializer(Module *M, Decl *D) {
+  // One special case: if we add a module initializer that imports another
+  // module, and that module's only initializer is an ImportDecl, simplify.
+  if (auto *ID = dyn_cast<ImportDecl>(D)) {
+    auto It = ModuleInitializers.find(ID->getImportedModule());
+
+    // Maybe the ImportDecl does nothing at all. (Common case.)
+    if (It == ModuleInitializers.end())
+      return;
+
+    // Maybe the ImportDecl only imports another ImportDecl.
+    auto &Imported = *It->second;
+    if (Imported.Initializers.size() + Imported.LazyInitializers.size() == 1) {
+      Imported.resolve(*this);
+      auto *OnlyDecl = Imported.Initializers.front();
+      if (isa<ImportDecl>(OnlyDecl))
+        D = OnlyDecl;
+    }
+  }
+
+  auto *&Inits = ModuleInitializers[M];
+  if (!Inits)
+    Inits = new (*this) PerModuleInitializers;
+  Inits->Initializers.push_back(D);
+}
+
+void ASTContext::addLazyModuleInitializers(Module *M, ArrayRef<uint32_t> IDs) {
+  auto *&Inits = ModuleInitializers[M];
+  if (!Inits)
+    Inits = new (*this) PerModuleInitializers;
+  Inits->LazyInitializers.insert(Inits->LazyInitializers.end(),
+                                 IDs.begin(), IDs.end());
+}
+
+ArrayRef<Decl*> ASTContext::getModuleInitializers(Module *M) {
+  auto It = ModuleInitializers.find(M);
+  if (It == ModuleInitializers.end()) 
+    return None;
+
+  auto *Inits = It->second;
+  Inits->resolve(*this);
+  return Inits->Initializers;
 }
 
 ExternCContextDecl *ASTContext::getExternCContextDecl() const {
@@ -1671,24 +1739,29 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getPointerWidth(0); 
       Align = Target->getPointerAlign(0);
       break;
-    case BuiltinType::OCLSampler:
-      // Samplers are modeled as integers.
-      Width = Target->getIntWidth();
-      Align = Target->getIntAlign();
+    case BuiltinType::OCLSampler: {
+      auto AS = getTargetAddressSpace(LangAS::opencl_constant);
+      Width = Target->getPointerWidth(AS);
+      Align = Target->getPointerAlign(AS);
       break;
+    }
     case BuiltinType::OCLEvent:
     case BuiltinType::OCLClkEvent:
     case BuiltinType::OCLQueue:
     case BuiltinType::OCLNDRange:
     case BuiltinType::OCLReserveID:
-#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
-    case BuiltinType::Id:
-#include "clang/Basic/OpenCLImageTypes.def"
-
       // Currently these types are pointers to opaque types.
       Width = Target->getPointerWidth(0);
       Align = Target->getPointerAlign(0);
       break;
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
+    case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
+      {
+        auto AS = getTargetAddressSpace(Target->getOpenCLImageAddrSpace());
+        Width = Target->getPointerWidth(AS);
+        Align = Target->getPointerAlign(AS);
+      }
     }
     break;
   case Type::ObjCObjectPointer:
@@ -1786,6 +1859,9 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
 
   case Type::Paren:
     return getTypeInfo(cast<ParenType>(T)->getInnerType().getTypePtr());
+
+  case Type::ObjCTypeParam:
+    return getTypeInfo(cast<ObjCTypeParamType>(T)->desugar().getTypePtr());
 
   case Type::Typedef: {
     const TypedefNameDecl *Typedef = cast<TypedefType>(T)->getDecl();
@@ -3796,6 +3872,116 @@ QualType ASTContext::getObjCObjectType(
   Types.push_back(T);
   ObjCObjectTypes.InsertNode(T, InsertPos);
   return QualType(T, 0);
+}
+
+/// Apply Objective-C protocol qualifiers to the given type.
+/// If this is for the canonical type of a type parameter, we can apply
+/// protocol qualifiers on the ObjCObjectPointerType.
+QualType
+ASTContext::applyObjCProtocolQualifiers(QualType type,
+                  ArrayRef<ObjCProtocolDecl *> protocols, bool &hasError,
+                  bool allowOnPointerType) const {
+  hasError = false;
+
+  if (const ObjCTypeParamType *objT =
+      dyn_cast<ObjCTypeParamType>(type.getTypePtr())) {
+    return getObjCTypeParamType(objT->getDecl(), protocols);
+  }
+
+  // Apply protocol qualifiers to ObjCObjectPointerType.
+  if (allowOnPointerType) {
+    if (const ObjCObjectPointerType *objPtr =
+        dyn_cast<ObjCObjectPointerType>(type.getTypePtr())) {
+      const ObjCObjectType *objT = objPtr->getObjectType();
+      // Merge protocol lists and construct ObjCObjectType.
+      SmallVector<ObjCProtocolDecl*, 8> protocolsVec;
+      protocolsVec.append(objT->qual_begin(),
+                          objT->qual_end());
+      protocolsVec.append(protocols.begin(), protocols.end());
+      ArrayRef<ObjCProtocolDecl *> protocols = protocolsVec;
+      type = getObjCObjectType(
+             objT->getBaseType(),
+             objT->getTypeArgsAsWritten(),
+             protocols,
+             objT->isKindOfTypeAsWritten());
+      return getObjCObjectPointerType(type);
+    }
+  }
+
+  // Apply protocol qualifiers to ObjCObjectType.
+  if (const ObjCObjectType *objT = dyn_cast<ObjCObjectType>(type.getTypePtr())){
+    // FIXME: Check for protocols to which the class type is already
+    // known to conform.
+
+    return getObjCObjectType(objT->getBaseType(),
+                             objT->getTypeArgsAsWritten(),
+                             protocols,
+                             objT->isKindOfTypeAsWritten());
+  }
+
+  // If the canonical type is ObjCObjectType, ...
+  if (type->isObjCObjectType()) {
+    // Silently overwrite any existing protocol qualifiers.
+    // TODO: determine whether that's the right thing to do.
+
+    // FIXME: Check for protocols to which the class type is already
+    // known to conform.
+    return getObjCObjectType(type, { }, protocols, false);
+  }
+
+  // id<protocol-list>
+  if (type->isObjCIdType()) {
+    const ObjCObjectPointerType *objPtr = type->castAs<ObjCObjectPointerType>();
+    type = getObjCObjectType(ObjCBuiltinIdTy, { }, protocols,
+                                 objPtr->isKindOfType());
+    return getObjCObjectPointerType(type);
+  }
+
+  // Class<protocol-list>
+  if (type->isObjCClassType()) {
+    const ObjCObjectPointerType *objPtr = type->castAs<ObjCObjectPointerType>();
+    type = getObjCObjectType(ObjCBuiltinClassTy, { }, protocols,
+                                 objPtr->isKindOfType());
+    return getObjCObjectPointerType(type);
+  }
+
+  hasError = true;
+  return type;
+}
+
+QualType
+ASTContext::getObjCTypeParamType(const ObjCTypeParamDecl *Decl,
+                           ArrayRef<ObjCProtocolDecl *> protocols,
+                           QualType Canonical) const {
+  // Look in the folding set for an existing type.
+  llvm::FoldingSetNodeID ID;
+  ObjCTypeParamType::Profile(ID, Decl, protocols);
+  void *InsertPos = nullptr;
+  if (ObjCTypeParamType *TypeParam =
+      ObjCTypeParamTypes.FindNodeOrInsertPos(ID, InsertPos))
+    return QualType(TypeParam, 0);
+
+  if (Canonical.isNull()) {
+    // We canonicalize to the underlying type.
+    Canonical = getCanonicalType(Decl->getUnderlyingType());
+    if (!protocols.empty()) {
+      // Apply the protocol qualifers.
+      bool hasError;
+      Canonical = applyObjCProtocolQualifiers(Canonical, protocols, hasError,
+          true/*allowOnPointerType*/);
+      assert(!hasError && "Error when apply protocol qualifier to bound type");
+    }
+  }
+
+  unsigned size = sizeof(ObjCTypeParamType);
+  size += protocols.size() * sizeof(ObjCProtocolDecl *);
+  void *mem = Allocate(size, TypeAlignment);
+  ObjCTypeParamType *newType = new (mem)
+    ObjCTypeParamType(Decl, Canonical, protocols);
+
+  Types.push_back(newType);
+  ObjCTypeParamTypes.InsertNode(newType, InsertPos);
+  return QualType(newType, 0);
 }
 
 /// ObjCObjectAdoptsQTypeProtocols - Checks that protocols in IC's
@@ -5833,18 +6019,20 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
     ObjCInterfaceDecl *OI = T->castAs<ObjCObjectType>()->getInterface();
     S += '{';
     S += OI->getObjCRuntimeNameAsString();
-    S += '=';
-    SmallVector<const ObjCIvarDecl*, 32> Ivars;
-    DeepCollectObjCIvars(OI, true, Ivars);
-    for (unsigned i = 0, e = Ivars.size(); i != e; ++i) {
-      const FieldDecl *Field = cast<FieldDecl>(Ivars[i]);
-      if (Field->isBitField())
-        getObjCEncodingForTypeImpl(Field->getType(), S, false, true, Field);
-      else
-        getObjCEncodingForTypeImpl(Field->getType(), S, false, true, FD,
-                                   false, false, false, false, false,
-                                   EncodePointerToObjCTypedef,
-                                   NotEncodedT);
+    if (ExpandStructures) {
+      S += '=';
+      SmallVector<const ObjCIvarDecl*, 32> Ivars;
+      DeepCollectObjCIvars(OI, true, Ivars);
+      for (unsigned i = 0, e = Ivars.size(); i != e; ++i) {
+        const FieldDecl *Field = cast<FieldDecl>(Ivars[i]);
+        if (Field->isBitField())
+          getObjCEncodingForTypeImpl(Field->getType(), S, false, true, Field);
+        else
+          getObjCEncodingForTypeImpl(Field->getType(), S, false, true, FD,
+                                     false, false, false, false, false,
+                                     EncodePointerToObjCTypedef,
+                                     NotEncodedT);
+      }
     }
     S += '}';
     return;
@@ -8576,6 +8764,8 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     return !D->getDeclContext()->isDependentContext();
   else if (isa<OMPDeclareReductionDecl>(D))
     return !D->getDeclContext()->isDependentContext();
+  else if (isa<ImportDecl>(D))
+    return true;
   else
     return false;
 
@@ -8645,6 +8835,14 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
   if (VD->getInit() && VD->getInit()->HasSideEffects(*this) &&
       !VD->evaluateValue())
     return true;
+
+  // Likewise, variables with tuple-like bindings are required if their
+  // bindings have side-effects.
+  if (auto *DD = dyn_cast<DecompositionDecl>(VD))
+    for (auto *BD : DD->bindings())
+      if (auto *BindingVD = BD->getHoldingVar())
+        if (DeclMustBeEmitted(BindingVD))
+          return true;
 
   return false;
 }

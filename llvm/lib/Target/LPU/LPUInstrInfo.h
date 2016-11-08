@@ -119,7 +119,7 @@ public:
 
   // Branch folding goodness
   bool
-  ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
+  reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
   /*
   bool isUnpredicatedTerminator(const MachineInstr &MI) const override;
   */
@@ -128,12 +128,14 @@ public:
                      SmallVectorImpl<MachineOperand> &Cond,
                      bool AllowModify) const override;
 
-  unsigned RemoveBranch(MachineBasicBlock &MBB) const override;
+  unsigned removeBranch(MachineBasicBlock &MBB,
+                        int *BytesRemoved = nullptr) const override;
 
-  unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+  unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB,
                         ArrayRef<MachineOperand> Cond,
-                        const DebugLoc &DL) const override;
+                        const DebugLoc &DL,
+                        int *BytesAdded) const override;
 
   // Convert opcode of LD/ST into a corresponding opcode for OLD/OST.
   // Returns current_opcode if it is not a LD or ST.

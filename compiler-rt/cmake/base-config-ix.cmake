@@ -8,6 +8,7 @@ check_include_file(unwind.h HAVE_UNWIND_H)
 
 # Top level target used to build all compiler-rt libraries.
 add_custom_target(compiler-rt ALL)
+add_custom_target(install-compiler-rt)
 set_target_properties(compiler-rt PROPERTIES FOLDER "Compiler-RT Misc")
 
 # Setting these variables from an LLVM build is sufficient that compiler-rt can
@@ -85,6 +86,15 @@ if(APPLE)
   option(COMPILER_RT_ENABLE_TVOS "Enable building for tvOS - Experimental" Off)
 endif()
 
+if(WIN32 AND NOT MINGW AND NOT CYGWIN)
+  set(CMAKE_SHARED_LIBRARY_PREFIX_C "")
+  set(CMAKE_SHARED_LIBRARY_PREFIX_CXX "")
+  set(CMAKE_STATIC_LIBRARY_PREFIX_C "")
+  set(CMAKE_STATIC_LIBRARY_PREFIX_CXX "")
+  set(CMAKE_STATIC_LIBRARY_SUFFIX_C ".lib")
+  set(CMAKE_STATIC_LIBRARY_SUFFIX_CXX ".lib")
+endif()
+
 macro(test_targets)
   # Find and run MSVC (not clang-cl) and get its version. This will tell clang-cl
   # what version of MSVC to pretend to be so that the STL works.
@@ -153,8 +163,12 @@ macro(test_targets)
       test_target_arch(mips "" "-mips32r2" "--target=mips-linux-gnu")
       test_target_arch(mips64 "" "-mips64r2" "--target=mips64-linux-gnu" "-mabi=64")
     elseif("${COMPILER_RT_DEFAULT_TARGET_ARCH}" MATCHES "arm")
-      test_target_arch(arm "" "-march=armv7-a" "-mfloat-abi=soft")
-      test_target_arch(armhf "" "-march=armv7-a" "-mfloat-abi=hard")
+      if(WIN32)
+        test_target_arch(arm "" "" "")
+      else()
+        test_target_arch(arm "" "-march=armv7-a" "-mfloat-abi=soft")
+        test_target_arch(armhf "" "-march=armv7-a" "-mfloat-abi=hard")
+      endif()
     elseif("${COMPILER_RT_DEFAULT_TARGET_ARCH}" MATCHES "aarch32")
       test_target_arch(aarch32 "" "-march=armv8-a")
     elseif("${COMPILER_RT_DEFAULT_TARGET_ARCH}" MATCHES "aarch64")

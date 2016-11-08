@@ -1198,6 +1198,17 @@ void StmtPrinter::VisitOMPTargetParallelForSimdDirective(
   PrintOMPExecutableDirective(Node);
 }
 
+void StmtPrinter::VisitOMPTargetSimdDirective(OMPTargetSimdDirective *Node) {
+  Indent() << "#pragma omp target simd ";
+  PrintOMPExecutableDirective(Node);
+}
+
+void StmtPrinter::VisitOMPTeamsDistributeDirective(
+    OMPTeamsDistributeDirective *Node) {
+  Indent() << "#pragma omp teams distribute ";
+  PrintOMPExecutableDirective(Node);
+}
+
 //===----------------------------------------------------------------------===//
 //  Expr printing methods.
 //===----------------------------------------------------------------------===//

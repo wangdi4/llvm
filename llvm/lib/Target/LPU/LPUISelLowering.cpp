@@ -806,7 +806,7 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
                                           const {
 
   MachineFunction &MF = DAG.getMachineFunction();
-  MachineFrameInfo *MFI = MF.getFrameInfo();
+  MachineFrameInfo &MFI = MF.getFrameInfo();
   LPUMachineFunctionInfo *UFI = MF.getInfo<LPUMachineFunctionInfo>();
 
   // Assign locations to all of the incoming arguments.
@@ -861,11 +861,11 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
         // sure that VA.getLocMemOffset() + 8 is always *non-null* and therefore always negative
         // as this is used to determine the offset of the FrameIndex in 'eliminateFrameIndex'. The +8
         // and negative are removed then...
-        int FI = MFI->CreateFixedObject(flags.getByValSize(), -((int64_t)VA.getLocMemOffset() + 8LL), true);
+        int FI = MFI.CreateFixedObject(flags.getByValSize(), -((int64_t)VA.getLocMemOffset() + 8LL), true);
         InVals.push_back(DAG.getFrameIndex(FI,
               getPointerTy(DAG.getDataLayout())));
       } else {
-        int FI = MFI->CreateFixedObject(VA.getLocVT().getSizeInBits()/8, -((int64_t)VA.getLocMemOffset() + 8LL), true);
+        int FI = MFI.CreateFixedObject(VA.getLocVT().getSizeInBits()/8, -((int64_t)VA.getLocMemOffset() + 8LL), true);
         SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
         // Create load to retrieve the argument from the stack
         InVals.push_back(DAG.getLoad(VA.getValVT(), dl, Chain, FIN,
@@ -874,7 +874,7 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
       /*
       unsigned ArgSize = VA.getLocVT().getSizeInBits()/8;
       int64_t Offset = VA.getLocMemOffset() + 8;
-      int FI = MFI->CreateFixedObject(ArgSize, -Offset, true);
+      int FI = MFI.CreateFixedObject(ArgSize, -Offset, true);
 
       // Create load nodes to retrieve arguments from the stack
       SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
@@ -889,7 +889,7 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
   if (isVarArg) {
     // This will point to the next argument passed via stack.
     unsigned ArgOffset = CCInfo.getNextStackOffset() + 8;
-    UFI->setVarArgsFrameIndex(MFI->CreateFixedObject(8, -ArgOffset, true));
+    UFI->setVarArgsFrameIndex(MFI.CreateFixedObject(8, -ArgOffset, true));
   }
 
   return Chain;
@@ -962,8 +962,8 @@ LPUTargetLowering::getReturnAddressFrameIndex(SelectionDAG &DAG) const {
 
 SDValue LPUTargetLowering::LowerRETURNADDR(SDValue Op,
                                               SelectionDAG &DAG) const {
-  MachineFrameInfo *MFI = DAG.getMachineFunction().getFrameInfo();
-  MFI->setReturnAddressIsTaken(true);
+  MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
+  MFI.setReturnAddressIsTaken(true);
 
   if (verifyReturnAddressArgumentIsConstant(Op, DAG))
     return SDValue();
@@ -989,8 +989,8 @@ SDValue LPUTargetLowering::LowerRETURNADDR(SDValue Op,
 
 SDValue LPUTargetLowering::LowerFRAMEADDR(SDValue Op,
                                              SelectionDAG &DAG) const {
-  MachineFrameInfo *MFI = DAG.getMachineFunction().getFrameInfo();
-  MFI->setFrameAddressIsTaken(true);
+  MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
+  MFI.setFrameAddressIsTaken(true);
 
   EVT VT = Op.getValueType();
   SDLoc dl(Op);  // FIXME probably not meaningful

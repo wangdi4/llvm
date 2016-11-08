@@ -4,10 +4,12 @@ set(LLVM_LINK_COMPONENTS
 
 add_clang_library(clangStaticAnalyzerCheckers
   AllocationDiagnostics.cpp
+  AnalysisOrderChecker.cpp
   AnalyzerStatsChecker.cpp
   ArrayBoundChecker.cpp
   ArrayBoundCheckerV2.cpp
   BasicObjCFoundationChecks.cpp
+  BlockInCriticalSectionChecker.cpp
   BoolAssignmentChecker.cpp
   BuiltinFunctionChecker.cpp
   CStringChecker.cpp
@@ -22,6 +24,8 @@ add_clang_library(clangStaticAnalyzerCheckers
   CheckerDocumentation.cpp
   ChrootChecker.cpp
   ClangCheckers.cpp
+  CloneChecker.cpp
+  ConversionChecker.cpp
   CXXSelfAssignmentChecker.cpp
   DeadStoresChecker.cpp
   DebugCheckers.cpp
@@ -79,6 +83,7 @@ add_clang_library(clangStaticAnalyzerCheckers
   UnreachableCodeChecker.cpp
   VforkChecker.cpp
   VLASizeChecker.cpp
+  ValistChecker.cpp
   VirtualCallChecker.cpp
 
   DEPENDS

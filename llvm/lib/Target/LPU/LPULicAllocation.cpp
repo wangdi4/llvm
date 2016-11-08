@@ -308,7 +308,7 @@ allocateLicsInBlock(MachineBasicBlock* BB)
   // Walk over instructions in basic block BB, changing each def into
   // a LIC, and converting its uses to use the LIC copies.
   for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end();  ++I) {
-    MachineInstr *MI = I;
+    MachineInstr *MI = &*I;
     DEBUG(errs() << "Found MachineInstr " << *MI << "\n");
 
     // If we are skipping PHIs in the processing, don't analyze any

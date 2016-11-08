@@ -194,12 +194,15 @@ void BitcodeCompiler::add(BitcodeFile &F) {
     if (BitcodeFile::shouldSkip(Flags))
       continue;
     Symbol *S = Syms[BodyIndex++];
+    if (GV)
+      GV->setUnnamedAddr(S->HasUnnamedAddr ? GlobalValue::UnnamedAddr::Global
+                                           : GlobalValue::UnnamedAddr::None);
     if (Flags & BasicSymbolRef::SF_Undefined) {
       handleUndefinedAsmRefs(Sym, GV, AsmUndefinedRefs);
       continue;
     }
-    auto *B = dyn_cast<DefinedBitcode>(S->body());
-    if (!B || B->file() != &F)
+    SymbolBody *B = S->body();
+    if (B->File != &F)
       continue;
 
     // We collect the set of symbols we want to internalize here
@@ -216,7 +219,12 @@ void BitcodeCompiler::add(BitcodeFile &F) {
     // needs to be able to replace the original definition without conflicting.
     // In the latter case, we need to allow the combined LTO object to provide a
     // definition with the same name, for example when doing parallel codegen.
-    undefine(S);
+    if (auto *C = dyn_cast<DefinedCommon>(B)) {
+      if (auto *GO = dyn_cast<GlobalObject>(GV))
+        GO->setAlignment(C->Alignment);
+    } else {
+      undefine(S);
+    }
 
     if (!GV)
       // Module asm symbol.
@@ -251,7 +259,7 @@ static void internalize(GlobalValue &GV) {
   GV.setLinkage(GlobalValue::InternalLinkage);
 }
 
-std::vector<std::unique_ptr<InputFile>> BitcodeCompiler::runSplitCodegen(
+std::vector<InputFile *> BitcodeCompiler::runSplitCodegen(
     const std::function<std::unique_ptr<TargetMachine>()> &TMFactory) {
   unsigned NumThreads = Config->LtoJobs;
   OwningData.resize(NumThreads);
@@ -265,7 +273,7 @@ std::vector<std::unique_ptr<InputFile>> BitcodeCompiler::runSplitCodegen(
 
   splitCodeGen(std::move(Combined), OSPtrs, {}, TMFactory);
 
-  std::vector<std::unique_ptr<InputFile>> ObjFiles;
+  std::vector<InputFile *> ObjFiles;
   for (SmallString<0> &Obj : OwningData)
     ObjFiles.push_back(createObjectFile(
         MemoryBufferRef(Obj, "LLD-INTERNAL-combined-lto-object")));
@@ -286,7 +294,7 @@ std::vector<std::unique_ptr<InputFile>> BitcodeCompiler::runSplitCodegen(
 
 // Merge all the bitcode files we have seen, codegen the result
 // and return the resulting ObjectFile.
-std::vector<std::unique_ptr<InputFile>> BitcodeCompiler::compile() {
+std::vector<InputFile *> BitcodeCompiler::compile() {
   for (const auto &Name : InternalizedSyms) {
     GlobalValue *GV = Combined->getNamedValue(Name.first());
     assert(GV);

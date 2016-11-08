@@ -93,7 +93,7 @@ set(COMPILER_RT_SUPPORTED_ARCH)
 # runtime libraries supported by our current compilers cross-compiling
 # abilities.
 set(SIMPLE_SOURCE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/simple.cc)
-file(WRITE ${SIMPLE_SOURCE} "#include <stdlib.h>\n#include <limits>\nint main() {}\n")
+file(WRITE ${SIMPLE_SOURCE} "#include <stdlib.h>\n#include <stdio.h>\nint main() { printf(\"hello, world\"); }\n")
 
 # Add $arch as supported with no additional flags.
 macro(add_default_target_arch arch)
@@ -161,6 +161,7 @@ set(ALL_SAFESTACK_SUPPORTED_ARCH ${X86} ${X86_64} ${ARM64} ${MIPS32} ${MIPS64})
 set(ALL_CFI_SUPPORTED_ARCH ${X86} ${X86_64} ${MIPS64})
 set(ALL_ESAN_SUPPORTED_ARCH ${X86_64})
 set(ALL_SCUDO_SUPPORTED_ARCH ${X86_64})
+set(ALL_XRAY_SUPPORTED_ARCH ${X86_64} ${ARM32})
 
 if(APPLE)
   include(CompilerRTDarwinUtils)
@@ -172,6 +173,14 @@ if(APPLE)
   find_darwin_sdk_dir(DARWIN_watchos_SYSROOT watchos)
   find_darwin_sdk_dir(DARWIN_tvossim_SYSROOT appletvsimulator)
   find_darwin_sdk_dir(DARWIN_tvos_SYSROOT appletvos)
+
+  if(NOT DARWIN_osx_SYSROOT)
+    if(EXISTS /usr/include)
+      set(DARWIN_osx_SYSROOT /)
+    else()
+      message(ERROR "Could not detect OS X Sysroot. Either install Xcode or the Apple Command Line Tools")
+    endif()
+  endif()
 
   if(COMPILER_RT_ENABLE_IOS)
     list(APPEND DARWIN_EMBEDDED_PLATFORMS ios)
@@ -268,7 +277,7 @@ if(APPLE)
           DARWIN_${platform}sim_ARCHS
           ${toolchain_arches})
         message(STATUS "${platform} Simulator supported arches: ${DARWIN_${platform}sim_ARCHS}")
-        if(DARWIN_${platform}_ARCHS)
+        if(DARWIN_${platform}sim_ARCHS)
           list(APPEND SANITIZER_COMMON_SUPPORTED_OS ${platform}sim)
           list(APPEND PROFILE_SUPPORTED_OS ${platform}sim)
           if(DARWIN_${platform}_SYSROOT_INTERNAL)
@@ -350,6 +359,9 @@ if(APPLE)
   list_intersect(SCUDO_SUPPORTED_ARCH
     ALL_SCUDO_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
+  list_intersect(XRAY_SUPPORTED_ARCH
+    ALL_XRAY_SUPPORTED_ARCH
+		SANITIZER_COMMON_SUPPORTED_ARCH)
 else()
   # Architectures supported by compiler-rt libraries.
   filter_available_targets(SANITIZER_COMMON_SUPPORTED_ARCH
@@ -373,6 +385,7 @@ else()
   filter_available_targets(ESAN_SUPPORTED_ARCH ${ALL_ESAN_SUPPORTED_ARCH})
   filter_available_targets(SCUDO_SUPPORTED_ARCH
     ${ALL_SCUDO_SUPPORTED_ARCH})
+  filter_available_targets(XRAY_SUPPORTED_ARCH ${ALL_XRAY_SUPPORTED_ARCH})
 endif()
 
 if (MSVC)
@@ -395,9 +408,14 @@ else()
   set(OS_NAME "${CMAKE_SYSTEM_NAME}")
 endif()
 
+set(ALL_SANITIZERS asan;dfsan;msan;tsan;safestack;cfi;esan;scudo)
+set(COMPILER_RT_SANITIZERS_TO_BUILD ${ALL_SANITIZERS} CACHE STRING
+    "sanitizers to build if supported on the target (all;${ALL_SANITIZERS})")
+list_replace(COMPILER_RT_SANITIZERS_TO_BUILD all "${ALL_SANITIZERS}")
+
 if (SANITIZER_COMMON_SUPPORTED_ARCH AND NOT LLVM_USE_SANITIZER AND
     (OS_NAME MATCHES "Android|Darwin|Linux|FreeBSD" OR
-    (OS_NAME MATCHES "Windows" AND MSVC)))
+    (OS_NAME MATCHES "Windows" AND (NOT MINGW AND NOT CYGWIN))))
   set(COMPILER_RT_HAS_SANITIZER_COMMON TRUE)
 else()
   set(COMPILER_RT_HAS_SANITIZER_COMMON FALSE)
@@ -444,7 +462,7 @@ else()
   set(COMPILER_RT_HAS_MSAN FALSE)
 endif()
 
-if (PROFILE_SUPPORTED_ARCH AND
+if (PROFILE_SUPPORTED_ARCH AND NOT LLVM_USE_SANITIZER AND
     OS_NAME MATCHES "Darwin|Linux|FreeBSD|Windows")
   set(COMPILER_RT_HAS_PROFILE TRUE)
 else()
@@ -493,3 +511,9 @@ else()
   set(COMPILER_RT_HAS_SCUDO FALSE)
 endif()
 
+if (COMPILER_RT_HAS_SANITIZER_COMMON AND XRAY_SUPPORTED_ARCH AND
+    OS_NAME MATCHES "Linux")
+  set(COMPILER_RT_HAS_XRAY TRUE)
+else()
+  set(COMPILER_RT_HAS_XRAY FALSE)
+endif()

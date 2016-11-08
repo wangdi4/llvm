@@ -853,9 +853,9 @@ def CVTF64S64 : CvtOp<   CVT, sint_to_fp,Tf64, Ts64, IICvtFI>;
 def CVTF64U32 : CvtOp<   CVT, uint_to_fp,Tf64, Tu32, IICvtFI>;
 def CVTF64U64 : CvtOp<   CVT, uint_to_fp,Tf64, Tu64, IICvtFI>;
 
-def CVTF32F64 : CvtOp<   CVT, fround,    Tf32, Tf64, IICvtFF>;
+def CVTF32F64 : CvtOp<   CVT, fpround,    Tf32, Tf64, IICvtFF>;
 
-def CVTF64F32 : CvtOp<   CVT, fextend,   Tf64, Tf32, IICvtFF>;
+def CVTF64F32 : CvtOp<   CVT, fpextend,   Tf64, Tf32, IICvtFF>;
 
 def AND       : GenericOp<"and">;
 def AND1      : BinOp<   AND,    and,    Ti1,  IIALU>;

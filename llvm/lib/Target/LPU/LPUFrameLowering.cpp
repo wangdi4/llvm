@@ -32,7 +32,7 @@ using namespace llvm;
 
 void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const {
   assert(&MBB == &MF.front() && "Shrink-wrapping not yet implemented");
-  MachineFrameInfo *MFI  = MF.getFrameInfo();
+  MachineFrameInfo &MFI  = MF.getFrameInfo();
   LPUMachineFunctionInfo *LMFI  = MF.getInfo<LPUMachineFunctionInfo>();
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(MF.getSubtarget().getInstrInfo());
@@ -40,8 +40,8 @@ void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
   DebugLoc dl = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
 
   // Get the number of bytes to allocate from the FrameInfo.
-  unsigned StackSize     = MFI->getStackSize();
-  unsigned CallFrameSize = MFI->getMaxCallFrameSize();
+  unsigned StackSize     = MFI.getStackSize();
+  unsigned CallFrameSize = MFI.getMaxCallFrameSize();
 
   // We are going to round CallFrameSize so that it is a multiple
   // of 8 so that the RA can be stored at a correct offset
@@ -68,13 +68,13 @@ void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
   BuildMI(MBB, MBBI, dl, TII.get(LPU::SUB64), LPU::SP)
     .addReg(LPU::SP).addImm(StackSize);
 
-  if (MFI->hasCalls()) {
+  if (MFI.hasCalls()) {
     assert(LMFI->getRAFrameIndex() != -1
            && "No spill location for Return Address created.");
 
     // store64  stack_loc($sp), $ra
     int RAOffset =
-      MFI->getObjectOffset(LMFI->getRAFrameIndex()) + CallFrameSize;
+      MFI.getObjectOffset(LMFI->getRAFrameIndex()) + CallFrameSize;
     assert(RAOffset%8 == 0 && "RA offset not multiple of 8");
     DEBUG(errs() << "RAOffset : " << RAOffset << "\n");
 
@@ -92,7 +92,7 @@ void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
 
     // store64  stack_loc($sp), $fp
     int FPOffset =
-      MFI->getObjectOffset(LMFI->getFPFrameIndex()) + CallFrameSize;
+      MFI.getObjectOffset(LMFI->getFPFrameIndex()) + CallFrameSize;
 
     assert(FPOffset%8 == 0 && "FP offset not multiple of 8");
     if (FPOffset >= (int)StackSize) {
@@ -116,15 +116,15 @@ void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
 void LPUFrameLowering::emitEpilogue(MachineFunction &MF,
                                        MachineBasicBlock &MBB) const {
   MachineBasicBlock::iterator MBBI = --MBB.end();
-  MachineFrameInfo *MFI = MF.getFrameInfo();
+  MachineFrameInfo &MFI = MF.getFrameInfo();
   LPUMachineFunctionInfo *LMFI = MF.getInfo<LPUMachineFunctionInfo>();
   DebugLoc dl = MBBI->getDebugLoc();
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(MF.getSubtarget().getInstrInfo());
 
   // Get the number of bytes to allocate from the FrameInfo.
-  unsigned StackSize     = MFI->getStackSize();
-  unsigned CallFrameSize = MFI->getMaxCallFrameSize();
+  unsigned StackSize     = MFI.getStackSize();
+  unsigned CallFrameSize = MFI.getMaxCallFrameSize();
 
   CallFrameSize = (CallFrameSize + 7) & (-8);
 
@@ -146,19 +146,19 @@ void LPUFrameLowering::emitEpilogue(MachineFunction &MF,
       .addReg(LPU::FP);
 
     int FPOffset =
-      MFI->getObjectOffset(LMFI->getFPFrameIndex()) + CallFrameSize;
+      MFI.getObjectOffset(LMFI->getFPFrameIndex()) + CallFrameSize;
     assert(FPOffset%8 == 0 && "FP offset not multiple of 8");
 
     BuildMI(MBB, MBBI, dl, TII.get(LPU::LD64D), LPU::FP)
       .addReg(LPU::SP).addImm(FPOffset);
   }
 
-  if (MFI->hasCalls()) {
+  if (MFI.hasCalls()) {
     assert(   LMFI->getRAFrameIndex() != -1
            && "No spill location for Return Address created.");
 
     int RAOffset =
-      MFI->getObjectOffset(LMFI->getRAFrameIndex()) + CallFrameSize;
+      MFI.getObjectOffset(LMFI->getRAFrameIndex()) + CallFrameSize;
 
     assert(RAOffset%8 == 0 && "RA offset not multiple of 8");
 
@@ -172,25 +172,25 @@ void LPUFrameLowering::emitEpilogue(MachineFunction &MF,
 }
 
 bool LPUFrameLowering::hasFP(const MachineFunction &MF) const {
-  const MachineFrameInfo *MFI = MF.getFrameInfo();
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
 
   // No frame pointer unless really needed...
   return (//MF.getTarget().Options.DisableFramePointerElim(MF) ||
-          MF.getFrameInfo()->hasVarSizedObjects() ||
-          MFI->isFrameAddressTaken());
+          MF.getFrameInfo().hasVarSizedObjects() ||
+          MFI.isFrameAddressTaken());
 }
 
 void LPUFrameLowering::
 processFunctionBeforeFrameFinalized(MachineFunction &MF,
                                     RegScavenger *RS) const {
-  MachineFrameInfo *MFI = MF.getFrameInfo();
+  MachineFrameInfo &MFI = MF.getFrameInfo();
   LPUMachineFunctionInfo *LMFI = MF.getInfo<LPUMachineFunctionInfo>();
 
   if (hasFP(MF))
-    LMFI->setFPFrameIndex(MFI->CreateSpillStackObject(8, 8));
+    LMFI->setFPFrameIndex(MFI.CreateSpillStackObject(8, 8));
 
-  if (MFI->hasCalls())
-    LMFI->setRAFrameIndex(MFI->CreateSpillStackObject(8, 8));
+  if (MFI.hasCalls())
+    LMFI->setRAFrameIndex(MFI.CreateSpillStackObject(8, 8));
 }
 
 MachineBasicBlock::iterator LPUFrameLowering::eliminateCallFramePseudoInstr(

@@ -16,6 +16,7 @@
 #include "Symbols.h"
 
 #include "lld/Core/LLVM.h"
+#include "lld/Core/Reproduce.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Comdat.h"
@@ -38,12 +39,15 @@ class SymbolBody;
 // The root class of input files.
 class InputFile {
 public:
+  virtual ~InputFile() = default;
+
   enum Kind {
     ObjectKind,
     SharedKind,
     LazyObjectKind,
     ArchiveKind,
     BitcodeKind,
+    BinaryKind,
   };
 
   Kind kind() const { return FileKind; }
@@ -61,11 +65,19 @@ public:
   ELFKind EKind = ELFNoneKind;
   uint16_t EMachine = llvm::ELF::EM_NONE;
 
+  static void freePool();
+
 protected:
-  InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
+  InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {
+    Pool.push_back(this);
+  }
 
 private:
   const Kind FileKind;
+
+  // All InputFile instances are added to the pool
+  // and freed all at once on exit by freePool().
+  static std::vector<InputFile *> Pool;
 };
 
 // Returns "(internal)", "foo.a(bar.o)" or "baz.o".
@@ -175,6 +187,8 @@ private:
   std::unique_ptr<MipsReginfoInputSection<ELFT>> MipsReginfo;
   // MIPS .MIPS.options section defined by this file.
   std::unique_ptr<MipsOptionsInputSection<ELFT>> MipsOptions;
+  // MIPS .MIPS.abiflags section defined by this file.
+  std::unique_ptr<MipsAbiFlagsInputSection<ELFT>> MipsAbiFlags;
 
   llvm::SpecificBumpPtrAllocator<InputSection<ELFT>> IAlloc;
   llvm::SpecificBumpPtrAllocator<MergeInputSection<ELFT>> MAlloc;
@@ -294,9 +308,20 @@ public:
   bool isNeeded() const { return !AsNeeded || IsUsed; }
 };
 
-std::unique_ptr<InputFile> createObjectFile(MemoryBufferRef MB,
-                                            StringRef ArchiveName = "");
-std::unique_ptr<InputFile> createSharedFile(MemoryBufferRef MB);
+class BinaryFile : public InputFile {
+public:
+  explicit BinaryFile(MemoryBufferRef M) : InputFile(BinaryKind, M) {}
+
+  static bool classof(const InputFile *F) { return F->kind() == BinaryKind; }
+
+  template <class ELFT> InputFile *createELF();
+
+private:
+  std::vector<uint8_t> ELFData;
+};
+
+InputFile *createObjectFile(MemoryBufferRef MB, StringRef ArchiveName = "");
+InputFile *createSharedFile(MemoryBufferRef MB);
 
 } // namespace elf
 } // namespace lld

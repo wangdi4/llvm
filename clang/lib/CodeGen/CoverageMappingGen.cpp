@@ -23,6 +23,7 @@
 #include "llvm/ProfileData/Coverage/CoverageMappingWriter.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -90,6 +91,14 @@ public:
   llvm::SmallVector<CounterMappingRegion, 32> MappingRegions;
   /// \brief The source mapping regions for this function.
   std::vector<SourceMappingRegion> SourceRegions;
+
+  /// \brief A set of regions which can be used as a filter.
+  ///
+  /// It is produced by emitExpansionRegions() and is used in
+  /// emitSourceRegions() to suppress producing code regions if
+  /// the same area is covered by expansion regions.
+  typedef llvm::SmallSet<std::pair<SourceLocation, SourceLocation>, 8>
+      SourceRegionFilter;
 
   CoverageMappingBuilder(CoverageMappingModuleGen &CVM, SourceManager &SM,
                          const LangOptions &LangOpts)
@@ -248,7 +257,7 @@ public:
 
   /// \brief Generate the coverage counter mapping regions from collected
   /// source regions.
-  void emitSourceRegions() {
+  void emitSourceRegions(const SourceRegionFilter &Filter) {
     for (const auto &Region : SourceRegions) {
       assert(Region.hasEndLoc() && "incomplete region");
 
@@ -268,6 +277,13 @@ public:
       assert(SM.isWrittenInSameFile(LocStart, LocEnd) &&
              "region spans multiple files");
 
+      // Don't add code regions for the area covered by expansion regions.
+      // This not only suppresses redundant regions, but sometimes prevents
+      // creating regions with wrong counters if, for example, a statement's
+      // body ends at the end of a nested macro.
+      if (Filter.count(std::make_pair(LocStart, LocEnd)))
+        continue;
+
       // Find the spilling locations for the mapping region.
       unsigned LineStart = SM.getSpellingLineNumber(LocStart);
       unsigned ColumnStart = SM.getSpellingColumnNumber(LocStart);
@@ -282,7 +298,8 @@ public:
   }
 
   /// \brief Generate expansion regions for each virtual file we've seen.
-  void emitExpansionRegions() {
+  SourceRegionFilter emitExpansionRegions() {
+    SourceRegionFilter Filter;
     for (const auto &FM : FileIDMapping) {
       SourceLocation ExpandedLoc = FM.second.second;
       SourceLocation ParentLoc = getIncludeOrExpansionLoc(ExpandedLoc);
@@ -298,6 +315,7 @@ public:
       SourceLocation LocEnd = getPreciseTokenLocEnd(ParentLoc);
       assert(SM.isWrittenInSameFile(ParentLoc, LocEnd) &&
              "region spans multiple files");
+      Filter.insert(std::make_pair(ParentLoc, LocEnd));
 
       unsigned LineStart = SM.getSpellingLineNumber(ParentLoc);
       unsigned ColumnStart = SM.getSpellingColumnNumber(ParentLoc);
@@ -308,6 +326,7 @@ public:
           *ParentFileID, *ExpandedFileID, LineStart, ColumnStart, LineEnd,
           ColumnEnd));
     }
+    return Filter;
   }
 };
 
@@ -349,7 +368,10 @@ struct EmptyCoverageMappingBuilder : public CoverageMappingBuilder {
   void write(llvm::raw_ostream &OS) {
     SmallVector<unsigned, 16> FileIDMapping;
     gatherFileIDs(FileIDMapping);
-    emitSourceRegions();
+    emitSourceRegions(SourceRegionFilter());
+
+    if (MappingRegions.empty())
+      return;
 
     CoverageMappingWriter Writer(FileIDMapping, None, MappingRegions);
     Writer.write(OS);
@@ -428,7 +450,8 @@ struct CounterCoverageMappingBuilder
           SourceLocation NestedLoc = getStartOfFileOrMacro(EndLoc);
           assert(SM.isWrittenInSameFile(NestedLoc, EndLoc));
 
-          SourceRegions.emplace_back(Region.getCounter(), NestedLoc, EndLoc);
+          if (!isRegionAlreadyAdded(NestedLoc, EndLoc))
+            SourceRegions.emplace_back(Region.getCounter(), NestedLoc, EndLoc);
 
           EndLoc = getPreciseTokenLocEnd(getIncludeOrExpansionLoc(EndLoc));
           if (EndLoc.isInvalid())
@@ -600,9 +623,12 @@ struct CounterCoverageMappingBuilder
   void write(llvm::raw_ostream &OS) {
     llvm::SmallVector<unsigned, 8> VirtualFileMapping;
     gatherFileIDs(VirtualFileMapping);
-    emitSourceRegions();
-    emitExpansionRegions();
+    SourceRegionFilter Filter = emitExpansionRegions();
+    emitSourceRegions(Filter);
     gatherSkippedRegions();
+
+    if (MappingRegions.empty())
+      return;
 
     CoverageMappingWriter Writer(VirtualFileMapping, Builder.getExpressions(),
                                  MappingRegions);
@@ -620,6 +646,11 @@ struct CounterCoverageMappingBuilder
 
   void VisitDecl(const Decl *D) {
     Stmt *Body = D->getBody();
+
+    // Do not propagate region counts into system headers.
+    if (Body && SM.isInSystemHeader(SM.getSpellingLoc(getStart(Body))))
+      return;
+
     propagateCounts(getRegionCounter(Body), Body);
   }
 
@@ -920,15 +951,23 @@ struct CounterCoverageMappingBuilder
     // propagate counts into them.
   }
 };
-}
 
-static bool isMachO(const CodeGenModule &CGM) {
+bool isMachO(const CodeGenModule &CGM) {
   return CGM.getTarget().getTriple().isOSBinFormatMachO();
 }
 
-static StringRef getCoverageSection(const CodeGenModule &CGM) {
+StringRef getCoverageSection(const CodeGenModule &CGM) {
   return llvm::getInstrProfCoverageSectionName(isMachO(CGM));
 }
+
+std::string normalizeFilename(StringRef Filename) {
+  llvm::SmallString<256> Path(Filename);
+  llvm::sys::fs::make_absolute(Path);
+  llvm::sys::path::remove_dots(Path, /*remove_dot_dots=*/true);
+  return Path.str().str();
+}
+
+} // end anonymous namespace
 
 static void dump(llvm::raw_ostream &OS, StringRef FunctionName,
                  ArrayRef<CounterExpression> Expressions,
@@ -994,7 +1033,7 @@ void CoverageMappingModuleGen::addFunctionMappingRecord(
     llvm::SmallVector<StringRef, 16> FilenameRefs;
     FilenameRefs.resize(FileEntries.size());
     for (const auto &Entry : FileEntries)
-      FilenameRefs[Entry.second] = Entry.first->getName();
+      FilenameRefs[Entry.second] = normalizeFilename(Entry.first->getName());
     RawCoverageMappingReader Reader(CoverageMapping, FilenameRefs, Filenames,
                                     Expressions, Regions);
     if (Reader.read())
@@ -1015,11 +1054,8 @@ void CoverageMappingModuleGen::emit() {
   FilenameStrs.resize(FileEntries.size());
   FilenameRefs.resize(FileEntries.size());
   for (const auto &Entry : FileEntries) {
-    llvm::SmallString<256> Path(Entry.first->getName());
-    llvm::sys::fs::make_absolute(Path);
-
     auto I = Entry.second;
-    FilenameStrs[I] = std::string(Path.begin(), Path.end());
+    FilenameStrs[I] = normalizeFilename(Entry.first->getName());
     FilenameRefs[I] = FilenameStrs[I];
   }
 

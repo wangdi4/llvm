@@ -405,12 +405,14 @@ public:
   CXXNameMangler(CXXNameMangler &Outer, raw_ostream &Out_)
       : Context(Outer.Context), Out(Out_), NullOut(false),
         Structor(Outer.Structor), StructorType(Outer.StructorType),
-        SeqID(Outer.SeqID), AbiTagsRoot(AbiTags) {}
+        SeqID(Outer.SeqID), AbiTagsRoot(AbiTags),
+        Substitutions(Outer.Substitutions) {}
 
   CXXNameMangler(CXXNameMangler &Outer, llvm::raw_null_ostream &Out_)
       : Context(Outer.Context), Out(Out_), NullOut(true),
         Structor(Outer.Structor), StructorType(Outer.StructorType),
-        SeqID(Outer.SeqID), AbiTagsRoot(AbiTags) {}
+        SeqID(Outer.SeqID), AbiTagsRoot(AbiTags),
+        Substitutions(Outer.Substitutions) {}
 
 #if MANGLE_CHECKER
   ~CXXNameMangler() {
@@ -458,6 +460,8 @@ private:
   void addSubstitution(QualType T);
   void addSubstitution(TemplateName Template);
   void addSubstitution(uintptr_t Ptr);
+  // Destructive copy substitutions from other mangler.
+  void extendSubstitutions(CXXNameMangler* Other);
 
   void mangleUnresolvedPrefix(NestedNameSpecifier *qualifier,
                               bool recursive = false);
@@ -593,7 +597,7 @@ bool ItaniumMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
     return false;
 
   const VarDecl *VD = dyn_cast<VarDecl>(D);
-  if (VD) {
+  if (VD && !isa<DecompositionDecl>(D)) {
     // C variables are not mangled.
     if (VD->isExternC())
       return false;
@@ -685,6 +689,10 @@ void CXXNameMangler::mangleFunctionEncoding(const FunctionDecl *FD) {
   // Output name with implicit tags and function encoding from temporary buffer.
   mangleNameWithAbiTags(FD, &AdditionalAbiTags);
   Out << FunctionEncodingStream.str().substr(EncodingPositionStart);
+
+  // Function encoding could create new substitutions so we have to add
+  // temp mangled substitutions to main mangler.
+  extendSubstitutions(&FunctionEncodingMangler);
 }
 
 void CXXNameMangler::mangleFunctionEncodingBareType(const FunctionDecl *FD) {
@@ -1193,7 +1201,26 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
   //                     ::= <source-name>
   switch (Name.getNameKind()) {
   case DeclarationName::Identifier: {
-    if (const IdentifierInfo *II = Name.getAsIdentifierInfo()) {
+    const IdentifierInfo *II = Name.getAsIdentifierInfo();
+
+    // We mangle decomposition declarations as the names of their bindings.
+    if (auto *DD = dyn_cast<DecompositionDecl>(ND)) {
+      // FIXME: Non-standard mangling for decomposition declarations:
+      //
+      //  <unqualified-name> ::= DC <source-name>* E
+      //
+      // These can never be referenced across translation units, so we do
+      // not need a cross-vendor mangling for anything other than demanglers.
+      // Proposed on cxx-abi-dev on 2016-08-12
+      Out << "DC";
+      for (auto *BD : DD->bindings())
+        mangleSourceName(BD->getDeclName().getAsIdentifierInfo());
+      Out << 'E';
+      writeAbiTags(ND, AdditionalAbiTags);
+      break;
+    }
+
+    if (II) {
       // We must avoid conflicts between internally- and externally-
       // linked variable and function declaration names in the same TU:
       //   void test() { extern void foo(); }
@@ -1471,7 +1498,7 @@ void CXXNameMangler::mangleLocalName(const Decl *D,
     // numbering will be local to the particular argument in which it appears
     // -- other default arguments do not affect its encoding.
     const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD);
-    if (CXXRD->isLambda()) {
+    if (CXXRD && CXXRD->isLambda()) {
       if (const ParmVarDecl *Parm
               = dyn_cast_or_null<ParmVarDecl>(CXXRD->getLambdaContextDecl())) {
         if (const FunctionDecl *Func
@@ -1820,6 +1847,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::ObjCObject:
   case Type::ObjCInterface:
   case Type::ObjCObjectPointer:
+  case Type::ObjCTypeParam:
   case Type::Atomic:
   case Type::Pipe:
     llvm_unreachable("type is illegal as a nested name specifier");
@@ -4404,6 +4432,14 @@ void CXXNameMangler::addSubstitution(TemplateName Template) {
 void CXXNameMangler::addSubstitution(uintptr_t Ptr) {
   assert(!Substitutions.count(Ptr) && "Substitution already exists!");
   Substitutions[Ptr] = SeqID++;
+}
+
+void CXXNameMangler::extendSubstitutions(CXXNameMangler* Other) {
+  assert(Other->SeqID >= SeqID && "Must be superset of substitutions!");
+  if (Other->SeqID > SeqID) {
+    Substitutions.swap(Other->Substitutions);
+    SeqID = Other->SeqID;
+  }
 }
 
 CXXNameMangler::AbiTagList

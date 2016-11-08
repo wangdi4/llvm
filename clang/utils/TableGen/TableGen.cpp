@@ -13,7 +13,6 @@
 
 #include "TableGenBackends.h" // Declares all backends.
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/TableGen/Error.h"
@@ -53,7 +52,8 @@ enum ActionType {
   GenArmNeon,
   GenArmNeonSema,
   GenArmNeonTest,
-  GenAttrDocs
+  GenAttrDocs,
+  GenDiagDocs
 };
 
 namespace {
@@ -133,6 +133,8 @@ cl::opt<ActionType> Action(
         clEnumValN(GenArmNeonTest, "gen-arm-neon-test",
                    "Generate ARM NEON tests for clang"),
         clEnumValN(GenAttrDocs, "gen-attr-docs",
+                   "Generate attribute documentation"),
+        clEnumValN(GenDiagDocs, "gen-diag-docs",
                    "Generate attribute documentation"),
         clEnumValEnd));
 
@@ -233,6 +235,9 @@ bool ClangTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenAttrDocs:
     EmitClangAttrDocs(Records, OS);
+    break;
+  case GenDiagDocs:
+    EmitClangDiagDocs(Records, OS);
     break;
   }
 

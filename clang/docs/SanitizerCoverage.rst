@@ -321,23 +321,54 @@ by the user. So, these flags do not require the other sanitizer to be used.
 This mechanism is used for fuzzing the Linux kernel (https://github.com/google/syzkaller)
 and can be used with `AFL <http://lcamtuf.coredump.cx/afl>`__.
 
+Tracing PCs with guards
+=======================
+Another *experimental* feature that tries to combine the functionality of `trace-pc`,
+`8bit-counters` and boolean coverage.
+
+With ``-fsanitize-coverage=trace-pc-guard`` the compiler will insert the following code
+on every edge:
+
+.. code-block:: none
+
+   if (guard_variable)
+     __sanitizer_cov_trace_pc_guard(&guard_variable)
+
+Every edge will have its own `guard_variable` (uintptr_t).
+
+The compler will also insert a module constructor that will call
+
+.. code-block:: c++
+
+   // The guards are [start, stop).
+   // This function may be called multiple times with the same values of start/stop.
+   __sanitizer_cov_trace_pc_guard_init(uintptr_t *start, uintptr_t *stop);
+
+Similarly to `trace-pc,indirect-calls`, with `trace-pc-guards,indirect-calls`
+``__sanitizer_cov_trace_pc_indirect(void *callee)`` will be inserted on every indirect call.
+
+The functions `__sanitizer_cov_trace_pc_*` should be defined by the user.
+
 Tracing data flow
 =================
 
-An *experimental* feature to support data-flow-guided fuzzing.
+Support for data-flow-guided fuzzing.
 With ``-fsanitize-coverage=trace-cmp`` the compiler will insert extra instrumentation
 around comparison instructions and switch statements.
-The fuzzer will need to define the following functions,
-they will be called by the instrumented code.
+Similarly, with ``-fsanitize-coverage=trace-div`` the compiler will instrument
+integer division instructions (to capture the right argument of division)
+and with  ``-fsanitize-coverage=trace-gep`` --
+the `LLVM GEP instructions <http://llvm.org/docs/GetElementPtr.html>`_
+(to capture array indices).
 
 .. code-block:: c++
 
   // Called before a comparison instruction.
-  // SizeAndType is a packed value containing
-  //   - [63:32] the Size of the operands of comparison in bits
-  //   - [31:0] the Type of comparison (one of ICMP_EQ, ... ICMP_SLE)
   // Arg1 and Arg2 are arguments of the comparison.
-  void __sanitizer_cov_trace_cmp(uint64_t SizeAndType, uint64_t Arg1, uint64_t Arg2);
+  void __sanitizer_cov_trace_cmp1(uint8_t Arg1, uint8_t Arg2);
+  void __sanitizer_cov_trace_cmp2(uint16_t Arg1, uint16_t Arg2);
+  void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2);
+  void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2);
 
   // Called before a switch statement.
   // Val is the switch operand.
@@ -345,6 +376,16 @@ they will be called by the instrumented code.
   // Cases[1] is the size of Val in bits.
   // Cases[2:] are the case constants.
   void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t *Cases);
+
+  // Called before a division statement.
+  // Val is the second argument of division.
+  void __sanitizer_cov_trace_div4(uint32_t Val);
+  void __sanitizer_cov_trace_div8(uint64_t Val);
+
+  // Called before a GetElemementPtr (GEP) instruction
+  // for every non-constant array index.
+  void __sanitizer_cov_trace_gep(uintptr_t Idx);
+
 
 This interface is a subject to change.
 The current implementation is not thread-safe and thus can be safely used only for single-threaded targets.

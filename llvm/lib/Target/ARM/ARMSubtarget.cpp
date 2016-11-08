@@ -31,6 +31,7 @@
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetRegisterInfo.h"
+#include "llvm/Support/TargetParser.h"
 
 using namespace llvm;
 
@@ -100,6 +101,11 @@ ARMSubtarget::ARMSubtarget(const Triple &TT, const std::string &CPU,
                           : (ARMBaseInstrInfo *)new Thumb2InstrInfo(*this)),
       TLInfo(TM, *this) {}
 
+bool ARMSubtarget::isXRaySupported() const {
+  // We don't currently suppport Thumb, but Windows requires Thumb.
+  return hasV6Ops() && hasARMOps() && !isTargetWindows();
+}
+
 void ARMSubtarget::initializeEnvironment() {
   // MCAsmInfo isn't always present (e.g. in opt) so we can't initialize this
   // directly from it, but we can try to make sure they're consistent when both
@@ -117,10 +123,11 @@ void ARMSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
 
     if (isTargetDarwin()) {
       StringRef ArchName = TargetTriple.getArchName();
-      if (ArchName.endswith("v7s"))
+      unsigned ArchKind = llvm::ARM::parseArch(ArchName);
+      if (ArchKind == llvm::ARM::AK_ARMV7S)
         // Default to the Swift CPU when targeting armv7s/thumbv7s.
         CPUString = "swift";
-      else if (ArchName.endswith("v7k"))
+      else if (ArchKind == llvm::ARM::AK_ARMV7K)
         // Default to the Cortex-a7 CPU when targeting armv7k/thumbv7k.
         // ARMv7k does not use SjLj exception handling.
         CPUString = "cortex-a7";
@@ -199,6 +206,9 @@ void ARMSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
       (Options.UnsafeFPMath || isTargetDarwin()))
     UseNEONForSinglePrecisionFP = true;
 
+  if (isRWPI())
+    ReserveR9 = true;
+
   // FIXME: Teach TableGen to deal with these instead of doing it manually here.
   switch (ARMProcFamily) {
   case Others:
@@ -261,6 +271,15 @@ bool ARMSubtarget::isAAPCS16_ABI() const {
   return TM.TargetABI == ARMBaseTargetMachine::ARM_ABI_AAPCS16;
 }
 
+bool ARMSubtarget::isROPI() const {
+  return TM.getRelocationModel() == Reloc::ROPI ||
+         TM.getRelocationModel() == Reloc::ROPI_RWPI;
+}
+bool ARMSubtarget::isRWPI() const {
+  return TM.getRelocationModel() == Reloc::RWPI ||
+         TM.getRelocationModel() == Reloc::ROPI_RWPI;
+}
+
 bool ARMSubtarget::isGVIndirectSymbol(const GlobalValue *GV) const {
   if (!TM.shouldAssumeDSOLocal(*GV->getParent(), GV))
     return true;
@@ -268,7 +287,7 @@ bool ARMSubtarget::isGVIndirectSymbol(const GlobalValue *GV) const {
   // 32 bit macho has no relocation for a-b if a is undefined, even if b is in
   // the section that is being relocated. This means we have to use o load even
   // for GVs that are known to be local to the dso.
-  if (isTargetDarwin() && TM.isPositionIndependent() &&
+  if (isTargetMachO() && TM.isPositionIndependent() &&
       (GV->isDeclarationForLinker() || GV->hasCommonLinkage()))
     return true;
 

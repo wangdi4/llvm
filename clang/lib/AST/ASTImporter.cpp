@@ -897,6 +897,23 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
     break;
   }
 
+  case Type::ObjCTypeParam: {
+    const ObjCTypeParamType *Obj1 = cast<ObjCTypeParamType>(T1);
+    const ObjCTypeParamType *Obj2 = cast<ObjCTypeParamType>(T2);
+    if (!IsStructurallyEquivalent(Context, Obj1->getDecl(),
+                                  Obj2->getDecl()))
+      return false;
+
+    if (Obj1->getNumProtocols() != Obj2->getNumProtocols())
+      return false;
+    for (unsigned I = 0, N = Obj1->getNumProtocols(); I != N; ++I) {
+      if (!IsStructurallyEquivalent(Context,
+                                    Obj1->getProtocol(I),
+                                    Obj2->getProtocol(I)))
+        return false;
+    }
+    break;
+  }
   case Type::ObjCObject: {
     const ObjCObjectType *Obj1 = cast<ObjCObjectType>(T1);
     const ObjCObjectType *Obj2 = cast<ObjCObjectType>(T2);
@@ -2262,11 +2279,21 @@ TemplateParameterList *ASTNodeImporter::ImportTemplateParameterList(
     ToParams.push_back(cast<NamedDecl>(To));
   }
   
+  Expr *ToRequiresClause;
+  if (Expr *const R = Params->getRequiresClause()) {
+    ToRequiresClause = Importer.Import(R);
+    if (!ToRequiresClause)
+      return nullptr;
+  } else {
+    ToRequiresClause = nullptr;
+  }
+
   return TemplateParameterList::Create(Importer.getToContext(),
                                        Importer.Import(Params->getTemplateLoc()),
                                        Importer.Import(Params->getLAngleLoc()),
                                        ToParams,
-                                       Importer.Import(Params->getRAngleLoc()));
+                                       Importer.Import(Params->getRAngleLoc()),
+                                       ToRequiresClause);
 }
 
 TemplateArgument 

@@ -58,13 +58,15 @@ static typename ELFT::uint getSymVA(const SymbolBody &Body,
       Offset += Addend;
       Addend = 0;
     }
-    uintX_t VA = SC->OutSec->getVA() + SC->getOffset(Offset);
-    if (D.isTls())
+    uintX_t VA = (SC->OutSec ? SC->OutSec->getVA() : 0) + SC->getOffset(Offset);
+    if (D.isTls() && !Config->Relocatable)
       return VA - Out<ELFT>::TlsPhdr->p_vaddr;
     return VA;
   }
   case SymbolBody::DefinedCommonKind:
-    return Out<ELFT>::Bss->getVA() + cast<DefinedCommon>(Body).OffsetInBss;
+    return CommonInputSection<ELFT>::X->OutSec->getVA() +
+           CommonInputSection<ELFT>::X->OutSecOff +
+           cast<DefinedCommon>(Body).Offset;
   case SymbolBody::SharedKind: {
     auto &SS = cast<SharedSymbol<ELFT>>(Body);
     if (!SS.NeedsCopyOrPltAddr)
@@ -79,8 +81,6 @@ static typename ELFT::uint getSymVA(const SymbolBody &Body,
   case SymbolBody::LazyObjectKind:
     assert(Body.symbol()->IsUsedInRegularObj && "lazy symbol reached writer");
     return 0;
-  case SymbolBody::DefinedBitcodeKind:
-    llvm_unreachable("should have been replaced");
   }
   llvm_unreachable("invalid symbol kind");
 }
@@ -99,11 +99,6 @@ SymbolBody::SymbolBody(Kind K, StringRef Name, uint8_t StOther, uint8_t Type)
 StringRef SymbolBody::getName() const {
   assert(!isLocal());
   return StringRef(Name.S, Name.Len);
-}
-
-void SymbolBody::setName(StringRef S) {
-  Name.S = S.data();
-  Name.Len = S.size();
 }
 
 // Returns true if a symbol can be replaced at load-time by a symbol
@@ -195,16 +190,6 @@ Defined::Defined(Kind K, StringRef Name, uint8_t StOther, uint8_t Type)
 Defined::Defined(Kind K, uint32_t NameOffset, uint8_t StOther, uint8_t Type)
     : SymbolBody(K, NameOffset, StOther, Type) {}
 
-DefinedBitcode::DefinedBitcode(StringRef Name, uint8_t StOther, uint8_t Type,
-                               BitcodeFile *F)
-    : Defined(DefinedBitcodeKind, Name, StOther, Type) {
-  this->File = F;
-}
-
-bool DefinedBitcode::classof(const SymbolBody *S) {
-  return S->kind() == DefinedBitcodeKind;
-}
-
 Undefined::Undefined(StringRef Name, uint8_t StOther, uint8_t Type,
                      InputFile *File)
     : SymbolBody(SymbolBody::UndefinedKind, Name, StOther, Type) {
@@ -230,7 +215,7 @@ DefinedCommon::DefinedCommon(StringRef N, uint64_t Size, uint64_t Alignment,
   this->File = File;
 }
 
-std::unique_ptr<InputFile> Lazy::fetch() {
+InputFile *Lazy::fetch() {
   if (auto *S = dyn_cast<LazyArchive>(this))
     return S->fetch();
   return cast<LazyObject>(this)->fetch();
@@ -247,20 +232,20 @@ LazyObject::LazyObject(StringRef Name, LazyObjectFile &File, uint8_t Type)
   this->File = &File;
 }
 
-std::unique_ptr<InputFile> LazyArchive::fetch() {
+InputFile *LazyArchive::fetch() {
   MemoryBufferRef MBRef = file()->getMember(&Sym);
 
   // getMember returns an empty buffer if the member was already
   // read from the library.
   if (MBRef.getBuffer().empty())
-    return std::unique_ptr<InputFile>(nullptr);
+    return nullptr;
   return createObjectFile(MBRef, file()->getName());
 }
 
-std::unique_ptr<InputFile> LazyObject::fetch() {
+InputFile *LazyObject::fetch() {
   MemoryBufferRef MBRef = file()->getBuffer();
   if (MBRef.getBuffer().empty())
-    return std::unique_ptr<InputFile>(nullptr);
+    return nullptr;
   return createObjectFile(MBRef);
 }
 

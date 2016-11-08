@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Frontend/Utils.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/MacroBuilder.h"
 #include "clang/Basic/SourceManager.h"
@@ -19,15 +18,13 @@
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/FrontendOptions.h"
+#include "clang/Frontend/Utils.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/PTHManager.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Serialization/ASTReader.h"
 #include "llvm/ADT/APFloat.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h"
 using namespace clang;
 
 static bool MacroBodyEndsInBackslash(StringRef MacroBody) {
@@ -438,6 +435,9 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("CL_VERSION_1_2", "120");
     Builder.defineMacro("CL_VERSION_2_0", "200");
 
+    if (TI.isLittleEndian())
+      Builder.defineMacro("__ENDIAN_LITTLE__");
+
     if (LangOpts.FastRelaxedMath)
       Builder.defineMacro("__FAST_RELAXED_MATH__");
   }
@@ -511,16 +511,12 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 #define TOSTR(X) TOSTR2(X)
   Builder.defineMacro("__clang_major__", TOSTR(CLANG_VERSION_MAJOR));
   Builder.defineMacro("__clang_minor__", TOSTR(CLANG_VERSION_MINOR));
-#ifdef CLANG_VERSION_PATCHLEVEL
   Builder.defineMacro("__clang_patchlevel__", TOSTR(CLANG_VERSION_PATCHLEVEL));
-#else
-  Builder.defineMacro("__clang_patchlevel__", "0");
-#endif
+#undef TOSTR
+#undef TOSTR2
   Builder.defineMacro("__clang_version__", 
                       "\"" CLANG_VERSION_STRING " "
                       + getClangFullRepositoryVersion() + "\"");
-#undef TOSTR
-#undef TOSTR2
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
     // not compiling for MSVC compatibility
@@ -962,6 +958,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
         LangOpts.OpenCLVersion)) \
       Builder.defineMacro(#Ext);
 #include "clang/Basic/OpenCLExtensions.def"
+  }
+
+  if (TI.hasInt128Type() && LangOpts.CPlusPlus && LangOpts.GNUMode) {
+    Builder.defineMacro("__GLIBCXX_TYPE_INT_N_0", "__int128");
+    Builder.defineMacro("__GLIBCXX_BITSIZE_INT_N_0", "128");
   }
 
   // Get other target #defines.

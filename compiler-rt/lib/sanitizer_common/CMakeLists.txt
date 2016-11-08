@@ -66,8 +66,16 @@ set(SANITIZER_LIBCDEP_SOURCES
 set(SANITIZER_HEADERS
   sanitizer_addrhashmap.h
   sanitizer_allocator.h
+  sanitizer_allocator_bytemap.h
+  sanitizer_allocator_combined.h
   sanitizer_allocator_interface.h
   sanitizer_allocator_internal.h
+  sanitizer_allocator_local_cache.h
+  sanitizer_allocator_primary32.h
+  sanitizer_allocator_primary64.h
+  sanitizer_allocator_secondary.h
+  sanitizer_allocator_size_class_map.h
+  sanitizer_allocator_stats.h
   sanitizer_atomic.h
   sanitizer_atomic_clang.h
   sanitizer_atomic_msvc.h
@@ -117,14 +125,6 @@ set(SANITIZER_HEADERS
   sanitizer_thread_registry.h)
 
 set(SANITIZER_COMMON_DEFINITIONS)
-
-if(MSVC)
-  list(APPEND SANITIZER_COMMON_DEFINITIONS
-    SANITIZER_NEEDS_SEGV=0)
-else()
-  list(APPEND SANITIZER_COMMON_DEFINITIONS
-    SANITIZER_NEEDS_SEGV=1)
-endif()
 
 include(CheckIncludeFile)
 append_have_file_definition(rpc/xdr.h HAVE_RPC_XDR_H SANITIZER_COMMON_DEFINITIONS)

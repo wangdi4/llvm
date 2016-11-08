@@ -107,7 +107,8 @@ bool LPUStatistics::runOnMachineFunction(MachineFunction &MF) {
   bool Modified = false;
   
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-	  for (MachineBasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+	  for (MachineBasicBlock::iterator II = BB->begin(), E = BB->end(); II != E; ++II) {
+      MachineInstr *I = &*II;
 		  if (TII.isSwitch(I)) {
 			  NumSWITCHES++;
 		  } else if (TII.isPick(I)) {

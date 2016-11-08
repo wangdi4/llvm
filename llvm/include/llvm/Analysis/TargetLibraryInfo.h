@@ -85,8 +85,9 @@ public:
   /// addVectorizableFunctionsFromVecLib for filling up the tables of
   /// vectorizable functions.
   enum VectorLibrary {
-    NoLibrary, // Don't use any vector library.
-    Accelerate // Use Accelerate framework.
+    NoLibrary,  // Don't use any vector library.
+    Accelerate, // Use Accelerate framework.
+    SVML        // Intel short vector math library.
   };
 
   TargetLibraryInfoImpl();
@@ -253,7 +254,7 @@ public:
     case LibFunc::exp:       case LibFunc::expf:       case LibFunc::expl:
     case LibFunc::memcmp:    case LibFunc::strcmp:     case LibFunc::strcpy:
     case LibFunc::stpcpy:    case LibFunc::strlen:     case LibFunc::strnlen:
-    case LibFunc::memchr:
+    case LibFunc::memchr:    case LibFunc::mempcpy:
       return true;
     }
     return false;
@@ -272,8 +273,9 @@ public:
   /// Handle invalidation from the pass manager.
   ///
   /// If we try to invalidate this info, just return false. It cannot become
-  /// invalid even if the module changes.
+  /// invalid even if the module or function changes.
   bool invalidate(Module &, const PreservedAnalyses &) { return false; }
+  bool invalidate(Function &, const PreservedAnalyses &) { return false; }
 };
 
 /// Analysis pass providing the \c TargetLibraryInfo.

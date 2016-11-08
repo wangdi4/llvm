@@ -69,13 +69,13 @@ static MachineBasicBlock *findFalseBlock(MachineBasicBlock *BB,
   return nullptr;
 }
 
-/// ReverseBranchCondition - Reverse the condition of the end of the block
+/// reverseBranchCondition - Reverse the condition of the end of the block
 /// branch. Swap block's 'true' and 'false' successors.
-bool LPUIfConversion::ReverseBranchCondition(BBInfo &BBI) {
+bool LPUIfConversion::reverseBranchCondition(BBInfo &BBI) {
   DebugLoc dl;  // FIXME: this is nowhere
-  if (!TII->ReverseBranchCondition(BBI.BrCond)) {
-    TII->RemoveBranch(*BBI.BB);
-    TII->InsertBranch(*BBI.BB, BBI.FalseBB, BBI.TrueBB, BBI.BrCond, dl);
+  if (!TII->reverseBranchCondition(BBI.BrCond)) {
+    TII->removeBranch(*BBI.BB);
+    TII->insertBranch(*BBI.BB, BBI.FalseBB, BBI.TrueBB, BBI.BrCond, dl);
     std::swap(BBI.TrueBB, BBI.FalseBB);
     return true;
   }
@@ -366,10 +366,10 @@ bool LPUIfConversion::FeasibilityAnalysis(BBInfo &BBI,
     SmallVector<MachineOperand, 4> RevPred(Pred.begin(), Pred.end());
     SmallVector<MachineOperand, 4> Cond(BBI.BrCond.begin(), BBI.BrCond.end());
     if (RevBranch) {
-      if (TII->ReverseBranchCondition(Cond))
+      if (TII->reverseBranchCondition(Cond))
         return false;
     }
-    if (TII->ReverseBranchCondition(RevPred) ||
+    if (TII->reverseBranchCondition(RevPred) ||
         !TII->SubsumesPredicate(Cond, RevPred))
       return false;
   }
@@ -424,7 +424,7 @@ LPUIfConversion::BBInfo &LPUIfConversion::AnalyzeBlock(MachineBasicBlock *BB,
   }
 
   SmallVector<MachineOperand, 4> RevCond(BBI.BrCond.begin(), BBI.BrCond.end());
-  bool CanRevCond = !TII->ReverseBranchCondition(RevCond);
+  bool CanRevCond = !TII->reverseBranchCondition(RevCond);
 
   unsigned Dups = 0;
   unsigned Dups2 = 0;
@@ -555,11 +555,11 @@ bool LPUIfConversion::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
     return false;
 
   if (Kind == ICTriangleFalse || Kind == ICTriangleFRev)
-    if (TII->ReverseBranchCondition(Cond))
+    if (TII->reverseBranchCondition(Cond))
       llvm_unreachable("Unable to reverse branch condition!");
 
   if (Kind == ICTriangleRev || Kind == ICTriangleFRev) {
-    if (ReverseBranchCondition(*CvtBBI)) {
+    if (reverseBranchCondition(*CvtBBI)) {
       // BB has been changed, modify its predecessors (except for this
       // one) so they don't get ifcvt'ed based on bad intel.
       for (MachineBasicBlock::pred_iterator PI = CvtBBI->BB->pred_begin(),
@@ -578,7 +578,7 @@ bool LPUIfConversion::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
 
 
   /*if (CvtBBI->BB->pred_size() > 1) {
-    BBI.NonPredSize -= TII->RemoveBranch(*BBI.BB);
+    BBI.NonPredSize -= TII->removeBranch(*BBI.BB);
     // Copy instructions in the true block, predicate them, and add them to
     // the entry block.
     //CopyAndPredicateBlock(BBI, *CvtBBI, Cond, true);
@@ -588,11 +588,11 @@ bool LPUIfConversion::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
     BBI.BB->removeSuccessor(CvtBBI->BB);
   } else {
     // Predicate the 'true' block after removing its branch.
-    CvtBBI->NonPredSize -= TII->RemoveBranch(*CvtBBI->BB);
+    CvtBBI->NonPredSize -= TII->removeBranch(*CvtBBI->BB);
     //PredicateBlock(*CvtBBI, CvtBBI->BB->end(), Cond);
 
     // Now merge the entry of the triangle with the true block.
-    BBI.NonPredSize -= TII->RemoveBranch(*BBI.BB);
+    BBI.NonPredSize -= TII->removeBranch(*BBI.BB);
     MergeBlocks(BBI, *CvtBBI, false);
   }*/
 

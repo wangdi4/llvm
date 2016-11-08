@@ -136,7 +136,9 @@ void LPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   BuildMI(MBB, MI, DL, get(opc), DestReg).addFrameIndex(FrameIdx).addImm(0);
 }
 
-unsigned LPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
+unsigned LPUInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesAdded) const {
+  assert(!BytesAdded && "code size not handled");
+
   MachineBasicBlock::iterator I = MBB.end();
   unsigned Count = 0;
 
@@ -158,7 +160,7 @@ unsigned LPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
 }
 
 bool LPUInstrInfo::
-ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
+reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
   assert(Cond.size() == 2 && "Invalid branch condition!");
   Cond[0].setImm(GetOppositeBranchCondition((LPU::CondCode)Cond[0].getImm()));
   return false;
@@ -260,12 +262,14 @@ bool LPUInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
 }
 
 unsigned
-LPUInstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+LPUInstrInfo::insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                               MachineBasicBlock *FBB,
                               ArrayRef<MachineOperand> Cond,
-                              const DebugLoc &DL) const {
+                              const DebugLoc &DL,
+                              int *BytesAdded) const {
+  assert(!BytesAdded && "code size not handled");
   // Shouldn't be a fall through.
-  assert(TBB && "InsertBranch must not be told to insert a fallthrough");
+  assert(TBB && "insertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 2 || Cond.size() == 0) &&
          "LPU branch conditions have two components!");
 

@@ -95,14 +95,14 @@ LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   unsigned opc = MI.getOpcode();
 
   int FrameIndex = MI.getOperand(opndNum).getIndex();
-  int StackSize  = MF.getFrameInfo()->getStackSize();
-  int spOffset   = MF.getFrameInfo()->getObjectOffset(FrameIndex);
+  int StackSize  = MF.getFrameInfo().getStackSize();
+  int spOffset   = MF.getFrameInfo().getObjectOffset(FrameIndex);
   // Through here matches MIPS - then eliminateFI(MI, i, FrameIndex, stackSize, spOffset)
-  int ArgSize    = MF.getFrameInfo()->getMaxCallFrameSize();
+  int ArgSize    = MF.getFrameInfo().getMaxCallFrameSize();
   ArgSize = (ArgSize + 7) & (-8); // Align to 8 bytes
   // If variable sized objects, the outgoing arguments are below the variable allocation
   // and do not figure into the stack offsets for the fixed part of the frame...
-  if (MF.getFrameInfo()->hasVarSizedObjects())
+  if (MF.getFrameInfo().hasVarSizedObjects())
     ArgSize = 0;
   int Offset     = spOffset < 0 ? -spOffset+StackSize-8 : spOffset+ArgSize;
   // If this is something other than a move, it should have a displacement/literal with it

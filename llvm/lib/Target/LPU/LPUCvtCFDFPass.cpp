@@ -405,7 +405,7 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
   MachineInstr* result = nullptr;
   MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
-  MachineInstr* bi = loc;
+  MachineInstr* bi = &*loc;
   if (cdgpBB->succ_size() > 1) {
     unsigned switchFalseReg = MRI->createVirtualRegister(TRC);
     unsigned switchTrueReg = MRI->createVirtualRegister(TRC);
@@ -571,7 +571,7 @@ void LPUCvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
       //only conside blocks in the  urrent loop level, blocks in the nested level are done before.
       if (MLI->getLoopFor(mbb) != mloop) continue;
       for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
-        MachineInstr *MI = I;
+        MachineInstr *MI = &*I;
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();
@@ -738,7 +738,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
               if (MO->getMBB() == mbb) {
                 if (mbb->succ_size() == 1 ||
                   (mbb->succ_size() == 2 && MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getLoopLatch() == mbb)) {
-                  insertSWITCHForOperand(mOpnd, mbb, iPhi);
+                  insertSWITCHForOperand(mOpnd, mbb, &*iPhi);
                 } else {
                   //mbb itself is a fork
                   MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, mbb);
@@ -759,7 +759,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
         }
       }
       for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
-        MachineInstr *MI = I;
+        MachineInstr *MI = &*I;
         //phi block control depends on its input blocks, need to handle it here
         //if (MI->isPHI()) continue; //care about forks, not joints
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
@@ -972,7 +972,7 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
     }
     //inside a loop
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
-      MachineInstr *MI = I;
+      MachineInstr *MI = &*I;
       //avoid infinitive recursive
       if (TII.isSwitch(MI) && mbb == exitingBlk) {
         assert(exitingBlk->succ_size() == 2 && "loop exiting blk's # of successor not 2");
@@ -1049,7 +1049,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
     //TBD:: reenable it:
     //assert(latchBB->succ_size() == 2);
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
-      MachineInstr *MI = I;
+      MachineInstr *MI = &*I;
       if (MI->isPHI()) continue; //Pick will take care of it when replacing Phi
       //To avoid infinitive recursive since the newly add SWITCH always use Reg
       if (TII.isSwitch(MI) && mbb == latchBB) {
@@ -1135,7 +1135,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
     ControlDependenceNode *mLatch = CDG->getNode(latchBB);
     MachineBasicBlock::iterator iterI = mbb->begin();
     while(iterI != mbb->end()) {
-      MachineInstr *MI = iterI;
+      MachineInstr *MI = &*iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
       unsigned numUse = 0;
@@ -1260,12 +1260,13 @@ void LPUCvtCFDFPass::assignLicForDF() {
 
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
-      if (TII.isPick(MI) || TII.isSwitch(MI) ||  MI->getOpcode() == LPU::MERGE64f ||
-          TII.isFMA(MI) || TII.isDiv(MI) || TII.isMul(MI) ||
-          TII.isAdd(MI) || TII.isSub(MI) ||
-          MI->getOpcode() == LPU::PREDMERGE || 
-          MI->getOpcode() == LPU::PREDPROP || 
-          MI->getOpcode() == LPU::OR1) {
+      MachineInstr *mInst = &*MI;
+      if (TII.isPick(mInst) || TII.isSwitch(mInst) ||  mInst->getOpcode() == LPU::MERGE64f ||
+          TII.isFMA(mInst) || TII.isDiv(mInst) || TII.isMul(mInst) ||
+          TII.isAdd(mInst) || TII.isSub(mInst) ||
+          mInst->getOpcode() == LPU::PREDMERGE || 
+          mInst->getOpcode() == LPU::PREDPROP || 
+          mInst->getOpcode() == LPU::OR1) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();
@@ -1370,7 +1371,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
       if (allLics && !allImmediateUses) {
         MI->setFlag(MachineInstr::NonSequential);
       }
-      if (!allLics && TII.isSwitch(MI)) {
+      if (!allLics && TII.isSwitch(&*MI)) {
         MI->clearFlag(MachineInstr::NonSequential);
       }
     }
@@ -1387,7 +1388,7 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
     MachineBasicBlock* mbb = &*BB;
     MachineBasicBlock::iterator iterMI = BB->begin();
     while(iterMI != BB->end()) {
-      MachineInstr* MI = iterMI;
+      MachineInstr* MI = &*iterMI;
       ++iterMI;
       if (!TII.isMOV(MI)) continue;
 
@@ -1431,7 +1432,7 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
           }
 #endif
           ++parentN;
-          MachineInstr* bi = upnode->getBlock()->getFirstTerminator();
+          MachineInstr* bi = &*(upnode->getBlock()->getFirstTerminator());
           assert(bi->getOperand(0).isReg());
           unsigned predReg = bi->getOperand(0).getReg();
           unsigned pickReg = 0;
@@ -1486,7 +1487,7 @@ void LPUCvtCFDFPass::removeBranch() {
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock::iterator iterMI = BB->begin();
     while (iterMI != BB->end()) {
-      MachineInstr* MI = iterMI;
+      MachineInstr* MI = &*iterMI;
       ++iterMI;
       if (MI->isBranch()) {
         MI->removeFromParent();
@@ -1588,7 +1589,7 @@ MachineInstr* LPUCvtCFDFPass::insertPICKForReg(MachineBasicBlock* ctrlBB, unsign
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
   MachineBasicBlock::iterator loc = ctrlBB->getFirstTerminator();
-  MachineInstr* bi = loc;
+  MachineInstr* bi = &*loc;
   if (!pickReg) {
     pickReg = MRI->createVirtualRegister(TRC);
   }
@@ -1737,7 +1738,7 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, ControlDepen
   //using loop as the unit of the region
   //reaching the boundary, generate switch 
   if (MLI->getLoopFor(toBB) && MLI->getLoopFor(toBB)->getHeader() == toBB) {
-    MachineInstr* bi = fromBB->getFirstTerminator();
+    MachineInstr* bi = &*(fromBB->getFirstTerminator());
     unsigned switchFalseReg = MRI->createVirtualRegister(&LPU::I1RegClass);
     unsigned switchTrueReg = MRI->createVirtualRegister(&LPU::I1RegClass);
     assert(bi->getOperand(0).isReg());
@@ -1760,7 +1761,7 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, ControlDepen
     unsigned falseEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
     unsigned trueEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
     MachineBasicBlock::iterator loc = fromBB->getFirstTerminator();
-    MachineInstr* bi = loc;
+    MachineInstr* bi = &*loc;
     BuildMI(*fromBB, loc, DebugLoc(), TII.get(LPU::PREDPROP),
       falseEdge).addReg(trueEdge, RegState::Define).addReg(bbPredReg).addReg(bi->getOperand(0).getReg());
     setEdgePred(fromBB, ControlDependenceNode::FALSE, falseEdge);
@@ -1976,7 +1977,7 @@ void LPUCvtCFDFPass::generateDynamicPreds() {
     bool needDynamicTree = false;
     bool checked = false;
     while (iterI != mbb->end()) {
-      MachineInstr *MI = iterI;
+      MachineInstr *MI = &*iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
       //check to see if needs PREDPROP/PREDMERGE
@@ -2010,7 +2011,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
     MachineBasicBlock* mbb = *itermbb;
     MachineBasicBlock::iterator iterI = mbb->begin();
     while (iterI != mbb->end()) {
-      MachineInstr *MI = iterI;
+      MachineInstr *MI = &*iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
       generateCompletePickTreeForPhi(MI);
@@ -2260,7 +2261,7 @@ unsigned LPUCvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& 
 
   MachineBasicBlock::iterator iterMI = BB->begin();
   while (iterMI != BB->end()) {
-    MachineInstr* MI = iterMI;
+    MachineInstr* MI = &*iterMI;
     DEBUG(errs() << "Found instruction: " << *MI << "\n");
 
     unsigned current_opcode = MI->getOpcode();
@@ -2391,7 +2392,7 @@ unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
 
   MachineBasicBlock::iterator iterMI = BB->begin();
   while (iterMI != BB->end()) {
-    MachineInstr* MI = iterMI;
+    MachineInstr* MI = &*iterMI;
     DEBUG(errs() << "Found instruction: " << *MI << "\n");
 
     unsigned current_opcode = MI->getOpcode();
@@ -2465,7 +2466,7 @@ bool LPUCvtCFDFPass::replaceUndefWithIgn() {
   DEBUG(errs() << "Finding implicit defs:\n");
   for (MachineFunction::iterator BB = thisMF->begin(); BB != thisMF->end(); ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-      MachineInstr *MI = I;
+      MachineInstr *MI = &*I;
       // We're looking for instructions like '%vreg26<def> = IMPLICIT_DEF;'.
       if(MI->isImplicitDef()) {
         implicitDefs.insert(MI);

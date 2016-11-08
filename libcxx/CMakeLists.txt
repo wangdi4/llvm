@@ -22,19 +22,19 @@ set(CMAKE_MODULE_PATH
 # Find the LLVM sources and simulate LLVM CMake options.
 include(HandleOutOfTreeLLVM)
 
-if (LIBCXX_BUILT_STANDALONE)
+if (LIBCXX_STANDALONE_BUILD)
   project(libcxx CXX C)
 
   set(PACKAGE_NAME libcxx)
-  set(PACKAGE_VERSION trunk-svn)
+  set(PACKAGE_VERSION 4.0.0svn)
   set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
   set(PACKAGE_BUGREPORT "llvm-bugs@lists.llvm.org")
-endif ()
+endif()
 
-if (LIBCXX_BUILT_STANDALONE AND NOT LLVM_FOUND)
+if (LIBCXX_STANDALONE_BUILD AND NOT LLVM_FOUND)
   message(WARNING "UNSUPPORTED LIBCXX CONFIGURATION DETECTED: "
                   "llvm-config not found and LLVM_PATH not defined.\n"
-                  "Reconfigure with -DLLVM_CONFIG=path/to/llvm-config "
+                  "Reconfigure with -DLLVM_CONFIG_PATH=path/to/llvm-config "
                   "or -DLLVM_PATH=path/to/llvm-source-root.")
 endif()
 
@@ -48,23 +48,34 @@ MACRO_ENSURE_OUT_OF_SOURCE_BUILD(
 #===============================================================================
 # Setup CMake Options
 #===============================================================================
+include(CMakeDependentOption)
 
 # Basic options ---------------------------------------------------------------
 option(LIBCXX_ENABLE_ASSERTIONS "Enable assertions independent of build mode." ON)
 option(LIBCXX_ENABLE_SHARED "Build libc++ as a shared library." ON)
+option(LIBCXX_ENABLE_STATIC "Build libc++ as a static library." ON)
 option(LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY "Build libc++experimental.a" ON)
 option(LIBCXX_ENABLE_FILESYSTEM
         "Build filesystem as part of libc++experimental.a" ${LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY})
 option(LIBCXX_INCLUDE_TESTS "Build the libc++ tests." ${LLVM_INCLUDE_TESTS})
+option(LIBCXX_INCLUDE_BENCHMARKS "Build the libc++ benchmarks and their dependancies" ON)
+option(LIBCXX_BUILD_BENCHMARK_NATIVE_STDLIB "Build the benchmarks against the native STL" OFF)
 option(LIBCXX_INCLUDE_DOCS "Build the libc++ documentation." ${LLVM_INCLUDE_DOCS})
 set(LIBCXX_LIBDIR_SUFFIX "${LLVM_LIBDIR_SUFFIX}" CACHE STRING
     "Define suffix of library directory name (32/64)")
 option(LIBCXX_INSTALL_HEADERS "Install the libc++ headers." ON)
 option(LIBCXX_INSTALL_LIBRARY "Install the libc++ library." ON)
 option(LIBCXX_INSTALL_SUPPORT_HEADERS "Install libc++ support headers." ON)
-option(LIBCXX_INSTALL_EXPERIMENTAL_LIBRARY "Install libc++experimental.a" OFF)
+cmake_dependent_option(LIBCXX_INSTALL_EXPERIMENTAL_LIBRARY
+        "Install libc++experimental.a" ON
+        "LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY;LIBCXX_INSTALL_LIBRARY" OFF)
 set(LIBCXX_ABI_VERSION 1 CACHE STRING "ABI version of libc++.")
 option(LIBCXX_ABI_UNSTABLE "Unstable ABI of libc++." OFF)
+option(LIBCXX_USE_COMPILER_RT "Use compiler-rt instead of libgcc" OFF)
+
+if (NOT LIBCXX_ENABLE_SHARED AND NOT LIBCXX_ENABLE_STATIC)
+  message(FATAL_ERROR "libc++ must be built as either a shared or static library.")
+endif()
 
 # ABI Library options ---------------------------------------------------------
 set(LIBCXX_CXX_ABI "${LIBCXX_CXX_ABI}" CACHE STRING
@@ -74,17 +85,17 @@ set_property(CACHE LIBCXX_CXX_ABI PROPERTY STRINGS ;${CXXABIS})
 
 # Setup the default options if LIBCXX_CXX_ABI is not specified.
 if (NOT LIBCXX_CXX_ABI)
-  if (NOT DEFINED LIBCXX_BUILT_STANDALONE AND
+  if (NOT DEFINED LIBCXX_STANDALONE_BUILD AND
       IS_DIRECTORY "${CMAKE_SOURCE_DIR}/projects/libcxxabi")
     set(LIBCXX_CXX_ABI_LIBNAME "libcxxabi")
     set(LIBCXX_CXX_ABI_INCLUDE_PATHS "${CMAKE_SOURCE_DIR}/projects/libcxxabi/include")
     set(LIBCXX_CXX_ABI_INTREE 1)
-  else ()
+  else()
     set(LIBCXX_CXX_ABI_LIBNAME "none")
-  endif ()
-else ()
+  endif()
+else()
   set(LIBCXX_CXX_ABI_LIBNAME "${LIBCXX_CXX_ABI}")
-endif ()
+endif()
 
 # Use a static copy of the ABI library when linking libc++. This option
 # cannot be used with LIBCXX_ENABLE_ABI_LINKER_SCRIPT.
@@ -129,6 +140,9 @@ option(LIBCXX_ENABLE_MONOTONIC_CLOCK
    This option may only be set to OFF when LIBCXX_ENABLE_THREADS=OFF." ON)
 option(LIBCXX_HAS_MUSL_LIBC "Build libc++ with support for the Musl C library" OFF)
 option(LIBCXX_HAS_PTHREAD_API "Ignore auto-detection and force use of pthread API" OFF)
+option(LIBCXX_HAS_EXTERNAL_THREAD_API
+  "Build libc++ with an externalized threading API.
+   This option may only be set to ON when LIBCXX_ENABLE_THREADS=ON." OFF)
 
 # Misc options ----------------------------------------------------------------
 # FIXME: Turn -pedantic back ON. It is currently off because it warns
@@ -183,6 +197,11 @@ endif()
 
 if(LIBCXX_HAS_PTHREAD_API AND NOT LIBCXX_ENABLE_THREADS)
   message(FATAL_ERROR "LIBCXX_HAS_PTHREAD_API can only be set to ON"
+                      " when LIBCXX_ENABLE_THREADS is also set to ON.")
+endif()
+
+if(LIBCXX_HAS_EXTERNAL_THREAD_API AND NOT LIBCXX_ENABLE_THREADS)
+  message(FATAL_ERROR "LIBCXX_HAS_EXTERNAL_THREAD_API can only be set to ON"
                       " when LIBCXX_ENABLE_THREADS is also set to ON.")
 endif()
 
@@ -270,6 +289,10 @@ add_target_flags_if(LIBCXX_GCC_TOOLCHAIN "-gcc-toolchain ${LIBCXX_GCC_TOOLCHAIN}
 # Configure compiler.
 include(config-ix)
 
+if (LIBCXX_USE_COMPILER_RT)
+  list(APPEND LIBCXX_LINK_FLAGS "-rtlib=compiler-rt")
+endif()
+
 # Configure coverage options.
 if (LIBCXX_GENERATE_COVERAGE)
   include(CodeCoverage)
@@ -294,9 +317,11 @@ remove_flags(-DNDEBUG -UNDEBUG -D_DEBUG
 remove_flags(-Wno-pedantic -pedantic-errors -pedantic)
 
 # Required flags ==============================================================
-add_compile_flags_if_supported(-std=c++11)
-if (NOT MSVC AND NOT LIBCXX_SUPPORTS_STD_EQ_CXX11_FLAG)
-  message(FATAL_ERROR "C++11 is required but the compiler does not support -std=c++11")
+set(LIBCXX_STANDARD_VER c++11 CACHE INTERNAL "internal option to change build dialect")
+add_compile_flags_if_supported(-std=${LIBCXX_STANDARD_VER})
+mangle_name("LIBCXX_SUPPORTS_STD_EQ_${LIBCXX_STANDARD_VER}_FLAG" SUPPORTS_DIALECT_NAME)
+if (NOT MSVC AND NOT ${SUPPORTS_DIALECT_NAME})
+  message(FATAL_ERROR "C++11 or greater is required but the compiler does not support ${LIBCXX_STANDARD_VER}")
 endif()
 
 # On all systems the system c++ standard library headers need to be excluded.
@@ -305,14 +330,23 @@ endif()
 # headers
 add_compile_flags_if_supported(-nostdinc++)
 
+add_definitions(-D_LIBCPP_BUILDING_LIBRARY)
 
 # Warning flags ===============================================================
 add_definitions(-D_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 add_compile_flags_if_supported(
-    -Wall -W -Wwrite-strings
-    -Wno-unused-parameter -Wno-long-long -Wno-user-defined-literals
-    -Wno-covered-switch-default
+    -Wall -Wextra -W -Wwrite-strings
+    -Wno-unused-parameter -Wno-long-long
     -Werror=return-type)
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+    add_compile_flags_if_supported(
+        -Wno-user-defined-literals
+        -Wno-covered-switch-default)
+elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+    add_compile_flags_if_supported(
+        -Wno-literal-suffix
+        -Wno-c++14-compat)
+endif()
 if (LIBCXX_ENABLE_WERROR)
   add_compile_flags_if_supported(-Werror)
   add_compile_flags_if_supported(-WX)
@@ -346,6 +380,17 @@ if (NOT LIBCXX_ENABLE_RTTI)
   add_compile_flags_if_supported(-fno-rtti)
 endif()
 
+# Threading flags =============================================================
+if (LIBCXX_HAS_EXTERNAL_THREAD_API AND LIBCXX_ENABLE_SHARED)
+  # Need to allow unresolved symbols if this is to work with shared library builds
+  if (APPLE)
+    add_link_flags("-undefined dynamic_lookup")
+  else()
+    # Relax this restriction from HandleLLVMOptions
+    string(REPLACE "-Wl,-z,defs" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+  endif()
+endif()
+
 # Assertion flags =============================================================
 define_if(LIBCXX_ENABLE_ASSERTIONS -UNDEBUG)
 define_if_not(LIBCXX_ENABLE_ASSERTIONS -DNDEBUG)
@@ -359,9 +404,9 @@ define_if(MSVC -D_CRT_SECURE_NO_WARNINGS)
 
 # Sanitizer flags =============================================================
 
-# Configure for sanitizers. If LIBCXX_BUILT_STANDALONE then we have to do
+# Configure for sanitizers. If LIBCXX_STANDALONE_BUILD then we have to do
 # the flag translation ourselves. Othewise LLVM's CMakeList.txt will handle it.
-if (LIBCXX_BUILT_STANDALONE)
+if (LIBCXX_STANDALONE_BUILD)
   set(LLVM_USE_SANITIZER "" CACHE STRING
       "Define the sanitizer used to build the library and tests")
   # NOTE: LLVM_USE_SANITIZER checks for a UNIX like system instead of MSVC.
@@ -407,6 +452,7 @@ config_define_if_not(LIBCXX_ENABLE_MONOTONIC_CLOCK _LIBCPP_HAS_NO_MONOTONIC_CLOC
 config_define_if_not(LIBCXX_ENABLE_THREAD_UNSAFE_C_FUNCTIONS _LIBCPP_HAS_NO_THREAD_UNSAFE_C_FUNCTIONS)
 
 config_define_if(LIBCXX_HAS_PTHREAD_API _LIBCPP_HAS_THREAD_API_PTHREAD)
+config_define_if(LIBCXX_HAS_EXTERNAL_THREAD_API _LIBCPP_HAS_THREAD_API_EXTERNAL)
 config_define_if(LIBCXX_HAS_MUSL_LIBC _LIBCPP_HAS_MUSL_LIBC)
 
 if (LIBCXX_NEEDS_SITE_CONFIG)
@@ -426,6 +472,9 @@ include_directories(include)
 add_subdirectory(include)
 add_subdirectory(lib)
 
+if (LIBCXX_INCLUDE_BENCHMARKS)
+  add_subdirectory(benchmarks)
+endif()
 if (LIBCXX_INCLUDE_TESTS)
   add_subdirectory(test)
 endif()

@@ -106,6 +106,10 @@ namespace llvm {
       /// 0s or 1s.  Generally DTRT for C/C++ with NaNs.
       FSETCC,
 
+      /// X86 FP SETCC, similar to above, but with output as an i1 mask and
+      /// with optional rounding mode.
+      FSETCCM, FSETCCM_RND,
+
       /// X86 conditional moves. Operand 0 and operand 1 are the two values
       /// to select from. Operand 2 is the condition code, and operand 3 is the
       /// flag operand produced by a CMP or TEST instruction. It also writes a
@@ -251,7 +255,7 @@ namespace llvm {
       /// in order to obtain suitable precision.
       FRSQRT, FRCP,
       FRSQRTS, FRCPS,
-   
+
       // Thread Local Storage.
       TLSADDR,
 
@@ -539,6 +543,9 @@ namespace llvm {
       // ERI instructions.
       RSQRT28, RCP28, EXP2,
 
+      // Conversions between float and half-float.
+      CVTPS2PH, CVTPH2PS,
+
       // Compare and swap.
       LCMPXCHG_DAG = ISD::FIRST_TARGET_MEMORY_OPCODE,
       LCMPXCHG8_DAG,
@@ -762,6 +769,26 @@ namespace llvm {
 
     bool hasBitPreservingFPLogic(EVT VT) const override {
       return VT == MVT::f32 || VT == MVT::f64 || VT.isVector();
+    }
+
+    bool isMultiStoresCheaperThanBitsMerge(SDValue Lo,
+                                           SDValue Hi) const override {
+      // If the pair to store is a mixture of float and int values, we will
+      // save two bitwise instructions and one float-to-int instruction and
+      // increase one store instruction. There is potentially a more
+      // significant benefit because it avoids the float->int domain switch
+      // for input value. So It is more likely a win.
+      if (Lo.getOpcode() == ISD::BITCAST || Hi.getOpcode() == ISD::BITCAST) {
+        SDValue Opd = (Lo.getOpcode() == ISD::BITCAST) ? Lo.getOperand(0)
+                                                       : Hi.getOperand(0);
+        if (Opd.getValueType().isFloatingPoint())
+          return true;
+      }
+      // If the pair only contains int values, we will save two bitwise
+      // instructions and increase one store instruction (costing one more
+      // store buffer). Since the benefit is more blurred so we leave
+      // such pair out until we get testcase to prove it is a win.
+      return false;
     }
 
     bool hasAndNotCompare(SDValue Y) const override;
@@ -1032,7 +1059,7 @@ namespace llvm {
     SDValue LowerMemArgument(SDValue Chain, CallingConv::ID CallConv,
                              const SmallVectorImpl<ISD::InputArg> &ArgInfo,
                              const SDLoc &dl, SelectionDAG &DAG,
-                             const CCValAssign &VA, MachineFrameInfo *MFI,
+                             const CCValAssign &VA, MachineFrameInfo &MFI,
                              unsigned i) const;
     SDValue LowerMemOpCallTo(SDValue Chain, SDValue StackPtr, SDValue Arg,
                              const SDLoc &dl, SelectionDAG &DAG,
@@ -1218,6 +1245,9 @@ namespace llvm {
 
     /// Convert a comparison if required by the subtarget.
     SDValue ConvertCmpIfNecessary(SDValue Cmp, SelectionDAG &DAG) const;
+
+    /// Check if replacement of SQRT with RSQRT should be disabled.
+    bool isFsqrtCheap(SDValue Operand, SelectionDAG &DAG) const override;
 
     /// Use rsqrt* to speed up sqrt calculations.
     SDValue getRsqrtEstimate(SDValue Operand, DAGCombinerInfo &DCI,

@@ -916,7 +916,7 @@ static const Expr *peelOffOuterExpr(const Expr *Ex,
     if (PropRef && PropRef->isMessagingGetter()) {
       const Expr *GetterMessageSend =
           POE->getSemanticExpr(POE->getNumSemanticExprs() - 1);
-      assert(isa<ObjCMessageExpr>(GetterMessageSend));
+      assert(isa<ObjCMessageExpr>(GetterMessageSend->IgnoreParenCasts()));
       return peelOffOuterExpr(GetterMessageSend, N);
     }
   }
@@ -1735,10 +1735,13 @@ CXXSelfAssignmentBRVisitor::VisitNode(const ExplodedNode *Succ,
   if (!L.isValid() || !L.asLocation().isValid())
     return nullptr;
 
-  const auto Msg = "Assuming " + Met->getParamDecl(0)->getName() +
-                   ((Param == This) ? " == " : " != ") + "*this";
+  SmallString<256> Buf;
+  llvm::raw_svector_ostream Out(Buf);
 
-  auto *Piece = new PathDiagnosticEventPiece(L, Msg.str());
+  Out << "Assuming " << Met->getParamDecl(0)->getName() <<
+    ((Param == This) ? " == " : " != ") << "*this";
+
+  auto *Piece = new PathDiagnosticEventPiece(L, Out.str());
   Piece->addRange(Met->getSourceRange());
 
   return Piece;

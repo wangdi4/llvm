@@ -3,6 +3,7 @@ set(files
   altivec.h
   ammintrin.h
   arm_acle.h
+  armintr.h
   avx2intrin.h
   avx512bwintrin.h
   avx512cdintrin.h
@@ -47,6 +48,7 @@ set(files
   mmintrin.h
   mm_malloc.h
   module.modulemap
+  msa.h
   mwaitxintrin.h
   nmmintrin.h
   opencl-c.h

@@ -436,7 +436,7 @@ For example, consider this simple LLVM example:
 The X86 instruction selector might produce this machine code for the ``div`` and
 ``ret``:
 
-.. code-block:: llvm
+.. code-block:: text
 
   ;; Start of div
   %EAX = mov %reg1024           ;; Copy X (in reg1024) into EAX
@@ -453,7 +453,7 @@ By the end of code generation, the register allocator would coalesce the
 registers and delete the resultant identity moves producing the following
 code:
 
-.. code-block:: llvm
+.. code-block:: text
 
   ;; X is in EAX, Y is in ECX
   mov %EAX, %EDX
@@ -965,7 +965,7 @@ target code.  For example, consider the following LLVM fragment:
 
 This LLVM code corresponds to a SelectionDAG that looks basically like this:
 
-.. code-block:: llvm
+.. code-block:: text
 
   (fadd:f32 (fmul:f32 (fadd:f32 W, X), Y), Z)
 
@@ -2396,7 +2396,7 @@ the following exceptions.  Callee saved registers are spilled after the frame is
 created.  This allows the llvm epilog/prolog support to be common with other
 targets.  The base pointer callee saved register r31 is saved in the TOC slot of
 linkage area.  This simplifies allocation of space for the base pointer and
-makes it convenient to locate programatically and during debugging.
+makes it convenient to locate programmatically and during debugging.
 
 Dynamic Allocation
 ^^^^^^^^^^^^^^^^^^

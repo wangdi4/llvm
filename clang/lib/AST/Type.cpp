@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/Type.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/CharUnits.h"
@@ -19,13 +20,11 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/PrettyPrinter.h"
-#include "clang/AST/Type.h"
 #include "clang/AST/TypeVisitor.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 using namespace clang;
 
@@ -532,6 +531,18 @@ bool Type::isObjCInertUnsafeUnretainedType() const {
   }
 }
 
+ObjCTypeParamType::ObjCTypeParamType(const ObjCTypeParamDecl *D,
+                                     QualType can,
+                                     ArrayRef<ObjCProtocolDecl *> protocols)
+  : Type(ObjCTypeParam, can, can->isDependentType(),
+         can->isInstantiationDependentType(),
+         can->isVariablyModifiedType(),
+         /*ContainsUnexpandedParameterPack=*/false),
+    OTPDecl(const_cast<ObjCTypeParamDecl*>(D))
+{
+  initialize(protocols);
+}
+
 ObjCObjectType::ObjCObjectType(QualType Canonical, QualType Base,
                                ArrayRef<QualType> typeArgs,
                                ArrayRef<ObjCProtocolDecl *> protocols,
@@ -547,15 +558,9 @@ ObjCObjectType::ObjCObjectType(QualType Canonical, QualType Base,
   ObjCObjectTypeBits.NumTypeArgs = typeArgs.size();
   assert(getTypeArgsAsWritten().size() == typeArgs.size() &&
          "bitfield overflow in type argument count");
-  ObjCObjectTypeBits.NumProtocols = protocols.size();
-  assert(getNumProtocols() == protocols.size() &&
-         "bitfield overflow in protocol count");
   if (!typeArgs.empty())
     memcpy(getTypeArgStorage(), typeArgs.data(),
            typeArgs.size() * sizeof(QualType));
-  if (!protocols.empty())
-    memcpy(getProtocolStorage(), protocols.data(),
-           protocols.size() * sizeof(ObjCProtocolDecl*));
 
   for (auto typeArg : typeArgs) {
     if (typeArg->isDependentType())
@@ -566,6 +571,9 @@ ObjCObjectType::ObjCObjectType(QualType Canonical, QualType Base,
     if (typeArg->containsUnexpandedParameterPack())
       setContainsUnexpandedParameterPack();
   }
+  // Initialize the protocol qualifiers. The protocol storage is known
+  // after we set number of type arguments.
+  initialize(protocols);
 }
 
 bool ObjCObjectType::isSpecialized() const { 
@@ -883,6 +891,7 @@ public:
   }
 
   TRIVIAL_TYPE_CLASS(Typedef)
+  TRIVIAL_TYPE_CLASS(ObjCTypeParam)
 
   QualType VisitAdjustedType(const AdjustedType *T) { 
     QualType originalType = recurse(T->getOriginalType());
@@ -1072,13 +1081,24 @@ QualType QualType::substObjCTypeArgs(
 
     // Replace an Objective-C type parameter reference with the corresponding
     // type argument.
-    if (const auto *typedefTy = dyn_cast<TypedefType>(splitType.Ty)) {
-      if (auto *typeParam = dyn_cast<ObjCTypeParamDecl>(typedefTy->getDecl())) {
+    if (const auto *OTPTy = dyn_cast<ObjCTypeParamType>(splitType.Ty)) {
+      if (auto *typeParam = dyn_cast<ObjCTypeParamDecl>(OTPTy->getDecl())) {
         // If we have type arguments, use them.
         if (!typeArgs.empty()) {
-          // FIXME: Introduce SubstObjCTypeParamType ?
           QualType argType = typeArgs[typeParam->getIndex()];
-          return ctx.getQualifiedType(argType, splitType.Quals);
+          if (OTPTy->qual_empty())
+            return ctx.getQualifiedType(argType, splitType.Quals);
+
+          // Apply protocol lists if exists.
+          bool hasError;
+          SmallVector<ObjCProtocolDecl*, 8> protocolsVec;
+          protocolsVec.append(OTPTy->qual_begin(),
+                              OTPTy->qual_end());
+          ArrayRef<ObjCProtocolDecl *> protocolsToApply = protocolsVec;
+          QualType resultTy = ctx.applyObjCProtocolQualifiers(argType,
+              protocolsToApply, hasError, true/*allowOnPointerType*/);
+
+          return ctx.getQualifiedType(resultTy, splitType.Quals);
         }
 
         switch (context) {
@@ -3212,6 +3232,20 @@ void ObjCObjectTypeImpl::Profile(llvm::FoldingSetNodeID &ID) {
           isKindOfTypeAsWritten());
 }
 
+void ObjCTypeParamType::Profile(llvm::FoldingSetNodeID &ID,
+                                const ObjCTypeParamDecl *OTPDecl,
+                                ArrayRef<ObjCProtocolDecl *> protocols) {
+  ID.AddPointer(OTPDecl);
+  ID.AddInteger(protocols.size());
+  for (auto proto : protocols)
+    ID.AddPointer(proto);
+}
+
+void ObjCTypeParamType::Profile(llvm::FoldingSetNodeID &ID) {
+  Profile(ID, getDecl(),
+          llvm::makeArrayRef(qual_begin(), getNumProtocols()));
+}
+
 namespace {
 
 /// \brief The cached properties of a type.
@@ -3687,10 +3721,18 @@ bool Type::isObjCARCImplicitlyUnretainedType() const {
 }
 
 bool Type::isObjCNSObjectType() const {
-  if (const TypedefType *typedefType = dyn_cast<TypedefType>(this))
-    return typedefType->getDecl()->hasAttr<ObjCNSObjectAttr>();
-  return false;
+  const Type *cur = this;
+  while (true) {
+    if (const TypedefType *typedefType = dyn_cast<TypedefType>(cur))
+      return typedefType->getDecl()->hasAttr<ObjCNSObjectAttr>();
+
+    // Single-step desugar until we run out of sugar.
+    QualType next = cur->getLocallyUnqualifiedSingleStepDesugaredType();
+    if (next.getTypePtr() == cur) return false;
+    cur = next.getTypePtr();
+  }
 }
+
 bool Type::isObjCIndependentClassType() const {
   if (const TypedefType *typedefType = dyn_cast<TypedefType>(this))
     return typedefType->getDecl()->hasAttr<ObjCIndependentClassAttr>();

@@ -141,7 +141,7 @@ namespace llvm {
     BBInfo &AnalyzeBlock(MachineBasicBlock *BB,
                          std::vector<IfcvtToken*> &Tokens);
 
-    bool ReverseBranchCondition(BBInfo &BBI);
+    bool reverseBranchCondition(BBInfo &BBI);
     bool ValidSimple(BBInfo &TrueBBI, unsigned &Dups,
                      const BranchProbability &Prediction) const;
     bool ValidTriangle(BBInfo &TrueBBI, BBInfo &FalseBBI,

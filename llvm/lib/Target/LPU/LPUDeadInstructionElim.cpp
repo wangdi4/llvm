@@ -255,7 +255,7 @@ bool LPUDeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
       for (MachineBasicBlock::reverse_iterator MII = MBB.rbegin(),
              MIE = MBB.rend(); MII != MIE; ) {
 
-        MachineInstr& MI = *MII;
+        MachineInstr& MI = *MII++;
 
         // If the instruction is dead, delete it!
         if (isDead(MI)) {
@@ -267,15 +267,9 @@ bool LPUDeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
           AnyChanges = true;
           LocalChanges = true;
           ++NumDeletes;
-          MIE = MBB.rend();
-          // MII is now pointing to the next instruction to process,
-          // so don't increment it.
           continue;
         }
 
-        // We didn't delete the current instruction, so increment MII to
-        // the next one.
-        ++MII;
       }
     } while (LocalChanges);
 

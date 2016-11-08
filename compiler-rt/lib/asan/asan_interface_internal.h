@@ -23,6 +23,8 @@
 #include "asan_init_version.h"
 
 using __sanitizer::uptr;
+using __sanitizer::u64;
+using __sanitizer::u32;
 
 extern "C" {
   // This function should be called at the very beginning of the process,
@@ -78,6 +80,20 @@ extern "C" {
   void __asan_before_dynamic_init(const char *module_name);
   SANITIZER_INTERFACE_ATTRIBUTE
   void __asan_after_dynamic_init();
+
+  // Sets bytes of the given range of the shadow memory into specific value.
+  SANITIZER_INTERFACE_ATTRIBUTE
+  void __asan_set_shadow_00(uptr addr, uptr size);
+  SANITIZER_INTERFACE_ATTRIBUTE
+  void __asan_set_shadow_f1(uptr addr, uptr size);
+  SANITIZER_INTERFACE_ATTRIBUTE
+  void __asan_set_shadow_f2(uptr addr, uptr size);
+  SANITIZER_INTERFACE_ATTRIBUTE
+  void __asan_set_shadow_f3(uptr addr, uptr size);
+  SANITIZER_INTERFACE_ATTRIBUTE
+  void __asan_set_shadow_f5(uptr addr, uptr size);
+  SANITIZER_INTERFACE_ATTRIBUTE
+  void __asan_set_shadow_f8(uptr addr, uptr size);
 
   // These two functions are used by instrumented code in the
   // use-after-scope mode. They mark memory for local variables as

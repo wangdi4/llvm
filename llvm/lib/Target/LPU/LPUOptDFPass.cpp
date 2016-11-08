@@ -833,7 +833,7 @@ seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
     MachineBasicBlock::iterator iterMI = BB->begin();
 
     while (iterMI != BB->end()) {
-      MachineInstr* MI = iterMI;
+      MachineInstr* MI = &*iterMI;
 
       if (seq_identify_header(MI, &tmp_header)) {
         DEBUG(errs() << "Found a sequence header " << "\n");

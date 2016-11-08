@@ -121,7 +121,7 @@ bool LPUAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
     //    << BB->size() << " instructions.\n");
 
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-      MachineInstr *MI=I;
+      MachineInstr *MI=&*I;
       //DEBUG(errs() << *I << "\n");
 
       // If this operation has the NonSequential flag set, allocate a UNIT

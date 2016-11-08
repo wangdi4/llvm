@@ -390,7 +390,7 @@ static inline void StrstrCheck(void *ctx, char *r, const char *s1,
 #if SANITIZER_INTERCEPT_STRSTR
 
 DECLARE_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_strstr, uptr called_pc,
-                              const char *s1, const char *s2, char *result);
+                              const char *s1, const char *s2, char *result)
 
 INTERCEPTOR(char*, strstr, const char *s1, const char *s2) {
   if (COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED)
@@ -413,7 +413,7 @@ INTERCEPTOR(char*, strstr, const char *s1, const char *s2) {
 #if SANITIZER_INTERCEPT_STRCASESTR
 
 DECLARE_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_strcasestr, uptr called_pc,
-                              const char *s1, const char *s2, char *result);
+                              const char *s1, const char *s2, char *result)
 
 INTERCEPTOR(char*, strcasestr, const char *s1, const char *s2) {
   void *ctx;
@@ -434,7 +434,7 @@ INTERCEPTOR(char*, strcasestr, const char *s1, const char *s2) {
 #if SANITIZER_INTERCEPT_MEMMEM
 DECLARE_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_memmem, uptr called_pc,
                               const void *s1, SIZE_T len1, const void *s2,
-                              SIZE_T len2, void *result);
+                              SIZE_T len2, void *result)
 
 INTERCEPTOR(void*, memmem, const void *s1, SIZE_T len1, const void *s2,
             SIZE_T len2) {
@@ -663,7 +663,16 @@ INTERCEPTOR(void*, memchr, const void *s, int c, SIZE_T n) {
     return internal_memchr(s, c, n);
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, memchr, s, c, n);
+#if SANITIZER_WINDOWS
+  void *res;
+  if (REAL(memchr)) {
+    res = REAL(memchr)(s, c, n);
+  } else {
+    res = internal_memchr(s, c, n);
+  }
+#else
   void *res = REAL(memchr)(s, c, n);
+#endif
   uptr len = res ? (char *)res - (const char *)s + 1 : n;
   COMMON_INTERCEPTOR_READ_RANGE(ctx, s, len);
   return res;
@@ -4174,6 +4183,20 @@ INTERCEPTOR(char *, tmpnam_r, char *s) {
 #define INIT_TMPNAM_R
 #endif
 
+#if SANITIZER_INTERCEPT_TTYNAME_R
+INTERCEPTOR(int, ttyname_r, int fd, char *name, SIZE_T namesize) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, ttyname_r, fd, name, namesize);
+  int res = REAL(ttyname_r)(fd, name, namesize);
+  if (res == 0)
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, name, REAL(strlen)(name) + 1);
+  return res;
+}
+#define INIT_TTYNAME_R COMMON_INTERCEPT_FUNCTION(ttyname_r);
+#else
+#define INIT_TTYNAME_R
+#endif
+
 #if SANITIZER_INTERCEPT_TEMPNAM
 INTERCEPTOR(char *, tempnam, char *dir, char *pfx) {
   void *ctx;
@@ -5999,6 +6022,7 @@ static void InitializeCommonInterceptors() {
   INIT_PTHREAD_BARRIERATTR_GETPSHARED;
   INIT_TMPNAM;
   INIT_TMPNAM_R;
+  INIT_TTYNAME_R;
   INIT_TEMPNAM;
   INIT_PTHREAD_SETNAME_NP;
   INIT_SINCOS;

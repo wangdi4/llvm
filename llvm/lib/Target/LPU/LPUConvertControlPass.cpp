@@ -686,7 +686,7 @@ bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
 
   // process each instruction in BB
   for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-    MachineInstr *MI = I;
+    MachineInstr *MI = &*I;
 
     //DEBUG(errs() << "processing inst: ");
     //DEBUG(errs() << *MI);
@@ -858,7 +858,7 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
 
     // generate pick/switch DF ops for live-in uses and live-out defs
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-      MachineInstr *MI = I;
+      MachineInstr *MI = &*I;
 
       DEBUG(errs() << "gen pick/switch DF ops: processing inst: ");
       DEBUG(errs() << *MI);

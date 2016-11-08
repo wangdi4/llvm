@@ -7,6 +7,8 @@ class J<string name>: Joined<["--", "-"], name>;
 class S<string name>: Separate<["--", "-"], name>;
 class JS<string name>: JoinedOrSeparate<["--", "-"], name>;
 
+def auxiliary: S<"auxiliary">, HelpText<"Set DT_AUXILIARY field to the specified name">;
+
 def Bsymbolic: F<"Bsymbolic">, HelpText<"Bind defined symbols locally">;
 
 def Bsymbolic_functions: F<"Bsymbolic-functions">,
@@ -24,6 +26,12 @@ def L: JoinedOrSeparate<["-"], "L">, MetaVarName<"<dir>">,
   HelpText<"Add a directory to the library search path">;
 
 def O: Joined<["-"], "O">, HelpText<"Optimize output file size">;
+
+def Tbss: J<"Tbss=">, HelpText<"Same as --section-start with .bss as the sectionname">;
+
+def Tdata: J<"Tdata=">, HelpText<"Same as --section-start with .data as the sectionname">;
+
+def Ttext: J<"Ttext=">, HelpText<"Same as --section-start with .text as the sectionname">;
 
 def allow_multiple_definition: F<"allow-multiple-definition">,
   HelpText<"Allow multiple definitions">;
@@ -72,6 +80,12 @@ def fatal_warnings: F<"fatal-warnings">,
 def fini: S<"fini">, MetaVarName<"<symbol>">,
   HelpText<"Specify a finalizer function">;
 
+def format: J<"format=">, MetaVarName<"<input-format>">,
+  HelpText<"Change the input format of the inputs following this option">;
+
+def gc_sections: F<"gc-sections">,
+  HelpText<"Enable garbage collection of unused sections">;
+
 def hash_style: S<"hash-style">,
   HelpText<"Specify hash style (sysv, gnu or both)">;
 
@@ -80,9 +94,6 @@ def help: F<"help">, HelpText<"Print option help">;
 def icf: F<"icf=all">, HelpText<"Enable identical code folding">;
 
 def image_base : J<"image-base=">, HelpText<"Set the base address">;
-
-def gc_sections: F<"gc-sections">,
-  HelpText<"Enable garbage collection of unused sections">;
 
 def init: S<"init">, MetaVarName<"<symbol>">,
   HelpText<"Specify an initializer function">;
@@ -95,11 +106,17 @@ def lto_O: J<"lto-O">, MetaVarName<"<opt-level>">,
 
 def m: JoinedOrSeparate<["-"], "m">, HelpText<"Set target emulation">;
 
+def nostdlib: F<"nostdlib">,
+  HelpText<"Only search directories specified on the command line">;
+
 def no_as_needed: F<"no-as-needed">,
   HelpText<"Always DT_NEEDED for shared libraries">;
 
 def no_demangle: F<"no-demangle">,
   HelpText<"Do not demangle symbol names">;
+
+def no_gc_sections: F<"no-gc-sections">,
+  HelpText<"Disable garbage collection of unused sections">;
 
 def no_gnu_unique: F<"no-gnu-unique">,
   HelpText<"Disable STB_GNU_UNIQUE symbol binding">;
@@ -119,6 +136,9 @@ def no_undefined_version: F<"no-undefined-version">,
 def o: JoinedOrSeparate<["-"], "o">, MetaVarName<"<path>">,
   HelpText<"Path to file to write output">;
 
+def oformat: Separate<["--"], "oformat">, MetaVarName<"<format>">,
+  HelpText<"Specify the binary format for the output object file">;
+
 def pie: F<"pie">, HelpText<"Create a position independent executable">;
 
 def print_gc_sections: F<"print-gc-sections">,
@@ -133,9 +153,14 @@ def relocatable: F<"relocatable">, HelpText<"Create relocatable object file">;
 
 def script: S<"script">, HelpText<"Read linker script">;
 
+def section_start: S<"section-start">, MetaVarName<"<address>">,
+  HelpText<"Set address of section">;
+
 def shared: F<"shared">, HelpText<"Build a shared object">;
 
 def soname: J<"soname=">, HelpText<"Set DT_SONAME">;
+
+def sort_section: S<"sort-section">, HelpText<"Specifies sections sorting rule when linkerscript is used">;
 
 def start_lib: F<"start-lib">,
   HelpText<"Start a grouping of objects that should be treated as if they were together in an archive">;
@@ -146,13 +171,17 @@ def strip_debug: F<"strip-debug">, HelpText<"Strip debugging information">;
 
 def sysroot: J<"sysroot=">, HelpText<"Set the system root">;
 
+def target1_rel: F<"target1-rel">, HelpText<"Interpret R_ARM_TARGET1 as R_ARM_REL32">;
+
+def target1_abs: F<"target1-abs">, HelpText<"Interpret R_ARM_TARGET1 as R_ARM_ABS32">;
+
 def threads: F<"threads">, HelpText<"Enable use of threads">;
 
 def trace: F<"trace">, HelpText<"Print the names of the input files">;
 
 def trace_symbol : J<"trace-symbol=">, HelpText<"Trace references to symbols">;
 
-def undefined: J<"undefined=">,
+def undefined: S<"undefined">,
   HelpText<"Force undefined symbol during linking">;
 
 def unresolved_symbols: J<"unresolved-symbols=">,
@@ -181,6 +210,7 @@ def z: JoinedOrSeparate<["-"], "z">, MetaVarName<"<option>">,
   HelpText<"Linker option extensions">;
 
 // Aliases
+def alias_auxiliary: Separate<["-"], "f">, Alias<auxiliary>;
 def alias_Bdynamic_call_shared: F<"call_shared">, Alias<Bdynamic>;
 def alias_Bdynamic_dy: F<"dy">, Alias<Bdynamic>;
 def alias_Bstatic_dn: F<"dn">, Alias<Bstatic>;
@@ -196,10 +226,12 @@ def alias_export_dynamic_E: Flag<["-"], "E">, Alias<export_dynamic>;
 def alias_export_dynamic_symbol: J<"export-dynamic-symbol=">,
   Alias<export_dynamic_symbol>;
 def alias_fini_fini: J<"fini=">, Alias<fini>;
+def alias_format_b: S<"b">, Alias<format>;
 def alias_hash_style_hash_style: J<"hash-style=">, Alias<hash_style>;
 def alias_init_init: J<"init=">, Alias<init>;
 def alias_l__library: J<"library=">, Alias<l>;
 def alias_o_output: Joined<["--"], "output=">, Alias<o>;
+def alias_o_output2 : Separate<["--"], "output">, Alias<o>;
 def alias_pie_pic_executable: F<"pic-executable">, Alias<pie>;
 def alias_relocatable_r: Flag<["-"], "r">, Alias<relocatable>;
 def alias_rpath_R: Joined<["-"], "R">, Alias<rpath>;
@@ -212,6 +244,7 @@ def alias_strip_all: Flag<["-"], "s">, Alias<strip_all>;
 def alias_strip_debug_S: Flag<["-"], "S">, Alias<strip_debug>;
 def alias_trace: Flag<["-"], "t">, Alias<trace>;
 def alias_trace_symbol_y : JoinedOrSeparate<["-"], "y">, Alias<trace_symbol>;
+def alias_undefined_eq: J<"undefined=">, Alias<undefined>;
 def alias_undefined_u: JoinedOrSeparate<["-"], "u">, Alias<undefined>;
 def alias_version_V: Flag<["-"], "V">, Alias<version>;
 def alias_version_v: Flag<["-"], "v">, Alias<version>;
@@ -242,6 +275,7 @@ def allow_shlib_undefined: F<"allow-shlib-undefined">;
 def define_common: F<"define-common">;
 def demangle: F<"demangle">;
 def detect_odr_violations: F<"detect-odr-violations">;
+def g: Flag<["-"], "g">;
 def no_add_needed: F<"no-add-needed">;
 def no_allow_shlib_undefined: F<"no-allow-shlib-undefined">;
 def no_copy_dt_needed_entries: F<"no-copy-dt-needed-entries">,
@@ -256,7 +290,10 @@ def rpath_link_eq: J<"rpath-link=">;
 def sort_common: F<"sort-common">;
 def warn_execstack: F<"warn-execstack">;
 def warn_shared_textrel: F<"warn-shared-textrel">;
-def G: Separate<["-"], "G">;
+def EB : F<"EB">;
+def EL : F<"EL">;
+def G: JoinedOrSeparate<["-"], "G">;
+def Qy : F<"Qy">;
 
 // Aliases for ignored options
 def alias_define_common_d: Flag<["-"], "d">, Alias<define_common>;

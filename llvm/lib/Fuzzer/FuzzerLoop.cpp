@@ -10,6 +10,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "FuzzerInternal.h"
+#include "FuzzerCorpus.h"
+#include "FuzzerMutate.h"
+#include "FuzzerTracePC.h"
+#include "FuzzerRandom.h"
+
 #include <algorithm>
 #include <cstring>
 #include <memory>
@@ -33,7 +38,6 @@
 
 namespace fuzzer {
 static const size_t kMaxUnitSizeToPrint = 256;
-static const size_t TruncateMaxRuns = 1000;
 
 thread_local bool Fuzzer::IsMyThread;
 
@@ -53,74 +57,84 @@ static void MissingExternalApiFunction(const char *FnName) {
 // Only one Fuzzer per process.
 static Fuzzer *F;
 
-struct CoverageController {
-  static void Reset() {
-    CHECK_EXTERNAL_FUNCTION(__sanitizer_reset_coverage);
-    EF->__sanitizer_reset_coverage();
-    PcMapResetCurrent();
+void Fuzzer::ResetEdgeCoverage() {
+  CHECK_EXTERNAL_FUNCTION(__sanitizer_reset_coverage);
+  EF->__sanitizer_reset_coverage();
+}
+
+void Fuzzer::ResetCounters() {
+  if (Options.UseCounters) {
+    EF->__sanitizer_update_counter_bitset_and_clear_counters(0);
+  }
+  if (EF->__sanitizer_get_coverage_pc_buffer_pos)
+    PcBufferPos = EF->__sanitizer_get_coverage_pc_buffer_pos();
+  TPC.GetNewPCsAndFlush();
+}
+
+void Fuzzer::PrepareCounters(Fuzzer::Coverage *C) {
+  if (Options.UseCounters) {
+    size_t NumCounters = EF->__sanitizer_get_number_of_counters();
+    C->CounterBitmap.resize(NumCounters);
+  }
+}
+
+// Records data to a maximum coverage tracker. Returns true if additional
+// coverage was discovered.
+bool Fuzzer::RecordMaxCoverage(Fuzzer::Coverage *C) {
+  bool Res = false;
+
+  TPC.FinalizeTrace();
+
+  uint64_t NewBlockCoverage =
+      EF->__sanitizer_get_total_unique_coverage() + TPC.GetTotalCoverage();
+  if (NewBlockCoverage > C->BlockCoverage) {
+    Res = true;
+    C->BlockCoverage = NewBlockCoverage;
   }
 
-  static void ResetCounters(const FuzzingOptions &Options) {
-    if (Options.UseCounters) {
-      EF->__sanitizer_update_counter_bitset_and_clear_counters(0);
-    }
-  }
-
-  static void Prepare(const FuzzingOptions &Options, Fuzzer::Coverage *C) {
-    if (Options.UseCounters) {
-      size_t NumCounters = EF->__sanitizer_get_number_of_counters();
-      C->CounterBitmap.resize(NumCounters);
-    }
-  }
-
-  // Records data to a maximum coverage tracker. Returns true if additional
-  // coverage was discovered.
-  static bool RecordMax(const FuzzingOptions &Options, Fuzzer::Coverage *C) {
-    bool Res = false;
-
-    uint64_t NewBlockCoverage = EF->__sanitizer_get_total_unique_coverage();
-    if (NewBlockCoverage > C->BlockCoverage) {
+  if (Options.UseIndirCalls &&
+      EF->__sanitizer_get_total_unique_caller_callee_pairs) {
+    uint64_t NewCallerCalleeCoverage =
+        EF->__sanitizer_get_total_unique_caller_callee_pairs();
+    if (NewCallerCalleeCoverage > C->CallerCalleeCoverage) {
       Res = true;
-      C->BlockCoverage = NewBlockCoverage;
+      C->CallerCalleeCoverage = NewCallerCalleeCoverage;
     }
-
-    if (Options.UseIndirCalls &&
-        EF->__sanitizer_get_total_unique_caller_callee_pairs) {
-      uint64_t NewCallerCalleeCoverage =
-          EF->__sanitizer_get_total_unique_caller_callee_pairs();
-      if (NewCallerCalleeCoverage > C->CallerCalleeCoverage) {
-        Res = true;
-        C->CallerCalleeCoverage = NewCallerCalleeCoverage;
-      }
-    }
-
-    if (Options.UseCounters) {
-      uint64_t CounterDelta =
-          EF->__sanitizer_update_counter_bitset_and_clear_counters(
-              C->CounterBitmap.data());
-      if (CounterDelta > 0) {
-        Res = true;
-        C->CounterBitmapBits += CounterDelta;
-      }
-    }
-
-    uint64_t NewPcMapBits = PcMapMergeInto(&C->PCMap);
-    if (NewPcMapBits > C->PcMapBits) {
-      Res = true;
-      C->PcMapBits = NewPcMapBits;
-    }
-
-    uintptr_t *CoverageBuf;
-    uint64_t NewPcBufferLen =
-        EF->__sanitizer_get_coverage_pc_buffer(&CoverageBuf);
-    if (NewPcBufferLen > C->PcBufferLen) {
-      Res = true;
-      C->PcBufferLen = NewPcBufferLen;
-    }
-
-    return Res;
   }
-};
+
+  if (Options.UseCounters) {
+    uint64_t CounterDelta =
+        EF->__sanitizer_update_counter_bitset_and_clear_counters(
+            C->CounterBitmap.data()) +
+        TPC.UpdateCounterMap(&C->TPCMap);
+    if (CounterDelta > 0) {
+      Res = true;
+      C->CounterBitmapBits += CounterDelta;
+    }
+
+  }
+
+  size_t NewVPMapBits = VPMapMergeFromCurrent(C->VPMap);
+  if (NewVPMapBits > C->VPMapBits) {
+    Res = true;
+    C->VPMapBits = NewVPMapBits;
+  }
+
+  if (EF->__sanitizer_get_coverage_pc_buffer_pos) {
+    uint64_t NewPcBufferPos = EF->__sanitizer_get_coverage_pc_buffer_pos();
+    if (NewPcBufferPos > PcBufferPos) {
+      Res = true;
+      PcBufferPos = NewPcBufferPos;
+    }
+
+    if (PcBufferLen && NewPcBufferPos >= PcBufferLen) {
+      Printf("ERROR: PC buffer overflow\n");
+      _Exit(1);
+    }
+  }
+
+  return Res;
+}
 
 // Leak detection is expensive, so we first check if there were more mallocs
 // than frees (using the sanitizer malloc hooks) and only then try to call lsan.
@@ -144,8 +158,9 @@ void FreeHook(const volatile void *ptr) {
   AllocTracer.Frees++;
 }
 
-Fuzzer::Fuzzer(UserCallback CB, MutationDispatcher &MD, FuzzingOptions Options)
-    : CB(CB), MD(MD), Options(Options) {
+Fuzzer::Fuzzer(UserCallback CB, InputCorpus &Corpus, MutationDispatcher &MD,
+               FuzzingOptions Options)
+    : CB(CB), Corpus(Corpus), MD(MD), Options(Options) {
   SetDeathCallback();
   InitializeTraceState();
   assert(!F);
@@ -154,7 +169,20 @@ Fuzzer::Fuzzer(UserCallback CB, MutationDispatcher &MD, FuzzingOptions Options)
   IsMyThread = true;
   if (Options.DetectLeaks && EF->__sanitizer_install_malloc_and_free_hooks)
     EF->__sanitizer_install_malloc_and_free_hooks(MallocHook, FreeHook);
+  TPC.SetUseCounters(Options.UseCounters);
+
+  if (Options.PrintNewCovPcs) {
+    PcBufferLen = 1 << 24;
+    PcBuffer = new uintptr_t[PcBufferLen];
+    EF->__sanitizer_set_coverage_pc_buffer(PcBuffer, PcBufferLen);
+  }
+  if (Options.Verbosity)
+    TPC.PrintModuleInfo();
+  if (!Options.OutputCorpus.empty() && Options.Reload)
+    EpochOfLastReadOfOutputCorpus = GetEpoch(Options.OutputCorpus);
 }
+
+Fuzzer::~Fuzzer() { }
 
 void Fuzzer::LazyAllocateCurrentUnitData() {
   if (CurrentUnitData || Options.MaxLen == 0) return;
@@ -171,8 +199,26 @@ void Fuzzer::StaticDeathCallback() {
   F->DeathCallback();
 }
 
+static void WarnOnUnsuccessfullMerge(bool DoWarn) {
+  if (!DoWarn) return;
+  Printf(
+   "***\n"
+   "***\n"
+   "***\n"
+   "*** NOTE: merge did not succeed due to a failure on one of the inputs.\n"
+   "*** You will need to filter out crashes from the corpus, e.g. like this:\n"
+   "***   for f in WITH_CRASHES/*; do ./fuzzer $f && cp $f NO_CRASHES; done\n"
+   "*** Future versions may have crash-resistant merge, stay tuned.\n"
+   "***\n"
+   "***\n"
+   "***\n");
+}
+
 void Fuzzer::DumpCurrentUnit(const char *Prefix) {
+  WarnOnUnsuccessfullMerge(InMergeMode);
   if (!CurrentUnitData) return;  // Happens when running individual inputs.
+  MD.PrintMutationSequence();
+  Printf("; base unit: %s\n", Sha1ToString(BaseSha1).c_str());
   size_t UnitSize = CurrentUnitSize;
   if (UnitSize <= kMaxUnitSizeToPrint) {
     PrintHexArray(CurrentUnitData, UnitSize, "\n");
@@ -280,8 +326,8 @@ void Fuzzer::PrintStats(const char *Where, const char *End) {
   Printf("#%zd\t%s", TotalNumberOfRuns, Where);
   if (MaxCoverage.BlockCoverage)
     Printf(" cov: %zd", MaxCoverage.BlockCoverage);
-  if (MaxCoverage.PcMapBits)
-    Printf(" path: %zd", MaxCoverage.PcMapBits);
+  if (MaxCoverage.VPMapBits)
+    Printf(" vp: %zd", MaxCoverage.VPMapBits);
   if (auto TB = MaxCoverage.CounterBitmapBits)
     Printf(" bits: %zd", TB);
   if (MaxCoverage.CallerCalleeCoverage)
@@ -291,6 +337,10 @@ void Fuzzer::PrintStats(const char *Where, const char *End) {
 }
 
 void Fuzzer::PrintFinalStats() {
+  if (Options.PrintCoverage)
+    TPC.PrintCoverage();
+  if (Options.PrintCorpusStats)
+    Corpus.PrintStats();
   if (!Options.PrintFinalStats) return;
   size_t ExecPerSec = execPerSec();
   Printf("stat::number_of_executed_units: %zd\n", TotalNumberOfRuns);
@@ -300,13 +350,6 @@ void Fuzzer::PrintFinalStats() {
   Printf("stat::peak_rss_mb:              %zd\n", GetPeakRSSMb());
 }
 
-size_t Fuzzer::MaxUnitSizeInCorpus() const {
-  size_t Res = 0;
-  for (auto &X : Corpus)
-    Res = std::max(Res, X.size());
-  return Res;
-}
-
 void Fuzzer::SetMaxLen(size_t MaxLen) {
   assert(Options.MaxLen == 0); // Can only reset MaxLen from 0 to non-0.
   assert(MaxLen);
@@ -314,28 +357,19 @@ void Fuzzer::SetMaxLen(size_t MaxLen) {
   Printf("INFO: -max_len is not provided, using %zd\n", Options.MaxLen);
 }
 
-
 void Fuzzer::RereadOutputCorpus(size_t MaxSize) {
-  if (Options.OutputCorpus.empty())
-    return;
+  if (Options.OutputCorpus.empty() || !Options.Reload) return;
   std::vector<Unit> AdditionalCorpus;
   ReadDirToVectorOfUnits(Options.OutputCorpus.c_str(), &AdditionalCorpus,
                          &EpochOfLastReadOfOutputCorpus, MaxSize);
-  if (Corpus.empty()) {
-    Corpus = AdditionalCorpus;
-    return;
-  }
-  if (!Options.Reload)
-    return;
   if (Options.Verbosity >= 2)
     Printf("Reload: read %zd new units.\n", AdditionalCorpus.size());
   for (auto &X : AdditionalCorpus) {
     if (X.size() > MaxSize)
       X.resize(MaxSize);
-    if (UnitHashesAddedToCorpus.insert(Hash(X)).second) {
+    if (!Corpus.HasUnit(X)) {
       if (RunOne(X)) {
-        Corpus.push_back(X);
-        UpdateCorpusDistribution();
+        Corpus.AddToCorpus(X);
         PrintStats("RELOAD");
       }
     }
@@ -350,68 +384,21 @@ void Fuzzer::ShuffleCorpus(UnitVector *V) {
     });
 }
 
-// Tries random prefixes of corpus items.
-// Prefix length is chosen according to exponential distribution
-// to sample short lengths much more heavily.
-void Fuzzer::TruncateUnits(std::vector<Unit> *NewCorpus) {
-  size_t MaxCorpusLen = 0;
-  for (const auto &U : Corpus)
-    MaxCorpusLen = std::max(MaxCorpusLen, U.size());
-
-  if (MaxCorpusLen <= 1)
-    return;
-
-  // 50% of exponential distribution is Log[2]/lambda.
-  // Choose lambda so that median is MaxCorpusLen / 2.
-  double Lambda = 2.0 * log(2.0) / static_cast<double>(MaxCorpusLen);
-  std::exponential_distribution<> Dist(Lambda);
-  std::vector<double> Sizes;
-  size_t TruncatePoints = std::max(1ul, TruncateMaxRuns / Corpus.size());
-  Sizes.reserve(TruncatePoints);
-  for (size_t I = 0; I < TruncatePoints; ++I) {
-    Sizes.push_back(Dist(MD.GetRand().Get_mt19937()) + 1);
-  }
-  std::sort(Sizes.begin(), Sizes.end());
-
-  for (size_t S : Sizes) {
-    for (const auto &U : Corpus) {
-      if (S < U.size() && RunOne(U.data(), S)) {
-        Unit U1(U.begin(), U.begin() + S);
-        NewCorpus->push_back(U1);
-        WriteToOutputCorpus(U1);
-        PrintStatusForNewUnit(U1);
-      }
-    }
-  }
-  PrintStats("TRUNC  ");
-}
-
-void Fuzzer::ShuffleAndMinimize() {
-  PrintStats("READ  ");
-  std::vector<Unit> NewCorpus;
+void Fuzzer::ShuffleAndMinimize(UnitVector *InitialCorpus) {
+  Printf("#0\tREAD units: %zd\n", InitialCorpus->size());
   if (Options.ShuffleAtStartUp)
-    ShuffleCorpus(&Corpus);
+    ShuffleCorpus(InitialCorpus);
 
-  if (Options.TruncateUnits) {
-    ResetCoverage();
-    TruncateUnits(&NewCorpus);
-    ResetCoverage();
-  }
-
-  for (const auto &U : Corpus) {
+  for (const auto &U : *InitialCorpus) {
     bool NewCoverage = RunOne(U);
     if (!Options.PruneCorpus || NewCoverage) {
-      NewCorpus.push_back(U);
+      Corpus.AddToCorpus(U);
       if (Options.Verbosity >= 2)
         Printf("NEW0: %zd L %zd\n", MaxCoverage.BlockCoverage, U.size());
     }
     TryDetectingAMemoryLeak(U.data(), U.size(),
                             /*DuringInitialCorpusExecution*/ true);
   }
-  Corpus = NewCorpus;
-  UpdateCorpusDistribution();
-  for (auto &X : Corpus)
-    UnitHashesAddedToCorpus.insert(Hash(X));
   PrintStats("INITED");
   if (Corpus.empty()) {
     Printf("ERROR: no interesting inputs were found. "
@@ -421,17 +408,8 @@ void Fuzzer::ShuffleAndMinimize() {
 }
 
 bool Fuzzer::UpdateMaxCoverage() {
-  uintptr_t PrevBufferLen = MaxCoverage.PcBufferLen;
-  bool Res = CoverageController::RecordMax(Options, &MaxCoverage);
-
-  if (Options.PrintNewCovPcs && PrevBufferLen != MaxCoverage.PcBufferLen) {
-    uintptr_t *CoverageBuf;
-    EF->__sanitizer_get_coverage_pc_buffer(&CoverageBuf);
-    assert(CoverageBuf);
-    for (size_t I = PrevBufferLen; I < MaxCoverage.PcBufferLen; ++I) {
-      Printf("%p\n", CoverageBuf[I]);
-    }
-  }
+  PrevPcBufferPos = PcBufferPos;
+  bool Res = RecordMaxCoverage(&MaxCoverage);
 
   return Res;
 }
@@ -439,8 +417,6 @@ bool Fuzzer::UpdateMaxCoverage() {
 bool Fuzzer::RunOne(const uint8_t *Data, size_t Size) {
   TotalNumberOfRuns++;
 
-  // TODO(aizatsky): this Reset call seems to be not needed.
-  CoverageController::ResetCounters(Options);
   ExecuteCallback(Data, Size);
   bool Res = UpdateMaxCoverage();
 
@@ -459,13 +435,6 @@ bool Fuzzer::RunOne(const uint8_t *Data, size_t Size) {
   return Res;
 }
 
-void Fuzzer::RunOneAndUpdateCorpus(const uint8_t *Data, size_t Size) {
-  if (TotalNumberOfRuns >= Options.MaxNumberOfRuns)
-    return;
-  if (RunOne(Data, Size))
-    ReportNewCoverage({Data, Data + Size});
-}
-
 size_t Fuzzer::GetCurrentUnitInFuzzingThead(const uint8_t **Data) const {
   assert(InFuzzingThread());
   *Data = CurrentUnitData;
@@ -478,18 +447,20 @@ void Fuzzer::ExecuteCallback(const uint8_t *Data, size_t Size) {
   UnitStartTime = system_clock::now();
   // We copy the contents of Unit into a separate heap buffer
   // so that we reliably find buffer overflows in it.
-  std::unique_ptr<uint8_t[]> DataCopy(new uint8_t[Size]);
-  memcpy(DataCopy.get(), Data, Size);
+  uint8_t *DataCopy = new uint8_t[Size];
+  memcpy(DataCopy, Data, Size);
   if (CurrentUnitData && CurrentUnitData != Data)
     memcpy(CurrentUnitData, Data, Size);
-  AssignTaintLabels(DataCopy.get(), Size);
+  AssignTaintLabels(DataCopy, Size);
   CurrentUnitSize = Size;
   AllocTracer.Start();
-  int Res = CB(DataCopy.get(), Size);
+  ResetCounters();  // Reset coverage right before the callback.
+  int Res = CB(DataCopy, Size);
   (void)Res;
   HasMoreMallocsThanFrees = AllocTracer.Stop();
   CurrentUnitSize = 0;
   assert(Res == 0);
+  delete[] DataCopy;
 }
 
 std::string Fuzzer::Coverage::DebugString() const {
@@ -497,8 +468,8 @@ std::string Fuzzer::Coverage::DebugString() const {
       std::string("Coverage{") + "BlockCoverage=" +
       std::to_string(BlockCoverage) + " CallerCalleeCoverage=" +
       std::to_string(CallerCalleeCoverage) + " CounterBitmapBits=" +
-      std::to_string(CounterBitmapBits) + " PcMapBits=" +
-      std::to_string(PcMapBits) + "}";
+      std::to_string(CounterBitmapBits) +
+      " VPMapBits " + std::to_string(VPMapBits) + "}";
   return Result;
 }
 
@@ -526,16 +497,6 @@ void Fuzzer::WriteUnitToFileWithPrefix(const Unit &U, const char *Prefix) {
     Printf("Base64: %s\n", Base64(U).c_str());
 }
 
-void Fuzzer::SaveCorpus() {
-  if (Options.OutputCorpus.empty())
-    return;
-  for (const auto &U : Corpus)
-    WriteToFile(U, DirPlusFile(Options.OutputCorpus, Hash(U)));
-  if (Options.Verbosity)
-    Printf("Written corpus of %zd files to %s\n", Corpus.size(),
-           Options.OutputCorpus.c_str());
-}
-
 void Fuzzer::PrintStatusForNewUnit(const Unit &U) {
   if (!Options.PrintNEW)
     return;
@@ -547,14 +508,34 @@ void Fuzzer::PrintStatusForNewUnit(const Unit &U) {
   }
 }
 
-void Fuzzer::ReportNewCoverage(const Unit &U) {
-  Corpus.push_back(U);
-  UpdateCorpusDistribution();
-  UnitHashesAddedToCorpus.insert(Hash(U));
+void Fuzzer::PrintOneNewPC(uintptr_t PC) {
+  PrintPC("\tNEW_PC: %p %F %L\n",
+          "\tNEW_PC: %p\n", PC);
+}
+
+void Fuzzer::PrintNewPCs() {
+  if (!Options.PrintNewCovPcs) return;
+  if (PrevPcBufferPos != PcBufferPos) {
+    int NumPrinted = 0;
+    for (size_t I = PrevPcBufferPos; I < PcBufferPos; ++I) {
+      if (NumPrinted++ > 30) break;  // Don't print too many new PCs.
+      PrintOneNewPC(PcBuffer[I]);
+    }
+  }
+  uintptr_t *PCs;
+  if (size_t NumNewPCs = TPC.GetNewPCsAndFlush(&PCs))
+    for (size_t i = 0; i < NumNewPCs; i++)
+      PrintOneNewPC(PCs[i]);
+}
+
+void Fuzzer::ReportNewCoverage(InputInfo *II, const Unit &U) {
+  II->NumSuccessfullMutations++;
+  Corpus.AddToCorpus(U);
   MD.RecordSuccessfulMutationSequence();
   PrintStatusForNewUnit(U);
   WriteToOutputCorpus(U);
   NumberOfNewUnitsAdded++;
+  PrintNewPCs();
 }
 
 // Finds minimal number of units in 'Extra' that add coverage to 'Initial'.
@@ -564,6 +545,7 @@ void Fuzzer::ReportNewCoverage(const Unit &U) {
 UnitVector Fuzzer::FindExtraUnits(const UnitVector &Initial,
                                   const UnitVector &Extra) {
   UnitVector Res = Extra;
+  UnitVector Tmp;
   size_t OldSize = Res.size();
   for (int Iter = 0; Iter < 10; Iter++) {
     ShuffleCorpus(&Res);
@@ -572,18 +554,18 @@ UnitVector Fuzzer::FindExtraUnits(const UnitVector &Initial,
     for (auto &U : Initial)
       RunOne(U);
 
-    Corpus.clear();
+    Tmp.clear();
     for (auto &U : Res)
       if (RunOne(U))
-        Corpus.push_back(U);
+        Tmp.push_back(U);
 
     char Stat[7] = "MIN   ";
     Stat[3] = '0' + Iter;
     PrintStats(Stat);
 
-    size_t NewSize = Corpus.size();
+    size_t NewSize = Tmp.size();
     assert(NewSize <= OldSize);
-    Res.swap(Corpus);
+    Res.swap(Tmp);
 
     if (NewSize + 5 >= OldSize)
       break;
@@ -597,6 +579,7 @@ void Fuzzer::Merge(const std::vector<std::string> &Corpora) {
     Printf("Merge requires two or more corpus dirs\n");
     return;
   }
+  InMergeMode = true;
   std::vector<std::string> ExtraCorpora(Corpora.begin() + 1, Corpora.end());
 
   assert(Options.MaxLen > 0);
@@ -660,90 +643,38 @@ void Fuzzer::MutateAndTestOne() {
   LazyAllocateCurrentUnitData();
   MD.StartMutationSequence();
 
-  auto &U = ChooseUnitToMutate();
+  auto &II = Corpus.ChooseUnitToMutate(MD.GetRand());
+  const auto &U = II.U;
+  memcpy(BaseSha1, II.Sha1, sizeof(BaseSha1));
   assert(CurrentUnitData);
   size_t Size = U.size();
   assert(Size <= Options.MaxLen && "Oversized Unit");
   memcpy(CurrentUnitData, U.data(), Size);
 
   for (int i = 0; i < Options.MutateDepth; i++) {
+    if (TotalNumberOfRuns >= Options.MaxNumberOfRuns)
+      break;
     size_t NewSize = 0;
     NewSize = MD.Mutate(CurrentUnitData, Size, Options.MaxLen);
     assert(NewSize > 0 && "Mutator returned empty unit");
-    assert(NewSize <= Options.MaxLen &&
-           "Mutator return overisized unit");
+    assert(NewSize <= Options.MaxLen && "Mutator return overisized unit");
     Size = NewSize;
     if (i == 0)
       StartTraceRecording();
-    RunOneAndUpdateCorpus(CurrentUnitData, Size);
+    II.NumExecutedMutations++;
+    if (RunOne(CurrentUnitData, Size))
+      ReportNewCoverage(&II, {CurrentUnitData, CurrentUnitData + Size});
     StopTraceRecording();
     TryDetectingAMemoryLeak(CurrentUnitData, Size,
                             /*DuringInitialCorpusExecution*/ false);
   }
 }
 
-// Returns an index of random unit from the corpus to mutate.
-// Hypothesis: units added to the corpus last are more likely to be interesting.
-// This function gives more weight to the more recent units.
-size_t Fuzzer::ChooseUnitIdxToMutate() {
-  size_t Idx =
-      static_cast<size_t>(CorpusDistribution(MD.GetRand().Get_mt19937()));
-  assert(Idx < Corpus.size());
-  return Idx;
-}
-
 void Fuzzer::ResetCoverage() {
-  CoverageController::Reset();
+  ResetEdgeCoverage();
   MaxCoverage.Reset();
-  CoverageController::Prepare(Options, &MaxCoverage);
-}
-
-// Experimental search heuristic: drilling.
-// - Read, shuffle, execute and minimize the corpus.
-// - Choose one random unit.
-// - Reset the coverage.
-// - Start fuzzing as if the chosen unit was the only element of the corpus.
-// - When done, reset the coverage again.
-// - Merge the newly created corpus into the original one.
-void Fuzzer::Drill() {
-  // The corpus is already read, shuffled, and minimized.
-  assert(!Corpus.empty());
-  Options.PrintNEW = false; // Don't print NEW status lines when drilling.
-
-  Unit U = ChooseUnitToMutate();
-
-  ResetCoverage();
-
-  std::vector<Unit> SavedCorpus;
-  SavedCorpus.swap(Corpus);
-  Corpus.push_back(U);
-  UpdateCorpusDistribution();
-  assert(Corpus.size() == 1);
-  RunOne(U);
-  PrintStats("DRILL ");
-  std::string SavedOutputCorpusPath; // Don't write new units while drilling.
-  SavedOutputCorpusPath.swap(Options.OutputCorpus);
-  Loop();
-
-  ResetCoverage();
-
-  PrintStats("REINIT");
-  SavedOutputCorpusPath.swap(Options.OutputCorpus);
-  for (auto &U : SavedCorpus)
-    RunOne(U);
-  PrintStats("MERGE ");
-  Options.PrintNEW = true;
-  size_t NumMerged = 0;
-  for (auto &U : Corpus) {
-    if (RunOne(U)) {
-      PrintStatusForNewUnit(U);
-      NumMerged++;
-      WriteToOutputCorpus(U);
-    }
-  }
-  PrintStats("MERGED");
-  if (NumMerged && Options.Verbosity)
-    Printf("Drilling discovered %zd new units\n", NumMerged);
+  TPC.Reset();
+  PrepareCounters(&MaxCoverage);
 }
 
 void Fuzzer::Loop() {
@@ -768,16 +699,6 @@ void Fuzzer::Loop() {
 
   PrintStats("DONE  ", "\n");
   MD.PrintRecommendedDictionary();
-}
-
-void Fuzzer::UpdateCorpusDistribution() {
-  size_t N = Corpus.size();
-  std::vector<double> Intervals(N + 1);
-  std::vector<double> Weights(N);
-  std::iota(Intervals.begin(), Intervals.end(), 0);
-  std::iota(Weights.begin(), Weights.end(), 1);
-  CorpusDistribution = std::piecewise_constant_distribution<double>(
-      Intervals.begin(), Intervals.end(), Weights.begin());
 }
 
 } // namespace fuzzer

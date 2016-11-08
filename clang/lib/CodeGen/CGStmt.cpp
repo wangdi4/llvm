@@ -295,6 +295,12 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
     EmitOMPTargetParallelForSimdDirective(
         cast<OMPTargetParallelForSimdDirective>(*S));
     break;
+  case Stmt::OMPTargetSimdDirectiveClass:
+    EmitOMPTargetSimdDirective(cast<OMPTargetSimdDirective>(*S));
+    break;
+  case Stmt::OMPTeamsDistributeDirectiveClass:
+    EmitOMPTeamsDistributeDirective(cast<OMPTeamsDistributeDirective>(*S));
+    break;
   }
 }
 
@@ -620,14 +626,7 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
     RunCleanupsScope ThenScope(*this);
     EmitStmt(S.getThen());
   }
-  {
-    auto CurBlock = Builder.GetInsertBlock();
-    EmitBranch(ContBlock);
-    // Eliminate any empty blocks that may have been created by nested
-    // control flow statements in the 'then' clause.
-    if (CurBlock)
-      SimplifyForwardingBlocks(CurBlock); 
-  }
+  EmitBranch(ContBlock);
 
   // Emit the 'else' code if present.
   if (const Stmt *Else = S.getElse()) {
@@ -643,12 +642,7 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
     {
       // There is no need to emit line number for an unconditional branch.
       auto NL = ApplyDebugLocation::CreateEmpty(*this);
-      auto CurBlock = Builder.GetInsertBlock();
       EmitBranch(ContBlock);
-      // Eliminate any empty blocks that may have been created by nested
-      // control flow statements emitted in the 'else' clause.
-      if (CurBlock)
-        SimplifyForwardingBlocks(CurBlock); 
     }
   }
 
@@ -1261,6 +1255,14 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
 }
 
 void CodeGenFunction::EmitDefaultStmt(const DefaultStmt &S) {
+  // If there is no enclosing switch instance that we're aware of, then this
+  // default statement can be elided. This situation only happens when we've
+  // constant-folded the switch.
+  if (!SwitchInsn) {
+    EmitStmt(S.getSubStmt());
+    return;
+  }
+
   llvm::BasicBlock *DefaultBlock = SwitchInsn->getDefaultDest();
   assert(DefaultBlock->empty() &&
          "EmitDefaultStmt: Default block already defined?");
@@ -1327,6 +1329,10 @@ static CSFC_Result CollectStatementsForCase(const Stmt *S,
     // Handle this as two cases: we might be looking for the SwitchCase (if so
     // the skipped statements must be skippable) or we might already have it.
     CompoundStmt::const_body_iterator I = CS->body_begin(), E = CS->body_end();
+    bool StartedInLiveCode = FoundCase;
+    unsigned StartSize = ResultStmts.size();
+
+    // If we've not found the case yet, scan through looking for it.
     if (Case) {
       // Keep track of whether we see a skipped declaration.  The code could be
       // using the declaration even if it is skipped, so we can't optimize out
@@ -1336,7 +1342,7 @@ static CSFC_Result CollectStatementsForCase(const Stmt *S,
       // If we're looking for the case, just see if we can skip each of the
       // substatements.
       for (; Case && I != E; ++I) {
-        HadSkippedDecl |= isa<DeclStmt>(*I);
+        HadSkippedDecl |= CodeGenFunction::mightAddDeclToScope(*I);
 
         switch (CollectStatementsForCase(*I, Case, FoundCase, ResultStmts)) {
         case CSFC_Failure: return CSFC_Failure;
@@ -1372,11 +1378,19 @@ static CSFC_Result CollectStatementsForCase(const Stmt *S,
           break;
         }
       }
+
+      if (!FoundCase)
+        return CSFC_Success;
+
+      assert(!HadSkippedDecl && "fallthrough after skipping decl");
     }
 
     // If we have statements in our range, then we know that the statements are
     // live and need to be added to the set of statements we're tracking.
+    bool AnyDecls = false;
     for (; I != E; ++I) {
+      AnyDecls |= CodeGenFunction::mightAddDeclToScope(*I);
+
       switch (CollectStatementsForCase(*I, nullptr, FoundCase, ResultStmts)) {
       case CSFC_Failure: return CSFC_Failure;
       case CSFC_FallThrough:
@@ -1394,7 +1408,24 @@ static CSFC_Result CollectStatementsForCase(const Stmt *S,
       }
     }
 
-    return Case ? CSFC_Success : CSFC_FallThrough;
+    // If we're about to fall out of a scope without hitting a 'break;', we
+    // can't perform the optimization if there were any decls in that scope
+    // (we'd lose their end-of-lifetime).
+    if (AnyDecls) {
+      // If the entire compound statement was live, there's one more thing we
+      // can try before giving up: emit the whole thing as a single statement.
+      // We can do that unless the statement contains a 'break;'.
+      // FIXME: Such a break must be at the end of a construct within this one.
+      // We could emit this by just ignoring the BreakStmts entirely.
+      if (StartedInLiveCode && !CodeGenFunction::containsBreak(S)) {
+        ResultStmts.resize(StartSize);
+        ResultStmts.push_back(S);
+      } else {
+        return CSFC_Failure;
+      }
+    }
+
+    return CSFC_FallThrough;
   }
 
   // Okay, this is some other statement that we don't handle explicitly, like a

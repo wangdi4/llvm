@@ -2392,6 +2392,9 @@ public:
                                  OMPPrivateScope &PrivateScope);
   void EmitOMPPrivateClause(const OMPExecutableDirective &D,
                             OMPPrivateScope &PrivateScope);
+  void EmitOMPUseDevicePtrClause(
+      const OMPClause &C, OMPPrivateScope &PrivateScope,
+      const llvm::DenseMap<const ValueDecl *, Address> &CaptureDeviceAddrMap);
   /// \brief Emit code for copyin clause in \a D directive. The next code is
   /// generated at the start of outlined functions for directives:
   /// \code
@@ -2508,6 +2511,8 @@ public:
   void EmitOMPDistributeSimdDirective(const OMPDistributeSimdDirective &S);
   void EmitOMPTargetParallelForSimdDirective(
       const OMPTargetParallelForSimdDirective &S);
+  void EmitOMPTargetSimdDirective(const OMPTargetSimdDirective &S);
+  void EmitOMPTeamsDistributeDirective(const OMPTeamsDistributeDirective &S);
 
   /// Emit outlined function for the target directive.
   static std::pair<llvm::Function * /*OutlinedFn*/,
@@ -2805,7 +2810,7 @@ public:
   LValue EmitStmtExprLValue(const StmtExpr *E);
   LValue EmitPointerToDataMemberBinaryExpr(const BinaryOperator *E);
   LValue EmitObjCSelectorLValue(const ObjCSelectorExpr *E);
-  void   EmitDeclRefExprDbgValue(const DeclRefExpr *E, llvm::Constant *Init);
+  void   EmitDeclRefExprDbgValue(const DeclRefExpr *E, const APValue &Init);
 
   //===--------------------------------------------------------------------===//
   //                         Scalar Expression Emission
@@ -3163,6 +3168,10 @@ public:
   /// If the statement (recursively) contains a switch or loop with a break
   /// inside of it, this is fine.
   static bool containsBreak(const Stmt *S);
+
+  /// Determine if the given statement might introduce a declaration into the
+  /// current scope, by being a (possibly-labelled) DeclStmt.
+  static bool mightAddDeclToScope(const Stmt *S);
   
   /// ConstantFoldsToSimpleInteger - If the specified expression does not fold
   /// to a constant, or if it does but contains a label, return false.  If it

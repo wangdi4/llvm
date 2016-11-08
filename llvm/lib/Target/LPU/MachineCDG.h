@@ -172,6 +172,7 @@ namespace llvm {
 
   template <> struct GraphTraits<ControlDependenceNode *> {
     typedef ControlDependenceNode NodeType;
+    typedef ControlDependenceNode *NodeRef;
     typedef NodeType::edge_iterator ChildIteratorType;
 
     static NodeType *getEntryNode(NodeType *N) { return N; }
@@ -294,7 +295,7 @@ namespace llvm {
 
   template <> struct GraphTraits<MachinePostDominatorTree*>
     : public GraphTraits<MachineDomTreeNode*> {
-    static NodeType *getEntryNode(MachinePostDominatorTree *DT) {
+    static NodeRef getEntryNode(MachinePostDominatorTree *DT) {
       return DT->getRootNode();
     }
     typedef df_iterator<MachineDomTreeNode*> nodes_iterator;
