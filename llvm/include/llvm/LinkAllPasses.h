@@ -273,6 +273,7 @@ namespace {
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createAVRGenerateHIRPass();
       (void) llvm::createVPOPredicatorPass();
+      (void) llvm::createVPOPredicatorHIRPass();
       (void) llvm::createVPODriverPass();
       (void) llvm::createVPODriverHIRPass();
       (void) llvm::createVPODirectiveCleanupPass();

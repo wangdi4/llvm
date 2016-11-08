@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-cost-model-throttling=0 -hir-avr-generate -avr-predicate -debug -debug-only=avr-predicate -S -o /dev/null 2>&1| FileCheck %s
+; RUN: opt < %s -hir-cost-model-throttling=0 -hir-avr-generate -hir-avr-predicate -debug -debug-only=avr-predicate -S -o /dev/null 2>&1| FileCheck %s
 ; REQUIRES: asserts
 
 ; Verify the AVR predicator: if with short-circuit condition (goto)

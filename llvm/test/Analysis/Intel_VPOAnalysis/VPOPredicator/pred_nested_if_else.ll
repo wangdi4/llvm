@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -hir-avr-generate -avr-predicate -debug -debug-only=avr-predicate -S -o /dev/null 2>&1| FileCheck %s
+; RUN: opt < %s -hir-avr-generate -hir-avr-predicate -debug -debug-only=avr-predicate -S -o /dev/null 2>&1| FileCheck %s
 
 ; Verify the AVR predicator: nested if-else statements.
 
