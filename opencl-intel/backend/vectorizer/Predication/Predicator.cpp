@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #define DEBUG_TYPE "predicate"
 #include "Predicator.h"
+#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 #include "Specializer.h"
 #include "Linearizer.h"
@@ -818,7 +819,8 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       pred = CastInst::CreateSExtOrBitCast(pred, pMaskTy, "", call);
       Module* pCurrentModule = call->getParent()->getParent()->getParent();
 
-      func = cast<Function>(VectorizerUtils::importFunctionDecl(pCurrentModule,
+      using namespace Intel::OpenCL::DeviceBackend;
+      func = cast<Function>(CompilationUtils::importFunctionDecl(pCurrentModule,
                                                                 pMaskedfunc));
     }
     const FunctionType* pFuncTy = func->getFunctionType();

@@ -482,7 +482,7 @@ void LoopGen::createCompareAndBranch(BasicBlock * loopHead, BasicBlock * kernelH
 	
 	// Create "get_local_size()" value
 	Function *libLocalSizeFunc = RUNTIME_MODULE->getFunction(GET_LOCAL_SIZE);
-	Value * localSizeFunc = VectorizerUtils::importFunctionDecl(CURRENT_MODULE, libLocalSizeFunc);
+	Value * localSizeFunc = CompilationUtils::importFunctionDecl(CURRENT_MODULE, libLocalSizeFunc);
 	Instruction * loopSize = CallInst::Create(localSizeFunc, constZero, "local.size", loopHead->getFirstNonPHI());
 	V_ASSERT(localSizeFunc != NULL);
 	funcProperties->setLoopSizeVal(loopSize);

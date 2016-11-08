@@ -910,7 +910,7 @@ bool VectModuleManager::resolveSelectCalls(Function * specialCaseFunc, Function 
 	
 	// Find (or create) declaration for select function
 	auto *VectSelectFunc = dyn_cast<Function *>(
-          VectorizerUtils::importFunctionDecl(CURRENT_MODULE, LibSelectFunc));
+          CompilationUtils::importFunctionDecl(CURRENT_MODULE, LibSelectFunc));
 	if (!VectSelectFunc)
 	{
 		V_UNEXPECTED("failed generating function in current module");
@@ -1113,7 +1113,7 @@ bool VectModuleManager::resolveCIGammaCalls(Function * specialCaseFunc, Function
 	
 	// Find (or create) declaration for transposed function
 	Constant * transposedGammaConst = dyn_cast<Function *>(
-          VectorizerUtils::importFunctionDecl(CURRENT_MODULE, LibTranspFunc));
+          CompilationUtils::importFunctionDecl(CURRENT_MODULE, LibTranspFunc));
 	if (!transposedGammaConst)
 	{
 		V_UNEXPECTED("failed generating function in current module");

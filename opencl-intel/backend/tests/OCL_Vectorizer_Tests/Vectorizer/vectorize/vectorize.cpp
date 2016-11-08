@@ -446,7 +446,7 @@ bool VectorizeFunction::vectorizeCallInst(Instruction * I)
 			// Find (or create) declaration for newly called function
 			V_ASSERT(!CURRENT_MODULE->getFunction(vectorFuncName) || LibFunc->getFunctionType() == CURRENT_MODULE->getFunction(vectorFuncName)->getFunctionType());
 			auto *vectFunctionConst = dyn_cast<Function *>(
-                          VectorizerUtils::importFunctionDecl(CURRENT_MODULE, LibFunc));
+                          CompilationUtils::importFunctionDecl(CURRENT_MODULE, LibFunc));
 			if (!vectFunctionConst)
 			{
 				V_UNEXPECTED("failed generating function in current module");
@@ -712,7 +712,7 @@ bool VectorizeFunction::vectorizeSelectInst(Instruction * I)
 	
 	// Find (or create) declaration for select function
 	auto *VectSelectFunc = dyn_cast<Function *>(
-          VectorizerUtils::importFunctionDecl(CURRENT_MODULE, LibSelectFunc));
+          CompilationUtils::importFunctionDecl(CURRENT_MODULE, LibSelectFunc));
 	if (!VectSelectFunc)
 	{
 		V_UNEXPECTED("failed generating function in current module");

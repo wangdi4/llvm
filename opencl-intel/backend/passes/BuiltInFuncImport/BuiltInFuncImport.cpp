@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "BuiltInFuncImport.h"
+#include "CompilationUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 
@@ -316,6 +317,7 @@ namespace intel {
         assert(false && "Error linking builtin module!");
       }
     }
+
 
     // Allow removal of function from module after it is inlined
     for (auto &F : M)

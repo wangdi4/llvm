@@ -17,11 +17,11 @@ File Name:  SinCosFold.cpp
 \*****************************************************************************/
 #define DEBUG_TYPE "SinCosFoldPass"
 
+#include "CompilationUtils.h"
 #include "SinCosFold.h"
 #include "ParameterType.h"
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
-#include "VectorizerUtils.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -76,7 +76,8 @@ namespace intel {
     assert(sinCosF && "sincos function should exist!");
 
     // Find (or create) declaration for newly called function
-    Constant * sinCosFunc = VectorizerUtils::importFunctionDecl(&M, sinCosF);
+    using namespace Intel::OpenCL::DeviceBackend;
+    Constant * sinCosFunc = CompilationUtils::importFunctionDecl(&M, sinCosF);
     assert(sinCosFunc && "Failed generating function in current module");
     Function * f = dyn_cast<Function>(sinCosFunc);
     assert(f && "Function type mismatch, caused a constant expression cast!");

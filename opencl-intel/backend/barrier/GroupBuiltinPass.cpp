@@ -11,7 +11,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "NameMangleAPI.h"
 #include "FunctionDescriptor.h"
 #include "ParameterType.h"
-#include "VectorizerUtils.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
@@ -367,7 +366,7 @@ namespace intel {
       Function *LibFunc = FindFunctionInModule(newFuncName);
       assert(LibFunc && "WG builtin is not supported in built-in module");
       Function *pNewFunc = dyn_cast<Function>(
-        VectorizerUtils::importFunctionDecl(m_pModule, LibFunc));
+        CompilationUtils::importFunctionDecl(m_pModule, LibFunc));
       assert(pNewFunc && "Non-function object with the same signature "
                          "identified in the module");
 
@@ -404,7 +403,7 @@ namespace intel {
         Function *LibFunc = FindFunctionInModule(finalizeFuncName);
         assert(LibFunc && "WG builtin is not supported in built-in module");
         Function *pFinalizeFunc = dyn_cast<Function>(
-          VectorizerUtils::importFunctionDecl(m_pModule, LibFunc));
+          CompilationUtils::importFunctionDecl(m_pModule, LibFunc));
         assert(pFinalizeFunc && "Non-function object with the same signature identified in the module");
 
         // c. Create call to finalization function object

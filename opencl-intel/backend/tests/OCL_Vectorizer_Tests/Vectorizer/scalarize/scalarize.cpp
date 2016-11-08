@@ -562,7 +562,7 @@ bool ScalarizeFunction::scalarizeCallInst(Instruction * I)
 		// Find (or create) declaration for newly called function
 		V_ASSERT(!CURRENT_MODULE->getFunction(scalarFuncName) || LibFunc->getFunctionType() == CURRENT_MODULE->getFunction(scalarFuncName)->getFunctionType());
 		auto *scalarFunctionConst = dyn_cast<Function *>(
-                  VectorizerUtils::importFunctionDecl(CURRENT_MODULE, LibFunc));
+                  CompilationUtils::importFunctionDecl(CURRENT_MODULE, LibFunc));
 		if (!scalarFunctionConst)
 		{
 			V_UNEXPECTED("Failed generating function in current module");

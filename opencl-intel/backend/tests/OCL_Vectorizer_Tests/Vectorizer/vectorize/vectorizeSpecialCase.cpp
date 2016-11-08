@@ -484,7 +484,7 @@ bool VectorizeFunction::vectorizeFractFunc(CallInst * CI)
 		return false;
 	}
 	auto *vectorFractFunc = dyn_cast<Function *>(
-          VectorizerUtils::importFunctionDecl(CURRENT_MODULE, LibFunc));
+          CompilationUtils::importFunctionDecl(CURRENT_MODULE, LibFunc));
 	if (!vectorFractFunc)
 	{
 		V_UNEXPECTED("failed to generate function in current module");
