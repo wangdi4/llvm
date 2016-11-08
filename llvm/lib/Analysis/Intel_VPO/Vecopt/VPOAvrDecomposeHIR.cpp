@@ -257,11 +257,10 @@ bool HIRDecomposer::needsDecomposition(AVRValueHIR *AVal) {
   RegDDRef * RDDR = cast<RegDDRef>(AVal->getValue());
  
   // We don't need to decompose:
-  //   - Standalone blobs and IVs with the same Src and Dest types
+  //   - Unitary blobs and standalone IVs with the same Src and Dest types
   //   - Null pointers
   //   - Metadata
-  if (RDDR->isMetadata() || RDDR->isNull() ||
-      RDDR->isStandAloneBlob(false /*AllowConversion*/) ||
+  if (RDDR->isMetadata() || RDDR->isNull() || RDDR->isUnitaryBlob() ||
       RDDR->isStandAloneIV(false /*AllowConversion*/)) {
     return false;
   }
