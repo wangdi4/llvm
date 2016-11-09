@@ -7,15 +7,15 @@
 ; CHECK: goto [[LABEL0:L.*]];
 ; CHECK: goto [[LABEL1:L.*]];
 ; CHECK-DAG: [[LABEL0]]:
-; CHECL-DAG: [[LABEL1]]:
+; CHECK-DAG: [[LABEL1]]:
 
 ; CHECK: Dump After HIR Complete Unroll
-; CHECK: goto [[LABEL0]].[[NODE01:.*]].[[NODE02:.*]];
+; CHECK: goto [[LABEL0]].[[NODE01:.*]];
 ; CHECK: goto [[LABEL1]].[[NODE11:.*]];
-; CHECK-DAG: <[[NODE01]]>{{.*}}[[LABEL0]].[[NODE01]].[[NODE02]]:
+; CHECK-DAG: <[[NODE01]]>{{.*}}[[LABEL0]].[[NODE01]]:
 ; CHECK-DAG: <[[NODE11]]>{{.*}}[[LABEL1]].[[NODE11]]:
 
-; CHECK-NOT: <[[NODE01]]>{{.*}}[[LABEL0]].[[NODE01]].[[NODE02]]:
+; CHECK-NOT: <[[NODE01]]>{{.*}}[[LABEL0]].[[NODE01]]:
 ; CHECK-NOT: <[[NODE11]]>{{.*}}[[LABEL1]].[[NODE11]]:
 
 ; CHECK: goto [[LABEL0]].[[NODE21:.*]];

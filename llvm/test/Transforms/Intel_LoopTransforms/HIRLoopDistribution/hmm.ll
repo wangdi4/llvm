@@ -1,5 +1,5 @@
 
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=mem-rec  < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ; split off cycle of {11,13,14,16}
 ;          BEGIN REGION { }
 ;<21>         + DO i1 = 0, 127, 1   <DO_LOOP>
@@ -15,7 +15,7 @@
 ;          END REGION
 
 ; CHECK: BEGIN REGION
-; CHECK-NEXT: DO i1 = 0, 127, 1
+; CHECK: DO i1 = 0, 127, 1
 ; CHECK-DAG: [[B_LD:%.*]] = (@B)[0][i1]
 ; CHECK-DAG: [[C_LD:%.*]] = (@C)[0][i1]
 ; CHECK-NEXT: [[ADD:%.*]] = [[B_LD]] + [[C_LD]]

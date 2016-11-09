@@ -23,36 +23,28 @@
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-std::set<DDRef *> DDRef::Objs;
-
-DDRef::DDRef(unsigned SCID, unsigned SB) : SubClassID(SCID), Symbase(SB) {
-
-  Objs.insert(this);
+DDRef::DDRef(DDRefUtils &DDRU, unsigned SCID, unsigned SB)
+    : DDRU(DDRU), SubClassID(SCID), Symbase(SB) {
+  DDRU.Objs.insert(this);
 }
 
 DDRef::DDRef(const DDRef &DDRefObj)
-    : SubClassID(DDRefObj.SubClassID), Symbase(DDRefObj.Symbase) {
-
-  Objs.insert(this);
+    : DDRU(DDRefObj.DDRU), SubClassID(DDRefObj.SubClassID),
+      Symbase(DDRefObj.Symbase) {
+  DDRU.Objs.insert(this);
 }
 
-void DDRef::destroy() {
-  Objs.erase(this);
-  delete this;
+CanonExprUtils &DDRef::getCanonExprUtils() const {
+  return getDDRefUtils().getCanonExprUtils();
 }
 
-void DDRef::destroyAll() {
-
-  for (auto &I : Objs) {
-    delete I;
-  }
-
-  Objs.clear();
+BlobUtils &DDRef::getBlobUtils() const {
+  return getDDRefUtils().getBlobUtils();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -104,3 +96,7 @@ bool DDRef::isLiveOutOfParentLoop() const {
 }
 
 HLLoop *DDRef::getParentLoop() const { return getHLDDNode()->getParentLoop(); }
+
+HLLoop *DDRef::getLexicalParentLoop() const {
+  return getHLDDNode()->getLexicalParentLoop();
+}

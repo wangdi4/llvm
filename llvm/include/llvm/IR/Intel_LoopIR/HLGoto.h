@@ -33,8 +33,8 @@ private:
   HLLabel *TargetLabel;
 
 protected:
-  HLGoto(BasicBlock *TargetBB);
-  HLGoto(HLLabel *TargetL);
+  HLGoto(HLNodeUtils &HNU, BasicBlock *TargetBB);
+  HLGoto(HLNodeUtils &HNU, HLLabel *TargetL);
   virtual ~HLGoto() override {}
 
   /// \brief Copy constructor used by cloning.

@@ -41,22 +41,23 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 #include <array>
-
-using namespace llvm;
-using namespace llvm::loopopt;
 
 namespace llvm {
 
 class AAResults;
 
 namespace loopopt {
+
+class DDRef;
+class RegDDRef;
+class HLLoop;
+class HLNodeUtils;
 
 /// Dependences - This class represents a dependence between two memory
 /// memory references in a function. It contains minimal information and
@@ -323,8 +324,9 @@ class DDTest {
   friend class HIRDDAnalysis;
 
   AAResults &AAR;
+  HLNodeUtils &HNU;
 
-  DDTest(AAResults &AAR);
+  DDTest(AAResults &AAR, HLNodeUtils &HNU);
   ~DDTest();
 
   /// \brief Tests for a dependence between the Src and Dst DDRefs

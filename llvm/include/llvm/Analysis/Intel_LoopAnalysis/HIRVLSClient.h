@@ -24,9 +24,11 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRVLSCLIENT_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRVLSCLIENT_H
 
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
+
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecContext.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Pass.h"
@@ -37,7 +39,6 @@ using namespace llvm::vpo;
 namespace llvm {
 namespace loopopt {
 
-class HLNode;
 class HLLoop;
 class DDRefUtils;
 
@@ -76,10 +77,11 @@ class HIRVLSClientMemref : public OVLSMemref {
 public:
   /// Base class is initialized with NumElements=0
   HIRVLSClientMemref(RegDDRef *Ref, VectVLSContext *Cntxt)
-    : OVLSMemref(VLSK_HIRVLSClientMemref,
-                 OVLSType(CanonExprUtils::getTypeSizeInBits(Ref->getSrcType()),
-                          1),
-                 OVLSAccessType::getUnknownTy()),
+      : OVLSMemref(VLSK_HIRVLSClientMemref,
+                   OVLSType(Ref->getCanonExprUtils().getTypeSizeInBits(
+                                Ref->getSrcType()),
+                            1),
+                   OVLSAccessType::getUnknownTy()),
         Ref(Ref), VectContext(Cntxt), Stride(nullptr), ConstStride(0) {}
 
   ~HIRVLSClientMemref(){};
@@ -148,7 +150,7 @@ public:
          !(this->getConstStride() == CLMrf->getConstStride())))
       return false;
 
-    return DDRefUtils::getConstDistance(Ref, Ref2, Distance);
+    return Ref->getDDRefUtils().getConstDistance(Ref, Ref2, Distance);
   }
 
   /// \bried Returns true if this and Memref have the same number of elements.
@@ -184,12 +186,12 @@ public:
     *Stride = getConstStride();
     return true;
   }
- 
+
   /// \brief Return the location of this in the code. The location should be
   /// relative to other Memrefs sent to the VLS engine. Here it is obtained
-  /// by the topological sort number. Assuming structured code 
-  /// (no labels/gotos), we rely on the topological sort number to reflect 
-  /// the relative ordering between the different OVLSMemref accesses. 
+  /// by the topological sort number. Assuming structured code
+  /// (no labels/gotos), we rely on the topological sort number to reflect
+  /// the relative ordering between the different OVLSMemref accesses.
   /// This assumption may only hold within straight line code segments;
   /// indeed the vectorizer will only send the VLS engine Mrfs that all reside
   /// in the same straight line code segement.

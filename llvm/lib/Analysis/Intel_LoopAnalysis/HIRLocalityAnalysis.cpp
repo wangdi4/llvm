@@ -116,23 +116,26 @@ void HIRLocalityAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
 // Performs a basic setup without actually running the locality
 // analysis.
-bool HIRLocalityAnalysis::runOnFunction(Function &F) { return false; }
+bool HIRLocalityAnalysis::runOnFunction(Function &F) {
+  HIRF = &getAnalysis<HIRFramework>();
+  return false;
+}
 
 void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
 
   HIRLocalityAnalysis &HLA = *const_cast<HIRLocalityAnalysis *>(this);
+  auto &HNU = HIRF->getHLNodeUtils();
 
   if (SortedLocality) {
     OS << "Locality Information for all loops(sorted order):\n";
     SmallVector<const HLLoop *, 16> OutermostLoops;
 
-    HLNodeUtils::gatherOutermostLoops(OutermostLoops);
+    HNU.gatherOutermostLoops(OutermostLoops);
 
     for (auto Lp : OutermostLoops) {
 
       if (Lp->isInnermost() ||
-          !HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false, false, true,
-                                          nullptr)) {
+          !HNU.isPerfectLoopNest(Lp, nullptr, false, false, true, nullptr)) {
         continue;
       }
 
@@ -149,7 +152,7 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
     FOS << "Temporal locality information for all loops:\n";
     SmallVector<const HLLoop *, 16> Loops;
 
-    HLNodeUtils::gatherAllLoops(Loops);
+    HNU.gatherAllLoops(Loops);
 
     for (auto Lp : Loops) {
       HLA.getTemporalLocality(Lp);
@@ -189,7 +192,13 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
     if (FirstRef->isStructurallyInvariantAtLevel(Level)) {
       // Invariant refs are grouped together so we add the locality for the
       // whole group.
-      LI.TempInv += ((getTripCount(Loop) - 1) * RefVec.size());
+      for (auto Ref : RefVec) {
+        LI.TempInv += getTripCount(Loop) - 1;
+
+        if (Ref->isLval()) {
+          LI.TempInv += WriteWt;
+        }
+      }
     }
   }
 }
@@ -231,7 +240,8 @@ bool HIRLocalityAnalysis::isTemporalReuse(const RegDDRef *Ref1,
 
   CanonExpr *Result = nullptr;
   // Diff the CanonExprs.
-  assert(((Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true)) &&
+  assert(((Result = Ref1->getCanonExprUtils().cloneAndSubtract(Ref1CE, Ref2CE,
+                                                               true)) &&
           !Result->hasIV() && !Result->hasBlob()) &&
          "Refgroups incorrectly formed!");
 
@@ -453,7 +463,7 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
     // differs.
     // sext.i32.i64(i+21) and i64(i+21) should be present in the same group.
     std::unique_ptr<CanonExpr> Result(
-        CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true));
+        Ref1CE->getCanonExprUtils().cloneAndSubtract(Ref1CE, Ref2CE, true));
     if (!Result) {
       return false;
     }
@@ -546,8 +556,8 @@ void HIRLocalityAnalysis::sortedLocalityLoops(
     SmallVector<const HLLoop *, MaxLoopNestLevel> &SortedLoops) {
   assert(OutermostLoop && " Loop parameter is null.");
   assert(SortedLoops.empty() && "SortedLoops vector is non-empty.");
-  assert(HLNodeUtils::isPerfectLoopNest(OutermostLoop, nullptr, false, false,
-                                        true, nullptr) &&
+  assert(HIRF->getHLNodeUtils().isPerfectLoopNest(OutermostLoop, nullptr, false,
+                                                  false, true, nullptr) &&
          "Near perfect loopnest expected!");
 
   // Clear locality by level.
@@ -555,7 +565,7 @@ void HIRLocalityAnalysis::sortedLocalityLoops(
     Loc.clear();
   }
 
-  HLNodeUtils::gatherAllLoops(OutermostLoop, SortedLoops);
+  HIRF->getHLNodeUtils().gatherAllLoops(OutermostLoop, SortedLoops);
   computeLoopNestLocality(OutermostLoop, SortedLoops);
 
   auto Comp = [this](const HLLoop *Lp1, const HLLoop *Lp2) {
@@ -577,8 +587,9 @@ uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
 
   // Clear existing locality and trip count info.
   LocalityByLevel[Level - 1].clear();
-  // Don't need a multiplication factor of trip count.
-  TripCountByLevel[Level - 1] = 1;
+  // Don't need a multiplication factor of trip count so setting it to 2 because
+  // temporal invariant locality uses multiplication factor of (TripCount - 1).
+  TripCountByLevel[Level - 1] = 2;
 
   ConstMemRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
                                    MemRefMap);

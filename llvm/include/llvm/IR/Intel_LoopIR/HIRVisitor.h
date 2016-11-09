@@ -11,14 +11,14 @@
 
 #ifndef LLVM_IR_HLVISITOR_H
 #define LLVM_IR_HLVISITOR_H
+#include "llvm/IR/Intel_LoopIR/HLGoto.h"
+#include "llvm/IR/Intel_LoopIR/HLIf.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/HLLabel.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"
-#include "llvm/IR/Intel_LoopIR/HLLabel.h"
-#include "llvm/IR/Intel_LoopIR/HLGoto.h"
-#include "llvm/IR/Intel_LoopIR/HLInst.h"
-#include "llvm/IR/Intel_LoopIR/HLIf.h"
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 
 #include "llvm/Support/ErrorHandling.h"
 

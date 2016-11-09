@@ -13,9 +13,12 @@
 //===---------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_OptVLSClientUtils.h"
+#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
+using namespace llvm::loopopt;
 
 // --------- HIR Specific implementations
 

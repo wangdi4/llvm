@@ -10,7 +10,7 @@
 ; CHECK: |   %2 = (@size)[0][i1];
 ; CHECK: |   %1 = &((%1)[%2]);
 ; CHECK: |   %retval.0.i = 0;
-; CHECK: |   if (&((%1)[0]) <= &((@allocbuf)[1][0]))
+; CHECK: |   if (&((%1)[0]) <=u &((@allocbuf)[1][0]))
 ; CHECK: |   {
 ; CHECK: |      (@allocp)[0] = &((%1)[0]);
 ; CHECK: |      %retval.0.i = &((%1)[-1 * sext.i32.i64(%2)]);

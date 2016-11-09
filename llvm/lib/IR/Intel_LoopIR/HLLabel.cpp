@@ -19,13 +19,11 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/IR/Intel_LoopIR/HLLabel.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-StringSet<> HLLabel::LabelNames;
-#endif
 
 void HLLabel::makeNameUnique() {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -35,13 +33,13 @@ void HLLabel::makeNameUnique() {
       raw_svector_ostream(Name) << "." << getNumber();
     }
 
-    is_uniq = LabelNames.insert(Name).second;
+    is_uniq = getHLNodeUtils().LabelNames.insert(Name).second;
   } while (!is_uniq);
 #endif
 }
 
-HLLabel::HLLabel(BasicBlock *SrcBB)
-    : HLNode(HLNode::HLLabelVal), SrcBBlock(SrcBB) {
+HLLabel::HLLabel(HLNodeUtils &HNU, BasicBlock *SrcBB)
+    : HLNode(HNU, HLNode::HLLabelVal), SrcBBlock(SrcBB) {
   assert(SrcBB != nullptr && "SrcBB must not be NULL");
 
   {
@@ -52,8 +50,8 @@ HLLabel::HLLabel(BasicBlock *SrcBB)
   makeNameUnique();
 }
 
-HLLabel::HLLabel(const Twine &Name)
-    : HLNode(HLNode::HLLabelVal), SrcBBlock(nullptr) {
+HLLabel::HLLabel(HLNodeUtils &HNU, const Twine &Name)
+    : HLNode(HNU, HLNode::HLLabelVal), SrcBBlock(nullptr) {
 
   {
     raw_svector_ostream OS(this->Name);
@@ -71,7 +69,7 @@ HLLabel::HLLabel(const HLLabel &LabelObj)
 
 HLLabel::~HLLabel() {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LabelNames.erase(getName());
+  getHLNodeUtils().LabelNames.erase(getName());
 #endif
 }
 

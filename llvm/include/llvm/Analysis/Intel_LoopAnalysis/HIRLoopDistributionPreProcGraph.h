@@ -16,6 +16,9 @@
 // be much more tractable than the DDGraph itself for scc detection/analysis.
 // This graph is then analyzed for sccs, each of which forms a pi block.
 //
+//===---------------------------------------------------------------------===//
+
+//
 // Consider the following loop nest
 //          BEGIN REGION { }
 //          <29>         + DO i1 = 0, 99998, 1   <DO_LOOP>
@@ -80,8 +83,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SCCIterator.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/AllSCCIterator.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
@@ -91,10 +94,6 @@
 namespace llvm {
 
 namespace loopopt {
-
-// TODO: Arbitrarily chosen
-unsigned MaxDDEdges = 256;
-unsigned MaxDistPPSize = 128;
 
 class DistPPGraph;
 
@@ -349,7 +348,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     if (Edge->getDVAtLevel(LoopLevel) == DVKind::LE) {
       HLNode *SrcHIR = DDRefSrc->getHLDDNode();
       HLNode *DstHIR = DDRefSink->getHLDDNode();
-      if (!HLNodeUtils::dominates(SrcHIR, DstHIR)) {
+      if (!SrcHIR->getHLNodeUtils().dominates(SrcHIR, DstHIR)) {
         return true;
       }
     }
@@ -403,75 +402,52 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
 };
 
-DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
-  createNodes(Loop);
-  if (!isGraphValid()) {
-    return;
-  }
-
-  DDGraph DDG = DDA->getGraph(Loop);
-
-  DistributionEdgeCreator EdgeCreator(&DDG, this, Loop);
-  HLNodeUtils::visitRange(EdgeCreator, Loop->getFirstChild(),
-                          Loop->getLastChild());
-
-  if (EdgeCreator.EdgeCount > MaxDDEdges) {
-    setInvalid("Too many DD edges for proper analysis");
-  }
-}
-void DistPPGraph::createNodes(HLLoop *Loop) {
-  DistributionNodeCreator NodeCreator(this);
-  HLNodeUtils::visitRange(NodeCreator, Loop->getFirstChild(),
-                          Loop->getLastChild());
-  // Bail early before DD for invalid cases
-  if (getNodeCount() > MaxDistPPSize) {
-    setInvalid("Too many stmts to analyze");
-  }
-
-  if (getNodeCount() == 1) {
-    setInvalid("Single Node Loop cannot be analyzed");
-  }
-}
-
 } // loopopt
+
 //===--------------------------------------------------------------------===//
 // GraphTraits specializations for DistPPGraph. This will allow us to use
 // Graph algorithm iterators such as SCCIterator. Must be in same namespace
 // as GraphTraits
 //===--------------------------------------------------------------------===//
 //
-template <> struct GraphTraits<DistPPGraph *> {
-  typedef DistPPNode NodeType;
-  typedef DistPPNode *NodeRef;
-  typedef DistPPGraph::children_iterator ChildIteratorType;
-  static NodeType *getEntryNode(DistPPGraph *G) { return *(G->node_begin()); }
+template <> struct GraphTraits<loopopt::DistPPGraph *> {
+  typedef loopopt::DistPPNode *NodeRef;
+  typedef loopopt::DistPPGraph::children_iterator ChildIteratorType;
+  static NodeRef getEntryNode(loopopt::DistPPGraph *G) {
+    return *(G->node_begin());
+  }
 
-  static inline ChildIteratorType child_begin(NodeType *N) {
+  static inline ChildIteratorType child_begin(NodeRef N) {
     return N->getGraph()->children_begin(N);
   }
-  static inline ChildIteratorType child_end(NodeType *N) {
+  static inline ChildIteratorType child_end(NodeRef N) {
     return N->getGraph()->children_end(N);
   }
 
-  typedef std::pointer_to_unary_function<DistPPNode *, DistPPNode &> DerefFun;
+  typedef std::pointer_to_unary_function<loopopt::DistPPNode *,
+                                         loopopt::DistPPNode &>
+      DerefFun;
 
   // nodes_iterator/begin/end - Allow iteration over all nodes(not node ptrs)
   // in the graph
-  typedef mapped_iterator<SmallVectorImpl<DistPPNode *>::iterator, DerefFun>
+  typedef mapped_iterator<SmallVectorImpl<loopopt::DistPPNode *>::iterator,
+                          DerefFun>
       nodes_iterator;
 
   // GraphTraits requires argument to this be a pointer to template argument
   // type
-  static nodes_iterator nodes_begin(DistPPGraph **G) {
+  static nodes_iterator nodes_begin(loopopt::DistPPGraph **G) {
     return map_iterator((*G)->node_begin(), DerefFun(NodePtrDeref));
   }
-  static nodes_iterator nodes_end(DistPPGraph **G) {
+  static nodes_iterator nodes_end(loopopt::DistPPGraph **G) {
     return map_iterator((*G)->node_end(), DerefFun(NodePtrDeref));
   }
 
-  static DistPPNode &NodePtrDeref(DistPPNode *DNode) { return *DNode; }
+  static loopopt::DistPPNode &NodePtrDeref(loopopt::DistPPNode *DNode) {
+    return *DNode;
+  }
 
-  static unsigned size(DistPPGraph *G) { return G->getNodeCount(); }
+  static unsigned size(loopopt::DistPPGraph *G) { return G->getNodeCount(); }
 };
 } // llvm
 

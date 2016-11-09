@@ -2,7 +2,7 @@
 
 ;Verify CG for this HIR STMT
 ;<7> %.c = (%0 > %1) ? %0 : %c;
-;CHECK: loop.15:
+;CHECK: loop.{{.*}}:
 ; Rely on Verifier to filter illegal combinations
 ;CHECK-DAG: [[A_ADDR:%.*]] = getelementptr inbounds i32, i32* %a, 
 ;CHECK-DAG: [[A_LOAD:%.*]] = load i32, i32* [[A_ADDR]]

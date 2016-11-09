@@ -1,5 +1,5 @@
 
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=nest < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-loopnest -print-after=hir-loop-distribute-loopnest  < %s 2>&1 | FileCheck %s
 ; matmul required suppressions of LICM and early CSE(did ld/st of c[][] in i3)
 ;          BEGIN REGION { }
 ;<35>         + DO i1 = 0, 99999, 1   <DO_LOOP>

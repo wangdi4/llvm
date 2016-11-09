@@ -233,6 +233,7 @@ namespace {
 
   #if INTEL_CUSTOMIZATION 
       (void) llvm::createSNodeAnalysisPass();
+      (void) llvm::createLoopOptMarkerPass(); 
       // HIR passes
       (void) llvm::createHIRRegionIdentificationPass();
       (void) llvm::createHIRSCCFormationPass();
@@ -255,10 +256,12 @@ namespace {
       (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
+      (void) llvm::createHIRUnrollAndJamPass();
       (void) llvm::createHIRCompleteUnrollPass();
       (void) llvm::createHIRParDirInsertPass();
       (void) llvm::createHIRVecDirInsertPass();
-      (void) llvm::createHIRLoopDistributionPass();
+      (void) llvm::createHIRLoopDistributionForMemRecPass();
+      (void) llvm::createHIRLoopDistributionForLoopNestPass();
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();

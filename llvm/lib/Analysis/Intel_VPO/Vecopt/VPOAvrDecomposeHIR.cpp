@@ -113,7 +113,7 @@ public:
 // It decomposes a blob DDRef given its SCEV
 AVRValueHIR *BlobDecompVisitor::decomposeSelfBlobSLEV(const SCEV *SC) {
 
-  unsigned BlobIndex = BlobUtils::findBlob(SC);
+  unsigned BlobIndex = RDDR.getBlobUtils().findBlob(SC);
   assert(BlobIndex != InvalidBlobIndex && "SCEV is not a Blob");
 
   // Self blobs will always have a BlobDDRed
@@ -354,7 +354,7 @@ AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,
 
 AVR *HIRDecomposer::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
                                   int64_t BlobCoeff) {
-  BlobTy Blob = BlobUtils::getBlob(BlobIdx);
+  BlobTy Blob = RDDR->getBlobUtils().getBlob(BlobIdx);
   AVR *BlobSubTree;
 
   // TODO: Reuse the visitor: One visitor for all blobs. RDDR is the same

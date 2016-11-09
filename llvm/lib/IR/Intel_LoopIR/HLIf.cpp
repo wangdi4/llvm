@@ -14,8 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -29,8 +30,9 @@ void HLIf::initialize() {
   RegDDRefs.resize(NumOp, nullptr);
 }
 
-HLIf::HLIf(PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
-    : HLDDNode(HLNode::HLIfVal) {
+HLIf::HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1,
+           RegDDRef *Ref2)
+    : HLDDNode(HNU, HLNode::HLIfVal) {
   assert(((FirstPred == PredicateTy::FCMP_FALSE) ||
           (FirstPred == PredicateTy::FCMP_TRUE) || (Ref1 && Ref2)) &&
          "DDRefs cannot be null!");
@@ -80,14 +82,14 @@ HLIf *HLIf::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
        ThenIter != ThenIterEnd; ++ThenIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ThenIter, GotoList, LabelMap, NodeMapper);
-    HLNodeUtils::insertAsLastChild(NewHLIf, NewHLNode, true);
+    getHLNodeUtils().insertAsLastChild(NewHLIf, NewHLNode, true);
   }
 
   for (auto ElseIter = this->else_begin(), ElseIterEnd = this->else_end();
        ElseIter != ElseIterEnd; ++ElseIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ElseIter, GotoList, LabelMap, NodeMapper);
-    HLNodeUtils::insertAsLastChild(NewHLIf, NewHLNode, false);
+    getHLNodeUtils().insertAsLastChild(NewHLIf, NewHLNode, false);
   }
 
   return NewHLIf;
@@ -291,13 +293,13 @@ RegDDRef *HLIf::removePredicateOperandDDRef(const_pred_iterator CPredI,
 }
 
 bool HLIf::isThenChild(const HLNode *Node) const {
-  return HLNodeUtils::isInTopSortNumMaxRange(Node, getFirstThenChild(),
-                                             getLastThenChild());
+  return getHLNodeUtils().isInTopSortNumMaxRange(Node, getFirstThenChild(),
+                                                 getLastThenChild());
 }
 
 bool HLIf::isElseChild(const HLNode *Node) const {
-  return HLNodeUtils::isInTopSortNumMaxRange(Node, getFirstElseChild(),
-                                             getLastElseChild());
+  return getHLNodeUtils().isInTopSortNumMaxRange(Node, getFirstElseChild(),
+                                                 getLastElseChild());
 }
 
 void HLIf::verify() const {
@@ -329,4 +331,43 @@ void HLIf::verify() const {
          "FCMP_TRUE/FCMP_FALSE cannot be combined with any other predicates");
 
   HLDDNode::verify();
+}
+
+#ifndef NDEBUG
+LLVM_DUMP_METHOD
+void HLIf::dumpHeader() const {
+  formatted_raw_ostream OS(dbgs());
+  OS << "<" << getNumber() << "> ";
+  printHeader(OS, 0);
+}
+#endif
+
+bool HLIf::isKnownPredicate(bool *IsTrue) const {
+  bool FinalResult = true;
+
+  // Check every predicate if its value is known. Evaluate the result of the
+  // whole HLIf statement.
+  for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
+    auto *DDRefLhs = getPredicateOperandDDRef(I, true);
+    auto *DDRefRhs = getPredicateOperandDDRef(I, false);
+
+    if (!DDRefLhs->isTerminalRef() || !DDRefRhs->isTerminalRef()) {
+      return false;
+    }
+
+    bool Result;
+    if (!HLNodeUtils::isKnownPredicate(DDRefLhs->getSingleCanonExpr(), *I,
+                                       DDRefRhs->getSingleCanonExpr(),
+                                       &Result)) {
+      return false;
+    }
+
+    FinalResult = FinalResult && Result;
+  }
+
+  if (IsTrue) {
+    *IsTrue = FinalResult;
+  }
+
+  return true;
 }

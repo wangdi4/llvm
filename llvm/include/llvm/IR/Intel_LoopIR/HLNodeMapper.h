@@ -29,10 +29,9 @@ protected:
   virtual HLNode *getMappedImpl(const HLNode *Node) const = 0;
 
 public:
-  virtual void map(const HLNode *Node, HLNode *MappedNode) {};
+  virtual void map(const HLNode *Node, HLNode *MappedNode){};
 
-  template <typename T>
-  T *getMapped(const T *Node) const {
+  template <typename T> T *getMapped(const T *Node) const {
     return cast_or_null<T>(getMappedImpl(Node));
   }
 };
@@ -71,9 +70,8 @@ namespace HLNodeLambdaMapper {
 
 template <typename Predicate>
 HLNodeLambdaMapperImpl<Predicate> mapper(Predicate Pred) {
-    return std::move(HLNodeLambdaMapperImpl<Predicate>(Pred));
+  return std::move(HLNodeLambdaMapperImpl<Predicate>(Pred));
 }
-
 }
 
 struct HLNodeToNodeMapper final : public HLNodeToNodeMapperImpl {
@@ -88,7 +86,6 @@ struct HLNodeToNodeMapper final : public HLNodeToNodeMapperImpl {
     NodeMap.insert(std::make_pair(Node, nullptr));
   }
 };
-
 }
 }
 

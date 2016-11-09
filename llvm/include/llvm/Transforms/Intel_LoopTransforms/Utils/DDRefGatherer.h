@@ -225,13 +225,15 @@ struct DDRefGatherer : public DDRefGathererUtils {
 
   static void gather(const HLNode *Node, MapTy &SymToMemRef) {
     DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
-    HLNodeUtils::visit(VImpl, Node);
+    Node->getHLNodeUtils().visit(VImpl, Node);
   }
 
   template <typename It>
   static void gatherRange(It Begin, It End, MapTy &SymToMemRef) {
     DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
-    HLNodeUtils::visitRange(VImpl, Begin, End);
+    if (Begin != End) {
+      (*Begin).getHLNodeUtils().visitRange(VImpl, Begin, End);
+    }
   }
 };
 

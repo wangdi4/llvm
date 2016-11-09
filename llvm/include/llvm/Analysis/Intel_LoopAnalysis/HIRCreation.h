@@ -25,6 +25,8 @@
 
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
 namespace llvm {
 
 class Function;
@@ -43,7 +45,7 @@ class HLSwitch;
 class HIRRegionIdentification;
 
 /// \brief This analysis creates and populates HIR regions with HLNodes using
-/// the information provided by HIRRegionIdentification pass. 
+/// the information provided by HIRRegionIdentification pass.
 ///
 class HIRCreation : public FunctionPass {
 public:
@@ -56,6 +58,9 @@ public:
 private:
   // HIRCleanup accesses Gotos and Labels populated by this pass.
   friend class HIRCleanup;
+
+  // HLNodeUtils object for the framework.
+  HLNodeUtils HNU;
 
   /// Regions - HLRegions formed out of incoming LLVM IR.
   HLContainerTy Regions;
@@ -123,10 +128,13 @@ public:
   void releaseMemory() override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
-  /// \brief Prints framework details along with HLRegion like IRRegion and
-  /// SCCs.
-  void printWithFrameworkDetails(raw_ostream &OS) const;
+  void print(bool FrameworkDetails, raw_ostream &OS,
+             const Module * = nullptr) const;
   void verifyAnalysis() const override;
+
+  /// Returns HLNodeUtils object.
+  HLNodeUtils &getHLNodeUtils() { return HNU; }
+  const HLNodeUtils &getHLNodeUtils() const { return HNU; }
 
   /// Region iterator methods
   iterator begin() { return Regions.begin(); }

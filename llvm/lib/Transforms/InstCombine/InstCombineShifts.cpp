@@ -478,8 +478,11 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
           // (X + (Y >> C))
           Value *X = Builder->CreateBinOp(Op0BO->getOpcode(), V1, YS, 
                                           Op0BO->getOperand(0)->getName());
-          Constant *Mask = 
-            ConstantExpr::getLShr(Constant::getAllOnesValue(X->getType()), Op1);
+
+          uint32_t Op1Val = COp1->getLimitedValue(TypeBits);
+          APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
+          Constant *Mask = ConstantInt::get(I.getContext(), Bits);
+
           if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
             Mask = ConstantVector::getSplat(VT->getNumElements(), Mask);
           return BinaryOperator::CreateAnd(X, Mask);
@@ -525,15 +528,18 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
 #if INTEL_CUSTOMIZATION
         // Turn (Y + (X << C)) >> C  ->  ((Y >> C) + X) & (~0 >> C) for lshr
 	      if (I.getOpcode() == Instruction::LShr && 
-	          Op0BO->getOperand(0)->hasOneUse() &&
+	          Op0BO->getOperand(1)->hasOneUse() &&
             match(Op0BO->getOperand(1), m_Shl(m_Value(V1), m_Specific(Op1)))) {
           Value *YS =        // (Y >> C)
             Builder->CreateLShr(Op0BO->getOperand(0), Op1, Op0BO->getName());
           // ((Y >> C) + X)
           Value *X = Builder->CreateBinOp(Op0BO->getOpcode(), YS, V1, 
                                           Op0BO->getOperand(0)->getName());
-          Constant *Mask = 
-            ConstantExpr::getLShr(Constant::getAllOnesValue(X->getType()), Op1);
+
+          uint32_t Op1Val = COp1->getLimitedValue(TypeBits);
+          APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
+          Constant *Mask = ConstantInt::get(I.getContext(), Bits);
+
           if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
             Mask = ConstantVector::getSplat(VT->getNumElements(), Mask);
           return BinaryOperator::CreateAnd(X, Mask);

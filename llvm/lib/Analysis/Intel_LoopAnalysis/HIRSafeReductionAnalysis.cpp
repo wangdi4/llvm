@@ -80,6 +80,7 @@ void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 //
 bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 
+  auto HIRF = &getAnalysis<HIRFramework>();
   DDA = &getAnalysis<HIRDDAnalysis>();
 
   if (!ForceSRA) {
@@ -90,7 +91,7 @@ bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 
   // Gather the innermost loops as candidates.
   SmallVector<HLLoop *, 32> CandidateLoops;
-  HLNodeUtils::gatherInnermostLoops(CandidateLoops);
+  HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
   for (auto &Loop : CandidateLoops) {
     identifySafeReduction(Loop);
@@ -111,7 +112,7 @@ bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 //  Refer to HIRLoopInterchange.cpp for sample code to invoke and get
 //  Safe Reductions
 
-void HIRSafeReductionAnalysis::identifySafeReduction(HLLoop *Loop) {
+void HIRSafeReductionAnalysis::identifySafeReduction(const HLLoop *Loop) {
 
   // Safe reductions are of the follow forms:
   // a. Single statement
@@ -143,10 +144,10 @@ void HIRSafeReductionAnalysis::identifySafeReduction(HLLoop *Loop) {
   identifySafeReductionChain(Loop, DDG);
 }
 
-void HIRSafeReductionAnalysis::computeSafeReductionChains(HLLoop *Loop) {
+void HIRSafeReductionAnalysis::computeSafeReductionChains(const HLLoop *Loop) {
 
-  SmallVector<HLLoop *, 32> CandidateLoops;
-  HLNodeUtils::gatherInnermostLoops(CandidateLoops, Loop);
+  SmallVector<const HLLoop *, 32> CandidateLoops;
+  Loop->getHLNodeUtils().gatherInnermostLoops(CandidateLoops, Loop);
   for (auto &Lp : CandidateLoops) {
     auto SR = SafeReductionMap.find(Lp);
     if (SR != SafeReductionMap.end()) {
@@ -157,7 +158,7 @@ void HIRSafeReductionAnalysis::computeSafeReductionChains(HLLoop *Loop) {
 }
 
 const SafeRedChainList &
-HIRSafeReductionAnalysis::getSafeReductionChain(HLLoop *Loop) {
+HIRSafeReductionAnalysis::getSafeReductionChain(const HLLoop *Loop) {
 
   assert(Loop->isInnermost() && "SafeReduction supports only innermost loop");
   SafeRedChainList &SRCL = SafeReductionMap[Loop];
@@ -166,8 +167,8 @@ HIRSafeReductionAnalysis::getSafeReductionChain(HLLoop *Loop) {
 
 // Single stmt safe reduction is of this form:
 //  t1 = t1 + a[i]
-void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
-                                                                DDGraph DDG) {
+void HIRSafeReductionAnalysis::identifySingleStatementReduction(
+    const HLLoop *Loop, DDGraph DDG) {
 
   DEBUG(dbgs() << "\nIn single Sum Reduction\n");
   for (auto I = Loop->child_begin(), E = Loop->child_end(); I != E; ++I) {
@@ -175,15 +176,15 @@ void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
     unsigned ReductionOpCode = 0;
     SafeRedChain RedInsts;
     bool SingleStmtReduction;
-    HLNode *NodeI = &(*I);
+    const HLNode *NodeI = &(*I);
 
     FirstRvalSB = 0;
 
     // By checking for PostDomination, it allows goto and label
-    if (!HLNodeUtils::postDominates(NodeI, FirstChild)) {
+    if (!Loop->getHLNodeUtils().postDominates(NodeI, FirstChild)) {
       continue;
     }
-    HLInst *Inst = dyn_cast<HLInst>(NodeI);
+    const HLInst *Inst = dyn_cast<HLInst>(NodeI);
     if (!Inst) {
       continue;
     }
@@ -200,7 +201,7 @@ void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
     if (SingleStmtReduction) {
       DEBUG(dbgs() << "\nSingle Safe Reduction stmt found\n");
       RedInsts.push_back(Inst);
-      setSafeRedChainList(RedInsts, Loop);
+      setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
       RedInsts.clear();
       FirstRvalSB = 0;
       continue;
@@ -216,8 +217,9 @@ void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
 //     t1 = t2
 //     t3 = t1 +
 //     t2 = t3 +
-bool HIRSafeReductionAnalysis::isValidSR(RegDDRef *LRef, HLLoop *Loop,
-                                         HLInst **SinkInst, DDRef **SinkDDRef,
+bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
+                                         const HLLoop *Loop, HLInst **SinkInst,
+                                         DDRef **SinkDDRef,
                                          unsigned ReductionOpCode,
                                          DDGraph DDG) {
 
@@ -240,7 +242,7 @@ bool HIRSafeReductionAnalysis::isValidSR(RegDDRef *LRef, HLLoop *Loop,
     }
     *SinkDDRef = Edge->getSink();
     HLNode *SinkNode = (*SinkDDRef)->getHLDDNode();
-    if (!HLNodeUtils::postDominates(SinkNode, FirstChild)) {
+    if (!Loop->getHLNodeUtils().postDominates(SinkNode, FirstChild)) {
       return false;
     }
     *SinkInst = dyn_cast<HLInst>(SinkNode);
@@ -268,21 +270,22 @@ bool HIRSafeReductionAnalysis::isValidSR(RegDDRef *LRef, HLLoop *Loop,
 bool HIRSafeReductionAnalysis::isRedTemp(CanonExpr *CE, BlobTy TempBlob) {
 
   bool Found = false;
+  auto &BU = CE->getBlobUtils();
 
   for (auto I = CE->iv_begin(), E = CE->iv_end(); I != E; ++I) {
     unsigned BlobIdx = CE->getIVBlobCoeff(I);
     if (BlobIdx == InvalidBlobIndex) {
       continue;
     }
-    auto Blob = BlobUtils::getBlob(BlobIdx);
-    if (BlobUtils::contains(Blob, TempBlob)) {
+    auto Blob = BU.getBlob(BlobIdx);
+    if (BU.contains(Blob, TempBlob)) {
       return false;
     }
   }
 
   for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
-    auto Blob = BlobUtils::getBlob(CE->getBlobIndex(I));
-    if (BlobUtils::contains(Blob, TempBlob)) {
+    auto Blob = BU.getBlob(CE->getBlobIndex(I));
+    if (BU.contains(Blob, TempBlob)) {
       if (Found || (Blob != TempBlob) || (CE->getBlobCoeff(I) != 1)) {
         return false;
       }
@@ -293,23 +296,25 @@ bool HIRSafeReductionAnalysis::isRedTemp(CanonExpr *CE, BlobTy TempBlob) {
   return true;
 }
 
-void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
+void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
                                                           DDGraph DDG) {
 
   DEBUG(dbgs() << "\nIn Sum Reduction Chain\n");
-  for (auto Lp = Loop->child_begin(), E = Loop->child_end(); Lp != E; ++Lp) {
+  auto &HNU = Loop->getHLNodeUtils();
+
+  for (auto It = Loop->child_begin(), E = Loop->child_end(); It != E; ++It) {
     FirstRvalSB = 0;
     unsigned ReductionOpCode = 0;
     SafeRedChain RedInsts;
     bool SingleStmtReduction;
-    HLNode *NodeI = &(*Lp);
+    const HLNode *NodeI = &(*It);
 
-    HLInst *Inst = dyn_cast<HLInst>(NodeI);
+    const HLInst *Inst = dyn_cast<HLInst>(NodeI);
     if (!Inst) {
       continue;
     }
     // By checking for PostDomination, it allows goto and label
-    if (!HLNodeUtils::postDominates(NodeI, FirstChild)) {
+    if (!HNU.postDominates(NodeI, FirstChild)) {
       continue;
     }
 
@@ -337,7 +342,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
 
     while (true) {
 
-      RegDDRef *LRef = Inst->getLvalDDRef();
+      const RegDDRef *LRef = Inst->getLvalDDRef();
       if (!isValidSR(LRef, Loop, &SinkInst, &SinkDDRef, ReductionOpCode, DDG)) {
         break;
       }
@@ -355,7 +360,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
           if (!RedDDRef->isTerminalRef()) {
             break;
           }
-          auto Blob = BlobUtils::getBlob(PrevSinkDDRef->getBlobIndex());
+          auto Blob = HNU.getBlobUtils().getBlob(PrevSinkDDRef->getBlobIndex());
 
           CanonExpr *CE = RedDDRef->getSingleCanonExpr();
 
@@ -366,7 +371,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
       }
       if (FirstRvalSB == SinkDDRef->getSymbase()) {
         DEBUG(dbgs() << "\nSafe Reduction chain found\n");
-        setSafeRedChainList(RedInsts, Loop);
+        setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
         break;
       }
 
@@ -378,7 +383,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
       // e.g.    s2:   x = y
       //         s3:   z = w
       //         s4:   w = x + z
-      if (HLNodeUtils::strictlyDominates(SinkInst, Inst)) {
+      if (HNU.strictlyDominates(SinkInst, Inst)) {
         break;
       }
       Inst = SinkInst;
@@ -388,11 +393,9 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
   }
 }
 
-bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
-                                                bool *SingleStmtReduction,
-                                                unsigned *FirstRvalSB,
-                                                unsigned *ReductionOpCode,
-                                                DDGraph DDG) {
+bool HIRSafeReductionAnalysis::findFirstRedStmt(
+    const HLLoop *Loop, const HLInst *Inst, bool *SingleStmtReduction,
+    unsigned *FirstRvalSB, unsigned *ReductionOpCode, DDGraph DDG) {
 
   // Start by guessing the start of reduction chain
   // S1  is Inst
@@ -431,7 +434,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
   unsigned Level = Loop->getNestingLevel();
   for (auto I = Inst->rval_op_ddref_begin(), E2 = Inst->rval_op_ddref_end();
        I != E2; ++I) {
-    RegDDRef *RRef = *I;
+    const RegDDRef *RRef = *I;
     if (!RRef || RRef->isMemRef()) {
       continue;
     }
@@ -463,7 +466,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
       }
 
       if (Inst == SrcInst) {
-        RegDDRef *LRef = Inst->getLvalDDRef();
+        const RegDDRef *LRef = Inst->getLvalDDRef();
         if (DDUtils::singleUseInLoop(LRef, Loop, DDG)) {
           *SingleStmtReduction = true;
           *FirstRvalSB = DDRefSrc->getSymbase();
@@ -473,7 +476,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
       if (Edge->getDVAtLevel(Level) != DVKind::LT) {
         continue;
       }
-      if (!HLNodeUtils::postDominates(Node, FirstChild)) {
+      if (!Loop->getHLNodeUtils().postDominates(Node, FirstChild)) {
         return false;
       }
       *FirstRvalSB = DDRefSrc->getSymbase();
@@ -485,7 +488,9 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
 }
 
 void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
-                                                   const HLLoop *Loop) {
+                                                   const HLLoop *Loop,
+                                                   unsigned RedSymbase,
+                                                   unsigned RedOpCode) {
 
   SafeRedChainList &SR = SafeReductionMap[Loop];
   SR.push_back(RedInsts);
@@ -493,6 +498,7 @@ void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
   for (auto &Inst : RedInsts) {
     SafeReductionInstMap.insert(std::make_pair(Inst, &SRSet));
   }
+  SafeReductionSymbaseMap[RedSymbase] = RedOpCode;
 }
 
 bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
@@ -552,6 +558,7 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
 void HIRSafeReductionAnalysis::releaseMemory() {
   SafeReductionMap.clear();
   SafeReductionInstMap.clear();
+  SafeReductionSymbaseMap.clear();
 }
 
 void HIRSafeReductionAnalysis::markLoopBodyModified(const HLLoop *Loop) {
@@ -567,4 +574,15 @@ void HIRSafeReductionAnalysis::markLoopBodyModified(const HLLoop *Loop) {
     }
     SafeReductionMap.erase(Loop);
   }
+}
+bool HIRSafeReductionAnalysis::isSafeReductionSymbase(unsigned Symbase,
+                                                      unsigned *OpCodeP) {
+  if (SafeReductionSymbaseMap.find(Symbase) == SafeReductionSymbaseMap.end()) {
+    return false;
+  }
+
+  if (OpCodeP) {
+    *OpCodeP = SafeReductionSymbaseMap[Symbase];
+  }
+  return true;
 }

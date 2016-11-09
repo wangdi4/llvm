@@ -207,11 +207,11 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
   } 
 }
 
-WRContainerImpl *WRegionUtils::buildWRGraphFromHIR()
+WRContainerImpl *WRegionUtils::buildWRGraphFromHIR(HIRFramework &HIRF)
 {
   HIRVisitor Visitor;
 
-  HLNodeUtils::visitAll(Visitor);
+  HIRF.getHLNodeUtils().visitAll(Visitor);
   return Visitor.getWRGraph();
 }
 

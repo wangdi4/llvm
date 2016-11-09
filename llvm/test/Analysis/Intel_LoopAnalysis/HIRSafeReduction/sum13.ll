@@ -3,7 +3,7 @@
 ; RUN: opt < %s  -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis  -hir-safe-reduction-analysis | FileCheck %s
 ; CHECK: Safe Reduction
 ; CHECK:  %hir.de.ssa.copy0.out = %15;
-; CHECK:  %15 = %hir.de.ssa.copy1.out + ((1 + %hir.de.ssa.copy1.out) * (-1 + %indvars.iv87)) + %hir.de.ssa.copy0.out  +  ((%21 * %indvars.iv83))/u2;
+; CHECK:  %15 = %hir.de.ssa.copy1.out + ((1 + %hir.de.ssa.copy1.out) * (-1 + %indvars.iv87)) + %hir.de.ssa.copy0.out  +  (((-1 + sext.i32.i33(%indvars.iv87)) * %21))/u2;
 ;
 ; ModuleID = 't2278.c'
 source_filename = "t2278.c"

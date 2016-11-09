@@ -384,6 +384,8 @@ void initializeNonLTOGlobalOptPass(PassRegistry &);
 void initializeFeatureOutlinerPass(PassRegistry&);
 // Pass for math call optimization.
 void initializeMapIntrinToImlPass(PassRegistry&);
+// Pass for indicating loopopt based throttling.
+void initializeLoopOptMarkerPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationPass(PassRegistry&);
 void initializeHIRSCCFormationPass(PassRegistry&);
@@ -408,8 +410,10 @@ void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
 void initializeHIRLoopInterchangePass(PassRegistry&);
-void initializeHIRLoopDistributionPass(PassRegistry&);
+void initializeHIRLoopDistributionForMemRecPass(PassRegistry&);
+void initializeHIRLoopDistributionForLoopNestPass(PassRegistry&);
 void initializeHIRGeneralUnrollPass(PassRegistry&);
+void initializeHIRUnrollAndJamPass(PassRegistry&);
 void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRLoopReversalPass(PassRegistry&);
