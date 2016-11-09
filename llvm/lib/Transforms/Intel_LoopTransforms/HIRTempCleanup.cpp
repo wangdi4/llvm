@@ -556,8 +556,8 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
 
       // Temp may have been substituted in some places. We need to remove it
       // from loop liveouts based on performed substitutions.
+      HLLoop *ParentLoop = Temp.getLoop();
       if (auto LastUseLoop = Temp.getLastUseLoop()) {
-        HLLoop *ParentLoop = Temp.getLoop();
         auto LCALoop = Reg->getHLNodeUtils().getLowestCommonAncestorLoop(
             LastUseLoop, ParentLoop);
 
@@ -565,6 +565,16 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
           ParentLoop->removeLiveOutTemp(Symbase);
           ParentLoop = ParentLoop->getParentLoop();
         }
+      }
+
+      // TODO: The following loop is more like a workaround. Please check if
+      // there is a proper fix required.
+      // https://ir-codecollab.intel.com/ui#review:id=56154
+      // If no substitutions were done, we still need to update loop liveout
+      // in the parent loops.
+      while (ParentLoop && ParentLoop->isLiveOut(Symbase)) {
+        ParentLoop->replaceLiveOutTemp(Symbase, Temp.getRvalSymbase());
+        ParentLoop = ParentLoop->getParentLoop();
       }
 
       // Update region liveout.
