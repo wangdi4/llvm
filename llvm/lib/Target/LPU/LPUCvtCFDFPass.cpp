@@ -1992,10 +1992,10 @@ void LPUCvtCFDFPass::generateDynamicPreds() {
       if (!MI->isPHI()) continue;
       //check to see if needs PREDPROP/PREDMERGE
       if (!checked) {
-        //loop hdr phi with multiple back edges 
+        //loop hdr phi with multiple back edges or loop with multiple exit blocks
         if (MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getHeader() == mbb) {
           MachineLoop* mloop = MLI->getLoopFor(mbb);
-          if (mloop->getNumBackEdges() > 1) {
+          if (mloop->getNumBackEdges() > 1 || mloop->getExitBlock() == nullptr) {
             needDynamicTree = true;
           }
         } else {
