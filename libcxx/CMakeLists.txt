@@ -58,8 +58,24 @@ option(LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY "Build libc++experimental.a" ON)
 option(LIBCXX_ENABLE_FILESYSTEM
         "Build filesystem as part of libc++experimental.a" ${LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY})
 option(LIBCXX_INCLUDE_TESTS "Build the libc++ tests." ${LLVM_INCLUDE_TESTS})
+
+
+# Benchmark options -----------------------------------------------------------
 option(LIBCXX_INCLUDE_BENCHMARKS "Build the libc++ benchmarks and their dependancies" ON)
-option(LIBCXX_BUILD_BENCHMARK_NATIVE_STDLIB "Build the benchmarks against the native STL" OFF)
+set(LIBCXX_BENCHMARK_NATIVE_STDLIB "" CACHE STRING
+        "Build the benchmarks against the specified native STL.
+         The value must be one of libc++/libstdc++")
+set(LIBCXX_BENCHMARK_NATIVE_GCC_TOOLCHAIN "" CACHE STRING
+    "Use alternate GCC toolchain when building the native benchmarks")
+
+if (LIBCXX_BENCHMARK_NATIVE_STDLIB)
+  if (NOT (LIBCXX_BENCHMARK_NATIVE_STDLIB STREQUAL "libc++"
+        OR LIBCXX_BENCHMARK_NATIVE_STDLIB STREQUAL "libstdc++"))
+    message(FATAL_ERROR "Invalid value for LIBCXX_BENCHMARK_NATIVE_STDLIB: "
+            "'${LIBCXX_BENCHMARK_NATIVE_STDLIB}'")
+  endif()
+endif()
+
 option(LIBCXX_INCLUDE_DOCS "Build the libc++ documentation." ${LLVM_INCLUDE_DOCS})
 set(LIBCXX_LIBDIR_SUFFIX "${LLVM_LIBDIR_SUFFIX}" CACHE STRING
     "Define suffix of library directory name (32/64)")
@@ -85,10 +101,17 @@ set_property(CACHE LIBCXX_CXX_ABI PROPERTY STRINGS ;${CXXABIS})
 
 # Setup the default options if LIBCXX_CXX_ABI is not specified.
 if (NOT LIBCXX_CXX_ABI)
+  find_path(
+    LIBCXX_LIBCXXABI_INCLUDES_INTERNAL
+    cxxabi.h
+    PATHS ${LLVM_MAIN_SRC_DIR}/projects/libcxxabi/include
+          ${LLVM_MAIN_SRC_DIR}/runtimes/libcxxabi/include
+    NO_DEFAULT_PATH
+  )
   if (NOT DEFINED LIBCXX_STANDALONE_BUILD AND
-      IS_DIRECTORY "${CMAKE_SOURCE_DIR}/projects/libcxxabi")
+      IS_DIRECTORY "${LIBCXX_LIBCXXABI_INCLUDES_INTERNAL}")
     set(LIBCXX_CXX_ABI_LIBNAME "libcxxabi")
-    set(LIBCXX_CXX_ABI_INCLUDE_PATHS "${CMAKE_SOURCE_DIR}/projects/libcxxabi/include")
+    set(LIBCXX_CXX_ABI_INCLUDE_PATHS "${LIBCXX_LIBCXXABI_INCLUDES_INTERNAL}")
     set(LIBCXX_CXX_ABI_INTREE 1)
   else()
     set(LIBCXX_CXX_ABI_LIBNAME "none")
@@ -270,9 +293,13 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIBCXX_LIBRARY_DIR})
 # LIBCXX_CXX_FLAGS: General flags for both the compiler and linker.
 # LIBCXX_COMPILE_FLAGS: Compile only flags.
 # LIBCXX_LINK_FLAGS: Linker only flags.
+# LIBCXX_LIBRARIES: libraries libc++ is linked to.
+# LIBCXX_INTERFACE_LIBRARIES: Libraries that must be linked when using libc++
+#                             These libraries are exposed in the linker script.
 set(LIBCXX_COMPILE_FLAGS "")
 set(LIBCXX_LINK_FLAGS "")
 set(LIBCXX_LIBRARIES "")
+set(LIBCXX_INTERFACE_LIBRARIES "")
 
 # Include macros for adding and removing libc++ flags.
 include(HandleLibcxxFlags)
@@ -307,9 +334,12 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 
 include(HandleLibCXXABI) # Setup the ABI library flags
 
-# Remove flags that may have snuck in.
-remove_flags(-DNDEBUG -UNDEBUG -D_DEBUG
-             -stdlib=libc++ -stdlib=libstdc++ -lc++abi -m32)
+if (NOT LIBCXX_STANDALONE_BUILD)
+  # Remove flags that may have snuck in.
+  remove_flags(-DNDEBUG -UNDEBUG -D_DEBUG
+               -lc++abi -m32)
+endif()
+remove_flags(-stdlib=libc++ -stdlib=libstdc++)
 
 # FIXME(EricWF): See the FIXME on LIBCXX_ENABLE_PEDANTIC.
 # Remove the -pedantic flag and -Wno-pedantic and -pedantic-errors
@@ -318,6 +348,11 @@ remove_flags(-Wno-pedantic -pedantic-errors -pedantic)
 
 # Required flags ==============================================================
 set(LIBCXX_STANDARD_VER c++11 CACHE INTERNAL "internal option to change build dialect")
+if (LIBCXX_HAS_MUSL_LIBC)
+  # musl's pthread implementations uses volatile types in their structs which is
+  # not a constexpr in C++11 but is in C++14, so we use C++14 with musl.
+  set(LIBCXX_STANDARD_VER c++14 CACHE INTERNAL "internal option to change build dialect")
+endif()
 add_compile_flags_if_supported(-std=${LIBCXX_STANDARD_VER})
 mangle_name("LIBCXX_SUPPORTS_STD_EQ_${LIBCXX_STANDARD_VER}_FLAG" SUPPORTS_DIALECT_NAME)
 if (NOT MSVC AND NOT ${SUPPORTS_DIALECT_NAME})
@@ -330,6 +365,13 @@ endif()
 # headers
 add_compile_flags_if_supported(-nostdinc++)
 
+# Hide all inline function definitions which have not explicitly been marked
+# visible. This prevents new definitions for inline functions from appearing in
+# the dylib when get ODR used by another function.
+add_compile_flags_if_supported(-fvisibility-inlines-hidden)
+
+# Let the library headers know they are currently being used to build the
+# library.
 add_definitions(-D_LIBCPP_BUILDING_LIBRARY)
 
 # Warning flags ===============================================================
@@ -402,6 +444,16 @@ endif()
 # Feature flags ===============================================================
 define_if(MSVC -D_CRT_SECURE_NO_WARNINGS)
 
+# Modules flags ===============================================================
+# FIXME The libc++ sources are fundamentally non-modular. They need special
+# versions of the headers in order to provide C++03 and legacy ABI definitions.
+# NOTE: The public headers can be used with modules in all other contexts.
+if (LLVM_ENABLE_MODULES)
+  # Ignore that the rest of the modules flags are now unused.
+  add_compile_flags_if_supported(-Wno-unused-command-line-argument)
+  add_compile_flags(-fno-modules)
+endif()
+
 # Sanitizer flags =============================================================
 
 # Configure for sanitizers. If LIBCXX_STANDALONE_BUILD then we have to do
@@ -454,6 +506,14 @@ config_define_if_not(LIBCXX_ENABLE_THREAD_UNSAFE_C_FUNCTIONS _LIBCPP_HAS_NO_THRE
 config_define_if(LIBCXX_HAS_PTHREAD_API _LIBCPP_HAS_THREAD_API_PTHREAD)
 config_define_if(LIBCXX_HAS_EXTERNAL_THREAD_API _LIBCPP_HAS_THREAD_API_EXTERNAL)
 config_define_if(LIBCXX_HAS_MUSL_LIBC _LIBCPP_HAS_MUSL_LIBC)
+
+# By default libc++ on Windows expects to use a shared library, which requires
+# the headers to use DLL import/export semantics. However when building a
+# static library only we modify the headers to disable DLL import/export.
+if (DEFINED WIN32 AND LIBCXX_ENABLE_STATIC AND NOT LIBCXX_ENABLE_SHARED)
+  message(STATUS "Generating custom __config for non-DLL Windows build")
+  config_define(ON _LIBCPP_DISABLE_DLL_IMPORT_EXPORT)
+endif()
 
 if (LIBCXX_NEEDS_SITE_CONFIG)
   configure_file(

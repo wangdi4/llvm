@@ -128,6 +128,8 @@ public:
 
   bool GetEnableNotifyAboutFixIts() const;
 
+  bool GetEnableSaveObjects() const;
+
   bool GetEnableSyntheticValue() const;
 
   uint32_t GetMaximumNumberOfChildrenToDisplay() const;
@@ -137,16 +139,16 @@ public:
   uint32_t GetMaximumMemReadSize() const;
 
   FileSpec GetStandardInputPath() const;
-
-  void SetStandardInputPath(const char *path);
-
+  FileSpec GetStandardErrorPath() const;
   FileSpec GetStandardOutputPath() const;
 
-  void SetStandardOutputPath(const char *path);
+  void SetStandardInputPath(llvm::StringRef path);
+  void SetStandardOutputPath(llvm::StringRef path);
+  void SetStandardErrorPath(llvm::StringRef path);
 
-  FileSpec GetStandardErrorPath() const;
-
-  void SetStandardErrorPath(const char *path);
+  void SetStandardInputPath(const char *path) = delete;
+  void SetStandardOutputPath(const char *path) = delete;
+  void SetStandardErrorPath(const char *path) = delete;
 
   bool GetBreakpointsConsultPlatformAvoidList();
 
@@ -679,9 +681,13 @@ public:
   bool IgnoreWatchpointByID(lldb::watch_id_t watch_id, uint32_t ignore_count);
 
   Error SerializeBreakpointsToFile(const FileSpec &file,
-                                   const BreakpointIDList &bp_ids);
+                                   const BreakpointIDList &bp_ids, bool append);
 
   Error CreateBreakpointsFromFile(const FileSpec &file,
+                                  BreakpointIDList &new_bps);
+
+  Error CreateBreakpointsFromFile(const FileSpec &file,
+                                  std::vector<std::string> &names,
                                   BreakpointIDList &new_bps);
 
   //------------------------------------------------------------------
@@ -978,7 +984,7 @@ public:
   // Returns a new-ed object which the caller owns.
 
   UserExpression *GetUserExpressionForLanguage(
-      const char *expr, const char *expr_prefix, lldb::LanguageType language,
+      llvm::StringRef expr, llvm::StringRef prefix, lldb::LanguageType language,
       Expression::ResultType desired_type,
       const EvaluateExpressionOptions &options, Error &error);
 
@@ -1043,7 +1049,7 @@ public:
   // If an expression is going to be run, then it should have a frame filled
   // in in th execution context.
   lldb::ExpressionResults EvaluateExpression(
-      const char *expression, ExecutionContextScope *exe_scope,
+      llvm::StringRef expression, ExecutionContextScope *exe_scope,
       lldb::ValueObjectSP &result_valobj_sp,
       const EvaluateExpressionOptions &options = EvaluateExpressionOptions(),
       std::string *fixed_expression = nullptr);

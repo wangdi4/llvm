@@ -568,6 +568,10 @@ public:
     return NextInContextAndBits.getInt() & ModulePrivateFlag;
   }
 
+  /// \brief Whether this declaration is exported (by virtue of being lexically
+  /// within an ExportDecl or by being a NamespaceDecl).
+  bool isExported() const;
+
   /// Return true if this declaration has an attribute which acts as
   /// definition of the entity, such as 'alias' or 'ifunc'.
   bool hasDefiningAttr() const;
@@ -1329,6 +1333,9 @@ public:
   /// \brief Determines whether this context or some of its ancestors is a
   /// linkage specification context that specifies C linkage.
   bool isExternCContext() const;
+
+  /// \brief Retrieve the nearest enclosing C linkage specification context.
+  const LinkageSpecDecl *getExternCContext() const;
 
   /// \brief Determines whether this context or some of its ancestors is a
   /// linkage specification context that specifies C++ linkage.

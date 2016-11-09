@@ -209,9 +209,11 @@ Sema::InstantiatingTemplate::InstantiatingTemplate(
     sema::TemplateDeductionInfo *DeductionInfo)
     : SemaRef(SemaRef), SavedInNonInstantiationSFINAEContext(
                             SemaRef.InNonInstantiationSFINAEContext) {
-  // Don't allow further instantiation if a fatal error has occcured.  Any
-  // diagnostics we might have raised will not be visible.
-  if (SemaRef.Diags.hasFatalErrorOccurred()) {
+  // Don't allow further instantiation if a fatal error and an uncompilable
+  // error have occurred. Any diagnostics we might have raised will not be
+  // visible, and we do not need to construct a correct AST.
+  if (SemaRef.Diags.hasFatalErrorOccurred() &&
+      SemaRef.Diags.hasUncompilableErrorOccurred()) {
     Invalid = true;
     return;
   }
@@ -1179,8 +1181,8 @@ ExprResult TemplateInstantiator::transformNonTypeTemplateParmRef(
                         cast<PackExpansionType>(parm->getType())->getPattern(),
                                      TemplateArgs, loc, parm->getDeclName());
     } else {
-      type = SemaRef.SubstType(parm->getType(), TemplateArgs, 
-                               loc, parm->getDeclName());
+      type = SemaRef.SubstType(VD ? arg.getParamTypeForDecl() : arg.getNullPtrType(),
+                               TemplateArgs, loc, parm->getDeclName());
     }
     assert(!type.isNull() && "type substitution failed for param type");
     assert(!type->isDependentType() && "param type still dependent");

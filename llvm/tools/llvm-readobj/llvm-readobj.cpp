@@ -22,7 +22,7 @@
 #include "llvm-readobj.h"
 #include "Error.h"
 #include "ObjDumper.h"
-#include "llvm/DebugInfo/CodeView/MemoryTypeTableBuilder.h"
+#include "llvm/DebugInfo/CodeView/TypeTableBuilder.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/COFFImportFile.h"
 #include "llvm/Object/ELFObjectFile.h"
@@ -264,7 +264,7 @@ namespace opts {
   cl::opt<OutputStyleTy>
       Output("elf-output-style", cl::desc("Specify ELF dump style"),
              cl::values(clEnumVal(LLVM, "LLVM default style"),
-                        clEnumVal(GNU, "GNU readelf style"), clEnumValEnd),
+                        clEnumVal(GNU, "GNU readelf style")),
              cl::init(LLVM));
 } // namespace opts
 
@@ -332,14 +332,14 @@ static bool isMipsArch(unsigned Arch) {
   }
 }
 namespace {
-struct TypeTableBuilder {
-  TypeTableBuilder() : Allocator(), Builder(Allocator) {}
+struct ReadObjTypeTableBuilder {
+  ReadObjTypeTableBuilder() : Allocator(), Builder(Allocator) {}
 
   llvm::BumpPtrAllocator Allocator;
-  llvm::codeview::MemoryTypeTableBuilder Builder;
+  llvm::codeview::TypeTableBuilder Builder;
 };
 }
-static TypeTableBuilder CVTypes;
+static ReadObjTypeTableBuilder CVTypes;
 
 /// @brief Creates an format-specific object file dumper.
 static std::error_code createDumper(const ObjectFile *Obj,

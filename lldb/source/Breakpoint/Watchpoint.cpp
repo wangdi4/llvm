@@ -232,7 +232,7 @@ void Watchpoint::TurnOffEphemeralMode() {
 }
 
 bool Watchpoint::IsDisabledDuringEphemeralMode() {
-  return m_disabled_count > 1;
+  return m_disabled_count > 1 && m_is_ephemeral;
 }
 
 void Watchpoint::SetEnabled(bool enabled, bool notify) {
@@ -288,7 +288,7 @@ void Watchpoint::SetCondition(const char *condition) {
     // Pass nullptr for expr_prefix (no translation-unit level definitions).
     Error error;
     m_condition_ap.reset(m_target.GetUserExpressionForLanguage(
-        condition, nullptr, lldb::eLanguageTypeUnknown,
+        condition, llvm::StringRef(), lldb::eLanguageTypeUnknown,
         UserExpression::eResultTypeAny, EvaluateExpressionOptions(), error));
     if (error.Fail()) {
       // FIXME: Log something...

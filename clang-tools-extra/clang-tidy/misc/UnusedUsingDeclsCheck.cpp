@@ -42,6 +42,9 @@ void UnusedUsingDeclsCheck::registerMatchers(MatchFinder *Finder) {
           anyOf(refersToTemplate(templateName().bind("used")),
                 refersToDeclaration(functionDecl().bind("used"))))))),
       this);
+  Finder->addMatcher(loc(templateSpecializationType(hasAnyTemplateArgument(
+                         templateArgument().bind("used")))),
+                     this);
 }
 
 void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
@@ -64,8 +67,7 @@ void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
     Context.UsingDeclRange = CharSourceRange::getCharRange(
         Using->getLocStart(),
         Lexer::findLocationAfterToken(
-            Using->getLocEnd(), tok::semi, *Result.SourceManager,
-            Result.Context->getLangOpts(),
+            Using->getLocEnd(), tok::semi, *Result.SourceManager, getLangOpts(),
             /*SkipTrailingWhitespaceAndNewLine=*/true));
     for (const auto *UsingShadow : Using->shadows()) {
       const auto *TargetDecl = UsingShadow->getTargetDecl()->getCanonicalDecl();
@@ -92,6 +94,18 @@ void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
     return;
   }
 
+  if (const auto *Used = Result.Nodes.getNodeAs<TemplateArgument>("used")) {
+    // FIXME: Support non-type template parameters.
+    if (Used->getKind() == TemplateArgument::Template) {
+      if (const auto *TD = Used->getAsTemplate().getAsTemplateDecl())
+        removeFromFoundDecls(TD);
+    } else if (Used->getKind() == TemplateArgument::Type) {
+      if (auto *RD = Used->getAsType()->getAsCXXRecordDecl())
+        removeFromFoundDecls(RD);
+    }
+    return;
+  }
+
   if (const auto *Used = Result.Nodes.getNodeAs<TemplateName>("used")) {
     removeFromFoundDecls(Used->getAsTemplateDecl());
     return;
@@ -113,7 +127,7 @@ void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
   }
   // Check the uninstantiated template function usage.
   if (const auto *ULE = Result.Nodes.getNodeAs<UnresolvedLookupExpr>("used")) {
-    for (const NamedDecl* ND : ULE->decls()) {
+    for (const NamedDecl *ND : ULE->decls()) {
       if (const auto *USD = dyn_cast<UsingShadowDecl>(ND))
         removeFromFoundDecls(USD->getTargetDecl()->getCanonicalDecl());
     }

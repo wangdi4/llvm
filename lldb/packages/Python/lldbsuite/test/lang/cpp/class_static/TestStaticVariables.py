@@ -44,7 +44,7 @@ class StaticVariableTestCase(TestBase):
         self.expect(
             'target variable A::g_points',
             VARIABLES_DISPLAYED_CORRECTLY,
-            patterns=['\(PointType \[[1-9]*\]\) A::g_points = {.*}'])
+            patterns=['\(PointType \[[1-9]*\]\) A::g_points = {'])
         self.expect('target variable g_points', VARIABLES_DISPLAYED_CORRECTLY,
                     substrs=['(PointType [2]) g_points'])
 
@@ -56,7 +56,9 @@ class StaticVariableTestCase(TestBase):
                 VARIABLES_DISPLAYED_CORRECTLY,
                 startstr="(int) A::g_points[1].x = 11")
 
-    @expectedFailureDarwin(9980907)
+    @expectedFailureAll(
+        oslist=lldbplatformutil.getDarwinOSTriples(),
+        bugnumber="<rdar://problem/28706946>")
     @expectedFailureAll(
         compiler=[
             "clang",

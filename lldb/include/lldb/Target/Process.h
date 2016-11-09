@@ -293,11 +293,7 @@ public:
     disable_aslr = eLazyBoolCalculate;
   }
 
-  const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-  // Options table: Required for subclasses of Options.
-
-  static OptionDefinition g_option_table[];
+  llvm::ArrayRef<OptionDefinition> GetDefinitions() override;
 
   // Instance variables to hold the values for command options.
 
@@ -1512,7 +1508,8 @@ public:
 
   size_t GetThreadStatus(Stream &ostrm, bool only_threads_with_stop_reason,
                          uint32_t start_frame, uint32_t num_frames,
-                         uint32_t num_frames_with_source);
+                         uint32_t num_frames_with_source,
+                         bool stop_format);
 
   void SendAsyncInterrupt();
 
@@ -2612,6 +2609,8 @@ public:
   bool RunPreResumeActions();
 
   void ClearPreResumeActions();
+  
+  void ClearPreResumeAction(PreResumeActionCallback callback, void *baton);
 
   ProcessRunLock &GetRunLock();
 
@@ -2946,6 +2945,9 @@ protected:
     PreResumeCallbackAndBaton(PreResumeActionCallback in_callback,
                               void *in_baton)
         : callback(in_callback), baton(in_baton) {}
+    bool operator== (const PreResumeCallbackAndBaton &rhs) {
+      return callback == rhs.callback && baton == rhs.baton;
+    }
   };
 
   using StructuredDataPluginMap =

@@ -61,6 +61,14 @@ using namespace lldb_private;
 // CommandObjectFrameDiagnose
 //-------------------------------------------------------------------------
 
+static OptionDefinition g_frame_diag_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_1, false, "register", 'r', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeRegisterName,    "A register to diagnose." },
+  { LLDB_OPT_SET_1, false, "address",  'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeAddress,         "An address to diagnose." },
+  { LLDB_OPT_SET_1, false, "offset",   'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeOffset,          "An optional offset.  Requires --register." }
+    // clang-format on
+};
+
 class CommandObjectFrameDiagnose : public CommandObjectParsed {
 public:
   class CommandOptions : public Options {
@@ -115,10 +123,9 @@ public:
       offset.reset();
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-    // Options table: Required for subclasses of Options.
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_frame_diag_options);
+    }
 
     // Options.
     llvm::Optional<lldb::addr_t> address;
@@ -215,16 +222,6 @@ protected:
   CommandOptions m_options;
 };
 
-OptionDefinition CommandObjectFrameDiagnose::CommandOptions::g_option_table[] =
-    {
-        // clang-format off
-    {LLDB_OPT_SET_1, false, "register", 'r', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeRegisterName,    "A register to diagnose."},
-    {LLDB_OPT_SET_1, false, "address",  'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeAddress,         "An address to diagnose."},
-    {LLDB_OPT_SET_1, false, "offset",   'o', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeOffset,          "An optional offset.  Requires --register."},
-    {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-        // clang-format on
-};
-
 #pragma mark CommandObjectFrameInfo
 
 //-------------------------------------------------------------------------
@@ -256,6 +253,12 @@ protected:
 //-------------------------------------------------------------------------
 // CommandObjectFrameSelect
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_frame_select_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_1, false, "relative", 'r', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeOffset, "A relative frame index offset from the current frame index." },
+    // clang-format on
+};
 
 class CommandObjectFrameSelect : public CommandObjectParsed {
 public:
@@ -292,11 +295,10 @@ public:
       relative_frame_offset = INT32_MIN;
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_frame_select_options);
+    }
 
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
     int32_t relative_frame_offset;
   };
 
@@ -420,13 +422,6 @@ protected:
   CommandOptions m_options;
 };
 
-OptionDefinition CommandObjectFrameSelect::CommandOptions::g_option_table[] = {
-    // clang-format off
-  {LLDB_OPT_SET_1, false, "relative", 'r', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeOffset, "A relative frame index offset from the current frame index."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-    // clang-format on
-};
-
 #pragma mark CommandObjectFrameVariable
 //----------------------------------------------------------------------
 // List images with associated information
@@ -494,6 +489,28 @@ public:
   }
 
 protected:
+  llvm::StringRef GetScopeString(VariableSP var_sp) {
+    if (!var_sp)
+      return llvm::StringRef::withNullAsEmpty(nullptr);
+
+    switch (var_sp->GetScope()) {
+    case eValueTypeVariableGlobal:
+      return "GLOBAL: ";
+    case eValueTypeVariableStatic:
+      return "STATIC: ";
+    case eValueTypeVariableArgument:
+      return "ARG: ";
+    case eValueTypeVariableLocal:
+      return "LOCAL: ";
+    case eValueTypeVariableThreadLocal:
+      return "THREAD: ";
+    default:
+      break;
+    }
+
+    return llvm::StringRef::withNullAsEmpty(nullptr);
+  }
+
   bool DoExecute(Args &command, CommandReturnObject &result) override {
     // No need to check "frame" for validity as eCommandRequiresFrame ensures it
     // is valid
@@ -538,7 +555,7 @@ protected:
       const Format format = m_option_format.GetFormat();
       options.SetFormat(format);
 
-      if (command.GetArgumentCount() > 0) {
+      if (!command.empty()) {
         VariableList regex_var_list;
 
         // If we have any args to the variable command, we will make
@@ -568,6 +585,13 @@ protected:
                       //                                            eFormatDefault)
                       //                                                valobj_sp->SetFormat
                       //                                                (format);
+
+                      std::string scope_string;
+                      if (m_option_variable.show_scope)
+                        scope_string = GetScopeString(var_sp).str();
+
+                      if (!scope_string.empty())
+                        s.PutCString(scope_string);
 
                       if (m_option_variable.show_decl &&
                           var_sp->GetDeclaration().GetFile()) {
@@ -608,6 +632,13 @@ protected:
                 name_cstr, m_varobj_options.use_dynamic, expr_path_options,
                 var_sp, error);
             if (valobj_sp) {
+              std::string scope_string;
+              if (m_option_variable.show_scope)
+                scope_string = GetScopeString(var_sp).str();
+
+              if (!scope_string.empty())
+                s.PutCString(scope_string);
+
               //                            if (format != eFormatDefault)
               //                                valobj_sp->SetFormat (format);
               if (m_option_variable.show_decl && var_sp &&
@@ -644,41 +675,8 @@ protected:
             var_sp = variable_list->GetVariableAtIndex(i);
             bool dump_variable = true;
             std::string scope_string;
-            switch (var_sp->GetScope()) {
-            case eValueTypeVariableGlobal:
-              // Always dump globals since we only fetched them if
-              // m_option_variable.show_scope was true
-              if (dump_variable && m_option_variable.show_scope)
-                scope_string = "GLOBAL: ";
-              break;
-
-            case eValueTypeVariableStatic:
-              // Always dump globals since we only fetched them if
-              // m_option_variable.show_scope was true, or this is
-              // a static variable from a block in the current scope
-              if (dump_variable && m_option_variable.show_scope)
-                scope_string = "STATIC: ";
-              break;
-
-            case eValueTypeVariableArgument:
-              dump_variable = m_option_variable.show_args;
-              if (dump_variable && m_option_variable.show_scope)
-                scope_string = "   ARG: ";
-              break;
-
-            case eValueTypeVariableLocal:
-              dump_variable = m_option_variable.show_locals;
-              if (dump_variable && m_option_variable.show_scope)
-                scope_string = " LOCAL: ";
-              break;
-
-            case eValueTypeVariableThreadLocal:
-              if (dump_variable && m_option_variable.show_scope)
-                scope_string = "THREAD: ";
-              break;
-            default:
-              break;
-            }
+            if (dump_variable && m_option_variable.show_scope)
+              scope_string = GetScopeString(var_sp).str();
 
             if (dump_variable) {
               // Use the variable object code to make sure we are
@@ -700,7 +698,7 @@ protected:
                     continue;
 
                   if (!scope_string.empty())
-                    s.PutCString(scope_string.c_str());
+                    s.PutCString(scope_string);
 
                   if (m_option_variable.show_decl &&
                       var_sp->GetDeclaration().GetFile()) {

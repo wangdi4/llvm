@@ -38,10 +38,10 @@ negative globs remove them. For example,
 
 .. code-block:: console
 
-  $ clang-tidy test.cpp -checks=-*,clang-analyzer-*,-clang-analyzer-alpha*
+  $ clang-tidy test.cpp -checks=-*,clang-analyzer-*,-clang-analyzer-cplusplus*
 
 will disable all default checks (``-*``) and enable all ``clang-analyzer-*``
-checks except for ``clang-analyzer-alpha*`` ones.
+checks except for ``clang-analyzer-cplusplus*`` ones.
 
 The ``-list-checks`` option lists all the enabled checks. When used without
 ``-checks=``, it shows checks enabled by default. Use ``-checks=*`` to see all
@@ -139,6 +139,10 @@ An overview of all the command-line options:
     -enable-check-profile        - 
                                    Enable per-check timing profiles, and print a
                                    report to stderr.
+    -explain-config              - 
+                                   For each enabled check explains, where it is
+                                   enabled, i.e. in clang-tidy binary, command
+                                   line or a specific configuration file.
     -export-fixes=<filename>     - 
                                    YAML file to store suggested fixes in. The
                                    stored fixes can be applied to the input source

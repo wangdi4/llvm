@@ -52,7 +52,7 @@ endif()
 add_dependencies(clang clang-headers)
 
 if(NOT CLANG_LINKS_TO_CREATE)
-  set(CLANG_LINKS_TO_CREATE clang++ clang-cl)
+  set(CLANG_LINKS_TO_CREATE clang++ clang-cl clang-cpp)
 
   if (WIN32)
     list(APPEND CLANG_LINKS_TO_CREATE ../msbuild-bin/cl)
@@ -117,9 +117,4 @@ endif()
 
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
   target_link_libraries(clang Polly)
-  if(POLLY_LINK_LIBS)
-    foreach(lib ${POLLY_LINK_LIBS})
-      target_link_libraries(clang ${lib})
-    endforeach(lib)
-  endif(POLLY_LINK_LIBS)
 endif(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)

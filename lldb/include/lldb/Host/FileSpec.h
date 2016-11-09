@@ -19,7 +19,7 @@
 // Project includes
 #include "lldb/Core/ConstString.h"
 #include "lldb/Core/STLUtils.h"
-#include "lldb/Host/TimeValue.h"
+#include "lldb/Host/PosixApi.h"
 #include "lldb/lldb-private.h"
 
 namespace lldb_private {
@@ -80,16 +80,10 @@ public:
   ///
   /// @see FileSpec::SetFile (const char *path, bool resolve)
   //------------------------------------------------------------------
-  // TODO: Convert this constructor to use a StringRef.
-  explicit FileSpec(const char *path, bool resolve_path,
+  explicit FileSpec(llvm::StringRef path, bool resolve_path,
                     PathSyntax syntax = ePathSyntaxHostNative);
 
-  explicit FileSpec(const char *path, bool resolve_path, ArchSpec arch);
-
-  explicit FileSpec(const std::string &path, bool resolve_path,
-                    PathSyntax syntax = ePathSyntaxHostNative);
-
-  explicit FileSpec(const std::string &path, bool resolve_path, ArchSpec arch);
+  explicit FileSpec(llvm::StringRef path, bool resolve_path, ArchSpec arch);
 
   //------------------------------------------------------------------
   /// Copy constructor
@@ -383,8 +377,6 @@ public:
   //------------------------------------------------------------------
   bool IsAbsolute() const;
 
-  TimeValue GetModificationTime() const;
-
   //------------------------------------------------------------------
   /// Extract the full path to the file.
   ///
@@ -626,22 +618,7 @@ public:
   /// Normalize a pathname by collapsing redundant separators and
   /// up-level references.
   //------------------------------------------------------------------
-  void NormalizePath();
-
-  //------------------------------------------------------------------
-  /// Run through the input string, replaying the effect of any ".." and produce
-  /// the resultant path.  The input path is not required to be in the host file
-  /// system
-  /// format, but it is required to be normalized to that system.
-  ///
-  /// @param[in] input
-  ///     The input path to analyze.
-  ///
-  /// @param[out] result
-  ///     The backup-resolved path will be written here.
-  //------------------------------------------------------------------
-  static void RemoveBackupDots(const ConstString &input_const_str,
-                               ConstString &result_const_str);
+  FileSpec GetNormalizedPath() const;
 
   //------------------------------------------------------------------
   /// Change the file specified with a new path.
@@ -657,15 +634,10 @@ public:
   ///     If \b true, then we will try to resolve links the path using
   ///     the static FileSpec::Resolve.
   //------------------------------------------------------------------
-  void SetFile(const char *path, bool resolve_path,
+  void SetFile(llvm::StringRef path, bool resolve_path,
                PathSyntax syntax = ePathSyntaxHostNative);
 
-  void SetFile(const char *path, bool resolve_path, ArchSpec arch);
-
-  void SetFile(const std::string &path, bool resolve_path,
-               PathSyntax syntax = ePathSyntaxHostNative);
-
-  void SetFile(const std::string &path, bool resolve_path, ArchSpec arch);
+  void SetFile(llvm::StringRef path, bool resolve_path, ArchSpec arch);
 
   bool IsResolved() const { return m_is_resolved; }
 
@@ -709,20 +681,13 @@ public:
   //------------------------------------------------------------------
   static void Resolve(llvm::SmallVectorImpl<char> &path);
 
-  FileSpec CopyByAppendingPathComponent(const char *new_path) const;
-
+  FileSpec CopyByAppendingPathComponent(llvm::StringRef component) const;
   FileSpec CopyByRemovingLastPathComponent() const;
 
-  void PrependPathComponent(const char *new_path);
-
-  void PrependPathComponent(const std::string &new_path);
-
+  void PrependPathComponent(llvm::StringRef component);
   void PrependPathComponent(const FileSpec &new_path);
 
-  void AppendPathComponent(const char *new_path);
-
-  void AppendPathComponent(const std::string &new_path);
-
+  void AppendPathComponent(llvm::StringRef component);
   void AppendPathComponent(const FileSpec &new_path);
 
   void RemoveLastPathComponent();
@@ -746,7 +711,7 @@ public:
   //------------------------------------------------------------------
   static void ResolveUsername(llvm::SmallVectorImpl<char> &path);
 
-  static size_t ResolvePartialUsername(const char *partial_name,
+  static size_t ResolvePartialUsername(llvm::StringRef partial_name,
                                        StringList &matches);
 
   enum EnumerateDirectoryResult {
@@ -763,7 +728,7 @@ public:
       void *baton, FileType file_type, const FileSpec &spec);
 
   static EnumerateDirectoryResult
-  EnumerateDirectory(const char *dir_path, bool find_directories,
+  EnumerateDirectory(llvm::StringRef dir_path, bool find_directories,
                      bool find_files, bool find_other,
                      EnumerateDirectoryCallbackType callback,
                      void *callback_baton);
@@ -773,7 +738,7 @@ public:
       DirectoryCallback;
 
   static EnumerateDirectoryResult
-  ForEachItemInDirectory(const char *dir_path,
+  ForEachItemInDirectory(llvm::StringRef dir_path,
                          DirectoryCallback const &callback);
 
 protected:

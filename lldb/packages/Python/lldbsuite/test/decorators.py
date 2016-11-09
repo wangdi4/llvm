@@ -5,6 +5,7 @@ from __future__ import print_function
 from distutils.version import LooseVersion, StrictVersion
 from functools import wraps
 import os
+import platform
 import re
 import sys
 import tempfile
@@ -156,6 +157,7 @@ def _decorateTest(mode,
                   archs=None, triple=None,
                   debug_info=None,
                   swig_version=None, py_version=None,
+                  macos_version=None,
                   remote=None):
     def fn(self):
         skip_for_os = _match_decorator_property(
@@ -186,6 +188,11 @@ def _decorateTest(mode,
         skip_for_py_version = (
             py_version is None) or _check_expected_version(
             py_version[0], py_version[1], sys.version_info)
+        skip_for_macos_version = (macos_version is None) or (
+            _check_expected_version(
+                macos_version[0],
+                macos_version[1],
+                platform.mac_ver()[0]))
 
         # For the test to be skipped, all specified (e.g. not None) parameters must be True.
         # An unspecified parameter means "any", so those are marked skip by default.  And we skip
@@ -198,6 +205,7 @@ def _decorateTest(mode,
                       (triple, skip_for_triple, "target triple"),
                       (swig_version, skip_for_swig_version, "swig version"),
                       (py_version, skip_for_py_version, "python version"),
+                      (macos_version, skip_for_macos_version, "macOS version"),
                       (remote, skip_for_remote, "platform locality (remote/local)")]
         reasons = []
         final_skip_result = True
@@ -241,6 +249,7 @@ def expectedFailureAll(bugnumber=None,
                        archs=None, triple=None,
                        debug_info=None,
                        swig_version=None, py_version=None,
+                       macos_version=None,
                        remote=None):
     return _decorateTest(DecorateMode.Xfail,
                          bugnumber=bugnumber,
@@ -249,6 +258,7 @@ def expectedFailureAll(bugnumber=None,
                          archs=archs, triple=triple,
                          debug_info=debug_info,
                          swig_version=swig_version, py_version=py_version,
+                         macos_version=None,
                          remote=remote)
 
 
@@ -264,6 +274,7 @@ def skipIf(bugnumber=None,
            archs=None, triple=None,
            debug_info=None,
            swig_version=None, py_version=None,
+           macos_version=None,
            remote=None):
     return _decorateTest(DecorateMode.Skip,
                          bugnumber=bugnumber,
@@ -272,6 +283,7 @@ def skipIf(bugnumber=None,
                          archs=archs, triple=triple,
                          debug_info=debug_info,
                          swig_version=swig_version, py_version=py_version,
+                         macos_version=macos_version,
                          remote=remote)
 
 
@@ -511,13 +523,15 @@ def skipIfNoSBHeaders(func):
                 'Current',
                 'Headers',
                 'LLDB.h')
-        else:
-            header = os.path.join(
-                os.environ["LLDB_SRC"],
-                "include",
-                "lldb",
-                "API",
-                "LLDB.h")
+            if os.path.exists(header):
+                return None
+        
+        header = os.path.join(
+            os.environ["LLDB_SRC"],
+            "include",
+            "lldb",
+            "API",
+            "LLDB.h")
         if not os.path.exists(header):
             return "skip because LLDB.h header not found"
         return None
@@ -646,13 +660,21 @@ def skipUnlessCompilerRt(func):
     """Decorate the item to skip tests if testing remotely."""
     def is_compiler_rt_missing():
         compilerRtPath = os.path.join(
-            os.path.dirname(__file__),
-            "..",
+            os.environ["LLDB_SRC"],
             "..",
             "..",
             "..",
             "llvm",
             "projects",
+            "compiler-rt")
+        if not os.path.exists(compilerRtPath):
+            compilerRtPath = os.path.join(
+            os.environ["LLDB_SRC"],
+            "..",
+            "..",
+            "..",
+            "llvm",
+            "runtimes",
             "compiler-rt")
         return "compiler-rt not found" if not os.path.exists(
             compilerRtPath) else None
@@ -667,6 +689,9 @@ def skipUnlessThreadSanitizer(func):
         compiler = os.path.basename(compiler_path)
         if not compiler.startswith("clang"):
             return "Test requires clang as compiler"
+        # rdar://28659145 - TSAN tests don't look like they're supported on i386
+        if self.getArchitecture() == 'i386' and platform.system() == 'Darwin':
+            return "TSAN tests not compatible with i386 targets"
         f = tempfile.NamedTemporaryFile()
         cmd = "echo 'int main() {}' | %s -x c -o %s -" % (compiler_path, f.name)
         if os.popen(cmd).close() is not None:

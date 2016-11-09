@@ -12,8 +12,9 @@
 
 #include "InputFiles.h"
 #include "LTO.h"
+#include "Strings.h"
+#include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/Regex.h"
 
 namespace lld {
 namespace elf {
@@ -21,7 +22,7 @@ class Lazy;
 template <class ELFT> class OutputSectionBase;
 struct Symbol;
 
-typedef llvm::CachedHash<StringRef> SymName;
+typedef llvm::CachedHashStringRef SymName;
 
 // SymbolTable is a bucket of all known symbols, including defined,
 // undefined, or lazy symbols (the last one is symbols in archive
@@ -43,15 +44,10 @@ public:
   void addFile(InputFile *File);
   void addCombinedLtoObject();
 
-  llvm::ArrayRef<Symbol *> getSymbols() const { return SymVector; }
-
-  const std::vector<ObjectFile<ELFT> *> &getObjectFiles() const {
-    return ObjectFiles;
-  }
-
-  const std::vector<SharedFile<ELFT> *> &getSharedFiles() const {
-    return SharedFiles;
-  }
+  ArrayRef<Symbol *> getSymbols() const { return SymVector; }
+  ArrayRef<ObjectFile<ELFT> *> getObjectFiles() const { return ObjectFiles; }
+  ArrayRef<BinaryFile *> getBinaryFiles() const { return BinaryFiles; }
+  ArrayRef<SharedFile<ELFT> *> getSharedFiles() const { return SharedFiles; }
 
   DefinedRegular<ELFT> *addAbsolute(StringRef Name,
                                     uint8_t Visibility = llvm::ELF::STV_HIDDEN);
@@ -60,12 +56,17 @@ public:
 
   Symbol *addUndefined(StringRef Name);
   Symbol *addUndefined(StringRef Name, uint8_t Binding, uint8_t StOther,
-                       uint8_t Type, bool CanOmitFromDynSym,
-                       bool HasUnnamedAddr, InputFile *File);
+                       uint8_t Type, bool CanOmitFromDynSym, InputFile *File);
+
+  Symbol *addRegular(StringRef Name, uint8_t StOther, uint8_t Type,
+                     uintX_t Value, uintX_t Size, uint8_t Binding,
+                     InputSectionBase<ELFT> *Section);
 
   Symbol *addRegular(StringRef Name, const Elf_Sym &Sym,
                      InputSectionBase<ELFT> *Section);
-  Symbol *addRegular(StringRef Name, uint8_t Binding, uint8_t StOther);
+  Symbol *addRegular(StringRef Name, uint8_t StOther,
+                     InputSectionBase<ELFT> *Section, uint8_t Binding,
+                     uint8_t Type, uintX_t Value);
   Symbol *addSynthetic(StringRef N, OutputSectionBase<ELFT> *Section,
                        uintX_t Value, uint8_t StOther);
   void addShared(SharedFile<ELFT> *F, StringRef Name, const Elf_Sym &Sym,
@@ -74,12 +75,11 @@ public:
   void addLazyArchive(ArchiveFile *F, const llvm::object::Archive::Symbol S);
   void addLazyObject(StringRef Name, LazyObjectFile &Obj);
   Symbol *addBitcode(StringRef Name, uint8_t Binding, uint8_t StOther,
-                     uint8_t Type, bool CanOmitFromDynSym, bool HasUnnamedAddr,
-                     BitcodeFile *File);
+                     uint8_t Type, bool CanOmitFromDynSym, BitcodeFile *File);
 
   Symbol *addCommon(StringRef N, uint64_t Size, uint64_t Alignment,
                     uint8_t Binding, uint8_t StOther, uint8_t Type,
-                    bool HasUnnamedAddr, InputFile *File);
+                    InputFile *File);
 
   void scanUndefinedFlags();
   void scanShlibUndefined();
@@ -91,15 +91,14 @@ public:
   void trace(StringRef Name);
   void wrap(StringRef Name);
 
+  std::vector<InputSectionBase<ELFT> *> Sections;
+
 private:
-  std::vector<SymbolBody *> findAll(const llvm::Regex &Re);
+  std::vector<SymbolBody *> findAll(const StringMatcher &M);
   std::pair<Symbol *, bool> insert(StringRef &Name);
   std::pair<Symbol *, bool> insert(StringRef &Name, uint8_t Type,
                                    uint8_t Visibility, bool CanOmitFromDynSym,
-                                   bool HasUnnamedAddr, InputFile *File);
-
-  std::string conflictMsg(SymbolBody *Existing, InputFile *NewFile);
-  void reportDuplicate(SymbolBody *Existing, InputFile *NewFile);
+                                   InputFile *File);
 
   std::map<std::string, std::vector<SymbolBody *>> getDemangledSyms();
   void handleAnonymousVersion();
@@ -119,16 +118,16 @@ private:
   // once symbol resolution is finished.
   llvm::DenseMap<SymName, SymIndex> Symtab;
   std::vector<Symbol *> SymVector;
-  llvm::BumpPtrAllocator Alloc;
 
   // Comdat groups define "link once" sections. If two comdat groups have the
   // same name, only one of them is linked, and the other is ignored. This set
   // is used to uniquify them.
-  llvm::DenseSet<StringRef> ComdatGroups;
+  llvm::DenseSet<llvm::CachedHashStringRef> ComdatGroups;
 
   std::vector<ObjectFile<ELFT> *> ObjectFiles;
   std::vector<SharedFile<ELFT> *> SharedFiles;
   std::vector<BitcodeFile *> BitcodeFiles;
+  std::vector<BinaryFile *> BinaryFiles;
 
   // Set of .so files to not link the same shared object file more than once.
   llvm::DenseSet<StringRef> SoNames;

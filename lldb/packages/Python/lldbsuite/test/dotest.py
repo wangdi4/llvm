@@ -26,6 +26,7 @@ import atexit
 import os
 import errno
 import platform
+import re
 import signal
 import socket
 import subprocess
@@ -202,6 +203,39 @@ o GDB_REMOTE_LOG: if defined, specifies the log file pathname for the
     sys.exit(0)
 
 
+def parseExclusion(exclusion_file):
+    """Parse an exclusion file, of the following format, where
+       'skip files', 'skip methods', 'xfail files', and 'xfail methods'
+       are the possible list heading values:
+
+       skip files
+       <file name>
+       <file name>
+
+       xfail methods
+       <method name>
+    """
+    excl_type = None
+
+    with open(exclusion_file) as f:
+        for line in f:
+            line = line.strip()
+            if not excl_type:
+                excl_type = line
+                continue
+
+            if not line:
+                excl_type = None
+            elif excl_type == 'skip':
+                if not configuration.skip_tests:
+                    configuration.skip_tests = []
+                configuration.skip_tests.append(line)
+            elif excl_type == 'xfail':
+                if not configuration.xfail_tests:
+                    configuration.xfail_tests = []
+                configuration.xfail_tests.append(line)
+
+
 def parseOptionsAndInitTestdirs():
     """Initialize the list of directories containing our unittest scripts.
 
@@ -331,6 +365,10 @@ def parseOptionsAndInitTestdirs():
     if args.executable:
         lldbtest_config.lldbExec = os.path.realpath(args.executable)
 
+    if args.excluded:
+        for excl_file in args.excluded:
+            parseExclusion(excl_file)
+
     if args.p:
         if args.p.startswith('-'):
             usage(parser)
@@ -442,6 +480,8 @@ def parseOptionsAndInitTestdirs():
             map(lambda x: os.path.realpath(os.path.abspath(x)), args.args))
         # Shut off multiprocessing mode when test directories are specified.
         configuration.no_multiprocess_test_runner = True
+
+    lldbtest_config.codesign_identity = args.codesign_identity
 
     #print("testdirs:", testdirs)
 
@@ -635,19 +675,23 @@ def setupSysPath():
 
     # Assume lldb-mi is in same place as lldb
     # If not found, disable the lldb-mi tests
-    lldbMiExec = None
-    if lldbtest_config.lldbExec and is_exe(lldbtest_config.lldbExec + "-mi"):
-        lldbMiExec = lldbtest_config.lldbExec + "-mi"
-    if not lldbMiExec:
+    # TODO: Append .exe on Windows
+    #   - this will be in a separate commit in case the mi tests fail horribly
+    lldbDir = os.path.dirname(lldbtest_config.lldbExec)
+    lldbMiExec = os.path.join(lldbDir, "lldb-mi")
+    if is_exe(lldbMiExec):
+        os.environ["LLDBMI_EXEC"] = lldbMiExec
+    else:
         if not configuration.shouldSkipBecauseOfCategories(["lldb-mi"]):
             print(
                 "The 'lldb-mi' executable cannot be located.  The lldb-mi tests can not be run as a result.")
             configuration.skipCategories.append("lldb-mi")
-    else:
-        os.environ["LLDBMI_EXEC"] = lldbMiExec
 
     lldbPythonDir = None  # The directory that contains 'lldb/__init__.py'
+    if not configuration.lldbFrameworkPath and os.path.exists(os.path.join(lldbLibDir, "LLDB.framework")):
+        configuration.lldbFrameworkPath = os.path.join(lldbLibDir, "LLDB.framework")
     if configuration.lldbFrameworkPath:
+        lldbtest_config.lldbFrameworkPath = configuration.lldbFrameworkPath
         candidatePath = os.path.join(
             configuration.lldbFrameworkPath, 'Resources', 'Python')
         if os.path.isfile(os.path.join(candidatePath, 'lldb/__init__.py')):
@@ -749,10 +793,14 @@ def setupSysPath():
 def visit_file(dir, name):
     # Try to match the regexp pattern, if specified.
     if configuration.regexp:
-        import re
         if not re.search(configuration.regexp, name):
             # We didn't match the regex, we're done.
             return
+
+    if configuration.skip_tests:
+        for file_regexp in configuration.skip_tests:
+            if re.search(file_regexp, name):
+                return
 
     # We found a match for our test.  Add it to the suite.
 

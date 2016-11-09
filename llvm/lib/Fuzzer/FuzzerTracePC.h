@@ -12,55 +12,92 @@
 #ifndef LLVM_FUZZER_TRACE_PC
 #define LLVM_FUZZER_TRACE_PC
 
+#include <set>
+
 #include "FuzzerDefs.h"
+#include "FuzzerValueBitMap.h"
 
 namespace fuzzer {
 
+// TableOfRecentCompares (TORC) remembers the most recently performed
+// comparisons of type T.
+// We record the arguments of CMP instructions in this table unconditionally
+// because it seems cheaper this way than to compute some expensive
+// conditions inside __sanitizer_cov_trace_cmp*.
+// After the unit has been executed we may decide to use the contents of
+// this table to populate a Dictionary.
+template<class T, size_t kSizeT>
+struct TableOfRecentCompares {
+  static const size_t kSize = kSizeT;
+  struct Pair {
+    T A, B;
+  };
+  void Insert(size_t Idx, T Arg1, T Arg2) {
+    Idx = Idx % kSize;
+    Table[Idx].A = Arg1;
+    Table[Idx].B = Arg2;
+  }
+
+  Pair Get(size_t I) { return Table[I % kSize]; }
+
+  Pair Table[kSize];
+};
+
 class TracePC {
  public:
-  void HandleTrace(uintptr_t *guard, uintptr_t PC);
-  void HandleInit(uintptr_t *start, uintptr_t *stop);
+  static const size_t kFeatureSetSize = ValueBitMap::kNumberOfItems;
+
+  void HandleTrace(uint32_t *guard, uintptr_t PC);
+  void HandleInit(uint32_t *start, uint32_t *stop);
   void HandleCallerCallee(uintptr_t Caller, uintptr_t Callee);
-  size_t GetTotalCoverage() { return TotalCoverage; }
+  void HandleValueProfile(size_t Value) { ValueProfileMap.AddValue(Value); }
+  template <class T> void HandleCmp(void *PC, T Arg1, T Arg2);
+  size_t GetTotalPCCoverage();
   void SetUseCounters(bool UC) { UseCounters = UC; }
-  size_t UpdateCounterMap(ValueBitMap *Map);
-  void FinalizeTrace();
-
-  size_t GetNewPCsAndFlush(uintptr_t **NewPCsPtr = nullptr) {
-    if (NewPCsPtr)
-      *NewPCsPtr = NewPCs;
-    size_t Res = NumNewPCs;
-    NumNewPCs = 0;
-    return Res;
+  void SetUseValueProfile(bool VP) { UseValueProfile = VP; }
+  void SetPrintNewPCs(bool P) { DoPrintNewPCs = P; }
+  size_t FinalizeTrace(InputCorpus *C, size_t InputSize, bool Shrink);
+  bool UpdateValueProfileMap(ValueBitMap *MaxValueProfileMap) {
+    return UseValueProfile && MaxValueProfileMap->MergeFrom(ValueProfileMap);
   }
 
-  void Reset() {
-    TotalCoverage = 0;
-    TotalCounterBits = 0;
-    NumNewPCs = 0;
-    CounterMap.Reset();
-    TotalCoverageMap.Reset();
-    ResetGuards();
+  void ResetMaps() {
+    ValueProfileMap.Reset();
+    memset(Counters, 0, sizeof(Counters));
   }
+
+  void UpdateFeatureSet(size_t CurrentElementIdx, size_t CurrentElementSize);
+  void PrintFeatureSet();
 
   void PrintModuleInfo();
 
   void PrintCoverage();
 
+  void AddValueForMemcmp(void *caller_pc, const void *s1, const void *s2,
+                         size_t n);
+  void AddValueForStrcmp(void *caller_pc, const char *s1, const char *s2,
+                         size_t n);
+
+  bool UsingTracePcGuard() const {return NumModules; }
+
+  static const size_t kTORCSize = 1 << 5;
+  TableOfRecentCompares<uint32_t, kTORCSize> TORC4;
+  TableOfRecentCompares<uint64_t, kTORCSize> TORC8;
+
+  void PrintNewPCs();
+  size_t GetNumPCs() const { return Min(kNumPCs, NumGuards + 1); }
+  uintptr_t GetPC(size_t Idx) {
+    assert(Idx < GetNumPCs());
+    return PCs[Idx];
+  }
+
 private:
   bool UseCounters = false;
-  size_t TotalCoverage = 0;
-  size_t TotalCounterBits = 0;
-
-  static const size_t kMaxNewPCs = 64;
-  uintptr_t NewPCs[kMaxNewPCs];
-  size_t NumNewPCs = 0;
-  void AddNewPC(uintptr_t PC) { NewPCs[(NumNewPCs++) % kMaxNewPCs] = PC; }
-
-  void ResetGuards();
+  bool UseValueProfile = false;
+  bool DoPrintNewPCs = false;
 
   struct Module {
-    uintptr_t *Start, *Stop;
+    uint32_t *Start, *Stop;
   };
 
   Module Modules[4096];
@@ -68,13 +105,14 @@ private:
   size_t NumGuards = 0;
 
   static const size_t kNumCounters = 1 << 14;
-  uint8_t Counters[kNumCounters];
+  alignas(8) uint8_t Counters[kNumCounters];
 
-  static const size_t kNumPCs = 1 << 20;
+  static const size_t kNumPCs = 1 << 24;
   uintptr_t PCs[kNumPCs];
 
-  ValueBitMap CounterMap;
-  ValueBitMap TotalCoverageMap;
+  std::set<uintptr_t> *PrintedPCs;
+
+  ValueBitMap ValueProfileMap;
 };
 
 extern TracePC TPC;

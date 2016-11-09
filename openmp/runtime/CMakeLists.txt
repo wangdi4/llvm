@@ -96,7 +96,9 @@ if(LIBOMP_OMP_VERSION EQUAL 41)
 endif()
 libomp_check_variable(LIBOMP_OMP_VERSION 45 40 30)
 # Set the OpenMP Year and Month assiociated with version
-if(${LIBOMP_OMP_VERSION} GREATER 40 OR ${LIBOMP_OMP_VERSION} EQUAL 40)
+if(${LIBOMP_OMP_VERSION} GREATER 45 OR ${LIBOMP_OMP_VERSION} EQUAL 45)
+  set(LIBOMP_OMP_YEAR_MONTH 201511)
+elseif(${LIBOMP_OMP_VERSION} GREATER 40 OR ${LIBOMP_OMP_VERSION} EQUAL 40)
   set(LIBOMP_OMP_YEAR_MONTH 201307)
 elseif(${LIBOMP_OMP_VERSION} GREATER 30 OR ${LIBOMP_OMP_VERSION} EQUAL 30)
   set(LIBOMP_OMP_YEAR_MONTH 201107)
@@ -313,6 +315,13 @@ if(LIBOMP_OMPT_SUPPORT AND (NOT LIBOMP_HAVE_OMPT_SUPPORT))
   libomp_error_say("OpenMP Tools Interface requested but not available")
 endif()
 
+# TSAN-support
+set(LIBOMP_TSAN_SUPPORT FALSE CACHE BOOL
+  "TSAN-support?")
+if(LIBOMP_TSAN_SUPPORT AND (NOT LIBOMP_HAVE_TSAN_SUPPORT))
+  libomp_error_say("TSAN functionality requested but not available")
+endif()
+
 # Error check hwloc support after config-ix has run
 if(LIBOMP_USE_HWLOC AND (NOT LIBOMP_HAVE_HWLOC))
   libomp_error_say("Hwloc requested but not available")
@@ -373,9 +382,9 @@ if(${LIBOMP_STANDALONE_BUILD})
   endif()
   libomp_say("Use Adaptive locks   -- ${LIBOMP_USE_ADAPTIVE_LOCKS}")
   libomp_say("Use quad precision   -- ${LIBOMP_USE_QUAD_PRECISION}")
+  libomp_say("Use TSAN-support     -- ${LIBOMP_TSAN_SUPPORT}")
   libomp_say("Use Hwloc library    -- ${LIBOMP_USE_HWLOC}")
 endif()
 
 add_subdirectory(src)
 add_subdirectory(test)
-

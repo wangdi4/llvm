@@ -288,8 +288,8 @@ bool PlatformRemoteiOS::UpdateSDKDirectoryInfosIfNeeded() {
       const bool find_other = false;
 
       SDKDirectoryInfoCollection builtin_sdk_directory_infos;
-      FileSpec::EnumerateDirectory(m_device_support_directory.c_str(),
-                                   find_directories, find_files, find_other,
+      FileSpec::EnumerateDirectory(m_device_support_directory, find_directories,
+                                   find_files, find_other,
                                    GetContainedFilesIntoVectorOfStringsCallback,
                                    &builtin_sdk_directory_infos);
 
@@ -516,7 +516,7 @@ bool PlatformRemoteiOS::GetFileInSDK(const char *platform_file_path,
 
       const char *paths_to_try[] = {"Symbols", "", "Symbols.Internal", nullptr};
       for (size_t i = 0; paths_to_try[i] != nullptr; i++) {
-        local_file.SetFile(sdkroot_path.c_str(), false);
+        local_file.SetFile(sdkroot_path, false);
         if (paths_to_try[i][0] != '\0')
           local_file.AppendPathComponent(paths_to_try[i]);
         local_file.AppendPathComponent(platform_file_path);
@@ -748,6 +748,10 @@ Error PlatformRemoteiOS::GetSharedModule(
 
     size_t num_module_search_paths = module_search_paths_ptr->GetSize();
     for (size_t i = 0; i < num_module_search_paths; ++i) {
+      Log *log_verbose = lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_HOST |
+                                                    LIBLLDB_LOG_VERBOSE);
+      if (log_verbose)
+          log_verbose->Printf ("PlatformRemoteiOS::GetSharedModule searching for binary in search-path %s", module_search_paths_ptr->GetFileSpecAtIndex(i).GetPath().c_str());
       // Create a new FileSpec with this module_search_paths_ptr
       // plus just the filename ("UIFoundation"), then the parent
       // dir plus filename ("UIFoundation.framework/UIFoundation")

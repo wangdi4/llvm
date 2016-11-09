@@ -74,9 +74,14 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
       Info.Kind = SymbolKind::Enum; break;
     }
 
-    if (const CXXRecordDecl *CXXRec = dyn_cast<CXXRecordDecl>(D))
-      if (!CXXRec->isCLike())
+    if (const CXXRecordDecl *CXXRec = dyn_cast<CXXRecordDecl>(D)) {
+      if (!CXXRec->isCLike()) {
         Info.Lang = SymbolLanguage::CXX;
+        if (CXXRec->getDescribedClassTemplate()) {
+          Info.SubKinds |= (unsigned)SymbolSubKind::Generic;
+        }
+      }
+    }
 
     if (isa<ClassTemplatePartialSpecializationDecl>(D)) {
       Info.SubKinds |= (unsigned)SymbolSubKind::Generic;
@@ -84,6 +89,25 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
     } else if (isa<ClassTemplateSpecializationDecl>(D)) {
       Info.SubKinds |= (unsigned)SymbolSubKind::Generic;
       Info.SubKinds |= (unsigned)SymbolSubKind::TemplateSpecialization;
+    }
+
+  } else if (auto *VD = dyn_cast<VarDecl>(D)) {
+    Info.Kind = SymbolKind::Variable;
+    if (isa<CXXRecordDecl>(D->getDeclContext())) {
+      Info.Kind = SymbolKind::StaticProperty;
+      Info.Lang = SymbolLanguage::CXX;
+    }
+    if (isa<VarTemplatePartialSpecializationDecl>(D)) {
+      Info.Lang = SymbolLanguage::CXX;
+      Info.SubKinds |= (unsigned)SymbolSubKind::Generic;
+      Info.SubKinds |= (unsigned)SymbolSubKind::TemplatePartialSpecialization;
+    } else if (isa<VarTemplateSpecializationDecl>(D)) {
+      Info.Lang = SymbolLanguage::CXX;
+      Info.SubKinds |= (unsigned)SymbolSubKind::Generic;
+      Info.SubKinds |= (unsigned)SymbolSubKind::TemplateSpecialization;
+    } else if (VD->getDescribedVarTemplate()) {
+      Info.Lang = SymbolLanguage::CXX;
+      Info.SubKinds |= (unsigned)SymbolSubKind::Generic;
     }
 
   } else {
@@ -95,16 +119,6 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
       Info.Kind = SymbolKind::TypeAlias; break; // Lang = C
     case Decl::Function:
       Info.Kind = SymbolKind::Function;
-      break;
-    case Decl::ParmVar:
-      Info.Kind = SymbolKind::Variable;
-      break;
-    case Decl::Var:
-      Info.Kind = SymbolKind::Variable;
-      if (isa<CXXRecordDecl>(D->getDeclContext())) {
-        Info.Kind = SymbolKind::StaticProperty;
-        Info.Lang = SymbolLanguage::CXX;
-      }
       break;
     case Decl::Field:
       Info.Kind = SymbolKind::Field;
@@ -262,6 +276,8 @@ void index::applyForEachSymbolRole(SymbolRoleSet Roles,
   APPLY_FOR_ROLE(RelationOverrideOf);
   APPLY_FOR_ROLE(RelationReceivedBy);
   APPLY_FOR_ROLE(RelationCalledBy);
+  APPLY_FOR_ROLE(RelationExtendedBy);
+  APPLY_FOR_ROLE(RelationAccessorOf);
 
 #undef APPLY_FOR_ROLE
 }
@@ -288,6 +304,8 @@ void index::printSymbolRoles(SymbolRoleSet Roles, raw_ostream &OS) {
     case SymbolRole::RelationOverrideOf: OS << "RelOver"; break;
     case SymbolRole::RelationReceivedBy: OS << "RelRec"; break;
     case SymbolRole::RelationCalledBy: OS << "RelCall"; break;
+    case SymbolRole::RelationExtendedBy: OS << "RelExt"; break;
+    case SymbolRole::RelationAccessorOf: OS << "RelAcc"; break;
     }
   });
 }

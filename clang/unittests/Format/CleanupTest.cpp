@@ -119,6 +119,24 @@ TEST_F(CleanupTest, EmptyNamespaceWithCommentsBreakBeforeBrace) {
   EXPECT_EQ(Expected, Result);
 }
 
+TEST_F(CleanupTest, EmptyNamespaceAroundConditionalCompilation) {
+  std::string Code = "#ifdef A\n"
+                     "int a;\n"
+                     "int b;\n"
+                     "#else\n"
+                     "#endif\n"
+                     "namespace {}";
+  std::string Expected = "#ifdef A\n"
+                         "int a;\n"
+                         "int b;\n"
+                         "#else\n"
+                         "#endif\n";
+  std::vector<tooling::Range> Ranges(1, tooling::Range(0, Code.size()));
+  FormatStyle Style = getLLVMStyle();
+  std::string Result = cleanup(Code, Ranges, Style);
+  EXPECT_EQ(Expected, Result);
+}
+
 TEST_F(CleanupTest, CtorInitializationSimpleRedundantComma) {
   std::string Code = "class A {\nA() : , {} };";
   std::string Expected = "class A {\nA()  {} };";
@@ -130,6 +148,16 @@ TEST_F(CleanupTest, CtorInitializationSimpleRedundantComma) {
 
   Code = "class A {\nA() :,,,,{} };";
   Expected = "class A {\nA() {} };";
+  EXPECT_EQ(Expected, cleanupAroundOffsets({15}, Code));
+}
+
+TEST_F(CleanupTest, CtorInitializationSimpleRedundantColon) {
+  std::string Code = "class A {\nA() : =default; };";
+  std::string Expected = "class A {\nA()  =default; };";
+  EXPECT_EQ(Expected, cleanupAroundOffsets({15}, Code));
+
+  Code = "class A {\nA() : , =default; };";
+  Expected = "class A {\nA()  =default; };";
   EXPECT_EQ(Expected, cleanupAroundOffsets({15}, Code));
 }
 
@@ -221,6 +249,14 @@ TEST_F(CleanupTest, RemoveCommentsAroundDeleteCode) {
   Code = "class A {\nA() : , // comment\n y(1),{} };";
   Expected = "class A {\nA() :  // comment\n y(1){} };";
   EXPECT_EQ(Expected, cleanupAroundOffsets({17}, Code));
+
+  Code = "class A {\nA() // comment\n : ,,{} };";
+  Expected = "class A {\nA() // comment\n {} };";
+  EXPECT_EQ(Expected, cleanupAroundOffsets({30}, Code));
+
+  Code = "class A {\nA() // comment\n : ,,=default; };";
+  Expected = "class A {\nA() // comment\n =default; };";
+  EXPECT_EQ(Expected, cleanupAroundOffsets({30}, Code));
 }
 
 TEST_F(CleanupTest, CtorInitializerInNamespace) {
@@ -247,8 +283,12 @@ protected:
     return tooling::Replacement(FileName, Offset, Length, Text);
   }
 
-  tooling::Replacement createInsertion(StringRef HeaderName) {
-    return createReplacement(UINT_MAX, 0, HeaderName);
+  tooling::Replacement createInsertion(StringRef IncludeDirective) {
+    return createReplacement(UINT_MAX, 0, IncludeDirective);
+  }
+
+  tooling::Replacement createDeletion(StringRef HeaderName) {
+    return createReplacement(UINT_MAX, 1, HeaderName);
   }
 
   inline std::string apply(StringRef Code,
@@ -705,13 +745,21 @@ TEST_F(CleanUpReplacementsTest, EmptyCode) {
   EXPECT_EQ(Expected, apply(Code, Replaces));
 }
 
-// FIXME: although this case does not crash, the insertion is wrong. A '\n'
-// should be inserted between the two #includes.
 TEST_F(CleanUpReplacementsTest, NoNewLineAtTheEndOfCode) {
   std::string Code = "#include <map>";
-  std::string Expected = "#include <map>#include <vector>\n";
+  std::string Expected = "#include <map>\n#include <vector>\n";
   tooling::Replacements Replaces =
       toReplacements({createInsertion("#include <vector>")});
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, NoNewLineAtTheEndOfCodeMultipleInsertions) {
+  std::string Code = "#include <map>";
+  std::string Expected =
+      "#include <map>\n#include <string>\n#include <vector>\n";
+  tooling::Replacements Replaces =
+      toReplacements({createInsertion("#include <string>"),
+                      createInsertion("#include <vector>")});
   EXPECT_EQ(Expected, apply(Code, Replaces));
 }
 
@@ -737,6 +785,57 @@ TEST_F(CleanUpReplacementsTest, AddIncludesWithDifferentForms) {
   tooling::Replacements Replaces =
       toReplacements({createInsertion("#include \"vector\""),
                       createInsertion("#include <a.h>")});
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, SimpleDeleteIncludes) {
+  std::string Code = "#include \"abc.h\"\n"
+                     "#include \"xyz.h\" // comment\n"
+                     "#include \"xyz\"\n"
+                     "int x;\n";
+  std::string Expected = "#include \"xyz\"\n"
+                         "int x;\n";
+  tooling::Replacements Replaces =
+      toReplacements({createDeletion("abc.h"), createDeletion("xyz.h")});
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, DeleteAllCode) {
+  std::string Code = "#include \"xyz.h\"\n"
+                     "#include <xyz.h>";
+  std::string Expected = "";
+  tooling::Replacements Replaces = toReplacements({createDeletion("xyz.h")});
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, DeleteAllIncludesWithSameNameIfNoType) {
+  std::string Code = "#include \"xyz.h\"\n"
+                     "#include \"xyz\"\n"
+                     "#include <xyz.h>\n";
+  std::string Expected = "#include \"xyz\"\n";
+  tooling::Replacements Replaces = toReplacements({createDeletion("xyz.h")});
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, OnlyDeleteHeaderWithType) {
+  std::string Code = "#include \"xyz.h\"\n"
+                     "#include \"xyz\"\n"
+                     "#include <xyz.h>";
+  std::string Expected = "#include \"xyz.h\"\n"
+                         "#include \"xyz\"\n";
+  tooling::Replacements Replaces = toReplacements({createDeletion("<xyz.h>")});
+  EXPECT_EQ(Expected, apply(Code, Replaces));
+}
+
+TEST_F(CleanUpReplacementsTest, InsertionAndDeleteHeader) {
+  std::string Code = "#include \"a.h\"\n"
+                     "\n"
+                     "#include <vector>\n";
+  std::string Expected = "#include \"a.h\"\n"
+                         "\n"
+                         "#include <map>\n";
+  tooling::Replacements Replaces = toReplacements(
+      {createDeletion("<vector>"), createInsertion("#include <map>")});
   EXPECT_EQ(Expected, apply(Code, Replaces));
 }
 
