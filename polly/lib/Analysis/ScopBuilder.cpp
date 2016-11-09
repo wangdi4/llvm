@@ -275,8 +275,9 @@ bool ScopBuilder::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   assert(DestPtrSCEV);
   DestAccFunc = SE.getMinusSCEV(DestAccFunc, DestPtrSCEV);
   addArrayAccess(Inst, MemoryAccess::MUST_WRITE, DestPtrSCEV->getValue(),
-                 IntegerType::getInt8Ty(DestPtrVal->getContext()), false,
-                 {DestAccFunc, LengthVal}, {nullptr}, Inst.getValueOperand());
+                 IntegerType::getInt8Ty(DestPtrVal->getContext()),
+                 LengthIsAffine, {DestAccFunc, LengthVal}, {nullptr},
+                 Inst.getValueOperand());
 
   auto *MemTrans = dyn_cast<MemTransferInst>(MemIntr);
   if (!MemTrans)
@@ -296,8 +297,9 @@ bool ScopBuilder::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   assert(SrcPtrSCEV);
   SrcAccFunc = SE.getMinusSCEV(SrcAccFunc, SrcPtrSCEV);
   addArrayAccess(Inst, MemoryAccess::READ, SrcPtrSCEV->getValue(),
-                 IntegerType::getInt8Ty(SrcPtrVal->getContext()), false,
-                 {SrcAccFunc, LengthVal}, {nullptr}, Inst.getValueOperand());
+                 IntegerType::getInt8Ty(SrcPtrVal->getContext()),
+                 LengthIsAffine, {SrcAccFunc, LengthVal}, {nullptr},
+                 Inst.getValueOperand());
 
   return true;
 }
@@ -590,13 +592,9 @@ void ScopBuilder::ensureValueRead(Value *V, BasicBlock *UserBB) {
   if (UserStmt->lookupValueReadOf(V))
     return;
 
-  // For exit PHIs use the MK_ExitPHI MemoryKind not MK_Value.
-  ScopArrayInfo::MemoryKind Kind = ScopArrayInfo::MK_Value;
-  if (!ValueStmt && isa<PHINode>(V))
-    Kind = ScopArrayInfo::MK_ExitPHI;
-
   addMemoryAccess(UserBB, nullptr, MemoryAccess::READ, V, V->getType(), true, V,
-                  ArrayRef<const SCEV *>(), ArrayRef<const SCEV *>(), Kind);
+                  ArrayRef<const SCEV *>(), ArrayRef<const SCEV *>(),
+                  ScopArrayInfo::MK_Value);
   if (ValueInst)
     ensureValueWrite(ValueInst);
 }

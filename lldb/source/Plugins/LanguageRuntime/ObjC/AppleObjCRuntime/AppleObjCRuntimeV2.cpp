@@ -470,6 +470,11 @@ LanguageRuntime *AppleObjCRuntimeV2::CreateInstance(Process *process,
     return NULL;
 }
 
+static OptionDefinition g_objc_classtable_dump_options[] = {
+    {LLDB_OPT_SET_ALL, false, "verbose", 'v', OptionParser::eNoArgument,
+     nullptr, nullptr, 0, eArgTypeNone,
+     "Print ivar and method information in detail"}};
+
 class CommandObjectObjC_ClassTable_Dump : public CommandObjectParsed {
 public:
   class CommandOptions : public Options {
@@ -501,10 +506,11 @@ public:
       m_verbose.Clear();
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_objc_classtable_dump_options);
+    }
 
     OptionValueBoolean m_verbose;
-    static OptionDefinition g_option_table[];
   };
 
   CommandObjectObjC_ClassTable_Dump(CommandInterpreter &interpreter)
@@ -626,13 +632,6 @@ protected:
 
   CommandOptions m_options;
 };
-
-OptionDefinition
-    CommandObjectObjC_ClassTable_Dump::CommandOptions::g_option_table[] = {
-        {LLDB_OPT_SET_ALL, false, "verbose", 'v', OptionParser::eNoArgument,
-         nullptr, nullptr, 0, eArgTypeNone,
-         "Print ivar and method information in detail"},
-        {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}};
 
 class CommandObjectMultiwordObjC_TaggedPointer_Info
     : public CommandObjectParsed {
@@ -1912,8 +1911,6 @@ void AppleObjCRuntimeV2::WarnIfNoClassesCached(
   }
 }
 
-// TODO: should we have a transparent_kvo parameter here to say if we
-// want to replace the KVO swizzled class with the actual user-level type?
 ConstString
 AppleObjCRuntimeV2::GetActualTypeName(ObjCLanguageRuntime::ObjCISA isa) {
   if (isa == g_objc_Tagged_ISA) {
@@ -2167,23 +2164,28 @@ AppleObjCRuntimeV2::TaggedPointerVendorLegacy::GetClassDescriptor(
   uint64_t class_bits = (ptr & 0xE) >> 1;
   ConstString name;
 
-  // TODO: make a table
+  static ConstString g_NSAtom("NSAtom");
+  static ConstString g_NSNumber("NSNumber");
+  static ConstString g_NSDateTS("NSDateTS");
+  static ConstString g_NSManagedObject("NSManagedObject");
+  static ConstString g_NSDate("NSDate");
+
   if (foundation_version >= 900) {
     switch (class_bits) {
     case 0:
-      name = ConstString("NSAtom");
+      name = g_NSAtom;
       break;
     case 3:
-      name = ConstString("NSNumber");
+      name = g_NSNumber;
       break;
     case 4:
-      name = ConstString("NSDateTS");
+      name = g_NSDateTS;
       break;
     case 5:
-      name = ConstString("NSManagedObject");
+      name = g_NSManagedObject;
       break;
     case 6:
-      name = ConstString("NSDate");
+      name = g_NSDate;
       break;
     default:
       return ObjCLanguageRuntime::ClassDescriptorSP();
@@ -2191,16 +2193,16 @@ AppleObjCRuntimeV2::TaggedPointerVendorLegacy::GetClassDescriptor(
   } else {
     switch (class_bits) {
     case 1:
-      name = ConstString("NSNumber");
+      name = g_NSNumber;
       break;
     case 5:
-      name = ConstString("NSManagedObject");
+      name = g_NSManagedObject;
       break;
     case 6:
-      name = ConstString("NSDate");
+      name = g_NSDate;
       break;
     case 7:
-      name = ConstString("NSDateTS");
+      name = g_NSDateTS;
       break;
     default:
       return ObjCLanguageRuntime::ClassDescriptorSP();

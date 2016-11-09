@@ -218,6 +218,8 @@ public:
 
   const FormatEntity::Entry *GetThreadFormat() const;
 
+  const FormatEntity::Entry *GetThreadStopFormat() const;
+
   lldb::ScriptLanguage GetScriptLanguage() const;
 
   bool SetScriptLanguage(lldb::ScriptLanguage script_lang);
@@ -226,9 +228,10 @@ public:
 
   bool SetTerminalWidth(uint32_t term_width);
 
-  const char *GetPrompt() const;
+  llvm::StringRef GetPrompt() const;
 
-  void SetPrompt(const char *p);
+  void SetPrompt(llvm::StringRef p);
+  void SetPrompt(const char *) = delete;
 
   bool GetUseExternalEditor() const;
 

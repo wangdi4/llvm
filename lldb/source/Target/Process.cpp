@@ -529,7 +529,7 @@ Error ProcessLaunchCommandOptions::SetOptionValue(
   return error;
 }
 
-OptionDefinition ProcessLaunchCommandOptions::g_option_table[] = {
+static OptionDefinition g_process_launch_options[] = {
     {LLDB_OPT_SET_ALL, false, "stop-at-entry", 's', OptionParser::eNoArgument,
      nullptr, nullptr, 0, eArgTypeNone,
      "Stop at the entry point of the program when launching a process."},
@@ -576,7 +576,11 @@ OptionDefinition ProcessLaunchCommandOptions::g_option_table[] = {
     {LLDB_OPT_SET_4, false, "shell-expand-args", 'X',
      OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean,
      "Set whether to shell expand arguments to the process when launching."},
-    {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}};
+};
+
+llvm::ArrayRef<OptionDefinition> ProcessLaunchCommandOptions::GetDefinitions() {
+  return llvm::makeArrayRef(g_process_launch_options);
+}
 
 bool ProcessInstanceInfoMatch::NameMatches(const char *process_name) const {
   if (m_name_match_type == eNameMatchIgnore || process_name == nullptr)
@@ -808,11 +812,8 @@ Process::~Process() {
 const ProcessPropertiesSP &Process::GetGlobalProperties() {
   // NOTE: intentional leak so we don't crash if global destructor chain gets
   // called as other threads still use the result of this function
-  static ProcessPropertiesSP *g_settings_sp_ptr = nullptr;
-  static std::once_flag g_once_flag;
-  std::call_once(g_once_flag, []() {
-    g_settings_sp_ptr = new ProcessPropertiesSP(new ProcessProperties(nullptr));
-  });
+  static ProcessPropertiesSP *g_settings_sp_ptr =
+      new ProcessPropertiesSP(new ProcessProperties(nullptr));
   return *g_settings_sp_ptr;
 }
 
@@ -1198,10 +1199,12 @@ bool Process::HandleProcessStateChangedEvent(const EventSP &event_sp,
           const uint32_t start_frame = 0;
           const uint32_t num_frames = 1;
           const uint32_t num_frames_with_source = 1;
+          const bool stop_format = true;
           process_sp->GetStatus(*stream);
           process_sp->GetThreadStatus(*stream, only_threads_with_stop_reason,
                                       start_frame, num_frames,
-                                      num_frames_with_source);
+                                      num_frames_with_source,
+                                      stop_format);
           if (curr_thread_stop_info_sp) {
             lldb::addr_t crashing_address;
             ValueObjectSP valobj_sp = StopInfo::GetCrashingDereference(
@@ -5089,8 +5092,6 @@ Process::RunThreadPlan(ExecutionContext &exe_ctx,
     // The expression evaluation should still succeed.
     bool miss_first_event = true;
 #endif
-    TimeValue one_thread_timeout;
-    TimeValue final_timeout;
     std::chrono::microseconds timeout = std::chrono::microseconds(0);
 
     while (true) {
@@ -5788,7 +5789,8 @@ void Process::GetStatus(Stream &strm) {
 size_t Process::GetThreadStatus(Stream &strm,
                                 bool only_threads_with_stop_reason,
                                 uint32_t start_frame, uint32_t num_frames,
-                                uint32_t num_frames_with_source) {
+                                uint32_t num_frames_with_source,
+                                bool stop_format) {
   size_t num_thread_infos_dumped = 0;
 
   // You can't hold the thread list lock while calling Thread::GetStatus.  That
@@ -5819,7 +5821,8 @@ size_t Process::GetThreadStatus(Stream &strm,
           continue;
       }
       thread_sp->GetStatus(strm, start_frame, num_frames,
-                           num_frames_with_source);
+                           num_frames_with_source,
+                           stop_format);
       ++num_thread_infos_dumped;
     } else {
       Log *log(lldb_private::GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS));
@@ -5858,6 +5861,16 @@ bool Process::RunPreResumeActions() {
 }
 
 void Process::ClearPreResumeActions() { m_pre_resume_actions.clear(); }
+
+void Process::ClearPreResumeAction(PreResumeActionCallback callback, void *baton)
+{
+    PreResumeCallbackAndBaton element(callback, baton);
+    auto found_iter = std::find(m_pre_resume_actions.begin(), m_pre_resume_actions.end(), element);
+    if (found_iter != m_pre_resume_actions.end())
+    {
+        m_pre_resume_actions.erase(found_iter);
+    }
+}
 
 ProcessRunLock &Process::GetRunLock() {
   if (m_private_state_thread.EqualsThread(Host::GetCurrentThread()))

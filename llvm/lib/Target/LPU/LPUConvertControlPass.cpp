@@ -84,7 +84,7 @@ public:
   static char ID;
   LPUConvertControlPass() : MachineFunctionPass(ID) { thisMF = nullptr;}
 
-  const char* getPassName() const override {
+  StringRef getPassName() const override {
     return "LPU Convert Control Flow";
   }
 

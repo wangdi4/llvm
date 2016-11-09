@@ -37,6 +37,12 @@ int __asan_should_detect_stack_use_after_return() {
   return __asan_option_detect_stack_use_after_return;
 }
 
+SANITIZER_INTERFACE_ATTRIBUTE
+uptr __asan_get_shadow_memory_dynamic_address() {
+  __asan_init();
+  return __asan_shadow_memory_dynamic_address;
+}
+
 // -------------------- A workaround for the absence of weak symbols ----- {{{
 // We don't have a direct equivalent of weak symbols when using MSVC, but we can
 // use the /alternatename directive to tell the linker to default a specific
@@ -337,9 +343,23 @@ int __asan_set_seh_filter() {
 // immediately after the CRT runs. This way, our exception filter is called
 // first and we can delegate to their filter if appropriate.
 #pragma section(".CRT$XCAB", long, read)  // NOLINT
-__declspec(allocate(".CRT$XCAB"))
-    int (*__intercept_seh)() = __asan_set_seh_filter;
+__declspec(allocate(".CRT$XCAB")) int (*__intercept_seh)() =
+    __asan_set_seh_filter;
+
+// Piggyback on the TLS initialization callback directory to initialize asan as
+// early as possible. Initializers in .CRT$XL* are called directly by ntdll,
+// which run before the CRT. Users also add code to .CRT$XLC, so it's important
+// to run our initializers first.
+static void NTAPI asan_thread_init(void *module, DWORD reason, void *reserved) {
+  if (reason == DLL_PROCESS_ATTACH) __asan_init();
+}
+
+#pragma section(".CRT$XLAB", long, read)  // NOLINT
+__declspec(allocate(".CRT$XLAB")) void (NTAPI *__asan_tls_init)(void *,
+    unsigned long, void *) = asan_thread_init;
 #endif
+
+
 // }}}
 }  // namespace __asan
 

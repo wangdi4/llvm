@@ -1279,6 +1279,7 @@ GetBaseExplainingValue(const Instruction::Operand &operand,
     }
   }
   }
+  return std::make_pair(nullptr, 0);
 }
 
 std::pair<const Instruction::Operand *, int64_t>
@@ -1419,6 +1420,10 @@ ValueObjectSP GetValueForDereferincingOffset(StackFrame &frame,
 
   Error error;
   ValueObjectSP pointee = base->Dereference(error);
+    
+  if (!pointee) {
+    return ValueObjectSP();
+  }
 
   if (offset >= 0 && uint64_t(offset) >= pointee->GetByteSize()) {
     int64_t index = offset / pointee->GetByteSize();

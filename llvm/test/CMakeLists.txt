@@ -49,6 +49,7 @@ set(LLVM_TEST_DEPENDS
           llvm-mcmarkup
           llvm-nm
           llvm-objdump
+          llvm-opt-report
           llvm-pdbdump
           llvm-profdata
           llvm-ranlib
@@ -58,6 +59,7 @@ set(LLVM_TEST_DEPENDS
           llvm-split
           llvm-symbolizer
           llvm-tblgen
+          llvm-xray
           not
           obj2yaml
           opt

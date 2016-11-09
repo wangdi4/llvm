@@ -106,7 +106,7 @@ namespace {
             std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer)), reader() {}
 
-    const char *getPassName() const override {
+    StringRef getPassName() const override {
       return "LPU Assembly Printer";
     }
 

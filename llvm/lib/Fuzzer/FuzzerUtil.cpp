@@ -19,6 +19,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstring>
+#include <stdio.h>
 #include <signal.h>
 #include <sstream>
 #include <unistd.h>
@@ -290,16 +291,30 @@ size_t GetPeakRSSMb() {
   return 0;
 }
 
+std::string DescribePC(const char *SymbolizedFMT, uintptr_t PC) {
+  if (!EF->__sanitizer_symbolize_pc) return "<can not symbolize>";
+  char PcDescr[1024];
+  EF->__sanitizer_symbolize_pc(reinterpret_cast<void*>(PC),
+                               SymbolizedFMT, PcDescr, sizeof(PcDescr));
+  PcDescr[sizeof(PcDescr) - 1] = 0;  // Just in case.
+  return PcDescr;
+}
+
 void PrintPC(const char *SymbolizedFMT, const char *FallbackFMT, uintptr_t PC) {
-  if (EF->__sanitizer_symbolize_pc) {
-    char PcDescr[1024];
-    EF->__sanitizer_symbolize_pc(reinterpret_cast<void*>(PC),
-                                 SymbolizedFMT, PcDescr, sizeof(PcDescr));
-    PcDescr[sizeof(PcDescr) - 1] = 0;  // Just in case.
-    Printf("%s", PcDescr);
-  } else {
+  if (EF->__sanitizer_symbolize_pc)
+    Printf("%s", DescribePC(SymbolizedFMT, PC).c_str());
+  else
     Printf(FallbackFMT, PC);
-  }
+}
+
+bool ExecuteCommandAndReadOutput(const std::string &Command, std::string *Out) {
+  FILE *Pipe = popen(Command.c_str(), "r");
+  if (!Pipe) return false;
+  char Buff[1024];
+  size_t N;
+  while ((N = fread(Buff, 1, sizeof(Buff), Pipe)) > 0)
+    Out->append(Buff, N);
+  return true;
 }
 
 }  // namespace fuzzer

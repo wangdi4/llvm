@@ -38,6 +38,7 @@
 #include "clang/Tooling/Refactoring.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Signals.h"
 
 using namespace clang;
 using namespace llvm;
@@ -69,12 +70,13 @@ cl::opt<std::string> Style("style",
 } // anonymous namespace
 
 int main(int argc, const char **argv) {
+  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
   tooling::CommonOptionsParser OptionsParser(argc, argv,
                                              ChangeNamespaceCategory);
   const auto &Files = OptionsParser.getSourcePathList();
   tooling::RefactoringTool Tool(OptionsParser.getCompilations(), Files);
   change_namespace::ChangeNamespaceTool NamespaceTool(
-      OldNamespace, NewNamespace, FilePattern, &Tool.getReplacements());
+      OldNamespace, NewNamespace, FilePattern, &Tool.getReplacements(), Style);
   ast_matchers::MatchFinder Finder;
   NamespaceTool.registerMatchers(&Finder);
   std::unique_ptr<tooling::FrontendActionFactory> Factory =

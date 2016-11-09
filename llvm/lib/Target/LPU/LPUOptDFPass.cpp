@@ -116,7 +116,7 @@ public:
   static char ID;
   LPUOptDFPass() : MachineFunctionPass(ID) { thisMF = nullptr;}
 
-  const char* getPassName() const override {
+  StringRef getPassName() const override {
     return "LPU Convert Control Flow to Data Flow";
   }
 

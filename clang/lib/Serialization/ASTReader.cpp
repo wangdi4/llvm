@@ -1600,8 +1600,7 @@ bool HeaderFileInfoTrait::EqualKey(internal_key_ref a, internal_key_ref b) {
   if (a.Size != b.Size || (a.ModTime && b.ModTime && a.ModTime != b.ModTime))
     return false;
 
-  if (llvm::sys::path::is_absolute(a.Filename) &&
-      strcmp(a.Filename, b.Filename) == 0)
+  if (llvm::sys::path::is_absolute(a.Filename) && a.Filename == b.Filename)
     return true;
   
   // Determine whether the actual files are equivalent.
@@ -1712,7 +1711,7 @@ void ASTReader::ReadDefinedMacros() {
     BitstreamCursor &MacroCursor = I->MacroCursor;
 
     // If there was no preprocessor block, skip this file.
-    if (!MacroCursor.getBitStreamReader())
+    if (MacroCursor.getBitcodeBytes().empty())
       continue;
 
     BitstreamCursor Cursor = MacroCursor;
@@ -1984,6 +1983,7 @@ ASTReader::readInputFileInfo(ModuleFile &F, unsigned ID) {
   return R;
 }
 
+static unsigned moduleKindForDiagnostic(ModuleKind Kind);
 InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
   // If this ID is bogus, just return an empty input file.
   if (ID == 0 || ID > F.InputFilesLoaded.size())
@@ -2080,7 +2080,13 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
 
       // The top-level PCH is stale.
       StringRef TopLevelPCHName(ImportStack.back()->FileName);
-      Error(diag::err_fe_pch_file_modified, Filename, TopLevelPCHName);
+      unsigned DiagnosticKind = moduleKindForDiagnostic(ImportStack.back()->Kind);
+      if (DiagnosticKind == 0)
+        Error(diag::err_fe_pch_file_modified, Filename, TopLevelPCHName);
+      else if (DiagnosticKind == 1)
+        Error(diag::err_fe_module_file_modified, Filename, TopLevelPCHName);
+      else
+        Error(diag::err_fe_ast_file_modified, Filename, TopLevelPCHName);
 
       // Print the import stack.
       if (ImportStack.size() > 1 && !Diags.isDiagnosticInFlight()) {
@@ -3045,7 +3051,7 @@ ASTReader::ReadASTBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
       break;
 
     case SEMA_DECL_REFS:
-      if (Record.size() != 2) {
+      if (Record.size() != 3) {
         Error("Invalid SEMA_DECL_REFS block");
         return Failure;
       }
@@ -3274,6 +3280,14 @@ ASTReader::ReadASTBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
       for (unsigned I = 0, N = Record.size(); I != N; ++I)
         UnusedLocalTypedefNameCandidates.push_back(
             getGlobalDeclID(F, Record[I]));
+      break;
+
+    case CUDA_PRAGMA_FORCE_HOST_DEVICE_DEPTH:
+      if (Record.size() != 1) {
+        Error("invalid cuda pragma options record");
+        return Failure;
+      }
+      ForceCUDAHostDeviceDepth = Record[0];
       break;
     }
   }
@@ -3784,11 +3798,12 @@ ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
   return Success;
 }
 
-static ASTFileSignature readASTFileSignature(llvm::BitstreamReader &StreamFile);
+static ASTFileSignature readASTFileSignature(StringRef PCH);
 
 /// \brief Whether \p Stream starts with the AST/PCH file magic number 'CPCH'.
 static bool startsWithASTFileMagic(BitstreamCursor &Stream) {
-  return Stream.Read(8) == 'C' &&
+  return Stream.canSkipToPos(4) &&
+         Stream.Read(8) == 'C' &&
          Stream.Read(8) == 'P' &&
          Stream.Read(8) == 'C' &&
          Stream.Read(8) == 'H';
@@ -3870,8 +3885,7 @@ ASTReader::ReadASTCore(StringRef FileName,
 
   ModuleFile &F = *M;
   BitstreamCursor &Stream = F.Stream;
-  PCHContainerRdr.ExtractPCH(F.Buffer->getMemBufferRef(), F.StreamFile);
-  Stream.init(&F.StreamFile);
+  Stream = BitstreamCursor(PCHContainerRdr.ExtractPCH(*F.Buffer));
   F.SizeInBits = F.Buffer->getBufferSize() * 8;
   
   // Sniff for the signature.
@@ -4160,10 +4174,10 @@ void ASTReader::finalizeForWriting() {
   // Nothing to do for now.
 }
 
-/// \brief Reads and return the signature record from \p StreamFile's control
-/// block, or else returns 0.
-static ASTFileSignature readASTFileSignature(llvm::BitstreamReader &StreamFile){
-  BitstreamCursor Stream(StreamFile);
+/// \brief Reads and return the signature record from \p PCH's control block, or
+/// else returns 0.
+static ASTFileSignature readASTFileSignature(StringRef PCH) {
+  BitstreamCursor Stream(PCH);
   if (!startsWithASTFileMagic(Stream))
     return 0;
 
@@ -4201,9 +4215,7 @@ std::string ASTReader::getOriginalSourceFile(
   }
 
   // Initialize the stream
-  llvm::BitstreamReader StreamFile;
-  PCHContainerRdr.ExtractPCH((*Buffer)->getMemBufferRef(), StreamFile);
-  BitstreamCursor Stream(StreamFile);
+  BitstreamCursor Stream(PCHContainerRdr.ExtractPCH(**Buffer));
 
   // Sniff for the signature.
   if (!startsWithASTFileMagic(Stream)) {
@@ -4303,9 +4315,7 @@ bool ASTReader::readASTFileControlBlock(
   }
 
   // Initialize the stream
-  llvm::BitstreamReader StreamFile;
-  PCHContainerRdr.ExtractPCH((*Buffer)->getMemBufferRef(), StreamFile);
-  BitstreamCursor Stream(StreamFile);
+  BitstreamCursor Stream(PCHContainerRdr.ExtractPCH(**Buffer));
 
   // Sniff for the signature.
   if (!startsWithASTFileMagic(Stream))
@@ -7104,12 +7114,14 @@ void ASTReader::UpdateSema() {
   // Load the offsets of the declarations that Sema references.
   // They will be lazily deserialized when needed.
   if (!SemaDeclRefs.empty()) {
-    assert(SemaDeclRefs.size() % 2 == 0);
-    for (unsigned I = 0; I != SemaDeclRefs.size(); I += 2) {
+    assert(SemaDeclRefs.size() % 3 == 0);
+    for (unsigned I = 0; I != SemaDeclRefs.size(); I += 3) {
       if (!SemaObj->StdNamespace)
         SemaObj->StdNamespace = SemaDeclRefs[I];
       if (!SemaObj->StdBadAlloc)
         SemaObj->StdBadAlloc = SemaDeclRefs[I+1];
+      if (!SemaObj->StdAlignValT)
+        SemaObj->StdAlignValT = SemaDeclRefs[I+2];
     }
     SemaDeclRefs.clear();
   }
@@ -7126,6 +7138,7 @@ void ASTReader::UpdateSema() {
             PragmaMSPointersToMembersState,
         PointersToMembersPragmaLocation);
   }
+  SemaObj->ForceCUDAHostDeviceDepth = ForceCUDAHostDeviceDepth;
 }
 
 IdentifierInfo *ASTReader::get(StringRef Name) {
@@ -7545,12 +7558,13 @@ void ASTReader::ReadPendingInstantiations(
 }
 
 void ASTReader::ReadLateParsedTemplates(
-    llvm::MapVector<const FunctionDecl *, LateParsedTemplate *> &LPTMap) {
+    llvm::MapVector<const FunctionDecl *, std::unique_ptr<LateParsedTemplate>>
+        &LPTMap) {
   for (unsigned Idx = 0, N = LateParsedTemplates.size(); Idx < N;
        /* In loop */) {
     FunctionDecl *FD = cast<FunctionDecl>(GetDecl(LateParsedTemplates[Idx++]));
 
-    LateParsedTemplate *LT = new LateParsedTemplate;
+    auto LT = llvm::make_unique<LateParsedTemplate>();
     LT->D = GetDecl(LateParsedTemplates[Idx++]);
 
     ModuleFile *F = getOwningModuleFile(LT->D);
@@ -7561,7 +7575,7 @@ void ASTReader::ReadLateParsedTemplates(
     for (unsigned T = 0; T < TokN; ++T)
       LT->Toks.push_back(ReadToken(*F, LateParsedTemplates, Idx));
 
-    LPTMap.insert(std::make_pair(FD, LT));
+    LPTMap.insert(std::make_pair(FD, std::move(LT)));
   }
 
   LateParsedTemplates.clear();

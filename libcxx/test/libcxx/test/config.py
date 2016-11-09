@@ -57,6 +57,7 @@ class Configuration(object):
         self.lit_config = lit_config
         self.config = config
         self.cxx = None
+        self.cxx_stdlib_under_test = None
         self.project_obj_root = None
         self.libcxx_src_root = None
         self.libcxx_obj_root = None
@@ -96,6 +97,7 @@ class Configuration(object):
         self.configure_triple()
         self.configure_src_root()
         self.configure_obj_root()
+        self.configure_cxx_stdlib_under_test()
         self.configure_cxx_library_root()
         self.configure_use_system_cxx_lib()
         self.configure_use_clang_verify()
@@ -179,6 +181,7 @@ class Configuration(object):
             assert self.cxx.version is not None
             maj_v, min_v, _ = self.cxx.version
             self.config.available_features.add(cxx_type)
+            self.config.available_features.add('%s-%s' % (cxx_type, maj_v))
             self.config.available_features.add('%s-%s.%s' % (
                 cxx_type, maj_v, min_v))
 
@@ -213,6 +216,24 @@ class Configuration(object):
             self.use_system_cxx_lib = False
             self.lit_config.note(
                 "inferred use_system_cxx_lib as: %r" % self.use_system_cxx_lib)
+
+    def configure_cxx_stdlib_under_test(self):
+        self.cxx_stdlib_under_test = self.get_lit_conf(
+            'cxx_stdlib_under_test', 'libc++')
+        if self.cxx_stdlib_under_test not in \
+                ['libc++', 'libstdc++', 'cxx_default']:
+            self.lit_config.fatal(
+                'unsupported value for "cxx_stdlib_under_test": %s'
+                % self.cxx_stdlib_under_test)
+        if self.cxx_stdlib_under_test == 'libstdc++':
+            self.config.available_features.add('libstdc++')
+            # Manually enable the experimental and filesystem tests for libstdc++
+            # if the options aren't present.
+            # FIXME this is a hack.
+            if self.get_lit_conf('enable_experimental') is None:
+                self.config.enable_experimental = 'true'
+            if self.get_lit_conf('enable_filesystem') is None:
+                self.config.enable_filesystem = 'true'
 
     def configure_use_clang_verify(self):
         '''If set, run clang with -verify on failing tests.'''
@@ -269,6 +290,7 @@ class Configuration(object):
         # XFAIL markers for tests that are known to fail with versions of
         # libc++ as were shipped with a particular triple.
         if self.use_system_cxx_lib:
+            self.config.available_features.add('with_system_cxx_lib')
             self.config.available_features.add(
                 'with_system_cxx_lib=%s' % self.config.target_triple)
 
@@ -291,6 +313,13 @@ class Configuration(object):
         # in test/std/language.support/support.dynamic/new.delete
         if self.cxx.hasCompileFlag('-fsized-deallocation'):
             self.config.available_features.add('fsized-deallocation')
+
+        if self.cxx.hasCompileFlag('-faligned-allocation'):
+            self.config.available_features.add('-faligned-allocation')
+        else:
+            # FIXME remove this once more than just clang-4.0 support
+            # C++17 aligned allocation.
+            self.config.available_features.add('no-aligned-allocation')
 
         if self.get_lit_bool('has_libatomic', False):
             self.config.available_features.add('libatomic')
@@ -326,9 +355,8 @@ class Configuration(object):
                     'Failed to infer a supported language dialect from one of %r'
                     % possible_stds)
         self.cxx.compile_flags += ['-std={0}'.format(std)]
-        self.config.available_features.add(std)
+        self.config.available_features.add(std.replace('gnu++', 'c++'))
         # Configure include paths
-        self.cxx.compile_flags += ['-nostdinc++']
         self.configure_compile_flags_header_includes()
         self.target_info.add_cxx_compile_flags(self.cxx.compile_flags)
         # Configure feature flags.
@@ -351,14 +379,22 @@ class Configuration(object):
 
     def configure_compile_flags_header_includes(self):
         support_path = os.path.join(self.libcxx_src_root, 'test/support')
-        self.cxx.compile_flags += ['-include', os.path.join(support_path, 'nasty_macros.hpp')]
+        if self.cxx_stdlib_under_test != 'libstdc++':
+            self.cxx.compile_flags += [
+                '-include', os.path.join(support_path, 'nasty_macros.hpp')]
         self.configure_config_site_header()
-        libcxx_headers = self.get_lit_conf(
-            'libcxx_headers', os.path.join(self.libcxx_src_root, 'include'))
-        if not os.path.isdir(libcxx_headers):
-            self.lit_config.fatal("libcxx_headers='%s' is not a directory."
-                                  % libcxx_headers)
-        self.cxx.compile_flags += ['-I' + libcxx_headers]
+        cxx_headers = self.get_lit_conf('cxx_headers')
+        if cxx_headers == '' or (cxx_headers is None
+                                 and self.cxx_stdlib_under_test != 'libc++'):
+            self.lit_config.note('using the system cxx headers')
+            return
+        self.cxx.compile_flags += ['-nostdinc++']
+        if cxx_headers is None:
+            cxx_headers = os.path.join(self.libcxx_src_root, 'include')
+        if not os.path.isdir(cxx_headers):
+            self.lit_config.fatal("cxx_headers='%s' is not a directory."
+                                  % cxx_headers)
+        self.cxx.compile_flags += ['-I' + cxx_headers]
 
     def configure_config_site_header(self):
         # Check for a possible __config_site in the build directory. We
@@ -448,7 +484,7 @@ class Configuration(object):
         assert os.path.isdir(static_env)
         self.cxx.compile_flags += ['-DLIBCXX_FILESYSTEM_STATIC_TEST_ROOT="%s"' % static_env]
 
-        dynamic_env = os.path.join(self.libcxx_obj_root, 'test',
+        dynamic_env = os.path.join(self.config.test_exec_root,
                                    'filesystem', 'Output', 'dynamic_env')
         dynamic_env = os.path.realpath(dynamic_env)
         if not os.path.isdir(dynamic_env):
@@ -467,16 +503,29 @@ class Configuration(object):
     def configure_link_flags(self):
         no_default_flags = self.get_lit_bool('no_default_flags', False)
         if not no_default_flags:
-            self.cxx.link_flags += ['-nodefaultlibs']
-
             # Configure library path
             self.configure_link_flags_cxx_library_path()
             self.configure_link_flags_abi_library_path()
 
             # Configure libraries
-            self.configure_link_flags_cxx_library()
-            self.configure_link_flags_abi_library()
-            self.configure_extra_library_flags()
+            if self.cxx_stdlib_under_test == 'libc++':
+                self.cxx.link_flags += ['-nodefaultlibs']
+                self.configure_link_flags_cxx_library()
+                self.configure_link_flags_abi_library()
+                self.configure_extra_library_flags()
+            elif self.cxx_stdlib_under_test == 'libstdc++':
+                enable_fs = self.get_lit_bool('enable_filesystem',
+                                              default=False)
+                if enable_fs:
+                    self.config.available_features.add('c++experimental')
+                    self.cxx.link_flags += ['-lstdc++fs']
+                self.cxx.link_flags += ['-lm', '-pthread']
+            elif self.cxx_stdlib_under_test == 'cxx_default':
+                self.cxx.link_flags += ['-pthread']
+            else:
+                self.lit_config.fatal(
+                    'unsupported value for "use_stdlib_type": %s'
+                    %  use_stdlib_type)
 
         link_flags_str = self.get_lit_conf('link_flags', '')
         self.cxx.link_flags += shlex.split(link_flags_str)
@@ -579,6 +628,8 @@ class Configuration(object):
                 '-D_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER',
                 '-Wall', '-Wextra', '-Werror'
             ]
+            # FIXME turn this back on after fixing potential breakage.
+            #self.cxx.addWarningFlagIfSupported('-Wshadow')
             self.cxx.addWarningFlagIfSupported('-Wno-unused-command-line-argument')
             self.cxx.addWarningFlagIfSupported('-Wno-attributes')
             self.cxx.addWarningFlagIfSupported('-Wno-pessimizing-move')

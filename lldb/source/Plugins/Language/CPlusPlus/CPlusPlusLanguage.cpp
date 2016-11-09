@@ -307,28 +307,29 @@ public:
   CPPRuntimeEquivalents() {
     m_impl.Append(ConstString("std::basic_string<char, std::char_traits<char>, "
                               "std::allocator<char> >")
-                      .AsCString(),
+                      .GetStringRef(),
                   ConstString("basic_string<char>"));
 
     // these two (with a prefixed std::) occur when c++stdlib string class
     // occurs as a template argument in some STL container
     m_impl.Append(ConstString("std::basic_string<char, std::char_traits<char>, "
                               "std::allocator<char> >")
-                      .AsCString(),
+                      .GetStringRef(),
                   ConstString("std::basic_string<char>"));
 
     m_impl.Sort();
   }
 
   void Add(ConstString &type_name, ConstString &type_equivalent) {
-    m_impl.Insert(type_name.AsCString(), type_equivalent);
+    m_impl.Insert(type_name.GetStringRef(), type_equivalent);
   }
 
   uint32_t FindExactMatches(ConstString &type_name,
                             std::vector<ConstString> &equivalents) {
     uint32_t count = 0;
 
-    for (ImplData match = m_impl.FindFirstValueForName(type_name.AsCString());
+    for (ImplData match =
+             m_impl.FindFirstValueForName(type_name.GetStringRef());
          match != nullptr; match = m_impl.FindNextValueForName(match)) {
       equivalents.push_back(match->value);
       count++;
@@ -351,13 +352,13 @@ public:
                               std::vector<ConstString> &equivalents) {
     uint32_t count = 0;
 
-    const char *type_name_cstr = type_name.AsCString();
+    llvm::StringRef type_name_cstr = type_name.GetStringRef();
 
     size_t items_count = m_impl.GetSize();
 
     for (size_t item = 0; item < items_count; item++) {
-      const char *key_cstr = m_impl.GetCStringAtIndex(item);
-      if (strstr(type_name_cstr, key_cstr)) {
+      llvm::StringRef key_cstr = m_impl.GetCStringAtIndex(item);
+      if (type_name_cstr.contains(key_cstr)) {
         count += AppendReplacements(type_name_cstr, key_cstr, equivalents);
       }
     }
@@ -377,7 +378,8 @@ private:
     return target;
   }
 
-  uint32_t AppendReplacements(const char *original, const char *matching_key,
+  uint32_t AppendReplacements(llvm::StringRef original,
+                              llvm::StringRef matching_key,
                               std::vector<ConstString> &equivalents) {
     std::string matching_key_str(matching_key);
     ConstString original_const(original);
@@ -801,6 +803,11 @@ static void LoadLibStdcppFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
 
   AddCXXSynthetic(
       cpp_category_sp,
+      lldb_private::formatters::LibStdcppUniquePtrSyntheticFrontEndCreator,
+      "std::unique_ptr synthetic children",
+      ConstString("^std::unique_ptr<.+>(( )?&)?$"), stl_synth_flags, true);
+  AddCXXSynthetic(
+      cpp_category_sp,
       lldb_private::formatters::LibStdcppSharedPtrSyntheticFrontEndCreator,
       "std::shared_ptr synthetic children",
       ConstString("^std::shared_ptr<.+>(( )?&)?$"), stl_synth_flags, true);
@@ -809,7 +816,17 @@ static void LoadLibStdcppFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       lldb_private::formatters::LibStdcppSharedPtrSyntheticFrontEndCreator,
       "std::weak_ptr synthetic children",
       ConstString("^std::weak_ptr<.+>(( )?&)?$"), stl_synth_flags, true);
+  AddCXXSynthetic(
+      cpp_category_sp,
+      lldb_private::formatters::LibStdcppTupleSyntheticFrontEndCreator,
+      "std::tuple synthetic children", ConstString("^std::tuple<.+>(( )?&)?$"),
+      stl_synth_flags, true);
 
+  AddCXXSummary(cpp_category_sp,
+                lldb_private::formatters::LibStdcppUniquePointerSummaryProvider,
+                "libstdc++ std::unique_ptr summary provider",
+                ConstString("^std::unique_ptr<.+>(( )?&)?$"), stl_summary_flags,
+                true);
   AddCXXSummary(cpp_category_sp,
                 lldb_private::formatters::LibStdcppSmartPointerSummaryProvider,
                 "libstdc++ std::shared_ptr summary provider",
@@ -899,6 +916,23 @@ static void LoadSystemFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       cpp_category_sp, lldb_private::formatters::Char16SummaryProvider,
       "unichar summary provider", ConstString("unichar"), widechar_flags);
 #endif
+}
+
+std::unique_ptr<Language::TypeScavenger> CPlusPlusLanguage::GetTypeScavenger() {
+  class CPlusPlusTypeScavenger : public Language::ImageListTypeScavenger {
+  public:
+    virtual CompilerType AdjustForInclusion(CompilerType &candidate) override {
+      LanguageType lang_type(candidate.GetMinimumLanguage());
+      if (!Language::LanguageIsC(lang_type) &&
+          !Language::LanguageIsCPlusPlus(lang_type))
+        return CompilerType();
+      if (candidate.IsTypedefType())
+        return candidate.GetTypedefedType();
+      return candidate;
+    }
+  };
+  
+  return std::unique_ptr<TypeScavenger>(new CPlusPlusTypeScavenger());
 }
 
 lldb::TypeCategoryImplSP CPlusPlusLanguage::GetFormatters() {

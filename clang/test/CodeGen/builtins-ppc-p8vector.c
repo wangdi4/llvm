@@ -151,6 +151,11 @@ void test1() {
 // CHECK-PPC: warning: implicit declaration of function 'vec_mergeo'
   
   /* vec_cmpeq */
+  res_vbll = vec_cmpeq(vbll, vbll);
+// CHECK: @llvm.ppc.altivec.vcmpequd
+// CHECK-LE: @llvm.ppc.altivec.vcmpequd
+// CHECK-PPC: error: call to 'vec_cmpeq' is ambiguous
+
   res_vbll = vec_cmpeq(vsll, vsll);
 // CHECK: @llvm.ppc.altivec.vcmpequd
 // CHECK-LE: @llvm.ppc.altivec.vcmpequd
@@ -1266,6 +1271,12 @@ void test1() {
 // CHECK-LE: [[T1:%.+]] = and <4 x i32>
 // CHECK-LE: xor <4 x i32> [[T1]], <i32 -1, i32 -1, i32 -1, i32 -1>
 
+  res_vf = vec_nand(vfa, vfa);
+// CHECK: [[T1:%.+]] = and <4 x i32>
+// CHECK: xor <4 x i32> [[T1]], <i32 -1, i32 -1, i32 -1, i32 -1>
+// CHECK-LE: [[T1:%.+]] = and <4 x i32>
+// CHECK-LE: xor <4 x i32> [[T1]], <i32 -1, i32 -1, i32 -1, i32 -1>
+
   res_vsll = vec_nand(vsll, vsll);
 // CHECK: [[T1:%.+]] = and <2 x i64>
 // CHECK: xor <2 x i64> [[T1]], <i64 -1, i64 -1>
@@ -1279,6 +1290,12 @@ void test1() {
 // CHECK-LE: xor <2 x i64> [[T1]], <i64 -1, i64 -1>
 
   res_vull = vec_nand(vull, vull);
+// CHECK: [[T1:%.+]] = and <2 x i64>
+// CHECK: xor <2 x i64> [[T1]], <i64 -1, i64 -1>
+// CHECK-LE: [[T1:%.+]] = and <2 x i64>
+// CHECK-LE: xor <2 x i64> [[T1]], <i64 -1, i64 -1>
+
+  res_vd = vec_nand(vda, vda);
 // CHECK: [[T1:%.+]] = and <2 x i64>
 // CHECK: xor <2 x i64> [[T1]], <i64 -1, i64 -1>
 // CHECK-LE: [[T1:%.+]] = and <2 x i64>
@@ -1412,6 +1429,18 @@ void test1() {
 // CHECK-LE: [[T1:%.+]] = xor <4 x i32> {{%.+}}, <i32 -1, i32 -1, i32 -1, i32 -1>
 // CHECK-LE: or <4 x i32> {{%.+}}, [[T1]]
 
+  res_vf = vec_orc(vbi, vfa);
+// CHECK: [[T1:%.+]] = xor <4 x i32> {{%.+}}, <i32 -1, i32 -1, i32 -1, i32 -1>
+// CHECK: or <4 x i32> {{%.+}}, [[T1]]
+// CHECK-LE: [[T1:%.+]] = xor <4 x i32> {{%.+}}, <i32 -1, i32 -1, i32 -1, i32 -1>
+// CHECK-LE: or <4 x i32> {{%.+}}, [[T1]]
+
+  res_vf = vec_orc(vfa, vbi);
+// CHECK: [[T1:%.+]] = xor <4 x i32> {{%.+}}, <i32 -1, i32 -1, i32 -1, i32 -1>
+// CHECK: or <4 x i32> {{%.+}}, [[T1]]
+// CHECK-LE: [[T1:%.+]] = xor <4 x i32> {{%.+}}, <i32 -1, i32 -1, i32 -1, i32 -1>
+// CHECK-LE: or <4 x i32> {{%.+}}, [[T1]]
+
   res_vsll = vec_orc(vsll, vsll);
 // CHECK: [[T1:%.+]] = xor <2 x i64> {{%.+}}, <i64 -1, i64 -1>
 // CHECK: or <2 x i64> {{%.+}}, [[T1]]
@@ -1449,6 +1478,18 @@ void test1() {
 // CHECK-LE: or <2 x i64> {{%.+}}, [[T1]]
 
   res_vbll = vec_orc(vbll, vbll);
+// CHECK: [[T1:%.+]] = xor <2 x i64> {{%.+}}, <i64 -1, i64 -1>
+// CHECK: or <2 x i64> {{%.+}}, [[T1]]
+// CHECK-LE: [[T1:%.+]] = xor <2 x i64> {{%.+}}, <i64 -1, i64 -1>
+// CHECK-LE: or <2 x i64> {{%.+}}, [[T1]]
+
+  res_vd = vec_orc(vbll, vda);
+// CHECK: [[T1:%.+]] = xor <2 x i64> {{%.+}}, <i64 -1, i64 -1>
+// CHECK: or <2 x i64> {{%.+}}, [[T1]]
+// CHECK-LE: [[T1:%.+]] = xor <2 x i64> {{%.+}}, <i64 -1, i64 -1>
+// CHECK-LE: or <2 x i64> {{%.+}}, [[T1]]
+
+  res_vd = vec_orc(vda, vbll);
 // CHECK: [[T1:%.+]] = xor <2 x i64> {{%.+}}, <i64 -1, i64 -1>
 // CHECK: or <2 x i64> {{%.+}}, [[T1]]
 // CHECK-LE: [[T1:%.+]] = xor <2 x i64> {{%.+}}, <i64 -1, i64 -1>

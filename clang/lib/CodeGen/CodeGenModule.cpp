@@ -499,16 +499,6 @@ void CodeGenModule::Release() {
   EmitVersionIdentMetadata();
 
   EmitTargetMetadata();
-
-  // Emit any deferred diagnostics gathered during codegen.  We didn't emit them
-  // when we first discovered them because that would have halted codegen,
-  // preventing us from gathering other deferred diags.
-  for (const PartialDiagnosticAt &DiagAt : DeferredDiags) {
-    SourceLocation Loc = DiagAt.first;
-    const PartialDiagnostic &PD = DiagAt.second;
-    DiagnosticBuilder Builder(getDiags().Report(Loc, PD.getDiagID()));
-    PD.Emit(Builder);
-  }
 }
 
 void CodeGenModule::UpdateCompletedType(const TagDecl *TD) {
@@ -683,7 +673,16 @@ StringRef CodeGenModule::getMangledName(GlobalDecl GD) {
   } else {
     IdentifierInfo *II = ND->getIdentifier();
     assert(II && "Attempt to mangle unnamed decl.");
-    Str = II->getName();
+    const auto *FD = dyn_cast<FunctionDecl>(ND);
+
+    if (FD &&
+        FD->getType()->castAs<FunctionType>()->getCallConv() == CC_X86RegCall) {
+      llvm::raw_svector_ostream Out(Buffer);
+      Out << "__regcall3__" << II->getName();
+      Str = Out.str();
+    } else {
+      Str = II->getName();
+    }
   }
 
   // Keep the first result in the case of a mangling collision.
@@ -731,7 +730,7 @@ void CodeGenModule::AddGlobalDtor(llvm::Function *Dtor, int Priority) {
   GlobalDtors.push_back(Structor(Priority, Dtor, nullptr));
 }
 
-void CodeGenModule::EmitCtorList(const CtorList &Fns, const char *GlobalName) {
+void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
   // Ctor function type is void()*.
   llvm::FunctionType* CtorFTy = llvm::FunctionType::get(VoidTy, false);
   llvm::Type *CtorPFTy = llvm::PointerType::getUnqual(CtorFTy);
@@ -759,6 +758,7 @@ void CodeGenModule::EmitCtorList(const CtorList &Fns, const char *GlobalName) {
                              llvm::ConstantArray::get(AT, Ctors),
                              GlobalName);
   }
+  Fns.clear();
 }
 
 llvm::GlobalValue::LinkageTypes
@@ -938,6 +938,11 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
     if (F->getAlignment() < 2 && isa<CXXMethodDecl>(D))
       F->setAlignment(2);
   }
+
+  // In the cross-dso CFI mode, we want !type attributes on definitions only.
+  if (CodeGenOpts.SanitizeCfiCrossDso)
+    if (auto *FD = dyn_cast<FunctionDecl>(D))
+      CreateFunctionTypeMetadata(FD, F);
 }
 
 void CodeGenModule::SetCommonAttributes(const Decl *D,
@@ -1020,10 +1025,6 @@ void CodeGenModule::CreateFunctionTypeMetadata(const FunctionDecl *FD,
 
   // Additionally, if building with cross-DSO support...
   if (CodeGenOpts.SanitizeCfiCrossDso) {
-    // Don't emit entries for function declarations. In cross-DSO mode these are
-    // handled with better precision at run time.
-    if (!FD->hasBody())
-      return;
     // Skip available_externally functions. They won't be codegen'ed in the
     // current module anyway.
     if (getContext().GetGVALinkageForFunction(FD) == GVA_AvailableExternally)
@@ -1096,7 +1097,10 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
     if (MD->isVirtual())
       F->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
-  CreateFunctionTypeMetadata(FD, F);
+  // Don't emit entries for function declarations in the cross-DSO mode. This
+  // is handled with better precision by the receiving DSO.
+  if (!CodeGenOpts.SanitizeCfiCrossDso)
+    CreateFunctionTypeMetadata(FD, F);
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
@@ -2910,33 +2914,6 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
                                                  llvm::GlobalValue *GV) {
   const auto *D = cast<FunctionDecl>(GD.getDecl());
 
-  // Emit this function's deferred diagnostics, if none of them are errors.  If
-  // any of them are errors, don't codegen the function, but also don't emit any
-  // of the diagnostics just yet.  Emitting an error during codegen stops
-  // further codegen, and we want to display as many deferred diags as possible.
-  // We'll emit the now twice-deferred diags at the very end of codegen.
-  //
-  // (If a function has both error and non-error diags, we don't emit the
-  // non-error diags here, because order can be significant, e.g. with notes
-  // that follow errors.)
-  auto Diags = D->takeDeferredDiags();
-  bool HasError = llvm::any_of(Diags, [this](const PartialDiagnosticAt &PDAt) {
-    return getDiags().getDiagnosticLevel(PDAt.second.getDiagID(), PDAt.first) >=
-           DiagnosticsEngine::Error;
-  });
-  if (HasError) {
-    DeferredDiags.insert(DeferredDiags.end(),
-                         std::make_move_iterator(Diags.begin()),
-                         std::make_move_iterator(Diags.end()));
-    return;
-  }
-  for (PartialDiagnosticAt &PDAt : Diags) {
-    const SourceLocation &Loc = PDAt.first;
-    const PartialDiagnostic &PD = PDAt.second;
-    DiagnosticBuilder Builder(getDiags().Report(Loc, PD.getDiagID()));
-    PD.Emit(Builder);
-  }
-
   // Compute the function info and LLVM type.
   const CGFunctionInfo &FI = getTypes().arrangeGlobalDeclaration(GD);
   llvm::FunctionType *Ty = getTypes().GetFunctionType(FI);
@@ -3136,13 +3113,12 @@ GetConstantCFStringEntry(llvm::StringMap<llvm::GlobalVariable *> &Map,
   // Otherwise, convert the UTF8 literals into a string of shorts.
   IsUTF16 = true;
 
-  SmallVector<UTF16, 128> ToBuf(NumBytes + 1); // +1 for ending nulls.
-  const UTF8 *FromPtr = (const UTF8 *)String.data();
-  UTF16 *ToPtr = &ToBuf[0];
+  SmallVector<llvm::UTF16, 128> ToBuf(NumBytes + 1); // +1 for ending nulls.
+  const llvm::UTF8 *FromPtr = (const llvm::UTF8 *)String.data();
+  llvm::UTF16 *ToPtr = &ToBuf[0];
 
-  (void)ConvertUTF8toUTF16(&FromPtr, FromPtr + NumBytes,
-                           &ToPtr, ToPtr + NumBytes,
-                           strictConversion);
+  (void)llvm::ConvertUTF8toUTF16(&FromPtr, FromPtr + NumBytes, &ToPtr,
+                                 ToPtr + NumBytes, llvm::strictConversion);
 
   // ConvertUTF8toUTF16 returns the length in ToPtr.
   StringLength = ToPtr - &ToBuf[0];
@@ -3989,9 +3965,33 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
         DI->EmitImportDecl(*Import);
     }
 
-    // Emit the module initializers.
-    for (auto *D : Context.getModuleInitializers(Import->getImportedModule()))
-      EmitTopLevelDecl(D);
+    // Find all of the submodules and emit the module initializers.
+    llvm::SmallPtrSet<clang::Module *, 16> Visited;
+    SmallVector<clang::Module *, 16> Stack;
+    Visited.insert(Import->getImportedModule());
+    Stack.push_back(Import->getImportedModule());
+
+    while (!Stack.empty()) {
+      clang::Module *Mod = Stack.pop_back_val();
+      if (!EmittedModuleInitializers.insert(Mod).second)
+        continue;
+
+      for (auto *D : Context.getModuleInitializers(Mod))
+        EmitTopLevelDecl(D);
+
+      // Visit the submodules of this module.
+      for (clang::Module::submodule_iterator Sub = Mod->submodule_begin(),
+                                             SubEnd = Mod->submodule_end();
+           Sub != SubEnd; ++Sub) {
+        // Skip explicit children; they need to be explicitly imported to emit
+        // the initializers.
+        if ((*Sub)->IsExplicit)
+          continue;
+
+        if (Visited.insert(*Sub).second)
+          Stack.push_back(*Sub);
+      }
+    }
     break;
   }
 

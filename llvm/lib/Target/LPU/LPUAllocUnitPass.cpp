@@ -92,7 +92,7 @@ public:
     IIToFU[LPU::Sched::IICtl    ] = LPU::FUNCUNIT::SXU;
   }
 
-  const char* getPassName() const override {
+  StringRef getPassName() const override {
     return "LPU Allocate Unit Pass";
   }
 

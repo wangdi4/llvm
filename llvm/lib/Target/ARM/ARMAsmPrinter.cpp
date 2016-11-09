@@ -97,6 +97,13 @@ void ARMAsmPrinter::EmitXXStructor(const DataLayout &DL, const Constant *CV) {
   OutStreamer->EmitValue(E, Size);
 }
 
+void ARMAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
+  if (PromotedGlobals.count(GV))
+    // The global was promoted into a constant pool. It should not be emitted.
+    return;
+  AsmPrinter::EmitGlobalVariable(GV);
+}
+
 /// runOnMachineFunction - This uses the EmitInstruction()
 /// method to print assembly for each instruction.
 ///
@@ -109,6 +116,12 @@ bool ARMAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   const Function* F = MF.getFunction();
   const TargetMachine& TM = MF.getTarget();
 
+  // Collect all globals that had their storage promoted to a constant pool.
+  // Functions are emitted before variables, so this accumulates promoted
+  // globals from all functions in PromotedGlobals.
+  for (auto *GV : AFI->getGlobalsPromotedToConstantPool())
+    PromotedGlobals.insert(GV);
+  
   // Calculate this function's optimization goal.
   unsigned OptimizationGoal;
   if (F->hasFnAttribute(Attribute::OptimizeNone))
@@ -592,9 +605,11 @@ static ARMBuildAttrs::CPUArch getArchForCPU(StringRef CPU,
   if (CPU == "xscale")
     return ARMBuildAttrs::v5TEJ;
 
-  if (Subtarget->hasV8Ops())
+  if (Subtarget->hasV8Ops()) {
+    if (Subtarget->isRClass())
+      return ARMBuildAttrs::v8_R;
     return ARMBuildAttrs::v8_A;
-  else if (Subtarget->hasV8MMainlineOps())
+  } else if (Subtarget->hasV8MMainlineOps())
     return ARMBuildAttrs::v8_M_Main;
   else if (Subtarget->hasV7Ops()) {
     if (Subtarget->isMClass() && Subtarget->hasDSP())
@@ -618,16 +633,14 @@ static ARMBuildAttrs::CPUArch getArchForCPU(StringRef CPU,
     return ARMBuildAttrs::v4;
 }
 
-// Returns true if all functions have the same function attribute value
-static bool haveAllFunctionsAttribute(const Module &M, StringRef Attr,
-                                      StringRef Value) {
-  for (auto &F : M)
-    if (F.getFnAttribute(Attr).getValueAsString() != Value)
-      return false;
-
-  return true;
+// Returns true if all functions have the same function attribute value.
+// It also returns true when the module has no functions.
+static bool checkFunctionsAttributeConsistency(const Module &M, StringRef Attr,
+                                               StringRef Value) {
+  return !any_of(M, [&](const Function &F) {
+    return F.getFnAttribute(Attr).getValueAsString() != Value;
+  });
 }
-
 
 void ARMAsmPrinter::emitAttributes() {
   MCTargetStreamer &TS = *OutStreamer->getTargetStreamer();
@@ -766,14 +779,16 @@ void ARMAsmPrinter::emitAttributes() {
   }
 
   // Set FP Denormals.
-  if (haveAllFunctionsAttribute(*MMI->getModule(), "denormal-fp-math",
-                                "preserve-sign") ||
-      TM.Options.FPDenormalType == FPDenormal::PreserveSign)
+  if (checkFunctionsAttributeConsistency(*MMI->getModule(),
+                                         "denormal-fp-math",
+                                         "preserve-sign") ||
+      TM.Options.FPDenormalMode == FPDenormal::PreserveSign)
     ATS.emitAttribute(ARMBuildAttrs::ABI_FP_denormal,
                       ARMBuildAttrs::PreserveFPSign);
-  else if (haveAllFunctionsAttribute(*MMI->getModule(), "denormal-fp-math",
-                                     "positive-zero") ||
-           TM.Options.FPDenormalType == FPDenormal::PositiveZero)
+  else if (checkFunctionsAttributeConsistency(*MMI->getModule(),
+                                              "denormal-fp-math",
+                                              "positive-zero") ||
+           TM.Options.FPDenormalMode == FPDenormal::PositiveZero)
     ATS.emitAttribute(ARMBuildAttrs::ABI_FP_denormal,
                       ARMBuildAttrs::PositiveZero);
   else if (!TM.Options.UnsafeFPMath)
@@ -806,7 +821,8 @@ void ARMAsmPrinter::emitAttributes() {
   }
 
   // Set FP exceptions and rounding
-  if (haveAllFunctionsAttribute(*MMI->getModule(), "no-trapping-math", "true") ||
+  if (checkFunctionsAttributeConsistency(*MMI->getModule(),
+                                         "no-trapping-math", "true") ||
       TM.Options.NoTrappingFPMath)
     ATS.emitAttribute(ARMBuildAttrs::ABI_FP_exceptions,
                       ARMBuildAttrs::Not_Allowed);
@@ -926,7 +942,7 @@ void ARMAsmPrinter::emitAttributes() {
 
 //===----------------------------------------------------------------------===//
 
-static MCSymbol *getPICLabel(const char *Prefix, unsigned FunctionNumber,
+static MCSymbol *getPICLabel(StringRef Prefix, unsigned FunctionNumber,
                              unsigned LabelId, MCContext &Ctx) {
 
   MCSymbol *Label = Ctx.getOrCreateSymbol(Twine(Prefix)
@@ -1002,6 +1018,26 @@ EmitMachineConstantPoolValue(MachineConstantPoolValue *MCPV) {
 
   ARMConstantPoolValue *ACPV = static_cast<ARMConstantPoolValue*>(MCPV);
 
+  if (ACPV->isPromotedGlobal()) {
+    // This constant pool entry is actually a global whose storage has been
+    // promoted into the constant pool. This global may be referenced still
+    // by debug information, and due to the way AsmPrinter is set up, the debug
+    // info is immutable by the time we decide to promote globals to constant
+    // pools. Because of this, we need to ensure we emit a symbol for the global
+    // with private linkage (the default) so debug info can refer to it.
+    //
+    // However, if this global is promoted into several functions we must ensure
+    // we don't try and emit duplicate symbols!
+    auto *ACPC = cast<ARMConstantPoolConstant>(ACPV);
+    auto *GV = ACPC->getPromotedGlobal();
+    if (!EmittedPromotedGlobalLabels.count(GV)) {
+      MCSymbol *GVSym = getSymbol(GV);
+      OutStreamer->EmitLabel(GVSym);
+      EmittedPromotedGlobalLabels.insert(GV);
+    }
+    return EmitGlobalConstant(DL, ACPC->getPromotedGlobalInit());
+  }
+
   MCSymbol *MCSym;
   if (ACPV->isLSDA()) {
     MCSym = getCurExceptionSym();
@@ -1021,7 +1057,7 @@ EmitMachineConstantPoolValue(MachineConstantPoolValue *MCPV) {
     MCSym = MBB->getSymbol();
   } else {
     assert(ACPV->isExtSymbol() && "unrecognized constant pool value");
-    const char *Sym = cast<ARMConstantPoolSymbol>(ACPV)->getSymbol();
+    auto Sym = cast<ARMConstantPoolSymbol>(ACPV)->getSymbol();
     MCSym = GetExternalSymbolSymbol(Sym);
   }
 
@@ -1130,6 +1166,9 @@ void ARMAsmPrinter::EmitJumpTableTBInst(const MachineInstr *MI,
   const MachineOperand &MO1 = MI->getOperand(1);
   unsigned JTI = MO1.getIndex();
 
+  if (Subtarget->isThumb1Only())
+    EmitAlignment(2);
+  
   MCSymbol *JTISymbol = GetARMJTIPICJumpTableLabel(JTI);
   OutStreamer->EmitLabel(JTISymbol);
 
@@ -1676,6 +1715,91 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
                                      .addReg(0));
     return;
   }
+  case ARM::tTBB_JT:
+  case ARM::tTBH_JT: {
+
+    bool Is8Bit = MI->getOpcode() == ARM::tTBB_JT;
+    unsigned Base = MI->getOperand(0).getReg();
+    unsigned Idx = MI->getOperand(1).getReg();
+    assert(MI->getOperand(1).isKill() && "We need the index register as scratch!");
+
+    // Multiply up idx if necessary.
+    if (!Is8Bit)
+      EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tLSLri)
+                                       .addReg(Idx)
+                                       .addReg(ARM::CPSR)
+                                       .addReg(Idx)
+                                       .addImm(1)
+                                       // Add predicate operands.
+                                       .addImm(ARMCC::AL)
+                                       .addReg(0));
+
+    if (Base == ARM::PC) {
+      // TBB [base, idx] =
+      //    ADDS idx, idx, base
+      //    LDRB idx, [idx, #4] ; or LDRH if TBH
+      //    LSLS idx, #1
+      //    ADDS pc, pc, idx
+
+      // When using PC as the base, it's important that there is no padding
+      // between the last ADDS and the start of the jump table. The jump table
+      // is 4-byte aligned, so we ensure we're 4 byte aligned here too.
+      //
+      // FIXME: Ideally we could vary the LDRB index based on the padding
+      // between the sequence and jump table, however that relies on MCExprs
+      // for load indexes which are currently not supported.
+      OutStreamer->EmitCodeAlignment(4);
+      EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tADDhirr)
+                                       .addReg(Idx)
+                                       .addReg(Idx)
+                                       .addReg(Base)
+                                       // Add predicate operands.
+                                       .addImm(ARMCC::AL)
+                                       .addReg(0));
+
+      unsigned Opc = Is8Bit ? ARM::tLDRBi : ARM::tLDRHi;
+      EmitToStreamer(*OutStreamer, MCInstBuilder(Opc)
+                                       .addReg(Idx)
+                                       .addReg(Idx)
+                                       .addImm(Is8Bit ? 4 : 2)
+                                       // Add predicate operands.
+                                       .addImm(ARMCC::AL)
+                                       .addReg(0));
+    } else {
+      // TBB [base, idx] =
+      //    LDRB idx, [base, idx] ; or LDRH if TBH
+      //    LSLS idx, #1
+      //    ADDS pc, pc, idx
+
+      unsigned Opc = Is8Bit ? ARM::tLDRBr : ARM::tLDRHr;
+      EmitToStreamer(*OutStreamer, MCInstBuilder(Opc)
+                                       .addReg(Idx)
+                                       .addReg(Base)
+                                       .addReg(Idx)
+                                       // Add predicate operands.
+                                       .addImm(ARMCC::AL)
+                                       .addReg(0));
+    }
+
+    EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tLSLri)
+                                     .addReg(Idx)
+                                     .addReg(ARM::CPSR)
+                                     .addReg(Idx)
+                                     .addImm(1)
+                                     // Add predicate operands.
+                                     .addImm(ARMCC::AL)
+                                     .addReg(0));
+
+    OutStreamer->EmitLabel(GetCPISymbol(MI->getOperand(3).getImm()));
+    EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tADDhirr)
+                                     .addReg(ARM::PC)
+                                     .addReg(ARM::PC)
+                                     .addReg(Idx)
+                                     // Add predicate operands.
+                                     .addImm(ARMCC::AL)
+                                     .addReg(0));
+    return;
+  }
   case ARM::tBR_JTr:
   case ARM::BR_JTr: {
     // Lower and emit the instruction itself, then the jump table following it.
@@ -2015,6 +2139,9 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   case ARM::PATCHABLE_FUNCTION_EXIT:
     LowerPATCHABLE_FUNCTION_EXIT(*MI);
     return;
+  case ARM::PATCHABLE_TAIL_CALL:
+    LowerPATCHABLE_TAIL_CALL(*MI);
+    return;
   }
 
   MCInst TmpInst;
@@ -2029,8 +2156,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
 
 // Force static initialization.
 extern "C" void LLVMInitializeARMAsmPrinter() {
-  RegisterAsmPrinter<ARMAsmPrinter> X(TheARMLETarget);
-  RegisterAsmPrinter<ARMAsmPrinter> Y(TheARMBETarget);
-  RegisterAsmPrinter<ARMAsmPrinter> A(TheThumbLETarget);
-  RegisterAsmPrinter<ARMAsmPrinter> B(TheThumbBETarget);
+  RegisterAsmPrinter<ARMAsmPrinter> X(getTheARMLETarget());
+  RegisterAsmPrinter<ARMAsmPrinter> Y(getTheARMBETarget());
+  RegisterAsmPrinter<ARMAsmPrinter> A(getTheThumbLETarget());
+  RegisterAsmPrinter<ARMAsmPrinter> B(getTheThumbBETarget());
 }

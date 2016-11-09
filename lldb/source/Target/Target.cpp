@@ -796,7 +796,8 @@ bool Target::EnableBreakpointByID(break_id_t break_id) {
 }
 
 Error Target::SerializeBreakpointsToFile(const FileSpec &file,
-                                         const BreakpointIDList &bp_ids) {
+                                         const BreakpointIDList &bp_ids,
+                                         bool append) {
   Error error;
 
   if (!file) {
@@ -805,6 +806,28 @@ Error Target::SerializeBreakpointsToFile(const FileSpec &file,
   }
 
   std::string path(file.GetPath());
+  StructuredData::ObjectSP input_data_sp;
+
+  StructuredData::ArraySP break_store_sp;
+  StructuredData::Array *break_store_ptr = nullptr;
+
+  if (append) {
+    input_data_sp = StructuredData::ParseJSONFromFile(file, error);
+    if (error.Success()) {
+      break_store_ptr = input_data_sp->GetAsArray();
+      if (!break_store_ptr) {
+        error.SetErrorStringWithFormat(
+            "Tried to append to invalid input file %s", path.c_str());
+        return error;
+      }
+    }
+  }
+
+  if (!break_store_ptr) {
+    break_store_sp.reset(new StructuredData::Array());
+    break_store_ptr = break_store_sp.get();
+  }
+
   StreamFile out_file(path.c_str(),
                       File::OpenOptions::eOpenOptionTruncate |
                           File::OpenOptions::eOpenOptionWrite |
@@ -820,7 +843,6 @@ Error Target::SerializeBreakpointsToFile(const FileSpec &file,
   std::unique_lock<std::recursive_mutex> lock;
   GetBreakpointList().GetListMutex(lock);
 
-  StructuredData::ArraySP break_store_sp(new StructuredData::Array());
   if (bp_ids.GetSize() == 0) {
     const BreakpointList &breakpoints = GetBreakpointList();
 
@@ -830,7 +852,7 @@ Error Target::SerializeBreakpointsToFile(const FileSpec &file,
       StructuredData::ObjectSP bkpt_save_sp = bp->SerializeToStructuredData();
       // If a breakpoint can't serialize it, just ignore it for now:
       if (bkpt_save_sp)
-        break_store_sp->AddItem(bkpt_save_sp);
+        break_store_ptr->AddItem(bkpt_save_sp);
     }
   } else {
 
@@ -857,17 +879,24 @@ Error Target::SerializeBreakpointsToFile(const FileSpec &file,
                                          bp_id);
           return error;
         }
-        break_store_sp->AddItem(bkpt_save_sp);
+        break_store_ptr->AddItem(bkpt_save_sp);
       }
     }
   }
 
-  break_store_sp->Dump(out_file, false);
+  break_store_ptr->Dump(out_file, false);
   out_file.PutChar('\n');
   return error;
 }
 
 Error Target::CreateBreakpointsFromFile(const FileSpec &file,
+                                        BreakpointIDList &new_bps) {
+  std::vector<std::string> no_names;
+  return CreateBreakpointsFromFile(file, no_names, new_bps);
+}
+
+Error Target::CreateBreakpointsFromFile(const FileSpec &file,
+                                        std::vector<std::string> &names,
                                         BreakpointIDList &new_bps) {
   std::unique_lock<std::recursive_mutex> lock;
   GetBreakpointList().GetListMutex(lock);
@@ -891,6 +920,8 @@ Error Target::CreateBreakpointsFromFile(const FileSpec &file,
   }
 
   size_t num_bkpts = bkpt_array->GetSize();
+  size_t num_names = names.size();
+
   for (size_t i = 0; i < num_bkpts; i++) {
     StructuredData::ObjectSP bkpt_object_sp = bkpt_array->GetItemAtIndex(i);
     // Peel off the breakpoint key, and feed the rest to the Breakpoint:
@@ -903,6 +934,10 @@ Error Target::CreateBreakpointsFromFile(const FileSpec &file,
     }
     StructuredData::ObjectSP bkpt_data_sp =
         bkpt_dict->GetValueForKey(Breakpoint::GetSerializationKey());
+    if (num_names &&
+        !Breakpoint::SerializedBreakpointMatchesNames(bkpt_data_sp, names))
+      continue;
+
     BreakpointSP bkpt_sp =
         Breakpoint::CreateFromStructuredData(*this, bkpt_data_sp, error);
     if (!error.Success()) {
@@ -1926,7 +1961,7 @@ Target::GetPersistentExpressionStateForLanguage(lldb::LanguageType language) {
 }
 
 UserExpression *Target::GetUserExpressionForLanguage(
-    const char *expr, const char *expr_prefix, lldb::LanguageType language,
+    llvm::StringRef expr, llvm::StringRef prefix, lldb::LanguageType language,
     Expression::ResultType desired_type,
     const EvaluateExpressionOptions &options, Error &error) {
   Error type_system_error;
@@ -1943,7 +1978,7 @@ UserExpression *Target::GetUserExpressionForLanguage(
     return nullptr;
   }
 
-  user_expr = type_system->GetUserExpression(expr, expr_prefix, language,
+  user_expr = type_system->GetUserExpression(expr, prefix, language,
                                              desired_type, options);
   if (!user_expr)
     error.SetErrorStringWithFormat(
@@ -2083,14 +2118,14 @@ Target *Target::GetTargetFromContexts(const ExecutionContext *exe_ctx_ptr,
 }
 
 ExpressionResults Target::EvaluateExpression(
-    const char *expr_cstr, ExecutionContextScope *exe_scope,
+    llvm::StringRef expr, ExecutionContextScope *exe_scope,
     lldb::ValueObjectSP &result_valobj_sp,
     const EvaluateExpressionOptions &options, std::string *fixed_expression) {
   result_valobj_sp.reset();
 
   ExpressionResults execution_results = eExpressionSetupError;
 
-  if (expr_cstr == nullptr || expr_cstr[0] == '\0')
+  if (expr.empty())
     return execution_results;
 
   // We shouldn't run stop hooks in expressions.
@@ -2112,10 +2147,10 @@ ExpressionResults Target::EvaluateExpression(
   // variable (something like "$0")
   lldb::ExpressionVariableSP persistent_var_sp;
   // Only check for persistent variables the expression starts with a '$'
-  if (expr_cstr[0] == '$')
+  if (expr[0] == '$')
     persistent_var_sp = GetScratchTypeSystemForLanguage(nullptr, eLanguageTypeC)
                             ->GetPersistentExpressionState()
-                            ->GetVariable(expr_cstr);
+                            ->GetVariable(expr);
 
   if (persistent_var_sp) {
     result_valobj_sp = persistent_var_sp->GetValueObject();
@@ -2123,10 +2158,10 @@ ExpressionResults Target::EvaluateExpression(
   } else {
     const char *prefix = GetExpressionPrefixContentsAsCString();
     Error error;
-    execution_results = UserExpression::Evaluate(
-        exe_ctx, options, expr_cstr, prefix, result_valobj_sp, error,
-        0, // Line Number
-        fixed_expression);
+    execution_results = UserExpression::Evaluate(exe_ctx, options, expr, prefix,
+                                                 result_valobj_sp, error,
+                                                 0, // Line Number
+                                                 fixed_expression);
   }
 
   m_suppress_stop_hooks = old_suppress_value;
@@ -2608,11 +2643,8 @@ void Target::RunStopHooks() {
 const TargetPropertiesSP &Target::GetGlobalProperties() {
   // NOTE: intentional leak so we don't crash if global destructor chain gets
   // called as other threads still use the result of this function
-  static TargetPropertiesSP *g_settings_sp_ptr = nullptr;
-  static std::once_flag g_once_flag;
-  std::call_once(g_once_flag, []() {
-    g_settings_sp_ptr = new TargetPropertiesSP(new TargetProperties(nullptr));
-  });
+  static TargetPropertiesSP *g_settings_sp_ptr =
+      new TargetPropertiesSP(new TargetProperties(nullptr));
   return *g_settings_sp_ptr;
 }
 
@@ -3211,6 +3243,8 @@ static PropertyDefinition g_properties[] = {
      nullptr, "Automatically apply fix-it hints to expressions."},
     {"notify-about-fixits", OptionValue::eTypeBoolean, false, true, nullptr,
      nullptr, "Print the fixed expression text."},
+    {"save-jit-objects", OptionValue::eTypeBoolean, false, false, nullptr,
+     nullptr, "Save intermediate object files generated by the LLVM JIT"},
     {"max-children-count", OptionValue::eTypeSInt64, false, 256, nullptr,
      nullptr, "Maximum number of children to expand in any level of depth."},
     {"max-string-summary-length", OptionValue::eTypeSInt64, false, 1024,
@@ -3335,6 +3369,7 @@ enum {
   ePropertyAutoImportClangModules,
   ePropertyAutoApplyFixIts,
   ePropertyNotifyAboutFixIts,
+  ePropertySaveObjects,
   ePropertyMaxChildrenCount,
   ePropertyMaxSummaryLength,
   ePropertyMaxMemReadSize,
@@ -3666,7 +3701,8 @@ const char *TargetProperties::GetArg0() const {
 
 void TargetProperties::SetArg0(const char *arg) {
   const uint32_t idx = ePropertyArg0;
-  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, arg);
+  m_collection_sp->SetPropertyAtIndexAsString(
+      nullptr, idx, llvm::StringRef::withNullAsEmpty(arg));
   m_launch_info.SetArg0(arg);
 }
 
@@ -3752,6 +3788,12 @@ bool TargetProperties::GetEnableNotifyAboutFixIts() const {
       nullptr, idx, g_properties[idx].default_uint_value != 0);
 }
 
+bool TargetProperties::GetEnableSaveObjects() const {
+  const uint32_t idx = ePropertySaveObjects;
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_properties[idx].default_uint_value != 0);
+}
+
 bool TargetProperties::GetEnableSyntheticValue() const {
   const uint32_t idx = ePropertyEnableSynthetic;
   return m_collection_sp->GetPropertyAtIndexAsBoolean(
@@ -3781,9 +3823,9 @@ FileSpec TargetProperties::GetStandardInputPath() const {
   return m_collection_sp->GetPropertyAtIndexAsFileSpec(nullptr, idx);
 }
 
-void TargetProperties::SetStandardInputPath(const char *p) {
+void TargetProperties::SetStandardInputPath(llvm::StringRef path) {
   const uint32_t idx = ePropertyInputPath;
-  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, p);
+  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, path);
 }
 
 FileSpec TargetProperties::GetStandardOutputPath() const {
@@ -3791,14 +3833,19 @@ FileSpec TargetProperties::GetStandardOutputPath() const {
   return m_collection_sp->GetPropertyAtIndexAsFileSpec(nullptr, idx);
 }
 
-void TargetProperties::SetStandardOutputPath(const char *p) {
+void TargetProperties::SetStandardOutputPath(llvm::StringRef path) {
   const uint32_t idx = ePropertyOutputPath;
-  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, p);
+  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, path);
 }
 
 FileSpec TargetProperties::GetStandardErrorPath() const {
   const uint32_t idx = ePropertyErrorPath;
   return m_collection_sp->GetPropertyAtIndexAsFileSpec(nullptr, idx);
+}
+
+void TargetProperties::SetStandardErrorPath(llvm::StringRef path) {
+  const uint32_t idx = ePropertyErrorPath;
+  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, path);
 }
 
 LanguageType TargetProperties::GetLanguage() const {
@@ -3822,11 +3869,6 @@ const char *TargetProperties::GetExpressionPrefixContentsAsCString() {
       return (const char *)data_sp->GetBytes();
   }
   return nullptr;
-}
-
-void TargetProperties::SetStandardErrorPath(const char *p) {
-  const uint32_t idx = ePropertyErrorPath;
-  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, p);
 }
 
 bool TargetProperties::GetBreakpointsConsultPlatformAvoidList() {
@@ -3924,23 +3966,17 @@ void TargetProperties::SetProcessLaunchInfo(
   const FileAction *input_file_action =
       launch_info.GetFileActionForFD(STDIN_FILENO);
   if (input_file_action) {
-    const char *input_path = input_file_action->GetPath();
-    if (input_path)
-      SetStandardInputPath(input_path);
+    SetStandardInputPath(input_file_action->GetPath());
   }
   const FileAction *output_file_action =
       launch_info.GetFileActionForFD(STDOUT_FILENO);
   if (output_file_action) {
-    const char *output_path = output_file_action->GetPath();
-    if (output_path)
-      SetStandardOutputPath(output_path);
+    SetStandardOutputPath(output_file_action->GetPath());
   }
   const FileAction *error_file_action =
       launch_info.GetFileActionForFD(STDERR_FILENO);
   if (error_file_action) {
-    const char *error_path = error_file_action->GetPath();
-    if (error_path)
-      SetStandardErrorPath(error_path);
+    SetStandardErrorPath(error_file_action->GetPath());
   }
   SetDetachOnError(launch_info.GetFlags().Test(lldb::eLaunchFlagDetachOnError));
   SetDisableASLR(launch_info.GetFlags().Test(lldb::eLaunchFlagDisableASLR));

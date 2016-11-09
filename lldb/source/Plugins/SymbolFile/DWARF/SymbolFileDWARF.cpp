@@ -746,7 +746,7 @@ lldb::CompUnitSP SymbolFileDWARF::ParseCompileUnit(DWARFCompileUnit *dwarf_cu,
               }
 
               std::string remapped_file;
-              if (module_sp->RemapSourceFile(cu_file_spec.GetCString(),
+              if (module_sp->RemapSourceFile(cu_file_spec.GetPath(),
                                              remapped_file))
                 cu_file_spec.SetFile(remapped_file, false);
             }
@@ -2395,7 +2395,7 @@ SymbolFileDWARF::FindFunctions(const ConstString &name,
                      name.AsCString());
 
   // eFunctionNameTypeAuto should be pre-resolved by a call to
-  // Module::PrepareForFunctionNameLookup()
+  // Module::LookupInfo::LookupInfo()
   assert((name_type_mask & eFunctionNameTypeAuto) == 0);
 
   Log *log(LogChannelDWARF::GetLogIfAll(DWARF_LOG_LOOKUPS));

@@ -191,6 +191,8 @@ public:
   //------------------------------------------------------------------
   Stream &operator<<(const char *cstr);
 
+  Stream &operator<<(llvm::StringRef str);
+
   //------------------------------------------------------------------
   /// Output a pointer value \a p to the stream \a s.
   ///
@@ -364,7 +366,7 @@ public:
   /// @param[in] cstr
   ///     The string to be output to the stream.
   //------------------------------------------------------------------
-  size_t PutCString(const char *cstr);
+  size_t PutCString(llvm::StringRef cstr);
 
   //------------------------------------------------------------------
   /// Output and End of Line character to the stream.
@@ -441,6 +443,7 @@ public:
   ///     output the indentation characters.
   //------------------------------------------------------------------
   size_t Indent(const char *s = nullptr);
+  size_t Indent(llvm::StringRef s);
 
   //------------------------------------------------------------------
   /// Decrement the current indentation level.

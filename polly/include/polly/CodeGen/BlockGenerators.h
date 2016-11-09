@@ -78,10 +78,12 @@ public:
   ///                    an original value appearing in this mapping is replaced
   ///                    with the new value it is mapped to.
   /// @param ExprBuilder An expression builder to generate new access functions.
+  /// @param StartBlock  The first basic block after the RTC.
   BlockGenerator(PollyIRBuilder &Builder, LoopInfo &LI, ScalarEvolution &SE,
                  DominatorTree &DT, ScalarAllocaMapTy &ScalarMap,
                  ScalarAllocaMapTy &PHIOpMap, EscapeUsersAllocaMapTy &EscapeMap,
-                 ValueMapT &GlobalMap, IslExprBuilder *ExprBuilder = nullptr);
+                 ValueMapT &GlobalMap, IslExprBuilder *ExprBuilder,
+                 BasicBlock *StartBlock);
 
   /// Copy the basic block.
   ///
@@ -315,6 +317,9 @@ protected:
   ///        code generation.
   ValueMapT &GlobalMap;
 
+  /// The first basic block after the RTC.
+  BasicBlock *StartBlock;
+
   /// Split @p BB to create a new one we can use to clone @p BB in.
   BasicBlock *splitBB(BasicBlock *BB);
 
@@ -545,16 +550,15 @@ protected:
   /// @param NewAccesses A map from memory access ids to new ast expressions,
   ///                    which may contain new access expressions for certain
   ///                    memory accesses.
-  Value *generateScalarLoad(ScopStmt &Stmt, LoadInst *load, ValueMapT &BBMap,
-                            LoopToScevMapT &LTS,
-                            isl_id_to_ast_expr *NewAccesses);
+  Value *generateArrayLoad(ScopStmt &Stmt, LoadInst *load, ValueMapT &BBMap,
+                           LoopToScevMapT &LTS,
+                           isl_id_to_ast_expr *NewAccesses);
 
   /// @param NewAccesses A map from memory access ids to new ast expressions,
   ///                    which may contain new access expressions for certain
   ///                    memory accesses.
-  void generateScalarStore(ScopStmt &Stmt, StoreInst *store, ValueMapT &BBMap,
-                           LoopToScevMapT &LTS,
-                           isl_id_to_ast_expr *NewAccesses);
+  void generateArrayStore(ScopStmt &Stmt, StoreInst *store, ValueMapT &BBMap,
+                          LoopToScevMapT &LTS, isl_id_to_ast_expr *NewAccesses);
 
   /// Copy a single PHI instruction.
   ///

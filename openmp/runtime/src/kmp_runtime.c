@@ -37,13 +37,16 @@
 #include <process.h>
 #endif
 
+#include "tsan_annotations.h"
 
 #if defined(KMP_GOMP_COMPAT)
 char const __kmp_version_alt_comp[] = KMP_VERSION_PREFIX "alternative compiler support: yes";
 #endif /* defined(KMP_GOMP_COMPAT) */
 
 char const __kmp_version_omp_api[] = KMP_VERSION_PREFIX "API version: "
-#if OMP_40_ENABLED
+#if OMP_45_ENABLED
+    "4.5 (201511)";
+#elif OMP_40_ENABLED
     "4.0 (201307)";
 #else
     "3.1 (201107)";
@@ -345,8 +348,10 @@ __kmp_print_storage_map_gtid( int gtid, void *p1, void *p2, size_t size, char co
                     int lastNode;
                     int localProc = __kmp_get_cpu_from_gtid(gtid);
 
-                    p1 = (void *)( (size_t)p1 & ~((size_t)PAGE_SIZE - 1) );
-                    p2 = (void *)( ((size_t) p2 - 1) & ~((size_t)PAGE_SIZE - 1) );
+                    const int page_size = KMP_GET_PAGE_SIZE();
+
+                    p1 = (void *)( (size_t)p1 & ~((size_t)page_size - 1) );
+                    p2 = (void *)( ((size_t) p2 - 1) & ~((size_t)page_size - 1) );
                     if(localProc >= 0)
                         __kmp_printf_no_lock("  GTID %d localNode %d\n", gtid, localProc>>1);
                     else
@@ -358,17 +363,17 @@ __kmp_print_storage_map_gtid( int gtid, void *p1, void *p2, size_t size, char co
                         lastNode = node;
                         /* This loop collates adjacent pages with the same host node. */
                         do {
-                            (char*)p1 += PAGE_SIZE;
+                            (char*)p1 += page_size;
                         } while(p1 <= p2 && (node = __kmp_get_host_node(p1)) == lastNode);
                         __kmp_printf_no_lock("    %p-%p memNode %d\n", last,
                                              (char*)p1 - 1, lastNode);
                     } while(p1 <= p2);
 # else
                     __kmp_printf_no_lock("    %p-%p memNode %d\n", p1,
-                                         (char*)p1 + (PAGE_SIZE - 1), __kmp_get_host_node(p1));
+                                         (char*)p1 + (page_size - 1), __kmp_get_host_node(p1));
                     if(p1 < p2)  {
                         __kmp_printf_no_lock("    %p-%p memNode %d\n", p2,
-                                             (char*)p2 + (PAGE_SIZE - 1), __kmp_get_host_node(p2));
+                                             (char*)p2 + (page_size - 1), __kmp_get_host_node(p2));
                     }
 # endif
                 }
@@ -2764,11 +2769,11 @@ __kmp_get_schedule( int gtid, kmp_sched_t * kind, int * chunk )
     case kmp_sch_trapezoidal:
         *kind = kmp_sched_trapezoidal;
         break;
-/*
+#if KMP_STATIC_STEAL_ENABLED
     case kmp_sch_static_steal:
         *kind = kmp_sched_static_steal;
         break;
-*/
+#endif
     default:
         KMP_FATAL( UnknownSchedulingType, th_type );
     }
@@ -3032,7 +3037,9 @@ __kmp_get_global_icvs( void ) {
       (kmp_int8)__kmp_global.g.g_dynamic,                                 //internal control for dynamic adjustment of threads (per thread)
       (kmp_int8)__kmp_env_blocktime,          //int bt_set;               //internal control for whether blocktime is explicitly set
       __kmp_dflt_blocktime,         //int blocktime;            //internal control for blocktime
+#if KMP_USE_MONITOR
       __kmp_bt_intervals,           //int bt_intervals;         //internal control for blocktime intervals
+#endif
       __kmp_dflt_team_nth,          //int nproc;                //internal control for # of threads for next parallel region (per thread)
                                     // (use a max ub on value if __kmp_parallel_initialize not called yet)
       __kmp_dflt_max_active_levels, //int max_active_levels;    //internal control for max_active_levels
@@ -4172,6 +4179,7 @@ __kmp_allocate_thread( kmp_root_t *root, kmp_team_t *team, int new_tid )
     KMP_ASSERT( __kmp_nth    == __kmp_all_nth );
     KMP_ASSERT( __kmp_all_nth < __kmp_threads_capacity );
 
+#if KMP_USE_MONITOR
     //
     // If this is the first worker thread the RTL is creating, then also
     // launch the monitor thread.  We try to do this as early as possible.
@@ -4199,6 +4207,7 @@ __kmp_allocate_thread( kmp_root_t *root, kmp_team_t *team, int new_tid )
         }
         __kmp_release_bootstrap_lock( & __kmp_monitor_lock );
     }
+#endif
 
     KMP_MB();
     for( new_gtid=1 ; TCR_PTR(__kmp_threads[new_gtid]) != NULL; ++new_gtid ) {
@@ -5661,6 +5670,7 @@ __kmp_reap_thread(
             /* Assume the threads are at the fork barrier here */
             KA_TRACE( 20, ("__kmp_reap_thread: releasing T#%d from fork barrier for reap\n", gtid ) );
             /* Need release fence here to prevent seg faults for tree forkjoin barrier (GEH) */
+            ANNOTATE_HAPPENS_BEFORE(thread);
             kmp_flag_64 flag(&thread->th.th_bar[ bs_forkjoin_barrier ].bb.b_go, thread);
             __kmp_release_64(&flag);
         }; // if
@@ -5748,6 +5758,7 @@ __kmp_reap_thread(
     }; // if
 #endif /* KMP_AFFINITY_SUPPORTED */
 
+    __kmp_free_implicit_task(thread);
     __kmp_reap_team( thread->th.th_serial_team );
     thread->th.th_serial_team = NULL;
     __kmp_free( thread );
@@ -5781,6 +5792,7 @@ __kmp_internal_end(void)
     TCW_SYNC_4(__kmp_global.g.g_done, TRUE);
 
     if ( i < __kmp_threads_capacity ) {
+#if KMP_USE_MONITOR
         // 2009-09-08 (lev): Other alive roots found. Why do we kill the monitor??
         KMP_MB();       /* Flush all pending memory write invalidates.  */
 
@@ -5802,6 +5814,7 @@ __kmp_internal_end(void)
         }
         __kmp_release_bootstrap_lock( & __kmp_monitor_lock );
         KA_TRACE( 10, ("__kmp_internal_end: monitor reaped\n" ) );
+#endif // KMP_USE_MONITOR
     } else {
         /* TODO move this to cleanup code */
         #ifdef KMP_DEBUG
@@ -5853,6 +5866,7 @@ __kmp_internal_end(void)
         KA_TRACE( 10, ("__kmp_internal_end: all workers reaped\n" ) );
         KMP_MB();
 
+#if KMP_USE_MONITOR
         //
         // See note above: One of the possible fixes for CQ138434 / CQ140126
         //
@@ -5866,7 +5880,7 @@ __kmp_internal_end(void)
         }
         __kmp_release_bootstrap_lock( & __kmp_monitor_lock );
         KA_TRACE( 10, ("__kmp_internal_end: monitor reaped\n" ) );
-
+#endif
     } /* else !__kmp_global.t_active */
     TCW_4(__kmp_init_gtid, FALSE);
     KMP_MB();       /* Flush all pending memory write invalidates.  */
@@ -6131,7 +6145,7 @@ __kmp_register_library_startup(
         double dtime;
         long   ltime;
     } time;
-    #if KMP_OS_WINDOWS
+    #if KMP_ARCH_X86 || KMP_ARCH_X86_64
         __kmp_initialize_system_tick();
     #endif
     __kmp_read_system_time( & time.dtime );
@@ -6337,7 +6351,9 @@ __kmp_do_serial_initialize( void )
     __kmp_init_atomic_lock( & __kmp_atomic_lock_32c );
     __kmp_init_bootstrap_lock( & __kmp_forkjoin_lock  );
     __kmp_init_bootstrap_lock( & __kmp_exit_lock      );
+#if KMP_USE_MONITOR
     __kmp_init_bootstrap_lock( & __kmp_monitor_lock   );
+#endif
     __kmp_init_bootstrap_lock( & __kmp_tp_cached_lock );
 
     /* conduct initialization and initial setup of configuration */
@@ -6367,8 +6383,10 @@ __kmp_do_serial_initialize( void )
 
     // Three vars below moved here from __kmp_env_initialize() "KMP_BLOCKTIME" part
     __kmp_dflt_blocktime = KMP_DEFAULT_BLOCKTIME;
+#if KMP_USE_MONITOR
     __kmp_monitor_wakeups = KMP_WAKEUPS_FROM_BLOCKTIME( __kmp_dflt_blocktime, __kmp_monitor_wakeups );
     __kmp_bt_intervals = KMP_INTERVALS_FROM_BLOCKTIME( __kmp_dflt_blocktime, __kmp_monitor_wakeups );
+#endif
     // From "KMP_LIBRARY" part of __kmp_env_initialize()
     __kmp_library = library_throughput;
     // From KMP_SCHEDULE initialization
@@ -6789,6 +6807,8 @@ __kmp_run_after_invoked_task( int gtid, int tid, kmp_info_t *this_thr,
 {
     if( __kmp_env_consistency_check )
         __kmp_pop_parallel( gtid, team->t.t_ident );
+
+    __kmp_finish_implicit_task(this_thr);
 }
 
 int
@@ -7440,7 +7460,9 @@ void
 __kmp_aux_set_blocktime (int arg, kmp_info_t *thread, int tid)
 {
     int blocktime = arg;        /* argument is in milliseconds */
+#if KMP_USE_MONITOR
     int bt_intervals;
+#endif
     int bt_set;
 
     __kmp_save_internal_controls( thread );
@@ -7454,20 +7476,30 @@ __kmp_aux_set_blocktime (int arg, kmp_info_t *thread, int tid)
     set__blocktime_team( thread->th.th_team, tid, blocktime );
     set__blocktime_team( thread->th.th_serial_team, 0, blocktime );
 
+#if KMP_USE_MONITOR
     /* Calculate and set blocktime intervals for the teams */
     bt_intervals = KMP_INTERVALS_FROM_BLOCKTIME(blocktime, __kmp_monitor_wakeups);
 
     set__bt_intervals_team( thread->th.th_team, tid, bt_intervals );
     set__bt_intervals_team( thread->th.th_serial_team, 0, bt_intervals );
+#endif
 
     /* Set whether blocktime has been set to "TRUE" */
     bt_set = TRUE;
 
     set__bt_set_team( thread->th.th_team, tid, bt_set );
     set__bt_set_team( thread->th.th_serial_team, 0, bt_set );
-    KF_TRACE(10, ( "kmp_set_blocktime: T#%d(%d:%d), blocktime=%d, bt_intervals=%d, monitor_updates=%d\n",
+#if KMP_USE_MONITOR
+    KF_TRACE(10, ("kmp_set_blocktime: T#%d(%d:%d), blocktime=%d, "
+                  "bt_intervals=%d, monitor_updates=%d\n",
                   __kmp_gtid_from_tid(tid, thread->th.th_team),
-                  thread->th.th_team->t.t_id, tid, blocktime, bt_intervals, __kmp_monitor_wakeups ) );
+                  thread->th.th_team->t.t_id, tid, blocktime, bt_intervals,
+                  __kmp_monitor_wakeups));
+#else
+    KF_TRACE(10, ("kmp_set_blocktime: T#%d(%d:%d), blocktime=%d\n",
+                  __kmp_gtid_from_tid(tid, thread->th.th_team),
+                  thread->th.th_team->t.t_id, tid, blocktime));
+#endif
 }
 
 void

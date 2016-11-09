@@ -78,6 +78,7 @@
 #include "Plugins/Platform/gdb-server/PlatformRemoteGDBServer.h"
 #include "Plugins/Process/elf-core/ProcessElfCore.h"
 #include "Plugins/Process/gdb-remote/ProcessGDBRemote.h"
+#include "Plugins/Process/minidump/ProcessMinidump.h"
 #include "Plugins/ScriptInterpreter/None/ScriptInterpreterNone.h"
 #include "Plugins/SymbolFile/DWARF/SymbolFileDWARF.h"
 #include "Plugins/SymbolFile/DWARF/SymbolFileDWARFDebugMap.h"
@@ -108,7 +109,6 @@
 
 #if defined(_MSC_VER)
 #include "Plugins/Process/Windows/Live/ProcessWindowsLive.h"
-#include "Plugins/Process/Windows/MiniDump/ProcessWinMiniDump.h"
 #include "lldb/Host/windows/windows.h"
 #endif
 
@@ -304,9 +304,7 @@ void SystemInitializerFull::Initialize() {
 
   JITLoaderGDB::Initialize();
   ProcessElfCore::Initialize();
-#if defined(_MSC_VER)
-  ProcessWinMiniDump::Initialize();
-#endif
+  minidump::ProcessMinidump::Initialize();
   MemoryHistoryASan::Initialize();
   AddressSanitizerRuntime::Initialize();
   ThreadSanitizerRuntime::Initialize();
@@ -429,9 +427,7 @@ void SystemInitializerFull::Terminate() {
 
   JITLoaderGDB::Terminate();
   ProcessElfCore::Terminate();
-#if defined(_MSC_VER)
-  ProcessWinMiniDump::Terminate();
-#endif
+  minidump::ProcessMinidump::Terminate();
   MemoryHistoryASan::Terminate();
   AddressSanitizerRuntime::Terminate();
   ThreadSanitizerRuntime::Terminate();

@@ -98,7 +98,7 @@ _start:
 # CHECK-NEXT:   }
 # CHECK-NEXT:   Section {
 # CHECK-NEXT:     Index: 4
-# CHECK-NEXT:     Name: .strtab (25)
+# CHECK-NEXT:     Name: .strtab
 # CHECK-NEXT:     Type: SHT_STRTAB (0x3)
 # CHECK-NEXT:     Flags [ (0x0)
 # CHECK-NEXT:     ]
@@ -207,7 +207,7 @@ _start:
 
 # RUN: not ld.lld -o %t2 2>&1 | \
 # RUN:  FileCheck --check-prefix=NO_INPUT %s
-# NO_INPUT: no input files.
+# NO_INPUT: ld.lld{{.*}}: no input files
 
 # RUN: not ld.lld %t.no.such.file -o %t2 2>&1 | \
 # RUN:  FileCheck --check-prefix=CANNOT_OPEN %s
@@ -221,10 +221,14 @@ _start:
 
 # RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux %s -o %t
 # RUN: not ld.lld %t %t -o %t2 2>&1 | FileCheck --check-prefix=DUP %s
-# DUP: duplicate symbol: _start in {{.*}} and {{.*}}
+# DUP: {{.*}} (.text+0x0): duplicate symbol '_start'
+# DUP: {{.*}} (.text+0x0): previous definition was here
 
 # RUN: not ld.lld %t -o %t -m wrong_emul_fbsd 2>&1 | FileCheck --check-prefix=UNKNOWN_EMUL %s
 # UNKNOWN_EMUL: unknown emulation: wrong_emul_fbsd
 
-# RUN: not ld.lld %t --lto-jobs=0 2>&1 | FileCheck --check-prefix=NOTHREADS %s
-# NOTHREADS: number of threads must be > 0
+# RUN: not ld.lld %t --lto-partitions=0 2>&1 | FileCheck --check-prefix=NOTHREADS %s
+# NOTHREADS: --lto-partitions: number of threads must be > 0
+
+# RUN: not ld.lld %t --thinlto-jobs=0 2>&1 | FileCheck --check-prefix=NOTHREADSTHIN %s
+# NOTHREADSTHIN: --thinlto-jobs: number of threads must be > 0

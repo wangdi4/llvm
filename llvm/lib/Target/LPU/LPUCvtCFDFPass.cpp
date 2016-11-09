@@ -87,7 +87,7 @@ namespace llvm {
     static char ID;
     LPUCvtCFDFPass();
 
-    const char* getPassName() const override {
+    StringRef getPassName() const override {
       return "LPU Convert Control Flow to Data Flow";
     }
 

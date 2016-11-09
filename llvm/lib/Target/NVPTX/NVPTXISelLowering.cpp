@@ -278,6 +278,8 @@ NVPTXTargetLowering::NVPTXTargetLowering(const NVPTXTargetMachine &TM,
   setTargetDAGCombine(ISD::MUL);
   setTargetDAGCombine(ISD::SHL);
   setTargetDAGCombine(ISD::SELECT);
+  setTargetDAGCombine(ISD::SREM);
+  setTargetDAGCombine(ISD::UREM);
 
   // Library functions.  These default to Expand, but we have instructions
   // for them.
@@ -3274,20 +3276,34 @@ bool NVPTXTargetLowering::getTgtMemIntrinsic(
     return false;
 
   case Intrinsic::nvvm_atomic_load_add_f32:
-    Info.opc = ISD::INTRINSIC_W_CHAIN;
-    Info.memVT = MVT::f32;
-    Info.ptrVal = I.getArgOperand(0);
-    Info.offset = 0;
-    Info.vol = 0;
-    Info.readMem = true;
-    Info.writeMem = true;
-    Info.align = 0;
-    return true;
-
   case Intrinsic::nvvm_atomic_load_inc_32:
   case Intrinsic::nvvm_atomic_load_dec_32:
+
+  case Intrinsic::nvvm_atomic_add_gen_f_cta:
+  case Intrinsic::nvvm_atomic_add_gen_f_sys:
+  case Intrinsic::nvvm_atomic_add_gen_i_cta:
+  case Intrinsic::nvvm_atomic_add_gen_i_sys:
+  case Intrinsic::nvvm_atomic_and_gen_i_cta:
+  case Intrinsic::nvvm_atomic_and_gen_i_sys:
+  case Intrinsic::nvvm_atomic_cas_gen_i_cta:
+  case Intrinsic::nvvm_atomic_cas_gen_i_sys:
+  case Intrinsic::nvvm_atomic_dec_gen_i_cta:
+  case Intrinsic::nvvm_atomic_dec_gen_i_sys:
+  case Intrinsic::nvvm_atomic_inc_gen_i_cta:
+  case Intrinsic::nvvm_atomic_inc_gen_i_sys:
+  case Intrinsic::nvvm_atomic_max_gen_i_cta:
+  case Intrinsic::nvvm_atomic_max_gen_i_sys:
+  case Intrinsic::nvvm_atomic_min_gen_i_cta:
+  case Intrinsic::nvvm_atomic_min_gen_i_sys:
+  case Intrinsic::nvvm_atomic_or_gen_i_cta:
+  case Intrinsic::nvvm_atomic_or_gen_i_sys:
+  case Intrinsic::nvvm_atomic_exch_gen_i_cta:
+  case Intrinsic::nvvm_atomic_exch_gen_i_sys:
+  case Intrinsic::nvvm_atomic_xor_gen_i_cta:
+  case Intrinsic::nvvm_atomic_xor_gen_i_sys: {
+    auto &DL = I.getModule()->getDataLayout();
     Info.opc = ISD::INTRINSIC_W_CHAIN;
-    Info.memVT = MVT::i32;
+    Info.memVT = getValueType(DL, I.getType());
     Info.ptrVal = I.getArgOperand(0);
     Info.offset = 0;
     Info.vol = 0;
@@ -3295,6 +3311,7 @@ bool NVPTXTargetLowering::getTgtMemIntrinsic(
     Info.writeMem = true;
     Info.align = 0;
     return true;
+  }
 
   case Intrinsic::nvvm_ldu_global_i:
   case Intrinsic::nvvm_ldu_global_f:
@@ -4117,6 +4134,37 @@ static SDValue PerformSELECTCombine(SDNode *N,
                          DCI.DAG.getConstant(IntrinsicId, DL, VT), LHS, RHS);
 }
 
+static SDValue PerformREMCombine(SDNode *N,
+                                 TargetLowering::DAGCombinerInfo &DCI,
+                                 CodeGenOpt::Level OptLevel) {
+  assert(N->getOpcode() == ISD::SREM || N->getOpcode() == ISD::UREM);
+
+  // Don't do anything at less than -O2.
+  if (OptLevel < CodeGenOpt::Default)
+    return SDValue();
+
+  SelectionDAG &DAG = DCI.DAG;
+  SDLoc DL(N);
+  EVT VT = N->getValueType(0);
+  bool IsSigned = N->getOpcode() == ISD::SREM;
+  unsigned DivOpc = IsSigned ? ISD::SDIV : ISD::UDIV;
+
+  const SDValue &Num = N->getOperand(0);
+  const SDValue &Den = N->getOperand(1);
+
+  for (const SDNode *U : Num->uses()) {
+    if (U->getOpcode() == DivOpc && U->getOperand(0) == Num &&
+        U->getOperand(1) == Den) {
+      // Num % Den -> Num - (Num / Den) * Den
+      return DAG.getNode(ISD::SUB, DL, VT, Num,
+                         DAG.getNode(ISD::MUL, DL, VT,
+                                     DAG.getNode(DivOpc, DL, VT, Num, Den),
+                                     Den));
+    }
+  }
+  return SDValue();
+}
+
 enum OperandSignedness {
   Signed = 0,
   Unsigned,
@@ -4298,6 +4346,9 @@ SDValue NVPTXTargetLowering::PerformDAGCombine(SDNode *N,
       return PerformANDCombine(N, DCI);
     case ISD::SELECT:
       return PerformSELECTCombine(N, DCI);
+    case ISD::UREM:
+    case ISD::SREM:
+      return PerformREMCombine(N, DCI, OptLevel);
   }
   return SDValue();
 }
@@ -4583,6 +4634,6 @@ NVPTXTargetObjectFile::~NVPTXTargetObjectFile() {
 }
 
 MCSection *NVPTXTargetObjectFile::SelectSectionForGlobal(
-    const GlobalValue *GV, SectionKind Kind, const TargetMachine &TM) const {
+    const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
   return getDataSection();
 }

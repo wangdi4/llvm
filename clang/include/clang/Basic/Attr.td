@@ -810,6 +810,11 @@ def FastCall : InheritableAttr {
   let Documentation = [FastCallDocs];
 }
 
+def RegCall : InheritableAttr {
+  let Spellings = [GCC<"regcall">, Keyword<"__regcall">];
+  let Documentation = [RegCallDocs];
+}
+
 def Final : InheritableAttr {
   let Spellings = [Keyword<"final">, Keyword<"sealed">];
   let Accessors = [Accessor<"isSpelledAsSealed", [Keyword<"sealed">]>];
@@ -1026,6 +1031,12 @@ def NoDuplicate : InheritableAttr {
   let Documentation = [NoDuplicateDocs];
 }
 
+def Convergent : InheritableAttr {
+  let Spellings = [GNU<"convergent">, CXX11<"clang", "convergent">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [ConvergentDocs];
+}
+
 def NoInline : InheritableAttr {
   let Spellings = [GCC<"noinline">, Declspec<"noinline">];
   let Subjects = SubjectList<[Function]>;
@@ -1050,24 +1061,37 @@ def NoMips16 : InheritableAttr, TargetSpecificAttr<TargetMips> {
 //
 // FIXME: This provides a sub-optimal error message if you attempt to
 // use this in CUDA, since CUDA does not use the same terminology.
-def AMDGPUNumVGPR : InheritableAttr {
-  let Spellings = [GNU<"amdgpu_num_vgpr">];
-  let Args = [UnsignedArgument<"NumVGPR">];
-  let Documentation = [AMDGPUNumVGPRDocs];
-
-// FIXME: This should be for OpenCLKernelFunction, but is not to
+//
+// FIXME: SubjectList should be for OpenCLKernelFunction, but is not to
 // workaround needing to see kernel attribute before others to know if
 // this should be rejected on non-kernels.
-  let Subjects = SubjectList<[Function], ErrorDiag,
-                             "ExpectedKernelFunction">;
+
+def AMDGPUFlatWorkGroupSize : InheritableAttr {
+  let Spellings = [GNU<"amdgpu_flat_work_group_size">];
+  let Args = [UnsignedArgument<"Min">, UnsignedArgument<"Max">];
+  let Documentation = [AMDGPUFlatWorkGroupSizeDocs];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedKernelFunction">;
+}
+
+def AMDGPUWavesPerEU : InheritableAttr {
+  let Spellings = [GNU<"amdgpu_waves_per_eu">];
+  let Args = [UnsignedArgument<"Min">, UnsignedArgument<"Max", 1>];
+  let Documentation = [AMDGPUWavesPerEUDocs];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedKernelFunction">;
 }
 
 def AMDGPUNumSGPR : InheritableAttr {
   let Spellings = [GNU<"amdgpu_num_sgpr">];
   let Args = [UnsignedArgument<"NumSGPR">];
-  let Documentation = [AMDGPUNumSGPRDocs];
-  let Subjects = SubjectList<[Function], ErrorDiag,
-                              "ExpectedKernelFunction">;
+  let Documentation = [AMDGPUNumSGPRNumVGPRDocs];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedKernelFunction">;
+}
+
+def AMDGPUNumVGPR : InheritableAttr {
+  let Spellings = [GNU<"amdgpu_num_vgpr">];
+  let Args = [UnsignedArgument<"NumVGPR">];
+  let Documentation = [AMDGPUNumSGPRNumVGPRDocs];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedKernelFunction">;
 }
 
 def NoSplitStack : InheritableAttr {
@@ -1270,6 +1294,12 @@ def ObjCRootClass : InheritableAttr {
   let Spellings = [GNU<"objc_root_class">];
   let Subjects = SubjectList<[ObjCInterface], ErrorDiag>;
   let Documentation = [Undocumented];
+}
+
+def ObjCSubclassingRestricted : InheritableAttr {
+  let Spellings = [GNU<"objc_subclassing_restricted">];
+  let Subjects = SubjectList<[ObjCInterface], ErrorDiag>;
+  let Documentation = [ObjCSubclassingRestrictedDocs];
 }
 
 def ObjCExplicitProtocolImpl : InheritableAttr {
@@ -1529,7 +1559,8 @@ def Target : InheritableAttr {
 def TransparentUnion : InheritableAttr {
   let Spellings = [GCC<"transparent_union">];
 //  let Subjects = SubjectList<[Record, TypedefName]>;
-  let Documentation = [Undocumented];
+  let Documentation = [TransparentUnionDocs];
+  let LangOpts = [COnly];
 }
 
 def Unavailable : InheritableAttr {
@@ -1691,7 +1722,8 @@ def X86ForceAlignArgPointer : InheritableAttr, TargetSpecificAttr<TargetX86> {
 def NoSanitize : InheritableAttr {
   let Spellings = [GNU<"no_sanitize">, CXX11<"clang", "no_sanitize">];
   let Args = [VariadicStringArgument<"Sanitizers">];
-  let Subjects = SubjectList<[Function, ObjCMethod], ErrorDiag>;
+  let Subjects = SubjectList<[Function, ObjCMethod, GlobalVar], ErrorDiag,
+    "ExpectedFunctionMethodOrGlobalVar">;
   let Documentation = [NoSanitizeDocs];
   let AdditionalMembers = [{
     SanitizerMask getMask() const {
@@ -1713,7 +1745,8 @@ def NoSanitizeSpecific : InheritableAttr {
                    GCC<"no_sanitize_address">,
                    GCC<"no_sanitize_thread">,
                    GNU<"no_sanitize_memory">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Function, GlobalVar], ErrorDiag,
+        "ExpectedFunctionGlobalVarMethodOrProperty">;
   let Documentation = [NoSanitizeAddressDocs, NoSanitizeThreadDocs,
                        NoSanitizeMemoryDocs];
   let ASTNode = 0;

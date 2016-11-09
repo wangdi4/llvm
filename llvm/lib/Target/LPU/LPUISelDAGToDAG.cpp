@@ -46,7 +46,7 @@ namespace {
           Lowering(*TM.getSubtargetImpl()->getTargetLowering()),
           Subtarget(*TM.getSubtargetImpl()) {}
 
-    const char *getPassName() const override {
+    StringRef getPassName() const override {
       return "LPU DAG->DAG Pattern Instruction Selection";
     }
 

@@ -15,7 +15,9 @@
 #include "clang/Tooling/Tooling.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
+#include "llvm/Support/Signals.h"
 #include "llvm/Support/YAMLTraits.h"
 #include <set>
 #include <string>
@@ -24,6 +26,7 @@ using namespace clang;
 using namespace llvm;
 
 namespace {
+
 std::error_code CreateNewFile(const llvm::Twine &path) {
   int fd = 0;
   if (std::error_code ec =
@@ -35,20 +38,28 @@ std::error_code CreateNewFile(const llvm::Twine &path) {
 
 cl::OptionCategory ClangMoveCategory("clang-move options");
 
-cl::opt<std::string> Name("name", cl::desc("The name of class being moved."),
-                          cl::cat(ClangMoveCategory));
+cl::list<std::string> Names("names", cl::CommaSeparated, cl::OneOrMore,
+                            cl::desc("The list of the names of classes being "
+                                     "moved, e.g. \"Foo,a::Foo,b::Foo\"."),
+                            cl::cat(ClangMoveCategory));
 
-cl::opt<std::string> OldHeader("old_header", cl::desc("Old header."),
-                               cl::cat(ClangMoveCategory));
+cl::opt<std::string>
+    OldHeader("old_header",
+              cl::desc("The relative/absolute file path of old header."),
+              cl::cat(ClangMoveCategory));
 
-cl::opt<std::string> OldCC("old_cc", cl::desc("Old CC file."),
-                           cl::cat(ClangMoveCategory));
+cl::opt<std::string>
+    OldCC("old_cc", cl::desc("The relative/absolute file path of old cc."),
+          cl::cat(ClangMoveCategory));
 
-cl::opt<std::string> NewHeader("new_header", cl::desc("New header."),
-                               cl::cat(ClangMoveCategory));
+cl::opt<std::string>
+    NewHeader("new_header",
+              cl::desc("The relative/absolute file path of new header."),
+              cl::cat(ClangMoveCategory));
 
-cl::opt<std::string> NewCC("new_cc", cl::desc("New CC file."),
-                           cl::cat(ClangMoveCategory));
+cl::opt<std::string>
+    NewCC("new_cc", cl::desc("The relative/absolute file path of new cc."),
+          cl::cat(ClangMoveCategory));
 
 cl::opt<std::string>
     Style("style",
@@ -62,25 +73,57 @@ cl::opt<bool> Dump("dump_result",
 } // namespace
 
 int main(int argc, const char **argv) {
-  tooling::CommonOptionsParser OptionsParser(argc, argv, ClangMoveCategory);
+  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
+  // Add "-fparse-all-comments" compile option to make clang parse all comments,
+  // otherwise, ordinary comments like "//" and "/*" won't get parsed (This is
+  // a bit of hacky).
+  std::vector<std::string> ExtraArgs(argv, argv + argc);
+  ExtraArgs.insert(ExtraArgs.begin() + 1, "-extra-arg=-fparse-all-comments");
+  std::unique_ptr<const char *[]> RawExtraArgs(
+      new const char *[ExtraArgs.size()]);
+  for (size_t i = 0; i < ExtraArgs.size(); ++i)
+    RawExtraArgs[i] = ExtraArgs[i].c_str();
+  int Argc = argc + 1;
+  tooling::CommonOptionsParser OptionsParser(Argc, RawExtraArgs.get(),
+                                             ClangMoveCategory);
+
   tooling::RefactoringTool Tool(OptionsParser.getCompilations(),
                                 OptionsParser.getSourcePathList());
   move::ClangMoveTool::MoveDefinitionSpec Spec;
-  Spec.Name = Name;
+  Spec.Names = {Names.begin(), Names.end()};
   Spec.OldHeader = OldHeader;
   Spec.NewHeader = NewHeader;
   Spec.OldCC = OldCC;
   Spec.NewCC = NewCC;
+
+  llvm::SmallString<128> InitialDirectory;
+  if (std::error_code EC = llvm::sys::fs::current_path(InitialDirectory))
+    llvm::report_fatal_error("Cannot detect current path: " +
+                             Twine(EC.message()));
+
   auto Factory = llvm::make_unique<clang::move::ClangMoveActionFactory>(
-      Spec, Tool.getReplacements());
+      Spec, Tool.getReplacements(), InitialDirectory.str(), Style);
+
   int CodeStatus = Tool.run(Factory.get());
   if (CodeStatus)
     return CodeStatus;
 
-  if (!NewCC.empty())
-    CreateNewFile(NewCC);
-  if (!NewHeader.empty())
-    CreateNewFile(NewHeader);
+  if (!NewCC.empty()) {
+    std::error_code EC = CreateNewFile(NewCC);
+    if (EC) {
+      llvm::errs() << "Failed to create " << NewCC << ": " << EC.message()
+                   << "\n";
+      return EC.value();
+    }
+  }
+  if (!NewHeader.empty()) {
+    std::error_code EC = CreateNewFile(NewHeader);
+    if (EC) {
+      llvm::errs() << "Failed to create " << NewHeader << ": " << EC.message()
+                   << "\n";
+      return EC.value();
+    }
+  }
 
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts(new DiagnosticOptions());
   clang::TextDiagnosticPrinter DiagnosticPrinter(errs(), &*DiagOpts);

@@ -61,8 +61,7 @@ static cl::opt<SplitEditor::ComplementSpillMode> SplitSpillMode(
     cl::desc("Spill mode for splitting live ranges"),
     cl::values(clEnumValN(SplitEditor::SM_Partition, "default", "Default"),
                clEnumValN(SplitEditor::SM_Size, "size", "Optimize for size"),
-               clEnumValN(SplitEditor::SM_Speed, "speed", "Optimize for speed"),
-               clEnumValEnd),
+               clEnumValN(SplitEditor::SM_Speed, "speed", "Optimize for speed")),
     cl::init(SplitEditor::SM_Speed));
 
 static cl::opt<unsigned>
@@ -318,9 +317,7 @@ public:
   RAGreedy();
 
   /// Return the pass name.
-  const char* getPassName() const override {
-    return "Greedy Register Allocator";
-  }
+  StringRef getPassName() const override { return "Greedy Register Allocator"; }
 
   /// RAGreedy analysis usage.
   void getAnalysisUsage(AnalysisUsage &AU) const override;
@@ -2108,9 +2105,6 @@ unsigned RAGreedy::tryLastChanceRecoloring(LiveInterval &VirtReg,
   // Mark VirtReg as fixed, i.e., it will not be recolored pass this point in
   // this recoloring "session".
   FixedRegisters.insert(VirtReg.reg);
-  // Remember the ID of the last vreg in case the recoloring fails.
-  unsigned LastVReg =
-      TargetRegisterInfo::index2VirtReg(MRI->getNumVirtRegs() - 1);
   SmallVector<unsigned, 4> CurrentNewVRegs;
 
   Order.rewind();
@@ -2182,14 +2176,14 @@ unsigned RAGreedy::tryLastChanceRecoloring(LiveInterval &VirtReg,
     FixedRegisters = SaveFixedRegisters;
     Matrix->unassign(VirtReg);
 
-    // When we move a register from RS_Assign to RS_Split, we do not
-    // actually do anything with it. I.e., it should not end up in NewVRegs.
-    // For the other cases, since we created new live-ranges, we need to
-    // process them.
+    // For a newly created vreg which is also in RecoloringCandidates,
+    // don't add it to NewVRegs because its physical register will be restored
+    // below. Other vregs in CurrentNewVRegs are created by calling
+    // selectOrSplit and should be added into NewVRegs.
     for (SmallVectorImpl<unsigned>::iterator Next = CurrentNewVRegs.begin(),
                                              End = CurrentNewVRegs.end();
          Next != End; ++Next) {
-      if (*Next <= LastVReg && getStage(LIS->getInterval(*Next)) == RS_Split)
+      if (RecoloringCandidates.count(&LIS->getInterval(*Next)))
         continue;
       NewVRegs.push_back(*Next);
     }
@@ -2226,10 +2220,21 @@ bool RAGreedy::tryRecoloringCandidates(PQueue &RecoloringQueue,
     DEBUG(dbgs() << "Try to recolor: " << *LI << '\n');
     unsigned PhysReg;
     PhysReg = selectOrSplitImpl(*LI, NewVRegs, FixedRegisters, Depth + 1);
-    if (PhysReg == ~0u || !PhysReg)
+    // When splitting happens, the live-range may actually be empty.
+    // In that case, this is okay to continue the recoloring even
+    // if we did not find an alternative color for it. Indeed,
+    // there will not be anything to color for LI in the end.
+    if (PhysReg == ~0u || (!PhysReg && !LI->empty()))
       return false;
+
+    if (!PhysReg) {
+      assert(LI->empty() && "Only empty live-range do not require a register");
+      DEBUG(dbgs() << "Recoloring of " << *LI << " succeeded. Empty LI.\n");
+      continue;
+    }
     DEBUG(dbgs() << "Recoloring of " << *LI
                  << " succeeded with: " << PrintReg(PhysReg, TRI) << '\n');
+
     Matrix->assign(*LI, PhysReg);
     FixedRegisters.insert(LI->reg);
   }
@@ -2556,17 +2561,19 @@ unsigned RAGreedy::selectOrSplitImpl(LiveInterval &VirtReg,
     return 0;
   }
 
+  if (Stage < RS_Spill) {
+    // Try splitting VirtReg or interferences.
+    unsigned NewVRegSizeBefore = NewVRegs.size();
+    unsigned PhysReg = trySplit(VirtReg, Order, NewVRegs);
+    if (PhysReg || (NewVRegs.size() - NewVRegSizeBefore))
+      return PhysReg;
+  }
+
   // If we couldn't allocate a register from spilling, there is probably some
   // invalid inline assembly. The base class wil report it.
   if (Stage >= RS_Done || !VirtReg.isSpillable())
     return tryLastChanceRecoloring(VirtReg, Order, NewVRegs, FixedRegisters,
                                    Depth);
-
-  // Try splitting VirtReg or interferences.
-  unsigned NewVRegSizeBefore = NewVRegs.size();
-  unsigned PhysReg = trySplit(VirtReg, Order, NewVRegs);
-  if (PhysReg || (NewVRegs.size() - NewVRegSizeBefore))
-    return PhysReg;
 
   // Finally spill VirtReg itself.
   if (EnableDeferredSpilling && getStage(VirtReg) < RS_Memory) {

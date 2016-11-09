@@ -16,6 +16,9 @@
 
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Stream.h"
+#include "lldb/Symbol/SymbolFile.h"
+#include "lldb/Symbol/TypeList.h"
+#include "lldb/Target/Target.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -170,10 +173,6 @@ struct language_name_pair language_names[] = {
 
 static uint32_t num_languages =
     sizeof(language_names) / sizeof(struct language_name_pair);
-
-LanguageType Language::GetLanguageTypeFromString(const char *s) {
-  return GetLanguageTypeFromString(llvm::StringRef(s ? s : ""));
-}
 
 LanguageType Language::GetLanguageTypeFromString(llvm::StringRef string) {
   for (const auto &L : language_names) {
@@ -343,6 +342,36 @@ size_t Language::TypeScavenger::Find(ExecutionContextScope *exe_scope,
   if (this->Find_Impl(exe_scope, key, results))
     return results.size() - old_size;
   return 0;
+}
+
+bool Language::ImageListTypeScavenger::Find_Impl(
+    ExecutionContextScope *exe_scope, const char *key, ResultSet &results) {
+  bool result = false;
+
+  Target *target = exe_scope->CalculateTarget().get();
+  if (target) {
+    const auto &images(target->GetImages());
+    SymbolContext null_sc;
+    ConstString cs_key(key);
+    llvm::DenseSet<SymbolFile *> searched_sym_files;
+    TypeList matches;
+    images.FindTypes(null_sc, cs_key, false, UINT32_MAX, searched_sym_files,
+                     matches);
+    for (const auto &match : matches.Types()) {
+      if (match.get()) {
+        CompilerType compiler_type(match->GetFullCompilerType());
+        compiler_type = AdjustForInclusion(compiler_type);
+        if (!compiler_type)
+          continue;
+        std::unique_ptr<Language::TypeScavenger::Result> scavengeresult(
+            new Result(compiler_type));
+        results.insert(std::move(scavengeresult));
+        result = true;
+      }
+    }
+  }
+
+  return result;
 }
 
 bool Language::GetFormatterPrefixSuffix(ValueObject &valobj,

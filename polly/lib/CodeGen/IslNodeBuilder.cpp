@@ -720,7 +720,28 @@ IslNodeBuilder::createNewAccesses(ScopStmt *Stmt,
     if (!MA->hasNewAccessRelation())
       continue;
 
+    assert(!MA->getLatestScopArrayInfo()->getBasePtrOriginSAI() &&
+           "Generating new index expressions to indirect arrays not working");
+
     auto Schedule = isl_ast_build_get_schedule(Build);
+
+#ifndef NDEBUG
+    auto Dom = Stmt->getDomain();
+    auto SchedDom = isl_set_from_union_set(
+        isl_union_map_domain(isl_union_map_copy(Schedule)));
+    auto AccDom = isl_map_domain(MA->getAccessRelation());
+    Dom = isl_set_intersect_params(Dom, Stmt->getParent()->getContext());
+    SchedDom =
+        isl_set_intersect_params(SchedDom, Stmt->getParent()->getContext());
+    assert(isl_set_is_subset(SchedDom, AccDom) &&
+           "Access relation not defined on full schedule domain");
+    assert(isl_set_is_subset(Dom, AccDom) &&
+           "Access relation not defined on full domain");
+    isl_set_free(AccDom);
+    isl_set_free(SchedDom);
+    isl_set_free(Dom);
+#endif
+
     auto PWAccRel = MA->applyScheduleToAccessRelation(Schedule);
 
     auto AccessExpr = isl_ast_build_access_from_pw_multi_aff(Build, PWAccRel);
@@ -1104,6 +1125,25 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
     ExecutionCtx = isl_set_intersect(ExecutionCtx, BaseExecutionCtx);
   }
 
+  // If the size of a dimension is dependent on another class, make sure it is
+  // preloaded.
+  for (unsigned i = 1, e = SAI->getNumberOfDimensions(); i < e; ++i) {
+    const SCEV *Dim = SAI->getDimensionSize(i);
+    SetVector<Value *> Values;
+    findValues(Dim, SE, Values);
+    for (auto *Val : Values) {
+      if (auto *BaseIAClass = S.lookupInvariantEquivClass(Val)) {
+        if (!preloadInvariantEquivClass(*BaseIAClass))
+          return false;
+
+        // After we preloaded the BaseIAClass we adjusted the BaseExecutionCtx
+        // and we need to refine the ExecutionCtx.
+        isl_set *BaseExecutionCtx = isl_set_copy(BaseIAClass->ExecutionContext);
+        ExecutionCtx = isl_set_intersect(ExecutionCtx, BaseExecutionCtx);
+      }
+    }
+  }
+
   Instruction *AccInst = MA->getAccessInstruction();
   Type *AccInstTy = AccInst->getType();
 
@@ -1264,7 +1304,8 @@ Value *IslNodeBuilder::generateSCEV(const SCEV *Expr) {
          "Insert location points after last valid instruction");
   Instruction *InsertLocation = &*Builder.GetInsertPoint();
   return expandCodeFor(S, SE, DL, "polly", Expr, Expr->getType(),
-                       InsertLocation, &ValueMap);
+                       InsertLocation, &ValueMap,
+                       StartBlock->getSinglePredecessor());
 }
 
 /// The AST expression we generate to perform the run-time check assumes

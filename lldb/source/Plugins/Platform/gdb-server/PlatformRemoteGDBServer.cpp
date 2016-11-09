@@ -445,7 +445,7 @@ Error PlatformRemoteGDBServer::LaunchProcess(ProcessLaunchInfo &launch_info) {
   {
     // Scope for the scoped timeout object
     process_gdb_remote::GDBRemoteCommunication::ScopedTimeout timeout(
-        m_gdb_client, 5);
+        m_gdb_client, std::chrono::seconds(5));
     arg_packet_err = m_gdb_client.SendArgumentsPacket(launch_info);
   }
 
@@ -751,10 +751,9 @@ const UnixSignalsSP &PlatformRemoteGDBServer::GetRemoteUnixSignals() {
   // we'll guess the signal set based on the remote architecture.
   m_remote_signals_sp = UnixSignals::Create(GetRemoteSystemArchitecture());
 
-  const char packet[] = "jSignalsInfo";
   StringExtractorGDBRemote response;
-  auto result = m_gdb_client.SendPacketAndWaitForResponse(
-      packet, strlen(packet), response, false);
+  auto result = m_gdb_client.SendPacketAndWaitForResponse("jSignalsInfo",
+                                                          response, false);
 
   if (result != decltype(result)::Success ||
       response.GetResponseType() != response.eResponse)
