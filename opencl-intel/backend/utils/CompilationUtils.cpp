@@ -1212,4 +1212,84 @@ bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName)
 
 }
 
+Constant *CompilationUtils::importFunctionDecl(Module *Dst,
+                                               const Function *Orig) {
+  assert(Dst && "Invalid module");
+  assert(Orig && "Invalid function");
+
+  std::vector<StructType *> DstSTys = Dst->getIdentifiedStructTypes();
+  FunctionType *OrigFnTy = Orig->getFunctionType();
+
+  SmallVector<Type *, 8> NewArgTypes;
+  bool changed = false;
+  for (auto *ArgTy : Orig->getFunctionType()->params()) {
+    NewArgTypes.push_back(ArgTy);
+
+    auto *PtrSTy = dyn_cast<PointerType>(ArgTy);
+    if (!PtrSTy)
+      continue;
+
+    auto *STy = dyn_cast<StructType>(PtrSTy->getElementType());
+    if (!STy)
+      continue;
+
+    for (auto *DstSTy : DstSTys) {
+      if (isSameStructType(DstSTy, STy)) {
+        NewArgTypes.back() = PointerType::get(DstSTy,
+                                              PtrSTy->getAddressSpace());
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  FunctionType *NewFnType =
+    (!changed) ? OrigFnTy
+               : FunctionType::get(Orig->getReturnType(),
+                                   NewArgTypes,
+                                   Orig->isVarArg());
+
+  return Dst->getOrInsertFunction(
+    Orig->getName(), NewFnType, Orig->getAttributes());
+}
+
+StringRef CompilationUtils::stripStructNameTrailingDigits(StringRef TyName) {
+  size_t Dot = TyName.find_last_of('.');
+
+  // remove a '.' followed by any number of digits
+  if (TyName.npos != Dot) {
+    if (TyName.npos == TyName.find_first_not_of("0123456789", Dot + 1)) {
+      return TyName.substr(0, Dot);
+    }
+  }
+
+  return TyName;
+}
+
+bool CompilationUtils::isSameStructPtrType(Type *Ty1, Type *Ty2) {
+  auto *PtrSTy1 = dyn_cast<PointerType>(Ty1);
+  auto *PtrSTy2 = dyn_cast<PointerType>(Ty2);
+  if (!PtrSTy1 || !PtrSTy2) {
+    return false;
+  }
+
+  auto *STy1 = dyn_cast<StructType>(PtrSTy1->getElementType());
+  auto *STy2 = dyn_cast<StructType>(PtrSTy2->getElementType());
+
+  if (!STy1 || !STy2) {
+    return false;
+  }
+
+  return isSameStructType(STy1, STy2);
+}
+
+bool CompilationUtils::isSameStructType(StructType *STy1, StructType *STy2) {
+  if (!STy1->hasName() || !STy2->hasName()) {
+    return false;
+  }
+
+  return 0 == stripStructNameTrailingDigits(STy1->getName())
+    .compare(stripStructNameTrailingDigits(STy2->getName()));
+}
+
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

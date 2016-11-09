@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Resolver.h"
 #include "Mangler.h"
 #include "Logger.h"
+#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
@@ -629,8 +630,9 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   // Find (or create) declaration for newly called function
   Function *newFunction = currFunc->getParent()->getFunction(LibFunc->getName());
   if (!newFunction) {
-    Constant *newFunctionConst = currFunc->getParent()->getOrInsertFunction(
-        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+    using namespace Intel::OpenCL::DeviceBackend;
+    Constant *newFunctionConst =
+      CompilationUtils::importFunctionDecl(currFunc->getParent(), LibFunc);
     V_ASSERT(newFunctionConst && "failed generating function in current module");
     newFunction = dyn_cast<Function>(newFunctionConst);
     V_ASSERT(newFunction && "Function type mismatch, caused a constant expression cast!");

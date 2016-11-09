@@ -71,9 +71,6 @@ protected:
     // Returns a list of pointers to the RTL library modules
     llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const;
 
-    // Returns a list of pointers to the TRL library bitcode buffers
-    llvm::SmallVector<llvm::MemoryBuffer*, 2> GetBuiltinBufferList() const;
-
 private:
     // Disable the copy ctor and assignment operator
     CPUCompiler( const CPUCompiler& );

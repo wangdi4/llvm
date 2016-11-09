@@ -19,7 +19,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Support/MemoryBuffer.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -28,10 +27,7 @@ namespace intel {
 /// Support for dynamic loading of modules under Linux
 char ChooseVectorizationDimension::ID = 0;
 
-extern "C" Pass* createBuiltinLibInfoPass(
-  SmallVector<Module*, 2> pRtlModuleList,
-  SmallVector<MemoryBuffer*, 2> builtinsBufferList,
-  std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> pRtlModuleList, std::string type);
 
 OCL_INITIALIZE_PASS_BEGIN(ChooseVectorizationDimension, "ChooseVectorizationDimension", "Predicate Function", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
@@ -285,10 +281,7 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
 
   // create function pass manager to run the WIAnalysis for each dimension.
   legacy::FunctionPassManager runWi(F.getParent());
-  runWi.add(createBuiltinLibInfoPass(
-    getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
-    getAnalysis<BuiltinLibInfo>().getBuiltinModuleBuffers(),
-    ""));
+  runWi.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
   for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
     if (dimExist[dim]) {
       wi[dim] = new WIAnalysis(dim); // construct WI and tell it on which dimension to run.

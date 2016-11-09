@@ -365,9 +365,10 @@ namespace intel {
       //      --- get the new function declaration out of built-in module list.
       Function *LibFunc = FindFunctionInModule(newFuncName);
       assert(LibFunc && "WG builtin is not supported in built-in module");
-      Function *pNewFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(
-        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes()));
-      assert(pNewFunc && "Non-function object with the same signature identified in the module");
+      Function *pNewFunc = dyn_cast<Function>(
+        CompilationUtils::importFunctionDecl(m_pModule, LibFunc));
+      assert(pNewFunc && "Non-function object with the same signature "
+                         "identified in the module");
 
 
       // 4. Prepare the call with that to function with extended parameter list
@@ -401,8 +402,8 @@ namespace intel {
         //    --- get the new function declaration out of built-in modules list.
         Function *LibFunc = FindFunctionInModule(finalizeFuncName);
         assert(LibFunc && "WG builtin is not supported in built-in module");
-        Function *pFinalizeFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(
-          LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes()));
+        Function *pFinalizeFunc = dyn_cast<Function>(
+          CompilationUtils::importFunctionDecl(m_pModule, LibFunc));
         assert(pFinalizeFunc && "Non-function object with the same signature identified in the module");
 
         // c. Create call to finalization function object

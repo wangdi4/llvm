@@ -17,6 +17,7 @@ File Name:  SinCosFold.cpp
 \*****************************************************************************/
 #define DEBUG_TYPE "SinCosFoldPass"
 
+#include "CompilationUtils.h"
 #include "SinCosFold.h"
 #include "ParameterType.h"
 #include "InitializePasses.h"
@@ -75,7 +76,8 @@ namespace intel {
     assert(sinCosF && "sincos function should exist!");
 
     // Find (or create) declaration for newly called function
-    Constant * sinCosFunc = M.getOrInsertFunction(sinCosF->getName(), sinCosF->getFunctionType(), sinCosF->getAttributes());
+    using namespace Intel::OpenCL::DeviceBackend;
+    Constant * sinCosFunc = CompilationUtils::importFunctionDecl(&M, sinCosF);
     assert(sinCosFunc && "Failed generating function in current module");
     Function * f = dyn_cast<Function>(sinCosFunc);
     assert(f && "Function type mismatch, caused a constant expression cast!");

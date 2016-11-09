@@ -457,6 +457,32 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// type for extended execution context
     static Type * getExtendedExecContextType(LLVMContext &C);
     static void CloneDebugInfo(Function *SrcF, Function *DstF);
+
+    /// Import a declaration of \p Orig into module \p Dst
+    ///
+    /// Parameter types will be translated to match the corresponding
+    /// types in the \p Dst.
+    ///
+    /// @return function declaration Function* (if import succeed) or a
+    /// bitcast if a function with the same name, but different type, is
+    /// already exist in the \p Dst.
+    static Constant *importFunctionDecl(Module *Dst, const Function *Orig);
+
+
+
+    /// Check if two types are pointers to the same opaque type
+    /// @see isSameStructType
+    static bool isSameStructPtrType(Type *Ty1, Type *Ty2);
+
+    /// Check if two types actually have the same opaque ptr type.
+    ///
+    /// Such types appear when 2 or more types were created with the same name.
+    /// These types differ only in .N name suffix, e.g.:
+    /// %opencl.image2d_ro_t and %opencl.image2d_ro_t.0
+    static bool isSameStructType(StructType *STy1, StructType *Ty2);
+
+    /// Return a type name without .N suffix (if any)
+    static StringRef stripStructNameTrailingDigits(StringRef TyName);
   };
 
   //

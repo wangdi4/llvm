@@ -5,6 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "SpecialCaseBuiltinResolver.h"
+#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 #include "Mangler.h"
 #include "OCLPassSupport.h"
@@ -174,8 +175,9 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   Function *resolvedFunc = m_curModule->getFunction(resolvedName);
   if (!resolvedFunc)  {
     Function *LibFunc = m_runtimeServices->findInRuntimeModule(resolvedName);
-    Constant *resolvedFunctionConst = F->getParent()->getOrInsertFunction(
-        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+    using namespace Intel::OpenCL::DeviceBackend;
+    Constant *resolvedFunctionConst = CompilationUtils::importFunctionDecl(
+      F->getParent(), LibFunc);
     resolvedFunc = dyn_cast<Function>(resolvedFunctionConst);
   }
   V_ASSERT(resolvedFunc && "resolvedFunc is nullptr");

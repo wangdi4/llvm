@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 
 #include "llvm/Support/raw_ostream.h"
@@ -432,8 +433,8 @@ Function *CLStreamSampler::getLibraryFunc(Function *LibFunc) {
   // and only if we don't, insert it.
   Constant* funcConst = m_M->getFunction(LibFunc->getName());
   if (!funcConst) {
-    funcConst = m_M->getOrInsertFunction(LibFunc->getName(),
-                                         LibFunc->getFunctionType(), LibFunc->getAttributes());
+    using namespace Intel::OpenCL::DeviceBackend;
+    funcConst = CompilationUtils::importFunctionDecl(m_M, LibFunc);
   }
     
   Function *F = dyn_cast<Function>(funcConst);

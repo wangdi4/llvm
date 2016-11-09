@@ -5,6 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "OCLBuiltinPreVectorizationPass.h"
+#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 #include "Mangler.h"
 #include "OCLPassSupport.h"
@@ -200,8 +201,8 @@ Function *OCLBuiltinPreVectorizationPass::getOrInsertFakeDeclarationToModule(con
   V_ASSERT(FuncRT && "function was not found in RT module!!!");
   if (!FuncRT) return NULL;
 
-  Constant * funcConst = m_curModule->getOrInsertFunction(MangledFuncName,
-    FuncRT->getFunctionType(), FuncRT->getAttributes());
+  using namespace Intel::OpenCL::DeviceBackend;
+  auto *funcConst = CompilationUtils::importFunctionDecl(m_curModule, FuncRT);
   V_ASSERT(funcConst && "failed generating function in current module");
   Function *func = dyn_cast<Function>(funcConst);
   V_ASSERT(func && "Function type mismatch, caused a constant expression cast!");

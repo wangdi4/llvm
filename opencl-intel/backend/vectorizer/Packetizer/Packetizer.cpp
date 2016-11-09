@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #define DEBUG_TYPE "Vectorizer"
 
+#include "CompilationUtils.h"
 #include "Packetizer.h"
 #include "Predicator.h"
 #include "VectorizerUtils.h"
@@ -1719,9 +1720,23 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     return duplicateNonPacketizableInst(CI);
   }
 
+  // Change function type to match new args:
+  // it is required if parameters are not exactly match between
+  // user module and rtl module, e.g. if opaque types was renamed
+  // with .N suffix
+  SmallVector<Type *, 8> newArgTypes;
+  for (auto *Arg : newArgs) {
+    newArgTypes.push_back(Arg->getType());
+  }
+  auto *oldFnType = LibFunc->getFunctionType();
+  auto *newFnType = FunctionType::get(oldFnType->getReturnType(),
+                                      newArgTypes,
+                                      oldFnType->isVarArg());
+
   // Find (or create) declaration for newly called function
   Constant * vectFunctionConst = m_currFunc->getParent()->getOrInsertFunction(
-      LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+      LibFunc->getName(), newFnType, LibFunc->getAttributes());
+
   V_ASSERT(vectFunctionConst && "failed generating function in current module");
   Function *vectorFunction = dyn_cast<Function>(vectFunctionConst);
   V_ASSERT(vectorFunction && "Function type mismatch, caused a constant expression cast!");
@@ -1834,8 +1849,17 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       // is a struct, we use bitcast.
       Value *multiScalarVals[MAX_PACKET_WIDTH];
       obtainMultiScalarValues(multiScalarVals, curScalarArg, CI);
-      operand = VectorizerUtils::getCastedArgIfNeeded(multiScalarVals[0], neededType, CI);
-      newArgs.push_back(operand);
+      using namespace Intel::OpenCL::DeviceBackend;
+      if (CompilationUtils::isSameStructPtrType(
+            neededType, multiScalarVals[0]->getType())) {
+
+        // use the 'target' type, we will change function type later
+        operand = multiScalarVals[0];
+        newArgs.push_back(operand);
+      } else {
+        operand = VectorizerUtils::getCastedArgIfNeeded(multiScalarVals[0], neededType, CI);
+        newArgs.push_back(operand);
+      }
     } else if (curScalarArgType->isVectorTy()) {
       // If vectors are not spread then vector arguments should be packetized
       // in SOA form using array of vectors.
@@ -2366,8 +2390,8 @@ bool PacketizeFunction::obtainExtracts(Value  *vectorValue,
   return true;
 }
 
-void PacketizeFunction::obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN,
-                                           SmallVectorImpl<Instruction *> &OUT,
+void PacketizeFunction::obtainTranspVals32bitV4(SmallVectorImpl<Value *> &In,
+                                           SmallVectorImpl<Instruction *> &Out,
                                            std::vector<Instruction *> &generatedShuffles,
                                            Instruction *loc) {
   int Seq64L_seq[] = {0,1,4,5};
@@ -2382,23 +2406,23 @@ void PacketizeFunction::obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN,
   Constant *Seq32H = createIndicesForShuffles(m_packetWidth, Seq32H_seq);
 
   llvm::SmallVector<Instruction *, 8> Level64;
-  Level64.push_back(new ShuffleVectorInst(IN[0], IN[1], Seq64L , "Seq_64_0", loc)); // x0,y0,x1,y1
-  Level64.push_back(new ShuffleVectorInst(IN[2], IN[3], Seq64L , "Seq_64_1", loc)); // x2,y2,x3,y3
-  Level64.push_back(new ShuffleVectorInst(IN[0], IN[1], Seq64H , "Seq_64_2", loc)); // z0,w0,z1,w1
-  Level64.push_back(new ShuffleVectorInst(IN[2], IN[3], Seq64H , "Seq_64_3", loc)); // z2,w2,z3,w3
+  Level64.push_back(new ShuffleVectorInst(In[0], In[1], Seq64L , "Seq_64_0", loc)); // x0,y0,x1,y1
+  Level64.push_back(new ShuffleVectorInst(In[2], In[3], Seq64L , "Seq_64_1", loc)); // x2,y2,x3,y3
+  Level64.push_back(new ShuffleVectorInst(In[0], In[1], Seq64H , "Seq_64_2", loc)); // z0,w0,z1,w1
+  Level64.push_back(new ShuffleVectorInst(In[2], In[3], Seq64H , "Seq_64_3", loc)); // z2,w2,z3,w3
 
-  OUT.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32L , "Seq_32_0", loc)); // x0,x1,x2,x3
-  OUT.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32H , "Seq_32_1", loc)); // y0,y1,y2,y3
-  OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32L , "Seq_32_2", loc)); // z0,z1,z2,z3
-  OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32H , "Seq_32_3", loc)); // w0,w1,w2,w3
+  Out.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32L , "Seq_32_0", loc)); // x0,x1,x2,x3
+  Out.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32H , "Seq_32_1", loc)); // y0,y1,y2,y3
+  Out.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32L , "Seq_32_2", loc)); // z0,z1,z2,z3
+  Out.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32H , "Seq_32_3", loc)); // w0,w1,w2,w3
 
   // Adding the generated shuffles.
   generatedShuffles.insert(generatedShuffles.end(), Level64.begin(), Level64.end());
-  generatedShuffles.insert(generatedShuffles.end(), OUT.begin(), OUT.end());
+  generatedShuffles.insert(generatedShuffles.end(), Out.begin(), Out.end());
 }
 
-void PacketizeFunction::obtainTranspVals32bitV8(SmallVectorImpl<Value *> &IN,
-                                           SmallVectorImpl<Instruction *> &OUT,
+void PacketizeFunction::obtainTranspVals32bitV8(SmallVectorImpl<Value *> &In,
+                                           SmallVectorImpl<Instruction *> &Out,
                                            std::vector<Instruction *> &generatedShuffles,
                                            Instruction *loc){
   llvm::SmallVector<Instruction*, 8> Level128;
@@ -2420,14 +2444,14 @@ void PacketizeFunction::obtainTranspVals32bitV8(SmallVectorImpl<Value *> &IN,
   Constant *Seq32L = createIndicesForShuffles(m_packetWidth, Seq32L_seq);
   Constant *Seq32H = createIndicesForShuffles(m_packetWidth, Seq32H_seq);
 
-  Level128.push_back(new ShuffleVectorInst(IN[0], IN[4], Seq128L , "Seq_128_0", loc));
-  Level128.push_back(new ShuffleVectorInst(IN[1], IN[5], Seq128L , "Seq_128_1", loc));
-  Level128.push_back(new ShuffleVectorInst(IN[2], IN[6], Seq128L , "Seq_128_2", loc));
-  Level128.push_back(new ShuffleVectorInst(IN[3], IN[7], Seq128L , "Seq_128_3", loc));
-  Level128.push_back(new ShuffleVectorInst(IN[0], IN[4], Seq128H , "Seq_128_4", loc));
-  Level128.push_back(new ShuffleVectorInst(IN[1], IN[5], Seq128H , "Seq_128_5", loc));
-  Level128.push_back(new ShuffleVectorInst(IN[2], IN[6], Seq128H , "Seq_128_6", loc));
-  Level128.push_back(new ShuffleVectorInst(IN[3], IN[7], Seq128H , "Seq_128_7", loc));
+  Level128.push_back(new ShuffleVectorInst(In[0], In[4], Seq128L , "Seq_128_0", loc));
+  Level128.push_back(new ShuffleVectorInst(In[1], In[5], Seq128L , "Seq_128_1", loc));
+  Level128.push_back(new ShuffleVectorInst(In[2], In[6], Seq128L , "Seq_128_2", loc));
+  Level128.push_back(new ShuffleVectorInst(In[3], In[7], Seq128L , "Seq_128_3", loc));
+  Level128.push_back(new ShuffleVectorInst(In[0], In[4], Seq128H , "Seq_128_4", loc));
+  Level128.push_back(new ShuffleVectorInst(In[1], In[5], Seq128H , "Seq_128_5", loc));
+  Level128.push_back(new ShuffleVectorInst(In[2], In[6], Seq128H , "Seq_128_6", loc));
+  Level128.push_back(new ShuffleVectorInst(In[3], In[7], Seq128H , "Seq_128_7", loc));
 
   Level64.push_back(new ShuffleVectorInst(Level128[0], Level128[2], Seq64L , "Seq_64_0", loc));
   Level64.push_back(new ShuffleVectorInst(Level128[1], Level128[3], Seq64L , "Seq_64_1", loc));
@@ -2438,19 +2462,19 @@ void PacketizeFunction::obtainTranspVals32bitV8(SmallVectorImpl<Value *> &IN,
   Level64.push_back(new ShuffleVectorInst(Level128[4], Level128[6], Seq64H , "Seq_64_6", loc));
   Level64.push_back(new ShuffleVectorInst(Level128[5], Level128[7], Seq64H , "Seq_64_7", loc));
 
-  OUT.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32L , "Seq_32_0", loc));
-  OUT.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32H , "Seq_32_1", loc));
-  OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32L , "Seq_32_2", loc));
-  OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32H , "Seq_32_3", loc));
-  OUT.push_back(new ShuffleVectorInst(Level64[4], Level64[5], Seq32L , "Seq_32_4", loc));
-  OUT.push_back(new ShuffleVectorInst(Level64[4], Level64[5], Seq32H , "Seq_32_5", loc));
-  OUT.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32L , "Seq_32_6", loc));
-  OUT.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32H , "Seq_32_7", loc));
+  Out.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32L , "Seq_32_0", loc));
+  Out.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32H , "Seq_32_1", loc));
+  Out.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32L , "Seq_32_2", loc));
+  Out.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32H , "Seq_32_3", loc));
+  Out.push_back(new ShuffleVectorInst(Level64[4], Level64[5], Seq32L , "Seq_32_4", loc));
+  Out.push_back(new ShuffleVectorInst(Level64[4], Level64[5], Seq32H , "Seq_32_5", loc));
+  Out.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32L , "Seq_32_6", loc));
+  Out.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32H , "Seq_32_7", loc));
 
   // Adding the generated shuffles.
   generatedShuffles.insert(generatedShuffles.end(), Level128.begin(), Level128.end());
   generatedShuffles.insert(generatedShuffles.end(), Level64.begin(), Level64.end());
-  generatedShuffles.insert(generatedShuffles.end(), OUT.begin(), OUT.end());
+  generatedShuffles.insert(generatedShuffles.end(), Out.begin(), Out.end());
 }
 
 void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
@@ -2654,8 +2678,9 @@ Function* PacketizeFunction::getTransposeFunc(bool isLoad, VectorType * origVecT
   V_ASSERT(loadTransposeFuncRT && "Transpose function should exist!");
 
   // Find (or create) declaration for newly called function
-  Constant* loadTransposeFunc = m_currFunc->getParent()->getOrInsertFunction(
-    loadTransposeFuncRT->getName(), loadTransposeFuncRT->getFunctionType(), loadTransposeFuncRT->getAttributes());
+  using namespace Intel::OpenCL::DeviceBackend;
+  Constant* loadTransposeFunc = CompilationUtils::importFunctionDecl(
+    m_currFunc->getParent(), loadTransposeFuncRT);
   V_ASSERT(loadTransposeFunc && "Failed generating function in current module");
   Function* transposeFunc = dyn_cast<Function>(loadTransposeFunc);
   V_ASSERT(transposeFunc && "Function type mismatch, caused a constant expression cast!");
