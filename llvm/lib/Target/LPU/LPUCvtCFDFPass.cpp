@@ -323,7 +323,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock* mbb = BB;
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
-      if (MI->getOpcode() == LPU::JSR || MI->getOpcode() == LPU::JSRi) {
+      if (MI->getOpcode() == llvm::ResumeInst) {
         //function call inside control region need to run on SXU
         ControlDependenceNode* mnode = CDG->getNode(mbb);
         if (mnode->getNumParents() > 1 || mnode->enclosingRegion()->getBlock()) {
@@ -877,6 +877,7 @@ void LPUCvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
 
 void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
   while (UI != MRI->use_end()) {
     MachineOperand &UseMO = *UI;
@@ -899,7 +900,7 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
       else if (!DT->properlyDominates(mbb, UseBB) && mloop == useLoop) {
         //insertSWITCHForBackEdge();
         //def, use must in same loop, use must be loop hdr PHI, def come from backedge to loop hdr PHI
-        assert(UseMI->isPHI());
+        assert(UseMI->isPHI() || TII.isSwitch(UseMI));
         if (UseBB != mloop->getHeader()) {
           //no need to attend if-footer Phi inside the loop, still need to attend those outside the loop
           continue;
