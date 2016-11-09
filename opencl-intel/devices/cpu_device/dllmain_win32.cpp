@@ -25,7 +25,11 @@
 #include "stdafx.h"
 
 #pragma comment(lib, "cl_sys_utils.lib")
-#pragma comment(lib, "cl_logger.lib")
+#ifdef BUILD_EXPERIMENTAL_21
+    #pragma comment(lib, "cl_logger_2_1.lib")
+#else //BUILD_EXPERIMENTAL_21
+    #pragma comment(lib, "cl_logger.lib")
+#endif //BUILD_EXPERIMENTAL_21
 #if defined(_M_X64)
 #ifdef BUILD_EXPERIMENTAL_21
     #pragma comment(lib, "task_executor64_2_1.lib")

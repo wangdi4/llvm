@@ -5,6 +5,11 @@ cmake_minimum_required(VERSION 2.8.7)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
+if( BUILD_EXPERIMENTAL_21 )
+    set( EXPERIMENTAL_POSTFIX "_2_1" )
+    add_definitions( -DBUILD_EXPERIMENTAL_21 )
+    add_definitions( -DEXPERIMENTAL_POSTFIX="_2_1" )
+endif( BUILD_EXPERIMENTAL_21 )
 # CMAKE variables
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH}
@@ -37,14 +42,14 @@ set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} CACHE STRING "Availab
 
 # ITT/VTune integration
 if( NOT ANDROID )
-  add_definitions( -DUSE_ITT )
-  include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
+    add_definitions( -DUSE_ITT )
+    include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
        ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
 endif( NOT ANDROID )
 
 if (NOT WIN32 AND NOT APPLE)
   # enable C++11 support in GCC 4.7 and above
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
   add_custom_target(strip
     ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh
@@ -349,7 +354,7 @@ if(NOT REVISION_ID)
 elseif ( REVISION_ID MATCHES "\\.[0-9]*" ) # Revision ID
   message(STATUS "Build type: Release")
   STRING(REGEX MATCH ".([0-9]*)" REV_ID ${REVISION_ID} )
-  math( EXPR BUILDVER_WC_REVISION "10000 + ${CMAKE_MATCH_1}" )
+  set(BUILDVER_WC_REVISION ${CMAKE_MATCH_1})
   set( GIT_VERSION $ENV{REVISION} )
   set( GIT_REVISION $ENV{RELEASE_BRANCH} )
 elseif ( REVISION_ID MATCHES "-r[0-9]*" ) # Review ID
@@ -363,8 +368,8 @@ endif()
 # we are delivering cpu bundle from master.
 # As soon as we will deliver cpu buncle from release branch to vpg
 # revert this change. CSSD100021694.
-set( PRODUCTVER_MAJOR 5 )
-set( PRODUCTVER_MINOR 2 )
+set( PRODUCTVER_MAJOR 6 )
+set( PRODUCTVER_MINOR 8 )
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
@@ -372,7 +377,7 @@ math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
 message(STATUS "GIT Version: ${GIT_VERSION}")
 message(STATUS "GIT Revision: ${GIT_REVISION}")
-message(STATUS "PRODUCTVER_MAJOR: ${PRODUCTVER_MAJOR}")
+message(STATUS "PRODUCTVER_MAJOR: ${PRODUCTVER_MAJOR}")                    
 
 # --------------
 #  write a file with the BUILDVERSION define
@@ -540,10 +545,6 @@ set( TOOLS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/Tools )
 set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
 
-if( BUILD_EXPERIMENTAL_21 )
-    add_definitions( -DBUILD_EXPERIMENTAL_21 )
-    set( EXPERIMENTAL_POSTFIX "_2_1" )
-endif( BUILD_EXPERIMENTAL_21 )
 
 
 
@@ -559,7 +560,7 @@ else(APPLE)
     if(BUILD_LLVM_FROM_SOURCE)
         add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
     endif()
-
+    
     #validation
     add_subdirectory( tests )
 
@@ -593,7 +594,7 @@ else(APPLE)
     if ( INCLUDE_CMRT )
         add_subdirectory ( common_runtime )
     endif( INCLUDE_CMRT )
-
+    
     # Tools
     if( INCLUDE_TOOLS )
         add_subdirectory ( tools )
@@ -601,12 +602,12 @@ else(APPLE)
 
     #workloads
     #add_subdirectory( workloads )
-
+    
     #Linux samples
     option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
     if (INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
         add_subdirectory( samples )
     endif(INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
 
-
+    
 endif(APPLE)

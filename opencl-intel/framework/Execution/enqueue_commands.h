@@ -706,7 +706,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GPA_GetCommandName() const { return "Write Image"; }
         
     private:
-        SharedPtr<MemoryObject>   m_pImage;
         size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         size_t          m_szRowPitch;

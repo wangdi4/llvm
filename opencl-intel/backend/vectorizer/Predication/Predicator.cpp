@@ -1520,6 +1520,44 @@ void Predicator::collectUCFRegions(Function* F, LoopInfo * LI,
       if(!DT->dominates(entryBB, exitBB) ||
           LI->getLoopFor(entryBB) != LI->getLoopFor(exitBB)) continue;
 
+      /* Check if there is an additional BB(B on picture) that creates loop
+       * with entryBB and has path to exit thru the entryBB only.
+       *
+       *  |---------|
+       *  |  entry  |
+       *  |---------|
+       *      ||
+       *      \/
+       *  |---------|<=========|---------|
+       *  | entryBB |          |    B    |
+       *  |---------|=========>|---------|
+       *      ||                   /\
+       *      \/                   ||
+       *  |---------|              ||
+       *  | exitBB  |              ||
+       *  |---------|              ||
+       *      ||                   ||
+       *      \/                   ||
+       *  |---------|              ||
+       *  |    A    |==============||
+       *  |---------|
+       *      ||
+       *      \/
+       *  |---------|
+       *  |   exit  |
+       *  |---------|
+      */
+      bool isEntryDomedBySuccs = false;
+      for(succ_iterator succIt = succ_begin(entryBB),
+            succEnd = succ_end(entryBB); succIt != succEnd; ++succIt) {
+        if(PDT->dominates(entryBB, *succIt)) {
+          isEntryDomedBySuccs = true;
+          break;
+        }
+      }
+
+      if(isEntryDomedBySuccs) continue;
+
       // Register new UCF region.
       if(isUCFRegion(entryBB, exitBB, LI)) {
         // There must be unique pairs of entry -> exit BBs which might be invalidated by

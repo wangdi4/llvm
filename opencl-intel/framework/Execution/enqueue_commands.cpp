@@ -469,6 +469,8 @@ CopyMemObjCommand::CopyMemObjCommand(
                         const size_t    szDstRowPitch    = 0,
                         const size_t    szDstSlicePitch    = 0):
     MemoryCommand(cmdQueue),
+    m_pSrcMemObj(pSrcMemObj),
+    m_pDstMemObj(pDstMemObj),
     m_szSrcRowPitch(szSrcRowPitch),
     m_szSrcSlicePitch(szSrcSlicePitch),
     m_szDstRowPitch(szDstRowPitch),
@@ -488,9 +490,6 @@ CopyMemObjCommand::CopyMemObjCommand(
     {
         m_szRegion[i] = szRegion[i];
     }
-
-    m_pSrcMemObj = pSrcMemObj;
-    m_pDstMemObj = pDstMemObj;
 
     m_uiSrcNumDims = m_pSrcMemObj->GetNumDimensions();
     m_uiDstNumDims = m_pDstMemObj->GetNumDimensions();
@@ -604,6 +603,8 @@ cl_err_code CopyMemObjCommand::CommandDone()
 {
     RelinquishMemoryObjects(m_MemOclObjects);
     m_MemOclObjects.clear();
+    m_pSrcMemObj = nullptr;
+    m_pDstMemObj = nullptr;
     return CL_SUCCESS;
 }
 
