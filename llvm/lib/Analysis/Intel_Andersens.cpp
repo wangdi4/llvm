@@ -866,7 +866,13 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
 
   // Using escape analysis to improve the precision
   // of AndersenAA result.
+  //
+  // CQ415507: Escape analysis needs to be skipped if either
+  // V1 or V2 is created after Andersen.s Analysis (or is not
+  // considered by Andersens analysis).   
   if (!N1->intersectsIgnoring(N2, NullObject) &&
+      getNode(const_cast<Value*>(V1)) != UniversalSet &&
+      getNode(const_cast<Value*>(V2)) != UniversalSet && 
       (((N1->PointsTo->test(UniversalSet) || pointsToSetEscapes(N1)) &&
         !pointsToSetEscapes(N2)) ||
        ((N2->PointsTo->test(UniversalSet) || pointsToSetEscapes(N2)) &&
