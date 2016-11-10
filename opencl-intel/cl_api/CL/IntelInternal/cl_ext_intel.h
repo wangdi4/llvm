@@ -1,5 +1,5 @@
 /*******************************************************************************
-Copyright (c) 2014 Intel Corporation All Rights Reserved.
+Copyright (c) 2014-2016 Intel Corporation All Rights Reserved.
 
 The source code contained or described herein and all documents related to
 the source code ("Material") are owned by Intel Corporation or its suppliers
@@ -92,26 +92,49 @@ typedef struct _cl_feature_extraction_desc_intel {
 #define CL_KERNEL_BINARY_SIZES_INTEL      0x4103
 
 /***************************************
-* cl_intel_performance_hints extension *
+* cl_intel_driver_diagnostics extension *
 ****************************************/
-#define CL_CONTEXT_SHOW_PERFORMANCE_HINTS_INTEL         0x1234
+#define cl_intel_driver_diagnostics 1
+
+typedef cl_uint                           cl_diagnostics_verbose_level;
+
 #define CL_CONTEXT_SHOW_DIAGNOSTICS_INTEL                            0x4106
 
-#define CL_CONTEXT_HINT_LEVEL_ALL                       ( 0xff )
-#define CL_CONTEXT_HINT_LEVEL_GOOD                      ( 1 )
-#define CL_CONTEXT_HINT_LEVEL_WRONG                     ( 1 << 1 )
-#define CL_CONTEXT_HINT_LEVEL_NEUTRAL                   ( 1 << 2 )
+#define CL_CONTEXT_DIAGNOSTICS_LEVEL_ALL_INTEL                       ( 0xff )
+#define CL_CONTEXT_DIAGNOSTICS_LEVEL_GOOD_INTEL                      ( 1 )
+#define CL_CONTEXT_DIAGNOSTICS_LEVEL_BAD_INTEL                       ( 1 << 1 )
+#define CL_CONTEXT_DIAGNOSTICS_LEVEL_NEUTRAL_INTEL                   ( 1 << 2 )
+#define CL_CONTEXT_DIAGNOSTICS_LEVEL_INTERNAL_INTEL                  ( 1 << 3 )
 
 /***************************************
 * Internal only queue properties *
 ****************************************/
 #define CL_QUEUE_VME_THREADS_INTEL                  0x10000
-#define CL_QUEUE_SPECIAL_INTEL                      0x10001
+#define CL_QUEUE_SPECIAL_INTEL                      0x20000
+#define CL_QUEUE_MASTER_INTEL                       0x40000
 
 // TODO: Intel evaluation now. Remove it after approval for public release
-#if ( _DEBUG || _RELEASE_INTERNAL )
 #define CL_DEVICE_CORE_CURRENT_CLOCK_FREQUENCY_INTEL    0x10002
-#endif
+
+/***************************************
+* wgl_intel_cl_sharing *
+****************************************/
+#define CL_MEM_SHAREABLE_INTEL                              ( 1 << 19 )
+
+/***************************************
+* cl_intel_mirrored_repeat_101
+****************************************/
+/* cl_addressing_mode */
+#define CL_ADDRESS_MIRRORED_REPEAT_101_INTEL                0x10135
+
+/***************************************
+* Private API for setting debug variables
+****************************************/
+extern CL_API_ENTRY cl_int CL_API_CALL
+clSetDebugVariableINTEL ( 
+    cl_device_id                 device,
+    const char*                  pKey,
+    cl_uint                      value ); 
 
 #ifdef __cplusplus
 }
