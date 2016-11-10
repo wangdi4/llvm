@@ -76,6 +76,10 @@ FunctionPass *createHIRUnrollAndJamPass();
 /// Reversal
 FunctionPass *createHIRLoopReversalPass();
 
+/// createHIRLMMPass - This creates a HIR Loop pass that performs Loop
+/// Memory Motion 
+FunctionPass *createHIRLMMPass();
+
 /// createHIRParDirInsertPass - This creates a pass that injects
 /// directives for auto parallelization loops.
 FunctionPass *createHIRParDirInsertPass();

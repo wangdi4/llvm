@@ -31,14 +31,14 @@ class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 class HIRLoopStatistics;
 
-/// \brief Defines HIRLoopTransformationUtils class.
+/// Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
 class HIRLoopTransformUtils {
 private:
-  /// \brief Do not allow instantiation
+  /// Do not allow instantiation
   HIRLoopTransformUtils() = delete;
 
-  /// \brief Updates bound DDRef by setting the correct defined at level and
+  /// Updates bound DDRef by setting the correct defined at level and
   /// adding a blob DDref for the newly created temp.
   static void updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
                                unsigned DefLevel);
@@ -70,7 +70,7 @@ private:
                                    const RegDDRef *NewTCRef);
 
 public:
-  ///\brief
+  ///
   /// Do Reversal Tests for a given HIR inner-most loop and return true if
   /// the loop is reversible.
   //
@@ -109,14 +109,14 @@ public:
   // Will revisit the situation once there is any request from potential client.
   //
   static bool isHIRLoopReversible(
-      HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+      HLLoop *InnermostLp,            // INPUT + OUTPUT: a given loop
       HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
       HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
       HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
       bool DoProfitTest = false       // INPUT: Control Profit Tests
       );
 
-  ///\brief Do Certain Reversal Tests for a given HIR inner-most loop.
+  /// Do Certain Reversal Tests for a given HIR inner-most loop.
   /// Reverse the loop if the loop is legal to reverse.
   //
   // Parameters:
@@ -138,10 +138,49 @@ public:
   // and legal check, only ignoring profit check.
   //
   static void doHIRLoopReversal(
-      HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+      HLLoop *InnermostLp,            // INPUT + OUTPUT: an inner-most loop
       HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
       HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
       HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
+      );
+
+  // Do HIR Loop-Invariant Memory Motion (LIMM) on a given loop
+  //
+  // Return: bool
+  // -true: if any LIMM is promoted;
+  // -false: otherwise;
+  //
+  static bool doHIRLoopInvariantMemoryMotion(
+      HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+      HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
+      HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
+      );
+
+  // Do HIR Loop-Redundant Memory Motion (LRMM) on a given loop
+  //
+  // Return: bool
+  // -true: if any LRMM is promoted;
+  // -false: otherwise;
+  //
+  static bool doHIRLoopRedundantMemoryMotion(
+      HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+      HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
+      HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
+      );
+
+  // Do HIR Loop Memory Motion on a given innermost loop
+  //
+  // This will promote both Loop-Invariant Memory Motion (LIMM) and
+  // Loop-Redundant Memory Motion (LRMM) if available.
+  //
+  // Return: bool
+  // -true: if any LIMM or LRMM is promoted;
+  // -false: otherwise;
+  //
+  static bool doHIRLoopMemoryMotion(
+      HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+      HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
+      HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
       );
 
   /// This function creates and returns a new loop that will be used as the

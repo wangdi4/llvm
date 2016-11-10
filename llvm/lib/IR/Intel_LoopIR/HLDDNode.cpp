@@ -83,6 +83,24 @@ RegDDRef *HLDDNode::removeOperandDDRef(unsigned OperandNum) {
   return TRef;
 }
 
+unsigned HLDDNode::getOperandNum(RegDDRef *OpRef) const {
+  assert(OpRef && "OpRef is null!");
+  assert((this == OpRef->getHLDDNode()) &&
+         "OpRef does not belong to this HLDDNode!");
+  assert(!OpRef->isFake() && "OpRef is a fake DDRef!");
+
+  unsigned OpNum = 0;
+
+  for (auto It = op_ddref_begin(), EndIt = op_ddref_end(); It != EndIt;
+       ++It, ++OpNum) {
+    if (*It == OpRef) {
+      return OpNum;
+    }
+  }
+
+  llvm_unreachable("Did not find OpRef in the operands!");
+}
+
 void HLDDNode::addFakeDDRef(RegDDRef *RDDRef) {
   assert(RDDRef && "Cannot add null fake DDRef!");
   assert(isa<HLInst>(this) && "Fake DDRef can only be attached to a HLInst!");

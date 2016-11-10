@@ -17,6 +17,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -25,29 +26,25 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::reversal;
+using namespace llvm::loopopt::lmm;
 
 bool HIRLoopTransformUtils::isHIRLoopReversible(
-    HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+    HLLoop *InnermostLp,            // INPUT + OUTPUT: a given loop
     HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
     HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
     HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
     bool DoProfitTest               // INPUT: Control Profit Tests
     ) {
-  // 0.Sanity Checks
-  assert(Lp && "HLLoop* can't be a nullptr\n");
+  assert(InnermostLp && "HLLoop* can't be a nullptr\n");
+  assert(InnermostLp->isInnermost() &&
+         "HIR LoopReversal can only work with an inner-most loop\n");
 
-  if (!Lp->isInnermost()) {
-    DEBUG(
-        dbgs() << "HIR LoopReversal can only work with an inner-most loop\n ";);
-    return false;
-  }
-
-  // 1.Create an HIRLoopReversal object on stack
+  // Create an HIRLoopReversal object on stack
   HIRLoopReversal ReversalPass;
 
-  // 2.Call HIRLoopReversal.isReversible(-)
+  // Call HIRLoopReversal.isReversible(-)
   return ReversalPass.isReversible(
-      Lp,           // HLLoop*
+      InnermostLp,  // HLLoop*
       HDDA,         // Existing DDAnalysis
       HSRA,         // Existing SafeReductionAnalysis
       HLS,          // Existing HIRLoopStatistics Analysis
@@ -58,39 +55,77 @@ bool HIRLoopTransformUtils::isHIRLoopReversible(
 }
 
 void HIRLoopTransformUtils::doHIRLoopReversal(
-    HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+    HLLoop *InnermostLp,            // INPUT + OUTPUT: an inner-most loop
     HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
     HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
     HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
     ) {
-  // 0.Sanity Checks
-  assert(Lp && "HLLoop* can't be a nullptr\n");
+  assert(InnermostLp && "HLLoop* can't be a nullptr\n");
+  assert(InnermostLp->isInnermost() &&
+         "HIR LoopReversal can only work with an inner-most loop\n");
 
-  if (!Lp->isInnermost()) {
-    DEBUG(
-        dbgs() << "HIR LoopReversal can only work with an inner-most loop\n ";);
-  }
-
-  // 1.Create an HIRLoopReversal object on stack
+  // Create an HIRLoopReversal object on stack
   HIRLoopReversal ReversalPass;
 
-  // 2.Call HIRLoopReversal.isReversible(-), expect the loop is reversible
+  // Call HIRLoopReversal.isReversible(-), expect the loop is reversible
   bool IsReversible = ReversalPass.isReversible(
-      Lp,    // HLLoop*
-      HDDA,  // Existing DDAnalysis
-      HSRA,  // Existing SafeReductionAnalysis
-      HLS,   // Existing HIRLoopStatistics Analysis
-      false, // Ignore Profit Tests
-      false, // Assert on legality
+      InnermostLp, // HLLoop*
+      HDDA,        // Existing DDAnalysis
+      HSRA,        // Existing SafeReductionAnalysis
+      HLS,         // Existing HIRLoopStatistics Analysis
+      false,       // Ignore Profit Tests
+      false,       // Assert on legality
       true // ON Short-circuit action (expect the analysis has been done in the
            // previous API call)
       );
 
-  // 3. Reverse the Loop
+  // Reverse the Loop
   assert(IsReversible && "Expect the loop is reversible\n");
   (void)IsReversible;
 
-  ReversalPass.doHIRReversalTransform(Lp);
+  ReversalPass.doHIRReversalTransform(InnermostLp);
+}
+
+bool HIRLoopTransformUtils::doHIRLoopRedundantMemoryMotion(
+    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+    HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
+    HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
+    ) {
+  assert(InnermostLp && "HLLoop* can't be null\n");
+  assert(InnermostLp->isInnermost() && "HIR LRMM (Loop Redundant Memory "
+                                       "Motion) can only work on an inner-most "
+                                       "loop\n");
+
+  // to implement!
+
+  return false;
+}
+
+bool HIRLoopTransformUtils::doHIRLoopInvariantMemoryMotion(
+    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+    HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
+    HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
+    ) {
+  assert(InnermostLp && "HLLoop* can't be null\n");
+  assert(InnermostLp->isInnermost() && "HIR LIMM (Loop Invariant Memory "
+                                       "Motion) can only work on an inner-most "
+                                       "loop\n");
+
+  HIRLMM LMMPass;
+  return LMMPass.doLoopMemoryMotion(InnermostLp, HDDA, HLS);
+}
+
+bool HIRLoopTransformUtils::doHIRLoopMemoryMotion(
+    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+    HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
+    HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
+    ) {
+  assert(InnermostLp && "HLLoop* can't be null\n");
+  assert(InnermostLp->isInnermost() &&
+         "HIR LMM (Loop Memory Motion) can only work on an inner-most loop\n");
+
+  // to implement!
+  return false;
 }
 
 bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,

@@ -263,6 +263,7 @@ namespace {
       (void) llvm::createHIRLoopDistributionForMemRecPass();
       (void) llvm::createHIRLoopDistributionForLoopNestPass();
       (void) llvm::createHIRLoopReversalPass();
+      (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
 

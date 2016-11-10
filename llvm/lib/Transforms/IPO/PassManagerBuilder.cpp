@@ -1040,6 +1040,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRLoopInterchangePass());
     PM.add(createHIRLoopReversalPass());
     PM.add(createHIRCompleteUnrollPass());
+    PM.add(createHIRLMMPass());
     PM.add(createHIRLoopDistributionForMemRecPass());
     PM.add(createHIRUnrollAndJamPass());
     PM.add(createHIRVecDirInsertPass(OptLevel == 3));
