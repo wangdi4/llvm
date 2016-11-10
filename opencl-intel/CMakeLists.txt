@@ -377,7 +377,7 @@ math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
 message(STATUS "GIT Version: ${GIT_VERSION}")
 message(STATUS "GIT Revision: ${GIT_REVISION}")
-message(STATUS "PRODUCTVER_MAJOR: ${PRODUCTVER_MAJOR}")                    
+message(STATUS "PRODUCTVER_MAJOR: ${PRODUCTVER_MAJOR}")
 
 # --------------
 #  write a file with the BUILDVERSION define
@@ -560,7 +560,7 @@ else(APPLE)
     if(BUILD_LLVM_FROM_SOURCE)
         add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
     endif()
-    
+
     #validation
     add_subdirectory( tests )
 
@@ -594,7 +594,7 @@ else(APPLE)
     if ( INCLUDE_CMRT )
         add_subdirectory ( common_runtime )
     endif( INCLUDE_CMRT )
-    
+
     # Tools
     if( INCLUDE_TOOLS )
         add_subdirectory ( tools )
@@ -602,12 +602,12 @@ else(APPLE)
 
     #workloads
     #add_subdirectory( workloads )
-    
+
     #Linux samples
     option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
     if (INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
         add_subdirectory( samples )
     endif(INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
 
-    
+
 endif(APPLE)
