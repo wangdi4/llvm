@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2015 Intel Corporation
+// Copyright (c) 2006-2016 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -32,6 +32,7 @@
 #include <vector>
 #include <sstream>
 #include <iterator>
+#include <memory>
 
 namespace OCLCRT
 {
@@ -3428,7 +3429,7 @@ cl_int CL_API_CALL clBuildProgram(
     std::string                     optReflect;
     cl_int errCode                  = CL_SUCCESS;
     cl_device_id* deviceList        = NULL;
-    cl_uint deviceListSize          = 0;
+    size_t  deviceListSize          = 0;
     CrtBuildCallBackData* crtData   = NULL;
     cl_device_id* outDevices        = NULL;
 
@@ -3605,7 +3606,7 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
     SHARED_CTX_DISPATCH::iterator       itr;
     cl_int errCode                      = CL_SUCCESS;
     cl_device_id* deviceList            = NULL;
-    cl_uint deviceListSize              = 0;
+    size_t  deviceListSize              = 0;
     CrtBuildCallBackData* crtData       = NULL;
     _cl_program_crt* program            = NULL;
     CrtProgram* crtProg                 = NULL;
@@ -3869,7 +3870,7 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
     cl_int errCode                  = CL_SUCCESS;
     CrtBuildCallBackData* crtData   = NULL;
     cl_device_id* deviceList        = NULL;
-    cl_uint deviceListSize          = 0;
+    size_t  deviceListSize          = 0;
     cl_device_id* outDevices        = NULL;
     CrtProgram* crtProg             = NULL;
     CrtProgram* headProg            = NULL;
@@ -4295,28 +4296,65 @@ SET_ALIAS( clCreateKernel );
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-CL_API_ENTRY cl_kernel CL_API_CALL clCloneKernel( 
-    cl_kernel source_kernel, 
+CL_API_ENTRY cl_kernel CL_API_CALL clCloneKernel(
+    cl_kernel source_kernel,
     cl_int *        errcode_ret )
 {
     cl_int errCode = CL_SUCCESS;
-    cl_kernel clonedKernel = NULL;
-
-    if( source_kernel )
+    if ( !errcode_ret )
     {
-        clonedKernel = ( ( SOCLEntryPointsTable* )source_kernel )->icdDispatch->clCloneKernel(
-            source_kernel,
-            errcode_ret );
+        errcode_ret = &errCode;
+    }
+    _cl_kernel_crt *clonedKernel = nullptr;
+    CrtKernel* crtKernel = nullptr;
+    std::unique_ptr<CrtKernel> copyCrtKernel;
+    CTX_KRN_MAP copiedContextToKernel;
+
+    if( !source_kernel )
+    {
+        *errcode_ret = CL_INVALID_KERNEL;
+        goto FINISH;
+    }
+
+    crtKernel = reinterpret_cast<CrtKernel*>( ( ( _cl_kernel_crt* )source_kernel )->object );
+
+    for (auto& it : crtKernel->m_ContextToKernel)
+    {
+        cl_kernel tmpKernel = it.first->dispatch->clCloneKernel(it.second, errcode_ret);
+        if (*errcode_ret != CL_SUCCESS)
+        {
+            goto FINISH;
+        }
+        copiedContextToKernel[it.first] = tmpKernel;
+    }
+
+    copyCrtKernel.reset(new (std::nothrow) CrtKernel(crtKernel->m_programCRT));
+    if (copyCrtKernel.get() == nullptr)
+    {
+        *errcode_ret = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+    copyCrtKernel->m_ContextToKernel = copiedContextToKernel;
+    clonedKernel = new (std::nothrow) _cl_kernel_crt;
+    if (clonedKernel != nullptr)
+    {
+        clonedKernel->object = (void *)copyCrtKernel.release();
     }
     else
     {
-        errCode = CL_INVALID_KERNEL;
+        *errcode_ret = CL_OUT_OF_HOST_MEMORY;
     }
 
-    if( errcode_ret )
+FINISH:
+
+    if (CL_SUCCESS != *errcode_ret)
     {
-        *errcode_ret = errCode;
+        for (auto& iter : copiedContextToKernel)
+        {
+            clReleaseKernel(iter.second);
+        }
     }
+
     return clonedKernel;
 }
 SET_ALIAS( clCloneKernel );
@@ -8843,6 +8881,8 @@ CL_API_ENTRY cl_int CL_API_CALL clSetDebugVariableINTEL(
 FINISH:
     return errCode;
 }
+SET_ALIAS( clSetDebugVariableINTEL );
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -9455,6 +9495,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMediaPakINTEL(
     cl_uint                                   num_refs,
     cl_mem                                   *ref_images,
     cl_mem                                   *ref_temporal,
+    const cl_pak_hevc_insert_intel           *tail_insert,
     cl_mem                                    status_out,
     cl_mem                                    stream_out,
     cl_uint                                   num_events_in_wait_list,
@@ -9505,6 +9546,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMediaPakINTEL(
                 num_refs,
                 ref_images,
                 ref_temporal,
+                tail_insert,
                 status_out,
                 stream_out,
                 num_events_in_wait_list,
@@ -9795,6 +9837,10 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCloneKernel ) );
     }
+    if( funcname && !strcmp( funcname, "clSetDebugVariableINTEL" ) )
+    {
+        return ( (void*)(ptrdiff_t)GET_ALIAS( clSetDebugVariableINTEL ) );
+    }
 #ifdef _WIN32
     if( funcname && !strcmp( funcname, "clGetDeviceIDsFromDX9INTEL" ) )
     {
@@ -9811,10 +9857,6 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     if( funcname && !strcmp( funcname, "clEnqueueReleaseDX9ObjectsINTEL" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clEnqueueReleaseDX9ObjectsINTEL ) );
-    }
-    if( funcname && !strcmp( funcname, "clSetDebugVariableINTEL" ) )
-    {
-        return ( ( void* )( ptrdiff_t )GET_ALIAS( clSetDebugVariableINTEL ) );
     }
     if( funcname && !strcmp( funcname, "GetCRTInfo" ) )
     {

@@ -145,6 +145,7 @@ namespace CRT_ICD_DISPATCH
         cl_uint                                   num_refs,
         cl_mem                                   *ref_images,
         cl_mem                                   *ref_temporal,
+        const cl_pak_hevc_insert_intel           *tail_insert,
         cl_mem                                    status_out,
         cl_mem                                    stream_out,
         cl_uint                                   num_events_in_wait_list,
