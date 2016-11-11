@@ -523,6 +523,50 @@ BlobTy HIRParser::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
   return NewBlob;
 }
 
+BlobTy HIRParser::createSMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                 unsigned *NewBlobIndex) {
+  assert(BlobA && BlobB && "Blob cannot be null!");
+
+  auto NewBlob = SE->getSMinExpr(BlobA, BlobB);
+
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
+
+  return NewBlob;
+}
+
+BlobTy HIRParser::createSMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                 unsigned *NewBlobIndex) {
+  assert(BlobA && BlobB && "Blob cannot be null!");
+
+  auto NewBlob = SE->getSMaxExpr(BlobA, BlobB);
+
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
+
+  return NewBlob;
+}
+
+BlobTy HIRParser::createUMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                unsigned *NewBlobIndex) {
+  assert(BlobA && BlobB && "Blob cannot be null!");
+
+  auto NewBlob = SE->getUMinExpr(BlobA, BlobB);
+
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
+
+  return NewBlob;
+}
+
+BlobTy HIRParser::createUMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                unsigned *NewBlobIndex) {
+  assert(BlobA && BlobB && "Blob cannot be null!");
+
+  auto NewBlob = SE->getUMaxExpr(BlobA, BlobB);
+
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
+
+  return NewBlob;
+}
+
 bool HIRParser::contains(BlobTy Blob, BlobTy SubBlob) const {
   assert(Blob && "Blob cannot be null!");
   assert(SubBlob && "SubBlob cannot be null!");

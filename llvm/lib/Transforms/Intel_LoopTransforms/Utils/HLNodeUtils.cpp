@@ -1338,7 +1338,7 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
     Node = Container.remove(I);
 
     if (Erase) {
-      destroy(Node);
+      Node->getHLNodeUtils().destroy(Node);
     } else {
       /// Used to catch errors where user tries to insert an already linked
       /// node.

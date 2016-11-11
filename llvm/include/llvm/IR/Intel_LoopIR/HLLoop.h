@@ -230,9 +230,14 @@ public:
   /// \brief Removes and returns the OrigLoop
   const Loop *removeLLVMLoop();
 
-  /// \brief Creates a Ztt for HLLoop. IsOverwrite flag
+  /// Creates a Ztt for HLLoop. IsOverwrite flag
   /// indicates to overwrite existing Ztt or not.
-  void createZtt(bool IsOverwrite = true);
+  void createZtt(bool IsOverwrite = true, bool IsSigned = false);
+
+  /// Creates a Ztt for HLLoop. IsOverwrite flag indicates to overwrite existing
+  /// Ztt or not. The loop becomes an owner of incoming DDRefs.
+  void createZtt(RegDDRef *LHS, PredicateTy Pred, RegDDRef *RHS,
+                 bool IsOverwrite = true);
 
   /// \brief Hoists the Ztt out of the loop. It returns a handle to the Ztt or
   /// nullptr if it doesn't exist.

@@ -279,30 +279,33 @@ private:
   /// if Erase is set. If erase isn't set and MoveContainer isn't null they are
   /// moved to MoveContainer. Otherwise, nodes are removed without destroying
   /// them.
-  void removeImpl(HLContainerTy::iterator First, HLContainerTy::iterator Last,
-                  HLContainerTy *MoveContainer, bool Erase = false);
+  static void removeImpl(HLContainerTy::iterator First,
+                         HLContainerTy::iterator Last,
+                         HLContainerTy *MoveContainer, bool Erase = false);
 
   /// Removes [First, Last) from Container. Also destroys them is Erase is set.
-  void removeInternal(HLContainerTy &Container, HLContainerTy::iterator First,
-                      HLContainerTy::iterator Last, bool Erase);
+  static void removeInternal(HLContainerTy &Container,
+                             HLContainerTy::iterator First,
+                             HLContainerTy::iterator Last, bool Erase);
 
   /// Unlinks Node from HIR and destroys it.
   /// Note: This function is intentionally private. Transformations are not
   /// supposed to erase nodes as cleaning up erased nodes from HIR analyses
   /// requires implementation of a callback mechanism which doesn't seem worth
   /// it.
-  void erase(HLNode *Node);
+  static void erase(HLNode *Node);
 
   /// Unlinks [First, Last) from HIR and destroys them.
   /// Note: This function is intentionally private. Transformations are not
   /// supposed to erase nodes as cleaning up erased nodes from HIR analyses
   /// requires implementation of a callback mechanism which doesn't seem worth
   /// it.
-  void erase(HLContainerTy::iterator First, HLContainerTy::iterator Last);
+  static void erase(HLContainerTy::iterator First,
+                    HLContainerTy::iterator Last);
 
   /// Returns true if a loop is found in range [First, Last).
-  bool foundLoopInRange(HLContainerTy::iterator First,
-                        HLContainerTy::iterator Last);
+  static bool foundLoopInRange(HLContainerTy::iterator First,
+                               HLContainerTy::iterator Last);
 
   /// Update the goto branches with new labels.
   void updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap);
@@ -724,7 +727,7 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  void visit(HV &Visitor, NodeTy *Node) {
+  static void visit(HV &Visitor, NodeTy *Node) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visit(Node);
   }
@@ -736,7 +739,7 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  void visitRange(HV &Visitor, ilist_iterator<NodeTy> Begin,
+  static void visitRange(HV &Visitor, ilist_iterator<NodeTy> Begin,
                   ilist_iterator<NodeTy> End) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visitRange(Begin, End);
@@ -748,7 +751,7 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
+  static void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
     ilist_iterator<NodeTy> BeginIter(Begin);
     ilist_iterator<NodeTy> EndIter(End);
@@ -988,20 +991,21 @@ public:
                                HLContainerTy::iterator Last);
 
   /// Unlinks Node from HIR.
-  void remove(HLNode *Node);
+  static void remove(HLNode *Node);
 
   /// Unlinks [First, Last) from HIR.
-  void remove(HLContainerTy::iterator First, HLContainerTy::iterator Last);
+  static void remove(HLContainerTy::iterator First,
+                     HLContainerTy::iterator Last);
 
   /// Unlinks [First, Last] from HIR.
-  void remove(HLNode *First, HLNode *Last);
+  static void remove(HLNode *First, HLNode *Last);
 
   /// Unlinks [First, Last) from HIR and places then in the container.
-  void remove(HLContainerTy *Container, HLContainerTy::iterator First,
-              HLContainerTy::iterator Last);
+  static void remove(HLContainerTy *Container, HLContainerTy::iterator First,
+                     HLContainerTy::iterator Last);
 
   /// Unlinks [First, Last] from HIR and places then in the container.
-  void remove(HLContainerTy *Container, HLNode *First, HLNode *Last);
+  static void remove(HLContainerTy *Container, HLNode *First, HLNode *Last);
 
   /// Replaces OldNode by an unlinked NewNode.
   void replace(HLNode *OldNode, HLNode *NewNode);

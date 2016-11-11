@@ -173,6 +173,26 @@ BlobTy BlobUtils::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
   return getHIRParser().createCastBlob(Blob, IsSExt, Ty, Insert, NewBlobIndex);
 }
 
+BlobTy BlobUtils::createSMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                 unsigned *NewBlobIndex) {
+  return getHIRParser().createSMinBlob(BlobA, BlobB, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createSMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                 unsigned *NewBlobIndex) {
+  return getHIRParser().createSMaxBlob(BlobA, BlobB, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createUMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                 unsigned *NewBlobIndex) {
+  return getHIRParser().createUMinBlob(BlobA, BlobB, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createUMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                 unsigned *NewBlobIndex) {
+  return getHIRParser().createUMaxBlob(BlobA, BlobB, Insert, NewBlobIndex);
+}
+
 bool BlobUtils::contains(BlobTy Blob, BlobTy SubBlob) {
   return getHIRParser().contains(Blob, SubBlob);
 }

@@ -320,7 +320,7 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
       IsCandidate = false;
     }
   } else {
-    Level = std::max(ParentLoop->getNestingLevel(), MinLevel);
+    Level = ParentLoop->getNestingLevel();
   }
 
   CandidateLookup Lookup(Pass, Level);
@@ -421,6 +421,7 @@ unsigned HIROptPredicate::getDefinedAtLevel(const HLIf *If) {
   return Level;
 }
 
+// TODO: try to replace the following method with getParentLoopAtLevel() utility
 HLLoop *HIROptPredicate::findTargetLoopAtLevel(const HLIf *If,
                                                HLLoop *ParentLoop,
                                                unsigned Level) const {

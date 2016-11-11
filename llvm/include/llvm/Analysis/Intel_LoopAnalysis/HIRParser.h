@@ -506,7 +506,29 @@ private:
   BlobTy createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty, bool Insert,
                         unsigned *NewBlobIndex);
 
-  // TODO handle min/max blobs.
+  /// Returns a new blob represented smin of BlobA and BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument. Blob types should
+  /// match each other.
+  BlobTy createSMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// Returns a new blob represented smax of BlobA and BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument. Blob types should
+  /// match each other.
+  BlobTy createSMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// Returns a new blob represented umin of BlobA and BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument. Blob types should
+  /// match each other.
+  BlobTy createUMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// Returns a new blob represented umax of BlobA and BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument. Blob types should
+  /// match each other.
+  BlobTy createUMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
 
   /// Returns true if Blob contains SubBlob or if Blob == SubBlob.
   bool contains(BlobTy Blob, BlobTy SubBlob) const;
