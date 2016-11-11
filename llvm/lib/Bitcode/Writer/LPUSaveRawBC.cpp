@@ -48,7 +48,20 @@ LPUSaveRawBC::LPUSaveRawBC() : ImmutablePass(ID) {
 }
 
 bool LPUSaveRawBC::doInitialization(Module &M) {
-//    errs() << "LPUSaveRawBC::doInitialization\n";
+
+  // Only supported by LPU. It would be better to only add the pass if the
+  // target is LPU, but I don't seem to have access to that information in
+  // the appropriate places
+  if (0 != M.getTargetTriple().compare("lpu")) {
+/*
+    errs() << "Not an LPU module - ";
+    errs() << M.getTargetTriple();
+    errs() << "\n";
+*/
+    return false;
+  }
+
+  errs() << "LPUSaveRawBC::doInitialization\n";
 
   // Multiple instances of the analyzer are created by LLVM. We
   // only need to save the raw IR once. If the string is already
@@ -109,7 +122,7 @@ void LPUSaveRawBC::dumpBC(StringRef modName) {
 }
 
 const std::string &LPUSaveRawBC::getRawBC() const {
-  assert(!BcData.empty() && "Expected string to be filled by doInitialization!");
+  assert(!BcData.empty() && "Expected string to be filled by doInitialization for an LPU module!");
 
   return BcData;
 }
