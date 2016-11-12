@@ -105,7 +105,7 @@ AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
                                    HLIf::const_pred_iterator& PredIt)
   : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) {
 
-  const HLIf *HIf = AIf->getCompareInstruction();
+  HLIf *HIf = AIf->getCompareInstruction();
   HIRNode = nullptr; // this is an HLIf predicate - no underlying HLInst.
   Condition = *PredIt;
   if (Condition <= CmpInst::Predicate::LAST_FCMP_PREDICATE)
@@ -120,13 +120,13 @@ AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
   RegDDRef *LHS = HIf->getPredicateOperandDDRef(PredIt, true);
   if (LHS) {
 
-    AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(LHS, nullptr, this);
+    AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(LHS, HIf, this);
     this->Operands.push_back(AvrVal);
   }
 
   RegDDRef *RHS = HIf->getPredicateOperandDDRef(PredIt, false);
   assert (RHS && "Predicate's RHS is null");
-  AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(RHS, nullptr, this);
+  AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(RHS, HIf, this);
   this->Operands.push_back(AvrVal);
 
   // Set type
@@ -188,7 +188,10 @@ std::string AVRExpressionHIR::getAvrValueName() const {
 
 //----------AVR Value for HIR Implementation----------//
 AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
-  : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {
+    : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {
+
+  assert(Node && "HLNode cannot be null");
+
   setParent(Parent);
 
   Type *DataType;

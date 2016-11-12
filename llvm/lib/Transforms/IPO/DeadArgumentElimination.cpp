@@ -61,6 +61,12 @@ namespace {
       initializeDAEPass(*PassRegistry::getPassRegistry());
     }
 
+#if INTEL_CUSTOMIZATION
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<WholeProgramWrapperPass>();
+  }
+#endif // INTEL_CUSTOMIZATION
+
     bool runOnModule(Module &M) override {
       if (skipModule(M))
         return false;
@@ -1069,5 +1075,9 @@ PreservedAnalyses DeadArgumentEliminationPass::run(Module &M,
 
   if (!Changed)
     return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+
+  auto PA = PreservedAnalyses();        // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
+
+  return PA;                            // INTEL
 }

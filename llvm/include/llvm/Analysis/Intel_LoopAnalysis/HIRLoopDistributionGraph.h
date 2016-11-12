@@ -1,4 +1,4 @@
-//===----- HIRLoopDistributionGraph.h - Forms Distribution Graph  --------===//
+//===----- HIRLoopDistributionGraph.h - Forms Distribution Graph  ---------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -23,8 +23,7 @@
 #ifndef INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
 #define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionPreProcGraph.h"
-#include "Utils/AllSCCIterator.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopDistributionPreProcGraph.h"
 
 namespace llvm {
 
@@ -99,40 +98,6 @@ private:
   SmallVector<DistPPNode *, 16> DistPPNodes;
   PiBlockType BlockType;
 };
-
-void PiBlock::setPiBlockType(const std::vector<DistPPNode *> &SCCNodes) {
-  int StmtCount = 0;
-  int LoopCount = 0;
-  for (DistPPNode *Node : SCCNodes) {
-    if (isa<HLLoop>(Node->HNode)) {
-      LoopCount++;
-    } else {
-      StmtCount++;
-    }
-  }
-
-  if (StmtCount == 0) {
-    if (LoopCount == 0) {
-      llvm_unreachable("Malformed pi block in loop distribution");
-    } else if (LoopCount == 1) {
-      BlockType = PiBlockType::SingleLoop;
-    } else {
-      BlockType = PiBlockType::MultipleLoop;
-    }
-  } else if (StmtCount == 1) {
-    if (LoopCount == 0) {
-      BlockType = PiBlockType::SingleStmt;
-    } else {
-      BlockType = PiBlockType::StmtAndLoop;
-    }
-  } else if (StmtCount > 1) {
-    if (LoopCount == 0) {
-      BlockType = PiBlockType::MultipleStmt;
-    } else {
-      BlockType = PiBlockType::StmtAndLoop;
-    }
-  }
-}
 
 // A PiGraphEdge represents a list of dd edges between PiBlocks.
 class PiGraphEdge {
@@ -293,12 +258,13 @@ private:
 // as GraphTraits
 //===--------------------------------------------------------------------===//
 //
-template <> struct GraphTraits<PiGraph *> {
-  typedef PiBlock NodeType;
-  typedef PiBlock *NodeRef;
+template <> struct GraphTraits<loopopt::PiGraph *> {
+  typedef loopopt::PiBlock NodeType;
 
-  typedef PiGraph::children_iterator ChildIteratorType;
-  static NodeType *getEntryNode(PiGraph *G) { return *(G->node_begin()); }
+  typedef loopopt::PiGraph::children_iterator ChildIteratorType;
+  static NodeType *getEntryNode(loopopt::PiGraph *G) {
+    return *(G->node_begin());
+  }
 
   static inline ChildIteratorType child_begin(NodeType *N) {
     return N->getGraph()->children_begin(N);
@@ -307,33 +273,26 @@ template <> struct GraphTraits<PiGraph *> {
     return N->getGraph()->children_end(N);
   }
 
-  typedef std::pointer_to_unary_function<PiBlock *, PiBlock &> DerefFun;
+  typedef std::pointer_to_unary_function<loopopt::PiBlock *, loopopt::PiBlock &>
+      DerefFun;
 
-  typedef mapped_iterator<SmallVectorImpl<PiBlock *>::iterator, DerefFun>
+  typedef mapped_iterator<SmallVectorImpl<loopopt::PiBlock *>::iterator,
+                          DerefFun>
       nodes_iterator;
 
-  static nodes_iterator nodes_begin(PiGraph **G) {
+  static nodes_iterator nodes_begin(loopopt::PiGraph **G) {
     return map_iterator((*G)->node_begin(), DerefFun(NodePtrDeref));
   }
-  static nodes_iterator nodes_end(PiGraph **G) {
+  static nodes_iterator nodes_end(loopopt::PiGraph **G) {
     return map_iterator((*G)->node_end(), DerefFun(NodePtrDeref));
   }
 
-  static PiBlock &NodePtrDeref(PiBlock *PNode) { return *PNode; }
-
-  static unsigned size(PiGraph *G) { return G->size(); }
-};
-} /// llvm
-
-void llvm::loopopt::PiGraph::createNodes() {
-  for (auto I = all_scc_begin(PPGraph), E = all_scc_end(PPGraph); I != E; ++I) {
-    addPiBlock(*I);
+  static loopopt::PiBlock &NodePtrDeref(loopopt::PiBlock *PNode) {
+    return *PNode;
   }
 
-  // scc_iterator uses tarjans algorithm, which emits scc's in
-  // reverse top sort order. Reverse piblock list to restore
-  // top sort order
-  std::reverse(PiBlocks.begin(), PiBlocks.end());
-}
+  static unsigned size(loopopt::PiGraph *G) { return G->size(); }
+};
+} /// llvm
 
 #endif

@@ -387,6 +387,11 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
 void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
   // Start of function pass.
+#if INTEL_CUSTOMIZATION
+  if (isLoopOptEnabled())
+    MPM.add(createLoopOptMarkerPass());
+#endif // INTEL_CUSTOMIZATION
+
   // Break up aggregate allocas, using SSAUpdater.
   MPM.add(createSROAPass());
   MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
@@ -879,7 +884,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIndirectCallConvPass()); // Indirect Call Conv
   }
   if (EnableInlineAggAnalysis) {
-    PM.add(createInlineAggressiveAnalysisPass()); // Aggressive Inline
+    PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -908,6 +913,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // Break up allocas
   PM.add(createSROAPass());
+ 
+#if INTEL_CUSTOMIZATION
+  if (EnableInlineAggAnalysis) {
+    PM.add(createAggInlAALegacyPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
@@ -981,6 +992,15 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 }
 
 #if INTEL_CUSTOMIZATION // HIR passes
+
+bool PassManagerBuilder::isLoopOptEnabled() const {
+  if ((RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
+      (SizeLevel == 0) && !PrepareForLTO && !PerformThinLTO) 
+    return true;
+
+  return false;
+}
+
 void PassManagerBuilder::addLoopOptCleanupPasses(
     legacy::PassManagerBase &PM) const {
   PM.add(createCFGSimplificationPass());
@@ -997,17 +1017,14 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
-  if (!(RunLoopOpts || RunLoopOptFrameworkOnly) || (OptLevel < 2) ||
-      (SizeLevel != 0) || PrepareForLTO || PerformThinLTO) {
+  if (!isLoopOptEnabled()) 
     return;
-  }
 
   // This pass "canonicalizes" loops and makes analysis easier.
   PM.add(createLoopSimplifyPass());
 
-  if(PrintModuleBeforeLoopopt) {
+  if (PrintModuleBeforeLoopopt)
     PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
-  }
 
   PM.add(createHIRSSADeconstructionPass());
   // This is expected to be the first pass in the HIR pipeline as it cleans up
@@ -1019,10 +1036,12 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRParDirInsertPass());
     PM.add(createHIROptPredicatePass());
     PM.add(createHIRRuntimeDDPass());
-    PM.add(createHIRLoopDistributionPass(false));
+    PM.add(createHIRLoopDistributionForLoopNestPass());
     PM.add(createHIRLoopInterchangePass());
     PM.add(createHIRLoopReversalPass());
     PM.add(createHIRCompleteUnrollPass());
+    PM.add(createHIRLoopDistributionForMemRecPass());
+    PM.add(createHIRUnrollAndJamPass());
     PM.add(createHIRVecDirInsertPass(OptLevel == 3));
     PM.add(createVPODriverHIRPass());
     PM.add(createHIRGeneralUnrollPass());

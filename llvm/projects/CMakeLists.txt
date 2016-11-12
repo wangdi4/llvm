@@ -5,6 +5,7 @@ file(GLOB entries *)
 foreach(entry ${entries})
   if(IS_DIRECTORY ${entry} AND EXISTS ${entry}/CMakeLists.txt)
     if((NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/compiler-rt) AND
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/openmp) AND #INTEL - exclude openmp from the build by default
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/dragonegg) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxx) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxxabi) AND
@@ -30,6 +31,12 @@ if(${LLVM_BUILD_RUNTIME})
   if(NOT LLVM_BUILD_EXTERNAL_COMPILER_RT)
     add_llvm_external_project(compiler-rt)
   endif()
+endif()
+
+if(INTEL_CUSTOMIZATION)
+ if(${LLVM_BUILD_OPENMP})
+  add_llvm_external_project(openmp)
+ endif()
 endif()
 
 add_llvm_external_project(dragonegg)

@@ -126,7 +126,7 @@ public:
 // standalone blob.
 AVRValueHIR *BlobDecompVisitor::decomposeStandAloneBlob(const SCEV *SC) {
 
-  unsigned BlobIndex = BlobUtils::findBlob(SC);
+  unsigned BlobIndex = RDDR.getBlobUtils().findBlob(SC);
   assert(BlobIndex != InvalidBlobIndex && "SCEV is not a Blob");
 
   // Self blobs will always have a BlobDDRef at this point. Self blob RegDDRefs
@@ -417,7 +417,7 @@ AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,
 
 AVR *HIRDecomposer::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
                                   int64_t BlobCoeff) {
-  BlobTy Blob = BlobUtils::getBlob(BlobIdx);
+  BlobTy Blob = RDDR->getBlobUtils().getBlob(BlobIdx);
   AVR *BlobSubTree;
 
   // Decompose Blob

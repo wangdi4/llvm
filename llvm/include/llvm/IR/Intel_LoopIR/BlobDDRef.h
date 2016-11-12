@@ -16,8 +16,8 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_BLOBDDREF_H
 #define LLVM_IR_INTEL_LOOPIR_BLOBDDREF_H
 
-#include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/DDRef.h"
 
 namespace llvm {
 
@@ -36,7 +36,7 @@ private:
   RegDDRef *ParentDDRef;
 
 protected:
-  explicit BlobDDRef(unsigned Index, unsigned Level);
+  explicit BlobDDRef(DDRefUtils &DDRU, unsigned Index, unsigned Level);
   virtual ~BlobDDRef() override {}
 
   /// \brief Copy constructor used by cloning.

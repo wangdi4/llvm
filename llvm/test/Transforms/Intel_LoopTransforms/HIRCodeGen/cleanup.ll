@@ -12,12 +12,12 @@
 
 ; 
 ; CHECK-NOT: region:
-; CHECK: loop.11:
+; CHECK: loop.[[NUM:.*]]:
 ; CHECK-NEXT: phi{{.*}}[ 0, %entry ] 
 
-; CHECK: br{{.*}} label %loop.11, label %afterloop.11
+; CHECK: br{{.*}} label %loop.[[NUM]], label %afterloop.[[NUM1:.*]]
 
-; CHECK: afterloop.11:
+; CHECK: afterloop.[[NUM1]]:
 ; CHECK-NEXT: load{{.*}} @A
 ; CHECK-NEXT: ret
 

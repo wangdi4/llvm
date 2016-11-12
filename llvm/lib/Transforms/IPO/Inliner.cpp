@@ -113,7 +113,7 @@ void Inliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<ProfileSummaryInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addUsedIfAvailable<InlineAggressiveAnalysis>();               // INTEL
+  AU.addUsedIfAvailable<InlineAggressiveWrapperPass>();     // INTEL
   getAAResultsAnalysisUsage(AU);
   CallGraphSCCPass::getAnalysisUsage(AU);
 }
@@ -465,6 +465,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 function_ref<InlineCost(CallSite CS)> GetInlineCost,
                 function_ref<AAResults &(Function &)> AARGetter,
                 ImportedFunctionsInliningStatistics &ImportedFunctionsStats,
+                InliningLoopInfoCache *ILIC, // INTEL
                 InlineReport& IR) { // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
   DEBUG(dbgs() << "Inliner visiting SCC:");
@@ -640,6 +641,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         }
         IR.setActiveInlineInstruction(nullptr); // INTEL
         ++NumInlined;
+        ILIC->invalidateFunction(Caller); // INTEL
 
         // Report the inline decision.
         ORE.emitOptimizationRemark(
@@ -681,6 +683,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         CalleeNode->removeAllCalledFunctions();
 
         // Removing the node for callee from the call graph and delete it.
+        ILIC->invalidateFunction(Callee); // INTEL
         delete CG.removeFunctionFromModule(CalleeNode);
         ++NumDeleted;
       }
@@ -711,6 +714,7 @@ bool Inliner::inlineCalls(CallGraphSCC &SCC) {
   ACT = &getAnalysis<AssumptionCacheTracker>();
   PSI = getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI(CG.getModule());
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  ILIC = new InliningLoopInfoCache(); // INTEL
   // We compute dedicated AA results for each function in the SCC as needed. We
   // use a lambda referencing external objects so that they live long enough to
   // be queried, but we re-use them each time.
@@ -725,10 +729,14 @@ bool Inliner::inlineCalls(CallGraphSCC &SCC) {
     return ACT->getAssumptionCache(F);
   };
   CG.registerCGReport(&Report); // INTEL
-  return inlineCallsImpl(SCC, CG, GetAssumptionCache, PSI, TLI, InsertLifetime,
-                         [this](CallSite CS) { return getInlineCost(CS); },
-                         AARGetter, ImportedFunctionsStats, // INTEL
-                         getReport()); // INTEL
+  bool rv = inlineCallsImpl(SCC, CG, GetAssumptionCache, PSI, TLI,
+                            InsertLifetime,
+                            [this](CallSite CS) { return getInlineCost(CS); },
+                            AARGetter, ImportedFunctionsStats,
+                            ILIC, getReport()); // INTEL
+  delete ILIC;    // INTEL
+  ILIC = nullptr; // INTEL
+  return rv;      // INTEL
 }
 
 /// Remove now-dead linkonce functions at the end of

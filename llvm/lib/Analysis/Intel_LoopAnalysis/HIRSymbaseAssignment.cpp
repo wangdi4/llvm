@@ -28,7 +28,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -71,7 +70,7 @@ Value *HIRSymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
     assert(CE->hasBlob());
     for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
       // Even if there are multiple ptr blobs, will AA make correct choice?
-      const SCEV *Blob = BlobUtils::getBlob(I->Index);
+      const SCEV *Blob = CE->getBlobUtils().getBlob(I->Index);
       if (Blob->getType()->isPointerTy()) {
         const SCEVUnknown *PtrSCEV = cast<const SCEVUnknown>(Blob);
         return PtrSCEV->getValue();
@@ -137,12 +136,15 @@ bool HIRSymbaseAssignment::runOnFunction(Function &F) {
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   HIRP = &getAnalysis<HIRParser>();
 
+  // Set symbase assignment.
+  HIRP->getDDRefUtils().HIRSA = this;
+
   initializeMaxSymbase();
 
   HIRSymbaseAssignmentVisitor SV(this, AA, HIRP);
 
   // Cannot use visitAll() here as HIRFramework pointer isn't set yet.
-  HLNodeUtils::visitRange(SV, HIRP->hir_begin(), HIRP->hir_end());
+  HIRP->getHLNodeUtils().visitRange(SV, HIRP->hir_begin(), HIRP->hir_end());
   AliasSetTracker &AST = SV.AST;
 
   // Each ref in a set gets the same symbase

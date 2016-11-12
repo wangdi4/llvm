@@ -22,7 +22,6 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"      // INTEL
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopInfo.h" // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -109,8 +108,10 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
 
   int Threshold;
 
+  InliningLoopInfoCache* ILIC;        // INTEL
+
   // INTEL    Aggressive Analysis
-  InlineAggressiveAnalysis *AI;           // INTEL
+  InlineAggressiveInfo *AI;           // INTEL
 
   int Cost;
 
@@ -228,13 +229,14 @@ public:
   CallAnalyzer(const TargetTransformInfo &TTI,
                std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
                ProfileSummaryInfo *PSI,
-               InlineAggressiveAnalysis *AI,       // INTEL
+               InliningLoopInfoCache *ILIC,        // INTEL
+               InlineAggressiveInfo *AI,           // INTEL
                Function &Callee,
                CallSite CSArg,
                const InlineParams &Params)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), PSI(PSI), F(Callee),
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
-        AI(AI), // INTEL
+        ILIC(ILIC), AI(AI), // INTEL
         Cost(0), IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
         ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
@@ -245,7 +247,7 @@ public:
         NumConstantPtrDiffs(0), NumInstructionsSimplified(0),
         SROACostSavings(0), SROACostSavingsLost(0) {}
 
-  bool analyzeCall(CallSite CS, InlineReason* Reason); // INTEL 
+  bool analyzeCall(CallSite CS, InlineReason* Reason); // INTEL
 
   int getThreshold() { return Threshold; }
   int getCost() { return Cost; }
@@ -991,7 +993,8 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // out. Pretend to inline the function, with a custom threshold.
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
-  CallAnalyzer CA(TTI, GetAssumptionCache, PSI, AI, *F, CS, Params);  // INTEL
+  CallAnalyzer CA(TTI, GetAssumptionCache, PSI, ILIC, AI, *F, CS, // INTEL
+    Params);                         // INTEL
   if (CA.analyzeCall(CS, nullptr)) { // INTEL 
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -1133,12 +1136,12 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
     if (I->getType()->isFloatingPointTy()) {
       bool hasSoftFloatAttr = false;
       // INTEL   CQ370998: Do not count loads and stores, as they do not get
-      // INTEL   transformed into calls. 
-      bool isLoadStore = false;   // INTEL 
-      if (isa<LoadInst>(I))  // INTEL 
-        isLoadStore = true;       // INTEL 
-      if (isa<StoreInst>(I)) // INTEL 
-        isLoadStore = true;       // INTEL 
+      // INTEL   transformed into calls.
+      bool isLoadStore = false;   // INTEL
+      if (isa<LoadInst>(I))  // INTEL
+        isLoadStore = true;       // INTEL
+      if (isa<StoreInst>(I)) // INTEL
+        isLoadStore = true;       // INTEL
 
       // If the function has the "use-soft-float" attribute, mark it as
       // expensive.
@@ -1149,9 +1152,9 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
           hasSoftFloatAttr = true;
       }
 
-      if (TTI.getFPOpCost(I->getType()) 
-           == TargetTransformInfo::TCC_Expensive ||  // INTEL 
-          (hasSoftFloatAttr && !isLoadStore))        // INTEL 
+      if (TTI.getFPOpCost(I->getType())
+           == TargetTransformInfo::TCC_Expensive ||  // INTEL
+          (hasSoftFloatAttr && !isLoadStore))        // INTEL
         Cost += InlineConstants::CallPenalty;
     }
 
@@ -1188,7 +1191,7 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
 
 #if INTEL_CUSTOMIZATION
 ///
-/// \brief Find the best inlining or non-inlining reason 
+/// \brief Find the best inlining or non-inlining reason
 ///
 /// Given a 'DefaultReason' and a vector of inlining/non-inlining reasons,
 /// return the best reason among all of them.  Inlining/Non-inlining reasons
@@ -1197,17 +1200,17 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
 
 typedef SmallVector<InlineReason,2> InlineReasonVector;
 
-static InlineReason bestInlineReason(const InlineReasonVector& ReasonVector, 
+static InlineReason bestInlineReason(const InlineReasonVector& ReasonVector,
   InlineReason DefaultReason)
 {
-  InlineReason Reason = DefaultReason; 
-  for (unsigned i = 0; i < ReasonVector.size(); i++) { 
-    if (ReasonVector[i] < Reason) { 
+  InlineReason Reason = DefaultReason;
+  for (unsigned i = 0; i < ReasonVector.size(); i++) {
+    if (ReasonVector[i] < Reason) {
        Reason = ReasonVector[i];
-    } 
-  } 
-  return Reason; 
-} 
+    }
+  }
+  return Reason;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Compute the base pointer and cumulative constant offsets for V.
@@ -1250,106 +1253,147 @@ ConstantInt *CallAnalyzer::stripAndComputeInBoundsConstantOffsets(Value *&V) {
 }
 
 #if INTEL_CUSTOMIZATION
-// 
+//
 // Increment 'GlobalCount' if a load of a global value appears in 'Op'.
 // Increment 'ConstantCount' if an integer constant appears in 'Op'.
 //
-static void countGlobalsAndConstants(Value* Op, unsigned& GlobalCount, 
-  unsigned& ConstantCount) 
+static void countGlobalsAndConstants(Value* Op, unsigned& GlobalCount,
+  unsigned& ConstantCount)
 {
-  LoadInst *LILHS = dyn_cast<LoadInst>(Op); 
+  LoadInst *LILHS = dyn_cast<LoadInst>(Op);
   if (LILHS) {
-    Value *GV = LILHS->getPointerOperand(); 
-    if (GV && isa<GlobalValue>(GV)) 
-      GlobalCount++; 
-  } 
-  else if (isa<ConstantInt>(Op)) 
-    ConstantCount++; 
+    Value *GV = LILHS->getPointerOperand();
+    if (GV && isa<GlobalValue>(GV))
+      GlobalCount++;
+  }
+  else if (isa<ConstantInt>(Op))
+    ConstantCount++;
 }
 
 //
 // Return 'true' if a branch is based on a condition of the form:
-//       global-variable .op. constant-integer 
-// or 
-//       constant-integer .op. global-variable 
-// The intent is that such a branch has some likelihood of being eliminated 
+//       global-variable .op. constant-integer
+// or
+//       constant-integer .op. global-variable
+// The intent is that such a branch has some likelihood of being eliminated
 // leaving a single basic block, and the heuristics should reflect this.
 //
-static bool forgivableCondition(TerminatorInst* TI) { 
+static bool forgivableCondition(TerminatorInst* TI) {
   BranchInst *BI = dyn_cast<BranchInst>(TI);
-  if (!BI || !BI->isConditional()) 
-    return false; 
-  Value *Cond = BI->getCondition(); 
-  ICmpInst *ICmp = dyn_cast<ICmpInst>(Cond); 
-  if (!ICmp) 
-    return false; 
-  Value* LHS = ICmp->getOperand(0); 
-  Value* RHS = ICmp->getOperand(1); 
-  unsigned GlobalCount = 0; 
-  unsigned ConstantCount = 0; 
+  if (!BI || !BI->isConditional())
+    return false;
+  Value *Cond = BI->getCondition();
+  ICmpInst *ICmp = dyn_cast<ICmpInst>(Cond);
+  if (!ICmp)
+    return false;
+  Value* LHS = ICmp->getOperand(0);
+  Value* RHS = ICmp->getOperand(1);
+  unsigned GlobalCount = 0;
+  unsigned ConstantCount = 0;
   countGlobalsAndConstants(LHS, GlobalCount, ConstantCount);
   countGlobalsAndConstants(RHS, GlobalCount, ConstantCount);
-  return ConstantCount == 1 && GlobalCount == 1; 
-} 
+  return ConstantCount == 1 && GlobalCount == 1;
+}
+
+DominatorTree* InliningLoopInfoCache::getDT(Function* F) {
+  auto It = DTMapSCC.find(F);
+  if (It != DTMapSCC.end())
+    return It->second;
+  auto ret = new DominatorTree(*F);
+  DTMapSCC.insert(std::make_pair(F, ret));
+  return ret;
+}
+
+LoopInfo* InliningLoopInfoCache::getLI(Function* F) {
+  auto It = LIMapSCC.find(F);
+  if (It != LIMapSCC.end())
+    return It->second;
+  DominatorTree* DT = getDT(F);
+  assert(DT != nullptr);
+  auto ret = new LoopInfo(*DT);
+  LIMapSCC.insert(std::make_pair(F, ret));
+  return ret;
+}
+
+void InliningLoopInfoCache::invalidateFunction(Function* F) {
+  auto DTit = DTMapSCC.find(F);
+  if (DTit != DTMapSCC.end()) {
+    delete DTit->second;
+    DTMapSCC.erase(DTit);
+  }
+  auto LIit = LIMapSCC.find(F);
+  if (LIit != LIMapSCC.end()) {
+    delete LIit->second;
+    LIMapSCC.erase(LIit);
+  }
+}
+
+InliningLoopInfoCache::~InliningLoopInfoCache() {
+  for (auto &DTI: DTMapSCC)
+    delete DTI.second;
+  DTMapSCC.clear();
+  for (auto &LTI: LIMapSCC)
+    delete LTI.second;
+  LIMapSCC.clear();
+}
 
 //
 // Return 'true' if this is a double callsite worth inlining.
 //   (This is one of multiple double callsite heuristics.)
 //
 // The criteria for this heuristic are:
-//  (1) Must have exactly two calls to the function in the caller 
-//  (2) The callee must have a single outer loop 
+//  (1) Must have exactly two calls to the function in the caller
+//  (2) The callee must have a single outer loop
 //  (3) That loop's basic blocks must have a relatively large successor count
 //
-static bool worthyDoubleCallSite1(CallSite &CS) {
-   Function *Caller = CS.getCaller(); 
-   Function *Callee = CS.getCalledFunction(); 
-   // Look for 2 calls of the callee in the caller. 
-   unsigned count = 0; 
-   for (Use &U : Callee->uses()) { 
-      if (auto CS = ImmutableCallSite(U.getUser())) { 
-        if (CS.getCaller() == Caller) { 
-          if (++count > 2) { 
-            return false; 
-          } 
-        } 
-      } 
-   }   
-   if (count != 2) { 
-      return false; 
-   } 
-   // Look for a single top level loop in the callee.
-   DominatorTree DT = DominatorTree(*Callee);
-   LoopInfo LI = LoopInfo(DT); 
-   count = 0; 
-   const Loop *L = nullptr; 
-   for (auto LB = LI.begin(), LE = LI.end(); LB != LE; ++LB) { 
-      L = *LB; 
-      if (++count > 1) { 
-        return false; 
-      } 
+static bool worthyDoubleCallSite1(CallSite &CS, InliningLoopInfoCache &ILIC) {
+   Function *Caller = CS.getCaller();
+   Function *Callee = CS.getCalledFunction();
+   // Look for 2 calls of the callee in the caller.
+   unsigned count = 0;
+   for (Use &U : Callee->uses()) {
+      if (auto CS = ImmutableCallSite(U.getUser())) {
+        if (CS.getCaller() == Caller) {
+          if (++count > 2) {
+            return false;
+          }
+        }
+      }
    }
-   if (L == nullptr) { 
-     return false; 
-   } 
-   // Look through the loop for a high relative successor count. 
-   unsigned BBCount = std::distance(L->block_begin(), L->block_end()); 
+   if (count != 2) {
+      return false;
+   }
+   // Look for a single top level loop in the callee.
+   LoopInfo *LI = ILIC.getLI(Callee);
+   count = 0;
+   const Loop *L = nullptr;
+   for (auto LB = LI->begin(), LE = LI->end(); LB != LE; ++LB) {
+      L = *LB;
+      if (++count > 1) {
+        return false;
+      }
+   }
+   if (L == nullptr) {
+     return false;
+   }
+   // Look through the loop for a high relative successor count.
+   unsigned BBCount = std::distance(L->block_begin(), L->block_end());
    // Each loop must have at least one basic block.
-   assert(BBCount > 0); 
-   unsigned SuccCount = 0; 
-   for (auto BB : L->blocks()) { 
-     SuccCount += std::distance(succ_begin(BB), succ_end(BB)); 
-   } 
+   assert(BBCount > 0);
+   unsigned SuccCount = 0;
+   for (auto BB : L->blocks()) {
+     SuccCount += std::distance(succ_begin(BB), succ_end(BB));
+   }
    return (100 * SuccCount / BBCount) > InlineConstants::BasicBlockSuccRatio;
-} 
+}
 
 //
 // Return 'true' if the Function F has a Loop L whose trip count will be
 // constant after F is inlined.
 //
 static bool boundConstArg(Function *F, Loop *L) {
-  auto EB = L->getExitingBlock(); 
-  if (EB == nullptr) 
+  auto EB = L->getExitingBlock();
+  if (EB == nullptr)
     return false;
   auto BI = dyn_cast<BranchInst>(EB->getTerminator());
   if (!BI || !BI->isConditional())
@@ -1402,20 +1446,19 @@ static bool hasConstTripCountArg(Function *F, Loop *L) {
 //  (3) The inner two loops of that nest must have a loop bound that
 //      will be a constant after inlining is applied
 //
-static bool worthyDoubleCallSite2(CallSite &CS) {
+static bool worthyDoubleCallSite2(CallSite &CS, InliningLoopInfoCache& ILIC) {
   Function *Callee = CS.getCalledFunction();
-  DominatorTree DT = DominatorTree(*Callee);
-  LoopInfo LI = LoopInfo(DT);
-  return std::distance(LI.begin(), LI.end()) == 1
-    && hasConstTripCountArg(Callee, *(LI.begin()));
+  LoopInfo *LI = ILIC.getLI(Callee);
+  return std::distance(LI->begin(), LI->end()) == 1
+    && hasConstTripCountArg(Callee, *(LI->begin()));
 }
 
 //
 // Return 'true' if this is a double callsite worth inlining.
 //
-static bool worthyDoubleCallSite(CallSite &CS)
+static bool worthyDoubleCallSite(CallSite &CS, InliningLoopInfoCache& ILIC)
 {
-  return worthyDoubleCallSite1(CS) || worthyDoubleCallSite2(CS);
+  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC);
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -1428,16 +1471,16 @@ static bool worthyDoubleCallSite(CallSite &CS)
 /// is below the computed threshold, then inlining was forcibly disabled by
 /// some artifact of the routine.
 ///
-/// INTEL The Intel version also sets the value of *Reason to be the principal 
-/// INTEL the call site would be inlined or not inlined. 
+/// INTEL The Intel version also sets the value of *Reason to be the principal
+/// INTEL the call site would be inlined or not inlined.
 
 bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   ++NumCallsAnalyzed;
-  InlineReason TempReason = NinlrNoReason; // INTEL 
+  InlineReason TempReason = NinlrNoReason; // INTEL
   InlineReason* ReasonAddr = Reason == nullptr ? &TempReason : Reason; // INTEL
-  InlineReasonVector YesReasonVector; // INTEL 
+  InlineReasonVector YesReasonVector; // INTEL
   InlineReasonVector NoReasonVector; // INTEL
-  TempReason = NinlrNoReason; // INTEL 
+  TempReason = NinlrNoReason; // INTEL
 
   // Perform some tweaks to the cost and threshold based on the direct
   // callsite information.
@@ -1466,10 +1509,10 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   int SingleBBBonus = Threshold / 2;
   // INTEL  CQ378383: Tolerate a single "forgivable" condition when optimizing
   // INTEL  for size. In this case, we delay subtracting out the single basic
-  // INTEL  block bonus until we see a second branch with multiple targets. 
-  bool SeekingForgivable = CS.getCaller()->optForSize(); // INTEL 
-  bool FoundForgivable = false;                          // INTEL 
-  bool SubtractedBonus = false;                          // INTEL  
+  // INTEL  block bonus until we see a second branch with multiple targets.
+  bool SeekingForgivable = CS.getCaller()->optForSize(); // INTEL
+  bool FoundForgivable = false;                          // INTEL
+  bool SubtractedBonus = false;                          // INTEL
 
   // Speculatively apply all possible bonuses to Threshold. If cost exceeds
   // this Threshold any time, and cost cannot decrease, we can stop processing
@@ -1506,27 +1549,28 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
 
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically.
-  // INTEL CQ370998: Added link once ODR linkage case. 
+  // INTEL CQ370998: Added link once ODR linkage case.
   bool OnlyOneCallAndLocalLinkage =
        (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) &&  // INTEL
-       F.hasOneUse() &&  &F == CS.getCalledFunction();        // INTEL 
-  if (OnlyOneCallAndLocalLinkage) { // INTEL 
+       F.hasOneUse() &&  &F == CS.getCalledFunction();        // INTEL
+  if (OnlyOneCallAndLocalLinkage) { // INTEL
     Cost -= InlineConstants::LastCallToStaticBonus;
-    YesReasonVector.push_back(InlrSingleLocalCall); // INTEL 
-  } // INTEL 
+    YesReasonVector.push_back(InlrSingleLocalCall); // INTEL
+  } // INTEL
 
 #if INTEL_CUSTOMIZATION
   // If there are two calls of the function, and it has internal linkage,
   // the cost of inlining it drops less dramatically.
+
   bool TwoCallsAndLocalLinkage
     = (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) &&
-    (&F == CS.getCalledFunction()) && worthyDoubleCallSite(CS);
+    (&F == CS.getCalledFunction()) && worthyDoubleCallSite(CS, *ILIC);
   if (TwoCallsAndLocalLinkage) {
     Cost -= InlineConstants::SecondToLastCallToStaticBonus;
     YesReasonVector.push_back(InlrDoubleLocalCall);
   }
 
-  // Use InlineAggressiveAnalysis to expose uses of global ptrs 
+  // Use InlineAggressiveInfo to expose uses of global ptrs
   if (AI != nullptr && AI->isCallInstInAggInlList(CS)) {
     Cost -= InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
@@ -1536,21 +1580,21 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
 
   // If this function uses the coldcc calling convention, prefer not to inline
   // it.
-  if (F.getCallingConv() == CallingConv::Cold) { // INTEL 
+  if (F.getCallingConv() == CallingConv::Cold) { // INTEL
     Cost += InlineConstants::ColdccPenalty;
     NoReasonVector.push_back(NinlrColdCC); // INTEL
-  } // INTEL 
+  } // INTEL
 
   // Check if we're done. This can happen due to bonuses and penalties.
-  if (Cost > Threshold) { // INTEL 
-    *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable); // INTEL 
+  if (Cost > Threshold) { // INTEL
+    *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable); // INTEL
     return false;
-  } // INTEL 
+  } // INTEL
 
-  if (F.empty()) { // INTEL 
-    *ReasonAddr = InlrEmptyFunction; // INTEL 
+  if (F.empty()) { // INTEL
+    *ReasonAddr = InlrEmptyFunction; // INTEL
     return true;
-  } // INTEL 
+  } // INTEL
 
   Function *Caller = CS.getInstruction()->getParent()->getParent();
   // Check if the caller function is recursive itself.
@@ -1624,31 +1668,31 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     // see an indirect branch that ends up being dead code at a particular call
     // site. If the blockaddress escapes the function, e.g., via a global
     // variable, inlining may lead to an invalid cross-function reference.
-    if (BB->hasAddressTaken()) { // INTEL 
-      *ReasonAddr = NinlrBlockAddress; // INTEL 
+    if (BB->hasAddressTaken()) { // INTEL
+      *ReasonAddr = NinlrBlockAddress; // INTEL
       return false;
-    } 
+    }
 
     // Analyze the cost of this block. If we blow through the threshold, this
     // returns false, and we can bail on out.
 #if INTEL_CUSTOMIZATION
     if (!analyzeBlock(BB, EphValues)) {
       *ReasonAddr = NinlrNotProfitable;
-      if (IsRecursiveCall) { 
-        *ReasonAddr = NinlrRecursive; 
-      } 
-      if (ExposesReturnsTwice) { 
-        *ReasonAddr = NinlrReturnsTwice; 
-      }  
-      if (HasDynamicAlloca) { 
-        *ReasonAddr = NinlrDynamicAlloca; 
-      }  
-      if (HasIndirectBr) { 
-        *ReasonAddr = NinlrIndirectBranch; 
-      } 
-      if (HasFrameEscape) { 
-        *ReasonAddr = NinlrCallsLocalEscape; 
-      } 
+      if (IsRecursiveCall) {
+        *ReasonAddr = NinlrRecursive;
+      }
+      if (ExposesReturnsTwice) {
+        *ReasonAddr = NinlrReturnsTwice;
+      }
+      if (HasDynamicAlloca) {
+        *ReasonAddr = NinlrDynamicAlloca;
+      }
+      if (HasIndirectBr) {
+        *ReasonAddr = NinlrIndirectBranch;
+      }
+      if (HasFrameEscape) {
+        *ReasonAddr = NinlrCallsLocalEscape;
+      }
       return false;
     }
 #endif // INTEL_CUSTOMIZATION
@@ -1685,14 +1729,14 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     // have them as well. Note that we assume any basic blocks which existed
     // due to branches or switches which folded above will also fold after
     // inlining.
-#if INTEL_CUSTOMIZATION 
-    if (TI->getNumSuccessors() > 1) { 
-      if (SeekingForgivable && forgivableCondition(TI)) { 
+#if INTEL_CUSTOMIZATION
+    if (TI->getNumSuccessors() > 1) {
+      if (SeekingForgivable && forgivableCondition(TI)) {
          FoundForgivable = true;
          Cost -= InlineConstants::InstrCost;
       }
       else {
-         if (!SubtractedBonus) { 
+         if (!SubtractedBonus) {
            SubtractedBonus = true;
            Threshold -= SingleBBBonus;
          }
@@ -1701,24 +1745,24 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
       SingleBB = false;
     }
 #endif // INTEL_CUSTOMIZATION
-  } 
+  }
 
-#if INTEL_CUSTOMIZATION 
-  if (SingleBB) { 
+#if INTEL_CUSTOMIZATION
+  if (SingleBB) {
     YesReasonVector.push_back(InlrSingleBasicBlock);
-  } 
-  else if (FoundForgivable) { 
+  }
+  else if (FoundForgivable) {
     YesReasonVector.push_back(InlrAlmostSingleBasicBlock);
-  } 
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
   // is not actually duplicated, just moved).
-  if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall) { // INTEL 
-    *ReasonAddr = NinlrDuplicateCall; // INTEL 
+  if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall) { // INTEL
+    *ReasonAddr = NinlrDuplicateCall; // INTEL
     return false;
-  } // INTEL 
+  } // INTEL
 
   // We applied the maximum possible vector bonus at the beginning. Now,
   // subtract the excess bonus, if any, from the Threshold before
@@ -1729,15 +1773,15 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     Threshold -= (FiftyPercentVectorBonus - TenPercentVectorBonus);
 
 #if INTEL_CUSTOMIZATION
-  if (VectorBonus > 0) { 
-    YesReasonVector.push_back(InlrVectorBonus); 
-  } 
-  if (Cost < Threshold) { 
-    *ReasonAddr = bestInlineReason(YesReasonVector, InlrProfitable);   
-  } 
-  else { 
-    *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);   
-  } 
+  if (VectorBonus > 0) {
+    YesReasonVector.push_back(InlrVectorBonus);
+  }
+  if (Cost < Threshold) {
+    *ReasonAddr = bestInlineReason(YesReasonVector, InlrProfitable);
+  }
+  else {
+    *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   return Cost < std::max(1, Threshold);
@@ -1782,29 +1826,31 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
 InlineCost llvm::getInlineCost(
     CallSite CS, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    ProfileSummaryInfo *PSI, InlineAggressiveAnalysis *AI) {  // INTEL 
+    InliningLoopInfoCache *ILIC, // INTEL
+    ProfileSummaryInfo *PSI, InlineAggressiveInfo *AI) {  // INTEL
   return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
-                       GetAssumptionCache, PSI, AI);  // INTEL 
+    GetAssumptionCache, ILIC, PSI, AI);  // INTEL
 }
 
 InlineCost llvm::getInlineCost(
     CallSite CS, Function *Callee, const InlineParams &Params,
     TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    ProfileSummaryInfo *PSI, InlineAggressiveAnalysis *AI) {  // INTEL 
+    InliningLoopInfoCache *ILIC,    // INTEL
+    ProfileSummaryInfo *PSI, InlineAggressiveInfo *AI) {  // INTEL
 
   // Cannot inline indirect calls.
   if (!Callee)
-    return llvm::InlineCost::getNever(NinlrIndirect); // INTEL 
+    return llvm::InlineCost::getNever(NinlrIndirect); // INTEL
 
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
 #if INTEL_CUSTOMIZATION
-    InlineReason Reason = InlrNoReason; 
-    if (isInlineViable(*Callee, Reason))  
+    InlineReason Reason = InlrNoReason;
+    if (isInlineViable(*Callee, Reason))
       return llvm::InlineCost::getAlways(InlrAlwaysInline);
-    assert(IsNotInlinedReason(Reason)); 
+    assert(IsNotInlinedReason(Reason));
     return llvm::InlineCost::getNever(Reason);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -1812,11 +1858,11 @@ InlineCost llvm::getInlineCost(
   // Never inline functions with conflicting attributes (unless callee has
   // always-inline attribute).
   if (!functionsHaveCompatibleAttributes(CS.getCaller(), Callee, CalleeTTI))
-    return llvm::InlineCost::getNever(NinlrMismatchedAttributes); // INTEL 
+    return llvm::InlineCost::getNever(NinlrMismatchedAttributes); // INTEL
 
   // Don't inline this call if the caller has the optnone attribute.
   if (CS.getCaller()->hasFnAttribute(Attribute::OptimizeNone))
-    return llvm::InlineCost::getNever(NinlrOptNone); // INTEL 
+    return llvm::InlineCost::getNever(NinlrOptNone); // INTEL
 
   // Don't inline functions which can be interposed at link-time.  Don't inline
   // functions marked noinline or call sites marked noinline.
@@ -1825,60 +1871,60 @@ InlineCost llvm::getInlineCost(
   if (Callee->isInterposable() || Callee->hasFnAttribute(Attribute::NoInline) ||
       CS.isNoInline()) { // INTEL
 #if INTEL_CUSTOMIZATION
-    if (Callee->isInterposable()) { 
+    if (Callee->isInterposable()) {
       return llvm::InlineCost::getNever(NinlrMayBeOverriden);
-    } 
-    if (Callee->hasFnAttribute(Attribute::NoInline)) { 
-      return llvm::InlineCost::getNever(NinlrNoinlineAttribute); 
-    } 
-    if (CS.isNoInline()) { 
+    }
+    if (Callee->hasFnAttribute(Attribute::NoInline)) {
+      return llvm::InlineCost::getNever(NinlrNoinlineAttribute);
+    }
+    if (CS.isNoInline()) {
       return llvm::InlineCost::getNever(NinlrNoinlineCallsite);
     }
 #endif // INTEL_CUSTOMIZATION
-  } // INTEL 
+  } // INTEL
 
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                      << "...\n");
 
-  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, PSI, AI, *Callee,  // INTEL
-                  CS, Params);
+  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, PSI, ILIC, AI, // INTEL
+                  *Callee, CS, Params);
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);
-  assert(Reason != InlrNoReason); 
+  assert(Reason != InlrNoReason);
 #endif // INTEL_CUSTOMIZATION
 
   DEBUG(CA.dump());
 
   // Check if there was a reason to force inlining or no inlining.
   if (!ShouldInline && CA.getCost() < CA.getThreshold())
-    return InlineCost::getNever(Reason); // INTEL 
+    return InlineCost::getNever(Reason); // INTEL
   if (ShouldInline && CA.getCost() >= CA.getThreshold())
-    return InlineCost::getAlways(Reason); // INTEL 
+    return InlineCost::getAlways(Reason); // INTEL
 
   return llvm::InlineCost::get(CA.getCost(), // INTEL
     CA.getThreshold(), Reason); // INTEL
 }
 
 bool llvm::isInlineViable(Function &F, // INTEL
-                          InlineReason& Reason) { // INTEL 
+                          InlineReason& Reason) { // INTEL
   bool ReturnsTwice = F.hasFnAttribute(Attribute::ReturnsTwice);
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
     // Disallow inlining of functions which contain indirect branches or
     // blockaddresses.
-    if (isa<IndirectBrInst>(BI->getTerminator()) 
-      || BI->hasAddressTaken()) { // INTEL 
+    if (isa<IndirectBrInst>(BI->getTerminator())
+      || BI->hasAddressTaken()) { // INTEL
 #if INTEL_CUSTOMIZATION
-      if (isa<IndirectBrInst>(BI->getTerminator())) { 
+      if (isa<IndirectBrInst>(BI->getTerminator())) {
         Reason = NinlrIndirectBranch;
         return false;
-      } 
-      if (BI->hasAddressTaken()) { 
+      }
+      if (BI->hasAddressTaken()) {
         Reason = NinlrBlockAddress;
         return false;
-      } 
+      }
 #endif // INTEL_CUSTOMIZATION
-    } // INTEL 
+    } // INTEL
 
     for (auto &II : *BI) {
       CallSite CS(&II);
@@ -1886,27 +1932,27 @@ bool llvm::isInlineViable(Function &F, // INTEL
         continue;
 
       // Disallow recursive calls.
-      if (&F == CS.getCalledFunction()) { // INTEL 
-        Reason = NinlrRecursive; // INTEL 
+      if (&F == CS.getCalledFunction()) { // INTEL
+        Reason = NinlrRecursive; // INTEL
         return false;
-      } // INTEL 
+      } // INTEL
 
       // Disallow calls which expose returns-twice to a function not previously
       // attributed as such.
       if (!ReturnsTwice && CS.isCall() &&
-          cast<CallInst>(CS.getInstruction())->canReturnTwice()) { // INTEL 
-        Reason = NinlrReturnsTwice; // INTEL 
+          cast<CallInst>(CS.getInstruction())->canReturnTwice()) { // INTEL
+        Reason = NinlrReturnsTwice; // INTEL
         return false;
-      } // INTEL 
+      } // INTEL
 
       // Disallow inlining functions that call @llvm.localescape. Doing this
       // correctly would require major changes to the inliner.
       if (CS.getCalledFunction() &&
           CS.getCalledFunction()->getIntrinsicID() ==
               llvm::Intrinsic::localescape) { // INTEL
-        Reason = NinlrCallsLocalEscape; // INTEL 
+        Reason = NinlrCallsLocalEscape; // INTEL
         return false;
-      } // INTEL 
+      } // INTEL
     }
   }
 

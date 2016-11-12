@@ -38,7 +38,7 @@ private:
   PredicateTy CmpOrSelectPred;
 
 protected:
-  explicit HLInst(Instruction *In);
+  explicit HLInst(HLNodeUtils &HNU, Instruction *Inst);
   virtual ~HLInst() override {}
 
   /// Copy constructor used by cloning.
@@ -165,6 +165,13 @@ public:
 
   /// Checks if the Opcode is a reduction and returns OpCode
   bool isReductionOp(unsigned *OpCode) const;
+
+  /// Return the identity value corresponding to the given reduction
+  /// instruction opcode and specified type.
+  static Constant *getRecurrenceIdentity(unsigned RednOpCode, Type *Ty);
+
+  /// Return true if OpCode is a valid reduction opcode.
+  static bool isValidReductionOpCode(unsigned OpCode);
 };
 
 } // End namespace loopopt

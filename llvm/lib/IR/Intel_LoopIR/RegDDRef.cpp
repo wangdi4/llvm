@@ -14,12 +14,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/Support/Debug.h"
-
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
@@ -27,8 +25,8 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-regddref"
 
-RegDDRef::RegDDRef(unsigned SB)
-    : DDRef(DDRef::RegDDRefVal, SB), GepInfo(nullptr), Node(nullptr) {}
+RegDDRef::RegDDRef(DDRefUtils &DDRU, unsigned SB)
+    : DDRef(DDRU, DDRef::RegDDRefVal, SB), GepInfo(nullptr), Node(nullptr) {}
 
 RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     : DDRef(RegDDRefObj), GepInfo(nullptr), Node(nullptr) {
@@ -87,7 +85,7 @@ struct RegDDRef::GEPInfo::MDKindCompareEqual {
 };
 
 MDNode *RegDDRef::getMetadata(StringRef Kind) const {
-  return getMetadata(HIRUtils::getContext().getMDKindID(Kind));
+  return getMetadata(getDDRefUtils().getContext().getMDKindID(Kind));
 }
 
 MDNode *RegDDRef::getMetadata(unsigned KindID) const {
@@ -126,7 +124,7 @@ void RegDDRef::getAllMetadataOtherThanDebugLoc(MDNodesTy &MDs) const {
 }
 
 void RegDDRef::setMetadata(StringRef Kind, MDNode *Node) {
-  setMetadata(HIRUtils::getContext().getMDKindID(Kind), Node);
+  setMetadata(getDDRefUtils().getContext().getMDKindID(Kind), Node);
 }
 
 void RegDDRef::setMetadata(unsigned KindID, MDNode *Node) {
@@ -190,7 +188,7 @@ unsigned RegDDRef::findMaxTempBlobLevel(
 unsigned RegDDRef::findMaxBlobLevel(unsigned BlobIndex) const {
   SmallVector<unsigned, 8> Indices;
 
-  BlobUtils::collectTempBlobs(BlobIndex, Indices);
+  getBlobUtils().collectTempBlobs(BlobIndex, Indices);
 
   return findMaxTempBlobLevel(Indices);
 }
@@ -202,7 +200,7 @@ void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
 
   auto MaxLevel = findMaxTempBlobLevel(BlobIndices);
 
-  if (CanonExprUtils::hasNonLinearSemantics(MaxLevel, NestingLevel)) {
+  if (getCanonExprUtils().hasNonLinearSemantics(MaxLevel, NestingLevel)) {
     CE->setNonLinear();
   } else {
     CE->setDefinedAtLevel(MaxLevel);
@@ -212,7 +210,7 @@ void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
 void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
 
   unsigned Level = getHLDDNode() ? getNodeLevel() : NestingLevelIfDetached;
-  assert(CanonExprUtils::isValidLinearDefLevel(Level) &&
+  assert(getCanonExprUtils().isValidLinearDefLevel(Level) &&
          "Nesting level not set for detached DDRef!");
 
   // Update attached blob DDRefs' def level first.
@@ -223,7 +221,8 @@ void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
       continue;
     }
 
-    if (CanonExprUtils::hasNonLinearSemantics(CE->getDefinedAtLevel(), Level)) {
+    if (getCanonExprUtils().hasNonLinearSemantics(CE->getDefinedAtLevel(),
+                                                  Level)) {
       (*It)->setNonLinear();
     }
   }
@@ -253,7 +252,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   // Treat disconnected DDRefs as rvals. isLval() asserts for disconnected
   // DDRefs. Being able to print disconnected DDRefs is useful for debugging.
   if (getHLDDNode() && isLval() && !HasGEP && !Detailed) {
-    BlobUtils::printScalar(OS, getSymbase());
+    getBlobUtils().printScalar(OS, getSymbase());
   } else {
     if (HasGEP) {
       if (isAddressOf()) {
@@ -297,7 +296,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       }
 
       if (Detailed) {
-        DDRefUtils::printMDNodes(OS, GepInfo->MDNodes);
+        getDDRefUtils().printMDNodes(OS, GepInfo->MDNodes);
       }
     }
   }
@@ -311,8 +310,16 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   if (hasGEPInfo()) {
     CE = getBaseCE();
 
+    auto BaseDestTy = CE->getDestType();
+
+    // For addressof DDREF, widening sets DestType appropriately to a vector of
+    // pointers - return the same.
+    if (!IsSrc && isAddressOf() && isa<VectorType>(BaseDestTy)) {
+      return BaseDestTy;
+    }
+
     PointerType *BaseTy = IsSrc ? cast<PointerType>(CE->getSrcType())
-                                : cast<PointerType>(CE->getDestType());
+                                : cast<PointerType>(BaseDestTy);
 
     // Get base pointer's contained type.
     // Assuming the base type is [7 x [101 x float]]*, this will give us [7 x
@@ -433,9 +440,33 @@ bool RegDDRef::isSelfBlob() const {
     return false;
   }
 
-  unsigned SB = BlobUtils::getTempBlobSymbase(CE->getSingleBlobIndex());
+  unsigned SB = getBlobUtils().getTempBlobSymbase(CE->getSingleBlobIndex());
 
   return (getSymbase() == SB);
+}
+
+bool RegDDRef::isUnitaryBlob() {
+
+  if (!isStandAloneBlob(false /*AllowConversion*/)) {
+    return false;
+  }
+
+  // Check if the standalone blob is nested
+  assert(isSingleCanonExpr() && "Expected single CanonExpr in standalone blob");
+  CanonExpr *CE = getSingleCanonExpr();
+
+  assert(CE->numBlobs() == 1 && "Expected only one blob in standalone blob");
+
+  return !getBlobUtils().isNestedBlob(
+      getBlobUtils().getBlob(CE->getSingleBlobIndex()));
+}
+
+bool RegDDRef::isUndefSelfBlob() const {
+  if (!isSelfBlob()) {
+    return false;
+  }
+
+  return getSingleCanonExpr()->isUndefSelfBlob();
 }
 
 bool RegDDRef::isStandAloneBlob(bool AllowConversion) const {
@@ -452,40 +483,17 @@ bool RegDDRef::isStandAloneBlob(bool AllowConversion) const {
   return true;
 }
 
-bool RegDDRef::isUnitaryBlob() {
-
-  if (!isStandAloneBlob(false /*AllowConversion*/)) {
-    return false;
-  }
-
-  // Check if the standalone blob is nested
-  assert(isSingleCanonExpr() && "Expected single CanonExpr in standalone blob");
-  CanonExpr *CE = getSingleCanonExpr();
-
-  assert(CE->numBlobs() == 1 && "Expected only one blob in standalone blob");
-
-  return !BlobUtils::isNestedBlob(BlobUtils::getBlob(CE->getSingleBlobIndex()));
-}
-
-bool RegDDRef::isUndefSelfBlob() const {
-  if (!isSelfBlob()) {
-    return false;
-  }
-
-  return getSingleCanonExpr()->isUndefSelfBlob();
-}
-
 void RegDDRef::replaceSelfBlobIndex(unsigned NewIndex) {
   assert(isSelfBlob() && "DDRef is not a self blob!");
   getSingleCanonExpr()->replaceSingleBlobIndex(NewIndex);
-  setSymbase(BlobUtils::getTempBlobSymbase(NewIndex));
+  setSymbase(getBlobUtils().getTempBlobSymbase(NewIndex));
 }
 
 void RegDDRef::makeSelfBlob() {
   assert(isLval() && "DDRef is expected to be an lval ref!");
   assert(isTerminalRef() && "DDRef is expected to be a terminal ref!");
 
-  unsigned Index = BlobUtils::findOrInsertTempBlobIndex(getSymbase());
+  unsigned Index = getBlobUtils().findOrInsertTempBlobIndex(getSymbase());
 
   auto CE = getSingleCanonExpr();
 
@@ -507,9 +515,8 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
 
   CanonExpr *StrideAtLevel = nullptr;
 
-  for (unsigned I = 1; I <= getNumDimensions(); ++I) {
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
-    uint64_t DimStride = getDimensionStride(I);
 
     // We want to guarantee that we return a Stride that is invariant at Level,
     // or otherwise to bail out.
@@ -532,20 +539,26 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
       continue;
 
     if (StrideAtLevel) {
-      if (!CanonExprUtils::mergeable(StrideAtLevel, DimCE)) {
-        CanonExprUtils::destroy(StrideAtLevel);
+      if (!getCanonExprUtils().mergeable(StrideAtLevel, DimCE)) {
+        getCanonExprUtils().destroy(StrideAtLevel);
         return nullptr;
       }
     } else { // Creating the StrideAtLevel for the first time
-      StrideAtLevel = CanonExprUtils::createExtCanonExpr(
+      StrideAtLevel = getCanonExprUtils().createExtCanonExpr(
           DimCE->getSrcType(), DimCE->getDestType(), DimCE->isSExt());
     }
 
-    unsigned Index = DimCE->getIVBlobCoeff(Level);
+    int64_t Coeff;
+    unsigned Index;
+
+    DimCE->getIVCoeff(Level, &Index, &Coeff);
+
+    uint64_t DimStride = getDimensionStride(I);
+
     if (Index != InvalidBlobIndex) {
-      StrideAtLevel->addBlob(Index, DimCE->getIVConstCoeff(Level) * DimStride);
+      StrideAtLevel->addBlob(Index, Coeff * DimStride);
     } else {
-      StrideAtLevel->addConstant(DimCE->getIVConstCoeff(Level) * DimStride);
+      StrideAtLevel->addConstant(Coeff * DimStride);
     }
   }
 
@@ -584,7 +597,7 @@ uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
           BaseTy->isPointerTy()) &&
          "Unexpected DDRef primary element type!");
 
-  uint64_t ElementSize = CanonExprUtils::getTypeSizeInBits(BaseTy) / 8;
+  uint64_t ElementSize = getCanonExprUtils().getTypeSizeInBits(BaseTy) / 8;
 
   // If the actual number of dimensions differ from the maximum number of
   // dimensions we need to account for the offset. For example, suppose the base
@@ -621,7 +634,7 @@ void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
 }
 
 void RegDDRef::addBlobDDRef(unsigned Index, unsigned Level) {
-  auto BRef = DDRefUtils::createBlobDDRef(Index, Level);
+  auto BRef = getDDRefUtils().createBlobDDRef(Index, Level);
   addBlobDDRef(BRef);
 }
 
@@ -785,7 +798,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
 
     for (auto &AuxRef : (*AuxRefs)) {
       if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
-        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, Level)) {
+        if (getCanonExprUtils().hasNonLinearSemantics(DefLevel, Level)) {
           BRef->setNonLinear();
         } else {
           BRef->setDefinedAtLevel(DefLevel);
@@ -811,7 +824,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   bool IsLvalAssumed = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
 
   if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
-    unsigned SB = BlobUtils::getTempBlobSymbase(
+    unsigned SB = getBlobUtils().getTempBlobSymbase(
         getSingleCanonExpr()->getSingleBlobIndex());
 
     // We need to modify the symbase if this DDRef was turned into a self blob
@@ -864,14 +877,14 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
       // Detaching blob from parent DDRef
       BRef->setParentDDRef(nullptr);
     } else {
-      BRef = DDRefUtils::createBlobDDRef(I, 0);
+      BRef = getDDRefUtils().createBlobDDRef(I, 0);
     }
 
     addBlobDDRef(BRef);
 
     // Defined at level is only applicable for instruction blobs. Other types
     // (like globals, function paramaters) are always proper linear.
-    if (!BlobUtils::isGuaranteedProperLinear(BlobUtils::getBlob(I))) {
+    if (!getBlobUtils().isGuaranteedProperLinear(getBlobUtils().getBlob(I))) {
       NewBlobs.push_back(BRef);
     }
   }
@@ -966,8 +979,16 @@ void RegDDRef::verify() const {
     (void)CE;
     assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
     assert(isa<PointerType>(CE->getSrcType()) && "Invalid BaseCE src type!");
-    assert(isa<PointerType>(CE->getDestType()) && "Invalid BaseCE dest type!");
-    //assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
+
+    if (isAddressOf()) {
+      // During vectorization DestType is set to a vector of pointers
+      assert(isa<PointerType>(CE->getDestType()->getScalarType()) &&
+             "Invalid BaseCE dest type!");
+    } else {
+      assert(isa<PointerType>(CE->getDestType()) &&
+             "Invalid BaseCE dest type!");
+    }
+    // assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
   }
 
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {

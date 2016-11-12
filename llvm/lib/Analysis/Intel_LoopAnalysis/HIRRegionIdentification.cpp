@@ -25,6 +25,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
@@ -55,6 +56,7 @@ INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(HIRRegionIdentification, "hir-region-identification",
                     "HIR Region Identification", false, true)
 
@@ -74,6 +76,7 @@ void HIRRegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
+  AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
 }
 
 const GEPOperator *
@@ -302,10 +305,14 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     const CallInst &CI) {
+
   if (!isa<IntrinsicInst>(CI)) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of user "
-                    "calls.\n");
-    return false;
+    auto Func = CI.getCalledFunction();
+
+    if (!Func || !RI.TLI->isFunctionVectorizable(Func->getName())) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of user calls.\n");
+      return false;
+    }
   }
 
   return visitInstruction(static_cast<const Instruction &>(CI));
@@ -618,7 +625,7 @@ void HIRRegionIdentification::addBBlocks(
     IRRegion::RegionBBlocksTy &RegBBlocks) const {
 
   for (auto TempBB = BeginBB;; TempBB = TempBB->getSingleSuccessor()) {
-    RegBBlocks.insert(TempBB);
+    RegBBlocks.push_back(TempBB);
 
     if (TempBB == EndBB) {
       break;
@@ -750,6 +757,7 @@ bool HIRRegionIdentification::runOnFunction(Function &F) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
   formRegions();
 

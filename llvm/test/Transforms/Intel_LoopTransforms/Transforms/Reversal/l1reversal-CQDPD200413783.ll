@@ -40,14 +40,6 @@
 ; CHECK:  END REGION
 ;  
 ;
-; *** --- ***
-; Note:
-; - the loop is suitable for Reversal transformation;
-; - However, the Current transformation is incorrect: the iv in loop is not properly substituted!
-; - Look into it, and have a fix!!
-; Chuck, 2016.08.25
-; 
-; 
 ; CHECK: IR Dump After HIR Loop Reversal
 ;
 ; CHECK:  BEGIN REGION { modified }

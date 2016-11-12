@@ -54,6 +54,7 @@ const unsigned InvalidSymbase = 0;
 const unsigned ConstantSymbase = 1;
 
 class HIRSCCFormation;
+class HIRLoopFormation;
 
 /// \brief This analysis populates livein/liveout values for regions.
 ///

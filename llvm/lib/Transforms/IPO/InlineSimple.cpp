@@ -62,12 +62,12 @@ public:
     };
 
 #if INTEL_CUSTOMIZATION
-    InlineAggressiveAnalysis *AggI 
-      = getAnalysisIfAvailable<InlineAggressiveAnalysis>();
+    auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
+    InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
 #endif // INTEL_CUSTOMIZATION
 
     return llvm::getInlineCost(CS, Params, TTI,
-                               GetAssumptionCache, PSI, AggI);   // INTEL 
+                               GetAssumptionCache, ILIC, PSI, AggI); // INTEL 
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
@@ -88,7 +88,7 @@ INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(InlineAggressiveAnalysis)          // INTEL
+INITIALIZE_PASS_DEPENDENCY(InlineAggressiveWrapperPass)        // INTEL
 INITIALIZE_PASS_END(SimpleInliner, "inline", "Function Integration/Inlining",
                     false, false)
 
@@ -114,6 +114,6 @@ bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
 
 void SimpleInliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addUsedIfAvailable<InlineAggressiveAnalysis>();            // INTEL
+  AU.addUsedIfAvailable<InlineAggressiveWrapperPass>();        // INTEL
   Inliner::getAnalysisUsage(AU);
 }

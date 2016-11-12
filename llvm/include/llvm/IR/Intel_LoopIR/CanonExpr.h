@@ -36,6 +36,9 @@ class Constant;
 
 namespace loopopt {
 
+class CanonExprUtils;
+class BlobUtils;
+
 /// \brief The maximum loopnest level allowed in HIR.
 const unsigned MaxLoopNestLevel = 9;
 /// \brief Value to represent non-linear level.
@@ -120,11 +123,8 @@ private:
   /// \brief Make class unassignable.
   void operator=(const CanonExpr &) = delete;
 
-  /// \brief Destroys all objects of this class. Should only be called after
-  /// code gen.
-  static void destroyAll();
-  // Keeps track of objects of this class.
-  static std::set<CanonExpr *> Objs;
+  /// Reference to parent utils object. This is needed to access util functions.
+  CanonExprUtils &CEU;
 
   // SrcTy and DestTy hide one level of casting applied on top of the
   // canonical form.
@@ -144,17 +144,12 @@ private:
   bool IsSignedDiv;
 
 protected:
-  CanonExpr(Type *SrcType, Type *DestType, bool IsSExt, unsigned DefLevel,
-            int64_t ConstVal, int64_t Denom, bool IsSignedDiv);
-  virtual ~CanonExpr(){};
+  CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType, bool IsSExt,
+            unsigned DefLevel, int64_t ConstVal, int64_t Denom,
+            bool IsSignedDiv);
+  virtual ~CanonExpr() {}
 
   friend class CanonExprUtils;
-  // Calls verifyNestingLevel().
-  friend class HLNodeUtils;
-  friend class HIRParser;
-
-  /// \brief Destroys the object.
-  void destroy();
 
   /// \brief Implements hasIV()/numIV() and
   /// hasBlobIVCoeffs()/numBlobIVCoeffs() functionality.
@@ -176,7 +171,7 @@ protected:
   /// existing coefficient is either overwritten or added to.
   void addBlobInternal(unsigned BlobIndex, int64_t BlobCoeff, bool overwrite);
 
-  /// \brief Helper to calculate gcd for simplify(). Handles negative integers
+  /// Helper to calculate gcd for simplify(). Handles negative integers
   /// as well.
   int64_t simplifyGCDHelper(int64_t CurrentGCD, int64_t Num);
 
@@ -229,17 +224,21 @@ protected:
     return IsMathAdd ? (getDenominator() * Coeff) : Coeff;
   }
 
-  /// Verifies that the incoming nesting level is valid for this CE, asserts
-  /// otherwise.
-  bool verifyNestingLevel(unsigned NestingLevel) const;
-
-  /// Verifies that all IVs contained in CE are valid, asserts otherwise.
-  bool verifyIVs(unsigned NestingLevel) const;
-
   /// \brief Returns true if canon expr represents null pointer value.
   bool isNullImpl() const;
 
+  /// Evaluates the canon expression if it represents constant value and stores
+  /// it as C0.
+  void simplifyConstantDenom();
+  void simplifyConstantCast();
+
 public:
+  /// Returns parent CanonExprUtils object.
+  CanonExprUtils &getCanonExprUtils() const { return CEU; }
+
+  /// Returns parent BlobUtils object.
+  BlobUtils &getBlobUtils() const;
+
   CanonExpr *clone() const;
 
   /// \brief Dumps CanonExpr.
@@ -463,11 +462,11 @@ public:
   /// denominators.
   /// If Simplifiy is set, we call simplify() on the canon expr after setting
   /// the denominator.
-  void setDenominator(int64_t Val, bool Simplify = false);
+  void setDenominator(int64_t Val);
 
   /// \brief Multiplies the constant value (Val) with the existing denominator
   /// of the canon expr. The new denominator equals (Old denominator * Val).
-  void divide(int64_t Val, bool Simplify = false);
+  void divide(int64_t Val);
 
   /// \brief Returns true if the division in the canon expr is a signed
   /// division.
@@ -661,7 +660,7 @@ public:
                               bool MakeUnique = true) const;
 
   /// \brief Simplifies canon expr by dividing numerator and denominator by gcd.
-  void simplify();
+  void simplify(bool SimplifyCast = false);
 
   /// \brief Multiplies the canon expr by Val.
   void multiplyByConstant(int64_t Val);
@@ -669,8 +668,15 @@ public:
   /// \brief Negates canon expr.
   void negate() { multiplyByConstant(-1); }
 
+  /// Verifies that all IVs contained in CE are valid, asserts otherwise.
+  bool verifyIVs(unsigned NestingLevel) const;
+
   /// \brief Verifies canon expression
   void verify(unsigned NestingLevel) const;
+
+  /// Verifies that the incoming nesting level is valid for this CE, asserts
+  /// otherwise.
+  bool verifyNestingLevel(unsigned NestingLevel) const;
 };
 
 } // End loopopt namespace

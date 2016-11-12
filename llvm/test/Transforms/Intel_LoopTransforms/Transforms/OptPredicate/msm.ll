@@ -24,7 +24,7 @@
 ; END REGION
 
 ;CHECK:      BEGIN REGION { modified }
-;CHECK-NEXT: if (%x < 50)
+;CHECK:      if (%x < 50)
 ;CHECK-NEXT: {
 ;CHECK-NEXT:   if (%y > 0)
 ;CHECK-NEXT:   {

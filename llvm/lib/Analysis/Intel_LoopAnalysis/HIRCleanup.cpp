@@ -67,13 +67,13 @@ void HIRCleanup::eliminateRedundantGotos() {
     auto Goto = *I;
 
     HLLabel *LabelSuccessor = dyn_cast_or_null<HLLabel>(
-        HLNodeUtils::getLexicalControlFlowSuccessor(Goto));
+        HIR->getHLNodeUtils().getLexicalControlFlowSuccessor(Goto));
 
     // If Goto's lexical successor is the same as its target then we can remove
     // it.
     if (LabelSuccessor &&
         (Goto->getTargetBBlock() == LabelSuccessor->getSrcBBlock())) {
-      HLNodeUtils::erase(Goto);
+      HIR->getHLNodeUtils().erase(Goto);
     } else {
       // Link Goto to its HLLabel target, if available.
       auto It = HIR->Labels.find(Goto->getTargetBBlock());
@@ -119,7 +119,8 @@ void HIRCleanup::eliminateRedundantLabels() {
       // This label represents loop latch bblock. We need to store the successor
       // as it is used by LoopFomation pass to find loop's bottom test.
       if ((Lp = LI->getLoopFor(LabelBB)) && (Lp->getLoopLatch() == LabelBB)) {
-        auto LexSuccessor = HLNodeUtils::getLexicalControlFlowSuccessor(Label);
+        auto LexSuccessor =
+            HIR->getHLNodeUtils().getLexicalControlFlowSuccessor(Label);
 
         HLContainerTy::iterator It(Label);
         assert(LexSuccessor && (&*std::next(It) == LexSuccessor) &&
@@ -128,7 +129,7 @@ void HIRCleanup::eliminateRedundantLabels() {
         LoopLatchHooks[LabelBB] = LexSuccessor;
       }
 
-      HLNodeUtils::erase(Label);
+      HIR->getHLNodeUtils().erase(Label);
     }
   }
 }

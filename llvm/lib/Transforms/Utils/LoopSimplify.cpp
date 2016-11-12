@@ -858,6 +858,7 @@ PreservedAnalyses LoopSimplifyPass::run(Function &F,
   PA.preserve<SCEVAA>();
   PA.preserve<ScalarEvolutionAnalysis>();
   PA.preserve<DependenceAnalysis>();
+  PA.preserve<AndersensAA>();                // INTEL
   return PA;
 }
 

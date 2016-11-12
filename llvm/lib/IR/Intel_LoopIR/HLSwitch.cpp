@@ -23,7 +23,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLSwitch::HLSwitch(RegDDRef *ConditionRef) : HLDDNode(HLNode::HLSwitchVal) {
+HLSwitch::HLSwitch(HLNodeUtils &HNU, RegDDRef *ConditionRef)
+    : HLDDNode(HNU, HLNode::HLSwitchVal) {
   unsigned NumOp;
 
   DefaultCaseBegin = Children.end();
@@ -36,8 +37,7 @@ HLSwitch::HLSwitch(RegDDRef *ConditionRef) : HLDDNode(HLNode::HLSwitchVal) {
   setConditionDDRef(ConditionRef);
 }
 
-HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj)
-    : HLDDNode(HLSwitchObj) {
+HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj) : HLDDNode(HLSwitchObj) {
   const RegDDRef *TRef;
   RegDDRef *Ref;
 
@@ -66,16 +66,15 @@ HLSwitch *HLSwitch::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
             EndIt = this->default_case_child_end();
        It != EndIt; It++) {
     HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap, NodeMapper);
-    HLNodeUtils::insertAsLastDefaultChild(NewHLSwitch, NewHLNode);
+    getHLNodeUtils().insertAsLastDefaultChild(NewHLSwitch, NewHLNode);
   }
 
   /// Clone case children
   for (unsigned I = 1, E = this->getNumCases(); I <= E; I++) {
-    for (auto It = this->case_child_begin(I),
-              EndIt = this->case_child_end(I);
+    for (auto It = this->case_child_begin(I), EndIt = this->case_child_end(I);
          It != EndIt; It++) {
       HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap, NodeMapper);
-      HLNodeUtils::insertAsLastChild(NewHLSwitch, NewHLNode, I);
+      getHLNodeUtils().insertAsLastChild(NewHLSwitch, NewHLNode, I);
     }
   }
 
@@ -284,8 +283,8 @@ void HLSwitch::removeCase(unsigned CaseNum) {
   assert((CaseNum <= getNumCases()) && "CaseNum is out of range!");
 
   /// Remove CaseNum's HLNodes
-  HLNodeUtils::remove(case_child_begin_internal(CaseNum),
-                     case_child_end_internal(CaseNum));
+  getHLNodeUtils().remove(case_child_begin_internal(CaseNum),
+                          case_child_end_internal(CaseNum));
 
   /// Remove the case value DDRef.
   removeCaseValueDDRef(CaseNum);

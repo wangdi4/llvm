@@ -25,6 +25,7 @@
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
@@ -213,7 +214,10 @@ void WRegionCollection::buildWRGraph(InputIRKind IR) {
   if (IR == HIR) {
     // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
     //       after Vectorizer's HIR mode starts using this new interface
-    WRGraph = WRegionUtils::buildWRGraphFromHIR();
+    auto HIRF = getAnalysisIfAvailable<loopopt::HIRFramework>();
+    assert(HIRF && "HIR framework not available!");
+
+    WRGraph = WRegionUtils::buildWRGraphFromHIR(*HIRF);
   } else if (IR == LLVMIR) {
     buildWRGraphFromLLVMIR(*Func);
   } else {

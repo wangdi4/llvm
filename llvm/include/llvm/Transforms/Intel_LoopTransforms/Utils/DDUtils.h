@@ -17,7 +17,6 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDUTILS_H
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 namespace llvm {
 namespace loopopt {
@@ -30,7 +29,7 @@ namespace loopopt {
 class HIRFramework;
 class DDGraph;
 
-class DDUtils : public HIRUtils {
+class DDUtils {
 private:
   /// \brief Do not allow instantiation
   DDUtils() = delete;
@@ -93,7 +92,8 @@ public:
   /// Takes care of simple cases that are needed for Interchange
   static bool enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG);
   /// \brief  Checks if a LvalRef has 1 single use in a loop
-  static bool singleUseInLoop(RegDDRef *LvalRef, HLLoop *Loop, DDGraph DDG);
+  static bool singleUseInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
+                              DDGraph DDG);
   /// \brief  Checks if a DDRef is a valid reduction. It needs to match
   /// the symbase as well
   static bool isValidReductionDDRef(RegDDRef *RRef, HLLoop *Loop,

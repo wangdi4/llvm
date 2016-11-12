@@ -22,18 +22,17 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRVECTVLS_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRVECTVLS_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/Pass.h"
 #include <map>
 
 namespace llvm {
-
 namespace loopopt {
 
-class HLLoop;
+class HIRFramework;
 
 class HIRVectVLSAnalysis : public HIRAnalysisPass {
 
@@ -69,14 +68,14 @@ public:
   /// \param VecContext holds the vectorization context underwhich the
   /// \p Memrefs are analyzed.
   /// \param [out] Grps holds the VLS Groups that are found by this function.
-  /// \param [out] MemrefToGroupMap holds a mapping from each Memref in 
+  /// \param [out] MemrefToGroupMap holds a mapping from each Memref in
   /// \p Memrefs to the group in \p Grps that it belongs to.
   void computeVLSGroups(const OVLSMemrefVector &Memrefs,
                         VectVLSContext &VectContext, OVLSGroupVector &Grps,
                         OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
 
-  /// \brief Utility that analyzes HIR memory references relative to a context 
-  /// (loop, VF) given in \p VectContext and provides an OVLSMemref interface 
+  /// \brief Utility that analyzes HIR memory references relative to a context
+  /// (loop, VF) given in \p VectContext and provides an OVLSMemref interface
   /// for them.
   /// \param LoopMemrefs holds the HIR memrefs.
   /// \param VectContext holds the vectorization context underwhich the
@@ -92,7 +91,7 @@ public:
                                HIRToVLSMemrefsMap &MemrefsMap);
 
   /// \brief Utility that gathers HIR memory references in \p Loop.
-  /// \param [out] LoopMemrefsVector holds the HIR memrefs gathered by this 
+  /// \param [out] LoopMemrefsVector holds the HIR memrefs gathered by this
   /// function.
   static void gatherMemrefsInLoop(HLLoop *Loop, LoopMemrefsVector &LoopMemrefs);
 
@@ -108,7 +107,7 @@ public:
   }
 
 private:
-  void analyze();
+  void analyze(HIRFramework &HIRF);
   void analyzeVLSInLoop(const HLLoop *Loop);
 };
 
