@@ -4382,14 +4382,23 @@ static inline bool isInterestingPointer(Value *V) {
 // modified or referenced in the routine.
 void IntelModRefImpl::collectFunction(Function *F)
 {
+    DEBUG_WITH_TYPE("imr-ir", F->dump());
+
+    DEBUG_WITH_TYPE("imr-collect",
+        errs() << "Collecting for: " << F->getName() << "\n");
+
     // Only run collection on the body of a function.
     if (F->isDeclaration()) {
+        DEBUG_WITH_TYPE("imr-collect", errs() <<
+            "BOTTOM: No function body.\n\n");
         return;
     }
 
     // Don't collect for a weak function, because it may not be
     // the function linked in.
     if (!F->hasExactDefinition()) {
+        DEBUG_WITH_TYPE("imr-collect", errs() <<
+            "BOTTOM: Weak function may be overridden.\n\n");
         return;
     }
 
@@ -4716,28 +4725,25 @@ void IntelModRefImpl::propagate(Module &M)
         const std::vector<CallGraphNode *> &SCC = *I;
         assert(!SCC.empty() && "SCC with no functions?");
 
-        DEBUG_WITH_TYPE("imr-propagate",
-            errs() << "\nSCC #" << ++sccNum << " : ");
+        // For each function of the SCC, merge in the information about
+        // all the callees to this routine's function record.
+        for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
+            for (CallGraphNode::iterator CI = SCC[i]->begin(),
+                E = SCC[i]->end(); CI != E; ++CI) {
 
-        Function *F = SCC[0]->getFunction();
-        DEBUG_WITH_TYPE("imr-propagate", errs() <<
-            (F ? F->getName() : "external node") << ", ");
+                DEBUG_WITH_TYPE("imr-propagate",
+                    errs() << "\nSCC #" << ++sccNum << " : ");
 
-        if (!F) {
-            continue;
-        }
+                Function *F = SCC[i]->getFunction();
+                DEBUG_WITH_TYPE("imr-propagate", errs() << "Propagate for " <<
+                    (F ? F->getName() : "external node") << ", ");
 
-        DEBUG_WITH_TYPE("imr-propagate", errs() << "Propagate for " <<
-            F->getName() << "\n");
+                if (!F) {
+                    continue;
+                }
 
-        FunctionRecord *FR = getFunctionInfo(F);
-        if (FR) {
-            // Merge in the information about all the callees to this
-            // routine's function record.
-            for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
-                for (CallGraphNode::iterator CI = SCC[i]->begin(),
-                    E = SCC[i]->end(); CI != E; ++CI) {
-
+                FunctionRecord *FR = getFunctionInfo(F);
+                if (FR) {
                     if (Function *Callee = CI->second->getFunction()) {
                         FunctionRecord *CalleeFR = getFunctionInfo(Callee);
                         if (CalleeFR) {
@@ -4751,29 +4757,57 @@ void IntelModRefImpl::propagate(Module &M)
                     }
                 }
             }
+        }
 
-            // Combine all the elements of the SCC element together so they
-            // are all the same.
-            bool changed = true;
-            while (changed) {
-                changed = false;
-                FunctionRecord *PrevFR = FR;
+        // If there were multiple functions for this SCC, combine all the routines
+        // of the SCC together so they are all equivalent.
+        if (SCC.size() > 1) {
+
+            // Check if ModRef sets are available for all functions
+            // of the SCC. If not, set all routines of the SCC to BOTTOM.
+            // Otherwise, fuse-all the sets together to make them contain all
+            // the mod-ref items of the SCC.
+            bool SetToBottom = false;
+            auto I = SCC.begin();
+            for (auto E = SCC.end(); I != E; ++I) {
+                Function* CurF = (*I)->getFunction();
+                FunctionRecord *CurFR = getFunctionInfo(CurF);
+                if (!CurFR) {
+                    SetToBottom = true;
+                    break;
+                }
+            }
+
+            if (SetToBottom) {
                 auto I = SCC.begin();
-
-                ++I;
                 for (auto E = SCC.end(); I != E; ++I) {
                     Function* CurF = (*I)->getFunction();
                     FunctionRecord *CurFR = getFunctionInfo(CurF);
-                    if (CurFR) {
+                    if (CurFR &&
+                        !(CurFR->isModBottom() || CurFR->isRefBottom())) {
+
+                        CurFR->setToBottom(FunctionRecord::Propagated);
+                    }
+                }
+            }
+            else {
+                bool changed = true;
+                Function *First_Fn = SCC[0]->getFunction();
+                FunctionRecord *First_FR = getFunctionInfo(First_Fn);
+            
+                while (changed) {
+                    changed = false;
+                    FunctionRecord *PrevFR = First_FR;
+                    auto I = SCC.begin();
+
+                    ++I;
+                    for (auto E = SCC.end(); I != E; ++I) {
+                        Function* CurF = (*I)->getFunction();
+                        FunctionRecord *CurFR = getFunctionInfo(CurF);
+                        assert(CurFR);
+
                         changed = fuseModRefSets(PrevFR, CurFR);
                         PrevFR = CurFR;
-                    }
-                    else {
-                        if (!(PrevFR->isModBottom() || PrevFR->isRefBottom()))
-                        {
-                            PrevFR->setToBottom(FunctionRecord::Propagated);
-                            changed = true;
-                        }
                     }
                 }
             }
