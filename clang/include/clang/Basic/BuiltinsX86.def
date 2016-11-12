@@ -894,6 +894,7 @@ TARGET_BUILTIN(__builtin_ia32_xtest, "i", "", "rtm")
 
 BUILTIN(__builtin_ia32_rdpmc, "ULLii", "")
 BUILTIN(__builtin_ia32_rdtsc, "ULLi", "")
+BUILTIN(_rdtsc, "ULLi", "") // INTEL
 BUILTIN(__builtin_ia32_rdtscp, "ULLiUi*", "")
 // PKU
 TARGET_BUILTIN(__builtin_ia32_rdpkru, "Ui", "", "pku")

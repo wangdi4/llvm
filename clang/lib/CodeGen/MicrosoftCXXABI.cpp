@@ -4185,6 +4185,7 @@ void MicrosoftCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 #if INTEL_CUSTOMIZATION
   // CQ#407554: make string literals catchable by "char *" handlers.
   if (getContext().getLangOpts().IntelMSCompat &&
+      !getContext().getDiagnostics().getDiagnosticOptions().Pedantic &&
       isa<StringLiteral>(SubExpr->IgnoreParenImpCasts())) {
     if (const auto *PtrType = ThrowType->getAs<PointerType>()) {
       QualType Unqual = PtrType->getPointeeType().getUnqualifiedType();

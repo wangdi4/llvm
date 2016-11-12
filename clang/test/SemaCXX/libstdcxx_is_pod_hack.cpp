@@ -27,6 +27,16 @@ struct test_is_signed {
   static const bool __is_signed = true; // expected-warning {{keyword '__is_signed' will be made available as an identifier}}
 };
 
+#ifdef INTEL_CUSTOMIZATION
+// CQ414772: ensure __is_signed is still an identifier in libstdc++
+// even if the return type is hidden by a typedef.
+typedef bool _B
+struct test_is_signed2 {
+  static const _B __is_signed = true; // expected-warning {{keyword '__is_signed' will be made available as an identifier}}
+};
+
+#endif // INTEL_CUSTOMIZATION
+
 bool check_signed = test_is_signed::__is_signed;
 
 template<bool B> struct must_be_true {};
