@@ -849,7 +849,9 @@ void LPUCvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
       //renameLCSSAPhi or other cross boundary uses
       UseMO.setReg(outVReg);
     } else {
-      //defBB dominates all exiting blks, no exiting blk dominates the useBB
+      //no exiting blk dominates the useBB:
+      // 1)defBB dominates all exiting blks, 
+      // 2)UseBB is the enclosing loop's hdr
       SmallVector<MachineInstr*, 8> NewPHIs;
       MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
       const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
@@ -857,7 +859,6 @@ void LPUCvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
       SSAUpdate.Initialize(pickVReg);
       for (unsigned i = 0; i < exitingBlks.size(); i++) {
         MachineBasicBlock* exitingBlk = exitingBlks[i];
-        assert(DT->dominates(mbb, exitingBlk));
         unsigned outVReg = SwitchOutExitingBlk(exitingBlk, Reg, mloop);
         SSAUpdate.AddAvailableValue(exitingBlk, outVReg);
       }
