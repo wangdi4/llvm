@@ -61,7 +61,7 @@ bool LPUSaveRawBC::doInitialization(Module &M) {
     return false;
   }
 
-  errs() << "LPUSaveRawBC::doInitialization\n";
+  //  errs() << "LPUSaveRawBC::doInitialization\n";
 
   // Multiple instances of the analyzer are created by LLVM. We
   // only need to save the raw IR once. If the string is already
