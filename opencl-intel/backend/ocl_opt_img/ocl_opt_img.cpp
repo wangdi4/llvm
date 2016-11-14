@@ -20,16 +20,7 @@ RuntimeLib(cl::CommaSeparated, "runtimelib",
                   cl::desc("Runtime declarations (bitcode) libraries (comma separated)"),
                   cl::value_desc("filename1,filename2"));
 
-// BIImport pass resolves svml calls of "shared" functions:
-// if CPU is l9, __ocl_svml_shared_acos1f to be changed to __ocl_svml_l9_acos1f
-// so, BIImport must be initialized by the name of CPU architecture (l9, for example)
-static cl::opt<std::string>
-arch("arch",
-            cl::desc("CPU architecture name for svml library"),
-            cl::value_desc("CPU architecture type string"), cl::init(""));
-
 extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
-extern "C" Pass* createBuiltInImportPass(const char* CPUName);
 extern "C" llvm::ModulePass *createGenericAddressStaticResolutionPass();
 
 void initializeOCLPasses(PassRegistry &Registry)
@@ -77,8 +68,6 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::legacy::PassManager& passM
 
   //Always add the BuiltinLibInfo Pass to the Pass Manager
   passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, "ocl"));
-  //add the BIImport Pass to the Pass Manager
-  passMgr.add(createBuiltInImportPass(arch.c_str()));
 }
 
 int main(int argc, char **argv) 
