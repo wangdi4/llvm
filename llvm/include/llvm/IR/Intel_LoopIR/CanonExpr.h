@@ -379,7 +379,7 @@ public:
   /// It returns 0 if no IV is found with coeff different from 0.
   unsigned getFirstIVLevel() const;
 
-  /// \brief Returns true if this canon expr looks soemthing like (1 * %t).
+  /// \brief Returns true if this canon expr looks something like (1 * %t).
   /// This is a broader check than isSelfBlob() because it allows the blob to
   /// be a FP constant or even metadata.
   /// If \p AllowConversion is true, conversions are allowed to be part of a

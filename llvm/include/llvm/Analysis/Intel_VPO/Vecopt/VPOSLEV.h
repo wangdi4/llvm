@@ -54,7 +54,7 @@ public:
                               IntN(N),
                               FloatN(APFloat::getAllOnesValue(32)) {}
     Number(const APFloat& N) : Defined(true),
-                               IsInteger(true),
+                               IsInteger(true), //CHECKME!
                                IntN(APSInt::getAllOnesValue(32)),
                                FloatN(N) {}
     Number(const Number& O) : Defined(O.Defined),

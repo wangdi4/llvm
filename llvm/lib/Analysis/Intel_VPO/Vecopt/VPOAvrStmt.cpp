@@ -94,24 +94,22 @@ void AVRAssign::shallowPrint(formatted_raw_ostream &OS) const {
 StringRef AVRAssign::getAvrTypeName() const { return StringRef("ASSIGN"); }
 
 //----------AVR Expression Implementation----------//
-AVRExpression::AVRExpression(Type *ValType,
-                             const SmallVectorImpl<AVR *>& Operands,
-                             unsigned Operation,
-                             CmpInst::Predicate Predicate)
+AVRExpression::AVRExpression(const SmallVectorImpl<AVR *> &Operands,
+                             unsigned Operation, Type *ExprType)
     : AVR(AVR::AVRExpressionNode) {
 
   IsLHSExpr = false;
   this->Operation = Operation; // Set Operation Type
-  this->Predicate = Predicate;
   for (AVR *Operand : Operands)
     this->Operands.push_back(Operand);
-  this->setType(ValType);      // Set the Data Type.
+  this->setType(ExprType); // Set the Data Type.
 }
 
-AVRExpression::AVRExpression(Type *ValType, bool isLHS) : AVR(AVR::AVRExpressionNode) {
+AVRExpression::AVRExpression(Type *ExprType, bool isLHS)
+    : AVR(AVR::AVRExpressionNode) {
 
   IsLHSExpr = isLHS;
-  this->setType(ValType);      // Set the Data Type.
+  this->setType(ExprType); // Set the Data Type.
 }
 
 AVRExpression::AVRExpression(unsigned SCID, Type *ExprType) : AVR(SCID), ExprType(ExprType) {}

@@ -52,9 +52,9 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
   const Instruction* LLVMInstruction = HLInst->getLLVMInstruction();
   Opcode = LLVMInstruction->getOpcode();
   if (const CmpInst* LLVMCmpInst = dyn_cast<CmpInst>(LLVMInstruction))
-    Predicate = LLVMCmpInst->getPredicate();
+    Condition = LLVMCmpInst->getPredicate();
   else
-    Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
+    Condition = CmpInst::Predicate::BAD_ICMP_PREDICATE;
 
   this->setParent(HLAssign); // Set Parent
 
@@ -107,8 +107,8 @@ AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
 
   HLIf *HIf = AIf->getCompareInstruction();
   HIRNode = nullptr; // this is an HLIf predicate - no underlying HLInst.
-  Predicate = *PredIt;
-  if (Predicate <= CmpInst::Predicate::LAST_FCMP_PREDICATE)
+  Condition = *PredIt;
+  if (Condition <= CmpInst::Predicate::LAST_FCMP_PREDICATE)
     this->Opcode = Instruction::FCmp;
   else
     this->Opcode = Instruction::ICmp;
@@ -143,7 +143,6 @@ AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR *LHS, AVRExpressionHIR *RHS)
   assert(!RHS->getType()->isVectorTy() && "RHS has vector type");
 
   HIRNode = nullptr; // no underlying HLInst.
-  this->Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
   this->Opcode = Instruction::And;
   this->Operation = this->Opcode;
 
@@ -165,7 +164,6 @@ AVRExpressionHIR::AVRExpressionHIR(AVR* LHS,
   assert(Ty && "Expression type is null");
 
   HIRNode = nullptr; // no underlying HLInst.
-  this->Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
   // Why do we need Opcode and Operation?
   this->Opcode = Opcode;
   this->Operation = this->Opcode;
@@ -197,12 +195,12 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
   setParent(Parent);
 
   Type *DataType;
-  const CanonExpr *CE = nullptr;
+  CanonExpr *CE = nullptr;
 
   if (DDRef->hasGEPInfo()) {
     CE = DDRef->getBaseCE();
-    PointerType *BaseTy = cast<PointerType>(CE->getSrcType()); //CHECKME: getDestType?
-    Type *ElemTy = DDRef->getSrcType(); //CHECKME: getDestType?
+    PointerType *BaseTy = cast<PointerType>(CE->getDestType());
+    Type *ElemTy = DDRef->getDestType();
     // In the case of array of ints for example (int a[300]):
     // ElemTy is i32  (int)
     // BaseTy is [300 x i32]*  (pointer to array)
@@ -210,10 +208,9 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
     DataType = ElemTy->getPointerTo(BaseTy->getPointerAddressSpace()); 
   }
   else {
-    // CHECKME: DDRef->getSrcType? getDestType?
     CE = DDRef->getSingleCanonExpr();
     assert(CE && "DDRef is empty!");
-    DataType = CE->getSrcType();
+    DataType = CE->getDestType();
   }
 
   this->setType(DataType);
@@ -238,6 +235,17 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
       llvm_unreachable("CanonExpr has an unexpected constant value!");
     }
   }
+
+  // Add IVValue info if RegDDRef is a standalone IV (1 * i3)
+  if (DDRef->isStandAloneIV(false /*AllowConversion*/)) {
+    assert(DDRef->isSingleCanonExpr() &&
+           "Standalone IV must have a single canon expr");
+    CE = DDRef->getSingleCanonExpr();
+    assert(CE->isStandAloneIV(false /*AllowConversion*/) &&
+           "Standalone IV CanonExpr expected");
+
+    setIVValue(new AVRValueHIR::IVValueInfo(CE, CE->getFirstIVLevel()));
+  }
 }
 
 //TODO
@@ -250,12 +258,6 @@ AVRValueHIR::AVRValueHIR(BlobDDRef *DDRef, AVR *Parent)
 AVRValueHIR::AVRValueHIR(IVValueInfo *IVV, Type *Ty, AVR *Parent)
     : AVRValue(AVR::AVRValueHIRNode, Ty), Val(nullptr), IVVal(IVV),
       HNode(nullptr) {
-  setParent(Parent);
-}
-
-//TODO
-AVRValueHIR::AVRValueHIR(Constant *Const, AVR *Parent)
-    : AVRValue(Const), Val(nullptr), HNode(nullptr) {
   setParent(Parent);
 }
 
@@ -296,7 +298,7 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
       Val->print(OS, false);
     } else { // IV Value
       assert(IVVal != nullptr && "IVValue is null");
-      OS << "i" << IVVal->Index;
+      OS << "i" << IVVal->Level;
     }
 
     break;
@@ -306,7 +308,7 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   // Close up open braces
-  if (VLevel >= PrintAvrDecomp)
+  if (VLevel >= PrintAvrType)
     OS << "}";
 }
 

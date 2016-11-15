@@ -1,4 +1,4 @@
-//===-- VPODriver.h ---------------------------------------------*- C++ -*-===//
+//===-- VPOPredicator.h -----------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -24,30 +24,49 @@ namespace vpo {
 
 class SESERegion;
 
-class VPOPredicator : public FunctionPass {
+class VPOPredicatorBase {
+
+
+public:
+  /// Incoming AVR
+  AVRGenerateBase *AVRG = nullptr;
+
+protected:
+  // We don't allow the base class to be constructed
+  VPOPredicatorBase() {}
+
+  bool runOnFunction(Function &F);
+  void runOnAvr(AVRLoop *ALoop);
+
+private:
+  void predicateLoop(AVRLoop *ALoop);
+  void handleSESERegion(const SESERegion *Region, AvrCFGBase *CFG);
+  void predicate(AVRBlock *Entry);
+  void removeCFG(AVRBlock *Entry);
+};
+
+class VPOPredicator : public VPOPredicatorBase, public FunctionPass {
 
 public:
   /// Pass Identification
   static char ID;
 
-  /// Incoming AVR
-  AVRGenerateBase *AVRG;
+  VPOPredicator(); 
 
-  VPOPredicator();
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool runOnFunction(Function &F);
+};
+
+class VPOPredicatorHIR : public VPOPredicatorBase, public FunctionPass {
+
+public:
+   /// Pass Identification
+  static char ID;
+
+  VPOPredicatorHIR(); 
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F); 
-  void runOnAvr(AVRLoop* ALoop);
-
-private:
-
-  void predicateLoop(AVRLoop* ALoop);
-
-  void handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG);
-
-  void predicate(AVRBlock* Entry);
-
-  void removeCFG(AVRBlock* Entry);
 };
 
 } // End namespace vpo
