@@ -980,7 +980,7 @@ void RegDDRef::verify() const {
       assert(isa<PointerType>(CE->getDestType()) &&
              "Invalid BaseCE dest type!");
     }
-    // assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
+    assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
   }
 
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
