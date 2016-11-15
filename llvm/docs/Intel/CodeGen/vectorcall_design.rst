@@ -21,9 +21,9 @@ vice versa.
 
 For example:
 
-*func3(int a, struct big b, int c, float d); *
+* func3(int a, struct big b, int c, float d); *
 
-*// a in RCX, ptr to b in RDX, c in R8, d in XMM3*
+* // a in RCX, ptr to b in RDX, c in R8, d in XMM3 *
 
 Implementation in LLVM
 ----------------------
@@ -175,8 +175,7 @@ For example:
 
 **C code:** *int \_\_regcall foo(hva3 a);*
 
-**LLVM IR Output:** *define x86\_regcallcc i32 @foo(\_\_m256 %a.0,
-\_\_m256 %a.1, \_\_m256 %a.2); *
+**LLVM IR Output:** * define x86\_regcallcc i32 @foo(\_\_m256 %a.0, \_\_m256 %a.1, \_\_m256 %a.2); *
 
 \*The example omits the decoration that is added to the function name
 
@@ -207,11 +206,9 @@ Passing arguments
 
     For Example:
 
-    Instead of: *define x86\_regcallcc i32 @foo(\_\_m256 %a.0, \_\_m256
-    %a.1, \_\_m256 %a.2);*
+    Instead of: * define x86\_regcallcc i32 @foo(\_\_m256 %a.0, \_\_m256 %a.1, \_\_m256 %a.2); *
 
-    Pass the following: *define x86\_regcallcc i32 @foo(%struct.hva3
-    %a);*
+    Pass the following: * define x86\_regcallcc i32 @foo(%struct.hva3 %a); *
 
     CodeGen needs to know if the structure is an HVA.
 
@@ -269,8 +266,7 @@ Passing Arguments
 
     Add the following vectorcall sequence:
 
-    - If the parameter is a vector type (HVA expended or native vector
-    type) – call custom function
+    - If the parameter is a vector type (HVA expended or native vector type) – call custom function
 
     -- If second\_vectorcall\_round is set
 
