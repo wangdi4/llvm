@@ -391,6 +391,10 @@ public:
             (getSingleBlobCoeff() == 1) && !hasIV());
   }
 
+  // \brief Returns true if the CanonExpr is a unitary blob. A unitary blob is a
+  // single (non-nested) standalone blob.
+  bool isUnitaryBlob() const;
+
   /// Returns true if CanonExpr can be converted into a stand alone blob.
   bool canConvertToStandAloneBlob() const;
 
