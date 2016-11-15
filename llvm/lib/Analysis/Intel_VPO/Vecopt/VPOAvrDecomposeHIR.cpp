@@ -226,7 +226,7 @@ private:
 
   AVR *decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE);
   AVR *decomposeCanonExprConv(CanonExpr *CE, AVR *SrcTree);
-  AVRExpression *decomposeMemoryOp(RegDDRef *RDDR);
+  AVRExpression *decomposeMemoryOp(AVRValueHIR *AVal);
   AVR *decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel, Type *Ty);
   AVR *decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx, int64_t BlobCoeff);
 
@@ -268,15 +268,15 @@ bool HIRDecomposer::needsDecomposition(AVRValueHIR *AVal) {
   return true;
 }
 
-AVR * HIRDecomposer::decompose(AVRValueHIR *AVal) {
+AVR *HIRDecomposer::decompose(AVRValueHIR *AVal) {
   assert(isa<RegDDRef>(AVal->getValue()) && "Expected a RegDDRef" );
-  RegDDRef * RDDR = cast<RegDDRef>(AVal->getValue());
+  RegDDRef *RDDR = cast<RegDDRef>(AVal->getValue());
 
   if (RDDR->isTerminalRef()) {
     return decomposeCanonExpr(RDDR, RDDR->getSingleCanonExpr());
   } else {
     // Memory ops
-    return decomposeMemoryOp(RDDR);
+    return decomposeMemoryOp(AVal);
   }
 }
 
@@ -356,7 +356,10 @@ AVR *HIRDecomposer::decomposeCanonExprConv(CanonExpr *CE, AVR *SrcTree) {
   return SrcTree;
 }
 
-AVRExpression *HIRDecomposer::decomposeMemoryOp(RegDDRef *RDDR) {
+AVRExpression *HIRDecomposer::decomposeMemoryOp(AVRValueHIR *AVal) {
+ 
+  assert(isa<RegDDRef>(AVal->getValue()) && "Expected a RegDDRef" );
+  RegDDRef *RDDR = cast<RegDDRef>(AVal->getValue());
 
   DEBUG(dbgs() << "  Decomposing MemOp:  ");
   DEBUG(RDDR->dump());
@@ -386,8 +389,22 @@ AVRExpression *HIRDecomposer::decomposeMemoryOp(RegDDRef *RDDR) {
 
   // This expression is representing a GEP so we use the type of the BaseCE
   // (pointer)
-  return AVRUtils::createAVRExpression(GepOperands, Instruction::GetElementPtr,
+  DEBUG(dbgs() << "  Creating GEP\n");
+  AVRExpression *Result = AVRUtils::createAVRExpression(GepOperands, Instruction::GetElementPtr,
                                        RDDR->getBaseCE()->getDestType());
+
+  // Does it need explicit load?
+  // CHECKME: I don't find a cleaner way to know if a load is necessary.
+  AVRExpression *Parent;
+  if (RDDR->isRval() && !RDDR->isAddressOf() &&
+      (Parent = dyn_cast<AVRExpression>(AVal->getParent())) &&
+      Parent->getOperation() != Instruction::Load) {
+    DEBUG(dbgs() << "  Creating Load\n");
+    Result = AVRUtils::createAVRExpression(Result, Instruction::Load,
+                                           RDDR->getDestType());
+  }
+
+  return Result;
 }
 
 AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,

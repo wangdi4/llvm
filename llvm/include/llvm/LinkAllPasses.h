@@ -290,6 +290,7 @@ namespace {
       (void) llvm::createSIMDLaneEvolutionHIRPass();
       (void) llvm::createVectorGraphInfoPass();
       (void) llvm::createVectorGraphPredicatorPass();
+      (void) llvm::createAVRDecomposeHIRPass();
 
       // VPO Paropt Prepare Passes
       (void) llvm::createVPOParoptPreparePass();

@@ -75,7 +75,8 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
     for ( ; Idx < NumRvalOps; ++Idx) {
 
       RegDDRef *DDRef =  HLInst->getOperandDDRef(Idx);
-      AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(DDRef, HLInst, this);
+      AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(
+          DDRef, HLInst, this, Opcode == Instruction::Load);
       this->Operands.push_back(AvrVal);
 
       IsLHSExpr = false;
@@ -91,7 +92,8 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
     RegDDRef *DDRef = HLInst->getLvalDDRef();
     if (DDRef) {
 
-      AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(DDRef, HLInst, this);
+      AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(
+          DDRef, HLInst, this, Opcode == Instruction::Store);
       this->Operands.push_back(AvrVal);
     }
     else
@@ -187,7 +189,8 @@ std::string AVRExpressionHIR::getAvrValueName() const {
 }
 
 //----------AVR Value for HIR Implementation----------//
-AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
+AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent,
+                         bool isMemoryAddress)
     : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {
 
   assert(Node && "HLNode cannot be null");
@@ -197,7 +200,8 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
   Type *DataType;
   CanonExpr *CE = nullptr;
 
-  if (DDRef->hasGEPInfo()) {
+  // We need a pointer type only if the parent AVR is a load or store
+  if (DDRef->hasGEPInfo() && isMemoryAddress) {
     CE = DDRef->getBaseCE();
     PointerType *BaseTy = cast<PointerType>(CE->getDestType());
     Type *ElemTy = DDRef->getDestType();
@@ -205,12 +209,9 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
     // ElemTy is i32  (int)
     // BaseTy is [300 x i32]*  (pointer to array)
     // We want i32* (pointer to int), so we build it:
-    DataType = ElemTy->getPointerTo(BaseTy->getPointerAddressSpace()); 
-  }
-  else {
-    CE = DDRef->getSingleCanonExpr();
-    assert(CE && "DDRef is empty!");
-    DataType = CE->getDestType();
+    DataType = ElemTy->getPointerTo(BaseTy->getPointerAddressSpace());
+  } else {
+    DataType = DDRef->getDestType();
   }
 
   this->setType(DataType);
