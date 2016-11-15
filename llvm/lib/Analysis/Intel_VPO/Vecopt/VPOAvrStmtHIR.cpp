@@ -216,10 +216,9 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent,
 
   this->setType(DataType);
 
-  // In HIR, Null and Metadata are considered constant values
-  // because they do not affect DDs.
-  // We do not take them into account at AVR level by now.
-  if (DDRef->isConstant() && !DDRef->isNull() && !DDRef->isMetadata()) {
+  // In HIR, Metadata is considered a constant value because they do not affect
+  // DDs. We do not take MD into account at AVR level by now.
+  if (DDRef->isConstant() && !DDRef->isMetadata()) {
     ConstantFP *FPConst = nullptr;
     Constant *Const = nullptr;
     int64_t IntConst;
@@ -232,6 +231,8 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent,
       this->setConstant(FPConst);
     } else if (DDRef->isConstantVector(&Const)) {
       this->setConstant(Const);
+    } else if (DDRef->isNull()) {
+      this->setConstant(ConstantPointerNull::get(cast<PointerType>(DataType)));
     } else {
       llvm_unreachable("CanonExpr has an unexpected constant value!");
     }

@@ -467,6 +467,9 @@ SIMDLaneEvolutionAnalysisBase::constructSLEV(AVRValue *AValue) {
     return createPredefinedSLEV(SLEV(CONSTANT, toAPSInt(CInt->getValue())));
   else if (const ConstantFP *CFP = dyn_cast<ConstantFP>(C))
     return createPredefinedSLEV(SLEV(CONSTANT, CFP->getValueAPF()));
+  else if (isa<ConstantPointerNull>(C))
+    // Treating null pointer as zero
+    return createPredefinedSLEV(SLEV(CONSTANT, toAPSInt(0)));
   else
     llvm_unreachable("Unexpected type of Constant");
 }

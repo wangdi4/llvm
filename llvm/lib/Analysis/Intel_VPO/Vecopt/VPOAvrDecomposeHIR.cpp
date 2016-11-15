@@ -244,7 +244,7 @@ public:
 bool HIRDecomposer::needsDecomposition(AVRValueHIR *AVal) {
 
   // We don't need to decompose:
-  //   - Constants
+  //   - Constants (including null pointers)
   //   - BlobDDRefs (already decomposed)
   //   - IVs (already decomposed)
   if (AVal->isConstant() || AVal->isIVValue() ||
@@ -258,9 +258,8 @@ bool HIRDecomposer::needsDecomposition(AVRValueHIR *AVal) {
  
   // We don't need to decompose:
   //   - Unitary blobs and standalone IVs with the same Src and Dest types
-  //   - Null pointers
   //   - Metadata
-  if (RDDR->isMetadata() || RDDR->isNull() || RDDR->isUnitaryBlob() ||
+  if (RDDR->isMetadata() || RDDR->isUnitaryBlob() ||
       RDDR->isStandAloneIV(false /*AllowConversion*/)) {
     return false;
   }
