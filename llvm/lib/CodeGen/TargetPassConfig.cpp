@@ -684,9 +684,11 @@ void TargetPassConfig::addMachinePasses() {
 
 /// Add passes that optimize machine instructions in SSA form.
 void TargetPassConfig::addMachineSSAOptimization() {
-  // Pre-ra tail duplication.
-  addPass(&EarlyTailDuplicateID);
-
+  //LPU EDIT: TailDuplication destroies natural loop form, don't do it for LPU
+  if (getTM<TargetMachine>().getTargetTriple().getArchName() != "lpu") {
+    // Pre-ra tail duplication.
+    addPass(&EarlyTailDuplicateID);
+  }
   // Optimize PHIs before DCE: removing dead PHI cycles may make more
   // instructions dead.
   addPass(&OptimizePHIsID, false);
