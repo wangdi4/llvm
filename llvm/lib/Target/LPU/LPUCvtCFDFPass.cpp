@@ -2015,7 +2015,7 @@ bool LPUCvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
       //loop hdr phi with multiple back edges or loop with multiple exit blocks
     if (MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getHeader() == mbb) {
       MachineLoop* mloop = MLI->getLoopFor(mbb);
-      if (mloop->getNumBackEdges() > 1 || mloop->getExitBlock() == nullptr) {
+      if (mloop->getNumBackEdges() > 1) {
         return true;
       }
     } else {
