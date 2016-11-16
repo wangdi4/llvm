@@ -143,7 +143,7 @@ namespace llvm {
     void handleAllConstantInputs();
     void releaseMemory() override;
     bool replaceUndefWithIgn();
-
+    bool isUnStructured(MachineBasicBlock* mbb);
 
     // TBD(jsukha): Experimental code for ordering of memory ops.
     void addMemoryOrderingConstraints();
@@ -222,6 +222,7 @@ namespace llvm {
     DenseMap<MachineBasicBlock*, SmallVectorImpl<unsigned>* > edgepreds;
     DenseMap<MachineBasicBlock *, unsigned> bbpreds;
     DenseMap<MachineBasicBlock*, MachineInstr*> bb2predmerge;
+    DenseMap<MachineBasicBlock*, unsigned> bb2rpo;
     std::set<MachineInstr *> multiInputsPick;
   };
 }
@@ -1047,7 +1048,6 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
     thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());
   }
 #endif
-
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
@@ -1058,8 +1058,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
     MachineLoop* mloop = MLI->getLoopFor(mbb);
     //not inside a loop
     if (!mloop) continue;
-    MachineBasicBlock *latchBB = mloop->getLoopLatch();
-    ControlDependenceNode *mLatch = CDG->getNode(latchBB);
+    MachineBasicBlock *mlphdr = mloop->getHeader();
     //make sure loop is properly formed with exit edge from latch block.
     //LLVM 3.6 has this buggy issue that was subsequently fixed in 3.9
     //TBD:: reenable it:
@@ -1068,8 +1067,9 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
       MachineInstr *MI = &*I;
       if (MI->isPHI()) continue; //Pick will take care of it when replacing Phi
       //To avoid infinitive recursive since the newly add SWITCH always use Reg
-      if (TII.isSwitch(MI) && mbb == latchBB) {
-        //we are workin from inner most out, no need to revisit the switch after it is inserted into the latch
+      if (TII.isSwitch(MI) && mlphdr->isPredecessor(mbb)) {
+        //mbb is a latch
+        //working from inner most out, no need to revisit the switch after it is inserted into the latch
         continue;
       }
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
@@ -1086,39 +1086,49 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
 
           if (isDefEnclosingUse && DT->dominates(DefBB, mbb)) {
             unsigned newVReg;
-            MachineInstr *defInstr = getOrInsertSWITCHForReg(Reg, latchBB);
-            if (TII.isSwitch(defInstr)) {
-              unsigned switchFalseReg = defInstr->getOperand(0).getReg();
-              unsigned switchTrueReg = defInstr->getOperand(1).getReg();
-              MachineBasicBlock* mlphdr = mloop->getHeader();
-              if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
-                //rename Reg to switchFalseReg
-                newVReg = switchFalseReg;
-              } else {
-                //rename it to switchTrueReg
-                newVReg = switchTrueReg;
-              }
-            } else {
-              //LLVM3.6 buggy latch
-              assert(TII.isMOV(defInstr));
-              newVReg = defInstr->getOperand(0).getReg();
-            }
-
+            MachineBasicBlock *latchBB = nullptr;
             SmallVector<MachineInstr*, 8> NewPHIs;
             MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
-            SSAUpdate.Initialize(newVReg);
+            const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+            unsigned hdrPhiVReg = MRI->createVirtualRegister(TRC);
+            SSAUpdate.Initialize(hdrPhiVReg);
             SSAUpdate.AddAvailableValue(DefBB, Reg);
-            SSAUpdate.AddAvailableValue(latchBB, newVReg);
+            for (MachineBasicBlock::pred_iterator hdrPred = mlphdr->pred_begin(); hdrPred != mlphdr->pred_end(); hdrPred++) {
+              if (mloop->contains(*hdrPred)) {
+                latchBB = *hdrPred;
+              } else continue;
+              ControlDependenceNode *mLatch = CDG->getNode(latchBB);
+
+              MachineInstr *defInstr = getOrInsertSWITCHForReg(Reg, latchBB);
+              if (TII.isSwitch(defInstr)) {
+                unsigned switchFalseReg = defInstr->getOperand(0).getReg();
+                unsigned switchTrueReg = defInstr->getOperand(1).getReg();
+                if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
+                  //rename Reg to switchFalseReg
+                  newVReg = switchFalseReg;
+                } else {
+                  //rename it to switchTrueReg
+                  newVReg = switchTrueReg;
+                }
+              } else {
+                //LLVM3.6 buggy latch
+                assert(TII.isMOV(defInstr));
+                newVReg = defInstr->getOperand(0).getReg();
+              }
+              SSAUpdate.AddAvailableValue(latchBB, newVReg);
+            }
             // Rewrite uses that outside of the original def's block, inside the loop
             MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
             while (UI != MRI->use_end()) {
               MachineOperand &UseMO = *UI;
               MachineInstr *UseMI = UseMO.getParent();
               ++UI;
+#if 0
               if (UseMI->isDebugValue()) {
                 UseMI->eraseFromParent();
                 continue;
               }
+#endif
               if (MLI->getLoopFor(UseMI->getParent()) == mloop) {
                 SSAUpdate.RewriteUse(UseMO);
               }
@@ -1145,15 +1155,22 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
     //only scan loop header
     if (mbb != mloop->getHeader()) continue;
     MachineBasicBlock *latchBB = mloop->getLoopLatch();
-
-    SmallVectorImpl<MachineInstr *>* predCpy = getOrInsertPredCopy(latchBB);
-
-    ControlDependenceNode *mLatch = CDG->getNode(latchBB);
+    SmallVectorImpl<MachineInstr *>* predCpy = nullptr;
+    ControlDependenceNode *mLatch = nullptr;
+    if (latchBB) {
+      predCpy = getOrInsertPredCopy(latchBB);
+      mLatch = CDG->getNode(latchBB);
+    }
     MachineBasicBlock::iterator iterI = mbb->begin();
     while(iterI != mbb->end()) {
       MachineInstr *MI = &*iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
+      if (!latchBB) {
+        generateDynamicPickTreeForPhi(MI);
+        //TODO: use repeat to iterate the pred inside the loop
+        continue;
+      }
       unsigned numUse = 0;
       MachineOperand* backEdgeInput = nullptr;
       MachineOperand* initInput = nullptr;
@@ -1691,6 +1708,7 @@ unsigned LPUCvtCFDFPass::getEdgePred(MachineBasicBlock* mbb, ControlDependenceNo
 }
 
 void LPUCvtCFDFPass::setEdgePred(MachineBasicBlock* mbb, ControlDependenceNode::EdgeType childType, unsigned ch) {
+  assert(ch && "0 is not a valid vreg number");
   if (edgepreds.find(mbb) == edgepreds.end()) {
     SmallVectorImpl<unsigned>* childVect = new SmallVector<unsigned, 2>;
     childVect->push_back(0);
@@ -1707,6 +1725,7 @@ unsigned LPUCvtCFDFPass::getBBPred(MachineBasicBlock* mbb) {
 
 
 void LPUCvtCFDFPass::setBBPred(MachineBasicBlock* mbb, unsigned ch) {
+  assert(ch && "0 is not a valid vreg number");
   //don't set it twice
   assert(bbpreds.find(mbb) == bbpreds.end() && "LPU: Try to set bb pred twice");
   bbpreds[mbb] = ch;
@@ -1806,10 +1825,12 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
       const unsigned moveOpcode = TII.getMoveOpcode(&LPU::I1RegClass);
       BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addImm(1);
       ctrlEdge = cpyReg;
-    } else {
+    } else if (bb2rpo[ctrlBB] < bb2rpo[inBB]) {
       //bypass loop latch node
-      if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
-        continue;
+      if (MachineLoop *mloop = MLI->getLoopFor(ctrlBB))
+        if (mloop->getHeader()->isPredecessor(ctrlBB))
+          continue;
+
       assert(ctrlBB->succ_size() == 2 && "LPU: bb has more than 2 successor");
       computeBBPred(ctrlBB);
       unsigned falseEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::FALSE, inBB);
@@ -1819,6 +1840,8 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
       } else {
         ctrlEdge = trueEdgeReg;
       }
+    } else {
+      continue;
     }
     //merge predecessor if needed
     if (!predBB) {
@@ -1980,43 +2003,66 @@ void LPUCvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> 
 }
 
 
+
+
+bool LPUCvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
+  MachineBasicBlock::iterator iterI = mbb->begin();
+  while (iterI != mbb->end()) {
+    MachineInstr *MI = &*iterI;
+    ++iterI;
+    if (!MI->isPHI()) continue;
+    //check to see if needs PREDPROP/PREDMERGE
+      //loop hdr phi with multiple back edges or loop with multiple exit blocks
+    if (MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getHeader() == mbb) {
+      MachineLoop* mloop = MLI->getLoopFor(mbb);
+      if (mloop->getNumBackEdges() > 1 || mloop->getExitBlock() == nullptr) {
+        return true;
+      }
+    } else {
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
+        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        if (MO->isUse()) {
+          //move to its incoming block operand
+          ++MO;
+          MachineBasicBlock* inBB = MO->getMBB();
+          if (!PDT->dominates(mbb, inBB) || !CheckPhiInputBB(inBB, mbb)) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+
+
 void LPUCvtCFDFPass::generateDynamicPreds() {
+  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
+  ControlDependenceNode *cdgroot = CDG->getRoot();
+  std::stack<MachineBasicBlock*> postk;
+  for (po_cdg_iterator DTN = po_cdg_iterator::begin(cdgroot), END = po_cdg_iterator::end(cdgroot); DTN != END; ++DTN) {
+    MachineBasicBlock *mbb = DTN->getBlock();
+    postk.push(mbb);
+  }
+  unsigned i = 0;
+  while (!postk.empty()) {
+    MachineBasicBlock *mbb = postk.top();
+    postk.pop();
+    bb2rpo[mbb] = i;
+    i++;
+  }
+
   typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
   MachineBasicBlock *root = &*thisMF->begin();
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
     MachineBasicBlock::iterator iterI = mbb->begin();
-    bool needDynamicTree = false;
-    bool checked = false;
     while (iterI != mbb->end()) {
       MachineInstr *MI = &*iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-      //check to see if needs PREDPROP/PREDMERGE
-      if (!checked) {
-        //loop hdr phi with multiple back edges or loop with multiple exit blocks
-        if (MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getHeader() == mbb) {
-          MachineLoop* mloop = MLI->getLoopFor(mbb);
-          if (mloop->getNumBackEdges() > 1 || mloop->getExitBlock() == nullptr) {
-            needDynamicTree = true;
-          }
-        } else {
-          for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-            if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-            if (MO->isUse()) {
-              //move to its incoming block operand
-              ++MO;
-              MachineBasicBlock* inBB = MO->getMBB();
-              if (!PDT->dominates(mbb, inBB) || !CheckPhiInputBB(inBB, mbb)) {
-                needDynamicTree = true;
-                break;
-              }
-            }
-          }
-        }
-      }
-      checked = true;
-      if (needDynamicTree) {
+      if (isUnStructured(mbb)) {
         generateDynamicPickTreeForPhi(MI);
       }
     }
@@ -2034,7 +2080,12 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
       MachineInstr *MI = &*iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-      generateCompletePickTreeForPhi(MI);
+      if (isUnStructured(mbb)) {
+        generateDynamicPickTreeForPhi(MI);
+        //TODO:: use repeat to iterate pred inside the loop
+      } else {
+        generateCompletePickTreeForPhi(MI);
+      }
     }
   } //end of bb
 }
