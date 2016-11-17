@@ -196,11 +196,9 @@ processFunctionBeforeFrameFinalized(MachineFunction &MF,
 MachineBasicBlock::iterator LPUFrameLowering::eliminateCallFramePseudoInstr(
     MachineFunction &MF, MachineBasicBlock &MBB,
     MachineBasicBlock::iterator I) const {
-  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
-  const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(MF.getSubtarget().getInstrInfo());
+  const LPUInstrInfo &TII = *MF.getSubtarget<LPUSubtarget>().getInstrInfo();
 
-  if (!TFI->hasReservedCallFrame(MF)) {
+  if (!hasReservedCallFrame(MF)) {
     int64_t Amount = I->getOperand(0).getImm();
 
     if (Amount) {
@@ -210,10 +208,10 @@ MachineBasicBlock::iterator LPUFrameLowering::eliminateCallFramePseudoInstr(
       DebugLoc DL = I != MBB.end() ? I->getDebugLoc() : DebugLoc();
 
       if (I->getOpcode() == LPU::ADJCALLSTACKDOWN) {
-	BuildMI(MBB, I, DL, TII.get(LPU::SUB64), LPU::SP).addReg(LPU::SP).
+        BuildMI(MBB, I, DL, TII.get(LPU::SUB64), LPU::SP).addReg(LPU::SP).
           addImm(Amount);
       } else {
-	BuildMI(MBB, I, DL, TII.get(LPU::ADD64), LPU::SP).addReg(LPU::SP).
+        BuildMI(MBB, I, DL, TII.get(LPU::ADD64), LPU::SP).addReg(LPU::SP).
           addImm(Amount);
       }
     }
