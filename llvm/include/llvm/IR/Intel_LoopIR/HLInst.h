@@ -71,6 +71,10 @@ protected:
   /// Prints the ending Opcode equivalent for this instruction.
   void printEndOpcode(formatted_raw_ostream &OS) const;
 
+  /// Checks if instruction is a max or a min based on flag: true for max, false
+  /// for min
+  bool checkMinMax(bool IsMin, bool IsMax) const;
+
 public:
   /// Prints HLInst.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -165,6 +169,15 @@ public:
 
   /// Checks if the Opcode is a reduction and returns OpCode
   bool isReductionOp(unsigned *OpCode) const;
+
+  /// Checks if instruction is a min
+  bool isMin() const;
+
+  /// Checks if instruction is a max
+  bool isMax() const;
+
+  /// Checks if instruction is a min or a max
+  bool isMinOrMax() const;
 
   /// Return the identity value corresponding to the given reduction
   /// instruction opcode and specified type.

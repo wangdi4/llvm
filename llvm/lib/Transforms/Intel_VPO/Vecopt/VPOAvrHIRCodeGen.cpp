@@ -648,7 +648,8 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     // reduction ref the first time it is encountered and use this to replace
     // all occurrences of Ref. The widened ref is added to the WidenMap
     // here to accomplish this.
-    if (SRA->isSafeReductionSymbase(Ref->getSymbase(), &RedOpCode)) {
+    if (SRA->isReductionRef(Ref, RedOpCode)) {
+
       auto Identity = HLInst::getRecurrenceIdentity(RedOpCode, RefDestTy);
       auto RedOpVecInst = insertReductionInitializer(Identity);
 
@@ -1019,12 +1020,13 @@ void AVRCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
   if (!MainLoop->isLiveOut(ScalSymbase))
     return;
 
-  unsigned OpCode;
   auto VecRef = WideInst->getLvalDDRef();
 
   MainLoop->addLiveOutTemp(VecRef->getSymbase());
 
-  if (SRA->isSafeReductionSymbase(ScalSymbase, &OpCode)) {
+  unsigned OpCode;
+
+  if (SRA->isReductionRef(ScalRef, OpCode)) {
     HLContainerTy Tail;
 
     buildReductionTail(Tail, OpCode, VecRef, ScalRef, MainLoop, ScalRef);
