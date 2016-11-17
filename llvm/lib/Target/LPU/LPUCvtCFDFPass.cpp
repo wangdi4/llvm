@@ -92,7 +92,7 @@ namespace llvm {
     }
 
     bool runOnMachineFunction(MachineFunction &MF) override;
-  ControlDependenceNode* getNonLatchParent(ControlDependenceNode* anode, bool &oneAndOnly);
+    ControlDependenceNode* getNonLatchParent(ControlDependenceNode* anode, bool &oneAndOnly);
     MachineInstr* insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB);
     MachineInstr* getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgBB);
     MachineInstr* insertPICKForReg(MachineBasicBlock* ctrlBB, unsigned Reg, MachineBasicBlock* inBB, MachineInstr* phi, unsigned pickReg = 0);
@@ -320,22 +320,16 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
 
-#if 0
+#if 1
+  SmallVector<MachineBasicBlock*, 4> exitBlks;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-    MachineBasicBlock* mbb = BB;
-    for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
-      if (MI->getOpcode() == llvm::ResumeInst) {
-        //function call inside control region need to run on SXU
-        ControlDependenceNode* mnode = CDG->getNode(mbb);
-        if (mnode->getNumParents() > 1 || mnode->enclosingRegion()->getBlock()) {
-          return false;
-        }
-      }
-    }
+    if (BB->succ_empty()) exitBlks.push_back(&*BB);
   }
+  if (exitBlks.size() > 1) return false;
 #endif
 
   bool Modified = false;
+
 #if 0
   // for now only well formed innermost loop regions are processed in this pass
   MachineLoopInfo *MLI = &getAnalysis<MachineLoopInfo>();
@@ -492,10 +486,22 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
     ControlDependenceNode* latchNode = CDG->getNode(cdgpBB);
     //closed edge latchNode has loop hdr as control parent,
     //nesting loop controls its loop hdr first, then the closed latch
-    assert(latchNode->getNumParents() == 1);
-    MachineBasicBlock* ctrlBB = (*latchNode->parent_begin())->getBlock();
-
-    assert(ctrlBB);
+    MachineBasicBlock* ctrlBB = nullptr;
+    for (ControlDependenceNode::node_iterator uparent = latchNode->parent_begin(), uparent_end = latchNode->parent_end();
+      uparent != uparent_end; ++uparent) {
+      ControlDependenceNode *upnode = *uparent;
+      MachineBasicBlock *upbb = upnode->getBlock();
+      if (mloop->getHeader() == upbb) continue;
+      if (!ctrlBB)
+        ctrlBB = upbb;
+      else
+        assert(false && "loop latch has > 1 control blks");
+    }
+    if (!ctrlBB) {
+      //loop hdr is also an exiting node, which controls latch node
+      assert(CDG->getNode(mloop->getHeader())->isChild(latchNode));
+      ctrlBB = mloop->getHeader();
+    }
     bi = &*ctrlBB->getFirstInstrTerminator();
   } else {
     bi = &*cdgpBB->getFirstInstrTerminator();
@@ -1123,12 +1129,6 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
               MachineOperand &UseMO = *UI;
               MachineInstr *UseMI = UseMO.getParent();
               ++UI;
-#if 0
-              if (UseMI->isDebugValue()) {
-                UseMI->eraseFromParent();
-                continue;
-              }
-#endif
               if (MLI->getLoopFor(UseMI->getParent()) == mloop) {
                 SSAUpdate.RewriteUse(UseMO);
               }
@@ -1156,10 +1156,8 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
     if (mbb != mloop->getHeader()) continue;
     MachineBasicBlock *latchBB = mloop->getLoopLatch();
     SmallVectorImpl<MachineInstr *>* predCpy = nullptr;
-    ControlDependenceNode *mLatch = nullptr;
     if (latchBB) {
       predCpy = getOrInsertPredCopy(latchBB);
-      mLatch = CDG->getNode(latchBB);
     }
     MachineBasicBlock::iterator iterI = mbb->begin();
     while(iterI != mbb->end()) {
@@ -1206,8 +1204,8 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
       MachineOperand* pickFalse;
       MachineOperand* pickTrue;
       if (latchBB->succ_size() > 1) {
-        assert(mLatch->isChild(*DTN));
-        if (mLatch->isFalseChild(*DTN)) {
+        //assert(mLatch->isChild(*DTN)); or mbb is an exiting node
+        if (CDG->getEdgeType(latchBB, mbb, true) == ControlDependenceNode::FALSE) {
           pickFalse = backEdgeInput;
           pickTrue = initInput;
         } else {
@@ -1218,8 +1216,23 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
         //LLVM 3.6 buggy latch, loop with > 1 exits
         //LLVM 3.6 buggy loop latch with no exit edge from latch, fixed in 3.9
         ControlDependenceNode* latchNode = CDG->getNode(latchBB);
-        assert(latchNode->getNumParents() == 1);
-        ControlDependenceNode* ctrlNode = *latchNode->parent_begin();
+        MachineBasicBlock* ctrlBB = nullptr;
+        for (ControlDependenceNode::node_iterator uparent = latchNode->parent_begin(), uparent_end = latchNode->parent_end();
+          uparent != uparent_end; ++uparent) {
+          ControlDependenceNode *upnode = *uparent;
+          MachineBasicBlock *upbb = upnode->getBlock();
+          if (mloop->getHeader() == upbb) continue;
+          if (!ctrlBB)
+            ctrlBB = upbb;
+          else
+            assert(false && "loop latch has > 1 control blks");
+        }
+        if (!ctrlBB) {
+          //loop hdr is also an exiting node, which controls latch node
+          assert(CDG->getNode(mloop->getHeader())->isChild(latchNode));
+          ctrlBB = mloop->getHeader();
+        }
+        ControlDependenceNode* ctrlNode = CDG->getNode(ctrlBB);
         if (ctrlNode->isFalseChild(latchNode)) {
           pickFalse = backEdgeInput;
           pickTrue = initInput;
