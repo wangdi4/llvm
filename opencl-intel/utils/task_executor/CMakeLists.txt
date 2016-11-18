@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME task_executor${BUILD_PLATFORM} )
+set( TARGET_NAME task_executor${BUILD_PLATFORM}${EXPERIMENTAL_POSTFIX} )
 
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system library directories
 include(../../cmake_utils/embed.rpath.txt)
@@ -82,7 +82,7 @@ endif(WIN32)
 
 if (WIN32)
     get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}${EXPERIMENTAL_POSTFIX}_stripped.pdb PDB_NAME)
+    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008
         set_target_properties(${TARGET_NAME} PROPERTIES
@@ -97,9 +97,9 @@ if (WIN32)
 	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug${EXPERIMENTAL_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_debug${EXPERIMENTAL_POSTFIX}.dll /PDBSTRIPPED:${PDB_NAME}")
 	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb${EXPERIMENTAL_POSTFIX}.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb${EXPERIMENTAL_POSTFIX}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
-	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}${EXPERIMENTAL_POSTFIX}_stripped.pdb DESTINATION bin)
+	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
     if (INSTALL_PDBS)
-        install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}${EXPERIMENTAL_POSTFIX}.pdb DESTINATION bin)
+        install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)
 else (WIN32)
 	if ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
@@ -115,9 +115,5 @@ else (WIN32)
 	endif ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
 endif (WIN32)
 
-target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger cl_sys_utils cl_hw_utils )
+target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger${EXPERIMENTAL_POSTFIX} cl_sys_utils cl_hw_utils )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
-
-if ( BUILD_EXPERIMENTAL_21 )
-    set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "${TARGET_NAME}${EXPERIMENTAL_POSTFIX}")
-endif ( BUILD_EXPERIMENTAL_21 )

@@ -245,10 +245,12 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
 
     // Check TBB library version
 
-    if(TBB_INTERFACE_VERSION > tbb::TBB_runtime_interface_version())
+    // Minimal TBB version that we support(7001 is TBB 4.2).
+    const int MINIMAL_TBB_INTERFACE_VERSION = 7001;
+    if(MINIMAL_TBB_INTERFACE_VERSION > tbb::TBB_runtime_interface_version())
     {
         std::stringstream stream;
-        stream << "TBB version doens't match. Required " << __TBB_STRING(TBB_INTERFACE_VERSION) << ", loaded " << tbb::TBB_runtime_interface_version() << "." << std::ends;
+        stream << "TBB version doesn't match. Required " << __TBB_STRING(MINIMAL_TBB_INTERFACE_VERSION) << ", loaded " << tbb::TBB_runtime_interface_version() << "." << std::ends;
         LOG_ERROR(TEXT(stream.str().c_str()), "");
         if (NULL != pUserLogger && pUserLogger->IsErrorLoggingEnabled())
         {

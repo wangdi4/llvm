@@ -180,6 +180,11 @@ OclBuiltinImpl fmax_impl = OclBuiltinImpl<fmax, fmax.Types, 0, [{
     return res;
   }]>;
 
+// fmax_common
+OclBuiltinImpl fmax_common_impl = OclBuiltinImpl<fmax_common, fmax_common.Types, 0, [{
+    return fmax($Arg0VarName, $Arg1VarName);
+  }]>;
+
 // The following code implements the builtin variants with scalar parameters.
 // The implementation will prompt these scalar parameters into vector ones
 // and call the corresponding builtins with all vector parameters.
@@ -200,6 +205,11 @@ OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, fmin.Types, 0, [{
     $Arg0Type res = min($Arg1VarName, $Arg0VarName);
     res = select(res, $Arg1VarName, nan);
     return res;
+  }]>;
+
+// fmin_common
+OclBuiltinImpl fmin_common_impl = OclBuiltinImpl<fmin_common, fmin_common.Types, 0, [{
+    return fmin($Arg0VarName, $Arg1VarName);
   }]>;
 
 // fmin_s

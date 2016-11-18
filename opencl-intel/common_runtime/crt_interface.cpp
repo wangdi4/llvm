@@ -3565,7 +3565,7 @@ cl_int CL_API_CALL clBuildProgram(
         }
     }
 FINISH:
-    if (0 == atomic_decrement(&(crtData->m_refCount)))
+    if (crtData && 0 == atomic_decrement(&(crtData->m_refCount)))
     {
         if( crtData->m_pfnNotify )
         {
@@ -3804,7 +3804,7 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
         }
     }
 FINISH:
-    if (0 == atomic_decrement(&(crtData->m_refCount)))
+    if (crtData && 0 == atomic_decrement(&(crtData->m_refCount)))
     {
         if( crtData->m_pfnNotify )
         {
@@ -4041,7 +4041,7 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
         }
     }
 FINISH:
-    if (0 == atomic_decrement(&(crtData->m_refCount)))
+    if (crtData && 0 == atomic_decrement(&(crtData->m_refCount)))
     {
         if( crtData->m_pfnNotify )
         {

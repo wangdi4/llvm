@@ -12,14 +12,26 @@ using namespace Intel::OpenCL::Utils;
 
 // First device is a default device 
 #if defined (_WIN32)
-#if defined (_M_X64)
-static const char* DEFAULT_DEVICES_LIST = "cpu_device64" 
-#else
-static const char* DEFAULT_DEVICES_LIST = "cpu_device32" 
-#endif
-#else
-static const char* DEFAULT_DEVICES_LIST = "cpu_device" 
-#endif
+    #if defined (_M_X64)
+	#ifdef BUILD_EXPERIMENTAL_21
+		static const char* DEFAULT_DEVICES_LIST = "cpu_device64_2_1"
+        #else// BUILD_EXPERIMENTAL_21
+		static const char* DEFAULT_DEVICES_LIST = "cpu_device64"
+	#endif// BUILD_EXPERIMENTAL_21
+    #else //_M_X64
+	#ifdef BUILD_EXPERIMENTAL_21
+		static const char* DEFAULT_DEVICES_LIST = "cpu_device32_2_1"
+        #else// BUILD_EXPERIMENTAL_21
+		static const char* DEFAULT_DEVICES_LIST = "cpu_device32"
+	#endif// BUILD_EXPERIMENTAL_21
+    #endif //_M_X64
+#else // _WIN32
+    #ifdef BUILD_EXPERIMENTAL_21
+        static const char* DEFAULT_DEVICES_LIST = "cpu_device_2_1"
+    #else// BUILD_EXPERIMENTAL_21
+        static const char* DEFAULT_DEVICES_LIST = "cpu_device"
+    #endif// BUILD_EXPERIMENTAL_21
+#endif // _WIN32
 
 #ifdef INCLUDE_MIC_DEVICE
                                           ";mic_device"

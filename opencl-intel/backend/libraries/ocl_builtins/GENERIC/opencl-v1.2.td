@@ -33,8 +33,10 @@ def fdim          : OclBuiltin<"fdim",      (outs gentype:$ret), (ins gentype:$x
 def floor         : OclBuiltin<"floor",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def fma           : OclBuiltin<"fma",       (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 1>;
 def fmax          : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+def fmax_common   : OclBuiltin<"fmax_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fmax_s        : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f32, v1f64]>;
 def fmin          : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+def fmin_common   : OclBuiltin<"fmin_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fmin_s        : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f32, v1f64]>;
 def fmod          : OclBuiltin<"fmod",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fract_pas     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;

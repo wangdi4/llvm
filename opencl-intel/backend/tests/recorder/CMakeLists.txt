@@ -52,7 +52,7 @@ endif (WIN32)
 #linking
 link_directories( ${TBB_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/bin/ )
 
-target_link_libraries( ${TARGET_NAME} googletest cl_logger OpenCL )
+target_link_libraries( ${TARGET_NAME} googletest cl_logger${EXPERIMENTAL_POSTFIX} OpenCL )
 
 if (NOT WIN32)
   if( ANDROID )
