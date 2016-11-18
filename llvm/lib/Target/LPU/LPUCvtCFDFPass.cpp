@@ -908,7 +908,9 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
       else if (!DT->properlyDominates(mbb, UseBB) && mloop == useLoop) {
         //insertSWITCHForBackEdge();
         //def, use must in same loop, use must be loop hdr PHI, def come from backedge to loop hdr PHI
-        assert(UseMI->isPHI() || TII.isSwitch(UseMI));
+        if (!UseMI->isPHI() && !TII.isSwitch(UseMI))
+          //This could happen when LCSwitch is generated from loop hdr(when loop hdr is also an exiting block)
+          continue;
         if (UseBB != mloop->getHeader()) {
           //no need to attend if-footer Phi inside the loop, still need to attend those outside the loop
           continue;
