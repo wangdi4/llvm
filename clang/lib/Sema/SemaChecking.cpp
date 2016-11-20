@@ -2879,23 +2879,8 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
 
 #if INTEL_CUSTOMIZATION
   if (IntelTypeCoerceSize != 0) {
-    switch (IntelTypeCoerceSize) {
-    case 1:
-      ValType = Context.CharTy;
-      break;
-    case 2:
-      ValType = Context.ShortTy;
-      break;
-    case 4:
-      ValType = Context.IntTy;
-      break;
-    case 8:
-      ValType = Context.LongTy;
-      break;
-    case 16:
-      ValType = Context.Int128Ty;
-      break;
-    }
+    ValType = Context.getIntTypeForBitwidth(
+      Context.getCharWidth() * IntelTypeCoerceSize, true);
     assert(Context.getTypeSizeInChars(ValType).getQuantity() ==
            IntelTypeCoerceSize);
 

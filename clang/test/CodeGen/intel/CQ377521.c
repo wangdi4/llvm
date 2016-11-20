@@ -2,6 +2,11 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -DUNI_TYPE=int16_t -fintel-compatibility %s -emit-obj -o /dev/null > %t 2>&1
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -DUNI_TYPE=int32_t -fintel-compatibility %s -emit-obj -o /dev/null > %t 2>&1
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -DUNI_TYPE=int64_t -fintel-compatibility %s -emit-obj -o /dev/null > %t 2>&1
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -DUNI_TYPE=__int128_t -fintel-compatibility %s -emit-obj -o /dev/null > %t 2>&1
+// RUN: %clang_cc1 -triple i386-unknown-linux-gnu -DUNI_TYPE=int8_t -fintel-compatibility %s -emit-obj -o /dev/null > %t 2>&1
+// RUN: %clang_cc1 -triple i386-unknown-linux-gnu -DUNI_TYPE=int16_t -fintel-compatibility %s -emit-obj -o /dev/null > %t 2>&1
+// RUN: %clang_cc1 -triple i386-unknown-linux-gnu -DUNI_TYPE=int32_t -fintel-compatibility %s -emit-obj -o /dev/null > %t 2>&1
+// RUN: %clang_cc1 -triple i386-unknown-linux-gnu -DUNI_TYPE=int64_t -fintel-compatibility %s -emit-obj -o /dev/null > %t 2>&1
 
 // expected-no-diagnostics
 
