@@ -184,6 +184,10 @@ static cl::opt<bool>
 static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Whole Program Analysis"));
 
+// IP Cloning
+static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
+    cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
+
 // Inline Aggressive Analysis
 static cl::opt<bool> 
     EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
@@ -801,6 +805,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Whole Program Analysis
   if (EnableWPA)
     PM.add(createWholeProgramWrapperPassPass());
+
+  // IP Cloning
+  if (EnableIPCloning)
+    PM.add(createIPCloningLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Provide AliasAnalysis services for optimizations.
