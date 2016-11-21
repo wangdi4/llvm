@@ -57,6 +57,7 @@ private:
   CanonExprUtils(HIRParser &HIRP) : BU(HIRP) {}
 
   /// Make class uncopyable.
+  CanonExprUtils(const CanonExprUtils &) = delete;
   void operator=(const CanonExprUtils &) = delete;
 
   // Requires access to Objs.

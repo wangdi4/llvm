@@ -35,7 +35,7 @@ HLNode::HLNode(HLNodeUtils &HNU, unsigned SCID)
       MaxTopSortNum(0) {
 
   HNU.Objs.insert(this);
-  Number = HNU.Objs.size();
+  Number = HNU.getUniqueHLNodeNumber();
 }
 
 HLNode::HLNode(const HLNode &HLNodeObj)
@@ -43,7 +43,7 @@ HLNode::HLNode(const HLNode &HLNodeObj)
       TopSortNum(0), MaxTopSortNum(0) {
 
   HNU.Objs.insert(this);
-  Number = HNU.Objs.size();
+  Number = HNU.getUniqueHLNodeNumber();
 }
 
 DDRefUtils &HLNode::getDDRefUtils() const {

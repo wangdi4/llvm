@@ -466,17 +466,17 @@ bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
 
   // Operand pattern: OneAndThree OR x .. y ? y : x (OneAndFour)
   if (OneAndThree ||
-      DDRefUtils::areEqual(Operand1, Operand4) &&
-          DDRefUtils::areEqual(Operand2, Operand3)) {
+      (DDRefUtils::areEqual(Operand1, Operand4) &&
+          DDRefUtils::areEqual(Operand2, Operand3))) {
     // min pattern: x >(=) y ? y : x    max pattern: x >(=) y ? x : y
-    if (!OneAndThree && IsMin || OneAndThree && IsMax) {
+    if ((!OneAndThree && IsMin) || (OneAndThree && IsMax)) {
       if (Pred == PredicateTy::ICMP_SGE || Pred == PredicateTy::ICMP_SGT ||
           Pred == PredicateTy::FCMP_OGE || Pred == PredicateTy::FCMP_OGT) {
         return true;
       }
     }
     // min pattern: x <(=) y ? x : y    max pattern: x <(=) y ? y : x
-    if (OneAndThree && IsMin || !OneAndThree && IsMax) {
+    if ((OneAndThree && IsMin) || (!OneAndThree && IsMax)) {
       if (Pred == PredicateTy::ICMP_SLE || Pred == PredicateTy::ICMP_SLT ||
           Pred == PredicateTy::FCMP_OLE || Pred == PredicateTy::FCMP_OLT) {
         return true;

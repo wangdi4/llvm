@@ -43,6 +43,7 @@ private:
   BlobUtils(HIRParser &HIRP) : HIRP(HIRP) {}
 
   /// Make class uncopyable.
+  BlobUtils(const BlobUtils &) = delete;
   void operator=(const BlobUtils &) = delete;
 
   // Creates BlobUtils object.

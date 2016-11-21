@@ -46,6 +46,7 @@ class HLNodeUtils {
 private:
   /// Keeps track of HLNode objects.
   std::set<HLNode *> Objs;
+  unsigned NextUniqueHLNodeNumber;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Stores names of cloned labels in HIR.
@@ -67,10 +68,11 @@ private:
   Instruction *LastDummyInst;
 
   HLNodeUtils()
-      : DDRU(nullptr), DummyIRBuilder(nullptr), FirstDummyInst(nullptr),
-        LastDummyInst(nullptr) {}
+      : NextUniqueHLNodeNumber(0), DDRU(nullptr), DummyIRBuilder(nullptr),
+        FirstDummyInst(nullptr), LastDummyInst(nullptr) {}
 
   /// Make class uncopyable.
+  HLNodeUtils(const HLNodeUtils &) = delete;
   void operator=(const HLNodeUtils &) = delete;
 
   friend class HIRCreation;
@@ -161,6 +163,10 @@ private:
       return (Node == SkipNode);
     }
   };
+
+  unsigned getUniqueHLNodeNumber() {
+    return NextUniqueHLNodeNumber++;
+  }
 
   /// Updates first and last dummy inst of the function.
   void setFirstAndLastDummyInst(Instruction *Inst);
