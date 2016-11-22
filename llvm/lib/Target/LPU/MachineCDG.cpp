@@ -539,7 +539,7 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
   raw_fd_ostream File1(Filename, EC, sys::fs::F_Text);
   GraphWriter<MachineFunction *> gwr1(File1, thisMF, false);
   gwr1.writeGraph();
-
+#if 0
   MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
   Filename = fname.str() + "_PDT" + ".dot";
   raw_fd_ostream File2(Filename, EC, sys::fs::F_Text);
@@ -551,6 +551,7 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
   raw_fd_ostream File3(Filename, EC, sys::fs::F_Text);
   GraphWriter<MachineDominatorTree *> gwr3(File3, &dt, false);
   gwr3.writeGraph();
+#endif
 }
 
 } // namespace llvm
