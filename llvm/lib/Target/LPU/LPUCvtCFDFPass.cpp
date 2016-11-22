@@ -1841,6 +1841,7 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
       BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addImm(1);
       ctrlEdge = cpyReg;
     } else if (bb2rpo[ctrlBB] < bb2rpo[inBB]) {
+#if 0
       //bypass loop latch node
       if (MachineLoop *mloop = MLI->getLoopFor(ctrlBB))
         if (mloop->getHeader()->isPredecessor(ctrlBB)) {
@@ -1849,6 +1850,7 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
           ctrlNode = *ctrlNode->parent_begin();
           ctrlBB = ctrlNode->getBlock();
         }
+#endif
       assert(ctrlBB->succ_size() == 2 && "LPU: bb has more than 2 successor");
       computeBBPred(ctrlBB);
       unsigned falseEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::FALSE, inBB);
