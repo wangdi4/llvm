@@ -169,7 +169,7 @@ namespace OCLBuiltins {
 
 template<> llvm::GenericValue lle_X_vload_half<3, true>(
     llvm::FunctionType *FT,
-    const std::vector<llvm::GenericValue> &Args)
+    llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     llvm::GenericValue arg0 = Args[0];
@@ -201,7 +201,7 @@ uint16_t convert2half<double>(double f)
 
 template<> llvm::GenericValue lle_X_vstore_half<float, 3, true>(
     llvm::FunctionType *FT,
-    const std::vector<llvm::GenericValue> &Args)
+    llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue arg0 = Args[0];
     llvm::GenericValue arg1 = Args[1];
@@ -219,7 +219,7 @@ template<> llvm::GenericValue lle_X_vstore_half<float, 3, true>(
 
 template<> llvm::GenericValue lle_X_vstore_half<double, 3, true>(
     llvm::FunctionType *FT,
-    const std::vector<llvm::GenericValue> &Args)
+    llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue arg0 = Args[0];
     llvm::GenericValue arg1 = Args[1];
@@ -238,7 +238,7 @@ template<> llvm::GenericValue lle_X_vstore_half<double, 3, true>(
 #define VSTOREF_HALF_CONVERT(RMODE)                                                 \
 template<int n, bool aligned>                                                       \
 llvm::GenericValue lle_X_vstoref_half_ ## RMODE (llvm::FunctionType *FT,      \
-                                     const std::vector<llvm::GenericValue> &Args)   \
+                                     llvm::ArrayRef<llvm::GenericValue> Args)   \
 {                                                                                   \
     llvm::GenericValue arg0 = Args[0];                                              \
     llvm::GenericValue arg1 = Args[1];                                              \
@@ -262,7 +262,7 @@ VSTOREF_HALF_CONVERT(rtn)
 #define VSTORED_HALF_CONVERT(RMODE)                                                 \
 template<int n, bool aligned>                                                       \
 llvm::GenericValue lle_X_vstored_half_ ## RMODE (llvm::FunctionType *FT,      \
-                                    const std::vector<llvm::GenericValue> &Args)    \
+                                    llvm::ArrayRef<llvm::GenericValue> Args)    \
 {                                                                                   \
     llvm::GenericValue arg0 = Args[0];                                              \
     llvm::GenericValue arg1 = Args[1];                                              \
@@ -286,7 +286,7 @@ VSTORED_HALF_CONVERT(rtn)
 #define VSTOREAF_HALF_CONVERT(RMODE)                                        \
 template<> llvm::GenericValue lle_X_vstoref_half_ ## RMODE <3, true>(       \
     llvm::FunctionType *FT,                                           \
-    const std::vector<llvm::GenericValue> &Args)                            \
+    llvm::ArrayRef<llvm::GenericValue> Args)                            \
 {                                                                           \
     llvm::GenericValue arg0 = Args[0];                                      \
     llvm::GenericValue arg1 = Args[1];                                      \
@@ -310,7 +310,7 @@ VSTOREAF_HALF_CONVERT(rtn)
 #define VSTOREAD_HALF_CONVERT(RMODE)                                            \
 template<> llvm::GenericValue lle_X_vstored_half_ ## RMODE <3, true>(           \
     llvm::FunctionType *FT,                                               \
-    const std::vector<llvm::GenericValue> &Args)                                \
+    llvm::ArrayRef<llvm::GenericValue> Args)                                \
 {                                                                               \
     llvm::GenericValue arg0 = Args[0];                                          \
     llvm::GenericValue arg1 = Args[1];                                          \

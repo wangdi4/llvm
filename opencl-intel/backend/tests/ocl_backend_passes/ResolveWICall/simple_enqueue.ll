@@ -11,7 +11,7 @@ target triple = "x86_64-pc-win32"
 
 @_NSConcreteGlobalBlock = external global i8*
 @.str = private unnamed_addr constant [6 x i8] c"v8@?0\00", align 1
-@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([6 x i8]* @.str, i32 0, i32 0), i8* null }
+@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i32 0, i32 0), i8* null }
 @__block_literal_global = internal constant { i8**, i32, i32, i8*, %struct.__block_descriptor* } { i8** @_NSConcreteGlobalBlock, i32 1342177280, i32 0, i8* bitcast (void (i8*)* @__enqueue_simple_block_block_invoke to i8*), %struct.__block_descriptor* bitcast ({ i64, i64, i8*, i8* }* @__block_descriptor_tmp to %struct.__block_descriptor*) }, align 8
 
 define void @block_fn() nounwind {
@@ -35,9 +35,9 @@ entry:
   store %opencl.queue_t* %call, %opencl.queue_t** %def_q, align 8
   %call1 = call %opencl.ndrange_t* @_Z10ndrange_1Dm(i64 1) nounwind readnone
   store %opencl.ndrange_t* %call1, %opencl.ndrange_t** %ndrange, align 8
-  %0 = load %opencl.queue_t** %def_q, align 8
-  %1 = load %opencl.ndrange_t** %ndrange, align 8
-  %2 = load void ()** %kernelBlock, align 8
+  %0 = load %opencl.queue_t*, %opencl.queue_t** %def_q, align 8
+  %1 = load %opencl.ndrange_t*, %opencl.ndrange_t** %ndrange, align 8
+  %2 = load void ()*, void ()** %kernelBlock, align 8
 
 ; CHECK: %call2 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE(%opencl.queue_t* %0, i32 2, %opencl.ndrange_t* %1, void ()* %2)
   %call2 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE(%opencl.queue_t* %0, i32 2, %opencl.ndrange_t* %1, void ()* %2) nounwind readnone

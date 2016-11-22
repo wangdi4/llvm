@@ -335,12 +335,12 @@ bool OpenclRuntime::isAtomicBuiltin(const std::string &func_name) const {
 }
 
 bool OpenclRuntime::isWorkItemPipeBuiltin(const std::string &func_name) const {
-  // pipe built-in names must be mangled
-  if (!isMangledName(func_name.c_str())) return false;
   // and be inside the built-in RT library
   if (!findInRuntimeModule(func_name)) return false;
-  StringRef name = stripName(func_name.c_str());
-  return !name.startswith("work_group") && name.endswith("_pipe");
+  StringRef name(func_name);
+  return !name.startswith("__work_group") &&
+         (name.endswith("_pipe") || name.endswith("_pipe_2") ||
+          name.endswith("_pipe_4"));
 }
 
 bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,

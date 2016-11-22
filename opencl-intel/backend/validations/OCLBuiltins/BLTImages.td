@@ -253,7 +253,7 @@ Conformance::image_sampler_data CreateSamplerData(const uint32_t& in_sampler)
 }
 
 GenericValue lle_X_get_image_dim2(FunctionType *FT,
-                                  const std::vector<GenericValue> &Args)
+                                  llvm::ArrayRef<llvm::GenericValue> Args)
 {
 
     GenericValue gv;
@@ -269,7 +269,7 @@ GenericValue lle_X_get_image_dim2(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_width(FunctionType *FT,
-                                   const std::vector<GenericValue> &Args)
+                                   llvm::ArrayRef<llvm::GenericValue> Args)
 {
 
     GenericValue gv;
@@ -280,7 +280,7 @@ GenericValue lle_X_get_image_width(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_height(FunctionType *FT,
-                                    const std::vector<GenericValue> &Args)
+                                    llvm::ArrayRef<llvm::GenericValue> Args)
 {
 
     GenericValue gv;
@@ -291,7 +291,7 @@ GenericValue lle_X_get_image_height(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_depth(FunctionType *FT,
-                                    const std::vector<GenericValue> &Args)
+                                    llvm::ArrayRef<llvm::GenericValue> Args)
 {
 
     GenericValue gv;
@@ -302,7 +302,7 @@ GenericValue lle_X_get_image_depth(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_dim3(FunctionType *FT,
-                                  const std::vector<GenericValue> &Args)
+                                  llvm::ArrayRef<llvm::GenericValue> Args)
 {
 
     GenericValue gv;
@@ -321,7 +321,7 @@ GenericValue lle_X_get_image_dim3(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_channel_data_type(FunctionType *FT,
-                                  const std::vector<GenericValue> &Args)
+                                  llvm::ArrayRef<llvm::GenericValue> Args)
 {
     GenericValue gv;
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
@@ -331,7 +331,7 @@ GenericValue lle_X_get_image_channel_data_type(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_channel_order(FunctionType *FT,
-                                               const std::vector<GenericValue> &Args)
+                                               llvm::ArrayRef<llvm::GenericValue> Args)
 {
     GenericValue gv;
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
@@ -341,7 +341,7 @@ GenericValue lle_X_get_image_channel_order(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_array_size(FunctionType *FT,
-                                               const std::vector<GenericValue> &Args)
+                                               llvm::ArrayRef<llvm::GenericValue> Args)
 {
     GenericValue gv;
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;

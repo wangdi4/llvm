@@ -29,7 +29,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
-ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID), m_rtServices(NULL)
+ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID), m_rtServices(nullptr), m_pDL(nullptr)
 {
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
@@ -73,7 +73,7 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
   // obtain TagetData of the module
-  m_pDL = &getAnalysisIfAvailable<DataLayoutPass>()->getDataLayout();
+  m_pDL = &F.getParent()->getDataLayout();
 
   // Prepare data structures for scalarizing a new function
   m_scalarizableRootsMap.clear();
@@ -908,7 +908,14 @@ void ScalarizeFunction::scalarizeInstruction(GetElementPtrInst *GI) {
     // Generate new (scalar) instructions
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
     for (unsigned dup = 0; dup < numElements; dup++) {
-      newScalarizedInsts[dup] = GetElementPtrInst::Create(multiPtrOperand[dup], makeArrayRef(Idx), GI->getName(), GI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      newScalarizedInsts[dup] = GetElementPtrInst::Create(
+              nullptr,
+              multiPtrOperand[dup],
+              makeArrayRef(Idx),
+              GI->getName(),
+              GI);
     }
 
     // Add new value/s to SCM
@@ -982,9 +989,13 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
     for (unsigned dup = 0; dup < numDupElements; dup++)
     {
       Constant *laneVal = ConstantInt::get(indexType, dup);
-      Value *pGEP = GetElementPtrInst::Create(operandBase, laneVal, "GEP_lane", LI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      Value *pGEP = GetElementPtrInst::Create(nullptr, operandBase, laneVal, "GEP_lane", LI);
       Value *pIndex = BinaryOperator::CreateMul(operand->getOperand(1), elementNumVal, "GEPIndex_s", LI);
-      pGEP = GetElementPtrInst::Create(pGEP, pIndex, "GEP_s", LI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      pGEP = GetElementPtrInst::Create(nullptr, pGEP, pIndex, "GEP_s", LI);
       newScalarizedInsts[dup] = new LoadInst(pGEP, LI->getName(), LI);
     }
 
@@ -1060,9 +1071,13 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
     for (unsigned dup = 0; dup < numDupElements; dup++)
     {
       Constant *laneVal = ConstantInt::get(indexType, dup);
-      Value *pGEP = GetElementPtrInst::Create(operandBase, laneVal, "GEP_s", SI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      Value *pGEP = GetElementPtrInst::Create(nullptr, operandBase, laneVal, "GEP_s", SI);
       Value *pIndex = BinaryOperator::CreateMul(operand1->getOperand(1), elementNumVal, "GEPIndex_s", SI);
-      pGEP = GetElementPtrInst::Create(pGEP, pIndex, "GEP_s", SI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      pGEP = GetElementPtrInst::Create(nullptr, pGEP, pIndex, "GEP_s", SI);
       new StoreInst(operand0[dup], pGEP, SI);
     }
 
@@ -1119,7 +1134,7 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst, SmallVectorI
   unsigned numElements = cast<VectorType>(callerInst->getType())->getNumElements();
   SmallVector<Value*, 16> newExtractInsts;
   // Break result vector into scalars.
-  Instruction* nextInst = ++BasicBlock::iterator(clone);
+  Instruction* nextInst = &*(++BasicBlock::iterator(clone));
   for (unsigned i = 0; i < numElements; i++)
   {
     // Creating fake extract call that mimics extract element instruction.
@@ -1228,7 +1243,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
     {
       BasicBlock::iterator insertLocation(origInstruction);
       ++insertLocation;
-      locationInst = insertLocation;
+      locationInst = &*insertLocation;
       // If the insert location is PHI, move the insert location to after all PHIs is the block
       if (isa<PHINode>(locationInst)) {
         locationInst = locationInst->getParent()->getFirstNonPHI();
@@ -1477,13 +1492,17 @@ void ScalarizeFunction::resolveDeferredInstructions()
       ++insertLocation;
       // If the insert location is PHI, move the insert location to after all PHIs is the block
       if (isa<PHINode>(insertLocation)) {
-        insertLocation = insertLocation->getParent()->getFirstNonPHI();
+        insertLocation = BasicBlock::iterator((&*insertLocation)->getParent()->getFirstNonPHI());
       }
 
       for (unsigned i = 0; i < width; i++)
       {
         Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
-        Instruction *EE = ExtractElementInst::Create(vectorInst, constIndex, "scalar", insertLocation);
+        Instruction *EE = ExtractElementInst::Create(
+                vectorInst,
+                constIndex,
+                "scalar",
+                &*insertLocation);
         VectorizerUtils::SetDebugLocBy(EE, vectorInst);
         newInsts[i] = EE;
       }

@@ -303,6 +303,13 @@ namespace intel {
         space = OCLAddressSpace::Generic;
       }
     }
+    // Special case: pipe built-in call which is not overloadable.
+    // In such case we should preserve GAS pointer as is.
+    if (CallInst *pCallInstr = dyn_cast<CallInst>(pInstr)) {
+      if (isPipeBuiltin(pCallInstr->getCalledFunction()->getName())) {
+        space = OCLAddressSpace::Generic;
+      }
+    }
     TPointerMap::iterator ptr_it = m_GASEstimate.find(pInstr);
     if (ptr_it == m_GASEstimate.end()) {
       // For first-seen instruction - record it

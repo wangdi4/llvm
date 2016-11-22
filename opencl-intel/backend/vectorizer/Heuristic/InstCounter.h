@@ -38,8 +38,8 @@ namespace intel {
     bool runOnFunction(Function &F);
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<ScalarEvolution>();
-      AU.addRequired<LoopInfo>();
+      AU.addRequired<ScalarEvolutionWrapperPass>();
+      AU.addRequired<LoopInfoWrapperPass>();
       AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<PostDominatorTree>();
       AU.addRequired<PostDominanceFrontier>();

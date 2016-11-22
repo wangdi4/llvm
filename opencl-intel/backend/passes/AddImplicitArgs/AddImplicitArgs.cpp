@@ -47,7 +47,7 @@ namespace intel{
     m_pLLVMContext = &M.getContext();
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
     m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-    m_IAA->initDuringRun(M.getDataLayout()->getPointerSizeInBits(0));
+    m_IAA->initDuringRun(M.getDataLayout().getPointerSizeInBits(0));
 
     // Clear call instruction to fix container
     m_fixupCalls.clear();
@@ -171,15 +171,17 @@ namespace intel{
         // Copy over implicit args
         for (unsigned I = 0; I < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
              ++I, ++IA) {
-          pCallArgs[I] = static_cast<Value*>(IA);
+          pCallArgs[I] = static_cast<Value*>(&*IA);
         }
         assert(IA == pNewF->arg_end());
         // Calculate pointer to the local memory buffer for callee
         Value *pLocalMem = pCallArgs[ImplicitArgsUtils::IA_SLM_BUFFER];
         std::string ValName("pLocalMem_");
         ValName += pCallee->getName();
+        // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+        // (not using type from pointer as this functionality is planned to be removed.
         Value *pNewLocalMem = GetElementPtrInst::Create(
-          pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), directLocalSize), ValName, pCall);
+          nullptr, pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), directLocalSize), ValName, pCall);
         pCallArgs[ImplicitArgsUtils::IA_SLM_BUFFER] = pNewLocalMem;
 
         // Memory leak in here. Who deletes this ? Seriously!

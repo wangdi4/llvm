@@ -145,8 +145,8 @@ LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     printf("Injected %s\n", useir_name);
 
   // Add the DataLayout from the target machine, if it exists, or the module.
-  if (const DataLayout *DL = TM.getDataLayout())
-    PM.add(new DataLayout(*DL));
+  if (const DataLayout &DL = TM.getDataLayout())
+    PM.add(new DataLayout(DL));
   else
     PM.add(new DataLayout(&local_mod));
 

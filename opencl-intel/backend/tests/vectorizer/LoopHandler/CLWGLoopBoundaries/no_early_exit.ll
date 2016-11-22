@@ -13,7 +13,7 @@ target triple = "i686-pc-win32"
 
 define void @program(i32 addrspace(1)* %out, <4 x i32> %dim, i32 %uni) nounwind {
   %id = call i32 @_Z13get_global_idj(i32 0) nounwind
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }

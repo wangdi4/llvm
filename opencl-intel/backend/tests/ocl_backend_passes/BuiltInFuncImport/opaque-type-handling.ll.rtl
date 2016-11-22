@@ -8,7 +8,7 @@ target triple = "i686-pc-win32"
 
 define %opencl.reserve_id_t* @load(%opencl.reserve_id_t** %prid) {
 entry:
-  %ret = load %opencl.reserve_id_t** %prid, align 8
+  %ret = load %opencl.reserve_id_t*, %opencl.reserve_id_t** %prid, align 8
   ret %opencl.reserve_id_t* %ret
 }
 

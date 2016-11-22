@@ -60,15 +60,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_PREFETCH = "prefetch";
   const std::string CompilationUtils::NAME_ASYNC_WORK_GROUP_STRIDED_COPY = "async_work_group_strided_copy";
 
-  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_READ_PIPE = "work_group_reserve_read_pipe";
-  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_READ_PIPE = "work_group_commit_read_pipe";
-  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_WRITE_PIPE = "work_group_reserve_write_pipe";
-  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_WRITE_PIPE = "work_group_commit_write_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_READ_PIPE = "__work_group_reserve_read_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_READ_PIPE = "__work_group_commit_read_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_WRITE_PIPE = "__work_group_reserve_write_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_WRITE_PIPE = "__work_group_commit_write_pipe";
 
-  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_READ_PIPE = "sub_group_reserve_read_pipe";
-  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_READ_PIPE = "sub_group_commit_read_pipe";
-  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_WRITE_PIPE = "sub_group_reserve_write_pipe";
-  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_WRITE_PIPE = "sub_group_commit_write_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_READ_PIPE = "__sub_group_reserve_read_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_READ_PIPE = "__sub_group_commit_read_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_WRITE_PIPE = "__sub_group_reserve_write_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_WRITE_PIPE = "__sub_group_commit_write_pipe";
 
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
@@ -134,7 +134,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       --prev;
     }
 
-    Instruction* pInst = it;
+    Instruction* pInst = &*it;
     pInst->removeFromParent();
     delete pInst;
 
@@ -165,32 +165,32 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // Retrieve all the implicit arguments which are not NULL
 
       if ( NULL != ppLocalMem ) {
-          *ppLocalMem = DestI;
+          *ppLocalMem = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppWorkDim ) {
-          *ppWorkDim = DestI;
+          *ppWorkDim = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppWGId ) {
-          *ppWGId = DestI;
+          *ppWGId = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppBaseGlbId ) {
-          *ppBaseGlbId = DestI;
+          *ppBaseGlbId = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppSpecialBuf ) {
-          *ppSpecialBuf = DestI;
+          *ppSpecialBuf = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppRunTimeHandle ) {
-          *ppRunTimeHandle = DestI;
+          *ppRunTimeHandle = &*DestI;
       }
       ++DestI;
       assert(DestI == pFunc->arg_end());
@@ -364,7 +364,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #endif
       curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
 
-      llvm::Argument* pArg = arg_it;
+      llvm::Argument* pArg = &*arg_it;
       // Set argument sizes and offsets
       switch (arg_it->getType()->getTypeID())
       {
@@ -407,7 +407,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             curArg.size_in_bytes |= (uiElemSize << 16);
             break;
           }
-          curArg.size_in_bytes = pModule->getDataLayout()->getPointerSize(0);
+          curArg.size_in_bytes = pModule->getDataLayout().getPointerSize(0);
           // Detect pointer qualifier
           // Test for opaque types: images, queue_t, pipe_t
           StructType *ST = dyn_cast<StructType>(PTy->getElementType());
@@ -420,21 +420,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
               const StringRef structName = ST->getName().substr(oclOpaquePrefLen);
               // Get opencl opaque type.
               // It is safe to use startswith while there are no names which aren't prefix of another name.
-              if(structName.startswith("image1d_t"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
-              else if (structName.startswith("image1d_array_t"))
+              if (structName.startswith("image1d_array_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
-              else if (structName.startswith("image1d_buffer_t"))
+              else if (structName.startswith("image1d_buffer_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
-              else if (structName.startswith("image2d_t"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-              else if (structName.startswith("image2d_array_t"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR;
-              else if (structName.startswith("image2d_depth_t"))
+              else if(structName.startswith("image1d_"))
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
+              else if (structName.startswith("image2d_depth_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_DEPTH;
-              else if (structName.startswith("image2d_array_depth_t"))
+              else if (structName.startswith("image2d_array_depth_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
-              else if (structName.startswith("image3d_t"))
+              else if (structName.startswith("image2d_array_"))
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR;
+              else if (structName.startswith("image2d_"))
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+              else if (structName.startswith("image3d_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
               else if (structName.startswith("pipe_t"))
                   curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
@@ -561,8 +561,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             {
               llvm::IntegerType *ITy = llvm::cast<llvm::IntegerType>(arg_it->getType());
               curArg.type = CL_KRNL_ARG_INT;
-              assert(pModule->getDataLayout() && "Module must have DataLayout");
-              curArg.size_in_bytes = pModule->getDataLayout()->getTypeAllocSize(ITy);
+              curArg.size_in_bytes = pModule->getDataLayout().getTypeAllocSize(ITy);
             }
           }
           break;
@@ -664,24 +663,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return StringRef();
   }
 
-  static const MDNode *findSubprogram(const DebugInfoFinder &finder,
-                                      const Function *pFunc) {
-    for (DISubprogram const& subprog : finder.subprograms()) {
-      if (subprog.describes(pFunc))
-        return subprog;
-    }
-    return NULL;
-  }
-  static void SpliceDebugInfo(Function *SrcF, Function *DstF) {
-    Module *M = SrcF->getParent();
-    assert(M == DstF->getParent());
-    DebugInfoFinder Finder;
-    Finder.processModule(*M);
-    if (const MDNode *SubProgramNode = findSubprogram(Finder, SrcF)) {
-      DISubprogram(SubProgramNode).replaceFunction(DstF);
-    }
-  }
-
 Function *CompilationUtils::AddMoreArgsToFunc(
     Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
     ArrayRef<AttributeSet> NewAttrs, StringRef Prefix, bool IsKernel) {
@@ -715,7 +696,7 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   }
   // Set new arguments` names
   for (unsigned I = 0, E = NewNames.size(); I < E; ++I, ++NewI) {
-    Argument *A = NewI;
+    Argument *A = &*NewI;
     A->setName(NewNames[I]);
     if (!NewAttrs.empty() && !NewAttrs[I].isEmpty())
       A->addAttr(NewAttrs[I]);
@@ -732,9 +713,10 @@ Function *CompilationUtils::AddMoreArgsToFunc(
                               NI = NewF->arg_begin(), NE = NewF->arg_end();
        I != E; ++I, ++NI) {
     // Replace the users to the new version.
-    I->replaceAllUsesWith(NI);
+    I->replaceAllUsesWith(&*NI);
   }
-  SpliceDebugInfo(F, NewF);
+  NewF->setSubprogram(F->getSubprogram());
+  F->setSubprogram(nullptr);
   return NewF;
 }
 
@@ -956,36 +938,36 @@ bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
 }
 
-bool CompilationUtils::isWorkGroupReserveReadPipe(const std::string& S){
-  return isMangleOf(S, NAME_WORK_GROUP_RESERVE_READ_PIPE);
+bool CompilationUtils::isWorkGroupReserveReadPipe(const std::string &S) {
+  return S == NAME_WORK_GROUP_RESERVE_READ_PIPE;
 }
 
-bool CompilationUtils::isWorkGroupCommitReadPipe(const std::string& S){
-  return isMangleOf(S, NAME_WORK_GROUP_COMMIT_READ_PIPE);
+bool CompilationUtils::isWorkGroupCommitReadPipe(const std::string &S) {
+  return S == NAME_WORK_GROUP_COMMIT_READ_PIPE;
 }
 
-bool CompilationUtils::isWorkGroupReserveWritePipe(const std::string& S){
-  return isMangleOf(S, NAME_WORK_GROUP_RESERVE_WRITE_PIPE);
+bool CompilationUtils::isWorkGroupReserveWritePipe(const std::string &S) {
+  return S == NAME_WORK_GROUP_RESERVE_WRITE_PIPE;
 }
 
-bool CompilationUtils::isWorkGroupCommitWritePipe(const std::string& S){
-  return isMangleOf(S, NAME_WORK_GROUP_COMMIT_WRITE_PIPE);
+bool CompilationUtils::isWorkGroupCommitWritePipe(const std::string &S) {
+  return S == NAME_WORK_GROUP_COMMIT_WRITE_PIPE;
 }
 
-bool CompilationUtils::isSubGroupReserveReadPipe(const std::string& S){
-  return isMangleOf(S, NAME_SUB_GROUP_RESERVE_READ_PIPE);
+bool CompilationUtils::isSubGroupReserveReadPipe(const std::string &S) {
+  return S == NAME_SUB_GROUP_RESERVE_READ_PIPE;
 }
 
-bool CompilationUtils::isSubGroupCommitReadPipe(const std::string& S){
-  return isMangleOf(S, NAME_SUB_GROUP_COMMIT_READ_PIPE);
+bool CompilationUtils::isSubGroupCommitReadPipe(const std::string &S) {
+  return S == NAME_SUB_GROUP_COMMIT_READ_PIPE;
 }
 
-bool CompilationUtils::isSubGroupReserveWritePipe(const std::string& S){
-  return isMangleOf(S, NAME_SUB_GROUP_RESERVE_WRITE_PIPE);
+bool CompilationUtils::isSubGroupReserveWritePipe(const std::string &S) {
+  return S == NAME_SUB_GROUP_RESERVE_WRITE_PIPE;
 }
 
-bool CompilationUtils::isSubGroupCommitWritePipe(const std::string& S){
-  return isMangleOf(S, NAME_SUB_GROUP_COMMIT_WRITE_PIPE);
+bool CompilationUtils::isSubGroupCommitWritePipe(const std::string &S) {
+  return S == NAME_SUB_GROUP_COMMIT_WRITE_PIPE;
 }
 
 bool CompilationUtils::isMemFence(const std::string& S){
@@ -1213,12 +1195,11 @@ bool CompilationUtils::isAtomicBuiltin(const std::string& funcName){
 
 bool CompilationUtils::isWorkItemPipeBuiltin(const std::string& funcName){
   // S is work item pipe built-in name if
-  // - it's mangled (only built-in function names are mangled)
   // - it doesn't start w\ "work_group" and ends with "_pipe"
-  if (!isMangledName(funcName.c_str()))
-    return false;
-  StringRef name = stripName(funcName.c_str());
-  return !name.startswith("work_group") && name.endswith("_pipe");
+  StringRef name(funcName);
+  return !name.startswith("__work_group") &&
+         (name.endswith("_pipe") || name.endswith("_pipe_2") ||
+          name.endswith("_pipe_4"));
 }
 
 bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName){
@@ -1229,6 +1210,86 @@ bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName)
     return false;
   return stripName(funcName.c_str()) == "atomic_work_item_fence";
 
+}
+
+Constant *CompilationUtils::importFunctionDecl(Module *Dst,
+                                               const Function *Orig) {
+  assert(Dst && "Invalid module");
+  assert(Orig && "Invalid function");
+
+  std::vector<StructType *> DstSTys = Dst->getIdentifiedStructTypes();
+  FunctionType *OrigFnTy = Orig->getFunctionType();
+
+  SmallVector<Type *, 8> NewArgTypes;
+  bool changed = false;
+  for (auto *ArgTy : Orig->getFunctionType()->params()) {
+    NewArgTypes.push_back(ArgTy);
+
+    auto *PtrSTy = dyn_cast<PointerType>(ArgTy);
+    if (!PtrSTy)
+      continue;
+
+    auto *STy = dyn_cast<StructType>(PtrSTy->getElementType());
+    if (!STy)
+      continue;
+
+    for (auto *DstSTy : DstSTys) {
+      if (isSameStructType(DstSTy, STy)) {
+        NewArgTypes.back() = PointerType::get(DstSTy,
+                                              PtrSTy->getAddressSpace());
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  FunctionType *NewFnType =
+    (!changed) ? OrigFnTy
+               : FunctionType::get(Orig->getReturnType(),
+                                   NewArgTypes,
+                                   Orig->isVarArg());
+
+  return Dst->getOrInsertFunction(
+    Orig->getName(), NewFnType, Orig->getAttributes());
+}
+
+StringRef CompilationUtils::stripStructNameTrailingDigits(StringRef TyName) {
+  size_t Dot = TyName.find_last_of('.');
+
+  // remove a '.' followed by any number of digits
+  if (TyName.npos != Dot) {
+    if (TyName.npos == TyName.find_first_not_of("0123456789", Dot + 1)) {
+      return TyName.substr(0, Dot);
+    }
+  }
+
+  return TyName;
+}
+
+bool CompilationUtils::isSameStructPtrType(Type *Ty1, Type *Ty2) {
+  auto *PtrSTy1 = dyn_cast<PointerType>(Ty1);
+  auto *PtrSTy2 = dyn_cast<PointerType>(Ty2);
+  if (!PtrSTy1 || !PtrSTy2) {
+    return false;
+  }
+
+  auto *STy1 = dyn_cast<StructType>(PtrSTy1->getElementType());
+  auto *STy2 = dyn_cast<StructType>(PtrSTy2->getElementType());
+
+  if (!STy1 || !STy2) {
+    return false;
+  }
+
+  return isSameStructType(STy1, STy2);
+}
+
+bool CompilationUtils::isSameStructType(StructType *STy1, StructType *STy2) {
+  if (!STy1->hasName() || !STy2->hasName()) {
+    return false;
+  }
+
+  return 0 == stripStructNameTrailingDigits(STy1->getName())
+    .compare(stripStructNameTrailingDigits(STy2->getName()));
 }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

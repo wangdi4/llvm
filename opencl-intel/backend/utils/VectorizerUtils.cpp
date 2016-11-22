@@ -18,14 +18,14 @@ namespace intel{
 using namespace llvm;
 
 void VectorizerUtils::SetDebugLocBy(Instruction *I, const Instruction *setBy) {
-  if (!setBy->getDebugLoc().isUnknown()) {
+  if (setBy->getDebugLoc()) {
     I->setDebugLoc(setBy->getDebugLoc());
   }
 }
 
 void VectorizerUtils::SetDebugLocBy(std::vector<Instruction *> &insts,
                                     Instruction *setBy) {
-  if (!setBy->getDebugLoc().isUnknown()) {
+  if (setBy->getDebugLoc()) {
     const DebugLoc &dbgloc = setBy->getDebugLoc();
     for (unsigned i=0; i<insts.size(); ++i) {
       insts[i]->setDebugLoc(dbgloc);
@@ -79,8 +79,8 @@ bool VectorizerUtils::isOpaquePtrPair(Type *x, Type *y)
 }
 
 Value *VectorizerUtils::RootInputArgumentBySignature(Value *arg, unsigned int paramNum, CallInst *CI) {
-  assert(paramNum <= CI->getNumOperands() && "Requested type of parameter that does not exist");
-  if (paramNum > CI->getNumOperands())
+  assert(paramNum <= CI->getNumArgOperands() && "Requested type of parameter that does not exist");
+  if (paramNum > CI->getNumArgOperands())
     return NULL;
 
   // Get the (reflection) type from the mangled name
@@ -668,7 +668,7 @@ Value *VectorizerUtils::isInsertEltExtend(Instruction *I, Type *realType) {
   // Reconstruct the vector right after the original insert element.
   assert(I != I->getParent()->getTerminator() &&
       "insert element can not be a terminator of basic block");
-  Instruction *loc = (++BasicBlock::iterator(I));
+  Instruction *loc = &*(++BasicBlock::iterator(I));
   Value *gatherdVals = UndefValue::get(realType);
   LLVMContext &context = val->getContext();
   for (unsigned i=0; i<destNelts; ++i) {

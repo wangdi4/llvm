@@ -134,7 +134,7 @@ bool WIAnalysis::runOnFunction(Function &F) {
   assert(m_DT && "Unable to get DominatorTreeWrapperPass pass");
   m_PDT = &getAnalysis<PostDominatorTree>();
   assert(m_PDT && "Unable to get PostDominatorTree pass");
-  m_LI = &getAnalysis<LoopInfo>();
+  m_LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   assert(m_LI && "Unable to get LoopInfo pass");
 
   m_deps.clear();
@@ -529,7 +529,7 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
     }
 
     for (BasicBlock::iterator I = defBlk->begin(), E = defBlk->end(); I != E; ++I) {
-      Instruction *defInst = I;
+      Instruction *defInst = &*I;
 
       // If defInst is random then its randomness will propagate to its usages
       // in the regular way and no control flow info propagation is needed
@@ -1130,8 +1130,8 @@ void WIAnalysis::print(raw_ostream &OS, const Module *M) const {
   for ( Module::const_iterator fi = M->begin(), fe = M->end(); fi != fe; ++fi ) {
     if (fi->isDeclaration()) continue;
     OS << fi->getName().str() << ":\n";
-    for ( const_inst_iterator it = inst_begin(fi), e = inst_end(fi); it != e; ++it ) {
-      const Instruction* pInst = &*it;
+    for ( const auto &I : instructions(*fi)) {
+      const Instruction* pInst = &I;
       //void type instructions has no value (i.e. no name) don't print them!
       if ( pInst->getType()->isVoidTy() ) continue;
       DenseMap<const Value*, WIDependancy>::const_iterator itDep = m_deps.find(pInst);

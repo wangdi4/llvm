@@ -8,12 +8,12 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 ;CHECK: kernel
-;CHECK: @"internal.gather.v16i32[i64].m1"(i1 true, i32* [[NAME2:%stripAS[0-9]*]], <16 x i64> %6, i32 64, i1 true)
-;CHECK: @"internal.scatter.v16i32[i64].m1"(i1 true, i32* [[NAME3:%stripAS[0-9]*]], <16 x i64> %6, <16 x i32> %24, i32 64, i1 true)
+;CHECK: @"internal.gather.v16i32[i64].m1"(i1 true, i32* [[NAME2:%stripAS[0-9]*]], <16 x i64> %[[REG:[0-9]+]], i32 64, i1 true)
+;CHECK: @"internal.scatter.v16i32[i64].m1"(i1 true, i32* [[NAME3:%stripAS[0-9]*]], <16 x i64> %[[REG]], <16 x i32> %23, i32 64, i1 true)
 ;CHECK: ret void
 
 define void @kernel(i32* nocapture %A, i64 %k) nounwind {
-  %1 = tail call i64 (...)* @_Z13get_global_idj(i64 0) nounwind
+  %1 = tail call i64 (...) @_Z13get_global_idj(i64 0) nounwind
   %2 = icmp sgt i64 %1, 70
   br i1 %2, label %Entry1, label %Entry2
 
@@ -32,8 +32,8 @@ Entry3:                                       ; preds = %Entry1, %Entry2
 Entry4:                                       ; preds = %Entry3
   %4 = shl i64 %1, 1
   %5 = add i64 %4, %a
-  %6 = getelementptr inbounds i32* %A, i64 %5
-  %7 = load i32* %6, align 1, !tbaa !0
+  %6 = getelementptr inbounds i32, i32* %A, i64 %5
+  %7 = load i32, i32* %6, align 1, !tbaa !0
   %8 = add i32 %7, 3
   store i32 %8, i32* %6, align 1, !tbaa !0
   br label %Entry5

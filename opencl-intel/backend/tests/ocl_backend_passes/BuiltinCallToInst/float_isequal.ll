@@ -32,8 +32,8 @@ target triple = "x86_64-pc-win32"
 ; Function Attrs: nounwind
 define void @foo_float(float* nocapture %a, float* nocapture %b, i32* nocapture %c) #0 {
 entry:
-  %0 = load float* %a, align 4, !tbaa !7
-  %1 = load float* %b, align 4, !tbaa !7
+  %0 = load float, float* %a, align 4, !tbaa !7
+  %1 = load float, float* %b, align 4, !tbaa !7
   %call = tail call i32 @_Z7isequalff(float %0, float %1) #2
   store i32 %call, i32* %c, align 4, !tbaa !10
   ret void
@@ -50,8 +50,8 @@ declare i32 @_Z7isequalff(float, float) #1
 ; Function Attrs: nounwind
 define void @foo_float2(<2 x float>* nocapture %a, <2 x float>* nocapture %b, <2 x i32>* nocapture %c) #0 {
 entry:
-  %0 = load <2 x float>* %a, align 8, !tbaa !8
-  %1 = load <2 x float>* %b, align 8, !tbaa !8
+  %0 = load <2 x float>, <2 x float>* %a, align 8, !tbaa !8
+  %1 = load <2 x float>, <2 x float>* %b, align 8, !tbaa !8
   %call = tail call <2 x i32> @_Z7isequalDv2_fS_(<2 x float> %0, <2 x float> %1) #2
   store <2 x i32> %call, <2 x i32>* %c, align 8, !tbaa !8
   ret void
@@ -69,10 +69,10 @@ declare <2 x i32> @_Z7isequalDv2_fS_(<2 x float>, <2 x float>) #1
 define void @foo_float3(<3 x float>* nocapture %a, <3 x float>* nocapture %b, <3 x i32>* nocapture %c) #0 {
 entry:
   %castToVec4 = bitcast <3 x float>* %a to <4 x float>*
-  %loadVec4 = load <4 x float>* %castToVec4, align 16
+  %loadVec4 = load <4 x float>, <4 x float>* %castToVec4, align 16
   %extractVec = shufflevector <4 x float> %loadVec4, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %castToVec41 = bitcast <3 x float>* %b to <4 x float>*
-  %loadVec42 = load <4 x float>* %castToVec41, align 16
+  %loadVec42 = load <4 x float>, <4 x float>* %castToVec41, align 16
   %extractVec3 = shufflevector <4 x float> %loadVec42, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %call = tail call <3 x i32> @_Z7isequalDv3_fS_(<3 x float> %extractVec, <3 x float> %extractVec3) #2
   %extractVec4 = shufflevector <3 x i32> %call, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
@@ -92,8 +92,8 @@ declare <3 x i32> @_Z7isequalDv3_fS_(<3 x float>, <3 x float>) #1
 ; Function Attrs: nounwind
 define void @foo_float4(<4 x float>* nocapture %a, <4 x float>* nocapture %b, <4 x i32>* nocapture %c) #0 {
 entry:
-  %0 = load <4 x float>* %a, align 16, !tbaa !8
-  %1 = load <4 x float>* %b, align 16, !tbaa !8
+  %0 = load <4 x float>, <4 x float>* %a, align 16, !tbaa !8
+  %1 = load <4 x float>, <4 x float>* %b, align 16, !tbaa !8
   %call = tail call <4 x i32> @_Z7isequalDv4_fS_(<4 x float> %0, <4 x float> %1) #2
   store <4 x i32> %call, <4 x i32>* %c, align 16, !tbaa !8
   ret void
@@ -110,8 +110,8 @@ declare <4 x i32> @_Z7isequalDv4_fS_(<4 x float>, <4 x float>) #1
 ; Function Attrs: nounwind
 define void @foo_float8(<8 x float>* nocapture %a, <8 x float>* nocapture %b, <8 x i32>* nocapture %c) #0 {
 entry:
-  %0 = load <8 x float>* %a, align 32, !tbaa !8
-  %1 = load <8 x float>* %b, align 32, !tbaa !8
+  %0 = load <8 x float>, <8 x float>* %a, align 32, !tbaa !8
+  %1 = load <8 x float>, <8 x float>* %b, align 32, !tbaa !8
   %call = tail call <8 x i32> @_Z7isequalDv8_fS_(<8 x float> %0, <8 x float> %1) #2
   store <8 x i32> %call, <8 x i32>* %c, align 32, !tbaa !8
   ret void
@@ -128,8 +128,8 @@ declare <8 x i32> @_Z7isequalDv8_fS_(<8 x float>, <8 x float>) #1
 ; Function Attrs: nounwind
 define void @foo_float16(<16 x float>* nocapture %a, <16 x float>* nocapture %b, <16 x i32>* nocapture %c) #0 {
 entry:
-  %0 = load <16 x float>* %a, align 64, !tbaa !8
-  %1 = load <16 x float>* %b, align 64, !tbaa !8
+  %0 = load <16 x float>, <16 x float>* %a, align 64, !tbaa !8
+  %1 = load <16 x float>, <16 x float>* %b, align 64, !tbaa !8
   %call = tail call <16 x i32> @_Z7isequalDv16_fS_(<16 x float> %0, <16 x float> %1) #2
   store <16 x i32> %call, <16 x i32>* %c, align 64, !tbaa !8
   ret void

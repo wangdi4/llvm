@@ -97,7 +97,7 @@ bool BackendWrapper::LoadDll()
 
     }catch(Exceptions::DynamicLibException& err)
     {
-        std::cerr << "Cannot load the backend DLL." << err.what() << "\n";
+        std::cerr << "Cannot load the backend DLL. " << err.what() << "\n";
         return false;
     }
 
@@ -152,7 +152,7 @@ void BackendWrapper::CreateProgramContainer(const std::string& programFile, std:
     std::ifstream testFile(programFile.c_str(), std::ios::binary);
     if (!testFile.is_open())
     {
-        FAIL() << "Could not open program file" << programFile << "\n";
+        FAIL() << "Could not open program file: " << programFile << "\n";
     }
     buffer.assign(std::istreambuf_iterator<char>(testFile),
                   std::istreambuf_iterator<char>());

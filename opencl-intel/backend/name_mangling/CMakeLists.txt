@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 2.8.7)
 
 if( ANDROID )
-    set( BACKEND_BUILD_TESTS            OFF  CACHE STRING "")
-    set( BACKEND_BUILD_VERIFICATION_LIB OFF  CACHE STRING "")
+  set( BACKEND_BUILD_TESTS            OFF  CACHE STRING "")
+  set( BACKEND_BUILD_VERIFICATION_LIB OFF  CACHE STRING "")
 else( ANDROID )
-    set( BACKEND_BUILD_TESTS            ON  CACHE STRING "")
-    set( BACKEND_BUILD_VERIFICATION_LIB ON  CACHE STRING "")
+  set( BACKEND_BUILD_TESTS            ON  CACHE STRING "")
+  set( BACKEND_BUILD_VERIFICATION_LIB ON  CACHE STRING "")
 endif( ANDROID )
 
 set(TARGET_NAME name_mangle)
@@ -13,7 +13,7 @@ set(TARGET_NAME name_mangle)
 project (${TARGET_NAME})
 
 if (NOT APPLE)
-    add_subdirectory(unittests)
+  add_subdirectory(unittests)
 endif (NOT APPLE)
 
 set(TARGET_SOURCE_FILES
@@ -42,9 +42,7 @@ add_library(
 )
 
 if (NOT APPLE)
-  include_directories(
-    ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
-  )
+  include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
 endif (NOT APPLE)
 
 include_directories(

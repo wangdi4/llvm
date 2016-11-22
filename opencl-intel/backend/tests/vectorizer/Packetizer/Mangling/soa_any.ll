@@ -22,27 +22,27 @@ entry:
   store <4 x i8> %inp2, <4 x i8>* %inp2.addr, align 4
   store <4 x i8> %inp3, <4 x i8>* %inp3.addr, align 4
   store <4 x i8> %inp4, <4 x i8>* %inp4.addr, align 4
-  %0 = load <4 x i8>* %inp1.addr, align 4
+  %0 = load <4 x i8>, <4 x i8>* %inp1.addr, align 4
   %call = call i32 @_Z3anyDv4_c(<4 x i8> %0) nounwind readnone
-  %1 = load <4 x i32>* %out
+  %1 = load <4 x i32>, <4 x i32>* %out
   %2 = insertelement <4 x i32> %1, i32 %call, i32 0
   store <4 x i32> %2, <4 x i32>* %out
-  %3 = load <4 x i8>* %inp2.addr, align 4
+  %3 = load <4 x i8>, <4 x i8>* %inp2.addr, align 4
   %call1 = call i32 @_Z3anyDv4_c(<4 x i8> %3) nounwind readnone
-  %4 = load <4 x i32>* %out
+  %4 = load <4 x i32>, <4 x i32>* %out
   %5 = insertelement <4 x i32> %4, i32 %call1, i32 1
   store <4 x i32> %5, <4 x i32>* %out
-  %6 = load <4 x i8>* %inp3.addr, align 4
+  %6 = load <4 x i8>, <4 x i8>* %inp3.addr, align 4
   %call2 = call i32 @_Z3anyDv4_c(<4 x i8> %6) nounwind readnone
-  %7 = load <4 x i32>* %out
+  %7 = load <4 x i32>, <4 x i32>* %out
   %8 = insertelement <4 x i32> %7, i32 %call2, i32 2
   store <4 x i32> %8, <4 x i32>* %out
-  %9 = load <4 x i8>* %inp4.addr, align 4
+  %9 = load <4 x i8>, <4 x i8>* %inp4.addr, align 4
   %call3 = call i32 @_Z3anyDv4_c(<4 x i8> %9) nounwind readnone
-  %10 = load <4 x i32>* %out
+  %10 = load <4 x i32>, <4 x i32>* %out
   %11 = insertelement <4 x i32> %10, i32 %call3, i32 3
   store <4 x i32> %11, <4 x i32>* %out
-  %12 = load <4 x i32>* %out, align 16
+  %12 = load <4 x i32>, <4 x i32>* %out, align 16
   call void @foo(<4 x i32> %12)
   ret void
 }

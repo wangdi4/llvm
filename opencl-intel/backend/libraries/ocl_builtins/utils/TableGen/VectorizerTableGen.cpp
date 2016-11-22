@@ -111,7 +111,6 @@ void VectorizerTableGen::run(raw_ostream& os){
   }
   //generating an llvm module, to obtain mangled names
   std::stringstream ss;
-  ss << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
   BuiltinMap::iterator it = m_biMap.begin(), e = m_biMap.end();
   while( it != e ) {
     const BiFunction& biFunction = it->first;

@@ -39,9 +39,9 @@ for.body26.preheader:                             ; preds = %for.cond23.preheade
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %storemerge217 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %add.ptr8.sum7 = add i32 %storemerge217, %mul
-  %arrayidx = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %add.ptr8.sum7
-  %arrayidx16 = getelementptr i32 addrspace(1)* %puiInputArray, i32 %add.ptr8.sum7
-  %tmp17 = load i32 addrspace(1)* %arrayidx16, align 4
+  %arrayidx = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %add.ptr8.sum7
+  %arrayidx16 = getelementptr i32, i32 addrspace(1)* %puiInputArray, i32 %add.ptr8.sum7
+  %tmp17 = load i32, i32 addrspace(1)* %arrayidx16, align 4
   store i32 %tmp17, i32 addrspace(1)* %arrayidx, align 4
   %inc = add i32 %storemerge217, 1
   %cmp = icmp ult i32 %inc, %szElementsPerItem
@@ -63,11 +63,11 @@ for.body34:                                       ; preds = %for.body34.lr.ph, %
   %storemerge110 = phi i32 [ 0, %for.body34.lr.ph ], [ %inc50, %for.body34 ]
   %add4749 = phi i32 [ %sub, %for.body34.lr.ph ], [ %add47, %for.body34 ]
   %add.ptr8.sum = add i32 %add, %add4749
-  %arrayidx38 = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %add.ptr8.sum
-  %tmp39 = load i32 addrspace(1)* %arrayidx38, align 4
+  %arrayidx38 = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %add.ptr8.sum
+  %tmp39 = load i32, i32 addrspace(1)* %arrayidx38, align 4
   %add.ptr8.sum5 = add i32 %add4749, %mul
-  %arrayidx42 = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %add.ptr8.sum5
-  %tmp43 = load i32 addrspace(1)* %arrayidx42, align 4
+  %arrayidx42 = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %add.ptr8.sum5
+  %tmp43 = load i32, i32 addrspace(1)* %arrayidx42, align 4
   %add44 = add i32 %tmp43, %tmp39
   store i32 %add44, i32 addrspace(1)* %arrayidx38, align 4
   %add47 = add i32 %add4749, %shl
@@ -84,11 +84,11 @@ for.end57.loopexit:                               ; preds = %for.end51, %for.bod
   br label %for.end57
 
 for.end57:                                        ; preds = %for.end57.loopexit, %entry, %for.cond23.preheader
-  %arrayidx60 = getelementptr i32 addrspace(1)* %puiTmpArray, i32 %call
+  %arrayidx60 = getelementptr i32, i32 addrspace(1)* %puiTmpArray, i32 %call
   %sub62 = add i32 %szElementsPerItem, -1
   %add.ptr8.sum6 = add i32 %sub62, %mul
-  %arrayidx64 = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %add.ptr8.sum6
-  %tmp65 = load i32 addrspace(1)* %arrayidx64, align 4
+  %arrayidx64 = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %add.ptr8.sum6
+  %tmp65 = load i32, i32 addrspace(1)* %arrayidx64, align 4
   store i32 %tmp65, i32 addrspace(1)* %arrayidx60, align 4
   ret void
 }
@@ -99,11 +99,11 @@ define void @prefixSumStep2(i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)*
 entry:
   %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %mul = mul i32 %call, %szElementsPerItem
-  %add.ptr8 = getelementptr i32 addrspace(1)* %puiValueToAddArray, i32 %call
+  %add.ptr8 = getelementptr i32, i32 addrspace(1)* %puiValueToAddArray, i32 %call
   %shr = lshr i32 %szElementsPerItem, 1
   %sub = add i32 %szElementsPerItem, -1
   %add.ptr.sum = add i32 %sub, %mul
-  %arrayidx = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %add.ptr.sum
+  %arrayidx = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %add.ptr.sum
   store i32 0, i32 addrspace(1)* %arrayidx, align 4
   %cmp13 = icmp eq i32 %shr, 0
   br i1 %cmp13, label %for.cond57.preheader, label %for.body.preheader
@@ -138,11 +138,11 @@ for.body27:                                       ; preds = %for.body27.lr.ph, %
   %storemerge212 = phi i32 [ 0, %for.body27.lr.ph ], [ %inc, %for.body27 ]
   %add50411 = phi i32 [ %sub21, %for.body27.lr.ph ], [ %add50, %for.body27 ]
   %add.ptr.sum5 = add i32 %add, %add50411
-  %arrayidx31 = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %add.ptr.sum5
-  %tmp32 = load i32 addrspace(1)* %arrayidx31, align 4
+  %arrayidx31 = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %add.ptr.sum5
+  %tmp32 = load i32, i32 addrspace(1)* %arrayidx31, align 4
   %add.ptr.sum6 = add i32 %add50411, %mul
-  %arrayidx41 = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %add.ptr.sum6
-  %tmp42 = load i32 addrspace(1)* %arrayidx41, align 4
+  %arrayidx41 = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %add.ptr.sum6
+  %tmp42 = load i32, i32 addrspace(1)* %arrayidx41, align 4
   %add43 = add i32 %tmp42, %tmp32
   store i32 %add43, i32 addrspace(1)* %arrayidx31, align 4
   store i32 %tmp32, i32 addrspace(1)* %arrayidx41, align 4
@@ -162,9 +162,9 @@ for.inc52:                                        ; preds = %for.inc52.loopexit,
 for.body61:                                       ; preds = %for.body61.preheader, %for.body61
   %storemerge9 = phi i32 [ %inc72, %for.body61 ], [ 0, %for.body61.preheader ]
   %add.ptr.sum7 = add i32 %storemerge9, %mul
-  %arrayidx64 = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %add.ptr.sum7
-  %tmp65 = load i32 addrspace(1)* %arrayidx64, align 4
-  %tmp68 = load i32 addrspace(1)* %add.ptr8, align 4
+  %arrayidx64 = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %add.ptr.sum7
+  %tmp65 = load i32, i32 addrspace(1)* %arrayidx64, align 4
+  %tmp68 = load i32, i32 addrspace(1)* %add.ptr8, align 4
   %add69 = add i32 %tmp68, %tmp65
   store i32 %add69, i32 addrspace(1)* %arrayidx64, align 4
   %inc72 = add i32 %storemerge9, 1

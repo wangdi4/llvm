@@ -19,6 +19,8 @@ File Name:  FloatOperations.cpp
 #include "reference_math.h"
 #include "imathLibd.h"
 
+#include <algorithm>
+
 namespace Validation
 {
     namespace Utils

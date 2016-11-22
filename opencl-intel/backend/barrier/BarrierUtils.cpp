@@ -30,7 +30,7 @@ namespace intel {
 
     //Get size of size_t in bits from the module
     clean();
-    m_uiSizeT = pModule->getDataLayout()->getPointerSizeInBits(0);
+    m_uiSizeT = pModule->getDataLayout().getPointerSizeInBits(0);
     assert(m_uiSizeT == 32 || m_uiSizeT == 64);
     m_I32Ty = Type::getInt32Ty(pModule->getContext());
     m_SizetTy = IntegerType::get(pModule->getContext(), m_uiSizeT);
@@ -117,7 +117,7 @@ namespace intel {
   }
 
   SYNC_TYPE BarrierUtils::getSynchronizeType(BasicBlock *pBB) {
-    return getSynchronizeType(pBB->begin());
+    return getSynchronizeType(&*pBB->begin());
   }
 
   TInstructionVector& BarrierUtils::getAllSynchronizeInstructuons() {

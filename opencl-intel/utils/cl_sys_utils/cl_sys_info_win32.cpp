@@ -35,6 +35,8 @@
 
 using namespace Intel::OpenCL::Utils;
 
+#include <algorithm>
+
 #include <windows.h>
 #include <powrprof.h>
 #include <assert.h>

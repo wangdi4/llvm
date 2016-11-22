@@ -103,8 +103,8 @@ namespace Conformance
 typedef char bool;
 #define inline
 
-#else
-extern "C" {
+//#else
+//extern "C" {
 #endif
 
 //typedef unsigned char       uint8_t;
@@ -124,8 +124,8 @@ typedef unsigned long  ulong;
 
 
 //#define INFINITY    (FLT_MAX + FLT_MAX)
-static unsigned int __infinity[] = {0x7f800000};
-#define INFINITY (*(float *) Conformance::__infinity)
+//static unsigned int __infinity[] = {0x7f800000};
+//#define INFINITY (*(float *) Conformance::__infinity)
 //#define NAN (INFINITY | 1)
 //const static int PINFBITPATT_SP32  = INFINITY;
 
@@ -238,8 +238,8 @@ int __builtin_clz(unsigned int pattern);
 
 
 static const double zero=  0.00000000000000000000e+00;
-#define NAN  (INFINITY - INFINITY)
-#define HUGE_VALF (float)HUGE_VAL
+//#define NAN  (INFINITY - INFINITY)
+//#define HUGE_VALF (float)HUGE_VAL
 
 int usleep(int usec);
 
@@ -255,7 +255,7 @@ int fetestexcept(int excepts);
 int feclearexcept(int excepts);
 
 #ifdef __cplusplus
-}
+//}
 #endif
 
 #else // !((defined(_WIN32) && defined(_MSC_VER)

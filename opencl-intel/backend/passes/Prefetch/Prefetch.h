@@ -99,10 +99,10 @@ namespace intel{
       virtual bool runOnFunction(Function &F);
 
       virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-        AU.addRequired<LoopInfo>();
-        AU.addRequired<ScalarEvolution>();
-        AU.addRequired<BranchProbabilityInfo>();
-        AU.addPreserved<BranchProbabilityInfo>();
+        AU.addRequired<LoopInfoWrapperPass>();
+        AU.addRequired<ScalarEvolutionWrapperPass>();
+        AU.addRequired<BranchProbabilityInfoWrapperPass>();
+        AU.addPreserved<BranchProbabilityInfoWrapperPass>();
         AU.addRequired<DominatorTreeWrapperPass>();
         AU.setPreservesCFG();
       }

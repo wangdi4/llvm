@@ -14,7 +14,7 @@ declare i32 @_Z13get_global_idj(i32)
 define void @and_cons_uni(i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %and_val = and i32 %gid, %uni
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %and_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }
@@ -26,7 +26,7 @@ define void @and_cons_uni(i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
 define void @and_uni_const_right_16bits(i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %and_val = and i32 %gid, 65535
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %and_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }
@@ -38,7 +38,7 @@ define void @and_uni_const_right_16bits(i32 addrspace(1)* nocapture %out, i32 %u
 define void @and_uni_const_left_16bits(i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %and_val = and i32 65535, %gid
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %and_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }
@@ -50,7 +50,7 @@ define void @and_uni_const_left_16bits(i32 addrspace(1)* nocapture %out, i32 %un
 define void @and_uni_const_right_15bits(i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %and_val = and i32 %gid, 32767
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %and_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }
@@ -62,7 +62,7 @@ define void @and_uni_const_right_15bits(i32 addrspace(1)* nocapture %out, i32 %u
 define void @and_uni_const_left_15bits(i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %and_val = and i32 32767, %gid
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %and_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }

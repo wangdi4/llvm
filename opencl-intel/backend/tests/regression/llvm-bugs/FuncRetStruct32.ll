@@ -27,9 +27,9 @@
 
 define void @test_callee5(%struct.AStruct* noalias nocapture sret %agg.result) nounwind noinline {
 entry:
-  %0 = getelementptr inbounds %struct.AStruct* %agg.result, i64 0, i32 0
+  %0 = getelementptr inbounds %struct.AStruct, %struct.AStruct* %agg.result, i64 0, i32 0
   store i32 0, i32* %0, align 4
-  %1 = getelementptr inbounds %struct.AStruct* %agg.result, i64 0, i32 1
+  %1 = getelementptr inbounds %struct.AStruct, %struct.AStruct* %agg.result, i64 0, i32 1
   %2 = bitcast i32* %1 to i8*
   call void @llvm.memset.i64(i8* %2, i8 0, i64 16, i32 4)
   ret void

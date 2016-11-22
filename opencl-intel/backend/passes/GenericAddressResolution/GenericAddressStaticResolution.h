@@ -34,7 +34,7 @@ namespace intel {
 
   using namespace llvm;
 
-  /// @brief  GenericAddressStaticResolution class resolves generic address space 
+  /// @brief  GenericAddressStaticResolution class resolves generic address space
   /// @brief  pointers to a named address space: local, global or private.
   class GenericAddressStaticResolution : public ModulePass {
 
@@ -63,7 +63,7 @@ namespace intel {
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       // We could declare 'PromotePass' here (as mem2reg pass is a
       // mandatory pre-requisite), however it is not exposed by LLVM,
-      // hence we suppose that Optimizer flow will invoke its factory 
+      // hence we suppose that Optimizer flow will invoke its factory
       // (createPromoteMemoryToRegisterPass) prior to 'GenericAddressStaticResolution'
       // pass. TODO: to be re-evaluated with future LLVM releases
     }
@@ -101,7 +101,7 @@ namespace intel {
     typedef std::vector<TMapPair>           TReplaceVector;
 
     /// @brief  <old-instruction>-to-<new-value> info
-    /// @brief  1. Search for mapping 
+    /// @brief  1. Search for mapping
     TReplaceMap    m_replaceMap;
     /// @brief  2. Iterate through mappings
     TReplaceVector m_replaceVector;
@@ -141,8 +141,8 @@ namespace intel {
     /// @param  pOperand - operand to check
     /// @param  pInstr   - instruction to which this operand belongs (directly, or via
     ///                    encompassing constant expression)
-    /// @returns  true if the check is successful (and the instruction is added to 
-    ///           the collection), or false otherwise 
+    /// @returns  true if the check is successful (and the instruction is added to
+    ///           the collection), or false otherwise
     bool handleGASConstantExprIfNeeded(Value *pOperand, Instruction *pInstr);
 
     // Generic-to-named address space resolvers for different instructions
@@ -164,7 +164,7 @@ namespace intel {
 
     /// @brief  Helper for folding of an "Address Space Qualifier" BI call
     /// @brief  into constant value it should produce
-    /// @param  pCallInst - call instruction 
+    /// @param  pCallInst - call instruction
     void foldAddressQualifierCall(CallInst *pCallInstr);
 
     /// @brief  Helper for resolution of a function call from generic to named addr space

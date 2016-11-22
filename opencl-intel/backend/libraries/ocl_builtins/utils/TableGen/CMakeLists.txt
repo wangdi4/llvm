@@ -9,7 +9,7 @@ find_package(LLVM REQUIRED)
 
 set(TARGET_NAME ocl-tblgen)
 set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
-set(CLANG_INCLUDE_PATH "${LLVM_INCLUDE_DIRS}/cclang/cl_headers/")
+set(CLANG_INCLUDE_PATH "${LLVM_INCLUDE_DIRS}/cclang")
 
 add_definitions(
   -D CLANG_INCLUDE_PATH=${CLANG_INCLUDE_PATH}
@@ -39,7 +39,7 @@ add_executable(
 )
 
 add_dependencies(${TARGET_NAME}
-  clang
+  ${CLANG_BIN_PATH}
 )
 
 target_link_libraries(${TARGET_NAME}

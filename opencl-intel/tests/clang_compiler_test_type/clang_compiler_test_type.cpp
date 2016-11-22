@@ -77,7 +77,7 @@ TEST_F(ClangCompilerTestType, Test_ValidSpirvProgramCompileOptions)
     ASSERT_TRUE(bool(pModuleOrError)) << "Module LLVM error: " << pModuleOrError.getError().value() << "\n"
                                       << "            message: " << pModuleOrError.getError().message() << "\n";
 
-    llvm::Module* pModule = pModuleOrError.get();
+    std::unique_ptr<llvm::Module> pModule(std::move(pModuleOrError.get()));
 
     llvm::NamedMDNode *OCLCompOptsMD = pModule->getNamedMetadata(SPIR_OPTIONS_METADATA);
     ASSERT_TRUE(OCLCompOptsMD->getNumOperands() == 1) <<

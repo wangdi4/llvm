@@ -17,35 +17,35 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 declare void @_Z7barrierj(i32)
 ; write_pipe
-declare i32 @_Z10write_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*, i32)
+declare i32 @__write_pipe_2(%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*, i32)
 ; read_pipe
-declare i32 @_Z9read_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*, i32)
+declare i32 @__read_pipe_2(%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*, i32)
 ; reserve_write_pipe
-declare %opencl.reserve_id_t* @_Z18reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)*, i32, i32)
+declare %opencl.reserve_id_t* @__reserve_write_pipe(%opencl.pipe_t addrspace(1)*, i32, i32)
 ; write_pipe w\ reserve_id
-declare i32 @_Z10write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_tjPU3AS1vi(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32, i8 addrspace(1)*, i32)
+declare i32 @__write_pipe_4(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32, i8 addrspace(1)*, i32)
 ; reserve_write_pipe
-declare void @_Z17commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
+declare void @__commit_write_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
 ; reserve_read_pipe
-declare %opencl.reserve_id_t* @_Z17reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)*, i32, i32)
+declare %opencl.reserve_id_t* @__reserve_read_pipe(%opencl.pipe_t addrspace(1)*, i32, i32)
 ; read_pipe w\ reserve_id
-declare i32 @_Z9read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_tjPU3AS1vi(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32, i8 addrspace(1)*, i32)
+declare i32 @__read_pipe_4(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32, i8 addrspace(1)*, i32)
 ; commit_read_pipe
-declare void @_Z16commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
+declare void @__commit_read_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t*, i32)
 
 define void @pipe_builtins(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data) {
-  %basic_write_res = tail call i32 @_Z10write_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
-  %basic_read_res = tail call i32 @_Z9read_pipePU3AS110ocl_pipe_tPU3AS1vi(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
+  %basic_write_res = tail call i32 @__write_pipe_2(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
+  %basic_read_res = tail call i32 @__read_pipe_2(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* %data, i32 4)
 
-  %reserved_write_rid = tail call %opencl.reserve_id_t* @_Z18reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %pipe, i32 1, i32 4)
-  %reserved_write_res = tail call i32 @_Z10write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_tjPU3AS1vi(%opencl.pipe_t addrspace(1)* %pipe, %opencl.reserve_id_t* %reserved_write_rid, i32 0, i8 addrspace(1)* %data, i32 4)
+  %reserved_write_rid = tail call %opencl.reserve_id_t* @__reserve_write_pipe(%opencl.pipe_t addrspace(1)* %pipe, i32 1, i32 4)
+  %reserved_write_res = tail call i32 @__write_pipe_4(%opencl.pipe_t addrspace(1)* %pipe, %opencl.reserve_id_t* %reserved_write_rid, i32 0, i8 addrspace(1)* %data, i32 4)
   ; the following line is just for the sake of completeness
-  tail call void @_Z17commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %pipe, %opencl.reserve_id_t* %reserved_write_rid, i32 4)
+  tail call void @__commit_write_pipe(%opencl.pipe_t addrspace(1)* %pipe, %opencl.reserve_id_t* %reserved_write_rid, i32 4)
 
-  %reserved_read_rid = tail call %opencl.reserve_id_t* @_Z17reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %pipe, i32 1, i32 4)
-  %reserved_read_res = tail call i32 @_Z9read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_tjPU3AS1vi(%opencl.pipe_t addrspace(1)* %pipe, %opencl.reserve_id_t* %reserved_write_rid, i32 0, i8 addrspace(1)* %data, i32 4)
+  %reserved_read_rid = tail call %opencl.reserve_id_t* @__reserve_read_pipe(%opencl.pipe_t addrspace(1)* %pipe, i32 1, i32 4)
+  %reserved_read_res = tail call i32 @__read_pipe_4(%opencl.pipe_t addrspace(1)* %pipe, %opencl.reserve_id_t* %reserved_write_rid, i32 0, i8 addrspace(1)* %data, i32 4)
   ; the following line is just for the sake of completeness
-  tail call void @_Z16commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %pipe, %opencl.reserve_id_t* %reserved_read_rid, i32 4)
+  tail call void @__commit_read_pipe(%opencl.pipe_t addrspace(1)* %pipe, %opencl.reserve_id_t* %reserved_read_rid, i32 4)
 
   call void @_Z7barrierj(i32 2)
   ret void

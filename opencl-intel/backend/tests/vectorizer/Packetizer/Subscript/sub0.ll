@@ -14,15 +14,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ;CHECK: ret void
 
 define void @kernel(i32* nocapture %A) nounwind {
-  %1 = tail call i32 (...)* @_Z13get_global_idj(i32 0) nounwind
+  %1 = tail call i32 (...) @_Z13get_global_idj(i32 0) nounwind
   %2 = icmp sgt i32 %1, 70
   br i1 %2, label %3, label %9
 
 ; <label>:3                                       ; preds = %0
   %4 = mul nsw i32 %1, 7
   %5 = sext i32 %4 to i64
-  %6 = getelementptr inbounds i32* %A, i64 %5
-  %7 = load i32* %6, align 4, !tbaa !0
+  %6 = getelementptr inbounds i32, i32* %A, i64 %5
+  %7 = load i32, i32* %6, align 4, !tbaa !0
   %8 = add nsw i32 %7, 3
   store i32 %8, i32* %6, align 4, !tbaa !0
   br label %9

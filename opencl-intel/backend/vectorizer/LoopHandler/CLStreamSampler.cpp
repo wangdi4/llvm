@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 
 #include "llvm/Support/raw_ostream.h"
@@ -278,7 +279,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
 
 void CLStreamSampler::hoistReadImgCalls() {
   // Obtain the stream read from the runtime module.
-  bool isPointer64 = m_M->getDataLayout()->getPointerSizeInBits(0) == 64;
+  bool isPointer64 = m_M->getDataLayout().getPointerSizeInBits(0) == 64;
   Function *LibReadSteamFunc = m_rtServices->getReadStream(isPointer64);
   if (!LibReadSteamFunc) return;
   Function * readStreamFunc = getLibraryFunc(LibReadSteamFunc);
@@ -397,7 +398,7 @@ Value *CLStreamSampler::getStreamSize(unsigned width) {
   if (Instruction *tripCountInst = dyn_cast<Instruction>(m_tripCount)) {
     assert(tripCountInst != tripCountInst->getParent()->getTerminator() &&
         "trip count can not be the termiantor of a block");
-    loc = ++(BasicBlock::iterator(tripCountInst));
+    loc = &*(++(BasicBlock::iterator(tripCountInst)));
   }
   Value *streamSize = BinaryOperator::Create(Instruction::Mul, m_tripCount,
                                              widthConst, "stream_size", loc);
@@ -407,7 +408,7 @@ Value *CLStreamSampler::getStreamSize(unsigned width) {
 
 void CLStreamSampler::sinkWriteImgCalls() {
   // Obtain the stream write from the runtime module.
-  bool isPointer64 = m_M->getDataLayout()->getPointerSizeInBits(0) == 64;
+  bool isPointer64 = m_M->getDataLayout().getPointerSizeInBits(0) == 64;
   Function *LibWriteStreamFunc = m_rtServices->getWriteStream(isPointer64);
   if (!LibWriteStreamFunc) return;
   Function * writeStreamFunc = getLibraryFunc(LibWriteStreamFunc);
@@ -432,8 +433,8 @@ Function *CLStreamSampler::getLibraryFunc(Function *LibFunc) {
   // and only if we don't, insert it.
   Constant* funcConst = m_M->getFunction(LibFunc->getName());
   if (!funcConst) {
-    funcConst = m_M->getOrInsertFunction(LibFunc->getName(),
-                                         LibFunc->getFunctionType(), LibFunc->getAttributes());
+    using namespace Intel::OpenCL::DeviceBackend;
+    funcConst = CompilationUtils::importFunctionDecl(m_M, LibFunc);
   }
     
   Function *F = dyn_cast<Function>(funcConst);

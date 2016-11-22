@@ -91,7 +91,7 @@ install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 install(FILES cfg_win.xml cfg_linux.xml DESTINATION ${CREATE_DIR_NAME}/framework_test)
 install(FILES framework_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 
-set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers)
+set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang)
 
 set( INPUT_FILE test.cl )
 set( SPIR_OUTPUT_FILE test.bc )
@@ -124,7 +124,7 @@ if ( INCLUDE_MIC_DEVICE )
 set( MIC_SPIR_OUTPUT_FILE mic_test.bc )
 
 set (MIC_OPTIONS
-  -cc1 -emit-llvm-bc -fblocks -x cl -I ${INCLUDE_HEADERS_PATH} -include opencl_.h -o 
+  -cc1 -emit-llvm-bc -fblocks -x cl -I ${INCLUDE_HEADERS_PATH} -include opencl-c.h -o
   ${CMAKE_CURRENT_BINARY_DIR}/${MIC_SPIR_OUTPUT_FILE}
   ${SPIR_OPT}
   ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
@@ -134,7 +134,7 @@ add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} ${MIC_OPTIONS}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h  
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h
   COMMENT "Generate spir binary for framework_test_type: ${MIC_SPIR_OUTPUT_FILE}"
   VERBATIM
 )
@@ -146,13 +146,13 @@ add_custom_command( TARGET ${TARGET}
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
   ${SPIR_OPT}
-  -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
+  -include opencl-c.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
   ${INV_SPIR_OPT}
-  -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_SPIR_OUTPUT_FILE}
+  -include opencl-c.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_SPIR_OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h
   COMMENT "Generate spir binary files for framework_test_type:  ${SPIR_OUTPUT_FILE}, ${INV_SPIR_OUTPUT_FILE}"
   VERBATIM
 )

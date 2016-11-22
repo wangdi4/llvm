@@ -21,13 +21,14 @@ File Name:  SmartGVN.cpp
 #include <OCLPassSupport.h>
 
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/PassManager.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/MemoryDependenceAnalysis.h>
+#include <llvm/Analysis/BasicAliasAnalysis.h>
 #include <llvm/Support/CommandLine.h>
 
 using namespace llvm;
@@ -60,14 +61,13 @@ bool SmartGVN::runOnModule(Module &M)
       // Ignore declarations.
       if (i->isDeclaration()) continue;
 
-      GVNNoLoads = GVNNoLoads || isNoLoadsCandidate(i);
+      GVNNoLoads = GVNNoLoads || isNoLoadsCandidate(&*i);
     }
   }
 
   { // With NoLoads option on - it will not hoist loads out of the loops.
-    PassManager pm;
-    pm.add(new DataLayoutPass());
-    pm.add(llvm::createBasicAliasAnalysisPass());
+    legacy::PassManager pm;
+    pm.add(llvm::createBasicAAWrapperPass());
     pm.add(new llvm::DominatorTreeWrapperPass());
     pm.add(new llvm::MemoryDependenceAnalysis());
     pm.add(llvm::createGVNPass(GVNNoLoads));
@@ -79,21 +79,22 @@ bool SmartGVN::runOnModule(Module &M)
 
 bool SmartGVN::isNoLoadsCandidate(Function *func)
 {
-  LoopInfo &LI = getAnalysis<LoopInfo>(*func);
+  LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(*func).getLoopInfo();
   // We consider the function to be a good candidate for GVN with NoLoads if:
   // 1. It has a loop which consists of single basic block + loop header.
   // 2. This basic block has a lot of instructions with long live-interval
   // variables, which are loaded from memory.
   for (Function::iterator i = func->begin(), e = func->end(); i != e; ++i) {
-    if (Loop *L = LI.getLoopFor(i)) {
+    BasicBlock* BB = &*i;
+    if (Loop *L = LI.getLoopFor(BB)) {
       if (L->getBlocks().size() <= 2) {
         // Number of instructions in the loop
         size_t numOfInstructions = i->getInstList().size();
         // count number of loads nodes to estimate number of "live variables"
         unsigned int numOfLoadNodes = 0;
-        for (BasicBlock::iterator bbi = i->begin(), bbe = i->end(); bbi != bbe;
+        for (BasicBlock::iterator bbi = BB->begin(), bbe = BB->end(); bbi != bbe;
              ++bbi) {
-          if (isa<LoadInst>(bbi)) {
+          if (isa<LoadInst>(&*bbi)) {
             ++numOfLoadNodes;
           }
         }

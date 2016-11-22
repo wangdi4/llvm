@@ -21,7 +21,7 @@ entry:
   %vector = shufflevector <4 x i32> %temp, <4 x i32> undef, <4 x i32> zeroinitializer
   %0 = add <4 x i32> %vector, <i32 0, i32 1, i32 2, i32 3>
   store i32* %pint, i32* addrspace(3)* @testKernel.structWithPointers.2, align 4
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %results, i32 %call
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %results, i32 %call
   store i32 1, i32 addrspace(1)* %arrayidx, align 4
   ret void
 }

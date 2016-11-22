@@ -21,7 +21,6 @@ class Shared : Generic {
 let NativeTypes = [v16i8, v16u8, v8i16, v8u16, v4i32, v4u32, v2i64, v2u64, v4f32, v2f64];
 
 code Prolog = [{
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include "svml_shared.h"
 #define __OPENCL__
 #ifdef __APPLE__

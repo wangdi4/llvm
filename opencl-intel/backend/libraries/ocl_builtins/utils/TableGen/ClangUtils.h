@@ -19,4 +19,4 @@ std::string generateDummyBody(const std::string& type, size_t veclen);
 ///////////////////////////////////////////////////////////////////////////////
 void build(const std::string& code, std::string fileName);
 
-#endif//__CLANG_UTILS_H__backend/libraries/ocl_builtins/utils/TableGen/OclBuiltinsHeaderGen.cpp
+#endif//__CLANG_UTILS_H__

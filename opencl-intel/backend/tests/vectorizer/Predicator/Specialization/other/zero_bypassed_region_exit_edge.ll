@@ -25,7 +25,7 @@ BB1:                                              ; preds = %BB0
 
 BB2:                                              ; preds = %BB1
   %sext.10.0 = sext i32 %call.10.0 to i64
-  %getelementptr.14.0 = getelementptr inbounds i32* %arg0, i64 %sext.10.0
+  %getelementptr.14.0 = getelementptr inbounds i32, i32* %arg0, i64 %sext.10.0
   store i32 0, i32* %getelementptr.14.0, align 4
   br label %BB3
 

@@ -44,21 +44,21 @@ L4:
 ;;;; TODO: add regular expression for the below values.
 
 ; CHECK: SyncBB2:                                          ; preds = %Dispatch, %L3
-; CHECK: %SBIndex = load i32* %pCurrSBIndex
+; CHECK: %SBIndex = load i32, i32* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset = add nuw i32 %SBIndex, 4
-; CHECK: %7 = getelementptr inbounds i8* %pSB, i32 %SB_LocalId_Offset
+; CHECK: %7 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
 ; CHECK: %pSB_LocalId = bitcast i8* %7 to i32*
-; CHECK: %loadedValue = load i32* %pSB_LocalId
-; CHECK: %SBIndex1 = load i32* %pCurrSBIndex
+; CHECK: %loadedValue = load i32, i32* %pSB_LocalId
+; CHECK: %SBIndex1 = load i32, i32* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset2 = add nuw i32 %SBIndex1, 0
-; CHECK: %8 = getelementptr inbounds i8* %pSB, i32 %SB_LocalId_Offset2
+; CHECK: %8 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset2
 ; CHECK: %pSB_LocalId3 = bitcast i8* %8 to i32*
 ; CHECK: store i32 %loadedValue, i32* %pSB_LocalId3
-; CHECK: %SBIndex4 = load i32* %pCurrSBIndex
+; CHECK: %SBIndex4 = load i32, i32* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset5 = add nuw i32 %SBIndex4, 0
-; CHECK: %9 = getelementptr inbounds i8* %pSB, i32 %SB_LocalId_Offset5
+; CHECK: %9 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset5
 ; CHECK: %pSB_LocalId6 = bitcast i8* %9 to i32*
-; CHECK: %loadedValue7 = load i32* %pSB_LocalId6
+; CHECK: %loadedValue7 = load i32, i32* %pSB_LocalId6
 ; CHECK: %w = and i32 %loadedValue7, %loadedValue7
 ; CHECK: br label %L4
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -81,12 +81,12 @@ L2:
 ;;;; TODO: add regular expression for the below values.
 
 ; CHECK: LoopBB:                                           ; preds = %Dispatch, %SyncBB0
-; CHECK: %SBIndex1 = load i32* %pCurrSBIndex
+; CHECK: %SBIndex1 = load i32, i32* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset = add nuw i32 %SBIndex1, 4
-; CHECK: %7 = getelementptr inbounds i8* %pSB, i32 %SB_LocalId_Offset
+; CHECK: %7 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
 ; CHECK: %pSB_LocalId = bitcast i8* %7 to i32*
 ; CHECK: store i32 %x, i32* %pSB_LocalId
-; CHECK: %LocalId_0 = load i32* %pLocalId_0
+; CHECK: %LocalId_0 = load i32, i32* %pLocalId_0
 ; CHECK: %8 = add nuw i32 %LocalId_0, 1
 ; CHECK: store i32 %8, i32* %pLocalId_0
 ; CHECK: %9 = icmp ult i32 %8, %LocalSize_0

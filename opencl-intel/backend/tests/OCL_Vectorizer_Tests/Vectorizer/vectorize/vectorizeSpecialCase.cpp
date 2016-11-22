@@ -483,7 +483,8 @@ bool VectorizeFunction::vectorizeFractFunc(CallInst * CI)
 		V_UNEXPECTED("function not found in runtime module");
 		return false;
 	}
-	Constant * vectorFractFunc = CURRENT_MODULE->getOrInsertFunction(fractFuncsList[index], LibFunc->getFunctionType());
+	auto *vectorFractFunc = dyn_cast<Function *>(
+          CompilationUtils::importFunctionDecl(CURRENT_MODULE, LibFunc));
 	if (!vectorFractFunc)
 	{
 		V_UNEXPECTED("failed to generate function in current module");

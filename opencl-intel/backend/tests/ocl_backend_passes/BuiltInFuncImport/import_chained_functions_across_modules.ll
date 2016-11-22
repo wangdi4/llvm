@@ -1,4 +1,6 @@
-; RUN: opt -runtimelib=%s.1.rtl,%s.2.rtl -builtin-import -verify %s -S | FileCheck %s
+; RUN: llvm-as %s.1.rtl -o %s.1.rtl.bc
+; RUN: llvm-as %s.2.rtl -o %s.2.rtl.bc
+; RUN: opt -runtimelib=%s.1.rtl.bc,%s.2.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;********************************************************************************
 ; This test checks that the BuiltInFuncImport pass imports functions in 
@@ -31,7 +33,7 @@ entry:
 declare <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
 
 
-; CHECK:  define linkonce_odr <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
-; CHECK:  define linkonce_odr <3 x i8> @_Z17convert_char3_satDv3_i(<3 x i32> %x)
-; CHECK:  define linkonce_odr <3 x i8> @_Z18convert_short3_satDv3_i(<3 x i32> %x)
+; CHECK-DAG:  define linkonce_odr <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
+; CHECK-DAG:  define linkonce_odr <3 x i8> @_Z17convert_char3_satDv3_i(<3 x i32> %x)
+; CHECK-DAG:  define linkonce_odr <3 x i8> @_Z18convert_short3_satDv3_i(<3 x i32> %x)
 

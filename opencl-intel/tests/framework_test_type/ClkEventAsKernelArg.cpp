@@ -1,6 +1,8 @@
 #include <CL/cl.h>
 #include "FrameworkTest.h"
 
+#include <memory>
+
 extern cl_device_type gDeviceType;
 
 // Test what clk_event_t instance is correctly passed to device side kernel
@@ -70,6 +72,20 @@ bool ClkEventAsKernelArg()
 
     err = clBuildProgram(program, 1, &device, "-cl-std=CL2.0", NULL, NULL);
     bResult = SilentCheck(L"clBuildProgram",CL_SUCCESS,err);
+
+    if (!bResult) {
+      size_t log_buffer_len;
+      err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, NULL, NULL, &log_buffer_len);
+      int bScopedRes = SilentCheck(L"clGetProgramBuildInfo", CL_SUCCESS, err);
+      if (!bScopedRes) return bScopedRes;
+      std::unique_ptr<char> log_buffer(new char[log_buffer_len]);
+      err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_buffer_len, log_buffer.get(), NULL);
+      bScopedRes = SilentCheck(L"clGetProgramBuildInfo", CL_SUCCESS, err);
+      if (!bScopedRes) return bScopedRes;
+      std::cout << "* Build failure. Log:         *\n" << std::endl;
+      std::cout << log_buffer.get() << std::endl;
+    }
+
     if (!bResult)  return bResult;
 
     cl_kernel kernel;

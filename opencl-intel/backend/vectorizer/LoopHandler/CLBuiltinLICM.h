@@ -51,7 +51,7 @@ public:
   /// @param AU - usage of analysis.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<LoopInfo>();
+    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<BuiltinLibInfo>();
     AU.setPreservesCFG();
   };

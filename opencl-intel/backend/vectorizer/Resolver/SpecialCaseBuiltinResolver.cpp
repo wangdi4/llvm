@@ -5,6 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "SpecialCaseBuiltinResolver.h"
+#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 #include "Mangler.h"
 #include "OCLPassSupport.h"
@@ -12,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/LegacyPassManager.h"
 
 #include <vector>
 
@@ -45,16 +47,17 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
 
   for (Module::iterator it = M.begin(), e = M.end(); it!=e; ++it) {
     std::string curFuncName = it->getName().str();
+    Function* f = &*it;
     if (m_runtimeServices->needSpecialCaseResolving(curFuncName)) {
-      fakeFunctions.push_back(it);
-      fillWrapper(it , curFuncName);
+      fakeFunctions.push_back(f);
+      fillWrapper(f , curFuncName);
       changed =true;
     }
   }
   V_PRINT(SpecialCaseBuiltinResolver, "finished filling wrappers\n");
 
   if (changed){
-    PassManager mpm1;
+    legacy::PassManager mpm1;
     // Register inliner
     Pass *inlinerPass = createFunctionInliningPass(4096);
     mpm1.add(inlinerPass);
@@ -74,7 +77,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
 
   // running instcombine on affected kernels
   if (changed) {
-    FunctionPassManager fpm(&M);
+    legacy::FunctionPassManager fpm(&M);
     fpm.add(createInstructionCombiningPass());
     SmallPtrSet<Function*, 8>::iterator it = m_changedKernels.begin();
     SmallPtrSet<Function*, 8>::iterator e  = m_changedKernels.end();
@@ -91,13 +94,14 @@ void SpecialCaseBuiltinResolver::obtainArguments(Function *F, const FunctionType
   Function::arg_iterator argE = F->arg_end();
   unsigned resolvedFuncArgInd = 0;
   for ( ;argIt != argE; ++argIt ) {
-    ArrayType *arrType = dyn_cast<ArrayType>(argIt->getType());
+    Argument* arg = &*argIt;
+    ArrayType *arrType = dyn_cast<ArrayType>(arg->getType());
     if (arrType) {
       // incase wrapper argument is array of vectors than we extract the vectors
       // and pass each one separately to the true builtin
       unsigned nElts = arrType->getNumElements();
       for (unsigned i=0; i<nElts; ++i) {
-        ExtractValueInst *EVI = ExtractValueInst::Create(argIt, i, "extract_param", loc);
+        ExtractValueInst *EVI = ExtractValueInst::Create(arg, i, "extract_param", loc);
         Type *desiredType = resolvedFuncType->getParamType(resolvedFuncArgInd);
         Value *curArg = VectorizerUtils::getCastedArgIfNeeded(EVI, desiredType, loc);
         resolvedArgs.push_back(curArg);
@@ -105,7 +109,7 @@ void SpecialCaseBuiltinResolver::obtainArguments(Function *F, const FunctionType
       }
     } else {
       Type *desiredType = resolvedFuncType->getParamType(resolvedFuncArgInd);
-      Value *curArg = VectorizerUtils::getCastedArgIfNeeded(argIt, desiredType, loc);
+      Value *curArg = VectorizerUtils::getCastedArgIfNeeded(arg, desiredType, loc);
       resolvedArgs.push_back(curArg);
       resolvedFuncArgInd++;
     }
@@ -171,8 +175,9 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   Function *resolvedFunc = m_curModule->getFunction(resolvedName);
   if (!resolvedFunc)  {
     Function *LibFunc = m_runtimeServices->findInRuntimeModule(resolvedName);
-    Constant *resolvedFunctionConst = F->getParent()->getOrInsertFunction(
-        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+    using namespace Intel::OpenCL::DeviceBackend;
+    Constant *resolvedFunctionConst = CompilationUtils::importFunctionDecl(
+      F->getParent(), LibFunc);
     resolvedFunc = dyn_cast<Function>(resolvedFunctionConst);
   }
   V_ASSERT(resolvedFunc && "resolvedFunc is nullptr");

@@ -27,19 +27,19 @@ entry:
   store i32 %4, i32* %tid
   %5 = load i32* %tid                             ; <i32> [#uses=1]
   %6 = load <4 x i32> addrspace(1)** %1           ; <<4 x i32> addrspace(1)*> [#uses=1]
-  %7 = getelementptr inbounds <4 x i32> addrspace(1)* %6, i32 %5 ; <<4 x i32> addrspace(1)*> [#uses=1]
+  %7 = getelementptr inbounds <4 x i32>, <4 x i32> addrspace(1)* %6, i32 %5 ; <<4 x i32> addrspace(1)*> [#uses=1]
   %8 = load <4 x i32> addrspace(1)* %7            ; <<4 x i32>> [#uses=1]
   %9 = bitcast <4 x i32> %8 to <4 x float>        ; <<4 x float>> [#uses=1]
   store <4 x float> %9, <4 x float>* %tmp
   %10 = load <4 x float>* %tmp                    ; <<4 x float>> [#uses=1]
   %11 = load i32* %tid                            ; <i32> [#uses=1]
   %12 = load <4 x float> addrspace(1)** %2        ; <<4 x float> addrspace(1)*> [#uses=1]
-  %13 = getelementptr inbounds <4 x float> addrspace(1)* %12, i32 %11 ; <<4 x float> addrspace(1)*> [#uses=1]
+  %13 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %12, i32 %11 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %10, <4 x float> addrspace(1)* %13
-  %14 = load <16 x i16>* %a3                      ; <<16 x i16>> [#uses=1]
+  %14 = load <16 x i16>, <16 x i16>* %a3                      ; <<16 x i16>> [#uses=1]
   %15 = bitcast <16 x i16> %14 to <8 x i32>       ; <<8 x i32>> [#uses=1]
   store <8 x i32> %15, <8 x i32>* %a4
-  %16 = load <8 x i32>* %a5                       ; <<8 x i32>> [#uses=1]
+  %16 = load <8 x i32>, <8 x i32>* %a5                       ; <<8 x i32>> [#uses=1]
   %17 = bitcast <8 x i32> %16 to <16 x i16>       ; <<16 x i16>> [#uses=1]
   store <16 x i16> %17, <16 x i16>* %a6
   %18 = bitcast <4 x float>* %a1 to float*        ; <float*> [#uses=1]

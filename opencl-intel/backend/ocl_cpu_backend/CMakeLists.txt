@@ -324,7 +324,6 @@ set( BACKEND_PASSES
     AddImplicitArgs
     OclFunctionAttrs
     BuiltInFuncImport
-    BuiltInAttributesImport
     BuiltinLibInfo
     DebugInfoPass
     DetectRecursion

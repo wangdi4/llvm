@@ -17,7 +17,7 @@ define void @ashr_shl(float addrspace(1)* nocapture %a) nounwind {
   %gid = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %shl_gid = shl i64 %gid, 32
   %ashr_gid = ashr exact i64 %shl_gid, 32
-  %gep = getelementptr inbounds float addrspace(1)* %a, i64 %ashr_gid
+  %gep = getelementptr inbounds float, float addrspace(1)* %a, i64 %ashr_gid
   store float 0.000000e+00, float addrspace(1)* %gep, align 4
   ret void
 }
@@ -30,7 +30,7 @@ define void @ashr_add_shl(float addrspace(1)* nocapture %a) nounwind {
   %shl_gid = shl i64 %gid, 32
   %add_gid = add i64 %shl_gid, 4303574410461184
   %ashr_gid = ashr exact i64 %add_gid, 32
-  %gep = getelementptr inbounds float addrspace(1)* %a, i64 %ashr_gid
+  %gep = getelementptr inbounds float, float addrspace(1)* %a, i64 %ashr_gid
   store float 0.000000e+00, float addrspace(1)* %gep, align 4
   ret void
 }

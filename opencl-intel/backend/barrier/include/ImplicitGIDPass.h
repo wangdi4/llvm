@@ -68,7 +68,7 @@ namespace intel {
 
     /// @brief Gets or create unsigned long debug info tyoe
     /// returns DIType unsigned long DIType
-    DIType const& getOrCreateUlongDIType() const;
+    DIType* getOrCreateUlongDIType() const;
 
     /// @brief Iterates instructions in a basic block and tries to find the first
     ///  instruction with scope and loc information and return these.
@@ -76,7 +76,7 @@ namespace intel {
     /// @param scope scope information
     /// @param loc debug location
     /// @returns bool True if a scope and loc were found
-    bool getBBScope(const BasicBlock& BB, DIDescriptor& scope, DebugLoc& loc);
+    bool getBBScope(const BasicBlock& BB, DIScope** scope, DebugLoc& loc);
 
   private:
     /// This is barrier utility class

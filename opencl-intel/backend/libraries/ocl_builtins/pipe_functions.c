@@ -21,191 +21,188 @@
 // This source file contains an implementation of OpenCL 2.0 built-in pipe functions
 
 #if defined(_DEBUG)
-#define INTEL_PIPE_DPF(format, args...) (void)printf
+#define INTEL_PIPE_DPF(format, args...) (void) printf
 #else
 #define INTEL_PIPE_DPF(format, args...)
 #endif
 
 #if __OPENCL_C_VERSION__ >= 200
 
-#if !defined (__MIC__) && !defined(__MIC2__)
+#if !defined(__MIC__) && !defined(__MIC2__)
 
 #define ALWAYS_INLINE __attribute__((always_inline))
 #define OVERLOADABLE __attribute__((overloadable))
 
-// CSSD100017148 workaround:
-//    Enable build of pipe_functions.c for OpenCL 1.2 by replacing "pipe int" with "__global struct pipe_t *".
-//    The workaround relies on BuiltInFuncImport pass which maps different structure types of the same arguments.
-//    Look for CSSD100017148 in src/backend/passes/BuiltInFuncImport/BuiltInFuncImport.cpp
-typedef __global struct ocl_pipe* PIPE_T;
+// There are no declarations of OpenCL 2.0 builtins in opencl_.h for named
+// address space but in the library they has to be called directly because the
+// library won't be handled by "Generic Address Resolution" passes. So declare
+// them here.
+bool OVERLOADABLE atomic_compare_exchange_strong_explicit(
+    volatile __global atomic_int *object, __private int *expected, int desired,
+    memory_order success, memory_order failure, memory_scope scope);
+bool OVERLOADABLE
+atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object,
+                                        __private uint *expected, uint desired,
+                                        memory_order success,
+                                        memory_order failure,
+                                        memory_scope scope);
 
-// There are no declarations of OpenCL 2.0 builtins in opencl_.h for named address space
-// but in the library they has to be called directly because the library
-// won't be handled by "Generic Address Resolution" passes. So declare them here.
-bool OVERLOADABLE atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __private int *expected, int desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool OVERLOADABLE atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __private uint *expected, uint desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
+int OVERLOADABLE atomic_load_explicit(volatile __global atomic_int *object,
+                                      memory_order order, memory_scope scope);
+uint OVERLOADABLE atomic_load_explicit(volatile __global atomic_uint *object,
+                                       memory_order order, memory_scope scope);
 
-int OVERLOADABLE atomic_load_explicit(volatile __global atomic_int *object, memory_order order, memory_scope scope);
-uint OVERLOADABLE atomic_load_explicit(volatile __global atomic_uint *object, memory_order order, memory_scope scope);
+int OVERLOADABLE atomic_fetch_add_explicit(volatile __global atomic_int *object,
+                                           int operand, memory_order order,
+                                           memory_scope scope);
+uint OVERLOADABLE
+atomic_fetch_add_explicit(volatile __global atomic_uint *object, uint operand,
+                          memory_order order, memory_scope scope);
 
-int OVERLOADABLE atomic_fetch_add_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint OVERLOADABLE atomic_fetch_add_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int OVERLOADABLE atomic_fetch_sub_explicit(volatile __global atomic_int *object,
+                                           int operand, memory_order order,
+                                           memory_scope scope);
+uint OVERLOADABLE
+atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand,
+                          memory_order order, memory_scope scope);
 
-int OVERLOADABLE atomic_fetch_sub_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint OVERLOADABLE atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-
-// The following functions are threated by clang as builtins.
-// To be SPIR conformant we have to use correctly mangled names in OCL code.
-// Switching these built-ins to having overloadable attribute is blocked by clang
-// that declares reserve builtins as returning 'int' instead of reserve_id_t
-// producing a conflicting type. It is not fixed in clang 3.8RC3.
-// It is not clear if it's a bug at all, since it blocks only implementing clang builtins
+// The following functions are threated by clang as builtins. To be SPIR
+// conformant we have to use correctly mangled names in OCL code. Switching
+// these built-ins to having overloadable attribute is blocked by clang that
+// declares reserve builtins as returning 'int' instead of reserve_id_t
+// producing a conflicting type. It is not fixed in clang 3.8RC3. It is not
+// clear if it's a bug at all, since it blocks only implementing clang builtins
 // directly in the source code being compiled.
-#define RESERVE_READ_PIPE                  _Z17reserve_read_pipePU3AS18ocl_pipejjj
-#define RESERVE_WRITE_PIPE                 _Z18reserve_write_pipePU3AS18ocl_pipejjj
-#define WORK_GROUP_RESERVE_READ_PIPE       _Z28work_group_reserve_read_pipePU3AS18ocl_pipejjj
-#define WORK_GROUP_RESERVE_WRITE_PIPE      _Z29work_group_reserve_write_pipePU3AS18ocl_pipejjj
+#define RESERVE_READ_PIPE                  __reserve_read_pipe
+#define RESERVE_WRITE_PIPE                 __reserve_write_pipe
+#define WORK_GROUP_RESERVE_READ_PIPE       __work_group_reserve_read_pipe
+#define WORK_GROUP_RESERVE_WRITE_PIPE      __work_group_reserve_write_pipe
 
-// pipe_control_intel_t structure MUST BE ALIGNED with the one defined in src/cl_api/PipeCommon.h
-#define INTEL_PIPE_HEADER_RESERVED_SPACE    128
+// pipe_control_intel_t structure MUST BE ALIGNED with the one defined in
+// src/cl_api/PipeCommon.h
+#define INTEL_PIPE_HEADER_RESERVED_SPACE 128
 // Total size:  129 ( + 1 because of a variable length array).
 //              RT must allocate 128 chars for pipe control at the beginning of
 //              contiguous memory. This buffer must be aligned by CACHE_LINE.
 #define CACHE_LINE 64
-typedef struct _tag_pipe_control_intel_t
-{
-    // The pipe packet size is always passed as an implicit argument (i32 immediate)
+typedef struct _tag_pipe_control_intel_t {
+  // The pipe packet size is always passed as an implicit argument (i32
+  // immediate)
 
-    // Total number of packets in the pipe.  This value must be
-    // set by the host when the pipe is created. Pipe cannot accommodate
-    // more than pipe_max_packets_plus_one – 1 packets. So RT must allocate memory
-    // for one more packet.
-    const uint pipe_max_packets_plus_one;
+  // Total number of packets in the pipe.  This value must be
+  // set by the host when the pipe is created. Pipe cannot accommodate
+  // more than pipe_max_packets_plus_one – 1 packets. So RT must allocate memory
+  // for one more packet.
+  const uint pipe_max_packets_plus_one;
 
-    // The pipe head and tail must be set by the host when
-    // the pipe is created.  They will probably be set to zero,
-    // though as long as head equals tail, it doesn't matter
-    // what they are initially set to.
-    volatile atomic_uint head;  // Head Index, for reading: [0, pipe_max_packets_plus_one)
-    volatile atomic_uint tail;  // Tail Index, for writing: [0, pipe_max_packets_plus_one)
-    char pad0[CACHE_LINE - 2 * sizeof(atomic_uint) - sizeof(uint)];
+  // The pipe head and tail must be set by the host when
+  // the pipe is created.  They will probably be set to zero,
+  // though as long as head equals tail, it doesn't matter
+  // what they are initially set to.
+  volatile atomic_uint head;  // Head Index, for reading: [0, pipe_max_packets_plus_one)
+  volatile atomic_uint tail;  // Tail Index, for writing: [0, pipe_max_packets_plus_one)
+  char pad0[CACHE_LINE - 2 * sizeof(atomic_uint) - sizeof(uint)];
 
-    // This controls whether the pipe is unlocked, locked for
-    // reading, or locked for writing.  If it is zero, the pipe
-    // is unlocked.  If it is positive, it is locked for writing.
-    // If it is negative, it is locked for reading. This must
-    // be set to zero by the host when the pipe is created.
-    volatile atomic_int lock;
-    char pad1[CACHE_LINE - sizeof(atomic_int)];
-    // The end of the control structure as it must be defined in the src/cl_api/PipeCommon.h
+  // This controls whether the pipe is unlocked, locked for
+  // reading, or locked for writing.  If it is zero, the pipe
+  // is unlocked.  If it is positive, it is locked for writing.
+  // If it is negative, it is locked for reading. This must
+  // be set to zero by the host when the pipe is created.
+  volatile atomic_int lock;
+  char pad1[CACHE_LINE - sizeof(atomic_int)];
+  // The end of the control structure as it must be defined in the
+  // src/cl_api/PipeCommon.h
 
-    // Packets storage begins right after the pipe control.
-    // Compiler will calculate the offset to that storage at places
-    // there it will find accesses to the "base" array.
-    char base[1];
+  // Packets storage begins right after the pipe control.
+  // Compiler will calculate the offset to that storage at places
+  // there it will find accesses to the "base" array.
+  char base[1];
 } pipe_control_intel_t;
 
-#define INTEL_PIPE_RESERVE_ID_VALID_BIT ((size_t)(1UL << (sizeof(size_t) * 8 - 1)))
-
-#define RTOS(r) ((size_t)(__builtin_astype((r), void*)))
-#define STOR(s) (__builtin_astype(((void*)(s)), reserve_id_t))
+#define RTOS(r) ((size_t)(__builtin_astype((r), void *)))
+#define STOR(s) (__builtin_astype(((void *)(s)), reserve_id_t))
 
 // WORKAROUND: __builtin_astype isn't working with pipes for the moment
 //#define PTOC(p)(__builtin_astype((p), (__global pipe_control_intel_t*)))
-typedef __global pipe_control_intel_t* gp_pipe_control_intel_t;
-#define PTOC(p) (*(gp_pipe_control_intel_t*)(&(p)))
+typedef __global pipe_control_intel_t *gp_pipe_control_intel_t;
+#define PTOC(p) (*(gp_pipe_control_intel_t *)(&(p)))
 
 /////////////////////////////////////////////////////////////////////
 // Pipe Helper Functions (static)
 
-ALWAYS_INLINE static uint advance( __global pipe_control_intel_t* p, uint base, uint stride )
-{
-    return select( base + stride,
-                   base + stride - p->pipe_max_packets_plus_one,
-                   (p->pipe_max_packets_plus_one <= base + stride) );
+ALWAYS_INLINE static uint advance(__global pipe_control_intel_t *p, uint base,
+                                  uint stride) {
+  return select(base + stride, base + stride - p->pipe_max_packets_plus_one,
+                (p->pipe_max_packets_plus_one <= base + stride));
 }
 
-ALWAYS_INLINE static reserve_id_t create_reserve_id( uint idx )
-{
-    return STOR((size_t)idx | INTEL_PIPE_RESERVE_ID_VALID_BIT);
+ALWAYS_INLINE static reserve_id_t create_reserve_id(uint idx) {
+  return STOR((size_t)idx | __PIPE_RESERVE_ID_VALID_BIT);
 }
 
-
-ALWAYS_INLINE static uint extract_index( reserve_id_t rid )
-{
-    return (uint)(RTOS(rid) & ~INTEL_PIPE_RESERVE_ID_VALID_BIT);
+ALWAYS_INLINE static uint extract_index(reserve_id_t rid) {
+  return (uint)(RTOS(rid) & ~__PIPE_RESERVE_ID_VALID_BIT);
 }
 
-ALWAYS_INLINE static bool intel_lock_pipe_read( __global pipe_control_intel_t* p )
-{
-    int lock = atomic_load_explicit( &p->lock, memory_order_relaxed, memory_scope_all_svm_devices );
-    while( lock <= 0 )
-    {
-        int newLock = lock - 1;
-        if(atomic_compare_exchange_strong_explicit( &p->lock, &lock, newLock,
-                                                    memory_order_relaxed,
-                                                    memory_order_relaxed,
-                                                    memory_scope_all_svm_devices ))
-        {
-          return true;
-        }
+ALWAYS_INLINE static bool
+intel_lock_pipe_read(__global pipe_control_intel_t *p) {
+  int lock = atomic_load_explicit(&p->lock, memory_order_relaxed,
+                                  memory_scope_all_svm_devices);
+  while (lock <= 0) {
+    int newLock = lock - 1;
+    if (atomic_compare_exchange_strong_explicit(
+            &p->lock, &lock, newLock, memory_order_relaxed,
+            memory_order_relaxed, memory_scope_all_svm_devices)) {
+      return true;
     }
-    return false;
+  }
+  return false;
 }
 
-ALWAYS_INLINE static void intel_unlock_pipe_read( __global pipe_control_intel_t* p )
-{
-    atomic_fetch_add_explicit( &p->lock, 1,
-                               memory_order_relaxed,
-                               memory_scope_all_svm_devices );
-    // OK to inc, since we must have locked.
+ALWAYS_INLINE static void
+intel_unlock_pipe_read(__global pipe_control_intel_t *p) {
+  atomic_fetch_add_explicit(&p->lock, 1, memory_order_relaxed,
+                            memory_scope_all_svm_devices);
+  // OK to inc, since we must have locked.
 }
 
-ALWAYS_INLINE static bool intel_lock_pipe_write( __global  pipe_control_intel_t* p )
-{
-    int lock = atomic_load_explicit( &p->lock, memory_order_relaxed, memory_scope_all_svm_devices );
-    while( lock >= 0 )
-    {
-        int newLock = lock + 1;
-        if(atomic_compare_exchange_strong_explicit( &p->lock, &lock, newLock,
-                                                    memory_order_relaxed,
-                                                    memory_order_relaxed,
-                                                    memory_scope_all_svm_devices ))
-        {
-          return true;
-        }
+ALWAYS_INLINE static bool
+intel_lock_pipe_write(__global pipe_control_intel_t *p) {
+  int lock = atomic_load_explicit(&p->lock, memory_order_relaxed,
+                                  memory_scope_all_svm_devices);
+  while (lock >= 0) {
+    int newLock = lock + 1;
+    if (atomic_compare_exchange_strong_explicit(
+            &p->lock, &lock, newLock, memory_order_relaxed,
+            memory_order_relaxed, memory_scope_all_svm_devices)) {
+      return true;
     }
-    return false;
+  }
+  return false;
 }
 
-ALWAYS_INLINE static void intel_unlock_pipe_write( __global pipe_control_intel_t* p )
-{
-    atomic_fetch_sub_explicit( &p->lock, 1,
-                               memory_order_relaxed,
-                               memory_scope_all_svm_devices );
-    // OK to dec, since we must have locked.
+ALWAYS_INLINE static void
+intel_unlock_pipe_write(__global pipe_control_intel_t *p) {
+  atomic_fetch_sub_explicit(&p->lock, 1, memory_order_relaxed,
+                            memory_scope_all_svm_devices);
+  // OK to dec, since we must have locked.
 }
-
 
 /////////////////////////////////////////////////////////////////////
 // Work Item Reservations
-reserve_id_t RESERVE_READ_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet, uint alignment_of_packet )
-{
-  INTEL_PIPE_DPF( "ENTER: reserve_read_pipe( num_packets = %d)\n", num_packets );
-  __global pipe_control_intel_t* p = PTOC(pipe_);
+reserve_id_t RESERVE_READ_PIPE(read_only pipe uchar pipe_, uint num_packets,
+                               uint size_of_packet, uint alignment_of_packet) {
+  INTEL_PIPE_DPF("ENTER: reserve_read_pipe( num_packets = %d)\n", num_packets);
+  __global pipe_control_intel_t *p = PTOC(pipe_);
   reserve_id_t retVal = CLK_NULL_RESERVE_ID;
 
-  // The maximum possible reservation number is (_pipe_max_packets_plus_one - 1) packets.
-  if( num_packets >= p->pipe_max_packets_plus_one ||
-      0 == num_packets )
-  {
-    INTEL_PIPE_DPF( "\t reserve_read_pipe: Sanity check failed!  num_packets = %d, pipe_max_packets_plus_one = %d\n",
-                    num_packets, p->pipe_max_packets_plus_one );
-  }
-  else if( intel_lock_pipe_read( p ) )
-  {
+  // The maximum possible reservation number is (_pipe_max_packets_plus_one - 1)
+  // packets.
+  if (num_packets >= p->pipe_max_packets_plus_one || 0 == num_packets) {
+    INTEL_PIPE_DPF("\t reserve_read_pipe: Sanity check failed!  num_packets = "
+                   "%d, pipe_max_packets_plus_one = %d\n",
+                   num_packets, p->pipe_max_packets_plus_one);
+  } else if (intel_lock_pipe_read(p)) {
     uint head = atomic_load_explicit( &p->head,
                                       memory_order_acquire,
                                       memory_scope_all_svm_devices );
@@ -213,66 +210,59 @@ reserve_id_t RESERVE_READ_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_pac
                                             memory_order_relaxed,
                                             memory_scope_all_svm_devices );
 
-    while( true )
-    {
+    while (true) {
       const uint newHead = advance(p, head, num_packets);
       bool wrap = newHead < head;
       INTEL_PIPE_DPF( "\t reserve_read_pipe: Initially, head = %d, new head = %d\n", head, newHead );
 
-      if( !wrap && ( head <= tail && tail < newHead ) )    // Underflow
+      if (!wrap && (head <= tail && tail < newHead)) // Underflow
       {
-        INTEL_PIPE_DPF( "\t reserve_read_pipe: Underflow!  num_packets = %d, head = %d, tail = %d\n",
-                        num_packets, head, tail );
+        INTEL_PIPE_DPF("\t reserve_read_pipe: Underflow!  num_packets = %d, "
+                       "head = %d, tail = %d\n",
+                       num_packets, head, tail);
         break;
-      }
-      else if ( wrap && ( head <= tail || tail < newHead ) )
-      {
-        INTEL_PIPE_DPF( "\t reserve_read_pipe: Wrap and Underflow!  num_packets = %d, head = %d, tail = %d\n",
-                        num_packets, head, tail );
+      } else if (wrap && (head <= tail || tail < newHead)) {
+        INTEL_PIPE_DPF("\t reserve_read_pipe: Wrap and Underflow!  num_packets "
+                       "= %d, head = %d, tail = %d\n",
+                       num_packets, head, tail);
         break;
       }
 
       if(atomic_compare_exchange_strong_explicit( &p->head, &head, newHead,
                                                   memory_order_release,
                                                   memory_order_relaxed,
-                                                  memory_scope_all_svm_devices ))
-      {
+                                                  memory_scope_all_svm_devices )) {
         retVal = create_reserve_id(head);
         // the lock must be unlocked with following commit
-        break;  // Success.
-      }
-      else
-      {
-        INTEL_PIPE_DPF( "\t read_pipe: Iterate!  old head = %d, new head = %d\n", head, newHead );
+        break; // Success.
+      } else {
+        INTEL_PIPE_DPF("\t read_pipe: Iterate!  old head = %d, new head = %d\n",
+                       head, newHead);
       }
     }
 
-    if( RTOS(retVal) == 0 )
-    {
-      intel_unlock_pipe_read( p );
+    if (RTOS(retVal) == 0) {
+      intel_unlock_pipe_read(p);
     }
     // Else: note, no unlock!  The pipe will be unlocked as part of committing
     // the reservation.
   }
 
-  INTEL_PIPE_DPF( "EXIT: reserve_read_pipe returned %08X\n", retVal );
+  INTEL_PIPE_DPF("EXIT: reserve_read_pipe returned %08X\n", retVal);
   return retVal;
 }
 
-reserve_id_t RESERVE_WRITE_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet, uint alignment_of_packet )
-{
-  INTEL_PIPE_DPF( "ENTER: reserve_write_pipe( num_packets = %d)\n", num_packets );
-  __global pipe_control_intel_t* p = PTOC(pipe_);
-  reserve_id_t    retVal = CLK_NULL_RESERVE_ID;
+reserve_id_t RESERVE_WRITE_PIPE(write_only pipe uchar pipe_, uint num_packets,
+                                uint size_of_packet, uint alignment_of_packet) {
+  INTEL_PIPE_DPF("ENTER: reserve_write_pipe( num_packets = %d)\n", num_packets);
+  __global pipe_control_intel_t *p = PTOC(pipe_);
+  reserve_id_t retVal = CLK_NULL_RESERVE_ID;
 
-  if( num_packets >= p->pipe_max_packets_plus_one ||
-      0 == num_packets )
-  {
-    INTEL_PIPE_DPF( "\t reserve_write_pipe: Sanity check failed!  num_packets = %d, pipe_max_packets_plus_one = %d\n",
-                    num_packets, p->pipe_max_packets_plus_one );
-  }
-  else if( intel_lock_pipe_write( p ) )
-  {
+  if (num_packets >= p->pipe_max_packets_plus_one || 0 == num_packets) {
+    INTEL_PIPE_DPF("\t reserve_write_pipe: Sanity check failed!  num_packets = "
+                   "%d, pipe_max_packets_plus_one = %d\n",
+                   num_packets, p->pipe_max_packets_plus_one);
+  } else if (intel_lock_pipe_write(p)) {
     uint tail = atomic_load_explicit( &p->tail,
                                       memory_order_acquire,
                                       memory_scope_all_svm_devices );
@@ -280,77 +270,67 @@ reserve_id_t RESERVE_WRITE_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_pa
                                             memory_order_relaxed,
                                             memory_scope_all_svm_devices );
 
-    while( true )
-    {
+    while (true) {
       const uint newTail = advance(p, tail, num_packets);
-      INTEL_PIPE_DPF( "\t reserve_write_pipe: Initially, tail = %d, new tail = %d\n", tail, newTail );
+      INTEL_PIPE_DPF(
+          "\t reserve_write_pipe: Initially, tail = %d, new tail = %d\n", tail,
+          newTail);
       bool wrap = newTail < tail;
 
-      if(!wrap && ( tail < head && head <= newTail ) ) {
-        INTEL_PIPE_DPF( "\t reserve_write_pipe: Overflow!  num_packets = %d, head = %d, tail = %d\n",
-                        num_packets, head, tail );
+      if (!wrap && (tail < head && head <= newTail)) {
+        INTEL_PIPE_DPF("\t reserve_write_pipe: Overflow!  num_packets = %d, "
+                       "head = %d, tail = %d\n",
+                       num_packets, head, tail);
         break;
-      }
-      else if(wrap && ( tail < head || head <= newTail ) )
-      {
-        INTEL_PIPE_DPF( "\t reserve_write_pipe: Wrap + Overflow!  num_packets = %d, pipe_max_packets_plus_one = %d, head = %d, tail = %d\n",
-                        num_packets, p->pipe_max_packets_plus_one, head, tail );
+      } else if (wrap && (tail < head || head <= newTail)) {
+        INTEL_PIPE_DPF("\t reserve_write_pipe: Wrap + Overflow!  num_packets = "
+                       "%d, pipe_max_packets_plus_one = %d, head = %d, tail = "
+                       "%d\n",
+                       num_packets, p->pipe_max_packets_plus_one, head, tail);
         break;
       }
 
       if(atomic_compare_exchange_strong_explicit( &p->tail, &tail, newTail,
                                                   memory_order_release,
                                                   memory_order_relaxed,
-                                                  memory_scope_all_svm_devices ))
-      {
+                                                  memory_scope_all_svm_devices )) {
         retVal = create_reserve_id(tail);
-        break;  // Success.
+        break; // Success.
         // the lock must be unlocked by the following commit
-      }
-      else
-      {
-        INTEL_PIPE_DPF( "\t reserve_write_pipe: Iterate!  old tail = %d, new tail = %d\n", tail, newTail );
+      } else {
+        INTEL_PIPE_DPF(
+            "\t reserve_write_pipe: Iterate!  old tail = %d, new tail = %d\n",
+            tail, newTail);
       }
     }
 
-    if( RTOS(retVal) == 0 )
-    {
-      intel_unlock_pipe_write( p );
+    if (RTOS(retVal) == 0) {
+      intel_unlock_pipe_write(p);
     }
-    // Otherwise, note: No unlock!  The pipe will be unlocked as part of committing
-    // the reservation.
+    // Otherwise, note: No unlock!  The pipe will be unlocked as part of
+    // committing the reservation.
   }
 
-  INTEL_PIPE_DPF( "EXIT: reserve_write_pipe returned %08X\n", retVal );
+  INTEL_PIPE_DPF("EXIT: reserve_write_pipe returned %08X\n", retVal);
   return retVal;
 }
 
-void commit_read_pipe_impl( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
-{
-  INTEL_PIPE_DPF( "ENTER: commit_read_pipe( reserve_id = %08X)\n", reserve_id );
-  __global pipe_control_intel_t* p = PTOC(pipe_);
+void __commit_read_pipe(read_only pipe uchar pipe_, reserve_id_t reserve_id,
+                        uint size_of_packet, uint alignment_of_packet) {
+  INTEL_PIPE_DPF("ENTER: commit_read_pipe( reserve_id = %08X)\n", reserve_id);
+  __global pipe_control_intel_t *p = PTOC(pipe_);
 
-  intel_unlock_pipe_read( p );
-  INTEL_PIPE_DPF( "EXIT: commit_read_pipe\n" );
+  intel_unlock_pipe_read(p);
+  INTEL_PIPE_DPF("EXIT: commit_read_pipe\n");
 }
 
-void OVERLOADABLE commit_read_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
-{
-  commit_read_pipe_impl( pipe_, reserve_id, size_of_packet, alignment_of_packet );
-}
+void __commit_write_pipe(write_only pipe uchar pipe_, reserve_id_t reserve_id,
+                         uint size_of_packet, uint alignment_of_packet) {
+  INTEL_PIPE_DPF("ENTER: commit_write_pipe( reserve_id = %08X)\n", reserve_id);
+  __global pipe_control_intel_t *p = PTOC(pipe_);
 
-void OVERLOADABLE commit_write_pipe_impl( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
-{
-  INTEL_PIPE_DPF( "ENTER: commit_write_pipe( reserve_id = %08X)\n", reserve_id );
-  __global pipe_control_intel_t* p = PTOC(pipe_);
-
-  intel_unlock_pipe_write( p );
-  INTEL_PIPE_DPF( "EXIT: commit_write_pipe\n" );
-}
-
-void OVERLOADABLE commit_write_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
-{
-  commit_write_pipe_impl( pipe_, reserve_id, size_of_packet, alignment_of_packet );
+  intel_unlock_pipe_write(p);
+  INTEL_PIPE_DPF("EXIT: commit_write_pipe\n");
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -358,52 +338,56 @@ void OVERLOADABLE commit_write_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint
 // The reservation functions lock the pipe, so we don't need to
 // re-lock here.
 
-int read_pipe_4_impl( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global void* data, uint size_of_packet, uint alignment_of_packet )
-{
-  INTEL_PIPE_DPF( "ENTER: read_pipe( reserve_id = %08X, index = %d)\n", reserve_id, index );
-  __global pipe_control_intel_t* p = PTOC(pipe_);
+int __read_pipe_4(read_only pipe uchar pipe_, reserve_id_t reserve_id, uint index, void *data,
+                  uint size_of_packet, uint alignment_of_packet) {
+  INTEL_PIPE_DPF("ENTER: read_pipe( reserve_id = %08X, index = %d)\n",
+                 reserve_id, index);
+  __global pipe_control_intel_t *p = PTOC(pipe_);
   int retVal = -1;
 
-  if( is_valid_reserve_id( reserve_id ) )
-  {
+  if (is_valid_reserve_id(reserve_id)) {
     const uint base_idx = extract_index(reserve_id);
-    __global char const * src = p->base + size_of_packet * advance(p, base_idx, index);
-    private void *vd = (private void *)((void*)data);
+    __global char const *src =
+        p->base + size_of_packet * advance(p, base_idx, index);
+    private void *vd = (private void *)data;
     private void const *vs = (private void const *)((void const *)src);
     __builtin_memcpy(vd, vs, size_of_packet);
-    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_acquire, memory_scope_all_svm_devices);
+    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_acquire,
+                           memory_scope_all_svm_devices);
     retVal = 0;
   }
 
-  INTEL_PIPE_DPF( "EXIT: read_pipe returned %d\n", retVal );
+  INTEL_PIPE_DPF("EXIT: read_pipe returned %d\n", retVal);
   return retVal;
 }
 
 // write_pipe with 4 explicit arguments
-int write_pipe_4_impl( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global void* data, uint size_of_packet, uint alignment_of_packet )
-{
-  INTEL_PIPE_DPF( "ENTER: write_pipe( reserve_id = %08X, index = %d)\n", reserve_id, index );
-  __global pipe_control_intel_t* p = PTOC(pipe_);
+int __write_pipe_4(write_only pipe uchar pipe_, reserve_id_t reserve_id, uint index,
+                   void *data, uint size_of_packet, uint alignment_of_packet) {
+  INTEL_PIPE_DPF("ENTER: write_pipe( reserve_id = %08X, index = %d)\n",
+                 reserve_id, index);
+  __global pipe_control_intel_t *p = PTOC(pipe_);
   int retVal = -1;
 
-  if( is_valid_reserve_id( reserve_id ) )
-  {
+  if (is_valid_reserve_id(reserve_id)) {
     const uint base_idx = extract_index(reserve_id);
-    __global char const * dst = p->base + size_of_packet * advance(p, base_idx, index);
-    private void *vd = (private void *)((void*)dst);
+    __global char const *dst =
+        p->base + size_of_packet * advance(p, base_idx, index);
+    private void *vd = (private void *)((void *)dst);
     private void const *vs = (private void const *)((void const *)data);
     __builtin_memcpy(vd, vs, size_of_packet);
-    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release, memory_scope_all_svm_devices);
+    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release,
+                           memory_scope_all_svm_devices);
     retVal = 0;
   }
 
-  INTEL_PIPE_DPF( "EXIT: write_pipe returned %d\n", retVal );
+  INTEL_PIPE_DPF("EXIT: write_pipe returned %d\n", retVal);
   return retVal;
 }
 
 /////////////////////////////////////////////////////////////////////
 // Basic Reads and Writes
-int read_pipe_2_impl( PIPE_T pipe_, __global void* data, uint size_of_packet, uint alignment_of_packet)
+int __read_pipe_2( read_only pipe uchar pipe_, void* data, uint size_of_packet, uint alignment_of_packet)
 {
   __global pipe_control_intel_t* p = PTOC(pipe_);
   INTEL_PIPE_DPF( "ENTER: read_pipe\n" );
@@ -442,7 +426,7 @@ int read_pipe_2_impl( PIPE_T pipe_, __global void* data, uint size_of_packet, ui
                                                   memory_order_relaxed,
                                                   memory_scope_all_svm_devices ))
       {
-        private void *vd = (private void *)((void*)data);
+        private void *vd = (private void *)data;
         private void const *vs = (private void const *)((void const *)(p->base + head * size_of_packet));
         __builtin_memcpy(vd, vs, size_of_packet);
         atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_acquire, memory_scope_all_svm_devices);
@@ -462,7 +446,7 @@ int read_pipe_2_impl( PIPE_T pipe_, __global void* data, uint size_of_packet, ui
   return retVal;
 }
 
-int write_pipe_2_impl(PIPE_T pipe_, __global void* data, uint size_of_packet, uint alignment_of_packet)
+int __write_pipe_2(write_only pipe uchar pipe_, void* data, uint size_of_packet, uint alignment_of_packet)
 {
   INTEL_PIPE_DPF( "ENTER: write_pipe\n" );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -519,31 +503,32 @@ int write_pipe_2_impl(PIPE_T pipe_, __global void* data, uint size_of_packet, ui
   return retVal;
 }
 
-bool OVERLOADABLE is_valid_reserve_id( reserve_id_t reserve_id )
-{
-  return ( RTOS(reserve_id) & INTEL_PIPE_RESERVE_ID_VALID_BIT ) != 0;
+bool OVERLOADABLE is_valid_reserve_id(reserve_id_t reserve_id) {
+  return (RTOS(reserve_id) & __PIPE_RESERVE_ID_VALID_BIT) != 0;
 }
 
 /////////////////////////////////////////////////////////////////////
 // Pipe Queries
-uint OVERLOADABLE get_pipe_num_packets( PIPE_T pipe_, uint size_of_packet, uint alignment_of_packet )
-{
+uint __get_pipe_num_packets(pipe uchar pipe_, uint size_of_packet,
+                            uint alignment_of_packet) {
   (void)size_of_packet; // Avoid warning about unused variable.
-  __global pipe_control_intel_t* p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = PTOC(pipe_);
 
-  // load from tail shouldn't be moved before load from head so acquire head first then relaxively load tail
-  uint head = atomic_load_explicit( &p->head, memory_order_acquire, memory_scope_all_svm_devices );
-  uint tail = atomic_load_explicit( &p->tail, memory_order_relaxed, memory_scope_all_svm_devices );
+  // load from tail shouldn't be moved before load from head so acquire head
+  // first then relaxively load tail
+  uint head = atomic_load_explicit(&p->head, memory_order_acquire,
+                                   memory_scope_all_svm_devices);
+  uint tail = atomic_load_explicit(&p->tail, memory_order_relaxed,
+                                   memory_scope_all_svm_devices);
 
-  return select( p->pipe_max_packets_plus_one - head + tail,
-                 tail - head,
-                 (uint)(head <= tail) );
+  return select(p->pipe_max_packets_plus_one - head + tail, tail - head,
+                (uint)(head <= tail));
 }
 
-uint OVERLOADABLE get_pipe_max_packets( PIPE_T pipe_, uint size_of_packet, uint alignment_of_packet )
-{
+uint __get_pipe_max_packets(pipe uchar pipe_, uint size_of_packet,
+                            uint alignment_of_packet) {
   (void)size_of_packet; // Avoid warning about unused variable.
-  __global pipe_control_intel_t* p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = PTOC(pipe_);
   return p->pipe_max_packets_plus_one - 1;
 }
 
@@ -551,83 +536,31 @@ uint OVERLOADABLE get_pipe_max_packets( PIPE_T pipe_, uint size_of_packet, uint 
 // WG functions are handled by the barrier pass so that
 // they are called once per WG.
 
-reserve_id_t WORK_GROUP_RESERVE_READ_PIPE( PIPE_T p, uint num_packets, uint size_of_packet, uint alignment_of_packet )
-{
-  return RESERVE_READ_PIPE( p, num_packets, size_of_packet, alignment_of_packet );
+reserve_id_t WORK_GROUP_RESERVE_READ_PIPE(read_only pipe uchar p, uint num_packets,
+                                          uint size_of_packet,
+                                          uint alignment_of_packet) {
+  return RESERVE_READ_PIPE(p, num_packets, size_of_packet, alignment_of_packet);
 }
 
-reserve_id_t WORK_GROUP_RESERVE_WRITE_PIPE( PIPE_T p, uint num_packets, uint size_of_packet, uint alignment_of_packet )
-{
-  return RESERVE_WRITE_PIPE( p, num_packets, size_of_packet, alignment_of_packet );
+reserve_id_t WORK_GROUP_RESERVE_WRITE_PIPE(write_only pipe uchar p, uint num_packets,
+                                           uint size_of_packet,
+                                           uint alignment_of_packet) {
+  return RESERVE_WRITE_PIPE(p, num_packets, size_of_packet,
+                            alignment_of_packet);
 }
 
-void OVERLOADABLE work_group_commit_read_pipe( PIPE_T p, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
-{
-  commit_read_pipe_impl( p, reserve_id, size_of_packet, alignment_of_packet );
+void __work_group_commit_read_pipe(read_only pipe uchar p, reserve_id_t reserve_id,
+                                   uint size_of_packet,
+                                   uint alignment_of_packet) {
+  __commit_read_pipe(p, reserve_id, size_of_packet, alignment_of_packet);
 }
 
-void OVERLOADABLE work_group_commit_write_pipe( PIPE_T p, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
-{
-  commit_write_pipe_impl( p, reserve_id, size_of_packet, alignment_of_packet );
+void __work_group_commit_write_pipe(write_only pipe uchar p, reserve_id_t reserve_id,
+                                    uint size_of_packet,
+                                    uint alignment_of_packet) {
+  __commit_write_pipe(p, reserve_id, size_of_packet, alignment_of_packet);
 }
 
-/////////////////////////////////////////////////////////////////////
-
-// read_pipe(pipe gentype p, gentype *data);
-int OVERLOADABLE read_pipe( PIPE_T pipe_, __global void* data, uint size_of_packet, uint alignment_of_packet)
-{
-  return read_pipe_2_impl(pipe_, data, size_of_packet, alignment_of_packet);
-}
-int OVERLOADABLE read_pipe( PIPE_T pipe_, __local void* data, uint size_of_packet, uint alignment_of_packet)
-{
-  return read_pipe_2_impl(pipe_, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
-}
-int OVERLOADABLE read_pipe( PIPE_T pipe_, __private void* data, uint size_of_packet, uint alignment_of_packet)
-{
-  return read_pipe_2_impl(pipe_, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
-}
-
-// read_pipe(pipe gentype p, reserve_id_t reserve_id, uint index, gentype *data);
-int OVERLOADABLE read_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global void* data, uint size_of_packet, uint alignment_of_packet )
-{
-  return read_pipe_4_impl(pipe_, reserve_id, index, data, size_of_packet, alignment_of_packet);
-}
-int OVERLOADABLE read_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __local void* data, uint size_of_packet, uint alignment_of_packet )
-{
-  return read_pipe_4_impl(pipe_, reserve_id, index, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
-}
-int OVERLOADABLE read_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __private void* data, uint size_of_packet, uint alignment_of_packet )
-{
-  return read_pipe_4_impl(pipe_, reserve_id, index, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
-}
-
-// write_pipe(pipe gentype p, gentype *data);
-int OVERLOADABLE write_pipe(PIPE_T pipe_, __global void* data, uint size_of_packet, uint alignment_of_packet)
-{
-  return write_pipe_2_impl(pipe_, data, size_of_packet, alignment_of_packet);
-}
-int OVERLOADABLE write_pipe(PIPE_T pipe_, __local void* data, uint size_of_packet, uint alignment_of_packet)
-{
-  return write_pipe_2_impl(pipe_, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
-}
-int OVERLOADABLE write_pipe(PIPE_T pipe_, __private void* data, uint size_of_packet, uint alignment_of_packet)
-{
-  return write_pipe_2_impl(pipe_, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
-}
-
-// write_pipe(pipe gentype p, reserve_id_t reserve_id, uint index, gentype *data);
-int OVERLOADABLE write_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global void* data, uint size_of_packet, uint alignment_of_packet )
-{
-  return write_pipe_4_impl(pipe_, reserve_id, index, data, size_of_packet, alignment_of_packet);
-}
-int OVERLOADABLE write_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __local void* data, uint size_of_packet, uint alignment_of_packet )
-{
-  return write_pipe_4_impl(pipe_, reserve_id, index, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
-}
-int OVERLOADABLE write_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __private void* data, uint size_of_packet, uint alignment_of_packet )
-{
-  return write_pipe_4_impl(pipe_, reserve_id, index, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
-}
 #endif // defined (__MIC__) || defined(__MIC2__)
 
 #endif // __OPENCL_C_VERSION__ >= 200

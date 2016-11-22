@@ -154,13 +154,7 @@ static void EndProgram(cl_context context) {
   clReleaseContext(context);
 }
 
-#if defined(_WIN32)
-#define SETENV(NAME,VALUE)      (SetEnvironmentVariableA(NAME,VALUE) != 0)
-#define UNSETENV(NAME)          (SetEnvironmentVariableA(NAME,NULL) != 0)
-#else
-#define SETENV(NAME,VALUE)      (setenv(NAME,VALUE,1) == 0)
-#define UNSETENV(NAME)          (unsetenv(NAME) == 0)
-#endif
+
 
 bool cl_GenStats() {
 #ifdef NDEBUG
@@ -172,7 +166,7 @@ bool cl_GenStats() {
 
   bool res = true;
 
-  if (!SETENV("VOLCANO_STATS", "") ||
+  if (!SETENV("VOLCANO_STATS", "Vectorizer") ||
       !SETENV("VOLCANO_IR_FILE_BASE_NAME", "StatFile")) {
     printf ("ERROR: GenStat: Can't set stat environment variables. Test FAILED\n");
     return false;

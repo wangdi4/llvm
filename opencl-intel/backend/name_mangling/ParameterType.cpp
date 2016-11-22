@@ -37,6 +37,11 @@ namespace reflection {
     return p && (m_primitive == p->m_primitive);
   }
 
+  void PrimitiveType::setPrimitive(TypePrimitiveEnum primitive) {
+    assert((primitive >= PRIMITIVE_FIRST
+      && primitive <= PRIMITIVE_LAST) && "illegal primitive");
+    m_primitive = primitive;
+  }
 
   //
   //Pointer Type

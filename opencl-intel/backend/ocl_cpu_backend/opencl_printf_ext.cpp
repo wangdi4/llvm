@@ -232,7 +232,9 @@ int c99_snprintf(char* str, size_t size, const char* format, ...)
 //
 void c99_fix_format_e()
 {
-#if defined(_WIN32)
+  // starting VS2015 two-digit exponent mode is now the default and the non-conforming,
+  // previously-default, three-digit exponent format is no longer supported.
+#if defined(_MSC_VER) && _MSC_VER < 1900
     _set_output_format(_TWO_DIGIT_EXPONENT);
 #endif
 }

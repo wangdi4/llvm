@@ -7,7 +7,7 @@ define <4 x i64> @test_simple(<4 x double> %lhs, <4 x double> %rhs) {
 ; CHECK:     %[[CMP:[A-Za-z0-9.]+]] = sext <4 x i1> %cmp to <4 x i64>
   %cmp = fcmp oeq <4 x double> %lhs, %rhs
 ; CHECK:     %[[GBOOLS:[A-Za-z0-9.]+]] = sext <4 x i1> %gbools to <4 x i64>
-  %gbools = load <4 x i1> * @glob.bools
+  %gbools = load <4 x i1> , <4 x i1> * @glob.bools
 ; CHECK-NOT: and <4 x i1> %gbools, %cmp
 ; CHECK:     and <4 x i64> %[[GBOOLS]], %[[CMP]]
   %merge = and <4 x i1> %gbools, %cmp

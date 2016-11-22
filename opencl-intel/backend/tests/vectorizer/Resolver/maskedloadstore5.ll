@@ -26,9 +26,9 @@ entry:
   %vector = shufflevector <4 x i32> %temp, <4 x i32> undef, <4 x i32> zeroinitializer
   %0 = add <4 x i32> %vector, <i32 0, i32 1, i32 2, i32 3>
   %extract = extractelement <4 x i32> %0, i32 0
-  %1 = getelementptr inbounds float addrspace(1)* %c, i32 %extract
+  %1 = getelementptr inbounds float, float addrspace(1)* %c, i32 %extract
   %ptrTypeCast = bitcast float addrspace(1)* %1 to <4 x float> addrspace(1)*
-  %2 = load <4 x float> addrspace(1)* %ptrTypeCast, align 4
+  %2 = load <4 x float>, <4 x float> addrspace(1)* %ptrTypeCast, align 4
   %cmp = fcmp ogt <4 x float> %2, <float 1.000000e+02, float 1.000000e+02, float 1.000000e+02, float 1.000000e+02>
   %Mneg12 = xor <4 x i1> %cmp, <i1 true, i1 true, i1 true, i1 true>
   %entry_to_if.else13 = and <4 x i1> <i1 true, i1 true, i1 true, i1 true>, %Mneg12
@@ -40,7 +40,7 @@ if.then:                                          ; preds = %entry
   br label %if.else
 
 if.else:                                          ; preds = %if.then
-  %3 = getelementptr inbounds float addrspace(1)* %a, i32 %extract
+  %3 = getelementptr inbounds float, float addrspace(1)* %a, i32 %extract
   %ptrTypeCast16 = bitcast float addrspace(1)* %3 to <4 x float> addrspace(1)*
   %4 = call <4 x float> @masked_load_align4_1(<4 x i1> %entry_to_if.else13, <4 x float> addrspace(1)* %ptrTypeCast16)
   %mul17 = fmul <4 x float> %4, <float 8.000000e+01, float 8.000000e+01, float 8.000000e+01, float 8.000000e+01>
@@ -56,14 +56,14 @@ if.end:                                           ; preds = %if.else
 
 if.then5:                                         ; preds = %if.end
   %add622 = fadd <4 x float> %merge18, <float 4.500000e+01, float 4.500000e+01, float 4.500000e+01, float 4.500000e+01>
-  %5 = getelementptr inbounds float addrspace(1)* %b, i32 %extract
+  %5 = getelementptr inbounds float, float addrspace(1)* %b, i32 %extract
   %ptrTypeCast23 = bitcast float addrspace(1)* %5 to <4 x float> addrspace(1)*
   call void @masked_store_align4_2(<4 x i1> %if.end_to_if.then521, <4 x float> %add622, <4 x float> addrspace(1)* %ptrTypeCast23)
   br label %if.else8
 
 if.else8:                                         ; preds = %if.then5
   %div24 = fdiv <4 x float> %merge18, <float 9.700000e+01, float 9.700000e+01, float 9.700000e+01, float 9.700000e+01>
-  %6 = getelementptr inbounds float addrspace(1)* %b, i32 %extract
+  %6 = getelementptr inbounds float, float addrspace(1)* %b, i32 %extract
   %ptrTypeCast25 = bitcast float addrspace(1)* %6 to <4 x float> addrspace(1)*
   call void @masked_store_align4_3(<4 x i1> %if.end_to_if.else820, <4 x float> %div24, <4 x float> addrspace(1)* %ptrTypeCast25)
   br label %if.end10

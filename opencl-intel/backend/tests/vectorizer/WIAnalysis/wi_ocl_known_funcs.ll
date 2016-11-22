@@ -17,7 +17,7 @@ declare i32 @_Z14get_local_sizej(i32)
 define void @_Z14get_local_sizej_const(i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %size_val = tail call i32 @_Z14get_local_sizej(i32 0) nounwind
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %size_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }
@@ -29,7 +29,7 @@ define void @_Z14get_local_sizej_const(i32 addrspace(1)* nocapture %out, i32 %un
 define void @_Z14get_local_sizej_uni(i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %size_val = tail call i32 @_Z14get_local_sizej(i32 %uni) nounwind
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %size_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }
@@ -41,7 +41,7 @@ define void @_Z14get_local_sizej_uni(i32 addrspace(1)* nocapture %out, i32 %uni)
 define void @_Z14get_local_sizej_rnd(i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %size_val = tail call i32 @_Z14get_local_sizej(i32 %gid) nounwind
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %size_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }

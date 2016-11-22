@@ -21,7 +21,7 @@ entry:
   br i1 %dcf_cond, label %ucf_entry, label %return
 
 ucf_entry:
-  %gep = getelementptr float addrspace(1)* %inout, i32 %gid
+  %gep = getelementptr float, float addrspace(1)* %inout, i32 %gid
   %ucf_cond = icmp sgt i32 %arg, 0
   br i1 %ucf_cond, label %then, label %ucf_exit
 
@@ -56,7 +56,7 @@ entry:
   br i1 %dcf_cond, label %ucf_entry, label %return
 
 ucf_entry:
-  %gep = getelementptr float addrspace(1)* %inout, i32 %gid
+  %gep = getelementptr float, float addrspace(1)* %inout, i32 %gid
   %ucf_cond = icmp sgt i32 %arg, 0
   br i1 %ucf_cond, label %then, label %else
 
@@ -94,7 +94,7 @@ entry:
   br i1 %dcf_cond, label %ucf_loop_preheader, label %return
 
 ucf_loop_preheader:
-  %gep = getelementptr float addrspace(1)* %inout, i32 %gid
+  %gep = getelementptr float, float addrspace(1)* %inout, i32 %gid
   br label %ucf_loop_header
 
 ucf_loop_header:
@@ -134,7 +134,7 @@ return:
 define void @ucf_inside_dcf_loop_test(float addrspace(1)* %inout, i32 %arg) {
 dcf_loop_preheader:
   %gid = call i32 @_Z13get_global_idj(i32 0)
-  %gep = getelementptr float addrspace(1)* %inout, i32 %gid
+  %gep = getelementptr float, float addrspace(1)* %inout, i32 %gid
   br label %dcf_loop_header
 
 dcf_loop_header:

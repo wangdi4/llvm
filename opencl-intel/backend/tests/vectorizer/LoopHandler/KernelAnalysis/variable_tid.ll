@@ -16,42 +16,42 @@ target triple = "i686-pc-win32"
 
 define void @variable_gid(i32 addrspace(1)* %out, i32 %dim) nounwind alwaysinline {
   %id = call i32 @_Z13get_global_idj(i32 %dim) nounwind
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @variable_lid(i32 addrspace(1)* %out, i32 %dim) nounwind alwaysinline {
   %id = call i32 @_Z12get_local_idj(i32 %dim) nounwind
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @out_of_range_gid(i32 addrspace(1)* %out) nounwind alwaysinline {
   %id = call i32 @_Z13get_global_idj(i32 10) nounwind
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @out_of_range_lid(i32 addrspace(1)* %out) nounwind alwaysinline {
   %id = call i32 @_Z12get_local_idj(i32 10) nounwind
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @in_range_gid(i32 addrspace(1)* %out) nounwind alwaysinline {
   %id = call i32 @_Z13get_global_idj(i32 1) nounwind
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @in_range_lid(i32 addrspace(1)* %out) nounwind alwaysinline {
   %id = call i32 @_Z12get_local_idj(i32 1) nounwind
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }

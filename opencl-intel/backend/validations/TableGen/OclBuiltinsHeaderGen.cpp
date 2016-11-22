@@ -218,8 +218,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
       }
     }
     //enable double extentions in clang
-    std::string code = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-    code.append("#pragma OPENCL EXTENSION cl_khr_depth_images : enable\n");
+    std::string code = "#pragma OPENCL EXTENSION cl_khr_depth_images : enable\n";
     typedbiList.sort(isLess);
     TypedBiIter typeit, typee = typedbiList.end();
     for(typeit = typedbiList.begin(); typeit != typee ; ++typeit)
@@ -238,7 +237,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
     int biCounter = 0;
     while (it != e&& typeit != typee ){
         m_formatter << "BUILTINS_API llvm::GenericValue lle_X_" << deleteSuffix(it->getName()) 
-            << "( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return " 
+            << "( llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args) { return " 
             << getRefFunction(typeit->first, typeit->second) << "(FT,Args);}//" << biCounter++;
       m_formatter.endl();
       ++it;

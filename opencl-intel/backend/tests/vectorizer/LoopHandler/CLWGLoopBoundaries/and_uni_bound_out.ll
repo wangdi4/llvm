@@ -21,7 +21,7 @@ define void @program(i32 addrspace(1)* %out, <4 x i32> %dim, i32 %uni) nounwind 
   br i1 %and_cond, label %ret, label %body
   
 body:
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   br label %ret
   

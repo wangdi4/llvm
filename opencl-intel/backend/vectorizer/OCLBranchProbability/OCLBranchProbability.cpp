@@ -23,11 +23,11 @@ namespace intel {
 
   OCL_INITIALIZE_PASS_BEGIN(OCLBranchProbability, "ocl-branch-probability", "augment the general branch probability to be ocl directive aware", false, false)
   OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
-  OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfo)
+  OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
   OCL_INITIALIZE_PASS_END(OCLBranchProbability, "ocl-branch-probability", "augment the general branch probability to be ocl directive aware", false, false)
 
   bool OCLBranchProbability::runOnFunction(Function &F) {
-    m_BPI = &getAnalysis<BranchProbabilityInfo>();
+    m_BPI = &getAnalysis<BranchProbabilityInfoWrapperPass>().getBPI();
     assert (m_BPI && "Unable to get BranchProbabilityInfo");
 
     m_WIA = &getAnalysis<WIAnalysis>();
@@ -40,6 +40,7 @@ namespace intel {
     // CONSECUTIVE ? UNIFORM and one of the successor's terminator is a return instruction
     //                        - the other successor gets high priority
     for (Function::iterator bb = F.begin(), bbe = F.end(); bb != bbe ; ++bb) {
+      BasicBlock* I = &*bb;
       TerminatorInst* term = bb->getTerminator();
       BranchInst* br = dyn_cast<BranchInst>(term);
 
@@ -86,7 +87,8 @@ namespace intel {
       // Update the weights if needed
       for (unsigned i=0; i < br->getNumSuccessors(); ++i) {
         if (weights[i] != NormalWeight)
-          m_BPI->setEdgeWeight(bb, i, weights[i]);
+          m_BPI->setEdgeProbability(I, i,
+            BranchProbability::getBranchProbability(weights[i], TakenWeight + NonTakenWeight));
       }
     }
     return false;

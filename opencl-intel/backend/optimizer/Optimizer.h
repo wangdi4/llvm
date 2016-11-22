@@ -6,7 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #pragma once
 
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include <map>
@@ -62,8 +62,8 @@ public:
 private:
 
     // hold the collection of passes
-    llvm::PassManager m_PostFailCheckPM;
-    llvm::PassManager m_PreFailCheckPM;
+    llvm::legacy::PassManager m_PostFailCheckPM;
+    llvm::legacy::PassManager m_PreFailCheckPM;
     llvm::Module* m_pModule;
 
     std::vector<std::string> m_undefinedExternalFunctions;

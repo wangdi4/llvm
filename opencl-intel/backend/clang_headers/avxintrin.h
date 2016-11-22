@@ -32,9 +32,20 @@ typedef int __v8si __attribute__ ((__vector_size__ (32)));
 typedef short __v16hi __attribute__ ((__vector_size__ (32)));
 typedef char __v32qi __attribute__ ((__vector_size__ (32)));
 
+/* We need an explicitly signed variant for char. Note that this shouldn't
+ * appear in the interface though. */
+typedef signed char __v32qs __attribute__((__vector_size__(32)));
+
 typedef float __m256 __attribute__ ((__vector_size__ (32)));
 typedef double __m256d __attribute__((__vector_size__(32)));
+#ifdef __OPENCL__
+typedef long __m256i __attribute__((__vector_size__(32)));
+#else
 typedef long long __m256i __attribute__((__vector_size__(32)));
+#endif
+
+/* Define the default attributes for the functions in this file. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
 
 /* Arithmetic */
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
@@ -233,18 +244,6 @@ _mm256_hsub_ps(__m256 a, __m256 b)
 }
 
 /* Vector permutations */
-static __inline __m128d __attribute__((__always_inline__, __nodebug__))
-_mm_permutevar_pd(__m128d a, __m128i c)
-{
-  return (__m128d)__builtin_ia32_vpermilvarpd((__v2df)a, (__v2di)c);
-}
-
-static __inline __m256d __attribute__((__always_inline__, __nodebug__))
-_mm256_permutevar_pd(__m256d a, __m256i c)
-{
-  return (__m256d)__builtin_ia32_vpermilvarpd256((__v4df)a, (__v4di)c);
-}
-
 static __inline __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_permutevar_ps(__m128 a, __m128i c)
 {
@@ -305,12 +304,24 @@ _mm256_permutevar_ps(__m256 a, __m256i c)
 #define _mm256_blend_pd(V1, V2, M) __extension__ ({ \
   __m256d __V1 = (V1); \
   __m256d __V2 = (V2); \
-  (__m256d)__builtin_ia32_blendpd256((__v4df)__V1, (__v4df)__V2, (M)); })
+  (__m256d)__builtin_shufflevector((__v4df)__V1, (__v4df)__V2, \
+                                   (((M) & 0x01) ? 4 : 0), \
+                                   (((M) & 0x02) ? 5 : 1), \
+                                   (((M) & 0x04) ? 6 : 2), \
+                                   (((M) & 0x08) ? 7 : 3)); })
 
 #define _mm256_blend_ps(V1, V2, M) __extension__ ({ \
   __m256 __V1 = (V1); \
   __m256 __V2 = (V2); \
-  (__m256)__builtin_ia32_blendps256((__v8sf)__V1, (__v8sf)__V2, (M)); })
+  (__m256)__builtin_shufflevector((__v8sf)__V1, (__v8sf)__V2, \
+                                  (((M) & 0x01) ?  8 : 0), \
+                                  (((M) & 0x02) ?  9 : 1), \
+                                  (((M) & 0x04) ? 10 : 2), \
+                                  (((M) & 0x08) ? 11 : 3), \
+                                  (((M) & 0x10) ? 12 : 4), \
+                                  (((M) & 0x20) ? 13 : 5), \
+                                  (((M) & 0x40) ? 14 : 6), \
+                                  (((M) & 0x80) ? 15 : 7)); })
 
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
 _mm256_blendv_pd(__m256d a, __m256d b, __m256d c)
@@ -413,18 +424,33 @@ _mm256_blendv_ps(__m256 a, __m256 b, __m256 c)
   __m128 __b = (b); \
   (__m128)__builtin_ia32_cmpss((__v4sf)__a, (__v4sf)__b, (c)); })
 
-/* Vector extract */
-#define _mm256_extractf128_pd(A, O) __extension__ ({ \
-  __m256d __A = (A); \
-  (__m128d)__builtin_ia32_vextractf128_pd256((__v4df)__A, (O)); })
+/*
+   Vector extract.
+   We use macros rather than inlines because we only want to accept
+   invocations where the immediate M is a constant expression.
+*/
+#define _mm256_extractf128_ps(V, M) __extension__ ({ \
+  (__m128)__builtin_shufflevector( \
+    (__v8sf)(__m256)(V), \
+    (__v8sf)(_mm256_setzero_ps()), \
+    (((M) & 1) ? 4 : 0), \
+    (((M) & 1) ? 5 : 1), \
+    (((M) & 1) ? 6 : 2), \
+    (((M) & 1) ? 7 : 3) );})
 
-#define _mm256_extractf128_ps(A, O) __extension__ ({ \
-  __m256 __A = (A); \
-  (__m128)__builtin_ia32_vextractf128_ps256((__v8sf)__A, (O)); })
+#define _mm256_extractf128_pd(V, M) __extension__ ({ \
+  (__m128d)__builtin_shufflevector( \
+    (__v4df)(__m256d)(V), \
+    (__v4df)(_mm256_setzero_pd()), \
+    (((M) & 1) ? 2 : 0), \
+    (((M) & 1) ? 3 : 1) );})
 
-#define _mm256_extractf128_si256(A, O) __extension__ ({ \
-  __m256i __A = (A); \
-  (__m128i)__builtin_ia32_vextractf128_si256((__v8si)__A, (O)); })
+#define _mm256_extractf128_si256(V, M) __extension__ ({ \
+  (__m128i)__builtin_shufflevector( \
+    (__v4di)(__m256i)(V), \
+    (__v4di)(_mm256_setzero_si256()), \
+    (((M) & 1) ? 2 : 0), \
+    (((M) & 1) ? 3 : 1) );})
 
 static __inline int __attribute__((__always_inline__, __nodebug__))
 _mm256_extract_epi32(__m256i a, int const imm)
@@ -456,21 +482,41 @@ _mm256_extract_epi64(__m256i a, const int imm)
 }
 #endif
 
-/* Vector insert */
-#define _mm256_insertf128_pd(V1, V2, O) __extension__ ({ \
-  __m256d __V1 = (V1); \
-  __m128d __V2 = (V2); \
-  (__m256d)__builtin_ia32_vinsertf128_pd256((__v4df)__V1, (__v2df)__V2, (O)); })
+/*
+   Vector insert.
+   We use macros rather than inlines because we only want to accept
+   invocations where the immediate M is a constant expression.
+*/
+#define _mm256_insertf128_ps(V1, V2, M) __extension__ ({ \
+  (__m256)__builtin_shufflevector( \
+    (__v8sf)(__m256)(V1), \
+    (__v8sf)_mm256_castps128_ps256((__m128)(V2)), \
+    (((M) & 1) ?  0 :  8), \
+    (((M) & 1) ?  1 :  9), \
+    (((M) & 1) ?  2 : 10), \
+    (((M) & 1) ?  3 : 11), \
+    (((M) & 1) ?  8 :  4), \
+    (((M) & 1) ?  9 :  5), \
+    (((M) & 1) ? 10 :  6), \
+    (((M) & 1) ? 11 :  7) );})
 
-#define _mm256_insertf128_ps(V1, V2, O) __extension__ ({ \
-  __m256 __V1 = (V1); \
-  __m128 __V2 = (V2); \
-  (__m256)__builtin_ia32_vinsertf128_ps256((__v8sf)__V1, (__v4sf)__V2, (O)); })
+#define _mm256_insertf128_pd(V1, V2, M) __extension__ ({ \
+  (__m256d)__builtin_shufflevector( \
+    (__v4df)(__m256d)(V1), \
+    (__v4df)_mm256_castpd128_pd256((__m128d)(V2)), \
+    (((M) & 1) ? 0 : 4), \
+    (((M) & 1) ? 1 : 5), \
+    (((M) & 1) ? 4 : 2), \
+    (((M) & 1) ? 5 : 3) );})
 
-#define _mm256_insertf128_si256(V1, V2, O) __extension__ ({ \
-  __m256i __V1 = (V1); \
-  __m128i __V2 = (V2); \
-  (__m256i)__builtin_ia32_vinsertf128_si256((__v8si)__V1, (__v4si)__V2, (O)); })
+#define _mm256_insertf128_si256(V1, V2, M) __extension__ ({ \
+  (__m256i)__builtin_shufflevector( \
+    (__v4di)(__m256i)(V1), \
+    (__v4di)_mm256_castsi128_si256((__m128i)(V2)), \
+    (((M) & 1) ? 0 : 4), \
+    (((M) & 1) ? 1 : 5), \
+    (((M) & 1) ? 4 : 2), \
+    (((M) & 1) ? 5 : 3) );})
 
 static __inline __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_insert_epi32(__m256i a, int b, int const imm)
@@ -672,24 +718,6 @@ _mm256_testnzc_ps(__m256 a, __m256 b)
   return __builtin_ia32_vtestnzcps256((__v8sf)a, (__v8sf)b);
 }
 
-static __inline int __attribute__((__always_inline__, __nodebug__))
-_mm256_testz_si256(__m256i a, __m256i b)
-{
-  return __builtin_ia32_ptestz256((__v4di)a, (__v4di)b);
-}
-
-static __inline int __attribute__((__always_inline__, __nodebug__))
-_mm256_testc_si256(__m256i a, __m256i b)
-{
-  return __builtin_ia32_ptestc256((__v4di)a, (__v4di)b);
-}
-
-static __inline int __attribute__((__always_inline__, __nodebug__))
-_mm256_testnzc_si256(__m256i a, __m256i b)
-{
-  return __builtin_ia32_ptestnzc256((__v4di)a, (__v4di)b);
-}
-
 /* Vector extract sign mask */
 static __inline int __attribute__((__always_inline__, __nodebug__))
 _mm256_movemask_pd(__m256d a)
@@ -846,61 +874,35 @@ _mm256_storeu_si256(__m256i *p, __m256i a)
   __builtin_ia32_storedqu256((__private char *)(char *)p, (__v32qi)a);
 }
 
-/* Conditional load ops */
-static __inline __m128d __attribute__((__always_inline__, __nodebug__))
-_mm_maskload_pd(double const *p, __m128d m)
-{
-  return (__m128d)__builtin_ia32_maskloadpd((__private __v2df *)(const __v2df *)p, (__v2df)m);
-}
-
-static __inline __m256d __attribute__((__always_inline__, __nodebug__))
-_mm256_maskload_pd(double const *p, __m256d m)
-{
-  return (__m256d)__builtin_ia32_maskloadpd256((__private __v4df *)(const __v4df *)p, (__v4df)m);
-}
+__m256d __attribute__((__always_inline__, __nodebug__))
+_mm256_maskload_pd(double const *p, __m256i m);
 
 static __inline __m128 __attribute__((__always_inline__, __nodebug__))
-_mm_maskload_ps(float const *p, __m128 m)
+_mm_maskload_ps(float const *p, __m128i m)
 {
-  return (__m128)__builtin_ia32_maskloadps((__private __v4sf *)(const __v4sf *)p, (__v4sf)m);
+  return (__m128)__builtin_ia32_maskloadps((__private __v4sf *)(const __v4sf *)p, (__v4si)m);
 }
 
 static __inline __m256 __attribute__((__always_inline__, __nodebug__))
-_mm256_maskload_ps(float const *p, __m256 m)
+_mm256_maskload_ps(float const *p, __m256i m)
 {
-  return (__m256)__builtin_ia32_maskloadps256((__private __v8sf *)(const __v8sf *)p, (__v8sf)m);
+  return (__m256)__builtin_ia32_maskloadps256((__private __v8sf *)(const __v8sf *)p, (__v8si)m);
 }
 
 /* Conditional store ops */
 static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm256_maskstore_ps(float *p, __m256 m, __m256 a)
+_mm256_maskstore_ps(float *p, __m256i m, __m256 a)
 {
-  __builtin_ia32_maskstoreps256((__private __v8sf *)(__v8sf *)p, (__v8sf)m, (__v8sf)a);
+  __builtin_ia32_maskstoreps256((__private __v8sf *)(__v8sf *)p, (__v8si)m, (__v8sf)a);
 }
 
-static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm_maskstore_pd(double *p, __m128d m, __m128d a)
-{
-  __builtin_ia32_maskstorepd((__private __v2df *)(__v2df *)p, (__v2df)m, (__v2df)a);
-}
+void __attribute__((__always_inline__, __nodebug__))
+_mm256_maskstore_pd(double *p, __m256i m, __m256d a);
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm256_maskstore_pd(double *p, __m256d m, __m256d a)
+_mm_maskstore_ps(float *p, __m128i m, __m128 a)
 {
-  __builtin_ia32_maskstorepd256((__private __v4df *)(__v4df *)p, (__v4df)m, (__v4df)a);
-}
-
-static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm_maskstore_ps(float *p, __m128 m, __m128 a)
-{
-  __builtin_ia32_maskstoreps((__private __v4sf *)(__v4sf *)p, (__v4sf)m, (__v4sf)a);
-}
-
-/* Cacheability support ops */
-static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm256_stream_si256(__m256i *a, __m256i b)
-{
-  __builtin_ia32_movntdq256((__private __v4di *)(__v4di *)a, (__v4di)b);
+  __builtin_ia32_maskstoreps((__private __v4sf *)(__v4sf *)p, (__v4si)m, (__v4sf)a);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
@@ -964,12 +966,6 @@ _mm256_set_epi8(char b31, char b30, char b29, char b28,
   };
 }
 
-static __inline __m256i __attribute__((__always_inline__, __nodebug__))
-_mm256_set_epi64x(long long a, long long b, long long c, long long d)
-{
-  return (__m256i)(__v4di){ d, c, b, a };
-}
-
 /* Create vectors with elements in reverse order */
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
 _mm256_setr_pd(double a, double b, double c, double d)
@@ -1018,12 +1014,6 @@ _mm256_setr_epi8(char b31, char b30, char b29, char b28,
 		b07, b06, b05, b04, b03, b02, b01, b00 };
 }
 
-static __inline __m256i __attribute__((__always_inline__, __nodebug__))
-_mm256_setr_epi64x(long long a, long long b, long long c, long long d)
-{
-  return (__m256i)(__v4di){ a, b, c, d };
-}
-
 /* Create vectors with repeated elements */
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
 _mm256_set1_pd(double w)
@@ -1056,12 +1046,6 @@ _mm256_set1_epi8(char b)
                              b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b };
 }
 
-static __inline __m256i __attribute__((__always_inline__, __nodebug__))
-_mm256_set1_epi64x(long long q)
-{
-  return (__m256i)(__v4di){ q, q, q, q };
-}
-
 /* Create zeroed vectors */
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
 _mm256_setzero_pd(void)
@@ -1078,7 +1062,7 @@ _mm256_setzero_ps(void)
 static __inline __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_setzero_si256(void)
 {
-  return (__m256i){ 0LL, 0LL, 0LL, 0LL };
+  return (__m256i) { 0LL, 0LL, 0LL, 0LL };
 }
 
 /* Cast between vector types */
@@ -1130,12 +1114,6 @@ _mm256_castps256_ps128(__m256 in)
   return __builtin_shufflevector(in, in, 0, 1, 2, 3);
 }
 
-static __inline __m128i __attribute__((__always_inline__, __nodebug__))
-_mm256_castsi256_si128(__m256i in)
-{
-  return __builtin_shufflevector(in, in, 0, 1);
-}
-
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
 _mm256_castpd128_pd256(__m128d in)
 {
@@ -1148,13 +1126,6 @@ _mm256_castps128_ps256(__m128 in)
 {
   __m128 zero = _mm_setzero_ps();
   return __builtin_shufflevector(in, zero, 0, 1, 2, 3, 4, 4, 4, 4);
-}
-
-static __inline __m256i __attribute__((__always_inline__, __nodebug__))
-_mm256_castsi128_si256(__m128i in)
-{
-  __m128i zero = _mm_setzero_si128();
-  return __builtin_shufflevector(in, zero, 0, 1, 2, 2);
 }
 
 /* SIMD load ops (unaligned) */
@@ -1180,16 +1151,6 @@ _mm256_loadu2_m128d(double const *addr_hi, double const *addr_lo)
   return _mm256_insertf128_pd(v256, ((struct __loadu_pd*)addr_hi)->v, 1);
 }
 
-static __inline __m256i __attribute__((__always_inline__, __nodebug__))
-_mm256_loadu2_m128i(__m128i const *addr_hi, __m128i const *addr_lo)
-{
-  struct __loadu_si128 {
-    __m128i v;
-  } __attribute__((packed, may_alias));
-  __m256i v256 = _mm256_castsi128_si256(((struct __loadu_si128*)addr_lo)->v);
-  return _mm256_insertf128_si256(v256, ((struct __loadu_si128*)addr_hi)->v, 1);
-}
-
 /* SIMD store ops (unaligned) */
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_storeu2_m128(float *addr_hi, float *addr_lo, __m256 a)
@@ -1211,16 +1172,5 @@ _mm256_storeu2_m128d(double *addr_hi, double *addr_lo, __m256d a)
   __builtin_ia32_storeupd((__private double *)addr_lo, v128);
   v128 = _mm256_extractf128_pd(a, 1);
   __builtin_ia32_storeupd((__private double *)addr_hi, v128);
-}
-
-static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm256_storeu2_m128i(__m128i *addr_hi, __m128i *addr_lo, __m256i a)
-{
-  __m128i v128;
-
-  v128 = _mm256_castsi256_si128(a);
-  __builtin_ia32_storedqu((__private char *)(char *)addr_lo, (__v16qi)v128);
-  v128 = _mm256_extractf128_si256(a, 1);
-  __builtin_ia32_storedqu((__private char *)(char*)addr_hi, (__v16qi)v128);
 }
 

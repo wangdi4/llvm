@@ -2,6 +2,7 @@
 #include "cl_types.h"
 #include "TestsHelpClasses.h"
 #include "FrameworkTest.h"
+#include <algorithm>
 #include <stdio.h>
 #include <limits>
 

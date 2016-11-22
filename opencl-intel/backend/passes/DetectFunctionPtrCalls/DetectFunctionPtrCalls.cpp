@@ -43,7 +43,7 @@ namespace intel {
 
     // loop over functions in module
     for (Module::iterator mi = M.begin(), me = M.end(); mi != me; ++mi) {
-      llvm::Function * pFunc = mi;
+      llvm::Function * pFunc = &*mi;
       if(DetectInFunction(*mi)){
         mdUtils.getOrInsertFunctionsInfoItem(pFunc)->setFuncPtrCall(true);
         m_DetectedFuncPtrCall = true;

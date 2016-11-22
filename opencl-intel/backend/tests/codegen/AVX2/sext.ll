@@ -46,7 +46,7 @@ define <4 x i32> @sext_8i8addr_to_4i32(i8* %V) nounwind {
 ; CHECK sext_8i8addr_to_4i32
 ; CHECK: vpmovsxbd
   %V1 = bitcast i8* %V to <4 x i8>*
-  %V2 = load <4 x i8>* %V1, align 4
+  %V2 = load <4 x i8>, <4 x i8>* %V1, align 4
   %C = sext <4 x i8> %V2 to <4 x i32>
   ret <4 x i32>%C
 }

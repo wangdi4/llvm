@@ -524,6 +524,8 @@ public:
     SharedPtr(SharedPtr<S>&& other) : SharedPtrBase<T>(other)
     {
     }
+
+    SharedPtr& operator=(const SharedPtr&) = default;
 #endif    
 
     /**
@@ -617,6 +619,8 @@ public:
     ConstSharedPtr(ConstSharedPtr<S>&& other) : SharedPtrBase<const T>(other)
     {
     }
+
+    ConstSharedPtr& operator=(const ConstSharedPtr&) = default;
 #endif    
 
     /**

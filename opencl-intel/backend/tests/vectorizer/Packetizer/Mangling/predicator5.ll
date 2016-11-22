@@ -14,21 +14,21 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @multi(i32* nocapture %A, i32 %f) nounwind {
-  %1 = tail call i32 (...)* @_Z13get_global_idj(i32 0) nounwind
+  %1 = tail call i32 (...) @_Z13get_global_idj(i32 0) nounwind
   %2 = icmp sgt i32 %1, 3
   br i1 %2, label %3, label %13
 
 ; <label>:3                                       ; preds = %0
-  %4 = load i32* %A, align 4, !tbaa !0
+  %4 = load i32, i32* %A, align 4, !tbaa !0
   %5 = add nsw i32 %4, 3
   store i32 %5, i32* %A, align 4, !tbaa !0
   %6 = sext i32 %1 to i64
-  %7 = getelementptr inbounds i32* %A, i64 %6
-  %8 = load i32* %7, align 4, !tbaa !0
+  %7 = getelementptr inbounds i32, i32* %A, i64 %6
+  %8 = load i32, i32* %7, align 4, !tbaa !0
   %9 = add nsw i32 %8, %1
   store i32 %9, i32* %7, align 4, !tbaa !0
-  %10 = getelementptr inbounds i32* %A, i64 3
-  %11 = load i32* %10, align 4, !tbaa !0
+  %10 = getelementptr inbounds i32, i32* %A, i64 3
+  %11 = load i32, i32* %10, align 4, !tbaa !0
   %12 = add nsw i32 %11, %1
   store i32 %12, i32* %10, align 4, !tbaa !0
   br label %13
@@ -38,16 +38,16 @@ define void @multi(i32* nocapture %A, i32 %f) nounwind {
   br i1 %14, label %25, label %15
 
 ; <label>:15                                      ; preds = %13
-  %16 = getelementptr inbounds i32* %A, i64 3
-  %17 = load i32* %16, align 4, !tbaa !0
+  %16 = getelementptr inbounds i32, i32* %A, i64 3
+  %17 = load i32, i32* %16, align 4, !tbaa !0
   %18 = add nsw i32 %17, 9
   store i32 %18, i32* %16, align 4, !tbaa !0
   %19 = sext i32 %1 to i64
-  %20 = getelementptr inbounds i32* %A, i64 %19
-  %21 = load i32* %20, align 4, !tbaa !0
+  %20 = getelementptr inbounds i32, i32* %A, i64 %19
+  %21 = load i32, i32* %20, align 4, !tbaa !0
   %22 = add nsw i32 %21, %1
   store i32 %22, i32* %20, align 4, !tbaa !0
-  %23 = load i32* %16, align 4, !tbaa !0
+  %23 = load i32, i32* %16, align 4, !tbaa !0
   %24 = add nsw i32 %23, %1
   store i32 %24, i32* %16, align 4, !tbaa !0
   br label %25

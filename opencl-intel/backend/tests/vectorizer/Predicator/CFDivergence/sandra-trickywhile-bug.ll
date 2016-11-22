@@ -51,9 +51,9 @@ entry:
   %imgLocal1 = alloca [25 x float], align 16
   %imgLocal2 = alloca [25 x float], align 16
   %imgLocal3 = alloca [25 x float], align 16
-  %arrayidx34 = getelementptr [25 x float]* %imgLocal1, i64 0, i64 0
-  %arrayidx35 = getelementptr [25 x float]* %imgLocal2, i64 0, i64 0
-  %arrayidx36 = getelementptr [25 x float]* %imgLocal3, i64 0, i64 0
+  %arrayidx34 = getelementptr [25 x float], [25 x float]* %imgLocal1, i64 0, i64 0
+  %arrayidx35 = getelementptr [25 x float], [25 x float]* %imgLocal2, i64 0, i64 0
+  %arrayidx36 = getelementptr [25 x float], [25 x float]* %imgLocal3, i64 0, i64 0
   br label %while.body
 
 while.cond.loopexit:                              ; preds = %for.inc
@@ -82,15 +82,15 @@ for.body.lr.ph:                                   ; preds = %while.body
 for.body:                                         ; preds = %for.inc, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.inc ]
   %bSwapped.12 = phi i8 [ %bSwapped.05, %for.body.lr.ph ], [ %bSwapped.2, %for.inc ]
-  %arrayidx7 = getelementptr [25 x float]* %imgLocal1, i64 0, i64 %indvars.iv
-  %3 = load float* %arrayidx7
+  %arrayidx7 = getelementptr [25 x float], [25 x float]* %imgLocal1, i64 0, i64 %indvars.iv
+  %3 = load float, float* %arrayidx7
   %conv = fptosi float %3 to i32
   %tobool2 = icmp eq i32 %conv, 0
   br i1 %tobool2, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %4 = load float* %arrayidx35
-  %5 = load float* %arrayidx36
+  %4 = load float, float* %arrayidx35
+  %5 = load float, float* %arrayidx36
   store float 0x3FB99999A0000000, float* %arrayidx34
   store float %4, float* %arrayidx35
   store float %5, float* %arrayidx36

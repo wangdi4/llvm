@@ -53,7 +53,7 @@ namespace intel {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
       m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-      unsigned PointerSize = M.getDataLayout()->getPointerSizeInBits(0);
+      unsigned PointerSize = M.getDataLayout().getPointerSizeInBits(0);
       m_IAA->initDuringRun(PointerSize);
       m_sizeTTy = IntegerType::get(*m_pLLVMContext, PointerSize);
 
@@ -311,7 +311,7 @@ namespace intel {
   Value* ResolveWICall::updatePrintf(CallInst *pCall) {
 
     assert( m_pRuntimeHandle && "Context pointer m_pRuntimeHandle created as expected" );
-    DataLayout const &DL = *m_pModule->getDataLayout();
+    const DataLayout &DL = m_pModule->getDataLayout();
 
     // Find out the buffer size required to store all the arguments.
     // Note: CallInst->getNumOperands() returns the number of operands in
@@ -348,7 +348,7 @@ namespace intel {
     }
     // TODO: add comment
     AllocaInst *buf_alloca_inst = new AllocaInst(buf_arr_type, "temp_arg_buf",
-      pCall->getParent()->getParent()->getEntryBlock().begin());
+      &*pCall->getParent()->getParent()->getEntryBlock().begin());
 
     // Generate instructions to store the operands into the argument buffer
     //
@@ -411,9 +411,9 @@ namespace intel {
 
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
 
-    DataLayout const& DL = *m_pModule->getDataLayout();
+    DataLayout const& DL = m_pModule->getDataLayout();
 
-    unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
+    unsigned int uiSizeT = DL.getPointerSizeInBits(0);
 
     // Create new call instruction with extended parameters
     SmallVector<Value*, 4> params;
@@ -457,7 +457,7 @@ namespace intel {
       return;
     }
 
-    unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
+    unsigned int uiSizeT = m_pModule->getDataLayout().getPointerSizeInBits(0);
 
     std::vector<Type*> params;
     // Source Pointer
@@ -562,7 +562,7 @@ namespace intel {
       ArrayType *localbuf_arr_type = ArrayType::get(getLocalMemBufType(), numLocalBuffers);
       // issue alloca for array
       AllocaInst *localbuf_alloca_inst = new AllocaInst(localbuf_arr_type, "localmem_arg_buf",
-        pCall->getParent()->getParent()->getEntryBlock().begin());
+        &*pCall->getParent()->getParent()->getEntryBlock().begin());
       // helper int type
       Type* int32_type = IntegerType::get(*m_pLLVMContext, 32);
       // parse argument with local buf sizes
@@ -702,7 +702,7 @@ void ResolveWICall::clearPerFunctionCache() {
 }
 
 Value *ResolveWICall::getOrCreateBlock2KernelMapper() {
-  IRBuilder<> Builder(m_F->getEntryBlock().begin());
+  IRBuilder<> Builder(&*m_F->getEntryBlock().begin());
   if (!m_Block2KernelMapper)
     m_Block2KernelMapper = m_IAA->GenerateGetFromWorkInfo(
         NDInfo::BLOCK2KERNEL_MAPPER, m_pWorkInfo, Builder);
@@ -710,7 +710,7 @@ Value *ResolveWICall::getOrCreateBlock2KernelMapper() {
 }
 
 Value *ResolveWICall::getOrCreateRuntimeInterface() {
-  IRBuilder<> Builder(m_F->getEntryBlock().begin());
+  IRBuilder<> Builder(&*m_F->getEntryBlock().begin());
   if (!m_RuntimeInterface)
     m_RuntimeInterface = m_IAA->GenerateGetFromWorkInfo(
         NDInfo::RUNTIME_INTERFACE, m_pWorkInfo, Builder);
@@ -779,7 +779,7 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
     m_ExtExecDecls.insert(type);
   }
   unsigned ResolveWICall::getPointerSize() const {
-    unsigned pointerSizeInBits = m_pModule->getDataLayout()->getPointerSizeInBits(0);
+    unsigned pointerSizeInBits = m_pModule->getDataLayout().getPointerSizeInBits(0);
     assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
            "Unsopported pointer size");
     return pointerSizeInBits;

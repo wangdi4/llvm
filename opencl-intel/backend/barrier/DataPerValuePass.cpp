@@ -27,7 +27,7 @@ namespace intel {
   OCL_INITIALIZE_PASS_END(DataPerValue, "B-ValueAnalysis", "Barrier Pass - Collect Data per Value", false, true)
 
   DataPerValue::DataPerValue()
-    : ModulePass(ID), m_pSyncInstructions(NULL), m_pDL(0)
+    : ModulePass(ID), m_pSyncInstructions(nullptr), m_pDL(nullptr)
   {
     initializeDataPerValuePass(*llvm::PassRegistry::getPassRegistry());
   }
@@ -41,7 +41,7 @@ namespace intel {
     m_util.init(&M);
 
     // obtain DataLayout of the module
-    m_pDL = M.getDataLayout();
+    m_pDL = &M.getDataLayout();
     assert( m_pDL && "Failed to obtain instance of DataLayout!" );
 
     // Find and sort all connected function into disjointed groups
@@ -359,7 +359,7 @@ namespace intel {
       sizeInBits = (pVecType ? pVecType->getNumElements() : 1) * 32;
 
       //This assertion seems to not hold for all Data Layouts
-      //assert(m_pDL->getPrefTypeAlignment(pType) ==
+      //assert(m_pDL.getPrefTypeAlignment(pType) ==
       //  (pVecType ? pVecType->getNumElements() : 1) &&
       //  "assumes alignment of vector of i1 type equals to vector length");
     }
@@ -396,7 +396,7 @@ namespace intel {
 
     //Run on all functions in module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
-      Function* pFunc = fi;
+      Function* pFunc = &*fi;
       if ( pFunc->isDeclaration() ) {
         //Skip non defined functions
         continue;

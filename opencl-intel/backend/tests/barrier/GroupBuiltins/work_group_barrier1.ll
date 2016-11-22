@@ -1,4 +1,5 @@
-; RUN: opt -runtimelib %p/WGBuiltins64.ll -B-ValueAnalysis -B-BarrierAnalysis -B-SplitOnBarrier -B-Barrier -verify -S < %s | FileCheck %s
+; RUN: llvm-as %p/WGBuiltins64.ll -o %t.WGBuiltins64.bc
+; RUN: opt -runtimelib=%t.WGBuiltins64.bc -B-ValueAnalysis -B-BarrierAnalysis -B-SplitOnBarrier -B-Barrier -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the Barrier pass
@@ -27,7 +28,7 @@ entry:
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %entry
-  %0 = load i32* %done, align 4
+  %0 = load i32, i32* %done, align 4
   %call = call spir_func i32 @_Z14work_group_alli(i32 %0)
   %tobool = icmp ne i32 %call, 0
   %lnot = xor i1 %tobool, true

@@ -20,13 +20,13 @@ entry:
   br i1 %cmp, label %if.then, label %for.body
 
 if.then:                                          ; preds = %entry
-  %call1 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* getelementptr inbounds ([13 x i8] addrspace(2)* @.str, i32 0, i32 0)) #4
+  %call1 = tail call i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* getelementptr inbounds ([13 x i8], [13 x i8] addrspace(2)* @.str, i32 0, i32 0)) #4
   br label %for.body
 
 for.body:                                         ; preds = %entry, %if.then, %for.body
   %i.01 = phi i32 [ %inc3, %for.body ], [ 0, %if.then ], [ 0, %entry ]
-  %arrayidx = getelementptr inbounds float addrspace(1)* %a, i32 %i.01
-  %0 = load float addrspace(1)* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i32 %i.01
+  %0 = load float, float addrspace(1)* %arrayidx, align 4
   %inc = fadd float %0, 1.000000e+00
   store float %inc, float addrspace(1)* %arrayidx, align 4
   %inc3 = add nsw i32 %i.01, 1

@@ -18,9 +18,10 @@ File Name:  BLTInteger.h
 #ifndef BLT_INTEGER_H
 #define BLT_INTEGER_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "Helpers.h"
 
 namespace Validation {
@@ -38,7 +39,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_hadd(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -64,7 +65,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_rhadd(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -90,7 +91,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_abs(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -105,7 +106,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_abs_diff(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -127,7 +128,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n, int s>
     llvm::GenericValue lle_X_maxi(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -142,7 +143,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n, int s>
     llvm::GenericValue lle_X_mini(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -157,7 +158,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n, int s>
     llvm::GenericValue lle_X_clampi(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -173,7 +174,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_add_sat(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -199,7 +200,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_sub_sat(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -225,7 +226,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_clz(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -239,7 +240,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_ctz(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -253,7 +254,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_rotate(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -268,7 +269,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_upsample(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -288,7 +289,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_mul_hi(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -306,7 +307,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_mad_hi(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -325,7 +326,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_mad_sat(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -346,7 +347,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_mul24(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -366,7 +367,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_mad24(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -398,7 +399,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_popcount(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args) {
+        llvm::ArrayRef<llvm::GenericValue> Args) {
         assert(1 == Args.size() && "popcount should receives exactly one argument");
         llvm::GenericValue arg0 = Args[0];
         llvm::GenericValue ret;

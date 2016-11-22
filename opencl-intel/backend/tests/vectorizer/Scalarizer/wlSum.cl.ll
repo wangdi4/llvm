@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 
 @opencl_wlSumKernel_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_wlSumKernel_parameters = appending global [93 x i8] c"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, uint const\00", section "llvm.metadata" ; <[93 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @wlSumKernel to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_wlSumKernel_locals to i8*), i8* getelementptr inbounds ([93 x i8]* @opencl_wlSumKernel_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @wlSumKernel to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_wlSumKernel_locals to i8*), i8* getelementptr inbounds ([93 x i8], [93 x i8]* @opencl_wlSumKernel_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define void @wlSumKernel(i32 addrspace(1)* %input, i32 addrspace(1)* %output, i32 %buffer_size) nounwind {
@@ -23,14 +23,14 @@ entry:
   store i32 %buffer_size, i32* %buffer_size.addr
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %tid
-  %tmp = load i32* %tid                           ; <i32> [#uses=1]
-  %tmp1 = load i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %tmp1, i32 %tmp ; <i32 addrspace(1)*> [#uses=1]
-  %tmp2 = load i32 addrspace(1)* %arrayidx        ; <i32> [#uses=1]
+  %tmp = load i32, i32* %tid                           ; <i32> [#uses=1]
+  %tmp1 = load i32 addrspace(1)*, i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp1, i32 %tmp ; <i32 addrspace(1)*> [#uses=1]
+  %tmp2 = load i32, i32 addrspace(1)* %arrayidx        ; <i32> [#uses=1]
   %add = add nsw i32 %tmp2, 1                     ; <i32> [#uses=1]
-  %tmp3 = load i32* %tid                          ; <i32> [#uses=1]
-  %tmp4 = load i32 addrspace(1)** %output.addr    ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx5 = getelementptr inbounds i32 addrspace(1)* %tmp4, i32 %tmp3 ; <i32 addrspace(1)*> [#uses=1]
+  %tmp3 = load i32, i32* %tid                          ; <i32> [#uses=1]
+  %tmp4 = load i32 addrspace(1)*, i32 addrspace(1)** %output.addr    ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx5 = getelementptr inbounds i32, i32 addrspace(1)* %tmp4, i32 %tmp3 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %add, i32 addrspace(1)* %arrayidx5
   ret void
 }

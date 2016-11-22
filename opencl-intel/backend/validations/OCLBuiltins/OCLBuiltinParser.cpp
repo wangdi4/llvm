@@ -254,100 +254,99 @@ bool OCLBuiltinParser::ParseOCLBuiltin(const std::string& in_str,
                                        std::string& out_FuncStr, 
                                        ArgVector& args)
 {
-    // check if we have parser results in cache ArgVectorMapSingleton
-    ArgVectorMap::iterator it = ArgVectorMapSingleton::Instance()->find(in_str);
-    if (it != ArgVectorMapSingleton::Instance()->end())
-    {
-        out_FuncStr = (it->second).name;
-        args = (it->second).args;
-        return true;
+  // check if we have parser results in cache ArgVectorMapSingleton
+  ArgVectorMap::iterator it = ArgVectorMapSingleton::Instance()->find(in_str);
+  if (it != ArgVectorMapSingleton::Instance()->end()) {
+    out_FuncStr = (it->second).name;
+    args = (it->second).args;
+    return true;
+  }
+
+  if (isMangledName(in_str.c_str())) {
+    // extract built in name and arguments
+    reflection::FunctionDescriptor fd = demangle(in_str.c_str());
+    std::string FuncNameStr = fd.name;
+
+    // vector with arguments
+    ArgVector al;
+
+    if (fd.parameters.empty()) {
+      throw Validation::Exception::InvalidArgument(
+          "Unknown format of OCL built in argument");
     }
 
+    for (int i = 0; i < (int)fd.parameters.size(); i++) {
+      GetTypeVisitor typeVisitor;
+      fd.parameters[i]->accept(&typeVisitor);
+      ARG newArg = typeVisitor.getArg();
 
-    if (isMangledName(in_str.c_str()))
-    {
-        // extract built in name and arguments
-        reflection::FunctionDescriptor fd = demangle(in_str.c_str());
-        std::string FuncNameStr = fd.name;
-                
-        // vector with arguments
-        ArgVector al;
+      if (newArg.genType == NA) {
+        throw Validation::Exception::InvalidArgument(
+            "Unknown format of OCL built in argument");
+      }
 
-        if (fd.parameters.empty()) {
-            throw Validation::Exception::InvalidArgument("Unknown format of OCL built in argument");
+      newArg.ptrType.isAddrSpace = false;
+      newArg.ptrType.isPointsToConst = false;
+
+      if (newArg.genType == POINTER) {
+
+        if (newArg.ptrType.ptrType.back().genType == NA) {
+          throw Validation::Exception::InvalidArgument(
+              "Unknown format of OCL built in argument");
         }
 
-        for(int i=0;i<(int)fd.parameters.size();i++) {
-            GetTypeVisitor typeVisitor;
-            fd.parameters[i]->accept(&typeVisitor);
-            ARG newArg = typeVisitor.getArg();
-
-             if(newArg.genType == NA) {
-                 throw Validation::Exception::InvalidArgument("Unknown format of OCL built in argument");
-             }
-
-            newArg.ptrType.isAddrSpace = false;
-            newArg.ptrType.isPointsToConst = false;
-
-            if(newArg.genType == POINTER) {
-
-                if(newArg.ptrType.ptrType.back().genType == NA) {
-                    throw Validation::Exception::InvalidArgument("Unknown format of OCL built in argument");
-                }
-
-            // find attributes : __global, __constant, etc 
-                reflection::PointerType *pPTy = reflection::dyn_cast<reflection::PointerType>(&*fd.parameters[i]);
-                for(unsigned int j=0; j< pPTy->getAttributes().size(); ++j) {
-                    switch (pPTy->getAttributes()[j]) {
-                    case reflection::ATTR_LOCAL:
-                        newArg.ptrType.isAddrSpace = true;
-                        newArg.ptrType.AddrSpace = OCLBuiltinParser::LOCAL;
-                        break;
-                    case reflection::ATTR_CONSTANT:
-                        newArg.ptrType.isAddrSpace = true;
-                        newArg.ptrType.AddrSpace = OCLBuiltinParser::CONSTANT;
-                        break;
-                    case reflection::ATTR_GLOBAL:
-                        newArg.ptrType.isAddrSpace = true;
-                        newArg.ptrType.AddrSpace = OCLBuiltinParser::GLOBAL;
-                        break;
-                    case reflection::ATTR_PRIVATE:
-                        newArg.ptrType.isAddrSpace = true;
-                        newArg.ptrType.AddrSpace = OCLBuiltinParser::PRIVATE;
-                        break;
-                    case reflection::ATTR_GENERIC:
-                        newArg.ptrType.isAddrSpace = true;
-                        newArg.ptrType.AddrSpace = OCLBuiltinParser::GENERIC;
-                        break;
-                    case reflection::ATTR_CONST:
-                        newArg.ptrType.isPointsToConst = true;
-                        break;
-                    default:
-                        break;
-                    }
-                }
-            }
-            al.push_back(newArg);
+        // find attributes : __global, __constant, etc
+        reflection::PointerType *pPTy =
+            reflection::dyn_cast<reflection::PointerType>(&*fd.parameters[i]);
+        for (unsigned int j = 0; j < pPTy->getAttributes().size(); ++j) {
+          switch (pPTy->getAttributes()[j]) {
+          case reflection::ATTR_LOCAL:
+            newArg.ptrType.isAddrSpace = true;
+            newArg.ptrType.AddrSpace = OCLBuiltinParser::LOCAL;
+            break;
+          case reflection::ATTR_CONSTANT:
+            newArg.ptrType.isAddrSpace = true;
+            newArg.ptrType.AddrSpace = OCLBuiltinParser::CONSTANT;
+            break;
+          case reflection::ATTR_GLOBAL:
+            newArg.ptrType.isAddrSpace = true;
+            newArg.ptrType.AddrSpace = OCLBuiltinParser::GLOBAL;
+            break;
+          case reflection::ATTR_PRIVATE:
+            newArg.ptrType.isAddrSpace = true;
+            newArg.ptrType.AddrSpace = OCLBuiltinParser::PRIVATE;
+            break;
+          case reflection::ATTR_GENERIC:
+            newArg.ptrType.isAddrSpace = true;
+            newArg.ptrType.AddrSpace = OCLBuiltinParser::GENERIC;
+            break;
+          case reflection::ATTR_CONST:
+            newArg.ptrType.isPointsToConst = true;
+            break;
+          default:
+            break;
+          }
         }
+      }
+      al.push_back(newArg);
+    }
 
-        // fill function output 
-        out_FuncStr = FuncNameStr;
-        args = al;
-        
-        // add parse results to cache
-        std::string parseStr(in_str);
-        ArgPair ap = { FuncNameStr, args };
-        ArgVectorMapSingleton::Instance()->insert(
-            std::pair<std::string, ArgPair>(parseStr, ap));
-        
-        return true;
-    }
-    else
-    {
-        // todo: add here methods to extract BI names 
-        // other that "_Z{num_of_sym_BI_name}{BI_name}
-        return false;
-    }
+    // fill function output
+    out_FuncStr = FuncNameStr;
+    args = al;
+
+    // add parse results to cache
+    std::string parseStr(in_str);
+    ArgPair ap = {FuncNameStr, args};
+    ArgVectorMapSingleton::Instance()->insert(
+        std::pair<std::string, ArgPair>(parseStr, ap));
+
+    return true;
+  } else {
+    // todo: add here methods to extract BI names
+    // other that "_Z{num_of_sym_BI_name}{BI_name}
+    return false;
+  }
 }
 
 bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,

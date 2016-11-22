@@ -166,7 +166,7 @@ void BuiltinKeeper::addConversionGroup (const StringArray& names,
 llvm::sys::Mutex mutex;
 
 BuiltinKeeper::BuiltinKeeper(){
-  populateReturnTyMap(); 
+  populateReturnTyMap();
   m_soaStrategy.setTypeMap(&m_fdToRetTy);
   initNullStrategyEntries();
   initSoaStrategyEntries();
@@ -350,8 +350,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
       "_Z21async_work_group_copy*", "_Z29async_work_group_strided_copy*",
       "_Z34__async_work_group_stream_to_image*","_Z36__async_work_group_stream_from_image*",
       "_Z41__async_work_group_stream_to_image_direct*", "_Z43__async_work_group_stream_from_image_direct*",
-      "_Z29work_group_reserve_write_pipe*", "_Z28work_group_commit_write_pipe*",
-      "_Z28work_group_reserve_read_pipe*", "_Z27work_group_commit_read_pipe*"
+      "__work_group_reserve_write_pipe", "__work_group_commit_write_pipe",
+      "__work_group_reserve_read_pipe", "__work_group_commit_read_pipe"
     };
     StringArray uniform_work_group_builtins(names);
     VWidthArray allWidths(vwidths);

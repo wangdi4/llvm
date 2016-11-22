@@ -25,7 +25,7 @@
 
 define void @bar(i1 %x, i1 %y, float addrspace(1)* noalias nocapture %out) #0 {
 BB_0:
-  %buffPtr = getelementptr inbounds [128 x float] addrspace(3)* @Buff, i64 0, i64 0
+  %buffPtr = getelementptr inbounds [128 x float], [128 x float] addrspace(3)* @Buff, i64 0, i64 0
   store volatile float 0.000000e+000, float addrspace(3)* %buffPtr, align 4
   br label %BB_70
 
@@ -43,8 +43,8 @@ BB_79:                                      ; preds = %BB_72, %BB_70
   br i1 %.pr, label %BB_80, label %BB_83
 
 BB_80:                                      ; preds = %BB_79
-  %load1 = load volatile float addrspace(3)* %buffPtr, align 4
-  %ptr1 = getelementptr inbounds float addrspace(1)* %out, i64 4
+  %load1 = load volatile float, float addrspace(3)* %buffPtr, align 4
+  %ptr1 = getelementptr inbounds float, float addrspace(1)* %out, i64 4
   store float %load1, float addrspace(1)* %ptr1, align 4
   ret void
 

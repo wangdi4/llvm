@@ -17,7 +17,6 @@ File Name:  Compiler.cpp
 \*****************************************************************************/
 #define NOMINMAX
 #include "cl_types.h"
-#include "cl_config.h"
 #include "cpu_dev_limits.h"
 #include "Compiler.h"
 #include "Optimizer.h"
@@ -29,8 +28,6 @@ File Name:  Compiler.cpp
 #include "CompilationUtils.h"
 #include "MetaDataApi.h"
 #include "common_clang.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -39,7 +36,6 @@ File Name:  Compiler.cpp
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Argument.h"
@@ -422,12 +418,12 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
     //
     // Parse the module IR
     //
-    llvm::ErrorOr<llvm::Module*> pModuleOrErr = llvm::parseBitcodeFile( pIRBuffer->getMemBufferRef(), *m_pLLVMContext );
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr = llvm::parseBitcodeFile( pIRBuffer->getMemBufferRef(), *m_pLLVMContext );
     if ( !pModuleOrErr )
     {
         throw Exceptions::CompilerException(std::string("Failed to parse IR: ") + pModuleOrErr.getError().message(), CL_DEV_INVALID_BINARY);
     }
-    return pModuleOrErr.get();
+    return pModuleOrErr.get().release();
 }
 
 // RTL builtin modules consist of two libraries. The first is shared across all HW architectures and the second one is optimized for a specific HW architecture.
@@ -436,12 +432,13 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<ll
 {
     std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(std::move(pLibrary->GetRtlBuffer()));
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");
-    llvm::ErrorOr<llvm::Module*> spModuleOrErr(llvm::getLazyBitcodeModule( std::move(rtlBuffer), *m_pLLVMContext ));
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr(llvm::getLazyBitcodeModule( std::move(rtlBuffer), *m_pLLVMContext ));
 
     if ( !spModuleOrErr )
     {
         // Failed to load runtime library
-        spModuleOrErr = llvm::ErrorOr<llvm::Module*>( new llvm::Module("dummy", *m_pLLVMContext) );
+        spModuleOrErr = llvm::ErrorOr<std::unique_ptr<llvm::Module>>(
+                std::unique_ptr<llvm::Module>(new llvm::Module("dummy", *m_pLLVMContext)));
         if ( !spModuleOrErr )
         {
             throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
@@ -449,30 +446,32 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<ll
     }
     else
     {
-        spModuleOrErr.get()->setModuleIdentifier("RTLibrary");
+        spModuleOrErr.get().get()->setModuleIdentifier("RTLibrary");
     }
 
-    builtinsModules.push_back(spModuleOrErr.get());
+    auto* pModule = spModuleOrErr.get().release();
+    builtinsModules.push_back(pModule);
 
     // on KNC we don't have shared (common) library, so skip loading
     if (pLibrary->GetCPU() != MIC_KNC) {
         // the shared RTL is loaded here
-        llvm::ErrorOr<llvm::Module*> spModuleSvmlSharedOrErr(llvm::getLazyBitcodeModule(
-                    std::move(pLibrary->GetRtlBufferSvmlShared()), *m_pLLVMContext));
+        llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
+            llvm::getLazyBitcodeModule(
+                std::move(pLibrary->GetRtlBufferSvmlShared()),
+                *m_pLLVMContext));
 
         if ( !spModuleSvmlSharedOrErr ) {
             throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
         }
 
+        llvm::Module* pModuleSvmlShared = spModuleSvmlSharedOrErr.get().release();
         // on both 64-bit and 32-bit platform the same shared RTL contatinig platform independent byte code is used,
         // so set triple and data layout for shared RTL from particular RTL in order to avoid warnings from linker.
-        spModuleSvmlSharedOrErr.get()->setTargetTriple(spModuleOrErr.get()->getTargetTriple());
-        spModuleSvmlSharedOrErr.get()->setDataLayout(spModuleOrErr.get()->getDataLayout());
+        pModuleSvmlShared->setTargetTriple(pModule->getTargetTriple());
+        pModuleSvmlShared->setDataLayout(pModule->getDataLayout());
 
-        builtinsModules.push_back(spModuleSvmlSharedOrErr.get());
+        builtinsModules.push_back(pModuleSvmlShared);
     }
-
-    UpdateTargetTriple(spModuleOrErr.get());
 }
 
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
@@ -491,9 +490,9 @@ bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult
             MDNode *mdNode = pNode->getOperand(mdNodeId);
             for (unsigned i = 0; i < mdNode->getNumOperands(); ++i)
             {
-                ValueAsMetadata *vAm = dyn_cast<ValueAsMetadata>(mdNode->getOperand(i));
-                assert(vAm && "MetadataAsValue is expected");
-                if (vAm->getValue()->getName() == "cl_images")
+                auto *featureString = dyn_cast<MDString>(mdNode->getOperand(i).get());
+                assert(featureString && "MDString is expected");
+                if (featureString->getString() == "cl_images")
                 {
                     pResult->LogS() << "Images are not supported on given device.\n";
                     return false;
@@ -537,9 +536,7 @@ void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
 
       case TRANSPOSE_SIZE_16:
         if(!m_CpuId.HasGatherScatter())
-          validity = INVALID;
-          // TODO: uncomment when MIC/AVX512 support became relevant
-          //validity = UNSUPPORTED;
+          validity = UNSUPPORTED;
         break;
     }
 
@@ -566,28 +563,12 @@ const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
 {
 
     std::unique_ptr<MemoryBuffer> spIRBuffer(MemoryBuffer::getMemBuffer(StringRef(static_cast<const char*>(pBinary), uiBinarySize), "", false));
-    std::string strTargetTriple = llvm::getBitcodeTargetTriple(spIRBuffer->getMemBufferRef(), *m_pLLVMContext,
-                                    [](const DiagnosticInfo& diag)
-                                    {
-                                        throw Exceptions::CompilerException(std::string("Failed to get target triple from bitcode!"), CL_DEV_INVALID_BINARY);
-                                    });
+    std::string strTargetTriple = llvm::getBitcodeTargetTriple(spIRBuffer->getMemBufferRef(), *m_pLLVMContext);
+    if (strTargetTriple == "") {
+      throw Exceptions::CompilerException(std::string("Failed to get target triple from bitcode!"), CL_DEV_INVALID_BINARY);
+    }
 
     return strTargetTriple;
 }
 
-void UpdateTargetTriple(llvm::Module *pModule)
-{
-  std::string triple = pModule->getTargetTriple();
-
-  //Force ELF codegen on Windows (MCJIT does not support COFF format)
-  if ((triple.find("win32") != std::string::npos)
-        && triple.find("-elf") == std::string::npos) {
-    pModule->setTargetTriple(triple + "-elf");    // transforms:
-                                                  // x86_64-pc-win32
-                                                  // i686-pc-win32
-                                                  // to:
-                                                  // x86_64-pc-win32-elf
-                                                  // i686-pc-win32-elf
-  }
-}
 }}}

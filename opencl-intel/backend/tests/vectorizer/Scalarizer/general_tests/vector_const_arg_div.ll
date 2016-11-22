@@ -17,7 +17,7 @@ target triple = "i686-pc-win32"
 
 @opencl_mul_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_mul_parameters = appending global [278 x i8] c"float2 const __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, char8 const __attribute__((address_space(1))), char8 const __attribute__((address_space(1))), int4 const __attribute__((address_space(1))), int4 const __attribute__((address_space(1)))\00", section "llvm.metadata" ; <[278 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<2 x float> addrspace(1)*, float addrspace(1)*, <8 x i8>, <8 x i8>, <4 x i32>, <4 x i32>)* @mul to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_mul_locals to i8*), i8* getelementptr inbounds ([278 x i8]* @opencl_mul_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<2 x float> addrspace(1)*, float addrspace(1)*, <8 x i8>, <8 x i8>, <4 x i32>, <4 x i32>)* @mul to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_mul_locals to i8*), i8* getelementptr inbounds ([278 x i8], [278 x i8]* @opencl_mul_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 define void @mul(<2 x float> addrspace(1)* nocapture %in, float addrspace(1)* nocapture %out, <8 x i8> %charArg1, <8 x i8> %charArg2, <4 x i32> %intArg1, <4 x i32> %intArg2) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
@@ -38,7 +38,7 @@ define void @mul(<2 x float> addrspace(1)* nocapture %in, float addrspace(1)* no
   %16 = fpext float %15 to double                 ; <double> [#uses=1]
   %17 = fadd double %13, %16                      ; <double> [#uses=1]
   %18 = fptrunc double %17 to float               ; <float> [#uses=1]
-  %19 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %19 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %18, float addrspace(1)* %19
   ret void
 }

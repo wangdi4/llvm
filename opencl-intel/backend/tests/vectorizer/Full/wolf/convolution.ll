@@ -8,7 +8,7 @@ target triple = "i686-pc-win32"
 
 @opencl_simpleConvolution_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata"
 @opencl_simpleConvolution_parameters = appending global [153 x i8] c"float __attribute__((address_space(1))) *, uint __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, uint2 const, uint2 const\00", section "llvm.metadata"
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, i32 addrspace(1)*, float addrspace(1)*, <2 x i32>, <2 x i32>)* @simpleConvolution to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_simpleConvolution_locals to i8*), i8* getelementptr inbounds ([153 x i8]* @opencl_simpleConvolution_parameters, i32 0, i32 0) }>], section "llvm.metadata"
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, i32 addrspace(1)*, float addrspace(1)*, <2 x i32>, <2 x i32>)* @simpleConvolution to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_simpleConvolution_locals to i8*), i8* getelementptr inbounds ([153 x i8], [153 x i8]* @opencl_simpleConvolution_parameters, i32 0, i32 0) }>], section "llvm.metadata"
 
 define void @simpleConvolution(float addrspace(1)* nocapture %output, i32 addrspace(1)* nocapture %input, float addrspace(1)* nocapture %mask, <2 x i32> %inputDimensions, <2 x i32> %maskDimensions) nounwind {
 ; <label>:0
@@ -95,13 +95,13 @@ bb.nph:                                           ; preds = %._crit_edge, %bb.np
   %sumFX.02 = phi float [ %sumFX.14, %bb.nph ], [ %37, %32 ]
   %tmp47 = mul i32 %2, %indvar14
   %tmp64 = add i32 %tmp63, %tmp47
-  %scevgep43 = getelementptr i32 addrspace(1)* %input, i32 %tmp64
+  %scevgep43 = getelementptr i32, i32 addrspace(1)* %input, i32 %tmp64
   %tmp66 = mul i32 %8, %indvar14
   %tmp72 = add i32 %tmp71, %tmp66
-  %scevgep = getelementptr float addrspace(1)* %mask, i32 %tmp72
-  %33 = load i32 addrspace(1)* %scevgep43, align 4
+  %scevgep = getelementptr float, float addrspace(1)* %mask, i32 %tmp72
+  %33 = load i32, i32 addrspace(1)* %scevgep43, align 4
   %34 = uitofp i32 %33 to float
-  %35 = load float addrspace(1)* %scevgep, align 4
+  %35 = load float, float addrspace(1)* %scevgep, align 4
   %36 = fmul float %34, %35
   %37 = fadd float %sumFX.02, %36
   %tmp46 = add i32 %tmp45, %indvar14
@@ -123,7 +123,7 @@ bb.nph:                                           ; preds = %._crit_edge, %bb.np
 ._crit_edge7:                                     ; preds = %._crit_edge7.loopexit77, %._crit_edge7.loopexit, %0
   %sumFX.1.lcssa = phi float [ 0.000000e+000, %0 ], [ %37, %._crit_edge7.loopexit ], [ 0.000000e+000, %._crit_edge7.loopexit77 ]
   %40 = fadd float %sumFX.1.lcssa, 5.000000e-001
-  %41 = getelementptr inbounds float addrspace(1)* %output, i32 %1
+  %41 = getelementptr inbounds float, float addrspace(1)* %output, i32 %1
   store float %40, float addrspace(1)* %41, align 4
 ; CHECK: ret
   ret void

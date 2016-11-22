@@ -335,7 +335,8 @@ typedef cpu_set_t                      affinityMask_t;
 #endif
 
 // Define compiler static assert
-#define STATIC_ASSERT(e) typedef char __STATIC_ASSERT__[(e)?1:-1]
+//#define STATIC_ASSERT(e) typedef char __STATIC_ASSERT__[(e)?1:-1]
+#define STATIC_ASSERT(e) static_assert(e,"")
 
 #define PAGE_4K_SIZE                    4096
 #define CPU_CACHE_LINE_SIZE                64

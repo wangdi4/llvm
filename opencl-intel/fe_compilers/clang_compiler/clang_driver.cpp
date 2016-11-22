@@ -166,6 +166,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
     // Add current directory
     optionsEx << " -I" << GetCurrentDir();
     optionsEx << " -mstackrealign";
+    optionsEx << " -D__ENDIAN_LITTLE__=1";
 
     if(m_sDeviceInfo.bImageSupport)
     {
@@ -456,7 +457,6 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult
     // serialize to LLVM bitcode
     llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
     llvm::WriteBitcodeToFile(pModule, ir_ostream);
-    ir_ostream.flush();
 
     pResult->setLog(errorMsg);
     pResult->setIRType(IR_TYPE_COMPILED_OBJECT);

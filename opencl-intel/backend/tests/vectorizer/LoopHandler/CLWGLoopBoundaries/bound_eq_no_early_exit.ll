@@ -19,7 +19,7 @@ entry:
   br i1 %b1, label %ret, label %body
  
 body:
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   br label %ret
   

@@ -14,7 +14,7 @@ declare i32 @_Z13get_global_idj(i32)
 define void @constant_select_true(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %select_val = select i1 true, i32 %gid, i32 %uni
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %select_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }
@@ -25,7 +25,7 @@ define void @constant_select_true(i32 addrspace(1)* nocapture %in, i32 addrspace
 define void @constant_select_false(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out, i32 %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %select_val = select i1 false, i32 %gid, i32 %uni
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %select_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }

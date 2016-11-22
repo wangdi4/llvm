@@ -20,24 +20,24 @@ define void @zero_imm(i8* %pBuffer) {
 entry:
   %0 = bitcast i8* %pBuffer to double addrspace(1)**
   %1 = load double addrspace(1)** %0, align 8
-  %2 = getelementptr i8* %pBuffer, i64 8
+  %2 = getelementptr i8, i8* %pBuffer, i64 8
   %3 = bitcast i8* %2 to float addrspace(1)**
   %4 = load float addrspace(1)** %3, align 8
-  %5 = getelementptr i8* %pBuffer, i64 16
+  %5 = getelementptr i8, i8* %pBuffer, i64 16
   %6 = bitcast i8* %5 to double addrspace(1)**
   %7 = load double addrspace(1)** %6, align 8
-  %8 = getelementptr i8* %pBuffer, i64 24
+  %8 = getelementptr i8, i8* %pBuffer, i64 24
   %9 = bitcast i8* %8 to float addrspace(1)**
   %10 = load float addrspace(1)** %9, align 8
-  %11 = getelementptr i8* %pBuffer, i64 40
+  %11 = getelementptr i8, i8* %pBuffer, i64 40
   %12 = bitcast i8* %11 to { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }**
   %13 = load { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }** %12, align 8
-  %14 = getelementptr i8* %pBuffer, i64 56
+  %14 = getelementptr i8, i8* %pBuffer, i64 56
   %15 = bitcast i8* %14 to <{ [4 x i64] }>**
   %16 = load <{ [4 x i64] }>** %15, align 8
-  %17 = getelementptr { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }* %13, i64 0, i32 3, i64 0
+  %17 = getelementptr { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }, { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }* %13, i64 0, i32 3, i64 0
   %18 = load i64* %17, align 8
-  %19 = getelementptr <{ [4 x i64] }>* %16, i64 0, i32 0, i64 0
+  %19 = getelementptr <{ [4 x i64] }>, <{ [4 x i64] }>* %16, i64 0, i32 0, i64 0
   %20 = load i64* %19, align 8
   br label %scalar_kernel_entry.i
 
@@ -46,15 +46,15 @@ scalar_kernel_entry.i:                            ; preds = %scalar_kernel_entry
   %dim_0_tid.i = phi i64 [ %20, %entry ], [ %dim_0_inc_tid.i, %scalar_kernel_entry.i ]
   %sext.i = shl i64 %dim_0_tid.i, 32
   %idxprom.i = ashr exact i64 %sext.i, 32
-  %arrayidx.i = getelementptr inbounds float addrspace(1)* %10, i64 %idxprom.i
+  %arrayidx.i = getelementptr inbounds float, float addrspace(1)* %10, i64 %idxprom.i
   %21 = load float addrspace(1)* %arrayidx.i, align 4, !tbaa !11
   %sub.i = fadd float 0.000000e+00, %21
-  %arrayidx2.i = getelementptr inbounds float addrspace(1)* %4, i64 %idxprom.i
+  %arrayidx2.i = getelementptr inbounds float, float addrspace(1)* %4, i64 %idxprom.i
   store float %sub.i, float addrspace(1)* %arrayidx2.i, align 4, !tbaa !11
-  %arrayidx4.i = getelementptr inbounds double addrspace(1)* %7, i64 %idxprom.i
+  %arrayidx4.i = getelementptr inbounds double, double addrspace(1)* %7, i64 %idxprom.i
   %22 = load double addrspace(1)* %arrayidx4.i, align 8, !tbaa !14
   %sub5.i = fadd double 0.000000e+00, %22
-  %arrayidx7.i = getelementptr inbounds double addrspace(1)* %1, i64 %idxprom.i
+  %arrayidx7.i = getelementptr inbounds double, double addrspace(1)* %1, i64 %idxprom.i
   store double %sub5.i, double addrspace(1)* %arrayidx7.i, align 8, !tbaa !14
   %dim_0_inc_ind_var.i = add i64 %dim_0_ind_var.i, 1
   %dim_0_cmp.to.max.i = icmp eq i64 %dim_0_inc_ind_var.i, %18

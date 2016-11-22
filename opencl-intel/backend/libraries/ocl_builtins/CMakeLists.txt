@@ -74,11 +74,9 @@ add_subdirectory (utils/TableGen)
 
 # remember OCL builtins source dir
 set (CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-message (STATUS "Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
 
 # target directory for OCL .rtl, and .dll/.so of SVML library
 set (BUILTINS_INSTALL_DIR ${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-message (STATUS "Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
 
 # global headers
 if (DEFINED OCL_CLANG_HEADERS)
@@ -89,7 +87,6 @@ endif()
 if (NOT EXISTS ${CLANG_HEADERS})
   message (FATAL_ERROR "Cannot find Clang headers (${CLANG_HEADERS})!")
 endif()
-message (STATUS "Clang headers are in: ${CLANG_HEADERS}")
 
 if (DEFINED OCL_GLOBAL_INCLUDE)
   set (IMPORT_DIR ${OCL_GLOBAL_INCLUDE})
@@ -99,7 +96,6 @@ endif ()
 if (NOT EXISTS ${IMPORT_DIR})
   message (FATAL_ERROR "Cannot find OCL headers (${IMPORT_DIR})!")
 endif()
-message (STATUS "Global headers are in: ${IMPORT_DIR}")
 
 # svml directories
 set (SVML_DLL_DIR ${CL_BUILTIN_SOURCE_DIR}/bin/svml/${PLATFORM})
@@ -108,7 +104,6 @@ if (NOT EXISTS ${SVML_DLL_DIR})
 endif()
 set (SVML_NAME_PREFIX __ocl_svml_)
 set (SDE_NAME_PREFIX __sde_svml_)
-message (STATUS "SVML binary dir: ${SVML_DLL_DIR}")
 
 if(APPLE)
   set(OCL_HOST_CLANG /System/Library/Frameworks/OpenCL.framework/Libraries/openclc)
@@ -156,30 +151,50 @@ else()
   set (LLC OCL_HOST_LLC)
 endif()
 
-# LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
+# LLVM triple is per OS and Arch,
+# Warning: on Linux OS we use Windows triple due to
+# clang forcing abi for function return type for types that are smaller
+# than i32. For instance, a func returning char4 (<4 x i8>) will return i32.
+# (such thing confuses vectorizer).
 if (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (TRIPLE i686-pc-win32-gnu)
+    set (TRIPLE i686-pc-win32-gnu-elf)
   else ()
-    set (TRIPLE x86_64-pc-win32-gnu)
+    set (TRIPLE x86_64-pc-win32-gnu-elf)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set    (TRIPLE i686-pc-Linux)
+    set (TRIPLE i686-pc-win32-gnu-elf)
   else ()
-     set (TRIPLE x86_64-pc-linux)
+    set (TRIPLE x86_64-pc-win32-gnu-elf)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+endif (WIN32)
+
+# LLC triples per OS and Arch.
+if (WIN32)
+  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set (LLC_TRIPLE i686-pc-win32-gnu-elf)
+  else ()
+    set (LLC_TRIPLE x86_64-pc-win32-gnu-elf)
+  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+else (WIN32)
+  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set (LLC_TRIPLE i686-pc-Linux)
+  else ()
+    set (LLC_TRIPLE x86_64-pc-linux)
+endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif (WIN32)
 
 #
 # external tools
 #
 
-message (STATUS "CLANG:     ${CLANG}")
-message (STATUS "LLVM_OPT:  ${OPT}")
-message (STATUS "LLVM_LINK: ${LLVM_LINK}")
-message (STATUS "LLC:       ${LLC}")
-message (STATUS "TRIPLE:    ${TRIPLE}")
+message (STATUS "CLANG:      ${CLANG}")
+message (STATUS "LLVM_OPT:   ${OPT}")
+message (STATUS "LLVM_LINK:  ${LLVM_LINK}")
+message (STATUS "LLC:        ${LLC}")
+message (STATUS "TRIPLE:     ${TRIPLE}")
+message (STATUS "LLC_TRIPLE: ${LLC_TRIPLE}")
 
 #
 # Tool environment and options
@@ -208,36 +223,40 @@ set (CLANG_OCL_12_COMPILER_FLAGS
   -cl-std=CL1.2 -D __OPENCL_C_VERSION__=120
   )
 
+# -ffp-contract=off is added to avoid the following bug:
+# Assume that user disabled fp contractions, so there is no
+# opencl.enable.FP_CONTRACT named metadata in the program. When we link user's
+# program with the run-time library all metadata are merged together, so if we
+# build run-time library with default 'fp-contract' option value, clang will
+# add opencl.enable.FP_CONTRACT metadata and they will eventually appear in the
+# user's program.
 set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/cl_headers/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h
-  -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
+  -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=off
+  )
+
+set (CLANG_C_COMPILER_PARAMS
+  -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
+  -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
   )
 
 # options for clang to compile OpenCL 1.2 & 2.0 code
-set (CLANG_CL12_COMPILER_PARAMS
-  ${CLANG_CL_COMMON_COMPILER_FLAGS} ${CLANG_OCL_12_COMPILER_FLAGS}
-  )
 set (CLANG_CL20_COMPILER_PARAMS
   ${CLANG_CL_COMMON_COMPILER_FLAGS} ${CLANG_OCL_20_COMPILER_FLAGS}
   )
   
 # llvm-opt
-set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
+set (LLVM_OPT_PARAMS -verify -scalarrepl -functionattrs)
 
 # images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -builtin-import -builtin-call-to-inst -O3)
-# adding "-elf" postfix to the triple for Win32 to codegen ELF with llc later (to be consistent with Backend Materializer)
-if (WIN32)
-  set (LLVM_IMAGES_OPT_PARAMS ${LLVM_IMAGES_OPT_PARAMS} -mtriple=${TRIPLE}-elf)
-endif()
+set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3)
 
 # llvm-link parameters
-set (LLVM_LINK_PARAMS -f)
+set (LLVM_LINK_PARAMS -suppress-warnings)
 
 # llc parameters
-# "-stack-alignment" and "-force-align-stack" options should be in consistency with EngineBuilder options in Compiler.cpp
-set (LLC_PARAMS -filetype=obj -stack-alignment=32 -force-align-stack)
+set (LLC_PARAMS -filetype=obj -mtriple=${LLC_TRIPLE})
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set (LLC_PARAMS ${LLC_PARAMS} -code-model=default -relocation-model=static)
 else (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -246,9 +265,9 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 #------------------- Utility functions ---------------------------
 
 #
-# Compile single OpenCL source file
+# Compile single source file
 #
-# compile_ocl( COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
+# compile( COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
 #
 #   COMPILE_OPTIONS - compile options for clang
 #   OUTPUT_FILE_VAR - output, contains full path to object file
@@ -257,7 +276,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 #   OUTPUT_DIR      - directory for output file
 #
 
-function( compile_ocl COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
+function( compile COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
 
   get_filename_component (NAME ${INPUT_FILE} NAME_WE )
   set (OUTPUT_FILE ${NAME}${OCL_OUTPUT_EXTENSION} )
@@ -267,22 +286,21 @@ function( compile_ocl COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR
     COMMAND ${CLANG} ${COMPILE_OPTIONS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
     COMMAND ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
     MAIN_DEPENDENCY ${INPUT_FILE}
-    DEPENDS ${HEADER_FILES} ${OPT_DEP}
+    DEPENDS ${HEADER_FILES} ${OPT_DEP} ${CLANG}
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
-    COMMENT "OCL Compiling ${INPUT_FILE}: ${CLANG} ${COMPILE_OPTIONS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}"
-    COMMENT "OCL Optimize  ${OUTPUT_FILE}: ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}"
+    COMMENT "Compiling ${INPUT_FILE}"
     VERBATIM
     )
 
   set (${OUTPUT_FILE_VAR} ${OUTPUT_DIR}/${OUTPUT_FILE} PARENT_SCOPE )
 
-endfunction( compile_ocl )
+endfunction( compile )
 
 #
 # add OpenCL library built from set of OpenCL source files
 #
-# add_ocl_library( OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR FILES_OCL_12 ...FILES... )
+# add_ocl_library( OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR C_FILES ...FILES... )
 #
 #   OUTPUT_FILE_VAR             - output, contains generated library (rtl file)
 #   PRECOMPILED_OUTPUT_FILE_VAR - output, contains generated library (obj file)
@@ -293,11 +311,11 @@ endfunction( compile_ocl )
 #   USE_OPT                     - Optimize output library with llvm opt tool
 #   ENABLE_PRECOMPILE           - enable precompiling (to native machine code)
 #   OUTPUT_DIR                  - output directory for the intermediate files
-#   FILES_OCL_12                - input file list to compile as OpenCL C 1.2 (may be set to "IGNORE")
+#   C_FILES                     - input file list to compile as C99 (may be set to "IGNORE")
 #   FILES                       - input file list to compile as OpenCL C 2.0
 #
 
-function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME TARGET_DIR ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR FILES_OCL_12 )
+function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME TARGET_DIR ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR C_FILES )
 
   if (${ARGC} LESS 10)
     message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
@@ -311,14 +329,13 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
 
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
   foreach (FILE ${ARGN})
-    message (STATUS "add_ocl_library compiling ${FILE}")
-    compile_ocl( "${CLANG_CL20_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
+    compile( "${CLANG_CL20_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
   
-  if(NOT (${FILES_OCL_12} STREQUAL "IGNORE"))
-    foreach (FILE ${FILES_OCL_12})
-      compile_ocl( "${CLANG_CL12_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
+  if(NOT ("${C_FILES}" STREQUAL "IGNORE"))
+    foreach (FILE ${C_FILES})
+      compile( "${CLANG_C_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
       list (APPEND TMP_FILES ${TMP_RTL})
     endforeach (FILE)   
   endif()
@@ -326,7 +343,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
   if(${USE_OPT})
     # link OpenCL image callback library (adding also intrinsic BI IR )
     add_custom_command (OUTPUT ${OUTPUT_FILE}_noopt
-      COMMENT "OCL Linking -o ${OUTPUT_FILE}_noopt"
+      COMMENT "Linking ${OUTPUT_FILE}_noopt"
       COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       VERBATIM
@@ -341,7 +358,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       # link image callback rtl (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT
       # 
       add_custom_command (OUTPUT ${TMP_LINKED_RTL_OUTPUT}
-        COMMENT "OCL Linking tmp rtl -o ${TMP_LINKED_RTL}"
+        COMMENT "Linking tmp rtl ${TMP_LINKED_RTL}"
         COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_INSTALL_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
         DEPENDS ${LLVM_LINK} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${TARGET_NAME_SHARED}
         VERBATIM
@@ -350,16 +367,16 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
     endif()
 
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
-      COMMENT "Opt optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${OPT} ${OUTPUT_FILE}_noopt -generic-addr-static-resolution -o ${OUTPUT_FILE}_noopt
-      COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
+      COMMAND ${OPT} ${OUTPUT_FILE}_noopt -generic-addr-static-resolution -o ${OUTPUT_FILE}_noopt_gas
+      COMMAND ${OPT} ${OUTPUT_FILE}_noopt_gas ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
       VERBATIM
       )
   else()
     # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
-      COMMENT "OCL Linking ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}"
+      COMMENT "Linking ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}"
       COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       VERBATIM
@@ -381,7 +398,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
     endif ()
 
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE}
-      COMMENT "OCL Building Static Object ${PRECOMPILED_OUTPUT_FILE}"
+      COMMENT "Building static object ${PRECOMPILED_OUTPUT_FILE}"
       COMMAND ${LLC} ${LLC_PARAMS} ${MATTR} -mcpu=${PROC} -o ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE} < ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       DEPENDS ${LLC} ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       VERBATIM
@@ -456,7 +473,7 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
         #COMMAND ${OCL-TBLGEN} ${ARGN} -gen-ocl-Exclude=true -gen-ocl-Prefix="__cl_" -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         COMMAND ${OCL-TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         DEPENDS ${OCL-TBLGEN-DEP} ${depend_tds}
-        COMMENT "Generating ${OFN}..."
+        COMMENT "Generating ${OFN}"
         )
     set_source_files_properties(${OUTPUT_DIR}/${OFN} PROPERTIES GENERATED 1)
     set(${OUTPUT_VAR} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
@@ -478,8 +495,6 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   set (TARGET_NAME ${TARGET_NAME_PREFIX}${ARCH})
 
-  message (STATUS "Building target:   ${TARGET_NAME}")
-
   # intermediate directory for OpenCL compilation/link
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 
@@ -495,7 +510,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_12_SOURCE_FILES} ${OCL_20_SOURCE_FILES})
+  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} "${C_SOURCE_FILES}" ${OCL_20_SOURCE_FILES})
 
   # build .rtl (and .o) files out of OCL image callbacks (by clang) and copy to install directory
   add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
@@ -552,8 +567,9 @@ list (APPEND OCL_20_SOURCE_FILES
   pipe_functions.c
   )
 
-list (APPEND OCL_12_SOURCE_FILES
-  cbk_helper.c
+list (APPEND C_SOURCE_FILES
+  ${CL_BUILTIN_SOURCE_DIR}/cbk_helper.c
+  ${CL_BUILTIN_SOURCE_DIR}/intrinsics.c
   )
 
 
@@ -574,12 +590,6 @@ foreach (FILE ${SAVE_OCL_20_SOURCE_FILES})
   list (APPEND OCL_20_SOURCE_FILES ${CL_BUILTIN_SOURCE_DIR}/${FILE})
 endforeach (FILE)
 
-set (SAVE_OCL_12_SOURCE_FILES ${OCL_12_SOURCE_FILES})
-unset (OCL_12_SOURCE_FILES)
-foreach (FILE ${SAVE_OCL_12_SOURCE_FILES})
-  list (APPEND OCL_12_SOURCE_FILES ${CL_BUILTIN_SOURCE_DIR}/${FILE})
-endforeach (FILE)
-
 set (SAVE_HEADER_FILES ${HEADER_FILES})
 unset (HEADER_FILES)
 foreach (FILE ${SAVE_HEADER_FILES})
@@ -596,10 +606,9 @@ add_subdirectory (sse42)
 add_subdirectory (avx)
 add_subdirectory (avx2)
 add_subdirectory (shared)
-if (BUILD_X64 AND NOT ANDROID)
-  # [LLVM 3.6 UPGRADE] Build of KNL built-ins is currently broken
-  # with clang 3.6.
-  # add_subdirectory (KNLni)
+if (BUILD_X64 AND NOT ANDROID AND NOT WIN32)
+  add_subdirectory (KNLni)
+  add_subdirectory (SKXni)
 endif (BUILD_X64 AND NOT ANDROID)
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (KNCni)

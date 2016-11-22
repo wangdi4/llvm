@@ -232,9 +232,9 @@ OclGenType::OclGenType(const OclBuiltinDB& DB, const Record* R)
   ListInit* Tin = R->getValueAsListInit("Tin");
   ListInit* Tout = R->getValueAsListInit("Tout");
 
-  assert(Tin && Tout && Tin->getSize() > 0 && Tin->getSize() == Tout->getSize() && "Invalid OclGenType record.");
+  assert(Tin && Tout && Tin->size() > 0 && Tin->size() == Tout->size() && "Invalid OclGenType record.");
 
-  if (!(Tin && Tout && Tin->getSize() > 0 && Tin->getSize() == Tout->getSize())) {
+  if (!(Tin && Tout && Tin->size() > 0 && Tin->size() == Tout->size())) {
     GENOCL_WARNING("Invalid gentype '" << m_Name << "' is found.\n");
     return;
   }

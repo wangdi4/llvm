@@ -223,7 +223,7 @@ namespace intel {
         // If the LocalIDValues are generated externally to the function, make
         // sure we place the GEP before the value is accessed
         if (!isa<Instruction>(m_currBarrierKeyValues->m_pLocalIdValues))
-          LB.SetInsertPoint(m_currBarrierKeyValues->m_TheFunction->getEntryBlock().begin());
+          LB.SetInsertPoint(&*m_currBarrierKeyValues->m_TheFunction->getEntryBlock().begin());
         *Ptr = createGetPtrToLocalId(
             m_currBarrierKeyValues->m_pLocalIdValues,
             ConstantInt::get(m_I32Type, APInt(32, Dim)), LB);

@@ -241,21 +241,24 @@ typedef struct _cl_uniform_kernel_args {
  */
 enum cl_dev_sampler_prop
 {
+    // address
     CLK_ADDRESS_NONE                =0,
     CLK_ADDRESS_CLAMP_TO_EDGE       =2,
     CLK_ADDRESS_CLAMP               =4,
     CLK_ADDRESS_REPEAT              =6,
     CLK_ADDRESS_MIRRORED_REPEAT     =8,
-    __ADDRESS_MASK                  =0xE,
-    
+
+    // normalized
     CLK_NORMALIZED_COORDS_FALSE     =0,
     CLK_NORMALIZED_COORDS_TRUE      =1,
-    __NORMALIZED_MASK               =1,
 
+    // filter
     CLK_FILTER_NEAREST              =0x10,
-    CLK_FILTER_LINEAR               =0x20,
-    __FILTER_MASK                   =0x30
+    CLK_FILTER_LINEAR               =0x20
 };
+// masks that allow to define the type of sampler
+// (address, normalized, filter)
+#include "cl_sampler_mask.h"
 
 // Channel order, numbering must be aligned with cl_channel_order in cl.h
 enum {

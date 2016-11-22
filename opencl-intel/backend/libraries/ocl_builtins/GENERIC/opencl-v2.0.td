@@ -274,3 +274,38 @@ def atomic_flag_clear_explicit_scope_l : OclBuiltin<"atomic_flag_clear_explicit"
 
 def atomic_work_item_fence : OclBuiltin<"atomic_work_item_fence", (outs), (ins cl_mem_fence_flags:$flags, memory_order:$order, memory_scope:$scope), [], [], 1, 0>;
 }
+
+// OpenCL 6.13.11.7.5
+// For atomic_fetch and modify functions with key = add or sub on atomic types 
+// atomic_intptr_t and atomic_uintptr_t, M [operand] is ptrdiff_t.
+//
+let Types = [v1u32],
+    Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
+def atomic_fetch_add_uintptr_g : OclBuiltin<"atomic_fetch_add",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_add_explicit_uintptr_g : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_add_explicit_scope_uintptr_g : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_fetch_sub_uintptr_g : OclBuiltin<"atomic_fetch_sub",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_sub_explicit_uintptr_g : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_sub_explicit_scope_uintptr_g : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_fetch_add_uintptr_l : OclBuiltin<"atomic_fetch_add",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_add_explicit_uintptr_l : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_add_explicit_scope_uintptr_l : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_fetch_sub_uintptr_l : OclBuiltin<"atomic_fetch_sub",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_sub_explicit_uintptr_l : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_sub_explicit_scope_uintptr_l : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, v1i32:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+}

@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #define DEBUG_TYPE "predicate"
 #include "Predicator.h"
+#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 #include "Specializer.h"
 #include "Linearizer.h"
@@ -16,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLAddressSpace.h"
 
 #include "llvm/Pass.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Module.h"
@@ -53,7 +55,7 @@ char Predicator::ID = 0;
 const int MAX_NUMBER_OF_BLOCKS_IN_AN_ALLONES_BYPASS = 6;
 
 OCL_INITIALIZE_PASS_BEGIN(Predicator, "predicate", "Predicate Function", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
@@ -252,15 +254,16 @@ void Predicator::moveAfterLastDependant(Instruction* inst) {
   BasicBlock* BB = inst->getParent();
   V_ASSERT(BB && "No parent ?");
 
-  Instruction* last_user = BB->begin();
+  Instruction* last_user = &*BB->begin();
   // Find last user
-  for (BasicBlock::iterator it = BB->getFirstNonPHI(),
+  for (BasicBlock::iterator it = BasicBlock::iterator(BB->getFirstNonPHI()),
        e=BB->end(); it != e; ++it) {
+    Instruction* I = &*it;
     // If this instruction is in our use-chain
     // or if this is a phi-node
-    if (std::find(it->user_begin(), it->user_end(), inst) != it->user_end() ||
-        dyn_cast<PHINode>(it)) {
-      last_user = it;
+    if (std::find(I->user_begin(), I->user_end(), inst) != I->user_end() ||
+        dyn_cast<PHINode>(I)) {
+      last_user = I;
     }
   }
 
@@ -364,7 +367,7 @@ void Predicator::LinearizeFixPhiNode(BasicBlock* tofix, BasicBlock* src) {
     // since all phis are at the beginning of basic block
     if (!phi) return;
 
-    LoopInfo *LI = &getAnalysis<LoopInfo>();
+    LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     Loop* loop = LI->getLoopFor(tofix);
 
     // For each of the incoming edges to the phi
@@ -388,7 +391,8 @@ void Predicator::registerLoopSchedulingScopes(SchedulingScope& parent,
   DenseMap<Loop*, SchedulingScope*> scopes;
 
   // Create a scope for each loop
-  for (Function::iterator bb = F->begin(), bb_e = F->end(); bb != bb_e ; ++bb) {
+  for (Function::iterator bbit = F->begin(), bb_e = F->end(); bbit != bb_e ; ++bbit) {
+    BasicBlock* bb = &*bbit;
     Loop* loop = LI->getLoopFor(bb);
     // Check if loop is scheduled as UCF region
     if (loop && !isUCFInter(loop->getHeader()) &&
@@ -401,7 +405,8 @@ void Predicator::registerLoopSchedulingScopes(SchedulingScope& parent,
 
   // Add all basic blocks to scopes
   // for each BB
-  for (Function::iterator BB = F->begin(), BBE = F->end(); BB != BBE ; ++BB) {
+  for (Function::iterator BBIt = F->begin(), BBE = F->end(); BBIt != BBE ; ++BBIt) {
+    BasicBlock* BB = &*BBIt;
     parent.addBasicBlock(BB);
     // for each loop which we have registered
     for (DenseMap<Loop*, SchedulingScope*>::iterator mapit =
@@ -460,7 +465,7 @@ void Predicator::linearizeFunction(Function* F,
   // When this scope is destroyed, all sub-scopes will be deleted.
   SchedulingScope main_scope(NULL, true);
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   // register the scheduling constraints which are derived from loops
   registerLoopSchedulingScopes(main_scope, LI, F, headers);
 
@@ -556,7 +561,7 @@ Value* Predicator::getPhiCond(PHINode* phi, bool& switchValuesOrder) {
 
 void Predicator::convertPhiToSelect(BasicBlock* BB) {
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
   // We do not touch blocks which are loop headers
@@ -576,7 +581,7 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
              && "Phi node must have only two or less incoming edges");
     // Collect only 2-entry phi nodes.
     if (phi->getNumIncomingValues() == 2) {
-      PhiInstrVector.push_back(it);
+      PhiInstrVector.push_back(&*it);
     }
   }
 
@@ -813,10 +818,10 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       Type* pMaskTy = pMaskedfunc->getFunctionType()->getParamType(0);
       pred = CastInst::CreateSExtOrBitCast(pred, pMaskTy, "", call);
       Module* pCurrentModule = call->getParent()->getParent()->getParent();
-      func = cast<Function>( pCurrentModule->getOrInsertFunction(
-        maskedName,
-        pMaskedfunc->getFunctionType())
-      );
+
+      using namespace Intel::OpenCL::DeviceBackend;
+      func = cast<Function>(CompilationUtils::importFunctionDecl(pCurrentModule,
+                                                                pMaskedfunc));
     }
     const FunctionType* pFuncTy = func->getFunctionType();
     std::vector<Value*> params;
@@ -883,7 +888,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   Value* prev_ptr = new AllocaInst(
     inst->getType(),            // type
     inst->getName() + "_prev",  // name
-    inst->getParent()->getParent()->getEntryBlock().begin()); // where
+    &*inst->getParent()->getParent()->getEntryBlock().begin()); // where
 
   // Get BB predicator
   //V_PRINT(predicate, "select "<<*F<<"\n");
@@ -892,7 +897,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   Value* pred = m_inMask[BB];
 
   /// Get loop header, latch
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
   V_ASSERT(loop && "Unable to find loop, we only predicate in-loop values");
@@ -985,7 +990,7 @@ void Predicator::predicateSideEffectInstructions() {
 void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
   // For each BB
   // Obtain loop analysis (are we inside a loop ?)
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
 
   V_ASSERT(LI && "Unable to get loop analysis");
@@ -996,28 +1001,29 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
   // so no need for masking
   BasicBlock &entryBlock = BB->getParent()->getEntryBlock();
   bool shouldMask = !PDT->dominates(BB, &entryBlock) || loop;
-  for(BasicBlock::iterator it = BB->begin(), e=BB->end(); it != e ; ++it) {
+  for(BasicBlock::iterator IIt = BB->begin(), e=BB->end(); IIt != e ; ++IIt) {
+    Instruction* I = &*IIt;
     // If this is a load/store/call, save it for later
-    V_STAT(if (dyn_cast<LoadInst> (it)) m_maskedLoadCtr++;)
-    V_STAT(if (dyn_cast<StoreInst> (it)) m_maskedStoreCtr++;)
-    V_STAT(if (dyn_cast<CallInst> (it)) m_maskedCallCtr++;)
+    V_STAT(if (dyn_cast<LoadInst> (I)) m_maskedLoadCtr++;)
+    V_STAT(if (dyn_cast<StoreInst> (I)) m_maskedStoreCtr++;)
+    V_STAT(if (dyn_cast<CallInst> (I)) m_maskedCallCtr++;)
 
     if (shouldMask) {
-      if ( isa<LoadInst> (it) || isa<StoreInst>(it) ) {
-        m_toPredicate.push_back(it);
+      if ( isa<LoadInst> (I) || isa<StoreInst>(I) ) {
+        m_toPredicate.push_back(I);
       }
-      else if (CallInst *CI = dyn_cast<CallInst>(it)) {
+      else if (CallInst *CI = dyn_cast<CallInst>(I)) {
         std::string funcname = CI->getCalledFunction()->getName().str();
         if (!m_rtServices->hasNoSideEffect(funcname))  {
-          m_toPredicate.push_back(it);
+          m_toPredicate.push_back(I);
         }
       }
     }
 
     // If this instruction is used outside its BB and the loop is not inside UCF region,
     // save it for later.
-    if (loop && !isUCFInter(loop->getHeader()) && hasOutsideRandomUsers(it, loop)) {
-      m_outsideUsers.insert(it);
+    if (loop && !isUCFInter(loop->getHeader()) && hasOutsideRandomUsers(I, loop)) {
+      m_outsideUsers.insert(I);
     }
   }
 }
@@ -1025,9 +1031,9 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
 void Predicator::maskDummyEntry(BasicBlock *BB) {
   /// Save this as the mask value for this BB
   m_inMask[BB] = new AllocaInst(
-    IntegerType::get(BB->getParent()->getContext(), 1), // type
-    BB->getName() + "_in_mask",                         // name
-    BB->getParent()->getEntryBlock().begin());          // where
+    IntegerType::get(BB->getParent()->getContext(), 1),   // type
+    BB->getName() + "_in_mask",                           // name
+    &*BB->getParent()->getEntryBlock().begin());          // where
 }
 
 // Use the incoming mask as the outgoing mask
@@ -1142,7 +1148,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   V_ASSERT(br && br->isConditional() && "expected conditional branch");
 
   // Get the loop for the basic block.
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   Loop *L = LI->getLoopFor(BB);
   V_ASSERT(L && L->isLoopExiting(BB) && "expected exiting block");
 
@@ -1167,7 +1173,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   Value* local_edge_mask_p = new AllocaInst(
     IntegerType::get(BB->getParent()->getContext(), 1),
     BB->getName() + "_to_" + BBlocal->getName()+"_mask",
-    BB->getParent()->getEntryBlock().begin());
+    &*BB->getParent()->getEntryBlock().begin());
   BinaryOperator* localOutMask = BinaryOperator::Create(Instruction::And,
       entry_mask, localCond , "local_edge", br);
   new StoreInst(localOutMask, local_edge_mask_p, br);
@@ -1198,7 +1204,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     Value *exit_edge_mask_p = new AllocaInst(
       IntegerType::get(BB->getParent()->getContext(), 1),
       BB->getName() + "_to_" + BBexit->getName()+"_mask",
-      BB->getParent()->getEntryBlock().begin());
+      &*BB->getParent()->getEntryBlock().begin());
     // Zero the exit edge mask before entering the loop.
     new StoreInst(m_zero, exit_edge_mask_p, preHeader->getTerminator());
     Value* exit_edge_mask = new LoadInst(exit_edge_mask_p,  "exit_mask", br);
@@ -1279,12 +1285,12 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   Value* mtrue  = new AllocaInst(
     IntegerType::get(BB->getParent()->getContext(), 1),
     BB->getName() + "_to_" + BBsucc0->getName()+"_mask",
-    BB->getParent()->getEntryBlock().begin());
+    &*BB->getParent()->getEntryBlock().begin());
 
   Value* mfalse = new AllocaInst(
     IntegerType::get(BB->getParent()->getContext(), 1),
     BB->getName() + "_to_" + BBsucc1->getName()+"_mask",
-    BB->getParent()->getEntryBlock().begin());
+    &*BB->getParent()->getEntryBlock().begin());
 
   Value* MFalse, *MTrue;
 
@@ -1315,7 +1321,7 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
 
 void Predicator::collectBranchesInfo(Function* F) {
   for (Function::iterator it = F->begin(), e = F->end(); it != e; ++ it) {
-    BasicBlock* BB = it;
+    BasicBlock* BB = &*it;
     TerminatorInst* term = BB->getTerminator();
     BranchInst* br = dyn_cast<BranchInst>(term);
     if (!br || !br->isConditional()) {
@@ -1333,10 +1339,10 @@ void Predicator::collectOptimizedMasks(Function* F,
                                        DominatorTree*  DT) {
 
   // get loop info
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   // For all blocks in function
-  for (Function::iterator x = F->begin(), x_e = F->end(); x != x_e ; ++x) {
-
+  for (Function::iterator x_iter = F->begin(), x_e = F->end(); x_iter != x_e ; ++x_iter) {
+    BasicBlock* x = &*x_iter;
     // If we are the header block in the loop
     // Incoming masks for this case are special. Ignore this case.
     Loop* loopX  = LI->getLoopFor(x);
@@ -1346,7 +1352,8 @@ void Predicator::collectOptimizedMasks(Function* F,
     // Skip UCF interior and exit BBs because they all use the UCF entry's mask
     if(isUCFInter(x) || isUCFExit(x)) continue;
 
-    for (Function::iterator y = F->begin(), y_e = F->end(); y != y_e ; ++y) {
+    for (Function::iterator y_iter = F->begin(), y_e = F->end(); y_iter != y_e ; ++y_iter) {
+      BasicBlock* y = &*y_iter;
       // If we are the header block in the loop
       // Incoming masks for this case are special. Ignore this case.
       Loop* loopY  = LI->getLoopFor(y);
@@ -1375,8 +1382,8 @@ void Predicator::collectOptimizedMasks(Function* F,
           }
         }
       }
-    } //x
-  } //y
+    } //x_iter
+  } //y_iter
 
 }
 
@@ -1713,7 +1720,7 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
 
   /// We will need loop information to know if this BB
   /// has edges leaving the loop
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   V_ASSERT(LI && "Unable to get analysis");
   // Are the predecessor BBs in the same loop as me?
   Loop* L = LI->getLoopFor(BB);
@@ -1846,7 +1853,7 @@ void Predicator::maskIncoming(BasicBlock *BB) {
 
   /// If this is not a simple case,
   /// we will need some loop info.
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   Loop* loop  = LI->getLoopFor(BB);
 
   //
@@ -1872,12 +1879,12 @@ void Predicator::maskIncoming(BasicBlock *BB) {
 
 bool Predicator::checkCanonicalForm(Function *F, LoopInfo *LI) {
   for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-
+    BasicBlock* BB = &*it;
     // Assert that each block has at most two preds
-    V_ASSERT(std::distance(pred_begin(it), pred_end(it))<3 && "Phi canon failed");
+    V_ASSERT(std::distance(pred_begin(BB), pred_end(BB))<3 && "Phi canon failed");
 
     /// Verify that the loop is simplified
-    Loop* loop = LI->getLoopFor(it);
+    Loop* loop = LI->getLoopFor(BB);
     if (loop) {
         V_ASSERT(loop->isLoopSimplifyForm() && "Loop must be in normal form");
     }
@@ -1887,7 +1894,7 @@ bool Predicator::checkCanonicalForm(Function *F, LoopInfo *LI) {
 
 void Predicator::markLoopsThatBeginsWithFullMaskAsZeroBypassed() {
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   for (LoopInfo::iterator it = LI->begin(), e = LI->end();
     it != e; ++ it) { // for each loop
@@ -1937,7 +1944,7 @@ void Predicator::predicateFunction(Function *F) {
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
   DominatorTree* DT      = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_DT = DT; // save the dominator tree.
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   m_LI = LI;
   m_hasLocalMemoryArgs = doFunctionArgumentsContainLocalMem(F);
   V_ASSERT(LI && "Unable to get loop analysis");
@@ -1986,8 +1993,9 @@ void Predicator::predicateFunction(Function *F) {
   )
 
   for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-    if (m_WIA->isDivergentBlock(it))
-      collectInstructionsToPredicate(it);
+    BasicBlock* BB = &*it;
+    if (m_WIA->isDivergentBlock(BB))
+      collectInstructionsToPredicate(BB);
   }
 
   V_STAT(
@@ -2004,24 +2012,25 @@ void Predicator::predicateFunction(Function *F) {
 
   /// Place dummy in-masks
   for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-    maskDummyEntry(it);
+    maskDummyEntry(&*it);
   }
   /// Place out-masks
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-    maskOutgoing(it);
+    maskOutgoing(&*it);
   }
   /// Replace dummy in-masks with real in-masks
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-    maskIncoming(it);
+    maskIncoming(&*it);
   }
   /// Replace all the divergent PHINodes and the PHINodes in
   /// divergent blocks with select instructions
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
+    BasicBlock* BB = &*it;
     // Skip UCF regions except it's entry BB
-    if(isUCFInter(it) || isUCFExit(it))
+    if(isUCFInter(BB) || isUCFExit(BB))
       continue;
-    if (m_WIA->isDivergentBlock(it) || m_WIA->isDivergentPhiBlocks(it))
-      convertPhiToSelect(it);
+    if (m_WIA->isDivergentBlock(BB) || m_WIA->isDivergentPhiBlocks(BB))
+      convertPhiToSelect(BB);
   }
   /// Place selects on loop-exit-users
   for (SetVector<Instruction*>::iterator
@@ -2157,8 +2166,9 @@ void Predicator::blockIsBeingZeroBypassed(BasicBlock* BB) {
   std::vector<Instruction*> inBB;
   for (BasicBlock::iterator bbi=BB->begin(), bbe=BB->end();
     bbi != bbe; ++ bbi) {
-    if (m_predicatedToOriginalInst.count(bbi)) {
-      inBB.push_back(bbi);
+    Instruction* I = &*bbi;
+    if (m_predicatedToOriginalInst.count(I)) {
+      inBB.push_back(I);
     }
   }
 
@@ -2194,7 +2204,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
   Instruction * firstPredOrTerm = NULL;
   for(BasicBlock::iterator bbIt = ucfEntryBB->begin(), bbEnd = ucfEntryBB->end();
         bbIt != bbEnd; ++bbIt) {
-    firstPredOrTerm = bbIt;
+    firstPredOrTerm = &*bbIt;
     if(m_predicatedToOriginalInst.count(firstPredOrTerm)) break;
   }
   V_ASSERT(firstPredOrTerm && "it is a branch or the 1st predicated inst. in this BB");
@@ -2202,10 +2212,10 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
   // into the second half (which is a brand new BB)
   BasicBlock* allOnesBeginBB = ucfEntryBB;
   // Note that the allOnesBeginBB is actually is UCF entry
-  BasicBlock * postEntryBB = SplitBlock(allOnesBeginBB, firstPredOrTerm, this);
+  BasicBlock * postEntryBB = SplitBlock(allOnesBeginBB, firstPredOrTerm, m_DT, m_LI);
   m_ucfInter2Entry[postEntryBB] = ucfEntryBB;
   // Split exit BB at the terminator instruction.
-  BasicBlock* allOnesEndBB = SplitBlock(ucfExitBB, ucfExitBB->getTerminator(), this);
+  BasicBlock* allOnesEndBB = SplitBlock(ucfExitBB, ucfExitBB->getTerminator(), m_DT, m_LI);
   m_ucfEntry2Exit[ucfEntryBB] = allOnesEndBB;
   m_ucfExit2Entry[allOnesEndBB] = ucfEntryBB;
 
@@ -2226,7 +2236,8 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
     // Look for instructions used outside of the original UCF including the new entry and exit BBs
     // (namely allOnesBeginBB and allOnesEndBB) and remember the users and the used values
     for (BasicBlock::iterator ii = ucfOrigBB->begin(), ei = ucfOrigBB->end(); ii != ei; ++ii) {
-      for(Value::user_iterator useIt = ii->user_begin(); useIt != ii->user_end(); ++useIt) {
+      Instruction* I = &*ii;
+      for(Value::user_iterator useIt = I->user_begin(); useIt != I->user_end(); ++useIt) {
         Instruction * userInst = dyn_cast<Instruction>(*useIt);
         V_ASSERT(userInst && "userInst is not an Instruction");
         BasicBlock * userBB = userInst->getParent();
@@ -2234,7 +2245,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
            (userBB == allOnesEndBB  || userBB == allOnesBeginBB || getUCFEntry(userBB) != ucfEntryBB)) {
           // Found an outside user
           outsideUsers.push_back(userInst);
-          origUsedValues.insert(ii);
+          origUsedValues.insert(I);
         }
       }
     }
@@ -2264,7 +2275,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
         bbIt != bbEnd; ++bbIt) {
     BasicBlock * cloneBB = *bbIt;
     for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii)
-      RemapInstruction(ii, clonesMap, RF_IgnoreMissingEntries);
+      RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingEntries);
   }
 
   // Create conditional branch to the original and cloned UCF entry BBs
@@ -2299,7 +2310,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
         ucfIt != ucfEnd; ++ucfIt) {
     BasicBlock * ucfOrigBB = *ucfIt;
     for (BasicBlock::iterator ii = ucfOrigBB->begin(), ei = ucfOrigBB->end(); ii != ei; ++ii) {
-      Instruction * const origPred = ii;
+      Instruction * const origPred = &*ii;
       if(m_predicatedToOriginalInst.count(origPred)) {
         Instruction *  const origUnpred =  m_predicatedToOriginalInst[origPred];
         V_ASSERT(origUnpred && "broken reference in m_predicatedToOriginalInst");
@@ -2376,7 +2387,7 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
   std::map<Instruction*,Instruction*> originalToAllOnesInst;
   for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
     ii != e2; ++ii) {
-      Instruction* inst = ii;
+      Instruction* inst = &*ii;
       Instruction* clone;
       if (m_predicatedSelects.count(inst)) {
         // no need to duplicate the select, since mask is allones.
@@ -2528,24 +2539,25 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
   // 10. insert phi-nodes at exit to choose between the allones or predicated values.
   for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
     ii != e2; ++ii) {
+      Instruction* I = &*ii;
       PHINode* predicationPhi = NULL;
       // changing users, so we need to iterate on copy.
-      std::vector<Value*> users(ii->user_begin(), ii->user_end());
+      std::vector<Value*> users(I->user_begin(), I->user_end());
       for (Value * user : users) {
           Instruction* userInst = dyn_cast<Instruction>(user);
           if (userInst) { // if user is an instruction
             if (userInst->getParent() != original) { // user is outside this block
               // the user should use a phi instead.
               if (!predicationPhi) {
-                V_ASSERT(originalToAllOnesInst.count(ii)
+                V_ASSERT(originalToAllOnesInst.count(I)
                   && "missing allones version");
-                predicationPhi = PHINode::Create(ii->getType(), 2,
+                predicationPhi = PHINode::Create(I->getType(), 2,
                   ii->getName()+"_predication_phi", exit);
 
-                predicationPhi->addIncoming(ii,original);
-                predicationPhi->addIncoming(originalToAllOnesInst[ii],testAllZeroes);
+                predicationPhi->addIncoming(I,original);
+                predicationPhi->addIncoming(originalToAllOnesInst[I],testAllZeroes);
               }
-              userInst->replaceUsesOfWith(ii,predicationPhi);
+              userInst->replaceUsesOfWith(I,predicationPhi);
             }
           }
       }
@@ -2610,8 +2622,9 @@ void Predicator::insertAllOnesBypasses() {
       Instruction* lastPredicatedInst = NULL;
       for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
         ii != e2; ++ii) {
-          if (m_predicatedToOriginalInst.count(ii)) {
-            lastPredicatedInst = ii;
+          Instruction* I = &*ii;
+          if (m_predicatedToOriginalInst.count(I)) {
+            lastPredicatedInst = I;
           }
       }
       if (!lastPredicatedInst) {
@@ -2714,11 +2727,12 @@ void Predicator::insertAllOnesBypasses() {
       bool afterLastPredicatedInstruction = false;
       for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
         ii != e2; ++ii) {
+          Instruction * I = &*ii;
           if (beforeFirstPredicatedInstruction &&
-            m_predicatedToOriginalInst.count(ii)) {
+            m_predicatedToOriginalInst.count(I)) {
             beforeFirstPredicatedInstruction = false;
           }
-          Instruction* inst = ii;
+          Instruction* inst = I;
           Instruction* clone;
           if (beforeFirstPredicatedInstruction) {
             // move into entry.
@@ -2785,27 +2799,28 @@ void Predicator::insertAllOnesBypasses() {
       BranchInst::Create(exit, original);
 
       // 5. insert phi-nodes at exit to choose between the allones or predicated values.
-      Instruction* firstInExitBlock = exit->begin();
+      Instruction* firstInExitBlock = &*exit->begin();
       for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
         ii != e2; ++ii) {
+          Instruction* I = &*ii;
           PHINode* predicationPhi = NULL;
           // changing users, so we need to iterate on copy.
-          std::vector<Value*> users(ii->user_begin(), ii->user_end());
+          std::vector<Value*> users(I->user_begin(), I->user_end());
           for (Value * user : users) {
               Instruction* userInst = dyn_cast<Instruction>(user);
               if (userInst) { // if user is an instruction
                 if (userInst->getParent() != original) { // user is outside this block
                   // the user should use a phi instead.
                   if (!predicationPhi) {
-                    V_ASSERT(originalToAllOnesInst.count(ii)
+                    V_ASSERT(originalToAllOnesInst.count(I)
                              && "missing allones version");
-                    predicationPhi = PHINode::Create(ii->getType(), 2,
-                      ii->getName()+"_predication_phi", firstInExitBlock);
+                    predicationPhi = PHINode::Create(I->getType(), 2,
+                      I->getName()+"_predication_phi", firstInExitBlock);
 
-                    predicationPhi->addIncoming(ii,original);
-                    predicationPhi->addIncoming(originalToAllOnesInst[ii],allOnes);
+                    predicationPhi->addIncoming(I,original);
+                    predicationPhi->addIncoming(originalToAllOnesInst[I],allOnes);
                   }
-                  userInst->replaceUsesOfWith(ii,predicationPhi);
+                  userInst->replaceUsesOfWith(I,predicationPhi);
                 }
               }
           }
@@ -3103,8 +3118,9 @@ void Predicator::calculateHeuristic(Function* F) {
   // the heuristics is a simple check if a divergent block has loads / stores.
   // this proved to be better than several more sophisticated alternatives.
   for (Function::iterator it = F->begin(), e = F->end(); it != e; ++it) {
-    if (m_WIA->isDivergentBlock(it) && blockHasLoadStore(it)) {
-      m_valuableAllOnesBlocks.insert(it);
+    BasicBlock* BB = &*it;
+    if (m_WIA->isDivergentBlock(BB) && blockHasLoadStore(BB)) {
+      m_valuableAllOnesBlocks.insert(BB);
     }
   }
 }

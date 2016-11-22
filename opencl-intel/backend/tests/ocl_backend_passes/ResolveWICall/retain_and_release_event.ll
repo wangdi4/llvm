@@ -7,7 +7,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 define void @test_retain_event() nounwind {
 entry:
   %ptr_event = alloca %opencl.clk_event_t*, align 8
-  %event = load %opencl.clk_event_t** %ptr_event
+  %event = load %opencl.clk_event_t*, %opencl.clk_event_t** %ptr_event
 ; CHECK: call void @_Z12retain_event12ocl_clkevent(%opencl.clk_event_t* %event)
 ; CHECK: call void @_Z13release_event12ocl_clkevent(%opencl.clk_event_t* %event)
   call void @_Z12retain_event12ocl_clkevent(%opencl.clk_event_t* %event) nounwind

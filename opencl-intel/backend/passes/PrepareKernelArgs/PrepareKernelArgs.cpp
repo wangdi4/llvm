@@ -39,18 +39,18 @@ namespace intel{
   /// Register pass to for opt
   OCL_INITIALIZE_PASS(PrepareKernelArgs, "prepare-kernel-args", "changes the way arguments are passed to kernels", false, false)
 
-  PrepareKernelArgs::PrepareKernelArgs() : ModulePass(ID) {
+    PrepareKernelArgs::PrepareKernelArgs() : ModulePass(ID), m_DL(nullptr) {
     initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
   bool PrepareKernelArgs::runOnModule(Module &M) {
-    m_DL = M.getDataLayout();
+    m_DL = &M.getDataLayout();
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
     Intel::MetaDataUtils mdUtils(&M);
     m_mdUtils = &mdUtils;
     m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-    m_PtrSizeInBytes = M.getDataLayout()->getPointerSize(0);
+    m_PtrSizeInBytes = M.getDataLayout().getPointerSize(0);
     m_IAA->initDuringRun(m_PtrSizeInBytes * 8);
     m_SizetTy = IntegerType::get(*m_pLLVMContext, m_PtrSizeInBytes*8);
     m_I32Ty = Type::getInt32Ty(*m_pLLVMContext);
@@ -71,7 +71,6 @@ namespace intel{
 
   Function* PrepareKernelArgs::createWrapper(Function* pFunc) {
     // Create new function's argument type list
-    // The new function receives one argument: i8* pBuffer
     std::vector<llvm::Type *> newArgsVec;
     // The new function receives the following arguments:
     // i8* pBuffer
@@ -335,13 +334,13 @@ namespace intel{
     Function::arg_iterator DestI = pWrapper->arg_begin();
     DestI->setName("pUniformArgs");
     DestI->addAttr(NoAlias);
-    Argument *pArgsBuffer = DestI++;
+    Argument *pArgsBuffer = &*(DestI++);
     DestI->setName("pWGID");
     DestI->addAttr(NoAlias);
-    Argument *pArgGID = DestI++;
+    Argument *pArgGID = &*(DestI++);
     DestI->setName("RuntimeHandle");
     DestI->addAttr(NoAlias);
-    Argument *RuntimeContext = DestI++;
+    Argument *RuntimeContext = &*(DestI++);
     assert(DestI == pWrapper->arg_end() && "Expected to be past last arg");
 
     // Create wrapper function
@@ -363,6 +362,7 @@ namespace intel{
 
     // Change name of old function
     pFunc->setName("__" + pFunc->getName() + "_separated_args");
+
     // Make sure old function always inlined
     // We want to do inlining pass after PrepareKernelArgs pass to gain performance
     pFunc->addFnAttr(llvm::Attribute::AlwaysInline);

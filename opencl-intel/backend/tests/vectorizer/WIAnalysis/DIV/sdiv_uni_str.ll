@@ -36,7 +36,7 @@ bb.nph:
   %11 = or i1 %7, %10
   %12 = select i1 %11, i32 1, i32 %tmp
   %13 = sdiv i32 %x.0, %12
-  %14 = getelementptr inbounds i32 addrspace(1)* %out, i32 %0
+  %14 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %0
   store i32 %13, i32 addrspace(1)* %14, align 4
   %15 = icmp eq i32 %x.0, 0
   %16 = icmp eq i32 %tmp, -2147483648
@@ -46,7 +46,7 @@ bb.nph:
   %20 = select i1 %19, i32 1, i32 %x.0
   %21 = sdiv i32 %tmp, %20
   %22 = add nsw i32 %0, 10
-  %23 = getelementptr inbounds i32 addrspace(1)* %out, i32 %22
+  %23 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %22
   store i32 %21, i32 addrspace(1)* %23, align 4
   ret void
 }

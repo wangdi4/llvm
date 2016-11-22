@@ -89,7 +89,7 @@ void PrintfAdder::addDebugPrintFuncArgs(Function *F) {
   Function::arg_iterator args_e = F->arg_end();
   unsigned argInd = 0;
   for ( ; args_it != args_e; ++args_it, ++argInd) {
-    Value *curArg= args_it;
+    Value *curArg= &*args_it;
     print_args.toPrint.push_back(curArg);  
   }
 
@@ -166,11 +166,12 @@ void PrintfAdder::addGIDConditionPrint (Function *F, debug_print_args& print_arg
   BranchInst::Create(newret, printBlock);
         
   for(Function::iterator bbi=F->begin(), bbe=F->end(); bbi!=bbe; ++bbi) {
+    BasicBlock *BB = &*bbi;
     // replace ret with branch to tail
-    if(TerminatorInst *TI = bbi->getTerminator() ) {
+    if(TerminatorInst *TI = BB->getTerminator() ) {
       if (isa<ReturnInst>(TI)) {
         TI->eraseFromParent();
-        BranchInst::Create(ifgid, bbi);
+        BranchInst::Create(ifgid, BB);
       }
     }
   }
@@ -212,7 +213,7 @@ void PrintfAdder::addDebugCondPrintFunction(Function *F, debug_print_args& print
         
   SmallVector<Value *, 4> func_gids;
   for (unsigned i=0; i<m_gids.size(); ++i) {
-    func_gids.push_back(print_args_it++);
+    func_gids.push_back(&*(print_args_it++));
   }
     
   debug_print_args func_print_args;
@@ -220,7 +221,7 @@ void PrintfAdder::addDebugCondPrintFunction(Function *F, debug_print_args& print
   func_print_args.suffix = print_args.suffix;
   
   while (print_args_it != print_args_e) {
-    func_print_args.toPrint.push_back(print_args_it++);
+    func_print_args.toPrint.push_back(&*(print_args_it++));
   }
 
   // Taking names of values in the original function and use them in the print function
@@ -324,7 +325,9 @@ void PrintfAdder::addDebugPrintImpl(Function *F, debug_print_args& print_args, I
   Constant * printFuncConst = currentModule->getOrInsertFunction("printf", prtFuncType);
   Function * printFunc = dyn_cast<Function>(printFuncConst);
   std::vector<Value*> inputIters(2, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0));
-  Instruction *strPtr = GetElementPtrInst::Create(newGV, ArrayRef<Value*>(inputIters), "", loc);
+  // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+  // (not using type from pointer as this functionality is planned to be removed.
+  Instruction *strPtr = GetElementPtrInst::Create(nullptr, newGV, ArrayRef<Value*>(inputIters), "", loc);
   //if (strPtr->getType() != strType ) {
   //  strPtr = new BitCastInst(strPtr, strType, "ptrTypeCast", loc);
   //}

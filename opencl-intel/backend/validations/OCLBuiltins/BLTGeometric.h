@@ -18,9 +18,10 @@ File Name:  BLTGeometric.h
 #ifndef BLT_GEOMETRIC_H
 #define BLT_GEOMETRIC_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "Helpers.h"
 #include "RefALU.h"
 
@@ -29,7 +30,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_dot(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -50,7 +51,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_normalize(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -69,7 +70,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_length(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -84,7 +85,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_distance(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -102,7 +103,7 @@ namespace OCLBuiltins {
 
     template<typename T, uint32_t n>
     llvm::GenericValue lle_X_cross(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);

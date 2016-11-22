@@ -25,7 +25,11 @@ if (SATEST_INCLUDE_MIC_DEVICE)
 endif (SATEST_INCLUDE_MIC_DEVICE)
 
 if (WIN32)
-    set (ICC_WIN32_PATH $ENV{ICPP_COMPILER14})
+    set (ICC_WIN32_PATH $ENV{ICPP_COMPILER16})
+
+    if ("${ICC_WIN32_PATH}" STREQUAL "")
+      message (FATAL_ERROR "ICC Compiler env var is not exported! SATest won't link.")
+    endif()
 
     if (CMAKE_SIZEOF_VOID_P EQUAL 4)
       set (ICC_PLATFORM ia32)

@@ -55,14 +55,14 @@ L2:
 ; CHECK: @foo
 define void @foo(i32* %x) nounwind {
 L3:
-  %z = load i32* %x, align 4
+  %z = load i32, i32* %x, align 4
   %y = xor i32 %z, %z
   br label %L4
 L4:
   call void @_Z7barrierj(i32 1)
   ret void
 ; CHECK: L3:
-; CHECK: %z = load i32* %x, align 4
+; CHECK: %z = load i32, i32* %x, align 4
 ; CHECK: %y = xor i32 %z, %z
 ; CHECK: br label %L4
 ; CHECK: L4:

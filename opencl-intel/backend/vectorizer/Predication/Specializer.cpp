@@ -114,12 +114,13 @@ static unsigned estimateNumInsts(const BasicBlock *BB) {
   unsigned NumInsts = 0;
   for (BasicBlock::const_iterator II = BB->begin(), E = BB->end();
        II != E; ++II) {
-    if (estimateIsInstructionFree(II))
+    Instruction const *I = &*II;
+    if (estimateIsInstructionFree(I))
       continue;
 
     // Special handling for calls.
-    if (isa<CallInst>(II) || isa<InvokeInst>(II)) {
-      ImmutableCallSite CS(cast<Instruction>(II));
+    if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
+      ImmutableCallSite CS(cast<Instruction>(I));
 
       if (!estimateCallIsSmall(CS)) {
         // Each argument to a call takes on average one instruction to set up.
@@ -201,8 +202,9 @@ bool FunctionSpecializer::shouldSpecialize(const BypassInfo & bi) const {
 
 BasicBlock* FunctionSpecializer::getAnyReturnBlock() {
   // find return block
-  for (Function::iterator x = m_func->begin(),
-       xe = m_func->end(); x != xe ; ++x) {
+  for (Function::iterator xi = m_func->begin(),
+       xe = m_func->end(); xi != xe ; ++xi) {
+    BasicBlock* x = &*xi;
     Instruction* term = x->getTerminator();
     if (dyn_cast<ReturnInst>(term)) {
       return x;
@@ -218,8 +220,9 @@ bool FunctionSpecializer::CanSpecialize() {
     return false;
   }
 
-  for (Function::iterator y = m_func->begin(),
-       ye = m_func->end(); y != ye ; ++y) {
+  for (Function::iterator yi = m_func->begin(),
+       ye = m_func->end(); yi != ye ; ++yi) {
+    BasicBlock* y = &*yi;
     //  Is Ret the 'all post dominator'
     // (return block which dominates all) ?
     if (!m_PDT->dominates(ret, y))  {
@@ -271,7 +274,7 @@ void FunctionSpecializer::addAuxBBForSingleExitEdge(BypassInfo & info) {
     // Add the new block to the loop info analysis
     Loop *loop = m_LI->getLoopFor(info.m_postDom);
     if (loop)
-      loop->addBasicBlockToLoop(new_block, m_LI->getBase());
+      loop->addBasicBlockToLoop(new_block, *m_LI);
 
     TerminatorInst* term = info.m_postDom->getTerminator();
     assert (isa<BranchInst>(term) && "term should be a branch instruction");
@@ -473,7 +476,8 @@ void FunctionSpecializer::CollectDominanceInfo() {
   // dominated by return block)
   if (! CanSpecialize()) return;
 
-  for (Function::iterator bb = m_func->begin(), bbe = m_func->end(); bb != bbe ; ++bb) {
+  for (Function::iterator bbiter = m_func->begin(), bbe = m_func->end(); bbiter != bbe ; ++bbiter) {
+    BasicBlock* bb = &*bbiter;
 
     TerminatorInst* term = bb->getTerminator();
     BranchInst* br = dyn_cast<BranchInst>(term);
@@ -748,7 +752,7 @@ void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
     V_ASSERT(!inst->getType()->isVoidTy() &&
            "Instruction must not have void type");
     PHINode* new_phi = PHINode::Create(
-      inst->getType(), 2, inst->getName() + "_spec", footer->begin());
+      inst->getType(), 2, inst->getName() + "_spec", &*footer->begin());
     UndefValue* undef = UndefValue::get(inst->getType());
 
     // Use PHI value outside of skipped region
@@ -784,7 +788,7 @@ void FunctionSpecializer::propagateMask(Value *mask_target, BasicBlock *header,
 
   PHINode* new_phi =
     PHINode::Create(non_bypass_mask->getType(), 2,
-                    mask_target->getName() + "_maskspec", footer->begin());
+                    mask_target->getName() + "_maskspec", &*footer->begin());
 
   new_phi->addIncoming(non_bypass_mask, exitBlock);
   new_phi->addIncoming(m_zero, header);
@@ -799,7 +803,8 @@ void FunctionSpecializer::findValuesToPhi(
   for (std::set<BasicBlock*>::iterator BB = bi.m_skippedBlocks.begin();
       BB != bi.m_skippedBlocks.end(); ++BB) {
     // for each inst
-    for (BasicBlock::iterator inst = (*BB)->begin(), inst_e = (*BB)->end(); inst != inst_e; ++inst) {
+    for (BasicBlock::iterator instIt = (*BB)->begin(), inst_e = (*BB)->end(); instIt != inst_e; ++instIt) {
+      Instruction *inst = &*instIt;
       // For each skipped instruction
       std::set<Instruction*> deps;
       // for each user

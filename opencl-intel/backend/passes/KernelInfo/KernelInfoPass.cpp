@@ -11,7 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataApi.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include <string>
 #include <math.h>
 
@@ -97,11 +97,11 @@ namespace intel {
   }
 
   size_t KernelInfoPass::getExecutionLength(Function *pFunc) {
-    LoopInfo &LI = getAnalysis<LoopInfo>();
+    LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
     size_t currLength = 0;
     for (Function::iterator i = pFunc->begin(), e = pFunc->end(); i != e; ++i) {
-      currLength += i->size() * getExecutionEstimation(LI.getLoopDepth(i));
+      currLength += i->size() * getExecutionEstimation(LI.getLoopDepth(&*i));
     }
     return currLength;
   }
@@ -112,7 +112,7 @@ namespace intel {
     // if there is no global variables - return 0
     if (M.global_empty()) return 0;
     size_t totalSize = 0;
-    const DataLayout &TD = *M.getDataLayout();
+    const DataLayout &TD = M.getDataLayout();
     for (Module::const_global_iterator it = M.global_begin(); it != M.global_end(); ++it) {
       PointerType* ptr = cast<PointerType>(it->getType());
       assert(ptr && "Global variable is always a pointer.");
@@ -127,7 +127,7 @@ namespace intel {
     Intel::MetaDataUtils mdUtils(&M);
     KernelInfoPass* pKernelInfoPass = new KernelInfoPass(&mdUtils);
 
-    llvm::FunctionPassManager FPM(&M);
+    llvm::legacy::FunctionPassManager FPM(&M);
     FPM.add(pKernelInfoPass);
 
     // Get all kernels

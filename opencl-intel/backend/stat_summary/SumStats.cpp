@@ -208,8 +208,7 @@ bool dumpStats(ExperimentInfo &exp) {
 void parseCL (int argc, char *argv[])
 {
   // remove some non-relevant command line options that come from llvm
-  StringMap<cl::Option*> optMap;
-  cl::getRegisteredOptions(optMap);
+  StringMap<cl::Option*> optMap (std::move(cl::getRegisteredOptions()));
 
   if (optMap.count("print-after-all") > 0)
     optMap["print-after-all"]->setHiddenFlag(cl::ReallyHidden);

@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.ll -CLBltnPreVec -scalarize -packetize -packet-size=4 -resolve -verify %s -S -o - \
+; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.bc -CLBltnPreVec -scalarize -packetize -packet-size=4 -resolve -verify %s -S -o - \
 ; RUN: | FileCheck %s
 
 ;; This test:
@@ -34,7 +34,7 @@
   @sgv = internal constant [4 x i8] c"222\00"
   @fgv = internal constant [0 x i8] zeroinitializer
   @lvgv = internal constant [0 x i8*] zeroinitializer
-  @llvm.global.annotations = appending global [1 x { i8*, i8*, i8*, i8*, i32 }] [{ i8*, i8*, i8*, i8*, i32 } { i8* bitcast (void (<16 x float> addrspace(1)*, <16 x float> addrspace(1)*, <16 x float> addrspace(1)*)* @math_kernel16 to i8*), i8* getelementptr inbounds ([4 x i8]* @sgv, i32 0, i32 0), i8* getelementptr inbounds ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"
+  @llvm.global.annotations = appending global [1 x { i8*, i8*, i8*, i8*, i32 }] [{ i8*, i8*, i8*, i8*, i32 } { i8* bitcast (void (<16 x float> addrspace(1)*, <16 x float> addrspace(1)*, <16 x float> addrspace(1)*)* @math_kernel16 to i8*), i8* getelementptr inbounds ([4 x i8], [4 x i8]* @sgv, i32 0, i32 0), i8* getelementptr inbounds ([0 x i8], [0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"
   
   declare void @math_kernel16(<16 x float> addrspace(1)* nocapture %out, <16 x float> addrspace(1)* %out2, <16 x float> addrspace(1)* nocapture %in) nounwind
   
@@ -52,12 +52,12 @@
      %2 = call i64 @_Z13get_global_idj(i32 0) nounwind
      %sext = shl i64 %2, 32
      %3 = ashr exact i64 %sext, 32
-     %4 = getelementptr inbounds <16 x float> addrspace(1)* %in, i64 %3
-     %5 = load <16 x float> addrspace(1)* %4, align 64, !tbaa !4
-     %6 = getelementptr inbounds <16 x float> addrspace(1)* %out2, i64 %3
+     %4 = getelementptr inbounds <16 x float>, <16 x float> addrspace(1)* %in, i64 %3
+     %5 = load <16 x float>, <16 x float> addrspace(1)* %4, align 64, !tbaa !4
+     %6 = getelementptr inbounds <16 x float>, <16 x float> addrspace(1)* %out2, i64 %3
      store <16 x float> %5, <16 x float>* %1, align 64
      %7 = call <16 x float> @_Z6sincosDv16_fPU3AS1S_(<16 x float>* byval align 64 %1, <16 x float> addrspace(1)* %6) nounwind
-     %8 = getelementptr inbounds <16 x float> addrspace(1)* %out, i64 %3
+     %8 = getelementptr inbounds <16 x float>, <16 x float> addrspace(1)* %out, i64 %3
      store <16 x float> %7, <16 x float> addrspace(1)* %8, align 64, !tbaa !4
      ret void
  }

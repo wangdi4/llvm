@@ -1,6 +1,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/SourceMgr.h"
@@ -25,11 +25,6 @@ static cl::opt<std::string>
 RuntimeServices("runtime",
                   cl::desc("Runtime services type (ocl/dx/apple/rs)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
-
-static cl::opt<bool>
-MicPasses("mic-passes",
-                 cl::desc("Include optimization passes specific for MIC achitecture."));
-
 
 extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
 extern "C" Pass* createBuiltInImportPass(const char* CPUName);
@@ -100,7 +95,6 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeOCLAliasAnalysisPass(Registry);
     intel::initializeSPIR20BlocksToObjCBlocksPass(Registry);
     intel::initializePrintfArgumentsPromotionPass(Registry);
-    intel::initializeBIAttrImportPass(Registry);
 }
 
 
@@ -112,7 +106,7 @@ void InitOCLOpt(llvm::LLVMContext& context)
 }
 
 extern "C" llvm::ImmutablePass * createImplicitArgsAnalysisPass(LLVMContext *C);
-void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
+void InitOCLPasses( llvm::LLVMContext& context, llvm::legacy::PassManager& passMgr )
 {
   //---=== Post Command Line Initialization ===---
   // *** Vectorizer initializations
@@ -120,25 +114,25 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
   llvm::SmallVector<llvm::Module*, 2> runtimeModuleList;
 
   if (RuntimeLib.size() != 0) {
-      for (unsigned i = 0; i != RuntimeLib.size(); ++i)
-      {
-          if (RuntimeLib[i] == "") {
-              runtimeModuleList.push_back(new Module("empty", context));
-          }
-          else {
-              llvm::SMDiagnostic Err;
-              std::unique_ptr<llvm::Module> runtimeModule = llvm::getLazyIRFileModule(RuntimeLib[i], Err, context);
-              if (runtimeModule == NULL) {
-                    errs() << "Runtime error reading IR from \"" << RuntimeLib[i] << "\":\n";
-                    Err.print("Error: ", errs());
-                    exit(1);
-              }
-              runtimeModuleList.push_back(runtimeModule.release());
-          }
+    for (unsigned i = 0; i != RuntimeLib.size(); ++i)
+    {
+      if (RuntimeLib[i] == "") {
+        runtimeModuleList.push_back(new Module("empty", context));
       }
+      else {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> runtimeModule = llvm::getLazyIRFileModule(RuntimeLib[i], Err, context);
+        if (!runtimeModule) {
+          errs() << "Runtime error reading IR from \"" << RuntimeLib[i] << "\":\n";
+          Err.print("Error: ", errs());
+          exit(1);
+        }
+        runtimeModuleList.push_back(runtimeModule.release());
+      }
+    }
   }
   else {
-      runtimeModuleList.push_back(new Module("empty", context));
+    runtimeModuleList.push_back(new Module("empty", context));
   }
 
   //Always add the BuiltinLibInfo Pass to the Pass Manager

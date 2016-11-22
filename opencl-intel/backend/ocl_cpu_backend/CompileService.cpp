@@ -39,7 +39,6 @@ File Name:  CompileService.cpp
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCDisassembler.h"
 #include "llvm/MC/MCInstPrinter.h"
-#include "llvm/PassManager.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 using namespace Intel::OpenCL::ELFUtils;

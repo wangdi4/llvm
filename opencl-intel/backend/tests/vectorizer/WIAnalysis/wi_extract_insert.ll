@@ -15,7 +15,7 @@ declare i32 @_Z13get_global_idj(i32)
 define void @extract_elt_uni(i32 addrspace(1)* nocapture %out, <4 x i32> %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %extract_elt_val = extractelement <4 x i32> %uni, i32 0
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %extract_elt_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }
@@ -26,7 +26,7 @@ define void @extract_elt_uni(i32 addrspace(1)* nocapture %out, <4 x i32> %uni) n
 define void @extract_elt_rnd(i32 addrspace(1)* nocapture %out, <4 x i32> %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %extract_elt_val = extractelement <4 x i32> %uni, i32 %gid
-  %ptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %gid
   store i32 %extract_elt_val, i32 addrspace(1)* %ptr, align 4
   ret void
 }
@@ -38,7 +38,7 @@ define void @extract_elt_rnd(i32 addrspace(1)* nocapture %out, <4 x i32> %uni) n
 define void @insert_elt_uni(<4 x i32> addrspace(1)* nocapture %out, <4 x i32> %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %insert_elt_val = insertelement <4 x i32> %uni, i32 4, i32 0
-  %ptr = getelementptr inbounds <4 x i32> addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds <4 x i32>, <4 x i32> addrspace(1)* %out, i32 %gid
   store <4 x i32> %insert_elt_val, <4 x i32> addrspace(1)* %ptr, align 4
   ret void
 }
@@ -49,7 +49,7 @@ define void @insert_elt_uni(<4 x i32> addrspace(1)* nocapture %out, <4 x i32> %u
 define void @insert_elt_rnd(<4 x i32> addrspace(1)* nocapture %out, <4 x i32> %uni) nounwind {
   %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %insert_elt_val = insertelement <4 x i32> %uni, i32 4, i32 %gid
-  %ptr = getelementptr inbounds <4 x i32> addrspace(1)* %out, i32 %gid
+  %ptr = getelementptr inbounds <4 x i32>, <4 x i32> addrspace(1)* %out, i32 %gid
   store <4 x i32> %insert_elt_val, <4 x i32> addrspace(1)* %ptr, align 4
   ret void
 }

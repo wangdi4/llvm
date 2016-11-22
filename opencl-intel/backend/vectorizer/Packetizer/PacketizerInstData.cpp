@@ -28,7 +28,7 @@ Instruction *PacketizeFunction::findInsertPoint(Value * val)
   // Getting here, the instruction is PHINode. Return the last PHI node
   V_ASSERT(isa<PHINode>(val) && "Expecting a PHINode instruction");
   BasicBlock::iterator iter(dyn_cast<PHINode>(val)->getParent()->getFirstNonPHI());
-  return --iter;
+  return &*(--iter);
 }
 
 bool PacketizeFunction::isInsertNeededToObtainVectorizedValue(Value * origValue) {

@@ -3,12 +3,12 @@
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @test2
-; CHECK-NOT: %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %1)
+; CHECK-NOT: %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %1)
 ; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %1 to i8 addrspace(1)*
 ; CHECK: ret
 
 ; CHECK: @func
-; CHECK-NOT: %call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %6)
+; CHECK-NOT: %call i8* @__to_private(i8 addrspace(4)* %6)
 ; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %6 to i8*
 ; CHECK: ret
 
@@ -18,21 +18,21 @@ target triple = "i686-pc-win32"
 
 define i32 addrspace(4)* @test2(i32 addrspace(4)* addrspace(4)* %p1, i32 addrspace(4)* addrspace(4)* %p2) nounwind {
 entry:
-  %arrayidx = getelementptr inbounds i32 addrspace(4)* addrspace(4)* %p1, i32 5
-  %0 = load i32 addrspace(4)* addrspace(4)* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %p1, i32 5
+  %0 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %arrayidx, align 4
   %1 = bitcast i32 addrspace(4)* %0 to i8 addrspace(4)*
-  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %1)
+  %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %1)
   %tobool = icmp ne i8 addrspace(1)* %call, null
   br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %arrayidx1 = getelementptr inbounds i32 addrspace(4)* addrspace(4)* %p1, i32 6
-  %2 = load i32 addrspace(4)* addrspace(4)* %arrayidx1, align 4
+  %arrayidx1 = getelementptr inbounds i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %p1, i32 6
+  %2 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %arrayidx1, align 4
   br label %return
 
 if.end:                                           ; preds = %entry
-  %arrayidx2 = getelementptr inbounds i32 addrspace(4)* addrspace(4)* %p2, i32 7
-  %3 = load i32 addrspace(4)* addrspace(4)* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %p2, i32 7
+  %3 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %arrayidx2, align 4
   br label %return
 
 return:                                           ; preds = %if.end, %if.then
@@ -40,7 +40,7 @@ return:                                           ; preds = %if.end, %if.then
   ret i32 addrspace(4)* %retval.0
 }
 
-declare i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(1)* @__to_global(i8 addrspace(4)*)
 
 define void @func(i32 addrspace(1)* %pGlobal, i32 addrspace(3)* %pLocal, float %param) nounwind {
 entry:
@@ -59,24 +59,24 @@ for.body:                                         ; preds = %for.cond
   br i1 %tobool, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %add.ptr = getelementptr inbounds i32 addrspace(1)* %pGlobal, i32 %i.0
+  %add.ptr = getelementptr inbounds i32, i32 addrspace(1)* %pGlobal, i32 %i.0
   %0 = addrspacecast i32 addrspace(1)* %add.ptr to i32 addrspace(4)*
-  %arrayidx = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs1, i32 0, i32 %i.0
+  %arrayidx = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs1, i32 0, i32 %i.0
   store i32 addrspace(4)* %0, i32 addrspace(4)** %arrayidx, align 4
-  %add.ptr1 = getelementptr inbounds i32 addrspace(3)* %pLocal, i32 %i.0
+  %add.ptr1 = getelementptr inbounds i32, i32 addrspace(3)* %pLocal, i32 %i.0
   %1 = addrspacecast i32 addrspace(3)* %add.ptr1 to i32 addrspace(4)*
-  %arrayidx2 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs2, i32 0, i32 %i.0
+  %arrayidx2 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs2, i32 0, i32 %i.0
   store i32 addrspace(4)* %1, i32 addrspace(4)** %arrayidx2, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body
-  %add.ptr3 = getelementptr inbounds i32 addrspace(3)* %pLocal, i32 %i.0
+  %add.ptr3 = getelementptr inbounds i32, i32 addrspace(3)* %pLocal, i32 %i.0
   %2 = addrspacecast i32 addrspace(3)* %add.ptr3 to i32 addrspace(4)*
-  %arrayidx4 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs1, i32 0, i32 %i.0
+  %arrayidx4 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs1, i32 0, i32 %i.0
   store i32 addrspace(4)* %2, i32 addrspace(4)** %arrayidx4, align 4
-  %add.ptr5 = getelementptr inbounds i32 addrspace(1)* %pGlobal, i32 %i.0
+  %add.ptr5 = getelementptr inbounds i32, i32 addrspace(1)* %pGlobal, i32 %i.0
   %3 = addrspacecast i32 addrspace(1)* %add.ptr5 to i32 addrspace(4)*
-  %arrayidx6 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs2, i32 0, i32 %i.0
+  %arrayidx6 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs2, i32 0, i32 %i.0
   store i32 addrspace(4)* %3, i32 addrspace(4)** %arrayidx6, align 4
   br label %if.end
 
@@ -88,18 +88,18 @@ for.inc:                                          ; preds = %if.end
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  %arraydecay = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs1, i32 0, i32 0
+  %arraydecay = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs1, i32 0, i32 0
   %4 = addrspacecast i32 addrspace(4)** %arraydecay to i32 addrspace(4)* addrspace(4)*
-  %arraydecay7 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs2, i32 0, i32 0
+  %arraydecay7 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs2, i32 0, i32 0
   %5 = addrspacecast i32 addrspace(4)** %arraydecay7 to i32 addrspace(4)* addrspace(4)*
   %call = call i32 addrspace(4)* @test2(i32 addrspace(4)* addrspace(4)* %4, i32 addrspace(4)* addrspace(4)* %5)
   %6 = bitcast i32 addrspace(4)* %call to i8 addrspace(4)*
-  %call8 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %6)
+  %call8 = call i8* @__to_private(i8 addrspace(4)* %6)
   %7 = bitcast i8* %call8 to i32*
   ret void
 }
 
-declare i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)*)
+declare i8* @__to_private(i8 addrspace(4)*)
 
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}

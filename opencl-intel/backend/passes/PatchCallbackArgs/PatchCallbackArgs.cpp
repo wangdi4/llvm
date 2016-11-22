@@ -50,7 +50,7 @@ ImplicitArgAccessorFunc ImplicitArgAccessorFuncList[] = {
 
 bool PatchCallbackArgs::runOnModule(Module &M) {
   ImplicitArgsAnalysis &IAA = getAnalysis<ImplicitArgsAnalysis>();
-  unsigned PointerSize = M.getDataLayout()->getPointerSizeInBits(0);
+  unsigned PointerSize = M.getDataLayout().getPointerSizeInBits(0);
   IAA.initDuringRun(PointerSize);
   bool Changed = false;
   SmallVector<CallInst*, 16> ToErase;
@@ -92,7 +92,7 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
         unsigned NDInfoId = ImplicitArgAccessorFuncList[I].ArgSecondaryId;
         assert(NDInfoId == NDInfo::BLOCK2KERNEL_MAPPER ||
                NDInfoId == NDInfo::RUNTIME_INTERFACE);
-        IRBuilder<> Builder(CallingF->getEntryBlock().begin());
+        IRBuilder<> Builder(&*CallingF->getEntryBlock().begin());
         Val =
             IAA.GenerateGetFromWorkInfo(NDInfoId, ImplicitArgs.first, Builder);
       } break;

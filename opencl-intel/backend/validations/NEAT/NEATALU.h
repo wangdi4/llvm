@@ -33,6 +33,7 @@ File Name:  NEATALU.h
 #include "IntervalError.h"
 
 #include <math.h>
+#include <algorithm>
 #include <vector>
 
 namespace Validation

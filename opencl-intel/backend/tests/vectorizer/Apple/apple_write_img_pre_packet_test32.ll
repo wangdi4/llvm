@@ -1,6 +1,6 @@
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.ll -runtime=apple -AppleWIDepPrePack %t.bc -S -o %t1.ll
+; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.bc -runtime=apple -AppleWIDepPrePack %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; XFAIL: *
 
@@ -23,8 +23,8 @@ define void @__write_imagef_2d_x_cons_y_uni_test(%struct._image2d_t addrspace(1)
 entry:
   %ind = tail call i32 @_Z13get_global_idj(i32 0)
   %0 = sext i32 %ind to i64
-  %colors_ptr = getelementptr <4 x float>* %colors, i64 %0
-  %colors_val = load <4 x float>* %colors_ptr, align 16
+  %colors_ptr = getelementptr <4 x float>, <4 x float>* %colors, i64 %0
+  %colors_val = load <4 x float>, <4 x float>* %colors_ptr, align 16
   %scalar = extractelement <4 x float> %colors_val, i32 0
   %scalar1 = extractelement <4 x float> %colors_val, i32 1
   %scalar2 = extractelement <4 x float> %colors_val, i32 2
@@ -48,8 +48,8 @@ define void @__write_imagef_2d_x_uni_y_cons_test(%struct._image2d_t addrspace(1)
 entry:
   %ind = tail call i32 @_Z13get_global_idj(i32 0)
   %0 = sext i32 %ind to i64
-  %colors_ptr = getelementptr <4 x float>* %colors, i64 %0
-  %colors_val = load <4 x float>* %colors_ptr, align 16
+  %colors_ptr = getelementptr <4 x float>, <4 x float>* %colors, i64 %0
+  %colors_val = load <4 x float>, <4 x float>* %colors_ptr, align 16
   %scalar = extractelement <4 x float> %colors_val, i32 0
   %scalar1 = extractelement <4 x float> %colors_val, i32 1
   %scalar2 = extractelement <4 x float> %colors_val, i32 2

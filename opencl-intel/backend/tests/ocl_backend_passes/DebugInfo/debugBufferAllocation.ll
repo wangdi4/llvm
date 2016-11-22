@@ -38,7 +38,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind
 define spir_kernel void @mykernel() #0 {
-  call spir_func void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0)), !dbg !33
+  call spir_func void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8], [100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0)), !dbg !33
   ret void, !dbg !34
 }
 
@@ -87,7 +87,7 @@ attributes #1 = { nounwind readnone }
 !28 = !{!"clang version 3.6.0 (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-clang 83869a5aa2cc8e6efb5dab84d4f034a88fa5515f) (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-llvm 50546c308a35b18ee2afb43648a5c2b0e414227f)"}
 !29 = !{!"0x101\00a\0016777217\000", !4, !6, !9}  ; [ DW_TAG_arg_variable ] [a] [line 1]
 !30 = !{!"0x102"}                                 ; [ DW_TAG_expression ]
-!31 = !MDLocation(line: 1, scope: !4)
-!32 = !MDLocation(line: 2, scope: !4)
-!33 = !MDLocation(line: 6, scope: !11)
-!34 = !MDLocation(line: 7, scope: !11)
+!31 = !DILocation(line: 1, scope: !4)
+!32 = !DILocation(line: 2, scope: !4)
+!33 = !DILocation(line: 6, scope: !11)
+!34 = !DILocation(line: 7, scope: !11)

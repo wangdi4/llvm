@@ -1,4 +1,6 @@
-;RUN: opt -runtimelib=%s.rtl -builtin-import -verify %s -S | FileCheck %s
+; RUN: llvm-as %s.rtl -o %s.rtl.bc
+; RUN: opt -runtimelib=%s.rtl.bc -builtin-import -verify %s -S | FileCheck %s
+
 ;;*****************************************************************************
 ;; This test checks what the BuiltInFuncImport pass preserves opaque type names
 ;; at importing any built-in function to user module.

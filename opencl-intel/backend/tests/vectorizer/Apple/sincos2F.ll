@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.ll -CLBltnPreVec -scalarize -packetize -packet-size=4 -resolve -verify %s -S -o - \
+; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.bc -CLBltnPreVec -scalarize -packetize -packet-size=4 -resolve -verify %s -S -o - \
 ; RUN: | FileCheck %s
 
 ;; This test:
@@ -20,7 +20,7 @@
   @sgv = internal constant [4 x i8] c"222\00"
   @fgv = internal constant [0 x i8] zeroinitializer
   @lvgv = internal constant [0 x i8*] zeroinitializer
-  @llvm.global.annotations = appending global [1 x { i8*, i8*, i8*, i8*, i32 }] [{ i8*, i8*, i8*, i8*, i32 } { i8* bitcast (void (<2 x float> addrspace(1)*, <2 x float> addrspace(1)*, <2 x float> addrspace(1)*)* @math_kernel2 to i8*), i8* getelementptr inbounds ([4 x i8]* @sgv, i32 0, i32 0), i8* getelementptr inbounds ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"
+  @llvm.global.annotations = appending global [1 x { i8*, i8*, i8*, i8*, i32 }] [{ i8*, i8*, i8*, i8*, i32 } { i8* bitcast (void (<2 x float> addrspace(1)*, <2 x float> addrspace(1)*, <2 x float> addrspace(1)*)* @math_kernel2 to i8*), i8* getelementptr inbounds ([4 x i8], [4 x i8]* @sgv, i32 0, i32 0), i8* getelementptr inbounds ([0 x i8], [0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"
   
   declare void @math_kernel2(<2 x float> addrspace(1)* nocapture %out, <2 x float> addrspace(1)* %out2, <2 x float> addrspace(1)* nocapture %in) nounwind
   
@@ -36,13 +36,13 @@
      %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
      %sext = shl i64 %1, 32
      %2 = ashr exact i64 %sext, 32
-     %3 = getelementptr inbounds <2 x float> addrspace(1)* %in, i64 %2
-     %4 = load <2 x float> addrspace(1)* %3, align 8, !tbaa !4
-     %5 = getelementptr inbounds <2 x float> addrspace(1)* %out2, i64 %2
+     %3 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %in, i64 %2
+     %4 = load <2 x float>, <2 x float> addrspace(1)* %3, align 8, !tbaa !4
+     %5 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %out2, i64 %2
      %6 = bitcast <2 x float> %4 to double
      %7 = tail call <4 x float> @_Z6sincosDv2_fPU3AS1S_(double %6, <2 x float> addrspace(1)* %5) nounwind
      %8 = shufflevector <4 x float> %7, <4 x float> undef, <2 x i32> <i32 0, i32 1>
-     %9 = getelementptr inbounds <2 x float> addrspace(1)* %out, i64 %2
+     %9 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %out, i64 %2
      store <2 x float> %8, <2 x float> addrspace(1)* %9, align 8, !tbaa !4
      ret void
  }

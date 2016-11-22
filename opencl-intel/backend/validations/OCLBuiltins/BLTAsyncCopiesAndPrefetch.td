@@ -69,13 +69,13 @@ using namespace Validation::OCLBuiltins;
 namespace Validation {
 namespace OCLBuiltins {
 llvm::GenericValue lle_X_prefetch(llvm::FunctionType *FT,
-                                  const std::vector<llvm::GenericValue> &Args)
+                                  llvm::ArrayRef<llvm::GenericValue> Args)
 {
     return GenericValue();
 }
 
 llvm::GenericValue lle_X_wait_group_events(llvm::FunctionType *FT,
-                                  const std::vector<llvm::GenericValue> &Args)
+                                  llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue arg0 = Args[0];
     llvm::GenericValue arg1 = Args[1];

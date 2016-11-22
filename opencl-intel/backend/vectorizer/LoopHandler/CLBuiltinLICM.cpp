@@ -15,7 +15,7 @@ char intel::CLBuiltinLICM::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(CLBuiltinLICM, "CLBuiltinLICM", "hoist known uniform openCL builtins out of loops", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLBuiltinLICM, "CLBuiltinLICM", "hoist known uniform openCL builtins out of loops", false, false)
 
@@ -54,7 +54,7 @@ void CLBuiltinLICM::ScanLoop(DomTreeNode *N) {
   // are already hoisted.
   if (!LoopUtils::inSubLoop(m_curLoop, BB)) {
     for (BasicBlock::iterator II = BB->begin(), E = BB->end(); II != E;) {
-      Instruction *I = II++;
+      Instruction *I = &*II; II++;
       if (CallInst *CI = dyn_cast<CallInst>(I)) {
         m_changed |= hoistCLBuiltin(CI);
       }

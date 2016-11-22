@@ -15,7 +15,7 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 #include "InitializePasses.h"
 
 #include "llvm/Pass.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 
@@ -80,7 +80,7 @@ RenderscriptVectorizer::RenderscriptVectorizer(const OptimizerConfig* pConfig,
   m_optimizerWidths(&optimizerWidths)
 {
   // init debug prints
-  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+  initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
   V_INIT_PRINT;
 }
 
@@ -94,7 +94,7 @@ RenderscriptVectorizer::RenderscriptVectorizer() :
   m_optimizerWidths(NULL)
 {
   // init debug prints
-  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+  initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
   m_pCPUId = new Intel::CPUId();
   m_pConfig = new OptimizerConfig(*m_pCPUId,
             0,
@@ -165,7 +165,7 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
 
   // Create the vectorizer core pass that will do the vectotrization work.
   VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
-  FunctionPassManager vectPM(&M);
+  legacy::FunctionPassManager vectPM(&M);
   vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "rs"));
   vectPM.add(vectCore);
 
@@ -206,7 +206,7 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
 
 
   {
-    PassManager mpm;
+      legacy::PassManager mpm;
     mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "rs"));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);

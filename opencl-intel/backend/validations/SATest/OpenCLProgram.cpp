@@ -190,7 +190,7 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
                                            program bytecode.");
     }
 
-    llvm::ErrorOr<llvm::Module*> pModuleOrErr = parseBitcodeFile(pMemBuffer->getMemBufferRef(), *C);
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr = parseBitcodeFile(pMemBuffer->getMemBufferRef(), *C);
     if (!pModuleOrErr)
     {
         throw Exception::TestReferenceRunnerException("Unable to parse bytecode into\
@@ -198,5 +198,5 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
     }
     DEBUG(llvm::dbgs() << "Module LLVM error: " << pModuleOrErr.getError().value() << "\n"
                        << "            message: " << pModuleOrErr.getError().message() << "\n");
-    return pModuleOrErr.get();
+    return pModuleOrErr.get().release();
 }

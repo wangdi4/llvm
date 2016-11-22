@@ -44,7 +44,7 @@ File Name:  CPUCompiler.cpp
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
@@ -334,8 +334,6 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     // Exclude FMA instructions when FP_CONTRACT is disabled
     std::vector<std::string> cpuFeatures(m_forcedCpuFeatures);
 
-    UpdateTargetTriple(pModule);
-
     std::unique_ptr<llvm::Module> pModuleUniquePtr(pModule);
     llvm::EngineBuilder builder(std::move(pModuleUniquePtr));
     builder.setEngineKind(llvm::EngineKind::JIT);
@@ -413,13 +411,12 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     if (ec)
     {
         throw Exceptions::CompilerException(
-			std::string("Failed to open the target file for dump: error code:") + ec.message());
+        std::string("Failed to open the target file for dump: error code:") + ec.message());
     }
 
     // Build up all of the passes that we want to do to the module.
-    PassManager pm;
-    llvm::formatted_raw_ostream fos(out);
-    pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true);
+    llvm::legacy::PassManager pm;
+    pTargetMachine->addPassesToEmitFile(pm, out, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true);
     pm.run(*pModule);
 }
 

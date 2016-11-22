@@ -1,8 +1,8 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/PassManager.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/CommandLine.h"
@@ -17,7 +17,7 @@ using namespace llvm;
 
 static cl::list<std::string>
 RuntimeLib(cl::CommaSeparated, "runtimelib",
-                  cl::desc("Runtime declarations (bitCode) libraries (comma separated)"),
+                  cl::desc("Runtime declarations (bitcode) libraries (comma separated)"),
                   cl::value_desc("filename1,filename2"));
 
 // BIImport pass resolves svml calls of "shared" functions:
@@ -47,7 +47,7 @@ void InitOCLOpt(llvm::LLVMContext& context)
     initializeOCLPasses(Registry);
 }
 
-void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
+void InitOCLPasses( llvm::LLVMContext& context, llvm::legacy::PassManager& passMgr )
 {
   //---=== Post Command Line Initialization ===---
   // Obtain the runtime modules (either from input, or generate empty ones)
@@ -63,9 +63,9 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
               llvm::SMDiagnostic Err;
               std::unique_ptr<llvm::Module> runtimeModule = llvm::getLazyIRFileModule(RuntimeLib[i], Err, context);
               if (!runtimeModule) {
-                    errs() << "Runtime error reading IR from \"" << RuntimeLib[i] << "\":\n";
-                    Err.print("Error: ", errs());
-                    exit(1);
+                  errs() << "Runtime error reading IR from \"" << RuntimeLib[i] << "\":\n";
+                  Err.print("Error: ", errs());
+                  exit(1);
               }
               runtimeModuleList.push_back(runtimeModule.release());
           }
@@ -74,9 +74,9 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
   else {
       runtimeModuleList.push_back(new Module("empty", context));
   }
-  
+
   //Always add the BuiltinLibInfo Pass to the Pass Manager
-  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, ""));
+  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, "ocl"));
   //add the BIImport Pass to the Pass Manager
   passMgr.add(createBuiltInImportPass(arch.c_str()));
 }

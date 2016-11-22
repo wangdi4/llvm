@@ -16,7 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "OclTune.h"
 
-#include "llvm/PassManager.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/IR/Module.h"
@@ -32,8 +32,8 @@ namespace intel {
 char WeightedInstCounter::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(WeightedInstCounter, "winstcounter", "Weighted Instruction Counter", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
-OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominanceFrontier)
@@ -218,9 +218,11 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   // Ok, start counting with 0
   m_totalWeight = 0;
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   // For each basic block, add up its weight
-  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
+  for (Function::iterator BBIter = F.begin(), BBEndIter = F.end(); BBIter != BBEndIter; ++BBIter) {
+
+    BasicBlock* const BB = &*BBIter;
 
     bool discardPhis = false;
     bool discardTerminator = false;
@@ -250,7 +252,8 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
     float Probability = ProbMap.lookup(BB);
 
     // And now, sum up all the instructions
-    for (BasicBlock::iterator I = BB->begin(), IE=BB->end(); I != IE; ++I){
+    for (BasicBlock::iterator IIter = BB->begin(), IE=BB->end(); IIter != IE; ++IIter){
+      Instruction* const I = &*IIter;
       if (discardPhis && dyn_cast<PHINode>(I))
         continue;
       if (discardTerminator &&  dyn_cast<TerminatorInst>(I))
@@ -371,8 +374,9 @@ Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int
   DenseMap<Type*, float> countMap;
 
   // For each type, count how many times it is the first operand of a binop.
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
-  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  for (Function::iterator BBIter = F.begin(), BBEndIter = F.end(); BBIter != BBEndIter; ++BBIter) {
+    BasicBlock* const BB = &*BBIter;
     int TripCount = 1;
     if (Loop* ContainingLoop = LI->getLoopFor(BB))
       TripCount = IterMap.lookup(ContainingLoop);
@@ -696,8 +700,8 @@ void WeightedInstCounter::estimateIterations(Function &F,
   // a good way right now.
 
   std::vector<Loop*> WorkList;
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
-  ScalarEvolution *SI = &getAnalysis<ScalarEvolution>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  ScalarEvolution *SI = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   // Add all the top-level loops to the worklist
   for (LoopInfo::iterator L = LI->begin(), LE = LI->end(); L != LE; ++L)
@@ -789,7 +793,8 @@ void WeightedInstCounter::
   // reached, all decisions need to go "its way".
   // This code makes all sorts of silly assumptions.
 
-  for (Function::iterator BB = F.begin(), BE = F.end(); BB != BE; BB++) {
+  for (Function::iterator BBIter = F.begin(), BBEndIter = F.end(); BBIter != BBEndIter; BBIter++) {
+    BasicBlock* const BB = &*BBIter;
     PostDominanceFrontier::iterator iter = PDF->find(BB);
     // It's actually possible that a BB has no PDF (as opposed to an empty one)
     // This happens for infinite loops. If this is the case,
@@ -970,7 +975,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
   // so after vectorization they are strided (not good), but before vectorization, if you're accessing
   // several fields of a struct (with different M) this is in fact "cheap", even when not in a loop.
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   // First, find all the TID generators.
   for (Function::iterator bbit = F.begin(), bbe=F.end(); bbit != bbe; ++bbit) {
@@ -1109,8 +1114,10 @@ void WeightedInstCounter::estimateDataDependence(Function &F,
   // LoadInst seems to make intuitive sense, but in fact also counts loads from allocas.
   // Why would there even be allocas at this stage? Because of soa builtins that return
   // results through local pointers. Oops.
-  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
-    for (BasicBlock::iterator I = BB->begin(), IE = BB->end(); I != IE; ++I) {
+  for (Function::iterator BBIter = F.begin(), BBEndIter = F.end(); BBIter != BBEndIter; ++BBIter) {
+    BasicBlock* const BB = &*BBIter;
+    for (BasicBlock::iterator IIter = BB->begin(), IEndIter = BB->end(); IIter != IEndIter; ++IIter) {
+      Instruction* const I = &*IIter;
       if (dyn_cast<GetElementPtrInst>(I))
         DataUsers.push_back(I);
     }
@@ -1372,7 +1379,7 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 
 bool CanVectorizeImpl::hasDirectStreamCalls(Function &F, RuntimeServices* services) {
   Module *pM = F.getParent();
-  bool isPointer64 = pM->getDataLayout()->getPointerSizeInBits(0) == 64;
+  bool isPointer64 = pM->getDataLayout().getPointerSizeInBits(0) == 64;
   std::set<Function *> streamFunctions;
   std::set<Function *> unsupportedFunctions;
 

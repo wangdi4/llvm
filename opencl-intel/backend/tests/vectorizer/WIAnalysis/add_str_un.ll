@@ -12,7 +12,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = mul nsw i32 %1, 5
   %3 = add nsw i32 %2, -8
-  %4 = getelementptr inbounds i32 addrspace(1)* %out, i32 %1
+  %4 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
   store i32 %3, i32 addrspace(1)* %4, align 4
   ret void
 }

@@ -24,7 +24,7 @@ OCL_INITIALIZE_PASS_BEGIN(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP 
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
 
-  SimplifyGEP::SimplifyGEP() : FunctionPass(ID),
+  SimplifyGEP::SimplifyGEP() : FunctionPass(ID), m_pDL(nullptr),
     OCLSTAT_INIT(Simplified_Multi_Indices_GEPs,
                 "Simplified multi indices GEP instructions",
                 m_kernelStats),
@@ -37,7 +37,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
-    m_pDL = &getAnalysisIfAvailable<DataLayoutPass>()->getDataLayout();
+    m_pDL = &F.getParent()->getDataLayout();
 
     // Obtain WIAnalysis of the function
     m_depAnalysis = &getAnalysis<WIAnalysis>();
@@ -68,7 +68,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
     // Iterate over all instructions and search PhiNode instructions
     for(auto &BB : F) {
-      for (BasicBlock::iterator ii = BB.begin(), ie = BB.getFirstNonPHI(); ii != ie; ++ii) {
+      for (BasicBlock::iterator ii = BB.begin(), ie = BasicBlock::iterator(BB.getFirstNonPHI()); ii != ie; ++ii) {
         // searching only PhiNode instruction (inside loops) with GEP entries.
         PHINode *pPhiNode = dyn_cast<PHINode>(&*ii);
         V_ASSERT(pPhiNode && "Reached non PHINode, should exit the for before this happens!");
@@ -134,7 +134,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       pNewPhiNode->addIncoming(pNewIterValue, pPhiNode->getIncomingBlock(iterEntry));
 
       // Create new Gep instruction just after the PhiNode
-      GetElementPtrInst *pNewIndexGep = GetElementPtrInst::Create(pNewBase, pNewPhiNode, "IndexPhiNodeGEP", pPhiNode->getParent()->getFirstNonPHI());
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      GetElementPtrInst *pNewIndexGep = GetElementPtrInst::Create(nullptr, pNewBase, pNewPhiNode, "IndexPhiNodeGEP", pPhiNode->getParent()->getFirstNonPHI());
 
       // Remove old PhiNode entries, need to do that before removing iterValue
       // But, should not renove PhiNode yet!
@@ -153,7 +155,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
           //  oldGep = GEP(pNewBase, index)
           //  newGep = GEP(oldGep, pNewPhiNode)
           pOldGep->replaceUsesOfWith(pPhiNode, pNewBase);
-          GetElementPtrInst *pNewGep = GetElementPtrInst::Create(pOldGep, pNewPhiNode, "IndexNewGEP");
+          // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+          // (not using type from pointer as this functionality is planned to be removed.
+          GetElementPtrInst *pNewGep = GetElementPtrInst::Create(nullptr, pOldGep, pNewPhiNode, "IndexNewGEP");
           pNewGep->insertAfter(pOldGep);
           pOldGep->replaceAllUsesWith(pNewGep);
           // Now need to reset the base address of the new GEP to be pOldGep
@@ -348,9 +352,13 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
       // Create new GEP instructions. The first one with the uniform index
       // which is used as a base pointer of the second GEP with divergent index
-      GetElementPtrInst * pUniformGEP   = GetElementPtrInst::Create(pGEP->getOperand(0), uniformIdx,
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      GetElementPtrInst * pUniformGEP   = GetElementPtrInst::Create(nullptr,
+                                                                    pGEP->getOperand(0), uniformIdx,
                                                                     "uniformGEP", pGEP);
-      GetElementPtrInst * pDivergentGEP = GetElementPtrInst::Create(pUniformGEP, divergentIdx,
+      GetElementPtrInst * pDivergentGEP = GetElementPtrInst::Create(nullptr,
+                                                                    pUniformGEP, divergentIdx,
                                                                     "divergentGEP", pGEP);
 
       pUniformGEP->setIsInBounds(pGEP->isInBounds());
@@ -380,7 +388,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     pGEP->setOperand(pGEP->getNumIndices(), Constant::getNullValue(pLastIndex->getType()));
     // Create new GEP instruction with original GEP instruction as pointer
     // and with its old last index as the new GEP instruction only index.
-    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(pGEP, pLastIndex, "simplifiedGEP");
+    // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+    // (not using type from pointer as this functionality is planned to be removed.
+    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(nullptr, pGEP, pLastIndex, "simplifiedGEP");
     VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
     pNewGEP->insertAfter(pGEP);
     pGEP->replaceAllUsesWith(pNewGEP);
@@ -456,7 +466,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     V_ASSERT(newIndex && "new calculated index should not be NULL");
     Value* newBase = pGEP->getPointerOperand();
     newBase = new BitCastInst(newBase, pGEP->getType(), "ptrTypeCast", pGEP);
-    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(newBase, newIndex, "simplifiedGEP", pGEP);
+    // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+    // (not using type from pointer as this functionality is planned to be removed.
+    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(nullptr, newBase, newIndex, "simplifiedGEP", pGEP);
     VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
     pGEP->replaceAllUsesWith(pNewGEP);
     pGEP->eraseFromParent();

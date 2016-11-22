@@ -23,37 +23,37 @@
 
 namespace intel {
 
-	/// @brief This pass replaces sub-group built-ins with appropriate IR sequences
-	/// It goes over all sub-group built-in declarations in a module in order
-	/// and substitutes with a call to work-group built-in or a constant.
-	class SubGroupAdaptation : public llvm::ModulePass {
+/// @brief This pass replaces sub-group built-ins with appropriate IR sequences
+/// It goes over all sub-group built-in declarations in a module in order
+/// and substitutes with a call to work-group built-in or a constant.
+class SubGroupAdaptation : public llvm::ModulePass {
 
-	public:
+public:
+  static char ID;
 
-		static char ID;
+  SubGroupAdaptation() : ModulePass(ID){};
 
-		SubGroupAdaptation() : ModulePass(ID) { };
+  virtual const char *getPassName() const { return "SubGroupAdaptation"; }
 
-		virtual const char *getPassName() const {
-			return "SubGroupAdaptation";
-		}
+  virtual bool runOnModule(llvm::Module &M);
 
-		virtual bool runOnModule(llvm::Module &M);
+private:
+  llvm::Module *m_pModule;
 
-	private:
+  llvm::LLVMContext *m_pLLVMContext;
 
-		llvm::Module *m_pModule;
+  llvm::IntegerType *m_pSizeT;
 
-		llvm::LLVMContext *m_pLLVMContext;
+  void replaceFunction(llvm::Function *oldFunc, std::string newFuncName);
+  void replaceWithConst(llvm::Function *oldFunc, unsigned constInt,
+                        bool isSigned);
 
-		llvm::IntegerType *m_pSizeT;
+  // Generate sub_group_broudcast body
+  void defineSubGroupBroadcast(llvm::Function *pFunc);
 
-		void replaceFunction(llvm::Function *oldFunc, std::string newFuncName);
-		void replaceWithConst(llvm::Function *oldFunc, unsigned constInt, bool isSigned);
-		// Generate sub_group_broudcast body
-		void defineSubGroupBroadcast(llvm::Function *pFunc);
-		// Helper for WI function call generation.
-		// Generates a call to WI function upon its name and dimension index
-		llvm::CallInst *getWICall(llvm::BasicBlock *pAtEnd, char const* instName, std::string funcName, unsigned dimIdx);
-	};
+  // Helper for WI function call generation.
+  // Generates a call to WI function upon its name and dimension index
+  llvm::CallInst *getWICall(llvm::BasicBlock *pAtEnd, char const *instName,
+                            std::string funcName, unsigned dimIdx);
+};
 }

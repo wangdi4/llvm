@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Resolver.h"
 #include "Mangler.h"
 #include "Logger.h"
+#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
@@ -43,7 +44,7 @@ bool FuncResolver::runOnFunction(Function &F) {
   std::vector<CallInst*> calls;
 
   for (Function::iterator it = F.begin(), e = F.end(); it != e; ++it) {
-    packPredicatedLoads(it);
+    packPredicatedLoads(&*it);
   }
 
   // Collect call instructions inspect
@@ -349,7 +350,9 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   for (unsigned i=0; i< NumElem; ++i) {
     V_STAT(m_unresolvedLoadCtr++;)
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
-    Instruction *GEP = GetElementPtrInst::Create(Ptr, Idx, "vload", caller);
+    // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+    // (not using type from pointer as this functionality is planned to be removed.
+    Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vload", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *loader = new LoadInst(GEP, "vload", false, align, caller);
     Instruction* inserter = InsertElementInst::Create(
@@ -470,7 +473,9 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   for (unsigned i=0; i< NumElem; ++i) {
     V_STAT(m_unresolvedStoreCtr++;)
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
-    Instruction *GEP = GetElementPtrInst::Create(Ptr, Idx, "vstore", caller);
+    // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+    // (not using type from pointer as this functionality is planned to be removed.
+    Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vstore", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *DataElem = ExtractElementInst::Create(Data, Idx, "exData", caller);
     Instruction *storer = new StoreInst(DataElem, GEP, false, align, caller);
@@ -625,8 +630,9 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   // Find (or create) declaration for newly called function
   Function *newFunction = currFunc->getParent()->getFunction(LibFunc->getName());
   if (!newFunction) {
-    Constant *newFunctionConst = currFunc->getParent()->getOrInsertFunction(
-        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+    using namespace Intel::OpenCL::DeviceBackend;
+    Constant *newFunctionConst =
+      CompilationUtils::importFunctionDecl(currFunc->getParent(), LibFunc);
     V_ASSERT(newFunctionConst && "failed generating function in current module");
     newFunction = dyn_cast<Function>(newFunctionConst);
     V_ASSERT(newFunction && "Function type mismatch, caused a constant expression cast!");
@@ -638,7 +644,7 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
 
   //Prepare second parameter
   FunctionType *LibFuncTy = LibFunc->getFunctionType();
-  Instruction *loc = currFunc->getEntryBlock().begin();
+  Instruction *loc = &*currFunc->getEntryBlock().begin();
   PointerType *ptrTy = dyn_cast<PointerType>(LibFuncTy->getParamType(1));
   V_ASSERT(ptrTy && "bad signature");
   Type *elTy = ptrTy->getElementType();
