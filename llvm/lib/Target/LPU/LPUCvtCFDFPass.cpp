@@ -1843,9 +1843,12 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
     } else if (bb2rpo[ctrlBB] < bb2rpo[inBB]) {
       //bypass loop latch node
       if (MachineLoop *mloop = MLI->getLoopFor(ctrlBB))
-        if (mloop->getHeader()->isPredecessor(ctrlBB))
-          continue;
-
+        if (mloop->getHeader()->isPredecessor(ctrlBB)) {
+          ControlDependenceNode *ctrlNode = CDG->getNode(ctrlBB);
+          assert(ctrlNode->getNumParents() == 1 && "Latch has more than one control parents");
+          ctrlNode = *ctrlNode->parent_begin();
+          ctrlBB = ctrlNode->getBlock();
+        }
       assert(ctrlBB->succ_size() == 2 && "LPU: bb has more than 2 successor");
       computeBBPred(ctrlBB);
       unsigned falseEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::FALSE, inBB);
@@ -2053,11 +2056,11 @@ bool LPUCvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
 
 
 void LPUCvtCFDFPass::generateDynamicPreds() {
-  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
-  ControlDependenceNode *cdgroot = CDG->getRoot();
   std::stack<MachineBasicBlock*> postk;
-  for (po_cdg_iterator DTN = po_cdg_iterator::begin(cdgroot), END = po_cdg_iterator::end(cdgroot); DTN != END; ++DTN) {
-    MachineBasicBlock *mbb = DTN->getBlock();
+  typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
+  MachineBasicBlock *root = &*thisMF->begin();
+  for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
+    MachineBasicBlock* mbb = *itermbb;
     postk.push(mbb);
   }
   unsigned i = 0;
@@ -2068,8 +2071,6 @@ void LPUCvtCFDFPass::generateDynamicPreds() {
     i++;
   }
 
-  typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
-  MachineBasicBlock *root = &*thisMF->begin();
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
     MachineBasicBlock::iterator iterI = mbb->begin();
