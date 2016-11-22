@@ -399,9 +399,9 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
   MachineInstr* result = nullptr;
-  MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
-  MachineInstr* bi = &*loc;
   if (cdgpBB->succ_size() > 1) {
+    MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
+    MachineInstr* bi = &*loc;
     unsigned switchFalseReg = MRI->createVirtualRegister(TRC);
     unsigned switchTrueReg = MRI->createVirtualRegister(TRC);
     assert(bi->getOperand(0).isReg());
@@ -417,7 +417,8 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
     switchInst->setFlag(MachineInstr::NonSequential);
     result = switchInst;
   } else {
-    assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
+    MachineBasicBlock::iterator loc = cdgpBB->getLastNonDebugInstr();
+    assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB || MLI->getLoopFor(cdgpBB)->getLoopLatch() == nullptr);
     //LLVM 3.6 buggy latch with no exit edge
     //get a wierd latch with no exit edge from LLVM 3.6 buggy loop rotation
     const unsigned moveOpcode = TII.getMoveOpcode(TRC);
@@ -1841,16 +1842,6 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
       BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addImm(1);
       ctrlEdge = cpyReg;
     } else if (bb2rpo[ctrlBB] < bb2rpo[inBB]) {
-#if 0
-      //bypass loop latch node
-      if (MachineLoop *mloop = MLI->getLoopFor(ctrlBB))
-        if (mloop->getHeader()->isPredecessor(ctrlBB)) {
-          ControlDependenceNode *ctrlNode = CDG->getNode(ctrlBB);
-          assert(ctrlNode->getNumParents() == 1 && "Latch has more than one control parents");
-          ctrlNode = *ctrlNode->parent_begin();
-          ctrlBB = ctrlNode->getBlock();
-        }
-#endif
       assert(ctrlBB->succ_size() == 2 && "LPU: bb has more than 2 successor");
       computeBBPred(ctrlBB);
       unsigned falseEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::FALSE, inBB);
