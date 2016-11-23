@@ -13,6 +13,7 @@
 
 #include "LPUTargetMachine.h"
 #include "LPUTargetTransformInfo.h"
+#include "LPULowerAggrCopies.h"
 #include "LPU.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -55,9 +56,19 @@ static std::string computeDataLayout() {
   return "e-m:e-i64:64-n32:64";
 }
 
+
+namespace llvm {
+  void initializeLPULowerAggrCopiesPass(PassRegistry &);
+}
+
 extern "C" void LLVMInitializeLPUTarget() {
   // Register the target.
   RegisterTargetMachine<LPUTargetMachine> X(TheLPUTarget);
+
+  // The original comment in the LPU target says this optimization
+  // is placed here because it is too target-specific.
+  PassRegistry &PR = *PassRegistry::getPassRegistry();
+  initializeLPULowerAggrCopiesPass(PR);
 }
 
 static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
@@ -110,6 +121,10 @@ public:
   }
 
   bool addInstSelector() override {
+
+    // Add the pass to lower memset/memmove/memcpy
+    addPass(createLowerAggrCopies());
+    
     // Install an instruction selector.
     addPass(createLPUISelDag(getLPUTargetMachine(), getOptLevel()));
     return false;

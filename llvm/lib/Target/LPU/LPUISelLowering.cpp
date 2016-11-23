@@ -59,6 +59,13 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget
   addRegisterClass(MVT::f32,  &LPU::I32RegClass);
   addRegisterClass(MVT::f64,  &LPU::I64RegClass);
 
+  // always lower memset, memcpy, and memmove intrinsics to load/store
+  // instructions, rather
+  // then generating calls to memset, mempcy or memmove.
+  MaxStoresPerMemset = (unsigned) 0xFFFFFFFF;
+  MaxStoresPerMemcpy = (unsigned) 0xFFFFFFFF;
+  MaxStoresPerMemmove = (unsigned) 0xFFFFFFFF;
+  
   setBooleanContents(ZeroOrOneBooleanContent);
   setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
 

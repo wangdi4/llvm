@@ -29,6 +29,7 @@ add_llvm_target(LPUCodeGen
   LPUIfConversion.cpp
   LPUTargetTransformInfo.cpp
   LPULicAllocation.cpp
+  LPULowerAggrCopies.cpp
   MachineCDG.cpp
   )
 
