@@ -26,9 +26,19 @@
 
 using namespace Intel::OpenCL::TaskExecutor;
 
+
+TbbTaskGroup::~TbbTaskGroup()
+{
+    try {
+        m_tskGrp.reset();
+    } catch (...) {
+        assert(0 && "tbb::task_group dtor throws");
+    }
+}
+
 IThreadLibTaskGroup::TaskGroupStatus TbbTaskGroup::Wait()
 {
-    switch (m_tskGrp.wait())
+    switch (m_tskGrp->wait())
     {
     case tbb::not_complete:
         return IThreadLibTaskGroup::NOT_COMPLETE;

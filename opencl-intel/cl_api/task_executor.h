@@ -211,8 +211,6 @@ public:
 
     PREPARE_SHARED_PTR(IThreadLibTaskGroup)
 
-    virtual ~IThreadLibTaskGroup() throw() { }
-
     /**
      * Status of the IThreadLibTaskGroup
      */
@@ -253,8 +251,6 @@ class ITaskBase : virtual public Intel::OpenCL::Utils::ReferenceCountedObject
 public:
 
     PREPARE_SHARED_PTR(ITaskBase)
-
-    virtual ~ITaskBase() { }
 
     // Returns whether the executed task is a task set.
     virtual bool    IsTaskSet() const = 0;
