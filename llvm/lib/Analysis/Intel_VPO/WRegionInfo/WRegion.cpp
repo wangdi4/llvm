@@ -434,3 +434,27 @@ void WRNCriticalNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNCriticalNode <" << getNumber() << ">\n\n";
 }
+
+// constructor
+WRNFlushNode::WRNFlushNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNFlush, BB) {
+  setFlush(nullptr);
+  DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
+}
+
+WRNFlushNode::WRNFlushNode(WRNFlushNode *W) : WRegionNode(W) {
+  setFlush(W->getFlush());
+  DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
+}
+
+void WRNFlushNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  // TODO may need to have an extra parameter (or global) to add a fixed
+  //    space for left margin at Depth=0
+  std::string Indent(Depth * 2, ' ');
+
+  OS << Indent << "BEGIN WRNFlushNode<" << getNumber() << "> {\n";
+
+  // TODO: print data local to this Flush Set
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNFlushNode<" << getNumber() << ">\n";
+}

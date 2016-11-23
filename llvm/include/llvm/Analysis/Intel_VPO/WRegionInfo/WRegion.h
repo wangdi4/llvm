@@ -327,6 +327,32 @@ public:
   }
 };
 
+/// WRegion Node for OMP flush Directive.
+/// \code
+///   #pragma omp flush [(item-list)]
+/// \endcode
+class WRNFlushNode : public WRegionNode {
+private:
+  FlushSet *FValueSet;  // qualOpndList
+
+protected:
+  void setFlush(FlushSet *FS) { FValueSet = FS; }
+
+public:
+
+  WRNFlushNode(BasicBlock *BB);
+  WRNFlushNode(WRNFlushNode *W);
+
+  FlushSet *getFlush() const { return FValueSet; }
+
+  void print(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNFlush;
+  }
+};
+
 //
 // WRNMasterNode
 //

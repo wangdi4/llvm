@@ -364,6 +364,17 @@ class AlignedItem
 };
 
 
+class FlushItem
+{
+  private:
+    VAR  Var;  // global, static, volatile values 
+
+  public:
+    FlushItem(VAR V=nullptr) : Var(V) {}
+    void setOrig(VAR V)      { Var = V; }
+    VAR  getOrig()  const { return Var; }
+};
+
 
 //
 // The list-type clauses are essentially vectors of the clause items above
@@ -454,6 +465,7 @@ typedef Clause<LinearItem>       LinearClause;
 typedef Clause<UniformItem>      UniformClause;
 typedef Clause<DependItem>       DependClause;
 typedef Clause<AlignedItem>      AlignedClause;
+typedef Clause<FlushItem>        FlushSet;
 
 typedef std::vector<SharedItem>::iterator       SharedIter;
 typedef std::vector<PrivateItem>::iterator      PrivateIter;
@@ -466,6 +478,7 @@ typedef std::vector<LinearItem>::iterator       LinearIter;
 typedef std::vector<UniformItem>::iterator      UniformIter;
 typedef std::vector<DependItem>::iterator       DependIter;
 typedef std::vector<AlignedItem>::iterator      AlignedIter;
+typedef std::vector<FlushItem>::iterator        FlushIter;
 
 
 //

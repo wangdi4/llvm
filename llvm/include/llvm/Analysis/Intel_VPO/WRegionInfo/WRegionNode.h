@@ -153,6 +153,9 @@ protected:
   void errorClause(StringRef ClauseName) const;
   void errorClause(int ClauseID) const;
 
+  virtual void setFlush(FlushSet *S) {errorClause(QUAL_OMP_FLUSH);  }
+  virtual FlushSet *getFlush() const {errorClause(QUAL_OMP_FLUSH);
+                                              return nullptr;                 }
   virtual void setAligned(AlignedClause *A)  {errorClause(QUAL_OMP_ALIGNED);  }
   virtual AlignedClause *getAligned()  const {errorClause(QUAL_OMP_ALIGNED);
                                               return nullptr;                 }

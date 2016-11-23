@@ -64,6 +64,9 @@ WRegionNode *WRegionUtils::createWRegion(
     case DIR_OMP_CRITICAL:
       W = new WRNCriticalNode(EntryBB);
       break;
+    case DIR_OMP_FLUSH:
+      W = new WRNFlushNode(EntryBB);
+      break;
   }
   if (W)
     W->setLevel(NestingLevel);

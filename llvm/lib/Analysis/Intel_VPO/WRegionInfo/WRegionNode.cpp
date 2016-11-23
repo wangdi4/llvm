@@ -462,6 +462,12 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
     setAligned(C);
     break;
   }
+  case QUAL_OMP_FLUSH: {
+    FlushSet *C =
+        WRegionUtils::extractQualOpndList<FlushSet>(Call, getFlush());
+    setFlush(C);
+    break;
+  }
   case QUAL_OMP_SCHEDULE_AUTO: {
     WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
                                           WRNScheduleAuto);
