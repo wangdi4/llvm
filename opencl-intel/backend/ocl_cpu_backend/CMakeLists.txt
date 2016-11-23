@@ -325,6 +325,7 @@ set( BACKEND_PASSES
     OclFunctionAttrs
     BuiltInFuncImport
     BuiltinLibInfo
+    BlockToFuncPtr
     DebugInfoPass
     DetectRecursion
     InstToFuncCall

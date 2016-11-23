@@ -55,6 +55,7 @@ llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createKernelAnalysisPass();
+llvm::ModulePass *createBlockToFuncPtrPass();
 llvm::ModulePass *createBuiltInImportPass(const char *CPUName);
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
@@ -503,6 +504,11 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
 
   if (!pRtlModuleList.empty()) {
+    // Replace pointers to %opencl.block opaque type to function pointer casts
+    // The right place to run this pass in or after SPIR20BlockToObjCBlock Pass,
+    // but it is impossible in current design since functions in user and RTL modules
+    // doesn't match by names there (need to run passes like GAS resolution before).
+    PM.add(createBlockToFuncPtrPass());
     // Inline BI function
     PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix()));
     // Need to convert shuffle calls to shuffle IR before running inline pass

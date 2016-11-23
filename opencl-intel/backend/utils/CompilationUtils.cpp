@@ -1292,4 +1292,16 @@ bool CompilationUtils::isSameStructType(StructType *STy1, StructType *STy2) {
     .compare(stripStructNameTrailingDigits(STy2->getName()));
 }
 
+StructType* CompilationUtils::getStructFromTypePtr(Type *Ty) {
+  auto *PtrTy = dyn_cast<PointerType>(Ty);
+  if (!PtrTy)
+    return nullptr;
+
+  // Handle also pointer to pointer to ...
+  while (auto *PtrTyNext = dyn_cast<PointerType>(PtrTy->getElementType()))
+    PtrTy = PtrTyNext;
+
+  return dyn_cast<StructType>(PtrTy->getElementType());
+}
+
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

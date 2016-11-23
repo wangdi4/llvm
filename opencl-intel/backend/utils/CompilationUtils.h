@@ -483,6 +483,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// Return a type name without .N suffix (if any)
     static StringRef stripStructNameTrailingDigits(StringRef TyName);
+
+    /// Return a pointer to struct from a pointer to type
+    static StructType* getStructFromTypePtr(Type *T);
   };
 
   //

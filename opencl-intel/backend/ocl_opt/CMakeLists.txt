@@ -19,6 +19,7 @@ set(OCL_BE_PASSES
     BuiltInFuncImport
     BuiltinCallToInst
     BuiltinLibInfo
+    BlockToFuncPtr
     CloneBlockInvokeFuncToKernel
     DebugInfoPass
     DetectFunctionPtrCalls
