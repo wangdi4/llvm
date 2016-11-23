@@ -211,7 +211,7 @@ public:
 
     PREPARE_SHARED_PTR(IThreadLibTaskGroup)
 
-    virtual ~IThreadLibTaskGroup() GCC_NOEXCEPT_BUG_WORKAROUND {}
+    virtual ~IThreadLibTaskGroup() throw() { }
 
     /**
      * Status of the IThreadLibTaskGroup
