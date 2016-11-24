@@ -633,3 +633,31 @@ define i64 @__ocl_helper_ctz_v1u64(i64 %x) {
   %1 = tail call i64 @llvm.cttz.i64(i64 %x, i1 false)
   ret i64 %1
 }
+
+define void @__ocl_expand_mask_4x16(i16 %mask, i16* %mask0, i16* %mask1,
+                                               i16* %mask2, i16* %mask3) {
+
+  %imask = bitcast i16 %mask to <16 x i1>
+  %mask_16x32 = sext <16 x i1>%imask to <16 x i32>
+  %mask_16x32_0 = shufflevector <16 x i32> %mask_16x32, <16 x i32>undef, <16 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 3>
+  %imask_0 = icmp ne <16 x i32> %mask_16x32_0, zeroinitializer
+  %mask_0_flat = bitcast <16 x i1> %imask_0 to i16
+  store i16 %mask_0_flat, i16* %mask0, align 1
+
+  %mask_16x32_1 = shufflevector <16 x i32> %mask_16x32, <16 x i32>undef, <16 x i32> <i32 4, i32 4, i32 4, i32 4, i32 5, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 6, i32 7, i32 7, i32 7, i32 7>
+  %imask_1 = icmp ne <16 x i32> %mask_16x32_1, zeroinitializer
+  %mask_1_flat = bitcast <16 x i1> %imask_1 to i16
+  store i16 %mask_1_flat, i16* %mask1, align 1
+
+  %mask_16x32_2 = shufflevector <16 x i32> %mask_16x32, <16 x i32>undef, <16 x i32> <i32 8, i32 8, i32 8, i32 8, i32 9, i32 9, i32 9, i32 9, i32 10, i32 10, i32 10, i32 10, i32 11, i32 11, i32 11, i32 11>
+  %imask_2 = icmp ne <16 x i32> %mask_16x32_2, zeroinitializer
+  %mask_2_flat = bitcast <16 x i1> %imask_2 to i16
+  store i16 %mask_2_flat, i16* %mask2, align 1
+
+  %mask_16x32_3 = shufflevector <16 x i32> %mask_16x32, <16 x i32>undef, <16 x i32> <i32 12, i32 12, i32 12, i32 12, i32 13, i32 13, i32 13, i32 13, i32 14, i32 14, i32 14, i32 14, i32 15, i32 15, i32 15, i32 15>
+  %imask_3 = icmp ne <16 x i32> %mask_16x32_3, zeroinitializer
+  %mask_3_flat = bitcast <16 x i1> %imask_3 to i16
+  store i16 %mask_3_flat, i16* %mask3, align 1
+
+  ret void
+}
