@@ -432,7 +432,7 @@ class SReduceOp<GenericOp gen, LPUOpInfo oi,
     (outs oi.RC:$result, oi.RC:$each),
     (ins oi.RCL:$init, oi.RCL:$inval, I1:$ctl),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 class FMSReduceOp<GenericOp gen, LPUOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
@@ -440,7 +440,7 @@ class FMSReduceOp<GenericOp gen, LPUOpInfo oi,
     (outs oi.RC:$result, oi.RC:$each),
     (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, I1:$ctl),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { let hasSideEffects = 1; }
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 multiclass LdOp<string opStr, LPUOpInfo t,
            InstrItinClass itin = IILD> {
