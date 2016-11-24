@@ -1,13 +1,15 @@
 {
-    global: 
-       extern "C"{ 
+    global:
+       extern "C"{
          InitDeviceBackend*;
          GetDeviceBackendFactory*;
          TerminateDeviceBackend*;
+         BeforeExecution;
+         AfterExecution;
        };
          __jit_debug_register_code;
          __jit_debug_descriptor;
-         RegisterGlobalAtExitNotification;       
+         RegisterGlobalAtExitNotification;
     local:
-        *; 
+        *;
 };

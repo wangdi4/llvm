@@ -378,7 +378,9 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
   VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI
-  std::string funcName = Mangler::getMaskedLoadStoreBuiltinName(true, vecType);
+  std::string funcName =
+    Mangler::getMaskedLoadStoreBuiltinName(true, vecType, isBitMask(*vecType));
+
   Function* loadFuncRT = m_rtServices->findInRuntimeModule(funcName);
 
   if (loadFuncRT) {
@@ -400,6 +402,9 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
     caller->replaceAllUsesWith(newCall);
     caller->eraseFromParent();
     return true;
+  }
+  else {
+    V_PRINT(DEBUG_TYPE, "%s is missing, " << funcName.c_str() << "\n");
   }
   return false;
 }
@@ -499,7 +504,8 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
   VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI
-  std::string funcName = Mangler::getMaskedLoadStoreBuiltinName(false, vecType);
+  std::string funcName =
+    Mangler::getMaskedLoadStoreBuiltinName(false, vecType, isBitMask(*vecType));
   Function* storeFuncRT = m_rtServices->findInRuntimeModule(funcName);
 
   if (storeFuncRT) {
@@ -522,6 +528,9 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
     // no need in 'funcName' call instruction value - as it has void result
     caller->eraseFromParent();
     return true;
+  }
+  else {
+    V_PRINT(resolver, "%s is missing, " << funcName.c_str() << "\n");
   }
   return false;
 }
@@ -588,8 +597,10 @@ Instruction* FuncResolver::extendMaskAsBIParameter(Function* maskLoadStoreBI, Va
   FunctionType* funcType = maskLoadStoreBI->getFunctionType();
   Type* extMaskType = funcType->getParamType(funcType->getNumParams() - 1);
   // SIGN-extend the mask to the argument type (as MSB of mask matters)
-  V_ASSERT(extMaskType->getScalarSizeInBits() >= Mask->getType()->getScalarSizeInBits() &&
-             "Extended mask type smaller than original mask type!");
+  //V_ASSERT(extMaskType->getScalarSizeInBits() >= Mask->getType()->getScalarSizeInBits() &&
+  //           "Extended mask type smaller than original mask type!");
+  if (CastInst::isBitCastable(Mask->getType(), extMaskType))
+    return CastInst::Create(Instruction::BitCast, Mask, extMaskType, "extmask");
   return CastInst::CreateSExtOrBitCast(Mask, extMaskType, "extmask");
 }
 
@@ -679,4 +690,5 @@ extern "C" {
     return new intel::X86Resolver();
   }
 }
+
 

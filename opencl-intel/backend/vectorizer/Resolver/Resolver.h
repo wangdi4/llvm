@@ -40,9 +40,10 @@ public:
   /// @return True if changed
   virtual bool runOnFunction(Function &F);
   /// Standard LLVM interface - Nothing to preserve
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const { 
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<BuiltinLibInfo>();
   }
+  virtual bool isBitMask(const VectorType& vecType) const { return false; }
 
 private:
   /// @brief Resolve a call-site. This is a target specific hook.

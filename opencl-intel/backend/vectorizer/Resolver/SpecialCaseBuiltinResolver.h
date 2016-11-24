@@ -33,15 +33,13 @@ namespace intel {
   };
 
 /// @brief
-/// This class implements reolver for built-ins that were replaced with fake function 
-/// for the purpose of vectorization. it works by implementing the fake function 
+/// This class implements reolver for built-ins that were replaced with fake function
+/// for the purpose of vectorization. it works by implementing the fake function
 /// declaration as wrappers that call the true built-in and then inline them.
 /// This Pass assumes runtime services of type OpenclRuntime
 class SpecialCaseBuiltinResolver : public ModulePass {
 
 public:
-
-  
 
   static char ID;
   /// @brief C'tor
@@ -62,16 +60,16 @@ public:
 
 private:
 
-  ///@brief main function. Takes the fake function declaraion and implements it as 
-  /// as a wrapper that calls the true corresponding built-in. 
+  ///@brief main function. Takes the fake function declaraion and implements it as
+  /// as a wrapper that calls the true corresponding built-in.
   ///@param F - fake function to be implemented as wrapper
   ///@param funcName - name of builtin to resolve
   void fillWrapper(Function *F, std::string& funcName);
-  
+
   ///@brief obtain resolved built-in arguments (not return pointers) by spreading array of vectors
   /// and casting if needed
   ///@param F - wrapper function
-  ///@param resolvedFuncType - resolved builtin function type 
+  ///@param resolvedFuncType - resolved builtin function type
   ///@param loc - location to insert casting \ extract value instructions
   ///@param resolvedArgs - argumetns vector for resolved built-in
   void obtainArguments(Function *F, const FunctionType *resolvedFuncType,
@@ -86,7 +84,7 @@ private:
   ///@param loc - location to insert alloca's
   void addRetPtrToArgsVec(ArgsVector &resolvedArgs, Instruction *loc);
 
-  ///@brief load values from pointers argumets that hold return value 
+  ///@brief load values from pointers argumets that hold return value
   ///@param resolvedArgs - argumetns vector for resolved built-in
   ///@param loc - location to insert loads (and insertvalue incase of array of vectors return)
   ///@return wrapper return value
@@ -94,7 +92,7 @@ private:
 
   ///@brief obtain array of vector return from gathered vector
   ///@param CI - resolved built-in call (the big vector)
-  ///@param loc - location to insert shuffles and insertvalue 
+  ///@param loc - location to insert shuffles and insertvalue
   ///@return wrapper return value
   Value *obtainReturnValueGatheredVector(CallInst *CI, Instruction *loc);
 

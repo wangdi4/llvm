@@ -34,8 +34,9 @@ set(TARGET_EXTRA_INCLUDE_FILES
   AppleWrapper/AppleWIDepPrePacketizationPass.h
 )
 else(APPLE)
-set(TARGET_EXTRA_SOURCE_FILES 
+set(TARGET_EXTRA_SOURCE_FILES
   Resolver/MICResolver.cpp
+  Resolver/AVX512Resolver.cpp
   Utils/IRInjection.cpp
   Utils/Namer.cpp
   Utils/PrintfAdder.cpp
@@ -43,8 +44,9 @@ set(TARGET_EXTRA_SOURCE_FILES
 #These files are needed only for building opt
   AppleWrapper/AppleWIDepPrePacketizationPass.cpp
 )
-set(TARGET_EXTRA_INCLUDE_FILES 
+set(TARGET_EXTRA_INCLUDE_FILES
   Resolver/MICResolver.h
+  Resolver/AVX512Resolver.h
   Utils/Namer.h
   Utils/PrintfAdder.h
   Renderscript/RenderscriptDriver.h

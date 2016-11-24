@@ -11,5 +11,6 @@ class AVX512F : AVX2 {
   include "avx512f/integers.td"
   include "avx512f/relational.td"
   include "avx512f/masked_load_store.td"
+  include "avx512f/transpose.td"
 }
 

@@ -40,6 +40,7 @@ File Name:  Kernel.cpp
 #include <stddef.h>
 #include <stdio.h>
 
+
 static size_t GCD(size_t a, size_t b) {
   while (1) {
     a = a % b;
@@ -540,6 +541,18 @@ void Kernel::DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *A,
 #undef PRINT3
 }
 
+#define SSC_MARK_1     \
+        __asm__  ( "push %rbx              \n"\
+                   "mov $0x1, %rbx         \n"\
+                   ".byte 0x64, 0x67, 0x90 \n"\
+                   "pop %rbx               \n")
+
+#define SSC_MARK_2     \
+        __asm__  ( "push %rbx              \n"\
+                   "mov $0x2, %rbx         \n"\
+                   ".byte 0x64, 0x67, 0x90 \n"\
+                   "pop %rbx               \n")
+
 cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
                                  const size_t *pGroupID,
                                  void *pRuntimeHandle) const {
@@ -553,9 +566,6 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
       static_cast<const cl_uniform_kernel_args *>(
           pKernelUniformImplicitArgsPosition);
 
-#if defined(ENABLE_SDE)
-  BeforeExecution();
-#endif
 
   assert(pKernelUniformImplicitArgs->WorkDim <= MAX_WORK_DIM);
   static bool guard = true;
@@ -575,11 +585,17 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
                  pKernelUniformImplicitArgs->pNonUniformJITEntryPoint);
 
   // running the kernel with the specified args and (groupID, runtimeHandle)
-  kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
+#if defined (ENABLE_SDE)
+  BeforeExecution();
 
-#if defined(ENABLE_SDE)
+  SSC_MARK_1;
+  kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
+  SSC_MARK_2;
+
   AfterExecution();
-#endif
+#else
+  kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
+#endif  // ENABLE_SDE
   return CL_DEV_SUCCESS;
 }
 

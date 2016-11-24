@@ -14,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Logger.h"
 #include "VectorizerCommon.h"
 #include "OclTune.h"
+#include "TargetArch.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
@@ -75,7 +76,7 @@ class PacketizeFunction : public FunctionPass {
 public:
 
   static char ID; // Pass identification, replacement for typeid
-  PacketizeFunction(bool supportScatterGather = false,
+  PacketizeFunction(Intel::ECPU Cpu = Intel::DEVICE_INVALID,
                     unsigned int vectorizationDimension=0);
   ~PacketizeFunction();
 
@@ -522,6 +523,8 @@ private:
   int m_cannotHandleCtr;
   /// @brief the dimension by which we vectorize (usually 0).
   unsigned int m_vectorizedDim;
+  // @brief target CPU
+  Intel::ECPU m_Cpu;
 
   // Statistics:
   Statistic::ActiveStatsT m_kernelStats;

@@ -25,19 +25,20 @@ using namespace llvm;
 
 char intel::VectorizerCore::ID = 0;
 
-extern "C" FunctionPass* createScalarizerPass(bool);
+extern "C" FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId);
 extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();
-extern "C" FunctionPass* createPacketizerPass(bool, unsigned int);
+extern "C" FunctionPass* createPacketizerPass(const Intel::CPUId&, unsigned int);
 extern "C" intel::ChooseVectorizationDimension* createChooseVectorizationDimension();
 extern "C" Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
 
 extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
 #ifndef __APPLE__
-extern "C" FunctionPass* createGatherScatterResolverPass();
+extern "C" FunctionPass* createAVX512ResolverPass();
+extern "C" FunctionPass* createKNCResolverPass();
 #endif
-extern "C" FunctionPass* createX86ResolverPass();
+extern "C" FunctionPass* createX86ResolverPass(Intel::ECPU cpuArch);
 extern "C" FunctionPass* createOCLBuiltinPreVectorizationPass();
 extern "C" FunctionPass* createWeightedInstCounter(bool, Intel::CPUId);
 extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName);
@@ -45,18 +46,19 @@ extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string du
 
 static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
 #ifndef __APPLE__
-  if (CpuId.HasGatherScatter()) return createGatherScatterResolverPass();
+  if (CpuId.HasAVX512())
+    return createAVX512ResolverPass();
 #endif
-  return createX86ResolverPass();
+  return createX86ResolverPass(CpuId.GetCPU());
 }
 
 static FunctionPass* createScalarizer(const Intel::CPUId& CpuId) {
-  return createScalarizerPass(CpuId.HasGatherScatter());
+  return createScalarizerPass(CpuId);
 }
 
 static FunctionPass* createPacketizer(const Intel::CPUId& CpuId,
                                       unsigned int vectorizationDimension) {
-  return createPacketizerPass(CpuId.HasGatherScatter(), vectorizationDimension);
+  return createPacketizerPass(CpuId, vectorizationDimension);
 }
 
 namespace intel {
