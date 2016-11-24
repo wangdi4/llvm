@@ -32,6 +32,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 using namespace std;
 using namespace llvm;
 
+// Add command line to pass CPU prefix to BIImport through oclopt/ocloptimg
+static cl::opt<std::string> OptCPUPrefix(
+    "arch", cl::init(""), cl::desc("Set CPU prefix for Built-In Import Pass"));
+
 namespace intel {
 
   char BIImport::ID = 0;
@@ -127,8 +131,9 @@ namespace intel {
       if (VisitedSet.count(CalledFunc)) continue;
 
       // skip svml name renaming when empty cpu prefix is provided.
-      if (!m_cpuPrefix.empty())
-        UpdateSvmlBuiltinName(CalledFunc, m_cpuPrefix.c_str());
+      std::string CurCPUPrefix = m_cpuPrefix.empty() ? OptCPUPrefix : m_cpuPrefix;
+      if (!CurCPUPrefix.empty())
+        UpdateSvmlBuiltinName(CalledFunc, CurCPUPrefix.c_str());
 
       VisitedSet.insert(CalledFunc);
       CalledFuncs.push_back(CalledFunc);

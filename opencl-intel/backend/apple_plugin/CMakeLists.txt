@@ -44,6 +44,7 @@ set (PASSES_LIBS
     AddImplicitArgs
     BuiltInFuncImport
     BuiltinLibInfo
+    BlockToFuncPtr
     ClangCompatFixer
     InstToFuncCall
     GenericAddressResolution

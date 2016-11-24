@@ -1,16 +1,12 @@
 ;; You can find CL source file in the same directory where this file is located
 ;;
 ;;****************************************************************************************
-;; 1. The test checks SPIR 2.0 to Objective-C block translation with all necessary for CPU
-;;    BE Compiler information is stored in it.
-;; 2. It also checks BIImport correctly maps %opencl.block opaque type while importing
-;;    the enqueue_kernel built-in.
+;; The test checks SPIR 2.0 to Objective-C block translation with all necessary for CPU
+;; BE Compiler information is stored in it.
 ;;***************************************************************************************
 ;;
-; FIXME: https://jira01.devtools.intel.com/browse/CORC-1357
-; XFAIL: *
 
-;; RUN: opt -S -spir20-to-objc-blocks -runtimelib=%S/extended_execution_functions.rtl -builtin-import --verify < %s | FileCheck %s
+;; RUN: opt -S -spir20-to-objc-blocks --verify < %s | FileCheck %s
 
 ;; ModuleID = './simple_enqueue.cl'
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -36,21 +32,16 @@ declare spir_func float @_Z3cosf(float) #1
 ; CHECK-LABEL: define spir_func void @host_kernel
 
 ; CHECK-NEXT: [[BLOCKPTR: .*]] = alloca <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, float addrspace(1)* }>
-; CHECK-NEXT: [[INVOKEGEP:.*]] = getelementptr {{<.*>}}, [[BLOCKPTRTY:.*]][[BLOCKPTR]], i32 0, i32 3
+; CHECK-NEXT: [[INVOKEGEP:.*]] = getelementptr {{<.*>}}, [[BLOCKTY:.*]]*[[BLOCKPTR]], i32 0, i32 3
 ; CHECK-NEXT: store i8* bitcast {{.*}} @__host_kernel_block_invoke {{.*}}[[INVOKEGEP]]
-; CHECK-NEXT: [[DESCRGEP:.*]] = getelementptr {{.*}} [[BLOCKPTRTY]][[BLOCKPTR]], i32 0, i32 4
+; CHECK-NEXT: [[DESCRGEP:.*]] = getelementptr {{.*}} [[BLOCKTY]]*[[BLOCKPTR]], i32 0, i32 4
 ; CHECK-NEXT: store [[BLOCKDESCTY]]* [[BLOCKDESC]], [[BLOCKDESCTY]]**[[DESCRGEP]]
-; CHECK-NEXT: [[TOSPIRBLOCK:.*]] = bitcast [[BLOCKPTRTY]][[BLOCKPTR]] to %opencl.block*
+; CHECK-NEXT: [[TOSPIRBLOCK:.*]] = bitcast [[BLOCKTY]]*[[BLOCKPTR]] to %opencl.block*
 
-; CHECK: [[CAPTGEP:.*]] = getelementptr {{.*}} [[BLOCKPTRTY]][[BLOCKPTR]], i32 0, i32 5
+; CHECK: [[CAPTGEP:.*]] = getelementptr {{.*}} [[BLOCKTY]]*[[BLOCKPTR]], i32 0, i32 5
 ; CHECK: store float addrspace(1)* %inout, float addrspace(1)**[[CAPTGEP]]
 
 ; CHECK: call spir_func i32 @_Z14enqueue_kernel{{.*}}, %opencl.block*[[TOSPIRBLOCK]])
-
-;;*******************************
-;; enqueue_kernel built-in import
-;;*******************************
-; CHECK-LABEL: define {{.*}} i32 @_Z14enqueue_kernel{{.*}}, %opencl.block* %block)
 
 ; Function Attrs: nounwind
 define spir_func void @host_kernel(float addrspace(1)* %inout) #0 {
@@ -76,8 +67,8 @@ declare spir_func void @_Z10ndrange_1Dm(%struct.ndrange_t* sret, i64) #1
 ;; Correction of the invoke function
 ;;**********************************
 ; CHECK: define internal spir_func void @__host_kernel_block_invoke(i8* [[INVKARG:.*]])
-; CHECK: [[TOOBJCBLOCK:.*]] = bitcast i8* [[INVKARG]] to [[BLOCKPTRTY]]
-; CHECK: [[CAPTURED:.*]] = getelementptr [[BLOCKPTRTY]][[TOOBJCBLOCK]], i32 0, i32 5
+; CHECK: [[TOOBJCBLOCK:.*]] = bitcast i8* [[INVKARG]] to [[BLOCKTY]]*
+; CHECK: [[CAPTURED:.*]] = getelementptr [[BLOCKTY]], [[BLOCKTY]]*[[TOOBJCBLOCK]], i32 0, i32 5
 ; CHECK: load float addrspace(1)*, float addrspace(1)**[[CAPTURED]]
 
 ; Function Attrs: nounwind

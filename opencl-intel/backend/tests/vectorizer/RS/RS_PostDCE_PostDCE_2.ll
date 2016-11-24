@@ -1,4 +1,4 @@
-; RUN: opt -runtimelib %p/../Full/runtime.bc -runtime=rs -rsVec %s -S  -o - \
+; RUN: opt -runtimelib %p/../Full/runtime.bc -runtime=rs -builtin-import -rsVec %s -S  -o - \
 ; RUN: | FileCheck %s 
 
 ; CHECK-NOT: @__Vectorized_.list_create.wrapper.indexed

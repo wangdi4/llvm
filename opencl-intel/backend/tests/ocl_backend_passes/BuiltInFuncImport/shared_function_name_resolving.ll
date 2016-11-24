@@ -1,16 +1,17 @@
 ; RUN: llvm-as %s.rtl -o %s.rtl.bc
-; RUN: opt -runtimelib=%s.rtl.bc -builtin-import -verify %s -S | FileCheck %s
+; RUN: opt -runtimelib=%s.rtl.bc -builtin-import -arch=prefix -verify %s -S | FileCheck %s
 
 ;*****************************************************************************
 ; This test checks what the BuiltInFuncImport pass resolves the names of called
 ; svml functions from shared RTL. The pass called by test knows nothing about
-; current cpu architecture, so it replaced "shared" by zero string.
+; current cpu architecture, so it replaced "shared" by string which passed through
+; "-arch" option.
 ; In real program "shared" should be replaced by cpu prefix, for example "l9"
 ;
 ; Imported functions are presented in the "shared_function_name_resolving.ll.rtl"
 ;
 ; The expected results:
-;    @__ocl_svml_shared_acos4       to be resolved to @__ocl_svml__acos4
+;    @__ocl_svml_shared_acos4       to be resolved to @__ocl_svml_prefix_acos4
 ;    @__ocl_svml_l9_asin4           to not be changed
 ;    @blabla__ocl_svml_shared_acos4 to not be changed
 ;*****************************************************************************
@@ -30,11 +31,11 @@ entry:
 declare <4 x double> @function_foo4(<4 x double>) nounwind
 
 
-; CHECK:  %val1 = call <4 x double> @__ocl_svml_{{[a-z][0-9]}}_acos4(<4 x double> %in)
+; CHECK:  %val1 = call <4 x double> @__ocl_svml_prefix_acos4(<4 x double> %in)
 ; CHECK:  %val2 = call <4 x double> @__ocl_svml_l9_asin4(<4 x double> %in)
 ; CHECK:  %val3 = call <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double> %in)
 
-; CHECK:  declare <4 x double> @__ocl_svml_{{[a-z][0-9]}}_acos4(<4 x double>)
+; CHECK:  declare <4 x double> @__ocl_svml_prefix_acos4(<4 x double>)
 ; CHECK:  declare <4 x double> @__ocl_svml_l9_asin4(<4 x double>)
 ; CHECK:  declare <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double>)
 
