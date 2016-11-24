@@ -210,9 +210,6 @@ public:
     bool HasAVX512() const {
       return IsFeatureOn(CFS_AVX512F);
     }
-    bool HasKNC() const {
-      return (m_CPU == MIC_KNC);
-    }
     static unsigned GetLatestSupportedFeature(ECPU CPU) {
         return (1 << CPU);
     }

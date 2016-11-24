@@ -364,8 +364,7 @@ void CPUDetect::GetCPUInfo()
 		m_uiCPUFeatures |= CFS_SSE42;
 	}
 
-        // if (viCPUInfo[2] & 0x10000000)
-	if (viCPUInfo[2] & 0x18000000)
+        if (viCPUInfo[2] & 0x18000000)
 	{
 #if defined(_WIN32) && !defined(_M_X64)
             // Use this inline asm in Win32 only

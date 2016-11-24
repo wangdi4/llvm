@@ -27,6 +27,10 @@
 #define __AVX2__
 #endif
 
+#ifdef __SKX__
+#define __AVX2__
+#endif
+
 #ifdef __AVX2__
 #define __AVX__
 #endif

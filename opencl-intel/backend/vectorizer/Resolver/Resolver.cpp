@@ -20,7 +20,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Constants.h"
 
 #include <vector>
-#include <stdio.h>
 
 namespace intel {
 

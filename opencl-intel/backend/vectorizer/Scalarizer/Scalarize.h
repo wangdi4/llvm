@@ -8,10 +8,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __SCALARIZE_H__
 
 #include "BuiltinLibInfo.h"
-#include "SoaAllocaAnalysis.h"
 #include "Logger.h"
-#include "VectorizerCommon.h"
+#include "SoaAllocaAnalysis.h"
 #include "TargetArch.h"
+#include "VectorizerCommon.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Type.h"

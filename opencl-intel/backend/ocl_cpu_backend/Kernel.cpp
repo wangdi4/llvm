@@ -586,14 +586,11 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
   // running the kernel with the specified args and (groupID, runtimeHandle)
 #if defined (ENABLE_SDE)
-  int count = 1;
   BeforeExecution();
 
-  for (int i=0; i<count; i++) {
-    SSC_MARK_1;
-    kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
-    SSC_MARK_2;
-  }
+  SSC_MARK_1;
+  kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
+  SSC_MARK_2;
 
   AfterExecution();
 #else
