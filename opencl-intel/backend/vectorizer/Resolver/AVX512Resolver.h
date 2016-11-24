@@ -7,12 +7,12 @@ using namespace llvm;
 
 namespace intel {
 
-class KNLResolver : public FuncResolver {
+class AVX512Resolver : public FuncResolver {
 public:
   // Pass identification, replacement for typeid
   static char ID;
   /// @brief C'tor
-  KNLResolver() : FuncResolver(ID) {}
+  AVX512Resolver() : FuncResolver(ID) {}
 
   /// @brief Provides name of pass
   virtual const char *getPassName() const {

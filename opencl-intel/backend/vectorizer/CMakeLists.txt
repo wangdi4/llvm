@@ -36,7 +36,7 @@ set(TARGET_EXTRA_INCLUDE_FILES
 else(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES
   Resolver/MICResolver.cpp
-  Resolver/KNLResolver.cpp
+  Resolver/AVX512Resolver.cpp
   Utils/IRInjection.cpp
   Utils/Namer.cpp
   Utils/PrintfAdder.cpp
@@ -46,7 +46,7 @@ set(TARGET_EXTRA_SOURCE_FILES
 )
 set(TARGET_EXTRA_INCLUDE_FILES
   Resolver/MICResolver.h
-  Resolver/KNLResolver.h
+  Resolver/AVX512Resolver.h
   Utils/Namer.h
   Utils/PrintfAdder.h
   Renderscript/RenderscriptDriver.h

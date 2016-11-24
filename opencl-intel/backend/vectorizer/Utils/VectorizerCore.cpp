@@ -39,7 +39,7 @@ extern "C" Pass* createBuiltinLibInfoPass(
 
 extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
 #ifndef __APPLE__
-extern "C" FunctionPass* createKNLResolverPass();
+extern "C" FunctionPass* createAVX512ResolverPass();
 extern "C" FunctionPass* createKNCResolverPass();
 #endif
 extern "C" FunctionPass* createX86ResolverPass(Intel::ECPU cpuArch);
@@ -51,9 +51,7 @@ extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string du
 static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
 #ifndef __APPLE__
   if (CpuId.HasAVX512())
-    return createKNLResolverPass();
-  if (CpuId.HasKNC())
-    return createKNCResolverPass();
+    return createAVX512ResolverPass();
 #endif
   return createX86ResolverPass(CpuId.GetCPU());
 }

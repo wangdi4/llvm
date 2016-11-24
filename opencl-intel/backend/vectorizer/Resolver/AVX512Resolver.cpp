@@ -1,6 +1,6 @@
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "micresolver"
-#include "KNLResolver.h"
+#include "AVX512Resolver.h"
 #include "VectorizerUtils.h"
 #include "Logger.h"
 
@@ -18,9 +18,9 @@ static bool isGatherScatterType(VectorType *VecTy) {
 
 namespace intel {
 
-char KNLResolver::ID = 0;
+char AVX512Resolver::ID = 0;
 
-OCL_INITIALIZE_PASS(KNLResolver, "micresolve", "Resolves masked and vectorized function calls on MIC", false, false)
+OCL_INITIALIZE_PASS(AVX512Resolver, "micresolve", "Resolves masked and vectorized function calls on MIC", false, false)
 
 
 static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
@@ -34,7 +34,7 @@ static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
 }
 
 
-bool KNLResolver::TargetSpecificResolve(CallInst* caller) {
+bool AVX512Resolver::TargetSpecificResolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
   std::string calledName = called->getName().str();
   V_PRINT(DEBUG_TYPE, "MICSpecificResolve Inspecting "<<calledName<<"\n");
@@ -81,7 +81,7 @@ bool KNLResolver::TargetSpecificResolve(CallInst* caller) {
   return false;
 }
 
-Instruction* KNLResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data, Mangler::GatherScatterType type) {
+Instruction* AVX512Resolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data, Mangler::GatherScatterType type) {
   Module *pModule = caller->getParent()->getParent()->getParent();
   V_ASSERT((type == Mangler::GatherPrefetch || (Data ? Data->getType() : caller->getType())->isVectorTy()) && "Data value type is not a vector");
 
@@ -139,7 +139,7 @@ Instruction* KNLResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
   return newCaller;
 }
 
-void KNLResolver::FixBaseAndIndexIfNeeded(
+void AVX512Resolver::FixBaseAndIndexIfNeeded(
                   CallInst* caller, Value *Mask, Value *ValidBits,
                   Value *IsSigned, Value *&Ptr, Value *&Index) {
   V_ASSERT(ValidBits && isa<ConstantInt>(ValidBits) && "ValidBits argument is not constant");
@@ -249,7 +249,7 @@ void KNLResolver::FixBaseAndIndexIfNeeded(
 #endif
 }
 */
-bool KNLResolver::isBitMask(const VectorType& vecType) const {
+bool AVX512Resolver::isBitMask(const VectorType& vecType) const {
   // float16, int16, double8, long8, double16, long16
   return (vecType.getBitWidth() >= 512) && (vecType.getNumElements() <= 16);
 }
@@ -260,8 +260,8 @@ bool KNLResolver::isBitMask(const VectorType& vecType) const {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createKNLResolverPass() {
-    return new intel::KNLResolver();
+  FunctionPass* createAVX512ResolverPass() {
+    return new intel::AVX512Resolver();
   }
 }
 
