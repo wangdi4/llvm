@@ -76,6 +76,7 @@ protected:
 class TbbTaskGroup : public IThreadLibTaskGroup
 {
 public:
+    TbbTaskGroup() : m_tskGrp(new tbb::task_group()) { }
 
     PREPARE_SHARED_PTR(TbbTaskGroup)
 
@@ -93,11 +94,11 @@ public:
 
     virtual TaskGroupStatus Wait();
 
-    virtual ~TbbTaskGroup() GCC_NOEXCEPT_BUG_WORKAROUND {}
+    virtual ~TbbTaskGroup();
 
 private:
 
-    tbb::task_group m_tskGrp;
+    std::unique_ptr<tbb::task_group> m_tskGrp;
 
 };
 

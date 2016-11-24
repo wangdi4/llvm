@@ -35,15 +35,6 @@
     const char* GetTypeName() const { return #T ; } \
     public:
 
-// [LLVM 3.6 UPGRADE] Once C++11 is enabled for GCC it sometimes fails to compile a valid source code with the following error message
-// (when a virtual destructoris overrided even if noexcept attribute wasn't specified in the base class):
-// error: looser throw specifier for 'virtual ClassName::~ClassName() noexcept (false)'
-#ifdef __GNUC__
-  #define GCC_NOEXCEPT_BUG_WORKAROUND noexcept
-#else
-  #define GCC_NOEXCEPT_BUG_WORKAROUND
-#endif
-
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
