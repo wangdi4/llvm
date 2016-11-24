@@ -404,9 +404,9 @@ void CPUDetect::GetCPUInfo()
                     if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
                     {
                       // So far following simple logic - we see AVX512DQ then it is SKX, otherwise - it's KNL.
-                      m_uiCPUFeatures |= CFS_AVX512F;
                       if ((viCPUInfo[1] & 0x20000) == 0x20000) // CPUID.(EAX=07H, ECX=0):EBX[bit 17] - AVX512DQ
                       {
+                        m_uiCPUFeatures |= CFS_AVX512F;
                         m_uiCPUFeatures |= CFS_AVX512CD;
                         m_uiCPUFeatures |= CFS_AVX512BW;
                         m_uiCPUFeatures |= CFS_AVX512DQ;
@@ -414,9 +414,14 @@ void CPUDetect::GetCPUInfo()
                       }
                       else
                       {
+#if defined ENABLE_KNL
+                        m_uiCPUFeatures |= CFS_AVX512F;
                         m_uiCPUFeatures |= CFS_AVX512CD;
                         m_uiCPUFeatures |= CFS_AVX512ER;
                         m_uiCPUFeatures |= CFS_AVX512PF;
+#else
+                        m_uiCPUFeatures |= CFS_AVX20;
+#endif
                       }
                     }
             }
