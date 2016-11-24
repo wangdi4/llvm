@@ -331,15 +331,19 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
       m_forcedCpuFeatures.push_back("+avx2");
       m_forcedCpuFeatures.push_back("+f16c");
     }
-    if (selectedCpuId == Intel::CPU_KNL || selectedCpuId == Intel::CPU_SKX) {
-      m_forcedCpuFeatures.push_back("+avx512f");
-    }
     if (selectedCpuId == Intel::CPU_KNL) {
+#if defined ENABLE_KNL
+      m_forcedCpuFeatures.push_back("+avx512f");
       m_forcedCpuFeatures.push_back("+avx512cd");
       m_forcedCpuFeatures.push_back("+avx512er");
       m_forcedCpuFeatures.push_back("+avx512pf");
+#else
+      m_forcedCpuFeatures.push_back("+avx2");
+      m_forcedCpuFeatures.push_back("+f16c");
+#endif
     }
     if (selectedCpuId == Intel::CPU_SKX) {
+      m_forcedCpuFeatures.push_back("+avx512f");
       m_forcedCpuFeatures.push_back("+avx512cd");
       m_forcedCpuFeatures.push_back("+avx512bw");
       m_forcedCpuFeatures.push_back("+avx512dq");
