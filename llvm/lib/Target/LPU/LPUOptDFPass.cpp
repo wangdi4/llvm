@@ -1271,7 +1271,7 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
     // dependency chain of memory operations via a BFS, which tries to
     // walk back from the switch to the pick.
     //
-    // We are walking back through the def/use through MOV1, MERGE1,
+    // We are walking back through the def/use through MOV0, MERGE1,
     // PICK1, SWITCH1, and any OLD* or OST* instructions.
 
     MachineRegisterInfo *MRI = &thisMF->getRegInfo();
@@ -1330,16 +1330,22 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
 
           // Handle 3 different types of instructions.  Look up the
           // previous op in the chain.
-          if (current_op == LPU::MOV1) {
+          if (current_op == LPU::MOV0) {
             assert(MI->getNumOperands() == 2);
             nextOp[0] = &MI->getOperand(1);
             num_ops = 1;
           }
           else if (current_op == LPU::MERGE1) {
-            assert(MI->getNumOperands() == 3);
-            nextOp[0] = &MI->getOperand(1);
-            nextOp[1] = &MI->getOperand(2);
-            num_ops = 2;
+            assert(MI->getNumOperands() == 4);
+            // Check that the merge selector is an immediate.  This
+            // would be consistent with one of our special "merge1"
+            // operators we inserted in the memory dependency
+            // processing.
+            if (MI->getOperand(1).isImm()) {
+              nextOp[0] = &MI->getOperand(2);
+              nextOp[1] = &MI->getOperand(3);
+              num_ops = 2;
+            }
           }
           else if (current_op == LPU::PICK1) {
             assert(MI->getNumOperands() == 4);

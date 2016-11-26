@@ -2308,7 +2308,7 @@ void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsign
       BuildMI(*BB,
               BB->getFirstNonPHI(),
               DebugLoc(),
-              TII.get(LPU::MOV1),
+              TII.get(LPU::MOV0),
               mem_in_reg).addReg(target_out_reg);
     }
     else {
@@ -2320,7 +2320,7 @@ void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsign
       BuildMI(*BB,
               BB->getFirstNonPHI(),
               DebugLoc(),
-              TII.get(LPU::MOV1),
+              TII.get(LPU::MOV0),
               mem_in_reg).addImm(1);
     }
 
