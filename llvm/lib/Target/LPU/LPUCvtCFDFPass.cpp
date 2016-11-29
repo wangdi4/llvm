@@ -239,6 +239,10 @@ LPUCvtCFDFPass::LPUCvtCFDFPass() : MachineFunctionPass(ID) {
   bb2pick.clear();
   bb2predcpy.clear();
   multiInputsPick.clear();
+  edgepreds.clear();
+  bbpreds.clear();
+  bb2predmerge.clear();
+  bb2rpo.clear();
 }
 
 
@@ -1159,7 +1163,8 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
     if (mbb != mloop->getHeader()) continue;
     MachineBasicBlock *latchBB = mloop->getLoopLatch();
     SmallVectorImpl<MachineInstr *>* predCpy = nullptr;
-    if (latchBB) {
+    bool isHdrUnstructured = isUnStructured(mbb);
+    if (latchBB && !isHdrUnstructured) {
       predCpy = getOrInsertPredCopy(latchBB);
     }
     MachineBasicBlock::iterator iterI = mbb->begin();
@@ -1167,7 +1172,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
       MachineInstr *MI = &*iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-      if (!latchBB) {
+      if (!latchBB || isHdrUnstructured) {
         generateDynamicPickTreeForPhi(MI);
         //TODO: use repeat to iterate the pred inside the loop
         continue;
@@ -1835,7 +1840,6 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
 
     if (!ctrlBB) { //root node has no bb
       //mov 1
-      // Look up target register class corresponding to this register.
       MachineBasicBlock* entryBB = &*thisMF->begin();
       unsigned cpyReg = MRI->createVirtualRegister(&LPU::I1RegClass);
       const unsigned moveOpcode = TII.getMoveOpcode(&LPU::I1RegClass);
@@ -1895,6 +1899,7 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
+  pred2values.clear();
   MachineBasicBlock* mbb = MI->getParent();
   unsigned predBB = 0;
   MachineInstr* predMergeInstr = nullptr;
@@ -2023,12 +2028,20 @@ bool LPUCvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
     ++iterI;
     if (!MI->isPHI()) continue;
     //check to see if needs PREDPROP/PREDMERGE
-      //loop hdr phi with multiple back edges or loop with multiple exit blocks
+    //loop hdr phi with multiple back edges or loop with multiple exit blocks
     if (MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getHeader() == mbb) {
       MachineLoop* mloop = MLI->getLoopFor(mbb);
       if (mloop->getNumBackEdges() > 1) {
         return true;
       }
+#if 1 
+      MachineBasicBlock* mlatch = mloop->getLoopLatch();
+      assert(mlatch);
+      ControlDependenceNode* nlatch = CDG->getNode(mlatch);
+      bool oneAndOnly = true;
+      getNonLatchParent(nlatch, oneAndOnly);
+      if (!oneAndOnly) return true;
+#endif
     } else {
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
