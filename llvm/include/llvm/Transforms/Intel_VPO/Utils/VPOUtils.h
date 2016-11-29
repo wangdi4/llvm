@@ -182,8 +182,8 @@ public:
 
     /// \brief Return true iff DirString corresponds to a stand-alone 
     /// directive (doesn't begin or end a region). Eg: DIR_OMP_FLUSH
-    static bool isSoloDirective(StringRef DirString);
-    static bool isSoloDirective(int DirID);
+    static bool isStandAloneDirective(StringRef DirString);
+    static bool isStandAloneDirective(int DirID);
 
     /// \brief Return true iff DirString corresponds to DIR_QUAL_LIST_END,
     /// the mandatory marker to end a directive
@@ -193,6 +193,13 @@ public:
     /// \brief Return true iff the ClauseID represents a REDUCTION clause,
     /// such as QUAL_OMP_REDUCTION_ADD
     static bool isReductionClause(int ClauseID);
+
+    /// \brief Return true iff the ClauseID represents a SCHEDULE or a
+    /// DIST_SCHEDULE clause
+    static bool isScheduleClause(int ClauseID);
+
+    /// \brief True for MAP, TO, or FROM clauses
+    static bool isMapClause(int ClauseID);
 
     ////////////////// MultiVersioning Transformation ////////////////////////
     //

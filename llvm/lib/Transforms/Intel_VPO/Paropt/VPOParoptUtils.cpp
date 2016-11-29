@@ -426,12 +426,12 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
     break;
 
   case WRegionNode::WRNParallelSections:
-  case WRegionNode::WRNWksSections:
+  case WRegionNode::WRNSections:
     Flags = KMP_IDENT_BARRIER_IMPL_SECTIONS;
     break;
 
   case WRegionNode::WRNTask:
-  case WRegionNode::WRNTaskLoop:
+  case WRegionNode::WRNTaskloop:
     break;
 
   case WRegionNode::WRNSingle:

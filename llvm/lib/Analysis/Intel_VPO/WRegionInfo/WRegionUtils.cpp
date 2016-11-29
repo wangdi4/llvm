@@ -29,28 +29,74 @@ using namespace vpo;
 /// a WRN node of WRegionNodeKind corresponding to the directive,
 /// and return a pointer to it. Otherwise; return nullptr.
 WRegionNode *WRegionUtils::createWRegion(
-  StringRef  DirString,
+  int        DirID,
   BasicBlock *EntryBB,
   LoopInfo   *LI,
   unsigned   NestingLevel
 )
 {
   WRegionNode *W = nullptr;
-  int DirID = VPOUtils::getDirectiveID(DirString);
 
   switch(DirID) {
-    // TODO: complete the list for all WRegionNodeKinds
     case DIR_OMP_PARALLEL:
       W = new WRNParallelNode(EntryBB);
       break;
     case DIR_OMP_PARALLEL_LOOP:
       W = new WRNParallelLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_PARALLEL_SECTIONS:
+      W = new WRNParallelSectionsNode(EntryBB, LI);
+      break;
+    case DIR_OMP_PARALLEL_WORKSHARE:   // Fortran only
+      W = new WRNParallelWorkshareNode(EntryBB, LI);
+      break;
+    case DIR_OMP_TEAMS:
+      W = new WRNTeamsNode(EntryBB);
+      break;
+    case DIR_OMP_DISTRIBUTE_PARLOOP:
+      W = new WRNDistributeParLoopNode(EntryBB, LI);
+      break;
+    case DIR_OMP_TARGET:
+      W = new WRNTargetNode(EntryBB);
+      break;
+    case DIR_OMP_TARGET_DATA:
+    case DIR_OMP_TARGET_ENTER_DATA:
+    case DIR_OMP_TARGET_EXIT_DATA:
+    case DIR_OMP_TARGET_UPDATE:
+      W = new WRNTargetDataNode(EntryBB);
+      break;
+    case DIR_OMP_TASK:
+      W = new WRNTaskNode(EntryBB);
+      break;
+    case DIR_OMP_TASKLOOP:
+      W = new WRNTaskloopNode(EntryBB, LI);
+      break;
     case DIR_OMP_SIMD:
       W = new WRNVecLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_LOOP:
+      W = new WRNWksLoopNode(EntryBB, LI);
+      break;
+    case DIR_OMP_SECTIONS:
+      W = new WRNSectionsNode(EntryBB, LI);
+      break;
+    case DIR_OMP_WORKSHARE:   // Fortran only
+      W = new WRNWorkshareNode(EntryBB, LI);
+      break;
+    case DIR_OMP_DISTRIBUTE:
+      W = new WRNDistributeNode(EntryBB, LI);
+      break;
     case DIR_OMP_ATOMIC:
       W = new WRNAtomicNode(EntryBB);
+      break;
+    case DIR_OMP_BARRIER:
+      W = new WRNBarrierNode(EntryBB);
+      break;
+    case DIR_OMP_CANCEL:
+      W = new WRNCancelNode(EntryBB, false);
+      break;
+    case DIR_OMP_CANCELLATION_POINT:
+      W = new WRNCancelNode(EntryBB, true);
       break;
     case DIR_OMP_MASTER:
       W = new WRNMasterNode(EntryBB);
@@ -67,9 +113,24 @@ WRegionNode *WRegionUtils::createWRegion(
     case DIR_OMP_FLUSH:
       W = new WRNFlushNode(EntryBB);
       break;
+    case DIR_OMP_TASKGROUP:
+      W = new WRNTaskgroupNode(EntryBB);
+      break;
+    case DIR_OMP_TASKWAIT:
+      W = new WRNTaskwaitNode(EntryBB);
+      break;
+    case DIR_OMP_TASKYIELD:
+      W = new WRNTaskyieldNode(EntryBB);
+      break;
+    case DIR_OMP_THREADPRIVATE:
+      // #pragma omp threadprivate can be a module-level directive so we
+      // handle it outside of the WRN framework 
+      break;
   }
-  if (W)
+  if (W) {
     W->setLevel(NestingLevel);
+    W->setDirID(DirID);
+  }
   return W;
 }
 

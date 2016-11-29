@@ -103,13 +103,13 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
         // Intrin is not intel_directive or intel_directive_qual*
         continue;
 
-      StringRef DirOrClauseStr = VPOUtils::getDirectiveMetadataString(Call);
       if (IntrinId == Intrinsic::intel_directive) {
-
+        StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
+        int DirID = VPOUtils::getDirectiveID(DirString);
         // If the intrinsic represents an intel BEGIN directive, then
         // W is a pointer to an object for the corresponding WRN.
         // Otherwise, W is nullptr.
-        W = WRegionUtils::createWRegion(DirOrClauseStr, BB, LI, S->size());
+        W = WRegionUtils::createWRegion(DirID, BB, LI, S->size());
         if (W) {
           // DEBUG(dbgs() << "\n Starting New WRegion{\n");
 
@@ -127,26 +127,39 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
 
           S->push(W);
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
-        } else if (VPOUtils::isEndDirective(DirOrClauseStr)) {
+        } else if (VPOUtils::isEndDirective(DirID)) {
           // The intrinsic represents an intel END directive
           // TODO: verify the END directive is the expected one
 
           // DEBUG(dbgs() << "\n} Ending WRegion.\n");
+
+          assert(!(S->empty()) &&
+                 "Unexpected empty WRN stack when seeing an END directive");
+
           W = S->top();
           W->setExitBBlock(BB);
 
           // generate BB set;
-          // TODO: Remove this call later; the client will do it on demand
+          // TODO: Remove this call later; the client should do it on demand
           W->populateBBSet();
 
-          if (!S->empty())
-            S->pop();
+          S->pop();
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
         }
-      } else {
-        // Process clauses below
+        else if (VPOUtils::isListEndDirective(DirID) && !(S->empty())) {
+          W = S->top();
+          if (VPOUtils::isStandAloneDirective(W->getDirID())) {
+            // Current WRN is for a stand-alone directive, so
+            // pop the stack as soon as DIR_QUAL_LIST_END is seen
+            S->pop();
+          }
+        }
+      } else { // Process clauses below
+        assert(!(S->empty()) &&
+               "Unexpected empty WRN stack when seeing a clause");
         W = S->top();
-        int ClauseID = VPOUtils::getClauseID(DirOrClauseStr);
+        StringRef ClauseString = VPOUtils::getDirectiveMetadataString(Call);
+        int ClauseID = VPOUtils::getClauseID(ClauseString);
         if (IntrinId == Intrinsic::intel_directive_qual) {
           // Handle clause with no arguments
           assert(Call->getNumArgOperands() == 1 &&
@@ -165,17 +178,6 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
           W->handleQualOpndList(ClauseID, Call);
         }
       }
-
-#if 0
-      // TODO: implement WRNFlushNode and WRNCancelNode
-      if (!S->empty() && I == E) {
-        WRegionNode *A = S->top();
-        if (WRegionNode* StandAloneWConstruct = dyn_cast<WRNFlushNode>(&*A) ||
-            WRegionNode* StandAloneWConstruct = dyn_cast<WRNCancelNode>(&*A))
-          S->pop();
-      }
-#endif
-
     } // if (Call)
   }   // for
 

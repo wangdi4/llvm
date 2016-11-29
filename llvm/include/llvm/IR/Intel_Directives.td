@@ -44,14 +44,11 @@ class Clause;
 def "DIR.OMP.PARALLEL" : Directive;
 def "DIR.OMP.END.PARALLEL" : Directive;
 
+def "DIR.OMP.LOOP" : Directive;
+def "DIR.OMP.END.LOOP" : Directive;
+
 def "DIR.OMP.PARALLEL.LOOP" : Directive;
 def "DIR.OMP.END.PARALLEL.LOOP" : Directive;
-
-def "DIR.OMP.LOOP.SIMD" : Directive;
-def "DIR.OMP.END.LOOP.SIMD" : Directive;
-
-def "DIR.OMP.PARALLEL.LOOP.SIMD" : Directive;
-def "DIR.OMP.END.PARALLEL.LOOP.SIMD" : Directive;
 
 def "DIR.OMP.SECTIONS" : Directive;
 def "DIR.OMP.END.SECTIONS" : Directive;
@@ -66,7 +63,6 @@ def "DIR.OMP.PARALLEL.WORKSHARE" : Directive;
 def "DIR.OMP.END.PARALLEL.WORKSHARE" : Directive;
 
 def "DIR.OMP.SECTION" : Directive;
-def "DIR.OMP.END.SECTION" : Directive;
 
 def "DIR.OMP.SINGLE" : Directive;
 def "DIR.OMP.END.SINGLE" : Directive;
@@ -91,7 +87,7 @@ def "DIR.OMP.END.ATOMIC" : Directive;
 
 def "DIR.OMP.FLUSH" : Directive;
 
-// def DIR.OMP.THREADPRIVATE" : Directive;
+def "DIR.OMP.THREADPRIVATE" : Directive;
 
 def "DIR.OMP.ORDERED" : Directive;
 def "DIR.OMP.END.ORDERED" : Directive;
@@ -99,11 +95,11 @@ def "DIR.OMP.END.ORDERED" : Directive;
 def "DIR.OMP.SIMD" : Directive;
 def "DIR.OMP.END.SIMD" : Directive;
 
+def "DIR.OMP.TASKGROUP" : Directive;
+def "DIR.OMP.END.TASKGROUP" : Directive;
+
 def "DIR.OMP.TASKLOOP" : Directive;
 def "DIR.OMP.END.TASKLOOP" : Directive;
-
-def "DIR.OMP.TASKLOOP.SIMD" : Directive;
-def "DIR.OMP.END.TASKLOOP.SIMD" : Directive;
 
 def "DIR.OMP.TARGET" : Directive;
 def "DIR.OMP.END.TARGET" : Directive;
@@ -112,19 +108,9 @@ def "DIR.OMP.TARGET.DATA" : Directive;
 def "DIR.OMP.END.TARGET.DATA" : Directive;
 
 def "DIR.OMP.TARGET.UPDATE" : Directive;
-def "DIR.OMP.END.TARGET.UPDATE" : Directive;
 
 def "DIR.OMP.TEAMS" : Directive;
 def "DIR.OMP.END.TEAMS" : Directive;
-
-def "DIR.OMP.TEAMS.DISTRIBUTE" : Directive;
-def "DIR.OMP.END.TEAMS.DISTRIBUTE" : Directive;
-
-def "DIR.OMP.TEAMS.SIMD" : Directive;
-def "DIR.OMP.END.TEAMS.SIMD" : Directive;
-
-def "DIR.OMP.TEAMS.DISTRIBUTE.SIMD" : Directive;
-def "DIR.OMP.END.TEAMS.DISTRIBUTE.SIMD" : Directive;
 
 def "DIR.OMP.DISTRIBUTE" : Directive;
 def "DIR.OMP.END.DISTRIBUTE" : Directive;
@@ -132,35 +118,8 @@ def "DIR.OMP.END.DISTRIBUTE" : Directive;
 def "DIR.OMP.DISTRIBUTE.PARLOOP" : Directive;
 def "DIR.OMP.END.DISTRIBUTE.PARLOOP" : Directive;
 
-def "DIR.OMP.DISTRIBUTE.SIMD" : Directive;
-def "DIR.OMP.END.DISTRIBUTE.SIMD" : Directive;
-
-def "DIR.OMP.DISTRIBUTE.PARLOOP.SIMD" : Directive;
-def "DIR.OMP.END.DISTRIBUTE.PARLOOP.SIMD" : Directive;
-
 def "DIR.OMP.TARGET.ENTER.DATA" : Directive;
 def "DIR.OMP.TARGET.EXIT.DATA" : Directive;
-
-def "DIR.OMP.TARGET.TEAMS" : Directive;
-def "DIR.OMP.END.TARGET.TEAMS" : Directive;
-
-def "DIR.OMP.TEAMS.DISTRIBUTE.PARLOOP" : Directive;
-def "DIR.OMP.END.TEAMS.DISTRIBUTE.PARLOOP" : Directive;
-
-def "DIR.OMP.TEAMS.DISTRIBUTE.PARLOOP.SIMD" : Directive;
-def "DIR.OMP.END.TEAMS.DISTRIBUTE.PARLOOP.SIMD" : Directive;
-
-def "DIR.OMP.TARGET.TEAMS.DISTRIBUTE" : Directive;
-def "DIR.OMP.END.TARGET.TEAMS.DISTRIBUTE" : Directive;
-
-def "DIR.OMP.TARGET.TEAMS.DISTRIBUTE.PARLOOP" : Directive;
-def "DIR.OMP.END.TARGET.TEAMS.DISTRIBUTE.PARLOOP" : Directive;
-
-def "DIR.OMP.TARGET.TEAMS.DISTRIBUTE.SIMD" : Directive;
-def "DIR.OMP.END.TARGET.TEAMS.DISTRIBUTE.SIMD" : Directive;
-
-def "DIR.OMP.TARGET.TEAMS.DISTRIBUTE.PARLOOP.SIMD" : Directive;
-def "DIR.OMP.END.TARGET.TEAMS.DISTRIBUTE.PARLOOP.SIMD" : Directive;
 
 def "DIR.OMP.CANCEL" : Directive;
 def "DIR.OMP.CANCELLATION.POINT" : Directive;
@@ -183,8 +142,6 @@ def "QUAL.OMP.UPDATE" : Clause;
 def "QUAL.OMP.UPDATE.SEQ_CST" : Clause;
 def "QUAL.OMP.CAPTURE" : Clause;
 def "QUAL.OMP.CAPTURE.SEQ_CST" : Clause;
-def "QUAL.OMP.SCHEDULE.AUTO" : Clause;
-def "QUAL.OMP.SCHEDULE.RUNTIME" : Clause;
 def "QUAL.OMP.PROC.BIND.MASTER" : Clause;
 def "QUAL.OMP.PROC.BIND.CLOSE" : Clause;
 def "QUAL.OMP.PROC.BIND.SPREAD" : Clause;
@@ -200,10 +157,12 @@ def "QUAL.OMP.NUM_TASKS" : Clause;
 def "QUAL.OMP.PRIORITY" : Clause;
 def "QUAL.OMP.NUM_TEAMS" : Clause;
 def "QUAL.OMP.THREAD_LIMIT" : Clause;
-def "QUAL.OMP.DIST.SCHEDULE.STATIC" : Clause;
+def "QUAL.OMP.DIST_SCHEDULE.STATIC" : Clause;
 def "QUAL.OMP.SCHEDULE.STATIC" : Clause;
 def "QUAL.OMP.SCHEDULE.DYNAMIC" : Clause;
 def "QUAL.OMP.SCHEDULE.GUIDED" : Clause;
+def "QUAL.OMP.SCHEDULE.AUTO" : Clause;
+def "QUAL.OMP.SCHEDULE.RUNTIME" : Clause;
 def "QUAL.OMP.SHARED" : Clause;
 def "QUAL.OMP.PRIVATE" : Clause;
 def "QUAL.OMP.FIRSTPRIVATE" : Clause;
@@ -227,10 +186,31 @@ def "QUAL.OMP.UNIFORM" : Clause;
 def "QUAL.OMP.ALIGNED" : Clause;
 def "QUAL.OMP.FLUSH" : Clause;
 def "QUAL.OMP.THREADPRIVATE" : Clause;
+def "QUAL.OMP.DEVICE" : Clause;
+def "QUAL.OMP.IS_DEVICE_PTR" : Clause;
+def "QUAL.OMP.USE_DEVICE_PTR" : Clause;
+def "QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR" : Clause;
 def "QUAL.OMP.MAP.TO" : Clause;
 def "QUAL.OMP.MAP.FROM" : Clause;
 def "QUAL.OMP.MAP.TOFROM" : Clause;
+def "QUAL.OMP.MAP.ALLOC" : Clause;
+def "QUAL.OMP.MAP.RELEASE" : Clause;
+def "QUAL.OMP.MAP.DELETE" : Clause;
+def "QUAL.OMP.MAP.ALWAYS.TO" : Clause;
+def "QUAL.OMP.MAP.ALWAYS.FROM" : Clause;
+def "QUAL.OMP.MAP.ALWAYS.TOFROM" : Clause;
+def "QUAL.OMP.MAP.ALWAYS.ALLOC" : Clause;
+def "QUAL.OMP.MAP.ALWAYS.RELEASE" : Clause;
+def "QUAL.OMP.MAP.ALWAYS.DELETE" : Clause;
 def "QUAL.OMP.DEPEND.IN" : Clause;
 def "QUAL.OMP.DEPEND.OUT" : Clause;
 def "QUAL.OMP.DEPEND.INOUT" : Clause;
+def "QUAL.OMP.DEPEND.SOURCE" : Clause;
+def "QUAL.OMP.DEPEND.SINK" : Clause;
+def "QUAL.OMP.ORDERED.THREADS" : Clause;
+def "QUAL.OMP.ORDERED.SIMD" : Clause;
+def "QUAL.OMP.CANCEL.PARALLEL" : Clause;
+def "QUAL.OMP.CANCEL.LOOP" : Clause;
+def "QUAL.OMP.CANCEL.SECTIONS" : Clause;
+def "QUAL.OMP.CANCEL.TASKGROUP" : Clause;
 def "QUAL.OMP.NAME" : Clause;

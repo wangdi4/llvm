@@ -169,9 +169,8 @@ public:
   /// Creation Utilities
 
   /// \brief Returns a new node derived from WRegionNode node that
-  /// matches the construct type based on DirString.
-  //  (eg create a WRNParRegion node if DirString is "dir.parallel")
-  static WRegionNode *createWRegion(StringRef DirString, BasicBlock *EntryBB,
+  /// matches the construct type based on DirID.
+  static WRegionNode *createWRegion(int DirID, BasicBlock *EntryBB,
                                     LoopInfo *LI, unsigned NestingLevel);
 
   /// \brief Similar to createWRegion, but for HIR vectorizer support
@@ -199,9 +198,12 @@ public:
   /// This is called by WRegionNode::handleQualOpndList()
   template <typename ClauseTy>
   static ClauseTy *extractQualOpndList(IntrinsicInst *Call, ClauseTy *C);
+  static MapClause *extractMapOpndList(IntrinsicInst *Call, MapClause *C, 
+                                       unsigned MapKind);
+  static DependClause *extractDependOpndList(IntrinsicInst *Call,
+                                             DependClause *C, bool IsIn);
   static ReductionClause *extractReductionOpndList(IntrinsicInst *Call,
-                                                   ReductionClause *C,
-                                                   int ReductionKind);
+                                       ReductionClause *C, int ReductionKind);
 
   /// \brief Extract operands from a schedule clause
   static void extractScheduleOpndList(ScheduleClause & Sched,

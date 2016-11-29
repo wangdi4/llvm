@@ -228,7 +228,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
     // Task constructs need to perform outlining
     case WRegionNode::WRNTask:
-    case WRegionNode::WRNTaskLoop:
+    case WRegionNode::WRNTaskloop:
       break;
 
     // Constructs do not need to perform outlining
@@ -240,9 +240,7 @@ bool VPOParoptTransform::paroptTransforms() {
       break;
     case WRegionNode::WRNVecLoop:
     case WRegionNode::WRNWksLoop:
-    case WRegionNode::WRNWksSections:
-      break;
-    case WRegionNode::WRNSection:
+    case WRegionNode::WRNSections:
       break;
     case WRegionNode::WRNSingle:
       DEBUG(dbgs() << "\nWRegionNode::WRNSingle - Transformation \n\n");
