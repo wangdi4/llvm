@@ -515,22 +515,15 @@ void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
 bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
                                                bool *IsSingleStmt) const {
 
-  // Get index of SafeRedInfo via Inst
-  auto Iter = SafeReductionInstMap.find(Inst);
-  if (Iter == SafeReductionInstMap.end()) {
+  const SafeRedInfo *SRI = getSafeRedInfo(Inst);
+  if (!SRI){
     return false;
   }
+
   if (IsSingleStmt) {
-    auto &SRIIndex = Iter->second;
-    const HLLoop *Loop = Inst->getLexicalParentLoop();
-    // Get SafeRedChainList via Loop
-    auto Iter2 = SafeReductionMap.find(Loop);
-    assert(Iter2 != SafeReductionMap.end() && "Parent loop not found!");
-    auto &SRCL = Iter2->second;
-    // Get SafeRedInfo via obtained Index and SRCL
-    const SafeRedInfo &SRI = SRCL[SRIIndex];
-    *IsSingleStmt = (SRI.Chain.size() == 1 ? true : false);
+    *IsSingleStmt = (SRI->Chain.size() == 1 ? true : false);
   }
+
   return true;
 }
 

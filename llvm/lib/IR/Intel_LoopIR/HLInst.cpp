@@ -534,7 +534,7 @@ Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
     if (Ty->isIntegerTy()) {
       RDKind = RecurrenceDescriptor::RK_IntegerMinMax;
     } else {
-      assert(!Ty->isFloatingPointTy() &&
+      assert(Ty->isFloatingPointTy() &&
              "Floating point type expected at this point!");
       RDKind = RecurrenceDescriptor::RK_FloatMinMax;
     }
