@@ -164,12 +164,24 @@ defm f32 : _OCLTYPE2_<"f32", 32, "float">;
 defm f64 : _OCLTYPE2_<"f64", 64, "double">;
 def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
 def cl_mem_fence_flags : OclType<"cl_mem_fence_flags", "cl_mem_fence_flags", 1, 0, 0>;
-def image1d: OclType<"image1d", "image1d_t", 1, 0, 0>;
-def image2d: OclType<"image2d", "image2d_t", 1, 0, 0>;
-def image3d: OclType<"image3d", "image3d_t", 1, 0, 0>;
-def image1d_buffer: OclType<"image1d_buffer", "image1d_buffer_t", 1, 0, 0>;
-def image1d_array: OclType<"image1d_array", "image1d_array_t", 1, 0, 0>;
-def image2d_array: OclType<"image2d_array", "image2d_array_t", 1, 0, 0>;
+def image1d_ro: OclType<"image1d_ro", "__read_only image1d_t", 1, 0, 0>;
+def image1d_wo: OclType<"image1d_wo", "__write_only image1d_t", 1, 0, 0>;
+def image1d_rw: OclType<"image1d_rw", "__read_write image1d_t", 1, 0, 0>;
+def image2d_ro: OclType<"image2d_ro", "__read_only image2d_t", 1, 0, 0>;
+def image2d_wo: OclType<"image2d_wo", "__write_only image2d_t", 1, 0, 0>;
+def image2d_rw: OclType<"image2d_rw", "__read_write image2d_t", 1, 0, 0>;
+def image3d_ro: OclType<"image3d_ro", "__read_only image3d_t", 1, 0, 0>;
+def image3d_wo: OclType<"image3d_wo", "__write_only image3d_t", 1, 0, 0>;
+def image3d_rw: OclType<"image3d_rw", "__read_write image3d_t", 1, 0, 0>;
+def image1d_buffer_ro: OclType<"image1d_buffer_ro", "__read_only image1d_buffer_t", 1, 0, 0>;
+def image1d_buffer_wo: OclType<"image1d_buffer_wo", "__write_only image1d_buffer_t", 1, 0, 0>;
+def image1d_buffer_rw: OclType<"image1d_buffer_rw", "__read_write image1d_buffer_t", 1, 0, 0>;
+def image1d_array_ro: OclType<"image1d_array_ro", "__read_only image1d_array_t", 1, 0, 0>;
+def image1d_array_wo: OclType<"image1d_array_wo", "__write_only image1d_array_t", 1, 0, 0>;
+def image1d_array_rw: OclType<"image1d_array_rw", "__read_write image1d_array_t", 1, 0, 0>;
+def image2d_array_ro: OclType<"image2d_array_ro", "__read_only image2d_array_t", 1, 0, 0>;
+def image2d_array_wo: OclType<"image2d_array_wo", "__write_only image2d_array_t", 1, 0, 0>;
+def image2d_array_rw: OclType<"image2d_array_rw", "__read_write image2d_array_t", 1, 0, 0>;
 def sampler_t : OclType<"sampler_t", "sampler_t", 1, 0, 0>;
 def event_t : OclType<"event_t", "event_t", 1, 0, 0>;
 def pevent_t : OclType<"pevent_t", "event_t", 1, 0, 1>;
@@ -199,8 +211,14 @@ def ocl_types : TypeNameList<[
   v1f64.TypeName, v2f64.TypeName, v3f64.TypeName, v4f64.TypeName, v8f64.TypeName, v16f64.TypeName,
   atom_v1i32.TypeName, atom_v1u32.TypeName, atom_v1f32.TypeName, atom_flag.TypeName,
 
-  image1d.TypeName, image2d.TypeName, image3d.TypeName, image1d_buffer.TypeName, image1d_array.TypeName,
-  image2d_array.TypeName, sampler_t.TypeName, event_t.TypeName,
+  image1d_ro.TypeName, image1d_wo.TypeName, image1d_rw.TypeName,
+  image2d_ro.TypeName, image2d_wo.TypeName, image2d_rw.TypeName,
+  image3d_ro.TypeName, image3d_wo.TypeName, image3d_rw.TypeName,
+  image1d_buffer_ro.TypeName, image1d_buffer_wo.TypeName, image1d_buffer_rw.TypeName,
+  image1d_array_ro.TypeName, image1d_array_wo.TypeName, image1d_array_rw.TypeName,
+  image2d_array_ro.TypeName, image2d_array_wo.TypeName, image2d_array_rw.TypeName,
+
+  sampler_t.TypeName, event_t.TypeName,
 
   //The following is needed due to KNC conversions
    pv1i8.TypeName,  pv2i8.TypeName,  pv3i8.TypeName,  pv4i8.TypeName,  pv8i8.TypeName,  pv16i8.TypeName,

@@ -160,6 +160,10 @@ static void fixImageTypeNames(std::string& s){
   replaceAll(s, "_ro",  "");
   replaceAll(s, "_wo",  "");
   replaceAll(s, "_rw",  "");
+
+  replaceAll(s, "__read_only ",  "");
+  replaceAll(s, "__write_only ",  "");
+  replaceAll(s, "__read_write ",  "");
 }
 
 //returns true, if the following function prototypes are semantically the same
@@ -183,9 +187,11 @@ static bool isSematicallyEqual(const std::string& l, const std::string& r){
   //e.g. "memory_scope" -> "int", "memory_order" -> "int", "atomic_flag" -> "atomic_int"
   replaceCL20AtomicTypes(left);
   replaceCL20AtomicTypes(right);
-  //if they have different length at this point, they can't be semantically the same
+
   fixImageTypeNames(left);
   fixImageTypeNames(right);
+
+  //if they have different length at this point, they can't be semantically the same
   if (left.length() != right.length())
     return false;
   //after removing/replacing semantically equivalences, the strings might be
