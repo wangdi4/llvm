@@ -1,7 +1,7 @@
-;; Test that SOA versions of read_imageui built-ins are used for vectorization.
+;; Test that SOA versions of read only read_imageui built-ins are used for vectorization.
 ;;
 ;; LLVM IR was generated with the following command
-;; bash$ ./clang -cc1 -x cl -cl-std=CL2.0 -triple spir64-unknown-unknown -include opencl-c.h -emit-llvm soa_read_imageui.cl -o -
+;; bash$ ./clang -cc1 -x cl -cl-std=CL2.0 -triple spir64-unknown-unknown -include opencl-c.h -emit-llvm soa_read_imageui-ro.cl -o -
 
 ; RUN: opt -runtimelib %p/../Full/runtime.bc -scalarize -predicate -packetize -packet-size=4 -verify %s -S -o - | FileCheck -check-prefix=CHECK_4 %s
 ; RUN: opt -runtimelib %p/../Full/runtime.bc -scalarize -predicate -packetize -packet-size=8 -verify %s -S -o - | FileCheck -check-prefix=CHECK_8 %s
