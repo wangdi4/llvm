@@ -2,3 +2,6 @@
 	path = tools/clang
 	url = ssh://git-amr-3.devtools.intel.com:29418/dcg-knp-arch-lpu-clang
     branch = master
+[submodule "projects/openmp"]
+	path = projects/openmp
+	url = ssh://git-amr-1.devtools.intel.com:29418/dcg-knp-arch-lpu-openmp
