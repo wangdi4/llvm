@@ -14990,10 +14990,12 @@ Sema::ConditionResult Sema::ActOnCondition(Scope *S, SourceLocation Loc,
   ExprResult Cond;
   switch (CK) {
   case ConditionKind::Boolean:
+    SubExpr->setIsCondition(); // INTEL
     Cond = CheckBooleanCondition(Loc, SubExpr);
     break;
 
   case ConditionKind::ConstexprIf:
+    SubExpr->setIsCondition(); // INTEL
     Cond = CheckBooleanCondition(Loc, SubExpr, true);
     break;
 

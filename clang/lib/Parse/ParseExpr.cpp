@@ -329,6 +329,10 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
         TernaryMiddle = nullptr;
         Diag(Tok, diag::ext_gnu_conditional_expr);
       }
+#if INTEL_CUSTOMIZATION
+      if (!LHS.isInvalid()) 
+        LHS.get()->setIsCondition();
+#endif // INTEL_CUSTOMIZATION
 
       if (!TryConsumeToken(tok::colon, ColonLoc)) {
         // Otherwise, we're missing a ':'.  Assume that this was a typo that

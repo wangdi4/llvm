@@ -131,8 +131,9 @@ protected:
     unsigned ValueDependent : 1;
     unsigned InstantiationDependent : 1;
     unsigned ContainsUnexpandedParameterPack : 1;
+    unsigned IsCondition : 1; // INTEL
   };
-  enum { NumExprBits = 16 };
+  enum { NumExprBits = 17 }; // INTEL
 
   class CharacterLiteralBitfields {
     friend class CharacterLiteral;

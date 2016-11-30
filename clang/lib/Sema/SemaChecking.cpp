@@ -8753,6 +8753,12 @@ void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
       if (S.SourceMgr.isInSystemMacro(CC))
         return;
 
+#if INTEL_CUSTOMIZATION
+      // CQ414781, suppress float-to-bool diagnostic in conditions.
+      if (TargetBT->isBooleanType() && E->isCondition())
+        return;
+#endif // INTEL_CUSTOMIZATION
+
       DiagnoseFloatingImpCast(S, E, T, CC);
     }
 
@@ -8955,7 +8961,12 @@ void CheckBoolLikeConversion(Sema &S, Expr *E, SourceLocation CC) {
 /// of competing diagnostics here, -Wconversion and -Wsign-compare.
 void AnalyzeImplicitConversions(Sema &S, Expr *OrigE, SourceLocation CC) {
   QualType T = OrigE->getType();
+  bool isCondition = OrigE->isCondition(); // INTEL
   Expr *E = OrigE->IgnoreParenImpCasts();
+#if INTEL_CUSTOMIZATION
+  if (isCondition)
+    E->setIsCondition(isCondition);
+#endif // INTEL_CUSTOMIZATION
 
   if (E->isTypeDependent() || E->isValueDependent())
     return;
