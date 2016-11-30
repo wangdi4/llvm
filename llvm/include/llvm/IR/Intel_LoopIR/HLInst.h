@@ -106,9 +106,6 @@ public:
   /// Returns true if Ref is a rval DDRef of this node.
   virtual bool isRval(const RegDDRef *Ref) const override;
 
-  /// Returns true if Ref is a fake DDRef attached to this node.
-  virtual bool isFake(const RegDDRef *Ref) const override;
-
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeID() == HLNode::HLInstVal;
