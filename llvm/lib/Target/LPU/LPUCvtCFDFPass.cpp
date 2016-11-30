@@ -2558,6 +2558,7 @@ unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
 bool LPUCvtCFDFPass::replaceUndefWithIgn() {
   bool modified = false;
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   SmallPtrSet<MachineInstr*, 4> implicitDefs;
   DEBUG(errs() << "Finding implicit defs:\n");
   for (MachineFunction::iterator BB = thisMF->begin(); BB != thisMF->end(); ++BB) {
@@ -2583,11 +2584,13 @@ bool LPUCvtCFDFPass::replaceUndefWithIgn() {
     // Ensure SSA form and that we have right defining instruction.
     assert(MRI->getUniqueVRegDef(uMO.getReg()) &&
         MRI->getUniqueVRegDef(uMO.getReg()) == uMI);
-
+    const TargetRegisterClass *TRC = MRI->getRegClass(uMI->getOperand(0).getReg());
+    const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+    MachineInstr *movInst = BuildMI(*uMI->getParent(), uMI, DebugLoc(),
+      TII.get(moveOpcode),
+      uMI->getOperand(0).getReg()).addImm(0);
     // Erase the implicit definition.
-    uMI->eraseFromParent();
-    // Replace all uses of this register with IGN.
-    MRI->replaceRegWith(uMO.getReg(), LPU::IGN);
+    uMI->removeFromParent();
     modified = true;
   }
 
