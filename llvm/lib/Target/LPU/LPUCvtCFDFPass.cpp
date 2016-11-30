@@ -1971,7 +1971,7 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 void LPUCvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* loc) {
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  if (pred2values.empty()) return;
+  if (pred2values.empty() || pred2values.size() == 1) return;
   SmallVector<std::pair<unsigned, unsigned> *, 4> vpair;
   unsigned j = pred2values.size() - 1;
   unsigned i = 0;
