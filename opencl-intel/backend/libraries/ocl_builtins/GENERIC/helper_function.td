@@ -207,7 +207,7 @@ let Types = [ v2i8,  v4i8,  v8i8,  v16i8,
 }
 
 let Types = [v16i32, v16f32], NeedForwardDecl = 1 in {
-def __ocl_helper_shuffle_pairs_knl :
+def __ocl_helper_shuffle_pairs :
   OclBuiltin<"__ocl_helper_shuffle_pairs_$Arg1Type", (outs gentype:$ret),
    (ins gentype:$arg0, gentype:$arg1, gentype:$arg2, gentype:$arg3, v16i32:$mask),
   [], [], 0, 0>;

@@ -20,14 +20,14 @@ namespace intel {
 
 char AVX512Resolver::ID = 0;
 
-OCL_INITIALIZE_PASS(AVX512Resolver, "micresolve", "Resolves masked and vectorized function calls on MIC", false, false)
+OCL_INITIALIZE_PASS(AVX512Resolver, "avx512resolve", "Resolves masked and vectorized function calls for AVX512", false, false)
 
 
 static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
   std::vector<Constant*> constList;
   uint64_t constVal = 0;
 
-  for (unsigned j=0; j < count; ++j) {
+  for (unsigned j = 0; j < count; ++j) {
     constList.push_back(ConstantInt::get(type, constVal++));
   }
   return ConstantVector::get(ArrayRef<Constant*>(constList));
@@ -177,78 +177,7 @@ void AVX512Resolver::FixBaseAndIndexIfNeeded(
     //return;
   }
 }
-/*
 
-  //Reaching here means we have Index with more than 32bit. (Thus, we assume Index type is 64bit)
-  //V_ASSERT(IndexType->getElementType()->isIntegerTy(64) && "index element type is something other than 32bit or 64bit");
-
-  // The following code will chose a valide index (such one with mask bit 1), and will perform the following
-  //   newBase = Base + validIndex
-  //   newVecIndex = VecIndex - brodcast(validIndex)
-  // As a result we can assure that newIndex is limited to 32bit
-  // ***Since buffer size is <= 2^31***, and all work items that access the memory
-  // has distance of +-2^31 at most.
-
-
-  Constant *ConstZero = ConstantInt::get(i32Ty, 0);
-  // if masked idx = number of MSB bit in mask that is set to zero
-  // Otherwise idx = 0
-  Value *Idx = ConstZero;
-  if(!bIsUniformMask) {
-    Module *pModule = caller->getParent()->getParent()->getParent();
-    V_ASSERT(Mask->getType()->isVectorTy() && "Mask assumed to be vector type at this point");
-    VectorType *MaskTy = cast<VectorType>(Mask->getType());
-    V_ASSERT(MaskTy->getElementType()->isIntegerTy(1) && "Mask assumed to be vector of type i1");
-
-    // Get cttz intrinsics name
-    std::stringstream sname;
-    sname << "llvm.cttz.i" << MaskTy->getNumElements();
-    //sname << "llvm.x86.mic.bsff." << MaskTy->getNumElements();
-    Type *MaskCombinedTy = Type::getIntNTy(caller->getContext(), MaskTy->getNumElements());
-    Value *CombinedMask = new BitCastInst(Mask, MaskCombinedTy, "16xi1Toi16", caller);
-
-    // Initialize function arguments
-    SmallVector<Value *, 4> args;
-    args.push_back(CombinedMask);
-    args.push_back(ConstantInt::get(Type::getInt1Ty(caller->getContext()),0));
-
-    // Call cttz intrinsics name
-    Instruction *CttzCaller = VectorizerUtils::createFunctionCall(pModule, sname.str(), MaskCombinedTy, args,
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-        SmallVector<Attributes, 4>(), caller);
-#else
-        SmallVector<Attribute::AttrKind, 4>(), caller);
-#endif
-    // Convert cttz result to i32 before using it as index parameter for extract element instruction.
-    CttzCaller = BitCastInst::CreateIntegerCast(CttzCaller, i32Ty, false,  "ZExti16Toi32", caller);
-    // Mask with (Vector-width-1), this is needed for the case of zero mask!
-    Value *MaskVecWidth = ConstantInt::get(i32Ty, MaskTy->getNumElements()-1);
-    CttzCaller = BinaryOperator::CreateAnd(CttzCaller, MaskVecWidth,  "ModuloVecWidthMask", caller);
-
-    // Set Idx to cttz return value
-    Idx = CttzCaller;
-  }
-  // Ptr' = Ptr + Index[idx]
-  Value *Index0 = ExtractElementInst::Create(Index, Idx, "ExtractIndex0", caller);
-  Ptr = GetElementPtrInst::Create(Ptr, Index0, "Ptr+Index[0]", caller);
-
-#if 0
-  // Index' = truncate(Index - broadcast(Index[idx]), <16x32>)
-  Index0 = VectorizerUtils::createBroadcast(Index0, IndexType->getNumElements(), caller);
-  Index = BinaryOperator::CreateNUWSub(Index, Index0, "Index-Index[0]", caller);
-  Index = BitCastInst::CreateIntegerCast(Index, i32Vec, true, "trunc64To32", caller);
-#else
-  // This sequance is more efficient because subtract on 32bit values
-  // costs much less than subtract on 64bit values on MIC.
-  // Index = truncate(Index, <16x32>)
-  // Index' = Index - broadcast(Index[idx])
-  Index = BitCastInst::CreateIntegerCast(Index, i32Vec, true, "trunc64To32", caller);
-  Index0 = ExtractElementInst::Create(Index, Idx, "ExtractTruncIndex0", caller);
-  Index0 = VectorizerUtils::createBroadcast(Index0, IndexType->getNumElements(), caller);
-  Index = BinaryOperator::CreateSub(Index, Index0, "Index-Index[0]", caller);
-#endif
-}
-*/
 bool AVX512Resolver::isBitMask(const VectorType& vecType) const {
   // float16, int16, double8, long8, double16, long16
   return (vecType.getBitWidth() >= 512) && (vecType.getNumElements() <= 16);

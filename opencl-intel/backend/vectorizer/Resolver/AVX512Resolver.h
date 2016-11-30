@@ -16,7 +16,7 @@ public:
 
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
-    return "MICResolver";
+    return "AVX512Resolver";
   }
 
   /// @brief Resolve a call-site. This is a target specific hook.

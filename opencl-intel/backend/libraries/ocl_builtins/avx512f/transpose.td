@@ -1,5 +1,5 @@
 
-OclBuiltinImpl _shuffle_pairs_int16_knl = OclBuiltinImpl<__ocl_helper_shuffle_pairs_knl, [v16i32], 0, [{
+OclBuiltinImpl _shuffle_pairs_int16_knl = OclBuiltinImpl<__ocl_helper_shuffle_pairs, [v16i32], 0, [{
     int16 t0 = as_$ReturnType(_mm512_permutex2var_epi32(__builtin_astype($Arg0VarName, __m512i),
                                                         __builtin_astype($Arg4VarName, __m512i),
                                                         __builtin_astype($Arg1VarName, __m512i)));
@@ -26,7 +26,7 @@ OclBuiltinImpl transpose_load_int4x16_knl = OclBuiltinImpl<__ocl_load_transpose4
    *$Arg4VarName = __ocl_helper_shuffle_pairs_int16(t0,t1,t2,t3,mask3);
   }]>;
 
-OclBuiltinImpl _shuffle_pairs_float16_knl = OclBuiltinImpl<__ocl_helper_shuffle_pairs_knl, [v16f32], 0, [{
+OclBuiltinImpl _shuffle_pairs_float16_knl = OclBuiltinImpl<__ocl_helper_shuffle_pairs, [v16f32], 0, [{
     float16 t0 = as_$ReturnType(_mm512_permutex2var_ps(__builtin_astype($Arg0VarName, __m512),
                                                         __builtin_astype($Arg4VarName, __m512i),
                                                         __builtin_astype($Arg1VarName, __m512)));
