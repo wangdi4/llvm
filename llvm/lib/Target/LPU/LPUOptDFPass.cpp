@@ -1271,12 +1271,14 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
     // dependency chain of memory operations via a BFS, which tries to
     // walk back from the switch to the pick.
     //
-    // We are walking back through the def/use through MOV0, MERGE1,
-    // PICK1, SWITCH1, and any OLD* or OST* instructions.
+    // We are walking back through the def/use through MERGE1, PICK1,
+    // SWITCH1, any OLD* or OST* instructions, and the opcode for
+    // memory ordering tokens (nominally MOV0).
 
     MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+    const unsigned MemOpMOVOpcode = TII.getMemTokenMOVOpcode();
 
     const int MAX_LEVELS = 10000;
     int num_levels = 0;
@@ -1330,7 +1332,7 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
 
           // Handle 3 different types of instructions.  Look up the
           // previous op in the chain.
-          if (current_op == LPU::MOV0) {
+          if (current_op == MemOpMOVOpcode) {
             assert(MI->getNumOperands() == 2);
             nextOp[0] = &MI->getOperand(1);
             num_ops = 1;

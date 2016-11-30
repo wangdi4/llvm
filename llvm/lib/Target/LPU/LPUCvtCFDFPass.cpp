@@ -2269,7 +2269,8 @@ MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
 void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
                                              DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut) {
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-
+  const unsigned MemTokenMOVOpcode = TII.getMemTokenMOVOpcode();
+  
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
 
     MachineBasicBlock* BBptr = &(*BB);
@@ -2308,7 +2309,7 @@ void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsign
       BuildMI(*BB,
               BB->getFirstNonPHI(),
               DebugLoc(),
-              TII.get(LPU::MOV0),
+              TII.get(MemTokenMOVOpcode),
               mem_in_reg).addReg(target_out_reg);
     }
     else {
@@ -2320,7 +2321,7 @@ void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsign
       BuildMI(*BB,
               BB->getFirstNonPHI(),
               DebugLoc(),
-              TII.get(LPU::MOV0),
+              TII.get(MemTokenMOVOpcode),
               mem_in_reg).addImm(1);
     }
 
@@ -2624,10 +2625,11 @@ void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
     // TBD(jsukha): For now, I'm just going to do this operation
     // with a mov1.  I don't know if some other instruction will be
     // better.
+    const unsigned MemTokenMOVOpcode = TII.getMemTokenMOVOpcode();    
     MachineInstr* mem_out_def = BuildMI(*BB,
                                         BB->getFirstTerminator(),
                                         DebugLoc(),
-                                        TII.get(LPU::MOV0),
+                                        TII.get(MemTokenMOVOpcode),
                                         mem_out_reg).addReg(last_mem_reg);
 
     DEBUG(errs() << "Inserted mem_out_def instruction " << *mem_out_def << "\n");

@@ -492,11 +492,11 @@ bool LPUInstrInfo::isMOV(MachineInstr *MI) const {
 
 
 bool LPUInstrInfo::isInit(MachineInstr *MI) const {
-	return MI->getOpcode() == LPU::INIT1 ||
-		MI->getOpcode() == LPU::INIT8 ||
-		MI->getOpcode() == LPU::INIT16 ||
-		MI->getOpcode() == LPU::INIT32 ||
-		MI->getOpcode() == LPU::INIT64;
+  return MI->getOpcode() == LPU::INIT1 ||
+    MI->getOpcode() == LPU::INIT8 ||
+    MI->getOpcode() == LPU::INIT16 ||
+    MI->getOpcode() == LPU::INIT32 ||
+    MI->getOpcode() == LPU::INIT64;
 }
 
 bool LPUInstrInfo::isAtomic(MachineInstr *MI) const {
@@ -511,6 +511,15 @@ bool LPUInstrInfo::isSeqOT(MachineInstr *MI) const {
     return ((MI->getOpcode() >= LPU::SEQOTGE) &&
             (MI->getOpcode() <= LPU::SEQOTNE8));
 }
+
+unsigned LPUInstrInfo::getMemTokenMOVOpcode() const {
+  return LPU::MOV0;
+}
+
+bool LPUInstrInfo::isMemTokenMOV(MachineInstr* MI) const {
+  return MI->getOpcode() == LPU::MOV0;
+}
+
 
 unsigned
 LPUInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {
@@ -1189,3 +1198,57 @@ convertTransformToReductionOp(unsigned transform_opcode,
     return false;
   }
 }
+
+
+// TBD(jsukha): My initial attempt at the implementation was to call
+// TargetRegisterClass::getMinimalPhysRegClass.  But this method seems
+// to end up picking the ANYC register class, which is not what we
+// want...
+const TargetRegisterClass*
+LPUInstrInfo::lookupLICRegClass(unsigned reg) const {
+  if (LPU::CI64RegClass.contains(reg)) {
+    return &LPU::CI64RegClass;
+  }
+  else if (LPU::CI32RegClass.contains(reg)) {
+    return &LPU::CI32RegClass;    
+  }
+  if (LPU::CI16RegClass.contains(reg)) {
+    return &LPU::CI16RegClass;
+  }
+  else if (LPU::CI8RegClass.contains(reg)) {
+    return &LPU::CI8RegClass;    
+  }
+  if (LPU::CI1RegClass.contains(reg)) {
+    return &LPU::CI1RegClass;
+  }
+  else if (LPU::CI0RegClass.contains(reg)) {
+    return &LPU::CI0RegClass;    
+  }
+  return nullptr;
+}
+
+
+int
+LPUInstrInfo::
+getMOVBitwidth(unsigned mov_opcode) const {
+  switch (mov_opcode) {
+  // Ordered from largest to smallest, under the assumption that
+  // larger sizes are more common, and that the first cases are
+  // faster.
+  case LPU::MOV64:
+    return 64;
+  case LPU::MOV32:
+    return 32;
+  case LPU::MOV16:
+    return 16;
+  case LPU::MOV8:
+    return 8;
+  case LPU::MOV1:
+    return 1;
+  case LPU::MOV0:
+    return 0;
+  default:
+    return -1;
+  }
+}
+

@@ -162,6 +162,12 @@ public:
   bool isOrderedAtomic(MachineInstr *) const;
   bool isSeqOT(MachineInstr *) const;
 
+  // Gets the opcode for a memory token MOV.  This method is defined
+  // here so that all the places which need to know which opcode is a
+  // MOV of a memory token agree upon the answer.
+  unsigned getMemTokenMOVOpcode()const;
+  // Returns true if this instruction is a MOV of a memory token.  
+  bool isMemTokenMOV(MachineInstr *) const;
   
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
   unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
@@ -260,7 +266,19 @@ public:
   bool
   convertTransformToReductionOp(unsigned transform_opcode,
                                 unsigned* reduction_opcode) const;
-  
+
+
+
+  // Look up the register class for a given LIC.
+  // (This method returns nullptr if the register number does not
+  //  fall into a valid range). 
+  const TargetRegisterClass*
+  lookupLICRegClass(unsigned lic_reg) const;
+
+  // Returns the bitwidth of a MOV opcode.
+  // Returns -1 if something is wrong.  
+  int getMOVBitwidth(unsigned mov_opcode) const;
+
 };
 
 }
