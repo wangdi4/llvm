@@ -89,8 +89,10 @@ private:
     // &A[i], and so we need to return a value representing that address to use
     // in a store instruction. For rvals, we want a value for what is stored at
     // that address to use as operand of an instruction. This function will
-    // return an address or a load of that address depending on rval/lval of ref
-    Value *visitRegDDRef(RegDDRef *Ref);
+    // return an address or a load of that address depending on rval/lval of
+    // ref. If MaskVal is not null, we generate a masked load/gather instead
+    // of the load.
+    Value *visitRegDDRef(RegDDRef *Ref, Value *MaskVal = nullptr);
     Value *visitScalar(RegDDRef *Ref);
 
     Value *visitRegion(HLRegion *R);
@@ -667,7 +669,7 @@ Value *HIRCodeGen::CGVisitor::visitScalar(RegDDRef *Ref) {
   return Alloca;
 }
 
-Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
+Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   assert(Ref && " Reference is null.");
   DEBUG(dbgs() << "cg for RegRef ");
   DEBUG(Ref->dump());
@@ -753,7 +755,10 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     Instruction *LInst;
 
     if (GEPVal->getType()->isVectorTy()) {
-      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal, Builder);
+      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal, Builder,
+                                               Ref->getAlignment(), MaskVal);
+    } else if (MaskVal) {
+      LInst = Builder->CreateMaskedLoad(GEPVal, Ref->getAlignment(), MaskVal);
     } else {
       LInst = Builder->CreateAlignedLoad(GEPVal, Ref->getAlignment(),
                                          Ref->isVolatile(), "gepload");
@@ -1184,13 +1189,20 @@ void HIRCodeGen::CGVisitor::generateLvalStore(const HLInst *HInst,
   }
 
   auto LvalRef = HInst->getLvalDDRef();
+  RegDDRef *MaskDDRef = const_cast<RegDDRef *>(HInst->getMaskDDRef());
+  Value *MaskVal = MaskDDRef ? visitRegDDRef(MaskDDRef) : nullptr;
 
   if (LvalRef->hasGEPInfo()) {
     RegDDRef::MDNodesTy MDs;
     Instruction *ResInst;
+
     if (StorePtr->getType()->isVectorTy()) {
-      ResInst = VPOUtils::createMaskedScatterCall(F->getParent(), StorePtr,
-                                                  StoreVal, Builder);
+      ResInst = VPOUtils::createMaskedScatterCall(
+          F->getParent(), StorePtr, StoreVal, Builder, LvalRef->getAlignment(),
+          MaskVal);
+    } else if (MaskVal) {
+      ResInst = Builder->CreateMaskedStore(StoreVal, StorePtr,
+                                           LvalRef->getAlignment(), MaskVal);
     } else {
       ResInst = Builder->CreateAlignedStore(
           StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());
@@ -1199,7 +1211,11 @@ void HIRCodeGen::CGVisitor::generateLvalStore(const HLInst *HInst,
     LvalRef->getAllMetadataOtherThanDebugLoc(MDs);
     setMetadata(ResInst, MDs);
   } else {
-    Builder->CreateStore(StoreVal, StorePtr);
+    if (MaskVal) {
+      Builder->CreateMaskedStore(StoreVal, StorePtr, 0, MaskVal);
+    } else {
+      Builder->CreateStore(StoreVal, StorePtr);
+    }
   }
 }
 
@@ -1207,13 +1223,27 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
 
   // CG the operands
   SmallVector<Value *, 6> Ops;
+
+  // See if we need to compute the mask value. Currently we need to mask
+  // any generated loads if the HLInst has a mask DDRef.
+  Value *MaskVal = nullptr;
+  RegDDRef *MaskRef = HInst->getMaskDDRef();
+
   for (auto R = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); R != E;
        ++R) {
-    auto DestTy = (*R)->getDestType();
-    auto OpVal = visitRegDDRef(*R);
+    auto Ref = (*R);
+
+    // We need to mask loads if we have a mask ddref - generate mask value
+    // to be used for these loads.
+    if (MaskRef && !MaskVal && Ref->isRval() && Ref->isMemRef()) {
+      MaskVal = visitRegDDRef(MaskRef);
+    }
+
+    auto DestTy = Ref->getDestType();
+    auto OpVal = visitRegDDRef(Ref, MaskVal);
 
     // Do a broadcast of instruction operands if needed.
-    if ((*R)->isRval() && DestTy->isVectorTy() &&
+    if (Ref->isRval() && DestTy->isVectorTy() &&
         !(OpVal->getType()->isVectorTy())) {
       OpVal = Builder->CreateVectorSplat(DestTy->getVectorNumElements(), OpVal);
     }

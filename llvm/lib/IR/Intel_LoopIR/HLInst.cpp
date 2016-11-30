@@ -55,7 +55,15 @@ HLInst::HLInst(const HLInst &HLInstObj)
     if (Count < NumOp) {
       setOperandDDRef((*I)->clone(), Count);
     } else {
-      addFakeDDRef((*I)->clone());
+      auto Ref = (*I);
+      auto CloneRef = Ref->clone();
+
+      // Set MaskDDRef to appropriate clone
+      if (HLInstObj.MaskDDRef == Ref) {
+        MaskDDRef = CloneRef;
+      }
+
+      addFakeDDRef(CloneRef);
     }
   }
 }
@@ -212,8 +220,15 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 
   printEndOpcode(OS);
 
-  OS << ";\n";
+  OS << ";";
 
+  if (MaskDDRef) {
+    OS << " Mask = @{";
+    MaskDDRef->print(OS, false);
+    OS << "}";
+  }
+
+  OS << "\n";
   HLDDNode::print(OS, Depth, Detailed);
 }
 
@@ -289,19 +304,6 @@ bool HLInst::isLval(const RegDDRef *Ref) const {
 }
 
 bool HLInst::isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
-
-bool HLInst::isFake(const RegDDRef *Ref) const {
-  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
-
-  for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; ++I) {
-
-    if ((*I) == Ref) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 unsigned HLInst::getNumOperands() const { return getNumOperandsInternal(); }
 
@@ -465,9 +467,8 @@ bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
                      DDRefUtils::areEqual(Operand2, Operand4);
 
   // Operand pattern: OneAndThree OR x .. y ? y : x (OneAndFour)
-  if (OneAndThree ||
-      (DDRefUtils::areEqual(Operand1, Operand4) &&
-          DDRefUtils::areEqual(Operand2, Operand3))) {
+  if (OneAndThree || (DDRefUtils::areEqual(Operand1, Operand4) &&
+                      DDRefUtils::areEqual(Operand2, Operand3))) {
     // min pattern: x >(=) y ? y : x    max pattern: x >(=) y ? x : y
     if ((!OneAndThree && IsMin) || (OneAndThree && IsMax)) {
       if (Pred == PredicateTy::ICMP_SGE || Pred == PredicateTy::ICMP_SGT ||
