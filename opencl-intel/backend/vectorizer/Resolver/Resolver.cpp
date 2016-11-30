@@ -597,8 +597,8 @@ Instruction* FuncResolver::extendMaskAsBIParameter(Function* maskLoadStoreBI, Va
   FunctionType* funcType = maskLoadStoreBI->getFunctionType();
   Type* extMaskType = funcType->getParamType(funcType->getNumParams() - 1);
   // SIGN-extend the mask to the argument type (as MSB of mask matters)
-  //V_ASSERT(extMaskType->getScalarSizeInBits() >= Mask->getType()->getScalarSizeInBits() &&
-  //           "Extended mask type smaller than original mask type!");
+  V_ASSERT(extMaskType->getScalarSizeInBits() >= Mask->getType()->getScalarSizeInBits() &&
+           "Extended mask type smaller than original mask type!");
   if (CastInst::isBitCastable(Mask->getType(), extMaskType))
     return CastInst::Create(Instruction::BitCast, Mask, extMaskType, "extmask");
   return CastInst::CreateSExtOrBitCast(Mask, extMaskType, "extmask");
