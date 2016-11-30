@@ -31,6 +31,7 @@ namespace llvm {
   MachineFunctionPass *createLPUCvtCFDFPass();
   MachineFunctionPass *createLPUStatisticsPass();
   MachineFunctionPass *createLPUOptDFPass();
+  MachineFunctionPass *createLPURedundantMovElimPass();  
   MachineFunctionPass *createLPUDeadInstructionElimPass();
   MachineFunctionPass *createLPUAllocUnitPass();
   MachineFunctionPass *createLPUPrologEpilogPass();

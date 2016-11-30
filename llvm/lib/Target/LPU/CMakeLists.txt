@@ -9,27 +9,28 @@ tablegen(LLVM LPUGenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(LPUCommonTableGen)
 
 add_llvm_target(LPUCodeGen
+  LPUAllocUnitPass.cpp
+  LPUAsmPrinter.cpp
+  LPUConvertControlPass.cpp
+  LPUCvtCFDFPass.cpp
+  LPUDeadInstructionElim.cpp
+  LPUFrameLowering.cpp
   LPUISelDAGToDAG.cpp
   LPUISelLowering.cpp
-  LPUInstrInfo.cpp
-  LPUAllocUnitPass.cpp
-  LPUConvertControlPass.cpp
-  LPUFrameLowering.cpp
-  LPUCvtCFDFPass.cpp
-  LPUStatistics.cpp
-  LPUOptDFPass.cpp
-  LPUDeadInstructionElim.cpp
-  LPUMachineFunctionInfo.cpp
-  LPURegisterInfo.cpp
-  LPUSubtarget.cpp
-  LPUTargetMachine.cpp
-  LPUSelectionDAGInfo.cpp
-  LPUAsmPrinter.cpp
-  LPUMCInstLower.cpp
   LPUIfConversion.cpp
-  LPUTargetTransformInfo.cpp
+  LPUInstrInfo.cpp
   LPULicAllocation.cpp
   LPULowerAggrCopies.cpp
+  LPUMCInstLower.cpp
+  LPUMachineFunctionInfo.cpp
+  LPUOptDFPass.cpp
+  LPURedundantMovElim.cpp  
+  LPURegisterInfo.cpp
+  LPUSelectionDAGInfo.cpp
+  LPUStatistics.cpp
+  LPUSubtarget.cpp
+  LPUTargetMachine.cpp
+  LPUTargetTransformInfo.cpp
   MachineCDG.cpp
   )
 

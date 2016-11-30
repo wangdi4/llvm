@@ -158,6 +158,10 @@ public:
     Banner = std::string("After LPUOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
+    addPass(createLPURedundantMovElimPass(), false);
+    Banner = std::string("After LPURedundantMovElim");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    
     addPass(createLPUDeadInstructionElimPass(), false);
     Banner = std::string("After LPUDeadInstructionElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
