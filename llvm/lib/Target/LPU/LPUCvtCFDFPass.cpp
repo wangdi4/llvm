@@ -235,14 +235,6 @@ INITIALIZE_PASS(LPUCvtCFDFPass, "lpu-cvt-cfdf", "LPU Convert Control Flow to Dat
 
 LPUCvtCFDFPass::LPUCvtCFDFPass() : MachineFunctionPass(ID) {
   initializeLPUCvtCFDFPassPass(*PassRegistry::getPassRegistry());
-  bb2switch.clear();
-  bb2pick.clear();
-  bb2predcpy.clear();
-  multiInputsPick.clear();
-  edgepreds.clear();
-  bbpreds.clear();
-  bb2predmerge.clear();
-  bb2rpo.clear();
 }
 
 
@@ -323,6 +315,16 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (PDT->getRootNode() == nullptr) return false;
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
+
+
+  bb2switch.clear();
+  bb2pick.clear();
+  bb2predcpy.clear();
+  multiInputsPick.clear();
+  edgepreds.clear();
+  bbpreds.clear();
+  bb2predmerge.clear();
+  bb2rpo.clear();
 
 #if 1
   SmallVector<MachineBasicBlock*, 4> exitBlks;
