@@ -71,8 +71,7 @@ namespace {
     //  (c) "dest" is the unique definition of the LIC.
     //       (i.e., there can't be an INIT statement also defining dest)
     //  (d) "src" has a unique definition as well.
-    //  (e) The definining instruction of "src" is a dataflow instruction.
-    //  (f) The "effective" bitwidth of the result is the same before
+    //  (e) The "effective" bitwidth of the result is the same before
     //      and after removing the MOV.
     //
     //      The effective bitwidth is the number of output bits in
@@ -157,9 +156,13 @@ LPURedundantMovElim::getSingleDef(unsigned Reg,
 // unnecessary MOV.
 bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
 
+  // Check each of the conditions described in comments above:
+  
+  // (a) 
   if (!MI.getFlag(MachineInstr::NonSequential))
     return false;
 
+  // (b)
   assert(MI.getNumOperands() == 2);
   const MachineOperand* dest = &MI.getOperand(0);
   const MachineOperand* src = &MI.getOperand(1);
@@ -178,6 +181,8 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
   unsigned src_reg = src->getReg();
   unsigned dest_reg = dest->getReg();
 
+  // (c)
+  //
   // Check for only one definition of destination.  More than one
   // definition usually indicates an initial value on the channel
   // (from an INIT) instruction.  We would have to be more careful in
@@ -190,6 +195,9 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
     return false;
   }
 
+
+  // (d)
+  //
   // Also check for a single definition of the source.
   //
   // TBD: Actually, it would be ok to have multiple definitions, but
@@ -203,10 +211,7 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
     return false;
   }
 
-  // Check that the defining instruction is on a dataflow unit.
-  if (!src_def_MI->getFlag(MachineInstr::NonSequential))
-    return false;
-
+  // (e)
   const TargetRegisterClass* src_RC= TII->lookupLICRegClass(src_reg);
   const TargetRegisterClass* dest_RC = TII->lookupLICRegClass(dest_reg);
 
@@ -218,6 +223,12 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
   int src_bitwidth = src_RC->getSize();
   int mov_bitwidth = TII->getMOVBitwidth(MI.getOpcode());
   int dest_bitwidth = dest_RC->getSize();
+
+  // Special case: a COPY instruction has an implicit bitwidth equal
+  // to the source.
+  if (MI.isCopy()) {
+    mov_bitwidth = src_bitwidth;
+  }
 
   if ((src_bitwidth < 0) ||
       (mov_bitwidth < 0) ||
@@ -264,7 +275,7 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
 void LPURedundantMovElim::disconnectMovInstr(MachineInstr& MI) {
   DEBUG(errs() << "TBD: Disconnect MOV instr " << MI << "\n");
 
-  assert(TII->isMOV(&MI) || TII->isMemTokenMOV(&MI));
+  assert(TII->isMOV(&MI) || TII->isMemTokenMOV(&MI) || MI.isCopy());
   MachineOperand* dest = &MI.getOperand(0);
   MachineOperand* src = &MI.getOperand(1);
 
@@ -274,14 +285,6 @@ void LPURedundantMovElim::disconnectMovInstr(MachineInstr& MI) {
   unsigned dest_reg = dest->getReg();
   assert(src->isReg());
   unsigned src_reg = src->getReg();
-
-  // First, count the number of uses.
-  int num_uses = 0;
-  for (auto def_it = MRI->use_instr_begin(dest_reg);
-       def_it != MRI->use_instr_end();
-       ++def_it) {
-    num_uses++;
-  }
 
   // First, find all instructions that use the dest register.
   // Build a list.
@@ -360,7 +363,7 @@ bool LPURedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
     for (MachineBasicBlock::reverse_iterator MII = MBB.rbegin(),
            MIE = MBB.rend(); MII != MIE; ) {
       MachineInstr& MI = *MII++;
-      if (TII->isMOV(&MI) || TII->isMemTokenMOV(&MI)) {
+      if (TII->isMOV(&MI) || TII->isMemTokenMOV(&MI) || MI.isCopy()) {
         if (isRedundantMov(MI)) {
           DEBUG(errs() << "RedundantMovElim: Found instruction to eliminate " << MI << "\n");
           if ((ElimMovLimit < 0) || (num_removed < ElimMovLimit)) {
