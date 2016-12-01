@@ -637,6 +637,9 @@ public:
   virtual SIMDLaneEvolutionAnalysisUtilBase &getSLEVUtil() = 0;
   virtual void resetLoopInfo() = 0;
   virtual VPOCostModelBase *getCM() = 0;
+  /// Perform IR-specific transformations on \p ALoop to prepare it for
+  /// later processing
+  virtual void prepareLoop(AVRLoop * ALoop) = 0;
 
   ScenarioEvaluationKind getKind() const { return Kind; }
 };
@@ -700,6 +703,12 @@ public:
   VPOCostModelBase *getCM() override { 
     CM.setCG(CG); 
     return &CM; 
+  }
+
+  /// Perform LLVM-IR specific transformations on \p ALoop to prepare it for
+  /// later processing. No prepare transformations are necessary for LLVM-IR
+  /// so far.
+  void prepareLoop(AVRLoop * ALoop) override {
   }
 
   static bool classof(const VPOScenarioEvaluationBase *EvaluationEngine) {
@@ -815,6 +824,19 @@ public:
   VPOCostModelBase *getCM() override { 
     CM.setCG(CG); 
     return &CM; 
+  }
+
+  /// Perform HIR-specific transformations on \p ALoop to prepare it for
+  /// later processing.
+  void prepareLoop(AVRLoop * ALoop) override {
+    AVRDecomposeHIR Decomposer;
+    // FIXME: Find a better way to get DL!
+    const DataLayout &DL =
+        (*cast<AVRLoopHIR>(ALoop)->getLoop()->getLLVMLoop()->block_begin())
+            ->getParent()
+            ->getParent()
+            ->getDataLayout();
+    Decomposer.runOnAvr(ALoop, DL);
   }
 
   static bool classof(const VPOScenarioEvaluationBase *EvaluationEngine) {

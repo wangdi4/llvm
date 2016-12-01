@@ -516,9 +516,9 @@ bool AVRDecomposeHIR::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "AVRDecomposerHIR\n");
 
-  HIRDecomposer HIRDecomp(F.getParent()->getDataLayout());
-  AVRVisitor<HIRDecomposer> AVisitor(HIRDecomp);
-  AVisitor.forwardVisitAll(AVRG);
+  for (auto I = AVRG->begin(), E = AVRG->end(); I != E; ++I) {
+    runOnAvr(&*I, F.getParent()->getDataLayout());
+  }
 
   DEBUG(dbgs() << "Abstract Layer After Decomposition:\n");
   DEBUG(this->dump(PrintAvrDecomp));

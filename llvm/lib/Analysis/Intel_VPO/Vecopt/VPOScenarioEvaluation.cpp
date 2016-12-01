@@ -150,6 +150,9 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
         return VectCand;
 #endif
 
+      // Decomposition of AVRValueHIRs happens here
+      prepareLoop(AvrLoop);
+
       int BestCostForALoop = 0;
       // Get the scalar cost for this loop.
       // (No need to compute the cost if ForceVF is set to a VF forced by the 
