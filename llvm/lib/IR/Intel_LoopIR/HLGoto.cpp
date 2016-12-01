@@ -21,11 +21,13 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLGoto::HLGoto(BasicBlock *TargetBB)
-    : HLNode(HLNode::HLGotoVal), TargetBBlock(TargetBB), TargetLabel(nullptr) {}
+HLGoto::HLGoto(HLNodeUtils &HNU, BasicBlock *TargetBB)
+    : HLNode(HNU, HLNode::HLGotoVal), TargetBBlock(TargetBB),
+      TargetLabel(nullptr) {}
 
-HLGoto::HLGoto(HLLabel *TargetL)
-    : HLNode(HLNode::HLGotoVal), TargetBBlock(nullptr), TargetLabel(TargetL) {}
+HLGoto::HLGoto(HLNodeUtils &HNU, HLLabel *TargetL)
+    : HLNode(HNU, HLNode::HLGotoVal), TargetBBlock(nullptr),
+      TargetLabel(TargetL) {}
 
 HLGoto::HLGoto(const HLGoto &HLGotoObj)
     : HLNode(HLGotoObj), TargetBBlock(HLGotoObj.TargetBBlock),

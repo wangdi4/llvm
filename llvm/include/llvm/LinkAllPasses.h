@@ -233,6 +233,7 @@ namespace {
 
   #if INTEL_CUSTOMIZATION 
       (void) llvm::createSNodeAnalysisPass();
+      (void) llvm::createLoopOptMarkerPass(); 
       // HIR passes
       (void) llvm::createHIRRegionIdentificationPass();
       (void) llvm::createHIRSCCFormationPass();
@@ -255,10 +256,12 @@ namespace {
       (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
+      (void) llvm::createHIRUnrollAndJamPass();
       (void) llvm::createHIRCompleteUnrollPass();
       (void) llvm::createHIRParDirInsertPass();
       (void) llvm::createHIRVecDirInsertPass();
-      (void) llvm::createHIRLoopDistributionPass();
+      (void) llvm::createHIRLoopDistributionForMemRecPass();
+      (void) llvm::createHIRLoopDistributionForLoopNestPass();
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
@@ -273,6 +276,8 @@ namespace {
       // VPO Vectorizer Passes
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createAVRGenerateHIRPass();
+      (void) llvm::createVPOPredicatorPass();
+      (void) llvm::createVPOPredicatorHIRPass();
       (void) llvm::createVPODriverPass();
       (void) llvm::createVPODriverHIRPass();
       (void) llvm::createVPODirectiveCleanupPass();
@@ -283,6 +288,11 @@ namespace {
       (void) llvm::createAvrCFGHIRPass();
       (void) llvm::createSIMDLaneEvolutionPass();
       (void) llvm::createSIMDLaneEvolutionHIRPass();
+      (void) llvm::createVectorGraphInfoPass();
+      (void) llvm::createVectorGraphPredicatorPass();
+
+      // VPO Paropt Prepare Passes
+      (void) llvm::createVPOParoptPreparePass();
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();

@@ -46,12 +46,13 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
                                        const RegDDRef *AtRef,
                                        const VectVLSContext *VectContext) {
 
-  //DEBUG(dbgs() << "\ncanMove: "; Ref->dump());
-  //DEBUG(dbgs() << " To: "; AtRef->dump());
+  // DEBUG(dbgs() << "\ncanMove: "; Ref->dump());
+  // DEBUG(dbgs() << " To: "; AtRef->dump());
 
   DDGraph DDG = VectContext->getDDG();
   const HLDDNode *DDNode = Ref->getHLDDNode();
   const HLDDNode *AtDDNode = AtRef->getHLDDNode();
+  auto &HNU = DDNode->getHLNodeUtils();
 
   //(1) Check Control Flow: In terms of CFG Ref and AtRef need to be
   //"equivalent": In the context of optVLS (which calls this utility), if
@@ -61,7 +62,7 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
   // now anytime Ref is accessed AtRef will be accessed and vice versa. So
   // if there is a scenario/path in which Ref is accessed and AtRef isn't,
   // or the other way around, we have to return false.
-  if (!HLNodeUtils::canAccessTogether(DDNode, AtDDNode))
+  if (!HNU.canAccessTogether(DDNode, AtDDNode))
     return false;
 
   //(2) Check Aliasing:
@@ -103,8 +104,8 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
     // relevant, but the sink r0 and r6 are not relevant.
     // FIXME: Probably this check holds only for straight line code? may need a
     // stronger check for the general case
-    if (!HLNodeUtils::isInTopSortNumRange(SinkNode, DDNode, AtDDNode) &&
-        !HLNodeUtils::isInTopSortNumRange(SinkNode, AtDDNode, DDNode)) {
+    if (!HNU.isInTopSortNumRange(SinkNode, DDNode, AtDDNode) &&
+        !HNU.isInTopSortNumRange(SinkNode, AtDDNode, DDNode)) {
       continue;
     }
     // Lastly: Check the dependence edge.
@@ -143,7 +144,7 @@ bool HIRVLSClientMemref::setStridedAccess() {
   DEBUG(dbgs() << "\n  Stride at Level is "; Stride->dump(1));
 
   if (Stride->isIntConstant(&ConstStride) && !ConstStride) {
-    CanonExprUtils::destroy(Stride);
+    Stride->getCanonExprUtils().destroy(Stride);
     return false;
   }
 
@@ -164,3 +165,61 @@ bool HIRVLSClientMemref::setStridedAccess() {
 #endif
   return true;
 }
+
+// --------- client specific parts of the TTI Cost Model utilities
+
+// Helper function: Return the data type of the pointer that accesses Mrf.
+PointerType *getPtrType(const OVLSMemref &Mrf) {
+  assert(isa<HIRVLSClientMemref>(Mrf) && "Expecting HIR Memref.\n");
+  const RegDDRef *DDRef = (cast<HIRVLSClientMemref>(Mrf)).getRef();
+  assert(DDRef->hasGEPInfo() && "Expecting a memref DDReft, not a terminal");
+  const CanonExpr *CE = DDRef->getBaseCE();
+  PointerType *BaseTy = cast<PointerType>(CE->getSrcType());
+  return BaseTy;
+}
+
+// Helper function: Return the underlying LLVMIR Value of the pointer that
+// accesses Mrf.
+Value *getPtrVal(const OVLSMemref &Mrf) {
+  assert(isa<HIRVLSClientMemref>(Mrf) && "Expecting HIR Memref.\n");
+  const RegDDRef *DDRef = (cast<HIRVLSClientMemref>(Mrf)).getRef();
+  assert(DDRef->hasGEPInfo() && "Expecting a memref DDReft, not a terminal");
+  const HLNode *Node = DDRef->getHLDDNode();
+  const HLInst *INode = dyn_cast<HLInst>(Node);
+  assert(INode && "not an HLIInst Node");
+  const Instruction *ConstInst = INode->getLLVMInstruction();
+  Instruction *I = const_cast<Instruction *>(ConstInst);
+  StoreInst *SI = dyn_cast<StoreInst>(I);
+  LoadInst *LI = dyn_cast<LoadInst>(I);
+  Value *PtrVal = SI ? SI->getPointerOperand() : LI->getPointerOperand();
+  return PtrVal;
+}
+
+unsigned OVLSTTICostModelHIR::getMrfAddressSpace(const OVLSMemref &Mrf) const {
+  PointerType *BaseTy = getPtrType(Mrf);
+  return BaseTy->getPointerAddressSpace();
+}
+
+uint64_t
+OVLSTTICostModelHIR::getGatherScatterOpCost(const OVLSMemref &Mrf) const {
+  bool isLoad = Mrf.getAccessType().isStridedLoad();
+  uint64_t GatherScatterCost;
+  PointerType *BaseTy = getPtrType(Mrf);
+  Type *DataTy = BaseTy->getElementType();
+  bool isGatherOrScatterLegal = (isLoad && TTI.isLegalMaskedGather(DataTy)) ||
+                                (!isLoad && TTI.isLegalMaskedScatter(DataTy));
+  if (!isGatherOrScatterLegal)
+    return 0;
+  unsigned Opcode = isLoad ? Instruction::Load : Instruction::Store;
+  uint32_t NumElements = Mrf.getType().getNumElements();
+  assert(NumElements > 1 && "Unexpected NumElements");
+  Type *VectorTy = VectorType::get(DataTy, NumElements);
+  Value *PtrVal = getPtrVal(Mrf);
+  bool isMaskRequired = false; // TODO
+  unsigned Alignment = 0;      // TODO
+  GatherScatterCost = TTI.getGatherScatterOpCost(Opcode, VectorTy, PtrVal,
+                                                 isMaskRequired, Alignment);
+  GatherScatterCost += TTI.getAddressComputationCost(VectorTy);
+  return GatherScatterCost;
+}
+

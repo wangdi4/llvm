@@ -14,7 +14,7 @@
 
 ; Check the main unrolled loop.
 ; CHECK: REGION { modified }
-; CHECK-NEXT: %[[TMP:[a-zA-Z0-9.]+]] = {{.*}}/u8 
+; CHECK: %[[TMP:[a-zA-Z0-9.]+]] = {{.*}}/u8 
 ; CHECK: DO i1 = 0, %[[TMP]]
 ; CHECK-NEXT: %2 = (@B)[0][8 * i1];
 ; CHECK-NEXT: %1 = %2  +  %1;

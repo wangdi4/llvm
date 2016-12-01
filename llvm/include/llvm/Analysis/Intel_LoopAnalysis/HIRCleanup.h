@@ -17,9 +17,8 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRCLEANUP_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRCLEANUP_H
 
-#include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Pass.h"
 
 namespace llvm {
 

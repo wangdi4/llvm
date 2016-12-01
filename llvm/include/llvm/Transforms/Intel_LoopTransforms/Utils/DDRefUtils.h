@@ -23,99 +23,144 @@
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 
 namespace llvm {
 
 class MetadataAsValue;
 class ConstantAggregateZero;
 class ConstantDataVector;
+class Function;
+class Module;
+class LLVMContext;
+class DataLayout;
 
 namespace loopopt {
 
-/// \brief Defines utilities for DDRef class
-///
-/// It contains a bunch of static member functions which manipulate DDRefs.
-/// It does not store any state.
-class DDRefUtils : public HIRUtils {
-private:
-  /// \brief Do not allow instantiation.
-  DDRefUtils() = delete;
+class HIRParser;
+class HIRSymbaseAssignment;
 
+/// Defines utilities for DDRef class and manages their creation/destruction.
+/// It contains a bunch of member functions which manipulate DDRefs.
+class DDRefUtils {
+private:
+  /// Keeps track of DDRef objects.
+  std::set<DDRef *> Objs;
+
+  CanonExprUtils CEU;
+  HIRSymbaseAssignment *HIRSA;
+
+  DDRefUtils(HIRParser &HIRP) : CEU(HIRP) {}
+
+  /// Make class uncopyable.
+  void operator=(const DDRefUtils &) = delete;
+
+  // Requires access to Objs.
+  friend class DDRef;
   friend class HIRParser;
   friend class HLNodeUtils;
+  // Sets itself.
+  friend class HIRSymbaseAssignment;
 
-  /// \brief Destroys all DDRefs. Called during HIR cleanup.
-  static void destroyAll();
+  HIRParser &getHIRParser() { return getCanonExprUtils().getHIRParser(); }
+  const HIRParser &getHIRParser() const {
+    return getCanonExprUtils().getHIRParser();
+  }
 
-  /// \brief Creates a non-linear self blob scalar RegDDRef from the passed in
-  /// Value. Temp blobs from values are only created by framework.
-  static RegDDRef *createSelfBlobRef(Value *Temp);
+  HIRSymbaseAssignment &getHIRSymbaseAssignment() { return *HIRSA; }
 
-  /// \brief Return true if RegDDRef1 equals RegDDRef2.
-  /// This routine compares the symbase, type and each of the canon exprs
-  /// inside the references.
+  /// Destroys all DDRefs. Called during HIR cleanup.
+  void destroyAll();
+
+  /// Creates a non-linear self blob RegDDRef from the passed in Value.
+  /// Temp blobs from values are only created by framework.
+  RegDDRef *createSelfBlobRef(Value *Temp);
+
+  /// Return true if RegDDRef1 equals RegDDRef2.
+  /// This routine compares the symbase, type and each of the canon exprs inside
+  /// the references.
   static bool areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
                            bool RelaxedMode);
 
-  /// \brief Returns true if BlobDDRef1 equals BlobDDRef2.
+  /// Returns true if BlobDDRef1 equals BlobDDRef2.
   static bool areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2);
 
 public:
-  /// \brief Returns a new RegDDRef.
-  static RegDDRef *createRegDDRef(unsigned SB);
+  // Returns reference to CanonExprUtils object.
+  CanonExprUtils &getCanonExprUtils() { return CEU; }
+  const CanonExprUtils &getCanonExprUtils() const { return CEU; }
 
-  /// \brief Creates a new DDRef with single canon expr CE.
-  static RegDDRef *createScalarRegDDRef(unsigned SB, CanonExpr *CE);
+  // Returns reference to BlobUtils object.
+  BlobUtils &getBlobUtils() { return getCanonExprUtils().getBlobUtils(); }
+  const BlobUtils &getBlobUtils() const {
+    return getCanonExprUtils().getBlobUtils();
+  }
 
-  /// \brief Returns a new constant RegDDRef from a int value.
+  /// Returns Function object.
+  Function &getFunction() const;
+
+  /// Returns Module object.
+  Module &getModule() const;
+
+  /// Returns LLVMContext object.
+  LLVMContext &getContext() const;
+
+  /// Returns DataLayout object.
+  const DataLayout &getDataLayout() const;
+
+  /// Returns a new RegDDRef.
+  RegDDRef *createRegDDRef(unsigned SB);
+
+  /// Creates a new DDRef with single canon expr CE.
+  RegDDRef *createScalarRegDDRef(unsigned SB, CanonExpr *CE);
+
+  /// Returns a new constant RegDDRef from a int value.
   /// This routine will automatically create a single canon expr from the val
   /// and attach it to the new RegDDRef.
-  static RegDDRef *createConstDDRef(Type *Ty, int64_t Val);
+  RegDDRef *createConstDDRef(Type *Ty, int64_t Val);
 
-  /// \brief Returns a new constant RegDDRef from a metadata node.
+  /// Returns a new constant RegDDRef from a metadata node.
   /// This routine will automatically create a single canon expr from metadata
   /// and attach it to the new RegDDRef.
-  static RegDDRef *createMetadataDDRef(MetadataAsValue *Val);
+  RegDDRef *createMetadataDDRef(MetadataAsValue *Val);
 
-  /// \brief Returns a new constant RegDDRef from a constant all-zero vector
-  /// node. This routine will automatically create a single canon expr from
+  /// Returns a new constant RegDDRef from a constant all-zero vector node. This
+  /// routine will automatically create a single canon expr from
   /// ConstantAggregateZero and attach it to the new RegDDRef.
-  static RegDDRef *createConstDDRef(ConstantAggregateZero *Val);
+  RegDDRef *createConstDDRef(ConstantAggregateZero *Val);
 
-  /// \brief Returns a new constant RegDDRef from a constant data vector
-  /// node. This routine will automatically create a single canon expr from
+  /// Returns a new constant RegDDRef from a constant data vector node. This
+  /// routine will automatically create a single canon expr from
   /// ConstantDataVector and attach it to the new RegDDRef.
-  static RegDDRef *createConstDDRef(ConstantDataVector *Val);
+  RegDDRef *createConstDDRef(ConstantDataVector *Val);
 
-  /// \brief Returns a new RegDDRef with given type \p Ty and undefined
-  /// value.
-  static RegDDRef *createUndefDDRef(Type *Ty);
+  /// Returns a new RegDDRef with given type \p Ty and undefined value.
+  RegDDRef *createUndefDDRef(Type *Ty);
 
-  /// \brief Returns a new BlobDDRef representing blob with Index. Level is the
-  /// defined at level for the blob.
-  static BlobDDRef *createBlobDDRef(unsigned Index,
-                                    unsigned Level = NonLinearLevel);
+  /// Returns a new BlobDDRef representing blob with Index. Level is the defined
+  /// at level for the blob.
+  BlobDDRef *createBlobDDRef(unsigned Index, unsigned Level = NonLinearLevel);
 
-  /// \brief Returns a new RegDDRef representing blob with Index. Level is the
-  /// defined at level for the blob.
-  static RegDDRef *createSelfBlobRef(unsigned Index,
-                                     unsigned Level = NonLinearLevel);
+  /// Returns a new RegDDRef representing blob with Index. Level is the defined
+  /// at level for the blob.
+  RegDDRef *createSelfBlobRef(unsigned Index, unsigned Level = NonLinearLevel);
 
-  /// \brief Destroys the passed in DDRef.
-  static void destroy(DDRef *Ref);
+  /// Destroys the passed in DDRef.
+  void destroy(DDRef *Ref);
 
-  /// \brief Returns true if the two DDRefs, Ref1 and Ref2, are equal.
+  unsigned getNewSymbase();
+
+  /// Returns true if the two DDRefs, Ref1 and Ref2, are equal.
   /// RelaxedMode is passed to CanonExprUtils::areEqual().
   static bool areEqual(const DDRef *Ref1, const DDRef *Ref2,
                        bool RelaxedMode = false);
 
-  /// \brief Prints metadata nodes attached to RegDDRef.
-  static void printMDNodes(formatted_raw_ostream &OS,
-                           const RegDDRef::MDNodesTy &MDNodes);
+  /// Prints metadata nodes attached to RegDDRef.
+  void printMDNodes(formatted_raw_ostream &OS,
+                    const RegDDRef::MDNodesTy &MDNodes) const;
 
-  /// \brief Returns true if it is able to compute a constant distance between
-  /// \p Ref1 and \p Ref2.
+  /// Returns true if it is able to compute a constant distance between \p Ref1
+  /// and \p Ref2.
   ///
   /// Context: This utility is called by optVLS, which tries to find neighboring
   /// vector loads/stores (the refs are not yet vectorized, but this is called
@@ -138,8 +183,8 @@ public:
   /// do that than to generate two separate gathers. A difference between
   /// struct accesses such as a[i].I and a[i].F where 'a' is an array of
   /// struct S {int I; float F;} will also be supported.
-  static bool getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                               int64_t *Distance);
+  bool getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                        int64_t *Distance);
 };
 
 } // End namespace loopopt

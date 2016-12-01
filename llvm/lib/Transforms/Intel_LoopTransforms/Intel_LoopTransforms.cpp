@@ -21,10 +21,12 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIROptPredicatePass(Registry);
   initializeHIRCompleteUnrollPass(Registry);
   initializeHIRGeneralUnrollPass(Registry);
+  initializeHIRUnrollAndJamPass(Registry);
   initializeHIRDummyTransformationPass(Registry);
   initializeHIRLoopReversalPass(Registry);
   initializeHIRRuntimeDDPass(Registry);
-  initializeHIRLoopDistributionPass(Registry);
+  initializeHIRLoopDistributionForMemRecPass(Registry);
+  initializeHIRLoopDistributionForLoopNestPass(Registry);
   initializeHIRCodeGenPass(Registry);
   initializeVPODriverHIRPass(Registry);
   initializeHIRParDirInsertPass(Registry);

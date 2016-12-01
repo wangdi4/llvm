@@ -75,8 +75,8 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
     // Do not directly recurse inside children loops. Total statistics is
     // recursively computed for children loops by the visitor using
     // getTotalLoopStatistics().
-    HLNodeUtils::visitRange<true, false>(*this, Lp->child_begin(),
-                                         Lp->child_end());
+    Lp->getHLNodeUtils().visitRange<true, false>(*this, Lp->child_begin(),
+                                                 Lp->child_end());
 
     // Add self reource to total resource and classify it.
     if (TotalLS) {

@@ -121,7 +121,7 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
     DDVerificationLevel CurLevel = VerifyLevelList[I];
     GraphVerifier V(this, CurLevel);
-    HLNodeUtils::visitAll(V);
+    HIRF->getHLNodeUtils().visitAll(V);
   }
 
   return false;
@@ -212,18 +212,15 @@ void HIRDDAnalysis::setInputDV(DirectionVector &InputDV, HLNode *Node,
 class HIRDDAnalysis::GraphStateUpdater final : public HLNodeVisitorBase {
   decltype(HIRDDAnalysis::ValidationMap) &ValidityMapRef;
   GraphState State;
+
 public:
   GraphStateUpdater(decltype(HIRDDAnalysis::ValidationMap) &ValidityMapRef,
-                      GraphState State)
+                    GraphState State)
       : ValidityMapRef(ValidityMapRef), State(State) {}
 
-  void visit(const HLLoop *Loop) {
-    ValidityMapRef[Loop] = State;
-  }
+  void visit(const HLLoop *Loop) { ValidityMapRef[Loop] = State; }
 
-  void visit(const HLRegion *Region) {
-    ValidityMapRef[Region] = State;
-  }
+  void visit(const HLRegion *Region) { ValidityMapRef[Region] = State; }
 
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
@@ -234,7 +231,7 @@ void HIRDDAnalysis::invalidateGraph(const HLLoop *Loop,
 
   if (InvalidateInnerLoops) {
     GraphStateUpdater Visitor(ValidationMap, GraphState::Invalid);
-    HLNodeUtils::visit(Visitor, Loop);
+    Loop->getHLNodeUtils().visit(Visitor, Loop);
   }
 
   const HLLoop *Node = Loop;
@@ -278,7 +275,8 @@ bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
   const HLLoop *RefParentLoop2 = cast<HLLoop>(RefParent2);
 
   const HLLoop *Ancestor =
-      HLNodeUtils::getLowestCommonAncestorLoop(RefParentLoop1, RefParentLoop2);
+      RefParentLoop1->getHLNodeUtils().getLowestCommonAncestorLoop(
+          RefParentLoop1, RefParentLoop2);
   if (Ancestor) {
     return ValidationMap[Ancestor] == GraphState::Valid;
   }
@@ -313,7 +311,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     auto &RefVec = SymVecPair->second;
-    
+
     for (auto Ref1I = RefVec.begin(), E = RefVec.end(); Ref1I != E; ++Ref1I) {
       DDRef *Ref1 = *Ref1I;
 
@@ -322,7 +320,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
 
         if (edgeNeeded(Ref1, Ref2, BuildInputEdges) &&
             !isEdgeValid(Ref1, Ref2)) {
-          DDTest DA(*AAR);
+          DDTest DA(*AAR, Node->getHLNodeUtils());
           DirectionVector InputDV;
           DirectionVector OutputDVForward;
           DirectionVector OutputDVBackward;
@@ -363,7 +361,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   }
 
   GraphStateUpdater Visitor(ValidationMap, GraphState::Valid);
-  HLNodeUtils::visit(Visitor, Node);
+  Node->getHLNodeUtils().visit(Visitor, Node);
 }
 
 bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
@@ -376,7 +374,7 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
 
   if (RegDDref && !(RegDDref->isTerminalRef())) {
-    DDTest DA(*AAR);
+    DDTest DA(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils());
     DirectionVector InputDV;
     InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
     auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);

@@ -29,7 +29,7 @@ static cl::opt<bool>
                      cl::desc("Print constant DDRefs in detailed print"));
 
 /// DDRefs are taken care of in the derived classes.
-HLDDNode::HLDDNode(unsigned SCID) : HLNode(SCID) {}
+HLDDNode::HLDDNode(HLNodeUtils &HNU, unsigned SCID) : HLNode(HNU, SCID) {}
 
 /// DDRefs are taken care of in the derived classes.
 HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj) : HLNode(HLDDNodeObj) {}

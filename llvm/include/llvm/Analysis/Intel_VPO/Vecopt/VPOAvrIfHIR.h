@@ -64,11 +64,7 @@ public:
   AVR *getCondition() const override { return Condition; }
 
   /// \brief Returns the underlying HLIf node for this AvrIf.
-  const HLIf *getCompareInstruction() const { return CompareInstruction; }
-
-  /// \brief Prints the AvrIf node.
-  void print(formatted_raw_ostream &OS, unsigned Depth,
-             VerbosityLevel VLevel) const override;
+  HLIf *getCompareInstruction() const { return CompareInstruction; }
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;

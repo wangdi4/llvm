@@ -1,5 +1,5 @@
 
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=mem-rec  < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ;This case needs two distributions to make 2 vectorizable loops
 ; and one serial
 ;;Split at 8-10 and again 21-22
@@ -25,7 +25,7 @@
 
 ;
 ; CHECK: BEGIN REGION
-; CHECK-NEXT: DO i1 = 0, 98, 1
+; CHECK: DO i1 = 0, 98, 1
 ; CHECK: (@A)[0][i1 + 1] = 
 ; CHECK: END LOOP
 

@@ -44,7 +44,7 @@ protected:
   case_child_iterator DefaultCaseBegin;
 
   /// ConditionRef represents the switch conditon.
-  HLSwitch(RegDDRef *ConditionRef);
+  HLSwitch(HLNodeUtils &HNU, RegDDRef *ConditionRef);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to access and destroy the nodes if we don't clear them out here.

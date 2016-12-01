@@ -22,6 +22,7 @@ namespace llvm {
 namespace loopopt {
 
 class HLNode;
+class HIRFramework;
 
 namespace HIRVerifier {
 
@@ -29,7 +30,7 @@ namespace HIRVerifier {
 template <bool Recursive> void verifyNode(const HLNode *N);
 
 /// \brief Verifies all nodes of HIR.
-void verifyAll();
+void verifyAll(const HIRFramework &HIRF);
 }
 
 } // End namespace loopopt

@@ -47,6 +47,7 @@ class HIRSymbaseAssignment : public FunctionPass {
 public:
   // Accesses getNewSymbase()
   friend class HIRFramework;
+  friend class DDRefUtils;
 
   HIRSymbaseAssignment() : FunctionPass(ID) {}
   static char ID;

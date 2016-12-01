@@ -26,39 +26,71 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::reversal;
 
-/// \brief Check if a given Loop is legal to reverse under HIRLoopReversal's
-/// legality model.
-bool HIRLoopTransformUtils::isHIRLoopReversalLegal(const HLLoop *Lp) {
-  // 0.Setup
-  assert(Lp && "Input loop is null inside "
-               "HIRLoopTransformUtils::isHIRLoopReversalLegal(.)\n");
+bool HIRLoopTransformUtils::isHIRLoopReversible(
+    HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+    HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
+    HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
+    HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
+    bool DoProfitTest               // INPUT: Control Profit Tests
+    ) {
+  // 0.Sanity Checks
+  assert(Lp && "HLLoop* can't be a nullptr\n");
+
+  if (!Lp->isInnermost()) {
+    DEBUG(
+        dbgs() << "HIR LoopReversal can only work with an inner-most loop\n ";);
+    return false;
+  }
 
   // 1.Create an HIRLoopReversal object on stack
   HIRLoopReversal ReversalPass;
 
-  // 2.Call isLegal() and return
-  return ReversalPass.isLegal(Lp);
+  // 2.Call HIRLoopReversal.isReversible(-)
+  return ReversalPass.isReversible(
+      Lp,           // HLLoop*
+      HDDA,         // Existing DDAnalysis
+      HSRA,         // Existing SafeReductionAnalysis
+      HLS,          // Existing HIRLoopStatistics Analysis
+      DoProfitTest, // Control Profit Test
+      true,         // Always do Legal Tests
+      false         // OFF Short-circuit action (doing analysis now)
+      );
 }
 
-///\brief Check a given loop's suitability for reversal. And reverse if the loop
-/// is suitable and the client requests it.
-bool HIRLoopTransformUtils::checkAndReverseLoop(
-    HLLoop *Lp,     // INPUT + OUTPUT: a given loop
-    bool DoReverse, // INPUT: client's intention to reverse the loop if the loop
-                    // is suitable
-    HIRDDAnalysis &DDA, // INPUT: client provides a HIRDDAnalysis
-    HIRSafeReductionAnalysis
-        &SRA, // INPUT: client provides a HIRSafeReductionAnalysis
-    HIRLoopStatistics
-        &LS,           // INPUT: client provides a HIRLoopStatistics analysis
-    bool &LoopReversed // OUTPUT: true if the loop is successfully reversed
+void HIRLoopTransformUtils::doHIRLoopReversal(
+    HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+    HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
+    HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
+    HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
     ) {
+  // 0.Sanity Checks
+  assert(Lp && "HLLoop* can't be a nullptr\n");
+
+  if (!Lp->isInnermost()) {
+    DEBUG(
+        dbgs() << "HIR LoopReversal can only work with an inner-most loop\n ";);
+  }
 
   // 1.Create an HIRLoopReversal object on stack
   HIRLoopReversal ReversalPass;
 
-  // 2.Call to runOnLoop(.)
-  return ReversalPass.runOnLoop(Lp, DoReverse, DDA, SRA, LS, LoopReversed);
+  // 2.Call HIRLoopReversal.isReversible(-), expect the loop is reversible
+  bool IsReversible = ReversalPass.isReversible(
+      Lp,    // HLLoop*
+      HDDA,  // Existing DDAnalysis
+      HSRA,  // Existing SafeReductionAnalysis
+      HLS,   // Existing HIRLoopStatistics Analysis
+      false, // Ignore Profit Tests
+      false, // Assert on legality
+      true // ON Short-circuit action (expect the analysis has been done in the
+           // previous API call)
+      );
+
+  // 3. Reverse the Loop
+  assert(IsReversible && "Expect the loop is reversible\n");
+  (void)IsReversible;
+
+  ReversalPass.doHIRReversalTransform(Lp);
 }
 
 bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
@@ -88,26 +120,29 @@ bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
   // the trip count of the original loop.
   HLInst *TempInst = nullptr;
   CanonExpr *TripCE = Ref->getSingleCanonExpr();
+  auto &HNU = OrigLoop->getHLNodeUtils();
+
   if (TripCE->isSignedDiv() && (TripCE->getDenominator() != 1)) {
     // Create DDRef for Unroll Factor.
-    RegDDRef *UFDD =
-        DDRefUtils::createConstDDRef(Ref->getDestType(), UnrollOrVecFactor);
-    TempInst = HLNodeUtils::createUDiv(Ref, UFDD, "tgu");
+    RegDDRef *UFDD = Ref->getDDRefUtils().createConstDDRef(Ref->getDestType(),
+                                                           UnrollOrVecFactor);
+    TempInst = OrigLoop->getHLNodeUtils().createUDiv(Ref, UFDD, "tgu");
   } else {
     SmallVector<const RegDDRef *, 3> AuxRefs = {OrigLoop->getStrideDDRef(),
                                                 OrigLoop->getLowerDDRef(),
                                                 OrigLoop->getUpperDDRef()};
 
     // Use the same canon expr to generate the division.
-    TripCE->divide(UnrollOrVecFactor, true);
+    TripCE->divide(UnrollOrVecFactor);
+    TripCE->simplify(true);
 
-    Ref->setSymbase(getHIRFramework()->getNewSymbase());
+    Ref->setSymbase(Ref->getDDRefUtils().getNewSymbase());
 
     Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
 
-    TempInst = HLNodeUtils::createCopyInst(Ref, "tgu");
+    TempInst = HNU.createCopyInst(Ref, "tgu");
   }
-  HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
+  HNU.insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
   *NewTCRef = TempInst->getLvalDDRef();
 
   return true;
@@ -117,7 +152,7 @@ void HIRLoopTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
                                              unsigned BlobIndex,
                                              unsigned DefLevel) {
   // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
-  BoundRef->setSymbase(getHIRFramework()->getNewSymbase());
+  BoundRef->setSymbase(BoundRef->getDDRefUtils().getNewSymbase());
 
   // Add blob DDRef for the temp in UB.
   BoundRef->addBlobDDRef(BlobIndex, DefLevel);
@@ -136,7 +171,7 @@ HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
     NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollOrVecFactor + 1);
   }
 
-  HLNodeUtils::insertBefore(OrigLoop, NewLoop);
+  OrigLoop->getHLNodeUtils().insertBefore(OrigLoop, NewLoop);
 
   // Update the loop upper bound.
   if (NewTripCount != 0) {
@@ -176,7 +211,8 @@ HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
     NewLoop->createZtt(false);
 
     // Update unrolled/vectorized loop's trip count estimate.
-    NewLoop->setMaxTripCountEstimate(NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor);
+    NewLoop->setMaxTripCountEstimate(NewLoop->getMaxTripCountEstimate() /
+                                     UnrollOrVecFactor);
   }
 
   // Set the code gen for modified region

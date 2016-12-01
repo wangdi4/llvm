@@ -38,10 +38,17 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "VPODriver"
+
+static cl::opt<bool>
+    DisableVPODirectiveCleanup("disable-vpo-directive-cleanup", cl::init(false),
+                               cl::Hidden,
+                               cl::desc("Disable VPO directive cleanup"));
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -161,6 +168,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AvrDefUseHIR)
 INITIALIZE_PASS_END(VPODriverHIR, "VPODriverHIR",
@@ -216,7 +224,10 @@ bool VPODriverBase::runOnFunction(Function &F) {
       // Widen selected candidate
       ret_val = ret_val | AvrCGNode.vectorize(VF);
     } else {
-      AVRCodeGenHIR AvrCGNode(Avr);
+      HIRSafeReductionAnalysis *SRA;
+      SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+      AVRCodeGenHIR AvrCGNode(Avr, SRA);
+
       assert(isa<VPOScenarioEvaluationHIR>(ScenariosEngine));
       VPOScenarioEvaluationHIR *HIRScenariosEngine = 
          cast<VPOScenarioEvaluationHIR>(&ScenariosEngine); 
@@ -246,6 +257,11 @@ void VPODirectiveCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
 #endif
 
 bool VPODirectiveCleanup::runOnFunction(Function &F) {
+
+  // Skip if disabled
+  if (DisableVPODirectiveCleanup) {
+    return false;
+  }
 
   // Remove calls to directive intrinsics since the LLVM back end does not know
   // how to translate them.
@@ -323,4 +339,5 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRParser>();
   AU.addRequiredTransitive<HIRLocalityAnalysis>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
 }

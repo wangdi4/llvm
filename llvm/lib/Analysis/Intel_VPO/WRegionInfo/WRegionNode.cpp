@@ -113,14 +113,14 @@ BasicBlock *WRegionNode::getSuccBBlock() const {
 
 WRegionNode *WRegionNode::getFirstChild() {
   if (hasChildren()) {
-    return &*(Children.begin());
+    return *(Children.begin());
   }
   return nullptr;
 }
 
 WRegionNode *WRegionNode::getLastChild() {
   if (hasChildren()) {
-    return &(Children.back());
+    return Children.back();
   }
   return nullptr;
 }
@@ -129,7 +129,7 @@ void WRegionNode::printChildren(formatted_raw_ostream &OS,
                                 unsigned Depth) const
  {
   for (auto I = wrn_child_begin(), E = wrn_child_end(); I != E; ++I) {
-    I->print(OS, Depth);
+    (*I)->print(OS, Depth);
   }
 }
 
@@ -269,14 +269,6 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     break;
   case QUAL_OMP_THREAD_LIMIT:
     break;
-  case QUAL_OMP_DIST_SCHEDULE_STATIC:
-    break;
-  case QUAL_OMP_SCHEDULE_STATIC:
-    break;
-  case QUAL_OMP_SCHEDULE_DYNAMIC:
-    break;
-  case QUAL_OMP_SCHEDULE_GUIDED:
-    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpnd()");
   }
@@ -305,6 +297,50 @@ ClauseTy *WRegionUtils::extractQualOpndList(IntrinsicInst *Call, ClauseTy *C) {
     C->add(V);
   }
   return C;
+}
+
+void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
+                                           IntrinsicInst *Call,
+                                           WRNScheduleKind Kind) {
+  // save the schedule kind
+  Sched.setKind(Kind);
+
+  // extract and save the chunk size expr 
+  Value *V = Call->getArgOperand(2);
+  Sched.setChunkExpr(V);
+
+  // if chunk size is constant, extract and save the constant chunk size
+  int64_t ChunkSize = 0;
+  ConstantInt *CI = dyn_cast<ConstantInt>(V);
+  if (CI != nullptr) { 
+    ChunkSize = *((CI->getValue()).getRawData());
+    DEBUG(dbgs() << " Schedule chunk size is constant: " << ChunkSize << "\n");
+  }
+  Sched.setChunk(ChunkSize);
+
+  // extract and save the schedule modifiers 
+  StringRef ModifierString = VPOUtils::getScheduleModifierMDString(Call);
+  DEBUG(dbgs() << " Schedule Modifier Argument: " << ModifierString << "\n");
+
+  SmallVector<StringRef, 4> ModifierSubString;
+  ModifierString.split(ModifierSubString, ".");
+
+  DEBUG(dbgs() << "   Modifier SubString: " << ModifierSubString[0] << "\n");
+  DEBUG(dbgs() << "   Modifier SubString: " << ModifierSubString[1] << "\n");
+
+  for (int i=0; i<2; i++) {
+    // Max number of substrings is 2, because monotonic and nonmonotonic
+    // are mutually exclusive
+    if (ModifierSubString[i] == "MONOTONIC") {
+      Sched.setIsSchedMonotonic(true);
+    } else if (ModifierSubString[i] == "NONMONOTONIC") {
+      Sched.setIsSchedNonmonotonic(true);
+    } else if (ModifierSubString[i] == "SIMD") {
+      Sched.setIsSchedSimd(true);
+    };
+  }
+
+  return;
 }
 
 ReductionClause *WRegionUtils::extractReductionOpndList(IntrinsicInst *Call, 
@@ -424,6 +460,34 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
     AlignedClause *C =
         WRegionUtils::extractQualOpndList<AlignedClause>(Call, getAligned());
     setAligned(C);
+    break;
+  }
+  case QUAL_OMP_SCHEDULE_AUTO: {
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+                                          WRNScheduleAuto);
+    break;
+  }
+  case QUAL_OMP_SCHEDULE_DYNAMIC: {
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+                                          WRNScheduleDynamic);
+    break;
+  }
+  case QUAL_OMP_SCHEDULE_GUIDED: {
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+                                          WRNScheduleGuided);
+    break;
+  }
+  case QUAL_OMP_SCHEDULE_RUNTIME: {
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+                                          WRNScheduleRuntime);
+    break;
+  }
+  case QUAL_OMP_SCHEDULE_STATIC: {
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+                                          WRNScheduleStatic);
+    break;
+  }
+  case QUAL_OMP_DIST_SCHEDULE_STATIC: {
     break;
   }
   case QUAL_OMP_REDUCTION_ADD:

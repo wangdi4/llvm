@@ -15,6 +15,7 @@
 
 #include "llvm/Support/ErrorHandling.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
@@ -23,7 +24,163 @@
 using namespace llvm;
 using namespace loopopt;
 
-HIRParser *BlobUtils::HIRP(nullptr);
+Function &BlobUtils::getFunction() const {
+  return getHIRParser().getFunction();
+}
+
+Module &BlobUtils::getModule() const { return getHIRParser().getModule(); }
+
+LLVMContext &BlobUtils::getContext() const {
+  return getHIRParser().getContext();
+}
+
+const DataLayout &BlobUtils::getDataLayout() const {
+  return getHIRParser().getDataLayout();
+}
+
+unsigned BlobUtils::findBlob(BlobTy Blob) {
+  return getHIRParser().findBlob(Blob);
+}
+
+unsigned BlobUtils::findTempBlobSymbase(BlobTy Blob) {
+  return getHIRParser().findTempBlobSymbase(Blob);
+}
+
+unsigned BlobUtils::findTempBlobIndex(unsigned Symbase) {
+  return getHIRParser().findTempBlobIndex(Symbase);
+}
+
+unsigned BlobUtils::findOrInsertTempBlobIndex(unsigned Symbase) {
+  return getHIRParser().findOrInsertTempBlobIndex(Symbase);
+}
+
+unsigned BlobUtils::findOrInsertBlob(BlobTy Blob) {
+  return getHIRParser().findOrInsertBlob(Blob, InvalidBlobIndex);
+}
+
+void BlobUtils::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
+                                  SmallVectorImpl<unsigned> &Indices) {
+  getHIRParser().mapBlobsToIndices(Blobs, Indices);
+}
+
+BlobTy BlobUtils::getBlob(unsigned BlobIndex) {
+  return getHIRParser().getBlob(BlobIndex);
+}
+
+unsigned BlobUtils::getTempBlobSymbase(unsigned BlobIndex) {
+  return getHIRParser().getTempBlobSymbase(BlobIndex);
+}
+
+bool BlobUtils::isBlobIndexValid(unsigned BlobIndex) {
+  return getHIRParser().isBlobIndexValid(BlobIndex);
+}
+
+void BlobUtils::printBlob(raw_ostream &OS, BlobTy Blob) {
+  getHIRParser().printBlob(OS, Blob);
+}
+
+void BlobUtils::printScalar(raw_ostream &OS, unsigned Symbase) {
+  getHIRParser().printScalar(OS, Symbase);
+}
+
+bool BlobUtils::isConstantIntBlob(BlobTy Blob, int64_t *Val) {
+  return getHIRParser().isConstantIntBlob(Blob, Val);
+}
+
+bool BlobUtils::isTempBlob(BlobTy Blob) {
+  return getHIRParser().isTempBlob(Blob);
+}
+
+bool BlobUtils::isNestedBlob(BlobTy Blob) {
+  return getHIRParser().isNestedBlob(Blob);
+}
+
+bool BlobUtils::isGuaranteedProperLinear(BlobTy TempBlob) {
+  return getHIRParser().isGuaranteedProperLinear(TempBlob);
+}
+
+bool BlobUtils::isUndefBlob(BlobTy Blob) {
+  return getHIRParser().isUndefBlob(Blob);
+}
+
+bool BlobUtils::isConstantFPBlob(BlobTy Blob, ConstantFP **Val) {
+  return getHIRParser().isConstantFPBlob(Blob, Val);
+}
+
+bool BlobUtils::isConstantVectorBlob(BlobTy Blob, Constant **Val) {
+  return getHIRParser().isConstantVectorBlob(Blob, Val);
+}
+
+bool BlobUtils::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) {
+  return getHIRParser().isMetadataBlob(Blob, Val);
+}
+
+bool BlobUtils::isSignExtendBlob(BlobTy Blob, BlobTy *Val) {
+  return getHIRParser().isSignExtendBlob(Blob, Val);
+}
+
+BlobTy BlobUtils::createBlob(Value *TempVal, unsigned Symbase, bool Insert,
+                             unsigned *NewBlobIndex) {
+  return getHIRParser().createBlob(TempVal, Symbase, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createBlob(Value *Val, bool Insert, unsigned *NewBlobIndex) {
+  return getHIRParser().createBlob(Val, InvalidSymbase, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createBlob(int64_t Val, Type *Ty, bool Insert,
+                             unsigned *NewBlobIndex) {
+  return getHIRParser().createBlob(Val, Ty, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                                unsigned *NewBlobIndex) {
+  return getHIRParser().createAddBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createMinusBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                                  unsigned *NewBlobIndex) {
+  return getHIRParser().createMinusBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createMulBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                                unsigned *NewBlobIndex) {
+  return getHIRParser().createMulBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createUDivBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                                 unsigned *NewBlobIndex) {
+  return getHIRParser().createUDivBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createTruncateBlob(BlobTy Blob, Type *Ty, bool Insert,
+                                     unsigned *NewBlobIndex) {
+  return getHIRParser().createTruncateBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createZeroExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
+                                       unsigned *NewBlobIndex) {
+  return getHIRParser().createZeroExtendBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
+                                       unsigned *NewBlobIndex) {
+  return getHIRParser().createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
+                                 bool Insert, unsigned *NewBlobIndex) {
+  return getHIRParser().createCastBlob(Blob, IsSExt, Ty, Insert, NewBlobIndex);
+}
+
+bool BlobUtils::contains(BlobTy Blob, BlobTy SubBlob) {
+  return getHIRParser().contains(Blob, SubBlob);
+}
+
+void BlobUtils::collectTempBlobs(BlobTy Blob,
+                                 SmallVectorImpl<BlobTy> &TempBlobs) {
+  getHIRParser().collectTempBlobs(Blob, TempBlobs);
+}
 
 void BlobUtils::collectTempBlobs(unsigned BlobIndex,
                                  SmallVectorImpl<unsigned> &TempBlobIndices) {
@@ -33,3 +190,8 @@ void BlobUtils::collectTempBlobs(unsigned BlobIndex,
   mapBlobsToIndices(TempBlobs, TempBlobIndices);
 }
 
+bool BlobUtils::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
+                                unsigned NewTempIndex, unsigned &NewBlobIndex) {
+  return getHIRParser().replaceTempBlob(BlobIndex, OldTempIndex, NewTempIndex,
+                                        NewBlobIndex);
+}

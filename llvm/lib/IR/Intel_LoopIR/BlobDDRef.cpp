@@ -18,21 +18,22 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
-#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-BlobDDRef::BlobDDRef(unsigned Index, unsigned Level)
-    : DDRef(DDRef::BlobDDRefVal, InvalidSymbase), ParentDDRef(nullptr) {
+BlobDDRef::BlobDDRef(DDRefUtils &DDRU, unsigned Index, unsigned Level)
+    : DDRef(DDRU, DDRef::BlobDDRefVal, InvalidSymbase), ParentDDRef(nullptr) {
 
-  unsigned Symbase = BlobUtils::getTempBlobSymbase(Index);
+  unsigned Symbase = getBlobUtils().getTempBlobSymbase(Index);
 
-  CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
+  CE = getCanonExprUtils().createSelfBlobCanonExpr(Index, Level);
 
   setSymbase(Symbase);
 }
@@ -73,10 +74,10 @@ void BlobDDRef::setHLDDNode(HLDDNode *HNode) {
 
 void BlobDDRef::replaceBlob(unsigned NewIndex) {
   unsigned OldIndex = CE->getSingleBlobIndex();
-  unsigned NewSymbase = BlobUtils::getTempBlobSymbase(NewIndex);
+  unsigned NewSymbase = getBlobUtils().getTempBlobSymbase(NewIndex);
 
   // Resetting CE's source and dest. to corresp. type
-  Type *Ty = BlobUtils::getBlob(NewIndex)->getType();
+  Type *Ty = getBlobUtils().getBlob(NewIndex)->getType();
   CE->setSrcType(Ty);
   CE->setDestType(Ty);
 
@@ -92,7 +93,7 @@ void BlobDDRef::verify() const {
   assert(CE->isSelfBlob() && "BlobDDRefs should represent a self blob");
 
   unsigned Index = CE->getSingleBlobIndex();
-  unsigned Symbase = BlobUtils::getTempBlobSymbase(Index);
+  unsigned Symbase = getBlobUtils().getTempBlobSymbase(Index);
 
   (void)Symbase;
   assert((getSymbase() == Symbase) && "blob index/symbase mismatch!");

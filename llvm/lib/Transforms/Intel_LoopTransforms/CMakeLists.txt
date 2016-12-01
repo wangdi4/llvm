@@ -7,10 +7,13 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIROptPredicate.cpp
         HIRCompleteUnroll.cpp
         HIRGeneralUnroll.cpp
+        HIRUnrollAndJam.cpp
         HIRDummyTransformation.cpp
         HIRLoopInterchange.cpp
         HIRRuntimeDD.cpp
         HIRLoopDistribution.cpp
+        HIRLoopDistributionMemRec.cpp
+        HIRLoopDistributionLoopNest.cpp
         HIRLoopReversal.cpp 
         ParVecDirectiveInsertion.cpp
         HIRParDirInsert.cpp

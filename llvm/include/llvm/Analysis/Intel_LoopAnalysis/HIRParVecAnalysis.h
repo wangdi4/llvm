@@ -28,6 +28,7 @@
 namespace llvm {
 namespace loopopt {
 
+class HIRFramework;
 class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 class DDEdge;
@@ -221,12 +222,15 @@ class HIRParVecAnalysis : public FunctionPass {
 
 private:
   bool Enabled;
+  HIRFramework *HIRF;
   HIRDDAnalysis *DDA;
   HIRSafeReductionAnalysis *SRA;
   DenseMap<HLLoop *, ParVecInfo *> InfoMap;
 
 public:
-  HIRParVecAnalysis() : FunctionPass(ID), Enabled(false) {
+  HIRParVecAnalysis()
+      : FunctionPass(ID), Enabled(false), HIRF(nullptr), DDA(nullptr),
+        SRA(nullptr) {
     initializeHIRParVecAnalysisPass(*PassRegistry::getPassRegistry());
     InfoMap.clear();
   }

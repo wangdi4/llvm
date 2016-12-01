@@ -1,17 +1,13 @@
 ; l1reversal-safereduction-v.ll
 ; 1-level loop, testcase for safe reduction.
-; Requested by John Ng (06/25/2016)
-; 
+; The loop has a temp liveout, which is also a safe reduction.
+; This loop is allowed for reversal.
 ; 
 ; [REASONS]
-; - Applicable: YES  
+; - PreliminaryTests: YES (Revised: allow any loop's temp liveout to pass, collect it/them);  
+; - Applicable: YES (Revised: allow test to return true if the liveOut is always a reduction)
 ; - Profitable: YES
-; - Legal:      YES
-;
-; Note:
-; this testcase is currently marked as XFAIL since support inside HIRLoopReversal is needed to allow safe reduction
-; which is also a loop's temp liveout.
-; Once support is complete, this testcase will be back online.
+; - Legal:      YES 
 ; 
 ; *** Source Code ***
 ;
@@ -20,12 +16,12 @@
 ;int foo(int *restrict A, int n) {
 ;  int s = 0;
 ;  for (int i = 0; i <= 10; i++) {
-;    s += A[n - i];
+;    s += A[n - i]; //safe reduction on s
 ;  }
 ; return s;
 ;}
 ;
-;[AFTER LOOP REVERSAL]
+;[AFTER LOOP REVERSAL] {Expect the reversal to happen}
 ;
 ;int foo(int *restrict A, int n) {
 ;  int s = 0;
@@ -54,13 +50,6 @@
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
 ; 
-;          BEGIN REGION { }
-;<12>            + DO i1 = 0, 10, 1   <DO_LOOP>
-;<4>             |   %2 = (%A)[-1 * i1 + sext.i32.i64(%n)];
-;<5>             |   %s.06 = %2  +  %s.06;
-;<12>            + END LOOP
-;          END REGION
-;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:       + DO i1 = 0, 10, 1   <DO_LOOP>
 ; BEFORE        |   %2 = (%A)[-1 * i1 + sext.i32.i64(%n)];
@@ -75,22 +64,12 @@
 ;
 ; Expected HIR output after Loop-Reversal is enabled:
 ;
-;          BEGIN REGION { modified }
-;<12>            + DO i1 = 0, 10, 1   <DO_LOOP>
-;<4>             |   %2 = (%A)[i1 + sext.i32.i64(%n) + -10];
-;<5>             |   %s.07 = %2  +  %s.07;
-;<12>            + END LOOP
-;          END REGION
-;
-; XFAIL: *
-;
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:         + DO i1 = 0, 10, 1   <DO_LOOP>
 ; AFTER:         |   %2 = (%A)[i1 + sext.i32.i64(%n) + -10];
-; AFTER:         |   %s.07 = %2  +  %s.07;
+; AFTER:         |   %s.06 = %2  +  %s.06;
 ; AFTER:         + END LOOP
 ; AFTER:   END REGION
-;
 ;
 ;
 ; === ---------------------------------------------------------------- ===

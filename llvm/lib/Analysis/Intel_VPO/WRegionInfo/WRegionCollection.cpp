@@ -25,6 +25,7 @@
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
@@ -59,29 +60,6 @@ void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
-}
-
-template <class T> void WRStack<T>::push(T X) {
-  Stack_.push_back(X);
-  return;
-}
-
-template <class T> void WRStack<T>::pop() {
-  if (Stack_.size() > 0)
-    Stack_.erase(Stack_.end() - 1);
-
-  return;
-}
-
-template <class T> T WRStack<T>::top() {
-  assert(Stack_.size() > 0);
-  return Stack_.at(Stack_.size() - 1);
-}
-
-template <class T> size_t WRStack<T>::size() { return Stack_.size(); }
-
-template <class T> bool WRStack<T>::empty() {
-  return Stack_.size() == 0 ? true : false;
 }
 
 /// \brief TBD: get associated Loop Info for a given W-Region
@@ -143,14 +121,8 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
             WRGraph->push_back(W);
           else {
             WRegionNode *Parent = S->top();
-            if (!Parent->hasChildren()) {
-              WRContainerTy::iterator WI(W);
-              WRegionUtils::insertFirstChild(Parent, WI);
-            } else {
-              WRegionNode *C = Parent->getLastChild();
-              WRContainerTy::iterator WI(C);
-              WRegionUtils::insertAfter(WI, W);
-            }
+            Parent->getChildren().push_back(W);
+            W->setParent(Parent);
           }
 
           S->push(W);
@@ -242,7 +214,10 @@ void WRegionCollection::buildWRGraph(InputIRKind IR) {
   if (IR == HIR) {
     // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
     //       after Vectorizer's HIR mode starts using this new interface
-    WRGraph = WRegionUtils::buildWRGraphFromHIR();
+    auto HIRF = getAnalysisIfAvailable<loopopt::HIRFramework>();
+    assert(HIRF && "HIR framework not available!");
+
+    WRGraph = WRegionUtils::buildWRGraphFromHIR(*HIRF);
   } else if (IR == LLVMIR) {
     buildWRGraphFromLLVMIR(*Func);
   } else {

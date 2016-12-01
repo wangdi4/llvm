@@ -30,10 +30,6 @@ namespace loopopt {
 /// \brief High level node representing a label.
 class HLLabel final : public HLNode {
 private:
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  static StringSet<> LabelNames;
-#endif
-
   BasicBlock *SrcBBlock;
   SmallString<32> Name;
 
@@ -41,8 +37,8 @@ private:
   void makeNameUnique();
 
 protected:
-  explicit HLLabel(BasicBlock *SrcBB);
-  explicit HLLabel(const Twine &Name);
+  explicit HLLabel(HLNodeUtils &HNU, BasicBlock *SrcBB);
+  explicit HLLabel(HLNodeUtils &HNU, const Twine &Name);
   virtual ~HLLabel() override;
 
   /// \brief Copy constructor used by cloning.

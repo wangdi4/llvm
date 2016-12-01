@@ -36,7 +36,7 @@ namespace vpo {  // VPO Vectorizer Namespace
 #define TabLength 2
 
 /// Abstract Layer print verbosity levels
-enum VerbosityLevel { PrintBase, PrintDataType, PrintAvrType, PrintNumber };
+enum VerbosityLevel { PrintBase, PrintDataType, PrintAvrType, PrintAvrDecomp, PrintNumber };
 /// Assignment LHS/RHS enumeration
 enum AssignOperand { RightHand, LeftHand };
 

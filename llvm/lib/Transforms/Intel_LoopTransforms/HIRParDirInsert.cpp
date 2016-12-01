@@ -76,4 +76,3 @@ INITIALIZE_PASS_END(HIRParDirInsert, "hir-par-dir-insert",
 FunctionPass *llvm::createHIRParDirInsertPass() {
   return new HIRParDirInsert();
 }
-

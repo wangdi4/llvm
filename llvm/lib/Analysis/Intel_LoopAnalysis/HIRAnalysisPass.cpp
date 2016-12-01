@@ -16,6 +16,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -56,13 +57,15 @@ struct HIRAnalysisPass::PrintVisitor final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
 };
 
-void HIRAnalysisPass::print(raw_ostream &OS, const Module*) const {
+void HIRAnalysisPass::print(raw_ostream &OS, const Module *) const {
 
   // Remove constness as HIR analyses are on-demand and have to compute results
   // for printing.
   HIRAnalysisPass &HAP = *const_cast<HIRAnalysisPass *>(this);
 
   PrintVisitor PV(HAP, OS);
+  auto HIRF = getAnalysisIfAvailable<HIRFramework>();
+  assert(HIRF && "HIRFramework not available!");
 
-  HLNodeUtils::visitAll(PV);
+  HIRF->getHLNodeUtils().visitAll(PV);
 }

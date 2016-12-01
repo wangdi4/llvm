@@ -7,17 +7,19 @@
 //
 //   Source file:
 //   ------------
-//   VPOCFG.cpp -- Implements the AVR-level Control Flow Graph.
+//   VPOPredicator.cpp -- Implements the VPO Predication pass.
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOPredicator.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 
-#define DEBUG_TYPE "vpo-predicator"
-
+#define DEBUG_TYPE "avr-predicate"
 using namespace llvm;
-using namespace vpo;
+using namespace llvm::vpo;
 
 namespace llvm {
 
@@ -121,10 +123,10 @@ private:
       RegionStack.top()->addSubRegion(SubRegion);
       RegionStack.push(SubRegion);
     }
-
     // If this AVR node is divergent, it marks the SESE region it affects for
     // deconstruction (either the one it contains or the one it resides in).
-    if (!ANode->getSLEV().isUniform())
+    // TODO: Enable SLEV 
+    //if (!ANode->getSLEV().isUniform()) 
       RegionStack.top()->setDivergent();
   }
 
@@ -240,7 +242,7 @@ template <> struct GraphTraits<vpo::AVRBlock*> {
   typedef vpo::AVRBlock NodeType;
   typedef vpo::AVRBlock *NodeRef;
   typedef SmallVectorImpl<AVRBlock*>::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::AVRBlock *> nodes_iterator;
+  typedef standard_df_iterator2<vpo::AVRBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(vpo::AVRBlock *N) {
     return N;
@@ -266,7 +268,7 @@ template <> struct GraphTraits<Inverse<vpo::AVRBlock*> > {
   typedef vpo::AVRBlock NodeType;
   typedef vpo::AVRBlock *NodeRef;
   typedef SmallVectorImpl<AVRBlock*>::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::AVRBlock *> nodes_iterator;
+  typedef standard_df_iterator2<vpo::AVRBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(Inverse<vpo::AVRBlock *> G) {
     return G.Graph;
@@ -293,7 +295,7 @@ template <> struct GraphTraits<const vpo::AVRBlock*> {
   typedef const vpo::AVRBlock NodeType;
   typedef const vpo::AVRBlock *NodeRef;
   typedef SmallVectorImpl<AVRBlock*>::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const vpo::AVRBlock *> nodes_iterator;
+  typedef standard_df_iterator2<const vpo::AVRBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(const vpo::AVRBlock *N) {
     return N;
@@ -319,7 +321,7 @@ template <> struct GraphTraits<Inverse<const vpo::AVRBlock*> > {
   typedef const vpo::AVRBlock NodeType;
   typedef const vpo::AVRBlock *NodeRef;
   typedef SmallVectorImpl<AVRBlock*>::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const vpo::AVRBlock *> nodes_iterator;
+  typedef standard_df_iterator2<const vpo::AVRBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(Inverse<const vpo::AVRBlock *> G) {
     return G.Graph;
@@ -344,10 +346,30 @@ template <> struct GraphTraits<Inverse<const vpo::AVRBlock*> > {
 
 } // End namespace llvm
 
-VPOPredicator::VPOPredicator() {
+bool VPOPredicatorBase::runOnFunction(Function &F) {
+
+  // TODO: Enable SLEV
+  //SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  DEBUG(dbgs() << "AVR Predicator Pass\n");
+
+  for (auto AVRItr = AVRG->begin(), AVREnd = AVRG->end(); AVRItr != AVREnd;
+       ++AVRItr) {
+
+    // Run on loops within the working region
+    if (AVRWrn *Wrn = dyn_cast<AVRWrn>(AVRItr)) {
+      for (auto WrnItr = Wrn->child_begin(), WrnEnd = Wrn->child_end();
+           WrnItr != WrnEnd; ++WrnItr) {
+        if (AVRLoop *ALoop = dyn_cast<AVRLoop>(WrnItr)) {
+          runOnAvr(ALoop);
+        }
+      }
+    }
+  }
+
+  return false;
 }
 
-void VPOPredicator::runOnAvr(AVRLoop* ALoop) {
+void VPOPredicatorBase::runOnAvr(AVRLoop* ALoop) {
 
   DEBUG(formatted_raw_ostream FOS(dbgs());
         FOS << "Predicator running on:\n";
@@ -359,7 +381,7 @@ void VPOPredicator::runOnAvr(AVRLoop* ALoop) {
   // Predicate each (now uniform) loop
   OrderLoops OrderedLoops;
   AVRVisitor<OrderLoops> LoopVisitor(OrderedLoops);
-  LoopVisitor.visit(ALoop, true, true, true);
+  LoopVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/, true);
 
   for (AVRLoop* ALoop : OrderedLoops.Loops)
     predicateLoop(ALoop);
@@ -370,7 +392,7 @@ void VPOPredicator::runOnAvr(AVRLoop* ALoop) {
         );
 }
 
-void VPOPredicator::predicateLoop(AVRLoop* ALoop) {
+void VPOPredicatorBase::predicateLoop(AVRLoop* ALoop) {
   DEBUG(formatted_raw_ostream FOS(dbgs());
         FOS << "Predicating loop ";
         ALoop->shallowPrint(FOS);
@@ -396,7 +418,8 @@ void VPOPredicator::predicateLoop(AVRLoop* ALoop) {
 
   ConstructSESERegions CSR(ALoop, CFG, DominatorTree, PostDominatorTree);
   AVRVisitor<ConstructSESERegions> SESERegionsVisitor(CSR);
-  SESERegionsVisitor.visit(ALoop, true, true, true);
+  SESERegionsVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/,
+                           true);
 
   DEBUG(formatted_raw_ostream FOS(dbgs());
         FOS << "SESE regions:\n";
@@ -406,7 +429,7 @@ void VPOPredicator::predicateLoop(AVRLoop* ALoop) {
   handleSESERegion(CSR.getRoot(), &CFG);
 }
 
-void VPOPredicator::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) {
+void VPOPredicatorBase::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) {
 
   DEBUG(formatted_raw_ostream FOS(dbgs());
         FOS << "Handling "
@@ -428,7 +451,8 @@ void VPOPredicator::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) 
   // Collect lexical links scheduling constraints.
   CollectLexicalLinks CLL;
   AVRVisitor<CollectLexicalLinks> CollectLexicalLinksVisitor(CLL);
-  CollectLexicalLinksVisitor.visit(Region->getContainingNode(), true, true, true);
+  CollectLexicalLinksVisitor.visit(Region->getContainingNode(), true, true,
+                                   false /*RecursiveInsideValues*/, true);
 
   DenseMap<AVR*, SESERegion*> DoNotDeconstruct;
 
@@ -449,7 +473,7 @@ void VPOPredicator::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) 
   // as the first children of the SESE containing node.
 
   DenseMap<AvrBasicBlock*, AVRBlock*> BlocksMap;
-  DenseMap<AVRBlock*, AvrBasicBlock*> BlockSuccessorsDictatorMap;
+  MapVector<AVRBlock *, AvrBasicBlock *> BlockSuccessorsDictatorMap;
   SmallVector<AvrBasicBlock*, 3> Worklist;
   SmallPtrSet<AvrBasicBlock*, 8> Visited;
   AvrBasicBlock* RegionEntryBB = Region->getEntry();
@@ -583,8 +607,8 @@ void VPOPredicator::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) 
     AVRBlock* Top = BlockStack.top();
     DEBUG(formatted_raw_ostream FOS(dbgs());
           FOS << "Top AVRBlock now " << Top->getNumber() << " \n");
-    const SmallPtrSetImpl<AVRBlock*>& SchedConstraints
-      = Top->getSchedConstraints();
+    const SmallVectorImpl<AVRBlock *> &SchedConstraints =
+        Top->getSchedConstraints();
     bool CanSchedule = true;
     for (AVRBlock* Dependency : SchedConstraints) {
       if (!ScheduledBlocks.count(Dependency)) {
@@ -629,7 +653,7 @@ void VPOPredicator::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) 
         ContainingNode->getParent()->getParent()->print(FOS, 0, PrintNumber));
 }
 
-void VPOPredicator::predicate(AVRBlock* Entry) {
+void VPOPredicatorBase::predicate(AVRBlock* Entry) {
 
   for (auto It = df_iterator<AVRBlock*>::begin(Entry),
          End = df_iterator<AVRBlock*>::end(Entry); It != End; ++It) {
@@ -686,11 +710,12 @@ void VPOPredicator::predicate(AVRBlock* Entry) {
         }
         else
           llvm_unreachable("Unknown AVR condition");
+
         Constant *CompareTo = ConstantInt::get(ConstTy, 1 - Ordinal);
         Operands.push_back(AVRUtils::createAVRValue(CompareTo));
-        AVRExpression *IncomingCondition =
-          AVRUtils::createAVRExpression(ConstTy, Operands,
-                                        Instruction::ICmp, CmpInst::ICMP_EQ);
+
+        AVRExpression *IncomingCondition = AVRUtils::createAVRExpression(
+            Operands, Instruction::ICmp, ConstTy, CmpInst::ICMP_EQ);
         AVRUtils::addAVRPredicateIncoming(ABlock->getPredicate(),
                                           Predecessor->getPredicate(),
                                           IncomingCondition);
@@ -709,18 +734,20 @@ void VPOPredicator::predicate(AVRBlock* Entry) {
           for (unsigned Case = 1; Case <= NumCases; ++Case) {
             SmallVector<AVR*, 2> Operands;
             Operands.push_back(SwitchCondition); // TODO - clone to keep AVR a tree.
+
             Constant* CaseConst = ConstantInt::get(ConstTy, Case);
             Operands.push_back(AVRUtils::createAVRValue(CaseConst));
-            AVRExpression *IncomingCondition =
-              AVRUtils::createAVRExpression(ConstTy, Operands,
-                                            Instruction::ICmp, CmpInst::ICMP_NE);
+
+            AVRExpression *IncomingCondition = AVRUtils::createAVRExpression(
+                Operands, Instruction::ICmp, ConstTy, CmpInst::ICMP_NE);
+
             if (DefaultCondition) {
               SmallVector<AVR*, 2> Operands;
               Operands.push_back(DefaultCondition);
               Operands.push_back(IncomingCondition);
-              DefaultCondition = AVRUtils::createAVRExpression(ConstTy,
-                                                               Operands,
-                                                               Instruction::And);
+              DefaultCondition = AVRUtils::createAVRExpression(Operands,
+                                                               Instruction::And,
+                                                               ConstTy);
             }
             else {
               DefaultCondition = IncomingCondition;
@@ -736,31 +763,42 @@ void VPOPredicator::predicate(AVRBlock* Entry) {
           // condition 'C == caseX'
           SmallVector<AVR*, 2> Operands;
           Operands.push_back(SwitchCondition); // TODO - clone to keep AVR a tree.
+
           Constant* CaseConst = ConstantInt::get(ConstTy, Ordinal);
           Operands.push_back(AVRUtils::createAVRValue(CaseConst));
-          AVRExpression *IncomingCondition =
-            AVRUtils::createAVRExpression(ConstTy, Operands,
-                                          Instruction::ICmp, CmpInst::ICMP_EQ);
+
+          AVRExpression *IncomingCondition = AVRUtils::createAVRExpression(
+              Operands, Instruction::ICmp, ConstTy, CmpInst::ICMP_EQ);
           AVRUtils::addAVRPredicateIncoming(ABlock->getPredicate(),
                                             Predecessor->getPredicate(),
                                             IncomingCondition);
         }
       }
-      else if (isa<AVRBranch>(Terminator)) {
+      else {
+        if (isa<AVRBranch>(Terminator)) {
+          
+          AVRBranch *ab = cast<AVRBranch>(Terminator);
+          errs() << "isConditional?: " << ab->isConditional() << "\ni";
 
-        assert(!cast<AVRBranch>(Terminator)->isConditional() &&
-               "Did not expect conditional branches at this point");
+          assert(!cast<AVRBranch>(Terminator)->isConditional() &&
+                 "Did not expect conditional branches at this point");
+        }
+        else 
+          // In HIR, there aren't explicit unconditional AVRBranch instructions.
+          // By now, we assume that if the terminator is not AVRIf or AVRSwitch,
+          // then it has to be an AVRAssig (and meaning unconditional branch).
+          assert(isa<AVRAssign>(Terminator) &&
+                 "Did not expect an AVR other than an AVRAssign at this point");
+
         AVRUtils::addAVRPredicateIncoming(ABlock->getPredicate(),
                                           Predecessor->getPredicate(),
                                           nullptr);
       }
-      else
-        llvm_unreachable("Unknown block terminator");
     }
   }
 }
 
-void VPOPredicator::removeCFG(AVRBlock* Entry) {
+void VPOPredicatorBase::removeCFG(AVRBlock* Entry) {
 
   for (auto It = df_iterator<AVRBlock*>::begin(Entry),
          End = df_iterator<AVRBlock*>::end(Entry); It != End; ++It) {
@@ -808,3 +846,62 @@ void VPOPredicator::removeCFG(AVRBlock* Entry) {
     AVRUtils::destroy(CurrentBlock);
   }
 }
+
+
+// LLVM-IR Pass
+
+INITIALIZE_PASS_BEGIN(VPOPredicator, "avr-predicate",
+                      "AVR Predicator for LLVM-IR", false, true)
+INITIALIZE_PASS_DEPENDENCY(AVRGenerate)
+INITIALIZE_PASS_END(VPOPredicator, "avr-predicate",
+                    "AVR Predicator for LLVM-IR", false, true)
+
+char VPOPredicator::ID = 0;
+
+FunctionPass *llvm::createVPOPredicatorPass() { return new VPOPredicator(); }
+
+VPOPredicator::VPOPredicator() : FunctionPass(ID) {
+  llvm::initializeVPOPredicatorPass(*PassRegistry::getPassRegistry());
+}
+
+void VPOPredicator::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.setPreservesAll();
+  AU.addRequired<AVRGenerate>();
+}
+
+bool VPOPredicator::runOnFunction(Function &F) {
+
+  AVRG = &getAnalysis<AVRGenerate>();
+  return VPOPredicatorBase::runOnFunction(F);
+}
+
+
+// HIR Pass
+
+INITIALIZE_PASS_BEGIN(VPOPredicatorHIR, "hir-avr-predicate",
+                      "AVR Predicator for HIR", false, true)
+INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
+INITIALIZE_PASS_END(VPOPredicatorHIR, "hir-avr-predicate",
+                    "AVR Predicator for HIR", false, true)
+
+char VPOPredicatorHIR::ID = 0;
+
+FunctionPass *llvm::createVPOPredicatorHIRPass() {
+  return new VPOPredicatorHIR();
+}
+
+VPOPredicatorHIR::VPOPredicatorHIR() : FunctionPass(ID) {
+  llvm::initializeVPOPredicatorHIRPass(*PassRegistry::getPassRegistry());
+}
+
+void VPOPredicatorHIR::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.setPreservesAll();
+  AU.addRequired<AVRGenerateHIR>();
+}
+
+bool VPOPredicatorHIR::runOnFunction(Function &F) {
+
+  AVRG = &getAnalysis<AVRGenerateHIR>();
+  return VPOPredicatorBase::runOnFunction(F);
+}
+
