@@ -593,6 +593,16 @@ multiclass OStOp<string opStr, LPUOpInfo t,
   }
 }
 
+class MullohiOp<GenericOp gen, LPUOpInfo oi,
+               InstrItinClass itin = IIALU, list<Predicate> preds = []> :
+  FMTGEN <
+    (outs oi.RC:$lo, oi.RC:$hi),
+    (ins  oi.RCL:$op1, oi.RCL:$op2),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$lo, $hi, $op1, $op2"),
+    [],
+    !listconcat(preds,oi.Preds), itin>
+    { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
+
 class AtomicOp<GenericOp gen, PatFrag opNode, LPUOpInfo oi,
                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <
@@ -1409,6 +1419,17 @@ defm OST32    : OStOp<   "st32",  Ti32>;
 defm OST32f   : OStOp<   "st32",  Tf32>;
 defm OST64    : OStOp<   "st64",  Ti64>;
 defm OST64f   : OStOp<   "st64",  Tf64>;
+
+// Extended multiplication
+def MULLOHI   : GenericOp<"mullohi">;
+def MULLOHIS8  : MullohiOp<MULLOHI, Ts8,  IIMulI8>;
+def MULLOHIS16 : MullohiOp<MULLOHI, Ts16, IIMulI16>;
+def MULLOHIS32 : MullohiOp<MULLOHI, Ts32, IIMulI32>;
+def MULLOHIS64 : MullohiOp<MULLOHI, Ts64, IIMulI64>;
+def MULLOHIU8  : MullohiOp<MULLOHI, Tu8,  IIMulI8>;
+def MULLOHIU16 : MullohiOp<MULLOHI, Tu16, IIMulI16>;
+def MULLOHIU32 : MullohiOp<MULLOHI, Tu32, IIMulI32>;
+def MULLOHIU64 : MullohiOp<MULLOHI, Tu64, IIMulI64>;
 
 // Atomic operations
 def ATMAND    : GenericOp<"atmand">;

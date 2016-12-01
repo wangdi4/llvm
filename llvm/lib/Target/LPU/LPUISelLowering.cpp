@@ -97,8 +97,10 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget
     setOperationAction(ISD::ADDE,             VT,    Expand);
     setOperationAction(ISD::SUBC,             VT,    Expand);
     setOperationAction(ISD::SUBE,             VT,    Expand);
-    setOperationAction(ISD::SMUL_LOHI,        VT,    Expand);
-    setOperationAction(ISD::UMUL_LOHI,        VT,    Expand);
+    // Note: {U,S}MUL_LOHI must be Custom selected because TableGen cannot cope
+    // with multi-output selection. This is a known weakness.
+    setOperationAction(ISD::SMUL_LOHI,        VT,    Custom);
+    setOperationAction(ISD::UMUL_LOHI,        VT,    Custom);
     setOperationAction(ISD::MULHS,            VT,    Expand);
     setOperationAction(ISD::MULHU,            VT,    Expand);
     setOperationAction(ISD::UREM,             VT,    Expand);
@@ -321,6 +323,8 @@ SDValue LPUTargetLowering::LowerOperation(SDValue Op,
     */
   case ISD::ATOMIC_LOAD:      return LowerAtomicLoad(Op, DAG);
   case ISD::ATOMIC_STORE:     return LowerAtomicStore(Op, DAG);
+  case ISD::SMUL_LOHI:        return LowerMUL_LOHI(Op, DAG);
+  case ISD::UMUL_LOHI:        return LowerMUL_LOHI(Op, DAG);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -413,6 +417,44 @@ SDValue LPUTargetLowering::LowerAtomicStore(SDValue Op,
             AS->getPointerInfo(),
             AS->getAlignment());
 }
+
+SDValue LPUTargetLowering::
+LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const
+{
+  SDLoc dl(Op);
+  SDValue LHS = Op.getOperand(0);
+  SDValue RHS = Op.getOperand(1);
+  MVT partVT = LHS.getSimpleValueType();
+  SDValue InOps[] = { LHS, RHS };
+  bool isSigned = (Op.getNode()->getOpcode() == ISD::SMUL_LOHI);
+
+  unsigned opcode;
+  switch(partVT.SimpleTy)
+  {
+    case MVT::i8:
+      opcode = isSigned ? LPU::MULLOHIS8 : LPU::MULLOHIU8;
+      break;
+    case MVT::i16:
+      opcode = isSigned ? LPU::MULLOHIS16 : LPU::MULLOHIU16;
+      break;
+    case MVT::i32:
+      opcode = isSigned ? LPU::MULLOHIS32 : LPU::MULLOHIU32;
+      break;
+    case MVT::i64:
+      opcode = isSigned ? LPU::MULLOHIS64 : LPU::MULLOHIU64;
+      break;
+    default:
+      return Op;
+  }
+
+  SDNode *Mullohi = DAG.getMachineNode(opcode, dl,
+                           DAG.getVTList(partVT, partVT), InOps);
+  SDValue Lo(Mullohi, 0);
+  SDValue Hi(Mullohi, 1);
+  SDValue Ops[] = { Lo, Hi };
+  return DAG.getMergeValues(Ops, dl);
+}
+
 //===----------------------------------------------------------------------===//
 //                       LPU Inline Assembly Support
 //===----------------------------------------------------------------------===//
