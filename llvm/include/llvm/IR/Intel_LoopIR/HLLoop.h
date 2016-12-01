@@ -269,13 +269,22 @@ public:
   }
 
   /// \brief Adds new predicate in ZTT.
-  void addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2);
+  void addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
+                       FastMathFlags FMF = FastMathFlags());
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
   void removeZttPredicate(const_ztt_pred_iterator CPredI);
 
   /// \brief Replaces existing ztt predicate pointed to by CPredI, by NewPred.
   void replaceZttPredicate(const_ztt_pred_iterator CPredI, PredicateTy NewPred);
+
+  /// Returns the fast math flags for the existing ztt predicate pointed by \p
+  /// CPredI.
+  FastMathFlags getZttPredicateFMF(const_ztt_pred_iterator CPredI) const;
+
+  /// Sets fast math flags for the existing ztt predicate pointed to by \p
+  /// CPredI.
+  void setZttPredicateFMF(const_ztt_pred_iterator CPredI, FastMathFlags FMF);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.

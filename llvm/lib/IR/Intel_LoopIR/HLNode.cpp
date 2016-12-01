@@ -109,6 +109,47 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
   OS << LoopIndentString;
 }
 
+void HLNode::printFMF(raw_ostream &OS, FastMathFlags FMF) {
+  OS << "<";
+
+  if (!FMF.unsafeAlgebra()) {
+    bool First = true;
+
+    if (FMF.noNaNs()) {
+      OS << "nnan";
+      First = false;
+    }
+
+    if (FMF.noInfs()) {
+      if (!First) {
+        OS << ",";
+      }
+      OS << "ninf";
+      First = false;
+    }
+
+    if (FMF.noSignedZeros()) {
+      if (!First) {
+        OS << ",";
+      }
+      OS << "nsz";
+      First = false;
+    }
+
+    if (FMF.allowReciprocal()) {
+      if (!First) {
+        OS << ",";
+      }
+      OS << "arcp";
+      First = false;
+    }
+  } else {
+    OS << "fast";
+  }
+
+  OS << ">";
+}
+
 void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
   if (Pred == PredicateTy::FCMP_TRUE) {
     OS << " true ";

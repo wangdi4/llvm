@@ -37,6 +37,8 @@ private:
   // Only used for Cmp and Select instructions.
   PredicateTy CmpOrSelectPred;
 
+  FastMathFlags PredFMF;
+
 protected:
   explicit HLInst(HLNodeUtils &HNU, Instruction *Inst);
   virtual ~HLInst() override {}
@@ -139,11 +141,19 @@ public:
     return CmpOrSelectPred;
   }
 
+  FastMathFlags getPredicateFMF() const {
+    return PredFMF;
+  }
+
   /// Sets predicate for select instruction.
-  void setPredicate(PredicateTy Pred) {
+  void setPredicate(PredicateTy Pred, FastMathFlags FMF = FastMathFlags()) {
     assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
            "This instruction does not contain a predicate!");
     CmpOrSelectPred = Pred;
+
+    assert((!FMF.any() || CmpInst::isFPPredicate(Pred)) &&
+           "FastMathFlags are set on non-FP predicate");
+    PredFMF = FMF;
   }
 
   /// Retuns true if this is a bitcast instruction with identical src and dest

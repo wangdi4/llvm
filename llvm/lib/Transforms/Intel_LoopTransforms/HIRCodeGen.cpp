@@ -167,8 +167,8 @@ private:
 
     // \brief Creates and returns icmp or fcmp instuction(depending on lhs type)
     // at current IP
-    Value *createCmpInst(CmpInst::Predicate P, Value *LHS, Value *RHS,
-                         const Twine &Name);
+    Value *createCmpInst(CmpInst::Predicate P, FastMathFlags FMF, Value *LHS,
+                         Value *RHS, const Twine &Name);
 
     // \brief Return a value for blob corresponding to BlobIdx
     // We normally expect Blob type to match CE type. The only exception is
@@ -536,7 +536,8 @@ Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
   return Val;
 }
 
-Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
+Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P,
+                                            FastMathFlags FMF, Value *LHS,
                                             Value *RHS, const Twine &Name) {
   Value *CmpInst = nullptr;
 
@@ -548,10 +549,13 @@ Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
   if (LType->isIntegerTy() || LType->isPointerTy()) {
     CmpInst = Builder->CreateICmp(P, LHS, RHS, Name);
   } else if (LType->isFloatingPointTy()) {
+    Builder->setFastMathFlags(FMF);
     CmpInst = Builder->CreateFCmp(P, LHS, RHS, Name);
+    Builder->clearFastMathFlags();
   } else {
     llvm_unreachable("unknown predicate type in HIRCG");
   }
+
   return CmpInst;
 }
 
@@ -944,8 +948,9 @@ Value *HIRCodeGen::CGVisitor::generatePredicate(HLIf *HIf,
   assert(LHSVal->getType() == RHSVal->getType() &&
          "HLIf predicate type mismatch");
 
-  CurPred = createCmpInst(*P, LHSVal, RHSVal,
-                          "hir.cmp." + std::to_string(HIf->getNumber()));
+  CurPred =
+      createCmpInst(*P, HIf->getPredicateFMF(P), LHSVal, RHSVal,
+                    "hir.cmp." + std::to_string(HIf->getNumber()));
 
   return CurPred;
 }
@@ -1270,16 +1275,20 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
                                     BOp->getMetadata(LLVMContext::MD_fpmath));
 
     // CreateBinOp could fold operator to constant.
-    BinaryOperator *CastOp = dyn_cast<BinaryOperator>(StoreVal);
+    BinaryOperator *StoreBinOp = dyn_cast<BinaryOperator>(StoreVal);
 
-    if (CastOp) {
+    if (StoreBinOp) {
       if (isa<PossiblyExactOperator>(BOp)) {
-        CastOp->setIsExact(BOp->isExact());
+        StoreBinOp->setIsExact(BOp->isExact());
       }
 
       if (isa<OverflowingBinaryOperator>(BOp)) {
-        CastOp->setHasNoSignedWrap(BOp->hasNoSignedWrap());
-        CastOp->setHasNoUnsignedWrap(BOp->hasNoUnsignedWrap());
+        StoreBinOp->setHasNoSignedWrap(BOp->hasNoSignedWrap());
+        StoreBinOp->setHasNoUnsignedWrap(BOp->hasNoUnsignedWrap());
+      }
+
+      if (auto FPOp = dyn_cast<FPMathOperator>(BOp)) {
+        StoreBinOp->copyFastMathFlags(FPOp->getFastMathFlags());
       }
     }
 
@@ -1319,15 +1328,16 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     Value *TVal = Ops[3];
     Value *FVal = Ops[4];
 
-    Value *Pred =
-        createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS,
-                      "hir.selcmp." + std::to_string(HInst->getNumber()));
+    Value *Pred = createCmpInst(
+        HInst->getPredicate(), HInst->getPredicateFMF(), CmpLHS, CmpRHS,
+        "hir.selcmp." + std::to_string(HInst->getNumber()));
     StoreVal = Builder->CreateSelect(Pred, TVal, FVal);
 
   } else if (isa<CmpInst>(Inst)) {
 
-    StoreVal = createCmpInst(HInst->getPredicate(), Ops[1], Ops[2],
-                             "hir.cmp." + std::to_string(HInst->getNumber()));
+    StoreVal =
+        createCmpInst(HInst->getPredicate(), HInst->getPredicateFMF(), Ops[1],
+                      Ops[2], "hir.cmp." + std::to_string(HInst->getNumber()));
 
   } else if (isa<GetElementPtrInst>(Inst)) {
     // Gep Instructions in LLVM may have any number of operands but the HIR

@@ -42,7 +42,8 @@ HLInst::HLInst(HLNodeUtils &HNU, Instruction *Inst)
 
 HLInst::HLInst(const HLInst &HLInstObj)
     : HLDDNode(HLInstObj), Inst(HLInstObj.Inst),
-      CmpOrSelectPred(HLInstObj.CmpOrSelectPred) {
+      CmpOrSelectPred(HLInstObj.CmpOrSelectPred),
+      PredFMF(HLInstObj.PredFMF) {
 
   unsigned NumOp, Count = 0;
 
@@ -228,7 +229,23 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
   }
 
+  if (Detailed) {
+    FastMathFlags FMF;
+
+    if (isa<SelectInst>(Inst)) {
+      FMF = PredFMF;
+    } else if (isa<FPMathOperator>(Inst)) {
+      FMF = Inst->getFastMathFlags();
+    }
+
+    if (FMF.any()) {
+      OS << " ";
+      printFMF(OS, FMF);
+    }
+  }
+
   OS << "\n";
+
   HLDDNode::print(OS, Depth, Detailed);
 }
 

@@ -306,18 +306,25 @@ private:
   /// parseRecursive().
   CanonExpr *parse(const Value *Val, unsigned Level, bool IsTop = true);
 
+  /// Returns fast math flags if \p Cmp is a FPMathOperator. Returns default
+  /// FMF otherwise.
+  static FastMathFlags parseFMF(const CmpInst *Cmp);
+
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions and returns predicates in \p Preds and DDRefs in \p Refs. \p
   /// AllowMultiplePreds indicates whether we should break '&&' conditions into
   /// different predicates.
   void parseCompare(const Value *Cond, unsigned Level,
-                    SmallVectorImpl<CmpInst::Predicate> &Preds,
-                    SmallVectorImpl<RegDDRef *> &Refs, bool AllowMultiplePreds);
+                    SmallVectorImpl<PredicateTy> &Preds,
+                    SmallVectorImpl<const CmpInst *> &CmpInsts,
+                    SmallVectorImpl<RegDDRef *> &Refs,
+                    bool AllowMultiplePreds);
 
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions into a single predicate.
-  void parseCompare(const Value *Cond, unsigned Level, CmpInst::Predicate *Pred,
-                    RegDDRef **LHSDDRef, RegDDRef **RHSDDRef);
+  void parseCompare(const Value *Cond, unsigned Level, PredicateTy *Pred,
+                    const CmpInst **Cmp, RegDDRef **LHSDDRef,
+                    RegDDRef **RHSDDRef);
 
   /// Clears blob level map populated for the previous DDRef.
   void clearTempBlobLevelMap();

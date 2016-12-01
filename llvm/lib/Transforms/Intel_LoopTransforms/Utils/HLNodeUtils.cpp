@@ -637,7 +637,7 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name, LvalRef, false,
                                  false, nullptr);
   if (OrigBinOp) {
-    auto NewBinOp = cast<BinaryOperator>(
+    BinaryOperator *NewBinOp = cast<BinaryOperator>(
         const_cast<Instruction *>(HInst->getLLVMInstruction()));
     NewBinOp->copyIRFlags(OrigBinOp);
   }
@@ -768,7 +768,7 @@ HLInst *HLNodeUtils::createXor(RegDDRef *OpRef1, RegDDRef *OpRef2,
 
 HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
                                RegDDRef *OpRef2, const Twine &Name,
-                               RegDDRef *LvalRef) {
+                               RegDDRef *LvalRef, FastMathFlags FMF) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -792,7 +792,7 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   }
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
-  HInst->setPredicate(Pred);
+  HInst->setPredicate(Pred, FMF);
 
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);
@@ -803,7 +803,7 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
 HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
                                   RegDDRef *OpRef2, RegDDRef *OpRef3,
                                   RegDDRef *OpRef4, const Twine &Name,
-                                  RegDDRef *LvalRef) {
+                                  RegDDRef *LvalRef, FastMathFlags FMF) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -819,7 +819,7 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   InstVal = DummyIRBuilder->CreateSelect(CmpVal, DummyVal, DummyVal, Name);
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
-  HInst->setPredicate(Pred);
+  HInst->setPredicate(Pred, FMF);
 
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);

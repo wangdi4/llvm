@@ -971,11 +971,11 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node) {
   } else if (isa<SelectInst>(CurInst)) {
     WideInst = Node->getHLNodeUtils().createSelect(
         INode->getPredicate(), WideOps[1], WideOps[2], WideOps[3], WideOps[4],
-        CurInst->getName() + ".vec", WideOps[0]);
+        CurInst->getName() + ".vec", WideOps[0], INode->getPredicateFMF());
   } else if (isa<CmpInst>(CurInst)) {
     WideInst = Node->getHLNodeUtils().createCmp(
         INode->getPredicate(), WideOps[1], WideOps[2],
-        CurInst->getName() + ".vec", WideOps[0]);
+        CurInst->getName() + ".vec", WideOps[0], INode->getPredicateFMF());
   } else if (isa<GetElementPtrInst>(CurInst)) {
     // Gep Instructions in LLVM may have any number of operands but the HIR
     // representation for them is always a single rhs ddref - copy rval to

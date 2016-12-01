@@ -687,13 +687,16 @@ public:
 
   /// Creates a new Cmp instruction.
   HLInst *createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1, RegDDRef *OpRef2,
-                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr);
+                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr,
+                    FastMathFlags FMF = FastMathFlags());
 
   /// Creates a new Select instruction.
   HLInst *createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
                        RegDDRef *OpRef2, RegDDRef *OpRef3, RegDDRef *OpRef4,
                        const Twine &Name = "select",
-                       RegDDRef *LvalRef = nullptr);
+                       RegDDRef *LvalRef = nullptr,
+                       FastMathFlags FMF = FastMathFlags());
+
   /// Creates a new Call instruction.
   HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr);

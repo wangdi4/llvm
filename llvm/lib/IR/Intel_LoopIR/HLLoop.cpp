@@ -366,9 +366,10 @@ HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
           Ztt->getPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
+void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
+                             FastMathFlags FMF) {
   assert(hasZtt() && "Ztt is absent!");
-  Ztt->addPredicate(Pred, Ref1, Ref2);
+  Ztt->addPredicate(Pred, Ref1, Ref2, FMF);
 
   const_ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
 
@@ -404,6 +405,17 @@ void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
                                  PredicateTy NewPred) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->replacePredicate(CPredI, NewPred);
+}
+
+FastMathFlags HLLoop::getZttPredicateFMF(const_ztt_pred_iterator CPredI) const {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getPredicateFMF(CPredI);
+}
+
+void HLLoop::setZttPredicateFMF(const_ztt_pred_iterator CPredI,
+                                FastMathFlags FMF) {
+  assert(hasZtt() && "Ztt is absent!");
+  Ztt->setPredicateFMF(CPredI, FMF);
 }
 
 RegDDRef *HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
