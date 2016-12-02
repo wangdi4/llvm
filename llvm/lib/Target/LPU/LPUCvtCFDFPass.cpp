@@ -2126,7 +2126,11 @@ bool LPUCvtCFDFPass::CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock*
   for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
     ControlDependenceNode* ctrlNode = *pnode;
     MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
-    //ignore loop latch ???
+
+    if (MachineLoop* mloop = MLI->getLoopFor(ctrlBB))
+      if (mloop->getExitingBlock() == nullptr || mloop->getExitingBlock() == ctrlBB)
+        return false;
+    //ignore loop latch, keep looking beyond the loop
     if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
       continue;
     
@@ -2586,7 +2590,7 @@ bool LPUCvtCFDFPass::replaceUndefWithIgn() {
         MRI->getUniqueVRegDef(uMO.getReg()) == uMI);
     const TargetRegisterClass *TRC = MRI->getRegClass(uMI->getOperand(0).getReg());
     const unsigned moveOpcode = TII.getMoveOpcode(TRC);
-    MachineInstr *movInst = BuildMI(*uMI->getParent(), uMI, DebugLoc(),
+    BuildMI(*uMI->getParent(), uMI, DebugLoc(),
       TII.get(moveOpcode),
       uMI->getOperand(0).getReg()).addImm(0);
     // Erase the implicit definition.
