@@ -68,10 +68,11 @@ File Name:  ProgramBuilder.cpp
 #include <codecvt>
 #endif // WIN32
 
-#include <vector>
-#include <string>
 #include <algorithm>
 #include <sstream>
+#include <string>
+#include <vector>
+
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

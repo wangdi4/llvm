@@ -40,7 +40,6 @@ File Name:  Kernel.cpp
 #include <stddef.h>
 #include <stdio.h>
 
-
 static size_t GCD(size_t a, size_t b) {
   while (1) {
     a = a % b;
@@ -586,6 +585,8 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
   // running the kernel with the specified args and (groupID, runtimeHandle)
 #if defined (ENABLE_SDE)
+  // do not forger to export BeforeExecution and AfterExecution symbols
+  // in OclCpuBackEnd_linux_exports.txt
   BeforeExecution();
 
   SSC_MARK_1;

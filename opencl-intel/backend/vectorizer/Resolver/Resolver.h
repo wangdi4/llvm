@@ -43,13 +43,14 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<BuiltinLibInfo>();
   }
-  virtual bool isBitMask(const VectorType& vecType) const { return false; }
 
 private:
   /// @brief Resolve a call-site. This is a target specific hook.
   /// @param caller Instruction to resolve
   /// @return true if this call was handled by the resolver
   virtual bool TargetSpecificResolve(CallInst* caller) = 0;
+
+  virtual bool isBitMask(const VectorType& vecType) const { return false; }
 
   /// @brief Resolve a call-site
   /// @param caller Instruction to resolve

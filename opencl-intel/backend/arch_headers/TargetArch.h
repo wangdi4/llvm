@@ -1,10 +1,12 @@
 #ifndef __TARGET_HEADERS_H__
 #define __TARGET_HEADERS_H__
 
+#include "llvm/Support/ErrorHandling.h"
+
 #include <cassert>
+#include <exception>
 #include <string>
 #include <utility>
-#include <exception>
 
 namespace Intel {
 // CPU enumeration
@@ -104,7 +106,7 @@ public:
         case MIC_KNC:
             return "knc";
         }
-        assert(false && "Unknown CPU!");
+        llvm_unreachable("Unknown CPU!");
     }
     const char*         GetCPUPrefix() const {
       if( Intel::CPU_SANDYBRIDGE == GetCPU() && !HasAVX1()) {
@@ -136,10 +138,10 @@ public:
             case CPU_KNL:
                 return "d3";
             case CPU_SKX:
-                assert(false && "SKX on 32-bit OS is not supported so far!");
+                llvm_unreachable("SKX on 32-bit OS is not supported so far!");
                 return 0;
             case MIC_KNC:
-                assert(false && "No MIC SVML lib for 32-bit OS!");
+                llvm_unreachable("No MIC SVML lib for 32-bit OS!");
                 return 0;
             }
         }

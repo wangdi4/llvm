@@ -36,7 +36,6 @@ extern "C" Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> pR
 extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
 #ifndef __APPLE__
 extern "C" FunctionPass* createAVX512ResolverPass();
-extern "C" FunctionPass* createKNCResolverPass();
 #endif
 extern "C" FunctionPass* createX86ResolverPass(Intel::ECPU cpuArch);
 extern "C" FunctionPass* createOCLBuiltinPreVectorizationPass();

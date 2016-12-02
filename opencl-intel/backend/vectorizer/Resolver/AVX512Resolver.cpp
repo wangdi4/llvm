@@ -1,16 +1,36 @@
-#undef DEBUG_TYPE
-#define DEBUG_TYPE "micresolver"
+// Copyright (c) 2016 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly.
+
+#define DEBUG_TYPE "avx512resolver"
+
 #include "AVX512Resolver.h"
 #include "VectorizerUtils.h"
 #include "Logger.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/IR/InstIterator.h" 
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/CommandLine.h"
 
-#include "OCLPassSupport.h"
-#include <vector>
 #include <sstream>
+#include <vector>
 
 static bool isGatherScatterType(VectorType *VecTy) {
   return VecTy->getNumElements() == 16;
@@ -37,7 +57,7 @@ static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
 bool AVX512Resolver::TargetSpecificResolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
   std::string calledName = called->getName().str();
-  V_PRINT(DEBUG_TYPE, "MICSpecificResolve Inspecting "<<calledName<<"\n");
+  V_PRINT(DEBUG_TYPE, "AVX512SpecificResolve Inspecting " << calledName << "\n");
 
   // Use name to decide what to do
 
@@ -81,9 +101,11 @@ bool AVX512Resolver::TargetSpecificResolve(CallInst* caller) {
   return false;
 }
 
-Instruction* AVX512Resolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data, Mangler::GatherScatterType type) {
+Instruction* AVX512Resolver::CreateGatherScatterAndReplaceCall(
+    CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data, Mangler::GatherScatterType type) {
   Module *pModule = caller->getParent()->getParent()->getParent();
-  V_ASSERT((type == Mangler::GatherPrefetch || (Data ? Data->getType() : caller->getType())->isVectorTy()) && "Data value type is not a vector");
+  V_ASSERT((type == Mangler::GatherPrefetch || (Data ? Data->getType() : caller->getType())->isVectorTy())
+    && "Data value type is not a vector");
 
   VectorType *dataTy = NULL;
 
@@ -124,11 +146,7 @@ Instruction* AVX512Resolver::CreateGatherScatterAndReplaceCall(CallInst* caller,
 
   // Create new gather/scatter caller instruction
   Instruction *newCaller = VectorizerUtils::createFunctionCall(pModule, name, caller->getType(), args,
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-        SmallVector<Attributes, 4>(), caller);
-#else
-        SmallVector<Attribute::AttrKind, 4>(), caller);
-#endif
+    SmallVector<Attribute::AttrKind, 4>(), caller);
 
   // Replace caller with new gather/scatter caller instruction
   caller->replaceAllUsesWith(newCaller);
