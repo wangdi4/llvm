@@ -25,6 +25,7 @@ using namespace llvm;
 #define DEBUG_TYPE "ipcloning"
 
 STATISTIC(NumIPCloned, "Number of functions IPCloned");
+STATISTIC(NumIPCallsCloned, "Number of calls to IPCloned functions");
 
 // Option to trace IP Cloning
 static cl::opt<bool> IPCloningTrace("print-ip-cloning", cl::ReallyHidden);
@@ -60,30 +61,41 @@ std::vector<Instruction*> CurrCallList;
 // List of all cloned functions
 std::set<Function *> ClonedFunctionList;
 
-// Return true if constant argument is worth considering for cloning
-static bool isConstantArgWorthy(Value *Arg) {
+// Return true if constant argument is worth considering for cloning.
+// If 'AfterInl' is false, consider only addresses of functions as 
+// worthy constants for cloning. If 'AfterInl' is false, consider all
+// constants except addresses of functions as worthy constants.
+//
+static bool isConstantArgWorthy(Value *Arg, bool AfterInl) {
     Value* FnArg = Arg->stripPointerCasts();
     Function *Fn = dyn_cast<Function>(FnArg);
     // Consider all non-function constants for cloning
-    if (Fn == nullptr) {
-      return true;
-    } 
-    // if it is function address, consider only if it has local definition.
-    if (Fn->isDeclaration() || Fn->isIntrinsic()
-        || !Fn->hasExactDefinition() || !Fn->hasLocalLinkage() ||
-        Fn->hasExternalLinkage()) {
-      return false;
+    if (AfterInl) {
+      // Returns false if it is address of a function
+      if (Fn != nullptr)
+        return false;
+    }
+    else {
+      // Returns false if it is not address of a function
+      if (Fn == nullptr)
+        return false;
+      // if it is function address, consider only if it has local definition.
+      if (Fn->isDeclaration() || Fn->isIntrinsic()
+          || !Fn->hasExactDefinition() || !Fn->hasLocalLinkage() ||
+          Fn->hasExternalLinkage()) {
+        return false;
+      }
     }
     return true;
 }
 
 // Return true if actual argument is considered for cloning
-static bool isConstantArgForCloning(Value *Arg) {
+static bool isConstantArgForCloning(Value *Arg, bool AfterInl) {
   if (Constant *C = dyn_cast<Constant>(Arg)) {
     if (isa<UndefValue>(C))
       return false;
 
-    if (isConstantArgWorthy(Arg))
+    if (isConstantArgWorthy(Arg, AfterInl))
       return true;
   }
   return false;
@@ -92,9 +104,10 @@ static bool isConstantArgForCloning(Value *Arg) {
 // Collect constant value if 'ActualV' is constant actual argument
 // and save it in constant list of 'FormalV'. Otherwise, mark
 // 'FormalV' as inexact.
-static void collectConstantArgument(Value* FormalV, Value* ActualV) {
+static void collectConstantArgument(Value* FormalV, Value* ActualV,
+                                    bool AfterInl) {
 
-  if (!isConstantArgForCloning(ActualV)) {
+  if (!isConstantArgForCloning(ActualV, AfterInl)) {
     // Mark inexact formal
     if (!InexactFormals.count(FormalV))
       InexactFormals.insert(FormalV);
@@ -149,7 +162,7 @@ static unsigned getMinClones() {
 
 // Look at all callsites of 'F' and collect all constant values
 // of formals. Return true if use of 'F' is noticed as non-call. 
-static bool analyzeAllCallsOfFunction(Function &F) {
+static bool analyzeAllCallsOfFunction(Function &F, bool AfterInl) {
   bool FunctionAddressTaken = false;
 
   for (User *UR : F.users()) {
@@ -170,7 +183,7 @@ static bool analyzeAllCallsOfFunction(Function &F) {
     CallSite::arg_iterator CAI = CS.arg_begin();
     for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
          AI != E; ++AI, ++CAI) {
-      collectConstantArgument(&*AI, *CAI);
+      collectConstantArgument(&*AI, *CAI, AfterInl);
     }
   }
   return FunctionAddressTaken;
@@ -180,13 +193,14 @@ static bool analyzeAllCallsOfFunction(Function &F) {
 // 'ConstantArgsSet'
 //
 static void createConstantArgumentsSet(CallSite CS,  Function &F,
-         std::vector<std::pair<unsigned, Constant *>>& ConstantArgsSet) {
+         std::vector<std::pair<unsigned, Constant *>>& ConstantArgsSet,
+         bool AfterInl) {
   
   unsigned position = 0;
   CallSite::arg_iterator CAI = CS.arg_begin();
   for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
        AI != E; ++AI, ++CAI, position++) {
-    if (isConstantArgForCloning(*CAI)) {
+    if (isConstantArgForCloning(*CAI, AfterInl)) {
       Constant *C = dyn_cast<Constant>(*CAI);
       ConstantArgsSet.push_back(std::make_pair(position, C)); 
     }
@@ -280,7 +294,7 @@ static void dumpFormalsConstants(Function &F) {
 // "FunctionAllArgumentsSets". It return false if number of constant
 // argument sets exceeds "IPFunctionCloningLimit".
 //
-static bool collectAllConstantArgumentsSets(Function &F) {
+static bool collectAllConstantArgumentsSets(Function &F, bool AfterInl) {
 
   std::vector<std::pair<unsigned, Constant *>> ConstantArgs;
   for (unsigned i = 0, e = CurrCallList.size(); i != e; ++i) {
@@ -288,7 +302,7 @@ static bool collectAllConstantArgumentsSets(Function &F) {
     CallSite CS = CallSite(I);
 
     ConstantArgs.clear();
-    createConstantArgumentsSet(CS, F, ConstantArgs);
+    createConstantArgumentsSet(CS, F, ConstantArgs, AfterInl);
     if (ConstantArgs.size() == 0)
       continue;
     unsigned index = getConstantArgumentsSetIndex(ConstantArgs);
@@ -331,7 +345,7 @@ static bool isArgumentConstantAtPosition(
 // 'ClonedFn'.
 //
 static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
-                                   CallSite CS) {
+                                   CallSite CS, bool AfterInl) {
   // Get constant argument set for ClonedFn. 
   auto &CArgs = FunctionAllArgumentsSets[index];
 
@@ -343,7 +357,7 @@ static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
     if (!isArgumentConstantAtPosition(CArgs, position)) {
       // If argument is not constant in CArgs, then actual argument of CS 
       // should be non-constant.
-      if (isConstantArgForCloning(*CAI))
+      if (isConstantArgForCloning(*CAI, AfterInl))
         return false;
     }
     else {
@@ -380,7 +394,7 @@ static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
 //     }
 //
 static void eliminateRecursionIfPossible(Function *ClonedFn,
-                                   Function *OriginalFn, unsigned index) {
+                      Function *OriginalFn, unsigned index, bool AfterInl) {
   for (inst_iterator II = inst_begin(ClonedFn), E = inst_end(ClonedFn);
      II != E; ++II) {
     if (!isa<CallInst>(&*II))
@@ -389,8 +403,9 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
     CallSite CS = CallSite(&*II);
     Function *Callee = CS.getCalledFunction();
     if (Callee == OriginalFn && 
-        okayEliminateRecursion(ClonedFn, index, CS)) {
+        okayEliminateRecursion(ClonedFn, index, CS, AfterInl)) {
       CS.setCalledFunction(ClonedFn);
+      NumIPCallsCloned++;
 
       if (IPCloningTrace)
         errs() << " Replaced Cloned call:   " << *CS.getInstruction() << "\n";
@@ -400,7 +415,7 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
 
 // It does actual cloning and fixes recursion calls if possible.
 //
-static void cloneFunction(void) {
+static void cloneFunction(bool AfterInl) {
   for (unsigned I = 0, E = CurrCallList.size(); I != E; ++I) {
     ValueToValueMapTy VMap;
     Instruction* CallInst = CurrCallList[I];
@@ -422,11 +437,12 @@ static void cloneFunction(void) {
       NewFn = CloneFunction(SrcFn, VMap);
       ArgSetIndexClonedFunctionMap[index] = NewFn;
       ClonedFunctionList.insert(NewFn);
+      NumIPCloned++;
     }
 
     CS.setCalledFunction(NewFn);
-    NumIPCloned++;
-    eliminateRecursionIfPossible(NewFn, SrcFn, index);
+    NumIPCallsCloned++;
+    eliminateRecursionIfPossible(NewFn, SrcFn, index, AfterInl);
 
     if (IPCloningTrace)
       errs() << " Cloned call:   " << *CS.getInstruction() << "\n";
@@ -435,7 +451,7 @@ static void cloneFunction(void) {
 
 // Main routine to analyze all calls and clone functions if profitable.
 //
-static bool analysisCallsCloneFunctions(Module &M) {
+static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
   bool FunctionAddressTaken;
 
   if (IPCloningTrace)
@@ -456,7 +472,7 @@ static bool analysisCallsCloneFunctions(Module &M) {
     if (IPCloningTrace)
       errs() << " Cloning Analysis for:  " <<  F.getName() << "\n";
 
-    FunctionAddressTaken = analyzeAllCallsOfFunction(F);
+    FunctionAddressTaken = analyzeAllCallsOfFunction(F, AfterInl);
 
     // It is okay to enable cloning for address taken routines but
     // disable it for now.
@@ -490,13 +506,13 @@ static bool analysisCallsCloneFunctions(Module &M) {
       continue;
     }
 
-    if (!collectAllConstantArgumentsSets(F)) {
+    if (!collectAllConstantArgumentsSets(F, AfterInl)) {
       if (IPCloningTrace)
         errs() << " Skipping not profitable candidate " << F.getName() << "\n";
       continue;
     }
 
-    cloneFunction();
+    cloneFunction(AfterInl);
   }
 
   if (IPCloningTrace)
@@ -508,10 +524,10 @@ static bool analysisCallsCloneFunctions(Module &M) {
   return false;
 }
 
-static bool runIPCloning(Module &M) {
+static bool runIPCloning(Module &M, bool AfterInl) {
   bool Change = false;
 
-  Change = analysisCallsCloneFunctions(M);
+  Change = analysisCallsCloneFunctions(M, AfterInl);
   clearAllMaps(); 
 
   return Change;
@@ -520,8 +536,10 @@ static bool runIPCloning(Module &M) {
 namespace {
 
 struct IPCloningLegacyPass : public ModulePass {
+public:
   static char ID; // Pass identification, replacement for typeid
-  IPCloningLegacyPass() : ModulePass(ID) {
+  IPCloningLegacyPass(bool AfterInl = false)
+      : ModulePass(ID), AfterInl(AfterInl) {
     initializeIPCloningLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -533,8 +551,13 @@ struct IPCloningLegacyPass : public ModulePass {
     if (skipModule(M))
       return false;
 
-    return runIPCloning(M);
+    return runIPCloning(M, AfterInl);
   }
+
+private:
+  // This flag helps to decide whether function addresses or other
+  // constants need to be considered for cloning.
+  bool AfterInl;
 };
 }
 
@@ -542,13 +565,13 @@ char IPCloningLegacyPass::ID = 0;
 INITIALIZE_PASS(IPCloningLegacyPass, "ip-cloning", "IP Cloning", false, false)
 
 
-ModulePass *llvm::createIPCloningLegacyPass() {
-  return new IPCloningLegacyPass();
+ModulePass *llvm::createIPCloningLegacyPass(bool AfterInl) {
+  return new IPCloningLegacyPass(AfterInl);
 }
 
 PreservedAnalyses IPCloningPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
-  if (runIPCloning(M))
+  if (runIPCloning(M, AfterInl))
     return PreservedAnalyses::none();
   return PreservedAnalyses::all();
 }

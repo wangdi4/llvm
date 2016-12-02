@@ -223,7 +223,7 @@ ModulePass *createWholeProgramDevirtPass();
 
 #if INTEL_CUSTOMIZATION
 /// \brief This pass implements IP Cloning
-ModulePass *createIPCloningLegacyPass();
+ModulePass *createIPCloningLegacyPass(bool AfterInl = false);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

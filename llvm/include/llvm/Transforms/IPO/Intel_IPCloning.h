@@ -24,6 +24,11 @@ namespace llvm {
 class IPCloningPass : public PassInfoMixin<IPCloningPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
+
+private:
+  // This flag helps to decide whether function addresses or other
+  // constants need to be considered for cloning.
+  bool AfterInl;
 };
 }
 #endif // LLVM_TRANSFORMS_IPO_INTEL_IPCLONING_H
