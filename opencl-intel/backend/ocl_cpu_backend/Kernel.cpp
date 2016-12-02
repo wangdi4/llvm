@@ -585,7 +585,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
   // running the kernel with the specified args and (groupID, runtimeHandle)
 #if defined (ENABLE_SDE)
-  // do not forger to export BeforeExecution and AfterExecution symbols
+  // do not forget to export BeforeExecution and AfterExecution symbols
   // in OclCpuBackEnd_linux_exports.txt
   BeforeExecution();
 
