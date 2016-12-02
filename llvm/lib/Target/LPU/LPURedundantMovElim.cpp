@@ -36,6 +36,11 @@ ElimMovLimit("lpu-elim-mov-limit",
              cl::desc("LPU Specific: Limit on MOV instructions to disconnect"),
              cl::init(-1));
 
+static cl::opt<int>
+SXUMovConstantProp("lpu-sxu-mov-constant-prop",
+                   cl::Hidden,
+                   cl::desc("LPU Specific: Constant propagate from a MOV instruction on the SXU"),
+                   cl::init(0));
 
 #define DEBUG_TYPE "lpu-redundant-mov-elim"
 
@@ -71,8 +76,7 @@ namespace {
     //  (c) "dest" is the unique definition of the LIC.
     //       (i.e., there can't be an INIT statement also defining dest)
     //  (d) "src" has a unique definition as well.
-    //  (e) The definining instruction of "src" is a dataflow instruction.
-    //  (f) The "effective" bitwidth of the result is the same before
+    //  (e) The "effective" bitwidth of the result is the same before
     //      and after removing the MOV.
     //
     //      The effective bitwidth is the number of output bits in
@@ -105,12 +109,42 @@ namespace {
     // correct transition between SXU and dataflow code.
     bool isRedundantMov(const MachineInstr& MI) const;
 
+
     // Eliminate a MOV instruction, assuming that we have already
     // determined it is not needed.
     void disconnectMovInstr(MachineInstr& MI);
 
+    
+    // Returns true if this instruction is a MOV of an immediate into
+    // a LIC, not on a sequential unit.
+    bool isSXUConstantMov(const MachineInstr& MI) const;
 
 
+
+    // Returns true if this operand is the use of a channel with an
+    // INIT associated with it.
+    bool isInitializedMachineOperand(const MachineOperand& MO) const;
+
+    // Returns true if the operand at op_idx corresponds to one of the
+    // memory ordering token operands.
+    bool isConstantReplaceableOperand(MachineInstr* MI,
+                                      unsigned op_idx) const;
+
+
+    // Returns true if this machine instruction (which should use
+    // dest_reg) is a candidate for replacing dest_reg with a
+    // constant.
+    bool isCandidateForSXUConstantReplacement(MachineInstr* use_MI,
+                                              unsigned dest_reg) const;
+    
+    // Propagate the constant that is the src of MI to its
+    // destinations if possible.
+    //
+    // This function will disconnect MI if this MOV instruction
+    // becomes redundant.
+    //
+    // Returns true if any part of the graph changed, and/or
+    bool sxuConstantPropMovAndDisconnect(MachineInstr& MI);
 
     // Some helper methods we are using in the implementation.
     // Ideally, some of these other methods would be in common files,
@@ -151,15 +185,242 @@ LPURedundantMovElim::getSingleDef(unsigned Reg,
   return Ret;
 }
 
+bool
+LPURedundantMovElim::isInitializedMachineOperand(const MachineOperand& MO) const {
+  if (MO.isReg() &&
+      MO.isUse()) {
+    unsigned reg = MO.getReg();
+    int num_inits = 0;
+    for (MachineInstr& DefMI : MRI->def_instructions(reg)) {
+      if (DefMI.isDebugValue())
+        continue;
+      if (TII->isInit(&DefMI)) {
+        num_inits++;
+      }
+    }
+    return (num_inits > 0);
+  }
+  else {
+    return false;
+  }
+}
+
+
+bool
+LPURedundantMovElim::isConstantReplaceableOperand(MachineInstr* MI,
+                                                  unsigned op_idx) const {
+  if (!(TII->isOrderedLoad(MI) ||
+        TII->isOrderedStore(MI))) {
+    return true;
+  }
+  // The last operand on ordered memory op should be the memory
+  // ordering op.    
+  return (op_idx != (MI->getNumOperands()-1));
+}
+
+bool
+LPURedundantMovElim::isCandidateForSXUConstantReplacement(MachineInstr* use_MI,
+                                                          unsigned dest_reg) const {
+
+  // Count register inputs of this instruction that we are allowed
+  // to replace with a constant.
+  int num_reg_inputs = 0;
+  int num_inputs_matching_dest = 0;
+  int numOps = use_MI->getNumOperands();
+
+  // There is a list of instructions here for which
+  // constant-replacement is a bad idea.
+  //
+  //  PICK can be bad if both the selector and one of the inputs is a
+  //  constant.
+  //
+  //  Are there other cases? 
+  //
+  // TBD(jsukha): This code here is a terrible hack and likely to be
+  // broken for arbitrary code.  What is the correct algorithm for
+  // determining whether it is safe to replace a given machine operand
+  // with a constant?  It seems like we might need to analyze the
+  // conditions for of the dataflow operations separately.
+  if (!(TII->isPick(use_MI))) {
+    for (int op_idx = 0; op_idx < numOps; ++op_idx) {
+      MachineOperand& MO = use_MI->getOperand(op_idx);
+      if (MO.isReg() &&
+          MO.isUse() &&
+          (!isInitializedMachineOperand(MO))) {
+        
+        num_reg_inputs++;
+        if (isConstantReplaceableOperand(use_MI, op_idx)) {
+          if (MO.getReg() == dest_reg) {
+            DEBUG(errs() << "In instruction " << *use_MI
+                  << ": matches index " << op_idx << "\n");
+            num_inputs_matching_dest++;
+          }
+        }
+      }
+    }
+  }
+
+  // If we have at least one matching input, and we have at least one
+  // register input that is not matching the destination, we can
+  // constant propagate. 
+  if ((num_inputs_matching_dest > 0) &&
+      (num_inputs_matching_dest < num_reg_inputs)) {
+    DEBUG(errs() << "RedundantMovElim: SXU Constant propagate on instruction " << *use_MI
+          << " matching inputs = " << num_inputs_matching_dest
+          << ", total reg inputs = " << num_reg_inputs << "\n");
+    return true;
+  }
+  else {
+    DEBUG(errs() << "WARNING: skipping constant prop on instruction "
+          << use_MI << " because all valid inputs would be replaced\n");
+    return false;
+  }
+}
+
+// Return true if this instruction can be determined to be an
+// unnecessary MOV.
+bool LPURedundantMovElim::isSXUConstantMov(const MachineInstr& MI) const {
+
+  if (MI.getFlag(MachineInstr::NonSequential))
+    return false;
+
+  assert(MI.getNumOperands() == 2);
+  const MachineOperand* dest = &MI.getOperand(0);
+  const MachineOperand* src = &MI.getOperand(1);
+
+  // Check that dest is a physical register (i.e., a LIC).
+  if (!dest->isReg() ||
+      TargetRegisterInfo::isVirtualRegister(dest->getReg())) {
+    return false;
+  }
+  
+  return (src->isImm() || src->isFPImm());
+}
+
+
+bool LPURedundantMovElim::sxuConstantPropMovAndDisconnect(MachineInstr& MI) {
+  const MachineOperand* dest = &MI.getOperand(0);
+  const MachineOperand* src = &MI.getOperand(1);
+  assert(src->isImm() || src->isFPImm());
+  assert(dest->isReg());
+  
+  unsigned long long cval;
+  unsigned dest_reg = dest->getReg();
+  const TargetRegisterClass* dest_RC = TII->lookupLICRegClass(dest_reg);
+  int mov_bitwidth = TII->getMOVBitwidth(MI.getOpcode());
+  int dest_bitwidth = dest_RC->getSize();
+  int final_bitwidth = std::min(mov_bitwidth, dest_bitwidth);
+
+  const ConstantFP* fval;
+  bool is_int;
+  if (src->isImm()) {
+    is_int = true;
+    cval = src->getImm();
+  }
+  else {
+    is_int = false;    
+    fval = src->getFPImm();
+  }
+
+
+  unsigned long long upper_bound = (1ULL << final_bitwidth)-1;
+  
+  if ((final_bitwidth == 0) || (cval < upper_bound)) {
+    SmallVector<MachineInstr*, 8> uses_of_dest;
+    int total_use_count = 0;
+    
+    // Check that the constant we are moving will "fit" into the
+    // output.  0 bitwidth is a special case; it is legal to propagate
+    // that constant since we shouldn't actually care about the
+    // value...
+
+    // Algorithm: Walk over all the uses of "dest", put them into a
+    // list.
+    for (auto def_it = MRI->use_instr_begin(dest_reg);
+         def_it != MRI->use_instr_end();
+         ++def_it) {
+      MachineInstr* use_MI = &(*def_it);
+
+      bool is_candidate = isCandidateForSXUConstantReplacement(use_MI,
+                                                               dest_reg);
+      if (is_candidate) {
+        uses_of_dest.push_back(use_MI);
+      }
+      total_use_count++;
+    }
+
+    int total_changes = 0;
+    for (auto it = uses_of_dest.begin();
+         it != uses_of_dest.end();
+         ++it) {
+      MachineInstr* use_MI = *it;
+      int num_changes = 0;
+      int K = use_MI->getNumOperands();
+      
+      for (int j = 0; j < K; ++j) {
+        MachineOperand& MO = use_MI->getOperand(j);
+        if (MO.isReg() &&
+            MO.isUse() &&
+            MO.getReg() == dest_reg) {
+          if (isConstantReplaceableOperand(use_MI, j)) {
+            if (is_int) {
+              MO.ChangeToImmediate(cval);
+            }
+            else {
+              MO.ChangeToFPImmediate(fval);
+            }
+          }
+          num_changes++;
+        }
+      }
+      // If we didn't find at least one thing to change, then
+      // something is wrong...
+      assert(num_changes > 0);
+      total_changes += (num_changes > 0);
+    }
+
+    assert(total_changes <= total_use_count);
+    if (total_changes == total_use_count) {
+      DEBUG(errs() << "Propagated all uses of constant. disconnecting "
+            << MI << "\n");
+      // Eliminate all remaining uses of dest.
+      MachineOperand& dest_to_edit = MI.getOperand(0);
+      dest_to_edit.substPhysReg(LPU::IGN, *(this->TRI));
+    }
+    else {
+      DEBUG(errs() << "Only "
+            << total_changes << " out of "
+            << total_use_count << " converted.\n");
+    }
+    return (total_changes > 0);
+  }
+  else {
+    if (is_int) {
+      DEBUG(errs() << "WARNING: Not propagating an int constant "
+            << cval << " to an output channel of bitwidth "
+            << final_bitwidth << " \n");
+    }
+    else {
+      DEBUG(errs() << "WARNING: Not propagating a FP constant "
+            << fval << " to an output channel of bitwidth "
+            << final_bitwidth << " \n");
+    }
+    return false;
+  }
+}
 
 
 // Return true if this instruction can be determined to be an
 // unnecessary MOV.
 bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
 
+  // Check each of the conditions described in comments above:
+  
+  // (a) 
   if (!MI.getFlag(MachineInstr::NonSequential))
     return false;
 
+  // (b)
   assert(MI.getNumOperands() == 2);
   const MachineOperand* dest = &MI.getOperand(0);
   const MachineOperand* src = &MI.getOperand(1);
@@ -178,6 +439,8 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
   unsigned src_reg = src->getReg();
   unsigned dest_reg = dest->getReg();
 
+  // (c)
+  //
   // Check for only one definition of destination.  More than one
   // definition usually indicates an initial value on the channel
   // (from an INIT) instruction.  We would have to be more careful in
@@ -190,6 +453,9 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
     return false;
   }
 
+
+  // (d)
+  //
   // Also check for a single definition of the source.
   //
   // TBD: Actually, it would be ok to have multiple definitions, but
@@ -203,10 +469,7 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
     return false;
   }
 
-  // Check that the defining instruction is on a dataflow unit.
-  if (!src_def_MI->getFlag(MachineInstr::NonSequential))
-    return false;
-
+  // (e)
   const TargetRegisterClass* src_RC= TII->lookupLICRegClass(src_reg);
   const TargetRegisterClass* dest_RC = TII->lookupLICRegClass(dest_reg);
 
@@ -218,6 +481,12 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
   int src_bitwidth = src_RC->getSize();
   int mov_bitwidth = TII->getMOVBitwidth(MI.getOpcode());
   int dest_bitwidth = dest_RC->getSize();
+
+  // Special case: a COPY instruction has an implicit bitwidth equal
+  // to the source.
+  if (MI.isCopy()) {
+    mov_bitwidth = src_bitwidth;
+  }
 
   if ((src_bitwidth < 0) ||
       (mov_bitwidth < 0) ||
@@ -264,7 +533,7 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
 void LPURedundantMovElim::disconnectMovInstr(MachineInstr& MI) {
   DEBUG(errs() << "TBD: Disconnect MOV instr " << MI << "\n");
 
-  assert(TII->isMOV(&MI) || TII->isMemTokenMOV(&MI));
+  assert(TII->isMOV(&MI) || TII->isMemTokenMOV(&MI) || MI.isCopy());
   MachineOperand* dest = &MI.getOperand(0);
   MachineOperand* src = &MI.getOperand(1);
 
@@ -274,14 +543,6 @@ void LPURedundantMovElim::disconnectMovInstr(MachineInstr& MI) {
   unsigned dest_reg = dest->getReg();
   assert(src->isReg());
   unsigned src_reg = src->getReg();
-
-  // First, count the number of uses.
-  int num_uses = 0;
-  for (auto def_it = MRI->use_instr_begin(dest_reg);
-       def_it != MRI->use_instr_end();
-       ++def_it) {
-    num_uses++;
-  }
 
   // First, find all instructions that use the dest register.
   // Build a list.
@@ -360,13 +621,27 @@ bool LPURedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
     for (MachineBasicBlock::reverse_iterator MII = MBB.rbegin(),
            MIE = MBB.rend(); MII != MIE; ) {
       MachineInstr& MI = *MII++;
-      if (TII->isMOV(&MI) || TII->isMemTokenMOV(&MI)) {
+      if (TII->isMOV(&MI) || TII->isMemTokenMOV(&MI) || MI.isCopy()) {
         if (isRedundantMov(MI)) {
           DEBUG(errs() << "RedundantMovElim: Found instruction to eliminate " << MI << "\n");
           if ((ElimMovLimit < 0) || (num_removed < ElimMovLimit)) {
             disconnectMovInstr(MI);
             LocalChanges = true;
             num_removed++;
+          }
+        }
+        else {
+          if (SXUMovConstantProp) {
+            if (isSXUConstantMov(MI)) {
+              DEBUG(errs() << "RedundantMovElim: Checking constant mov " << MI << "\n");
+              // Try to propagate some MOV of constants when possible.
+              // This is not always legal to do.
+              bool changed = sxuConstantPropMovAndDisconnect(MI);
+              LocalChanges = LocalChanges || changed;
+            }
+            else {
+              DEBUG(errs() << "RedundantMovElim: Ignoring mov " << MI << "\n");
+            }
           }
         }
       }
