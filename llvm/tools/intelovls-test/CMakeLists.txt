@@ -1,4 +1,7 @@
 set(LLVM_LINK_COMPONENTS
+  ${LLVM_TARGETS_TO_BUILD}
+  MC
+  Target
   Analysis
   )
 add_llvm_tool(intelovls-test
