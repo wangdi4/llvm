@@ -14,7 +14,7 @@ function(tablegen project ofn)
     endif()
   endforeach()
 
-  file(GLOB local_tds "*.td")
+  file(GLOB_RECURSE local_tds "*.td") # INTEL_CUSTOMIZATION
   file(GLOB_RECURSE global_tds "${LLVM_MAIN_INCLUDE_DIR}/llvm/*.td")
 
   if (IS_ABSOLUTE ${LLVM_TARGET_DEFINITIONS})
