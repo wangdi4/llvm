@@ -93,7 +93,8 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
       // CQ#366562 - let #pragma unroll value be out of striclty positive 32-bit
       // integer range: disable unrolling if value is 0, otherwise treat this
       // like #pragma unroll without argument.
-      if (S.getLangOpts().IntelCompat) {
+      // CQ#415958 - ignore this behavior in template types (isValueDependent).
+      if (S.getLangOpts().IntelCompat && !ValueExpr->isValueDependent()) {
         llvm::APSInt Val;
         ExprResult Res = S.VerifyIntegerConstantExpression(ValueExpr, &Val);
         if (Res.isInvalid())
@@ -101,16 +102,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
 
         bool ValueIsPositive = Val.isStrictlyPositive();
         if (!ValueIsPositive || Val.getActiveBits() > 31) {
-          if (Val.getBoolValue()) {
-            // Non-zero (negative or too large) value: just ignore the argument.
-            S.Diag(ValueExpr->getExprLoc(),
-                   diag::warn_pragma_unroll_invalid_factor_ignored)
-                << Val.toString(10) << ValueIsPositive;
-            State = LoopHintAttr::Enable;
-          } else {
-            // #pragma unroll(0) disables unrolling.
-            State = LoopHintAttr::Disable;
-          }
+          // Non-zero (negative or too large) value: just ignore the argument.
+          // #pragma unroll(0) disables unrolling.
+          State = Val.getBoolValue() ? LoopHintAttr::Enable : LoopHintAttr::Disable;
           Option = LoopHintAttr::Unroll;
           ValueExpr = nullptr;
         }

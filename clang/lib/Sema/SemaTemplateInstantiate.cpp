@@ -1114,8 +1114,34 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
     return LH;
 
   // Generate error if there is a problem with the value.
-  if (getSema().CheckLoopHintExpr(TransformedExpr, LH->getLocation()))
+#if INTEL_CUSTOMIZATION
+  if (getSema().CheckLoopHintExpr(TransformedExpr, LH->getLocation(),
+                                  !getSema().getLangOpts().IntelCompat ||
+                                      LH->getSemanticSpelling() !=
+                                          LoopHintAttr::Pragma_unroll))
+#endif // INTEL_CUSTOMIZATION
     return LH;
+
+#if INTEL_CUSTOMIZATION
+  if (getSema().getLangOpts().IntelCompat && 
+      LH->getSemanticSpelling() == LoopHintAttr::Pragma_unroll &&
+      LH->getOption() == LoopHintAttr::UnrollCount &&
+      LH->getState() == LoopHintAttr::Numeric) {
+    llvm::APSInt ValueAPS;
+    ExprResult R = getSema().VerifyIntegerConstantExpression(TransformedExpr, &ValueAPS);
+
+    if (!R.isInvalid() && (!ValueAPS.isStrictlyPositive() ||
+        ValueAPS.getActiveBits() > 31)){
+      if (ValueAPS.getBoolValue())
+        return LoopHintAttr::CreateImplicit(
+            getSema().Context, LH->getSemanticSpelling(), LoopHintAttr::Unroll,
+            LoopHintAttr::Enable, TransformedExpr, LH->getRange());
+      return LoopHintAttr::CreateImplicit(
+          getSema().Context, LH->getSemanticSpelling(), LoopHintAttr::Unroll,
+          LoopHintAttr::Disable, TransformedExpr, LH->getRange());
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Create new LoopHintValueAttr with integral expression in place of the
   // non-type template parameter.

@@ -3277,10 +3277,18 @@ bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc) {
     return true;
 
   bool ValueIsPositive = ValueAPS.isStrictlyPositive();
+
 #if INTEL_CUSTOMIZATION
-  // CQ#366562. If it is pragma unroll in IntelCompat mode (IsCheckRange set to
-  // false), don't test the value since we will NOT emit any diagnostics anyway.
-  if (IsCheckRange)
+  // CQ415958/CQ366562: In non-dependent cases, warn if the value is going
+  // to be ignored.
+  if (!IsCheckRange) {
+    if ((!ValueIsPositive || ValueAPS.getActiveBits() > 31) &&
+        ValueAPS.getBoolValue()) {
+      Diag(E->getExprLoc(),
+             diag::warn_pragma_unroll_invalid_factor_ignored)
+          << ValueAPS.toString(10) << ValueIsPositive;
+    }
+  } else
 #endif // INTEL_CUSTOMIZATION
   if (!ValueIsPositive || ValueAPS.getActiveBits() > 31) {
     Diag(E->getExprLoc(), diag::err_pragma_loop_invalid_argument_value)
