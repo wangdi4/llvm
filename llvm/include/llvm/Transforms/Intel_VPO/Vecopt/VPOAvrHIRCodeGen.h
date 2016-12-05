@@ -17,6 +17,8 @@
 #define LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRHIRCODEGEN_H
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIfHIR.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include <map>
 
@@ -71,8 +73,8 @@ private:
 // instructions.
 class AVRCodeGenHIR {
 public:
-  AVRCodeGenHIR(AVR *Avr, HIRSafeReductionAnalysis *SRA)
-      : Avr(Avr), SRA(SRA), ALoop(nullptr), OrigLoop(nullptr),
+  AVRCodeGenHIR(AVR *Avr, TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA)
+      : Avr(Avr), TLI(TLI), SRA(SRA), ALoop(nullptr), OrigLoop(nullptr),
         MainLoop(nullptr), NeedRemainderLoop(false), TripCount(0), VL(0),
         RHM(Avr) {}
 
@@ -82,8 +84,9 @@ public:
   // vectorization factor.
   bool vectorize(unsigned int VF);
 
-  // Check if loop is currently suported by AVRCodeGen.
-  bool loopIsHandled(unsigned int VF);
+  // Check if loop is currently suported by AVRCodeGen. The checks performed by
+  // this function can be enabled for cost modeling analysis only.
+  bool loopIsHandled(unsigned int VF, bool CostModel);
 
   // Return the cost of remainder loop code, if a remainder loop is needed.
   int getRemainderLoopCost(HLLoop *Loop, unsigned int VF,
@@ -97,6 +100,10 @@ public:
 
 private:
   AVR *Avr;
+
+  // Target Library Info is used to check for svml.
+  TargetLibraryInfo *TLI;
+
   HIRSafeReductionAnalysis *SRA;
 
   // AVRLoop in AVR region
@@ -147,7 +154,7 @@ private:
   // a constant, zero otherwise.
   bool loopIsHandledImpl(int64_t &TripCount);
 
-  void widenNode(const HLNode *Node);
+  void widenNode(AVRAssignHIR *AvrNode);
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node);
 
@@ -159,6 +166,12 @@ private:
   void eraseLoopIntrins();
   void processLoop();
   RegDDRef *widenRef(const RegDDRef *Ref);
+
+  /// \brief Analyzes the memory references of \p OrigCall to determine
+  /// stride. The resulting stride information is attached to the arguments
+  /// of \p WideCall in the form of attributes.
+  void analyzeCallArgMemoryReferences(const HLInst *OrigCall, HLInst *WideCall,
+                                      SmallVectorImpl<RegDDRef*> &Args);
 
   // Return true if the loop is a small loop(atmost 2 instructions)
   // with add reduction of 16-bit integer values into 32/64 bit

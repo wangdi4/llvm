@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include <map>
@@ -72,11 +73,12 @@ private:
 // instructions.
 class AVRCodeGen {
 public:
-  AVRCodeGen(AVR *Avr, ScalarEvolution *SE, LoopInfo *LI, Function *F)
-      : Avr(Avr), F(F), SE(SE), LI(LI), OrigLoop(nullptr), TripCount(0), VL(0),
-        Builder(F->getContext()), LoopBackEdge(nullptr), InductionPhi(nullptr),
-        InductionCmp(nullptr), StartValue(nullptr), StrideValue(nullptr),
-        NewInductionVal(nullptr), RM(Avr) {}
+  AVRCodeGen(AVR *Avr, ScalarEvolution *SE, LoopInfo *LI,
+             TargetLibraryInfo *TLI, Function *F)
+      : Avr(Avr), F(F), SE(SE), LI(LI), TLI(TLI), OrigLoop(nullptr),
+        TripCount(0), VL(0), Builder(F->getContext()), LoopBackEdge(nullptr),
+        InductionPhi(nullptr), InductionCmp(nullptr), StartValue(nullptr),
+        StrideValue(nullptr), NewInductionVal(nullptr), RM(Avr) {}
 
   ~AVRCodeGen() { WidenMap.clear(); }
 
@@ -86,8 +88,10 @@ public:
 
   // Check if loop is currently suported by AVRCodeGen. If \p VF is 0 ignore 
   // it (which means that checks such as whether the trip count is evenly
-  // divisible by VF will not be done).  
-  bool loopIsHandled(unsigned int VF);
+  // divisible by VF will not be done). The cost model mode can be used to
+  // pre-enable cost modeling analysis before code generation support is in
+  // place.
+  bool loopIsHandled(unsigned int VF, bool CostModel);
 
   // Return the cost of remainder loop code, if a remainder loop is needed.
   int getRemainderLoopCost(Loop *Loop, unsigned int VF, 
@@ -98,6 +102,7 @@ private:
   Function *F;
   ScalarEvolution *SE;
   LoopInfo *LI;
+  TargetLibraryInfo *TLI;
 
   // AVRLoop in AVR region
   AVRLoop *ALoop;
@@ -175,6 +180,11 @@ private:
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
   void vectorizeStoreInstruction(Instruction *Inst, bool EmitIntrinsic = false);
+
+  // Widen call instruction parameters and return. Currently, this is limited
+  // to svml function support that is hooked in to TLI. Later, this can be
+  // extended to user-defined vector functions.
+  void vectorizeCallInstruction(CallInst *Call);
 
   // Widen the given PHI instruction. For now we assume this corresponds to
   // the Induction PHI.

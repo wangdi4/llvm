@@ -213,6 +213,9 @@ protected:
   /// \brief A handle to Target Information
   const TargetTransformInfo &TTI;
 
+  /// \brief A handle to Target Library Info
+  const TargetLibraryInfo &TLI;
+
   /// \brief Vectorization Factor.
   unsigned int VF;
 
@@ -222,9 +225,11 @@ protected:
   AVRLoop *ALoop;
 
 public:
-  VPOCostGathererBase(const TargetTransformInfo &TTI, unsigned int VF,
+  VPOCostGathererBase(const TargetTransformInfo &TTI, 
+                      const TargetLibraryInfo &TLI,
+                      unsigned int VF,
                       AVRLoop *ALoop)
-      : TTI(TTI), VF(VF), ALoop(ALoop) {
+      : TTI(TTI), TLI(TLI), VF(VF), ALoop(ALoop) {
     LoopBodyCost = 0;
     OutOfLoopCost = 0;
   }
@@ -266,6 +271,7 @@ public:
   void visit(AVRIf *If);
   void visit(AVRSelect *Select);
   void visit(AVRCall *Call);
+  void visit(AVRPredicate *Predicate);
   /// @}
 
   /// \brief Wrapper to calling the TTI utility for gather/scatter cost.
@@ -301,10 +307,12 @@ public:
 /// LLVMIR CostGatherer
 class VPOCostGatherer : public VPOCostGathererBase {
 public:
-  VPOCostGatherer(const TargetTransformInfo &TTI, unsigned int VF,
+  VPOCostGatherer(const TargetTransformInfo &TTI,
+                  const TargetLibraryInfo &TLI, unsigned int VF,
                   AVRLoop *ALoop, OVLSTTICostModelLLVMIR *TTICM, 
                   VPOVLSInfo *VLSInfo)
-      : VPOCostGathererBase(TTI, VF, ALoop), TTICM(TTICM), VLSInfo(VLSInfo) {
+      : VPOCostGathererBase(TTI, TLI, VF, ALoop), TTICM(TTICM),
+                            VLSInfo(VLSInfo) {
     assert(isa<AVRLoopIR>(*ALoop) && "Loop not set.");
   }
   ~VPOCostGatherer() {}
@@ -342,10 +350,12 @@ private:
 /// HIR CostGatherer
 class VPOCostGathererHIR : public VPOCostGathererBase {
 public:
-  VPOCostGathererHIR(const TargetTransformInfo &TTI, unsigned int VF,
+  VPOCostGathererHIR(const TargetTransformInfo &TTI,
+                     const TargetLibraryInfo &TLI, unsigned int VF,
                      AVRLoop *ALoop, OVLSTTICostModelHIR *TTICM, 
                      VPOVLSInfoHIR *VLSInfo)
-      : VPOCostGathererBase(TTI, VF, ALoop), TTICM(TTICM), VLSInfo(VLSInfo) {
+      : VPOCostGathererBase(TTI, TLI, VF, ALoop), TTICM(TTICM),
+                            VLSInfo(VLSInfo) {
     assert(isa<AVRLoopHIR>(*ALoop) && "Loop not set.");
   }
   ~VPOCostGathererHIR() {}
@@ -411,10 +421,12 @@ protected:
 
   /// \brief A handle to Target Information
   const TargetTransformInfo &TTI;
+  const TargetLibraryInfo &TLI;
 
 public:
-  VPOCostModelBase(AVRWrn *AWrn, const TargetTransformInfo &TTI)
-      : AWrn(AWrn), TTI(TTI) {}
+  VPOCostModelBase(AVRWrn *AWrn, const TargetTransformInfo &TTI,
+                   const TargetLibraryInfo &TLI)
+      : AWrn(AWrn), TTI(TTI), TLI(TLI) {}
 
   /// \brief Calculate a cost for the given \p ALoop assuming the Vectorization
   /// Factor is \p VF.
@@ -439,8 +451,9 @@ public:
 class VPOCostModel : public VPOCostModelBase {
 public:
   VPOCostModel(AVRWrn *AWrn, const TargetTransformInfo &TTI, 
-               LLVMContext &LLVMCntxt)
-      : VPOCostModelBase(AWrn, TTI), CG(nullptr), VLSCostModel(TTI, LLVMCntxt) {
+               const TargetLibraryInfo &TLI, LLVMContext &LLVMCntxt)
+      : VPOCostModelBase(AWrn, TTI, TLI), CG(nullptr),
+                         VLSCostModel(TTI, LLVMCntxt) {
     CostGatherer = nullptr;
   }
 
@@ -449,13 +462,13 @@ public:
   VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
                                        VPOVLSInfoBase *VLSInfo) override {
     if (VLSInfo == nullptr) {
-      CostGatherer = new VPOCostGatherer(TTI, VF, ALoop, nullptr, nullptr);
+      CostGatherer = new VPOCostGatherer(TTI, TLI, VF, ALoop, nullptr, nullptr);
       return CostGatherer;
     }
     assert(isa<VPOVLSInfo>(*VLSInfo) && "VLSInfo not an LLVMIR VLSInfo");
     VPOVLSInfo *VLSInfoLLVMIR = cast<VPOVLSInfo>(VLSInfo);
     // Pass the underlying LLVMIR Loop instead
-    CostGatherer = new VPOCostGatherer(TTI, VF, ALoop, &VLSCostModel, 
+    CostGatherer = new VPOCostGatherer(TTI, TLI, VF, ALoop, &VLSCostModel, 
                                        VLSInfoLLVMIR);
     return CostGatherer;
   }
@@ -481,8 +494,9 @@ private:
 class VPOCostModelHIR : public VPOCostModelBase {
 public:
   VPOCostModelHIR(AVRWrn *AWrn, const TargetTransformInfo &TTI, 
-                  LLVMContext &LLVMCntxt) 
-      : VPOCostModelBase(AWrn, TTI), CG(nullptr), VLSCostModel(TTI, LLVMCntxt) {
+                  const TargetLibraryInfo &TLI, LLVMContext &LLVMCntxt) 
+      : VPOCostModelBase(AWrn, TTI, TLI), CG(nullptr),
+        VLSCostModel(TTI, LLVMCntxt) {
     CostGatherer = nullptr;
   }
 
@@ -491,13 +505,14 @@ public:
   VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop,
                                        VPOVLSInfoBase *VLSInfo) override {
     if (VLSInfo == nullptr) {
-      CostGatherer = new VPOCostGathererHIR(TTI, VF, ALoop, nullptr, nullptr);
+      CostGatherer = new VPOCostGathererHIR(TTI, TLI, VF, ALoop, nullptr,
+                                            nullptr);
       return CostGatherer;
     }
     assert(isa<VPOVLSInfoHIR>(*VLSInfo) && "VLSInfo not a VLSInfoHIR");
     VPOVLSInfoHIR *VLSInfoHIR = cast<VPOVLSInfoHIR>(VLSInfo);
     // Pass the underlying HLLoop instead
-    CostGatherer = new VPOCostGathererHIR(TTI, VF, ALoop, &VLSCostModel, 
+    CostGatherer = new VPOCostGathererHIR(TTI, TLI, VF, ALoop, &VLSCostModel, 
                                           VLSInfoHIR);
     return CostGatherer;
   }
@@ -561,6 +576,7 @@ private:
 protected:
   /// Handle to Target Information
   const TargetTransformInfo &TTI;
+  const TargetLibraryInfo &TLI;
 
   /// AVR Region at hand.
   AVRWrn *AWrn;
@@ -581,8 +597,9 @@ private:
 
 public:
   VPOScenarioEvaluationBase(ScenarioEvaluationKind K, AVRWrn *AWrn, 
-                            const TargetTransformInfo &TTI, LLVMContext &C)
-      : Kind(K), TTI(TTI), AWrn(AWrn), LLVMCntxt(C), ForceVF(0) {}
+                            const TargetTransformInfo &TTI, 
+                            const TargetLibraryInfo &TLI, LLVMContext &C)
+      : Kind(K), TTI(TTI), TLI(TLI), AWrn(AWrn), LLVMCntxt(C), ForceVF(0) {}
 
   virtual ~VPOScenarioEvaluationBase() {}
 
@@ -629,7 +646,7 @@ public:
   // Functions to be implemented at the underlying IR level
 
   virtual void setLoop(AVRLoop *ALoop) = 0;
-  virtual bool loopIsHandled(unsigned int ForceVF) = 0;
+  virtual bool loopIsHandled(unsigned int ForceVF, bool CostModel) = 0;
   virtual void gatherMemrefsInLoop() = 0;
   virtual VPODataDepInfoBase getDataDepInfoForLoop() = 0;
   virtual VPOVLSInfoBase *getVLSInfoForCandidate() = 0;
@@ -660,9 +677,11 @@ private:
 
 public:
   VPOScenarioEvaluation(AVRWrn *AvrWrn, const TargetTransformInfo &TTI, 
+                        const TargetLibraryInfo &TLI,
                         LLVMContext &C, AvrDefUse &DU)
-      : VPOScenarioEvaluationBase(SCEK_LLVMIR, AvrWrn, TTI, C), SLEVUtil(DU), 
-        CM(AWrn, TTI, C), CG(nullptr) {}
+      : VPOScenarioEvaluationBase(SCEK_LLVMIR, AvrWrn, TTI, TLI, C),
+                                  SLEVUtil(DU), CM(AWrn, TTI, TLI, C),
+                                  CG(nullptr) {}
 
   /// Obtain a handle to AVRCodeGen utilities
   void setCG(AVRCodeGen *LLVMIRCG) { CG = LLVMIRCG; } 
@@ -677,8 +696,8 @@ public:
   /// loop is supportable before having selected a VF. So normally a \p VF is
   /// provided only when the user requested a specific Vectorization Factor via 
   /// directives or compiler switch. 
-  bool loopIsHandled(unsigned int VF) override {
-    return CG->loopIsHandled(VF);
+  bool loopIsHandled(unsigned int VF, bool CostModel) override {
+    return CG->loopIsHandled(VF, CostModel);
   }
 
   /// Gather the memory references in the loop.
@@ -753,9 +772,11 @@ private:
 public:
   VPOScenarioEvaluationHIR(AVRWrn *AvrWrn, HIRDDAnalysis *DDA,
                            HIRVectVLSAnalysis *VLS, AvrDefUseHIR &DU,
-                           const TargetTransformInfo &TTI, LLVMContext &C)
-      : VPOScenarioEvaluationBase(SCEK_HIR, AvrWrn, TTI, C), DDA(DDA), VLS(VLS),
-        SLEVUtil(DU), CM(AWrn, TTI, C), CG(nullptr), Loop(nullptr) {}
+                           const TargetTransformInfo &TTI, 
+                           const TargetLibraryInfo &TLI, LLVMContext &C)
+      : VPOScenarioEvaluationBase(SCEK_HIR, AvrWrn, TTI, TLI, C), DDA(DDA),
+                                  VLS(VLS), SLEVUtil(DU), CM(AWrn, TTI, TLI, C),
+                                  CG(nullptr), Loop(nullptr) {}
   ~VPOScenarioEvaluationHIR() {}
 
   void setCG(AVRCodeGenHIR *HIRCG) { CG = HIRCG; } 
@@ -767,8 +788,8 @@ public:
   /// loop is supportable before having selected a VF. So normally a \p VF is
   /// provided only when the user requested a specific Vectorization Factor via 
   /// directives or compiler switch. 
-  bool loopIsHandled(unsigned int VF) override {
-    return CG->loopIsHandled(VF);
+  bool loopIsHandled(unsigned int VF, bool CostModel) override {
+    return CG->loopIsHandled(VF, CostModel);
   }
 
   void setLoop(AVRLoop *ALoop) override {

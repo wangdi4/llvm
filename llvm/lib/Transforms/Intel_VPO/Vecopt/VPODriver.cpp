@@ -79,8 +79,8 @@ public:
 
   VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn, 
                                                 Function &F) override {
-    ScenariosEngine = new VPOScenarioEvaluation(AvrWrn, *TTI, F.getContext(), 
-                                                *DefUse);
+    ScenariosEngine = new VPOScenarioEvaluation(AvrWrn, *TTI, *TLI,
+                                                F.getContext(), *DefUse);
     return *ScenariosEngine;
   }
 
@@ -122,7 +122,7 @@ public:
 
   VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn, Function &F) override {
     ScenariosEngine = new VPOScenarioEvaluationHIR(AvrWrn, DDA, VLS, *DefUse, 
-                                                   *TTI, F.getContext());
+                                                   *TTI, *TLI, F.getContext());
     return *ScenariosEngine;
   }
 
@@ -154,6 +154,7 @@ INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerate)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AvrDefUse)
 INITIALIZE_PASS_END(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
                     false)
@@ -170,6 +171,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AvrDefUseHIR)
 INITIALIZE_PASS_END(VPODriverHIR, "VPODriverHIR",
                     "VPO Vectorization Driver HIR", false, false)
@@ -194,6 +196,7 @@ bool VPODriverBase::runOnFunction(Function &F) {
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
     AVR *Avr = &*I;
@@ -207,7 +210,7 @@ bool VPODriverBase::runOnFunction(Function &F) {
 
 
     if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
-      AVRCodeGen AvrCGNode(Avr, SC, LI, &F);
+      AVRCodeGen AvrCGNode(Avr, SC, LI, TLI, &F);
       assert(isa<VPOScenarioEvaluation>(ScenariosEngine));
       VPOScenarioEvaluation *LLVMIRScenariosEngine = 
          cast<VPOScenarioEvaluation>(&ScenariosEngine); 
@@ -226,7 +229,7 @@ bool VPODriverBase::runOnFunction(Function &F) {
     } else {
       HIRSafeReductionAnalysis *SRA;
       SRA = &getAnalysis<HIRSafeReductionAnalysis>();
-      AVRCodeGenHIR AvrCGNode(Avr, SRA);
+      AVRCodeGenHIR AvrCGNode(Avr, TLI, SRA);
 
       assert(isa<VPOScenarioEvaluationHIR>(ScenariosEngine));
       VPOScenarioEvaluationHIR *HIRScenariosEngine = 
@@ -295,6 +298,7 @@ void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AVRGenerate>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<AvrDefUse>();
 
   AU.addPreserved<AVRGenerate>();
@@ -312,17 +316,6 @@ bool VPODriver::runOnFunction(Function &F) {
   // how to translate them.
   VPOUtils::stripDirectives(F);
 
-  // Set up a function pass manager so that we can run some cleanup transforms
-  // on the LLVM IR after code gen.
-  Module *M = F.getParent();
-  legacy::FunctionPassManager FPM(M);
-
-  // It is possible that stripDirectives call
-  // eliminates all instructions in a basic block except for the branch
-  // instruction. Use CFG simplify to eliminate them.
-  FPM.add(createCFGSimplificationPass());
-  FPM.run(F);
-
   return ret_val;
 }
 
@@ -334,6 +327,7 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<HIRVectVLSAnalysis>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<AvrDefUseHIR>();
 
   AU.addRequiredTransitive<HIRParser>();

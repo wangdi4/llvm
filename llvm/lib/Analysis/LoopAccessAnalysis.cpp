@@ -1948,6 +1948,15 @@ void LoopAccessInfo::collectStridedAccess(Value *MemAccess) {
   if (!Stride)
     return;
 
+#if INTEL_CUSTOMIZATION
+  // Stride is a constant so no need to version.
+  // getStrideFromPointer() was modified to return constant strides for the
+  // purpose of analyzing function call arguments. Previously, it returned
+  // only constant symbolic strides (i.e., loop invariant SCEVUnknown)
+  if (isa<ConstantInt>(Stride))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   DEBUG(dbgs() << "LAA: Found a strided access that we can version");
   DEBUG(dbgs() << "  Ptr: " << *Ptr << " Stride: " << *Stride << "\n");
   SymbolicStrides[Ptr] = Stride;

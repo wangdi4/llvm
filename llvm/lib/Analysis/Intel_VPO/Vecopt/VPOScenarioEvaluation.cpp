@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 
 #define DEBUG_TYPE "VPOScenarioEvaluation"
 
@@ -145,10 +146,8 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // isLoopHandled will not check if a remainder loop is needed.
       // FORNOW: If this loop is not supported, return a dummy VC; In the 
       // future we should continue to next candidate loop in region.
-#ifndef USE_EXPERIMENTAL_CODE
-      if (!loopIsHandled(ForceVF))
+      if (!loopIsHandled(ForceVF, true /* Cost model mode only */))
         return VectCand;
-#endif
 
       // Decomposition of AVRValueHIRs happens here
       prepareLoop(AvrLoop);
@@ -164,10 +163,6 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       if (ForceVF == 0) {
         BestCostForALoop = getCM()->getCost(ALoop, 1, nullptr);
       }
-      DEBUG(errs() << "Scalar Cost for candidate Loop = " << BestCostForALoop
-                   << "\n");
-      DEBUG(ALoop->dump(PrintDataType));
-
       VectCand = processLoop(AvrLoop, &BestCostForALoop);
 
       // TODO: Cache the best result so far for this loop (best VF, and
@@ -231,9 +226,9 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
   DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After SLEV analysis:\n";
         AWrn->print(FOS, 1, PrintNumber));
 
+#endif
   VPOPredicator Predicator;
   Predicator.runOnAvr(VPOScenarioEvaluationBase::ALoop);
-#endif
 
   // Identify VF candidates
   //
@@ -246,6 +241,7 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
   for (auto &VF : VFCandidates) {
 
     DEBUG(errs() << "Evaluate candidate with VF = " << VF << "\n");
+
     // Currently VecContext is used to hold underlying-IR level information
     // required for some of the analyses in processCandidates (namely, for VLS
     // grouping).
@@ -343,7 +339,6 @@ int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
   if (ForceVF == 0) { 
     Cost = getCM()->getCost(ALoop, VF, VLSInfo);
   } 
-  DEBUG(errs() << "Vector Cost for candidate Loop = " << Cost << "\n");
 
   // Cleaups.
   // FORNOW: Release the groups and memrefs.  TODO (save compile time): Keep
@@ -363,11 +358,11 @@ int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
   return Cost;
 }
 
-/// A helper function for converting Scalar types to vector types.
-/// If the incoming type is void, we return void. If the VF is 1, we return
-/// the scalar type (copied from LoopVectorize.cpp).
+/// A helper function for converting Scalar types to vector types. If the
+/// incoming type is void or metadata, we return the same. If the VF is 1,
+/// we return the scalar type (copied from LoopVectorize.cpp).
 static Type *ToVectorTy(Type *Scalar, unsigned VF) {
-  if (Scalar->isVoidTy() || VF == 1)
+  if (Scalar->isVoidTy() || Scalar->isMetadataTy() || VF == 1)
     return Scalar;
   return VectorType::get(Scalar, VF);
 }
@@ -449,16 +444,61 @@ void VPOCostGathererBase::visit(AVRCompare *Compare) {
 }
 
 void VPOCostGathererBase::visit(AVRIf *If) {
-  DEBUG(errs() << "TODO: visit If!\n");
+  //DEBUG(errs() << "TODO: visit If!\n");
 }
 
 void VPOCostGathererBase::visit(AVRSelect *Select) {
   DEBUG(errs() << "TODO: visit Select!\n");
 }
 
-// Of the following, only (uniform) AVRIf should survive after perdication.
+void VPOCostGathererBase::visit(AVRPredicate *Predicate) {
+
+  // (1) LOOP( IV )
+  // {
+  //   (24) PREDICATE {P24 := }
+  //   (2) if /P24/ ((3)EXPR{i1 (4)VALUE{float* (%b)[i1]} fcmp/oeq
+  //                            (5)VALUE{float 1.000000e+00}})   {
+  //   }
+  //
+  //   (25) PREDICATE {P25 :=
+  //       (24) && (29)EXPR{i1 (27)VALUE{i1 &(3)} icmp/eq (28)VALUE{i1 true}}}
+  //
+  //   (6) ASSIGN{/P25/ (9)EXPR{float (10)VALUE{float %conv}} =
+  //       (11)EXPR{float uitofp (12)VALUE{i32 i1}}}
+  //
+  //   (7) ASSIGN{/P25/ (13)EXPR{float (14)VALUE{float %call}} =
+  //       (15)EXPR{float call (16)VALUE{float %conv}}}
+  //
+  //   (8) ASSIGN{/P25/ (17)EXPR{float (18)VALUE{float* (%varray)[i1]}} =
+  //       (19)EXPR{float store (20)VALUE{float %call}}}
+  //
+  // }
+  //
+  // This function handles AVRPredicate AVRs (designated above as "PREDICATE").
+  // The cost of each node corresponds to computing a new mask based on the
+  // conjunction of all incoming predicates and this node. E.g., for predicate
+  // P25, the cost is the "and" operation of itself and P24. The AVRExpression
+  // visitor will separately analyze the cost for computing the initial mask
+  // that is part of the AVRIf on STMT(2).
+
+  const SmallVectorImpl<AVRPredicate::IncomingTy> &IncomingPreds =
+    Predicate->getIncoming();
+  // IncomingPreds.size() is expected to be > 0 due to the existence of a
+  // "VOID" predicate (see P24 above). i.e., it is assumed that the form
+  // of a predicate node will be something like: Pn := (Pn-1) && cond. It
+  // is possible in the future that we will need to deal with a predicate
+  // node which is just an assignment. In that case, we'll have to adjust
+  // with how cost is computed for predicate nodes where IncomingPreds.size()
+  // is 0.
+  unsigned Cost = IncomingPreds.size();
+  LoopBodyCost += Cost;
+  Predicate->setCost(Cost);
+}
+
+// Of the following, only (uniform) AVRIf should survive after predication.
 bool VPOCostGathererBase::skipRecursion (AVR *ANode) { 
-  if (isa<AVRIf>(ANode) || isa<AVRSelect>(ANode) || isa<AVRSwitch>(ANode))
+  if (isa<AVRSelect>(ANode) || isa<AVRSwitch>(ANode) ||
+      isa<AVRPredicate>(ANode))
     return true;
   return false;
 }
@@ -470,7 +510,7 @@ void VPOCostGathererBase::visit(AVR *ANode) {
 }
 #endif
 
-void VPOCostGathererBase::visit(AVRExpression *Expr) {
+void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
   //DEBUG(errs() << "visiting expr!\n");
   if (Expr->isLHSExpr()) {
     // We assume that there is no operation here, just a Value
@@ -478,7 +518,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
   }
 }
 
-void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
+void VPOCostGathererBase::visit(AVRExpression *Expr) {
   unsigned Cost = 0;
   Type *VectorTy;
 #ifdef USE_EXPERIMENTAL_CODE
@@ -492,6 +532,8 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
 
   //DEBUG(errs() << "visit expr: \n");
   //DEBUG(Expr->dump(PrintDataType));
+  //DEBUG(errs() << "\n");
+
   if (Expr->isLHSExpr()) {
     // FORNOW: Not contributing any cost
     // TODO: What about costly address computations on HIR side?
@@ -527,21 +569,49 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
   }
 
   case Instruction::Call: {
-    DEBUG(errs() << "TODO: Query cost of call instruction\n");
-    Cost = 10;
+    Instruction *Inst = nullptr;
+
+    if (dyn_cast<AVRAssignHIR>(Expr->getParent())) {
+      AVRAssignHIR *Parent = cast<AVRAssignHIR>(Expr->getParent());
+      Inst = const_cast<Instruction*>(
+        Parent->getHIRInstruction()->getLLVMInstruction()
+      );
+    } else if (dyn_cast<AVRAssignIR>(Expr->getParent())) {
+      AVRAssignIR *Parent = cast<AVRAssignIR>(Expr->getParent());
+      Inst = const_cast<Instruction*>(Parent->getLLVMInstruction());
+    }
+    assert(Inst && "Call parent expected to be an AVRAssign node");
+
+    CallInst *Call = cast<CallInst>(Inst);
+    Function *F = Call->getCalledFunction();
+    StringRef FnName = F->getName();
+    if (TLI.isFunctionVectorizable(FnName, VF)) {
+      // SVML call
+      DEBUG(errs()  << "SVML call cost = 2\n");
+      Cost = 2;
+    } else {
+      // LLVM cost model evaluates cost = 10 for calls to functions
+      // using either scalar or vector call arguments. It does not
+      // account for potential packing/unpacking of arguments.
+      Type *RetTy = ToVectorTy(F->getReturnType(), VF);
+      SmallVector<Type*, 1> ArgTys;
+      for (auto &ArgOp : Call->arg_operands()) {
+        Type *ArgTy = ToVectorTy(ArgOp->getType(), VF);
+        ArgTys.push_back(ArgTy);
+      }
+      Cost = TTI.getCallInstrCost(F, RetTy, ArgTys);
+    }
     break;
   }
 
-  // TODO. Not yet supported by Codegen; Does not yet exist as an Expr.
+  // AVRPredicate nodes are treated separately. See the visit function for
+  // them for details.
   case Instruction::ICmp:
   case Instruction::FCmp: {
-    DEBUG(errs() << "TODO: Query cost of compare instruction\n");
-    Cost = 10;
-#if 0
-    Type *ValTy = Expr->getOperand(0)->getType();
+    AVRValue *AvrVal = cast<AVRValue>(Expr->getOperand(0));
+    Type *ValTy = AvrVal->getType();
     VectorTy = ToVectorTy(ValTy, VF);
-    Cost = TTI.getCmpSelInstrCost(Expr->getOeration(), VectorTy);
-#endif
+    Cost = TTI.getCmpSelInstrCost(Expr->getOperation(), VectorTy);
     break;
   }
 
@@ -696,8 +766,23 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
     }
 #endif
 
-    // TODO: consider masking
-    bool isMaskRequired = false; // FIXME
+    bool isMaskRequired = false;
+    // TODO: add support for subexpression trees coming from the nested blob
+    // decomposer. This is needed because the parent for the expression visited
+    // here may be another expression and predicates currently only exist at
+    // the statement level. There are two possible solutions to handle these
+    // cases:
+    //
+    // 1) Propagate predicates to the subexpressions in the decomposed tree.
+    // 2) Search up in the decomposed tree to get to the actual statement level
+    //    parent of all subexpressions.
+    AVRPredicate *Pred = Expr->getParent()->getPredicate();
+    assert(!isa<AVRExpression>(Expr->getParent()) &&
+           "Parent of an expr is an expr");
+
+    if (Pred) {
+      isMaskRequired = true;
+    }
 
     // Classify the access (stride)
     //
@@ -825,8 +910,6 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
     }
 
     // Case 5: Wide load/stores.
-    //
-    // TODO: Take masking into account.
     DEBUG(errs() << "Case 4: Wide Load/Store Cost.\n");
     if (isMaskRequired)
       Cost += TTI.getMaskedMemoryOpCost(Expr->getOperation(), VectorTy,
@@ -850,8 +933,9 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
   // operands were visited. Costs related to the operation itself:
   //DEBUG(errs() << "visited expr: add cost of operation!\n");
   //DEBUG(Expr->dump(PrintDataType));
-  DEBUG(errs() << "added a cost of " << Cost << "  to LoopBodyCost\n");
+  //DEBUG(errs() << "added a cost of " << Cost << " to LoopBodyCost\n");
   LoopBodyCost += Cost;
+  Expr->setCost(Cost);
 }
 
 // TODO: Contribute the cost of producing this value if not already
@@ -872,14 +956,15 @@ void VPOCostGathererBase::postVisit(AVRValue *AValue) {
 // - ?
 int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF, 
                               VPOVLSInfoBase *VLSInfo) {
-  DEBUG(errs() << "getCost: VF = " << VF << "\n");
+  DEBUG(errs() << "\nEvaluating Loop Cost for VF = " << VF << "\n");
   int Cost;
 
   // Calculate LoopBody Cost 
   VPOCostGathererBase *CostGatherer = getCostGatherer(VF, ALoop, VLSInfo);
   assert(CostGatherer && "Invalid CostGatherer");
   AVRVisitor<VPOCostGathererBase> AVisitor(*CostGatherer);
-  // Enabling RecursiveInsideValues to visit AVRValueHIR's sub-tree decomposition
+  // Enabling RecursiveInsideValues to visit AVRValueHIR's sub-tree
+  // decomposition.
   AVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/, true);
   unsigned int LoopBodyCost = CostGatherer->getLoopBodyCost();
 
@@ -894,6 +979,15 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
                << " OutOfLoopCost = " << OutOfLoopCost << "\n");
   if (LoopCount <= 0) LoopCount = 100;
   Cost = (LoopBodyCost * LoopCount / VF) + OutOfLoopCost;
+
+  DEBUG(ALoop->dump(PrintCost));
+  if (VF == 1)
+    DEBUG(errs() << "Scalar ");
+  DEBUG(errs() << "Cost for candidate Loop = " << Cost << "\n");
+  DEBUG(errs() << "(" << LoopBodyCost << "(Loop Body) * " << LoopCount
+               << "(Loop Count) / " << VF << "(VF)) + " << OutOfLoopCost
+               << "(Remainder Loop Cost)" << "\n");
+
 
   delete CostGatherer;
   return Cost;

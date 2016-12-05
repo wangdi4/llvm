@@ -36,7 +36,8 @@ namespace vpo {  // VPO Vectorizer Namespace
 #define TabLength 2
 
 /// Abstract Layer print verbosity levels
-enum VerbosityLevel { PrintBase, PrintDataType, PrintAvrType, PrintAvrDecomp, PrintNumber };
+enum VerbosityLevel { PrintBase, PrintDataType, PrintAvrType, PrintAvrDecomp,
+                      PrintNumber, PrintCost };
 /// Assignment LHS/RHS enumeration
 enum AssignOperand { RightHand, LeftHand };
 
@@ -67,6 +68,9 @@ private:
 
   /// Number - Unique ID for AVR node.
   unsigned Number;
+
+  /// The cost corresponsing to this node
+  unsigned Cost = 0;
 
   /// Slev - SIMD lane evolution classification of this AVR node.
   SLEV Slev;
@@ -140,6 +144,12 @@ public:
   /// \brief Returns the Avr nodes's unique ID number
   unsigned getNumber() const { return Number; }
 
+  /// \brief Returns the Avr node's cost
+  unsigned getCost() const { return Cost; }
+
+  /// \brief Sets the Avr node's cost
+  void setCost(unsigned C) { Cost = C; }
+
   /// \brief Returns the Avr nodes's SLEV data.
   SLEV getSLEV() const { return Slev; }
 
@@ -163,7 +173,7 @@ public:
 
   /// \brief Return an ID for the concrete type of this object.
   ///
-  /// This is used to implement the classof, etc. checks in LLVM and should't
+  /// This is used to implement the classof, etc. checks in LLVM and shouldn't
   /// be used for any other purpose.
   unsigned getAVRID() const { return SubClassID; }
 

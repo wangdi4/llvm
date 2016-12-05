@@ -125,6 +125,7 @@ void AVRSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
   // Print Avr Switch Node and its case children.
 
   switch(VLevel) {
+    case PrintCost:
     case PrintNumber:
       OS << "(" << getNumber() << ") ";
     case PrintAvrType:

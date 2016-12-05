@@ -273,6 +273,7 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print AVR Value Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ")";
   case PrintAvrDecomp: {

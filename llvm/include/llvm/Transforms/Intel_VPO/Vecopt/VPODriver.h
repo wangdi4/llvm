@@ -39,6 +39,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 
 namespace llvm {
 
@@ -61,6 +62,7 @@ class VPODriverBase : public FunctionPass {
 protected:
   /// Handle to Target Information 
   const TargetTransformInfo *TTI;
+  TargetLibraryInfo *TLI;
 
   /// Handle to AVR Generate Pass
   AVRGenerateBase *AV;
