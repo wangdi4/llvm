@@ -151,11 +151,9 @@ else()
   set (LLC OCL_HOST_LLC)
 endif()
 
-# LLVM triple is per OS and Arch,
-# Warning: on Linux OS we use Windows triple due to
-# clang forcing abi for function return type for types that are smaller
-# than i32. For instance, a func returning char4 (<4 x i8>) will return i32.
-# (such thing confuses vectorizer).
+# LLVM triple is per OS and Arch (keep consistent with Materializer),
+# also, note that -elf postfix is added to windows triples later in the file.
+# adding "-elf" postfix to the triple for Win32 to codegen ELF with llc later (to be consistent with Backend Materializer)
 if (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     set (TRIPLE i686-pc-win32-gnu-elf)
@@ -164,37 +162,21 @@ if (WIN32)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (TRIPLE i686-pc-win32-gnu-elf)
+    set    (TRIPLE i686-pc-Linux)
   else ()
-    set (TRIPLE x86_64-pc-win32-gnu-elf)
+     set (TRIPLE x86_64-pc-linux)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-endif (WIN32)
-
-# LLC triples per OS and Arch.
-if (WIN32)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (LLC_TRIPLE i686-pc-win32-gnu-elf)
-  else ()
-    set (LLC_TRIPLE x86_64-pc-win32-gnu-elf)
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-else (WIN32)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (LLC_TRIPLE i686-pc-Linux)
-  else ()
-    set (LLC_TRIPLE x86_64-pc-linux)
-endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif (WIN32)
 
 #
 # external tools
 #
 
-message (STATUS "CLANG:      ${CLANG}")
-message (STATUS "LLVM_OPT:   ${OPT}")
-message (STATUS "LLVM_LINK:  ${LLVM_LINK}")
-message (STATUS "LLC:        ${LLC}")
-message (STATUS "TRIPLE:     ${TRIPLE}")
-message (STATUS "LLC_TRIPLE: ${LLC_TRIPLE}")
+message (STATUS "CLANG:     ${CLANG}")
+message (STATUS "LLVM_OPT:  ${OPT}")
+message (STATUS "LLVM_LINK: ${LLVM_LINK}")
+message (STATUS "LLC:       ${LLC}")
+message (STATUS "TRIPLE:    ${TRIPLE}")
 
 #
 # Tool environment and options
@@ -256,7 +238,7 @@ set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verif
 set (LLVM_LINK_PARAMS -suppress-warnings)
 
 # llc parameters
-set (LLC_PARAMS -filetype=obj -mtriple=${LLC_TRIPLE})
+set (LLC_PARAMS -filetype=obj)
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set (LLC_PARAMS ${LLC_PARAMS} -code-model=default -relocation-model=static)
 else (CMAKE_SIZEOF_VOID_P EQUAL 4)
