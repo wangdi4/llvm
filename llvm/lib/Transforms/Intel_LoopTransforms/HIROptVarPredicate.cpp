@@ -80,6 +80,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
 
 #define OPT_SWITCH "hir-opt-var-predicate"
 #define OPT_DESC "HIR Var OptPredicate"
@@ -159,27 +160,6 @@ INITIALIZE_PASS_END(HIROptVarPredicate, OPT_SWITCH, OPT_DESC, false, false)
 FunctionPass *llvm::createHIROptVarPredicatePass() {
   return new HIROptVarPredicate();
 }
-
-template <typename T> struct ForPostEach {
-  template <typename Func>
-  struct ForPostEachVisitor final : public HLNodeVisitorBase {
-    Func F;
-    ForPostEachVisitor(Func F) : F(F) {}
-
-    void postVisit(T *Node) {
-      F(Node);
-    }
-
-    void postVisit(const HLNode *) {}
-    void visit(const HLNode *) {}
-  };
-
-  template <typename Iter, typename Func>
-  static void visitRange(Iter Begin, Iter End, Func F) {
-    ForPostEachVisitor<Func> Visitor(F);
-    HLNodeUtils::visitRange(Visitor, Begin, End);
-  }
-};
 
 class IfLookup final : public HLNodeVisitorBase {
   SmallVectorImpl<HLIf *> &Candidates;

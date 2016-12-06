@@ -512,24 +512,12 @@ bool HIRLMM::areDDEdgesLegal(const HLLoop *Lp, const RegDDRef *Ref,
                              DDGraph &DDG) {
   bool IsLoad = Ref->isRval();
   DDRef *OtherRef = nullptr;
-  DDGraphTy::EdgeIterator It, ItE;
   bool Result = true;
 
-  // Setup iterators
-  // Load: incoming-edge iterators
-  if (IsLoad) {
-    It = DDG.incoming_edges_begin(Ref);
-    ItE = DDG.incoming_edges_end(Ref);
-  }
-  // Store: outgoing-edge iterators
-  else {
-    It = DDG.outgoing_edges_begin(Ref);
-    ItE = DDG.outgoing_edges_end(Ref);
-  }
-
   // Iterate over each relevant DDEdge
-  for (; It != ItE; ++It) {
-    const DDEdge *Edge = (*It);
+  // Load: incoming-edge iterators
+  // Store: outgoing-edge iterators
+  for (const DDEdge *Edge : (IsLoad ? DDG.incoming(Ref) : DDG.outgoing(Ref))) {
     DEBUG(Edge->print(dbgs()););
 
     // Setup OtherRef
@@ -537,11 +525,6 @@ bool HIRLMM::areDDEdgesLegal(const HLLoop *Lp, const RegDDRef *Ref,
       OtherRef = Edge->getSrc();
     } else {
       OtherRef = Edge->getSink();
-    }
-
-    // Ignore the edge if the OtherRef is out of the current Loop
-    if (!(HNU->contains(Lp, OtherRef->getHLDDNode()))) {
-      continue;
     }
 
     // Test: both Ref and OtherRef are equal

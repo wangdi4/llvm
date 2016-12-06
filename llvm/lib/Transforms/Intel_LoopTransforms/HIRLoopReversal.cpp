@@ -356,13 +356,7 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
       const DDEdge *Edge = (*II);
       // DEBUG(Edge->print(dbgs()););
 
-      // 1.Ignore any edge if its sink is out of the current loop
-      if (!(DDNode->getHLNodeUtils().contains(
-              Lp, Edge->getSink()->getHLDDNode()))) {
-        continue;
-      }
-
-      // 2. Check Current DV is legal to reverse
+      // Check Current DV is legal to reverse
       const DirectionVector &DV = Edge->getDV();
       // DEBUG(DV.print(dbgs(), true));
 

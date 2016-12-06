@@ -554,10 +554,6 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         // Examining outoging edges is sufficent
         const DDEdge *Edge = *II;
         DDRef *DDref = Edge->getSink();
-        if (!(DDNode->getHLNodeUtils().contains(CandidateLoop,
-                                                DDref->getHLDDNode()))) {
-          continue;
-        }
         if (ignoreEdge(Edge, CandidateLoop)) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

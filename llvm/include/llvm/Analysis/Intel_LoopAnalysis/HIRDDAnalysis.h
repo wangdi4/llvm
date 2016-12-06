@@ -67,23 +67,93 @@ private:
   DDGraphTy *G;
 
 public:
-  // TODO friend to DDA?
-  DDGraph(const HLNode *Node, DDGraphTy *Graph) : CurNode(Node), G(Graph) {}
+  class DDGraphFilter {
+    unsigned FirstChildNum;
+    unsigned LastChildNum;
+    bool IsIncoming;
 
-  DDGraphTy::EdgeIterator incoming_edges_begin(const DDRef *Ref) {
-    return G->incoming_edges_begin(Ref);
+    template <typename NodeTy> void init(const NodeTy *Node) {
+      FirstChildNum = Node->getFirstChild()->getMinTopSortNum();
+      LastChildNum = Node->getLastChild()->getMaxTopSortNum();
+    }
+
+  public:
+    DDGraphFilter(const HLNode *Node, bool IsIncoming)
+        : IsIncoming(IsIncoming) {
+      if (!Node) {
+        return;
+      }
+
+      if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+        init(Loop);
+      } else {
+        const HLRegion *Region = cast<HLRegion>(Node);
+        init(Region);
+      }
+    }
+
+    bool operator()(const DDEdge *Edge) {
+      HLNode *ParentNode =
+          (IsIncoming ? Edge->getSrc() : Edge->getSink())->getHLDDNode();
+
+      if (!ParentNode) {
+        return false;
+      }
+
+      unsigned Num = ParentNode->getTopSortNum();
+      return (Num >= FirstChildNum && Num <= LastChildNum);
+    }
+  };
+
+private:
+  DDGraphFilter IncomingFilter;
+  DDGraphFilter OutgoingFilter;
+
+  const DDGraphTy *getGraphImpl() const {
+    assert(G && "Trying to iterate over uninitialized graph!");
+    return G;
   }
 
-  DDGraphTy::EdgeIterator incoming_edges_end(const DDRef *Ref) {
-    return G->incoming_edges_end(Ref);
+public:
+  using FilterEdgeIterator =
+      filter_iterator<DDGraphTy::EdgeIterator, DDGraphFilter>;
+
+  DDGraph()
+      : CurNode(nullptr), G(nullptr), IncomingFilter(nullptr, true),
+        OutgoingFilter(nullptr, false) {}
+
+  DDGraph(const HLNode *Node, DDGraphTy *Graph)
+      : CurNode(Node), G(Graph), IncomingFilter(Node, true),
+        OutgoingFilter(Node, false) {}
+
+  iterator_range<FilterEdgeIterator> incoming(const DDRef *Ref) const {
+    return make_filter_range(
+        llvm::make_range(getGraphImpl()->incoming_edges_begin(Ref),
+                         getGraphImpl()->incoming_edges_end(Ref)),
+        IncomingFilter);
   }
 
-  DDGraphTy::EdgeIterator outgoing_edges_begin(const DDRef *Ref) {
-    return G->outgoing_edges_begin(Ref);
+  iterator_range<FilterEdgeIterator> outgoing(const DDRef *Ref) const {
+    return make_filter_range(
+        llvm::make_range(getGraphImpl()->outgoing_edges_begin(Ref),
+                         getGraphImpl()->outgoing_edges_end(Ref)),
+        OutgoingFilter);
   }
 
-  DDGraphTy::EdgeIterator outgoing_edges_end(const DDRef *Ref) {
-    return G->outgoing_edges_end(Ref);
+  FilterEdgeIterator incoming_edges_begin(const DDRef *Ref) const {
+    return incoming(Ref).begin();
+  }
+
+  FilterEdgeIterator incoming_edges_end(const DDRef *Ref) const {
+    return incoming(Ref).end();
+  }
+
+  FilterEdgeIterator outgoing_edges_begin(const DDRef *Ref) const {
+    return outgoing(Ref).begin();
+  }
+
+  FilterEdgeIterator outgoing_edges_end(const DDRef *Ref) const {
+    return outgoing(Ref).end();
   }
   /// \brief single edge going out of this DDRef
   bool singleEdgeGoingOut(const DDRef *LRef) {
@@ -100,10 +170,9 @@ public:
     return true;
   }
 
-  void print(raw_ostream &OS) const { G->print(OS); }
-  // todo visit all refs in CurNode, printing outgoing edges whose sink is
-  // also in curnode
-  void dump() const { G->dump(); }
+  void print(raw_ostream &OS) const;
+
+  void dump() const { print(dbgs()); }
 };
 
 class HIRDDAnalysis final : public HIRAnalysisPass {

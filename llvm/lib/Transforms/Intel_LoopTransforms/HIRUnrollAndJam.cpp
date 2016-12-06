@@ -427,9 +427,6 @@ void LegalityChecker::visit(const HLDDNode *Node) {
       const DDEdge *Edge = *EdgeIt;
 
       auto SinkNode = Edge->getSink()->getHLDDNode();
-      if (!CandidateLoop->getHLNodeUtils().contains(CandidateLoop, SinkNode)) {
-        continue;
-      }
 
       if (!isLegalToPermute(
               Edge->getDV(),

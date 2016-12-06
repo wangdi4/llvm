@@ -440,8 +440,9 @@ private:
                                 bool AllowNearPerfect, bool *IsNearPerfectLoop);
 
   template <bool IsMaxMode>
-  bool isInTopSortNumRangeImpl(const HLNode *Node, const HLNode *FirstNode,
-                               const HLNode *LastNode);
+  static bool isInTopSortNumRangeImpl(const HLNode *Node,
+                                      const HLNode *FirstNode,
+                                      const HLNode *LastNode);
 
   /// Test the condition described by Pred, LHS and RHS.
   static bool getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS);
@@ -1022,15 +1023,16 @@ public:
   /// Returns true if Node is in the top sort num range [\p FirstNode, \p
   /// LastNode]. The \p FirstNode could be a nullptr, the method will return
   /// false in this case.
-  bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
-                           const HLNode *LastNode);
+  static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
+                                  const HLNode *LastNode);
 
   /// Returns true if \p Node top sort number is in range
   /// [FirstNode->getMinTopSortNum(), LastNode->getMaxTopSortNum].
   /// The \p FirstNode could be a nullptr, the method will return false in this
   /// case.
-  bool isInTopSortNumMaxRange(const HLNode *Node, const HLNode *FirstNode,
-                              const HLNode *LastNode);
+  static bool isInTopSortNumMaxRange(const HLNode *Node,
+                                     const HLNode *FirstNode,
+                                     const HLNode *LastNode);
 
   /// Returns true if the Loop level is in a valid range from
   /// [1, MaxLoopNestLevel].
