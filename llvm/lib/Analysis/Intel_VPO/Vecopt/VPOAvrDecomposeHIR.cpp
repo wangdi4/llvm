@@ -228,7 +228,6 @@ private:
   AVR *decomposeCanonExprConv(CanonExpr *CE, AVR *SrcTree);
   AVRExpression *decomposeMemoryOp(AVRValueHIR *AVal);
   AVR *decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel, Type *Ty);
-  AVR *decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx, int64_t BlobCoeff);
 
 public:
   HIRDecomposer(const DataLayout &D) : DL(D) {}
@@ -322,7 +321,7 @@ AVR *HIRDecomposer::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
     assert(BlobCoeff != 0 && "Invalid blob coefficient!");
 
-    AVR *BlobTree = decomposeBlob(RDDR, BlobIdx, BlobCoeff);
+    AVR *BlobTree = decomposeBlob(RDDR, BlobIdx, BlobCoeff, DL);
     CETree =
         combineSubTrees(CETree, BlobTree, CE->getSrcType(), Instruction::Add);
   }
@@ -419,7 +418,7 @@ AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,
 
   // Create AVRExpression for Blob * IV
   if (IVBlobIndex != InvalidBlobIndex) {
-    AVR *IVBlobValue = decomposeBlob(RDDR, IVBlobIndex, 1 /*BlobCoeff*/);
+    AVR *IVBlobValue = decomposeBlob(RDDR, IVBlobIndex, 1 /*BlobCoeff*/, DL);
     IVSubTree = combineSubTrees(IVBlobValue, IVSubTree, Ty, Instruction::Mul);
   }
 
@@ -431,8 +430,10 @@ AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,
   return IVSubTree;
 }
 
-AVR *HIRDecomposer::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
-                                  int64_t BlobCoeff) {
+namespace llvm {
+namespace vpo {
+AVR *decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx, int64_t BlobCoeff,
+                   const DataLayout &DL) {
   BlobTy Blob = RDDR->getBlobUtils().getBlob(BlobIdx);
   AVR *BlobSubTree;
 
@@ -471,6 +472,8 @@ AVR *HIRDecomposer::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
   }
     
   return BlobSubTree;
+}
+}
 }
 
 void HIRDecomposer::visit(AVRValueHIR *AVal) {

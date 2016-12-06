@@ -88,7 +88,7 @@
 using namespace llvm::loopopt;
 
 namespace llvm { // LLVM Namespace
-namespace vpo { // VPO Vectorizer namespace
+namespace vpo {  // VPO Vectorizer namespace
 
 class AVRDecomposeHIR : public FunctionPass {
 
@@ -101,7 +101,7 @@ public:
   AVRDecomposeHIR();
 
   bool runOnFunction(Function &F);
-  bool runOnAvr(AVR *ANode, const DataLayout& DL);
+  bool runOnAvr(AVR *ANode, const DataLayout &DL);
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void print(raw_ostream &OS, unsigned Depth = 1,
@@ -110,6 +110,11 @@ public:
   void releaseMemory();
 };
 
+// Interface function to decompose a blob. We can get rid of this function
+// in future when the decomposer stores a map of <blob, decomposed_tree> to
+// avoid duplicating blobs more than once.
+AVR *decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx, int64_t BlobCoeff,
+                   const DataLayout &DL);
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
