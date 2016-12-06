@@ -1,7 +1,4 @@
-; FIXME: https://jira01.devtools.intel.com/browse/CORC-1356
-; XFAIL: *
-
-; RUN: opt --cloneblockinvokefunctokernel -verify -S %s -o %t.ll
+; RUN: opt -cloneblockinvokefunctokernel -verify -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ;; Ticket ID : CSSD100020567
@@ -22,7 +19,11 @@
 ;;
 ;; The test checks that pass "CloneBlockInvokeFuncToKernel" copy debug info when create new function.
 ;
-; CHECK: {{.*@__.kernel__ker_block_invoke.*DW_TAG_subprogram.*}}
+; CHECK: [[SRCDIPL:.*]] = distinct !DISubprogram([[SRCDI:name: "__ker_block_invoke".*]])
+; CHECK: [[CLONDIPL:.*]] = distinct !DISubprogram([[SRCDI]])
+; CHECK: !DILocation({{.*}} scope: [[SRCDIPL]])
+; CHECK: !DILocation({{.*}} scope: [[CLONDIPL]])
+
 ; ModuleID = 'reproducer_CloneBlockToKernel.cl'
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

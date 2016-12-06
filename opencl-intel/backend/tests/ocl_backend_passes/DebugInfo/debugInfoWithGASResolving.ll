@@ -1,6 +1,3 @@
-; FIXME: https://jira01.devtools.intel.com/browse/CORC-1356
-; XFAIL: *
-
 ; RUN: opt -generic-addr-static-resolution -verify -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -19,9 +16,12 @@
 ;;}
 ;;==========================================
 ;;
-; The test checks that GenericAddressStaticResolution pass copies DW_TAG_subprogram along with resolved func. 
+; The test checks that GenericAddressStaticResolution pass copies debug info along with resolved func.
 ;
-; CHECK: {{0x2e\\00func\\00func\\00\\001\\000\\001\\000\\000\\00256\\000\\002.*@_Z4funcPi}}
+; CHECK: [[SRCDIPL:.*]] = distinct !DISubprogram([[SRCDI:name: "func".*]])
+; CHECK: [[CLONDIPL:.*]] = distinct !DISubprogram([[SRCDI]])
+; CHECK: !DILocation({{.*}} scope: [[SRCDIPL]])
+; CHECK: !DILocation({{.*}} scope: [[CLONDIPL]])
 
 ; ModuleID = '/tmp/ker.cl'
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

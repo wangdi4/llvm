@@ -312,7 +312,7 @@ void materializeSpirDataLayout(llvm::Module &M) {
   dummyModule.get()->setTargetTriple(M.getTargetTriple());
   UpdateTargetTriple(dummyModule.get());
   EngineBuilder builder(std::move(dummyModule));
-  TargetMachine *TM = builder.selectTarget();
+  auto TM =std::unique_ptr<TargetMachine>(builder.selectTarget());
 
   // That's how MCJIT does when being created.
   M.setDataLayout(TM->createDataLayout());
