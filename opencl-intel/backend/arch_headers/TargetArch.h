@@ -4,7 +4,6 @@
 #include "llvm/Support/ErrorHandling.h"
 
 #include <cassert>
-#include <exception>
 #include <string>
 #include <utility>
 

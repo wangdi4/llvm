@@ -23,27 +23,3 @@
 #define _WIN32_IE 0x0700        // Change this to the appropriate value to target other versions of IE.
 #endif
 
-#ifdef __KNL__
-#define __AVX2__
-#endif
-
-#ifdef __SKX__
-#define __AVX2__
-#endif
-
-#ifdef __AVX2__
-#define __AVX__
-#endif
-
-#ifdef __AVX__
-#define __SSE4_2__
-#endif
-
-#ifdef __SSE4_2__
-#define __SSE4_1__
-#endif
-
-#ifdef __SSE4_1__
-#define __SSSE3__
-#endif
-

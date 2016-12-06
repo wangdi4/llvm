@@ -1,5 +1,5 @@
 
-OclBuiltinImpl _shuffle_pairs_int16_knl = OclBuiltinImpl<__ocl_helper_shuffle_pairs, [v16i32], 0, [{
+OclBuiltinImpl _shuffle_pairs_int16_512 = OclBuiltinImpl<__ocl_helper_shuffle_pairs, [v16i32], 0, [{
     int16 t0 = as_$ReturnType(_mm512_permutex2var_epi32(__builtin_astype($Arg0VarName, __m512i),
                                                         __builtin_astype($Arg4VarName, __m512i),
                                                         __builtin_astype($Arg1VarName, __m512i)));
@@ -11,7 +11,7 @@ OclBuiltinImpl _shuffle_pairs_int16_knl = OclBuiltinImpl<__ocl_helper_shuffle_pa
     return t0;
   }]>;
 
-OclBuiltinImpl transpose_load_int4x16_knl = OclBuiltinImpl<__ocl_load_transpose4x16, [v4i32],  0, [{
+OclBuiltinImpl transpose_load_int4x16_512 = OclBuiltinImpl<__ocl_load_transpose4x16, [v4i32],  0, [{
    int16 t0 = *(int16 *)&($Arg0VarName[0]);
    int16 t1 = *(int16 *)&($Arg0VarName[4]);
    int16 t2 = *(int16 *)&($Arg0VarName[8]);
@@ -26,7 +26,7 @@ OclBuiltinImpl transpose_load_int4x16_knl = OclBuiltinImpl<__ocl_load_transpose4
    *$Arg4VarName = __ocl_helper_shuffle_pairs_int16(t0,t1,t2,t3,mask3);
   }]>;
 
-OclBuiltinImpl _shuffle_pairs_float16_knl = OclBuiltinImpl<__ocl_helper_shuffle_pairs, [v16f32], 0, [{
+OclBuiltinImpl _shuffle_pairs_float16_512 = OclBuiltinImpl<__ocl_helper_shuffle_pairs, [v16f32], 0, [{
     float16 t0 = as_$ReturnType(_mm512_permutex2var_ps(__builtin_astype($Arg0VarName, __m512),
                                                         __builtin_astype($Arg4VarName, __m512i),
                                                         __builtin_astype($Arg1VarName, __m512)));
@@ -38,7 +38,7 @@ OclBuiltinImpl _shuffle_pairs_float16_knl = OclBuiltinImpl<__ocl_helper_shuffle_
     return t0;
   }]>;
 
-OclBuiltinImpl transpose_load_float4x16_knl = OclBuiltinImpl<__ocl_load_transpose4x16, [v4f32],  0, [{
+OclBuiltinImpl transpose_load_float4x16_512 = OclBuiltinImpl<__ocl_load_transpose4x16, [v4f32],  0, [{
    float16 t0 = *(float16 *)&($Arg0VarName[0]);
    float16 t1 = *(float16 *)&($Arg0VarName[4]);
    float16 t2 = *(float16 *)&($Arg0VarName[8]);
@@ -53,7 +53,7 @@ OclBuiltinImpl transpose_load_float4x16_knl = OclBuiltinImpl<__ocl_load_transpos
    *$Arg4VarName = __ocl_helper_shuffle_pairs_float16(t0,t1,t2,t3,mask3);
   }]>;
 
-OclBuiltinImpl transpose_masked_load_float4x16_knl = OclBuiltinImpl<__ocl_masked_load_transpose4x16, [v4f32],  0, [{
+OclBuiltinImpl transpose_masked_load_float4x16_512 = OclBuiltinImpl<__ocl_masked_load_transpose4x16, [v4f32],  0, [{
    ushort LoadMask = (ushort)$Arg5VarName;
    ushort LoadMask0, LoadMask1, LoadMask2, LoadMask3;
    __ocl_expand_mask_4x16(LoadMask, &LoadMask0, &LoadMask1, &LoadMask2, &LoadMask3);

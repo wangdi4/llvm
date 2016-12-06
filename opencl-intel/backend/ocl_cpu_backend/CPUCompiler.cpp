@@ -342,6 +342,7 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
       m_forcedCpuFeatures.push_back("+avx512cd");
       m_forcedCpuFeatures.push_back("+avx512bw");
       m_forcedCpuFeatures.push_back("+avx512dq");
+      m_forcedCpuFeatures.push_back("+avx512vl");
     }
 
     unsigned int selectedCpuFeatures = Utils::SelectCpuFeatures( selectedCpuId, m_forcedCpuFeatures );
@@ -377,20 +378,13 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     std::unique_ptr<llvm::Module> pModuleUniquePtr(pModule);
     llvm::EngineBuilder builder(std::move(pModuleUniquePtr));
     builder.setEngineKind(llvm::EngineKind::JIT);
-    // [LLVM 3.6 UPGRADE] Now there's no opportunity to setUseMCJIT.
-    // Since the old JIT was removed presumably this line is redundant now.
-    // builder.setUseMCJIT(true);
     builder.setErrorStr(&strErr);
     builder.setOptLevel(OLevel);
-    // [LLVM 3.6 UPGRADE] FIXME: this set was also removed.
-    // builder.setAllocateGVsWithCode(AllocateGVsWithCode);
     builder.setCodeModel(llvm::CodeModel::JITDefault);
     builder.setRelocationModel(llvm::Reloc::Default);
     builder.setMArch(MArch);
     builder.setMCPU(MCPU);
     builder.setMAttrs(cpuFeatures);
-    // [LLVM 3.6 UPGRADE] FIXME: The old Memory manager was removed.
-    // Not sure whether this is a proper alternative and there is a need for one.
     builder.setMCJITMemoryManager(std::unique_ptr<RTDyldMemoryManager>(
         new SectionMemoryManager()));
     llvm::TargetOptions targetOpt = ExternInitTargetOptionsFromCodeGenFlags();

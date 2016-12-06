@@ -215,7 +215,7 @@ CPUDetect::CPUDetect(void)
                       uiCPUFeatures |= CFS_AVX512CD;
                       uiCPUFeatures |= CFS_AVX512BW;
                       uiCPUFeatures |= CFS_AVX512DQ;
-                      // I do not add CFS_AVX512VL for the reasons above.
+                      uiCPUFeatures |= CFS_AVX512VL;
                       CPU = CPU_SKX;
                     }
                     else

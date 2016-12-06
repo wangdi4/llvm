@@ -410,7 +410,7 @@ void CPUDetect::GetCPUInfo()
                         m_uiCPUFeatures |= CFS_AVX512CD;
                         m_uiCPUFeatures |= CFS_AVX512BW;
                         m_uiCPUFeatures |= CFS_AVX512DQ;
-                        // I do not add CFS_AVX512VL for the reasons above.
+                        m_uiCPUFeatures |= CFS_AVX512VL;
                       }
                       else
                       {
