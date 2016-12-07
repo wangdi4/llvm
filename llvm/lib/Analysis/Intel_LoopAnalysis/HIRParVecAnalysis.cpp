@@ -98,9 +98,6 @@ class DDWalk final : public HLNodeVisitorBase {
 
   /// \brief Analyze one DDEdge for the source node.
   void analyze(const DDEdge *Edge);
-  /// \brief Analyze whether the src/sink DDRefs represents privatizable
-  /// terminals.
-  bool isSimplePrivateTerminal(const RegDDRef *SrcRef, const RegDDRef *SinkRef);
 
   /// \brief Analyze whether the src/sink flow dependence can be ignored
   /// due to safe reduction.
@@ -290,34 +287,6 @@ bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
   return Func.getName().startswith("_ZGV");
 }
 
-bool DDWalk::isSimplePrivateTerminal(const RegDDRef *SrcRef,
-                                     const RegDDRef *SinkRef) {
-  // This function deals with terminals.
-  if (!(SrcRef && SinkRef && SrcRef->isTerminalRef())) {
-    return false;
-  }
-
-  HLNode *WriteNode =
-      SrcRef->isLval() ? SrcRef->getHLDDNode() : SinkRef->getHLDDNode();
-  HLNode *TheOtherNode =
-      SrcRef->isLval() ? SinkRef->getHLDDNode() : SrcRef->getHLDDNode();
-
-  if (SrcRef->isLval() && SinkRef->isLval()) {
-    // Terminal output dependence is fine, as long as it is not live out
-    // (possible dead code) or last value can be correctly computed.
-    // If there is a use of the value inside the loop, FLOW or ANTI dependence
-    // should exist and it would prevent vectorization/parallelization if
-    // not privatizable in that context.
-    return true;
-  } else if (WriteNode->getHLNodeUtils().strictlyDominates(WriteNode,
-                                                           TheOtherNode)) {
-    // Def strictly dominates Use. Privatizable.
-    return true;
-  }
-
-  return false;
-}
-
 bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
                                     const RegDDRef *SinkRef) {
   if (!SrcRef || !SinkRef) {
@@ -360,15 +329,15 @@ void DDWalk::analyze(const DDEdge *Edge) {
     }
   }
 
-  if (isSimplePrivateTerminal(dyn_cast<RegDDRef>(Edge->getSrc()),
-                              dyn_cast<RegDDRef>(DDref))) {
+  auto SrcRef = dyn_cast<RegDDRef>(Edge->getSrc());
+  if (SrcRef && SrcRef->isTerminalRef() &&
+      !CandidateLoop->isLiveIn(SrcRef->getSymbase())) {
     DEBUG(dbgs() << "\tis safe to vectorize/parallelize (private)\n");
     return;
   }
 
   if (Edge->isFLOWdep() &&
-      isSafeReductionFlowDep(dyn_cast<RegDDRef>(Edge->getSrc()),
-                             dyn_cast<RegDDRef>(DDref))) {
+      isSafeReductionFlowDep(SrcRef, dyn_cast<RegDDRef>(DDref))) {
     DEBUG(dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
     return;
   }
@@ -399,6 +368,7 @@ void DDWalk::visit(HLDDNode *Node) {
     auto Ref = *Itr;
     auto II = DDG.outgoing_edges_begin(Ref), EE = DDG.outgoing_edges_end(Ref);
 
+    // TODO - Check if we really need to analyze edges for non-livein temps
     assert((Ref->isLval() || !Ref->isConstant() || II == EE) &&
            "Constant DDREF is not expected to have any DD edges");
 
