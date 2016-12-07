@@ -30,6 +30,7 @@ namespace llvm {
 class MetadataAsValue;
 class ConstantAggregateZero;
 class ConstantDataVector;
+class ConstantVector;
 class Function;
 class Module;
 class LLVMContext;
@@ -134,6 +135,11 @@ public:
   /// routine will automatically create a single canon expr from
   /// ConstantDataVector and attach it to the new RegDDRef.
   RegDDRef *createConstDDRef(ConstantDataVector *Val);
+
+  /// Returns a new constant RegDDRef from a constant vector node. This
+  /// routine will automatically create a single canon expr from
+  /// ConstantVector and attach it to the new RegDDRef.
+  RegDDRef *createConstDDRef(ConstantVector *Val);
 
   /// Returns a new RegDDRef with given type \p Ty and undefined value.
   RegDDRef *createUndefDDRef(Type *Ty);
