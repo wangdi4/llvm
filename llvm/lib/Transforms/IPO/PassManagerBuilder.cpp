@@ -439,20 +439,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createJumpThreadingPass());         // Thread jumps
   MPM.add(createCorrelatedValuePropagationPass());
   MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
-#if INTEL_CUSTOMIZATION
-  if (EnableAndersen) {
-    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
-  }
-#endif // INTEL_CUSTOMIZATION
-
   MPM.add(createLICMPass());
-#if INTEL_CUSTOMIZATION
-  if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
-    MPM.add(createNonLTOGlobalOptimizerPass());
-    MPM.add(createPromoteMemoryToRegisterPass());
-  }
-#endif // INTEL_CUSTOMIZATION
-
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
   if (RerollLoops)
@@ -636,6 +623,19 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createLoopVersioningLICMPass());    // Do LoopVersioningLICM
     MPM.add(createLICMPass());                  // Hoist loop invariants
   }
+
+#if INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
+  }
+  if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
+    MPM.add(createNonLTOGlobalOptimizerPass());
+    MPM.add(createPromoteMemoryToRegisterPass());
+    // AggressiveDCE is invoked here to avoid -6% performance regression
+    // for aifftr01@opt_speed
+    MPM.add(createAggressiveDCEPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (EnableNonLTOGlobalsModRef)
     // We add a fresh GlobalsModRef run at this point. This is particularly
