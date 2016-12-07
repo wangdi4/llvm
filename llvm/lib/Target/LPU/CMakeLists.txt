@@ -32,6 +32,7 @@ add_llvm_target(LPUCodeGen
   LPUTargetMachine.cpp
   LPUTargetTransformInfo.cpp
   MachineCDG.cpp
+  CSASetIntrinsicFunctionAttributes.cpp
   )
 
 add_subdirectory(InstPrinter)
