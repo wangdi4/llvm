@@ -1,9 +1,11 @@
 #include "CL/cl.h"
 #include "cl_types.h"
 #include "cl_cpu_detect.h"
+
 #include <stdio.h>
-#include <iostream>
+
 #include <fstream>
+#include <iostream>
 
 #include "FrameworkTest.h"
 
@@ -34,7 +36,7 @@ bool GenerateBinaryFile()
     "}"\
   };
 
-  char * filename;
+  const char* filename = nullptr;
   printf("GenerateBinaryFile\n");
 
   if (!CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10))
@@ -81,7 +83,7 @@ bool GenerateBinaryFile()
     printf("clCreateContext = %s\n", ClErrTxt(iRet));
     return false;
   }
-  printf("context = %p\n", context);
+  printf("context = %p\n", (void*)context);
 
   cl_program clProg;
   bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, "-cl-denorms-are-zero", &clProg);
@@ -117,7 +119,7 @@ bool GenerateBinaryFile()
         }
         fwrite(pBinaries, 1, binarySize, fout);
         fclose(fout);
-        printf("Saved successfully!! [size = %d] \n", binarySize);
+        printf("Saved successfully!! [size = %zu] \n", binarySize);
       }
     }
   }
