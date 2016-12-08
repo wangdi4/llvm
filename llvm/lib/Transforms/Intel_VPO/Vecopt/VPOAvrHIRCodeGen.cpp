@@ -610,21 +610,21 @@ void AVRCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
 
     Intrinsic::ID IntrinID;
     if (HInst->isIntrinCall(IntrinID)) {
-      if (vpo::VPOUtils::isIntelClause(IntrinID)) {
+      if (vpo::VPOAnalysisUtils::isIntelClause(IntrinID)) {
         OrigLoop->getHLNodeUtils().remove(HInst);
         continue;
       }
 
-      if (vpo::VPOUtils::isIntelDirective(IntrinID)) {
+      if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
         auto Inst = cast<IntrinsicInst>(HInst->getLLVMInstruction());
-        StringRef DirStr = vpo::VPOUtils::getDirectiveMetadataString(
+        StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(
             const_cast<IntrinsicInst *>(Inst));
 
-        int DirID = vpo::VPOUtils::getDirectiveID(DirStr);
+        int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
         if (DirID == BeginOrEndDirID) {
           OrigLoop->getHLNodeUtils().remove(HInst);
-        } else if (VPOUtils::isListEndDirective(DirID)) {
+        } else if (VPOAnalysisUtils::isListEndDirective(DirID)) {
           OrigLoop->getHLNodeUtils().remove(HInst);
           return;
         }

@@ -122,7 +122,7 @@ void VectorizableLoopsAnalysis::handleLoopNest(Loop& Loop) {
                "Expected only Intel directives in dir.simd");
         continue;
       }
-      StringRef DirString = VPOUtils::getDirectiveMetadataString(Inst);
+      StringRef DirString = VPOAnalysisUtils::getDirectiveMetadataString(Inst);
       if (DirString == "dir.simd") {
         assert(!FoundDirSIMD && "Unexpected dir.simd within dir.simd");
         FoundDirSIMD = true;

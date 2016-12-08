@@ -26,6 +26,8 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionNode.h"
 #include <unordered_map>
 
 // Used for Parallel Section Transformations
@@ -59,12 +61,8 @@ typedef struct ParSectNode {
 } ParSectNode;
 //////////////////////////////////////
 
-typedef SmallVector<BasicBlock *, 32> VPOSmallVectorBB;
-typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
-
 /// \brief This class contains a set of utility functions used by VPO passes.
 class VPOUtils {
-
 private:
     /// \brief The BBSet and the ClonedBBSet (held in \p VMap) merge at the
     /// successor of ExitBB in BBSet, which we call the "merged bblock". This
@@ -84,17 +82,6 @@ public:
     VPOUtils() {}
     ~VPOUtils() {}
 
-    // Map StringRefs to OMP_DIRECTIVES
-    static StringMap<int> DirectiveIDs;
-
-    // Map StringRefs to OMP_CLAUSES
-    static StringMap<int> ClauseIDs;
-
-    /// \brief Initialize maps of directive & clause string to ID.
-    /// This routine must be invoked (once) before calling query
-    /// routines such as getDirectiveID() and getClauseID().
-    static void initDirectiveAndClauseStringMap();
-
     /// \brief This function restructures the CFG on demand, where each
     /// directive for Cilk, OpenMP, Offload, Vectorization is put into a
     /// standalone basic block. This is a pre-required process for WRegion
@@ -106,52 +93,15 @@ public:
     /// and LoopInfo whenever a basic block splitting happens.
     static void CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
                      LoopInfo *LI = nullptr);
-  
-    /// \brief Return true if the intrinsic Id is intel_directive.
-    static bool isIntelDirective(Intrinsic::ID Id);
 
-    /// \brief Return true if the intrinsic Id corresponds to a clause:
-    ///    intel_directive_qual,
-    ///    intel_directive_qual_opnd, or 
-    ///    intel_directive_qual_opndlist.
-    static bool isIntelClause(Intrinsic::ID Id);
-
-    /// \brief Return true if the intrinsic Id corresponds to an
-    /// Intel directive or clause.
-    static bool isIntelDirectiveOrClause(Intrinsic::ID Id);
-
-    /// \brief Return the string representation of the metadata argument used
-    /// within a call to one of these intrinsics: 
-    ///    llvm.intel.directive, 
-    ///    llvm.intel.directive.qual, 
-    ///    llvm.intel.directive.qual.opnd, and 
-    ///    llvm.intel.directive.qual.opndlist.
-    static StringRef getDirectiveMetadataString(IntrinsicInst *Call);
-
-    /// \brief Return the string representation of the modifier metadata 
-    /// argument used in an llvm.intel.directive.qual.opndlist intrinsic
-    /// that represents a schedule clause
-    static StringRef getScheduleModifierMDString(IntrinsicInst *Call);
-
-    /// \brief Similar to getDirectiveString(), 
-    /// but strips out the leading "DIR_OMP_" prefix substring
-    static StringRef getDirectiveName(int Id);
-
-    /// \brief Similar to getClauseString(), 
-    /// but strips out the leading "QUAL_OMP_" prefix substring
-    static StringRef getClauseName(int Id);
-
-    /// \brief Returns true if the string corresponds to an OpenMP directive.
-    static bool isOpenMPDirective(StringRef DirFullName);
-
-    /// \brief Returns true if the string corresponds to an OpenMP clause.
-    static bool isOpenMPClause(StringRef ClauseFullName);
-
-    /// \brief Returns the ID (enum) corresponding to OpenMP directives.
-    static int getDirectiveID(StringRef DirFullName);
-
-    /// \brief Returns the ID (enum) corresponding to OpenMP clauses.
-    static int getClauseID(StringRef ClauseFullName);
+    /// \brief Removes calls to directive intrinsics from WRegionNode \p WRN.
+    /// By default, the util removes the directive intrinsic calls from the
+    /// Entry and Exit BBlocks of \p WRN. This can be extended to handle needs
+    /// of specific WRegionNode kinds.
+    /// \returns \b true if <em>one or more</em> directive intrinsics were
+    /// stripped from \em each of the entry as well as exit BasicBlocks of
+    /// \p WRN; \b false otherwise.
+    static bool stripDirectives(WRegionNode *WRN);
 
     /// \brief Removes calls to directive intrinsics from BasicBlock \p BB.
     /// \returns \b true if <em>one or more</em> directive intrinsics were
@@ -162,44 +112,6 @@ public:
     /// \returns \b true if <em>one or more</em> directive intrinsics were
     /// stripped from \p F; \b false otherwise.
     static bool stripDirectives(Function &F);
-
-    /// Utilities to handle directives & clauses
-
-    /// \brief Return true iff DirString corresponds to a directive that
-    /// begins a region (eg, DIR_OMP_PARALLEL, DIR_OMP_SIMD, etc.
-    static bool isBeginDirective(StringRef DirString);
-    static bool isBeginDirective(int DirID);
-
-    /// \brief Return true iff DirString corresponds to a directive that
-    /// ends a region (eg, DIR_OMP_END_PARALLEL, DIR_OMP_END_SIMD, etc.
-    static bool isEndDirective(StringRef DirString);
-    static bool isEndDirective(int DirID);
-
-    /// \brief Return true iff DirString corresponds to a directive that
-    /// begins or ends a region
-    static bool isBeginOrEndDirective(StringRef DirString);
-    static bool isBeginOrEndDirective(int DirID);
-
-    /// \brief Return true iff DirString corresponds to a stand-alone 
-    /// directive (doesn't begin or end a region). Eg: DIR_OMP_FLUSH
-    static bool isStandAloneDirective(StringRef DirString);
-    static bool isStandAloneDirective(int DirID);
-
-    /// \brief Return true iff DirString corresponds to DIR_QUAL_LIST_END,
-    /// the mandatory marker to end a directive
-    static bool isListEndDirective(StringRef DirString);
-    static bool isListEndDirective(int DirID);
-
-    /// \brief Return true iff the ClauseID represents a REDUCTION clause,
-    /// such as QUAL_OMP_REDUCTION_ADD
-    static bool isReductionClause(int ClauseID);
-
-    /// \brief Return true iff the ClauseID represents a SCHEDULE or a
-    /// DIST_SCHEDULE clause
-    static bool isScheduleClause(int ClauseID);
-
-    /// \brief True for MAP, TO, or FROM clauses
-    static bool isMapClause(int ClauseID);
 
     ////////////////// MultiVersioning Transformation ////////////////////////
     //
@@ -288,7 +200,7 @@ public:
     static void printParSectTree(ParSectNode *Node);
 
     ///////////////// End Parallel Section Transformation /////////////////
-  
+
     //////////////// Functions for vector code generation /////////////////
     /// \brief Return a call to the llvm.masked.gather intrinsic. A null Mask
     /// defaults to an unmasked gather. A null PassThru value uses undef value
@@ -301,7 +213,7 @@ public:
                                             Value *PassThru = nullptr);
 
     /// \brief Return a call to the llvm.masked.scatter intrinsic. A null Mask
-    /// defaults to an unmasked scatter. 
+    /// defaults to an unmasked scatter.
     static CallInst* createMaskedScatterCall(Module *M,
                                              Value *VecPtr,
                                              Value *VecData,
@@ -316,5 +228,3 @@ public:
 
 } // End llvm namespace
 #endif
-
-

@@ -675,7 +675,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     // Remove calls to directive intrinsics since the LLVM back end does not
     // know how to translate them.
-    WRegionUtils::stripDirectives(W);
+    VPOUtils::stripDirectives(W);
 
     Changed = true;
   }
@@ -1018,7 +1018,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 
   // Remove calls to directive intrinsics since the LLVM back end does not
   // know how to translate them.
-  WRegionUtils::stripDirectives(W);
+  VPOUtils::stripDirectives(W);
 
   return Changed;
 }
@@ -1089,7 +1089,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
 
   // Remove calls to directive intrinsics since the LLVM back end does not
   // know how to translate them.
-  WRegionUtils::stripDirectives(W);
+  VPOUtils::stripDirectives(W);
 
   return Changed;
 }
@@ -1136,7 +1136,7 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
 
   // Remove calls to directive intrinsics since the LLVM back end does not
   // know how to translate them.
-  WRegionUtils::stripDirectives(W);
+  VPOUtils::stripDirectives(W);
 
   return Changed;
 }
@@ -1165,7 +1165,7 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   // Remove calls to directive intrinsics since the LLVM back end does not
   // know how to translate them.
   if (CriticalCallsInserted)
-    WRegionUtils::stripDirectives(CriticalNode);
+    VPOUtils::stripDirectives(CriticalNode);
 
   return CriticalCallsInserted;
 }

@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Constants.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
@@ -647,7 +647,7 @@ void WRNAtomicNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
   OS << Indent << "BEGIN WRNAtomicNode<" << getNumber() << "> {\n";
   OS << Indent << "Atomic Kind: "
-     << VPOUtils::getClauseName(
+     << VPOAnalysisUtils::getClauseName(
             WRegionUtils::getClauseIdFromAtomicKind(getAtomicKind()))
      << "\n";
   OS << Indent << "Seq_Cst Clause: " << (getHasSeqCstClause() ? "Yes" : "No")

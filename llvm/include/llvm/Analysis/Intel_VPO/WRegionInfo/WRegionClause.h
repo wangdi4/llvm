@@ -18,7 +18,7 @@
 #include <vector>
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
 namespace llvm {
 
@@ -537,7 +537,7 @@ template <typename ClauseItem> class Clause
     }
 
     void print(formatted_raw_ostream &OS) const {
-      StringRef S = VPOUtils::getClauseName(getClauseID());
+      StringRef S = VPOAnalysisUtils::getClauseName(getClauseID());
       OS << S << " clause, size=" << size() << ": " ;
       for (auto I=begin(); I != end(); ++I) {
         OS << "(" << *((*I)->getOrig()) << ") ";

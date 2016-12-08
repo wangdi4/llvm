@@ -335,8 +335,8 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
 template <typename ClauseTy>
 ClauseTy *WRegionUtils::extractQualOpndList(IntrinsicInst *Call, ClauseTy *C) {
   if (C == nullptr) {
-    StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
-    int ClauseID = VPOUtils::getClauseID(DirString);
+    StringRef DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
+    int ClauseID = VPOAnalysisUtils::getClauseID(DirString);
     C = new ClauseTy();
     C->setClauseID(ClauseID);
   }
@@ -369,7 +369,8 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   Sched.setChunk(ChunkSize);
 
   // extract and save the schedule modifiers 
-  StringRef ModifierString = VPOUtils::getScheduleModifierMDString(Call);
+  StringRef ModifierString = 
+                           VPOAnalysisUtils::getScheduleModifierMDString(Call);
   DEBUG(dbgs() << " Schedule Modifier Argument: " << ModifierString << "\n");
 
   SmallVector<StringRef, 4> ModifierSubString;
@@ -494,8 +495,8 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
   }
   assert(RI->getInitializer() && RI->getCombiner() &&
          "Reduction Item is not initialized");
-  StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
-  int ReductionClauseID = VPOUtils::getClauseID(DirString);
+  StringRef DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
+  int ReductionClauseID = VPOAnalysisUtils::getClauseID(DirString);
   RI->setType(ReductionItem::getKindFromClauseId(ReductionClauseID));
 }
 #endif
@@ -684,6 +685,6 @@ void WRegionNode::errorClause(StringRef ClauseName) const {
 }
 
 void WRegionNode::errorClause(int ClauseID) const {
-  StringRef ClauseName = VPOUtils::getClauseName(ClauseID);
+  StringRef ClauseName = VPOAnalysisUtils::getClauseName(ClauseID);
   errorClause(ClauseName);
 }

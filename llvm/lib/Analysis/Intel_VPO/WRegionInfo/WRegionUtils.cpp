@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 #define DEBUG_TYPE "WRegionUtils"
 
@@ -165,10 +165,10 @@ void WRegionUtils::updateWRGraphFromHIR (
 )
 {
   WRegionNode *W = nullptr;
-  StringRef DirOrClauseStr = VPOUtils::getDirectiveMetadataString(Call);
+  StringRef DirOrClauseStr = VPOAnalysisUtils::getDirectiveMetadataString(Call);
 
   if (IntrinId == Intrinsic::intel_directive) {
-    int DirID = VPOUtils::getDirectiveID(DirOrClauseStr);
+    int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClauseStr);
     // If the intrinsic represents a BEGIN directive for a construct 
     // needed by the vectorizer (eg: DIR.OMP.SIMD), then
     // createWRegionHIR creates a WRN for it and returns its pointer.
@@ -186,7 +186,7 @@ void WRegionUtils::updateWRGraphFromHIR (
       }
       S.push(W);
     }
-    else if (VPOUtils::isEndDirective(DirID)) {
+    else if (VPOAnalysisUtils::isEndDirective(DirID)) {
       // DEBUG(dbgs() << "\n} Ending WRegion.\n");
       if (!S.empty()) {
         W = S.top();
@@ -201,7 +201,7 @@ void WRegionUtils::updateWRGraphFromHIR (
     }
   } else { //process clauses
     W = S.top();
-    int ClauseID = VPOUtils::getClauseID(DirOrClauseStr);
+    int ClauseID = VPOAnalysisUtils::getClauseID(DirOrClauseStr);
     if (IntrinId == Intrinsic::intel_directive_qual) {
       // Handle clause with no arguments
       assert (Call->getNumArgOperands()==1 && 
@@ -247,7 +247,7 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
     IntrinsicInst* Call = dyn_cast<IntrinsicInst>(II);
     if (Call) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
-      if (VPOUtils::isIntelDirectiveOrClause(IntrinId)) {
+      if (VPOAnalysisUtils::isIntelDirectiveOrClause(IntrinId)) {
         // The intrinsic is one of these: intel_directive,
         //                                intel_directive_qual, 
         //                                intel_directive_qual_opnd, 
@@ -277,19 +277,6 @@ WRContainerImpl *WRegionUtils::buildWRGraphFromHIR(HIRFramework &HIRF)
 
   HIRF.getHLNodeUtils().visitAll(Visitor);
   return Visitor.getWRGraph();
-}
-
-
-//Removal Utilities
-bool WRegionUtils::stripDirectives(WRegionNode *WRN) {
-  bool success = true;
-  BasicBlock *EntryBB = WRN->getEntryBBlock();
-  BasicBlock *ExitBB = WRN->getExitBBlock();
-
-  success = success && VPOUtils::stripDirectives(*EntryBB);
-  success = success && VPOUtils::stripDirectives(*ExitBB);
-
-  return success;
 }
 
 // Clause Utilities

@@ -30,7 +30,7 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -99,13 +99,14 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
     if (Call) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
 
-      if (!VPOUtils::isIntelDirectiveOrClause(IntrinId))
+      if (!VPOAnalysisUtils::isIntelDirectiveOrClause(IntrinId))
         // Intrin is not intel_directive or intel_directive_qual*
         continue;
 
       if (IntrinId == Intrinsic::intel_directive) {
-        StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
-        int DirID = VPOUtils::getDirectiveID(DirString);
+        StringRef DirString = 
+                            VPOAnalysisUtils::getDirectiveMetadataString(Call);
+        int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
         // If the intrinsic represents an intel BEGIN directive, then
         // W is a pointer to an object for the corresponding WRN.
         // Otherwise, W is nullptr.
@@ -127,7 +128,7 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
 
           S->push(W);
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
-        } else if (VPOUtils::isEndDirective(DirID)) {
+        } else if (VPOAnalysisUtils::isEndDirective(DirID)) {
           // The intrinsic represents an intel END directive
           // TODO: verify the END directive is the expected one
 
@@ -146,9 +147,10 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
           S->pop();
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
         }
-        else if (VPOUtils::isListEndDirective(DirID) && !(S->empty())) {
+        else if (VPOAnalysisUtils::isListEndDirective(DirID) && 
+                 !(S->empty())) {
           W = S->top();
-          if (VPOUtils::isStandAloneDirective(W->getDirID())) {
+          if (VPOAnalysisUtils::isStandAloneDirective(W->getDirID())) {
             // Current WRN is for a stand-alone directive, so
             // pop the stack as soon as DIR_QUAL_LIST_END is seen
             S->pop();
@@ -158,8 +160,9 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
         assert(!(S->empty()) &&
                "Unexpected empty WRN stack when seeing a clause");
         W = S->top();
-        StringRef ClauseString = VPOUtils::getDirectiveMetadataString(Call);
-        int ClauseID = VPOUtils::getClauseID(ClauseString);
+        StringRef ClauseString = 
+                            VPOAnalysisUtils::getDirectiveMetadataString(Call);
+        int ClauseID = VPOAnalysisUtils::getClauseID(ClauseString);
         if (IntrinId == Intrinsic::intel_directive_qual) {
           // Handle clause with no arguments
           assert(Call->getNumArgOperands() == 1 &&
