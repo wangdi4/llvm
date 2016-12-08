@@ -61,8 +61,6 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/LLVMContext.h"
-#include <algorithm>
-#include <sstream>
 
 #if defined (WIN32)
 #include <windows.h>
@@ -70,8 +68,11 @@ File Name:  ProgramBuilder.cpp
 #include <codecvt>
 #endif // WIN32
 
-#include <vector>
+#include <algorithm>
+#include <sstream>
 #include <string>
+#include <vector>
+
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -265,7 +266,6 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         DumpModuleStats(pModule);
 
         PostOptimizationProcessing(pProgram, pModule, pOptions);
-
         if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {
             //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");

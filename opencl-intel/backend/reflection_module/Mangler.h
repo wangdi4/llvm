@@ -43,7 +43,8 @@ public:
   /// @param isGather true for gather instruction, false for scatter instruction
   /// @param retDataVecTy type of return/data value (should be a vector)
   /// @return name
-  static std::string getGatherScatterName(bool isMasked, GatherScatterType gatherType, VectorType *retDataVecTy);
+  static std::string getGatherScatterName(bool isMasked, GatherScatterType gatherType,
+                                          VectorType *retDataVecTy, VectorType *indexTy = 0);
   /// @brief Get internal mangled name for gather or scatter instruction
   /// (this name will be resolved at Resolver pass, thus it is for vectorizer internal use only)
   /// @param isGather true for gather instruction, false for scatter instruction
@@ -116,8 +117,9 @@ public:
   /// @brief Get mangled name for masked load/store function
   /// @param isLoad True if this is load, false otherwise
   /// @param vecType Vector type of the data to load/store
+  /// @param isBitMask Mask vector has 1-bit form
   /// @return name
-  static std::string getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType);
+  static std::string getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType, bool isBitMask = false);
 
   /// @brief returns fake builtin name for a given builtin name
   /// @param name - original builtin name

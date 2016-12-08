@@ -111,4 +111,5 @@ _16i16 __ocl_trunc_v16i64_v16i16(_16i64);
 _16i64 __ocl_zext_v16i32_v16i64(_16i32);
 _16i64 __ocl_sext_v16i32_v16i64(_16i32);
 _16i32 __ocl_trunc_v16i64_v16i32(_16i64);
+void __ocl_expand_mask_4x16(ushort, ushort*, ushort*, ushort*, ushort*);
 

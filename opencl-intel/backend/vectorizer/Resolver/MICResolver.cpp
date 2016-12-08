@@ -74,8 +74,9 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
 
     // Remove address space from pointer type
     PtrTy = PointerType::get(RetTy->getScalarType(), 0);
+    
     Ptr = CastInst::CreatePointerCast(Ptr, PtrTy, "ptrTypeCast", caller);
-
+    
     Type *IndTy = IntegerType::get(caller->getContext(), 32);
 
     Value *Index = getConsecutiveConstantVector(IndTy, RetTy->getNumElements());
@@ -121,6 +122,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
 
     // Remove address space from pointer type
     PtrTy = PointerType::get(DataTy->getScalarType(), 0);
+    
     Ptr = CastInst::CreatePointerCast(Ptr, PtrTy, "ptrTypeCast", caller);
 
     Type *IndTy = IntegerType::get(caller->getContext(), 32);
@@ -340,7 +342,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createGatherScatterResolverPass() {
+  FunctionPass* createKNCResolverPass() {
     return new intel::MICResolver();
   }
 }

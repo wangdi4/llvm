@@ -50,7 +50,7 @@ unsigned IMG_SIZE = 0;
 
 const char* IMG_MASK_PREFIX = "mask_";
 
-static const char* getGatherScatterTypeName(Type *ElemTy) {
+static const char* getScalarTypeName(Type *ElemTy) {
   if (ElemTy->isIntegerTy(8)) return "i8";
   if (ElemTy->isIntegerTy(16)) return "i16";
   if (ElemTy->isIntegerTy(32)) return "i32";
@@ -118,10 +118,11 @@ std::string Mangler::getStoreName(unsigned align) {
   return mask_prefix_store + alignStr + "_" + suffix;
 }
 
-std::string Mangler::getGatherScatterName(bool isMasked, GatherScatterType gatherType, VectorType *VecTy) {
+std::string Mangler::getGatherScatterName(bool isMasked, GatherScatterType gatherType,
+                                          VectorType *DataTy, VectorType *IndexTy) {
   std::stringstream result;
-  unsigned numElements = VecTy->getNumElements();
-  const char* elemTyName = getGatherScatterTypeName(VecTy->getScalarType());
+  unsigned numElements = DataTy->getNumElements();
+  const char* elemTyName = getScalarTypeName(DataTy->getScalarType());
   // Format:
   // [masked_]gather|scatter.v16<i|f><32|64>
 
@@ -149,14 +150,18 @@ std::string Mangler::getGatherScatterName(bool isMasked, GatherScatterType gathe
 
   result << type;
   result << numElements << elemTyName;
+  if (IndexTy) {
+    result << "_ind_v" << IndexTy->getNumElements() <<
+      getScalarTypeName(IndexTy->getScalarType());
+  }
   return result.str();
 }
 
 std::string Mangler::getGatherScatterInternalName(GatherScatterType gatherType, Type *maskType, VectorType *retDataVecTy, Type *indexType) {
   std::stringstream result;
   unsigned numElements = retDataVecTy->getNumElements();
-  const char* elemRetTyName = getGatherScatterTypeName(retDataVecTy->getScalarType());
-  const char* elemIndexTyName = getGatherScatterTypeName(indexType->getScalarType());
+  const char* elemRetTyName = getScalarTypeName(retDataVecTy->getScalarType());
+  const char* elemIndexTyName = getScalarTypeName(indexType->getScalarType());
   // Format:
   // internal.gather|scatter.v16<i|f><32|64>.i[<32|64>].m[1|16]
 
@@ -409,7 +414,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   return funcName.str();
 }
 
-std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType) {
+std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType, bool isBitMask) {
 
   // Determine load or store
   std::string baseFuncName;
@@ -436,7 +441,8 @@ std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vec
   }
 
   std::stringstream funcName;
-  funcName << "__ocl_masked_" << baseFuncName << typeName << vecType->getNumElements();
+  std::string prefix = isBitMask ? "__ocl_imasked_" : "__ocl_masked_";
+  funcName << prefix << baseFuncName << typeName << vecType->getNumElements();
 
   return funcName.str();
 }

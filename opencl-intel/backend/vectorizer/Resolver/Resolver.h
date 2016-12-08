@@ -40,7 +40,7 @@ public:
   /// @return True if changed
   virtual bool runOnFunction(Function &F);
   /// Standard LLVM interface - Nothing to preserve
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const { 
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<BuiltinLibInfo>();
   }
 
@@ -49,6 +49,8 @@ private:
   /// @param caller Instruction to resolve
   /// @return true if this call was handled by the resolver
   virtual bool TargetSpecificResolve(CallInst* caller) = 0;
+
+  virtual bool isBitMask(const VectorType& vecType) const { return false; }
 
   /// @brief Resolve a call-site
   /// @param caller Instruction to resolve
