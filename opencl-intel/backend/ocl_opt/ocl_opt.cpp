@@ -95,6 +95,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeSPIR20BlocksToObjCBlocksPass(Registry);
     intel::initializePrintfArgumentsPromotionPass(Registry);
     intel::initializeBlockToFuncPtrPass(Registry);
+    intel::initializeChannelPipeTransformationPass(Registry);
 }
 
 

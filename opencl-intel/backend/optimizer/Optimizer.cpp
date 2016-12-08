@@ -58,6 +58,7 @@ llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBlockToFuncPtrPass();
 llvm::ModulePass *createBuiltInImportPass(const char *CPUName);
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
+llvm::ModulePass *createChannelPipeTransformationPass();
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
@@ -265,6 +266,11 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(createLinearIdResolverPass());
   }
 
+  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
+
+  PM.add(createChannelPipeTransformationPass());
+
+
   // Adding module passes.
 #ifndef __APPLE__
   if (dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
@@ -283,7 +289,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     }
     PM.add(createGenericAddressStaticResolutionPass());
   }
-  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
 
   PM.add(llvm::createBasicAAWrapperPass());
   PM.add(createOCLAliasAnalysisPass());

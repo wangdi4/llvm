@@ -1,0 +1,105 @@
+; Compiled from:
+; ----------------------------------------------------
+; #pragma OPENCL EXTENSION cl_altera_channels : enable
+; channel int bar;
+; channel float far;
+;
+; struct Foo {
+;   int i;
+; };
+; channel struct Foo star;
+;
+; int __read_channel_altera(channel int arg, int packet_size, int align) __attribute__((overloadable));
+; float __read_channel_altera(channel float arg, int packet_size, int align) __attribute__((overloadable));
+; struct Foo __read_channel_altera(channel struct Foo arg, int packet_size, int align) __attribute__((overloadable));
+;
+; __kernel void foo() {
+;   int i = __read_channel_altera(bar, sizeof(bar), 4);
+;   float f = __read_channel_altera(far, sizeof(far), 4);
+;   struct Foo st = __read_channel_altera(star, sizeof(struct Foo), 4);
+; }
+; ----------------------------------------------------
+;
+; RUN: opt -runtimelib=../../Full/runtime.bc -channel-pipe-transformation -verify %s -S | FileCheck %s
+target datalayout = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target triple = "spir-unknown-unknown"
+
+%opencl.channel_t = type opaque
+%struct.Foo = type { i32 }
+
+@bar = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
+@far = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
+@star = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
+
+; CHECK:      @[[PIPE_BAR:.*]] = common global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK-NEXT: @[[PIPE_FAR:.*]] = common global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK-NEXT: @[[PIPE_STAR:.*]] = common global %opencl.pipe_t{{.*}} addrspace(1)*
+
+; All calls to read/write_channel_altera should be replaced by
+; corresponding calls to pipe built-ins
+;
+; CHECK-NOT: call{{.*}}read_channel_altera
+;
+; CHECK: %[[LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
+; CHECK: call i32 @__read_pipe_2{{.*}} %[[LOAD_BAR_PIPE]]
+;
+; CHECK: %[[LOAD_FAR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR]]
+; CHECK: call i32 @__read_pipe_2{{.*}} %[[LOAD_FAR_PIPE]]
+;
+; CHECK: %[[LOAD_STAR_PIPE:.*]] = load {{.*}} @[[PIPE_STAR]]
+; CHECK: call i32 @__read_pipe_2{{.*}} %[[LOAD_STAR_PIPE]]
+
+; Function Attrs: nounwind
+define spir_kernel void @foo() #0 {
+entry:
+  %st = alloca %struct.Foo, align 4
+  %0 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @bar, align 4, !tbaa !9
+  %call = tail call spir_func i32 @_Z21__read_channel_altera11ocl_channeliii(%opencl.channel_t addrspace(1)* %0, i32 4, i32 4) #3
+  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @far, align 4, !tbaa !9
+  %call1 = tail call spir_func float @_Z21__read_channel_altera11ocl_channelfii(%opencl.channel_t addrspace(1)* %1, i32 4, i32 4) #3
+  %2 = bitcast %struct.Foo* %st to i8*
+  call void @llvm.lifetime.start(i64 4, i8* %2) #3
+  %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @star, align 4, !tbaa !9
+  call spir_func void @_Z21__read_channel_altera11ocl_channel3Fooii(%struct.Foo* nonnull sret %st, %opencl.channel_t addrspace(1)* %3, i32 4, i32 4) #3
+  call void @llvm.lifetime.end(i64 4, i8* %2) #3
+  ret void
+}
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+
+declare spir_func i32 @_Z21__read_channel_altera11ocl_channeliii(%opencl.channel_t addrspace(1)*, i32, i32) #2
+
+declare spir_func float @_Z21__read_channel_altera11ocl_channelfii(%opencl.channel_t addrspace(1)*, i32, i32) #2
+
+declare spir_func void @_Z21__read_channel_altera11ocl_channel3Fooii(%struct.Foo* sret, %opencl.channel_t addrspace(1)*, i32, i32) #2
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+
+attributes #0 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { argmemonly nounwind }
+attributes #2 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #3 = { nounwind }
+
+!opencl.kernels = !{!0}
+!opencl.enable.FP_CONTRACT = !{}
+!opencl.ocl.version = !{!6}
+!opencl.spir.version = !{!6}
+!opencl.used.extensions = !{!7}
+!opencl.used.optional.core.features = !{!7}
+!opencl.compiler.options = !{!7}
+!llvm.ident = !{!8}
+
+!0 = !{void ()* @foo, !1, !2, !3, !4, !5}
+!1 = !{!"kernel_arg_addr_space"}
+!2 = !{!"kernel_arg_access_qual"}
+!3 = !{!"kernel_arg_type"}
+!4 = !{!"kernel_arg_base_type"}
+!5 = !{!"kernel_arg_type_qual"}
+!6 = !{i32 2, i32 0}
+!7 = !{}
+!8 = !{!"clang version 3.8.1 "}
+!9 = !{!10, !10, i64 0}
+!10 = !{!"omnipotent char", !11, i64 0}
+!11 = !{!"Simple C/C++ TBAA"}

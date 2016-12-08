@@ -90,6 +90,7 @@ void initializeOCLAliasAnalysisPass(llvm::PassRegistry&);
 void initializeSPIR20BlocksToObjCBlocksPass(llvm::PassRegistry&);
 void initializePrintfArgumentsPromotionPass(llvm::PassRegistry&);
 void initializeBlockToFuncPtrPass(llvm::PassRegistry&);
+void initializeChannelPipeTransformationPass(llvm::PassRegistry&);
 }
 
 #endif
