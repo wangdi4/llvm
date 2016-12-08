@@ -377,6 +377,10 @@ HLInst *HLNodeUtils::createCastHLInst(Type *DestTy, unsigned Opcode,
     return createTrunc(DestTy, Op, Name, LvalRef);
   case Instruction::BitCast:
     return createBitCast(DestTy, Op, Name, LvalRef);
+  case Instruction::PtrToInt:
+    return createPtrToInt(DestTy, Op, Name, LvalRef);
+  case Instruction::IntToPtr:
+    return createIntToPtr(DestTy, Op, Name, LvalRef);
   default:
     llvm_unreachable("Unexpected cast opcode");
   }
@@ -1786,13 +1790,13 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
         bool IsSeparator = false;
         /// Check whether we are crossing separators.
         for (unsigned I = 0, E = Switch->getNumCases(); I < E; ++I) {
-          if ((Switch->CaseBegin[I] != Switch->Children.end()) && 
+          if ((Switch->CaseBegin[I] != Switch->Children.end()) &&
               (TempSucc == &*(Switch->CaseBegin[I]))) {
             IsSeparator = true;
             break;
           }
         }
-        if ((Switch->DefaultCaseBegin != Switch->Children.end()) && 
+        if ((Switch->DefaultCaseBegin != Switch->Children.end()) &&
             (TempSucc == &*(Switch->DefaultCaseBegin))) {
           IsSeparator = true;
         }
