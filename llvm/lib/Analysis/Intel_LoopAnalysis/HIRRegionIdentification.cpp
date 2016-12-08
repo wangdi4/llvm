@@ -48,6 +48,10 @@ static cl::opt<bool> CostModelThrottling(
     "hir-cost-model-throttling", cl::init(true), cl::Hidden,
     cl::desc("Throttles loops deemed non-profitable by the cost model"));
 
+static cl::opt<bool> DisablePragmaBailOut(
+    "disable-hir-pragma-bailout", cl::init(false), cl::Hidden,
+    cl::desc("Disable HIR bailout for non unroll/vectorizer loop metadata"));
+
 STATISTIC(RegionCount, "Number of regions created");
 
 INITIALIZE_PASS_BEGIN(HIRRegionIdentification, "hir-region-identification",
@@ -310,7 +314,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     auto Func = CI.getCalledFunction();
 
     if (!Func || !RI.TLI->isFunctionVectorizable(Func->getName())) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of user calls.\n");
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
+                      "user calls.\n");
       return false;
     }
   }
@@ -442,7 +447,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   // Skip loop with vectorize/unroll pragmas for now so that tests checking for
   // these are not affected. Allow SIMD loops.
-  if (!isSIMDLoop(Lp) && Lp.getLoopID()) {
+  if (!DisablePragmaBailOut && !isSIMDLoop(Lp) && Lp.getLoopID()) {
     DEBUG(
         dbgs()
         << "LOOPOPT_OPTREPORT: Loops with pragmas currently not supported.\n");
