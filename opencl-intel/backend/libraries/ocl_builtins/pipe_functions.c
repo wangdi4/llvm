@@ -66,18 +66,6 @@ uint OVERLOADABLE
 atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand,
                           memory_order order, memory_scope scope);
 
-// The following functions are threated by clang as builtins. To be SPIR
-// conformant we have to use correctly mangled names in OCL code. Switching
-// these built-ins to having overloadable attribute is blocked by clang that
-// declares reserve builtins as returning 'int' instead of reserve_id_t
-// producing a conflicting type. It is not fixed in clang 3.8RC3. It is not
-// clear if it's a bug at all, since it blocks only implementing clang builtins
-// directly in the source code being compiled.
-#define RESERVE_READ_PIPE                  __reserve_read_pipe
-#define RESERVE_WRITE_PIPE                 __reserve_write_pipe
-#define WORK_GROUP_RESERVE_READ_PIPE       __work_group_reserve_read_pipe
-#define WORK_GROUP_RESERVE_WRITE_PIPE      __work_group_reserve_write_pipe
-
 // pipe_control_intel_t structure MUST BE ALIGNED with the one defined in
 // src/cl_api/PipeCommon.h
 #define INTEL_PIPE_HEADER_RESERVED_SPACE 128
@@ -190,7 +178,7 @@ intel_unlock_pipe_write(__global pipe_control_intel_t *p) {
 
 /////////////////////////////////////////////////////////////////////
 // Work Item Reservations
-reserve_id_t RESERVE_READ_PIPE(read_only pipe uchar pipe_, uint num_packets,
+reserve_id_t __reserve_read_pipe(read_only pipe uchar pipe_, uint num_packets,
                                uint size_of_packet, uint alignment_of_packet) {
   INTEL_PIPE_DPF("ENTER: reserve_read_pipe( num_packets = %d)\n", num_packets);
   __global pipe_control_intel_t *p = PTOC(pipe_);
@@ -252,7 +240,7 @@ reserve_id_t RESERVE_READ_PIPE(read_only pipe uchar pipe_, uint num_packets,
   return retVal;
 }
 
-reserve_id_t RESERVE_WRITE_PIPE(write_only pipe uchar pipe_, uint num_packets,
+reserve_id_t __reserve_write_pipe(write_only pipe uchar pipe_, uint num_packets,
                                 uint size_of_packet, uint alignment_of_packet) {
   INTEL_PIPE_DPF("ENTER: reserve_write_pipe( num_packets = %d)\n", num_packets);
   __global pipe_control_intel_t *p = PTOC(pipe_);
@@ -536,16 +524,16 @@ uint __get_pipe_max_packets(pipe uchar pipe_, uint size_of_packet,
 // WG functions are handled by the barrier pass so that
 // they are called once per WG.
 
-reserve_id_t WORK_GROUP_RESERVE_READ_PIPE(read_only pipe uchar p, uint num_packets,
+reserve_id_t __work_group_reserve_read_pipe(read_only pipe uchar p, uint num_packets,
                                           uint size_of_packet,
                                           uint alignment_of_packet) {
-  return RESERVE_READ_PIPE(p, num_packets, size_of_packet, alignment_of_packet);
+  return __reserve_read_pipe(p, num_packets, size_of_packet, alignment_of_packet);
 }
 
-reserve_id_t WORK_GROUP_RESERVE_WRITE_PIPE(write_only pipe uchar p, uint num_packets,
+reserve_id_t __work_group_reserve_write_pipe(write_only pipe uchar p, uint num_packets,
                                            uint size_of_packet,
                                            uint alignment_of_packet) {
-  return RESERVE_WRITE_PIPE(p, num_packets, size_of_packet,
+  return __reserve_write_pipe(p, num_packets, size_of_packet,
                             alignment_of_packet);
 }
 
