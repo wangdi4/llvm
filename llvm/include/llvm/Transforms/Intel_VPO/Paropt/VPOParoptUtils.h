@@ -93,6 +93,7 @@ class CallInst;
 class IntrinsicInst;
 class Constant;
 class LLVMContext;
+class BasicBlock;
 
 namespace vpo {
 
@@ -269,6 +270,18 @@ public:
                                         StringRef IntrinsicName, Type *ReturnTy,
                                         ArrayRef<Value *> Args);
 
+    /// \brief Generates a memcpy call with the destination argument D
+    /// and the source argument S at the end of basic block BB.
+    ///
+    ///     call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*),
+    ///                                          i8* %2,
+    ///                                          i32 4,
+    ///                                          i32 4,
+    ///                                          i1 false)
+    static CallInst *genMemcpy(Value *D, 
+                               Value *S, 
+                               const DataLayout &DL, 
+                               BasicBlock *BB);
 private:
     /// \name Private constructor and destructor to disable instantiation.
     /// @{

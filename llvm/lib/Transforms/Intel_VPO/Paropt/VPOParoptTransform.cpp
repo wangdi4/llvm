@@ -574,13 +574,14 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     }
 
     // Finalized multithreaded Function declaration and definition
-    Function *MTFn = finalizeExtractedMTFunction(NewF, IsTidArg, TidArgNo);
+    Function *MTFn = finalizeExtractedMTFunction(W, NewF, IsTidArg, TidArgNo);
 
     std::vector<Value *> MTFnArgs;
 
     // Pass tid and bid arguments.
     MTFnArgs.push_back(TidPtr);
     MTFnArgs.push_back(BidPtr);
+    genThreadedEntryActualParmList(W, MTFnArgs);
 
     DEBUG(dbgs() << " New Call to MTFn: " << *NewCall << "\n"); 
     // Pass all the same arguments of the extracted function.
@@ -757,7 +758,110 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
   return ForkCallInst;
 }
 
-Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn, 
+// Generates the acutal parameters in the outlined function for
+// copyin variables.
+void VPOParoptTransform::genThreadedEntryActualParmList(WRegionNode *W,
+                                          std::vector<Value *>& MTFnArgs) {
+
+  if (auto CP = W->getCopyin()) {
+    for (auto C : CP->items()) {
+      MTFnArgs.push_back(C->getOrig());
+    }
+  }
+}
+
+// Generates the formal parameters in the outlined function for 
+// copyin variables. It can be extended for other variables including
+// firstprivte, shared and etc. 
+void VPOParoptTransform::genThreadedEntryFormalParmList(WRegionNode *W,
+                                          std::vector<Type *>& ParamsTy) {
+
+  if (auto CP = W->getCopyin()) {
+    for (auto C : CP->items()) {
+      ParamsTy.push_back(C->getOrig()->getType());
+    }
+  }
+}
+
+// Fix the name of copyin formal parameters for outlined function.
+void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
+                                                        Function *NFn) {
+
+  if (auto CP = W->getCopyin()) {
+    Function::arg_iterator NewArgI = NFn->arg_begin();
+    ++NewArgI;
+    ++NewArgI;
+    for (auto C : CP->items()) {
+      NewArgI->setName("tpv_"+C->getOrig()->getName());
+      ++NewArgI;
+    }
+  }
+}
+
+// Emit the code for copyin variable. One example is as follows.
+//   %0 = ptrtoint i32* %tpv_a to i64
+//   %1 = icmp ne i64 %0, ptrtoint (i32* @a to i64)
+//   br i1 %1, label %copyin.not.master, label %copyin.not.master.end
+//
+// copyin.not.master:                                ; preds = %newFuncRoot
+//   %2 = bitcast i32* %tpv_a to i8*
+//   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
+//   br label %copyin.not.master.end
+//
+// copyin.not.master.end:                            ; preds = %newFuncRoot, %copyin.not.master
+//
+void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
+                                      Function *NFn) {
+
+  if (auto CP = W->getCopyin()) {
+    Function::arg_iterator NewArgI = NFn->arg_begin();
+    ++NewArgI;
+    ++NewArgI;
+    const DataLayout DL=NFn->getParent()->getDataLayout();
+    bool FirstArg = true;
+
+    for (auto C : CP->items()) {
+      TerminatorInst *Term;
+      if (FirstArg) {
+        FirstArg = false;
+
+        IRBuilder<> Builder(&NFn->getEntryBlock());
+        Builder.SetInsertPoint(NFn->getEntryBlock().getTerminator());
+
+        // The instruction to cast the tpv pointer to int for later comparison
+        // instruction. One example is as follows.
+        //   %0 = ptrtoint i32* %tpv_a to i64
+        Value *TpvArg = Builder.CreatePtrToInt(&*NewArgI,Builder.getIntPtrTy(DL));
+        Value *OldTpv = Builder.CreatePtrToInt(C->getOrig(),Builder.getIntPtrTy(DL));
+
+        // The instruction to compare between the address of tpv formal
+        // arugment and the tpv accessed in the outlined function. 
+        // One example is as follows.
+        //   %1 = icmp ne i64 %0, ptrtoint (i32* @a to i64)
+        Value *PtrCompare = Builder.CreateICmpNE(TpvArg, OldTpv);
+        Term = 
+          SplitBlockAndInsertIfThen(PtrCompare,
+                                    NFn->getEntryBlock().getTerminator(),
+                                    false);
+
+        // Set the name for the newly generated basic blocks.
+        Term->getParent()->setName("copyin.not.master");
+        NFn->getEntryBlock().getTerminator()
+            ->getSuccessor(1)->setName("copyin.not.master.end");
+      }
+      VPOParoptUtils::genMemcpy(C->getOrig(),
+                                &*NewArgI,
+                                DL,
+                                Term->getParent());
+
+      ++NewArgI;
+    }
+  }
+}
+
+Function *VPOParoptTransform::finalizeExtractedMTFunction(
+  WRegionNode *W,
+  Function *Fn, 
   bool IsTidArg, unsigned int TidArgNo) {
 
   LLVMContext &C = Fn->getContext();
@@ -771,6 +875,8 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn,
 
   ParamsTy.push_back(PointerType::getUnqual(Type::getInt32Ty(C)));
   ParamsTy.push_back(PointerType::getUnqual(Type::getInt32Ty(C)));
+
+  genThreadedEntryFormalParmList(W, ParamsTy);
 
   unsigned int TidParmNo = 0;
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
@@ -811,6 +917,9 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn,
   // The second argument is *bid - binding thread id argument
   NewArgI->setName("bid");
   ++NewArgI;
+
+  fixThreadedEntryFormalParmName(W, NFn);
+  genTpvCopyIn(W, NFn);
 
   // For each argument, move the name and users over to the new version.
   TidParmNo = 0;

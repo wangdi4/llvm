@@ -35,13 +35,14 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
-
 #include <string>
 
 #define DEBUG_TYPE "VPOParoptUtils"
 
 using namespace llvm;
 using namespace llvm::vpo;
+
+static const unsigned StackAdjustedAlignment = 16;
 
 // This function generates a runtime library call to __kmpc_begin(&loc, 0)
 CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
@@ -870,4 +871,52 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 
   return genKmpcCriticalSectionImpl(W, IdentTy, TidPtr, BeginInst, EndInst,
                                     Lock);
+}
+
+// Generates a memcpy call at the end of the given basic block BB.
+// The value D represents the destination while the value S represents
+// the source. The size of the memcpy is the size of destination.
+// The compiler will insert the typecast if the type of source or destination
+// does not match with the type i8.
+// One example of the output is as follows.
+//   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
+CallInst* VPOParoptUtils::genMemcpy(Value *D, 
+                                    Value *S, 
+                                    const DataLayout &DL, 
+                                    BasicBlock *BB)
+{
+  IRBuilder<> MemcpyBuilder(BB);
+  MemcpyBuilder.SetInsertPoint(BB->getTerminator());
+
+  Value *Dest, *Src, *Size;
+  unsigned A;
+
+  // The first two arguments of the memcpy expects the i8 operands.
+  // The instruction bitcast is introduced if the incoming src or dest
+  // operand in not in i8 type.
+  if (D->getType() != 
+      Type::getInt8PtrTy(BB->getParent()->getContext())) {
+    Dest = MemcpyBuilder.CreatePointerCast(D, MemcpyBuilder.getInt8PtrTy());
+    Src = MemcpyBuilder.CreatePointerCast(S, MemcpyBuilder.getInt8PtrTy());
+  }
+  else {
+    Dest = D;
+    Src = S;
+  }
+
+  // For 32/64 bit architecture, the size and alignment should be
+  // set accordingly.
+  if (DL.getIntPtrType(MemcpyBuilder.getInt8PtrTy())->getIntegerBitWidth() == 64) {
+    Size = 
+      MemcpyBuilder.getInt64(
+            DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+    A = StackAdjustedAlignment;
+  }
+  else {
+    Size = 
+      MemcpyBuilder.getInt32(DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+    A = StackAdjustedAlignment/4;
+  }
+
+  return MemcpyBuilder.CreateMemCpy(Dest, Src, Size, A);
 }

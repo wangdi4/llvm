@@ -124,8 +124,28 @@ private:
   /// \brief Generate loop schdudeling code
   bool genLoopSchedulingCode(WRegionNode *W);
 
+  /// \brief Generate the actual parameters in the outlined function
+  /// for copyin variables.
+  void genThreadedEntryActualParmList(WRegionNode *W,
+                                      std::vector<Value *>& MTFnArgs);
+
+  /// \brief Generate the formal parameters in the outlined function
+  /// for copyin variables.
+  void genThreadedEntryFormalParmList(WRegionNode *W,
+                                      std::vector<Type *>& ParamsTy);
+
+  /// \brief Generate the name of formal parameters in the outlined function
+  /// for copyin variables.
+  void fixThreadedEntryFormalParmName(WRegionNode *W,
+                                      Function *NFn);
+
+  /// \brief Generate the copy code for the copyin variables.
+  void genTpvCopyIn(WRegionNode *W,
+                    Function *NFn);
+
   /// \brief Finalize extracted MT-function argument list for runtime
-  Function *finalizeExtractedMTFunction(Function *Fn, 
+  Function *finalizeExtractedMTFunction(WRegionNode *W,
+                                        Function *Fn, 
                                         bool IsTidArg, unsigned int TidArgNo);
 
   /// \brief Generate __kmpc_fork_call Instruction after CodeExtractor
