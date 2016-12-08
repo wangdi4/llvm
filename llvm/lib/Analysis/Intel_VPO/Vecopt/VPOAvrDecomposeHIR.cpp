@@ -391,7 +391,56 @@ AVRExpression *HIRDecomposer::decomposeMemoryOp(AVRValueHIR *AVal) {
   AVRExpression *Result = AVRUtils::createAVRExpression(GepOperands, Instruction::GetElementPtr,
                                        RDDR->getBaseCE()->getDestType());
 
-  // Does it need explicit load?
+  // So far, loads always had explicit HLInsts in HIR that were translated to
+  // explicit load operations (expressions) in AVR. For example, in the code
+  // below, arrays 'b' and 'c' are explicit loads that load data to %0
+  // and %1 respectively.
+  //
+  // + DO i1 = 0, zext.i32.i64(%max_allocno) + -1, 1
+  // |   %0 = (@b)[0][i1];
+  // |   %1 = (@c)[0][i1];
+  // |   (@a)[0][i1] = %0 + %1;
+  // + END LOOP
+  //
+  // LOOP( IV )
+  // {
+  //   ASSIGN{EXPR{i32 VALUE{i32 %0}} = EXPR{i32 load VALUE{i32* (@b)[0][i1]}}}
+  //   ASSIGN{EXPR{i32 VALUE{i32 %1}} = EXPR{i32 load VALUE{i32* (@c)[0][i1]}}}
+  //   ...
+  // }
+  //
+  // However, Temp Cleanup in HIR introduced "implicit loads" by removing
+  // explicit load HLInsts in some cases. For example, in the code below, arrays
+  // 'b' and 'c' are implicit loads. As you can see, there is no load
+  // instruction generated in AVR for them.
+  //
+  // + DO i1 = 0, zext.i32.i64(%max_allocno) + -1, 1
+  // |   %add = (@b)[0][i1]  +  (@c)[0][i1];
+  // |   (@a)[0][i1] = %add;
+  // + END LOOP
+  //
+  // LOOP( IV )
+  // {
+  //   ASSIGN{EXPR{float VALUE{float %add}} =
+  //       EXPR{float VALUE{float (@b)[0][i1]} fadd VALUE{float (@c)[0][i1]}}}
+  //   ...
+  // }
+  //
+  // These implicit loads need special treatment in decomposer as an explicit
+  // load has to be generated to have a consistent decomposition. The example
+  // below shows how explicit loads are introduced in decomposer.
+  //
+  // LOOP( IV )
+  // {
+  //   ASSIGN{(4)EXPR{float (5)VALUE{float %add}} = ...
+  //       EXPR{float load (16)EXPR{[64 x float]* getelementptr ... }}}
+  //       fadd
+  //       EXPR{float load (21)EXPR{[64 x float]* getelementptr ... }}}
+  //   ...
+  // }
+  //
+
+  // Is this an implicit load? We need to add an explicit load.
   // CHECKME: I don't find a cleaner way to know if a load is necessary.
   AVRExpression *Parent;
   if (RDDR->isRval() && !RDDR->isAddressOf() &&
@@ -489,6 +538,7 @@ void HIRDecomposer::visit(AVRValueHIR *AVal) {
     assert(SubTree && isa<AVRExpression>(SubTree) &&
            "Decomposition is unnecessary");
     AVRUtils::setDecompTree(AVal, cast<AVRExpression>(SubTree));
+    AVRUtils::setParent(SubTree, AVal);
   }
 }
 
@@ -519,8 +569,10 @@ bool AVRDecomposeHIR::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "AVRDecomposerHIR\n");
 
+  const DataLayout& DL = F.getParent()->getDataLayout();
+
   for (auto I = AVRG->begin(), E = AVRG->end(); I != E; ++I) {
-    runOnAvr(&*I, F.getParent()->getDataLayout());
+    runOnAvr(&*I, DL);
   }
 
   DEBUG(dbgs() << "Abstract Layer After Decomposition:\n");

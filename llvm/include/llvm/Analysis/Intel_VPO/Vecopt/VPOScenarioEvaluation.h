@@ -276,9 +276,8 @@ public:
 
   /// \brief Wrapper to calling the TTI utility for gather/scatter cost.
   /// Checks whether the indexes to the gather/scatter can fit in 32bit.
-  virtual int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
-                                     AVRValue *Ptr, bool VariableMask,
-                                     unsigned Alignment) = 0;
+  virtual int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVR *Ptr,
+                                     bool VariableMask, unsigned Alignment) = 0;
 
   /// \brief Check whether the address computation for a non-consecutive memory
   /// access looks like an unlikely candidate for being merged into the indexing
@@ -287,7 +286,7 @@ public:
   // variable with a small enough stride, and the rest are invariant.
   // In HIR this probably translates to checking that we have an evolution
   // only in one dimension (i.e. in one subscript).
-  virtual bool isLikelyComplexAddressComputation(AVRValue *Ptr) = 0;
+  virtual bool isLikelyComplexAddressComputation(AVR *Ptr) = 0;
 
   /// \brief Return a handle to the results of VLS analysis: namely a mapping
   /// from loads/stores to the VLS Group (Group of neighbouring loads/stores)
@@ -318,7 +317,7 @@ public:
   ~VPOCostGatherer() {}
 
   // CHECKME: Can we rely on having the underlying LLVM value available?
-  int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVRValue *Ptr,
+  int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVR *Ptr,
                              bool VariableMask, unsigned Alignment) override {
     assert(isa<AVRValueIR>(Ptr) && "not AVRValueIR?");
     const Value *ConstPtrVal = (cast<AVRValueIR>(Ptr))->getLLVMValue();
@@ -331,7 +330,7 @@ public:
   // Legal->isInductionVariable(Opd) on the GEP indices. Also the LLVMIR
   // implementation in LoopVectorize requires ScalarEvolution Analysis. Can we
   // use SLEV instead of Leval and ScalarEvolution?
-  bool isLikelyComplexAddressComputation(AVRValue *Ptr) {
+  bool isLikelyComplexAddressComputation(AVR *Ptr) {
     return false; // FIXME.
   }
 
@@ -371,25 +370,29 @@ public:
   //
   // Alternatively, find the respective underlying LLVM Value.
   // CHECKME: Can we rely on having the underlying LLVM value available?
-  int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVRValue *Ptr,
+  int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVR *Ptr,
                              bool VariableMask, unsigned Alignment) override {
-    // Obtain the LLVMIR Pointer Value
-    assert(isa<AVRValueHIR>(Ptr) && "not AVRValueHIR?");
-    const HLNode *Node = (cast<AVRValueHIR>(Ptr))->getNode();
-    const HLInst *INode = dyn_cast<HLInst>(Node);
-    const Instruction *CurInst = INode->getLLVMInstruction();
-    Instruction *I = const_cast<Instruction *>(CurInst);
-    StoreInst *SI = dyn_cast<StoreInst>(I);
-    LoadInst *LI = dyn_cast<LoadInst>(I);
-    Value *PtrVal = SI ? SI->getPointerOperand() : LI->getPointerOperand();
 
-    // Call the TTI routine
-    return TTI.getGatherScatterOpCost(Opcode, SrcVTy, PtrVal, VariableMask,
-                                      Alignment);
+    if (AVRValueHIR *AValHIR = dyn_cast<AVRValueHIR>(Ptr)) {
+      // Obtain the LLVMIR Pointer Value
+      const HLNode *Node = AValHIR->getNode();
+      const HLInst *INode = dyn_cast<HLInst>(Node);
+      const Instruction *CurInst = INode->getLLVMInstruction();
+      Instruction *I = const_cast<Instruction *>(CurInst);
+      StoreInst *SI = dyn_cast<StoreInst>(I);
+      LoadInst *LI = dyn_cast<LoadInst>(I);
+      Value *PtrVal = SI ? SI->getPointerOperand() : LI->getPointerOperand();
+
+      // Call the TTI routine
+      return TTI.getGatherScatterOpCost(Opcode, SrcVTy, PtrVal, VariableMask,
+                                        Alignment);
+    } else { // TODO: Implicit loads
+      return 0;
+    }
   }
 
   // TODO.
-  bool isLikelyComplexAddressComputation(AVRValue *Ptr) {
+  bool isLikelyComplexAddressComputation(AVR *Ptr) {
     return false; // FIXME.
   }
 

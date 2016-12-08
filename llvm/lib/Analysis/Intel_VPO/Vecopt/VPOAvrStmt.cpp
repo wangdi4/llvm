@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -102,8 +103,10 @@ AVRExpression::AVRExpression(const SmallVectorImpl<AVR *> &Operands,
 
   IsLHSExpr = false;
   this->Operation = Operation; // Set Operation Type
-  for (AVR *Operand : Operands)
+  for (AVR *Operand : Operands) {
     this->Operands.push_back(Operand);
+    AVRUtils::setParent(Operand, this);
+  }
   this->setType(ExprType); // Set the Data Type.
 }
 

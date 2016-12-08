@@ -374,8 +374,19 @@ static Type *ToVectorTy(Type *Scalar, unsigned VF) {
 /// 1 - Address is consecutive.
 /// -1 - Address is consecutive, and decreasing.
 /// (Same behavior as LoopVectorize::isConsecutivePtr).
-int64_t getConsecutiveStride(AVRValue *PtrOp) {
-  assert(PtrOp->getType()->isPointerTy() && "Unexpected non-ptr");
+int64_t getConsecutiveStride(AVR *PtrOp) {
+  assert((isa<AVRValue>(PtrOp) || isa<AVRExpression>(PtrOp)) &&
+         "Unexpected AVR node");
+
+  Type *PtrType;
+  // TODO: Move type to AVR. This pattern is very common
+  if (AVRValue *ValOp = dyn_cast<AVRValue>(PtrOp)) {
+    PtrType = ValOp->getType();
+  } else if (AVRExpression *ExprOp = dyn_cast<AVRExpression>(PtrOp)) {
+    PtrType = ExprOp->getType();
+  }
+  assert(PtrType->isPointerTy() && "Unexpected non-ptr");
+
 #ifdef USE_EXPERIMENTAL_CODE
   // TODO: Use instead IsPointerConsecutive, once available
   // TODO: SLEV's isConsecutive is currently true only for stride=1; Consider
@@ -384,7 +395,7 @@ int64_t getConsecutiveStride(AVRValue *PtrOp) {
     return 1;
   if (!PtrOp->getSLEV().isStrided())
     return 0;
-  // At this point we know the pointer is Strided, and non Consecutive 
+  // At this point we know the pointer is Strided, and non Consecutive
   // (i.e. Stride != 1); Remains to check if Stride == -1
   int64_t StrideInElements =
       PtrOp->getSLEV().getStride().getInteger().getSExtValue();
@@ -722,10 +733,37 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
       assert(isa<AVRExpression>(LHS) && "Not an Expression?");
       Op = cast<AVRExpression>(LHS)->getOperand(0);
     }
-    assert(isa<AVRValue>(Op) && "Not an AVRValue?");
-    AVRValue *PtrOp = cast<AVRValue>(Op);
-    Type *PtrType = PtrOp->getType();
-    assert(PtrOp->getType()->isPointerTy() && "Unexpected non-ptr");
+
+    // Implicit loads introduced by HIR Temp Cleanup Pass need special
+    // treatment. If decomposition is not enabled, they are hidden under an
+    // AVRValueHIR and won't hit here. If decomposition analysis is enabled, a
+    // new load (AVRExpression) is introduced. However, there are two important
+    // differences between this new load and an original explicit load (built by
+    // AVRGenerate):
+    //     1. In a explicit load, RegDDRef is in the operand (AVRValue) that
+    //     contains the load address. In a load generated in decomposition
+    //     analysis for an implicit load, RegDDRef is in the AVRValueHIR that
+    //     represents (hide) the whole load.
+    //     2. The operand of an explicit load is an AVRValueHIR that represents
+    //     the address. The operand of a load generated in decomposition
+    //     analysis for an implicit load is an AVRExpression (sub-expression tree)
+    //     with an explicit GEP.
+
+    bool IsImplicitLoad;
+    Type *PtrType;
+    //TODO: Move type to AVR. This pattern is very common
+    if (AVRValue *ValOp = dyn_cast<AVRValue>(Op)) {
+      PtrType = ValOp->getType();
+      IsImplicitLoad = false;
+    } else if (AVRExpression *ExprOp = dyn_cast<AVRExpression>(Op)) {
+      PtrType = ExprOp->getType();
+      IsImplicitLoad = true;
+    }
+    else {
+      llvm_unreachable("Op should be AVRValue or AVRExpression");
+    }
+
+    assert(PtrType->isPointerTy() && "Unexpected non-ptr");
 
     // 1. Get the Alignment (TODO)
     // CHECKME: get it from underlying IR? (LI->getAlignemnt())
@@ -791,14 +829,30 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 
     VPOVLSInfoBase *VLSInfo = getVLSInfo();
     assert(VLSInfo && "VLSInfo not available"); 
-    OVLSMemref *Mrf = VLSInfo->getVLSMemrefInfoForAccess(PtrOp);
-    Type *DataTy = (cast<PointerType>(PtrType))->getElementType();
-     
+    OVLSMemref *Mrf;
+    if (!IsImplicitLoad) {
+      // Explicit load. The RegDDRef is in the load operand (pointer)
+      Mrf = VLSInfo->getVLSMemrefInfoForAccess(cast<AVRValue>(Op));
+    } else {
+      // Implicit load. The RegDDRef is in the AVRValue hidding the whole load
+      assert(Expr->getParent() && isa<AVRValueHIR>(Expr->getParent()) &&
+             "Unexpectd parent in an implicit load");
+      Mrf = VLSInfo->getVLSMemrefInfoForAccess(
+          cast<AVRValueHIR>(Expr->getParent()));
+    }
+
+    // FIXME: There has to be some interface to get the basic type of a
+    // recursive SequentialType. Example: 'pointer to multidimensional array of
+    // floats' would return 'float'
+    Type *DataTy = PtrType->getSequentialElementType();
+    while (isa<SequentialType>(DataTy))
+      DataTy = DataTy->getSequentialElementType();
+
 #ifdef USE_EXPERIMENTAL_CODE 
-    ConsecutiveStride = getConsecutiveStride(PtrOp);
-    if (PtrOp->getSLEV().isStrided()) {
+    ConsecutiveStride = getConsecutiveStride(Op);
+    if (Op->getSLEV().isStrided()) {
       StrideInElements =
-          PtrOp->getSLEV().getStride().getInteger().getSExtValue();
+          Op->getSLEV().getStride().getInteger().getSExtValue();
     } 
 #else
     // Temporary work around until SLEV is operational
@@ -816,7 +870,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
         ConsecutiveStride = StrideInElements;
     } 
     else {
-      ConsecutiveStride = getConsecutiveStride(PtrOp);
+      ConsecutiveStride = getConsecutiveStride(Op);
     }
 #endif
     DEBUG(errs() << "Consecutive Stride = " << ConsecutiveStride << "\n");
@@ -863,10 +917,10 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     bool GapInElemSize = false; // FIXME
     if ((!ConsecutiveStride && !UseGatherOrScatter) || GapInElemSize) {
       DEBUG(errs() << "Case 2: Non-consecutive access Scalarization Cost.\n");
-      bool IsComplexComputation = isLikelyComplexAddressComputation(PtrOp);
+      bool IsComplexComputation = isLikelyComplexAddressComputation(Op);
       Cost = 0;
       // The cost of extracting from the value vector and pointer vector.
-      Type *PtrsVecTy = ToVectorTy(PtrOp->getType(), VF);
+      Type *PtrsVecTy = ToVectorTy(PtrType, VF);
       for (unsigned i = 0; i < VF; ++i) {
         //  The cost of extracting the pointer operand.
         Cost +=
@@ -892,9 +946,9 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     // Case 4: Non unit-stride access, using Gather/Scatter
     //
 #ifdef USE_EXPERIMENTAL_CODE 
-    if (PtrOp->getSLEV().isStrided()) {
+    if (Op->getSLEV().isStrided()) {
       int64_t StrideInElements =
-          PtrOp->getSLEV().getStride().getInteger().getSExtValue();
+          Op->getSLEV().getStride().getInteger().getSExtValue();
       DEBUG(errs() << "Stride = " << StrideInElements << "\n");
     } else
       DEBUG(errs() << "Stride Unknown\n");
@@ -904,7 +958,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
       DEBUG(errs() << "Case 3: GatherScatterCost.\n");
       assert(ConsecutiveStride == 0 &&
              "Gather/Scatter are not used for consecutive stride");
-      Cost += getGatherScatterOpCost(Expr->getOperation(), VectorTy, PtrOp,
+      Cost += getGatherScatterOpCost(Expr->getOperation(), VectorTy, Op,
                                      isMaskRequired, Alignment);
       break;
     }
@@ -965,7 +1019,7 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   AVRVisitor<VPOCostGathererBase> AVisitor(*CostGatherer);
   // Enabling RecursiveInsideValues to visit AVRValueHIR's sub-tree
   // decomposition.
-  AVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/, true);
+  AVisitor.visit(ALoop, true, true, true /*RecursiveInsideValues*/, true);
   unsigned int LoopBodyCost = CostGatherer->getLoopBodyCost();
 
   // Calculate OutOfLoop Costs. 
