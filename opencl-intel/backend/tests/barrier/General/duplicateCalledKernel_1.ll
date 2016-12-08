@@ -1,5 +1,4 @@
-; [LLVM 3.6 UPGRADE] FIXME: Disable this test until clang is upgraded to 3.6 too.
-; RUN_x: opt -B-DuplicateCalledKernels -verify -S < %s | FileCheck %s
+; RUN: opt -B-DuplicateCalledKernels -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the DuplicateCalledKernels pass clone a called kernel.
@@ -11,7 +10,7 @@
 ;;*****************************************************************************
 
 ;; This test was generated using the following cl code with this command:
-;;  clang -cc1 -x cl -emit-llvm -include opencl_.h -I <Path-TO>\clang_headers\ -g -O0 -o -
+;; clang -cc1 -cl-std=CL2.0 -x cl -emit-llvm -debug-info-kind=limited -dwarf-version=4 -O0 -include opencl-c.h -include opencl-c-intel.h -o -
 ;;
 ;;__kernel void bar(__global float* a, __global float* b) {
 ;;  int x = get_local_id(0);
@@ -22,67 +21,66 @@
 ;;  bar(a, b);
 ;;}
 
-
-
 ; ModuleID = ''
-target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
-target triple = "x86_64-pc-win32"
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: define void @bar
 ; Function Attrs: nounwind
-define void @bar(float addrspace(1)* %a, float addrspace(1)* %b) #0 {
+define void @bar(float* %a, float* %b) #0 !dbg !4 {
 entry:
-  %a.addr = alloca float addrspace(1)*, align 8
-  %b.addr = alloca float addrspace(1)*, align 8
+  %a.addr = alloca float*, align 8
+  %b.addr = alloca float*, align 8
   %x = alloca i32, align 4
-  store float addrspace(1)* %a, float addrspace(1)** %a.addr, align 8
-  call void @llvm.dbg.declare(!{float addrspace(1)** %a.addr}, !15), !dbg !16
-  store float addrspace(1)* %b, float addrspace(1)** %b.addr, align 8
-  call void @llvm.dbg.declare(!{float addrspace(1)** %b.addr}, !17), !dbg !16
-  call void @llvm.dbg.declare(!{i32* %x}, !18), !dbg !20
-  %call = call i64 @_Z12get_local_idj(i32 0) #1, !dbg !20
-  %conv = trunc i64 %call to i32, !dbg !20
-  store i32 %conv, i32* %x, align 4, !dbg !20
-  %0 = load i32, i32* %x, align 4, !dbg !21
-  %idxprom = sext i32 %0 to i64, !dbg !21
-  %1 = load float addrspace(1)*, float addrspace(1)** %b.addr, align 8, !dbg !21
-  %arrayidx = getelementptr inbounds float, float addrspace(1)* %1, i64 %idxprom, !dbg !21
-  %2 = load float, float addrspace(1)* %arrayidx, align 4, !dbg !21
-  %3 = load i32, i32* %x, align 4, !dbg !21
-  %idxprom1 = sext i32 %3 to i64, !dbg !21
-  %4 = load float addrspace(1)*, float addrspace(1)** %a.addr, align 8, !dbg !21
-  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %4, i64 %idxprom1, !dbg !21
-  store float %2, float addrspace(1)* %arrayidx2, align 4, !dbg !21
-  ret void, !dbg !22
+  store float* %a, float** %a.addr, align 8
+  call void @llvm.dbg.declare(metadata float** %a.addr, metadata !18, metadata !19), !dbg !20
+  store float* %b, float** %b.addr, align 8
+  call void @llvm.dbg.declare(metadata float** %b.addr, metadata !21, metadata !19), !dbg !20
+  call void @llvm.dbg.declare(metadata i32* %x, metadata !22, metadata !19), !dbg !24
+  %call = call i64 @_Z12get_local_idj(i32 0) #1, !dbg !24
+  %conv = trunc i64 %call to i32, !dbg !24
+  store i32 %conv, i32* %x, align 4, !dbg !24
+  %0 = load i32, i32* %x, align 4, !dbg !25
+  %idxprom = sext i32 %0 to i64, !dbg !25
+  %1 = load float*, float** %b.addr, align 8, !dbg !25
+  %arrayidx = getelementptr inbounds float, float* %1, i64 %idxprom, !dbg !25
+  %2 = load float, float* %arrayidx, align 4, !dbg !25
+  %3 = load i32, i32* %x, align 4, !dbg !25
+  %idxprom1 = sext i32 %3 to i64, !dbg !25
+  %4 = load float*, float** %a.addr, align 8, !dbg !25
+  %arrayidx2 = getelementptr inbounds float, float* %4, i64 %idxprom1, !dbg !25
+  store float %2, float* %arrayidx2, align 4, !dbg !25
+  ret void, !dbg !26
 }
 
 ; Function Attrs: nounwind readnone
-declare void @llvm.dbg.declare(metadata, metadata) #1
+declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind readnone
 declare i64 @_Z12get_local_idj(i32) #2
 
 ; CHECK: define void @foo
-define void @foo(float addrspace(1)* %a, float addrspace(1)* %b) #0 {
+; Function Attrs: nounwind
+define void @foo(float* %a, float* %b) #0 !dbg !10 {
 entry:
-  %a.addr = alloca float addrspace(1)*, align 8
-  %b.addr = alloca float addrspace(1)*, align 8
-  store float addrspace(1)* %a, float addrspace(1)** %a.addr, align 8
-  call void @llvm.dbg.declare(!{float addrspace(1)** %a.addr}, !23), !dbg !24
-  store float addrspace(1)* %b, float addrspace(1)** %b.addr, align 8
-  call void @llvm.dbg.declare(!{float addrspace(1)** %b.addr}, !25), !dbg !24
-  %0 = load float addrspace(1)*, float addrspace(1)** %a.addr, align 8, !dbg !26
-  %1 = load float addrspace(1)*, float addrspace(1)** %b.addr, align 8, !dbg !26
-  call void @bar(float addrspace(1)* %0, float addrspace(1)* %1), !dbg !26
-  ret void, !dbg !27
+  %a.addr = alloca float*, align 8
+  %b.addr = alloca float*, align 8
+  store float* %a, float** %a.addr, align 8
+  call void @llvm.dbg.declare(metadata float** %a.addr, metadata !27, metadata !19), !dbg !28
+  store float* %b, float** %b.addr, align 8
+  call void @llvm.dbg.declare(metadata float** %b.addr, metadata !29, metadata !19), !dbg !28
+  %0 = load float*, float** %a.addr, align 8, !dbg !30
+  %1 = load float*, float** %b.addr, align 8, !dbg !30
+  call void @bar(float* %0, float* %1), !dbg !30
+  ret void, !dbg !31
 ; CHECK-NOT: call void @bar
 ; CHECK: call void @__internal.bar
 ; CHECK-NOT: call void @bar
 }
 
-attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-frame-pointer-elim-non-leaf"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-features"="+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind readnone }
-attributes #2 = { nounwind readnone "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-frame-pointer-elim-non-leaf"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { nounwind readnone "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-features"="+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 ; CHECK: define void @__internal.bar
 
@@ -90,45 +88,55 @@ attributes #2 = { nounwind readnone "less-precise-fpmad"="false" "no-frame-point
 
 ;;; Check that that debug info metadata for the old function was changed to the
 ;;; new function, but that there's a new debug metadata for the old function.
-; CHECK: !3 = !{!4, !11, metadata [[NewMD:![0-9]+]]}
-; CHECK: !4 = !{i32 786478, !5, !6, !"bar", !"bar", !"", i32 3, !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @__internal.bar, null, null, !2, i32 3}
-; CHECK: [[NewMD]] = !{i32 786478, !5, !6, !"bar", !"bar", !"", i32 3, !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @bar, null, null, !2, i32 3}
+; CHECK: !3 = !{[[SrcMD:![0-9]+]], !10, [[NewMD:![0-9]+]]}
+; CHECK: [[SrcMD]] = distinct !DISubprogram(name: "bar", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+; CHECK: [[NewMD]] = distinct !DISubprogram(name: "bar", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
 
-;;; The following checks that exactly one metadata node was added and that @bar is still a kernel.
-; CHECK-NOT: !29
-; CHECK: !{void (float addrspace(1)*, float addrspace(1)*)* @bar}
-; CHECK: !28
+;;; The following checks that @bar is still a kernel.
+; CHECK: !{void (float*, float*)* @bar}
+
+;;; The following checks that all (include global) metadata was copy correctly.
+; CHECK: !DILocation(line: [[SrcL1:[0-9]+]], scope: [[SrcMD]])
+; CHECK: !DILocation(line: [[SrcL1]], scope: [[NewMD]])
 
 !llvm.dbg.cu = !{!0}
-!opencl.kernels = !{!12, !13}
-!opencl.compiler.options = !{!14}
+!opencl.kernels = !{!11, !12}
+!llvm.module.flags = !{!13, !14}
+!opencl.compiler.options = !{!15}
 !opencl.enable.FP_CONTRACT = !{}
+!opencl.ocl.version = !{!16}
+!opencl.spir.version = !{!16}
+!llvm.ident = !{!17}
 
-!0 = !{i32 786449, !1, i32 12, !"clang version 3.4 ", i1 false, !"", i32 0, !2, !2, !3, !2, !2, !""} ; [ DW_TAG_compile_unit ] [] [DW_LANG_C99]
-!1 = !{!"OutputFileName", !"WorkingDir"}
-!2 = !{i32 0}
-!3 = !{!4, !11}
-!4 = !{i32 786478, !5, !6, !"bar", !"bar", !"", i32 3, !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @bar, null, null, !2, i32 3} ; [ DW_TAG_subprogram ] [line 3] [def] [bar]
-!5 = !{!"InputFileName", !"WorkingDir"}
-!6 = !{i32 786473, !5}          ; [ DW_TAG_file_type ] []
-!7 = !{i32 786453, i32 0, i32 0, !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, !8, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!8 = !{null, !9, !9}
-!9 = !{i32 786447, null, null, !"", i32 0, i64 64, i64 64, i64 0, i32 0, !10} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from float]
-!10 = !{i32 786468, null, null, !"float", i32 0, i64 32, i64 32, i64 0, i32 0, i32 4} ; [ DW_TAG_base_type ] [float] [line 0, size 32, align 32, offset 0, enc DW_ATE_float]
-!11 = !{i32 786478, !5, !6, !"foo", !"foo", !"", i32 8, !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @foo, null, null, !2, i32 8} ; [ DW_TAG_subprogram ] [line 8] [def] [foo]
-!12 = !{void (float addrspace(1)*, float addrspace(1)*)* @bar}
-!13 = !{void (float addrspace(1)*, float addrspace(1)*)* @foo}
-!14 = !{!"-cl-std=CL1.2"}
-!15 = !{i32 786689, !4, !"a", !6, i32 16777219, !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [a] [line 3]
-!16 = !{i32 3, i32 0, !4, null}
-!17 = !{i32 786689, !4, !"b", !6, i32 33554435, !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [b] [line 3]
-!18 = !{i32 786688, !4, !"x", !6, i32 4, !19, i32 0, i32 0} ; [ DW_TAG_auto_variable ] [x] [line 4]
-!19 = !{i32 786468, null, null, !"int", i32 0, i64 32, i64 32, i64 0, i32 0, i32 5} ; [ DW_TAG_base_type ] [int] [line 0, size 32, align 32, offset 0, enc DW_ATE_signed]
-!20 = !{i32 4, i32 0, !4, null}
-!21 = !{i32 5, i32 0, !4, null}
-!22 = !{i32 6, i32 0, !4, null}
-!23 = !{i32 786689, !11, !"a", !6, i32 16777224, !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [a] [line 8]
-!24 = !{i32 8, i32 0, !11, null} ; [ DW_TAG_imported_declaration ]
-!25 = !{i32 786689, !11, !"b", !6, i32 33554440, !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [b] [line 8]
-!26 = !{i32 9, i32 0, !11, null}
-!27 = !{i32 10, i32 0, !11, null}
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1 ", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, subprograms: !3)
+!1 = !DIFile(filename: "../<stdin>", directory: "/home/chbessonova/repos_llvm")
+!2 = !{}
+!3 = !{!4, !10}
+!4 = distinct !DISubprogram(name: "bar", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!5 = !DIFile(filename: "../kernelBarrier.cl", directory: "/home/chbessonova/repos_llvm")
+!6 = !DISubroutineType(types: !7)
+!7 = !{null, !8, !8}
+!8 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !9, size: 64, align: 64)
+!9 = !DIBasicType(name: "float", size: 32, align: 32, encoding: DW_ATE_float)
+!10 = distinct !DISubprogram(name: "foo", scope: !5, file: !5, line: 6, type: !6, isLocal: false, isDefinition: true, scopeLine: 6, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!11 = !{void (float*, float*)* @bar}
+!12 = !{void (float*, float*)* @foo}
+!13 = !{i32 2, !"Dwarf Version", i32 4}
+!14 = !{i32 2, !"Debug Info Version", i32 3}
+!15 = !{!"-g", !"-cl-std=CL2.0"}
+!16 = !{i32 2, i32 0}
+!17 = !{!"clang version 3.8.1 "}
+!18 = !DILocalVariable(name: "a", arg: 1, scope: !4, file: !5, line: 1, type: !8)
+!19 = !DIExpression()
+!20 = !DILocation(line: 1, scope: !4)
+!21 = !DILocalVariable(name: "b", arg: 2, scope: !4, file: !5, line: 1, type: !8)
+!22 = !DILocalVariable(name: "x", scope: !4, file: !5, line: 2, type: !23)
+!23 = !DIBasicType(name: "int", size: 32, align: 32, encoding: DW_ATE_signed)
+!24 = !DILocation(line: 2, scope: !4)
+!25 = !DILocation(line: 3, scope: !4)
+!26 = !DILocation(line: 4, scope: !4)
+!27 = !DILocalVariable(name: "a", arg: 1, scope: !10, file: !5, line: 6, type: !8)
+!28 = !DILocation(line: 6, scope: !10)
+!29 = !DILocalVariable(name: "b", arg: 2, scope: !10, file: !5, line: 6, type: !8)
+!30 = !DILocation(line: 7, scope: !10)
+!31 = !DILocation(line: 8, scope: !10)
