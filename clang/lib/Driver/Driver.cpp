@@ -3634,7 +3634,7 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
         TC = new toolchains::XCoreToolChain(*this, Target, Args);
         break;
       case llvm::Triple::lpu:
-        TC = new toolchains::Linux(*this, Target, Args);
+        TC = new toolchains::LPUToolChain(*this, Target, Args);
         break;
       case llvm::Triple::wasm32:
       case llvm::Triple::wasm64:

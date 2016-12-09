@@ -1289,6 +1289,19 @@ public:
   SanitizerMask getSupportedSanitizers() const override;
 };
 
+// Tweaks to the toolchain for LPU
+class LLVM_LIBRARY_VISIBILITY LPUToolChain : public Linux {
+public:
+  LPUToolChain(const Driver &D, const llvm::Triple &Triple,
+               const llvm::opt::ArgList &Args) :
+    Linux(D, Triple, Args) {}
+
+  // LPU defaults to -fno-math-errno. This means that the math functions
+  // will have the "readnone" attribute indicating that they do not change
+  // any global state (like errno)
+  bool IsMathErrnoDefault() const override { return false; }
+};
+
 } // end namespace toolchains
 } // end namespace driver
 } // end namespace clang
