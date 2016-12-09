@@ -15,7 +15,6 @@
 #include "LPUTargetTransformInfo.h"
 #include "LPULowerAggrCopies.h"
 #include "LPU.h"
-#include "CSASetIntrinsicFunctionAttributes.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
@@ -192,11 +191,6 @@ public:
   }
 
   void addIRPasses() override {
-
-    // Add pass to set readnone attribute for intrinsic library functions
-    // so they will be converted to instructions when the calls are lowered
-    addPass(createCSASetIntrinsicFunctionAttributesPass(), false);
-
     // Pass call onto parent
     TargetPassConfig::addIRPasses();
   }
