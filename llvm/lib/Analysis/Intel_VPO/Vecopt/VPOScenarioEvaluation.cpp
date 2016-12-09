@@ -28,6 +28,9 @@ static cl::opt<unsigned> DefaultVF("default-vpo-vf", cl::init(0),
 static cl::opt<unsigned> EnableVectVLS("enable-vect-vls", cl::init(1),
                              cl::desc("Enable VLS group analysis by default"));
 
+static cl::opt<float> TweakVPOCostFactor("tweak-vpo-cost-factor", cl::init(0.0),
+    cl::Hidden, cl::desc("For VF > 1, multiply calculated cost by this factor"));
+
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
@@ -190,8 +193,8 @@ void VPOScenarioEvaluationBase::findVFCandidates(
     VFsVector &VFCandidates) const {
   unsigned int MinVF, MaxVF;
   if (ForceVF == 0) {
-    MinVF = 4;  // FIXME
-    MaxVF = 4;  // FIXME
+    MinVF = 2;
+    MaxVF = 64;
   } else {
     MinVF = ForceVF;
     MaxVF = ForceVF;
@@ -248,10 +251,7 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
     VPOVecContextBase VC = setVecContext(VF);
     int Cost = processCandidate(ALoop, VF, VC);
 
-    // FIXME: Change condition back to <; FORNOW using <= simply to avoid
-    // change of behavior resulting in not vectorizing things that our current
-    // tests expect will be vectorized.
-    if (Cost <= *BestCostForALoop) {
+    if (Cost < *BestCostForALoop || VF == ForceVF) {
       *BestCostForALoop = Cost;
       BestCand = VC;
       DEBUG(errs() << "New Best Candidate Cost = " << *BestCostForALoop
@@ -1011,7 +1011,7 @@ void VPOCostGathererBase::postVisit(AVRValue *AValue) {
 int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF, 
                               VPOVLSInfoBase *VLSInfo) {
   DEBUG(errs() << "\nEvaluating Loop Cost for VF = " << VF << "\n");
-  int Cost;
+  unsigned int Cost;
 
   // Calculate LoopBody Cost 
   VPOCostGathererBase *CostGatherer = getCostGatherer(VF, ALoop, VLSInfo);
@@ -1022,9 +1022,13 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   AVisitor.visit(ALoop, true, true, true /*RecursiveInsideValues*/, true);
   unsigned int LoopBodyCost = CostGatherer->getLoopBodyCost();
 
+  // Used to play around with calculated cost to favor/disallow vectorization
+  if (VF > 1 && TweakVPOCostFactor != 0.0)
+    LoopBodyCost *= TweakVPOCostFactor;
+
   // Calculate OutOfLoop Costs. 
-  unsigned int LoopCount;
-  unsigned int RemainderLoopCost = getRemainderLoopCost(ALoop, VF, LoopCount);
+  uint64_t LoopCount;
+  unsigned int RemainderLoopCost = getRemainderLoopCost(VF, LoopCount);
   DEBUG(errs() << "RemainderLoopCost = " << RemainderLoopCost
                << " LoopCount = " << LoopCount << "\n");
   CostGatherer->addOutOfLoopCost(RemainderLoopCost);
@@ -1035,8 +1039,10 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   Cost = (LoopBodyCost * LoopCount / VF) + OutOfLoopCost;
 
   DEBUG(ALoop->dump(PrintCost));
-  if (VF == 1)
+  if (VF == 1) {
     DEBUG(errs() << "Scalar ");
+    ScalarIterCost = Cost / LoopCount;
+  }
   DEBUG(errs() << "Cost for candidate Loop = " << Cost << "\n");
   DEBUG(errs() << "(" << LoopBodyCost << "(Loop Body) * " << LoopCount
                << "(Loop Count) / " << VF << "(VF)) + " << OutOfLoopCost

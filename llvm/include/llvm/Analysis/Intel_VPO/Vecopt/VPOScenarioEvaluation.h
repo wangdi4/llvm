@@ -425,11 +425,13 @@ protected:
   /// \brief A handle to Target Information
   const TargetTransformInfo &TTI;
   const TargetLibraryInfo &TLI;
-
+  
+  /// \brief Cost for one iteration of ScalarLoop
+  unsigned int ScalarIterCost;
 public:
   VPOCostModelBase(AVRWrn *AWrn, const TargetTransformInfo &TTI,
                    const TargetLibraryInfo &TLI)
-      : AWrn(AWrn), TTI(TTI), TLI(TLI) {}
+    : AWrn(AWrn), TTI(TTI), TLI(TLI), ScalarIterCost(0) {}
 
   /// \brief Calculate a cost for the given \p ALoop assuming the Vectorization
   /// Factor is \p VF.
@@ -446,8 +448,7 @@ public:
                                                VPOVLSInfoBase *VLSInfo) = 0;
 
   // \brief Obtain the cost of aligning the loop trip count to the \p VF
-  virtual int getRemainderLoopCost(AVRLoop *ALoop, unsigned int VF,
-                                   unsigned int &ConstTripCount) = 0;
+  virtual int getRemainderLoopCost(unsigned int VF, uint64_t &ConstTripCount) = 0;
 };
 
 /// LLVMIR CostModel
@@ -476,15 +477,18 @@ public:
     return CostGatherer;
   }
 
-  int getRemainderLoopCost(AVRLoop *ALoop, unsigned int VF,
-                            unsigned int &ConstTripCount) override {
-    assert(isa<AVRLoopIR>(*ALoop) && "Loop not set.");
-    AVRLoopIR *AIRLoop = cast<AVRLoopIR>(ALoop);
-    Loop *L = nullptr;
-    L = const_cast<Loop *>(AIRLoop->getLoop());
-    assert(L && "Null Loop.");
+  int getRemainderLoopCost(unsigned int VF, uint64_t &ConstTripCount) override {
     assert(CG && "CG not set.");
-    return CG->getRemainderLoopCost(L, VF, ConstTripCount);
+    ConstTripCount =  CG->getTripCount();
+
+    // Check for positive trip count and that trip count is a multiple of vector
+    // length. Otherwise a remainder loop is needed.
+    if (ConstTripCount == 0) {
+      // Assume the remainder loop executes VF/2 times in scalar fashion.
+      return ScalarIterCost * VF / 2;
+    } else {
+      return (ConstTripCount % VF) * ScalarIterCost;
+    }
   } 
 
 private:
@@ -520,16 +524,19 @@ public:
     return CostGatherer;
   }
 
-  int getRemainderLoopCost(AVRLoop *ALoop, unsigned int VF, 
-                                unsigned int &ConstTripCount) {
-    assert(isa<AVRLoopHIR>(*ALoop) && "Loop not set.");
-    AVRLoopHIR *AHLoop = cast<AVRLoopHIR>(ALoop);
-    HLLoop *L = nullptr;
-    L = const_cast<HLLoop *>(AHLoop->getLoop());
-    assert(L && "Null HLLoop.");
+  int getRemainderLoopCost(unsigned int VF, uint64_t &ConstTripCount) override {
     assert(CG && "CG not set.");
-    return CG->getRemainderLoopCost(L, VF, ConstTripCount);
-  }
+    ConstTripCount =  CG->getTripCount();
+
+    // Check for positive trip count and that trip count is a multiple of vector
+    // length. Otherwise a remainder loop is needed.
+    if (ConstTripCount == 0) {
+      // Assume the remainder loop executes VF/2 times in scalar fashion.
+      return ScalarIterCost * VF / 2;
+    } else {
+      return (ConstTripCount % VF) * ScalarIterCost;
+    }
+  } 
 
 private:
   VPOCostGathererHIR *CostGatherer;

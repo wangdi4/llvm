@@ -88,9 +88,9 @@ public:
   // this function can be enabled for cost modeling analysis only.
   bool loopIsHandled(unsigned int VF, bool CostModel);
 
-  // Return the cost of remainder loop code, if a remainder loop is needed.
-  int getRemainderLoopCost(HLLoop *Loop, unsigned int VF,
-                           unsigned int &TripCount);
+  // Return the trip count for the scalar loop. Returns 0 for unknown trip
+  // count loops
+  uint64_t getTripCount() const {return TripCount;}
 
   // Return true if \p Ref is a constant stride reference at loop
   // nesting level \p Level. Return stride coefficient in \p CoeffPtr

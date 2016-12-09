@@ -224,20 +224,6 @@ void AVRCodeGen::completeReductions() {
   RM.completeReductionPhis(WidenMap);
 }
 
-int AVRCodeGen::getRemainderLoopCost(Loop *Loop, unsigned int VF, 
-                         unsigned int &ConstTripCount) {
-  ConstTripCount = TripCount;
-  // Check for positive trip count and that trip count is a multiple of vector
-  // length. Otherwise a remainder loop is needed. Since CG currently does not
-  // support remainder loops, return a dummy high cost to make sure this VF will
-  // not be selected as vectorization factor.
-  if (TripCount == 0 || TripCount % VF) {
-    return 1000;
-  }
-
-  return 0;
-}
-
 // TODO: Take as input a VPOVecContext that indicates which AVRLoop(s)
 // is (are) to be vectorized, as identified by the vectorization scenario
 // evaluation.

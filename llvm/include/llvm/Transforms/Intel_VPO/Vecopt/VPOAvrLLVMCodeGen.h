@@ -93,9 +93,9 @@ public:
   // place.
   bool loopIsHandled(unsigned int VF, bool CostModel);
 
-  // Return the cost of remainder loop code, if a remainder loop is needed.
-  int getRemainderLoopCost(Loop *Loop, unsigned int VF, 
-                           unsigned int &TripCount); 
+  // Return the trip count for the scalar loop. Returns 0 for unknown trip
+  // count loops
+  uint64_t getTripCount() const {return TripCount;}
 
 private:
   AVR *Avr;
