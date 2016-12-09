@@ -679,27 +679,10 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
 
 #if INTEL_CUSTOMIZATION
-  if (RunVecClone) {
-    MPM.add(createVecClonePass());
-    // VecClonePass can generate redundant geps/loads for vector parameters when
-    // accessing elem[i] within the inserted simd loop. This makes DD testing
-    // harder, so run CSE here to do some clean-up before HIR construction.
-    MPM.add(createEarlyCSEPass());
-  }
-  addLoopOptPasses(MPM);
-
-  // Process directives inserted by LoopOpt Autopar.
-  // Call with RunVec==true (2nd argument) to enable Vectorizer to catch
-  // any vec directives that loopopt might have missed; may change it to 
-  // false in the future when loopopt is fully implemented.
-  addVPOPasses(MPM, true);
-
-  // VPO directives are no longer useful after this point. Clean up so that
-  // code gen process won't be confused.
-  //
-  // TODO: Issue a warning for any unprocessed directives. Change to
-  // assetion failure as the feature matures.
-  MPM.add(createVPODirectiveCleanupPass());
+  // In LTO mode, loopopt needs to run in link phase along with community 
+  // vectorizer and unroll after it until they are phased out.
+  if (!PrepareForLTO || !isLoopOptEnabled()) {
+    addLoopOptAndAssociatedVPOPasses(MPM);
 #endif // INTEL_CUSTOMIZATION
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
@@ -709,12 +692,17 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopDistributePass(/*ProcessAllLoopsByDefault=*/false));
 
   MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
-
+  } // INTEL
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   if (EnableLoopLoadElim)
     MPM.add(createLoopLoadEliminationPass());
 
+#if INTEL_CUSTOMIZATION
+  // No need to run cleanup passes in LTO mode when loopopt is enabled as 
+  // vectorization is moved to link phase.
+  if (!PrepareForLTO || !isLoopOptEnabled()) { 
+#endif // INTEL_CUSTOMIZATION
   // FIXME: Because of #pragma vectorize enable, the passes below are always
   // inserted in the pipeline, even when the vectorizer doesn't run (ex. when
   // on -O1 and no #pragma is found). Would be good to have these two passes
@@ -736,7 +724,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createCFGSimplificationPass());
     addInstructionCombiningPass(MPM);
   }
-
+  } // INTEL
   if (RunSLPAfterLoopVectorization) {
     if (SLPVectorize) {
       MPM.add(createSLPVectorizerPass());   // Vectorize parallel scalar chains.
@@ -764,7 +752,11 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createCFGSimplificationPass());
   addInstructionCombiningPass(MPM);
 
-  if (!DisableUnrollLoops) {
+#if INTEL_CUSTOMIZATION
+  // Disable unroll in LTO mode if loopopt is enabled so it only gets triggered
+  // in link phase after loopopt.
+  if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) { 
+#endif // INTEL_CUSTOMIZATION
     MPM.add(createLoopUnrollPass());    // Unroll small loops
 
     // LoopUnroll may generate some redundency to cleanup.
@@ -941,6 +933,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   if (!DisableUnrollLoops)
     PM.add(createSimpleLoopUnrollPass());   // Unroll small loops
+  addLoopOptAndAssociatedVPOPasses(PM);     // INTEL
   PM.add(createLoopVectorizePass(true, LoopVectorize));
   // The vectorizer may have significantly shortened a loop body; unroll again.
   if (!DisableUnrollLoops)
@@ -995,7 +988,7 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
   if ((RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
-      (SizeLevel == 0) && !PrepareForLTO && !PerformThinLTO) 
+      (SizeLevel == 0) && !PerformThinLTO) 
     return true;
 
   return false;
@@ -1065,6 +1058,33 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
     PM.add(createVPODriverPass());
   }
 }
+
+void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
+     legacy::PassManagerBase &PM) const {
+
+  if (RunVecClone) {
+    PM.add(createVecClonePass());
+    // VecClonePass can generate redundant geps/loads for vector parameters when
+    // accessing elem[i] within the inserted simd loop. This makes DD testing
+    // harder, so run CSE here to do some clean-up before HIR construction.
+    PM.add(createEarlyCSEPass());
+  }
+  addLoopOptPasses(PM);
+
+  // Process directives inserted by LoopOpt Autopar.
+  // Call with RunVec==true (2nd argument) to enable Vectorizer to catch
+  // any vec directives that loopopt might have missed; may change it to 
+  // false in the future when loopopt is fully implemented.
+  addVPOPasses(PM, true);
+
+  // VPO directives are no longer useful after this point. Clean up so that
+  // code gen process won't be confused.
+  //
+  // TODO: Issue a warning for any unprocessed directives. Change to
+  // assetion failure as the feature matures.
+  PM.add(createVPODirectiveCleanupPass());
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 void PassManagerBuilder::populateThinLTOPassManager(
