@@ -52,11 +52,11 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
   FUName[CSA::FUNCUNIT::SPD] = "spd";// Scratchpad
 }
 
-bool CSAInstPrinter::WrapLpuAsm() {
+bool CSAInstPrinter::WrapCsaAsm() {
   return WrapAsmOpt;
 }
 
-const char *CSAInstPrinter::WrapLpuAsmLinePrefix() {
+const char *CSAInstPrinter::WrapCsaAsmLinePrefix() {
   if (WrapAsmOpt) {
     return "\t.ascii \"";
   } else {
@@ -64,7 +64,7 @@ const char *CSAInstPrinter::WrapLpuAsmLinePrefix() {
   }
 }
 
-const char *CSAInstPrinter::WrapLpuAsmLineSuffix() {
+const char *CSAInstPrinter::WrapCsaAsmLineSuffix() {
   if (WrapAsmOpt) {
     return "\\n\"";
   } else {
@@ -74,9 +74,9 @@ const char *CSAInstPrinter::WrapLpuAsmLineSuffix() {
 
 void CSAInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
                                   StringRef Annot, const MCSubtargetInfo &STI) {
-  O << WrapLpuAsmLinePrefix();
+  O << WrapCsaAsmLinePrefix();
   printInstruction(MI, O);
-  O << WrapLpuAsmLineSuffix();
+  O << WrapCsaAsmLineSuffix();
   printAnnotation(O, Annot);
 }
 

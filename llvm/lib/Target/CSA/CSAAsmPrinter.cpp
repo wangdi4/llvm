@@ -118,7 +118,7 @@ namespace {
     void EmitFunctionBodyEnd() override;
     void EmitInstruction(const MachineInstr *MI) override;
 
-    void EmitLpuCodeSection();
+    void EmitCsaCodeSection();
   };
 } // end of anonymous namespace
 
@@ -283,9 +283,9 @@ void CSAAsmPrinter::emitParamList(const Function *F) {
     if (!first) {
       O << '\n';
     }
-    O << CSAInstPrinter::WrapLpuAsmLinePrefix();
+    O << CSAInstPrinter::WrapCsaAsmLinePrefix();
     O << "\t.param .reg " << typeStr << sz << " %r" << paramReg++;
-    O << CSAInstPrinter::WrapLpuAsmLineSuffix();
+    O << CSAInstPrinter::WrapCsaAsmLineSuffix();
     first = false;
   }
   if (!first)
@@ -302,7 +302,7 @@ void CSAAsmPrinter::emitReturnVal(const Function *F) {
   if (Ty->getTypeID() == Type::VoidTyID)
     return;
 
-  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
+  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
   O << "\t.result .reg";
 
   if (Ty->isFloatingPointTy() || Ty->isIntegerTy()) {
@@ -326,7 +326,7 @@ void CSAAsmPrinter::emitReturnVal(const Function *F) {
   // Hack: For now, we simply go with the standard return register.
   // (Should really use the allocation.)
   O << " %r0";
-  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
 
   OutStreamer->EmitRawText(O.str());
 }
@@ -335,13 +335,13 @@ void CSAAsmPrinter::writeAsmLine(const char *text) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
 
-  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
+  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
   O << text;
-  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 }
 
-void CSAAsmPrinter::EmitLpuCodeSection() {
+void CSAAsmPrinter::EmitCsaCodeSection() {
   // The .section directive for an ELF object as a name and 3 optional,
   // comma separated parts as detailed at
   // https://sourceware.org/binutils/docs/as/Section.html
@@ -362,11 +362,11 @@ void CSAAsmPrinter::EmitLpuCodeSection() {
 
 void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
 
-  if (CSAInstPrinter::WrapLpuAsm()) {
+  if (CSAInstPrinter::WrapCsaAsm()) {
     // Put the code in the .csa.code  section. Note that we are NOT
     // using SwitchSection because then we'll fight with the
     // AmsPrinter::EmitFunctionHeader
-    EmitLpuCodeSection();
+    EmitCsaCodeSection();
     OutStreamer->EmitRawText("\t.globl\t__csa_assembly__\n");
     OutStreamer->EmitRawText("__csa_assembly__:\n");
     writeAsmLine("\t.text");
@@ -380,10 +380,10 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
   raw_svector_ostream O(Str);
   const CSATargetMachine *CSATM = static_cast<const CSATargetMachine*>(&TM);
   assert(CSATM && CSATM->getSubtargetImpl());
-  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
+  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
   O << "\t# .processor ";  // note - commented out...
   O << CSATM->getSubtargetImpl()->csaName();
-  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 
   writeAsmLine("\t.version 0,6,0");
@@ -392,11 +392,11 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
 
 void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
 
-  if (CSAInstPrinter::WrapLpuAsm()) {
+  if (CSAInstPrinter::WrapCsaAsm()) {
     // Add the terminating null for the .csa section. Note
     // that we are NOT using SwitchSection because then we'll
     // fight with the AmsPrinter::EmitFunctionHeader
-    EmitLpuCodeSection();
+    EmitCsaCodeSection();
     OutStreamer->EmitRawText("\t.asciz \"\"");
 
     // Dump the raw IR to the file as data. We want this information
@@ -423,7 +423,7 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
 
   // If we're wrapping the CSA assembly we need to create our own
   // global symbol declaration
-  if (CSAInstPrinter::WrapLpuAsm()) {
+  if (CSAInstPrinter::WrapCsaAsm()) {
     // The global symbol needs a value. As long as we're using the simulator,
     // we find entries by name, so point to the name. But be sure it doesn't
     // interrupt the string we're building in the .csa.code section
@@ -432,19 +432,19 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
     O << "\t.asciz\t" << "\"" << *CurrentFnSym << "\"\n\n";
     O << "\t.section\t\".csa.code\",\"aS\",@progbits\n";
 
-    O << CSAInstPrinter::WrapLpuAsmLinePrefix();
+    O << CSAInstPrinter::WrapCsaAsmLinePrefix();
     O << "\t.globl\t" << *CurrentFnSym;
-    O << CSAInstPrinter::WrapLpuAsmLineSuffix();
+    O << CSAInstPrinter::WrapCsaAsmLineSuffix();
     O << "\n";
   }
-  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
+  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
   O << "\t.entry\t" << *CurrentFnSym;
-  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
   O << "\n";
   // For now, assume control flow (sequential) entry
-  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
+  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
   O << *CurrentFnSym << ":";
-  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 
   // Start a scope for this routine to localize the LIC names
@@ -473,7 +473,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
     if (LMFI->isAllocated(reg)) {
       SmallString<128> Str;
       raw_svector_ostream O(Str);
-      O << CSAInstPrinter::WrapLpuAsmLinePrefix();
+      O << CSAInstPrinter::WrapCsaAsmLinePrefix();
       O << "\t";
       // LIC or register
       O << (CSA::ANYCRegClass.contains(reg) ? ".lic " : ".reg ");
@@ -485,7 +485,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       else if (CSA::CI1RegClass.contains(reg))  O << ".i1";
       else if (CSA::CI0RegClass.contains(reg))  O << ".i0";
       O << " " << CSAInstPrinter::getRegisterName(reg);
-      O << CSAInstPrinter::WrapLpuAsmLineSuffix();
+      O << CSAInstPrinter::WrapCsaAsmLineSuffix();
       OutStreamer->EmitRawText(O.str());
     }
   }
