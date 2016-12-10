@@ -7094,21 +7094,21 @@ validateAsmConstraint(const char *&Name,
   }
 }
 
-// LPU Target
-class LPUTargetInfo : public TargetInfo {
+// CSA Target
+class CSATargetInfo : public TargetInfo {
   static const Builtin::Info BuiltinInfo[];
 
-  enum LPUKind {
-    LPU_NONE,
-    LPU_ORDERED,
-    LPU_AUTOUNIT,
-    LPU_AUTOMIN,
-    LPU_CONFIG0,
-    LPU_CONFIG1
-  } LPU;
+  enum CSAKind {
+    CSA_NONE,
+    CSA_ORDERED,
+    CSA_AUTOUNIT,
+    CSA_AUTOMIN,
+    CSA_CONFIG0,
+    CSA_CONFIG1
+  } CSA;
 
 public:
-  LPUTargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
+  CSATargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
       : TargetInfo(Triple) {
     LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
     LongDoubleWidth = 128;
@@ -7122,17 +7122,17 @@ public:
     IntMaxType  = SignedLong;
     Int64Type   = SignedLong;
 
-    // LPU supports atomics up to 8 bytes.
+    // CSA supports atomics up to 8 bytes.
     MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 64;
 
-    // Match lib/Target/LPU/LPUSubtarget.cpp
+    // Match lib/Target/CSA/CSASubtarget.cpp
     // Issue - does it need to match x86-64?
     resetDataLayout("e-m:e-i64:64-n32:64");
   }
 
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override {
-    // LPU builds on X86.  We should really define everything for
+    // CSA builds on X86.  We should really define everything for
     // the current x86 target, but this should get past initial include
     // file issues.
     Builder.defineMacro("__amd64__");
@@ -7140,11 +7140,11 @@ public:
     Builder.defineMacro("__x86_64");
     Builder.defineMacro("__x86_64__");
 
-    Builder.defineMacro("__LPU__");
+    Builder.defineMacro("__CSA__");
   }
   ArrayRef<Builtin::Info> getTargetBuiltins() const override {
     return llvm::makeArrayRef(BuiltinInfo,
-                           clang::LPU::LastTSBuiltin-Builtin::FirstTSBuiltin);
+                           clang::CSA::LastTSBuiltin-Builtin::FirstTSBuiltin);
   }
   ArrayRef<const char *> getGCCRegNames() const override {
     static const char * const GCCRegNames[] = { "dummy" };
@@ -7165,23 +7165,23 @@ public:
     return TargetInfo::VoidPtrBuiltinVaList;
   }
   bool setCPU(const std::string &Name) override {
-    LPU = llvm::StringSwitch<LPUKind>(Name)
-        .Case("ordered", LPU_ORDERED)
-        .Case("autounit",LPU_AUTOUNIT)
-        .Case("automin", LPU_AUTOMIN)
-        .Case("config0", LPU_CONFIG0)
-        .Case("config1", LPU_CONFIG1)
-        .Default(LPU_NONE);
-    return LPU != LPU_NONE;
+    CSA = llvm::StringSwitch<CSAKind>(Name)
+        .Case("ordered", CSA_ORDERED)
+        .Case("autounit",CSA_AUTOUNIT)
+        .Case("automin", CSA_AUTOMIN)
+        .Case("config0", CSA_CONFIG0)
+        .Case("config1", CSA_CONFIG1)
+        .Default(CSA_NONE);
+    return CSA != CSA_NONE;
   }
 };
 
-const Builtin::Info LPUTargetInfo::BuiltinInfo[] = {
+const Builtin::Info CSATargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS) \
   { #ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr },
 #define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) \
   { #ID, TYPE, ATTRS, HEADER, ALL_LANGUAGES, nullptr },
-#include "clang/Basic/BuiltinsLPU.def"
+#include "clang/Basic/BuiltinsCSA.def"
 };
 
 class MSP430TargetInfo : public TargetInfo {
@@ -8524,8 +8524,8 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple,
       return new ARMbeTargetInfo(Triple, Opts);
     }
 
-  case llvm::Triple::lpu:
-    return new LinuxTargetInfo<LPUTargetInfo>(Triple, Opts);
+  case llvm::Triple::csa:
+    return new LinuxTargetInfo<CSATargetInfo>(Triple, Opts);
 
   case llvm::Triple::bpfeb:
   case llvm::Triple::bpfel:

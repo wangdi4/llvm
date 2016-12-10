@@ -37,7 +37,7 @@
 __MATH_INLINE int
 __NTH (__signbitf (float __x))
 {
-#if __LPU__
+#if __CSA__
   return (__x < 0);
 #else  
 #  if __WORDSIZE == 32
@@ -53,7 +53,7 @@ __NTH (__signbitf (float __x))
 __MATH_INLINE int
 __NTH (__signbit (double __x))
 {
-#if __LPU__
+#if __CSA__
   return (__x < 0);
 #else  
 #  if __WORDSIZE == 32

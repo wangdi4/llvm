@@ -882,10 +882,10 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
     return;
   }
 
- //LPU EDIT
+ //CSA EDIT
 #if 1
-  const llvm::Triple& lputriple = Target.getTriple();
-  if (lputriple.getArch() == llvm::Triple::lpu) {
+  const llvm::Triple& csatriple = Target.getTriple();
+  if (csatriple.getArch() == llvm::Triple::csa) {
     const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
     if (FD && FD->isInlineSpecified()) {
       B.addAttribute(llvm::Attribute::AlwaysInline);

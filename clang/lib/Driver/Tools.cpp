@@ -2120,7 +2120,7 @@ static std::string getCPUName(const ArgList &Args, const llvm::Triple &T,
   case llvm::Triple::amdgcn:
     return getR600TargetGPU(Args);
 
-  case llvm::Triple::lpu:
+  case llvm::Triple::csa:
     // last of arch or cpu
     if (const Arg *A = Args.getLastArg(options::OPT_march_EQ,
                                      options::OPT_mcpu_EQ))
@@ -9925,7 +9925,7 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   case llvm::Triple::systemz:
     return "elf64_s390";
   case llvm::Triple::x86_64:
-  case llvm::Triple::lpu:
+  case llvm::Triple::csa:
     if (T.getEnvironment() == llvm::Triple::GNUX32)
       return "elf32_x86_64";
     return "elf_x86_64";

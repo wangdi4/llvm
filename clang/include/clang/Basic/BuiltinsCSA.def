@@ -1,4 +1,4 @@
-//===--- BuiltinsLPU.def - XCore Builtin function database ----*- C++ -*-===//
+//===--- BuiltinsCSA.def - XCore Builtin function database ----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

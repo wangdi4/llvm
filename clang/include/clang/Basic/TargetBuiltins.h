@@ -83,12 +83,12 @@ namespace clang {
   };
   }
 
-  /// \brief LPU builtins
-  namespace LPU {
+  /// \brief CSA builtins
+  namespace CSA {
   enum {
     LastTIBuiltin = clang::Builtin::FirstTSBuiltin - 1,
   #define BUILTIN(ID, TYPE, ATTRS) BI##ID,
-  #include "clang/Basic/BuiltinsLPU.def"
+  #include "clang/Basic/BuiltinsCSA.def"
     LastTSBuiltin
   };
   }

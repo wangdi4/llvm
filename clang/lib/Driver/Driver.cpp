@@ -3633,8 +3633,8 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       case llvm::Triple::xcore:
         TC = new toolchains::XCoreToolChain(*this, Target, Args);
         break;
-      case llvm::Triple::lpu:
-        TC = new toolchains::LPUToolChain(*this, Target, Args);
+      case llvm::Triple::csa:
+        TC = new toolchains::CSAToolChain(*this, Target, Args);
         break;
       case llvm::Triple::wasm32:
       case llvm::Triple::wasm64:
