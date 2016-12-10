@@ -1,4 +1,4 @@
-//===-- LPUMachineFuctionInfo.cpp - LPU machine function info -------------===//
+//===-- CSAMachineFuctionInfo.cpp - CSA machine function info -------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,15 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUMachineFunctionInfo.h"
-#include "LPURegisterInfo.h"
+#include "CSAMachineFunctionInfo.h"
+#include "CSARegisterInfo.h"
 
 #define GET_REGINFO_ENUM
-#include "LPUGenRegisterInfo.inc"
+#include "CSAGenRegisterInfo.inc"
 
 using namespace llvm;
 
-struct LPUMachineFunctionInfo::Info {
+struct CSAMachineFunctionInfo::Info {
   // Contains the LIC depth, indexed by target physical register number
   // -1 means the LIC is not allocated
   // 0 means default
@@ -26,46 +26,46 @@ struct LPUMachineFunctionInfo::Info {
   std::vector<short> nextRegIndexInClass;
 };
 
-void LPUMachineFunctionInfo::anchor() { }
+void CSAMachineFunctionInfo::anchor() { }
 
-LPUMachineFunctionInfo::LPUMachineFunctionInfo(MachineFunction &MF)
+CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
     : FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {
   info = new Info;
-  info->licDepth.resize(LPU::NUM_TARGET_REGS, -1);
+  info->licDepth.resize(CSA::NUM_TARGET_REGS, -1);
   info->nextRegIndexInClass.resize(32 /* register class count*/, 0);
 }
 
-LPUMachineFunctionInfo::~LPUMachineFunctionInfo() {
+CSAMachineFunctionInfo::~CSAMachineFunctionInfo() {
   delete info;
   info = NULL;
 }
 
-const TargetRegisterClass* LPUMachineFunctionInfo::licRCFromGenRC(const TargetRegisterClass* RC) {
-  if      (RC == &LPU::I0RegClass)  return &LPU::CI0RegClass;
-  else if (RC == &LPU::I1RegClass)  return &LPU::CI1RegClass;
-  else if (RC == &LPU::I8RegClass)  return &LPU::CI8RegClass;
-  else if (RC == &LPU::I16RegClass) return &LPU::CI16RegClass;
-  else if (RC == &LPU::I32RegClass) return &LPU::CI32RegClass;
-  else if (RC == &LPU::I64RegClass) return &LPU::CI64RegClass;
-  else if (RC == &LPU::RI0RegClass)  return &LPU::CI0RegClass;
-  else if (RC == &LPU::RI1RegClass)  return &LPU::CI1RegClass;
-  else if (RC == &LPU::RI8RegClass)  return &LPU::CI8RegClass;
-  else if (RC == &LPU::RI16RegClass) return &LPU::CI16RegClass;
-  else if (RC == &LPU::RI32RegClass) return &LPU::CI32RegClass;
-  else if (RC == &LPU::RI64RegClass) return &LPU::CI64RegClass;
+const TargetRegisterClass* CSAMachineFunctionInfo::licRCFromGenRC(const TargetRegisterClass* RC) {
+  if      (RC == &CSA::I0RegClass)  return &CSA::CI0RegClass;
+  else if (RC == &CSA::I1RegClass)  return &CSA::CI1RegClass;
+  else if (RC == &CSA::I8RegClass)  return &CSA::CI8RegClass;
+  else if (RC == &CSA::I16RegClass) return &CSA::CI16RegClass;
+  else if (RC == &CSA::I32RegClass) return &CSA::CI32RegClass;
+  else if (RC == &CSA::I64RegClass) return &CSA::CI64RegClass;
+  else if (RC == &CSA::RI0RegClass)  return &CSA::CI0RegClass;
+  else if (RC == &CSA::RI1RegClass)  return &CSA::CI1RegClass;
+  else if (RC == &CSA::RI8RegClass)  return &CSA::CI8RegClass;
+  else if (RC == &CSA::RI16RegClass) return &CSA::CI16RegClass;
+  else if (RC == &CSA::RI32RegClass) return &CSA::CI32RegClass;
+  else if (RC == &CSA::RI64RegClass) return &CSA::CI64RegClass;
   return NULL;
 }
 
-const TargetRegisterClass* LPUMachineFunctionInfo::licFromType(MVT vt) {
-  if      (vt==MVT::i1)  return &LPU::CI1RegClass;
-  else if (vt==MVT::i8)  return &LPU::CI8RegClass;
-  else if (vt==MVT::i16) return &LPU::CI16RegClass;
-  else if (vt==MVT::i32) return &LPU::CI32RegClass;
-  else if (vt==MVT::i64) return &LPU::CI64RegClass;
+const TargetRegisterClass* CSAMachineFunctionInfo::licFromType(MVT vt) {
+  if      (vt==MVT::i1)  return &CSA::CI1RegClass;
+  else if (vt==MVT::i8)  return &CSA::CI8RegClass;
+  else if (vt==MVT::i16) return &CSA::CI16RegClass;
+  else if (vt==MVT::i32) return &CSA::CI32RegClass;
+  else if (vt==MVT::i64) return &CSA::CI64RegClass;
   else return NULL;
 }
 
-unsigned LPUMachineFunctionInfo::allocateLIC(const TargetRegisterClass* RC) {
+unsigned CSAMachineFunctionInfo::allocateLIC(const TargetRegisterClass* RC) {
   // The register class must be a LIC class!
   // assert(
   //  RC==CI0RegClass || RC==CI1RegClass || RC==CI8RegClass ||
@@ -75,21 +75,21 @@ unsigned LPUMachineFunctionInfo::allocateLIC(const TargetRegisterClass* RC) {
 
   unsigned lic = RC->getRegister(index);
 
-  assert(lic < info->licDepth.capacity() && "Invalid LPU register number");
+  assert(lic < info->licDepth.capacity() && "Invalid CSA register number");
   info->licDepth[lic] = 0;
   return lic;
 }
 
-bool LPUMachineFunctionInfo::isAllocated(unsigned lic) const {
+bool CSAMachineFunctionInfo::isAllocated(unsigned lic) const {
   return info->licDepth[lic] >= 0;
 }
 
 // Set the depth for a particular LIC explicitly, rather than the default.
-void LPUMachineFunctionInfo::setLICDepth(unsigned lic, int amount) {
+void CSAMachineFunctionInfo::setLICDepth(unsigned lic, int amount) {
   info->licDepth[lic] = amount;
 }
 
 // Return the depth of the specified LIC.
-int LPUMachineFunctionInfo::getLICDepth(unsigned lic) {
+int CSAMachineFunctionInfo::getLICDepth(unsigned lic) {
   return info->licDepth[lic];
 }

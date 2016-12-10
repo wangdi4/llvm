@@ -1,4 +1,4 @@
-; RUN: llc < %s -march=lpu | FileCheck %s
+; RUN: llc < %s -march=csa | FileCheck %s
 ; Test for mullohi{s,u}64 generation. We don't check for smaller mullohis
 ; because I don't know how to persuade LLVM to generate them other than when
 ; legalizing multiplication as we do here.

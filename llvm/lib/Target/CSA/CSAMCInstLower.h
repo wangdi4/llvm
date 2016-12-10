@@ -1,4 +1,4 @@
-//===-- LPUMCInstLower.h - Lower MachineInstr to MCInst ---------*- C++ -*-===//
+//===-- CSAMCInstLower.h - Lower MachineInstr to MCInst ---------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUMCINSTLOWER_H
-#define LLVM_LIB_TARGET_LPU_LPUMCINSTLOWER_H
+#ifndef LLVM_LIB_TARGET_CSA_CSAMCINSTLOWER_H
+#define LLVM_LIB_TARGET_CSA_CSAMCINSTLOWER_H
 
 #include "llvm/Support/Compiler.h"
 
@@ -22,14 +22,14 @@ namespace llvm {
   class MachineModuleInfoMachO;
   class MachineOperand;
 
-  /// LPUMCInstLower - This class is used to lower an MachineInstr
+  /// CSAMCInstLower - This class is used to lower an MachineInstr
   /// into an MCInst.
-class LLVM_LIBRARY_VISIBILITY LPUMCInstLower {
+class LLVM_LIBRARY_VISIBILITY CSAMCInstLower {
   MCContext &Ctx;
 
   AsmPrinter &Printer;
 public:
-  LPUMCInstLower(MCContext &ctx, AsmPrinter &printer)
+  CSAMCInstLower(MCContext &ctx, AsmPrinter &printer)
     : Ctx(ctx), Printer(printer) {}
 
   void Lower(const MachineInstr *MI, MCInst &OutMI) const;

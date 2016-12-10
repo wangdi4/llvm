@@ -1,4 +1,4 @@
-//===-- LPUIfConversion.h - LPU if conversion structures ---------------===//
+//===-- CSAIfConversion.h - CSA if conversion structures ---------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUIFCONVERSION_H
-#define LLVM_LIB_TARGET_LPU_LPUIFCONVERSION_H
+#ifndef LLVM_LIB_TARGET_CSA_CSAIFCONVERSION_H
+#define LLVM_LIB_TARGET_CSA_CSAIFCONVERSION_H
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Target/TargetInstrInfo.h"
@@ -23,7 +23,7 @@
 #include "llvm/CodeGen/TargetSchedule.h"
 
 namespace llvm {
-  class LPUIfConversion {
+  class CSAIfConversion {
   public:
     enum IfcvtKind {
       ICNotClassfied,  // BB data valid, but not classified.
@@ -126,8 +126,8 @@ namespace llvm {
     int FnNum;
   public:
     static char ID;
-    LPUIfConversion() {
-      //initializeLPUIfConversionPass(*PassRegistry::getPassRegistry());
+    CSAIfConversion() {
+      //initializeCSAIfConversionPass(*PassRegistry::getPassRegistry());
     }
 
     /*void getAnalysisUsage(AnalysisUsage &AU) const override {

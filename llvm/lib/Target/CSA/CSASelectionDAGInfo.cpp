@@ -1,4 +1,4 @@
-//===-- LPUSelectionDAGInfo.cpp - LPU SelectionDAG Info -------------------===//
+//===-- CSASelectionDAGInfo.cpp - CSA SelectionDAG Info -------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,12 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the LPUSelectionDAGInfo class.
+// This file implements the CSASelectionDAGInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUTargetMachine.h"
+#include "CSATargetMachine.h"
 using namespace llvm;
 
-#define DEBUG_TYPE "lpu-selectiondag-info"
+#define DEBUG_TYPE "csa-selectiondag-info"
 

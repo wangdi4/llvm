@@ -1,4 +1,4 @@
-//===----------- LPUTargetInfo.cpp - LPU Target Implementation ------------===//
+//===----------- CSATargetInfo.cpp - CSA Target Implementation ------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPU.h"
+#include "CSA.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/TargetRegistry.h"
 using namespace llvm;
 
-Target llvm::TheLPUTarget;
+Target llvm::TheCSATarget;
 
-extern "C" void LLVMInitializeLPUTargetInfo() {
-  RegisterTarget<Triple::lpu, /*HasJIT=*/ false>
-    X(TheLPUTarget, "lpu", "LPU");
+extern "C" void LLVMInitializeCSATargetInfo() {
+  RegisterTarget<Triple::csa, /*HasJIT=*/ false>
+    X(TheCSATarget, "csa", "CSA");
 }

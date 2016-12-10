@@ -1,4 +1,4 @@
-//===--- LPU.td - Describe the LPU Target machine ----------*- tablegen -*-===//
+//===--- CSA.td - Describe the CSA Target machine ----------*- tablegen -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,10 +13,10 @@
 
 include "llvm/Target/Target.td"
 
-include "LPUSchedule.td"
+include "CSASchedule.td"
 
 //===----------------------------------------------------------------------===//
-// LPU subtarget features
+// CSA subtarget features
 //===----------------------------------------------------------------------===//
 
 // Large scale features
@@ -71,16 +71,16 @@ def FeatureMath0 : SubtargetFeature<"math0", "HasMath0", "true",
                             "Enable exp[2]/log[2]/sin/cos">;
 
 //===----------------------------------------------------------------------===//
-// LPU supported processors
+// CSA supported processors
 //===----------------------------------------------------------------------===//
 
-// These map to processor layouts in lpusim
+// These map to processor layouts in csasim
 
 class Proc<string Name, SchedMachineModel Model,
            list<SubtargetFeature> Features>
   : Processor<Name, NoItineraries, Features>;
 
-def : Proc<"ordered",  LPUGeneric,
+def : Proc<"ordered",  CSAGeneric,
                        [FeatureOrdered,
                         FeatureI0,    FeatureI1,    FeatureI8,    FeatureI16,
                         FeatureI32,   FeatureI64,   FeatureF16,   FeatureF32,
@@ -90,7 +90,7 @@ def : Proc<"ordered",  LPUGeneric,
                         FeatureIDiv,  FeatureFDiv,  FeatureFMA,
                         FeatureSqrt,  FeatureMath0]>;
 
-def : Proc<"autounit", LPUGeneric,
+def : Proc<"autounit", CSAGeneric,
                        [FeatureI0,    FeatureI1,    FeatureI8,    FeatureI16,
                         FeatureI32,   FeatureI64,   FeatureF16,   FeatureF32,
                         FeatureF64,
@@ -99,11 +99,11 @@ def : Proc<"autounit", LPUGeneric,
                         FeatureIDiv,  FeatureFDiv,  FeatureFMA,
                         FeatureSqrt,  FeatureMath0]>;
 // Like autounit, but almost all more complex ops disabled
-def : Proc<"automin",  LPUGeneric,
+def : Proc<"automin",  CSAGeneric,
                        [FeatureI0,    FeatureI1,    FeatureI32,   FeatureI64,
                         FeatureF32,   FeatureF64]>;
 
-def : Proc<"config0",  LPUConfig0,
+def : Proc<"config0",  CSAConfig0,
                        [FeatureI0,    FeatureI1,    FeatureI8,    FeatureI16,
                         FeatureI32,   FeatureI64,   FeatureF16,   FeatureF32,
                         FeatureF64,
@@ -111,7 +111,7 @@ def : Proc<"config0",  LPUConfig0,
                         FeatureShAdd, FeatureBitOp,
                         FeatureIDiv,  FeatureFDiv,  FeatureFMA,
                         FeatureSqrt,  FeatureMath0]>;
-def : Proc<"config1",  LPUConfig1,
+def : Proc<"config1",  CSAConfig1,
                        [FeatureI0,    FeatureI1,    FeatureI8,    FeatureI16,
                         FeatureI32,   FeatureI64,   FeatureF16,   FeatureF32,
                         FeatureF64,
@@ -124,21 +124,21 @@ def : Proc<"config1",  LPUConfig1,
 // Register file description
 //===----------------------------------------------------------------------===//
 
-include "LPURegisterInfo.td"
+include "CSARegisterInfo.td"
 
 //===----------------------------------------------------------------------===//
 // Calling convention description
 //===----------------------------------------------------------------------===//
 
-include "LPUCallingConv.td"
+include "CSACallingConv.td"
 
 //===----------------------------------------------------------------------===//
 // Instruction descriptions
 //===----------------------------------------------------------------------===//
 
-include "LPUInstrInfo.td"
+include "CSAInstrInfo.td"
 
-def LPUInstrInfo : InstrInfo;
+def CSAInstrInfo : InstrInfo;
 
 //===----------------------------------------------------------------------===//
 // Assembly parser
@@ -150,6 +150,6 @@ def LPUInstrInfo : InstrInfo;
 // Top-level target declaration
 //===----------------------------------------------------------------------===//
 
-def LPU : Target {
-  let InstructionSet = LPUInstrInfo;
+def CSA : Target {
+  let InstructionSet = CSAInstrInfo;
 }

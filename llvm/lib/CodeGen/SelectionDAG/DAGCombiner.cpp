@@ -1765,7 +1765,7 @@ SDValue DAGCombiner::visitADD(SDNode *N) {
   if (SimplifyDemandedBits(SDValue(N, 0)))
     return SDValue(N, 0);
 
-/* LPU - disabled.  Interferes with patterns
+/* CSA - disabled.  Interferes with patterns
   // fold (a+b) -> (a|b) iff a and b share no bits.
   if ((!LegalOperations || TLI.isOperationLegal(ISD::OR, VT)) &&
       VT.isInteger() && DAG.haveNoCommonBitsSet(N0, N1))

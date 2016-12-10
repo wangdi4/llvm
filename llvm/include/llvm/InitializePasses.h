@@ -228,8 +228,8 @@ void initializeMachineDominatorTreePass(PassRegistry&);
 void initializeMachineFunctionPrinterPassPass(PassRegistry&);
 void initializeMachineLICMPass(PassRegistry&);
 void initializeMachineLoopInfoPass(PassRegistry&);
-void initializeControlDependenceGraphPass(PassRegistry&); //LPU EDIT
-void initializeLPUCvtCFDFPassPass(PassRegistry&);         //LPU EDIT
+void initializeControlDependenceGraphPass(PassRegistry&); //CSA EDIT
+void initializeCSACvtCFDFPassPass(PassRegistry&);         //CSA EDIT
 void initializeMachineModuleInfoPass(PassRegistry&);
 void initializeMachinePipelinerPass(PassRegistry&);
 void initializeMachinePostDominatorTreePass(PassRegistry&);

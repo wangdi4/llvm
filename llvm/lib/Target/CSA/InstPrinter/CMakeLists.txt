@@ -1,3 +1,3 @@
-add_llvm_library(LLVMLPUAsmPrinter
-  LPUInstPrinter.cpp
+add_llvm_library(LLVMCSAAsmPrinter
+  CSAInstPrinter.cpp
   )

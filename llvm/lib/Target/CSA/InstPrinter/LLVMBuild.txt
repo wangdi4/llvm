@@ -1,4 +1,4 @@
-;===- ./lib/Target/LPU/InstPrinter/LLVMBuild.txt ---------------*- Conf -*--===;
+;===- ./lib/Target/CSA/InstPrinter/LLVMBuild.txt ---------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -17,7 +17,7 @@
 
 [component_0]
 type = Library
-name = LPUAsmPrinter
-parent = LPU
+name = CSAAsmPrinter
+parent = CSA
 required_libraries = MC Support
-add_to_library_groups = LPU
+add_to_library_groups = CSA

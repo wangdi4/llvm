@@ -1,14 +1,14 @@
-; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK 
 
-; ModuleID = 'tools/src/llvm/test/CodeGen/LPU/ALUOps.c'
+; ModuleID = 'tools/src/llvm/test/CodeGen/CSA/ALUOps.c'
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind
 define zeroext i16 @rinUS(i16* %p) #0 {
-; LPU_CHECK-LABEL: rinUS
-; LPU_CHECK: neg16
-; LPU_CHECK-NOT: sext32
+; CSA_CHECK-LABEL: rinUS
+; CSA_CHECK: neg16
+; CSA_CHECK-NOT: sext32
 
 entry:
   %p.addr = alloca i16*, align 8

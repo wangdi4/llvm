@@ -1,4 +1,4 @@
-//===-- LPUAllocUnitPass.cpp - LPU Unit Allocation Pass -------------------===//
+//===-- CSAAllocUnitPass.cpp - CSA Unit Allocation Pass -------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,10 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 //#include <map>
-#include "LPU.h"
-#include "InstPrinter/LPUInstPrinter.h"
-#include "LPUInstrInfo.h"
-#include "LPUTargetMachine.h"
+#include "CSA.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "CSAInstrInfo.h"
+#include "CSATargetMachine.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -31,82 +31,82 @@
 using namespace llvm;
 
 static cl::opt<int>
-AllocUnitPass("lpu-alloc-unit", cl::Hidden,
-		   cl::desc("LPU Specific: Unit allocation pass"),
+AllocUnitPass("csa-alloc-unit", cl::Hidden,
+		   cl::desc("CSA Specific: Unit allocation pass"),
 		   cl::init(1));
 
-#define DEBUG_TYPE "lpu-unit-alloc"
+#define DEBUG_TYPE "csa-unit-alloc"
 
 namespace {
-class LPUAllocUnitPass : public MachineFunctionPass {
+class CSAAllocUnitPass : public MachineFunctionPass {
   std::map<int,int> IIToFU;
 public:
   static char ID;
-  LPUAllocUnitPass() : MachineFunctionPass(ID) {
+  CSAAllocUnitPass() : MachineFunctionPass(ID) {
     // TBD(jsukha): Special case: unknown schedule class causes
     // problems.  Currently, LLVM "COPY" statements introduced by
     // other phases fall into this category.
-    IIToFU[0] = LPU::FUNCUNIT::VIR;
+    IIToFU[0] = CSA::FUNCUNIT::VIR;
     
-    IIToFU[LPU::Sched::IIPseudo ] = LPU::FUNCUNIT::ALU;
-    IIToFU[LPU::Sched::IIVir    ] = LPU::FUNCUNIT::VIR;
-    IIToFU[LPU::Sched::IIALU    ] = LPU::FUNCUNIT::ALU;
-    IIToFU[LPU::Sched::IISAdd   ] = LPU::FUNCUNIT::ALU;
-    IIToFU[LPU::Sched::IIShft   ] = LPU::FUNCUNIT::SHF;
-    IIToFU[LPU::Sched::IICmpF   ] = LPU::FUNCUNIT::FCM;
-    IIToFU[LPU::Sched::IIAddF16 ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IIAddF32 ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IIAddF64 ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IIMulI8  ] = LPU::FUNCUNIT::IMA;
-    IIToFU[LPU::Sched::IIMulI16 ] = LPU::FUNCUNIT::IMA;
-    IIToFU[LPU::Sched::IIMulI32 ] = LPU::FUNCUNIT::IMA;
-    IIToFU[LPU::Sched::IIMulI64 ] = LPU::FUNCUNIT::IMA;
-    IIToFU[LPU::Sched::IIMulF16 ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IIMulF32 ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IIMulF64 ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IIFMAF16 ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IIFMAF32 ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IIFMAF64 ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IIDivI8  ] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IIDivI16 ] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IIDivI32 ] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IIDivI64 ] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IIDivF16 ] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IIDivF32 ] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IIDivF64 ] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IISqrtF16] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IISqrtF32] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IISqrtF64] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IIMathF16] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IIMathF32] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IIMathF64] = LPU::FUNCUNIT::DIV;
-    IIToFU[LPU::Sched::IICvtIF  ] = LPU::FUNCUNIT::CIF;
-    IIToFU[LPU::Sched::IICvtFI  ] = LPU::FUNCUNIT::CFI;
-    IIToFU[LPU::Sched::IICvtFF  ] = LPU::FUNCUNIT::FMA;
-    IIToFU[LPU::Sched::IILD     ] = LPU::FUNCUNIT::MEM;
-    IIToFU[LPU::Sched::IIST     ] = LPU::FUNCUNIT::MEM;
-    IIToFU[LPU::Sched::IIATM    ] = LPU::FUNCUNIT::MEM;
+    IIToFU[CSA::Sched::IIPseudo ] = CSA::FUNCUNIT::ALU;
+    IIToFU[CSA::Sched::IIVir    ] = CSA::FUNCUNIT::VIR;
+    IIToFU[CSA::Sched::IIALU    ] = CSA::FUNCUNIT::ALU;
+    IIToFU[CSA::Sched::IISAdd   ] = CSA::FUNCUNIT::ALU;
+    IIToFU[CSA::Sched::IIShft   ] = CSA::FUNCUNIT::SHF;
+    IIToFU[CSA::Sched::IICmpF   ] = CSA::FUNCUNIT::FCM;
+    IIToFU[CSA::Sched::IIAddF16 ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IIAddF32 ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IIAddF64 ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IIMulI8  ] = CSA::FUNCUNIT::IMA;
+    IIToFU[CSA::Sched::IIMulI16 ] = CSA::FUNCUNIT::IMA;
+    IIToFU[CSA::Sched::IIMulI32 ] = CSA::FUNCUNIT::IMA;
+    IIToFU[CSA::Sched::IIMulI64 ] = CSA::FUNCUNIT::IMA;
+    IIToFU[CSA::Sched::IIMulF16 ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IIMulF32 ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IIMulF64 ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IIFMAF16 ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IIFMAF32 ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IIFMAF64 ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IIDivI8  ] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IIDivI16 ] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IIDivI32 ] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IIDivI64 ] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IIDivF16 ] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IIDivF32 ] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IIDivF64 ] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IISqrtF16] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IISqrtF32] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IISqrtF64] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IIMathF16] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IIMathF32] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IIMathF64] = CSA::FUNCUNIT::DIV;
+    IIToFU[CSA::Sched::IICvtIF  ] = CSA::FUNCUNIT::CIF;
+    IIToFU[CSA::Sched::IICvtFI  ] = CSA::FUNCUNIT::CFI;
+    IIToFU[CSA::Sched::IICvtFF  ] = CSA::FUNCUNIT::FMA;
+    IIToFU[CSA::Sched::IILD     ] = CSA::FUNCUNIT::MEM;
+    IIToFU[CSA::Sched::IIST     ] = CSA::FUNCUNIT::MEM;
+    IIToFU[CSA::Sched::IIATM    ] = CSA::FUNCUNIT::MEM;
     // temporarily commented out.  (If no patterns, the II doesn't get
     // defined...)
-    //    IIToFU[LPU::Sched::IISeq    ] = LPU::FUNCUNIT::ALU;
-    IIToFU[LPU::Sched::IICtl    ] = LPU::FUNCUNIT::SXU;
+    //    IIToFU[CSA::Sched::IISeq    ] = CSA::FUNCUNIT::ALU;
+    IIToFU[CSA::Sched::IICtl    ] = CSA::FUNCUNIT::SXU;
   }
 
   StringRef getPassName() const override {
-    return "LPU Allocate Unit Pass";
+    return "CSA Allocate Unit Pass";
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
 };
 }
 
-MachineFunctionPass *llvm::createLPUAllocUnitPass() {
-  return new LPUAllocUnitPass();
+MachineFunctionPass *llvm::createCSAAllocUnitPass() {
+  return new CSAAllocUnitPass();
 }
 
-char LPUAllocUnitPass::ID = 0;
+char CSAAllocUnitPass::ID = 0;
 
-bool LPUAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
+bool CSAAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
 
   if (AllocUnitPass == 0) return false;
 
@@ -152,12 +152,12 @@ bool LPUAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
 
         DEBUG(errs() << "MI " << *MI << ": schedClass " << schedClass <<
               " maps to unit " << unit << "\n");
-        BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(LPU::UNIT)).
+        BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(CSA::UNIT)).
           addImm(unit);
-        isSequential = (unit == LPU::FUNCUNIT::SXU);
+        isSequential = (unit == CSA::FUNCUNIT::SXU);
       } else if (!isSequential) {
-        BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(LPU::UNIT)).
-          addImm(LPU::FUNCUNIT::SXU);
+        BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(CSA::UNIT)).
+          addImm(CSA::FUNCUNIT::SXU);
         isSequential = true;
       }
 
@@ -169,8 +169,8 @@ bool LPUAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
     // (Basically, block boundaries represent flow control, and flow control
     // MUST be on the sequential unit...)
     if (!isSequential) {
-      BuildMI(*BB, BB->end(), DebugLoc(), TII.get(LPU::UNIT)).
-        addImm(LPU::FUNCUNIT::SXU);
+      BuildMI(*BB, BB->end(), DebugLoc(), TII.get(CSA::UNIT)).
+        addImm(CSA::FUNCUNIT::SXU);
       isSequential = true;
     }
 

@@ -1,4 +1,4 @@
-;===- ./lib/Target/LPU/TargetInfo/LLVMBuild.txt -----------*- Conf -*--===;
+;===- ./lib/Target/CSA/TargetInfo/LLVMBuild.txt -----------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -17,7 +17,7 @@
 
 [component_0]
 type = Library
-name = LPUInfo
-parent = LPU
+name = CSAInfo
+parent = CSA
 required_libraries = MC Support Target
-add_to_library_groups = LPU
+add_to_library_groups = CSA

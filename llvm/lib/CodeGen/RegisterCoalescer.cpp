@@ -283,7 +283,7 @@ static bool isMoveInstr(const TargetRegisterInfo &tri, const MachineInstr *MI,
     DstSub = MI->getOperand(0).getSubReg();
     Src = MI->getOperand(1).getReg();
 #if 1
-		//LPU EDIT: handle copy1 %ci1_xx, %ci64_yy, generated from, %vreg1 = AND %verg2, 1
+		//CSA EDIT: handle copy1 %ci1_xx, %ci64_yy, generated from, %vreg1 = AND %verg2, 1
 		if (!TargetRegisterInfo::isPhysicalRegister(Dst) && !TargetRegisterInfo::isPhysicalRegister(Src)) {
 			const MachineRegisterInfo &MRI = MI->getParent()->getParent()->getRegInfo();
 			const TargetRegisterClass *SrcRC = MRI.getRegClass(Src);

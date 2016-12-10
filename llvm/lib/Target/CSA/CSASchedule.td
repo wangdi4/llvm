@@ -1,4 +1,4 @@
-//===-- LPUSchedule.td -- LPU Scheduling Definitions -------*- tablegen -*-===//
+//===-- CSASchedule.td -- CSA Scheduling Definitions -------*- tablegen -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,16 +8,16 @@
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-// Functional units across LPU implementations.
-// See LPU Simulator lpu.h - UNIT_LIST
+// Functional units across CSA implementations.
+// See CSA Simulator csa.h - UNIT_LIST
 //
 // Note that this information is provided in itinerary form, but isn't actually
 // intended for "instruction scheduling".
 //===----------------------------------------------------------------------===//
 
-// NOTE: This enumeration is effectively duplicated in LPUInstrInfo.h
+// NOTE: This enumeration is effectively duplicated in CSAInstrInfo.h
 // for now.  Eventually, that information will hopefully just rely on
-// information here.  Note that the LPUInstrInfo.h copy doesn't have
+// information here.  Note that the CSAInstrInfo.h copy doesn't have
 // the FU_ prefix.  Here, it is needed because of collisions with things
 // like FMA and DIV with generic opcodes.
 def FU_VIR : FuncUnit; // Virtual unit - doesn't really exist
@@ -34,8 +34,8 @@ def FU_SXU : FuncUnit; // Sequential eXecution Unit
 def FU_SPD : FuncUnit; // Scratchpad
 
 //===----------------------------------------------------------------------===//
-// Instruction Itinerary classes used for LPU
-// See LPU Simulator lpu_asim_bridge.h - OPTYPE_LIST
+// Instruction Itinerary classes used for CSA
+// See CSA Simulator csa_asim_bridge.h - OPTYPE_LIST
 //===----------------------------------------------------------------------===//
 def IIPseudo  : InstrItinClass;
 def IIVir     : InstrItinClass;
@@ -80,12 +80,12 @@ def IICtl     : InstrItinClass;
 
 
 //===----------------------------------------------------------------------===//
-// LPU Generic instruction itineraries.
+// CSA Generic instruction itineraries.
 //===----------------------------------------------------------------------===//
 
-// Note: This information is currently replicated in LPUAllocUnitPass.cpp
+// Note: This information is currently replicated in CSAAllocUnitPass.cpp
 //
-def LPUGenericItineraries :
+def CSAGenericItineraries :
 ProcessorItineraries<
   [FU_VIR, FU_ALU, FU_SHF, FU_IMA, FU_FMA, FU_FCM, FU_CFI, FU_CIF, FU_DIV, FU_MEM, FU_SXU, FU_SPD], [], [
 
@@ -132,26 +132,26 @@ ProcessorItineraries<
 
 ]>;
 
-def LPUGeneric : SchedMachineModel {
+def CSAGeneric : SchedMachineModel {
   let IssueWidth = 1;   // This is for the SXU only
   let LoadLatency = 1;  // If L1 for SXU?
   let HighLatency = 30;
   let PostRAScheduler = 0;
-  let Itineraries = LPUGenericItineraries;
+  let Itineraries = CSAGenericItineraries;
 }
 
-def LPUConfig0 : SchedMachineModel {
+def CSAConfig0 : SchedMachineModel {
   let IssueWidth = 1;   // This is for the SXU only
   let LoadLatency = 1;  // If L1 for SXU?
   let HighLatency = 30;
   let PostRAScheduler = 0;
-  let Itineraries = LPUGenericItineraries;
+  let Itineraries = CSAGenericItineraries;
 }
 
-def LPUConfig1 : SchedMachineModel {
+def CSAConfig1 : SchedMachineModel {
   let IssueWidth = 1;   // This is for the SXU only
   let LoadLatency = 1;  // If L1 for SXU?
   let HighLatency = 30;
   let PostRAScheduler = 0;
-  let Itineraries = LPUGenericItineraries;
+  let Itineraries = CSAGenericItineraries;
 }

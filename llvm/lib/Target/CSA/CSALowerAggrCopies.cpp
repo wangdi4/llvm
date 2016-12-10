@@ -1,4 +1,4 @@
-//===- LPULowerAggrCopies.cpp - ------------------------------*- C++ -*--===//
+//===- CSALowerAggrCopies.cpp - ------------------------------*- C++ -*--===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -17,7 +17,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPULowerAggrCopies.h"
+#include "CSALowerAggrCopies.h"
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -31,17 +31,17 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
-#define DEBUG_TYPE "lpu"
+#define DEBUG_TYPE "csa"
 
 using namespace llvm;
 
 namespace {
 
 // actual analysis class, which is a functionpass
-struct LPULowerAggrCopies : public FunctionPass {
+struct CSALowerAggrCopies : public FunctionPass {
   static char ID;
 
-  LPULowerAggrCopies() : FunctionPass(ID) {}
+  CSALowerAggrCopies() : FunctionPass(ID) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addPreserved<StackProtector>();
@@ -56,7 +56,7 @@ struct LPULowerAggrCopies : public FunctionPass {
   }
 };
 
-char LPULowerAggrCopies::ID = 0;
+char CSALowerAggrCopies::ID = 0;
 
 // Lower memcpy to loop.
 void convertMemCpyToLoop(Instruction *ConvertedInst, Value *SrcAddr,
@@ -240,7 +240,7 @@ void convertMemSetToLoop(Instruction *ConvertedInst, Value *DstAddr,
                            NewBB);
 }
 
-bool LPULowerAggrCopies::runOnFunction(Function &F) {
+bool CSALowerAggrCopies::runOnFunction(Function &F) {
   SmallVector<LoadInst *, 4> AggrLoads;
   SmallVector<MemIntrinsic *, 4> MemCalls;
 
@@ -341,13 +341,13 @@ bool LPULowerAggrCopies::runOnFunction(Function &F) {
 } // namespace
 
 namespace llvm {
-void initializeLPULowerAggrCopiesPass(PassRegistry &);
+void initializeCSALowerAggrCopiesPass(PassRegistry &);
 }
 
-INITIALIZE_PASS(LPULowerAggrCopies, "lpu-lower-aggr-copies",
+INITIALIZE_PASS(CSALowerAggrCopies, "csa-lower-aggr-copies",
                 "Lower aggregate copies, and llvm.mem* intrinsics into loops",
                 false, false)
 
 FunctionPass *llvm::createLowerAggrCopies() {
-  return new LPULowerAggrCopies();
+  return new CSALowerAggrCopies();
 }

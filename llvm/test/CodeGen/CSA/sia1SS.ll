@@ -1,15 +1,15 @@
-; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK 
 
-; ModuleID = 'tools/src/llvm/test/CodeGen/LPU/ALUOps.c'
+; ModuleID = 'tools/src/llvm/test/CodeGen/CSA/ALUOps.c'
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind
 define void @sia1SS(i16* %p) #0 {
-; LPU_CHECK-LABEL: sia1SS
-; LPU_CHECK: st64
-; LPU_CHECK: ld16
-; LPU_CHECK: st16
+; CSA_CHECK-LABEL: sia1SS
+; CSA_CHECK: st64
+; CSA_CHECK: ld16
+; CSA_CHECK: st16
 
 entry:
   %p.addr = alloca i16*, align 8

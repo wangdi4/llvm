@@ -1,4 +1,4 @@
-//===-- LPUMCAsmInfo.cpp - LPU asm properties -----------------------===//
+//===-- CSAMCAsmInfo.cpp - CSA asm properties -----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,18 +7,18 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the declarations of the LPUMCAsmInfo properties.
+// This file contains the declarations of the CSAMCAsmInfo properties.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUMCAsmInfo.h"
+#include "CSAMCAsmInfo.h"
 #include "llvm/ADT/StringRef.h"
-#include "../InstPrinter/LPUInstPrinter.h"
+#include "../InstPrinter/CSAInstPrinter.h"
 using namespace llvm;
 
-void LPUMCAsmInfo::anchor() { }
+void CSAMCAsmInfo::anchor() { }
 
-LPUMCAsmInfo::LPUMCAsmInfo(const Triple &T) {
+CSAMCAsmInfo::CSAMCAsmInfo(const Triple &T) {
   PointerSize = CalleeSaveStackSlotSize = 8;
   // For now
   HasDotTypeDotSizeDirective = false;
@@ -29,7 +29,7 @@ LPUMCAsmInfo::LPUMCAsmInfo(const Triple &T) {
 
   UsesELFSectionDirectiveForBSS = true;
 
-  // For this to work, LPURegisterInfo.td needs dwarf register numbers for
+  // For this to work, CSARegisterInfo.td needs dwarf register numbers for
   // registers.  This enables .loc, but it also enables a lot of other things
   // that we have no plans to deal with...
   // SupportsDebugInformation = true;

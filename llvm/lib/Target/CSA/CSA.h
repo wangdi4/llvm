@@ -1,4 +1,4 @@
-//===-- LPU.h - Top-level interface for LPU representation ------*- C++ -*-===//
+//===-- CSA.h - Top-level interface for CSA representation ------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,36 +8,36 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains the entry points for global functions defined in
-// the LLVM LPU back-end.
+// the LLVM CSA back-end.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPU_H
-#define LLVM_LIB_TARGET_LPU_LPU_H
+#ifndef LLVM_LIB_TARGET_CSA_CSA_H
+#define LLVM_LIB_TARGET_CSA_CSA_H
 
-#include "MCTargetDesc/LPUMCTargetDesc.h"
+#include "MCTargetDesc/CSAMCTargetDesc.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
-  class LPUTargetMachine;
+  class CSATargetMachine;
   class FunctionPass;
   class MachineFunctionPass;
 
-  //ImmutablePass *createLPUTargetTransformInfoPass(const LPUTargetMachine *TM);
-  FunctionPass *createLPUISelDag(LPUTargetMachine &TM,
+  //ImmutablePass *createCSATargetTransformInfoPass(const CSATargetMachine *TM);
+  FunctionPass *createCSAISelDag(CSATargetMachine &TM,
                                  llvm::CodeGenOpt::Level OptLevel);
-  MachineFunctionPass *createLPUConvertControlPass();
+  MachineFunctionPass *createCSAConvertControlPass();
   MachineFunctionPass *createControlDepenceGraph();
-  MachineFunctionPass *createLPUCvtCFDFPass();
-  MachineFunctionPass *createLPUStatisticsPass();
-  MachineFunctionPass *createLPUOptDFPass();
-  MachineFunctionPass *createLPURedundantMovElimPass();  
-  MachineFunctionPass *createLPUDeadInstructionElimPass();
-  MachineFunctionPass *createLPUAllocUnitPass();
-  MachineFunctionPass *createLPUPrologEpilogPass();
-  /// \brief Creates an LPU-specific Target Transformation Info pass.
-  ImmutablePass *createLPUTargetTransformInfoPass(const LPUTargetMachine *TM);
-  //FunctionPass *createLPULowerStructArgsPass();
+  MachineFunctionPass *createCSACvtCFDFPass();
+  MachineFunctionPass *createCSAStatisticsPass();
+  MachineFunctionPass *createCSAOptDFPass();
+  MachineFunctionPass *createCSARedundantMovElimPass();  
+  MachineFunctionPass *createCSADeadInstructionElimPass();
+  MachineFunctionPass *createCSAAllocUnitPass();
+  MachineFunctionPass *createCSAPrologEpilogPass();
+  /// \brief Creates an CSA-specific Target Transformation Info pass.
+  ImmutablePass *createCSATargetTransformInfoPass(const CSATargetMachine *TM);
+  //FunctionPass *createCSALowerStructArgsPass();
 
 } // end namespace llvm;
 

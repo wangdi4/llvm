@@ -1,11 +1,11 @@
-; RUN: llc -O1 -lpu-opt-df-pass=1 -lpu-seq-opt=2 -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK
+; RUN: llc -O1 -csa-opt-df-pass=1 -csa-seq-opt=2 -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
 
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind
 define void @simple_seq0(i32 %x, i32 %y, i32 %z, double* nocapture %a) #0 {
-; LPU_CHECK-DAG: seqotgts64
+; CSA_CHECK-DAG: seqotgts64
 
 entry:
   %0 = sext i32 %x to i64
@@ -34,7 +34,7 @@ do.end:                                           ; preds = %do.body
 ;; of arguments to the compare
 ; Function Attrs: nounwind
 define void @simple_seq1(i32 %x, i32 %y, i32 %z, double* nocapture %a) #0 {
-; LPU_CHECK-DAG: seqotgts64
+; CSA_CHECK-DAG: seqotgts64
 
 entry:
   %0 = sext i32 %x to i64

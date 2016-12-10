@@ -1,4 +1,4 @@
-//===-- LPULicAllocation.cpp - LPU Frame Information ----------------------===//
+//===-- CSALicAllocation.cpp - CSA Frame Information ----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,16 +11,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPULicAllocation.h"
+#include "CSALicAllocation.h"
 
 #define DEBUG_TYPE "lic-alloc"
 
 #include <map>
-#include "InstPrinter/LPUInstPrinter.h"
-#include "LPU.h"
-#include "LPUInstrInfo.h"
-#include "LPULicCopyTree.h"
-#include "LPUTargetMachine.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "CSA.h"
+#include "CSAInstrInfo.h"
+#include "CSALicCopyTree.h"
+#include "CSATargetMachine.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -46,7 +46,7 @@ using namespace llvm;
 // because it is trying to print some useful debugging error messages.
 // Eventually, we may wish to simplify this method down even further.
 //
-int LPULicAllocation::
+int CSALicAllocation::
 count_reg_uses(MachineRegisterInfo* MRI,
                unsigned Reg,
                MachineBasicBlock* BB,
@@ -110,7 +110,7 @@ count_reg_uses(MachineRegisterInfo* MRI,
 
 
 
-int LPULicAllocation::
+int CSALicAllocation::
 replace_reg_uses_with_LICs(MachineRegisterInfo* MRI,
                            const TargetRegisterInfo& TRI,
                            unsigned Reg,
@@ -167,9 +167,9 @@ replace_reg_uses_with_LICs(MachineRegisterInfo* MRI,
 
 
 void
-LPULicAllocation::
-generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
-                    const LPUInstrInfo& TII,
+CSALicAllocation::
+generate_LIC_copies(CSAMachineFunctionInfo* LMFI,
+                    const CSAInstrInfo& TII,
                     unsigned src,
                     const TargetRegisterClass* new_LIC_RC,
                     std::vector<unsigned>* replacement_LICs,
@@ -183,7 +183,7 @@ generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
   if (N >= 2) {
     if (this->ENABLE_COPIES) {
       // Create a copy tree.
-      LPULicCopyTree<D> copy_tree(N);
+      CSALicCopyTree<D> copy_tree(N);
 
       // After testing the copy tree, we don't really need to
       // double-check this any more.
@@ -229,10 +229,10 @@ generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
       // after the definition, and we want them to be in order in the
       // basic block.
       for (int k = copy_tree.num_copy_stmts()-1; k >= 0; k--) {
-        const LPULicCopyStmt<D>& cstmt = copy_tree.get_copy_stmt(k);
+        const CSALicCopyStmt<D>& cstmt = copy_tree.get_copy_stmt(k);
 
         unsigned dest_reg[D];
-        unsigned src_reg = LPU::IGN;
+        unsigned src_reg = CSA::IGN;
         
         // Look up the source register from the copy statement.
         assert((cstmt.src >= 0) && "Copy statement has invalid source register index");
@@ -240,7 +240,7 @@ generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
         src_reg = reg_map[cstmt.src];
 
         // Look up the destination registers from the copy statement.
-        // Some of these might be LPU::IGN.
+        // Some of these might be CSA::IGN.
         for (int j = 0; j < D; ++j) {
           int dest_idx = cstmt.out[j];
           if (dest_idx >= 0) {
@@ -248,7 +248,7 @@ generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
             dest_reg[j] = reg_map[dest_idx];
           }
           else {
-            dest_reg[j] = LPU::IGN;
+            dest_reg[j] = CSA::IGN;
           }
         }
 
@@ -290,7 +290,7 @@ generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
 }
 
 
-bool LPULicAllocation::
+bool CSALicAllocation::
 allocateLicsInBlock(MachineBasicBlock* BB)
 {
   DEBUG(errs() << "\nCalling allocateLicsinLoop for block " << BB << "\n");
@@ -299,8 +299,8 @@ allocateLicsInBlock(MachineBasicBlock* BB)
   MachineFunction* MF = BB->getParent();
   MachineRegisterInfo *MRI = &(MF->getRegInfo());
   const TargetRegisterInfo &TRI = *MF->getSubtarget().getRegisterInfo();
-  LPUMachineFunctionInfo *LMFI = MF->getInfo<LPUMachineFunctionInfo>();
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
+  CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>
     (MF->getSubtarget().getInstrInfo());
 
   bool modified = false;

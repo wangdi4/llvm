@@ -1,4 +1,4 @@
-//===-- LPUStatistics.cpp - LPU Statistics --------===//
+//===-- CSAStatistics.cpp - CSA Statistics --------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,16 +8,16 @@
 //===----------------------------------------------------------------------===//
 //
 // This file "reexpresses" the code containing traditional control flow
-// into a basically data flow representation suitable for the LPU.
+// into a basically data flow representation suitable for the CSA.
 //
 //===----------------------------------------------------------------------===//
 
 #include <map>
-#include "LPU.h"
-#include "InstPrinter/LPUInstPrinter.h"
-#include "LPUInstrInfo.h"
-#include "LPUTargetMachine.h"
-#include "LPULicAllocation.h"
+#include "CSA.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "CSAInstrInfo.h"
+#include "CSATargetMachine.h"
+#include "CSALicAllocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SparseSet.h"
@@ -38,11 +38,11 @@
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include "MachineCDG.h"
-#include "LPUInstrInfo.h"
+#include "CSAInstrInfo.h"
 
 using namespace llvm;
 
-#define DEBUG_TYPE "lpu-statistics"
+#define DEBUG_TYPE "csa-statistics"
 
 STATISTIC(NumPICKS, "Number of PICK instrucitons generated");
 STATISTIC(NumSWITCHES, "Number of SWITCH instructions generated");
@@ -60,20 +60,20 @@ STATISTIC(NumSHIFTS, "Number of SHIFT instrucitons generated");
 
 
 static cl::opt<int>
-LPUStatisticsPass("lpu-statistics", cl::Hidden,
-               cl::desc("LPU Specific: Statistics"),
+CSAStatisticsPass("csa-statistics", cl::Hidden,
+               cl::desc("CSA Specific: Statistics"),
                cl::init(1));
 
 
 
 namespace {
-  class LPUStatistics : public MachineFunctionPass {
+  class CSAStatistics : public MachineFunctionPass {
   public:
     static char ID;
-    LPUStatistics();
+    CSAStatistics();
 
     StringRef getPassName() const override {
-      return "LPU Statistics";
+      return "CSA Statistics";
     }
 
     bool runOnMachineFunction(MachineFunction &MF) override;
@@ -83,27 +83,27 @@ namespace {
 }
 
 namespace llvm {
-    void initializeLPUStatisticsPass(PassRegistry&);
+    void initializeCSAStatisticsPass(PassRegistry&);
 }
 
 //  Because of the namespace-related syntax limitations of gcc, we need
 //  To hoist init out of namespace blocks. 
-char LPUStatistics::ID = 0;
-INITIALIZE_PASS(LPUStatistics, "lpu-statistics", "LPU Statistics", true, true)
+char CSAStatistics::ID = 0;
+INITIALIZE_PASS(CSAStatistics, "csa-statistics", "CSA Statistics", true, true)
 
-LPUStatistics::LPUStatistics() : MachineFunctionPass(ID) {
-    initializeLPUStatisticsPass(*PassRegistry::getPassRegistry());
+CSAStatistics::CSAStatistics() : MachineFunctionPass(ID) {
+    initializeCSAStatisticsPass(*PassRegistry::getPassRegistry());
 }
 
-MachineFunctionPass *llvm::createLPUStatisticsPass() {
-  return new LPUStatistics();
+MachineFunctionPass *llvm::createCSAStatisticsPass() {
+  return new CSAStatistics();
 }
 
-bool LPUStatistics::runOnMachineFunction(MachineFunction &MF) {
+bool CSAStatistics::runOnMachineFunction(MachineFunction &MF) {
 
-  if (LPUStatisticsPass == 0) return false;
+  if (CSAStatisticsPass == 0) return false;
   thisMF = &MF;
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   bool Modified = false;
   
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {

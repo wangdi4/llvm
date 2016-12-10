@@ -1,4 +1,4 @@
-add_llvm_library(LLVMLPUDesc
-  LPUMCTargetDesc.cpp
-  LPUMCAsmInfo.cpp
+add_llvm_library(LLVMCSADesc
+  CSAMCTargetDesc.cpp
+  CSAMCAsmInfo.cpp
   )

@@ -7,26 +7,26 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Threading.h"
 
-#include "llvm/Bitcode/LPUSaveRawBC.h"
+#include "llvm/Bitcode/CSASaveRawBC.h"
 
 using namespace llvm;
 
-char LPUSaveRawBC::ID = 0;
+char CSASaveRawBC::ID = 0;
 
-std::string LPUSaveRawBC::BcData;
+std::string CSASaveRawBC::BcData;
 
 LLVM_DEFINE_ONCE_FLAG(save_raw_bc_init_flag);
 
 static cl::opt<bool>
-DumpRawBc("lpu-dump-raw-bc", cl::Hidden,
-           cl::desc("LPU Specific: Dump raw bitcode to file"),
+DumpRawBc("csa-dump-raw-bc", cl::Hidden,
+           cl::desc("CSA Specific: Dump raw bitcode to file"),
            cl::init(false));
 
 static void initializePassOnce(PassRegistry &Registry) {
   PassInfo *PI =
-    new PassInfo("LPU Save Raw BC",  // name
-                 "lpu-save-raw-bc",  // arg
-                 &LPUSaveRawBC::ID,  // pointer to ID
+    new PassInfo("CSA Save Raw BC",  // name
+                 "csa-save-raw-bc",  // arg
+                 &CSASaveRawBC::ID,  // pointer to ID
                  nullptr,            // normal ctor
                  true,               // only looks at CFG
                  true);              // is analysis pass
@@ -35,33 +35,33 @@ static void initializePassOnce(PassRegistry &Registry) {
 
 namespace llvm {
 
-ImmutablePass *createLPUSaveRawBCPass() {
-  return new LPUSaveRawBC();
+ImmutablePass *createCSASaveRawBCPass() {
+  return new CSASaveRawBC();
 }
 
-void initializeLPUSaveRawBCPass(PassRegistry &Registry) {
+void initializeCSASaveRawBCPass(PassRegistry &Registry) {
   llvm::call_once(save_raw_bc_init_flag, initializePassOnce, std::ref(Registry));
 }
 
-LPUSaveRawBC::LPUSaveRawBC() : ImmutablePass(ID) {
-  initializeLPUSaveRawBCPass(*PassRegistry::getPassRegistry());
+CSASaveRawBC::CSASaveRawBC() : ImmutablePass(ID) {
+  initializeCSASaveRawBCPass(*PassRegistry::getPassRegistry());
 }
 
-bool LPUSaveRawBC::doInitialization(Module &M) {
+bool CSASaveRawBC::doInitialization(Module &M) {
 
-  // Only supported by LPU. It would be better to only add the pass if the
-  // target is LPU, but I don't seem to have access to that information in
+  // Only supported by CSA. It would be better to only add the pass if the
+  // target is CSA, but I don't seem to have access to that information in
   // the appropriate places
-  if (0 != M.getTargetTriple().compare("lpu")) {
+  if (0 != M.getTargetTriple().compare("csa")) {
 /*
-    errs() << "Not an LPU module - ";
+    errs() << "Not an CSA module - ";
     errs() << M.getTargetTriple();
     errs() << "\n";
 */
     return false;
   }
 
-  //  errs() << "LPUSaveRawBC::doInitialization\n";
+  //  errs() << "CSASaveRawBC::doInitialization\n";
 
   // Multiple instances of the analyzer are created by LLVM. We
   // only need to save the raw IR once. If the string is already
@@ -85,7 +85,7 @@ bool LPUSaveRawBC::doInitialization(Module &M) {
 }
 
 // Dump the raw IR to a .bc file
-void LPUSaveRawBC::dumpBC(StringRef modName) {
+void CSASaveRawBC::dumpBC(StringRef modName) {
 
   // Generate the name for the file by appending ".bc" to the
   // file name. So we'll get something like foo.cpp.bc
@@ -121,8 +121,8 @@ void LPUSaveRawBC::dumpBC(StringRef modName) {
   Out.keep();
 }
 
-const std::string &LPUSaveRawBC::getRawBC() const {
-  assert(!BcData.empty() && "Expected string to be filled by doInitialization for an LPU module!");
+const std::string &CSASaveRawBC::getRawBC() const {
+  assert(!BcData.empty() && "Expected string to be filled by doInitialization for an CSA module!");
 
   return BcData;
 }

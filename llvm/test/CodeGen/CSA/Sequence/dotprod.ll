@@ -1,17 +1,17 @@
-; RUN: llc -O1 -lpu-opt-df-pass=1 -lpu-seq-opt=2 -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK
+; RUN: llc -O1 -csa-opt-df-pass=1 -csa-seq-opt=2 -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
 
 ; ModuleID = 'loop_kernel.cpp'
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; This test should generate a FMA reduction, stride, and sequence. 
 
 ; Function Attrs: nounwind readonly
 define double @dot_kernel(i32 %n, double* nocapture readonly %x, double* nocapture readonly %y) #0 {
 
-; LPU_CHECK-DAG: fmsredaf64
-; LPU_CHECK-DAG: stride64
-; LPU_CHECK-DAG: seqotne32
+; CSA_CHECK-DAG: fmsredaf64
+; CSA_CHECK-DAG: stride64
+; CSA_CHECK-DAG: seqotne32
 
 entry:
   %cmp.9 = icmp sgt i32 %n, 0

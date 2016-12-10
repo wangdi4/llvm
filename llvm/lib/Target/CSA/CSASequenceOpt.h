@@ -1,4 +1,4 @@
-//===-- LPUSequenceOpt.h - LPU structures and methods for sequence opt.----===//
+//===-- CSASequenceOpt.h - CSA structures and methods for sequence opt.----===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,11 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUSEQUENCEOPT_H
-#define LLVM_LIB_TARGET_LPU_LPUSEQUENCEOPT_H
+#ifndef LLVM_LIB_TARGET_CSA_CSASEQUENCEOPT_H
+#define LLVM_LIB_TARGET_CSA_CSASEQUENCEOPT_H
 
 
-#include "LPUTargetMachine.h"
+#include "CSATargetMachine.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 
@@ -26,7 +26,7 @@
  * Every candidate for sequence optimization has a control header
  * which controls the execution of the loop.
  *
- * The *sequence header* has the following form (in LPU machine
+ * The *sequence header* has the following form (in CSA machine
  * instructions).
  * 
  *      <picker>  = INIT1 0
@@ -220,7 +220,7 @@ namespace llvm {
    * Also saves the channel registers so we don't have to look them up
    * from the machine instructions.
    */
-  struct LPUSeqHeader {
+  struct CSASeqHeader {
     MachineInstr* pickerInit;
     MachineInstr* pickerMov1;
     MachineInstr* compareInst;
@@ -246,7 +246,7 @@ namespace llvm {
     // where these values are reversed.
     bool switcherSense;    
 
-    LPUSeqHeader()
+    CSASeqHeader()
       : pickerInit(NULL)
       , pickerMov1(NULL)
       , compareInst(NULL)
@@ -316,7 +316,7 @@ namespace llvm {
 
 
   // Data structure storing a particular sequence candidate.
-  struct LPUSeqCandidate {
+  struct CSASeqCandidate {
 
     // Enumerate the possible kinds of sequence operations that we
     // currently recognize.
@@ -352,9 +352,9 @@ namespace llvm {
     unsigned opcode;
     bool negate_input;
 
-    static const unsigned INVALID_OPCODE = LPU::PHI;    
+    static const unsigned INVALID_OPCODE = CSA::PHI;    
 
-  LPUSeqCandidate(MachineInstr* pickI,
+  CSASeqCandidate(MachineInstr* pickI,
                   MachineInstr* switchI)
       : pickInst(pickI)
       , switchInst(switchI)
@@ -363,36 +363,36 @@ namespace llvm {
       , top(0)
       , bottom(0)
       , saved_op(NULL)
-      , opcode(LPUSeqCandidate::INVALID_OPCODE)
+      , opcode(CSASeqCandidate::INVALID_OPCODE)
       , negate_input(false)
     {
     }
 
-    ~LPUSeqCandidate() {
+    ~CSASeqCandidate() {
     }
 
     // Accessor functions for different operands from the pick/switch
     // instructions.
     inline MachineOperand*
     get_pick_top_op() const {
-      int idx = LPUSeqHeader::pick_top_op_idx();
+      int idx = CSASeqHeader::pick_top_op_idx();
       return &pickInst->getOperand(idx);
     }
 
     inline MachineOperand*
-    get_pick_input_op(const LPUSeqHeader& header) const {
+    get_pick_input_op(const CSASeqHeader& header) const {
       int idx = header.pick_input_op_idx();
       return &pickInst->getOperand(idx);
     }
 
     inline MachineOperand*
     get_switch_bottom_op() const {
-      int idx = LPUSeqHeader::switch_bottom_op_idx();
+      int idx = CSASeqHeader::switch_bottom_op_idx();
       return &switchInst->getOperand(idx);
     }
 
     inline MachineOperand*
-    get_switch_output_op(const LPUSeqHeader& header) const {
+    get_switch_output_op(const CSASeqHeader& header) const {
       int idx = header.switch_output_op_idx();      
       return &switchInst->getOperand(idx);
     }
@@ -409,7 +409,7 @@ namespace llvm {
   // A struct that summarizes key information about a sequence
   // instruction.  This struct is mostly here for packaging purposes,
   // to avoid having too many arguments between functions.
-  struct LPUSeqInstrInfo {
+  struct CSASeqInstrInfo {
     // The pointer to the sequence machine instruction we created.
     MachineInstr* seq_inst;
 
@@ -422,10 +422,10 @@ namespace llvm {
   };
 
 
-  struct LPUSeqLoopInfo {
+  struct CSASeqLoopInfo {
     int loop_id;
-    LPUSeqHeader header;
-    SmallVector<LPUSeqCandidate, 12> candidates;
+    CSASeqHeader header;
+    SmallVector<CSASeqCandidate, 12> candidates;
 
 
     // A map from repeat channel register to the index in
@@ -438,7 +438,7 @@ namespace llvm {
     int num_valid_sequences;
         
     // The channel (register) numbers that correspond to the operands
-    // in the compare instruction.  These values are "LPU::IGN" if the
+    // in the compare instruction.  These values are "CSA::IGN" if the
     // operand is an immediate.
     unsigned cmp0_channel;
     unsigned cmp1_channel;
@@ -470,22 +470,22 @@ namespace llvm {
 
     
   public:
-    LPUSeqLoopInfo()
+    CSASeqLoopInfo()
     : loop_id(-1)
     , num_valid_sequences(0)
-    , cmp0_channel(LPU::IGN)
-    , cmp1_channel(LPU::IGN)
+    , cmp0_channel(CSA::IGN)
+    , cmp1_channel(CSA::IGN)
     , cmp0_idx(-1)
     , cmp1_idx(-1)
     , indvar_idx(-1)
     , bound_idx(-1)
     , compare_sense(0)
     , valid_to_transform(false)
-    , seq_opcode(LPUSeqCandidate::INVALID_OPCODE)
+    , seq_opcode(CSASeqCandidate::INVALID_OPCODE)
     {
     }
     
-    ~LPUSeqLoopInfo() {}
+    ~CSASeqLoopInfo() {}
 
     // Get and set the number of valid sequences in this loop.
     void set_valid_sequence_count(int val) {
@@ -573,7 +573,7 @@ namespace llvm {
                                 unsigned tOp,
                                 bool commute_compare_operands,
                                 bool negate_compare, 
-                                const LPUInstrInfo &TII,
+                                const CSAInstrInfo &TII,
                                 unsigned* indvar_opcode) {
 
       // Transform the comparison opcode if needed.
@@ -590,16 +590,16 @@ namespace llvm {
         // transforming op matches as well.
 
         switch(tOp) {
-        case LPU::ADD8:
+        case CSA::ADD8:
           *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 8);
           return true;
-        case LPU::ADD16:
+        case CSA::ADD16:
           *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 16);
           return true;
-        case LPU::ADD32:
+        case CSA::ADD32:
           *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 32);
           return true;
-        case LPU::ADD64:
+        case CSA::ADD64:
           *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 64);
           return true;
         }
@@ -660,7 +660,7 @@ namespace llvm {
     CmpMatchType match_candidate_with_cmp(unsigned bottom,
                                           int candidate_idx) {
       // Errors conditions.
-      if ((bottom == LPU::IGN) || (candidate_idx < 0)) {
+      if ((bottom == CSA::IGN) || (candidate_idx < 0)) {
         return CmpMatchType::OtherError;
       }
 
@@ -707,14 +707,14 @@ namespace llvm {
       // Two cases.  Look for the stride (induction variable) in
       // either cmp0 or cmp1.
       if ((this->cmp0Idx() >= 0) &&
-          this->candidates[this->cmp0Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
+          this->candidates[this->cmp0Idx()].stype == CSASeqCandidate::SeqType::STRIDE) {
         this->indvar_idx = this->cmp0Idx();
         this->bound_idx = this->cmp1Idx();
         this->compare_sense = 0;
         return true;
       }
       else if ((this->cmp1Idx() >= 0) &&
-               this->candidates[this->cmp1Idx()].stype == LPUSeqCandidate::SeqType::STRIDE) {
+               this->candidates[this->cmp1Idx()].stype == CSASeqCandidate::SeqType::STRIDE) {
         this->indvar_idx = this->cmp1Idx();
         this->bound_idx = this->cmp0Idx();
         this->compare_sense = 1;
@@ -728,7 +728,7 @@ namespace llvm {
       // This can either be a repeated channel, or an immediate.
       bool found_bound_channel =
         ((this->bound_idx >= 0) &&
-         this->candidates[this->bound_idx].stype == LPUSeqCandidate::SeqType::REPEAT);
+         this->candidates[this->bound_idx].stype == CSASeqCandidate::SeqType::REPEAT);
 
       int boundOp_idx = this->boundOpIdx();
       bool found_bound_imm =
@@ -749,9 +749,9 @@ namespace llvm {
       if (this->bound_idx >= 0) {
         // If we have a bound_idx, the bound corresponds to a repeat
         // statement.
-        const LPUSeqCandidate* bound_repeat = &candidates[this->bound_idx];
+        const CSASeqCandidate* bound_repeat = &candidates[this->bound_idx];
         assert(bound_repeat);
-        assert(bound_repeat->stype == LPUSeqCandidate::SeqType::REPEAT);
+        assert(bound_repeat->stype == CSASeqCandidate::SeqType::REPEAT);
         in_b_op = bound_repeat->get_pick_input_op(header);
       }
       else {
@@ -769,14 +769,14 @@ namespace llvm {
 
     // Returns true we can do the sequence transform.
     // If yes, then store the opcode that we need for the sequence instruction. 
-    bool sequence_opcode_transform_check(const LPUInstrInfo &TII) {
+    bool sequence_opcode_transform_check(const CSAInstrInfo &TII) {
       if (this->indvar_idx >= 0) {
-        LPUSeqCandidate& indvarCandidate = this->candidates[this->indvar_idx];
+        CSASeqCandidate& indvarCandidate = this->candidates[this->indvar_idx];
         unsigned compare_opcode = this->header.compareInst->getOpcode();
         unsigned transform_opcode = indvarCandidate.transformInst->getOpcode();
 
         this->valid_to_transform =
-          LPUSeqLoopInfo::compute_matching_seq_opcode(compare_opcode,
+          CSASeqLoopInfo::compute_matching_seq_opcode(compare_opcode,
                                                       transform_opcode,
                                                       this->commute_compare_operands(),
                                                       this->negate_compare_output(),
@@ -794,4 +794,4 @@ namespace llvm {
 } // namespace llvm
 
 
-#endif // LLVM_LIB_TARGET_LPU_LPUSEQUENCEOPT_H
+#endif // LLVM_LIB_TARGET_CSA_CSASEQUENCEOPT_H

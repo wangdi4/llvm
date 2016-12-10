@@ -1,4 +1,4 @@
-//===-- LPUInstrInfo.cpp - LPU Instruction Information --------------------===//
+//===-- CSAInstrInfo.cpp - CSA Instruction Information --------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the LPU implementation of the TargetInstrInfo class.
+// This file contains the CSA implementation of the TargetInstrInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUInstrInfo.h"
-#include "LPU.h"
-#include "LPUMachineFunctionInfo.h"
-#include "LPUTargetMachine.h"
+#include "CSAInstrInfo.h"
+#include "CSA.h"
+#include "CSAMachineFunctionInfo.h"
+#include "CSATargetMachine.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -26,48 +26,48 @@
 using namespace llvm;
 
 #define GET_INSTRINFO_CTOR_DTOR
-#include "LPUGenInstrInfo.inc"
+#include "CSAGenInstrInfo.inc"
 
-// GetCondFromBranchOpc - Return the LPU CC that matches
+// GetCondFromBranchOpc - Return the CSA CC that matches
 // the correspondent Branch instruction opcode.
-static LPU::CondCode GetCondFromBranchOpc(unsigned BrOpc)
+static CSA::CondCode GetCondFromBranchOpc(unsigned BrOpc)
 {
   switch (BrOpc) {
-  default: return LPU::COND_INVALID;
-  case LPU::BT  : return LPU::COND_T;
-  case LPU::BF  : return LPU::COND_F;
+  default: return CSA::COND_INVALID;
+  case CSA::BT  : return CSA::COND_T;
+  case CSA::BF  : return CSA::COND_F;
   }
 }
 
 // GetCondBranchFromCond - Return the Branch instruction
 // opcode that matches the cc.
-static unsigned GetCondBranchFromCond(LPU::CondCode CC)
+static unsigned GetCondBranchFromCond(CSA::CondCode CC)
 {
   switch (CC) {
   default: llvm_unreachable("Illegal condition code!");
-  case LPU::COND_T  : return LPU::BT;
-  case LPU::COND_F  : return LPU::BF;
+  case CSA::COND_T  : return CSA::BT;
+  case CSA::COND_F  : return CSA::BF;
   }
 }
 
 // GetOppositeBranchCondition - Return the inverse of the specified condition
-static LPU::CondCode GetOppositeBranchCondition(LPU::CondCode CC)
+static CSA::CondCode GetOppositeBranchCondition(CSA::CondCode CC)
 {
   switch (CC) {
   default: llvm_unreachable("Illegal condition code!");
-  case LPU::COND_T  : return LPU::COND_F;
-  case LPU::COND_F  : return LPU::COND_T;
+  case CSA::COND_T  : return CSA::COND_F;
+  case CSA::COND_F  : return CSA::COND_T;
   }
 }
 
 // Pin the vtable to this file.
-void LPUInstrInfo::anchor() {}
+void CSAInstrInfo::anchor() {}
 
-LPUInstrInfo::LPUInstrInfo(LPUSubtarget &STI)
-  : LPUGenInstrInfo(LPU::ADJCALLSTACKDOWN, LPU::ADJCALLSTACKUP),
+CSAInstrInfo::CSAInstrInfo(CSASubtarget &STI)
+  : CSAGenInstrInfo(CSA::ADJCALLSTACKDOWN, CSA::ADJCALLSTACKUP),
     RI(*this) {}
 
-void LPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+void CSAInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator I,
                                   const DebugLoc &DL, unsigned DestReg,
                                   unsigned SrcReg, bool KillSrc) const {
@@ -75,14 +75,14 @@ void LPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   // and destination
   // For now, just use MOV64 to make sure all bits are moved.
   // Ideally, this would be based on the actual bits in the value...
-  unsigned Opc = LPU::MOV64;
+  unsigned Opc = CSA::MOV64;
 
   BuildMI(MBB, I, DL, get(Opc), DestReg)
     .addReg(SrcReg, getKillRegState(KillSrc));
 }
 
 
-void LPUInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
+void CSAInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                                           MachineBasicBlock::iterator MI,
                                           unsigned SrcReg, bool isKill, int FrameIdx,
                                           const TargetRegisterClass *RC,
@@ -91,16 +91,16 @@ void LPUInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   if (MI != MBB.end()) DL = MI->getDebugLoc();
   unsigned opc;
 
-  if        (RC == &LPU::I0RegClass  || RC == &LPU::RI0RegClass  || RC == &LPU::CI0RegClass ||
-             RC == &LPU::I1RegClass  || RC == &LPU::RI1RegClass  || RC == &LPU::CI1RegClass ||
-             RC == &LPU::I8RegClass  || RC == &LPU::RI8RegClass  || RC == &LPU::CI8RegClass) {
-    opc = LPU::ST8D;
-  } else if (RC == &LPU::I16RegClass || RC == &LPU::RI16RegClass || RC == &LPU::CI16RegClass) {
-    opc = LPU::ST16D;
-  } else if (RC == &LPU::I32RegClass || RC == &LPU::RI32RegClass || RC == &LPU::CI32RegClass) {
-    opc = LPU::ST32D;
-  } else if (RC == &LPU::I64RegClass || RC == &LPU::RI64RegClass || RC == &LPU::CI64RegClass) {
-    opc = LPU::ST64D;
+  if        (RC == &CSA::I0RegClass  || RC == &CSA::RI0RegClass  || RC == &CSA::CI0RegClass ||
+             RC == &CSA::I1RegClass  || RC == &CSA::RI1RegClass  || RC == &CSA::CI1RegClass ||
+             RC == &CSA::I8RegClass  || RC == &CSA::RI8RegClass  || RC == &CSA::CI8RegClass) {
+    opc = CSA::ST8D;
+  } else if (RC == &CSA::I16RegClass || RC == &CSA::RI16RegClass || RC == &CSA::CI16RegClass) {
+    opc = CSA::ST16D;
+  } else if (RC == &CSA::I32RegClass || RC == &CSA::RI32RegClass || RC == &CSA::CI32RegClass) {
+    opc = CSA::ST32D;
+  } else if (RC == &CSA::I64RegClass || RC == &CSA::RI64RegClass || RC == &CSA::CI64RegClass) {
+    opc = CSA::ST64D;
   } else {
     llvm_unreachable("Unknown register class");
   }
@@ -110,7 +110,7 @@ void LPUInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 
 }
 
-void LPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+void CSAInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                            MachineBasicBlock::iterator MI,
                                            unsigned DestReg, int FrameIdx,
                                            const TargetRegisterClass *RC,
@@ -119,16 +119,16 @@ void LPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   if (MI != MBB.end()) DL = MI->getDebugLoc();
   unsigned opc;
 
-  if        (RC == &LPU::I0RegClass  || RC == &LPU::RI0RegClass  || RC == &LPU::CI0RegClass ||
-             RC == &LPU::I1RegClass  || RC == &LPU::RI1RegClass  || RC == &LPU::CI1RegClass ||
-             RC == &LPU::I8RegClass  || RC == &LPU::RI8RegClass  || RC == &LPU::CI8RegClass) {
-    opc = LPU::LD8D;
-  } else if (RC == &LPU::I16RegClass || RC == &LPU::RI16RegClass || RC == &LPU::CI16RegClass) {
-    opc = LPU::LD16D;
-  } else if (RC == &LPU::I32RegClass || RC == &LPU::RI32RegClass || RC == &LPU::CI32RegClass) {
-    opc = LPU::LD32D;
-  } else if (RC == &LPU::I64RegClass || RC == &LPU::RI64RegClass || RC == &LPU::CI64RegClass) {
-    opc = LPU::LD64D;
+  if        (RC == &CSA::I0RegClass  || RC == &CSA::RI0RegClass  || RC == &CSA::CI0RegClass ||
+             RC == &CSA::I1RegClass  || RC == &CSA::RI1RegClass  || RC == &CSA::CI1RegClass ||
+             RC == &CSA::I8RegClass  || RC == &CSA::RI8RegClass  || RC == &CSA::CI8RegClass) {
+    opc = CSA::LD8D;
+  } else if (RC == &CSA::I16RegClass || RC == &CSA::RI16RegClass || RC == &CSA::CI16RegClass) {
+    opc = CSA::LD16D;
+  } else if (RC == &CSA::I32RegClass || RC == &CSA::RI32RegClass || RC == &CSA::CI32RegClass) {
+    opc = CSA::LD32D;
+  } else if (RC == &CSA::I64RegClass || RC == &CSA::RI64RegClass || RC == &CSA::CI64RegClass) {
+    opc = CSA::LD64D;
   } else {
     llvm_unreachable("Unknown register class");
   }
@@ -136,7 +136,7 @@ void LPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   BuildMI(MBB, MI, DL, get(opc), DestReg).addFrameIndex(FrameIdx).addImm(0);
 }
 
-unsigned LPUInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesAdded) const {
+unsigned CSAInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesAdded) const {
   assert(!BytesAdded && "code size not handled");
 
   MachineBasicBlock::iterator I = MBB.end();
@@ -146,9 +146,9 @@ unsigned LPUInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesAdded) con
     --I;
     if (I->isDebugValue())
       continue;
-    if (I->getOpcode() != LPU::BR &&
-        I->getOpcode() != LPU::BT &&
-        I->getOpcode() != LPU::BF)
+    if (I->getOpcode() != CSA::BR &&
+        I->getOpcode() != CSA::BT &&
+        I->getOpcode() != CSA::BF)
       break;
     // Remove the branch.
     I->eraseFromParent();
@@ -159,14 +159,14 @@ unsigned LPUInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesAdded) con
   return Count;
 }
 
-bool LPUInstrInfo::
+bool CSAInstrInfo::
 reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
   assert(Cond.size() == 2 && "Invalid branch condition!");
-  Cond[0].setImm(GetOppositeBranchCondition((LPU::CondCode)Cond[0].getImm()));
+  Cond[0].setImm(GetOppositeBranchCondition((CSA::CondCode)Cond[0].getImm()));
   return false;
 }
 /*
-bool LPUInstrInfo::isUnpredicatedTerminator(const MachineInstr &MI) const {
+bool CSAInstrInfo::isUnpredicatedTerminator(const MachineInstr &MI) const {
   if (!MI.isTerminator()) return false;
 
   // Conditional branch is a special case.
@@ -177,7 +177,7 @@ bool LPUInstrInfo::isUnpredicatedTerminator(const MachineInstr &MI) const {
   return !isPredicated(MI);
 }
 */
-bool LPUInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
+bool CSAInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
                                     MachineBasicBlock *&TBB,
                                     MachineBasicBlock *&FBB,
                                     SmallVectorImpl<MachineOperand> &Cond,
@@ -201,7 +201,7 @@ bool LPUInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
       return true;
 
     // Handle unconditional branches.
-    if (I->getOpcode() == LPU::BR) {
+    if (I->getOpcode() == CSA::BR) {
       if (!AllowModify) {
         TBB = I->getOperand(0).getMBB();
         continue;
@@ -227,8 +227,8 @@ bool LPUInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
     }
 
     // Handle conditional branches.  This filters indirect jumps
-    LPU::CondCode BranchCode = GetCondFromBranchOpc(I->getOpcode());
-    if (BranchCode == LPU::COND_INVALID)
+    CSA::CondCode BranchCode = GetCondFromBranchOpc(I->getOpcode());
+    if (BranchCode == CSA::COND_INVALID)
       return true;  // Can't handle weird stuff.
 
     // Working from the bottom, handle the first conditional branch.
@@ -250,7 +250,7 @@ bool LPUInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
     if (TBB != I->getOperand(1).getMBB())
       return true;
 
-    LPU::CondCode OldBranchCode = (LPU::CondCode)Cond[0].getImm();
+    CSA::CondCode OldBranchCode = (CSA::CondCode)Cond[0].getImm();
     // If the conditions are the same, we can leave them alone.
     if (OldBranchCode == BranchCode)
       continue;
@@ -262,7 +262,7 @@ bool LPUInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
 }
 
 unsigned
-LPUInstrInfo::insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+CSAInstrInfo::insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                               MachineBasicBlock *FBB,
                               ArrayRef<MachineOperand> Cond,
                               const DebugLoc &DL,
@@ -271,24 +271,24 @@ LPUInstrInfo::insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
   // Shouldn't be a fall through.
   assert(TBB && "insertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 2 || Cond.size() == 0) &&
-         "LPU branch conditions have two components!");
+         "CSA branch conditions have two components!");
 
   if (FBB == 0) { // One way branch.
     if (Cond.empty()) {
       // Unconditional branch?
-      BuildMI(&MBB, DL, get(LPU::BR)).addMBB(TBB);
+      BuildMI(&MBB, DL, get(CSA::BR)).addMBB(TBB);
     } else {
       // Conditional branch.
-      unsigned Opc = GetCondBranchFromCond((LPU::CondCode)Cond[0].getImm());
+      unsigned Opc = GetCondBranchFromCond((CSA::CondCode)Cond[0].getImm());
       BuildMI(&MBB, DL, get(Opc)).addReg(Cond[1].getReg()).addMBB(TBB);
     }
     return 1;
   }
 
   // Two-way Conditional branch.
-  unsigned Opc = GetCondBranchFromCond((LPU::CondCode)Cond[0].getImm());
+  unsigned Opc = GetCondBranchFromCond((CSA::CondCode)Cond[0].getImm());
   BuildMI(&MBB, DL, get(Opc)).addReg(Cond[1].getReg()).addMBB(TBB);
-  BuildMI(&MBB, DL, get(LPU::BR)).addMBB(FBB);
+  BuildMI(&MBB, DL, get(CSA::BR)).addMBB(FBB);
 
   return 2;
 }
@@ -296,10 +296,10 @@ LPUInstrInfo::insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
 /// GetInstSize - Return the number of bytes of code the specified
 /// instruction may be.  This returns the maximum number of bytes.
 ///
-unsigned LPUInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
+unsigned CSAInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
   const MCInstrDesc &Desc = MI->getDesc();
 
-  switch (Desc.TSFlags & LPUII::SizeMask) {
+  switch (Desc.TSFlags & CSAII::SizeMask) {
   default:
     switch (Desc.getOpcode()) {
     default: llvm_unreachable("Unknown instruction size!");
@@ -316,18 +316,18 @@ unsigned LPUInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
                                     *MF->getTarget().getMCAsmInfo());
     }
     }
-  case LPUII::SizeSpecial:
+  case CSAII::SizeSpecial:
     switch (MI->getOpcode()) {
     default: llvm_unreachable("Unknown instruction size!");
-    case LPU::SAR8r1c:
-    case LPU::SAR16r1c:
+    case CSA::SAR8r1c:
+    case CSA::SAR16r1c:
       return 4;
     }
-  case LPUII::Size2Bytes:
+  case CSAII::Size2Bytes:
     return 2;
-  case LPUII::Size4Bytes:
+  case CSAII::Size4Bytes:
     return 4;
-  case LPUII::Size6Bytes:
+  case CSAII::Size6Bytes:
     return 6;
   }
 }
@@ -343,39 +343,39 @@ unsigned LPUInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
 //  opc = selectSeq(addOp, cmpOp)  // return a sequence based on add+
 
 unsigned 
-LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC, 
+CSAInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC, 
 				    bool isPick) const {
 
   if (isPick) {
     switch (RC->getID()) {
     default: llvm_unreachable("Unknown Target register class!");
-    case LPU::I1RegClassID: return LPU::PICK1;
-    case LPU::I8RegClassID: return LPU::PICK8;
-    case LPU::I16RegClassID: return LPU::PICK16;
-    case LPU::I32RegClassID: return LPU::PICK32;
-    case LPU::I64RegClassID: return LPU::PICK64;
-    case LPU::RI1RegClassID: return LPU::PICK1;
-    case LPU::RI8RegClassID: return LPU::PICK8;
-    case LPU::RI16RegClassID: return LPU::PICK16;
-    case LPU::RI32RegClassID: return LPU::PICK32;
-    case LPU::RI64RegClassID: return LPU::PICK64;
+    case CSA::I1RegClassID: return CSA::PICK1;
+    case CSA::I8RegClassID: return CSA::PICK8;
+    case CSA::I16RegClassID: return CSA::PICK16;
+    case CSA::I32RegClassID: return CSA::PICK32;
+    case CSA::I64RegClassID: return CSA::PICK64;
+    case CSA::RI1RegClassID: return CSA::PICK1;
+    case CSA::RI8RegClassID: return CSA::PICK8;
+    case CSA::RI16RegClassID: return CSA::PICK16;
+    case CSA::RI32RegClassID: return CSA::PICK32;
+    case CSA::RI64RegClassID: return CSA::PICK64;
     }
   }
 
 
   switch (RC->getID()) {
   default: llvm_unreachable("Unknown Target register class!");
-  case LPU::I1RegClassID: return LPU::SWITCH1;
-  case LPU::I8RegClassID: return LPU::SWITCH8;
-  case LPU::I16RegClassID: return LPU::SWITCH16;
-  case LPU::I32RegClassID: return LPU::SWITCH32;
-  case LPU::I64RegClassID: return LPU::SWITCH64;
+  case CSA::I1RegClassID: return CSA::SWITCH1;
+  case CSA::I8RegClassID: return CSA::SWITCH8;
+  case CSA::I16RegClassID: return CSA::SWITCH16;
+  case CSA::I32RegClassID: return CSA::SWITCH32;
+  case CSA::I64RegClassID: return CSA::SWITCH64;
 
-  case LPU::RI1RegClassID: return LPU::SWITCH1;
-  case LPU::RI8RegClassID: return LPU::SWITCH8;
-  case LPU::RI16RegClassID: return LPU::SWITCH16;
-  case LPU::RI32RegClassID: return LPU::SWITCH32;
-  case LPU::RI64RegClassID: return LPU::SWITCH64;
+  case CSA::RI1RegClassID: return CSA::SWITCH1;
+  case CSA::RI8RegClassID: return CSA::SWITCH8;
+  case CSA::RI16RegClassID: return CSA::SWITCH16;
+  case CSA::RI32RegClassID: return CSA::SWITCH32;
+  case CSA::RI64RegClassID: return CSA::SWITCH64;
   }
 
 }
@@ -383,7 +383,7 @@ LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
 // Convert opcode of LD/ST/ATM* into a corresponding opcode for OLD/OST/OATM*.
 // Returns current_opcode if it is not a LD, ST, or ATM*.
 unsigned
-LPUInstrInfo::get_ordered_opcode_for_LDST(unsigned current_opcode)  const {
+CSAInstrInfo::get_ordered_opcode_for_LDST(unsigned current_opcode)  const {
   // This is still a bit of a hack, and certainly slower than before, but it
   // should be less fragile. This depends on the opcode names for conversion to
   // ordered opcodes. Specifically, if the unordered opcode is named "BAR",
@@ -408,148 +408,148 @@ LPUInstrInfo::get_ordered_opcode_for_LDST(unsigned current_opcode)  const {
 }
 
 
-bool LPUInstrInfo::isLoad(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::LD1 && MI->getOpcode() <= LPU::LD8X;
+bool CSAInstrInfo::isLoad(MachineInstr *MI) const {
+	return MI->getOpcode() >= CSA::LD1 && MI->getOpcode() <= CSA::LD8X;
 }
 
-bool LPUInstrInfo::isStore(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::ST1 && MI->getOpcode() <= LPU::ST8X;
+bool CSAInstrInfo::isStore(MachineInstr *MI) const {
+	return MI->getOpcode() >= CSA::ST1 && MI->getOpcode() <= CSA::ST8X;
 }
 
-bool LPUInstrInfo::isOrderedLoad(MachineInstr *MI) const {
-  return ((MI->getOpcode() >= LPU::OLD1) && (MI->getOpcode() <= LPU::OLD8X));
+bool CSAInstrInfo::isOrderedLoad(MachineInstr *MI) const {
+  return ((MI->getOpcode() >= CSA::OLD1) && (MI->getOpcode() <= CSA::OLD8X));
 }
 
-bool LPUInstrInfo::isOrderedStore(MachineInstr *MI) const {
-  return ((MI->getOpcode() >= LPU::OST1) && (MI->getOpcode() <= LPU::OST8X));
+bool CSAInstrInfo::isOrderedStore(MachineInstr *MI) const {
+  return ((MI->getOpcode() >= CSA::OST1) && (MI->getOpcode() <= CSA::OST8X));
 }
 
-bool LPUInstrInfo::isMul(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::MUL16 && MI->getOpcode() <= LPU::MULF64;
-}
-
-
-bool LPUInstrInfo::isDiv(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::DIVF16 && MI->getOpcode() <= LPU::DIVU8;
-}
-
-bool LPUInstrInfo::isFMA(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::FMAF16 && MI->getOpcode() <= LPU::FMAF64;
-}
-
-bool LPUInstrInfo::isAdd(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::ADD16 && MI->getOpcode() <= LPU::ADDF64;
-}
-
-bool LPUInstrInfo::isSub(MachineInstr *MI) const {
-	return MI->getOpcode() >= LPU::SUB16 && MI->getOpcode() <= LPU::SUBF64;
-}
-
-bool LPUInstrInfo::isShift(MachineInstr *MI) const {
-        return (MI->getOpcode() >= LPU::SLL16 && MI->getOpcode() <= LPU::SLL8) ||
-          (MI->getOpcode() >= LPU::SRA16 && MI->getOpcode() <= LPU::SRL8);
-}
-
-bool LPUInstrInfo::isCmp(MachineInstr *MI) const {
-    return ((MI->getOpcode() >= LPU::CMPEQ16) &&
-            (MI->getOpcode() <= LPU::CMPUOF64));
+bool CSAInstrInfo::isMul(MachineInstr *MI) const {
+	return MI->getOpcode() >= CSA::MUL16 && MI->getOpcode() <= CSA::MULF64;
 }
 
 
-bool LPUInstrInfo::isSwitch(MachineInstr *MI) const {
-	return MI->getOpcode() == LPU::SWITCH1 ||
-         MI->getOpcode() == LPU::SWITCH8 ||
-         MI->getOpcode() == LPU::SWITCH16 ||
-         MI->getOpcode() == LPU::SWITCH32 ||
-         MI->getOpcode() == LPU::SWITCH64;
+bool CSAInstrInfo::isDiv(MachineInstr *MI) const {
+	return MI->getOpcode() >= CSA::DIVF16 && MI->getOpcode() <= CSA::DIVU8;
 }
 
-bool LPUInstrInfo::isPick(MachineInstr *MI) const {
-        return MI->getOpcode() == LPU::PICK1 ||
-		MI->getOpcode() == LPU::PICK8 ||
-		MI->getOpcode() == LPU::PICK16 ||
-		MI->getOpcode() == LPU::PICK32 ||
-		MI->getOpcode() == LPU::PICK64;
+bool CSAInstrInfo::isFMA(MachineInstr *MI) const {
+	return MI->getOpcode() >= CSA::FMAF16 && MI->getOpcode() <= CSA::FMAF64;
 }
 
-bool LPUInstrInfo::isCopy(MachineInstr *MI) const {
+bool CSAInstrInfo::isAdd(MachineInstr *MI) const {
+	return MI->getOpcode() >= CSA::ADD16 && MI->getOpcode() <= CSA::ADDF64;
+}
+
+bool CSAInstrInfo::isSub(MachineInstr *MI) const {
+	return MI->getOpcode() >= CSA::SUB16 && MI->getOpcode() <= CSA::SUBF64;
+}
+
+bool CSAInstrInfo::isShift(MachineInstr *MI) const {
+        return (MI->getOpcode() >= CSA::SLL16 && MI->getOpcode() <= CSA::SLL8) ||
+          (MI->getOpcode() >= CSA::SRA16 && MI->getOpcode() <= CSA::SRL8);
+}
+
+bool CSAInstrInfo::isCmp(MachineInstr *MI) const {
+    return ((MI->getOpcode() >= CSA::CMPEQ16) &&
+            (MI->getOpcode() <= CSA::CMPUOF64));
+}
+
+
+bool CSAInstrInfo::isSwitch(MachineInstr *MI) const {
+	return MI->getOpcode() == CSA::SWITCH1 ||
+         MI->getOpcode() == CSA::SWITCH8 ||
+         MI->getOpcode() == CSA::SWITCH16 ||
+         MI->getOpcode() == CSA::SWITCH32 ||
+         MI->getOpcode() == CSA::SWITCH64;
+}
+
+bool CSAInstrInfo::isPick(MachineInstr *MI) const {
+        return MI->getOpcode() == CSA::PICK1 ||
+		MI->getOpcode() == CSA::PICK8 ||
+		MI->getOpcode() == CSA::PICK16 ||
+		MI->getOpcode() == CSA::PICK32 ||
+		MI->getOpcode() == CSA::PICK64;
+}
+
+bool CSAInstrInfo::isCopy(MachineInstr *MI) const {
   return
-    MI->getOpcode() == LPU::COPY0 ||
-    MI->getOpcode() == LPU::COPY1 ||
-    MI->getOpcode() == LPU::COPY8 ||
-    MI->getOpcode() == LPU::COPY16 ||
-    MI->getOpcode() == LPU::COPY32 ||
-    MI->getOpcode() == LPU::COPY64;
+    MI->getOpcode() == CSA::COPY0 ||
+    MI->getOpcode() == CSA::COPY1 ||
+    MI->getOpcode() == CSA::COPY8 ||
+    MI->getOpcode() == CSA::COPY16 ||
+    MI->getOpcode() == CSA::COPY32 ||
+    MI->getOpcode() == CSA::COPY64;
 }
 
-bool LPUInstrInfo::isMOV(MachineInstr *MI) const {
-  return MI->getOpcode() == LPU::MOV1 ||
-    MI->getOpcode() == LPU::MOV8 ||
-    MI->getOpcode() == LPU::MOV16 ||
-    MI->getOpcode() == LPU::MOV32 ||
-    MI->getOpcode() == LPU::MOV64;
+bool CSAInstrInfo::isMOV(MachineInstr *MI) const {
+  return MI->getOpcode() == CSA::MOV1 ||
+    MI->getOpcode() == CSA::MOV8 ||
+    MI->getOpcode() == CSA::MOV16 ||
+    MI->getOpcode() == CSA::MOV32 ||
+    MI->getOpcode() == CSA::MOV64;
 }
 
 
-bool LPUInstrInfo::isInit(MachineInstr *MI) const {
-  return MI->getOpcode() == LPU::INIT1 ||
-    MI->getOpcode() == LPU::INIT8 ||
-    MI->getOpcode() == LPU::INIT16 ||
-    MI->getOpcode() == LPU::INIT32 ||
-    MI->getOpcode() == LPU::INIT64;
+bool CSAInstrInfo::isInit(MachineInstr *MI) const {
+  return MI->getOpcode() == CSA::INIT1 ||
+    MI->getOpcode() == CSA::INIT8 ||
+    MI->getOpcode() == CSA::INIT16 ||
+    MI->getOpcode() == CSA::INIT32 ||
+    MI->getOpcode() == CSA::INIT64;
 }
 
-bool LPUInstrInfo::isAtomic(MachineInstr *MI) const {
-    return MI->getOpcode() >= LPU::ATMADD16 && MI->getOpcode() <= LPU::ATMXOR8;
+bool CSAInstrInfo::isAtomic(MachineInstr *MI) const {
+    return MI->getOpcode() >= CSA::ATMADD16 && MI->getOpcode() <= CSA::ATMXOR8;
 }
 
-bool LPUInstrInfo::isOrderedAtomic(MachineInstr *MI) const {
-    return MI->getOpcode() >= LPU::OATMADD16 && MI->getOpcode() <= LPU::OATMXOR8;
+bool CSAInstrInfo::isOrderedAtomic(MachineInstr *MI) const {
+    return MI->getOpcode() >= CSA::OATMADD16 && MI->getOpcode() <= CSA::OATMXOR8;
 }
 
-bool LPUInstrInfo::isSeqOT(MachineInstr *MI) const {
-    return ((MI->getOpcode() >= LPU::SEQOTGE) &&
-            (MI->getOpcode() <= LPU::SEQOTNE8));
+bool CSAInstrInfo::isSeqOT(MachineInstr *MI) const {
+    return ((MI->getOpcode() >= CSA::SEQOTGE) &&
+            (MI->getOpcode() <= CSA::SEQOTNE8));
 }
 
-unsigned LPUInstrInfo::getMemTokenMOVOpcode() const {
-  return LPU::MOV0;
+unsigned CSAInstrInfo::getMemTokenMOVOpcode() const {
+  return CSA::MOV0;
 }
 
-bool LPUInstrInfo::isMemTokenMOV(MachineInstr* MI) const {
-  return MI->getOpcode() == LPU::MOV0;
+bool CSAInstrInfo::isMemTokenMOV(MachineInstr* MI) const {
+  return MI->getOpcode() == CSA::MOV0;
 }
 
 
 unsigned
-LPUInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {
-  if      (RC == &LPU::I1RegClass)  return LPU::COPY1;
-  else if (RC == &LPU::I8RegClass)  return LPU::COPY8;
-  else if (RC == &LPU::I16RegClass) return LPU::COPY16;
-  else if (RC == &LPU::I32RegClass) return LPU::COPY32;
-  else if (RC == &LPU::I64RegClass) return LPU::COPY64;
+CSAInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {
+  if      (RC == &CSA::I1RegClass)  return CSA::COPY1;
+  else if (RC == &CSA::I8RegClass)  return CSA::COPY8;
+  else if (RC == &CSA::I16RegClass) return CSA::COPY16;
+  else if (RC == &CSA::I32RegClass) return CSA::COPY32;
+  else if (RC == &CSA::I64RegClass) return CSA::COPY64;
   else
     llvm_unreachable("Unknown Target LIC class!");
 }
 
 unsigned
-LPUInstrInfo::getMoveOpcode(const TargetRegisterClass *RC) const {
-  if (RC == &LPU::I1RegClass || RC == &LPU::CI1RegClass || RC == &LPU::RI1RegClass)  return LPU::MOV1;
-  else if (RC == &LPU::I8RegClass || RC == &LPU::CI8RegClass || RC == &LPU::RI8RegClass)  return LPU::MOV8;
-  else if (RC == &LPU::I16RegClass || RC == &LPU::CI16RegClass || RC == &LPU::RI16RegClass) return LPU::MOV16;
-  else if (RC == &LPU::I32RegClass || RC == &LPU::CI32RegClass || RC == &LPU::RI32RegClass) return LPU::MOV32;
-  else if (RC == &LPU::I64RegClass || RC == &LPU::CI64RegClass || RC == &LPU::RI64RegClass) return LPU::MOV64;
+CSAInstrInfo::getMoveOpcode(const TargetRegisterClass *RC) const {
+  if (RC == &CSA::I1RegClass || RC == &CSA::CI1RegClass || RC == &CSA::RI1RegClass)  return CSA::MOV1;
+  else if (RC == &CSA::I8RegClass || RC == &CSA::CI8RegClass || RC == &CSA::RI8RegClass)  return CSA::MOV8;
+  else if (RC == &CSA::I16RegClass || RC == &CSA::CI16RegClass || RC == &CSA::RI16RegClass) return CSA::MOV16;
+  else if (RC == &CSA::I32RegClass || RC == &CSA::CI32RegClass || RC == &CSA::RI32RegClass) return CSA::MOV32;
+  else if (RC == &CSA::I64RegClass || RC == &CSA::CI64RegClass || RC == &CSA::RI64RegClass) return CSA::MOV64;
   else
     llvm_unreachable("Unknown Target LIC class!");
 }
 
 unsigned
-LPUInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
-  if (RC == &LPU::I1RegClass)  return LPU::INIT1;
-  else if (RC == &LPU::I8RegClass)  return LPU::INIT8;
-  else if (RC == &LPU::I16RegClass) return LPU::INIT16;
-  else if (RC == &LPU::I32RegClass) return LPU::INIT32;
-  else if (RC == &LPU::I64RegClass) return LPU::INIT64;
+CSAInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
+  if (RC == &CSA::I1RegClass)  return CSA::INIT1;
+  else if (RC == &CSA::I8RegClass)  return CSA::INIT8;
+  else if (RC == &CSA::I16RegClass) return CSA::INIT16;
+  else if (RC == &CSA::I32RegClass) return CSA::INIT32;
+  else if (RC == &CSA::I64RegClass) return CSA::INIT64;
   else
     llvm_unreachable("Unknown Target LIC class!");
 }
@@ -558,7 +558,7 @@ LPUInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
 
 // TBD(jsukha): This table lookup works for now, but there must be a
 // better way to implement this matching operation...
-unsigned LPUInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
+unsigned CSAInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
                                                   bool commute_compare_operands,
                                                   bool negate_eq) const {
 
@@ -569,181 +569,181 @@ unsigned LPUInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
       
     switch (cmp_opcode) {
       // == maps to == (self)
-    case LPU::CMPEQ8:
-      return negate_eq ? LPU::CMPNE8 :  LPU::CMPEQ8;
-    case LPU::CMPEQ16:
-      return negate_eq ? LPU::CMPNE16 :  LPU::CMPEQ16;      
-    case LPU::CMPEQ32:
-      return negate_eq ? LPU::CMPNE32 :  LPU::CMPEQ32;            
-    case LPU::CMPEQ64:
-      return negate_eq ? LPU::CMPNE64 :  LPU::CMPEQ64;
+    case CSA::CMPEQ8:
+      return negate_eq ? CSA::CMPNE8 :  CSA::CMPEQ8;
+    case CSA::CMPEQ16:
+      return negate_eq ? CSA::CMPNE16 :  CSA::CMPEQ16;      
+    case CSA::CMPEQ32:
+      return negate_eq ? CSA::CMPNE32 :  CSA::CMPEQ32;            
+    case CSA::CMPEQ64:
+      return negate_eq ? CSA::CMPNE64 :  CSA::CMPEQ64;
       
     // ">=" maps to "<"
-    case LPU::CMPGES8:
-      return swap_ltgt ? LPU::CMPLTS8 : LPU::CMPGES8;
-    case LPU::CMPGES16:
-      return swap_ltgt ? LPU::CMPLTS16 : LPU::CMPGES16;      
-    case LPU::CMPGES32:
-      return swap_ltgt ? LPU::CMPLTS32 : LPU::CMPGES32;      
-    case LPU::CMPGES64:
-      return swap_ltgt ? LPU::CMPLTS64 : LPU::CMPGES64;      
-    case LPU::CMPGEU8:
-      return swap_ltgt ? LPU::CMPLTU8 : LPU::CMPGEU8;
-    case LPU::CMPGEU16:
-      return swap_ltgt ? LPU::CMPLTU16 : LPU::CMPGEU16;      
-    case LPU::CMPGEU32:
-      return swap_ltgt ? LPU::CMPLTU32 : LPU::CMPGEU32;
-    case LPU::CMPGEU64:
-      return swap_ltgt ? LPU::CMPLTU64 : LPU::CMPGEU64;
+    case CSA::CMPGES8:
+      return swap_ltgt ? CSA::CMPLTS8 : CSA::CMPGES8;
+    case CSA::CMPGES16:
+      return swap_ltgt ? CSA::CMPLTS16 : CSA::CMPGES16;      
+    case CSA::CMPGES32:
+      return swap_ltgt ? CSA::CMPLTS32 : CSA::CMPGES32;      
+    case CSA::CMPGES64:
+      return swap_ltgt ? CSA::CMPLTS64 : CSA::CMPGES64;      
+    case CSA::CMPGEU8:
+      return swap_ltgt ? CSA::CMPLTU8 : CSA::CMPGEU8;
+    case CSA::CMPGEU16:
+      return swap_ltgt ? CSA::CMPLTU16 : CSA::CMPGEU16;      
+    case CSA::CMPGEU32:
+      return swap_ltgt ? CSA::CMPLTU32 : CSA::CMPGEU32;
+    case CSA::CMPGEU64:
+      return swap_ltgt ? CSA::CMPLTU64 : CSA::CMPGEU64;
 
     // ">" maps to "<="
-    case LPU::CMPGTS8:
-      return swap_ltgt ? LPU::CMPLES8 : LPU::CMPGTS8;
-    case LPU::CMPGTS16:
-      return swap_ltgt ? LPU::CMPLES16 : LPU::CMPGTS16;      
-    case LPU::CMPGTS32:
-      return swap_ltgt ? LPU::CMPLES32 : LPU::CMPGTS32;      
-    case LPU::CMPGTS64:
-      return swap_ltgt ? LPU::CMPLES64 : LPU::CMPGTS64;      
-    case LPU::CMPGTU8:
-      return swap_ltgt ? LPU::CMPLEU8 : LPU::CMPGTU8;
-    case LPU::CMPGTU16:
-      return swap_ltgt ? LPU::CMPLEU16 : LPU::CMPGTU16;      
-    case LPU::CMPGTU32:
-      return swap_ltgt ? LPU::CMPLEU32 : LPU::CMPGTU32;      
-    case LPU::CMPGTU64:
-      return swap_ltgt ? LPU::CMPLEU64 : LPU::CMPGTU64;      
+    case CSA::CMPGTS8:
+      return swap_ltgt ? CSA::CMPLES8 : CSA::CMPGTS8;
+    case CSA::CMPGTS16:
+      return swap_ltgt ? CSA::CMPLES16 : CSA::CMPGTS16;      
+    case CSA::CMPGTS32:
+      return swap_ltgt ? CSA::CMPLES32 : CSA::CMPGTS32;      
+    case CSA::CMPGTS64:
+      return swap_ltgt ? CSA::CMPLES64 : CSA::CMPGTS64;      
+    case CSA::CMPGTU8:
+      return swap_ltgt ? CSA::CMPLEU8 : CSA::CMPGTU8;
+    case CSA::CMPGTU16:
+      return swap_ltgt ? CSA::CMPLEU16 : CSA::CMPGTU16;      
+    case CSA::CMPGTU32:
+      return swap_ltgt ? CSA::CMPLEU32 : CSA::CMPGTU32;      
+    case CSA::CMPGTU64:
+      return swap_ltgt ? CSA::CMPLEU64 : CSA::CMPGTU64;      
 
     // "<=" maps to ">"
-    case LPU::CMPLES8:
-      return swap_ltgt ? LPU::CMPGTS8 : LPU::CMPLES8;
-    case LPU::CMPLES16:
-      return swap_ltgt ? LPU::CMPGTS16 : LPU::CMPLES16;      
-    case LPU::CMPLES32:
-      return swap_ltgt ? LPU::CMPGTS32 : LPU::CMPLES32;      
-    case LPU::CMPLES64:
-      return swap_ltgt ? LPU::CMPGTS64 : LPU::CMPLES64;      
-    case LPU::CMPLEU8:
-      return swap_ltgt ? LPU::CMPGTU8 : LPU::CMPLEU8;
-    case LPU::CMPLEU16:
-      return swap_ltgt ? LPU::CMPGTU16 : LPU::CMPLEU16;
-    case LPU::CMPLEU32:
-      return swap_ltgt ? LPU::CMPGTU32 : LPU::CMPLEU32;      
-    case LPU::CMPLEU64:
-      return swap_ltgt ? LPU::CMPGTU64 : LPU::CMPLEU64;            
+    case CSA::CMPLES8:
+      return swap_ltgt ? CSA::CMPGTS8 : CSA::CMPLES8;
+    case CSA::CMPLES16:
+      return swap_ltgt ? CSA::CMPGTS16 : CSA::CMPLES16;      
+    case CSA::CMPLES32:
+      return swap_ltgt ? CSA::CMPGTS32 : CSA::CMPLES32;      
+    case CSA::CMPLES64:
+      return swap_ltgt ? CSA::CMPGTS64 : CSA::CMPLES64;      
+    case CSA::CMPLEU8:
+      return swap_ltgt ? CSA::CMPGTU8 : CSA::CMPLEU8;
+    case CSA::CMPLEU16:
+      return swap_ltgt ? CSA::CMPGTU16 : CSA::CMPLEU16;
+    case CSA::CMPLEU32:
+      return swap_ltgt ? CSA::CMPGTU32 : CSA::CMPLEU32;      
+    case CSA::CMPLEU64:
+      return swap_ltgt ? CSA::CMPGTU64 : CSA::CMPLEU64;            
 
     // "<" maps to ">="
-    case LPU::CMPLTS8:
-      return swap_ltgt ? LPU::CMPGES8 : LPU::CMPLTS8;
-    case LPU::CMPLTS16:
-      return swap_ltgt ? LPU::CMPGES16 : LPU::CMPLTS16;      
-    case LPU::CMPLTS32:
-      return swap_ltgt ? LPU::CMPGES32 : LPU::CMPLTS32;      
-    case LPU::CMPLTS64:
-      return swap_ltgt ? LPU::CMPGES64 : LPU::CMPLTS64;      
-    case LPU::CMPLTU8:
-      return swap_ltgt ? LPU::CMPGEU8 : LPU::CMPLTU8;
-    case LPU::CMPLTU16:
-      return swap_ltgt ? LPU::CMPGEU16 : LPU::CMPLTU16;
-    case LPU::CMPLTU32:
-      return swap_ltgt ? LPU::CMPGEU32 : LPU::CMPLTU32;      
-    case LPU::CMPLTU64:
-      return swap_ltgt ? LPU::CMPGEU64 : LPU::CMPLTU64;      
+    case CSA::CMPLTS8:
+      return swap_ltgt ? CSA::CMPGES8 : CSA::CMPLTS8;
+    case CSA::CMPLTS16:
+      return swap_ltgt ? CSA::CMPGES16 : CSA::CMPLTS16;      
+    case CSA::CMPLTS32:
+      return swap_ltgt ? CSA::CMPGES32 : CSA::CMPLTS32;      
+    case CSA::CMPLTS64:
+      return swap_ltgt ? CSA::CMPGES64 : CSA::CMPLTS64;      
+    case CSA::CMPLTU8:
+      return swap_ltgt ? CSA::CMPGEU8 : CSA::CMPLTU8;
+    case CSA::CMPLTU16:
+      return swap_ltgt ? CSA::CMPGEU16 : CSA::CMPLTU16;
+    case CSA::CMPLTU32:
+      return swap_ltgt ? CSA::CMPGEU32 : CSA::CMPLTU32;      
+    case CSA::CMPLTU64:
+      return swap_ltgt ? CSA::CMPGEU64 : CSA::CMPLTU64;      
 
     // != maps to !=  (self)
-    case LPU::CMPNE8:
-      return negate_eq ? LPU::CMPEQ8 : LPU::CMPNE8;
-    case LPU::CMPNE16:
-      return negate_eq ? LPU::CMPEQ16 : LPU::CMPNE16;      
-    case LPU::CMPNE32:
-      return negate_eq ? LPU::CMPEQ32 : LPU::CMPNE32;      
-    case LPU::CMPNE64:
-      return negate_eq ? LPU::CMPEQ64 : LPU::CMPNE64;      
+    case CSA::CMPNE8:
+      return negate_eq ? CSA::CMPEQ8 : CSA::CMPNE8;
+    case CSA::CMPNE16:
+      return negate_eq ? CSA::CMPEQ16 : CSA::CMPNE16;      
+    case CSA::CMPNE32:
+      return negate_eq ? CSA::CMPEQ32 : CSA::CMPNE32;      
+    case CSA::CMPNE64:
+      return negate_eq ? CSA::CMPEQ64 : CSA::CMPNE64;      
 
     // Floating-point equal: maps to self. 
     // == maps to ==
-    case LPU::CMPOEQF16:
-      return negate_eq ? LPU::CMPONEF16 : LPU::CMPOEQF16;
-    case LPU::CMPOEQF32:
-      return negate_eq ? LPU::CMPONEF32 : LPU::CMPOEQF32;      
-    case LPU::CMPOEQF64:
-      return negate_eq ? LPU::CMPONEF64 : LPU::CMPOEQF64;
-    case LPU::CMPUEQF16:
-      return negate_eq ? LPU::CMPUNEF16 : LPU::CMPUEQF16;
-    case LPU::CMPUEQF32:
-      return negate_eq ? LPU::CMPUNEF32 : LPU::CMPUEQF32;      
-    case LPU::CMPUEQF64:
-      return negate_eq ? LPU::CMPUNEF64 : LPU::CMPUEQF64;      
+    case CSA::CMPOEQF16:
+      return negate_eq ? CSA::CMPONEF16 : CSA::CMPOEQF16;
+    case CSA::CMPOEQF32:
+      return negate_eq ? CSA::CMPONEF32 : CSA::CMPOEQF32;      
+    case CSA::CMPOEQF64:
+      return negate_eq ? CSA::CMPONEF64 : CSA::CMPOEQF64;
+    case CSA::CMPUEQF16:
+      return negate_eq ? CSA::CMPUNEF16 : CSA::CMPUEQF16;
+    case CSA::CMPUEQF32:
+      return negate_eq ? CSA::CMPUNEF32 : CSA::CMPUEQF32;      
+    case CSA::CMPUEQF64:
+      return negate_eq ? CSA::CMPUNEF64 : CSA::CMPUEQF64;      
 
     // >= to <
-    case LPU::CMPOGEF16:
-      return swap_ltgt ? LPU::CMPOLTF16 : LPU::CMPOGEF16;
-    case LPU::CMPOGEF32:
-      return swap_ltgt ? LPU::CMPOLTF32 : LPU::CMPOGEF32;      
-    case LPU::CMPOGEF64:
-      return swap_ltgt ? LPU::CMPOLTF64 : LPU::CMPOGEF64;      
-    case LPU::CMPUGEF16:
-      return swap_ltgt ? LPU::CMPULTF16 : LPU::CMPUGEF16;
-    case LPU::CMPUGEF32:
-      return swap_ltgt ? LPU::CMPULTF32 : LPU::CMPUGEF32;
-    case LPU::CMPUGEF64:
-      return swap_ltgt ? LPU::CMPULTF64 : LPU::CMPUGEF64;      
+    case CSA::CMPOGEF16:
+      return swap_ltgt ? CSA::CMPOLTF16 : CSA::CMPOGEF16;
+    case CSA::CMPOGEF32:
+      return swap_ltgt ? CSA::CMPOLTF32 : CSA::CMPOGEF32;      
+    case CSA::CMPOGEF64:
+      return swap_ltgt ? CSA::CMPOLTF64 : CSA::CMPOGEF64;      
+    case CSA::CMPUGEF16:
+      return swap_ltgt ? CSA::CMPULTF16 : CSA::CMPUGEF16;
+    case CSA::CMPUGEF32:
+      return swap_ltgt ? CSA::CMPULTF32 : CSA::CMPUGEF32;
+    case CSA::CMPUGEF64:
+      return swap_ltgt ? CSA::CMPULTF64 : CSA::CMPUGEF64;      
       
     // > to <=
-    case LPU::CMPOGTF16:
-      return swap_ltgt ? LPU::CMPOLEF16 : LPU::CMPOGTF16;
-    case LPU::CMPOGTF32:
-      return swap_ltgt ? LPU::CMPOLEF32 : LPU::CMPOGTF32;      
-    case LPU::CMPOGTF64:
-      return swap_ltgt ? LPU::CMPOLEF64 : LPU::CMPOGTF64;      
-    case LPU::CMPUGTF16:
-      return swap_ltgt ? LPU::CMPULEF16 : LPU::CMPUGTF16;
-    case LPU::CMPUGTF32:
-      return swap_ltgt ? LPU::CMPULEF32 : LPU::CMPUGTF32;      
-    case LPU::CMPUGTF64:
-      return swap_ltgt ? LPU::CMPULEF64 : LPU::CMPUGTF64;      
+    case CSA::CMPOGTF16:
+      return swap_ltgt ? CSA::CMPOLEF16 : CSA::CMPOGTF16;
+    case CSA::CMPOGTF32:
+      return swap_ltgt ? CSA::CMPOLEF32 : CSA::CMPOGTF32;      
+    case CSA::CMPOGTF64:
+      return swap_ltgt ? CSA::CMPOLEF64 : CSA::CMPOGTF64;      
+    case CSA::CMPUGTF16:
+      return swap_ltgt ? CSA::CMPULEF16 : CSA::CMPUGTF16;
+    case CSA::CMPUGTF32:
+      return swap_ltgt ? CSA::CMPULEF32 : CSA::CMPUGTF32;      
+    case CSA::CMPUGTF64:
+      return swap_ltgt ? CSA::CMPULEF64 : CSA::CMPUGTF64;      
       
     // <= to >
-    case LPU::CMPOLEF16:
-      return swap_ltgt ? LPU::CMPOGTF16 : LPU::CMPOLEF16;
-    case LPU::CMPOLEF32:
-      return swap_ltgt ? LPU::CMPOGTF32 : LPU::CMPOLEF32;
-    case LPU::CMPOLEF64:
-      return swap_ltgt ? LPU::CMPOGTF64 : LPU::CMPOLEF64;      
-    case LPU::CMPULEF16:
-      return swap_ltgt ? LPU::CMPUGTF16 : LPU::CMPULEF16;
-    case LPU::CMPULEF32:
-      return swap_ltgt ? LPU::CMPUGTF32 : LPU::CMPULEF32;      
-    case LPU::CMPULEF64:
-      return swap_ltgt ? LPU::CMPUGTF64 : LPU::CMPULEF64;            
+    case CSA::CMPOLEF16:
+      return swap_ltgt ? CSA::CMPOGTF16 : CSA::CMPOLEF16;
+    case CSA::CMPOLEF32:
+      return swap_ltgt ? CSA::CMPOGTF32 : CSA::CMPOLEF32;
+    case CSA::CMPOLEF64:
+      return swap_ltgt ? CSA::CMPOGTF64 : CSA::CMPOLEF64;      
+    case CSA::CMPULEF16:
+      return swap_ltgt ? CSA::CMPUGTF16 : CSA::CMPULEF16;
+    case CSA::CMPULEF32:
+      return swap_ltgt ? CSA::CMPUGTF32 : CSA::CMPULEF32;      
+    case CSA::CMPULEF64:
+      return swap_ltgt ? CSA::CMPUGTF64 : CSA::CMPULEF64;            
       
     // < to >=
-    case LPU::CMPOLTF16:
-      return swap_ltgt ? LPU::CMPOGEF16 : LPU::CMPOLTF16;
-    case LPU::CMPOLTF32:
-      return swap_ltgt ? LPU::CMPOGEF32 : LPU::CMPOLTF32;
-    case LPU::CMPOLTF64:
-      return swap_ltgt ? LPU::CMPOGEF64 : LPU::CMPOLTF64;      
-    case LPU::CMPULTF16:
-      return swap_ltgt ? LPU::CMPUGEF16 : LPU::CMPULTF16;
-    case LPU::CMPULTF32:
-      return swap_ltgt ? LPU::CMPUGEF32 : LPU::CMPULTF32;      
-    case LPU::CMPULTF64:
-      return swap_ltgt ? LPU::CMPUGEF64 : LPU::CMPULTF64;            
+    case CSA::CMPOLTF16:
+      return swap_ltgt ? CSA::CMPOGEF16 : CSA::CMPOLTF16;
+    case CSA::CMPOLTF32:
+      return swap_ltgt ? CSA::CMPOGEF32 : CSA::CMPOLTF32;
+    case CSA::CMPOLTF64:
+      return swap_ltgt ? CSA::CMPOGEF64 : CSA::CMPOLTF64;      
+    case CSA::CMPULTF16:
+      return swap_ltgt ? CSA::CMPUGEF16 : CSA::CMPULTF16;
+    case CSA::CMPULTF32:
+      return swap_ltgt ? CSA::CMPUGEF32 : CSA::CMPULTF32;      
+    case CSA::CMPULTF64:
+      return swap_ltgt ? CSA::CMPUGEF64 : CSA::CMPULTF64;            
 
     // != maps to !=
-    case LPU::CMPONEF16:
-      return negate_eq ? LPU::CMPOEQF16 : LPU::CMPONEF16;
-    case LPU::CMPONEF32:
-      return negate_eq ? LPU::CMPOEQF32 : LPU::CMPONEF32;
-    case LPU::CMPONEF64:
-      return negate_eq ? LPU::CMPOEQF64 : LPU::CMPONEF64;
-    case LPU::CMPUNEF16:
-      return negate_eq ? LPU::CMPUEQF16 : LPU::CMPUNEF16;
-    case LPU::CMPUNEF32:
-      return negate_eq ? LPU::CMPUEQF32 : LPU::CMPUNEF32;      
-    case LPU::CMPUNEF64:
-      return negate_eq ? LPU::CMPUEQF64 : LPU::CMPUNEF64;      
+    case CSA::CMPONEF16:
+      return negate_eq ? CSA::CMPOEQF16 : CSA::CMPONEF16;
+    case CSA::CMPONEF32:
+      return negate_eq ? CSA::CMPOEQF32 : CSA::CMPONEF32;
+    case CSA::CMPONEF64:
+      return negate_eq ? CSA::CMPOEQF64 : CSA::CMPONEF64;
+    case CSA::CMPUNEF16:
+      return negate_eq ? CSA::CMPUEQF16 : CSA::CMPUNEF16;
+    case CSA::CMPUNEF32:
+      return negate_eq ? CSA::CMPUEQF32 : CSA::CMPUNEF32;      
+    case CSA::CMPUNEF64:
+      return negate_eq ? CSA::CMPUEQF64 : CSA::CMPUNEF64;      
 
     // Die by default.  We should never call this method on any opcode
     // which is not a compare.
@@ -754,90 +754,90 @@ unsigned LPUInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
 }
 
 
-unsigned LPUInstrInfo::
+unsigned CSAInstrInfo::
 convertCompareOpToSeqOTOp(unsigned cmp_opcode) const {
     switch (cmp_opcode) {
     // ">="
-    case LPU::CMPGES8:
-      return LPU::SEQOTGES8;
-    case LPU::CMPGES16:
-      return LPU::SEQOTGES16;
-    case LPU::CMPGES32:
-      return LPU::SEQOTGES32;
-    case LPU::CMPGES64:
-      return LPU::SEQOTGES64;
-    case LPU::CMPGEU8:
-      return LPU::SEQOTGEU8;
-    case LPU::CMPGEU16:
-      return LPU::SEQOTGEU16;
-    case LPU::CMPGEU32:
-      return LPU::SEQOTGEU32;
-    case LPU::CMPGEU64:
-      return LPU::SEQOTGEU64;
+    case CSA::CMPGES8:
+      return CSA::SEQOTGES8;
+    case CSA::CMPGES16:
+      return CSA::SEQOTGES16;
+    case CSA::CMPGES32:
+      return CSA::SEQOTGES32;
+    case CSA::CMPGES64:
+      return CSA::SEQOTGES64;
+    case CSA::CMPGEU8:
+      return CSA::SEQOTGEU8;
+    case CSA::CMPGEU16:
+      return CSA::SEQOTGEU16;
+    case CSA::CMPGEU32:
+      return CSA::SEQOTGEU32;
+    case CSA::CMPGEU64:
+      return CSA::SEQOTGEU64;
 
     // ">" 
-    case LPU::CMPGTS8:
-      return LPU::SEQOTGTS8;
-    case LPU::CMPGTS16:
-      return LPU::SEQOTGTS16;
-    case LPU::CMPGTS32:
-      return LPU::SEQOTGTS32;
-    case LPU::CMPGTS64:
-      return LPU::SEQOTGTS64;
-    case LPU::CMPGTU8:
-      return LPU::SEQOTGTU8;
-    case LPU::CMPGTU16:
-      return LPU::SEQOTGTU16;
-    case LPU::CMPGTU32:
-      return LPU::SEQOTGTU32;
-    case LPU::CMPGTU64:
-      return LPU::SEQOTGTU64;
+    case CSA::CMPGTS8:
+      return CSA::SEQOTGTS8;
+    case CSA::CMPGTS16:
+      return CSA::SEQOTGTS16;
+    case CSA::CMPGTS32:
+      return CSA::SEQOTGTS32;
+    case CSA::CMPGTS64:
+      return CSA::SEQOTGTS64;
+    case CSA::CMPGTU8:
+      return CSA::SEQOTGTU8;
+    case CSA::CMPGTU16:
+      return CSA::SEQOTGTU16;
+    case CSA::CMPGTU32:
+      return CSA::SEQOTGTU32;
+    case CSA::CMPGTU64:
+      return CSA::SEQOTGTU64;
 
     // "<=" 
-    case LPU::CMPLES8:
-      return LPU::SEQOTLES8;
-    case LPU::CMPLES16:
-      return LPU::SEQOTLES16;
-    case LPU::CMPLES32:
-      return LPU::SEQOTLES32;
-    case LPU::CMPLES64:
-      return LPU::SEQOTLES64;
-    case LPU::CMPLEU8:
-      return LPU::SEQOTLEU8;
-    case LPU::CMPLEU16:
-      return LPU::SEQOTLEU16;
-    case LPU::CMPLEU32:
-      return LPU::SEQOTLEU32;
-    case LPU::CMPLEU64:
-      return LPU::SEQOTLEU64;
+    case CSA::CMPLES8:
+      return CSA::SEQOTLES8;
+    case CSA::CMPLES16:
+      return CSA::SEQOTLES16;
+    case CSA::CMPLES32:
+      return CSA::SEQOTLES32;
+    case CSA::CMPLES64:
+      return CSA::SEQOTLES64;
+    case CSA::CMPLEU8:
+      return CSA::SEQOTLEU8;
+    case CSA::CMPLEU16:
+      return CSA::SEQOTLEU16;
+    case CSA::CMPLEU32:
+      return CSA::SEQOTLEU32;
+    case CSA::CMPLEU64:
+      return CSA::SEQOTLEU64;
 
     // "<" 
-    case LPU::CMPLTS8:
-      return LPU::SEQOTLTS8;
-    case LPU::CMPLTS16:
-      return LPU::SEQOTLTS16;
-    case LPU::CMPLTS32:
-      return LPU::SEQOTLTS32;
-    case LPU::CMPLTS64:
-      return LPU::SEQOTLTS64;
-    case LPU::CMPLTU8:
-      return LPU::SEQOTLTU8;
-    case LPU::CMPLTU16:
-      return LPU::SEQOTLTU16;
-    case LPU::CMPLTU32:
-      return LPU::SEQOTLTU32;
-    case LPU::CMPLTU64:
-      return LPU::SEQOTLTU64;
+    case CSA::CMPLTS8:
+      return CSA::SEQOTLTS8;
+    case CSA::CMPLTS16:
+      return CSA::SEQOTLTS16;
+    case CSA::CMPLTS32:
+      return CSA::SEQOTLTS32;
+    case CSA::CMPLTS64:
+      return CSA::SEQOTLTS64;
+    case CSA::CMPLTU8:
+      return CSA::SEQOTLTU8;
+    case CSA::CMPLTU16:
+      return CSA::SEQOTLTU16;
+    case CSA::CMPLTU32:
+      return CSA::SEQOTLTU32;
+    case CSA::CMPLTU64:
+      return CSA::SEQOTLTU64;
 
     // !=
-    case LPU::CMPNE8:
-      return LPU::SEQOTNE8;
-    case LPU::CMPNE16:
-      return LPU::SEQOTNE16;
-    case LPU::CMPNE32:
-      return LPU::SEQOTNE32;
-    case LPU::CMPNE64:
-      return LPU::SEQOTNE64;
+    case CSA::CMPNE8:
+      return CSA::SEQOTNE8;
+    case CSA::CMPNE16:
+      return CSA::SEQOTNE16;
+    case CSA::CMPNE32:
+      return CSA::SEQOTNE32;
+    case CSA::CMPNE64:
+      return CSA::SEQOTNE64;
       
 
     // By default, return the same opcode. 
@@ -847,7 +847,7 @@ convertCompareOpToSeqOTOp(unsigned cmp_opcode) const {
 }
 
 
-unsigned LPUInstrInfo::
+unsigned CSAInstrInfo::
 promoteSeqOTOpBitwidth(unsigned seq_opcode,
                        int bitwidth) const {
     switch (seq_opcode) {
@@ -856,91 +856,91 @@ promoteSeqOTOpBitwidth(unsigned seq_opcode,
       // specified in seq_opcode and >= bitwidth.
 
     //">="
-    case LPU::SEQOTGES8:
-      if (bitwidth <= 8) { return LPU::SEQOTGES8; }
-    case LPU::SEQOTGES16:
-      if (bitwidth <= 16) { return LPU::SEQOTGES16; }      
-    case LPU::SEQOTGES32:
-      if (bitwidth <= 32) { return LPU::SEQOTGES32; }            
-    case LPU::SEQOTGES64:
-      return LPU::SEQOTGES64;
+    case CSA::SEQOTGES8:
+      if (bitwidth <= 8) { return CSA::SEQOTGES8; }
+    case CSA::SEQOTGES16:
+      if (bitwidth <= 16) { return CSA::SEQOTGES16; }      
+    case CSA::SEQOTGES32:
+      if (bitwidth <= 32) { return CSA::SEQOTGES32; }            
+    case CSA::SEQOTGES64:
+      return CSA::SEQOTGES64;
 
-    case LPU::SEQOTGEU8:
-      if (bitwidth <= 8) { return LPU::SEQOTGEU8; }
-    case LPU::SEQOTGEU16:
-      if (bitwidth <= 16) { return LPU::SEQOTGEU16; }      
-    case LPU::SEQOTGEU32:
-      if (bitwidth <= 32) { return LPU::SEQOTGEU32; }            
-    case LPU::SEQOTGEU64:
-      return LPU::SEQOTGEU64;
+    case CSA::SEQOTGEU8:
+      if (bitwidth <= 8) { return CSA::SEQOTGEU8; }
+    case CSA::SEQOTGEU16:
+      if (bitwidth <= 16) { return CSA::SEQOTGEU16; }      
+    case CSA::SEQOTGEU32:
+      if (bitwidth <= 32) { return CSA::SEQOTGEU32; }            
+    case CSA::SEQOTGEU64:
+      return CSA::SEQOTGEU64;
 
     // ">"
-    case LPU::SEQOTGTS8:
-      if (bitwidth <= 8) { return LPU::SEQOTGTS8; }
-    case LPU::SEQOTGTS16:
-      if (bitwidth <= 16) { return LPU::SEQOTGTS16; }      
-    case LPU::SEQOTGTS32:
-      if (bitwidth <= 32) { return LPU::SEQOTGTS32; }            
-    case LPU::SEQOTGTS64:
-      return LPU::SEQOTGTS64;
+    case CSA::SEQOTGTS8:
+      if (bitwidth <= 8) { return CSA::SEQOTGTS8; }
+    case CSA::SEQOTGTS16:
+      if (bitwidth <= 16) { return CSA::SEQOTGTS16; }      
+    case CSA::SEQOTGTS32:
+      if (bitwidth <= 32) { return CSA::SEQOTGTS32; }            
+    case CSA::SEQOTGTS64:
+      return CSA::SEQOTGTS64;
 
-    case LPU::SEQOTGTU8:
-      if (bitwidth <= 8) { return LPU::SEQOTGTU8; }
-    case LPU::SEQOTGTU16:
-      if (bitwidth <= 16) { return LPU::SEQOTGTU16; }      
-    case LPU::SEQOTGTU32:
-      if (bitwidth <= 32) { return LPU::SEQOTGTU32; }            
-    case LPU::SEQOTGTU64:
-      return LPU::SEQOTGTU64;
+    case CSA::SEQOTGTU8:
+      if (bitwidth <= 8) { return CSA::SEQOTGTU8; }
+    case CSA::SEQOTGTU16:
+      if (bitwidth <= 16) { return CSA::SEQOTGTU16; }      
+    case CSA::SEQOTGTU32:
+      if (bitwidth <= 32) { return CSA::SEQOTGTU32; }            
+    case CSA::SEQOTGTU64:
+      return CSA::SEQOTGTU64;
 
 
     // "<="
-    case LPU::SEQOTLES8:
-      if (bitwidth <= 8) { return LPU::SEQOTLES8; }
-    case LPU::SEQOTLES16:
-      if (bitwidth <= 16) { return LPU::SEQOTLES16; }      
-    case LPU::SEQOTLES32:
-      if (bitwidth <= 32) { return LPU::SEQOTLES32; }            
-    case LPU::SEQOTLES64:
-      return LPU::SEQOTLES64;
+    case CSA::SEQOTLES8:
+      if (bitwidth <= 8) { return CSA::SEQOTLES8; }
+    case CSA::SEQOTLES16:
+      if (bitwidth <= 16) { return CSA::SEQOTLES16; }      
+    case CSA::SEQOTLES32:
+      if (bitwidth <= 32) { return CSA::SEQOTLES32; }            
+    case CSA::SEQOTLES64:
+      return CSA::SEQOTLES64;
 
-    case LPU::SEQOTLEU8:
-      if (bitwidth <= 8) { return LPU::SEQOTLEU8; }
-    case LPU::SEQOTLEU16:
-      if (bitwidth <= 16) { return LPU::SEQOTLEU16; }      
-    case LPU::SEQOTLEU32:
-      if (bitwidth <= 32) { return LPU::SEQOTLEU32; }            
-    case LPU::SEQOTLEU64:
-      return LPU::SEQOTLEU64;
+    case CSA::SEQOTLEU8:
+      if (bitwidth <= 8) { return CSA::SEQOTLEU8; }
+    case CSA::SEQOTLEU16:
+      if (bitwidth <= 16) { return CSA::SEQOTLEU16; }      
+    case CSA::SEQOTLEU32:
+      if (bitwidth <= 32) { return CSA::SEQOTLEU32; }            
+    case CSA::SEQOTLEU64:
+      return CSA::SEQOTLEU64;
 
     // "<"
-    case LPU::SEQOTLTS8:
-      if (bitwidth <= 8) { return LPU::SEQOTLTS8; }
-    case LPU::SEQOTLTS16:
-      if (bitwidth <= 16) { return LPU::SEQOTLTS16; }      
-    case LPU::SEQOTLTS32:
-      if (bitwidth <= 32) { return LPU::SEQOTLTS32; }            
-    case LPU::SEQOTLTS64:
-      return LPU::SEQOTLTS64;
+    case CSA::SEQOTLTS8:
+      if (bitwidth <= 8) { return CSA::SEQOTLTS8; }
+    case CSA::SEQOTLTS16:
+      if (bitwidth <= 16) { return CSA::SEQOTLTS16; }      
+    case CSA::SEQOTLTS32:
+      if (bitwidth <= 32) { return CSA::SEQOTLTS32; }            
+    case CSA::SEQOTLTS64:
+      return CSA::SEQOTLTS64;
 
-    case LPU::SEQOTLTU8:
-      if (bitwidth <= 8) { return LPU::SEQOTLTU8; }
-    case LPU::SEQOTLTU16:
-      if (bitwidth <= 16) { return LPU::SEQOTLTU16; }      
-    case LPU::SEQOTLTU32:
-      if (bitwidth <= 32) { return LPU::SEQOTLTU32; }            
-    case LPU::SEQOTLTU64:
-      return LPU::SEQOTLTU64;
+    case CSA::SEQOTLTU8:
+      if (bitwidth <= 8) { return CSA::SEQOTLTU8; }
+    case CSA::SEQOTLTU16:
+      if (bitwidth <= 16) { return CSA::SEQOTLTU16; }      
+    case CSA::SEQOTLTU32:
+      if (bitwidth <= 32) { return CSA::SEQOTLTU32; }            
+    case CSA::SEQOTLTU64:
+      return CSA::SEQOTLTU64;
 
     // !=
-    case LPU::SEQOTNE8:
-      if (bitwidth <= 8) { return LPU::SEQOTNE8; }
-    case LPU::SEQOTNE16:
-      if (bitwidth <= 16) { return LPU::SEQOTNE16; }      
-    case LPU::SEQOTNE32:
-      if (bitwidth <= 32) { return LPU::SEQOTNE32; }            
-    case LPU::SEQOTNE64:
-      return LPU::SEQOTNE64;
+    case CSA::SEQOTNE8:
+      if (bitwidth <= 8) { return CSA::SEQOTNE8; }
+    case CSA::SEQOTNE16:
+      if (bitwidth <= 16) { return CSA::SEQOTNE16; }      
+    case CSA::SEQOTNE32:
+      if (bitwidth <= 32) { return CSA::SEQOTNE32; }            
+    case CSA::SEQOTNE64:
+      return CSA::SEQOTNE64;
       
     // By default, return the same opcode. 
     default:
@@ -950,24 +950,24 @@ promoteSeqOTOpBitwidth(unsigned seq_opcode,
 
 
 bool
-LPUInstrInfo::
+CSAInstrInfo::
 convertAddToStrideOp(unsigned add_opcode,
                      unsigned* strideOpcode) const {
   switch (add_opcode) {
-  case LPU::ADD64:
-    *strideOpcode = LPU::STRIDE64;
+  case CSA::ADD64:
+    *strideOpcode = CSA::STRIDE64;
     return true;
 
-  case LPU::ADD32:
-    *strideOpcode = LPU::STRIDE32;
+  case CSA::ADD32:
+    *strideOpcode = CSA::STRIDE32;
     return true;
     
-  case LPU::ADD16:
-    *strideOpcode = LPU::STRIDE16;
+  case CSA::ADD16:
+    *strideOpcode = CSA::STRIDE16;
     return true;
 
-  case LPU::ADD8:
-    *strideOpcode = LPU::STRIDE8;
+  case CSA::ADD8:
+    *strideOpcode = CSA::STRIDE8;
     return true;
     
   default:
@@ -977,24 +977,24 @@ convertAddToStrideOp(unsigned add_opcode,
 }
 
 bool
-LPUInstrInfo::
+CSAInstrInfo::
 convertSubToStrideOp(unsigned sub_opcode,
                      unsigned* strideOpcode) const {
   switch (sub_opcode) {
-  case LPU::SUB64:
-    *strideOpcode = LPU::STRIDE64;
+  case CSA::SUB64:
+    *strideOpcode = CSA::STRIDE64;
     return true;
 
-  case LPU::SUB32:
-    *strideOpcode = LPU::STRIDE32;
+  case CSA::SUB32:
+    *strideOpcode = CSA::STRIDE32;
     return true;
     
-  case LPU::SUB16:
-    *strideOpcode = LPU::STRIDE16;
+  case CSA::SUB16:
+    *strideOpcode = CSA::STRIDE16;
     return true;
 
-  case LPU::SUB8:
-    *strideOpcode = LPU::STRIDE8;
+  case CSA::SUB8:
+    *strideOpcode = CSA::STRIDE8;
     return true;
     
   default:
@@ -1004,24 +1004,24 @@ convertSubToStrideOp(unsigned sub_opcode,
 }
 
 bool
-LPUInstrInfo::
+CSAInstrInfo::
 negateOpForStride(unsigned strideOpcode,
                   unsigned* negOpcode) const {
   switch (strideOpcode) {
-  case LPU::STRIDE64:
-    *negOpcode = LPU::NEG64;
+  case CSA::STRIDE64:
+    *negOpcode = CSA::NEG64;
     return true;
 
-  case LPU::STRIDE32:
-    *negOpcode = LPU::NEG32;
+  case CSA::STRIDE32:
+    *negOpcode = CSA::NEG32;
     return true;
     
-  case LPU::STRIDE16:
-    *negOpcode = LPU::NEG16;
+  case CSA::STRIDE16:
+    *negOpcode = CSA::NEG16;
     return true;
 
-  case LPU::STRIDE8:
-    *negOpcode = LPU::NEG8;
+  case CSA::STRIDE8:
+    *negOpcode = CSA::NEG8;
     return true;
 
   default:
@@ -1031,17 +1031,17 @@ negateOpForStride(unsigned strideOpcode,
 }
 
 const TargetRegisterClass*
-LPUInstrInfo::
+CSAInstrInfo::
 getStrideInputRC(unsigned strideOpcode) const {
   switch (strideOpcode) {
-  case LPU::STRIDE64:
-    return &LPU::CI64RegClass;
-  case LPU::STRIDE32:
-    return &LPU::CI32RegClass;
-  case LPU::STRIDE16:
-    return &LPU::CI16RegClass;
-  case LPU::STRIDE8:
-    return &LPU::CI8RegClass;
+  case CSA::STRIDE64:
+    return &CSA::CI64RegClass;
+  case CSA::STRIDE32:
+    return &CSA::CI32RegClass;
+  case CSA::STRIDE16:
+    return &CSA::CI16RegClass;
+  case CSA::STRIDE8:
+    return &CSA::CI8RegClass;
   default:
     // No match. return false.
     return NULL;
@@ -1050,27 +1050,27 @@ getStrideInputRC(unsigned strideOpcode) const {
 
 
 bool
-LPUInstrInfo::
+CSAInstrInfo::
 convertPickToRepeatOp(unsigned pick_opcode,
                       unsigned* repeat_opcode) const {
   switch (pick_opcode) {
-  case LPU::PICK64:
-    *repeat_opcode = LPU::REPEAT64;
+  case CSA::PICK64:
+    *repeat_opcode = CSA::REPEAT64;
     return true;
 
-  case LPU::PICK32:
-    *repeat_opcode = LPU::REPEAT32;
+  case CSA::PICK32:
+    *repeat_opcode = CSA::REPEAT32;
     return true;
     
-  case LPU::PICK16:
-    *repeat_opcode = LPU::REPEAT16;
+  case CSA::PICK16:
+    *repeat_opcode = CSA::REPEAT16;
     return true;
 
-  case LPU::PICK8:
-  case LPU::PICK1:
+  case CSA::PICK8:
+  case CSA::PICK1:
     // TBD(jsukha): We don't have a REPEAT1 statement, so just use the
     // REPEAT8 for now.
-    *repeat_opcode = LPU::REPEAT8;
+    *repeat_opcode = CSA::REPEAT8;
     return true;
     
   default:
@@ -1080,117 +1080,117 @@ convertPickToRepeatOp(unsigned pick_opcode,
 }
 
 bool
-LPUInstrInfo::
+CSAInstrInfo::
 isCommutingReductionTransform(MachineInstr* MI) const {
   unsigned opcode = MI->getOpcode();
   // NOTE: we are leaving out AND1, OR1, and XOR1.
   // We don't have a 1-bit reduction op...
   return (isAdd(MI) ||
           isMul(MI) ||
-          ((LPU::AND16 <= opcode) && (opcode <= LPU::AND8)) ||
-          ((LPU::OR16 <= opcode) && (opcode <= LPU::OR8)) ||
-          ((LPU::XOR16 <= opcode) && (opcode <= LPU::XOR8)));
+          ((CSA::AND16 <= opcode) && (opcode <= CSA::AND8)) ||
+          ((CSA::OR16 <= opcode) && (opcode <= CSA::OR8)) ||
+          ((CSA::XOR16 <= opcode) && (opcode <= CSA::XOR8)));
 }
 
 
 bool
-LPUInstrInfo::
+CSAInstrInfo::
 convertTransformToReductionOp(unsigned transform_opcode,
                               unsigned* reduction_opcode) const {
   switch (transform_opcode) {
 
-  case LPU::FMAF64:
-    *reduction_opcode = LPU::FMSREDAF64;
+  case CSA::FMAF64:
+    *reduction_opcode = CSA::FMSREDAF64;
     return true;
-  case LPU::FMAF32:
-    *reduction_opcode = LPU::FMSREDAF32;
+  case CSA::FMAF32:
+    *reduction_opcode = CSA::FMSREDAF32;
     return true;
 
-  case LPU::ADDF64:
-    *reduction_opcode = LPU::SREDADDF64;
+  case CSA::ADDF64:
+    *reduction_opcode = CSA::SREDADDF64;
     return true;
-  case LPU::ADDF32:
-    *reduction_opcode = LPU::SREDADDF32;
+  case CSA::ADDF32:
+    *reduction_opcode = CSA::SREDADDF32;
     return true;    
-  case LPU::ADD64:
-    *reduction_opcode = LPU::SREDADD64;
+  case CSA::ADD64:
+    *reduction_opcode = CSA::SREDADD64;
     return true;
-  case LPU::ADD32:
-    *reduction_opcode = LPU::SREDADD32;
+  case CSA::ADD32:
+    *reduction_opcode = CSA::SREDADD32;
     return true;
-  case LPU::ADD16:
-    *reduction_opcode = LPU::SREDADD16;
+  case CSA::ADD16:
+    *reduction_opcode = CSA::SREDADD16;
     return true;
 
-  case LPU::SUBF64:
-    *reduction_opcode = LPU::SREDSUBF64;
+  case CSA::SUBF64:
+    *reduction_opcode = CSA::SREDSUBF64;
     return true;
-  case LPU::SUBF32:
-    *reduction_opcode = LPU::SREDSUBF32;
+  case CSA::SUBF32:
+    *reduction_opcode = CSA::SREDSUBF32;
     return true;    
-  case LPU::SUB64:
-    *reduction_opcode = LPU::SREDSUB64;
+  case CSA::SUB64:
+    *reduction_opcode = CSA::SREDSUB64;
     return true;
-  case LPU::SUB32:
-    *reduction_opcode = LPU::SREDSUB32;
+  case CSA::SUB32:
+    *reduction_opcode = CSA::SREDSUB32;
     return true;
-  case LPU::SUB16:
-    *reduction_opcode = LPU::SREDSUB16;
+  case CSA::SUB16:
+    *reduction_opcode = CSA::SREDSUB16;
     return true;
 
-  case LPU::MULF64:
-    *reduction_opcode = LPU::SREDMULF64;
+  case CSA::MULF64:
+    *reduction_opcode = CSA::SREDMULF64;
     return true;
-  case LPU::MULF32:
-    *reduction_opcode = LPU::SREDMULF32;
+  case CSA::MULF32:
+    *reduction_opcode = CSA::SREDMULF32;
     return true;    
-  case LPU::MUL64:
-    *reduction_opcode = LPU::SREDMUL64;
+  case CSA::MUL64:
+    *reduction_opcode = CSA::SREDMUL64;
     return true;
-  case LPU::MUL32:
-    *reduction_opcode = LPU::SREDMUL32;
+  case CSA::MUL32:
+    *reduction_opcode = CSA::SREDMUL32;
     return true;
-  case LPU::MUL16:
-    *reduction_opcode = LPU::SREDMUL16;
-    return true;
-
-  case LPU::AND64:
-    *reduction_opcode = LPU::SREDAND64;
-    return true;
-  case LPU::AND32:
-    *reduction_opcode = LPU::SREDAND32;
-    return true;
-  case LPU::AND16:
-    *reduction_opcode = LPU::SREDAND16;
-    return true;
-  case LPU::AND8:
-    *reduction_opcode = LPU::SREDAND8;
+  case CSA::MUL16:
+    *reduction_opcode = CSA::SREDMUL16;
     return true;
 
-  case LPU::OR64:
-    *reduction_opcode = LPU::SREDOR64;
+  case CSA::AND64:
+    *reduction_opcode = CSA::SREDAND64;
     return true;
-  case LPU::OR32:
-    *reduction_opcode = LPU::SREDOR32;
+  case CSA::AND32:
+    *reduction_opcode = CSA::SREDAND32;
     return true;
-  case LPU::OR16:
-    *reduction_opcode = LPU::SREDOR16;
+  case CSA::AND16:
+    *reduction_opcode = CSA::SREDAND16;
     return true;
-  case LPU::OR8:
-    *reduction_opcode = LPU::SREDOR8;
+  case CSA::AND8:
+    *reduction_opcode = CSA::SREDAND8;
     return true;
 
-  case LPU::XOR64:
-    *reduction_opcode = LPU::SREDXOR64;
+  case CSA::OR64:
+    *reduction_opcode = CSA::SREDOR64;
     return true;
-  case LPU::XOR32:
-    *reduction_opcode = LPU::SREDXOR32;
+  case CSA::OR32:
+    *reduction_opcode = CSA::SREDOR32;
     return true;
-  case LPU::XOR16:
-    *reduction_opcode = LPU::SREDXOR16;
+  case CSA::OR16:
+    *reduction_opcode = CSA::SREDOR16;
     return true;
-  case LPU::XOR8:
-    *reduction_opcode = LPU::SREDXOR8;
+  case CSA::OR8:
+    *reduction_opcode = CSA::SREDOR8;
+    return true;
+
+  case CSA::XOR64:
+    *reduction_opcode = CSA::SREDXOR64;
+    return true;
+  case CSA::XOR32:
+    *reduction_opcode = CSA::SREDXOR32;
+    return true;
+  case CSA::XOR16:
+    *reduction_opcode = CSA::SREDXOR16;
+    return true;
+  case CSA::XOR8:
+    *reduction_opcode = CSA::SREDXOR8;
     return true;
     
   default:
@@ -1205,47 +1205,47 @@ convertTransformToReductionOp(unsigned transform_opcode,
 // to end up picking the ANYC register class, which is not what we
 // want...
 const TargetRegisterClass*
-LPUInstrInfo::lookupLICRegClass(unsigned reg) const {
-  if (LPU::CI64RegClass.contains(reg)) {
-    return &LPU::CI64RegClass;
+CSAInstrInfo::lookupLICRegClass(unsigned reg) const {
+  if (CSA::CI64RegClass.contains(reg)) {
+    return &CSA::CI64RegClass;
   }
-  else if (LPU::CI32RegClass.contains(reg)) {
-    return &LPU::CI32RegClass;    
+  else if (CSA::CI32RegClass.contains(reg)) {
+    return &CSA::CI32RegClass;    
   }
-  if (LPU::CI16RegClass.contains(reg)) {
-    return &LPU::CI16RegClass;
+  if (CSA::CI16RegClass.contains(reg)) {
+    return &CSA::CI16RegClass;
   }
-  else if (LPU::CI8RegClass.contains(reg)) {
-    return &LPU::CI8RegClass;    
+  else if (CSA::CI8RegClass.contains(reg)) {
+    return &CSA::CI8RegClass;    
   }
-  if (LPU::CI1RegClass.contains(reg)) {
-    return &LPU::CI1RegClass;
+  if (CSA::CI1RegClass.contains(reg)) {
+    return &CSA::CI1RegClass;
   }
-  else if (LPU::CI0RegClass.contains(reg)) {
-    return &LPU::CI0RegClass;    
+  else if (CSA::CI0RegClass.contains(reg)) {
+    return &CSA::CI0RegClass;    
   }
   return nullptr;
 }
 
 
 int
-LPUInstrInfo::
+CSAInstrInfo::
 getMOVBitwidth(unsigned mov_opcode) const {
   switch (mov_opcode) {
   // Ordered from largest to smallest, under the assumption that
   // larger sizes are more common, and that the first cases are
   // faster.
-  case LPU::MOV64:
+  case CSA::MOV64:
     return 64;
-  case LPU::MOV32:
+  case CSA::MOV32:
     return 32;
-  case LPU::MOV16:
+  case CSA::MOV16:
     return 16;
-  case LPU::MOV8:
+  case CSA::MOV8:
     return 8;
-  case LPU::MOV1:
+  case CSA::MOV1:
     return 1;
-  case LPU::MOV0:
+  case CSA::MOV0:
     return 0;
   default:
     return -1;

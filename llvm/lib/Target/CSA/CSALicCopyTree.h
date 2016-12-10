@@ -1,4 +1,4 @@
-//===-- LPULicCopyTree.h - LPU helper methods for generating copies. ------===//
+//===-- CSALicCopyTree.h - CSA helper methods for generating copies. ------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,14 +13,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPULICCOPYTREE_H
-#define LLVM_LIB_TARGET_LPU_LPULICCOPYTREE_H
+#ifndef LLVM_LIB_TARGET_CSA_CSALICCOPYTREE_H
+#define LLVM_LIB_TARGET_CSA_CSALICCOPYTREE_H
 
 
 // No-op for the printf for now.
 //
-#define LPU_DEBUG_PRINTF(...)
-#define LPU_DEBUG_COPY_TREE 0
+#define CSA_DEBUG_PRINTF(...)
+#define CSA_DEBUG_COPY_TREE 0
 
 // Structure to represent a degree-D copy statement.
 // 
@@ -29,7 +29,7 @@
 // -1 == %ign for an output.
 // 
 template <int D>
-struct LPULicCopyStmt {
+struct CSALicCopyStmt {
   int src;
   int out[D];
 
@@ -37,13 +37,13 @@ struct LPULicCopyStmt {
 
   // Default constructor: create a node with specified src, and all
   // IGN outputs.
-  LPULicCopyStmt(int src_) : src(src_) {
+  CSALicCopyStmt(int src_) : src(src_) {
     for (int z = 0; z < D; ++z) {
       out[z] = IGN;
     }
   }
 
-#if LPU_DEBUG_COPY_TREE
+#if CSA_DEBUG_COPY_TREE
   void print() {
     std::printf("copy64 ");
     for (int z = 0; z < D; ++z) {
@@ -56,17 +56,17 @@ struct LPULicCopyStmt {
     }
     std::printf("%d\n", src);
   }
-#endif // LPU_DEBUG_COPY_TREE
+#endif // CSA_DEBUG_COPY_TREE
   
 };
 
 
 template <int D>
-struct LPULicCopyTree {
+struct CSALicCopyTree {
   int m_num_copies;
   int m_leaf_start;
   int m_leaf_stop;
-  std::vector<LPULicCopyStmt<D> > m_copy_stmts;
+  std::vector<CSALicCopyStmt<D> > m_copy_stmts;
 
   // This constructor creates a list of copy statements (organized in
   // a complete D-ary tree)
@@ -78,7 +78,7 @@ struct LPULicCopyTree {
   //  3. Root at 0.
   //
   // If num_copies < 2, the tree is empty.
-  LPULicCopyTree(int num_copies)
+  CSALicCopyTree(int num_copies)
     : m_num_copies(num_copies)
     , m_leaf_start(0)
     , m_leaf_stop(0) {
@@ -101,13 +101,13 @@ struct LPULicCopyTree {
     return m_copy_stmts.size();
   }
 
-  const LPULicCopyStmt<D>& get_copy_stmt(int i) {
+  const CSALicCopyStmt<D>& get_copy_stmt(int i) {
     assert((i >= 0) && (i < m_copy_stmts.size()));
     return m_copy_stmts[i];
   }
   
   
-#if LPU_DEBUG_COPY_TREE
+#if CSA_DEBUG_COPY_TREE
   void print() {
     std::printf("Copy tree: %d copies\n",
                 m_num_copies);
@@ -119,7 +119,7 @@ struct LPULicCopyTree {
     }
     std::printf("\n");
   }
-#endif // LPU_DEBUG_COPY_TREE
+#endif // CSA_DEBUG_COPY_TREE
   
   // Check invariants on the copy tree.
   bool validate() {
@@ -151,7 +151,7 @@ struct LPULicCopyTree {
 
       for (int j = 0; j < D; ++j) {
         int dest = m_copy_stmts[i].out[j];
-        if (dest == LPULicCopyStmt<D>::IGN) {
+        if (dest == CSALicCopyStmt<D>::IGN) {
           ign_count++;
         }
         else {
@@ -221,7 +221,7 @@ struct LPULicCopyTree {
     
   error:
     std::printf("ERROR in tree\n");
-#if LPU_DEBUG_COPY_TREE    
+#if CSA_DEBUG_COPY_TREE    
     this->print();
 #endif    
     return false;
@@ -229,7 +229,7 @@ struct LPULicCopyTree {
 
 
   static
-  void generate_copy_tree(std::vector<LPULicCopyStmt<D> >& cstmts,
+  void generate_copy_tree(std::vector<CSALicCopyStmt<D> >& cstmts,
                           int num_copies,
                           int* leaf_start_ptr,
                           int* leaf_stop_ptr) {
@@ -256,7 +256,7 @@ struct LPULicCopyTree {
     assert(complete_level_size < num_copies);
     assert(num_copies <= complete_level_size * D);
 
-    LPU_DEBUG_PRINTF("Generating %d copies: num_levels = %d, complete_level_size=%d, num_internal_nodes=%d\n",
+    CSA_DEBUG_PRINTF("Generating %d copies: num_levels = %d, complete_level_size=%d, num_internal_nodes=%d\n",
                      num_copies,
                      num_levels,
                      complete_level_size,
@@ -276,12 +276,12 @@ struct LPULicCopyTree {
     int Dpow = 1;  // Stores D^x
     for (int x = 0; x < num_levels; ++x) {
       int start_node = (Dpow-1) / (D-1);
-      //      LPU_DEBUG_PRINTF("x = %d, start_node = %d\n", x, start_node);
+      //      CSA_DEBUG_PRINTF("x = %d, start_node = %d\n", x, start_node);
 
       // Generate copy statement from source z,
       // to D*z+1, D*z +2, .. D*z + D
       for (int z = start_node; z < start_node + Dpow; ++z) {
-        LPULicCopyStmt<D> cstmt(z);
+        CSALicCopyStmt<D> cstmt(z);
         for (int y = 0; y < D; ++y) {
           cstmt.out[y] = D*z + y + 1;
         }
@@ -296,7 +296,7 @@ struct LPULicCopyTree {
     int incomplete_level_start = (Dpow*D - 1) / (D-1);
 
     //  assert(complete_level_size * D >= num_copies);
-    LPU_DEBUG_PRINTF("Incomplete tree level: starts at %d. Complete level starts at %d,  complete_level_size=%d\n",
+    CSA_DEBUG_PRINTF("Incomplete tree level: starts at %d. Complete level starts at %d,  complete_level_size=%d\n",
                  incomplete_level_start,
                  complete_level_start,
                  complete_level_size);
@@ -327,7 +327,7 @@ struct LPULicCopyTree {
       copies_generated--;
 
       // Now add in (up to) D children.
-      LPULicCopyStmt<D> cstmt(complete_level_start + x);
+      CSALicCopyStmt<D> cstmt(complete_level_start + x);
       int z = 0;
       while ((z < D) && (copies_generated < num_copies)) {
         cstmt.out[z] = last_level_counter;
@@ -349,7 +349,7 @@ struct LPULicCopyTree {
     (*leaf_start_ptr) = complete_level_start + x;
     (*leaf_stop_ptr) = last_level_counter;
     
-    LPU_DEBUG_PRINTF("Range of statements: [%d, %d).  Available copies = %d\n",
+    CSA_DEBUG_PRINTF("Range of statements: [%d, %d).  Available copies = %d\n",
                      (*leaf_start_ptr),
                      (*leaf_stop_ptr),
                      (*leaf_stop_ptr) - (*leaf_start_ptr));
@@ -358,4 +358,4 @@ struct LPULicCopyTree {
 };
 
 
-#endif // LLVM_LIB_TARGET_LPU_LPULICCOPYTREE_H
+#endif // LLVM_LIB_TARGET_CSA_CSALICCOPYTREE_H

@@ -1,4 +1,4 @@
-//===- LPUInstrInfo.td - LPU Instruction defs -----------------*- tblgen-*-===//
+//===- CSAInstrInfo.td - CSA Instruction defs -----------------*- tblgen-*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,11 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file describes the LPU instructions in TableGen format.
+// This file describes the CSA instructions in TableGen format.
 //
 //===----------------------------------------------------------------------===//
 
-include "LPUInstrFormats.td"
+include "CSAInstrFormats.td"
 
 // Possible TODO:
 // - Get rid of "f" variants for stores and other operations?  (e.g. ideally
@@ -25,10 +25,10 @@ include "LPUInstrFormats.td"
 //   in patterns? (but will likely eventually need opcode bitpatterns, so
 //   that may not be feasible/desirable long term)
 // - Merge ADDR_I/R and ADDR_RI/RR similar to RegImm?
-// - Why are so many operands in LPUGenInstrInfo.inc unknown?
+// - Why are so many operands in CSAGenInstrInfo.inc unknown?
 
 //===----------------------------------------------------------------------===//
-// LPU Instruction Predicate Definitions
+// CSA Instruction Predicate Definitions
 //===----------------------------------------------------------------------===//
 
 def IsOrdered    : Predicate<"Subtarget.isOrdered()">;
@@ -53,7 +53,7 @@ def HasSqrt      : Predicate<"Subtarget.hasSqrt()">;
 def HasMath0     : Predicate<"Subtarget.hasMath0()">;
 
 //===----------------------------------------------------------------------===//
-// LPU Operand Definitions.
+// CSA Operand Definitions.
 //===----------------------------------------------------------------------===//
 
 def brtarget     : Operand<OtherVT>;
@@ -102,12 +102,12 @@ def RCLf64 : RegImmOperand<f64>;
 
 
 //===----------------------------------------------------------------------===//
-// LPU Type associations
+// CSA Type associations
 //===----------------------------------------------------------------------===//
-// LPUOpInfo - information that describes LPU information about types used
+// CSAOpInfo - information that describes CSA information about types used
 // in operations.  For example, what register class and immediate to use.
 //
-class LPUOpInfo<ValueType vt, int opBitSize, string instrSuffix,
+class CSAOpInfo<ValueType vt, int opBitSize, string instrSuffix,
     RegisterClass rc, RegisterClass regRC, RegisterClass licRC,
     DAGOperand rcl, DAGOperand immOperand, list<Predicate> preds> {
   // VT - the value type itself
@@ -140,39 +140,39 @@ class LPUOpInfo<ValueType vt, int opBitSize, string instrSuffix,
   list<Predicate> Preds = preds;
 }
 
-// LPU type associations
-def Ti0  : LPUOpInfo< i1,  0,   "0",  I0,  RI0,  CI0,  RCLi0,  i1imm,  [HasI0]>;
-def Ti1  : LPUOpInfo< i1,  1,   "1",  I1,  RI1,  CI1,  RCLi1,  i1imm,  [HasI1]>;
-def Ti8  : LPUOpInfo< i8,  8,   "8",  I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
-def Ts8  : LPUOpInfo< i8,  8,  "s8",  I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
-def Tu8  : LPUOpInfo< i8,  8,  "u8",  I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
-def Ti16 : LPUOpInfo<i16, 16,  "16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
-def Ts16 : LPUOpInfo<i16, 16, "s16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
-def Tu16 : LPUOpInfo<i16, 16, "u16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
-def Tf16 : LPUOpInfo<f16, 16, "f16", I16, RI16, CI16, RCLf16, f16imm, [HasF16]>;
-def Ti32 : LPUOpInfo<i32, 32,  "32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
-def Ts32 : LPUOpInfo<i32, 32, "s32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
-def Tu32 : LPUOpInfo<i32, 32, "u32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
-def Tf32 : LPUOpInfo<f32, 32, "f32", I32, RI32, CI32, RCLf32, f32imm, [HasF32]>;
-def Ti64 : LPUOpInfo<i64, 64,  "64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
-def Ts64 : LPUOpInfo<i64, 64, "s64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
-def Tu64 : LPUOpInfo<i64, 64, "u64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
-def Tf64 : LPUOpInfo<f64, 64, "f64", I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
+// CSA type associations
+def Ti0  : CSAOpInfo< i1,  0,   "0",  I0,  RI0,  CI0,  RCLi0,  i1imm,  [HasI0]>;
+def Ti1  : CSAOpInfo< i1,  1,   "1",  I1,  RI1,  CI1,  RCLi1,  i1imm,  [HasI1]>;
+def Ti8  : CSAOpInfo< i8,  8,   "8",  I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
+def Ts8  : CSAOpInfo< i8,  8,  "s8",  I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
+def Tu8  : CSAOpInfo< i8,  8,  "u8",  I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
+def Ti16 : CSAOpInfo<i16, 16,  "16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
+def Ts16 : CSAOpInfo<i16, 16, "s16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
+def Tu16 : CSAOpInfo<i16, 16, "u16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
+def Tf16 : CSAOpInfo<f16, 16, "f16", I16, RI16, CI16, RCLf16, f16imm, [HasF16]>;
+def Ti32 : CSAOpInfo<i32, 32,  "32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
+def Ts32 : CSAOpInfo<i32, 32, "s32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
+def Tu32 : CSAOpInfo<i32, 32, "u32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
+def Tf32 : CSAOpInfo<f32, 32, "f32", I32, RI32, CI32, RCLf32, f32imm, [HasF32]>;
+def Ti64 : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
+def Ts64 : CSAOpInfo<i64, 64, "s64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
+def Tu64 : CSAOpInfo<i64, 64, "u64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
+def Tf64 : CSAOpInfo<f64, 64, "f64", I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
 
 
 def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
 def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
 
 //===----------------------------------------------------------------------===//
-// LPU profiles and nodes
+// CSA profiles and nodes
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-// LPU Instructions.
+// CSA Instructions.
 //===----------------------------------------------------------------------===//
 
 def XPHI : Instruction {
-  let Namespace = "LPU";
+  let Namespace = "CSA";
   let OutOperandList = (outs);
   let InOperandList = (ins variable_ops);
   let AsmString = "XPHI";
@@ -181,41 +181,41 @@ def XPHI : Instruction {
 }
 
 // These are target-independent nodes, but have target-specific formats.
-def SDT_LPUCall         : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
-def SDT_LPUCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i64> ]>;
-def SDT_LPUCallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
+def SDT_CSACall         : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
+def SDT_CSACallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i64> ]>;
+def SDT_CSACallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 
-def SDT_LPUWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
+def SDT_CSAWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
                                                SDTCisPtrTy<0>]>;
 
-def LPURet : SDNode<"LPUISD::Ret", SDTNone,
+def CSARet : SDNode<"CSAISD::Ret", SDTNone,
     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 // Call
-def LPUCall : SDNode<"LPUISD::Call", SDT_LPUCall,
+def CSACall : SDNode<"CSAISD::Call", SDT_CSACall,
                       [SDNPHasChain, SDNPOutGlue, SDNPOptInGlue,
                       SDNPVariadic]>;
 
-def LPUTailCall : SDNode<"LPUISD::TailCall", SDT_LPUCall,
+def CSATailCall : SDNode<"CSAISD::TailCall", SDT_CSACall,
                       [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
-def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_LPUCallSeqStart,
+def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_CSACallSeqStart,
                            [SDNPHasChain, SDNPOutGlue]>;
-def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_LPUCallSeqEnd,
+def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_CSACallSeqEnd,
                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
 
-def LPUWrapper : SDNode<"LPUISD::Wrapper", SDT_LPUWrapper>;
+def CSAWrapper : SDNode<"CSAISD::Wrapper", SDT_CSAWrapper>;
 
 let Defs = [SP], Uses = [SP] in {
-def ADJCALLSTACKDOWN : PseudoInstLPU<(outs), (ins i64imm:$amt),
+def ADJCALLSTACKDOWN : PseudoInstCSA<(outs), (ins i64imm:$amt),
                                "# ADJCALLSTACKDOWN $amt",
                                [(callseq_start timm:$amt)]>;
-def ADJCALLSTACKUP : PseudoInstLPU<(outs), (ins i64imm:$amt1, i64imm:$amt2),
+def ADJCALLSTACKUP : PseudoInstCSA<(outs), (ins i64imm:$amt1, i64imm:$amt2),
                             "# ADJCALLSTACKUP $amt1",
                             [(callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
-class MovOp<GenericOp gen, LPUOpInfo oi,
+class MovOp<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
@@ -226,7 +226,7 @@ class MovOp<GenericOp gen, LPUOpInfo oi,
       let OpInfo = oi;
     }
 
-class UnaryOp<GenericOp gen, SDNode opNode, LPUOpInfo oi,
+class UnaryOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
@@ -236,7 +236,7 @@ class UnaryOp<GenericOp gen, SDNode opNode, LPUOpInfo oi,
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 // Separate pattern because not/ineg are PatFrags rather than SDNodes
-class UnaryOpP<GenericOp gen, PatFrag opNode, LPUOpInfo oi,
+class UnaryOpP<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
@@ -248,7 +248,7 @@ class UnaryOpP<GenericOp gen, PatFrag opNode, LPUOpInfo oi,
       let AddedComplexity = 1;  // prefer not/neg to other forms
     }
 
-class SExtOp<GenericOp gen, LPUOpInfo oid, LPUOpInfo ois,
+class SExtOp<GenericOp gen, CSAOpInfo oid, CSAOpInfo ois,
              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oid.RC:$dst),
@@ -257,7 +257,7 @@ class SExtOp<GenericOp gen, LPUOpInfo oid, LPUOpInfo ois,
     [],
     !listconcat(preds,gen.Preds,oid.Preds), itin>;
 
-class CvtOp<GenericOp gen, SDNode opNode, LPUOpInfo oid, LPUOpInfo ois,
+class CvtOp<GenericOp gen, SDNode opNode, CSAOpInfo oid, CSAOpInfo ois,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oid.RC:$dst),
@@ -268,7 +268,7 @@ class CvtOp<GenericOp gen, SDNode opNode, LPUOpInfo oid, LPUOpInfo ois,
 
 // We do not bother trying to specify commutative, since there doesn't
 // appear to be an advantage.
-class BinOp<GenericOp gen, SDNode opNode, LPUOpInfo oi,
+class BinOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
@@ -278,7 +278,7 @@ class BinOp<GenericOp gen, SDNode opNode, LPUOpInfo oi,
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 // Shift ops specifically have an i8 for the shift amount
-class ShiftOp<GenericOp gen, SDNode opNode, LPUOpInfo oi,
+class ShiftOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
@@ -289,7 +289,7 @@ class ShiftOp<GenericOp gen, SDNode opNode, LPUOpInfo oi,
 
 // CmpOp is identical to BinOp, except opNode is a PatFrag rather than
 // an SDNode...
-class CmpOp<GenericOp gen, PatFrag opNode, LPUOpInfo oi,
+class CmpOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs I1:$dst),
@@ -300,7 +300,7 @@ class CmpOp<GenericOp gen, PatFrag opNode, LPUOpInfo oi,
 
 // BSEL - Only allow constant 1st operand, so CSA network only needs to support
 // 2 operand input boxes.
-class BSelOp<GenericOp gen, LPUOpInfo oi,
+class BSelOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
@@ -308,7 +308,7 @@ class BSelOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class ShAdd<GenericOp gen, SDNode inner, SDNode outer, LPUOpInfo oi,
+class ShAdd<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
@@ -317,7 +317,7 @@ class ShAdd<GenericOp gen, SDNode inner, SDNode outer, LPUOpInfo oi,
     [(set oi.RC:$dst, (outer (inner oi.RCL:$op1, RCLi8:$op2), oi.RCL:$op3))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class FusedOp1<GenericOp gen, SDNode inner, SDNode outer, LPUOpInfo oi,
+class FusedOp1<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
@@ -326,7 +326,7 @@ class FusedOp1<GenericOp gen, SDNode inner, SDNode outer, LPUOpInfo oi,
     [(set oi.RC:$dst, (outer (inner oi.RCL:$op1, oi.RCL:$op2), oi.RCL:$op3))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class FusedOp2<GenericOp gen, SDNode inner, SDNode outer, LPUOpInfo oi,
+class FusedOp2<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
@@ -335,7 +335,7 @@ class FusedOp2<GenericOp gen, SDNode inner, SDNode outer, LPUOpInfo oi,
     [(set oi.RC:$dst, (outer oi.RCL:$op1, (inner oi.RCL:$op2, oi.RCL:$op3)))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class CopyOp<GenericOp gen, LPUOpInfo oi,
+class CopyOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin = IIVir, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$op0, oi.RC:$op1, oi.RC:$op2, oi.RC:$op3),
@@ -343,7 +343,7 @@ class CopyOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$op0, $op1, $op2, $op3, $op4"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class MergeOp<string opStr, LPUOpInfo t,
+class MergeOp<string opStr, CSAOpInfo t,
               list<Predicate> preds, InstrItinClass itin> :
   FMTGEN<
     (outs t.RC:$dst),
@@ -352,7 +352,7 @@ class MergeOp<string opStr, LPUOpInfo t,
     [(set t.VT:$dst, (select I1:$sel, (t.VT t.RCL:$v1), (t.VT t.RCL:$v0)))],
     preds, itin>;
 
-class SwitchOp<GenericOp gen, LPUOpInfo oi,
+class SwitchOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst0, oi.RC:$dst1),
@@ -360,7 +360,7 @@ class SwitchOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class SwitchAnyOp<GenericOp gen, LPUOpInfo oi,
+class SwitchAnyOp<GenericOp gen, CSAOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst0, oi.RC:$dst1, I1:$sel),
@@ -368,7 +368,7 @@ class SwitchAnyOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class PickOp<GenericOp gen, LPUOpInfo oi,
+class PickOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []>:
   FMTGEN<
     (outs oi.RC:$dst),
@@ -376,7 +376,7 @@ class PickOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class PickAnyOp<GenericOp gen, LPUOpInfo oi,
+class PickAnyOp<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst, I1:$sel),
@@ -390,7 +390,7 @@ class PickAnyOp<GenericOp gen, LPUOpInfo oi,
 // new state and is uneffected by previous "side effects".  Marking these
 // operations as having side effects has not benefit and interferes with dead
 // instruction detection.
-class SeqCOp<GenericOp gen, LPUOpInfo oi,
+class SeqCOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<  // TODO: something to reflect state
     (outs oi.RC:$val, I1:$pred, I1:$first, I1:$last),
@@ -400,7 +400,7 @@ class SeqCOp<GenericOp gen, LPUOpInfo oi,
 
 // See comment for SeqCOp, above, as to why hasSideEffects is not being set.
 // TODO: something to reflect state
-class SeqSOp<GenericOp gen, LPUOpInfo oi,
+class SeqSOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$val, I1:$pred, I1:$first, I1:$last),
@@ -409,7 +409,7 @@ class SeqSOp<GenericOp gen, LPUOpInfo oi,
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 // See comment for SeqCOp, above, as to why hasSideEffects is not being set.
-class RepeatOp<GenericOp gen, LPUOpInfo oi,
+class RepeatOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<  // TODO: something to reflect state
     (outs oi.RC:$out),
@@ -418,7 +418,7 @@ class RepeatOp<GenericOp gen, LPUOpInfo oi,
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 // See comment for SeqCOp, above, as to why hasSideEffects is not being set.
-class StrideOp<GenericOp gen, LPUOpInfo oi,
+class StrideOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<  // TODO: something to reflect state
     (outs oi.RC:$out),
@@ -426,7 +426,7 @@ class StrideOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $base, $stride"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
-class SReduceOp<GenericOp gen, LPUOpInfo oi,
+class SReduceOp<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$result, oi.RC:$each),
@@ -434,7 +434,7 @@ class SReduceOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
-class FMSReduceOp<GenericOp gen, LPUOpInfo oi,
+class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$result, oi.RC:$each),
@@ -442,7 +442,7 @@ class FMSReduceOp<GenericOp gen, LPUOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
-multiclass LdOp<string opStr, LPUOpInfo t,
+multiclass LdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
   let Predicates = [HasIndex], Itinerary = itin in {
     def X : FMTGEN< // indexed reg+reg
@@ -480,7 +480,7 @@ multiclass LdOp<string opStr, LPUOpInfo t,
 }
 
 // Ugly combinatorial issue between literal store data and addressing modes
-multiclass StOp<string opStr, LPUOpInfo t,
+multiclass StOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
   let Predicates = [HasIndex], mayStore = 1, Itinerary = itin in {
     def X : FMTGEN<
@@ -524,7 +524,7 @@ multiclass StOp<string opStr, LPUOpInfo t,
 // and/or define more macros to eliminate duplicated code between
 // these two cases. But this hack is what I could figure out for now.
 
-multiclass OLdOp<string opStr, LPUOpInfo t,
+multiclass OLdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
   let Predicates = [HasIndex], Itinerary = itin in {
     def X : FMTGEN< // indexed reg+reg
@@ -561,7 +561,7 @@ multiclass OLdOp<string opStr, LPUOpInfo t,
     }
 }
 
-multiclass OStOp<string opStr, LPUOpInfo t,
+multiclass OStOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
   let Predicates = [HasIndex], mayStore = 1, Itinerary = itin in {
     def X : FMTGEN<
@@ -593,7 +593,7 @@ multiclass OStOp<string opStr, LPUOpInfo t,
   }
 }
 
-class MullohiOp<GenericOp gen, LPUOpInfo oi,
+class MullohiOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
   FMTGEN <
     (outs oi.RC:$lo, oi.RC:$hi),
@@ -603,7 +603,7 @@ class MullohiOp<GenericOp gen, LPUOpInfo oi,
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
 
-class AtomicOp<GenericOp gen, PatFrag opNode, LPUOpInfo oi,
+class AtomicOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <
     (outs oi.RC:$dst),
@@ -613,7 +613,7 @@ class AtomicOp<GenericOp gen, PatFrag opNode, LPUOpInfo oi,
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
-class OAtomicOp<GenericOp gen, LPUOpInfo oi,
+class OAtomicOp<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <
     (outs oi.RC:$dst, I0:$issued),
@@ -622,7 +622,7 @@ class OAtomicOp<GenericOp gen, LPUOpInfo oi,
     [], !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
-class AtomicOp2<GenericOp gen, PatFrag opNode, LPUOpInfo oi,
+class AtomicOp2<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
                 InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <
     (outs oi.RC:$dst),
@@ -632,7 +632,7 @@ class AtomicOp2<GenericOp gen, PatFrag opNode, LPUOpInfo oi,
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
-class OAtomicOp2<GenericOp gen, LPUOpInfo oi,
+class OAtomicOp2<GenericOp gen, CSAOpInfo oi,
                  InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <
     (outs oi.RC:$dst, I0:$issued),
@@ -668,7 +668,7 @@ def RET : FMTGEN<
     (outs),
     (ins),
     "ret\t%ra",         // implicit use of RA
-    [(LPURet)]>;
+    [(CSARet)]>;
 
 let isBranch=1, isTerminator=1, isBarrier=1, Itinerary = IICtl in
 def JMP : FMTGEN<
@@ -717,16 +717,16 @@ let isCall=1, Itinerary = IICtl,
 
 }
 
-def : Pat<(LPUCall tglobaladdr:$dst),      (JSRi tglobaladdr:$dst)>;
-def : Pat<(LPUCall texternalsym:$dst),     (JSRi texternalsym:$dst)>;
-def : Pat<(LPUCall imm:$dst),              (JSRi imm:$dst)>;
-def : Pat<(LPUCall I64:$dst),              (JSR I64:$dst)>;
+def : Pat<(CSACall tglobaladdr:$dst),      (JSRi tglobaladdr:$dst)>;
+def : Pat<(CSACall texternalsym:$dst),     (JSRi texternalsym:$dst)>;
+def : Pat<(CSACall imm:$dst),              (JSRi imm:$dst)>;
+def : Pat<(CSACall I64:$dst),              (JSR I64:$dst)>;
 
 // Tail call
-def : Pat<(LPUTailCall tglobaladdr:$dst),  (JTRi tglobaladdr:$dst)>;
-def : Pat<(LPUTailCall texternalsym:$dst), (JTRi texternalsym:$dst)>;
-def : Pat<(LPUTailCall imm:$dst),          (JTRi imm:$dst)>;
-def : Pat<(LPUTailCall I64:$dst),          (JTR I64:$dst)>;
+def : Pat<(CSATailCall tglobaladdr:$dst),  (JTRi tglobaladdr:$dst)>;
+def : Pat<(CSATailCall texternalsym:$dst), (JTRi texternalsym:$dst)>;
+def : Pat<(CSATailCall imm:$dst),          (JTRi imm:$dst)>;
+def : Pat<(CSATailCall I64:$dst),          (JTR I64:$dst)>;
 
 def MOV : GenericOp<"mov">;
 def MOV0      : MovOp<MOV, Ti0,  IIALU>;
@@ -736,10 +736,10 @@ def MOV16     : MovOp<MOV, Ti16, IIALU>;
 def MOV32     : MovOp<MOV, Ti32, IIALU>;
 def MOV64     : MovOp<MOV, Ti64, IIALU>;
 
-def : Pat<(i64 (LPUWrapper tglobaladdr:$src)),   (MOV64 tglobaladdr:$src)>;
-def : Pat<(i64 (LPUWrapper texternalsym:$src)),  (MOV64 texternalsym:$src)>;
-def : Pat<(i64 (LPUWrapper tblockaddress:$src)), (MOV64 tblockaddress:$src)>;
-def : Pat<(i64 (LPUWrapper tjumptable:$src)),    (MOV64 tjumptable:$src)>;
+def : Pat<(i64 (CSAWrapper tglobaladdr:$src)),   (MOV64 tglobaladdr:$src)>;
+def : Pat<(i64 (CSAWrapper texternalsym:$src)),  (MOV64 texternalsym:$src)>;
+def : Pat<(i64 (CSAWrapper tblockaddress:$src)), (MOV64 tblockaddress:$src)>;
+def : Pat<(i64 (CSAWrapper tjumptable:$src)),    (MOV64 tjumptable:$src)>;
 
 def NOT       : GenericOp<"not">;
 def NOT1      : UnaryOpP<NOT,    not,    Ti1,  IIALU>;
@@ -1369,8 +1369,8 @@ def ONEND : FMTGEN<  // TODO: something to reflect state
   []> { let Itinerary = IIVir; }
 
 // Not clear that "hasSideEffects" is a good description of static initialization...
-class Init<LPUOpInfo t, list<Predicate> preds, InstrItinClass itin> :
-  PseudoInstLPU<
+class Init<CSAOpInfo t, list<Predicate> preds, InstrItinClass itin> :
+  PseudoInstCSA<
       (outs t.RC:$dst),
       (ins t.L:$imm),
       ".curr\t$dst;\t.value $imm;\t.avail 0",
@@ -1518,21 +1518,21 @@ def ATMMAXF64 : AtomicOp<"atmmaxf64", atomic_load_max, F64, IIATM>;
 */
 
 // Unit - type only
-def UNIT : PseudoInstLPU<
+def UNIT : PseudoInstCSA<
     (outs),
     (ins UnitOpnd:$immType),
     ".unit\t$immType",
     []>;
 
 // Unit type + index of unit in type only
-def UNITI : PseudoInstLPU<
+def UNITI : PseudoInstCSA<
     (outs),
     (ins UnitOpnd:$immType, Operand<i64>:$idx),
     ".unit\t$immType, $idx",
     []>;
 
 // Unit type / allocated - includes coordinate indicies
-def UNITA : PseudoInstLPU<
+def UNITA : PseudoInstCSA<
     (outs),
     (ins UnitOpnd:$immType, Operand<i64>:$idx1, Operand<i64>:$idx2),
     ".unit\t$immType, $idx1, $idx2",
@@ -1649,4 +1649,4 @@ def : Pat<(fcopysign f64:$other, f64:$sign),
 */
 
 // Eventually
-//include "LPUIntrinsics.td"
+//include "CSAIntrinsics.td"

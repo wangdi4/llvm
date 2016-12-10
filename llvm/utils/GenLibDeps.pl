@@ -97,7 +97,7 @@ if ($PEROBJ) {
     $libpath =~ s/^BitReader/Bitcode\/Reader/;
     $libpath =~ s/^BitWriter/Bitcode\/Writer/;
     $libpath =~ s/^CBackend/Target\/CBackend/;
-    $libpath =~ s/^LPU/Target\/LPU/;
+    $libpath =~ s/^CSA/Target\/CSA/;
     $libpath =~ s/^MSIL/Target\/MSIL/;
     $libpath =~ s/^Core/IR/;
     $libpath =~ s/^Instrumentation/Transforms\/Instrumentation/;
@@ -139,7 +139,7 @@ if ($PEROBJ) {
     $libpath =~ s/^BitReader/Bitcode\/Reader/;
     $libpath =~ s/^BitWriter/Bitcode\/Writer/;
     $libpath =~ s/^CBackend/Target\/CBackend/;
-    $libpath =~ s/^LPU/Target\/LPU/;
+    $libpath =~ s/^CSA/Target\/CSA/;
     $libpath =~ s/^MSIL/Target\/MSIL/;
     $libpath =~ s/^Core/VMCore/;
     $libpath =~ s/^Instrumentation/Transforms\/Instrumentation/;

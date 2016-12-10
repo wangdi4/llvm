@@ -1,4 +1,4 @@
-//===-- LPURegisterInfo.h - LPU Register Information Impl -------*- C++ -*-===//
+//===-- CSARegisterInfo.h - CSA Register Information Impl -------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,25 +7,25 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the LPU implementation of the MRegisterInfo class.
+// This file contains the CSA implementation of the MRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUREGISTERINFO_H
-#define LLVM_LIB_TARGET_LPU_LPUREGISTERINFO_H
+#ifndef LLVM_LIB_TARGET_CSA_CSAREGISTERINFO_H
+#define LLVM_LIB_TARGET_CSA_CSAREGISTERINFO_H
 
 #include "llvm/Target/TargetRegisterInfo.h"
 
 #define GET_REGINFO_HEADER
-#include "LPUGenRegisterInfo.inc"
+#include "CSAGenRegisterInfo.inc"
 
 namespace llvm {
 
-struct LPURegisterInfo : public LPUGenRegisterInfo {
+struct CSARegisterInfo : public CSAGenRegisterInfo {
 public:
   const TargetInstrInfo &TII;
 
-  LPURegisterInfo(const TargetInstrInfo &tii);
+  CSARegisterInfo(const TargetInstrInfo &tii);
 
   /// Code Generation virtual methods...
   const MCPhysReg *

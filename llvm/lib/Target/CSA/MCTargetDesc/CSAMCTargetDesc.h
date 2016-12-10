@@ -1,4 +1,4 @@
-//===-- LPUMCTargetDesc.h - LPU Target Descriptions -------------*- C++ -*-===//
+//===-- CSAMCTargetDesc.h - CSA Target Descriptions -------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,32 +7,32 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file provides LPU specific target descriptions.
+// This file provides CSA specific target descriptions.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_MCTARGETDESC_LPUMCTARGETDESC_H
-#define LLVM_LIB_TARGET_LPU_MCTARGETDESC_LPUMCTARGETDESC_H
+#ifndef LLVM_LIB_TARGET_CSA_MCTARGETDESC_CSAMCTARGETDESC_H
+#define LLVM_LIB_TARGET_CSA_MCTARGETDESC_CSAMCTARGETDESC_H
 
 #include "llvm/Support/DataTypes.h"
 
 namespace llvm {
 class Target;
 
-extern Target TheLPUTarget;
+extern Target TheCSATarget;
 
 } // End llvm namespace
 
-// Defines symbolic names for LPU registers.
+// Defines symbolic names for CSA registers.
 // This defines a mapping from register name to register number.
 #define GET_REGINFO_ENUM
-#include "LPUGenRegisterInfo.inc"
+#include "CSAGenRegisterInfo.inc"
 
-// Defines symbolic names for the LPU instructions.
+// Defines symbolic names for the CSA instructions.
 #define GET_INSTRINFO_ENUM
-#include "LPUGenInstrInfo.inc"
+#include "CSAGenInstrInfo.inc"
 
 #define GET_SUBTARGETINFO_ENUM
-#include "LPUGenSubtargetInfo.inc"
+#include "CSAGenSubtargetInfo.inc"
 
 #endif

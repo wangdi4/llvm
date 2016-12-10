@@ -1,4 +1,4 @@
-//===-- LPUFrameLowering.cpp - LPU Frame Information ----------------------===//
+//===-- CSAFrameLowering.cpp - CSA Frame Information ----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,16 +7,16 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the LPU implementation of TargetFrameLowering class.
+// This file contains the CSA implementation of TargetFrameLowering class.
 //
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "frame-lower"
 
-#include "LPUFrameLowering.h"
-#include "LPUInstrInfo.h"
-#include "LPUMachineFunctionInfo.h"
-#include "LPUSubtarget.h"
+#include "CSAFrameLowering.h"
+#include "CSAInstrInfo.h"
+#include "CSAMachineFunctionInfo.h"
+#include "CSASubtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -30,12 +30,12 @@
 
 using namespace llvm;
 
-void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const {
+void CSAFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const {
   assert(&MBB == &MF.front() && "Shrink-wrapping not yet implemented");
   MachineFrameInfo &MFI  = MF.getFrameInfo();
-  LPUMachineFunctionInfo *LMFI  = MF.getInfo<LPUMachineFunctionInfo>();
-  const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(MF.getSubtarget().getInstrInfo());
+  CSAMachineFunctionInfo *LMFI  = MF.getInfo<CSAMachineFunctionInfo>();
+  const CSAInstrInfo &TII =
+    *static_cast<const CSAInstrInfo*>(MF.getSubtarget().getInstrInfo());
   MachineBasicBlock::iterator MBBI = MBB.begin();
   DebugLoc dl = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
 
@@ -65,8 +65,8 @@ void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
   if (StackSize == 0) return;
 
   // Adjust stack : sub sp, sp, imm
-  BuildMI(MBB, MBBI, dl, TII.get(LPU::SUB64), LPU::SP)
-    .addReg(LPU::SP).addImm(StackSize);
+  BuildMI(MBB, MBBI, dl, TII.get(CSA::SUB64), CSA::SP)
+    .addReg(CSA::SP).addImm(StackSize);
 
   if (MFI.hasCalls()) {
     assert(LMFI->getRAFrameIndex() != -1
@@ -82,8 +82,8 @@ void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
 	assert(RAOffset < (int)StackSize && "Bad RA offset");
     }
 
-    BuildMI(MBB, MBBI, dl, TII.get(LPU::ST64D))
-      .addReg(LPU::SP).addImm(RAOffset).addReg(LPU::RA);
+    BuildMI(MBB, MBBI, dl, TII.get(CSA::ST64D))
+      .addReg(CSA::SP).addImm(RAOffset).addReg(CSA::RA);
   }
 
   if (hasFP(MF)) {
@@ -103,24 +103,24 @@ void LPUFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
 	assert(FPOffset < (int)StackSize && "Bad FP offset");
     }
 
-    BuildMI(MBB, MBBI, dl, TII.get(LPU::ST64D))
-      .addReg(LPU::SP).addImm(FPOffset).addReg(LPU::FP);
+    BuildMI(MBB, MBBI, dl, TII.get(CSA::ST64D))
+      .addReg(CSA::SP).addImm(FPOffset).addReg(CSA::FP);
 
     // move $fp, $sp
-    BuildMI(MBB, MBBI, dl, TII.get(LPU::MOV64), LPU::FP)
-      .addReg(LPU::SP);
+    BuildMI(MBB, MBBI, dl, TII.get(CSA::MOV64), CSA::FP)
+      .addReg(CSA::SP);
   }
 
 }
 
-void LPUFrameLowering::emitEpilogue(MachineFunction &MF,
+void CSAFrameLowering::emitEpilogue(MachineFunction &MF,
                                        MachineBasicBlock &MBB) const {
   MachineBasicBlock::iterator MBBI = --MBB.end();
   MachineFrameInfo &MFI = MF.getFrameInfo();
-  LPUMachineFunctionInfo *LMFI = MF.getInfo<LPUMachineFunctionInfo>();
+  CSAMachineFunctionInfo *LMFI = MF.getInfo<CSAMachineFunctionInfo>();
   DebugLoc dl = MBBI->getDebugLoc();
-  const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(MF.getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII =
+    *static_cast<const CSAInstrInfo*>(MF.getSubtarget().getInstrInfo());
 
   // Get the number of bytes to allocate from the FrameInfo.
   unsigned StackSize     = MFI.getStackSize();
@@ -142,15 +142,15 @@ void LPUFrameLowering::emitEpilogue(MachineFunction &MF,
            && "No spill location found for Frame Pointer.");
 
     // move $sp, $fp
-    BuildMI(MBB, MBBI, dl, TII.get(LPU::MOV64), LPU::SP)
-      .addReg(LPU::FP);
+    BuildMI(MBB, MBBI, dl, TII.get(CSA::MOV64), CSA::SP)
+      .addReg(CSA::FP);
 
     int FPOffset =
       MFI.getObjectOffset(LMFI->getFPFrameIndex()) + CallFrameSize;
     assert(FPOffset%8 == 0 && "FP offset not multiple of 8");
 
-    BuildMI(MBB, MBBI, dl, TII.get(LPU::LD64D), LPU::FP)
-      .addReg(LPU::SP).addImm(FPOffset);
+    BuildMI(MBB, MBBI, dl, TII.get(CSA::LD64D), CSA::FP)
+      .addReg(CSA::SP).addImm(FPOffset);
   }
 
   if (MFI.hasCalls()) {
@@ -162,16 +162,16 @@ void LPUFrameLowering::emitEpilogue(MachineFunction &MF,
 
     assert(RAOffset%8 == 0 && "RA offset not multiple of 8");
 
-    BuildMI(MBB, MBBI, dl, TII.get(LPU::LD64D), LPU::RA)
-      .addReg(LPU::SP).addImm(RAOffset);
+    BuildMI(MBB, MBBI, dl, TII.get(CSA::LD64D), CSA::RA)
+      .addReg(CSA::SP).addImm(RAOffset);
   }
 
   // Adjust stack : add sp, sp, imm
-  BuildMI(MBB, MBBI, dl, TII.get(LPU::ADD64), LPU::SP)
-    .addReg(LPU::SP).addImm(StackSize);
+  BuildMI(MBB, MBBI, dl, TII.get(CSA::ADD64), CSA::SP)
+    .addReg(CSA::SP).addImm(StackSize);
 }
 
-bool LPUFrameLowering::hasFP(const MachineFunction &MF) const {
+bool CSAFrameLowering::hasFP(const MachineFunction &MF) const {
   const MachineFrameInfo &MFI = MF.getFrameInfo();
 
   // No frame pointer unless really needed...
@@ -180,11 +180,11 @@ bool LPUFrameLowering::hasFP(const MachineFunction &MF) const {
           MFI.isFrameAddressTaken());
 }
 
-void LPUFrameLowering::
+void CSAFrameLowering::
 processFunctionBeforeFrameFinalized(MachineFunction &MF,
                                     RegScavenger *RS) const {
   MachineFrameInfo &MFI = MF.getFrameInfo();
-  LPUMachineFunctionInfo *LMFI = MF.getInfo<LPUMachineFunctionInfo>();
+  CSAMachineFunctionInfo *LMFI = MF.getInfo<CSAMachineFunctionInfo>();
 
   if (hasFP(MF))
     LMFI->setFPFrameIndex(MFI.CreateSpillStackObject(8, 8));
@@ -193,10 +193,10 @@ processFunctionBeforeFrameFinalized(MachineFunction &MF,
     LMFI->setRAFrameIndex(MFI.CreateSpillStackObject(8, 8));
 }
 
-MachineBasicBlock::iterator LPUFrameLowering::eliminateCallFramePseudoInstr(
+MachineBasicBlock::iterator CSAFrameLowering::eliminateCallFramePseudoInstr(
     MachineFunction &MF, MachineBasicBlock &MBB,
     MachineBasicBlock::iterator I) const {
-  const LPUInstrInfo &TII = *MF.getSubtarget<LPUSubtarget>().getInstrInfo();
+  const CSAInstrInfo &TII = *MF.getSubtarget<CSASubtarget>().getInstrInfo();
 
   if (!hasReservedCallFrame(MF)) {
     int64_t Amount = I->getOperand(0).getImm();
@@ -207,11 +207,11 @@ MachineBasicBlock::iterator LPUFrameLowering::eliminateCallFramePseudoInstr(
 
       DebugLoc DL = I != MBB.end() ? I->getDebugLoc() : DebugLoc();
 
-      if (I->getOpcode() == LPU::ADJCALLSTACKDOWN) {
-        BuildMI(MBB, I, DL, TII.get(LPU::SUB64), LPU::SP).addReg(LPU::SP).
+      if (I->getOpcode() == CSA::ADJCALLSTACKDOWN) {
+        BuildMI(MBB, I, DL, TII.get(CSA::SUB64), CSA::SP).addReg(CSA::SP).
           addImm(Amount);
       } else {
-        BuildMI(MBB, I, DL, TII.get(LPU::ADD64), LPU::SP).addReg(LPU::SP).
+        BuildMI(MBB, I, DL, TII.get(CSA::ADD64), CSA::SP).addReg(CSA::SP).
           addImm(Amount);
       }
     }

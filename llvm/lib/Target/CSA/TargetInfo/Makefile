@@ -1,4 +1,4 @@
-##===- lib/Target/LPU/TargetInfo/Makefile -------------*- Makefile -*-===##
+##===- lib/Target/CSA/TargetInfo/Makefile -------------*- Makefile -*-===##
 #
 #                     The LLVM Compiler Infrastructure
 #
@@ -7,7 +7,7 @@
 #
 ##===----------------------------------------------------------------------===##
 LEVEL = ../../../..
-LIBRARYNAME = LLVMLPUInfo
+LIBRARYNAME = LLVMCSAInfo
 
 # Hack: we need to include 'main' target directory to grab private headers
 CPPFLAGS = -I$(PROJ_OBJ_DIR)/.. -I$(PROJ_SRC_DIR)/..

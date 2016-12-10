@@ -1,4 +1,4 @@
-##===- lib/Target/LPU/AsmPrinter/Makefile ------------------*- Makefile -*-===##
+##===- lib/Target/CSA/AsmPrinter/Makefile ------------------*- Makefile -*-===##
 #
 #                     The LLVM Compiler Infrastructure
 #
@@ -7,9 +7,9 @@
 #
 ##===----------------------------------------------------------------------===##
 LEVEL = ../../../..
-LIBRARYNAME = LLVMLPUAsmPrinter
+LIBRARYNAME = LLVMCSAAsmPrinter
 
-# Hack: we need to include 'main' LPU target directory to grab private headers
+# Hack: we need to include 'main' CSA target directory to grab private headers
 CPP.Flags += -I$(PROJ_OBJ_DIR)/.. -I$(PROJ_SRC_DIR)/..
 
 include $(LEVEL)/Makefile.common

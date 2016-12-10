@@ -1,16 +1,16 @@
-; RUN: llc -mtriple=lpu -lpu-seq-opt=0 < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; RUN: llc -mtriple=csa -csa-seq-opt=0 < %s | FileCheck %s --check-prefix=CSA_CHECK 
 ; Disable sequence optimization here; we're testing for the generation of
 ;esimple pick/switch loops.
 
 ; ModuleID = 'loopPick.cpp'
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind
 define i32 @loopPick(i32* nocapture %ip, i32 %n) #0 {
-; LPU_CHECK-LABEL: loopPick
-; LPU_CHECK: pick64
-; LPU_CHECK: pick64
+; CSA_CHECK-LABEL: loopPick
+; CSA_CHECK: pick64
+; CSA_CHECK: pick64
 
 entry:
   %cmp5 = icmp sgt i32 %n, 0

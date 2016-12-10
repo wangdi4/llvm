@@ -1,4 +1,4 @@
-//===-- LPUConvertControlPass.cpp - LPU control flow conversion -----------===//
+//===-- CSAConvertControlPass.cpp - CSA control flow conversion -----------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,17 +8,17 @@
 //===----------------------------------------------------------------------===//
 //
 // This file "reexpresses" the code containing traditional control flow
-// into a basically data flow representation suitable for the LPU.
+// into a basically data flow representation suitable for the CSA.
 //
 //===----------------------------------------------------------------------===//
 
 #include <map>
-#include "LPU.h"
-#include "InstPrinter/LPUInstPrinter.h"
-#include "LPUInstrInfo.h"
-#include "LPUTargetMachine.h"
-#include "LPUIfConversion.h"
-#include "LPULicAllocation.h"
+#include "CSA.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "CSAInstrInfo.h"
+#include "CSATargetMachine.h"
+#include "CSAIfConversion.h"
+#include "CSALicAllocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -37,24 +37,24 @@
 using namespace llvm;
 
 static cl::opt<int>
-ConvertControlPass("lpu-cvt-ctrl-pass", cl::Hidden,
-		   cl::desc("LPU Specific: Convert control flow pass"),
+ConvertControlPass("csa-cvt-ctrl-pass", cl::Hidden,
+		   cl::desc("CSA Specific: Convert control flow pass"),
 		   cl::init(0));
 
 static cl::opt<int>
-IfConversionTokens("lpu-if-conversion", cl::Hidden,
-		   cl::desc("LPU Specific: if Conversion within a loop"),
+IfConversionTokens("csa-if-conversion", cl::Hidden,
+		   cl::desc("CSA Specific: if Conversion within a loop"),
 		   cl::init(0));
 
 
 // Flag to enable step that replaces registers with LICs.
 static cl::opt<int>
-LICAllocationStep("lpu-lic-alloc", cl::Hidden,
-                  cl::desc("LPU Specific: Enable LIC replacement of registers"),
-                  cl::init(LPULicAllocation::LicAllocDisabled));
+LICAllocationStep("csa-lic-alloc", cl::Hidden,
+                  cl::desc("CSA Specific: Enable LIC replacement of registers"),
+                  cl::init(CSALicAllocation::LicAllocDisabled));
 
 
-#define DEBUG_TYPE "lpu-convert-control"
+#define DEBUG_TYPE "csa-convert-control"
 
 STATISTIC(NumSimple,       "Number of simple if-conversions performed");
 STATISTIC(NumSimpleFalse,  "Number of simple (F) if-conversions performed");
@@ -67,25 +67,25 @@ STATISTIC(NumDiamonds,     "Number of diamond if-conversions performed");
 //STATISTIC(NumDupBBs,       "Number of duplicated blocks");
 //STATISTIC(NumUnpred,       "Number of true blocks of diamonds unpredicated");
 
-typedef LPUIfConversion::IfcvtToken IfcvtToken;
-typedef LPUIfConversion::IfcvtKind IfcvtKind;
-typedef LPUIfConversion::BBInfo BBInfo;
-#define ICSimpleFalse LPUIfConversion::ICSimpleFalse
-#define ICSimple LPUIfConversion::ICSimple
-#define ICTriangleFRev LPUIfConversion::ICTriangleFRev
-#define ICTriangleRev LPUIfConversion::ICTriangleRev
-#define ICTriangleFalse LPUIfConversion::ICTriangleFalse
-#define ICTriangle LPUIfConversion::ICTriangle
-#define ICDiamond LPUIfConversion::ICDiamond
+typedef CSAIfConversion::IfcvtToken IfcvtToken;
+typedef CSAIfConversion::IfcvtKind IfcvtKind;
+typedef CSAIfConversion::BBInfo BBInfo;
+#define ICSimpleFalse CSAIfConversion::ICSimpleFalse
+#define ICSimple CSAIfConversion::ICSimple
+#define ICTriangleFRev CSAIfConversion::ICTriangleFRev
+#define ICTriangleRev CSAIfConversion::ICTriangleRev
+#define ICTriangleFalse CSAIfConversion::ICTriangleFalse
+#define ICTriangle CSAIfConversion::ICTriangle
+#define ICDiamond CSAIfConversion::ICDiamond
 
 namespace {
-class LPUConvertControlPass : public MachineFunctionPass {
+class CSAConvertControlPass : public MachineFunctionPass {
 public:
   static char ID;
-  LPUConvertControlPass() : MachineFunctionPass(ID) { thisMF = nullptr;}
+  CSAConvertControlPass() : MachineFunctionPass(ID) { thisMF = nullptr;}
 
   StringRef getPassName() const override {
-    return "LPU Convert Control Flow";
+    return "CSA Convert Control Flow";
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -104,13 +104,13 @@ private:
 
   MachineDominatorTree *DT;
 
-  LPUIfConversion *myIfConverter;
-  LPULicAllocation *myLicAllocater;
+  CSAIfConversion *myIfConverter;
+  CSALicAllocation *myLicAllocater;
 
   void addLoop(std::vector<MachineLoop *> &loopList, MachineLoop *ML);
 
   void prepareIfConverter() {
-    myIfConverter = new LPUIfConversion();
+    myIfConverter = new CSAIfConversion();
     thisMF->RenumberBlocks();
     myIfConverter->BBAnalysis.resize(thisMF->getNumBlockIDs());
     myIfConverter->TII = thisMF->getSubtarget().getInstrInfo();
@@ -150,14 +150,14 @@ private:
 };
 }
 
-MachineFunctionPass *llvm::createLPUConvertControlPass() {
-  return new LPUConvertControlPass();
+MachineFunctionPass *llvm::createCSAConvertControlPass() {
+  return new CSAConvertControlPass();
 }
 
-char LPUConvertControlPass::ID = 0;
+char CSAConvertControlPass::ID = 0;
 
 bool
-LPUConvertControlPass::
+CSAConvertControlPass::
 candidateForIfConversion(MachineLoop *loop, std::vector<IfcvtToken*> &Tokens) {
 
   // assumption is that this is a single entry loop
@@ -176,14 +176,14 @@ candidateForIfConversion(MachineLoop *loop, std::vector<IfcvtToken*> &Tokens) {
   if (!Tokens.empty()) {
     // this sorting is inherited from the llvm ifConverter and not understood
     std::stable_sort(Tokens.begin(), Tokens.end(),
-                     LPUIfConversion::IfcvtTokenCmp);
+                     CSAIfConversion::IfcvtTokenCmp);
     return true;
   }
 
   return false;
 }
 
-bool LPUConvertControlPass::candidateLoopForDF(MachineLoop *currLoop) {
+bool CSAConvertControlPass::candidateLoopForDF(MachineLoop *currLoop) {
 
     // ignore outer loops
     const std::vector<MachineLoop*> &SubLoops = currLoop->getSubLoops();
@@ -226,7 +226,7 @@ bool LPUConvertControlPass::candidateLoopForDF(MachineLoop *currLoop) {
 }
 
 bool
-LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
+CSAConvertControlPass::analyzePhiOperands(MachineInstr *MI,
                                           MachineBasicBlock *BB,
                                           unsigned int *srcReg1,
                                           unsigned int *predReg1,
@@ -270,7 +270,7 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
         return false;
       }
 
-      LPU::CondCode branchCC = (LPU::CondCode)predCond[0].getImm();
+      CSA::CondCode branchCC = (CSA::CondCode)predCond[0].getImm();
 
       // is the loop back branch predicate set to true?
       if (&predBB == loopBackedgeBB) {
@@ -278,7 +278,7 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
           DEBUG(errs() << "Loop back branch predicate is set to false \n");
           return false;
         }
-        if (branchCC != LPU::COND_T) {
+        if (branchCC != CSA::COND_T) {
           DEBUG(errs() << "Loop back branch predicate is set to false \n");
           return false;
         }
@@ -290,7 +290,7 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
           DEBUG(errs() << "Loop entry fallthrough predicate is set to true \n");
           return false;
         }
-        if (!predFBB && (branchCC != LPU::COND_T)) {
+        if (!predFBB && (branchCC != CSA::COND_T)) {
           DEBUG(errs() << "Loop entry fallthrough predicate is set to true \n");
           return false;
         }
@@ -318,12 +318,12 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
 
 // generate PICKs or SWITCHes when possible
 bool
-LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
+CSAConvertControlPass::genDFInstructions(MachineInstr *MI,
                                          MachineBasicBlock *BB,
                                          MachineBasicBlock::iterator
                                            LastPhiInst) {
 
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>
                             (thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
@@ -442,7 +442,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
 }
 
 bool
-LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
+CSAConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
                                          MachineBasicBlock::iterator
 						LastPhiInst,
 					 std::set<unsigned> UseRegsSet) {
@@ -451,9 +451,9 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 
   assert(((Kind == ICTriangle) || (Kind == ICTriangleRev) ||
           (Kind == ICTriangleFalse) || (Kind == ICTriangleFRev)) &&
-          "LPUIfConversion: genDFInstructions - unexpected Token Kind");
+          "CSAIfConversion: genDFInstructions - unexpected Token Kind");
 
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>
                             (thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
@@ -471,29 +471,29 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
     std::swap(currBB, postDomBB);
   }
 
-  assert((currBB == MI->getParent()) && "LPUIfConversion: BB insanity");
+  assert((currBB == MI->getParent()) && "CSAIfConversion: BB insanity");
 
   SmallVector<MachineOperand, 4> brCond;
   MachineBasicBlock *currTBB = nullptr, *currFBB = nullptr;
   if (TII.analyzeBranch(*domBB, currTBB, currFBB, brCond, true)) {
-    DEBUG(errs() << "LPUIfConversion: domBB branch not analyzable \n");
+    DEBUG(errs() << "CSAIfConversion: domBB branch not analyzable \n");
     return false;
   }
 
   if (brCond.empty()) {
-    DEBUG(errs() << "LPUIfConversion: brCond is empty \n");
+    DEBUG(errs() << "CSAIfConversion: brCond is empty \n");
     return false;
   }
 
-  LPU::CondCode branchCC = (LPU::CondCode)brCond[0].getImm();
+  CSA::CondCode branchCC = (CSA::CondCode)brCond[0].getImm();
   bool swapPickSwitchRegs = false;
   if ((Kind == ICTriangle || Kind == ICTriangleRev)
-       && (branchCC == LPU::COND_T)) {
+       && (branchCC == CSA::COND_T)) {
     swapPickSwitchRegs = true;
   }
 
   if ((Kind == ICTriangleFalse || Kind == ICTriangleFRev)
-       && (branchCC == LPU::COND_F)) {
+       && (branchCC == CSA::COND_F)) {
     swapPickSwitchRegs = true;
   }
 
@@ -513,7 +513,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 	  UseRegsSet.insert(Reg);
 	}
 
-        DEBUG(errs() << "LPUIfConversion: found live in Reg" <<
+        DEBUG(errs() << "CSAIfConversion: found live in Reg" <<
                      PrintReg(Reg) << "\n");
 
         // generate and insert SWITCH in dominating block
@@ -584,7 +584,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 	  assert(useMI.isPHI() &&
                  "use of live out conditional def. is not in a Phi");
 
-          DEBUG(errs() << "LPUIfConversion: found live out Reg#  "
+          DEBUG(errs() << "CSAIfConversion: found live out Reg#  "
                 << PrintReg(Reg) << "\n");
 
           // generate and insert PICK in post dominating block
@@ -647,7 +647,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
   return genDFInst;
 }
 
-bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
+bool CSAConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
 
   bool genDFInst = false;
 
@@ -705,7 +705,7 @@ bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
   return genDFInst;
 }
 
-bool LPUConvertControlPass::
+bool CSAConvertControlPass::
 processIfConversionRegion(std::vector<IfcvtToken*> &Tokens) {
 
     bool Change = false;
@@ -821,8 +821,8 @@ processIfConversionRegion(std::vector<IfcvtToken*> &Tokens) {
 
 // process live ranges within the loop.
 // Does conversion of registers into LICs. 
-bool LPUConvertControlPass::processLiveRangesInLoop(MachineBasicBlock *BB) {
-  myLicAllocater = new LPULicAllocation(LICAllocationStep);
+bool CSAConvertControlPass::processLiveRangesInLoop(MachineBasicBlock *BB) {
+  myLicAllocater = new CSALicAllocation(LICAllocationStep);
   bool loopModified = false;
   if (myLicAllocater->pass_enabled()) {
     loopModified = myLicAllocater->allocateLicsInBlock(BB);
@@ -831,7 +831,7 @@ bool LPUConvertControlPass::processLiveRangesInLoop(MachineBasicBlock *BB) {
   return loopModified;
 }
 
-bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
+bool CSAConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
 
   bool loopModified = false;
 
@@ -886,7 +886,7 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
   return loopModified;
 }
 
-void LPUConvertControlPass::addLoop(std::vector<MachineLoop *> &loopList, MachineLoop *loop) {
+void CSAConvertControlPass::addLoop(std::vector<MachineLoop *> &loopList, MachineLoop *loop) {
 
   loopList.push_back(loop);
 
@@ -899,7 +899,7 @@ void LPUConvertControlPass::addLoop(std::vector<MachineLoop *> &loopList, Machin
   }
 }
 
-bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
+bool CSAConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
 
   if (ConvertControlPass == 0) return false;
 

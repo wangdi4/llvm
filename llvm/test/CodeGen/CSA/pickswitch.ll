@@ -1,14 +1,14 @@
-; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK 
 
 
 ; ModuleID = 'loopPickSwitch.cpp'
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind
 define i32 @loopPickSwitch(i32* nocapture %ip, i32 %n) #0 {
-; LPU_CHECK-LABEL: loopPickSwitch
-; LPU_CHECK: switch32
+; CSA_CHECK-LABEL: loopPickSwitch
+; CSA_CHECK: switch32
 
 entry:
   %cmp6 = icmp sgt i32 %n, 0

@@ -1,13 +1,13 @@
-; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK 
 
-; ModuleID = 'tools/src/llvm/test/CodeGen/LPU/ALUOps.c'
+; ModuleID = 'tools/src/llvm/test/CodeGen/CSA/ALUOps.c'
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind
 define i32 @ltSL(i64 %a, i64 %b) #0 {
-; LPU_CHECK-LABEL: ltSL
-; LPU_CHECK: cmplts64
+; CSA_CHECK-LABEL: ltSL
+; CSA_CHECK: cmplts64
 
 entry:
   %a.addr = alloca i64, align 8

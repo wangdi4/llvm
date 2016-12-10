@@ -1,4 +1,4 @@
-//===- llvm/Bitcode/LPUSaveRawBC.h - LPU Raw BC Interface -*- C++ -*-===//
+//===- llvm/Bitcode/CSASaveRawBC.h - CSA Raw BC Interface -*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// The LPUSaveRawBC pass saves the IR for a module. It is intended to be as
+// The CSASaveRawBC pass saves the IR for a module. It is intended to be as
 // close to the Bitcode emitted by the -flto option as possible.
 //
 //===----------------------------------------------------------------------===//
@@ -18,20 +18,20 @@ namespace llvm {
 // Declare routine to create the pass which will save a copy of the original
 // IR. This is called from PassManagerBuilder.cpp to add the pass very early
 // in the initialization sequence
-ImmutablePass *createLPUSaveRawBCPass();
+ImmutablePass *createCSASaveRawBCPass();
 
 
-class LPUSaveRawBC : public ImmutablePass {
+class CSASaveRawBC : public ImmutablePass {
 public:
   // The ID used to identify the pass. LLVM will actually use the address,
-  // not the value, so it's just initialized to 0 in LPUSaveRawBC.cpp
+  // not the value, so it's just initialized to 0 in CSASaveRawBC.cpp
   static char ID;
 
   // The raw IR serialized as a BC file
   static std::string BcData;
 
   // Constructor
-  LPUSaveRawBC();
+  CSASaveRawBC();
 
   // Initialization - Pretty much all that we have to work with. Called before
   // any module or function passes. Save away a copy of the raw (unoptimized)
@@ -45,6 +45,6 @@ public:
 private:
   void dumpBC(StringRef modName);
 
-}; // class LPUSaveRawBC
+}; // class CSASaveRawBC
 
 }  // namespace llvm

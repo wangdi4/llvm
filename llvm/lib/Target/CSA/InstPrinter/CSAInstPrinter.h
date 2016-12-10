@@ -1,4 +1,4 @@
-//= LPUInstPrinter.h - Convert LPU MCInst to assembly syntax -------*- C++ -*-//
+//= CSAInstPrinter.h - Convert CSA MCInst to assembly syntax -------*- C++ -*-//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,22 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This class prints a LPU MCInst to a .s file.
+// This class prints a CSA MCInst to a .s file.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_INSTPRINTER_LPUINSTPRINTER_H
-#define LLVM_LIB_TARGET_LPU_INSTPRINTER_LPUINSTPRINTER_H
+#ifndef LLVM_LIB_TARGET_CSA_INSTPRINTER_CSAINSTPRINTER_H
+#define LLVM_LIB_TARGET_CSA_INSTPRINTER_CSAINSTPRINTER_H
 
 #include "llvm/MC/MCInstPrinter.h"
 
 namespace llvm {
   class MCOperand;
 
-  class LPUInstPrinter : public MCInstPrinter {
+  class CSAInstPrinter : public MCInstPrinter {
     virtual void anchor();
   public:
-    LPUInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
+    CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
 		   const MCRegisterInfo &MRI);
 
     void printInst(const MCInst *MI, raw_ostream &O, StringRef Annot,

@@ -302,7 +302,7 @@ set(LLVM_ALL_TARGETS
   CBackend
   Hexagon
   Lanai
-  LPU
+  CSA
   Mips
   MSP430
   NVPTX

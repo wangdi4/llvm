@@ -1,4 +1,4 @@
-;===- ./lib/Target/LPU/MCTargetDesc/LLVMBuild.txt --------------*- Conf -*--===;
+;===- ./lib/Target/CSA/MCTargetDesc/LLVMBuild.txt --------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -17,7 +17,7 @@
 
 [component_0]
 type = Library
-name = LPUDesc
-parent = LPU
-required_libraries = MC LPUAsmPrinter LPUInfo
-add_to_library_groups = LPU
+name = CSADesc
+parent = CSA
+required_libraries = MC CSAAsmPrinter CSAInfo
+add_to_library_groups = CSA

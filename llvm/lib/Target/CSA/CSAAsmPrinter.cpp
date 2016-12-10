@@ -1,4 +1,4 @@
-//===-- LPUAsmPrinter.cpp - LPU LLVM assembly writer ----------------------===//
+//===-- CSAAsmPrinter.cpp - CSA LLVM assembly writer ----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,15 +8,15 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains a printer that converts from our internal representation
-// of machine-dependent LLVM code to the LPU assembly language.
+// of machine-dependent LLVM code to the CSA assembly language.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPU.h"
-#include "InstPrinter/LPUInstPrinter.h"
-#include "LPUInstrInfo.h"
-#include "LPUMCInstLower.h"
-#include "LPUTargetMachine.h"
+#include "CSA.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "CSAInstrInfo.h"
+#include "CSAMCInstLower.h"
+#include "CSATargetMachine.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -36,7 +36,7 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ELF.h"
-#include "llvm/Bitcode/LPUSaveRawBC.h"
+#include "llvm/Bitcode/CSASaveRawBC.h"
 #include <fstream>
 #include <sstream>
 
@@ -45,13 +45,13 @@ using namespace llvm;
 #define DEBUG_TYPE "asm-printer"
 
 static cl::opt<bool>
-EmitLineNumbers("lpu-emit-line-numbers", cl::Hidden,
-                cl::desc("LPU Specific: Emit Line numbers even without -G"),
+EmitLineNumbers("csa-emit-line-numbers", cl::Hidden,
+                cl::desc("CSA Specific: Emit Line numbers even without -G"),
                 cl::init(true));
 
 static cl::opt<bool>
-InterleaveSrc("lpu-emit-src", cl::ZeroOrMore, cl::Hidden,
-              cl::desc("LPU Specific: Emit source line in asm file"),
+InterleaveSrc("csa-emit-src", cl::ZeroOrMore, cl::Hidden,
+              cl::desc("CSA Specific: Emit source line in asm file"),
               cl::init(false));
 
 namespace {
@@ -83,7 +83,7 @@ namespace {
     }
   };
 
-  class LPUAsmPrinter : public AsmPrinter {
+  class CSAAsmPrinter : public AsmPrinter {
     const Function *F;
     const MachineRegisterInfo *MRI;
     DebugLoc prevDebugLoc;
@@ -102,12 +102,12 @@ namespace {
     void writeAsmLine(const char *);
 
   public:
-    LPUAsmPrinter(TargetMachine &TM,
+    CSAAsmPrinter(TargetMachine &TM,
             std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer)), reader() {}
 
     StringRef getPassName() const override {
-      return "LPU Assembly Printer";
+      return "CSA Assembly Printer";
     }
 
     void EmitStartOfAsmFile(Module &) override;
@@ -122,15 +122,15 @@ namespace {
   };
 } // end of anonymous namespace
 
-bool LPUAsmPrinter::ignoreLoc(const MachineInstr &MI) {
+bool CSAAsmPrinter::ignoreLoc(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default:
     return false;
-    // May be desirable to avoid LPU-specific MachineInstrs
+    // May be desirable to avoid CSA-specific MachineInstrs
   }
 }
 
-void LPUAsmPrinter::recordAndEmitFilenames(Module &M) {
+void CSAAsmPrinter::recordAndEmitFilenames(Module &M) {
   DebugInfoFinder DbgFinder;
   DbgFinder.processModule(M);
 
@@ -165,7 +165,7 @@ void LPUAsmPrinter::recordAndEmitFilenames(Module &M) {
   }
 }
 
-bool LPUAsmPrinter::doInitialization(Module &M) {
+bool CSAAsmPrinter::doInitialization(Module &M) {
   bool result = AsmPrinter::doInitialization(M);
 
   // Emit module-level inline asm if it exists.
@@ -183,7 +183,7 @@ bool LPUAsmPrinter::doInitialization(Module &M) {
   return result;
 }
 
-void LPUAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
+void CSAAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
   if (!EmitLineNumbers)
     return;
   if (ignoreLoc(MI))
@@ -227,7 +227,7 @@ void LPUAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
   OutStreamer->EmitRawText(Twine(temp.str().c_str()));
 }
 
-void LPUAsmPrinter::emitSrcInText(StringRef filename, unsigned line) {
+void CSAAsmPrinter::emitSrcInText(StringRef filename, unsigned line) {
   std::stringstream temp;
   LineReader *reader = this->getReader(filename.str());
   temp << "\n//";
@@ -240,7 +240,7 @@ void LPUAsmPrinter::emitSrcInText(StringRef filename, unsigned line) {
   this->OutStreamer->EmitRawText(Twine(temp.str()));
 }
 
-LineReader *LPUAsmPrinter::getReader(std::string filename) {
+LineReader *CSAAsmPrinter::getReader(std::string filename) {
   if (!reader) {
     reader = new LineReader(filename);
   }
@@ -253,10 +253,10 @@ LineReader *LPUAsmPrinter::getReader(std::string filename) {
   return reader;
 }
 
-void LPUAsmPrinter::emitParamList(const Function *F) {
+void CSAAsmPrinter::emitParamList(const Function *F) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const TargetLowering *TLI = MF->getSubtarget<LPUSubtarget>().getTargetLowering();
+  const TargetLowering *TLI = MF->getSubtarget<CSASubtarget>().getTargetLowering();
   Function::const_arg_iterator I, E;
   unsigned paramIndex = 0;
   MVT thePointerTy = TLI->getPointerTy(MF->getDataLayout());
@@ -265,7 +265,7 @@ void LPUAsmPrinter::emitParamList(const Function *F) {
   // This is a hack mostly taken from NVPTX.  This assumes successive
   // parameters go to successive registers, starting with the initial
   // value of paramReg.  This may be too simplistic for longer term.
-  int paramReg = 2;  // Params start in R0 - see LPUCallingConv.td
+  int paramReg = 2;  // Params start in R0 - see CSACallingConv.td
   bool first = true;
   for (I = F->arg_begin(), E = F->arg_end(); I != E; ++I, paramIndex++) {
     Type *Ty = I->getType();
@@ -283,26 +283,26 @@ void LPUAsmPrinter::emitParamList(const Function *F) {
     if (!first) {
       O << '\n';
     }
-    O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+    O << CSAInstPrinter::WrapLpuAsmLinePrefix();
     O << "\t.param .reg " << typeStr << sz << " %r" << paramReg++;
-    O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+    O << CSAInstPrinter::WrapLpuAsmLineSuffix();
     first = false;
   }
   if (!first)
     OutStreamer->EmitRawText(O.str());
 }
 
-void LPUAsmPrinter::emitReturnVal(const Function *F) {
+void CSAAsmPrinter::emitReturnVal(const Function *F) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const TargetLowering *TLI = MF->getSubtarget<LPUSubtarget>().getTargetLowering();
+  const TargetLowering *TLI = MF->getSubtarget<CSASubtarget>().getTargetLowering();
 
   Type *Ty = F->getReturnType();
 
   if (Ty->getTypeID() == Type::VoidTyID)
     return;
 
-  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
   O << "\t.result .reg";
 
   if (Ty->isFloatingPointTy() || Ty->isIntegerTy()) {
@@ -326,29 +326,29 @@ void LPUAsmPrinter::emitReturnVal(const Function *F) {
   // Hack: For now, we simply go with the standard return register.
   // (Should really use the allocation.)
   O << " %r0";
-  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
 
   OutStreamer->EmitRawText(O.str());
 }
 
-void LPUAsmPrinter::writeAsmLine(const char *text) {
+void CSAAsmPrinter::writeAsmLine(const char *text) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
 
-  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
   O << text;
-  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 }
 
-void LPUAsmPrinter::EmitLpuCodeSection() {
+void CSAAsmPrinter::EmitLpuCodeSection() {
   // The .section directive for an ELF object as a name and 3 optional,
   // comma separated parts as detailed at
   // https://sourceware.org/binutils/docs/as/Section.html
   //
-  // The LPU code section uses the following:
+  // The CSA code section uses the following:
   //
-  // Name: ".lpu.code". I may want to append the module name.
+  // Name: ".csa.code". I may want to append the module name.
   //
   // Flag values:
   // - a - Section is allocatable - Which tells us very little. The ELF
@@ -357,18 +357,18 @@ void LPUAsmPrinter::EmitLpuCodeSection() {
   // - S - Section contains zero terminated strings
   //
   // Type: "@progbits" - section contains data
-  OutStreamer->EmitRawText("\t.section\t\".lpu.code\",\"aS\",@progbits");
+  OutStreamer->EmitRawText("\t.section\t\".csa.code\",\"aS\",@progbits");
 }
 
-void LPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
+void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
 
-  if (LPUInstPrinter::WrapLpuAsm()) {
-    // Put the code in the .lpu.code  section. Note that we are NOT
+  if (CSAInstPrinter::WrapLpuAsm()) {
+    // Put the code in the .csa.code  section. Note that we are NOT
     // using SwitchSection because then we'll fight with the
     // AmsPrinter::EmitFunctionHeader
     EmitLpuCodeSection();
-    OutStreamer->EmitRawText("\t.globl\t__lpu_assembly__\n");
-    OutStreamer->EmitRawText("__lpu_assembly__:\n");
+    OutStreamer->EmitRawText("\t.globl\t__csa_assembly__\n");
+    OutStreamer->EmitRawText("__csa_assembly__:\n");
     writeAsmLine("\t.text");
   }
   
@@ -378,22 +378,22 @@ void LPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
    */
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const LPUTargetMachine *LPUTM = static_cast<const LPUTargetMachine*>(&TM);
-  assert(LPUTM && LPUTM->getSubtargetImpl());
-  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+  const CSATargetMachine *CSATM = static_cast<const CSATargetMachine*>(&TM);
+  assert(CSATM && CSATM->getSubtargetImpl());
+  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
   O << "\t# .processor ";  // note - commented out...
-  O << LPUTM->getSubtargetImpl()->lpuName();
-  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSATM->getSubtargetImpl()->csaName();
+  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 
   writeAsmLine("\t.version 0,6,0");
   writeAsmLine("\t.unit sxu");
 }
 
-void LPUAsmPrinter::EmitEndOfAsmFile(Module &M) {
+void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
 
-  if (LPUInstPrinter::WrapLpuAsm()) {
-    // Add the terminating null for the .lpu section. Note
+  if (CSAInstPrinter::WrapLpuAsm()) {
+    // Add the terminating null for the .csa section. Note
     // that we are NOT using SwitchSection because then we'll
     // fight with the AmsPrinter::EmitFunctionHeader
     EmitLpuCodeSection();
@@ -401,11 +401,11 @@ void LPUAsmPrinter::EmitEndOfAsmFile(Module &M) {
 
     // Dump the raw IR to the file as data. We want this information
     // loaded into the address space, so we're giving it the "a" flag
-    auto *SRB = getAnalysisIfAvailable<LPUSaveRawBC>();
-    assert(SRB && "LPUSaveRawBC should always be available!");
+    auto *SRB = getAnalysisIfAvailable<CSASaveRawBC>();
+    assert(SRB && "CSASaveRawBC should always be available!");
 
     const std::string &rawBC = SRB->getRawBC();
-    OutStreamer->EmitRawText("\t.section\t\".lpu.raw.bc\",\"a\",@progbits");
+    OutStreamer->EmitRawText("\t.section\t\".csa.raw.bc\",\"a\",@progbits");
 
     for (size_t i = 0; i < rawBC.size(); ++i) {
       OutStreamer->EmitIntValue(rawBC[i], 1);
@@ -413,7 +413,7 @@ void LPUAsmPrinter::EmitEndOfAsmFile(Module &M) {
   }
 }
 
-void LPUAsmPrinter::EmitFunctionEntryLabel() {
+void CSAAsmPrinter::EmitFunctionEntryLabel() {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
 
@@ -421,30 +421,30 @@ void LPUAsmPrinter::EmitFunctionEntryLabel() {
   MRI = &MF->getRegInfo();
   F = MF->getFunction();
 
-  // If we're wrapping the LPU assembly we need to create our own
+  // If we're wrapping the CSA assembly we need to create our own
   // global symbol declaration
-  if (LPUInstPrinter::WrapLpuAsm()) {
+  if (CSAInstPrinter::WrapLpuAsm()) {
     // The global symbol needs a value. As long as we're using the simulator,
     // we find entries by name, so point to the name. But be sure it doesn't
-    // interrupt the string we're building in the .lpu.code section
+    // interrupt the string we're building in the .csa.code section
     O << "\n\t.section\t.rodata.str1.16,\"aMS\",@progbits,1\n";
     O << *CurrentFnSym << ":\n";
     O << "\t.asciz\t" << "\"" << *CurrentFnSym << "\"\n\n";
-    O << "\t.section\t\".lpu.code\",\"aS\",@progbits\n";
+    O << "\t.section\t\".csa.code\",\"aS\",@progbits\n";
 
-    O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+    O << CSAInstPrinter::WrapLpuAsmLinePrefix();
     O << "\t.globl\t" << *CurrentFnSym;
-    O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+    O << CSAInstPrinter::WrapLpuAsmLineSuffix();
     O << "\n";
   }
-  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
   O << "\t.entry\t" << *CurrentFnSym;
-  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
   O << "\n";
   // For now, assume control flow (sequential) entry
-  O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+  O << CSAInstPrinter::WrapLpuAsmLinePrefix();
   O << *CurrentFnSym << ":";
-  O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+  O << CSAInstPrinter::WrapLpuAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 
   // Start a scope for this routine to localize the LIC names
@@ -457,47 +457,47 @@ void LPUAsmPrinter::EmitFunctionEntryLabel() {
 }
 
 
-void LPUAsmPrinter::EmitFunctionBodyStart() {
+void CSAAsmPrinter::EmitFunctionBodyStart() {
   //  const MachineRegisterInfo *MRI;
   MRI = &MF->getRegInfo();
-  const LPUMachineFunctionInfo *LMFI = MF->getInfo<LPUMachineFunctionInfo>();
+  const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
 
   // Generate declarations for each LIC by looping over the LIC classes,
   // and over each lic in the class, outputting a decl if needed.
   // Note: If we start allowing parameters and results in LICs for
   // HybridDataFlow, this may need to be revisited to make sure they
   // are in order.
-  for (TargetRegisterClass::iterator ri = LPU::ANYCRegClass.begin();
-                                     ri != LPU::ANYCRegClass.end(); ++ri) {
+  for (TargetRegisterClass::iterator ri = CSA::ANYCRegClass.begin();
+                                     ri != CSA::ANYCRegClass.end(); ++ri) {
     MCPhysReg reg = *ri;
     if (LMFI->isAllocated(reg)) {
       SmallString<128> Str;
       raw_svector_ostream O(Str);
-      O << LPUInstPrinter::WrapLpuAsmLinePrefix();
+      O << CSAInstPrinter::WrapLpuAsmLinePrefix();
       O << "\t";
       // LIC or register
-      O << (LPU::ANYCRegClass.contains(reg) ? ".lic " : ".reg ");
+      O << (CSA::ANYCRegClass.contains(reg) ? ".lic " : ".reg ");
       // Output type based on regclass
-      if      (LPU::CI64RegClass.contains(reg)) O << ".i64";
-      else if (LPU::CI32RegClass.contains(reg)) O << ".i32";
-      else if (LPU::CI16RegClass.contains(reg)) O << ".i16";
-      else if (LPU::CI8RegClass.contains(reg))  O << ".i8";
-      else if (LPU::CI1RegClass.contains(reg))  O << ".i1";
-      else if (LPU::CI0RegClass.contains(reg))  O << ".i0";
-      O << " " << LPUInstPrinter::getRegisterName(reg);
-      O << LPUInstPrinter::WrapLpuAsmLineSuffix();
+      if      (CSA::CI64RegClass.contains(reg)) O << ".i64";
+      else if (CSA::CI32RegClass.contains(reg)) O << ".i32";
+      else if (CSA::CI16RegClass.contains(reg)) O << ".i16";
+      else if (CSA::CI8RegClass.contains(reg))  O << ".i8";
+      else if (CSA::CI1RegClass.contains(reg))  O << ".i1";
+      else if (CSA::CI0RegClass.contains(reg))  O << ".i0";
+      O << " " << CSAInstPrinter::getRegisterName(reg);
+      O << CSAInstPrinter::WrapLpuAsmLineSuffix();
       OutStreamer->EmitRawText(O.str());
     }
   }
 
 }
 
-void LPUAsmPrinter::EmitFunctionBodyEnd() {
+void CSAAsmPrinter::EmitFunctionBodyEnd() {
   writeAsmLine("}");
 }
 
-void LPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
-  LPUMCInstLower MCInstLowering(OutContext, *this);
+void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
+  CSAMCInstLower MCInstLowering(OutContext, *this);
   emitLineNumberAsDotLoc(*MI);
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
@@ -505,6 +505,6 @@ void LPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
 }
 
 // Force static initialization.
-extern "C" void LLVMInitializeLPUAsmPrinter() {
-  RegisterAsmPrinter<LPUAsmPrinter> X(TheLPUTarget);
+extern "C" void LLVMInitializeCSAAsmPrinter() {
+  RegisterAsmPrinter<CSAAsmPrinter> X(TheCSATarget);
 }

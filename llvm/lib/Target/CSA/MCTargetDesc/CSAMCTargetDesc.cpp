@@ -1,4 +1,4 @@
-//===-- LPUMCTargetDesc.cpp - LPU Target Descriptions ---------------------===//
+//===-- CSAMCTargetDesc.cpp - CSA Target Descriptions ---------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,13 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file provides LPU specific target descriptions.
+// This file provides CSA specific target descriptions.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUMCTargetDesc.h"
-#include "InstPrinter/LPUInstPrinter.h"
-#include "LPUMCAsmInfo.h"
+#include "CSAMCTargetDesc.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "CSAMCAsmInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
@@ -31,57 +31,57 @@ namespace MCOI {
 }
 
 #define GET_INSTRINFO_MC_DESC
-#include "LPUGenInstrInfo.inc"
+#include "CSAGenInstrInfo.inc"
 
 #define GET_SUBTARGETINFO_MC_DESC
-#include "LPUGenSubtargetInfo.inc"
+#include "CSAGenSubtargetInfo.inc"
 
 #define GET_REGINFO_MC_DESC
-#include "LPUGenRegisterInfo.inc"
+#include "CSAGenRegisterInfo.inc"
 
-static MCInstrInfo *createLPUMCInstrInfo() {
+static MCInstrInfo *createCSAMCInstrInfo() {
   MCInstrInfo *X = new MCInstrInfo();
-  InitLPUMCInstrInfo(X);
+  InitCSAMCInstrInfo(X);
   return X;
 }
 
-static MCRegisterInfo *createLPUMCRegisterInfo(const Triple &TT) {
+static MCRegisterInfo *createCSAMCRegisterInfo(const Triple &TT) {
   MCRegisterInfo *X = new MCRegisterInfo();
-  InitLPUMCRegisterInfo(X, LPU::FP); // TODO: Fix R0 - just picked a reg...
+  InitCSAMCRegisterInfo(X, CSA::FP); // TODO: Fix R0 - just picked a reg...
   return X;
 }
 
-static MCSubtargetInfo *createLPUMCSubtargetInfo(const Triple &TT, StringRef CPU,
+static MCSubtargetInfo *createCSAMCSubtargetInfo(const Triple &TT, StringRef CPU,
                                                     StringRef FS) {
-  return createLPUMCSubtargetInfoImpl(TT, CPU, FS);
+  return createCSAMCSubtargetInfoImpl(TT, CPU, FS);
 }
 
-static MCInstPrinter *createLPUMCInstPrinter(const Triple &T,
+static MCInstPrinter *createCSAMCInstPrinter(const Triple &T,
                                                 unsigned SyntaxVariant,
                                                 const MCAsmInfo &MAI,
                                                 const MCInstrInfo &MII,
                                                 const MCRegisterInfo &MRI) {
   if (SyntaxVariant == 0)
-    return new LPUInstPrinter(MAI, MII, MRI);
+    return new CSAInstPrinter(MAI, MII, MRI);
   return nullptr;
 }
 
-extern "C" void LLVMInitializeLPUTargetMC() {
+extern "C" void LLVMInitializeCSATargetMC() {
   // Register the MC asm info.
-  RegisterMCAsmInfo<LPUMCAsmInfo> X(TheLPUTarget);
+  RegisterMCAsmInfo<CSAMCAsmInfo> X(TheCSATarget);
 
   // Register the MC instruction info.
-  TargetRegistry::RegisterMCInstrInfo(TheLPUTarget, createLPUMCInstrInfo);
+  TargetRegistry::RegisterMCInstrInfo(TheCSATarget, createCSAMCInstrInfo);
 
   // Register the MC register info.
-  TargetRegistry::RegisterMCRegInfo(TheLPUTarget,
-                                    createLPUMCRegisterInfo);
+  TargetRegistry::RegisterMCRegInfo(TheCSATarget,
+                                    createCSAMCRegisterInfo);
 
   // Register the MC subtarget info.
-  TargetRegistry::RegisterMCSubtargetInfo(TheLPUTarget,
-                                          createLPUMCSubtargetInfo);
+  TargetRegistry::RegisterMCSubtargetInfo(TheCSATarget,
+                                          createCSAMCSubtargetInfo);
 
   // Register the MCInstPrinter.
-  TargetRegistry::RegisterMCInstPrinter(TheLPUTarget,
-                                        createLPUMCInstPrinter);
+  TargetRegistry::RegisterMCInstPrinter(TheCSATarget,
+                                        createCSAMCInstPrinter);
 }

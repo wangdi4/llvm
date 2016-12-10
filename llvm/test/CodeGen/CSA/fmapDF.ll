@@ -1,14 +1,14 @@
-; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK 
 
-; ModuleID = 'tools/src/llvm/test/CodeGen/LPU/ALUOps.c'
+; ModuleID = 'tools/src/llvm/test/CodeGen/CSA/ALUOps.c'
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind
 define double @fmapDF(double %a, double %b, double %c, double %d) #0 {
-; LPU_CHECK-LABEL: fmapDF
-; LPU_CHECK: fmaf64
-; LPU_CHECK: addf64
+; CSA_CHECK-LABEL: fmapDF
+; CSA_CHECK: fmaf64
+; CSA_CHECK: addf64
 
 entry:
   %a.addr = alloca double, align 8

@@ -1,36 +1,36 @@
-set(LLVM_TARGET_DEFINITIONS LPU.td)
+set(LLVM_TARGET_DEFINITIONS CSA.td)
 
-tablegen(LLVM LPUGenRegisterInfo.inc -gen-register-info)
-tablegen(LLVM LPUGenInstrInfo.inc -gen-instr-info)
-tablegen(LLVM LPUGenAsmWriter.inc -gen-asm-writer)
-tablegen(LLVM LPUGenDAGISel.inc -gen-dag-isel)
-tablegen(LLVM LPUGenCallingConv.inc -gen-callingconv)
-tablegen(LLVM LPUGenSubtargetInfo.inc -gen-subtarget)
-add_public_tablegen_target(LPUCommonTableGen)
+tablegen(LLVM CSAGenRegisterInfo.inc -gen-register-info)
+tablegen(LLVM CSAGenInstrInfo.inc -gen-instr-info)
+tablegen(LLVM CSAGenAsmWriter.inc -gen-asm-writer)
+tablegen(LLVM CSAGenDAGISel.inc -gen-dag-isel)
+tablegen(LLVM CSAGenCallingConv.inc -gen-callingconv)
+tablegen(LLVM CSAGenSubtargetInfo.inc -gen-subtarget)
+add_public_tablegen_target(CSACommonTableGen)
 
-add_llvm_target(LPUCodeGen
-  LPUAllocUnitPass.cpp
-  LPUAsmPrinter.cpp
-  LPUConvertControlPass.cpp
-  LPUCvtCFDFPass.cpp
-  LPUDeadInstructionElim.cpp
-  LPUFrameLowering.cpp
-  LPUISelDAGToDAG.cpp
-  LPUISelLowering.cpp
-  LPUIfConversion.cpp
-  LPUInstrInfo.cpp
-  LPULicAllocation.cpp
-  LPULowerAggrCopies.cpp
-  LPUMCInstLower.cpp
-  LPUMachineFunctionInfo.cpp
-  LPUOptDFPass.cpp
-  LPURedundantMovElim.cpp  
-  LPURegisterInfo.cpp
-  LPUSelectionDAGInfo.cpp
-  LPUStatistics.cpp
-  LPUSubtarget.cpp
-  LPUTargetMachine.cpp
-  LPUTargetTransformInfo.cpp
+add_llvm_target(CSACodeGen
+  CSAAllocUnitPass.cpp
+  CSAAsmPrinter.cpp
+  CSAConvertControlPass.cpp
+  CSACvtCFDFPass.cpp
+  CSADeadInstructionElim.cpp
+  CSAFrameLowering.cpp
+  CSAISelDAGToDAG.cpp
+  CSAISelLowering.cpp
+  CSAIfConversion.cpp
+  CSAInstrInfo.cpp
+  CSALicAllocation.cpp
+  CSALowerAggrCopies.cpp
+  CSAMCInstLower.cpp
+  CSAMachineFunctionInfo.cpp
+  CSAOptDFPass.cpp
+  CSARedundantMovElim.cpp  
+  CSARegisterInfo.cpp
+  CSASelectionDAGInfo.cpp
+  CSAStatistics.cpp
+  CSASubtarget.cpp
+  CSATargetMachine.cpp
+  CSATargetTransformInfo.cpp
   MachineCDG.cpp
   )
 

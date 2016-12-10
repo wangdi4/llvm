@@ -1,4 +1,4 @@
-//===-- llvm/lib/Target/LPU/LPULowerAggrCopies.h ------------*- C++ -*-===//
+//===-- llvm/lib/Target/CSA/CSALowerAggrCopies.h ------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPULOWERAGGRCOPIES_H
-#define LLVM_LIB_TARGET_LPU_LPULOWERAGGRCOPIES_H
+#ifndef LLVM_LIB_TARGET_CSA_CSALOWERAGGRCOPIES_H
+#define LLVM_LIB_TARGET_CSA_CSALOWERAGGRCOPIES_H
 
 namespace llvm {
   class FunctionPass;

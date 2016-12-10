@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LPU_CONTROLDEPENDENCEGRAPH_H
-#define LPU_CONTROLDEPENDENCEGRAPH_H
+#ifndef CSA_CONTROLDEPENDENCEGRAPH_H
+#define CSA_CONTROLDEPENDENCEGRAPH_H
 
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
@@ -413,4 +413,4 @@ namespace llvm {
 
 } // namespace llvm
 
-#endif // LPU_CONTROLDEPENDENCEGRAPH_H
+#endif // CSA_CONTROLDEPENDENCEGRAPH_H

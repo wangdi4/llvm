@@ -1,11 +1,11 @@
-; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK
+; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind
 define i32 @f_atmmax32(i32* %m, i32 signext %v) #0 {
-; LPU_CHECK-LABEL: f_atmmax32
-; LPU_CHECK: atmmax32
+; CSA_CHECK-LABEL: f_atmmax32
+; CSA_CHECK: atmmax32
 entry:
   %0 = atomicrmw max i32* %m, i32 %v seq_cst
   ret i32 %0

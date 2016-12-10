@@ -1,4 +1,4 @@
-//===-- LPUInstrFormats.td - LPU Instruction Formats -------*- tablegen -*-===//
+//===-- CSAInstrFormats.td - CSA Instruction Formats -------*- tablegen -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -15,7 +15,7 @@
 // For now, this just declares generic opcodes.  In the long run, we may want
 // to have things like operands, type signatures
 class GenericOp<string opStr, list<Predicate> preds = []> : Instruction {
-  string Namespace = "LPU";
+  string Namespace = "CSA";
   string AsmString = opStr;
   // No description for generic ops currently
   let OutOperandList = (outs);
@@ -23,15 +23,15 @@ class GenericOp<string opStr, list<Predicate> preds = []> : Instruction {
   list<Predicate> Preds = preds;
 }
 
-class LPUOpInfo;
+class CSAOpInfo;
 
-class InstLPU<dag outs, dag ins, string asmstr, list<dag> pattern = [],
+class InstCSA<dag outs, dag ins, string asmstr, list<dag> pattern = [],
       list<Predicate> preds = [], InstrItinClass itin = NoItinerary>
     : Instruction {
   // Actual encoding TBD.  Might be variable length.
   field bits<64> Inst;
 
-  let Namespace = "LPU";
+  let Namespace = "CSA";
   dag OutOperandList = outs;
   dag InOperandList = ins;
   let AsmString   = asmstr;
@@ -40,13 +40,13 @@ class InstLPU<dag outs, dag ins, string asmstr, list<dag> pattern = [],
   let Itinerary = itin;
 
   GenericOp GenOp; // The generic operator for this operation (e.g. ADD for ADD64)
-  LPUOpInfo OpInfo;
+  CSAOpInfo OpInfo;
 }
 
-// LPU pseudo instruction format
-class PseudoInstLPU<dag outs, dag ins, string asmstr, list<dag> pattern,
+// CSA pseudo instruction format
+class PseudoInstCSA<dag outs, dag ins, string asmstr, list<dag> pattern,
       list<Predicate> preds = [], InstrItinClass itin = IIPseudo>
-    : InstLPU<outs, ins, asmstr, pattern, preds, itin> {
+    : InstCSA<outs, ins, asmstr, pattern, preds, itin> {
   let isPseudo = 1;
 }
 
@@ -54,7 +54,7 @@ class PseudoInstLPU<dag outs, dag ins, string asmstr, list<dag> pattern,
 // Generic format for now
 class FMTGEN<dag outs, dag ins, string asmstr, list<dag> pattern,
       list<Predicate> preds = [], InstrItinClass itin = NoItinerary>
-    : InstLPU<outs, ins, asmstr, pattern, preds, itin> {
+    : InstCSA<outs, ins, asmstr, pattern, preds, itin> {
 //let DecoderMethod = "DecodeFGENInstruction";
   let hasSideEffects = 0;
 }

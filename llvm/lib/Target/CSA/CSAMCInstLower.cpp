@@ -1,4 +1,4 @@
-//===-- LPUMCInstLower.cpp - Convert LPU MachineInstr to an MCInst --------===//
+//===-- CSAMCInstLower.cpp - Convert CSA MachineInstr to an MCInst --------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,12 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains code to lower LPU MachineInstrs to their corresponding
+// This file contains code to lower CSA MachineInstrs to their corresponding
 // MCInst records.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUMCInstLower.h"
+#include "CSAMCInstLower.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -30,7 +30,7 @@
 #include "llvm/Target/TargetSubtargetInfo.h"
 using namespace llvm;
 
-MCSymbol *LPUMCInstLower::
+MCSymbol *CSAMCInstLower::
 GetGlobalAddressSymbol(const MachineOperand &MO) const {
   switch (MO.getTargetFlags()) {
   default: llvm_unreachable("Unknown target flag on GV operand");
@@ -40,7 +40,7 @@ GetGlobalAddressSymbol(const MachineOperand &MO) const {
   return Printer.getSymbol(MO.getGlobal());
 }
 
-MCSymbol *LPUMCInstLower::
+MCSymbol *CSAMCInstLower::
 GetExternalSymbolSymbol(const MachineOperand &MO) const {
   switch (MO.getTargetFlags()) {
   default: llvm_unreachable("Unknown target flag on GV operand");
@@ -50,7 +50,7 @@ GetExternalSymbolSymbol(const MachineOperand &MO) const {
   return Printer.GetExternalSymbolSymbol(MO.getSymbolName());
 }
 
-MCSymbol *LPUMCInstLower::
+MCSymbol *CSAMCInstLower::
 GetJumpTableSymbol(const MachineOperand &MO) const {
   const DataLayout &DL = Printer.getDataLayout();
   SmallString<256> Name;
@@ -67,7 +67,7 @@ GetJumpTableSymbol(const MachineOperand &MO) const {
   return Ctx.getOrCreateSymbol(Name.str());
 }
 /*
-MCSymbol *LPUMCInstLower::
+MCSymbol *CSAMCInstLower::
 GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
   const DataLayout &DL = Printer.getDataLayout();
   SmallString<256> Name;
@@ -85,7 +85,7 @@ GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
 }
 */
 
-MCSymbol *LPUMCInstLower::
+MCSymbol *CSAMCInstLower::
 GetBlockAddressSymbol(const MachineOperand &MO) const {
   switch (MO.getTargetFlags()) {
   default: llvm_unreachable("Unknown target flag on GV operand");
@@ -95,7 +95,7 @@ GetBlockAddressSymbol(const MachineOperand &MO) const {
   return Printer.GetBlockAddressSymbol(MO.getBlockAddress());
 }
 
-MCOperand LPUMCInstLower::
+MCOperand CSAMCInstLower::
 LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const {
   // FIXME: We would like an efficient form for this, so we don't have to do a
   // lot of extra uniquing.
@@ -113,7 +113,7 @@ LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const {
   return MCOperand::createExpr(Expr);
 }
 
-void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
+void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
   OutMI.setOpcode(MI->getOpcode());
 
   for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {

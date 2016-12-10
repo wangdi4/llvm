@@ -1,18 +1,18 @@
-//===- LPUDeadInstructionElim.cpp - Remove dead LPU instructions --===//
+//===- CSADeadInstructionElim.cpp - Remove dead CSA instructions --===//
 //
 //===----------------------------------------------------------------------===//
 //
 // This is an extremely simple MachineInstr-level dead-code-elimination pass
-// for the LPU.  Much of this module was copied from the stock
+// for the CSA.  Much of this module was copied from the stock
 // DeadMachineInstructionElim.cpp distributed with llvm.  However, this
-// version takes into account the fact that LPU instructions are not in a
+// version takes into account the fact that CSA instructions are not in a
 // sequential order within a basic block. It also takes into account special
 // registers like %ign and %na and the difference between LICs and other
 // register types.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPU.h"
+#include "CSA.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -30,17 +30,17 @@ using namespace llvm;
 STATISTIC(NumDeletes,          "Number of dead instructions deleted");
 
 namespace llvm {
-namespace LPU { // Register classes
+namespace CSA { // Register classes
   // Register class for ANYC, a superclass representing a channel of any width.
-  // This constant is declared in "LPUGenRegisterInfo.inc", but that file is
+  // This constant is declared in "CSAGenRegisterInfo.inc", but that file is
   // huge and #including it would slow compilation.
   extern const TargetRegisterClass ANYCRegClass;
 }
 }
 
 namespace {
-  class LPUDeadInstructionElim : public MachineFunctionPass {
-    // This class defines a machine function pass for the LPU which deletes
+  class CSADeadInstructionElim : public MachineFunctionPass {
+    // This class defines a machine function pass for the CSA which deletes
     // dead instructions. An instruction is considered dead if all of its
     // outputs are ignored. The definition is transitive, so that if an
     // instruction's output feeds only dead instructions, then that
@@ -65,7 +65,7 @@ namespace {
 
   public:
     static char ID; // Pass identification, replacement for typeid
-    LPUDeadInstructionElim() : MachineFunctionPass(ID) { }
+    CSADeadInstructionElim() : MachineFunctionPass(ID) { }
 
   private:
     bool isLIC(unsigned Reg) const;
@@ -73,25 +73,25 @@ namespace {
   };
 }
 
-// The declaration for this factory function is in file "LPU.h"
-MachineFunctionPass *llvm::createLPUDeadInstructionElimPass() {
-  return new LPUDeadInstructionElim();
+// The declaration for this factory function is in file "CSA.h"
+MachineFunctionPass *llvm::createCSADeadInstructionElimPass() {
+  return new CSADeadInstructionElim();
 }
 
-char LPUDeadInstructionElim::ID = 0;
+char CSADeadInstructionElim::ID = 0;
 
-//char &llvm::LPUDeadInstructionElimID = LPUDeadInstructionElim::ID;
+//char &llvm::CSADeadInstructionElimID = CSADeadInstructionElim::ID;
 
-// INITIALIZE_PASS(LPUDeadInstructionElim, "LPU-dead-elimination",
-//                 "Remove dead LPU instructions", false, false)
+// INITIALIZE_PASS(CSADeadInstructionElim, "CSA-dead-elimination",
+//                 "Remove dead CSA instructions", false, false)
 
-bool LPUDeadInstructionElim::isLIC(unsigned Reg) const {
+bool CSADeadInstructionElim::isLIC(unsigned Reg) const {
   // Return true if `Reg` refers to a LIC.
   // `Reg` is a LIC if it belongs to the ANYC (any channel) register class.
-  return LPU::ANYCRegClass.contains(Reg);
+  return CSA::ANYCRegClass.contains(Reg);
 }
 
-bool LPUDeadInstructionElim::isDead(const MachineInstr& MI) const {
+bool CSADeadInstructionElim::isDead(const MachineInstr& MI) const {
   // Return true if this instruction can be determined to be dead. Note that
   // some instructions may return false in one pass over the dead-instruction
   // algorithm, but then return true in a subsequent pass, as transtitive
@@ -104,7 +104,7 @@ bool LPUDeadInstructionElim::isDead(const MachineInstr& MI) const {
     return false;
 
   // Don't delete frame allocation labels.
-  // TBD: Does this apply to the LPU?
+  // TBD: Does this apply to the CSA?
   if (MI.getOpcode() == TargetOpcode::LOCAL_ESCAPE)
     return false;
 
@@ -124,7 +124,7 @@ bool LPUDeadInstructionElim::isDead(const MachineInstr& MI) const {
       continue;  // Ignore non-register operands
 
     unsigned Reg = MO.getReg();
-    if (Reg == LPU::IGN || Reg == LPU::NA)
+    if (Reg == CSA::IGN || Reg == CSA::NA)
       continue;  // %ign and %na operands do not cause instruction to be live.
 
     if (MO.isDef()) {
@@ -155,7 +155,7 @@ bool LPUDeadInstructionElim::isDead(const MachineInstr& MI) const {
   return true;
 }
 
-bool LPUDeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
+bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
   // Run dead-instruction elimination on the specified machine function.
   // Return true if any changes were made.
 
@@ -240,7 +240,7 @@ bool LPUDeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
         for (const MachineOperand& MO : MI.operands()) {
           if (MO.isReg() && MO.isUse()) {
             unsigned Reg = MO.getReg();
-            if (Reg != LPU::IGN && Reg != LPU::NA &&
+            if (Reg != CSA::IGN && Reg != CSA::NA &&
                 TargetRegisterInfo::isPhysicalRegister(Reg)) {
               for (MCRegAliasIterator AI(Reg, TRI, true); AI.isValid(); ++AI)
                 LivePhysRegs.set(*AI);
@@ -259,7 +259,7 @@ bool LPUDeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
 
         // If the instruction is dead, delete it!
         if (isDead(MI)) {
-          DEBUG(dbgs() << "LPUDeadInstructionElim: DELETING: " << &MI);
+          DEBUG(dbgs() << "CSADeadInstructionElim: DELETING: " << &MI);
           // It is possible that some DBG_VALUE instructions refer to this
           // instruction.  They get marked as undef and will be deleted
           // in the live debug variable analysis.
@@ -279,11 +279,11 @@ bool LPUDeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
       for (MachineOperand& MO : MI.operands()) {
         if (MO.isReg() && MO.isDef()) {
           unsigned Reg = MO.getReg();
-          if (Reg != LPU::IGN && Reg != LPU::NA &&
+          if (Reg != CSA::IGN && Reg != CSA::NA &&
               TargetRegisterInfo::isPhysicalRegister(Reg) &&
               ! LivePhysRegs.test(Reg)) {
             // Replace output to dead register with output to %ign
-            MO.substPhysReg(LPU::IGN, *TRI);
+            MO.substPhysReg(CSA::IGN, *TRI);
           }
         }
       }

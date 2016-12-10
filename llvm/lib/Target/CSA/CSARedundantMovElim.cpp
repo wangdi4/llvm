@@ -1,4 +1,4 @@
-//===- LPURedundantMovElim.cpp - Remove redundant MOV instructions       --===//
+//===- CSARedundantMovElim.cpp - Remove redundant MOV instructions       --===//
 //
 //===----------------------------------------------------------------------===//
 //
@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPU.h"
+#include "CSA.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -18,47 +18,47 @@
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 
-#include "LPUInstrInfo.h"
+#include "CSAInstrInfo.h"
 
 using namespace llvm;
 
 static cl::opt<int>
-ElimMovOpt("lpu-elim-mov-opt",
+ElimMovOpt("csa-elim-mov-opt",
            cl::Hidden,
-           cl::desc("LPU Specific: Eliminate redundant MOV instructions"),
+           cl::desc("CSA Specific: Eliminate redundant MOV instructions"),
            cl::init(0));
 
 // Set to -1 to have no limit.
 // Otherwise, the value is the number of MOV instructions we will remove. 
 static cl::opt<int>
-ElimMovLimit("lpu-elim-mov-limit",
+ElimMovLimit("csa-elim-mov-limit",
              cl::Hidden,
-             cl::desc("LPU Specific: Limit on MOV instructions to disconnect"),
+             cl::desc("CSA Specific: Limit on MOV instructions to disconnect"),
              cl::init(-1));
 
 static cl::opt<int>
-SXUMovConstantProp("lpu-sxu-mov-constant-prop",
+SXUMovConstantProp("csa-sxu-mov-constant-prop",
                    cl::Hidden,
-                   cl::desc("LPU Specific: Constant propagate from a MOV instruction on the SXU"),
+                   cl::desc("CSA Specific: Constant propagate from a MOV instruction on the SXU"),
                    cl::init(0));
 
-#define DEBUG_TYPE "lpu-redundant-mov-elim"
+#define DEBUG_TYPE "csa-redundant-mov-elim"
 
 
 namespace {
-  class LPURedundantMovElim : public MachineFunctionPass {
-    // This class defines a machine function pass for the LPU which
+  class CSARedundantMovElim : public MachineFunctionPass {
+    // This class defines a machine function pass for the CSA which
     // deletes unnecessary MOV instructions.
     //
     bool runOnMachineFunction(MachineFunction &MF) override;
 
     const TargetRegisterInfo  *TRI;
     const MachineRegisterInfo *MRI;
-    const LPUInstrInfo        *TII;
+    const CSAInstrInfo        *TII;
 
   public:
     static char ID; // Pass identification, replacement for typeid
-    LPURedundantMovElim() : MachineFunctionPass(ID) { }
+    CSARedundantMovElim() : MachineFunctionPass(ID) { }
 
   private:
 
@@ -154,24 +154,24 @@ namespace {
     // Returns a MachineInstr* if that instruction is the single def
     // of the Reg.
     //
-    // TBD: This method is duplicated in LPUOptDFPass.  We should
+    // TBD: This method is duplicated in CSAOptDFPass.  We should
     // really put it somewhere common...
     MachineInstr* getSingleDef(unsigned Reg,
                                const MachineRegisterInfo* MRI) const;
   };
 }
 
-// The declaration for this factory function is in file "LPU.h"
-MachineFunctionPass *llvm::createLPURedundantMovElimPass() {
-  return new LPURedundantMovElim();
+// The declaration for this factory function is in file "CSA.h"
+MachineFunctionPass *llvm::createCSARedundantMovElimPass() {
+  return new CSARedundantMovElim();
 }
 
-char LPURedundantMovElim::ID = 0;
+char CSARedundantMovElim::ID = 0;
 
 
 
 MachineInstr *
-LPURedundantMovElim::getSingleDef(unsigned Reg,
+CSARedundantMovElim::getSingleDef(unsigned Reg,
                                   const MachineRegisterInfo *MRI) const {
   MachineInstr *Ret = nullptr;
   for (MachineInstr &DefMI : MRI->def_instructions(Reg)) {
@@ -186,7 +186,7 @@ LPURedundantMovElim::getSingleDef(unsigned Reg,
 }
 
 bool
-LPURedundantMovElim::isInitializedMachineOperand(const MachineOperand& MO) const {
+CSARedundantMovElim::isInitializedMachineOperand(const MachineOperand& MO) const {
   if (MO.isReg() &&
       MO.isUse()) {
     unsigned reg = MO.getReg();
@@ -207,7 +207,7 @@ LPURedundantMovElim::isInitializedMachineOperand(const MachineOperand& MO) const
 
 
 bool
-LPURedundantMovElim::isConstantReplaceableOperand(MachineInstr* MI,
+CSARedundantMovElim::isConstantReplaceableOperand(MachineInstr* MI,
                                                   unsigned op_idx) const {
   if (!(TII->isOrderedLoad(MI) ||
         TII->isOrderedStore(MI))) {
@@ -219,7 +219,7 @@ LPURedundantMovElim::isConstantReplaceableOperand(MachineInstr* MI,
 }
 
 bool
-LPURedundantMovElim::isCandidateForSXUConstantReplacement(MachineInstr* use_MI,
+CSARedundantMovElim::isCandidateForSXUConstantReplacement(MachineInstr* use_MI,
                                                           unsigned dest_reg) const {
 
   // Count register inputs of this instruction that we are allowed
@@ -279,7 +279,7 @@ LPURedundantMovElim::isCandidateForSXUConstantReplacement(MachineInstr* use_MI,
 
 // Return true if this instruction can be determined to be an
 // unnecessary MOV.
-bool LPURedundantMovElim::isSXUConstantMov(const MachineInstr& MI) const {
+bool CSARedundantMovElim::isSXUConstantMov(const MachineInstr& MI) const {
 
   if (MI.getFlag(MachineInstr::NonSequential))
     return false;
@@ -298,7 +298,7 @@ bool LPURedundantMovElim::isSXUConstantMov(const MachineInstr& MI) const {
 }
 
 
-bool LPURedundantMovElim::sxuConstantPropMovAndDisconnect(MachineInstr& MI) {
+bool CSARedundantMovElim::sxuConstantPropMovAndDisconnect(MachineInstr& MI) {
   const MachineOperand* dest = &MI.getOperand(0);
   const MachineOperand* src = &MI.getOperand(1);
   assert(src->isImm() || src->isFPImm());
@@ -385,7 +385,7 @@ bool LPURedundantMovElim::sxuConstantPropMovAndDisconnect(MachineInstr& MI) {
             << MI << "\n");
       // Eliminate all remaining uses of dest.
       MachineOperand& dest_to_edit = MI.getOperand(0);
-      dest_to_edit.substPhysReg(LPU::IGN, *(this->TRI));
+      dest_to_edit.substPhysReg(CSA::IGN, *(this->TRI));
     }
     else {
       DEBUG(errs() << "Only "
@@ -412,7 +412,7 @@ bool LPURedundantMovElim::sxuConstantPropMovAndDisconnect(MachineInstr& MI) {
 
 // Return true if this instruction can be determined to be an
 // unnecessary MOV.
-bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
+bool CSARedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
 
   // Check each of the conditions described in comments above:
   
@@ -530,7 +530,7 @@ bool LPURedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
   return false;
 }
 
-void LPURedundantMovElim::disconnectMovInstr(MachineInstr& MI) {
+void CSARedundantMovElim::disconnectMovInstr(MachineInstr& MI) {
   DEBUG(errs() << "TBD: Disconnect MOV instr " << MI << "\n");
 
   assert(TII->isMOV(&MI) || TII->isMemTokenMOV(&MI) || MI.isCopy());
@@ -576,13 +576,13 @@ void LPURedundantMovElim::disconnectMovInstr(MachineInstr& MI) {
   // already enough to make this instruction dead.
   //
   // TBD: For some reason, I get errors when I set the source to NA.
-  dest->substPhysReg(LPU::IGN, *this->TRI);
-  src->substPhysReg(LPU::NA, *this->TRI);
+  dest->substPhysReg(CSA::IGN, *this->TRI);
+  src->substPhysReg(CSA::NA, *this->TRI);
 }
 
 
 
-bool LPURedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
+bool CSARedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
   // Eliminate redundant MOV instructions in the specified machine
   // function.  Return true if any changes were made.
 
@@ -610,7 +610,7 @@ bool LPURedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
   bool AnyChanges = false;
   MRI = &MF.getRegInfo();
   TRI = MF.getSubtarget().getRegisterInfo();
-  TII = static_cast< const LPUInstrInfo* >(MF.getSubtarget().getInstrInfo());
+  TII = static_cast< const CSAInstrInfo* >(MF.getSubtarget().getInstrInfo());
 
   int num_removed = 0;
 

@@ -1,4 +1,4 @@
-//===--- LPUFrameLowering.h - Define frame lowering for LPU -----*- C++ -*-===//
+//===--- CSAFrameLowering.h - Define frame lowering for CSA -----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,17 +11,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUFRAMELOWERING_H
-#define LLVM_LIB_TARGET_LPU_LPUFRAMELOWERING_H
+#ifndef LLVM_LIB_TARGET_CSA_CSAFRAMELOWERING_H
+#define LLVM_LIB_TARGET_CSA_CSAFRAMELOWERING_H
 
-#include "LPU.h"
+#include "CSA.h"
 #include "llvm/Target/TargetFrameLowering.h"
 
 namespace llvm {
-class LPUFrameLowering : public TargetFrameLowering {
+class CSAFrameLowering : public TargetFrameLowering {
 
 public:
-  explicit LPUFrameLowering()
+  explicit CSAFrameLowering()
     : TargetFrameLowering(TargetFrameLowering::StackGrowsUp,
                           /* align */ 16,
                           /* local area offset */ 0,

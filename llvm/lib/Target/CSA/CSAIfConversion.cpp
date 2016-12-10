@@ -1,4 +1,4 @@
-//===-- LPUIfConversion.cpp - LPU If Conversion ---------------------------===//
+//===-- CSAIfConversion.cpp - CSA If Conversion ---------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUIfConversion.h"
+#include "CSAIfConversion.h"
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/STLExtras.h"
@@ -54,7 +54,7 @@ using namespace llvm;
 
 using namespace llvm;
 
-char LPUIfConversion::ID = 0;
+char CSAIfConversion::ID = 0;
 
 /// findFalseBlock - BB has a fallthrough. Find its 'false' successor given
 /// its 'true' successor.
@@ -71,7 +71,7 @@ static MachineBasicBlock *findFalseBlock(MachineBasicBlock *BB,
 
 /// reverseBranchCondition - Reverse the condition of the end of the block
 /// branch. Swap block's 'true' and 'false' successors.
-bool LPUIfConversion::reverseBranchCondition(BBInfo &BBI) {
+bool CSAIfConversion::reverseBranchCondition(BBInfo &BBI) {
   DebugLoc dl;  // FIXME: this is nowhere
   if (!TII->reverseBranchCondition(BBI.BrCond)) {
     TII->removeBranch(*BBI.BB);
@@ -96,7 +96,7 @@ static inline MachineBasicBlock *getNextBlock(MachineBasicBlock *BB) {
 /// predecessor) forms a valid simple shape for ifcvt. It also returns the
 /// number of instructions that the ifcvt would need to duplicate if performed
 /// in Dups.
-bool LPUIfConversion::ValidSimple(BBInfo &TrueBBI, unsigned &Dups,
+bool CSAIfConversion::ValidSimple(BBInfo &TrueBBI, unsigned &Dups,
                               const BranchProbability &Prediction) const {
   Dups = 0;
   if (TrueBBI.IsBeingAnalyzed || TrueBBI.IsDone)
@@ -122,7 +122,7 @@ bool LPUIfConversion::ValidSimple(BBInfo &TrueBBI, unsigned &Dups,
 /// branches to the 'false' block rather than the other way around. It also
 /// returns the number of instructions that the ifcvt would need to duplicate
 /// if performed in 'Dups'.
-bool LPUIfConversion::ValidTriangle(BBInfo &TrueBBI, BBInfo &FalseBBI,
+bool CSAIfConversion::ValidTriangle(BBInfo &TrueBBI, BBInfo &FalseBBI,
                                 bool FalseBranch, unsigned &Dups,
                                 const BranchProbability &Prediction) const {
   Dups = 0;
@@ -163,7 +163,7 @@ bool LPUIfConversion::ValidTriangle(BBInfo &TrueBBI, BBInfo &FalseBBI,
 
 /// ValidDiamond - Returns true if the 'true' and 'false' blocks (along
 /// with their common predecessor) forms a valid diamond shape for ifcvt.
-bool LPUIfConversion::ValidDiamond(BBInfo &TrueBBI, BBInfo &FalseBBI,
+bool CSAIfConversion::ValidDiamond(BBInfo &TrueBBI, BBInfo &FalseBBI,
                                unsigned &Dups1, unsigned &Dups2) const {
   Dups1 = Dups2 = 0;
   if (TrueBBI.IsBeingAnalyzed || TrueBBI.IsDone ||
@@ -263,7 +263,7 @@ bool LPUIfConversion::ValidDiamond(BBInfo &TrueBBI, BBInfo &FalseBBI,
 /// in the block are isPredicable(). Also checks if the block contains any
 /// instruction which can clobber a predicate (e.g. condition code register).
 /// If so, the block is not predicable unless it's the last instruction.
-void LPUIfConversion::ScanInstructions(BBInfo &BBI) {
+void CSAIfConversion::ScanInstructions(BBInfo &BBI) {
   if (BBI.IsDone)
     return;
 
@@ -346,7 +346,7 @@ void LPUIfConversion::ScanInstructions(BBInfo &BBI) {
 
 /// FeasibilityAnalysis - Determine if the block is a suitable candidate to be
 /// predicated by the specified predicate.
-bool LPUIfConversion::FeasibilityAnalysis(BBInfo &BBI,
+bool CSAIfConversion::FeasibilityAnalysis(BBInfo &BBI,
                                       SmallVectorImpl<MachineOperand> &Pred,
                                       bool isTriangle, bool RevBranch) {
   // If the block is dead or unpredicable, then it cannot be predicated.
@@ -380,7 +380,7 @@ bool LPUIfConversion::FeasibilityAnalysis(BBInfo &BBI,
 /// AnalyzeBlock - Analyze the structure of the sub-CFG starting from
 /// the specified block. Record its successors and whether it looks like an
 /// if-conversion candidate.
-LPUIfConversion::BBInfo &LPUIfConversion::AnalyzeBlock(MachineBasicBlock *BB,
+CSAIfConversion::BBInfo &CSAIfConversion::AnalyzeBlock(MachineBasicBlock *BB,
                                              std::vector<IfcvtToken*> &Tokens) {
   BBInfo &BBI = BBAnalysis[BB->getNumber()];
 
@@ -531,7 +531,7 @@ LPUIfConversion::BBInfo &LPUIfConversion::AnalyzeBlock(MachineBasicBlock *BB,
   return BBI;
 }
 
-bool LPUIfConversion::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
+bool CSAIfConversion::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
   BBInfo &TrueBBI = BBAnalysis[BBI.TrueBB->getNumber()];
   BBInfo &FalseBBI = BBAnalysis[BBI.FalseBB->getNumber()];
   BBInfo *CvtBBI = &TrueBBI;

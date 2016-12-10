@@ -1,4 +1,4 @@
-//===- LPUMachineFuctionInfo.h - LPU machine function info -------*- C++ -*-==//
+//===- CSAMachineFuctionInfo.h - CSA machine function info -------*- C++ -*-==//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,21 +7,21 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file declares LPU-specific per-machine-function information.
+// This file declares CSA-specific per-machine-function information.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUMACHINEFUNCTIONINFO_H
-#define LLVM_LIB_TARGET_LPU_LPUMACHINEFUNCTIONINFO_H
+#ifndef LLVM_LIB_TARGET_CSA_CSAMACHINEFUNCTIONINFO_H
+#define LLVM_LIB_TARGET_CSA_CSAMACHINEFUNCTIONINFO_H
 
-#include "LPURegisterInfo.h"
+#include "CSARegisterInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 
 namespace llvm {
 
-/// LPUMachineFunctionInfo - This class is derived from MachineFunction and
-/// contains private LPU target-specific information for each MachineFunction.
-class LPUMachineFunctionInfo : public MachineFunctionInfo {
+/// CSAMachineFunctionInfo - This class is derived from MachineFunction and
+/// contains private CSA target-specific information for each MachineFunction.
+class CSAMachineFunctionInfo : public MachineFunctionInfo {
 
   struct Info;
   Info* info;
@@ -40,8 +40,8 @@ class LPUMachineFunctionInfo : public MachineFunctionInfo {
   int VarArgsFrameIndex;
 
 public:
-  explicit LPUMachineFunctionInfo(MachineFunction &MF);
-  ~LPUMachineFunctionInfo();
+  explicit CSAMachineFunctionInfo(MachineFunction &MF);
+  ~CSAMachineFunctionInfo();
  
   int getFPFrameIndex() const { return FPFrameIndex; }
   void setFPFrameIndex(int Index) { FPFrameIndex = Index; }

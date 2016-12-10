@@ -1,4 +1,4 @@
-//===-- LPUISelLowering.cpp - LPU DAG Lowering Implementation  ------------===//
+//===-- CSAISelLowering.cpp - CSA DAG Lowering Implementation  ------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,15 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the LPUTargetLowering class.
+// This file implements the CSATargetLowering class.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUISelLowering.h"
-#include "LPU.h"
-#include "LPUMachineFunctionInfo.h"
-#include "LPUSubtarget.h"
-#include "LPUTargetMachine.h"
+#include "CSAISelLowering.h"
+#include "CSA.h"
+#include "CSAMachineFunctionInfo.h"
+#include "CSASubtarget.h"
+#include "CSATargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -37,27 +37,27 @@
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
-#define DEBUG_TYPE "lpu-lower"
+#define DEBUG_TYPE "csa-lower"
 
 STATISTIC(NumTailCalls, "Number of tail calls");
 
 static cl::opt<bool>
-EnableLPUTailCalls("enable-lpu-tail-calls",
-                    cl::desc("LPU: Enable tail calls."));
+EnableCSATailCalls("enable-csa-tail-calls",
+                    cl::desc("CSA: Enable tail calls."));
 
-LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget &ST)
+CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget &ST)
     : TargetLowering(TM) {
 
   // Set up the register classes.
   // The actual allocation should depend on the context (serial vs. parallel)
-  addRegisterClass(MVT::i1,   &LPU::I1RegClass);
-  addRegisterClass(MVT::i8,   &LPU::I8RegClass);
-  addRegisterClass(MVT::i16,  &LPU::I16RegClass);
-  addRegisterClass(MVT::i32,  &LPU::I32RegClass);
-  addRegisterClass(MVT::i64,  &LPU::I64RegClass);
-  addRegisterClass(MVT::f16,  &LPU::I16RegClass);
-  addRegisterClass(MVT::f32,  &LPU::I32RegClass);
-  addRegisterClass(MVT::f64,  &LPU::I64RegClass);
+  addRegisterClass(MVT::i1,   &CSA::I1RegClass);
+  addRegisterClass(MVT::i8,   &CSA::I8RegClass);
+  addRegisterClass(MVT::i16,  &CSA::I16RegClass);
+  addRegisterClass(MVT::i32,  &CSA::I32RegClass);
+  addRegisterClass(MVT::i64,  &CSA::I64RegClass);
+  addRegisterClass(MVT::f16,  &CSA::I16RegClass);
+  addRegisterClass(MVT::f32,  &CSA::I32RegClass);
+  addRegisterClass(MVT::f64,  &CSA::I64RegClass);
 
   // always lower memset, memcpy, and memmove intrinsics to load/store
   // instructions, rather
@@ -70,7 +70,7 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget
   setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
 
   // Compute derived properties from the register classes
-  setStackPointerRegisterToSaveRestore(LPU::SP);
+  setStackPointerRegisterToSaveRestore(CSA::SP);
   computeRegisterProperties(ST.getRegisterInfo());
 
   // Scheduling shouldn't be relevant
@@ -305,11 +305,11 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget
   //setOperationAction(ISD::READCYCLECOUNTER,   MVT::i64,   Legal);
 }
 
-EVT LPUTargetLowering::getSetCCResultType(const DataLayout &DL, LLVMContext &Context, EVT VT) const {
+EVT CSATargetLowering::getSetCCResultType(const DataLayout &DL, LLVMContext &Context, EVT VT) const {
   return MVT::i1;
 }
 
-SDValue LPUTargetLowering::LowerOperation(SDValue Op,
+SDValue CSATargetLowering::LowerOperation(SDValue Op,
                                              SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
   case ISD::GlobalAddress:    return LowerGlobalAddress(Op, DAG);
@@ -330,18 +330,18 @@ SDValue LPUTargetLowering::LowerOperation(SDValue Op,
   }
 }
 
-const char *LPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
+const char *CSATargetLowering::getTargetNodeName(unsigned Opcode) const {
   switch (Opcode) {
   default: return nullptr;
-  case LPUISD::Call:               return "LPUISD::Call";
-  case LPUISD::TailCall:           return "LPUISD::TailCall";
-  case LPUISD::Ret:                return "LPUISD::Ret";
-  case LPUISD::Wrapper:            return "LPUISD::Wrapper";
+  case CSAISD::Call:               return "CSAISD::Call";
+  case CSAISD::TailCall:           return "CSAISD::TailCall";
+  case CSAISD::Ret:                return "CSAISD::Ret";
+  case CSAISD::Wrapper:            return "CSAISD::Wrapper";
   }
 }
 
 
-SDValue LPUTargetLowering::LowerGlobalAddress(SDValue Op,
+SDValue CSATargetLowering::LowerGlobalAddress(SDValue Op,
                                                  SelectionDAG &DAG) const {
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
   int64_t Offset = cast<GlobalAddressSDNode>(Op)->getOffset();
@@ -350,38 +350,38 @@ SDValue LPUTargetLowering::LowerGlobalAddress(SDValue Op,
   SDValue Result = DAG.getTargetGlobalAddress(GV, SDLoc(Op),
                                               getPointerTy(DAG.getDataLayout()),
                                               Offset);
-  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op),
+  return DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
                      getPointerTy(DAG.getDataLayout()), Result);
 }
 
-SDValue LPUTargetLowering::LowerExternalSymbol(SDValue Op,
+SDValue CSATargetLowering::LowerExternalSymbol(SDValue Op,
                                                   SelectionDAG &DAG) const {
   const char *Sym = cast<ExternalSymbolSDNode>(Op)->getSymbol();
   SDValue Result = DAG.getTargetExternalSymbol(Sym,
                                           getPointerTy(DAG.getDataLayout()));
-  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op),
+  return DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
                      getPointerTy(DAG.getDataLayout()), Result);
 }
 
-SDValue LPUTargetLowering::LowerBlockAddress(SDValue Op,
+SDValue CSATargetLowering::LowerBlockAddress(SDValue Op,
                                                 SelectionDAG &DAG) const {
   const BlockAddress *BA = cast<BlockAddressSDNode>(Op)->getBlockAddress();
   SDValue Result = DAG.getTargetBlockAddress(BA,
                                         getPointerTy(DAG.getDataLayout()));
-  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op),
+  return DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
                                 getPointerTy(DAG.getDataLayout()), Result);
 }
 
-SDValue LPUTargetLowering::LowerJumpTable(SDValue Op,
+SDValue CSATargetLowering::LowerJumpTable(SDValue Op,
                                              SelectionDAG &DAG) const {
   JumpTableSDNode *JT = cast<JumpTableSDNode>(Op);
   SDValue Result = DAG.getTargetJumpTable(JT->getIndex(),
                                     getPointerTy(DAG.getDataLayout()));
-  return DAG.getNode(LPUISD::Wrapper, SDLoc(JT),
+  return DAG.getNode(CSAISD::Wrapper, SDLoc(JT),
                             getPointerTy(DAG.getDataLayout()), Result);
 }
 
-SDValue LPUTargetLowering::LowerAtomicLoad(SDValue Op,
+SDValue CSATargetLowering::LowerAtomicLoad(SDValue Op,
                                              SelectionDAG &DAG) const {
     AtomicSDNode *AL = cast<AtomicSDNode>(Op);
     // Sufficiently small regular loads are already atomic.
@@ -400,7 +400,7 @@ SDValue LPUTargetLowering::LowerAtomicLoad(SDValue Op,
             AL->getAlignment());
 }
 
-SDValue LPUTargetLowering::LowerAtomicStore(SDValue Op,
+SDValue CSATargetLowering::LowerAtomicStore(SDValue Op,
                                              SelectionDAG &DAG) const {
     AtomicSDNode *AS = cast<AtomicSDNode>(Op);
     // Sufficiently small regular stores are already atomic.
@@ -418,7 +418,7 @@ SDValue LPUTargetLowering::LowerAtomicStore(SDValue Op,
             AS->getAlignment());
 }
 
-SDValue LPUTargetLowering::
+SDValue CSATargetLowering::
 LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const
 {
   SDLoc dl(Op);
@@ -432,16 +432,16 @@ LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const
   switch(partVT.SimpleTy)
   {
     case MVT::i8:
-      opcode = isSigned ? LPU::MULLOHIS8 : LPU::MULLOHIU8;
+      opcode = isSigned ? CSA::MULLOHIS8 : CSA::MULLOHIU8;
       break;
     case MVT::i16:
-      opcode = isSigned ? LPU::MULLOHIS16 : LPU::MULLOHIU16;
+      opcode = isSigned ? CSA::MULLOHIS16 : CSA::MULLOHIU16;
       break;
     case MVT::i32:
-      opcode = isSigned ? LPU::MULLOHIS32 : LPU::MULLOHIU32;
+      opcode = isSigned ? CSA::MULLOHIS32 : CSA::MULLOHIU32;
       break;
     case MVT::i64:
-      opcode = isSigned ? LPU::MULLOHIS64 : LPU::MULLOHIU64;
+      opcode = isSigned ? CSA::MULLOHIS64 : CSA::MULLOHIU64;
       break;
     default:
       return Op;
@@ -456,14 +456,14 @@ LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const
 }
 
 //===----------------------------------------------------------------------===//
-//                       LPU Inline Assembly Support
+//                       CSA Inline Assembly Support
 //===----------------------------------------------------------------------===//
 
 /*
 /// getConstraintType - Given a constraint letter, return the type of
 /// constraint it is for this target.
 TargetLowering::ConstraintType
-LPUTargetLowering::getConstraintType(const std::string &Constraint) const {
+CSATargetLowering::getConstraintType(const std::string &Constraint) const {
   if (Constraint.size() == 1) {
     switch (Constraint[0]) {
     case 'r':
@@ -476,7 +476,7 @@ LPUTargetLowering::getConstraintType(const std::string &Constraint) const {
 }
 
 std::pair<unsigned, const TargetRegisterClass*>
-LPUTargetLowering::
+CSATargetLowering::
 getRegForInlineAsmConstraint(const std::string &Constraint,
                              MVT VT) const {
   if (Constraint.size() == 1) {
@@ -485,9 +485,9 @@ getRegForInlineAsmConstraint(const std::string &Constraint,
     default: break;
     case 'r':   // GENERAL_REGS
       if (VT == MVT::i8)
-        return std::make_pair(0U, &LPU::GR8RegClass);
+        return std::make_pair(0U, &CSA::GR8RegClass);
 
-      return std::make_pair(0U, &LPU::GR16RegClass);
+      return std::make_pair(0U, &CSA::GR16RegClass);
     }
   }
 
@@ -495,7 +495,7 @@ getRegForInlineAsmConstraint(const std::string &Constraint,
 }
 */
 
-bool LPUTargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
+bool CSATargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
   if (!VT1.isInteger() || !VT2.isInteger())
     return false;
   unsigned NumBits1 = VT1.getSizeInBits();
@@ -503,7 +503,7 @@ bool LPUTargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
   return NumBits1 > NumBits2;
 }
 
-bool LPUTargetLowering::isTruncateFree(Type *Ty1, Type *Ty2) const {
+bool CSATargetLowering::isTruncateFree(Type *Ty1, Type *Ty2) const {
   if (!Ty1->isIntegerTy() || !Ty2->isIntegerTy())
     return false;
   unsigned NumBits1 = Ty1->getPrimitiveSizeInBits();
@@ -511,17 +511,17 @@ bool LPUTargetLowering::isTruncateFree(Type *Ty1, Type *Ty2) const {
   return NumBits1 > NumBits2;
 }
 
-bool LPUTargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
+bool CSATargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
   // x86-64 implicitly zero-extends 32-bit results in 64-bit registers.
   return Ty1->isIntegerTy(32) && Ty2->isIntegerTy(64);  //&& Subtarget->is64Bit()
 }
 
-bool LPUTargetLowering::isZExtFree(EVT VT1, EVT VT2) const {
+bool CSATargetLowering::isZExtFree(EVT VT1, EVT VT2) const {
   // x86-64 implicitly zero-extends 32-bit results in 64-bit registers.
   return VT1 == MVT::i32 && VT2 == MVT::i64;  // && Subtarget->is64Bit()
 }
 
-bool LPUTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
+bool CSATargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
   EVT VT1 = Val.getValueType();
   if (isZExtFree(VT1, VT2))
     return true;
@@ -545,14 +545,14 @@ bool LPUTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
   return false;
 }
 
-bool LPUTargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
+bool CSATargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
   return true;
 }
 
 
 // isLegalAddressingMode - Return true if the addressing mode represented
 // by AM is legal for this target, for a load/store of the specified type.
-bool LPUTargetLowering::isLegalAddressingMode(const DataLayout &DL,
+bool CSATargetLowering::isLegalAddressingMode(const DataLayout &DL,
                                               const AddrMode &AM,
                                               Type *Ty,
                                               unsigned AddrSpace) const {
@@ -590,14 +590,14 @@ bool LPUTargetLowering::isLegalAddressingMode(const DataLayout &DL,
 //                      Calling Convention Implementation
 //===----------------------------------------------------------------------===//
 
-#include "LPUGenCallingConv.inc"
+#include "CSAGenCallingConv.inc"
 
 /// IsEligibleForTailCallOptimization - Check whether the call is eligible
 /// for tail call optimization.
-bool LPUTargetLowering::
+bool CSATargetLowering::
 IsEligibleForTailCallOptimization(unsigned NextStackOffset,
-                                  const LPUMachineFunctionInfo& FI) const {
-    //  if (!EnableLPUTailCalls)
+                                  const CSAMachineFunctionInfo& FI) const {
+    //  if (!EnableCSATailCalls)
     //    return false;
 
   // Return false if either the callee or caller has a byval argument.
@@ -614,7 +614,7 @@ IsEligibleForTailCallOptimization(unsigned NextStackOffset,
 /// (physical regs)/(stack frame), CALLSEQ_START and CALLSEQ_END are emitted.
 /// TODO: isTailCall.
 SDValue
-LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
+CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                               SmallVectorImpl<SDValue> &InVals) const {
 
   SelectionDAG &DAG                     = CLI.DAG;
@@ -646,11 +646,11 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       bool Result;
 
       if (Outs[i].IsFixed) {
-        Result = CC_Reg_LPU(i, ArgVT, ArgVT, CCValAssign::Full, ArgFlags,
+        Result = CC_Reg_CSA(i, ArgVT, ArgVT, CCValAssign::Full, ArgFlags,
                             CCInfo);
       }
       else {
-        Result = CC_Reg_VarArg_LPU(i, ArgVT, ArgVT, CCValAssign::Full,
+        Result = CC_Reg_VarArg_CSA(i, ArgVT, ArgVT, CCValAssign::Full,
                                    ArgFlags, CCInfo);
       }
 
@@ -665,7 +665,7 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   }
   else {
     // All arguments are treated the same.
-    CCInfo.AnalyzeCallOperands(Outs, CC_Reg_LPU);
+    CCInfo.AnalyzeCallOperands(Outs, CC_Reg_CSA);
   }
 
   // Get a count of how many bytes are to be pushed on the stack.
@@ -674,7 +674,7 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (isTailCall)
     isTailCall = !isVarArg &&
       IsEligibleForTailCallOptimization(NumBytes,
-                                        *MF.getInfo<LPUMachineFunctionInfo>());
+                                        *MF.getInfo<CSAMachineFunctionInfo>());
 
   if (isTailCall)
     ++NumTailCalls;
@@ -682,7 +682,7 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (!isTailCall)
     Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, dl, true), dl);
 
-  SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, LPU::SP,
+  SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, CSA::SP,
                                         getPointerTy(DAG.getDataLayout()));
 
   SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
@@ -791,10 +791,10 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     Ops.push_back(InFlag);
 
   if (isTailCall)
-      return DAG.getNode(LPUISD::TailCall, dl, MVT::Other, Ops);
+      return DAG.getNode(CSAISD::TailCall, dl, MVT::Other, Ops);
 
   SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
-  Chain  = DAG.getNode(LPUISD::Call, dl, NodeTys, Ops);
+  Chain  = DAG.getNode(CSAISD::Call, dl, NodeTys, Ops);
   InFlag = Chain.getValue(1);
 
   // Create the CALLSEQ_END node.
@@ -812,7 +812,7 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 /// LowerCallResult - Lower the result values of a call into the
 /// appropriate copies out of appropriate physical registers.
 SDValue
-LPUTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
+CSATargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
                                     CallingConv::ID CallConv, bool isVarArg,
                                     const SmallVectorImpl<ISD::InputArg> &Ins,
                                     const SDLoc &dl, SelectionDAG &DAG,
@@ -823,7 +823,7 @@ LPUTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
                  RVLocs, *DAG.getContext());
 
-  CCInfo.AnalyzeCallResult(Ins, RetCC_Reg_LPU);
+  CCInfo.AnalyzeCallResult(Ins, RetCC_Reg_CSA);
 
   // Copy all of the result registers out of their specified physreg.
   for (unsigned i = 0; i != RVLocs.size(); ++i) {
@@ -846,7 +846,7 @@ LPUTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
 /// LowerFormalArguments - transform physical registers into virtual registers
 /// and generate load operations for arguments places on the stack.
 SDValue
-LPUTargetLowering::LowerFormalArguments(SDValue Chain,
+CSATargetLowering::LowerFormalArguments(SDValue Chain,
                                         CallingConv::ID CallConv, bool isVarArg,
                                         const SmallVectorImpl<ISD::InputArg>
                                         &Ins,
@@ -856,14 +856,14 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
 
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo &MFI = MF.getFrameInfo();
-  LPUMachineFunctionInfo *UFI = MF.getInfo<LPUMachineFunctionInfo>();
+  CSAMachineFunctionInfo *UFI = MF.getInfo<CSAMachineFunctionInfo>();
 
   // Assign locations to all of the incoming arguments.
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
                  ArgLocs, *DAG.getContext());
 
-  CCInfo.AnalyzeFormalArguments(Ins, CC_Reg_LPU);
+  CCInfo.AnalyzeFormalArguments(Ins, CC_Reg_CSA);
 
   SDValue StackPtr;
 
@@ -875,24 +875,24 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
       //EVT RegVT = VA.getLocVT();
 
       // Transform the arguments stored in physical registers into virtual ones
-      const TargetRegisterClass *tClass = &LPU::RI64RegClass;
+      const TargetRegisterClass *tClass = &CSA::RI64RegClass;
       MVT tVT = VA.getValVT();
       if(tVT == MVT::i64) {
-        tClass = &LPU::RI64RegClass;
+        tClass = &CSA::RI64RegClass;
       } else if(tVT == MVT::i32) {
-        tClass = &LPU::RI32RegClass;
+        tClass = &CSA::RI32RegClass;
       } else if(tVT == MVT::i16) {
-        tClass = &LPU::RI16RegClass;
+        tClass = &CSA::RI16RegClass;
       } else if(tVT == MVT::i8) {
-        tClass = &LPU::RI8RegClass;
+        tClass = &CSA::RI8RegClass;
       } else if(tVT == MVT::i1) {
-        tClass = &LPU::RI1RegClass;
+        tClass = &CSA::RI1RegClass;
       } else if(tVT == MVT::f64) {
-        tClass = &LPU::RI64RegClass;
+        tClass = &CSA::RI64RegClass;
       } else if(tVT == MVT::f32) {
-        tClass = &LPU::RI32RegClass;
+        tClass = &CSA::RI32RegClass;
       } else if(tVT == MVT::f16) {
-        tClass = &LPU::RI16RegClass;
+        tClass = &CSA::RI16RegClass;
       } else {
         llvm_unreachable("WTC!!");
       }
@@ -949,7 +949,7 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
 //===----------------------------------------------------------------------===//
 
 SDValue
-LPUTargetLowering::LowerReturn(SDValue Chain,
+CSATargetLowering::LowerReturn(SDValue Chain,
                                 CallingConv::ID CallConv, bool isVarArg,
                                 const SmallVectorImpl<ISD::OutputArg> &Outs,
                                 const SmallVectorImpl<SDValue> &OutVals,
@@ -963,7 +963,7 @@ LPUTargetLowering::LowerReturn(SDValue Chain,
                  RVLocs, *DAG.getContext());
 
   // Analize return values.
-  CCInfo.AnalyzeReturn(Outs, RetCC_Reg_LPU);
+  CCInfo.AnalyzeReturn(Outs, RetCC_Reg_CSA);
 
   SDValue Flag;
   SmallVector<SDValue, 4> RetOps(1, Chain);
@@ -988,14 +988,14 @@ LPUTargetLowering::LowerReturn(SDValue Chain,
     RetOps.push_back(Flag);
 
   // Return is always a "ret %ra"
-  return DAG.getNode(LPUISD::Ret, dl, MVT::Other, RetOps);
+  return DAG.getNode(CSAISD::Ret, dl, MVT::Other, RetOps);
 }
 
 /*
 SDValue
-LPUTargetLowering::getReturnAddressFrameIndex(SelectionDAG &DAG) const {
+CSATargetLowering::getReturnAddressFrameIndex(SelectionDAG &DAG) const {
   MachineFunction &MF = DAG.getMachineFunction();
-  LPUMachineFunctionInfo *FuncInfo = MF.getInfo<LPUMachineFunctionInfo>();
+  CSAMachineFunctionInfo *FuncInfo = MF.getInfo<CSAMachineFunctionInfo>();
   int ReturnAddrIndex = FuncInfo->getRAIndex();
 
   if (ReturnAddrIndex == 0) {
@@ -1009,7 +1009,7 @@ LPUTargetLowering::getReturnAddressFrameIndex(SelectionDAG &DAG) const {
   return DAG.getFrameIndex(ReturnAddrIndex, getPointerTy(DAG.getDataLayout()));
 }
 
-SDValue LPUTargetLowering::LowerRETURNADDR(SDValue Op,
+SDValue CSATargetLowering::LowerRETURNADDR(SDValue Op,
                                               SelectionDAG &DAG) const {
   MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
   MFI.setReturnAddressIsTaken(true);
@@ -1036,7 +1036,7 @@ SDValue LPUTargetLowering::LowerRETURNADDR(SDValue Op,
                      RetAddrFI, MachinePointerInfo());
 }
 
-SDValue LPUTargetLowering::LowerFRAMEADDR(SDValue Op,
+SDValue CSATargetLowering::LowerFRAMEADDR(SDValue Op,
                                              SelectionDAG &DAG) const {
   MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
   MFI.setFrameAddressIsTaken(true);
@@ -1045,17 +1045,17 @@ SDValue LPUTargetLowering::LowerFRAMEADDR(SDValue Op,
   SDLoc dl(Op);  // FIXME probably not meaningful
   unsigned Depth = cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();
   SDValue FrameAddr = DAG.getCopyFromReg(DAG.getEntryNode(), dl,
-                                         LPU::FP, VT);
+                                         CSA::FP, VT);
   while (Depth--)
     FrameAddr = DAG.getLoad(VT, dl, DAG.getEntryNode(), FrameAddr,
                             MachinePointerInfo());
   return FrameAddr;
 }
 
-SDValue LPUTargetLowering::LowerVASTART(SDValue Op,
+SDValue CSATargetLowering::LowerVASTART(SDValue Op,
                                            SelectionDAG &DAG) const {
   MachineFunction &MF = DAG.getMachineFunction();
-  LPUMachineFunctionInfo *FuncInfo = MF.getInfo<LPUMachineFunctionInfo>();
+  CSAMachineFunctionInfo *FuncInfo = MF.getInfo<CSAMachineFunctionInfo>();
 
   // Frame index of first vararg argument
   SDValue FrameIndex = DAG.getFrameIndex(FuncInfo->getVarArgsFrameIndex(),

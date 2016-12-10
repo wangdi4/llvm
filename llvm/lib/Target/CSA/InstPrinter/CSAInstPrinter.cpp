@@ -1,4 +1,4 @@
-//===-- LPUInstPrinter.cpp - Convert LPU MCInst to assembly syntax --------===//
+//===-- CSAInstPrinter.cpp - Convert CSA MCInst to assembly syntax --------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,13 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This class prints an LPU MCInst to a .s file.
+// This class prints an CSA MCInst to a .s file.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUInstPrinter.h"
-#include "LPU.h"
-#include "LPUInstrInfo.h"
+#include "CSAInstPrinter.h"
+#include "CSA.h"
+#include "CSAInstrInfo.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
@@ -25,38 +25,38 @@ using namespace llvm;
 #define DEBUG_TYPE "asm-printer"
 
 static cl::opt<bool>
-WrapAsmOpt("lpu-wrap-asm", cl::Hidden,
-           cl::desc("LPU Specific: Wrap assembly for x86"),
+WrapAsmOpt("csa-wrap-asm", cl::Hidden,
+           cl::desc("CSA Specific: Wrap assembly for x86"),
            cl::init(false));
 
 static std::map<int,const char*> FUName;
 
 // Pin the vtable to this file
-void LPUInstPrinter::anchor() {}
+void CSAInstPrinter::anchor() {}
 
-LPUInstPrinter::LPUInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
+CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
                       const MCRegisterInfo &MRI)
       : MCInstPrinter(MAI, MII, MRI) {
-  // Should match list in LPUInstrInfo.h
-  FUName[LPU::FUNCUNIT::VIR] = "vir"; // Virtual unit - doesn't really exist
-  FUName[LPU::FUNCUNIT::ALU] = "alu"; // Integer arithmetic and logical
-  FUName[LPU::FUNCUNIT::SHF] = "shf"; // Shift unit
-  FUName[LPU::FUNCUNIT::IMA] = "ima"; // Integer multiply/accumulate
-  FUName[LPU::FUNCUNIT::FMA] = "fma"; // Floating Multiply Accumulate
-  FUName[LPU::FUNCUNIT::FCM] = "fcm"; // Floating point comparisons
-  FUName[LPU::FUNCUNIT::CFI] = "cfi"; // Conversion to Floating from Integer
-  FUName[LPU::FUNCUNIT::CIF] = "cif"; // Conversion to Integer of Floating
-  FUName[LPU::FUNCUNIT::DIV] = "div"; // Division
-  FUName[LPU::FUNCUNIT::MEM] = "mem"; // Memory access
-  FUName[LPU::FUNCUNIT::SXU] = "sxu"; // Sequential eXecution Unit
-  FUName[LPU::FUNCUNIT::SPD] = "spd";// Scratchpad
+  // Should match list in CSAInstrInfo.h
+  FUName[CSA::FUNCUNIT::VIR] = "vir"; // Virtual unit - doesn't really exist
+  FUName[CSA::FUNCUNIT::ALU] = "alu"; // Integer arithmetic and logical
+  FUName[CSA::FUNCUNIT::SHF] = "shf"; // Shift unit
+  FUName[CSA::FUNCUNIT::IMA] = "ima"; // Integer multiply/accumulate
+  FUName[CSA::FUNCUNIT::FMA] = "fma"; // Floating Multiply Accumulate
+  FUName[CSA::FUNCUNIT::FCM] = "fcm"; // Floating point comparisons
+  FUName[CSA::FUNCUNIT::CFI] = "cfi"; // Conversion to Floating from Integer
+  FUName[CSA::FUNCUNIT::CIF] = "cif"; // Conversion to Integer of Floating
+  FUName[CSA::FUNCUNIT::DIV] = "div"; // Division
+  FUName[CSA::FUNCUNIT::MEM] = "mem"; // Memory access
+  FUName[CSA::FUNCUNIT::SXU] = "sxu"; // Sequential eXecution Unit
+  FUName[CSA::FUNCUNIT::SPD] = "spd";// Scratchpad
 }
 
-bool LPUInstPrinter::WrapLpuAsm() {
+bool CSAInstPrinter::WrapLpuAsm() {
   return WrapAsmOpt;
 }
 
-const char *LPUInstPrinter::WrapLpuAsmLinePrefix() {
+const char *CSAInstPrinter::WrapLpuAsmLinePrefix() {
   if (WrapAsmOpt) {
     return "\t.ascii \"";
   } else {
@@ -64,7 +64,7 @@ const char *LPUInstPrinter::WrapLpuAsmLinePrefix() {
   }
 }
 
-const char *LPUInstPrinter::WrapLpuAsmLineSuffix() {
+const char *CSAInstPrinter::WrapLpuAsmLineSuffix() {
   if (WrapAsmOpt) {
     return "\\n\"";
   } else {
@@ -72,7 +72,7 @@ const char *LPUInstPrinter::WrapLpuAsmLineSuffix() {
   }
 }
 
-void LPUInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
+void CSAInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
                                   StringRef Annot, const MCSubtargetInfo &STI) {
   O << WrapLpuAsmLinePrefix();
   printInstruction(MI, O);
@@ -81,9 +81,9 @@ void LPUInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
 }
 
 // Include the auto-generated portion of the assembly writer.
-#include "LPUGenAsmWriter.inc"
+#include "CSAGenAsmWriter.inc"
 
-void LPUInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
+void CSAInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                      raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
@@ -106,7 +106,7 @@ void LPUInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   }
 }
 
-void LPUInstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
+void CSAInstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
                                      raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   // Load/Store memory operands -- $reg, $reg || $reg, $imm
@@ -115,7 +115,7 @@ void LPUInstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
   printOperand(MI, OpNo+1, O);
 }
 
-void LPUInstPrinter::printUnitOperand(const MCInst *MI, unsigned OpNo,
+void CSAInstPrinter::printUnitOperand(const MCInst *MI, unsigned OpNo,
                                      raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);

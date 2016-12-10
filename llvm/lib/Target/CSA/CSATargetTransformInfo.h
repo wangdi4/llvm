@@ -1,4 +1,4 @@
-//===-- LPUTargetTransformInfo.h - LPU specific TTI -------------*- C++ -*-===//
+//===-- CSATargetTransformInfo.h - CSA specific TTI -------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,14 +8,14 @@
 //===----------------------------------------------------------------------===//
 /// \file
 /// This file a TargetTransformInfo::Concept conforming object specific to the
-/// LPU target machine. It uses the target's detailed information to provide
+/// CSA target machine. It uses the target's detailed information to provide
 /// more precise answers to certain TTI queries, while letting the target
 /// independent and default TTI implementations handle the rest.
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUTARGETTRANSFORMINFO_H
-#define LLVM_LIB_TARGET_LPU_LPUTARGETTRANSFORMINFO_H
+#ifndef LLVM_LIB_TARGET_CSA_CSATARGETTRANSFORMINFO_H
+#define LLVM_LIB_TARGET_CSA_CSATARGETTRANSFORMINFO_H
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -24,19 +24,19 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
-#include "LPUTargetMachine.h"
-#include "LPU.h"
+#include "CSATargetMachine.h"
+#include "CSA.h"
 #include <utility>
 
 namespace llvm {
 
-class LPUTTIImpl : public BasicTTIImplBase<LPUTTIImpl> {
-  typedef BasicTTIImplBase<LPUTTIImpl> BaseT;
+class CSATTIImpl : public BasicTTIImplBase<CSATTIImpl> {
+  typedef BasicTTIImplBase<CSATTIImpl> BaseT;
   typedef TargetTransformInfo TTI;
   friend BaseT;
 
-  const LPUSubtarget *ST;
-  const LPUTargetLowering *TLI;
+  const CSASubtarget *ST;
+  const CSATargetLowering *TLI;
 
   /// Estimate the overhead of scalarizing an instruction. Insert and Extract
   /// are set if the result needs to be inserted and/or extracted from vectors.
@@ -45,19 +45,19 @@ class LPUTTIImpl : public BasicTTIImplBase<LPUTTIImpl> {
   /// Estimate the cost overhead of SK_Alternate shuffle.
   unsigned getAltShuffleOverhead(Type *Ty);
 
-  const LPUTargetLowering *getTLI() const {
+  const CSATargetLowering *getTLI() const {
     return TLI;
   }
 
 public:
-  explicit LPUTTIImpl(const LPUTargetMachine *TM, const Function &F)
+  explicit CSATTIImpl(const CSATargetMachine *TM, const Function &F)
       : BaseT(TM, F.getParent()->getDataLayout()), ST(TM->getSubtargetImpl()),
         TLI(ST->getTargetLowering()) {}
 
   // Provide value semantics. MSVC requires that we spell all of these out.
-  LPUTTIImpl(const LPUTTIImpl &Arg)
+  CSATTIImpl(const CSATTIImpl &Arg)
       : BaseT(static_cast<const BaseT &>(Arg)), ST(Arg.ST), TLI(Arg.TLI) {}
-  LPUTTIImpl(LPUTTIImpl &&Arg)
+  CSATTIImpl(CSATTIImpl &&Arg)
       : BaseT(std::move(static_cast<BaseT &>(Arg))), ST(std::move(Arg.ST)),
       TLI(std::move(Arg.TLI)) {}
 

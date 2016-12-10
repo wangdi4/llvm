@@ -5,7 +5,7 @@
 // Program Dependence Graph and Its Use in Optimization."
 //
 //===----------------------------------------------------------------------===//
-#include "LPU.h"
+#include "CSA.h"
 #include "MachineCDG.h"
 
 #include "llvm/Analysis/DOTGraphTraitsPass.h"
@@ -15,7 +15,7 @@
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "LPUInstrInfo.h"
+#include "CSAInstrInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include <deque>
 #include <set>
@@ -23,8 +23,8 @@
 using namespace llvm;
 
 static cl::opt<int>
-LPUDumpDotGraph("lpu-dump-dot-graph", cl::Hidden,
-	cl::desc("LPU Specific: dump CFG, CDG, PDT, DT dot graphs"),
+CSADumpDotGraph("csa-dump-dot-graph", cl::Hidden,
+	cl::desc("CSA Specific: dump CFG, CDG, PDT, DT dot graphs"),
 	cl::init(0));
 
 //  Because of the namespace-related syntax limitations of gcc, we need
@@ -35,7 +35,7 @@ INITIALIZE_PASS(ControlDependenceGraph, "machine-cdg",
   "Machine Control Dependence Graph Construction", true, true)
 
 
-#define DEBUG_TYPE "lpu-cdg-pass"
+#define DEBUG_TYPE "csa-cdg-pass"
 namespace llvm {
 
 void ControlDependenceNode::addTrue(ControlDependenceNode *Child) {
@@ -120,12 +120,12 @@ ControlDependenceGraphBase::getEdgeType(MachineBasicBlock *A, MachineBasicBlock 
   } else if (!FBB && !Cond.empty() && TBB) { 
     //branch followed by a fall through
 		if (TBB == B) {
-			if (A->getFirstTerminator()->getOpcode() == LPU::BT)
+			if (A->getFirstTerminator()->getOpcode() == CSA::BT)
 				return ControlDependenceNode::TRUE;
 			else
 				return ControlDependenceNode::FALSE;
 		} else {
-			if (A->getFirstTerminator()->getOpcode() == LPU::BT)
+			if (A->getFirstTerminator()->getOpcode() == CSA::BT)
 				return ControlDependenceNode::FALSE;	
 			else 
 				return ControlDependenceNode::TRUE;
@@ -133,13 +133,13 @@ ControlDependenceGraphBase::getEdgeType(MachineBasicBlock *A, MachineBasicBlock 
   } else if (TBB && !Cond.empty() && FBB) {
     // a two-way branch
 		if (TBB == B) {
-			if (A->getFirstTerminator()->getOpcode() == LPU::BT) {
+			if (A->getFirstTerminator()->getOpcode() == CSA::BT) {
 				return ControlDependenceNode::TRUE;
 			} else {
 				return ControlDependenceNode::FALSE;
 			}
 		} else {
-			if (A->getFirstTerminator()->getOpcode() == LPU::BT) {
+			if (A->getFirstTerminator()->getOpcode() == CSA::BT) {
 				return ControlDependenceNode::FALSE;
 			}	else {
 				return ControlDependenceNode::TRUE;
@@ -519,7 +519,7 @@ bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
 	}
 	thisPDT = &pdt;
 	graphForFunction(F, pdt);
-	if (LPUDumpDotGraph) {
+	if (CSADumpDotGraph) {
 		writeDotGraph(F.getName());
 	}
 	return false;

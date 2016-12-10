@@ -1,4 +1,4 @@
-//===-- LPUSelectionDAGInfo.h - LPU SelectionDAG Info -----------*- C++ -*-===//
+//===-- CSASelectionDAGInfo.h - CSA SelectionDAG Info -----------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,22 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the LPU subclass for SelectionDAGTargetInfo.
+// This file defines the CSA subclass for SelectionDAGTargetInfo.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUSELECTIONDAGINFO_H
-#define LLVM_LIB_TARGET_LPU_LPUSELECTIONDAGINFO_H
+#ifndef LLVM_LIB_TARGET_CSA_CSASELECTIONDAGINFO_H
+#define LLVM_LIB_TARGET_CSA_CSASELECTIONDAGINFO_H
 
 #include "llvm/CodeGen/SelectionDAGTargetInfo.h"
 
 namespace llvm {
 
-class LPUTargetMachine;
+class CSATargetMachine;
 
-class LPUSelectionDAGInfo : public SelectionDAGTargetInfo {
+class CSASelectionDAGInfo : public SelectionDAGTargetInfo {
 public:
-  explicit LPUSelectionDAGInfo() = default;
+  explicit CSASelectionDAGInfo() = default;
 };
 
 }

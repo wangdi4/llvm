@@ -1,4 +1,4 @@
-//===-- LPUTargetMachine.h - TargetMachine for the LPU backend ------*- C++ -*-===//
+//===-- CSATargetMachine.h - TargetMachine for the CSA backend ------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,35 +7,35 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file declares the TargetMachine that is used by the LPU backend.
+// This file declares the TargetMachine that is used by the CSA backend.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LPUTARGETMACHINE_H
-#define LPUTARGETMACHINE_H
+#ifndef CSATARGETMACHINE_H
+#define CSATARGETMACHINE_H
 
-#include "LPUSubtarget.h"
+#include "CSASubtarget.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
 
-class LPUTargetMachine : public LLVMTargetMachine {
+class CSATargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
-  LPUSubtarget Subtarget;
+  CSASubtarget Subtarget;
 public:
-  LPUTargetMachine(const Target &T, const Triple &TT,
+  CSATargetMachine(const Target &T, const Triple &TT,
                  StringRef CPU, StringRef FS, const TargetOptions &Options,
                  Optional<Reloc::Model> RM, CodeModel::Model CM,
 		   CodeGenOpt::Level OL);
-  ~LPUTargetMachine() override;
+  ~CSATargetMachine() override;
 
-  const LPUSubtarget *getSubtargetImpl(const Function &) const override {
+  const CSASubtarget *getSubtargetImpl(const Function &) const override {
     return &Subtarget;
   }
-  const LPUSubtarget *getSubtargetImpl() const {
+  const CSASubtarget *getSubtargetImpl() const {
     return &Subtarget;
   }
-  /// \brief Register LPU analysis passes with a pass manager.
+  /// \brief Register CSA analysis passes with a pass manager.
   TargetIRAnalysis getTargetIRAnalysis() override;
 
   TargetPassConfig *createPassConfig(legacy::PassManagerBase &PM) override;
@@ -46,7 +46,7 @@ public:
 
 };
 
-extern Target TheLPUTarget;
+extern Target TheCSATarget;
 
 } // End llvm namespace
 

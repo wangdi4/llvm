@@ -1,4 +1,4 @@
-//===-- LPUInstrInfo.h - LPU Instruction Information ------------*- C++ -*-===//
+//===-- CSAInstrInfo.h - CSA Instruction Information ------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,33 +7,33 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the LPU implementation of the TargetInstrInfo class.
+// This file contains the CSA implementation of the TargetInstrInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUINSTRINFO_H
-#define LLVM_LIB_TARGET_LPU_LPUINSTRINFO_H
+#ifndef LLVM_LIB_TARGET_CSA_CSAINSTRINFO_H
+#define LLVM_LIB_TARGET_CSA_CSAINSTRINFO_H
 
-#include "LPURegisterInfo.h"
+#include "CSARegisterInfo.h"
 #include "llvm/Target/TargetInstrInfo.h"
 
 #define GET_INSTRINFO_HEADER
-#include "LPUGenInstrInfo.inc"
+#include "CSAGenInstrInfo.inc"
 
 namespace llvm {
 
-namespace LPU {
+namespace CSA {
   enum CondCode {
     COND_T,
     COND_F,
     COND_INVALID
   };
 
-  // This should match the LPUSchedule.td FuncUnit list.  This is
+  // This should match the CSASchedule.td FuncUnit list.  This is
   // intended to be a temporary placeholder until that method works
   // without needing this separate copy.
   // Note: There is a mapping from these index values to text in
-  // LPUInstPrinter.cpp - do not reorder/change without adjusting that table.
+  // CSAInstPrinter.cpp - do not reorder/change without adjusting that table.
   namespace FUNCUNIT {
     enum FuncUnit {
       None,
@@ -54,13 +54,13 @@ namespace LPU {
   }
 }
 
-class LPUSubtarget;
+class CSASubtarget;
 
-class LPUInstrInfo : public LPUGenInstrInfo {
-  const LPURegisterInfo RI;
+class CSAInstrInfo : public CSAGenInstrInfo {
+  const CSARegisterInfo RI;
   virtual void anchor();
 public:
-  explicit LPUInstrInfo(LPUSubtarget &STI);
+  explicit CSAInstrInfo(CSASubtarget &STI);
 
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
   /// such, whenever a client has an instance of instruction info, it should

@@ -1,4 +1,4 @@
-;===- ./lib/Target/LPU/LLVMBuild.txt ----------------------*- Conf -*--===;
+;===- ./lib/Target/CSA/LLVMBuild.txt ----------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -20,12 +20,12 @@ subdirectories = InstPrinter MCTargetDesc TargetInfo
 
 [component_0]
 type = TargetGroup
-name = LPU
+name = CSA
 parent = Target
 
 [component_1]
 type = Library
-name = LPUCodeGen
-parent = LPU
-required_libraries = Analysis AsmPrinter BitWriter CodeGen Core LPUAsmPrinter LPUDesc LPUInfo MC Scalar SelectionDAG Support Target TransformUtils
-add_to_library_groups = LPU
+name = CSACodeGen
+parent = CSA
+required_libraries = Analysis AsmPrinter BitWriter CodeGen Core CSAAsmPrinter CSADesc CSAInfo MC Scalar SelectionDAG Support Target TransformUtils
+add_to_library_groups = CSA

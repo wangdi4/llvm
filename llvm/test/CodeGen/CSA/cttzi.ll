@@ -1,12 +1,12 @@
-; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK
+; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
 ; ModuleID = '<stdin>'
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind readnone
 define i32 @cttzi(i32 %i) #0 {
-; LPU_CHECK-LABEL: cttzi
-; LPU_CHECK: cttz32
+; CSA_CHECK-LABEL: cttzi
+; CSA_CHECK: cttz32
 entry:
   %0 = tail call i32 @llvm.cttz.i32(i32 %i, i1 true)
   ret i32 %0

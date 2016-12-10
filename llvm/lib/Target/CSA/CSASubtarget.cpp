@@ -1,4 +1,4 @@
-//===-- LPUSubtarget.cpp - LPU Subtarget Information ----------------------===//
+//===-- CSASubtarget.cpp - CSA Subtarget Information ----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,34 +7,34 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the LPU specific subclass of TargetSubtargetInfo.
+// This file implements the CSA specific subclass of TargetSubtargetInfo.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUSubtarget.h"
-#include "LPU.h"
+#include "CSASubtarget.h"
+#include "CSA.h"
 #include "llvm/Support/TargetRegistry.h"
 
 using namespace llvm;
 
-#define DEBUG_TYPE "lpu-subtarget"
+#define DEBUG_TYPE "csa-subtarget"
 
 #define GET_SUBTARGETINFO_TARGET_DESC
 #define GET_SUBTARGETINFO_CTOR
-#include "LPUGenSubtargetInfo.inc"
+#include "CSAGenSubtargetInfo.inc"
 
-void LPUSubtarget::anchor() { }
+void CSASubtarget::anchor() { }
 
-LPUSubtarget &LPUSubtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) {
+CSASubtarget &CSASubtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) {
   ParseSubtargetFeatures(CPU.empty() ? "autounit" : CPU, FS);
   return *this;
 }
 
-LPUSubtarget::LPUSubtarget(const Triple &TT, const std::string &CPU,
+CSASubtarget::CSASubtarget(const Triple &TT, const std::string &CPU,
                                  const std::string &FS, const TargetMachine &TM)
-    : LPUGenSubtargetInfo(TT, CPU, FS),
+    : CSAGenSubtargetInfo(TT, CPU, FS),
       FrameLowering(),
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM, *this),
       TSInfo(),
-      LPUName(CPU.empty() ? "autounit" : CPU)
+      CSAName(CPU.empty() ? "autounit" : CPU)
   {}

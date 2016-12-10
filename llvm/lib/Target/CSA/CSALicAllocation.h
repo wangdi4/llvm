@@ -1,4 +1,4 @@
-//===-- LPULicAllocation.h - LPU LIC allocation structures ---------------===//
+//===-- CSALicAllocation.h - CSA LIC allocation structures ---------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,11 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPULICALLOCATION_H
-#define LLVM_LIB_TARGET_LPU_LPULICALLOCATION_H
+#ifndef LLVM_LIB_TARGET_CSA_CSALICALLOCATION_H
+#define LLVM_LIB_TARGET_CSA_CSALICALLOCATION_H
 
 #include <set>
-#include "LPUTargetMachine.h"
+#include "CSATargetMachine.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 
@@ -24,17 +24,17 @@ namespace llvm {
   class MachineBasicBlock;
   class MachineInstr;
 
-  class LPULicAllocation {
+  class CSALicAllocation {
   public:
 
-    enum LPULicAllocType {
+    enum CSALicAllocType {
       LicAllocDisabled = 0,  // Disable the pass.
       LicAllocEnabled  = 1,  // Enable the full pass.
       LicAllocDryRun   = 2,  // Analysis only, but don't modify the graph. 
       LicAllocUnknown  = 3,  // Last option.
     };
 
-    LPULicAllocation(int lic_alloc_flag) : m_lic_alloc_flag(lic_alloc_flag % LicAllocUnknown) { }
+    CSALicAllocation(int lic_alloc_flag) : m_lic_alloc_flag(lic_alloc_flag % LicAllocUnknown) { }
 
     bool pass_enabled() const {
       return (m_lic_alloc_flag > LicAllocDisabled);
@@ -49,7 +49,7 @@ namespace llvm {
     // Integer flag that we can specify at the command line to control
     // the LIC allocation step.
     //
-    // Currently, the allowed options are defined by LPULicAllocType
+    // Currently, the allowed options are defined by CSALicAllocType
     int m_lic_alloc_flag;
 
 
@@ -156,8 +156,8 @@ namespace llvm {
     //
     // TBD(jsukha): This method should also insert the relevant copy
     // instructions.
-    void generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
-                             const LPUInstrInfo& TII,
+    void generate_LIC_copies(CSAMachineFunctionInfo* LMFI,
+                             const CSAInstrInfo& TII,
                              unsigned src,
                              const TargetRegisterClass* new_LIC_RC,
                              std::vector<unsigned>* replacement_LICs,

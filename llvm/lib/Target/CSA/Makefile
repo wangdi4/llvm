@@ -1,4 +1,4 @@
-##===- lib/Target/LPU/Makefile -----------------------------*- Makefile -*-===##
+##===- lib/Target/CSA/Makefile -----------------------------*- Makefile -*-===##
 #
 #                     The LLVM Compiler Infrastructure
 #
@@ -8,15 +8,15 @@
 ##===----------------------------------------------------------------------===##
 
 LEVEL = ../../..
-LIBRARYNAME = LLVMLPUCodeGen
-TARGET = LPU
+LIBRARYNAME = LLVMCSACodeGen
+TARGET = CSA
 
-BUILT_SOURCES = LPUGenRegisterInfo.inc \
-                LPUGenInstrInfo.inc \
-                LPUGenAsmWriter.inc \
-                LPUGenDAGISel.inc \
-                LPUGenCallingConv.inc \
-                LPUGenSubtargetInfo.inc
+BUILT_SOURCES = CSAGenRegisterInfo.inc \
+                CSAGenInstrInfo.inc \
+                CSAGenAsmWriter.inc \
+                CSAGenDAGISel.inc \
+                CSAGenCallingConv.inc \
+                CSAGenSubtargetInfo.inc
 
 DIRS = InstPrinter TargetInfo MCTargetDesc
 

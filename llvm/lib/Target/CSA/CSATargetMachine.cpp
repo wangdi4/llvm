@@ -1,4 +1,4 @@
-//===-- LPUTargetMachine.cpp - Define TargetMachine for LPU ---------------===//
+//===-- CSATargetMachine.cpp - Define TargetMachine for CSA ---------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Top-level implementation for the LPU target.
+// Top-level implementation for the CSA target.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPUTargetMachine.h"
-#include "LPUTargetTransformInfo.h"
-#include "LPULowerAggrCopies.h"
-#include "LPU.h"
+#include "CSATargetMachine.h"
+#include "CSATargetTransformInfo.h"
+#include "CSALowerAggrCopies.h"
+#include "CSA.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
@@ -47,8 +47,8 @@
 using namespace llvm;
 
 static cl::opt<int>
-RunLPUStatistics("lpu-run-statistics", cl::Hidden,
-              cl::desc("LPU Specific: collect statistics for DF instructions"),
+RunCSAStatistics("csa-run-statistics", cl::Hidden,
+              cl::desc("CSA Specific: collect statistics for DF instructions"),
               cl::init(0));
 
 // Helper function to build a DataLayout string
@@ -58,17 +58,17 @@ static std::string computeDataLayout() {
 
 
 namespace llvm {
-  void initializeLPULowerAggrCopiesPass(PassRegistry &);
+  void initializeCSALowerAggrCopiesPass(PassRegistry &);
 }
 
-extern "C" void LLVMInitializeLPUTarget() {
+extern "C" void LLVMInitializeCSATarget() {
   // Register the target.
-  RegisterTargetMachine<LPUTargetMachine> X(TheLPUTarget);
+  RegisterTargetMachine<CSATargetMachine> X(TheCSATarget);
 
-  // The original comment in the LPU target says this optimization
+  // The original comment in the CSA target says this optimization
   // is placed here because it is too target-specific.
   PassRegistry &PR = *PassRegistry::getPassRegistry();
-  initializeLPULowerAggrCopiesPass(PR);
+  initializeCSALowerAggrCopiesPass(PR);
 }
 
 static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
@@ -77,7 +77,7 @@ static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
   return *RM;
 }
 
-LPUTargetMachine::LPUTargetMachine(const Target &T, const Triple &TT,
+CSATargetMachine::CSATargetMachine(const Target &T, const Triple &TT,
                                          StringRef CPU, StringRef FS,
                                          const TargetOptions &Options,
                                          Optional<Reloc::Model> RM,
@@ -99,25 +99,25 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, const Triple &TT,
 }
 
 
-TargetIRAnalysis LPUTargetMachine::getTargetIRAnalysis() {
+TargetIRAnalysis CSATargetMachine::getTargetIRAnalysis() {
   return TargetIRAnalysis([this](const Function &F) {
-    return TargetTransformInfo(LPUTTIImpl(this, F));
+    return TargetTransformInfo(CSATTIImpl(this, F));
   });
 }
 
 
 
-LPUTargetMachine::~LPUTargetMachine() {}
+CSATargetMachine::~CSATargetMachine() {}
 
 namespace {
-/// LPU Code Generator Pass Configuration Options.
-class LPUPassConfig : public TargetPassConfig {
+/// CSA Code Generator Pass Configuration Options.
+class CSAPassConfig : public TargetPassConfig {
 public:
-  LPUPassConfig(LPUTargetMachine *TM, legacy::PassManagerBase &PM)
+  CSAPassConfig(CSATargetMachine *TM, legacy::PassManagerBase &PM)
     : TargetPassConfig(TM, PM) {}
 
-  LPUTargetMachine &getLPUTargetMachine() const {
-    return getTM<LPUTargetMachine>();
+  CSATargetMachine &getCSATargetMachine() const {
+    return getTM<CSATargetMachine>();
   }
 
   bool addInstSelector() override {
@@ -126,7 +126,7 @@ public:
     addPass(createLowerAggrCopies());
     
     // Install an instruction selector.
-    addPass(createLPUISelDag(getLPUTargetMachine(), getOptLevel()));
+    addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
     return false;
   }
 
@@ -139,7 +139,7 @@ public:
   }
 
 
-#define DEBUG_TYPE "lpu-convert-control"
+#define DEBUG_TYPE "csa-convert-control"
   void addPreRegAlloc() override {
     std::string Banner;
 #if 1
@@ -150,44 +150,44 @@ public:
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createLPUCvtCFDFPass(), false);
-    Banner = std::string("After LPUCvtCFDFPass");
+    addPass(createCSACvtCFDFPass(), false);
+    Banner = std::string("After CSACvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createLPUOptDFPass(), false);
-    Banner = std::string("After LPUOptDFPass");
+    addPass(createCSAOptDFPass(), false);
+    Banner = std::string("After CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createLPURedundantMovElimPass(), false);
-    Banner = std::string("After LPURedundantMovElim");
+    addPass(createCSARedundantMovElimPass(), false);
+    Banner = std::string("After CSARedundantMovElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
     
-    addPass(createLPUDeadInstructionElimPass(), false);
-    Banner = std::string("After LPUDeadInstructionElim");
+    addPass(createCSADeadInstructionElimPass(), false);
+    Banner = std::string("After CSADeadInstructionElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    if (RunLPUStatistics) {
-      addPass(createLPUStatisticsPass(), false);
+    if (RunCSAStatistics) {
+      addPass(createCSAStatisticsPass(), false);
     }
 #else
-    Banner = std::string("Before LPUConvertControlPass");
+    Banner = std::string("Before CSAConvertControlPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-    addPass(createLPUConvertControlPass(), false);
-    Banner = std::string("After LPUConvertControlPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-
-    Banner = std::string("Before LPUOptDFPass");
+    addPass(createCSAConvertControlPass(), false);
+    Banner = std::string("After CSAConvertControlPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createLPUOptDFPass(), false);
-    Banner = std::string("After LPUOptDFPass");
+    Banner = std::string("Before CSAOptDFPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
+    addPass(createCSAOptDFPass(), false);
+    Banner = std::string("After CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 #endif
 
   }
 
   void addPostRegAlloc() override {
-    addPass(createLPUAllocUnitPass(), false);
+    addPass(createCSAAllocUnitPass(), false);
   }
 
   void addIRPasses() override {
@@ -195,11 +195,11 @@ public:
     TargetPassConfig::addIRPasses();
   }
 
-}; // class LPUPassConfig
+}; // class CSAPassConfig
 
 } // namespace
 
-TargetPassConfig *LPUTargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
-  LPUPassConfig *PassConfig = new LPUPassConfig(this, PM);
+TargetPassConfig *CSATargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
+  CSAPassConfig *PassConfig = new CSAPassConfig(this, PM);
   return PassConfig;
 }

@@ -1,4 +1,4 @@
-//===-- LPUISelLowering.h - LPU DAG Lowering Interface ----------*- C++ -*-===//
+//===-- CSAISelLowering.h - CSA DAG Lowering Interface ----------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,21 +7,21 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the interfaces that LPU uses to lower LLVM code into a
+// This file defines the interfaces that CSA uses to lower LLVM code into a
 // selection DAG.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_LPU_LPUISELLOWERING_H
-#define LLVM_LIB_TARGET_LPU_LPUISELLOWERING_H
+#ifndef LLVM_LIB_TARGET_CSA_CSAISELLOWERING_H
+#define LLVM_LIB_TARGET_CSA_CSAISELLOWERING_H
 
-#include "LPU.h"
+#include "CSA.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/Target/TargetLowering.h"
-#include "LPUMachineFunctionInfo.h"
+#include "CSAMachineFunctionInfo.h"
 
 namespace llvm {
-  namespace LPUISD {
+  namespace CSAISD {
     enum {
       FIRST_NUMBER = ISD::BUILTIN_OP_END,
       Call,
@@ -33,17 +33,17 @@ namespace llvm {
     };
   }
 
-  class LPUSubtarget;
+  class CSASubtarget;
 
-  class LPUTargetLowering : public TargetLowering {
+  class CSATargetLowering : public TargetLowering {
   public:
-    explicit LPUTargetLowering(const TargetMachine &TM, const LPUSubtarget &ST);
+    explicit CSATargetLowering(const TargetMachine &TM, const CSASubtarget &ST);
 
     EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
                            EVT VT) const override;
 
     // Returns the type that the value to shift-by should have
-    // given the EVT of that operand. Since the LPU supports
+    // given the EVT of that operand. Since the CSA supports
     // all types save i1, that is what we return.
     // (Copied from FFWD)
     MVT getScalarShiftAmountTy(const DataLayout &, EVT LHSTy) const override {
@@ -129,7 +129,7 @@ namespace llvm {
     /// IsEligibleForTailCallOptimization - Check whether the call is eligible
     /// for tail call optimization.
     bool IsEligibleForTailCallOptimization(unsigned NextStackOffset,
-                                           const LPUMachineFunctionInfo& FI) const;
+                                           const CSAMachineFunctionInfo& FI) const;
 
     SDValue LowerCall(TargetLowering::CallLoweringInfo &CLI,
                 SmallVectorImpl<SDValue> &InVals) const override;

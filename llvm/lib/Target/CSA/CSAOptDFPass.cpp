@@ -1,4 +1,4 @@
-//===-- LPUOptDFPass.cpp - LPU optimization of data flow ------------------===//
+//===-- CSAOptDFPass.cpp - CSA optimization of data flow ------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -14,11 +14,11 @@
 
 #include <map>
 #include <set>
-#include "LPU.h"
-#include "InstPrinter/LPUInstPrinter.h"
-#include "LPUInstrInfo.h"
-#include "LPUTargetMachine.h"
-#include "LPULicAllocation.h"
+#include "CSA.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "CSAInstrInfo.h"
+#include "CSATargetMachine.h"
+#include "CSALicAllocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -32,7 +32,7 @@
 #include "llvm/Target/TargetSubtargetInfo.h"
 
 // Define data structures needed for sequence optimizations.
-#include "LPUSequenceOpt.h"
+#include "CSASequenceOpt.h"
 // Width of vectors we are using for sequence op calculation.
 // TBD(jsukha): As far as I know, this value only affects performance,
 // not correctness?
@@ -41,14 +41,14 @@
 using namespace llvm;
 
 static cl::opt<int>
-OptDFPass("lpu-opt-df-pass",
+OptDFPass("csa-opt-df-pass",
           cl::Hidden,
-          cl::desc("LPU Specific: Optimize data flow pass"),
+          cl::desc("CSA Specific: Optimize data flow pass"),
           cl::init(1));
 
-#define DEBUG_TYPE "lpu-opt-df"
+#define DEBUG_TYPE "csa-opt-df"
 
-const TargetRegisterClass* const SeqPredRC = &LPU::CI1RegClass;
+const TargetRegisterClass* const SeqPredRC = &CSA::CI1RegClass;
 
 // Flag for enabling sequence optimizations.
 //
@@ -57,11 +57,11 @@ const TargetRegisterClass* const SeqPredRC = &LPU::CI1RegClass;
 //      Prints LLVM debugging output.
 //   2: Enable transformations.
 //
-// Note that this optimization is not run unless lpu-opt-df-pass is
+// Note that this optimization is not run unless csa-opt-df-pass is
 // also set > 0.
 static cl::opt<int>
-RunSequenceOpt("lpu-seq-opt", cl::Hidden,
-               cl::desc("LPU Specific: Enable sequence optimizations"),
+RunSequenceOpt("csa-seq-opt", cl::Hidden,
+               cl::desc("CSA Specific: Enable sequence optimizations"),
                cl::init(2));
 
 
@@ -81,20 +81,20 @@ RunSequenceOpt("lpu-seq-opt", cl::Hidden,
 //      may be true for many small parallel kernels we are trying to
 //      compile.
 //
-// Note that this optimization has no effect unless lpu-opt-df-pass is
+// Note that this optimization has no effect unless csa-opt-df-pass is
 // also set > 0.
 //
 // WARNING: Setting this flag may result in incorrect code being
 // generated.  Use with extreme caution.
 static cl::opt<int>
-SeqBreakMemdep("lpu-seq-break-memdep", cl::Hidden,
-               cl::desc("LPU Specific: Break memory dependencies for sequenced loops"),
+SeqBreakMemdep("csa-seq-break-memdep", cl::Hidden,
+               cl::desc("CSA Specific: Break memory dependencies for sequenced loops"),
                cl::init(0));
 
 // Enable or disable detection of reductions.
 static cl::opt<int>
-SeqReduction("lpu-seq-reduction", cl::Hidden,
-             cl::desc("LPU Specific: Enable reduction sequence transformation"),
+SeqReduction("csa-seq-reduction", cl::Hidden,
+             cl::desc("CSA Specific: Enable reduction sequence transformation"),
              cl::init(1));
 
 
@@ -103,21 +103,21 @@ SeqReduction("lpu-seq-reduction", cl::Hidden,
 //
 // TBD(jsukha): I set this value to be a large but arbitrary value.
 static cl::opt<int>
-SequenceMaxPerLoop("lpu-seq-max",
+SequenceMaxPerLoop("csa-seq-max",
               cl::Hidden,
-              cl::desc("LPU Specific: Max sequence units inserted per loop"),
+              cl::desc("CSA Specific: Max sequence units inserted per loop"),
               cl::init(1024*1024));
 
 
 namespace {
 
-class LPUOptDFPass : public MachineFunctionPass {
+class CSAOptDFPass : public MachineFunctionPass {
 public:
   static char ID;
-  LPUOptDFPass() : MachineFunctionPass(ID) { thisMF = nullptr;}
+  CSAOptDFPass() : MachineFunctionPass(ID) { thisMF = nullptr;}
 
   StringRef getPassName() const override {
-    return "LPU Convert Control Flow to Data Flow";
+    return "CSA Convert Control Flow to Data Flow";
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -147,14 +147,14 @@ public:
   // Debug print methods.
   //
   // Print header
-  void seq_debug_print_header(LPUSeqHeader& header);
+  void seq_debug_print_header(CSASeqHeader& header);
 
   // Print the information out of a sequence candidate.
-  void seq_debug_print_candidate(LPUSeqCandidate& x);
+  void seq_debug_print_candidate(CSASeqCandidate& x);
 
   //
   // Print loop info.
-  void seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
+  void seq_print_loop_info(SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH>* loops);
 
 
   // Returns true if a machine instruction is
@@ -171,11 +171,11 @@ public:
                               unsigned picker_channel,
                               unsigned* switcher_channel);
 
-  // Returns true if we found the sequence of LPU instructions that
+  // Returns true if we found the sequence of CSA instructions that
   // forms the header of a loop.  If true, fills in "header"
   // with the info.
   bool seq_identify_header(MachineInstr* MI,
-                           LPUSeqHeader* header);
+                           CSASeqHeader* header);
 
   // Returns MI if  MI is a pick instruction that matches the specified
   // loop header.  Otherwise, returns NULL.
@@ -183,8 +183,8 @@ public:
   // match is found.
   MachineInstr*
   seq_candidate_match_pick(MachineInstr* MI,
-                           const LPUSeqHeader& header,
-                           const LPUInstrInfo& TII,
+                           const CSASeqHeader& header,
+                           const CSAInstrInfo& TII,
                            DenseMap<unsigned, MachineInstr*>& pickMap);
 
   // Returns matching pick instruction if MI is a switch instruction
@@ -192,13 +192,13 @@ public:
   // NULL.
   MachineInstr*
   seq_candidate_match_switch(MachineInstr* MI,
-                             const LPUSeqHeader& header,
-                             const LPUInstrInfo& TII,
+                             const CSASeqHeader& header,
+                             const CSAInstrInfo& TII,
                              DenseMap<unsigned, MachineInstr*>& pickMap);
 
 
   // Helper method for finding sequence candidates.
-  void seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
+  void seq_find_candidate_loops(SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH>* loops);
 
 
   // Check whether this candidate sequence is either a repeat or a
@@ -210,23 +210,23 @@ public:
   //  SeqType::UNKNOWN
   //  SeqType::REPEAT
   //  SeqType::REDUCTION
-  LPUSeqCandidate::SeqType
-  seq_classify_repeat_or_reduction(LPUSeqCandidate& x);
+  CSASeqCandidate::SeqType
+  seq_classify_repeat_or_reduction(CSASeqCandidate& x);
 
   // Check whether this candidate sequence matches a "stride" type.
-  LPUSeqCandidate::SeqType
-  seq_classify_stride(LPUSeqCandidate& x,
+  CSASeqCandidate::SeqType
+  seq_classify_stride(CSASeqCandidate& x,
                       const DenseMap<unsigned, int>& repeat_channels);
 
   // Check whether this candidate sequence represents a memory dependency
   // chain.
-  LPUSeqCandidate::SeqType
-  seq_classify_memdep_graph(LPUSeqCandidate& x);
+  CSASeqCandidate::SeqType
+  seq_classify_memdep_graph(CSASeqCandidate& x);
 
 
   // Classify all the candidate sequences in the loops we found.
   void
-  seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
+  seq_analyze_loops(SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH>* loops);
 
   // Helper methods for seq_analyze_loops.
   //
@@ -234,31 +234,31 @@ public:
   // classification of all the sequence candidates for a given loop.
   //
   void
-  seq_classify_loop_repeats(LPUSeqLoopInfo& current_loop,
-                            SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& repeats,
-                            SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& reductions,
-                            SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other);
+  seq_classify_loop_repeats(CSASeqLoopInfo& current_loop,
+                            SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& repeats,
+                            SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& reductions,
+                            SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& other);
   void
-  seq_classify_loop_reductions_as_strides(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& reductions,
-                                          LPUSeqLoopInfo& current_loop,
-                                          SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaining);
+  seq_classify_loop_reductions_as_strides(SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& reductions,
+                                          CSASeqLoopInfo& current_loop,
+                                          SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& remaining);
   void
-  seq_classify_loop_remaining(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaining,
-                              LPUSeqLoopInfo& current_loop,
-                              SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other);
+  seq_classify_loop_remaining(SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& remaining,
+                              CSASeqLoopInfo& current_loop,
+                              SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& other);
 
 
   // The final check in the analysis phase, which checks whether we
   // can figure out which sequence candidate is an induction variable
   // for the loop.
   // Returns true if we found a valid induction variable and bound.
-  bool seq_identify_induction_variable(LPUSeqLoopInfo& loop);
+  bool seq_identify_induction_variable(CSASeqLoopInfo& loop);
 
 
   // The actual sequence transformation.
   // This method should only get called once we've passed all our checks for
   // validity in the transform.
-  void seq_do_transform_loop(LPUSeqLoopInfo& loop);
+  void seq_do_transform_loop(CSASeqLoopInfo& loop);
 
   // Helper methods for do_transform_loop.
 
@@ -266,44 +266,44 @@ public:
   // structure to save the info about the sequence instruction we
   // created.
   void
-  seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
+  seq_do_transform_loop_seq(CSASeqLoopInfo& loop,
                             MachineBasicBlock* BB,
-                            LPUSeqInstrInfo* seqInfo,
+                            CSASeqInstrInfo* seqInfo,
                             SmallVector<MachineInstr*,
                                         SEQ_VEC_WIDTH>& insToDisconnect);                            
   void
-  seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
-                               LPUSeqLoopInfo& loop,
+  seq_do_transform_loop_repeat(CSASeqCandidate& scandidate,
+                               CSASeqLoopInfo& loop,
                                MachineBasicBlock* BB,
-                               const LPUSeqInstrInfo& seqInfo,
-                               const LPUInstrInfo& TII,
+                               const CSASeqInstrInfo& seqInfo,
+                               const CSAInstrInfo& TII,
                                SmallVector<MachineInstr*,
                                            SEQ_VEC_WIDTH>& insToDisconnect);
                                
   void
-  seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
-                               LPUSeqLoopInfo& loop,
+  seq_do_transform_loop_stride(CSASeqCandidate& scandidate,
+                               CSASeqLoopInfo& loop,
                                MachineBasicBlock* BB,
-                               const LPUSeqInstrInfo& seqInfo,
-                               const LPUInstrInfo& TII,
+                               const CSASeqInstrInfo& seqInfo,
+                               const CSAInstrInfo& TII,
                                SmallVector<MachineInstr*,
                                            SEQ_VEC_WIDTH>& insToDisconnect);                            
                                
   void
-  seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
-                                       LPUSeqLoopInfo& loop,
+  seq_do_transform_loop_parloop_memdep(CSASeqCandidate& scandidate,
+                                       CSASeqLoopInfo& loop,
                                        MachineBasicBlock* BB,
-                                       const LPUSeqInstrInfo& seqInfo,
-                                       const LPUInstrInfo& TII,
+                                       const CSASeqInstrInfo& seqInfo,
+                                       const CSAInstrInfo& TII,
                                        SmallVector<MachineInstr*,
                                                    SEQ_VEC_WIDTH>& insToDisconnect);                            
                                        
   void
-  seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
-                                  LPUSeqLoopInfo& loop,
+  seq_do_transform_loop_reduction(CSASeqCandidate& scandidate,
+                                  CSASeqLoopInfo& loop,
                                   MachineBasicBlock* BB,
-                                  const LPUSeqInstrInfo& seqInfo,
-                                  const LPUInstrInfo& TII,
+                                  const CSASeqInstrInfo& seqInfo,
+                                  const CSAInstrInfo& TII,
                                   SmallVector<MachineInstr*,
                                               SEQ_VEC_WIDTH>& insToDisconnect);
                                   
@@ -317,45 +317,45 @@ public:
   //  output channel of the candidate is %ign).
   // Otherwise, returns a pointer to the instruction we created.
   MachineInstr*
-  seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
-                                          const LPUSeqHeader& loop_header,
+  seq_add_output_switch_for_seq_candidate(CSASeqCandidate& sCandidate,
+                                          const CSASeqHeader& loop_header,
                                           unsigned last_reg,
-                                          const LPUInstrInfo &TII,
+                                          const CSAInstrInfo &TII,
                                           MachineBasicBlock& BB,
                                           MachineInstr* prev_inst);
 
   // Look up the stride operation that corresponds to a given sequence
   // candidate.
   MachineOperand*
-  seq_lookup_stride_op(LPUSeqLoopInfo& loop,
-                       LPUSeqCandidate& scandidate);
+  seq_lookup_stride_op(CSASeqLoopInfo& loop,
+                       CSASeqCandidate& scandidate);
 
   MachineOperand*
   seq_add_negate_stride_op(MachineOperand* in_stride_op,
                            unsigned stride_opcode,
-                           const LPUInstrInfo &TII,
-                           LPUMachineFunctionInfo *LMFI,
+                           const CSAInstrInfo &TII,
+                           CSAMachineFunctionInfo *LMFI,
                            MachineBasicBlock& BB,
                            MachineInstr* prev_inst);
 
   // Add a repeat instruction for the specified repeat candidate.
   // Returns the added instruction.
   MachineInstr*
-  seq_add_repeat(LPUSeqCandidate& repeat_candidate,
-                 const LPUSeqHeader& loop_header,
+  seq_add_repeat(CSASeqCandidate& repeat_candidate,
+                 const CSASeqHeader& loop_header,
                  unsigned pred_reg,
-                 const LPUInstrInfo &TII,
+                 const CSAInstrInfo &TII,
                  MachineBasicBlock& BB,
                  MachineInstr* prev_inst);
 
   // Add a stride instruction for the specified stride candidate.
   // Returns the added instruction.
   MachineInstr*
-  seq_add_stride(LPUSeqCandidate& repeat_candidate,
-                 const LPUSeqHeader& loop_header,
+  seq_add_stride(CSASeqCandidate& repeat_candidate,
+                 const CSASeqHeader& loop_header,
                  unsigned pred_reg,
                  MachineOperand* in_stride_op,
-                 const LPUInstrInfo &TII,
+                 const CSAInstrInfo &TII,
                  MachineBasicBlock& BB,
                  MachineInstr* prev_inst);
 
@@ -363,18 +363,18 @@ public:
   // Add a repeat/onend pair fora memory dependency chain.
   // Returns the onend instruction.
   MachineInstr*
-  seq_add_parloop_memdep(LPUSeqCandidate& memdepCandidate,
-                         const LPUSeqHeader& loop_header,
+  seq_add_parloop_memdep(CSASeqCandidate& memdepCandidate,
+                         const CSASeqHeader& loop_header,
                          unsigned pred_reg,
-                         const LPUInstrInfo &TII,
+                         const CSAInstrInfo &TII,
                          MachineBasicBlock& BB,
                          MachineInstr* prev_inst);
 
   MachineInstr*
-  seq_add_reduction(LPUSeqCandidate& sc,
-                    const LPUSeqHeader& loop_header,
+  seq_add_reduction(CSASeqCandidate& sc,
+                    const CSASeqHeader& loop_header,
                     unsigned pred_reg,
-                    const LPUInstrInfo &TII,
+                    const CSAInstrInfo &TII,
                     MachineBasicBlock& BB,
                     MachineInstr* prev_inst,
                     bool is_fma_reduction);
@@ -393,18 +393,18 @@ private:
 };
 } // Close unnamed namespace
 
-MachineFunctionPass *llvm::createLPUOptDFPass() {
-  return new LPUOptDFPass();
+MachineFunctionPass *llvm::createCSAOptDFPass() {
+  return new CSAOptDFPass();
 }
 
-char LPUOptDFPass::ID = 0;
+char CSAOptDFPass::ID = 0;
 
 static
-RegisterPass<LPUOptDFPass> LPUOptRegistration("lpuopt-df",
-                                              "LPU Optimize Dataflow pass",
+RegisterPass<CSAOptDFPass> CSAOptRegistration("csaopt-df",
+                                              "CSA Optimize Dataflow pass",
                                               false, false);
 
-bool LPUOptDFPass::runOnMachineFunction(MachineFunction &MF) {
+bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   if (OptDFPass == 0) return false;
 
@@ -428,8 +428,8 @@ bool LPUOptDFPass::runOnMachineFunction(MachineFunction &MF) {
 // different file, and possibly a different pass?
 //
 
-void LPUOptDFPass::seq_debug_print_header(LPUSeqHeader& header) {
-  DEBUG(errs() << "LPUSeqHeader: \npicker = " << header.pickerChannel);
+void CSAOptDFPass::seq_debug_print_header(CSASeqHeader& header) {
+  DEBUG(errs() << "CSASeqHeader: \npicker = " << header.pickerChannel);
   DEBUG(errs() << "\nswitcher = " << header.switcherChannel << "\n");
   if (header.pickerInit) {
     DEBUG(errs() << " pickerInit: " << *header.pickerInit << "");
@@ -451,8 +451,8 @@ void LPUOptDFPass::seq_debug_print_header(LPUSeqHeader& header) {
   }
 }
 
-void LPUOptDFPass::
-seq_debug_print_candidate(LPUSeqCandidate& x) {
+void CSAOptDFPass::
+seq_debug_print_candidate(CSASeqCandidate& x) {
 
   DEBUG(errs() << " pick = " << *x.pickInst);
   DEBUG(errs() << " switch = " << *x.switchInst);
@@ -460,27 +460,27 @@ seq_debug_print_candidate(LPUSeqCandidate& x) {
     DEBUG(errs() << " transform = " << *x.transformInst << "\n");
   }
   switch (x.stype) {
-  case LPUSeqCandidate::SeqType::UNKNOWN:
+  case CSASeqCandidate::SeqType::UNKNOWN:
     DEBUG(errs() << "UNKNOWN type" << "\n");
     break;
-  case LPUSeqCandidate::SeqType::REPEAT:
+  case CSASeqCandidate::SeqType::REPEAT:
     DEBUG(errs() << "REPEAT: top = " << x.top
           << ", bottom = " << x.bottom << "\n");
     break;
-  case LPUSeqCandidate::SeqType::REDUCTION:
+  case CSASeqCandidate::SeqType::REDUCTION:
     DEBUG(errs() << "REDUCTION: top = " << x.top
           << ", bottom = " << x.bottom << "\n");
     break;
-  case LPUSeqCandidate::SeqType::STRIDE:
+  case CSASeqCandidate::SeqType::STRIDE:
     DEBUG(errs() << "STRIDE: top = " << x.top
           << ", bottom = " << x.bottom << "\n");
     DEBUG(errs() << "stride op = " << *x.saved_op << "\n");
     break;
-  case LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP:
+  case CSASeqCandidate::SeqType::PARLOOP_MEM_DEP:
     DEBUG(errs() << "PARLOOP_MEM_DEP: top = " << x.top
           << ", bottom = " << x.bottom << "\n");
     break;
-  case LPUSeqCandidate::SeqType::INVALID:
+  case CSASeqCandidate::SeqType::INVALID:
     DEBUG(errs() << "INVALID sequence type \n");
     break;
   }
@@ -488,11 +488,11 @@ seq_debug_print_candidate(LPUSeqCandidate& x) {
 }
 
 
-bool LPUOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo* MRI,
+bool CSAOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo* MRI,
                                            MachineInstr* MI,
                                            unsigned* pickerChannel,
                                            bool* pickerSense) {
-  if (MI->getOpcode() == LPU::INIT1) {
+  if (MI->getOpcode() == CSA::INIT1) {
     DEBUG(errs() << "Found an init instruction " << *MI
           << "with " << MI->getNumOperands() << " operands \n");
     if (MI->getNumOperands() == 2) {
@@ -533,12 +533,12 @@ bool LPUOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo* MRI,
 }
 
 
-bool LPUOptDFPass::seq_is_picker_mov_inst(MachineRegisterInfo* MRI,
+bool CSAOptDFPass::seq_is_picker_mov_inst(MachineRegisterInfo* MRI,
                                           MachineInstr* MI,
                                           unsigned pickerChannel,
                                           unsigned* switcherChannel) {
 
-  if (MI && (MI->getOpcode() == LPU::MOV1)) {
+  if (MI && (MI->getOpcode() == CSA::MOV1)) {
     if (MI->getNumOperands() == 2) {
       MachineOperand& pickerDef = MI->getOperand(0);
       MachineOperand& switcherDef = MI->getOperand(1);
@@ -558,11 +558,11 @@ bool LPUOptDFPass::seq_is_picker_mov_inst(MachineRegisterInfo* MRI,
   return false;
 }
 
-bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
-                                       LPUSeqHeader* header) {
+bool CSAOptDFPass::seq_identify_header(MachineInstr* MI,
+                                       CSASeqHeader* header) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII =
+    *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
   // Look for an "<picker> = INIT1 0" instruction.
   unsigned pickerChannel;
@@ -643,14 +643,14 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
 }
 
 
-void LPUOptDFPass::
-seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
+void CSAOptDFPass::
+seq_print_loop_info(SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
   DEBUG(errs() << "************************\n");
   DEBUG(errs() << "SEQ LOOP INFO:  " << loops->size() << " loops\n");
 
   for (unsigned i = 0; i < loops->size(); ++i) {
-    LPUSeqLoopInfo& current_loop = (*loops)[i];
+    CSASeqLoopInfo& current_loop = (*loops)[i];
 
     DEBUG(errs() << "*****************\n");
     DEBUG(errs() << "Loop " << i << "[ ");
@@ -689,7 +689,7 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
     for (auto it = current_loop.candidates.begin();
          it != current_loop.candidates.end();
          ++it) {
-      LPUSeqCandidate& x = *it;
+      CSASeqCandidate& x = *it;
       seq_debug_print_candidate(x);
     }
 
@@ -716,15 +716,15 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 // If there is a match, then we save MI into pickMap, keyed on the
 // register for loop_back.
 MachineInstr*
-LPUOptDFPass::
+CSAOptDFPass::
 seq_candidate_match_pick(MachineInstr* MI,
-                         const LPUSeqHeader& header,
-                         const LPUInstrInfo& TII,
+                         const CSASeqHeader& header,
+                         const CSAInstrInfo& TII,
                          DenseMap<unsigned, MachineInstr*>& pickMap) {
   if (TII.isPick(MI)) {
     assert(MI->getNumOperands() == 4);
 
-    int pick_select_idx = LPUSeqHeader::pick_select_op_idx();
+    int pick_select_idx = CSASeqHeader::pick_select_op_idx();
     MachineOperand& selectOp = MI->getOperand(pick_select_idx);
 
     // Figure out which op is the loopback based on the sense of the
@@ -764,10 +764,10 @@ seq_candidate_match_pick(MachineInstr* MI,
 // A switch matches another pick if they share the same loopback
 // register, and there is no other use of that loopback register.
 MachineInstr*
-LPUOptDFPass::
+CSAOptDFPass::
 seq_candidate_match_switch(MachineInstr* MI,
-                           const LPUSeqHeader& header,
-                           const LPUInstrInfo& TII,
+                           const CSASeqHeader& header,
+                           const CSAInstrInfo& TII,
                            DenseMap<unsigned, MachineInstr*>& pickMap) {
   // Look for:
   //   switch[n] final, loopback, switcherChannel, bottom_val
@@ -777,7 +777,7 @@ seq_candidate_match_switch(MachineInstr* MI,
     int loopback_idx = header.switch_loopback_op_idx();
     MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
 
-    int switch_select_idx = LPUSeqHeader::switch_select_op_idx();
+    int switch_select_idx = CSASeqHeader::switch_select_op_idx();
     MachineOperand& selectOp = MI->getOperand(switch_select_idx);
 
     if (selectOp.isReg() && loopbackOp.isReg()) {
@@ -818,10 +818,10 @@ seq_candidate_match_switch(MachineInstr* MI,
 }
 
 void
-LPUOptDFPass::
-seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
-  const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+CSAOptDFPass::
+seq_find_candidate_loops(SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
+  const CSAInstrInfo &TII =
+    *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   int loop_id_counter = 0;
 
@@ -829,7 +829,7 @@ seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
        BB != E;
        ++BB) {
 
-    LPUSeqHeader tmp_header;
+    CSASeqHeader tmp_header;
     MachineBasicBlock::iterator iterMI = BB->begin();
 
     while (iterMI != BB->end()) {
@@ -840,7 +840,7 @@ seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
         seq_debug_print_header(tmp_header);
 
         // Save the header information into the current loop.
-        LPUSeqLoopInfo current_loop;
+        CSASeqLoopInfo current_loop;
         current_loop.loop_id = loop_id_counter++;
         current_loop.header = tmp_header;
 
@@ -875,7 +875,7 @@ seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
                                                                    TII,
                                                                    pickMap);
           if (matching_pick) {
-            LPUSeqCandidate nc = LPUSeqCandidate(matching_pick,
+            CSASeqCandidate nc = CSASeqCandidate(matching_pick,
                                                  MI);
             current_loop.candidates.push_back(nc);
           }
@@ -896,14 +896,14 @@ seq_find_candidate_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 }
 
 
-void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
+void CSAOptDFPass::runSequenceOptimizations(int seq_opt_level) {
   if (seq_opt_level > 0) {
 
     // Do analysis to identify candidates for sequence optimization.
     DEBUG(errs() << "Running analysis for sequence optimizations\n");
 
     // Look for the candidates we might replace with sequences.
-    SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH> loops;
+    SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH> loops;
     seq_find_candidate_loops(&loops);
 
     // Only print after classification now.
@@ -923,7 +923,7 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
       for (auto it = loops.begin();
            it != loops.end();
            ++it) {
-        LPUSeqLoopInfo& loop = *it;
+        CSASeqLoopInfo& loop = *it;
 
         if (loop.sequence_transform_is_valid()) {
           seq_do_transform_loop(loop);
@@ -956,7 +956,7 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
 // This method is a simplfication of the method implemented in
 // TwoAddressInstructionPass
 MachineInstr *
-LPUOptDFPass::getSingleDef(unsigned Reg,
+CSAOptDFPass::getSingleDef(unsigned Reg,
                            const MachineRegisterInfo *MRI) {
   MachineInstr *Ret = nullptr;
   for (MachineInstr &DefMI : MRI->def_instructions(Reg)) {
@@ -973,7 +973,7 @@ LPUOptDFPass::getSingleDef(unsigned Reg,
 // Return the MachineInstr* if it is the single use of the Reg.  This
 // method is analogous to to the one above for definitions.
 MachineInstr *
-LPUOptDFPass::getSingleUse(unsigned Reg,
+CSAOptDFPass::getSingleUse(unsigned Reg,
                            const MachineRegisterInfo *MRI) {
   MachineInstr *Ret = nullptr;
   for (MachineInstr &UseMI : MRI->use_instructions(Reg)) {
@@ -989,9 +989,9 @@ LPUOptDFPass::getSingleUse(unsigned Reg,
 
 
 
-LPUSeqCandidate::SeqType
-LPUOptDFPass::
-seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
+CSASeqCandidate::SeqType
+CSAOptDFPass::
+seq_classify_repeat_or_reduction(CSASeqCandidate& x) {
   assert(x.pickInst && x.switchInst);
 
   // Example:
@@ -1014,8 +1014,8 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
     // Look at the instruction that defines bottom_op.
     MachineInstr* def_bottom = getSingleDef(bottom_channel, MRI);
 
-    const LPUInstrInfo &TII =
-      *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+    const CSAInstrInfo &TII =
+      *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
     // First, if the defining instruction is the pick itself, then
     // there is no transform body.  We have a repeat.
@@ -1025,15 +1025,15 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
         TII.convertPickToRepeatOp(x.pickInst->getOpcode(),
                                   &x.opcode);
       assert(matched_opcode);
-      x.stype = LPUSeqCandidate::SeqType::REPEAT;
+      x.stype = CSASeqCandidate::SeqType::REPEAT;
       x.transformInst = NULL;
       x.top = top_channel;
       x.bottom = bottom_channel;
-      return LPUSeqCandidate::SeqType::REPEAT;
+      return CSASeqCandidate::SeqType::REPEAT;
     }
 
     if (!def_bottom)
-      return LPUSeqCandidate::SeqType::UNKNOWN;
+      return CSASeqCandidate::SeqType::UNKNOWN;
 
 
     if (SeqReduction) {
@@ -1077,7 +1077,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
             if (!matched_last_use) {
               DEBUG(errs() << "WARNING: FMA reduction with transform "
                     << *def_bottom << " does not have last input == pick output.\n");
-              return LPUSeqCandidate::SeqType::UNKNOWN;
+              return CSASeqCandidate::SeqType::UNKNOWN;
             }
             // For FMA, we don't care about setting input0_op.
             // We will look it up from the transform instruction directly later.
@@ -1094,7 +1094,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
             if (!matched_last_use) {
               DEBUG(errs() << "WARNING: FMA reduction with transform "
                     << *def_bottom << " does not have last input == pick output.\n");
-              return LPUSeqCandidate::SeqType::UNKNOWN;
+              return CSASeqCandidate::SeqType::UNKNOWN;
             }
             input0_op = prev_op;
           }
@@ -1105,30 +1105,30 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
                                                  &reduction_opcode)) {
             DEBUG(errs() << "WARNING: Potential reduction with transform "
                   << *def_bottom << " invalid or not implemented.\n");
-            return LPUSeqCandidate::SeqType::UNKNOWN;
+            return CSASeqCandidate::SeqType::UNKNOWN;
           }
 
           DEBUG(errs() << "Found reduction transform body " <<
                 *def_bottom << "\n");
           x.opcode = reduction_opcode;
-          x.stype = LPUSeqCandidate::SeqType::REDUCTION;
+          x.stype = CSASeqCandidate::SeqType::REDUCTION;
           x.transformInst = def_bottom;
           x.top = top_channel;
           x.bottom = bottom_channel;
           x.saved_op = input0_op;
-          return LPUSeqCandidate::SeqType::REDUCTION;
+          return CSASeqCandidate::SeqType::REDUCTION;
         }
       }
     }
   }
-  return LPUSeqCandidate::SeqType::UNKNOWN;
+  return CSASeqCandidate::SeqType::UNKNOWN;
 }
 
 
 
-LPUSeqCandidate::SeqType
-LPUOptDFPass::
-seq_classify_stride(LPUSeqCandidate& x,
+CSASeqCandidate::SeqType
+CSAOptDFPass::
+seq_classify_stride(CSASeqCandidate& x,
                     const DenseMap<unsigned, int>& repeat_channels) {
   assert(x.pickInst && x.switchInst);
   MachineOperand* bottom_op = x.get_switch_bottom_op();
@@ -1148,8 +1148,8 @@ seq_classify_stride(LPUSeqCandidate& x,
     if (!def_bottom)
       return x.stype;
 
-    const LPUInstrInfo &TII =
-      *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+    const CSAInstrInfo &TII =
+      *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
     bool is_add = TII.isAdd(def_bottom);
     bool is_sub = TII.isSub(def_bottom);
@@ -1220,11 +1220,11 @@ seq_classify_stride(LPUSeqCandidate& x,
           x.top = top_channel;
           x.bottom = bottom_channel;
           x.saved_op = &stride_op;
-          x.stype = LPUSeqCandidate::SeqType::STRIDE;
+          x.stype = CSASeqCandidate::SeqType::STRIDE;
           x.transformInst = def_bottom;
           x.opcode = stride_opcode;
           x.negate_input = negate_input;
-          return LPUSeqCandidate::SeqType::STRIDE;
+          return CSASeqCandidate::SeqType::STRIDE;
         }
       }
       else {
@@ -1238,16 +1238,16 @@ seq_classify_stride(LPUSeqCandidate& x,
 
 
 
-LPUSeqCandidate::SeqType
-LPUOptDFPass::
-seq_classify_memdep_graph(LPUSeqCandidate& x) {
+CSASeqCandidate::SeqType
+CSAOptDFPass::
+seq_classify_memdep_graph(CSASeqCandidate& x) {
   assert(x.pickInst && x.switchInst);
   MachineOperand* bottom_op = x.get_switch_bottom_op();
   MachineOperand* top_op = x.get_pick_top_op();
 
 
-  if ((x.pickInst->getOpcode() == LPU::PICK1) &&
-      (x.switchInst->getOpcode() == LPU::SWITCH1) &&
+  if ((x.pickInst->getOpcode() == CSA::PICK1) &&
+      (x.switchInst->getOpcode() == CSA::SWITCH1) &&
       bottom_op->isReg() &&
       top_op->isReg()) {
 
@@ -1260,7 +1260,7 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
     if (SeqBreakMemdep >= 2) {
       DEBUG(errs() << "ASSUMED we have a memdep candidate.\n");
       DEBUG(errs() << "The flag was set.. it is not my fault if it doesn't work!\n");
-      x.stype = LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP;
+      x.stype = CSASeqCandidate::SeqType::PARLOOP_MEM_DEP;
       x.transformInst = NULL;
       x.top = sink_reg;
       x.bottom = source_reg;
@@ -1276,8 +1276,8 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
     // memory ordering tokens (nominally MOV0).
 
     MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-    const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+    const CSAInstrInfo &TII =
+    *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
     const unsigned MemOpMOVOpcode = TII.getMemTokenMOVOpcode();
 
     const int MAX_LEVELS = 10000;
@@ -1309,7 +1309,7 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
           if ((p_current->size() == 1) &&
               (p_next->size() == 0)) {
             DEBUG(errs() << "Found memdep candidate\n");
-            x.stype = LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP;
+            x.stype = CSASeqCandidate::SeqType::PARLOOP_MEM_DEP;
             x.transformInst = NULL;
             x.top = sink_reg;
             x.bottom = source_reg;
@@ -1337,7 +1337,7 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
             nextOp[0] = &MI->getOperand(1);
             num_ops = 1;
           }
-          else if (current_op == LPU::MERGE1) {
+          else if (current_op == CSA::MERGE1) {
             assert(MI->getNumOperands() == 4);
             // Check that the merge selector is an immediate.  This
             // would be consistent with one of our special "merge1"
@@ -1349,13 +1349,13 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
               num_ops = 2;
             }
           }
-          else if (current_op == LPU::PICK1) {
+          else if (current_op == CSA::PICK1) {
             assert(MI->getNumOperands() == 4);
             nextOp[0] = &MI->getOperand(2);
             nextOp[1] = &MI->getOperand(3);
             num_ops = 2;
           }
-          else if (current_op == LPU::SWITCH1) {
+          else if (current_op == CSA::SWITCH1) {
             assert(MI->getNumOperands() == 4);
             nextOp[0] = &MI->getOperand(3);
             num_ops = 1;
@@ -1371,7 +1371,7 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
             for (int i = 0; i < num_ops; ++i) {
               if (nextOp[i]->isReg()) {
                 unsigned next_reg = nextOp[i]->getReg();
-                if ((next_reg != LPU::IGN) &&
+                if ((next_reg != CSA::IGN) &&
                     TargetRegisterInfo::isPhysicalRegister(next_reg)) {
                   MachineInstr* def_inst = getSingleDef(next_reg, MRI);
                   if (def_inst) {
@@ -1382,13 +1382,13 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
               }
               DEBUG(errs() << "Unknown op folloing chain, in "
                     << *MI << ". Can't match\n");
-              return LPUSeqCandidate::SeqType::UNKNOWN;
+              return CSASeqCandidate::SeqType::UNKNOWN;
             }
           }
           else {
             DEBUG(errs() << "Could not follow chain of memory ops."
                   << *MI << ".  Can't match\n");
-            return LPUSeqCandidate::SeqType::UNKNOWN;
+            return CSASeqCandidate::SeqType::UNKNOWN;
           }
         }
       }
@@ -1402,7 +1402,7 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
     DEBUG(errs() << "Falling through. stopping chain after "
           << num_levels << " levels of searching...\n");
   }
-  return LPUSeqCandidate::SeqType::UNKNOWN;
+  return CSASeqCandidate::SeqType::UNKNOWN;
 }
 
 
@@ -1410,35 +1410,35 @@ seq_classify_memdep_graph(LPUSeqCandidate& x) {
 // If we find a match, save the result in the current loop.
 //
 // Returns true if we found a match, false otherwise.
-inline bool update_header_cmp_channels(LPUSeqLoopInfo& current_loop,
+inline bool update_header_cmp_channels(CSASeqLoopInfo& current_loop,
                                        int loop_idx,
                                        unsigned bottom) {
-  LPUSeqLoopInfo::CmpMatchType ctype;
-  // This method in LPUSeqLoopInfo does all the hard work.
+  CSASeqLoopInfo::CmpMatchType ctype;
+  // This method in CSASeqLoopInfo does all the hard work.
   // The remainder of this method is just error reporting.
   ctype = current_loop.match_candidate_with_cmp(bottom, loop_idx);
 
   switch (ctype) {
-  case LPUSeqLoopInfo::CmpMatchType::Match0:
-  case LPUSeqLoopInfo::CmpMatchType::Match1:
+  case CSASeqLoopInfo::CmpMatchType::Match0:
+  case CSASeqLoopInfo::CmpMatchType::Match1:
     return true;
 
-  case LPUSeqLoopInfo::CmpMatchType::Dup0:
+  case CSASeqLoopInfo::CmpMatchType::Dup0:
     DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp0. Ignoring\n");
     DEBUG(errs() << "Duplicate def of " << bottom <<
           " is at idx " << current_loop.cmp0Idx() << "\n");
     return false;
 
-  case LPUSeqLoopInfo::CmpMatchType::Dup1:
+  case CSASeqLoopInfo::CmpMatchType::Dup1:
     DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp1. Ignoring\n");
     DEBUG(errs() << "Duplicate def of " << bottom <<
           " is at idx " << current_loop.cmp1Idx() << "\n");
     return false;
 
-  case LPUSeqLoopInfo::CmpMatchType::NoMatch:
+  case CSASeqLoopInfo::CmpMatchType::NoMatch:
     return false;
 
-  case LPUSeqLoopInfo::CmpMatchType::OtherError:
+  case CSASeqLoopInfo::CmpMatchType::OtherError:
   default:
     DEBUG(errs() << "ERROR: encountering bad bottom channel in loop...\n");
     assert(0);
@@ -1448,11 +1448,11 @@ inline bool update_header_cmp_channels(LPUSeqLoopInfo& current_loop,
 // Partition the sequence candidates in "current_loop.candidates"
 // into repeats, reductions, or other.
 void
-LPUOptDFPass::
-seq_classify_loop_repeats(LPUSeqLoopInfo& current_loop,
-                          SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& repeats,
-                          SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& reductions,
-                          SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other) {
+CSAOptDFPass::
+seq_classify_loop_repeats(CSASeqLoopInfo& current_loop,
+                          SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& repeats,
+                          SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& reductions,
+                          SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& other) {
   repeats.clear();
   reductions.clear();
   other.clear();
@@ -1462,12 +1462,12 @@ seq_classify_loop_repeats(LPUSeqLoopInfo& current_loop,
        it != current_loop.candidates.end();
        ++it) {
 
-    LPUSeqCandidate& x = *it;
-    LPUSeqCandidate::SeqType stype;
+    CSASeqCandidate& x = *it;
+    CSASeqCandidate::SeqType stype;
 
     stype = seq_classify_repeat_or_reduction(x);
 
-    if (stype == LPUSeqCandidate::SeqType::REPEAT) {
+    if (stype == CSASeqCandidate::SeqType::REPEAT) {
       // Save the channel into our list and map of repeat
       // candidates.    The index in this
       // repeat_candidate vector will be the same as the
@@ -1482,7 +1482,7 @@ seq_classify_loop_repeats(LPUSeqLoopInfo& current_loop,
                                  idx,
                                  x.bottom);
     }
-    else if (stype == LPUSeqCandidate::SeqType::REDUCTION) {
+    else if (stype == CSASeqCandidate::SeqType::REDUCTION) {
       reductions.push_back(x);
     }
     else {
@@ -1507,23 +1507,23 @@ seq_classify_loop_repeats(LPUSeqLoopInfo& current_loop,
 // Insert them into current_loop.candidates if successful.
 // Otherwise, insert them into "remaining".
 void
-LPUOptDFPass::
-seq_classify_loop_reductions_as_strides(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& reductions,
-                                        LPUSeqLoopInfo& current_loop,
-                                        SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaining) {
+CSAOptDFPass::
+seq_classify_loop_reductions_as_strides(SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& reductions,
+                                        CSASeqLoopInfo& current_loop,
+                                        SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& remaining) {
   // Move each of the reductions over into the candidates.  Since
   // a stride is sometimes a special case of a reduction, we
   // double-check all the reductions, now that we've identified
   // the repeats.
   for (int i = 0; i < (int)reductions.size(); ++i) {
-    LPUSeqCandidate& x = reductions[i];
+    CSASeqCandidate& x = reductions[i];
     int idx = current_loop.candidates.size();
-    LPUSeqCandidate::SeqType stype;
+    CSASeqCandidate::SeqType stype;
     stype = seq_classify_stride(x,
                                 current_loop.repeat_channels);
 
-    if ((stype == LPUSeqCandidate::SeqType::STRIDE) ||
-        (stype == LPUSeqCandidate::SeqType::REDUCTION)) {
+    if ((stype == CSASeqCandidate::SeqType::STRIDE) ||
+        (stype == CSASeqCandidate::SeqType::REDUCTION)) {
       current_loop.candidates.push_back(x);
       update_header_cmp_channels(current_loop,
                                  idx,
@@ -1545,31 +1545,31 @@ seq_classify_loop_reductions_as_strides(SmallVector<LPUSeqCandidate, SEQ_VEC_WID
 // Push them into current_loop.candidates if they are successfully classified,
 // or into "other" if they are unknown.
 void
-LPUOptDFPass::
-seq_classify_loop_remaining(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaining,
-                            LPUSeqLoopInfo& current_loop,
-                            SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& other) {
+CSAOptDFPass::
+seq_classify_loop_remaining(SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& remaining,
+                            CSASeqLoopInfo& current_loop,
+                            SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& other) {
 
   for (auto it = remaining.begin();
        it != remaining.end();
        ++it) {
-    LPUSeqCandidate& x = *it;
-    LPUSeqCandidate::SeqType stype;
+    CSASeqCandidate& x = *it;
+    CSASeqCandidate::SeqType stype;
     stype = seq_classify_stride(x,
                                 current_loop.repeat_channels);
 
     // Try to classify memory dependency candidates, if the knob
     // is set.
     if (SeqBreakMemdep > 0) {
-      if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
+      if (stype == CSASeqCandidate::SeqType::UNKNOWN) {
         stype = seq_classify_memdep_graph(x);
       }
     }
 
-    if ((stype == LPUSeqCandidate::SeqType::UNKNOWN) ||
-        (stype == LPUSeqCandidate::SeqType::INVALID)) {
+    if ((stype == CSASeqCandidate::SeqType::UNKNOWN) ||
+        (stype == CSASeqCandidate::SeqType::INVALID)) {
       // Mark the remaining candidates as invalid.
-      x.stype = LPUSeqCandidate::SeqType::INVALID;
+      x.stype = CSASeqCandidate::SeqType::INVALID;
       other.push_back(x);
     }
     else {
@@ -1587,16 +1587,16 @@ seq_classify_loop_remaining(SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH>& remaini
 // Analyze all the loops that we found, to identify candidates for
 // sequence transformation.
 void
-LPUOptDFPass::
-seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
+CSAOptDFPass::
+seq_analyze_loops(SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
   if (loops) {
     for (unsigned i = 0; i < loops->size(); ++i) {
-      LPUSeqLoopInfo& current_loop = (*loops)[i];
+      CSASeqLoopInfo& current_loop = (*loops)[i];
 
-      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> repeat_candidates;
-      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> reductions;
-      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> remaining;
+      SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH> repeat_candidates;
+      SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH> reductions;
+      SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH> remaining;
 
       // Step 1: scan for repeats, and partition the candidates into
       // repeats/reductions/remaining.
@@ -1621,7 +1621,7 @@ seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
                                               remaining);
 
       // Step 3: classify everything else that is in remaining.
-      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> other;
+      SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH> other;
       seq_classify_loop_remaining(remaining,
                                   current_loop,
                                   other);
@@ -1654,10 +1654,10 @@ seq_analyze_loops(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 }
 
 bool
-LPUOptDFPass::
-seq_identify_induction_variable(LPUSeqLoopInfo& loop) {
-  const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+CSAOptDFPass::
+seq_identify_induction_variable(CSASeqLoopInfo& loop) {
+  const CSAInstrInfo &TII =
+    *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
   // Found a valid induction variable.
   bool found_indvar = loop.find_induction_variable();
@@ -1696,13 +1696,13 @@ seq_identify_induction_variable(LPUSeqLoopInfo& loop) {
 
 
 void
-LPUOptDFPass::disconnect_instruction(MachineInstr* MI)
+CSAOptDFPass::disconnect_instruction(MachineInstr* MI)
 {
   for (MachineOperand &MO : MI->operands()) {
     if (!MO.isReg())
       continue;
 
-    unsigned replacement = MO.isDef() ? LPU::IGN : LPU::NA;
+    unsigned replacement = MO.isDef() ? CSA::IGN : CSA::NA;
 
     const TargetRegisterInfo& TRI = *thisMF->getSubtarget().getRegisterInfo();
     MO.substPhysReg(replacement, TRI);
@@ -1711,19 +1711,19 @@ LPUOptDFPass::disconnect_instruction(MachineInstr* MI)
 
 
 MachineInstr*
-LPUOptDFPass::
-seq_add_parloop_memdep(LPUSeqCandidate& sc,
-                       const LPUSeqHeader& loop_header,
+CSAOptDFPass::
+seq_add_parloop_memdep(CSASeqCandidate& sc,
+                       const CSASeqHeader& loop_header,
                        unsigned pred_reg,
-                       const LPUInstrInfo &TII,
+                       const CSAInstrInfo &TII,
                        MachineBasicBlock& BB,
                        MachineInstr* prev_inst) {
-  assert(sc.stype == LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP);
+  assert(sc.stype == CSASeqCandidate::SeqType::PARLOOP_MEM_DEP);
   MachineInstr* repinst =
     BuildMI(BB,
             prev_inst,
             sc.pickInst->getDebugLoc(),
-            TII.get(LPU::REPEAT8),  // TBD: We technically want repeat1?
+            TII.get(CSA::REPEAT8),  // TBD: We technically want repeat1?
             sc.top).
     addReg(pred_reg).
     addOperand(*sc.get_pick_input_op(loop_header));
@@ -1737,7 +1737,7 @@ seq_add_parloop_memdep(LPUSeqCandidate& sc,
     BuildMI(BB,
             repinst,
             sc.switchInst->getDebugLoc(),
-            TII.get(LPU::ONEND),
+            TII.get(CSA::ONEND),
             out_s_op->getReg()).
     addReg(pred_reg).
     addReg(sc.bottom);
@@ -1747,15 +1747,15 @@ seq_add_parloop_memdep(LPUSeqCandidate& sc,
 }
 
 MachineInstr*
-LPUOptDFPass::
-seq_add_repeat(LPUSeqCandidate& sc,
-               const LPUSeqHeader& loop_header,
+CSAOptDFPass::
+seq_add_repeat(CSASeqCandidate& sc,
+               const CSASeqHeader& loop_header,
                unsigned pred_reg,
-               const LPUInstrInfo &TII,
+               const CSAInstrInfo &TII,
                MachineBasicBlock& BB,
                MachineInstr* prev_inst) {
-  assert(sc.stype == LPUSeqCandidate::SeqType::REPEAT);
-  assert(sc.opcode != LPUSeqCandidate::INVALID_OPCODE);
+  assert(sc.stype == CSASeqCandidate::SeqType::REPEAT);
+  assert(sc.opcode != CSASeqCandidate::INVALID_OPCODE);
 
   MachineInstr* repinst =
     BuildMI(BB,
@@ -1772,16 +1772,16 @@ seq_add_repeat(LPUSeqCandidate& sc,
 
 
 MachineInstr*
-LPUOptDFPass::
-seq_add_stride(LPUSeqCandidate& sc,
-               const LPUSeqHeader& loop_header,
+CSAOptDFPass::
+seq_add_stride(CSASeqCandidate& sc,
+               const CSASeqHeader& loop_header,
                unsigned pred_reg,
                MachineOperand* in_stride_op,
-               const LPUInstrInfo &TII,
+               const CSAInstrInfo &TII,
                MachineBasicBlock& BB,
                MachineInstr* prev_inst) {
-  assert(sc.stype == LPUSeqCandidate::SeqType::STRIDE);
-  assert(sc.opcode != LPUSeqCandidate::INVALID_OPCODE);
+  assert(sc.stype == CSASeqCandidate::SeqType::STRIDE);
+  assert(sc.opcode != CSASeqCandidate::INVALID_OPCODE);
 
   assert(in_stride_op);
   MachineInstr* strideInst =
@@ -1799,16 +1799,16 @@ seq_add_stride(LPUSeqCandidate& sc,
 
 
 MachineInstr*
-LPUOptDFPass::
-seq_add_reduction(LPUSeqCandidate& sc,
-                  const LPUSeqHeader& loop_header,
+CSAOptDFPass::
+seq_add_reduction(CSASeqCandidate& sc,
+                  const CSASeqHeader& loop_header,
                   unsigned pred_reg,
-                  const LPUInstrInfo &TII,
+                  const CSAInstrInfo &TII,
                   MachineBasicBlock& BB,
                   MachineInstr* prev_inst,
                   bool is_fma_reduction) {
-  assert(sc.stype == LPUSeqCandidate::SeqType::REDUCTION);
-  assert(sc.opcode != LPUSeqCandidate::INVALID_OPCODE);
+  assert(sc.stype == CSASeqCandidate::SeqType::REDUCTION);
+  assert(sc.opcode != CSASeqCandidate::INVALID_OPCODE);
 
   // Output register is the output of the switch.
   MachineOperand* output_op = sc.get_switch_output_op(loop_header);
@@ -1859,18 +1859,18 @@ seq_add_reduction(LPUSeqCandidate& sc,
 
 
 MachineInstr*
-LPUOptDFPass::
-seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
-                                        const LPUSeqHeader& loop_header,
+CSAOptDFPass::
+seq_add_output_switch_for_seq_candidate(CSASeqCandidate& sCandidate,
+                                        const CSASeqHeader& loop_header,
                                         unsigned last_reg,
-                                        const LPUInstrInfo &TII,
+                                        const CSAInstrInfo &TII,
                                         MachineBasicBlock& BB,
                                         MachineInstr* prev_inst) {
   MachineInstr* output_switch = NULL;
   MachineOperand* out_s_op = sCandidate.get_switch_output_op(loop_header);
 
   if (!(out_s_op->isReg() &&
-        (out_s_op->getReg() == LPU::IGN))) {
+        (out_s_op->getReg() == CSA::IGN))) {
     assert(sCandidate.bottom > 0);
 
     output_switch =
@@ -1878,7 +1878,7 @@ seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
               prev_inst,
               sCandidate.switchInst->getDebugLoc(),
               TII.get(sCandidate.switchInst->getOpcode()),
-              LPU::IGN).
+              CSA::IGN).
       addReg(out_s_op->getReg(), RegState::Define).
       addReg(last_reg).
       addReg(sCandidate.bottom);
@@ -1891,9 +1891,9 @@ seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
 
 
 MachineOperand*
-LPUOptDFPass::
-seq_lookup_stride_op(LPUSeqLoopInfo& loop,
-                     LPUSeqCandidate& scandidate) {
+CSAOptDFPass::
+seq_lookup_stride_op(CSASeqLoopInfo& loop,
+                     CSASeqCandidate& scandidate) {
   // For stride, first look in the sequence candidate op.
   //
   // If this stride op is a LIC (instead of an immediate), we
@@ -1901,7 +1901,7 @@ seq_lookup_stride_op(LPUSeqLoopInfo& loop,
   //
   // Otherwise, it it should be a literal operand.
   MachineOperand* in_s_op = scandidate.saved_op;
-  LPUSeqCandidate* stride_repeat = NULL;
+  CSASeqCandidate* stride_repeat = NULL;
   if (in_s_op->isReg()) {
     unsigned bottom_s_reg = in_s_op->getReg();
     if (loop.repeat_channels.find(bottom_s_reg) !=
@@ -1926,11 +1926,11 @@ seq_lookup_stride_op(LPUSeqLoopInfo& loop,
 //
 // Returns the output operand of this instruction.
 MachineOperand*
-LPUOptDFPass::
+CSAOptDFPass::
 seq_add_negate_stride_op(MachineOperand* in_stride_op,
                          unsigned stride_opcode,
-                         const LPUInstrInfo &TII,
-                         LPUMachineFunctionInfo *LMFI,
+                         const CSAInstrInfo &TII,
+                         CSAMachineFunctionInfo *LMFI,
                          MachineBasicBlock& BB,
                          MachineInstr* prev_inst) {
   const TargetRegisterClass* myRC = TII.getStrideInputRC(stride_opcode);
@@ -1952,22 +1952,22 @@ seq_add_negate_stride_op(MachineOperand* in_stride_op,
 
 
 void
-LPUOptDFPass::
-seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
+CSAOptDFPass::
+seq_do_transform_loop_seq(CSASeqLoopInfo& loop,
                           MachineBasicBlock* BB,
-                          LPUSeqInstrInfo* seqInfo,
+                          CSASeqInstrInfo* seqInfo,
                           SmallVector<MachineInstr*,
                                       SEQ_VEC_WIDTH>& insToDisconnect) {
 
   assert(loop.sequence_transform_is_valid());
   int indvarIdx = loop.indvarIdx();
   assert(indvarIdx >= 0);
-  LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
+  CSASeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
   unsigned indvar_opcode = loop.get_seq_opcode();
 
-  LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
-  const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
+  const CSAInstrInfo &TII =
+    *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
   unsigned top_i = indvarCandidate.top;
   assert(top_i == indvarCandidate.get_pick_top_op()->getReg());
@@ -2005,11 +2005,11 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
 
   // We only need to define a predicate register if we have at least
   // one dependent sequence.
-  seqInfo->pred_reg = LPU::IGN;
+  seqInfo->pred_reg = CSA::IGN;
   if (num_dependent_sequences > 0) {
     seqInfo->pred_reg = LMFI->allocateLIC(SeqPredRC);
   }
-  seqInfo->first_reg = LPU::IGN;
+  seqInfo->first_reg = CSA::IGN;
   seqInfo->last_reg =  LMFI->allocateLIC(SeqPredRC);
 
   seqInfo->seq_inst = BuildMI(*BB,
@@ -2037,7 +2037,7 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
   // later optimization phase can probably eliminate the redundancy
   // fairly easily.
   //
-  unsigned switcher_ctrl_opcode = ( loop.header.switcherSense ? LPU::MOV1 : LPU::NOT1 );
+  unsigned switcher_ctrl_opcode = ( loop.header.switcherSense ? CSA::MOV1 : CSA::NOT1 );
 
   MachineInstr* switcher_def_inst =
     BuildMI(*BB,
@@ -2075,12 +2075,12 @@ seq_do_transform_loop_seq(LPUSeqLoopInfo& loop,
 }
 
 void
-LPUOptDFPass::
-seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
-                             LPUSeqLoopInfo& loop,
+CSAOptDFPass::
+seq_do_transform_loop_repeat(CSASeqCandidate& scandidate,
+                             CSASeqLoopInfo& loop,
                              MachineBasicBlock* BB,
-                             const LPUSeqInstrInfo& seqInfo,
-                             const LPUInstrInfo& TII,
+                             const CSASeqInstrInfo& seqInfo,
+                             const CSAInstrInfo& TII,
                              SmallVector<MachineInstr*,
                                          SEQ_VEC_WIDTH>& insToDisconnect) {
                              
@@ -2114,12 +2114,12 @@ seq_do_transform_loop_repeat(LPUSeqCandidate& scandidate,
 
 
 void
-LPUOptDFPass::
-seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
-                             LPUSeqLoopInfo& loop,
+CSAOptDFPass::
+seq_do_transform_loop_stride(CSASeqCandidate& scandidate,
+                             CSASeqLoopInfo& loop,
                              MachineBasicBlock* BB,
-                             const LPUSeqInstrInfo& seqInfo,
-                             const LPUInstrInfo& TII,
+                             const CSASeqInstrInfo& seqInfo,
+                             const CSAInstrInfo& TII,
                              SmallVector<MachineInstr*,
                                          SEQ_VEC_WIDTH>& insToDisconnect) {
 
@@ -2127,14 +2127,14 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
 
   // We should have already matched the opcodes at the time we
   // classified the candidate.
-  assert(scandidate.opcode != LPUSeqCandidate::INVALID_OPCODE);
+  assert(scandidate.opcode != CSASeqCandidate::INVALID_OPCODE);
 
   MachineOperand* in_s_op =
     seq_lookup_stride_op(loop,
                          scandidate);
   MachineOperand* my_s_op = in_s_op;
   if (scandidate.negate_input) {
-    LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+    CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
     // Create a negation of the stride input, if neccesary.
     my_s_op = seq_add_negate_stride_op(in_s_op,
                                        scandidate.opcode,
@@ -2179,12 +2179,12 @@ seq_do_transform_loop_stride(LPUSeqCandidate& scandidate,
 
 
 void
-LPUOptDFPass::
-seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
-                                     LPUSeqLoopInfo& loop,
+CSAOptDFPass::
+seq_do_transform_loop_parloop_memdep(CSASeqCandidate& scandidate,
+                                     CSASeqLoopInfo& loop,
                                      MachineBasicBlock* BB,
-                                     const LPUSeqInstrInfo& seqInfo,
-                                     const LPUInstrInfo& TII,
+                                     const CSASeqInstrInfo& seqInfo,
+                                     const CSAInstrInfo& TII,
                                      SmallVector<MachineInstr*,
                                                  SEQ_VEC_WIDTH>& insToDisconnect) {
   assert(!scandidate.transformInst);
@@ -2203,12 +2203,12 @@ seq_do_transform_loop_parloop_memdep(LPUSeqCandidate& scandidate,
 }
 
 void
-LPUOptDFPass::
-seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
-                                LPUSeqLoopInfo& loop,
+CSAOptDFPass::
+seq_do_transform_loop_reduction(CSASeqCandidate& scandidate,
+                                CSASeqLoopInfo& loop,
                                 MachineBasicBlock* BB,
-                                const LPUSeqInstrInfo& seqInfo,
-                                const LPUInstrInfo& TII,
+                                const CSASeqInstrInfo& seqInfo,
+                                const CSAInstrInfo& TII,
                                 SmallVector<MachineInstr*,
                                             SEQ_VEC_WIDTH>& insToDisconnect) {
   assert(scandidate.transformInst);
@@ -2237,19 +2237,19 @@ seq_do_transform_loop_reduction(LPUSeqCandidate& scandidate,
 
 
 void
-LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
-  const LPUInstrInfo &TII =
-    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+CSAOptDFPass::seq_do_transform_loop(CSASeqLoopInfo& loop) {
+  const CSAInstrInfo &TII =
+    *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
   int indvarIdx = loop.indvarIdx();
   assert(indvarIdx >= 0);
-  LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
+  CSASeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
   MachineBasicBlock* BB = indvarCandidate.pickInst->getParent();
 
   SmallVector<MachineInstr*, SEQ_VEC_WIDTH> insToDisconnect;
   
   // Summary information about the sequence instruction.
-  LPUSeqInstrInfo seqInfo;
+  CSASeqInstrInfo seqInfo;
 
   // Transform the induction variable into a sequence instruction.
   seq_do_transform_loop_seq(loop,
@@ -2265,10 +2265,10 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
     // Skip over the loop induction variable.
     // We should not process it twice.
     if (idx != (unsigned)indvarIdx) {
-      LPUSeqCandidate& scandidate = loop.candidates[idx];
+      CSASeqCandidate& scandidate = loop.candidates[idx];
       switch (scandidate.stype) {
 
-      case LPUSeqCandidate::SeqType::REPEAT:
+      case CSASeqCandidate::SeqType::REPEAT:
         seq_do_transform_loop_repeat(scandidate,
                                      loop,
                                      BB,
@@ -2277,7 +2277,7 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
                                      insToDisconnect);
         break;
 
-      case LPUSeqCandidate::SeqType::STRIDE:
+      case CSASeqCandidate::SeqType::STRIDE:
         seq_do_transform_loop_stride(scandidate,
                                      loop,
                                      BB,
@@ -2286,7 +2286,7 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
                                      insToDisconnect);
         break;
 
-      case LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP:
+      case CSASeqCandidate::SeqType::PARLOOP_MEM_DEP:
         seq_do_transform_loop_parloop_memdep(scandidate,
                                              loop,
                                              BB,
@@ -2296,7 +2296,7 @@ LPUOptDFPass::seq_do_transform_loop(LPUSeqLoopInfo& loop) {
         break;
 
 
-      case LPUSeqCandidate::SeqType::REDUCTION:
+      case CSASeqCandidate::SeqType::REDUCTION:
         DEBUG(errs() << "ERROR: Reductions are not yet implemented\n");
         seq_do_transform_loop_reduction(scandidate,
                                         loop,

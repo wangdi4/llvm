@@ -1,16 +1,16 @@
-; RUN: llc -O1 -lpu-opt-df-pass=1 -lpu-seq-opt=2 -lpu-seq-break-memdep=2 -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK
+; RUN: llc -O1 -csa-opt-df-pass=1 -csa-seq-opt=2 -csa-seq-break-memdep=2 -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
 
-; ModuleID = 'BlackScholes_lpu_loop.cpp'
+; ModuleID = 'BlackScholes_csa_loop.cpp'
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "lpu"
+target triple = "csa"
 
 ; Function Attrs: nounwind
 define void @BlackScholesOpt(i32 %OptPerThread, double* nocapture readonly %OptionYears, double* nocapture readonly %OptionStrike, double* nocapture readonly %StockPrice, double* nocapture %CallResult, double* nocapture %PutResult) #0 {
 
-; LPU_CHECK-DAG: repeat8
-; LPU_CHECK-DAG: onend
-; LPU_CHECK-DAG: seqotne32
-; LPU_CHECK-DAG: stride64
+; CSA_CHECK-DAG: repeat8
+; CSA_CHECK-DAG: onend
+; CSA_CHECK-DAG: seqotne32
+; CSA_CHECK-DAG: stride64
 
 entry:
   %cmp.77 = icmp sgt i32 %OptPerThread, 0

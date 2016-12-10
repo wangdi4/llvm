@@ -1,4 +1,4 @@
-//===-- LPURegisterInfo.cpp - LPU Register Information --------------------===//
+//===-- CSARegisterInfo.cpp - CSA Register Information --------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the LPU implementation of the TargetRegisterInfo class.
+// This file contains the CSA implementation of the TargetRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#include "LPURegisterInfo.h"
-#include "LPU.h"
-#include "LPUMachineFunctionInfo.h"
-#include "LPUTargetMachine.h"
+#include "CSARegisterInfo.h"
+#include "CSA.h"
+#include "CSAMachineFunctionInfo.h"
+#include "CSATargetMachine.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -31,23 +31,23 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "lpu-reg-info"
+#define DEBUG_TYPE "csa-reg-info"
 
 #define GET_REGINFO_TARGET_DESC
-#include "LPUGenRegisterInfo.inc"
+#include "CSAGenRegisterInfo.inc"
 
 // FIXME: Provide proper call frame setup / destroy opcodes.
-LPURegisterInfo::LPURegisterInfo(const TargetInstrInfo &tii)
-  : LPUGenRegisterInfo(LPU::RA), TII(tii) {}
+CSARegisterInfo::CSARegisterInfo(const TargetInstrInfo &tii)
+  : CSAGenRegisterInfo(CSA::RA), TII(tii) {}
 
 
 const MCPhysReg*
-LPURegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
+CSARegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   static const MCPhysReg CalleeSavedRegs[] = {
     0
   };
   static const MCPhysReg CalleeSavedRegsFP[] = {
-    LPU::FP,
+    CSA::FP,
     0
   };
 
@@ -55,29 +55,29 @@ LPURegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   return (TFI->hasFP(*MF)) ? CalleeSavedRegsFP : CalleeSavedRegs;
 }
 
-BitVector LPURegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+BitVector CSARegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   const TargetFrameLowering *TFL = MF.getSubtarget().getFrameLowering();
 
   BitVector Reserved(getNumRegs());
-  Reserved.set(LPU::TP);
-  Reserved.set(LPU::SP);
-  Reserved.set(LPU::RA);
+  Reserved.set(CSA::TP);
+  Reserved.set(CSA::SP);
+  Reserved.set(CSA::RA);
 
   // The frame pointer register is reserved, but only if we have a frame.
   if (TFL->hasFP(MF))
-    Reserved.set(LPU::FP);
+    Reserved.set(CSA::FP);
 
   return Reserved;
 }
 
 const TargetRegisterClass *
-LPURegisterInfo::getPointerRegClass(const MachineFunction &MF, unsigned Kind)
+CSARegisterInfo::getPointerRegClass(const MachineFunction &MF, unsigned Kind)
                                                                          const {
-  return &LPU::I64RegClass;
+  return &CSA::I64RegClass;
 }
 
 void
-LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                         int SPAdj, unsigned FIOperandNum,
                                         RegScavenger *RS) const {
   MachineInstr    &MI = *II;
@@ -106,7 +106,7 @@ LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     ArgSize = 0;
   int Offset     = spOffset < 0 ? -spOffset+StackSize-8 : spOffset+ArgSize;
   // If this is something other than a move, it should have a displacement/literal with it
-  if (opc != LPU::MOV64) {
+  if (opc != CSA::MOV64) {
     Offset += MI.getOperand(opndNum+1).getImm();
   }
 
@@ -122,7 +122,7 @@ LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   // It basically says that it is doing something to the FrameReg
   // at the offset for this register
   if(MI.isDebugValue()) {
-    MI.getOperand(opndNum).ChangeToRegister(LPU::SP, false /* isDef */);
+    MI.getOperand(opndNum).ChangeToRegister(CSA::SP, false /* isDef */);
     MI.getOperand(opndNum+1).ChangeToImmediate(Offset);
     DEBUG(errs() << "Debug value, changed to register and ignored\n");
     return;
@@ -132,42 +132,42 @@ LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   bool     new_is_st = false;
   bool changeToMove = false;
   switch(opc) {
-  case LPU::MOV64:
+  case CSA::MOV64:
     if (!Offset) { // no offset - leave as MOV
       MI.getOperand(opndNum).ChangeToRegister(getFrameRegister(MF), false);
     } else {
       // Non-0 offset - change to add with offset
-      MI.setDesc(TII.get(LPU::ADD64));
+      MI.setDesc(TII.get(CSA::ADD64));
       MI.getOperand(opndNum).ChangeToRegister(getFrameRegister(MF), false);
       MI.addOperand(MachineOperand::CreateImm(Offset));
       DEBUG(errs() << "Converted MOV to ADD immediate: "<<Offset<<"\n");
     }
     return;
     // These were ADD64i/SUB64i.  Is this still valid?
-  case LPU::ADD64:
-  case LPU::SUB64:
+  case CSA::ADD64:
+  case CSA::SUB64:
     changeToMove = (Offset == 0) ? true : false;
     break;
-  case LPU::LD8:    new_mem_opc = LPU::LD8D;    break;
-  case LPU::LD16:   new_mem_opc = LPU::LD16D;   break;
-  case LPU::LD16f:  new_mem_opc = LPU::LD16fD;  break;
-  case LPU::LD32:   new_mem_opc = LPU::LD32D;   break;
-  case LPU::LD32f:  new_mem_opc = LPU::LD32fD;  break;
-  case LPU::LD64:   new_mem_opc = LPU::LD64D;   break;
-  case LPU::LD64f:  new_mem_opc = LPU::LD64fD;  break;
-  case LPU::ST8:    new_mem_opc = LPU::ST8D;    new_is_st = true;  break;
-  case LPU::ST16:   new_mem_opc = LPU::ST16D;   new_is_st = true;  break;
-  case LPU::ST16f:  new_mem_opc = LPU::ST16fD;  new_is_st = true;  break;
-  case LPU::ST32:   new_mem_opc = LPU::ST32D;   new_is_st = true;  break;
-  case LPU::ST32f:  new_mem_opc = LPU::ST32fD;  new_is_st = true;  break;
-  case LPU::ST64:   new_mem_opc = LPU::ST64D;   new_is_st = true;  break;
-  case LPU::ST64f:  new_mem_opc = LPU::ST64fD;  new_is_st = true;  break;
+  case CSA::LD8:    new_mem_opc = CSA::LD8D;    break;
+  case CSA::LD16:   new_mem_opc = CSA::LD16D;   break;
+  case CSA::LD16f:  new_mem_opc = CSA::LD16fD;  break;
+  case CSA::LD32:   new_mem_opc = CSA::LD32D;   break;
+  case CSA::LD32f:  new_mem_opc = CSA::LD32fD;  break;
+  case CSA::LD64:   new_mem_opc = CSA::LD64D;   break;
+  case CSA::LD64f:  new_mem_opc = CSA::LD64fD;  break;
+  case CSA::ST8:    new_mem_opc = CSA::ST8D;    new_is_st = true;  break;
+  case CSA::ST16:   new_mem_opc = CSA::ST16D;   new_is_st = true;  break;
+  case CSA::ST16f:  new_mem_opc = CSA::ST16fD;  new_is_st = true;  break;
+  case CSA::ST32:   new_mem_opc = CSA::ST32D;   new_is_st = true;  break;
+  case CSA::ST32f:  new_mem_opc = CSA::ST32fD;  new_is_st = true;  break;
+  case CSA::ST64:   new_mem_opc = CSA::ST64D;   new_is_st = true;  break;
+  case CSA::ST64f:  new_mem_opc = CSA::ST64fD;  new_is_st = true;  break;
   default:
     break;
   }
 
   if (changeToMove) {
-    BuildMI(*MI.getParent(), II, MI.getDebugLoc(), TII.get(LPU::MOV64),
+    BuildMI(*MI.getParent(), II, MI.getDebugLoc(), TII.get(CSA::MOV64),
             MI.getOperand(0).getReg())
       .addReg(getFrameRegister(MF));
     II->getParent()->erase(II);
@@ -194,8 +194,8 @@ LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   }
 }
 
-unsigned LPURegisterInfo::getFrameRegister(const MachineFunction &MF) const {
+unsigned CSARegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
-  return TFI->hasFP(MF) ? LPU::FP : LPU::SP;
+  return TFI->hasFP(MF) ? CSA::FP : CSA::SP;
 }
 

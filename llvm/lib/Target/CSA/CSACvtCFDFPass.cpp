@@ -1,4 +1,4 @@
-//===-- LPUCvtCFDFPass.cpp - LPU convert control flow to data flow --------===//
+//===-- CSACvtCFDFPass.cpp - CSA convert control flow to data flow --------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,14 +8,14 @@
 //===----------------------------------------------------------------------===//
 //
 // This file "reexpresses" the code containing traditional control flow
-// into a basically data flow representation suitable for the LPU.
+// into a basically data flow representation suitable for the CSA.
 //
 //===----------------------------------------------------------------------===//
 #include <stack>
-#include "LPU.h"
-#include "InstPrinter/LPUInstPrinter.h"
-#include "LPUTargetMachine.h"
-#include "LPULicAllocation.h"
+#include "CSA.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "CSATargetMachine.h"
+#include "CSALicAllocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SparseSet.h"
@@ -37,18 +37,18 @@
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "MachineCDG.h"
-#include "LPUInstrInfo.h"
+#include "CSAInstrInfo.h"
 
 using namespace llvm;
 
 static cl::opt<int>
-CvtCFDFPass("lpu-cvt-cf-df-pass", cl::Hidden,
-               cl::desc("LPU Specific: Convert control flow to data flow pass"),
+CvtCFDFPass("csa-cvt-cf-df-pass", cl::Hidden,
+               cl::desc("CSA Specific: Convert control flow to data flow pass"),
                cl::init(1));
 
 static cl::opt<int>
-RunSXU("lpu-run-sxu", cl::Hidden,
-  cl::desc("LPU Specific: run on sequential unit"),
+RunSXU("csa-run-sxu", cl::Hidden,
+  cl::desc("CSA Specific: run on sequential unit"),
   cl::init(0));
 
 
@@ -63,15 +63,15 @@ RunSXU("lpu-run-sxu", cl::Hidden,
 //   3: Aggressive.  Reordering allowed based on other compiler info.
 //
 static cl::opt<int>
-OrderMemops("lpu-order-memops", cl::Hidden,
-            cl::desc("LPU Specific: Order memory operations"),
+OrderMemops("csa-order-memops", cl::Hidden,
+            cl::desc("CSA Specific: Order memory operations"),
             cl::init(1));
 
 
 // The register class we are going to use for all the memory-op
 // dependencies.  Technically they could be I0, but I don't know how
 // happy LLVM will be with that.
-const TargetRegisterClass* MemopRC = &LPU::I1RegClass;
+const TargetRegisterClass* MemopRC = &CSA::I1RegClass;
 
 
 // Width of vectors we are using for memory op calculations.
@@ -79,16 +79,16 @@ const TargetRegisterClass* MemopRC = &LPU::I1RegClass;
 // not correctness?
 #define MEMDEP_VEC_WIDTH 8
 
-#define DEBUG_TYPE "lpu-cvt-cf-df-pass"
+#define DEBUG_TYPE "csa-cvt-cf-df-pass"
 
 namespace llvm {
-  class LPUCvtCFDFPass : public MachineFunctionPass {
+  class CSACvtCFDFPass : public MachineFunctionPass {
   public:
     static char ID;
-    LPUCvtCFDFPass();
+    CSACvtCFDFPass();
 
     StringRef getPassName() const override {
-      return "LPU Convert Control Flow to Data Flow";
+      return "CSA Convert Control Flow to Data Flow";
     }
 
     bool runOnMachineFunction(MachineFunction &MF) override;
@@ -156,7 +156,7 @@ namespace llvm {
     //  ready_reg is the register which is the extra input
     MachineInstr* convert_memop_ins(MachineInstr* memop,
                                     unsigned new_opcode,
-                                    const LPUInstrInfo& TII,
+                                    const CSAInstrInfo& TII,
                                     unsigned issued_reg,
                                     unsigned ready_reg);
 
@@ -229,20 +229,20 @@ namespace llvm {
 
 //  Because of the namespace-related syntax limitations of gcc, we need
 //  To hoist init out of namespace blocks.
-char LPUCvtCFDFPass::ID = 0;
-//declare LPUCvtCFDFPass Pass
-INITIALIZE_PASS(LPUCvtCFDFPass, "lpu-cvt-cfdf", "LPU Convert Control Flow to Data Flow", true, true)
+char CSACvtCFDFPass::ID = 0;
+//declare CSACvtCFDFPass Pass
+INITIALIZE_PASS(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
 
-LPUCvtCFDFPass::LPUCvtCFDFPass() : MachineFunctionPass(ID) {
-  initializeLPUCvtCFDFPassPass(*PassRegistry::getPassRegistry());
+CSACvtCFDFPass::CSACvtCFDFPass() : MachineFunctionPass(ID) {
+  initializeCSACvtCFDFPassPass(*PassRegistry::getPassRegistry());
 }
 
 
-MachineFunctionPass *llvm::createLPUCvtCFDFPass() {
-  return new LPUCvtCFDFPass();
+MachineFunctionPass *llvm::createCSACvtCFDFPass() {
+  return new CSACvtCFDFPass();
 }
 
-void LPUCvtCFDFPass::releaseMemory() {
+void CSACvtCFDFPass::releaseMemory() {
   DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> ::iterator itm = bb2switch.begin();
   while (itm != bb2switch.end()) {
     DenseMap<unsigned, MachineInstr *>* reg2switch = itm->getSecond();
@@ -278,13 +278,13 @@ void LPUCvtCFDFPass::releaseMemory() {
 }
 
 
-void LPUCvtCFDFPass::replacePhiWithPICK() {
+void CSACvtCFDFPass::replacePhiWithPICK() {
   replaceLoopHdrPhi();
   replaceIfFooterPhiSeq();
 }
 
 //return the first non latch parent found or NULL
-ControlDependenceNode* LPUCvtCFDFPass::getNonLatchParent(ControlDependenceNode* anode, bool &oneAndOnly ) {
+ControlDependenceNode* CSACvtCFDFPass::getNonLatchParent(ControlDependenceNode* anode, bool &oneAndOnly ) {
   ControlDependenceNode* pcdn = nullptr;
   if (anode->getNumParents() == 0) return pcdn;
   for (ControlDependenceNode::node_iterator pnode = anode->parent_begin(), pend = anode->parent_end(); pnode != pend; ++pnode) {
@@ -305,7 +305,7 @@ ControlDependenceNode* LPUCvtCFDFPass::getNonLatchParent(ControlDependenceNode* 
 }
 
 
-bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
+bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   if (CvtCFDFPass == 0) return false;
   thisMF = &MF;
@@ -358,7 +358,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   }
 #if 0
   {
-    errs() << "LPUCvtCFDFPass after memoryop order" << ":\n";
+    errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
     MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
   }
 #endif
@@ -367,7 +367,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForLoopExit();
 #if 0
   {
-    errs() << "LPUCvtCFDFPass before xphi" << ":\n";
+    errs() << "CSACvtCFDFPass before xphi" << ":\n";
     MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
   }
 #endif
@@ -379,14 +379,14 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   handleAllConstantInputs();
 #if 0
   {
-    errs() << "LPUCvtCFDFPass before LIC allocation" << ":\n";
+    errs() << "CSACvtCFDFPass before LIC allocation" << ":\n";
     MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
   }
 #endif
   assignLicForDF();
 #if 0
   {
-    errs() << "LPUCvtCFDFPass after LIC allocation" << ":\n";
+    errs() << "CSACvtCFDFPass after LIC allocation" << ":\n";
     MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
   }
 #endif
@@ -399,10 +399,10 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
 }
 
-MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB) {
+MachineInstr* CSACvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB) {
   // generate and insert SWITCH or copy
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
   MachineInstr* result = nullptr;
   if (cdgpBB->succ_size() > 1) {
@@ -437,7 +437,7 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
 }
 
 
-unsigned LPUCvtCFDFPass::findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb) {
+unsigned CSACvtCFDFPass::findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb) {
   if (bb2switch.find(mbb) == bb2switch.end()) {
     return 0;
   }
@@ -460,7 +460,7 @@ unsigned LPUCvtCFDFPass::findSwitchingDstForReg(unsigned Reg, MachineBasicBlock*
 
 
 
-MachineInstr* LPUCvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB) {
+MachineInstr* CSACvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB) {
   MachineInstr *defSwitchInstr = nullptr;
   DenseMap<unsigned, MachineInstr *>* reg2switch = nullptr;
   if (bb2switch.find(cdgpBB) == bb2switch.end()) {
@@ -480,9 +480,9 @@ MachineInstr* LPUCvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasic
   return defSwitchInstr;
 }
 
-SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock *cdgpBB) {
+SmallVectorImpl<MachineInstr *>* CSACvtCFDFPass::insertPredCpy(MachineBasicBlock *cdgpBB) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
   MachineInstr* bi;
   MachineLoop* mloop = MLI->getLoopFor(cdgpBB);
@@ -520,7 +520,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
 #if 0
   unsigned cpyReg = MRI->createVirtualRegister(TRC);
 #else
-  LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+  CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
   // Look up target register class corresponding to this register.
   const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(predReg));
   assert(new_LIC_RC && "Can't determine register class for register");
@@ -561,7 +561,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
 }
 
 
-SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::getOrInsertPredCopy(MachineBasicBlock *cdgpBB) {
+SmallVectorImpl<MachineInstr *>* CSACvtCFDFPass::getOrInsertPredCopy(MachineBasicBlock *cdgpBB) {
   assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
   SmallVectorImpl<MachineInstr *>* predcpyVec = nullptr;
   if (bb2predcpy.find(cdgpBB) == bb2predcpy.end()) {
@@ -574,8 +574,8 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::getOrInsertPredCopy(MachineBasi
 }
 
 //TODO: rename for repeat
-void LPUCvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
     renameAcrossLoopForRepeat(*LI);
@@ -626,8 +626,8 @@ void LPUCvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
 }
 
 
-void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn) {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+void CSACvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   if (!MO.isReg() || !TargetRegisterInfo::isVirtualRegister(MO.getReg())) return;
   unsigned Reg = MO.getReg();
@@ -726,7 +726,7 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 
 
 //focus on uses
-void LPUCvtCFDFPass::insertSWITCHForIf() {
+void CSACvtCFDFPass::insertSWITCHForIf() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   ControlDependenceNode *root = CDG->getRoot();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
@@ -786,7 +786,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 
 
 
-MachineBasicBlock* LPUCvtCFDFPass::getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock*> &exitingBlks, MachineInstr* UseMI, unsigned Reg) {
+MachineBasicBlock* CSACvtCFDFPass::getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock*> &exitingBlks, MachineInstr* UseMI, unsigned Reg) {
   MachineBasicBlock* anchorBB = nullptr;
   MachineBasicBlock* exitingBlk = nullptr;
   MachineBasicBlock* UseBB = UseMI->getParent();
@@ -818,7 +818,7 @@ MachineBasicBlock* LPUCvtCFDFPass::getDominatingExitingBB(SmallVectorImpl<Machin
 }
 
 
-unsigned LPUCvtCFDFPass::SwitchOutExitingBlk(MachineBasicBlock* exitingBlk, unsigned Reg, MachineLoop *mloop) {
+unsigned CSACvtCFDFPass::SwitchOutExitingBlk(MachineBasicBlock* exitingBlk, unsigned Reg, MachineLoop *mloop) {
   assert(exitingBlk->succ_size() == 2 && "exiting blok's # of successor not 2");
   MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
   MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
@@ -844,7 +844,7 @@ unsigned LPUCvtCFDFPass::SwitchOutExitingBlk(MachineBasicBlock* exitingBlk, unsi
   return newVReg;
 }
 
-void LPUCvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop, MachineOperand &UseMO) {
+void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop, MachineOperand &UseMO) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   SmallVector<MachineBasicBlock*, 2> exitingBlks;
   mloop->getExitingBlocks(exitingBlks);
@@ -890,9 +890,9 @@ void LPUCvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
 
 
 
-void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop) {
+void CSACvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
   while (UI != MRI->use_end()) {
     MachineOperand &UseMO = *UI;
@@ -973,11 +973,11 @@ void LPUCvtCFDFPass::SwitchDefAcrossLatch(unsigned Reg, MachineBasicBlock* mbb, 
 }
 
 //focus on def
-void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
+void CSACvtCFDFPass::insertSWITCHForLoopExit() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   DenseMap<MachineBasicBlock *, std::set<unsigned> *> LCSwitch;
 
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   ControlDependenceNode *root = CDG->getRoot();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
@@ -1053,7 +1053,7 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
 
 
 //focus on uses
-void LPUCvtCFDFPass::insertSWITCHForRepeat() {
+void CSACvtCFDFPass::insertSWITCHForRepeat() {
   for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
     renameAcrossLoopForRepeat(*LI);
   }
@@ -1064,7 +1064,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
   }
 #endif
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   ControlDependenceNode *root = CDG->getRoot();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
@@ -1150,9 +1150,9 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
 }
 
 
-void LPUCvtCFDFPass::replaceLoopHdrPhi() {
+void CSACvtCFDFPass::replaceLoopHdrPhi() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   ControlDependenceNode *root = CDG->getRoot();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
@@ -1284,11 +1284,11 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
 }
 
 
-void LPUCvtCFDFPass::assignLicForDF() {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+void CSACvtCFDFPass::assignLicForDF() {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+  CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
   std::deque<unsigned> renameQueue;
   renameQueue.clear();
   std::set<unsigned> pinedVReg;
@@ -1301,7 +1301,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
           unsigned Reg = MO->getReg();
           pinedVReg.insert(Reg);
         }
-      } else if (MI->getOpcode() == LPU::JSR || MI->getOpcode() == LPU::JSRi) {
+      } else if (MI->getOpcode() == CSA::JSR || MI->getOpcode() == CSA::JSRi) {
         //function call inside control region need to run on SXU
         ControlDependenceNode* mnode = CDG->getNode(mbb);
         if (mnode->getNumParents() > 1 || 
@@ -1315,12 +1315,12 @@ void LPUCvtCFDFPass::assignLicForDF() {
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
       MachineInstr *mInst = &*MI;
-      if (TII.isPick(mInst) || TII.isSwitch(mInst) ||  mInst->getOpcode() == LPU::MERGE64f ||
+      if (TII.isPick(mInst) || TII.isSwitch(mInst) ||  mInst->getOpcode() == CSA::MERGE64f ||
           TII.isFMA(mInst) || TII.isDiv(mInst) || TII.isMul(mInst) ||
           TII.isAdd(mInst) || TII.isSub(mInst) ||
-          mInst->getOpcode() == LPU::PREDMERGE || 
-          mInst->getOpcode() == LPU::PREDPROP || 
-          mInst->getOpcode() == LPU::OR1) {
+          mInst->getOpcode() == CSA::PREDMERGE || 
+          mInst->getOpcode() == CSA::PREDPROP || 
+          mInst->getOpcode() == CSA::OR1) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();
@@ -1342,13 +1342,13 @@ void LPUCvtCFDFPass::assignLicForDF() {
     // it to the %ign LIC rather than allocating a new one.
     assert(DefMO->isDef() && "Trying to reason about uses of a non-def.");
     if (MRI->use_empty(dReg)) {
-        DefMI->substituteRegister(dReg, LPU::IGN, 0, TRI);
+        DefMI->substituteRegister(dReg, CSA::IGN, 0, TRI);
         continue;
     }
 
     const TargetRegisterClass *TRC = MRI->getRegClass(dReg);
     const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(TRC);
-    assert(new_LIC_RC && "unknown LPU register class");
+    assert(new_LIC_RC && "unknown CSA register class");
     unsigned phyReg = LMFI->allocateLIC(new_LIC_RC);
 
     if (TII.isSwitch(DefMI)) {
@@ -1398,9 +1398,9 @@ void LPUCvtCFDFPass::assignLicForDF() {
 
           // Note: this avoids magic constants, but requires that the LIC
           // virtual registers be defined at the end of the enum in
-          // LPUGenRegisterInfo.inc.
-          if ((Reg < LPU::CI0_0 || Reg >= LPU::NUM_TARGET_REGS) &&
-               Reg != LPU::IGN ) {
+          // CSAGenRegisterInfo.inc.
+          if ((Reg < CSA::CI0_0 || Reg >= CSA::NUM_TARGET_REGS) &&
+               Reg != CSA::IGN ) {
             allLics = false;
             break;
           }
@@ -1433,8 +1433,8 @@ void LPUCvtCFDFPass::assignLicForDF() {
 }
 
 
-void LPUCvtCFDFPass::handleAllConstantInputs() {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+void CSACvtCFDFPass::handleAllConstantInputs() {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
   std::deque<unsigned> renameQueue;
@@ -1461,8 +1461,8 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
         MachineInstr *switchInst = nullptr;
         const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false);
         const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true);
-        unsigned pickFalseReg = LPU::IGN, pickTrueReg = LPU::IGN;
-        unsigned switchFalse = LPU::IGN, switchTrue = LPU::IGN;
+        unsigned pickFalseReg = CSA::IGN, pickTrueReg = CSA::IGN;
+        unsigned switchFalse = CSA::IGN, switchTrue = CSA::IGN;
         int parentN = 0;
         for (ControlDependenceNode::node_iterator uparent = mNode->parent_begin(), uparent_end = mNode->parent_end();
           uparent != uparent_end; ++uparent) {
@@ -1502,7 +1502,7 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
           } else {
             if (parentN == 2) {
               unsigned renameReg = MRI->createVirtualRegister(TRC);
-              unsigned index = (switchFalse == LPU::IGN) ? 1 : 0;
+              unsigned index = (switchFalse == CSA::IGN) ? 1 : 0;
               switchInst->getOperand(index).setReg(renameReg);
               pickTrueReg = renameReg;
               pickFalseReg = renameReg;
@@ -1536,7 +1536,7 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
 
 
 
-void LPUCvtCFDFPass::removeBranch() {
+void CSACvtCFDFPass::removeBranch() {
   std::deque<unsigned> renameQueue;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock::iterator iterMI = BB->begin();
@@ -1552,7 +1552,7 @@ void LPUCvtCFDFPass::removeBranch() {
 
 
 
-void LPUCvtCFDFPass::linearizeCFG() {
+void CSACvtCFDFPass::linearizeCFG() {
   typedef po_iterator<MachineBasicBlock *> po_mbb_iterator;
   MachineBasicBlock *root = &*thisMF->begin();
   std::stack<MachineBasicBlock *> mbbStack;
@@ -1576,7 +1576,7 @@ void LPUCvtCFDFPass::linearizeCFG() {
 
 
 
-MachineInstr* LPUCvtCFDFPass::PatchOrInsertPickAtFork(
+MachineInstr* CSACvtCFDFPass::PatchOrInsertPickAtFork(
   MachineBasicBlock* ctrlBB, //fork
   unsigned dst,              //the SSA value
   unsigned Reg,              //input of phi
@@ -1604,16 +1604,16 @@ MachineInstr* LPUCvtCFDFPass::PatchOrInsertPickAtFork(
     unsigned pickFalseReg = 0, pickTrueReg = 0;
     assignPICKSrcForReg(pickFalseReg, pickTrueReg, Reg, ctrlBB, inBB, phi);
     unsigned ignIndex = 0;
-    if (pickFalseReg == LPU::IGN) {
+    if (pickFalseReg == CSA::IGN) {
       //reg assigned to pickTrue => make sure the original pick has %IGN for pickTrue;
-      assert(pickTrueReg && pickTrueReg != LPU::IGN);
-      assert(pickInstr->getOperand(3).getReg() == LPU::IGN);
+      assert(pickTrueReg && pickTrueReg != CSA::IGN);
+      assert(pickInstr->getOperand(3).getReg() == CSA::IGN);
       ignIndex = 3;
     } else {
       //reg assigned to pickFalse
-      assert(pickTrueReg == LPU::IGN);
-      assert(pickFalseReg && pickFalseReg != LPU::IGN);
-      assert(pickInstr->getOperand(2).getReg() == LPU::IGN);
+      assert(pickTrueReg == CSA::IGN);
+      assert(pickFalseReg && pickFalseReg != CSA::IGN);
+      assert(pickInstr->getOperand(2).getReg() == CSA::IGN);
       ignIndex = 2;
     }
     MachineOperand &MO = pickInstr->getOperand(ignIndex);
@@ -1637,10 +1637,10 @@ MachineInstr* LPUCvtCFDFPass::PatchOrInsertPickAtFork(
 }
 
 
-MachineInstr* LPUCvtCFDFPass::insertPICKForReg(MachineBasicBlock* ctrlBB, unsigned Reg,
+MachineInstr* CSACvtCFDFPass::insertPICKForReg(MachineBasicBlock* ctrlBB, unsigned Reg,
   MachineBasicBlock* inBB, MachineInstr* phi, unsigned pickReg) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
   MachineBasicBlock::iterator loc = ctrlBB->getFirstTerminator();
   MachineInstr* bi = &*loc;
@@ -1660,32 +1660,32 @@ MachineInstr* LPUCvtCFDFPass::insertPICKForReg(MachineBasicBlock* ctrlBB, unsign
   return pickInst;
 }
 
-void LPUCvtCFDFPass::assignPICKSrcForReg(unsigned &pickFalseReg, unsigned &pickTrueReg, unsigned Reg, MachineBasicBlock* ctrlBB, MachineBasicBlock* inBB, MachineInstr* phi) {
+void CSACvtCFDFPass::assignPICKSrcForReg(unsigned &pickFalseReg, unsigned &pickTrueReg, unsigned Reg, MachineBasicBlock* ctrlBB, MachineBasicBlock* inBB, MachineInstr* phi) {
   if (inBB) {
     ControlDependenceNode* inNode = CDG->getNode(inBB);
     ControlDependenceNode* ctrlNode = CDG->getNode(ctrlBB);
     if (ctrlNode->isFalseChild(inNode)) {
       pickFalseReg = Reg;
-      pickTrueReg = LPU::IGN;
+      pickTrueReg = CSA::IGN;
     } else {
       pickTrueReg = Reg;
-      pickFalseReg = LPU::IGN;
+      pickFalseReg = CSA::IGN;
     }
   } else {
     MachineBasicBlock* mbb = phi->getParent();
     //assert(DT->dominates(ctrlBB, mbb));
     if (CDG->getEdgeType(ctrlBB, mbb, true) == ControlDependenceNode::TRUE) {
       pickTrueReg = Reg;
-      pickFalseReg = LPU::IGN;
+      pickFalseReg = CSA::IGN;
     } else {
       pickFalseReg = Reg;
-      pickTrueReg = LPU::IGN;
+      pickTrueReg = CSA::IGN;
     }
   }
 }
 
 
-void LPUCvtCFDFPass::generateCompletePickTreeForPhi(MachineInstr* MI) {
+void CSACvtCFDFPass::generateCompletePickTreeForPhi(MachineInstr* MI) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   multiInputsPick.clear();
   MachineBasicBlock* mbb = MI->getParent();
@@ -1725,12 +1725,12 @@ void LPUCvtCFDFPass::generateCompletePickTreeForPhi(MachineInstr* MI) {
   MI->removeFromParent();
 }
 
-unsigned LPUCvtCFDFPass::getEdgePred(MachineBasicBlock* mbb, ControlDependenceNode::EdgeType childType) {
+unsigned CSACvtCFDFPass::getEdgePred(MachineBasicBlock* mbb, ControlDependenceNode::EdgeType childType) {
   if (edgepreds.find(mbb) == edgepreds.end()) return 0;
   return (*edgepreds[mbb])[childType];
 }
 
-void LPUCvtCFDFPass::setEdgePred(MachineBasicBlock* mbb, ControlDependenceNode::EdgeType childType, unsigned ch) {
+void CSACvtCFDFPass::setEdgePred(MachineBasicBlock* mbb, ControlDependenceNode::EdgeType childType, unsigned ch) {
   assert(ch && "0 is not a valid vreg number");
   if (edgepreds.find(mbb) == edgepreds.end()) {
     SmallVectorImpl<unsigned>* childVect = new SmallVector<unsigned, 2>;
@@ -1741,20 +1741,20 @@ void LPUCvtCFDFPass::setEdgePred(MachineBasicBlock* mbb, ControlDependenceNode::
   (*edgepreds[mbb])[childType] = ch;
 }
 
-unsigned LPUCvtCFDFPass::getBBPred(MachineBasicBlock* mbb) {
+unsigned CSACvtCFDFPass::getBBPred(MachineBasicBlock* mbb) {
   if (bbpreds.find(mbb) == bbpreds.end()) return 0;
   return bbpreds[mbb];
 }
 
 
-void LPUCvtCFDFPass::setBBPred(MachineBasicBlock* mbb, unsigned ch) {
+void CSACvtCFDFPass::setBBPred(MachineBasicBlock* mbb, unsigned ch) {
   assert(ch && "0 is not a valid vreg number");
   //don't set it twice
-  assert(bbpreds.find(mbb) == bbpreds.end() && "LPU: Try to set bb pred twice");
+  assert(bbpreds.find(mbb) == bbpreds.end() && "CSA: Try to set bb pred twice");
   bbpreds[mbb] = ch;
 }
 
-unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB) {
+unsigned CSACvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB) {
   ControlDependenceNode* fromNode = CDG->getNode(fromBB);
   ControlDependenceNode* toNode = CDG->getNode(toBB);
   if (fromBB->succ_size() == 1 || fromNode->isParent(fromNode) || fromNode->isChild(fromNode)) {
@@ -1771,11 +1771,11 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, MachineBasic
 }
 
   
-unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType, MachineBasicBlock* toBB) {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+unsigned CSACvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType, MachineBasicBlock* toBB) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo* MRI = &thisMF->getRegInfo();
 
-  assert(fromBB->succ_size() == 2 && "LPU bb has more than 2 successor");
+  assert(fromBB->succ_size() == 2 && "CSA bb has more than 2 successor");
   if (unsigned edgeReg = getEdgePred(fromBB, childType)) {
     return edgeReg;
   }
@@ -1795,11 +1795,11 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, ControlDepen
   //reaching the boundary, generate switch 
   if (MLI->getLoopFor(toBB) && MLI->getLoopFor(toBB)->getHeader() == toBB) {
     MachineInstr* bi = &*(fromBB->getFirstTerminator());
-    unsigned switchFalseReg = MRI->createVirtualRegister(&LPU::I1RegClass);
-    unsigned switchTrueReg = MRI->createVirtualRegister(&LPU::I1RegClass);
+    unsigned switchFalseReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+    unsigned switchTrueReg = MRI->createVirtualRegister(&CSA::I1RegClass);
     assert(bi->getOperand(0).isReg());
     // generate switch op
-    const unsigned switchOpcode = TII.getPickSwitchOpcode(&LPU::I1RegClass, false /*not pick op*/);
+    const unsigned switchOpcode = TII.getPickSwitchOpcode(&CSA::I1RegClass, false /*not pick op*/);
     //special handling for predprop/premerge in loop to avoid cycle of dependence
     BuildMI(*fromBB, bi, DebugLoc(), TII.get(switchOpcode),
       switchFalseReg).
@@ -1814,11 +1814,11 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, ControlDepen
       return switchTrueReg;
     }
   } else {
-    unsigned falseEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
-    unsigned trueEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
+    unsigned falseEdge = MRI->createVirtualRegister(&CSA::I1RegClass);
+    unsigned trueEdge = MRI->createVirtualRegister(&CSA::I1RegClass);
     MachineBasicBlock::iterator loc = fromBB->getFirstTerminator();
     MachineInstr* bi = &*loc;
-    BuildMI(*fromBB, loc, DebugLoc(), TII.get(LPU::PREDPROP),
+    BuildMI(*fromBB, loc, DebugLoc(), TII.get(CSA::PREDPROP),
       falseEdge).addReg(trueEdge, RegState::Define).addReg(bbPredReg).addReg(bi->getOperand(0).getReg());
     setEdgePred(fromBB, ControlDependenceNode::FALSE, falseEdge);
     setEdgePred(fromBB, ControlDependenceNode::TRUE, trueEdge);
@@ -1826,11 +1826,11 @@ unsigned LPUCvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, ControlDepen
   }
 }
 
-unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
+unsigned CSACvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
   if (unsigned c = getBBPred(inBB)) {
     return c;
   }
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo* MRI = &thisMF->getRegInfo();
   MachineBasicBlock* ctrlBB = nullptr;
   unsigned ctrlEdge;
@@ -1843,12 +1843,12 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
     if (!ctrlBB) { //root node has no bb
       //mov 1
       MachineBasicBlock* entryBB = &*thisMF->begin();
-      unsigned cpyReg = MRI->createVirtualRegister(&LPU::I1RegClass);
-      const unsigned moveOpcode = TII.getMoveOpcode(&LPU::I1RegClass);
+      unsigned cpyReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      const unsigned moveOpcode = TII.getMoveOpcode(&CSA::I1RegClass);
       BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addImm(1);
       ctrlEdge = cpyReg;
     } else if (bb2rpo[ctrlBB] < bb2rpo[inBB]) {
-      assert(ctrlBB->succ_size() == 2 && "LPU: bb has more than 2 successor");
+      assert(ctrlBB->succ_size() == 2 && "CSA: bb has more than 2 successor");
       computeBBPred(ctrlBB);
       unsigned falseEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::FALSE, inBB);
       unsigned trueEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::TRUE, inBB);
@@ -1864,9 +1864,9 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
     if (!predBB) {
       predBB = ctrlEdge;
     } else {
-      unsigned mergeEdge = MRI->createVirtualRegister(&LPU::I1RegClass);
+      unsigned mergeEdge = MRI->createVirtualRegister(&CSA::I1RegClass);
       MachineBasicBlock::iterator loc = inBB->getFirstTerminator();
-      BuildMI(*inBB, loc, DebugLoc(), TII.get(LPU::OR1), mergeEdge).addReg(predBB).addReg(ctrlEdge);
+      BuildMI(*inBB, loc, DebugLoc(), TII.get(CSA::OR1), mergeEdge).addReg(predBB).addReg(ctrlEdge);
       predBB = mergeEdge;
     }
   }
@@ -1878,14 +1878,14 @@ unsigned LPUCvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
 }
 
 
-MachineInstr* LPUCvtCFDFPass::getOrInsertPredMerge(MachineBasicBlock* mbb, MachineInstr* loc, unsigned e1, unsigned e2) {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+MachineInstr* CSACvtCFDFPass::getOrInsertPredMerge(MachineBasicBlock* mbb, MachineInstr* loc, unsigned e1, unsigned e2) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   MachineInstr* predMergeInstr = nullptr;
   if (bb2predmerge.find(mbb) == bb2predmerge.end()) {
-    unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
-    predMergeInstr = BuildMI(*mbb, loc, DebugLoc(), TII.get(LPU::PREDMERGE),
-      LPU::IGN).    //in a two-way merge, it is %IGN to eat the BB's pred, they will be computed using "or" consistently
+    unsigned indexReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+    predMergeInstr = BuildMI(*mbb, loc, DebugLoc(), TII.get(CSA::PREDMERGE),
+      CSA::IGN).    //in a two-way merge, it is %IGN to eat the BB's pred, they will be computed using "or" consistently
       addReg(indexReg, RegState::Define). 
       addReg(e1).   //last processed edge
       addReg(e2); //current edge
@@ -1896,9 +1896,9 @@ MachineInstr* LPUCvtCFDFPass::getOrInsertPredMerge(MachineBasicBlock* mbb, Machi
   return predMergeInstr;
 }
 
-void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
+void CSACvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
   assert(MI->isPHI());
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
   pred2values.clear();
@@ -1946,7 +1946,7 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
     for (unsigned i = 0; i < pred2values.size(); i++) {
       std::pair<unsigned, unsigned>* pred2value = pred2values[i];
       if (i == 0) {
-        xphi = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(LPU::XPHI), dst).addReg(pred2value->first).addReg(pred2value->second);
+        xphi = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(CSA::XPHI), dst).addReg(pred2value->first).addReg(pred2value->second);
       } else {
         MachineOperand edgeOp = MachineOperand::CreateReg(pred2value->first, true);
         MachineOperand valueOp = MachineOperand::CreateReg(pred2value->second, true);
@@ -1968,8 +1968,8 @@ void LPUCvtCFDFPass::generateDynamicPickTreeForPhi(MachineInstr* MI) {
 
 
 
-void LPUCvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* loc) {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+void CSACvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* loc) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   if (pred2values.empty() || pred2values.size() == 1) return;
   SmallVector<std::pair<unsigned, unsigned> *, 4> vpair;
@@ -1985,9 +1985,9 @@ void LPUCvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> 
       //const TargetRegisterClass *pTRC = MRI->getRegClass(pair1->first);
       //MachineInstr* predMerge = getOrInsertPredMerge(loc->getParent(), loc, pair1->first, pair2->first);
 
-      unsigned indexReg = MRI->createVirtualRegister(&LPU::I1RegClass);
-      unsigned bbpredReg = MRI->createVirtualRegister(&LPU::I1RegClass);
-      BuildMI(*loc->getParent(), loc, DebugLoc(), TII.get(LPU::PREDMERGE),
+      unsigned indexReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      unsigned bbpredReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      BuildMI(*loc->getParent(), loc, DebugLoc(), TII.get(CSA::PREDMERGE),
         bbpredReg).
         addReg(indexReg, RegState::Define).
         addReg(pair1->first).   //last processed edge
@@ -2023,7 +2023,7 @@ void LPUCvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> 
 
 
 
-bool LPUCvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
+bool CSACvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
   MachineBasicBlock::iterator iterI = mbb->begin();
   while (iterI != mbb->end()) {
     MachineInstr *MI = &*iterI;
@@ -2063,7 +2063,7 @@ bool LPUCvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
 
 
 
-void LPUCvtCFDFPass::generateDynamicPreds() {
+void CSACvtCFDFPass::generateDynamicPreds() {
   std::stack<MachineBasicBlock*> postk;
   typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
   MachineBasicBlock *root = &*thisMF->begin();
@@ -2094,7 +2094,7 @@ void LPUCvtCFDFPass::generateDynamicPreds() {
 }
 
 
-void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
+void CSACvtCFDFPass::replaceIfFooterPhiSeq() {
   typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
   MachineBasicBlock *root = &*thisMF->begin();
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
@@ -2117,7 +2117,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
 
 
 //make sure phi block post dominates all control points of all its inBBs
-bool LPUCvtCFDFPass::CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb) {
+bool CSACvtCFDFPass::CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb) {
   if (DT->dominates(inBB, mbb)) {
     return PDT->dominates(mbb, inBB);
   }
@@ -2147,7 +2147,7 @@ bool LPUCvtCFDFPass::CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock*
 }
 
 
-void LPUCvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI) {
+void CSACvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI) {
   MachineBasicBlock* ctrlBB = nullptr;
   if (!DT->dominates(inBB, mbb)) {
     ControlDependenceNode* inNode = CDG->getNode(inBB);
@@ -2169,9 +2169,9 @@ void LPUCvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, 
   }
 }
 
-MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
+MachineInstr* CSACvtCFDFPass::convert_memop_ins(MachineInstr* MI,
                                                 unsigned new_opcode,
-                                                const LPUInstrInfo& TII,
+                                                const CSAInstrInfo& TII,
                                                 unsigned issued_reg,
                                                 unsigned ready_reg) {
   MachineInstr* new_inst = NULL;
@@ -2285,9 +2285,9 @@ MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
 //   2. Direct initialization, if 1 predecessor
 //   3. mov of a constant, if 0 predecessors.
 //
-void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
+void CSACvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
                                              DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut) {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const unsigned MemTokenMOVOpcode = TII.getMemTokenMOVOpcode();
   
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
@@ -2350,11 +2350,11 @@ void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsign
 
 
 
-unsigned LPUCvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& BB,
+unsigned CSACvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& BB,
                                                      unsigned mem_in_reg)
 
 {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
   unsigned current_mem_reg = mem_in_reg;
@@ -2397,13 +2397,13 @@ unsigned LPUCvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& 
 }
 
 
-unsigned LPUCvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
+unsigned CSACvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
                                                   MachineInstr* MI,
                                                   SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
                                                   unsigned input_mem_reg) {
 
   if (current_wavefront->size() > 0) {
-    const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+    const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
     MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
     DEBUG(errs() << "Merging dependency signals from " << current_wavefront->size() << " register " << "\n");
@@ -2433,7 +2433,7 @@ unsigned LPUCvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
             new_inst = BuildMI(*MI->getParent(),
                                MI,
                                MI->getDebugLoc(),
-                               TII.get(LPU::MERGE1),
+                               TII.get(CSA::MERGE1),
                                next_out_reg).addImm(0).addReg((*current_level)[i]).addReg((*current_level)[i+1]);
           }
           else {
@@ -2441,7 +2441,7 @@ unsigned LPUCvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
             new_inst = BuildMI(*BB,
                                BB->getFirstTerminator(),
                                DebugLoc(),
-                               TII.get(LPU::MERGE1),
+                               TII.get(CSA::MERGE1),
                                next_out_reg).addImm(0).addReg((*current_level)[i]).addReg((*current_level)[i+1]);
           }
           DEBUG(errs() << "Inserted dependecy merge instruction " << *new_inst << "\n");
@@ -2479,10 +2479,10 @@ unsigned LPUCvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
 
 
 
-unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterator& BB,
+unsigned CSACvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterator& BB,
                                                         unsigned mem_in_reg)
 {
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
   unsigned current_mem_reg = mem_in_reg;
@@ -2559,10 +2559,10 @@ unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
  * sure that the instructions in question will be successfully converted to
  * data flow. Returns a boolean indicating modification.
  */
-bool LPUCvtCFDFPass::replaceUndefWithIgn() {
+bool CSACvtCFDFPass::replaceUndefWithIgn() {
   bool modified = false;
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   SmallPtrSet<MachineInstr*, 4> implicitDefs;
   DEBUG(errs() << "Finding implicit defs:\n");
   for (MachineFunction::iterator BB = thisMF->begin(); BB != thisMF->end(); ++BB) {
@@ -2602,9 +2602,9 @@ bool LPUCvtCFDFPass::replaceUndefWithIgn() {
   return modified;
 }
 
-void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
+void CSACvtCFDFPass::addMemoryOrderingConstraints() {
 
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
   DenseMap<MachineBasicBlock*, unsigned> blockToMemIn;
