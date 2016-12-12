@@ -184,13 +184,19 @@ public:
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 #endif
 
-}
+  }
 
   void addPostRegAlloc() override {
     addPass(createLPUAllocUnitPass(), false);
   }
 
-};
+  void addIRPasses() override {
+    // Pass call onto parent
+    TargetPassConfig::addIRPasses();
+  }
+
+}; // class LPUPassConfig
+
 } // namespace
 
 TargetPassConfig *LPUTargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
