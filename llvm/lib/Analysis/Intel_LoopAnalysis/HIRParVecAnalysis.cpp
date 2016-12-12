@@ -423,12 +423,6 @@ void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA,
     emitDiag();
     return;
   }
-  if (!Loop->hasChildren()) {
-    setVecType(FE_DIAG_VEC_FAIL_EMPTY_LOOP);
-    setParType(FE_DIAG_VEC_FAIL_EMPTY_LOOP);
-    emitDiag();
-    return;
-  }
   if (!isDone()) {
     cleanEdges();
     DDWalk DDW(*DDA, *SRA, Loop, this);      // Legality checker.

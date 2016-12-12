@@ -17,10 +17,11 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_CANONEXPRUTILS_H
 
 #include "llvm/Support/Compiler.h"
-#include <set>
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+
+#include <set>
 
 namespace llvm {
 

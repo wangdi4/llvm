@@ -17,15 +17,14 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEUTILS_H
 
 #include "llvm/Support/Compiler.h"
-#include <set>
-
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
-#include "llvm/Support/Compiler.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
+
+#include <set>
 
 namespace llvm {
 
@@ -703,13 +702,13 @@ public:
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr);
 
   /// Creates a new ShuffleVector instruction
-  HLInst *CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
+  HLInst *createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                   ArrayRef<uint32_t> Mask,
                                   const Twine &Name = "shuffle",
                                   RegDDRef *LvalRef = nullptr);
 
   /// Creates a new ExtractElement instruction
-  HLInst *CreateExtractElementInst(RegDDRef *OpRef, unsigned Idx,
+  HLInst *createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
                                    const Twine &Name = "extract",
                                    RegDDRef *LvalRef = nullptr);
 
@@ -1084,8 +1083,8 @@ public:
 
   /// Returns true if Parent contains Node. IncludePrePostHdr indicates whether
   /// loop should be considered to contain preheader/postexit nodes.
-  bool contains(const HLNode *Parent, const HLNode *Node,
-                bool IncludePrePostHdr = false);
+  static bool contains(const HLNode *Parent, const HLNode *Node,
+                       bool IncludePrePostHdr = false);
 
   /// get parent loop for certain level, nullptr could be returned if input is
   /// invalid
@@ -1170,12 +1169,6 @@ public:
                   "Type of SmallVector parameter should be const HLLoop *.");
     gatherAllLoops(const_cast<HLNode *>(Node), Loops);
   }
-
-  /// Updates Loop properties (Bounds, etc) based on input Permutations
-  /// Used by Interchange now. Could be used later for blocking.
-  /// Loops are added to \p LoopPermutation in the desired permuted order.
-  void permuteLoopNests(HLLoop *OutermostLoop,
-                        const SmallVectorImpl<HLLoop *> &LoopPermutation);
 
   /// Returns true if Loop is a perfect Loop nest. Also returns the
   /// innermost loop.
@@ -1291,20 +1284,20 @@ public:
   bool isKnownPositiveOrNegative(const CanonExpr *CE,
                                  const HLNode *ParentNode = nullptr);
 
-  /// Updates target HLLabel in every HLGoto node according to the mapping.
-  void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin, HLNode *End);
-
   // Returns true if both HLIf nodes are equal.
-  bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
+  static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
 
-  // Replaces HLIf with its *then* or *else* body.
-  void replaceNodeWithBody(HLIf *If, bool ThenBody);
+  /// Recursively traverse the HIR from the /p Node and remove empty HLLoops and
+  /// empty HLIfs.
+  ///
+  /// Note: This function is placed here because the Framework uses it to
+  /// get rid of incoming empty HLIfs.
+  static void removeEmptyNodes(HLNode *Node);
 
-  /// Removes HLIfs that always evaluates as either true or false and
-  /// returns true whenever HLIfs were removed. The utility doesn't
-  /// invalidate analysis.
-  bool eliminateRedundantPredicates(HLContainerTy::iterator First,
-                                    HLContainerTy::iterator Last);
+  /// Recursively traverse the HIR range [\p Begin, \p End) and remove empty
+  /// HLLoops and empty HLIfs.
+  static void removeEmptyNodesRange(HLContainerTy::iterator Begin,
+                                    HLContainerTy::iterator End);
 };
 
 } // End namespace loopopt

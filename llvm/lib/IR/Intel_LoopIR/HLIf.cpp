@@ -366,6 +366,10 @@ void HLIf::verify() const {
   assert((!ContainsTrueFalsePred || getNumPredicates() == 1) &&
          "FCMP_TRUE/FCMP_FALSE cannot be combined with any other predicates");
 
+  assert((hasThenChildren() || hasElseChildren()) &&
+           "Found an empty *IF* construction, assumption that there should be no "
+           "empty HLIfs");
+
   HLDDNode::verify();
 }
 

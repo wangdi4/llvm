@@ -130,6 +130,8 @@ protected:
 
   friend class HLNodeUtils;
   friend class HIRParser; // accesses ZTT
+  friend class HIRTransformUtils; // For compile-time, allow permuteLoopNests()
+                                  // to modify HLLoop internals.
 
   /// \brief Initializes some of the members to bring the loop in a sane state.
   void initialize();
@@ -139,6 +141,7 @@ protected:
 
   /// \brief Sets the nesting level of the loop.
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
+
   /// \brief Sets the Innermost flag to indicate if it is innermost loop.
   void setInnermost(bool IsInnermost) { this->IsInnermost = IsInnermost; }
 

@@ -559,10 +559,6 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return ALREADY_MV;
   }
 
-  if (!Loop->hasChildren()) {
-    return NO_OPPORTUNITIES;
-  }
-
   if (!isProfitable(Loop)) {
     return NON_PROFITABLE;
   }

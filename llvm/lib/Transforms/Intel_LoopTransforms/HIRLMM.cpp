@@ -343,10 +343,6 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
     return false;
   }
 
-  if (!Lp->hasChildren()) {
-    return false;
-  }
-
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
   // DEBUG(LS.dump(););
   if (LS.hasCalls()) {

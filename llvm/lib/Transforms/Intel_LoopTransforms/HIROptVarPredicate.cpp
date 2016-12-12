@@ -79,6 +79,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
 
@@ -106,6 +107,8 @@ class HIROptVarPredicate : public HIRTransformPass {
   HLNodeUtils *HLNodeUtilsObj;
   BlobUtils *BlobUtilsObj;
 
+  SmallPtrSet<HLNode *, 8> NodesToInvalidate;
+
 public:
   static char ID;
 
@@ -132,7 +135,7 @@ private:
                  const CanonExpr *LowerCE, const CanonExpr *UpperCE,
                  const CanonExpr *SplitPoint, bool ShouldInvertCondition);
 
-  void processLoop(HLLoop *Loop);
+  bool processLoop(HLLoop *Loop);
 
   BlobTy castBlob(BlobTy Blob, Type *DesiredType, bool IsSigned,
                   unsigned &BlobIndex);
@@ -196,16 +199,6 @@ public:
     SkipNode = If;
 
     assert(If->getParentLoop() && "Parent should exist");
-
-    // TODO: Think about erasing If when no children are present.
-    // Usually, this will be safe when there are no call statements
-    // associated with a predicate. Ignoring such If for now.
-    bool HasThenChildren = If->hasThenChildren();
-    bool HasElseChildren = If->hasElseChildren();
-
-    if (!HasThenChildren && !HasElseChildren) {
-      return;
-    }
 
     IfLookup Lookup(Candidates, Level);
     HLNodeUtils::visitRange(Lookup, If->then_begin(), If->then_end());
@@ -359,9 +352,18 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
   BlobUtilsObj = &HIR->getBlobUtils();
 
   ForPostEach<HLLoop>::visitRange(HIR->hir_begin(), HIR->hir_end(),
-      [this](HLLoop *Loop) {
-    this->processLoop(Loop);
+                                  [this](HLLoop *Loop) {
+    processLoop(Loop);
   });
+
+  for (HLNode *Node : NodesToInvalidate) {
+    if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+      HIRInvalidationUtils::invalidateBody(Loop);
+    } else {
+      HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
+    }
+    HLNodeUtils::removeEmptyNodes(Node);
+  }
 
   return false;
 }
@@ -600,12 +602,12 @@ void HIROptVarPredicate::splitLoop(
   }
 }
 
-void HIROptVarPredicate::processLoop(HLLoop *Loop) {
+bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   DEBUG(dbgs() << "Processing loop #" << Loop->getNumber() << "\n");
 
   if (!Loop->isDo()) {
     DEBUG(dbgs() << "Non-DO loop found\n");
-    return;
+    return false;
   }
 
   SmallVector<HLIf *, 4> Candidates;
@@ -617,7 +619,7 @@ void HIROptVarPredicate::processLoop(HLLoop *Loop) {
   // TODO: revisit this part after implementation of MIN/MAX DDRefs.
   if (!LowerCE->convertToStandAloneBlob() ||
       !UpperCE->convertToStandAloneBlob()) {
-    return;
+    return false;
   }
 
   unsigned Level = Loop->getNestingLevel();
@@ -681,11 +683,8 @@ void HIROptVarPredicate::processLoop(HLLoop *Loop) {
 
     Region->setGenCode();
 
-    if (ParentLoop) {
-      HIRInvalidationUtils::invalidateBody(ParentLoop);
-    } else {
-      HIRInvalidationUtils::invalidateNonLoopRegion(Region);
-    }
+    NodesToInvalidate.insert(ParentLoop ? static_cast<HLNode *>(ParentLoop)
+                                        : static_cast<HLNode *>(Region));
 
     DEBUG(dbgs() << "While " OPT_DESC ":\n");
     DEBUG(Region->dump(true));
@@ -693,10 +692,13 @@ void HIROptVarPredicate::processLoop(HLLoop *Loop) {
 
     LoopsSplit++;
 
-    return;
+    return true;
   }
 
   DEBUG(dbgs() << "No candidates\n");
+  return false;
 }
 
-void HIROptVarPredicate::releaseMemory() {}
+void HIROptVarPredicate::releaseMemory() {
+  NodesToInvalidate.clear();
+}

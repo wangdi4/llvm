@@ -917,6 +917,9 @@ void HLLoop::verify() const {
          "If it's not a top-level loop its nesting level should be +1");
   assert((getParentLoop() || getNestingLevel() == 1) &&
          "Top level loops should have 1st nesting level");
+
+  assert(hasChildren() &&
+         "Found an empty Loop, assumption that there should be no empty loops");
 }
 
 bool HLLoop::isSIMD() const {

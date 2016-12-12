@@ -53,6 +53,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-loopinterchange"
 
@@ -882,7 +883,7 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   HIRInvalidationUtils::invalidateBounds(InnermostLoop);
   HIRInvalidationUtils::invalidateBody(InnermostLoop);
   DEBUG(dbgs() << "\tBefore permuteloopNests:"; Loop->dump());
-  Loop->getHLNodeUtils().permuteLoopNests(Loop, LoopPermutation);
+  HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation);
 
   updateLoopBody(Loop);
   printOptReport(Loop);

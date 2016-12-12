@@ -63,6 +63,7 @@ bool HIRFramework::runOnFunction(Function &F) {
   ScalarSA = &getAnalysis<HIRScalarSymbaseAssignment>();
 
   getHLNodeUtils().HIRF = this;
+  getHLNodeUtils().removeEmptyNodesRange(hir_begin(), hir_end());
   getHLNodeUtils().initTopSortNum();
 
   estimateMaxTripCounts();
