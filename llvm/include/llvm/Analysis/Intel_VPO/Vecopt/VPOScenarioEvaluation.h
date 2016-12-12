@@ -209,12 +209,20 @@ private:
   unsigned int OutOfLoopCost;
   /// @}
 
+  /// The minimum/maximum bit widths of types of values loaded/stored in the
+  /// loop. We only look at loads/stores for now.
+  unsigned int MinBitWidth;
+  unsigned int MaxBitWidth;
+
 protected:
   /// \brief A handle to Target Information
   const TargetTransformInfo &TTI;
 
   /// \brief A handle to Target Library Info
   const TargetLibraryInfo &TLI;
+
+  /// \brief A handle to Data Layout Info
+  const DataLayout &DL;
 
   /// \brief Vectorization Factor.
   unsigned int VF;
@@ -227,11 +235,23 @@ protected:
 public:
   VPOCostGathererBase(const TargetTransformInfo &TTI, 
                       const TargetLibraryInfo &TLI,
+                      const DataLayout &DL,
                       unsigned int VF,
                       AVRLoop *ALoop)
-      : TTI(TTI), TLI(TLI), VF(VF), ALoop(ALoop) {
+    : TTI(TTI), TLI(TLI), DL(DL), VF(VF), ALoop(ALoop) {
     LoopBodyCost = 0;
     OutOfLoopCost = 0;
+
+    // Initialize to reasonable values - a loop may not see a
+    // load/store. This avoids issues such as divide by zero.
+    // Consider the loop
+    //    DO i2 = 
+    //        %incdec.ptr = &((%workarea)[0][i2 + 1]);
+    //    END LOOP
+    // LHS exprs are currently being skipped and RHS is an address
+    // computation
+    MinBitWidth = 64;
+    MaxBitWidth = 8;
   }
   virtual ~VPOCostGathererBase() {}
 
@@ -239,6 +259,10 @@ public:
   /// under consideration.
   /// @{
   unsigned int getLoopBodyCost() { return LoopBodyCost; }
+
+  unsigned int getMinBitWidth() const { return MinBitWidth; }
+  unsigned int getMaxBitWidth() const { return MaxBitWidth; }
+
   unsigned int getOutOfLoopCost() { return OutOfLoopCost; }
   void addOutOfLoopCost(unsigned int AddCost) { OutOfLoopCost += AddCost; }
   /// @}
@@ -307,10 +331,11 @@ public:
 class VPOCostGatherer : public VPOCostGathererBase {
 public:
   VPOCostGatherer(const TargetTransformInfo &TTI,
-                  const TargetLibraryInfo &TLI, unsigned int VF,
+                  const TargetLibraryInfo &TLI,
+                  const DataLayout &DL, unsigned int VF,
                   AVRLoop *ALoop, OVLSTTICostModelLLVMIR *TTICM, 
                   VPOVLSInfo *VLSInfo)
-      : VPOCostGathererBase(TTI, TLI, VF, ALoop), TTICM(TTICM),
+    : VPOCostGathererBase(TTI, TLI, DL, VF, ALoop), TTICM(TTICM),
                             VLSInfo(VLSInfo) {
     assert(isa<AVRLoopIR>(*ALoop) && "Loop not set.");
   }
@@ -350,10 +375,11 @@ private:
 class VPOCostGathererHIR : public VPOCostGathererBase {
 public:
   VPOCostGathererHIR(const TargetTransformInfo &TTI,
-                     const TargetLibraryInfo &TLI, unsigned int VF,
+                     const TargetLibraryInfo &TLI,
+                     const DataLayout &DL, unsigned int VF,
                      AVRLoop *ALoop, OVLSTTICostModelHIR *TTICM, 
                      VPOVLSInfoHIR *VLSInfo)
-      : VPOCostGathererBase(TTI, TLI, VF, ALoop), TTICM(TTICM),
+    : VPOCostGathererBase(TTI, TLI, DL, VF, ALoop), TTICM(TTICM),
                             VLSInfo(VLSInfo) {
     assert(isa<AVRLoopHIR>(*ALoop) && "Loop not set.");
   }
@@ -442,7 +468,11 @@ public:
   // want to encode the results of the CostModel, namely, which ALoops in the
   // region to vectorize and using which VFs (directly/explicitely in the
   // AVR?...)
-  int getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo);
+  // The minimum/maximum bit width of values loaded/stored are returned in
+  // MinBitWidthP/MaxBitWidthP when non-null. 
+  int getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo,
+              unsigned int *MinBitWidthP = nullptr,
+              unsigned int *MaxBitWidthP = nullptr);
 
   virtual VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
                                                VPOVLSInfoBase *VLSInfo) = 0;
@@ -465,14 +495,23 @@ public:
 
   VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
                                        VPOVLSInfoBase *VLSInfo) override {
+    // FIXME: Find a better way to get DL! We also need to look into avoiding
+    // such duplicated code.
+    const DataLayout &DL =
+      (*cast<AVRLoopHIR>(ALoop)->getLoop()->getLLVMLoop()->block_begin())
+      ->getParent()
+      ->getParent()
+      ->getDataLayout();
+
     if (VLSInfo == nullptr) {
-      CostGatherer = new VPOCostGatherer(TTI, TLI, VF, ALoop, nullptr, nullptr);
+      CostGatherer = new VPOCostGatherer(TTI, TLI, DL, VF, ALoop,
+                                         nullptr, nullptr);
       return CostGatherer;
     }
     assert(isa<VPOVLSInfo>(*VLSInfo) && "VLSInfo not an LLVMIR VLSInfo");
     VPOVLSInfo *VLSInfoLLVMIR = cast<VPOVLSInfo>(VLSInfo);
     // Pass the underlying LLVMIR Loop instead
-    CostGatherer = new VPOCostGatherer(TTI, TLI, VF, ALoop, &VLSCostModel, 
+    CostGatherer = new VPOCostGatherer(TTI, TLI, DL, VF, ALoop, &VLSCostModel, 
                                        VLSInfoLLVMIR);
     return CostGatherer;
   }
@@ -511,15 +550,24 @@ public:
 
   VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop,
                                        VPOVLSInfoBase *VLSInfo) override {
+    // FIXME: Find a better way to get DL! We also need to look into avoiding
+    // such duplicated code.
+    const DataLayout &DL =
+      (*cast<AVRLoopHIR>(ALoop)->getLoop()->getLLVMLoop()->block_begin())
+      ->getParent()
+      ->getParent()
+      ->getDataLayout();
+
     if (VLSInfo == nullptr) {
-      CostGatherer = new VPOCostGathererHIR(TTI, TLI, VF, ALoop, nullptr,
+      CostGatherer = new VPOCostGathererHIR(TTI, TLI, DL, VF, ALoop, nullptr,
                                             nullptr);
       return CostGatherer;
     }
     assert(isa<VPOVLSInfoHIR>(*VLSInfo) && "VLSInfo not a VLSInfoHIR");
     VPOVLSInfoHIR *VLSInfoHIR = cast<VPOVLSInfoHIR>(VLSInfo);
     // Pass the underlying HLLoop instead
-    CostGatherer = new VPOCostGathererHIR(TTI, TLI, VF, ALoop, &VLSCostModel, 
+    CostGatherer = new VPOCostGathererHIR(TTI, TLI, DL, VF, ALoop,
+                                          &VLSCostModel, 
                                           VLSInfoHIR);
     return CostGatherer;
   }
@@ -599,6 +647,11 @@ protected:
   // CHECKME: per ALoop or per region?
   unsigned int ForceVF;
 
+  /// The minimum/maximum bit widths of types of values loaded/stored in the
+  /// loop. We only look at loads/stores for now.
+  unsigned int MinBitWidth;
+  unsigned int MaxBitWidth;
+
 private:
   /// AVRLoop in AVR region.
   // FIXME: Get rid of this member (given that we also pass the ALoop explicitly
@@ -609,7 +662,8 @@ public:
   VPOScenarioEvaluationBase(ScenarioEvaluationKind K, AVRWrn *AWrn, 
                             const TargetTransformInfo &TTI, 
                             const TargetLibraryInfo &TLI, LLVMContext &C)
-      : Kind(K), TTI(TTI), TLI(TLI), AWrn(AWrn), LLVMCntxt(C), ForceVF(0) {}
+    : Kind(K), TTI(TTI), TLI(TLI), AWrn(AWrn), LLVMCntxt(C), ForceVF(0),
+      MinBitWidth(64), MaxBitWidth(8) {}
 
   virtual ~VPOScenarioEvaluationBase() {}
 

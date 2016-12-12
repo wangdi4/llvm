@@ -14,6 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOPredicator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
@@ -25,7 +26,7 @@
 
 static cl::opt<unsigned> DefaultVF("default-vpo-vf", cl::init(0),
                                    cl::desc("Default vector length"));
-static cl::opt<unsigned> EnableVectVLS("enable-vect-vls", cl::init(1),
+static cl::opt<unsigned> EnableVectVLS("enable-vect-vls", cl::init(0),
                              cl::desc("Enable VLS group analysis by default"));
 
 static cl::opt<float> TweakVPOCostFactor("tweak-vpo-cost-factor", cl::init(0.0),
@@ -164,7 +165,8 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // the rest of the code in the region will remain the same between the
       // scalar and vector versions.
       if (ForceVF == 0) {
-        BestCostForALoop = getCM()->getCost(ALoop, 1, nullptr);
+        BestCostForALoop = getCM()->getCost(ALoop, 1, nullptr,
+                                            &MinBitWidth, &MaxBitWidth);
       }
       VectCand = processLoop(AvrLoop, &BestCostForALoop);
 
@@ -192,9 +194,15 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
 void VPOScenarioEvaluationBase::findVFCandidates(
     VFsVector &VFCandidates) const {
   unsigned int MinVF, MaxVF;
+  unsigned WidestRegister = TTI.getRegisterBitWidth(true);
+
   if (ForceVF == 0) {
-    MinVF = 2;
-    MaxVF = 64;
+#if 0
+    errs() << "Max: " << MaxBitWidth << " Min: " << MinBitWidth <<
+      " Widest: " << WidestRegister << "\n"; 
+#endif
+    MinVF = WidestRegister / MaxBitWidth;
+    MaxVF = WidestRegister / MinBitWidth;
   } else {
     MinVF = ForceVF;
     MaxVF = ForceVF;
@@ -685,7 +693,22 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
   }
 
   case Instruction::SExt:
-  case Instruction::ZExt:
+  case Instruction::ZExt: {
+    auto Op0 = dyn_cast<AVRValueHIR>(Expr->getOperand(0));
+    
+    // Do a better job when we know we have an AVRValueHIR to avoid big
+    // performance regressions - workaround until casts are handled properly.
+    if (Op0 && !Op0->getConstant()) {
+      Type *SrcScalarTy = Op0->getType();
+      Type *SrcVecTy = ToVectorTy(SrcScalarTy, VF);
+      Cost =  TTI.getCastInstrCost(Expr->getOperation(), VectorTy, SrcVecTy);
+    } else {
+      DEBUG(errs() << "TODO: Query cost of cast instruction\n");
+      Cost = 10;
+    }
+    break;
+  }
+
   case Instruction::FPExt:
   case Instruction::FPToUI:
   case Instruction::FPToSI:
@@ -721,6 +744,18 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     } else {
       assert(isa<AVRValue>(Expr->getOperand(0)) && "Not a Value?");
       ValTy = cast<AVRValue>(Expr->getOperand(0))->getType();
+    }
+
+
+    // Use the type of load/store values to setup minimum and maximum
+    // bit width. Only need to do this during scalar cost computation.
+    if (VF == 1) {
+      auto Ty = ValTy->getScalarType();
+
+      MinBitWidth = std::min(MinBitWidth,
+                             (unsigned)DL.getTypeSizeInBits(Ty));
+      MaxBitWidth = std::max(MaxBitWidth,
+                             (unsigned)DL.getTypeSizeInBits(Ty));
     }
 
     AVR *Op;
@@ -1009,7 +1044,9 @@ void VPOCostGathererBase::postVisit(AVRValue *AValue) {
 // - a Map of Memrefs to the VLS Group they belong to (if any).
 // - ?
 int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF, 
-                              VPOVLSInfoBase *VLSInfo) {
+                              VPOVLSInfoBase *VLSInfo,
+                              unsigned int *MinBitWidthP,
+                              unsigned int *MaxBitWidthP) {
   DEBUG(errs() << "\nEvaluating Loop Cost for VF = " << VF << "\n");
   unsigned int Cost;
 
@@ -1021,6 +1058,11 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   // decomposition.
   AVisitor.visit(ALoop, true, true, true /*RecursiveInsideValues*/, true);
   unsigned int LoopBodyCost = CostGatherer->getLoopBodyCost();
+
+  if (MinBitWidthP)
+    *MinBitWidthP = CostGatherer->getMinBitWidth();
+  if (MaxBitWidthP)
+    *MaxBitWidthP = CostGatherer->getMaxBitWidth();
 
   // Used to play around with calculated cost to favor/disallow vectorization
   if (VF > 1 && TweakVPOCostFactor != 0.0)
