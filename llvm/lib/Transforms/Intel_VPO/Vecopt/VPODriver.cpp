@@ -13,31 +13,31 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Transforms/Scalar.h"
 
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
-#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
-#include "llvm/Transforms/Intel_VPO/Vecopt/VPODriver.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPODefUse.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Transforms/Intel_VPO/Vecopt/VPODriver.h"
+#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 
-#include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.h"
-#include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
+#include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -77,10 +77,10 @@ public:
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn, 
+  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn,
                                                 Function &F) override {
-    ScenariosEngine = new VPOScenarioEvaluation(AvrWrn, *TTI, *TLI,
-                                                F.getContext(), *DefUse);
+    ScenariosEngine =
+        new VPOScenarioEvaluation(AvrWrn, *TTI, *TLI, F.getContext(), *DefUse);
     return *ScenariosEngine;
   }
 
@@ -120,8 +120,9 @@ public:
     return createHIRPrinterPass(OS, Banner);
   }
 
-  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn, Function &F) override {
-    ScenariosEngine = new VPOScenarioEvaluationHIR(AvrWrn, DDA, VLS, *DefUse, 
+  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn,
+                                                Function &F) override {
+    ScenariosEngine = new VPOScenarioEvaluationHIR(AvrWrn, DDA, VLS, *DefUse,
                                                    *TTI, *TLI, F.getContext());
     return *ScenariosEngine;
   }
@@ -136,7 +137,7 @@ public:
 private:
   HIRDDAnalysis *DDA;
   HIRVectVLSAnalysis *VLS;
-  AvrDefUseHIR* DefUse;
+  AvrDefUseHIR *DefUse;
   VPOScenarioEvaluationHIR *ScenariosEngine;
 };
 
@@ -208,19 +209,18 @@ bool VPODriverBase::runOnFunction(Function &F) {
 
     VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn, F);
 
-
     if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
       AVRCodeGen AvrCGNode(Avr, SC, LI, TLI, &F);
       assert(isa<VPOScenarioEvaluation>(ScenariosEngine));
-      VPOScenarioEvaluation *LLVMIRScenariosEngine = 
-         cast<VPOScenarioEvaluation>(&ScenariosEngine); 
+      VPOScenarioEvaluation *LLVMIRScenariosEngine =
+          cast<VPOScenarioEvaluation>(&ScenariosEngine);
       LLVMIRScenariosEngine->setCG(&AvrCGNode);
 
       // Decide if/how to vectorize in terms of profitability.
       VPOVecContextBase VC = ScenariosEngine.getBestCandidate(AvrWrn);
 
       // FORNOW: We pass CodeGen only the selected VF, since currently AvrWrn
-      // contains only a single ALoop. 
+      // contains only a single ALoop.
       int VF = VC.getVectFactor();
       DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF << "\n");
 
@@ -232,8 +232,8 @@ bool VPODriverBase::runOnFunction(Function &F) {
       AVRCodeGenHIR AvrCGNode(Avr, TLI, SRA);
 
       assert(isa<VPOScenarioEvaluationHIR>(ScenariosEngine));
-      VPOScenarioEvaluationHIR *HIRScenariosEngine = 
-         cast<VPOScenarioEvaluationHIR>(&ScenariosEngine); 
+      VPOScenarioEvaluationHIR *HIRScenariosEngine =
+          cast<VPOScenarioEvaluationHIR>(&ScenariosEngine);
       HIRScenariosEngine->setCG(&AvrCGNode);
 
       // Decide if/how to vectorize in terms of profitability.

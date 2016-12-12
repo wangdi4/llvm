@@ -90,7 +90,7 @@ public:
 
   // Return the trip count for the scalar loop. Returns 0 for unknown trip
   // count loops
-  uint64_t getTripCount() const {return TripCount;}
+  uint64_t getTripCount() const { return TripCount; }
 
   // Return true if \p Ref is a constant stride reference at loop
   // nesting level \p Level. Return stride coefficient in \p CoeffPtr
@@ -171,7 +171,7 @@ private:
   /// stride. The resulting stride information is attached to the arguments
   /// of \p WideCall in the form of attributes.
   void analyzeCallArgMemoryReferences(const HLInst *OrigCall, HLInst *WideCall,
-                                      SmallVectorImpl<RegDDRef*> &Args);
+                                      SmallVectorImpl<RegDDRef *> &Args);
 
   // Return true if the loop is a small loop(atmost 2 instructions)
   // with add reduction of 16-bit integer values into 32/64 bit
