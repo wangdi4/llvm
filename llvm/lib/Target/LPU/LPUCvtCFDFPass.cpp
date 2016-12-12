@@ -656,7 +656,7 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
         const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
         unsigned pickVReg = MRI->createVirtualRegister(TRC);
         SSAUpdate.Initialize(pickVReg);
-        unsigned numIfParent = 0;
+		SSAUpdate.AddAvailableValue(dmbb, Reg);
         unsigned newVReg;
         for (ControlDependenceNode::node_iterator uparent = unode->parent_begin(), uparent_end = unode->parent_end();
           uparent != uparent_end; ++uparent) {
@@ -676,8 +676,6 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
             continue;
           }
           if (DT->dominates(dmbb, upbb)) { //including dmbb itself
-            numIfParent++;
-
             assert((MLI->getLoopFor(dmbb) == NULL ||
               MLI->getLoopFor(dmbb) != MLI->getLoopFor(upbb) ||
               MLI->getLoopFor(dmbb)->getLoopLatch() != dmbb) &&
@@ -698,11 +696,7 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
         } //end of for (parent
 
         if (phiIn) {
-          if (numIfParent == 1) {
-            MO.setReg(newVReg);
-          } else if (numIfParent > 1) {
-            SSAUpdate.RewriteUse(MO);
-          }
+          SSAUpdate.RewriteUse(MO);
         }
         else {
           MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
@@ -711,11 +705,7 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
             MachineInstr *UseMI = UseMO.getParent();
             ++UI;
             if (UseMI->getParent() == mbb) {
-              if (numIfParent == 1) {
-                UseMO.setReg(newVReg);
-              } else if (numIfParent > 1) {
-                SSAUpdate.RewriteUse(UseMO);
-              }
+              SSAUpdate.RewriteUse(UseMO);
             }
           }
         }
