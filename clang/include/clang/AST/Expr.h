@@ -116,6 +116,7 @@ protected:
     ExprBits.ValueKind = VK;
     ExprBits.ObjectKind = OK;
     ExprBits.ContainsUnexpandedParameterPack = ContainsUnexpandedParameterPack;
+    ExprBits.IsCondition = 0; // INTEL
     setType(T);
   }
 
@@ -218,6 +219,19 @@ public:
   void setContainsUnexpandedParameterPack(bool PP = true) {
     ExprBits.ContainsUnexpandedParameterPack = PP;
   }
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Whether this expression appears in condition expression context.
+  bool isCondition() const {
+    return ExprBits.IsCondition;
+  }
+
+  /// \brief Set the bit that describes whether this expression
+  /// appears in condition context e.g.: if(expr) while(expr) ?: etc.
+  void setIsCondition(bool PP = true) {
+    ExprBits.IsCondition = PP;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// getExprLoc - Return the preferred location for the arrow when diagnosing
   /// a problem with a generic expression.

@@ -694,6 +694,19 @@ void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
     llvm::Value *value = EmitScalarExpr(init);
     if (capturedByInit)
       drillIntoBlockVariable(*this, lvalue, cast<VarDecl>(D));
+#if INTEL_CUSTOMIZATION
+    if (CGM.getCodeGenOpts().OptimizationLevel >= 2) {
+      llvm::Value *V = lvalue.getPointer();
+      if (V && V->hasName()) {
+        auto Intrin = getContainerIntrinsic(
+            CodeGenModule::SCOK_ContainerPtrIterator, V->getName());
+        if (Intrin != llvm::Intrinsic::not_intrinsic) {
+          auto IFunc = CGM.getIntrinsic(Intrin, value->getType());
+          value = Builder.CreateCall(IFunc, {value});
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
     EmitStoreThroughLValue(RValue::get(value), lvalue, true);
     return;
   }
