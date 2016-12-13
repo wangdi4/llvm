@@ -53,6 +53,12 @@
 //===---------------------------------------------------------------------===//
 
 #include "intelovls-test.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 
 // Two memrefs are considered to have same index vectors if they
 // have the same index-id and same index-type.
@@ -198,10 +204,25 @@ namespace OVLSTest {
   }
 } // end of namespace OVLSTest
 
+std::unique_ptr<TargetMachine> createTargetMachine() {
+  Triple TargetTriple("x86_64-pc-linux");
+  std::string Error;
+  const Target *T = TargetRegistry::lookupTarget("x86-64", TargetTriple, Error);
+  if (!T)
+    return nullptr;
+
+  TargetOptions Options;
+  return std::unique_ptr<TargetMachine>(T->createTargetMachine(
+      TargetTriple.getTriple(), "core-avx-i", "", Options, None,
+      CodeModel::Default, CodeGenOpt::Aggressive));
+}
+
 //
 // main() for intelovls-test
 //
 int main(int argc, char **argv) {
+  std::unique_ptr<TargetMachine> TM = nullptr;
+
   // Parse command line options.
   OVLSTest::parseCommandLineOptions(argc, argv, "IntelOptVLS test client\n");
 
@@ -214,13 +235,24 @@ int main(int argc, char **argv) {
   OVLSGroupVector Grps;
   OptVLSInterface::getGroups(Mrfs, Grps, GroupSize);
 
-  // Do something with the grps.
-  for (OVLSGroup *Grp : Grps) {
-    OVLSInstructionVector InstVec;
-    if (OptVLSInterface::getSequence(*Grp, InstVec)) {
-      for (OVLSInstruction *I : InstVec) {
-        OVLSdbgs() << *I;
-      }
+#ifdef OVLSTESTCLIENT
+  InitializeAllTargets();
+  InitializeAllTargetMCs();
+  InitializeAllAsmPrinters();
+
+  TM = createTargetMachine();
+#endif
+
+  if (TM) {
+    TargetTransformInfo TTI = TargetTransformInfo(TM->createDataLayout());
+    OVLSCostModel CM(TTI);
+
+    // Do something with the grps.
+    for (OVLSGroup *Grp : Grps) {
+      OVLSInstructionVector InstVec;
+      if (OptVLSInterface::getSequence(*Grp, CM, InstVec))
+        for (OVLSInstruction *I : InstVec)
+          OVLSdbgs() << *I;
     }
   }
 

@@ -17,8 +17,13 @@
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Type.h"
-#include "llvm/IR/LLVMContext.h"
 #include <iostream>
+
+// This line is commented off to avoid building target information during
+// default build. Without target information getCost() and getSequence() will
+// not be called but getGroups() will. Uncomment the following line to enable
+// cost analysis, so as to getSequence() and getGroups() to be called.
+//#define OVLSTESTCLIENT
 
 using namespace llvm;
 using namespace std;

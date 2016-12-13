@@ -23,6 +23,7 @@
 
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #define DEBUG_TYPE "ovls"
 #include <deque>
 #include <set>
@@ -110,6 +111,20 @@ void OVLSGroup::dump() const {
   OVLSdbgs() << '\n';
 }
 #endif
+
+uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
+                                       Type *Tp) const {
+  unsigned NumVecElems = Tp->getVectorNumElements();
+  assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
+
+  if (isReverseVectorMask(Mask))
+    return TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, Tp, 0, nullptr);
+  else if (isAlternateVectorMask(Mask))
+    TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0, nullptr);
+
+  // TODO: Support SK_Insert, SK_Extract
+  return 2 * Mask.size();
+}
 
 namespace OptVLS {
   class GraphNode;
@@ -350,7 +365,8 @@ namespace OptVLS {
       std::set<GraphNode *> UniqueSources;
       uint32_t NumUniqueSources = getNumUniqueSources(UniqueSources);
 
-      if (NumUniqueSources <= 2) return false;
+      if (NumUniqueSources <= 2)
+        return false;
 
       OVLSType T;
       GraphNode *NewNode1 = new GraphNode(nullptr, T);
@@ -359,8 +375,7 @@ namespace OptVLS {
       NewNodes.push_back(NewNode1);
       NewNodes.push_back(NewNode2);
 
-      // FIXME: set the type for NewNode1 and NewNode2
-
+      uint32_t NumElem = 0, N1NumElem = 0;
       uint32_t FirstHalf = NumUniqueSources / 2;
 
       uint32_t TotalUniqueSources = 0;
@@ -377,14 +392,21 @@ namespace OptVLS {
         if (Src != PrevSrc) {
           TotalUniqueSources++;
           VisitedSources.insert(Src);
-	}
+        }
 
         // Redirect the second half of the edges to the newnode2.
-        if (TotalUniqueSources == FirstHalf + 1)
+        if (TotalUniqueSources == FirstHalf + 1) {
           NewNode = NewNode2;
-
+          N1NumElem = NumElem;
+          NumElem = 0;
+        }
+        NumElem++;
         splitEdge(E, NewNode);
       }
+
+      NewNode1->setType(OVLSType(Type.getElementSize(), N1NumElem));
+      NewNode2->setType(OVLSType(Type.getElementSize(), NumElem));
+
       return true;
     }
 
@@ -458,8 +480,11 @@ namespace OptVLS {
 
     uint32_t VectorLength;
 
+    const OVLSCostModel &CM;
+
   public:
-    explicit Graph(uint32_t VLen) : VectorLength(VLen) {}
+    explicit Graph(uint32_t VLen, const OVLSCostModel &CostModel)
+      : VectorLength(VLen), CM(CostModel) {}
 
     ~Graph() {
       for (GraphNode *N : Nodes)
@@ -1176,11 +1201,12 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
 // Right now, it only generates the load sequence, shuffle sequence are not
 // supported.
 bool OptVLSInterface::getSequence(const OVLSGroup& Group,
+                                  const OVLSCostModel &CM,
                                   OVLSInstructionVector& InstVector) {
   if (!OptVLS::isSupported(Group))
     return false;
 
-  OptVLS::Graph G(Group.getVectorLength());
+  OptVLS::Graph G(Group.getVectorLength(), CM);
 
   OptVLS::getDefaultLoads(Group, G);
 
@@ -1206,13 +1232,13 @@ bool OptVLSInterface::getSequence(const OVLSGroup& Group,
 // returns the minimum cost between these two options (i.e. the absolute
 // cost of the best way to vectorize this Group).
 int64_t OptVLSInterface::getGroupCost(const OVLSGroup& Group,
-                                      const OVLSCostModelAnalysis& CM) {
+                                      const OVLSCostModel& CM) {
   int64_t Cost = 0;
 
   // 1. Obtain the cost of vectorizing this group using wide loads/stores
   // + shuffle-sequence
   OVLSInstructionVector InstVector;
-  if (getSequence(Group, InstVector)) {
+  if (getSequence(Group, CM, InstVector)) {
     for (OVLSInstruction *I : InstVector) {
       OVLSdbgs() << *I;
       int64_t C = CM.getInstructionCost(I);

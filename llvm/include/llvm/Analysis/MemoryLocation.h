@@ -92,6 +92,17 @@ public:
   static MemoryLocation getForArgument(ImmutableCallSite CS, unsigned ArgIdx,
                                        const TargetLibraryInfo &TLI);
 
+#if INTEL_CUSTOMIZATION
+  /// Try to get memory locations for all pointer elements in a vector, by
+  /// searching the source of each pointer element. Results are saved
+  /// in PtrVecMemLocs. Each result is one of the following:
+  ///    1) Ptr != nullptr, Size != 0. (Known memory location)
+  ///    2) Ptr == nullptr, Size == UnknownSize. (Unknown memory location)
+  ///    3) Ptr == nullptr, Size == 0. (Known to not alias with any pointer)
+  static void getForPtrVec(const Value *PtrVec,
+                           SmallVectorImpl<MemoryLocation> &Results, int Depth);
+#endif // INTEL_CUSTOMIZATION
+
   explicit MemoryLocation(const Value *Ptr = nullptr,
                           uint64_t Size = UnknownSize,
                           const AAMDNodes &AATags = AAMDNodes())

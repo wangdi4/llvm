@@ -41,6 +41,9 @@
 
 namespace llvm {
 
+class TargetTransformInfo;
+class Type;
+
 // OptVLS data structures
 template <typename T>
 class OVLSVector : public SmallVector<T, 8> {};
@@ -731,22 +734,71 @@ static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSOperand& Op) {
 /// provide the necessary target-specific information.
 /// This cost-model interface class defines all the necessary
 /// parameters/functions that are needed by the server to estimate more accurate
-/// cost. In order to get cost, client needs to provide an object of this class
+/// cost with a default implementation of some of the member functions. In
+/// order to get cost, client needs to provide an object of this class
 /// filled up with the necessary target-specific cost information that are
 /// defined by the underlying targets. Consequently, it's the clients that
 /// decide on the cost accuracy level.
-class OVLSCostModelAnalysis {
+class OVLSCostModel {
+  const TargetTransformInfo &TTI;
+
+  /// Example of a 4-element reversed-mask {3, 2, 1, 0}
+  // Please note that undef elements don't prevent us from matching
+  // the reverse pattern.
+  bool isReverseVectorMask(SmallVectorImpl<int> &Mask) const {
+    for (unsigned i = 0, MaskSize = Mask.size(); i < MaskSize; ++i)
+      if (Mask[i] >= 0 && Mask[i] != (int)(MaskSize - 1 - i))
+        return false;
+    return true;
+  }
+
+  // This detects alternate elements from the vectors such as:
+  // a element alternate mask: <0, 5, 2, 7> or <4,1,6,3>.
+  // Please note that undef elements don't prevent us from matching
+  // the alternating pattern.
+  bool isAlternateVectorMask(SmallVectorImpl<int> &Mask) const {
+    bool IsAlternate = true;
+    unsigned MaskSize = Mask.size();
+    // A<0, 1, 2, 3>, B<4, 5, 6, 7>
+    // Example of an alternate vector mask <0,5,2,7>
+    for (unsigned i = 0; i < MaskSize && IsAlternate; ++i) {
+      if (Mask[i] < 0)
+        continue;
+      IsAlternate = Mask[i] == (int)((i & 1) ? MaskSize + i : i);
+    }
+
+    if (IsAlternate)
+      return true;
+
+    IsAlternate = true;
+    // Example: shufflevector <4xT>A, <4xT>B, <4,1,6,3>
+    for (unsigned i = 0; i < MaskSize && IsAlternate; ++i) {
+      if (Mask[i] < 0)
+        continue;
+      IsAlternate = Mask[i] == (int)((i & 1) ? i : MaskSize + i);
+    }
+    return IsAlternate;
+  }
 
 public:
+  explicit OVLSCostModel(const TargetTransformInfo &TargetTI) : TTI(TargetTI) {}
+
   /// \brief Returns target-specific cost for an OVLSInstruction, different
   /// cost parameters are defined by each specific target.
   /// Returns -1 if the cost is unknown. This function needs to be overriden by
   /// the OVLS clients to help getting the target-specific instruction cost.
-  virtual uint64_t getInstructionCost(const OVLSInstruction *I) const = 0;
+  virtual uint64_t getInstructionCost(const OVLSInstruction *I) const {
+    return -1;
+  }
 
   /// \brief Returns target-specific cost for loading/storing \p Mrf
   /// using a gather/scatter.
-  virtual uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const = 0;
+  virtual uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const {
+    return -1;
+  }
+
+  virtual uint64_t getShuffleCost(SmallVectorImpl<int> &Mask,
+                                  Type *Tp) const;
 };
 
 // OptVLS public Interface class that operates on OptVLS Abstract types.
@@ -785,18 +837,19 @@ public:
   /// how the vectorizer client currently uses this method: it assumes that it
   /// provides the absolute cost of the best way to vectorize this group.
   static int64_t getGroupCost(const OVLSGroup& Group,
-                              const OVLSCostModelAnalysis& CM);
+                              const OVLSCostModel& CM);
 
-  /// \brief getSequence() takes a group of gathers/scatters, returns true
-  /// if it is able to generate a vector of instructions (basically a set of
-  /// contiguous loads/stores followed by shuffles) that can replace (which is
-  /// semantically equivalent) the gathers/scatters.
+  /// \brief getSequence() takes a group of gathers/scatters and a cost model,
+  /// returns true if it is able to generate a vector of instructions
+  /// (basically a set of contiguous loads/stores followed by shuffles) that
+  /// can replace (which is semantically equivalent) the gathers/scatters.
   /// Returns false if it is unable to generate the sequence. This function
-  /// tries to generate the best optimized sequence without doing any
-  /// relative cost/benefit analysis (which is gather/scatter vs. the generated
-  /// sequence). The main purpose of this function is to help diagnostics.
-  static bool getSequence(const OVLSGroup& Group,
-                          OVLSInstructionVector& InstVector);
+  /// tries to generate the best optimized sequence(using the costmodel) without
+  /// doing any relative cost/benefit analysis (which is gather/scatter vs. the
+  /// generated sequence). The main purpose of this function is to help diagnostics.
+  static bool getSequence(const OVLSGroup &Group,
+                          const OVLSCostModel &CM,
+                          OVLSInstructionVector &InstVector);
 
 };
 
