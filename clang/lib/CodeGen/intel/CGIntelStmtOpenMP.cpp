@@ -491,6 +491,16 @@ class OpenMPCodeOutliner {
     emitListClause();
   }
 
+  void emitOMPCopyinClause(const OMPCopyinClause *Cl) {
+    addArg("QUAL.OMP.COPYIN");
+    for (auto *E : Cl->varlists()) {
+      if (!E->getType().isPODType(CGF.getContext()))
+        CGF.CGM.ErrorUnsupported(E, "non-POD copyin variable");
+      addArg(E);
+    }
+    emitListClause();
+  }
+
   void emitOMPIfClause(const OMPIfClause *) {}
   void emitOMPFinalClause(const OMPFinalClause *) {}
   void emitOMPNumThreadsClause(const OMPNumThreadsClause *) {}
@@ -501,7 +511,6 @@ class OpenMPCodeOutliner {
   void emitOMPFirstprivateClause(const OMPFirstprivateClause *) {}
   void emitOMPLastprivateClause(const OMPLastprivateClause *) {}
   void emitOMPAlignedClause(const OMPAlignedClause *) {}
-  void emitOMPCopyinClause(const OMPCopyinClause *) {}
   void emitOMPCopyprivateClause(const OMPCopyprivateClause *) {}
   void emitOMPProcBindClause(const OMPProcBindClause *) {}
   void emitOMPNowaitClause(const OMPNowaitClause *) {}
