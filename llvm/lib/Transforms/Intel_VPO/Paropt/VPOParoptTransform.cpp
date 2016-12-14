@@ -234,7 +234,7 @@ bool VPOParoptTransform::paroptTransforms() {
     // Constructs do not need to perform outlining
     case WRegionNode::WRNAtomic:
       DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
-      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+      if (Mode & ParPrepare) 
         Changed |= VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
                                                   IdentTy, TidPtr);
       break;
@@ -244,26 +244,26 @@ bool VPOParoptTransform::paroptTransforms() {
       break;
     case WRegionNode::WRNSingle:
       DEBUG(dbgs() << "\nWRegionNode::WRNSingle - Transformation \n\n");
-      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+      if (Mode & ParPrepare) 
         Changed = genSingleThreadCode(W);
       break;
     case WRegionNode::WRNMaster:
       DEBUG(dbgs() << "\nWRegionNode::WRNMaster - Transformation \n\n");
-      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+      if (Mode & ParPrepare) 
         Changed |= genMasterThreadCode(W);
       break;
     case WRegionNode::WRNBarrier:
     case WRegionNode::WRNCancel:
     case WRegionNode::WRNCritical:
       DEBUG(dbgs() << "\nWRegionNode::WRNCritical - Transformation \n\n");
-      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+      if (Mode & ParPrepare) 
         Changed |= genCriticalCode(dyn_cast<WRNCriticalNode>(W));
       break;
     case WRegionNode::WRNFlush:
       break;
     case WRegionNode::WRNOrdered:
       DEBUG(dbgs() << "\nWRegionNode::WRNOrdered - Transformation \n\n");
-      if ((Mode & OmpPar) && (Mode & ParPrepare)) 
+      if (Mode & ParPrepare) 
         Changed = genOrderedThreadCode(W);
       break;
     case WRegionNode::WRNTaskgroup:
@@ -896,6 +896,7 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(
   Function *NFn = Function::Create(NFnTy, Fn->getLinkage());
 
   NFn->copyAttributesFrom(Fn);
+  NFn->addFnAttr("mt-func", "true");
 
   Fn->getParent()->getFunctionList().insert(Fn->getIterator(), NFn);
   NFn->takeName(Fn);

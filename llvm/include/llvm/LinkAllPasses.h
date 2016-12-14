@@ -297,6 +297,9 @@ namespace {
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();
+
+      // VPO Thread Private Transformation
+      (void) llvm::createVPOParoptTpvPass();
   #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.

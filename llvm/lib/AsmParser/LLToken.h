@@ -65,6 +65,7 @@ enum Kind {
   kw_extern_weak,
   kw_external,
   kw_thread_local,
+  kw_thread_private,  // INTEL
   kw_localdynamic,
   kw_initialexec,
   kw_localexec,

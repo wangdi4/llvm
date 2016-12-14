@@ -262,6 +262,36 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
   return StaticFiniCall;
 }
 
+// This function generates OpenMP runtime __kmpc_threadprivate_cached call.
+CallInst *VPOParoptUtils::genKmpcThreadPrivateCachedCall(
+                   Function *F,
+                   Instruction *AI,
+                   StructType *IdentTy,
+                   Value *Tid,
+                   Value *GV,
+                   Value *GVSize,
+                   Value *TpvGV) {
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  BasicBlock &B = F->getEntryBlock();
+  BasicBlock &E = B;
+
+  int Flags = KMP_IDENT_KMPC;
+
+  GlobalVariable *KmpcLoc =
+      genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
+
+  SmallVector<Value *, 6> FnGetTpvArgs;
+  FnGetTpvArgs.push_back(KmpcLoc);
+  FnGetTpvArgs.push_back(Tid);
+  FnGetTpvArgs.push_back(GV);
+  FnGetTpvArgs.push_back(GVSize);
+  FnGetTpvArgs.push_back(TpvGV);
+
+  auto ReturnTy = Type::getInt8PtrTy(C);
+  return genCall(M, "__kmpc_threadprivate_cached", ReturnTy, FnGetTpvArgs);
+}
 
 // This function generates a runtime library call to get global OpenMP thread
 // ID - __kmpc_global_thread_num(&loc)

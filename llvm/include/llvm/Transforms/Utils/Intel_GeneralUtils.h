@@ -27,6 +27,12 @@ class LoopInfo;
 class BasicBlock;
 class Type;
 class LLVMContext;
+class Instruction;
+class DbgDeclareInst;
+class DbgValueInst;
+class DbgInfoIntrinsic;
+class ConstantExpr;
+
 
 /// \brief This class provides a set of general utility functions that can be
 /// used for a variety of purposes.
@@ -48,6 +54,14 @@ public:
   /// first item in BBSet is 'EntryBB' and the last item is 'ExitBB'.
   static void collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
                            SmallVectorImpl<BasicBlock *> &BBSet);
+  /// Breaks up the instruction recursively for all the constant expression
+  /// operands.
+  static void breakExpressions(Instruction *Inst);
+  /// Breaks up the instruction recursively for the gvien constant
+  /// expression operand.
+  static void breakExpressionsHelper(ConstantExpr* Expr, 
+                                     unsigned OperandIndex, 
+                                     Instruction* User);
 
 };
 

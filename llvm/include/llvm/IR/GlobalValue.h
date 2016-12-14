@@ -72,6 +72,7 @@ protected:
         ValueType(Ty), Linkage(Linkage), Visibility(DefaultVisibility),
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
+        ThreadPrivate(0),  // INTEL
         IntID((Intrinsic::ID)0U), Parent(nullptr) {
     setName(Name);
   }
@@ -86,6 +87,12 @@ protected:
 
   unsigned ThreadLocal : 3; // Is this symbol "Thread Local", if so, what is
                             // the desired model?
+#ifdef INTEL_CUSTOMIZATION
+  unsigned ThreadPrivate : 1; // The thread_private attribute indicates 
+                              // if the global variable is associated 
+                              // with an OpenMP threadprivate directive
+                              // and the threadprivate mode is legacy.
+#endif // INTEL_CUSTOMIZATION
   static const unsigned GlobalValueSubClassDataBits = 19;
 
 private:
@@ -203,6 +210,11 @@ public:
            "local linkage requires default visibility");
     Visibility = V;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  bool isThreadPrivate() const { return ThreadPrivate; }
+  void setThreadPrivate(bool Val) { ThreadPrivate = Val; } 
+#endif // INTEL_CUSTOMIZATION
 
   /// If the value is "Thread Local", its value isn't shared by the threads.
   bool isThreadLocal() const { return getThreadLocalMode() != NotThreadLocal; }

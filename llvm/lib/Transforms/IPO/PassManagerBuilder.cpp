@@ -52,6 +52,7 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h" 
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 #endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -128,11 +129,10 @@ static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
   cl::desc("Run VPO Vecopt Pass"));
 
-// The user can use -mllvm -paropt=value to enable
-// the OmpPar, OmpVec, OmpOffload.
-// For example, if paropt is 0x4(OmpPar), the VPO mode in the pass
-// VPOParoptPreparePass becomes 0x5 (ParPrepare | OmpPar) and 
-// the pass VPOParoptPass is 0x6 (ParTrans | OmpPar)
+// The user can use -mllvm -paropt=<mode> to enable various paropt 
+// transformations, where <mode> is a bit vector (see enum VPOParoptMode 
+// for a description of the bits.) For example, paropt=0x7 enables 
+// "ParPrepare" (0x1), "ParTrans" (0x2), and "OmpPar" (0x4).
 static cl::opt<unsigned> RunVPOParopt("paropt",
   cl::init(0x00000000), cl::Hidden,
   cl::desc("Run VPO Paropt Pass"));

@@ -123,6 +123,15 @@ public:
     static CallInst* genKmpcGlobalThreadNumCall(Function    *F, 
                                                 Instruction *InsertPt, 
                                                 StructType  *IdentTy);
+
+    /// \brief Generates OpenMP runtime __kmpc_threadprivate_cached call.
+    static CallInst* genKmpcThreadPrivateCachedCall(Function *F,
+                                                    Instruction *AI,
+                                                    StructType *IdentTy,
+                                                    Value *Tid,
+                                                    Value *GV,
+                                                    Value *GVSize,
+                                                    Value *TpvGV);
       
     /// \brief Generate OpenMP runtime ForkTest = ___kmpc_ok_to_fork(&loc) 
     static CallInst* genKmpcForkTest(WRegionNode *W, StructType *IdentTy, 
