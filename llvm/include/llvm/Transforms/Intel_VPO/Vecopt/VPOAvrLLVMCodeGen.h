@@ -88,10 +88,8 @@ public:
 
   // Check if loop is currently suported by AVRCodeGen. If \p VF is 0 ignore 
   // it (which means that checks such as whether the trip count is evenly
-  // divisible by VF will not be done). The cost model mode can be used to
-  // pre-enable cost modeling analysis before code generation support is in
-  // place.
-  bool loopIsHandled(unsigned int VF, bool CostModel);
+  // divisible by VF will not be done).
+  bool loopIsHandled(unsigned int VF);
 
   // Return the trip count for the scalar loop. Returns 0 for unknown trip
   // count loops

@@ -710,7 +710,7 @@ public:
   // Functions to be implemented at the underlying IR level
 
   virtual void setLoop(AVRLoop *ALoop) = 0;
-  virtual bool loopIsHandled(unsigned int ForceVF, bool CostModel) = 0;
+  virtual bool loopIsHandled(unsigned int ForceVF) = 0;
   virtual void gatherMemrefsInLoop() = 0;
   virtual VPODataDepInfoBase getDataDepInfoForLoop() = 0;
   virtual VPOVLSInfoBase *getVLSInfoForCandidate() = 0;
@@ -760,8 +760,8 @@ public:
   /// loop is supportable before having selected a VF. So normally a \p VF is
   /// provided only when the user requested a specific Vectorization Factor via 
   /// directives or compiler switch. 
-  bool loopIsHandled(unsigned int VF, bool CostModel) override {
-    return CG->loopIsHandled(VF, CostModel);
+  bool loopIsHandled(unsigned int VF) override {
+    return CG->loopIsHandled(VF);
   }
 
   /// Gather the memory references in the loop.
@@ -852,8 +852,8 @@ public:
   /// loop is supportable before having selected a VF. So normally a \p VF is
   /// provided only when the user requested a specific Vectorization Factor via 
   /// directives or compiler switch. 
-  bool loopIsHandled(unsigned int VF, bool CostModel) override {
-    return CG->loopIsHandled(VF, CostModel);
+  bool loopIsHandled(unsigned int VF) override {
+    return CG->loopIsHandled(VF);
   }
 
   void setLoop(AVRLoop *ALoop) override {

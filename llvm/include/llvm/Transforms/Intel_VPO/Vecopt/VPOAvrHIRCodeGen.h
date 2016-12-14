@@ -73,10 +73,11 @@ private:
 // instructions.
 class AVRCodeGenHIR {
 public:
-  AVRCodeGenHIR(AVR *Avr, TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA)
-      : Avr(Avr), TLI(TLI), SRA(SRA), ALoop(nullptr), OrigLoop(nullptr),
+  AVRCodeGenHIR(AVR *Avr, TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
+                Function &Fn)
+      : Avr(Avr), TLI(TLI), SRA(SRA), Fn(Fn), ALoop(nullptr), OrigLoop(nullptr),
         MainLoop(nullptr), NeedRemainderLoop(false), TripCount(0), VL(0),
-        RHM(Avr) {}
+        RHM(Avr), WVecNode(nullptr) {}
 
   ~AVRCodeGenHIR() {}
 
@@ -84,9 +85,8 @@ public:
   // vectorization factor.
   bool vectorize(unsigned int VF);
 
-  // Check if loop is currently suported by AVRCodeGen. The checks performed by
-  // this function can be enabled for cost modeling analysis only.
-  bool loopIsHandled(unsigned int VF, bool CostModel);
+  // Check if loop is currently suported by AVRCodeGen.
+  bool loopIsHandled(unsigned int VF);
 
   // Return the trip count for the scalar loop. Returns 0 for unknown trip
   // count loops
@@ -98,6 +98,40 @@ public:
   static bool isConstStrideRef(const RegDDRef *Ref, unsigned Level,
                                int64_t *CoeffPtr = nullptr);
 
+  Function &getFunction() const { return Fn; }
+  HLLoop *getMainLoop() const { return MainLoop; }
+  int getVL() const { return VL; };
+
+  // Return widened instruction if Symbase is in WidenMap, return nullptr
+  // otherwise.
+  HLInst *findWideInst(unsigned Symbase) {
+    if (WidenMap.find(Symbase) != WidenMap.end())
+      return WidenMap[Symbase];
+    else
+      return nullptr;
+  }
+
+  void setWideAvrRef(int AvrNum, RegDDRef *Ref) { AvrWideMap[AvrNum] = Ref; }
+
+  // Return widened ref if AvrNum is in AvrWideMap, return nullptr
+  // otherwise.
+  RegDDRef *findWideAvrRef(int AvrNum) {
+    if (AvrWideMap.find(AvrNum) != AvrWideMap.end())
+      return AvrWideMap[AvrNum];
+    else
+      return nullptr;
+  }
+
+  // Return widened ref for the given avr number
+  RegDDRef *getWideAvrRef(int AvrNum) {
+    auto WRef = findWideAvrRef(AvrNum);
+    assert(WRef && "Expected to find widened ref for avr");
+    return WRef;
+  }
+
+  // Widen Ref if needed and return the widened ref.
+  RegDDRef *widenRef(const RegDDRef *Ref);
+
 private:
   AVR *Avr;
 
@@ -105,6 +139,9 @@ private:
   TargetLibraryInfo *TLI;
 
   HIRSafeReductionAnalysis *SRA;
+
+  // Current function
+  Function &Fn;
 
   // AVRLoop in AVR region
   AVRLoop *ALoop;
@@ -130,6 +167,10 @@ private:
   // Map of DDRef symbase and widened HLInst
   std::map<int, HLInst *> WidenMap;
 
+  // Map of avr number and widened DDRef. TODO - look into combining the two
+  // maps
+  std::map<int, RegDDRef *> AvrWideMap;
+
   typedef DDRefGatherer<RegDDRef, TerminalRefs> BlobRefGatherer;
 
   BlobRefGatherer::MapTy MemRefMap;
@@ -154,7 +195,7 @@ private:
   // a constant, zero otherwise.
   bool loopIsHandledImpl(int64_t &TripCount);
 
-  void widenNode(AVRAssignHIR *AvrNode);
+  HLInst *widenNode(AVRAssignHIR *AvrNode);
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node);
 
@@ -165,7 +206,6 @@ private:
 
   void eraseLoopIntrins();
   void processLoop();
-  RegDDRef *widenRef(const RegDDRef *Ref);
 
   /// \brief Analyzes the memory references of \p OrigCall to determine
   /// stride. The resulting stride information is attached to the arguments

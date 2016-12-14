@@ -373,7 +373,7 @@ bool AVRCodeGen::loopIsHandledImpl(unsigned int &ConstTripCount) {
   return true;
 }
 
-bool AVRCodeGen::loopIsHandled(unsigned int VF, bool CostModel) {
+bool AVRCodeGen::loopIsHandled(unsigned int VF) {
   unsigned int ConstTripCount = 0;
   if (!loopIsHandledImpl(ConstTripCount))
     return false;
@@ -866,7 +866,7 @@ bool AVRCodeGen::vectorize(unsigned int VL) {
   assert(VL >= 1);
   if (VL == 1)
     return false;
-  if (!loopIsHandled(VL, false)) {
+  if (!loopIsHandled(VL)) {
     return false;
   }
 

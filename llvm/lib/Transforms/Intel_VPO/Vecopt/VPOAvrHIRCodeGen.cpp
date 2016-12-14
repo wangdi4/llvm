@@ -17,6 +17,8 @@
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrDecomposeHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -36,8 +38,203 @@ using namespace llvm::loopopt;
 STATISTIC(LoopsVectorized, "Number of HIR loops vectorized");
 
 static cl::opt<bool>
-    DisableStressTest("disable-vpo-stress-test", cl::init(true), cl::Hidden,
+    DisableStressTest("disable-vpo-stress-test", cl::init(false), cl::Hidden,
                       cl::desc("Disable VPO Vectorizer Stress Testing"));
+
+static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
+                                       unsigned VL);
+
+namespace llvm {
+namespace vpo {
+class AVRCGVisit {
+private:
+  AVRCodeGenHIR *ACG;
+  RegDDRef *MaskDDRef;
+  Twine NodeName;
+  HLNodeUtils &HNU;
+  DDRefUtils &DDRU;
+
+  // Add instruction at end of main loop after adding mask if mask is not null.
+  void addInst(HLInst *Inst) {
+    if (MaskDDRef)
+      Inst->setMaskDDRef(MaskDDRef->clone());
+    HNU.insertAsLastChild(ACG->getMainLoop(), Inst);
+  }
+
+public:
+  AVRCGVisit(AVRCodeGenHIR *ACG, RegDDRef *MaskDDRef, Twine Name)
+      : ACG(ACG), MaskDDRef(MaskDDRef), NodeName(Name),
+        HNU(ACG->getMainLoop()->getHLNodeUtils()),
+        DDRU(ACG->getMainLoop()->getDDRefUtils()) {}
+
+  const Twine &getNodeName() const { return NodeName; }
+
+  // Visit Functions
+  void visit(AVR *ANode){};
+  void visit(AVRValueHIR *AVal);
+  void visit(AVRValue *AVal);
+
+  void postVisit(AVR *ANode){};
+  void postVisit(AVRExpression *AExpr);
+  void postVisit(AVRPredicate *APredicate);
+
+  bool isDone() { return false; }
+  bool skipRecursion(AVR *ANode) { return false; }
+};
+} // End vpo namespace
+} // End loopopt namespace
+
+void AVRCGVisit::visit(AVRValueHIR *AVal) {
+  if (ACG->findWideAvrRef(AVal->getNumber()))
+    return;
+
+  auto RefVal = AVal->getValue();
+  RegDDRef *WideRef = nullptr;
+
+  if (auto RDDRef = dyn_cast<RegDDRef>(RefVal)) {
+    WideRef = ACG->widenRef(RDDRef);
+  } else {
+    assert(isa<BlobDDRef>(RefVal) && "Expected Blob DDRef");
+
+    auto BRefVal = cast<BlobDDRef>(RefVal);
+    if (auto WInst = ACG->findWideInst(BRefVal->getSymbase())) {
+      WideRef = WInst->getLvalDDRef();
+    } else {
+      WideRef = DDRU.createScalarRegDDRef(
+          BRefVal->getSymbase(),
+          const_cast<CanonExpr *>(BRefVal->getCanonExpr()));
+      WideRef = ACG->widenRef(WideRef);
+    }
+  }
+
+  ACG->setWideAvrRef(AVal->getNumber(), WideRef);
+}
+
+void AVRCGVisit::visit(AVRValue *AVal) {
+  if (ACG->findWideAvrRef(AVal->getNumber()))
+    return;
+
+  RegDDRef *WideRef = nullptr;
+  Constant *CVal = const_cast<Constant *>(AVal->getConstant());
+
+  if (CVal) {
+    WideRef = getConstantSplatDDRef(DDRU, CVal, ACG->getVL());
+  } else {
+    for (AVRExpression *ReachingDef : AVal->getReachingDefs()) {
+      auto Num = ReachingDef->getNumber();
+      auto TRef = ACG->getWideAvrRef(Num);
+
+      if (WideRef) {
+        auto TInst =
+            HNU.createBinaryHLInst(Instruction::Or, WideRef->clone(),
+                                   TRef->clone(), getNodeName() + "RDef");
+        addInst(TInst);
+        WideRef = TInst->getLvalDDRef();
+      } else {
+        WideRef = TRef;
+      }
+    }
+  }
+
+  ACG->setWideAvrRef(AVal->getNumber(), WideRef);
+}
+
+void AVRCGVisit::postVisit(AVRExpression *AExpr) {
+  if (ACG->findWideAvrRef(AExpr->getNumber()))
+    return;
+
+  SmallVector<RegDDRef *, 2> Operands;
+  auto NumOperands = AExpr->getNumOperands();
+  HLInst *WideInst;
+
+  for (unsigned Index = 0; Index < NumOperands; ++Index) {
+    auto Op = AExpr->getOperand(Index);
+    auto OpRef = ACG->getWideAvrRef(Op->getNumber());
+
+    Operands.push_back(OpRef);
+  }
+
+  if (NumOperands == 1) {
+    auto VecTy = VectorType::get(AExpr->getType(), ACG->getVL());
+    WideInst = HNU.createCastHLInst(VecTy, AExpr->getOperation(),
+                                    Operands[0]->clone(), getNodeName());
+  } else if (NumOperands == 2) {
+    auto Condition = AExpr->getCondition();
+
+    // Compare instruction
+    if (Condition != CmpInst::BAD_ICMP_PREDICATE) {
+      WideInst = HNU.createCmp(Condition, Operands[0]->clone(),
+                               Operands[1]->clone(), getNodeName());
+    } else {
+      auto Op = AExpr->getOperation();
+
+      if (Op == AVRExpression::UMax) {
+        WideInst = HNU.createSelect(CmpInst::ICMP_UGT, Operands[0]->clone(),
+                                    Operands[1]->clone(), Operands[0]->clone(),
+                                    Operands[1]->clone(), getNodeName());
+      } else if (Op == AVRExpression::SMax) {
+        WideInst = HNU.createSelect(CmpInst::ICMP_SGT, Operands[0]->clone(),
+                                    Operands[1]->clone(), Operands[0]->clone(),
+                                    Operands[1]->clone(), getNodeName());
+      } else {
+        WideInst =
+            HNU.createBinaryHLInst(AExpr->getOperation(), Operands[0]->clone(),
+                                   Operands[1]->clone(), getNodeName());
+      }
+    }
+  }
+
+  addInst(WideInst);
+  ACG->setWideAvrRef(AExpr->getNumber(), WideInst->getLvalDDRef());
+}
+
+void AVRCGVisit::postVisit(AVRPredicate *APredicate) {
+  if (ACG->findWideAvrRef(APredicate->getNumber()))
+    return;
+
+  const SmallVectorImpl<AVRPredicate::IncomingTy> &IncomingPreds =
+      APredicate->getIncoming();
+
+  unsigned IncomingNum = IncomingPreds.size();
+
+  HLInst *VecInst;
+  RegDDRef *WideRef = nullptr;
+
+  if (IncomingNum == 0) {
+    auto OneVal =
+        ConstantInt::get(Type::getInt1Ty(ACG->getFunction().getContext()), 1);
+
+    // Assign true to predicate
+    WideRef = getConstantSplatDDRef(DDRU, OneVal, ACG->getVL());
+  } else {
+    for (unsigned Index = 0; Index < IncomingNum; ++Index) {
+      auto &Incoming = IncomingPreds[Index];
+      auto FirstNum = Incoming.first->getNumber();
+      auto PredRef = ACG->getWideAvrRef(FirstNum);
+
+      if (Incoming.second) {
+        auto SecondRef = ACG->getWideAvrRef(Incoming.second->getNumber());
+
+        VecInst = HNU.createBinaryHLInst(Instruction::And, PredRef->clone(),
+                                         SecondRef->clone(), getNodeName());
+        addInst(VecInst);
+        PredRef = VecInst->getLvalDDRef();
+      }
+
+      if (WideRef) {
+        VecInst = HNU.createBinaryHLInst(Instruction::Or, WideRef->clone(),
+                                         PredRef->clone(), getNodeName());
+
+        addInst(VecInst);
+        WideRef = VecInst->getLvalDDRef();
+      } else {
+        WideRef = PredRef;
+      }
+    }
+  }
+
+  ACG->setWideAvrRef(APredicate->getNumber(), WideRef);
+}
 
 static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
                                        unsigned VL) {
@@ -46,6 +243,8 @@ static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
     return DDRU.createConstDDRef(cast<ConstantDataVector>(ConstVec));
   if (isa<ConstantAggregateZero>(ConstVec))
     return DDRU.createConstDDRef(cast<ConstantAggregateZero>(ConstVec));
+  if (isa<ConstantVector>(ConstVec))
+    return DDRU.createConstDDRef(cast<ConstantVector>(ConstVec));
   llvm_unreachable("Unhandled vector type");
 }
 
@@ -167,8 +366,34 @@ bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
 
   // Consider a[(i1 + 1) & 3], this is changed to a[zext.i2.i64(i1 + 1)] - we
   // do not want to treat this reference as unit stride.
-  if (FirstCE->isSExt() || FirstCE->isZExt())
-    return false;
+  if (FirstCE->isSExt() || FirstCE->isZExt()) {
+    auto SrcTy = FirstCE->getSrcType();
+    auto DestTy = FirstCE->getDestType();
+
+    // Do not go conservative for the common case.
+    bool OK = false;
+    if (SrcTy->isIntegerTy(32) && DestTy->isIntegerTy(64)) {
+      // Check for simple sum of IVs
+      OK = true;
+      for (auto IV = FirstCE->iv_begin(), IVE = FirstCE->iv_end(); IV != IVE;
+           ++IV) {
+        int64_t Coeff;
+        unsigned BlobCoeff;
+        FirstCE->getIVCoeff(IV, &BlobCoeff, &Coeff);
+
+        if (Coeff == 0)
+          continue;
+
+        if (BlobCoeff != 0 || Coeff != 1) {
+          OK = false;
+          break;
+        }
+      }
+    }
+
+    if (!OK)
+      return false;
+  }
 
   if (FirstCE->isNonLinear() || FirstCE->getDefinedAtLevel() >= NestingLevel)
     return false;
@@ -190,19 +415,22 @@ namespace {
 class HandledCheck final : public HLNodeVisitorBase {
 private:
   bool IsHandled;
-  unsigned LoopLevel;
+  const HLLoop *OrigLoop;
   TargetLibraryInfo *TLI;
   int VL;
   bool UnitStrideRefSeen;
   bool MemRefSeen;
+  unsigned LoopLevel;
 
   void visitRegDDRef(RegDDRef *RegDD);
   void visitCanonExpr(CanonExpr *CExpr);
 
 public:
-  HandledCheck(unsigned Level, TargetLibraryInfo *TLI, int VL)
-      : IsHandled(true), LoopLevel(Level), TLI(TLI), VL(VL),
-        UnitStrideRefSeen(false), MemRefSeen(false) {}
+  HandledCheck(const HLLoop *OrigLoop, TargetLibraryInfo *TLI, int VL)
+      : IsHandled(true), OrigLoop(OrigLoop), TLI(TLI), VL(VL),
+        UnitStrideRefSeen(false), MemRefSeen(false) {
+    LoopLevel = OrigLoop->getNestingLevel();
+  }
 
   void visit(HLDDNode *Node);
 
@@ -234,6 +462,14 @@ void HandledCheck::visit(HLDDNode *Node) {
     if (Inst->isCallInst()) {
       const CallInst *Call = cast<CallInst>(Inst->getLLVMInstruction());
       StringRef CalledFunc = Call->getCalledFunction()->getName();
+
+      if (Inst->getParent() != OrigLoop) {
+        DEBUG(Inst->dump());
+        DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - masked call\n");
+        IsHandled = false;
+        return;
+      }
+
       if (VL > 1 && !TLI->isFunctionVectorizable(CalledFunc, VL)) {
         DEBUG(errs()
               << "VPO_OPTREPORT: Loop not handled - call not vectorizable\n");
@@ -268,16 +504,6 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
   if (RegDD->hasGEPInfo()) {
     MemRefSeen = true;
 
-#if 0
-    // Addressof computation not supported for now.
-    if (RegDD->isAddressOf()) {
-      DEBUG(errs()
-            << "VPO_OPTREPORT: Loop not handled - addressof computation\n");
-      IsHandled = false;
-      return;
-    }
-#endif
-
     auto BaseCE = RegDD->getBaseCE();
 
     if (!BaseCE->isInvariantAtLevel(LoopLevel)) {
@@ -300,33 +526,6 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
     IsHandled = false;
     return;
   }
-
-  // TODO: Handle the case when we have a denominator
-  if (CExpr->getDenominator() != 1) {
-    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - IV with denominator\n");
-    IsHandled = false;
-    return;
-  }
-
-  SmallVector<unsigned, 8> BlobIndices;
-  CExpr->collectBlobIndices(BlobIndices, false);
-
-  // Workaround for now until we have a way to handle nested blobs
-  // DEBUG(errs() << "Top blobs: \n");
-  for (auto &BI : BlobIndices) {
-    auto TopBlob = CExpr->getBlobUtils().getBlob(BI);
-
-    // DEBUG(TopBlob->dump());
-
-    if (CExpr->getBlobUtils().isNestedBlob(TopBlob)) {
-      // DEBUG(errs() << "Nested blob: ");
-      // DEBUG(TopBlob->dump());
-
-      DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - nested blob\n");
-      IsHandled = false;
-      return;
-    }
-  }
 }
 
 // TODO: Take as input a VPOVecContext that indicates which AVRLoop(s)
@@ -334,7 +533,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
 // evaluation.
 // FORNOW there is only one AVRLoop per region, so we will re-discover
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
-bool AVRCodeGenHIR::loopIsHandled(unsigned int VF, bool CostModel) {
+bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
   WRNVecLoopNode *WVecNode;
@@ -403,64 +602,67 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF, bool CostModel) {
   bool MemRefSeen = false;
   for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
        ++Itr) {
-    if (isa<AVRPredicate>(Itr))
-      continue;
-    if (!isa<AVRAssignHIR>(Itr) && !(isa<AVRIfHIR>(Itr) && CostModel)) {
-      DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - "
-                   << "only AVRAssign/AVRIf are supported\n");
+    // Itr->dump(PrintNumber);
+    if (auto AAssign = dyn_cast<AVRAssignHIR>(Itr)) {
+      auto HInst = AAssign->getHIRInstruction();
+      auto Inst = HInst->getLLVMInstruction();
+
+      if (Inst->mayThrow()) {
+        DEBUG(HInst->dump());
+        DEBUG(errs()
+              << "VPO_OPTREPORT: Loop not handled - instruction may throw\n");
+        return false;
+      }
+
+      auto Opcode = Inst->getOpcode();
+
+      if ((Opcode == Instruction::UDiv || Opcode == Instruction::SDiv ||
+           Opcode == Instruction::URem || Opcode == Instruction::SRem) &&
+          (HInst->getParent() != OrigLoop)) {
+        DEBUG(HInst->dump());
+        DEBUG(errs()
+              << "VPO_OPTREPORT: Loop not handled - DIV/REM instruction\n");
+        return false;
+      }
+
+      auto TLval = HInst->getLvalDDRef();
+
+      if (TLval && TLval->isTerminalRef() &&
+          OrigLoop->isLiveOut(TLval->getSymbase()) &&
+          HInst->getParent() != OrigLoop) {
+        DEBUG(HInst->dump());
+        DEBUG(errs() << "VPO_OPTREPORT: Liveout conditional scalar assign "
+                        "not handled\n");
+        return false;
+      }
+
+      HandledCheck NodeCheck(OrigLoop, TLI, VL);
+      HLDDNode *INode = AAssign->getHIRInstruction();
+
+      OrigLoop->getHLNodeUtils().visit(NodeCheck, INode);
+      if (!NodeCheck.isHandled())
+        return false;
+
+      if (NodeCheck.getUnitStrideRefSeen())
+        UnitStrideSeen = true;
+
+      if (NodeCheck.getMemRefSeen())
+        MemRefSeen = true;
+    } else if (isa<AVRPredicate>(Itr)) {
+      ;
+    } else if (auto AIf = dyn_cast<AVRIfHIR>(Itr)) {
+      HandledCheck NodeCheck(OrigLoop, TLI, VL);
+      HLDDNode *INode = AIf->getCompareInstruction();
+
+      OrigLoop->getHLNodeUtils().visit(NodeCheck, INode);
+      if (!NodeCheck.isHandled())
+        return false;
+    } else {
+      DEBUG(Itr->dump());
+      DEBUG(
+          errs() << "VPO_OPTREPORT: Loop not handled - unsupported AVR kind\n");
       return false;
     }
-
-    HandledCheck NodeCheck(OrigLoop->getNestingLevel(), TLI, VL);
-
-    HLDDNode *INode = nullptr;
-    if (AVRAssignHIR *Assign = dyn_cast<AVRAssignHIR>(Itr)) {
-      HLInst *AssignInst = Assign->getHIRInstruction();
-      INode = AssignInst;
-    } else if (AVRIfHIR *If = dyn_cast<AVRIfHIR>(Itr)) {
-      // Cost model will now only call this legality check for VL = 1, which
-      // is done before VPOPredicator kicks in. Therefore, to disable masked
-      // vector calls, we must peek into the then/else parts of the AVR because
-      // the AVR hierarchy has not yet been flattened by the predicator. The
-      // next changeset will remove this, so this is a short-term solution
-      // until masked svml calls are supported.
-      INode = const_cast<HLIf *>(If->getCompareInstruction());
-      for (auto ThenItr = If->then_begin(), End = If->then_end();
-           ThenItr != End; ++ThenItr) {
-        if (AVRAssignHIR *Assign = dyn_cast<AVRAssignHIR>(ThenItr)) {
-          auto HInst = Assign->getHIRInstruction();
-          if (HInst->isCallInst()) {
-            // Bail out on masked vector function calls for now until we have
-            // DDRefs for AVRPredicate nodes.
-            DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - masked call\n");
-            return false;
-          }
-        }
-      }
-      for (auto ThenItr = If->then_begin(), End = If->then_end();
-           ThenItr != End; ++ThenItr) {
-        if (AVRAssignHIR *Assign = dyn_cast<AVRAssignHIR>(ThenItr)) {
-          auto HInst = Assign->getHIRInstruction();
-          if (HInst->isCallInst()) {
-            // Bail out on masked vector function calls for now until we have
-            // DDRefs for AVRPredicate nodes.
-            DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - masked call\n");
-            return false;
-          }
-        }
-      }
-    }
-
-    OrigLoop->getHLNodeUtils().visit(NodeCheck, INode);
-
-    if (!NodeCheck.isHandled())
-      return false;
-
-    if (NodeCheck.getUnitStrideRefSeen())
-      UnitStrideSeen = true;
-
-    if (NodeCheck.getMemRefSeen())
-      MemRefSeen = true;
   }
 
   // If we are not in stress testing mode, only vectorize when some
@@ -481,46 +683,6 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF, bool CostModel) {
   return true;
 }
 
-bool AVRCodeGenHIR::isSmallShortAddRedLoop() {
-  // Return false if loop does not have any reductions
-  auto SRCL = SRA->getSafeReductionChain(OrigLoop);
-  if (SRCL.empty())
-    return false;
-
-  unsigned Count = 0;
-  bool Found = false;
-
-  // Check for loop with at most two instructions of which atleast one
-  // is a add reduction of short type values into an I32/I64.
-  for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
-       ++Itr) {
-    ++Count;
-    if (Count > 2)
-      return false;
-
-    assert(isa<AVRAssignHIR>(Itr) && "Expected AVR assign");
-    auto HInst = cast<AVRAssignHIR>(Itr)->getHIRInstruction();
-
-    if (HInst->getLLVMInstruction()->getOpcode() != Instruction::Add)
-      continue;
-
-    if (!SRA->isSafeReduction(HInst))
-      continue;
-
-    auto Lval = HInst->getLvalDDRef();
-    auto Op1 = HInst->getOperandDDRef(1);
-    auto Op2 = HInst->getOperandDDRef(2);
-
-    if ((Lval->getDestType()->isIntegerTy(32) ||
-         Lval->getDestType()->isIntegerTy(64)) &&
-        (Op1->getSrcType()->isIntegerTy(16) ||
-         Op2->getSrcType()->isIntegerTy(16)))
-      Found = true;
-  }
-
-  return Found;
-}
-
 // TODO: Change all VL occurences with VF
 // TODO: Have this method take a VecContext as input, which indicates which
 // AVRLoops in the region to vectorize, and how (using what VF).
@@ -533,33 +695,24 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
     DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - VL is 1\n");
     return false;
   }
-  // CodeGen cannot currently handle some forms of predicated code, so check
-  // loop handling capabilities in a stricter fashion.
-  LoopHandled = loopIsHandled(VL, false);
+
+  LoopHandled = loopIsHandled(VL);
   if (!LoopHandled)
     return false;
 
   SRA->computeSafeReductionChains(OrigLoop);
-
-  // Workaround for perf regressions - suppress vectorization of some small
-  // loops with add reduction of short values until cost model can be refined.
-  if (isSmallShortAddRedLoop()) {
-    DEBUG(errs()
-          << "VPO_OPTREPORT: Suppress vectorization - SmallShortAddRedLoop\n");
-    return false;
-  }
-
+  DEBUG(errs() << "VPO_OPTREPORT: VPO handled loop, VF = " << VL << "\n");
   DEBUG(errs() << "Handled loop before vec codegen: \n");
-  DEBUG(OrigLoop->dump(true));
+  DEBUG(OrigLoop->dump());
 
   RHM.mapHLNodes(OrigLoop);
 
   processLoop();
 
   DEBUG(errs() << "\n\n\nHandled loop after: \n");
-  DEBUG(MainLoop->dump(true));
+  DEBUG(MainLoop->dump());
   if (NeedRemainderLoop)
-    DEBUG(OrigLoop->dump(true));
+    DEBUG(OrigLoop->dump());
 
   return true;
 }
@@ -626,6 +779,8 @@ void AVRCodeGenHIR::eraseLoopIntrins() {
 }
 
 void AVRCodeGenHIR::processLoop() {
+  auto HNU = OrigLoop->getHLNodeUtils();
+
   LoopsVectorized++;
   eraseLoopIntrins();
 
@@ -639,14 +794,40 @@ void AVRCodeGenHIR::processLoop() {
 
   for (auto Iter = ALoop->child_begin(), EndItr = ALoop->child_end();
        Iter != EndItr; ++Iter) {
-    AVRAssignHIR *AvrAssign;
+    if (auto AvrAssign = dyn_cast<AVRAssignHIR>(Iter)) {
+      auto VecInst = widenNode(AvrAssign);
+      if (auto APred = AvrAssign->getPredicate()) {
+        auto MaskDDRef = getWideAvrRef(APred->getNumber());
+        VecInst->setMaskDDRef(MaskDDRef->clone());
+      }
+    } else if (auto APredicate = dyn_cast<AVRPredicate>(Iter)) {
+      AVRCGVisit CGVisit(this, nullptr /* MaskDDRef */,
+                         "Pred" + Twine(APredicate->getNumber()) + "_");
+      AVRVisitor<AVRCGVisit> AVisitor(CGVisit);
 
-    // TODO: generate vector compare for if and generate mask for predicate
-    if (isa<AVRIfHIR>(Iter) || isa<AVRPredicate>(Iter))
-      continue;
+      AVisitor.visit(APredicate, true /*Recursive*/,
+                     true /*RecurseInsideLoops*/, false /*RecurseInsideValues*/,
+                     true /*Forward*/);
+    } else if (auto AIf = dyn_cast<AVRIfHIR>(Iter)) {
+      // We currently expect if/else to be linearized.
+      assert(!AIf->hasThenChildren() && !AIf->hasElseChildren() &&
+             "Empty if expected");
 
-    AvrAssign = cast<AVRAssignHIR>(Iter);
-    widenNode(AvrAssign);
+      RegDDRef *MaskDDRef = nullptr;
+      if (auto IfPred = AIf->getPredicate()) {
+        MaskDDRef = getWideAvrRef(IfPred->getNumber());
+      }
+      AVRCGVisit CGVisit(this, MaskDDRef,
+                         "Cond" + Twine(AIf->getCondition()->getNumber()) +
+                             "_");
+      AVRVisitor<AVRCGVisit> AVisitor(CGVisit);
+
+      AVisitor.visit(AIf->getCondition(), true /*Recursive*/,
+                     true /*RecurseInsideLoops*/, false /*RecurseInsideValues*/,
+                     true /*Forward*/);
+    } else {
+      assert(false && "Unexpected AVR kind");
+    }
   }
 
   MainLoop->markDoNotVectorize();
@@ -669,7 +850,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
   // If the DDREF has a widened counterpart, return the same after setting
   // SrcType/DestType appropriately.
-  if (Ref->isSelfBlob()) {
+  if (Ref->isTerminalRef()) {
     unsigned RedOpCode;
 
     if (WidenMap.find(Ref->getSymbase()) != WidenMap.end()) {
@@ -704,7 +885,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
   // Lval terminal refs get the widened ref duing the widened HLInst creation
   // later - simply return NULL.
-  if (Ref->isLval() && Ref->isTerminalRef())
+  if (Ref->getHLDDNode() && Ref->isLval() && Ref->isTerminalRef())
     return nullptr;
 
   // TODO - look into reusing instead of cloning (Pankaj's suggestion)
@@ -735,17 +916,6 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
   // For cases other than unit stride refs, we need to widen the induction
   // variable and replace blobs in Canon Expr with widened equivalents.
-  for (auto B = WideRef->blob_cbegin(), BE = WideRef->blob_cend(); B != BE;
-       ++B) {
-    if (WidenMap.find((*B)->getSymbase()) != WidenMap.end()) {
-      auto WInst1 = WidenMap[(*B)->getSymbase()];
-      auto WideBlobRef = WInst1->getLvalDDRef()->clone();
-
-      (*B)->replaceBlob(
-          WideBlobRef->getSingleCanonExpr()->getSingleBlobIndex());
-    }
-  }
-
   for (auto I = WideRef->canon_begin(), E = WideRef->canon_end(); I != E; ++I) {
     auto CE = *I;
     bool AnyChange = true;
@@ -769,9 +939,37 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     }
 
     SmallVector<unsigned, 8> BlobIndices;
-    CE->collectTempBlobIndices(BlobIndices, false);
+    CE->collectBlobIndices(BlobIndices, false);
 
     for (auto &BI : BlobIndices) {
+      auto TopBlob = CE->getBlobUtils().getBlob(BI);
+
+      // We do not need to widen invariant blobs - check for blob invariance
+      // by comparing maxbloblevel against the loop's nesting level.
+      if (WideRef->findMaxBlobLevel(BI) < OrigLoop->getNestingLevel())
+        continue;
+
+      if (CE->getBlobUtils().isNestedBlob(TopBlob)) {
+
+        AVR *BlobTree =
+            decomposeBlob(WideRef, BI, 1, Fn.getParent()->getDataLayout());
+        AVRCGVisit CGVisit(this, nullptr /* MaskDDRef */,
+                           "Blob" + Twine(BI) + "_");
+        AVRVisitor<AVRCGVisit> AVisitor(CGVisit);
+
+        AVisitor.visit(BlobTree, true /*Recursive*/,
+                       true /*RecurseInsideLoops*/,
+                       false /*RecurseInsideValues*/, true /*Forward*/);
+
+        auto TRef = getWideAvrRef(BlobTree->getNumber());
+
+        CE->replaceBlob(BI, TRef->getSingleCanonExpr()->getSingleBlobIndex());
+        continue;
+      }
+
+      assert(CE->getBlobUtils().isTempBlob(TopBlob) &&
+             "Only temp blobs expected");
+
       auto OldSymbase = CE->getBlobUtils().getTempBlobSymbase(BI);
 
       if (WidenMap.find(OldSymbase) != WidenMap.end()) {
@@ -790,6 +988,11 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
       CE->setSrcType(VecCESrcTy);
     }
   }
+
+  // The blobs in the scalar ref have been replaced by widened refs, call
+  // the utility to update the blob DDRefs in the widened Ref.
+  SmallVector<BlobDDRef *, 8> NewBlobs;
+  WideRef->updateBlobDDRefs(NewBlobs);
 
   return WideRef;
 }
@@ -1006,7 +1209,7 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
   }
 }
 
-void AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
+HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
   const HLNode *Node = AvrNode->getHIRInstruction();
   const HLInst *INode;
   INode = dyn_cast<HLInst>(Node);
@@ -1019,7 +1222,7 @@ void AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
     if (RHM.isReductionVariable(CurInst)) {
       WideInst = widenReductionNode(Node);
       Node->getHLNodeUtils().insertAsLastChild(MainLoop, WideInst);
-      return;
+      return WideInst;
     }
   }
 
@@ -1071,8 +1274,8 @@ void AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
   } else if (const CallInst *Call = dyn_cast<CallInst>(CurInst)) {
 
-    Function *F = Call->getCalledFunction();
-    StringRef FnName = F->getName();
+    Function *Fn = Call->getCalledFunction();
+    StringRef FnName = Fn->getName();
 
     // HandleCheck class ensures that this call is vectorizable, but assert
     // just in case something changes.
@@ -1080,7 +1283,7 @@ void AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
            "Function assumed to be vectorizable.");
 
     unsigned ArgOffset = 0;
-    if (!F->getReturnType()->isVoidTy()) {
+    if (!Fn->getReturnType()->isVoidTy()) {
       ArgOffset = 1;
     }
     SmallVector<RegDDRef *, 1> CallArgs;
@@ -1090,7 +1293,7 @@ void AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
       ArgTys.push_back(WideOps[i]->getDestType());
     }
 
-    Function *VectorF = getOrInsertVectorFunction(F, VL, ArgTys, TLI);
+    Function *VectorF = getOrInsertVectorFunction(Fn, VL, ArgTys, TLI);
     // assert(VectorF && "Can't create vector function.");
 
     WideInst = Node->getHLNodeUtils().createCall(
@@ -1123,9 +1326,12 @@ void AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
   // Add to WidenMap and handle generating code for any liveouts
   if (InsertInMap) {
     addToMapAndHandleLiveOut(INode->getLvalDDRef(), WideInst);
+    if (WideInst->getLvalDDRef()->isTerminalRef())
+      WideInst->getLvalDDRef()->makeSelfBlob();
   }
 
   Node->getHLNodeUtils().insertAsLastChild(MainLoop, WideInst);
+  return WideInst;
 }
 
 HLInst *AVRCodeGenHIR::insertReductionInitializer(Constant *Iden) {

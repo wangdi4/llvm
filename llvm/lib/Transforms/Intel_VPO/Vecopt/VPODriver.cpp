@@ -185,18 +185,18 @@ FunctionPass *llvm::createVPODirectiveCleanupPass() {
 FunctionPass *llvm::createVPODriverPass() { return new VPODriver(); }
 FunctionPass *llvm::createVPODriverHIRPass() { return new VPODriverHIR(); }
 
-bool VPODriverBase::runOnFunction(Function &F) {
-  if (skipFunction(F))
+bool VPODriverBase::runOnFunction(Function &Fn) {
+  if (skipFunction(Fn))
     return false;
 
   bool ret_val = false;
 
   DEBUG(errs() << "VPODriver: ");
-  DEBUG(errs().write_escaped(F.getName()) << '\n');
+  DEBUG(errs().write_escaped(Fn.getName()) << '\n');
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
@@ -207,10 +207,10 @@ bool VPODriverBase::runOnFunction(Function &F) {
       continue;
     }
 
-    VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn, F);
+    VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn, Fn);
 
     if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
-      AVRCodeGen AvrCGNode(Avr, SC, LI, TLI, &F);
+      AVRCodeGen AvrCGNode(Avr, SC, LI, TLI, &Fn);
       assert(isa<VPOScenarioEvaluation>(ScenariosEngine));
       VPOScenarioEvaluation *LLVMIRScenariosEngine =
           cast<VPOScenarioEvaluation>(&ScenariosEngine);
@@ -229,7 +229,7 @@ bool VPODriverBase::runOnFunction(Function &F) {
     } else {
       HIRSafeReductionAnalysis *SRA;
       SRA = &getAnalysis<HIRSafeReductionAnalysis>();
-      AVRCodeGenHIR AvrCGNode(Avr, TLI, SRA);
+      AVRCodeGenHIR AvrCGNode(Avr, TLI, SRA, Fn);
 
       assert(isa<VPOScenarioEvaluationHIR>(ScenariosEngine));
       VPOScenarioEvaluationHIR *HIRScenariosEngine =

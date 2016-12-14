@@ -150,7 +150,7 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // isLoopHandled will not check if a remainder loop is needed.
       // FORNOW: If this loop is not supported, return a dummy VC; In the 
       // future we should continue to next candidate loop in region.
-      if (!loopIsHandled(ForceVF, true /* Cost model mode only */))
+      if (!loopIsHandled(ForceVF))
         return VectCand;
 
       // Decomposition of AVRValueHIRs happens here
