@@ -40,7 +40,7 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Vectorize.h"
 
-#include "llvm/Bitcode/LPUSaveRawBC.h"
+#include "llvm/Bitcode/CSASaveRawBC.h"
 
 using namespace llvm;
 
@@ -209,10 +209,10 @@ void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
 void PassManagerBuilder::addInitialAliasAnalysisPasses(
     legacy::PassManagerBase &PM) const {
 
-  // Add the LPUSaveRawBC pass which will preserve the initial IR
+  // Add the CSASaveRawBC pass which will preserve the initial IR
   // for a module. This must be added early so it gets IR that's
   // equivalent to the Bitcode emmitted by the -flto option
-  PM.add(createLPUSaveRawBCPass());
+  PM.add(createCSASaveRawBCPass());
 
   switch (UseCFLAA) {
   case CFLAAType::Steensgaard:

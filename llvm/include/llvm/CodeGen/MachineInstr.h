@@ -71,7 +71,7 @@ public:
                                         // function frame destruction code.
     BundledPred  = 1 << 2,              // Instruction has bundled predecessors.
     BundledSucc  = 1 << 3,              // Instruction has bundled successors.
-    // LPU addition
+    // CSA addition
     NonSequential = 1 << 4              // Instruction removed from sequence
   };
 private:

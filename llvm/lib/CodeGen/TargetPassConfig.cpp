@@ -36,7 +36,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 
-#include "llvm/Bitcode/LPUSaveRawBC.h"
+#include "llvm/Bitcode/CSASaveRawBC.h"
 
 using namespace llvm;
 
@@ -431,10 +431,10 @@ void TargetPassConfig::addVerifyPass(const std::string &Banner) {
 /// following machine independent optimization.
 void TargetPassConfig::addIRPasses() {
 
-  // Add the LPUSaveRawBC pass which will preserve the initial IR
+  // Add the CSASaveRawBC pass which will preserve the initial IR
   // for a module. This must be added early so it gets IR that's
   // equivalent to the Bitcode emmitted by the -flto option
-  addPass(createLPUSaveRawBCPass());
+  addPass(createCSASaveRawBCPass());
 
   switch (UseCFLAA) {
   case CFLAAType::Steensgaard:
@@ -684,8 +684,8 @@ void TargetPassConfig::addMachinePasses() {
 
 /// Add passes that optimize machine instructions in SSA form.
 void TargetPassConfig::addMachineSSAOptimization() {
-  //LPU EDIT: TailDuplication destroies natural loop form, don't do it for LPU
-  if (getTM<TargetMachine>().getTargetTriple().getArchName() != "lpu") {
+  //CSA EDIT: TailDuplication destroies natural loop form, don't do it for CSA
+  if (getTM<TargetMachine>().getTargetTriple().getArchName() != "csa") {
     // Pre-ra tail duplication.
     addPass(&EarlyTailDuplicateID);
   }

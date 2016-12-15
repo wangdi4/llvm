@@ -27,7 +27,7 @@ subdirectories =
  CBackend
  Lanai
  Hexagon
- LPU
+ CSA
  MSP430
  NVPTX
  Mips

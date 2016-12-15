@@ -29,7 +29,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case bpfel:          return "bpfel";
   case bpfeb:          return "bpfeb";
   case hexagon:        return "hexagon";
-  case lpu:            return "lpu";
+  case csa:            return "csa";
   case mips:           return "mips";
   case mipsel:         return "mipsel";
   case mips64:         return "mips64";
@@ -112,7 +112,7 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
 
   case systemz:     return "s390";
 
-  case lpu:         return "lpu";
+  case csa:         return "csa";
 
   case x86:
   case x86_64:      return "x86";
@@ -279,7 +279,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("tce", tce)
     .Case("thumb", thumb)
     .Case("thumbeb", thumbeb)
-    .Case("lpu", lpu)
+    .Case("csa", csa)
     .Case("x86", x86)
     .Case("x86-64", x86_64)
     .Case("xcore", xcore)
@@ -367,7 +367,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     // FIXME: Do we need to support these?
     .Cases("i786", "i886", "i986", Triple::x86)
     .Cases("amd64", "x86_64", "x86_64h", Triple::x86_64)
-    .Case("lpu", Triple::lpu)
+    .Case("csa", Triple::csa)
     .Cases("powerpc", "ppc32", Triple::ppc)
     .Cases("powerpc64", "ppu", "ppc64", Triple::ppc64)
     .Cases("powerpc64le", "ppc64le", Triple::ppc64le)
@@ -641,7 +641,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::wasm32:
   case Triple::wasm64:
   case Triple::xcore:
-  case Triple::lpu:
+  case Triple::csa:
     return Triple::ELF;
 
   case Triple::ppc:
@@ -1189,7 +1189,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::riscv64:
   case llvm::Triple::sparcv9:
   case llvm::Triple::systemz:
-  case llvm::Triple::lpu:
+  case llvm::Triple::csa:
   case llvm::Triple::x86_64:
   case llvm::Triple::amdil64:
   case llvm::Triple::hsail64:
@@ -1224,7 +1224,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::msp430:
   case Triple::systemz:
   case Triple::ppc64le:
-  case Triple::lpu:
+  case Triple::csa:
     T.setArch(UnknownArch);
     break;
 
@@ -1310,7 +1310,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::sparcv9:
   case Triple::systemz:
   case Triple::x86_64:
-  case Triple::lpu:
+  case Triple::csa:
   case Triple::wasm64:
   case Triple::renderscript64:
     // Already 64-bit.
@@ -1368,7 +1368,7 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::x86:
   case Triple::x86_64:
   case Triple::xcore:
-  case Triple::lpu:
+  case Triple::csa:
   case Triple::renderscript32:
   case Triple::renderscript64:
 
@@ -1457,7 +1457,7 @@ bool Triple::isLittleEndian() const {
   case Triple::x86:
   case Triple::x86_64:
   case Triple::xcore:
-  case Triple::lpu:
+  case Triple::csa:
   case Triple::renderscript32:
   case Triple::renderscript64:
     return true;

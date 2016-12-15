@@ -20,5 +20,5 @@ type = Library
 name = IPO
 parent = Transforms
 library_name = ipo
-; LPU EDIT: We require BitWriter here because it gets us LPUSaveRawBC.
+; CSA EDIT: We require BitWriter here because it gets us CSASaveRawBC.
 required_libraries = Analysis BitWriter Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
