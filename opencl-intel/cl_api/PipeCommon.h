@@ -18,6 +18,9 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directlytypedef uint _PIPE_TYPE;
 
+#ifndef __PIPE_COMMON_H__
+#define __PIPE_COMMON_H__
+
 #define CACHE_LINE 64
 #define INTEL_PIPE_HEADER_RESERVED_SPACE CACHE_LINE * 2
 
@@ -49,3 +52,15 @@ typedef struct _tag_pipe_control_intel_t
     cl_int lock;
     char pad1[CACHE_LINE - sizeof(cl_int)];
 } pipe_control_intel_t;
+
+static size_t pipe_get_total_size(cl_uint uiPacketSize, cl_uint uiMaxPackets) {
+  return INTEL_PIPE_HEADER_RESERVED_SPACE + uiPacketSize * uiMaxPackets;
+}
+
+static void pipe_init(void* mem, uint packet_size, uint max_packets) {
+  pipe_control_intel_t* pipe_ctrl = (pipe_control_intel_t*) mem;
+  pipe_ctrl->pipe_max_packets_plus_one = max_packets + 1;
+}
+
+
+#endif // __PIPE_COMMON_H__

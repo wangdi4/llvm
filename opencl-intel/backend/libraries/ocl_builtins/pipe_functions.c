@@ -81,7 +81,7 @@ typedef struct _tag_pipe_control_intel_t {
   // set by the host when the pipe is created. Pipe cannot accommodate
   // more than pipe_max_packets_plus_one – 1 packets. So RT must allocate memory
   // for one more packet.
-  const uint pipe_max_packets_plus_one;
+  uint pipe_max_packets_plus_one;
 
   // The pipe head and tail must be set by the host when
   // the pipe is created.  They will probably be set to zero,
@@ -117,6 +117,11 @@ typedef __global pipe_control_intel_t *gp_pipe_control_intel_t;
 
 /////////////////////////////////////////////////////////////////////
 // Pipe Helper Functions (static)
+
+void __pipe_init(__global void* mem, uint packet_size, uint max_packets) {
+  __global pipe_control_intel_t* pipe_ctrl = mem;
+  pipe_ctrl->pipe_max_packets_plus_one = max_packets + 1;
+}
 
 ALWAYS_INLINE static uint advance(__global pipe_control_intel_t *p, uint base,
                                   uint stride) {
