@@ -85,7 +85,7 @@ void VPOUtils::addNoFeatureOutline(CallInst *Call) {
 
 CallInst *VPOUtils::createMaskedGatherCall(Module *M,
                                                    Value *VecPtr,
-                                                   IRBuilder<> *Builder,
+                                                   IRBuilder<> &Builder,
                                                    unsigned Alignment,
                                                    Value *Mask,
                                                    Value *PassThru)
@@ -130,7 +130,7 @@ CallInst *VPOUtils::createMaskedGatherCall(Module *M,
 
   Arguments.push_back(PassThru);
 
-  NewCallInst = Builder->CreateCall(Intrinsic, Arguments);
+  NewCallInst = Builder.CreateCall(Intrinsic, Arguments);
   addNoFeatureOutline(NewCallInst);
 
   return NewCallInst;
@@ -139,7 +139,7 @@ CallInst *VPOUtils::createMaskedGatherCall(Module *M,
 CallInst *VPOUtils::createMaskedScatterCall(Module *M,
                                                     Value *VecPtr,
                                                     Value *VecData,
-                                                    IRBuilder<> *Builder,
+                                                    IRBuilder<> &Builder,
                                                     unsigned Alignment,
                                                     Value *Mask)
 {
@@ -178,8 +178,30 @@ CallInst *VPOUtils::createMaskedScatterCall(Module *M,
 
   Arguments.push_back(Mask);
 
-  NewCallInst = Builder->CreateCall(Intrinsic, Arguments);
+  NewCallInst = Builder.CreateCall(Intrinsic, Arguments);
   addNoFeatureOutline(NewCallInst);
 
+  return NewCallInst;
+}
+
+CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
+                                         IRBuilder<> &Builder,
+                                         unsigned Alignment,
+                                         Value *Mask,
+                                         Value *PassThru) {
+  auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, Alignment, Mask,
+                                               PassThru);
+  addNoFeatureOutline(NewCallInst);
+  return NewCallInst;
+}
+
+CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
+                                          Value *VecData,
+                                          IRBuilder<> &Builder,
+                                          unsigned Alignment,
+                                          Value *Mask) {
+  auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr, Alignment,
+                                                Mask);
+  addNoFeatureOutline(NewCallInst);
   return NewCallInst;
 }
