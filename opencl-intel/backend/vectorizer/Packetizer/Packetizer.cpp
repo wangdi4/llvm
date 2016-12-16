@@ -31,6 +31,10 @@ cl::opt<bool>
 EnableScatterGatherSubscript("subscript", cl::init(false), cl::Hidden,
   cl::desc("Enable vectorized scatter/gather operations"));
 
+cl::opt<bool>
+EnableScatterGatherPrefetch("subscript-prefetch", cl::init(false), cl::Hidden,
+  cl::desc("Enable vectorized scatter/gather prefetch operations. Works only with enabled gathers/scatters"));
+
 static cl::opt<bool>
 EnableScatterGatherSubscript_v4i8("subscript-v4i8", cl::init(false), cl::Hidden,
   cl::desc("Enable vectorized scatter/gather operations on v4i8 data types"));
@@ -137,6 +141,7 @@ PacketizeFunction::PacketizeFunction(Intel::ECPU Cpu,
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
   UseScatterGather = Intel::CPUId::HasGatherScatter(m_Cpu) || EnableScatterGatherSubscript;
+  UseScatterGatherPrefetch = UseScatterGather && (Intel::CPUId::HasGatherScatterPrefetch(m_Cpu) || EnableScatterGatherPrefetch);
   m_vectorizedDim = vectorizationDimension;
   m_rtServices = NULL;
 
@@ -1532,6 +1537,10 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   if (UseScatterGather && MO.Index) {
     V_ASSERT(MO.Base && "Index w/o base");
     // If we were able to generate scatter\gather update VCM and return.
+    // widenScatterGatherOp is capable of widening scatter/gather prefetches as well.
+    // In case we do not want to widen prefetches, filter them out:
+    if (MO.type == PREFETCH && !UseScatterGatherPrefetch)
+      return;
     if (Instruction *Scat =  widenScatterGatherOp(MO)) {
       createVCMEntryWithVectorValue(MO.Orig, Scat);
       m_removedInsts.insert(MO.Orig);
