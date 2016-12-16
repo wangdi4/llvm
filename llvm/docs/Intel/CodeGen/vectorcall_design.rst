@@ -189,139 +189,42 @@ identify HVA structures.
 My proposal
 -----------
 
-Clang Updates
-~~~~~~~~~~~~~
+The ABI in LLVM IR must provide argument position. The information is
+important in order to allocate the correct physical register.
 
-The following section suggests the required changes to Clang.
+The information can be achieved by passing HVA structures by value. It
+will replace the existing expansion of the HVA structure arguments.
 
-Passing arguments
-^^^^^^^^^^^^^^^^^
+For Example:
 
-    The ABI in LLVM IR must provide argument position. The information
-    is important in order to allocate the correct physical register.
+Instead of: *define x86\_regcallcc i32 @foo(\_\_m256 %a.0, \_\_m256
+%a.1, \_\_m256 %a.2);*
 
-    The information can be achieved by passing HVA structures by value.
-    It will replace the existing expansion of the HVA structure
-    arguments.
+Pass the following: *define x86\_regcallcc i32 @foo(%struct.hva3 %a);*
 
-    For Example:
+CodeGen needs to know if the structure is an HVA.
 
-    Instead of: * define x86\_regcallcc i32 @foo(\_\_m256 %a.0, \_\_m256 %a.1, \_\_m256 %a.2); *
+There are four options to do that:
 
-    Pass the following: * define x86\_regcallcc i32 @foo(%struct.hva3 %a); *
+1. CodeGen will analyze the structures just like currently done in clang in order to identify HVA structures
 
-    CodeGen needs to know if the structure is an HVA.
+2. CodeGen can assume that structure arguments passed by value (not expended) are HVA structures
 
-    There are two options:
+3. Clang will use an existing attribute that will mark that this HVA should be passed in registers.
 
--  CodeGen will analyze the structures just like currently done in clang
-   in order to identify HVA structures
+4. Clang will pass a new attribute that will indicate if this is an HVA structure that should be expended and passed in register
 
--  Clang will pass an attribute that will indicate if this is an HVA
-   structure that should be expended and passed in register. Such an
-   attribute could be an existing (Like InReg) or a new attribute.
+I propose to use the third option.
 
-    I believe that second option is preferred. Since InReg attribute is
-    target specific and it is not used for other purposes, I think we
-    can use it. Also it implies that the structure should be passed in
-    register.
+The existing attribute "InReg" has similar meaning (argument should be saved in register) and is defined to be target specific.
 
-Returning Arguments
-^^^^^^^^^^^^^^^^^^^
+Other reasons why I prefer this option are:
 
-    Returned HVA structures should be expended by clang.
+- Avoiding code duplication between clang and codegen
 
-CodeGen Updates
-~~~~~~~~~~~~~~~
+- Avoiding making assumptions that are not necessarily true (for example in "long double \_Complex" case which is passed by structure as well) or might be violated in the future
 
-The following section suggests the required changes to CodeGen.
+- Avoiding adding new keywords that are not necessary.
 
-Passing Arguments
-^^^^^^^^^^^^^^^^^
-
-    The following changes should be applied to the argument analysis
-    rounds.
-
-    Add a new method to CCState:
-
-    - A new method will check if a register is a shadow register
-
-    -- It will check if it exists in CCState.Locs list
-
-    *The algorithm*
-
-    It uses a new internal flag (second\_vectorcall\_round) in CodeGen
-    to mark the seocnd round of vectorcall.
-
-    It uses a new internal flag (hva\_start) to mark the first vector in
-    an HVA structure.
-
-    Two parameter analysis rounds (instead of one) will be performed:
-
--  On the first round we assign non HVA fields
-
--  On the second round we assign HVA fields
-
-    *Detailed algorithm*
-
-    Add the following vectorcall sequence:
-
-    - If the parameter is a vector type (HVA expended or native vector type) – call custom function
-
-    -- If second\_vectorcall\_round is set
-
-    --- Assign available XMM register (include shadow registers)
-
-    Clang ensures that a register is available
-
-    --- finish argument round
-
-    -- If this is an HVA (InReg attribute set)
-
-    --- If the parameter is hva\_start
-
-    ---- If original parameter position <= 6
-
-    ----- Assign shadow XMM register
-
-    ---- If original parameter position <= 4
-
-    ----- Assign shadow GPR register
-
-    --- finish argument round
-
-    -- If this is not an HVA (no InReg attribute set)
-
-    --- If original parameter position <= 6
-
-    ---- Assign XMM register
-
-    --- If original parameter position <= 4
-
-    ---- Assign shadow GPR register
-
-    - If the value is assigned to stack
-
-    -- Assign shadow XMM4 register
-
--  Notice that parameters with position >=5 can be assigned to stack
-
--  This assignment is for the special case in which the fifth argument
-   is passed in stack while the sixth should be pass through XMM5 (the
-   sixth XMM)
-
--  Even if we mark XMM4 as shadow for arguments in position > 5, it will
-   not harm the shadow logic since no further (non-shadow) XMM/GPR
-   allocations are expected
-
-    The change should be integrated into AnalyzeFormalArguments and
-    AnalyzeCallOperands.
-
-    When going over the arguments (in LowerCall and LowerFormalArgument)
-    we add a shadow stack space as required.
-
-Returning Arguments
-^^^^^^^^^^^^^^^^^^^
-
-    Return calling convention can simply pass return values in XMM
-    registers and no major changes are required.
+In case we encounter a structure passed by value with an InReg flag set,
+we can surely assume that this is an HVA.

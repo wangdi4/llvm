@@ -18,6 +18,7 @@ Xmain
    Analysis/index
    CodeGen/index
    Clang/index
+   GapAnalysis/index
 
 Introduction
 ============
@@ -94,3 +95,6 @@ Major Components
 
 :doc:`Clang <Clang/index>`
    Container for Clang documents.
+
+:doc:`GapAnalysis <GapAnalysis/index>`
+   Documents xmain performance and functional gaps for replacing ICC.

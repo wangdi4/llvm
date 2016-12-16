@@ -1,0 +1,273 @@
+===============
+Functional gaps
+===============
+
+.. contents::
+   :local:
+
+Deprecated Features
+===================
+
+This is the list of features that have been decided not to be supported by xmain.
+
+.. _knc:
+
+KNC
+---
+KNC processor is not going to be supported by xmain.
+
+*Recommended Change*:
+We should deprecate all test that target KNC processor.
+
+*Note*:
+We currently don't have a mapping to the list of tests.
+
+*Dec'6 2016 Meeting Notes*:
+
+- Recommendation approved
+
+.. _ext_gather_scatter_intrinsics:
+
+Extended Gather/Scatter Intrinsics
+----------------------------------
+The extended gather/scatter intrinsics were defined for KNC. For AVX3 only the null upconversions are supported.
+Since xmain is not planned to support KNC HW, it does not make sense to support the extended versions of the gather scatter intrinsics.
+
+*Here is the detailed list of intrinsics*:
+
+.. code-block:: c
+
+ void _mm512_i32extscatter_epi32 (void * mv, __m512i index, __m512i v1, _MM_DOWNCONV_EPI32_ENUM conv, int scale, int hint)
+ void _mm512_mask_i32extscatter_epi32 (void * mv, __mmask16 k, __m512i index, __m512i v1, _MM_DOWNCONV_EPI32_ENUM conv, int scale, int hint)
+ void _mm512_i32extscatter_ps (void * mv, __m512i index, __m512 v1, _MM_DOWNCONV_PS_ENUM conv, int scale, int scale)
+ void _mm512_mask_i32extscatter_ps (void * mv, __mmask16 k, __m512i index, __m512 v1, _MM_DOWNCONV_PS_ENUM conv, int scale, int hint)
+ void _mm512_i32loextscatter_epi64 (void * mv, __m512i index, __m512i v1, _MM_DOWNCONV_EPI64_ENUM conv, int scale, int hint)
+ void _mm512_mask_i32loextscatter_epi64 (void * mv, __mmask8 k, __m512i index, __m512i v1, _MM_DOWNCONV_EPI64_ENUM conv, int scale, int hint)
+ void _mm512_i32loextscatter_pd (void * mv, __m512i index, __m512d v1, _MM_DOWNCONV_PD_ENUM conv, int scale, int hint)
+ void _mm512_mask_i32loextscatter_pd (void * mv, __mmask8 k, __m512i index, __m512d v1, _MM_DOWNCONV_PD_ENUM conv, int scale, int hint)
+ void _mm512_mask_prefetch_i32extscatter_ps (void * mv, __mmask16 k, __m512i index, _MM_UPCONV_PS_ENUM conv, int scale, int hint)
+ void _mm512_prefetch_i32extscatter_ps (void * mv, __m512i index, _MM_UPCONV_PS_ENUM conv, int scale, int hint)
+
+ __m512i _mm512_i32extgather_epi32 (__m512i index, void const * mv, _MM_UPCONV_EPI32_ENUM conv, int scale, int hint)
+ __m512i _mm512_mask_i32extgather_epi32 (__m512i src, __mmask16 k, __m512i index, void const * mv, _MM_UPCONV_EPI32_ENUM conv, int scale, int hint)
+ __m512 _mm512_i32extgather_ps (__m512i index, void const * mv, _MM_UPCONV_PS_ENUM conv, int scale, int hint)
+ __m512 _mm512_mask_i32extgather_ps (__m512 src, __mmask16 k, __m512i index, void const * mv, _MM_UPCONV_PS_ENUM conv, int scale, int hint)
+ __m512i _mm512_i32loextgather_epi64 (__m512i index, void const * mv, _MM_UPCONV_EPI64_ENUM conv, int scale, int hint)
+ __m512i _mm512_mask_i32loextgather_epi64 (__m512i src, __mmask8 k, __m512i index, void const * mv, _MM_UPCONV_EPI64_ENUM conv, int scale, int hint)
+ __m512d _mm512_i32loextgather_pd (__m512i index, void const * mv, _MM_UPCONV_PD_ENUM conv, int scale, int hint)
+ __m512d _mm512_mask_i32loextgather_pd (__m512d src, __mmask8 k, __m512i index, void const * mv, _MM_UPCONV_PD_ENUM conv, int scale, int hint)
+ void _mm512_mask_prefetch_i32extgather_ps (__m512i index, __mmask16 k, void const * mv, _MM_UPCONV_PS_ENUM conv, int scale, int hint)
+ void _mm512_prefetch_i32extgather_ps (__m512i index, void const * mv, _MM_UPCONV_PS_ENUM conv, int scale, int hint)
+
+*Recommended Change*:
+This test has a Macro TEST_EXT_NAMES that when present validates the extended gathers and scatters.
+We should disable it when the test is being run on xmain.
+
+*Dec'6 2016 Meeting Notes*:
+
+- Recommendation reviewed, need to seek final approval for this from the product team.
+- We need to document that KNC is not supported in a section of its own - Done
+- Once we move to xmain, these intrinsics will be deprecated. 
+
+
+.. _multi_arch_cg:
+
+Multi Architecture Code Generation
+----------------------------------
+Microsoft compiler enables the usage of intrinsics of newer architectures compared to the architecture command line compilation flags used for the rest of the module.
+ICC is compatible with this behavior, llvm and gcc are not.
+Today, xmain is compatible with this behavior. However, the implemetation is incomplete, as we still have some cases failing, non performant, and fragile. xmain relies on llvm's ability to specify the target architecture at function level and outlines basic blocks containing the newer intrinsics to separate function. The new functions are marked with the required architecture that satisfies the newer intrinsics. So in reality, xmain introduces a function call overhead that is not expected by the developer. Another issue, is the conflict between the outlining mechanism which executes after the vectorizer. The underlying issue is that the outliner outlines vector values which were generated by the vectorizer and marks them with a newer target architecture. This is of course a functioality issue. In addition, the feature relies on llvm.assume intrinsic. In the past we have seen this intrinsic implementation break in llvm.org causing the entire feature to become broken for a while. The conclusion is that this feature requires redesign. 
+
+*solution #1*
+The clean and proper way of implementing this feature is by extending llvm codegen infrastructure to be able to define its target architecture on a per basic block. This will provide the promised functionality and performance guarantees of the feature. During the last November 2016 llvm developers' conference Amjad discussed this option with Reid Kleckner and Michael Kuperstein from Google. Both of them did not see the Microsoft compatiblity as a good enough reason for such a drastic change in llvm and wanted stronger reasoning for this. According to them, llvm provides the good enough tools for developers to avoid this scenario. In their opinion, developers should flavor their code at a function level basis and not at a basic block level. Ofcourse, we cannot implement such a big change and not open source it as pull downs will become difficult to handle. This option is probably a dead end. 
+
+
+*solution #2*
+The less ideal alternative is to continue using the outlining approach. However, move the outlining pass to earlier stage in compilation flow. In this approach, the feature remains proprietry to xmain.  
+
+*solution #3*
+This is a hybrid solution. The user will be able to call intrinsics and the compiler will auto detect the usage of a newer architecture compared to the compilaiton flag and mark the function with the new target architure.
+This approach is not recommended, as it is not compatible with any of the other compilers, and introduces yet another new behavior. This is not desired.
+
+*Recommended Change*:
+Deprecate this feature completely, unless there is a strong customer need that justifies the effort of redesign / maintenance in llvm.
+
+*Open*
+Need to get the full list of tests that cover this feature.
+
+*Dev 12 2016 Meeting Notes*
+
+- Recommendation is reviewed.
+- Need a ratification from the product team / Alice to approve.
+
+
+Gaps: Missing Features
+======================
+
+This is the list of features which are still not supported by xmain but are needed in order to replace xmain.i
+
+.. _decimal_float:
+
+Decimal Float
+-------------
+This is a gcc extension, clang does not support decimal floating point types (_Decimal32 and friends) or fixed-point types (_Fract and friends); nobody has expressed interest in these features yet, so it’s hard to say when they will be implemented.
+The statement is taken from the `clang documentation <http://clang.llvm.org/docs/UsersManual.html#gcc-extensions-not-implemented-yet>`_ 
+
+*Recommended Change*:
+We probably need to support this, at the moment we will document it as a gap and disable tests that test this feature.
+We should revisit this decision later, again.
+
+*Note*:
+The list of tests was extracted using the <attribute attributeName="Extension" value="decimalFloat" /> attribute in the QA testing framework.
+
+*Dec'6 2016 Meeting Notes*:
+
+- Original recommendation was to disable it, the technical forum did not agree with this recommendation as it is a a part of IEEE 754 and we should support it for xmain completeness.
+- Discuss with the numerics team (Marius and Nikita) to see whether we need to support it.
+- Move it to the gaps section - Done.
+- Disable the relevant tests until the feature is implemented.
+- Recommendation is approved.
+
+.. _fortran:
+
+Fortran
+-------
+*Recommended Change*:
+This is a known gap.
+Skip these test in xmain configurations to save resources until the feature is implemented.
+
+*Note*:
+The list of tests was extracted using the <attribute attributeName="fortran" value="true" /> attribute in the QA testing framework.
+
+*Dec'6 2016 Meeting Notes*:
+
+- Recommendation is approved.
+
+
+.. _mpx:
+
+MPX
+---
+Intel MPX (Memory Protection Extensions) is not supported by xmain. This topic is related to the :ref:`Check Pointers <checkpointer>`
+
+*Recommended Change*:
+
+- Treat this feature as a gap.
+- Disable the test in xmain configurations to save resources until the feature is implemented.
+
+
+.. _checkpointer:
+
+Check Pointers
+--------------
+Determines whether the compiler checks bounds for memory access through pointers.
+Includes the following compiler flags:
+
+- `-check-pointers <https://software.intel.com/en-us/node/523143>`_ Determines whether the compiler checks bounds for memory access through pointers.
+- `-check-pointers-dangling <https://software.intel.com/en-us/node/523144>`_ Determines whether the compiler checks for dangling pointer references
+- `-check-pointers-mpx <https://software.intel.com/en-us/node/523145>`_ Determines whether the compiler checks bounds for memory access through pointers on processors that support Intel® Memory Protection Extensions (Intel® MPX).
+- `-check-pointers-narrowing <https://software.intel.com/en-us/node/523146>`_ Determines whether the compiler enables or disables the narrowing of pointers to structure fields.
+- `-check-pointers-undimensioned <https://software.intel.com/en-us/node/523147>`_ Determines whether the compiler checks bounds for memory access through arrays that are declared without dimensions.
+
+
+*Recommended Change*:
+Treat this feature as a gap.
+Skip these test in xmain configurations to save resources until the feature is implemented.
+
+*Note*:
+The list of tests was extracted using the <attribute attributeName="CheckPointer" value="true" /> attribute in the QA testing framework.
+
+*Dec'12 2016 Meeting Notes*:
+
+- This is a gap.
+- The next step is to decide how to approach this gap. Can llvm's address sanitizer be a good replacement to meet the requirements?
+- Was this already discussed in the past when Kevin was around? we should try to find the CQ.
+- MPX needs a section of its own (software pointers vs hardware pointers checking).
+- Recommendation is reviewed.
+
+.. _biendian:
+
+BiEndian
+--------
+This is a known gap.
+*Recommended Change*:
+Disable the tests in  xmain configurations to save resources until the feature is implemented.
+
+*Note*:
+The list of tests was extracted using the <attribute attributeName="biendian" value="true" /> attribute in the QA testing framework.
+
+*Dec'6 2016 Meeting Notes*:
+
+- This is a gap
+- Recommendation is approved.
+
+.. _cilk:
+
+Cilk
+----
+Cilk tests 
+
+*Recommended Change*:
+Cilk is going to be treated as a gap. Until the features are implemented the relevant tests should be disabled.
+
+*Note*:
+The list of tests was extracted using the <attribute attributeName="cilk" value="pragma_simd_assert"/> and <attribute attributeName="cilk" value="pragma_simd_vectorlengthfor"/> attributes in the QA testing framework.
+
+
+*Dec'6 2016 Meeting Notes*:
+
+Cilk should be divided into 3 categories:
+
+1. cilk_for, cilk_spawn, cilk_sync: Those will probably be deprecated and go away. Need to consult with the cilk runtime + cfe (Bob Monteleone)
+2. C Array notation: Dave is not sure these should be deprecated. Need to consult with the vectorizer team (Xinmin + Hideki)
+3. simd pragma: might be replaced by OpenMP 5.0. Need to consult with the vectorizer team (Xinmin + Hideki)
+
+Actions:
+
+- Treat them as gaps
+- Turn off the tests that cover functionality that is not yet implemented in xmain. 
+- Recommendation is reviewed
+
+Feature Review Status
+=====================
+This table holds the status of the review  
+
+=========================================================================   =============     =====================================================================
+ Item                                                                       Status             JIRA
+=========================================================================   =============     =====================================================================
+:ref:`KNC support <knc>`                                                    Approved           `LCPT-194 <https://jira01.devtools.intel.com/browse/LCPT-195>`_
+:ref:`Extended Gather\Scatter intrinsics <ext_gather_scatter_intrinsics>`   Reviewed           `LCPT-198 <https://jira01.devtools.intel.com/browse/LCPT-198>`_
+:ref:`Cilk <cilk>`                                                          Reviewed           `LCPT-202 <https://jira01.devtools.intel.com/browse/LCPT-202>`_ 
+:ref:`BiEndian <biendian>`                                                  Approved           `LCPT-199 <https://jira01.devtools.intel.com/browse/LCPT-199>`_
+:ref:`Multi Arch CG <multi_arch_cg>`                                        Reviewed           `LCPT-210 <https://jira01.devtools.intel.com/browse/LCPT-210>`_
+:ref:`Fortran <fortran>`                                                    Approved           `LCPT-200 <https://jira01.devtools.intel.com/browse/LCPT-200>`_
+:ref:`Check Pointers <checkpointer>`                                        Reviewed
+:ref:`MPX <mpx>`                                                            Not Reviewed
+:ref:`Decimal Float <decimal_float>`                                        Approved           `LCPT-201 <https://jira01.devtools.intel.com/browse/LCPT-201>`_
+=========================================================================   =============     =====================================================================
+
+*Possible Status*:
+
+- *Not Reviewed*: Recommended change not reviewed. 
+- *Reviewed*: Recommendation reviewed and agreed by the technical team.
+- *Approved*: Recommendation approved by the product team but recommended change still did not happen.
+- *Done*: Recommendation approved and change applied.
+
+The list of tests can be found in this :download:`csv file <tests_list.csv>`
+
+Meeting Minutes Summary
+=======================
+
+*Dec'6th 2016*
+
+- We have reviewed and approved the review process and structure of the documentation.
+- Since some of the items might take time to approve by the product team, we have added *Reviewed* review status. This status allows us to document a decision made in the technical review forum before approved by the product team.
+- We have reviewed :ref:`Extended Gather\Scatter intrinsics <ext_gather_scatter_intrinsics>`, :ref:`Cilk <cilk>`, :ref:`BiEndian <biendian>`, :ref:`Fortran <fortran>`, :ref:`Decimal Float <decimal_float>`
+
+*Dec'12 2016*
+
+- We have reviewed :ref:`Check Pointers <checkpointer>`, :ref:`Multi Arch CG <multi_arch_cg>`.
+
+
+
+
