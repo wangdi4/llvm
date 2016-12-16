@@ -1380,6 +1380,122 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
   }
 }
 
+#ifdef INTEL_CUSTOMIZATION
+
+//
+// Return 'true' if 'F' is a varags functions which can be inlined. 
+// (Note: Potentially we could make an attribute for this to save compile
+// time, but since it is only called for VarArgs functions, it may not be
+// worth it.) 
+//
+static bool TestVaArgPackAndLen(const Function &F)
+{
+  for (const BasicBlock &BB : F) {
+    for (const Instruction &I : BB) {
+      if (auto *II = dyn_cast<IntrinsicInst>(&I)) { 
+        switch (II->getIntrinsicID()) {
+        case Intrinsic::vastart: 
+        case Intrinsic::vacopy: 
+        case Intrinsic::vaend: 
+          return false; 
+        default:
+          break;
+        } 
+      } 
+      else if (auto *CI = dyn_cast<CallInst>(&I)) { 
+        if (CI->isMustTailCall() && F.isVarArg()) { 
+          // 
+          // This is an unusual case of the varargs being implicitly 
+          // forwarded from the caller to the callee.  Give up on this
+          // for now, and handle it in a later change set.
+          //
+          return false; 
+        } 
+      } 
+    }
+  }
+  return true;  
+} 
+
+//
+// Handle varargs builtins "llvm.va_arg_pack" and "llvm.va_arg_pack_len".
+//
+static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI)
+{
+  Function* Caller = CS.getCaller(); 
+  Function* CalledFunc = CS.getCalledFunction(); 
+  
+  // Find all instances of "llvm.va_arg_pack" and "llvm.va_arg_pack_len"
+  SmallVector<Value*, 8> 
+  VarArgs(CS.arg_begin() + CalledFunc->arg_size(), CS.arg_end());
+  SmallVector<CallInst*, 8> VaPkVec;         
+  SmallVector<CallInst*, 8> VaPkLnVec;         
+  for (BasicBlock &BB : make_range(FI->getIterator(), Caller->end())) {
+    for (auto BBI = BB.begin(), E = BB.end(); BBI != E;) { 
+      Instruction *I = &*BBI++;
+      if (auto *II = dyn_cast<IntrinsicInst>(I)) { 
+        switch (II->getIntrinsicID()) {
+        case Intrinsic::vaargpack: 
+           VaPkVec.push_back(II); 
+           break; 
+        case Intrinsic::vaargpacklen: 
+           VaPkLnVec.push_back(II); 
+           break;
+        default:
+          break;
+        } 
+      } 
+    }
+  }  
+
+  // Handle "llvm.va_arg_pack" by adding the varags args to each user
+  // of this builtin.
+  for (auto I = VaPkVec.begin(), E = VaPkVec.end(); I != E; I++) {
+    CallInst *II = *I; 
+    for (auto U : II->users()) { 
+      if (auto CI = dyn_cast<CallInst>(U)) { 
+        SmallVector<Value*, 8> Args(CI->arg_begin(), CI->arg_end() - 1);
+        Args.insert(Args.end(), VarArgs.begin(), VarArgs.end());
+        SmallVector<OperandBundleDef, 1> OpBundles;
+        CI->getOperandBundlesAsDefs(OpBundles);
+        auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, 
+          "", CI);
+        NewI->takeName(CI);
+        NewI->setCallingConv(CI->getCallingConv());
+        NewI->setAttributes(CI->getAttributes());
+        NewI->setDebugLoc(CI->getDebugLoc());
+        CI->replaceAllUsesWith(NewI);
+        CI->eraseFromParent(); 
+      } 
+      else if (auto CI = dyn_cast<InvokeInst>(U)) {
+        SmallVector<Value*, 8> Args(CI->arg_begin(), CI->arg_end() - 1);
+        Args.insert(Args.end(), VarArgs.begin(), VarArgs.end());
+        SmallVector<OperandBundleDef, 1> OpBundles;
+        CI->getOperandBundlesAsDefs(OpBundles);
+        auto NewI = InvokeInst::Create(CI->getCalledValue(), 
+          CI->getNormalDest(), CI->getUnwindDest(), Args, OpBundles, "", CI);
+        NewI->takeName(CI);
+        NewI->setCallingConv(CI->getCallingConv());
+        NewI->setAttributes(CI->getAttributes());
+        NewI->setDebugLoc(CI->getDebugLoc());
+        CI->replaceAllUsesWith(NewI);
+        CI->eraseFromParent(); 
+      } 
+    }
+    II->eraseFromParent();  
+  } 
+
+  // Handle "llvm.va_arg_pack_len" by replacing it with the number of varags.
+  for (auto I = VaPkLnVec.begin(), E = VaPkLnVec.end(); I != E; I++) {
+    CallInst *II = *I; 
+    uint64_t Ln = CS.arg_size() - CalledFunc->arg_size();
+    auto VaPkLn = ConstantInt::get(II->getType(), Ln);
+    II->replaceAllUsesWith(VaPkLn); 
+    II->eraseFromParent(); 
+  }   
+} 
+#endif // INTEL_CUSTOMIZATION
+
 /// This function inlines the called function into the basic block of the
 /// caller. This returns false if it is not possible to inline this call.
 /// The program is still in a well defined state if this occurs though.
@@ -1417,10 +1533,14 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       *Reason = NinlrExtern; 
       return false; 
     }
+
     assert(CalledFunc->getFunctionType()->isVarArg()); 
-    // Can't inline call to a vararg function!
-    *Reason = NinlrVarargs;
-    return false; 
+
+    if (!TestVaArgPackAndLen(*CalledFunc)) { 
+      // Can't inline certain varargs calls
+      *Reason = NinlrVarargs; 
+      return false; 
+    } 
 #endif // INTEL_CUSTOMIZATION
   } // INTEL 
 
@@ -1557,9 +1677,6 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
     auto &DL = Caller->getParent()->getDataLayout();
 
-    assert(CalledFunc->arg_size() == CS.arg_size() &&
-           "No varargs calls can be inlined!");
-
     // Calculate the vector of arguments to pass into the function cloner, which
     // matches up the formal to the actual argument values.
     CallSite::arg_iterator AI = CS.arg_begin();
@@ -1682,8 +1799,10 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
             if (II->getIntrinsicID() == Intrinsic::assume)
               (*IFI.GetAssumptionCache)(*Caller).registerAssumption(II);
         }
-  }
 
+    HandleVaArgPackAndLen(CS, FirstNewBlock); // INTEL 
+  } 
+    
   // If there are any alloca instructions in the block that used to be the entry
   // block for the callee, move them to the entry block of the caller.  First
   // calculate which instruction they should be inserted before.  We insert the
