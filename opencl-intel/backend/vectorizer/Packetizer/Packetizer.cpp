@@ -28,15 +28,15 @@ CLIPacketSize("packet-size", cl::init(0), cl::Hidden,
   cl::desc("force packetization size"));
 
 cl::opt<bool>
-EnableScatterGatherSubscript("subscript", cl::init(false), cl::Hidden,
+EnableScatterGather("gather-scatter", cl::init(false), cl::Hidden,
   cl::desc("Enable vectorized scatter/gather operations"));
 
 cl::opt<bool>
-EnableScatterGatherPrefetch("subscript-prefetch", cl::init(false), cl::Hidden,
+EnableScatterGatherPrefetch("gather-scatter-prefetch", cl::init(false), cl::Hidden,
   cl::desc("Enable vectorized scatter/gather prefetch operations. Works only with enabled gathers/scatters"));
 
 static cl::opt<bool>
-EnableScatterGatherSubscript_v4i8("subscript-v4i8", cl::init(false), cl::Hidden,
+EnableScatterGather_v4i8("gather-scatter-v4i8", cl::init(false), cl::Hidden,
   cl::desc("Enable vectorized scatter/gather operations on v4i8 data types"));
 
 // Before packetizing memory operations, replace aligment of zero with an
@@ -140,7 +140,7 @@ PacketizeFunction::PacketizeFunction(Intel::ECPU Cpu,
   m_noVectorFuncCtr = 0;
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
-  UseScatterGather = Intel::CPUId::HasGatherScatter(m_Cpu) || EnableScatterGatherSubscript;
+  UseScatterGather = Intel::CPUId::HasGatherScatter(m_Cpu) || EnableScatterGather;
   UseScatterGatherPrefetch = UseScatterGather && (Intel::CPUId::HasGatherScatterPrefetch(m_Cpu) || EnableScatterGatherPrefetch);
   m_vectorizedDim = vectorizationDimension;
   m_rtServices = NULL;
@@ -982,7 +982,7 @@ bool PacketizeFunction::isGatherScatterType(bool masked,
   Type *ElemTy = VecTy->getElementType();
   if ((m_Cpu == Intel::CPU_KNL || m_Cpu == Intel::CPU_SKX) && ElemTy->getPrimitiveSizeInBits() < 32)
     return false;
-  if (EnableScatterGatherSubscript_v4i8 &&
+  if (EnableScatterGather_v4i8 &&
       (NumElements == 4) &&
       (ElemTy->isIntegerTy(8)))
     return true;
