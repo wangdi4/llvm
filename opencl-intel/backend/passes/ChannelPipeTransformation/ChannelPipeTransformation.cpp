@@ -45,7 +45,7 @@ static void createPipeBackingStore(Module &M,
                                    ValueToValueMap &PipeToBSMap) {
   Type *Int8Ty = IntegerType::getInt8Ty(M.getContext());
   for (auto KV : ChannelToPipeMap) {
-    auto *PipeOpaquePtr = dyn_cast<GlobalVariable>(KV.second);
+    auto *PipeOpaquePtr = cast<GlobalVariable>(KV.second);
     // TODO: asavonic: store depth, packet_size and packet_align in metadata for
     // pipes and channels
     size_t BSSize = pipe_get_total_size(4, 1);
@@ -83,13 +83,13 @@ Function *createPipesCtor(Module &M,
     assert(PipeInit && "__pipe_init() not found in RTL.");
     return nullptr;
   } else {
-    PipeInit = dyn_cast<Function>(
+    PipeInit = cast<Function>(
         CompilationUtils::importFunctionDecl(&M, PipeInit));
   }
 
   auto *CtorTy = FunctionType::get(Type::getVoidTy(M.getContext()),
                                    ArrayRef<Type *>(), false);
-  Function *Ctor = dyn_cast<Function>(
+  Function *Ctor = cast<Function>(
       M.getOrInsertFunction("__global_pipes_ctor", CtorTy));
   Ctor->setLinkage(GlobalValue::ExternalLinkage);
 
@@ -112,7 +112,7 @@ Function *createPipesCtor(Module &M,
     };
     Builder.CreateCall(PipeInit, CallArgs);
     Builder.CreateStore(
-        Builder.CreateBitCast(BS, dyn_cast<PointerType>(
+        Builder.CreateBitCast(BS, cast<PointerType>(
                                   PipeGlobal->getType())->getElementType()),
         PipeGlobal);
   }
@@ -204,13 +204,13 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
 
     auto *ReadPipe = &Replacement;
     if (Replacement.getParent() != &M) {
-      ReadPipe = dyn_cast<Function>(
+      ReadPipe = cast<Function>(
           CompilationUtils::importFunctionDecl(&M, &Replacement));
     }
     auto *ReadPipeFTy = ReadPipe->getFunctionType();
 
     // discover the global value, from where our channel argument came from
-    Value *ChanGlobal = dyn_cast<LoadInst>(ChanArg)->getPointerOperand();
+    Value *ChanGlobal = cast<LoadInst>(ChanArg)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
 
     Value *PipeCallArgs[] = {
@@ -255,13 +255,13 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
 
     auto *WritePipe = &Replacement;
     if (Replacement.getParent() != &M) {
-      WritePipe = dyn_cast<Function>(
+      WritePipe = cast<Function>(
           CompilationUtils::importFunctionDecl(&M, &Replacement));
     }
     auto *WritePipeFTy = WritePipe->getFunctionType();
 
     // discover the global value, from where our channel argument came from
-    Value *ChanGlobal = dyn_cast<LoadInst>(Chan)->getPointerOperand();
+    Value *ChanGlobal = cast<LoadInst>(Chan)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
 
     Value *ValPtr = new AllocaInst(Val->getType(), "",
