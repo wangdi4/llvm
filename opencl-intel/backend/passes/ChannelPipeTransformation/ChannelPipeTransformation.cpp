@@ -8,7 +8,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <llvm/ADT/SmallString.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/IR/IRBuilder.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
+#include <llvm/Transforms/Utils/ModuleUtils.h>
 
 #include <BuiltinLibInfo.h>
 #include <CompilationUtils.h>
@@ -16,10 +18,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 
+#include <PipeCommon.h>
+
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
-typedef DenseMap<const Value*, Value*> ValueToValueMap;
+typedef DenseMap<Value*, Value*> ValueToValueMap;
 
 namespace intel {
 
@@ -36,7 +40,90 @@ OCL_INITIALIZE_PASS_END(ChannelPipeTransformation, "channel-pipe-transformation"
 ChannelPipeTransformation::ChannelPipeTransformation() : ModulePass(ID) {
 }
 
-static bool createPipeGlobals(Module &M, ValueToValueMap &ChannelToPipeMap) {
+static void createPipeBackingStore(Module &M,
+                                   const ValueToValueMap &ChannelToPipeMap,
+                                   ValueToValueMap &PipeToBSMap) {
+  Type *Int8Ty = IntegerType::getInt8Ty(M.getContext());
+  for (auto KV : ChannelToPipeMap) {
+    auto *PipeOpaquePtr = dyn_cast<GlobalVariable>(KV.second);
+    // TODO: asavonic: store depth, packet_size and packet_align in metadata for
+    // pipes and channels
+    size_t BSSize = pipe_get_total_size(4, 1);
+    auto *ArrayTy = ArrayType::get(Int8Ty, BSSize);
+
+    SmallString<16> NameStr;
+    auto BSName =
+      (PipeOpaquePtr->getName() + ".bs").toStringRef(NameStr);
+
+    auto *PipeBS = new GlobalVariable(M, ArrayTy, /*isConstant=*/false,
+                                      PipeOpaquePtr->getLinkage(),
+                                      /*initializer=*/nullptr,
+                                      BSName,
+                                      /*InsertBefore=*/nullptr,
+                                      GlobalValue::NotThreadLocal,
+                                      Utils::OCLAddressSpace::Global);
+
+    PipeBS->setInitializer(ConstantAggregateZero::get(ArrayTy));
+    // TODO: asavonic: alignment from metadata
+    PipeBS->setAlignment(4);
+    PipeToBSMap[PipeOpaquePtr] = PipeBS;
+  }
+}
+
+static
+Function *createPipesCtor(Module &M,
+                          const ValueToValueMap &PipeToBSMap,
+                          const SmallVectorImpl<Module *> &BuiltinModules) {
+  Function *PipeInit = nullptr;
+  for (auto &BIModule : BuiltinModules) {
+    if ((PipeInit = BIModule->getFunction("__pipe_init")))
+      break;
+  }
+  if (!PipeInit) {
+    assert(PipeInit && "__pipe_init() not found in RTL.");
+    return nullptr;
+  } else {
+    PipeInit = dyn_cast<Function>(
+        CompilationUtils::importFunctionDecl(&M, PipeInit));
+  }
+
+  auto *CtorTy = FunctionType::get(Type::getVoidTy(M.getContext()),
+                                   ArrayRef<Type *>(), false);
+  Function *Ctor = dyn_cast<Function>(
+      M.getOrInsertFunction("__global_pipes_ctor", CtorTy));
+  Ctor->setLinkage(GlobalValue::ExternalLinkage);
+
+  BasicBlock* CtorEntry = BasicBlock::Create(M.getContext(), "entry", Ctor);
+  IRBuilder<> Builder(CtorEntry);
+
+  for (const auto &PipeBSPair : PipeToBSMap) {
+    Value *PipeGlobal = PipeBSPair.first;
+    Value *BS = PipeBSPair.second;
+
+    // auto *BSPtr = Builder.CreateLoad(, /*isVolatile=*/false);
+
+    Value *CallArgs[] = {
+      Builder.CreateBitCast(BS, PointerType::get(
+                                IntegerType::getInt8Ty(M.getContext()),
+                                Utils::OCLAddressSpace::Global)),
+      // TODO: packet size and alignment
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), 4),
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), 4)
+    };
+    Builder.CreateCall(PipeInit, CallArgs);
+    Builder.CreateStore(
+        Builder.CreateBitCast(BS, dyn_cast<PointerType>(
+                                  PipeGlobal->getType())->getElementType()),
+        PipeGlobal);
+  }
+
+  Builder.CreateRetVoid();
+
+  return Ctor;
+}
+
+static bool createPipeGlobals(Module &M, ValueToValueMap &ChannelToPipeMap,
+                              SmallVectorImpl<Module *> &BuiltinModules) {
   auto *ChannelTy = M.getTypeByName("opencl.channel_t");
   if (!ChannelTy) {
     return false;
@@ -48,18 +135,17 @@ static bool createPipeGlobals(Module &M, ValueToValueMap &ChannelToPipeMap) {
   auto *PipeTy = StructType::create(M.getContext(), "opencl.pipe_t");
   auto *PipePtrTy = PointerType::get(PipeTy, Utils::OCLAddressSpace::Global);
 
-  SmallVector<const GlobalVariable *, 32> ChannelGlobals;
-  for (const auto &GV : M.globals()) {
+  SmallVector<GlobalVariable *, 32> ChannelGlobals;
+  for (auto &GV : M.globals()) {
     if (GV.getType() == ChannelPtrPtrTy) {
       ChannelGlobals.push_back(&GV);
     }
   }
 
   for (auto *GV : ChannelGlobals) {
-    StringRef Name = GV->hasName() ? GV->getName() : "";
     SmallString<16> NameStr;
+    auto PipeGVName = ("pipe." + GV->getName()).toStringRef(NameStr);
 
-    auto PipeGVName = ("pipe." + Name).toStringRef(NameStr);
     auto *PipeGV = M.getGlobalVariable(PipeGVName);
     if (!PipeGV) {
       PipeGV = new GlobalVariable(M, PipePtrTy, /*isConstant=*/false,
@@ -71,6 +157,13 @@ static bool createPipeGlobals(Module &M, ValueToValueMap &ChannelToPipeMap) {
     }
 
     ChannelToPipeMap[GV] = PipeGV;
+  }
+
+  ValueToValueMap PipeToBSMap;
+  createPipeBackingStore(M, ChannelToPipeMap, PipeToBSMap);
+  Function *Ctor = createPipesCtor(M, PipeToBSMap, BuiltinModules);
+  if (Ctor) {
+    appendToGlobalCtors(M, Ctor, /*Priority=*/65535);
   }
 
   return ChannelGlobals.size() > 0;
@@ -197,13 +290,13 @@ static bool replaceChannelBuiltins(Module &M,
                                    SmallVectorImpl<Module *> &BuiltinModules) {
   Function *ReadPipe = nullptr;
   Function *WritePipe = nullptr;
-  for (auto *M : BuiltinModules) {
+  for (auto *BIModule : BuiltinModules) {
     if (!ReadPipe) {
-      ReadPipe = M->getFunction("__read_pipe_2");
+      ReadPipe = BIModule->getFunction("__read_pipe_2");
     }
 
     if (!WritePipe) {
-      WritePipe = M->getFunction("__write_pipe_2");
+      WritePipe = BIModule->getFunction("__write_pipe_2");
     }
   }
 
@@ -225,12 +318,12 @@ static bool replaceChannelBuiltins(Module &M,
 
 bool ChannelPipeTransformation::runOnModule(Module &M) {
   bool Changed = false;
-  ValueToValueMap ChannelToPipeMap;
-  Changed |= createPipeGlobals(M, ChannelToPipeMap);
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
   SmallVector<Module*, 2> BuiltinModules = BLI.getBuiltinModules();
 
+  ValueToValueMap ChannelToPipeMap;
+  Changed |= createPipeGlobals(M, ChannelToPipeMap, BuiltinModules);
   Changed |= replaceChannelBuiltins(M, ChannelToPipeMap, BuiltinModules);
 
   return Changed;
