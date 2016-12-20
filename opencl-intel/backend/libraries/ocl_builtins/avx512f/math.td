@@ -23,7 +23,7 @@ OclBuiltinImpl sqrt_v16f32_impl = OclBuiltinImpl<sqrt, [v16f32], 0, [{
   }]>;
 
 OclBuiltinImpl native_sqrt_v16f32_impl = OclBuiltinImpl<native_sqrt, [v16f32], 0, [{
-    return __ocl_svml_b3_sqrtf16_native($Arg0VarName);
+    return __ocl_svml_$Target_sqrtf16_native($Arg0VarName);
   }]>;
 
 // ceil float16
