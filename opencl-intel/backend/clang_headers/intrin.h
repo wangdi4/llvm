@@ -21,6 +21,18 @@
 #ifndef __INTRIN_H__
 #define __INTRIN_H__
 
+#ifdef __OPENCL__
+#define __OCL_CAST_TO_PRIVATE(TY) (__private TY)
+#else
+#define __OCL_CAST_TO_PRIVATE(TY)
+#endif
+
+#ifdef __OPENCL__
+#define __OCL_PRIVATE_ADDR_SPACE __private
+#else
+#define __OCL_PRIVATE_ADDR_SPACE
+#endif
+
 #if defined (__MIC__) || defined(__MIC2__)
 #include <micintrin.h>
 #include <micintrin_mici64ext.h>
