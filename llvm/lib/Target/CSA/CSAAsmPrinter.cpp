@@ -362,16 +362,6 @@ void CSAAsmPrinter::EmitCsaCodeSection() {
 
 void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
 
-  if (CSAInstPrinter::WrapCsaAsm()) {
-    // Put the code in the .csa.code  section. Note that we are NOT
-    // using SwitchSection because then we'll fight with the
-    // AmsPrinter::EmitFunctionHeader
-    EmitCsaCodeSection();
-    OutStreamer->EmitRawText("\t.globl\t__csa_assembly__\n");
-    OutStreamer->EmitRawText("__csa_assembly__:\n");
-    writeAsmLine("\t.text");
-  }
-  
   /* Disabled 2016/3/31.  Long term, we should only put this out if it
    * is not autounit.  The theory is if the compiler has done tailoring
    * for a specific target, that should be reflected in the file.
