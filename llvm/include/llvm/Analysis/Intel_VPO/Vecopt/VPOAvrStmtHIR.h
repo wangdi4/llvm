@@ -130,13 +130,15 @@ public:
 /// See AVRValue class for more information.
 class AVRValueHIR : public AVRValue {
 
-protected:
+public:
   /// Information at AVR level for an AVRValueHIR that represents an IV 
   struct IVValueInfo {
+    // CanonExpr that contains the IV
     CanonExpr *CE;
-    unsigned Index;
+    // Level of the IV in the CanonExpr 
+    unsigned Level;
 
-    IVValueInfo(CanonExpr *CanonE, unsigned Idx) : CE(CanonE), Index(Idx) {}
+    IVValueInfo(CanonExpr *CanonE, unsigned Lvl) : CE(CanonE), Level(Lvl) {}
   };
 
 private:
@@ -161,20 +163,20 @@ protected:
   ///  specified by DDRef.
   AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent);
 
-  /// \brief Constructs an AVRValueHIR node for a BlobDDRef
+  /// \brief Constructs an AVRValueHIR node for an IV
   AVRValueHIR(IVValueInfo *IVV, Type *Ty, AVR *Parent);
 
   /// \brief Constructs an AVRValueHIR node for a BlobDDRef
   AVRValueHIR(BlobDDRef *DDRef, AVR *Parent);
-
-  /// \brief Constructs an AVRValueHIR node for a Constant
-  AVRValueHIR(Constant *Const, AVR *Parent);
 
   /// \brief Destructor for this object.
   virtual ~AVRValueHIR() {
     if (IVVal != nullptr)
       delete (IVVal);
   }
+
+  /// \brief Sets the IV info for this node.
+  void setIVValue(IVValueInfo *IVV) { IVVal = IVV; }
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsHIR;
@@ -195,13 +197,17 @@ public:
   /// \brief Returns »the value name of this node.
   virtual std::string getAvrValueName() const override;
 
-  /// \brief Returns whether the AVRValueHIR represents a DDRef.
+  /// \brief Returns whether the AVRValueHIR represents a DDRef.Note that
+  /// isIVValue() and isDDRefValue() are not mutually exclusive (a RegDDRef can
+  /// be a standalone IV)
   bool isDDRefValue() { return Val != nullptr && IVVal == nullptr; }
 
   /// \brief Returns the RegDDRef associated with this node.
   DDRef *getValue() { return Val; }
 
-  /// \brief Returns whether the AVRValueHIR represents an IV.
+  /// \brief Returns whether the AVRValueHIR represents an IV. Note that
+  /// isIVValue() and isDDRefValue() are not mutually exclusive (a RegDDRef
+  /// can be a standalone IV)
   bool isIVValue() { return IVVal != nullptr; }
 
   /// \brief Returns the IV info associated with this node.

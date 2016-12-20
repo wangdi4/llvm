@@ -9,7 +9,7 @@
 //
 //   Source file:
 //   ------------
-//   VPOVecoptAnalysis.cpp -- Vecopt Analysis Passes initializers.
+//   VPOAnalysis.cpp -- VPO Analysis Passes initializers.
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,6 +25,7 @@ void llvm::initializeIntel_VPOAnalysis(PassRegistry &Registry) {
   initializeAVRGenerateHIRPass(Registry);
   initializeAVRDecomposeHIRPass(Registry);
   initializeVPOPredicatorPass(Registry);
+  initializeVPOPredicatorHIRPass(Registry);
 
   initializeAvrDefUsePass(Registry);
   initializeAvrDefUseHIRPass(Registry);

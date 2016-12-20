@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-avr-generate -avr-predicate -debug -debug-only=avr-predicate -S -o /dev/null 2>&1| FileCheck %s
+; RUN: opt < %s -hir-avr-generate -hir-avr-predicate -debug -debug-only=avr-predicate -S -o /dev/null 2>&1| FileCheck %s
 ; REQUIRES: asserts
 
 ; Verify AVR predicator: if with two nested if-else statements.
@@ -123,7 +123,3 @@ declare void @llvm.intel.directive(metadata) #1
 
 attributes #0 = { noinline nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 3.9.0 (branches/vpo 20412)"}

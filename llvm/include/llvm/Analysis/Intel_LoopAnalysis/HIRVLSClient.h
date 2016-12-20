@@ -27,6 +27,7 @@
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 
 #include "llvm/Analysis/Intel_OptVLS.h"
+#include "llvm/Analysis/Intel_OptVLSClientUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecContext.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
@@ -254,6 +255,21 @@ private:
 
   // TODO: Add verify: valid memref, element-size and access-type match Ref,
   // NumElements matches VF
+};
+
+/// Implementation for the HIR vectorizer client, operating on
+/// HIRVLSClientMemrefs (scalar memrefs).
+class OVLSTTICostModelHIR : public OVLSTTICostModel {
+public:
+  OVLSTTICostModelHIR(const TargetTransformInfo &TTI, LLVMContext &C)
+      : OVLSTTICostModel(TTI, C) {}
+
+  Type *getMrfDataType(const OVLSMemref *Mrf) const override {
+    assert(isa<HIRVLSClientMemref>(Mrf) && "Expecting HIR Memref.\n");
+    return (cast<HIRVLSClientMemref>(Mrf))->getRef()->getSrcType();
+  }
+  unsigned getMrfAddressSpace(const OVLSMemref &Mrf) const override;
+  uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const override;
 };
 
 } // End namespace loopopt

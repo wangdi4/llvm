@@ -62,14 +62,22 @@ void IR2AVRVisitor::print(raw_ostream &OS) const {
 }
 
 void IR2AVRVisitor::visit(AVRValueHIR *AValueHIR) {
-  // FIXME: AVRValueHIR may not be a RegDDRef
-  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
-    // Register this value as the AVR holding this DDRef.
-    DDRef2AVR[RDDF] = AValueHIR;
 
-    // Register this value as the AVR holding any blob used by its RegDDRef.
-    for (auto I = RDDF->blob_cbegin(), E = RDDF->blob_cend(); I != E; ++I)
-      DDRef2AVR[*I] = AValueHIR;
+  // TODO: AVRValueHIR that represents an IV does't have a DDRef
+  if (DDRef *DDR = AValueHIR->getValue()) {
+    // Register this value as the AVR holding this DDRef.
+    DDRef2AVR[DDR] = AValueHIR;
+
+    if (RegDDRef *RDDR = dyn_cast<RegDDRef>(DDR)) {
+      // Register this value as the AVR holding any blob used by its RegDDRef.
+      for (auto I = RDDR->blob_cbegin(), E = RDDR->blob_cend(); I != E; ++I)
+        DDRef2AVR[*I] = AValueHIR;
+    }
+  } else if (AValueHIR->isIVValue()) {
+    DEBUG(dbgs() << "Warning: Ignoring IV (AVRValueHIR):");
+    DEBUG(AValueHIR->dump());
+  } else {
+    llvm_unreachable("AVRValueHIR doesn't have DDRef or IVValueInfo");
   }
 }
 
@@ -341,12 +349,12 @@ bool AvrDefUse::runOnFunction(Function &F) {
   // Collect inverse-mapping from IR to AVR.
   AVRVisitor<IR2AVRVisitor> IRVisitor(IR2AVR);
   IRVisitor.forwardVisit(AV->begin(), AV->end(), true, true,
-                         false /*RecurseInsideValues*/);
+                         true /*RecurseInsideValues*/);
 
   // Walk down the AVR tree and gather DU information.
   AVRVisitor<AvrDefUse> DUVisitor(*this);
   DUVisitor.forwardVisit(AV->begin(), AV->end(), true, true,
-                         false /*RecurseInsideValues*/);
+                         true /*RecurseInsideValues*/);
 
   AV = nullptr;
   return false;
@@ -385,50 +393,52 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
   if (!isDef(AValueHIR))
     return;
 
-  // This AVR value is a Def of its Symbase. Extract the actual Def AVR and
-  // register it as a Def of this Value's RegDDRef's FLOW dependencies.
+  // CHECKME: Not sure if an AVRValueHIR with a null DDRef (IV) can reach this
+  // point and it needs special treatment
+  if (DDRef *DDR = AValueHIR->getValue()) {
 
-  AVR *RHS = getActualDef(AValueHIR);
-  AvrUsedVarsMapTy &UVs = DefUses[RHS]; // Initialize to no uses.
-  // FIXME: AVRValueHIR may not be a RegDDRef
-  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
-  auto HLoop = TopLevelLoop->getLoop();
-  auto &HNU = HLoop->getHLNodeUtils();
+    auto HLoop = TopLevelLoop->getLoop();
+    auto &HNU = HLoop->getHLNodeUtils();
 
-  // If the def is outside the loop, all uses of the def in the loop can
-  // be treated as uniform. We want to avoid problems for cases where
-  // we do not find the use AVR(such as in loop bounds for which we do
-  // not build AVR nodes).
-  if (!HNU.contains(HLoop, RDDF->getHLDDNode()))
-    return;
+    // If the def is outside the loop, all uses of the def in the loop can
+    // be treated as uniform. We want to avoid problems for cases where
+    // we do not find the use AVR(such as in loop bounds for which we do
+    // not build AVR nodes).
+    if (!HNU.contains(HLoop, DDR->getHLDDNode()))
+      return;
 
-  for (auto II = DDG.outgoing_edges_begin(RDDF),
-            EE = DDG.outgoing_edges_end(RDDF);
-       II != EE; ++II) {
-    const DDEdge *Edge = *II;
-    // Skip non-FLOW dependencies.
-    if (!Edge->isFLOWdep())
-      continue;
+    // This AVR value is a Def of its Symbase. Extract the actual Def AVR and
+    // register it as a Def of this Value's RegDDRef's FLOW dependencies.
+    AVR *RHS = getActualDef(AValueHIR);
+    AvrUsedVarsMapTy &UVs = DefUses[RHS]; // Initialize to no uses.
 
-      DDRef *DDRef = Edge->getSink();
-      RegDDRef *SelfBlob = dyn_cast<RegDDRef>(DDRef);
-
-      // Skip dependencies to DDRefs that are neither blobs or self-blobs.
-      if (!(isa<BlobDDRef>(DDRef) || (SelfBlob && SelfBlob->isSelfBlob())))
+    for (auto II = DDG.outgoing_edges_begin(DDR),
+              EE = DDG.outgoing_edges_end(DDR);
+         II != EE; ++II) {
+      const DDEdge *Edge = *II;
+      // Skip non-FLOW dependencies.
+      if (!Edge->isFLOWdep())
         continue;
 
-    // Skip dependencies outside TopLevelLoop
-    if (!HNU.contains(HLoop, DDRef->getHLDDNode()))
-      continue;
+      DDRef *SinkDDR = Edge->getSink();
+      RegDDRef *SelfBlob = dyn_cast<RegDDRef>(SinkDDR);
+
+      // Skip dependencies to DDRefs that are neither blobs or self-blobs.
+      if (!(isa<BlobDDRef>(SinkDDR) || (SelfBlob && SelfBlob->isSelfBlob())))
+        continue;
+
+      // Skip dependencies outside TopLevelLoop
+      if (!HNU.contains(HLoop, SinkDDR->getHLDDNode()))
+        continue;
 
       // Skip dependencies to DDRefs whose using AVR is a Def.
-      AVR *UsingAVR = IR2AVR.getAVR(DDRef);
+      AVR *UsingAVR = IR2AVR.getAVR(SinkDDR);
       AVRValueHIR *UsingAVRValue = dyn_cast<AVRValueHIR>(UsingAVR);
       if (UsingAVRValue && isDef(UsingAVRValue))
         continue;
 
-      UVs[UsingAVR].insert(DDRef);               // Register Use.
-      ReachingDefs[UsingAVR][DDRef].insert(RHS); // Register Reaching Def.
+      UVs[UsingAVR].insert(SinkDDR);               // Register Use.
+      ReachingDefs[UsingAVR][SinkDDR].insert(RHS); // Register Reaching Def.
     }
   }
 }
@@ -478,12 +488,12 @@ bool AvrDefUseHIR::runOnFunction(Function &F) {
   // Collect inverse-mapping from IR to AVR.
   AVRVisitor<IR2AVRVisitor> IRVisitor(IR2AVR);
   IRVisitor.forwardVisit(AV.begin(), AV.end(), true, true,
-                         false /*RecurseInsideValues*/);
+                         true /*RecurseInsideValues*/);
 
   // Walk down the AVR tree and gather DU information.
   AVRVisitor<AvrDefUseHIR> DUVisitor(*this);
   DUVisitor.forwardVisit(AV.begin(), AV.end(), true, true,
-                         false /*RecurseInsideValues*/);
+                         true /*RecurseInsideValues*/);
 
   return false;
 }

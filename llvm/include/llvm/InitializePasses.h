@@ -436,6 +436,7 @@ void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
 void initializeAVRDecomposeHIRPass(PassRegistry&);
 void initializeVPOPredicatorPass(PassRegistry&);
+void initializeVPOPredicatorHIRPass(PassRegistry&);
 void initializeVecClonePass(PassRegistry&);
 void initializeAvrDefUsePass(PassRegistry&);
 void initializeAvrDefUseHIRPass(PassRegistry&);

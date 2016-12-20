@@ -96,14 +96,10 @@ AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(BlobDDRef *DDRef, AVR *Parent) {
   return new AVRValueHIR(DDRef, Parent);
 }
 
-AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(CanonExpr *CE, unsigned IVIndex,
+AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(CanonExpr *CE, unsigned IVLevel,
                                             Type *Ty, AVR *Parent) {
-  AVRValueHIR::IVValueInfo *IVV = new AVRValueHIR::IVValueInfo(CE, IVIndex);
+  AVRValueHIR::IVValueInfo *IVV = new AVRValueHIR::IVValueInfo(CE, IVLevel);
   return new AVRValueHIR(IVV, Ty, Parent);
-}
-
-AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(Constant *Const, AVR *Parent) {
-  return new AVRValueHIR(Const, Parent);
 }
 
 AVRSwitchHIR *AVRUtilsHIR::createAVRSwitchHIR(HLSwitch *HSwitch) {

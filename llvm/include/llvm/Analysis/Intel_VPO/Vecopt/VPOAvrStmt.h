@@ -110,6 +110,9 @@ public:
 };
 
 //----------AVR Expression Node----------//
+
+typedef CmpInst::Predicate ConditionTy;
+
 /// \brief This AVR node represents an expression in the Abstract Layer.
 ///
 /// The AVRExpression node represents all unary, binary, and n-ary
@@ -118,15 +121,26 @@ public:
 /// Layer as it is optimized.
 class AVRExpression : public AVR {
 
+public:
+  // This is the initial implementation to extend the operands supported by
+  // Instruction. As this is going to be isolated in the vectorizer, this
+  // should be enough by now. However, something more sophisticated as a union
+  // of enums might be interesting if it doesn't lead to usability issues
+  // (conversion between enums). An std::variant (C++17) could be another
+  // option to be taken into account.
+  enum AVRInstructions {
+    AVROpsStart = Instruction::OtherOpsEnd + 1,
+    UMax,
+    SMax,
+    AVROpsEnd
+  };
+
 private:
 
   /// \p ValType - type of this expression.
   Type *ExprType;
 
 protected:
-
-  /// Set the data type of this expression.
-  void setType(Type *DataType) { ExprType = DataType; } 
 
   /// Operation - Operation which is executed on operands.
   unsigned Operation;
@@ -137,27 +151,31 @@ protected:
   /// IsLHSExpr - True when this expression is the LHS of an assignment.
   bool IsLHSExpr;
 
-  /// Predicate - The LLVM predicate if this expression is a comparison.
-  CmpInst::Predicate Predicate = CmpInst::BAD_ICMP_PREDICATE;
-
-  /// \brief Constructor for creating pure AVR expressions, i.e. not based on
-  /// an underlying IR instruction.
-  AVRExpression(Type *ValType,
-                const SmallVectorImpl<AVR *>& Operands,
-                unsigned Operation,
-                CmpInst::Predicate Predicate);
-
-  /// \brief Constructor for create a pure AVR expression.
-  AVRExpression(Type *ValType, bool isLHS = false);
-
-  void addOperand(AVR* Operand) { Operands.push_back(Operand); }
+  /// Condition - The condition if this expression is a comparison.
+  ConditionTy Condition = CmpInst::BAD_ICMP_PREDICATE;
 
   /// \brief Constructor used by derived classes. Should not instantiate
   /// this object at this level.
   AVRExpression(unsigned SCID, Type *ExprType);
 
+  /// \brief Constructor for create a pure AVR expression.
+  AVRExpression(Type *ExprType, bool isLHS = false);
+
+  /// \brief Constructor for creating pure AVR expressions, i.e. not based on
+  /// an underlying IR instruction.
+  AVRExpression(const SmallVectorImpl<AVR *> &Operands, unsigned Operation,
+                Type *ExprType);
+
   /// \brief Destructor for object.
   virtual ~AVRExpression() override {}
+
+  /// Set the data type of this expression.
+  void setType(Type *DataType) { ExprType = DataType; }
+
+  /// Set the data type of this expression.
+  void setCondition(CmpInst::Predicate Cond) { Condition = Cond; }
+
+  void addOperand(AVR* Operand) { Operands.push_back(Operand); }
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
@@ -209,11 +227,11 @@ public:
   /// \brief Returns the Opcode name of this expression's operation.
   virtual std::string getOpCodeName() const {
     std::string OperationName = Instruction::getOpcodeName(Operation);
-    if (Predicate == CmpInst::BAD_ICMP_PREDICATE)
+    if (Condition == CmpInst::BAD_ICMP_PREDICATE)
       return OperationName;
 
     const char * pred = "unknown";
-    switch (Predicate) {
+    switch (Condition) {
     case FCmpInst::FCMP_FALSE: pred = "false"; break;
     case FCmpInst::FCMP_OEQ:   pred = "oeq"; break;
     case FCmpInst::FCMP_OGT:   pred = "ogt"; break;
@@ -273,7 +291,7 @@ private:
   const Constant *ConstVal = nullptr;
 
   /// Decomposed sub-expression tree for this value.
-  AVR *DecompTree = nullptr;
+  AVRExpression *DecompTree = nullptr;
 
 protected:
   /// Set the data type of this Value.
@@ -294,7 +312,7 @@ protected:
   void setConstant(const Constant *Const) { ConstVal = Const; }
 
   // \brief Sets the decomposed sub-expression tree for this AVRValue. 
-  void setDecompTree(AVR *Tree) { DecompTree = Tree; }
+  void setDecompTree(AVRExpression *Tree) { DecompTree = Tree; }
 
   /// \brief Destructor for this object.
   virtual ~AVRValue() override {}
@@ -334,7 +352,7 @@ public:
   bool hasDecompTree() const { return DecompTree != nullptr; }
 
   /// \brief Returns the decomposed sub-expression tree for this AVRValue.
-  AVR *getDecompTree() const { return DecompTree; }
+  AVRExpression *getDecompTree() const { return DecompTree; }
 };
 
 //----------AVR Label Node----------//

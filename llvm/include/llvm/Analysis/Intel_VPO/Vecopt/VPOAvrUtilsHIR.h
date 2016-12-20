@@ -84,9 +84,6 @@ public:
   static AVRValueHIR *createAVRValueHIR(CanonExpr *CE, unsigned IVIndex,
                                         Type *Ty, AVR *Parent);
 
-  /// \brief Returns a new constant AVRValueHIR node.
-  static AVRValueHIR *createAVRValueHIR(Constant *Const, AVR *Parent);
-
   /// \brief Returns a new AVRSwitchHIR node.
   static AVRSwitchHIR *createAVRSwitchHIR(HLSwitch *HSwitch);
 

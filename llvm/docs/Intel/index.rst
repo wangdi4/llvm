@@ -8,12 +8,17 @@ Xmain
 .. toctree::
    :hidden:
 
+   OpenSourceGuidelines
+   OpenSourceProcesses
+   XmainProcesses
+   Clearquest
    LoopAnalysis/index
    LoopTransforms/index
    VPO/index
    Analysis/index
    CodeGen/index
    Clang/index
+   GapAnalysis/index
 
 Introduction
 ============
@@ -46,9 +51,33 @@ same principles by which Xmain manages its source code:
 
 * Documentation is promoted as part of the standard promotion process
 
+Intel LLVM Development Process Documentation
+============================================
+
+The Intel LLVM development process documentation is currently under review. If
+anything looks wrong to you, please contact `David Kreitzer
+<mailto:david.l.kreitzer@intel.com>`_.
+
+The LLVM development processes are governed by the `ICL Process Management Team
+<mailto:ICLProcessTeam@intel.com>`_. Please direct process related questions or
+process change requests to them.
+
+:doc:`Open Source Guidelines <OpenSourceGuidelines>`
+   Describes the decision making process for determining what technology will
+   be contributed to open source and what technology will be Intel
+   customizations in xmain.
+
+:doc:`Open Source Development Processes <OpenSourceProcesses>`
+   Describes the processes for open source (llvm.org) development.
+
+:doc:`Xmain Development Processes <XmainProcesses>`
+   Describes the processes for xmain development.
+
+:doc:`LLVM Specific Clearquest Usage <Clearquest>`
+   Describes Clearquest usage policies specific to LLVM development.
+
 Major Components
 ================
-
 :doc:`LoopAnalysis <LoopAnalysis/index>`
    Describes the High-Level-IR and the various analyses based on it.
 
@@ -66,3 +95,6 @@ Major Components
 
 :doc:`Clang <Clang/index>`
    Container for Clang documents.
+
+:doc:`GapAnalysis <GapAnalysis/index>`
+   Documents xmain performance and functional gaps for replacing ICC.

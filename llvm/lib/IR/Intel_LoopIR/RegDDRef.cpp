@@ -445,6 +445,22 @@ bool RegDDRef::isSelfBlob() const {
   return (getSymbase() == SB);
 }
 
+bool RegDDRef::isUnitaryBlob() {
+
+  if (!isStandAloneBlob(false /*AllowConversion*/)) {
+    return false;
+  }
+
+  // Check if the standalone blob is nested
+  assert(isSingleCanonExpr() && "Expected single CanonExpr in standalone blob");
+  CanonExpr *CE = getSingleCanonExpr();
+
+  assert(CE->numBlobs() == 1 && "Expected only one blob in standalone blob");
+
+  return !getBlobUtils().isNestedBlob(
+      getBlobUtils().getBlob(CE->getSingleBlobIndex()));
+}
+
 bool RegDDRef::isUndefSelfBlob() const {
   if (!isSelfBlob()) {
     return false;

@@ -54,6 +54,12 @@ using namespace llvm;
 /// when testing to isolate a single AA implementation.
 static cl::opt<bool> DisableBasicAA("disable-basicaa", cl::Hidden,
                                     cl::init(false));
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> PtrVectorMemLocCheckDepth(
+    "ptrvec-memloc-search-depth", cl::Hidden, cl::init(10),
+    cl::desc("Maximum depth of backtracing when searching the memory location "
+             "of each pointer element in a vector (default = 10)"));
+#endif // INTEL_CUSTOMIZATION
 
 AAResults::AAResults(AAResults &&Arg) : TLI(Arg.TLI), AAs(std::move(Arg.AAs)) {
   for (auto &AA : AAs)
@@ -153,6 +159,24 @@ ModRefInfo AAResults::getModRefInfo(ImmutableCallSite CS,
       return Result;
   }
 
+#if INTEL_CUSTOMIZATION
+  // The constant memloc check was at the end of this function, move it
+  // here to do the check early.
+  //
+  // If Loc is a constant memory location, the call definitely could not
+  // modify the memory location.
+  if ((Result & MRI_Mod) &&
+      pointsToConstantMemory(Loc, /*OrLocal*/ false))
+    Result = ModRefInfo(Result & ~MRI_Mod);
+
+  // Separately handle special intrinsic calls.
+  if (auto *II = dyn_cast<IntrinsicInst>(CS.getInstruction()))
+    if (II->getIntrinsicID() == Intrinsic::masked_scatter)
+      // Need to return early here because the following analysis will treat
+      // this intrinsic as ordinary function call and return MRI_NoModRef.
+      return ModRefInfo(Result & getModRefInfoForMaskedScatter(II, Loc));
+#endif // INTEL_CUSTOMIZATION
+
   // Try to refine the mod-ref info further using other API entry points to the
   // aggregate set of AA results.
   auto MRB = getModRefBehavior(CS);
@@ -187,11 +211,13 @@ ModRefInfo AAResults::getModRefInfo(ImmutableCallSite CS,
     Result = ModRefInfo(Result & AllArgsMask);
   }
 
+#if !INTEL_CUSTOMIZATION
   // If Loc is a constant memory location, the call definitely could not
   // modify the memory location.
   if ((Result & MRI_Mod) &&
       pointsToConstantMemory(Loc, /*OrLocal*/ false))
     Result = ModRefInfo(Result & ~MRI_Mod);
+#endif // INTEL_CUSTOMIZATION
 
   return Result;
 }
@@ -434,6 +460,44 @@ ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
 
   return MRI_ModRef;
 }
+
+#if INTEL_CUSTOMIZATION
+ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
+                                                    const MemoryLocation &Loc) {
+  assert(MS->getIntrinsicID() == Intrinsic::masked_scatter);
+  const auto *Mask = MS->getArgOperand(3);
+  // If the mask is an all-false vector, this intrinsic will not modify
+  // memory.
+  if (isa<ConstantAggregateZero>(Mask))
+    return MRI_NoModRef;
+
+  const auto *PtrVec = MS->getArgOperand(1);
+  unsigned NumElts = PtrVec->getType()->getVectorNumElements();
+  // A vector of MemoryLocation saving memory locations for all elements
+  // of PtrVec.
+  SmallVector<MemoryLocation, 4> PtrVecMemLocs(NumElts, MemoryLocation());
+  MemoryLocation::getForPtrVec(PtrVec, PtrVecMemLocs,
+                               PtrVectorMemLocCheckDepth);
+
+  // If any pointer on an unmasked lane may alias with Loc, return MRI_Mod.
+  // Treat all lanes as unmasked if Mask is not a constant vector.
+  const auto *MaskCV = dyn_cast<ConstantVector>(Mask);
+  for (unsigned i = 0; i < NumElts; i++) {
+    if (MaskCV && dyn_cast<Constant>(MaskCV->getOperand(i))->isZeroValue())
+      continue;
+    AliasResult R;
+    if (PtrVecMemLocs[i].Ptr == nullptr)
+      R = PtrVecMemLocs[i].Size == 0 ? NoAlias : MayAlias;
+    else
+      R = alias(PtrVecMemLocs[i], Loc);
+    if (R == NoAlias)
+      continue;
+    return MRI_Mod;
+  }
+
+  return MRI_NoModRef;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Return information about whether a particular call site modifies
 /// or reads the specified memory location \p MemLoc before instruction \p I

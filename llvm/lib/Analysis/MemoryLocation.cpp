@@ -16,6 +16,8 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Operator.h"  // INTEL
+
 using namespace llvm;
 
 MemoryLocation MemoryLocation::get(const LoadInst *LI) {
@@ -156,3 +158,94 @@ MemoryLocation MemoryLocation::getForArgument(ImmutableCallSite CS,
 
   return MemoryLocation(CS.getArgument(ArgIdx), UnknownSize, AATags);
 }
+
+#if INTEL_CUSTOMIZATION
+// A memory location \p Loc can be considered resolved when:
+//    1) The location pointer is non-null(means a known location).
+//    2) Or, the location is known to be not alias with any other pointers,
+//       in that case location-pointer can be null with size zero.
+static bool isMemLocResolved(const MemoryLocation &Loc) {
+  return Loc.Ptr != nullptr || Loc.Size == 0;
+}
+
+static void getMemLocsForPtrVec(const Value *PtrVec,
+                                SmallVectorImpl<MemoryLocation> &Results,
+                                bool &Resolved, int Depth) {
+  assert(PtrVec->getType()->isVectorTy());
+
+  // Stop if search reaches depth or we already have what we need.
+  if (Depth == 0 || Resolved)
+    return;
+
+  // Mark resolved if all memory locations have been resolved.
+  if (all_of(Results, [](MemoryLocation &m) { return isMemLocResolved(m); })) {
+    Resolved = true;
+    return;
+  }
+
+  // Constant pointer vector.
+  unsigned NumElts = Results.size();
+  if (const auto *CV = dyn_cast<Constant>(PtrVec)) {
+    // If this vector is an undef value, we can assume that none of its
+    // elements aliases with any pointer.
+    if (isa<UndefValue>(CV)) {
+      for (auto &R : Results)
+        if (!isMemLocResolved(R))
+          // Set this memory location's size to zero, as zero-sized memory
+          // location does not alias with any pointer.
+          R.Size = 0;
+      Resolved = true;
+      return;
+    }
+    // Vector of pointer constants, check each pointer constant.
+    for (unsigned i = 0; i < NumElts; i++) {
+      if (isMemLocResolved(Results[i]))
+        continue;
+      // At ith lane, set the memory location to be the memory location
+      // of ith pointer constant.
+      Results[i] = MemoryLocation(CV->getOperand(i));
+    }
+    Resolved = true;
+    return;
+  }
+
+  const auto *Op = dyn_cast<Operator>(PtrVec);
+  switch (Op->getOpcode()) {
+  // Currently only examine the following instructions for simplicity
+  // and safety.
+  default:
+    break;
+  case Instruction::GetElementPtr:
+    // Examine the pointers to the underlying objects, and use the underlying
+    // objects' memory locations. This will make the reuslts more conservative
+    // by adding false positives, but will not give false negatives.
+    getMemLocsForPtrVec(Op->getOperand(0), Results, Resolved, Depth - 1);
+    break;
+  case Instruction::InsertElement:
+    // This is the major source of vector elements. If the insert index is a
+    // constant int within the range of vector, we can get the memory location
+    // of the inserted element for that lane. If the index is a varible, set
+    // all memlocs as unknown (Ptr = nullptr, Size = UnknownSize) as it could
+    // be inserted to any lane.
+    // Otherwise, continue to examine the source operand.
+    if (auto *IndexOp = dyn_cast<ConstantInt>(Op->getOperand(2))) {
+      int64_t Idx = IndexOp->getSExtValue();
+      if (Idx >= 0 && Idx < NumElts && !isMemLocResolved(Results[Idx]))
+        Results[Idx] = MemoryLocation(Op->getOperand(1));
+    } else {
+      Results.assign(NumElts, MemoryLocation());
+      Resolved = true;
+      return;
+    }
+    getMemLocsForPtrVec(Op->getOperand(0), Results, Resolved, Depth - 1);
+    break;
+  }
+}
+
+void MemoryLocation::getForPtrVec(const Value *PtrVec,
+                                  SmallVectorImpl<MemoryLocation> &Results,
+                                  int Depth) {
+  bool Resolved = false;
+  getMemLocsForPtrVec(PtrVec, Results, Resolved, Depth);
+}
+#endif // INTEL_CUSTOMIZATION
