@@ -23,7 +23,25 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
+namespace {
+
+struct PipeMetadata {
+  PipeMetadata() :
+      PacketSize(0), PacketAlign(0) {
+  }
+
+  PipeMetadata(int PacketSize, int PacketAlign) :
+      PacketSize(PacketSize), PacketAlign(PacketAlign) {
+  }
+
+  int PacketSize;
+  int PacketAlign;
+};
+
+} // anonymous namespace
+
 typedef DenseMap<Value*, Value*> ValueToValueMap;
+typedef DenseMap<Value*, PipeMetadata> PipeMetadataMap;
 
 namespace intel {
 
@@ -40,15 +58,52 @@ OCL_INITIALIZE_PASS_END(ChannelPipeTransformation, "channel-pipe-transformation"
 ChannelPipeTransformation::ChannelPipeTransformation() : ModulePass(ID) {
 }
 
+static void getPipesMetadata(const Module &M,
+                             ValueToValueMap &ChannelToPipeMap,
+                             PipeMetadataMap &PipesMD) {
+  auto *MDs = M.getNamedMetadata("opencl.channels");
+  if (!MDs) {
+    llvm_unreachable("'opencl.channels' metadata not found.");
+    return;
+  }
+
+  for (auto *MD : MDs->operands()) {
+    assert(MD->getNumOperands() == 3 &&
+           "Invalid number of channel metadata operands");
+    auto *ChanMD = dyn_cast<ValueAsMetadata>(MD->getOperand(0).get());
+    auto *PacketSizeMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(1).get());
+    auto *PacketAlignMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(2).get());
+
+    if (!ChanMD || !PacketSizeMD || !PacketAlignMD) {
+      llvm_unreachable("Invalid channel metadata.");
+      continue;
+    }
+
+    Value *Chan = ChanMD->getValue();
+    ConstantInt *PacketSize = cast<ConstantInt>(PacketSizeMD->getValue());
+    ConstantInt *PacketAlign = cast<ConstantInt>(PacketAlignMD->getValue());
+
+    Value *Pipe = ChannelToPipeMap[Chan];
+    PipesMD[Pipe] = PipeMetadata(
+        PacketSize->getLimitedValue(),
+        PacketAlign->getLimitedValue());
+  }
+}
+
 static void createPipeBackingStore(Module &M,
                                    const ValueToValueMap &ChannelToPipeMap,
+                                   const PipeMetadataMap &PipesMD,
                                    ValueToValueMap &PipeToBSMap) {
   Type *Int8Ty = IntegerType::getInt8Ty(M.getContext());
   for (auto KV : ChannelToPipeMap) {
     auto *PipeOpaquePtr = cast<GlobalVariable>(KV.second);
-    // TODO: asavonic: store depth, packet_size and packet_align in metadata for
-    // pipes and channels
-    size_t BSSize = pipe_get_total_size(4, 1);
+
+    // TODO: asavonic: store channel depth in metadata
+    auto PipeMD = PipesMD.lookup(PipeOpaquePtr);
+    assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
+           "Pipe metadata not found.");
+
+    size_t BSSize = pipe_get_total_size(PipeMD.PacketSize, 1);
     auto *ArrayTy = ArrayType::get(Int8Ty, BSSize);
 
     SmallString<16> NameStr;
@@ -64,14 +119,14 @@ static void createPipeBackingStore(Module &M,
                                       Utils::OCLAddressSpace::Global);
 
     PipeBS->setInitializer(ConstantAggregateZero::get(ArrayTy));
-    // TODO: asavonic: alignment from metadata
-    PipeBS->setAlignment(4);
+    PipeBS->setAlignment(PipeMD.PacketAlign);
     PipeToBSMap[PipeOpaquePtr] = PipeBS;
   }
 }
 
 static
 Function *createPipesCtor(Module &M,
+                          const PipeMetadataMap &PipesMD,
                           const ValueToValueMap &PipeToBSMap,
                           const SmallVectorImpl<Module *> &BuiltinModules) {
   Function *PipeInit = nullptr;
@@ -100,15 +155,16 @@ Function *createPipesCtor(Module &M,
     Value *PipeGlobal = PipeBSPair.first;
     Value *BS = PipeBSPair.second;
 
-    // auto *BSPtr = Builder.CreateLoad(, /*isVolatile=*/false);
+    auto PipeMD = PipesMD.lookup(PipeGlobal);
+    assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
+           "Pipe metadata not found.");
 
     Value *CallArgs[] = {
       Builder.CreateBitCast(BS, PointerType::get(
                                 IntegerType::getInt8Ty(M.getContext()),
                                 Utils::OCLAddressSpace::Global)),
-      // TODO: packet size and alignment
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), 4),
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), 4)
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketAlign)
     };
     Builder.CreateCall(PipeInit, CallArgs);
     Builder.CreateStore(
@@ -159,9 +215,12 @@ static bool createPipeGlobals(Module &M, ValueToValueMap &ChannelToPipeMap,
     ChannelToPipeMap[GV] = PipeGV;
   }
 
+  PipeMetadataMap PipesMD;
+  getPipesMetadata(M, ChannelToPipeMap, PipesMD);
+
   ValueToValueMap PipeToBSMap;
-  createPipeBackingStore(M, ChannelToPipeMap, PipeToBSMap);
-  Function *Ctor = createPipesCtor(M, PipeToBSMap, BuiltinModules);
+  createPipeBackingStore(M, ChannelToPipeMap, PipesMD, PipeToBSMap);
+  Function *Ctor = createPipesCtor(M, PipesMD, PipeToBSMap, BuiltinModules);
   if (Ctor) {
     appendToGlobalCtors(M, Ctor, /*Priority=*/65535);
   }
@@ -341,5 +400,3 @@ extern "C"{
     return new intel::ChannelPipeTransformation();
   }
 }
-
-

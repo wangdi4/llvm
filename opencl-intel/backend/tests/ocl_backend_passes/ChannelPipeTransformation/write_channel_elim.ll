@@ -25,7 +25,7 @@
 ; ----------------------------------------------------
 ; RUN: opt -runtimelib=../../Full/runtime.bc -channel-pipe-transformation -verify %s -S | FileCheck %s
 target datalayout = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
-target triple = "spir-unknown-unknown"
+target triple = "spir"
 
 %opencl.channel_t = type opaque
 %struct.Foo = type { i32 }
@@ -60,11 +60,11 @@ entry:
   call void @llvm.lifetime.start(i64 4, i8* %0) #3
   %1 = getelementptr inbounds %struct.Foo, %struct.Foo* %st, i32 0, i32 0
   store i32 0, i32* %1, align 4
-  %2 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @bar, align 4, !tbaa !9
+  %2 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @bar, align 4, !tbaa !12
   tail call spir_func void @_Z22__write_channel_altera11ocl_channeliiii(%opencl.channel_t addrspace(1)* %2, i32 42, i32 4, i32 4) #3
-  %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @far, align 4, !tbaa !9
+  %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @far, align 4, !tbaa !12
   tail call spir_func void @_Z22__write_channel_altera11ocl_channelffii(%opencl.channel_t addrspace(1)* %3, float 0x3FDAE147A0000000, i32 4, i32 4) #3
-  %4 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @star, align 4, !tbaa !9
+  %4 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @star, align 4, !tbaa !12
   call spir_func void @_Z22__write_channel_altera11ocl_channel3FooS_ii(%opencl.channel_t addrspace(1)* %4, %struct.Foo* byval nonnull align 4 %st, i32 4, i32 4) #3
   call void @llvm.lifetime.end(i64 4, i8* %0) #3
   ret void
@@ -88,13 +88,14 @@ attributes #2 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-
 attributes #3 = { nounwind }
 
 !opencl.kernels = !{!0}
+!opencl.channels = !{!6, !7, !8}
 !opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!6}
-!opencl.spir.version = !{!6}
-!opencl.used.extensions = !{!7}
-!opencl.used.optional.core.features = !{!7}
-!opencl.compiler.options = !{!7}
-!llvm.ident = !{!8}
+!opencl.ocl.version = !{!9}
+!opencl.spir.version = !{!9}
+!opencl.used.extensions = !{!10}
+!opencl.used.optional.core.features = !{!10}
+!opencl.compiler.options = !{!10}
+!llvm.ident = !{!11}
 
 !0 = !{void ()* @foo, !1, !2, !3, !4, !5}
 !1 = !{!"kernel_arg_addr_space"}
@@ -102,9 +103,12 @@ attributes #3 = { nounwind }
 !3 = !{!"kernel_arg_type"}
 !4 = !{!"kernel_arg_base_type"}
 !5 = !{!"kernel_arg_type_qual"}
-!6 = !{i32 2, i32 0}
-!7 = !{}
-!8 = !{!"clang version 3.8.1 "}
-!9 = !{!10, !10, i64 0}
-!10 = !{!"omnipotent char", !11, i64 0}
-!11 = !{!"Simple C/C++ TBAA"}
+!6 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @bar, i32 4, i32 4}
+!7 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @far, i32 4, i32 4}
+!8 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @star, i32 4, i32 4}
+!9 = !{i32 2, i32 0}
+!10 = !{}
+!11 = !{!"clang version 3.8.1 "}
+!12 = !{!13, !13, i64 0}
+!13 = !{!"omnipotent char", !14, i64 0}
+!14 = !{!"Simple C/C++ TBAA"}
