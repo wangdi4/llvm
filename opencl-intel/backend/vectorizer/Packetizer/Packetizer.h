@@ -498,6 +498,9 @@ private:
   /// @brief flag to enable scatter/gather to/from memory.
   bool UseScatterGather;
 
+  /// @brief flag to enable prefetch gather/sctatters.
+  bool UseScatterGatherPrefetch;
+
   /// @brief DataLayout of processed module
   const DataLayout *m_pDL;
 

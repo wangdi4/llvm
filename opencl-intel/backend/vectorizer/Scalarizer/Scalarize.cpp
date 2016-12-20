@@ -18,7 +18,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Constants.h"
 
 extern cl::opt<bool>
-EnableScatterGatherSubscript;
+EnableScatterGather;
 
 namespace intel {
 /// Support for dynamic loading of modules under Linux
@@ -35,7 +35,7 @@ ScalarizeFunction::ScalarizeFunction(Intel::ECPU Cpu)
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
-  UseScatterGather = Intel::CPUId::HasGatherScatter(Cpu) || EnableScatterGatherSubscript;
+  UseScatterGather = Intel::CPUId::HasGatherScatter(Cpu) || EnableScatterGather;
 
   // Initialize SCM buffers and allocation
   m_SCMAllocationArray = new SCMEntry[ESTIMATED_INST_NUM];
@@ -1533,7 +1533,7 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
   if(!type)
     return false;
 
-  if(EnableScatterGatherSubscript && (type->getNumElements() < 16))
+  if(EnableScatterGather && (type->getNumElements() < 16))
     return true;
 
   if ((m_Cpu == Intel::MIC_KNC) && (type->getNumElements() < 16))

@@ -21,11 +21,6 @@ declare void @llvm.x86.avx512.scatter.qpi.512 (i8*, i8, <8 x i64>, <8 x i32>, i3
 declare <8 x i64> @llvm.x86.avx512.gather.qpq.512 (<8 x i64>, i8*, <8 x i64>, i8, i32)
 declare void @llvm.x86.avx512.scatter.qpq.512 (i8*, i8, <8 x i64>, <8 x i64>, i32)
 
-declare  void @llvm.x86.avx512.gatherpf.qps.512(i8, <8 x i64>, i8* , i32, i32)
-declare  void @llvm.x86.avx512.gatherpf.dps.512(i16, <16 x i32>, i8* , i32, i32)
-declare  void @llvm.x86.avx512.scatterpf.qps.512(i8, <8 x i64>, i8* , i32, i32)
-declare  void @llvm.x86.avx512.scatterpf.dps.512(i16, <16 x i32>, i8* , i32, i32)
-
 ;; ------------------------------------
 ;;       Gather for float
 ;; ------------------------------------
@@ -816,27 +811,6 @@ define void @masked_scatter.v16i64_ind_v16i32 (<16 x i1> %mask, i64* %addr,
                                     <16 x i32>%index, <16 x i64> %data) {
   call void @masked_scatter.v16i64 (<16 x i1> %mask, i64* %addr,
                                <16 x i32>%index, <16 x i64> %data)
-  ret void
-}
-
-define void @gatherpf.32(i8* %addr, <16 x i32> %index) {
-  call void @llvm.x86.avx512.gatherpf.dps.512(i16 -1, <16 x i32> %index, i8* %addr,
-                                               i32 4, ; scale 4
-                                               i32 1) ; prefetch to L2 cache, non exclusive
-  ret void
-}
-define void @masked_gatherpf.32(<16 x i1> %mask, i8* %addr, <16 x i32>%index) {
-  %imask = bitcast <16 x i1> %mask to i16
-
-  call void @llvm.x86.avx512.gatherpf.dps.512(i16 %imask, <16 x i32> %index,
-                                              i8* %addr, i32 4, ; scale 4
-                                              i32 1) ; prefetch to L2 cache, non exclusive
-  ret void
-}
-
-define void @gatherpf.v16f32(float* %addr, <16 x i32>%index) {
-  %ptr = bitcast float *%addr to i8*
-  call void @gatherpf.32(i8* %ptr, <16 x i32> %index)
   ret void
 }
 
