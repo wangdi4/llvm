@@ -101,6 +101,7 @@ public:
   bool isLegalMaskedScatter(Type *DataType);
 #if INTEL_CUSTOMIZATION
   bool adjustCallArgs(CallInst* CI);
+  bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
 #endif // INTEL_CUSTOMIZATION
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;

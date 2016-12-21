@@ -119,10 +119,12 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
   unsigned NumVecElems = Tp->getVectorNumElements();
   assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
 
-  if (isReverseVectorMask(Mask))
+  if (TTI.isTargetSpecificShuffleMask(Mask))
+    return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0, nullptr);
+  else if (isReverseVectorMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, Tp, 0, nullptr);
   else if (isAlternateVectorMask(Mask))
-    TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0, nullptr);
+    return TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0, nullptr);
 
   // TODO: Support SK_Insert, SK_Extract
   return 2 * Mask.size();
@@ -567,6 +569,7 @@ public:
       }
     }
   }
+
   /// When we are trying to merge two nodes, there are various ways to merge
   /// them.
   /// For example,
@@ -580,10 +583,9 @@ public:
   /// N2 N1 N2 N1, etc.
   /// It makes more sense to merge as N1 N1 N2 N2 which will most likely lead
   /// to vperm or vinsert.
-  OVLSVector<uint32_t> getShuffleMask(const GraphNode &N1,
-                                      const GraphNode &N2) const {
-    OVLSVector<uint32_t> Mask;
-
+  OVLSVector<int> getShuffleMask(const GraphNode &N1,
+                                   const GraphNode &N2) const {
+    OVLSVector<int> Mask;
     std::set<GraphNode *> UniqueSources;
     N1.getNumUniqueSources(UniqueSources);
     uint32_t NumUniqueSources = N2.getNumUniqueSources(UniqueSources);
