@@ -724,7 +724,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createCFGSimplificationPass());
     addInstructionCombiningPass(MPM);
   }
-  } // INTEL
   if (RunSLPAfterLoopVectorization) {
     if (SLPVectorize) {
       MPM.add(createSLPVectorizerPass());   // Vectorize parallel scalar chains.
@@ -747,6 +746,7 @@ void PassManagerBuilder::populateModulePassManager(
         MPM.add(createLoopUnrollPass());
     }
   }
+  } // INTEL
 
   addExtensionsToPM(EP_Peephole, MPM);
   MPM.add(createCFGSimplificationPass());
