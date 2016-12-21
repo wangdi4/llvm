@@ -395,11 +395,23 @@ void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
     assert(SRB && "CSASaveRawBC should always be available!");
 
     const std::string &rawBC = SRB->getRawBC();
-    OutStreamer->EmitRawText("\t.section\t\".csa.raw.bc\",\"a\",@progbits");
+    OutStreamer->EmitRawText("\t.section\t\".csa.bc.data\",\"a\",@progbits");
+    OutStreamer->EmitRawText(".csa.bc.start:");
 
     for (size_t i = 0; i < rawBC.size(); ++i) {
       OutStreamer->EmitIntValue(rawBC[i], 1);
     }
+    OutStreamer->EmitRawText(".csa.bc.end:");
+
+    // Finish the file with a data structure entry containing
+    // the bounds of the IR for this file. The linker will
+    // concatenate the data in the .csa.bc.data and .csa.bc.bounds
+    // sections, and we'll need to bounds information to allow us
+    // to write the individual bitcode files to disk so they can be
+    // concatenated by llvm-link
+    OutStreamer->EmitRawText("\t.section\t\".csa.bc.bounds\",\"a\",@progbits");
+    OutStreamer->EmitRawText("\t.quad\t.csa.bc.start");
+    OutStreamer->EmitRawText("\t.quad\t.csa.bc.end\n");
   }
 }
 
