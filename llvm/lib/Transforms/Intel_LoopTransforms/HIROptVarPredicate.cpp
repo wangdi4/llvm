@@ -358,6 +358,7 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
 
   for (HLNode *Node : NodesToInvalidate) {
     if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+      assert(Loop->isAttached() && "Every invalidated loop should be attached");
       HIRInvalidationUtils::invalidateBody(Loop);
     } else {
       HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
@@ -527,7 +528,9 @@ void HIROptVarPredicate::splitLoop(
   }
 
   // Split loop into two loops
-  HLNodeToNodeMapper CloneMapper(Candidate);
+  auto CloneMapper = HLNodeLambdaMapper::mapper([Candidate](
+      const HLNode *Node) { return Node == Candidate || isa<HLLabel>(Node); });
+
   HLLoop *SecondLoop = Loop->clone(&CloneMapper);
   HLIf *CandidateClone = CloneMapper.getMapped(Candidate);
 
@@ -539,6 +542,8 @@ void HIROptVarPredicate::splitLoop(
   }
 
   if (!ElseContainer.empty()) {
+    HIRTransformUtils::remapLabelsRange(CloneMapper, &ElseContainer.front(),
+                                        &ElseContainer.back());
     HLNodeUtilsObj->insertAfter(CandidateClone, &ElseContainer);
   }
 
@@ -592,6 +597,9 @@ void HIROptVarPredicate::splitLoop(
     HIRInvalidationUtils::invalidateBody(Loop);
   } else {
     HLNodeUtils::remove(Loop);
+
+    // Remove Loop from the invalidation set as we just removed it from the HIR.
+    NodesToInvalidate.erase(Loop);
   }
 
   if (!isLoopRedundant(SecondLoop)) {
