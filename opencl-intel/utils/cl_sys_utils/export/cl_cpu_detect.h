@@ -92,49 +92,48 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
         static CPUDetect * GetInstance();
 
-	bool IsGenuineIntel();
-
+        bool IsGenuineIntel();
         bool isBroadwell();
         bool isBroxton();
         bool isSkylake();
         bool isKabylake();
 
-	bool IsMicroArchitecture(EMicroArchitecture microArchitecture);
+        bool IsMicroArchitecture(EMicroArchitecture microArchitecture);
 
         bool IsFeatureSupported(ECPUFeatureSupport featureType);
 
-		unsigned char	GetStepping() { return m_ucStepping; }
-		unsigned char	GetModel() { return m_ucModel; }
-		unsigned char	GetFamily() { return m_ucFamily; }
-		unsigned char	GetType() { return m_ucType; }
-		const char *	GetCPUString() { return m_szCPUString; }
-		const char *	GetCPUBrandString() { return m_szCPUBrandString; }
-		unsigned int	GetCPUFeatureSupport() { return m_uiCPUFeatures; }
-		unsigned int	GetCoreCount() { return m_uiCoreCount; }
-		ECPUBrandFamily	GetCPUBrandFamily() { return m_eCPUBrand; }
+        unsigned char GetStepping() { return m_ucStepping; }
+        unsigned char GetModel() { return m_ucModel; }
+        unsigned char GetFamily() { return m_ucFamily; }
+        unsigned char GetType() { return m_ucType; }
+        const char *  GetCPUString() { return m_szCPUString; }
+        const char *  GetCPUBrandString() { return m_szCPUBrandString; }
+        unsigned int  GetCPUFeatureSupport() { return m_uiCPUFeatures; }
+        unsigned int  GetCoreCount() { return m_uiCoreCount; }
+        ECPUBrandFamily GetCPUBrandFamily() { return m_eCPUBrand; }
 
-	private:
-		CPUDetect& operator=(const CPUDetect&);
-		CPUDetect(const CPUDetect&);
-		CPUDetect();
-		~CPUDetect();
+    private:
+        CPUDetect& operator=(const CPUDetect&);
+        CPUDetect(const CPUDetect&);
+        CPUDetect();
+        ~CPUDetect();
 
-        bool			m_bBypassCPUDetect;
-        bool			m_bIsGenuineIntel;
-        unsigned char	m_ucStepping;
-        unsigned char	m_ucModel;
-        unsigned char	m_ucExtendedModel;
-        unsigned char	m_ucFamily;
-        unsigned char	m_ucType;
-        char *			m_szCPUString;
-        char *			m_szCPUBrandString;
-        unsigned int	m_uiCPUFeatures;
-		unsigned int	m_uiCoreCount;
+        bool m_bBypassCPUDetect;
+        bool m_bIsGenuineIntel;
+        unsigned char m_ucStepping;
+        unsigned char m_ucModel;
+        unsigned char m_ucExtendedModel;
+        unsigned char m_ucFamily;
+        unsigned char m_ucType;
+        char * m_szCPUString;
+        char * m_szCPUBrandString;
+        unsigned int m_uiCPUFeatures;
+        unsigned int m_uiCoreCount;
         unsigned short  m_i16ProcessorSignature;
         ECPUBrandFamily m_eCPUBrand;
 
-        void            GetCPUInfo();
-        bool            ShouldBypassCPUCheck();
+        void GetCPUInfo();
+        bool ShouldBypassCPUCheck();
 
     };
 
