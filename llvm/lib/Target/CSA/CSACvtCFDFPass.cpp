@@ -2116,10 +2116,7 @@ bool CSACvtCFDFPass::CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock*
   for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
     ControlDependenceNode* ctrlNode = *pnode;
     MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
-
-    if (MachineLoop* mloop = MLI->getLoopFor(ctrlBB))
-      if (mloop->getExitingBlock() == nullptr || mloop->getExitingBlock() == ctrlBB)
-        return false;
+    
     //ignore loop latch, keep looking beyond the loop
     if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
       continue;
