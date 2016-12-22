@@ -86,11 +86,10 @@ AVRExpressionHIR *AVRUtilsHIR::createAVRExpressionHIR(AVR *LHS, AVR *RHS,
   return new AVRExpressionHIR(LHS, RHS, Ty, Opcode);
 }
 
-AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(RegDDRef *DDRef,
-                                            HLNode *HNode,
+AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(RegDDRef *DDRef, HLNode *HNode,
                                             AVR *Parent,
-                                            bool isMemoryAddress) {
-  return new AVRValueHIR(DDRef, HNode, Parent, isMemoryAddress);
+                                            bool isMemoryOperation) {
+  return new AVRValueHIR(DDRef, HNode, Parent, isMemoryOperation);
 }
 
 AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(BlobDDRef *DDRef, AVR *Parent) {

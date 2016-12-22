@@ -74,7 +74,7 @@ public:
   /// \brief Returns a new AVRValueHIR node.
   static AVRValueHIR *createAVRValueHIR(RegDDRef *DDRef, HLNode *HNode,
                                         AVR *Parent,
-                                        bool isMemoryAddress = false);
+                                        bool isMemoryOperation = false);
 
   /// \brief Returns a new AVRValueHIR node.
   static AVRValueHIR *createAVRValueHIR(BlobDDRef *DDRef,

@@ -160,9 +160,10 @@ private:
 
 protected:
   /// \brief Constructs an AVRValueHIR node for the operand in HLInst node
-  ///  specified by DDRef. /p isMemoryAddress indicates whether the operand
-  ///  represents an address used in a memory operation
-  AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent, bool isMemoryAddress);
+  ///  specified by DDRef. /p isMemoryOperation indicates whether the operand
+  ///  represents an address used in a memory operation (loads/store)
+  AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent,
+              bool isMemoryOperation);
 
   /// \brief Constructs an AVRValueHIR node for an IV
   AVRValueHIR(IVValueInfo *IVV, Type *Ty, AVR *Parent);

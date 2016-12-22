@@ -190,28 +190,25 @@ std::string AVRExpressionHIR::getAvrValueName() const {
 
 //----------AVR Value for HIR Implementation----------//
 AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent,
-                         bool isMemoryAddress)
+                         bool isMemoryOperation)
     : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {
 
   assert(Node && "HLNode cannot be null");
 
   setParent(Parent);
 
-  Type *DataType;
-  CanonExpr *CE = nullptr;
+  Type *DataType = DDRef->getDestType();
 
-  // We need a pointer type only if the parent AVR is a load or store
-  if (DDRef->hasGEPInfo() && isMemoryAddress) {
-    CE = DDRef->getBaseCE();
+  // We need a pointer type only if the parent AVR is a load or store (i.e.
+  // isMemoryOperation is true)
+  if (DDRef->hasGEPInfo() && isMemoryOperation) {
+    CanonExpr *CE = DDRef->getBaseCE();
     PointerType *BaseTy = cast<PointerType>(CE->getDestType());
-    Type *ElemTy = DDRef->getDestType();
-    // In the case of array of ints for example (int a[300]):
-    // ElemTy is i32  (int)
-    // BaseTy is [300 x i32]*  (pointer to array)
-    // We want i32* (pointer to int), so we build it:
-    DataType = ElemTy->getPointerTo(BaseTy->getPointerAddressSpace());
-  } else {
-    DataType = DDRef->getDestType();
+
+    // In the case of array of ints for example (int a[300]), the dest type of
+    // the DDRef is i32 (int). We want i32* (pointer to int), so we build it.
+    // This also works for DDRefs with trailing offsets.
+    DataType = DataType->getPointerTo(BaseTy->getPointerAddressSpace());
   }
 
   this->setType(DataType);
@@ -242,7 +239,7 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent,
   if (DDRef->isStandAloneIV(false /*AllowConversion*/)) {
     assert(DDRef->isSingleCanonExpr() &&
            "Standalone IV must have a single canon expr");
-    CE = DDRef->getSingleCanonExpr();
+    CanonExpr *CE = DDRef->getSingleCanonExpr();
     assert(CE->isStandAloneIV(false /*AllowConversion*/) &&
            "Standalone IV CanonExpr expected");
 
