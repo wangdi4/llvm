@@ -18,8 +18,8 @@
 ; }
 
 ; CHECK: IR Dump After
-; CHECK: if (&((%vy)[25 * %n + -1]) >= &((%px)[0]) && &((%px)[%n + 599]) >= &((%vy)[0]))
-; CHECK: if (&((%cx)[624]) >= &((%px)[0]) && &((%px)[%n + 599]) >= &((%cx)[0]))
+; CHECK: if (&((%vy)[25 * %n + -1]) >=u &((%px)[0]) && &((%px)[%n + 599]) >=u &((%vy)[0]))
+; CHECK: if (&((%cx)[624]) >=u &((%px)[0]) && &((%px)[%n + 599]) >=u &((%cx)[0]))
 
 ; ModuleID = 'matmul-blob-coeff.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

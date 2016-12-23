@@ -256,6 +256,10 @@ void StdContainerOpt::propMDForInsn(Value *V, Instruction *II, unsigned KindID,
         if (PhiUsers.insert(PN).second)
           propMDForInsn(I, II, KindID, PhiUsers);
       }
+      else if (PtrToIntInst *PToI = dyn_cast<PtrToIntInst>(I)) 
+        propMDForInsn(I, II, KindID, PhiUsers);
+      else if (IntToPtrInst *IToP = dyn_cast<IntToPtrInst>(I))
+        propMDForInsn(I, II, KindID, PhiUsers);
     }
   }
 }

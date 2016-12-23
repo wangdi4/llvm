@@ -43,7 +43,7 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-details -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 
-; CHECK: if (&((%3)[%5 + 25 * (-1 + %4) + 24]) >= &((%1)[0]) && &((%1)[25 * zext.i32.i64((-1 + %4)) + 24]) >= &((%3)[1]))
+; CHECK: if (&((%3)[%5 + 25 * (-1 + %4) + 24]) >=u &((%1)[0]) && &((%1)[25 * zext.i32.i64((-1 + %4)) + 24]) >=u &((%3)[1]))
 
 ; ModuleID = 'matmul-coremarkpro-x64.ll'
 source_filename = "matmul-coremarkpro-x86_3.ll"

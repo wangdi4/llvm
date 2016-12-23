@@ -13,7 +13,7 @@
 ; CHECK: if ({{.*}}%N{{.*}})
 ; CHECK: %cast{{[0-9]*}} = bitcast.i64*.i32*
 ; CHECK: %cast{{[0-9]*}} = bitcast.i64*.i32*
-; CHECK: if (%cast{{[0-9]*}} >= &((%a)[0]) && &((%a)[{{.*}}%N{{.*}}]) >= %cast{{[0-9]*}})
+; CHECK: if (%cast{{[0-9]*}} >=u &((%a)[0]) && &((%a)[{{.*}}%N{{.*}}]) >=u %cast{{[0-9]*}})
 
 ; ModuleID = 'ptr-types.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

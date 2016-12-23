@@ -14,8 +14,8 @@
 ; }
 
 ; CHECK: IR Dump After
-; CHECK: if (%N < {{[0-9]+}})
-; CHECK: if (&((%q)[%N + -1]) >= &((%p)[0]) && &((%p)[%N + -1]) >= &((%q)[0]))
+; CHECK: if (%N <u {{[0-9]+}})
+; CHECK: if (&((%q)[%N + -1]) >=u &((%p)[0]) && &((%p)[%N + -1]) >=u &((%q)[0]))
 
 ; CHECK: Loop metadata: No
 

@@ -58,10 +58,8 @@ bool HIRFramework::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
   SA = &getAnalysis<HIRSymbaseAssignment>();
 
-  HIRUtils::setHIRFramework(this);
-
-  HLNodeUtils::initialize();
-  HLNodeUtils::initTopSortNum();
+  getHLNodeUtils().HIRF = this;
+  getHLNodeUtils().initTopSortNum();
 
   estimateMaxTripCounts();
 
@@ -92,7 +90,7 @@ void MaxTripCountEstimator::visit(HLLoop *Lp) {
   auto UpperCE = Lp->getUpperDDRef()->getSingleCanonExpr();
 
   if (!UpperCE->isIntConstant() &&
-      HLNodeUtils::getMaxValue(UpperCE, Lp, MaxVal)) {
+      Lp->getHLNodeUtils().getMaxValue(UpperCE, Lp, MaxVal)) {
     Lp->setMaxTripCountEstimate(MaxVal + 1);
   }
 }
@@ -152,6 +150,7 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
   }
 
   auto Denom = CE->getDenominator();
+  auto &HNU = Node->getHLNodeUtils();
 
   // The analysis is carried out based on the assumption that the range of the
   // subscript is [0, NumElements].
@@ -176,7 +175,7 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
     bool PositiveIVCoeff = (Coeff > 0);
 
     if (Index != InvalidBlobIndex) {
-      if (!HLNodeUtils::isKnownPositiveOrNegative(Index, Node, BlobVal)) {
+      if (!HNU.isKnownPositiveOrNegative(Index, Node, BlobVal)) {
         // Blob can be zero so we conservatively bail out.
         continue;
       } else if (BlobVal < 0) {
@@ -191,13 +190,13 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
     // like this-
     // if (i < 5) A[5 - i] = 0
     // TODO : Can we refine this logic?
-    if (!HLNodeUtils::postDominates(Node, Lp->getFirstChild()) ||
+    if (!HNU.postDominates(Node, Lp->getFirstChild()) ||
         // The max value of the rest of the CE gives a better estimate on max
         // trip count so we check max value first. For example, A[i + j] will
         // give a tighter bound on j for max value of i. Similarly, for A[i - j]
         // max value of i gives max estimate for j.
-        (!HLNodeUtils::getMaxValue(CE, Node, NonIVVal) &&
-         !HLNodeUtils::getMinValue(CE, Node, NonIVVal))) {
+        (!HNU.getMaxValue(CE, Node, NonIVVal) &&
+         !HNU.getMinValue(CE, Node, NonIVVal))) {
       // This gets us the most conservative estimate.
       NonIVVal = 0;
     }
@@ -229,16 +228,21 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
 
 void HIRFramework::estimateMaxTripCounts() const {
   MaxTripCountEstimator MTCE;
-  HLNodeUtils::visitAll(MTCE);
+  getHLNodeUtils().visitAll(MTCE);
 }
 
 void HIRFramework::print(raw_ostream &OS, const Module *M) const {
-  HIRP->print(OS);
+  print(true, OS, M);
+}
+
+void HIRFramework::print(bool FrameworkDetails, raw_ostream &OS,
+                         const Module *M) const {
+  HIRP->print(FrameworkDetails, OS, M);
 }
 
 void HIRFramework::verifyAnalysis() const {
   if (HIRVerify) {
-    HIRVerifier::verifyAll();
+    HIRVerifier::verifyAll(*this);
     DEBUG(dbgs() << "Verification of HIR done"
                  << "\n");
   }

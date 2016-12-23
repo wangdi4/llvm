@@ -56,6 +56,7 @@ class MemTransferInst;
 class MemIntrinsic;
 class DominatorTree;
 class OrderedBasicBlock;
+class IntrinsicInst;    // INTEL
 
 /// The possible results of an alias query.
 ///
@@ -454,6 +455,15 @@ public:
                            uint64_t Size) {
     return getModRefInfo(I, MemoryLocation(P, Size));
   }
+
+ #if INTEL_CUSTOMIZATION
+   /// getModRefInfoForMaskedScatter - Return information about whether a
+   /// masked_scatter intrinsic call modifies or reads the specified memory
+   /// location. This intrinsic modifies or reads \p Loc when one of its
+   /// unmasked destinations aliases with \p Loc.
+   ModRefInfo getModRefInfoForMaskedScatter(const IntrinsicInst *I,
+                                            const MemoryLocation &Loc);
+ #endif // INTEL_CUSTOMIZATION
 
   /// Check whether or not an instruction may read or write memory (without
   /// regard to a specific location).

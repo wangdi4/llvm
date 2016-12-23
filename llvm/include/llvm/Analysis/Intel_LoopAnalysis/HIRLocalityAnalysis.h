@@ -42,6 +42,7 @@ namespace loopopt {
 class HLNode;
 class HLLoop;
 class DDRefUtils;
+class HIRFramework;
 
 class HIRLocalityAnalysis final : public HIRAnalysisPass {
 public:
@@ -66,6 +67,8 @@ private:
     uint64_t getTemporalLocality() const { return (TempInv + TempReuse); }
     void clear() { Spatial = TempInv = TempReuse = 0; }
   };
+
+  HIRFramework *HIRF;
 
   // Maintains locality info per level. This is used by loop interchange.
   std::array<LocalityInfo, MaxLoopNestLevel> LocalityByLevel;
@@ -103,11 +106,10 @@ private:
                                const SmallVectorImpl<const HLLoop *> &LoopVec);
 
   /// Computes the temporal invariant locality for a loop.
-  void computeTempInvLocality(const HLLoop *Loop,
-                              RefGroupMapTy &RefGroups);
+  void computeTempInvLocality(const HLLoop *Loop, RefGroupMapTy &RefGroups);
 
   /// Computes the temporal reuse locality for a loop.
-  void computeTempReuseLocality(const HLLoop *Loop, RefGroupMapTy &RefGroups, 
+  void computeTempReuseLocality(const HLLoop *Loop, RefGroupMapTy &RefGroups,
                                 unsigned ReuseThreshold);
 
   /// Computes the spatial locality for a loop.
@@ -141,7 +143,8 @@ private:
 
 public:
   HIRLocalityAnalysis()
-      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLocalityAnalysisVal) {}
+      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLocalityAnalysisVal),
+        HIRF(nullptr) {}
   static char ID;
 
   bool runOnFunction(Function &F) override;
@@ -150,7 +153,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-  void releaseMemory() override {};
+  void releaseMemory() override{};
 
   /// Nothing to do.
   void markLoopBodyModified(const HLLoop *Lp) override {}

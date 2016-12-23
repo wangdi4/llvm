@@ -1870,6 +1870,12 @@ Instruction *InstCombiner::foldICmpShrConstant(ICmpInst &Cmp,
 
   bool IsAShr = Shr->getOpcode() == Instruction::AShr;
   if (!Cmp.isEquality()) {
+#if INTEL_CUSTOMIZATION
+    // Disabling this particular optimization before loopopt as it interferes
+    // with ztt recognition. 
+    if (Cmp.getParent()->getParent()->isPreLoopOpt())
+      return nullptr;
+#endif // INTEL_CUSTOMIZATION
     // If we have an unsigned comparison and an ashr, we can't simplify this.
     // Similarly for signed comparisons with lshr.
     if (Cmp.isSigned() != IsAShr)
@@ -1971,6 +1977,12 @@ Instruction *InstCombiner::foldICmpUDivConstant(ICmpInst &Cmp,
 Instruction *InstCombiner::foldICmpDivConstant(ICmpInst &Cmp,
                                                BinaryOperator *Div,
                                                const APInt *C) {
+#if INTEL_CUSTOMIZATION
+  // Disabling this particular optimization before loopopt as it interferes with
+  // ztt recognition. 
+  if (Cmp.getParent()->getParent()->isPreLoopOpt())
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   // FIXME: This check restricts all folds under here to scalar types.
   ConstantInt *RHS = dyn_cast<ConstantInt>(Cmp.getOperand(1));
   if (!RHS)

@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsHIR.h"
 
 using namespace llvm;
@@ -51,9 +52,9 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
   const Instruction* LLVMInstruction = HLInst->getLLVMInstruction();
   Opcode = LLVMInstruction->getOpcode();
   if (const CmpInst* LLVMCmpInst = dyn_cast<CmpInst>(LLVMInstruction))
-    Predicate = LLVMCmpInst->getPredicate();
+    Condition = LLVMCmpInst->getPredicate();
   else
-    Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
+    Condition = CmpInst::Predicate::BAD_ICMP_PREDICATE;
 
   this->setParent(HLAssign); // Set Parent
 
@@ -100,15 +101,14 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
     IsLHSExpr = false;
 }
 
-// TODO: set type
 AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
                                    HLIf::const_pred_iterator& PredIt)
   : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) {
 
-  const HLIf *HIf = AIf->getCompareInstruction();
+  HLIf *HIf = AIf->getCompareInstruction();
   HIRNode = nullptr; // this is an HLIf predicate - no underlying HLInst.
-  Predicate = *PredIt;
-  if (Predicate <= CmpInst::Predicate::LAST_FCMP_PREDICATE)
+  Condition = *PredIt;
+  if (Condition <= CmpInst::Predicate::LAST_FCMP_PREDICATE)
     this->Opcode = Instruction::FCmp;
   else
     this->Opcode = Instruction::ICmp;
@@ -120,29 +120,59 @@ AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
   RegDDRef *LHS = HIf->getPredicateOperandDDRef(PredIt, true);
   if (LHS) {
 
-    AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(LHS, nullptr, this);
+    AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(LHS, HIf, this);
     this->Operands.push_back(AvrVal);
   }
 
   RegDDRef *RHS = HIf->getPredicateOperandDDRef(PredIt, false);
-  if (RHS) {
+  assert (RHS && "Predicate's RHS is null");
+  AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(RHS, HIf, this);
+  this->Operands.push_back(AvrVal);
 
-    AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(RHS, nullptr, this);
-    this->Operands.push_back(AvrVal);
-  }
+  // Set type
+  assert(!RHS->getSrcType()->isVectorTy() && "SrcType is vector type");
+  assert(!RHS->getDestType()->isVectorTy() && "DstType is vector type");
+  this->setType(Type::getInt1Ty(RHS->getDestType()->getContext()));
 }
 
-// TODO: set type
-AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR* LHS,
-                                   AVRExpressionHIR* RHS)
-  : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) {
+AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR *LHS, AVRExpressionHIR *RHS)
+    : AVRExpression(AVR::AVRExpressionHIRNode,
+                    Type::getInt1Ty(RHS->getType()->getContext())) {
+
+  assert(!LHS->getType()->isVectorTy() && "LHS has vector type");
+  assert(!RHS->getType()->isVectorTy() && "RHS has vector type");
 
   HIRNode = nullptr; // no underlying HLInst.
-  this->Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
   this->Opcode = Instruction::And;
   this->Operation = this->Opcode;
 
   IsLHSExpr = false;
+
+  this->Operands.push_back(LHS);
+  this->Operands.push_back(RHS);
+}
+
+// If we are not going to need IR specific information,
+// Should we move this functionality to AVRExpression?
+// AVRPredicator is doing something similar
+AVRExpressionHIR::AVRExpressionHIR(AVR* LHS,
+                                   AVR* RHS,
+                                   Type *Ty,
+                                   unsigned Opcode)
+  : AVRExpression(AVR::AVRExpressionHIRNode, Ty) {
+
+  assert(Ty && "Expression type is null");
+
+  HIRNode = nullptr; // no underlying HLInst.
+  // Why do we need Opcode and Operation?
+  this->Opcode = Opcode;
+  this->Operation = this->Opcode;
+
+  // TODO
+  IsLHSExpr = false;
+
+  AVRUtils::setParent(LHS, this);
+  AVRUtils::setParent(RHS, this);
 
   this->Operands.push_back(LHS);
   this->Operands.push_back(RHS);
@@ -158,16 +188,19 @@ std::string AVRExpressionHIR::getAvrValueName() const {
 
 //----------AVR Value for HIR Implementation----------//
 AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
-  : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {
+    : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {
+
+  assert(Node && "HLNode cannot be null");
+
   setParent(Parent);
 
   Type *DataType;
-  const CanonExpr *CE = nullptr;
+  CanonExpr *CE = nullptr;
 
   if (DDRef->hasGEPInfo()) {
     CE = DDRef->getBaseCE();
-    PointerType *BaseTy = cast<PointerType>(CE->getSrcType()); //CHECKME: getDestType?
-    Type *ElemTy = DDRef->getSrcType(); //CHECKME: getDestType?
+    PointerType *BaseTy = cast<PointerType>(CE->getDestType());
+    Type *ElemTy = DDRef->getDestType();
     // In the case of array of ints for example (int a[300]):
     // ElemTy is i32  (int)
     // BaseTy is [300 x i32]*  (pointer to array)
@@ -175,10 +208,9 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
     DataType = ElemTy->getPointerTo(BaseTy->getPointerAddressSpace()); 
   }
   else {
-    // CHECKME: DDRef->getSrcType? getDestType?
     CE = DDRef->getSingleCanonExpr();
     assert(CE && "DDRef is empty!");
-    DataType = CE->getSrcType();
+    DataType = CE->getDestType();
   }
 
   this->setType(DataType);
@@ -203,6 +235,30 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
       llvm_unreachable("CanonExpr has an unexpected constant value!");
     }
   }
+
+  // Add IVValue info if RegDDRef is a standalone IV (1 * i3)
+  if (DDRef->isStandAloneIV(false /*AllowConversion*/)) {
+    assert(DDRef->isSingleCanonExpr() &&
+           "Standalone IV must have a single canon expr");
+    CE = DDRef->getSingleCanonExpr();
+    assert(CE->isStandAloneIV(false /*AllowConversion*/) &&
+           "Standalone IV CanonExpr expected");
+
+    setIVValue(new AVRValueHIR::IVValueInfo(CE, CE->getFirstIVLevel()));
+  }
+}
+
+//TODO
+AVRValueHIR::AVRValueHIR(BlobDDRef *DDRef, AVR *Parent)
+    : AVRValue(AVR::AVRValueHIRNode, DDRef->getDestType()), Val(DDRef),
+      HNode(nullptr) {
+  setParent(Parent);
+}
+
+AVRValueHIR::AVRValueHIR(IVValueInfo *IVV, Type *Ty, AVR *Parent)
+    : AVRValue(AVR::AVRValueHIRNode, Ty), Val(nullptr), IVVal(IVV),
+      HNode(nullptr) {
+  setParent(Parent);
 }
 
 AVRValueHIR *AVRValueHIR::clone() const {
@@ -211,21 +267,42 @@ AVRValueHIR *AVRValueHIR::clone() const {
 
 void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
+  const Constant *Const = getConstant();
 
   // Print AVR Value Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "("  << getNumber() << ")";
-    case PrintAvrType:
+  case PrintNumber:
+    OS << "(" << getNumber() << ")";
+  case PrintAvrDecomp: {
+    AVR *DecTree = getDecompTree();
+    if (DecTree != nullptr) {
+      DecTree->print(OS, Depth, VLevel);
+      break;
+    }
+  }
+  case PrintAvrType:
       OS << getAvrTypeName() << "{";
-    case PrintDataType: {
+  case PrintDataType: {
+    if (Const == nullptr) {
       Type *ValType = getType();
       printSLEV(OS);
       OS << *ValType << " ";
     }
-    case PrintBase:
-      Val->print(OS,false);
-      break;
+  }
+  case PrintBase: {
+    // If there is constant information, we print it and
+    // ignore Val as it can be a nullptr
+    if (Const != nullptr) {
+      Const->print(OS, false);
+    } else if (Val != nullptr) {
+      Val->print(OS, false);
+    } else { // IV Value
+      assert(IVVal != nullptr && "IVValue is null");
+      OS << "i" << IVVal->Level;
+    }
+
+    break;
+  }
   default:
     llvm_unreachable("Unknown Avr Print Verbosity!");
   }

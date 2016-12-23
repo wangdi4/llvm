@@ -44,7 +44,7 @@ public:
   typedef RegDDRefTy::const_reverse_iterator const_reverse_ddref_iterator;
 
 protected:
-  HLDDNode(unsigned SCID);
+  HLDDNode(HLNodeUtils &HNU, unsigned SCID);
   virtual ~HLDDNode() override{};
 
   friend class HLNodeUtils;

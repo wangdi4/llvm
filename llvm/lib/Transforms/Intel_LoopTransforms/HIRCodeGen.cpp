@@ -67,6 +67,7 @@ class HIRCodeGen : public FunctionPass {
 private:
   ScalarEvolution *SE;
   Function *F;
+  HIRFramework *HIRF;
 
   // This does the real work of llvm ir cg
   // Uses IRBuilder to generate LLVM IR for each HIR construct
@@ -133,8 +134,8 @@ private:
     void generateLvalStore(const HLInst *HInst, Value *StorePtr,
                            Value *StoreVal);
 
-    CGVisitor(Function *CurFunc, ScalarEvolution *SE, Pass *CurPass)
-        : F(CurFunc), HIRCG(CurPass) {
+    CGVisitor(Function *CurFunc, ScalarEvolution *SE, HIRCodeGen *CG)
+        : F(CurFunc), HIRCG(CG) {
       Builder = new IRBuilder<>(F->getContext());
       // TODO possibly IV conflict if scev blobs contain IV
       const DataLayout &DL =
@@ -199,7 +200,7 @@ private:
 
     // \brief TODO blobs are reprsented by scev with some caveats
     SCEV *getBlobSCEV(int BlobIdx) {
-      return const_cast<SCEV *>(BlobUtils::getBlob(BlobIdx));
+      return const_cast<SCEV *>(HIRCG->HIRF->getBlobUtils().getBlob(BlobIdx));
     }
 
     Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt) {
@@ -303,7 +304,8 @@ private:
         // Blobs represented by an scevunknown whose value is an instruction
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
-        unsigned BlobSymbase = BlobUtils::findTempBlobSymbase(S);
+        unsigned BlobSymbase =
+            CG.HIRCG->HIRF->getBlobUtils().findTempBlobSymbase(S);
 
         // SCEVExpander can create its own SCEVs as intermediates which are
         // then expanded. One example is expandAddToGep which replaces
@@ -334,7 +336,7 @@ private:
     HIRSCEVExpander *Expander;
     // Dont need custom insertion funcs...yet
     IRBuilder<> *Builder;
-    Pass *HIRCG;
+    HIRCodeGen *HIRCG;
 
     // keep track of our mem allocs. Only IV and temps atm
     std::map<std::string, AllocaInst *> NamedValues;
@@ -384,7 +386,7 @@ public:
 
     this->F = &F;
     SE = &(getAnalysis<ScalarEvolutionWrapperPass>().getSE());
-    auto HIRF = &getAnalysis<HIRFramework>();
+    HIRF = &getAnalysis<HIRFramework>();
 
     // generate code
     CGVisitor CG(&F, SE, this);
@@ -421,6 +423,9 @@ public:
     }
 
     eraseDummyInstructions();
+
+    // No longer need to suppress scalar optimizations.
+    F.resetPreLoopOpt();
 
     return Transformed;
   }
@@ -499,7 +504,7 @@ bool HIRCodeGen::clearHIRMetadata(HLRegion *Reg) const {
 void HIRCodeGen::preVisitCG(HLRegion *Reg) const {
   // Gather all loops for processing.
   SmallVector<HLLoop *, 64> Loops;
-  HLNodeUtils::gatherAllLoops(Reg, Loops);
+  Reg->getHLNodeUtils().gatherAllLoops(Reg, Loops);
 
   // Extract ztt, preheader and postexit.
   for (auto &I : Loops) {
@@ -704,7 +709,8 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     GEPVal = Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
   }
 
-  if (GEPVal->getType()->isVectorTy()) {
+  if (GEPVal->getType()->isVectorTy() &&
+      isa<PointerType>(Ref->getBaseDestType())) {
     // When we have a vector of pointers and base src and dest types do not
     // match, we need to bitcast from vector of pointers of src type to vector
     // of pointers of dest type. Example case, Src type is int * and Dest type
@@ -1412,8 +1418,8 @@ Value *HIRCodeGen::CGVisitor::CoefCG(int64_t Coeff, Value *V) {
 
 void HIRCodeGen::eraseDummyInstructions() {
 
-  auto FirstInst = HLNodeUtils::getFirstDummyInst();
-  auto LastInst = HLNodeUtils::getLastDummyInst();
+  auto FirstInst = HIRF->getHLNodeUtils().getFirstDummyInst();
+  auto LastInst = HIRF->getHLNodeUtils().getLastDummyInst();
 
   if (!FirstInst) {
     return;

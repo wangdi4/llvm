@@ -67,10 +67,6 @@ public:
   /// \brief Returns the AVR Condition for AvrIf.
   virtual AVR *getCondition() const override { return Condition; }
 
-  /// \brief Prints the AvrIf node.
-  void print(formatted_raw_ostream &OS, unsigned Depth,
-	     VerbosityLevel VLevel) const override;
-
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;
 

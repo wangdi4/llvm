@@ -5,7 +5,8 @@
 
 ; RUN: opt < %s -ip-cloning -print-ip-cloning -disable-output 2>&1 | FileCheck %s
 
-; CHECK: Total clones:  2
+; CHECK: Cloned call:
+; CHECK: Cloned call:
 
 @.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
 @index = external local_unnamed_addr global i32, align 4

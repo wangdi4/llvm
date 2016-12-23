@@ -18,10 +18,11 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_PARVECDIRECTIVEINSERTION_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_PARVECDIRECTIVEINSERTION_H
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
 #include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 namespace llvm {
 namespace loopopt {
@@ -33,6 +34,7 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
   /// \brief Worker class for directive insertion.
   class Visitor final : public HLNodeVisitorBase {
     Function &Func;
+    HIRFramework *HIRF;
     HIRParVecAnalysis *PVA;
     ParVecInfo::AnalysisMode Mode;
     /// \brief Status flag to indicate whether we modified the HIR or not.
@@ -50,8 +52,9 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
     HLInst *insertDirective(HLLoop *L, OMP_DIRECTIVES Dir, bool Append);
 
   public:
-    Visitor(Function &Func, HIRParVecAnalysis *PVA, ParVecInfo::AnalysisMode Mode)
-      : Func(Func), PVA(PVA), Mode(Mode), Inserted(false) {}
+    Visitor(Function &Func, HIRFramework *HIRF, HIRParVecAnalysis *PVA,
+            ParVecInfo::AnalysisMode Mode)
+        : Func(Func), HIRF(HIRF), PVA(PVA), Mode(Mode), Inserted(false) {}
     void visit(HLNode *N) {}
     void postVisit(HLNode *N) {}
     /// \brief Checks if directive insertion is needed for the loop
@@ -76,6 +79,7 @@ public:
   void releaseMemory() override {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<HIRParVecAnalysis>();
     AU.setPreservesAll();
   }

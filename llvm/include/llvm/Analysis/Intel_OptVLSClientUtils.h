@@ -16,7 +16,6 @@
 #ifndef LLVM_ANALYSIS_INTEL_OPTVLSCLIENTUTILS_H
 #define LLVM_ANALYSIS_INTEL_OPTVLSCLIENTUTILS_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/Debug.h"
@@ -26,7 +25,7 @@ namespace llvm {
 /// Common VLS-Client Cost-model utilities.
 /// The VLS-engine needs clients to provide this information in order to 
 /// compute the cost of a VLS group.
-class OVLSTTICostModel : public OVLSCostModelAnalysis {
+class OVLSTTICostModel : public OVLSCostModel {
 protected:
   /// \brief A handle to Target Information
   const TargetTransformInfo &TTI;
@@ -36,7 +35,7 @@ protected:
 
 public:
   OVLSTTICostModel(const TargetTransformInfo &TTI, LLVMContext &C)
-      : TTI(TTI), C(C) {}
+    : OVLSCostModel(TTI), TTI(TTI), C(C) {}
 
   /// \brief Returns target-specific cost for \p I based on the
   /// Target Transformation Information (TTI) interface.
@@ -56,21 +55,6 @@ public:
   /// needed for TTI routines such as getMemoryOpCost and getShuffleCost that
   /// require the vector data type).
   Type *getVectorDataType(Type *ElemType, OVLSType &VLSType) const;
-};
-
-/// Implementation for the HIR vectorizer client, operating on
-/// HIRVLSClientMemrefs (scalar memrefs).
-class OVLSTTICostModelHIR : public OVLSTTICostModel {
-public:
-  OVLSTTICostModelHIR(const TargetTransformInfo &TTI, LLVMContext &C)
-      : OVLSTTICostModel(TTI, C) {}
-
-  Type *getMrfDataType(const OVLSMemref *Mrf) const override {
-    assert(isa<HIRVLSClientMemref>(Mrf) && "Expecting HIR Memref.\n");
-    return (cast<HIRVLSClientMemref>(Mrf))->getRef()->getSrcType();
-  }
-  unsigned getMrfAddressSpace(const OVLSMemref &Mrf) const override;
-  uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const override;
 };
 
 /// Empty implementation for the (yet non existant) LLVM vectorizer client 

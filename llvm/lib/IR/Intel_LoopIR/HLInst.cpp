@@ -14,13 +14,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -34,8 +33,8 @@ void HLInst::initialize() {
   RegDDRefs.resize(NumOp, nullptr);
 }
 
-HLInst::HLInst(Instruction *In)
-    : HLDDNode(HLNode::HLInstVal), Inst(In),
+HLInst::HLInst(HLNodeUtils &HNU, Instruction *Inst)
+    : HLDDNode(HNU, HLNode::HLInstVal), Inst(Inst),
       CmpOrSelectPred(PredicateTy::FCMP_TRUE) {
   assert(Inst && "LLVM Instruction for HLInst cannot be null!");
   initialize();
@@ -98,12 +97,14 @@ bool HLInst::checkSeparator(formatted_raw_ostream &OS, bool Print) const {
       } else if ((Opcode == Instruction::Mul) ||
                  (Opcode == Instruction::FMul)) {
         OS << "  *  ";
-      } else if ((Opcode == Instruction::UDiv) ||
-                 (Opcode == Instruction::SDiv) ||
+      } else if (Opcode == Instruction::UDiv) {
+        OS << "  /u  ";
+      } else if ((Opcode == Instruction::SDiv) ||
                  (Opcode == Instruction::FDiv)) {
         OS << "  /  ";
-      } else if ((Opcode == Instruction::URem) ||
-                 (Opcode == Instruction::SRem) ||
+      } else if (Opcode == Instruction::URem) {
+        OS << "  %u  ";
+      } else if ((Opcode == Instruction::SRem) ||
                  (Opcode == Instruction::FRem)) {
         OS << "  %  ";
       } else if (Opcode == Instruction::Shl) {
@@ -408,29 +409,80 @@ bool HLInst::isSIMDDirective() const {
   return true;
 }
 
-bool HLInst::isReductionOp(unsigned *OpCode) const {
+bool HLInst::isValidReductionOpCode(unsigned OpCode) {
+  // Start with these initially - when adding a new opcode ensure
+  // that we also add changes to get reduction identity in
+  // getRecurrenceIdentity below.
+  switch (OpCode) {
+  case Instruction::FAdd:
+  case Instruction::FSub:
+  case Instruction::FMul:
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::Mul:
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor:
+    return true;
 
-  bool IsReductionOp = false;
-  *OpCode = 0;
+  default:
+    return false;
+  }
+}
+
+bool HLInst::isReductionOp(unsigned *OpCode) const {
   const Instruction *LLVMInst = getLLVMInstruction();
+
   if (isa<BinaryOperator>(LLVMInst)) {
     *OpCode = LLVMInst->getOpcode();
-    // Start with these initially
-    switch (*OpCode) {
-    case Instruction::FAdd:
-    case Instruction::FSub:
-    case Instruction::FMul:
-    case Instruction::Add:
-    case Instruction::Sub:
-    case Instruction::Mul:
-    case Instruction::And:
-    case Instruction::Or:
-    case Instruction::Xor:
-      IsReductionOp = true;
-      break;
-    default:
-      break;
-    }
+    return isValidReductionOpCode(*OpCode);
+  } else {
+    *OpCode = 0;
+    return false;
   }
-  return IsReductionOp;
+}
+
+Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
+  RecurrenceDescriptor::RecurrenceKind RDKind;
+
+  assert(isValidReductionOpCode(RednOpCode) &&
+         "Expected a valid reduction opcode");
+
+  switch (RednOpCode) {
+  case Instruction::FAdd:
+  case Instruction::FSub:
+    RDKind = RecurrenceDescriptor::RK_FloatAdd;
+    break;
+
+  case Instruction::Add:
+  case Instruction::Sub:
+    RDKind = RecurrenceDescriptor::RK_IntegerAdd;
+    break;
+
+  case Instruction::FMul:
+    RDKind = RecurrenceDescriptor::RK_FloatMult;
+    break;
+
+  case Instruction::Mul:
+    RDKind = RecurrenceDescriptor::RK_IntegerMult;
+    break;
+
+  case Instruction::And:
+    RDKind = RecurrenceDescriptor::RK_IntegerAnd;
+    break;
+
+  case Instruction::Or:
+    RDKind = RecurrenceDescriptor::RK_IntegerOr;
+    break;
+
+  case Instruction::Xor:
+    RDKind = RecurrenceDescriptor::RK_IntegerXor;
+    break;
+
+  default:
+    llvm_unreachable("Unexpected reduction opcode");
+    break;
+  }
+
+  return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty);
 }

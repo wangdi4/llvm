@@ -22,8 +22,10 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLRegion::HLRegion(IRRegion &IReg)
-    : HLNode(HLNode::HLRegionVal), GenCode(false), IRReg(IReg) {}
+HLRegion::HLRegion(HLNodeUtils &HNU, IRRegion &IReg)
+    : HLNode(HNU, HLNode::HLRegionVal), GenCode(false), IRReg(IReg) {
+  IRReg.ParentRegion = this;
+}
 
 HLRegion *HLRegion::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                               HLNodeMapper *NodeMapper) const {
@@ -123,4 +125,3 @@ bool HLRegion::exitsFunction() const {
 
   return isa<ReturnInst>(HInst->getLLVMInstruction());
 }
-

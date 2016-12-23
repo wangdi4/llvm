@@ -1,4 +1,5 @@
-//===- intelovls-test.cpp - Provides a test client for OptVLS -------------------===//
+//===- intelovls-test.cpp - Provides a test client for OptVLS
+//-------------------===//
 //
 // Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
@@ -9,8 +10,10 @@
 //
 //===---------------------------------------------------------------------===//
 //
-// This file implements a test client of OptVLS to test the implementation of OptVLS.
-// This gets compiled into an standalone executable called intelovls-test placed in to the
+// This file implements a test client of OptVLS to test the implementation of
+// OptVLS.
+// This gets compiled into an standalone executable called intelovls-test placed
+// in to the
 // bin directory. It can be run independently just like "opt".
 // intelovls-test expects an input text file that contains a list of memrefs.
 // Currently, it outputs only OVLSGroups.
@@ -26,37 +29,51 @@
 //        3 A 12 i32 4 SLoad C 12, here the distance(12) is the distance from 1
 // - VS(vector stride) needs to be set zero even when VSType is U
 // - Element Type: {i|f}number of bits : i32, i64, f32, f64
-// - Two indexed memrefs are adjacent if they have the matching MemrefId, IndexId and IndexType
-//   -  <8 D 0 i64 2 ILoad P i64 2> and <10 D 0 i64 2 ILoad C i32 2> are not adjacent
+// - Two indexed memrefs are adjacent if they have the matching MemrefId,
+// IndexId and IndexType
+//   -  <8 D 0 i64 2 ILoad P i64 2> and <10 D 0 i64 2 ILoad C i32 2> are not
+//   adjacent
 //   -  <8 D 0 i64 2 ILoad P i64 2> and <9 D 4 i64 2 ILoad P i64 2> are adjacent
-//   -  <12 E 0 i32 4 ILoad Q i32 4> and <13 E 4 i32 2 ILoad Q i32 2> are not adjacent since they
+//   -  <12 E 0 i32 4 ILoad Q i32 4> and <13 E 4 i32 2 ILoad Q i32 2> are not
+//   adjacent since they
 //      don't have the same index types.
 //
 // - Two strided memrefs are adjacent if they have the matching MemrefId
-//    - For constant vector strides, two memrefs are adjacent if they have the same constant vector-stride value
-//      - C as VsId representes constant vector stride, therefore, C can not be used as variable vector stride.
+//    - For constant vector strides, two memrefs are adjacent if they have the
+//    same constant vector-stride value
+//      - C as VsId representes constant vector stride, therefore, C can not be
+//      used as variable vector stride.
 //      - <1 A 0 i32 4 SLoad C 3> and <2 A 4 i32 4 SLoad C 3> are adjacent
-//    - For variable vector strides, two memrefs are adjacent if they have the same VSId
+//    - For variable vector strides, two memrefs are adjacent if they have the
+//    same VSId
 //      - <1 A 0 i32 4 SLoad I 0> and <7 A 4 i64 2 SStore J 0> are not adjacent
 //      - <1 A 0 i32 4 SLoad I 0> and <2 A 4 i32 4 SLoad I 0> are adjacent
 //
 // Format:
 //
 // Strided Memref Specifier:
-// Id(int) MemrefId(Char) Dist(in bytes) Type:<ElementType X ElementCount>  AccessType VsId{C-constant} VS(#bytes)
+// Id(int) MemrefId(Char) Dist(in bytes) Type:<ElementType X ElementCount>
+// AccessType VsId{C-constant} VS(#bytes)
 // e.g. <1 A 0 i32 4 SLoad C 40>
 //
 // Indexed Memref Specifier:
-// Id(int) MemrefId(Char) Dist(in bytes) Type:<ElementType X ElementCount>  Accesstype IndexId IndexType:<ElementType X ElementCount>
+// Id(int) MemrefId(Char) Dist(in bytes) Type:<ElementType X ElementCount>
+// Accesstype IndexId IndexType:<ElementType X ElementCount>
 // e.g. <8 D 0 i64 2 ILoad P i64 2>
 //
 //===---------------------------------------------------------------------===//
 
 #include "intelovls-test.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 
 // Two memrefs are considered to have same index vectors if they
 // have the same index-id and same index-type.
-bool ClientMemref::haveSameIndexVector(const ClientMemref& Mrf) {
+bool ClientMemref::haveSameIndexVector(const ClientMemref &Mrf) {
   if (this->getIndexId() == Mrf.getIndexId() &&
       this->IndexType == Mrf.IndexType) {
     return true;
@@ -64,13 +81,14 @@ bool ClientMemref::haveSameIndexVector(const ClientMemref& Mrf) {
   return false;
 }
 
-bool ClientMemref::haveSameVectorStride(const ClientMemref& Mrf) {
+bool ClientMemref::haveSameVectorStride(const ClientMemref &Mrf) {
   if (this->hasConstVStride()) {
-    if (Mrf.hasConstVStride() && this->getConstVectorStride() == Mrf.getConstVectorStride())
+    if (Mrf.hasConstVStride() &&
+        this->getConstVectorStride() == Mrf.getConstVectorStride())
       return true;
     return false;
-  }
-  else if (Mrf.hasVarVStride() && this->getVarVectorStride() == Mrf.getVarVectorStride())
+  } else if (Mrf.hasVarVStride() &&
+             this->getVarVectorStride() == Mrf.getVarVectorStride())
     return true;
   return false;
 }
@@ -79,129 +97,148 @@ bool ClientMemref::haveSameVectorStride(const ClientMemref& Mrf) {
 //   - they have the same memref id, and same access type
 //   - for indexed accesses, they have to have the same index vectors or,
 //   - for strided accesses, they have to have the same vector strides
-bool ClientMemref::isAConstDistanceFrom(const OVLSMemref& Mrf, int64_t *Distance) {
+bool ClientMemref::isAConstDistanceFrom(const OVLSMemref &Mrf,
+                                        int64_t *Distance) {
   assert(isa<ClientMemref>(&Mrf) && "Expected ClientMemref!!!");
   const ClientMemref *CLMrf = cast<const ClientMemref>(&Mrf);
-  if ((MId == CLMrf->getMemrefId()) && // have same memref id
+  if ((MId == CLMrf->getMemrefId()) &&                // have same memref id
       this->getAccessType() == Mrf.getAccessType() && // have same access type
       // Indexed accesses have matching index-vectors.
-      ((this->getAccessType().isIndexedAccess() && haveSameIndexVector(*CLMrf)) ||
+      ((this->getAccessType().isIndexedAccess() &&
+        haveSameIndexVector(*CLMrf)) ||
        // Strided accesses have matching vector strides.
-       (this->getAccessType().isStridedAccess() && haveSameVectorStride(*CLMrf)))) {
+       (this->getAccessType().isStridedAccess() &&
+        haveSameVectorStride(*CLMrf)))) {
     *Distance = Dist - (CLMrf->getDistance());
     return true;
   }
   return false;
 }
 
-
 namespace OVLSTest {
-  static OVLSContext Context;
+static OVLSContext Context;
 
-  static void parseCommandLineOptions(int argc, char **argv, const char *Banner = nullptr) {
-    cl::ParseCommandLineOptions(argc, argv, Banner);
-  }
+static void parseCommandLineOptions(int argc, char **argv,
+                                    const char *Banner = nullptr) {
+  cl::ParseCommandLineOptions(argc, argv, Banner);
+}
 
-  OVLSContext& getContext() {
-    return Context;
-  }
+OVLSContext &getContext() { return Context; }
 
-  static OVLSAccessType getAccessType(const std::string &AccType) {
-    if (AccType.compare("SLoad") == 0)
-      return OVLSAccessType::getStridedLoadTy();
-    else if (AccType.compare("SStore") == 0)
-      return OVLSAccessType::getStridedStoreTy();
-    else if (AccType.compare("ILoad") == 0)
-      return OVLSAccessType::getIndexedLoadTy();
-    else if (AccType.compare("IStore") == 0)
-      return OVLSAccessType::getIndexedStoreTy();
-    return OVLSAccessType::getUnknownTy();
-  }
+static OVLSAccessType getAccessType(const std::string &AccType) {
+  if (AccType.compare("SLoad") == 0)
+    return OVLSAccessType::getStridedLoadTy();
+  else if (AccType.compare("SStore") == 0)
+    return OVLSAccessType::getStridedStoreTy();
+  else if (AccType.compare("ILoad") == 0)
+    return OVLSAccessType::getIndexedLoadTy();
+  else if (AccType.compare("IStore") == 0)
+    return OVLSAccessType::getIndexedStoreTy();
+  return OVLSAccessType::getUnknownTy();
+}
 
-  static Type* getScalarType(const std::string ST) {
-    OVLSContext& Context = getContext();
+static Type *getScalarType(const std::string ST) {
+  OVLSContext &Context = getContext();
 
-    if (ST.compare("i8") == 0 || ST.compare("si8") == 0)
-      return Type::getInt8Ty(Context);
-    else if (ST.compare("i16") == 0 || ST.compare("si16") == 0)
-      return Type::getInt16Ty(Context);
-    else if (ST.compare("i32") == 0 || ST.compare("si32") == 0)
-      return Type::getInt32Ty(Context);
-    else if (ST.compare("i64") == 0 || ST.compare("si64") == 0)
-      return Type::getInt64Ty(Context);
-    else if (ST.compare("f32") == 0)
-      return Type::getFloatTy (Context);
-    else if (ST.compare("f64") == 0)
-      return Type::getDoubleTy (Context);
+  if (ST.compare("i8") == 0 || ST.compare("si8") == 0)
+    return Type::getInt8Ty(Context);
+  else if (ST.compare("i16") == 0 || ST.compare("si16") == 0)
+    return Type::getInt16Ty(Context);
+  else if (ST.compare("i32") == 0 || ST.compare("si32") == 0)
+    return Type::getInt32Ty(Context);
+  else if (ST.compare("i64") == 0 || ST.compare("si64") == 0)
+    return Type::getInt64Ty(Context);
+  else if (ST.compare("f32") == 0)
+    return Type::getFloatTy(Context);
+  else if (ST.compare("f64") == 0)
+    return Type::getDoubleTy(Context);
 
-    return nullptr;
-  }
+  return nullptr;
+}
 
-  static void parseInput(unsigned& GroupSize, OVLSMemrefVector& Mrfs) {
+static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
 
-    char MemrefId, InputChar;
-    int Dist;
-    string SAccType, SElemType, line;
-    unsigned Id, NumElements;
-    bool InputStarts = false;
+  char MemrefId, InputChar;
+  int Dist;
+  string SAccType, SElemType, line;
+  unsigned Id, NumElements;
+  bool InputStarts = false;
 
-    while (!std::cin.eof()) {
-      if (!InputStarts) {
-        std::cin >> InputChar;
+  while (!std::cin.eof()) {
+    if (!InputStarts) {
+      std::cin >> InputChar;
 
-        if (InputChar == ';') {
-          // Ignore comments in the input file.
-          getline(std::cin, line);
-          continue;
-        }
-        else if (InputChar == '#') {
-          // Get the Group Size
-          std::cin >> GroupSize;
-          assert(GroupSize > 0  && GroupSize <= 64 &&
-             "Group Size above 64 bytes is not supported currently!!");
-          getline(std::cin, line);
-          InputStarts = true;
-          continue;
-        }
+      if (InputChar == ';') {
+        // Ignore comments in the input file.
+        getline(std::cin, line);
+        continue;
+      } else if (InputChar == '#') {
+        // Get the Group Size
+        std::cin >> GroupSize;
+        assert(GroupSize > 0 && GroupSize <= 64 &&
+               "Group Size above 64 bytes is not supported currently!!");
+        getline(std::cin, line);
+        InputStarts = true;
+        continue;
       }
-
-      std::cin >> Id >> MemrefId >> Dist >> SElemType >> NumElements >> SAccType;
-
-      OVLSAccessType AccType = getAccessType(SAccType);
-      assert(!AccType.isUnknown() && "Invalid Access Type!!!");
-
-      Type *ElemType = getScalarType(SElemType);
-
-      OVLSMemref *mrf = NULL;
-
-      if (AccType.isIndexedAccess()) {
-        char IndexId;
-        string  SIdxElemType;
-        unsigned IdxNumElems;
-        std::cin >> IndexId >> SIdxElemType >> IdxNumElems;
-        assert(IdxNumElems == NumElements && "IdxNumElems needs to match the NumElements!");
-        VectorType *IdxType = VectorType::get(getScalarType(SIdxElemType), IdxNumElems);
-        mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccType,
-                               IndexId, IdxType);
-      } else {
-        char VsId;
-        int VStride;
-        std::cin >> VsId;
-        std::cin >> VStride;
-        if (VsId == 'C') // memref has a constant vector stride
-          mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccType, true, VStride);
-        else
-          mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccType, false, VsId);
-      }
-      Mrfs.push_back(mrf);
     }
+
+    std::cin >> Id >> MemrefId >> Dist >> SElemType >> NumElements >> SAccType;
+
+    OVLSAccessType AccType = getAccessType(SAccType);
+    assert(!AccType.isUnknown() && "Invalid Access Type!!!");
+
+    Type *ElemType = getScalarType(SElemType);
+
+    OVLSMemref *mrf = NULL;
+
+    if (AccType.isIndexedAccess()) {
+      char IndexId;
+      string SIdxElemType;
+      unsigned IdxNumElems;
+      std::cin >> IndexId >> SIdxElemType >> IdxNumElems;
+      assert(IdxNumElems == NumElements &&
+             "IdxNumElems needs to match the NumElements!");
+      VectorType *IdxType =
+          VectorType::get(getScalarType(SIdxElemType), IdxNumElems);
+      mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccType,
+                             IndexId, IdxType);
+    } else {
+      char VsId;
+      int VStride;
+      std::cin >> VsId;
+      std::cin >> VStride;
+      if (VsId == 'C') // memref has a constant vector stride
+        mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccType,
+                               true, VStride);
+      else
+        mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccType,
+                               false, VsId);
+    }
+    Mrfs.push_back(mrf);
   }
+}
 } // end of namespace OVLSTest
+
+std::unique_ptr<TargetMachine> createTargetMachine() {
+  Triple TargetTriple("x86_64-pc-linux");
+  std::string Error;
+  const Target *T = TargetRegistry::lookupTarget("x86-64", TargetTriple, Error);
+  if (!T)
+    return nullptr;
+
+  TargetOptions Options;
+  return std::unique_ptr<TargetMachine>(T->createTargetMachine(
+      TargetTriple.getTriple(), "core-avx-i", "", Options, None,
+      CodeModel::Default, CodeGenOpt::Aggressive));
+}
 
 //
 // main() for intelovls-test
 //
 int main(int argc, char **argv) {
+  std::unique_ptr<TargetMachine> TM = nullptr;
+
   // Parse command line options.
   OVLSTest::parseCommandLineOptions(argc, argv, "IntelOptVLS test client\n");
 
@@ -214,13 +251,24 @@ int main(int argc, char **argv) {
   OVLSGroupVector Grps;
   OptVLSInterface::getGroups(Mrfs, Grps, GroupSize);
 
-  // Do something with the grps.
-  for (OVLSGroup *Grp : Grps) {
-    OVLSInstructionVector InstVec;
-    if (OptVLSInterface::getSequence(*Grp, InstVec)) {
-      for (OVLSInstruction *I : InstVec) {
-        OVLSdbgs() << *I;
-      }
+#ifdef OVLSTESTCLIENT
+  InitializeAllTargets();
+  InitializeAllTargetMCs();
+  InitializeAllAsmPrinters();
+
+  TM = createTargetMachine();
+#endif
+
+  if (TM) {
+    TargetTransformInfo TTI = TargetTransformInfo(TM->createDataLayout());
+    OVLSCostModel CM(TTI);
+
+    // Do something with the grps.
+    for (OVLSGroup *Grp : Grps) {
+      OVLSInstructionVector InstVec;
+      if (OptVLSInterface::getSequence(*Grp, CM, InstVec))
+        for (OVLSInstruction *I : InstVec)
+          OVLSdbgs() << *I;
     }
   }
 

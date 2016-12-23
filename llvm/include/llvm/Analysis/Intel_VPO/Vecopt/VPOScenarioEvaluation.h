@@ -23,6 +23,7 @@
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/Analysis/Intel_OptVLSClientUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrDecomposeHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecContext.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -147,9 +148,12 @@ public:
     assert(isa<AVRValueHIR>(Ptr) && "not AVRValueHIR?");
     const AVRValueHIR *ConstHIRPtr = cast<AVRValueHIR>(Ptr);
     AVRValueHIR *HIRPtr = const_cast<AVRValueHIR *>(ConstHIRPtr);
-    RegDDRef *Ref = (cast<AVRValueHIR>(HIRPtr))->getValue();
-    assert(Ref && "no RegDDRef for AVRValueHIR");
-    return getVLSMemrefInfoForAccess(Ref);
+    // FIXME: AVRValueHIR may not be a RegDDRef
+    if (RegDDRef *Ref = dyn_cast<RegDDRef>(HIRPtr->getValue())) {
+      assert(Ref && "no RegDDRef for AVRValueHIR");
+      return getVLSMemrefInfoForAccess(Ref);
+    }
+    return nullptr;
   }
 
   OVLSGroup *getVLSGroupInfoForVLSMemref(OVLSMemref *Mrf) override {
@@ -709,6 +713,7 @@ private:
   HIRDDAnalysis *DDA;
   HIRVectVLSAnalysis *VLS;
   SIMDLaneEvolutionAnalysisUtilHIR SLEVUtil;
+  AVRDecomposeHIR ValueDecomposerUtil;
 
   /// Provide cost evaluation utilities for the region.
   VPOCostModelHIR CM;
@@ -803,6 +808,7 @@ public:
   }
 
   SIMDLaneEvolutionAnalysisUtilBase &getSLEVUtil() override { return SLEVUtil; }
+  AVRDecomposeHIR &getValueDecomposerUtil() { return ValueDecomposerUtil; }
 
   void resetLoopInfo() override { LoopMemrefs.clear(); }
 

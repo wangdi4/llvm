@@ -14,14 +14,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/LLVMContext.h"
 
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
-
-#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -31,19 +31,31 @@
 using namespace llvm;
 using namespace loopopt;
 
-HIRFramework *HIRUtils::HIRF(nullptr);
+Function &CanonExprUtils::getFunction() const {
+  return getHIRParser().getFunction();
+}
+
+Module &CanonExprUtils::getModule() const { return getHIRParser().getModule(); }
+
+LLVMContext &CanonExprUtils::getContext() const {
+  return getHIRParser().getContext();
+}
+
+const DataLayout &CanonExprUtils::getDataLayout() const {
+  return getHIRParser().getDataLayout();
+}
 
 CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, unsigned Level,
                                            int64_t Const, int64_t Denom,
                                            bool IsSignedDiv) {
-  return new CanonExpr(Ty, Ty, false, Level, Const, Denom, IsSignedDiv);
+  return new CanonExpr(*this, Ty, Ty, false, Level, Const, Denom, IsSignedDiv);
 }
 
 CanonExpr *CanonExprUtils::createExtCanonExpr(Type *SrcType, Type *DestType,
                                               bool IsSExt, unsigned Level,
                                               int64_t Const, int64_t Denom,
                                               bool IsSignedDiv) {
-  return new CanonExpr(SrcType, DestType, IsSExt, Level, Const, Denom,
+  return new CanonExpr(*this, SrcType, DestType, IsSExt, Level, Const, Denom,
                        IsSignedDiv);
 }
 
@@ -53,12 +65,22 @@ CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, const APInt &APVal) {
   return createCanonExpr(Ty, 0, Val);
 }
 
-void CanonExprUtils::destroy(CanonExpr *CE) { CE->destroy(); }
+void CanonExprUtils::destroy(CanonExpr *CE) {
+  auto Count = Objs.erase(CE);
+  assert(Count && "CE not found in objects!");
+  delete CE;
+}
 
-void CanonExprUtils::destroyAll() { CanonExpr::destroyAll(); }
+void CanonExprUtils::destroyAll() {
+  for (auto &I : Objs) {
+    delete I;
+  }
+
+  Objs.clear();
+}
 
 // Internal Method that calculates the gcd of two positive integers
-int64_t CanonExprUtils::gcd(int64_t A, int64_t B) {
+int64_t CanonExprUtils::gcd(int64_t A, int64_t B) const {
   assert((A > 0) && (B > 0) && "Integers must be positive!");
 
   // Both inputs are same.
@@ -77,7 +99,7 @@ int64_t CanonExprUtils::gcd(int64_t A, int64_t B) {
 }
 
 // Internal Method that calculates the lcm of two positive integers
-int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
+int64_t CanonExprUtils::lcm(int64_t A, int64_t B) const {
   return ((A * B) / gcd(A, B));
 }
 
@@ -85,7 +107,7 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
                                                    unsigned Symbase) {
   unsigned Index = 0;
 
-  BlobUtils::createBlob(Val, Symbase, true, &Index);
+  getBlobUtils().createBlob(Val, Symbase, true, &Index);
   auto CE = createSelfBlobCanonExpr(Index, NonLinearLevel);
 
   return CE;
@@ -94,7 +116,7 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
 CanonExpr *CanonExprUtils::createMetadataCanonExpr(MetadataAsValue *Val) {
   unsigned Index;
 
-  BlobUtils::createBlob(Val, ConstantSymbase, true, &Index);
+  getBlobUtils().createBlob(Val, ConstantSymbase, true, &Index);
   auto CE = createStandAloneBlobCanonExpr(Index, 0);
 
   return CE;
@@ -102,10 +124,11 @@ CanonExpr *CanonExprUtils::createMetadataCanonExpr(MetadataAsValue *Val) {
 
 CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
                                                          unsigned Level) {
-  auto Blob = BlobUtils::getBlob(Index);
+  auto Blob = getBlobUtils().getBlob(Index);
 
-  assert((BlobUtils::isTempBlob(Blob) || BlobUtils::isMetadataBlob(Blob) ||
-          BlobUtils::isConstantVectorBlob(Blob)) &&
+  assert((getBlobUtils().isTempBlob(Blob) ||
+          getBlobUtils().isMetadataBlob(Blob) ||
+          getBlobUtils().isConstantVectorBlob(Blob)) &&
          "Unexpected temp blob!");
   assert(isValidDefLevel(Level) && "Invalid level!");
 
@@ -121,8 +144,8 @@ CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
   return CE;
 }
 
-uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) {
-  return getHIRFramework()->getDataLayout().getTypeSizeInBits(Ty);
+uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) const {
+  return getHIRParser().getDataLayout().getTypeSizeInBits(Ty);
 }
 
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
@@ -304,7 +327,6 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
 
   if (CE2->isZero()) {
-    Result->simplify();
     return Result;
   }
 
@@ -313,7 +335,7 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   // Bail out if we cannot merge the canon expr.
   if (!IsMergeable) {
     if (CreateNewCE) {
-      Result->destroy();
+      destroy(Result);
     }
     return nullptr;
   }
@@ -379,12 +401,9 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
     Result->setDefinedAtLevel(NewCE2->getDefinedAtLevel());
   }
 
-  // Simplify resulting canon expr before returning.
-  Result->simplify();
-
   // Destroy auxiliary canon expr.
   if (CreatedAuxCE) {
-    NewCE2->destroy();
+    destroy(NewCE2);
   }
 
   return Result;
@@ -480,21 +499,21 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   Term->multiplyByConstant(ConstCoeff);
 
   auto BlobCoeff = CE1->getIVBlobCoeff(Level);
-  if (BlobUtils::isBlobIndexValid(BlobCoeff)) {
+  if (getBlobUtils().isBlobIndexValid(BlobCoeff)) {
     // CE2 <- CE2 * B1
     Term->multiplyByBlob(BlobCoeff);
   }
 
   CE1->removeIV(Level);
   // At this point:
-  // CE1 = C3*i2 + ​...
+  // CE1 = C3*i2 + ...
   // CE2 = C1*C2 * B1*B2
 
   // Set denominator from CE1 to CE2
-  Term->divide(CE1->getDenominator(), false);
+  Term->divide(CE1->getDenominator());
 
   // CE1 = C1*C2 * B1*B2 + C3*i2 + ...
-  CanonExpr *AddResult = CanonExprUtils::add(CE1, Term.get(), RelaxedMode);
+  CanonExpr *AddResult = add(CE1, Term.get(), RelaxedMode);
 
   return AddResult;
 }

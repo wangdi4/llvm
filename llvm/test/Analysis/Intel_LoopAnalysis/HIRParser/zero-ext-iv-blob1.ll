@@ -5,13 +5,13 @@
 ; CHECK: + DO i1 = 0, 4, 1   <DO_LOOP>
 ; CHECK: |   %3 = (%ok)[0][2 * i1 + 1];
 ; CHECK: |   %0 = %0  -  %3;
-; CHECK: |   if (2 * i1 + 1 < 2)
+; CHECK: |   if (2 * i1 + 1 <u 2)
 ; CHECK: |   {
 ; CHECK: |      %4 = trunc.i64.i32(2 * i1 + 1);
 ; CHECK: |      %6 = 2 * i1 + 4294967289  &&  4294967294;
 ; CHECK: |      %.pre = (%ok)[0][3];
 ; CHECK: |      (%ok)[0][3] = %.pre + -22;
-; CHECK: |      if (%6 >= 2)
+; CHECK: |      if (%6 >=u 2)
 ; CHECK: |      {
 ; CHECK: |         %7 = (%ok)[0][2];
 ; CHECK: |         (%ok)[0][1] = %7;

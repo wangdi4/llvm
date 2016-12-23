@@ -1,4 +1,4 @@
-//===-- VPODriver.h ---------------------------------------------*- C++ -*-===//
+//===-- VPOPredicator.h -----------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -24,23 +24,49 @@ namespace vpo {
 
 class SESERegion;
 
-class VPOPredicator {
+class VPOPredicatorBase {
+
 
 public:
+  /// Incoming AVR
+  AVRGenerateBase *AVRG = nullptr;
 
-  VPOPredicator();
+protected:
+  // We don't allow the base class to be constructed
+  VPOPredicatorBase() {}
 
-  void runOnAvr(AVRLoop* ALoop);
+  bool runOnFunction(Function &F);
+  void runOnAvr(AVRLoop *ALoop);
 
 private:
+  void predicateLoop(AVRLoop *ALoop);
+  void handleSESERegion(const SESERegion *Region, AvrCFGBase *CFG);
+  void predicate(AVRBlock *Entry);
+  void removeCFG(AVRBlock *Entry);
+};
 
-  void predicateLoop(AVRLoop* ALoop);
+class VPOPredicator : public VPOPredicatorBase, public FunctionPass {
 
-  void handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG);
+public:
+  /// Pass Identification
+  static char ID;
 
-  void predicate(AVRBlock* Entry);
+  VPOPredicator(); 
 
-  void removeCFG(AVRBlock* Entry);
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool runOnFunction(Function &F);
+};
+
+class VPOPredicatorHIR : public VPOPredicatorBase, public FunctionPass {
+
+public:
+   /// Pass Identification
+  static char ID;
+
+  VPOPredicatorHIR(); 
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool runOnFunction(Function &F); 
 };
 
 } // End namespace vpo

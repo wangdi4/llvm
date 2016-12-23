@@ -76,12 +76,12 @@ class VPOParoptTransform {
 public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
-                     LoopInfo *LI, ScalarEvolution *SE, VPOParoptMode Mode)
+                     LoopInfo *LI, ScalarEvolution *SE, int Mode)
       : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr), 
         TidPtr(nullptr), BidPtr(nullptr) {}
 
-  /// \brief Top level interface for parallel transformation
-  bool ParoptTransformer();
+  /// \brief Top level interface for parallel and prepare transformation
+  bool paroptTransforms();
 
 private:
   /// \brief The W-regions in the function F are to be transformed
@@ -100,7 +100,7 @@ private:
   ScalarEvolution *SE;
 
   /// \brief Paropt compilation mode
-  VPOParoptMode Mode;
+  int Mode;
 
   /// \brief Contain all parallel/sync/offload constructs to be transformed
   WRegionListTy WRegionList;

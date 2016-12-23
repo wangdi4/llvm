@@ -11,8 +11,8 @@
 ; }
 
 ; CHECK: IR Dump After
-; CHECK: if (%N < {{[0-9]+}})
-; CHECK: if (&((%q)[-5]) >= &((%p)[10]) && &((%p)[5 * %N + 5]) >= &((%q)[-1 * %N + -4]))
+; CHECK: if (%N <u {{[0-9]+}})
+; CHECK: if (&((%q)[-5]) >=u &((%p)[10]) && &((%p)[5 * %N + 5]) >=u &((%q)[-1 * %N + -4]))
 
 ; ModuleID = 'ptrs.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

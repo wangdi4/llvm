@@ -200,8 +200,8 @@ protected:
 
 public:
   HIRLoopResource()
-      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLoopResourceVal), TTI(nullptr) {
-  }
+      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLoopResourceVal), LI(nullptr),
+        TTI(nullptr) {}
   static char ID;
 
   bool runOnFunction(Function &F) override;

@@ -128,7 +128,12 @@ static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
   cl::desc("Run VPO Vecopt Pass"));
 
-static cl::opt<int> RunVPOParopt("paropt",
+// The user can use -mllvm -paropt=value to enable
+// the OmpPar, OmpVec, OmpOffload.
+// For example, if paropt is 0x4(OmpPar), the VPO mode in the pass
+// VPOParoptPreparePass becomes 0x5 (ParPrepare | OmpPar) and 
+// the pass VPOParoptPass is 0x6 (ParTrans | OmpPar)
+static cl::opt<unsigned> RunVPOParopt("paropt",
   cl::init(0x00000000), cl::Hidden,
   cl::desc("Run VPO Paropt Pass"));
 
@@ -329,6 +334,13 @@ void PassManagerBuilder::populateFunctionPassManager(
   if (LibraryInfo)
     FPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
+#if INTEL_CUSTOMIZATION
+  if (RunVPOParopt) {
+    FPM.add(createVPOCFGRestructuringPass());
+    FPM.add(createVPOParoptPreparePass(RunVPOParopt));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (OptLevel == 0) return;
 
   addInitialAliasAnalysisPasses(FPM);
@@ -379,6 +391,11 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
 void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
   // Start of function pass.
+#if INTEL_CUSTOMIZATION
+  if (isLoopOptEnabled())
+    MPM.add(createLoopOptMarkerPass());
+#endif // INTEL_CUSTOMIZATION
+
   // Break up aggregate allocas, using SSAUpdater.
   MPM.add(createSROAPass());
   MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
@@ -983,6 +1000,15 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 }
 
 #if INTEL_CUSTOMIZATION // HIR passes
+
+bool PassManagerBuilder::isLoopOptEnabled() const {
+  if ((RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
+      (SizeLevel == 0) && !PrepareForLTO && !PerformThinLTO) 
+    return true;
+
+  return false;
+}
+
 void PassManagerBuilder::addLoopOptCleanupPasses(
     legacy::PassManagerBase &PM) const {
   PM.add(createCFGSimplificationPass());
@@ -999,17 +1025,14 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
-  if (!(RunLoopOpts || RunLoopOptFrameworkOnly) || (OptLevel < 2) ||
-      (SizeLevel != 0) || PrepareForLTO || PerformThinLTO) {
+  if (!isLoopOptEnabled()) 
     return;
-  }
 
   // This pass "canonicalizes" loops and makes analysis easier.
   PM.add(createLoopSimplifyPass());
 
-  if(PrintModuleBeforeLoopopt) {
+  if (PrintModuleBeforeLoopopt)
     PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
-  }
 
   PM.add(createHIRSSADeconstructionPass());
   // This is expected to be the first pass in the HIR pipeline as it cleans up
@@ -1021,10 +1044,12 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRParDirInsertPass());
     PM.add(createHIROptPredicatePass());
     PM.add(createHIRRuntimeDDPass());
-    PM.add(createHIRLoopDistributionPass(false));
+    PM.add(createHIRLoopDistributionForLoopNestPass());
     PM.add(createHIRLoopInterchangePass());
     PM.add(createHIRLoopReversalPass());
     PM.add(createHIRCompleteUnrollPass());
+    PM.add(createHIRLoopDistributionForMemRecPass());
+    PM.add(createHIRUnrollAndJamPass());
     PM.add(createHIRVecDirInsertPass(OptLevel == 3));
     PM.add(createVPODriverHIRPass());
     PM.add(createHIRGeneralUnrollPass());
@@ -1039,7 +1064,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
                                             bool RunVec) const {
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPOParoptPass());
+    PM.add(createVPOParoptPass(RunVPOParopt));
   }
   if (RunVPOVecopt && RunVec) {
     PM.add(createVPOCFGRestructuringPass());

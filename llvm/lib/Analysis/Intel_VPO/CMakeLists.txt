@@ -22,6 +22,7 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   WRegionInfo/WRegionInfoAnalysis.cpp
 
   Vecopt/VPOAvrGenerate.cpp
+  Vecopt/VPOAvrDecomposeHIR.cpp
   Vecopt/VPOAvr.cpp
   Vecopt/VPOAvrFunction.cpp
   Vecopt/VPOAvrLoop.cpp
@@ -44,6 +45,11 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   Vecopt/VPOSIMDLaneEvolution.cpp
   Vecopt/VPOPredicator.cpp
   Vecopt/VPOScenarioEvaluation.cpp
+
+  Vecopt/VectorGraph.cpp
+  Vecopt/VectorGraphUtils.cpp
+  Vecopt/VectorGraphInfo.cpp
+  Vecopt/VectorGraphPredicator.cpp
 )
 
 add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen)

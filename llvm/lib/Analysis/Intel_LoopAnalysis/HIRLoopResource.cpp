@@ -246,7 +246,7 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 };
 
 void LoopResourceInfo::LoopResourceVisitor::visit(unsigned BlobIndex) {
-  auto Blob = BlobUtils::getBlob(BlobIndex);
+  auto Blob = Lp->getBlobUtils().getBlob(BlobIndex);
 
   BlobCostEvaluator BCE(*this);
   BCE.visit(Blob);
@@ -584,8 +584,8 @@ void LoopResourceInfo::LoopResourceVisitor::compute() {
   // Do not directly recurse inside children loops. Total resource is
   // recursively computed for children loops by the visitor using
   // getTotalLoopResource().
-  HLNodeUtils::visitRange<true, false>(*this, Lp->child_begin(),
-                                       Lp->child_end());
+  Lp->getHLNodeUtils().visitRange<true, false>(*this, Lp->child_begin(),
+                                               Lp->child_end());
 
   // Classify self reource into Mem bound, FP bound or Int bound.
   if (SelfLRI.isUnknownBound()) {

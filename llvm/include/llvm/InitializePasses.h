@@ -385,6 +385,8 @@ void initializeNonLTOGlobalOptPass(PassRegistry &);
 void initializeFeatureOutlinerPass(PassRegistry&);
 // Pass for math call optimization.
 void initializeMapIntrinToImlPass(PassRegistry&);
+// Pass for indicating loopopt based throttling.
+void initializeLoopOptMarkerPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationPass(PassRegistry&);
 void initializeHIRSCCFormationPass(PassRegistry&);
@@ -409,8 +411,10 @@ void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
 void initializeHIRLoopInterchangePass(PassRegistry&);
-void initializeHIRLoopDistributionPass(PassRegistry&);
+void initializeHIRLoopDistributionForMemRecPass(PassRegistry&);
+void initializeHIRLoopDistributionForLoopNestPass(PassRegistry&);
 void initializeHIRGeneralUnrollPass(PassRegistry&);
+void initializeHIRUnrollAndJamPass(PassRegistry&);
 void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRLoopReversalPass(PassRegistry&);
@@ -422,11 +426,16 @@ void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 // VPO Utility Pass
 void initializeVPOCFGRestructuringPass(PassRegistry&);
+// VPO Paropt Prepare Pass
+void initializeVPOParoptPreparePass(PassRegistry&);
 // VPO Parallelizer Pass
 void initializeVPOParoptPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
+void initializeAVRDecomposeHIRPass(PassRegistry&);
+void initializeVPOPredicatorPass(PassRegistry&);
+void initializeVPOPredicatorHIRPass(PassRegistry&);
 void initializeVecClonePass(PassRegistry&);
 void initializeAvrDefUsePass(PassRegistry&);
 void initializeAvrDefUseHIRPass(PassRegistry&);
@@ -438,6 +447,7 @@ void initializeVPODriverPass(PassRegistry&);
 void initializeVPODriverHIRPass(PassRegistry&);
 void initializeVPODirectiveCleanupPass(PassRegistry&);
 void initializeVectorGraphInfoPass(PassRegistry&);
+void initializeVectorGraphPredicatorPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
 void initializeSjLjEHPreparePass(PassRegistry&);

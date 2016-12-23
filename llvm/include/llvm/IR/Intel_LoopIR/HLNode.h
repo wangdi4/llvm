@@ -16,7 +16,6 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLNODE_H
 #define LLVM_IR_INTEL_LOOPIR_HLNODE_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 
@@ -39,6 +38,10 @@ class HLGoto;
 class HLLabel;
 class HLLoop;
 class HLRegion;
+class HLNodeUtils;
+class DDRefUtils;
+class CanonExprUtils;
+class BlobUtils;
 
 // Typedef for a list of HLNodes.
 typedef iplist<HLNode> HLContainerTy;
@@ -66,13 +69,8 @@ private:
   /// \brief Make class uncopyable.
   void operator=(const HLNode &) = delete;
 
-  /// \brief Destroys all objects of this class. Should only be
-  /// called after code gen.
-  static void destroyAll();
-  /// Keeps track of objects of this class.
-  static std::set<HLNode *> Objs;
-  /// Global number used for assigning unique numbers to HLNodes.
-  static unsigned GlobalNum;
+  /// Reference to parent utils object. This is needed to access util functions.
+  HLNodeUtils &HNU;
 
   /// ID to differentiate between concrete subclasses.
   const unsigned char SubClassID;
@@ -88,9 +86,6 @@ private:
 
   /// Maximum topological sort number of HLNode across its children.
   unsigned MaxTopSortNum;
-
-  /// \brief Sets the unique number associated with this HLNode.
-  void setNextNumber();
 
   /// \brief Sets the number of this node in the topological sort order.
   void setTopSortNum(unsigned Num) { TopSortNum = Num; }
@@ -112,7 +107,7 @@ private:
                             HLNodeMapper *NodeMapper) const = 0;
 
 protected:
-  HLNode(unsigned SCID);
+  HLNode(HLNodeUtils &HNU, unsigned SCID);
   HLNode(const HLNode &HLNodeObj);
   virtual ~HLNode() {}
 
@@ -123,9 +118,6 @@ protected:
 
   /// \brief Sets the lexical parent of this HLNode.
   void setParent(HLNode *Par) { Parent = Par; }
-
-  /// \brief Destroys the object.
-  void destroy();
 
   /// \brief Returns true if Pred is TRUE or FALSE.
   static bool isPredicateTrueOrFalse(PredicateTy Pred) {
@@ -140,13 +132,25 @@ protected:
   /// directly call the cloneImpl of other subclasses.
   /// For e.g. Loop->cloneBaseImpl(child, GL, LM) will return child clone.
   static HLNode *cloneBaseImpl(const HLNode *Node, GotoContainerTy *GotoList,
-                        LabelMapTy *LabelMap, HLNodeMapper *NodeMapper);
+                               LabelMapTy *LabelMap, HLNodeMapper *NodeMapper);
 
   /// \brief Returns the parent region of this node, if one exists, else returns
   /// null.
   HLRegion *getParentRegionImpl() const;
 
 public:
+  /// Returns parent HLNodeUtils object.
+  HLNodeUtils &getHLNodeUtils() const { return HNU; }
+
+  /// Returns DDRefUtils object.
+  DDRefUtils &getDDRefUtils() const;
+
+  /// Returns CanonExprUtils object.
+  CanonExprUtils &getCanonExprUtils() const;
+
+  /// Returns BlobUtils object.
+  BlobUtils &getBlobUtils() const;
+
   /// Virtual Clone Method
   /// If \p NodeMapper is not null, every node will be mapped to the cloned
   /// node. This is used for accessing clones having original node pointers.

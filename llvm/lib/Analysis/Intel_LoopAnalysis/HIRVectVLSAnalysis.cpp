@@ -126,7 +126,7 @@ void HIRVectVLSAnalysis::testVLSMemrefAnalysis(VectVLSContext *VectContext,
       DEBUG(dbgs() << "\n   Compare with Ref "; Ref2->dump());
 
       // Compute Distances
-      if (DDRefUtils::getConstDistance(Ref, Ref2, &Distance)) {
+      if (Ref->getDDRefUtils().getConstDistance(Ref, Ref2, &Distance)) {
         DEBUG(dbgs() << "     Distance  = " << Distance << ".\n");
       } else {
         DEBUG(dbgs() << "     Could not compute Distance.\n");
@@ -169,10 +169,9 @@ void HIRVectVLSAnalysis::getVLSMemrefs(VectVLSContext &VectContext,
   }
 }
 
-void HIRVectVLSAnalysis::computeVLSGroups(const OVLSMemrefVector &Memrefs,
-                                          VectVLSContext &VectContext,
-                                          OVLSGroupVector &Grps,
-                                          OVLSMemrefToGroupMap *MemrefToGroupMap) {
+void HIRVectVLSAnalysis::computeVLSGroups(
+    const OVLSMemrefVector &Memrefs, VectVLSContext &VectContext,
+    OVLSGroupVector &Grps, OVLSMemrefToGroupMap *MemrefToGroupMap) {
 
   unsigned GroupSize = MAX_VECTOR_LENGTH; // CHECKME
   unsigned Level = VectContext.getLoopLevel();
@@ -236,7 +235,7 @@ void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
   // 1. Gather MemRefs in Loop
   LoopMemrefsVector LoopMemrefs;
   VectVLSDDRefVisitor V(Level, LoopMemrefs);
-  HLNodeUtils::visit(V, Loop);
+  Loop->getHLNodeUtils().visit(V, Loop);
 
   // 2. Identify VLS groups -- groups of neighbouring LoopMemrefs.
   // Do this for each candidate Vectorization Factor (VF). The VF affects
@@ -281,15 +280,14 @@ void HIRVectVLSAnalysis::gatherMemrefsInLoop(HLLoop *Loop,
 
   unsigned Level = Loop->getNestingLevel();
   VectVLSDDRefVisitor V(Level, LoopMemrefs);
-  HLNodeUtils::visit(V, Loop);
+  Loop->getHLNodeUtils().visit(V, Loop);
   // testVLSMemrefAnalysis(VectContext, LoopMemrefs);
 }
 
 // Utility to analyze HIR memrefs
-void HIRVectVLSAnalysis::analyzeVLSMemrefsInLoop(VectVLSContext &VectContext,
-                                                 LoopMemrefsVector &LoopMemrefs,
-                                                 OVLSMemrefVector &Mrfs,
-                                                 HIRToVLSMemrefsMap &MemrefsMap) {
+void HIRVectVLSAnalysis::analyzeVLSMemrefsInLoop(
+    VectVLSContext &VectContext, LoopMemrefsVector &LoopMemrefs,
+    OVLSMemrefVector &Mrfs, HIRToVLSMemrefsMap &MemrefsMap) {
 
   DEBUG(dbgs() << "\nVLS: analyze memrefs\n");
 
@@ -301,10 +299,10 @@ void HIRVectVLSAnalysis::analyzeVLSMemrefsInLoop(VectVLSContext &VectContext,
 // FORNOW: Gather the innermost loops as candidates.
 // TODO: Do this for vectorization candidate loops.
 // TODO: Replace with InnerToOuter Walk of Vectorization candidate loop Nests?
-void HIRVectVLSAnalysis::analyze() {
+void HIRVectVLSAnalysis::analyze(HIRFramework &HIRF) {
 
   SmallVector<const HLLoop *, 64> CandidateLoops;
-  HLNodeUtils::gatherInnermostLoops(CandidateLoops);
+  HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
   for (auto &Lp : CandidateLoops) {
     analyzeVLSInLoop(Lp);
   }
@@ -313,10 +311,11 @@ void HIRVectVLSAnalysis::analyze() {
 // Performs a basic setup without actually running the VLS analysis.
 bool HIRVectVLSAnalysis::runOnFunction(Function &F) {
 
+  auto &HIRF = getAnalysis<HIRFramework>();
   DDA = &getAnalysis<HIRDDAnalysis>();
 
   if (debugHIRVectVLS) {
-    analyze();
+    analyze(HIRF);
   }
 
   return false;

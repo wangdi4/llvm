@@ -30,6 +30,9 @@ namespace loopopt {
 class CanonExpr;
 class HLDDNode;
 class HLLoop;
+class DDRefUtils;
+class CanonExprUtils;
+class BlobUtils;
 
 /// \brief Base class for encapsulating Values/References which can cause
 /// data dependencies and/or for which we need to generate code using the
@@ -42,17 +45,14 @@ private:
   /// \brief Make class uncopyable.
   void operator=(const DDRef &) = delete;
 
-  /// \brief Destroys all objects of this class. Should only be
-  /// called after code gen.
-  static void destroyAll();
-  /// Keeps track of objects of this class.
-  static std::set<DDRef *> Objs;
+  /// Reference to parent utils object. This is needed to access util functions.
+  DDRefUtils &DDRU;
 
   const unsigned char SubClassID;
   unsigned Symbase;
 
 protected:
-  DDRef(unsigned SCID, unsigned SB);
+  DDRef(DDRefUtils &DDRU, unsigned SCID, unsigned SB);
   DDRef(const DDRef &DDRefObj);
   virtual ~DDRef() {}
 
@@ -61,13 +61,19 @@ protected:
   /// \brief Virtual set HLDDNode
   virtual void setHLDDNode(HLDDNode *HNode) = 0;
 
-  /// \brief Destroys the object.
-  void destroy();
-
   /// \brief Implements get*Type() functionality.
   Type *getTypeImpl(bool IsSrc) const;
 
 public:
+  /// Returns parent DDRefUtils object.
+  DDRefUtils &getDDRefUtils() const { return DDRU; }
+
+  /// Returns CanonExprUtils object.
+  CanonExprUtils &getCanonExprUtils() const;
+
+  /// Returns BlobUtils object.
+  BlobUtils &getBlobUtils() const;
+
   /// \brief Virtual Clone Method
   virtual DDRef *clone() const = 0;
 
@@ -139,6 +145,9 @@ public:
 
   /// \brief  Returns ParentLoop of DDRef.
   HLLoop *getParentLoop() const;
+
+  /// Returns lexical ParentLoop of DDRef.
+  HLLoop *getLexicalParentLoop() const;
 };
 
 } // End loopopt namespace

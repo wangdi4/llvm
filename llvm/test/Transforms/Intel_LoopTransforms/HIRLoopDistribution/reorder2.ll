@@ -3,7 +3,7 @@
 ;			a[50  -i  ] +=  i+2; }
 ;   dist should not happen.  the DV is (<=) 
 ;   
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute -S -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=mem-rec  < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ;
 ;Explicitly check contents of first loop
 ; CHECK: DO i1 = 0, 50, 1   

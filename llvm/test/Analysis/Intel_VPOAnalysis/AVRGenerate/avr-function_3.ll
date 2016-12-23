@@ -10,7 +10,8 @@
 ;CHECK:      %cmp1 = icmp slt i32 %0, 32
 ;TEMP-DO-NOT-CHECK-NEXT: br i1 %cmp1, label %for.body.lr.ph, label %for.end
 
-;CHECK-NEXT: if( %cmp1 = icmp slt i32 %0, 32 )
+;CHECK-NEXT: if (%cmp1 = icmp slt i32 %0, 32 
+;CHECK-NEXT: )
 ;CHECK:      for.body.lr.ph:
 ;CHECK-NEXT: br label %for.body
 
@@ -21,7 +22,8 @@
 ;CHECK:      %cmp7 = icmp eq i32 %rem, 0
 ;TEMP-DO-NOT-CHECK-NEXT: br i1 %cmp7, label %if.then, label %if.else
 
-;CHECK-NEXT: if( %cmp7 = icmp eq i32 %rem, 0 )
+;CHECK-NEXT: if (%cmp7 = icmp eq i32 %rem, 0 
+;CHECK-NEXT: )
 ;CHECK:      if.then:
 ;CHECK-NEXT: %12 = load %i
 ;CHECK:      br label %if.end

@@ -111,9 +111,9 @@ private:
   uint64_t MaxTripCountEstimate;
 
 protected:
-  HLLoop(const Loop *LLVMLoop);
-  HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
-         RegDDRef *StrideDDRef, unsigned NumEx);
+  HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
+  HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
+         RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx);
 
   /// \brief Copy constructor used by cloning.
   /// CloneChildren parameter denotes if we want to clone

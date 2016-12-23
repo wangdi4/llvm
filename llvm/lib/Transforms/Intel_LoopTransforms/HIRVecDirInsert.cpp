@@ -87,4 +87,3 @@ INITIALIZE_PASS_END(HIRVecDirInsert, "hir-vec-dir-insert",
 FunctionPass *llvm::createHIRVecDirInsertPass(bool OuterVec) {
   return new HIRVecDirInsert(OuterVec);
 }
-

@@ -197,6 +197,7 @@ void ParVecVisitor::visit(HLInst *Node) {
 
 void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addRequiredTransitive<HIRFramework>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
 }
@@ -207,6 +208,7 @@ bool HIRParVecAnalysis::runOnFunction(Function &F) {
   }
 
   Enabled = true;
+  HIRF = &getAnalysis<HIRFramework>();
   DDA = &getAnalysis<HIRDDAnalysis>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
 
@@ -235,7 +237,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
     return;
   }
   ParVecVisitor Vis(Mode, DDA, SRA, InfoMap);
-  HLNodeUtils::visitAllInnerToOuter(Vis);
+  HIRF->getHLNodeUtils().visitAllInnerToOuter(Vis);
 }
 
 void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
@@ -244,7 +246,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
     return;
   }
   ParVecVisitor Vis(Mode, DDA, SRA, InfoMap);
-  HLNodeUtils::visitInnerToOuter(Vis, Region);
+  HIRF->getHLNodeUtils().visitInnerToOuter(Vis, Region);
 }
 
 void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
@@ -252,7 +254,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
     return;
   }
   ParVecVisitor Vis(Mode, DDA, SRA, InfoMap);
-  HLNodeUtils::visitInnerToOuter(Vis, Loop);
+  HIRF->getHLNodeUtils().visitInnerToOuter(Vis, Loop);
 }
 
 void HIRParVecAnalysis::releaseMemory() {
@@ -265,7 +267,7 @@ void HIRParVecAnalysis::releaseMemory() {
 
 void HIRParVecAnalysis::forget(HLRegion *Region) {
   ParVecForgetVisitor Vis(InfoMap);
-  HLNodeUtils::visit(Vis, Region);
+  HIRF->getHLNodeUtils().visit(Vis, Region);
 }
 
 void HIRParVecAnalysis::forget(HLLoop *Loop, bool Nest) {
@@ -275,12 +277,12 @@ void HIRParVecAnalysis::forget(HLLoop *Loop, bool Nest) {
     return;
   }
   ParVecForgetVisitor Vis(InfoMap);
-  HLNodeUtils::visit(Vis, Loop);
+  HIRF->getHLNodeUtils().visit(Vis, Loop);
 }
 
 void HIRParVecAnalysis::print(raw_ostream &OS, const Module *M) const {
   ParVecPrintVisitor Vis(InfoMap, OS);
-  HLNodeUtils::visitAll(Vis);
+  HIRF->getHLNodeUtils().visitAll(Vis);
 }
 
 bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
@@ -307,7 +309,8 @@ bool DDWalk::isSimplePrivateTerminal(const RegDDRef *SrcRef,
     // should exist and it would prevent vectorization/parallelization if
     // not privatizable in that context.
     return true;
-  } else if (HLNodeUtils::strictlyDominates(WriteNode, TheOtherNode)) {
+  } else if (WriteNode->getHLNodeUtils().strictlyDominates(WriteNode,
+                                                           TheOtherNode)) {
     // Def strictly dominates Use. Privatizable.
     return true;
   }
@@ -335,7 +338,8 @@ void DDWalk::analyze(const DDEdge *Edge) {
   DEBUG(Edge->dump());
 
   DDRef *DDref = Edge->getSink();
-  if (!HLNodeUtils::contains(CandidateLoop, DDref->getHLDDNode())) {
+  if (!CandidateLoop->getHLNodeUtils().contains(CandidateLoop,
+                                                DDref->getHLDDNode())) {
     DEBUG(dbgs() << "\tis safe to vectorize/parallelize (Sink not in loop)\n");
     if (Edge->isFLOWdep()) {
       // TODO: produce info for liveout information
@@ -445,8 +449,8 @@ void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA,
   }
   if (!isDone()) {
     cleanEdges();
-    DDWalk DDW(*DDA, *SRA, Loop, this); // Legality checker.
-    HLNodeUtils::visit(DDW, Loop);      // This can change isDone() status.
+    DDWalk DDW(*DDA, *SRA, Loop, this);      // Legality checker.
+    Loop->getHLNodeUtils().visit(DDW, Loop); // This can change isDone() status.
   }
   if (isDone()) {
     // Necessary analysis is all complete.

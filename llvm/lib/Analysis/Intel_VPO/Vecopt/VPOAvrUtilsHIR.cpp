@@ -80,10 +80,26 @@ AVRExpressionHIR *AVRUtilsHIR::createAVRExpressionHIR(AVRExpressionHIR* LHS,
   return new AVRExpressionHIR(LHS, RHS);
 }
 
+AVRExpressionHIR *AVRUtilsHIR::createAVRExpressionHIR(AVR *LHS, AVR *RHS,
+                                                      Type *Ty,
+                                                      unsigned Opcode) {
+  return new AVRExpressionHIR(LHS, RHS, Ty, Opcode);
+}
+
 AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(RegDDRef *DDRef,
                                             HLNode *HNode,
                                             AVR *Parent) {
   return new AVRValueHIR(DDRef, HNode, Parent);
+}
+
+AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(BlobDDRef *DDRef, AVR *Parent) {
+  return new AVRValueHIR(DDRef, Parent);
+}
+
+AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(CanonExpr *CE, unsigned IVLevel,
+                                            Type *Ty, AVR *Parent) {
+  AVRValueHIR::IVValueInfo *IVV = new AVRValueHIR::IVValueInfo(CE, IVLevel);
+  return new AVRValueHIR(IVV, Ty, Parent);
 }
 
 AVRSwitchHIR *AVRUtilsHIR::createAVRSwitchHIR(HLSwitch *HSwitch) {

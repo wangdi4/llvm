@@ -19,7 +19,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
-#include "llvm/Analysis/Intel_OptVLSClientUtils.h"
 
 #define DEBUG_TYPE "VPOScenarioEvaluation"
 
@@ -858,7 +857,9 @@ void VPOCostGathererBase::visit(AVRValue *AValue) {
   //DEBUG(errs() << "visiting value!\n");
 }
 
-void VPOCostGathererBase::postVisit(AVRValue *AValue) {}
+void VPOCostGathererBase::postVisit(AVRValue *AValue) {
+  //DEBUG(errs() << "Post-visiting value!\n");
+}
 
 // CHECKME: getCost() operates on a single AvrLoop. In the future will be
 // called several times per scenario, if the region contains several candidate
@@ -875,7 +876,8 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   VPOCostGathererBase *CostGatherer = getCostGatherer(VF, ALoop, VLSInfo);
   assert(CostGatherer && "Invalid CostGatherer");
   AVRVisitor<VPOCostGathererBase> AVisitor(*CostGatherer);
-  AVisitor.visit(ALoop, true, true, true);
+  // Enabling RecursiveInsideValues to visit AVRValueHIR's sub-tree decomposition
+  AVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/, true);
   unsigned int LoopBodyCost = CostGatherer->getLoopBodyCost();
 
   // Calculate OutOfLoop Costs. 

@@ -50,7 +50,7 @@ public:
   typedef ChildNodeTy::const_reverse_iterator const_reverse_child_iterator;
 
 protected:
-  HLRegion(IRRegion &IReg);
+  HLRegion(HLNodeUtils &HNU, IRRegion &IReg);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to access and destroy the nodes if we don't clear them out here.

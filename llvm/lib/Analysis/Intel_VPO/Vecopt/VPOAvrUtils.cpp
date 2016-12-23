@@ -56,11 +56,28 @@ AVRValue *AVRUtils::createAVRValue(AVRExpression *ReachingDef) {
   return new AVRValue(ReachingDef);
 }
 
-AVRExpression *AVRUtils::createAVRExpression(Type *ValType,
-                                             const SmallVectorImpl<AVR*>& Operands,
-                                             unsigned Operation,
-                                             CmpInst::Predicate Predicate) {
-  return new AVRExpression(ValType, Operands, Operation, Predicate);
+AVRExpression *AVRUtils::createAVRExpression(AVR *RHS, unsigned OpCode,
+                                             Type *ExprTy) {
+  SmallVector<AVR *, 1> Operands;
+  Operands.push_back(RHS);
+  return new AVRExpression(Operands, OpCode, ExprTy);
+}
+
+AVRExpression *AVRUtils::createAVRExpression(AVR *LHS, AVR *RHS,
+                                             unsigned OpCode, Type *ExprTy) {
+  SmallVector<AVR *, 2> Operands;
+  Operands.push_back(LHS);
+  Operands.push_back(RHS);
+  return new AVRExpression(Operands, OpCode, ExprTy);
+}
+
+AVRExpression *
+AVRUtils::createAVRExpression(const SmallVectorImpl<AVR *> &Operands,
+                              unsigned OpCode, Type *ExprTy,
+                              ConditionTy Condition) {
+  AVRExpression *AExpr = new AVRExpression(Operands, OpCode, ExprTy);
+  AExpr->setCondition(Condition);
+  return AExpr;
 }
 
 AVRBranch *AVRUtils::createAVRBranch(AVRLabel *Successor) {
@@ -89,6 +106,14 @@ void AVRUtils:: addSchedulingConstraint(AVRBlock* Block, AVRBlock* Constraint) {
 
 void AVRUtils::setPredicate(AVR *Avr, AVRPredicate* Predicate) {
   Avr->setPredicate(Predicate);
+}
+
+void AVRUtils::setParent(AVR *Avr, AVR* Parent) {
+  Avr->setParent(Parent);
+}
+
+void AVRUtils::setDecompTree(AVRValue *AVal, AVRExpression *DecompTree) {
+  AVal->setDecompTree(DecompTree);
 }
 
 /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
