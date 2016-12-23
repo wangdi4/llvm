@@ -1,5 +1,12 @@
-; It checks anders-aa, which kicks-in by default at O2, helps LICM to hoist invariant load out of loop
-; RUN: opt < %s -S -O2 -disable-loop-unrolling -disable-loop-vectorization  -disable-output  -stats 2>&1 | grep "1 licm"
+; Initially, this test was written to check if LICM is using AndersensAA
+; results at O2. Now, LICM is not running after Andersens-Analysis since
+; Andersens-Analysis is moved closer to Intel specific passes like HIR,
+; Vec etc. So, this test is fixed to check LICM is using AndersensAA if
+; LICM runs after Andersens-Analysis.
+
+; It checks LICM to hoist invariant load out of loop using Andersens
+; points-to info. 
+; RUN: opt < %s -S -anders-aa -licm -disable-output -stats 2>&1 | grep "1 licm"
 
 
 @A = common global [100 x i32] zeroinitializer, align 16

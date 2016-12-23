@@ -189,6 +189,10 @@ static cl::opt<bool>
 static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Whole Program Analysis"));
 
+// IP Cloning
+static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
+    cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
+
 // Inline Aggressive Analysis
 static cl::opt<bool> 
     EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
@@ -452,20 +456,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createJumpThreadingPass());         // Thread jumps
   MPM.add(createCorrelatedValuePropagationPass());
   MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
-#if INTEL_CUSTOMIZATION
-  if (EnableAndersen) {
-    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
-  }
-#endif // INTEL_CUSTOMIZATION
-
   MPM.add(createLICMPass());
-#if INTEL_CUSTOMIZATION
-  if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
-    MPM.add(createNonLTOGlobalOptimizerPass());
-    MPM.add(createPromoteMemoryToRegisterPass());
-  }
-#endif // INTEL_CUSTOMIZATION
-
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
   if (RerollLoops)
@@ -650,6 +641,19 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createLICMPass());                  // Hoist loop invariants
   }
 
+#if INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
+  }
+  if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
+    MPM.add(createNonLTOGlobalOptimizerPass());
+    MPM.add(createPromoteMemoryToRegisterPass());
+    // AggressiveDCE is invoked here to avoid -6% performance regression
+    // for aifftr01@opt_speed
+    MPM.add(createAggressiveDCEPass());
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (EnableNonLTOGlobalsModRef)
     // We add a fresh GlobalsModRef run at this point. This is particularly
     // useful as the above will have inlined, DCE'ed, and function-attr
@@ -818,6 +822,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Whole Program Analysis
   if (EnableWPA)
     PM.add(createWholeProgramWrapperPassPass());
+
+  // IP Cloning
+  if (EnableIPCloning)
+    PM.add(createIPCloningLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Provide AliasAnalysis services for optimizations.

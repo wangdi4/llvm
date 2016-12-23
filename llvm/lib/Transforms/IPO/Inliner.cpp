@@ -487,33 +487,27 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
   // index into the InlineHistory vector.
   SmallVector<std::pair<Function *, int>, 8> InlineHistory;
 
+  IR.beginSCC(CG, SCC); // INTEL 
+
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
     if (!F || F->isDeclaration())
       continue;
 
-    IR.addFunction(F, &CG.getModule()); // INTEL
     OptimizationRemarkEmitter ORE(F);
     for (BasicBlock &BB : *F)
       for (Instruction &I : BB) {
         CallSite CS(cast<Value>(&I));
         // If this isn't a call, or it is a call to an intrinsic, it can
         // never be inlined.
-        if (!CS)     // INTEL - Split out compound checks for inlining report
+        if (!CS || isa<IntrinsicInst>(I))
           continue;
-
-        IR.addNewCallSite(F, &CS, &CG.getModule()); // INTEL
-        if (isa<IntrinsicInst>(I)) {                              // INTEL
-            IR.setReasonNotInlined(CS, NinlrIntrinsic);  // INTEL
-            continue;
-        }                                                         // INTEL
 
         // If this is a direct call to an external function, we can never inline
         // it.  If it is an indirect call, inlining may resolve it to be a
         // direct call, so we keep it.
         if (Function *Callee = CS.getCalledFunction())
           if (Callee->isDeclaration()) {
-            IR.setReasonNotInlined(CS, NinlrExtern); // INTEL
             ORE.emitOptimizationRemarkMissedAndAnalysis(
                 DEBUG_TYPE, &I,
                 Twine(Callee->getName()) + " will not be inlined into " +
@@ -532,7 +526,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
   // If there are no calls in this function, exit early.
   if (CallSites.empty()) { // INTEL
-    IR.makeAllNotCurrent(); // INTEL
+    IR.endSCC(); // INTEL
     return false;
   } // INTEL
 
@@ -623,14 +617,12 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
         // Attempt to inline the function.
 #if INTEL_CUSTOMIZATION
-        InlineReportCallSite* IRCS = IR.getCallSite(&CS);
-        Instruction* NI = CS.getInstruction();
-        IR.setActiveInlineInstruction(NI);
-        InlineReason Reason = NinlrNoReason;
+        IR.beginUpdate(CS); 
+        InlineReason Reason = NinlrNoReason; 
         if (!InlineCallIfPossible(CS, InlineInfo, InlinedArrayAllocas,
                                   InlineHistoryID, InsertLifetime, AARGetter,
                                   ImportedFunctionsStats, &Reason)) {
-          IR.setActiveInlineInstruction(nullptr);
+          IR.endUpdate(); 
           IR.setReasonNotInlined(CS, Reason);
 #endif // INTEL_CUSTOMIZATION
           ORE.emitOptimizationRemarkMissed(DEBUG_TYPE, DLoc, Block,
@@ -639,7 +631,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                                                  Caller->getName()));
           continue;
         }
-        IR.setActiveInlineInstruction(nullptr); // INTEL
         ++NumInlined;
         ILIC->invalidateFunction(Caller); // INTEL
 
@@ -648,8 +639,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             DEBUG_TYPE, DLoc, Block,
             Twine(Callee->getName() + " inlined into " + Caller->getName()));
 
-        IR.inlineCallSite(NI, IRCS, &CG.getModule(), Callee, // INTEL
-          InlineInfo); // INTEL
+        IR.inlineCallSite(InlineInfo); // INTEL
+        IR.endUpdate();                // INTEL 
         // If inlining this function gave us any new call sites, throw them
         // onto our worklist to process.  They are useful inline candidates.
         if (!InlineInfo.InlinedCalls.empty()) {
@@ -705,7 +696,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
     }
   } while (LocalChange);
 
-  IR.makeAllNotCurrent(); // INTEL
+  IR.endSCC(); // INTEL
   return Changed;
 }
 
