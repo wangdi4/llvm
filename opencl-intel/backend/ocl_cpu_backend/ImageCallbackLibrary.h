@@ -80,7 +80,8 @@ enum VecSize
 {
     SCALAR = 1,
     SOA4 = 4,
-    SOA8 = 8
+    SOA8 = 8,
+    SOA16 = 16
 };
 
 // Auxiliary functions for image callback names mangling

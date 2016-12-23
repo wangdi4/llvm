@@ -184,6 +184,122 @@ __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
     return _mm_cvtps_epi32(f4Val);
 }
 
+///////// SOA16 auxiliary image functions ///////////////
+
+// check if the coordinates are within the image boundaries
+//
+// @param image: the image object
+// @param coord: (x,y) coordinates of pixels
+//
+// return: vector, that contains all zeros if corresponding pixel is outside the boundaries
+//         or all ones otherwise
+int16 __attribute__((overloadable)) soa16_isInsideBoundsInt(__read_only image2d_t image, int16 coord_x, int16 coord_y)
+{
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int16 upper_x = (int16)(pImage->dimSub1[0]);
+    int16 upper_y = (int16)(pImage->dimSub1[1]);
+    int16 lower_x = (int16)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+    int16 lower_y = (int16)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+
+    upper_x = upper_x >= coord_x;
+    lower_x = lower_x <= coord_x;
+    upper_y = upper_y >= coord_y;
+    lower_y = lower_y <= coord_y;
+
+    int16 res = upper_x & upper_y & lower_x & lower_y;
+
+    return res;
+}
+
+int16 __attribute__((overloadable)) soa16_isInsideBoundsInt(__write_only image2d_t image, int16 coord_x, int16 coord_y)
+{
+  return soa16_isInsideBoundsInt(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y);
+}
+
+int16 __attribute__((overloadable)) soa16_isInsideBoundsInt(__read_write image2d_t image, int16 coord_x, int16 coord_y)
+{
+  return soa16_isInsideBoundsInt(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y);
+}
+
+// Extract the pointer to a specific pixels inside the image
+//
+// @param image: the image object
+// @param coord: (x,y) coordinates of the pixel inside the image
+//
+// return: pointer to the begining of the pixel in memory
+void __attribute__((overloadable)) soa16_extract_pixel_pointer_quad(__read_only image2d_t image, int16 coord_x, int16 coord_y, __private void* pData,
+                                                                    __private void** p0, __private void** p1, __private void** p2, __private void** p3,
+                                                                    __private void** p4, __private void** p5, __private void** p6, __private void** p7,
+                                                                    __private void** p8, __private void** p9, __private void** p10, __private void** p11,
+                                                                    __private void** p12, __private void** p13, __private void** p14, __private void** p15)
+{
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    uint16 offset_x = (uint16)(pImage->offset[0]);
+    uint16 offset_y = (uint16)(pImage->offset[1]);
+
+    uint16 ocoord_x = (as_uint16(coord_x)) * offset_x;
+    uint16 ocoord_y = (as_uint16(coord_y)) * offset_y;
+
+    uint16 ocoord = ocoord_x + ocoord_y;
+    *p0  = (__private char*)pData + ocoord.s0;
+    *p1  = (__private char*)pData + ocoord.s1;
+    *p2  = (__private char*)pData + ocoord.s2;
+    *p3  = (__private char*)pData + ocoord.s3;
+    *p4  = (__private char*)pData + ocoord.s4;
+    *p5  = (__private char*)pData + ocoord.s5;
+    *p6  = (__private char*)pData + ocoord.s6;
+    *p7  = (__private char*)pData + ocoord.s7;
+    *p8  = (__private char*)pData + ocoord.s8;
+    *p9  = (__private char*)pData + ocoord.s9;
+    *p10 = (__private char*)pData + ocoord.sA;
+    *p11 = (__private char*)pData + ocoord.sB;
+    *p12 = (__private char*)pData + ocoord.sC;
+    *p13 = (__private char*)pData + ocoord.sD;
+    *p14 = (__private char*)pData + ocoord.sE;
+    *p15 = (__private char*)pData + ocoord.sF;
+    return;
+}
+
+void __attribute__((overloadable)) soa16_extract_pixel_pointer_quad(__read_write image2d_t image, int16 coord_x, int16 coord_y, __private void* pData,
+                                                                    __private void** p0, __private void** p1, __private void** p2, __private void** p3,
+                                                                    __private void** p4, __private void** p5, __private void** p6, __private void** p7,
+                                                                    __private void** p8, __private void** p9, __private void** p10, __private void** p11,
+                                                                    __private void** p12, __private void** p13, __private void** p14, __private void** p15)
+{
+    soa16_extract_pixel_pointer_quad(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y, pData,
+                                                      p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15);
+}
+
+void __attribute__((overloadable)) soa16_load_pixel_RGBA_UNSIGNED_INT8(__private void* p0, __private void* p1, __private void* p2, __private void* p3,
+                                                                       __private void* p4, __private void* p5, __private void* p6, __private void* p7,
+                                                                       __private void* p8,  __private void* p9,  __private void* p10,  __private void* p11,
+                                                                       __private void* p12,  __private void* p13,  __private void* p14,  __private void* p15,
+                                                                       __private uint16* res_x, __private uint16* res_y, __private uint16* res_z, __private uint16* res_w)
+{
+    uchar16 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
+    __ocl_gather_transpose_char_4x16( p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15,
+        (__private char16*)&color_x, (__private char16*)&color_y, (__private char16*)&color_z, (__private char16*)&color_w);
+    *res_x = convert_uint16(color_x);
+    *res_y = convert_uint16(color_y);
+    *res_z = convert_uint16(color_z);
+    *res_w = convert_uint16(color_w);
+}
+
+void __attribute__((overloadable)) soa16_load_pixel_RGBA_UNSIGNED_INT8_oob(int16 isNotOOB, __private void* p0, __private void* p1, __private void* p2, __private void* p3,
+                                                                                           __private void* p4, __private void* p5, __private void* p6, __private void* p7,
+                                                                                           __private void* p8, __private void* p9, __private void* p10, __private void* p11,
+                                                                                           __private void* p12, __private void* p13, __private void* p14, __private void* p15,
+                                                                                           __private uint16* res_x, __private uint16* res_y, __private uint16* res_z, __private uint16* res_w)
+{
+    uchar16 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
+    __ocl_masked_gather_transpose_char_4x16( p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15,
+        (__private char16*)&color_x, (__private char16*)&color_y, (__private char16*)&color_z, (__private char16*)&color_w, isNotOOB);
+
+    *res_x = isNotOOB ? convert_uint16(color_x) : (uint16)BorderColorNoAlphaUint.x ;
+    *res_y = isNotOOB ? convert_uint16(color_y) : (uint16)BorderColorNoAlphaUint.y ;
+    *res_z = isNotOOB ? convert_uint16(color_z) : (uint16)BorderColorNoAlphaUint.z ;
+    *res_w = isNotOOB ? convert_uint16(color_w) : (uint16)BorderColorNoAlphaUint.w ;
+}
 
 ///////// SOA8 auxiliary image functions ///////////////
 
@@ -395,6 +511,30 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 i
 #define IMAGE_SOA_MAKE_SEQ8(FUNC)\
   IMAGE_SOA_MAKE_SEQ7(FUNC)\
   FUNC; cnt++;
+#define IMAGE_SOA_MAKE_SEQ9(FUNC)\
+  IMAGE_SOA_MAKE_SEQ8(FUNC)\
+  FUNC; cnt++;
+#define IMAGE_SOA_MAKE_SEQ10(FUNC)\
+  IMAGE_SOA_MAKE_SEQ9(FUNC)\
+  FUNC; cnt++;
+#define IMAGE_SOA_MAKE_SEQ11(FUNC)\
+  IMAGE_SOA_MAKE_SEQ10(FUNC)\
+  FUNC; cnt++;
+#define IMAGE_SOA_MAKE_SEQ12(FUNC)\
+  IMAGE_SOA_MAKE_SEQ11(FUNC)\
+  FUNC; cnt++;
+#define IMAGE_SOA_MAKE_SEQ13(FUNC)\
+  IMAGE_SOA_MAKE_SEQ12(FUNC)\
+  FUNC; cnt++;
+#define IMAGE_SOA_MAKE_SEQ14(FUNC)\
+  IMAGE_SOA_MAKE_SEQ13(FUNC)\
+  FUNC; cnt++;
+#define IMAGE_SOA_MAKE_SEQ15(FUNC)\
+  IMAGE_SOA_MAKE_SEQ14(FUNC)\
+  FUNC; cnt++;
+#define IMAGE_SOA_MAKE_SEQ16(FUNC)\
+  IMAGE_SOA_MAKE_SEQ15(FUNC)\
+  FUNC; cnt++;
 
 // macro to scalarize SOA calls
 #define SCALARIZE_SOA_CBK(FORMAT, FILTER_TYPE, CLAMP_FLAG, PIX_TYPE, NSOA, COORD_TYPE)\
@@ -420,6 +560,46 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 i
          lpix_w[cnt] = pixval.w;\
     })\
 }
+
+/// SOA16 reading functions
+#define IMPLEMENT_SOA16_CBK_NEAREST_NO_CLAMP(FORMAT, RETURN_TYPE)\
+    void soa16_read_sample_NEAREST_NO_CLAMP_##FORMAT( image2d_t image, int16 coord_x, int16 coord_y, __private void* pData,\
+                                                     __private RETURN_TYPE* res_x, __private RETURN_TYPE* res_y, __private RETURN_TYPE* res_z, __private RETURN_TYPE* res_w )\
+{\
+    __private void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7, *p8, *p9, *p10, *p11, *p12, *p13, *p14, *p15;\
+    soa16_extract_pixel_pointer_quad(image, coord_x, coord_y, pData, &p0, &p1, &p2, &p3, &p4, &p5, &p6, &p7, &p8, &p9, &p10, &p11, &p12, &p13, &p14, &p15);\
+    soa16_load_pixel_##FORMAT(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, res_x, res_y, res_z, res_w);\
+}
+
+#define IMPLEMENT_SOA16_CBK_NEAREST_CLAMP(FORMAT, RETURN_TYPE)\
+    void soa16_read_sample_NEAREST_CLAMP_##FORMAT( image2d_t image, int16 coord_x, int16 coord_y, __private void* pData,\
+                                                  __private RETURN_TYPE* res_x, __private RETURN_TYPE* res_y, __private RETURN_TYPE* res_z, __private RETURN_TYPE* res_w )\
+{\
+    int16 isNotOOB = soa16_isInsideBoundsInt(image, coord_x, coord_y);\
+    __private void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7, *p8, *p9, *p10, *p11, *p12, *p13, *p14, *p15;\
+    soa16_extract_pixel_pointer_quad(image, coord_x & isNotOOB, coord_y & isNotOOB, pData, &p0, &p1, &p2, &p3, &p4, &p5, &p6, &p7, &p8, &p9, &p10, &p11, &p12, &p13, &p14, &p15);\
+    soa16_load_pixel_##FORMAT##_oob(isNotOOB, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, res_x, res_y, res_z, res_w);\
+}
+
+IMPLEMENT_SOA16_CBK_NEAREST_CLAMP(RGBA_UNSIGNED_INT8, uint16)
+IMPLEMENT_SOA16_CBK_NEAREST_NO_CLAMP(RGBA_UNSIGNED_INT8, uint16)
+SCALARIZE_SOA_CBK(RGBA_UNSIGNED_INT16, NEAREST, CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(RGBA_UNSIGNED_INT16, NEAREST, NO_CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(RGBA_UNSIGNED_INT32, NEAREST, CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(RGBA_UNSIGNED_INT32, NEAREST, NO_CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(R_UNSIGNED_INT8, NEAREST, CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(R_UNSIGNED_INT8, NEAREST, NO_CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(R_UNSIGNED_INT16, NEAREST, CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(R_UNSIGNED_INT16, NEAREST, NO_CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(R_UNSIGNED_INT32, NEAREST, NO_CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(R_UNSIGNED_INT32, NEAREST, CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(RG_UNSIGNED_INT8, NEAREST, CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(RG_UNSIGNED_INT8, NEAREST, NO_CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(RG_UNSIGNED_INT16, NEAREST, CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(RG_UNSIGNED_INT16, NEAREST, NO_CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(RG_UNSIGNED_INT32, NEAREST, CLAMP, uint, 16, int)
+SCALARIZE_SOA_CBK(RG_UNSIGNED_INT32, NEAREST, NO_CLAMP, uint, 16, int)
+
 
 /// SOA8 reading functions
 #define IMPLEMENT_SOA8_CBK_NEAREST_NO_CLAMP(FORMAT, RETURN_TYPE)\
@@ -2481,9 +2661,30 @@ float4 SampleImage3DFloat(float4 Ti0j0k0, float4 Ti1j0k0, float4 Ti0j1k0, float4
 
 /****************************************** SOA image write functions******************************************************/
 
+/// SOA16 write RGBA_UNSIGNED_INT8
+void soa16_write_sample_RGBA_UNSIGNED_INT8(__private void* p0, __private void* p1, __private void* p2, __private void* p3,
+                                           __private void* p4, __private void* p5, __private void* p6, __private void* p7,
+                                           __private void* p8, __private void* p9, __private void* p10, __private void* p11,
+                                           __private void* p12, __private void* p13, __private void* p14, __private void* p15,
+                                                                        uint16 val_x, uint16 val_y, uint16 val_z, uint16 val_w)
+{
+
+    uchar16 clr_x = convert_uchar16_sat(val_x);
+    uchar16 clr_y = convert_uchar16_sat(val_y);
+    uchar16 clr_z = convert_uchar16_sat(val_z);
+    uchar16 clr_w = convert_uchar16_sat(val_w);
+
+    // there is no transpose functions with __private address space
+    // convert __private to __private as a workaround
+    __ocl_transpose_scatter_char_4x16((__private char4*)p0, (__private char4*)p1, (__private char4*)p2, (__private char4*)p3,
+                              (__private char4*)p4, (__private char4*)p5, (__private char4*)p6, (__private char4*)p7,
+                              (__private char4*)p8, (__private char4*)p9, (__private char4*)p10, (__private char4*)p11,
+                              (__private char4*)p12, (__private char4*)p13, (__private char4*)p14, (__private char4*)p15,
+                              as_char16(clr_x), as_char16(clr_y), as_char16(clr_z), as_char16(clr_w));
+}
 /// SOA8 write RGBA_UNSIGNED_INT8
-void soa8_write_sample_RGBA_UNSIGNED_INT8(__private void* p0, __private void* p1, __private void* p2, __private void* p3, 
-                                                                        __private void* p4, __private void* p5, __private void* p6, __private void* p7, 
+void soa8_write_sample_RGBA_UNSIGNED_INT8(__private void* p0, __private void* p1, __private void* p2, __private void* p3,
+                                                                        __private void* p4, __private void* p5, __private void* p6, __private void* p7,
                                                                         uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w)
 {
 
@@ -2540,9 +2741,34 @@ void soa4_write_sample_RGBA_UNSIGNED_INT8(__private void* p0, __private void* p1
       write_sample_##FORMAT(p7, (PIX_TYPE##4)(val_x.s7, val_y.s7, val_z.s7, val_w.s7));\
 }
 
+#define SCALARIZE_SOA16_WRITE_SAMPLE(FORMAT, PIX_TYPE)\
+    void soa16_write_sample_##FORMAT(\
+           __private void* p0, __private void* p1, __private void* p2, __private void* p3,\
+           __private void* p4, __private void* p5, __private void* p6, __private void* p7,\
+           __private void* p8, __private void* p9, __private void* p10, __private void* p11,\
+           __private void* p12, __private void* p13, __private void* p14, __private void* p15,\
+            PIX_TYPE##16 val_x, PIX_TYPE##16 val_y, PIX_TYPE##16 val_z, PIX_TYPE##16 val_w){\
+      write_sample_##FORMAT(p0, (PIX_TYPE##4)(val_x.s0, val_y.s0, val_z.s0, val_w.s0));\
+      write_sample_##FORMAT(p1, (PIX_TYPE##4)(val_x.s1, val_y.s1, val_z.s1, val_w.s1));\
+      write_sample_##FORMAT(p2, (PIX_TYPE##4)(val_x.s2, val_y.s2, val_z.s2, val_w.s2));\
+      write_sample_##FORMAT(p3, (PIX_TYPE##4)(val_x.s3, val_y.s3, val_z.s3, val_w.s3));\
+      write_sample_##FORMAT(p4, (PIX_TYPE##4)(val_x.s4, val_y.s4, val_z.s4, val_w.s4));\
+      write_sample_##FORMAT(p5, (PIX_TYPE##4)(val_x.s5, val_y.s5, val_z.s5, val_w.s5));\
+      write_sample_##FORMAT(p6, (PIX_TYPE##4)(val_x.s6, val_y.s6, val_z.s6, val_w.s6));\
+      write_sample_##FORMAT(p7, (PIX_TYPE##4)(val_x.s7, val_y.s7, val_z.s7, val_w.s7));\
+      write_sample_##FORMAT(p8, (PIX_TYPE##4)(val_x.s8, val_y.s8, val_z.s8, val_w.s8));\
+      write_sample_##FORMAT(p9, (PIX_TYPE##4)(val_x.s9, val_y.s9, val_z.s9, val_w.s9));\
+      write_sample_##FORMAT(p10, (PIX_TYPE##4)(val_x.sA, val_y.sA, val_z.sA, val_w.sA));\
+      write_sample_##FORMAT(p11, (PIX_TYPE##4)(val_x.sB, val_y.sB, val_z.sB, val_w.sB));\
+      write_sample_##FORMAT(p12, (PIX_TYPE##4)(val_x.sC, val_y.sC, val_z.sC, val_w.sC));\
+      write_sample_##FORMAT(p13, (PIX_TYPE##4)(val_x.sD, val_y.sD, val_z.sD, val_w.sD));\
+      write_sample_##FORMAT(p14, (PIX_TYPE##4)(val_x.sE, val_y.sE, val_z.sE, val_w.sE));\
+      write_sample_##FORMAT(p15, (PIX_TYPE##4)(val_x.sF, val_y.sF, val_z.sF, val_w.sF));\
+}
 #define SCALARIZE_WRITE_SAMPLE(FORMAT, PIX_TYPE)\
     SCALARIZE_SOA4_WRITE_SAMPLE(FORMAT, PIX_TYPE)\
-    SCALARIZE_SOA8_WRITE_SAMPLE(FORMAT, PIX_TYPE)
+    SCALARIZE_SOA8_WRITE_SAMPLE(FORMAT, PIX_TYPE)\
+    SCALARIZE_SOA16_WRITE_SAMPLE(FORMAT, PIX_TYPE)
 
 SCALARIZE_WRITE_SAMPLE(RG_UNSIGNED_INT8, uint)
 SCALARIZE_WRITE_SAMPLE(R_UNSIGNED_INT8, uint)
@@ -2565,6 +2791,15 @@ void soa4_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int4 coord_x, int4 co
 
 void soa8_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int8 coord_x, int8 coord_y, __private void* pData,
                                           __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w )
+{
+    *res_x = BorderColorNoAlphaUint.x;
+    *res_y = BorderColorNoAlphaUint.y;
+    *res_z = BorderColorNoAlphaUint.z;
+    *res_w = BorderColorNoAlphaUint.w;
+}
+
+void soa16_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int16 coord_x, int16 coord_y, __private void* pData,
+                                          __private uint16* res_x, __private uint16* res_y, __private uint16* res_z, __private uint16* res_w )
 {
     *res_x = BorderColorNoAlphaUint.x;
     *res_y = BorderColorNoAlphaUint.y;

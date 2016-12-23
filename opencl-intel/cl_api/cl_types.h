@@ -154,10 +154,12 @@ typedef ALIGN16 struct _image_aux_data
 	void*			read_img_callback_int[CBK_ARRAY_SIZE];   // the list of integer image reader & filter callbacks
 	void*			read_img_callback_float[CBK_ARRAY_SIZE]; // the list of float   image reader & filter callbacks
 	void*			soa4_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa4 integer image reader & filter callbacks
-	void*			soa8_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa4 integer image reader & filter callbacks
+	void*			soa8_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa8 integer image reader & filter callbacks
+	void*			soa16_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa16 integer image reader & filter callbacks
 	void*			write_img_callback;    // the write image sampler callback
 	void*			soa4_write_img_callback;    // the write image sampler callback
 	void*			soa8_write_img_callback;    // the write image sampler callback
+	void*			soa16_write_img_callback;   // the write image sampler callback
 
 	ALIGN16 int dimSub1[MAX_WORK_DIM+1];		// Image size for each dimension subtracted by one
 												// Used to optimize coordinates computation not to subtract by one for each read
