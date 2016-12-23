@@ -441,11 +441,12 @@ public:
 
   /// \brief The various kinds of shuffle patterns for vector queries.
   enum ShuffleKind {
-    SK_Broadcast,       ///< Broadcast element 0 to all other elements.
-    SK_Reverse,         ///< Reverse the order of the vector.
-    SK_Alternate,       ///< Choose alternate elements from vector.
-    SK_InsertSubvector, ///< InsertSubvector. Index indicates start offset.
-    SK_ExtractSubvector ///< ExtractSubvector Index indicates start offset.
+    SK_Broadcast,        ///< Broadcast element 0 to all other elements.
+    SK_Reverse,          ///< Reverse the order of the vector.
+    SK_Alternate,        ///< Choose alternate elements from vector.
+    SK_InsertSubvector,  ///< InsertSubvector. Index indicates start offset.
+    SK_ExtractSubvector, ///< ExtractSubvector Index indicates start offset.
+    SK_TargetSpecific    ///< Defines target-specific shuffle kind. // INTEL
   };
 
   /// \brief Additional information about an operand's possible values.
@@ -618,6 +619,10 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool adjustCallArgs(CallInst *) const;
+
+  /// \return true if 'Mask' requires a target-specific shuffle
+  /// instruction, return false otherwise.
+  bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
 #endif // INTEL_CUSTOMIZATION
   /// \returns True if the two functions have compatible attributes for inlining
   /// purposes.
@@ -753,6 +758,9 @@ public:
                                                    Type *ExpectedType) = 0;
 #if INTEL_CUSTOMIZATION
   virtual bool adjustCallArgs(CallInst *) = 0;
+
+  virtual bool
+  isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual bool areInlineCompatible(const Function *Caller,
                                    const Function *Callee) const = 0;
@@ -1003,6 +1011,10 @@ public:
 #if INTEL_CUSTOMIZATION
   bool adjustCallArgs(CallInst *CI) override {
     return Impl.adjustCallArgs(CI);
+  }
+
+  bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const override {
+    return Impl.isTargetSpecificShuffleMask(Mask);
   }
 #endif // INTEL_CUSTOMIZATION
   bool areInlineCompatible(const Function *Caller,

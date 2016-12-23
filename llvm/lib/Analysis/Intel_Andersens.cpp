@@ -122,6 +122,17 @@ static cl::opt<bool> UseIntelModRef("use-intel-mod-ref", cl::init(true), cl::Rea
 static cl::opt<bool> SkipAndersUnreachableAsserts("skip-anders-unreachable-asserts", cl::init(true), cl::ReallyHidden);
 // Option to control ignoring NullPtr during collection of constraints
 static cl::opt<bool> IgnoreNullPtr("anders-ignore-nullptr", cl::init(true), cl::ReallyHidden);
+
+// Option to control using restrict attribute for better AA.
+// It is not really related to Andersens analysis. For given two pointers,
+// AndersensAAResult::alias returns NoAlias if one pointer is noalias 
+// (restrict) argument and other pointer is not a copy of the noalias
+// pointer. It does some simple analysis to prove that second pointer is
+// not copy of noalias pointer.
+// BasicAA has some code that use noalias attribute but it doesn't do
+// any analysis except some simple checks.
+static cl::opt<bool> UseRestrictAttr("anders-use-restrict-attr", cl::init(true), cl::ReallyHidden);
+
 // Limit number of indirect calls processed during propagation. No limit check
 // if it is set to -1. If number of indirect calls exceeds this limit, treat
 // all indirect calls conservatively.
@@ -132,13 +143,25 @@ AndersIndirectCallsLimit("anders-indirect-calls-limit", cl::ReallyHidden, cl::in
 // if number of constraints exceeds this limit (i.e no points-to info 
 // available). This check is done after collecting constraints. 
 // No limit check if it is set to -1.
+// CQ412448: Reduce this limit to fix compile-time issue for 483.xalan
+// Ex:  constraints.sizes() for some benchmarks before opt:
+//          483.xalan:      394K
+//          403.gcc:        331K
+//          400.perlbench:  132K
+//          471.omnetpp:    61K
+//
 static cl::opt<int>
 AndersNumConstraintsBeforeOptLimit("anders-num-constraints-before-opt-limit", 
-                             cl::ReallyHidden, cl::init(550000));
+                             cl::ReallyHidden, cl::init(350000));
 // Points-to propagation is disabled if number of constraints after
 // optimization exceeds this limit (i.e no points-to info available).
 // This check is done after optimizing constraints.
 // No limit check if it is set to -1.
+// Ex:  constraints.sizes() for some benchmarks after opt:
+//          483.xalan:      149K
+//          403.gcc:         72K
+//          400.perlbench:   29K
+//          471.omnetpp:     22K
 static cl::opt<int>
 AndersNumConstraintsAfterOptLimit("anders-num-constraints-after-opt-limit",
                             cl::ReallyHidden, cl::init(140000));
@@ -809,6 +832,113 @@ unsigned AndersensAAResult::getNodeValue(Value &V) {
   return Index;
 }
 
+// Returns parent function of V.
+//
+static const Function* getValueParent(const Value* V) {
+  if (const Instruction *inst = dyn_cast<Instruction>(V))
+    return inst->getParent()->getParent();
+
+  if (const Argument *arg = dyn_cast<Argument>(V))
+    return arg->getParent();
+
+  return nullptr;
+}
+
+// Returns true if Ptr can be escaped through PtrUser.
+// Currently, this routine checks PtrUser is Load/Store
+// instructions to prove that Ptr is not escaped.
+//
+static bool PtrUseMayBeEcaped(const Value* PtrUser, const Value* Ptr) {
+  if (const StoreInst *SI = dyn_cast<StoreInst>(PtrUser)) {
+    // Make sure Ptr is not saved to someother location
+    if (SI->getOperand(0) == Ptr)
+      return true;
+    if (SI->isVolatile())
+      return true;
+  }
+  else if (const LoadInst *LI = dyn_cast<LoadInst>(PtrUser)) {
+   if (LI->isVolatile())
+    return true;
+  }
+  return false;
+}
+ 
+
+// Returns true if all below checks are true
+//     1. V1 is noalias pointer argument
+//     2. V2 is not a direct use of V1
+//     3. All uses of V1 are tracked to make sure no copy of V1 is escaped.
+//
+static bool isAllUsesOfNoAliasPtrTracked(const Value *V1, const Value *V2) {
+  const Argument *A = dyn_cast<Argument>(V1);
+
+  // Check V1 is noalias pointer argument
+  if (A == nullptr)
+    return false;
+  if (!A->hasNoAliasAttr())
+    return false;
+
+  for (const User *U : V1->users()) {
+
+    // Check V2 is not a direct use of V1
+    if (&*U == V2)
+      return false;
+
+    // Check uses of V1 are escaped
+    if (!PtrUseMayBeEcaped(&*U, V1))
+      continue;
+
+    // If use of V1 is GetElementPtr, try to prove that uses of
+    // GetElementPtr are not escaped.
+    const Instruction *Inst = cast<Instruction>(U);
+    // For now, ignore complex GetElementPtr by limiting number of
+    // operands.
+    if (!isa<GetElementPtrInst>(Inst) || Inst->getNumOperands() >= 3)
+      return false;
+
+    const GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U);
+
+    // Check all uses of GetElementPtr are not escaped
+    for (const User *U1 : GEPI->users()) {
+      const Value* AU = &*U1;
+      if (PtrUseMayBeEcaped(AU, GEPI))
+        return false;
+    }
+  }
+  return true;
+}
+
+// Returns true if it proves V1 and V2 are not aliases using
+// restrict (noalias) attribute on argument.
+// This code is not related to Andersens analysis. Later,
+// this code needs to be moved to the right place where it
+// belongs.
+//
+static bool NoAliasSpecialCaseCheckUsingRestrictAttr(Value *V1,
+                                 Value *V2, const DataLayout &DL) {
+
+  // Return false if V1 and V2 are not from same routine
+  const Function* F1 = getValueParent(V1);
+  if (F1 == nullptr)
+    return false;
+
+  const Function* F2 = getValueParent(V2);
+  if (F2 == nullptr)
+    return false;
+
+  if (F1 != F2)
+    return false;
+
+  // Get underlying objects for V1 and V2 
+  Value* O1 = GetUnderlyingObject(V1, DL, 1);
+  Value* O2 = GetUnderlyingObject(V2, DL, 1);
+
+  if (isAllUsesOfNoAliasPtrTracked(O1, V2) ||
+      isAllUsesOfNoAliasPtrTracked(O2, V1))
+    return true;
+
+  return false;
+}
 
 
 //ModulePass *llvm::createAndersensPass() { return new Andersens(); }
@@ -844,6 +974,17 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       PrintNode(N2);
       errs() << " \n";
   }
+
+  // Use restrict (noalias) attr for better AA.
+  if (UseRestrictAttr &&
+      NoAliasSpecialCaseCheckUsingRestrictAttr(V1, V2, DL)) {
+    if (PrintAndersAliasQueries) {
+      errs() << " Result: NoAlias -- using restrict attr\n";
+      errs() << " Alias_End \n";
+    }
+    return NoAlias;
+  }
+
   if (N1->PointsTo->test(UniversalSet) && N2->PointsTo->test(UniversalSet)) {
       if (PrintAndersAliasQueries) {
         errs() << " both of them are Universal \n";
@@ -854,7 +995,13 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
 
   // Using escape analysis to improve the precision
   // of AndersenAA result.
+  //
+  // CQ415507: Escape analysis needs to be skipped if either
+  // V1 or V2 is created after Andersen.s Analysis (or is not
+  // considered by Andersens analysis).   
   if (!N1->intersectsIgnoring(N2, NullObject) &&
+      getNode(const_cast<Value*>(V1)) != UniversalSet &&
+      getNode(const_cast<Value*>(V2)) != UniversalSet && 
       (((N1->PointsTo->test(UniversalSet) || pointsToSetEscapes(N1)) &&
         !pointsToSetEscapes(N2)) ||
        ((N2->PointsTo->test(UniversalSet) || pointsToSetEscapes(N2)) &&
@@ -4364,14 +4511,23 @@ static inline bool isInterestingPointer(Value *V) {
 // modified or referenced in the routine.
 void IntelModRefImpl::collectFunction(Function *F)
 {
+    DEBUG_WITH_TYPE("imr-ir", F->dump());
+
+    DEBUG_WITH_TYPE("imr-collect",
+        errs() << "Collecting for: " << F->getName() << "\n");
+
     // Only run collection on the body of a function.
     if (F->isDeclaration()) {
+        DEBUG_WITH_TYPE("imr-collect", errs() <<
+            "BOTTOM: No function body.\n\n");
         return;
     }
 
     // Don't collect for a weak function, because it may not be
     // the function linked in.
     if (!F->hasExactDefinition()) {
+        DEBUG_WITH_TYPE("imr-collect", errs() <<
+            "BOTTOM: Weak function may be overridden.\n\n");
         return;
     }
 
@@ -4698,28 +4854,25 @@ void IntelModRefImpl::propagate(Module &M)
         const std::vector<CallGraphNode *> &SCC = *I;
         assert(!SCC.empty() && "SCC with no functions?");
 
-        DEBUG_WITH_TYPE("imr-propagate",
-            errs() << "\nSCC #" << ++sccNum << " : ");
+        // For each function of the SCC, merge in the information about
+        // all the callees to this routine's function record.
+        for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
+            for (CallGraphNode::iterator CI = SCC[i]->begin(),
+                E = SCC[i]->end(); CI != E; ++CI) {
 
-        Function *F = SCC[0]->getFunction();
-        DEBUG_WITH_TYPE("imr-propagate", errs() <<
-            (F ? F->getName() : "external node") << ", ");
+                DEBUG_WITH_TYPE("imr-propagate",
+                    errs() << "\nSCC #" << ++sccNum << " : ");
 
-        if (!F) {
-            continue;
-        }
+                Function *F = SCC[i]->getFunction();
+                DEBUG_WITH_TYPE("imr-propagate", errs() << "Propagate for " <<
+                    (F ? F->getName() : "external node") << ", ");
 
-        DEBUG_WITH_TYPE("imr-propagate", errs() << "Propagate for " <<
-            F->getName() << "\n");
+                if (!F) {
+                    continue;
+                }
 
-        FunctionRecord *FR = getFunctionInfo(F);
-        if (FR) {
-            // Merge in the information about all the callees to this
-            // routine's function record.
-            for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
-                for (CallGraphNode::iterator CI = SCC[i]->begin(),
-                    E = SCC[i]->end(); CI != E; ++CI) {
-
+                FunctionRecord *FR = getFunctionInfo(F);
+                if (FR) {
                     if (Function *Callee = CI->second->getFunction()) {
                         FunctionRecord *CalleeFR = getFunctionInfo(Callee);
                         if (CalleeFR) {
@@ -4733,29 +4886,57 @@ void IntelModRefImpl::propagate(Module &M)
                     }
                 }
             }
+        }
 
-            // Combine all the elements of the SCC element together so they
-            // are all the same.
-            bool changed = true;
-            while (changed) {
-                changed = false;
-                FunctionRecord *PrevFR = FR;
+        // If there were multiple functions for this SCC, combine all the routines
+        // of the SCC together so they are all equivalent.
+        if (SCC.size() > 1) {
+
+            // Check if ModRef sets are available for all functions
+            // of the SCC. If not, set all routines of the SCC to BOTTOM.
+            // Otherwise, fuse-all the sets together to make them contain all
+            // the mod-ref items of the SCC.
+            bool SetToBottom = false;
+            auto I = SCC.begin();
+            for (auto E = SCC.end(); I != E; ++I) {
+                Function* CurF = (*I)->getFunction();
+                FunctionRecord *CurFR = getFunctionInfo(CurF);
+                if (!CurFR) {
+                    SetToBottom = true;
+                    break;
+                }
+            }
+
+            if (SetToBottom) {
                 auto I = SCC.begin();
-
-                ++I;
                 for (auto E = SCC.end(); I != E; ++I) {
                     Function* CurF = (*I)->getFunction();
                     FunctionRecord *CurFR = getFunctionInfo(CurF);
-                    if (CurFR) {
+                    if (CurFR &&
+                        !(CurFR->isModBottom() || CurFR->isRefBottom())) {
+
+                        CurFR->setToBottom(FunctionRecord::Propagated);
+                    }
+                }
+            }
+            else {
+                bool changed = true;
+                Function *First_Fn = SCC[0]->getFunction();
+                FunctionRecord *First_FR = getFunctionInfo(First_Fn);
+            
+                while (changed) {
+                    changed = false;
+                    FunctionRecord *PrevFR = First_FR;
+                    auto I = SCC.begin();
+
+                    ++I;
+                    for (auto E = SCC.end(); I != E; ++I) {
+                        Function* CurF = (*I)->getFunction();
+                        FunctionRecord *CurFR = getFunctionInfo(CurF);
+                        assert(CurFR);
+
                         changed = fuseModRefSets(PrevFR, CurFR);
                         PrevFR = CurFR;
-                    }
-                    else {
-                        if (!(PrevFR->isModBottom() || PrevFR->isRefBottom()))
-                        {
-                            PrevFR->setToBottom(FunctionRecord::Propagated);
-                            changed = true;
-                        }
                     }
                 }
             }
