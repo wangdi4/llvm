@@ -112,6 +112,7 @@ namespace llvm {
     }
     void insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn = nullptr);
     void insertSWITCHForIf();
+    void renameOnLoopEntry();
     void renameAcrossLoopForRepeat(MachineLoop *);
     void insertSWITCHForRepeat();
     MachineBasicBlock* getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock*> &exitingBlks, MachineInstr* UseMI, unsigned Reg);
@@ -378,13 +379,8 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   }
 
   //renaming using switch to seal all down rang of each definition within loop
+  renameOnLoopEntry();
   insertSWITCHForLoopExit();
-#if 0
-  {
-    errs() << "CSACvtCFDFPass before xphi" << ":\n";
-    MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
-  }
-#endif
   insertSWITCHForIf();
 
   generateDynamicPreds();
@@ -1009,17 +1005,22 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit() {
 }
 
 
-//focus on uses
-void CSACvtCFDFPass::insertSWITCHForRepeat() {
-  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
-    renameAcrossLoopForRepeat(*LI);
-  }
+void CSACvtCFDFPass::renameOnLoopEntry()
+{
 #if 0
   {
     errs() << "after rename for repeat" << ":\n";
     thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());
   }
 #endif
+
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
+    renameAcrossLoopForRepeat(*LI);
+  }
+}
+
+//focus on uses
+void CSACvtCFDFPass::insertSWITCHForRepeat() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
