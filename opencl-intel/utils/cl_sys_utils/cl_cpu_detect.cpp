@@ -100,6 +100,16 @@ bool CPUDetect::IsGenuineIntel()
 }
 
 // INTEL CORE.
+bool CPUDetect::isWestmere()
+{
+    if ((0x2065 == m_i16ProcessorSignature) ||  // Arrandale/Clarksdale
+        (0x206C == m_i16ProcessorSignature) ||  // Gulftown/Westmere-EP
+        (0x206F == m_i16ProcessorSignature))    // Westmere-EX (Xeon)
+        return true;
+
+    return false;
+}
+
 bool CPUDetect::isBroadwell()
 {
     if(0x306D == m_i16ProcessorSignature || // Broadwell ULT Client.
@@ -144,93 +154,6 @@ bool CPUDetect::isBroxton()
     return false;
 }
 
-bool CPUDetect::IsMicroArchitecture(EMicroArchitecture microArchitecture)
-{
-    // !!! IMPORTANT NOTE !!!
-    //     This whole method is wrong, CPUID's family and model numbers are unreliable
-    //     Core Haswell has the same family and model numbers as Atom Cherrytrail !!!
-    //     TODO: Implement a better way for detecting different micro-architectures
-
-    if (!IsGenuineIntel())
-    {
-        return false;
-    }
-
-    switch(microArchitecture)
-    {
-    case MA_ALL:
-        return true;
-        break;
-    case MA_YONAH:
-        // TODO: is this correct ?
-        if (m_ucFamily == 0x6 && m_ucModel == 0xE)
-        {
-            return true;
-        }
-        break;
-    case MA_MEROM:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x0F) || // Clovertown
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x16))   // Merom Conroe
-        {
-            return true;
-        }
-        break;
-    case MA_PENRYN:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x17) || // Yorkfield/Wolfdale
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x1D))   // Dunnington
-        {
-            return true;
-        }
-        break;
-    case MA_NEHALEM:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x1E) || // Clarksfield
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x1A) || // Bloomfield
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x2E))   // Nehalem-EX (Xeon)
-        {
-            return true;
-        }
-        break;
-    case MA_WESTMERE:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x2C) || // Arrandale/Clarksdale
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x25) || // Gulftown/Westmere-EP
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x2F))   // Westmere-EX (Xeon)
-        {
-            return true;
-        }
-        break;
-    case MA_SANDYBRIDGE:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x2A) || // SandyBridge
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x2D))   // SandyBridge-E
-        {
-            return true;
-        }
-        break;
-    // TODO: find values for ivybridge/haswell/broadwell
-    case MA_IVYBRIDGE:
-        if (m_ucFamily == 0x6 && m_ucExtendedModel == 0x3A)
-        {
-            return true;
-        }
-        break;
-    case MA_HASWELL:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x3C) ||
-            (m_ucFamily == 0x6 && m_ucModel == 0x6)) // HSW 4770R
-        {
-            return true;
-        }
-        break;
-    case MA_BROADWELL:
-        if (m_ucFamily == 0x6 && m_ucExtendedModel == 0x3D)
-        {
-            return true;
-        }
-        break;
-    default:
-        break;
-    }
-    return false;
-}
-
 bool CPUDetect::IsFeatureSupported(ECPUFeatureSupport featureType)
 {
     if (m_bBypassCPUDetect)
@@ -264,9 +187,6 @@ CPUDetect::CPUDetect(void) :
     m_bBypassCPUDetect(false),
     m_bIsGenuineIntel (false),
     m_ucStepping(0),
-    m_ucModel(0),
-    m_ucExtendedModel(0),
-    m_ucFamily(0),
     m_ucType(0),
     m_szCPUString(NULL),
     m_szCPUBrandString(NULL),
@@ -331,9 +251,6 @@ void CPUDetect::GetCPUInfo()
 
     m_i16ProcessorSignature = (short)(viCPUInfo[0] >> 4);
     m_ucStepping = viCPUInfo[0] & 0xf;
-    m_ucModel = (viCPUInfo[0] >> 4) & 0xf;
-    m_ucExtendedModel = ((viCPUInfo[0] >> 12) & 0xf0) | m_ucModel;
-    m_ucFamily = (viCPUInfo[0] >> 8) & 0xf;
     m_ucType = (viCPUInfo[0] >> 12) & 0x3;
     m_uiCoreCount = (viCPUInfo[1] >> 16) & 0xff;
 

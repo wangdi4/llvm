@@ -57,23 +57,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
         CFS_AVX512VL = 0x4000   // SKX
     };
 
-    // Processor microarchitecture
-    enum EMicroArchitecture
-    {
-        MA_ALL,
-        MA_YONAH,
-        MA_MEROM,
-        MA_PENRYN,
-        MA_NEHALEM,
-        MA_WESTMERE,
-        MA_SANDYBRIDGE,
-        MA_IVYBRIDGE,
-        MA_HASWELL,
-        MA_BROADWELL,
-        MA_SKYLAKE,
-        MA_CANNONLAKE
-    };
-
     // Processor brand family
     enum ECPUBrandFamily
     {
@@ -93,18 +76,15 @@ namespace Intel { namespace OpenCL { namespace Utils {
         static CPUDetect * GetInstance();
 
         bool IsGenuineIntel();
+        bool isWestmere();
         bool isBroadwell();
         bool isBroxton();
         bool isSkylake();
         bool isKabylake();
 
-        bool IsMicroArchitecture(EMicroArchitecture microArchitecture);
-
         bool IsFeatureSupported(ECPUFeatureSupport featureType);
 
         unsigned char GetStepping() { return m_ucStepping; }
-        unsigned char GetModel() { return m_ucModel; }
-        unsigned char GetFamily() { return m_ucFamily; }
         unsigned char GetType() { return m_ucType; }
         const char *  GetCPUString() { return m_szCPUString; }
         const char *  GetCPUBrandString() { return m_szCPUBrandString; }
@@ -121,9 +101,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
         bool m_bBypassCPUDetect;
         bool m_bIsGenuineIntel;
         unsigned char m_ucStepping;
-        unsigned char m_ucModel;
-        unsigned char m_ucExtendedModel;
-        unsigned char m_ucFamily;
         unsigned char m_ucType;
         char * m_szCPUString;
         char * m_szCPUBrandString;

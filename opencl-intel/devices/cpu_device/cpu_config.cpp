@@ -173,8 +173,7 @@ bool CPUDeviceConfig::IsDoubleSupported() const
     }
 
     // enabled on Westmere
-    bool isWestmere = CPUDetect::GetInstance()->IsMicroArchitecture(MA_WESTMERE);
-    if (isWestmere)
+    if (CPUDetect::GetInstance()->isWestmere())
     {
         return true;
     }
