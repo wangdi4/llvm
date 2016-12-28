@@ -413,8 +413,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // the vectorizer may transform scalar shifts into vector shifts, and we want
   // this pass to fix all vector shift in this module.
   PM.add(createShiftZeroUpperBitsPass());
-  if (!HasGatherScatter)
-    PM.add(createOptimizeIDivPass());
+  PM.add(createOptimizeIDivPass());
   PM.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits,
   // PreventDivisionCrashes passes to optimize redundancy introduced by those
