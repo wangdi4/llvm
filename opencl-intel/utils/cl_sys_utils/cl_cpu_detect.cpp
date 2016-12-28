@@ -82,13 +82,12 @@ static const char* CPU_STRING = "GenuineIntel";
 
 cl_err_code Intel::OpenCL::Utils::IsCPUSupported()
 {
-        if( CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
-        {
-                return CL_SUCCESS;
-        }
-        return CL_ERR_CPU_NOT_SUPPORTED;
+    if( CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
+    {
+        return CL_SUCCESS;
+     }
+     return CL_ERR_CPU_NOT_SUPPORTED;
 }
-
 
 bool CPUDetect::IsGenuineIntel()
 {
@@ -101,6 +100,16 @@ bool CPUDetect::IsGenuineIntel()
 }
 
 // INTEL CORE.
+bool CPUDetect::isWestmere()
+{
+    if ((0x2065 == m_i16ProcessorSignature) ||  // Arrandale/Clarksdale
+        (0x206C == m_i16ProcessorSignature) ||  // Gulftown/Westmere-EP
+        (0x206F == m_i16ProcessorSignature))    // Westmere-EX (Xeon)
+        return true;
+
+    return false;
+}
+
 bool CPUDetect::isBroadwell()
 {
     if(0x306D == m_i16ProcessorSignature || // Broadwell ULT Client.
@@ -114,7 +123,8 @@ bool CPUDetect::isBroadwell()
 bool CPUDetect::isSkylake()
 {
     if(0x406E == m_i16ProcessorSignature || // Skylake ULT/ULX.
-       0x506E == m_i16ProcessorSignature)   // Skylake DT/HALO.
+       0x506E == m_i16ProcessorSignature || // Skylake DT/HALO.
+       0x5065 == m_i16ProcessorSignature)   // Skylake Server
         return true;
 
     return false;
@@ -145,93 +155,6 @@ bool CPUDetect::isBroxton()
     return false;
 }
 
-bool CPUDetect::IsMicroArchitecture(EMicroArchitecture microArchitecture)
-{
-    // !!! IMPORTANT NOTE !!!
-    //     This whole method is wrong, CPUID's family and model numbers are unreliable
-    //     Core Haswell has the same family and model numbers as Atom Cherrytrail !!!
-    //     TODO: Implement a better way for detecting different micro-architectures
-
-    if (!IsGenuineIntel())
-    {
-        return false;
-    }
-
-    switch(microArchitecture)
-    {
-    case MA_ALL:
-        return true;
-        break;
-    case MA_YONAH:
-        // TODO: is this correct ?
-        if (m_ucFamily == 0x6 && m_ucModel == 0xE)
-        {
-            return true;
-        }
-        break;
-    case MA_MEROM:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x0F) || // Clovertown
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x16))   // Merom Conroe
-        {
-            return true;
-        }
-        break;
-    case MA_PENRYN:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x17) || // Yorkfield/Wolfdale
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x1D))   // Dunnington
-        {
-            return true;
-        }
-        break;
-    case MA_NEHALEM:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x1E) || // Clarksfield
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x1A) || // Bloomfield
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x2E))   // Nehalem-EX (Xeon)
-        {
-            return true;
-        }
-        break;
-    case MA_WESTMERE:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x2C) || // Arrandale/Clarksdale
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x25) || // Gulftown/Westmere-EP
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x2F))   // Westmere-EX (Xeon)
-        {
-            return true;
-        }
-        break;
-    case MA_SANDYBRIDGE:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x2A) || // SandyBridge
-            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x2D))   // SandyBridge-E
-        {
-            return true;
-        }
-        break;
-    // TODO: find values for ivybridge/haswell/broadwell
-    case MA_IVYBRIDGE:
-        if (m_ucFamily == 0x6 && m_ucExtendedModel == 0x3A)
-        {
-            return true;
-        }
-        break;
-    case MA_HASWELL:
-        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x3C) ||
-            (m_ucFamily == 0x6 && m_ucModel == 0x6)) // HSW 4770R
-        {
-            return true;
-        }
-        break;
-    case MA_BROADWELL:
-        if (m_ucFamily == 0x6 && m_ucExtendedModel == 0x3D)
-        {
-            return true;
-        }
-        break;
-    default:
-        break;
-    }
-    return false;
-}
-
 bool CPUDetect::IsFeatureSupported(ECPUFeatureSupport featureType)
 {
     if (m_bBypassCPUDetect)
@@ -251,28 +174,25 @@ CPUDetect * CPUDetect::GetInstance()
 bool CPUDetect::ShouldBypassCPUCheck()
 {
 #ifndef NDEBUG
-	string strVal;
-	cl_err_code err = GetEnvVar(strVal, "OCL_CFG_BYPASS_CPU_DETECT");
-	if (CL_SUCCEEDED(err))
-	{
-		return true;
-	}
+    string strVal;
+    cl_err_code err = GetEnvVar(strVal, "OCL_CFG_BYPASS_CPU_DETECT");
+    if (CL_SUCCEEDED(err))
+    {
+      return true;
+    }
 #endif
-	return false;
+    return false;
 }
 
 CPUDetect::CPUDetect(void) :
-	m_bBypassCPUDetect(false),
-	m_bIsGenuineIntel (false),
-	m_ucStepping(0),
-	m_ucModel(0),
-	m_ucExtendedModel(0),
-	m_ucFamily(0),
-	m_ucType(0),
-	m_szCPUString(NULL),
-	m_szCPUBrandString(NULL),
-	m_uiCPUFeatures(0),
-	m_uiCoreCount(0),
+    m_bBypassCPUDetect(false),
+    m_bIsGenuineIntel (false),
+    m_ucStepping(0),
+    m_ucType(0),
+    m_szCPUString(NULL),
+    m_szCPUBrandString(NULL),
+    m_uiCPUFeatures(0),
+    m_uiCoreCount(0),
     m_i16ProcessorSignature(0),
     m_eCPUBrand(BRAND_UNKNOWN)
 {
@@ -307,21 +227,21 @@ void CPUDetect::GetCPUInfo()
     MEMCPY_S( vcCPUString + 8, sizeof(vcCPUString) - 8, viCPUInfo + 2, sizeof(unsigned int));
 
     m_szCPUString = STRDUP(vcCPUString);
-        if(!m_szCPUString)
+    if(!m_szCPUString)
+    {
+        m_bIsGenuineIntel = false;
+    }
+    else
+    {
+        if (strcmp(m_szCPUString, CPU_STRING) == 0)
         {
-                m_bIsGenuineIntel = false;
+            m_bIsGenuineIntel = true;
         }
         else
         {
-                if (strcmp(m_szCPUString, CPU_STRING) == 0)
-                {
-                        m_bIsGenuineIntel = true;
-                }
-                else
-                {
-                        m_bIsGenuineIntel = false;
-                }
+            m_bIsGenuineIntel = false;
         }
+    }
 
     if (iValidIDs == 1)
     {
@@ -332,100 +252,97 @@ void CPUDetect::GetCPUInfo()
 
     m_i16ProcessorSignature = (short)(viCPUInfo[0] >> 4);
     m_ucStepping = viCPUInfo[0] & 0xf;
-    m_ucModel = (viCPUInfo[0] >> 4) & 0xf;
-    m_ucExtendedModel = ((viCPUInfo[0] >> 12) & 0xf0) | m_ucModel;
-    m_ucFamily = (viCPUInfo[0] >> 8) & 0xf;
     m_ucType = (viCPUInfo[0] >> 12) & 0x3;
-	m_uiCoreCount = (viCPUInfo[1] >> 16) & 0xff;
+    m_uiCoreCount = (viCPUInfo[1] >> 16) & 0xff;
 
-	m_uiCPUFeatures = 0;
-	if (viCPUInfo[3] & 0x04000000)
-	{
-		m_uiCPUFeatures |= CFS_SSE2;
-	}
+    m_uiCPUFeatures = 0;
+    if (viCPUInfo[3] & 0x04000000)
+    {
+        m_uiCPUFeatures |= CFS_SSE2;
+    }
 
-	if (viCPUInfo[2] & 0x00000001)
-	{
-		m_uiCPUFeatures |= CFS_SSE3;
-	}
+    if (viCPUInfo[2] & 0x00000001)
+    {
+        m_uiCPUFeatures |= CFS_SSE3;
+    }
 
-	if (viCPUInfo[2] & 0x00000200)
-	{
-		m_uiCPUFeatures |= CFS_SSSE3;
-	}
+    if (viCPUInfo[2] & 0x00000200)
+    {
+        m_uiCPUFeatures |= CFS_SSSE3;
+    }
 
-	if (viCPUInfo[2] & 0x00080000)
-	{
-		m_uiCPUFeatures |= CFS_SSE41;
-	}
+    if (viCPUInfo[2] & 0x00080000)
+    {
+        m_uiCPUFeatures |= CFS_SSE41;
+    }
 
-	if (viCPUInfo[2] & 0x00100000)
-	{
-		m_uiCPUFeatures |= CFS_SSE42;
-	}
+    if (viCPUInfo[2] & 0x00100000)
+    {
+        m_uiCPUFeatures |= CFS_SSE42;
+    }
 
-        if (viCPUInfo[2] & 0x18000000)
-	{
+    if (viCPUInfo[2] & 0x18000000)
+    {
 #if defined(_WIN32) && !defined(_M_X64)
-            // Use this inline asm in Win32 only
-            __asm
-            {
-                // specify 0 for XFEATURE_ENABLED_MASK register
-                mov ecx, 0
-                    // XGETBV result in EDX:EAX
-                    xgetbv
-                    mov XCRInfo[0], eax
-                    mov XCRInfo[1], edx
-            }
+        // Use this inline asm in Win32 only
+        __asm
+        {
+            // specify 0 for XFEATURE_ENABLED_MASK register
+            mov ecx, 0
+            // XGETBV result in EDX:EAX
+            xgetbv
+            mov XCRInfo[0], eax
+            mov XCRInfo[1], edx
+        }
 #elif defined(__ANDROID__)
-            // No support for AVX on android
-            XCRInfo[0] = XCRInfo[0] & ~0x00000006;
+        // No support for AVX on android
+        XCRInfo[0] = XCRInfo[0] & ~0x00000006;
 #else
-            xgetbv( XCRInfo )
+        xgetbv( XCRInfo )
 #endif
-            if ((XCRInfo[0] & 0x00000006) == 0x00000006)
+        if ((XCRInfo[0] & 0x00000006) == 0x00000006)
+        {
+            m_uiCPUFeatures |= CFS_AVX10;
+            if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
             {
-                m_uiCPUFeatures |= CFS_AVX10;
-                if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
-                    {
-                        m_uiCPUFeatures |= CFS_FMA;
-                    }
-                    // AVX2 support
-                    viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
-                    cpuid(viCPUInfo, 7, 0); //eax=7, ecx=0
-                    if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
-                    {
-                        m_uiCPUFeatures |= CFS_AVX20;
-                    }
-                    // AVX-512 support
-                    // We use very simple procedure to check AVX-512 features
-                    // regardless of what Software Developer Manual Vol.1 says
-                    // because support of EVEX encoded short vectors will be added later.
-                    if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
-                    {
-                      // So far following simple logic - we see AVX512DQ then it is SKX, otherwise - it's KNL.
-                      if ((viCPUInfo[1] & 0x20000) == 0x20000) // CPUID.(EAX=07H, ECX=0):EBX[bit 17] - AVX512DQ
-                      {
-                        m_uiCPUFeatures |= CFS_AVX512F;
-                        m_uiCPUFeatures |= CFS_AVX512CD;
-                        m_uiCPUFeatures |= CFS_AVX512BW;
-                        m_uiCPUFeatures |= CFS_AVX512DQ;
-                        m_uiCPUFeatures |= CFS_AVX512VL;
-                      }
-                      else
-                      {
+                m_uiCPUFeatures |= CFS_FMA;
+            }
+            // AVX2 support
+            viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
+            cpuid(viCPUInfo, 7, 0); //eax=7, ecx=0
+            if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
+            {
+                m_uiCPUFeatures |= CFS_AVX20;
+            }
+            // AVX-512 support
+            // We use very simple procedure to check AVX-512 features
+            // regardless of what Software Developer Manual Vol.1 says
+            // because support of EVEX encoded short vectors will be added later.
+            if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
+            {
+                // So far following simple logic - we see AVX512DQ then it is SKX, otherwise - it's KNL.
+                if ((viCPUInfo[1] & 0x20000) == 0x20000) // CPUID.(EAX=07H, ECX=0):EBX[bit 17] - AVX512DQ
+                {
+                    m_uiCPUFeatures |= CFS_AVX512F;
+                    m_uiCPUFeatures |= CFS_AVX512CD;
+                    m_uiCPUFeatures |= CFS_AVX512BW;
+                    m_uiCPUFeatures |= CFS_AVX512DQ;
+                    m_uiCPUFeatures |= CFS_AVX512VL;
+                }
+                else
+                {
 #if defined ENABLE_KNL
-                        m_uiCPUFeatures |= CFS_AVX512F;
-                        m_uiCPUFeatures |= CFS_AVX512CD;
-                        m_uiCPUFeatures |= CFS_AVX512ER;
-                        m_uiCPUFeatures |= CFS_AVX512PF;
+                    m_uiCPUFeatures |= CFS_AVX512F;
+                    m_uiCPUFeatures |= CFS_AVX512CD;
+                    m_uiCPUFeatures |= CFS_AVX512ER;
+                    m_uiCPUFeatures |= CFS_AVX512PF;
 #else
-                        m_uiCPUFeatures |= CFS_AVX20;
+                    m_uiCPUFeatures |= CFS_AVX20;
 #endif
-                      }
-                    }
+                }
             }
         }
+    }
 
     CPUID(viCPUInfo, 0x80000000);
     unsigned int iValidExIDs = viCPUInfo[0];
@@ -433,20 +350,9 @@ void CPUDetect::GetCPUInfo()
     if (iValidExIDs < 0x80000004)
     {
 #if defined(__ANDROID__)
-	// Android is not supporting Brand String query
-	m_szCPUBrandString = STRDUP("Intel(R) Atom(TM)");
+        // Android is not supporting Brand String query
+        m_szCPUBrandString = STRDUP("Intel(R) Atom(TM)");
 #endif
-    }
-    else if ((m_uiCPUFeatures & CFS_AVX512F) && (m_uiCPUFeatures & CFS_AVX512ER)) {
-        // SDE does not support the string yet, this block will be removed later.
-        const char brand[] = "Intel KNL TBD";
-        MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), brand, sizeof(brand));
-        m_szCPUBrandString = STRDUP(vcCPUBrandString);
-    }
-    else if ((m_uiCPUFeatures & CFS_AVX512F) && (m_uiCPUFeatures & CFS_AVX512DQ)) {
-        const char brand[] = "Intel SKX TBD";
-        MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), brand, sizeof(brand));
-        m_szCPUBrandString = STRDUP(vcCPUBrandString);
     }
     else
     {
@@ -501,4 +407,3 @@ void CPUDetect::GetCPUInfo()
         }
     }
 }
-
