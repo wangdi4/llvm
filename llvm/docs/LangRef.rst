@@ -649,7 +649,7 @@ Variables and aliases can have a
 
 Syntax::
 
-      @<GlobalVarName> = [Linkage] [Visibility] [DLLStorageClass] [ThreadLocal] 
+      @<GlobalVarName> = [Linkage] [Visibility] [DLLStorageClass] [ThreadLocal]
                          [ThreadPrivate] 
                          [(unnamed_addr|local_unnamed_addr)] [AddrSpace]
                          [ExternallyInitialized]
@@ -682,9 +682,9 @@ The following example defines a thread-local global with the
 The following example defines a thread-private global which is
 in the argument list of the directive omp threadprivate (list).
 
-.. code-block:: llvm
+.. code-block:: none
 
-    @G = thread_private global i32 0, align 4
+   @G = thread_private global i32 0, align 4
 
 .. END INTEL_CUSTOMIZATION
 
