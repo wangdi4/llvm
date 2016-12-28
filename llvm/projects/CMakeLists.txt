@@ -9,8 +9,13 @@ foreach(entry ${entries})
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxx) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxxabi) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libunwind) AND
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/openmp) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/test-suite) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/parallel-libs))
+      add_subdirectory(${entry})
+    endif()
+    # Special handling for OpenMP. Don't try to build it on Windows
+    if((${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/openmp) AND (NOT MSVC))
       add_subdirectory(${entry})
     endif()
   endif()
