@@ -1161,12 +1161,18 @@ foreach qual = [ "ro", "rw" ] in {
   def soa8_read_imageui_2d_#qual : OclBuiltin<"soa8_read_imageui", (outs),
                 (ins !cast<OclType>("image2d_"#qual):$image, sampler_t:$sampler, v8i32:$coord_x, v8i32:$coord_y,
                      pv8u32:$res_x, pv8u32:$res_y, pv8u32:$res_z, pv8u32:$res_w), [], [], 0, 0>, PRIVATE;
+  def soa16_read_imageui_2d_#qual : OclBuiltin<"soa16_read_imageui", (outs),
+                (ins !cast<OclType>("image2d_"#qual):$image, sampler_t:$sampler, v16i32:$coord_x, v16i32:$coord_y,
+                     pv16u32:$res_x, pv16u32:$res_y, pv16u32:$res_z, pv16u32:$res_w), [], [], 0, 0>, PRIVATE;
   def soa4_read_imageui_2d_#qual#_no_sampler : OclBuiltin<"soa4_read_imageui", (outs),
                 (ins !cast<OclType>("image2d_"#qual):$image, v4i32:$coord_x, v4i32:$coord_y,
                      pv4u32:$res_x, pv4u32:$res_y, pv4u32:$res_z, pv4u32:$res_w), [], [], 0, 0>, PRIVATE;
   def soa8_read_imageui_2d_#qual#_no_sampler : OclBuiltin<"soa8_read_imageui", (outs),
                 (ins !cast<OclType>("image2d_"#qual):$image, v8i32:$coord_x, v8i32:$coord_y,
                      pv8u32:$res_x, pv8u32:$res_y, pv8u32:$res_z, pv8u32:$res_w), [], [], 0, 0>, PRIVATE;
+  def soa16_read_imageui_2d_#qual#_no_sampler : OclBuiltin<"soa16_read_imageui", (outs),
+                (ins !cast<OclType>("image2d_"#qual):$image, v16i32:$coord_x, v16i32:$coord_y,
+                     pv16u32:$res_x, pv16u32:$res_y, pv16u32:$res_z, pv16u32:$res_w), [], [], 0, 0>, PRIVATE;
   def mask_soa4_read_imageui_2d_#qual : OclBuiltin<"mask_soa4_read_imageui", (outs),
                 (ins v4i32:$mask, !cast<OclType>("image2d_"#qual):$image, sampler_t:$sampler, v4i32:$coord_x, v4i32:$coord_y,
                      pv4u32:$res_x, pv4u32:$res_y, pv4u32:$res_z, pv4u32:$res_w), [], [], 0, 0>, PRIVATE;
@@ -1191,6 +1197,9 @@ foreach qual = [ "wo", "rw" ] in {
   def soa8_write_imageui_2d_#qual : OclBuiltin<"soa8_write_imageui", (outs),
                 (ins !cast<OclType>("image2d_"#qual):$image, v8i32:$coord_x, v8i32:$coord_y,
                      v8u32:$val_x, v8u32:$val_y, v8u32:$val_z, v8u32:$val_w), [], [], 0, 0>;
+  def soa16_write_imageui_2d_#qual : OclBuiltin<"soa16_write_imageui", (outs),
+                (ins !cast<OclType>("image2d_"#qual):$image, v16i32:$coord_x, v16i32:$coord_y,
+                     v16u32:$val_x, v16u32:$val_y, v16u32:$val_z, v16u32:$val_w), [], [], 0, 0>;
   def mask_soa4_write_imageui_2d_#qual : OclBuiltin<"mask_soa4_write_imageui", (outs),
                 (ins v4i32:$mask, !cast<OclType>("image2d_"#qual):$image, v4i32:$coord_x, v4i32:$coord_y,
                      v4u32:$val_x, v4u32:$val_y, v4u32:$val_z, v4u32:$val_w), [], [], 0, 0>;
@@ -1363,24 +1372,26 @@ foreach qual = [ "ro", "rw" ] in {
   def read_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("read_imageui_2d_"#qual), v4i32>;
   def soa4_read_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa4_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
   def soa8_read_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa8_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
+  def soa16_read_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa16_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
   def read_imageui_2d_#qual#_vectorized : MapRow<[
     !cast<MapCell>("read_imageui_2d_"#qual#"_cell"), //scalar
     nullCell,      //v2
     !cast<MapCell>("soa4_read_imageui_2d_"#qual#"_cell"),      //v4
     !cast<MapCell>("soa8_read_imageui_2d_"#qual#"_cell"),      //v8
-    nullCell,      //16
+    !cast<MapCell>("soa16_read_imageui_2d_"#qual#"_cell"),     //16
     nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 
   def read_imageui_2d_#qual#_no_sampler_cell : MapCell<!cast<OclBuiltin>("read_imageui_2d_"#qual#"_no_sampler"), v4i32>;
   def soa4_read_imageui_2d_#qual#_no_sampler_cell : MapCell<!cast<OclBuiltin>("soa4_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
   def soa8_read_imageui_2d_#qual#_no_sampler_cell : MapCell<!cast<OclBuiltin>("soa8_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
+  def soa16_read_imageui_2d_#qual#_no_sampler_cell : MapCell<!cast<OclBuiltin>("soa16_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
   def read_imageui_2d_#qual#_no_sampler__vectorized : MapRow<[
     !cast<MapCell>("read_imageui_2d_"#qual#"_no_sampler_cell"), //scalar
     nullCell,      //v2
     !cast<MapCell>("soa4_read_imageui_2d_"#qual#"_no_sampler_cell"),      //v4
     !cast<MapCell>("soa8_read_imageui_2d_"#qual#"_no_sampler_cell"),      //v8
-    nullCell,      //16
+    !cast<MapCell>("soa16_read_imageui_2d_"#qual#"_no_sampler_cell"),      //16
     nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 }
@@ -1389,12 +1400,13 @@ foreach qual = [ "wo", "rw" ] in {
   def write_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("write_imageui_2d_"#qual), v4i32>;
   def soa4_write_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa4_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
   def soa8_write_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa8_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
+  def soa16_write_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa16_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
   def write_imageui_2d_#qual#_vectorized : MapRow<[
     !cast<MapCell>("write_imageui_2d_"#qual#"_cell"), //scalar
     nullCell,      //v2
     !cast<MapCell>("soa4_write_imageui_2d_"#qual#"_cell"),      //v4
     !cast<MapCell>("soa8_write_imageui_2d_"#qual#"_cell"),      //v8
-    nullCell,      //16
+    !cast<MapCell>("soa16_write_imageui_2d_"#qual#"_cell"),      //16
     nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 

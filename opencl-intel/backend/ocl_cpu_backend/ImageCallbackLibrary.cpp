@@ -113,6 +113,8 @@ const string VecSizeToPrefix(VecSize _size)
         return "soa4_";
     case SOA8:
         return "soa8_";
+    case SOA16:
+        return "soa16_";
     default:
         throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error. Unsupported vector size"));
     }

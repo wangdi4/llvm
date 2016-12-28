@@ -231,9 +231,12 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     InitializeToTrap(ARRAY_AND_SIZE(pImageAuxData->read_img_callback_float));
     InitializeToTrap(ARRAY_AND_SIZE(pImageAuxData->soa4_read_img_callback_int));
     InitializeToTrap(ARRAY_AND_SIZE(pImageAuxData->soa8_read_img_callback_int));
+    InitializeToTrap(ARRAY_AND_SIZE(pImageAuxData->soa16_read_img_callback_int));
+
     InitializeToTrap(pImageAuxData->write_img_callback);
     InitializeToTrap(pImageAuxData->soa4_write_img_callback);
     InitializeToTrap(pImageAuxData->soa8_write_img_callback);
+    InitializeToTrap(pImageAuxData->soa16_write_img_callback);
 
     // workaround for image array
     if(IsImageArray(pImageObject)){
@@ -295,6 +298,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->read_img_callback_int[i]   = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_INT);
         pImageAuxData->soa4_read_img_callback_int[i]   = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_INT, SOA4);
         pImageAuxData->soa8_read_img_callback_int[i]   = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_INT, SOA8);
+        pImageAuxData->soa16_read_img_callback_int[i]   = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_INT, SOA16);
     }
 
     if(IsIntDataType(pImageAuxData->format.image_channel_data_type))
@@ -390,6 +394,8 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
             SET_IF_NOT_NULL(pImageAuxData->soa4_read_img_callback_int[nearestSamplers[i]], cbFunc);
             cbFunc = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA8);
             SET_IF_NOT_NULL(pImageAuxData->soa8_read_img_callback_int[nearestSamplers[i]], cbFunc);
+            cbFunc = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA16);
+            SET_IF_NOT_NULL(pImageAuxData->soa16_read_img_callback_int[nearestSamplers[i]], cbFunc);
         }
     }
 
@@ -422,10 +428,14 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         SET_IF_NOT_NULL(pImageAuxData->soa4_read_img_callback_int[CLAMP_FALSE_NEAREST], cbFunc);
         cbFunc = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA8);
         SET_IF_NOT_NULL(pImageAuxData->soa8_read_img_callback_int[CLAMP_FALSE_NEAREST], cbFunc);
+        cbFunc = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA16);
+        SET_IF_NOT_NULL(pImageAuxData->soa16_read_img_callback_int[CLAMP_FALSE_NEAREST], cbFunc);
         cbFunc = pImageCallbackFuncs->GetWritingCbk(ch_order, ch_type, SOA4);
         SET_IF_NOT_NULL(pImageAuxData->soa4_write_img_callback, cbFunc);
         cbFunc = pImageCallbackFuncs->GetWritingCbk(ch_order, ch_type, SOA8);
         SET_IF_NOT_NULL(pImageAuxData->soa8_write_img_callback, cbFunc);
+        cbFunc = pImageCallbackFuncs->GetWritingCbk(ch_order, ch_type, SOA16);
+        SET_IF_NOT_NULL(pImageAuxData->soa16_write_img_callback, cbFunc);
     }
 
     read_cbk_ptr[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST);

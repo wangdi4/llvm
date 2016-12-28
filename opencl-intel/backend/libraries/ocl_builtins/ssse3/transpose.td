@@ -216,6 +216,87 @@ OclBuiltinImpl transpose_masked_scatter_4x8_sse3 = OclBuiltinImpl<__ocl_masked_t
   }]>;
 
 // ****************************************************************************
+//                                 4x16
+// ****************************************************************************
+// only for char4 type
+
+OclBuiltinImpl transpose_load_4x16_sse3 = OclBuiltinImpl<__ocl_load_transpose4x16, [v4i8], 0, [{
+    __ocl_transpose4x16( $Arg0VarName[0], $Arg0VarName[1], $Arg0VarName[2], $Arg0VarName[3],
+                        $Arg0VarName[4], $Arg0VarName[5], $Arg0VarName[6], $Arg0VarName[7],
+                        $Arg0VarName[8], $Arg0VarName[9], $Arg0VarName[10], $Arg0VarName[11],
+                        $Arg0VarName[12], $Arg0VarName[13], $Arg0VarName[14], $Arg0VarName[15],
+                        $Arg1VarName, $Arg2VarName, $Arg3VarName, $Arg4VarName);
+  }]>;
+OclBuiltinImpl transpose_gather_4x16_sse3 = OclBuiltinImpl<__ocl_gather_transpose4x16, [v4i8], 0, [{
+    $PtrArg0Type xyzw0 = *$Arg0VarName;
+    $PtrArg0Type xyzw1 = *$Arg1VarName;
+    $PtrArg0Type xyzw2 = *$Arg2VarName;
+    $PtrArg0Type xyzw3 = *$Arg3VarName;
+    $PtrArg0Type xyzw4 = *$Arg4VarName;
+    $PtrArg0Type xyzw5 = *$Arg5VarName;
+    $PtrArg0Type xyzw6 = *$Arg6VarName;
+    $PtrArg0Type xyzw7 = *$Arg7VarName;
+    $PtrArg0Type xyzw8 = *$Arg8VarName;
+    $PtrArg0Type xyzw9 = *$Arg9VarName;
+    $PtrArg0Type xyzwA = *$Arg10VarName;
+    $PtrArg0Type xyzwB = *$Arg11VarName;
+    $PtrArg0Type xyzwC = *$Arg12VarName;
+    $PtrArg0Type xyzwD = *$Arg13VarName;
+    $PtrArg0Type xyzwE = *$Arg14VarName;
+    $PtrArg0Type xyzwF = *$Arg15VarName;
+
+    __ocl_transpose4x16( xyzw0, xyzw1, xyzw2, xyzw3,
+                         xyzw4, xyzw5, xyzw6, xyzw7,
+                         xyzw8, xyzw9, xyzwA, xyzwB,
+                         xyzwC, xyzwD, xyzwE, xyzwF,
+                         $Arg16VarName, $Arg17VarName, $Arg18VarName, $Arg19VarName);
+  }]>;
+OclBuiltinImpl transpose_scatter_4x16_sse3 = OclBuiltinImpl<__ocl_transpose_scatter4x16, [v4i8], 0, [{
+    __ocl_transpose16x4( $Arg16VarName, $Arg17VarName, $Arg18VarName, $Arg19VarName,
+                         $Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName,
+                         $Arg4VarName, $Arg5VarName, $Arg6VarName, $Arg7VarName,
+                         $Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName,
+                         $Arg12VarName, $Arg13VarName, $Arg14VarName, $Arg15VarName);
+  }]>;
+OclBuiltinImpl transpose_masked_gather_4x16_sse3 = OclBuiltinImpl<__ocl_masked_gather_transpose4x16, [v4i8], 0, [{
+    if (all($Arg20VarName)) {
+      __ocl_gather_transpose_$Arg0BaseType_4x16(
+                        $Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName,
+                        $Arg4VarName, $Arg5VarName, $Arg6VarName, $Arg7VarName,
+                        $Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName,
+                        $Arg12VarName, $Arg13VarName, $Arg14VarName, $Arg15VarName,
+                        $Arg16VarName, $Arg17VarName, $Arg18VarName, $Arg19VarName);
+      return;
+    }
+
+    $PtrArg0Type  dummy = 0;
+
+    $Arg0Type xyzw0 = $Arg20VarName.s0 ? $Arg0VarName : &dummy;
+    $Arg0Type xyzw1 = $Arg20VarName.s1 ? $Arg1VarName : &dummy;
+    $Arg0Type xyzw2 = $Arg20VarName.s2 ? $Arg2VarName : &dummy;
+    $Arg0Type xyzw3 = $Arg20VarName.s3 ? $Arg3VarName : &dummy;
+    $Arg0Type xyzw4 = $Arg20VarName.s4 ? $Arg4VarName : &dummy;
+    $Arg0Type xyzw5 = $Arg20VarName.s5 ? $Arg5VarName : &dummy;
+    $Arg0Type xyzw6 = $Arg20VarName.s6 ? $Arg6VarName : &dummy;
+    $Arg0Type xyzw7 = $Arg20VarName.s7 ? $Arg7VarName : &dummy;
+    $Arg0Type xyzw8 = $Arg20VarName.s8 ? $Arg8VarName : &dummy;
+    $Arg0Type xyzw9 = $Arg20VarName.s9 ? $Arg9VarName : &dummy;
+    $Arg0Type xyzwA = $Arg20VarName.sA ? $Arg10VarName : &dummy;
+    $Arg0Type xyzwB = $Arg20VarName.sB ? $Arg11VarName : &dummy;
+    $Arg0Type xyzwC = $Arg20VarName.sC ? $Arg12VarName : &dummy;
+    $Arg0Type xyzwD = $Arg20VarName.sD ? $Arg13VarName : &dummy;
+    $Arg0Type xyzwE = $Arg20VarName.sE ? $Arg14VarName : &dummy;
+    $Arg0Type xyzwF = $Arg20VarName.sF ? $Arg15VarName : &dummy;
+
+    __ocl_gather_transpose_$Arg0BaseType_4x16(
+                      xyzw0, xyzw1, xyzw2, xyzw3,
+                      xyzw4, xyzw5, xyzw6, xyzw7,
+                      xyzw8, xyzw9, xyzwA, xyzwB,
+                      xyzwC, xyzwD, xyzwE, xyzwF,
+                      $Arg16VarName, $Arg17VarName, $Arg18VarName, $Arg19VarName);
+  }]>;
+
+// ****************************************************************************
 //                                 helper function
 // ****************************************************************************
 OclBuiltinImpl __ocl_transpose4x4_sse3 = OclBuiltinImpl<__ocl_transpose4x4, [v4i8, v4i16, v4i32, v4f32], 0, [{
@@ -254,7 +335,7 @@ OclBuiltinImpl __ocl_transpose4x8_sse3 = OclBuiltinImpl<__ocl_transpose4x8, [v4i
     $Arg0Type zHigh;
     $Arg0Type wHigh;
 
-     __ocl_transpose4x4($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName,
+     __ocl_transpose4x4($Arg4VarName, $Arg5VarName, $Arg6VarName, $Arg7VarName,
                         &xHigh, &yHigh, &zHigh, &wHigh);
 
     (*$Arg8VarName).lo = xLow;
@@ -283,6 +364,55 @@ OclBuiltinImpl __ocl_transpose8x4_sse3 = OclBuiltinImpl<__ocl_transpose8x4, [v4i
 
     __ocl_transpose4x4( xHigh, yHigh, zHigh, wHigh,
                         $Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName);
+  }]>;
+
+OclBuiltinImpl __ocl_transpose4x16_sse3 = OclBuiltinImpl<__ocl_transpose4x16, [v4i8], 0, [{
+    char8 xLow;
+    char8 yLow;
+    char8 zLow;
+    char8 wLow;
+
+    __ocl_transpose4x8($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName,
+                       $Arg4VarName, $Arg5VarName, $Arg6VarName, $Arg7VarName,
+                       &xLow, &yLow, &zLow, &wLow);
+
+    char8 xHigh;
+    char8 yHigh;
+    char8 zHigh;
+    char8 wHigh;
+
+     __ocl_transpose4x8($Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName,
+                        $Arg12VarName, $Arg13VarName, $Arg14VarName, $Arg15VarName,
+                        &xHigh, &yHigh, &zHigh, &wHigh);
+
+    (*$Arg16VarName).lo = xLow;
+    (*$Arg16VarName).hi = xHigh;
+    (*$Arg17VarName).lo = yLow;
+    (*$Arg17VarName).hi = yHigh;
+    (*$Arg18VarName).lo = zLow;
+    (*$Arg18VarName).hi = zHigh;
+    (*$Arg19VarName).lo = wLow;
+    (*$Arg19VarName).hi = wHigh;
+  }]>;
+
+OclBuiltinImpl __ocl_transpose16x4_sse3 = OclBuiltinImpl<__ocl_transpose16x4, [v4i8], 0, [{
+    char8 xLow = $Arg0VarName.lo;
+    char8 yLow = $Arg1VarName.lo;
+    char8 zLow = $Arg2VarName.lo;
+    char8 wLow = $Arg3VarName.lo;
+
+    __ocl_transpose8x4( xLow, yLow, zLow, wLow,
+                        $Arg4VarName, $Arg5VarName, $Arg6VarName, $Arg7VarName,
+                        $Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName);
+
+    char8 xHigh = $Arg0VarName.hi;
+    char8 yHigh = $Arg1VarName.hi;
+    char8 zHigh = $Arg2VarName.hi;
+    char8 wHigh = $Arg3VarName.hi;
+
+    __ocl_transpose8x4( xHigh, yHigh, zHigh, wHigh,
+                        $Arg12VarName, $Arg13VarName, $Arg14VarName, $Arg15VarName,
+                        $Arg16VarName, $Arg17VarName, $Arg18VarName, $Arg19VarName);
   }]>;
 
 

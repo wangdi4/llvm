@@ -37,6 +37,8 @@ ALIGN16 const constant int4 SOA4_UndefCoordIntX = {0, 0, 0, 0};
 ALIGN16 const constant int4 SOA4_UndefCoordIntY = {0, 0, 0, 0};
 ALIGN16 const constant int8 SOA8_UndefCoordIntX = {0, 0, 0, 0, 0, 0, 0, 0};
 ALIGN16 const constant int8 SOA8_UndefCoordIntY = {0, 0, 0, 0, 0, 0, 0, 0};
+ALIGN16 const constant int16 SOA16_UndefCoordIntX = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+ALIGN16 const constant int16 SOA16_UndefCoordIntY = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #define SIMPLE_SAMPLER NONE_FALSE_NEAREST
 
 /// image properties functions helper
@@ -204,6 +206,22 @@ void __attribute__((overloadable)) SOA8_ProjectToEdgeInt(__private image_aux_dat
     *res_y = coord_y;
 }
 
+// Clamps SOA16 coordinates to be inside image
+//
+// @param [in] image: the image object
+// @param [in] coord_(x,y) coordinates of the pixel
+// @param [out] res_(x,y) output coordinates
+void __attribute__((overloadable)) SOA16_ProjectToEdgeInt(__private image_aux_data *pImage, int16 coord_x, int16 coord_y, __private int16* res_x, __private int16* res_y)
+{
+    int16 upper_x = (int16)(pImage->dimSub1[0]);
+    int16 upper_y = (int16)(pImage->dimSub1[1]);
+    int16 lower = (int16)(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    coord_x = clamp(coord_x, lower, upper_x);
+    coord_y = clamp(coord_y, lower, upper_y);
+    *res_x = coord_x;
+    *res_y = coord_y;
+}
+
 __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(__read_only image2d_t image, int2 coord)
 {
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
@@ -302,6 +320,47 @@ void __attribute__((overloadable)) soa8_extract_pixel(__read_write image2d_t ima
 {
     soa8_extract_pixel(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y, p0, p1, p2, p3, p4, p5, p6, p7);
 }
+
+void __attribute__((overloadable)) soa16_extract_pixel(__read_only image2d_t image, int16 coord_x, int16 coord_y, __private void** p0, __private void** p1, __private void** p2, __private void** p3, __private void** p4, __private void** p5, __private void** p6, __private void** p7, __private void** p8, __private void** p9, __private void** p10, __private void** p11, __private void** p12, __private void** p13, __private void** p14, __private void** p15)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    uint16 offset_x = (uint16)(pImage->offset[0]);
+    uint16 offset_y = (uint16)(pImage->offset[1]);
+
+    uint16 ocoord_x = (as_uint16(coord_x)) * offset_x;
+    uint16 ocoord_y = (as_uint16(coord_y)) * offset_y;
+
+    __private char* pData = pImage->pData;
+
+    uint16 ocoord = ocoord_x + ocoord_y;
+    *p0 = pData + ocoord.s0;
+    *p1 = pData + ocoord.s1;
+    *p2 = pData + ocoord.s2;
+    *p3 = pData + ocoord.s3;
+    *p4 = pData + ocoord.s4;
+    *p5 = pData + ocoord.s5;
+    *p6 = pData + ocoord.s6;
+    *p7 = pData + ocoord.s7;
+    *p8 = pData + ocoord.s8;
+    *p9 = pData + ocoord.s9;
+    *p10 = pData + ocoord.sA;
+    *p11 = pData + ocoord.sB;
+    *p12 = pData + ocoord.sC;
+    *p13 = pData + ocoord.sD;
+    *p14 = pData + ocoord.sE;
+    *p15 = pData + ocoord.sF;
+}
+
+void __attribute__((overloadable)) soa16_extract_pixel(__write_only image2d_t image, int16 coord_x, int16 coord_y, __private void** p0, __private void** p1, __private void** p2, __private void** p3, __private void** p4, __private void** p5, __private void** p6, __private void** p7, __private void** p8, __private void** p9, __private void** p10, __private void** p11, __private void** p12, __private void** p13, __private void** p14, __private void** p15)
+{
+    soa16_extract_pixel(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15);
+}
+
+void __attribute__((overloadable)) soa16_extract_pixel(__read_write image2d_t image, int16 coord_x, int16 coord_y, __private void** p0, __private void** p1, __private void** p2, __private void** p3, __private void** p4, __private void** p5, __private void** p6, __private void** p7, __private void** p8, __private void** p9, __private void** p10, __private void** p11, __private void** p12, __private void** p13, __private void** p14, __private void** p15)
+{
+    soa16_extract_pixel(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15);
+}
+
 
 __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(__read_only image3d_t image, int4 coord)
 {
@@ -578,6 +637,13 @@ void __attribute__((overloadable)) soa8_trans_coord_int_NONE_FALSE_NEAREST(__pri
     *res_coord_y = coord_y;
 }
 
+void __attribute__((overloadable)) soa16_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y)
+{
+    //not testing if coords are OOB - this mode doesn't guarantee safeness!
+    *res_coord_x = coord_x;
+    *res_coord_y = coord_y;
+}
+
 int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord)
 {
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
@@ -596,6 +662,11 @@ void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEARES
     return SOA8_ProjectToEdgeInt(pImage, coord_x, coord_y, res_coord_x, res_coord_y);
 }
 
+void __attribute__((overloadable)) soa16_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return SOA16_ProjectToEdgeInt(pImage, coord_x, coord_y, res_coord_x, res_coord_y);
+}
 int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(__private void* image, int4 coord)
 {
     return UndefCoordInt;
@@ -611,6 +682,12 @@ void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(__private void
 {
     *res_coord_x = SOA8_UndefCoordIntX;
     *res_coord_y = SOA8_UndefCoordIntY;
+}
+
+void __attribute__((overloadable)) soa16_trans_coord_int_UNDEFINED(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y)
+{
+    *res_coord_x = SOA16_UndefCoordIntX;
+    *res_coord_y = SOA16_UndefCoordIntY;
 }
 
 /// Image reading callbacks
@@ -704,6 +781,42 @@ void __attribute__((overloadable)) soa8_read_imageui(__read_write image2d_t imag
                                                     __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
 {
     soa8_read_imageui(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y,
+                      res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) soa16_read_imageui(__read_only image2d_t image, sampler_t sampler, int16 coord_x, int16 coord_y,
+                                                    __private uint16* res_x, __private uint16* res_y, __private uint16* res_z, __private uint16* res_w)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    __private void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    SOA16_Image_I_COORD_CBK coord_cbk = call_soa16_coord_translate_i_callback(samplerIndex);
+    SOA16_Image_UI_READ_CBK read_cbk = (SOA16_Image_UI_READ_CBK)pImage->soa16_read_img_callback_int[samplerIndex];
+    int16 translated_coord_x;
+    int16 translated_coord_y;
+    call_SOA16_Image_I_COORD_CBK(coord_cbk, (__private void*)pImage, coord_x, coord_y, &translated_coord_x, &translated_coord_y );
+    call_SOA16_Image_UI_READ_CBK(read_cbk, (__private void*)pImage, translated_coord_x, translated_coord_y, pData, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) soa16_read_imageui(__read_write image2d_t image, sampler_t sampler, int16 coord_x, int16 coord_y,
+                                                    __private uint16* res_x, __private uint16* res_y, __private uint16* res_z, __private uint16* res_w)
+{
+    soa16_read_imageui(__builtin_astype(image, __read_only image2d_t), sampler, coord_x, coord_y,
+                      res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) soa16_read_imageui(__read_only image2d_t image, int16 coord_x, int16 coord_y,
+                                                    __private uint16* res_x, __private uint16* res_y, __private uint16* res_z, __private uint16* res_w)
+{
+    // call SOA version with the default sampler
+    sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+    soa16_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) soa16_read_imageui(__read_write image2d_t image, int16 coord_x, int16 coord_y,
+                                                    __private uint16* res_x, __private uint16* res_y, __private uint16* res_z, __private uint16* res_w)
+{
+    soa16_read_imageui(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y,
                       res_x, res_y, res_z, res_w);
 }
 
@@ -831,6 +944,35 @@ void __attribute__((overloadable)) soa8_write_imageui(__write_only image2d_t ima
 void __attribute__((overloadable)) soa8_write_imageui(__read_write image2d_t image, int8 coord_x, int8 coord_y, uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w)
 {
     return soa8_write_imageui(__builtin_astype(image, __write_only image2d_t), coord_x, coord_y, val_x, val_y, val_z, val_w);
+}
+
+void __attribute__((overloadable)) soa16_write_imageui(__write_only image2d_t image, int16 coord_x, int16 coord_y, uint16 val_x, uint16 val_y, uint16 val_z, uint16 val_w)
+{
+    __private uchar4* p0;
+    __private uchar4* p1;
+    __private uchar4* p2;
+    __private uchar4* p3;
+    __private uchar4* p4;
+    __private uchar4* p5;
+    __private uchar4* p6;
+    __private uchar4* p7;
+    __private uchar4* p8;
+    __private uchar4* p9;
+    __private uchar4* p10;
+    __private uchar4* p11;
+    __private uchar4* p12;
+    __private uchar4* p13;
+    __private uchar4* p14;
+    __private uchar4* p15;
+    soa16_extract_pixel(image, coord_x, coord_y, (__private void**)&p0, (__private void**)&p1, (__private void**)&p2, (__private void**)&p3, (__private void**)&p4, (__private void**)&p5, (__private void**)&p6, (__private void**)&p7, (__private void**)&p8, (__private void**)&p9, (__private void**)&p10, (__private void**)&p11, (__private void**)&p12, (__private void**)&p13, (__private void**)&p14, (__private void**)&p15);
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    SOA16_Image_UI_WRITE_CBK cbk = (SOA16_Image_UI_WRITE_CBK)pImage->soa16_write_img_callback;
+    call_SOA16_Image_UI_WRITE_CBK(cbk, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, val_x, val_y, val_z, val_w);
+}
+
+void __attribute__((overloadable)) soa16_write_imageui(__read_write image2d_t image, int16 coord_x, int16 coord_y, uint16 val_x, uint16 val_y, uint16 val_z, uint16 val_w)
+{
+    return soa16_write_imageui(__builtin_astype(image, __write_only image2d_t), coord_x, coord_y, val_x, val_y, val_z, val_w);
 }
 
 void  __attribute__((overloadable)) mask_write_imageui(int mask, __write_only image2d_t image, int2 coord, uint4 color)

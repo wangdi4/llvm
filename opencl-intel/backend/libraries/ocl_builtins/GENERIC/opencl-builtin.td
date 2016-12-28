@@ -676,7 +676,15 @@ def pv8gentype : OclGenType<"pv8gentype"> {
   list<string> T5 = !foreach(n, T4, !strconcat("p", n));
   list<string> Tout = T5;
 }
-
+//converts the given typed to v16 vNxT -> v16XT e.g. v1f32 -> v16f32
+def v16gentype : OclGenType<"v16gentype"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst("v1", "v16", n));
+  list<string> T1 = !foreach(n, T0, !subst("v2", "v16", n));
+  list<string> T2 = !foreach(n, T1, !subst("v3", "v16", n));
+  list<string> T3 = !foreach(n, T2, !subst("v4", "v16", n));
+  list<string> Tout = !foreach(n, T3, !subst("v8", "v16", n));
+}
 //converts the given typed to pv16 vNxT -> pv16XT e.g. v1f32 -> pv16f32 (pointer)
 def pv16gentype : OclGenType<"pv16gentype"> {
   list<string> Tin = Torig;
