@@ -743,19 +743,20 @@ HLInst *HIRLMM::findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
 
   // If the LoadInst doesn't exit in prehdr, create it
   if (!LoadInPrehdr) {
-    LoadInPrehdr = HNU->createLoad(Ref->clone(), LIMMTempName);
+    auto RvalRef = Ref->clone();
+    LoadInPrehdr = HNU->createLoad(RvalRef, LIMMTempName);
 
     // Insert the new Load as a last node into Loop's Prehdr
     HNU->insertAsLastPreheaderNode(Lp, LoadInPrehdr);
+
+    // Mark as Loop's LiveIn Temp
+    TmpRef = LoadInPrehdr->getLvalDDRef();
+    Lp->addLiveInTemp(TmpRef->getSymbase());
+
+    // Call updateDefLevel() for the newly-created load
+    RvalRef->updateDefLevel();
   }
   assert(LoadInPrehdr && "LoadInPrehdr can't be null\n");
-
-  // Mark as Loop's LiveIn Temp
-  TmpRef = LoadInPrehdr->getLvalDDRef();
-  Lp->addLiveInTemp(TmpRef->getSymbase());
-
-  // Call updateDefLevel() for the newly-created load
-  LoadInPrehdr->getRvalDDRef()->updateDefLevel();
 
   // Debug: Examine the Loop, notice the temp in prehdr
   // DEBUG(Lp->dump(););
@@ -769,6 +770,7 @@ HLInst *HIRLMM::findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
 // Note: Mark the newly created TempDDRef as
 // - live-out of loop
 // - linear, defined at level = looplevel -1
+// - Call updateDefLevel() for the Lval of the new store
 //
 void HIRLMM::findOrCreateStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
                                          RegDDRef *TmpRef) const {
@@ -784,10 +786,14 @@ void HIRLMM::findOrCreateStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
     RegDDRef *TmpRefClone = TmpRef->clone();
     Lp->addLiveOutTemp(TmpRefClone->getSymbase());
 
-    StoreInPostexit = HNU->createStore(TmpRefClone, LIMMTempName, Ref->clone());
+    auto LvalRef = Ref->clone();
+    StoreInPostexit = HNU->createStore(TmpRefClone, LIMMTempName, LvalRef);
 
     // Insert the new store as the 1st HLInst in Lp's Postexit
     HNU->insertAsFirstPostexitNode(Lp, StoreInPostexit);
+
+    // Call updateDefLevel() for the newly-created store
+    LvalRef->updateDefLevel();
   }
 
   // Debug: Examine the Loop, notice the tmp in postexit
