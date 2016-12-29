@@ -365,10 +365,10 @@ static bool replaceChannelBuiltins(Module &M,
   bool Changed = false;
   for (auto &F : M) {
     auto Name = F.getName();
-    if (Name.npos != Name.find("read_channel_altera11ocl_channel")) {
+    if (Name.npos != Name.find("read_channel_altera")) {
       Changed |= replaceReadChannel(F, *ReadPipe, M, ChannelToPipeMap);
     } else if (Name.npos !=
-               F.getName().find("write_channel_altera11ocl_channel")) {
+               F.getName().find("write_channel_altera")) {
       Changed |= replaceWriteChannel(F, *WritePipe, M, ChannelToPipeMap);
     }
   }
