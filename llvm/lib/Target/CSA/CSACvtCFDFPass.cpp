@@ -122,6 +122,8 @@ namespace llvm {
     void SwitchDefAcrossLoops(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop);
     void replacePhiWithPICK();
     void replaceLoopHdrPhi();
+    void replaceCanonicalLoopHdrPhi(MachineBasicBlock* lhdr);
+    void replaceSingleBackEdgeLoopHdrPhi(MachineBasicBlock* mbb);
     void generateCompletePickTreeForPhi(MachineInstr *);
     void generateDynamicPickTreeForPhi(MachineInstr *);
     void generateDynamicPreds();
@@ -328,6 +330,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   bb2rpo.clear();
 
 #if 1
+  //exception handling code creates multiple exits from a function
   SmallVector<MachineBasicBlock*, 4> exitBlks;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     if (BB->succ_empty()) exitBlks.push_back(&*BB);
@@ -492,80 +495,39 @@ MachineInstr* CSACvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasic
   return defSwitchInstr;
 }
 
-SmallVectorImpl<MachineInstr *>* CSACvtCFDFPass::insertPredCpy(MachineBasicBlock *cdgpBB) {
+SmallVectorImpl<MachineInstr *>* CSACvtCFDFPass::insertPredCpy(MachineBasicBlock *exitingBB) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
   MachineInstr* bi;
-  MachineLoop* mloop = MLI->getLoopFor(cdgpBB);
+  MachineLoop* mloop = MLI->getLoopFor(exitingBB);
   assert(mloop);
-  //get the condition where the backedge is always taken
-  if (cdgpBB->succ_size() == 1) {
-    //LLVM 3.6 buggy loop latch with no exit edge from latch, fixed in 3.9
-    ControlDependenceNode* latchNode = CDG->getNode(cdgpBB);
-    //closed edge latchNode has loop hdr as control parent,
-    //nesting loop controls its loop hdr first, then the closed latch
-    MachineBasicBlock* ctrlBB = nullptr;
-    for (ControlDependenceNode::node_iterator uparent = latchNode->parent_begin(), uparent_end = latchNode->parent_end();
-      uparent != uparent_end; ++uparent) {
-      ControlDependenceNode *upnode = *uparent;
-      MachineBasicBlock *upbb = upnode->getBlock();
-      if (mloop->getHeader() == upbb) continue;
-      if (!ctrlBB)
-        ctrlBB = upbb;
-      else
-        assert(false && "loop latch has > 1 control blks");
-    }
-    if (!ctrlBB) {
-      //loop hdr is also an exiting node, which controls latch node
-      assert(CDG->getNode(mloop->getHeader())->isChild(latchNode));
-      ctrlBB = mloop->getHeader();
-    }
-    bi = &*ctrlBB->getFirstInstrTerminator();
-  } else {
-    bi = &*cdgpBB->getFirstInstrTerminator();
-  }
-  MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
+  bi = &*exitingBB->getFirstInstrTerminator();
+  MachineBasicBlock::iterator loc = exitingBB->getFirstTerminator();
   unsigned predReg = bi->getOperand(0).getReg();
 
   const TargetRegisterClass *TRC = MRI->getRegClass(predReg);
-#if 0
-  unsigned cpyReg = MRI->createVirtualRegister(TRC);
-#else
+
   CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
   // Look up target register class corresponding to this register.
   const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(predReg));
   assert(new_LIC_RC && "Can't determine register class for register");
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
-#endif
-
   const unsigned moveOpcode = TII.getMoveOpcode(TRC);
-  MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(),TII.get(moveOpcode), cpyReg).addReg(bi->getOperand(0).getReg());
+  MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(),TII.get(moveOpcode), cpyReg).addReg(bi->getOperand(0).getReg());
   cpyInst->setFlag(MachineInstr::NonSequential);
-  MachineBasicBlock *lphdr = MLI->getLoopFor(cdgpBB)->getHeader();
+
+  MachineBasicBlock* exitBB = mloop->getExitBlock();
+  assert(exitBB);
+  MachineBasicBlock *lphdr = mloop->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
   const unsigned InitOpcode = TII.getInitOpcode(TRC);
-
-  ControlDependenceNode* hdrNode = CDG->getNode(lphdr);
-  ControlDependenceNode* latchNode = CDG->getNode(cdgpBB);
   MachineInstr *initInst = nullptr;
-  if (cdgpBB->succ_size() > 1) {
-    if (latchNode->isTrueChild(hdrNode)) {
-      initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
-    } else {
-      initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
-    }
-    initInst->setFlag(MachineInstr::NonSequential);
+  if (CDG->getEdgeType(exitingBB, exitBB, true) == ControlDependenceNode::FALSE) {
+    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
   } else {
-    //LLVM 3.6 buggy latch
-    //closed latch
-    if (CDG->getNode(bi->getParent())->isTrueChild(CDG->getNode(cdgpBB))) {
-      initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
-    } else {
-      initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
-    }
-    initInst->setFlag(MachineInstr::NonSequential);
+    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
   }
+  initInst->setFlag(MachineInstr::NonSequential);
   SmallVector<MachineInstr *, 2>* predVec = new SmallVector<MachineInstr *, 2>();
   predVec->push_back(cpyInst);
   predVec->push_back(initInst);
@@ -574,7 +536,6 @@ SmallVectorImpl<MachineInstr *>* CSACvtCFDFPass::insertPredCpy(MachineBasicBlock
 
 
 SmallVectorImpl<MachineInstr *>* CSACvtCFDFPass::getOrInsertPredCopy(MachineBasicBlock *cdgpBB) {
-  assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
   SmallVectorImpl<MachineInstr *>* predcpyVec = nullptr;
   if (bb2predcpy.find(cdgpBB) == bb2predcpy.end()) {
     predcpyVec = insertPredCpy(cdgpBB);
@@ -1110,10 +1071,186 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
 }
 
 
-void CSACvtCFDFPass::replaceLoopHdrPhi() {
-  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
+//sequence OPT is targeting at this transform
+//single entry, single exiting, single latch, exiting blk post dominates loop hdr(always execute)
+void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  MachineLoop* mloop = MLI->getLoopFor(mbb);
+  assert(mloop->getHeader() == mbb);
+  assert(mloop->getExitingBlock() && "can't handle multi exiting blks in this funciton");
+  MachineBasicBlock *latchBB = mloop->getLoopLatch();
+  MachineBasicBlock *exitingBB = mloop->getExitingBlock();
+  assert(latchBB && exitingBB);
+  SmallVectorImpl<MachineInstr *>* predCpy = nullptr;
+  predCpy = getOrInsertPredCopy(exitingBB);
+
+  MachineBasicBlock::iterator iterI = mbb->begin();
+  while (iterI != mbb->end()) {
+    MachineInstr *MI = &*iterI;
+    ++iterI;
+    if (!MI->isPHI()) continue;
+   
+    unsigned numUse = 0;
+    MachineOperand* backEdgeInput = nullptr;
+    MachineOperand* initInput = nullptr;
+    unsigned numOpnd = 0;
+    unsigned backEdgeIndex = 0;
+    unsigned dst = MI->getOperand(0).getReg();
+
+    for (MIOperands MO(*MI); MO.isValid(); ++MO, ++numOpnd) {
+      if (!MO->isReg()) continue;
+      // process use at loop level
+      if (MO->isUse()) {
+        ++numUse;
+        MachineOperand& mOpnd = *MO;
+        ++MO;
+        ++numOpnd;
+        MachineBasicBlock* inBB = MO->getMBB();
+        if (inBB == latchBB) {
+          backEdgeInput = &mOpnd;
+          backEdgeIndex = numOpnd - 1;
+        } else {
+          initInput = &mOpnd;
+        }
+      }
+    } //end for MO
+    if (numUse > 2) {
+      //loop hdr phi has more than 2 init inputs, 
+      //remove backedge input reduce it to if-foot phi case to be handled by if-footer phi pass
+      initInput = &MI->getOperand(0);
+      const TargetRegisterClass *TRC = MRI->getRegClass(MI->getOperand(0).getReg());
+      unsigned renameReg = MRI->createVirtualRegister(TRC);
+      initInput->setReg(renameReg);
+    }
+
+    MachineOperand* pickFalse;
+    MachineOperand* pickTrue;
+    MachineBasicBlock* exitBB = mloop->getExitBlock();
+    if (CDG->getEdgeType(exitingBB, exitBB, true) == ControlDependenceNode::FALSE) {
+      pickFalse = initInput;
+      pickTrue = backEdgeInput;
+    } else {
+      pickFalse = backEdgeInput;
+      pickTrue = initInput;
+    }
+    unsigned predReg = (*predCpy)[0]->getOperand(0).getReg();
+    const TargetRegisterClass *TRC = MRI->getRegClass(dst);
+    const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+    //generate PICK, and insert before MI
+    MachineInstr *pickInst = nullptr;
+    if (pickFalse->isReg() && pickTrue->isReg()) {
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+        addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
+    } else if (pickFalse->isReg()) {
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+        addReg(pickFalse->getReg()).addOperand(*pickTrue);
+    } else if (pickTrue->isReg()) {
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+        addOperand(*pickFalse).addReg(pickTrue->getReg());
+    } else {
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+        addOperand(*pickFalse).addOperand(*pickTrue);
+    }
+
+    pickInst->setFlag(MachineInstr::NonSequential);
+    MI->removeFromParent();
+    if (numUse > 2) {
+      //move phi before the pick
+      MachineBasicBlock::iterator tmpI = pickInst;
+      mbb->insert(tmpI, MI);
+      MI->RemoveOperand(backEdgeIndex);
+      MI->RemoveOperand(backEdgeIndex);
+    }
+  }
+}
+
+//can handle any case as long as latch is also an exiting blk
+void CSACvtCFDFPass::replaceSingleBackEdgeLoopHdrPhi(MachineBasicBlock* mbb) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  MachineLoop* mloop = MLI->getLoopFor(mbb);
+  assert(mloop->getHeader() == mbb);
+  MachineBasicBlock *latchBB = mloop->getLoopLatch();
+  assert(latchBB);
+  MachineBasicBlock::iterator iterI = mbb->begin();
+  while (iterI != mbb->end()) {
+    MachineInstr *MI = &*iterI;
+    ++iterI;
+    if (!MI->isPHI()) continue;
+
+    MachineOperand* backEdgeInput = nullptr;
+    MachineOperand* initInput = nullptr;
+    unsigned numOpnd = 0;
+    unsigned dst = MI->getOperand(0).getReg();
+
+    for (MIOperands MO(*MI); MO.isValid(); ++MO, ++numOpnd) {
+      if (!MO->isReg()) continue;
+      // process use at loop level
+      if (MO->isUse()) {
+        MachineOperand& mOpnd = *MO;
+        ++MO;
+        ++numOpnd;
+        MachineBasicBlock* inBB = MO->getMBB();
+        if (inBB == latchBB) {
+          backEdgeInput = &mOpnd;
+        } else {
+          initInput = &mOpnd;
+        }
+      }
+    } //end for MO
+    
+    const TargetRegisterClass *TRC = MRI->getRegClass(dst);
+    CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
+    // Look up target register class corresponding to this register.
+    const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(TRC);
+    assert(new_LIC_RC && "Can't determine register class for register");
+    unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
+    const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+    MachineInstr *movInst = BuildMI(*mbb, mbb->getFirstNonPHI(), DebugLoc(), TII.get(moveOpcode), cpyReg).addOperand(*initInput);
+    movInst->setFlag(MachineInstr::NonSequential);
+    movInst = BuildMI(*mbb, mbb->getFirstNonPHI(), DebugLoc(), TII.get(moveOpcode), dst).addReg(cpyReg);
+    movInst->setFlag(MachineInstr::NonSequential);
+
+    unsigned switchTrue;
+    unsigned switchFalse;
+    MachineBasicBlock::iterator loc = latchBB->getFirstTerminator();
+    MachineInstr* bi = &*loc;
+    assert(bi->getOperand(0).isReg());
+    const TargetRegisterClass *boolTRC = MRI->getRegClass(bi->getOperand(0).getReg());
+    unsigned switchBool = MRI->createVirtualRegister(boolTRC);
+
+    if (CDG->getEdgeType(latchBB, mbb, true) == ControlDependenceNode::FALSE) {
+      switchFalse = switchBool;
+      switchTrue = CSA::IGN;
+    }
+    else {
+      switchFalse = CSA::IGN;
+      switchTrue = switchBool;
+    }
+    unsigned switchOpcode = TII.getPickSwitchOpcode(boolTRC, false /*not pick op*/);
+    MachineInstr *switchInst;
+    switchInst = BuildMI(*latchBB, loc, DebugLoc(), TII.get(switchOpcode),
+      switchFalse).
+      addReg(switchTrue, RegState::Define).
+      addReg(bi->getOperand(0).getReg()).
+      addImm(1);
+    switchInst->setFlag(MachineInstr::NonSequential);
+
+    switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
+    switchInst = BuildMI(*mbb, mbb->getFirstNonPHI(), DebugLoc(), TII.get(switchOpcode),
+      CSA::IGN).
+      addReg(cpyReg, RegState::Define).
+      addReg(switchBool).
+      addOperand(*backEdgeInput);
+    switchInst->setFlag(MachineInstr::NonSequential);
+   
+    MI->removeFromParent();
+  }
+}
+
+void CSACvtCFDFPass::replaceLoopHdrPhi() {
+  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   ControlDependenceNode *root = CDG->getRoot();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
@@ -1123,122 +1260,24 @@ void CSACvtCFDFPass::replaceLoopHdrPhi() {
     if (!mloop) continue;
     //only scan loop header
     if (mbb != mloop->getHeader()) continue;
-    MachineBasicBlock *latchBB = mloop->getLoopLatch();
-    SmallVectorImpl<MachineInstr *>* predCpy = nullptr;
-    bool isHdrUnstructured = isUnStructured(mbb);
-    if (latchBB && !isHdrUnstructured) {
-      predCpy = getOrInsertPredCopy(latchBB);
+
+    bool isCanonical = false;
+    if (MachineBasicBlock* mExiting = mloop->getExitingBlock())
+      if (mExiting && PDT->dominates(mExiting, mloop->getHeader()))
+        isCanonical = true;
+
+    if (!isCanonical) {
+      //assert loop has only one entry, only canonical loop handing can
+      //handle multiple entries by reducing it to if-foot
     }
-    MachineBasicBlock::iterator iterI = mbb->begin();
-    while(iterI != mbb->end()) {
-      MachineInstr *MI = &*iterI;
-      ++iterI;
-      if (!MI->isPHI()) continue;
-      if (!latchBB || isHdrUnstructured) {
-        generateDynamicPickTreeForPhi(MI);
-        //TODO: use repeat to iterate the pred inside the loop
-        continue;
-      }
-      unsigned numUse = 0;
-      MachineOperand* backEdgeInput = nullptr;
-      MachineOperand* initInput = nullptr;
-      unsigned numOpnd = 0;
-      unsigned backEdgeIndex = 0;
-      unsigned dst = MI->getOperand(0).getReg();
 
-      for (MIOperands MO(*MI); MO.isValid(); ++MO, ++numOpnd) {
-        if (!MO->isReg()) continue;
-        // process use at loop level
-        if (MO->isUse()) {
-          ++numUse;
-          MachineOperand& mOpnd = *MO;
-          ++MO;
-          ++numOpnd;
-          MachineBasicBlock* inBB = MO->getMBB();
-          if (inBB == latchBB) {
-            backEdgeInput = &mOpnd;
-            backEdgeIndex = numOpnd - 1;
-          } else {
-            initInput = &mOpnd;
-          }
-        }
-      } //end for MO
-      if (numUse > 2) {
-        //loop hdr phi has more than 2 inputs, 
-        //remove backedge input reduce it to if-foot phi case to be handled by if-footer phi pass
-        initInput = &MI->getOperand(0);
-        const TargetRegisterClass *TRC = MRI->getRegClass(MI->getOperand(0).getReg());
-        unsigned renameReg = MRI->createVirtualRegister(TRC);
-        initInput->setReg(renameReg);
-      }
-      MachineOperand* pickFalse;
-      MachineOperand* pickTrue;
-      if (latchBB->succ_size() > 1) {
-        //assert(mLatch->isChild(*DTN)); or mbb is an exiting node
-        if (CDG->getEdgeType(latchBB, mbb, true) == ControlDependenceNode::FALSE) {
-          pickFalse = backEdgeInput;
-          pickTrue = initInput;
-        } else {
-          pickTrue = backEdgeInput;
-          pickFalse = initInput;
-        }
-      } else {
-        //LLVM 3.6 buggy latch, loop with > 1 exits
-        //LLVM 3.6 buggy loop latch with no exit edge from latch, fixed in 3.9
-        ControlDependenceNode* latchNode = CDG->getNode(latchBB);
-        MachineBasicBlock* ctrlBB = nullptr;
-        for (ControlDependenceNode::node_iterator uparent = latchNode->parent_begin(), uparent_end = latchNode->parent_end();
-          uparent != uparent_end; ++uparent) {
-          ControlDependenceNode *upnode = *uparent;
-          MachineBasicBlock *upbb = upnode->getBlock();
-          if (mloop->getHeader() == upbb) continue;
-          if (!ctrlBB)
-            ctrlBB = upbb;
-          else
-            assert(false && "loop latch has > 1 control blks");
-        }
-        if (!ctrlBB) {
-          //loop hdr is also an exiting node, which controls latch node
-          assert(CDG->getNode(mloop->getHeader())->isChild(latchNode));
-          ctrlBB = mloop->getHeader();
-        }
-        ControlDependenceNode* ctrlNode = CDG->getNode(ctrlBB);
-        if (ctrlNode->isFalseChild(latchNode)) {
-          pickFalse = backEdgeInput;
-          pickTrue = initInput;
-        } else {
-          pickTrue = backEdgeInput;
-          pickFalse = initInput;
-        }
-      }
-      unsigned predReg = (*predCpy)[0]->getOperand(0).getReg();
-      const TargetRegisterClass *TRC = MRI->getRegClass(dst);
-      const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
-      //generate PICK, and insert before MI
-      MachineInstr *pickInst = nullptr;
-      if (pickFalse->isReg() && pickTrue->isReg()) {
-        pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
-                            addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
-      } else if (pickFalse->isReg()) {
-        pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
-                            addReg(pickFalse->getReg()).addOperand(*pickTrue);
-      } else if (pickTrue->isReg()) {
-        pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
-                            addOperand(*pickFalse).addReg(pickTrue->getReg());
-      } else {
-        pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
-                            addOperand(*pickFalse).addOperand(*pickTrue);
-      }
-
-      pickInst->setFlag(MachineInstr::NonSequential);
-      MI->removeFromParent();
-      if (numUse > 2) {
-        //move phi before the pick
-        MachineBasicBlock::iterator tmpI = pickInst;
-        mbb->insert(tmpI, MI);
-        MI->RemoveOperand(backEdgeIndex);
-        MI->RemoveOperand(backEdgeIndex);
-      }
+    if (isCanonical) {
+      //single exiting, single latch, with loop latch also the exiting blk
+      replaceCanonicalLoopHdrPhi(mbb);
+    } else {
+      assert(false && "not implemented yet");
+      //TODO: using xphi
+      //replaceSingleBackEdgeLoopHdrPhi(mbb);
     }
   }
 }
