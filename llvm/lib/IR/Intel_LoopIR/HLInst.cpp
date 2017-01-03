@@ -42,7 +42,8 @@ HLInst::HLInst(HLNodeUtils &HNU, Instruction *Inst)
 
 HLInst::HLInst(const HLInst &HLInstObj)
     : HLDDNode(HLInstObj), Inst(HLInstObj.Inst),
-      CmpOrSelectPred(HLInstObj.CmpOrSelectPred) {
+      CmpOrSelectPred(HLInstObj.CmpOrSelectPred),
+      PredFMF(HLInstObj.PredFMF) {
 
   unsigned NumOp, Count = 0;
 
@@ -55,7 +56,15 @@ HLInst::HLInst(const HLInst &HLInstObj)
     if (Count < NumOp) {
       setOperandDDRef((*I)->clone(), Count);
     } else {
-      addFakeDDRef((*I)->clone());
+      auto Ref = (*I);
+      auto CloneRef = Ref->clone();
+
+      // Set MaskDDRef to appropriate clone
+      if (HLInstObj.MaskDDRef == Ref) {
+        MaskDDRef = CloneRef;
+      }
+
+      addFakeDDRef(CloneRef);
     }
   }
 }
@@ -212,7 +221,30 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 
   printEndOpcode(OS);
 
-  OS << ";\n";
+  OS << ";";
+
+  if (MaskDDRef) {
+    OS << " Mask = @{";
+    MaskDDRef->print(OS, false);
+    OS << "}";
+  }
+
+  if (Detailed) {
+    FastMathFlags FMF;
+
+    if (isa<SelectInst>(Inst)) {
+      FMF = PredFMF;
+    } else if (isa<FPMathOperator>(Inst)) {
+      FMF = Inst->getFastMathFlags();
+    }
+
+    if (FMF.any()) {
+      OS << " ";
+      printFMF(OS, FMF);
+    }
+  }
+
+  OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);
 }
@@ -289,19 +321,6 @@ bool HLInst::isLval(const RegDDRef *Ref) const {
 }
 
 bool HLInst::isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
-
-bool HLInst::isFake(const RegDDRef *Ref) const {
-  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
-
-  for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; ++I) {
-
-    if ((*I) == Ref) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 unsigned HLInst::getNumOperands() const { return getNumOperandsInternal(); }
 
@@ -423,8 +442,8 @@ bool HLInst::isValidReductionOpCode(unsigned OpCode) {
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor:
+  case Instruction::Select:
     return true;
-
   default:
     return false;
   }
@@ -436,11 +455,61 @@ bool HLInst::isReductionOp(unsigned *OpCode) const {
   if (isa<BinaryOperator>(LLVMInst)) {
     *OpCode = LLVMInst->getOpcode();
     return isValidReductionOpCode(*OpCode);
+  } else if (isa<SelectInst>(LLVMInst)) {
+    *OpCode = Instruction::Select;
+    return isMinOrMax();
   } else {
     *OpCode = 0;
     return false;
   }
 }
+
+bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
+
+  if (!isa<SelectInst>(Inst)) {
+    return false;
+  }
+
+  // Get operands and predicate
+  const RegDDRef *Operand1, *Operand2, *Operand3, *Operand4;
+  Operand1 = getOperandDDRef(1);
+  Operand2 = getOperandDDRef(2);
+  Operand3 = getOperandDDRef(3);
+  Operand4 = getOperandDDRef(4);
+
+  PredicateTy Pred = getPredicate();
+
+  // Operand pattern: x .. y ? x : y
+  bool OneAndThree = DDRefUtils::areEqual(Operand1, Operand3) &&
+                     DDRefUtils::areEqual(Operand2, Operand4);
+
+  // Operand pattern: OneAndThree OR x .. y ? y : x (OneAndFour)
+  if (OneAndThree || (DDRefUtils::areEqual(Operand1, Operand4) &&
+                      DDRefUtils::areEqual(Operand2, Operand3))) {
+    // min pattern: x >(=) y ? y : x    max pattern: x >(=) y ? x : y
+    if ((!OneAndThree && IsMin) || (OneAndThree && IsMax)) {
+      if (Pred == PredicateTy::ICMP_SGE || Pred == PredicateTy::ICMP_SGT ||
+          Pred == PredicateTy::FCMP_OGE || Pred == PredicateTy::FCMP_OGT) {
+        return true;
+      }
+    }
+    // min pattern: x <(=) y ? x : y    max pattern: x <(=) y ? y : x
+    if ((OneAndThree && IsMin) || (!OneAndThree && IsMax)) {
+      if (Pred == PredicateTy::ICMP_SLE || Pred == PredicateTy::ICMP_SLT ||
+          Pred == PredicateTy::FCMP_OLE || Pred == PredicateTy::FCMP_OLT) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool HLInst::isMin() const { return checkMinMax(true, false); }
+
+bool HLInst::isMax() const { return checkMinMax(false, true); }
+
+bool HLInst::isMinOrMax() const { return checkMinMax(true, true); }
 
 Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
   RecurrenceDescriptor::RecurrenceKind RDKind;
@@ -477,6 +546,16 @@ Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
 
   case Instruction::Xor:
     RDKind = RecurrenceDescriptor::RK_IntegerXor;
+    break;
+
+  case Instruction::Select:
+    if (Ty->isIntegerTy()) {
+      RDKind = RecurrenceDescriptor::RK_IntegerMinMax;
+    } else {
+      assert(Ty->isFloatingPointTy() &&
+             "Floating point type expected at this point!");
+      RDKind = RecurrenceDescriptor::RK_FloatMinMax;
+    }
     break;
 
   default:

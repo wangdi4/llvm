@@ -91,6 +91,9 @@ public:
   /// \brief  Enables Perfect Loop Nests
   /// Takes care of simple cases that are needed for Interchange
   static bool enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG);
+  /// \brief  Checks if a LvalRef has 'Threshold' uses in a loop
+  static bool maxUsesInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
+                            DDGraph DDG, const unsigned Threshold);
   /// \brief  Checks if a LvalRef has 1 single use in a loop
   static bool singleUseInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
                               DDGraph DDG);

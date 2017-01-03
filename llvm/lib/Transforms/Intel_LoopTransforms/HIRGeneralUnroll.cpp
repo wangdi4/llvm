@@ -81,8 +81,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "HIRUnroll.h"
 
@@ -278,11 +278,6 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop) const {
 }
 
 bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
-
-  if (!Loop->hasChildren()) {
-    return false;
-  }
-
   // Ignore loops with SIMD directive.
   if (Loop->isSIMD()) {
     return false;
