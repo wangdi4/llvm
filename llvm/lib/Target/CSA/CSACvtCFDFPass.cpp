@@ -367,7 +367,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (OrderMemops > 0) {
     addMemoryOrderingConstraints();
   }
-#if 0
+#if 1
   {
     errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
     MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
@@ -397,7 +397,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   //rename, adding lhdr phi to seal all up range of each defintions up till loop hdr
   insertSWITCHForRepeat();
 
-#if 0
+#if 1
   {
     errs() << "after rename for repeat" << ":\n";
     thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());
@@ -573,6 +573,7 @@ void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
       if (MLI->getLoopFor(mbb) != mloop) continue;
       for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
         MachineInstr *MI = &*I;
+        //if (MI->isPHI()) continue;
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();
@@ -1000,6 +1001,7 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   ControlDependenceNode *root = CDG->getRoot();
+  std::set<MachineInstr*> switchsForRepeat;
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
     if (!mbb) continue; //root node has no bb
@@ -1007,14 +1009,15 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
     //not inside a loop
     if (!mloop) continue;
     MachineBasicBlock *mlphdr = mloop->getHeader();
-    //make sure loop is properly formed with exit edge from latch block.
-    //LLVM 3.6 has this buggy issue that was subsequently fixed in 3.9
-    //TBD:: reenable it:
-    //assert(latchBB->succ_size() == 2);
+    
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = &*I;
+
+      if (MI->isPHI()) 
+        continue; //Pick will take care of it when replacing Phi
+      if (switchsForRepeat.find(MI) != switchsForRepeat.end())
+        continue;
 #if 0
-      if (MI->isPHI()) continue; //Pick will take care of it when replacing Phi
       //To avoid infinitive recursive since the newly add SWITCH always use Reg
       if (TII.isSwitch(MI) && mlphdr->isPredecessor(mbb)) {
         //mbb is a latch
@@ -1050,6 +1053,8 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
               ControlDependenceNode *mLatch = CDG->getNode(latchBB);
 
               MachineInstr *defInstr = getOrInsertSWITCHForReg(Reg, latchBB);
+              switchsForRepeat.insert(defInstr);
+
               if (TII.isSwitch(defInstr)) {
                 unsigned switchFalseReg = defInstr->getOperand(0).getReg();
                 unsigned switchTrueReg = defInstr->getOperand(1).getReg();
