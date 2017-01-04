@@ -164,6 +164,7 @@ void initializeGlobalOptLegacyPassPass(PassRegistry&);
 void initializeGlobalsAAWrapperPassPass(PassRegistry&);
 void initializeGuardWideningLegacyPassPass(PassRegistry&);
 void initializeIPCPPass(PassRegistry&);
+void initializeIPCloningLegacyPassPass(PassRegistry&);             // INTEL
 void initializeIPSCCPLegacyPassPass(PassRegistry &);
 void initializeIRTranslatorPass(PassRegistry &);
 void initializeIVUsersWrapperPassPass(PassRegistry&);

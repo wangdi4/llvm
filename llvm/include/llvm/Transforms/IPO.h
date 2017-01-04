@@ -221,6 +221,11 @@ ModulePass *createCrossDSOCFIPass();
 /// metadata.
 ModulePass *createWholeProgramDevirtPass();
 
+#if INTEL_CUSTOMIZATION
+/// \brief This pass implements IP Cloning
+ModulePass *createIPCloningLegacyPass(bool AfterInl = false);
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // SampleProfilePass - Loads sample profile data from disk and generates
 // IR metadata to reflect the profile.

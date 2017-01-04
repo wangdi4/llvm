@@ -221,30 +221,44 @@ class InlineReport : public CallGraphReport {
 public:
 
   explicit InlineReport(unsigned MyLevel) :
-    Level(MyLevel), ActiveInlineInstruction(nullptr) {};
+    Level(MyLevel), ActiveInlineInstruction(nullptr),
+    ActiveCallSite(nullptr), ActiveCallee(nullptr), ActiveIRCS(nullptr),
+    M(nullptr) {};
   virtual ~InlineReport(void); 
   InlineReport(const InlineReport&) = delete; 
   void operator=(const InlineReport&) = delete; 
 
-  // \brief Create an InlineReportFunction to represent F
-  InlineReportFunction* addFunction(Function* F, Module* M);
+  // \brief Indicate that we have begun inlining functions in the current
+  // SCC of the CG.
+  void beginSCC(CallGraph &CG, CallGraphSCC &SCC); 
 
-  // \brief Create an InlineReportCallSite to represent CS
-  InlineReportCallSite* addCallSite(Function* F, CallSite* CS, Module* M); 
+  // \brief Indicate that we are done inlining functions in the current SCC.
+  void endSCC(); 
 
-  // \brief Create an InlineReportCallSite to represent CS, if one does
-  // not already exist
-  InlineReportCallSite* addNewCallSite(Function* F, CallSite* CS,
-    Module* M);
+  void beginUpdate(CallSite& CS) {
+    ActiveCallSite = &CS; 
+    ActiveCallee = CS.getCalledFunction(); 
+    ActiveIRCS = getCallSite(&CS);
+    ActiveInlineInstruction = CS.getInstruction();
+  }  
+
+  void endUpdate() { 
+    ActiveCallSite = nullptr; 
+    ActiveCallee = nullptr; 
+    ActiveIRCS = nullptr;
+    ActiveInlineInstruction = nullptr; 
+  }  
+
+  /// \brief Indicate that the current CallSite CS has been inlined in 
+  /// the inline report.  Use the InlineInfo collected during inlining
+  /// to update the report.  
+  void inlineCallSite(InlineFunctionInfo& InlineInfo);
 
   // \brief Indicate that the Function is dead
   void setDead(Function *F);
 
-  /// \brief Indicate that CS has been inlined, and clone and attach the
-  /// inlining report for the function being inlined to the
-  /// InlineReportCallSite for CS.
-  void inlineCallSite(Instruction* NI, InlineReportCallSite* IRCS, Module* M, 
-    Function* Callee, InlineFunctionInfo& InlineInfo);
+  /// \brief Print the inlining report at the given level.
+  void print() const;
 
   /// \brief Record the reason a call site is or is not inlined.
   void setReasonNotInlined(const CallSite& CS, 
@@ -256,42 +270,8 @@ public:
     InlineReportTypes::InlineReason Reason);
   void setReasonIsInlined(const CallSite& CS, const InlineCost& IC);
 
-  /// \brief Print the inlining report at the given level.
-  void print() const;
-
-#ifndef NDEBUG
-  /// \brief Run some simple consistency checking on 'F', e.g.
-  /// (1) Check that F is in the inline report's function map 
-  /// (2) Check that all of the call/invoke instructions in F's IR 
-  ///       appear in the inline report for F 
-  bool validateFunction(Function* F); 
-  /// \brief Validate all of the functions in the IR function map 
-  bool validate(void); 
-#endif // NDEBUG
-
-  /// \brief Ensure that the inline report for this routine reflects the 
-  /// changes thatr have been made to that routine since the last call to 
-  /// Inliner::runOnSCC() 
-  void makeCurrent(Module* M,  Function* F); 
-
-  /// \brief Indicate that the inline reports may need to be made current 
-  /// with InlineReport::makeCurrent() before they are changed to indicate
-  /// additional inlining.
-  void makeAllNotCurrent(void); 
-
-  void dumpFunctionMap(void);
-
   void replaceFunctionWithFunction(Function* OldFunction, 
     Function* NewFunction) override; 
-
-  void addCallback(Value* V); 
-  
-  InlineReportCallSite* getCallSite(CallSite* CS); 
-
-  Instruction* getActiveInlineInstruction(void) 
-    { return ActiveInlineInstruction; } 
-  void setActiveInlineInstruction(Instruction* AII) 
-    { ActiveInlineInstruction = AII; } 
 
 private:
 
@@ -301,6 +281,18 @@ private:
 
   // \brief The instruction for the call site currently being inlined 
   Instruction* ActiveInlineInstruction; 
+
+  // \brief The CallSite* currently being inlined 
+  CallSite* ActiveCallSite; 
+
+  // \brief The Callee currently being inlined 
+  Function* ActiveCallee; 
+
+  // \brief The InlineReportCallSite* of the CallSite currently being inlined 
+  InlineReportCallSite* ActiveIRCS; 
+
+  // \brief The Module* of the SCC being tested for inlining
+  Module* M; 
 
   /// \brief A mapping from Functions to InlineReportFunctions
   InlineReportFunctionMap IRFunctionMap;
@@ -331,7 +323,7 @@ private:
         /// \brief Indicate in the inline report that the call site 
         /// corresponding to the Value has been deleted
         Instruction* I = cast<Instruction>(getValPtr()); 
-        if (IR->getActiveInlineInstruction() != I) { 
+        if (IR->ActiveInlineInstruction != I) { 
           InlineReportInstructionCallSiteMap::const_iterator MapIt;  
           MapIt = IR->IRInstructionCallSiteMap.find(I);
           if (MapIt != IR->IRInstructionCallSiteMap.end()) {
@@ -356,7 +348,7 @@ private:
         } 
       } 
       setValPtr(nullptr); 
-    };
+    }
   public: 
     InlineReportCallback(Value* V, InlineReport *CBIR) : 
       CallbackVH(V), IR(CBIR) {}; 
@@ -365,6 +357,40 @@ private:
 
   SmallVector<InlineReportCallback*,16> IRCallbackVector;
 
+  // \brief Create an InlineReportFunction to represent F
+  InlineReportFunction* addFunction(Function* F, Module* M);
+
+  // \brief Create an InlineReportCallSite to represent CS
+  InlineReportCallSite* addCallSite(Function* F, CallSite* CS, Module* M); 
+
+  // \brief Create an InlineReportCallSite to represent CS, if one does
+  // not already exist
+  InlineReportCallSite* addNewCallSite(Function* F, CallSite* CS,
+    Module* M);
+
+#ifndef NDEBUG
+  /// \brief Run some simple consistency checking on 'F', e.g.
+  /// (1) Check that F is in the inline report's function map 
+  /// (2) Check that all of the call/invoke instructions in F's IR 
+  ///       appear in the inline report for F 
+  bool validateFunction(Function* F); 
+  /// \brief Validate all of the functions in the IR function map 
+  bool validate(void); 
+#endif // NDEBUG
+
+  /// \brief Ensure that the inline report for this routine reflects the 
+  /// changes thatr have been made to that routine since the last call to 
+  /// Inliner::runOnSCC() 
+  void makeCurrent(Module* M,  Function* F); 
+
+  /// \brief Indicate that the inline reports may need to be made current 
+  /// with InlineReport::makeCurrent() before they are changed to indicate
+  /// additional inlining.
+  void makeAllNotCurrent(void); 
+
+  void addCallback(Value* V); 
+
+  InlineReportCallSite* getCallSite(CallSite* CS); 
 };
 
 }

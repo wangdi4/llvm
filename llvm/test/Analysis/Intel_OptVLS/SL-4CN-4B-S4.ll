@@ -5,6 +5,11 @@
 ; REQUIRES: asserts
 ; RUN: intelovls-test < %s 2>&1 | FileCheck %s
 ;
+; intelovls-test is not built with the required target information by default
+; in order to keep its size small. Lack of target info makes this test fail.
+; To test manually define OVLSTESTCLIENT in intelovls-test.h
+; XFAIL: *
+;
 ; CHECK: mask.load.32.4
 ; CHECK: mask.load.32.4
 ; CHECK: mask.load.32.4

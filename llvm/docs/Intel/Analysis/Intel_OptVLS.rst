@@ -646,19 +646,79 @@ a. Simulation of test-merges:
        #. Total size of N1 and N2 fits into the vector register
        #. elem_size of N1 matches the elem_size of N2
 
-     Under the merge consideration we get the following choices for example-2:
+
+     E.g.
+       N1:
+          [0:63] = V5[0:63]
+
+          [64:127] = V6[0:63]
+       N2:
+          [0:63] = V5[64:127]
+
+          [64:127] = V6[64:127]
+
+     There are many ways N1 and N2 can be merged such as <N1 N2 N1 N2> <N1 N1.. N2 N2..> <N2 N2 .. N1 N1 ..>
+     <N2 N1 .. N2 N1 ..> etc. Right now it makes sense to concatenate N2 to N1 which will most likely lead to
+     vperm or vunpck. But this ordering is subject to change in the future considering some other scenerios.
+     Under the consideration, we get the following choices for example-2:
+
        v9 can be merged with v11, mask: <0 4 1 5 >
+
        V9 can be merged with V13, mask: <0 4 2 6 >
+
        V9 can be merged with V15, mask: <0 4 3 7 >
+
        V10 can be merged with V12, mask: <0 4 1 5 >
+
        V10 can be merged with V14, mask: <0 4 2 6 >
+
        V10 can be merged with V16, mask: <0 4 3 7 >
+
        V11 can be merged with V13, mask: <1 5 2 6 >
+
        V11 can be merged with V15, mask: <1 5 3 7 >
+
        V12 can be merged with V14, mask: <1 5 2 6 >
+
        V12 can be merged with V16, mask: <1 5 3 7 >
+
        V13 can be merged with V15, mask: <2 6 3 7 >
+
        V14 can be merged with V16, mask: <2 6 3 7 >
+
+     Now that we have couple of choices to merge two nodes we decide to commit the merges that have the lowers cost.
+
+b. Cost estimation of test-merges:
+""""""""""""""""""""""""""""""""""
+
+     In order to compute the cost of a mask first we identify the 'kind' of a mask. Depending on their kind we call the
+     TTI getShuffleCost. This is the server's default implementation which can be overriden by the client's more precise
+     implementation. Using the default implementation, currently we get the following cost for the choices:
+
+     9 can be merged with 11 <0 4 1 5> COST: 8
+
+     9 can be merged with 13 <0 4 2 6> COST: 1
+
+     9 can be merged with 15 <0 4 3 7> COST: 8
+
+     10 can be merged with 12 <0 4 1 5> COST: 8
+
+     10 can be merged with 14 <0 4 2 6> COST: 1
+
+     10 can be merged with 16 <0 4 3 7> COST: 8
+
+     11 can be merged with 13 <1 5 2 6> COST: 8
+
+     11 can be merged with 15 <1 5 3 7> COST: 1
+
+     12 can be merged with 14 <1 5 2 6> COST: 8
+
+     12 can be merged with 16 <1 5 3 7> COST: 1
+
+     13 can be merged with 15 <2 6 3 7> COST: 8
+
+     14 can be merged with 16 <2 6 3 7> COST: 8
+
 
 ...
 

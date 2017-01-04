@@ -260,8 +260,19 @@ Instruction *IRBuilderBase::CreateStdContainerCall(Value *Ptr, bool ITER) {
 // Intrinsic generated for the return pointers
 Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
   Value *CPtr = Ptr;
+
+  Type *Ty = CPtr->getType();
+  
+  // CQ415654.
+  // We may encounter multi level pointer and the PointerElelmentType 
+  // is Literal struct type.
+  //
+  while (PointerType *PtrTy = dyn_cast<PointerType>(Ty->getPointerElementType())) {
+    Ty = PtrTy;
+  }
+
   if (StructType *STyp =
-          dyn_cast<StructType>(CPtr->getType()->getPointerElementType())) {
+          dyn_cast<StructType>(Ty->getPointerElementType())) {
     if (STyp->isLiteral())
       CPtr = getCastedInt8PtrValue(CPtr);
   }
