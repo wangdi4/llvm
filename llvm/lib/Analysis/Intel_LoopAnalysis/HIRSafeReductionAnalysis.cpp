@@ -311,6 +311,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
                                                           DDGraph DDG) {
 
   DEBUG(dbgs() << "\nIn Sum Reduction Chain\n");
+
   auto &HNU = Loop->getHLNodeUtils();
 
   for (auto It = Loop->child_begin(), E = Loop->child_end(); It != E; ++It) {
@@ -443,8 +444,9 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
   }
 
   unsigned Level = Loop->getNestingLevel();
+  unsigned OperandNum = 0;
   for (auto I = Inst->rval_op_ddref_begin(), E2 = Inst->rval_op_ddref_end();
-       I != E2; ++I) {
+       I != E2; ++I, ++OperandNum) {
     const RegDDRef *RRef = *I;
     if (!RRef || RRef->isMemRef()) {
       continue;
@@ -473,6 +475,13 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
       //          or           b.  t1 = t2 + ..
 
       if (!Inst->isCopyInst() && ReductionOpCodeSave != *ReductionOpCode) {
+        return false;
+      }
+
+      // sum = a[i] - sum   is not a reduction
+      if (OperandNum == 1 && (*ReductionOpCode == Instruction::FSub ||
+                              *ReductionOpCode == Instruction::Sub) &&
+          DDRefUtils::areEqual(SrcInst->getLvalDDRef(), RRef)) {
         return false;
       }
 
@@ -516,7 +525,7 @@ bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
                                                bool *IsSingleStmt) const {
 
   const SafeRedInfo *SRI = getSafeRedInfo(Inst);
-  if (!SRI){
+  if (!SRI) {
     return false;
   }
 
