@@ -94,6 +94,10 @@ static cl::opt<bool> DisablePass(
     "disable-" OPT_SWITCH, cl::init(false), cl::Hidden,
     cl::desc("Disable " OPT_DESC " pass"));
 
+static cl::opt<bool> DisableCostModel(
+    "disable-" OPT_SWITCH "-cost-model", cl::init(false), cl::Hidden,
+    cl::desc("Disable " OPT_DESC " cost model"));
+
 static cl::list<unsigned> TransformNodes(
     OPT_SWITCH "-nodes", cl::Hidden,
     cl::desc("List nodes to transform by " OPT_DESC));
@@ -353,6 +357,11 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
 
   ForPostEach<HLLoop>::visitRange(HIR->hir_begin(), HIR->hir_end(),
                                   [this](HLLoop *Loop) {
+    // Opt on non-innermost loops is likely to cause degradations.
+    if (!DisableCostModel && !Loop->isInnermost()) {
+      return;
+    }
+
     processLoop(Loop);
   });
 
