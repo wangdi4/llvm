@@ -268,7 +268,8 @@ public:
   CollectMemRefs(MemRefCollection &InitMRC, unsigned InitLevel,
                  HLNodeUtils *InitHNU)
       : MRC(InitMRC), LoopLevel(InitLevel), HNU(InitHNU) {
-    assert(HNU->isLoopLevelValid(InitLevel) && "LoopLevel is out of bound\n");
+    assert(CanonExprUtils::isValidLoopLevel(InitLevel) &&
+           "LoopLevel is out of bound\n");
   }
 
   void visit(HLDDNode *Node) {

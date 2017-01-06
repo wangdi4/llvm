@@ -120,7 +120,7 @@ private:
       HNU.checkHLLoopTy<T>();
       bool IsLevelVisit = (VL == VisitKind::Level);
       (void)IsLevelVisit;
-      assert((!IsLevelVisit || isLoopLevelValid(Level)) &&
+      assert((!IsLevelVisit || CanonExprUtils::isValidLoopLevel(Level)) &&
              " Level is out of range.");
     }
 
@@ -1033,12 +1033,6 @@ public:
                                      const HLNode *FirstNode,
                                      const HLNode *LastNode);
 
-  /// Returns true if the Loop level is in a valid range from
-  /// [1, MaxLoopNestLevel].
-  static bool isLoopLevelValid(unsigned Level) {
-    return (Level > 0 && Level <= MaxLoopNestLevel);
-  }
-
   /// Returns the first lexical child of the parent w.r.t Node. For example, if
   /// parent is a loop and Node lies in postexit, the function will return the
   /// first postexit node. If Node is null, it returns the absolute first/last
@@ -1134,7 +1128,7 @@ public:
     (void)Loop;
     assert((!Loop || !Loop->isInnermost()) &&
            " Gathering loops inside innermost loop.");
-    assert(isLoopLevelValid(Level) && " Level is out of range.");
+    assert(CanonExprUtils::isValidLoopLevel(Level) && " Level is out of range.");
     LoopLevelVisitor<T, VisitKind::Level> LoopVisit(*this, Loops, Level);
     visit(LoopVisit, Node);
   }

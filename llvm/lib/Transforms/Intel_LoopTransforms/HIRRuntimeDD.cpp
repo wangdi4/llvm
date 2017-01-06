@@ -582,7 +582,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   MemRefGatherer::MapTy RefMap;
-  RefGroupMapTy Groups;
+  RefGroupVecTy Groups;
 
   // Gather references which are only inside a loop, excepting loop bounds,
   // pre-header and post-exit.
@@ -804,7 +804,7 @@ void HIRRuntimeDD::markDDRefsIndep(HLLoop *Loop) {
   MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
   MemRefGatherer::sort(RefMap);
 
-  RefGroupMapTy Groups;
+  RefGroupVecTy Groups;
   DDRefGrouping::createGroups(Groups, RefMap, isGroupMemRefMatchForRTDD);
 
   auto Size = Groups.size();
@@ -817,10 +817,10 @@ void HIRRuntimeDD::markDDRefsIndep(HLLoop *Loop) {
     NewScopes.push_back(MDB.createAnonymousAliasScope(Domain));
   }
 
-  for (auto &Pair : Groups) {
-    auto ScopeId = Pair.first;
+  for (unsigned I = 0, E = Groups.size(); I < E; ++I) {
+    auto ScopeId = I;
 
-    for (RegDDRef *Ref : Pair.second) {
+    for (RegDDRef *Ref : Groups[I]) {
       AAMDNodes AANodes;
       Ref->getAAMetadata(AANodes);
 

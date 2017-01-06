@@ -230,62 +230,80 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
   return false;
 }
 
-bool DDRefUtils::getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                                  int64_t *Distance) {
+bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
+                                      const RegDDRef *Ref2, unsigned LoopLevel,
+                                      int64_t *Distance) {
+
   // Dealing with memrefs only
   if (!Ref1->hasGEPInfo() || !Ref2->hasGEPInfo()) {
     return false;
   }
 
-  // TODO: Compare bases instead of expecting them to be equal?
   const CanonExpr *BaseCE1 = Ref1->getBaseCE();
   const CanonExpr *BaseCE2 = Ref2->getBaseCE();
-  if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2))
+
+  if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2)) {
     return false;
+  }
 
   // TODO: Extend to support different # of dimensions?
-  if (Ref1->getNumDimensions() != Ref2->getNumDimensions())
+  if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
+  }
 
   int64_t Delta = 0;
+  bool NeedIterDistance = (LoopLevel != 0);
+  bool FoundDelta = false;
 
   // Compare the subscripts
   for (unsigned I = 1; I <= Ref1->getNumDimensions(); ++I) {
     const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
     const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
 
-    // The BaseCE and getNumDimestions() match so we know that
-    // getDimensionStride is the same in both.
-    uint64_t DimStride = Ref1->getDimensionStride(I);
+    int64_t CurDelta;
 
-    // Diff the CanonExprs.
-    CanonExpr *Result = getCanonExprUtils().cloneAndSubtract(Ref1CE, Ref2CE);
+    bool Res =
+        NeedIterDistance
+            ? CanonExprUtils::getConstIterationDistance(Ref1CE, Ref2CE,
+                                                        LoopLevel, &CurDelta)
+            : CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, &CurDelta);
 
-    // Subtract operation can fail
-    if (!Result) {
+    if (!Res) {
       return false;
     }
 
-    // TODO: Being conservative with Denom.
-    if (Result->getDenominator() > 1) {
-      getCanonExprUtils().destroy(Result);
-      return false;
+    if (NeedIterDistance) {
+      if (!Ref1CE->hasIV(LoopLevel)) {
+        // CEs are invariant and equal.
+        assert((CurDelta == 0) && "Invalid iteration distance!");
+        continue;
+      } else if (FoundDelta && (Delta != CurDelta)) {
+        // Dimensions have different delta. for example- A[i][i] and A[i][i+1]
+        return false;
+      } else {
+        FoundDelta = true;
+        Delta = CurDelta;
+      }
+    } else {
+      uint64_t DimStride = Ref1->getDimensionStride(I);
+      Delta += CurDelta * DimStride;
     }
-
-    // DEBUG(dbgs() << "\n    Delta for Dim = "; Result->dump());
-
-    if (!Result->isIntConstant()) {
-      getCanonExprUtils().destroy(Result);
-      return false;
-    }
-
-    int64_t Diff = Result->getConstant();
-    Delta += Diff * DimStride;
-    getCanonExprUtils().destroy(Result);
   }
 
   *Distance = Delta;
   return true;
+}
+
+bool DDRefUtils::getConstByteDistance(const RegDDRef *Ref1,
+                                      const RegDDRef *Ref2, int64_t *Distance) {
+  return getConstDistanceImpl(Ref1, Ref2, 0, Distance);
+}
+
+bool DDRefUtils::getConstIterationDistance(const RegDDRef *Ref1,
+                                           const RegDDRef *Ref2,
+                                           unsigned LoopLevel,
+                                           int64_t *Distance) {
+  return getConstDistanceImpl(Ref1, Ref2, LoopLevel, Distance);
 }
 
 RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, unsigned Level) {

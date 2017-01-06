@@ -517,3 +517,90 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
 
   return AddResult;
 }
+
+bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
+                                               const CanonExpr *CE2,
+                                               unsigned LoopLevel,
+                                               int64_t *Distance) {
+  assert(isValidLoopLevel(LoopLevel) && "Invalid loop level!");
+
+  int64_t Coeff1, Coeff2;
+  unsigned Index1, Index2;
+
+  CE1->getIVCoeff(LoopLevel, &Index1, &Coeff1);
+  CE2->getIVCoeff(LoopLevel, &Index2, &Coeff2);
+
+  if ((Coeff1 != Coeff2) || (Index1 != Index2)) {
+    return false;
+  }
+
+  // Both CE1 and CE2 are invariant w.r.t IV. Return distance of 0 if both are
+  // equal.
+  if (!Coeff1) {
+    *Distance = 0;
+    return areEqual(CE1, CE2);
+  }
+
+  std::unique_ptr<CanonExpr> Result(cloneAndSubtract(CE1, CE2));
+
+  // Subtraction failed, return false.
+  if (!Result) {
+    return false;
+  }
+
+  if (Result->hasIV() || (Result->getDenominator() > 1)) {
+    return false;
+  }
+
+  auto NumBlobs = Result->numBlobs();
+  int64_t Diff = Result->getConstant();
+
+  if (NumBlobs > 1) {
+    return false;
+
+  } else if (NumBlobs == 1) {
+
+    // When IV has a blob coefficient, the diff is in the form of a single blob.
+    // For example-
+    // CE1 = 2*%b*i1 + 2*%b
+    // CE2 = 2*%b*i1
+    // CE1 - CE2 = 2*%b
+    // Distance = 1
+    if (Diff != 0) {
+      return false;
+    }
+
+    auto BlobIndex = Result->getSingleBlobIndex();
+
+    if (BlobIndex != Index1) {
+      return false;
+    }
+
+    Diff = Result->getSingleBlobCoeff();
+  }
+
+  if ((Diff % std::llabs(Coeff1)) != 0) {
+    return false;
+  }
+
+  *Distance = Diff / Coeff1;
+
+  return true;
+}
+
+bool CanonExprUtils::getConstDistance(const CanonExpr *CE1,
+                                      const CanonExpr *CE2, int64_t *Distance) {
+  std::unique_ptr<CanonExpr> Result(cloneAndSubtract(CE1, CE2));
+
+  // Subtract operation can fail.
+  if (!Result) {
+    return false;
+  }
+
+  if (Result->hasIV() || Result->hasBlob() || (Result->getDenominator() > 1)) {
+    return false;
+  }
+
+  *Distance = Result->getConstant();
+  return true;
+}

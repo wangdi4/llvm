@@ -227,7 +227,7 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVNum,
       CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
   unsigned int IVFound = 0;
-  assert(HNU.isLoopLevelValid(IVNum) && "IVnum not within range");
+  assert(CanonExprUtils::isValidLoopLevel(IVNum) && "IVnum not within range");
 
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
@@ -5107,7 +5107,7 @@ bool DirectionVector::isEQ() const {
 /// In this example, isDVIndepFromLevel(&DV, 2) return true
 bool DirectionVector::isIndepFromLevel(unsigned FromLevel) const {
 
-  assert(HLNodeUtils::isLoopLevelValid(FromLevel) && "incorrect Level");
+  assert(CanonExprUtils::isValidLoopLevel(FromLevel) && "incorrect Level");
 
   for (unsigned II = 1; II <= FromLevel - 1; ++II) {
     unsigned Direction = (*this)[II - 1];

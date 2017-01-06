@@ -151,7 +151,7 @@ public:
          !(this->getConstStride() == CLMrf->getConstStride())))
       return false;
 
-    return Ref->getDDRefUtils().getConstDistance(Ref, Ref2, Distance);
+    return DDRefUtils::getConstByteDistance(Ref, Ref2, Distance);
   }
 
   /// \bried Returns true if this and Memref have the same number of elements.

@@ -87,6 +87,10 @@ private:
   /// Returns true if BlobDDRef1 equals BlobDDRef2.
   static bool areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2);
 
+  /// Implements getConst*Distance() functionality.
+  static bool getConstDistanceImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                   unsigned LoopLevel, int64_t *Distance);
+
 public:
   // Returns reference to CanonExprUtils object.
   CanonExprUtils &getCanonExprUtils() { return CEU; }
@@ -190,8 +194,32 @@ public:
   /// do that than to generate two separate gathers. A difference between
   /// struct accesses such as a[i].I and a[i].F where 'a' is an array of
   /// struct S {int I; float F;} will also be supported.
-  bool getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                        int64_t *Distance);
+  ///
+  /// NOTE: This is strictly a structural check in the sense that the utility is
+  /// context insensitive. It doesn't perform HIR based checks and so will
+  /// return a valid distance for non-linear CEs. Caller is responsible for
+  /// doing extra analysis. For example, it will return a valid distance between
+  /// A[i1+%t] and A[i1+%t+1] even if %t is non-linear and has a different value
+  /// for the refs.
+  static bool getConstByteDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                   int64_t *Distance);
+
+  /// Returns a constant distance in number of iterations at \p LoopLevel
+  /// between \p Ref1 and \p Ref2.
+  /// This is different that getConstDistanceInBytes() above in that the
+  /// distance should be an exact multiple of iterations of loop. For example,
+  /// it returns false for A[2*i1] and A[2*i1+1] as they do not overlap w.r.t
+  /// i1.
+  ///
+  /// NOTE: This is strictly a structural check in the sense that the utility is
+  /// context insensitive. It doesn't perform HIR based checks and so will
+  /// return a valid distance for non-linear CEs. Caller is responsible for
+  /// doing extra analysis. For example, it will return a valid distance between
+  /// A[i1+%t] and A[i1+%t+1] even if %t is non-linear and has a different value
+  /// for the refs.
+  static bool getConstIterationDistance(const RegDDRef *Ref1,
+                                        const RegDDRef *Ref2,
+                                        unsigned LoopLevel, int64_t *Distance);
 };
 
 } // End namespace loopopt

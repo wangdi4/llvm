@@ -33,7 +33,7 @@ namespace loopopt {
 namespace runtimedd {
 
 typedef DDRefGrouping::RefGroupTy<RegDDRef> RefGroupTy;
-typedef DDRefGrouping::RefGroupMapTy<RegDDRef> RefGroupMapTy;
+typedef DDRefGrouping::RefGroupVecTy<RegDDRef> RefGroupVecTy;
 
 const unsigned ExpectedNumberOfTests = 8;
 const unsigned SmallTripCountTest = 16;
