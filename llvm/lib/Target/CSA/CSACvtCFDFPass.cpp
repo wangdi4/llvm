@@ -367,7 +367,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (OrderMemops > 0) {
     addMemoryOrderingConstraints();
   }
-#if 1
+#if 0
   {
     errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
     MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
@@ -397,7 +397,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   //rename, adding lhdr phi to seal all up range of each defintions up till loop hdr
   insertSWITCHForRepeat();
 
-#if 1
+#if 0
   {
     errs() << "after rename for repeat" << ":\n";
     thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());
