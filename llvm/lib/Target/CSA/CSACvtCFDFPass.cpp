@@ -1094,12 +1094,17 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
 //single entry, single exiting, single latch, exiting blk post dominates loop hdr(always execute)
 void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   MachineLoop* mloop = MLI->getLoopFor(mbb);
   assert(mloop->getHeader() == mbb);
   assert(mloop->getExitingBlock() && "can't handle multi exiting blks in this funciton");
   MachineBasicBlock *latchBB = mloop->getLoopLatch();
+  ControlDependenceNode *latchNode = CDG->getNode(latchBB);
   MachineBasicBlock *exitingBB = mloop->getExitingBlock();
+  ControlDependenceNode *exitingNode = CDG->getNode(exitingBB);
+  MachineBasicBlock* exitBB = mloop->getExitBlock();
+  assert(exitBB);
   assert(latchBB && exitingBB);
   MachineInstr *bi = &*exitingBB->getFirstInstrTerminator();
   MachineBasicBlock::iterator loc = exitingBB->getFirstTerminator();
@@ -1111,12 +1116,46 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
   const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(predReg));
   assert(new_LIC_RC && "Can't determine register class for register");
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
-  const unsigned moveOpcode = TII.getMoveOpcode(TRC);
-  MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(bi->getOperand(0).getReg());
-  cpyInst->setFlag(MachineInstr::NonSequential);
+  if (mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode)) {
+    const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+    MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(predReg);
+    cpyInst->setFlag(MachineInstr::NonSequential);
+  } else {
+    assert(false && "TODO: implement using filter instr");
+#if 0
+    //need filtering
+    //can't using renaming due to maintaing the exiting condition
+    ControlDependenceNode *filterNode = latchNode;
+    unsigned filterOut = cpyReg; //cpyReg has to be the final output
+    unsigned filterIn;
+    MachineInstr *filterInst = nullptr;
+    do {
+      assert(filterNode->getNumParents() == 1 && "not implemented yet");
+      ControlDependenceNode *filterParentNode = *filterNode->parent_begin();
+      MachineBasicBlock *filterParentBB = filterNode->getBlock();
+      MachineInstr *filterbi = &*filterParentBB->getFirstInstrTerminator();
+      filterIn = MRI->createVirtualRegister(TRC);
+      unsigned filterPred = filterbi->getOperand(0).getReg();
+      if (filterParentNode->isTrueChild(filterNode)) {
+        unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+        BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(filterPred);
+        filterPred = notReg;
+      }
+      filterNode = filterParentNode;
+      filterOut = filterIn;
+      filterInst = BuildMI(*filterParentBB, filterbi, DebugLoc(), TII.get(filterOpcode), filterOut).addReg(filterIn).addReg(filterPred);
+    } while (!filterNode->isParent(exitingNode));
 
-  MachineBasicBlock* exitBB = mloop->getExitBlock();
-  assert(exitBB);
+    if (CDG->getEdgeType(exitingBB, exitBB, true) == ControlDependenceNode::TRUE) {
+      //filtering predReg's false value for inside loops
+      unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(predReg); //fliping the exiting condition
+      filterInst->substituteRegister(filterIn, notReg, 2, TRI);
+    } else {
+      filterInst->substituteRegister(filterIn, predReg, 2, TRI);
+    }
+#endif
+  }
   MachineBasicBlock *lphdr = mloop->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
   const unsigned InitOpcode = TII.getInitOpcode(TRC);
@@ -1370,6 +1409,8 @@ void CSACvtCFDFPass::replaceLoopHdrPhi() {
       replaceCanonicalLoopHdrPhi(mbb);
     } else if (straightlineExitings) {
       replaceStraightExitingsLoopHdrPhi(mbb);
+    } else {
+      assert(false && "not implemented yet");
     }
   }
 }
@@ -2125,6 +2166,9 @@ bool CSACvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
     if (MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getHeader() == mbb) {
       MachineLoop* mloop = MLI->getLoopFor(mbb);
       if (mloop->getNumBackEdges() > 1) {
+        return true;
+      }
+      if (mloop->getExitingBlock() == nullptr) {
         return true;
       }
 #if 1 
