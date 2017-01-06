@@ -367,7 +367,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (OrderMemops > 0) {
     addMemoryOrderingConstraints();
   }
-#if 1
+#if 0
   {
     errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
     MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
@@ -397,7 +397,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   //rename, adding lhdr phi to seal all up range of each defintions up till loop hdr
   insertSWITCHForRepeat();
 
-#if 1
+#if 0
   {
     errs() << "after rename for repeat" << ":\n";
     thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());
@@ -1002,6 +1002,7 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   ControlDependenceNode *root = CDG->getRoot();
   std::set<MachineInstr*> switchsForRepeat;
+  switchsForRepeat.clear();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
     if (!mbb) continue; //root node has no bb
