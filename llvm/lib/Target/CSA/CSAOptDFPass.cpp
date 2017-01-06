@@ -52,17 +52,40 @@ const TargetRegisterClass* const SeqPredRC = &CSA::CI1RegClass;
 
 // Flag for enabling sequence optimizations.
 //
-//   0: Disabled optimization
-//   1: Analysis to find sequence optimizations only.
-//      Prints LLVM debugging output.
-//   2: Enable transformations.
+//   0:   Disabled optimization
+//   >=1: Enabled
 //
 // Note that this optimization is not run unless csa-opt-df-pass is
 // also set > 0.
 static cl::opt<int>
 RunSequenceOpt("csa-seq-opt", cl::Hidden,
                cl::desc("CSA Specific: Enable sequence optimizations"),
-               cl::init(2));
+               cl::init(1));
+
+// Flag for choosing type of sequence optimization:
+//   0: Everything off.
+//   1: Analysis to find sequence optimizations only.
+//      Prints LLVM debugging output.
+//   2: Default type of sequence transform.
+enum SequenceOptMode {
+  off = 0,
+  analysis = 1,
+  standard = 2, 
+};
+//
+//   Other values might be added if needed.
+//
+// Technically, this flag subsumes the RunSequenceOpt flag.  However,
+// having the default value of the flag be "2" raises more questions
+// since users ask about the meaning of other numbers.
+// Mostly we expect only compiler developers to use this knob.
+static cl::opt<SequenceOptMode>
+RunSequenceOptType("csa-seq-opt-type", cl::Hidden,
+                   cl::desc("CSA Specific: Type of sequence optimizations. 0 == off, 1 == analysis only, 2 == default"),
+                   cl::values(clEnumVal(off,                      "No sequence optimization"),
+                              clEnumVal(analysis,                 "Sequence analysis only, but not transforms"),
+                              clEnumValN(standard, "default",     "Sequence transforms enabled (default)")),
+                   cl::init(SequenceOptMode::standard));
 
 
 
@@ -140,7 +163,7 @@ public:
 
 
   // Do sequence optimizations.
-  void runSequenceOptimizations(int seq_opt_level);
+  void runSequenceOptimizations(SequenceOptMode seq_opt_mode);
 
   // Helper methods for sequence
 
@@ -413,7 +436,12 @@ bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
   bool Modified = false;
 
   // Using SEQ in place of pick/add/cmp/switch pattern.
-  runSequenceOptimizations(RunSequenceOpt);
+  // Force a consistent setting of RunSequenceOpt and RunSequenceType
+  // when sequence transform is off.
+  if (RunSequenceOpt == 0) {
+    RunSequenceOptType = SequenceOptMode::off;
+  }
+  runSequenceOptimizations(RunSequenceOptType);
 
   return Modified;
 
@@ -896,9 +924,9 @@ seq_find_candidate_loops(SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 }
 
 
-void CSAOptDFPass::runSequenceOptimizations(int seq_opt_level) {
-  if (seq_opt_level > 0) {
-
+void CSAOptDFPass::runSequenceOptimizations(SequenceOptMode seq_opt_mode) {
+  if (seq_opt_mode != SequenceOptMode::off) {
+    
     // Do analysis to identify candidates for sequence optimization.
     DEBUG(errs() << "Running analysis for sequence optimizations\n");
 
@@ -915,7 +943,7 @@ void CSAOptDFPass::runSequenceOptimizations(int seq_opt_level) {
     seq_print_loop_info(&loops);
 
     DEBUG(errs() << "Done with sequence classification\n");
-    if (seq_opt_level > 1) {
+    if (seq_opt_mode > SequenceOptMode::analysis) {
       // Actually do the transforms.
 
       int num_transformed = 0;
