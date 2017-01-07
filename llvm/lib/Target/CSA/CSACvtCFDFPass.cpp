@@ -53,19 +53,30 @@ RunSXU("csa-run-sxu", cl::Hidden,
 
 
 // Flag for controlling code that deals with memory ordering.
-//
-//   0: No extra code added at all for ordering.  Often incorrect.
-//   1: Linear ordering of all memops.  Dumb but should be correct.
-//   2: Wavefront.   Stores inside a basic block are totally ordered.
-//                   Loads ordered between the stores, but
-//                   unordered with respect to each other.
-//                   No reordering across basic blocks.
-//   3: Aggressive.  Reordering allowed based on other compiler info.
-//
-static cl::opt<int>
-OrderMemops("csa-order-memops", cl::Hidden,
+enum OrderMemopsMode {
+  // No extra code added at all for ordering.  Often incorrect.  
+  none = 0,
+
+  // Linear ordering of all memops.  Dumb but should be correct.  
+  linear = 1,
+  
+  //  Stores inside a basic block are totally ordered.
+  //  Loads ordered between the stores, but
+  //  unordered with respect to each other.
+  //  No reordering across basic blocks.
+  wavefront = 2,
+};
+static cl::opt<OrderMemopsMode>
+OrderMemops("csa-order-memops",
+            cl::Hidden,
             cl::desc("CSA Specific: Order memory operations"),
-            cl::init(1));
+            cl::values(clEnumVal(none,
+                                 "No memory ordering. Possibly incorrect"),
+                       clEnumVal(linear,
+                                 "Linear ordering. Dumb but incorrect"),
+                       clEnumVal(wavefront,
+                                 "Totally ordered stores, parallel loads between stores.")),
+            cl::init(OrderMemopsMode::wavefront));
 
 
 // The register class we are going to use for all the memory-op
@@ -365,7 +376,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   // This step should run before the main dataflow conversion because
   // it introduces extra dependencies through virtual registers than
   // the dataflow conversion must also deal with.
-  if (OrderMemops > 0) {
+  if (OrderMemops > OrderMemopsMode::none) {
     addMemoryOrderingConstraints();
   }
 #if 0
@@ -2750,20 +2761,25 @@ void CSACvtCFDFPass::addMemoryOrderingConstraints() {
     // Link all the memory ops in BB together.
     // Return the name of the last output register (which could be
     // mem_in_reg).
+    switch (OrderMemops) {
+    case OrderMemopsMode::wavefront:
+      {
+        last_mem_reg = convert_block_memops_wavefront(BB,
+                                                      mem_in_reg);
+      }
+      break;
+    case OrderMemopsMode::linear:
+      {
+        last_mem_reg = convert_block_memops_linear(BB,
+                                                   mem_in_reg);
+      }
+      break;
 
-    if (OrderMemops == 2) {
-      last_mem_reg = convert_block_memops_wavefront(BB,
-                                                    mem_in_reg);
-    }
-    else if (OrderMemops == 1) {
-      last_mem_reg = convert_block_memops_linear(BB,
-                                                 mem_in_reg);
+      // We should never get here.
+    case OrderMemopsMode::none:
+    default:
+      assert(0 && "Only linear and wavefront memory ordering implemented now.");
 
-    }
-    else {
-      // ERROR: unsupported memory ordering.
-      assert(((OrderMemops ==1) || (OrderMemops == 2))
-             && "Only linear and wavefront memory ordering implemented now.");
     }
 
     // Create a last (virtual) register for the output of the block.
