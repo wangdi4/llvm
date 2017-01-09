@@ -130,6 +130,7 @@ namespace llvm {
     void replacePhiWithPICK();
     void replaceLoopHdrPhi();
     void replaceCanonicalLoopHdrPhi(MachineBasicBlock* lhdr);
+    bool hasStraightExitings(MachineLoop* mloop);
     void replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb);
     void generateCompletePickTreeForPhi(MachineInstr *);
     void generateDynamicPickTreeForPhi(MachineInstr *);
@@ -1094,7 +1095,6 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
 //single entry, single exiting, single latch, exiting blk post dominates loop hdr(always execute)
 void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   MachineLoop* mloop = MLI->getLoopFor(mbb);
   assert(mloop->getHeader() == mbb);
@@ -1264,8 +1264,8 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
 
   std::sort(exitingBlks.begin(), exitingBlks.end(), CmpFcn(bb2rpo));
 
-  unsigned orResult = 0;
-  unsigned orOperand = 0;
+  unsigned landResult = 0;
+  unsigned landOperand = 0;
   
   for (unsigned i = 0; i < exitingBlks.size(); i++) {
     MachineBasicBlock* exiting = exitingBlks[i];
@@ -1275,21 +1275,20 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
                               *exiting->succ_begin();
     MachineInstr* bi = &*exiting->getFirstInstrTerminator();
     unsigned exitOperand = bi->getOperand(0).getReg();
-    //TRC = MRI->getRegClass(bi->getOperand(0).getReg());
-    if (CDG->getEdgeType(exiting, exit, true) == ControlDependenceNode::FALSE) {
+    if (CDG->getEdgeType(exiting, exit, true) == ControlDependenceNode::TRUE) {
       unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
       BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(bi->getOperand(0).getReg());
       exitOperand = notReg;
     }
-    if (!orOperand) {
-      orOperand = exitOperand;
-    } else if (!orResult) {
-      orResult = MRI->createVirtualRegister(&CSA::I1RegClass);
-      BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::OR1), orResult).addReg(orOperand).addReg(exitOperand);
+    if (!landOperand) {
+      landOperand = exitOperand;
+    } else if (!landResult) {
+      landResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+      BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::LAND1), landResult).addReg(landOperand).addReg(exitOperand);
     } else {
       unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
-      BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::OR1), newResult).addReg(orResult).addReg(exitOperand);
-      orResult = newResult;
+      BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::LAND1), newResult).addReg(landResult).addReg(exitOperand);
+      landResult = newResult;
     }
   }
 
@@ -1300,14 +1299,14 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
   assert(new_LIC_RC && "Can't determine register class for register");
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
   const unsigned moveOpcode = TII.getMoveOpcode(&CSA::I1RegClass);
-  MachineInstr *cpyInst = BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(orResult);
+  MachineInstr *cpyInst = BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(landResult);
   cpyInst->setFlag(MachineInstr::NonSequential);
 
   MachineBasicBlock *lphdr = mloop->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
   const unsigned InitOpcode = TII.getInitOpcode(&CSA::I1RegClass);
   //orResult ==1 means exiting loop
-  MachineInstr *initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
+  MachineInstr *initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
   initInst->setFlag(MachineInstr::NonSequential);
 
 
@@ -1365,6 +1364,32 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
   }
 }
 
+
+
+bool CSACvtCFDFPass::hasStraightExitings(MachineLoop* mloop) {
+  SmallVector<MachineBasicBlock*, 4> exitingBlks;
+  mloop->getExitingBlocks(exitingBlks);
+  //single backedge, single exiting
+  bool straightlineExitings = mloop->getLoopLatch();
+  for (unsigned i = 0; i < exitingBlks.size(); i++) {
+    if (!straightlineExitings)
+      break;
+    MachineBasicBlock* exitingBlk = exitingBlks[i];
+    ControlDependenceNode* exitingNd = CDG->getNode(exitingBlk);
+    for (ControlDependenceNode::node_iterator uparent = exitingNd->parent_begin(), uparent_end = exitingNd->parent_end();
+      uparent != uparent_end; ++uparent) {
+      ControlDependenceNode *upnode = *uparent;
+      MachineBasicBlock *upbb = upnode->getBlock();
+      if (mloop->contains(upbb) && !mloop->isLoopExiting(upbb)) {
+        straightlineExitings = false;
+        break;
+      }
+    }
+  }
+  return straightlineExitings;
+}
+
+
 void CSACvtCFDFPass::replaceLoopHdrPhi() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   ControlDependenceNode *root = CDG->getRoot();
@@ -1382,23 +1407,6 @@ void CSACvtCFDFPass::replaceLoopHdrPhi() {
     mloop->getExitingBlocks(exitingBlks);
     //single backedge, single exiting
     bool isCanonical = mloop->getLoopLatch() && mloop->getExitingBlock();
-    bool straightlineExitings = mloop->getLoopLatch();
-    for (unsigned i = 0; i < exitingBlks.size(); i++) {
-      if (!straightlineExitings) 
-        break;
-      MachineBasicBlock* exitingBlk = exitingBlks[i];
-      ControlDependenceNode* exitingNd = CDG->getNode(exitingBlk);
-      for (ControlDependenceNode::node_iterator uparent = exitingNd->parent_begin(), uparent_end = exitingNd->parent_end();
-        uparent != uparent_end; ++uparent) {
-        ControlDependenceNode *upnode = *uparent;
-        MachineBasicBlock *upbb = upnode->getBlock();
-        if (mloop->contains(upbb) && !mloop->isLoopExiting(upbb)) {
-          straightlineExitings = false;
-          break;
-        }
-      }
-    }
-
     if (!isCanonical) {
       //TODO: assert loop has only one entry, only canonical loop handing can
       //handle multiple entries by reducing it to if-foot
@@ -1407,7 +1415,7 @@ void CSACvtCFDFPass::replaceLoopHdrPhi() {
     if (isCanonical) {
       //single exiting, single latch, with loop latch also the exiting blk
       replaceCanonicalLoopHdrPhi(mbb);
-    } else if (straightlineExitings) {
+    } else if (hasStraightExitings(mloop)) {
       replaceStraightExitingsLoopHdrPhi(mbb);
     } else {
       assert(false && "not implemented yet");
@@ -2169,7 +2177,7 @@ bool CSACvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
         return true;
       }
       if (mloop->getExitingBlock() == nullptr) {
-        return true;
+        return !hasStraightExitings(mloop);
       }
 #if 1 
       MachineBasicBlock* mlatch = mloop->getLoopLatch();
