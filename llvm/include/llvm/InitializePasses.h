@@ -418,8 +418,10 @@ void initializeHIRUnrollAndJamPass(PassRegistry&);
 void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRLoopReversalPass(PassRegistry&);
+void initializeHIRLMMPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
+void initializeHIROptVarPredicatePass(PassRegistry&);
 // VPO WRegion Passes
 void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);

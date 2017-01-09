@@ -1424,7 +1424,7 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI)
 {
   Function* Caller = CS.getCaller(); 
   Function* CalledFunc = CS.getCalledFunction(); 
-  
+ 
   // Find all instances of "llvm.va_arg_pack" and "llvm.va_arg_pack_len"
   SmallVector<Value*, 8> 
   VarArgs(CS.arg_begin() + CalledFunc->arg_size(), CS.arg_end());
@@ -1452,36 +1452,60 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI)
   // of this builtin.
   for (auto I = VaPkVec.begin(), E = VaPkVec.end(); I != E; I++) {
     CallInst *II = *I; 
+    SmallSet<CallInst*, 8> CallVec;         
+    SmallSet<InvokeInst*, 8> InvokeVec;         
     for (auto U : II->users()) { 
       if (auto CI = dyn_cast<CallInst>(U)) { 
-        SmallVector<Value*, 8> Args(CI->arg_begin(), CI->arg_end() - 1);
-        Args.insert(Args.end(), VarArgs.begin(), VarArgs.end());
-        SmallVector<OperandBundleDef, 1> OpBundles;
-        CI->getOperandBundlesAsDefs(OpBundles);
-        auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, 
-          "", CI);
-        NewI->takeName(CI);
-        NewI->setCallingConv(CI->getCallingConv());
-        NewI->setAttributes(CI->getAttributes());
-        NewI->setDebugLoc(CI->getDebugLoc());
-        CI->replaceAllUsesWith(NewI);
-        CI->eraseFromParent(); 
+        CallVec.insert(CI);
       } 
       else if (auto CI = dyn_cast<InvokeInst>(U)) {
-        SmallVector<Value*, 8> Args(CI->arg_begin(), CI->arg_end() - 1);
-        Args.insert(Args.end(), VarArgs.begin(), VarArgs.end());
-        SmallVector<OperandBundleDef, 1> OpBundles;
-        CI->getOperandBundlesAsDefs(OpBundles);
-        auto NewI = InvokeInst::Create(CI->getCalledValue(), 
-          CI->getNormalDest(), CI->getUnwindDest(), Args, OpBundles, "", CI);
-        NewI->takeName(CI);
-        NewI->setCallingConv(CI->getCallingConv());
-        NewI->setAttributes(CI->getAttributes());
-        NewI->setDebugLoc(CI->getDebugLoc());
-        CI->replaceAllUsesWith(NewI);
-        CI->eraseFromParent(); 
-      } 
+        InvokeVec.insert(CI);
+      }
     }
+    for (auto I = CallVec.begin(), E = CallVec.end(); I != E; I++) { 
+      CallInst* CI = *I;
+      SmallVector<Value*, 8> Args; 
+      for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) { 
+        if (*AI == II) { 
+           Args.insert(Args.end(), VarArgs.begin(), VarArgs.end());
+        } 
+        else {
+           Args.insert(Args.end(), *AI);
+        } 
+      } 
+      SmallVector<OperandBundleDef, 1> OpBundles;
+      CI->getOperandBundlesAsDefs(OpBundles);
+      auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, 
+        "", CI);
+      NewI->takeName(CI);
+      NewI->setCallingConv(CI->getCallingConv());
+      NewI->setAttributes(CI->getAttributes());
+      NewI->setDebugLoc(CI->getDebugLoc());
+      CI->replaceAllUsesWith(NewI);
+      CI->eraseFromParent(); 
+    } 
+    for (auto I = InvokeVec.begin(), E = InvokeVec.end(); I != E; I++) { 
+      InvokeInst* CI = *I;
+      SmallVector<Value*, 8> Args; 
+      for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) { 
+        if (*AI == II) { 
+           Args.insert(Args.end(), VarArgs.begin(), VarArgs.end());
+        } 
+        else {
+           Args.insert(Args.end(), *AI);
+        } 
+      } 
+      SmallVector<OperandBundleDef, 1> OpBundles;
+      CI->getOperandBundlesAsDefs(OpBundles);
+      auto NewI = InvokeInst::Create(CI->getCalledValue(), 
+        CI->getNormalDest(), CI->getUnwindDest(), Args, OpBundles, "", CI);
+      NewI->takeName(CI);
+      NewI->setCallingConv(CI->getCallingConv());
+      NewI->setAttributes(CI->getAttributes());
+      NewI->setDebugLoc(CI->getDebugLoc());
+      CI->replaceAllUsesWith(NewI);
+      CI->eraseFromParent(); 
+    } 
     II->eraseFromParent();  
   } 
 

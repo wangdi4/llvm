@@ -17,10 +17,11 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_CANONEXPRUTILS_H
 
 #include "llvm/Support/Compiler.h"
-#include <set>
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+
+#include <set>
 
 namespace llvm {
 
@@ -57,6 +58,7 @@ private:
   CanonExprUtils(HIRParser &HIRP) : BU(HIRP) {}
 
   /// Make class uncopyable.
+  CanonExprUtils(const CanonExprUtils &) = delete;
   void operator=(const CanonExprUtils &) = delete;
 
   // Requires access to Objs.
@@ -73,7 +75,7 @@ private:
   void destroyAll();
 
   /// Calculates the lcm of two positive inputs.
-  int64_t lcm(int64_t A, int64_t B) const;
+  static int64_t lcm(int64_t A, int64_t B);
 
   /// Creates a non-linear self blob canon expr from the passed in \p Val.
   /// The new blob is associated with symbase. New temp blobs from values are
@@ -94,13 +96,13 @@ private:
                                 bool RelaxedMode);
 
   /// Updates the constant canon expr source type in order to add them.
-  void updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2, bool RelaxedMode,
-                           bool *CreatedAuxCE);
+  static void updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
+                                  bool RelaxedMode, bool *CreatedAuxCE);
 
   /// Implements add()/cloneAndAdd() functionality.
   /// This routine will return nullptr, if the canon exprs are not mergeable.
-  CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2, bool CreateNewCE,
-                     bool RelaxedMode);
+  static CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2,
+                            bool CreateNewCE, bool RelaxedMode);
 
 public:
   // Returns reference to BlobUtils object.
@@ -146,7 +148,7 @@ public:
   void destroy(CanonExpr *CE);
 
   /// Calculates the gcd of two positive inputs.
-  int64_t gcd(int64_t A, int64_t B) const;
+  static int64_t gcd(int64_t A, int64_t B);
 
   /// Returns the size of the type in bits.
   /// NOTE: This function asserts that the incoming type is sized.
@@ -168,30 +170,30 @@ public:
   /// Modifies and returns CE1 to reflect sum of CE1 and CE2.
   /// CE1 = CE1 + CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
-                 bool RelaxedMode = false);
+  static CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
+                        bool RelaxedMode = false);
 
   /// Returns a canon expr which represents the sum of CE1 and CE2.
   /// Result = CE1 + CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  CanonExpr *cloneAndAdd(const CanonExpr *CE1, const CanonExpr *CE2,
-                         bool RelaxedMode = false);
+  static CanonExpr *cloneAndAdd(const CanonExpr *CE1, const CanonExpr *CE2,
+                                bool RelaxedMode = false);
 
   /// Modifies and returns CE1 to reflect difference of CE1 and CE2.
   /// CE1 = CE1 - CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                      bool RelaxedMode = false);
+  static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                             bool RelaxedMode = false);
 
   /// Returns a canon expr which represents the difference of CE1 and CE2.
   /// Result = CE1 - CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  CanonExpr *cloneAndSubtract(const CanonExpr *CE1, const CanonExpr *CE2,
-                              bool RelaxedMode = false);
+  static CanonExpr *cloneAndSubtract(const CanonExpr *CE1, const CanonExpr *CE2,
+                                     bool RelaxedMode = false);
 
   /// Returns a canon expr which represents the negation of CE.
   /// Result = -CE
-  CanonExpr *cloneAndNegate(const CanonExpr *CE);
+  static CanonExpr *cloneAndNegate(const CanonExpr *CE);
 
   /// Returns true if DefLevel is a valid DefinedAtLevel for any CanonExpr.
   static bool isValidDefLevel(unsigned DefLevel) {
@@ -211,9 +213,9 @@ public:
   /// Replaces IV in *CE1* at a particular loop *Level* by a CanonExpr *CE2*.
   /// Please be aware that this method can handle only CE2 with unit
   /// denominator because b*(x/d) != (b*x)/d.
-  CanonExpr *replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                  const CanonExpr *CE2,
-                                  bool RelaxedMode = false);
+  static CanonExpr *replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
+                                         const CanonExpr *CE2,
+                                         bool RelaxedMode = false);
 };
 
 } // End namespace loopopt

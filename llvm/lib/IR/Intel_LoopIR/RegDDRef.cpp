@@ -510,8 +510,9 @@ void RegDDRef::makeSelfBlob() {
 
 CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   const CanonExpr *BaseCE = getBaseCE();
-  if (!BaseCE || !BaseCE->isInvariantAtLevel(Level))
+  if (!BaseCE || !BaseCE->isInvariantAtLevel(Level)) {
     return nullptr;
+  }
 
   CanonExpr *StrideAtLevel = nullptr;
 
@@ -528,15 +529,17 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
     // blobs of this RegDDRef are invariant in Level, which in turn means that
     // any evolution of this RegDDRef in Level is associated with the IV of
     // Level.
-    if (!DimCE->isLinearAtLevel() || DimCE->getDefinedAtLevel() >= Level)
+    if (!DimCE->isLinearAtLevel() || DimCE->getDefinedAtLevel() >= Level) {
       return nullptr;
+    }
 
     // !hasIV(Level) does not guarantee that IV at Level does
     // not affect this access, as it may be hiding behind a blob;
     // Therefore this check alone is not sufficient (hence the check of the
     // DefinedAtLevel above).
-    if (!DimCE->hasIV(Level))
+    if (!DimCE->hasIV(Level)) {
       continue;
+    }
 
     if (StrideAtLevel) {
       if (!getCanonExprUtils().mergeable(StrideAtLevel, DimCE)) {
@@ -560,6 +563,11 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
     } else {
       StrideAtLevel->addConstant(Coeff * DimStride);
     }
+  }
+
+  // There is no stride for invariant references, so we bail out.
+  if (!StrideAtLevel) {
+    return nullptr;
   }
 
   // Collect the temp blobs of strideCE to potentially update the

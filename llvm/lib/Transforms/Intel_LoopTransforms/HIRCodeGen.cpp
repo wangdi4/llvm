@@ -89,8 +89,10 @@ private:
     // &A[i], and so we need to return a value representing that address to use
     // in a store instruction. For rvals, we want a value for what is stored at
     // that address to use as operand of an instruction. This function will
-    // return an address or a load of that address depending on rval/lval of ref
-    Value *visitRegDDRef(RegDDRef *Ref);
+    // return an address or a load of that address depending on rval/lval of
+    // ref. If MaskVal is not null, we generate a masked load/gather instead
+    // of the load.
+    Value *visitRegDDRef(RegDDRef *Ref, Value *MaskVal = nullptr);
     Value *visitScalar(RegDDRef *Ref);
 
     Value *visitRegion(HLRegion *R);
@@ -165,8 +167,8 @@ private:
 
     // \brief Creates and returns icmp or fcmp instuction(depending on lhs type)
     // at current IP
-    Value *createCmpInst(CmpInst::Predicate P, Value *LHS, Value *RHS,
-                         const Twine &Name);
+    Value *createCmpInst(CmpInst::Predicate P, FastMathFlags FMF, Value *LHS,
+                         Value *RHS, const Twine &Name);
 
     // \brief Return a value for blob corresponding to BlobIdx
     // We normally expect Blob type to match CE type. The only exception is
@@ -219,18 +221,6 @@ private:
       auto BlobVal =
           CoefCG(CE->getBlobCoeff(BlobIt),
                  getBlobValue(CE->getBlobIndex(BlobIt), CE->getSrcType()));
-      auto CEDestTy = CE->getDestType();
-
-      // We can have a CanonExpr with blobs where some of the blobs have
-      // been replaced by vectorized values while others simply need a
-      // broadcast of the loop invariant blob value. Handle these cases
-      // here. Example CE: i1 + %N + %.vec + <i32 0, i32 1, i32 2, i32 3>
-      // %N is a blob that needs a broadcast.
-      if (CEDestTy->isVectorTy() && !BlobVal->getType()->isVectorTy()) {
-        BlobVal = Builder->CreateVectorSplat(CEDestTy->getVectorNumElements(),
-                                             BlobVal);
-      }
-
       return BlobVal;
     }
 
@@ -516,25 +506,35 @@ void HIRCodeGen::preVisitCG(HLRegion *Reg) const {
 Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
 
   auto DestTy = CE->getDestType();
+  Type *CastToTy;
 
-  // If the value is a scalar type and dest type is a vector, we need
-  // to do a broadcast before applying the cast.
+  // If Val is a scalar and DestType is a vector, apply the cast operation
+  // before the broadcast - this is important for good performance
   if (DestTy->isVectorTy() && !Val->getType()->isVectorTy()) {
-    Val = Builder->CreateVectorSplat(DestTy->getVectorNumElements(), Val);
+    CastToTy = DestTy->getScalarType();
+  } else {
+    CastToTy = DestTy;
   }
 
   if (CE->isSExt()) {
-    Val = Builder->CreateSExt(Val, DestTy);
+    Val = Builder->CreateSExt(Val, CastToTy);
   } else if (CE->isZExt()) {
-    Val = Builder->CreateZExt(Val, DestTy);
+    Val = Builder->CreateZExt(Val, CastToTy);
   } else if (CE->isTrunc()) {
-    Val = Builder->CreateTrunc(Val, DestTy);
+    Val = Builder->CreateTrunc(Val, CastToTy);
+  }
+
+  // If the cast value is a scalar type and dest type is a vector, we need
+  // to do a broadcast.
+  if (DestTy->isVectorTy() && !Val->getType()->isVectorTy()) {
+    Val = Builder->CreateVectorSplat(DestTy->getVectorNumElements(), Val);
   }
 
   return Val;
 }
 
-Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
+Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P,
+                                            FastMathFlags FMF, Value *LHS,
                                             Value *RHS, const Twine &Name) {
   Value *CmpInst = nullptr;
 
@@ -546,10 +546,13 @@ Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
   if (LType->isIntegerTy() || LType->isPointerTy()) {
     CmpInst = Builder->CreateICmp(P, LHS, RHS, Name);
   } else if (LType->isFloatingPointTy()) {
+    Builder->setFastMathFlags(FMF);
     CmpInst = Builder->CreateFCmp(P, LHS, RHS, Name);
+    Builder->clearFastMathFlags();
   } else {
     llvm_unreachable("unknown predicate type in HIRCG");
   }
+
   return CmpInst;
 }
 
@@ -576,15 +579,24 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   BlobSum = sumBlobs(CE);
   IVSum = sumIV(CE);
 
-  // Broadcast scalar value if needed
+  // Broadcast scalar value only when absolutely needed. The broadcast is
+  // needed when both BlobSum and IVSum are non-null and one of BlobSum/IVSum
+  // is a vector and the other is a scalar.
   if (SrcType->isVectorTy()) {
-    if (BlobSum && !(BlobSum->getType()->isVectorTy())) {
-      BlobSum =
-          Builder->CreateVectorSplat(SrcType->getVectorNumElements(), BlobSum);
-    }
-    if (IVSum && !(IVSum->getType()->isVectorTy())) {
-      IVSum =
-          Builder->CreateVectorSplat(SrcType->getVectorNumElements(), IVSum);
+    if ((BlobSum && BlobSum->getType()->isVectorTy()) ||
+        (IVSum && IVSum->getType()->isVectorTy())) {
+      if (BlobSum && !(BlobSum->getType()->isVectorTy())) {
+        BlobSum = Builder->CreateVectorSplat(SrcType->getVectorNumElements(),
+                                             BlobSum);
+      }
+      if (IVSum && !(IVSum->getType()->isVectorTy())) {
+        IVSum =
+            Builder->CreateVectorSplat(SrcType->getVectorNumElements(), IVSum);
+      }
+    } else {
+      // Both BlobSum/IVSum are scalar, for C0/Denom use Scalar type.
+      // Any necessary broadcast is done in castToDestType.
+      SrcType = SrcType->getScalarType();
     }
   }
 
@@ -667,7 +679,7 @@ Value *HIRCodeGen::CGVisitor::visitScalar(RegDDRef *Ref) {
   return Alloca;
 }
 
-Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
+Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   assert(Ref && " Reference is null.");
   DEBUG(dbgs() << "cg for RegRef ");
   DEBUG(Ref->dump());
@@ -753,7 +765,10 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     Instruction *LInst;
 
     if (GEPVal->getType()->isVectorTy()) {
-      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal, Builder);
+      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal, Builder,
+                                               Ref->getAlignment(), MaskVal);
+    } else if (MaskVal) {
+      LInst = Builder->CreateMaskedLoad(GEPVal, Ref->getAlignment(), MaskVal);
     } else {
       LInst = Builder->CreateAlignedLoad(GEPVal, Ref->getAlignment(),
                                          Ref->isVolatile(), "gepload");
@@ -939,7 +954,7 @@ Value *HIRCodeGen::CGVisitor::generatePredicate(HLIf *HIf,
   assert(LHSVal->getType() == RHSVal->getType() &&
          "HLIf predicate type mismatch");
 
-  CurPred = createCmpInst(*P, LHSVal, RHSVal,
+  CurPred = createCmpInst(*P, HIf->getPredicateFMF(P), LHSVal, RHSVal,
                           "hir.cmp." + std::to_string(HIf->getNumber()));
 
   return CurPred;
@@ -1184,13 +1199,20 @@ void HIRCodeGen::CGVisitor::generateLvalStore(const HLInst *HInst,
   }
 
   auto LvalRef = HInst->getLvalDDRef();
+  RegDDRef *MaskDDRef = const_cast<RegDDRef *>(HInst->getMaskDDRef());
+  Value *MaskVal = MaskDDRef ? visitRegDDRef(MaskDDRef) : nullptr;
 
   if (LvalRef->hasGEPInfo()) {
     RegDDRef::MDNodesTy MDs;
     Instruction *ResInst;
+
     if (StorePtr->getType()->isVectorTy()) {
-      ResInst = VPOUtils::createMaskedScatterCall(F->getParent(), StorePtr,
-                                                  StoreVal, Builder);
+      ResInst = VPOUtils::createMaskedScatterCall(
+          F->getParent(), StorePtr, StoreVal, Builder, LvalRef->getAlignment(),
+          MaskVal);
+    } else if (MaskVal) {
+      ResInst = Builder->CreateMaskedStore(StoreVal, StorePtr,
+                                           LvalRef->getAlignment(), MaskVal);
     } else {
       ResInst = Builder->CreateAlignedStore(
           StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());
@@ -1199,7 +1221,29 @@ void HIRCodeGen::CGVisitor::generateLvalStore(const HLInst *HInst,
     LvalRef->getAllMetadataOtherThanDebugLoc(MDs);
     setMetadata(ResInst, MDs);
   } else {
-    Builder->CreateStore(StoreVal, StorePtr);
+    if (MaskVal) {
+      // At this point we know StorePtr is an address from an alloca that
+      // is safe to load. We use a blended unmasked store here which is
+      // better for performance and also needed as a work around for i1
+      // maskedstore issue in codegen(CQ416258).
+      // As an example consider the masked HLInst:
+      // %.vec = (<4 x i32>*)(%ip)[i1]; Mask = @{%Pred42_10}
+      // The generated LLVM IR looks like the following. %9 contains the
+      // address of (%ip)[i1], %t22. contains the mask value %Pred42_10,
+      // %t24 is the address of alloca corresponding to %.vec.
+      //
+      // %10 = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(
+      //     <4 x i32>* %9, i32 4, <4 x i1> %t22., <4 x i32> undef), !tbaa !2
+      //  %t22.18 = load <4 x i1>, <4 x i1>* %t22
+      //  %mload19 = load <4 x i32>, <4 x i32>* %t24
+      //  %11 = select <4 x i1> %t22.18, <4 x i32> %10, <4 x i32> %mload19
+      //  store <4 x i32> %11, <4 x i32>* %t24
+      auto MLoad = Builder->CreateLoad(StorePtr, "mload");
+      auto MSel = Builder->CreateSelect(MaskVal, StoreVal, MLoad);
+      Builder->CreateStore(MSel, StorePtr);
+    } else {
+      Builder->CreateStore(StoreVal, StorePtr);
+    }
   }
 }
 
@@ -1207,13 +1251,27 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
 
   // CG the operands
   SmallVector<Value *, 6> Ops;
+
+  // See if we need to compute the mask value. Currently we need to mask
+  // any generated loads if the HLInst has a mask DDRef.
+  Value *MaskVal = nullptr;
+  RegDDRef *MaskRef = HInst->getMaskDDRef();
+
   for (auto R = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); R != E;
        ++R) {
-    auto DestTy = (*R)->getDestType();
-    auto OpVal = visitRegDDRef(*R);
+    auto Ref = (*R);
+
+    // We need to mask loads if we have a mask ddref - generate mask value
+    // to be used for these loads.
+    if (MaskRef && !MaskVal && Ref->isRval() && Ref->isMemRef()) {
+      MaskVal = visitRegDDRef(MaskRef);
+    }
+
+    auto DestTy = Ref->getDestType();
+    auto OpVal = visitRegDDRef(Ref, MaskVal);
 
     // Do a broadcast of instruction operands if needed.
-    if ((*R)->isRval() && DestTy->isVectorTy() &&
+    if (Ref->isRval() && DestTy->isVectorTy() &&
         !(OpVal->getType()->isVectorTy())) {
       OpVal = Builder->CreateVectorSplat(DestTy->getVectorNumElements(), OpVal);
     }
@@ -1240,16 +1298,20 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
                                     BOp->getMetadata(LLVMContext::MD_fpmath));
 
     // CreateBinOp could fold operator to constant.
-    BinaryOperator *CastOp = dyn_cast<BinaryOperator>(StoreVal);
+    BinaryOperator *StoreBinOp = dyn_cast<BinaryOperator>(StoreVal);
 
-    if (CastOp) {
+    if (StoreBinOp) {
       if (isa<PossiblyExactOperator>(BOp)) {
-        CastOp->setIsExact(BOp->isExact());
+        StoreBinOp->setIsExact(BOp->isExact());
       }
 
       if (isa<OverflowingBinaryOperator>(BOp)) {
-        CastOp->setHasNoSignedWrap(BOp->hasNoSignedWrap());
-        CastOp->setHasNoUnsignedWrap(BOp->hasNoUnsignedWrap());
+        StoreBinOp->setHasNoSignedWrap(BOp->hasNoSignedWrap());
+        StoreBinOp->setHasNoUnsignedWrap(BOp->hasNoUnsignedWrap());
+      }
+
+      if (auto FPOp = dyn_cast<FPMathOperator>(BOp)) {
+        StoreBinOp->copyFastMathFlags(FPOp->getFastMathFlags());
       }
     }
 
@@ -1289,15 +1351,16 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     Value *TVal = Ops[3];
     Value *FVal = Ops[4];
 
-    Value *Pred =
-        createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS,
-                      "hir.selcmp." + std::to_string(HInst->getNumber()));
+    Value *Pred = createCmpInst(
+        HInst->getPredicate(), HInst->getPredicateFMF(), CmpLHS, CmpRHS,
+        "hir.selcmp." + std::to_string(HInst->getNumber()));
     StoreVal = Builder->CreateSelect(Pred, TVal, FVal);
 
   } else if (isa<CmpInst>(Inst)) {
 
-    StoreVal = createCmpInst(HInst->getPredicate(), Ops[1], Ops[2],
-                             "hir.cmp." + std::to_string(HInst->getNumber()));
+    StoreVal =
+        createCmpInst(HInst->getPredicate(), HInst->getPredicateFMF(), Ops[1],
+                      Ops[2], "hir.cmp." + std::to_string(HInst->getNumber()));
 
   } else if (isa<GetElementPtrInst>(Inst)) {
     // Gep Instructions in LLVM may have any number of operands but the HIR
@@ -1339,14 +1402,32 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
     return nullptr;
 
   auto CurBlobPair = CE->blob_begin();
-  Value *res = BlobPairCG(CE, CurBlobPair);
+  Value *Res = BlobPairCG(CE, CurBlobPair);
   CurBlobPair++;
 
+  auto CEDestTy = CE->getDestType();
   for (auto E = CE->blob_end(); CurBlobPair != E; ++CurBlobPair) {
-    res = Builder->CreateAdd(res, BlobPairCG(CE, CurBlobPair));
+    Value *CurRes = BlobPairCG(CE, CurBlobPair);
+
+    // We can have a CanonExpr with blobs where some of the blobs have
+    // been replaced by vectorized values while others simply need a
+    // broadcast of the loop invariant blob value. Handle these cases
+    // here. Example CE: i1 + %N + %.vec + <i32 0, i32 1, i32 2, i32 3>
+    // %N is a blob that needs a broadcast.
+    if (CEDestTy->isVectorTy()) {
+      if (Res->getType()->isVectorTy() && !CurRes->getType()->isVectorTy()) {
+        CurRes = Builder->CreateVectorSplat(CEDestTy->getVectorNumElements(),
+                                            CurRes);
+      } else if (CurRes->getType()->isVectorTy() &&
+                 !Res->getType()->isVectorTy()) {
+        Res = Builder->CreateVectorSplat(CEDestTy->getVectorNumElements(), Res);
+      }
+    }
+
+    Res = Builder->CreateAdd(Res, CurRes);
   }
 
-  return res;
+  return Res;
 }
 
 Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {

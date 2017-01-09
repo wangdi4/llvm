@@ -1265,6 +1265,9 @@ bool CanonExpr::canConvertToStandAloneBlob() const {
   return true;
 }
 
+// TODO: now it's allowed to convert constants to blobs. This is done to be able
+// to use min/max SCEVs within the HIR. After implementing MIN/MAX operation in
+// RegDDRef this should be changed and asserts should be added.
 bool CanonExpr::convertToStandAloneBlob() {
   if (!canConvertToStandAloneBlob()) {
     return false;
@@ -1290,7 +1293,7 @@ bool CanonExpr::convertToStandAloneBlob() {
   }
 
   // Add constant part.
-  if (getConstant() != 0) {
+  if (!MergedBlob || getConstant() != 0) {
     auto ConstBlob =
         getBlobUtils().createBlob(getConstant(), getSrcType(), false);
     if (MergedBlob) {

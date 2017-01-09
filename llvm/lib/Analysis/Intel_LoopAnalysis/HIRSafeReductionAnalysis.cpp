@@ -149,8 +149,8 @@ void HIRSafeReductionAnalysis::computeSafeReductionChains(const HLLoop *Loop) {
   SmallVector<const HLLoop *, 32> CandidateLoops;
   Loop->getHLNodeUtils().gatherInnermostLoops(CandidateLoops, Loop);
   for (auto &Lp : CandidateLoops) {
-    auto SR = SafeReductionMap.find(Lp);
-    if (SR != SafeReductionMap.end()) {
+    auto SRCL = SafeReductionMap.find(Lp);
+    if (SRCL != SafeReductionMap.end()) {
       continue;
     }
     identifySafeReduction(Lp);
@@ -223,10 +223,6 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
                                          unsigned ReductionOpCode,
                                          DDGraph DDG) {
 
-  if (!DDUtils::singleUseInLoop(LRef, Loop, DDG)) {
-    return false;
-  }
-
   auto I = DDG.outgoing_edges_begin(LRef);
   auto E = DDG.outgoing_edges_end(LRef);
 
@@ -234,6 +230,8 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
   if (I == E) {
     return false;
   }
+
+  HLNode *UseNode = nullptr;
 
   for (; I != E; ++I) {
     const DDEdge *Edge = *I;
@@ -254,8 +252,21 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
       continue;
     }
     unsigned ReductionOpCodeSave = ReductionOpCode;
-    if (!(*SinkInst)->isReductionOp(&ReductionOpCode) ||
-        ReductionOpCodeSave != ReductionOpCode) {
+    if ((!(*SinkInst)->isReductionOp(&ReductionOpCode) ||
+         ReductionOpCodeSave != ReductionOpCode)) {
+      return false;
+    }
+    bool IsMinMax = (ReductionOpCode == Instruction::Select);
+    // In case of min/max reduction, make sure both uses belong to the same
+    // 'select' operation
+    if (IsMinMax) {
+      if (!UseNode) {
+        UseNode = SinkNode;
+      } else {
+        return (UseNode == SinkNode);
+      }
+    }
+    if (!DDUtils::maxUsesInLoop(LRef, Loop, DDG, IsMinMax ? 2 : 1)) {
       return false;
     }
   }
@@ -467,7 +478,8 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
 
       if (Inst == SrcInst) {
         const RegDDRef *LRef = Inst->getLvalDDRef();
-        if (DDUtils::singleUseInLoop(LRef, Loop, DDG)) {
+        if (DDUtils::maxUsesInLoop(LRef, Loop, DDG,
+                                   Inst->isMinOrMax() ? 2 : 1)) {
           *SingleStmtReduction = true;
           *FirstRvalSB = DDRefSrc->getSymbase();
           return true;
@@ -492,26 +504,26 @@ void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
                                                    unsigned RedSymbase,
                                                    unsigned RedOpCode) {
 
-  SafeRedChainList &SR = SafeReductionMap[Loop];
-  SR.push_back(RedInsts);
-  auto &SRSet = SR.back();
+  SafeRedChainList &SRCL = SafeReductionMap[Loop];
+  SRCL.emplace_back(RedInsts, RedSymbase, RedOpCode);
+  unsigned SRIIndex = SRCL.size() - 1;
   for (auto &Inst : RedInsts) {
-    SafeReductionInstMap.insert(std::make_pair(Inst, &SRSet));
+    SafeReductionInstMap.insert(std::make_pair(Inst, SRIIndex));
   }
-  SafeReductionSymbaseMap[RedSymbase] = RedOpCode;
 }
 
 bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
                                                bool *IsSingleStmt) const {
 
-  auto Iter = SafeReductionInstMap.find(Inst);
-  if (Iter == SafeReductionInstMap.end()) {
+  const SafeRedInfo *SRI = getSafeRedInfo(Inst);
+  if (!SRI){
     return false;
   }
+
   if (IsSingleStmt) {
-    auto SRC = Iter->second;
-    *IsSingleStmt = (SRC->size() == 1 ? true : false);
+    *IsSingleStmt = (SRI->Chain.size() == 1 ? true : false);
   }
+
   return true;
 }
 
@@ -536,10 +548,10 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
     return;
   }
 
-  for (auto SRC : *SRCL) {
+  for (auto &SRI : *SRCL) {
     Loop->indent(OS, Depth);
     OS << "Safe Reduction:\n";
-    for (auto Inst : SRC) {
+    for (auto Inst : SRI.Chain) {
       Inst->print(OS, Depth, false);
       // Next 2 lines for testing valid Map
       // auto &SafeRedChain = SafeReductionInstMap[Inst];
@@ -551,14 +563,13 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
 void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
                                      const HLLoop *Loop) {
 
-  auto &SR = SafeReductionMap[Loop];
-  print(OS, Loop, &SR);
+  auto &SRCL = SafeReductionMap[Loop];
+  print(OS, Loop, &SRCL);
 }
 
 void HIRSafeReductionAnalysis::releaseMemory() {
   SafeReductionMap.clear();
   SafeReductionInstMap.clear();
-  SafeReductionSymbaseMap.clear();
 }
 
 void HIRSafeReductionAnalysis::markLoopBodyModified(const HLLoop *Loop) {
@@ -567,22 +578,56 @@ void HIRSafeReductionAnalysis::markLoopBodyModified(const HLLoop *Loop) {
   // No need to clean up info in parent loop
   auto Iter = SafeReductionMap.find(Loop);
   if (Iter != SafeReductionMap.end()) {
-    for (auto SRC : Iter->second) {
-      for (auto Inst : SRC) {
+    for (auto &SRI : Iter->second) {
+      for (auto Inst : SRI.Chain) {
         SafeReductionInstMap.erase(Inst);
       }
     }
     SafeReductionMap.erase(Loop);
   }
 }
-bool HIRSafeReductionAnalysis::isSafeReductionSymbase(unsigned Symbase,
-                                                      unsigned *OpCodeP) {
-  if (SafeReductionSymbaseMap.find(Symbase) == SafeReductionSymbaseMap.end()) {
+
+const SafeRedInfo *
+HIRSafeReductionAnalysis::getSafeRedInfo(const HLInst *Inst) const {
+
+  auto Iter = SafeReductionInstMap.find(Inst);
+  if (Iter == SafeReductionInstMap.end()) {
+    return nullptr;
+  }
+
+  // Get index of SafeRedInfo via Inst
+  auto &SRIIndex = Iter->second;
+  const HLLoop *Loop = Inst->getLexicalParentLoop();
+  // Get SafeRedChainList via Loop
+  auto Iter2 = SafeReductionMap.find(Loop);
+  assert(Iter2 != SafeReductionMap.end() && "Parent loop not found!");
+  auto &SRCL = Iter2->second;
+
+  // Return SafeRedInfo via obtained Index and SRCL
+  return &SRCL[SRIIndex];
+}
+
+bool HIRSafeReductionAnalysis::isReductionRef(const RegDDRef *Ref,
+                                              unsigned &RedOpCode) {
+  auto Node = Ref->getHLDDNode();
+
+  assert(Node && "RegDDRef with null HLDDNode?");
+  auto Inst = dyn_cast<HLInst>(Node);
+
+  if (!Inst) {
     return false;
   }
 
-  if (OpCodeP) {
-    *OpCodeP = SafeReductionSymbaseMap[Symbase];
+  const SafeRedInfo *SRI = getSafeRedInfo(Inst);
+
+  if (!SRI) {
+    return false;
   }
-  return true;
+
+  if (SRI->Symbase == Ref->getSymbase()) {
+    RedOpCode = SRI->OpCode;
+    return true;
+  } else {
+    return false;
+  }
 }

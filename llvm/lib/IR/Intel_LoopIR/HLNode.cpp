@@ -35,7 +35,7 @@ HLNode::HLNode(HLNodeUtils &HNU, unsigned SCID)
       MaxTopSortNum(0) {
 
   HNU.Objs.insert(this);
-  Number = HNU.Objs.size();
+  Number = HNU.getUniqueHLNodeNumber();
 }
 
 HLNode::HLNode(const HLNode &HLNodeObj)
@@ -43,7 +43,7 @@ HLNode::HLNode(const HLNode &HLNodeObj)
       TopSortNum(0), MaxTopSortNum(0) {
 
   HNU.Objs.insert(this);
-  Number = HNU.Objs.size();
+  Number = HNU.getUniqueHLNodeNumber();
 }
 
 DDRefUtils &HLNode::getDDRefUtils() const {
@@ -107,6 +107,47 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
 
   OS.indent(IndentWidth * Depth);
   OS << LoopIndentString;
+}
+
+void HLNode::printFMF(raw_ostream &OS, FastMathFlags FMF) {
+  OS << "<";
+
+  if (!FMF.unsafeAlgebra()) {
+    bool First = true;
+
+    if (FMF.noNaNs()) {
+      OS << "nnan";
+      First = false;
+    }
+
+    if (FMF.noInfs()) {
+      if (!First) {
+        OS << ",";
+      }
+      OS << "ninf";
+      First = false;
+    }
+
+    if (FMF.noSignedZeros()) {
+      if (!First) {
+        OS << ",";
+      }
+      OS << "nsz";
+      First = false;
+    }
+
+    if (FMF.allowReciprocal()) {
+      if (!First) {
+        OS << ",";
+      }
+      OS << "arcp";
+      First = false;
+    }
+  } else {
+    OS << "fast";
+  }
+
+  OS << ">";
 }
 
 void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
