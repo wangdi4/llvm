@@ -3505,7 +3505,11 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
 
     // The following transforms are only 'worth it' if the only user of the
     // subtraction is the icmp.
-    if (Op0->hasOneUse()) {
+#if INTEL_CUSTOMIZATION
+    // Disabling this particular optimization before loopopt as it interferes
+    // with ztt recognition.
+    if (Op0->hasOneUse() && !I.getParent()->getParent()->isPreLoopOpt()) {
+#endif // INTEL_CUSTOMIZATION
       // (icmp ne/eq (sub A B) 0) -> (icmp ne/eq A, B)
       if (I.isEquality() && CI->isZero() &&
           match(Op0, m_Sub(m_Value(A), m_Value(B))))
