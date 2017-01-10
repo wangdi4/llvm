@@ -50,6 +50,9 @@ namespace intel{
       if ( (CompilationUtils::getCLVersionFromModuleOrDefault(M) >=
                               OclVersion::CL_VER_2_0) &&
          BlockUtils::isBlockInvokeFunction(*func)) continue; // skip block_invoke functions
+      // TODO: replace by a check for globals initializers
+      if (func->getName() == "__global_pipes_ctor")
+        continue;
       std::set<Value *> visited; // list to avoid infinite loops
       if (isNeededByKernel(func, visited)) continue; // skip needed functions
       func->deleteBody();

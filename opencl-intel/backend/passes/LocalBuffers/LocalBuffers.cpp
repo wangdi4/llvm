@@ -49,6 +49,9 @@ namespace intel{
         // Function is not defined inside module
         continue;
       }
+      if (pFunc->getName() == "__global_pipes_ctor")
+        continue;
+
       runOnFunction(pFunc);
       if (kernelsFunctionSet.count(pFunc) ) {
         //We have a kernel, update metadata
