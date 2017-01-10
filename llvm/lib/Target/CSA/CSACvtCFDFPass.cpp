@@ -1285,31 +1285,54 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
   std::sort(exitingBlks.begin(), exitingBlks.end(), CmpFcn(bb2rpo));
 
   unsigned landResult = 0;
-  unsigned landOperand = 0;
-  
-  for (unsigned i = 0; i < exitingBlks.size(); i++) {
+  unsigned landSrc = 0;
+  MachineInstr* landInstr;
+  unsigned j = 0;
+  for (unsigned i = 0; i < exitingBlks.size(); i++, j++) {
     MachineBasicBlock* exiting = exitingBlks[i];
     assert(exiting->succ_size() == 2);
     MachineBasicBlock* exit = mloop->contains(*exiting->succ_begin()) ?
                               *exiting->succ_rbegin() :
                               *exiting->succ_begin();
     MachineInstr* bi = &*exiting->getFirstInstrTerminator();
-    unsigned exitOperand = bi->getOperand(0).getReg();
+    MachineOperand &exitOperand = bi->getOperand(0);
+    unsigned exitReg = exitOperand.getReg();
     if (CDG->getEdgeType(exiting, exit, true) == ControlDependenceNode::TRUE) {
       unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-      BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(bi->getOperand(0).getReg());
-      exitOperand = notReg;
+      MachineInstr* notInstr = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(CSA::NOT1), 
+                                       notReg).
+                                       addReg(exitOperand.getReg());
+      notInstr->setFlag(MachineInstr::NonSequential);
+      exitOperand = notInstr->getOperand(0);
+      exitReg = notReg;
     }
-    if (!landOperand) {
-      landOperand = exitOperand;
+    if (!landSrc) {
+      landSrc = exitReg;
     } else if (!landResult) {
       landResult = MRI->createVirtualRegister(&CSA::I1RegClass);
-      BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::LAND1), landResult).addReg(landOperand).addReg(exitOperand);
+      landInstr = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(CSA::LAND1), 
+                          landResult).
+                          addReg(landSrc).
+                          addReg(exitReg);
+      landInstr->setFlag(MachineInstr::NonSequential);
     } else {
-      unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
-      BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::LAND1), newResult).addReg(landResult).addReg(exitOperand);
-      landResult = newResult;
+      if (j < 4) {
+        landInstr->addOperand(exitOperand);
+      } else {
+        j = 0;
+        unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+        landInstr = BuildMI(*latchBB, latchBB->getFirstInstrTerminator(), DebugLoc(), TII.get(CSA::LAND1), 
+                            newResult).
+                            addReg(landResult).
+                            addReg(exitReg);
+        landInstr->setFlag(MachineInstr::NonSequential);
+        landResult = newResult;
+      }
     }
+  }
+
+  for (unsigned i = j; i < 4; i++) {
+    landInstr->addOperand(MachineOperand::CreateReg(CSA::IGN, false));
   }
 
 
@@ -1319,7 +1342,7 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
   assert(new_LIC_RC && "Can't determine register class for register");
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
   const unsigned moveOpcode = TII.getMoveOpcode(&CSA::I1RegClass);
-  MachineInstr *cpyInst = BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(landResult);
+  MachineInstr *cpyInst = BuildMI(*latchBB, latchBB->getFirstInstrTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(landResult);
   cpyInst->setFlag(MachineInstr::NonSequential);
 
   MachineBasicBlock *lphdr = mloop->getHeader();
@@ -1480,7 +1503,7 @@ void CSACvtCFDFPass::assignLicForDF() {
           TII.isAdd(mInst) || TII.isSub(mInst) ||
           mInst->getOpcode() == CSA::PREDMERGE || 
           mInst->getOpcode() == CSA::PREDPROP || 
-          mInst->getOpcode() == CSA::OR1) {
+          mInst->getOpcode() == CSA::LAND1) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();
