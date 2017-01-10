@@ -21,7 +21,7 @@
 // This source file contains an implementation of OpenCL 2.0 built-in pipe functions
 
 #if defined(_DEBUG)
-#define INTEL_PIPE_DPF(format, args...) (void) printf
+#define INTEL_PIPE_DPF printf
 #else
 #define INTEL_PIPE_DPF(format, args...)
 #endif
@@ -555,5 +555,23 @@ void __work_group_commit_write_pipe(write_only pipe uchar p, reserve_id_t reserv
 }
 
 #endif // defined (__MIC__) || defined(__MIC2__)
+
+int __write_pipe_2_bl(write_only pipe uchar pipe_, void* data,
+                      uint size_of_packet, uint alignment_of_packet) {
+  while (-1 == __write_pipe_2(pipe_, data,
+                              size_of_packet, alignment_of_packet)) {
+  }
+
+  return 0;
+}
+
+int __read_pipe_2_bl(read_only pipe uchar pipe_, void* data,
+                     uint size_of_packet, uint alignment_of_packet) {
+  while (-1 == __read_pipe_2(pipe_, data,
+                             size_of_packet, alignment_of_packet)) {
+  }
+
+  return 0;
+}
 
 #endif // __OPENCL_C_VERSION__ >= 200

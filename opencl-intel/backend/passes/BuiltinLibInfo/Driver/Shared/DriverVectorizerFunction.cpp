@@ -45,6 +45,8 @@ static bool isPipeBuiltin(const std::string &s) {
       .Case("__sub_group_reserve_write_pipe", true)
       .Case("__work_group_commit_write_pipe", true)
       .Case("__work_group_reserve_write_pipe", true)
+      .Case("__write_pipe_2_bl", true)
+      .Case("__read_pipe_2_bl", true)
       .Default(false);
 }
 
