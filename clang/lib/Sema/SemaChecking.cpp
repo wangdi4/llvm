@@ -762,6 +762,13 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     }
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_va_arg_pack_len:
+  case Builtin::BI__builtin_va_arg_pack:
+    if (SemaBuiltinVAArgPackChecks(TheCall, BuiltinID))
+      return ExprError();
+    break;
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isgreater:
   case Builtin::BI__builtin_isgreaterequal:
   case Builtin::BI__builtin_isless:
@@ -3733,6 +3740,48 @@ bool Sema::SemaBuiltinVAStartARM(CallExpr *Call) {
 
   return false;
 }
+#if INTEL_CUSTOMIZATION
+bool Sema::SemaBuiltinVAArgPackChecks(CallExpr *TheCall, unsigned BuiltinID) {
+  Expr *Fn = TheCall->getCallee();
+  if (TheCall->getNumArgs() > 0) {
+    return Diag(TheCall->getArg(0)->getLocStart(),
+                diag::err_typecheck_call_too_many_args)
+           << 0 /*function call*/ << 0 << TheCall->getNumArgs()
+           << Fn->getSourceRange()
+           << SourceRange(TheCall->getArg(0)->getLocStart(),
+                          (*(TheCall->arg_end() - 1))->getLocEnd());
+  }
+  if (const FunctionDecl *FD = getCurFunctionDecl()) {
+    // Check we are in an inlined function and ensure this function is not emitted.
+    if (!FD->isInlined() || !FD->isInlineSpecified() ||
+        FD->doesDeclarationForceExternallyVisibleDefinition() ||
+        !(Context.getLangOpts().GNUInline || FD->hasAttr<GNUInlineAttr>() ||
+          FD->hasAttr<AlwaysInlineAttr>()))
+      return Diag(Fn->getLocStart(), diag::err_va_arg_pack_invalid_usage)
+             << (BuiltinID == Builtin::BI__builtin_va_arg_pack_len ? 1 : 0);
+  } else {
+    // Can only be used inside a function
+    return Diag(Fn->getLocStart(), diag::err_va_arg_pack_invalid_usage)
+             << (BuiltinID == Builtin::BI__builtin_va_arg_pack_len ? 1 : 0);
+  }
+
+  // Determine whether the current function is variadic or not.
+  bool IsVariadic = false;
+  if (BlockScopeInfo *CurBlock = getCurBlock())
+    IsVariadic = CurBlock->TheDecl->isVariadic();
+  else if (FunctionDecl *FD = getCurFunctionDecl())
+    IsVariadic = FD->isVariadic();
+  else
+    IsVariadic = getCurMethodDecl()->isVariadic();
+
+  if (!IsVariadic) {
+    // Using this  in a non-variadic function is illegal.
+    return Diag(Fn->getLocStart(), 
+                diag::err_va_pack_used_in_non_variadic_function);
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// SemaBuiltinUnorderedCompare - Handle functions like __builtin_isgreater and
 /// friends.  This is declared to take (...), so we have to check everything.
