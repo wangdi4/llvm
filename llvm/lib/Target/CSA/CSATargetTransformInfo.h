@@ -48,7 +48,6 @@ class CSATTIImpl : public BasicTTIImplBase<CSATTIImpl> {
   const CSATargetLowering *getTLI() const {
     return TLI;
   }
-  const CSASubtarget *getST() const { return ST; }
 
 public:
   explicit CSATTIImpl(const CSATargetMachine *TM, const Function &F)
@@ -75,6 +74,8 @@ public:
   unsigned getJumpBufSize() const;
   bool shouldBuildLookupTables() const;
   bool haveFastSqrt(Type *Ty) const;
+  void getUnrollingPreferences(Loop *L, TTI::UnrollingPreferences &UP);
+
   /// @}
 
   /// \name Vector TTI Implementations

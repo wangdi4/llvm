@@ -10,6 +10,10 @@
 #include <utility>
 using namespace llvm;
 
+static cl::opt<unsigned>
+CSAUnrollingThreshold("csa-unrolling-threshold", cl::init(248),
+cl::desc("Threshold for partial unrolling"), cl::Hidden);
+
 bool CSATTIImpl::hasBranchDivergence() const { return false; }
 
 bool CSATTIImpl::isLegalAddImmediate(int64_t imm) const {
@@ -47,6 +51,63 @@ bool CSATTIImpl::haveFastSqrt(Type *Ty) const {
   const TargetLoweringBase *TLI = getTLI();
   EVT VT = TLI->getValueType(DL, Ty);
   return TLI->isTypeLegal(VT) && TLI->isOperationLegalOrCustom(ISD::FSQRT, VT);
+}
+
+void CSATTIImpl::getUnrollingPreferences(Loop *L, TTI::UnrollingPreferences &UP) {
+  // This unrolling functionality is target independent, but to provide some
+  // motivation for its intended use, for x86:
+
+  // According to the Intel 64 and IA-32 Architectures Optimization Reference
+  // Manual, Intel Core models and later have a loop stream detector
+  // (and associated uop queue) that can benefit from partial unrolling.
+  // The relevant requirements are:
+  //  - The loop must have no more than 4 (8 for Nehalem and later) branches
+  //    taken, and none of them may be calls.
+  //  - The loop can have no more than 18 (28 for Nehalem and later) uops.
+
+  // According to the Software Optimization Guide for AMD Family 15h Processors,
+  // models 30h-4fh (Steamroller and later) have a loop predictor and loop
+  // buffer which can benefit from partial unrolling.
+  // The relevant requirements are:
+  //  - The loop must have fewer than 16 branches
+  //  - The loop must have less than 40 uops in all executed loop branches
+
+  // The number of taken branches in a loop is hard to estimate here, and
+  // benchmarking has revealed that it is better not to be conservative when
+  // estimating the branch count. As a result, we'll ignore the branch limits
+  // until someone finds a case where it matters in practice.
+
+  //  unsigned MaxOps = 0;
+  if (ST->getSchedModel().LoopMicroOpBufferSize > 0)
+    /* MaxOps = ST->getSchedModel().LoopMicroOpBufferSize */ ;
+  //CSA edit: set up runtime unroll threshold for CSA target to UINT32_MAX
+  else {
+    assert(ST->getTargetTriple().str().substr(0, 3) == "csa");
+    if (!CSAUnrollingThreshold) {
+      return;
+    } 
+  }
+
+  // Scan the loop: don't unroll loops with calls.
+  for (Loop::block_iterator I = L->block_begin(), E = L->block_end();
+       I != E; ++I) {
+    BasicBlock *BB = *I;
+
+    for (BasicBlock::iterator J = BB->begin(), JE = BB->end(); J != JE; ++J)
+      if (isa<CallInst>(J) || isa<InvokeInst>(J)) {
+        ImmutableCallSite CS(&*J);
+        if (const Function *F = CS.getCalledFunction()) {
+          if (!BaseT::isLoweredToCall(F))
+            continue;
+        }
+
+        return;
+      }
+  }
+
+  // Enable runtime and partial unrolling up to the specified size.
+  UP.Partial = UP.Runtime = true;
+  UP.PartialThreshold = UP.PartialOptSizeThreshold = CSAUnrollingThreshold;
 }
 
 //===----------------------------------------------------------------------===//
