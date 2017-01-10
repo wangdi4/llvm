@@ -178,7 +178,9 @@ Function *createPipesCtor(Module &M,
   return Ctor;
 }
 
-static bool createPipeGlobals(Module &M, ValueToValueMap &ChannelToPipeMap,
+static bool createPipeGlobals(Module &M,
+                              ValueToValueMap &ChannelToPipeMap,
+                              PipeMetadataMap &PipesMD,
                               SmallVectorImpl<Module *> &BuiltinModules) {
   auto *ChannelTy = M.getTypeByName("opencl.channel_t");
   if (!ChannelTy) {
@@ -215,7 +217,6 @@ static bool createPipeGlobals(Module &M, ValueToValueMap &ChannelToPipeMap,
     ChannelToPipeMap[GV] = PipeGV;
   }
 
-  PipeMetadataMap PipesMD;
   getPipesMetadata(M, ChannelToPipeMap, PipesMD);
 
   ValueToValueMap PipeToBSMap;
@@ -229,7 +230,9 @@ static bool createPipeGlobals(Module &M, ValueToValueMap &ChannelToPipeMap,
 }
 
 static bool replaceReadChannel(Function &F, Function &Replacement,
-                               Module &M, ValueToValueMap ChannelToPipeMap) {
+                               Module &M,
+                               ValueToValueMap ChannelToPipeMap,
+                               PipeMetadataMap PipesMD) {
   bool Changed = false;
   for (auto *U : F.users()) {
     auto *ChannelCall = dyn_cast<CallInst>(U);
@@ -248,8 +251,6 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
       ResultTy = ResultPtr->getType();
     }
     Value *ChanArg = (ArgIt++)->get();
-    Value *PacketSize = (ArgIt++)->get();
-    Value *PacketAlign = (ArgIt++)->get();
 
     if (!ResultPtr) {
       // primitive type result is returned by value from read_channel
@@ -272,13 +273,17 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
     Value *ChanGlobal = cast<LoadInst>(ChanArg)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
 
+    auto PipeMD = PipesMD.lookup(PipeGlobal);
+    assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
+           "Pipe metadata not found.");
+
     Value *PipeCallArgs[] = {
       new LoadInst(PipeGlobal, "", /*InsertBefore*/ChannelCall),
       CastInst::CreatePointerBitCastOrAddrSpaceCast(
           ResultPtr, ReadPipeFTy->getParamType(1),
           "", /*InsertBefore*/ChannelCall),
-      PacketSize,
-      PacketAlign
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketAlign)
     };
 
     CallInst::Create(ReadPipe, PipeCallArgs, "", ChannelCall);
@@ -299,7 +304,9 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
 }
 
 static bool replaceWriteChannel(Function &F, Function &Replacement,
-                                Module &M, ValueToValueMap ChannelToPipeMap) {
+                                Module &M,
+                                ValueToValueMap ChannelToPipeMap,
+                                PipeMetadataMap PipesMD) {
   bool Changed = false;
   for (auto *U : F.users()) {
     auto *ChannelCall = dyn_cast<CallInst>(U);
@@ -309,8 +316,6 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
 
     auto *Chan = ChannelCall->getArgOperand(0);
     auto *Val = ChannelCall->getArgOperand(1);
-    auto *PacketSize = ChannelCall->getArgOperand(2);
-    auto *PacketAlign = ChannelCall->getArgOperand(3);
 
     auto *WritePipe = &Replacement;
     if (Replacement.getParent() != &M) {
@@ -323,6 +328,11 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
     Value *ChanGlobal = cast<LoadInst>(Chan)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
 
+    auto PipeMD = PipesMD.lookup(PipeGlobal);
+    assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
+           "Pipe metadata not found.");
+
+
     Value *ValPtr = new AllocaInst(Val->getType(), "",
                                    /*InsertBefore*/ChannelCall);
     new StoreInst(Val, ValPtr, /*InsertBefore*/ChannelCall);
@@ -332,8 +342,8 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
       CastInst::CreatePointerBitCastOrAddrSpaceCast(
           ValPtr, WritePipeFTy->getParamType(1),
           "", /*InsertBefore*/ChannelCall),
-      PacketSize,
-      PacketAlign
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketAlign)
     };
 
     CallInst::Create(WritePipe, PipeCallArgs, "", ChannelCall);
@@ -346,6 +356,7 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
 
 static bool replaceChannelBuiltins(Module &M,
                                    ValueToValueMap ChannelToPipeMap,
+                                   PipeMetadataMap PipesMD,
                                    SmallVectorImpl<Module *> &BuiltinModules) {
   Function *ReadPipe = nullptr;
   Function *WritePipe = nullptr;
@@ -366,10 +377,12 @@ static bool replaceChannelBuiltins(Module &M,
   for (auto &F : M) {
     auto Name = F.getName();
     if (Name.npos != Name.find("read_channel_altera")) {
-      Changed |= replaceReadChannel(F, *ReadPipe, M, ChannelToPipeMap);
+      Changed |= replaceReadChannel(F, *ReadPipe, M,
+                                    ChannelToPipeMap, PipesMD);
     } else if (Name.npos !=
                F.getName().find("write_channel_altera")) {
-      Changed |= replaceWriteChannel(F, *WritePipe, M, ChannelToPipeMap);
+      Changed |= replaceWriteChannel(F, *WritePipe, M,
+                                     ChannelToPipeMap, PipesMD);
     }
   }
   return Changed;
@@ -382,8 +395,10 @@ bool ChannelPipeTransformation::runOnModule(Module &M) {
   SmallVector<Module*, 2> BuiltinModules = BLI.getBuiltinModules();
 
   ValueToValueMap ChannelToPipeMap;
-  Changed |= createPipeGlobals(M, ChannelToPipeMap, BuiltinModules);
-  Changed |= replaceChannelBuiltins(M, ChannelToPipeMap, BuiltinModules);
+  PipeMetadataMap PipesMD;
+  Changed |= createPipeGlobals(M, ChannelToPipeMap, PipesMD, BuiltinModules);
+  Changed |= replaceChannelBuiltins(M, ChannelToPipeMap, PipesMD,
+                                    BuiltinModules);
 
   return Changed;
 }
