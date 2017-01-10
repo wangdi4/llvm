@@ -175,12 +175,17 @@ struct HIRLoopInterchange::CollectCandidateLoops final
     bool IsNearPerfectLoop = false;
     if (HNU.isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
                               &IsNearPerfectLoop)) {
+
+      DEBUG(dbgs() << "Is  Perfect loopnest\n");
+
       if (!IsNearPerfectLoop) {
         DEBUG(dbgs() << "Is Perfect");
         if (HNU.hasNonUnitStrideRefs(InnermostLoop)) {
           DEBUG(dbgs() << "\nHas non unit stride");
           CandidateLoops.push_back(
               std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+          SkipNode = Loop;
+          return;
         } else {
           DEBUG(dbgs() << "MemRefs are in unit stride or non-linear Defs");
         }
@@ -195,16 +200,15 @@ struct HIRLoopInterchange::CollectCandidateLoops final
                                            DDG)) {
           CandidateLoops.push_back(
               std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-
+          SkipNode = Loop;
           DEBUG(dbgs() << "Perfect Loopnest enabled\n");
           DEBUG(dbgs(); Loop->dump());
           // Save & invalidate later to avoid DDRebuild and safe reduction map
           // released
           LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
+          return;
         }
       }
-      SkipNode = Loop;
-      return;
     }
   }
   void visit(HLNode *Node) {}
