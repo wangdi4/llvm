@@ -83,16 +83,6 @@ void HIRRegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
 }
 
-const GEPOperator *
-HIRRegionIdentification::getBaseGEPOp(const GEPOperator *GEPOp) const {
-
-  while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
-    GEPOp = TempGEPOp;
-  }
-
-  return GEPOp;
-}
-
 Type *HIRRegionIdentification::getPrimaryElementType(Type *PtrTy) const {
   assert(isa<PointerType>(PtrTy) && "Unexpected type!");
 
@@ -124,7 +114,7 @@ bool HIRRegionIdentification::isHeaderPhi(const PHINode *Phi) const {
   return false;
 }
 
-bool HIRRegionIdentification::isSupported(Type *Ty) const {
+bool HIRRegionIdentification::isSupported(Type *Ty) {
   assert(Ty && "Type is null!");
 
   for (; SequentialType *SeqTy = dyn_cast<SequentialType>(Ty);) {
@@ -136,9 +126,9 @@ bool HIRRegionIdentification::isSupported(Type *Ty) const {
     Ty = SeqTy->getElementType();
   }
 
-  if (Ty->isStructTy() || Ty->isFunctionTy()) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: structure/function pointer types "
-                    "currently not supported.\n");
+  if (Ty->isFunctionTy()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: function pointer types currently not "
+                    "supported.\n");
     return false;
   }
 
@@ -154,15 +144,35 @@ bool HIRRegionIdentification::isSupported(Type *Ty) const {
   return true;
 }
 
-bool HIRRegionIdentification::containsUnsupportedTy(
-    const Instruction *Inst) const {
+bool HIRRegionIdentification::containsUnsupportedTy(const GEPOperator *GEPOp) {
+  SmallVector<Value *, 8> Operands;
 
-  if (auto GEPOp = dyn_cast<GEPOperator>(Inst)) {
-    GEPOp = getBaseGEPOp(GEPOp);
+  auto BaseTy = GEPOp->getPointerOperandType()->getSequentialElementType();
 
-    if (!isSupported(GEPOp->getSourceElementType())) {
+  if (!isSupported(BaseTy)) {
+    return true;
+  }
+
+  unsigned NumOp = GEPOp->getNumOperands() - 1;
+  Operands.push_back(const_cast<Value *>(GEPOp->getOperand(1)));
+
+  for (unsigned I = 2; I <= NumOp; ++I) {
+    Operands.push_back(const_cast<Value *>(GEPOp->getOperand(I)));
+
+    auto OpTy = GetElementPtrInst::getIndexedType(BaseTy, Operands);
+
+    if (!isSupported(OpTy)) {
       return true;
     }
+  }
+
+  return false;
+}
+
+bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst) {
+
+  if (auto GEPOp = dyn_cast<GEPOperator>(Inst)) {
+    return containsUnsupportedTy(GEPOp);
   }
 
   unsigned NumOp = Inst->getNumOperands();
@@ -176,15 +186,7 @@ bool HIRRegionIdentification::containsUnsupportedTy(
 
   // Check instruction operands
   for (unsigned I = 0; I < NumOp; ++I) {
-
-    if (const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Inst->getOperand(I))) {
-      GEPOp = getBaseGEPOp(GEPOp);
-
-      if (!isSupported(GEPOp->getSourceElementType())) {
-        return true;
-      }
-
-    } else if (!isSupported(Inst->getOperand(I)->getType())) {
+    if (!isSupported(Inst->getOperand(I)->getType())) {
       return true;
     }
   }
@@ -247,6 +249,13 @@ public:
 
   void analyze() {
     for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
+      const Loop *ParentLp = RI.LI->getLoopFor(*BB);
+
+      // Skip bblocks which belong to inner loops.
+      if (ParentLp != &Lp) {
+        continue;
+      }
+
       if (!visitBasicBlock(**BB)) {
         IsProfitable = false;
         break;
@@ -329,6 +338,13 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return visitInstruction(static_cast<const Instruction &>(BI));
   }
 
+  auto ParentBB = BI.getParent();
+
+  // Complex CFG checks do not apply to headers/latches.
+  if ((ParentBB == Lp.getHeader()) || (ParentBB == Lp.getLoopLatch())) {
+    return true;
+  }
+
   if (++IfCount > MaxIfThreshold) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many ifs.\n");
@@ -336,7 +352,6 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   }
 
   unsigned IfNestCount = 0;
-  auto ParentBB = BI.getParent();
   auto DomNode = RI.DT->getNode(const_cast<BasicBlock *>(ParentBB));
 
   while (DomNode != HeaderDomNode) {
@@ -374,11 +389,6 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return false;
   }
 
-  // Complex CFG checks do not apply to headers/latches.
-  if ((ParentBB == Lp.getHeader()) || (ParentBB == Lp.getLoopLatch())) {
-    return true;
-  }
-
   auto Succ0 = BI.getSuccessor(0);
   auto Succ1 = BI.getSuccessor(1);
 
@@ -407,11 +417,6 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
 
   // SIMD loops should not be throttled.
   if (isSIMDLoop(Lp)) {
-    return false;
-  }
-
-  // Restrict checks to innermost loops for now. This can be expanded later.
-  if (!Lp.empty()) {
     return false;
   }
 
@@ -562,10 +567,26 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
         return false;
       }
 
+      // TODO: think about HIR representation for
+      // InsertValueInst/ExtractValueInst.
+      if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst)) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: InsertValueInst/ExtractValueInst "
+                        "currently not supported.\n");
+        return false;
+      }
+
       if (Inst.getType()->isVectorTy()) {
         DEBUG(dbgs()
               << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
         return false;
+      }
+
+      if (auto CInst = dyn_cast<CallInst>(&Inst)) {
+        if (CInst->isInlineAsm()) {
+          DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Inline assembly currently not "
+                          "supported.\n");
+          return false;
+        }
       }
 
       if (containsUnsupportedTy(&Inst)) {

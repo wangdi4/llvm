@@ -113,6 +113,13 @@ public:
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
 
+  /// Mark loop containing switches as non-vectorizable until VPO is able to
+  /// handle them.
+  void visit(HLSwitch *Switch) {
+    Info->setVecType(ParVecInfo::SWITCH_STMT);
+    Info->setParType(ParVecInfo::SWITCH_STMT);
+  }
+
   /// \brief catch-all visit().
   void visit(HLNode *Node) {}
   /// \brief catch-all postVisit().
@@ -378,6 +385,15 @@ void DDWalk::visit(HLDDNode *Node) {
   for (auto Itr = Node->ddref_begin(), End = Node->ddref_end(); Itr != End;
        ++Itr) {
     auto Ref = *Itr;
+
+    // Disable vectorization of structure accesses until codegen can handle
+    // them.
+    if (Ref->accessesStruct()) {
+      Info->setVecType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
+      Info->setParType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
+      continue;
+    }
+
     auto II = DDG.outgoing_edges_begin(Ref), EE = DDG.outgoing_edges_end(Ref);
 
     // TODO - Check if we really need to analyze edges for non-livein temps

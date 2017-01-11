@@ -6,16 +6,18 @@
 ; + DO i1 = 0, smax(3, %n) + -3, 1   <DO_LOOP>
 ; |   %0 = (%p3)[i1 + 1];
 ; |   (%p3)[i1] = %0;
-; |   %1 = (%p1)[(-4 * i1 + 4 * sext.i32.i64(%n) + -8)/u4];
+; |   %1 = (%p1)[(-4 * i1 + 4 * %n + -8)/u4];
 ; |   %2 = (%p3)[i1 + 1];
 ; + END LOOP
 
 ; CHECK: + DO i1 = 0, smax(3, %n) + -3, 1   <DO_LOOP>
 ; CHECK: |   %0 = (%p3)[i1 + 1];
 ; CHECK: |   (%p3)[i1] = %0;
-; CHECK: |   %1 = (%p1)[-1 * i1 + sext.i32.i64(%n) + -2];
+; CHECK: |   %1 = (%p1)[-1 * i1 + %n + -2];
 ; CHECK: |   %2 = (%p3)[i1 + 1];
 ; CHECK: + END LOOP
+
+target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 
 define i32 @t_run_test(i32* %p1, i32 %n, i32* %p3) {
 entry:                             ; preds = %for.body70

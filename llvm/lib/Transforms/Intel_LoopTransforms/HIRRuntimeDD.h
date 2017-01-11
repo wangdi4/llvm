@@ -53,6 +53,7 @@ enum RuntimeDDResult {
   SAME_BASE,
   NON_DO_LOOP,
   NON_PROFITABLE,
+  STRUCT_ACCESS
 };
 
 // The struct represents a segment of memory. It is used to construct checks

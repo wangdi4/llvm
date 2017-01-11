@@ -1,4 +1,5 @@
-; RUN: opt < %s  -O3 -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
+; INTEL - Disabling loopopt as it affects pass pipeline.
+; RUN: opt < %s  -O3 -loopopt=false -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
 
 ;AVX1-NOT: llvm.masked
 

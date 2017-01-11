@@ -42,8 +42,6 @@ FunctionPass *llvm::createHIRSymbaseAssignmentPass() {
 
 namespace {
 class HIRSymbaseAssignmentVisitor final : public HLNodeVisitorBase {
-
-private:
   HIRSymbaseAssignment *SA;
 
   void addToAST(RegDDRef *Ref);
@@ -51,12 +49,10 @@ private:
 
 public:
   AliasSetTracker AST;
-  HIRParser *HIRP;
   std::map<Value *, SmallVector<DDRef *, 16>> PtrToRefs;
 
-  HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment *CurSA, AliasAnalysis *AA,
-                              HIRParser *CurHIRP)
-      : SA(CurSA), AST(*AA), HIRP(CurHIRP) {}
+  HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment *CurSA, AliasAnalysis *AA)
+      : SA(CurSA), AST(*AA) {}
   void visit(HLNode *Node) {}
   void visit(HLDDNode *Node);
   void postVisit(HLNode *) {}
@@ -141,7 +137,7 @@ bool HIRSymbaseAssignment::runOnFunction(Function &F) {
 
   initializeMaxSymbase();
 
-  HIRSymbaseAssignmentVisitor SV(this, AA, HIRP);
+  HIRSymbaseAssignmentVisitor SV(this, AA);
 
   // Cannot use visitAll() here as HIRFramework pointer isn't set yet.
   HLNodeUtils::visitRange(SV, HIRP->hir_begin(), HIRP->hir_end());

@@ -15,18 +15,12 @@
 ; CHECK: |         %mul = %1  *  %2;
 ; CHECK: |         %add = %0  +  %mul;
 ; CHECK: |         (%d)[i1] = %add;
-; CHECK: |      }
-; CHECK: |      else
-; CHECK: |      {
-; CHECK: |         goto if.else;
+; CHECK: |         goto for.inc;
 ; CHECK: |      }
 ; CHECK: |   }
-; CHECK: |   else
-; CHECK: |   {
-; CHECK: |      if.else:
-; CHECK: |      %4 = (i32*)(%c)[i1];
-; CHECK: |      (i32*)(%d)[i1] = %4;
-; CHECK: |   }
+; CHECK: |   %4 = (i32*)(%c)[i1];
+; CHECK: |   (i32*)(%d)[i1] = %4;
+; CHECK: |   for.inc:
 ; CHECK: + END LOOP
 ; CHECK: @llvm.intel.directive(!"DIR.OMP.END.SIMD");
 ; CHECK: @llvm.intel.directive(!"DIR.QUAL.LIST.END");

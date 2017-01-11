@@ -220,6 +220,27 @@ public:
   static bool getConstIterationDistance(const RegDDRef *Ref1,
                                         const RegDDRef *Ref2,
                                         unsigned LoopLevel, int64_t *Distance);
+
+  /// Returns the type obtained by applying element offsets from \p Offsets to
+  /// \p Ty. This is a no-op for non-struct types.
+  static Type *getOffsetType(Type *Ty,
+                             const SmallVectorImpl<unsigned> &Offsets);
+
+  /// Given a type and field offset numbers, calculates the total byte offset.
+  static int64_t getOffsetDistance(Type *Ty, const DataLayout &DL,
+                                   const SmallVectorImpl<unsigned> &Offsets);
+
+  /// Given two sets of offsets returns negative, positive or zero value based
+  /// on whether \p Offset1 has lower, higher or equal total byte offset than \p
+  /// Offset2. This is useful for ordering DDRefs.
+  static int compareOffsets(const SmallVectorImpl<unsigned> &Offsets1,
+                            const SmallVectorImpl<unsigned> &Offsets2);
+
+  /// Returns negative, positive or zero value based on whether \p Ref1 has
+  /// lower, higher or equal total byte offset than \p Ref2 at \p DimensionNum.
+  /// This is useful for ordering DDRefs.
+  static int compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                            unsigned DimensionNum);
 };
 
 } // End namespace loopopt

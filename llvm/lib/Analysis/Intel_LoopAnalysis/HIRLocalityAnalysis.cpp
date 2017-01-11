@@ -394,28 +394,28 @@ bool HIRLocalityAnalysis::isSpatialMatch(const RegDDRef *Ref1,
     return true;
   }
 
-  // TODO: Think about if we can delinearize the subscripts.
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
   }
 
   unsigned NumConstDiff = 0;
 
-  // Compare base CE.
-  // TODO: Currently assuming it to be in different groups. Need to add
-  // support for cases such as *(ptr+i) and *(ptr+i+1).
   if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(), true)) {
-    // assert(false && " Handle Base CE for array groups.");
     return false;
   }
 
-  for (auto Ref1Iter = Ref1->canon_begin(), End = Ref1->canon_end(),
-            Ref2Iter = Ref2->canon_begin();
-       Ref1Iter != End; ++Ref1Iter, ++Ref2Iter) {
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+
+    // TODO: Investigate whether refs with different offsets for the first
+    // dimension can be placed in the same group?
+    // For example- A[i].0 and A[i].1
+    if (DDRefUtils::compareOffsets(Ref1, Ref2, I)) {
+      return false;
+    }
 
     // Check if both the CanonExprs have IV.
-    const CanonExpr *Ref1CE = *Ref1Iter;
-    const CanonExpr *Ref2CE = *Ref2Iter;
+    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
+    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
 
     // For cases such as A[i+1][j+1] and A[i][j], where j+1 and j will have
     // const diff, but need to be placed in different groups for i-loop

@@ -317,8 +317,7 @@ private:
   void parseCompare(const Value *Cond, unsigned Level,
                     SmallVectorImpl<PredicateTy> &Preds,
                     SmallVectorImpl<const CmpInst *> &CmpInsts,
-                    SmallVectorImpl<RegDDRef *> &Refs,
-                    bool AllowMultiplePreds);
+                    SmallVectorImpl<RegDDRef *> &Refs, bool AllowMultiplePreds);
 
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions into a single predicate.
@@ -330,7 +329,7 @@ private:
   void clearTempBlobLevelMap();
 
   /// populates blob DDRefs for Ref based on CurTempBlobLevelMap.
-  void populateBlobDDRefs(RegDDRef *Ref);
+  void populateBlobDDRefs(RegDDRef *Ref, unsigned Level);
 
   /// Returns a RegDDRef representing loop lower (constant 0).
   RegDDRef *createLowerDDRef(Type *IVType);
@@ -341,19 +340,13 @@ private:
   /// Returns a RegDDRef representing loop upper.
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
 
-  /// Returns the number of dimensions for a GEP base pointer type.
-  unsigned getNumDimensions(Type *GEPType) const;
-
-  /// Returns the size of the contained type in bits. Incoming type is expected
+  /// Returns the size of the contained type in bytes. Incoming type is expected
   /// to be a pointer type.
-  unsigned getBitElementSize(Type *Ty) const;
+  unsigned getElementSize(Type *Ty) const;
 
   /// Returns the base(earliest) GEP in case there are multiple GEPs associated
   /// with this load/store.
   const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
-
-  /// Finds pointer blobs in PtrSCEV.
-  const SCEV *findPointerBlob(const SCEV *PtrSCEV) const;
 
   /// Returns either the inital or update operand of header phi corresponding to
   /// the passed in boolean argument.
@@ -367,23 +360,40 @@ private:
   /// coming from loop's backedge).
   const Value *getHeaderPhiUpdateVal(const PHINode *Phi) const;
 
-  /// Creates a canon expr which represents the initial value of header
-  /// phi.
-  CanonExpr *createHeaderPhiInitCE(const PHINode *Phi, unsigned Level);
-
   /// Creates a canon expr which represents the index of header phi.
   CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level);
 
   /// Wrapper for merging IndexCE2 into IndexCE1.
   static void mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2);
 
-  /// Creates and adds dimensions for a phi base GEP into Ref.
-  /// LastIndexCE is merged with the highest phi dimension.
-  /// PhiDims is the number of dimensions in the phi type.
-  /// IsInBounds is set to true, if applicable.
-  void addPhiBaseGEPDimensions(const GEPOperator *GEPOp, RegDDRef *Ref,
-                               CanonExpr *LastIndexCE, unsigned Level,
-                               unsigned PhiDims, bool &IsInBounds);
+  /// Populates GEPOp's indices which represent structure field offsets into
+  /// Offsets vector. Other GEP indices are marked with -1.
+  static void populateOffsets(const GEPOperator *GEPOp,
+                              SmallVectorImpl<int64_t> &Offsets);
+
+  /// Returns true if the last index of \p GEPOp is a structure offset.
+  static bool representsStructOffset(const GEPOperator *GEPOp);
+
+  /// Populates \p Ref's dimensions by processing GEPOperator starting from \p
+  /// GEPOp till we hit the base GEP. \p RequiresIndexMerging is set for phi
+  /// base GEPs to indicate that the inductive dimension of the base will be
+  /// merged into the populated highest dimension.
+  void populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
+                             unsigned Level, bool RequiresIndexMerging);
+
+  /// Creates and adds dimensions for a phi base GEP.
+  /// \p InitGEPOp is the GEPOperator obtained from base phi's initial value.
+  /// \p IndexCE is merged with the highest \p Ref dimension.
+  void addPhiBaseGEPDimensions(const GEPOperator *GEPOp,
+                               const GEPOperator *InitGEPOp, RegDDRef *Ref,
+                               CanonExpr *IndexCE, unsigned Level);
+
+  /// Given the initial value of a header phi, it returns a value which can act
+  /// as the base of the Ref formed using the header phi. A null value indicates
+  /// that the phi cannot be decomposed into intial and stride. It also returns
+  /// the GEPOperator associated with the initial value, if applicable.
+  const Value *getValidPhiBaseVal(const Value *PhiInitVal,
+                                  const GEPOperator **InitGEPOp) const;
 
   /// Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,

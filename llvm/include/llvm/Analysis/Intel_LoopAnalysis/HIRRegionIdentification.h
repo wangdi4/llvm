@@ -79,12 +79,6 @@ private:
   /// would be profitable.
   class CostModelAnalyzer;
 
-  /// \brief Returns the base(earliest) GEP operator in case of multiple GEPs
-  /// associated with a load/store.
-  /// This is used for temporarily suppressing struct GEPs until we can handle
-  /// them in HIR.
-  const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
-
   /// \brief Returns true if this loop should be throttled based on cost model
   /// analysis.
   bool shouldThrottleLoop(const Loop &Lp) const;
@@ -128,8 +122,11 @@ private:
   /// \brief Identifies regions in the incoming LLVM IR.
   void formRegions();
 
-  /// \brief Returns true if Inst contains a type not supported by HIR.
-  bool containsUnsupportedTy(const Instruction *Inst) const;
+  /// Returns true if \p GEPOp contains a type not supported by HIR.
+  static bool containsUnsupportedTy(const GEPOperator *GEPOp);
+
+  /// Returns true if \p Inst contains a type not supported by HIR.
+  static bool containsUnsupportedTy(const Instruction *Inst);
 
   /// \brief Returns IV definition PHINode of the loop.
   const PHINode *findIVDefInHeader(const Loop &Lp,
@@ -160,7 +157,7 @@ public:
 
   /// \brief Returns true if this type is supported. Currently returns false for
   /// structure and function types.
-  bool isSupported(Type *Ty) const;
+  static bool isSupported(Type *Ty);
 
   // NOTE: Following functions were moved here so they can be shared between
   // HIRParser and SSADeconstruction. Is there a better way?

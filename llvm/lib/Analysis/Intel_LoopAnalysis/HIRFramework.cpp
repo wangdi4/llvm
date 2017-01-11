@@ -120,23 +120,15 @@ void MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   }
 
   // We cannot rely on information from non-inbounds gep.
-  // Ref with a single dimension does not contain information about number of
-  // elements.
-  if (!Ref->isInBounds() || (Ref->getNumDimensions() == 1)) {
+  if (!Ref->isInBounds()) {
     return;
   }
 
-  SequentialType *BaseArrType = cast<PointerType>(Ref->getBaseSrcType());
-
-  // Traverse CEs in reverse order (highest to lowest dimension) as LLVM types
-  // are recursed into, in this order.
-  for (auto CEIt = (Ref->canon_rbegin() + 1), E = Ref->canon_rend(); CEIt != E;
-       ++CEIt) {
-    BaseArrType = cast<SequentialType>(BaseArrType->getElementType());
-    assert(isa<ArrayType>(BaseArrType) &&
-           "Found non-array type for subscripts!");
-
-    visit(*CEIt, cast<ArrayType>(BaseArrType), Node);
+  // Highest dimension is intentionally skipped as it doesn't contain
+  // information about number of elements.
+  for (unsigned I = 1, E = Ref->getNumDimensions(); I < E; ++I) {
+    visit(Ref->getDimensionIndex(I), cast<ArrayType>(Ref->getDimensionType(I)),
+          Node);
   }
 }
 

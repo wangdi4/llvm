@@ -158,6 +158,70 @@ bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
   return true;
 }
 
+int64_t
+DDRefUtils::getOffsetDistance(Type *Ty, const DataLayout &DL,
+                              const SmallVectorImpl<unsigned> &Offsets) {
+  int64_t DistInBytes = 0;
+
+  for (auto OffsetVal : Offsets) {
+    assert(Ty->isStructTy() && "StructType expected!");
+    auto STy = cast<StructType>(Ty);
+    DistInBytes += DL.getStructLayout(STy)->getElementOffset(OffsetVal);
+    Ty = STy->getElementType(OffsetVal);
+  }
+
+  return DistInBytes;
+}
+
+int DDRefUtils::compareOffsets(const SmallVectorImpl<unsigned> &Offsets1,
+                               const SmallVectorImpl<unsigned> &Offsets2) {
+  unsigned MinSize = std::min(Offsets1.size(), Offsets2.size());
+
+  for (unsigned I = 0, E = MinSize; I < E; ++I) {
+    if (Offsets1[I] < Offsets2[I]) {
+      return -1;
+    } else if (Offsets1[I] > Offsets2[I]) {
+      return 1;
+    }
+  }
+
+  if (MinSize < Offsets1.size()) {
+    return 1;
+  } else if (MinSize < Offsets2.size()) {
+    return -1;
+  }
+
+  return 0;
+}
+
+int DDRefUtils::compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                               unsigned DimensionNum) {
+  assert(Ref1->hasGEPInfo() && "Ref1 is not a GEP DDRef!");
+  assert(Ref2->hasGEPInfo() && "Ref2 is not a GEP DDRef!");
+  assert((Ref1->getNumDimensions() >= DimensionNum) &&
+         "DimensionNum is invalid for Ref1");
+  assert((Ref2->getNumDimensions() >= DimensionNum) &&
+         "DimensionNum is invalid for Ref2");
+  assert((Ref1->getDimensionType(DimensionNum) ==
+          Ref2->getDimensionType(DimensionNum)) &&
+         "Invalid offset comparison for refs!");
+
+  auto Offsets1 = Ref1->getTrailingStructOffsets(DimensionNum);
+  auto Offsets2 = Ref2->getTrailingStructOffsets(DimensionNum);
+
+  if (Offsets1 && Offsets2) {
+    return compareOffsets(*Offsets1, *Offsets2);
+  } else if (Offsets1) {
+    // Only Ref1 has offsets.
+    return 1;
+  } else if (Offsets2) {
+    // Only Ref2 has offsets.
+    return -1;
+  }
+
+  return 0;
+}
+
 bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
                               bool RelaxedMode) {
 
@@ -166,8 +230,10 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
     return false;
   }
 
+  bool HasGEPInfo = Ref1->hasGEPInfo();
+
   // Check if one is memory ref and other is not.
-  if (Ref1->hasGEPInfo() != Ref2->hasGEPInfo()) {
+  if (HasGEPInfo != Ref2->hasGEPInfo()) {
     return false;
   }
 
@@ -182,9 +248,11 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
     return false;
   }
 
+  unsigned DimNum = 1;
+
   for (auto Ref1Iter = Ref1->canon_begin(), End = Ref1->canon_end(),
             Ref2Iter = Ref2->canon_begin();
-       Ref1Iter != End; ++Ref1Iter, ++Ref2Iter) {
+       Ref1Iter != End; ++Ref1Iter, ++Ref2Iter, ++DimNum) {
 
     const CanonExpr *Ref1CE = *Ref1Iter;
     const CanonExpr *Ref2CE = *Ref2Iter;
@@ -192,9 +260,13 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
     if (!CanonExprUtils::areEqual(Ref1CE, Ref2CE, RelaxedMode)) {
       return false;
     }
+
+    if (HasGEPInfo && compareOffsets(Ref1, Ref2, DimNum)) {
+      return false;
+    }
   }
 
-  // All the canon expr match.
+  // All the dimensions match.
   return true;
 }
 
@@ -234,7 +306,7 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2, unsigned LoopLevel,
                                       int64_t *Distance) {
 
-  // Dealing with memrefs only
+  // Dealing with GEP refs only
   if (!Ref1->hasGEPInfo() || !Ref2->hasGEPInfo()) {
     return false;
   }
@@ -246,7 +318,6 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
     return false;
   }
 
-  // TODO: Extend to support different # of dimensions?
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
   }
@@ -255,8 +326,29 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
   bool NeedIterDistance = (LoopLevel != 0);
   bool FoundDelta = false;
 
-  // Compare the subscripts
-  for (unsigned I = 1; I <= Ref1->getNumDimensions(); ++I) {
+  // Compare the subscripts in reverse order to accomodate offsets.
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+
+    // Compare trailing offsets.
+    if ((I == 1) && !NeedIterDistance) {
+      auto &DL = Ref1->getCanonExprUtils().getDataLayout();
+      auto Ty = Ref1->getDimensionElementType(1);
+      auto Offsets1 = Ref1->getTrailingStructOffsets(1);
+      auto Offsets2 = Ref2->getTrailingStructOffsets(1);
+
+      if (Offsets1) {
+        Delta += getOffsetDistance(Ty, DL, *Offsets1);
+      }
+
+      if (Offsets2) {
+        Delta -= getOffsetDistance(Ty, DL, *Offsets2);
+      }
+    } else if (compareOffsets(Ref1, Ref2, I)) {
+      // Do not allow different trailing offsets for higher dimensions or when
+      // computing iteration distance!
+      return false;
+    }
+
     const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
     const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
 
@@ -333,4 +425,17 @@ void DDRefUtils::printMDNodes(formatted_raw_ostream &OS,
 
     I.second->printAsOperand(OS, &HIRP.getModule());
   }
+}
+
+Type *DDRefUtils::getOffsetType(Type *Ty,
+                                const SmallVectorImpl<unsigned> &Offsets) {
+  Type *RetTy = Ty;
+
+  for (auto OffsetVal : Offsets) {
+    assert(RetTy->isStructTy() && "Structure type expected!");
+    auto StrucTy = cast<StructType>(RetTy);
+    RetTy = StrucTy->getElementType(OffsetVal);
+  }
+
+  return RetTy;
 }

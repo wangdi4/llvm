@@ -433,6 +433,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Non DO loops are not supported";
   case NON_PROFITABLE:
     return "Loop considered non-profitable";
+  case STRUCT_ACCESS:
+    return "Struct refs not supported yet";
   default:
     llvm_unreachable("Unexpected give up reason");
   }
@@ -518,6 +520,13 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
 
 bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
                                              const RegDDRef *Ref2) {
+
+  // TODO: Temporary workaround to make it easier to bail out on loops with
+  // structure access.
+  if (Ref1->accessesStruct() || Ref2->accessesStruct()) {
+    return false;
+  }
+
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
   }
@@ -604,6 +613,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   SmallVector<IVSegment, ExpectedNumberOfTests> IVSegments;
   SmallVector<RuntimeDDResult, ExpectedNumberOfTests> Supported;
   for (unsigned I = 0; I < GroupSize; ++I) {
+    if (Groups[I].front()->accessesStruct()) {
+      return STRUCT_ACCESS;
+    }
     IVSegments.push_back(IVSegment(Groups[I]));
   }
 
