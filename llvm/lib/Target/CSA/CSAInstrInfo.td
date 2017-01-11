@@ -1299,6 +1299,7 @@ def SEQOTGEU32  : SeqSOp<  SEQOTGE, Tu32, IIALU>;
 def SEQOTGEU64  : SeqSOp<  SEQOTGE, Tu64, IIALU>;
 
 def REPEAT    : GenericOp<"repeat">;
+def REPEAT1   : RepeatOp<REPEAT, Ti1,  IIALU>;
 def REPEAT8   : RepeatOp<REPEAT, Ti8,  IIALU>;
 def REPEAT16  : RepeatOp<REPEAT, Ti16, IIALU>;
 def REPEAT32  : RepeatOp<REPEAT, Ti32, IIALU>;

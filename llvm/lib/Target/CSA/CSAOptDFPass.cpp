@@ -1751,7 +1751,7 @@ seq_add_parloop_memdep(CSASeqCandidate& sc,
     BuildMI(BB,
             prev_inst,
             sc.pickInst->getDebugLoc(),
-            TII.get(CSA::REPEAT8),  // TBD: We technically want repeat1?
+            TII.get(CSA::REPEAT1),
             sc.top).
     addReg(pred_reg).
     addOperand(*sc.get_pick_input_op(loop_header));

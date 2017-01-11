@@ -1057,22 +1057,18 @@ convertPickToRepeatOp(unsigned pick_opcode,
   case CSA::PICK64:
     *repeat_opcode = CSA::REPEAT64;
     return true;
-
   case CSA::PICK32:
     *repeat_opcode = CSA::REPEAT32;
     return true;
-    
   case CSA::PICK16:
     *repeat_opcode = CSA::REPEAT16;
     return true;
-
   case CSA::PICK8:
-  case CSA::PICK1:
-    // TBD(jsukha): We don't have a REPEAT1 statement, so just use the
-    // REPEAT8 for now.
     *repeat_opcode = CSA::REPEAT8;
     return true;
-    
+  case CSA::PICK1:
+    *repeat_opcode = CSA::REPEAT1;    
+    return true;
   default:
     // No match. return false. 
     return false;
