@@ -1287,23 +1287,21 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
   unsigned landResult = 0;
   unsigned landSrc = 0;
   MachineInstr* landInstr;
-  unsigned j = 0;
-  for (unsigned i = 0; i < exitingBlks.size(); i++, j++) {
+  unsigned i = 0;
+  for (; i < exitingBlks.size(); i++) {
     MachineBasicBlock* exiting = exitingBlks[i];
     assert(exiting->succ_size() == 2);
     MachineBasicBlock* exit = mloop->contains(*exiting->succ_begin()) ?
                               *exiting->succ_rbegin() :
                               *exiting->succ_begin();
     MachineInstr* bi = &*exiting->getFirstInstrTerminator();
-    MachineOperand &exitOperand = bi->getOperand(0);
-    unsigned exitReg = exitOperand.getReg();
+    unsigned exitReg = bi->getOperand(0).getReg();
     if (CDG->getEdgeType(exiting, exit, true) == ControlDependenceNode::TRUE) {
       unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
       MachineInstr* notInstr = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(CSA::NOT1), 
                                        notReg).
-                                       addReg(exitOperand.getReg());
+                                       addReg(exitReg);
       notInstr->setFlag(MachineInstr::NonSequential);
-      exitOperand = notInstr->getOperand(0);
       exitReg = notReg;
     }
     if (!landSrc) {
@@ -1316,10 +1314,9 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
                           addReg(exitReg);
       landInstr->setFlag(MachineInstr::NonSequential);
     } else {
-      if (j < 4) {
-        landInstr->addOperand(exitOperand);
+      if (i % 4) {
+        landInstr->addOperand(MachineOperand::CreateReg(exitReg, false));
       } else {
-        j = 0;
         unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
         landInstr = BuildMI(*latchBB, latchBB->getFirstInstrTerminator(), DebugLoc(), TII.get(CSA::LAND1), 
                             newResult).
@@ -1330,9 +1327,10 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
       }
     }
   }
-
-  for (unsigned i = j; i < 4; i++) {
-    landInstr->addOperand(MachineOperand::CreateReg(CSA::IGN, false));
+  if (i % 4) {
+    for (unsigned j = i % 4; j < 4; j++) {
+      landInstr->addOperand(MachineOperand::CreateImm(1));
+    }
   }
 
 
@@ -1503,6 +1501,7 @@ void CSACvtCFDFPass::assignLicForDF() {
           TII.isAdd(mInst) || TII.isSub(mInst) ||
           mInst->getOpcode() == CSA::PREDMERGE || 
           mInst->getOpcode() == CSA::PREDPROP || 
+          mInst->getOpcode() == CSA::NOT1     ||
           mInst->getOpcode() == CSA::LAND1) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
