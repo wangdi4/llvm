@@ -184,11 +184,13 @@ struct HIRLoopInterchange::CollectCandidateLoops final
           DEBUG(dbgs() << "\nHas non unit stride");
           CandidateLoops.push_back(
               std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-          SkipNode = Loop;
-          return;
         } else {
           DEBUG(dbgs() << "MemRefs are in unit stride or non-linear Defs");
         }
+
+        SkipNode = Loop;
+        return;
+
       } else if (HNU.hasNonUnitStrideRefs(InnermostLoop) ||
                  isBlockingCandidate(Loop)) {
         // Near perfect loops found
