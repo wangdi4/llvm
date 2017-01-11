@@ -2818,6 +2818,15 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
       return ExprError();
     }
     ValType = AtomTy->getAs<AtomicType>()->getValueType();
+#if INTEL_CUSTOMIZATION
+  } else if (getLangOpts().IntelCompat && AtomTy->isAtomicType()) {
+    if (AtomTy.isConstQualified()) {
+      Diag(DRE->getLocStart(), diag::err_atomic_op_needs_non_const_atomic)
+        << Ptr->getType() << Ptr->getSourceRange();
+      return ExprError();
+    }
+    ValType = AtomTy->getAs<AtomicType>()->getValueType();
+#endif // INTEL_CUSTOMIZATION
   } else if (Form != Load && Form != LoadCopy) {
     if (ValType.isConstQualified()) {
       Diag(DRE->getLocStart(), diag::err_atomic_op_needs_non_const_pointer)
@@ -2858,8 +2867,8 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     return ExprError();
   }
 
-  if (!IsC11 && !AtomTy.isTriviallyCopyableType(Context) &&
-      (IntelTypeCoerceSize == 0 || !AtomTy->isVoidType()) && // INTEL
+  if (!IsC11 && !ValType.isTriviallyCopyableType(Context) && // INTEL
+      (IntelTypeCoerceSize == 0 || !ValType->isVoidType()) && // INTEL
       !AtomTy->isScalarType()) {
     // For GNU atomics, require a trivially-copyable type. This is not part of
     // the GNU atomics specification, but we enforce it for sanity.
