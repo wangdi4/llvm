@@ -2978,7 +2978,14 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
         CL_MEM_COPY_HOST_PTR |
         CL_MEM_HOST_WRITE_ONLY |
         CL_MEM_HOST_READ_ONLY |
-        CL_MEM_HOST_NO_ACCESS)) != 0)
+        CL_MEM_HOST_NO_ACCESS |
+        CL_MEM_BANK_1_ALTERA |
+        CL_MEM_BANK_2_ALTERA |
+        CL_MEM_BANK_3_ALTERA |
+        CL_MEM_BANK_4_ALTERA |
+        CL_MEM_BANK_5_ALTERA |
+        CL_MEM_BANK_6_ALTERA |
+        CL_MEM_HETEROGENEOUS_ALTERA)) != 0)
     {
         return CL_INVALID_VALUE;
     }
