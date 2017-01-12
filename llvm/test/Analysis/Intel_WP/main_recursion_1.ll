@@ -4,8 +4,7 @@
 ; is set to main only when whole-program-safe is detected and no uses of
 ; main are noticed.
 
-; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -stats -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramanalysis -functionattrs -rpo-functionattrs -disable-output -stats 2>&1 | FileCheck %s
 
 ; CHECK:   5 functionattrs - Number of functions marked as norecurse
 
@@ -17,7 +16,7 @@
 @.str = private unnamed_addr constant [10 x i8] c"ptr: %d \0A\00", align 1
 
 ; Function Attrs: noinline nounwind uwtable
-define i8* @allocate()  {
+define internal i8* @allocate()  {
 entry:
   %call = call noalias i8* @malloc(i64 8) 
   ret i8* %call
@@ -27,7 +26,7 @@ entry:
 declare noalias i8* @malloc(i64) 
 
 ; Function Attrs: noinline nounwind uwtable
-define void @assign(i8* %ptr)  {
+define internal void @assign(i8* %ptr)  {
 entry:
   %ptr.addr = alloca i8*, align 8
   store i8* %ptr, i8** %ptr.addr, align 8
@@ -38,7 +37,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define void @dump(i8* %ptr)  {
+define internal void @dump(i8* %ptr)  {
 entry:
   %ptr.addr = alloca i8*, align 8
   store i8* %ptr, i8** %ptr.addr, align 8
@@ -54,7 +53,7 @@ declare i32 @fprintf(%struct._IO_FILE*, i8*, ...)
 
 
 ; Function Attrs: noinline nounwind uwtable
-define void @dealloc(i8* %ptr)  {
+define internal void @dealloc(i8* %ptr)  {
 entry:
   %ptr.addr = alloca i8*, align 8
   store i8* %ptr, i8** %ptr.addr, align 8

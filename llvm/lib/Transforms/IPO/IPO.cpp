@@ -57,6 +57,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeFunctionImportLegacyPassPass(Registry);
   initializeWholeProgramDevirtPass(Registry);
   initializeInlineAggressiveWrapperPassPass(Registry);  // INTEL
+  initializeIPCloningLegacyPassPass(Registry);          // INTEL
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {

@@ -43,6 +43,7 @@ private:
   BlobUtils(HIRParser &HIRP) : HIRP(HIRP) {}
 
   /// Make class uncopyable.
+  BlobUtils(const BlobUtils &) = delete;
   void operator=(const BlobUtils &) = delete;
 
   // Creates BlobUtils object.
@@ -189,6 +190,26 @@ public:
   /// argument.
   BlobTy createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty, bool Insert = true,
                         unsigned *NewBlobIndex = nullptr);
+
+  /// Returns a new smin blob for a pair \p BlobA and \p BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  BlobTy createSMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// Returns a new smax blob for a pair \p BlobA and \p BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  BlobTy createSMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// Returns a new umin blob for a pair \p BlobA and \p BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  BlobTy createUMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// Returns a new umax blob for a pair \p BlobA and \p BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  BlobTy createUMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
 
   /// Returns true if Blob contains SubBlob or if Blob == SubBlob.
   bool contains(BlobTy Blob, BlobTy SubBlob);

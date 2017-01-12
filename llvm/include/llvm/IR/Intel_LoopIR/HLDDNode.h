@@ -213,6 +213,9 @@ public:
   /// with 0).
   RegDDRef *removeOperandDDRef(unsigned OperandNum);
 
+  /// Returns the operand number of \p OpRef.
+  unsigned getOperandNum(RegDDRef *OpRef) const;
+
   /// Returns the lval DDRef of this node. Returns null if it doesn't exist.
   virtual RegDDRef *getLvalDDRef() { return nullptr; }
   virtual const RegDDRef *getLvalDDRef() const { return nullptr; }

@@ -300,7 +300,19 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
     return false;
   }
 
-  return SRA.isSafeReduction(Inst);
+  auto SRI = SRA.getSafeRedInfo(Inst);
+
+  // The vectorizer currently cannot handle min/max reductions, they are
+  // therefore suppressed
+  if (SRI) {
+    if (SRI->OpCode == Instruction::Select) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void DDWalk::analyze(const DDEdge *Edge) {
@@ -408,12 +420,6 @@ void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA,
   }
   if (Mode == VectorForVectorizerInnermost && !Loop->isInnermost()) {
     setVecType(FE_DIAG_VEC_NOT_INNERMOST);
-    emitDiag();
-    return;
-  }
-  if (!Loop->hasChildren()) {
-    setVecType(FE_DIAG_VEC_FAIL_EMPTY_LOOP);
-    setParType(FE_DIAG_VEC_FAIL_EMPTY_LOOP);
     emitDiag();
     return;
   }

@@ -51,20 +51,25 @@
 //  (4) Add opt report.
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+
+#include "llvm/ADT/Statistic.h"
+
+#include "llvm/IR/Function.h"
+#include "llvm/IR/LLVMContext.h"
+
+#include "llvm/Pass.h"
+
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-
-#include "llvm/ADT/Statistic.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
 
@@ -769,11 +774,6 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  // Ignore empty loops.
-  if (!Loop->hasChildren()) {
-    return false;
-  }
-
   // Ignore loops with SIMD directive.
   if (Loop->isSIMD()) {
     return false;
@@ -978,8 +978,8 @@ void HIRCompleteUnroll::transformLoops() {
     transformLoop(Loop, Loop, TripValues);
 
     if (ParentLoop) {
-      ParentLoop->getHLNodeUtils().eliminateRedundantPredicates(
-          ParentLoop->child_begin(), ParentLoop->child_end());
+      HIRTransformUtils::eliminateRedundantPredicates(ParentLoop->child_begin(),
+                                                      ParentLoop->child_end());
     }
   }
 }

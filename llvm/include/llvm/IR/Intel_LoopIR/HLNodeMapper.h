@@ -75,6 +75,14 @@ HLNodeLambdaMapperImpl<Predicate> mapper(Predicate Pred) {
 }
 
 struct HLNodeToNodeMapper final : public HLNodeToNodeMapperImpl {
+  HLNodeToNodeMapper() {}
+
+  template <typename... T>
+  HLNodeToNodeMapper(T... Args) {
+    auto x = { (add(Args), 0)... };
+    (void)x;
+  }
+
   void map(const HLNode *Node, HLNode *MappedNode) override {
     auto Iter = NodeMap.find(Node);
     if (Iter != NodeMap.end()) {

@@ -107,8 +107,11 @@ INITIALIZE_PASS(DAH, "deadarghaX0r",
 ModulePass *llvm::createDeadArgEliminationPass() { return new DAE(); }
 ModulePass *llvm::createDeadArgHackingPass() { return new DAH(); }
 
+#ifdef INTEL_CUSTOMIZATION
 /// DeleteDeadVarargs - If this is an function that takes a ... list, and if
-/// llvm.vastart is never called, the varargs list is dead for the function.
+/// llvm.va_start, llvm.va_arg_pack and llvm.va_arg_pack_len are never called, 
+// the varargs list is dead for the function.
+#endif // INTEL_CUSTOMIZATION
 bool DeadArgumentEliminationPass::DeleteDeadVarargs(Function &Fn) {
   assert(Fn.getFunctionType()->isVarArg() && "Function isn't varargs!");
   if (Fn.isDeclaration() || !Fn.hasLocalLinkage()) return false;
@@ -135,8 +138,13 @@ bool DeadArgumentEliminationPass::DeleteDeadVarargs(Function &Fn) {
         return false;
       if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(CI)) {
         if (II->getIntrinsicID() == Intrinsic::vastart)
-          return false;
-      }
+          return false; 
+#ifdef INTEL_CUSTOMIZATION
+        if (II->getIntrinsicID() == Intrinsic::vaargpack
+          || II->getIntrinsicID() == Intrinsic::vaargpacklen)
+          return false; 
+#endif // INTEL_CUSTOMIZATION
+      } 
     }
   }
 

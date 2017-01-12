@@ -105,6 +105,7 @@ public:
   bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty, Constant *LoClip,
                         Constant *HiClip);
   bool adjustCallArgs(CallInst* CI);
+  bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
 #endif // INTEL_CUSTOMIZATION
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;

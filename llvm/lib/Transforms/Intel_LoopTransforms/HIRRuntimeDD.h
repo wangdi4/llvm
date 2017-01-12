@@ -191,9 +191,9 @@ private:
   // \brief Returns required DD tests for an arbitrary loop L.
   RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
 
-  static HLIf *createIfStmtForIntersection(HLLoop *OrigLoop,
-                                           HLContainerTy &Nodes, Segment &S1,
-                                           Segment &S2);
+  static HLInst *createIntersectionCondition(HLLoop *OrigLoop,
+                                             HLContainerTy &Nodes, Segment &S1,
+                                             Segment &S2);
 
   // \brief Modifies HIR implementing specified tests.
   static void generateDDTest(LoopContext &Context);

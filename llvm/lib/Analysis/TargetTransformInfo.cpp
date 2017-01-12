@@ -441,6 +441,12 @@ Value *TargetTransformInfo::getOrCreateResultFromMemIntrinsic(
 bool TargetTransformInfo::adjustCallArgs(CallInst *CI) const {
   return TTIImpl->adjustCallArgs(CI);
 }
+
+bool TargetTransformInfo::isTargetSpecificShuffleMask(
+    SmallVectorImpl<int> &Mask) const {
+  return TTIImpl->isTargetSpecificShuffleMask(Mask);
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 bool TargetTransformInfo::areInlineCompatible(const Function *Caller,

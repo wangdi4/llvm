@@ -31,7 +31,7 @@ void HLIf::initialize() {
 }
 
 HLIf::HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1,
-           RegDDRef *Ref2)
+           RegDDRef *Ref2, FastMathFlags FMF)
     : HLDDNode(HNU, HLNode::HLIfVal) {
   assert(((FirstPred == PredicateTy::FCMP_FALSE) ||
           (FirstPred == PredicateTy::FCMP_TRUE) || (Ref1 && Ref2)) &&
@@ -50,6 +50,10 @@ HLIf::HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1,
   ElseBegin = Children.end();
   Predicates.push_back(FirstPred);
 
+  assert((!FMF.any() || CmpInst::isFPPredicate(FirstPred)) &&
+         "FastMathFlags are set on non-FP predicate");
+  PredFMFlags.push_back(FMF);
+
   initialize();
 
   setPredicateOperandDDRef(Ref1, pred_begin(), true);
@@ -57,7 +61,8 @@ HLIf::HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1,
 }
 
 HLIf::HLIf(const HLIf &HLIfObj)
-    : HLDDNode(HLIfObj), Predicates(HLIfObj.Predicates) {
+    : HLDDNode(HLIfObj), Predicates(HLIfObj.Predicates),
+      PredFMFlags(HLIfObj.PredFMFlags) {
   const RegDDRef *Ref;
   ElseBegin = Children.end();
   initialize();
@@ -100,10 +105,12 @@ HLIf *HLIf::clone(HLNodeMapper *NodeMapper) const {
 }
 
 void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
-                           const HLLoop *Loop) const {
+                           const HLLoop *Loop, bool Detailed) const {
 
   bool FirstPred = true;
   OS << "if (";
+
+  bool AnyFMF = false;
 
   /// Print predicates
   for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
@@ -123,24 +130,33 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
     Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     FirstPred = false;
+    AnyFMF = AnyFMF || getPredicateFMF(I).any();
   }
 
   OS << ")";
+
+  if (Detailed && AnyFMF) {
+    for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
+      OS << " ";
+      printFMF(OS, getPredicateFMF(I));
+    }
+  }
 }
 
-void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth) const {
-  printHeaderImpl(OS, Depth, nullptr);
+void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                       bool Detailed) const {
+  printHeaderImpl(OS, Depth, nullptr, Detailed);
 }
 
 void HLIf::printZttHeader(formatted_raw_ostream &OS, const HLLoop *Loop) const {
-  printHeaderImpl(OS, 0, Loop);
+  printHeaderImpl(OS, 0, Loop, true);
 }
 
 void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
                  bool Detailed) const {
 
   indent(OS, Depth);
-  printHeader(OS, Depth);
+  printHeader(OS, Depth, Detailed);
   OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);
@@ -216,7 +232,8 @@ unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
   return ((2 * (CPredI - pred_begin())) + (IsLHS ? 0 : 1));
 }
 
-void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
+void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
+                        FastMathFlags FMF) {
   assert(Ref1 && Ref2 && "DDRef is null!");
   assert((Pred != PredicateTy::FCMP_FALSE) &&
          (Pred != PredicateTy::FCMP_TRUE) && "Invalid predicate!");
@@ -232,11 +249,25 @@ void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
 
   Predicates.push_back(Pred);
 
+  assert((!FMF.any() || CmpInst::isFPPredicate(Pred)) &&
+         "FastMathFlags are set on non-FP predicate");
+  PredFMFlags.push_back(FMF);
+
   NumOp = getNumOperandsInternal();
   RegDDRefs.resize(NumOp, nullptr);
 
   setOperandDDRefImpl(Ref1, NumOp - 2);
   setOperandDDRefImpl(Ref2, NumOp - 1);
+}
+
+HLIf::FMFContainerTy::const_iterator
+HLIf::getPredicateFMFIter(const_pred_iterator CPredI) const {
+  return PredFMFlags.begin() + std::distance(pred_begin(), CPredI);
+}
+
+HLIf::FMFContainerTy::iterator
+HLIf::getPredicateFMFIter(const_pred_iterator CPredI) {
+  return PredFMFlags.begin() + std::distance(pred_begin(), CPredI);
 }
 
 HLIf::pred_iterator HLIf::getNonConstPredIterator(const_pred_iterator CPredI) {
@@ -263,6 +294,8 @@ void HLIf::removePredicate(const_pred_iterator CPredI) {
 
   /// Erase the predicate.
   Predicates.erase(PredI);
+
+  PredFMFlags.erase(getPredicateFMFIter(PredI));
 }
 
 void HLIf::replacePredicate(const_pred_iterator CPredI, PredicateTy NewPred) {
@@ -308,6 +341,9 @@ void HLIf::verify() const {
   assert(getNumPredicates() > 0 &&
          "HLIf should contain at least one predicate");
 
+  assert(getNumPredicates() == PredFMFlags.size() &&
+         "Number of PredFMFlags does not match a number of predicates");
+
   for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
     assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I) ||
             *I == UNDEFINED_PREDICATE) &&
@@ -329,6 +365,10 @@ void HLIf::verify() const {
 
   assert((!ContainsTrueFalsePred || getNumPredicates() == 1) &&
          "FCMP_TRUE/FCMP_FALSE cannot be combined with any other predicates");
+
+  assert((hasThenChildren() || hasElseChildren()) &&
+           "Found an empty *IF* construction, assumption that there should be no "
+           "empty HLIfs");
 
   HLDDNode::verify();
 }

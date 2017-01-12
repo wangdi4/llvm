@@ -54,11 +54,14 @@ public:
   typedef HLContainerTy::const_reverse_iterator const_reverse_iterator;
 
 private:
-  /// HIRP - parser for the function.
+  /// Parser for the function.
   HIRParser *HIRP;
 
-  /// SA - symbase assignment for the function.
+  /// Symbase assignment for the function.
   HIRSymbaseAssignment *SA;
+
+  /// Scalar symbase assignment for the function.
+  HIRScalarSymbaseAssignment *ScalarSA;
 
   void estimateMaxTripCounts() const;
 
@@ -107,6 +110,9 @@ public:
 
   /// Returns a brand new symbase.
   unsigned getNewSymbase() { return SA->getNewSymbase(); }
+
+  /// Returns a generic rval symbase.
+  unsigned getGenericRvalSymbase() { return ScalarSA->getGenericRvalSymbase(); }
 
   /// Returns Function object.
   Function &getFunction() const { return HIRP->getFunction(); }

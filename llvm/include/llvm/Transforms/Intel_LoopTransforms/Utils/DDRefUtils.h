@@ -54,6 +54,7 @@ private:
   DDRefUtils(HIRParser &HIRP) : CEU(HIRP) {}
 
   /// Make class uncopyable.
+  DDRefUtils(const DDRefUtils &) = delete;
   void operator=(const DDRefUtils &) = delete;
 
   // Requires access to Objs.

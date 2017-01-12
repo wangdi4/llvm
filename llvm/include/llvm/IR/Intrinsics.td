@@ -276,6 +276,13 @@ def int_vacopy  : Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty], [],
                             "llvm.va_copy">;
 def int_vaend   : Intrinsic<[], [llvm_ptr_ty], [], "llvm.va_end">;
 
+// if INTEL_CUSTOMIZATION
+def int_vaargpacklen  : Intrinsic<[llvm_i32_ty], [], [], 
+  "llvm.va_arg_pack_len">;
+def int_vaargpack     : Intrinsic<[llvm_i32_ty], [], [], 
+  "llvm.va_arg_pack">;
+// endif //INTEL_CUSTOMIZATION
+
 //===------------------- Garbage Collection Intrinsics --------------------===//
 //
 def int_gcroot  : Intrinsic<[],

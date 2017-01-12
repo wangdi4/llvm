@@ -440,6 +440,45 @@ InlineReportCallSite* InlineReport::addNewCallSite(Function* F, CallSite* CS,
   return addCallSite(F, CS, M);
 }
 
+void InlineReport::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
+  if (Level == 0) {
+     return;
+  }
+  M = &CG.getModule(); 
+  for (CallGraphNode *Node : SCC) {
+    Function *F = Node->getFunction();
+    if (!F || F->isDeclaration())
+      continue;
+    addFunction(F, &CG.getModule());
+    for (BasicBlock &BB : *F)
+      for (Instruction &I : BB) {
+        CallSite CS(cast<Value>(&I));
+        // If this isn't a call, or it is a call to an intrinsic, it can
+        // never be inlined.
+        if (!CS)     
+          continue;
+        addNewCallSite(F, &CS, &CG.getModule()); 
+        if (isa<IntrinsicInst>(I)) {
+            setReasonNotInlined(CS, NinlrIntrinsic);
+            continue;
+        }
+        // If this is a direct call to an external function, we can never
+        // inline it.  If it is an indirect call, inlining may resolve it to be
+        // a direct call, so we keep it.
+        if (Function *Callee = CS.getCalledFunction())
+          if (Callee->isDeclaration()) {
+            setReasonNotInlined(CS, NinlrExtern); 
+            continue;
+          }
+      }
+  }
+} 
+
+void InlineReport::endSCC(void)
+{
+   makeAllNotCurrent(); 
+} 
+
 void InlineReport::setDead(Function* F) { 
   if (Level == 0) {
     return; 
@@ -480,20 +519,20 @@ void InlineReport::cloneChildren(
   } 
 } 
 
-void InlineReport::inlineCallSite(Instruction* NI, InlineReportCallSite* IRCS, 
-  Module* M, Function* Callee, InlineFunctionInfo& InlineInfo) { 
+void InlineReport::inlineCallSite(InlineFunctionInfo& InlineInfo) { 
   if (Level == 0) { 
     return; 
   } 
   //
   // Get the inline report for the routine being inlined.  We are going 
   // to make a clone of it.
-  InlineReportFunctionMap::const_iterator MapItF = IRFunctionMap.find(Callee);
-  InlineReportFunction* INR = addFunction(Callee, M);
+  InlineReportFunctionMap::const_iterator MapItF 
+    = IRFunctionMap.find(ActiveCallee);
+  InlineReportFunction* INR = addFunction(ActiveCallee, M);
   //
   // Ensure that the report is up to date since the last call to 
   // Inliner::runOnSCC
-  makeCurrent(M, Callee); 
+  makeCurrent(M, ActiveCallee); 
   //
   // Create InlineReportCallSites "new calls" which appear in the inlined 
   // code.  Also, create a mapping from the "original calls" which appeared 
@@ -511,16 +550,16 @@ void InlineReport::inlineCallSite(Instruction* NI, InlineReportCallSite* IRCS,
   // Clone the inline report INR and attach it to the inlined call site IRCS.
   // Use IIMap to map the original calls to the new calls in the cloned 
   // inline report. 
-  cloneChildren(INR->getCallSites(), IRCS, IIMap); 
+  cloneChildren(INR->getCallSites(), ActiveIRCS, IIMap); 
   // Indicate that the call has been inlined in the inline report 
-  IRCS->setIsInlined(true);
+  ActiveIRCS->setIsInlined(true);
   //
   // Remove the inlined instruction from the IRInstructionCallSiteMap
   InlineReportInstructionCallSiteMap::const_iterator MapIt;
-  MapIt = IRInstructionCallSiteMap.find(NI);
+  MapIt = IRInstructionCallSiteMap.find(ActiveInlineInstruction);
   assert(MapIt != IRInstructionCallSiteMap.end());
   IRInstructionCallSiteMap.erase(MapIt);
-  IRCS->setCall(nullptr); 
+  ActiveIRCS->setCall(nullptr); 
 } 
 
 void InlineReport::setReasonIsInlined(const CallSite& CS, InlineReason Reason) {

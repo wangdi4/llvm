@@ -17,15 +17,14 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEUTILS_H
 
 #include "llvm/Support/Compiler.h"
-#include <set>
-
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
-#include "llvm/Support/Compiler.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
+
+#include <set>
 
 namespace llvm {
 
@@ -46,6 +45,7 @@ class HLNodeUtils {
 private:
   /// Keeps track of HLNode objects.
   std::set<HLNode *> Objs;
+  unsigned NextUniqueHLNodeNumber;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Stores names of cloned labels in HIR.
@@ -67,10 +67,11 @@ private:
   Instruction *LastDummyInst;
 
   HLNodeUtils()
-      : DDRU(nullptr), DummyIRBuilder(nullptr), FirstDummyInst(nullptr),
-        LastDummyInst(nullptr) {}
+      : NextUniqueHLNodeNumber(0), DDRU(nullptr), DummyIRBuilder(nullptr),
+        FirstDummyInst(nullptr), LastDummyInst(nullptr) {}
 
   /// Make class uncopyable.
+  HLNodeUtils(const HLNodeUtils &) = delete;
   void operator=(const HLNodeUtils &) = delete;
 
   friend class HIRCreation;
@@ -161,6 +162,10 @@ private:
       return (Node == SkipNode);
     }
   };
+
+  unsigned getUniqueHLNodeNumber() {
+    return NextUniqueHLNodeNumber++;
+  }
 
   /// Updates first and last dummy inst of the function.
   void setFirstAndLastDummyInst(Instruction *Inst);
@@ -279,30 +284,33 @@ private:
   /// if Erase is set. If erase isn't set and MoveContainer isn't null they are
   /// moved to MoveContainer. Otherwise, nodes are removed without destroying
   /// them.
-  void removeImpl(HLContainerTy::iterator First, HLContainerTy::iterator Last,
-                  HLContainerTy *MoveContainer, bool Erase = false);
+  static void removeImpl(HLContainerTy::iterator First,
+                         HLContainerTy::iterator Last,
+                         HLContainerTy *MoveContainer, bool Erase = false);
 
   /// Removes [First, Last) from Container. Also destroys them is Erase is set.
-  void removeInternal(HLContainerTy &Container, HLContainerTy::iterator First,
-                      HLContainerTy::iterator Last, bool Erase);
+  static void removeInternal(HLContainerTy &Container,
+                             HLContainerTy::iterator First,
+                             HLContainerTy::iterator Last, bool Erase);
 
   /// Unlinks Node from HIR and destroys it.
   /// Note: This function is intentionally private. Transformations are not
   /// supposed to erase nodes as cleaning up erased nodes from HIR analyses
   /// requires implementation of a callback mechanism which doesn't seem worth
   /// it.
-  void erase(HLNode *Node);
+  static void erase(HLNode *Node);
 
   /// Unlinks [First, Last) from HIR and destroys them.
   /// Note: This function is intentionally private. Transformations are not
   /// supposed to erase nodes as cleaning up erased nodes from HIR analyses
   /// requires implementation of a callback mechanism which doesn't seem worth
   /// it.
-  void erase(HLContainerTy::iterator First, HLContainerTy::iterator Last);
+  static void erase(HLContainerTy::iterator First,
+                    HLContainerTy::iterator Last);
 
   /// Returns true if a loop is found in range [First, Last).
-  bool foundLoopInRange(HLContainerTy::iterator First,
-                        HLContainerTy::iterator Last);
+  static bool foundLoopInRange(HLContainerTy::iterator First,
+                               HLContainerTy::iterator Last);
 
   /// Update the goto branches with new labels.
   void updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap);
@@ -431,8 +439,9 @@ private:
                                 bool AllowNearPerfect, bool *IsNearPerfectLoop);
 
   template <bool IsMaxMode>
-  bool isInTopSortNumRangeImpl(const HLNode *Node, const HLNode *FirstNode,
-                               const HLNode *LastNode);
+  static bool isInTopSortNumRangeImpl(const HLNode *Node,
+                                      const HLNode *FirstNode,
+                                      const HLNode *LastNode);
 
   /// Test the condition described by Pred, LHS and RHS.
   static bool getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS);
@@ -678,25 +687,28 @@ public:
 
   /// Creates a new Cmp instruction.
   HLInst *createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1, RegDDRef *OpRef2,
-                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr);
+                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr,
+                    FastMathFlags FMF = FastMathFlags());
 
   /// Creates a new Select instruction.
   HLInst *createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
                        RegDDRef *OpRef2, RegDDRef *OpRef3, RegDDRef *OpRef4,
                        const Twine &Name = "select",
-                       RegDDRef *LvalRef = nullptr);
+                       RegDDRef *LvalRef = nullptr,
+                       FastMathFlags FMF = FastMathFlags());
+
   /// Creates a new Call instruction.
   HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr);
 
   /// Creates a new ShuffleVector instruction
-  HLInst *CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
+  HLInst *createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                   ArrayRef<uint32_t> Mask,
                                   const Twine &Name = "shuffle",
                                   RegDDRef *LvalRef = nullptr);
 
   /// Creates a new ExtractElement instruction
-  HLInst *CreateExtractElementInst(RegDDRef *OpRef, unsigned Idx,
+  HLInst *createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
                                    const Twine &Name = "extract",
                                    RegDDRef *LvalRef = nullptr);
 
@@ -724,7 +736,7 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  void visit(HV &Visitor, NodeTy *Node) {
+  static void visit(HV &Visitor, NodeTy *Node) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visit(Node);
   }
@@ -736,7 +748,7 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  void visitRange(HV &Visitor, ilist_iterator<NodeTy> Begin,
+  static void visitRange(HV &Visitor, ilist_iterator<NodeTy> Begin,
                   ilist_iterator<NodeTy> End) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visitRange(Begin, End);
@@ -748,7 +760,7 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
+  static void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
     ilist_iterator<NodeTy> BeginIter(Begin);
     ilist_iterator<NodeTy> EndIter(End);
@@ -988,20 +1000,21 @@ public:
                                HLContainerTy::iterator Last);
 
   /// Unlinks Node from HIR.
-  void remove(HLNode *Node);
+  static void remove(HLNode *Node);
 
   /// Unlinks [First, Last) from HIR.
-  void remove(HLContainerTy::iterator First, HLContainerTy::iterator Last);
+  static void remove(HLContainerTy::iterator First,
+                     HLContainerTy::iterator Last);
 
   /// Unlinks [First, Last] from HIR.
-  void remove(HLNode *First, HLNode *Last);
+  static void remove(HLNode *First, HLNode *Last);
 
   /// Unlinks [First, Last) from HIR and places then in the container.
-  void remove(HLContainerTy *Container, HLContainerTy::iterator First,
-              HLContainerTy::iterator Last);
+  static void remove(HLContainerTy *Container, HLContainerTy::iterator First,
+                     HLContainerTy::iterator Last);
 
   /// Unlinks [First, Last] from HIR and places then in the container.
-  void remove(HLContainerTy *Container, HLNode *First, HLNode *Last);
+  static void remove(HLContainerTy *Container, HLNode *First, HLNode *Last);
 
   /// Replaces OldNode by an unlinked NewNode.
   void replace(HLNode *OldNode, HLNode *NewNode);
@@ -1009,15 +1022,16 @@ public:
   /// Returns true if Node is in the top sort num range [\p FirstNode, \p
   /// LastNode]. The \p FirstNode could be a nullptr, the method will return
   /// false in this case.
-  bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
-                           const HLNode *LastNode);
+  static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
+                                  const HLNode *LastNode);
 
   /// Returns true if \p Node top sort number is in range
   /// [FirstNode->getMinTopSortNum(), LastNode->getMaxTopSortNum].
   /// The \p FirstNode could be a nullptr, the method will return false in this
   /// case.
-  bool isInTopSortNumMaxRange(const HLNode *Node, const HLNode *FirstNode,
-                              const HLNode *LastNode);
+  static bool isInTopSortNumMaxRange(const HLNode *Node,
+                                     const HLNode *FirstNode,
+                                     const HLNode *LastNode);
 
   /// Returns true if the Loop level is in a valid range from
   /// [1, MaxLoopNestLevel].
@@ -1069,8 +1083,8 @@ public:
 
   /// Returns true if Parent contains Node. IncludePrePostHdr indicates whether
   /// loop should be considered to contain preheader/postexit nodes.
-  bool contains(const HLNode *Parent, const HLNode *Node,
-                bool IncludePrePostHdr = false);
+  static bool contains(const HLNode *Parent, const HLNode *Node,
+                       bool IncludePrePostHdr = false);
 
   /// get parent loop for certain level, nullptr could be returned if input is
   /// invalid
@@ -1155,12 +1169,6 @@ public:
                   "Type of SmallVector parameter should be const HLLoop *.");
     gatherAllLoops(const_cast<HLNode *>(Node), Loops);
   }
-
-  /// Updates Loop properties (Bounds, etc) based on input Permutations
-  /// Used by Interchange now. Could be used later for blocking.
-  /// Loops are added to \p LoopPermutation in the desired permuted order.
-  void permuteLoopNests(HLLoop *OutermostLoop,
-                        const SmallVectorImpl<HLLoop *> &LoopPermutation);
 
   /// Returns true if Loop is a perfect Loop nest. Also returns the
   /// innermost loop.
@@ -1276,20 +1284,20 @@ public:
   bool isKnownPositiveOrNegative(const CanonExpr *CE,
                                  const HLNode *ParentNode = nullptr);
 
-  /// Updates target HLLabel in every HLGoto node according to the mapping.
-  void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin, HLNode *End);
-
   // Returns true if both HLIf nodes are equal.
-  bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
+  static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
 
-  // Replaces HLIf with its *then* or *else* body.
-  void replaceNodeWithBody(HLIf *If, bool ThenBody);
+  /// Recursively traverse the HIR from the /p Node and remove empty HLLoops and
+  /// empty HLIfs.
+  ///
+  /// Note: This function is placed here because the Framework uses it to
+  /// get rid of incoming empty HLIfs.
+  static void removeEmptyNodes(HLNode *Node);
 
-  /// Removes HLIfs that always evaluates as either true or false and
-  /// returns true whenever HLIfs were removed. The utility doesn't
-  /// invalidate analysis.
-  bool eliminateRedundantPredicates(HLContainerTy::iterator First,
-                                    HLContainerTy::iterator Last);
+  /// Recursively traverse the HIR range [\p Begin, \p End) and remove empty
+  /// HLLoops and empty HLIfs.
+  static void removeEmptyNodesRange(HLContainerTy::iterator Begin,
+                                    HLContainerTy::iterator End);
 };
 
 } // End namespace loopopt
