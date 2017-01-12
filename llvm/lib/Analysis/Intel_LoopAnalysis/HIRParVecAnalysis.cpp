@@ -386,14 +386,6 @@ void DDWalk::visit(HLDDNode *Node) {
        ++Itr) {
     auto Ref = *Itr;
 
-    // Disable vectorization of structure accesses until codegen can handle
-    // them.
-    if (Ref->accessesStruct()) {
-      Info->setVecType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
-      Info->setParType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
-      continue;
-    }
-
     auto II = DDG.outgoing_edges_begin(Ref), EE = DDG.outgoing_edges_end(Ref);
 
     // TODO - Check if we really need to analyze edges for non-livein temps

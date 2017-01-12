@@ -151,6 +151,11 @@ bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
 
   const CanonExpr *FirstCE = nullptr;
 
+  // Return false for cases where the lowest dimension has trailing struct
+  // field offsets.
+  if (Ref->hasTrailingStructOffsets(1))
+    return false;
+
   // Check that canon exprs for dimensions other than the first are
   // invariant.
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
@@ -244,6 +249,14 @@ void HandledCheck::visit(HLDDNode *Node) {
 // present inside it.
 void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
   int64_t IVConstCoeff;
+
+  if (!VectorType::isValidElementType(RegDD->getSrcType())) {
+    DEBUG(RegDD->getSrcType()->dump());
+    DEBUG(errs()
+          << "VPO_OPTREPORT: Loop not handled - invalid element type\n");
+    IsHandled = false;
+    return;
+  }
 
   if (AVRCodeGenHIR::isConstStrideRef(RegDD, LoopLevel, &IVConstCoeff) &&
       IVConstCoeff == 1)
