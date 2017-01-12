@@ -1400,7 +1400,7 @@ static bool boundConstArg(Function *F, Loop *L) {
     return false;
   auto ICmp = dyn_cast<ICmpInst>(BI->getCondition());
   if (!ICmp)
-    return false;
+    return false ;
   for (unsigned i = 0, e = ICmp->getNumOperands(); i != e; ++i) {
     auto Arg = dyn_cast<Argument>(ICmp->getOperand(i));
     if (!Arg)
@@ -1455,10 +1455,52 @@ static bool worthyDoubleCallSite2(CallSite &CS, InliningLoopInfoCache& ILIC) {
 
 //
 // Return 'true' if this is a double callsite worth inlining.
+//   (This is one of multiple double callsite heuristics.)
+//
+// The criteria for this heuristic are:
+//   (1) Must have exactly two calls to the function
+//   (2) Call must be in a loop 
+//   (3) Called function must have loops
+//   (4) Called function must not have any arguments 
+//
+static bool worthyDoubleCallSite3(CallSite &CS, InliningLoopInfoCache& ILIC) {
+  Function *Caller = CS.getCaller();
+  LoopInfo *CallerLI = ILIC.getLI(Caller);
+  if (!CallerLI->getLoopFor(CS.getInstruction()->getParent())) 
+    return false; 
+  Function *Callee = CS.getCalledFunction();
+  LoopInfo *CalleeLI = ILIC.getLI(Callee);
+  if (CalleeLI->begin() == CalleeLI->end())
+    return false; 
+  if (CS.arg_begin() != CS.arg_end()) 
+    return false; 
+  return true; 
+} 
+
+//
+// Return true if 'F' has exactly two callsites
+//
+static bool isDoubleCallsite(Function *F)
+{
+  unsigned int count = 0; 
+  for (User *U : F->users()) {
+    CallSite Site(U);
+    if (!Site || Site.getCalledFunction() != F)
+      continue;
+    if (++count > 2) 
+      return false; 
+  } 
+  return count == 2;
+} 
+
+//
+// Return 'true' if this is a double callsite worth inlining.
 //
 static bool worthyDoubleCallSite(CallSite &CS, InliningLoopInfoCache& ILIC)
 {
-  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC);
+  return isDoubleCallsite(CS.getCalledFunction())
+    && (worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC)
+    || worthyDoubleCallSite3(CS, ILIC));
 }
 
 #endif // INTEL_CUSTOMIZATION
