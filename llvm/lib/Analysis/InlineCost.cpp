@@ -1454,6 +1454,19 @@ static bool worthyDoubleCallSite2(CallSite &CS, InliningLoopInfoCache& ILIC) {
 }
 
 //
+// Return the total number of predecessors for the basic blocks of 'F'
+//
+static unsigned int totalBasicBlockPredCount(Function &F)
+{
+  unsigned int count = 0; 
+  for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
+    BasicBlock *BB = &*BI; 
+    count += std::distance(pred_begin(BB), pred_end(BB));
+  } 
+  return count;
+} 
+
+//
 // Return 'true' if this is a double callsite worth inlining.
 //   (This is one of multiple double callsite heuristics.)
 //
@@ -1462,17 +1475,21 @@ static bool worthyDoubleCallSite2(CallSite &CS, InliningLoopInfoCache& ILIC) {
 //   (2) Call must be in a loop 
 //   (3) Called function must have loops
 //   (4) Called function must not have any arguments 
+//         OR Called function must have a large enough total number 
+//           of predecessors
 //
 static bool worthyDoubleCallSite3(CallSite &CS, InliningLoopInfoCache& ILIC) {
   Function *Caller = CS.getCaller();
   LoopInfo *CallerLI = ILIC.getLI(Caller);
-  if (!CallerLI->getLoopFor(CS.getInstruction()->getParent())) 
+  if (!CallerLI->getLoopFor(CS.getInstruction()->getParent()))
     return false; 
   Function *Callee = CS.getCalledFunction();
   LoopInfo *CalleeLI = ILIC.getLI(Callee);
   if (CalleeLI->begin() == CalleeLI->end())
     return false; 
-  if (CS.arg_begin() != CS.arg_end()) 
+  if (CS.arg_begin() != CS.arg_end() 
+    && totalBasicBlockPredCount(*Callee) 
+    < InlineConstants::BigBasicBlockPredCount) 
     return false; 
   return true; 
 } 
@@ -1491,8 +1508,8 @@ static bool isDoubleCallsite(Function *F)
       return false; 
   } 
   return count == 2;
-} 
-
+}
+ 
 //
 // Return 'true' if this is a double callsite worth inlining.
 //
