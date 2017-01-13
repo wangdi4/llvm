@@ -101,6 +101,98 @@ static llvm::Value *emitIntelOpenMPDestructor(CodeGenModule &CGM,
   return Fn;
 }
 
+static llvm::Value *emitIntelOpenMPCopyConstructor(CodeGenModule &CGM,
+                                                   const VarDecl *Private) {
+  auto &C = CGM.getContext();
+  QualType Ty = Private->getType();
+  QualType ElemType = Ty;
+  if (Ty->isArrayType())
+    ElemType = C.getBaseElementType(Ty).getNonReferenceType();
+
+  SmallString<256> OutName;
+  llvm::raw_svector_ostream Out(OutName);
+  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  Out << ".omp.copy_constr";
+
+  if (llvm::Value *F = CGM.GetGlobalValue(OutName))
+    return F;
+
+  // Note that we should be able to optimize this to return the cctor directly
+  // in cases where this is only a simple call.
+
+  // Generate a copy constructor wrapper for the type of the firstprivate
+  // variable.  Note this must also handle array types. This is similar to
+  // the code in emitIntelOpenMPDefaultConstructor but the Init passed here
+  // (which contains references to early outlining variables that do not exist)
+  // must be processed to use the source object address passed in as a
+  // parameter. Since we need to create new AST objects in the generated
+  // routine we need to create a FunctionDecl to act as the DeclContext.
+
+  IdentifierInfo *II = &CGM.getContext().Idents.get(OutName);
+  FunctionDecl *FD = FunctionDecl::Create(
+      C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
+      C.VoidTy, /*TInfo=*/nullptr, SC_Static);
+
+  QualType ObjPtrTy = C.getPointerType(Ty);
+
+  CodeGenFunction CGF(CGM);
+  FunctionArgList Args;
+  ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  Args.push_back(&DstDecl);
+  ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  Args.push_back(&SrcDecl);
+
+  const CGFunctionInfo &FI =
+      CGM.getTypes().arrangeBuiltinFunctionDeclaration(C.VoidTy, Args);
+
+  llvm::FunctionType *LTy = CGM.getTypes().GetFunctionType(FI);
+
+  llvm::Function *Fn = llvm::Function::Create(
+      LTy, llvm::GlobalValue::InternalLinkage, OutName, &CGM.getModule());
+
+  CGM.SetInternalFunctionAttributes(nullptr, Fn, FI);
+
+  CGF.StartFunction(FD, C.VoidTy, Fn, FI, Args);
+  auto *Init = Private->getInit();
+  if (Init && !CGF.isTrivialInitializer(Init)) {
+    CodeGenFunction::RunCleanupsScope Scope(CGF);
+    auto *CCE = cast<CXXConstructExpr>(Init);
+    DeclRefExpr SrcExpr(&SrcDecl, /*RefersToEnclosingVariableOrCapture=*/false,
+                        ObjPtrTy, VK_LValue, SourceLocation());
+    ImplicitCastExpr CastExpr(ImplicitCastExpr::OnStack,
+                              C.getPointerType(ElemType), CK_BitCast, &SrcExpr,
+                              VK_RValue);
+    UnaryOperator SRC(&CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
+                      SourceLocation());
+
+    QualType CTy = ElemType;
+    CTy.addConst();
+    ImplicitCastExpr NoOpCast(ImplicitCastExpr::OnStack, CTy, CK_NoOp, &SRC,
+                              VK_LValue);
+
+    SmallVector<Expr *, 8> ConstructorArgs;
+    ConstructorArgs.push_back(&NoOpCast);
+    // Add possible default arguments, which start with the second arg.
+    for (auto I = CCE->arg_begin() + 1, End = CCE->arg_end(); I != End; ++I)
+      ConstructorArgs.push_back(const_cast<Expr *>(*I));
+    
+    CXXConstructExpr *RebuiltCCE = CXXConstructExpr::Create(
+        C, Ty, CCE->getLocation(), CCE->getConstructor(), CCE->isElidable(),
+        ConstructorArgs, CCE->hadMultipleCandidates(),
+        CCE->isListInitialization(), CCE->isStdInitListInitialization(),
+        CCE->requiresZeroInitialization(), CCE->getConstructionKind(),
+        CCE->getParenOrBraceRange());
+
+    LValue ArgLVal = CGF.EmitLoadOfPointerLValue(
+        CGF.GetAddrOfLocalVar(&DstDecl), ObjPtrTy->getAs<PointerType>());
+    CGF.EmitAnyExprToMem(RebuiltCCE, ArgLVal.getAddress(), Ty.getQualifiers(),
+                         /*IsInitializer=*/true);
+  }
+  CGF.FinishFunction();
+
+  return Fn;
+}
+
 namespace {
 enum OMPAtomicClause {
   OMP_read,
@@ -491,6 +583,34 @@ class OpenMPCodeOutliner {
     emitListClause();
   }
 
+  void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl) {
+    addArg("QUAL.OMP.FIRSTPRIVATE");
+    auto *IPriv = Cl->private_copies().begin();
+    for (auto *E : Cl->varlists()) {
+      auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
+      bool IsPODType = Private->getType().isPODType(CGF.getContext());
+      if (!IsPODType)
+        addArg("QUAL.OPND.NONPOD");
+      addArg(E);
+      if (!IsPODType) {
+        addArg(emitIntelOpenMPCopyConstructor(CGF.CGM, Private));
+        addArg(emitIntelOpenMPDestructor(CGF.CGM, Private));
+      }
+      ++IPriv;
+    }
+    emitListClause();
+  }
+
+  void emitOMPCopyinClause(const OMPCopyinClause *Cl) {
+    addArg("QUAL.OMP.COPYIN");
+    for (auto *E : Cl->varlists()) {
+      if (!E->getType().isPODType(CGF.getContext()))
+        CGF.CGM.ErrorUnsupported(E, "non-POD copyin variable");
+      addArg(E);
+    }
+    emitListClause();
+  }
+
   void emitOMPIfClause(const OMPIfClause *) {}
   void emitOMPFinalClause(const OMPFinalClause *) {}
   void emitOMPNumThreadsClause(const OMPNumThreadsClause *) {}
@@ -498,10 +618,8 @@ class OpenMPCodeOutliner {
   void emitOMPSimdlenClause(const OMPSimdlenClause *) {}
   void emitOMPCollapseClause(const OMPCollapseClause *) {}
   void emitOMPDefaultClause(const OMPDefaultClause *) {}
-  void emitOMPFirstprivateClause(const OMPFirstprivateClause *) {}
   void emitOMPLastprivateClause(const OMPLastprivateClause *) {}
   void emitOMPAlignedClause(const OMPAlignedClause *) {}
-  void emitOMPCopyinClause(const OMPCopyinClause *) {}
   void emitOMPCopyprivateClause(const OMPCopyprivateClause *) {}
   void emitOMPProcBindClause(const OMPProcBindClause *) {}
   void emitOMPNowaitClause(const OMPNowaitClause *) {}

@@ -7,6 +7,13 @@ struct S2 {
   S2() {}
 };
 
+struct S3 {
+  S3() {}
+  S3(const S3& s) : i(s.i) {}
+  ~S3() {}
+  int i;
+};
+
 void foo() {}
 
 // CHECK-LABEL: @main
@@ -16,9 +23,13 @@ int main(int argc, char **argv) {
   // CHECK: [[ARGV_ADDR:%.+]] = alloca i8**,
   // CHECK: [[S1_ADDR:%.+]] = alloca %struct.S1,
   // CHECK: [[S2_ADDR:%.+]] = alloca %struct.S2,
+  // CHECK: [[S3_ADDR:%.+]] = alloca %struct.S3,
   // CHECK: [[ARR1_ADDR:%.+]] = alloca [10 x %struct.S1],
   // CHECK: [[ARR2_ADDR:%.+]] = alloca [10 x %struct.S2],
+  // CHECK: [[S3ARR_ADDR:%.+]] = alloca [10 x %struct.S3],
   // CHECK: [[ARGCREF_ADDR:%.+]] = alloca i32*,
+  // CHECK: [[Z_ADDR:%.+]] = alloca i32,
+  // CHECK: [[ZARR_ADDR:%.+]] = alloca [20 x i32],
   // CHECK: [[N1_ADDR:%.+]] = alloca i64,
   // CHECK: [[N2_ADDR:%.+]] = alloca i64,
   // CHECK: [[N3_ADDR:%.+]] = alloca i64,
@@ -33,15 +44,24 @@ int main(int argc, char **argv) {
   // CHECK: [[ARR3_ADDR:%.+]] = alloca double, i64
   S1 s1;
   S2 s2;
+  S3 s3;
   S1 arr1[10];
   S2 arr2[10];
+  S3 s3arr[10];
   double arr3[argc];
   int &argcref = argc;
+  int z = 4;
+  int zarr[20];
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL")
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", i8*** [[ARGV_ADDR]])
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", metadata !"QUAL.OPND.NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr, double* [[ARR3_ADDR]])
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", metadata !"QUAL.OPND.NONPOD", %struct.S3* [[S3_ADDR]], void (%struct.S3*, %struct.S3*)* @_ZTS2S3.omp.copy_constr, void (%struct.S3*)* @_ZTS2S3.omp.destr)
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", metadata !"QUAL.OPND.NONPOD", [10 x %struct.S3]* [[S3ARR_ADDR]], void ([10 x %struct.S3]*, [10 x %struct.S3]*)* @_ZTSA10_2S3.omp.copy_constr, void ([10 x %struct.S3]*)* @_ZTSA10_2S3.omp.destr)
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* [[Z_ADDR]], [20 x i32]* [[ZARR_ADDR]])
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-#pragma omp parallel shared(argv) private(s1, s2, arr1, arr2, arr3)
+#pragma omp parallel shared(argv) private(s1, s2, arr1, arr2, arr3) \
+                                  firstprivate(s3) firstprivate(s3arr) \
+                                  firstprivate(z,zarr)
   // CHECK: call void @_Z3foov()
   foo();
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL")

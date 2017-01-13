@@ -1195,6 +1195,11 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
 
   // Builtin type used to help define __builtin_va_list.
   VaListTagDecl = nullptr;
+
+#if INTEL_CUSTOMIZATION
+  // Type for __builtin_va_arg_pack
+  InitBuiltinType(VAArgPackTy, BuiltinType::VAArgPack);
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1772,6 +1777,12 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getPointerWidth(0);
       Align = Target->getPointerAlign(0);
       break;
+#if INTEL_CUSTOMIZATION
+    case BuiltinType::VAArgPack:
+      Width = Target->getPointerWidth(0);
+      Align = Target->getPointerAlign(0);
+      break;
+#endif // INTEL_CUSTOMIZATION
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
@@ -8457,6 +8468,13 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
   case 'p':
     Type = Context.getProcessIDType();
     break;
+#if INTEL_CUSTOMIZATION
+  case '.':
+    assert(HowLong == 0 && !Signed && !Unsigned &&
+               "Bad modifiers used with '.'!");
+    Type = Context.VAArgPackTy;
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   // If there are modifiers and if we're allowed to parse them, go for it.
