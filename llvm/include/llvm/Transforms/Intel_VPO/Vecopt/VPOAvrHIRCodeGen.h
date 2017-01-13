@@ -132,6 +132,9 @@ public:
   // Widen Ref if needed and return the widened ref.
   RegDDRef *widenRef(const RegDDRef *Ref);
 
+  // Return true if Ref is a reduction
+  bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
+
 private:
   AVR *Avr;
 

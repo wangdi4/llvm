@@ -839,6 +839,15 @@ void AVRCodeGenHIR::processLoop() {
   }
 }
 
+bool AVRCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
+  // When widening decomposed nested blobs, we create temp Refs without
+  // an associated DDNode.
+  if (!Ref->getHLDDNode())
+    return false;
+
+  return SRA->isReductionRef(Ref, Opcode);
+}
+
 RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   RegDDRef *WideRef;
   int64_t IVConstCoeff;
@@ -869,7 +878,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     // reduction ref the first time it is encountered and use this to replace
     // all occurrences of Ref. The widened ref is added to the WidenMap
     // here to accomplish this.
-    if (SRA->isReductionRef(Ref, RedOpCode)) {
+    if (isReductionRef(Ref, RedOpCode)) {
 
       auto Identity = HLInst::getRecurrenceIdentity(RedOpCode, RefDestTy);
       auto RedOpVecInst = insertReductionInitializer(Identity);
@@ -1366,7 +1375,7 @@ void AVRCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
 
   unsigned OpCode;
 
-  if (SRA->isReductionRef(ScalRef, OpCode)) {
+  if (isReductionRef(ScalRef, OpCode)) {
     HLContainerTy Tail;
 
     buildReductionTail(Tail, OpCode, VecRef, ScalRef, MainLoop, ScalRef);
