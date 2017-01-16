@@ -782,7 +782,7 @@ _mm256_permutevar8x32_ps(__m256 __a, __m256i __b)
 static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_maskload_epi32(int const *__X, __m256i __M)
 {
-  return (__m256i)__builtin_ia32_maskloadd256((__private __v8si *)(const __v8si *)__X, (__v8si)__M);
+  return (__m256i)__builtin_ia32_maskloadd256(__OCL_CAST_TO_PRIVATE(const __v8si *)(const __v8si *)__X, (__v8si)__M);
 }
 
 __m256i __attribute__((__always_inline__, __nodebug__))
@@ -791,13 +791,13 @@ _mm256_maskload_epi64(long long const *__X, __m256i __M);
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_maskload_epi32(int const *__X, __m128i __M)
 {
-  return (__m128i)__builtin_ia32_maskloadd((__private __v4si *)(const __v4si *)__X, (__v4si)__M);
+  return (__m128i)__builtin_ia32_maskloadd(__OCL_CAST_TO_PRIVATE(const __v4si *)(const __v4si *)__X, (__v4si)__M);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm256_maskstore_epi32(int *__X, __m256i __M, __m256i __Y)
 {
-  __builtin_ia32_maskstored256((__private __v8si *)(__v8si *)__X, (__v8si)__M, (__v8si)__Y);
+  __builtin_ia32_maskstored256(__OCL_CAST_TO_PRIVATE(__v8si *)(__v8si *)__X, (__v8si)__M, (__v8si)__Y);
 }
 
 void __attribute__((__always_inline__, __nodebug__))
@@ -806,7 +806,7 @@ _mm256_maskstore_epi64(long long *__X, __m256i __M, __m256i __Y);
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_maskstore_epi32(int *__X, __m128i __M, __m128i __Y)
 {
-  __builtin_ia32_maskstored((__private __v4si *)(__v4si *)__X, (__v4si)__M, (__v4si)__Y);
+  __builtin_ia32_maskstored(__OCL_CAST_TO_PRIVATE(__v4si *)(__v4si *)__X, (__v4si)__M, (__v4si)__Y);
 }
 
 static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))

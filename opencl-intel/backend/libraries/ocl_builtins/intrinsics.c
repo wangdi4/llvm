@@ -1,10 +1,11 @@
 // Implementation of X86 intrinsics which use clang built-ins with 'long long' parameters.
 // It's moved from the header files included to OpenCL module with built-in functions where 'long long' size must be 128 bit, whereas X86 target supports only 64-bit 'long long' size.
-typedef int __v4si __attribute__((__vector_size__(16)));
+
+#include <intrin.h>
 
 #if defined (__SSE4_2__) || defined (__SSE4_1__)
-__v4si __attribute__((__always_inline__, __nodebug__))
-_mm_mul_epi32 (__v4si __V1, __v4si __V2)
+__m128i __attribute__((__always_inline__, __nodebug__))
+_mm_mul_epi32 (__m128i __V1, __m128i  __V2)
 {
   return (__v4si) __builtin_ia32_pmuldq128 (__V1, __V2);
 }
@@ -12,90 +13,55 @@ _mm_mul_epi32 (__v4si __V1, __v4si __V2)
 #endif
 
 #ifdef __SSE2__
-__v4si __attribute__((__always_inline__, __nodebug__))
-_mm_mul_epu32(__v4si a, __v4si b)
+__m128i __attribute__((__always_inline__, __nodebug__))
+_mm_mul_epu32(__m128i a, __m128i b)
 {
   return __builtin_ia32_pmuludq128(a, b);
 }
 #endif
 
-typedef double __v4df __attribute__((__vector_size__(32)));
-typedef long long __v4di __attribute__((__vector_size__(32)));
-typedef int __v8si __attribute__((__vector_size__(32)));
-
 #ifdef __AVX2__
-// AVX2
 __v4di __attribute__((__always_inline__, __nodebug__))
-_mm256_maskload_epi64(__v4di const *__X, __v4di __M)
+_mm256_maskload_epi64(long long const *__X, __v4di __M)
 {
-  return __builtin_ia32_maskloadq256(__X, __M);
+  return __builtin_ia32_maskloadq256((const __v4di *) __X, __M);
 }
 
 void __attribute__((__always_inline__, __nodebug__))
-_mm256_maskstore_epi64(__v4di *__X, __v4di __M, __v4di __Y)
+_mm256_maskstore_epi64(long long *__X, __v4di __M, __v4di __Y)
 {
-  __builtin_ia32_maskstoreq256(__X, __M, __Y);
+  __builtin_ia32_maskstoreq256((__v4di *)__X, __M, __Y);
 }
 
-__v8si __attribute__((__always_inline__, __nodebug__))
-_mm256_mul_epi32(__v8si a, __v8si b)
+__m256i __attribute__((__always_inline__, __nodebug__))
+_mm256_mul_epi32(__m256i a, __m256i b)
 {
   return __builtin_ia32_pmuldq256(a, b);
 }
 
-__v8si __attribute__((__always_inline__, __nodebug__))
-_mm256_mul_epu32(__v8si a, __v8si b)
+__m256i __attribute__((__always_inline__, __nodebug__))
+_mm256_mul_epu32(__m256i a, __m256i b)
 {
   return __builtin_ia32_pmuludq256(a, b);
 }
 #endif
 
 #ifdef __AVX__
-// AVX
-__v4df __attribute__((__always_inline__, __nodebug__))
-_mm256_maskload_pd(__v4df const *p, __v4di m)
+__m256d __attribute__((__always_inline__, __nodebug__))
+_mm256_maskload_pd(double const *p, __m256i m)
 {
-  return __builtin_ia32_maskloadpd256(p, m);
+  return __builtin_ia32_maskloadpd256((const __v4df *)p, m);
 }
 
 void __attribute__((__always_inline__, __nodebug__))
-_mm256_maskstore_pd(__v4df *p, __v4di m, __v4di a)
+_mm256_maskstore_pd(double *p, __m256i m, __m256d a)
 {
-  __builtin_ia32_maskstorepd256(p, m, a);
+  __builtin_ia32_maskstorepd256((__v4df *)p, m, a);
 }
 
 #endif
 
 #ifdef __AVX512F__
-
-typedef double __v8df __attribute__((__vector_size__(64)));
-typedef float __v16sf __attribute__((__vector_size__(64)));
-typedef long long __v8di __attribute__((__vector_size__(64)));
-typedef int __v16si __attribute__((__vector_size__(64)));
-
-typedef float __m512 __attribute__((__vector_size__(64)));
-typedef double __m512d __attribute__((__vector_size__(64)));
-typedef long long __m512i __attribute__((__vector_size__(64)));
-
-typedef unsigned char __mmask8;
-typedef unsigned short __mmask16;
-
-/* Rounding mode macros.  */
-#define _MM_FROUND_TO_NEAREST_INT   0x00
-#define _MM_FROUND_TO_NEG_INF       0x01
-#define _MM_FROUND_TO_POS_INF       0x02
-#define _MM_FROUND_TO_ZERO          0x03
-#define _MM_FROUND_CUR_DIRECTION    0x04
-
-__m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_setzero_si512(void);
-
-__m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_setzero_ps(void);
-
-__m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_setzero_pd(void);
-
 __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_maskz_set1_epi64(__mmask8 __M, long long __A)
 {

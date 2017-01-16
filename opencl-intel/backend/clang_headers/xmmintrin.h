@@ -603,13 +603,13 @@ _mm_setzero_ps(void)
 static __inline__ void __attribute__((__always_inline__))
 _mm_storeh_pi(__m64 *p, __m128 a)
 {
-  __builtin_ia32_storehps((private __v2si *)p, a);
+  __builtin_ia32_storehps(__OCL_CAST_TO_PRIVATE(__v2si *)(__v2si *)p, a);
 }
 
 static __inline__ void __attribute__((__always_inline__))
 _mm_storel_pi(__m64 *p, __m128 a)
 {
-  __builtin_ia32_storelps((private __v2si *)p, a);
+  __builtin_ia32_storelps(__OCL_CAST_TO_PRIVATE(__v2si *)(__v2si *)p, a);
 }
 
 static __inline__ void __attribute__((__always_inline__))
@@ -622,20 +622,20 @@ _mm_store_ss(float *p, __m128 a)
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_storeu_ps(private float *p, __m128 a)
+_mm_storeu_ps(__OCL_PRIVATE_ADDR_SPACE float *p, __m128 a)
 {
   __builtin_ia32_storeups(p, a);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_store1_ps(private float *p, __m128 a)
+_mm_store1_ps(__OCL_PRIVATE_ADDR_SPACE float *p, __m128 a)
 {
   a = __builtin_shufflevector(a, a, 0, 0, 0, 0);
   _mm_storeu_ps(p, a);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_store_ps1(private float *p, __m128 a)
+_mm_store_ps1(__OCL_PRIVATE_ADDR_SPACE float *p, __m128 a)
 {
     return _mm_store1_ps(p, a);
 }
@@ -647,7 +647,7 @@ _mm_store_ps(float *p, __m128 a)
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_storer_ps(private float *p, __m128 a)
+_mm_storer_ps(float *p, __m128 a)
 {
   a = __builtin_shufflevector(a, a, 3, 2, 1, 0);
   _mm_store_ps(p, a);
@@ -664,7 +664,7 @@ _mm_storer_ps(private float *p, __m128 a)
 #define _mm_prefetch(a, sel) (__builtin_prefetch((void *)(a), 0, (sel)))
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_stream_ps(private float *p, __m128 a)
+_mm_stream_ps(float *p, __m128 a)
 {
   __builtin_ia32_movntps(p, a);
 }
@@ -731,7 +731,7 @@ _mm_mulhi_pu16(__m64 a, __m64 b)
   (__m64)__builtin_ia32_pshufw((__v4hi)__a, (n)); })
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_maskmove_si64(__m64 d, __m64 n, private char *p)
+_mm_maskmove_si64(__m64 d, __m64 n, char *p)
 {
   __builtin_ia32_maskmovq((__v8qi)d, (__v8qi)n, p);
 }

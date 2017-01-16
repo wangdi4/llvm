@@ -774,13 +774,13 @@ _mm256_broadcast_ss(float private const *a)
 */
 
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
-_mm256_broadcast_pd(__m128d private const *a)
+_mm256_broadcast_pd(__m128d const *a)
 {
   return (__m256d)__builtin_ia32_vbroadcastf128_pd256(a);
 }
 
 static __inline __m256 __attribute__((__always_inline__, __nodebug__))
-_mm256_broadcast_ps(__m128 private const *a)
+_mm256_broadcast_ps(__m128 const *a)
 {
   return (__m256)__builtin_ia32_vbroadcastf128_ps256(a);
 }
@@ -834,7 +834,7 @@ _mm256_loadu_si256(__m256i const *p)
 static __inline __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_lddqu_si256(__m256i const *p)
 {
-  return (__m256i)__builtin_ia32_lddqu256((__private char *)(char const *)p);
+  return (__m256i)__builtin_ia32_lddqu256(__OCL_CAST_TO_PRIVATE(char const *)(char const *)p);
 }
 
 /* SIMD store ops */
@@ -853,13 +853,13 @@ _mm256_store_ps(float *p, __m256 a)
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_storeu_pd(double *p, __m256d a)
 {
-  __builtin_ia32_storeupd256((__private double *)p, (__v4df)a);
+  __builtin_ia32_storeupd256(__OCL_CAST_TO_PRIVATE(double *)p, (__v4df)a);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_storeu_ps(float *p, __m256 a)
 {
-  __builtin_ia32_storeups256((__private float *)p, (__v8sf)a);
+  __builtin_ia32_storeups256(__OCL_CAST_TO_PRIVATE(float *)p, (__v8sf)a);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
@@ -871,7 +871,7 @@ _mm256_store_si256(__m256i *p, __m256i a)
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_storeu_si256(__m256i *p, __m256i a)
 {
-  __builtin_ia32_storedqu256((__private char *)(char *)p, (__v32qi)a);
+  __builtin_ia32_storedqu256(__OCL_CAST_TO_PRIVATE(char *)(char *)p, (__v32qi)a);
 }
 
 __m256d __attribute__((__always_inline__, __nodebug__))
@@ -880,20 +880,20 @@ _mm256_maskload_pd(double const *p, __m256i m);
 static __inline __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_maskload_ps(float const *p, __m128i m)
 {
-  return (__m128)__builtin_ia32_maskloadps((__private __v4sf *)(const __v4sf *)p, (__v4si)m);
+  return (__m128)__builtin_ia32_maskloadps(__OCL_CAST_TO_PRIVATE(const __v4sf *)(const __v4sf *)p, (__v4si)m);
 }
 
 static __inline __m256 __attribute__((__always_inline__, __nodebug__))
 _mm256_maskload_ps(float const *p, __m256i m)
 {
-  return (__m256)__builtin_ia32_maskloadps256((__private __v8sf *)(const __v8sf *)p, (__v8si)m);
+  return (__m256)__builtin_ia32_maskloadps256(__OCL_CAST_TO_PRIVATE(const __v8sf *)(const __v8sf *)p, (__v8si)m);
 }
 
 /* Conditional store ops */
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_maskstore_ps(float *p, __m256i m, __m256 a)
 {
-  __builtin_ia32_maskstoreps256((__private __v8sf *)(__v8sf *)p, (__v8si)m, (__v8sf)a);
+  __builtin_ia32_maskstoreps256(__OCL_CAST_TO_PRIVATE(__v8sf *)(__v8sf *)p, (__v8si)m, (__v8sf)a);
 }
 
 void __attribute__((__always_inline__, __nodebug__))
@@ -902,19 +902,19 @@ _mm256_maskstore_pd(double *p, __m256i m, __m256d a);
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm_maskstore_ps(float *p, __m128i m, __m128 a)
 {
-  __builtin_ia32_maskstoreps((__private __v4sf *)(__v4sf *)p, (__v4si)m, (__v4sf)a);
+  __builtin_ia32_maskstoreps(__OCL_CAST_TO_PRIVATE(__v4sf *)(__v4sf *)p, (__v4si)m, (__v4sf)a);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_stream_pd(double *a, __m256d b)
 {
-  __builtin_ia32_movntpd256((__private double*)a, (__v4df)b);
+  __builtin_ia32_movntpd256(__OCL_CAST_TO_PRIVATE(double*)a, (__v4df)b);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_stream_ps(float *p, __m256 a)
 {
-  __builtin_ia32_movntps256((__private float*)p, (__v8sf)a);
+  __builtin_ia32_movntps256(__OCL_CAST_TO_PRIVATE(float*)p, (__v8sf)a);
 }
 
 /* Create vectors */
@@ -1158,9 +1158,9 @@ _mm256_storeu2_m128(float *addr_hi, float *addr_lo, __m256 a)
   __m128 v128;
 
   v128 = _mm256_castps256_ps128(a);
-  __builtin_ia32_storeups((__private float*)addr_lo, v128);
+  __builtin_ia32_storeups(__OCL_CAST_TO_PRIVATE( float*)addr_lo, v128);
   v128 = _mm256_extractf128_ps(a, 1);
-  __builtin_ia32_storeups((__private float*)addr_hi, v128);
+  __builtin_ia32_storeups(__OCL_CAST_TO_PRIVATE( float*)addr_hi, v128);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
@@ -1169,8 +1169,8 @@ _mm256_storeu2_m128d(double *addr_hi, double *addr_lo, __m256d a)
   __m128d v128;
 
   v128 = _mm256_castpd256_pd128(a);
-  __builtin_ia32_storeupd((__private double *)addr_lo, v128);
+  __builtin_ia32_storeupd(__OCL_CAST_TO_PRIVATE(double *)addr_lo, v128);
   v128 = _mm256_extractf128_pd(a, 1);
-  __builtin_ia32_storeupd((__private double *)addr_hi, v128);
+  __builtin_ia32_storeupd(__OCL_CAST_TO_PRIVATE(double *)addr_hi, v128);
 }
 
