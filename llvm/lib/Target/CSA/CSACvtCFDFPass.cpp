@@ -1114,6 +1114,7 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
 //sequence OPT is targeting at this transform
 //single entry, single exiting, single latch, exiting blk post dominates loop hdr(always execute)
 void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   MachineLoop* mloop = MLI->getLoopFor(mbb);
@@ -1141,8 +1142,6 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
     MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(predReg);
     cpyInst->setFlag(MachineInstr::NonSequential);
   } else {
-    assert(false && "TODO: implement using filter instr");
-#if 0
     //need filtering
     //can't using renaming due to maintaing the exiting condition
     ControlDependenceNode *filterNode = latchNode;
@@ -1152,7 +1151,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
     do {
       assert(filterNode->getNumParents() == 1 && "not implemented yet");
       ControlDependenceNode *filterParentNode = *filterNode->parent_begin();
-      MachineBasicBlock *filterParentBB = filterNode->getBlock();
+      MachineBasicBlock *filterParentBB = filterParentNode->getBlock();
       MachineInstr *filterbi = &*filterParentBB->getFirstInstrTerminator();
       filterIn = MRI->createVirtualRegister(TRC);
       unsigned filterPred = filterbi->getOperand(0).getReg();
@@ -1161,9 +1160,11 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
         BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(filterPred);
         filterPred = notReg;
       }
+      filterInst = BuildMI(*filterParentBB, filterbi, DebugLoc(), TII.get(CSA::PREDFILTER), filterOut).
+                                                                                            addReg(filterIn).
+                                                                                            addReg(filterPred);
       filterNode = filterParentNode;
       filterOut = filterIn;
-      filterInst = BuildMI(*filterParentBB, filterbi, DebugLoc(), TII.get(filterOpcode), filterOut).addReg(filterIn).addReg(filterPred);
     } while (!filterNode->isParent(exitingNode));
 
     if (CDG->getEdgeType(exitingBB, exitBB, true) == ControlDependenceNode::TRUE) {
@@ -1174,7 +1175,6 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
     } else {
       filterInst->substituteRegister(filterIn, predReg, 2, TRI);
     }
-#endif
   }
   MachineBasicBlock *lphdr = mloop->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
