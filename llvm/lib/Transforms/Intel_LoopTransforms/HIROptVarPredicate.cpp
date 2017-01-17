@@ -252,11 +252,11 @@ public:
   }
 };
 
-static bool isStandAloneIV(const CanonExpr *CE, unsigned Level) {
-  bool OneIVOnly = (!CE->getConstant() && (CE->getDenominator() == 1) &&
-                    (CE->numBlobs() == 0) && (CE->numIVs() == 1));
+static bool hasIVAndConstOnly(const CanonExpr *CE, unsigned Level) {
+  bool OneIVAndConstant = ((CE->getDenominator() == 1) &&
+                           (CE->numBlobs() == 0) && (CE->numIVs() == 1));
 
-  if (!OneIVOnly) {
+  if (!OneIVAndConstant) {
     return false;
   }
 
@@ -264,7 +264,7 @@ static bool isStandAloneIV(const CanonExpr *CE, unsigned Level) {
   int64_t Coeff;
   CE->getIVCoeff(Level, &Index, &Coeff);
 
-  return (Coeff == 1 || Coeff == -1) && Index == InvalidBlobIndex;
+  return (Coeff == 1 || Coeff == -1) && (Index == InvalidBlobIndex);
 }
 
 static bool mayIVOverflowCE(const CanonExpr *CE, Type *IVType) {
@@ -288,10 +288,10 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
   const CanonExpr *LHS = LHSDDref->getSingleCanonExpr();
   const CanonExpr *RHS = RHSDDRef->getSingleCanonExpr();
 
-  if (isStandAloneIV(RHS, Level)) {
+  if (hasIVAndConstOnly(RHS, Level)) {
     std::swap(LHS, RHS);
     Pred = CmpInst::getSwappedPredicate(Pred);
-  } else if (!isStandAloneIV(LHS, Level)) {
+  } else if (!hasIVAndConstOnly(LHS, Level)) {
     return nullptr;
   }
 
@@ -301,6 +301,33 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
 
   // Assuming that LHS is 1*IV
   std::unique_ptr<CanonExpr> Result(RHS->clone());
+
+  int64_t LHSConst = LHS->getConstant();
+  if (LHSConst != 0) {
+    int64_t RHSConst;
+    if (!RHS->isIntConstant(&RHSConst)) {
+      return nullptr;
+    }
+
+    Type *RHSType = RHS->getSrcType();
+    Type *LHSType = LHS->getSrcType();
+
+    if (!ConstantInt::isValueValidForType(RHSType, RHSConst) ||
+        !ConstantInt::isValueValidForType(LHSType, -LHSConst)) {
+      return nullptr;
+    }
+
+    bool Overflow;
+    APInt RHSConstAP(RHSType->getPrimitiveSizeInBits(), RHSConst, true);
+    APInt LHSConstAP(LHSType->getPrimitiveSizeInBits(), -LHSConst, true);
+    RHSConstAP.sadd_ov(LHSConstAP, Overflow);
+
+    if (Overflow) {
+      return nullptr;
+    }
+
+    Result->addConstant(-LHSConst, true);
+  }
 
   int64_t Coeff = LHS->getIVConstCoeff(Level);
   if (Coeff == -1) {
@@ -644,7 +671,8 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   IfLookup Lookup(Candidates, Level);
   HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
 
-  for (HLIf *Candidate : Candidates) {
+  for (HLIf *Candidate :
+       llvm::make_range(Candidates.rbegin(), Candidates.rend())) {
     DEBUG(dbgs() << "Processing: ");
     DEBUG(Candidate->dumpHeader());
     DEBUG(dbgs() << "\n");
