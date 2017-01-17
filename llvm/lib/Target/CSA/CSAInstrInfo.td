@@ -1190,6 +1190,12 @@ def PREDMERGE : FMTGEN<
   "predmerge\t$predres, $index, $e0, $e1",
   [], [], IIALU>;
 
+def PREDFILTER : FMTGEN<
+  (outs I1:$ctlout),
+  (ins RCLi1:$ctl, RCLi1:$pred),
+  "predfilter\t$ctlout, $ctl, $pred",
+  [], [], IIALU>;
+
 def SEQC      : GenericOp<"seqc">;
 def SEQC8     : SeqCOp<  SEQC,  Ti8,  IIALU>;
 def SEQC16    : SeqCOp<  SEQC,  Ti16, IIALU>;
