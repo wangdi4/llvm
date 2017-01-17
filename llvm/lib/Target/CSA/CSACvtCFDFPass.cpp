@@ -1155,25 +1155,29 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
       MachineInstr *filterbi = &*filterParentBB->getFirstInstrTerminator();
       filterIn = MRI->createVirtualRegister(TRC);
       unsigned filterPred = filterbi->getOperand(0).getReg();
-      if (filterParentNode->isTrueChild(filterNode)) {
+      if (filterParentNode->isFalseChild(filterNode)) {
         unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-        BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(filterPred);
+        BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(filterPred);
         filterPred = notReg;
       }
-      filterInst = BuildMI(*filterParentBB, filterbi, DebugLoc(), TII.get(CSA::PREDFILTER), filterOut).
-                                                                                            addReg(filterIn).
-                                                                                            addReg(filterPred);
+      filterInst = BuildMI(*latchBB, filterInst ? filterInst : latchBB->getFirstTerminator(), DebugLoc(), 
+                           TII.get(CSA::PREDFILTER), filterOut).addReg(filterIn).addReg(filterPred);
       filterNode = filterParentNode;
       filterOut = filterIn;
     } while (!filterNode->isParent(exitingNode));
 
     if (CDG->getEdgeType(exitingBB, exitBB, true) == ControlDependenceNode::TRUE) {
-      //filtering predReg's false value for inside loops
+      //filtering predReg's false value for inner loops
       unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-      BuildMI(*latchBB, latchBB->end(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(predReg); //fliping the exiting condition
-      filterInst->substituteRegister(filterIn, notReg, 2, TRI);
+      BuildMI(*latchBB, filterInst, DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(predReg); //fliping the exiting condition
+      filterInst->substituteRegister(filterIn, notReg, 0, TRI);
+
+      unsigned lastFilterReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      MachineInstr *lastFilter = MRI->getVRegDef(cpyReg);
+      lastFilter->substituteRegister(cpyReg, lastFilterReg, 0, TRI);
+      BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(CSA::NOT1), cpyReg).addReg(lastFilterReg); //fliping back
     } else {
-      filterInst->substituteRegister(filterIn, predReg, 2, TRI);
+      filterInst->substituteRegister(filterIn, predReg, 0, TRI);
     }
   }
   MachineBasicBlock *lphdr = mloop->getHeader();
@@ -1182,8 +1186,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
   MachineInstr *initInst = nullptr;
   if (CDG->getEdgeType(exitingBB, exitBB, true) == ControlDependenceNode::FALSE) {
     initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
-  }
-  else {
+  } else {
     initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
   }
   initInst->setFlag(MachineInstr::NonSequential);
