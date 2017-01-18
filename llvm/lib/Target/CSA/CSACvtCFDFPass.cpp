@@ -143,6 +143,7 @@ namespace llvm {
     void insertSWITCHForRepeat();
     MachineBasicBlock* getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock*> &exitingBlks, MachineInstr* UseMI, unsigned Reg);
     void insertSWITCHForLoopExit();
+    void insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch);
     unsigned SwitchOutExitingBlk(MachineBasicBlock* exitingBlk, unsigned Reg, MachineLoop *mloop);
     void SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop, MachineOperand &UseMO);
     void SwitchDefAcrossLoops(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop);
@@ -824,12 +825,14 @@ MachineBasicBlock* CSACvtCFDFPass::getDominatingExitingBB(SmallVectorImpl<Machin
     anchorBB = UseBB;
   }
   assert(anchorBB);
-  for (unsigned i = 0; i < exitingBlks.size(); i++) {
+  std::sort(exitingBlks.begin(), exitingBlks.end(), CmpFcn(bb2rpo));
+  for (int i = exitingBlks.size() - 1; i >= 0; i--) {
     if (DT->dominates(exitingBlks[i], anchorBB)) {
       exitingBlk = exitingBlks[i];
       break;
     }
   }
+  //assert(exitingBlk && "can't find dominating exiting blk");
   return exitingBlk;
 }
 
@@ -930,24 +933,38 @@ void CSACvtCFDFPass::SwitchDefAcrossLoops(unsigned Reg, MachineBasicBlock* mbb, 
   }//end of while (use)
 }
 
+
+
+
 //focus on def
 void CSACvtCFDFPass::insertSWITCHForLoopExit() {
-  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   DenseMap<MachineBasicBlock *, std::set<unsigned> *> LCSwitch;
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
+    insertSWITCHForLoopExit(*LI, LCSwitch);
+  }
+  //release memory
+  DenseMap<MachineBasicBlock *, std::set<unsigned> *> ::iterator itm = LCSwitch.begin();
+  while (itm != LCSwitch.end()) {
+    std::set<unsigned>* regs = itm->getSecond();
+    ++itm;
+    delete regs;
+  }
+  LCSwitch.clear();
+}
 
+void CSACvtCFDFPass::insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch) {
+  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  ControlDependenceNode *root = CDG->getRoot();
-  for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
-    MachineBasicBlock *mbb = DTN->getBlock();
-    if (!mbb) continue; //root node has no bb
-    MachineLoop* mloop = MLI->getLoopFor(mbb);
-    //not inside a loop
-    if (!mloop) continue;
-    
-    //inside a loop
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
+    insertSWITCHForLoopExit(*LI, LCSwitch);
+  }
+  MachineLoop *mloop = L;
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = &*I;
-      if (TII.isSwitch(MI)) 
+      if (TII.isSwitch(MI))
         //encounter a switch just inserted in previous iter
         continue;
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
@@ -981,7 +998,7 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit() {
         }
       } //end of for MI
     }
-    
+
     if (LCSwitch.find(mbb) != LCSwitch.end()) {
       //mbb is an exit blk, need to handle defs push in from exiting blk, those are defs of a switch instr
       std::set<unsigned>* LCSwitchs = LCSwitch.find(mbb)->getSecond();
@@ -989,16 +1006,7 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit() {
         SwitchDefAcrossLoops(*iReg, mbb, mloop);
       }
     }
-  }//end of for DTN(mbb)
-
-  //release memory
-  DenseMap<MachineBasicBlock *, std::set<unsigned> *> ::iterator itm = LCSwitch.begin();
-  while (itm != LCSwitch.end()) {
-    std::set<unsigned>* regs = itm->getSecond();
-    ++itm;
-    delete regs;
-  }
-  LCSwitch.clear();
+  }//end of for mbb
 }
 
 
