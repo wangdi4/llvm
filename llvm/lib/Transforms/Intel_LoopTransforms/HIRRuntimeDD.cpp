@@ -188,7 +188,7 @@ IVSegment::IVSegment(const RefGroupTy &Group) {
   if (DiffCE->isIntConstant(&DiffValue)) {
     assert(DiffValue >= 0 && "Segment wrong direction");
   } else {
-    llvm_unreachable("Non-constant segment length");
+    llvm_unreachable("Non-integer non-constant segment length");
   }
   UpperCE->getCanonExprUtils().destroy(DiffCE);
 #endif
@@ -579,14 +579,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   // Check the loopnest for applicability
-  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop; LoopI != LoopE;
-       LoopI = LoopI->getParentLoop()) {
+  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop->getParentLoop();
+       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
+    // TODO: add a lit test when we start to support unknown loops
     if (!LoopI->isDo()) {
       return NON_DO_LOOP;
-    }
-
-    if (!LoopI->getStrideCanonExpr()->isIntConstant()) {
-      return NON_CONSTANT_IV_STRIDE;
     }
   }
 
