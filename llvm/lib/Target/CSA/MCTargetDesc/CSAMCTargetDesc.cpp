@@ -68,20 +68,20 @@ static MCInstPrinter *createCSAMCInstPrinter(const Triple &T,
 
 extern "C" void LLVMInitializeCSATargetMC() {
   // Register the MC asm info.
-  RegisterMCAsmInfo<CSAMCAsmInfo> X(TheCSATarget);
+  RegisterMCAsmInfo<CSAMCAsmInfo> X(getTheCSATarget());
 
   // Register the MC instruction info.
-  TargetRegistry::RegisterMCInstrInfo(TheCSATarget, createCSAMCInstrInfo);
+  TargetRegistry::RegisterMCInstrInfo(getTheCSATarget(), createCSAMCInstrInfo);
 
   // Register the MC register info.
-  TargetRegistry::RegisterMCRegInfo(TheCSATarget,
+  TargetRegistry::RegisterMCRegInfo(getTheCSATarget(),
                                     createCSAMCRegisterInfo);
 
   // Register the MC subtarget info.
-  TargetRegistry::RegisterMCSubtargetInfo(TheCSATarget,
+  TargetRegistry::RegisterMCSubtargetInfo(getTheCSATarget(),
                                           createCSAMCSubtargetInfo);
 
   // Register the MCInstPrinter.
-  TargetRegistry::RegisterMCInstPrinter(TheCSATarget,
+  TargetRegistry::RegisterMCInstPrinter(getTheCSATarget(),
                                         createCSAMCInstPrinter);
 }

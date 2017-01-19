@@ -63,7 +63,7 @@ namespace llvm {
 
 extern "C" void LLVMInitializeCSATarget() {
   // Register the target.
-  RegisterTargetMachine<CSATargetMachine> X(TheCSATarget);
+  RegisterTargetMachine<CSATargetMachine> X(getTheCSATarget());
 
   // The original comment in the CSA target says this optimization
   // is placed here because it is too target-specific.

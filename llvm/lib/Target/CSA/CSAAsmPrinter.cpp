@@ -508,5 +508,5 @@ void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
 
 // Force static initialization.
 extern "C" void LLVMInitializeCSAAsmPrinter() {
-  RegisterAsmPrinter<CSAAsmPrinter> X(TheCSATarget);
+  RegisterAsmPrinter<CSAAsmPrinter> X(getTheCSATarget());
 }

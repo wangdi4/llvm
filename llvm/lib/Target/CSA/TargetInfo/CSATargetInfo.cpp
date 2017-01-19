@@ -12,9 +12,14 @@
 #include "llvm/Support/TargetRegistry.h"
 using namespace llvm;
 
-Target llvm::TheCSATarget;
+namespace llvm {
+  Target &getTheCSATarget() {
+    static Target TheCSATarget;
+    return TheCSATarget;
+  }
+} // namespace llvm
 
 extern "C" void LLVMInitializeCSATargetInfo() {
   RegisterTarget<Triple::csa, /*HasJIT=*/ false>
-    X(TheCSATarget, "csa", "CSA");
+    X(getTheCSATarget(), "csa", "CSA");
 }
