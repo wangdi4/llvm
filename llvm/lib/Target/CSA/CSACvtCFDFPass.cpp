@@ -955,7 +955,6 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit() {
 void CSACvtCFDFPass::insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch) {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
     insertSWITCHForLoopExit(*LI, LCSwitch);
   }
@@ -1357,7 +1356,7 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
   MachineBasicBlock *lphdr = mloop->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
   const unsigned InitOpcode = TII.getInitOpcode(&CSA::I1RegClass);
-  //orResult ==1 means exiting loop
+  //land ==1 means take backedge
   MachineInstr *initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
   initInst->setFlag(MachineInstr::NonSequential);
 
@@ -1389,8 +1388,8 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
       }
     } //end for MO
     
-    MachineOperand* pickFalse = backEdgeInput;
-    MachineOperand* pickTrue = initInput;
+    MachineOperand* pickFalse = initInput;
+    MachineOperand* pickTrue = backEdgeInput;
     
     unsigned predReg = cpyReg;
     const TargetRegisterClass *TRC = MRI->getRegClass(dst);
