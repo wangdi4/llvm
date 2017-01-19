@@ -24,24 +24,27 @@ class CSAReg<string n> : Register<n> {
 // Channels between units.  Note that these are only for transient use
 // as needed during code gen.
 // The intent is that channels are vregs and effectively unbounded.
-foreach i = 0-8191 in { def CI0_#i  : CSAReg<"%ci0_"#i>;  }
-foreach i = 0-8191 in { def CI1_#i  : CSAReg<"%ci1_"#i>;  }
-foreach i = 0-8191 in { def CI8_#i  : CSAReg<"%ci8_"#i>;  }
-foreach i = 0-8191 in { def CI16_#i : CSAReg<"%ci16_"#i>; }
-foreach i = 0-8191 in { def CI32_#i : CSAReg<"%ci32_"#i>; }
-foreach i = 0-8191 in { def CI64_#i : CSAReg<"%ci64_"#i>; }
+foreach i = 0-8191 in { def CI0_#i  : CSAReg<"ci0_"#i>;  }
+foreach i = 0-8191 in { def CI1_#i  : CSAReg<"ci1_"#i>;  }
+foreach i = 0-8191 in { def CI8_#i  : CSAReg<"ci8_"#i>;  }
+foreach i = 0-8191 in { def CI16_#i : CSAReg<"ci16_"#i>; }
+foreach i = 0-8191 in { def CI32_#i : CSAReg<"ci32_"#i>; }
+foreach i = 0-8191 in { def CI64_#i : CSAReg<"ci64_"#i>; }
+// Special channels.
+def IGN : CSAReg<"ign">; // Ignored (always writeable and readable)
+def NA  : CSAReg<"na">;  // Not available (never writeable or readable)
 
 // Define LICs.  It is less than ideal to have a full enumeration, but it
 // works for now.
 // Do not allow standard allocation of LICs, or copying.  Allocation is
 // handled specially in conversion from control flow to dataflow.
 let isAllocatable = 0, CopyCost = -1 in {
-  def CI0  : RegisterClass<"CSA", [i1],       0, (add (sequence "CI0_%u",  0, 8191))>;
-  def CI1  : RegisterClass<"CSA", [i1],       1, (add (sequence "CI1_%u",  0, 8191))> { let Size=1;  }
-  def CI8  : RegisterClass<"CSA", [i8],       8, (add (sequence "CI8_%u",  0, 8191))> { let Size=8;  }
-  def CI16 : RegisterClass<"CSA", [i16,f16], 16, (add (sequence "CI16_%u", 0, 8191))> { let Size=16; }
-  def CI32 : RegisterClass<"CSA", [i32,f32], 32, (add (sequence "CI32_%u", 0, 8191))> { let Size=32; }
-  def CI64 : RegisterClass<"CSA", [i64,f64], 64, (add (sequence "CI64_%u", 0, 8191))> { let Size=64; }
+  def CI0  : RegisterClass<"CSA", [i1],       0, (add (sequence "CI0_%u",  0, 8191), NA, IGN)>;
+  def CI1  : RegisterClass<"CSA", [i1],       1, (add (sequence "CI1_%u",  0, 8191), NA, IGN)> { let Size=1;  }
+  def CI8  : RegisterClass<"CSA", [i8],       8, (add (sequence "CI8_%u",  0, 8191), NA, IGN)> { let Size=8;  }
+  def CI16 : RegisterClass<"CSA", [i16,f16], 16, (add (sequence "CI16_%u", 0, 8191), NA, IGN)> { let Size=16; }
+  def CI32 : RegisterClass<"CSA", [i32,f32], 32, (add (sequence "CI32_%u", 0, 8191), NA, IGN)> { let Size=32; }
+  def CI64 : RegisterClass<"CSA", [i64,f64], 64, (add (sequence "CI64_%u", 0, 8191), NA, IGN)> { let Size=64; }
   def ANYC : RegisterClass<"CSA", [i1],       0, (add CI0, CI1, CI8, CI16, CI32, CI64)>;
 }
 
@@ -80,17 +83,14 @@ let isAllocatable = 0, CopyCost = -1 in {
 // R24..R39 - 16 preserved regs (8 on each side of R32 boundary, 8 reg aligned)
 // R40..R59 - 24 scratch (if more regs beyond 1st 64, also scratch)
 foreach i = 0-59 in {
-  def R#i : CSAReg<"%r"#i>;
+  def R#i : CSAReg<"r"#i>;
 }
 
-def IGN : CSAReg<"%ign">; // Ignored (always writeable and readable)
-def NA  : CSAReg<"%na">;  // Not available (never writeable or readable)
-
 // special regs (60-63).  (SP, FP might want to be in low regs)
-def FP : CSAReg<"%fp">;  // preserved (conventional FP)
-def TP : CSAReg<"%tp">;  // thread pointer
-def SP : CSAReg<"%sp">;  // stack pointer
-def RA : CSAReg<"%ra">;  // return addr
+def FP : CSAReg<"fp">;  // preserved (conventional FP)
+def TP : CSAReg<"tp">;  // thread pointer
+def SP : CSAReg<"sp">;  // stack pointer
+def RA : CSAReg<"ra">;  // return addr
 
 
 def RI0  : RegisterClass<"CSA", [i1],      64,

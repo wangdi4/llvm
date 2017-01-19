@@ -88,7 +88,7 @@ void CSAInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isReg()) {
-    O << getRegisterName(Op.getReg());
+    O << "%" << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
     int64_t imm = Op.getImm();
     if (-65536 <= imm && imm <= 65535) {

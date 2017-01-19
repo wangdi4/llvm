@@ -486,7 +486,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       else if (CSA::CI8RegClass.contains(reg))  O << ".i8";
       else if (CSA::CI1RegClass.contains(reg))  O << ".i1";
       else if (CSA::CI0RegClass.contains(reg))  O << ".i0";
-      O << " " << CSAInstPrinter::getRegisterName(reg);
+      O << " %" << CSAInstPrinter::getRegisterName(reg);
       O << CSAInstPrinter::WrapCsaAsmLineSuffix();
       OutStreamer->EmitRawText(O.str());
     }
