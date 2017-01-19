@@ -299,6 +299,17 @@ private:
                       bool IsTop = true, bool UnderCast = false,
                       bool IndicateFailure = false);
 
+  /// Returns true if \p CI's SCEV contains a SCEVCastExpr whose operand is an
+  /// AddRec with the same type as \p CI's operand.
+  bool containsCastedAddRec(const CastInst *CI) const;
+
+  /// Returns true if the src type of \p CI is same as parent loop's IV type.
+  bool isCastedFromLoopIVType(const CastInst *CI) const;
+
+  /// Returns true if we should parse \p CI by explicitly hiding the cast in the
+  /// instruction and recursively parsing the cast operand.
+  bool shouldParseWithoutCast(const CastInst *CI, bool IsTop) const;
+
   /// Forces incoming value to be parsed as a blob.
   CanonExpr *parseAsBlob(const Value *Val, unsigned Level);
 

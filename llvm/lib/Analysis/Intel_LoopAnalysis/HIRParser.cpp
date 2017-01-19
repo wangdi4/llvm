@@ -1838,9 +1838,99 @@ CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level) {
   return CE;
 }
 
+// TODO: use SCEVExprContains() instead, when available.
+class CastedAddRecChecker {
+  Type *CastSrcTy;
+  bool Found;
+
+public:
+  CastedAddRecChecker(Type *CastSrcTy) : CastSrcTy(CastSrcTy), Found(false) {}
+
+  bool follow(const SCEV *SC) {
+
+    auto CastSC = dyn_cast<SCEVCastExpr>(SC);
+
+    if (!CastSC) {
+      return true;
+    }
+
+    auto Op = CastSC->getOperand();
+
+    if (!isa<SCEVAddRecExpr>(Op)) {
+      return true;
+    }
+
+    if (Op->getType() != CastSrcTy) {
+      return true;
+    }
+
+    Found = true;
+    return false;
+  }
+
+  bool found() const { return Found; }
+
+  bool isDone() const { return found(); }
+};
+
+bool HIRParser::containsCastedAddRec(const CastInst *CI) const {
+  // If the SCEV of this cast instruction contains an explicit cast for an
+  // AddRec (outer loop IV), it is better to parse the cast explicitly otherwise
+  // the outer loop IV will be parsed as a blob. Consider this cast-
+  // %idxprom = sext i32 %t to i64
+  // The SCEV for %idxprom looks like this-
+  // {cast i32 to i64 {0,+,1}<%for.outer>, +, 1}<nuw><nsw><%for.inner> (i64
+  // type)
+  // The SCEV for %t looks like this-
+  // {{0,+,1}<%for.outer>, +, 1}<nuw><nsw><%for.inner> (i32 type)
+  //
+  // If we strip the cast explitly, it will be parsed as: sext.i32.i64(i1 + i2).
+  // Otherwise it will be parsed as: i2 + sext.i32.i64(%b), where %b represents
+  // i1 (outer loop IV).
+
+  auto SC = getSCEV(const_cast<CastInst *>(CI));
+
+  CastedAddRecChecker CARC(CI->getSrcTy());
+  SCEVTraversal<CastedAddRecChecker> Checker(CARC);
+  Checker.visitAll(SC);
+
+  return CARC.found();
+}
+
+bool HIRParser::isCastedFromLoopIVType(const CastInst *CI) const {
+  // For cast instructions which cast from loop IV's type to some other
+  // type, we want to explicitly hide the cast and parse the value in IV's type.
+  // This allows more opportunities for canon expr merging. Consider the
+  // following cast-
+  // %idxprom = sext i32 %i.01 to i64
+  // Here %i.01 is the loop IV whose SCEV looks like this:
+  // {0,+,1}<nuw><nsw><%for.body> (i32 type)
+  // The SCEV of %idxprom doesn't have a cast and it looks like this:
+  // {0,+,1}<nuw><nsw><%for.body> (i64 type)
+  // We instead want %idxprom to be considered as a cast: sext i32
+  // {0,+,1}<nuw><nsw><%for.body> to i64
+  auto ParentLoop = getCurNode()->getParentLoop();
+  return (ParentLoop && (ParentLoop->getIVType() == CI->getSrcTy()));
+}
+
+bool HIRParser::shouldParseWithoutCast(const CastInst *CI, bool IsTop) const {
+  if (!IsTop || !CI) {
+    return false;
+  }
+
+  if (!isa<SExtInst>(CI) && !isa<ZExtInst>(CI) && !isa<TruncInst>(CI)) {
+    return false;
+  }
+
+  if (isCastedFromLoopIVType(CI) || containsCastedAddRec(CI)) {
+    return true;
+  }
+
+  return false;
+}
+
 CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
   CanonExpr *CE = nullptr;
-  bool EnableCastHiding = IsTop;
   const Value *OrigVal = Val;
 
   // Parse as blob if the type is not SCEVable.
@@ -1849,33 +1939,17 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
     CE = parseAsBlob(Val, Level);
 
   } else {
+    bool EnableCastHiding = IsTop;
+    auto CI = dyn_cast<CastInst>(Val);
 
-    if (IsTop) {
-      // For cast instructions which cast from loop IV's type to some other
-      // type,
-      // we want to explicitly hide the cast and parse the value in IV's type.
-      // This allows more opportunities for canon expr merging. Consider the
-      // following cast-
-      // %idxprom = sext i32 %i.01 to i64
-      // Here %i.01 is the loop IV whose SCEV looks like this:
-      // {0,+,1}<nuw><nsw><%for.body> (i32 type)
-      // The SCEV of %idxprom doesn't have a cast and it looks like this:
-      // {0,+,1}<nuw><nsw><%for.body> (i64 type)
-      // We instead want %idxprom to be considered as a cast: sext i32
-      // {0,+,1}<nuw><nsw><%for.body> to i64
-      auto CI = dyn_cast<CastInst>(Val);
-      auto ParentLoop = getCurNode()->getParentLoop();
+    if (shouldParseWithoutCast(CI, IsTop)) {
+      EnableCastHiding = false;
+      Val = CI->getOperand(0);
 
-      if (CI && ParentLoop && (ParentLoop->getIVType() == CI->getSrcTy()) &&
-          (isa<SExtInst>(CI) || isa<ZExtInst>(CI) || isa<TruncInst>(CI))) {
-        Val = CI->getOperand(0);
-        CE = getCanonExprUtils().createExtCanonExpr(
-            CI->getSrcTy(), CI->getDestTy(), isa<SExtInst>(CI));
-        EnableCastHiding = false;
-      }
-    }
+      CE = getCanonExprUtils().createExtCanonExpr(
+          CI->getSrcTy(), CI->getDestTy(), isa<SExtInst>(CI));
 
-    if (!CE) {
+    } else {
       CE = getCanonExprUtils().createCanonExpr(Val->getType());
     }
 
