@@ -75,7 +75,10 @@ let isAllocatable = 0, CopyCost = -1 in {
 //   8 regs were needed, no additional ones need be allocated.)
 // - One approach might be to put TP and RA in a special set.
 
-// WARNING: These assignments are "known" somewhat in CSAAsmPrinter.cpp
+// WARNING: These assignments are "known" somewhat in CSAAsmPrinter.cpp and
+// CSAAsmParser.cpp. Unfortunately, changes here may require re-evaluating the
+// resulting CSAGenAsmMatcher.inc in order to update the enums used in
+// validateTargetOperandClass.
 
 // R0..R1 - return result/scratch
 // R2..R17 - param/scratch, up to 16

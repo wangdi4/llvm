@@ -63,30 +63,22 @@ def UnitOpnd : Operand<i64> {
   let PrintMethod = "printUnitOperand";
 }
 
-// Memory operands
-class Addr<int numArgs, string funcName, dag opInfo> :
-  Operand<i64>, ComplexPattern<i64, numArgs,
-    funcName, [],
-    [SDNPWantParent]> { let MIOperandInfo = opInfo; }
-
-let PrintMethod = "printMemOperand" in {
-def ADDR_RX : Addr<2, "SelectAddrRegIdx", (ops I64:$base, I64:$offset)>;
-def ADDR_RI : Addr<2, "SelectAddrRegImm", (ops I64:$base, i64imm:$offset)>;
-def ADDR_RR : Addr<2, "SelectAddrRegReg", (ops I64:$base, I64:$offset)>;
-}
-def ADDR_I : Addr<1, "SelectAddrImm", (ops i64imm:$imm)>;
-def ADDR_R : Addr<1, "SelectAddrReg", (ops I64:$addr)>;
-
 // Not in Target.td with the other *imms
 let OperandType = "OPERAND_IMMEDIATE" in {
 def f16imm : Operand<f16>;
 }
 
+// TableGen expects special *RegImm* functions in CSAAsmParser due to this.
+def RegImmAsmOperand : AsmOperandClass {
+  let Name = "RegImm";
+}
+
 // Register or immedate
-class RegImmOperand<ValueType vt> :
-  Operand<vt>,
-  ComplexPattern<vt,1,"SelectRegImm", [imm, fpimm]> {
+class RegImmOperand<ValueType vt> : Operand<vt>, ComplexPattern<vt,1,"SelectRegImm", [imm, fpimm]> {
     let OperandType = "OPERAND_REG_IMM";
+    // We need to give TableGen some clues (along with some custom function in
+    // CSAAsmParser) to deal with these particularly flexible operands.
+    let ParserMatchClass = RegImmAsmOperand;
   }
 
 // RCL (Reg/Chan/Literal) is the same as used in the simulator
@@ -100,6 +92,23 @@ def RCLf32 : RegImmOperand<f32>;
 def RCLi64 : RegImmOperand<i64>;
 def RCLf64 : RegImmOperand<f64>;
 
+// Memory operands
+class Addr<int numArgs, string funcName, dag opInfo> :
+  Operand<i64>, ComplexPattern<i64, numArgs,
+    funcName, [],
+    [SDNPWantParent]> { let MIOperandInfo = opInfo; }
+
+let PrintMethod = "printMemOperand" in {
+def ADDR_RX : Addr<2, "SelectAddrRegIdx", (ops I64:$base, I64:$offset)>;
+def ADDR_RI : Addr<2, "SelectAddrRegImm", (ops I64:$base, i64imm:$offset)>;
+def ADDR_RR : Addr<2, "SelectAddrRegReg", (ops I64:$base, I64:$offset)>;
+}
+def ADDR_I : Addr<1, "SelectAddrImm", (ops i64imm:$imm)>;
+def ADDR_R : Addr<1, "SelectAddrReg", (ops I64:$addr)>{
+  // For some reason, the asm matcher is deducing that we must match the I64
+  // with an Imm. Override, allowing either, at least for asm parsing.
+  let ParserMatchClass = RegImmAsmOperand;
+}
 
 //===----------------------------------------------------------------------===//
 // CSA Type associations
@@ -1389,12 +1398,14 @@ class Init<CSAOpInfo t, list<Predicate> preds, InstrItinClass itin> :
       ".curr\t$dst;\t.value $imm;\t.avail 0",
       [], preds, itin> { let hasSideEffects = 1; }
 
-def INIT0  : Init<Ti0,  [HasI0],  IIVir>;
-def INIT1  : Init<Ti1,  [HasI1],  IIVir>;
-def INIT8  : Init<Ti8,  [HasI8],  IIVir>;
-def INIT16 : Init<Ti16, [HasI16], IIVir>;
-def INIT32 : Init<Ti32, [HasI32], IIVir>;
-def INIT64 : Init<Ti64, [HasI64], IIVir>;
+let isCodeGenOnly=1 in {
+  def INIT0  : Init<Ti0,  [HasI0],  IIVir>;
+  def INIT1  : Init<Ti1,  [HasI1],  IIVir>;
+  def INIT8  : Init<Ti8,  [HasI8],  IIVir>;
+  def INIT16 : Init<Ti16, [HasI16], IIVir>;
+  def INIT32 : Init<Ti32, [HasI32], IIVir>;
+  def INIT64 : Init<Ti64, [HasI64], IIVir>;
+}
 
 // Memory references
 defm LD1      : LdOp<    "ld8",   Ti1>;

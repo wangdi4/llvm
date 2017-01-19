@@ -110,6 +110,11 @@ namespace {
       return "CSA Assembly Printer";
     }
 
+    void printOperand(const MachineInstr *MI, int OpNum, raw_ostream &O);
+    bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                        unsigned AsmVariant, const char *ExtraCode,
+                        raw_ostream &O) override;
+
     void EmitStartOfAsmFile(Module &) override;
     void EmitEndOfAsmFile(Module &) override;
 
@@ -121,6 +126,70 @@ namespace {
     void EmitCsaCodeSection();
   };
 } // end of anonymous namespace
+
+void CSAAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
+                                   raw_ostream &O) {
+  const MachineOperand &MO = MI->getOperand(OpNum);
+
+  switch (MO.getType()) {
+  case MachineOperand::MO_Register:
+    O << "%" << CSAInstPrinter::getRegisterName(MO.getReg());
+    break;
+
+  case MachineOperand::MO_Immediate:
+    O << MO.getImm();
+    break;
+
+  case MachineOperand::MO_MachineBasicBlock:
+    O << *MO.getMBB()->getSymbol();
+    break;
+
+  case MachineOperand::MO_GlobalAddress:
+    O << *getSymbol(MO.getGlobal());
+    break;
+
+  case MachineOperand::MO_BlockAddress: {
+    MCSymbol *BA = GetBlockAddressSymbol(MO.getBlockAddress());
+    O << BA->getName();
+    break;
+  }
+
+  case MachineOperand::MO_ExternalSymbol:
+    O << *GetExternalSymbolSymbol(MO.getSymbolName());
+    break;
+
+  case MachineOperand::MO_JumpTableIndex:
+    O << MAI->getPrivateGlobalPrefix() << "JTI" << getFunctionNumber() << '_'
+      << MO.getIndex();
+    break;
+
+  case MachineOperand::MO_ConstantPoolIndex:
+    O << MAI->getPrivateGlobalPrefix() << "CPI" << getFunctionNumber() << '_'
+      << MO.getIndex();
+    return;
+
+  default:
+    llvm_unreachable("<unknown operand type>");
+  }
+}
+
+// PrintAsmOperand - Print out an operand for an inline asm expression.
+bool CSAAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                                      unsigned /*AsmVariant*/,
+                                      const char *ExtraCode, raw_ostream &O) {
+  // Does this asm operand have a single letter operand modifier?
+  if (ExtraCode && ExtraCode[0]) {
+    if (ExtraCode[1])
+      return true; // Unknown modifier.
+
+    switch (ExtraCode[0]) {
+      default:
+                return true; // Unknown modifier.
+    }
+  }
+  printOperand(MI, OpNo, O);
+  return false;
+}
 
 bool CSAAsmPrinter::ignoreLoc(const MachineInstr &MI) {
   switch (MI.getOpcode()) {

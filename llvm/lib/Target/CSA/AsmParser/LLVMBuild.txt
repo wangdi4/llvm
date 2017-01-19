@@ -1,4 +1,4 @@
-;===- ./lib/Target/CSA/LLVMBuild.txt ----------------------*- Conf -*--===;
+;===- ./lib/Target/CSA/AsmParser/LLVMBuild.txt -----------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -15,19 +15,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-[common]
-subdirectories = AsmParser InstPrinter MCTargetDesc TargetInfo
-
 [component_0]
-type = TargetGroup
-name = CSA
-parent = Target
-has_asmprinter = 1
-has_asmparser = 1
-
-[component_1]
 type = Library
-name = CSACodeGen
+name = CSAAsmParser
 parent = CSA
-required_libraries = Analysis AsmPrinter BitWriter CodeGen Core CSAAsmPrinter CSADesc CSAInfo MC Scalar SelectionDAG Support Target TransformUtils
+required_libraries = MC MCParser CSADesc CSAInfo Support
 add_to_library_groups = CSA
