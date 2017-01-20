@@ -546,6 +546,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__intel_castu64_f64: {
     return EmitIntelCast(*this, E, DoubleTy);
   }
+  case Builtin::BI__builtin_va_arg_pack_len:
+    return RValue::get(Builder.CreateCall(CGM.getIntrinsic(Intrinsic::vaargpacklen)));
+  case Builtin::BI__builtin_va_arg_pack:
+    return RValue::get(Builder.CreateCall(CGM.getIntrinsic(Intrinsic::vaargpack)));
 #endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_stdarg_start:
   case Builtin::BI__builtin_va_start:

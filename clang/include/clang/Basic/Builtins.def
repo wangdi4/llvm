@@ -1579,6 +1579,11 @@ LANGBUILTIN(to_global, "v*v*", "tn", OCLC20_LANG)
 LANGBUILTIN(to_local, "v*v*", "tn", OCLC20_LANG)
 LANGBUILTIN(to_private, "v*v*", "tn", OCLC20_LANG)
 
+#if INTEL_CUSTOMIZATION
+BUILTIN(__builtin_va_arg_pack_len, "Si", "n")
+BUILTIN(__builtin_va_arg_pack, ".", "n")
+#endif
+
 #undef BUILTIN
 #undef LIBBUILTIN
 #undef LANGBUILTIN

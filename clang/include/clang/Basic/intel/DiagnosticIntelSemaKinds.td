@@ -522,4 +522,16 @@ def warn_d_suffix : ExtWarn<"d-suffix in FP literal is a GNU extension">,
 // endif INTEL_SPECIFIC_IL0_BACKEND
 def warn_ovl_diff_return_type : Warning<
   "functions that differ only in their return type cannot be overloaded, new definition ignored">, InGroup<IntelCompat>;
+def err_va_pack_used_in_non_variadic_function
+    : Error<"'%select{__builtin_va_arg_pack()|__builtin_va_arg_pack_len()}0' "
+            "used in function with fixed args">;
+def err_va_arg_pack_invalid_usage
+    : Error<"invalid use of "
+            "'%select{__builtin_va_arg_pack()|__builtin_va_arg_pack_len()}0', "
+            "must be in an inlined "
+            "function that is not externally visible">;
+def err_va_pack_not_last : Error<"__builtin_va_arg_pack must be the last "
+                                 "parameter in a function call">;
+def err_va_pack_not_variadic : Error<"__builtin_va_arg_pack can only be used "
+                                     "as a parameter to a variadic argument">;
 } // end of sema component.

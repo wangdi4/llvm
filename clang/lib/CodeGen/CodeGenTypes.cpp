@@ -483,12 +483,17 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     case BuiltinType::OCLReserveID:
       ResultType = CGM.getOpenCLRuntime().convertOpenCLSpecificType(Ty);
       break;
-    
     case BuiltinType::Dependent:
 #define BUILTIN_TYPE(Id, SingletonId)
 #define PLACEHOLDER_TYPE(Id, SingletonId) \
     case BuiltinType::Id:
 #include "clang/AST/BuiltinTypes.def"
+#if INTEL_CUSTOMIZATION
+      if (cast<BuiltinType>(Ty)->getKind() == BuiltinType::VAArgPack) {
+        ResultType = llvm::Type::getInt32Ty(getLLVMContext());
+        break;
+      }
+#endif // INTEL_CUSTOMIZATION
       llvm_unreachable("Unexpected placeholder builtin type!");
     }
     break;

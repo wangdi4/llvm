@@ -2606,6 +2606,10 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
     return "reserve_id_t";
   case OMPArraySection:
     return "<OpenMP array section type>";
+#if INTEL_CUSTOMIZATION
+  case VAArgPack:
+    return "<Variadic Pack Expansion>";
+#endif // INTEL_CUSTOMIZATION
   }
 
   llvm_unreachable("Invalid builtin type.");
@@ -3600,6 +3604,7 @@ bool Type::canHaveNullability() const {
     case BuiltinType::BuiltinFn:
     case BuiltinType::NullPtr:
     case BuiltinType::OMPArraySection:
+    case BuiltinType::VAArgPack: // INTEL
       return false;
     }
 

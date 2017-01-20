@@ -9818,6 +9818,10 @@ private:
   bool SemaBuiltinUnorderedCompare(CallExpr *TheCall);
   bool SemaBuiltinFPClassification(CallExpr *TheCall, unsigned NumArgs);
 
+#if INTEL_CUSTOMIZATION
+  bool SemaBuiltinVAArgPackChecks(CallExpr *TheCall, unsigned BuiltinID);
+#endif // INTEL_CUSTOMIZATION
+
 public:
   // Used by C++ template instantiation.
   ExprResult SemaBuiltinShuffleVector(CallExpr *TheCall);

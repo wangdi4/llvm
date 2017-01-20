@@ -3277,10 +3277,18 @@ bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc) {
     return true;
 
   bool ValueIsPositive = ValueAPS.isStrictlyPositive();
+
 #if INTEL_CUSTOMIZATION
-  // CQ#366562. If it is pragma unroll in IntelCompat mode (IsCheckRange set to
-  // false), don't test the value since we will NOT emit any diagnostics anyway.
-  if (IsCheckRange)
+  // CQ415958/CQ366562: In non-dependent cases, warn if the value is going
+  // to be ignored.
+  if (!IsCheckRange) {
+    if ((!ValueIsPositive || ValueAPS.getActiveBits() > 31) &&
+        ValueAPS.getBoolValue()) {
+      Diag(E->getExprLoc(),
+             diag::warn_pragma_unroll_invalid_factor_ignored)
+          << ValueAPS.toString(10) << ValueIsPositive;
+    }
+  } else
 #endif // INTEL_CUSTOMIZATION
   if (!ValueIsPositive || ValueAPS.getActiveBits() > 31) {
     Diag(E->getExprLoc(), diag::err_pragma_loop_invalid_argument_value)
@@ -5071,6 +5079,11 @@ static bool isPlaceholderToRemoveAsArg(QualType type) {
   case BuiltinType::OMPArraySection:
     return true;
 
+#if INTEL_CUSTOMIZATION
+  case BuiltinType::VAArgPack:
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   }
   llvm_unreachable("bad builtin type kind");
 }
@@ -5307,6 +5320,25 @@ static ExprResult ActOnCallExprImpl(Sema &S, Scope *Scope, Expr *Fn,
     NDecl = cast<MemberExpr>(NakedFn)->getMemberDecl();
 
   if (FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(NDecl)) {
+#if INTEL_CUSTOMIZATION
+    // error on invalid pack usage
+    for (size_t i = 0, e = ArgExprs.size(); i != e; i++) {
+      auto *Ph = dyn_cast<BuiltinType>(ArgExprs[i]->getType());
+      if (Ph && Ph->getKind() == BuiltinType::VAArgPack) {
+        // Ensure is last param
+        if (i != e - 1) {
+          S.Diag(ArgExprs[i]->getLocStart(), diag::err_va_pack_not_last);
+          return ExprError();
+        }
+        // Ensure is variadic function, and variadic arg
+        if (!FD->isVariadic() || i != FD->getMinRequiredArguments()) {
+          S.Diag(ArgExprs[i]->getLocStart(), diag::err_va_pack_not_variadic);
+          return ExprError();
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION 
+
     if (CallingNDeclIndirectly &&
         !S.checkAddressOfFunctionIsAvailable(FD, /*Complain=*/true,
                                              Fn->getLocStart()))
@@ -15626,6 +15658,10 @@ ExprResult Sema::CheckPlaceholderExpr(Expr *E) {
   case BuiltinType::OMPArraySection:
     Diag(E->getLocStart(), diag::err_omp_array_section_use);
     return ExprError();
+#if INTEL_CUSTOMIZATION
+  case BuiltinType::VAArgPack:
+    return E;
+#endif // INTEL_CUSTOMIZATION
 
   // Everything else should be impossible.
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
