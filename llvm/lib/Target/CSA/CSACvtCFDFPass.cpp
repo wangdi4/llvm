@@ -141,6 +141,7 @@ namespace llvm {
     void renameOnLoopEntry();
     void renameAcrossLoopForRepeat(MachineLoop *);
     void insertSWITCHForRepeat();
+    void repeatOperandInLoop(unsigned Reg, MachineLoop* mloop);
     MachineBasicBlock* getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock*> &exitingBlks, MachineInstr* UseMI, unsigned Reg);
     void insertSWITCHForLoopExit();
     void insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch);
@@ -953,7 +954,6 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit() {
 }
 
 void CSACvtCFDFPass::insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch) {
-  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
     insertSWITCHForLoopExit(*LI, LCSwitch);
@@ -1023,10 +1023,69 @@ void CSACvtCFDFPass::renameOnLoopEntry()
   }
 }
 
+
+
+void CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  unsigned newVReg;
+  std::set<MachineInstr*> switchsForRepeat;
+  MachineBasicBlock *latchBB = nullptr;
+  MachineInstr* dMI = MRI->getVRegDef(Reg);
+  MachineBasicBlock* DefBB = dMI->getParent();
+  MachineBasicBlock *mlphdr = mloop->getHeader();
+
+  SmallVector<MachineInstr*, 8> NewPHIs;
+  MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
+  const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+  unsigned hdrPhiVReg = MRI->createVirtualRegister(TRC);
+  SSAUpdate.Initialize(hdrPhiVReg);
+  SSAUpdate.AddAvailableValue(DefBB, Reg);
+  for (MachineBasicBlock::pred_iterator hdrPred = mlphdr->pred_begin(); hdrPred != mlphdr->pred_end(); hdrPred++) {
+    if (mloop->contains(*hdrPred)) {
+      latchBB = *hdrPred;
+    } else 
+      continue;
+    ControlDependenceNode *mLatch = CDG->getNode(latchBB);
+
+    MachineInstr *defInstr = getOrInsertSWITCHForReg(Reg, latchBB);
+    switchsForRepeat.insert(defInstr);
+
+    if (TII.isSwitch(defInstr)) {
+      unsigned switchFalseReg = defInstr->getOperand(0).getReg();
+      unsigned switchTrueReg = defInstr->getOperand(1).getReg();
+      if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
+        //rename Reg to switchFalseReg
+        newVReg = switchFalseReg;
+      } else {
+        //rename it to switchTrueReg
+        newVReg = switchTrueReg;
+      }
+    } else {
+      //LLVM3.6 buggy latch
+      assert(TII.isMOV(defInstr));
+      newVReg = defInstr->getOperand(0).getReg();
+    }
+    SSAUpdate.AddAvailableValue(latchBB, newVReg);
+  }
+  // Rewrite uses that outside of the original def's block, inside the loop
+  MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+  while (UI != MRI->use_end()) {
+    MachineOperand &UseMO = *UI;
+    MachineInstr *UseMI = UseMO.getParent();
+    ++UI;
+    if (MLI->getLoopFor(UseMI->getParent()) == mloop) {
+      SSAUpdate.RewriteUse(UseMO);
+    }
+  }
+}
+
+
+
+
 //focus on uses
 void CSACvtCFDFPass::insertSWITCHForRepeat() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   ControlDependenceNode *root = CDG->getRoot();
   std::set<MachineInstr*> switchsForRepeat;
@@ -1036,8 +1095,6 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
     MachineLoop* mloop = MLI->getLoopFor(mbb);
     //not inside a loop
     if (!mloop) continue;
-    MachineBasicBlock *mlphdr = mloop->getHeader();
-    
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = &*I;
 
@@ -1066,50 +1123,7 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
                                    MLI->getLoopFor(mbb)->getParentLoop() == MLI->getLoopFor(DefBB);
 
           if (isDefEnclosingUse && DT->dominates(DefBB, mbb)) {
-            unsigned newVReg;
-            MachineBasicBlock *latchBB = nullptr;
-            SmallVector<MachineInstr*, 8> NewPHIs;
-            MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
-            const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-            unsigned hdrPhiVReg = MRI->createVirtualRegister(TRC);
-            SSAUpdate.Initialize(hdrPhiVReg);
-            SSAUpdate.AddAvailableValue(DefBB, Reg);
-            for (MachineBasicBlock::pred_iterator hdrPred = mlphdr->pred_begin(); hdrPred != mlphdr->pred_end(); hdrPred++) {
-              if (mloop->contains(*hdrPred)) {
-                latchBB = *hdrPred;
-              } else continue;
-              ControlDependenceNode *mLatch = CDG->getNode(latchBB);
-
-              MachineInstr *defInstr = getOrInsertSWITCHForReg(Reg, latchBB);
-              switchsForRepeat.insert(defInstr);
-
-              if (TII.isSwitch(defInstr)) {
-                unsigned switchFalseReg = defInstr->getOperand(0).getReg();
-                unsigned switchTrueReg = defInstr->getOperand(1).getReg();
-                if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
-                  //rename Reg to switchFalseReg
-                  newVReg = switchFalseReg;
-                } else {
-                  //rename it to switchTrueReg
-                  newVReg = switchTrueReg;
-                }
-              } else {
-                //LLVM3.6 buggy latch
-                assert(TII.isMOV(defInstr));
-                newVReg = defInstr->getOperand(0).getReg();
-              }
-              SSAUpdate.AddAvailableValue(latchBB, newVReg);
-            }
-            // Rewrite uses that outside of the original def's block, inside the loop
-            MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-            while (UI != MRI->use_end()) {
-              MachineOperand &UseMO = *UI;
-              MachineInstr *UseMI = UseMO.getParent();
-              ++UI;
-              if (MLI->getLoopFor(UseMI->getParent()) == mloop) {
-                SSAUpdate.RewriteUse(UseMO);
-              }
-            }
+            repeatOperandInLoop(Reg, mloop);
           }
         }
       }
