@@ -74,7 +74,8 @@ private:
   /// Destroys all CanonExprs. Called during HIR cleanup.
   void destroyAll();
 
-  /// Calculates the lcm of two positive inputs.
+  /// Calculates the lcm of two positive inputs. Caller is responsible for
+  /// checking overflow.
   static int64_t lcm(int64_t A, int64_t B);
 
   /// Creates a non-linear self blob canon expr from the passed in \p Val.
@@ -236,7 +237,7 @@ public:
                                int64_t *Distance);
 
   /// Returns true if CE1 - CE2 results in a constant difference w.r.t IV at \p
-  /// LoopLevel which is the distance in terms of number of loop iterations. 
+  /// LoopLevel which is the distance in terms of number of loop iterations.
   /// For example-
   /// Returns true with distance of 1 if-
   /// CE1 = 2*i1 + 2

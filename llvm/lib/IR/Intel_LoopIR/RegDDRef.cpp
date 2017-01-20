@@ -970,6 +970,11 @@ void RegDDRef::verify() const {
              "Invalid BaseCE dest type!");
     }
     assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
+
+    for (auto CEI = canon_begin(), E = canon_end(); CEI != E; ++CEI) {
+      assert((*CEI)->getSrcType()->isIntOrIntVectorTy() &&
+             "Subscript should be integer type!");
+    }
   }
 
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {

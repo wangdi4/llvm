@@ -100,7 +100,10 @@ int64_t CanonExprUtils::gcd(int64_t A, int64_t B) {
 
 // Internal Method that calculates the lcm of two positive integers
 int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
-  return ((A * B) / gcd(A, B));
+  // If A and B are both big numbers, LCM can overflow. We can avoid artificial
+  // overflow if we devide by GCD first before multiplying A and B. For example,
+  // when both A and B are the same but (A * B) overflows.
+  return ((A / gcd(A, B)) * B);
 }
 
 CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
@@ -346,6 +349,11 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   int64_t Denom1 = Result->getDenominator();
   int64_t Denom2 = NewCE2->getDenominator();
   int64_t NewDenom = lcm(Denom1, Denom2);
+
+  // Bail out if LCM overflows signed 64 bit range.
+  if ((NewDenom < Denom1) || (NewDenom < Denom2)) {
+    return nullptr;
+  }
 
   if (NewDenom != Denom1) {
     // Do not simplify while multiplying as this is an intermediate result of
