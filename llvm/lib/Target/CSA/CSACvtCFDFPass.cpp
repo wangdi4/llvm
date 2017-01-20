@@ -589,50 +589,50 @@ void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
     renameAcrossLoopForRepeat(*LI);
-    MachineLoop *mloop = *LI;
-    for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
-      MachineBasicBlock* mbb = *BI;
-      //only conside blocks in the  urrent loop level, blocks in the nested level are done before.
-      if (MLI->getLoopFor(mbb) != mloop) continue;
-      for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
-        MachineInstr *MI = &*I;
-        //if (MI->isPHI()) continue;
-        for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-          if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-          unsigned Reg = MO->getReg();
-          if (MO->isUse()) {
-            MachineInstr *DefMI = MRI->getVRegDef(Reg);
-            MachineBasicBlock *dmbb = DefMI->getParent();
-            MachineLoop* dmloop = MLI->getLoopFor(dmbb);
+  }
+  MachineLoop *mloop = L;
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
+    //only conside blocks in the  urrent loop level, blocks in the nested level are done before.
+    if (MLI->getLoopFor(mbb) != mloop) continue;
+    for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
+      MachineInstr *MI = &*I;
+      //if (MI->isPHI()) continue;
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
+        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        unsigned Reg = MO->getReg();
+        if (MO->isUse()) {
+          MachineInstr *DefMI = MRI->getVRegDef(Reg);
+          MachineBasicBlock *dmbb = DefMI->getParent();
+          MachineLoop* dmloop = MLI->getLoopFor(dmbb);
 
-            //def is in immediate nesting level, this including def not in any loop at all
-            if (mloop->getParentLoop() == dmloop || mloop == dmloop) continue;
+          //def is in immediate nesting level, this including def not in any loop at all
+          if (mloop->getParentLoop() == dmloop || mloop == dmloop) continue;
 
-            //def outside the loop of use, and not in the immediate nesting level
-            if ((!dmloop || dmloop->contains(mloop)) && DT->properlyDominates(dmbb, mbb)) {
-              MachineBasicBlock* landingPad = mloop->getLoopPreheader();
-              //TODO:: create the landing pad if can't find one
-              assert(landingPad && "can't find loop preheader as landing pad for renaming");
-              const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-              const unsigned moveOpcode = TII.getMoveOpcode(TRC);
-              unsigned cpyReg = MRI->createVirtualRegister(TRC);
-              MachineInstr *cpyInst = BuildMI(*landingPad, landingPad->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(Reg);
-              cpyInst->setFlag(MachineInstr::NonSequential);
-              MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-              while (UI != MRI->use_end()) {
-                MachineOperand &UseMO = *UI;
-                MachineInstr *UseMI = UseMO.getParent();
-                MachineBasicBlock* UseBB = UseMI->getParent();
-                ++UI;
-                if (MLI->getLoopFor(UseBB) && MLI->getLoopFor(UseBB) == mloop) {
-                  UseMO.setReg(cpyReg);
-                }
+          //def outside the loop of use, and not in the immediate nesting level
+          if ((!dmloop || dmloop->contains(mloop)) && DT->properlyDominates(dmbb, mbb)) {
+            MachineBasicBlock* landingPad = mloop->getLoopPreheader();
+            //TODO:: create the landing pad if can't find one
+            assert(landingPad && "can't find loop preheader as landing pad for renaming");
+            const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+            const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+            unsigned cpyReg = MRI->createVirtualRegister(TRC);
+            MachineInstr *cpyInst = BuildMI(*landingPad, landingPad->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(Reg);
+            cpyInst->setFlag(MachineInstr::NonSequential);
+            MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+            while (UI != MRI->use_end()) {
+              MachineOperand &UseMO = *UI;
+              MachineInstr *UseMI = UseMO.getParent();
+              MachineBasicBlock* UseBB = UseMI->getParent();
+              ++UI;
+              if (MLI->getLoopFor(UseBB) && MLI->getLoopFor(UseBB) == mloop) {
+                UseMO.setReg(cpyReg);
               }
             }
           }
         }
-      }//end of for MI
-    }
+      }
+    }//end of for MI
   }
 }
 
