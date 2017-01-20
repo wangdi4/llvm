@@ -141,7 +141,7 @@ namespace llvm {
     void renameOnLoopEntry();
     void renameAcrossLoopForRepeat(MachineLoop *);
     void insertSWITCHForRepeat();
-    void repeatOperandInLoop(unsigned Reg, MachineLoop* mloop);
+    unsigned repeatOperandInLoop(unsigned Reg, MachineLoop* mloop, std::set<MachineInstr*> &switchsForRepeat);
     MachineBasicBlock* getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock*> &exitingBlks, MachineInstr* UseMI, unsigned Reg);
     void insertSWITCHForLoopExit();
     void insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch);
@@ -1025,11 +1025,10 @@ void CSACvtCFDFPass::renameOnLoopEntry()
 
 
 
-void CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
+unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop, std::set<MachineInstr*> &switchsForRepeat) {
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   unsigned newVReg;
-  std::set<MachineInstr*> switchsForRepeat;
   MachineBasicBlock *latchBB = nullptr;
   MachineInstr* dMI = MRI->getVRegDef(Reg);
   MachineBasicBlock* DefBB = dMI->getParent();
@@ -1078,6 +1077,7 @@ void CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
       SSAUpdate.RewriteUse(UseMO);
     }
   }
+  return hdrPhiVReg;
 }
 
 
@@ -1123,7 +1123,7 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
                                    MLI->getLoopFor(mbb)->getParentLoop() == MLI->getLoopFor(DefBB);
 
           if (isDefEnclosingUse && DT->dominates(DefBB, mbb)) {
-            repeatOperandInLoop(Reg, mloop);
+            repeatOperandInLoop(Reg, mloop, switchsForRepeat);
           }
         }
       }
