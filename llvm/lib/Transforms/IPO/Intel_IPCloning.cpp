@@ -1,6 +1,6 @@
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -12,8 +12,12 @@
 
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_AggInline.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -33,6 +37,18 @@ static cl::opt<bool> IPCloningTrace("print-ip-cloning", cl::ReallyHidden);
 // Maximum number of clones allowed for any routine.
 static cl::opt<unsigned> IPFunctionCloningLimit("ip-function-cloning-limit",
                                    cl::init(3), cl::ReallyHidden);
+
+// Enable Loop related heuristic for Cloning.
+static cl::opt<bool> IPCloningLoopHeuristic("ip-cloning-loop-heuristic",
+                                   cl::init(false), cl::ReallyHidden);
+
+// Enable switch related heuristic for Cloning.
+static cl::opt<bool> IPCloningSwitchHeuristic("ip-cloning-switch-heuristic",
+                                   cl::init(false), cl::ReallyHidden);
+
+// Enable IF related heuristic for Cloning.
+static cl::opt<bool> IPCloningIFHeuristic("ip-cloning-if-heuristic",
+                                   cl::init(false), cl::ReallyHidden);
 
 // It is a mapping between formals of current function that is being processed
 // for cloning and set of possible constant values that can reach from 
@@ -61,10 +77,18 @@ std::vector<Instruction*> CurrCallList;
 // List of all cloned functions
 std::set<Function *> ClonedFunctionList;
 
+// List of formals of the current function as worthy candidates
+// for cloning. These are selected after applying heuristics.
+SmallPtrSet<Value *, 16> WorthyFormalsForCloning;
+
+// List of uses of a formal that will become potentail constant values
+// after cloning.
+SmallPtrSet<Value*, 16> PotentialConstValuesAfterCloning;
+
 // Return true if constant argument is worth considering for cloning.
 // If 'AfterInl' is false, consider only addresses of functions as 
-// worthy constants for cloning. If 'AfterInl' is false, consider all
-// constants except addresses of functions as worthy constants.
+// worthy constants for cloning. If 'AfterInl' is true, consider all
+// INT constants as worthy constants for now.
 //
 static bool isConstantArgWorthy(Value *Arg, bool AfterInl) {
     Value* FnArg = Arg->stripPointerCasts();
@@ -73,6 +97,12 @@ static bool isConstantArgWorthy(Value *Arg, bool AfterInl) {
     if (AfterInl) {
       // Returns false if it is address of a function
       if (Fn != nullptr)
+        return false;
+
+      // For now, allow only INT constants. Later, we may allow
+      // isa<ConstantPointerNull>(FnArg), isa<ConstantFP>(FnArg) etc.
+      //
+      if (!isa<ConstantInt>(FnArg))
         return false;
     }
     else {
@@ -200,6 +230,12 @@ static void createConstantArgumentsSet(CallSite CS,  Function &F,
   CallSite::arg_iterator CAI = CS.arg_begin();
   for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
        AI != E; ++AI, ++CAI, position++) {
+
+    // Ignore formals that are not selected by heuristics to reduce
+    // code size, compile-time etc
+    if (!WorthyFormalsForCloning.count(&*AI))
+      continue;
+
     if (isConstantArgForCloning(*CAI, AfterInl)) {
       Constant *C = dyn_cast<Constant>(*CAI);
       ConstantArgsSet.push_back(std::make_pair(position, C)); 
@@ -230,12 +266,13 @@ static unsigned getConstantArgumentsSetIndex(
 // Clear all maps and sets
 //
 static void clearAllMaps(void) {
-    CallInstArgumentSetIndexMap.clear();
-    FunctionAllArgumentsSets.clear();
-    ArgSetIndexClonedFunctionMap.clear();
-    FormalConstantValues.clear();
-    InexactFormals.clear(); 
-    CurrCallList.clear();
+  CallInstArgumentSetIndexMap.clear();
+  FunctionAllArgumentsSets.clear();
+  ArgSetIndexClonedFunctionMap.clear();
+  FormalConstantValues.clear();
+  InexactFormals.clear(); 
+  CurrCallList.clear();
+  WorthyFormalsForCloning.clear();
 }
 
 // Heuristics to enable cloning for 'F'. Currently, it returns true always.
@@ -287,6 +324,259 @@ static void dumpFormalsConstants(Function &F) {
      }
   }
   errs() << "\n\n";
+}
+
+// It collects uses of given formal variable 'V' that will become 
+// constant values after cloning.
+//
+static void collectPotentialConstantsAfterCloning(Value *V) {
+  unsigned NumUsesExplored = 0;
+  
+  // Add formal value as potential constant value after cloning
+  PotentialConstValuesAfterCloning.insert(V);
+  if (IPCloningTrace)
+    errs() <<  "     Added original formal:  " << *V << "\n";
+
+  // Look at all uses of formal value and try to find potential 
+  // constant values
+  for (auto *U : V->users()) {
+
+    // Avoid huge lists
+    if (NumUsesExplored >= 30)
+      break;
+
+    NumUsesExplored++;
+
+    if (isa<UnaryInstruction>(U) || isa<CastInst>(U) || isa<BitCastInst>(U)) {
+      // Add simple Unary operator as potential constants
+      PotentialConstValuesAfterCloning.insert(U);
+      if (IPCloningTrace)
+        errs() <<  "     Unary:  " << *U << "\n";
+    }
+    else if (isa<BinaryOperator>(U)) {
+      Value *LHS = U->getOperand(0), *RHS = U->getOperand(1);
+      // Add it if other operand is constant
+      if (isa<Constant>(LHS) || isa<Constant>(RHS))
+        PotentialConstValuesAfterCloning.insert(U);
+        if (IPCloningTrace)
+          errs() <<  "     Binary:   " << *U << "\n";
+    }
+  }
+}
+
+// Returns true if user 'User' of 'V' satisfies IF related heuristics
+// For now, it returns true if 'User' is IcmpInst and the result is used
+// by any BranchInst. 
+//
+//  Ex:  Returns true for below example
+//    V = formal + 20; 
+//    User:  if (V  <  30) {
+//           } 
+//
+static bool applyIFHeurstic(Value *User, Value *V) {
+
+  if (!IPCloningIFHeuristic)
+    return false;
+
+  // Checks if it is ICmpInst
+  auto U = cast<Instruction>(User);
+  if (!isa<ICmpInst>(U))
+    return false;
+
+  // Checks if it is used by proper BranchInst 
+  BasicBlock *BB = U->getParent();
+  if (!BB)
+    return false;
+  auto  *BI = dyn_cast_or_null<BranchInst>(BB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+
+  // Checks if ICmpInst will become compile-time constant 
+  auto *IC = dyn_cast<ICmpInst>(BI->getCondition());
+  if (!IC || IC != U)
+    return false;
+  auto LHS = U->getOperand(0);
+  auto RHS = U->getOperand(1);
+  if ((V == LHS && isa<Constant>(RHS)) ||
+      (V == RHS && isa<Constant>(LHS))) {
+    if (IPCloningTrace) {
+      errs() << "  Used in IF: " << *U << "\n";
+      errs() << "      Branch: " << *BI << "\n";
+    }
+    return true;
+  }
+  
+  return false;
+}
+
+// Returns condition of given Loop 'L' if it finds. Otherwise, returns
+// nullptr.
+//
+static ICmpInst *getLoopTest(Loop *L) {
+  if (!L->getExitingBlock())
+    return nullptr;
+  if (!L->getExitingBlock()->getTerminator())
+    return nullptr;
+  BranchInst *BI = dyn_cast<BranchInst>(L->getExitingBlock()->getTerminator());
+  return dyn_cast<ICmpInst>(BI->getCondition());
+}
+
+// Returns true if user 'User' of 'V' satisfies LOOP related heuristics
+// For now, it returns true if 'User' is conditional statement of a Loop
+// or 'V' is used as UB.
+//
+//   Ex: Returns true for the below example
+//          V = formal + 2;
+//          for (;
+//   User:            i < V; ) {
+//             ...
+//          }
+//
+static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo& LI) {
+
+  if (!IPCloningLoopHeuristic)
+    return false;
+
+  // Check if it is IcmpInst
+  auto U = cast<Instruction>(User);
+  if (!isa<ICmpInst>(U))
+    return false;
+  auto LHS = U->getOperand(0);
+  auto RHS = U->getOperand(1);
+  if (V != LHS && V != RHS)
+    return false;
+
+  // Check if IcmpInst is used as Loop condition
+  BasicBlock *BB = U->getParent();
+  if (!BB)
+    return false;
+  Loop *L = LI.getLoopFor(BB);
+  if (L == nullptr)
+    return false;
+  ICmpInst *Cond = getLoopTest(L);
+  if (!Cond)
+    return false;
+  if (Cond != U)
+    return false;
+  if (IPCloningTrace) {
+    errs() << "  Used in Loop: " << *U << "\n";
+  }
+  return true;
+}
+
+// Returns true if user 'User' of 'V' satisfies SWITCH related heuristics
+// For now, it returns true if 'User' is switch statement and 'V' is 
+// used as condition.
+//
+// Ex: Return true for the below example
+//           V = formal + 1;
+// User:     switch (V) {
+//            ...
+//           }
+//
+static bool applySwitchHeuristic(Value *User, Value *V) {
+
+  if (!IPCloningSwitchHeuristic)
+    return false;
+
+  auto U = cast<Instruction>(User);
+
+  // Check if 'V' is used as condition of SwitchInst
+  if (!isa<SwitchInst>(U))
+    return false;
+  SwitchInst &SI = cast<SwitchInst>(*U);
+  if (V != SI.getCondition())
+    return false;
+
+  if (IPCloningTrace)
+    errs() << "  Used in Switch: " << *U << "\n";
+
+  return true;
+}
+
+// Returns true if any user of 'V' satisfies any heuristics.
+//
+static bool applyAllHeuristics(Value *V, LoopInfo& LI) {
+  for (User *U : V->users()) {
+    if (applyLoopHeuristic(U, V, LI)) {
+      return true;
+    }
+    if (applyIFHeurstic(U, V)) {
+      return true;
+    }
+    if (applySwitchHeuristic(U, V)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// First, it collects uses of 'V' that will become constant values
+// after cloning. Then, it applies heuristics for all potential
+// constants. It returns true if any potential constant satisfies 
+// heuristics.
+//
+static bool findPotentialConstsAndApplyHeuristics(Value *V, LoopInfo& LI) {
+
+  PotentialConstValuesAfterCloning.clear();
+  collectPotentialConstantsAfterCloning(V);
+
+  // Apply heuristics for all potential constant values
+  for (Value *V1 : PotentialConstValuesAfterCloning) {
+    if (applyAllHeuristics(V1, LI)) {
+      return true;
+    } 
+  }
+  return false;
+}
+
+// It collects worthy formals for cloning by applying heuristics.
+// For now, no heuristics are applied if AfterInl is false.
+// It returns true if there are any worthy formals.
+//
+static bool findWorthyFormalsForCloning(Function &F, bool AfterInl) {
+
+  WorthyFormalsForCloning.clear();
+  // Create Loop Info for routine
+  LoopInfo LI{DominatorTree(const_cast<Function &>(F))};
+
+  unsigned int f_count = 0;
+  for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
+       AI != E; ++AI) {
+
+    Value *V = &*AI;
+    f_count++;
+
+    // Ignore formal if it doesn't have any constants at call-sites
+    auto &ValList = FormalConstantValues[V];
+    if (ValList.size() == 0)
+      continue;
+
+    if (IPCloningTrace) {
+      errs() << " Collecting potential constants for Formal_";
+      errs() << (f_count - 1) << "\n";
+    }
+    if (AfterInl) {
+      if (findPotentialConstsAndApplyHeuristics(V, LI)) {
+        WorthyFormalsForCloning.insert(V);
+      }
+      else {
+        if (IPCloningTrace) {
+          errs() << "  Skipping FORMAL_" << (f_count - 1);
+          errs() << " due to heuristics\n";   
+        }
+      }
+    }
+    else {
+      // No heuristics for IPCloning before Inlining
+      WorthyFormalsForCloning.insert(V);
+    }
+  }
+  // Return false if none of formals is selected.
+  if (WorthyFormalsForCloning.size() == 0)
+    return false;
+
+  return true;
 }
 
 // It analyzes all callsites of 'F' and collect all possible constant
@@ -506,6 +796,12 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
       continue;
     }
 
+    if (!findWorthyFormalsForCloning(F, AfterInl)) {
+      if (IPCloningTrace)
+        errs() << " Skipping due to Heuristics " << F.getName() << "\n";
+      continue;
+    }
+
     if (!collectAllConstantArgumentsSets(F, AfterInl)) {
       if (IPCloningTrace)
         errs() << " Skipping not profitable candidate " << F.getName() << "\n";
@@ -545,6 +841,8 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addPreserved<WholeProgramWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
+    AU.addPreserved<InlineAggressiveWrapperPass>();
   }
 
   bool runOnModule(Module &M) override {
