@@ -211,8 +211,9 @@ bool CodeGenTBAA::canCreateUniqueTBAA(const Type *Ty) {
   }
   if (const EnumType *EnumTy = dyn_cast<EnumType>(Ty))
     return Features.CPlusPlus && EnumTy->getDecl()->isExternallyVisible();
-  if (const RecordType *RecordTy = dyn_cast<RecordType>(Ty))
-    return RecordTy->getDecl()->isExternallyVisible();
+  // Remove this for now as it creates bad TBAA (cq#416741).
+  // if (const RecordType *RecordTy = dyn_cast<RecordType>(Ty))
+  //   return RecordTy->getDecl()->isExternallyVisible();
   return false;
 }
 
