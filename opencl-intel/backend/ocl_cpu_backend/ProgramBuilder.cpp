@@ -43,6 +43,7 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Debug.h"
@@ -76,6 +77,16 @@ File Name:  ProgramBuilder.cpp
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+static void BEFatalErrorHandler(void *user_data, const std::string& reason,
+                                bool gen_crash_diag)
+{
+    errs() << "**Internal compiler error** " << reason << "\n" <<
+              "Please report the issue on Intel OpenCL forum \n" <<
+              "https://software.intel.com/en-us/forums/opencl for assistance. \n ";
+    abort();
+}
+
 /*
  * Utility methods
  */
@@ -248,6 +259,10 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
             pModule = (llvm::Module*)pProgram->GetModule();
         }
         assert(pModule && "Module parsing has failed without exception. Strage");
+
+        // Handle LLVM ERROR which can occured during build programm
+        // Need to do it to eliminate RT hanging when clBuildProgramm failed
+        llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler, nullptr);
 
         pCompiler->BuildProgram( pModule, &buildResult);
         std::auto_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(NULL, NULL, 0));
