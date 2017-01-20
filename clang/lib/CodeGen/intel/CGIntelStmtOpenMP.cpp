@@ -217,7 +217,6 @@ class OpenMPCodeOutliner {
   StringRef End;
   llvm::Function *IntelDirective = nullptr;
   llvm::Function *IntelSimpleClause = nullptr;
-  llvm::Function *IntelOpndClause = nullptr;
   llvm::Function *IntelListClause = nullptr;
   llvm::LLVMContext &C;
   llvm::SmallVector<llvm::Value *, 16> Args;
@@ -340,13 +339,14 @@ class OpenMPCodeOutliner {
     Args.clear();
   }
   void emitSimpleClause() {
+    assert(Args.size() == 1);
     CGF.EmitRuntimeCall(IntelSimpleClause, Args);
     Args.clear();
   }
   void emitOpndClause() {
     assert(Args.size() == 2);
-    llvm::Type *Types[] = {Args[0]->getType(), Args[1]->getType()};
-    IntelOpndClause =
+    llvm::Type *Types[] = {Args[1]->getType()};
+    llvm::Function *IntelOpndClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual_opnd, Types);
     CGF.EmitRuntimeCall(IntelOpndClause, Args);
     Args.clear();
@@ -486,14 +486,16 @@ class OpenMPCodeOutliner {
       ++I;
     }
   }
+
   void emitOMPOrderedClause(const OMPOrderedClause *C) {
     addArg("QUAL.OMP.ORDERED");
-    if (auto *E = C->getNumForLoops()) {
+    if (auto *E = C->getNumForLoops())
       addArg(CGF.EmitScalarExpr(E));
-      emitOpndClause();
-    } else
-      emitSimpleClause();
+    else
+      addArg(CGF.Builder.getInt32(1));
+    emitOpndClause();
   }
+
   void emitOMPMapClause(const OMPMapClause *Cl) {
     StringRef Op;
     switch (Cl->getMapType()) {
@@ -611,17 +613,56 @@ class OpenMPCodeOutliner {
     emitListClause();
   }
 
-  void emitOMPIfClause(const OMPIfClause *) {}
+  void emitOMPIfClause(const OMPIfClause *Cl) {
+    addArg("QUAL.OMP.IF");
+    addArg(CGF.EmitScalarExpr(Cl->getCondition()));
+    emitOpndClause();
+  }
+
+  void emitOMPNumThreadsClause(const OMPNumThreadsClause *Cl) {
+    addArg("QUAL.OMP.NUM_THREADS");
+    addArg(CGF.EmitScalarExpr(Cl->getNumThreads()));
+    emitOpndClause();
+  }
+
+  void emitOMPDefaultClause(const OMPDefaultClause *Cl) {
+    switch (Cl->getDefaultKind()) {
+    case OMPC_DEFAULT_none:
+      addArg("QUAL.OMP.DEFAULT.NONE");
+      break;
+    case OMPC_DEFAULT_shared:
+      addArg("QUAL.OMP.DEFAULT.SHARED");
+      break;
+    case OMPC_DEFAULT_unknown:
+      llvm_unreachable("Unknown default clause");
+    }
+    emitSimpleClause();
+  }
+
+  void emitOMPProcBindClause(const OMPProcBindClause *Cl) {
+    switch (Cl->getProcBindKind()) {
+    case OMPC_PROC_BIND_master:
+      addArg("QUAL.OMP.PROCBIND.MASTER");
+      break;
+    case OMPC_PROC_BIND_close:
+      addArg("QUAL.OMP.PROCBIND.CLOSE");
+      break;
+    case OMPC_PROC_BIND_spread:
+      addArg("QUAL.OMP.PROCBIND.SPREAD");
+      break;
+    case OMPC_PROC_BIND_unknown:
+      llvm_unreachable("Unknown proc_bind clause");
+    }
+    emitSimpleClause();
+  }
+
   void emitOMPFinalClause(const OMPFinalClause *) {}
-  void emitOMPNumThreadsClause(const OMPNumThreadsClause *) {}
   void emitOMPSafelenClause(const OMPSafelenClause *) {}
   void emitOMPSimdlenClause(const OMPSimdlenClause *) {}
   void emitOMPCollapseClause(const OMPCollapseClause *) {}
-  void emitOMPDefaultClause(const OMPDefaultClause *) {}
   void emitOMPLastprivateClause(const OMPLastprivateClause *) {}
   void emitOMPAlignedClause(const OMPAlignedClause *) {}
   void emitOMPCopyprivateClause(const OMPCopyprivateClause *) {}
-  void emitOMPProcBindClause(const OMPProcBindClause *) {}
   void emitOMPNowaitClause(const OMPNowaitClause *) {}
   void emitOMPUntiedClause(const OMPUntiedClause *) {}
   void emitOMPMergeableClause(const OMPMergeableClause *) {}
@@ -655,9 +696,6 @@ public:
     IntelDirective = CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive);
     IntelSimpleClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual);
-    llvm::Type *Args[] = {CGF.VoidTy, CGF.VoidPtrTy, CGF.VoidPtrTy};
-    IntelOpndClause =
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual_opnd, Args);
     IntelListClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual_opndlist);
   }
