@@ -112,6 +112,7 @@ typedef enum {
    InlrAlmostSingleBasicBlock,
    InlrEmptyFunction,
    InlrDoubleLocalCall,
+   InlrDoubleNonLocalCall,
    InlrVectorBonus,
    InlrAggInline,
    InlrProfitable,

@@ -1497,7 +1497,7 @@ static bool worthyDoubleCallSite3(CallSite &CS, InliningLoopInfoCache& ILIC) {
 //
 // Return true if 'F' has exactly two callsites
 //
-static bool isDoubleCallsite(Function *F)
+static bool isDoubleCallSite(Function *F)
 {
   unsigned int count = 0; 
   for (User *U : F->users()) {
@@ -1511,13 +1511,54 @@ static bool isDoubleCallsite(Function *F)
 }
  
 //
-// Return 'true' if this is a double callsite worth inlining.
+// Return 'true' if 'CS' worth inlining, given that it is a double callsite
+// with internal linkage.
 //
-static bool worthyDoubleCallSite(CallSite &CS, InliningLoopInfoCache& ILIC)
+static bool worthyDoubleInternalCallSite(CallSite &CS, 
+  InliningLoopInfoCache& ILIC)
 {
-  return isDoubleCallsite(CS.getCalledFunction())
-    && (worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC)
-    || worthyDoubleCallSite3(CS, ILIC));
+  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC)
+    || worthyDoubleCallSite3(CS, ILIC);
+}
+
+//
+// Return 'true' if 'CS' worth inlining, given that it is a double callsite
+// with external linkage.
+//
+// The criteria for this heuristic are:
+//   (1) Single basic block in the caller
+//   (2) Single use which is not a direct invocation of the caller
+//   (3) No calls to functions other than the called function
+//       (except intrinsics added by using -g)
+//
+static bool worthyDoubleExternalCallSite(CallSite &CS) {
+  Function *Caller = CS.getCaller();
+  if (std::distance(Caller->begin(), Caller->end()) != 1)
+    return false;
+  Function *Callee = CS.getCalledFunction();
+  unsigned int count = 0;
+  for (User *U : Caller->users()) {
+    CallSite Site(U);
+    if (Site && Site.getCalledFunction() == Caller)
+      return false;
+    if (++count > 1)
+      return false;
+  }
+  if (count != 1) 
+    return false;
+  for (BasicBlock &BB : *Caller) {
+    for (Instruction &I : BB) {
+      CallSite CS(cast<Value>(&I));
+      if (!CS)
+        continue;
+      Function *F = CS.getCalledFunction();
+      if (F != nullptr && F->getName() == "llvm.dbg.value")
+        continue;
+      if (F != Callee)
+        return false;
+    }
+  }
+  return true;
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -1618,23 +1659,32 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
-  // If there are two calls of the function, and it has internal linkage,
-  // the cost of inlining it drops less dramatically.
-
-  bool TwoCallsAndLocalLinkage
-    = (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) &&
-    (&F == CS.getCalledFunction()) && worthyDoubleCallSite(CS, *ILIC);
-  if (TwoCallsAndLocalLinkage) {
-    Cost -= InlineConstants::SecondToLastCallToStaticBonus;
-    YesReasonVector.push_back(InlrDoubleLocalCall);
+  else { 
+    if (&F == CS.getCalledFunction()) { 
+      if (isDoubleCallSite(&F)) { 
+        // If there are two calls of the function, the cost of inlining it may 
+        // drop, but less dramatically.
+        if (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) { 
+           if (worthyDoubleInternalCallSite(CS, *ILIC)) { 
+             Cost -= InlineConstants::SecondToLastCallToStaticBonus;
+             YesReasonVector.push_back(InlrDoubleLocalCall);
+           } 
+        } 
+        else { 
+           if (worthyDoubleExternalCallSite(CS)) { 
+             Cost -= InlineConstants::SecondToLastCallToStaticBonus;
+             YesReasonVector.push_back(InlrDoubleNonLocalCall);
+           } 
+        } 
+      }
+    }
   }
-
+ 
   // Use InlineAggressiveInfo to expose uses of global ptrs
   if (AI != nullptr && AI->isCallInstInAggInlList(CS)) {
     Cost -= InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
   }
-
 #endif // INTEL_CUSTOMIZATION
 
   // If this function uses the coldcc calling convention, prefer not to inline
