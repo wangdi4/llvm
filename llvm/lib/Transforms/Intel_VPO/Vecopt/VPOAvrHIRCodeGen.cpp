@@ -51,7 +51,7 @@ class AVRCGVisit {
 private:
   AVRCodeGenHIR *ACG;
   RegDDRef *MaskDDRef;
-  Twine NodeName;
+  std::string NodeName;
   HLNodeUtils &HNU;
   DDRefUtils &DDRU;
 
@@ -63,12 +63,12 @@ private:
   }
 
 public:
-  AVRCGVisit(AVRCodeGenHIR *ACG, RegDDRef *MaskDDRef, Twine Name)
-      : ACG(ACG), MaskDDRef(MaskDDRef), NodeName(Name),
+  AVRCGVisit(AVRCodeGenHIR *ACG, RegDDRef *MaskDDRef, const Twine &Name)
+      : ACG(ACG), MaskDDRef(MaskDDRef), NodeName(Name.str()),
         HNU(ACG->getMainLoop()->getHLNodeUtils()),
         DDRU(ACG->getMainLoop()->getDDRefUtils()) {}
 
-  const Twine &getNodeName() const { return NodeName; }
+  const std::string &getNodeName() const { return NodeName; }
 
   // Visit Functions
   void visit(AVR *ANode){};
