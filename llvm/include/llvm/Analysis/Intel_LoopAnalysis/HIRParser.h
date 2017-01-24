@@ -43,6 +43,7 @@ class PHINode;
 class SCEV;
 class ScalarEvolution;
 class SCEVConstant;
+class SCEVAddRecExpr;
 class SCEVUnknown;
 class GEPOperator;
 class Value;
@@ -227,6 +228,10 @@ private:
   /// be eliminated.
   bool isEssential(const Instruction *Inst) const;
 
+  /// Returns true if this SCEV represents a min/max expr with an AddRec
+  /// Operand.
+  bool isMinMaxWithAddRecOperand(const SCEV *SC) const;
+
   /// Wrapper over ScalarEvolution's getSCEVForHIR().
   const SCEV *getSCEV(Value *Val) const;
 
@@ -290,6 +295,11 @@ private:
 
   /// Calls SE->getSCEVAtScope() based on the location of CurNode.
   const SCEV *getSCEVAtScope(const SCEV *SC) const;
+
+  /// Parses an AddRec into CanonExpr. This and parseRecursive() can call each
+  /// other.
+  bool parseAddRec(const SCEVAddRecExpr *AddRec, CanonExpr *CE, unsigned Level,
+                   bool UnderCast, bool IndicateFailure);
 
   /// Recursively parses SCEV tree into CanonExpr. IsTop is true when we are at
   /// the top of the tree and UnderCast is true if we are under a cast type

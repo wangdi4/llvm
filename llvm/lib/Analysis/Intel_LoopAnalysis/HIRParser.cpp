@@ -688,6 +688,26 @@ struct HIRParser::Phase1Visitor final : public HLNodeVisitorBase {
   void visit(HLGoto *Goto) { HIRP->parse(Goto); }
 };
 
+bool HIRParser::isMinMaxWithAddRecOperand(const SCEV *SC) const {
+  // Min is represented using !(Max) ==> (-1 -Max) so we call getNotSCEV() to
+  // undo the original 'not' operation.
+  if (isa<SCEVAddExpr>(SC)) {
+    SC = SE->getNotSCEV(SC);
+  }
+
+  if (!isa<SCEVSMaxExpr>(SC) && !isa<SCEVUMaxExpr>(SC)) {
+    return false;
+  }
+
+  for (const auto *Op : cast<SCEVNAryExpr>(SC)->operands()) {
+    if (isa<SCEVAddRecExpr>(Op)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /// This class is used to process blob which is being added to the CanonExpr.
 /// It performs several functions-
 /// 1) Reverse engineers SCEVAddRecExprs to SCEVUnknowns.
@@ -717,74 +737,21 @@ public:
         NestingLevel(Level), SafeMode(false), Failed(false) {}
 
   /// Returns true if \p Blob can be processed without encountering failure.
-  bool canProcessSafely(BlobTy Blob) {
-    SafeMode = true;
-
-    process(Blob);
-
-    SafeMode = false;
-
-    bool HasFailed = Failed;
-    Failed = false;
-
-    return !HasFailed;
-  }
+  bool canProcessSafely(BlobTy Blob);
 
   /// Processes \p Blob and returns the resulting mapped blob.
   BlobTy process(BlobTy Blob) { return visit(Blob); }
 
-  const SCEV *visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExt) {
-    // In some cases we have a value for zero extension of linear SCEV but not
-    // the linear SCEV itself because the original src code IV has been widened
-    // by induction variable simplification. So we look for such values here.
-    if (isa<SCEVAddRecExpr>(ZExt->getOperand())) {
-      if (auto SubSCEV = getSubstituteSCEV(ZExt)) {
-        return SubSCEV;
-      }
-    }
+  // Returns a mapped SCEV for \p MinMax which would result in a cleaner HIR.
+  const SCEV *getProfitableMinMaxExprMapping(const SCEV *MinMax);
 
-    return SCEVRewriteVisitor<BlobProcessor>::visitZeroExtendExpr(ZExt);
-  }
-
-  const SCEV *visitMulExpr(const SCEVMulExpr *Mul) {
-    // This is to catch cases like this-
-    //
-    // %126 = trunc i64 %indvars.iv857 to i32
-    //   -->  {0,+,2}<%for.body.525>
-    // %rem530815 = and i32 %126, 30
-    //   -->  (2 * (zext i4 {0,+,1}<%for.body.525> to i32))
-    //
-    // TODO: investigate SCEV representation of bitwise operators in detail.
-    if (Mul->getNumOperands() == 2) {
-      auto ZExt = dyn_cast<SCEVZeroExtendExpr>(Mul->getOperand(1));
-
-      if (ZExt && isa<SCEVAddRecExpr>(ZExt->getOperand())) {
-        if (auto SubSCEV = getSubstituteSCEV(Mul)) {
-          return SubSCEV;
-        }
-      }
-    }
-
-    return SCEVRewriteVisitor<BlobProcessor>::visitMulExpr(Mul);
-  }
-
-  /// Returns the SCEVUnknown version of the value which represents this AddRec.
-  const SCEV *visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
-    const SCEV *SubSCEV = getSubstituteSCEV(AddRec);
-
-    if (!SubSCEV) {
-
-      if (SafeMode) {
-        Failed = true;
-        SubSCEV = AddRec;
-
-      } else {
-        llvm_unreachable("Instuction corresponding to linear SCEV not found!");
-      }
-    }
-
-    return SubSCEV;
-  }
+  /// Override base class functions.
+  const SCEV *visitAddExpr(const SCEVAddExpr *Add);
+  const SCEV *visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExt);
+  const SCEV *visitMulExpr(const SCEVMulExpr *Mul);
+  const SCEV *visitAddRecExpr(const SCEVAddRecExpr *AddRec);
+  const SCEV *visitSMaxExpr(const SCEVSMaxExpr *Max);
+  const SCEV *visitUMaxExpr(const SCEVUMaxExpr *Max);
 
   /// Returns the SCEV of the base value associated with the incoming SCEV's
   /// value. All the temp blob related processing is performed here.
@@ -828,6 +795,129 @@ public:
                           SCEVConstant **ConstMultiplier,
                           SCEV **Additive) const;
 };
+
+bool HIRParser::BlobProcessor::canProcessSafely(BlobTy Blob) {
+  SafeMode = true;
+
+  process(Blob);
+
+  SafeMode = false;
+
+  bool HasFailed = Failed;
+  Failed = false;
+
+  return !HasFailed;
+}
+
+const SCEV *
+HIRParser::BlobProcessor::getProfitableMinMaxExprMapping(const SCEV *MinMax) {
+  if (!HIRP->isMinMaxWithAddRecOperand(MinMax)) {
+    return nullptr;
+  }
+
+  if (auto SubSCEV = getSubstituteSCEV(MinMax)) {
+    return SubSCEV;
+  }
+
+  return nullptr;
+}
+
+const SCEV *HIRParser::BlobProcessor::visitAddExpr(const SCEVAddExpr *Add) {
+  // This mapping recovers original (select) instruction from min exprs with
+  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
+  const SCEV *MappedSC = nullptr;
+
+  // This mapping is for profitability (not legality) so we can skip it in safe
+  // mode.
+  if (!SafeMode && (MappedSC = getProfitableMinMaxExprMapping(Add))) {
+    return MappedSC;
+  }
+
+  return SCEVRewriteVisitor<BlobProcessor>::visitAddExpr(Add);
+}
+
+const SCEV *
+HIRParser::BlobProcessor::visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExt) {
+  // In some cases we have a value for zero extension of linear SCEV but not
+  // the linear SCEV itself because the original src code IV has been widened
+  // by induction variable simplification. So we look for such values here.
+  if (isa<SCEVAddRecExpr>(ZExt->getOperand())) {
+    if (auto SubSCEV = getSubstituteSCEV(ZExt)) {
+      return SubSCEV;
+    }
+  }
+
+  return SCEVRewriteVisitor<BlobProcessor>::visitZeroExtendExpr(ZExt);
+}
+
+const SCEV *HIRParser::BlobProcessor::visitMulExpr(const SCEVMulExpr *Mul) {
+  // This is to catch cases like this-
+  //
+  // %126 = trunc i64 %indvars.iv857 to i32
+  //   -->  {0,+,2}<%for.body.525>
+  // %rem530815 = and i32 %126, 30
+  //   -->  (2 * (zext i4 {0,+,1}<%for.body.525> to i32))
+  //
+  // TODO: investigate SCEV representation of bitwise operators in detail.
+  if (Mul->getNumOperands() == 2) {
+    auto ZExt = dyn_cast<SCEVZeroExtendExpr>(Mul->getOperand(1));
+
+    if (ZExt && isa<SCEVAddRecExpr>(ZExt->getOperand())) {
+      if (auto SubSCEV = getSubstituteSCEV(Mul)) {
+        return SubSCEV;
+      }
+    }
+  }
+
+  return SCEVRewriteVisitor<BlobProcessor>::visitMulExpr(Mul);
+}
+
+/// Returns the SCEVUnknown version of the value which represents this AddRec.
+const SCEV *
+HIRParser::BlobProcessor::visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
+  const SCEV *SubSCEV = getSubstituteSCEV(AddRec);
+
+  if (!SubSCEV) {
+
+    if (SafeMode) {
+      Failed = true;
+      SubSCEV = AddRec;
+
+    } else {
+      llvm_unreachable("Instuction corresponding to linear SCEV not found!");
+    }
+  }
+
+  return SubSCEV;
+}
+
+const SCEV *HIRParser::BlobProcessor::visitSMaxExpr(const SCEVSMaxExpr *Max) {
+  // This mapping recovers original (select) instruction from max exprs with
+  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
+  const SCEV *MappedSC = nullptr;
+
+  // This mapping is for profitability (not legality) so we can skip it in safe
+  // mode.
+  if (!SafeMode && (MappedSC = getProfitableMinMaxExprMapping(Max))) {
+    return MappedSC;
+  }
+
+  return SCEVRewriteVisitor<BlobProcessor>::visitSMaxExpr(Max);
+}
+
+const SCEV *HIRParser::BlobProcessor::visitUMaxExpr(const SCEVUMaxExpr *Max) {
+  // This mapping recovers original (select) instruction from max exprs with
+  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
+  const SCEV *MappedSC = nullptr;
+
+  // This mapping is for profitability (not legality) so we can skip it in safe
+  // mode.
+  if (!SafeMode && (MappedSC = getProfitableMinMaxExprMapping(Max))) {
+    return MappedSC;
+  }
+
+  return SCEVRewriteVisitor<BlobProcessor>::visitUMaxExpr(Max);
+}
 
 const SCEV *HIRParser::BlobProcessor::visitUnknown(const SCEVUnknown *Unknown) {
   auto BaseBlob = Unknown;
@@ -1682,151 +1772,157 @@ const SCEV *HIRParser::getSCEVAtScope(const SCEV *SC) const {
   return isValidScopeSCEV(NewSC) ? NewSC : SC;
 }
 
+bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
+                            unsigned Level, bool UnderCast,
+                            bool IndicateFailure) {
+  auto Lp = RecSCEV->getLoop();
+  auto HLoop = LF->findHLLoop(Lp);
+
+  assert(HLoop && "Could not find HIR loop!");
+
+  auto BaseSCEV = RecSCEV->getOperand(0);
+  auto BaseAddRec = dyn_cast<SCEVAddRecExpr>(BaseSCEV);
+  auto StepSCEV = RecSCEV->getOperand(1);
+  auto StepAddRec = dyn_cast<SCEVAddRecExpr>(StepSCEV);
+
+  // Sometimes when you multiply affine AddRecs, the base of the resulting
+  // AddRec can become non-affine which would not correspond to any value in
+  // the IR. In this case we need a lookahead.
+  //
+  // Example 1:
+  // V1 = i1, V2 = (i1 + i2), V1 * V2 = i1*i1 + i1*i2
+  // Here (i1 * i1) becomes non-affine base but it cannot be reverse
+  // engineered as there is no value corresponding to this SCEV.
+  //
+  // Example 2:
+  // V1 = ((i1 + 1)*i2), V2 = i1, V1 * V2 = ((i1*i1 + i1) * i2)
+  // Here (i1 * i1) becomes the non-affine step but it cannot be reverse
+  // engineered as there is no value corresponding to this SCEV.
+  // Note that i1 * i2 is still an affine AddRec even though it is non-linear.
+  // This is because it is represented in SCEV form as follows:
+  // {0, +, {0,+,1}<i1> }<i2>
+  if (!RecSCEV->isAffine() || (BaseAddRec && !BaseAddRec->isAffine()) ||
+      (StepAddRec && !StepAddRec->isAffine())) {
+
+    return parseBlob(RecSCEV, CE, Level, 0, IndicateFailure);
+
+  } else if (!getHLNodeUtils().contains(HLoop, CurNode)) {
+    // If the use is outside the loop, use the 'at scope'(exit value)
+    // information.
+
+    auto NewSC = getSCEVAtScope(RecSCEV);
+    auto NewAddRec = dyn_cast<SCEVAddRecExpr>(NewSC);
+
+    // If getSCEVAtScope() returned a valid SCEV...
+    if (!NewAddRec || (NewAddRec->getLoop() != Lp)) {
+      // Parsing is more likely to fail with 'at scope' information. So we
+      // create a new CE and invoke parsing in failure indication mode. If it
+      // does fail, we fall back to parsing original SCEV as blob.
+      std::unique_ptr<CanonExpr> NewCE(getCanonExprUtils().createExtCanonExpr(
+          CE->getSrcType(), CE->getDestType(), CE->isSExt()));
+
+      if (parseRecursive(NewSC, NewCE.get(), Level, false, true, true)) {
+        getCanonExprUtils().add(CE, NewCE.get());
+      } else {
+        return parseBlob(RecSCEV, CE, Level, 0, IndicateFailure);
+      }
+
+    } else {
+      return parseBlob(RecSCEV, CE, Level, 0, IndicateFailure);
+    }
+
+  } else {
+    // Convert AddRec into CanonExpr IV.
+
+    if (!parseRecursive(BaseSCEV, CE, Level, false, UnderCast,
+                        IndicateFailure)) {
+      return false;
+    }
+
+    // Set constant IV coeff.
+    if (isa<SCEVConstant>(StepSCEV)) {
+      auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(StepSCEV));
+      CE->addIV(HLoop->getNestingLevel(), 0, Coeff);
+    }
+    // Set blob IV coeff.
+    else {
+      return parseBlob(StepSCEV, CE, Level, HLoop->getNestingLevel(),
+                       IndicateFailure);
+    }
+  }
+
+  return true;
+}
+
 bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
                                bool IsTop, bool UnderCast,
                                bool IndicateFailure) {
-  bool Ret = true;
 
   if (auto ConstSCEV = dyn_cast<SCEVConstant>(SC)) {
     parseConstant(ConstSCEV, CE);
+    return true;
 
   } else if (isa<SCEVUnknown>(SC)) {
     parseBlob(SC, CE, Level);
+    return true;
 
   } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
 
     if (IsTop && !UnderCast) {
       CE->setSrcType(CastSCEV->getOperand()->getType());
       CE->setExtType(isa<SCEVSignExtendExpr>(CastSCEV));
-      Ret = parseRecursive(CastSCEV->getOperand(), CE, Level, true, true,
-                           IndicateFailure);
+      return parseRecursive(CastSCEV->getOperand(), CE, Level, true, true,
+                            IndicateFailure);
     } else {
-      Ret = parseBlob(CastSCEV, CE, Level, 0, IndicateFailure);
+      return parseBlob(CastSCEV, CE, Level, 0, IndicateFailure);
     }
 
   } else if (auto AddSCEV = dyn_cast<SCEVAddExpr>(SC)) {
-    for (auto I = AddSCEV->op_begin(), E = AddSCEV->op_end(); I != E; ++I) {
-      Ret = parseRecursive(*I, CE, Level, false, UnderCast, IndicateFailure);
 
-      if (!Ret) {
-        break;
+    if (isMinMaxWithAddRecOperand(AddSCEV)) {
+      return parseBlob(AddSCEV, CE, Level, 0, IndicateFailure);
+
+    } else {
+      for (auto I = AddSCEV->op_begin(), E = AddSCEV->op_end(); I != E; ++I) {
+        if (!parseRecursive(*I, CE, Level, false, UnderCast, IndicateFailure)) {
+          return false;
+        }
       }
+      return true;
     }
 
   } else if (isa<SCEVMulExpr>(SC)) {
-    Ret = parseBlob(SC, CE, Level, 0, IndicateFailure);
+    return parseBlob(SC, CE, Level, 0, IndicateFailure);
 
   } else if (auto UDivSCEV = dyn_cast<SCEVUDivExpr>(SC)) {
-    if (IsTop) {
-      auto ConstDenomSCEV = dyn_cast<SCEVConstant>(UDivSCEV->getRHS());
+    if (!IsTop) {
+      return parseBlob(SC, CE, Level, 0, IndicateFailure);
+    }
 
-      // If the denominator is constant and is not minimum 64 bit signed value,
-      // move it into CE's denominator. Negative denominators are negated and
-      // stored as positive integers but we cannot negate INT_MIN so we make it
-      // a blob.
-      if (ConstDenomSCEV && ((ConstDenomSCEV->getValue()->getBitWidth() < 64) ||
-                             !ConstDenomSCEV->getValue()->isMinValue(true))) {
-        parseDenominator(ConstDenomSCEV, CE);
-        Ret = parseRecursive(UDivSCEV->getLHS(), CE, Level, false, UnderCast,
-                             IndicateFailure);
-      } else {
-        Ret = parseBlob(SC, CE, Level, 0, IndicateFailure);
-      }
+    auto ConstDenomSCEV = dyn_cast<SCEVConstant>(UDivSCEV->getRHS());
+
+    // If the denominator is constant and is not minimum 64 bit signed value,
+    // move it into CE's denominator. Negative denominators are negated and
+    // stored as positive integers but we cannot negate INT_MIN so we make it
+    // a blob.
+    if (ConstDenomSCEV && ((ConstDenomSCEV->getValue()->getBitWidth() < 64) ||
+                           !ConstDenomSCEV->getValue()->isMinValue(true))) {
+      parseDenominator(ConstDenomSCEV, CE);
+      return parseRecursive(UDivSCEV->getLHS(), CE, Level, false, UnderCast,
+                            IndicateFailure);
     } else {
-      Ret = parseBlob(SC, CE, Level, 0, IndicateFailure);
+      return parseBlob(SC, CE, Level, 0, IndicateFailure);
     }
 
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-
-    auto Lp = RecSCEV->getLoop();
-    auto HLoop = LF->findHLLoop(Lp);
-
-    assert(HLoop && "Could not find HIR loop!");
-
-    auto BaseSCEV = RecSCEV->getOperand(0);
-    auto BaseAddRec = dyn_cast<SCEVAddRecExpr>(BaseSCEV);
-    auto StepSCEV = RecSCEV->getOperand(1);
-    auto StepAddRec = dyn_cast<SCEVAddRecExpr>(StepSCEV);
-
-    // Sometimes when you multiply affine AddRecs, the base of the resulting
-    // AddRec can become non-affine which would not correspond to any value in
-    // the IR. In this case we need a lookahead.
-    //
-    // Example 1:
-    // V1 = i1, V2 = (i1 + i2), V1 * V2 = i1*i1 + i1*i2
-    // Here (i1 * i1) becomes non-affine base but it cannot be reverse
-    // engineered as there is no value corresponding to this SCEV.
-    //
-    // Example 2:
-    // V1 = ((i1 + 1)*i2), V2 = i1, V1 * V2 = ((i1*i1 + i1) * i2)
-    // Here (i1 * i1) becomes the non-affine step but it cannot be reverse
-    // engineered as there is no value corresponding to this SCEV.
-    // Note that i1 * i2 is still an affine AddRec even though it is non-linear.
-    // This is because it is represented in SCEV form as follows:
-    // {0, +, {0,+,1}<i1> }<i2>
-    if (!RecSCEV->isAffine() || (BaseAddRec && !BaseAddRec->isAffine()) ||
-        (StepAddRec && !StepAddRec->isAffine())) {
-
-      Ret = parseBlob(SC, CE, Level, 0, IndicateFailure);
-
-    } else if (!getHLNodeUtils().contains(HLoop, CurNode)) {
-      // If the use is outside the loop, use the 'at scope'(exit value)
-      // information.
-
-      auto NewSC = getSCEVAtScope(SC);
-      auto NewAddRec = dyn_cast<SCEVAddRecExpr>(NewSC);
-
-      // If getSCEVAtScope() returned a valid SCEV...
-      if (!NewAddRec || (NewAddRec->getLoop() != Lp)) {
-        // Parsing is more likely to fail with 'at scope' information. So we
-        // create a new CE and invoke parsing in failure indication mode. If it
-        // does fail, we fall back to parsing original SCEV as blob.
-        auto NewCE = getCanonExprUtils().createExtCanonExpr(
-            CE->getSrcType(), CE->getDestType(), CE->isSExt());
-
-        if (parseRecursive(NewSC, NewCE, Level, false, true, true)) {
-          getCanonExprUtils().add(CE, NewCE);
-        } else {
-          Ret = parseBlob(SC, CE, Level, 0, IndicateFailure);
-        }
-
-        getCanonExprUtils().destroy(NewCE);
-
-      } else {
-        Ret = parseBlob(SC, CE, Level, 0, IndicateFailure);
-      }
-
-    } else {
-      // Convert AddRec into CanonExpr IV.
-
-      Ret = parseRecursive(BaseSCEV, CE, Level, false, UnderCast,
-                           IndicateFailure);
-
-      if (!Ret) {
-        return false;
-      }
-
-      // Set constant IV coeff.
-      if (isa<SCEVConstant>(StepSCEV)) {
-        auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(StepSCEV));
-        CE->addIV(HLoop->getNestingLevel(), 0, Coeff);
-      }
-      // Set blob IV coeff.
-      else {
-        Ret = parseBlob(StepSCEV, CE, Level, HLoop->getNestingLevel(),
-                        IndicateFailure);
-      }
-    }
+    return parseAddRec(RecSCEV, CE, Level, UnderCast, IndicateFailure);
 
   } else if (isa<SCEVSMaxExpr>(SC) || isa<SCEVUMaxExpr>(SC)) {
     // TODO: extend DDRef representation to handle min/max.
-    Ret = parseBlob(SC, CE, Level, 0, IndicateFailure);
-
-  } else {
-    llvm_unreachable("Unexpected SCEV type!");
+    return parseBlob(SC, CE, Level, 0, IndicateFailure);
   }
 
-  return Ret;
+  llvm_unreachable("Unexpected SCEV type!");
 }
 
 CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level) {
