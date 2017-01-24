@@ -665,7 +665,7 @@ public:
   unsigned short OpenMPLevel;
 #if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether any of the capture expressions require cleanups.
-  bool ExprNeedsCleanups;
+  CleanupInfo Cleanup;
 #endif // INTEL_SPECIFIC_CILKPLUS
   CapturedRegionScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
                           RecordDecl *RD, ImplicitParamDecl *Context,
@@ -674,7 +674,7 @@ public:
       TheCapturedDecl(CD), TheRecordDecl(RD), TheScope(S),
       ContextParam(Context), CapRegionKind(K), OpenMPLevel(OpenMPLevel)
 #if INTEL_SPECIFIC_CILKPLUS
-      , ExprNeedsCleanups(false)
+      , Cleanup{}
 #endif // INTEL_SPECIFIC_CILKPLUS
   {
     Kind = SK_CapturedRegion;
