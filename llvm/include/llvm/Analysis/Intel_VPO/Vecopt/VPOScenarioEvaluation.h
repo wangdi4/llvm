@@ -498,7 +498,7 @@ public:
     // FIXME: Find a better way to get DL! We also need to look into avoiding
     // such duplicated code.
     const DataLayout &DL =
-      (*cast<AVRLoopHIR>(ALoop)->getLoop()->getLLVMLoop()->block_begin())
+      (*cast<AVRLoopIR>(ALoop)->getLoop()->block_begin())
       ->getParent()
       ->getParent()
       ->getDataLayout();

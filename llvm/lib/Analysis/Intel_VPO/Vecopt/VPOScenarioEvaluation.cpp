@@ -1077,6 +1077,12 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   unsigned int OutOfLoopCost = CostGatherer->getOutOfLoopCost();
   DEBUG(errs() << "LoopBodyCost = " << LoopBodyCost
                << " OutOfLoopCost = " << OutOfLoopCost << "\n");
+
+  if (LoopCount <= 0) {
+    // Use max trip count estimate if available
+    LoopCount = ALoop->getMaxTripCountEstimate();
+  }
+
   if (LoopCount <= 0) LoopCount = 100;
   Cost = (LoopBodyCost * LoopCount / VF) + OutOfLoopCost;
 

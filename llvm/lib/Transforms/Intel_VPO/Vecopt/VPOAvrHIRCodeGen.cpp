@@ -42,6 +42,13 @@ static cl::opt<bool>
     DisableStressTest("disable-vpo-stress-test", cl::init(false), cl::Hidden,
                       cl::desc("Disable VPO Vectorizer Stress Testing"));
 
+/// Don't vectorize loops with a known constant trip count below this number if
+/// set to a non zero value.
+static cl::opt<unsigned> TinyTripCountThreshold(
+    "vpo-vectorizer-min-trip-count", cl::init(0), cl::Hidden,
+    cl::desc("Don't vectorize loops with a constant "
+             "trip count that is smaller than this value."));
+
 static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
                                        unsigned VL);
 
@@ -588,6 +595,14 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   if (UBRef->isIntConstant(&UBConst)) {
     auto ConstTripCount = UBConst + 1;
 
+    // Check for minimum trip count threshold
+    if (TinyTripCountThreshold && ConstTripCount <= TinyTripCountThreshold) {
+      DEBUG(
+          errs()
+          << "VPO_OPTREPORT: Loop not handled - loop with small trip count\n");
+      return false;
+    }
+
     // Check that main vector loop will have atleast one iteration
     if (ConstTripCount < VL) {
       DEBUG(errs()
@@ -684,6 +699,46 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   return true;
 }
 
+bool AVRCodeGenHIR::isSmallShortAddRedLoop() {
+  // Return false if loop does not have any reductions
+  auto SRCL = SRA->getSafeReductionChain(OrigLoop);
+  if (SRCL.empty())
+    return false;
+
+  unsigned Count = 0;
+  bool Found = false;
+
+  // Check for loop with at most two instructions of which at least one
+  // is an add reduction of short type values into an I32/I64.
+  for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
+       ++Itr) {
+    ++Count;
+    if (Count > 2)
+      return false;
+
+    assert(isa<AVRAssignHIR>(Itr) && "Expected AVR assign");
+    auto HInst = cast<AVRAssignHIR>(Itr)->getHIRInstruction();
+
+    if (HInst->getLLVMInstruction()->getOpcode() != Instruction::Add)
+      continue;
+
+    if (!SRA->isSafeReduction(HInst))
+      continue;
+
+    auto Lval = HInst->getLvalDDRef();
+    auto Op1 = HInst->getOperandDDRef(1);
+    auto Op2 = HInst->getOperandDDRef(2);
+
+    if ((Lval->getDestType()->isIntegerTy(32) ||
+         Lval->getDestType()->isIntegerTy(64)) &&
+        (Op1->getSrcType()->isIntegerTy(16) ||
+         Op2->getSrcType()->isIntegerTy(16)))
+      Found = true;
+  }
+
+  return Found;
+}
+
 // TODO: Change all VL occurences with VF
 // TODO: Have this method take a VecContext as input, which indicates which
 // AVRLoops in the region to vectorize, and how (using what VF).
@@ -702,6 +757,15 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
     return false;
 
   SRA->computeSafeReductionChains(OrigLoop);
+
+  // Workaround for perf regressions - suppress vectorization of some small
+  // loops with add reduction of short values until cost model can be refined.
+  if (isSmallShortAddRedLoop()) {
+    DEBUG(errs()
+          << "VPO_OPTREPORT: Suppress vectorization - SmallShortAddRedLoop\n");
+    return false;
+  }
+
   DEBUG(errs() << "VPO_OPTREPORT: VPO handled loop, VF = " << VL << "\n");
   DEBUG(errs() << "Handled loop before vec codegen: \n");
   DEBUG(OrigLoop->dump());
