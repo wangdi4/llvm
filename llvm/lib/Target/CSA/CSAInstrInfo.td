@@ -1160,6 +1160,12 @@ def LAND1 : FMTGEN<
   "land1\t$dst, $op1, $op2, $op3, $op4",
   [], [], IIALU>;
 
+def LOR1 : FMTGEN<
+  (outs I1:$dst),
+  (ins RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, RCLi1:$op4),
+  "lor1\t$dst, $op1, $op2, $op3, $op4",
+  [], [], IIALU>;
+
 def ANY0 : FMTGEN<
   (outs I8:$dst),
   (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
