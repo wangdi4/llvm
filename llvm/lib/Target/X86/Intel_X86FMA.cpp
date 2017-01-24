@@ -1,6 +1,6 @@
 //====-- Intel_X86FMA.cpp - Fused Multiply Add optimization ---------------====
 //
-//      Copyright (c) 2016 Intel Corporation.
+//      Copyright (c) 2017 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -72,6 +72,7 @@ class FMAMemoryTerm;
 class FMASpecialTerm;
 class FMAExprSP;
 class FMADag;
+class FMAPerfDesc;
 
 /// This class holds all pre-computed/efficient FMA patterns/DAGs encoded in
 /// 64-bit integer values.
@@ -744,21 +745,13 @@ private:
                                   bool TuneForLatency = false,
                                   bool TuneForThroughput = false) const;
 
-  /// For the given DAG \p Dag this method puts the latency of the dag to
-  /// \p Latency, the number of add or subtract operations to \p NumAddSub,
-  /// the number of multiply operations to \p NumMul, and the number of FMA
-  /// operations to \p NumFMA.
-  void getDagProperties(const FMADag &Dag, unsigned &Latency,
-                        unsigned &NumAddSub, unsigned &NumMul,
-                        unsigned &NumFMA) const;
+  /// For the given DAG \p Dag this method returns the descriptor describing
+  /// various performance metrics of the DAG.
+  FMAPerfDesc getDagPerfDesc(const FMADag &Dag) const;
 
-  /// For the given expression \p Expr this method puts the latency of the
-  /// expression to \p Latency, the number of add or subtract operations to
-  /// \p NumAddSub, the number of multiply operations to \p NumMul, and
-  /// the number of FMA operations to \p NumFMA.
-  void getExprProperties(const FMAExpr &Expr, unsigned &Latency,
-                         unsigned &NumAddSub, unsigned &NumMul,
-                         unsigned &NumFMA) const;
+  /// For the given expression \p Expr this method returns the descriptor
+  /// describing various performance metrics of the expression.
+  FMAPerfDesc getExprPerfDesc(const FMAExpr &Expr) const;
 
   /// Creates code loading the FP const 1.0 into a new virtual register and
   /// returns that register. The parameter \p VT specifies the data type.
@@ -785,6 +778,68 @@ private:
 };
 
 char X86GlobalFMA::ID = 0;
+
+/// This class describes the performance metrics of some expression tree.
+/// In particular, it keeps information about the number of various operations
+/// and latency of the expression tree.
+class FMAPerfDesc {
+private:
+  /// Latency of the expression tree.
+  unsigned Latency;
+
+  /// The number of ADD and SUB operations.
+  unsigned NumAddSub;
+
+  /// The number of MUL operations.
+  unsigned NumMul;
+
+  /// The number of FMA operations.
+  unsigned NumFMA;
+
+public:
+  /// Default constructor.
+  FMAPerfDesc() : Latency(0), NumAddSub(0), NumMul(0), NumFMA(0) {}
+  
+  /// Constructor that fully initializes the object.
+  FMAPerfDesc(unsigned Latency, unsigned NumAddSub,
+              unsigned NumMul, unsigned NumFMA) :
+              Latency(Latency), NumAddSub(NumAddSub),
+              NumMul(NumMul), NumFMA(NumFMA) {}
+
+  /// Returns the latency of the expression tree.
+  unsigned getLatency() const { return Latency; }
+
+  /// Returns the number of ADD and SUB opeations in the expresssion tree.
+  unsigned getNumAddSub() const { return NumAddSub; }
+
+  /// Returns the number of MUL opeations in the expresssion tree.
+  unsigned getNumMul() const { return NumMul; }
+
+  /// Returns the number of FMA opeations in the expresssion tree.
+  unsigned getNumFMA() const { return NumFMA; }
+
+  /// Returns the number of all opeations in the expresssion tree.
+  unsigned getNumOperations() const { return NumAddSub + NumMul + NumFMA; }
+
+  /// Returns true if 'this' performance metrics seem better than \p OtherDesc.
+  /// The parameters \p TuneForLatency and \p TuneForThroughput specify
+  /// what aspect Latency or Throughput has the priority.
+  bool isBetterThan(const FMAPerfDesc &OtherDesc,
+                    bool TuneForLatency, bool TuneForThroughput) const;
+
+  /// Prints the performance metrics to the given output stream \p OS.
+  void print(raw_ostream &OS) const {
+    OS << "#Operations = " << getNumOperations() << " ("
+       << NumAddSub << "xADD|SUB + " << NumMul << "xMUL + "
+       << NumFMA << "xFMA); Latency = " << Latency << ".";
+  }
+};
+
+/// Prints the FMA Performance Descriptor \p PerfDesc to the given stream \p OS.
+inline raw_ostream &operator<<(raw_ostream &OS, const FMAPerfDesc &PerfDesc) {
+  PerfDesc.print(OS);
+  return OS;
+}
 
 /// This class is derived from FMADagCommon representing FMA Directed Acyclic
 /// Graphs. It adds some methods specific for code-generation.
@@ -2946,12 +3001,10 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag,
   MBB.erase(MI);
 }
 
-void X86GlobalFMA::getExprProperties(const FMAExpr &Expr, unsigned &Latency,
-                                     unsigned &NumAddSub, unsigned &NumMul,
-                                     unsigned &NumFMA) const {
-  NumAddSub = 0;
-  NumMul = 0;
-  NumFMA = 0;
+FMAPerfDesc X86GlobalFMA::getExprPerfDesc(const FMAExpr &Expr) const {
+  unsigned NumAddSub = 0;
+  unsigned NumMul = 0;
+  unsigned NumFMA = 0;
 
   std::set<const FMAExpr *> ExprSet;
   Expr.putExprToExprSet(ExprSet);
@@ -2970,17 +3023,14 @@ void X86GlobalFMA::getExprProperties(const FMAExpr &Expr, unsigned &Latency,
       NumFMA++;
   }
 
-  Latency = Expr.getLatency(AddSubLatency, MulLatency, FMALatency);
+  unsigned Latency = Expr.getLatency(AddSubLatency, MulLatency, FMALatency);
+  return FMAPerfDesc(Latency, NumAddSub, NumMul, NumFMA);
 }
 
-void X86GlobalFMA::getDagProperties(const FMADag &Dag,
-                                    unsigned &Latency,
-                                    unsigned &NumAddSub,
-                                    unsigned &NumMul,
-                                    unsigned &NumFMA) const {
-  NumAddSub = 0;
-  NumMul = 0;
-  NumFMA = 0;
+FMAPerfDesc X86GlobalFMA::getDagPerfDesc(const FMADag &Dag) const {
+  unsigned NumAddSub = 0;
+  unsigned NumMul = 0;
+  unsigned NumFMA = 0;
 
   unsigned NumNodes = Dag.getNumNodes();
   for (unsigned NodeInd = 0; NodeInd < NumNodes; NodeInd++) {
@@ -3016,33 +3066,13 @@ void X86GlobalFMA::getDagProperties(const FMADag &Dag,
     } else
       NumFMA++;
   }
-  Latency = Dag.getLatency(MulLatency, AddSubLatency, FMALatency);
+  unsigned Latency = Dag.getLatency(MulLatency, AddSubLatency, FMALatency);
+  return FMAPerfDesc(Latency, NumAddSub, NumMul, NumFMA);
 }
 
-bool X86GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
-                                              const FMAExpr &Expr,
-                                              bool TuneForLatency,
-                                              bool TuneForThroughput) const {
-  unsigned ELatency, ENumAddSub, ENumMul, ENumFMA;
-  unsigned DLatency, DNumAddSub, DNumMul, DNumFMA;
-
-  getDagProperties(Dag, DLatency, DNumAddSub, DNumMul, DNumFMA);
-  getExprProperties(Expr, ELatency, ENumAddSub, ENumMul, ENumFMA);
-
-  unsigned DNumOperations = DNumAddSub + DNumMul + DNumFMA;
-  unsigned ENumOperations = ENumAddSub + ENumMul + ENumFMA;
-
-  DEBUG(fmadbgs() << "  Compare DAG and initial EXPR:\n"
-                  << "    DAG has: #Operations = " << DNumOperations
-                  << ", Latency = " << DLatency << "\n"
-                  << "    EXPR has: #Operations = " << ENumOperations
-                  << ", Latency = " << ELatency << "\n");
-
-  // If the internal switch requires FMAs, then just return true.
-  // This code is placed after the printings of the DAG/Expr properties
-  // as the last may be interesting even if FMAs are forced.
-  if (checkAllFMAFeatures(FMAControlForceFMAs))
-    return true;
+bool FMAPerfDesc::isBetterThan(const FMAPerfDesc &OtherDesc,
+                               bool TuneForLatency,
+                               bool TuneForThroughput) const {
 
   // Tuning for latency AND throughput means that the caller does not have
   // strong preferences and the choice should be made heuristically.
@@ -3051,45 +3081,81 @@ bool X86GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
     TuneForThroughput = false;
   }
 
-  if (TuneForLatency) {
-    if (DLatency == ELatency)
-      return DNumOperations < ENumOperations;
-    // If DAG has better latency, then return true even if DAG has latency
-    // that is better by just 1 clock-tick and twice bigger number
-    // of operations.
-    return (DLatency < ELatency);
-  }
+  unsigned NumOperations = getNumOperations();
+  unsigned OtherNumOperations = OtherDesc.getNumOperations();
 
   if (TuneForThroughput) {
-    if (DNumOperations == ENumOperations)
-      return DLatency < ELatency;
-    // If DAG has smaller number of operations, then return true even if DAG
-    // has 1 operation less than in the initial expression and DAG has twice
-    // bigger latency than the initial expression.
-    return DNumOperations < ENumOperations;
+    // If the number of operations in this descriptor is smaller than
+    // the number of operations in 'OtherDesc', then just return true.
+    if (NumOperations != OtherNumOperations)
+      return NumOperations < OtherNumOperations;
+
+    // If the numbers of operations are equal, then return true or false
+    // depending on which descriptor has smaller latency.
+    if (Latency != OtherDesc.Latency)
+      return Latency < OtherDesc.Latency;
+
+    // Less FMAs is preferred because they clobber one of operands and thus
+    // are less flexible than MUL/ADD/SUB operations.
+    return NumFMA < OtherDesc.NumFMA;
+  }
+
+  if (TuneForLatency) {
+    // If the latencies are different, then return true or false depending on
+    // which descriptor has smaller latency.
+    if (Latency != OtherDesc.Latency)
+      return Latency < OtherDesc.Latency;
+
+    // If the latencies are identical, then compare the numbers of operations.
+    if (NumOperations != OtherNumOperations)
+      return NumOperations < OtherNumOperations;
+
+    // Less FMAs is preferred because they clobber one of operands and thus
+    // are less flexible than MUL/ADD/SUB operations.
+    return NumFMA < OtherDesc.NumFMA;
   }
 
   double LatencyImprovement;
-  if (ELatency > DLatency)
-    LatencyImprovement = (double)ELatency / (double)DLatency - 1.0;
+  if (Latency < OtherDesc.Latency)
+    LatencyImprovement = (double)OtherDesc.Latency / (double)Latency - 1.0;
   else
-    LatencyImprovement = -((double)DLatency / (double)ELatency - 1.0);
+    LatencyImprovement = -((double)Latency / (double)OtherDesc.Latency - 1.0);
 
   double ThroughputImprovement;
-  if (ENumOperations > DNumOperations)
+  if (NumOperations < OtherNumOperations)
     ThroughputImprovement =
-      (double)ENumOperations / (double)DNumOperations - 1.0;
+      (double)OtherNumOperations / (double)NumOperations - 1.0;
   else
     ThroughputImprovement =
-      -((double)DNumOperations / (double)ENumOperations - 1.0);
+      -((double)NumOperations / (double)OtherNumOperations - 1.0);
 
   double Improvement = LatencyImprovement + ThroughputImprovement;
   if (Improvement == 0)
     // Prefer to have less FMAs as FMAs are less flexible when they are
     // processed by memory-folding, coalescing and register allocation
     // optimizations.
-    return DNumFMA < ENumFMA;
+    return NumFMA < OtherDesc.NumFMA;
   return LatencyImprovement + ThroughputImprovement > 0;
+}
+
+bool X86GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
+                                              const FMAExpr &Expr,
+                                              bool TuneForLatency,
+                                              bool TuneForThroughput) const {
+  FMAPerfDesc DagDesc = getDagPerfDesc(Dag);
+  FMAPerfDesc ExprDesc = getExprPerfDesc(Expr);
+
+  DEBUG(fmadbgs() << "  Compare DAG and initial EXPR:\n"
+                  << "    DAG  has: " << DagDesc << "\n"
+                  << "    EXPR has: " << ExprDesc << "\n");
+
+  // If the internal switch requires FMAs, then just return true.
+  // This code is placed after the printings of the DAG/Expr properties
+  // as the last may be interesting even if FMAs are forced.
+  if (checkAllFMAFeatures(FMAControlForceFMAs))
+    return true;
+
+  return DagDesc.isBetterThan(ExprDesc, TuneForLatency, TuneForThroughput);
 }
 
 void X86GlobalFMA::doFWS(FMABasicBlock &FMABB) {
