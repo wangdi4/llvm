@@ -687,14 +687,8 @@ bool HIRLoopReversal::isLegal(const DirectionVector &DV, unsigned Level) {
 
   // 2. Case2: true if the DV at any previous level is DVKind::LT or
   // DVKind::GT
-  // DVKind::LT:  001
-  // DVKind::GT : 100
-  // LT | GT :    101 <=> Either LT or GT <=> DVKind::NE
-  // DVKind::EQ : 010
-  for (unsigned Lvl = 1; Lvl <= Level - 1; ++Lvl) {
-    if ((DV[Lvl - 1] & DVKind::EQ) == DVKind::NONE) {
-      return true;
-    }
+  if (DV.isIndepFromLevel(Level)) {
+    return true;
   }
 
   // 3.Default Case: fail-through as false

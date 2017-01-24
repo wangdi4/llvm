@@ -731,4 +731,13 @@ public:
 
 } // End namespace llvm
 
+namespace std {
+
+// default_delete<RegDDRef> is a helper for destruction RegDDRef objects to
+// support std::unique_ptr<RegDDRef>.
+template <> struct default_delete<llvm::loopopt::RegDDRef> {
+  void operator()(llvm::loopopt::RegDDRef *Ref) const;
+};
+}
+
 #endif

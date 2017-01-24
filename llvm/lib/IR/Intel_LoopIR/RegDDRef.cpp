@@ -701,6 +701,7 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex) {
 
   auto BRef = getBlobDDRef(OldIndex);
   assert(Replaced && BRef && "Inconsistent DDRef found!");
+  (void)Replaced;
 
   BRef->replaceBlob(NewIndex);
 
@@ -1005,6 +1006,10 @@ void RegDDRef::verify() const {
   DDRef::verify();
 }
 
+void std::default_delete<RegDDRef>::operator()(RegDDRef *Ref) const {
+  Ref->getDDRefUtils().destroy(Ref);
+}
+
 void RegDDRef::setTrailingStructOffsets(
     unsigned DimensionNum, const SmallVectorImpl<unsigned> &Offsets) {
   createGEP();
@@ -1056,3 +1061,4 @@ bool RegDDRef::hasTrailingStructOffsets() const {
 
   return false;
 }
+

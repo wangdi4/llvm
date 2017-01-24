@@ -170,6 +170,11 @@ void HIRDDAnalysis::markNonLoopRegionModified(const HLRegion *Region) {
 DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node, bool InputEdgesReq) {
   auto State = ValidationMap[Node];
 
+  // TODO: We have to treat NoData graph as Invalid if there are edges
+  // associated with the Loop/Region. For ex. the distribution pass creates new
+  // loops and populates it with old HLNodes. Calling getGraph() on NoData nodes
+  // potentially can lead to duplicated edges or invalid dependencies.
+
   // conservatively assume input edges are always invalid
   if (ForceDDA || InputEdgesReq || State == GraphState::Invalid) {
 
@@ -259,7 +264,7 @@ void HIRDDAnalysis::invalidateGraph(const HLLoop *Loop,
 
   if (InvalidateInnerLoops) {
     GraphStateUpdater Visitor(ValidationMap, GraphState::Invalid);
-    Loop->getHLNodeUtils().visit(Visitor, Loop);
+    HLNodeUtils::visit(Visitor, Loop);
   }
 
   const HLLoop *Node = Loop;

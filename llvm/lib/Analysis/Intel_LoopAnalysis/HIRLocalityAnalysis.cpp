@@ -514,7 +514,7 @@ void HIRLocalityAnalysis::computeLoopNestLocality(
 
     // Create Groupings based on index.
 
-    DDRefGrouping::createGroups(
+    DDRefGrouping::groupMap(
         RefGroups, LoopMemRefMap,
         std::bind(isSpatialMatch, std::placeholders::_1, std::placeholders::_2,
                   CurLoop->getNestingLevel(), NumCacheLines));
@@ -576,7 +576,7 @@ uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
   ConstMemRefGatherer::sortAndUnique(MemRefMap, true);
 
   // Create groups with max possible reuse distance.
-  DDRefGrouping::createGroups(RefGroups, MemRefMap,
+  DDRefGrouping::groupMap(RefGroups, MemRefMap,
                               std::bind(isTemporalMatch, std::placeholders::_1,
                                         std::placeholders::_2, Level, ~0UL));
 
@@ -599,7 +599,7 @@ void HIRLocalityAnalysis::populateTemporalLocalityGroups(
 
   ConstMemRefGatherer::sort(MemRefMap);
 
-  DDRefGrouping::createGroups(TemporalGroups, MemRefMap,
+  DDRefGrouping::groupMap(TemporalGroups, MemRefMap,
                               std::bind(isTemporalMatch, std::placeholders::_1,
                                         std::placeholders::_2,
                                         Lp->getNestingLevel(), ReuseThreshold));

@@ -116,7 +116,7 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
   /// Is DV imply INDEP for level L on
   /// e.g.  DV = (< *)   implies INDEP for innermost loop
   /// In this example, isDVIndepFromLevel(2) return true
-  bool isIndepFromLevel(unsigned FromLevel) const;
+  bool isIndepFromLevel(unsigned Level) const;
 
   /// Returns true if DV shows cross iter dependence at Level.
   bool isCrossIterDepAtLevel(unsigned Level) const {

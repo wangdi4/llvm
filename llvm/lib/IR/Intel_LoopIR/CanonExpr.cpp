@@ -1078,7 +1078,7 @@ int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
   if (CurrentGCD == -1) {
     CurrentGCD = llabs(Num);
   } else {
-    CurrentGCD = getCanonExprUtils().gcd(CurrentGCD, llabs(Num));
+    CurrentGCD = CanonExprUtils::gcd(CurrentGCD, llabs(Num));
   }
 
   return CurrentGCD;
@@ -1151,7 +1151,14 @@ void CanonExpr::simplify(bool SimplifyCast) {
   }
 }
 
-void CanonExpr::multiplyByConstantImpl(int64_t Val, bool Simplify) {
+bool CanonExpr::canMultiplyNumerator() const {
+  // The result of the multiplication may be invalid if there is:
+  // 1) Type extension. Ex.: c0*i8.i16(%b) != i8.i16(c0*%b), where %b is 255
+  // 2) Non-unit denominator. Ex.: 2*((%b-1)/3) != (2*%b - 2)/3
+  return !(isSExt() || isZExt() || getDenominator() != 1);
+}
+
+void CanonExpr::multiplyNumeratorByConstant(int64_t Val, bool Simplify) {
 
   // Multiplying by constant is equivalent to clearing the canon expr.
   if (Val == 0) {
@@ -1171,8 +1178,9 @@ void CanonExpr::multiplyByConstantImpl(int64_t Val, bool Simplify) {
   }
 
   // Identity multiplication.
-  if (Val == 1)
+  if (Val == 1) {
     return;
+  }
 
   // Multiply Val by IVCoeff, BlobCoeffs and Const
   for (auto I = iv_begin(), End = iv_end(); I != End; ++I) {
@@ -1186,11 +1194,27 @@ void CanonExpr::multiplyByConstantImpl(int64_t Val, bool Simplify) {
   setConstant(getConstant() * Val);
 }
 
-void CanonExpr::multiplyByConstant(int64_t Val) {
-  multiplyByConstantImpl(Val, true);
+bool CanonExpr::multiplyByConstant(int64_t Val) {
+  if (Val != -1 && Val != 0 && Val != 1) {
+    if (!canMultiplyNumerator() && !convertToStandAloneBlob()) {
+        return false;
+    }
+  }
+
+  multiplyNumeratorByConstant(Val, true);
+  return true;
 }
 
-void CanonExpr::multiplyByBlob(unsigned Index) {
+bool CanonExpr::multiplyByBlob(unsigned Index) {
+  if (!canMultiplyNumerator() && !convertToStandAloneBlob()) {
+    return false;
+  }
+
+  multiplyNumeratorByBlob(Index);
+  return true;
+}
+
+void CanonExpr::multiplyNumeratorByBlob(unsigned Index) {
   assert(getBlobUtils().isBlobIndexValid(Index) &&
          "Must be a valid blob index");
 

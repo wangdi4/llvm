@@ -130,9 +130,9 @@ bool HIRTransformUtils::doHIRLoopMemoryMotion(
 }
 
 bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
-                                                  unsigned UnrollOrVecFactor,
-                                                  uint64_t *NewTripCountP,
-                                                  RegDDRef **NewTCRef) {
+                                              unsigned UnrollOrVecFactor,
+                                              uint64_t *NewTripCountP,
+                                              RegDDRef **NewTCRef) {
 
   uint64_t TripCount;
 
@@ -184,9 +184,8 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
   return true;
 }
 
-void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
-                                             unsigned BlobIndex,
-                                             unsigned DefLevel) {
+void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
+                                         unsigned DefLevel) {
   // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
   BoundRef->setSymbase(BoundRef->getDDRefUtils().getNewSymbase());
 
@@ -230,7 +229,10 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
     // For vectorizer mode, upper bound needs to be multiplied by
     // UnrollOrVecFactor since it is used as the stride
     if (VecMode) {
-      NewUBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
+      auto Ret =
+          NewUBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
+      assert(Ret && "multiplyByConstant() failed");
+      (void)Ret;
     }
 
     // Subtract 1.
@@ -281,7 +283,10 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
 
     // Non-constant trip loop, lb = (UnrollOrVecFactor)*t.
     RegDDRef *NewLBRef = NewTCRef->clone();
-    NewLBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
+    auto Ret =
+        NewLBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
+    assert(Ret && "multiplyByConstant() failed.");
+    (void)Ret;
 
     OrigLoop->setLowerDDRef(NewLBRef);
     // Sets the defined at level of new LB to (nesting level - 1) as the LB temp

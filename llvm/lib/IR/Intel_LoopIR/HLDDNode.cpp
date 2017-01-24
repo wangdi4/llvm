@@ -226,9 +226,20 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
       IsZttDDRef = *I ? cast<HLLoop>(this)->isZttOperandDDRef(*I) : false;
     }
 
-    IsZttDDRef ? (void)(OS << "<ZTT-REG> ")
-               : ((*I) && isLval(*I)) ? (void)(OS << "<LVAL-REG> ")
-                                      : (void)(OS << "<RVAL-REG> ");
+    if (IsZttDDRef) {
+      OS << "<ZTT-REG> ";
+    } else {
+      bool IsFake = false;
+      bool IsLval = false;
+
+      if (*I) {
+        IsFake = isFake(*I);
+        IsLval = isLval(*I);
+      }
+
+      OS << "<" << (IsFake ? "FAKE-" : "") << (IsLval ? "LVAL" : "RVAL")
+         << "-REG> ";
+    }
 
     (*I) ? (*I)->print(OS, true) : (void)(OS << *I);
 

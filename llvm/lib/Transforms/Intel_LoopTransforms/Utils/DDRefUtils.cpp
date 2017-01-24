@@ -130,7 +130,7 @@ void DDRefUtils::destroyAll() {
 }
 
 RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
-  unsigned Symbase = getHIRSymbaseAssignment().getNewSymbase();
+  unsigned Symbase = getNewSymbase();
 
   // Create a non-linear self-blob canon expr.
   auto CE = getCanonExprUtils().createSelfBlobCanonExpr(Temp, Symbase);
@@ -142,7 +142,9 @@ RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
   return Ref;
 }
 
-unsigned DDRefUtils::getNewSymbase() { return HIRSA->getNewSymbase(); }
+unsigned DDRefUtils::getNewSymbase() {
+  return getBlobUtils().getHIRSymbaseAssignment().getNewSymbase();
+}
 
 bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
 

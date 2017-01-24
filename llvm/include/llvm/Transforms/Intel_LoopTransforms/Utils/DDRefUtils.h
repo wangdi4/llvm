@@ -49,7 +49,6 @@ private:
   std::set<DDRef *> Objs;
 
   CanonExprUtils CEU;
-  HIRSymbaseAssignment *HIRSA;
 
   DDRefUtils(HIRParser &HIRP) : CEU(HIRP) {}
 
@@ -68,8 +67,6 @@ private:
   const HIRParser &getHIRParser() const {
     return getCanonExprUtils().getHIRParser();
   }
-
-  HIRSymbaseAssignment &getHIRSymbaseAssignment() { return *HIRSA; }
 
   /// Destroys all DDRefs. Called during HIR cleanup.
   void destroyAll();

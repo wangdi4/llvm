@@ -891,6 +891,7 @@ void HLLoop::verify() const {
          "should be all defined or all undefined");
 
   auto StrideCE = getStrideDDRef()->getSingleCanonExpr();
+  (void)StrideCE;
 
   assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
          "Loop lower cannot be non-linear!");

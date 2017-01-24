@@ -44,55 +44,68 @@ private:
   DDRefGrouping(const DDRefGathererUtils &) = delete;
   DDRefGrouping &operator=(const DDRefGrouping &) = delete;
 
+  template <typename GroupingPredicate, typename InVector, typename OutVec>
+  static void groupImpl(OutVec &Groups, const InVector &MemRefVector,
+                        GroupingPredicate Predicate,
+                        unsigned &CurrentGroupIndex) {
+    auto StartGroupIndex = CurrentGroupIndex;
+
+    for (auto *Ref : MemRefVector) {
+      bool MatchFound = false;
+
+      // Check if DDRef matches any of the groups.
+      for (unsigned GroupIndex = StartGroupIndex, MaxGroupIndex = Groups.size();
+           GroupIndex < MaxGroupIndex; ++GroupIndex) {
+        auto &GroupRefVec = Groups[GroupIndex];
+        assert(!GroupRefVec.empty() && "Ref Group is empty.");
+        if (Predicate(GroupRefVec[0], Ref)) {
+          MatchFound = true;
+          GroupRefVec.push_back(Ref);
+          break;
+        }
+      }
+
+      // Create a new group since no match was found.
+      if (!MatchFound) {
+        Groups.resize(Groups.size() + 1);
+        Groups.back().emplace_back(Ref);
+      }
+    }
+  }
+
 public:
   /// \brief Creates a reference group out of the Symbol to Mem Ref Table.
   /// GroupingPredicate is a callable bool(const RefTy *, const RefTy *)
   /// that gets two RegDDRefs and returns true if both belong to the same group.
   template <typename GroupingPredicate, typename InMap, typename OutVec>
-  static void createGroups(OutVec &Groups, const InMap &MemRefMap,
-                           GroupingPredicate Predicate) {
-
-    for (auto &SymVecPair : MemRefMap) {
-
-      // Keep track of the new groups to match existing DDRefs.
-      unsigned StartGroupIndex = Groups.size();
-
-      auto &RefVec = SymVecPair.second;
-      for (auto &Ref : RefVec) {
-
-        bool MatchFound = false;
-
-        // Check if DDRef matches any of the groups.
-        for (unsigned GroupIndex = StartGroupIndex, EndIndex = Groups.size();
-             GroupIndex < EndIndex; ++GroupIndex) {
-          auto &GroupRefVec = Groups[GroupIndex];
-          assert(!GroupRefVec.empty() && " Ref Group is empty.");
-
-          if (Predicate(GroupRefVec[0], Ref)) {
-            MatchFound = true;
-            GroupRefVec.push_back(Ref);
-            break;
-          }
-        }
-
-        // Create a new group since no match was found.
-        if (!MatchFound) {
-          Groups.resize(Groups.size() + 1);
-          Groups.back().emplace_back(Ref);
-        }
-      }
+  static void groupMap(OutVec &Groups, const InMap &MemRefMap,
+                       GroupingPredicate Predicate) {
+    // Incremented whenever a new group is created.
+    unsigned MaxGroupNo = 0;
+    for (auto SymVecPair : MemRefMap) {
+      groupImpl(Groups, SymVecPair.second, Predicate, MaxGroupNo);
     }
+  }
+
+  /// \brief Creates a reference group out of the Mem Ref Vector.
+  /// GroupingPredicate is a callable bool(const RefTy *, const RefTy *)
+  /// that gets two RegDDRefs and returns true if both belong to the same group.
+  template <typename GroupingPredicate, typename InVector, typename OutVec>
+  static void groupVec(OutVec &Groups, const InVector &MemRefVector,
+                    GroupingPredicate Predicate) {
+    // Incremented whenever a new group is created.
+    unsigned MaxGroupNo = 0;
+    groupImpl(Groups, MemRefVector, Predicate, MaxGroupNo);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// \brief Prints out the array reference group mapping.
   template <typename RefTy>
   static void dump(const RefGroupVecTy<RefTy> &Groups) {
-    dbgs() << "\n Reference Groups \n";
     for (auto It = Groups.begin(), E = Groups.end(); It != E; ++It) {
       auto &RefVec = *It;
 
-      dbgs() << "Group " << It - Groups.begin() << "contains: \n";
+      dbgs() << "Group " << It - Groups.begin() << " contains: \n";
 
       for (const DDRef *Ref : RefVec) {
         dbgs() << "\t";
@@ -101,7 +114,8 @@ public:
         const RegDDRef *RegRef = dyn_cast<const RegDDRef>(Ref);
         bool IsLval = RegRef ? RegRef->isLval() : false;
 
-        dbgs() << " -> isWrite:" << IsLval << "\n";
+        dbgs() << " {sb:" << Ref->getSymbase() << "} -> isWrite:" << IsLval
+               << "\n";
       }
     }
   }

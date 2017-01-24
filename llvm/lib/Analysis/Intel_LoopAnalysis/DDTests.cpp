@@ -415,29 +415,27 @@ const CanonExpr *DDTest::getNegativeDist(const CanonExpr *CE) {
   return getNegative(CE);
 }
 
+// Current support in Util: one of them must be a constant
 const CanonExpr *DDTest::getMulExpr(const CanonExpr *CE1,
                                     const CanonExpr *CE2) {
-
-  // Current support in Util: one of them must be a constant
   int64_t CVal = 0;
-
-  CanonExpr *CE = nullptr;
 
   if (!CE1 || !CE2) {
     return nullptr;
   }
 
   if (CE2->isIntConstant(&CVal)) {
-    CE = CE1->clone();
-    CE->multiplyByConstant(CVal);
-  } else if (CE1->isIntConstant(&CVal)) {
-    CE = CE2->clone();
-    CE->multiplyByConstant(CVal);
-  } else {
+    std::swap(CE1, CE2);
+  } else if (!CE1->isIntConstant(&CVal)) {
     return nullptr;
   }
 
+  CanonExpr *CE = CE2->clone();
   push(CE);
+  if (!CE->multiplyByConstant(CVal)) {
+    return nullptr;
+  }
+
   return CE;
 }
 
@@ -4053,8 +4051,12 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   bool EqualBaseCE = false;
 
+
   DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
   DEBUG(dbgs() << ",  "; DstDDRef->dump());
+  DEBUG(dbgs() << "\n"
+               << SrcDDRef->getHLDDNode()->getNumber() << ":"
+               << DstDDRef->getHLDDNode()->getNumber());
 
   assert(SrcDDRef->getSymbase() == DstDDRef->getSymbase() &&
          "Asking DDA for distinct references is useless");
@@ -5105,22 +5107,19 @@ bool DirectionVector::isEQ() const {
 /// Is DV implying INDEP for level L to end?
 /// e.g.  DV = (< *)	 implies INDEP for innermost loop
 /// In this example, isDVIndepFromLevel(&DV, 2) return true
-bool DirectionVector::isIndepFromLevel(unsigned FromLevel) const {
+bool DirectionVector::isIndepFromLevel(unsigned Level) const {
 
-  assert(CanonExprUtils::isValidLoopLevel(FromLevel) && "incorrect Level");
+  assert(CanonExprUtils::isValidLoopLevel(Level) && "incorrect Level");
 
-  for (unsigned II = 1; II <= FromLevel - 1; ++II) {
-    unsigned Direction = (*this)[II - 1];
-    if (Direction == DVKind::NONE) {
-      break;
-    }
-    switch (Direction) {
-    case DVKind::LT:
-    case DVKind::GT:
-    case DVKind::NE:
+  // DVKind::LT:  001
+  // DVKind::GT : 100
+  // LT | GT :    101 <=> Either LT or GT <=> DVKind::NE
+  // DVKind::EQ : 010
+  for (unsigned Lvl = 1; Lvl <= Level - 1; ++Lvl) {
+    unsigned Dir = (*this)[Lvl - 1];
+    assert(Dir != DVKind::NONE);
+    if ((Dir & DVKind::EQ) == DVKind::NONE) {
       return true;
-    default:
-      break;
     }
   }
 

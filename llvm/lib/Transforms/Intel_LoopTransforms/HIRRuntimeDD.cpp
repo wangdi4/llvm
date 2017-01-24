@@ -339,7 +339,11 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
       // usually result in gather/scatter generation.
       // For Loop Interchange we treat them as profitable.
       if (!DisableCostModel && OuterLoop == InnermostLoop &&
-          (IVConstCoeff != 1 || IVBlobIndex != InvalidBlobIndex)) {
+          //(IVConstCoeff != 1 || IVBlobIndex != InvalidBlobIndex)) {
+          (!(IVConstCoeff == 1 ||
+              // -1 is allowed for memcpy recognition
+             (IVConstCoeff == -1 && OuterLoop->getNumChildren() <= 2)) ||
+           IVBlobIndex != InvalidBlobIndex)) {
         return NON_PROFITABLE;
       }
 
@@ -598,7 +602,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   MemRefGatherer::sort(RefMap);
   DEBUG(MemRefGatherer::dump(RefMap));
 
-  DDRefGrouping::createGroups(Groups, RefMap, isGroupMemRefMatchForRTDD);
+  DDRefGrouping::groupMap(Groups, RefMap, isGroupMemRefMatchForRTDD);
   DEBUG(DDRefGrouping::dump(Groups));
 
   unsigned GroupSize = Groups.size();
@@ -814,7 +818,7 @@ void HIRRuntimeDD::markDDRefsIndep(HLLoop *Loop) {
   MemRefGatherer::sort(RefMap);
 
   RefGroupVecTy Groups;
-  DDRefGrouping::createGroups(Groups, RefMap, isGroupMemRefMatchForRTDD);
+  DDRefGrouping::groupMap(Groups, RefMap, isGroupMemRefMatchForRTDD);
 
   auto Size = Groups.size();
   MDBuilder MDB(Loop->getHLNodeUtils().getHIRFramework().getContext());

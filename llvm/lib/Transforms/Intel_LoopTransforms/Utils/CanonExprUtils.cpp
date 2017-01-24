@@ -358,7 +358,7 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   if (NewDenom != Denom1) {
     // Do not simplify while multiplying as this is an intermediate result of
     // add.
-    Result->multiplyByConstantImpl(NewDenom / Denom1, false);
+    Result->multiplyNumeratorByConstant(NewDenom / Denom1, false);
 
     // Since the denominator has changed, we should set the flag based on CE2.
     // This is safe to do because the division type difference is only allowed
@@ -373,7 +373,7 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
     }
     // Do not simplify while multiplying as this is an intermediate result of
     // add.
-    NewCE2->multiplyByConstantImpl(NewDenom / Denom2, false);
+    NewCE2->multiplyNumeratorByConstant(NewDenom / Denom2, false);
   }
 
   Result->setDenominator(NewDenom);
@@ -504,12 +504,16 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   Term->setSrcType(CE1->getSrcType());
 
   // CE2 <- CE2 * C1
-  Term->multiplyByConstant(ConstCoeff);
+  if (!Term->multiplyByConstant(ConstCoeff)) {
+    return nullptr;
+  }
 
   auto BlobCoeff = CE1->getIVBlobCoeff(Level);
   if (CE1->getBlobUtils().isBlobIndexValid(BlobCoeff)) {
     // CE2 <- CE2 * B1
-    Term->multiplyByBlob(BlobCoeff);
+    if (!Term->multiplyByBlob(BlobCoeff)) {
+      return nullptr;
+    }
   }
 
   CE1->removeIV(Level);

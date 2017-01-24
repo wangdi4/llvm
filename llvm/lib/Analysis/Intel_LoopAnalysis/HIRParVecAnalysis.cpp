@@ -326,14 +326,6 @@ void DDWalk::analyze(const DDEdge *Edge) {
   DEBUG(Edge->dump());
 
   DDRef *DDref = Edge->getSink();
-  if (!CandidateLoop->getHLNodeUtils().contains(CandidateLoop,
-                                                DDref->getHLDDNode())) {
-    DEBUG(dbgs() << "\tis safe to vectorize/parallelize (Sink not in loop)\n");
-    if (Edge->isFLOWdep()) {
-      // TODO: produce info for liveout information
-    }
-    return;
-  }
 
   unsigned NestLevel = CandidateLoop->getNestingLevel();
   if (!Edge->preventsParallelization(NestLevel)) {

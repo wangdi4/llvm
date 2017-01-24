@@ -48,6 +48,7 @@ public:
   // Accesses getNewSymbase()
   friend class HIRFramework;
   friend class DDRefUtils;
+  friend class BlobUtils;
 
   HIRSymbaseAssignment() : FunctionPass(ID) {}
   static char ID;

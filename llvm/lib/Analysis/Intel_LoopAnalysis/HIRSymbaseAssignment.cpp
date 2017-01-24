@@ -133,7 +133,7 @@ bool HIRSymbaseAssignment::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
 
   // Set symbase assignment.
-  HIRP->getDDRefUtils().HIRSA = this;
+  HIRP->getBlobUtils().HIRSA = this;
 
   initializeMaxSymbase();
 

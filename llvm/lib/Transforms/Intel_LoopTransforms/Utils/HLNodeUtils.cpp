@@ -2708,9 +2708,12 @@ HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
 
   ConditionCE->addConstant(EqualOffset, false);
 
-  VALType Type = getMinMaxBlobValue(BlobIdx, ConditionCE.get(), Val);
-  if (Ret == VALType::IsUnknown) {
-    Ret = Type;
+  VALType BlobValueType = getMinMaxBlobValue(BlobIdx, ConditionCE.get(), Val);
+
+  // Return BlobValueType if there is no information about blob or if it wasn't
+  // previously recognized as IsConstant.
+  if (BlobValueType == VALType::IsUnknown || Ret != VALType::IsConstant) {
+    Ret = BlobValueType;
   }
 
   return Ret;

@@ -357,14 +357,10 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
     }
   }
 
-  unsigned I = 1;
-
   // 2. Check if dependence is carried by an outer loop which makes interchange
   // legal.
-  for (; I < LoopLevel; ++I) {
-    if ((DV[I - 1] & DVKind::EQ) == DVKind::NONE) {
-      return true;
-    }
+  if (DV.isIndepFromLevel(LoopLevel)) {
+    return true;
   }
 
   // 3. We cannot permute outer and inner DV elements if the direction is
@@ -403,7 +399,7 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
     }
   }
 
-  for (I = LoopLevel + 1; I < LastLevel; ++I) {
+  for (unsigned I = LoopLevel + 1; I < LastLevel; ++I) {
     if (DV[I - 1] & InvalidDV) {
       return false;
     } else if (DV[I - 1] == ValidDV) {

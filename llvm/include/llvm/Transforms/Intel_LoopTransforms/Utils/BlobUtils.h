@@ -32,6 +32,7 @@ class DataLayout;
 namespace loopopt {
 
 class HIRParser;
+class HIRSymbaseAssignment;
 
 typedef const SCEV *BlobTy;
 
@@ -39,6 +40,7 @@ typedef const SCEV *BlobTy;
 class BlobUtils {
 private:
   HIRParser &HIRP;
+  HIRSymbaseAssignment *HIRSA;
 
   BlobUtils(HIRParser &HIRP) : HIRP(HIRP) {}
 
@@ -49,6 +51,10 @@ private:
   // Creates BlobUtils object.
   friend class HIRParser;
   friend class CanonExprUtils;
+  // To get new symbase number.
+  friend class DDRefUtils;
+  // Sets itself.
+  friend class HIRSymbaseAssignment;
 
   HIRParser &getHIRParser() { return HIRP; }
   const HIRParser &getHIRParser() const { return HIRP; }
@@ -56,6 +62,8 @@ private:
   // Only used by framework to create new temp blobs.
   BlobTy createBlob(Value *TempVal, unsigned Symbase, bool Insert,
                     unsigned *NewBlobIndex);
+
+  HIRSymbaseAssignment &getHIRSymbaseAssignment() { return *HIRSA; }
 
 public:
   /// Returns Function object.
@@ -149,6 +157,10 @@ public:
   /// Returns a new blob created from a constant value.
   BlobTy createBlob(int64_t Val, Type *Ty, bool Insert = true,
                     unsigned *NewBlobIndex = nullptr);
+
+  /// Returns a new undef blob.
+  BlobTy createUndefBlob(Type *Ty, bool Insert = true,
+                         unsigned *NewBlobIndex = nullptr);
 
   /// Returns a blob which represents (LHS + RHS). If Insert is true its index
   /// is returned via NewBlobIndex argument.

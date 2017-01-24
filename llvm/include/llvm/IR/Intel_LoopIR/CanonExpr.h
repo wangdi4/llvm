@@ -173,11 +173,17 @@ protected:
 
   /// Helper to calculate gcd for simplify(). Handles negative integers
   /// as well.
-  int64_t simplifyGCDHelper(int64_t CurrentGCD, int64_t Num);
+  static int64_t simplifyGCDHelper(int64_t CurrentGCD, int64_t Num);
 
-  /// \brief Implements multiplyByConstant() functionality. Simplify flag
+  /// Returns true if it's legal to put multiplication inside CanonExpr.
+  bool canMultiplyNumerator() const;
+
+  /// Multiplies CanonExpr numerator by /p Val. /p Simplify flag
   /// indicates whether simplification can be performed.
-  void multiplyByConstantImpl(int64_t Val, bool Simplify);
+  void multiplyNumeratorByConstant(int64_t Val, bool Simplify);
+
+  /// Multiplies this canon expr by a blob.
+  void multiplyNumeratorByBlob(unsigned Index);
 
   /// \brief Implements is*Ext() and isTrunc() functionality.
   bool isExtImpl(bool IsSigned, bool IsTrunc) const;
@@ -644,9 +650,6 @@ public:
   /// \brief Iterator version of shift.
   void shift(iv_iterator IVI, int64_t Val);
 
-  /// \brief Multiplies this canon expr by a blob.
-  void multiplyByBlob(unsigned Index);
-
   /// \brief Populates Indices with all the blobs contained in the CanonExpr
   /// (including blob IV coeffs). The blobs are sorted and uniqued if
   /// MakeUnique is true.
@@ -662,11 +665,16 @@ public:
   /// \brief Simplifies canon expr by dividing numerator and denominator by gcd.
   void simplify(bool SimplifyCast = false);
 
-  /// \brief Multiplies the canon expr by Val.
-  void multiplyByConstant(int64_t Val);
+  /// Multiplies the canon expr by Val. Returns false if the result expression
+  /// can not be represented as a single CanonExpr.
+  bool multiplyByConstant(int64_t Val);
+
+  /// Multiplies this canon expr by a blob. Returns false if the result can not
+  /// be represented as a single CanonExpr.
+  bool multiplyByBlob(unsigned Index);
 
   /// \brief Negates canon expr.
-  void negate() { multiplyByConstant(-1); }
+  void negate() { multiplyNumeratorByConstant(-1, true); }
 
   /// Verifies that all IVs contained in CE are valid, asserts otherwise.
   bool verifyIVs(unsigned NestingLevel) const;
