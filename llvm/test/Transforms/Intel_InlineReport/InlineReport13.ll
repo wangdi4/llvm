@@ -1,4 +1,4 @@
-; RUN: opt -inline -inline-report=7 -inline-threshold=2000< %s -S 2>&1 | FileCheck %s
+; RUN: opt -new-double-callsite-inlining-heuristics=true -inline -inline-report=7 -inline-threshold=2000< %s -S 2>&1 | FileCheck %s
 ; CHECK: Callee has double callsite and local linkage
 ; This LIT test checks the following worthy double internal callsite heuristic 
 ;   (1) Must have exactly two calls to the function

@@ -1467,6 +1467,14 @@ static unsigned int totalBasicBlockPredCount(Function &F)
 } 
 
 //
+// Temporary switch to control new double callsite inlining heuristics
+// until tuning of loopopt is complete.
+//
+static cl::opt<bool> NewDoubleCallSiteInliningHeuristics
+  ("new-double-callsite-inlining-heuristics",
+   cl::init(false), cl::ReallyHidden);
+
+//
 // Return 'true' if this is a double callsite worth inlining.
 //   (This is one of multiple double callsite heuristics.)
 //
@@ -1479,6 +1487,8 @@ static unsigned int totalBasicBlockPredCount(Function &F)
 //           of predecessors
 //
 static bool worthyDoubleCallSite3(CallSite &CS, InliningLoopInfoCache& ILIC) {
+  if (!NewDoubleCallSiteInliningHeuristics)
+    return false; 
   Function *Caller = CS.getCaller();
   LoopInfo *CallerLI = ILIC.getLI(Caller);
   if (!CallerLI->getLoopFor(CS.getInstruction()->getParent()))
@@ -1533,6 +1543,8 @@ static bool worthyDoubleInternalCallSite(CallSite &CS,
 //
 static bool worthyDoubleExternalCallSite(CallSite &CS) {
   Function *Caller = CS.getCaller();
+  if (!NewDoubleCallSiteInliningHeuristics)
+    return false; 
   if (std::distance(Caller->begin(), Caller->end()) != 1)
     return false;
   Function *Callee = CS.getCalledFunction();

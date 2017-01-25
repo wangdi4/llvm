@@ -1,4 +1,4 @@
-; RUN: opt -inline -inline-report=7 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -new-double-callsite-inlining-heuristics=true -inline -inline-report=7 < %s -S 2>&1 | FileCheck %s
 ; CHECK: Callee has double callsite without local linkage
 ; This LIT tets checks the worthy double external callsite heuristic
 ; The criteria for this heuristic are:
