@@ -2,7 +2,6 @@
 # This file has been heavily modified. Merge with care.
 set(modified_files
   adxintrin.h
-  armintr.h
   avx2intrin.h
   avx512bwintrin.h
   avx512cdintrin.h
@@ -33,7 +32,6 @@ set(modified_files
   mm_malloc.h
   mwaitxintrin.h
   nmmintrin.h
-  opencl-c.h
   pkuintrin.h
   pmmintrin.h
   popcntintrin.h
@@ -64,6 +62,7 @@ set(special_files
 set(orig_files
   altivec.h
   ammintrin.h
+  armintr.h
   arm_acle.h
   __clang_cuda_cmath.h
   __clang_cuda_intrinsics.h
@@ -80,6 +79,7 @@ set(orig_files
   limits.h
   module.modulemap
   mm3dnow.h  
+  opencl-c.h
   s390intrin.h
   stdalign.h
   stdarg.h
