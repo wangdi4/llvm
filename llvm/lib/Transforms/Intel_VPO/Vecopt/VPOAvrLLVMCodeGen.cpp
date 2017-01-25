@@ -15,15 +15,19 @@
 
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.h"
-
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/IR/Intrinsics.h"
 #include <tuple>
 
 using namespace llvm;
 using namespace llvm::vpo;
+
+#define DEBUG_TYPE "vpo-ir-loop-vectorize"
+
 
 // Reduction Manager initialization includes analysis of reduction clause.
 // ReductionClause contains address of the reduction variable at this moment.
@@ -224,17 +228,115 @@ void AVRCodeGen::completeReductions() {
   RM.completeReductionPhis(WidenMap);
 }
 
+bool AVRLoopVectorizationLegality::canVectorizeLoop(AVRLoopIR *ALoop,
+                                                    ReductionMngr *RM) {
+  for (AVR &Itr : ALoop->nodes()) {
+    switch (Itr.getAVRID()) {
+
+    case AVR::AVRAssignIRNode:
+    case AVR::AVRLabelIRNode:
+    case AVR::AVRCallIRNode:
+    case AVR::AVRCompareIRNode:
+    case AVR::AVRBranchIRNode:
+      break;
+    case AVR::AVRPhiIRNode: {
+      AVRPhiIR *Phi = cast<AVRPhiIR>(&Itr);
+      PHINode *PhiInstr = cast<PHINode>(Phi->getLLVMInstruction());
+      Loop *L = LI->getLoopFor(PhiInstr->getParent());
+      assert(TheLoop == L && "Unexpected Phi node");
+      InductionDescriptor ID;
+      if (InductionDescriptor::isInductionPHI(PhiInstr, TheLoop, PSE, ID)) {
+        addInductionPhi(PhiInstr, ID, AllowedExit);
+        continue;
+      }
+      if (RM->isReductionPhi(PhiInstr))
+        continue;
+      /*
+      FIXME: Reduction Auto-detection will be added later.
+      RecurrenceDescriptor RedDes;
+      if (RecurrenceDescriptor::isReductionPHI(PhiInstr, TheLoop, RedDes)) {
+        AllowedExit.insert(RedDes.getLoopExitInstr());
+        Reductions[PhiInstr] = RedDes;
+        continue;
+      }*/
+    }
+    }
+  }
+  if (!Induction)
+    return false;
+  return true;
+}
+
+static Type *convertPointerToIntegerType(const DataLayout &DL, Type *Ty) {
+  if (Ty->isPointerTy())
+    return DL.getIntPtrType(Ty);
+
+  // It is possible that char's or short's overflow when we ask for the loop's
+  // trip count, work around this by changing the type size.
+  if (Ty->getScalarSizeInBits() < 32)
+    return Type::getInt32Ty(Ty->getContext());
+
+  return Ty;
+}
+
+static Type *getWiderType(const DataLayout &DL, Type *Ty0, Type *Ty1) {
+  Ty0 = convertPointerToIntegerType(DL, Ty0);
+  Ty1 = convertPointerToIntegerType(DL, Ty1);
+  if (Ty0->getScalarSizeInBits() > Ty1->getScalarSizeInBits())
+    return Ty0;
+  return Ty1;
+}
+
+void AVRLoopVectorizationLegality::addInductionPhi(PHINode *Phi,
+    const InductionDescriptor &ID,
+    SmallPtrSetImpl<Value *> &AllowedExit) {
+  
+  Inductions[Phi] = ID;
+
+  Type *PhiTy = Phi->getType();
+  const DataLayout &DL = Phi->getModule()->getDataLayout();
+
+  // Get the widest type.
+  if (!PhiTy->isFloatingPointTy()) {
+    if (!WidestIndTy)
+      WidestIndTy = convertPointerToIntegerType(DL, PhiTy);
+    else
+      WidestIndTy = getWiderType(DL, PhiTy, WidestIndTy);
+  }
+
+  // Int inductions are special because we only allow one IV.
+  if (ID.getKind() == InductionDescriptor::IK_IntInduction &&
+      ID.getConstIntStepValue() &&
+      ID.getConstIntStepValue()->isOne() &&
+      isa<Constant>(ID.getStartValue()) &&
+      cast<Constant>(ID.getStartValue())->isNullValue()) {
+
+    // Use the phi node with the widest type as induction. Use the last
+    // one if there are multiple (no good reason for doing this other
+    // than it is expedient). We've checked that it begins at zero and
+    // steps by one, so this is a canonical induction variable.
+    if (!Induction || PhiTy == WidestIndTy)
+      Induction = Phi;
+  }
+
+  // Both the PHI node itself, and the "post-increment" value feeding
+  // back into the PHI node may have external users.
+  AllowedExit.insert(Phi);
+  AllowedExit.insert(Phi->getIncomingValueForBlock(TheLoop->getLoopLatch()));
+
+  DEBUG(dbgs() << "LV: Found an induction variable.\n");
+  return;
+}
+
 // TODO: Take as input a VPOVecContext that indicates which AVRLoop(s)
 // is (are) to be vectorized, as identified by the vectorization scenario
 // evaluation.
 // FORNOW there is only one AVRLoop per region, so we will re-discover
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
-bool AVRCodeGen::loopIsHandledImpl(unsigned int &ConstTripCount) {
+bool AVRCodeGen::loopIsHandled(unsigned int VF) {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
   AVRBranchIR *LoopBackEdge = nullptr;
-  AVRPhiIR *InductionPhi = nullptr;
-  AVRCompare *InductionCmp = nullptr;
 
   // We expect avr to be a AVRWrn node
   if (!(AWrn = dyn_cast<AVRWrn>(Avr))) {
@@ -256,6 +358,14 @@ bool AVRCodeGen::loopIsHandledImpl(unsigned int &ConstTripCount) {
     return false;
   }
 
+  AVRLoopIR *ALoopIR = cast<AVRLoopIR>(ALoop);
+  OrigLoop = ALoopIR->getLoop();
+
+  Legal = new AVRLoopVectorizationLegality(OrigLoop, SE, TLI,  F, LI);
+
+  if (!Legal->canVectorizeLoop(ALoopIR, &RM))
+    return false;
+
   // Currently we only handle AVRAssignIR, AVRPhiIR, AVRIf,
   // AVRBranchIR, AVRLabelIR. We alse expect to see one AVRIf
   // for the induction var compare, one branch for loop
@@ -267,21 +377,20 @@ bool AVRCodeGen::loopIsHandledImpl(unsigned int &ConstTripCount) {
     case AVR::AVRAssignIRNode:
     case AVR::AVRLabelIRNode:
     case AVR::AVRCallIRNode:
+    case AVR::AVRCompareIRNode:
       break;
     case AVR::AVRPhiIRNode: {
       AVRPhiIR *Phi = cast<AVRPhiIR>(&Itr);
-      if (RM.isReductionPhi(cast<PHINode>(Phi->getLLVMInstruction())))
-        break;
-      else if (InductionPhi)
-        return false;
-      else
-        InductionPhi = Phi;
-    } break;
-    case AVR::AVRCompareIRNode:
-      if (InductionCmp)
-        return false;
-      InductionCmp = dyn_cast<AVRCompare>(&Itr);
-      break;
+      PHINode *PhiInst = cast<PHINode>(Phi->getLLVMInstruction());
+      if (PhiInst == Legal->getInduction()) {
+        setInductionPhi(Phi);
+        if (OrigLoop->contains(PhiInst->getIncomingBlock(0)))
+          setStartValue(PhiInst->getIncomingValue(1));
+        else
+          setStartValue(PhiInst->getIncomingValue(0));
+      }
+    }
+    break;
     case AVR::AVRBranchIRNode:
       LoopBackEdge = dyn_cast<AVRBranchIR>(&Itr);
       break;
@@ -290,102 +399,33 @@ bool AVRCodeGen::loopIsHandledImpl(unsigned int &ConstTripCount) {
     }
   }
 
-  assert(ALoop && "Expected AVRLoop!");
   assert(InductionPhi && "Expected AVRPhiIR for Induction Variable!");
-  assert(InductionCmp && "Expected AVRIf for loop exit check!");
-
-  const PHINode *PhiInst;
-  unsigned int NumPhiValues;
-
-  PhiInst = dyn_cast<const PHINode>(InductionPhi->getLLVMInstruction());
-  NumPhiValues = PhiInst->getNumIncomingValues();
-  if (NumPhiValues != 2) {
-    return false;
-  }
-
-  // Only support integer type induction vars for now
-  if (!PhiInst->getType()->isIntegerTy()) {
-    return false;
-  }
-
-  ConstantInt *StrideValue;
-
-  Loop *L;
-  L = LI->getLoopFor(PhiInst->getParent());
-  if (!L) {
-    // Phi is not under a loop
-    return false;
-  }
-
-  // Only handle constant integer stride of 1 for now
-  InductionDescriptor ID;
-  if (!InductionDescriptor::isInductionPHI(const_cast<PHINode *>(PhiInst), L,
-                                           SE, ID) ||
-      !(StrideValue = ID.getConstIntStepValue()) ||
-      !StrideValue->equalsInt(1)) {
-    return false;
-  }
-
-  Value *StartValue;
-  for (unsigned i = 0; i != NumPhiValues; ++i) {
-    if (!(L->contains(PhiInst->getIncomingBlock(i)))) {
-      // Starting loop induction value
-      StartValue = PhiInst->getIncomingValue(i);
-      break;
-    }
-  }
-
-  // Only StartValue of zero for now
-  if (ConstantInt *CStart = dyn_cast<ConstantInt>(StartValue)) {
-    if (!CStart->isZero()) {
-      return false;
-    }
-  } else {
-    return false;
-  }
 
   // Check that loop trip count is a multiple of vector length
-  BasicBlock *ExitingBlock = L->getLoopLatch();
+  BasicBlock *ExitingBlock = OrigLoop->getLoopLatch();
 
   // Give up if we fail to get loop latch
   if (!ExitingBlock) {
     return false;
   }
 
-  ConstTripCount = SE->getSmallConstantTripCount(L, ExitingBlock);
+  unsigned ConstTripCount = SE->getSmallConstantTripCount(OrigLoop,
+                                                          ExitingBlock);
 
   if (!ConstTripCount) {
     errs() << "VPO_OPTREPORT: Vectorization failed: "
               "failed to compute loop trip count\n";
 #ifndef NDEBUG
-    L->dump();
+    OrigLoop->dump();
 #endif
   }
-
-  setALoop(ALoop);
-  setOrigLoop(L);
-  setLoopBackEdge(LoopBackEdge);
-  setInductionPhi(InductionPhi);
-  setInductionCmp(InductionCmp);
-  setStartValue(StartValue);
-  setStrideValue(StrideValue);
-
-  return true;
-}
-
-bool AVRCodeGen::loopIsHandled(unsigned int VF) {
-  unsigned int ConstTripCount = 0;
-  if (!loopIsHandledImpl(ConstTripCount))
+  if (VF && ConstTripCount % VF)
     return false;
-
-  // Check for positive trip count and that  trip count is a multiple of vector
-  // length.
-  // No remainder loop is generated currently.
-  if (ConstTripCount == 0 || (VF && ConstTripCount % VF))
-    return false;
-
   setTripCount(ConstTripCount);
-  errs() << "Legal loop\n";
+  setALoop(ALoop);
+  setLoopBackEdge(LoopBackEdge);
+  setStartValue(StartValue);
+
   return true;
 }
 
@@ -414,6 +454,15 @@ void AVRCodeGen::createEmptyLoop() {
   Value *NextIdx = Builder.CreateAdd(Induction, Stride, "index.next");
 
   // Setup induction phi incoming values
+  Value *StartValue;
+  for (unsigned i = 0; i != 2; ++i) {
+    if (!(OrigLoop->contains(PhiInst->getIncomingBlock(i)))) {
+      // Starting loop induction value
+      StartValue = PhiInst->getIncomingValue(i);
+      break;
+    }
+  }
+
   Induction->addIncoming(StartValue, LoopPreHeader);
   Induction->addIncoming(NextIdx, VecBody);
 
@@ -459,14 +508,86 @@ Value *AVRCodeGen::getVectorValue(Value *V) {
   return B;
 }
 
+Value *AVRCodeGen::getScalarValue(Value *V) {
+  // If the value is not an instruction contained in the loop, it should
+  // already be scalar.
+  if (OrigLoop->isLoopInvariant(V))
+    return V;
+
+  Value *VecV = getVectorValue(V);
+  return Builder.CreateExtractElement(VecV, Builder.getInt32(0));
+}
+
+Value *AVRCodeGen::reverseVector(Value *Vec) {
+  assert(Vec->getType()->isVectorTy() && "Invalid type");
+  SmallVector<Constant *, 8> ShuffleMask;
+  for (int i = 0; i < VL; ++i)
+    ShuffleMask.push_back(Builder.getInt32(VL - i - 1));
+
+  return Builder.CreateShuffleVector(Vec, UndefValue::get(Vec->getType()),
+                                     ConstantVector::get(ShuffleMask),
+                                     "reverse");
+}
+
+void AVRCodeGen::vectorizeLoopInvariantLoad(Instruction *Inst) {
+  Instruction *Cloned = Inst->clone();
+  Cloned->setName(Inst->getName() + ".cloned");
+  Builder.Insert(Cloned);
+  Value *Broadcast = Builder.CreateVectorSplat(VL, Cloned, "broadcast");
+  WidenMap[Inst] = Broadcast;
+}
+
 void AVRCodeGen::vectorizeLoadInstruction(Instruction *Inst,
                                           bool EmitIntrinsic) {
-  if (!EmitIntrinsic) {
+  LoadInst *LI = cast<LoadInst>(Inst);
+  Value *Ptr = LI->getPointerOperand();
+  if (Legal->isLoopInvariant(Ptr)) {
+    vectorizeLoopInvariantLoad(Inst);
+    return;
+  }
+
+  int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
+  bool Reverse = (ConsecutiveStride == -1);
+  if (ConsecutiveStride == 0 && !EmitIntrinsic) {
     serializeInstruction(Inst);
     return;
   }
 
-  LoadInst *LI = dyn_cast<LoadInst>(Inst);
+  Type *DataTy = VectorType::get(LI->getType(), VL);
+  unsigned Alignment = LI->getAlignment();
+  // An alignment of 0 means target abi alignment. We need to use the scalar's
+  // target abi alignment in such a case.
+  const DataLayout &DL = Inst->getModule()->getDataLayout();
+  if (!Alignment)
+    Alignment = DL.getABITypeAlignment(LI->getType());
+  unsigned AddressSpace = Ptr->getType()->getPointerAddressSpace();
+
+
+  // Handle consecutive loads/stores.
+  GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(Ptr);
+  if (ConsecutiveStride != 0) {
+    if (Gep) {
+      GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
+      Gep2->setName("gep.indvar");
+
+      for (unsigned i = 0; i < Gep->getNumOperands(); ++i)
+        Gep2->setOperand(i, getScalarValue(Gep->getOperand(i)));
+      Ptr = Builder.Insert(Gep2);
+    }
+    else // No GEP
+      Ptr = getScalarValue(Ptr);
+
+    Value *PartPtr = Reverse ?
+      Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - VL)) : Ptr;   
+
+    Value *VecPtr =
+      Builder.CreateBitCast(PartPtr, DataTy->getPointerTo(AddressSpace));
+    Value *NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+    if (Reverse)
+      NewLI = reverseVector(NewLI);
+    WidenMap[cast<Value>(Inst)] = NewLI;
+    return;
+  }
   Instruction *NewLI;
   Value *VecPtrOp;
 
@@ -866,10 +987,10 @@ bool AVRCodeGen::vectorize(unsigned int VL) {
   assert(VL >= 1);
   if (VL == 1)
     return false;
-  if (!loopIsHandled(VL)) {
-    return false;
-  }
-
+  // This function already called before
+  //if (!loopIsHandled(VL)) {
+  //  return false;
+  //}
   createEmptyLoop();
 
   for (auto Itr = ALoop->child_begin(), E = ALoop->child_end(); Itr != E;
@@ -898,4 +1019,25 @@ bool AVRCodeGen::vectorize(unsigned int VL) {
   }
   completeReductions();
   return true;
+}
+
+bool AVRLoopVectorizationLegality::isLoopInvariant(Value *V) {
+  return (PSE.getSE()->isLoopInvariant(PSE.getSCEV(V), TheLoop));
+}
+
+bool AVRLoopVectorizationLegality::isConsecutivePtr(Value *Ptr) {
+  const ValueToValueMap &Strides = ValueToValueMap();
+
+  int Stride = getPtrStride(PSE, Ptr, TheLoop, Strides, false);
+  if (Stride == 1 || Stride == -1)
+    return Stride;
+  return 0;
+}
+
+bool AVRLoopVectorizationLegality::isInductionVariable(const Value *V) {
+  Value *In0 = const_cast<Value *>(V);
+  PHINode *PN = dyn_cast_or_null<PHINode>(In0);
+  if (!PN)
+    return false;
+  return Inductions.count(PN);
 }

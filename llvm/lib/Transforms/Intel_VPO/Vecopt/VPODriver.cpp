@@ -210,7 +210,9 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
     VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn, Fn);
 
     if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
-      AVRCodeGen AvrCGNode(Avr, SC, LI, TLI, &Fn);
+      DominatorTree *DT =
+        &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+      AVRCodeGen AvrCGNode(Avr, DT, SC, LI, TLI, &Fn);
       assert(isa<VPOScenarioEvaluation>(ScenariosEngine));
       VPOScenarioEvaluation *LLVMIRScenariosEngine =
           cast<VPOScenarioEvaluation>(&ScenariosEngine);
@@ -299,6 +301,7 @@ void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<AvrDefUse>();
 
   AU.addPreserved<AVRGenerate>();
