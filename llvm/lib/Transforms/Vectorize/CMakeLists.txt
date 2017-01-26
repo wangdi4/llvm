@@ -4,6 +4,10 @@ add_llvm_library(LLVMVectorize
   LoopVectorize.cpp
   SLPVectorizer.cpp
   Vectorize.cpp
+  VPlan.cpp
+  VPlan/IntelVPlan.cpp
+  VPlan/LoopVectorizationPlanner.cpp
+  VPlan/VPlanDriver.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

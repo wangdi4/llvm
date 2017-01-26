@@ -129,6 +129,10 @@ static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
   cl::desc("Run VPO Vecopt Pass"));
 
+static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(false),
+                                       cl::Hidden,
+                                       cl::desc("Enable VPlan Driver"));
+
 // The user can use -mllvm -paropt=<mode> to enable various paropt 
 // transformations, where <mode> is a bit vector (see enum VPOParoptMode 
 // for a description of the bits.) For example, paropt=0x7 enables 
@@ -1060,6 +1064,11 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt));
+  }
+  // TODO: Temporal hook-up for VPlan VPO Vectorizer
+  if (EnableVPlanDriver && RunVec) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPlanDriverPass());
   }
   if (RunVPOVecopt && RunVec) {
     PM.add(createVPOCFGRestructuringPass());

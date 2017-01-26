@@ -208,6 +208,7 @@ namespace {
       (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
       (void) llvm::createBBVectorizePass();
+      (void) llvm::createVPlanDriverPass();
       (void) llvm::createPartiallyInlineLibCallsPass();
       (void) llvm::createScalarizerPass();
       (void) llvm::createSeparateConstOffsetFromGEPPass();
