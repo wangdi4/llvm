@@ -505,8 +505,7 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
   if (!VectorType::isValidElementType(RegDD->getSrcType())) {
     DEBUG(RegDD->getSrcType()->dump());
-    DEBUG(errs()
-          << "VPO_OPTREPORT: Loop not handled - invalid element type\n");
+    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - invalid element type\n");
     IsHandled = false;
     return;
   }
@@ -1136,7 +1135,7 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
 
     // Combine with initial value
     auto FinalInst = Loop->getHLNodeUtils().createBinaryHLInst(
-        BOpcode, ScalarValue->clone(), InitValRef->clone(), "" /* Name */,
+        BOpcode, ScalarValue->clone(), InitValRef->clone(), "final" /* Name */,
         ResultRef->clone());
     InstContainer.push_back(FinalInst);
     return FinalInst;
@@ -1232,12 +1231,13 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node) {
   // Create a wide reduction instruction
   HLInst *WideInst = Node->getHLNodeUtils().createBinaryHLInst(
       BOp->getOpcode(), RedOpVecInst->getLvalDDRef()->clone(), FreeOpVec,
-      "" /* Name */, RedOpVecInst->getLvalDDRef()->clone(), BOp);
+      "red" /* Name */, RedOpVecInst->getLvalDDRef()->clone(), BOp);
 
   // Build the tail - horizontal operation that converts vector to scalar
   HLContainerTy Tail;
   const RegDDRef *Address = RHM.getReductionValuePtr(RI);
-  HLInst *LoadInitValInst = Node->getHLNodeUtils().createLoad(Address->clone());
+  HLInst *LoadInitValInst =
+      Node->getHLNodeUtils().createLoad(Address->clone(), "init");
   Tail.push_back(LoadInitValInst);
 
   RegDDRef *InitValue = LoadInitValInst->getLvalDDRef();
