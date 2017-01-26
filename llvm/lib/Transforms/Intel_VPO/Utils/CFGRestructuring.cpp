@@ -19,6 +19,7 @@
 #include <set>
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
@@ -66,8 +67,10 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I)
       if (IntrinsicInst *Inst = dyn_cast<IntrinsicInst>(&*I))
         if (Inst->getIntrinsicID() == Intrinsic::intel_directive) {
-          StringRef DirString = getDirectiveMetadataString(Inst);
-          if (isBeginOrEndDirective(DirString) || isListEndDirective(DirString))
+          StringRef DirString = 
+                            VPOAnalysisUtils::getDirectiveMetadataString(Inst);
+          if (VPOAnalysisUtils::isBeginOrEndDirective(DirString) || 
+              VPOAnalysisUtils::isListEndDirective(DirString))
             InstructionsToSplit.insert(Inst);
         }
 
@@ -90,8 +93,8 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
     if (I != &*(BB->begin())) {
       Instruction *SplitPoint = I;
       StringRef DirString =
-          getDirectiveMetadataString(dyn_cast<IntrinsicInst>(I));
-      if (isListEndDirective(DirString)) {
+       VPOAnalysisUtils::getDirectiveMetadataString(dyn_cast<IntrinsicInst>(I));
+      if (VPOAnalysisUtils::isListEndDirective(DirString)) {
         //        BasicBlock::iterator Inst = I;
         BasicBlock::iterator Inst(I);
         SplitPoint = &*(++Inst);

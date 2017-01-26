@@ -2445,6 +2445,10 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
   PrintVisibility(GV->getVisibility(), Out);
   PrintDLLStorageClass(GV->getDLLStorageClass(), Out);
   PrintThreadLocalModel(GV->getThreadLocalMode(), Out);
+#if INTEL_CUSTOMIZATION
+  if (GV->isThreadPrivate()) 
+    Out << "thread_private ";
+#endif // INTEL_CUSTOMIZATION
   StringRef UA = getUnnamedAddrEncoding(GV->getUnnamedAddr());
   if (!UA.empty())
       Out << UA << ' ';

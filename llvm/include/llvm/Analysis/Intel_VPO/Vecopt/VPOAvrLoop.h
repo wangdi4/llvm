@@ -329,6 +329,11 @@ public:
 
   /// \brief Code generation for AVR loop.
   void codeGen() override;
+
+  /// \brief Get maximum trip count estimate
+  virtual uint64_t getMaxTripCountEstimate() const  {
+    return 0;
+  }
 };
 
 } // End VPO Vectorizer Namespace

@@ -260,6 +260,9 @@ FunctionPass *createTbaaMDPropagationPass();
 // points-to info if possible 
 FunctionPass *createIndirectCallConvPass();
 
+// VPOParoptTpv - Supports the thread private legacy mode.
+ModulePass *createVPOParoptTpvPass();
+
 // LoopOptMarker - Indicates loopopt based throttling to subsequent passes.
 FunctionPass *createLoopOptMarkerPass();
 

@@ -16,9 +16,9 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
@@ -421,7 +421,8 @@ bool HLInst::isIntrinCall(Intrinsic::ID &IntrinID) const {
 
 bool HLInst::isSIMDDirective() const {
   Intrinsic::ID IntrinID;
-  if (!isIntrinCall(IntrinID) || !vpo::VPOUtils::isIntelDirective(IntrinID)) {
+  if (!isIntrinCall(IntrinID) || 
+      !vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
     return false;
   }
   // TODO: check metadata

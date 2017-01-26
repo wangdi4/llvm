@@ -197,16 +197,19 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
       Resolved = true;
       return;
     }
-    // Vector of pointer constants, check each pointer constant.
-    for (unsigned i = 0; i < NumElts; i++) {
-      if (isMemLocResolved(Results[i]))
-        continue;
-      // At ith lane, set the memory location to be the memory location
-      // of ith pointer constant.
-      Results[i] = MemoryLocation(CV->getOperand(i));
+    // If this is a vector of pointer constants, check each pointer constant.
+    if (const auto *ConstVec = dyn_cast<ConstantVector>(CV)) {
+      for (unsigned i = 0; i < NumElts; i++) {
+        if (isMemLocResolved(Results[i]))
+          continue;
+        // At ith lane, set the memory location to be the memory location
+        // of ith pointer constant.
+        Results[i] = MemoryLocation(ConstVec->getAggregateElement(i));
+      }
+      Resolved = true;
+      return;
     }
-    Resolved = true;
-    return;
+    // A GEP with constant operands is a Constant -- continue checks below
   }
 
   const auto *Op = dyn_cast<Operator>(PtrVec);

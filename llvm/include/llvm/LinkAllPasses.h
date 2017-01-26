@@ -293,12 +293,16 @@ namespace {
       (void) llvm::createSIMDLaneEvolutionHIRPass();
       (void) llvm::createVectorGraphInfoPass();
       (void) llvm::createVectorGraphPredicatorPass();
+      (void) llvm::createAVRDecomposeHIRPass();
 
       // VPO Paropt Prepare Passes
       (void) llvm::createVPOParoptPreparePass();
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();
+
+      // VPO Thread Private Transformation
+      (void) llvm::createVPOParoptTpvPass();
   #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.

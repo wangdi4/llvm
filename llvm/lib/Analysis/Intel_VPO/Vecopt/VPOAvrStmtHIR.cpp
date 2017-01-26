@@ -75,7 +75,8 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
     for ( ; Idx < NumRvalOps; ++Idx) {
 
       RegDDRef *DDRef =  HLInst->getOperandDDRef(Idx);
-      AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(DDRef, HLInst, this);
+      AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(
+          DDRef, HLInst, this, Opcode == Instruction::Load);
       this->Operands.push_back(AvrVal);
 
       IsLHSExpr = false;
@@ -91,7 +92,8 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
     RegDDRef *DDRef = HLInst->getLvalDDRef();
     if (DDRef) {
 
-      AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(DDRef, HLInst, this);
+      AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(
+          DDRef, HLInst, this, Opcode == Instruction::Store);
       this->Operands.push_back(AvrVal);
     }
     else
@@ -187,38 +189,33 @@ std::string AVRExpressionHIR::getAvrValueName() const {
 }
 
 //----------AVR Value for HIR Implementation----------//
-AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
+AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent,
+                         bool isMemoryOperation)
     : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {
 
   assert(Node && "HLNode cannot be null");
 
   setParent(Parent);
 
-  Type *DataType;
-  CanonExpr *CE = nullptr;
+  Type *DataType = DDRef->getDestType();
 
-  if (DDRef->hasGEPInfo()) {
-    CE = DDRef->getBaseCE();
+  // We need a pointer type only if the parent AVR is a load or store (i.e.
+  // isMemoryOperation is true)
+  if (DDRef->hasGEPInfo() && isMemoryOperation) {
+    CanonExpr *CE = DDRef->getBaseCE();
     PointerType *BaseTy = cast<PointerType>(CE->getDestType());
-    Type *ElemTy = DDRef->getDestType();
-    // In the case of array of ints for example (int a[300]):
-    // ElemTy is i32  (int)
-    // BaseTy is [300 x i32]*  (pointer to array)
-    // We want i32* (pointer to int), so we build it:
-    DataType = ElemTy->getPointerTo(BaseTy->getPointerAddressSpace()); 
-  }
-  else {
-    CE = DDRef->getSingleCanonExpr();
-    assert(CE && "DDRef is empty!");
-    DataType = CE->getDestType();
+
+    // In the case of array of ints for example (int a[300]), the dest type of
+    // the DDRef is i32 (int). We want i32* (pointer to int), so we build it.
+    // This also works for DDRefs with trailing offsets.
+    DataType = DataType->getPointerTo(BaseTy->getPointerAddressSpace());
   }
 
   this->setType(DataType);
 
-  // In HIR, Null and Metadata are considered constant values
-  // because they do not affect DDs.
-  // We do not take them into account at AVR level by now.
-  if (DDRef->isConstant() && !DDRef->isNull() && !DDRef->isMetadata()) {
+  // In HIR, Metadata is considered a constant value because they do not affect
+  // DDs. We do not take MD into account at AVR level by now.
+  if (DDRef->isConstant() && !DDRef->isMetadata()) {
     ConstantFP *FPConst = nullptr;
     Constant *Const = nullptr;
     int64_t IntConst;
@@ -231,6 +228,8 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
       this->setConstant(FPConst);
     } else if (DDRef->isConstantVector(&Const)) {
       this->setConstant(Const);
+    } else if (DDRef->isNull()) {
+      this->setConstant(ConstantPointerNull::get(cast<PointerType>(DataType)));
     } else {
       llvm_unreachable("CanonExpr has an unexpected constant value!");
     }
@@ -240,7 +239,7 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
   if (DDRef->isStandAloneIV(false /*AllowConversion*/)) {
     assert(DDRef->isSingleCanonExpr() &&
            "Standalone IV must have a single canon expr");
-    CE = DDRef->getSingleCanonExpr();
+    CanonExpr *CE = DDRef->getSingleCanonExpr();
     assert(CE->isStandAloneIV(false /*AllowConversion*/) &&
            "Standalone IV CanonExpr expected");
 
@@ -271,6 +270,7 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print AVR Value Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ")";
   case PrintAvrDecomp: {

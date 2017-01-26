@@ -29,8 +29,8 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/BasicBlock.h"
 
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionClause.h"
 
 #include <set>
@@ -75,6 +75,18 @@ private:
 
   /// ID to differentitate between concrete subclasses.
   const unsigned SubClassID;
+
+  /// The OMP_DIRECTIVES enum representing the OMP construct. This is useful
+  /// for opt reporting, which can't use SubClassID because multiple 
+  /// OMP_DIRECTIVES may map to the same SubClassID. For example, 
+  ///   DIR_OMP_TARGET_DATA, DIR_OMP_TARGET_ENTER_DATA,  
+  ///   DIR_OMP_TARGET_EXIT_DATA, and DIR_OMP_TARGET_UPDATE 
+  /// all map to WRNTargetDataNode
+  int DirID;
+  
+  /// Bit vector for attributes such as WRNIsParLoop or WRNIsTask.
+  /// The enum WRNAttributes lists the attributes.
+  uint32_t Attributes;
 
   /// Entry and Exit BBs of this WRN
   BasicBlock    *EntryBBlock;
@@ -153,6 +165,9 @@ protected:
   void errorClause(StringRef ClauseName) const;
   void errorClause(int ClauseID) const;
 
+  virtual void setFlush(FlushSet *S) {errorClause(QUAL_OMP_FLUSH);  }
+  virtual FlushSet *getFlush() const {errorClause(QUAL_OMP_FLUSH);
+                                              return nullptr;                 }
   virtual void setAligned(AlignedClause *A)  {errorClause(QUAL_OMP_ALIGNED);  }
   virtual AlignedClause *getAligned()  const {errorClause(QUAL_OMP_ALIGNED);
                                               return nullptr;                 }
@@ -165,23 +180,60 @@ protected:
   virtual void setUserLockName(StringRef LN)    {errorClause(QUAL_OMP_NAME);  }
   virtual StringRef getUserLockName()     const {errorClause(QUAL_OMP_NAME);
                                                  return "";                   }
+  virtual void setCancelKind(WRNCancelKind CK) {errorClause("CANCEL TYPE");   }
+  virtual WRNCancelKind getCancelKind()  const {errorClause("CANCEL TYPE");
+                                              return WRNCancelError;          }
   virtual void setCollapse(int N)            {errorClause(QUAL_OMP_COLLAPSE); }
   virtual int getCollapse()            const {errorClause(QUAL_OMP_COLLAPSE);
                                               return 0;                       }
   virtual void setCopyin(CopyinClause *C)    {errorClause(QUAL_OMP_COPYIN);   }
   virtual CopyinClause *getCopyin()    const {errorClause(QUAL_OMP_COPYIN);
                                               return nullptr;                 }
+  virtual void setCpriv(CopyprivateClause *C)
+                          {errorClause(QUAL_OMP_COPYPRIVATE);                 }
+  virtual CopyprivateClause *getCpriv() const
+                          {errorClause(QUAL_OMP_COPYPRIVATE); return nullptr; }
   virtual void setDefault(WRNDefaultKind T)  {errorClause("DEFAULT");         }
   virtual WRNDefaultKind getDefault()  const {errorClause("DEFAULT");
                                               return WRNDefaultAbsent;        }
+  virtual void setDefaultmapTofromScalar(bool F) {errorClause("DEFAULTMAP");  }
+  virtual bool getDefaultmapTofromScalar() const {errorClause("DEFAULTMAP");
+                                              return false;                   }
+  virtual void setDepend(DependClause *D)    {errorClause("DEPEND");          }
+  virtual DependClause *getDepend()    const {errorClause("DEPEND");
+                                              return nullptr;                 }
+  virtual void setDepSink(DepSinkClause *D)  {errorClause("DEPEND(SINK:..)"); }
+  virtual DepSinkClause *getDepSink()  const {errorClause("DEPEND(SINK:..)"); 
+                                              return nullptr;                 }
+  virtual void setDevice(EXPR E)             {errorClause(QUAL_OMP_DEVICE);   }
+  virtual EXPR getDevice()             const {errorClause(QUAL_OMP_DEVICE);
+                                              return nullptr;                 }
+  virtual void setFinal(EXPR E)              {errorClause(QUAL_OMP_FINAL);    }
+  virtual EXPR getFinal()              const {errorClause(QUAL_OMP_FINAL);
+                                              return nullptr;                 }
   virtual void setFpriv(FirstprivateClause *F)
                           {errorClause(QUAL_OMP_FIRSTPRIVATE);                }
   virtual FirstprivateClause *getFpriv()const
                           {errorClause(QUAL_OMP_FIRSTPRIVATE); return nullptr;}
-
+  virtual void setGrainsize(EXPR E)          {errorClause(QUAL_OMP_GRAINSIZE);}
+  virtual EXPR getGrainsize()          const {errorClause(QUAL_OMP_GRAINSIZE);
+                                              return nullptr;                 }
   virtual void setIf(EXPR E)                 {errorClause(QUAL_OMP_IF);       }
   virtual EXPR getIf()                 const {errorClause(QUAL_OMP_IF);
                                               return nullptr;                 }
+  virtual void setIsDepSource(bool F)        {errorClause("DEPEND(SOURCE)");  }
+  virtual bool getIsDepSource()        const {errorClause("DEPEND(SOURCE)");
+                                              return false;                   }
+  virtual void setIsDevicePtr(IsDevicePtrClause *IDP)
+                        {errorClause(QUAL_OMP_IS_DEVICE_PTR);                 }
+  virtual IsDevicePtrClause *getIsDevicePtr() const
+                        {errorClause(QUAL_OMP_IS_DEVICE_PTR); return nullptr; }
+  virtual void setIsDoacross(bool F)    {errorClause("DEPEND(SOURCE|SINK)");  }
+  virtual bool getIsDoacross()    const {errorClause("DEPEND(SOURCE|SINK)");
+                                              return false;                   }
+  virtual void setIsThreads(bool Flag)       {errorClause("THREADS/SIMD");  }
+  virtual bool getIsThreads()          const {errorClause("THREADS/SIMD");
+                                              return false;                   }
   virtual void setLpriv(LastprivateClause *L)
                           {errorClause(QUAL_OMP_LASTPRIVATE);                 }
   virtual LastprivateClause *getLpriv()const
@@ -190,12 +242,33 @@ protected:
   virtual void setLinear(LinearClause *L)    {errorClause(QUAL_OMP_LINEAR);   }
   virtual LinearClause *getLinear()    const {errorClause(QUAL_OMP_LINEAR);
                                               return nullptr;                 }
-  virtual void setUniform(UniformClause *U)  {errorClause(QUAL_OMP_UNIFORM);  }
-  virtual UniformClause *getUniform()  const {errorClause(QUAL_OMP_UNIFORM);
+  virtual void setMap(MapClause *M)          {errorClause("MAP");             }
+  virtual MapClause *getMap()          const {errorClause("MAP");
+                                              return nullptr;                 }
+  virtual void setMergeable(bool Flag)       {errorClause(QUAL_OMP_MERGEABLE);}
+  virtual bool getMergeable()          const {errorClause(QUAL_OMP_MERGEABLE);
+                                              return false;                   }
+  virtual void setNogroup(bool Flag)         {errorClause(QUAL_OMP_NOGROUP);  }
+  virtual bool getNogroup()            const {errorClause(QUAL_OMP_NOGROUP);
+                                              return false;                   }
+  virtual void setNowait(bool Flag)          {errorClause(QUAL_OMP_NOWAIT);   }
+  virtual bool getNowait()             const {errorClause(QUAL_OMP_NOWAIT);
+                                              return false;                   }
+  virtual void setNumTasks(EXPR E)           {errorClause(QUAL_OMP_NUM_TASKS);}
+  virtual EXPR getNumTasks()           const {errorClause(QUAL_OMP_NUM_TASKS);
+                                              return nullptr;                 }
+  virtual void setNumTeams(EXPR E)           {errorClause(QUAL_OMP_NUM_TEAMS);}
+  virtual EXPR getNumTeams()           const {errorClause(QUAL_OMP_NUM_TEAMS);
                                               return nullptr;                 }
   virtual void setNumThreads(EXPR E)       {errorClause(QUAL_OMP_NUM_THREADS);}
   virtual EXPR getNumThreads()       const {errorClause(QUAL_OMP_NUM_THREADS);
-                                            return nullptr;                   }
+                                              return nullptr;                 }
+  virtual void setOrdered(int N)             {errorClause(QUAL_OMP_ORDERED);  }
+  virtual int getOrdered()             const {errorClause(QUAL_OMP_ORDERED);
+                                              return 0;                       }
+  virtual void setPriority(EXPR E)           {errorClause(QUAL_OMP_PRIORITY); }
+  virtual EXPR getPriority()           const {errorClause(QUAL_OMP_PRIORITY);
+                                              return nullptr;                 }
   virtual void setPriv(PrivateClause *P)     {errorClause(QUAL_OMP_PRIVATE);  }
   virtual PrivateClause *getPriv()     const {errorClause(QUAL_OMP_PRIVATE);  
                                               return nullptr;                 }
@@ -217,6 +290,19 @@ protected:
   virtual void setSimdlen(int N)             {errorClause(QUAL_OMP_SIMDLEN);  }
   virtual int getSimdlen()             const {errorClause(QUAL_OMP_SIMDLEN);
                                               return 0;                       }
+  virtual void setThreadLimit(EXPR E)     {errorClause(QUAL_OMP_THREAD_LIMIT);}
+  virtual EXPR getThreadLimit()     const {errorClause(QUAL_OMP_THREAD_LIMIT);
+                                              return nullptr;                 }
+  virtual void setUniform(UniformClause *U)  {errorClause(QUAL_OMP_UNIFORM);  }
+  virtual UniformClause *getUniform()  const {errorClause(QUAL_OMP_UNIFORM);
+                                              return nullptr;                 }
+  virtual void setUntied(bool Flag)          {errorClause(QUAL_OMP_UNTIED);   }
+  virtual bool getUntied()             const {errorClause(QUAL_OMP_UNTIED);
+                                              return false;                   }
+  virtual void setUseDevicePtr(UseDevicePtrClause *UDP)
+                        {errorClause(QUAL_OMP_USE_DEVICE_PTR);                }
+  virtual UseDevicePtrClause *getUseDevicePtr() const
+                        {errorClause(QUAL_OMP_USE_DEVICE_PTR); return nullptr;}
   // TODO: complete the list as we implement more WRN kinds
   
 
@@ -338,32 +424,80 @@ public:
 
   void resetBBSet() { BBlockSet.clear(); }
 
+  /// \brief Routines to set WRN primary attributes
+  void setAttributes(unsigned A) { Attributes = A; }
+  void setIsDistribute()         { Attributes |= WRNIsDistribute; }
+  void setIsPar()                { Attributes |= WRNIsPar; }
+  void setIsLoop()               { Attributes |= WRNIsLoop; }
+  void setIsTarget()             { Attributes |= WRNIsTarget; }
+  void setIsTask()               { Attributes |= WRNIsTask; }
+  void setIsTeams()              { Attributes |= WRNIsTeams; }
+
+  /// \brief Routines to get WRN primary attributes
+  unsigned getAttributes() const { return Attributes; }
+  bool getIsDistribute()   const { return Attributes & WRNIsDistribute; }
+  bool getIsPar()          const { return Attributes & WRNIsPar; }
+  bool getIsLoop()         const { return Attributes & WRNIsLoop; }
+  bool getIsTarget()       const { return Attributes & WRNIsTarget; }
+  bool getIsTask()         const { return Attributes & WRNIsTask; }
+  bool getIsTeams()        const { return Attributes & WRNIsTeams; }
+
+  /// \brief Routines to get WRN derived attributes
+  bool getIsParLoop()      const { return  getIsPar()  && getIsLoop(); }
+  bool getIsTaskloop()     const { return  getIsTask() && getIsLoop(); }
+  bool getIsWksLoop()      const { return !getIsTask() && getIsLoop(); }
+
+  /// \brief Routines to set/get DirID
+  void setDirID(int ID)          { DirID = ID; }
+  int  getDirID()          const { return DirID; }
+
   // Derived Class Enumeration
 
   /// \brief An enumeration to keep track of the concrete subclasses of 
   /// WRegionNode
   enum WRegionNodeKind{
+                                      // WRNAttribute:
     // These require outlining:
-    WRNParallel,
-    WRNParallelLoop,
-    WRNParallelSections,
-    WRNTask,
-    WRNTaskLoop,
+
+    WRNParallel,                      // IsPar
+    WRNParallelLoop,                  // IsPar, IsLoop
+    WRNParallelSections,              // IsPar, IsLoop
+    WRNParallelWorkshare,             // IsPar, IsLoop
+    WRNTeams,                         // IsTeams
+    WRNDistributeParLoop,             // IsPar, IsLoop, IsDistribute
+    WRNTarget,                        // IsTarget, IsTask (if depend/nowait)
+    WRNTargetData,                    // IsTarget, IsTask (if depend/nowait)
+    WRNTask,                          // IsTask
+    WRNTaskloop,                      // IsTask, IsLoop
 
     // These don't require outlining:
+
     WRNVecLoop,
-    WRNWksLoop,
-    WRNWksSections,
-    WRNSection,
-    WRNSingle,
-    WRNMaster,
+    WRNWksLoop,                       // IsLoop
+    WRNSections,                      // IsLoop
+    WRNWorkshare,                     // IsLoop
+    WRNDistribute,                    // IsLoop, IsDistribute
     WRNAtomic,
     WRNBarrier,
     WRNCancel,
     WRNCritical,
     WRNFlush,
     WRNOrdered,
-    WRNTaskgroup
+    WRNMaster,
+    WRNSingle,
+    WRNTaskgroup,
+    WRNTaskwait,
+    WRNTaskyield
+  };
+
+  /// \brief WRN primary attributes
+  enum WRNAttributes : uint32_t {
+    WRNIsDistribute = 0x00000001,
+    WRNIsPar        = 0x00000002,
+    WRNIsLoop       = 0x00000004,
+    WRNIsTarget     = 0x00000008,
+    WRNIsTask       = 0x00000010,
+    WRNIsTeams      = 0x00000020
   };
 }; // class WRegionNode
 

@@ -120,6 +120,7 @@ void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent;
 
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:

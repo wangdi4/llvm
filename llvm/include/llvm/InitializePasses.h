@@ -433,6 +433,8 @@ void initializeVPOCFGRestructuringPass(PassRegistry&);
 void initializeVPOParoptPreparePass(PassRegistry&);
 // VPO Parallelizer Pass
 void initializeVPOParoptPass(PassRegistry&);
+// VPO Tpv Transformation
+void initializeVPOParoptTpvPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
