@@ -30,28 +30,36 @@ using namespace llvm::vpo;
 unsigned WRegionNode::UniqueNum(0);
 
 std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
-    {WRegionNode::WRNParallel, "Parallel"},
-    {WRegionNode::WRNParallelLoop, "Parallel Loop"},
-    {WRegionNode::WRNParallelSections, "Parallel Sections"},
-    {WRegionNode::WRNTask, "Task"},
-    {WRegionNode::WRNTaskLoop, "Task Loop"},
-    {WRegionNode::WRNVecLoop, "Vec Loop"},
-    {WRegionNode::WRNWksLoop, "Worksharig Loop"},
-    {WRegionNode::WRNWksSections, "Worksharig Sections"},
-    {WRegionNode::WRNSection, "Section"},
-    {WRegionNode::WRNSingle, "Single"},
-    {WRegionNode::WRNMaster, "Master"},
-    {WRegionNode::WRNAtomic, "Atomic"},
-    {WRegionNode::WRNBarrier, "Barrier"},
-    {WRegionNode::WRNCancel, "Cancel"},
-    {WRegionNode::WRNCritical, "Critical"},
-    {WRegionNode::WRNFlush, "Flush"},
-    {WRegionNode::WRNOrdered, "Ordered"},
-    {WRegionNode::WRNTaskgroup, "Taskgroup"}};
+    {WRegionNode::WRNParallel, "parallel"},
+    {WRegionNode::WRNParallelLoop, "parallel loop"},
+    {WRegionNode::WRNParallelSections, "parallel sections"},
+    {WRegionNode::WRNParallelWorkshare, "parallel workshare"},
+    {WRegionNode::WRNTeams, "teams"},
+    {WRegionNode::WRNDistributeParLoop, "distribute parallel loop"},
+    {WRegionNode::WRNTarget, "target"},
+    {WRegionNode::WRNTargetData, "target data"},
+    {WRegionNode::WRNTask, "task"},
+    {WRegionNode::WRNTaskloop, "taskloop"},
+    {WRegionNode::WRNVecLoop, "simd"},
+    {WRegionNode::WRNWksLoop, "loop"},
+    {WRegionNode::WRNSections, "sections"},
+    {WRegionNode::WRNWorkshare, "workshare"},
+    {WRegionNode::WRNDistribute, "distribute"},
+    {WRegionNode::WRNSingle, "single"},
+    {WRegionNode::WRNMaster, "master"},
+    {WRegionNode::WRNAtomic, "atomic"},
+    {WRegionNode::WRNBarrier, "barrier"},
+    {WRegionNode::WRNCancel, "cancel"},
+    {WRegionNode::WRNCritical, "critical"},
+    {WRegionNode::WRNFlush, "flush"},
+    {WRegionNode::WRNOrdered, "ordered"},
+    {WRegionNode::WRNTaskgroup, "taskgroup"},
+    {WRegionNode::WRNTaskwait, "taskwait"},
+    {WRegionNode::WRNTaskyield, "taskyield"}};
 
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
-    : SubClassID(SCID), EntryBBlock(BB) {
+    : SubClassID(SCID), Attributes(0), EntryBBlock(BB) {
   setNextNumber();
   setParent(nullptr);
   setExitBBlock(nullptr);
@@ -60,7 +68,7 @@ WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
 }
 
 // constructor for HIR representation
-WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID) {
+WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setNextNumber();
   setParent(nullptr);
   setEntryBBlock(nullptr);
@@ -75,6 +83,7 @@ WRegionNode::WRegionNode(WRegionNode *W) : SubClassID(W->SubClassID) {
   setEntryBBlock(W->getEntryBBlock());
   setExitBBlock(W->getExitBBlock());
   setIsFromHIR(W->getIsFromHIR());
+  setAttributes(W->getAttributes());
   resetBBSet();
   // TODO: add code to copy Children?
 }
@@ -166,9 +175,14 @@ void WRegionNode::handleQual(int ClauseID) {
   case QUAL_OMP_DEFAULT_FIRSTPRIVATE:
     setDefault(WRNDefaultFirstprivate);
     break;
+  case QUAL_OMP_DEFAULTMAP_TOFROM_SCALAR:
+    setDefaultmapTofromScalar(true);
+    break;
   case QUAL_OMP_NOWAIT:
+    setNowait(true);
     break;
   case QUAL_OMP_UNTIED:
+    setUntied(true);
     break;
   case QUAL_OMP_READ_SEQ_CST:
     setHasSeqCstClause(true);
@@ -191,20 +205,45 @@ void WRegionNode::handleQual(int ClauseID) {
     setAtomicKind(WRNAtomicCapture);
     break;
   case QUAL_OMP_MERGEABLE:
+    setMergeable(true);
     break;
   case QUAL_OMP_NOGROUP:
-    break;
-  case QUAL_OMP_SCHEDULE_AUTO:
-    break;
-  case QUAL_OMP_SCHEDULE_RUNTIME:
+    setNogroup(true);
     break;
   case QUAL_OMP_PROC_BIND_MASTER:
+    setProcBind(WRNProcBindMaster);
     break;
   case QUAL_OMP_PROC_BIND_CLOSE:
+    setProcBind(WRNProcBindClose);
     break;
   case QUAL_OMP_PROC_BIND_SPREAD:
+    setProcBind(WRNProcBindSpread);
     break;
-  case QUAL_LIST_END:
+  case QUAL_OMP_ORDERED_THREADS:
+    setIsDoacross(false);
+    setIsThreads(true);
+    break;
+  case QUAL_OMP_ORDERED_SIMD:
+    setIsDoacross(false);
+    setIsThreads(false);
+    break;
+  case QUAL_OMP_DEPEND_SOURCE:
+    setIsDoacross(true);
+    setIsDepSource(true);
+    break;
+  case QUAL_OMP_CANCEL_PARALLEL:
+    setCancelKind(WRNCancelParallel);
+    break;
+  case QUAL_OMP_CANCEL_LOOP:
+    setCancelKind(WRNCancelLoop);
+    break;
+  case QUAL_OMP_CANCEL_SECTIONS:
+    setCancelKind(WRNCancelSections);
+    break;
+  case QUAL_OMP_CANCEL_TASKGROUP:
+    setCancelKind(WRNCancelTaskgroup);
+    break;
+  case QUAL_LIST_END: //TODO: remove this obsolete case
     break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
@@ -256,18 +295,29 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     setNumThreads(V);
     break;
   case QUAL_OMP_ORDERED:
+    assert(N > 0 && "ORDERED parameter must be positive");
+    setOrdered(N);
     break;
   case QUAL_OMP_FINAL:
+    setFinal(V);
     break;
   case QUAL_OMP_GRAINSIZE:
+    setGrainsize(V);
     break;
   case QUAL_OMP_NUM_TASKS:
+    setNumTasks(V);
     break;
   case QUAL_OMP_PRIORITY:
+    setPriority(V);
     break;
   case QUAL_OMP_NUM_TEAMS:
+    setNumTeams(V);
     break;
   case QUAL_OMP_THREAD_LIMIT:
+    setThreadLimit(V);
+    break;
+  case QUAL_OMP_DEVICE:
+    setDevice(V);
     break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpnd()");
@@ -285,8 +335,8 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
 template <typename ClauseTy>
 ClauseTy *WRegionUtils::extractQualOpndList(IntrinsicInst *Call, ClauseTy *C) {
   if (C == nullptr) {
-    StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
-    int ClauseID = VPOUtils::getClauseID(DirString);
+    StringRef DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
+    int ClauseID = VPOAnalysisUtils::getClauseID(DirString);
     C = new ClauseTy();
     C->setClauseID(ClauseID);
   }
@@ -319,7 +369,8 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   Sched.setChunk(ChunkSize);
 
   // extract and save the schedule modifiers 
-  StringRef ModifierString = VPOUtils::getScheduleModifierMDString(Call);
+  StringRef ModifierString = 
+                           VPOAnalysisUtils::getScheduleModifierMDString(Call);
   DEBUG(dbgs() << " Schedule Modifier Argument: " << ModifierString << "\n");
 
   SmallVector<StringRef, 4> ModifierSubString;
@@ -341,6 +392,46 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   }
 
   return;
+}
+
+MapClause *WRegionUtils::extractMapOpndList(IntrinsicInst *Call, 
+                                            MapClause *C,
+                                            unsigned MapKind) {
+  if (C == nullptr) {
+    C = new MapClause();
+    C->setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in 
+                                     // the MapKind of each list item
+  }
+
+  // Skip argument(0) as it is the metadata
+  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
+    Value *V = Call->getArgOperand(I);
+    C->add(V);
+    MapItem *MI = C->back();
+    MI->setMapKind(MapKind);
+  }
+  return C;
+}
+
+DependClause *WRegionUtils::extractDependOpndList(IntrinsicInst *Call, 
+                                                  DependClause *C,
+                                                  bool IsIn) {
+  if (C == nullptr) {
+    C = new DependClause();
+    C->setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id; 
+  }
+
+  // Skip argument(0) as it is the metadata
+  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
+    Value *V = Call->getArgOperand(I);
+
+    //TODO: Parse array section arguments.
+    //      Currently only scalar vars are supported.
+    C->add(V);
+    DependItem *DI = C->back();
+    DI->setIsIn(IsIn);
+  }
+  return C;
 }
 
 ReductionClause *WRegionUtils::extractReductionOpndList(IntrinsicInst *Call, 
@@ -404,8 +495,8 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
   }
   assert(RI->getInitializer() && RI->getCombiner() &&
          "Reduction Item is not initialized");
-  StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
-  int ReductionClauseID = VPOUtils::getClauseID(DirString);
+  StringRef DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
+  int ReductionClauseID = VPOAnalysisUtils::getClauseID(DirString);
   RI->setType(ReductionItem::getKindFromClauseId(ReductionClauseID));
 }
 #endif
@@ -416,50 +507,114 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
 //        clause items. It also does not support the optional arguments at
 //        the end of linear and aligned clauses.  We'll do that later.
 //
-// TODO2: Complete the cases in the switch to handle all list-type clauses
-//
 void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
   switch (ClauseID) {
   case QUAL_OMP_SHARED: {
     SharedClause *C =
-        WRegionUtils::extractQualOpndList<SharedClause>(Call, getShared());
+      WRegionUtils::extractQualOpndList<SharedClause>(Call, getShared());
     setShared(C);
     break;
   }
   case QUAL_OMP_PRIVATE: {
     PrivateClause *C =
-        WRegionUtils::extractQualOpndList<PrivateClause>(Call, getPriv());
+      WRegionUtils::extractQualOpndList<PrivateClause>(Call, getPriv());
     setPriv(C);
     break;
   }
   case QUAL_OMP_FIRSTPRIVATE: {
     FirstprivateClause *C =
-        WRegionUtils::extractQualOpndList<FirstprivateClause>(Call, getFpriv());
+      WRegionUtils::extractQualOpndList<FirstprivateClause>(Call, getFpriv());
     setFpriv(C);
     break;
   }
   case QUAL_OMP_LASTPRIVATE: {
     LastprivateClause *C =
-        WRegionUtils::extractQualOpndList<LastprivateClause>(Call, getLpriv());
+      WRegionUtils::extractQualOpndList<LastprivateClause>(Call, getLpriv());
     setLpriv(C);
+    break;
+  }
+  case QUAL_OMP_COPYIN: {
+    CopyinClause *C =
+      WRegionUtils::extractQualOpndList<CopyinClause>(Call, getCopyin());
+    setCopyin(C);
+    break;
+  }
+  case QUAL_OMP_COPYPRIVATE: {
+    CopyprivateClause *C =
+      WRegionUtils::extractQualOpndList<CopyprivateClause>(Call, getCpriv());
+    setCpriv(C);
+    break;
+  }
+  case QUAL_OMP_DEPEND_IN:
+  case QUAL_OMP_DEPEND_OUT:
+  case QUAL_OMP_DEPEND_INOUT: {
+    bool IsIn = ClauseID==QUAL_OMP_DEPEND_IN;
+    DependClause *C =
+      WRegionUtils::extractDependOpndList(Call, getDepend(), IsIn);
+    setDepend(C);
+    break;
+  }
+  case QUAL_OMP_DEPEND_SINK: {
+    setIsDoacross(true);
+    DepSinkClause *C =
+      WRegionUtils::extractQualOpndList<DepSinkClause>(Call, getDepSink());
+    setDepSink(C);
+    break;
+  }
+  case QUAL_OMP_IS_DEVICE_PTR: {
+    IsDevicePtrClause *C=WRegionUtils::extractQualOpndList<IsDevicePtrClause>
+                         (Call, getIsDevicePtr());
+    setIsDevicePtr(C);
+    break;
+  }
+  case QUAL_OMP_USE_DEVICE_PTR: {
+    UseDevicePtrClause *C=WRegionUtils::extractQualOpndList<UseDevicePtrClause>
+                          (Call, getUseDevicePtr());
+    setUseDevicePtr(C);
+    break;
+  }
+  case QUAL_OMP_TO:
+  case QUAL_OMP_FROM:
+  case QUAL_OMP_MAP_TO:
+  case QUAL_OMP_MAP_FROM:
+  case QUAL_OMP_MAP_TOFROM:
+  case QUAL_OMP_MAP_ALLOC:
+  case QUAL_OMP_MAP_RELEASE:
+  case QUAL_OMP_MAP_DELETE:
+  case QUAL_OMP_MAP_ALWAYS_TO:
+  case QUAL_OMP_MAP_ALWAYS_FROM:
+  case QUAL_OMP_MAP_ALWAYS_TOFROM:
+  case QUAL_OMP_MAP_ALWAYS_ALLOC:
+  case QUAL_OMP_MAP_ALWAYS_RELEASE:
+  case QUAL_OMP_MAP_ALWAYS_DELETE: {
+    unsigned MapKind = MapItem::getMapKindFromClauseId(ClauseID);
+    MapClause *C =
+      WRegionUtils::extractMapOpndList(Call, getMap(), MapKind);
+    setMap(C);
     break;
   }
   case QUAL_OMP_UNIFORM: {
     UniformClause *C =
-        WRegionUtils::extractQualOpndList<UniformClause>(Call, getUniform());
+      WRegionUtils::extractQualOpndList<UniformClause>(Call, getUniform());
     setUniform(C);
     break;
   }
   case QUAL_OMP_LINEAR: {
     LinearClause *C =
-        WRegionUtils::extractQualOpndList<LinearClause>(Call, getLinear());
+      WRegionUtils::extractQualOpndList<LinearClause>(Call, getLinear());
     setLinear(C);
     break;
   }
   case QUAL_OMP_ALIGNED: {
     AlignedClause *C =
-        WRegionUtils::extractQualOpndList<AlignedClause>(Call, getAligned());
+      WRegionUtils::extractQualOpndList<AlignedClause>(Call, getAligned());
     setAligned(C);
+    break;
+  }
+  case QUAL_OMP_FLUSH: {
+    FlushSet *C =
+      WRegionUtils::extractQualOpndList<FlushSet>(Call, getFlush());
+    setFlush(C);
     break;
   }
   case QUAL_OMP_SCHEDULE_AUTO: {
@@ -482,12 +637,10 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
                                           WRNScheduleRuntime);
     break;
   }
+  case QUAL_OMP_DIST_SCHEDULE_STATIC:
   case QUAL_OMP_SCHEDULE_STATIC: {
     WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
                                           WRNScheduleStatic);
-    break;
-  }
-  case QUAL_OMP_DIST_SCHEDULE_STATIC: {
     break;
   }
   case QUAL_OMP_REDUCTION_ADD:
@@ -502,7 +655,7 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
     int ReductionKind = ReductionItem::getKindFromClauseId(ClauseID);
     assert(ReductionKind > 0 && "Bad reduction operation");
     ReductionClause *C =
-        WRegionUtils::extractReductionOpndList(Call, getRed(), ReductionKind);
+      WRegionUtils::extractReductionOpndList(Call, getRed(), ReductionKind);
     setRed(C);
 
     //don't call this: 
@@ -526,12 +679,12 @@ void WRegionNode::errorClause(StringRef ClauseName) const {
   OS << "Error: " << getName() << " WRNs do not take " << ClauseName
      << " clauses.\n";
   // Example:
-  // Error: Vec Loop WRNs do not take SHARED clauses.
+  // Error: simd WRNs do not take SHARED clauses.
   llvm_unreachable("Unexpected clause encountered!");
 #endif
 }
 
 void WRegionNode::errorClause(int ClauseID) const {
-  StringRef ClauseName = VPOUtils::getClauseName(ClauseID);
+  StringRef ClauseName = VPOAnalysisUtils::getClauseName(ClauseID);
   errorClause(ClauseName);
 }

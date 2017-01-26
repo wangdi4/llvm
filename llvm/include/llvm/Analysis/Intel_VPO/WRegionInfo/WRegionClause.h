@@ -18,7 +18,7 @@
 #include <vector>
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
 namespace llvm {
 
@@ -47,6 +47,7 @@ typedef Value* RDECL;
 //   CopyprivateItem:  derived class for an item in the COPYPRIVATE  clause
 //   LinearItem:       derived class for an item in the LINEAR       clause
 //   UniformItem:      derived class for an item in the UNIFORM      clause
+//   MapItem:          derived class for an item in the MAP          clause
 //
 
 
@@ -65,10 +66,11 @@ class Item
     bool  IsVla;     // true for variable-length arrays (C99)
     EXPR  VlaSize;   // size of vla array can be an int expression
 
-  protected:
+  public:
     Item(VAR Orig) :
       OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr),
       IsNonpod(false), IsVla(false), VlaSize(nullptr) {}
+
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
     void setParm(VAR V)          { ParmItem = V;    }
@@ -76,7 +78,6 @@ class Item
     void setIsVla(bool Flag)     { IsVla = Flag;    }
     void setVlaSize(EXPR Size)   { VlaSize = Size;  }
 
-  public:
     VAR  getOrig()     const { return OrigItem; }
     VAR  getNew()      const { return NewItem;  }
     VAR  getParm()     const { return ParmItem; }
@@ -312,42 +313,159 @@ class UniformItem : public Item
     UniformItem(VAR Orig) : Item(Orig) {}
 };
 
+
 //
-// These two item classes for list-type clauses are not derived from the 
+//   MapItem: OMP MAP clause item
+//
+class MapItem : public Item 
+{
+private:
+  unsigned MapKind;  // bit vector for map kind and modifiers
+
+public:
+  enum WRNMapKind {
+    WRNMapNone      = 0x0000,
+    WRNMapTo        = 0x0001,
+    WRNMapFrom      = 0x0002,
+    WRNMapTofrom    = 0x0004,
+    WRNMapAlloc     = 0x0008,
+    WRNMapRelease   = 0x0010,
+    WRNMapDelete    = 0x0020,
+    WRNMapAlways    = 0x0100  
+  } WRNMapKind;
+
+  MapItem(VAR Orig) : Item(Orig), MapKind(0) {} 
+
+  static unsigned getMapKindFromClauseId(int Id) {
+    switch(Id) {
+      case QUAL_OMP_TO:
+      case QUAL_OMP_MAP_TO:
+        return WRNMapTo;
+      case QUAL_OMP_FROM:
+      case QUAL_OMP_MAP_FROM:
+        return WRNMapFrom;
+      case QUAL_OMP_MAP_TOFROM:
+        return WRNMapTofrom;
+      case QUAL_OMP_MAP_ALLOC:
+        return WRNMapAlloc;
+      case QUAL_OMP_MAP_RELEASE:
+        return WRNMapRelease;
+      case QUAL_OMP_MAP_DELETE:
+        return WRNMapDelete;
+      case QUAL_OMP_MAP_ALWAYS_TO:
+        return WRNMapTo | WRNMapAlways;
+      case QUAL_OMP_MAP_ALWAYS_FROM:
+        return WRNMapFrom | WRNMapAlways;
+      case QUAL_OMP_MAP_ALWAYS_TOFROM:
+        return WRNMapTofrom | WRNMapAlways;
+      case QUAL_OMP_MAP_ALWAYS_ALLOC:
+        return WRNMapAlloc | WRNMapAlways;
+      case QUAL_OMP_MAP_ALWAYS_RELEASE:
+        return WRNMapRelease | WRNMapAlways;
+      case QUAL_OMP_MAP_ALWAYS_DELETE:
+        return WRNMapDelete | WRNMapAlways;
+      default: 
+        llvm_unreachable("Unsupported MAP Clause ID");
+    }
+  };
+
+  void setMapKind(unsigned MK) { MapKind = MK; }
+  void setIsMapTo()      { MapKind |= WRNMapTo; }
+  void setIsMapFrom()    { MapKind |= WRNMapFrom; }
+  void setIsMapTofrom()  { MapKind |= WRNMapTofrom; }
+  void setIsMapAlloc()   { MapKind |= WRNMapAlloc; }
+  void setIsMapRelease() { MapKind |= WRNMapRelease; }
+  void setIsMapDelete()  { MapKind |= WRNMapDelete; }
+  void setIsMapAlways()  { MapKind |= WRNMapAlways; }
+
+  unsigned getMapKind()    const { return MapKind; }
+  bool getIsMapTo()        const { return MapKind & WRNMapTo; }
+  bool getIsMapFrom()      const { return MapKind & WRNMapFrom; }
+  bool getIsMapTofrom()    const { return MapKind & WRNMapTofrom; }
+  bool getIsMapAlloc()     const { return MapKind & WRNMapAlloc; }
+  bool getIsMapRelease()   const { return MapKind & WRNMapRelease; }
+  bool getIsMapDelete()    const { return MapKind & WRNMapDelete; }
+  bool getIsMapAlways()    const { return MapKind & WRNMapAlways; }
+};
+
+
+//
+//   IsDevicePtrItem: OMP IS_DEVICE_PTR clause item
+//
+class IsDevicePtrItem : public Item
+{
+  public:
+    IsDevicePtrItem(VAR Orig) : Item(Orig) {}
+};
+
+
+//
+//   UseDevicePtrItem: OMP USE_DEVICE_PTR clause item
+//
+class UseDevicePtrItem : public Item
+{
+  public:
+    UseDevicePtrItem(VAR Orig) : Item(Orig) {}
+};
+
+
+//
+// These item classes for list-type clauses are not derived from the 
 // base "Item" class above.
 //            
 //   DependItem    (for the depend  clause in task and target constructs)
+//   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
+//
+// TODO: we need a better array section representation;
+//       the one hard-coded in DependItem only handles 1-dim.
 //
 class DependItem 
 {
   private:
     VAR   Base;           // scalar item or base of array section
-    bool  IsOut;          // depend type: false for IN; true for OUT/INOUT
+    bool  IsIn;           // depend type: true for IN; false for OUT/INOUT
     bool  IsArraySection; // if true, then lb, length, stride below are used
     EXPR  LowerBound;     // null if unspecified
     EXPR  Length;         // null if unspecified
     EXPR  Stride;         // null if unspecified
 
   public:
-    DependItem(VAR V=nullptr) : Base(V), IsOut(false), IsArraySection(false),
+    DependItem(VAR V=nullptr) : Base(V), IsIn(true), IsArraySection(false),
       LowerBound(nullptr), Length(nullptr), Stride(nullptr) {}
 
     void setOrig(VAR V)         { Base = V; }
-    void setIsOut(bool Flag)    { IsOut = Flag; }
+    void setIsIn(bool Flag)     { IsIn = Flag; }
     void setIsArrSec(bool Flag) { IsArraySection = Flag; }
     void setLb(EXPR Lb)         { LowerBound = Lb;   }
     void setLength(EXPR Len)    { Length = Len;  }
     void setStride(EXPR Str)    { Stride = Str;  }
 
     VAR  getOrig()      const   { return Base; }
-    bool getIsOut()     const   { return IsOut; }
+    bool getIsIn()      const   { return IsIn; }
     bool getIsArrSec()  const   { return IsArraySection; }
     EXPR getLb()        const   { return LowerBound; }
     EXPR getLength()    const   { return Length; }
     EXPR getStride()    const   { return Stride; }
 };
 
+class DepSinkItem 
+{
+  private:
+    EXPR  SinkExpr;       // LoopVar +/- Offset (eg: i-1)
+    VAR   LoopVar;        // LoopVar extracted from the SinkExpr
+    EXPR  Offset;         // Offset extracted from the SinkExpr
+
+  public:
+    DepSinkItem(EXPR E) : SinkExpr(E), LoopVar(nullptr), Offset(nullptr) {}
+
+    void setSinkExpr(EXPR S)    { SinkExpr = S;  }
+    void setLoopVar(EXPR LV)    { LoopVar = LV;  }
+    void setOffset(EXPR O)      { Offset = O;  }
+    EXPR getSinkExpr()  const   { return SinkExpr; }
+    EXPR getLoopVar()   const   { return LoopVar; }
+    EXPR getOffset()    const   { return Offset; }
+};
 
 class AlignedItem 
 {
@@ -363,6 +481,17 @@ class AlignedItem
     int  getAlign() const { return Alignment; }
 };
 
+
+class FlushItem
+{
+  private:
+    VAR  Var;  // global, static, volatile values 
+
+  public:
+    FlushItem(VAR V=nullptr) : Var(V) {}
+    void setOrig(VAR V)      { Var = V; }
+    VAR  getOrig()  const { return Var; }
+};
 
 
 //
@@ -408,7 +537,7 @@ template <typename ClauseItem> class Clause
     }
 
     void print(formatted_raw_ostream &OS) const {
-      StringRef S = VPOUtils::getClauseName(getClauseID());
+      StringRef S = VPOAnalysisUtils::getClauseName(getClauseID());
       OS << S << " clause, size=" << size() << ": " ;
       for (auto I=begin(); I != end(); ++I) {
         OS << "(" << *((*I)->getOrig()) << ") ";
@@ -452,8 +581,13 @@ typedef Clause<CopyinItem>       CopyinClause;
 typedef Clause<CopyprivateItem>  CopyprivateClause;
 typedef Clause<LinearItem>       LinearClause;
 typedef Clause<UniformItem>      UniformClause;
+typedef Clause<MapItem>          MapClause;
+typedef Clause<IsDevicePtrItem>  IsDevicePtrClause;
+typedef Clause<UseDevicePtrItem> UseDevicePtrClause;
 typedef Clause<DependItem>       DependClause;
+typedef Clause<DepSinkItem>      DepSinkClause;
 typedef Clause<AlignedItem>      AlignedClause;
+typedef Clause<FlushItem>        FlushSet;
 
 typedef std::vector<SharedItem>::iterator       SharedIter;
 typedef std::vector<PrivateItem>::iterator      PrivateIter;
@@ -464,8 +598,13 @@ typedef std::vector<CopyinItem>::iterator       CopyinIter;
 typedef std::vector<CopyprivateItem>::iterator  CopyprivateIter;
 typedef std::vector<LinearItem>::iterator       LinearIter;
 typedef std::vector<UniformItem>::iterator      UniformIter;
+typedef std::vector<MapItem>::iterator          MapIter;
+typedef std::vector<IsDevicePtrItem>::iterator  IsDevicePtrter;
+typedef std::vector<UseDevicePtrItem>::iterator UseDevicePtrter;
 typedef std::vector<DependItem>::iterator       DependIter;
+typedef std::vector<DepSinkItem>::iterator      DepSinkIter;
 typedef std::vector<AlignedItem>::iterator      AlignedIter;
+typedef std::vector<FlushItem>::iterator        FlushIter;
 
 
 //

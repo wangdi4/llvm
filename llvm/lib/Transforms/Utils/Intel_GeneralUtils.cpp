@@ -18,6 +18,7 @@
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Analysis/LoopInfo.h"
 
 using namespace llvm;
@@ -104,4 +105,72 @@ void IntelGeneralUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
   assert((BBSet.front() == EntryBB) &&
          "The first element of BBSet is not EntryBB");
   assert((BBSet.back() == ExitBB) && "The last element of BBSet is not ExitBB");
+}
+
+// Breaks up the instruction recursively for all the constant expression
+// operands.
+void IntelGeneralUtils::breakExpressions(Instruction *Inst)
+{
+  if (DbgDeclareInst *DbgDclInst = dyn_cast<DbgDeclareInst>(Inst)) {
+    // For DbgDeclareInst, the operand is a metadata that might
+    // contain a constant expression.
+    Value* Op = DbgDclInst->getAddress();
+    // If the debug adress is a constant expression, recursively break it up.
+    if (ConstantExpr* Expr = dyn_cast_or_null<ConstantExpr>(Op))
+      breakExpressionsHelper(Expr, 0, Inst);
+  }
+  else if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(Inst)) {
+    // For DbgValueInst, the operand is a metadata that might
+    // contain a constant expression.
+    Value* Op = DbgValInst->getValue();
+    // If the debug value operand is a constant expression, recursively break it up.
+    if (ConstantExpr* Expr = dyn_cast_or_null<ConstantExpr>(Op))
+      breakExpressionsHelper(Expr, 0, Inst);
+  }
+  else {
+    // And all the operands of each instruction
+    for( unsigned I = 0; I < Inst->getNumOperands(); ++I )
+    {
+      Value* Op = Inst->getOperand(I);
+
+      // If the operand is a constant expression, recursively break it up.
+      if (ConstantExpr* Expr = dyn_cast<ConstantExpr>(Op))
+        breakExpressionsHelper(Expr, I, Inst);
+    }
+  }
+}
+
+// Breaks up the instruction recursively for the gvien constant
+// expression operand.
+void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr, 
+                                               unsigned OperandIndex, 
+                                               Instruction* User)
+{
+    // Create a new instruction, and insert it at the appropriate point.
+    Instruction* NewInst = Expr->getAsInstruction();
+    NewInst->setDebugLoc(User->getDebugLoc());
+
+    if( PHINode* Phi = dyn_cast<PHINode>(User) )
+    {
+      NewInst->insertBefore(Phi->getIncomingBlock(OperandIndex)->getTerminator());
+      User->setOperand(OperandIndex, NewInst);
+    }
+    else if (DbgInfoIntrinsic* Dbg = dyn_cast<DbgInfoIntrinsic>(User))
+      NewInst->insertBefore(User);
+    else
+    {
+      NewInst->insertBefore(User);    
+      User->replaceUsesOfWith(Expr, NewInst);
+    }
+    if( Expr->use_empty() )
+      Expr->destroyConstant();
+    // Thew new instruction may itself reference constant expressions.
+    // So, recursively process all of its arguments.
+    for( unsigned I = 0; I < NewInst->getNumOperands(); ++I )
+    {
+      Value* Op = NewInst->getOperand(I);
+      ConstantExpr* InnerExpr = dyn_cast<ConstantExpr>(Op);
+      if( InnerExpr )
+        breakExpressionsHelper(InnerExpr, I, NewInst);
+    }
 }

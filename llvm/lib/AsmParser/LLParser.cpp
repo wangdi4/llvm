@@ -509,16 +509,20 @@ bool LLParser::ParseUnnamedGlobal() {
   unsigned Linkage, Visibility, DLLStorageClass;
   GlobalVariable::ThreadLocalMode TLM;
   GlobalVariable::UnnamedAddr UnnamedAddr;
+  bool IsThreadPrivate = false;  // INTEL
   if (ParseOptionalLinkage(Linkage, HasLinkage, Visibility, DLLStorageClass) ||
+      ParseOptionalThreadPrivate(IsThreadPrivate) ||  // INTEL
       ParseOptionalThreadLocal(TLM) || ParseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
   if (Lex.getKind() != lltok::kw_alias && Lex.getKind() != lltok::kw_ifunc)
     return ParseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
-                       DLLStorageClass, TLM, UnnamedAddr);
+                       DLLStorageClass, TLM, UnnamedAddr, 
+                       IsThreadPrivate); // INTEL
 
   return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
-                             DLLStorageClass, TLM, UnnamedAddr);
+                             DLLStorageClass, TLM, UnnamedAddr, 
+                             IsThreadPrivate); // INTEL
 }
 
 /// ParseNamedGlobal:
@@ -535,17 +539,21 @@ bool LLParser::ParseNamedGlobal() {
   unsigned Linkage, Visibility, DLLStorageClass;
   GlobalVariable::ThreadLocalMode TLM;
   GlobalVariable::UnnamedAddr UnnamedAddr;
+  bool IsThreadPrivate = false;  // INTEL
   if (ParseToken(lltok::equal, "expected '=' in global variable") ||
       ParseOptionalLinkage(Linkage, HasLinkage, Visibility, DLLStorageClass) ||
+      ParseOptionalThreadPrivate(IsThreadPrivate) || // INTEL
       ParseOptionalThreadLocal(TLM) || ParseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
   if (Lex.getKind() != lltok::kw_alias && Lex.getKind() != lltok::kw_ifunc)
     return ParseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
-                       DLLStorageClass, TLM, UnnamedAddr);
+                       DLLStorageClass, TLM, UnnamedAddr, 
+                       IsThreadPrivate);  // ITNEL
 
   return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
-                             DLLStorageClass, TLM, UnnamedAddr);
+                             DLLStorageClass, TLM, UnnamedAddr, 
+                             IsThreadPrivate);  // INTEL
 }
 
 bool LLParser::parseComdat() {
@@ -715,7 +723,8 @@ static bool isValidVisibilityForLinkage(unsigned V, unsigned L) {
 bool LLParser::parseIndirectSymbol(
     const std::string &Name, LocTy NameLoc, unsigned L, unsigned Visibility,
     unsigned DLLStorageClass, GlobalVariable::ThreadLocalMode TLM,
-    GlobalVariable::UnnamedAddr UnnamedAddr) {
+    GlobalVariable::UnnamedAddr UnnamedAddr,
+    bool IsThreadPrivate) {  // INTEL
   bool IsAlias;
   if (Lex.getKind() == lltok::kw_alias)
     IsAlias = true;
@@ -803,6 +812,7 @@ bool LLParser::parseIndirectSymbol(
                                  (GlobalValue::LinkageTypes)Linkage, Name,
                                  Aliasee, /*Parent*/ nullptr));
   GA->setThreadLocalMode(TLM);
+  GA->setThreadPrivate(IsThreadPrivate);  // INTEL
   GA->setVisibility((GlobalValue::VisibilityTypes)Visibility);
   GA->setDLLStorageClass((GlobalValue::DLLStorageClassTypes)DLLStorageClass);
   GA->setUnnamedAddr(UnnamedAddr);
@@ -851,7 +861,8 @@ bool LLParser::ParseGlobal(const std::string &Name, LocTy NameLoc,
                            unsigned Linkage, bool HasLinkage,
                            unsigned Visibility, unsigned DLLStorageClass,
                            GlobalVariable::ThreadLocalMode TLM,
-                           GlobalVariable::UnnamedAddr UnnamedAddr) {
+                           GlobalVariable::UnnamedAddr UnnamedAddr,
+                           bool IsThreadPrivate) {  // INTEL
   if (!isValidVisibilityForLinkage(Visibility, Linkage))
     return Error(NameLoc,
                  "symbol with local linkage must have default visibility");
@@ -928,6 +939,7 @@ bool LLParser::ParseGlobal(const std::string &Name, LocTy NameLoc,
   GV->setDLLStorageClass((GlobalValue::DLLStorageClassTypes)DLLStorageClass);
   GV->setExternallyInitialized(IsExternallyInitialized);
   GV->setThreadLocalMode(TLM);
+  GV->setThreadPrivate(IsThreadPrivate);  // INTEL
   GV->setUnnamedAddr(UnnamedAddr);
 
   // Parse attributes on the global.
@@ -1332,6 +1344,17 @@ bool LLParser::ParseOptionalThreadLocal(GlobalVariable::ThreadLocalMode &TLM) {
   }
   return false;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+/// ParseOptionalThreadPrivate
+///   := 'thread_private'
+bool LLParser::ParseOptionalThreadPrivate(bool &IsThreadPrivate) {
+  if (!EatIfPresent(lltok::kw_thread_private))
+    return false;
+  IsThreadPrivate = true;
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// ParseOptionalAddrSpace
 ///   := /*empty*/

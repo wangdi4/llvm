@@ -437,7 +437,7 @@ public:
 
   // \brief Returns true if the DDRef is a unitary blob. A unitary blob is a
   // single (non-nested) standalone blob.
-  bool isUnitaryBlob();
+  bool isUnitaryBlob() const;
 
   /// Returns true if this ref looks like 1 * undef.
   bool isUndefSelfBlob() const override;

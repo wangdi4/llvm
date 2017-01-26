@@ -1024,6 +1024,12 @@ Instruction* VecClone::generateStrideForParameter(
     // However, ParmUser may be another integer type, so we must convert i32 to
     // i8/i16/i64 when the user is not i32.
 
+    // TODO: Need to be able to deal with induction variables that are converted
+    // to floating point types. Assert for now.
+    if (ParmUser->getType()->isFloatTy()) {
+      llvm_unreachable("Expected integer type for induction variable");
+    }
+
     if (ParmUser->getType()->getIntegerBitWidth() !=
         Mul->getType()->getIntegerBitWidth()) {
 

@@ -856,8 +856,18 @@ HLInst *HLNodeUtils::createCall(Function *Func,
     HInst = createNonLvalHLInst(InstVal);
   }
 
+  // For non-void functions, the return DDRef position for the HLInst
+  // representing the call is at index 0 and the 1st argument DDRef is
+  // at position 1. For void functions, the DDRef for the first argument
+  // starts at 0. ArgOffset gets added to the index of the loop below to
+  // determine the correct DDRef index.
+  unsigned ArgOffset = 0;
+  if (HasReturn) {
+    ArgOffset = 1;
+  }
+
   for (unsigned I = 0; I < NumArgs; I++) {
-    HInst->setOperandDDRef(CallArgs[I], I);
+    HInst->setOperandDDRef(CallArgs[I], I + ArgOffset);
   }
   return HInst;
 }

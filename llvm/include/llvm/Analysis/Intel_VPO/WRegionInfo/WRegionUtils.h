@@ -169,9 +169,8 @@ public:
   /// Creation Utilities
 
   /// \brief Returns a new node derived from WRegionNode node that
-  /// matches the construct type based on DirString.
-  //  (eg create a WRNParRegion node if DirString is "dir.parallel")
-  static WRegionNode *createWRegion(StringRef DirString, BasicBlock *EntryBB,
+  /// matches the construct type based on DirID.
+  static WRegionNode *createWRegion(int DirID, BasicBlock *EntryBB,
                                     LoopInfo *LI, unsigned NestingLevel);
 
   /// \brief Similar to createWRegion, but for HIR vectorizer support
@@ -199,9 +198,12 @@ public:
   /// This is called by WRegionNode::handleQualOpndList()
   template <typename ClauseTy>
   static ClauseTy *extractQualOpndList(IntrinsicInst *Call, ClauseTy *C);
+  static MapClause *extractMapOpndList(IntrinsicInst *Call, MapClause *C, 
+                                       unsigned MapKind);
+  static DependClause *extractDependOpndList(IntrinsicInst *Call,
+                                             DependClause *C, bool IsIn);
   static ReductionClause *extractReductionOpndList(IntrinsicInst *Call,
-                                                   ReductionClause *C,
-                                                   int ReductionKind);
+                                       ReductionClause *C, int ReductionKind);
 
   /// \brief Extract operands from a schedule clause
   static void extractScheduleOpndList(ScheduleClause & Sched,
@@ -224,15 +226,6 @@ public:
 
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(WRegionNode *OldW, WRegionNode *NewW);
-
-  /// \brief Removes calls to directive intrinsics from WRegionNode \p WRN.
-  /// By default, the util removes the directive intrinsic calls from the
-  /// Entry and Exit BBlocks of \p WRN. This can be extended to handle needs
-  /// of specific WRegionNode kinds.
-  /// \returns \b true if <em>one or more</em> directive intrinsics were
-  /// stripped from \em each of the entry as well as exit BasicBlocks of
-  /// \p WRN; \b false otherwise.
-  static bool stripDirectives(WRegionNode *WRN);
 
   ///\name Clause related Utilities
   /// @{

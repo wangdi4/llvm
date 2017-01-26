@@ -16,6 +16,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.h"
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/Intrinsics.h"
@@ -223,20 +224,6 @@ void AVRCodeGen::completeReductions() {
   RM.completeReductionPhis(WidenMap);
 }
 
-int AVRCodeGen::getRemainderLoopCost(Loop *Loop, unsigned int VF, 
-                         unsigned int &ConstTripCount) {
-  ConstTripCount = TripCount;
-  // Check for positive trip count and that trip count is a multiple of vector
-  // length. Otherwise a remainder loop is needed. Since CG currently does not
-  // support remainder loops, return a dummy high cost to make sure this VF will
-  // not be selected as vectorization factor.
-  if (TripCount == 0 || TripCount % VF) {
-    return 1000;
-  }
-
-  return 0;
-}
-
 // TODO: Take as input a VPOVecContext that indicates which AVRLoop(s)
 // is (are) to be vectorized, as identified by the vectorization scenario
 // evaluation.
@@ -398,7 +385,7 @@ bool AVRCodeGen::loopIsHandled(unsigned int VF) {
     return false;
 
   setTripCount(ConstTripCount);
-  // errs() << "Legal loop\n";
+  errs() << "Legal loop\n";
   return true;
 }
 
@@ -412,8 +399,7 @@ void AVRCodeGen::createEmptyLoop() {
 
   PhiInst = dyn_cast<const PHINode>(InductionPhi->getLLVMInstruction());
 
-  BasicBlock *ScalarLoopEntry = LoopPreHeader->splitBasicBlock(
-      LoopPreHeader->getTerminator(), "scalar.loop");
+  LoopPreHeader->splitBasicBlock(LoopPreHeader->getTerminator(), "scalar.loop");
 
   // Create vector loop body
   BasicBlock *VecBody = BasicBlock::Create(F->getContext(), "vector.body", F);
@@ -439,12 +425,15 @@ void AVRCodeGen::createEmptyLoop() {
       Builder.CreateICmpEQ(NextIdx, ConstantInt::get(IdxTy, TripCount));
   Builder.CreateCondBr(ICmp, LoopExit, VecBody);
 
-  // Replace LoopPreheader terminator with a conditional branch that always
-  // jumps to vector loop body
+  // Replace LoopPreheader terminator with an unconditional branch that
+  // always jumps to vector loop body. The branch must be unconditional
+  // because values that are live outside of vector.body must reside in
+  // basic blocks that dominate their uses. We previously relied on the
+  // CFG simplification pass to clean up "conditional always true" branches,
+  // but this code has been removed from the end of VPODriver because it
+  // is not safe to call another transform pass within a transform pass.
   Instruction *Term = LoopPreHeader->getTerminator();
-  BranchInst *VecBodyBranch = BranchInst::Create(
-      VecBody, ScalarLoopEntry,
-      ConstantInt::get(IntegerType::get(F->getContext(), 1), 1));
+  BranchInst *VecBodyBranch = BranchInst::Create(VecBody);
   ReplaceInstWithInst(Term, VecBodyBranch);
   Builder.SetInsertPoint(cast<Instruction>(NextIdx));
 
@@ -701,6 +690,32 @@ void AVRCodeGen::vectorizePHIInstruction(Instruction *Inst) {
   WidenMap[cast<Value>(Inst)] = TempVal;
 }
 
+void AVRCodeGen::vectorizeCallInstruction(CallInst *Call) {
+
+  Function *CalledFunc = Call->getCalledFunction();
+  SmallVector<Value*, 2> VecArgs;
+  SmallVector<Type*, 2> VecArgTys;
+
+  for (Value *Arg : Call->arg_operands()) {
+    // TODO: some args may be scalar
+    Value *VecArg = getVectorValue(Arg);
+    VecArgs.push_back(VecArg);
+    VecArgTys.push_back(VecArg->getType());
+  }
+
+  Function *VectorF = getOrInsertVectorFunction(CalledFunc, VL, VecArgTys, TLI);
+  assert(VectorF && "Can't create vector function.");
+  CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+
+  if (isa<FPMathOperator>(VecCall))
+    VecCall->copyFastMathFlags(Call);
+
+  Loop *Lp = LI->getLoopFor(Call->getParent());
+  analyzeCallArgMemoryReferences(Call, VecCall, TLI, SE, Lp);
+
+  WidenMap[cast<Value>(Call)] = VecCall;
+}
+
 void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
   switch (Inst->getOpcode()) {
   case Instruction::GetElementPtr: {
@@ -802,6 +817,20 @@ void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
     break;
   }
 
+  case Instruction::Call: {
+    // Currently, the LLVM code gen side does not let AVRIf nodes flow through
+    // during loop legalization (isLoopHandled()), so we don't need to worry
+    // about masked vector function calls yet.
+    CallInst *Call = cast<CallInst>(Inst);
+    StringRef CalledFunc = Call->getCalledFunction()->getName();
+    if (TLI->isFunctionVectorizable(CalledFunc)) {
+      vectorizeCallInstruction(Call);
+    } else {
+      serializeInstruction(Inst);
+    }
+    break;
+  }
+
 #if 0
   case Instruction::Trunc: {
     CastInst *CI = dyn_cast<CastInst>(Inst);
@@ -858,6 +887,12 @@ bool AVRCodeGen::vectorize(unsigned int VL) {
       Instruction *Inst;
 
       Inst = const_cast<Instruction *>(PhiAvr->getLLVMInstruction());
+      vectorizeInstruction(Inst);
+    }
+
+    if (AVRCallIR *CallAvr = dyn_cast<AVRCallIR>(Itr)) {
+      Instruction *Inst;
+      Inst = const_cast<Instruction *>(CallAvr->getLLVMInstruction());
       vectorizeInstruction(Inst);
     }
   }
