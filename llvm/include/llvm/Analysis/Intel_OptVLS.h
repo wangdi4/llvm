@@ -43,6 +43,7 @@ namespace llvm {
 
 class TargetTransformInfo;
 class Type;
+class LLVMContext;
 
 // OptVLS data structures
 template <typename T> class OVLSVector : public SmallVector<T, 8> {};
@@ -706,8 +707,6 @@ static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSOperand &Op) {
 /// defined by the underlying targets. Consequently, it's the clients that
 /// decide on the cost accuracy level.
 class OVLSCostModel {
-  const TargetTransformInfo &TTI;
-
   /// Example of a 4-element reversed-mask {3, 2, 1, 0}
   // Please note that undef elements don't prevent us from matching
   // the reverse pattern.
@@ -746,8 +745,16 @@ class OVLSCostModel {
     return IsAlternate;
   }
 
+protected:
+  /// \brief A handle to Target Information
+  const TargetTransformInfo &TTI;
+
+  /// \brief A handle to the LLVM Context
+  LLVMContext &C;
+
 public:
-  explicit OVLSCostModel(const TargetTransformInfo &TargetTI) : TTI(TargetTI) {}
+  explicit OVLSCostModel(const TargetTransformInfo &TargetTI, LLVMContext &Ctx)
+    : TTI(TargetTI), C(Ctx) {}
 
   /// \brief Returns target-specific cost for an OVLSInstruction, different
   /// cost parameters are defined by each specific target.
@@ -764,6 +771,8 @@ public:
   }
 
   virtual uint64_t getShuffleCost(SmallVectorImpl<int> &Mask, Type *Tp) const;
+
+  LLVMContext &getContext() const { return C; }
 };
 
 // OptVLS public Interface class that operates on OptVLS Abstract types.

@@ -26,16 +26,9 @@ namespace llvm {
 /// The VLS-engine needs clients to provide this information in order to 
 /// compute the cost of a VLS group.
 class OVLSTTICostModel : public OVLSCostModel {
-protected:
-  /// \brief A handle to Target Information
-  const TargetTransformInfo &TTI;
-
-  /// \brief A handle to the LLVM Context
-  LLVMContext &C;
-
 public:
   OVLSTTICostModel(const TargetTransformInfo &TTI, LLVMContext &C)
-    : OVLSCostModel(TTI), TTI(TTI), C(C) {}
+    : OVLSCostModel(TTI, C) {}
 
   /// \brief Returns target-specific cost for \p I based on the
   /// Target Transformation Information (TTI) interface.
