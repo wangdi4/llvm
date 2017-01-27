@@ -26,7 +26,7 @@ static cl::opt<int>
 ElimMovOpt("csa-elim-mov-opt",
            cl::Hidden,
            cl::desc("CSA Specific: Eliminate redundant MOV instructions"),
-           cl::init(0));
+           cl::init(1));
 
 // Set to -1 to have no limit.
 // Otherwise, the value is the number of MOV instructions we will remove. 
@@ -614,7 +614,7 @@ bool CSARedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
 
   int num_removed = 0;
 
-  // Loop the basic blocks, doing dead-instruction elimination on each block
+  // Loop the basic blocks, removing redundant MOVs in each block.
   for (MachineBasicBlock &MBB : make_range(MF.rbegin(), MF.rend())) {
     bool LocalChanges = false;
 
