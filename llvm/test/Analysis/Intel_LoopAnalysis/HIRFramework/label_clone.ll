@@ -10,18 +10,18 @@
 ; CHECK-DAG: [[LABEL1]]:
 
 ; CHECK: Dump After HIR Complete Unroll
-; CHECK: goto [[LABEL0]].[[NODE01:.*]];
-; CHECK: goto [[LABEL1]].[[NODE11:.*]];
-; CHECK-DAG: <[[NODE01]]>{{.*}}[[LABEL0]].[[NODE01]]:
-; CHECK-DAG: <[[NODE11]]>{{.*}}[[LABEL1]].[[NODE11]]:
+; CHECK: goto [[LABEL0]]{{.*}}.[[NODE01:.*]];
+; CHECK: goto [[LABEL1]]{{.*}}.[[NODE11:.*]];
+; CHECK-DAG: <[[NODE01]]>{{.*}}[[LABEL0]]{{.*}}.[[NODE01]]:
+; CHECK-DAG: <[[NODE11]]>{{.*}}[[LABEL1]]{{.*}}.[[NODE11]]:
 
 ; CHECK-NOT: <[[NODE01]]>{{.*}}[[LABEL0]].[[NODE01]]:
 ; CHECK-NOT: <[[NODE11]]>{{.*}}[[LABEL1]].[[NODE11]]:
 
-; CHECK: goto [[LABEL0]].[[NODE21:.*]];
-; CHECK: goto [[LABEL1]].[[NODE31:.*]];
-; CHECK-DAG: <[[NODE21]]>{{.*}}[[LABEL0]].[[NODE21]]:
-; CHECK-DAG: <[[NODE31]]>{{.*}}[[LABEL1]].[[NODE31]]:
+; CHECK: goto [[LABEL0]]{{.*}}.[[NODE21:.*]];
+; CHECK: goto [[LABEL1]]{{.*}}.[[NODE31:.*]];
+; CHECK-DAG: <[[NODE21]]>{{.*}}[[LABEL0]]{{.*}}.[[NODE21]]:
+; CHECK-DAG: <[[NODE31]]>{{.*}}[[LABEL1]]{{.*}}.[[NODE31]]:
 
 ; ModuleID = 'goto.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

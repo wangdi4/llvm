@@ -66,6 +66,8 @@
 #include "intelovls-test.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -218,7 +220,6 @@ static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
     Mrfs.push_back(mrf);
   }
 }
-} // end of namespace OVLSTest
 
 std::unique_ptr<TargetMachine> createTargetMachine() {
   Triple TargetTriple("x86_64-pc-linux");
@@ -229,9 +230,17 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
 
   TargetOptions Options;
   return std::unique_ptr<TargetMachine>(T->createTargetMachine(
-      TargetTriple.getTriple(), "core-avx-i", "", Options, None,
+      TargetTriple.getTriple(), "core2", "", Options, None,
       CodeModel::Default, CodeGenOpt::Aggressive));
 }
+
+template <typename FuncType>
+Function *createFunctionDecl(StringRef Name, Module *M) {
+  return Function::Create(TypeBuilder<FuncType, false>::get(Context),
+                          GlobalValue::ExternalLinkage, Name, M);
+}
+
+} // end of namespace OVLSTest
 
 //
 // main() for intelovls-test
@@ -256,11 +265,17 @@ int main(int argc, char **argv) {
   InitializeAllTargetMCs();
   InitializeAllAsmPrinters();
 
-  TM = createTargetMachine();
+  TM = OVLSTest::createTargetMachine();
 #endif
 
   if (TM) {
-    TargetTransformInfo TTI = TargetTransformInfo(TM->createDataLayout());
+    // Create a dummy module.
+    Module *M = new Module("OptVLS", OVLSTest::Context);
+    // Create a dummy function declaration.
+    const Function *BarImpl =
+        OVLSTest::createFunctionDecl<int32_t(void)>("client_test", M);
+    FunctionAnalysisManager DummyFAM;
+    TargetTransformInfo TTI = TM->getTargetIRAnalysis().run(*BarImpl, DummyFAM);
     OVLSCostModel CM(TTI);
 
     // Do something with the grps.

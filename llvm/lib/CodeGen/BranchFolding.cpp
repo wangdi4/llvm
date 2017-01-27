@@ -1633,6 +1633,11 @@ ReoptimizeBlock:
       MachineBasicBlock *PrevTBB = nullptr, *PrevFBB = nullptr;
       SmallVector<MachineOperand, 4> PrevCond;
       if (FallThrough != MF.end() &&
+#ifdef INTEL_CUSTOMIZATION
+		  // This change cherry picks r289486 from LLVM trunk to fix a problem with
+		  // spec2006/483 where this code could go into an infinite loop.
+		  !FallThrough->isEHPad() &&
+#endif // INTEL_CUSTOMIZATION
           !TII->analyzeBranch(PrevBB, PrevTBB, PrevFBB, PrevCond, true) &&
           PrevBB.isSuccessor(&*FallThrough)) {
         MBB->moveAfter(&MF.back());

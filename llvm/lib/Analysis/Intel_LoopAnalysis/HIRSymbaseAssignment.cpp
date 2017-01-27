@@ -144,7 +144,7 @@ bool HIRSymbaseAssignment::runOnFunction(Function &F) {
   HIRSymbaseAssignmentVisitor SV(this, AA, HIRP);
 
   // Cannot use visitAll() here as HIRFramework pointer isn't set yet.
-  HIRP->getHLNodeUtils().visitRange(SV, HIRP->hir_begin(), HIRP->hir_end());
+  HLNodeUtils::visitRange(SV, HIRP->hir_begin(), HIRP->hir_end());
   AliasSetTracker &AST = SV.AST;
 
   // Each ref in a set gets the same symbase

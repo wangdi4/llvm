@@ -19,6 +19,7 @@
 #include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
@@ -38,6 +39,7 @@ INITIALIZE_PASS_BEGIN(HIRFramework, "hir-framework", "HIR Framework", false,
                       true)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_DEPENDENCY(HIRSymbaseAssignment)
+INITIALIZE_PASS_DEPENDENCY(HIRScalarSymbaseAssignment)
 INITIALIZE_PASS_END(HIRFramework, "hir-framework", "HIR Framework", false, true)
 
 char HIRFramework::ID = 0;
@@ -52,13 +54,16 @@ void HIRFramework::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<HIRParser>();
   AU.addRequiredTransitive<HIRSymbaseAssignment>();
+  AU.addRequiredTransitive<HIRScalarSymbaseAssignment>();
 }
 
 bool HIRFramework::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
   SA = &getAnalysis<HIRSymbaseAssignment>();
+  ScalarSA = &getAnalysis<HIRScalarSymbaseAssignment>();
 
   getHLNodeUtils().HIRF = this;
+  getHLNodeUtils().removeEmptyNodesRange(hir_begin(), hir_end());
   getHLNodeUtils().initTopSortNum();
 
   estimateMaxTripCounts();

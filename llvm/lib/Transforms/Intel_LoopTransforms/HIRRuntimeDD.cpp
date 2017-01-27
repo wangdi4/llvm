@@ -559,10 +559,6 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return ALREADY_MV;
   }
 
-  if (!Loop->hasChildren()) {
-    return NO_OPPORTUNITIES;
-  }
-
   if (!isProfitable(Loop)) {
     return NON_PROFITABLE;
   }
@@ -675,9 +671,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   return OK;
 }
 
-HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLLoop *OrigLoop,
-                                                HLContainerTy &Nodes,
-                                                Segment &S1, Segment &S2) {
+HLInst *HIRRuntimeDD::createIntersectionCondition(HLLoop *OrigLoop,
+                                                  HLContainerTy &Nodes,
+                                                  Segment &S1, Segment &S2) {
   Segment *S[] = {&S1, &S2};
   Type *S1Type = S[0]->getType()->getPointerElementType();
   Type *S2Type = S[1]->getType()->getPointerElementType();
@@ -702,11 +698,17 @@ HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLLoop *OrigLoop,
     BS->Upper = BCIU->getLvalDDRef()->clone();
   }
 
-  HLIf *If = HNU.createHLIf(PredicateTy::ICMP_UGE, S1.Upper, S2.Lower);
-  If->addPredicate(PredicateTy::ICMP_UGE, S2.Upper, S1.Lower);
+  HLInst *Cmp1 =
+      HNU.createCmp(PredicateTy::ICMP_UGE, S1.Upper, S2.Lower, "mv.test");
+  HLInst *Cmp2 =
+      HNU.createCmp(PredicateTy::ICMP_UGE, S2.Upper, S1.Lower, "mv.test");
+  HLInst *And = HNU.createAnd(Cmp1->getLvalDDRef()->clone(),
+                              Cmp2->getLvalDDRef()->clone(), "mv.and");
 
-  Nodes.push_back(If);
-  return If;
+  Nodes.push_back(Cmp1);
+  Nodes.push_back(Cmp2);
+  Nodes.push_back(And);
+  return And;
 }
 
 void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
@@ -717,68 +719,74 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   //
   // ZTT {
   //   <Preheader>
-  //   if (<low trip test>) goto orig;
   //
-  //   if (<test-0>) goto orig;
-  //   ...
-  //   if (<test-n>) goto orig;
+  //   %cmp-0.1 = <test-0.1>
+  //   %cmp-0.2 = <test-0.2>
+  //   %and-0 = and %cmp-0.1, %cmp-0.2
   //
-  //   <Modified loop>
-  //   goto escape;
+  //   %cmp-n.1 = <test-n.1>
+  //   %cmp-n.2 = <test-n.2>
+  //   %and-n = and %cmp-n.1, %cmp-n.2
   //
-  //   orig:
-  //   <Original loop>
+  //   if (<low trip test> && %and-0 == F && ... && %and-n == F) {
+  //     <Modified loop>
+  //   } else {
+  //     <Original loop>
+  //   }
   //
-  //   escape:
   //   <PostExit>
   // }
 
   HLLoop *OrigLoop = Context.Loop;
   HLLoop *ModifiedLoop = Context.Loop->clone();
 
+  HLIf *MemcheckIf = nullptr;
   auto &HNU = OrigLoop->getHLNodeUtils();
 
-  HNU.insertBefore(OrigLoop, ModifiedLoop);
-
-  HLLabel *OrigLabel = HNU.createHLLabel("mv.orig");
-  HNU.insertBefore(OrigLoop, OrigLabel);
-
-  HLLabel *EscapeLabel = HNU.createHLLabel("mv.escape");
-  HNU.insertAfter(OrigLoop, EscapeLabel);
-
-  HLGoto *EscapeGoto = HNU.createHLGoto(EscapeLabel);
-  HNU.insertAfter(ModifiedLoop, EscapeGoto);
-
-  HLGoto *OrigGoto = HNU.createHLGoto(OrigLabel);
-
-  // Generate tripcount test
+  /// Generate tripcount test
   if (Context.GenTripCountTest) {
     // TODO: generation of small tripcount tests for a loopnest
     uint64_t MinTripCount = SmallTripCountTest;
     RegDDRef *TripCountRef = Context.Loop->getTripCountDDRef();
     assert(TripCountRef != nullptr &&
            "getTripCountDDRef() unexpectedly returned nullptr");
-    HLIf *LowTripCountIf =
-        HNU.createHLIf(PredicateTy::ICMP_ULT, TripCountRef,
-                       HNU.getDDRefUtils().createConstDDRef(
-                           TripCountRef->getDestType(), MinTripCount));
-
-    HNU.insertAsFirstChild(LowTripCountIf, OrigGoto, true);
-    HNU.insertBefore(ModifiedLoop, LowTripCountIf);
+    MemcheckIf = HNU.createHLIf(PredicateTy::ICMP_UGE, TripCountRef,
+                                HNU.getDDRefUtils().createConstDDRef(
+                                    TripCountRef->getDestType(), MinTripCount));
   }
   //////////////////////////
 
+  HLContainerTy Nodes;
+  SmallVector<RegDDRef *, 2 * ExpectedNumberOfTests> TestDDRefs;
   unsigned RefsCount = Context.SegmentList.size();
   for (unsigned i = 0; i < RefsCount; i += 2) {
     auto &S1 = Context.SegmentList[i];
     auto &S2 = Context.SegmentList[i + 1];
 
-    HLContainerTy Nodes;
-    HLIf *DDCheck = createIfStmtForIntersection(OrigLoop, Nodes, S1, S2);
-
-    HNU.insertAsFirstChild(DDCheck, OrigGoto->clone(), true);
-    HNU.insertBefore(ModifiedLoop, &Nodes);
+    HLInst *And = createIntersectionCondition(OrigLoop, Nodes, S1, S2);
+    TestDDRefs.push_back(And->getLvalDDRef()->clone());
   }
+  HNU.insertBefore(OrigLoop, &Nodes);
+
+  Type *Ty = TestDDRefs.front()->getDestType();
+  if (!MemcheckIf) {
+    MemcheckIf = HNU.createHLIf(PredicateTy::ICMP_EQ, TestDDRefs.front(),
+                                HNU.getDDRefUtils().createConstDDRef(Ty, 0));
+  } else {
+    MemcheckIf->addPredicate(PredicateTy::ICMP_EQ, TestDDRefs.front(),
+                             HNU.getDDRefUtils().createConstDDRef(Ty, 0));
+  }
+
+  for (auto I = std::next(TestDDRefs.begin()), E = TestDDRefs.end(); I != E;
+       ++I) {
+    MemcheckIf->addPredicate(PredicateTy::ICMP_EQ, (*I),
+                             HNU.getDDRefUtils().createConstDDRef(Ty, 0));
+  }
+
+  HNU.insertBefore(OrigLoop, MemcheckIf);
+
+  HNU.insertAsFirstChild(MemcheckIf, ModifiedLoop, true);
+  HNU.moveAsFirstChild(MemcheckIf, OrigLoop, false);
 
   unsigned MVTag = ModifiedLoop->getNumber();
   ModifiedLoop->setMVTag(MVTag);
@@ -787,10 +795,6 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   OrigLoop->markDoNotVectorize();
 
   markDDRefsIndep(ModifiedLoop);
-
-  HLRegion *ParentRegion = Context.Loop->getParentRegion();
-  assert(ParentRegion && "Processed loop is not attached.");
-  ParentRegion->setGenCode(true);
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Context.Loop);
 }

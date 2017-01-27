@@ -1,4 +1,4 @@
-//===--- HIRLoopTransformUtils.cpp  ---------------------------*- C++ -*---===//
+//===--- HIRTransformUtils.cpp  -------------------------------------------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -9,45 +9,43 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements HIRLoopTransformUtils class.
+// This file implements HIRTransformUtils class.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+
 #include "llvm/Support/Debug.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
-#define DEBUG_TYPE "hir-looptransform-utils"
+#define DEBUG_TYPE "hir-transform-utils"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::reversal;
+using namespace llvm::loopopt::lmm;
 
-bool HIRLoopTransformUtils::isHIRLoopReversible(
-    HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+bool HIRTransformUtils::isHIRLoopReversible(
+    HLLoop *InnermostLp,            // INPUT + OUTPUT: a given loop
     HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
     HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
     HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
     bool DoProfitTest               // INPUT: Control Profit Tests
     ) {
-  // 0.Sanity Checks
-  assert(Lp && "HLLoop* can't be a nullptr\n");
+  assert(InnermostLp && "HLLoop* can't be a nullptr\n");
+  assert(InnermostLp->isInnermost() &&
+         "HIR LoopReversal can only work with an inner-most loop\n");
 
-  if (!Lp->isInnermost()) {
-    DEBUG(
-        dbgs() << "HIR LoopReversal can only work with an inner-most loop\n ";);
-    return false;
-  }
-
-  // 1.Create an HIRLoopReversal object on stack
+  // Create an HIRLoopReversal object on stack
   HIRLoopReversal ReversalPass;
 
-  // 2.Call HIRLoopReversal.isReversible(-)
+  // Call HIRLoopReversal.isReversible(-)
   return ReversalPass.isReversible(
-      Lp,           // HLLoop*
+      InnermostLp,  // HLLoop*
       HDDA,         // Existing DDAnalysis
       HSRA,         // Existing SafeReductionAnalysis
       HLS,          // Existing HIRLoopStatistics Analysis
@@ -57,43 +55,81 @@ bool HIRLoopTransformUtils::isHIRLoopReversible(
       );
 }
 
-void HIRLoopTransformUtils::doHIRLoopReversal(
-    HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+void HIRTransformUtils::doHIRLoopReversal(
+    HLLoop *InnermostLp,            // INPUT + OUTPUT: an inner-most loop
     HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
     HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
     HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
     ) {
-  // 0.Sanity Checks
-  assert(Lp && "HLLoop* can't be a nullptr\n");
+  assert(InnermostLp && "HLLoop* can't be a nullptr\n");
+  assert(InnermostLp->isInnermost() &&
+         "HIR LoopReversal can only work with an inner-most loop\n");
 
-  if (!Lp->isInnermost()) {
-    DEBUG(
-        dbgs() << "HIR LoopReversal can only work with an inner-most loop\n ";);
-  }
-
-  // 1.Create an HIRLoopReversal object on stack
+  // Create an HIRLoopReversal object on stack
   HIRLoopReversal ReversalPass;
 
-  // 2.Call HIRLoopReversal.isReversible(-), expect the loop is reversible
+  // Call HIRLoopReversal.isReversible(-), expect the loop is reversible
   bool IsReversible = ReversalPass.isReversible(
-      Lp,    // HLLoop*
-      HDDA,  // Existing DDAnalysis
-      HSRA,  // Existing SafeReductionAnalysis
-      HLS,   // Existing HIRLoopStatistics Analysis
-      false, // Ignore Profit Tests
-      false, // Assert on legality
+      InnermostLp, // HLLoop*
+      HDDA,        // Existing DDAnalysis
+      HSRA,        // Existing SafeReductionAnalysis
+      HLS,         // Existing HIRLoopStatistics Analysis
+      false,       // Ignore Profit Tests
+      false,       // Assert on legality
       true // ON Short-circuit action (expect the analysis has been done in the
            // previous API call)
       );
 
-  // 3. Reverse the Loop
+  // Reverse the Loop
   assert(IsReversible && "Expect the loop is reversible\n");
   (void)IsReversible;
 
-  ReversalPass.doHIRReversalTransform(Lp);
+  ReversalPass.doHIRReversalTransform(InnermostLp);
 }
 
-bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
+bool HIRTransformUtils::doHIRLoopRedundantMemoryMotion(
+    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+    HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
+    HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
+    ) {
+  assert(InnermostLp && "HLLoop* can't be null\n");
+  assert(InnermostLp->isInnermost() && "HIR LRMM (Loop Redundant Memory "
+                                       "Motion) can only work on an inner-most "
+                                       "loop\n");
+
+  // to implement!
+
+  return false;
+}
+
+bool HIRTransformUtils::doHIRLoopInvariantMemoryMotion(
+    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+    HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
+    HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
+    ) {
+  assert(InnermostLp && "HLLoop* can't be null\n");
+  assert(InnermostLp->isInnermost() && "HIR LIMM (Loop Invariant Memory "
+                                       "Motion) can only work on an inner-most "
+                                       "loop\n");
+
+  HIRLMM LMMPass;
+  return LMMPass.doLoopMemoryMotion(InnermostLp, HDDA, HLS);
+}
+
+bool HIRTransformUtils::doHIRLoopMemoryMotion(
+    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+    HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
+    HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
+    ) {
+  assert(InnermostLp && "HLLoop* can't be null\n");
+  assert(InnermostLp->isInnermost() &&
+         "HIR LMM (Loop Memory Motion) can only work on an inner-most loop\n");
+
+  // to implement!
+  return false;
+}
+
+bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
                                                   unsigned UnrollOrVecFactor,
                                                   uint64_t *NewTripCountP,
                                                   RegDDRef **NewTCRef) {
@@ -148,7 +184,7 @@ bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
   return true;
 }
 
-void HIRLoopTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
+void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
                                              unsigned BlobIndex,
                                              unsigned DefLevel) {
   // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
@@ -159,7 +195,7 @@ void HIRLoopTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
   BoundRef->updateDefLevel();
 }
 
-HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
+HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
                                                      unsigned UnrollOrVecFactor,
                                                      uint64_t NewTripCount,
                                                      const RegDDRef *NewTCRef,
@@ -228,7 +264,7 @@ HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
   return NewLoop;
 }
 
-void HIRLoopTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
+void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
                                                  unsigned UnrollOrVecFactor,
                                                  uint64_t NewTripCount,
                                                  const RegDDRef *NewTCRef) {
@@ -263,7 +299,7 @@ void HIRLoopTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
   DEBUG(OrigLoop->dump());
 }
 
-HLLoop *HIRLoopTransformUtils::setupMainAndRemainderLoops(
+HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
     bool VecMode) {
   // Extract Ztt and add it outside the loop.
@@ -293,4 +329,159 @@ HLLoop *HIRLoopTransformUtils::setupMainAndRemainderLoops(
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(OrigLoop);
 
   return MainLoop;
+}
+
+/// Update Loop properties based on Input Permutations
+/// Used by Loop Interchange now. Will be useful for loop blocking later
+void HIRTransformUtils::permuteLoopNests(
+    HLLoop *OutermostLoop, const SmallVectorImpl<HLLoop *> &LoopPermutation) {
+
+  SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
+  HLLoop *DstLoop = OutermostLoop;
+
+  for (auto &Lp : LoopPermutation) {
+    HLLoop *LoopCopy = Lp->cloneEmptyLoop();
+    LoopCopy->setNestingLevel(Lp->getNestingLevel());
+    SavedLoops.push_back(LoopCopy);
+  }
+
+  for (auto &Lp : LoopPermutation) {
+    assert(DstLoop && "Perfect loop nest expected");
+    HLLoop *SrcLoop = nullptr;
+    // Loop is already in desired position
+    if (Lp == DstLoop) {
+      DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
+      continue;
+    }
+    for (auto &Lp1 : SavedLoops) {
+      // getNestingLevel() asserts for disconnected loops. It is set
+      // explicitly
+      // for saved loops in the previous loop so we access it directly.
+      if (Lp->getNestingLevel() == Lp1->NestingLevel) {
+        SrcLoop = Lp1;
+        break;
+      }
+    }
+    assert(SrcLoop && "Input Loop is null");
+    assert(DstLoop != SrcLoop && "Dst, Src loop cannot be equal");
+    // Move properties from SrcLoop to DstLoop.
+    *DstLoop = std::move(*SrcLoop);
+
+    DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
+  }
+}
+
+namespace {
+
+class LabelRemapVisitor final : public HLNodeVisitorBase {
+  const HLNodeMapper &Mapper;
+
+public:
+  LabelRemapVisitor(const HLNodeMapper &Mapper) : Mapper(Mapper) {}
+
+  void visit(HLGoto *Goto) {
+    if (!Goto->isExternal()) {
+      Goto->setTargetLabel(Mapper.getMapped(Goto->getTargetLabel()));
+    }
+  }
+
+  void visit(HLNode *) {}
+  void postVisit(HLNode *) {}
+};
+}
+
+void HIRTransformUtils::remapLabelsRange(const HLNodeMapper &Mapper,
+                                         HLNode *Begin, HLNode *End) {
+  LabelRemapVisitor Visitor(Mapper);
+  HLNodeUtils::visitRange(Visitor, Begin, End);
+}
+
+namespace {
+
+class RedundantIfLookup final : public HLNodeVisitorBase {
+public:
+  typedef SmallVector<std::tuple<HLIf *, bool>, 16> CandidatesVector;
+
+private:
+  CandidatesVector &Candidates;
+  const HLNode *SkipNode;
+
+public:
+  RedundantIfLookup(CandidatesVector &Candidates)
+      : Candidates(Candidates), SkipNode(nullptr) {}
+
+  void visit(HLIf *If) {
+    bool IsTrue;
+    if (If->isKnownPredicate(&IsTrue)) {
+      SkipNode = If;
+
+      Candidates.emplace_back(std::make_tuple(If, IsTrue));
+
+      // Go over nodes that are not going to be removed. If the predicate is
+      // always TRUE the else branch will be removed.
+      RedundantIfLookup Lookup(Candidates);
+      if (IsTrue) {
+        HLNodeUtils::visitRange<true, false>(Lookup, If->then_begin(),
+                                             If->then_end());
+      } else {
+        HLNodeUtils::visitRange<true, false>(Lookup, If->else_begin(),
+                                             If->else_end());
+      }
+    }
+  }
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  virtual bool skipRecursion(const HLNode *Node) const {
+    return Node == SkipNode;
+  }
+};
+
+STATISTIC(RedundantPredicates, "Redundant predicates removed");
+}
+
+bool HIRTransformUtils::eliminateRedundantPredicates(
+    HLContainerTy::iterator Begin, HLContainerTy::iterator End) {
+  DEBUG(dbgs() << "Eliminating redundant predicates\n ");
+  assert(((Begin != End) || Begin->getParent() == End->getParent()) &&
+         "Both nodes should have the same parent");
+
+  RedundantIfLookup::CandidatesVector Candidates;
+  RedundantIfLookup Lookup(Candidates);
+
+  HLNodeUtils::visitRange<true, false>(Lookup, Begin, End);
+
+  for (auto Candidate : Candidates) {
+    HLIf *If = std::get<0>(Candidate);
+
+    DEBUG(dbgs() << "Eliminated: ");
+    DEBUG(If->dumpHeader());
+    DEBUG(dbgs() << "\n");
+
+    replaceNodeWithBody(If, std::get<1>(Candidate));
+
+    RedundantPredicates++;
+  }
+
+  if (Candidates.size() > 0) {
+    DEBUG(dbgs() << "While Removing redundant predicates:\n");
+    DEBUG(Begin->getParentRegion()->dump());
+    DEBUG(dbgs() << "\n");
+
+    return true;
+  }
+
+  return false;
+}
+
+void HIRTransformUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
+  HLNodeUtils &HNU = If->getHLNodeUtils();
+
+  if (ThenBody) {
+    HNU.moveAfter(If, If->then_begin(), If->then_end());
+  } else {
+    HNU.moveAfter(If, If->else_begin(), If->else_end());
+  }
+  HNU.remove(If);
 }

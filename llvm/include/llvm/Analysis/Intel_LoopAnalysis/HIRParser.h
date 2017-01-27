@@ -306,18 +306,25 @@ private:
   /// parseRecursive().
   CanonExpr *parse(const Value *Val, unsigned Level, bool IsTop = true);
 
+  /// Returns fast math flags if \p Cmp is a FPMathOperator. Returns default
+  /// FMF otherwise.
+  static FastMathFlags parseFMF(const CmpInst *Cmp);
+
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions and returns predicates in \p Preds and DDRefs in \p Refs. \p
   /// AllowMultiplePreds indicates whether we should break '&&' conditions into
   /// different predicates.
   void parseCompare(const Value *Cond, unsigned Level,
-                    SmallVectorImpl<CmpInst::Predicate> &Preds,
-                    SmallVectorImpl<RegDDRef *> &Refs, bool AllowMultiplePreds);
+                    SmallVectorImpl<PredicateTy> &Preds,
+                    SmallVectorImpl<const CmpInst *> &CmpInsts,
+                    SmallVectorImpl<RegDDRef *> &Refs,
+                    bool AllowMultiplePreds);
 
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions into a single predicate.
-  void parseCompare(const Value *Cond, unsigned Level, CmpInst::Predicate *Pred,
-                    RegDDRef **LHSDDRef, RegDDRef **RHSDDRef);
+  void parseCompare(const Value *Cond, unsigned Level, PredicateTy *Pred,
+                    const CmpInst **Cmp, RegDDRef **LHSDDRef,
+                    RegDDRef **RHSDDRef);
 
   /// Clears blob level map populated for the previous DDRef.
   void clearTempBlobLevelMap();
@@ -506,7 +513,29 @@ private:
   BlobTy createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty, bool Insert,
                         unsigned *NewBlobIndex);
 
-  // TODO handle min/max blobs.
+  /// Returns a new blob represented smin of BlobA and BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument. Blob types should
+  /// match each other.
+  BlobTy createSMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// Returns a new blob represented smax of BlobA and BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument. Blob types should
+  /// match each other.
+  BlobTy createSMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// Returns a new blob represented umin of BlobA and BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument. Blob types should
+  /// match each other.
+  BlobTy createUMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// Returns a new blob represented umax of BlobA and BlobB. If Insert is
+  /// true its index is returned via NewBlobIndex argument. Blob types should
+  /// match each other.
+  BlobTy createUMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                        unsigned *NewBlobIndex);
 
   /// Returns true if Blob contains SubBlob or if Blob == SubBlob.
   bool contains(BlobTy Blob, BlobTy SubBlob) const;

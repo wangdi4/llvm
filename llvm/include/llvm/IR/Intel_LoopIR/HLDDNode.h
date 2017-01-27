@@ -52,6 +52,10 @@ protected:
   /// Copy Constructor
   HLDDNode(const HLDDNode &HLDDNodeObj);
 
+  /// The mask DDRef for this node - defaults to null and set by vectorizer
+  /// when the corresponding HLDDNode is masked.
+  RegDDRef *MaskDDRef;
+
   /// The DDRef indices correspond to the operand number in the instruction
   /// with the first DDRef being for lval, if applicable.
   RegDDRefTy RegDDRefs;
@@ -190,16 +194,12 @@ public:
     return false;
   }
 
-  /// Returns true if Ref is a rval DDRef of this node.
+  /// Returns true if Ref is a rval DDRef of this node. MaskDDRef is treated
+  /// as a rval DDRef
   virtual bool isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
 
   /// Returns true if Ref is a fake DDRef attached to this node.
-  /// Default implementation returns false as only HLInst can contain fake
-  /// DDRefs.
-  virtual bool isFake(const RegDDRef *Ref) const {
-    assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
-    return false;
-  }
+  bool isFake(const RegDDRef *Ref) const;
 
   /// Returns the DDRef associated with the Nth operand (starting with 0).
   RegDDRef *getOperandDDRef(unsigned OperandNum);
@@ -212,6 +212,9 @@ public:
   /// Removes and returns the DDRef associated with the Nth operand (starting
   /// with 0).
   RegDDRef *removeOperandDDRef(unsigned OperandNum);
+
+  /// Returns the operand number of \p OpRef.
+  unsigned getOperandNum(RegDDRef *OpRef) const;
 
   /// Returns the lval DDRef of this node. Returns null if it doesn't exist.
   virtual RegDDRef *getLvalDDRef() { return nullptr; }
@@ -240,9 +243,20 @@ public:
     llvm_unreachable("Node doesn't have an rval!");
   }
 
+  /// Returns the mask DDRef associated with this node.
+  RegDDRef *getMaskDDRef() { return MaskDDRef; }
+  const RegDDRef *getMaskDDRef() const {
+    return const_cast<HLDDNode *>(this)->getMaskDDRef();
+  }
+
+  /// Sets the mask DDRef associated with this node. This gets used to generate
+  /// masked loads/stores when needed.
+  void setMaskDDRef(RegDDRef *Ref);
+
   /// Adds an extra RegDDRef which does not correspond to lval or any operand.
-  /// This DDRef is not used for code generation but might be used for exposing
-  /// DD edges. TODO: more on this later...
+  /// This DDRef might be used for exposing DD edges. The mask DDRef is also
+  /// added as a fake DDRef for exposing DD edges.
+  /// TODO: more on this later...
   void addFakeDDRef(RegDDRef *RDDRef);
 
   /// Removes a previously inserted fake DDRef.

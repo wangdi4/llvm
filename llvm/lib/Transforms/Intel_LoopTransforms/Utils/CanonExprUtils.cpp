@@ -80,7 +80,7 @@ void CanonExprUtils::destroyAll() {
 }
 
 // Internal Method that calculates the gcd of two positive integers
-int64_t CanonExprUtils::gcd(int64_t A, int64_t B) const {
+int64_t CanonExprUtils::gcd(int64_t A, int64_t B) {
   assert((A > 0) && (B > 0) && "Integers must be positive!");
 
   // Both inputs are same.
@@ -99,7 +99,7 @@ int64_t CanonExprUtils::gcd(int64_t A, int64_t B) const {
 }
 
 // Internal Method that calculates the lcm of two positive integers
-int64_t CanonExprUtils::lcm(int64_t A, int64_t B) const {
+int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
   return ((A * B) / gcd(A, B));
 }
 
@@ -335,7 +335,7 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   // Bail out if we cannot merge the canon expr.
   if (!IsMergeable) {
     if (CreateNewCE) {
-      destroy(Result);
+      Result->getCanonExprUtils().destroy(Result);
     }
     return nullptr;
   }
@@ -403,7 +403,7 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
 
   // Destroy auxiliary canon expr.
   if (CreatedAuxCE) {
-    destroy(NewCE2);
+    NewCE2->getCanonExprUtils().destroy(NewCE2);
   }
 
   return Result;
@@ -499,7 +499,7 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   Term->multiplyByConstant(ConstCoeff);
 
   auto BlobCoeff = CE1->getIVBlobCoeff(Level);
-  if (getBlobUtils().isBlobIndexValid(BlobCoeff)) {
+  if (CE1->getBlobUtils().isBlobIndexValid(BlobCoeff)) {
     // CE2 <- CE2 * B1
     Term->multiplyByBlob(BlobCoeff);
   }

@@ -523,6 +523,50 @@ BlobTy HIRParser::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
   return NewBlob;
 }
 
+BlobTy HIRParser::createSMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                 unsigned *NewBlobIndex) {
+  assert(BlobA && BlobB && "Blob cannot be null!");
+
+  auto NewBlob = SE->getSMinExpr(BlobA, BlobB);
+
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
+
+  return NewBlob;
+}
+
+BlobTy HIRParser::createSMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                 unsigned *NewBlobIndex) {
+  assert(BlobA && BlobB && "Blob cannot be null!");
+
+  auto NewBlob = SE->getSMaxExpr(BlobA, BlobB);
+
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
+
+  return NewBlob;
+}
+
+BlobTy HIRParser::createUMinBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                unsigned *NewBlobIndex) {
+  assert(BlobA && BlobB && "Blob cannot be null!");
+
+  auto NewBlob = SE->getUMinExpr(BlobA, BlobB);
+
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
+
+  return NewBlob;
+}
+
+BlobTy HIRParser::createUMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
+                                unsigned *NewBlobIndex) {
+  assert(BlobA && BlobB && "Blob cannot be null!");
+
+  auto NewBlob = SE->getUMaxExpr(BlobA, BlobB);
+
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
+
+  return NewBlob;
+}
+
 bool HIRParser::contains(BlobTy Blob, BlobTy SubBlob) const {
   assert(Blob && "Blob cannot be null!");
   assert(SubBlob && "SubBlob cannot be null!");
@@ -2028,7 +2072,8 @@ void HIRParser::postParse(HLLoop *HLoop) {
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
-                             SmallVectorImpl<CmpInst::Predicate> &Preds,
+                             SmallVectorImpl<PredicateTy> &Preds,
+                             SmallVectorImpl<const CmpInst *> &CmpInsts,
                              SmallVectorImpl<RegDDRef *> &Refs,
                              bool AllowMultiplePreds) {
 
@@ -2043,6 +2088,7 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
       Refs.push_back(createRvalDDRef(CInst, 0, Level));
       Refs.push_back(createRvalDDRef(CInst, 1, Level));
 
+      CmpInsts.push_back(CInst);
       return;
     }
   }
@@ -2057,8 +2103,8 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     // Do not bring in '&&' conditions from outside the region.
     if (CurRegion->containsBBlock(BOp->getParent()) &&
         RI->isSupported(Op1->getType()) && RI->isSupported(Op2->getType())) {
-      parseCompare(Op1, Level, Preds, Refs, true);
-      parseCompare(Op2, Level, Preds, Refs, true);
+      parseCompare(Op1, Level, Preds, CmpInsts, Refs, true);
+      parseCompare(Op2, Level, Preds, CmpInsts, Refs, true);
       return;
     }
   }
@@ -2067,7 +2113,7 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     Preds.push_back(UNDEFINED_PREDICATE);
     Refs.push_back(createUndefDDRef(Cond->getType()));
     Refs.push_back(createUndefDDRef(Cond->getType()));
-
+    CmpInsts.push_back(nullptr);
   } else if (auto ConstVal = dyn_cast<Constant>(Cond)) {
     if (ConstVal->isOneValue()) {
       Preds.push_back(PredicateTy::FCMP_TRUE);
@@ -2078,25 +2124,28 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     }
     Refs.push_back(createUndefDDRef(Cond->getType()));
     Refs.push_back(createUndefDDRef(Cond->getType()));
-
+    CmpInsts.push_back(nullptr);
   } else {
     assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
     Preds.push_back(PredicateTy::ICMP_NE);
     Refs.push_back(createScalarDDRef(Cond, Level));
     Refs.push_back(getDDRefUtils().createConstDDRef(Cond->getType(), 0));
+    CmpInsts.push_back(nullptr);
   }
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
-                             PredicateTy *Pred, RegDDRef **LHSDDRef,
-                             RegDDRef **RHSDDRef) {
+                             PredicateTy *Pred, const CmpInst **Cmp,
+                             RegDDRef **LHSDDRef, RegDDRef **RHSDDRef) {
   SmallVector<PredicateTy, 1> Preds;
+  SmallVector<const CmpInst *, 1> CmpInsts;
   SmallVector<RegDDRef *, 2> Refs;
 
-  parseCompare(Cond, Level, Preds, Refs, false);
+  parseCompare(Cond, Level, Preds, CmpInsts, Refs, false);
   assert((Preds.size() == 1) && "Single predicate expected!");
 
   *Pred = Preds[0];
+  *Cmp = CmpInsts[0];
   *LHSDDRef = Refs[0];
   *RHSDDRef = Refs[1];
 }
@@ -2104,6 +2153,7 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
 void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   SmallVector<PredicateTy, 4> Preds;
   SmallVector<RegDDRef *, 8> Refs;
+  SmallVector<const CmpInst *, 4> CmpInsts;
 
   setCurNode(If);
 
@@ -2113,10 +2163,12 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   auto BeginPredIter = If->pred_begin();
   auto IfCond = cast<BranchInst>(SrcBB->getTerminator())->getCondition();
 
-  parseCompare(IfCond, CurLevel, Preds, Refs, true);
+  parseCompare(IfCond, CurLevel, Preds, CmpInsts, Refs, true);
   assert(!Preds.empty() && "No predicates found for compare instruction!");
   assert((Refs.size() == (2 * Preds.size())) &&
          "Mismatch between number of predicates and DDRefs!");
+  assert(Preds.size() == CmpInsts.size() &&
+         "Mismatch between number of predicates and Cmp instructions");
 
   if (HLoop) {
     if (LF->requiresZttInversion(HLoop)) {
@@ -2128,15 +2180,20 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
     HLoop->replaceZttPredicate(BeginPredIter, Preds[0]);
     HLoop->setZttPredicateOperandDDRef(Refs[0], BeginPredIter, true);
     HLoop->setZttPredicateOperandDDRef(Refs[1], BeginPredIter, false);
+    HLoop->setZttPredicateFMF(BeginPredIter, parseFMF(CmpInsts[0]));
   } else {
     If->replacePredicate(BeginPredIter, Preds[0]);
     If->setPredicateOperandDDRef(Refs[0], BeginPredIter, true);
     If->setPredicateOperandDDRef(Refs[1], BeginPredIter, false);
+    If->setPredicateFMF(BeginPredIter, parseFMF(CmpInsts[0]));
   }
 
   for (unsigned I = 1, E = Preds.size(); I < E; ++I) {
-    HLoop ? HLoop->addZttPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1])
-          : If->addPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1]);
+    HLoop
+        ? HLoop->addZttPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1],
+                                 parseFMF(CmpInsts[I]))
+        : If->addPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1],
+                           parseFMF(CmpInsts[I]));
   }
 }
 
@@ -2805,6 +2862,14 @@ unsigned HIRParser::getNumRvalOperands(HLInst *HInst) {
   return NumRvalOp;
 }
 
+FastMathFlags HIRParser::parseFMF(const CmpInst *Cmp) {
+  if (auto *FCmp = dyn_cast_or_null<FPMathOperator>(Cmp)) {
+    return FCmp->getFastMathFlags();
+  }
+
+  return FastMathFlags();
+}
+
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   RegDDRef *Ref;
   bool HasLval = false;
@@ -2848,10 +2913,12 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     if (isa<SelectInst>(Inst) && (I == 0)) {
       PredicateTy Pred;
       RegDDRef *LHSDDRef, *RHSDDRef;
+      const CmpInst *Cmp;
 
-      parseCompare(Inst->getOperand(0), Level, &Pred, &LHSDDRef, &RHSDDRef);
+      parseCompare(Inst->getOperand(0), Level, &Pred, &Cmp, &LHSDDRef,
+                   &RHSDDRef);
 
-      HInst->setPredicate(Pred);
+      HInst->setPredicate(Pred, parseFMF(Cmp));
       HInst->setOperandDDRef(LHSDDRef, 1);
       HInst->setOperandDDRef(RHSDDRef, 2);
       continue;
@@ -2867,7 +2934,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   }
 
   if (auto CInst = dyn_cast<CmpInst>(Inst)) {
-    HInst->setPredicate(CInst->getPredicate());
+    HInst->setPredicate(CInst->getPredicate(), parseFMF(CInst));
   }
 }
 

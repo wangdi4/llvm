@@ -93,12 +93,13 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
@@ -356,13 +357,7 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
       const DDEdge *Edge = (*II);
       // DEBUG(Edge->print(dbgs()););
 
-      // 1.Ignore any edge if its sink is out of the current loop
-      if (!(DDNode->getHLNodeUtils().contains(
-              Lp, Edge->getSink()->getHLDDNode()))) {
-        continue;
-      }
-
-      // 2. Check Current DV is legal to reverse
+      // Check Current DV is legal to reverse
       const DirectionVector &DV = Edge->getDV();
       // DEBUG(DV.print(dbgs(), true));
 
@@ -523,12 +518,7 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp) {
     }
   }
 
-  // 4. Loop has valid children
-  if (!Lp->hasChildren()) {
-    return false;
-  }
-
-  // 5. Do a LoopStatistics Collection and test for
+  // 4. Do a LoopStatistics Collection and test for
   // - No function call
   // - No label
   // - No goto

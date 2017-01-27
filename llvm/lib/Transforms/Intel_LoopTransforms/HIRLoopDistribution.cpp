@@ -248,9 +248,6 @@ void HIRLoopDistribution::formPerfectLoopNests(
 }
 
 bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
-  if (!Lp->hasChildren()) {
-    return false;
-  }
   // TODO This will miss some opportunities
   // Ex. L has 6 PiBlocks with the first 5 having an edge to 6, which is
   // comprised only of a loop, making L not the innermost. If the first 5

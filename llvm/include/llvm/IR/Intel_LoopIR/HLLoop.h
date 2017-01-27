@@ -130,6 +130,8 @@ protected:
 
   friend class HLNodeUtils;
   friend class HIRParser; // accesses ZTT
+  friend class HIRTransformUtils; // For compile-time, allow permuteLoopNests()
+                                  // to modify HLLoop internals.
 
   /// \brief Initializes some of the members to bring the loop in a sane state.
   void initialize();
@@ -139,6 +141,7 @@ protected:
 
   /// \brief Sets the nesting level of the loop.
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
+
   /// \brief Sets the Innermost flag to indicate if it is innermost loop.
   void setInnermost(bool IsInnermost) { this->IsInnermost = IsInnermost; }
 
@@ -230,9 +233,14 @@ public:
   /// \brief Removes and returns the OrigLoop
   const Loop *removeLLVMLoop();
 
-  /// \brief Creates a Ztt for HLLoop. IsOverwrite flag
+  /// Creates a Ztt for HLLoop. IsOverwrite flag
   /// indicates to overwrite existing Ztt or not.
-  void createZtt(bool IsOverwrite = true);
+  void createZtt(bool IsOverwrite = true, bool IsSigned = false);
+
+  /// Creates a Ztt for HLLoop. IsOverwrite flag indicates to overwrite existing
+  /// Ztt or not. The loop becomes an owner of incoming DDRefs.
+  void createZtt(RegDDRef *LHS, PredicateTy Pred, RegDDRef *RHS,
+                 bool IsOverwrite = true);
 
   /// \brief Hoists the Ztt out of the loop. It returns a handle to the Ztt or
   /// nullptr if it doesn't exist.
@@ -264,13 +272,22 @@ public:
   }
 
   /// \brief Adds new predicate in ZTT.
-  void addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2);
+  void addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
+                       FastMathFlags FMF = FastMathFlags());
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
   void removeZttPredicate(const_ztt_pred_iterator CPredI);
 
   /// \brief Replaces existing ztt predicate pointed to by CPredI, by NewPred.
   void replaceZttPredicate(const_ztt_pred_iterator CPredI, PredicateTy NewPred);
+
+  /// Returns the fast math flags for the existing ztt predicate pointed by \p
+  /// CPredI.
+  FastMathFlags getZttPredicateFMF(const_ztt_pred_iterator CPredI) const;
+
+  /// Sets fast math flags for the existing ztt predicate pointed to by \p
+  /// CPredI.
+  void setZttPredicateFMF(const_ztt_pred_iterator CPredI, FastMathFlags FMF);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.

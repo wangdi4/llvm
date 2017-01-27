@@ -508,6 +508,10 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
     return false;
   }
 
+  if (HInst->getRvalDDRef()->isVolatile()) {
+    return false;
+  }
+
   return true;
 }
 

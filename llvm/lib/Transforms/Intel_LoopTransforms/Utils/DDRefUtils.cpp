@@ -87,6 +87,16 @@ RegDDRef *DDRefUtils::createConstDDRef(ConstantDataVector *Val) {
   return NewRegDD;
 }
 
+RegDDRef *DDRefUtils::createConstDDRef(ConstantVector *Val) {
+  RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
+  // Create a linear self-blob constant canon expr.
+  auto CE = getCanonExprUtils().createSelfBlobCanonExpr(Val, ConstantSymbase);
+  NewRegDD->setSingleCanonExpr(CE);
+  CE->setDefinedAtLevel(0);
+
+  return NewRegDD;
+}
+
 RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
   auto Blob = getBlobUtils().createBlob(UndefValue::get(Ty), false);
   unsigned BlobIndex = getBlobUtils().findBlob(Blob);

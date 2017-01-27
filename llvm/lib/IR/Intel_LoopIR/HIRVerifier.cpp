@@ -42,6 +42,9 @@ class HIRVerifierImpl final : public HLNodeVisitorBase {
   const HLLoop *InnermostLoop;
   const HLLoop *CurrentLoop;
 
+  // The set is used to catch duplicated HLNodeNumbers.
+  std::set<unsigned> HLNodeNumbers;
+
 public:
   static void verifyNode(const HLNode *N, bool Recursive = true);
   static void verifyAll(const HIRFramework &HIRF);
@@ -62,6 +65,11 @@ public:
     TopSortNum = CurrentTopSortNum;
 
     Node->verify();
+
+    unsigned Number = Node->getNumber();
+    assert(HLNodeNumbers.count(Number) == 0 &&
+           "Node number duplicate found!");
+    HLNodeNumbers.insert(Number);
   }
 
   void visit(const HLRegion *Region) {

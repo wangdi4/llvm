@@ -69,19 +69,19 @@ public:
 
   // Don't let others modify edges. We can only remove or add
   // edges
-  EdgeIterator incoming_edges_begin(const GraphNode *Node) {
+  EdgeIterator incoming_edges_begin(const GraphNode *Node) const {
     return InEdges[Node].begin();
   }
 
-  EdgeIterator incoming_edges_end(const GraphNode *Node) {
+  EdgeIterator incoming_edges_end(const GraphNode *Node) const {
     return InEdges[Node].end();
   }
 
-  EdgeIterator outgoing_edges_begin(const GraphNode *Node) {
+  EdgeIterator outgoing_edges_begin(const GraphNode *Node) const {
     return OutEdges[Node].begin();
   }
 
-  EdgeIterator outgoing_edges_end(const GraphNode *Node) {
+  EdgeIterator outgoing_edges_end(const GraphNode *Node) const {
     return OutEdges[Node].end();
   }
 
@@ -117,8 +117,8 @@ private:
   // It is assumed the common operation is to iterate over in/out edges
   // As such, we keep edge vectors for each node, with each edge stored
   // (as a struct vs ptr) twice; once in inEdges and once in outEdges
-  std::map<const GraphNode *, GraphEdgeContainerTy> InEdges;
-  std::map<const GraphNode *, GraphEdgeContainerTy> OutEdges;
+  mutable std::map<const GraphNode *, GraphEdgeContainerTy> InEdges;
+  mutable std::map<const GraphNode *, GraphEdgeContainerTy> OutEdges;
   std::list<GraphEdge> EdgesVector;
 };
 

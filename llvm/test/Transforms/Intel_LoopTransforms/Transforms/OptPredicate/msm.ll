@@ -98,11 +98,6 @@
 ;CHECK-NEXT:      |      |   (@b)[0][i1] = i2;
 ;CHECK-NEXT:      |      + END LOOP
 ;CHECK-NEXT:      |   }
-;CHECK-NEXT:      |   else
-;CHECK-NEXT:      |   {
-;CHECK-NEXT:      |      + DO i2 = 0, 999, 1   <DO_LOOP>
-;CHECK-NEXT:      |      + END LOOP
-;CHECK-NEXT:      |   }
 ;CHECK-NEXT:      + END LOOP
 ;CHECK-NEXT:   }
 ;CHECK-NEXT: }

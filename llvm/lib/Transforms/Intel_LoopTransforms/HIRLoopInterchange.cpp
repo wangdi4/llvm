@@ -53,6 +53,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-loopinterchange"
 
@@ -554,10 +555,6 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         // Examining outoging edges is sufficent
         const DDEdge *Edge = *II;
         DDRef *DDref = Edge->getSink();
-        if (!(DDNode->getHLNodeUtils().contains(CandidateLoop,
-                                                DDref->getHLDDNode()))) {
-          continue;
-        }
         if (ignoreEdge(Edge, CandidateLoop)) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -886,7 +883,7 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   HIRInvalidationUtils::invalidateBounds(InnermostLoop);
   HIRInvalidationUtils::invalidateBody(InnermostLoop);
   DEBUG(dbgs() << "\tBefore permuteloopNests:"; Loop->dump());
-  Loop->getHLNodeUtils().permuteLoopNests(Loop, LoopPermutation);
+  HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation);
 
   updateLoopBody(Loop);
   printOptReport(Loop);

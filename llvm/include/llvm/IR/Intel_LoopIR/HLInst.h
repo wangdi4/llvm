@@ -37,6 +37,8 @@ private:
   // Only used for Cmp and Select instructions.
   PredicateTy CmpOrSelectPred;
 
+  FastMathFlags PredFMF;
+
 protected:
   explicit HLInst(HLNodeUtils &HNU, Instruction *Inst);
   virtual ~HLInst() override {}
@@ -70,6 +72,10 @@ protected:
 
   /// Prints the ending Opcode equivalent for this instruction.
   void printEndOpcode(formatted_raw_ostream &OS) const;
+
+  /// Checks if instruction is a max or a min based on flag: true for max, false
+  /// for min
+  bool checkMinMax(bool IsMin, bool IsMax) const;
 
 public:
   /// Prints HLInst.
@@ -106,9 +112,6 @@ public:
   /// Returns true if Ref is a rval DDRef of this node.
   virtual bool isRval(const RegDDRef *Ref) const override;
 
-  /// Returns true if Ref is a fake DDRef attached to this node.
-  virtual bool isFake(const RegDDRef *Ref) const override;
-
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeID() == HLNode::HLInstVal;
@@ -138,11 +141,19 @@ public:
     return CmpOrSelectPred;
   }
 
+  FastMathFlags getPredicateFMF() const {
+    return PredFMF;
+  }
+
   /// Sets predicate for select instruction.
-  void setPredicate(PredicateTy Pred) {
+  void setPredicate(PredicateTy Pred, FastMathFlags FMF = FastMathFlags()) {
     assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
            "This instruction does not contain a predicate!");
     CmpOrSelectPred = Pred;
+
+    assert((!FMF.any() || CmpInst::isFPPredicate(Pred)) &&
+           "FastMathFlags are set on non-FP predicate");
+    PredFMF = FMF;
   }
 
   /// Retuns true if this is a bitcast instruction with identical src and dest
@@ -165,6 +176,15 @@ public:
 
   /// Checks if the Opcode is a reduction and returns OpCode
   bool isReductionOp(unsigned *OpCode) const;
+
+  /// Checks if instruction is a min
+  bool isMin() const;
+
+  /// Checks if instruction is a max
+  bool isMax() const;
+
+  /// Checks if instruction is a min or a max
+  bool isMinOrMax() const;
 
   /// Return the identity value corresponding to the given reduction
   /// instruction opcode and specified type.

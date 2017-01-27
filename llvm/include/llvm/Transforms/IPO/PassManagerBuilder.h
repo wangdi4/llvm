@@ -178,6 +178,7 @@ private:
   void addLoopOptPasses(legacy::PassManagerBase &PM) const;
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
   void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec) const;
+  void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM) const;
 #endif // INTEL_CUSTOMIZATION
 
 public:

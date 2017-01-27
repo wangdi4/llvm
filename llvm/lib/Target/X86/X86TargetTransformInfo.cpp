@@ -414,8 +414,56 @@ int X86TTIImpl::getArithmeticInstrCost(
   return BaseT::getArithmeticInstrCost(Opcode, Ty, Op1Info, Op2Info);
 }
 
+#if INTEL_CUSTOMIZATION
+/// Currently, under target specific category we are only looking for
+/// alternate-lane shuffle mask such as, <0, 4, 2, 6>([v]unpck[l,h]pd) or
+/// <1, 5, 3, 7>([v]unpckhpd).
+bool X86TTIImpl::isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const {
+  bool IsAlternateLaneVectorMask = true;
+  unsigned MaskSize = Mask.size();
+
+  // TODO: Support undefined mask value which is not supported currently.
+  // Look for even-lanes
+  // Example: shufflevector <4xT>A, <4xT>B, <0,4,2,6>
+  for (unsigned i = 0; i < MaskSize && IsAlternateLaneVectorMask; ++i)
+    IsAlternateLaneVectorMask =
+        Mask[i] == (int)((i % 2) ? MaskSize + i - 1 : i);
+
+  if (IsAlternateLaneVectorMask)
+    return true;
+
+  IsAlternateLaneVectorMask = true;
+  // Look for odd-lanes.
+  // Example: shufflevector <4xT>A, <4xT>B, <1,5,3,7>
+  for (unsigned i = 0; i < MaskSize && IsAlternateLaneVectorMask; ++i)
+    IsAlternateLaneVectorMask =
+        Mask[i] == (int)((i % 2) ? MaskSize + i : i + 1);
+
+  return IsAlternateLaneVectorMask;
+}
+#endif // INTEL_CUSTOMIZATIONw
+
 int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
                                Type *SubTp) {
+#if INTEL_CUSTOMIZATION
+  if (Kind == TTI::SK_TargetSpecific) {
+    std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, Tp);
+
+    // Currently, in this category we are assuming target-specific mask
+    // is the alternate-shuffle-lane vector mask which is pretty restricted
+    // and error-prone.
+    // TODO: Eventually, getShuffleCost() should have access to the
+    // mask in order to estimate the cost accurately for the right shuffle kind.
+
+    // The backend knows how to generate [v]unpck[l,h]pds for 64bit
+    // element if the target supports SSE2 and above.
+    if (ST->hasSSE2() && Tp->getScalarSizeInBits() == 64)
+      return LT.first;
+
+    // For non-64bit, we can generate 2 [v]pshuf[b,d,ps].
+    return 2 * LT.first;
+  }
+#endif // INTEL_CUSTOMIZATION
   // We only estimate the cost of reverse and alternate shuffles.
   if (Kind != TTI::SK_Reverse && Kind != TTI::SK_Alternate)
     return BaseT::getShuffleCost(Kind, Tp, Index, SubTp);

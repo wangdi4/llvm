@@ -493,10 +493,10 @@ bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
   return true;
 }
 
-///  Is single use of LvalRef in loop?  Counts blobs as well
+///  How many uses of LvalRef in loop?  Counts blobs as well
 
-bool DDUtils::singleUseInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
-                              DDGraph DDG) {
+bool DDUtils::maxUsesInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
+                            DDGraph DDG, const unsigned Threshold) {
 
   assert(LvalRef && LvalRef->isLval() && "DDRef must be lval");
   assert(Loop && "Loop  must be supplied");
@@ -515,12 +515,19 @@ bool DDUtils::singleUseInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
     }
 
     RegDDRef *RefSink = dyn_cast<RegDDRef>(DDRefSink);
-    if ((!RefSink || RefSink->isRval()) && ++NumUse > 1) {
+    if ((!RefSink || RefSink->isRval()) && ++NumUse > Threshold) {
       return false;
     }
   }
 
   return true;
+}
+
+///  Is single use of LvalRef in loop?  Counts blobs as well
+
+bool DDUtils::singleUseInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
+                              DDGraph DDG) {
+  return maxUsesInLoop(LvalRef, Loop, DDG, 1);
 }
 
 /// Checks if a DDRef is part of a reduction. Must match with input Symbase

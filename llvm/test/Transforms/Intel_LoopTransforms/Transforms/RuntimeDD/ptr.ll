@@ -3,7 +3,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-details -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 
 ; Check HIR CG ability to emit !llvm.loop metadata
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-cg -S < %s 2>&1 | FileCheck %s -check-prefix=CG-CHECK
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-cg -force-hir-cg -S < %s 2>&1 | FileCheck %s -check-prefix=CG-CHECK
 
 ; int foo(int *p, int *q, int N) {
 ;   int i;
@@ -14,15 +14,16 @@
 ; }
 
 ; CHECK: IR Dump After
-; CHECK: if (%N <u {{[0-9]+}})
-; CHECK: if (&((%q)[%N + -1]) >=u &((%p)[0]) && &((%p)[%N + -1]) >=u &((%q)[0]))
+; CHECK: %mv.test = &((%q)[%N + -1]) >=u &((%p)[0]);
+; CHECK: %mv.test1 = &((%p)[%N + -1]) >=u &((%q)[0]);
+; CHECK: %mv.and = %mv.test  &&  %mv.test1;
+; CHECK: if (%N >=u {{[0-9]+}} && %mv.and == 0)
 
 ; CHECK: Loop metadata: No
 
 ; CHECK: <RVAL-REG> {{.*}} %q)[{{.*}}]{{.*}} !alias.scope [[SCOPE1:.*]] !noalias [[SCOPE2:.*]] {
 ; CHECK: <LVAL-REG> {{.*}} %p)[{{.*}}]{{.*}} !alias.scope [[SCOPE2]] !noalias [[SCOPE1]] {
 
-; CHECK: mv.orig
 ; CHECK: Loop metadata: !llvm.loop
 
 ; Check after HIR CG

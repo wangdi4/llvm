@@ -1,4 +1,4 @@
-//===------ HIRLoopTransformUtils.h ---------------------- --*- C++ -*---===//
+//===------ HIRTransformUtils.h ---------------------------- --*- C++ -*---===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -16,8 +16,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRLOOPTRANSFORM_UTILS_H
-#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRLOOPTRANSFORM_UTILS_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRTRANSFORM_UTILS_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRTRANSFORM_UTILS_H
+
+#include "llvm/ADT/SmallVector.h"
+
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
 
 #include <stdint.h>
 
@@ -27,18 +31,19 @@ namespace loopopt {
 
 class RegDDRef;
 class HLLoop;
+class HLIf;
 class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 class HIRLoopStatistics;
 
-/// \brief Defines HIRLoopTransformationUtils class.
+/// Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
-class HIRLoopTransformUtils {
+class HIRTransformUtils {
 private:
-  /// \brief Do not allow instantiation
-  HIRLoopTransformUtils() = delete;
+  /// Do not allow instantiation
+  HIRTransformUtils() = delete;
 
-  /// \brief Updates bound DDRef by setting the correct defined at level and
+  /// Updates bound DDRef by setting the correct defined at level and
   /// adding a blob DDref for the newly created temp.
   static void updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
                                unsigned DefLevel);
@@ -70,7 +75,7 @@ private:
                                    const RegDDRef *NewTCRef);
 
 public:
-  ///\brief
+  ///
   /// Do Reversal Tests for a given HIR inner-most loop and return true if
   /// the loop is reversible.
   //
@@ -109,14 +114,14 @@ public:
   // Will revisit the situation once there is any request from potential client.
   //
   static bool isHIRLoopReversible(
-      HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+      HLLoop *InnermostLp,            // INPUT + OUTPUT: a given loop
       HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
       HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
       HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
       bool DoProfitTest = false       // INPUT: Control Profit Tests
       );
 
-  ///\brief Do Certain Reversal Tests for a given HIR inner-most loop.
+  /// Do Certain Reversal Tests for a given HIR inner-most loop.
   /// Reverse the loop if the loop is legal to reverse.
   //
   // Parameters:
@@ -138,10 +143,49 @@ public:
   // and legal check, only ignoring profit check.
   //
   static void doHIRLoopReversal(
-      HLLoop *Lp,                     // INPUT + OUTPUT: a given loop
+      HLLoop *InnermostLp,            // INPUT + OUTPUT: an inner-most loop
       HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
       HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
       HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
+      );
+
+  // Do HIR Loop-Invariant Memory Motion (LIMM) on a given loop
+  //
+  // Return: bool
+  // -true: if any LIMM is promoted;
+  // -false: otherwise;
+  //
+  static bool doHIRLoopInvariantMemoryMotion(
+      HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+      HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
+      HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
+      );
+
+  // Do HIR Loop-Redundant Memory Motion (LRMM) on a given loop
+  //
+  // Return: bool
+  // -true: if any LRMM is promoted;
+  // -false: otherwise;
+  //
+  static bool doHIRLoopRedundantMemoryMotion(
+      HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+      HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
+      HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
+      );
+
+  // Do HIR Loop Memory Motion on a given innermost loop
+  //
+  // This will promote both Loop-Invariant Memory Motion (LIMM) and
+  // Loop-Redundant Memory Motion (LRMM) if available.
+  //
+  // Return: bool
+  // -true: if any LIMM or LRMM is promoted;
+  // -false: otherwise;
+  //
+  static bool doHIRLoopMemoryMotion(
+      HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
+      HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
+      HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
       );
 
   /// This function creates and returns a new loop that will be used as the
@@ -159,6 +203,26 @@ public:
                                             unsigned UnrollOrVecFactor,
                                             bool &NeedRemainderLoop,
                                             bool VecMode = false);
+
+  /// Updates Loop properties (Bounds, etc) based on input Permutations
+  /// Used by Interchange now. Could be used later for blocking.
+  /// Loops are added to \p LoopPermutation in the desired permuted order.
+  static void
+  permuteLoopNests(HLLoop *OutermostLoop,
+                   const SmallVectorImpl<HLLoop *> &LoopPermutation);
+
+  /// Updates target HLLabel in every HLGoto node according to the mapping.
+  static void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
+                               HLNode *End);
+
+  /// Removes HLIfs that always evaluates as either true or false and
+  /// returns true whenever HLIfs were removed. The utility doesn't
+  /// invalidate analysis.
+  static bool eliminateRedundantPredicates(HLContainerTy::iterator Begin,
+                                           HLContainerTy::iterator End);
+
+  // Replaces HLIf with its *then* or *else* body.
+  static void replaceNodeWithBody(HLIf *If, bool ThenBody);
 };
 
 } // End namespace loopopt

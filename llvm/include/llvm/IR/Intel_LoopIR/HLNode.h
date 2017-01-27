@@ -22,6 +22,7 @@
 #include "llvm/Support/ErrorHandling.h"
 
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Operator.h"
 
 #include "llvm/IR/Intel_LoopIR/HLNodeMapper.h"
 
@@ -123,6 +124,9 @@ protected:
   static bool isPredicateTrueOrFalse(PredicateTy Pred) {
     return Pred == PredicateTy::FCMP_TRUE || Pred == PredicateTy::FCMP_FALSE;
   }
+
+  /// Prints fast math flags.
+  static void printFMF(raw_ostream &OS, FastMathFlags FMF);
 
   /// \brief Pretty prints predicates.
   static void printPredicate(formatted_raw_ostream &OS, PredicateTy Pred);

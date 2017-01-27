@@ -70,7 +70,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopResource.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #include "HIRUnroll.h"
@@ -427,9 +427,6 @@ void LegalityChecker::visit(const HLDDNode *Node) {
       const DDEdge *Edge = *EdgeIt;
 
       auto SinkNode = Edge->getSink()->getHLDDNode();
-      if (!CandidateLoop->getHLNodeUtils().contains(CandidateLoop, SinkNode)) {
-        continue;
-      }
 
       if (!isLegalToPermute(
               Edge->getDV(),
@@ -862,7 +859,7 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
   bool NeedRemainderLoop = false;
 
   // Create the unrolled main loop and setup remainder loop.
-  HLLoop *MainLoop = HIRLoopTransformUtils::setupMainAndRemainderLoops(
+  HLLoop *MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
       Loop, UnrollFactor, NeedRemainderLoop);
 
   unrollMainLoop(Loop, MainLoop, UnrollFactor, NeedRemainderLoop, LoopMap);

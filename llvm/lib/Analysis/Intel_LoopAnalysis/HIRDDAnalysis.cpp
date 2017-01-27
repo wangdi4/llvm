@@ -31,6 +31,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
 
 #include <algorithm>
 #include <map>
@@ -65,6 +66,10 @@ cl::list<DDVerificationLevel> VerifyLevelList(
                clEnumVal(L9, "Build for Loop at Level 9"),
                clEnumVal(Innermost, "Build for innermost loops only"),
                clEnumValEnd));
+
+static cl::list<int> DumpGraphForNodeNumbers(
+    "hir-dd-analysis-dump-nodes", cl::CommaSeparated,
+    cl::desc("List of node numbers to dump their DD graph"));
 
 // Disable caching behavior and rebuild graph for every request.
 static cl::opt<bool>
@@ -122,6 +127,29 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
     DDVerificationLevel CurLevel = VerifyLevelList[I];
     GraphVerifier V(this, CurLevel);
     HIRF->getHLNodeUtils().visitAll(V);
+  }
+
+  // Dump graph for each node specified by the cl opts.
+  for (int NodeNumber : DumpGraphForNodeNumbers) {
+    ForEach<HLNode>::visitRange(
+        HIRF->hir_begin(), HIRF->hir_end(),
+        [NodeNumber, this](const HLNode *Node) {
+          if (NodeNumber == -1 ||
+              NodeNumber == static_cast<int>(Node->getNumber())) {
+            DDGraph DDG(nullptr, nullptr);
+
+            if (const HLRegion *Region = dyn_cast<HLRegion>(Node)) {
+              DDG = getGraph(Region);
+            } else if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+              DDG = getGraph(Loop);
+            } else {
+              return;
+            }
+
+            dbgs() << "Graph for node <" << Node->getNumber() << ">\n";
+            DDG.dump();
+          }
+        });
   }
 
   return false;
@@ -417,6 +445,19 @@ void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
       (Loop->isInnermost() && CurLevel == DDVerificationLevel::Innermost)) {
     if (!CurDDA->graphForNodeValid(Loop)) {
       CurDDA->buildGraph(Loop, false);
+    }
+  }
+}
+
+void DDGraph::print(raw_ostream &OS) const {
+  NonConstantRefGatherer::MapTy Refs;
+  NonConstantRefGatherer::gather(CurNode, Refs);
+
+  for (auto Pair : Refs) {
+    for (DDRef *Ref : Pair.second) {
+      for (DDEdge *E : outgoing(Ref)) {
+        E->print(OS);
+      }
     }
   }
 }

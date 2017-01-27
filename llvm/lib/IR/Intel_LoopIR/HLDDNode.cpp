@@ -29,10 +29,12 @@ static cl::opt<bool>
                      cl::desc("Print constant DDRefs in detailed print"));
 
 /// DDRefs are taken care of in the derived classes.
-HLDDNode::HLDDNode(HLNodeUtils &HNU, unsigned SCID) : HLNode(HNU, SCID) {}
+HLDDNode::HLDDNode(HLNodeUtils &HNU, unsigned SCID)
+    : HLNode(HNU, SCID), MaskDDRef(nullptr) {}
 
 /// DDRefs are taken care of in the derived classes.
-HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj) : HLNode(HLDDNodeObj) {}
+HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj)
+    : HLNode(HLDDNodeObj), MaskDDRef(nullptr) {}
 
 void HLDDNode::setNode(RegDDRef *Ref, HLDDNode *HNode) {
   Ref->setHLDDNode(HNode);
@@ -83,9 +85,54 @@ RegDDRef *HLDDNode::removeOperandDDRef(unsigned OperandNum) {
   return TRef;
 }
 
+unsigned HLDDNode::getOperandNum(RegDDRef *OpRef) const {
+  assert(OpRef && "OpRef is null!");
+  assert((this == OpRef->getHLDDNode()) &&
+         "OpRef does not belong to this HLDDNode!");
+  assert(!OpRef->isFake() && "OpRef is a fake DDRef!");
+
+  unsigned OpNum = 0;
+
+  for (auto It = op_ddref_begin(), EndIt = op_ddref_end(); It != EndIt;
+       ++It, ++OpNum) {
+    if (*It == OpRef) {
+      return OpNum;
+    }
+  }
+
+  llvm_unreachable("Did not find OpRef in the operands!");
+}
+
+bool HLDDNode::isFake(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; ++I) {
+
+    if ((*I) == Ref) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void HLDDNode::setMaskDDRef(RegDDRef *Ref) {
+  if (MaskDDRef) {
+    removeFakeDDRef(MaskDDRef);
+  }
+
+  MaskDDRef = Ref;
+
+  if (Ref) {
+    addFakeDDRef(Ref);
+  }
+}
+
 void HLDDNode::addFakeDDRef(RegDDRef *RDDRef) {
   assert(RDDRef && "Cannot add null fake DDRef!");
   assert(isa<HLInst>(this) && "Fake DDRef can only be attached to a HLInst!");
+  assert(!RDDRef->getHLDDNode() && "DDRef attached to some other node, please "
+                                   "remove it first!");
 
   RegDDRefs.push_back(RDDRef);
   setNode(RDDRef, this);

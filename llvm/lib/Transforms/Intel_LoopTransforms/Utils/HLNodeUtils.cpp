@@ -377,6 +377,10 @@ HLInst *HLNodeUtils::createCastHLInst(Type *DestTy, unsigned Opcode,
     return createTrunc(DestTy, Op, Name, LvalRef);
   case Instruction::BitCast:
     return createBitCast(DestTy, Op, Name, LvalRef);
+  case Instruction::PtrToInt:
+    return createPtrToInt(DestTy, Op, Name, LvalRef);
+  case Instruction::IntToPtr:
+    return createIntToPtr(DestTy, Op, Name, LvalRef);
   default:
     llvm_unreachable("Unexpected cast opcode");
   }
@@ -569,7 +573,7 @@ HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
   return HInst;
 }
 
-HLInst *HLNodeUtils::CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
+HLInst *HLNodeUtils::createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                              ArrayRef<uint32_t> Mask,
                                              const Twine &Name,
                                              RegDDRef *LvalRef) {
@@ -604,7 +608,7 @@ HLInst *HLNodeUtils::CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
   return HInst;
 }
 
-HLInst *HLNodeUtils::CreateExtractElementInst(RegDDRef *OpRef, unsigned Idx,
+HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
                                               const Twine &Name,
                                               RegDDRef *LvalRef) {
 
@@ -637,7 +641,7 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name, LvalRef, false,
                                  false, nullptr);
   if (OrigBinOp) {
-    auto NewBinOp = cast<BinaryOperator>(
+    BinaryOperator *NewBinOp = cast<BinaryOperator>(
         const_cast<Instruction *>(HInst->getLLVMInstruction()));
     NewBinOp->copyIRFlags(OrigBinOp);
   }
@@ -768,7 +772,7 @@ HLInst *HLNodeUtils::createXor(RegDDRef *OpRef1, RegDDRef *OpRef2,
 
 HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
                                RegDDRef *OpRef2, const Twine &Name,
-                               RegDDRef *LvalRef) {
+                               RegDDRef *LvalRef, FastMathFlags FMF) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -792,7 +796,7 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   }
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
-  HInst->setPredicate(Pred);
+  HInst->setPredicate(Pred, FMF);
 
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);
@@ -803,7 +807,7 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
 HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
                                   RegDDRef *OpRef2, RegDDRef *OpRef3,
                                   RegDDRef *OpRef4, const Twine &Name,
-                                  RegDDRef *LvalRef) {
+                                  RegDDRef *LvalRef, FastMathFlags FMF) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -819,7 +823,7 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   InstVal = DummyIRBuilder->CreateSelect(CmpVal, DummyVal, DummyVal, Name);
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
-  HInst->setPredicate(Pred);
+  HInst->setPredicate(Pred, FMF);
 
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);
@@ -1338,7 +1342,7 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
     Node = Container.remove(I);
 
     if (Erase) {
-      destroy(Node);
+      Node->getHLNodeUtils().destroy(Node);
     } else {
       /// Used to catch errors where user tries to insert an already linked
       /// node.
@@ -1776,13 +1780,13 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
         bool IsSeparator = false;
         /// Check whether we are crossing separators.
         for (unsigned I = 0, E = Switch->getNumCases(); I < E; ++I) {
-          if ((Switch->CaseBegin[I] != Switch->Children.end()) && 
+          if ((Switch->CaseBegin[I] != Switch->Children.end()) &&
               (TempSucc == &*(Switch->CaseBegin[I]))) {
             IsSeparator = true;
             break;
           }
         }
-        if ((Switch->DefaultCaseBegin != Switch->Children.end()) && 
+        if ((Switch->DefaultCaseBegin != Switch->Children.end()) &&
             (TempSucc == &*(Switch->DefaultCaseBegin))) {
           IsSeparator = true;
         }
@@ -3259,46 +3263,6 @@ bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
   return NUS.HasNonUnitStride;
 }
 
-/// Update Loop properties based on Input Permutations
-/// Used by Loop Interchange now. Will be useful for loop blocking later
-void HLNodeUtils::permuteLoopNests(
-    HLLoop *OutermostLoop, const SmallVectorImpl<HLLoop *> &LoopPermutation) {
-
-  SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
-  HLLoop *DstLoop = OutermostLoop;
-
-  for (auto &Lp : LoopPermutation) {
-    HLLoop *LoopCopy = Lp->cloneEmptyLoop();
-    LoopCopy->setNestingLevel(Lp->getNestingLevel());
-    SavedLoops.push_back(LoopCopy);
-  }
-
-  for (auto &Lp : LoopPermutation) {
-    assert(DstLoop && "Perfect loop nest expected");
-    HLLoop *SrcLoop = nullptr;
-    // Loop is already in desired position
-    if (Lp == DstLoop) {
-      DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
-      continue;
-    }
-    for (auto &Lp1 : SavedLoops) {
-      // getNestingLevel() asserts for disconnected loops. It is set
-      // explicitly
-      // for saved loops in the previous loop so we access it directly.
-      if (Lp->getNestingLevel() == Lp1->NestingLevel) {
-        SrcLoop = Lp1;
-        break;
-      }
-    }
-    assert(SrcLoop && "Input Loop is null");
-    assert(DstLoop != SrcLoop && "Dst, Src loop cannot be equal");
-    // Move properties from SrcLoop to DstLoop.
-    *DstLoop = std::move(*SrcLoop);
-
-    DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
-  }
-}
-
 /// t0 = a[i1];     LRef =
 ///  ...
 /// t1  = t0        Node
@@ -3360,28 +3324,6 @@ HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2) {
       static_cast<const HLLoop *>(Lp1), static_cast<const HLLoop *>(Lp2)));
 }
 
-class LabelRemapVisitor final : public HLNodeVisitorBase {
-  const HLNodeMapper &Mapper;
-
-public:
-  LabelRemapVisitor(const HLNodeMapper &Mapper) : Mapper(Mapper) {}
-
-  void visit(HLGoto *Goto) {
-    if (!Goto->isExternal()) {
-      Goto->setTargetLabel(Mapper.getMapped(Goto->getTargetLabel()));
-    }
-  }
-
-  void visit(HLNode *) {}
-  void postVisit(HLNode *) {}
-};
-
-void HLNodeUtils::remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
-                                   HLNode *End) {
-  LabelRemapVisitor Visitor(Mapper);
-  visitRange(Visitor, Begin, End);
-}
-
 bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   if (NodeA->getNumPredicates() != NodeB->getNumPredicates()) {
     return false;
@@ -3395,10 +3337,10 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
       return false;
     }
 
-    if (!getDDRefUtils().areEqual(NodeA->getPredicateOperandDDRef(IA, true),
-                                  NodeB->getPredicateOperandDDRef(IB, true)) ||
-        !getDDRefUtils().areEqual(NodeA->getPredicateOperandDDRef(IA, false),
-                                  NodeB->getPredicateOperandDDRef(IB, false))) {
+    if (!DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, true),
+                              NodeB->getPredicateOperandDDRef(IB, true)) ||
+        !DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, false),
+                              NodeB->getPredicateOperandDDRef(IB, false))) {
       return false;
     }
   }
@@ -3406,87 +3348,39 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   return true;
 }
 
-void HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
-  if (ThenBody) {
-    moveAfter(If, If->then_begin(), If->then_end());
-  } else {
-    moveAfter(If, If->else_begin(), If->else_end());
-  }
-  remove(If);
-}
+namespace {
 
-class RedundantIfLookup final : public HLNodeVisitorBase {
-public:
-  typedef SmallVector<std::tuple<HLIf *, bool>, 16> CandidatesVector;
+STATISTIC(LoopsRemoved, "Empty Loops removed");
+STATISTIC(IfsRemoved, "Empty Ifs removed");
 
-private:
-  CandidatesVector &Candidates;
-  const HLNode *SkipNode;
-
-public:
-  RedundantIfLookup(CandidatesVector &Candidates)
-      : Candidates(Candidates), SkipNode(nullptr) {}
-
-  void visit(HLIf *If) {
-    bool IsTrue;
-    if (If->isKnownPredicate(&IsTrue)) {
-      SkipNode = If;
-
-      Candidates.emplace_back(std::make_tuple(If, IsTrue));
-
-      // Go over nodes that are not going to be removed. If the predicate is
-      // always TRUE the else branch will be removed.
-      RedundantIfLookup Lookup(Candidates);
-      if (IsTrue) {
-        If->getHLNodeUtils().visitRange<true, false>(Lookup, If->then_begin(),
-                                                     If->then_end());
-      } else {
-        If->getHLNodeUtils().visitRange<true, false>(Lookup, If->else_begin(),
-                                                     If->else_end());
-      }
+struct EmptyLoopRemoverVisitor final : HLNodeVisitorBase {
+  void postVisit(HLLoop *Loop) {
+    if (Loop->isDo() && !Loop->hasChildren()) {
+      Loop->extractPreheaderAndPostexit();
+      HLNodeUtils::remove(Loop);
+      LoopsRemoved++;
     }
   }
 
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-
-  virtual bool skipRecursion(const HLNode *Node) const {
-    return Node == SkipNode;
+  void postVisit(HLIf *If) {
+    if (!If->hasThenChildren() && !If->hasElseChildren()) {
+      HLNodeUtils::remove(If);
+      IfsRemoved++;
+    }
   }
+
+  void visit(HLNode *) {}
+  void postVisit(HLNode *) {}
 };
+}
 
-STATISTIC(RedundantPredicates, "Redundant predicates removed");
+void HLNodeUtils::removeEmptyNodes(HLNode *Node) {
+  EmptyLoopRemoverVisitor V;
+  HLNodeUtils::visit(V, Node);
+}
 
-bool HLNodeUtils::eliminateRedundantPredicates(HLContainerTy::iterator First,
-                                               HLContainerTy::iterator Last) {
-  DEBUG(dbgs() << "Eliminating redundant predicates\n ");
-  assert(((First != Last) || First->getParent() == Last->getParent()) &&
-         "Both nodes should have the same parent");
-
-  RedundantIfLookup::CandidatesVector Candidates;
-  RedundantIfLookup Lookup(Candidates);
-
-  visitRange<true, false>(Lookup, First, Last);
-
-  for (auto Candidate : Candidates) {
-    HLIf *If = std::get<0>(Candidate);
-
-    DEBUG(dbgs() << "Eliminated: ");
-    DEBUG(If->dumpHeader());
-    DEBUG(dbgs() << "\n");
-
-    replaceNodeWithBody(If, std::get<1>(Candidate));
-
-    RedundantPredicates++;
-  }
-
-  if (Candidates.size() > 0) {
-    DEBUG(dbgs() << "While Removing redundant predicates:\n");
-    DEBUG(First->getParentRegion()->dump());
-    DEBUG(dbgs() << "\n");
-
-    return true;
-  }
-
-  return false;
+void HLNodeUtils::removeEmptyNodesRange(HLContainerTy::iterator Begin,
+                                        HLContainerTy::iterator End) {
+  EmptyLoopRemoverVisitor V;
+  HLNodeUtils::visitRange(V, Begin, End);
 }

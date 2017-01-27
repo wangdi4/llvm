@@ -58,6 +58,10 @@ private:
   /// It should contain at least one predicate. Predicates are joined using the
   /// implicit AND conjunction.
   PredicateContainerTy Predicates;
+
+  typedef SmallVector<FastMathFlags, 2> FMFContainerTy;
+  FMFContainerTy PredFMFlags;
+
   /// Contains both then and else children, in that order.
   /// Having a single container allows for more efficient and cleaner
   /// implementation of insert(Before/After) and remove(Before/After).
@@ -66,7 +70,8 @@ private:
   ChildNodeTy::iterator ElseBegin;
 
 protected:
-  HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2);
+  HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2,
+       FastMathFlags FMF = FastMathFlags());
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to access and destroy the nodes if we don't clear them out here.
@@ -91,6 +96,14 @@ protected:
   unsigned getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
                                           bool IsLHS) const;
 
+  /// Returns the const iterator for correspondent FMF.
+  FMFContainerTy::const_iterator
+  getPredicateFMFIter(const_pred_iterator CPredI) const;
+
+  /// Returns the iterator for correspondent FMF.
+  FMFContainerTy::iterator
+  getPredicateFMFIter(const_pred_iterator CPredI);
+
   /// \brief Returns non-const iterator version of const_pred_iterator.
   pred_iterator getNonConstPredIterator(const_pred_iterator CPredI);
 
@@ -103,7 +116,7 @@ protected:
   /// \brief Implements print*Header() functionality. Loop parameter tells
   /// whether we are printing a ZTT or a regular HLIf.
   void printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
-                       const HLLoop *Loop) const;
+                       const HLLoop *Loop, bool Detailed) const;
 
   /// \brief Prints this HLIf as a ZTT of Loop.
   void printZttHeader(formatted_raw_ostream &OS, const HLLoop *Loop) const;
@@ -204,7 +217,8 @@ public:
   HLIf *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
   /// \brief Prints HLIf header only: if (...condition...)
-  void printHeader(formatted_raw_ostream &OS, unsigned Depth) const;
+  void printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed = false) const;
 
   /// \brief Prints HLIf.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -214,7 +228,8 @@ public:
   unsigned getNumOperands() const override;
 
   /// \brief Adds new predicate in HLIf.
-  void addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2);
+  void addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
+                    FastMathFlags FMF = FastMathFlags());
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
   /// Example-
@@ -243,6 +258,14 @@ public:
   /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
   RegDDRef *removePredicateOperandDDRef(const_pred_iterator CPredI, bool IsLHS);
+
+  FastMathFlags getPredicateFMF(const_pred_iterator CPredI) const {
+    return *getPredicateFMFIter(CPredI);
+  }
+
+  void setPredicateFMF(const_pred_iterator CPredI, FastMathFlags FMF) {
+    *getPredicateFMFIter(CPredI) = FMF;
+  }
 
   /// \brief Returns true if \p Node is contained inside *then* or *else* branch
   /// of the HLIf.

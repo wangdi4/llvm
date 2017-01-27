@@ -36,7 +36,17 @@ class HLInst;
 class HLLoop;
 
 typedef SmallVector<const HLInst *, 4> SafeRedChain;
-typedef SmallVector<SafeRedChain, 2> SafeRedChainList;
+
+struct SafeRedInfo {
+  SafeRedChain Chain;
+  unsigned Symbase;
+  unsigned OpCode;
+
+  SafeRedInfo(SafeRedChain &RedInsts, unsigned Symbase, unsigned RedOpCode)
+      : Chain(RedInsts), Symbase(Symbase), OpCode(RedOpCode) {}
+};
+
+typedef SmallVector<SafeRedInfo, 4> SafeRedChainList;
 
 class HIRSafeReductionAnalysis final : public HIRAnalysisPass {
 
@@ -46,12 +56,10 @@ private:
   const HLNode *FirstChild;
   // From Loop, look up all sets of Insts in a Safe Reduction chain
   SmallDenseMap<const HLLoop *, SafeRedChainList, 16> SafeReductionMap;
-  // From Inst, Look up  Instruction Set.
+  // From Inst, Look up  Index to Reduction Info (Chain, Symbase and Opcode).
   // There is no need to go through Loop,
   // because there are no many safe reductions in a function.
-  SmallDenseMap<const HLInst *, SafeRedChain *, 16> SafeReductionInstMap;
-  // Map of reduction DDRef symbases and the reduction opcode
-  SmallDenseMap<unsigned, unsigned, 16> SafeReductionSymbaseMap;
+  SmallDenseMap<const HLInst *, unsigned, 16> SafeReductionInstMap;
 
   bool findFirstRedStmt(const HLLoop *Loop, const HLInst *Inst,
                         bool *SingleStmtReduction, unsigned *FirstSB,
@@ -90,6 +98,13 @@ public:
   //  supplied
   bool isSafeReduction(const HLInst *Inst, bool *IsSingleStmt = nullptr) const;
 
+  // Get Safe Reduction Info of a Loop (Chain, Symbase and Opcode). Returns null
+  // if the instruction is not part of a reduction
+  const SafeRedInfo *getSafeRedInfo(const HLInst *Inst) const;
+
+  // Checks if operand is a safe reduction operand and returns related opcode
+  bool isReductionRef(const RegDDRef *Ref, unsigned &RedOpCode);
+
   void print(formatted_raw_ostream &OS, const HLLoop *Loop);
   void print(formatted_raw_ostream &OS, const HLLoop *Loop,
              const SafeRedChainList *SR);
@@ -97,10 +112,6 @@ public:
   //           const SafeRedChain *SRC);
   void markLoopBodyModified(const HLLoop *L) override;
   void releaseMemory() override;
-
-  /// Return true if given Symbase corresponds to a reduction DDRef, return
-  /// reduction opcode in OpCodeP if it is not null.
-  bool isSafeReductionSymbase(unsigned Symbase, unsigned *OpCodeP = nullptr);
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HIRAnalysisPass *AP) {

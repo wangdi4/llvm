@@ -119,10 +119,12 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
   unsigned NumVecElems = Tp->getVectorNumElements();
   assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
 
-  if (isReverseVectorMask(Mask))
+  if (TTI.isTargetSpecificShuffleMask(Mask))
+    return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0, nullptr);
+  else if (isReverseVectorMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, Tp, 0, nullptr);
   else if (isAlternateVectorMask(Mask))
-    TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0, nullptr);
+    return TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0, nullptr);
 
   // TODO: Support SK_Insert, SK_Extract
   return 2 * Mask.size();
@@ -164,21 +166,28 @@ static inline OVLSostream &operator<<(OVLSostream &OS, const BitRange &BR) {
   return OS;
 }
 
-/// Edge represents a move of a specified bit-range 'BR' from 'Src' GraphNode.
+/// Edge represents a move of a specified bit-range 'BR' from 'Src' to 'Dst'.
 /// Src can be nullptr, which means an undefined source. For an undefined
-/// source, BR still represents a valid bitrange. A bit-range with an
-/// undefined source is used to represent a gap in the destination GraphNode.
+/// source, BR still represents a valid bitrange. A bit-range with an undefined
+/// source is used to represent a gap in the destination GraphNode.
 class Edge {
 private:
   GraphNode *Src;
+  GraphNode *Dst;
   BitRange BR;
 
 public:
-  Edge(GraphNode *S, BitRange BRange) : Src(S), BR(BRange) {
+  Edge(GraphNode *S, GraphNode *D, BitRange BRange)
+      : Src(S), Dst(D), BR(BRange) {
     BR = BitRange(BRange.getBitIndex(), BRange.getNumBits());
   }
+
   GraphNode *getSource() const { return Src; }
+  GraphNode *getDest() const { return Dst; }
   BitRange getBitRange() const { return BR; }
+  uint32_t getBitIndex() const { return BR.getBitIndex(); }
+  uint32_t getNumBits() const { return BR.getNumBits(); }
+
   void updateSource(GraphNode *NewSrc, uint32_t NewBIndex) {
     Src = NewSrc;
     // Update BitIndex.
@@ -221,9 +230,14 @@ class GraphNode {
   /// (an edge with Src=nullptr) gets inserted into IncomingEdges to represent
   /// the whole. IncomingEdges for a memory instruction can be empty.
   OVLSVector<Edge *> IncomingEdges;
+  OVLSVector<Edge *> OutgoingEdges;
 
   /// Current total number of incoming bits from IncomingEdges.
   uint32_t TotalIncomingBits;
+
+  /// Keeps track of the number of incoming edges. The main purpose of this is
+  /// to allow liner time topological node traversal.
+  uint32_t TotalIncomingEdges;
 
   /// Type of the result node gets set during the output node(gather node)
   /// construction. In order to generate an OVLSInstruction we will
@@ -235,9 +249,10 @@ class GraphNode {
 
 public:
   explicit GraphNode(OVLSInstruction *I, OVLSType T) : Inst(I), Type(T) {
-    static uint32_t NodeId = 1;
+    static uint32_t NodeId = 0;
     Id = NodeId++;
     TotalIncomingBits = 0;
+    TotalIncomingEdges = 0;
   }
 
   ~GraphNode() {
@@ -253,8 +268,11 @@ public:
   inline const_iterator begin() const { return IncomingEdges.begin(); }
   inline const_iterator end() const { return IncomingEdges.end(); }
 
-  inline iterator_range<const_iterator> edges() const {
+  inline iterator_range<const_iterator> incomingEdges() const {
     return make_range(begin(), end());
+  }
+  inline iterator_range<const_iterator> outgoingEdges() const {
+    return make_range(OutgoingEdges.begin(), OutgoingEdges.end());
   }
 
   uint32_t getId() const { return Id; }
@@ -263,6 +281,19 @@ public:
   bool isUndefined() const { return Inst == nullptr; }
   OVLSType type() const { return Type; }
   void setType(OVLSType T) { Type = T; }
+
+  void setTotalIncomingEdges() {
+    TotalIncomingEdges = IncomingEdges.size();
+  }
+  void decrementIncomingEdges() {
+    TotalIncomingEdges--;
+  }
+  bool hasNoIncomingEdges() const {
+    if (TotalIncomingEdges == 0)
+      return true;
+
+    return false;
+  }
 
   // Returns the current total number of incoming bits.
   uint32_t size() const { return TotalIncomingBits; }
@@ -300,6 +331,18 @@ public:
     }
   }
 
+  void removeOutgoingEdge(Edge *E) {
+    auto IT = std::find(OutgoingEdges.begin(), OutgoingEdges.end(), E);
+    assert(IT != OutgoingEdges.end() && "Invalid edge to be removed!!!");
+    OutgoingEdges.erase(IT);
+  }
+
+  // Add 'E' to the outgoing edge-list.
+  void addAnOutgoingEdge(Edge *E) {
+    assert(E != nullptr && "Invalid Edge!!!");
+    OutgoingEdges.push_back(E);
+  }
+
   // Assigns an edge 'E' to the BIndex if BIndex is available,
   // If BIndex is larger than the current bit index, it fills up the gap by
   // creating a dummy edge. This function does not allow overwriting an edge,
@@ -314,7 +357,7 @@ public:
       // to fillup the gap.
       uint32_t GapSize = (BIndex - TotalIncomingBits);
 
-      Edge *Gap = new Edge(nullptr, BitRange(0, GapSize));
+      Edge *Gap = new Edge(nullptr, this, BitRange(0, GapSize));
       IncomingEdges.push_back(Gap);
       TotalIncomingBits += GapSize;
     }
@@ -322,6 +365,7 @@ public:
     IncomingEdges.push_back(E);
     // Update current bit-index.
     TotalIncomingBits += E->getBitRange().getNumBits();
+    TotalIncomingEdges++;
   }
 
   /// Returns the total number of unique source nodes.
@@ -343,13 +387,24 @@ public:
   ///             dst
   void splitEdge(Edge *E, GraphNode *NewNode) {
     // Create an edge from src to NewNode.
-    Edge *NewEdge = new Edge(E->getSource(), E->getBitRange());
+    Edge *NewEdge = new Edge(E->getSource(), NewNode, E->getBitRange());
     uint32_t NewNodeBIndex = NewNode->size();
     NewNode->addAnIncomingEdge(NewNodeBIndex, NewEdge);
+
+    // Update outgoing edgelist of NewNode.
+    NewNode->addAnOutgoingEdge(E);
+
+    GraphNode *Src = E->getSource();
+
+    // Remove this from Src's outgoing list.
+    Src->removeOutgoingEdge(E);
 
     // Update E with the new source NewNode;
     // src->dst => NewNode->dst.
     E->updateSource(NewNode, NewNodeBIndex);
+
+    // Update outgoing edge-list of src
+    Src->addAnOutgoingEdge(NewEdge);
   }
 
   /// Split the unique source nodes into half by replacing this node
@@ -482,7 +537,9 @@ public:
 class Graph {
   /// When a node is created, it gets pushed into the NodeVector. Therefore,
   /// nodes in the NodeVector don't maintain any order. A destination node could
-  /// appear before a source node in the NodeVector.
+  /// appear before a source node in the NodeVector. But each node gets an id
+  /// which corresponds to the container's index. So, a node can easily be
+  /// accessed by its id also.
   GraphNodeVector Nodes;
 
   uint32_t VectorLength;
@@ -500,46 +557,38 @@ public:
   void insert(GraphNode *N) { Nodes.push_back(N); }
 
   // Return nodes in a topological order.
-  // FIXME: Current topological traversal is very inefficient, support a
-  // linear time topological walk by adding a member of a vector of outgoing
-  // edges to the GraphNode.
   void getTopSortedNodes(GraphNodeVector &TopSortedNodes) const {
+    // TopSortedNodes is an empty list that will contain the sorted elements.
     std::deque<GraphNode *> NodesToProcess;
-    OVLSSmallPtrSet<const GraphNode *> ProcessedNodes;
 
-    // Get the nodes with no incoming edges.
+    // Collect all the nodes with no incoming edges.
     for (GraphNode *Node : Nodes) {
-      if (Node->begin() == Node->end()) {
-        TopSortedNodes.push_back(Node);
-        ProcessedNodes.insert(Node);
-      } else
+      if (Node->hasNoIncomingEdges())
         NodesToProcess.push_back(Node);
     }
 
-    // Get the nodes if its producers are processed.
+    // Process the nodes with no incoming edges.
     while (!NodesToProcess.empty()) {
       GraphNode *Node = NodesToProcess.front();
       NodesToProcess.pop_front();
 
-      // check if its producers are processed
-      bool ProducersProcessed = true;
-      for (GraphNode::iterator I = Node->begin(), E = Node->end(); I != E;
-           ++I) {
-        GraphNode *Parent = (*I)->getSource();
-        if (!ProcessedNodes.count(Parent)) {
-          ProducersProcessed = false;
-          break;
-        }
+      // Delete outgoing edges.
+      for (Edge *E : Node->outgoingEdges()) {
+        GraphNode *Dst = E->getDest();
+        // Delete Edge
+        Dst->decrementIncomingEdges();
+        // If the destination has no incoming edges push it to the
+        // NodesToProcess.
+        if (Dst->hasNoIncomingEdges())
+          NodesToProcess.push_back(Dst);
       }
 
-      if (ProducersProcessed) {
-        // Its producers are already processed, so process the node.
-        TopSortedNodes.push_back(Node);
-        ProcessedNodes.insert(Node);
-      } else
-        // Its producers are not processed yet, push the node back to the stack
-        NodesToProcess.push_back(Node);
+      // Push it to the TopSortedNodes
+      TopSortedNodes.push_back(Node);
     }
+    // Reset incoming edge count.
+    for (GraphNode *Node : Nodes)
+      Node->setTotalIncomingEdges();
   }
 
   // Print the nodes in a topological order. It prints a node only if its
@@ -567,6 +616,7 @@ public:
       }
     }
   }
+
   /// When we are trying to merge two nodes, there are various ways to merge
   /// them.
   /// For example,
@@ -580,10 +630,9 @@ public:
   /// N2 N1 N2 N1, etc.
   /// It makes more sense to merge as N1 N1 N2 N2 which will most likely lead
   /// to vperm or vinsert.
-  OVLSVector<uint32_t> getShuffleMask(const GraphNode &N1,
-                                      const GraphNode &N2) const {
-    OVLSVector<uint32_t> Mask;
-
+  OVLSVector<int> getShuffleMask(const GraphNode &N1,
+                                   const GraphNode &N2) const {
+    OVLSVector<int> Mask;
     std::set<GraphNode *> UniqueSources;
     N1.getNumUniqueSources(UniqueSources);
     uint32_t NumUniqueSources = N2.getNumUniqueSources(UniqueSources);
@@ -599,7 +648,7 @@ public:
     uint32_t ElemSize = SrcType.getElementSize();
 
     // Traverse through the edges of N1 and compute mask.
-    for (const auto &Edge : N1.edges()) {
+    for (const auto &Edge : N1.incomingEdges()) {
       GraphNode *Src = Edge->getSource();
       uint32_t BIndex = Edge->getBitRange().getBitIndex();
 
@@ -612,7 +661,7 @@ public:
     }
 
     // Traverse through the edges of N2 and compute mask.
-    for (const auto &Edge : N2.edges()) {
+    for (const auto &Edge : N2.incomingEdges()) {
       GraphNode *Src = Edge->getSource();
       uint32_t BIndex = Edge->getBitRange().getBitIndex();
 
@@ -1022,8 +1071,9 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
         // A gather element is loaded, draw an edge from this element
         // to its correspondent gather-element.
         GraphNode *GatherNode = G.getNode(GSIndex);
-        Edge *E = new Edge(LoadNode, LoadBR);
+        Edge *E = new Edge(LoadNode, GatherNode, LoadBR);
         GatherNode->addAnIncomingEdge(IthElem * ElemSize, E);
+        LoadNode->addAnOutgoingEdge(E);
       }
       ++LoadBR;
       EMask >>= 1;

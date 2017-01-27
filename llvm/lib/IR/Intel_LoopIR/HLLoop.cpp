@@ -366,9 +366,10 @@ HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
           Ztt->getPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
+void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
+                             FastMathFlags FMF) {
   assert(hasZtt() && "Ztt is absent!");
-  Ztt->addPredicate(Pred, Ref1, Ref2);
+  Ztt->addPredicate(Pred, Ref1, Ref2, FMF);
 
   const_ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
 
@@ -404,6 +405,17 @@ void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
                                  PredicateTy NewPred) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->replacePredicate(CPredI, NewPred);
+}
+
+FastMathFlags HLLoop::getZttPredicateFMF(const_ztt_pred_iterator CPredI) const {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getPredicateFMF(CPredI);
+}
+
+void HLLoop::setZttPredicateFMF(const_ztt_pred_iterator CPredI,
+                                FastMathFlags FMF) {
+  assert(hasZtt() && "Ztt is absent!");
+  Ztt->setPredicateFMF(CPredI, FMF);
 }
 
 RegDDRef *HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
@@ -761,23 +773,57 @@ bool HLLoop::isConstTripLoop(uint64_t *TripCnt) const {
   return false;
 }
 
-// This will create the Ztt for the loop.
-void HLLoop::createZtt(bool IsOverwrite) {
-
+void HLLoop::createZtt(RegDDRef *LHS, PredicateTy Pred, RegDDRef *RHS,
+                       bool IsOverwrite) {
   assert((!hasZtt() || IsOverwrite) && "Overwriting existing Ztt.");
+
   // Don't generate Ztt for Const trip loops.
-  RegDDRef *TripRef = getTripCountDDRef(getNestingLevel());
-  assert(TripRef && " Trip Count DDRef is null.");
-  if (TripRef->getSingleCanonExpr()->isIntConstant()) {
-    getDDRefUtils().destroy(TripRef);
+  // TODO: improve zero/negative trip count loop recognition. A cheaper check is
+  // LHS->isConstant() and RHS->isConstant(). Even though it doesn't catch cases
+  // like  i1 = t, t+1 they are rare enough in HIR due to normalized loops that
+  // the client may be able to handle them on its side. See also the same check
+  // below.
+  std::unique_ptr<CanonExpr> TripCE(getTripCountCanonExpr());
+  assert(TripCE && " Trip Count CE is null.");
+
+  if (TripCE->isIntConstant()) {
     return;
   }
 
-  // (Trip > 0)
-  RegDDRef *ZeroDD =
-      getDDRefUtils().createConstDDRef(TripRef->getDestType(), 0);
-  HLIf *ZttIf = getHLNodeUtils().createHLIf(CmpInst::ICMP_UGT, TripRef, ZeroDD);
+  setZtt(getHLNodeUtils().createHLIf(Pred, LHS, RHS));
+}
+
+// This will create the Ztt for the loop.
+void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
+
+  assert((!hasZtt() || IsOverwrite) && "Overwriting existing Ztt.");
+
+  // Don't generate Ztt for Const trip loops.
+  std::unique_ptr<CanonExpr> TripCE(getTripCountCanonExpr());
+  assert(TripCE && " Trip Count CE is null.");
+
+  if (TripCE->isIntConstant()) {
+    return;
+  }
+
+  // Trip > 0
+  RegDDRef *LBRef = getLowerDDRef()->clone();
+  RegDDRef *UBRef = getUpperDDRef()->clone();
+
+  // The ZTT will look like [ LB < UB + 1 ]. This form is the safest one as UB
+  // can not be MAX_VALUE and it's safe to add 1. Transformations are free to do
+  // UB - 1.
+  UBRef->getSingleCanonExpr()->addConstant(1, true);
+
+  HLIf *ZttIf = getHLNodeUtils().createHLIf(
+      IsSigned ? PredicateTy::ICMP_SLT : PredicateTy::ICMP_ULT, LBRef, UBRef);
   setZtt(ZttIf);
+
+  // The following call is required because self-blobs do not have BlobDDRefs.
+  // +1 operation could make non-self blob a self-blob and wise versa.
+  // For example if UB is (%b - 1) or (%b).
+  SmallVector<const RegDDRef *, 1> Aux = { getUpperDDRef() };
+  UBRef->makeConsistent(&Aux);
 }
 
 HLIf *HLLoop::extractZtt() {
@@ -871,6 +917,9 @@ void HLLoop::verify() const {
          "If it's not a top-level loop its nesting level should be +1");
   assert((getParentLoop() || getNestingLevel() == 1) &&
          "Top level loops should have 1st nesting level");
+
+  assert(hasChildren() &&
+         "Found an empty Loop, assumption that there should be no empty loops");
 }
 
 bool HLLoop::isSIMD() const {

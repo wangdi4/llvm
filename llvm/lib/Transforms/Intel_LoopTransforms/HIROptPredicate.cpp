@@ -61,6 +61,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define OPT_SWITCH "hir-opt-predicate"
@@ -279,13 +280,6 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
     return;
   }
 
-  // TODO: Think about erasing If when no children are present.
-  // Usually, this will be safe when there are no call statements
-  // associated with a predicate. Ignoring such If for now.
-  if (!If->hasThenChildren() && !If->hasElseChildren()) {
-    return;
-  }
-
   bool IsCandidate = Pass.isLoopSupported(ParentLoop);
 
   if (!DisableCostModel) {
@@ -320,7 +314,7 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
       IsCandidate = false;
     }
   } else {
-    Level = std::max(ParentLoop->getNestingLevel(), MinLevel);
+    Level = ParentLoop->getNestingLevel();
   }
 
   CandidateLookup Lookup(Pass, Level);
@@ -381,6 +375,7 @@ bool HIROptPredicate::runOnFunction(Function &F) {
 
     if (processOptPredicate()) {
       Region->setGenCode();
+      HLNodeUtils::removeEmptyNodes(Region);
     }
 
     Candidates.clear();
@@ -421,6 +416,7 @@ unsigned HIROptPredicate::getDefinedAtLevel(const HLIf *If) {
   return Level;
 }
 
+// TODO: try to replace the following method with getParentLoopAtLevel() utility
 HLLoop *HIROptPredicate::findTargetLoopAtLevel(const HLIf *If,
                                                HLLoop *ParentLoop,
                                                unsigned Level) const {
@@ -545,8 +541,8 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
   // Insert else-case afther the cloned HLIf
   if (!ElseContainer.empty()) {
     // Update HLGotos to new cloned targets
-    HNU.remapLabelsRange(CloneMapper, &ElseContainer.front(),
-                         &ElseContainer.back());
+    HIRTransformUtils::remapLabelsRange(CloneMapper, &ElseContainer.front(),
+                                        &ElseContainer.back());
     HNU.insertAfter(ClonnedIf, &ElseContainer);
   }
 
@@ -564,10 +560,9 @@ bool HIROptPredicate::transformClones(HLLoop *TargetLoop,
   HoistCandidate *NewCandidatePtr = nullptr;
 
   for (HLIf *Clone : Candidate.Clones) {
-    auto &HNU = Clone->getHLNodeUtils();
-
-    if (HNU.contains(Candidate.If, Clone, false)) {
-      HNU.replaceNodeWithBody(Clone, Candidate.If->isThenChild(Clone));
+    if (HLNodeUtils::contains(Candidate.If, Clone, false)) {
+      HIRTransformUtils::replaceNodeWithBody(Clone,
+                                             Candidate.If->isThenChild(Clone));
     } else {
       if (!NewCandidatePtr) {
         DEBUG(dbgs() << "Found new candidate: ");

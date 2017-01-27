@@ -393,6 +393,11 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool adjustCallArgs(CallInst *CI) { return false; }
+
+  bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const {
+    return false;
+  }
+
 #endif
 
   bool areInlineCompatible(const Function *Caller,
