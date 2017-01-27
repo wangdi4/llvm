@@ -48,6 +48,7 @@ const int CallPenalty = 25;
 const int LastCallToStaticBonus = 15000;
 const int SecondToLastCallToStaticBonus = 410; // INTEL
 const int AggressiveInlineCallBonus = 5000;    // INTEL
+const int BigBasicBlockPredCount = 90;         // INTEL
 const int ColdccPenalty = 2000;
 const int NoreturnPenalty = 10000;
 /// Do not inline functions which allocate this many bytes on the stack
@@ -111,6 +112,7 @@ typedef enum {
    InlrAlmostSingleBasicBlock,
    InlrEmptyFunction,
    InlrDoubleLocalCall,
+   InlrDoubleNonLocalCall,
    InlrVectorBonus,
    InlrAggInline,
    InlrProfitable,
