@@ -5551,7 +5551,8 @@ QualType Sema::CXXCheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
   bool NonStandardCompositeType = false;
   QualType Composite = FindCompositePointerType(QuestionLoc, LHS, RHS,
                                  isSFINAEContext() ? nullptr
-                                                   : &NonStandardCompositeType);
+                                                   : &NonStandardCompositeType, // INTEL
+                                 /*AllowGnuPermissive=*/false); // INTEL
   if (!Composite.isNull()) {
     if (NonStandardCompositeType)
       Diag(QuestionLoc,
@@ -5593,7 +5594,8 @@ QualType Sema::CXXCheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
 /// will be set true.
 QualType Sema::FindCompositePointerType(SourceLocation Loc,
                                         Expr *&E1, Expr *&E2,
-                                        bool *NonStandardCompositeType) {
+                                        bool *NonStandardCompositeType, // INTEL
+                                        bool AllowGnuPermissive) { // INTEL
   if (NonStandardCompositeType)
     *NonStandardCompositeType = false;
 
@@ -5746,8 +5748,16 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
     = InitializedEntity::InitializeTemporary(Composite1);
   InitializationKind Kind
     = InitializationKind::CreateCopy(Loc, SourceLocation());
-  InitializationSequence E1ToC1(*this, Entity1, Kind, E1);
-  InitializationSequence E2ToC1(*this, Entity1, Kind, E2);
+#if INTEL_CUSTOMIZATION
+  InitializationSequence E1ToC1(*this, Entity1, Kind, E1,
+                                /*TopLevelOfInitList=*/false,
+                                /*TreatUnavailableAsInvalid=*/true,
+                                AllowGnuPermissive);
+  InitializationSequence E2ToC1(*this, Entity1, Kind, E2, 
+                                /*TopLevelOfInitList=*/false,
+                                /*TreatUnavailableAsInvalid=*/true,
+                                AllowGnuPermissive);
+#endif // INTEL_CUSTOMIZATION
 
   if (E1ToC1 && E2ToC1) {
     // Conversion to Composite1 is viable.
@@ -5756,8 +5766,16 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
       // Composite2 is also viable.
       InitializedEntity Entity2
         = InitializedEntity::InitializeTemporary(Composite2);
-      InitializationSequence E1ToC2(*this, Entity2, Kind, E1);
-      InitializationSequence E2ToC2(*this, Entity2, Kind, E2);
+#if INTEL_CUSTOMIZATION
+      InitializationSequence E1ToC2(*this, Entity2, Kind, E1, 
+                                    /*TopLevelOfInitList=*/false,
+                                    /*TreatUnavailableAsInvalid=*/true,
+                                    AllowGnuPermissive);
+      InitializationSequence E2ToC2(*this, Entity2, Kind, E2, 
+                                    /*TopLevelOfInitList=*/false,
+                                    /*TreatUnavailableAsInvalid=*/true,
+                                    AllowGnuPermissive);
+#endif // INTEL_CUSTOMIZATION
       if (E1ToC2 && E2ToC2) {
         // Both Composite1 and Composite2 are viable and are different;
         // this is an ambiguity.
@@ -5785,8 +5803,16 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
   // Check whether Composite2 is viable.
   InitializedEntity Entity2
     = InitializedEntity::InitializeTemporary(Composite2);
-  InitializationSequence E1ToC2(*this, Entity2, Kind, E1);
-  InitializationSequence E2ToC2(*this, Entity2, Kind, E2);
+#if INTEL_CUSTOMIZATION
+  InitializationSequence E1ToC2(*this, Entity2, Kind, E1,
+                                /*TopLevelOfInitList=*/false, 
+                                /*TreatUnavailableAsInvalid=*/true, 
+                                AllowGnuPermissive);
+  InitializationSequence E2ToC2(*this, Entity2, Kind, E2,
+                                /*TopLevelOfInitList=*/false, 
+                                /*TreatUnavailableAsInvalid=*/true, 
+                                AllowGnuPermissive);
+#endif // INTEL_CUSTOMIZATION
   if (!E1ToC2 || !E2ToC2)
     return QualType();
 
