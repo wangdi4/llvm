@@ -68,7 +68,6 @@ private:
   void setSafeRedChainList(SafeRedChain &RedInsts, const HLLoop *Loop,
                            unsigned RedSymbase, unsigned RedOpCode);
 
-  void identifySingleStatementReduction(const HLLoop *Loop, DDGraph DDG);
   void identifySafeReductionChain(const HLLoop *Loop, DDGraph DDG);
   bool isValidSR(const RegDDRef *LRef, const HLLoop *Loop, HLInst **SinkInst,
                  DDRef **SinkDDRef, unsigned ReductionOpCode, DDGraph DDG);

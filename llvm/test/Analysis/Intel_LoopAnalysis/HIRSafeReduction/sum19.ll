@@ -11,9 +11,9 @@
 ;     s2 = d[i]  - s2;
 ;     s2 = e[i]  - s2;
 ; }
-; REQUIRES: asserts
-; RUN: opt < %s  -hir-ssa-deconstruction   -analyze  -hir-temp-cleanup   -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
-; CHECK:   No Safe Reduction
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
+; CHECK-NOT: Safe Reduction:
+
 ; ModuleID = 'sum19.cpp'
 source_filename = "sum19.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
