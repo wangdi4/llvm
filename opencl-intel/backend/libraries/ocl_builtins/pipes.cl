@@ -1,3 +1,165 @@
+// Pipe struct has 2 internal buffers: circular buffer for packets and
+// hazard flags buffer.
+//
+// Circular buffer:
+//
+//  hazard_read_end         hazard_write_begin
+//     ~~~~~~~~~~v           v~~~~~~~~~
+// |---+---+---+---+---+---+---+---+---+---|
+// |   | r | r | x | x | x | w | w |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//       ^~~~ begin           end ~~~^
+//
+// Where:
+//   r - packets reserved for read
+//   x - already written packets, available for read
+//   w - packets reserved for write
+//
+// Circular is protected by 4 indexes:
+//
+//   begin, end - buffer borders, all elements after end and before begin
+//   has uninitialized values
+//
+//   hazard_read_end, hazard_write_begin - borders for _hazardous_ zone,
+//   where _reserved_ values are stored.
+//
+//
+// Hazard flags:
+//
+// |---+---+---+---+---+---+---+---+---+---|
+// |   | h | h |   |   |   | h | h |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//       ^~~~^~~~~~~~~~~~~~~~^~~~^
+//      these elements are hazardous
+//
+// These flags are set after _reserve_ operation and removed after
+// successful _read/write_ operation. They are required to determine
+// which elements in hazardous area are not yet commited.
+// See __read_pipe_4 example for a use-case.
+//
+//
+// When __reserve_read_pipe(pipe, num_packets) is called ...
+//
+//  hazard_read_end
+//       v~~~~~~~
+// |---+---+---+---+---+---+---+---+---+---|
+// |   | x | x | x | x | x | w | w |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//       ^~~~ begin
+//
+// ... we should reserve _num_packets_ items from the read end of the
+// buffer, we atomically move the _hazard_read_end_ forward by
+// _num_packets (let's assume 2):
+//
+//  hazard_read_end
+//       ~~~~~~~~v
+// |---+---+---+---+---+---+---+---+---+---|
+// |   | r | r | x | x | x | w | w |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//       ^~~~ begin
+//
+// _begin_ protects our reserved packets from being overwritten by
+// overflow, and since _hazard_read_end_ is moved, subsequent calls to
+// __reserve_read_pipe also would not affect them.
+//
+// We also mark the reserved items as hazardous:
+// |---+---+---+---+---+---+---+---+---+---|
+// |   | h | h |   |   |   |   |   |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//
+//
+// When __read_pipe_4(pipe, reserve_id, index, dst_ptr) is called, we
+// must read the reserved item at index (let's say 1) into the user
+// allocated buffer _dst_ptr_.
+//
+//  hazard_read_end         hazard_write_begin
+//       ~~~~~~~~+           +~~~~~~~~~
+// item to read  |           |
+//    ~~~~~~~v   v           v
+// |---+---+---+---+---+---+---+---+---+---|
+// |   | r | r | x | x | x | w | w |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//       ^~~~ begin           end ~~~^
+//
+// First, me memcpy() the item into dst. Then we check if we can move the
+// _begin_: if all elements to the left are not hazardous, it is safe to
+// move _begin_ forward up to the next hazardous element or
+// _hazard_read_end_. Since the item at index 1 is still hazardous, it
+// is not legal, so we do nothing with _begin_ and remove our hazardous
+// flag.
+//
+//  // TODO: asavonic: fix a buf with begin forwarding: make it move to the
+//  leftmost hazard item
+//
+// |---+---+---+---+---+---+---+---+---+---|
+// |   | h |   |   |   |   |   |   |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//
+// Next __read_pipe_4 with index = 0 (packet wise) will read the item at
+// index 1 (buffer wise) and move begin to the hazard_read_end.
+//
+//  hazard_read_end
+//       ~~~~~~~~v
+// |---+---+---+---+---+---+---+---+---+---|
+// |   |   |   | x | x | x | w | w |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//     begin ~~~~^
+//
+// Since we moved _begin_, the area before begin may already be occupied,
+// and it is not safe to remove the hazardous flag.
+// There is nothing bad in leaving it hazardous, because:
+//   - we don't care about its state, because we don't maintain this area
+//     (it is before begin)
+//   - it will only be affected when __reserve_write takes place, and it
+//     will only _set_ the flag
+//
+// // TODO asavonic: fix this!
+//
+//
+// Since we don't care about this hazard flag, consider it removed:
+//
+// |---+---+---+---+---+---+---+---+---+---|
+// |   |   |   |   |   |   |   |   |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//
+//
+// Write operations follows the same logic:
+//
+// When __reserve_write_pipe(pipe, num_packets) is called ...
+//
+//                          hazard_write_begin
+//                           v~~~~~~~~~
+// |---+---+---+---+---+---+---+---+---+---|
+// |   | r | r | x | x | x |   |   |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//                    end ~~~^
+//
+// We move _end_ by 2 items, and mark them hazardous:
+//
+//                          hazard_write_begin
+//                           v~~~~~~~~~
+// |---+---+---+---+---+---+---+---+---+---|
+// |   | r | r | x | x | x | w | w |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//                            end ~~~^
+//
+// |---+---+---+---+---+---+---+---+---+---|
+// |   |   |   |   |   |   | h | h |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//
+// When __write_pipe(.., index=1, ..) is called, we memcpy() the item at
+// index 7 (buffer wize), and remove it's hazard flag, since we cannot
+// move _hazard_write_begin_ yet.
+//
+// |---+---+---+---+---+---+---+---+---+---|
+// |   |   |   |   |   |   | h |   |   |   |
+// |---+---+---+---+---+---+---+---+---+---|
+//
+// When __write_pipe(.., index=0, ..) is called, we memcpy() the item at
+// index 6, and then check whether we can move _hazard_write_begin_:
+// yes, we can (no hazardous items before ours). Move it, and leave our
+// hazard flag, since we don't care about it (see __read_pipe_4 example).
+
 #define __ovld __attribute__((overloadable))
 
 
