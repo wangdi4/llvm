@@ -20,6 +20,8 @@
 
 // This source file contains an implementation of OpenCL 2.0 built-in pipe functions
 
+#if 0 // TODO: asavonic: temoporary disabled pipe bis
+
 #if defined(_DEBUG)
 #define INTEL_PIPE_DPF printf
 #else
@@ -31,7 +33,7 @@
 #if !defined(__MIC__) && !defined(__MIC2__)
 
 #define ALWAYS_INLINE __attribute__((always_inline))
-#define OVERLOADABLE __attribute__((overloadable))
+n#define OVERLOADABLE __attribute__((overloadable))
 
 // There are no declarations of OpenCL 2.0 builtins in opencl_.h for named
 // address space but in the library they has to be called directly because the
@@ -556,22 +558,17 @@ void __work_group_commit_write_pipe(write_only pipe uchar p, reserve_id_t reserv
 
 #endif // defined (__MIC__) || defined(__MIC2__)
 
+
+#endif // __OPENCL_C_VERSION__ >= 200
+
+#endif // TODO: asavonic: temoporary disabled pipe bis
+
 int __write_pipe_2_bl(write_only pipe uchar pipe_, void* data,
                       uint size_of_packet, uint alignment_of_packet) {
-  while (-1 == __write_pipe_2(pipe_, data,
-                              size_of_packet, alignment_of_packet)) {
-  }
-
   return 0;
 }
 
 int __read_pipe_2_bl(read_only pipe uchar pipe_, void* data,
                      uint size_of_packet, uint alignment_of_packet) {
-  while (-1 == __read_pipe_2(pipe_, data,
-                             size_of_packet, alignment_of_packet)) {
-  }
-
   return 0;
 }
-
-#endif // __OPENCL_C_VERSION__ >= 200
