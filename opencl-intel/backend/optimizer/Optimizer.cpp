@@ -615,7 +615,7 @@ Optimizer::~Optimizer() {}
 Optimizer::Optimizer(llvm::Module *pModule,
                      llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
                      const intel::OptimizerConfig *pConfig)
-    : m_pModule(pModule) {
+    : m_pModule(pModule), m_pRtlModuleList(pRtlModuleList) {
 
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
@@ -634,21 +634,23 @@ Optimizer::Optimizer(llvm::Module *pModule,
                            *pModule) >= OclVersion::CL_VER_2_0;
   bool UnrollLoops = true;
   // Add passes which will run unconditionally
-  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, pRtlModuleList,
+  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20,
                              UnrollLoops);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
   populatePassesPostFailCheck(
-      m_PostFailCheckPM, pModule, pRtlModuleList, OptLevel,
+      m_PostFailCheckPM, pModule, m_pRtlModuleList, OptLevel,
       pConfig, m_undefinedExternalFunctions, isOcl20, UnrollLoops);
 }
 
 void Optimizer::Optimize() {
 #ifndef __APPLE__
-  std::auto_ptr<llvm::ModulePass> materializer(createSpirMaterializer());
-  materializer->runOnModule(*m_pModule);
+  legacy::PassManager materializerPM;
+  materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
+  materializerPM.add(createSpirMaterializer());
+  materializerPM.run(*m_pModule);
 #endif
   m_PreFailCheckPM.run(*m_pModule);
 

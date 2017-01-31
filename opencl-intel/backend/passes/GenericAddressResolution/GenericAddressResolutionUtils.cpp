@@ -202,16 +202,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   bool isPipeBuiltin(const std::string &s) {
     return llvm::StringSwitch<bool>(s)
-        .Case("__read_pipe_2", true)
-        .Case("__read_pipe_4", true)
-        .Case("__commit_read_pipe", true)
-        .Case("__reserve_read_pipe", true)
-        .Case("__write_pipe_2", true)
-        .Case("__write_pipe_4", true)
-        .Case("__commit_write_pipe", true)
-        .Case("__reserve_write_pipe", true)
-        .Case("__write_pipe_2_bl", true)
-        .Case("__read_pipe_2_bl", true)
+        .Case("__read_pipe_2_intel", true)
+        .Case("__read_pipe_4_intel", true)
+        .Case("__commit_read_pipe_intel", true)
+        .Case("__reserve_read_pipe_intel", true)
+        .Case("__write_pipe_2_intel", true)
+        .Case("__write_pipe_4_intel", true)
+        .Case("__commit_write_pipe_intel", true)
+        .Case("__reserve_write_pipe_intel", true)
+        .Case("__write_pipe_2_bl_intel", true)
+        .Case("__read_pipe_2_bl_intel", true)
         .Default(false);
   }
 

@@ -7,8 +7,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "Materialize.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
 #include "MetaDataApi.h"
 #include "OCLPassSupport.h"
+#include "OCLAddressSpace.h"
 #include <NameMangleAPI.h>
 
 #include "llvm/ADT/SmallVector.h"
@@ -107,6 +109,7 @@ static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
 // 2. Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names.
 class MaterializeBlockFunctor : public BlockFunctor {
 public:
+  MaterializeBlockFunctor(BuiltinLibInfo &BLI) : BLI(BLI) {}
   void operator()(llvm::BasicBlock &BB) {
     llvm::SmallVector<Instruction *, 4> InstToRemove;
 
@@ -115,6 +118,7 @@ public:
         m_isChanged |= changeCallingConv(CI);
         m_isChanged |= changeImageCall(CI, InstToRemove);
         m_isChanged |= changeAddrSpaceCastCall(CI);
+        m_isChanged |= changePipeCall(CI, InstToRemove);
       }
     }
 
@@ -227,6 +231,84 @@ public:
 
     return false;
   }
+
+  bool changePipeCall(llvm::CallInst *CI,
+                      llvm::SmallVectorImpl<Instruction *> &InstToRemove) {
+    auto *F = CI->getCalledFunction();
+    if (!F)
+      return false;
+
+    StringRef FName = F->getName();
+
+    bool PipeBI = StringSwitch<bool>(FName)
+      .Case("__read_pipe_2", true)
+      .Case("__read_pipe_4", true)
+      .Case("__write_pipe_2", true)
+      .Case("__write_pipe_4", true)
+      .Case("__reserve_read_pipe", true)
+      .Case("__reserve_write_pipe", true)
+      .Default(false);
+
+    if (!PipeBI) {
+      return false;
+    }
+
+    auto m_runtimeModuleList = BLI.getBuiltinModules();
+
+    llvm::StructType *InternalPipeTy = nullptr;
+    llvm::Module *PipesModule = nullptr;
+    for (auto *M : m_runtimeModuleList) {
+      if ((InternalPipeTy = M->getTypeByName("struct.__pipe_t"))) {
+        PipesModule = M;
+        break;
+      }
+    }
+
+    if (!InternalPipeTy) {
+      llvm_unreachable("Cannot find __pipe_t struct in RTL.");
+      return false;
+    }
+
+    auto *GlobalPipeTy = PointerType::get(InternalPipeTy,
+          Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Global);
+
+    auto PipeArg = BitCastInst::CreatePointerCast(CI->getArgOperand(0),
+                                               GlobalPipeTy, "", CI);
+    SmallVector<Value *, 4> NewArgs;
+    NewArgs.push_back(PipeArg);
+
+    // skip the first argument (the pipe), and the 2 last arguments (packet size
+    // and max packets, they are not used by the BIs)
+    assert(CI->getNumArgOperands() > 2 && "Unexpected number of arguments");
+    for (size_t i = 1; i < CI->getNumArgOperands() - 2; ++i) {
+      NewArgs.push_back(CI->getArgOperand(i));
+    }
+
+    llvm::SmallString<256> NewFName(FName);
+    NewFName.append("_intel");
+
+    llvm::Function *NewF = cast<Function>(
+        CompilationUtils::importFunctionDecl(CI->getParent()->getModule(),
+                                             PipesModule->getFunction(
+                                                 NewFName)));
+
+    llvm::CallInst *NewCI = llvm::CallInst::Create(NewF, NewArgs, "", CI);
+
+    NewCI->setCallingConv(CI->getCallingConv());
+    NewCI->setAttributes(CI->getAttributes());
+    if (CI->isTailCall())
+      NewCI->setTailCall();
+    NewCI->setDebugLoc(CI->getDebugLoc());
+
+    // Replace old call instruction with updated one
+    CI->replaceAllUsesWith(NewCI);
+    InstToRemove.push_back(CI);
+
+    return true;
+  }
+
+private:
+  BuiltinLibInfo &BLI;
 };
 
 // Function functor, to be applied for every function in the module.
@@ -234,8 +316,10 @@ public:
 // 2. Replaces calling conventions of function declarations.
 class MaterializeFunctionFunctor : public FunctionFunctor {
 public:
+  MaterializeFunctionFunctor(BuiltinLibInfo &BLI): BLI(BLI) {}
+
   void operator()(llvm::Function &F) {
-    MaterializeBlockFunctor bbMaterializer;
+    MaterializeBlockFunctor bbMaterializer(BLI);
     llvm::CallingConv::ID CConv = F.getCallingConv();
     if (llvm::CallingConv::SPIR_FUNC == CConv ||
         llvm::CallingConv::SPIR_KERNEL == CConv) {
@@ -245,6 +329,9 @@ public:
     std::for_each(F.begin(), F.end(), bbMaterializer);
     m_isChanged |= bbMaterializer.isChanged();
   }
+
+private:
+  BuiltinLibInfo &BLI;
 };
 
 //
@@ -252,6 +339,14 @@ public:
 //
 
 char SpirMaterializer::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(SpirMaterializer, "", "", false, true)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(SpirMaterializer, "spir-materializer",
+  "Prepares SPIR modules for BE consumption.",
+  false, // Not CGF only pass.
+  true
+)
 
 SpirMaterializer::SpirMaterializer() : ModulePass(ID) {}
 
@@ -262,19 +357,14 @@ const char *SpirMaterializer::getPassName() const {
 bool SpirMaterializer::runOnModule(llvm::Module &Module) {
   bool Ret = false;
 
-  MaterializeFunctionFunctor fMaterializer;
+  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
+
+  MaterializeFunctionFunctor fMaterializer(BLI);
   // Take care of calling conventions
   std::for_each(Module.begin(), Module.end(), fMaterializer);
 
   return Ret || fMaterializer.isChanged();
 }
-
-OCL_INITIALIZE_PASS_BEGIN(SpirMaterializer, "", "", false, false)
-OCL_INITIALIZE_PASS_END(SpirMaterializer, "spir-materializer",
-  "Prepares SPIR modules for BE consumption.",
-  false, // Not CGF only pass.
-  false  // Not an analysis pass.
-)
 
 }
 
