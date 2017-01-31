@@ -2034,7 +2034,19 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
   if (!SE->isSCEVable(Val->getType())) {
     CE = parseAsBlob(Val, Level);
 
+  } else if (Val->getType()->isPointerTy()) {
+    if (isa<ConstantPointerNull>(Val)) {
+      // Create null CE to represent a null pointer.
+      CE = getCanonExprUtils().createCanonExpr(Val->getType());
+    } else {
+      // Force pointer values to be parsed as blobs. This is for handling lvals
+      // but pointer blobs can occur in loop upper as well. CG will have to do
+      // special processing for pointers contained in upper.
+      CE = parseAsBlob(Val, Level);
+    }
+
   } else {
+
     bool EnableCastHiding = IsTop;
     auto CI = dyn_cast<CastInst>(Val);
 
@@ -2817,7 +2829,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
            (CurBasePhi = dyn_cast<PHINode>(BaseVal)) &&
            CurRegion->containsBBlock(CurBasePhi->getParent()));
 
-  auto BaseCE = parseAsBlob(BaseVal, Level);
+  auto BaseCE = parse(BaseVal, Level);
 
   Ref->setBaseCE(BaseCE);
   Ref->setInBounds(IsInBounds);
@@ -2834,7 +2846,7 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
 
   // TODO: This can be improved by first checking if the original SCEV can be
   // handled.
-  CanonExpr *BaseCE = parseAsBlob(BaseVal, Level);
+  CanonExpr *BaseCE = parse(BaseVal, Level);
   Ref->setBaseCE(BaseCE);
 
   populateRefDimensions(Ref, GEPOp, Level, false);
@@ -2854,7 +2866,7 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
 
   // TODO: This can be improved by first checking if the original SCEV can be
   // handled.
-  auto BaseCE = parseAsBlob(GEPVal, Level);
+  auto BaseCE = parse(GEPVal, Level);
   Ref->setBaseCE(BaseCE);
 
   // Create Index of zero.
@@ -2948,20 +2960,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
   auto Symbase = getOrAssignSymbase(Val);
   auto Ref = getDDRefUtils().createRegDDRef(Symbase);
 
-  // Force pointer values to be parsed as blobs. This is for handling lvals but
-  // pointer blobs can occur in loop upper as well. CG will have to do special
-  // processing for pointers contained in upper.
-  if (Val->getType()->isPointerTy()) {
-
-    // Create null CE to represent a null pointer.
-    if (isa<ConstantPointerNull>(Val)) {
-      CE = getCanonExprUtils().createCanonExpr(Val->getType());
-    } else {
-      CE = parseAsBlob(Val, Level);
-    }
-  } else {
-    CE = parse(Val, Level);
-  }
+  CE = parse(Val, Level);
 
   Ref->setSingleCanonExpr(CE);
 

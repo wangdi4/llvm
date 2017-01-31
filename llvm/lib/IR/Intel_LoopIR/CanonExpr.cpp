@@ -77,6 +77,11 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
   auto Denom = getDenominator();
   bool Printed = false;
 
+  if (isNull()) {
+    OS << "null";
+    return;
+  }
+
   if (Detailed) {
     if (!isConstant()) {
       if (isNonLinear()) {

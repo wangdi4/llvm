@@ -962,7 +962,8 @@ void RegDDRef::verify() const {
       assert(isa<PointerType>(CE->getDestType()) &&
              "Invalid BaseCE dest type!");
     }
-    assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
+    assert((CE->isStandAloneBlob() || CE->isNull()) &&
+           "BaseCE is not a standalone blob!");
 
     for (auto CEI = canon_begin(), E = canon_end(); CEI != E; ++CEI) {
       assert((*CEI)->getSrcType()->isIntOrIntVectorTy() &&
@@ -990,9 +991,6 @@ void RegDDRef::verify() const {
     assert((getSymbase() == ConstantSymbase) &&
            "Constant DDRef's symbase is incorrect!");
   }
-
-  assert((!hasGEPInfo() || getBaseCE() != nullptr) &&
-         "GEP DDRefs should have a base canon expression!");
 
   // Verify symbase value if this DDRef is defined
   DDRef::verify();
@@ -1053,4 +1051,3 @@ bool RegDDRef::hasTrailingStructOffsets() const {
 
   return false;
 }
-

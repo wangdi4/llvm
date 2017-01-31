@@ -63,13 +63,17 @@ public:
 // Returns a value* for base ptr of ref
 Value *HIRSymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
   if (CanonExpr *CE = Ref->getBaseCE()) {
-    assert(CE->hasBlob());
-    for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
-      // Even if there are multiple ptr blobs, will AA make correct choice?
-      const SCEV *Blob = CE->getBlobUtils().getBlob(I->Index);
-      if (Blob->getType()->isPointerTy()) {
-        const SCEVUnknown *PtrSCEV = cast<const SCEVUnknown>(Blob);
-        return PtrSCEV->getValue();
+    if (CE->isNull()) {
+      return Constant::getNullValue(CE->getSrcType());
+    } else {
+      assert(CE->hasBlob());
+      for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
+        // Even if there are multiple ptr blobs, will AA make correct choice?
+        const SCEV *Blob = CE->getBlobUtils().getBlob(I->Index);
+        if (Blob->getType()->isPointerTy()) {
+          const SCEVUnknown *PtrSCEV = cast<const SCEVUnknown>(Blob);
+          return PtrSCEV->getValue();
+        }
       }
     }
   } else {
