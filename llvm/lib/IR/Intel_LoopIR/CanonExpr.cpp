@@ -209,8 +209,6 @@ void CanonExpr::setDenominator(int64_t Val) {
   }
 }
 
-void CanonExpr::divide(int64_t Val) { setDenominator(Denominator * Val); }
-
 bool CanonExpr::isExtImpl(bool IsSigned, bool IsTrunc) const {
   // Account for vector Src/Dest types.
   auto ScalSrcTy = SrcTy->getScalarType();

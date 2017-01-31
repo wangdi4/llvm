@@ -236,7 +236,7 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
     }
 
     // Subtract 1.
-    NewUBRef->getSingleCanonExpr()->addConstant(-1);
+    NewUBRef->getSingleCanonExpr()->addConstant(-1, true);
 
     NewLoop->setUpperDDRef(NewUBRef);
 

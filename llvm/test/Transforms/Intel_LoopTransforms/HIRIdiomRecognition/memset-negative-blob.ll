@@ -10,7 +10,7 @@
 ;       END REGION
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: llvm.memset.p0i8.i32(&((i8*)(%p)[-1 * (%n /u 3)]),  85,  2 * ((1 + %n) /u 3),  2,  0)
+; CHECK: llvm.memset.p0i8.i32(&((i8*)(%p)[-1 * (%n /u 3)]),  85,  2 * ((3 + %n) /u 3),  2,  0)
 
 ; ModuleID = 'memset-negative-blob.bc'
 source_filename = "memset-negative-blob.c"

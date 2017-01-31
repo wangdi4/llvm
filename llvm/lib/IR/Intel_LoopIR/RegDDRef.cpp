@@ -564,7 +564,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
     if (Index != InvalidBlobIndex) {
       StrideAtLevel->addBlob(Index, Coeff * DimStride);
     } else {
-      StrideAtLevel->addConstant(Coeff * DimStride);
+      StrideAtLevel->addConstant(Coeff * DimStride, false);
     }
   }
 

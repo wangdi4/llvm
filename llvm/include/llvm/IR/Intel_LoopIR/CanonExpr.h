@@ -462,21 +462,20 @@ public:
   /// \brief Adds a constant value (Val) to the existing constant additive
   /// of the canon expr. If IsMathAdd is set to true (default is false), it
   /// performs mathematical addition by considering denominator in addition.
-  void addConstant(int64_t Val, bool IsMathAdd = false) {
+  void addConstant(int64_t Val, bool IsMathAdd) {
     Const += getMathCoeff(Val, IsMathAdd);
   }
 
   /// \brief Returns the denominator of the canon expr.
   int64_t getDenominator() const { return Denominator; }
+
   /// \brief Sets canon expr's denominator. Negates it for negative
   /// denominators.
-  /// If Simplifiy is set, we call simplify() on the canon expr after setting
-  /// the denominator.
   void setDenominator(int64_t Val);
 
   /// \brief Multiplies the constant value (Val) with the existing denominator
   /// of the canon expr. The new denominator equals (Old denominator * Val).
-  void divide(int64_t Val);
+  void divide(int64_t Val) { setDenominator(Denominator * Val); }
 
   /// \brief Returns true if the division in the canon expr is a signed
   /// division.
