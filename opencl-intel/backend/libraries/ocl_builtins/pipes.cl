@@ -81,7 +81,16 @@
 // |---+---+---+---+---+---+---+---+---+---|
 //       ^~~~ begin           end ~~~^
 //
-// First, me memcpy() the item into dst. Then we check if we can move the
+// First, me memcpy() the item into dst. Then remove our hazard flag to indicate
+// that write is completed. Then our goal is to move the _hazard_write_begin_
+// and make it point to a valid item (hazardous or _end_). So we find the first
+// hazardous item in range [_hazard_write_begin, _end_) and move
+// _hazard_write_begin_ there.
+
+// TODO: asavonic: ohh, crap. the paragraph above belongs to
+// __write_pipe_4. move it there and write a corresponding one here
+
+// we check if we can move the
 // _begin_: if all elements to the left are not hazardous, it is safe to
 // move _begin_ forward up to the next hazardous element or
 // _hazard_read_end_. Since the item at index 1 is still hazardous, it
@@ -185,18 +194,52 @@ static void set_hazard_flag(__global struct __pipe_t* p, int index, bool value) 
   return atomic_store(&flags[index], value);
 }
 
-static int get_write_capacity(int begin, int end, int max_packets) {
-  return end > begin ? max_packets - end + begin
-                     : begin - end;
+static bool comp_xchg_hazard_flag(__global struct __pipe_t* p,
+                                  int index,
+                                  bool* expected, bool value) {
+  __global volatile atomic_int* flags = (__global volatile atomic_flag*) p->buffer;
+
+  int expected_int = *expected;
+  bool result = atomic_compare_exchange_weak(&flags[index],
+                                             &expected_int, value);
+  *expected = expected_int;
+  return result;
 }
 
-static int get_read_capacity(int hazard_read_end, int hazard_write_begin,
-                             int max_packets) {
-  return hazard_write_begin > hazard_read_end
-    ? hazard_write_begin - hazard_read_end
-    : max_packets - hazard_read_end + hazard_write_begin;
+
+/// Return next nth item from circular buffer
+static int advance(__global const struct __pipe_t* p, int index, int offset) {
+  return (index + offset) % p->max_packets;
 }
 
+/// For given \p index_from and \p index_to compute the number of elements
+/// between them. The function behaves exactly as std::distance.
+/// TODO: asavonic: rename into distance() after integraion into BE (when it
+/// won't include opencl-c.h), otherwize its name conflicts with: half __ovld
+/// __cnfn distance(half4 p0, half4 p1);
+static int __distance(__global const struct __pipe_t* p,
+                    int index_from, int index_to) {
+  return index_from < index_to ? index_to - index_from
+    : p->max_packets - index_from + index_to;
+}
+
+/// Return the number of elements that can be written into the \p pipe.
+/// Note that this capacity may be already outdated, since begin/end could
+/// change at any time.
+static int get_write_capacity(__global const struct __pipe_t* p,
+                              int begin, int end) {
+  return __distance(p, end, begin);
+}
+
+/// Return the number of elements that can be read into the \p pipe.
+/// Note that this capacity may be already outdated, since
+/// hazard_read_end/hazard_write_begin could change at any time.
+static int get_read_capacity(__global const struct __pipe_t* p,
+                             int hazard_read_end, int hazard_write_begin) {
+  return __distance(p, hazard_read_end, hazard_write_begin);
+}
+
+/// Return the pointer on the beginning of packet with given \p index
 static void* get_packet_ptr(__global struct __pipe_t* p, int index) {
   // skip hazard flags
   char* packets_buffer = p->buffer + sizeof(atomic_int) * (p->max_packets);
@@ -212,6 +255,19 @@ static reserve_id_t create_reserve_id(int reserved) {
 static int extract_reserve_id(reserve_id_t id) {
   return  (int) ((intptr_t)__builtin_astype(id, __global void*)
                  & ~ __PIPE_RESERVE_ID_VALID_BIT);
+}
+
+/// Find index of the first hazardous item between \p index_from and \p index_to.
+/// Returns \p index_to if no hazardous item found in range.
+static int find_hazard_index(__global struct __pipe_t* p,
+                             int index_from, int index_to) {
+  for (int i = index_from; i != index_to; i = advance(p, i, 1)) {
+    if (get_hazard_flag(p, i)) {
+      return i;
+    }
+  }
+
+  return index_to;
 }
 
 bool __ovld is_valid_reserve_id(reserve_id_t reserve_id) {
@@ -239,11 +295,13 @@ void __pipe_init(__global struct __pipe_t* p, int packet_size, int max_packets) 
 
 reserve_id_t __reserve_write_pipe(__global struct __pipe_t* p, uint num_packets) {
   int end = atomic_load(&p->end);
+  int hazard_write_begin = atomic_load(&p->hazard_write_begin);
+  int reserved = end;
 
   while (true) {
     int begin = atomic_load(&p->begin);
 
-    int avail = get_write_capacity(begin, end, p->max_packets);
+    int avail = get_write_capacity(p, begin, end);
 
     if (avail < (int) num_packets) {
       printf("__reserve_write_pipe: overflow: avail = %d, req = %d\n",
@@ -252,15 +310,34 @@ reserve_id_t __reserve_write_pipe(__global struct __pipe_t* p, uint num_packets)
       return CLK_NULL_RESERVE_ID;
     }
 
-    int new_end = (end + num_packets) % p->max_packets;
+    reserved = end;
+
+    // first, set the hazard flag to make sure that hazard_write_begin will not
+    // be moved to the item after our first packet when we move the _end_.
+    bool hazard_expected = false;
+    if (!comp_xchg_hazard_flag(p, reserved, &hazard_expected, true)) {
+      // somebody set the hazard flag before us
+      // they probably moved the end, so we must load it and start again
+
+      end = atomic_load(&p->end);
+
+      // TODO: asavonic: performance: maybe skip the load here?  if the _end_ is
+      // not yet moved, we get one extra load and still must make another
+      // iteration.
+
+      // TODO: asavonic: update the docs
+
+      continue;
+    }
+
+    int new_end = advance(p, end, num_packets);
     if (atomic_compare_exchange_strong(&p->end, &end, new_end)) {
       break;
     }
   }
 
-  int reserved = end;
-
-  for (int i = reserved; i < reserved + num_packets; ++i) {
+  for (int i = advance(p, reserved, 1);
+       i != advance(p, reserved, num_packets); i = advance(p, i, 1)) {
     set_hazard_flag(p, i, true);
   }
 
@@ -275,40 +352,37 @@ int __write_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
   printf("__write_pipe_4: enter\n", index);
   int reserved = extract_reserve_id(reserve_id);
 
-  int write_index = (reserved + index) % p->max_packets;
+  int write_index = advance(p, reserved, index);
   printf("__write_pipe_4: writing at index %d\n", write_index);
   __builtin_memcpy(get_packet_ptr(p, write_index), src, p->packet_size);
 
-  int hazard_write_begin = atomic_load(&p->hazard_write_begin);
-  printf("__write_pipe_4: hazard_write_begin = %d\n", hazard_write_begin);
-  while (true) {
-    bool clear = true;
-    for (int i = hazard_write_begin; i != write_index;
-         i = (i + 1) % p->max_packets) {
-      if (get_hazard_flag(p, i)) {
-        clear = false;
-        break;
-      }
-    }
-
-    if (clear) {
-      // everything from hazard_write_begin to this packet is clear:
-      // move hazard begin accordingly
-      int new = ++write_index % p->max_packets;
-      if (atomic_compare_exchange_weak(&p->hazard_write_begin, &hazard_write_begin,
-                                       new)) {
-        printf("__write_pipe_4: updated hazard_write_begin to %d\n",
-               new);
-
-        break;
-      };
-    }
-  }
-
-  // doing this _after_ hazard_write_begin update to ensure that we don't move it
-  // backwards, because nobody can move it beyond our write_index while we keep it
-  // hazardous
+  // TODO: asavonic: update docs according to new implementation
   set_hazard_flag(p, write_index, false);
+
+  // OK, write is done and our hazard flag is not set. Now we need to atomically
+  // move _hazard_write_begin_ forward to the first hazardous item or to the
+  // _end_.
+  int hazard_write_begin = atomic_load(&p->hazard_write_begin);
+  printf("__write_pipe_4: start update hazard_write_begin from %d\n",
+         hazard_write_begin);
+
+  while (true) {
+    // check the range [hazard_write_begin, write_index)
+    int haz_index = find_hazard_index(p, hazard_write_begin, write_index);
+
+    if (haz_index == write_index) {
+      // check the range (write_index, end)
+      int end = atomic_load(&p->end);
+      haz_index = find_hazard_index(p, advance(p, write_index, 1), end);
+    }
+
+    if (atomic_compare_exchange_weak(&p->hazard_write_begin,
+                                     &hazard_write_begin,
+                                     haz_index)) {
+      printf("__write_pipe_4: updated hazard_write_begin to %d\n", haz_index);
+      break;
+    };
+  }
 
   return 0;
 }
@@ -320,8 +394,7 @@ reserve_id_t __reserve_read_pipe(__global struct __pipe_t* p, uint num_packets) 
   while (true) {
     int hazard_write_begin = atomic_load(&p->hazard_write_begin);
 
-    int avail = get_read_capacity(hazard_read_end, hazard_write_begin,
-                                  p->max_packets);
+    int avail = get_read_capacity(p, hazard_read_end, hazard_write_begin);
 
     if (avail < (int) num_packets) {
       printf("__reserve_read_pipe: overflow: avail = %d, req = %d\n",
@@ -330,7 +403,7 @@ reserve_id_t __reserve_read_pipe(__global struct __pipe_t* p, uint num_packets) 
       return CLK_NULL_RESERVE_ID;
     }
 
-    int new = (hazard_read_end + num_packets) % p->max_packets;
+    int new = advance(p, hazard_read_end, num_packets);
     if (atomic_compare_exchange_strong(&p->hazard_read_end, &hazard_read_end,
                                        new)) {
       break;
@@ -339,7 +412,8 @@ reserve_id_t __reserve_read_pipe(__global struct __pipe_t* p, uint num_packets) 
 
   int reserved = hazard_read_end;
 
-  for (int i = reserved; i < reserved + num_packets; ++i) {
+  for (int i = reserved;
+       i != advance(p, reserved, num_packets); advance(p, i, 1)) {
     set_hazard_flag(p, i, true);
   }
 
