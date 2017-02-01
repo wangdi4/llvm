@@ -356,32 +356,38 @@ int __write_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
   printf("__write_pipe_4: writing at index %d\n", write_index);
   __builtin_memcpy(get_packet_ptr(p, write_index), src, p->packet_size);
 
-  // TODO: asavonic: update docs according to new implementation
   set_hazard_flag(p, write_index, false);
 
   // OK, write is done and our hazard flag is not set. Now we need to atomically
   // move _hazard_write_begin_ forward to the first hazardous item or to the
   // _end_.
   int hazard_write_begin = atomic_load(&p->hazard_write_begin);
+
+  if (hazard_write_begin != write_index) {
+    // only the first hazardous item should move _hazard_write_begin_
+    return 0;
+  }
+
   printf("__write_pipe_4: start update hazard_write_begin from %d\n",
          hazard_write_begin);
 
   while (true) {
-    // check the range [hazard_write_begin, write_index)
-    int haz_index = find_hazard_index(p, hazard_write_begin, write_index);
+    int end = atomic_load(&p->end);
+    int haz_index = find_hazard_index(p, advance(p, write_index, 1), end);
+    atomic_store(&p->hazard_write_begin, haz_index);
 
-    if (haz_index == write_index) {
-      // check the range (write_index, end)
-      int end = atomic_load(&p->end);
-      haz_index = find_hazard_index(p, advance(p, write_index, 1), end);
+    if (haz_index == end) {
+      printf("__write_pipe_4: hazardous area is clear, end = %d\n", end);
+      break;
     }
 
-    if (atomic_compare_exchange_weak(&p->hazard_write_begin,
-                                     &hazard_write_begin,
-                                     haz_index)) {
+    // make sure haz_index item didn't unset hazard flag between our
+    // find_hazard_index() and hazard_write_begin move
+    if (get_hazard_flag(p, haz_index) == true) {
+      // it's still hazardous, we can rely on him in moving hazard_write_begin
       printf("__write_pipe_4: updated hazard_write_begin to %d\n", haz_index);
       break;
-    };
+    }
   }
 
   return 0;
