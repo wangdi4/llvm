@@ -100,10 +100,10 @@ private:
   static void updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
                                   bool RelaxedMode, bool *CreatedAuxCE);
 
-  /// Implements add()/cloneAndAdd() functionality.
+  /// Implements add() functionality.
   /// This routine will return nullptr, if the canon exprs are not mergeable.
   static CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2,
-                            bool CreateNewCE, bool RelaxedMode);
+                            bool RelaxedMode);
 
 public:
   // Returns reference to BlobUtils object.
@@ -217,9 +217,7 @@ public:
   /// CE. NestingLevel is the level where the CE is attached to HIR.
   static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel);
 
-  /// Replaces IV in *CE1* at a particular loop *Level* by a CanonExpr *CE2*.
-  /// Please be aware that this method can handle only CE2 with unit
-  /// denominator because b*(x/d) != (b*x)/d.
+  /// Replaces IV in /p CE1 at the loop /p Level by the /p CE2.
   static CanonExpr *replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
                                          const CanonExpr *CE2,
                                          bool RelaxedMode = false);

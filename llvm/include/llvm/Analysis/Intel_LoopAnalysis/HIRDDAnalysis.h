@@ -237,13 +237,11 @@ public:
   // Note, atm the graph does not filter edges to ensure src/sink are in Node.
   // some edges may be pointing to a node that is not of interest
   DDGraph getGraph(const HLRegion *Region, bool InputEdgesReq = false) {
-    return std::move(
-        getGraphImpl(static_cast<const HLNode *>(Region), InputEdgesReq));
+    return getGraphImpl(static_cast<const HLNode *>(Region), InputEdgesReq);
   }
 
   DDGraph getGraph(const HLLoop *Loop, bool InputEdgesReq = false) {
-    return std::move(
-        getGraphImpl(static_cast<const HLNode *>(Loop), InputEdgesReq));
+    return getGraphImpl(static_cast<const HLNode *>(Loop), InputEdgesReq);
   }
 
   /// \brief Refine DV by calling demand driven DD. Return true when RefineDV

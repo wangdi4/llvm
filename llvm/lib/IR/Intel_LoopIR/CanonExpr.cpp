@@ -1164,11 +1164,25 @@ void CanonExpr::simplify(bool SimplifyCast) {
   }
 }
 
-bool CanonExpr::canMultiplyNumerator() const {
+bool CanonExpr::canMultiplyNumeratorByUnknown() const {
   // The result of the multiplication may be invalid if there is:
   // 1) Type extension. Ex.: c0*i8.i16(%b) != i8.i16(c0*%b), where %b is 255
   // 2) Non-unit denominator. Ex.: 2*((%b-1)/3) != (2*%b - 2)/3
   return !(isSExt() || isZExt() || getDenominator() != 1);
+}
+
+bool CanonExpr::canMultiplyNumeratorByConstant(int64_t Val) const {
+  if (Val == 0 || Val == 1) {
+    return true;
+  }
+
+  if (Val == -1) {
+    // Can multiply numerator if CE is not a zero extension and if the
+    // division is signed.
+    return !isZExt() && (getDenominator() == 1 || isSignedDiv());
+  }
+
+  return canMultiplyNumeratorByUnknown();
 }
 
 void CanonExpr::multiplyNumeratorByConstant(int64_t Val, bool Simplify) {
@@ -1208,10 +1222,8 @@ void CanonExpr::multiplyNumeratorByConstant(int64_t Val, bool Simplify) {
 }
 
 bool CanonExpr::multiplyByConstant(int64_t Val) {
-  if (Val != -1 && Val != 0 && Val != 1) {
-    if (!canMultiplyNumerator() && !convertToStandAloneBlob()) {
-        return false;
-    }
+  if (!canMultiplyNumeratorByConstant(Val) && !convertToStandAloneBlob()) {
+    return false;
   }
 
   multiplyNumeratorByConstant(Val, true);
@@ -1219,7 +1231,7 @@ bool CanonExpr::multiplyByConstant(int64_t Val) {
 }
 
 bool CanonExpr::multiplyByBlob(unsigned Index) {
-  if (!canMultiplyNumerator() && !convertToStandAloneBlob()) {
+  if (!canMultiplyNumeratorByUnknown() && !convertToStandAloneBlob()) {
     return false;
   }
 

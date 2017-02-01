@@ -3368,7 +3368,7 @@ STATISTIC(IfsRemoved, "Empty Ifs removed");
 
 struct EmptyLoopRemoverVisitor final : HLNodeVisitorBase {
   void postVisit(HLLoop *Loop) {
-    if (Loop->isDo() && !Loop->hasChildren()) {
+    if (!Loop->hasChildren()) {
       Loop->extractPreheaderAndPostexit();
       HLNodeUtils::remove(Loop);
       LoopsRemoved++;

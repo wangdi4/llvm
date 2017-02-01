@@ -509,7 +509,8 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
     }
   }
 
-  if (ConstantTripCount && TotalTripCount < SmallTripCountTest) {
+  if (!DisableCostModel && ConstantTripCount &&
+      TotalTripCount < SmallTripCountTest) {
     return SMALL_TRIPCOUNT;
   }
 

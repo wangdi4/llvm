@@ -175,14 +175,17 @@ protected:
   /// as well.
   static int64_t simplifyGCDHelper(int64_t CurrentGCD, int64_t Num);
 
-  /// Returns true if it's legal to put multiplication inside CanonExpr.
-  bool canMultiplyNumerator() const;
+  /// Returns true if it's legal to multiply numerator by an arbitrary value.
+  bool canMultiplyNumeratorByUnknown() const;
+
+  /// Returns true if it's legal to multiply numerator by a constant.
+  bool canMultiplyNumeratorByConstant(int64_t Val) const;
 
   /// Multiplies CanonExpr numerator by /p Val. /p Simplify flag
   /// indicates whether simplification can be performed.
   void multiplyNumeratorByConstant(int64_t Val, bool Simplify);
 
-  /// Multiplies this canon expr by a blob.
+  /// Multiplies numerator of canon expr by a blob.
   void multiplyNumeratorByBlob(unsigned Index);
 
   /// \brief Implements is*Ext() and isTrunc() functionality.
