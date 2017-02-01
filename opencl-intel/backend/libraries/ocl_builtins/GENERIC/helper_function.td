@@ -90,7 +90,7 @@ let Types = [v4f32, v4i32, v4i8, v4i16],
   def __ocl_transpose8x4  : OclBuiltin<"__ocl_transpose8x4", (outs), (ins v8gentype:$xOut, v8gentype:$yOut, v8gentype:$zOut, v8gentype:$wOut, pgentype:$xyzw0, pgentype:$xyzw1, pgentype:$xyzw2, pgentype:$xyzw3, pgentype:$xyzw4, pgentype:$xyzw5, pgentype:$xyzw6, pgentype:$xyzw7 ), [], [], 0, 0>, PRIVATE;
 }
 
-let Types = [v4i8],
+let Types = [v4i8, v4i16],
     Attrs = [INTERNAL_INLINE, OVERLOADABLE],
     NeedForwardDecl = 1 in {
   def __ocl_transpose4x16  : OclBuiltin<"__ocl_transpose4x16", (outs), (ins gentype:$xyzw0, gentype:$xyzw1, gentype:$xyzw2, gentype:$xyzw3, gentype:$xyzw4, gentype:$xyzw5, gentype:$xyzw6, gentype:$xyzw7, gentype:$xyzw8, gentype:$xyzw9, gentype:$xyzw10, gentype:$xyzw11, gentype:$xyzw12, gentype:$xyzw13, gentype:$xyzw14, gentype:$xyzw15, pv16gentype:$xOut, pv16gentype:$yOut, pv16gentype:$zOut, pv16gentype:$wOut  ),  [], [], 0, 0>, PRIVATE;

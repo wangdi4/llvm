@@ -137,6 +137,17 @@ void INLINE_ATTRIBUTE  __ocl_masked_transpose_scatter_short_4x8(__private short4
                                 __private short4* pStoreAdd4, __private short4* pStoreAdd5, __private short4* pStoreAdd6, __private short4* pStoreAdd7,
                                 short8 xIn, short8 yIn, short8 zIn, short8 wIn, int8 mask);
 
+// ****************************************************************************
+//                                 short_4x16
+// ****************************************************************************
+
+void INLINE_ATTRIBUTE  __ocl_gather_transpose_short_4x16(__private short4* pLoadAdd0, __private short4* pLoadAdd1, __private short4* pLoadAdd2, __private short4* pLoadAdd3,
+                                __private short4* pLoadAdd4, __private short4* pLoadAdd5, __private short4* pLoadAdd6, __private short4* pLoadAdd7,
+                                __private short16* xOut, __private short16* yOut, __private short16* zOut, __private short16* wOut);
+
+void INLINE_ATTRIBUTE  __ocl_masked_gather_transpose_short_4x16(__private short4* pLoadAdd0, __private short4* pLoadAdd1, __private short4* pLoadAdd2, __private short4* pLoadAdd3,
+                                __private short4* pLoadAdd4, __private short4* pLoadAdd5, __private short4* pLoadAdd6, __private short4* pLoadAdd7,
+                                __private short16* xOut, __private short16* yOut, __private short16* zOut, __private short16* wOut, int16 mask);
 
 // ****************************************************************************
 //                                 int_4x4
