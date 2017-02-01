@@ -10,7 +10,7 @@ OclBuiltinImpl transpose_load_4x16_512 = OclBuiltinImpl<__ocl_load_transpose4x16
                                     $Arg1VarName, $Arg2VarName, $Arg3VarName, $Arg4VarName);
   }]>;
 
-OclBuiltinImpl transpose_masked_gather_4x16_512 = OclBuiltinImpl<__ocl_masked_gather_transpose4x16,  [v4i8], 0, [{
+OclBuiltinImpl transpose_masked_gather_4x16_512 = OclBuiltinImpl<__ocl_masked_gather_transpose4x16,  [v4i8, v4i16], 0, [{
     // get mask as bits in int
     const int rescmp = intel_movemask(mask);
     // ALL elements in mask are -1
@@ -109,6 +109,34 @@ OclBuiltinImpl transpose_scatter_char4x16_512 = OclBuiltinImpl<__ocl_transpose_s
     *$Arg14VarName = xyzw3.s89AB;
     *$Arg15VarName = xyzw3.sCDEF;
  }]>;
+
+// ****************************************************************************
+//                                short4x16
+// ****************************************************************************
+
+OclBuiltinImpl transpose_gather_short4x16_512 = OclBuiltinImpl<__ocl_gather_transpose4x16, [v4i16],  0, [{
+    ushort8 concatVectors4 = {0, 1, 2, 3, 4, 5, 6, 7};
+    ushort16 concatVectors8 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+    short8 tmp0 = __ocl_helper_shuffle2(*$Arg0VarName, *$Arg4VarName, concatVectors4);
+    short8 tmp1 = __ocl_helper_shuffle2(*$Arg1VarName, *$Arg5VarName, concatVectors4);
+    short8 tmp2 = __ocl_helper_shuffle2(*$Arg2VarName, *$Arg6VarName, concatVectors4);
+    short8 tmp3 = __ocl_helper_shuffle2(*$Arg3VarName, *$Arg7VarName, concatVectors4);
+    short8 tmp4 = __ocl_helper_shuffle2(*$Arg8VarName, *$Arg12VarName, concatVectors4);
+    short8 tmp5 = __ocl_helper_shuffle2(*$Arg9VarName, *$Arg13VarName, concatVectors4);
+    short8 tmp6 = __ocl_helper_shuffle2(*$Arg10VarName, *$Arg14VarName, concatVectors4);
+    short8 tmp7 = __ocl_helper_shuffle2(*$Arg11VarName, *$Arg15VarName, concatVectors4);
+    short16 Arg0 = __ocl_helper_shuffle2(tmp0, tmp4, concatVectors8);
+    short16 Arg1 = __ocl_helper_shuffle2(tmp1, tmp5, concatVectors8);
+    short16 Arg2 = __ocl_helper_shuffle2(tmp2, tmp6, concatVectors8);
+    short16 Arg3 = __ocl_helper_shuffle2(tmp3, tmp7, concatVectors8);
+    $Arg16Type Arg4 = $Arg16VarName;
+    $Arg17Type Arg5 = $Arg17VarName;
+    $Arg18Type Arg6 = $Arg18VarName;
+    $Arg19Type Arg7 = $Arg19VarName;
+
+    //__ocl_transpose_common_short4x16_512(short16 Arg0, short16 Arg1, short16 Arg2, short16 Arg3, __private short16* Arg4, __private short16* Arg5, __private short16* Arg6, __private short16* Arg7)
+    #{__ocl_transpose_common_short4x16_512}#
+  }]>;
 
 // ****************************************************************************
 //                                 int4x16

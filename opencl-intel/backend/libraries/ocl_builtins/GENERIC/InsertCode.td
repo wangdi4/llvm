@@ -468,6 +468,29 @@ def __ocl_transpose_common_char4x16_512:  insert_code<"\n"#
 "    *Arg6 = __ocl_helper_shuffle2(zw0246, zw1357, lowLane16);                            // z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10 z11 z12 z13 z14 z15\n"#
 "    *Arg7 = __ocl_helper_shuffle2(zw0246, zw1357, highLane16);                           // w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15">;
 
+/// @brief Receives short16x4 matrix as 4 short16 rows, transposes it and
+///        outputs the rows of the transposed matrix.
+/// @param Arg0  - short16   xyzw03  - Rows 0,3 of the matrix to be transposed
+/// @param Arg1  - short16   xyzw47  - Rows 4,7 of the matrix to be transposed
+/// @param Arg2  - short16   xyzw8B  - Rows 8,B of the matrix to be transposed
+/// @param Arg3  - short16   xyzwCF  - Rows C,F of the matrix to be transposed
+/// @param Arg4  - short16*  xOut    - Row 0 of the transposed matrix
+/// @param Arg5  - short16*  yOut    - Row 1 of the transposed matrix
+/// @param Arg6  - short16*  zOut    - Row 2 of the transposed matrix
+/// @param Arg7  - short16*  wOut    - Row 3 of the transposed matrix
+
+def __ocl_transpose_common_short4x16_512:  insert_code<"\n"#
+"    ushort16 lowLane16 = {0, 16, 1, 17, 4, 20, 5, 21, 8, 24, 9, 25, 12, 28, 13, 29};\n"#
+"    ushort16 highLane16 = {2, 18, 3, 19, 6, 22, 7, 23, 10, 26, 11, 27, 14, 30, 15, 31};\n"#
+"    short16 xy0246 = __ocl_helper_shuffle2(Arg0, Arg2, lowLane16);                        // x0 x2 y0 y2 x4 x6 y4 y6 x8 x10 y8 y10 x12 x14 y12 y14\n"#
+"    short16 zw0246 = __ocl_helper_shuffle2(Arg0, Arg2, highLane16);                       // z0 z2 w0 w2 z4 z6 w4 w6 z8 z10 w8 w10 z12 z14 w12 w14\n"#
+"    short16 xy1357 = __ocl_helper_shuffle2(Arg1, Arg3, lowLane16);                        // x1 x3 y1 y3 x5 x7 y5 y7 x9 x11 y9 y11 x13 x15 y13 y15\n"#
+"    short16 zw1357 = __ocl_helper_shuffle2(Arg1, Arg3, highLane16);                       // z1 z3 w1 w3 z5 z7 w5 w7 z9 z11 w9 w11 z13 z15 w13 w15\n"#
+"    *Arg4 = __ocl_helper_shuffle2(xy0246, xy1357, lowLane16);                             // x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15\n"#
+"    *Arg5 = __ocl_helper_shuffle2(xy0246, xy1357, highLane16);                            // y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 y15\n"#
+"    *Arg6 = __ocl_helper_shuffle2(zw0246, zw1357, lowLane16);                             // z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10 z11 z12 z13 z14 z15\n"#
+"    *Arg7 = __ocl_helper_shuffle2(zw0246, zw1357, highLane16);                            // w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15">;
+
 /// @brief Arg0-7
 /// @param Arg0  - char16*  xyzw0
 /// @param Arg1  - char16*  xyzw1

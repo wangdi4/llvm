@@ -218,7 +218,6 @@ OclBuiltinImpl transpose_masked_scatter_4x8_sse3 = OclBuiltinImpl<__ocl_masked_t
 // ****************************************************************************
 //                                 4x16
 // ****************************************************************************
-// only for char4 type
 
 OclBuiltinImpl transpose_load_4x16_sse3 = OclBuiltinImpl<__ocl_load_transpose4x16, [v4i8], 0, [{
     __ocl_transpose4x16( $Arg0VarName[0], $Arg0VarName[1], $Arg0VarName[2], $Arg0VarName[3],
@@ -227,7 +226,7 @@ OclBuiltinImpl transpose_load_4x16_sse3 = OclBuiltinImpl<__ocl_load_transpose4x1
                         $Arg0VarName[12], $Arg0VarName[13], $Arg0VarName[14], $Arg0VarName[15],
                         $Arg1VarName, $Arg2VarName, $Arg3VarName, $Arg4VarName);
   }]>;
-OclBuiltinImpl transpose_gather_4x16_sse3 = OclBuiltinImpl<__ocl_gather_transpose4x16, [v4i8], 0, [{
+OclBuiltinImpl transpose_gather_4x16_sse3 = OclBuiltinImpl<__ocl_gather_transpose4x16, [v4i8, v4i16], 0, [{
     $PtrArg0Type xyzw0 = *$Arg0VarName;
     $PtrArg0Type xyzw1 = *$Arg1VarName;
     $PtrArg0Type xyzw2 = *$Arg2VarName;
@@ -258,7 +257,7 @@ OclBuiltinImpl transpose_scatter_4x16_sse3 = OclBuiltinImpl<__ocl_transpose_scat
                          $Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName,
                          $Arg12VarName, $Arg13VarName, $Arg14VarName, $Arg15VarName);
   }]>;
-OclBuiltinImpl transpose_masked_gather_4x16_sse3 = OclBuiltinImpl<__ocl_masked_gather_transpose4x16, [v4i8], 0, [{
+OclBuiltinImpl transpose_masked_gather_4x16_sse3 = OclBuiltinImpl<__ocl_masked_gather_transpose4x16, [v4i8, v4i16], 0, [{
     if (all($Arg20VarName)) {
       __ocl_gather_transpose_$Arg0BaseType_4x16(
                         $Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName,
@@ -403,7 +402,7 @@ OclBuiltinImpl __ocl_transpose8x4_sse3 = OclBuiltinImpl<__ocl_transpose8x4, [v4i
                         $Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName);
   }]>;
 
-OclBuiltinImpl __ocl_transpose4x16_sse3 = OclBuiltinImpl<__ocl_transpose4x16, [v4i8], 0, [{
+OclBuiltinImpl __ocl_transpose4x16_sse3 = OclBuiltinImpl<__ocl_transpose4x16, [v4i8, v4i16], 0, [{
     $Arg0BaseType#8 xLow;
     $Arg0BaseType#8 yLow;
     $Arg0BaseType#8 zLow;
@@ -432,7 +431,7 @@ OclBuiltinImpl __ocl_transpose4x16_sse3 = OclBuiltinImpl<__ocl_transpose4x16, [v
     (*$Arg19VarName).hi = wHigh;
   }]>;
 
-OclBuiltinImpl __ocl_transpose16x4_sse3 = OclBuiltinImpl<__ocl_transpose16x4, [v4i8], 0, [{
+OclBuiltinImpl __ocl_transpose16x4_sse3 = OclBuiltinImpl<__ocl_transpose16x4, [v4i8, v4i16], 0, [{
     $Arg0BaseType#8 xLow = $Arg0VarName.lo;
     $Arg0BaseType#8 yLow = $Arg1VarName.lo;
     $Arg0BaseType#8 zLow = $Arg2VarName.lo;
