@@ -897,6 +897,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   PM.add(createPruneEHPass());   // Remove dead EH info.
 
+  if (EnableIPCloning) {
+    // Enable generic IPCloning after Inlining.
+    PM.add(createIPCloningLegacyPass(true));
+    // Call IPCP to propagate constants
+    PM.add(createIPSCCPPass());
+  }
   // Optimize globals again if we ran the inliner.
   if (RunInliner)
     PM.add(createGlobalOptimizerPass());

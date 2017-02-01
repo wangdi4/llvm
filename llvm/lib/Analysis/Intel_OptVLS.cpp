@@ -120,11 +120,13 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
   assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
 
   if (TTI.isTargetSpecificShuffleMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0, nullptr);
+    return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0,
+                              nullptr);
   else if (isReverseVectorMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, Tp, 0, nullptr);
   else if (isAlternateVectorMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0, nullptr);
+    return TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0,
+                              nullptr);
 
   // TODO: Support SK_Insert, SK_Extract
   return 2 * Mask.size();
@@ -132,7 +134,7 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
 
 namespace OptVLS {
 class GraphNode;
-typedef OVLSVector<GraphNode *> GraphNodeVector;
+typedef std::list<GraphNode *> GraphNodeList;
 /// Represents a range of bits using a bit-location of the leftmost bit and
 /// a number of consecutive bits immediately to the right that are included
 /// in the range. {0, 0} means undefined bit-range.
@@ -193,6 +195,7 @@ public:
     // Update BitIndex.
     BR.updateBitIndex(NewBIndex);
   }
+  void updateDest(GraphNode *NewDest) { Dst = NewDest; }
 };
 
 /// GraphNode can be thought of as a result of some logical instruction
@@ -249,7 +252,7 @@ class GraphNode {
 
 public:
   explicit GraphNode(OVLSInstruction *I, OVLSType T) : Inst(I), Type(T) {
-    static uint32_t NodeId = 0;
+    static uint32_t NodeId = 1;
     Id = NodeId++;
     TotalIncomingBits = 0;
     TotalIncomingEdges = 0;
@@ -282,19 +285,17 @@ public:
   OVLSType type() const { return Type; }
   void setType(OVLSType T) { Type = T; }
 
-  void setTotalIncomingEdges() {
-    TotalIncomingEdges = IncomingEdges.size();
-  }
-  void decrementIncomingEdges() {
-    TotalIncomingEdges--;
-  }
-  bool hasNoIncomingEdges() const {
-    if (TotalIncomingEdges == 0)
-      return true;
+  void setTotalIncomingEdges() { TotalIncomingEdges = IncomingEdges.size(); }
+  void decrementTotalIncomingEdges() { TotalIncomingEdges--; }
 
-    return false;
-  }
+  uint32_t getTotalIncomingEdges() const { return TotalIncomingEdges; }
 
+  bool hasNoOutgoingEdges() const { return OutgoingEdges.size() == 0; }
+  uint32_t getNumIncomingEdges() const { return IncomingEdges.size(); }
+  void clearEdges() {
+    IncomingEdges.clear();
+    OutgoingEdges.clear();
+  }
   // Returns the current total number of incoming bits.
   uint32_t size() const { return TotalIncomingBits; }
 
@@ -418,7 +419,7 @@ public:
   /// consecutively in the destination. Here is an example:
   /// src1(0, 1, 2, 3) src2(4, 5, 6, 7)
   /// dst could be dst(0, 3, 6) but not dst(0, 6, 3)
-  bool splitSourceNodes(GraphNodeVector &NewNodes) {
+  bool splitSourceNodes(GraphNodeList &NewNodes) {
     std::set<GraphNode *> UniqueSources;
     uint32_t NumUniqueSources = getNumUniqueSources(UniqueSources);
 
@@ -540,7 +541,7 @@ class Graph {
   /// appear before a source node in the NodeVector. But each node gets an id
   /// which corresponds to the container's index. So, a node can easily be
   /// accessed by its id also.
-  GraphNodeVector Nodes;
+  GraphNodeList Nodes;
 
   uint32_t VectorLength;
 
@@ -556,14 +557,18 @@ public:
   }
   void insert(GraphNode *N) { Nodes.push_back(N); }
 
+  void removeNode(GraphNode *N) { Nodes.remove(N); }
+
+  GraphNodeList::iterator begin() { return Nodes.begin(); }
+
   // Return nodes in a topological order.
-  void getTopSortedNodes(GraphNodeVector &TopSortedNodes) const {
+  void getTopSortedNodes(GraphNodeList &TopSortedNodes) const {
     // TopSortedNodes is an empty list that will contain the sorted elements.
     std::deque<GraphNode *> NodesToProcess;
 
     // Collect all the nodes with no incoming edges.
     for (GraphNode *Node : Nodes) {
-      if (Node->hasNoIncomingEdges())
+      if (Node->getTotalIncomingEdges() == 0)
         NodesToProcess.push_back(Node);
     }
 
@@ -576,10 +581,10 @@ public:
       for (Edge *E : Node->outgoingEdges()) {
         GraphNode *Dst = E->getDest();
         // Delete Edge
-        Dst->decrementIncomingEdges();
+        Dst->decrementTotalIncomingEdges();
         // If the destination has no incoming edges push it to the
         // NodesToProcess.
-        if (Dst->hasNoIncomingEdges())
+        if (Dst->getTotalIncomingEdges() == 0)
           NodesToProcess.push_back(Dst);
       }
 
@@ -594,7 +599,7 @@ public:
   // Print the nodes in a topological order. It prints a node only if its
   // producers are printed.
   void print(OVLSostream &OS, uint32_t NumSpaces) const {
-    GraphNodeVector TopSortedNodes;
+    GraphNodeList TopSortedNodes;
     getTopSortedNodes(TopSortedNodes);
 
     for (GraphNode *N : TopSortedNodes) {
@@ -607,7 +612,7 @@ public:
   /// has no more than two unique source nodes.
   void reduceNSourcesToTwoSources() {
     for (GraphNode *N : Nodes) {
-      GraphNodeVector NewNodes;
+      GraphNodeList NewNodes;
       if (N->splitSourceNodes(NewNodes)) {
         // insert newly created nodes in to the graph.
         for (GraphNode *NewNode : NewNodes)
@@ -631,7 +636,7 @@ public:
   /// It makes more sense to merge as N1 N1 N2 N2 which will most likely lead
   /// to vperm or vinsert.
   OVLSVector<int> getShuffleMask(const GraphNode &N1,
-                                   const GraphNode &N2) const {
+                                 const GraphNode &N2) const {
     OVLSVector<int> Mask;
     std::set<GraphNode *> UniqueSources;
     N1.getNumUniqueSources(UniqueSources);
@@ -709,6 +714,82 @@ public:
     return true;
   }
 
+  // Iterate through the WorkList once and merge two nodes if they meet
+  // the criteria of canBeMerged(). If there are too many choices
+  // for a node to be merged with, it picks the one with the lowest
+  // cost that comes first.
+  // TODO: Current approach of merging two nodes is very limited. It
+  // only estimates merging two nodes by inserting N2 at the end of N1.
+  // At some point, we should support merging two nodes in various ways.
+  void mergeNodes(GraphNodeList &WorkList) {
+    assert(WorkList.size() <= 80 && "Cannot merge, too big of a WorkList!!!");
+
+    for (GraphNodeList::iterator It1 = WorkList.begin();
+         It1 != WorkList.end(); ++It1) {
+      GraphNode *N1 = *It1;
+      OVLSType N1T = N1->type();
+      GraphNodeList::iterator ToBeMergedIT = WorkList.end();
+
+      int MinCost = INT_MAX;
+
+      for (GraphNodeList::iterator It2 = std::next(It1);
+           It2 != WorkList.end(); ++It2) {
+        GraphNode *N2 = *It2;
+        if (canBeMerged(*N1, *N2)) {
+          SmallVector<int, 16> Mask = getShuffleMask(*N1, *N2);
+          // Create resulting vector type due to this merge.
+
+          Type *ElemType = Type::getIntNTy(CM.getContext(), N1T.getElementSize());
+          VectorType *VecTy = VectorType::get(ElemType, Mask.size());
+
+          // Get merging cost.
+          // TODO: Current implementation only considers the cost
+          // of incoming edges. It does not consider the cost of the impact
+          // of the outgoing edges due to this merge. Support the combined
+          // cost, both incoming and outgoing cost.
+          int MergingCost = CM.getShuffleCost(Mask, VecTy);
+
+          // Compute the lowest cost.
+          if (MergingCost < MinCost) {
+            MinCost = MergingCost;
+            ToBeMergedIT = It2;
+          }
+        }
+      }
+      if (ToBeMergedIT != WorkList.end()) {
+        GraphNode *ToBeMerged = *ToBeMergedIT;
+        merge(N1, ToBeMerged);
+        WorkList.erase(ToBeMergedIT);
+        delete ToBeMerged;
+      }
+    }
+  }
+
+  // Merge N2 to N1, concatenate the edges of N2 at the end of N1.
+  // TODO: merge according to a mask.
+  void merge(GraphNode *N1, GraphNode *N2) {
+    // Update outgoing edges.
+    uint32_t N1BitIndex = N1->size();
+
+    for (auto &E : N2->incomingEdges()) {
+      E->updateDest(N1);
+      N1->addAnIncomingEdge(N1->size(), E);
+    }
+
+    for (auto &E : N2->outgoingEdges()) {
+      E->updateSource(N1, N1BitIndex + E->getBitIndex());
+      N1->addAnOutgoingEdge(E);
+    }
+
+    // delete N2
+    N2->clearEdges();
+    removeNode(N2);
+
+    // update type.
+    uint32_t ElementSize = N1->type().getElementSize();
+    N1->setType(OVLSType(ElementSize, N1->size() / ElementSize));
+  }
+
   /// Returns false if verification fails. Verification fails if total number
   /// of gathers in the \p Group does not match the total number of gather-nodes
   /// (nodes with the incoming edges) in this(graph). Verification also fails
@@ -755,32 +836,49 @@ public:
     return true;
   }
 
-  // Visit the graph in a topological order and push the associated
-  // instruction of a node into the InstVector.
+  // Visit the graph in a topological order and push the instruction into the
+  // InstVector. While we are at it, generate instruction if the node does not
+  // have one already.
   void getInstructions(OVLSInstructionVector &InstVector) {
-    GraphNodeVector TopSortedNodes;
+    GraphNodeList TopSortedNodes;
     getTopSortedNodes(TopSortedNodes);
 
     for (GraphNode *N : TopSortedNodes) {
+      if (N->isUndefined())
+        N->genShuffle();
+
       OVLSInstruction *I = N->getInstruction();
-      // FIXME: uncomment this once we have a call of genShuffles()
-      // assert(I != nullptr && "Inst cannot be null!!!");
-      if (I)
-        InstVector.push_back(I);
+      assert(I != nullptr && "Inst cannot be null!!!");
+      InstVector.push_back(I);
     }
   }
 
-  GraphNode *getNode(uint32_t Id) const {
-    assert(Id < Nodes.size() && "Invalid Id!!!");
-    return Nodes[Id];
+  // This is the main wrapper function. It calls multiple methods to simplify
+  // the graph so that the graph contains nodes with maximum of two sources. It
+  // also optimizes (reduces the total number of nodes) the graph by merging
+  // multiple nodes together.
+  void simplifyAndOptimize() {
+    // At this point, the graph can have nodes with more than two sources.
+    // Traverse the graph and reduce the number of sources to a maximum of 2.
+    reduceNSourcesToTwoSources();
+
+    // TODO: support a verifier that will ensure that each node has incoming
+    // edges coming from maximum of 2 nodes.
+
+    OptVLS::GraphNodeList WorkList;
+
+    for (GraphNode *N : Nodes)
+      // TODO: Support store
+      if (!N->isALoad())
+        WorkList.push_back(N);
+
+    // TODO: support this in a loop that tries to merge until there are no
+    // changes in the graph.
+    mergeNodes(WorkList);
+
+    // TODO: Assess the optimized sequence
   }
 
-  // Generate shuffles for nodes with undefined instructions.
-  void genShuffles() {
-    for (GraphNode *N : Nodes)
-      if (N->isUndefined())
-        N->genShuffle();
-  }
 }; // end of class Graph
 
 static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
@@ -1064,20 +1162,20 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
     // Draw edges from the load elements that show which load element
     // contributes to which gather element.
     EMask = ElementMask;
-    uint32_t GSIndex = 0;
+    GraphNodeList::iterator It = G.begin();
     BitRange LoadBR = BitRange(0, ElemSize);
     while (EMask) {
       if (EMask & 1) {
         // A gather element is loaded, draw an edge from this element
         // to its correspondent gather-element.
-        GraphNode *GatherNode = G.getNode(GSIndex);
+        GraphNode *GatherNode = *It;
         Edge *E = new Edge(LoadNode, GatherNode, LoadBR);
         GatherNode->addAnIncomingEdge(IthElem * ElemSize, E);
         LoadNode->addAnOutgoingEdge(E);
       }
       ++LoadBR;
       EMask >>= 1;
-      GSIndex++;
+      It++;
     }
 
     Offset += Stride;
@@ -1274,6 +1372,8 @@ bool OptVLSInterface::getSequence(const OVLSGroup &Group,
   /// coming from no other nodes than load nodes.
   if (!G.verifyInitialGraph(Group))
     return false;
+
+  G.simplifyAndOptimize();
 
   G.getInstructions(InstVector);
   return true;

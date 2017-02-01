@@ -614,9 +614,9 @@ This section describes more details for each interface function and abstract typ
 
 ...
 
-     These nodes are now quite similar to instructions (they have 1 or 2 inputs and a single output), though they are not quite
-     instructions yet because we haven't yet found precise instructions (including opcodes and immediate values) that perform
-     the needed operations.
+     These nodes now correspond to single IR instructions (they have 1 or 2 inputs and a single output), and each could be
+     lowered to one or more machine instructions.  At this point, further optimizations can be done to prepare the IR for more
+     efficient code generation.
 
 
 2. merge()-
@@ -692,8 +692,7 @@ b. Cost estimation of test-merges:
 """"""""""""""""""""""""""""""""""
 
      In order to compute the cost of a mask first we identify the 'kind' of a mask. Depending on their kind we call the
-     TTI getShuffleCost. This is the server's default implementation which can be overriden by the client's more precise
-     implementation. Using the default implementation, currently we get the following cost for the choices:
+     TTI getShuffleCost(). Currently we get the following cost for a target with avx2:
 
      9 can be merged with 11 <0 4 1 5> COST: 8
 
@@ -718,6 +717,127 @@ b. Cost estimation of test-merges:
      13 can be merged with 15 <2 6 3 7> COST: 8
 
      14 can be merged with 16 <2 6 3 7> COST: 8
+
+
+c. Commit test-merge:
+"""""""""""""""""""""
+
+     Now that we have computed the cost for all test-merges, we commit the one with the lowest cost. There
+     might be multiple merging options with the same cost. In that case, we choose the one that comes first.
+
+     So, for the above node-set, we got to merge:
+
+         Merge 13 to 9
+
+         Merge 14 to 10
+
+         Merge 15 to 11
+
+         Merge 16 with 12
+
+
+     This is how the graph looks after merging:
+
+.. graphviz::
+
+   digraph Initial_Graph {
+
+      graph[ordering=in];
+
+      V5 -> V9[label="0:63",weight="0:63"];
+
+      V6 -> V9[label="0:63",weight="0:63"];
+
+      V7 -> V10[label="0:63",weight="0:63"];
+
+      V8 -> V10[label="0:63",weight="0:63"];
+
+      V5 -> V9[label="128:191",weight="128:191"];
+
+      V6 -> V9[label="128:191",weight="128:191"];
+
+      V7 -> V10[label="192:255",weight="192:255"];
+
+      V8 -> V10[label="128:191",weight="128:191"];
+
+      V5 -> V11[label="192:255",weight="192:255"];
+
+      V6 -> V11[label="192:255",weight="192:255"];
+
+      V7 -> V12[label="128:191",weight="128:191"];
+
+      V8 -> V12[label="192:255",weight="192:255"];
+
+      V5 -> V11[label="64:127",weight="64:127"];
+
+      V6 -> V11[label="64:127",weight="64:127"];
+
+      V7 -> V12[label="64:127",weight="64:127"];
+
+      V8 -> V12[label="64:127",weight="64:127"];
+
+      V9 -> V1[label="0:63",weight="0:63"];
+
+      V9 -> V1[label="64:127",weight="64:127"];
+
+      V10 -> V1[label="0:63",weight="0:63"];
+
+      V10 -> V1[label="64:127",weight="64:127"];
+
+      V11 -> V2[label="0:63",weight="0:63"];
+
+      V11 -> V2[label="64:127",weight="64:127"];
+
+      V12 -> V2[label="0:63",weight="0:63"];
+
+      V12 -> V2[label="64:127",weight="64:127"];
+
+      V9 -> V3[label="0:63",weight="0:63"];
+
+      V9 -> V3[label="64:127",weight="64:127"];
+
+      V10 -> V3[label="0:63",weight="0:63"];
+
+      V10 -> V3[label="64:127",weight="64:127"];
+
+      V11 -> V4[label="0:63",weight="0:63"];
+
+      V11 -> V4[label="64:127",weight="64:127"];
+
+      V12 -> V4[label="0:63",weight="0:63"];
+
+      V12 -> V4[label="64:127",weight="64:127"];
+
+   }
+
+...
+
+     At this point we are done optimizing the nodes. We generate an instruction for each node: four contigous loads
+     (v5, v6, v7, v8)followed by 8 shuffle instructions(v9, v10, v11, v12, v1, v2, v3, v4).
+
+     %1 = mask.load.64.4 (<Base:0x3e1ba50 Offset:0>, 1111)
+
+     %2 = mask.load.64.4 (<Base:0x3e1ba50 Offset:32>, 1111)
+
+     %3 = mask.load.64.4 (<Base:0x3e1ba50 Offset:64>, 1111)
+
+     %4 = mask.load.64.4 (<Base:0x3e1ba50 Offset:96>, 1111)
+
+     %5 = shufflevector <4 x 64> %1, <4 x 64> %2, <4 x 32><0, 4, 2, 6>
+
+     %6 = shufflevector <4 x 64> %1, <4 x 64> %2, <4 x 32><1, 5, 3, 7>
+
+     %7 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><0, 4, 2, 6>
+
+     %8 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><1, 5, 3, 7>
+
+     %9 = shufflevector <4 x 64> %5, <4 x 64> %7, <4 x 32><0, 1, 4, 5>
+
+     %10 = shufflevector <4 x 64> %5, <4 x 64> %7, <4 x 32><2, 3, 6, 7>
+
+     %11 = shufflevector <4 x 64> %6, <4 x 64> %8, <4 x 32><0, 1, 4, 5>
+
+     %12 = shufflevector <4 x 64> %6, <4 x 64> %8, <4 x 32><2, 3, 6, 7>
 
 
 ...

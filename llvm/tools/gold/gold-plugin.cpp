@@ -27,7 +27,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <list>
 #include <map>
-#include <plugin-api.h>
+#include "llvm/Support/intel-plugin-api.h" // INTEL
 #include <string>
 #include <system_error>
 #include <utility>
