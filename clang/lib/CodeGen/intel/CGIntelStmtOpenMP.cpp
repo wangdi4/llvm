@@ -656,12 +656,35 @@ class OpenMPCodeOutliner {
     emitSimpleClause();
   }
 
+  void emitOMPSafelenClause(const OMPSafelenClause *Cl) {
+    addArg("QUAL.OMP.SAFELEN");
+    addArg(CGF.EmitScalarExpr(Cl->getSafelen()));
+    emitOpndClause();
+  }
+
+  void emitOMPSimdlenClause(const OMPSimdlenClause *Cl) {
+    addArg("QUAL.OMP.SIMDLEN");
+    addArg(CGF.EmitScalarExpr(Cl->getSimdlen()));
+    emitOpndClause();
+  }
+
+  void emitOMPCollapseClause(const OMPCollapseClause *Cl) {
+    addArg("QUAL.OMP.COLLAPSE");
+    addArg(CGF.EmitScalarExpr(Cl->getNumForLoops()));
+    emitOpndClause();
+  }
+
+  void emitOMPAlignedClause(const OMPAlignedClause *Cl) {
+    addArg("QUAL.OMP.ALIGNED");
+    for (auto *E : Cl->varlists())
+      addArg(E);
+    addArg(Cl->getAlignment() ? CGF.EmitScalarExpr(Cl->getAlignment())
+                              : CGF.Builder.getInt32(0));
+    emitListClause();
+  }
+
   void emitOMPFinalClause(const OMPFinalClause *) {}
-  void emitOMPSafelenClause(const OMPSafelenClause *) {}
-  void emitOMPSimdlenClause(const OMPSimdlenClause *) {}
-  void emitOMPCollapseClause(const OMPCollapseClause *) {}
   void emitOMPLastprivateClause(const OMPLastprivateClause *) {}
-  void emitOMPAlignedClause(const OMPAlignedClause *) {}
   void emitOMPCopyprivateClause(const OMPCopyprivateClause *) {}
   void emitOMPNowaitClause(const OMPNowaitClause *) {}
   void emitOMPUntiedClause(const OMPUntiedClause *) {}
