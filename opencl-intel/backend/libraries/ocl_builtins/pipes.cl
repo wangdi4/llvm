@@ -159,7 +159,7 @@
 //                    end ~~~^
 //
 // Once we did it, other writers cannot reserve anything: `end` item is
-// hazardous. We must move the _end_ by _num_packets_: this will be our
+// hazardous. We must move the `end` by `num_packets`: this will be our
 // reserved area.
 //                          hazard_write_begin
 //                           v~~~~~~~~~
@@ -335,16 +335,16 @@ reserve_id_t __reserve_write_pipe(__global struct __pipe_t* p, uint num_packets)
 
     reserved = end;
 
-    // first, set the hazard flag to make sure that hazard_write_begin will not
-    // be moved ahead of our first packet when we move the _end_.
+    // first, set the hazard flag to make sure that `hazard_write_begin` will
+    // not be moved ahead of our first packet when we move the `end`.
     bool hazard_expected = false;
     if (!cmp_xchg_hazard_flag(p, reserved, &hazard_expected, true)) {
       // somebody set the hazard flag before us
-      // they probably moved the end, so we must load it and start again
+      // they propbably moved the end, so we must load it and start again
 
       end = atomic_load(&p->end);
 
-      // TODO: asavonic: performance: maybe skip the load here?  if the _end_ is
+      // TODO: asavonic: performance: maybe skip the load here?  if the `end` is
       // not yet moved, we get one extra load and still must make another
       // iteration.
 
@@ -380,12 +380,12 @@ int __write_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
   set_hazard_flag(p, write_index, false);
 
   // OK, write is done and our hazard flag is not set. Now we need to atomically
-  // move _hazard_write_begin_ forward to the first hazardous item or to the
-  // _end_.
+  // move `hazard_write_begin` forward to the first hazardous item or to the
+  // `end`.
   int hazard_write_begin = atomic_load(&p->hazard_write_begin);
 
   if (hazard_write_begin != write_index) {
-    // only the first hazardous item should move the _hazard_write_begin_
+    // only the first hazardous item should move the `hazard_write_begin`
     printf("__write_pipe_4: ok at index %d\n", write_index);
     return 0;
   }
@@ -404,10 +404,10 @@ int __write_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
       break;
     }
 
-    // make sure haz_index item didn't unset hazard flag between our
-    // find_hazard_index() and hazard_write_begin move
+    // make sure `haz_index` item didn't unset hazard flag between our
+    // find_hazard_index() and `hazard_write_begin` move
     if (get_hazard_flag(p, haz_index) == true) {
-      // it's still hazardous, we can rely on him in moving hazard_write_begin
+      // it's still hazardous, we can rely on him in moving `hazard_write_begin`
       printf("__write_pipe_4: updated hazard_write_begin to %d\n", haz_index);
       break;
     }
@@ -435,8 +435,8 @@ reserve_id_t __reserve_read_pipe(__global struct __pipe_t* p, uint num_packets) 
 
     reserved = hazard_read_end;
 
-    // first, set the hazard flag to make sure that hazard_read_end will not be
-    // moved to the item ahead of our first packet after we move the _end_.
+    // first, set the hazard flag to make sure that `hazard_read_end` will not be
+    // moved to the item ahead of our first packet after we move the `end`.
     bool hazard_expected = false;
     if (!cmp_xchg_hazard_flag(p, reserved, &hazard_expected, true)) {
       // somebody set the hazard flag before us
@@ -444,7 +444,7 @@ reserve_id_t __reserve_read_pipe(__global struct __pipe_t* p, uint num_packets) 
 
       hazard_read_end = atomic_load(&p->hazard_read_end);
 
-      // TODO: asavonic: performance: maybe skip the load here?  if the _end_ is
+      // TODO: asavonic: performance: maybe skip the load here?  if the `end` is
       // not yet moved, we get one extra load and still must make another
       // iteration.
 
@@ -480,12 +480,12 @@ int __read_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
   set_hazard_flag(p, read_index, false);
 
   // OK, read is done and our hazard flag is not set. Now we need to atomically
-  // move _begin_ forward to the first hazardous item or to the
-  // _hazard_read_end_.
+  // move `begin` forward to the first hazardous item or to the
+  // `hazard_read_end`.
   int begin = atomic_load(&p->begin);
 
   if (begin != read_index) {
-    // only the first hazardous item should move the _begin_
+    // only the first hazardous item should move the `begin`
     printf("__read_pipe_4: ok at index %d\n", read_index);
     return 0;
   }
@@ -505,10 +505,10 @@ int __read_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
       break;
     }
 
-    // make sure haz_index item didn't unset hazard flag between our
-    // find_hazard_index() and begin move
+    // make sure `haz_index` item didn't unset hazard flag between our
+    // find_hazard_index() and `begin` move
     if (get_hazard_flag(p, haz_index) == true) {
-      // it's still hazardous, we can rely on him in moving hazard_write_begin
+      // it's still hazardous, we can rely on him in moving `hazard_write_begin`
       printf("__read_pipe_4: updated begin to %d\n", haz_index);
       break;
     }
@@ -516,7 +516,6 @@ int __read_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
 
   return 0;
 }
-
 
 int __read_pipe_2(__global struct __pipe_t* p, void* dst) {
   reserve_id_t id = __reserve_read_pipe(p, 1);
