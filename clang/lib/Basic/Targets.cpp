@@ -7155,6 +7155,21 @@ public:
   }
   bool validateAsmConstraint(const char *&Name,
                             TargetInfo::ConstraintInfo &Info) const override {
+    // This is only used for validation on the front end.
+    switch (*Name) {
+      default:
+        return false;
+      case 'a':
+      case 'b':
+      case 'c':
+      case 'd':
+      case 'A':
+      case 'B':
+      case 'C':
+      case 'D':
+        Info.setAllowsRegister();
+        return true;
+    }
     return false;
   }
 
