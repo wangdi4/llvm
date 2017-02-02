@@ -101,9 +101,15 @@ int64_t CanonExprUtils::gcd(int64_t A, int64_t B) {
 // Internal Method that calculates the lcm of two positive integers
 int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
   // If A and B are both big numbers, LCM can overflow. We can avoid artificial
-  // overflow if we devide by GCD first before multiplying A and B. For example,
+  // overflow if we divide by GCD first before multiplying A and B. For example,
   // when both A and B are the same but (A * B) overflows.
-  return ((A / gcd(A, B)) * B);
+  APInt Result(64, A / gcd(A, B), true);
+  APInt Op(64, B, true);
+  bool Overflows = false;
+  
+  Result = Result.smul_ov(Op, Overflows);
+
+  return Overflows ? 0 : Result.getZExtValue();
 }
 
 CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
@@ -347,7 +353,7 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   int64_t NewDenom = lcm(Denom1, Denom2);
 
   // Bail out if LCM overflows signed 64 bit range.
-  if ((NewDenom < Denom1) || (NewDenom < Denom2)) {
+  if (NewDenom == 0) {
     return nullptr;
   }
 

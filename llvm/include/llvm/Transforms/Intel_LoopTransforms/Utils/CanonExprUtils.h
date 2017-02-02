@@ -74,8 +74,7 @@ private:
   /// Destroys all CanonExprs. Called during HIR cleanup.
   void destroyAll();
 
-  /// Calculates the lcm of two positive inputs. Caller is responsible for
-  /// checking overflow.
+  /// Calculates the lcm of two positive inputs. Returns zero on overflow.
   static int64_t lcm(int64_t A, int64_t B);
 
   /// Creates a non-linear self blob canon expr from the passed in \p Val.
