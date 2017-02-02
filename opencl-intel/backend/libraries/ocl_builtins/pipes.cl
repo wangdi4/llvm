@@ -364,7 +364,7 @@ int __write_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
 
   if (hazard_write_begin != write_index) {
     // only the first hazardous item should move the _hazard_write_begin_
-    printf("__write_pipe_4: ok at index %d", write_index);
+    printf("__write_pipe_4: ok at index %d\n", write_index);
     return 0;
   }
 
@@ -466,7 +466,7 @@ int __read_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
 
   if (begin != read_index) {
     // only the first hazardous item should move the _begin_
-    printf("__read_pipe_4: ok at index %d", read_index);
+    printf("__read_pipe_4: ok at index %d\n", read_index);
     return 0;
   }
 
@@ -489,7 +489,7 @@ int __read_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
     // find_hazard_index() and begin move
     if (get_hazard_flag(p, haz_index) == true) {
       // it's still hazardous, we can rely on him in moving hazard_write_begin
-      printf("__write_pipe_4: updated begin to %d\n", haz_index);
+      printf("__read_pipe_4: updated begin to %d\n", haz_index);
       break;
     }
   }
