@@ -241,10 +241,7 @@ static int advance(__global const struct __pipe_t* p, int index, int offset) {
 
 /// For given \p index_from and \p index_to compute the number of elements
 /// between them. The function behaves exactly as std::distance.
-/// TODO: asavonic: rename into distance() after integraion into BE (when it
-/// won't include opencl-c.h), otherwize its name conflicts with: half __ovld
-/// __cnfn distance(half4 p0, half4 p1);
-static int __distance(__global const struct __pipe_t* p,
+static int dist(__global const struct __pipe_t* p,
                     int index_from, int index_to) {
   return index_from < index_to ? index_to - index_from
     : p->max_packets - index_from + index_to;
@@ -255,7 +252,7 @@ static int __distance(__global const struct __pipe_t* p,
 /// change at any time.
 static int get_write_capacity(__global const struct __pipe_t* p,
                               int begin, int end) {
-  return __distance(p, end, begin);
+  return dist(p, end, begin);
 }
 
 /// Return the number of elements that can be read into the \p pipe.
@@ -263,7 +260,7 @@ static int get_write_capacity(__global const struct __pipe_t* p,
 /// hazard_read_end/hazard_write_begin could change at any time.
 static int get_read_capacity(__global const struct __pipe_t* p,
                              int hazard_read_end, int hazard_write_begin) {
-  return __distance(p, hazard_read_end, hazard_write_begin);
+  return dist(p, hazard_read_end, hazard_write_begin);
 }
 
 /// Return the pointer on the beginning of packet with given \p index
