@@ -139,13 +139,6 @@ private:
   /// RequiredSymbases - Set of symbases determined as required by parsing.
   DenseSet<unsigned> RequiredSymbases;
 
-  /// TODO:Commenting out as the usefulness of blob definition is not clear yet.
-  ///
-  /// TempBlobSymbases - Set of symbases which represent temp blobs.
-  /// This can be used to query whether an HLInst is a blob definition and needs
-  /// to be kept updated for new instructions created by HIR transformations.
-  // SmallSet<unsigned, 64> TempBlobSymbases;
-
   /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
   /// DDRef.
   SmallDenseMap<unsigned, unsigned, 8> CurTempBlobLevelMap;
@@ -160,6 +153,11 @@ private:
 
   // SymbaseToIndexMap - maps temp symbases to blob indices for faster lookup.
   DenseMap<unsigned, unsigned> SymbaseToIndexMap;
+
+  /// Maps all the GEP refs to their pointer values. This allows symbase
+  /// assignment to do a better job by providing more information about the
+  /// reference.
+  DenseMap<RegDDRef *, Value *> GEPRefToPointerMap;
 
   /// BlobProcessor - Performs necessary processing for a blob being added to a
   /// CanonExpr.
@@ -625,6 +623,13 @@ private:
 
   /// Returns true if \p HInst is a liveout copy.
   bool isLiveoutCopy(const HLInst *HInst);
+
+  Value *getGEPRefPtr(RegDDRef *Ref) const {
+    auto It = GEPRefToPointerMap.find(Ref);
+    assert((It != GEPRefToPointerMap.end()) &&
+           "Could not find Ref's underlying pointer!");
+    return It->second;
+  }
 
   /// Returns HLNodeUtils object.
   HLNodeUtils &getHLNodeUtils();

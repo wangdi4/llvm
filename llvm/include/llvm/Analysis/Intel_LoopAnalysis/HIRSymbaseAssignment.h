@@ -42,6 +42,7 @@ class Function;
 namespace loopopt {
 
 class HIRParser;
+class RegDDRef;
 
 class HIRSymbaseAssignment : public FunctionPass {
 public:
@@ -52,6 +53,8 @@ public:
 
   HIRSymbaseAssignment() : FunctionPass(ID) {}
   static char ID;
+
+  Value *getGEPRefPtr(RegDDRef *Ref) const;
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;

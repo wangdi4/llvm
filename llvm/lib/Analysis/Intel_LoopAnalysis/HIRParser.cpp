@@ -2886,6 +2886,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
                                     bool IsUse) {
   const PHINode *BasePhi = nullptr;
   const GEPOperator *GEPOp = nullptr;
+  const Value *OrigGEPVal = GEPVal;
   RegDDRef *Ref = nullptr;
   Type *DestTy = nullptr;
 
@@ -2930,6 +2931,10 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   }
 
   populateBlobDDRefs(Ref, Level);
+
+  // Add a mapping for getting the original pointer value for the Ref.
+  GEPRefToPointerMap.insert(
+      std::make_pair(Ref, const_cast<Value *>(OrigGEPVal)));
 
   return Ref;
 }
@@ -3232,6 +3237,7 @@ void HIRParser::releaseMemory() {
   BlobTable.clear();
   BlobToIndexMap.clear();
   SymbaseToIndexMap.clear();
+  GEPRefToPointerMap.clear();
 }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {
