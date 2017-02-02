@@ -467,30 +467,48 @@ CSATargetLowering::getConstraintType(StringRef Constraint) const {
     switch (Constraint[0]) {
     default:
       break;
-    case 'R':
-    case 'L':
+    case 'a':
+    case 'b':
+    case 'c':
+    case 'd':
+    case 'A':
+    case 'B':
+    case 'C':
+    case 'D':
       return C_RegisterClass;
     }
   }
   return TargetLowering::getConstraintType(Constraint);
 }
 
-/* To start, we have I64RegClass, CI64RegClass, RI64RegClass. */
 std::pair<unsigned, const TargetRegisterClass *>
 CSATargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
                                                   StringRef Constraint,
                                                   MVT VT) const {
-  if (Constraint.size() == 1)
+
+  if (Constraint.size() == 1) {
     switch (Constraint[0]) {
-    case 'r':
-      return std::make_pair(0U, &CSA::I64RegClass);
-    case 'R':
-      return std::make_pair(0U, &CSA::RI64RegClass);
-    case 'L':
-      return std::make_pair(0U, &CSA::CI64RegClass);
-    default:
-      break;
+      default:
+        break;
+      case 'a':
+        return std::make_pair(0U, &CSA::I8RegClass);
+      case 'b':
+        return std::make_pair(0U, &CSA::I16RegClass);
+      case 'c':
+        return std::make_pair(0U, &CSA::I32RegClass);
+      case 'd':
+        return std::make_pair(0U, &CSA::I64RegClass);
+
+      case 'A':
+        return std::make_pair(0U, &CSA::RI8RegClass);
+      case 'B':
+        return std::make_pair(0U, &CSA::RI16RegClass);
+      case 'C':
+        return std::make_pair(0U, &CSA::RI32RegClass);
+      case 'D':
+        return std::make_pair(0U, &CSA::RI64RegClass);
     }
+  }
 
   // This doesn't know about any one-letter constraints.
   return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);

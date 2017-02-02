@@ -33,6 +33,7 @@ add_llvm_target(CSACodeGen
   CSATargetMachine.cpp
   CSATargetTransformInfo.cpp
   MachineCDG.cpp
+  CSAExpandInlineAsm.cpp
   )
 
 add_subdirectory(AsmParser)

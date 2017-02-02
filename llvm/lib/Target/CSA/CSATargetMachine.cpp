@@ -124,9 +124,13 @@ public:
 
     // Add the pass to lower memset/memmove/memcpy
     addPass(createLowerAggrCopies());
-    
+
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
+
+    // Add the pass to expand inline assembly.
+    addPass(createCSAExpandInlineAsmPass(), false, true);
+
     return false;
   }
 

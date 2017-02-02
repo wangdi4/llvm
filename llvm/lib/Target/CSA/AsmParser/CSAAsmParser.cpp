@@ -282,7 +282,24 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseRegister() {
   SMLoc End = SMLoc::getFromPointer(Parser.getTok().getLoc().getPointer() - 1);
 
   unsigned RegNum;
-  // Eat the '%'.
+
+  if (Lexer.getKind() == AsmToken::Dollar) {
+    // We are parsing not a true CSA operand, but an extended-style inline
+    // assembly argument. Pass this through as an illegal register number.
+    // Gross. Sorry.
+
+    // Eat the '$'.
+    Parser.Lex();
+
+    // A number should follow.
+    int64_t dollarNum = Lexer.getTok().getIntVal();
+
+    RegNum = CSA::NUM_TARGET_REGS + dollarNum;
+    Parser.Lex(); // Eat the number.
+    return CSAOperand::createReg(RegNum, Start, End);
+  }
+
+  // This is hopefully a real register. Eat the '%' if it exists.
   if (Lexer.getKind() == AsmToken::Percent)
     Parser.Lex();
   if (Lexer.getKind() == AsmToken::Identifier) {
