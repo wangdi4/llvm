@@ -271,6 +271,10 @@ namespace llvm {
       MachineFunctionPass::getAnalysisUsage(AU);
     }
     void writeDotGraph(StringRef fname);
+    void viewMachineCDG(void);
+    void viewMachineCFG(void);
+    void viewMachinePDT(void);
+    void viewMachineDT(void);
 		virtual bool runOnMachineFunction(MachineFunction &F);
   };
 
@@ -317,7 +321,8 @@ namespace llvm {
     DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
 
     static std::string getGraphName(ControlDependenceGraph *Graph) {
-      return "Control dependence graph";
+      std::string fName(Graph->thisMF->getName());
+      return "Machine CDG for '" + fName + "' function";
     }
 
     std::string getNodeLabel(ControlDependenceNode *Node, ControlDependenceGraph *Graph) {
@@ -357,7 +362,8 @@ namespace llvm {
     DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
 
     static std::string getGraphName(MachinePostDominatorTree *Graph) {
-      return "Machine Post Dominator Tree";
+      std::string fName(Graph->getRootNode()->getBlock()->getParent()->getName());
+      return "Machine PDT for '" + fName + "' function";
     }
 
     std::string getNodeLabel(MachineDomTreeNode *Node, MachinePostDominatorTree *Graph) {
@@ -377,7 +383,8 @@ namespace llvm {
       DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
 
       static std::string getGraphName(MachineDominatorTree *Graph) {
-        return "Machine Dominator Tree";
+        std::string fName(Graph->getRootNode()->getBlock()->getParent()->getName());
+        return "Machine DT for '" + fName + "' function";
       }
 
       std::string getNodeLabel(MachineDomTreeNode *Node, MachineDominatorTree *Graph) {
@@ -397,7 +404,8 @@ namespace llvm {
       DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
 
       static std::string getGraphName(MachineFunction *Graph) {
-        return "Machine Function CFG";
+        std::string fName = Graph->getName();
+        return "Machine CFG for '" + fName + "' function";
       }
 
       std::string getNodeLabel(MachineBasicBlock *Node, MachineFunction *Graph) {

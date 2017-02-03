@@ -27,6 +27,26 @@ CSADumpDotGraph("csa-dump-dot-graph", cl::Hidden,
 	cl::desc("CSA Specific: dump CFG, CDG, PDT, DT dot graphs"),
 	cl::init(0));
 
+static cl::opt<bool>
+CSAViewMachineCDG("csa-view-machine-cdg", cl::Hidden,
+	cl::desc("CSA Specific: View machine control dependence graph of function"),
+	cl::init(false));
+
+static cl::opt<bool>
+CSAViewMachineCFG("csa-view-machine-cfg", cl::Hidden,
+	cl::desc("CSA Specific: View machine control flow graph of function"),
+	cl::init(false));
+
+static cl::opt<bool>
+CSAViewMachinePDT("csa-view-machine-pdt", cl::Hidden,
+	cl::desc("CSA Specific: View machine post-dominator tree of function"),
+	cl::init(false));
+
+static cl::opt<bool>
+CSAViewMachineDT("csa-view-machine-dt", cl::Hidden,
+	cl::desc("CSA Specific: View machine dominator tree of function"),
+	cl::init(false));
+
 //  Because of the namespace-related syntax limitations of gcc, we need
 //  To hoist init out of namespace blocks. 
 char ControlDependenceGraph::ID = 0;
@@ -522,7 +542,37 @@ bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
 	if (CSADumpDotGraph) {
 		writeDotGraph(F.getName());
 	}
+  if (CSAViewMachineCDG) {
+    viewMachineCDG();
+  }
+  if (CSAViewMachineCFG) {
+    viewMachineCFG();
+  }
+  if (CSAViewMachinePDT) {
+    viewMachinePDT();
+  }
+  if (CSAViewMachineDT) {
+    viewMachineDT();
+  }
 	return false;
+}
+
+void ControlDependenceGraph::viewMachineCDG(void) {
+  llvm::ViewGraph(this,"mCDG");
+}
+
+void ControlDependenceGraph::viewMachineCFG(void) {
+  llvm::ViewGraph(thisMF,"mCFG");
+}
+
+void ControlDependenceGraph::viewMachinePDT(void) {
+  MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
+  llvm::ViewGraph(&pdt,"mPDT");
+}
+
+void ControlDependenceGraph::viewMachineDT(void) {
+  MachineDominatorTree &dt = getAnalysis<MachineDominatorTree>();
+  llvm::ViewGraph(&dt,"mDT");
 }
 
 void ControlDependenceGraph::writeDotGraph(StringRef fname) {
