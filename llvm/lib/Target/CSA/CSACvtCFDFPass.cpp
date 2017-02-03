@@ -139,7 +139,8 @@ namespace llvm {
     void renameOnLoopEntry();
     void renameAcrossLoopForRepeat(MachineLoop *);
     void insertSWITCHForRepeat();
-    unsigned repeatOperandInLoop(unsigned Reg, MachineLoop* mloop, std::set<MachineInstr*> &switchsForRepeat);
+    void insertSWITCHForRepeat(MachineLoop* mloop);
+    unsigned repeatOperandInLoop(unsigned Reg, MachineLoop* mloop);
     MachineBasicBlock* getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock*> &exitingBlks, MachineInstr* UseMI, unsigned Reg);
     void insertSWITCHForLoopExit();
     void insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch);
@@ -963,7 +964,7 @@ void CSACvtCFDFPass::renameOnLoopEntry()
 
 
 
-unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop, std::set<MachineInstr*> &switchsForRepeat) {
+unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   unsigned newVReg;
@@ -986,7 +987,6 @@ unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop, s
     ControlDependenceNode *mLatch = CDG->getNode(latchBB);
 
     MachineInstr *defInstr = getOrInsertSWITCHForReg(Reg, latchBB);
-    switchsForRepeat.insert(defInstr);
 
     if (TII.isSwitch(defInstr)) {
       unsigned switchFalseReg = defInstr->getOperand(0).getReg();
@@ -1021,51 +1021,45 @@ unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop, s
 
 
 
-//focus on uses
-void CSACvtCFDFPass::insertSWITCHForRepeat() {
-  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
+
+void CSACvtCFDFPass::insertSWITCHForRepeat(MachineLoop* L) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  ControlDependenceNode *root = CDG->getRoot();
-  std::set<MachineInstr*> switchsForRepeat;
-  for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
-    MachineBasicBlock *mbb = DTN->getBlock();
-    if (!mbb) continue; //root node has no bb
-    MachineLoop* mloop = MLI->getLoopFor(mbb);
-    //not inside a loop
-    if (!mloop) continue;
+  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
+    insertSWITCHForRepeat(*LI);
+  }
+  MachineLoop *mloop = L;
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
+    //only conside blocks in the  urrent loop level, blocks in the nested level are done before.
+    if (MLI->getLoopFor(mbb) != mloop) continue;
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = &*I;
-
-      if (MI->isPHI()) 
-        continue; //Pick will take care of it when replacing Phi
-      if (switchsForRepeat.find(MI) != switchsForRepeat.end())
-        continue;
-#if 0
-      //To avoid infinitive recursive since the newly add SWITCH always use Reg
-      if (TII.isSwitch(MI) && mlphdr->isPredecessor(mbb)) {
-        //mbb is a latch
-        //working from inner most out, no need to revisit the switch after it is inserted into the latch
-        continue;
-      }
-#endif
+      if (MI->isPHI()) continue;
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
-        // process use at loop level
         if (MO->isUse()) {
           MachineInstr* dMI = MRI->getVRegDef(Reg);
           MachineBasicBlock* DefBB = dMI->getParent();
           if (DefBB == mbb) continue;
           //use, def in different region cross latch
           bool isDefEnclosingUse = MLI->getLoopFor(DefBB) == NULL ||
-                                   MLI->getLoopFor(mbb)->getParentLoop() == MLI->getLoopFor(DefBB);
+            MLI->getLoopFor(mbb)->getParentLoop() == MLI->getLoopFor(DefBB);
 
           if (isDefEnclosingUse && DT->dominates(DefBB, mbb)) {
-            repeatOperandInLoop(Reg, mloop, switchsForRepeat);
+            repeatOperandInLoop(Reg, mloop);
           }
         }
       }
     }
+  }
+}
+
+//focus on uses
+void CSACvtCFDFPass::insertSWITCHForRepeat() {
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
+    insertSWITCHForRepeat(*LI);
   }
 }
 
