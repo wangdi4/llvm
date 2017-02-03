@@ -2623,14 +2623,20 @@ unsigned CSACvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
     unsigned current_opcode = MI->getOpcode();
     unsigned converted_opcode = TII.get_ordered_opcode_for_LDST(current_opcode);
 
-    bool is_store = TII.isStore(MI);
+    bool is_load = TII.isLoad(MI);
 
     if (current_opcode != converted_opcode) {
       // Create a register for the "issued" output of this memory
       // operation.
       unsigned next_out_reg = MRI->createVirtualRegister(MemopRC);
 
-      if (is_store) {
+      if (is_load) {
+        // Just a load. Build up the set of load outputs that we
+        // depend on.
+        current_wavefront.push_back(next_out_reg);
+      }
+      else {
+        // This is a store or atomic instruction.
         // If there were any loads in the last interval, merge all
         // their outputs into one output, and change the latest
         // source.
@@ -2642,12 +2648,6 @@ unsigned CSACvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
           assert(current_wavefront.size() == 0);
         }
       }
-      else {
-        // Just a load. Build up the set of load outputs that we
-        // depend on.
-        assert(TII.isLoad(MI));
-        current_wavefront.push_back(next_out_reg);
-      }
 
       convert_memop_ins(MI,
                         converted_opcode,
@@ -2655,7 +2655,7 @@ unsigned CSACvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
                         next_out_reg,
                         current_mem_reg);
 
-      if (is_store) {
+      if (!is_load) {
         current_mem_reg = next_out_reg;
       }
 
