@@ -76,13 +76,12 @@ namespace llvm {
     SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
     SDValue getReturnAddressFrameIndex(SelectionDAG &DAG) const;
-
-    TargetLowering::ConstraintType
-    getConstraintType(const std::string &Constraint) const override;
-    std::pair<unsigned, const TargetRegisterClass*>
-    getRegForInlineAsmConstraint(const std::string &Constraint,
-                                 MVT VT) const override;
     */
+
+    ConstraintType getConstraintType(StringRef Constraint) const override;
+    std::pair<unsigned, const TargetRegisterClass *>
+    getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+                                 StringRef Constraint, MVT VT) const override;
     SDValue LowerAtomicLoad(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerAtomicStore(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const;

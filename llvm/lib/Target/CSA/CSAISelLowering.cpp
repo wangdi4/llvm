@@ -459,41 +459,60 @@ LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const
 //                       CSA Inline Assembly Support
 //===----------------------------------------------------------------------===//
 
-/*
 /// getConstraintType - Given a constraint letter, return the type of
 /// constraint it is for this target.
-TargetLowering::ConstraintType
-CSATargetLowering::getConstraintType(const std::string &Constraint) const {
+CSATargetLowering::ConstraintType
+CSATargetLowering::getConstraintType(StringRef Constraint) const {
   if (Constraint.size() == 1) {
     switch (Constraint[0]) {
-    case 'r':
-      return C_RegisterClass;
     default:
       break;
+    case 'a':
+    case 'b':
+    case 'c':
+    case 'd':
+    case 'A':
+    case 'B':
+    case 'C':
+    case 'D':
+      return C_RegisterClass;
     }
   }
   return TargetLowering::getConstraintType(Constraint);
 }
 
-std::pair<unsigned, const TargetRegisterClass*>
-CSATargetLowering::
-getRegForInlineAsmConstraint(const std::string &Constraint,
-                             MVT VT) const {
-  if (Constraint.size() == 1) {
-    // GCC Constraint Letters
-    switch (Constraint[0]) {
-    default: break;
-    case 'r':   // GENERAL_REGS
-      if (VT == MVT::i8)
-        return std::make_pair(0U, &CSA::GR8RegClass);
+std::pair<unsigned, const TargetRegisterClass *>
+CSATargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+                                                  StringRef Constraint,
+                                                  MVT VT) const {
 
-      return std::make_pair(0U, &CSA::GR16RegClass);
+  if (Constraint.size() == 1) {
+    switch (Constraint[0]) {
+      default:
+        break;
+      case 'a':
+        return std::make_pair(0U, &CSA::I8RegClass);
+      case 'b':
+        return std::make_pair(0U, &CSA::I16RegClass);
+      case 'c':
+        return std::make_pair(0U, &CSA::I32RegClass);
+      case 'd':
+        return std::make_pair(0U, &CSA::I64RegClass);
+
+      case 'A':
+        return std::make_pair(0U, &CSA::RI8RegClass);
+      case 'B':
+        return std::make_pair(0U, &CSA::RI16RegClass);
+      case 'C':
+        return std::make_pair(0U, &CSA::RI32RegClass);
+      case 'D':
+        return std::make_pair(0U, &CSA::RI64RegClass);
     }
   }
 
-  return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
+  // This doesn't know about any one-letter constraints.
+  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
 }
-*/
 
 bool CSATargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
   if (!VT1.isInteger() || !VT2.isInteger())

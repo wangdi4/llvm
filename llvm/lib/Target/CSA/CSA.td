@@ -144,7 +144,14 @@ def CSAInstrInfo : InstrInfo;
 // Assembly parser
 //===----------------------------------------------------------------------===//
 
-// N/A
+def CSAAsmParser : AsmParser{
+  let ShouldEmitMatchRegisterName = 1;
+}
+
+def CSAAsmParserVariant : AsmParserVariant{
+  int Variant = 0;
+  string RegisterPrefix = "%";
+}
 
 //===----------------------------------------------------------------------===//
 // Top-level target declaration
@@ -152,4 +159,5 @@ def CSAInstrInfo : InstrInfo;
 
 def CSA : Target {
   let InstructionSet = CSAInstrInfo;
+  let AssemblyParsers = [CSAAsmParser];
 }

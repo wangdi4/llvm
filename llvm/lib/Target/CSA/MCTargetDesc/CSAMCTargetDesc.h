@@ -19,7 +19,7 @@
 namespace llvm {
 class Target;
 
-extern Target TheCSATarget;
+Target &getTheCSATarget();
 
 } // End llvm namespace
 

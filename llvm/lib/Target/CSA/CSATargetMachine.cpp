@@ -63,7 +63,7 @@ namespace llvm {
 
 extern "C" void LLVMInitializeCSATarget() {
   // Register the target.
-  RegisterTargetMachine<CSATargetMachine> X(TheCSATarget);
+  RegisterTargetMachine<CSATargetMachine> X(getTheCSATarget());
 
   // The original comment in the CSA target says this optimization
   // is placed here because it is too target-specific.
@@ -124,9 +124,13 @@ public:
 
     // Add the pass to lower memset/memmove/memcpy
     addPass(createLowerAggrCopies());
-    
+
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
+
+    // Add the pass to expand inline assembly.
+    addPass(createCSAExpandInlineAsmPass(), false, true);
+
     return false;
   }
 

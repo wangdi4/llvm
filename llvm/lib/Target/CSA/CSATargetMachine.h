@@ -46,8 +46,6 @@ public:
 
 };
 
-extern Target TheCSATarget;
-
 } // End llvm namespace
 
 

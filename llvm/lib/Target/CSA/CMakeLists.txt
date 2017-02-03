@@ -1,5 +1,6 @@
 set(LLVM_TARGET_DEFINITIONS CSA.td)
 
+tablegen(LLVM CSAGenAsmMatcher.inc -gen-asm-matcher)
 tablegen(LLVM CSAGenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM CSAGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM CSAGenAsmWriter.inc -gen-asm-writer)
@@ -32,8 +33,10 @@ add_llvm_target(CSACodeGen
   CSATargetMachine.cpp
   CSATargetTransformInfo.cpp
   MachineCDG.cpp
+  CSAExpandInlineAsm.cpp
   )
 
+add_subdirectory(AsmParser)
 add_subdirectory(InstPrinter)
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)

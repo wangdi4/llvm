@@ -34,6 +34,5 @@ CSAMCAsmInfo::CSAMCAsmInfo(const Triple &T) {
   // that we have no plans to deal with...
   // SupportsDebugInformation = true;
 
-  // Maybe someday
-  // UseIntegratedAssembler = true;
+  UseIntegratedAssembler = true;
 }
