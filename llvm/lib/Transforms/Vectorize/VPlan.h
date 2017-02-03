@@ -29,7 +29,12 @@
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/IRBuilder.h"
+#ifdef INTEL_CUSTOMIZATION
+#include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/Support/FormattedStream.h"
+#else
 #include "llvm/Support/raw_ostream.h"
+#endif
 
 // The (re)use of existing LoopVectorize classes is subject to future VPlan
 // refactoring.
@@ -41,7 +46,9 @@ class LoopVectorizationLegality;
 namespace llvm {
 
 class VPBasicBlock;
-
+#ifdef INTEL_CUSTOMIZATION
+class VPLoop;
+#endif
 /// VPRecipeBase is a base class describing one or more instructions that will
 /// appear consecutively in the vectorized version, based on Instructions from
 /// the given IR. These Instructions are referred to as the "Ingredients" of
@@ -69,8 +76,9 @@ class VPRecipeBase : public ilist_node_with_parent<VPRecipeBase, VPBasicBlock> {
   friend class VPBasicBlock;
 
 private:
+#ifdef INTEL_CUSTOMIZATION
   const unsigned char VRID; // Subclass identifier (for isa/dyn_cast)
-
+#endif
   /// Each VPRecipe is contained in a single VPBasicBlock.
   class VPBasicBlock *Parent;
 
@@ -350,8 +358,11 @@ public:
   /// that is actually instantiated. Values of this enumeration are kept in the
   /// VPBlockBase classes VBID field. They are used for concrete type
   /// identification.
+#ifdef INTEL_CUSTOMIZATION
+  typedef enum { VPBasicBlockSC, VPRegionBlockSC, VPLoopRegionSC } VPBlockTy;
+#else
   typedef enum { VPBasicBlockSC, VPRegionBlockSC } VPBlockTy;
-
+#endif
   virtual ~VPBlockBase() {}
 
   const std::string &getName() const { return Name; }
@@ -385,6 +396,12 @@ public:
   SmallVectorImpl<VPBlockBase *> &getSuccessors() { return Successors; }
 
   SmallVectorImpl<VPBlockBase *> &getPredecessors() { return Predecessors; }
+
+#ifdef INTEL_CUSTOMIZATION
+  size_t getNumSuccessors() const { return Successors.size(); }
+
+  size_t getNumPredecessors() const { return Predecessors.size(); }
+#endif // INTEL_CUSTOMIZATION
 
   /// \return the successor of this VPBlockBase if it has a single successor.
   /// Otherwise return a null pointer.
@@ -459,6 +476,18 @@ public:
 
   // Delete all blocks reachable from a given VPBlockBase, inclusive.
   static void deleteCFG(VPBlockBase *Entry);
+
+#ifdef INTEL_CUSTOMIZATION
+  void printAsOperand(raw_ostream &OS, bool PrintType) const {
+    formatted_raw_ostream FOS(OS);
+    print(FOS, 0);
+  }
+
+  void print(formatted_raw_ostream &OS, unsigned Depth) const {
+    std::string Indent((Depth * 4), ' ');
+    OS << Indent << getName() << "\n";
+  }
+#endif
 };
 
 /// VPBasicBlock serves as the leaf of the Hierarchical CFG. It represents a
@@ -587,15 +616,29 @@ private:
   /// Hold the Single Exit of the SESE region represented by the VPRegionBlock.
   VPBlockBase *Exit;
 
+#ifdef INTEL_CUSTOMIZATION
+  /// Holds the number of VPBasicBlocks within the region.
+  unsigned Size;
+#endif
   /// A VPRegionBlock can represent either a single instance of its
   /// VPBlockBases, or multiple (VF * UF) replicated instances. The latter is
   /// used when the internal SESE region handles a single scalarized lane.
   bool IsReplicator;
 
 public:
+  /// An enumeration for keeping track of the concrete subclass of VPRegionBlock
+  /// that is actually instantiated. Values of this enumeration are kept in the
+  /// VPRegionBlock classes VRID field. They are used for concrete type
+  /// identification.
+#ifdef INTEL_CUSTOMIZATION
+  VPRegionBlock(const unsigned char SC, const std::string &Name)
+      : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr), Size(0),
+        IsReplicator(false) {}
+#else
   VPRegionBlock(const std::string &Name)
       : VPBlockBase(VPRegionBlockSC, Name), Entry(nullptr), Exit(nullptr),
         IsReplicator(false) {}
+#endif
 
   ~VPRegionBlock() {
     if (Entry)
@@ -604,9 +647,14 @@ public:
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPBlockBase *V) {
+#ifdef INTEL_CUSTOMIZATION
+    return V->getVPBlockID() == VPBlockBase::VPRegionBlockSC ||
+           V->getVPBlockID() == VPBlockBase::VPLoopRegionSC;
+#else
     return V->getVPBlockID() == VPBlockBase::VPRegionBlockSC;
+#endif
   }
-
+// TODO: Why do we need getEntry and getEntryBasicBlock?
   VPBlockBase *getEntry() { return Entry; }
 
   VPBlockBase *getExit() { return Exit; }
@@ -615,6 +663,9 @@ public:
 
   const VPBlockBase *getExit() const { return Exit; }
 
+#ifdef INTEL_CUSTOMIZATION
+  unsigned getSize() const { return Size; }
+#endif
   /// An indicator if the VPRegionBlock represents single or multiple instances.
   bool isReplicator() const { return IsReplicator; }
 
@@ -745,7 +796,12 @@ public:
 
   /// Create a new, empty VPRegionBlock, with no blocks.
   VPRegionBlock *createRegion(bool IsReplicator) {
+#ifdef INTEL_CUSTOMIZATION
+    VPRegionBlock *Region = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
+                                              createUniqueName("region"));
+#else
     VPRegionBlock *Region = new VPRegionBlock(createUniqueName("region"));
+#endif
     setReplicator(Region, IsReplicator);
     return Region;
   }
@@ -771,6 +827,11 @@ public:
     Region->setReplicator(ToReplicate);
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  void setRegionSize(VPRegionBlock *Region, unsigned Size) {
+    Region->Size = Size;
+  }
+#endif
   /// Sets a given VPBlockBase \p Successor as the single successor of another
   /// VPBlockBase \p Block. The parent of \p Block is copied to be the parent of
   /// \p Successor.
@@ -804,6 +865,10 @@ public:
   }
 
 #ifdef INTEL_CUSTOMIZATION  
+  void setBlockParent(VPBlockBase *Block, VPRegionBlock *Parent) {
+    Block->Parent = Parent;
+  }
+  
   void replaceBlockSuccessor(VPBlockBase *Block, VPBlockBase *OldSuccessor,
                         VPBlockBase *NewSuccessor) {
     // Replace successor
@@ -854,17 +919,39 @@ public:
     Successors.clear();
   }
 
-  void connectRegion(VPRegionBlock *Region, VPBlockBase *Entry,
+  void insertRegion(VPRegionBlock *Region, VPBlockBase *Entry,
                      VPBlockBase *Exit) {
-    assert(Region->getEntry() == nullptr && "Region entry must be null");
-    assert(Region->getExit() == nullptr && "Region exit must be null");
+    assert(!Region->getEntry() && "Region's entry must be null");
+    assert(!Region->getExit() && "Region's exit must be null");
+    assert(!Region->getNumSuccessors() && "Region cannot have successors");
+    assert(!Region->getNumPredecessors() && "Region cannot have predecessors");
 
-    movePredecessors(Entry, Region);
+    // If Entry node is parent region's entry, set Region as entry of parent
+    // region
+    if (Entry->getParent()->getEntry() == Entry) {
+      assert(!Entry->getNumPredecessors() &&
+             "Entry node cannot have predecessors");
+      setRegionEntry(Entry->Parent, Region);
+    } else {
+      movePredecessors(Entry, Region);
+    }
+
+    assert(Exit->getParent()->getExit() != Exit &&
+           "Exit node cannot be an exit node in another region");
     moveSuccessors(Exit, Region);
 
     setRegionEntry(Region, Entry);
     setRegionExit(Region, Exit);
   }
+
+  void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+    movePredecessors(BlockPtr, NewBlock);
+    // TODO: setSuccessor is propagating NewBlock's parent to BlockPtr, so we
+    // need to set the parent before if we don't want to propagate a nullptr.
+    setBlockParent(NewBlock, BlockPtr->Parent);
+    setSuccessor(NewBlock, BlockPtr);
+  }
+
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -909,6 +996,7 @@ public:
   void dump(const std::string &Title = "");
 };
 
+#ifndef INTEL_CUSTOMIZATION // Opensource version
 //===--------------------------------------------------------------------===//
 // GraphTraits specializations for VPlan/VPRegionBlock Control-Flow Graphs  //
 //===--------------------------------------------------------------------===//
@@ -950,7 +1038,6 @@ template <> struct GraphTraits<const VPBlockBase *> {
 // a graph of VPBasicBlocks... and to walk it in inverse order. Inverse order
 // for a VPRegionBlock is considered to be when traversing the predecessor edges
 // of a VPBlockBase instead of the successor edges.
-//
 
 template <> struct GraphTraits<Inverse<VPBlockBase *>> {
   typedef VPBlockBase *NodeRef;
@@ -969,6 +1056,179 @@ template <> struct GraphTraits<Inverse<VPBlockBase *>> {
   }
 };
 
+#else // VPO version (Experimental)
+
+//===--------------------------------------------------------------------===//
+// GraphTraits specializations for VPlan/VPRegionBlock Control-Flow Graphs  //
+//===--------------------------------------------------------------------===//
+
+template <class GraphT, class GT = GraphTraits<GraphT>>
+class standard_df_iterator
+    : public std::iterator<std::forward_iterator_tag, typename GT::NodeType> {
+private:
+  df_iterator<GraphT> impl;
+
+  standard_df_iterator() {}
+
+public:
+  typedef std::iterator<std::forward_iterator_tag, typename GT::NodeType> super;
+
+  standard_df_iterator(const GraphT &G, bool Begin)
+      : impl(Begin ? df_iterator<GraphT>::begin(G)
+                   : df_iterator<GraphT>::end(G)) {}
+
+  typename super::pointer operator*() const { return *impl; }
+
+  bool operator==(const standard_df_iterator &x) const {
+    return impl == x.impl;
+  }
+
+  bool operator!=(const standard_df_iterator &x) const { return !(*this == x); }
+
+  standard_df_iterator &operator++() { // Preincrement
+    impl++;
+    return *this;
+  }
+
+  standard_df_iterator operator++(int) { // Postincrement
+    standard_df_iterator tmp = *this;
+    ++*this;
+    return tmp;
+  }
+};
+
+// Provide specializations of GraphTraits to be able to treat a VPRegionBlock
+// as a graph of VPBlockBases...
+
+template <> struct GraphTraits<VPBlockBase *> {
+  typedef VPBlockBase NodeType;
+  typedef NodeType *NodeRef;
+  typedef SmallVectorImpl<NodeRef>::iterator ChildIteratorType;
+
+  static NodeRef getEntryNode(VPBlockBase *N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->getSuccessors().begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return N->getSuccessors().end();
+  }
+};
+
+template <>
+struct GraphTraits<VPRegionBlock *> : public GraphTraits<VPBlockBase *> {
+  typedef VPRegionBlock GraphType;
+  typedef GraphType *GraphRef;
+  typedef standard_df_iterator<NodeRef> nodes_iterator;
+
+  static NodeRef getEntryNode(GraphRef N) { return N->getEntry(); }
+
+  static nodes_iterator nodes_begin(GraphRef N) {
+    return nodes_iterator(N->getEntry(), true);
+  }
+
+  static nodes_iterator nodes_end(GraphRef N) {
+    // When 'false' is used in nodes_iterator, it returns and empty iterator, so
+    // the node used doesn't matter
+    return nodes_iterator(N, false);
+  }
+  
+  static unsigned size(GraphRef N) {
+    return N->getSize();
+  }
+};
+
+template <> struct GraphTraits<const VPBlockBase *> {
+  typedef const VPBlockBase NodeType;
+  typedef const NodeType *NodeRef;
+  typedef SmallVectorImpl<NodeRef>::const_iterator ChildIteratorType;
+
+  static NodeRef getEntryNode(const VPBlockBase *N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->getSuccessors().begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return N->getSuccessors().end();
+  }
+};
+
+template <>
+struct GraphTraits<const VPRegionBlock *>
+    : public GraphTraits<const VPBlockBase *> {
+  typedef const VPRegionBlock GraphType;
+  typedef GraphType *GraphRef;
+  typedef standard_df_iterator<NodeRef> nodes_iterator;
+
+  static NodeRef getEntryNode(GraphRef N) { return N->getEntry(); }
+
+  static nodes_iterator nodes_begin(GraphRef N) {
+    return nodes_iterator(N->getEntry(), true);
+  }
+
+  static nodes_iterator nodes_end(GraphRef N) {
+    // When 'false' is used in nodes_iterator, it returns and empty iterator, so
+    // the node used doesn't matter
+    return nodes_iterator(N, false);
+  }
+  
+  static unsigned size(GraphRef N) {
+    return N->getSize();
+  }
+};
+
+// Provide specializations of GraphTraits to be able to treat a VPRegionBlock as
+// a graph of VPBasicBlocks... and to walk it in inverse order. Inverse order
+// for a VPRegionBlock is considered to be when traversing the predecessor edges
+// of a VPBlockBase instead of the successor edges.
+
+template <> struct GraphTraits<Inverse<VPBlockBase *>> {
+  typedef VPBlockBase NodeType;
+  typedef NodeType *NodeRef;
+  typedef SmallVectorImpl<VPBlockBase *>::iterator ChildIteratorType;
+
+  static NodeRef getEntryNode(Inverse<VPBlockBase *> B) {
+    return B.Graph;
+  }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->getPredecessors().begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return N->getPredecessors().end();
+  }
+};
+
+template <>
+struct GraphTraits<Inverse<VPRegionBlock *>>
+    : public GraphTraits<Inverse<VPBlockBase *>> {
+  typedef VPRegionBlock GraphType;
+  typedef GraphType *GraphRef;
+  typedef standard_df_iterator<NodeRef> nodes_iterator;
+
+  static NodeRef getEntryNode(Inverse<GraphRef> N) {
+    return N.Graph->getExit();
+  }
+
+  static nodes_iterator nodes_begin(GraphRef N) {
+    return nodes_iterator(N->getExit(), true);
+  }
+
+  static nodes_iterator nodes_end(GraphRef N) {
+    // When 'false' is used in nodes_iterator, it returns and empty iterator, so
+    // the node used doesn't matter
+    return nodes_iterator(N, false);
+  }
+  
+  static unsigned size(GraphRef N) {
+    return N->getSize();
+  }
+};
+
+#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_H

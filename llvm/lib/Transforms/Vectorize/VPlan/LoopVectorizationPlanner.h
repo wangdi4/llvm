@@ -148,12 +148,17 @@ private:
   /// the given \p EndRangeVF.
   std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                            unsigned &EndRangeVF) override;
+
   VPRegionBlock *
   buildInitialCFG(IntelVPlanUtils &PlanUtils,
-                  DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB);
+                  DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
+                  DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
 
-  void buildLoopRegions(IntelVPlanUtils &PlanUtils,
-                        DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB);
+  void buildSubRegions(VPBasicBlock *Entry, VPRegionBlock *ParentRegion,
+                       VPDominatorTree &DomTree, VPDominatorTree &PostDomTree,
+                       IntelVPlanUtils &PlanUtils,
+                       DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
+                       DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
 
   /// Determine whether \p I will be scalarized in a given range of VFs.
   /// The returned value reflects the result for a prefix of the range, with \p

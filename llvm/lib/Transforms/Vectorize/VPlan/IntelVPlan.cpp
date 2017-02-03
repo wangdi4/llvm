@@ -61,3 +61,9 @@ IntelVPlanUtils::createOneByOneRecipe(const BasicBlock::iterator B,
   return new VPVectorizeOneByOneRecipe(B, E, Plan);
 }
 
+template void llvm::Calculate<VPRegionBlock, VPBlockBase *>(
+    DominatorTreeBase<GraphTraits<VPBlockBase *>::NodeType> &DT,
+    VPRegionBlock &VPR);
+//template void llvm::Calculate<VPRegionBlock, Inverse<VPBlockBase *>>(
+//    DominatorTreeBase<GraphTraits<Inverse<VPBlockBase *>>::NodeType> &DT,
+//    VPRegionBlock &VPR);

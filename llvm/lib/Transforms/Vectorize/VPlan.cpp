@@ -386,7 +386,8 @@ void VPlanPrinter::dumpRegion(const VPRegionBlock *Region) {
   increaseDepth();
   OS << Indent;
   OS << "label = \"" << getReplicatorString(Region) << " "
-     << DOT::EscapeString(Region->getName()) << "\"\n\n";
+     << DOT::EscapeString(Region->getName()) << " S=" << Region->getSize()
+     << "\"\n\n";
 
   // Dump the blocks of the region.
   assert(Region->getEntry() && "Region contains no inner blocks.");

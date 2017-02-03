@@ -2,7 +2,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTELVPLAN_H 
 
 #include "../VPlan.h" // FIXME
-
+#include "llvm/Support/GenericDomTreeConstruction.h"
 
 namespace llvm {
 
@@ -20,7 +20,13 @@ public:
 //  VPLoop(const std::string &Name, VPLoopTy SC) 
 //      : VPRegion(Name, VPLoopSC), VLID(SC) {}
 
-  VPLoop(const std::string &Name) : VPRegionBlock(Name) {}
+  VPLoop(const std::string &Name)
+      : VPRegionBlock(VPBlockBase::VPLoopRegionSC, Name) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRegionBlock *R) {
+    return R->getVPBlockID() == VPBlockBase::VPLoopRegionSC;
+  }
 }; 
 
 /// The IntelVPlanUtils class provides interfaces for the construction and
@@ -46,7 +52,17 @@ public:
     return Loop;
   }
 };
- 
+
+// TODO: We may need this in VPlan.h/cpp eventually
+/// \brief Template specialization of the standard LLVM dominator tree utility
+/// for VPBlocks.
+class VPDominatorTree : public DominatorTreeBase<VPBlockBase> {
+
+public:
+  VPDominatorTree(bool isPostDom) : DominatorTreeBase<VPBlockBase>(isPostDom) {}
+
+  virtual ~VPDominatorTree() {}
+};
 
 // From HIR POC
    

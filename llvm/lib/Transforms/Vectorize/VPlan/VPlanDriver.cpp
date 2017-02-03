@@ -249,9 +249,15 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
   //  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   //  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
-  auto isSupported = [](Loop *Lp) -> bool {
-    if (!Lp->getExitingBlock() || !Lp->getExitBlock() || !Lp->getLoopLatch()) {
+  std::function<bool(Loop *)> isSupported = [&isSupported](Loop *Lp) -> bool {
+    if (!Lp->getExitingBlock() || !Lp->getExitBlock() || !Lp->getLoopLatch() ||
+        Lp->getLoopLatch() != Lp->getExitingBlock()) {
       return false;
+    }
+
+    for (Loop *SubLoop : Lp->getSubLoops()) {
+      if (!isSupported(SubLoop))
+        return false;
     }
 
     for (BasicBlock *BB : Lp->blocks()) {
@@ -275,19 +281,23 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
     for (auto WRNode : make_range(WRGraph->begin(), WRGraph->end())) {
 
       WRNVecLoopNode *WLoopNode;
-      if ((WLoopNode = dyn_cast<WRNVecLoopNode>(WRNode)) &&
-          isSupported(WLoopNode->getLoop())) {
+      if ((WLoopNode = dyn_cast<WRNVecLoopNode>(WRNode))) {
+
+        assert(isSupported(WLoopNode->getLoop()) &&
+               "Loop is not supported by VPlan");
+
         DEBUG(errs() << "Starting VPlan gen for \n");
         DEBUG(WRNode->dump());
 
         // TODO: Is it a good idea to retrieve LoopInfo analysis from WLoopNode?
         // Shouldn't we retrieve with from getAnalysis?
         LoopVectorizationPlannerBase *LVP = createLoopVecPlanner(WLoopNode);
+        // TODO: VF
         LVP->buildInitialVPlans(4 /*MinVF*/, 4 /*MaxVF*/);
 
-        VPlan *Plan = LVP->getVPlanForVF(4);
-        VPlanPrinter PlanPrinter(dbgs(), *Plan);
-        PlanPrinter.dump("LVP: Initial VPlan for VF=4");
+        DEBUG(VPlan *Plan = LVP->getVPlanForVF(4);
+              VPlanPrinter PlanPrinter(dbgs(), *Plan);
+              PlanPrinter.dump("LVP: Initial VPlan for VF=4"));
 
         // TODO: destroyLoopPlanner
       }
@@ -301,14 +311,14 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
         LoopVectorizationPlannerBase *LVP = createLoopVecPlanner(Lp);
         LVP->buildInitialVPlans(4 /*MinVF*/, 4 /*MaxVF*/);
 
-        VPlan *Plan = LVP->getVPlanForVF(4);
-        VPlanPrinter PlanPrinter(dbgs(), *Plan);
-        PlanPrinter.dump("LVP: Initial VPlan for VF=4");
+        DEBUG(VPlan *Plan = LVP->getVPlanForVF(4);
+              VPlanPrinter PlanPrinter(dbgs(), *Plan);
+              PlanPrinter.dump("LVP: Initial VPlan for VF=4"));
       }
+      // TODO: Subloops
     }
   }
 
-  //
   //  for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
   //    AVR *Avr = &*I;
   //    AVRWrn *AvrWrn;

@@ -4,6 +4,8 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 
+#define DEBUG_TYPE "vplan-loop-vec-planner" 
+
 using namespace llvm;
 
 unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
@@ -73,9 +75,15 @@ void LoopVectorizationPlannerBase::printCurrentPlans(const std::string &Title,
   printPlan(Current, VFs, Title);
 }
 
+// Build top region + inner VPBBs with only one VectorOneByOneRecipe
 VPRegionBlock *LoopVectorizationPlanner::buildInitialCFG(
     IntelVPlanUtils &PlanUtils,
-    DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB) {
+    DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
+    DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB) {
+
+  // Create top VPRegion. It will be parent of all VPBBs
+  VPRegionBlock *TopRegion = PlanUtils.createRegion(false /*isReplicator*/);
+  unsigned TopRegionSize = 0;
 
   auto createOrGetVPBB = [&](BasicBlock *BB) -> VPBasicBlock * {
     auto BlockIt = BB2VPBB.find(BB);
@@ -84,7 +92,9 @@ VPRegionBlock *LoopVectorizationPlanner::buildInitialCFG(
     if (BlockIt == BB2VPBB.end()) {
       VPBB = PlanUtils.createBasicBlock();
       BB2VPBB[BB] = VPBB;
-      // Size++;
+      VPBB2BB[VPBB] = BB;
+      PlanUtils.setBlockParent(VPBB, TopRegion);
+      TopRegionSize++;
     } else {
       VPBB = BlockIt->second;
     }
@@ -108,8 +118,7 @@ VPRegionBlock *LoopVectorizationPlanner::buildInitialCFG(
     PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
 
     // Add successors and predecessors
-    // TODO: Bug in Predicator. Split setSuccessor and setPrecedessor. Not
-    // sure if RPO may also be a problem.
+    // TODO: Bug in Predicator. Split setSuccessor and setPrecedessor. 
     TerminatorInst *TI = BB->getTerminator();
     assert(TI && "Terminator expected");
     unsigned NumSuccs = TI->getNumSuccessors();
@@ -136,49 +145,171 @@ VPRegionBlock *LoopVectorizationPlanner::buildInitialCFG(
   assert(TheLoop->getExitBlock() && "Multiple exits are not supported");
   VPBlockBase *VPLExit = BB2VPBB[TheLoop->getExitBlock()];
 
-  // Create top VPRegion
+  // Top region setup
 
-  VPRegionBlock *TopRegion = PlanUtils.createRegion(false /*isReplicator*/);
   // Create a dummy entry block for VPRegion as loop's header has predecessor
   // Use loop's exit as region's exit
   VPBlockBase *RegionEntry = PlanUtils.createBasicBlock();
+  TopRegionSize++;
+  PlanUtils.setBlockParent(RegionEntry, TopRegion);
   PlanUtils.setSuccessor(RegionEntry, VPLEntry);
   VPBlockBase *RegionExit = VPLExit;
   
   PlanUtils.setRegionEntry(TopRegion, RegionEntry);
   PlanUtils.setRegionExit(TopRegion, RegionExit);
+  PlanUtils.setRegionSize(TopRegion, TopRegionSize);
 
   return TopRegion;
 }
 
-void LoopVectorizationPlanner::buildLoopRegions(
-    IntelVPlanUtils &PlanUtils,
-    DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB) {
+// TODO: split in multiple functions
+void LoopVectorizationPlanner::buildSubRegions(
+    VPBasicBlock *Entry, VPRegionBlock *ParentRegion, VPDominatorTree &DomTree,
+    VPDominatorTree &PostDomTree, IntelVPlanUtils &PlanUtils,
+    DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
+    DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB) {
 
-  auto createAndConnectVPLoop = [&](Loop *L) {
-    VPLoop *VPL = PlanUtils.createLoop();
+  // TODO: revisit data structure for WorkList
+  std::list<VPBlockBase *> WorkList;
+  SmallPtrSet<VPBlockBase *, 2> Visited;
 
-    VPBasicBlock *RegionEntry = BB2VPBB[L->getHeader()];
-    assert(L->getLoopLatch() && "Multiple latches are not supported");
-    VPBasicBlock *RegionExit = BB2VPBB[L->getLoopLatch()];
+  WorkList.push_back(Entry);
 
-    // Remove LoopLatch from RegionEntry's predecessors. RegionEntry cannot have
-    // any predecessor other than the VPLoop.
-    PlanUtils.disconnectBlocks(RegionExit, RegionEntry);
+  unsigned ParentRegionSize = 0;
 
-    // Insert new VPLoop in VPlan
-    PlanUtils.connectRegion(VPL, RegionEntry, RegionExit);
+  while (!WorkList.empty()) {
 
-    return VPL;
-  };
+    // Get CurrentVPBB and and skip it if visited.
+    VPBlockBase *Current = WorkList.back();
+    WorkList.pop_back();
+    if (Visited.count(Current))
+      continue;
 
-  // Create new VPLoop for main loop.
-  createAndConnectVPLoop(TheLoop);
+    assert(isa<VPBasicBlock>(Current) && "Expected VPBasicBlock");
+    // Only VPBasicBlock will go through this point as the initial CFG only
+    // contains VPBasicBlocks
+    VPBasicBlock *CurrentVPBB = cast<VPBasicBlock>(Current);
 
-  // Iterate on sub-loops
-  for (Loop *SubLoop : make_range(TheLoop->begin(), TheLoop->end())) {
-    createAndConnectVPLoop(SubLoop);
+    // Increase ParentRegion's size
+    ParentRegionSize++;
+
+    // Set CurrentVPBB to visited
+    Visited.insert(CurrentVPBB);
+
+    // Get BB counterpart. If it doesn't exit, set it to nullptr
+    BasicBlock *CurrentBB = nullptr;
+    auto BBIt = VPBB2BB.find(CurrentVPBB);
+    if (BBIt != VPBB2BB.end())
+      CurrentBB = BBIt->second;
+
+    // Pointer to future subregion, if created
+    VPRegionBlock *NewRegion = nullptr;
+
+    // Loop detection
+    // Please, note that VPLoop's entry may be the entry block of a nested
+    // non-loop region. We have to skip loop detection when visiting that entry
+    // node the second time.
+    // TODO: We may want to split loop's entry node or create a fake node.
+    if (CurrentBB && LI->isLoopHeader(CurrentBB) &&
+        CurrentVPBB != ParentRegion->getEntry()) {
+
+      Loop *Lp = LI->getLoopFor(CurrentBB);
+      // New VPLoop
+      NewRegion = PlanUtils.createLoop();
+
+      VPBasicBlock *RegionEntry = CurrentVPBB;
+      // TODO: Provide new loop's latch/exit after massaging for SEME loops.
+      // This information will be no longer valid after massaging.
+      // TODO: So far, let's assume that loop's latch is the single VPBB exiting
+      // the loop
+      assert(Lp->getLoopLatch() && "Multiple latches are not supported");
+      VPBasicBlock *RegionExit = BB2VPBB[Lp->getLoopLatch()];
+
+      // Remove LoopLatch from RegionEntry's predecessors. RegionEntry cannot
+      // have any predecessor. Link from/to Loop's preheader will be move to
+      // VPLoop when region is connected to graph.
+      PlanUtils.disconnectBlocks(RegionExit, RegionEntry);
+
+      // Connect VPLoop to graph
+      PlanUtils.insertRegion(NewRegion, RegionEntry, RegionExit);
+
+      // Recursively build subregions inside VPLoop.
+      // Please, note that VPLoop's entry may be the entry block of a nested
+      // region, so we have to revisit it.
+      buildSubRegions(RegionEntry, NewRegion, DomTree, PostDomTree, PlanUtils,
+                      BB2VPBB, VPBB2BB);
+    }
+    // VPRegion detection. We only consider ParentRegion's entry when
+    // ParentRegion is a VPLoop
+    else if (CurrentVPBB->getNumSuccessors() > 1 &&
+             (CurrentVPBB != ParentRegion->getEntry() ||
+              isa<VPLoop>(ParentRegion))) {
+
+      VPBlockBase *PostDom =
+          PostDomTree.getNode(CurrentVPBB)->getIDom()->getBlock();
+      VPBlockBase *Dom = DomTree.getNode(PostDom)->getIDom()->getBlock();
+      assert(isa<VPBasicBlock>(PostDom) &&
+             "Expected VPBasicBlock as post-dominator");
+      assert(isa<VPBasicBlock>(Dom) && "Expected VPBasicBlock as dominator");
+
+      // New VPRegion entry found.
+      if (Dom == CurrentVPBB) {
+        NewRegion = PlanUtils.createRegion(false /*isReplicator*/);
+
+        // Create a fake exit VPBB to prevent that several regions share the
+        // same exit VPBB
+        // TODO: We may want to do this selectively.
+        VPBasicBlock *FakeExit = PlanUtils.createBasicBlock();
+        PlanUtils.insertBlockBefore(FakeExit, PostDom);
+
+        // Connect new subregion to graph
+        PlanUtils.insertRegion(NewRegion, Dom, FakeExit);
+
+        // Recursively build subregions inside VPLoop.
+        // Please, note that VPLoop's entry may be the entry block of a nested
+        // region, so we have to revisit it.
+        buildSubRegions(CurrentVPBB /*Dom*/, NewRegion, DomTree, PostDomTree,
+                        PlanUtils, BB2VPBB, VPBB2BB);
+      }
+
+      // TODO: From VPOPredicator
+      // For now, it is assumed we're dealing exclusively with innermost loop
+      // vectorization. Mark the SESE region as divergent if the condition of
+      // the
+      // branch is non-uniform with respect to this loop.
+      // Value *Cmp = VBlock->getBranchCondition();
+      // const SCEV *CmpSCEV = SE->getSCEV(Cmp);
+      // if (!SE->isLoopInvariant(CmpSCEV, ALoop->getLoop())) {
+      //  RegionStack.top()->setDivergent();
+      //}
+      // TODO: We make all regions divergent by now.
+      // RegionStack.top()->setDivergent();
+    }
+
+    if (NewRegion) {
+      // Set NewRegion's parent
+      PlanUtils.setBlockParent(NewRegion, ParentRegion);
+
+      // Add NewRegion to visited, just in case it has multiple predecessors
+      Visited.insert(NewRegion);
+
+      // New region has been created. Add NewRegion's successors. NewRegion
+      // subgraph has already been visited.
+      for (auto Succ : NewRegion->getSuccessors()) {
+        WorkList.push_back(Succ);
+      }
+    } else {
+      // Set CurrentVPBB's parent
+      PlanUtils.setBlockParent(CurrentVPBB, ParentRegion);
+
+      // No new region has been created. Add CurrentVPBB's successors.
+      for (auto Succ : CurrentVPBB->getSuccessors()) {
+        WorkList.push_back(Succ);
+      }
+    }
   }
+
+  PlanUtils.setRegionSize(ParentRegion, ParentRegionSize);
 }
 
 std::shared_ptr<VPlan>
@@ -193,6 +324,7 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
 
   // BasicBlock to VPBasicBlock map for this VPlan
   DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
+  DenseMap<VPBasicBlock *, BasicBlock *> VPBB2BB;
 
   // Build VPBasicBlock-based CFG and introduce VPLoops
   // The current algorithm works in two steps. A more complex (and maybe more
@@ -200,12 +332,29 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   // SEME loops will fit here. If some massage is necessary before SESE VPLoops
   // construction for SEME loops, it will be easier to do it in the two step
   // approach.
-  VPRegionBlock *TopRegion = buildInitialCFG(PlanUtils, BB2VPBB);
-  buildLoopRegions(PlanUtils, BB2VPBB);
-  //TODO: buildIfElseRegions
+  VPRegionBlock *TopRegion = buildInitialCFG(PlanUtils, BB2VPBB, VPBB2BB);
 
-  // Set VPLoop as VPlan Entry
+  // Set TopRegion as VPlan Entry
   Plan->setEntry(TopRegion);
+  DEBUG(VPlanPrinter PlanPrinter(dbgs(), *Plan);
+        PlanPrinter.dump("LVP: Initial CFG for VF=4"));
+
+  // SEME-to-SESE loop massaging should happen here. TopRegion contains only
+  // VPBasicBlocks (1:1 relation with original BBs). LoopInfo can be used by
+  // means of BB2VPBB map. Loop massaging shouldn't modify loops' entries and
+  // it should return the new loops' single exits.
+
+  VPDominatorTree DomTree(false /* DominatorTree */);
+  DomTree.recalculate(*TopRegion);
+  DEBUG(dbgs() << "Dominator Tree:\n"; DomTree.print(dbgs()));
+  VPDominatorTree PostDomTree(true /* Post-Dominator Tree */);
+  PostDomTree.recalculate(*TopRegion);
+  DEBUG(dbgs() << "PostDominator Tree:\n"; PostDomTree.print(dbgs()));
+
+  assert(isa<VPBasicBlock>(TopRegion->getEntry()) &&
+         "Expected VPBasicBlock as TopRegion's entry");
+  buildSubRegions(cast<VPBasicBlock>(TopRegion->getEntry()), TopRegion, DomTree,
+                  PostDomTree, PlanUtils, BB2VPBB, VPBB2BB);
 
   // FOR STRESS TESTING, uncomment the following:
   // EndRangeVF = StartRangeVF * 2;
