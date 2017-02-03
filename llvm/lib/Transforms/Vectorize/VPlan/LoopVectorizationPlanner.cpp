@@ -75,7 +75,7 @@ void LoopVectorizationPlannerBase::printCurrentPlans(const std::string &Title,
   printPlan(Current, VFs, Title);
 }
 
-// Build top region + inner VPBBs with only one VectorOneByOneRecipe
+// Build top region + inner VPBBs with only one VectorOneByOneRecipe per VPBB
 VPRegionBlock *LoopVectorizationPlanner::buildInitialCFG(
     IntelVPlanUtils &PlanUtils,
     DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
@@ -118,7 +118,8 @@ VPRegionBlock *LoopVectorizationPlanner::buildInitialCFG(
     PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
 
     // Add successors and predecessors
-    // TODO: Bug in Predicator. Split setSuccessor and setPrecedessor. 
+    // TODO: Old bug in VPOPredicator. Split setSuccessor into setSuccessor and
+    // setPrecedessor. 
     TerminatorInst *TI = BB->getTerminator();
     assert(TI && "Terminator expected");
     unsigned NumSuccs = TI->getNumSuccessors();
@@ -162,7 +163,7 @@ VPRegionBlock *LoopVectorizationPlanner::buildInitialCFG(
   return TopRegion;
 }
 
-// TODO: split in multiple functions
+// TODO: Split into multiple functions
 void LoopVectorizationPlanner::buildSubRegions(
     VPBasicBlock *Entry, VPRegionBlock *ParentRegion, VPDominatorTree &DomTree,
     VPDominatorTree &PostDomTree, IntelVPlanUtils &PlanUtils,
@@ -185,7 +186,11 @@ void LoopVectorizationPlanner::buildSubRegions(
     if (Visited.count(Current))
       continue;
 
+    // If you hit this assert, the input CFG is very likely to be not compliant
+    // either because it contains SEME loops or because loops don't have the
+    // right form (bottom test).
     assert(isa<VPBasicBlock>(Current) && "Expected VPBasicBlock");
+
     // Only VPBasicBlock will go through this point as the initial CFG only
     // contains VPBasicBlocks
     VPBasicBlock *CurrentVPBB = cast<VPBasicBlock>(Current);
@@ -326,12 +331,7 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
   DenseMap<VPBasicBlock *, BasicBlock *> VPBB2BB;
 
-  // Build VPBasicBlock-based CFG and introduce VPLoops
-  // The current algorithm works in two steps. A more complex (and maybe more
-  // efficient) single step would have been possible but we still don't know how
-  // SEME loops will fit here. If some massage is necessary before SESE VPLoops
-  // construction for SEME loops, it will be easier to do it in the two step
-  // approach.
+  // Build top VPRegion and initial VPBasicBlock-based CFG
   VPRegionBlock *TopRegion = buildInitialCFG(PlanUtils, BB2VPBB, VPBB2BB);
 
   // Set TopRegion as VPlan Entry
@@ -339,7 +339,7 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   DEBUG(VPlanPrinter PlanPrinter(dbgs(), *Plan);
         PlanPrinter.dump("LVP: Initial CFG for VF=4"));
 
-  // SEME-to-SESE loop massaging should happen here. TopRegion contains only
+  // TODO: SEME-to-SESE loop massaging should happen here. TopRegion contains only
   // VPBasicBlocks (1:1 relation with original BBs). LoopInfo can be used by
   // means of BB2VPBB map. Loop massaging shouldn't modify loops' entries and
   // it should return the new loops' single exits.
@@ -353,8 +353,14 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
 
   assert(isa<VPBasicBlock>(TopRegion->getEntry()) &&
          "Expected VPBasicBlock as TopRegion's entry");
+
+  // Build sub-regions, including VPLoops. At this point, only SESE regions are
+  // expected. The algorithm will fail otherwise.
   buildSubRegions(cast<VPBasicBlock>(TopRegion->getEntry()), TopRegion, DomTree,
                   PostDomTree, PlanUtils, BB2VPBB, VPBB2BB);
+
+  // TODO: CFG massaging for inner loops in outer loop vectorization scenarios
+  // might happen here.
 
   // FOR STRESS TESTING, uncomment the following:
   // EndRangeVF = StartRangeVF * 2;

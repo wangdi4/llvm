@@ -76,9 +76,8 @@ class VPRecipeBase : public ilist_node_with_parent<VPRecipeBase, VPBasicBlock> {
   friend class VPBasicBlock;
 
 private:
-#ifdef INTEL_CUSTOMIZATION
   const unsigned char VRID; // Subclass identifier (for isa/dyn_cast)
-#endif
+  
   /// Each VPRecipe is contained in a single VPBasicBlock.
   class VPBasicBlock *Parent;
 
@@ -483,6 +482,7 @@ public:
     print(FOS, 0);
   }
 
+  // TODO: Improve implementation for debugging
   void print(formatted_raw_ostream &OS, unsigned Depth) const {
     std::string Indent((Depth * 4), ' ');
     OS << Indent << getName() << "\n";
@@ -617,7 +617,8 @@ private:
   VPBlockBase *Exit;
 
 #ifdef INTEL_CUSTOMIZATION
-  /// Holds the number of VPBasicBlocks within the region.
+  /// Holds the number of VPBasicBlocks within the region. It is necessary for
+  /// dominator tree
   unsigned Size;
 #endif
   /// A VPRegionBlock can represent either a single instance of its
@@ -654,7 +655,7 @@ public:
     return V->getVPBlockID() == VPBlockBase::VPRegionBlockSC;
 #endif
   }
-// TODO: Why do we need getEntry and getEntryBasicBlock?
+  
   VPBlockBase *getEntry() { return Entry; }
 
   VPBlockBase *getExit() { return Exit; }
