@@ -183,6 +183,14 @@ public:
 
 } // End VPO Vectorizer Namspace
 
+// TODO: This code is really no longer required because we do not need to
+// specialize the ilist functionality. However, removing this code before
+// merging the latest community changes causes a compile error because the
+// ilist_traits interface tries to call the AVR destructor, which is protected.
+// Once we merge the latest community changes, this code should be removed and
+// we should use simple_ilist. We should also redesign the way we are doing
+// memory management of AVR nodes. Part of this design should be to keep the
+// AVR destructor protected and accessed from within the Utils class only.
 /// \brief Traits for iplist<AVR>
 ///
 /// See ilist_traits<Instruction> in BasicBlock.h for details

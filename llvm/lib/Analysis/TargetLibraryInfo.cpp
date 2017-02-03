@@ -1099,6 +1099,11 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName) const {
   if (funcName.empty())
     return false;
 
+  // TODO: We must be able to distinguish between masked/non-masked entries,
+  // so this function will need to move away from using lower_bound, as this
+  // could be an entry for either the masked or non-masked version. For now,
+  // assume that both the masked and non-masked variants are vectorizable as
+  // long as lower_bound says so.
   std::vector<VecDesc>::const_iterator I = std::lower_bound(
       VectorDescs.begin(), VectorDescs.end(), funcName,
       compareWithScalarFnName);
@@ -1106,14 +1111,15 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName) const {
 }
 
 StringRef TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
-                                                       unsigned VF) const {
+                                                       unsigned VF,
+                                                       bool Masked) const { // INTEL
   F = sanitizeFunctionName(F);
   if (F.empty())
     return F;
   std::vector<VecDesc>::const_iterator I = std::lower_bound(
       VectorDescs.begin(), VectorDescs.end(), F, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == F) {
-    if (I->VectorizationFactor == VF)
+    if (I->VectorizationFactor == VF && I->Masked == Masked) // INTEL
       return I->VectorFnName;
     ++I;
   }

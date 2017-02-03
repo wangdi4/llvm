@@ -28,6 +28,9 @@ struct VecDesc {
   const char *ScalarFnName;
   const char *VectorFnName;
   unsigned VectorizationFactor;
+#if INTEL_CUSTOMIZATION
+  bool Masked;
+#endif
 };
 
   namespace LibFunc {
@@ -159,7 +162,8 @@ public:
 
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
-  StringRef getVectorizedFunction(StringRef F, unsigned VF) const;
+  StringRef getVectorizedFunction(StringRef F, unsigned VF,
+                                  bool Masked=false) const;
 
   /// Return true if the function F has a scalar equivalent, and set VF to be
   /// the vectorization factor.
@@ -222,8 +226,9 @@ public:
   bool isFunctionVectorizable(StringRef F) const {
     return Impl->isFunctionVectorizable(F);
   }
-  StringRef getVectorizedFunction(StringRef F, unsigned VF) const {
-    return Impl->getVectorizedFunction(F, VF);
+  StringRef getVectorizedFunction(StringRef F, unsigned VF,
+                                  bool Masked=false) const { // INTEL
+    return Impl->getVectorizedFunction(F, VF, Masked);
   }
 
   /// Tests if the function is both available and a candidate for optimized code

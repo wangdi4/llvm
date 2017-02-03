@@ -79,8 +79,8 @@ public:
 
   VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn,
                                                 Function &F) override {
-    ScenariosEngine =
-        new VPOScenarioEvaluation(AvrWrn, *TTI, *TLI, F.getContext(), *DefUse);
+    ScenariosEngine = new VPOScenarioEvaluation(AvrWrn, *TTI, *TLI, *DL,
+                                                F.getContext(), *DefUse);
     return *ScenariosEngine;
   }
 
@@ -123,7 +123,7 @@ public:
   VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn,
                                                 Function &F) override {
     ScenariosEngine = new VPOScenarioEvaluationHIR(AvrWrn, DDA, VLS, *DefUse,
-                                                   *TTI, *TLI, F.getContext());
+                                                   *TTI, *TLI, *DL, F.getContext());
     return *ScenariosEngine;
   }
 
@@ -198,6 +198,7 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  DL = &Fn.getParent()->getDataLayout();
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
     AVR *Avr = &*I;
@@ -237,6 +238,7 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
       VPOScenarioEvaluationHIR *HIRScenariosEngine =
           cast<VPOScenarioEvaluationHIR>(&ScenariosEngine);
       HIRScenariosEngine->setCG(&AvrCGNode);
+      HIRScenariosEngine->setSRA(SRA);
 
       // Decide if/how to vectorize in terms of profitability.
       VPOVecContextBase VC = ScenariosEngine.getBestCandidate(AvrWrn);

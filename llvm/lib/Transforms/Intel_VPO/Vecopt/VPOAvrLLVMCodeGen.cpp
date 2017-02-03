@@ -521,7 +521,7 @@ Value *AVRCodeGen::getScalarValue(Value *V) {
 Value *AVRCodeGen::reverseVector(Value *Vec) {
   assert(Vec->getType()->isVectorTy() && "Invalid type");
   SmallVector<Constant *, 8> ShuffleMask;
-  for (int i = 0; i < VL; ++i)
+  for (unsigned i = 0; i < VL; ++i)
     ShuffleMask.push_back(Builder.getInt32(VL - i - 1));
 
   return Builder.CreateShuffleVector(Vec, UndefValue::get(Vec->getType()),
@@ -722,7 +722,7 @@ void AVRCodeGen::serializeInstruction(Instruction *Inst) {
   // Create a new entry in the WidenMap and initialize it to Undef or Null.
   Value *VecResults = UndefVec;
 
-  for (int ElemNum = 0; ElemNum < VL; ++ElemNum) {
+  for (unsigned ElemNum = 0; ElemNum < VL; ++ElemNum) {
     Instruction *Cloned = Inst->clone();
 
     if (!IsVoidRetTy)
@@ -770,7 +770,7 @@ Value *AVRCodeGen::getStrideVector(Value *Val, Value *Stride) {
   SmallVector<Constant *, 8> Indices;
 
   // Create a vector of consecutive numbers from zero to VL.
-  for (int i = 0; i < VL; ++i) {
+  for (unsigned i = 0; i < VL; ++i) {
     Indices.push_back(ConstantInt::get(ITy, i));
   }
 
@@ -813,9 +813,9 @@ void AVRCodeGen::vectorizePHIInstruction(Instruction *Inst) {
 
 void AVRCodeGen::vectorizeCallInstruction(CallInst *Call) {
 
-  Function *CalledFunc = Call->getCalledFunction();
   SmallVector<Value*, 2> VecArgs;
   SmallVector<Type*, 2> VecArgTys;
+  Function *CalledFunc = Call->getCalledFunction();
 
   for (Value *Arg : Call->arg_operands()) {
     // TODO: some args may be scalar
@@ -824,7 +824,9 @@ void AVRCodeGen::vectorizeCallInstruction(CallInst *Call) {
     VecArgTys.push_back(VecArg->getType());
   }
 
-  Function *VectorF = getOrInsertVectorFunction(CalledFunc, VL, VecArgTys, TLI);
+  Function *VectorF = getOrInsertVectorFunction(CalledFunc, VL, VecArgTys, TLI,
+                                                Intrinsic::not_intrinsic,
+                                                false/*non-masked*/);
   assert(VectorF && "Can't create vector function.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
 
@@ -940,13 +942,14 @@ void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
 
   case Instruction::Call: {
     // Currently, the LLVM code gen side does not let AVRIf nodes flow through
-    // during loop legalization (isLoopHandled()), so we don't need to worry
+    // during loop legalization (loopIsHandled()), so we don't need to worry
     // about masked vector function calls yet.
     CallInst *Call = cast<CallInst>(Inst);
     StringRef CalledFunc = Call->getCalledFunction()->getName();
     if (TLI->isFunctionVectorizable(CalledFunc)) {
       vectorizeCallInstruction(Call);
     } else {
+errs() << "Function is serialized\n";
       serializeInstruction(Inst);
     }
     break;

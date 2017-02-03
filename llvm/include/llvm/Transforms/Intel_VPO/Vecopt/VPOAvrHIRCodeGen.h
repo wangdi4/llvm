@@ -132,6 +132,20 @@ public:
   // Widen Ref if needed and return the widened ref.
   RegDDRef *widenRef(const RegDDRef *Ref);
 
+  class HIRLoopVisitor : public HIRVisitor<HIRLoopVisitor> {
+    private:
+      AVRCodeGenHIR *CG;
+      SmallVector<HLInst*, 1> CallInsts;
+    public:
+      HIRLoopVisitor(HLLoop *L, AVRCodeGenHIR *CG) : CG(CG) {
+        visitLoop(L);
+      }
+      void visitLoop(HLLoop *L);
+      void visitIf(HLIf *If);
+      void visitInst(HLInst *Inst);
+      void replaceCalls();
+  };
+
   // Return true if Ref is a reduction
   bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
 
@@ -165,7 +179,7 @@ private:
 
   // Vector factor or vector length to use. Each scalar instruction is widened
   // to operate on this number of operands.
-  int VL;
+  unsigned VL;
 
   // Map of DDRef symbase and widened HLInst
   std::map<int, HLInst *> WidenMap;
@@ -189,7 +203,7 @@ private:
   void setMainLoop(HLLoop *L) { MainLoop = L; }
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
-  void setVL(int V) { VL = V; }
+  void setVL(unsigned V) { VL = V; }
   void setWVecNode(WRNVecLoopNode *Node) { WVecNode = Node; }
 
   // Check for currently handled loops. Initial implementations
@@ -198,7 +212,7 @@ private:
   // a constant, zero otherwise.
   bool loopIsHandledImpl(int64_t &TripCount);
 
-  HLInst *widenNode(AVRAssignHIR *AvrNode);
+  HLInst *widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask);
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node);
 
@@ -230,6 +244,13 @@ private:
   // Add entry to WidenMap and handle generating code for liveout/reduction at
   // the end of loop.
   void addToMapAndHandleLiveOut(const RegDDRef *ScalRef, HLInst *WideInst);
+
+  // Find users of OrigRef and replaces them with NewRef.
+  void replaceOrigRef(RegDDRef *OrigRef, RegDDRef *NewRef);
+
+  // Replace math library calls in the remainder loop with the vectorized one
+  // used in the main vector loop.
+  void replaceLibCallsInRemainderLoop(HLInst *HInst);
 };
 
 } // End VPO Vectorizer Namespace

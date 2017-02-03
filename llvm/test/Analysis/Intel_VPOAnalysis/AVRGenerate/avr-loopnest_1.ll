@@ -4,7 +4,7 @@
 ; Check the correctness of generated Abstract Layer for masked function
 ;
 
-;CHECK: Printing analysis 'AVR Generate' for function '_ZGVxM4v_vec_search':
+;CHECK: Printing analysis 'AVR Generate' for function '_ZGVbM4v_vec_search':
 
 ;CHECK-NEXT: WRN
 
@@ -134,7 +134,7 @@ return:                                           ; preds = %for.end, %if.then
   ret i32 %7
 }
 
-attributes #0 = { nounwind uwtable "_ZGVxM4v_" "_ZGVxN4v_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "_ZGVbM4v_" "_ZGVbN4v_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !cilk.functions = !{!0}
 !llvm.ident = !{!6}

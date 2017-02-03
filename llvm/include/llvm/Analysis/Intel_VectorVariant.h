@@ -317,15 +317,20 @@ public:
   /// \brief Encode the ISA class for the mangled variant name.
   static char encodeISAClass(ISAClass IsaClass) {
 
+    // Front-end seems to have changed the default implementation to conform to
+    // the GCC compatible vector ABI. TODO: To maintain ICC compatibility, we
+    // need to be able to switch between the GCC/ICC vector ABIs. Once this
+    // switch is supported by the Driver, the proper encodings for each mode
+    // can be selected here.
     switch (IsaClass) {
     case XMM:
-      return 'x';
+      return 'b';
     case YMM1:
-      return 'y';
+      return 'c';
     case YMM2:
-      return 'Y';
+      return 'd';
     case ZMM:
-      return 'z';
+      return 'e';
     default:
       break;
     }
@@ -337,14 +342,19 @@ public:
   /// \brief Decode the ISA class from the mangled variant name.
   static ISAClass decodeISAClass(char IsaClass) {
 
+    // Front-end seems to have changed the default implementation to conform to
+    // the GCC compatible vector ABI. TODO: To maintain ICC compatibility, we
+    // need to be able to switch between the GCC/ICC vector ABIs. Once this
+    // switch is supported by the Driver, the proper decoding for each mode
+    // can be selected here.
     switch (IsaClass) {
-    case 'x':
+    case 'b':
       return XMM;
-    case 'y':
+    case 'c':
       return YMM1;
-    case 'Y':
+    case 'd':
       return YMM2;
-    case 'z':
+    case 'e':
       return ZMM;
     default:
       llvm_unreachable("unsupported ISA class");

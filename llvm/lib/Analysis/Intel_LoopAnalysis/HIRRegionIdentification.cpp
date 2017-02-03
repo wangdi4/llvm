@@ -26,6 +26,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
@@ -312,8 +313,9 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
 
   if (!isa<IntrinsicInst>(CI)) {
     auto Func = CI.getCalledFunction();
+    Intrinsic::ID ID = getVectorIntrinsicIDForCall(&CI, RI.TLI);
 
-    if (!Func || !RI.TLI->isFunctionVectorizable(Func->getName())) {
+    if (!Func || (!RI.TLI->isFunctionVectorizable(Func->getName()) && !ID)) {
       DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
                       "user calls.\n");
       return false;

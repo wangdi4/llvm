@@ -595,34 +595,54 @@ void llvm::getFunctionsToVectorize(llvm::Module &M,
 
 Function* llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
                                           SmallVectorImpl<Type*> &ArgTys,
-                                          TargetLibraryInfo *TLI) {
+                                          TargetLibraryInfo *TLI,
+                                          Intrinsic::ID ID,
+                                          bool Masked) {
 
   // OrigF is the original scalar function being called. Widen the scalar
-  // call to a vector call if it is known to be vectorizable as SVML.
+  // call to a vector call if it is known to be vectorizable as SVML or
+  // an intrinsic.
   StringRef FnName = OrigF->getName();
-  if (!TLI->isFunctionVectorizable(FnName, VL)) {
+  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID) {
     return nullptr;
   }
 
-  StringRef VFnName = TLI->getVectorizedFunction(FnName, VL);
-
   Module *M = OrigF->getParent();
+  Function *VectorF = nullptr;
   Type *RetTy = OrigF->getReturnType();
   Type *VecRetTy = RetTy;
-
   if (!RetTy->isVoidTy()) {
     VecRetTy = VectorType::get(RetTy, VL);
   }
 
-  Function *VectorF = M->getFunction(VFnName);
-  if (!VectorF) {
-    // isFunctionVectorizable() returned true, so it is guaranteed that
-    // the svml function exists and the call is legal. Generate a declaration
-    // for it if one does not already exist.
-    FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-    VectorF =
-      Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
-    VectorF->copyAttributesFrom(OrigF);
+  if (ID) {
+    // Generate a vector intrinsic. Remember, all intrinsics defined in
+    // Intrinsics.td that can be vectorized are those for which the return
+    // type matches the call arguments. Thus, TysForDecl should only contain
+    // 1 type in order to be able to generate the right declaration. Inserting
+    // multiple instances of this type will cause assertions when attempting
+    // to generate the declaration. This code will need to be changed to
+    // support different types of function signatures.
+    assert(!RetTy->isVoidTy() && "Expected non-void function");
+    for (unsigned i = 0; i < ArgTys.size(); i++) {
+      assert(VecRetTy == ArgTys[i] && "Expected return type to match arg type");
+    }
+    SmallVector<Type*, 1> TysForDecl;
+    TysForDecl.push_back(VecRetTy);
+    VectorF = Intrinsic::getDeclaration(M, ID, TysForDecl);
+  } else {
+    // Generate a vector library call.
+    StringRef VFnName = TLI->getVectorizedFunction(FnName, VL, Masked);
+    VectorF = M->getFunction(VFnName);
+    if (!VectorF) {
+      // isFunctionVectorizable() returned true, so it is guaranteed that
+      // the svml function exists and the call is legal. Generate a declaration
+      // for it if one does not already exist.
+      FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+      VectorF =
+        Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      VectorF->copyAttributesFrom(OrigF);
+    }
   }
 
   assert(VectorF && "Can't create vector function.");

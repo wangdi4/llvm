@@ -51,13 +51,9 @@ public:
 /// \brief Emit the set of SVML variant function names.
 void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
 
-  // These math functions may appear in intrinsic form in LLVM IR and can
-  // be translated to SVML.
-  std::set<std::string> Intrinsics = { "pow", "exp", "log" };
-
   // largest logical vector length that is supported for svml translation.
   // Can increase if necessary.
-  unsigned MaxVL = 32;
+  unsigned MaxVL = 64;
 
 #if INTEL_CUSTOMIZATION
   unsigned MinSinglePrecVL = 2;
@@ -78,43 +74,67 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   unsigned MaxDoublePrecVL = 8;
 #endif // INTEL_CUSTOMIZATION
 
-  Record *SvmlVariantClass = Records.getClass("SvmlVariant");
-  assert(SvmlVariantClass &&
-         "SvmlVariant class not found in target description file!");
+  Record *SvmlVariantsClass = Records.getClass("SvmlVariants");
+  assert(SvmlVariantsClass &&
+         "SvmlVariants class not found in target description file!");
+
+  std::vector<Record*> SvmlVariants =
+      Records.getAllDerivedDefinitions("SvmlVariants");
 
   OS << "#ifdef GET_SVML_VARIANTS\n";
 
-  for (const auto &S : Records.getDefs()) {
-    if (S.second->isSubClassOf(SvmlVariantClass)) {
-      std::string SvmlVariantNameStr = S.first;
-
-      // Emit double precision variants.
-      for (unsigned VL = MinDoublePrecVL; VL <= MaxDoublePrecVL; VL *= 2) {
-        OS << "{\"" << SvmlVariantNameStr << "\", ";
-        OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", "
-           << VL << "},\n";
-      }
-
-      // Emit single precision variants.
-      for (unsigned VL = MinSinglePrecVL; VL <= MaxSinglePrecVL; VL *= 2) {
-        OS << "{\"" << SvmlVariantNameStr << "f" << "\", ";
-        OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL << "\", "
-           << VL << "},\n";
-      }
-
-      // Some functions can be in scalar intrinsic form, so a mapping between
-      // the intrinsic and svml variants is needed.
-      std::set<std::string>::iterator It = Intrinsics.find(SvmlVariantNameStr);
-      if (It != Intrinsics.end()) {
-        for (unsigned VL = MinDoublePrecVL; VL <= MaxDoublePrecVL; VL *= 2) {
-          OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f64" << "\", ";
-          OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", " << VL
-             << "},\n";
-        }
+  for (auto SvmlVariant : SvmlVariants) {
+    std::vector<Record*> VList = SvmlVariant->getValueAsListOfDefs("VList");
+    std::string SvmlVariantNameStr = SvmlVariant->getName();
+    for (unsigned i = 0; i < VList.size(); i++) {
+      bool isMasked = VList[i]->getValueAsBit("isMasked");
+      bool hasSingle = VList[i]->getValueAsBit("hasSingle");
+      bool hasDouble = VList[i]->getValueAsBit("hasDouble");
+      bool hasIntrinsic = VList[i]->getValueAsBit("hasIntrinsic");
+      if (hasSingle) {
         for (unsigned VL = MinSinglePrecVL; VL <= MaxSinglePrecVL; VL *= 2) {
-          OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f32" << "\", ";
+          OS << "{\"" << SvmlVariantNameStr << "f" << "\", ";
           OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL << "\", "
-             << VL << "},\n";
+             << VL << ", false},\n";
+          if (isMasked) {
+            OS << "{\"" << SvmlVariantNameStr << "f" << "\", ";
+            OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL
+               << "_mask" << "\", " << VL << ", true},\n";
+          }
+          if (hasIntrinsic) {
+            OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f32" << "\", ";
+            OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL
+               << "\", " << VL << ", false},\n";
+            if (isMasked) {
+              OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f32"
+                 << "\", ";
+              OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL
+                 << "_mask" << "\", " << VL << ", true},\n";
+            }
+          }
+        }
+      }
+      if (hasDouble) {
+        for (unsigned VL = MinDoublePrecVL; VL <= MaxDoublePrecVL; VL *= 2) {
+          OS << "{\"" << SvmlVariantNameStr << "\", ";
+          OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", "
+             << VL << ", false},\n";
+          if (isMasked) {
+            OS << "{\"" << SvmlVariantNameStr << "\", ";
+            OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "_mask"
+               << "\", " << VL << ", true},\n";
+          }
+          if (hasIntrinsic) {
+            OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f64" << "\", ";
+            OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", "
+               << VL << ", false},\n";
+            if (isMasked) {
+              OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f64"
+                 << "\", ";
+              OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "_mask"
+                 << "\", " << VL << ", true},\n";
+            }
+          }
         }
       }
     }

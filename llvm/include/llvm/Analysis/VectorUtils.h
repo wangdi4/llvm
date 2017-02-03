@@ -148,11 +148,15 @@ Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 /// (in string form) for each function.
 void getFunctionsToVectorize(Module &M, FunctionVariants& funcVars);
 
-/// \brief Widens the Function \p F using a vector length of \p VL and
+/// \brief Widens the function \p F using a vector length of \p VL and
 /// inserts the appropriate function declaration if not already created.
+/// This function will insert functions for both library calls and
+/// intrinsics.
 Function* getOrInsertVectorFunction(Function *F, unsigned VL,
                                     SmallVectorImpl<Type*> &ArgTys,
-                                    TargetLibraryInfo *TLI);
+                                    TargetLibraryInfo *TLI,
+                                    Intrinsic::ID ID,
+                                    bool Masked);
 #endif // INTEL_CUSTOMIZATION
     
 /// Specifically, let Kinds = [MD_tbaa, MD_alias_scope, MD_noalias, MD_fpmath,

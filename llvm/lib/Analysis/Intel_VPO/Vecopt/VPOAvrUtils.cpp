@@ -121,6 +121,11 @@ void AVRUtils::addAVRPredicateIncoming(AVRPredicate *APredicate,
                                        AVRPredicate *IncomingPredicate,
                                        AVR *IncomingCondition) {
   APredicate->addIncoming(IncomingPredicate, IncomingCondition);
+  if (IncomingCondition) {
+    // "void" predicates will not have incoming conditions, so don't
+    // try to set the parent.
+    setParent(IncomingCondition, APredicate);
+  }
 }
 
 void AVRUtils::setAVRAssignLHS(AVRAssign *AvrAssign, AVR *Node) {

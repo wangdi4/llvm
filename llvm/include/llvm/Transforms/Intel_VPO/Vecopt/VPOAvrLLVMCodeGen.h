@@ -195,7 +195,7 @@ private:
 
   // Vector factor or vector length to use. Each scalar instruction is widened
   // to operate on this number of operands.
-  int VL;
+  unsigned VL;
 
   // IR Builder to use to generate instructions
   IRBuilder<> Builder;
@@ -227,7 +227,7 @@ private:
   void setALoop(AVRLoop *L) { ALoop = L; }
   void setOrigLoop(Loop *L) { OrigLoop = L; }
   void setTripCount(unsigned int TC) { TripCount = TC; }
-  void setVL(int V) { VL = V; }
+  void setVL(unsigned V) { VL = V; }
   void setLoopBackEdge(AVRBranchIR *FB) { LoopBackEdge = FB; }
   void setInductionPhi(AVRPhiIR *P) { InductionPhi = P; }
   void setInductionCmp(AVRCompare *C) { InductionCmp = C; }
