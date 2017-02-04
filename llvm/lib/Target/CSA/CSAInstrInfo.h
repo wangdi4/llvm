@@ -146,6 +146,7 @@ public:
   bool isCopy(MachineInstr *) const;
   bool isMOV(MachineInstr *) const;
   bool isPick(MachineInstr *) const;
+  bool isPickany(MachineInstr *) const;
   bool isInit(MachineInstr *) const;
   bool isLoad(MachineInstr *) const;
   bool isStore(MachineInstr *) const;
@@ -172,6 +173,7 @@ public:
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
   unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
   unsigned getInitOpcode(const TargetRegisterClass *RC) const;
+  unsigned getPickanyOpcode(const TargetRegisterClass *RC) const;
 
 
 

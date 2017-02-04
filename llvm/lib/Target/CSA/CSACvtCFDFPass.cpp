@@ -155,6 +155,8 @@ namespace llvm {
     void generateCompletePickTreeForPhi(MachineBasicBlock *);
     void generateDynamicPickTreeForPhi(MachineBasicBlock *);
     void generateDynamicPreds();
+    void replacePhiForUnstructed();
+    void replacePhiForUnstructedLoop(MachineLoop* L);
     unsigned getEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType);
     void setEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType, unsigned ch);
     unsigned getBBPred(MachineBasicBlock* inBB);
@@ -301,8 +303,16 @@ void CSACvtCFDFPass::releaseMemory() {
 
 
 void CSACvtCFDFPass::replacePhiWithPICK() {
+#if 0
+  replacePhiForUnstructed();
+  {
+    errs() << "after replace phi for unstructed" << ":\n";
+    thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());
+  }
+#else
   replaceLoopHdrPhi();
   replaceIfFooterPhiSeq();
+#endif
 }
 
 //return the first non latch parent found or NULL
@@ -408,7 +418,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   generateDynamicPreds();
   //rename, adding lhdr phi to seal all up range of each defintions up till loop hdr
   insertSWITCHForRepeat();
-
 #if 0
   {
     errs() << "after rename for repeat" << ":\n";
@@ -1023,7 +1032,7 @@ unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
 
 
 void CSACvtCFDFPass::insertSWITCHForRepeat(MachineLoop* L) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  //const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
     insertSWITCHForRepeat(*LI);
@@ -1454,7 +1463,7 @@ void CSACvtCFDFPass::assignLicForDF() {
       MachineInstr *mInst = &*MI;
       if (TII.isPick(mInst) || TII.isSwitch(mInst) ||  mInst->getOpcode() == CSA::MERGE64f ||
           TII.isFMA(mInst) || TII.isDiv(mInst) || TII.isMul(mInst) ||
-          TII.isAdd(mInst) || TII.isSub(mInst) ||
+          TII.isAdd(mInst) || TII.isSub(mInst) || TII.isPickany(mInst) ||
           mInst->getOpcode() == CSA::PREDMERGE || 
           mInst->getOpcode() == CSA::PREDPROP || 
           mInst->getOpcode() == CSA::NOT1     ||
@@ -2211,6 +2220,201 @@ bool CSACvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
     }
   }
   return false;
+}
+
+
+
+
+void CSACvtCFDFPass::replacePhiForUnstructed() {
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
+    replacePhiForUnstructedLoop(*LI);
+  }
+
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    MachineBasicBlock* mbb = &*BB;
+    if (MLI->getLoopFor(mbb) == nullptr) {
+      MachineBasicBlock::iterator iterI = mbb->begin();
+      while (iterI != mbb->end()) {
+        MachineInstr *iPhi = &*iterI;
+        ++iterI;
+        if (!iPhi->isPHI()) continue;
+        unsigned dst = iPhi->getOperand(0).getReg();
+        const TargetRegisterClass *TRC = MRI->getRegClass(dst);
+        unsigned pickanyReg = 0;
+        MachineInstr *pickanyInst = nullptr;
+        for (MIOperands MO(*iPhi); MO.isValid(); ++MO) {
+          if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+          unsigned Reg = MO->getReg();
+          // process uses
+          if (MO->isUse()) {
+            ++MO;
+            //pickany to replace phi 
+            if (pickanyReg == 0) {
+              pickanyReg = Reg;
+            } else {
+              unsigned valueReg = MRI->createVirtualRegister(TRC);
+              const unsigned pickanyOpcode = TII.getPickanyOpcode(TRC);
+              pickanyInst = BuildMI(*mbb, iPhi, DebugLoc(), TII.get(pickanyOpcode),
+                valueReg).
+                addReg(CSA::IGN, RegState::Define).
+                addReg(pickanyReg).
+                addReg(Reg);
+              pickanyInst->setFlag(MachineInstr::NonSequential);
+              pickanyReg = valueReg;
+            }
+          }
+        }
+        //update last pickany's register to phi's dest, and the index reg used in "ordered" switch
+        pickanyInst->substituteRegister(pickanyReg, dst, 0, TRI);
+        iPhi->removeFromParent();
+      }
+    }
+  }
+}
+
+
+void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
+  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
+    replacePhiForUnstructedLoop(*LI);
+  }
+  MachineLoop *mloop = L;
+  unsigned predReg;
+  MachineBasicBlock* lhdr = mloop->getHeader();
+  //pickany for ordering based on exiting condition
+  if (lhdr->getFirstNonPHI() != lhdr->begin()) {
+    //hdr phi's init input controller
+    CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
+    // Look up target register class corresponding to this register.
+    const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(&CSA::I1RegClass);
+    assert(new_LIC_RC && "Can't determine register class for register");
+    predReg = LMFI->allocateLIC(new_LIC_RC);
+    const unsigned InitOpcode = TII.getInitOpcode(&CSA::I1RegClass);
+    MachineInstr *initInst = BuildMI(*lhdr, lhdr->begin(), DebugLoc(), TII.get(InitOpcode), predReg).addImm(1);
+    initInst->setFlag(MachineInstr::NonSequential);
+
+    SmallVector<MachineBasicBlock*, 4> latchBBs;
+    mloop->getLoopLatches(latchBBs);
+    MachineBasicBlock *latchBB = latchBBs[0];
+
+    SmallVector<MachineBasicBlock*, 4> exitingBlks;
+    mloop->getExitingBlocks(exitingBlks);
+
+    unsigned anyec = 0;
+    MachineInstr* pickanyExits = nullptr;
+    for (unsigned i = 0; i < exitingBlks.size(); ++i) {
+      MachineBasicBlock* exitingBlk = exitingBlks[i];
+      assert(exitingBlk->succ_size() == 2);
+      MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
+      MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
+      MachineBasicBlock* exitBlk = mloop->contains(succ1) ? succ2 : succ1;
+      MachineInstr* bi = &*exitingBlk->getFirstTerminator();
+      unsigned ec = bi->getOperand(0).getReg();
+      if (CDG->getEdgeType(exitingBlk, exitBlk, true) == ControlDependenceNode::FALSE) {
+        unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+        BuildMI(*exitingBlk, exitingBlk->getFirstTerminator(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(ec);
+        ec = notReg;
+      }
+
+      unsigned exitTrue = MRI->createVirtualRegister(&CSA::I1RegClass);
+      //generate switch op to guard input to the loop
+      const unsigned switchOpcode = TII.getPickSwitchOpcode(&CSA::I1RegClass, false /*not pick op*/);
+      MachineInstr *switchInst = BuildMI(*exitingBlk, exitingBlk->getFirstTerminator(), DebugLoc(), TII.get(switchOpcode),
+        CSA::IGN).
+        addReg(exitTrue, RegState::Define).
+        addReg(ec).
+        addImm(1);
+      switchInst->setFlag(MachineInstr::NonSequential);
+
+      if (anyec == 0) {
+        anyec = exitTrue;
+      }
+      else {
+        unsigned valueReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+        const unsigned pickanyOpcode = TII.getPickanyOpcode(&CSA::I1RegClass);
+        pickanyExits = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(pickanyOpcode),
+          valueReg).
+          addReg(CSA::IGN, RegState::Define).
+          addReg(anyec).
+          addReg(exitTrue);
+        pickanyExits->setFlag(MachineInstr::NonSequential);
+        anyec = valueReg;
+      }
+    }
+
+    if (!pickanyExits) {
+      const unsigned moveOpcode = TII.getMoveOpcode(&CSA::I1RegClass);
+      MachineInstr *cpyInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), 
+                                                                                                      predReg).
+                                                                                                      addReg(anyec);
+      cpyInst->setFlag(MachineInstr::NonSequential);
+    } else {
+      pickanyExits->substituteRegister(anyec, predReg, 0, TRI);
+    }
+  }
+
+  //replace all phi's inside the loop with pickany
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
+    //only conside blocks in the current loop level, blocks in the nested level are done before.
+    if (MLI->getLoopFor(mbb) != mloop) continue;
+ 
+    MachineBasicBlock::iterator iterI = mbb->begin();
+    while (iterI != mbb->end()) {
+      MachineInstr *iPhi = &*iterI;
+      ++iterI;
+      if (!iPhi->isPHI()) continue;
+      unsigned dst = iPhi->getOperand(0).getReg();
+      const TargetRegisterClass *TRC = MRI->getRegClass(dst);
+      //const unsigned pickOpcode = TII.getPickanyOpcode(TRC);
+      unsigned pickanyReg = 0;
+      MachineInstr *pickanyInst = nullptr;
+      for (MIOperands MO(*iPhi); MO.isValid(); ++MO) {
+        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        unsigned Reg = MO->getReg();
+        // process uses
+        if (MO->isUse()) {
+          ++MO;
+          MachineBasicBlock *inbb = MO->getMBB();
+          if (mloop->getHeader() == mbb && !mloop->contains(inbb)) {
+            unsigned switchTrueReg = MRI->createVirtualRegister(TRC);
+            //generate switch op to guard input to the loop
+            const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
+            MachineInstr *switchInst = BuildMI(*mbb, iPhi, DebugLoc(), TII.get(switchOpcode),
+              CSA::IGN).
+              addReg(switchTrueReg, RegState::Define).
+              addReg(predReg).
+              addReg(Reg);
+            switchInst->setFlag(MachineInstr::NonSequential);
+            //replace the phi original operand with the switch guarded one
+            Reg = switchTrueReg;
+          }
+          //pickany to replace phi 
+          if (pickanyReg == 0) {
+            pickanyReg = Reg;
+          } else {
+            unsigned valueReg = MRI->createVirtualRegister(TRC);
+            const unsigned pickanyOpcode = TII.getPickanyOpcode(TRC);
+            pickanyInst = BuildMI(*mbb, iPhi, DebugLoc(), TII.get(pickanyOpcode),
+              valueReg).
+              addReg(CSA::IGN, RegState::Define).
+              addReg(pickanyReg).
+              addReg(Reg);
+            pickanyInst->setFlag(MachineInstr::NonSequential);
+            pickanyReg = valueReg;
+          }
+        }
+      }
+      //update last pickany's register to phi's dest, and the index reg used in "ordered" switch
+      pickanyInst->substituteRegister(pickanyReg, dst, 0, TRI);
+      iPhi->removeFromParent();
+    }
+  }
 }
 
 

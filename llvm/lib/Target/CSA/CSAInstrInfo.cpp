@@ -380,6 +380,26 @@ CSAInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
 
 }
 
+
+
+unsigned
+CSAInstrInfo::getPickanyOpcode(const TargetRegisterClass *RC) const {
+
+  switch (RC->getID()) {
+  default: llvm_unreachable("Unknown Target register class!");
+  case CSA::I1RegClassID: return CSA::PICKANY1;
+  case CSA::I8RegClassID: return CSA::PICKANY8;
+  case CSA::I16RegClassID: return CSA::PICKANY16;
+  case CSA::I32RegClassID: return CSA::PICKANY32;
+  case CSA::I64RegClassID: return CSA::PICKANY64;
+  case CSA::RI1RegClassID: return CSA::PICKANY1;
+  case CSA::RI8RegClassID: return CSA::PICKANY8;
+  case CSA::RI16RegClassID: return CSA::PICKANY16;
+  case CSA::RI32RegClassID: return CSA::PICKANY32;
+  case CSA::RI64RegClassID: return CSA::PICKANY64;
+  }
+}
+
 // Convert opcode of LD/ST/ATM* into a corresponding opcode for OLD/OST/OATM*.
 // Returns current_opcode if it is not a LD, ST, or ATM*.
 unsigned
@@ -470,6 +490,14 @@ bool CSAInstrInfo::isPick(MachineInstr *MI) const {
 		MI->getOpcode() == CSA::PICK16 ||
 		MI->getOpcode() == CSA::PICK32 ||
 		MI->getOpcode() == CSA::PICK64;
+}
+
+bool CSAInstrInfo::isPickany(MachineInstr *MI) const {
+  return MI->getOpcode() == CSA::PICKANY1 ||
+    MI->getOpcode() == CSA::PICKANY8 ||
+    MI->getOpcode() == CSA::PICKANY16 ||
+    MI->getOpcode() == CSA::PICKANY32 ||
+    MI->getOpcode() == CSA::PICKANY64;
 }
 
 bool CSAInstrInfo::isCopy(MachineInstr *MI) const {
