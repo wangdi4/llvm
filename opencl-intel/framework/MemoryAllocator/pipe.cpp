@@ -49,9 +49,7 @@ cl_err_code Pipe::Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets, void* p
     err = GetBackingStore(CL_DEV_BS_GET_ALWAYS, &pBS);
     assert(CL_SUCCEEDED(err) && "GetBackingStore failed");
 
-    pipe_control_intel_t* pipeCtrl = (pipe_control_intel_t*)pBS->GetRawData();
-    memset(pipeCtrl, 0, INTEL_PIPE_HEADER_RESERVED_SPACE);
-    pipeCtrl->pipe_max_packets_plus_one = uiMaxPacketsPlusOne;
+    pipe_init(pBS->GetRawData(), uiPacketSize, uiMaxPackets);
 
     return CL_SUCCESS;
 }
