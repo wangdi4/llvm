@@ -817,7 +817,7 @@ void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
   MachineBasicBlock* UseBB = UseMI->getParent();
 
   bool isUseEnclosingDef = MLI->getLoopFor(UseBB) == NULL ||
-                           MLI->getLoopFor(UseBB) == MLI->getLoopFor(mbb)->getParentLoop();
+    MLI->getLoopFor(UseBB)->contains(MLI->getLoopFor(mbb)->getParentLoop());
   //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
   if (isUseEnclosingDef) {
     MachineBasicBlock* exitingBlk = getDominatingExitingBB(exitingBlks, UseMI, Reg);
