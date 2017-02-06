@@ -131,7 +131,7 @@ Function *createPipesCtor(Module &M,
                           const SmallVectorImpl<Module *> &BuiltinModules) {
   Function *PipeInit = nullptr;
   for (auto &BIModule : BuiltinModules) {
-    if ((PipeInit = BIModule->getFunction("__pipe_init")))
+    if ((PipeInit = BIModule->getFunction("__pipe_init_intel")))
       break;
   }
   if (!PipeInit) {
