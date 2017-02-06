@@ -135,7 +135,7 @@ Function *createPipesCtor(Module &M,
       break;
   }
   if (!PipeInit) {
-    assert(PipeInit && "__pipe_init() not found in RTL.");
+    assert(PipeInit && "__pipe_init_intel() not found in RTL.");
     return nullptr;
   } else {
     PipeInit = cast<Function>(
