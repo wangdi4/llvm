@@ -147,8 +147,8 @@ class AVRCodeGen {
 public:
   AVRCodeGen(AVR *Avr, DominatorTree *DT, ScalarEvolution *SE, LoopInfo *LI,
              TargetLibraryInfo *TLI, Function *F)
-      : Avr(Avr), F(F), SE(SE), DT(DT), LI(LI), TLI(TLI), OrigLoop(nullptr),
-        Legal (nullptr), TripCount(0), VL(0),
+      : Avr(Avr), F(F), SE(SE), DT(DT), LI(LI), TLI(TLI), ALoop(nullptr),
+        OrigLoop(nullptr), Legal (nullptr), TripCount(0), VL(0),
         Builder(F->getContext()), LoopBackEdge(nullptr),
         InductionPhi(nullptr), InductionCmp(nullptr), StartValue(nullptr),
         StrideValue(nullptr), NewInductionVal(nullptr), RM(Avr) {}
@@ -162,10 +162,13 @@ public:
   // vectorization factor.
   bool vectorize(unsigned int VF);
 
-  // Check if loop is currently suported by AVRCodeGen. If \p VF is 0 ignore 
+  // Check if loop is currently supported by AVRCodeGen. If \p VF is 0 ignore 
   // it (which means that checks such as whether the trip count is evenly
   // divisible by VF will not be done).
   bool loopIsHandled(unsigned int VF);
+
+  // Set AVR Loop node.
+  void setALoop(AVRLoop *L) { ALoop = L; }
 
   // Return the trip count for the scalar loop. Returns 0 for unknown trip
   // count loops
@@ -224,7 +227,6 @@ private:
   // Reductions handling
   ReductionMngr RM;
 
-  void setALoop(AVRLoop *L) { ALoop = L; }
   void setOrigLoop(Loop *L) { OrigLoop = L; }
   void setTripCount(unsigned int TC) { TripCount = TC; }
   void setVL(unsigned V) { VL = V; }

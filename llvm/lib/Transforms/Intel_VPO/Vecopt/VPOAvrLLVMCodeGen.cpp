@@ -174,12 +174,12 @@ ReductionMngr::getRecurrenceIdentityVector(ReductionItem *RedItem,
     RDKind = RecurrenceDescriptor::RK_IntegerOr;
     break;
   case ReductionItem::WRNReductionSum:
-    RDKind = Ty->isFloatTy() ? RecurrenceDescriptor::RK_FloatAdd :
-      RecurrenceDescriptor::RK_IntegerAdd;
+    RDKind = Ty->isFloatTy() ? RecurrenceDescriptor::RK_FloatAdd
+                             : RecurrenceDescriptor::RK_IntegerAdd;
     break;
   case ReductionItem::WRNReductionMult:
-    RDKind = Ty->isFloatTy() ? RecurrenceDescriptor::RK_FloatMult :
-      RecurrenceDescriptor::RK_IntegerMult;
+    RDKind = Ty->isFloatTy() ? RecurrenceDescriptor::RK_FloatMult
+                             : RecurrenceDescriptor::RK_IntegerMult;
     break;
   default:
     llvm_unreachable("Unknown recurrence kind");
@@ -188,8 +188,7 @@ ReductionMngr::getRecurrenceIdentityVector(ReductionItem *RedItem,
   return ConstantVector::getSplat(VL, Iden);
 }
 
-Instruction *
-ReductionMngr::vectorizePhiNode(PHINode *RdxPhi, unsigned VL) {
+Instruction *ReductionMngr::vectorizePhiNode(PHINode *RdxPhi, unsigned VL) {
 
   // Reduction Phi has 2 incoming edges - one from initial value
   // and the second from loop body. Now we are setting only the
@@ -212,8 +211,8 @@ ReductionMngr::vectorizePhiNode(PHINode *RdxPhi, unsigned VL) {
 
   // Create vectorized Phi node and set the first edge
   IRBuilder<> Builder(PhiInsertPt);
-  PHINode *VecRdxPhi =
-    Builder.CreatePHI(VectorType::get(RdxPhi->getType(), VL), 2, "vec.rdx.phi");
+  PHINode *VecRdxPhi = Builder.CreatePHI(VectorType::get(RdxPhi->getType(), VL),
+                                         2, "vec.rdx.phi");
   VecRdxPhi->addIncoming(Identity, LoopPreheader);
 
   return VecRdxPhi;
@@ -242,8 +241,8 @@ bool AVRLoopVectorizationLegality::canVectorizeLoop(AVRLoopIR *ALoop,
     case AVR::AVRPhiIRNode: {
       AVRPhiIR *Phi = cast<AVRPhiIR>(&Itr);
       PHINode *PhiInstr = cast<PHINode>(Phi->getLLVMInstruction());
-      Loop *L = LI->getLoopFor(PhiInstr->getParent());
-      assert(TheLoop == L && "Unexpected Phi node");
+      assert(TheLoop == LI->getLoopFor(PhiInstr->getParent()) &&
+             "Unexpected Phi node");
       InductionDescriptor ID;
       if (InductionDescriptor::isInductionPHI(PhiInstr, TheLoop, PSE, ID)) {
         addInductionPhi(PhiInstr, ID, AllowedExit);
@@ -287,8 +286,8 @@ static Type *getWiderType(const DataLayout &DL, Type *Ty0, Type *Ty1) {
   return Ty1;
 }
 
-void AVRLoopVectorizationLegality::addInductionPhi(PHINode *Phi,
-    const InductionDescriptor &ID,
+void AVRLoopVectorizationLegality::addInductionPhi(
+    PHINode *Phi, const InductionDescriptor &ID,
     SmallPtrSetImpl<Value *> &AllowedExit) {
   
   Inductions[Phi] = ID;
@@ -306,8 +305,7 @@ void AVRLoopVectorizationLegality::addInductionPhi(PHINode *Phi,
 
   // Int inductions are special because we only allow one IV.
   if (ID.getKind() == InductionDescriptor::IK_IntInduction &&
-      ID.getConstIntStepValue() &&
-      ID.getConstIntStepValue()->isOne() &&
+      ID.getConstIntStepValue() && ID.getConstIntStepValue()->isOne() &&
       isa<Constant>(ID.getStartValue()) &&
       cast<Constant>(ID.getStartValue())->isNullValue()) {
 
@@ -334,8 +332,8 @@ void AVRLoopVectorizationLegality::addInductionPhi(PHINode *Phi,
 // FORNOW there is only one AVRLoop per region, so we will re-discover
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
 bool AVRCodeGen::loopIsHandled(unsigned int VF) {
+
   AVRWrn *AWrn = nullptr;
-  AVRLoop *ALoop = nullptr;
   AVRBranchIR *LoopBackEdge = nullptr;
 
   // We expect avr to be a AVRWrn node
@@ -343,15 +341,8 @@ bool AVRCodeGen::loopIsHandled(unsigned int VF) {
     return false;
   }
 
-  // An AVRWrn node is expected to have only one AVRLoop child
-  // FIXME?: This expectation was already checked by the VecScenarioEvaluation.
-  for (auto Itr = AWrn->child_begin(), E = AWrn->child_end(); Itr != E; ++Itr) {
-    if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
-      if (ALoop)
-        return false;
-      ALoop = TempALoop;
-    }
-  }
+  if (!ALoop)
+    ALoop = AVRUtils::findAVRLoop(AWrn);
 
   // Check that we have an AVRLoop
   if (!ALoop) {
@@ -361,7 +352,7 @@ bool AVRCodeGen::loopIsHandled(unsigned int VF) {
   AVRLoopIR *ALoopIR = cast<AVRLoopIR>(ALoop);
   OrigLoop = ALoopIR->getLoop();
 
-  Legal = new AVRLoopVectorizationLegality(OrigLoop, SE, TLI,  F, LI);
+  Legal = new AVRLoopVectorizationLegality(OrigLoop, SE, TLI, F, LI);
 
   if (!Legal->canVectorizeLoop(ALoopIR, &RM))
     return false;
@@ -389,8 +380,7 @@ bool AVRCodeGen::loopIsHandled(unsigned int VF) {
         else
           setStartValue(PhiInst->getIncomingValue(0));
       }
-    }
-    break;
+    } break;
     case AVR::AVRBranchIRNode:
       LoopBackEdge = dyn_cast<AVRBranchIR>(&Itr);
       break;
@@ -990,10 +980,10 @@ bool AVRCodeGen::vectorize(unsigned int VL) {
   assert(VL >= 1);
   if (VL == 1)
     return false;
-  // This function already called before
-  //if (!loopIsHandled(VL)) {
-  //  return false;
-  //}
+
+  if (!loopIsHandled(VL)) {
+    return false;
+  }
   createEmptyLoop();
 
   for (auto Itr = ALoop->child_begin(), E = ALoop->child_end(); Itr != E;

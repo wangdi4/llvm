@@ -88,6 +88,9 @@ public:
   // Check if loop is currently suported by AVRCodeGen.
   bool loopIsHandled(unsigned int VF);
 
+  // Set AVR Loop node.
+  void setALoop(AVRLoop *L) { ALoop = L; }
+
   // Return the trip count for the scalar loop. Returns 0 for unknown trip
   // count loops
   uint64_t getTripCount() const { return TripCount; }
@@ -198,7 +201,6 @@ private:
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;
 
-  void setALoop(AVRLoop *L) { ALoop = L; }
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }

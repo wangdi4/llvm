@@ -563,7 +563,6 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
 bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   AVRWrn *AWrn = nullptr;
-  AVRLoop *ALoop = nullptr;
   WRNVecLoopNode *WVecNode;
   HLLoop *Loop = nullptr;
 
@@ -575,20 +574,8 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
 
   WVecNode = AWrn->getWrnNode();
 
-  // An AVRWrn node is expected to have only one AVRLoop child
-  // FIXME?: This expectation was already checked by the VecScenarioEvaluation.
-  for (auto Itr = AWrn->child_begin(), End = AWrn->child_end(); Itr != End;
-       ++Itr) {
-    if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
-      if (ALoop) {
-        DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - expected one "
-                        "AVRLoop child\n");
-        return false;
-      }
-
-      ALoop = TempALoop;
-    }
-  }
+  if (!ALoop)
+    ALoop = AVRUtils::findAVRLoop(AWrn);
 
   // Check that we have an AVRLoop
   if (!ALoop) {

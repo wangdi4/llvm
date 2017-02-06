@@ -115,16 +115,7 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
 
 #if 1
   // FORNOW: An AVRWrn node is expected to have only one AVRLoop child
-  AVRLoop *AvrLoop = nullptr;
-  for (auto Itr = AWrn->child_begin(), End = AWrn->child_end(); Itr != End;
-       ++Itr) {
-    if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
-      if (AvrLoop)
-        return VectCand;
-
-      AvrLoop = TempALoop;
-    }
-  }
+  AVRLoop *AvrLoop = AVRUtils::findAVRLoop(AWrn);
 
   // Check that we have an AVRLoop
   if (!AvrLoop)
@@ -152,7 +143,7 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // isLoopHandled will not check if a remainder loop is needed.
       // FORNOW: If this loop is not supported, return a dummy VC; In the 
       // future we should continue to next candidate loop in region.
-      if (!loopIsHandled(ForceVF))
+      if (!loopIsHandled(ForceVF, AvrLoop))
         return VectCand;
 
       // Decomposition of AVRValueHIRs happens here
