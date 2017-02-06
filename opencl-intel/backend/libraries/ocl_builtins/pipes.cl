@@ -197,7 +197,19 @@
 // |---+---+---+---+---+---+---+---+---+---|
 //                            end ~~~^
 
+
+
 #define __ovld __attribute__((overloadable))
+
+// There are no declarations of OpenCL 2.0 builtins in opencl_.h for named
+// address space but in the library they has to be called directly because the
+// library won't be handled by "Generic Address Resolution" passes. So declare
+// them here.
+void __ovld atomic_init(__global volatile atomic_int *object, int value);
+int __ovld atomic_load(__global volatile atomic_int *object);
+void __ovld atomic_store(__global volatile atomic_int *object, int desired);
+bool __ovld atomic_compare_exchange_weak(__global volatile atomic_int *object,
+                                         __private int *expected, int desired);
 
 struct __pipe_t {
   int packet_size;
