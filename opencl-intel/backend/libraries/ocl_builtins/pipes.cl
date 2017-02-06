@@ -312,7 +312,8 @@ bool __ovld is_valid_reserve_id(reserve_id_t reserve_id) {
 }
 
 
-void __pipe_init(__global struct __pipe_t* p, int packet_size, int max_packets) {
+void __pipe_init_intel(__global struct __pipe_t* p,
+                       int packet_size, int max_packets) {
   p->packet_size = packet_size;
   p->max_packets = max_packets;
 
@@ -329,7 +330,8 @@ void __pipe_init(__global struct __pipe_t* p, int packet_size, int max_packets) 
   }
 }
 
-reserve_id_t __reserve_write_pipe(__global struct __pipe_t* p, uint num_packets) {
+reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
+                                        uint num_packets) {
   int end = atomic_load(&p->end);
   int reserved = end;
 
@@ -364,7 +366,7 @@ reserve_id_t __reserve_write_pipe(__global struct __pipe_t* p, uint num_packets)
     }
 
     int new_end = advance(p, end, num_packets);
-    if (atomic_compare_exchange_strong(&p->end, &end, new_end)) {
+    if (atomic_compare_exchange_weak(&p->end, &end, new_end)) {
       break;
     }
   }
@@ -380,8 +382,8 @@ reserve_id_t __reserve_write_pipe(__global struct __pipe_t* p, uint num_packets)
   return create_reserve_id(reserved);
 }
 
-int __write_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
-                   uint index, const void* src) {
+int __write_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
+                         uint index, const void* src) {
   printf("__write_pipe_4: enter\n", index);
   int reserved = extract_reserve_id(reserve_id);
 
@@ -429,7 +431,8 @@ int __write_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
 }
 
 
-reserve_id_t __reserve_read_pipe(__global struct __pipe_t* p, uint num_packets) {
+reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
+                                       uint num_packets) {
   int hazard_read_end = atomic_load(&p->hazard_read_end);
   int reserved = hazard_read_end;
 
@@ -465,7 +468,7 @@ reserve_id_t __reserve_read_pipe(__global struct __pipe_t* p, uint num_packets) 
 
 
     int new = advance(p, hazard_read_end, num_packets);
-    if (atomic_compare_exchange_strong(&p->hazard_read_end, &hazard_read_end,
+    if (atomic_compare_exchange_weak(&p->hazard_read_end, &hazard_read_end,
                                        new)) {
       break;
     }
@@ -482,8 +485,8 @@ reserve_id_t __reserve_read_pipe(__global struct __pipe_t* p, uint num_packets) 
   return create_reserve_id(reserved);
 }
 
-int __read_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
-                  uint index, void* dst) {
+int __read_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
+                        uint index, void* dst) {
   int reserved = extract_reserve_id(reserve_id);
 
   int read_index = advance(p, reserved, index);
@@ -529,20 +532,34 @@ int __read_pipe_4(__global struct __pipe_t* p, reserve_id_t reserve_id,
   return 0;
 }
 
-int __read_pipe_2(__global struct __pipe_t* p, void* dst) {
-  reserve_id_t id = __reserve_read_pipe(p, 1);
+int __read_pipe_2_intel(__global struct __pipe_t* p, void* dst) {
+  reserve_id_t id = __reserve_read_pipe_intel(p, 1);
   if (!is_valid_reserve_id(id)) {
     return 1;
   }
-  return __read_pipe_4(p, id, 0, dst);
+  return __read_pipe_4_intel(p, id, 0, dst);
 }
 
-int __write_pipe_2(__global struct __pipe_t* p, void* dst) {
-  reserve_id_t id = __reserve_write_pipe(p, 1);
+int __write_pipe_2_intel(__global struct __pipe_t* p, void* src) {
+  reserve_id_t id = __reserve_write_pipe_intel(p, 1);
   if (!is_valid_reserve_id(id)) {
     printf("__write_pipe_2: reserve id was invalid\n");
     return 1;
   }
     printf("__write_pipe_2: reserve id - ok\n");
-  return __write_pipe_4(p, id, 0, dst);
+  return __write_pipe_4_intel(p, id, 0, src);
+}
+
+int __read_pipe_2_bl_intel(__global struct __pipe_t* p, void* dst) {
+  while(__read_pipe_2_intel(p, dst)) {
+  }
+
+  return 0;
+}
+
+int __write_pipe_2_bl_intel(__global struct __pipe_t* p, void* src) {
+  while(__write_pipe_2_intel(p, src)) {
+  }
+
+  return 0;
 }

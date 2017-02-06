@@ -362,16 +362,16 @@ static bool replaceChannelBuiltins(Module &M,
   Function *WritePipe = nullptr;
   for (auto *BIModule : BuiltinModules) {
     if (!ReadPipe) {
-      ReadPipe = BIModule->getFunction("__read_pipe_2_bl");
+      ReadPipe = BIModule->getFunction("__read_pipe_2_bl_intel");
     }
 
     if (!WritePipe) {
-      WritePipe = BIModule->getFunction("__write_pipe_2_bl");
+      WritePipe = BIModule->getFunction("__write_pipe_2_bl_intel");
     }
   }
 
-  assert(ReadPipe && "no '__read_pipe_2_bl' built-in declared in RTL");
-  assert(WritePipe && "no '__write_pipe_2_bl' built-in declared in RTL");
+  assert(ReadPipe && "no '__read_pipe_2_bl_intel' built-in declared in RTL");
+  assert(WritePipe && "no '__write_pipe_2_bl_intel' built-in declared in RTL");
 
   bool Changed = false;
   for (auto &F : M) {
