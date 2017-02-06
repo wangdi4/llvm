@@ -341,8 +341,9 @@ reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
     int avail = get_write_capacity(p, begin, end);
 
     if (avail < (int) num_packets) {
-      printf("__reserve_write_pipe: overflow: avail = %d, req = %d\n",
-             avail, num_packets);
+      printf("__reserve_write_pipe: overflow: avail = %d, req = %d, "
+             "begin = %d, end = %d\n",
+             avail, num_packets, begin, end);
 
       return CLK_NULL_RESERVE_ID;
     }
@@ -442,8 +443,9 @@ reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
     int avail = get_read_capacity(p, hazard_read_end, hazard_write_begin);
 
     if (avail < (int) num_packets) {
-      printf("__reserve_read_pipe: overflow: avail = %d, req = %d\n",
-             avail, num_packets);
+      printf("__reserve_read_pipe: overflow: avail = %d, req = %d, "
+             "hre = %d, hwb = %d\n",
+             avail, num_packets, hazard_read_end, hazard_write_begin);
 
       return CLK_NULL_RESERVE_ID;
     }
