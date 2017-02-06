@@ -193,6 +193,68 @@ static llvm::Value *emitIntelOpenMPCopyConstructor(CodeGenModule &CGM,
   return Fn;
 }
 
+static llvm::Value *emitIntelOpenMPCopyAssign(CodeGenModule &CGM,
+                                              const VarDecl *Private,
+                                              const Expr *SrcExpr,
+                                              const Expr *DstExpr,
+                                              const Expr *AssignOp) {
+  auto &C = CGM.getContext();
+  QualType Ty = Private->getType();
+  QualType ElemType = Ty;
+  if (Ty->isArrayType())
+    ElemType = C.getBaseElementType(Ty).getNonReferenceType();
+
+  SmallString<256> OutName;
+  llvm::raw_svector_ostream Out(OutName);
+  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  Out << ".omp.copy_assign";
+
+  if (llvm::Value *F = CGM.GetGlobalValue(OutName))
+    return F;
+
+  IdentifierInfo *II = &CGM.getContext().Idents.get(OutName);
+  FunctionDecl *FD = FunctionDecl::Create(
+      C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
+      C.VoidTy, /*TInfo=*/nullptr, SC_Static);
+
+  QualType ObjPtrTy = C.getPointerType(Ty);
+
+  CodeGenFunction CGF(CGM);
+  FunctionArgList Args;
+  ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  Args.push_back(&DstDecl);
+  ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  Args.push_back(&SrcDecl);
+
+  const CGFunctionInfo &FI =
+      CGM.getTypes().arrangeBuiltinFunctionDeclaration(C.VoidTy, Args);
+
+  llvm::FunctionType *LTy = CGM.getTypes().GetFunctionType(FI);
+
+  llvm::Function *Fn = llvm::Function::Create(
+      LTy, llvm::GlobalValue::InternalLinkage, OutName, &CGM.getModule());
+
+  CGM.SetInternalFunctionAttributes(nullptr, Fn, FI);
+
+  CGF.StartFunction(FD, C.VoidTy, Fn, FI, Args);
+
+  auto DestAddr = CGF.EmitLoadOfPointerLValue(CGF.GetAddrOfLocalVar(&DstDecl),
+                                              ObjPtrTy->getAs<PointerType>())
+                      .getAddress();
+
+  auto SrcAddr = CGF.EmitLoadOfPointerLValue(CGF.GetAddrOfLocalVar(&SrcDecl),
+                                             ObjPtrTy->getAs<PointerType>())
+                     .getAddress();
+
+  auto *SrcVD = cast<VarDecl>(cast<DeclRefExpr>(SrcExpr)->getDecl());
+  auto *DestVD = cast<VarDecl>(cast<DeclRefExpr>(DstExpr)->getDecl());
+
+  CGF.EmitOMPCopy(Ty, DestAddr, SrcAddr, DestVD, SrcVD, AssignOp);
+
+  CGF.FinishFunction();
+  return Fn;
+}
+
 namespace {
 enum OMPAtomicClause {
   OMP_read,
@@ -376,6 +438,31 @@ class OpenMPCodeOutliner {
         addArg(emitIntelOpenMPDestructor(CGF.CGM, Private));
       }
       ++IPriv;
+    }
+    emitListClause();
+  }
+  void emitOMPLastprivateClause(const OMPLastprivateClause *Cl) {
+    addArg("QUAL.OMP.LASTPRIVATE");
+    auto IPriv = Cl->private_copies().begin();
+    auto ISrcExpr = Cl->source_exprs().begin();
+    auto IDestExpr = Cl->destination_exprs().begin();
+    auto IAssignOp = Cl->assignment_ops().begin();
+    for (auto *E : Cl->varlists()) {
+      auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
+      bool IsPODType = Private->getType().isPODType(CGF.getContext());
+      if (!IsPODType)
+        addArg("QUAL.OPND.NONPOD");
+      addArg(E);
+      if (!IsPODType) {
+        addArg(emitIntelOpenMPDefaultConstructor(CGF.CGM, Private));
+        addArg(emitIntelOpenMPCopyAssign(CGF.CGM, Private, *ISrcExpr,
+                                         *IDestExpr, *IAssignOp));
+        addArg(emitIntelOpenMPDestructor(CGF.CGM, Private));
+      }
+      ++IPriv;
+      ++ISrcExpr;
+      ++IDestExpr;
+      ++IAssignOp;
     }
     emitListClause();
   }
@@ -684,7 +771,6 @@ class OpenMPCodeOutliner {
   }
 
   void emitOMPFinalClause(const OMPFinalClause *) {}
-  void emitOMPLastprivateClause(const OMPLastprivateClause *) {}
   void emitOMPCopyprivateClause(const OMPCopyprivateClause *) {}
   void emitOMPNowaitClause(const OMPNowaitClause *) {}
   void emitOMPUntiedClause(const OMPUntiedClause *) {}
