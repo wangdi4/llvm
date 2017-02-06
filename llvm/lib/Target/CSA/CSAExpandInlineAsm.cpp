@@ -109,13 +109,16 @@ bool CSAExpandInlineAsm::runOnMachineFunction(MachineFunction &MF) {
   std::vector<MachineInstr*> toRemove;
 
   // Loop through the basic blocks. We'll be looking for INLINEASM pseudo MIs.
-  for (MachineBasicBlock &MBB : make_range(MF.rbegin(), MF.rend()))
-    for (MachineInstr& MI : MBB)
-      if(MI.isInlineAsm())
+  for (MachineBasicBlock &MBB : make_range(MF.rbegin(), MF.rend())) {
+    for (MachineInstr& MI : MBB) {
+      if(MI.isInlineAsm()) {
         if(EnableExpandInlineAsm && expandInlineAsm(&MI))
           toRemove.push_back(&MI);
         else
           DEBUG(errs() << "Found inline assembly, but expansion is disabled.\n");
+      }
+    }
+  }
 
   // We didn't find anything that we could expand.
   if(toRemove.size() == 0)
