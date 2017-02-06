@@ -17,8 +17,8 @@
 
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -195,10 +195,10 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
 }
 
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
-                                                     unsigned UnrollOrVecFactor,
-                                                     uint64_t NewTripCount,
-                                                     const RegDDRef *NewTCRef,
-                                                     bool VecMode) {
+                                                 unsigned UnrollOrVecFactor,
+                                                 uint64_t NewTripCount,
+                                                 const RegDDRef *NewTCRef,
+                                                 bool VecMode) {
   HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
 
   // Number of exits do not change due to vectorization
@@ -267,9 +267,9 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
 }
 
 void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
-                                                 unsigned UnrollOrVecFactor,
-                                                 uint64_t NewTripCount,
-                                                 const RegDDRef *NewTCRef) {
+                                             unsigned UnrollOrVecFactor,
+                                             uint64_t NewTripCount,
+                                             const RegDDRef *NewTCRef) {
   // Mark Loop bounds as modified.
   HIRInvalidationUtils::invalidateBounds(OrigLoop);
 
@@ -343,6 +343,19 @@ void HIRTransformUtils::permuteLoopNests(
 
   SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
   HLLoop *DstLoop = OutermostLoop;
+
+  // isPerfectLoopNest() allows Prehdr/PostExit
+  // in outermost loop. If not extracted, it will lead to errors
+  // in this case:
+  // do i2=1,n   (before interchange)
+  //    do i3 =1,6
+  //    end
+  // end
+  //	 a[i1] = 2 (PostExit)
+  //
+  if (OutermostLoop != LoopPermutation.front()) {
+    OutermostLoop->extractPreheaderAndPostexit();
+  }
 
   for (auto &Lp : LoopPermutation) {
     HLLoop *LoopCopy = Lp->cloneEmptyLoop();
