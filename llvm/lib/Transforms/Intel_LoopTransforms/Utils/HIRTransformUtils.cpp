@@ -16,10 +16,11 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 
 #define DEBUG_TYPE "hir-transform-utils"
 
