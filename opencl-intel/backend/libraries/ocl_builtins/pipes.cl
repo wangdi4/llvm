@@ -220,11 +220,15 @@ void __ovld atomic_store(__global volatile atomic_int *object, int desired);
 bool __ovld atomic_compare_exchange_weak(__global volatile atomic_int *object,
                                          __private int *expected, int desired);
 
-#if 1
+#if 0
 #define PRINTF printf
 #else
 #define PRINTF (void)
 #endif
+
+#define DEBUG_INF_LOOPS 0
+#define DEBUG_DUMP_HAZ_FLAGS 1
+#define DEBUG_ASSERTS 0
 
 struct __pipe_t {
   int packet_size;
@@ -333,6 +337,31 @@ static int find_hazard_index(__global struct __pipe_t* p,
   }
 
   return index_to;
+}
+
+static int __pipe_dump(__global struct __pipe_t* p) {
+  printf(">>>> pipe dump:\n"
+         ">> packet_size = %d, max_packets = %d\n"
+         ">> begin = %d, end = %d\n"
+         ">> hazard_read_end = %d, hazard_write_begin = %d\n"
+         ">> write_capacity = %d\n"
+         ">> read_capacity = %d\n",
+         p->packet_size, p->max_packets,
+         atomic_load(&p->begin), atomic_load(&p->end),
+         atomic_load(&p->hazard_read_end),
+         atomic_load(&p->hazard_write_begin),
+         get_write_capacity(p, atomic_load(&p->begin),
+                            atomic_load(&p->end)),
+         get_read_capacity(p, atomic_load(&p->hazard_read_end),
+                           atomic_load(&p->hazard_write_begin)));
+#if DEBUG_DUMP_HAZ_FLAGS
+  printf(">> hazard flags = ");
+  for (int i = 0; i < p->max_packets; ++i) {
+    printf("%d", (int)get_hazard_flag(p, i));
+  }
+  printf("\n");
+#endif
+
 }
 
 bool __ovld is_valid_reserve_id(reserve_id_t reserve_id) {
@@ -466,7 +495,16 @@ reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
   int hazard_read_end = atomic_load(&p->hazard_read_end);
   int reserved = hazard_read_end;
 
+  int attempts = 1000000;
   while (true) {
+#if DEBUG_INF_LOOPS
+    if (!--attempts) {
+      attempts = 1000000;
+      printf("__reserve_read_pipe: deadlock detected!");
+      __pipe_dump(p);
+      *((volatile int*)NULL) = 0xdead;
+    }
+#endif
     int hazard_write_begin = atomic_load(&p->hazard_write_begin);
 
     int avail = get_read_capacity(p, hazard_read_end, hazard_write_begin);
@@ -538,7 +576,17 @@ int __read_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
 
   PRINTF("__read_pipe_4: start update begin from %d\n", begin);
 
+  long attempts = 100000;
   while (true) {
+#if DEBUG_INF_LOOPS
+    if (!--attempts) {
+      attempts = 1000000;
+      printf("__read_pipe: deadlock detected!");
+      __pipe_dump(p);
+      *((volatile int*)NULL) = 0xdead;
+    }
+#endif
+
     int hazard_read_end = atomic_load(&p->hazard_read_end);
     int haz_index = find_hazard_index(p, advance(p, read_index, 1),
                                       hazard_read_end);
@@ -582,15 +630,31 @@ int __write_pipe_2_intel(__global struct __pipe_t* p, void* src) {
 }
 
 int __read_pipe_2_bl_intel(__global struct __pipe_t* p, void* dst) {
+  long attempts = 100000;
   while(__read_pipe_2_intel(p, dst)) {
+#if DEBUG_INF_LOOPS
+    if (!--attempts) {
+      printf("read_pipe deadlock detected:\n");
+      __pipe_dump(p);
+      *((volatile int*)NULL) = 0xdead;
+      attempts = 100000;
+    }
+#endif
   }
-
   return 0;
 }
 
 int __write_pipe_2_bl_intel(__global struct __pipe_t* p, void* src) {
+  long attempts = 10000000;
   while(__write_pipe_2_intel(p, src)) {
+#if DEBUG_INF_LOOPS
+    if (!--attempts) {
+      printf("write_pipe deadlock detected:\n");
+      __pipe_dump(p);
+      *((volatile int*)NULL) = 0xdead;
+      attempts = 1000000000;
+    }
+#endif
   }
-
   return 0;
 }
