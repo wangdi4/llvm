@@ -201,7 +201,7 @@
 
 #define __ovld __attribute__((overloadable))
 
-// There are no declarations of OpenCL 2.0 builtins in opencl_.h for named
+// There are no declarations of OpenCL 2.0 builtins in opencl-c.h for named
 // address space but in the library they has to be called directly because the
 // library won't be handled by "Generic Address Resolution" passes. So declare
 // them here.
@@ -210,6 +210,12 @@ int __ovld atomic_load(__global volatile atomic_int *object);
 void __ovld atomic_store(__global volatile atomic_int *object, int desired);
 bool __ovld atomic_compare_exchange_weak(__global volatile atomic_int *object,
                                          __private int *expected, int desired);
+
+#if 1
+#define PRINTF printf
+#else
+#define PRINTF (void)
+#endif
 
 struct __pipe_t {
   int packet_size;
@@ -265,7 +271,7 @@ static int dist(__global const struct __pipe_t* p,
 static int get_write_capacity(__global const struct __pipe_t* p,
                               int begin, int end) {
   int avail = dist(p, end, begin);
-  printf("get_write_capacity: b = %d, e = %d, avail: %d\n", begin, end, avail);
+  PRINTF("get_write_capacity: b = %d, e = %d, avail: %d\n", begin, end, avail);
   return avail;
 }
 
@@ -275,7 +281,7 @@ static int get_write_capacity(__global const struct __pipe_t* p,
 static int get_read_capacity(__global const struct __pipe_t* p,
                              int hazard_read_end, int hazard_write_begin) {
   int avail = dist(p, hazard_read_end, hazard_write_begin);
-  printf("get_read_capacity: hre = %d, hwb = %d, avail: %d\n",
+  PRINTF("get_read_capacity: hre = %d, hwb = %d, avail: %d\n",
          hazard_read_end, hazard_write_begin, avail);
   return avail;
 }
@@ -346,7 +352,7 @@ reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
     int avail = get_write_capacity(p, begin, end);
 
     if (avail < (int) num_packets) {
-      printf("__reserve_write_pipe: overflow: avail = %d, req = %d, "
+      PRINTF("__reserve_write_pipe: overflow: avail = %d, req = %d, "
              "begin = %d, end = %d\n",
              avail, num_packets, begin, end);
 
@@ -382,7 +388,7 @@ reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
     set_hazard_flag(p, i, true);
   }
 
-  printf("__reserve_write_pipe: reserved %d elements starting at index %d\n",
+  PRINTF("__reserve_write_pipe: reserved %d elements starting at index %d\n",
          num_packets, reserved);
 
   return create_reserve_id(reserved);
@@ -390,11 +396,11 @@ reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
 
 int __write_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
                          uint index, const void* src) {
-  printf("__write_pipe_4: enter\n", index);
+  PRINTF("__write_pipe_4: enter\n", index);
   int reserved = extract_reserve_id(reserve_id);
 
   int write_index = advance(p, reserved, index);
-  printf("__write_pipe_4: writing at index %d\n", write_index);
+  PRINTF("__write_pipe_4: writing at index %d\n", write_index);
   __builtin_memcpy(get_packet_ptr(p, write_index), src, p->packet_size);
 
   set_hazard_flag(p, write_index, false);
@@ -406,11 +412,11 @@ int __write_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
 
   if (hazard_write_begin != write_index) {
     // only the first hazardous item should move the `hazard_write_begin`
-    printf("__write_pipe_4: ok at index %d\n", write_index);
+    PRINTF("__write_pipe_4: ok at index %d\n", write_index);
     return 0;
   }
 
-  printf("__write_pipe_4: start update hazard_write_begin from %d\n",
+  PRINTF("__write_pipe_4: start update hazard_write_begin from %d\n",
          hazard_write_begin);
 
   while (true) {
@@ -420,7 +426,7 @@ int __write_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
     atomic_store(&p->hazard_write_begin, haz_index);
 
     if (haz_index == end) {
-      printf("__write_pipe_4: hazardous area is clear, end = %d\n", end);
+      PRINTF("__write_pipe_4: hazardous area is clear, end = %d\n", end);
       break;
     }
 
@@ -428,7 +434,7 @@ int __write_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
     // find_hazard_index() and `hazard_write_begin` move
     if (get_hazard_flag(p, haz_index) == true) {
       // it's still hazardous, we can rely on him in moving `hazard_write_begin`
-      printf("__write_pipe_4: updated hazard_write_begin to %d\n", haz_index);
+      PRINTF("__write_pipe_4: updated hazard_write_begin to %d\n", haz_index);
       break;
     }
   }
@@ -448,7 +454,7 @@ reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
     int avail = get_read_capacity(p, hazard_read_end, hazard_write_begin);
 
     if (avail < (int) num_packets) {
-      printf("__reserve_read_pipe: overflow: avail = %d, req = %d, "
+      PRINTF("__reserve_read_pipe: overflow: avail = %d, req = %d, "
              "hre = %d, hwb = %d\n",
              avail, num_packets, hazard_read_end, hazard_write_begin);
 
@@ -486,7 +492,7 @@ reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
     set_hazard_flag(p, i, true);
   }
 
-  printf("__reserve_read_pipe: reserved %d elements starting at index %d\n",
+  PRINTF("__reserve_read_pipe: reserved %d elements starting at index %d\n",
          num_packets, reserved);
 
   return create_reserve_id(reserved);
@@ -510,11 +516,11 @@ int __read_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
       !(begin == -1 && read_index == 0) /* special case for *empty* pipe */) {
 
     // only the first hazardous item should move the `begin`
-    printf("__read_pipe_4: ok at index %d\n", read_index);
+    PRINTF("__read_pipe_4: ok at index %d\n", read_index);
     return 0;
   }
 
-  printf("__read_pipe_4: start update begin from %d\n", begin);
+  PRINTF("__read_pipe_4: start update begin from %d\n", begin);
 
   while (true) {
     int hazard_read_end = atomic_load(&p->hazard_read_end);
@@ -524,7 +530,7 @@ int __read_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
     atomic_store(&p->begin, haz_index);
 
     if (haz_index == hazard_read_end) {
-      printf("__read_pipe_4: hazardous area is clear, begin = %d\n",
+      PRINTF("__read_pipe_4: hazardous area is clear, begin = %d\n",
              haz_index);
       break;
     }
@@ -533,7 +539,7 @@ int __read_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
     // find_hazard_index() and `begin` move
     if (get_hazard_flag(p, haz_index) == true) {
       // it's still hazardous, we can rely on him in moving `hazard_write_begin`
-      printf("__read_pipe_4: updated begin to %d\n", haz_index);
+      PRINTF("__read_pipe_4: updated begin to %d\n", haz_index);
       break;
     }
   }
@@ -552,10 +558,10 @@ int __read_pipe_2_intel(__global struct __pipe_t* p, void* dst) {
 int __write_pipe_2_intel(__global struct __pipe_t* p, void* src) {
   reserve_id_t id = __reserve_write_pipe_intel(p, 1);
   if (!is_valid_reserve_id(id)) {
-    printf("__write_pipe_2: reserve id was invalid\n");
+    PRINTF("__write_pipe_2: reserve id was invalid\n");
     return 1;
   }
-    printf("__write_pipe_2: reserve id - ok\n");
+  PRINTF("__write_pipe_2: reserve id - ok\n");
   return __write_pipe_4_intel(p, id, 0, src);
 }
 
