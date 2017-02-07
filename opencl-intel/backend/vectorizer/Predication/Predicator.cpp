@@ -44,6 +44,10 @@ static cl::opt<bool>
 PreserveUCF("presucf", cl::init(true), cl::Hidden,
   cl::desc("Partially preserve uniform control flow inside divergent region"));
 
+static cl::opt<bool>
+EnableAllOnes("all-ones", cl::init(true), cl::Hidden,
+  cl::desc("Insert all-ones bypasses"));
+
 // Invoked by runOnModule for every predicated function
 STATISTIC(PredicatorCounter, "Counts number of functions visited");
 
@@ -3112,9 +3116,11 @@ void Predicator::calculateHeuristic(Function* F) {
 #ifndef NDEBUG
   // if desired, turn off allones by not marking any blocks to be bypassed.
   if (getenv("all-ones-off") || getenv("all_ones_off")) {
-      return;
+    return;
   }
 #endif
+  if (!EnableAllOnes)
+    return;
   // the heuristics is a simple check if a divergent block has loads / stores.
   // this proved to be better than several more sophisticated alternatives.
   for (Function::iterator it = F->begin(), e = F->end(); it != e; ++it) {
