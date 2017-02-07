@@ -393,6 +393,8 @@ reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
   int end = atomic_load(&p->end);
   int reserved = end;
 
+  bool hazard_expected = false;
+
   while (true) {
     int begin = atomic_load(&p->begin);
 
@@ -410,8 +412,8 @@ reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
 
     // first, set the hazard flag to make sure that `hazard_write_begin` will
     // not be moved ahead of our first packet when we move the `end`.
-    bool hazard_expected = false;
-    if (!cmp_xchg_hazard_flag(p, reserved, &hazard_expected, true)) {
+    if (!hazard_expected &&
+        !cmp_xchg_hazard_flag(p, reserved, &hazard_expected, true)) {
       // somebody set the hazard flag before us
       // they propbably moved the end, so we must load it and start again
 
@@ -423,6 +425,8 @@ reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
 
       continue;
     }
+
+    hazard_expected = true;
 
     int new_end = advance(p, end, num_packets);
     if (atomic_compare_exchange_weak(&p->end, &end, new_end)) {
@@ -495,6 +499,8 @@ reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
   int hazard_read_end = atomic_load(&p->hazard_read_end);
   int reserved = hazard_read_end;
 
+  bool hazard_expected = false;
+
   int attempts = 1000000;
   while (true) {
 #if DEBUG_INF_LOOPS
@@ -519,10 +525,10 @@ reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
 
     reserved = hazard_read_end;
 
-    // first, set the hazard flag to make sure that `hazard_read_end` will not be
-    // moved to the item ahead of our first packet after we move the `end`.
-    bool hazard_expected = false;
-    if (!cmp_xchg_hazard_flag(p, reserved, &hazard_expected, true)) {
+    // first, set the hazard flag to make sure that `begin` will not be moved to
+    // the item ahead of our first packet after we move the `hazard_write_end`.
+    if (!hazard_expected &&
+        !cmp_xchg_hazard_flag(p, reserved, &hazard_expected, true)) {
       // somebody set the hazard flag before us
       // they probably moved the end, so we must load it and start again
 
@@ -535,6 +541,7 @@ reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
       continue;
     }
 
+    hazard_expected = true;
 
     int new = advance(p, hazard_read_end, num_packets);
     if (atomic_compare_exchange_weak(&p->hazard_read_end, &hazard_read_end,
