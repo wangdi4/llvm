@@ -56,6 +56,15 @@
 // use-case.
 //
 //
+// Full/Empty condition:
+//
+// There is no good way to differentiate between full and empty conditions,
+// because `begin` should be equal to `end` in both cases. We change that by
+// allowing only (max_packets - 1) writes to the buffer, which makes
+// (begin == end) an *empty* and (begin == ++end) a *full* condition. See
+// get_write_capacity() for details.
+//
+//
 // When __reserve_read_pipe(pipe, num_packets) is called ...
 //
 //  hazard_read_end
@@ -271,6 +280,15 @@ static int dist(__global const struct __pipe_t* p,
 static int get_write_capacity(__global const struct __pipe_t* p,
                               int begin, int end) {
   int avail = dist(p, end, begin);
+
+  // handle full/empty condition
+  if (avail > 0) {
+    avail = avail - 1;
+  } else {
+    // begin == end, so the buffer is empty
+    avail = p->max_packets - 1;
+  }
+
   PRINTF("get_write_capacity: b = %d, e = %d, avail: %d\n", begin, end, avail);
   return avail;
 }
@@ -328,7 +346,7 @@ void __pipe_init_intel(__global struct __pipe_t* p,
   p->packet_size = packet_size;
   p->max_packets = max_packets;
 
-  atomic_init(&p->begin, -1);
+  atomic_init(&p->begin, 0);
   atomic_init(&p->end, 0);
   atomic_init(&p->hazard_write_begin, 0);
   atomic_init(&p->hazard_read_end, 0);
@@ -512,9 +530,7 @@ int __read_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
   // `hazard_read_end`.
   int begin = atomic_load(&p->begin);
 
-  if (begin != read_index &&
-      !(begin == -1 && read_index == 0) /* special case for *empty* pipe */) {
-
+  if (begin != read_index) {
     // only the first hazardous item should move the `begin`
     PRINTF("__read_pipe_4: ok at index %d\n", read_index);
     return 0;
