@@ -255,7 +255,7 @@ static int advance(__global const struct __pipe_t* p, int index, int offset) {
 /// between them. The function behaves exactly as std::distance.
 static int dist(__global const struct __pipe_t* p,
                     int index_from, int index_to) {
-  return index_from < index_to ? index_to - index_from
+  return index_from <= index_to ? index_to - index_from
     : p->max_packets - index_from + index_to;
 }
 
