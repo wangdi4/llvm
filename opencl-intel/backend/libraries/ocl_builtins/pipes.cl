@@ -264,7 +264,9 @@ static int dist(__global const struct __pipe_t* p,
 /// change at any time.
 static int get_write_capacity(__global const struct __pipe_t* p,
                               int begin, int end) {
-  return dist(p, end, begin);
+  int avail = dist(p, end, begin);
+  printf("get_write_capacity: b = %d, e = %d, avail: %d\n", begin, end, avail);
+  return avail;
 }
 
 /// Return the number of elements that can be read into the \p pipe.
@@ -272,7 +274,10 @@ static int get_write_capacity(__global const struct __pipe_t* p,
 /// hazard_read_end/hazard_write_begin could change at any time.
 static int get_read_capacity(__global const struct __pipe_t* p,
                              int hazard_read_end, int hazard_write_begin) {
-  return dist(p, hazard_read_end, hazard_write_begin);
+  int avail = dist(p, hazard_read_end, hazard_write_begin);
+  printf("get_read_capacity: hre = %d, hwb = %d, avail: %d\n",
+         hazard_read_end, hazard_write_begin, avail);
+  return avail;
 }
 
 /// Return the pointer on the beginning of packet with given \p index
@@ -501,7 +506,9 @@ int __read_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
   // `hazard_read_end`.
   int begin = atomic_load(&p->begin);
 
-  if (begin != read_index) {
+  if (begin != read_index &&
+      !(begin == -1 && read_index == 0) /* special case for *empty* pipe */) {
+
     // only the first hazardous item should move the `begin`
     printf("__read_pipe_4: ok at index %d\n", read_index);
     return 0;
