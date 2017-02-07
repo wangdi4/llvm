@@ -2,8 +2,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements an interesting feature of the CSA Target: expansion of
-// INLINEASM MachineInstrs into functional MachineInstrs.
+// This file implements a machine function pass for the CSA target that
+// ensures that memory operations occur in the correct order.
 //
 //===----------------------------------------------------------------------===//
 
@@ -26,12 +26,12 @@ using namespace llvm;
 
 // Flag for controlling code that deals with memory ordering.
 enum OrderMemopsMode {
-  // No extra code added at all for ordering.  Often incorrect.  
+  // No extra code added at all for ordering.  Often incorrect.
   none = 0,
 
-  // Linear ordering of all memops.  Dumb but should be correct.  
+  // Linear ordering of all memops.  Dumb but should be correct.
   linear = 1,
-  
+
   //  Stores inside a basic block are totally ordered.
   //  Loads ordered between the stores, but
   //  unordered with respect to each other.
@@ -91,6 +91,7 @@ namespace {
     const TargetMachine *TM;
     const CSASubtarget *STI;
     const MCInstrInfo  *MII;
+    const MachineLoopInfo *MLI;
 
   public:
     static char ID;
@@ -102,6 +103,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<ControlDependenceGraph>();
       AU.addRequired<AAResultsWrapperPass>();
+      AU.addRequired<MachineLoopInfo>();
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -188,6 +190,18 @@ namespace {
                                       MachineInstr* MI,
                                       SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
                                       unsigned input_mem_reg);
+
+    // Return true if the specified loop has been annotated as parallel in the
+    // source code.
+    bool isParallelLoop(MachineLoop* loop) const;
+
+    // Return true if the specified basic block is the latch (last block
+    // before looping) of a parallel loop.
+    bool isParallelLoopLatch(const MachineBasicBlock& BB) const;
+
+    // Return true if the specified basic block contains a .csa_parallel_loop
+    // pseudo-op.
+    bool findParallelLoopPseudoOp(const MachineBasicBlock& BB) const;
   };
 }
 
@@ -208,6 +222,8 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
 
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   CDG = &getAnalysis<ControlDependenceGraph>();
+
+  MLI = &getAnalysis<MachineLoopInfo>();
 
   // Find the entry block. (Surely there's an easier way to do this?)
   ControlDependenceNode *rootN = CDG->getRoot();
@@ -446,16 +462,33 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
 
   for (auto &pair : wavefront) {
     AliasSet *as = pair.first;
-    assert(depchain_reg[as]);
+    unsigned next_mem_reg = depchain_reg[as];
+    assert(next_mem_reg);
 
     // Sink any loads at the end of the block to the end of the block.
-    depchain_reg[as] = merge_dependency_signals(BB,
+    next_mem_reg = merge_dependency_signals(BB,
         NULL,
         &pair.second,
         depchain_reg[as]);
+    depchain_reg[as] = next_mem_reg;
 
     // Update the SSA updater.
-    depchains[as].updater->AddAvailableValue(&BB, depchain_reg[as]);
+    depchains[as].updater->AddAvailableValue(&BB, next_mem_reg);
+
+    // If this is the latch (last block before looping) of a parallel loop,
+    // then insert a '.memdep_sink' instruction at the end of the block's
+    // dependency chain.
+    if (isParallelLoopLatch(BB)) {
+      // Insert a .csa_parallel_memdep psuedo-op at the end of the chain to
+      // indicate that the memory-order dependencies should not extend across
+      // loop iterations.
+      unsigned prev_mem_reg = next_mem_reg;
+      next_mem_reg = MRI->createVirtualRegister(MemopRC);
+      BuildMI(BB, BB.getFirstTerminator(), DebugLoc(),
+              TII->get(CSA::CSA_PARALLEL_MEMDEP), next_mem_reg).addReg(prev_mem_reg);
+      depchain_reg[as] = next_mem_reg;
+      depchain_updater[as]->AddAvailableValue(&BB, next_mem_reg);
+    }
   }
 }
 
@@ -525,6 +558,21 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     // Update the SSA updater, advising it on the latest value in this
     // evolution coming out of this BB.
     depchains[as].updater->AddAvailableValue(&BB, next_mem_reg);
+
+    // If this is the latch (last block before looping) of a parallel loop,
+    // then insert a '.memdep_sink' instruction at the end of the block's
+    // dependency chain.
+    if (isParallelLoopLatch(BB)) {
+      // Insert a .csa_parallel_memdep psuedo-op at the end of the chain to
+      // indicate that the memory-order dependencies should not extend across
+      // loop iterations.
+      unsigned prev_mem_reg = next_mem_reg;
+      next_mem_reg = MRI->createVirtualRegister(MemopRC);
+      BuildMI(BB, BB.getFirstTerminator(), DebugLoc(),
+              TII->get(CSA::CSA_PARALLEL_MEMDEP), next_mem_reg).addReg(prev_mem_reg);
+      depchain_reg[as] = next_mem_reg;
+      depchain_updater[as]->AddAvailableValue(&BB, next_mem_reg);
+    }
 
     // Finally, erase the old instruction.
     iterMI = BB.erase(iterMI);
@@ -721,3 +769,91 @@ MachineInstr* CSAMemopOrdering::convert_memop_ins(MachineInstr* MI,
   return new_inst;
 }
 
+bool CSAMemopOrdering::isParallelLoop(MachineLoop* loop) const
+{
+  // Look for a ".csa_parallel_loop" pseudo-opcode in the block immediately
+  // before the loop.  Note that the pseudo-opcode is not *within* the loop
+  // (unless it is referring to a nested loop).
+
+  // If the loop has a preheader, then looptop is that preheader; otherwise
+  // looptop is the regular loop header.
+  MachineBasicBlock* looptop = loop->getLoopPreheader();
+  if (looptop) {
+    // There is a preheader at the top of the loop. The preheader is not
+    // technically part of the loop, so it might contain the parallel pseudo
+    // op. If so, then this is a parallel loop and we're done. Most of the
+    // time, however, the pseudo-op (if any) is in the predicessor of the
+    // preheader, so we have to keep going.
+    if (findParallelLoopPseudoOp(*looptop)) {
+      DEBUG(errs() << "%%% Loop is parallel\n");
+      return true;
+    }
+  }
+  else {
+    // There is a no preheader at the top of the loop; use the header of the
+    // loop as the top.  Since the header is part of the loop (unlike the
+    // preheader) Do not check the header for a parallel pseudo op.
+    looptop = loop->getHeader();
+  }
+
+  // If ALL predicessors to the loop contain the parallel pseudo-op, then
+  // this is a parallel loop.  If NONE of the predecessors contain the
+  // psuedo op, then this is not a parallel loop.  If SOME BUT NOT ALL
+  // predecessors contain the pseudo op, then our algorithm is broken.
+  int numPredecessors = 0;
+  int numPseudoOps = 0;
+  for (MachineBasicBlock* loopPredecessor : looptop->predecessors()) {
+    ++numPredecessors;
+    if (findParallelLoopPseudoOp(*loopPredecessor))
+      ++numPseudoOps;
+  }
+  assert((0 == numPseudoOps || numPredecessors == numPseudoOps) &&
+         "Expected all-or-none of the predecessors to have pseuodo-op");
+
+  if (numPseudoOps > 0)
+    DEBUG(errs() << "%%% Loop is parallel\n");
+
+  // Return true if at the predicessors contain the parallel pseudo-op.
+  return (numPseudoOps > 0);
+}
+
+bool CSAMemopOrdering::isParallelLoopLatch(const MachineBasicBlock& BB) const
+{
+  // Return true if the specified basic block is the latch (last block
+  // before looping) of a parallel loop.
+
+  MachineLoop* loop = MLI->getLoopFor(&BB);
+  if (! loop)
+    return false; // not in a loop
+
+  DEBUG(errs() << "%%% Found loop: " << *loop);
+
+  SmallVector<MachineBasicBlock*, 2> loopLatches;
+  loop->getLoopLatches(loopLatches);
+  if (loopLatches.end() == std::find(loopLatches.begin(), loopLatches.end(), &BB)) {
+    DEBUG(errs() << "%%% BB#" << BB.getNumber() << " is not a latch\n");
+    return false; // not a latch to the loop
+  }
+
+  DEBUG(errs() << "%%% BB#" << BB.getNumber() << " is a latch\n");
+
+  return isParallelLoop(loop);
+}
+
+bool CSAMemopOrdering::findParallelLoopPseudoOp(const MachineBasicBlock& BB) const {
+  // Return true if the specified basic block contains a .csa_parallel_loop pseudo-op.
+
+  // Find a machine instruction with opcode CSA::CSA_PARALLEL_LOOP in this
+  // basic block.
+  auto MIiter = std::find_if(BB.begin(), BB.end(),
+                             [](const MachineInstr& MI) {
+                               return MI.getOpcode() == CSA::CSA_PARALLEL_LOOP;
+                             });
+
+  if (MIiter != BB.end()) {
+    // BB.erase(MIiter);  // We may eventually want to eliminate the pseudo-op
+    return true;  // Found the parallel pseudo-op
+  }
+
+  return false; // Didn't find the parallel pseudo-op
+}

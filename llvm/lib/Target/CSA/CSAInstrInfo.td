@@ -1680,6 +1680,31 @@ def UNITA : PseudoInstCSA<
     ".unit\t$immType, $idx1, $idx2",
     []>;
 
+// TBD: This is a generic csa directive taking an integer constant argument.
+// It will not be used in the final compiler, but is a convenient hook for
+// experimentation.
+def CSA_DIRECTIVE : PseudoInstCSA<
+    (outs),
+    (ins I32:$md),
+    ".csa_directive\t$md",
+    [ (int_csa_directive (i32 imm:$md)) ]>;
+
+// This pseudo-op is appears the start of a loop loop that starts with a
+// parallel directive (__builtin_csa_parallel_loop() or #pragma omp parallel
+// for).
+def CSA_PARALLEL_LOOP : PseudoInstCSA<
+    (outs),
+    (ins),
+    "# .csa_parallel_loop",
+    [ (int_csa_parallel_loop) ]>;
+
+// Memory dependency sink at the end of each basic block.
+def CSA_PARALLEL_MEMDEP :  PseudoInstCSA<
+    (outs I0:$out),
+    (ins  I0:$in),
+    "mov0\t$out, $in  # .csa_parallel_memdep\t$out, $in",
+    []>;
+
 // Arbitrary immediate support
 def : Pat<(i1 imm:$imm),    (MOV1 imm:$imm)>;
 def : Pat<(i8 imm:$imm),    (MOV8 imm:$imm)>;

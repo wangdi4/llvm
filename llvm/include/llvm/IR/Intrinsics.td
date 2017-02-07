@@ -569,8 +569,8 @@ def int_invariant_end   : Intrinsic<[],
                                      llvm_anyptr_ty],
                                     [IntrArgMemOnly, NoCapture<2>]>;
 
-def int_invariant_group_barrier : Intrinsic<[llvm_ptr_ty], 
-                                            [llvm_ptr_ty], 
+def int_invariant_group_barrier : Intrinsic<[llvm_ptr_ty],
+                                            [llvm_ptr_ty],
                                             [IntrNoMem]>;
 
 //===------------------------ Stackmap Intrinsics -------------------------===//
@@ -610,16 +610,16 @@ def int_experimental_gc_relocate : Intrinsic<[llvm_any_ty],
 
 // Coroutine Structure Intrinsics.
 
-def int_coro_id : Intrinsic<[llvm_token_ty], [llvm_i32_ty, llvm_ptr_ty, 
-                             llvm_ptr_ty, llvm_ptr_ty], 
-                            [IntrArgMemOnly, IntrReadMem, 
+def int_coro_id : Intrinsic<[llvm_token_ty], [llvm_i32_ty, llvm_ptr_ty,
+                             llvm_ptr_ty, llvm_ptr_ty],
+                            [IntrArgMemOnly, IntrReadMem,
                              ReadNone<1>, ReadOnly<2>, NoCapture<2>]>;
 def int_coro_alloc : Intrinsic<[llvm_i1_ty], [llvm_token_ty], []>;
 def int_coro_begin : Intrinsic<[llvm_ptr_ty], [llvm_token_ty, llvm_ptr_ty],
                                [WriteOnly<1>]>;
 
-def int_coro_free : Intrinsic<[llvm_ptr_ty], [llvm_token_ty, llvm_ptr_ty], 
-                              [IntrReadMem, IntrArgMemOnly, ReadOnly<1>, 
+def int_coro_free : Intrinsic<[llvm_ptr_ty], [llvm_token_ty, llvm_ptr_ty],
+                              [IntrReadMem, IntrArgMemOnly, ReadOnly<1>,
                                NoCapture<1>]>;
 def int_coro_end : Intrinsic<[], [llvm_ptr_ty, llvm_i1_ty], []>;
 
@@ -766,3 +766,4 @@ include "llvm/IR/IntrinsicsAMDGPU.td"
 include "llvm/IR/IntrinsicsBPF.td"
 include "llvm/IR/IntrinsicsSystemZ.td"
 include "llvm/IR/IntrinsicsWebAssembly.td"
+include "llvm/IR/IntrinsicsCSA.td"

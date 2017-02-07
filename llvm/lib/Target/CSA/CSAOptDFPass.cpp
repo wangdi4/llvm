@@ -70,7 +70,7 @@ RunSequenceOpt("csa-seq-opt", cl::Hidden,
 enum SequenceOptMode {
   off = 0,
   analysis = 1,
-  standard = 2, 
+  standard = 2,
 };
 //
 //   Other values might be added if needed.
@@ -293,7 +293,7 @@ public:
                             MachineBasicBlock* BB,
                             CSASeqInstrInfo* seqInfo,
                             SmallVector<MachineInstr*,
-                                        SEQ_VEC_WIDTH>& insToDisconnect);                            
+                                        SEQ_VEC_WIDTH>& insToDisconnect);
   void
   seq_do_transform_loop_repeat(CSASeqCandidate& scandidate,
                                CSASeqLoopInfo& loop,
@@ -302,7 +302,7 @@ public:
                                const CSAInstrInfo& TII,
                                SmallVector<MachineInstr*,
                                            SEQ_VEC_WIDTH>& insToDisconnect);
-                               
+
   void
   seq_do_transform_loop_stride(CSASeqCandidate& scandidate,
                                CSASeqLoopInfo& loop,
@@ -310,8 +310,8 @@ public:
                                const CSASeqInstrInfo& seqInfo,
                                const CSAInstrInfo& TII,
                                SmallVector<MachineInstr*,
-                                           SEQ_VEC_WIDTH>& insToDisconnect);                            
-                               
+                                           SEQ_VEC_WIDTH>& insToDisconnect);
+
   void
   seq_do_transform_loop_parloop_memdep(CSASeqCandidate& scandidate,
                                        CSASeqLoopInfo& loop,
@@ -319,8 +319,8 @@ public:
                                        const CSASeqInstrInfo& seqInfo,
                                        const CSAInstrInfo& TII,
                                        SmallVector<MachineInstr*,
-                                                   SEQ_VEC_WIDTH>& insToDisconnect);                            
-                                       
+                                                   SEQ_VEC_WIDTH>& insToDisconnect);
+
   void
   seq_do_transform_loop_reduction(CSASeqCandidate& scandidate,
                                   CSASeqLoopInfo& loop,
@@ -329,7 +329,7 @@ public:
                                   const CSAInstrInfo& TII,
                                   SmallVector<MachineInstr*,
                                               SEQ_VEC_WIDTH>& insToDisconnect);
-                                  
+
 
 
   // Add a switch instruction after "prev_inst" in basic block BB,
@@ -926,7 +926,7 @@ seq_find_candidate_loops(SmallVector<CSASeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
 void CSAOptDFPass::runSequenceOptimizations(SequenceOptMode seq_opt_mode) {
   if (seq_opt_mode != SequenceOptMode::off) {
-    
+
     // Do analysis to identify candidates for sequence optimization.
     DEBUG(errs() << "Running analysis for sequence optimizations\n");
 
@@ -1279,12 +1279,33 @@ seq_classify_memdep_graph(CSASeqCandidate& x) {
       bottom_op->isReg() &&
       top_op->isReg()) {
 
+    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+
     unsigned source_reg = bottom_op->getReg();
     unsigned sink_reg = top_op->getReg();
 
-    // If the knob setting is 2, just ASSUME we have a memory
+    // If the input operand to x.switchInst is generated from a .memdep_sink,
+    // then treat this memory dependency as removable.  TBD: Eventually, also
+    // remove the .memdep_sink instruction.
+    MachineOperand& switchInput = x.switchInst->getOperand(3);
+    if (switchInput.isReg()) {
+      unsigned switchReg = switchInput.getReg();
+      MachineInstr *srcInst = getSingleDef(switchReg, MRI);
+      if (srcInst && CSA::CSA_PARALLEL_MEMDEP == srcInst->getOpcode()) {
+        // TBD: Delete .memdep_sink here
+        DEBUG(errs() << "Remove back edge from memdep_sink\n");
+        x.stype = CSASeqCandidate::SeqType::PARLOOP_MEM_DEP;
+        x.transformInst = NULL;
+        x.top = sink_reg;
+        x.bottom = source_reg;
+        return x.stype;
+      }
+    }
+
+    // If the knob setting is 2, just ASSUME we have identified a memory
     // dependency here, instead of trying to walk the graph to verify
     // we have one.  What could possibly go wrong here?
+    // Our goal is to break that dependency.
     if (SeqBreakMemdep >= 2) {
       DEBUG(errs() << "ASSUMED we have a memdep candidate.\n");
       DEBUG(errs() << "The flag was set.. it is not my fault if it doesn't work!\n");
@@ -1303,9 +1324,8 @@ seq_classify_memdep_graph(CSASeqCandidate& x) {
     // SWITCH1, any OLD* or OST* instructions, and the opcode for
     // memory ordering tokens (nominally MOV0).
 
-    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     const CSAInstrInfo &TII =
-    *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+      *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
     const unsigned MemOpMOVOpcode = TII.getMemTokenMOVOpcode();
 
     const int MAX_LEVELS = 10000;
@@ -1577,14 +1597,9 @@ CSAOptDFPass::
 seq_classify_loop_remaining(SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& remaining,
                             CSASeqLoopInfo& current_loop,
                             SmallVector<CSASeqCandidate, SEQ_VEC_WIDTH>& other) {
-
-  for (auto it = remaining.begin();
-       it != remaining.end();
-       ++it) {
-    CSASeqCandidate& x = *it;
-    CSASeqCandidate::SeqType stype;
-    stype = seq_classify_stride(x,
-                                current_loop.repeat_channels);
+  for (CSASeqCandidate& x : remaining) {
+    CSASeqCandidate::SeqType stype =
+      seq_classify_stride(x, current_loop.repeat_channels);
 
     // Try to classify memory dependency candidates, if the knob
     // is set.
@@ -2090,7 +2105,7 @@ seq_do_transform_loop_seq(CSASeqLoopInfo& loop,
   // deletion.
   insToDisconnect.push_back(loop.header.compareInst);
   insToDisconnect.push_back(indvarCandidate.pickInst);
-  insToDisconnect.push_back(indvarCandidate.switchInst);  
+  insToDisconnect.push_back(indvarCandidate.switchInst);
 
   DEBUG(errs() << "Transform loop_seq: adding a new sequence instruction "
         << *seqInfo->seq_inst << "\n");
@@ -2111,7 +2126,7 @@ seq_do_transform_loop_repeat(CSASeqCandidate& scandidate,
                              const CSAInstrInfo& TII,
                              SmallVector<MachineInstr*,
                                          SEQ_VEC_WIDTH>& insToDisconnect) {
-                             
+
   assert(!scandidate.transformInst);
   MachineInstr* repinst =
     seq_add_repeat(scandidate,
@@ -2271,7 +2286,7 @@ CSAOptDFPass::seq_do_transform_loop(CSASeqLoopInfo& loop) {
   MachineBasicBlock* BB = indvarCandidate.pickInst->getParent();
 
   SmallVector<MachineInstr*, SEQ_VEC_WIDTH> insToDisconnect;
-  
+
   // Summary information about the sequence instruction.
   CSASeqInstrInfo seqInfo;
 
