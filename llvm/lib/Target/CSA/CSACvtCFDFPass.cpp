@@ -348,15 +348,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
 
-
-  bb2switch.clear();
-  bb2pick.clear();
-  multiInputsPick.clear();
-  edgepreds.clear();
-  bbpreds.clear();
-  bb2predmerge.clear();
-  bb2rpo.clear();
-
 #if 1
   //exception handling code creates multiple exits from a function
   SmallVector<MachineBasicBlock*, 4> exitBlks;
@@ -420,7 +411,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForRepeat();
 #if 0
   {
-    errs() << "after rename for repeat" << ":\n";
+    errs() << "after switch for repeat" << ":\n";
     thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());
   }
 #endif
