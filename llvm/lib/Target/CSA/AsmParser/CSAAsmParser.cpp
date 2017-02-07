@@ -207,8 +207,7 @@ public:
     if (Expr == nullptr)
       Inst.addOperand(MCOperand::createImm(0));
     else if (const MCConstantExpr *ConstExpr = dyn_cast<MCConstantExpr>(Expr))
-      Inst.addOperand(
-          MCOperand::createImm(static_cast<int32_t>(ConstExpr->getValue())));
+      Inst.addOperand(MCOperand::createImm(ConstExpr->getValue()));
     else
       Inst.addOperand(MCOperand::createExpr(Expr));
   }
