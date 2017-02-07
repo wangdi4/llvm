@@ -816,10 +816,11 @@ void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
   MachineInstr* UseMI = UseMO.getParent();
   MachineBasicBlock* UseBB = UseMI->getParent();
 
-  bool isUseEnclosingDef = MLI->getLoopFor(UseBB) == NULL ||
-    MLI->getLoopFor(UseBB)->contains(MLI->getLoopFor(mbb)->getParentLoop());
+  bool DefNotEncloseUse = MLI->getLoopFor(UseBB) == NULL || 
+    (MLI->getLoopFor(UseBB) != MLI->getLoopFor(mbb) && 
+      !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(UseBB)));
   //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
-  if (isUseEnclosingDef) {
+  if (DefNotEncloseUse) {
     MachineBasicBlock* exitingBlk = getDominatingExitingBB(exitingBlks, UseMI, Reg);
     //newVReg = SwitchOutExit(Ma
     if (exitingBlk) {
@@ -1053,10 +1054,10 @@ void CSACvtCFDFPass::insertSWITCHForRepeat(MachineLoop* L) {
           MachineBasicBlock* DefBB = dMI->getParent();
           if (DefBB == mbb) continue;
           //use, def in different region cross latch
-          bool isDefEnclosingUse = MLI->getLoopFor(DefBB) == NULL ||
-            MLI->getLoopFor(mbb)->getParentLoop() == MLI->getLoopFor(DefBB);
+          bool isDefOutsideLoop = MLI->getLoopFor(DefBB) == NULL ||
+            MLI->getLoopFor(mbb) != MLI->getLoopFor(DefBB);
 
-          if (isDefEnclosingUse && DT->dominates(DefBB, mbb)) {
+          if (isDefOutsideLoop&& DT->dominates(DefBB, mbb)) {
             repeatOperandInLoop(Reg, mloop);
           }
         }
