@@ -42,6 +42,7 @@ class HLRegion;
 class HLDDNode;
 class HLLoop;
 class HIRFramework;
+class HIRLoopStatistics;
 struct DirectionVector;
 
 enum DDVerificationLevel {
@@ -274,6 +275,7 @@ private:
   Function *F;
   std::unique_ptr<AAResults> AAR;
   HIRFramework *HIRF;
+  HIRLoopStatistics *HLS;
 
   // GraphState initializes to NoData by default.
   enum class GraphState : unsigned char {

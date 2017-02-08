@@ -183,17 +183,15 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
     // Remove IV to calculate min/max for the remaining part.
     CE->removeIV(Level);
 
-    // This is a crude way of avoiding trip count estimation based on conditions
-    // like this-
-    // if (i < 5) A[5 - i] = 0
-    // TODO : Can we refine this logic?
-    if (!HNU.postDominates(Node, Lp->getFirstChild()) ||
-        // The max value of the rest of the CE gives a better estimate on max
-        // trip count so we check max value first. For example, A[i + j] will
-        // give a tighter bound on j for max value of i. Similarly, for A[i - j]
-        // max value of i gives max estimate for j.
-        (!HNU.getMaxValue(CE, Node, NonIVVal) &&
-         !HNU.getMinValue(CE, Node, NonIVVal))) {
+    // Note: Avoiding post-domination check here to save compile time. Since
+    // this is just an estimate, it is okay to not be very accurate.
+
+    // The max value of the rest of the CE gives a better estimate on max
+    // trip count so we check max value first. For example, A[i + j] will
+    // give a tighter bound on j for max value of i. Similarly, for A[i - j]
+    // max value of i gives max estimate for j.
+    if (!HNU.getMaxValue(CE, Node, NonIVVal) &&
+        !HNU.getMinValue(CE, Node, NonIVVal)) {
       // This gets us the most conservative estimate.
       NonIVVal = 0;
     }

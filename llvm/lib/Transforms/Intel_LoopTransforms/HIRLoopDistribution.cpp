@@ -48,6 +48,8 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
 
   auto HIRF = &getAnalysis<HIRFramework>();
   DDA = &getAnalysis<HIRDDAnalysis>();
+  auto HLS = &getAnalysis<HIRLoopStatistics>();
+
   SmallVector<HLLoop *, 64> Loops;
 
   if (DistCostModel == DistHeuristics::BreakMemRec) {
@@ -71,7 +73,7 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
       continue;
     }
 
-    std::unique_ptr<PiGraph> PG(new PiGraph(Lp, DDA));
+    std::unique_ptr<PiGraph> PG(new PiGraph(Lp, DDA, HLS));
 
     if (!PG->isGraphValid()) {
       if (OptReportLevel >= 3) {

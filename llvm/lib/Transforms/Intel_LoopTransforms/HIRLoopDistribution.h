@@ -17,6 +17,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopDistributionGraph.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -43,6 +44,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
   }
   int OptReportLevel = 1;

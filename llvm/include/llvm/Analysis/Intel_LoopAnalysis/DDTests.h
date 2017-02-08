@@ -58,6 +58,7 @@ class DDRef;
 class RegDDRef;
 class HLLoop;
 class HLNodeUtils;
+class HIRLoopStatistics;
 
 /// Dependences - This class represents a dependence between two memory
 /// memory references in a function. It contains minimal information and
@@ -325,8 +326,9 @@ class DDTest {
 
   AAResults &AAR;
   HLNodeUtils &HNU;
+  HIRLoopStatistics &HLS;
 
-  DDTest(AAResults &AAR, HLNodeUtils &HNU);
+  DDTest(AAResults &AAR, HLNodeUtils &HNU, HIRLoopStatistics &HLS);
   ~DDTest();
 
   /// \brief Tests for a dependence between the Src and Dst DDRefs

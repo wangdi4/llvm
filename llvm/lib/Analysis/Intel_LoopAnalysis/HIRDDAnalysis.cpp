@@ -26,12 +26,13 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #include <algorithm>
 #include <map>
@@ -86,6 +87,7 @@ INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(StdContainerAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRDDAnalysis, "hir-dd-analysis",
                     "HIR Data Dependence Analysis", false, true)
 
@@ -94,6 +96,7 @@ void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRLoopStatistics>();
 
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
@@ -121,6 +124,7 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
   }
 
   HIRF = &getAnalysis<HIRFramework>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   // If cl opts are present, build graph for requested loop levels
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
@@ -353,7 +357,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
 
         if (edgeNeeded(Ref1, Ref2, BuildInputEdges) &&
             !isEdgeValid(Ref1, Ref2)) {
-          DDTest DA(*AAR, Node->getHLNodeUtils());
+          DDTest DT(*AAR, Node->getHLNodeUtils(), *HLS);
           DirectionVector InputDV;
           DirectionVector OutputDVForward;
           DirectionVector OutputDVBackward;
@@ -362,7 +366,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
           //= = * for 3rd level inermost loops
           InputDV.setAsInput();
 
-          DA.findDependences(Ref1, Ref2, InputDV, OutputDVForward,
+          DT.findDependences(Ref1, Ref2, InputDV, OutputDVForward,
                              OutputDVBackward, &IsLoopIndepDepTemp);
           //  Sample code to check output:
           //  first check IsDependent
@@ -407,10 +411,10 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
 
   if (RegDDref && !(RegDDref->isTerminalRef())) {
-    DDTest DA(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils());
+    DDTest DT(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils(), *HLS);
     DirectionVector InputDV;
     InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
-    auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
+    auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV);
     if (Result == nullptr) {
       *IsIndependent = true;
       return true;

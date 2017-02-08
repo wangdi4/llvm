@@ -292,8 +292,7 @@ static const HLLoop *getLoop(const CanonExpr *CE, const HLLoop *ParentLoop) {
     }
   }
 
-  Loop =
-      ParentLoop->getHLNodeUtils().getParentLoopwithLevel(IVLevel, ParentLoop);
+  Loop = ParentLoop->getParentLoopAtLevel(IVLevel);
 
   return Loop;
 }
@@ -315,8 +314,7 @@ static const HLLoop *getFirstLoop(const CanonExpr *CE,
     }
   }
 
-  Loop = ParentLoop->getHLNodeUtils().getParentLoopwithLevel(
-      CE->getLevel(CurIVPair), ParentLoop);
+  Loop = ParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
   assert(Loop && "Loop must be found for iv ");
   return Loop;
 }
@@ -358,8 +356,7 @@ const CanonExpr *DDTest::getMinus(const CanonExpr *SrcConst,
     return nullptr;
   }
 
-  CanonExpr *CE =
-      HNU.getCanonExprUtils().cloneAndSubtract(SrcConst, DstConst, true);
+  CanonExpr *CE = CanonExprUtils::cloneAndSubtract(SrcConst, DstConst, true);
   if (!CE) {
     return nullptr;
   }
@@ -376,7 +373,7 @@ const CanonExpr *DDTest::getAdd(const CanonExpr *SrcConst,
   if (!SrcConst || !DstConst) {
     return nullptr;
   }
-  CanonExpr *CE = HNU.getCanonExprUtils().cloneAndAdd(SrcConst, DstConst, true);
+  CanonExpr *CE = CanonExprUtils::cloneAndAdd(SrcConst, DstConst, true);
   if (!CE) {
     return nullptr;
   }
@@ -2928,7 +2925,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
     // based on level, get to corrs. parent loop
     const HLLoop *CurLoop =
-        HNU.getParentLoopwithLevel(CE->getLevel(CurIVPair), SrcParentLoop);
+        SrcParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
 
     assert(CurLoop && "Expecting parent loop not null");
 
@@ -3516,10 +3513,10 @@ DDTest::CoefficientInfo *DDTest::collectCoeffInfo(const CanonExpr *Subscript,
       continue;
     }
     if (SrcFlag) {
-      L = HNU.getParentLoopwithLevel(CE->getLevel(CurIVPair), SrcParentLoop);
+      L = SrcParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
       K = mapSrcLoop(L);
     } else {
-      L = HNU.getParentLoopwithLevel(CE->getLevel(CurIVPair), DstParentLoop);
+      L = DstParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
       K = mapDstLoop(L);
     }
 
@@ -3958,7 +3955,8 @@ static void dumpSmallBitVector(SmallBitVector &BV) {
 }
 #endif
 
-DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU) : AAR(AAR), HNU(HNU) {
+DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU, HIRLoopStatistics &HLS)
+    : AAR(AAR), HNU(HNU), HLS(HLS) {
   DEBUG(dbgs() << "DDTest initiated\n");
   WorkCE.clear();
 }
@@ -4050,7 +4048,6 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   int NumDstDim = 1;
 
   bool EqualBaseCE = false;
-
 
   DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
   DEBUG(dbgs() << ",  "; DstDDRef->dump());
@@ -4833,7 +4830,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       return false;
     }
 
-    if (HNU.dominates(SrcHIR, DstHIR)) {
+    if (HLNodeUtils::dominates(SrcHIR, DstHIR, &HLS)) {
       if (IsFlow) {
         // If src can reach Dst lexically
         //   assuming 2 level loop
