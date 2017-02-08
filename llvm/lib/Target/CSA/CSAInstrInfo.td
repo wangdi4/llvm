@@ -352,6 +352,14 @@ class CopyOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$op0, $op1, $op2, $op3, $op4"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
+class RAppOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$dst, I1:$pred),
+    (ins  oi.RCL:$op2, oi.RCL:$op3),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $pred, $op2, $op3"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
 class MergeOp<string opStr, CSAOpInfo t,
               list<Predicate> preds, InstrItinClass itin> :
   FMTGEN<
@@ -1115,6 +1123,10 @@ def FMRS      : GenericOp<"fmrs", [HasFMA]>;
 def FMRSF16   : FusedOp2<FMRS, fmul, fsub, Tf16, IIFMAF16>;
 def FMRSF32   : FusedOp2<FMRS, fmul, fsub, Tf32, IIFMAF32>;
 def FMRSF64   : FusedOp2<FMRS, fmul, fsub, Tf64, IIFMAF64>;
+
+def RCPA      : GenericOp<"rcpa", [HasFMA]>;
+def RCPAF32   : RAppOp<RCPA,             Tf32, IIFMAF32>;
+def RCPAF64   : RAppOp<RCPA,             Tf64, IIFMAF64>;
 
 // Unfortunately, "COPY" is already defined...
 def GCOPY     : GenericOp<"copy">;
