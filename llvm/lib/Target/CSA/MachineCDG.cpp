@@ -400,6 +400,13 @@ void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePos
 //The original paper actually compute the week region, this algorithms enhance it to compute a strong region 
 //if the loop latch has exit edge, as most LLVM loops do,or it is a while loop
 void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt) {
+  //reset region for each funciton
+  for (unsigned i = 0; i < regions.size(); i++) {
+    CDGRegion *r = regions[i];
+    delete r;
+  }
+  regions.clear();
+
   typedef po_iterator<MachinePostDominatorTree*> po_pdt_iterator;
   DenseMap<MachineBasicBlock *, CDGRegion *> mbb2rgn;
   CDGRegion* rootRegion = new CDGRegion;

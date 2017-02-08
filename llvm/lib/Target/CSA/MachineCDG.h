@@ -205,6 +205,7 @@ namespace llvm {
 			nodes.clear();
 			bb2cdg.clear();
 			cdg2bb.clear();
+      cdg2rgn.clear();
 		}
     virtual ~ControlDependenceGraphBase() { releaseMemory(); }
     virtual void releaseMemory() {
@@ -217,6 +218,7 @@ namespace llvm {
       nodes.clear();
       bb2cdg.clear();
       cdg2bb.clear();
+      cdg2rgn.clear();
       root = NULL;
     }
 
