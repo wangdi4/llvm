@@ -58,11 +58,16 @@ Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
 Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI,
                                              BasicBlock *WRNEntryBB) {
 
-  // The loop pre-header BB is the successor BB of the WRN's entry BB
-  BasicBlock *LoopPreheaderBB = *(succ_begin(WRNEntryBB));
-  BasicBlock *LoopHeaderBB = *(succ_begin(LoopPreheaderBB));
+  // The succssor of WRNEntryBB can be zero trip test block followed 
+  // by the preheader. 
+  BasicBlock *NextBB = *(succ_begin(WRNEntryBB));
+  while (std::distance(pred_begin(NextBB), pred_end(NextBB))==1) {
+    NextBB = *(succ_begin(NextBB));
+  }
 
-  Loop *Lp = LI->getLoopFor(LoopHeaderBB);
+  assert(std::distance(pred_begin(NextBB), pred_end(NextBB))==2);
+  Loop *Lp = LI->getLoopFor(NextBB);
+  assert(Lp && "must have loop");
 
 #if 0
   dbgs() << "Checking BB for Loop:\n" << *LoopHeaderBB << "\n";

@@ -234,6 +234,31 @@ public:
   static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);
 
   /// @}
+
+  /// \brief gets the induction variable of the OMP loop.
+  static PHINode *getOmpCanonicalInductionVariable(Loop *L);
+
+  /// \brief gets the loop lower bound of the OMP loop.
+  static Value *getOmpLoopLowerBound(Loop *L);
+
+  /// \brief gets the loop stride of the OMP loop.
+  static Value *getOmpLoopStride(Loop *L);
+
+  /// \brief gets the loop upper bound of the OMP loop.
+  static Value *getOmpLoopUpperBound(Loop *L);
+
+  /// \brief gets the exit block of the OMP loop.
+  static BasicBlock *getOmpExitBlock(Loop *L);
+
+  /// \brief gets the predicate for the bottom test.
+  static CmpInst::Predicate getOmpPredicate(Loop *L, unsigned &Pos);
+
+  /// \brief gets the bottom test of the OMP loop.
+  static ICmpInst* getOmpLoopBottomTest(Loop *L);
+
+  /// \brief gets the zero trip test of the OMP loop if the zero trip
+  ///  test exists.
+  static ICmpInst *getOmpLoopZeroTripTest(Loop *L);
 };
 
 

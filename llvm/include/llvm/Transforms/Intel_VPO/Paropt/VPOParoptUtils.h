@@ -291,6 +291,18 @@ public:
                                Value *S, 
                                const DataLayout &DL, 
                                BasicBlock *BB);
+
+    /// \brief Computes the OpenMP loop upper bound so that the loop 
+    //  iteration space can be closed interval.
+    static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
+
+    /// \brief Returns the predicate which includes equal for the 
+    //  zero trip test.
+    static Value* computeOmpUpperBound(WRegionNode *W,
+                                       Instruction* InsertPt);
+
+    /// \brief Updates the bottom test predicate to include equal predicate.
+    static void updateOmpPredicate(WRegionNode *W);
 private:
     /// \name Private constructor and destructor to disable instantiation.
     /// @{

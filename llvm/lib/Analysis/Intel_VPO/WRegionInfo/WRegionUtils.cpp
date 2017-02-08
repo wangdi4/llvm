@@ -294,3 +294,183 @@ int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
     llvm_unreachable("Unsupported Atomic Kind");
   }
 }
+
+// gets the induction variable of the OMP loop.
+PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
+  BasicBlock *H = L->getHeader();
+
+  BasicBlock *Incoming = nullptr, *Backedge = nullptr;
+  pred_iterator PI = pred_begin(H);
+  // TBD: messages will become warnings or opt report messages.
+  assert(PI != pred_end(H) &&
+         "Omp loop must have at least one backedge!");
+  Backedge = *PI++;
+  if (PI == pred_end(H))
+    llvm_unreachable("Omp loop is dead loop");
+  Incoming = *PI++;
+  if (PI != pred_end(H)) 
+    llvm_unreachable("Omp loop has multiple backedges");
+
+  if (L->contains(Incoming)) {
+    if (L->contains(Backedge))
+      llvm_unreachable("Omp loop cannot have both incoming and backedge BB!");
+    std::swap(Incoming, Backedge);
+  } else if (!L->contains(Backedge))
+    llvm_unreachable("Omp loop cannot have neither incoming nor backedge BB");
+
+  for (BasicBlock::iterator I = H->begin(); isa<PHINode>(I); ++I) {
+    PHINode *PN = cast<PHINode>(I);
+    if (Instruction *Inc =
+        dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge)))
+      if ((Inc->getOpcode() == Instruction::Add ||
+         Inc->getOpcode() == Instruction::Sub) &&
+         Inc->getOperand(0) == PN)
+        return PN;
+  }
+  llvm_unreachable("Omp loop must have induction variable!");
+
+}
+
+// gets the loop lower bound of the OMP loop.
+Value *WRegionUtils::getOmpLoopLowerBound(Loop *L) {
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  assert(PN != nullptr && "Omp loop must have induction variable!");
+  assert(L->getLoopPreheader() && "Omp loop must have preheader!");
+
+  return PN->getIncomingValueForBlock(L->getLoopPreheader());
+}
+
+// gets the loop stride of the OMP loop.
+Value *WRegionUtils::getOmpLoopStride(Loop *L) {
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  assert(PN != nullptr && "Omp loop must have induction variable!");
+
+  if (Instruction *Inc = dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()))) 
+    if ((Inc->getOpcode() == Instruction::Add ||
+       Inc->getOpcode() == Instruction::Sub) &&
+       Inc->getOperand(0) == PN) 
+      return Inc->getOperand(1);
+  llvm_unreachable("Omp loop must have stride!");
+}
+
+
+// gets the loop upper bound of the OMP loop.
+Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
+  ICmpInst *CondInst;
+  Value *Res;
+
+  CondInst = getOmpLoopBottomTest(L);
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  Instruction *Inc = dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
+  if (CondInst->getOperand(0) == Inc) 
+    Res = CondInst->getOperand(1);
+  else{
+    assert(CondInst->getOperand(1) == Inc &&
+           "Omp loop must have right cmp instruction");
+    Res = CondInst->getOperand(0);
+  }
+  if (dyn_cast<ConstantInt>(Res))
+    return Res;
+
+  CondInst = getOmpLoopZeroTripTest(L);
+  if (CondInst) {
+    if (CondInst->getOperand(0) == getOmpLoopLowerBound(L)) 
+      return CondInst->getOperand(1);
+    else{
+      assert(CondInst->getOperand(1) == getOmpLoopLowerBound(L) &&
+             "Omp loop must have right cmp instruction");
+      return CondInst->getOperand(0);
+    }
+  }
+  llvm_unreachable("Omp loop must have upper bound!");
+}
+
+// gets the zero trip test of the OMP loop if the zero trip
+// test exists.
+ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
+
+  BasicBlock *PB = L->getLoopPreheader();
+  assert(std::distance(pred_begin(PB), pred_end(PB))==1);
+  do {
+    PB = *(pred_begin(PB));
+    if (std::distance(succ_begin(PB), succ_end(PB))==2)
+      break;
+  }while (PB);
+  assert(PB && "Expect to see zero trip test block.");
+  for (BasicBlock::reverse_iterator J = PB->rbegin();
+       J != PB->rend(); ++J) {
+     ICmpInst *CondInst = dyn_cast<ICmpInst>(&*J);
+     if (CondInst &&
+      (CondInst->getPredicate() == ICmpInst::ICMP_SGT ||
+       CondInst->getPredicate() == ICmpInst::ICMP_SGE ||
+       CondInst->getPredicate() == ICmpInst::ICMP_SLT ||
+       CondInst->getPredicate() == ICmpInst::ICMP_SLE ||
+       CondInst->getPredicate() == ICmpInst::ICMP_UGT ||
+       CondInst->getPredicate() == ICmpInst::ICMP_UGE ||
+       CondInst->getPredicate() == ICmpInst::ICMP_ULT ||
+       CondInst->getPredicate() == ICmpInst::ICMP_ULE) &&
+       (CondInst->getOperand(0) == getOmpLoopLowerBound(L) ||
+       CondInst->getOperand(1) == getOmpLoopLowerBound(L))) 
+       return CondInst;
+
+  }
+  llvm_unreachable("Omp loop with non-const upper bound must have zero trip test!"); 
+  
+}
+
+// gets the bottom test of the OMP loop.
+ICmpInst *WRegionUtils::getOmpLoopBottomTest(Loop *L) {
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  assert(PN != nullptr && "Omp loop must have induction variable!");
+  assert(L->isLoopExiting(L->getLoopLatch()) &&
+         "Omp loop must have been rotated!");
+
+  BranchInst *ExitBrInst;
+  ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
+  ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
+  if (CondInst &&
+      (CondInst->getPredicate() == ICmpInst::ICMP_SGT ||
+       CondInst->getPredicate() == ICmpInst::ICMP_SGE ||
+       CondInst->getPredicate() == ICmpInst::ICMP_SLT ||
+       CondInst->getPredicate() == ICmpInst::ICMP_SLE ||
+       CondInst->getPredicate() == ICmpInst::ICMP_UGT ||
+       CondInst->getPredicate() == ICmpInst::ICMP_UGE ||
+       CondInst->getPredicate() == ICmpInst::ICMP_ULT ||
+       CondInst->getPredicate() == ICmpInst::ICMP_ULE)) 
+    return CondInst;
+  
+  llvm_unreachable("Omp loop must have bottom test!");
+}
+
+// gets the exit block of the OMP loop. The OMP loop may contain exit
+// call. The existing LoopInfo returns two exit blocks. The utility
+// is to handle this situation.
+BasicBlock *WRegionUtils::getOmpExitBlock(Loop* L) {
+  BranchInst *ExitBrInst;
+
+  ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
+  for (unsigned I = 0; I < ExitBrInst->getNumSuccessors(); I++) {
+    if (ExitBrInst->getSuccessor(I) != L->getHeader()) 
+      return ExitBrInst->getSuccessor(I);
+  }
+  llvm_unreachable("Omp loop must have one exit block");
+}
+
+// gets the predicate for the bottom test.
+CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, unsigned &Pos) {
+  BranchInst *ExitBrInst;
+  ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
+  ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
+  assert(CondInst && "Omp loop must have cmp instruction at the end!");
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  Instruction *Inc = dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
+  if (CondInst->getOperand(0) == Inc)
+    Pos = 0;
+  else {
+    assert(CondInst->getOperand(1) == Inc &&
+           "Omp loop must have right cmp instruction");
+    Pos = 1;
+  }
+
+  return CondInst->getPredicate();
+}

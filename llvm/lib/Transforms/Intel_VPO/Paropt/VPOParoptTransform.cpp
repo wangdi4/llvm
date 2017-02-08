@@ -363,15 +363,13 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   return Changed;
 }
 
+
 bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
   bool Changed = false;
 
   WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
   Loop *L = WL->getLoop();
-
-  BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *ExitBB = W->getExitBBlock();
 
   DEBUG(dbgs() << "--- Parallel For LoopInfo: \n" << *L);
   DEBUG(dbgs() << "--- Loop Preheader: " << *(L->getLoopPreheader()) << "\n");
@@ -386,12 +384,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
   assert(L->isLoopSimplifyForm() && "should follow from addRequired<>");
 
-  BasicBlock *LoopPreheader = L->getLoopPreheader();
   BasicBlock *LoopHeader = L->getHeader();
   BasicBlock *LoopLatch = L->getLoopLatch();
-
-  StoreInst  *InitInst = nullptr;
-  BranchInst *ExitBrInst = nullptr;
 
   // 
   // This is initial implementation of parallel loop scheduling to get 
@@ -401,71 +395,15 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   // PHI and without PHI nodes as SCEV bails out for many cases
   //
 
-  // Identify branch instruction of loop latch
-  if (L->isLoopExiting(LoopHeader)) {
-    ExitBrInst = dyn_cast<BranchInst>(&*LoopHeader->rbegin());
-    //LoopCount = SE->getExitCount(L, LoopHeader);
-  } else if (L->isLoopExiting(LoopLatch)) {
-    ExitBrInst = dyn_cast<BranchInst>(&*LoopLatch->rbegin());
-    //LoopCount = SE->getExitCount(L, LoopLatch);
-  }
+  IntegerType *IndValTy = cast<IntegerType>(
+    WRegionUtils::getOmpCanonicalInductionVariable(L)->
+    getIncomingValue(0)->getType());
+  Value *InitVal = WRegionUtils::getOmpLoopLowerBound(L);
 
-  Value *LeftValue = nullptr;
-  Value *RightValue = nullptr;
+  Instruction *InsertPt = dyn_cast<Instruction>(L->getLoopPreheader()->getTerminator());
 
-  Value *LpIndex = nullptr;
-  Value *InitVal = nullptr;
-  Value *InitInx = nullptr;
-
-  IntegerType *IndValTy = nullptr;
-
-  ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
-
-  if (CondInst && isa<IntegerType>(CondInst->getOperand(0)->getType())) {
-
-    // DEBUG(dbgs() << "---- Loop Control Instruction: " << *CondInst << "\n");
-    // ICmpInst::Predicate Pred = CondInst->getPredicate();
-
-    // Identify the loop index through loop control instruction
-    LeftValue = CondInst->getOperand(0);
-    const SCEV *LeftSCEV = SE->getSCEV(LeftValue);
-
-    RightValue = CondInst->getOperand(1);
-    const SCEV *RightSCEV = SE->getSCEV(RightValue);
-
-    if (SE->isLoopInvariant(LeftSCEV, L)) {
-      IndValTy = cast<IntegerType>(LeftValue->getType());
-      DEBUG(dbgs() << "---- Is Loop Inv Left SCEV: " << *LeftSCEV << "\n");
-
-      if (LoadInst *LoadInd = dyn_cast<LoadInst>(RightValue)) {
-        LpIndex = LoadInd->getOperand(1);
-        // DEBUG(dbgs() << "---- Loop Index : " << *LpIndex << "\n");
-      }
-
-    } else if (SE->isLoopInvariant(RightSCEV, L)) {
-      IndValTy = cast<IntegerType>(LeftValue->getType());
-      DEBUG(dbgs() << "---- Is Loop Inv Right SCEV: " << *RightSCEV << "\n");
-
-      if (LoadInst *LoadInd = dyn_cast<LoadInst>(LeftValue)) {
-        LpIndex = LoadInd->getOperand(0);
-        // DEBUG(dbgs() << "---- Loop Index : " << *LpIndex << "\n");
-      }
-    }
-  } 
-
-  if (LoopPreheader) {
-    InitInst = dyn_cast<StoreInst>(&*LoopPreheader->begin());
-    InitVal = InitInst->getOperand(0);
-
-    InitInx = InitInst->getOperand(1);
-
-    if (LpIndex && InitInx && LpIndex == InitInx)  
-      DEBUG(dbgs() << "---- Find loop index : " << *InitInx << "\n\n");
-    else 
-      return Changed;
-  }
-
-  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+  LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
 
   AllocaInst *IsLastVal = new AllocaInst(IndValTy, "is.last", InsertPt);
   IsLastVal->setAlignment(4);
@@ -494,6 +432,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   StoreInst *Tmp0 = new StoreInst(InitVal, LowerBnd, false, InsertPt);
   Tmp0->setAlignment(4);
 
+  Value *RightValue = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
+
   StoreInst *Tmp1 = new StoreInst(RightValue, UpperBnd, false, InsertPt);
   Tmp1->setAlignment(4);
 
@@ -506,8 +446,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   StoreInst *Tmp4 = new StoreInst(ValueZero, IsLastVal, false, InsertPt);
   Tmp4->setAlignment(4);
 
-  LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
 
   CallInst* StaticInitCall = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
                                LoadTid, SchedType, IsLastVal, LowerBnd, 
@@ -521,14 +459,38 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   LoadInst *LoadUB = new LoadInst(UpperBnd, "ub.new", InsertPt);
   LoadUB->setAlignment(4);
 
-  InitInst->setOperand(0, LoadLB);
-  CondInst->setOperand(1, LoadUB);
 
-  InsertPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
+  PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
+  PN->removeIncomingValue(L->getLoopPreheader());
+  PN->addIncoming(LoadLB, L->getLoopPreheader());
+
+  BasicBlock *ExitBlock = WRegionUtils::getOmpExitBlock(L);
+
+  unsigned Pos;
+  CmpInst::Predicate PD = 
+    VPOParoptUtils::computeOmpPredicate(
+      WRegionUtils::getOmpPredicate(L, Pos));
+
+  ICmpInst* CompInst;
+  if (Pos == 0)
+    CompInst = new ICmpInst(InsertPt, PD, LoadLB, LoadUB, "");
+  else
+    CompInst = new ICmpInst(InsertPt, PD, LoadUB, LoadLB, "");
+  VPOParoptUtils::updateOmpPredicate(W);
+  BranchInst* PreHdrInst = dyn_cast<BranchInst>(InsertPt);
+  assert(PreHdrInst->getNumSuccessors() == 1 &&
+         "Expect preheader BB has one exit!");
+
+  TerminatorInst *NewTermInst = BranchInst::Create(PreHdrInst->getSuccessor(0),
+                                                   ExitBlock,
+                                                   CompInst);
+  ReplaceInstWithInst(InsertPt, NewTermInst);
+
+  InsertPt = dyn_cast<Instruction>(&*ExitBlock->rbegin());
   CallInst* StaticFiniCall = VPOParoptUtils::genKmpcStaticFini(W, IdentTy,
                                LoadTid, InsertPt);
-
   StaticFiniCall->setCallingConv(CallingConv::C);
+
   Changed = true;
   return Changed;
 }

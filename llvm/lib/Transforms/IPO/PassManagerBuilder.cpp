@@ -340,6 +340,9 @@ void PassManagerBuilder::populateFunctionPassManager(
 
 #if INTEL_CUSTOMIZATION
   if (RunVPOParopt) {
+    // The value -1 indicates that the bottom test generation for 
+    // loop is always enabled.
+    FPM.add(createLoopRotatePass(-1));
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt));
   }

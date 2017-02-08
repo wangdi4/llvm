@@ -950,3 +950,69 @@ CallInst* VPOParoptUtils::genMemcpy(Value *D,
 
   return MemcpyBuilder.CreateMemCpy(Dest, Src, Size, A);
 }
+
+// Computes the OpenMP loop upper bound so that the iteration space can be
+// closed interval.
+Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
+                                            Instruction* InsertPt) {
+  WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
+  Loop *L = WL->getLoop();
+  Value* RightValue = WRegionUtils::getOmpLoopUpperBound(L); 
+  unsigned Pos;
+  CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, Pos);
+  IntegerType *IndValTy = 
+    cast<IntegerType>(WRegionUtils::getOmpCanonicalInductionVariable(L)->
+                      getIncomingValue(0)->getType());
+  ConstantInt *ValueOne  = ConstantInt::get(IndValTy, 1);
+
+  Value *Res;
+  IRBuilder<> Builder(InsertPt);
+
+  if (PD == ICmpInst::ICMP_SLT ||
+      PD == ICmpInst::ICMP_ULT) {
+    if (Pos==0)
+      Res = Builder.CreateSub(RightValue, ValueOne);
+    else
+      Res = Builder.CreateAdd(RightValue, ValueOne);
+  }
+  else if (PD == ICmpInst::ICMP_SGT ||
+           PD == ICmpInst::ICMP_UGT) {
+    if (Pos==0)
+      Res = Builder.CreateAdd(RightValue, ValueOne);
+    else
+      Res = Builder.CreateSub(RightValue, ValueOne);
+  }
+  return Res; 
+   
+}
+
+// Returns the predicate which includes equal for the zero trip test.
+CmpInst::Predicate VPOParoptUtils::computeOmpPredicate(CmpInst::Predicate PD) {
+  if (PD == ICmpInst::ICMP_SLT)
+    return ICmpInst::ICMP_SLE;
+  else if (PD == ICmpInst::ICMP_ULT)
+    return ICmpInst::ICMP_ULE;
+  else if (PD == ICmpInst::ICMP_SGT) 
+    return ICmpInst::ICMP_SGE;
+  else if (PD == ICmpInst::ICMP_UGT) 
+    return ICmpInst::ICMP_UGE;
+  else
+    return PD;
+}
+
+// Updates the bottom test predicate to include equal predicate.
+void VPOParoptUtils::updateOmpPredicate(WRegionNode *W) {
+  WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
+  Loop *L = WL->getLoop();
+  ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
+  unsigned Pos;
+  CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, Pos);
+  if (PD == ICmpInst::ICMP_SLT)
+    IC->setPredicate(ICmpInst::ICMP_SLE);
+  else if (PD == ICmpInst::ICMP_ULT)
+    IC->setPredicate(ICmpInst::ICMP_ULE);
+  else if (PD == ICmpInst::ICMP_SGT) 
+    IC->setPredicate(ICmpInst::ICMP_SGE);
+  else if (PD == ICmpInst::ICMP_UGT) 
+    IC->setPredicate(ICmpInst::ICMP_UGE);
+}
