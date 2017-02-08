@@ -49,6 +49,8 @@ def HasBitOp     : Predicate<"Subtarget.hasBitOp()">;
 def HasIDiv      : Predicate<"Subtarget.hasIDiv()">;
 def HasFDiv      : Predicate<"Subtarget.hasFDiv()">;
 def HasFMA       : Predicate<"Subtarget.hasFMA()">;
+def HasRcpA      : Predicate<"Subtarget.hasRcpA()">;
+def HasRSqrtA    : Predicate<"Subtarget.hasRSqrtA()">;
 def HasSqrt      : Predicate<"Subtarget.hasSqrt()">;
 def HasMath0     : Predicate<"Subtarget.hasMath0()">;
 
@@ -286,6 +288,18 @@ class BinOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
     [(set oi.RC:$dst, (opNode oi.RCL:$op1, oi.RCL:$op2))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
+// There is no SDNode for these. If we want them to be selected, we'll need
+// custom selection in CSAISelLowering due to TableGen's inability to deal with
+// multi-output selection.
+class BinOpC<GenericOp gen, CSAOpInfo oi,
+            InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$dst, I1:$cout),
+    (ins oi.RCL:$op1, oi.RCL:$op2, Ti1.RCL:$cin),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $cout, $op1, $op2, $cin"),
+    [],
+    !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
 // Shift ops specifically have an i8 for the shift amount
 class ShiftOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
@@ -358,6 +372,14 @@ class RAppOp<GenericOp gen, CSAOpInfo oi,
     (outs oi.RC:$dst, I1:$pred),
     (ins  oi.RCL:$op2, oi.RCL:$op3),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $pred, $op2, $op3"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+class RSqrtAppOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$dst, I1:$pred),
+    (ins  oi.RCL:$op2),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $pred, $op2"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 class MergeOp<string opStr, CSAOpInfo t,
@@ -932,6 +954,12 @@ def ADD16     : BinOp<   ADD,    add,    Ti16, IIALU>;
 def ADD32     : BinOp<   ADD,    add,    Ti32, IIALU>;
 def ADD64     : BinOp<   ADD,    add,    Ti64, IIALU>;
 
+def ADC       : GenericOp<"adc">;
+def ADC8      : BinOpC<  ADC,            Ti8,  IIALU>;
+def ADC16     : BinOpC<  ADC,            Ti16, IIALU>;
+def ADC32     : BinOpC<  ADC,            Ti32, IIALU>;
+def ADC64     : BinOpC<  ADC,            Ti64, IIALU>;
+
 def ADDF16    : BinOp<   ADD,    fadd,   Tf16, IIAddF16>;
 def ADDF32    : BinOp<   ADD,    fadd,   Tf32, IIAddF32>;
 def ADDF64    : BinOp<   ADD,    fadd,   Tf64, IIAddF64>;
@@ -943,6 +971,12 @@ def SUB8      : BinOp<   SUB,    sub,    Ti8,  IIALU>;
 def SUB16     : BinOp<   SUB,    sub,    Ti16, IIALU>;
 def SUB32     : BinOp<   SUB,    sub,    Ti32, IIALU>;
 def SUB64     : BinOp<   SUB,    sub,    Ti64, IIALU>;
+
+def SBB       : GenericOp<"sbb">;
+def SBB8      : BinOpC<  SBB,            Ti8,  IIALU>;
+def SBB16     : BinOpC<  SBB,            Ti16, IIALU>;
+def SBB32     : BinOpC<  SBB,            Ti32, IIALU>;
+def SBB64     : BinOpC<  SBB,            Ti64, IIALU>;
 
 def SUBF16    : BinOp<   SUB,    fsub,   Tf16, IIAddF16>;
 def SUBF32    : BinOp<   SUB,    fsub,   Tf32, IIAddF32>;
@@ -1124,9 +1158,13 @@ def FMRSF16   : FusedOp2<FMRS, fmul, fsub, Tf16, IIFMAF16>;
 def FMRSF32   : FusedOp2<FMRS, fmul, fsub, Tf32, IIFMAF32>;
 def FMRSF64   : FusedOp2<FMRS, fmul, fsub, Tf64, IIFMAF64>;
 
-def RCPA      : GenericOp<"rcpa", [HasFMA]>;
-def RCPAF32   : RAppOp<RCPA,             Tf32, IIFMAF32>;
-def RCPAF64   : RAppOp<RCPA,             Tf64, IIFMAF64>;
+def RCPA      : GenericOp<"rcpa", [HasRcpA]>;
+def RCPAF32   : RAppOp<RCPA,             Tf32, IIRcpAF32>;
+def RCPAF64   : RAppOp<RCPA,             Tf64, IIRcpAF64>;
+
+def RSQRTA    : GenericOp<"rsqrta", [HasRSqrtA]>;
+def RSQRTAF32 : RSqrtAppOp<RSQRTA,       Tf32, IIRSqrtAF32>;
+def RSQRTAF64 : RSqrtAppOp<RSQRTA,       Tf64, IIRSqrtAF64>;
 
 // Unfortunately, "COPY" is already defined...
 def GCOPY     : GenericOp<"copy">;
