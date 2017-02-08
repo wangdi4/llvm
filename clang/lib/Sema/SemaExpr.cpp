@@ -11725,6 +11725,8 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
     break;
 
   case UO_LNot: // logical negation
+    { //INTEL
+    bool suppressDiag = false; // INTEL - refer to cq414785.
     // Unlike +/-/~, integer promotions aren't done here (C99 6.5.3.3p5).
     Input = DefaultFunctionArrayLvalueConversion(Input.get());
     if (Input.isInvalid()) return ExprError();
@@ -11740,6 +11742,12 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
       break;
     if (resultType->isScalarType() && !isScopedEnumerationType(resultType)) {
       // C99 6.5.3.3p1: ok, fallthrough;
+#if INTEL_CUSTOMIZATION
+    if (!isa<FloatingLiteral>(Input.get())) {
+      /* Don't suppress conversion warning for ! 2.3 */
+      suppressDiag = true;
+    }
+#endif  /* INTEL_CUSTOMIZATION */
       if (Context.getLangOpts().CPlusPlus) {
         // C++03 [expr.unary.op]p8, C++0x [expr.unary.op]p9:
         // operand contextually converted to bool.
@@ -11774,7 +11782,16 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
     // LNot always has type int. C99 6.5.3.3p5.
     // In C++, it's bool. C++ 5.3.1p8
     resultType = Context.getLogicalOperationType();
+
+#if INTEL_CUSTOMIZATION
+    if (suppressDiag) {
+      /* Suppress the float-to-bool conversion warnings. */
+      Input.get()->setIsCondition();
+    }
+#endif  /* INTEL_CUSTOMIZATION */
+
     break;
+    } //INTEL
   case UO_Real:
   case UO_Imag:
     resultType = CheckRealImagOperand(*this, Input, OpLoc, Opc == UO_Real);
