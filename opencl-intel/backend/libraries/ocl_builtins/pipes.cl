@@ -544,7 +544,7 @@ reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
   }
 
   for (int i = advance(p, reserved, 1);
-       i != advance(p, reserved, num_packets); advance(p, i, 1)) {
+       i != advance(p, reserved, num_packets); i = advance(p, i, 1)) {
     set_hazard_flag(p, i, true);
   }
 
