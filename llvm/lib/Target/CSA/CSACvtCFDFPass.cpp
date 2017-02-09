@@ -813,7 +813,6 @@ void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
   //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
   if (DefNotEncloseUse) {
     MachineBasicBlock* exitingBlk = getDominatingExitingBB(exitingBlks, UseMI, Reg);
-    //newVReg = SwitchOutExit(Ma
     if (exitingBlk) {
       unsigned outVReg = SwitchOutExitingBlk(exitingBlk, Reg, mloop);
       // Rewrite uses that outside of the original def's block, inside the loop
@@ -901,6 +900,13 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBas
   MachineLoop *mloop = L;
   for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
     MachineBasicBlock* mbb = *BI;
+    if (LCSwitch.find(mbb) != LCSwitch.end()) {
+      //mbb is an exit blk, need to handle defs push in from exiting blk, those are defs of a switch instr
+      std::set<unsigned>* LCSwitchs = LCSwitch.find(mbb)->getSecond();
+      for (std::set<unsigned>::iterator iReg = LCSwitchs->begin(); iReg != LCSwitchs->end(); ++iReg) {
+        SwitchDefAcrossLoops(*iReg, mbb, mloop);
+      }
+    }
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = &*I;
       if (TII.isSwitch(MI))
@@ -915,37 +921,33 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBas
         }
       }
     }
-    if (mloop->isLoopExiting(mbb)) {
-      //close definitions live range in exiting blk
-      for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
-        MachineInstr *MI = &*I;
-        if (TII.isSwitch(MI)) {
-          assert(mbb->succ_size() == 2 && "loop exiting blk's # of successor not 2");
-          MachineBasicBlock* succ1 = *mbb->succ_begin();
-          MachineBasicBlock* succ2 = *mbb->succ_rbegin();
-          MachineBasicBlock* exitBlk = mloop->contains(succ1) ? succ2 : succ1;
-          unsigned switchOut = (CDG->getEdgeType(mbb, exitBlk, true) == ControlDependenceNode::FALSE) ? 0 : 1;
-
-          std::set<unsigned>* LCSwitchs;
-          if (LCSwitch.find(exitBlk) == LCSwitch.end()) {
-            LCSwitchs = new std::set<unsigned>;
-            LCSwitch[exitBlk] = LCSwitchs;
-          } else {
-            LCSwitchs = LCSwitch.find(exitBlk)->getSecond();
-          }
-          LCSwitchs->insert(MI->getOperand(switchOut).getReg());
-        }
-      } //end of for MI
-    }
-
-    if (LCSwitch.find(mbb) != LCSwitch.end()) {
-      //mbb is an exit blk, need to handle defs push in from exiting blk, those are defs of a switch instr
-      std::set<unsigned>* LCSwitchs = LCSwitch.find(mbb)->getSecond();
-      for (std::set<unsigned>::iterator iReg = LCSwitchs->begin(); iReg != LCSwitchs->end(); ++iReg) {
-        SwitchDefAcrossLoops(*iReg, mbb, mloop);
-      }
-    }
   }//end of for mbb
+  SmallVector<MachineBasicBlock*, 4> exitingBlks;
+  mloop->getExitingBlocks(exitingBlks);
+  for (unsigned i = 0; i < exitingBlks.size(); i++) {
+    MachineBasicBlock* exitingBlk = exitingBlks[i];
+    assert(exitingBlk);
+    //close definitions live range in exiting blk
+    for (MachineBasicBlock::iterator I = exitingBlk->begin(); I != exitingBlk->end(); ++I) {
+      MachineInstr *MI = &*I;
+      if (TII.isSwitch(MI)) {
+        assert(exitingBlk->succ_size() == 2 && "loop exiting blk's # of successor not 2");
+        MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
+        MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
+        MachineBasicBlock* exitBlk = mloop->contains(succ1) ? succ2 : succ1;
+        unsigned switchOut = (CDG->getEdgeType(exitingBlk, exitBlk, true) == ControlDependenceNode::FALSE) ? 0 : 1;
+
+        std::set<unsigned>* LCSwitchs;
+        if (LCSwitch.find(exitBlk) == LCSwitch.end()) {
+          LCSwitchs = new std::set<unsigned>;
+          LCSwitch[exitBlk] = LCSwitchs;
+        } else {
+          LCSwitchs = LCSwitch.find(exitBlk)->getSecond();
+        }
+        LCSwitchs->insert(MI->getOperand(switchOut).getReg());
+      }
+    } //end of for MI
+  }
 }
 
 
