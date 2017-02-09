@@ -467,6 +467,9 @@ SIMDLaneEvolutionAnalysisBase::constructSLEV(AVRValue *AValue) {
     return createPredefinedSLEV(SLEV(CONSTANT, toAPSInt(CInt->getValue())));
   else if (const ConstantFP *CFP = dyn_cast<ConstantFP>(C))
     return createPredefinedSLEV(SLEV(CONSTANT, CFP->getValueAPF()));
+  else if (isa<ConstantPointerNull>(C))
+    // Treating null pointer as zero
+    return createPredefinedSLEV(SLEV(CONSTANT, toAPSInt(0)));
   else
     llvm_unreachable("Unexpected type of Constant");
 }
@@ -1225,6 +1228,7 @@ INITIALIZE_PASS_BEGIN(SIMDLaneEvolutionHIR, "slev-hir",
 INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
 INITIALIZE_PASS_DEPENDENCY(AvrDefUseHIR)
 INITIALIZE_PASS_DEPENDENCY(AVRDecomposeHIR)
+INITIALIZE_PASS_DEPENDENCY(AvrCFGHIR)
 INITIALIZE_PASS_END(SIMDLaneEvolutionHIR, "slev-hir",
                     "VPO SIMD Lane Evolution Analysis for HIR", false, true)
 

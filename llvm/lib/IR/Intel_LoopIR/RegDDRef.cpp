@@ -445,20 +445,12 @@ bool RegDDRef::isSelfBlob() const {
   return (getSymbase() == SB);
 }
 
-bool RegDDRef::isUnitaryBlob() {
-
-  if (!isStandAloneBlob(false /*AllowConversion*/)) {
+bool RegDDRef::isUnitaryBlob() const {
+  if (!isTerminalRef()) {
     return false;
   }
 
-  // Check if the standalone blob is nested
-  assert(isSingleCanonExpr() && "Expected single CanonExpr in standalone blob");
-  CanonExpr *CE = getSingleCanonExpr();
-
-  assert(CE->numBlobs() == 1 && "Expected only one blob in standalone blob");
-
-  return !getBlobUtils().isNestedBlob(
-      getBlobUtils().getBlob(CE->getSingleBlobIndex()));
+  return getSingleCanonExpr()->isUnitaryBlob();
 }
 
 bool RegDDRef::isUndefSelfBlob() const {

@@ -512,6 +512,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(extern_weak);
   KEYWORD(external);
   KEYWORD(thread_local);
+  KEYWORD(thread_private); // INTEL
   KEYWORD(localdynamic);
   KEYWORD(initialexec);
   KEYWORD(localexec);

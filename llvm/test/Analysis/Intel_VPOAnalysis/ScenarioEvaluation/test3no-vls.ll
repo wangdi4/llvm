@@ -16,10 +16,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -O2 -S -loopopt -debug -enable-vect-vls=0 2>&1 | FileCheck %s
 ;
-;
-; TODO: fix CQ413511 and remove XFAIL
-; XFAIL: *
-; 
 ; CHECK: Consecutive Stride = 0
 ; CHECK-NEXT: Stride = 3
 ; CHECK-NEXT: Case 2: Non-consecutive access Scalarization Cost.

@@ -72,9 +72,9 @@ public:
                                                   unsigned Opcode);
 
   /// \brief Returns a new AVRValueHIR node.
-  static AVRValueHIR *createAVRValueHIR(RegDDRef *DDRef,
-                                        HLNode *HNode,
-                                        AVR *Parent);
+  static AVRValueHIR *createAVRValueHIR(RegDDRef *DDRef, HLNode *HNode,
+                                        AVR *Parent,
+                                        bool isMemoryOperation = false);
 
   /// \brief Returns a new AVRValueHIR node.
   static AVRValueHIR *createAVRValueHIR(BlobDDRef *DDRef,

@@ -173,7 +173,7 @@ protected:
   void setType(Type *DataType) { ExprType = DataType; }
 
   /// Set the data type of this expression.
-  void setCondition(CmpInst::Predicate Cond) { Condition = Cond; }
+  void setCondition(ConditionTy Cond) { Condition = Cond; }
 
   void addOperand(AVR* Operand) { Operands.push_back(Operand); }
 
@@ -185,6 +185,11 @@ public:
   Type *getType() const {
     assert(ExprType && "Data type not set");
     return ExprType;
+  }
+
+  /// \brief Returns the condition of this expression
+  ConditionTy getCondition() const {
+    return Condition;
   }
 
   /// \brief Clone method for AVRExpression.
@@ -353,6 +358,11 @@ public:
 
   /// \brief Returns the decomposed sub-expression tree for this AVRValue.
   AVRExpression *getDecompTree() const { return DecompTree; }
+
+  /// \brief Returns the reaching defs for this AVRValue.
+  const SmallPtrSet<AVRExpression *, 1> &getReachingDefs() const {
+    return ReachingDefs;
+  }
 };
 
 //----------AVR Label Node----------//

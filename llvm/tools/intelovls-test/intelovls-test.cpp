@@ -230,7 +230,7 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
 
   TargetOptions Options;
   return std::unique_ptr<TargetMachine>(T->createTargetMachine(
-      TargetTriple.getTriple(), "core2", "", Options, None,
+      TargetTriple.getTriple(), "core-avx-i", "", Options, None,
       CodeModel::Default, CodeGenOpt::Aggressive));
 }
 
@@ -276,7 +276,7 @@ int main(int argc, char **argv) {
         OVLSTest::createFunctionDecl<int32_t(void)>("client_test", M);
     FunctionAnalysisManager DummyFAM;
     TargetTransformInfo TTI = TM->getTargetIRAnalysis().run(*BarImpl, DummyFAM);
-    OVLSCostModel CM(TTI);
+    OVLSCostModel CM(TTI, OVLSTest::getContext());
 
     // Do something with the grps.
     for (OVLSGroup *Grp : Grps) {

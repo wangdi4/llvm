@@ -75,7 +75,7 @@ process change requests to them.
 
 :doc:`LLVM Specific Clearquest Usage <Clearquest>`
    Describes Clearquest usage policies specific to LLVM development.
-
+   
 Major Components
 ================
 :doc:`LoopAnalysis <LoopAnalysis/index>`

@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -36,6 +37,8 @@ void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Assign Node.
   switch (VLevel) {
+  case PrintCost:
+    OS << "$(" << getRHS()->getCost() << ") ";
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -100,8 +103,10 @@ AVRExpression::AVRExpression(const SmallVectorImpl<AVR *> &Operands,
 
   IsLHSExpr = false;
   this->Operation = Operation; // Set Operation Type
-  for (AVR *Operand : Operands)
+  for (AVR *Operand : Operands) {
     this->Operands.push_back(Operand);
+    AVRUtils::setParent(Operand, this);
+  }
   this->setType(ExprType); // Set the Data Type.
 }
 
@@ -112,7 +117,8 @@ AVRExpression::AVRExpression(Type *ExprType, bool isLHS)
   this->setType(ExprType); // Set the Data Type.
 }
 
-AVRExpression::AVRExpression(unsigned SCID, Type *ExprType) : AVR(SCID), ExprType(ExprType) {}
+AVRExpression::AVRExpression(unsigned SCID, Type *ExprType)
+    : AVR(SCID), ExprType(ExprType) {}
 
 AVRExpression *AVRExpression::clone() const { return nullptr; }
 
@@ -123,6 +129,9 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print AVR Expression Node.
   switch (VLevel) {
+  case PrintCost:
+    // Cost will be printed at the AVRAssign level since the cost will be
+    // completely based on the RHS expression.
   case PrintNumber:
     OS << "(" << getNumber() << ")";
   case PrintAvrDecomp:
@@ -222,6 +231,7 @@ void AVRValue::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print AVR Value Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ")";
   case PrintAvrDecomp:
@@ -279,6 +289,8 @@ void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Phi Node.
   switch (VLevel) {
+  case PrintCost:
+    OS << "$(" << getCost() << ") ";
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -438,6 +450,7 @@ void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent;
 
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -485,6 +498,7 @@ void AVRNOP::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print AVR NOP Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ")";
   case PrintAvrDecomp:
@@ -522,6 +536,7 @@ void AVRUnreachable::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print AVR Unreachable Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ")";
   case PrintAvrDecomp:
@@ -561,6 +576,7 @@ void AVRBlock::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent;
 
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -614,6 +630,8 @@ void AVRPredicate::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent;
 
   switch (VLevel) {
+  case PrintCost:
+    OS << "$(" << getCost() << ") ";
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
