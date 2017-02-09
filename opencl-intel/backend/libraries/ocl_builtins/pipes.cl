@@ -220,15 +220,30 @@ void __ovld atomic_store(__global volatile atomic_int *object, int desired);
 bool __ovld atomic_compare_exchange_weak(__global volatile atomic_int *object,
                                          __private int *expected, int desired);
 
-#if 0
+#define DEBUG_INF_LOOPS 1
+#define DEBUG_PRINTF 0
+#define DEBUG_DUMP_HAZ_FLAGS 1
+#define DEBUG_ASSERTS 1
+
+#define _STRINGIFY(x) #x
+#define STRINGIFY(x) _STRINGIFY(x)
+
+#if DEBUG_ASSERTS
+#define ASSERT(cond) { if (!cond) {printf(">> ASSERT at "                \
+                                          STRINGIFY(__FILE__) ":"        \
+                                          STRINGIFY(__LINE__) ": " #cond \
+                                          "\n");                         \
+                                   *((volatile int*)NULL) = 0;}}
+#else
+#define ASSERT(cond) (void)#cond;
+#endif
+
+#if DEBUG_PRINTF
 #define PRINTF printf
 #else
 #define PRINTF (void)
 #endif
 
-#define DEBUG_INF_LOOPS 0
-#define DEBUG_DUMP_HAZ_FLAGS 1
-#define DEBUG_ASSERTS 0
 
 struct __pipe_t {
   int packet_size;
@@ -339,7 +354,7 @@ static int find_hazard_index(__global struct __pipe_t* p,
   return index_to;
 }
 
-static int __pipe_dump(__global struct __pipe_t* p) {
+static void __pipe_dump(__global struct __pipe_t* p) {
   printf(">>>> pipe dump:\n"
          ">> packet_size = %d, max_packets = %d\n"
          ">> begin = %d, end = %d\n"
@@ -388,47 +403,68 @@ void __pipe_init_intel(__global struct __pipe_t* p,
   }
 }
 
-reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
-                                        uint num_packets) {
-  int end = atomic_load(&p->end);
-  int reserved = end;
-
+static int __marker_fetch(__global volatile atomic_int* marker) {
+  long attempts = 10000000;
   while (true) {
-    int begin = atomic_load(&p->begin);
-
-    int avail = get_write_capacity(p, begin, end);
-
-    if (avail < (int) num_packets) {
-      PRINTF("__reserve_write_pipe: overflow: avail = %d, req = %d, "
-             "begin = %d, end = %d\n",
-             avail, num_packets, begin, end);
-
-      return CLK_NULL_RESERVE_ID;
+#if DEBUG_INF_LOOPS
+  if (!--attempts) ASSERT(0 && "marker fetch hang");
+#endif
+  int value = atomic_load(marker);
+    if (value != -1) {
+      return value;
     }
+  }
+}
 
-    reserved = end;
+static int __marker_lock(__global volatile atomic_int* marker) {
+  long attempts = 10000000;
+  while (true) {
+#if DEBUG_INF_LOOPS
+  if (!--attempts) ASSERT(0 && "marker lock hang");
+#endif
 
-    // first, set the hazard flag to make sure that `hazard_write_begin` will
-    // not be moved ahead of our first packet when we move the `end`.
-    bool hazard_expected = false;
-    if (!cmp_xchg_hazard_flag(p, reserved, &hazard_expected, true)) {
-      // somebody set the hazard flag before us
-      // they propbably moved the end, so we must load it and start again
-
-      end = atomic_load(&p->end);
-
-      // TODO: asavonic: performance: maybe skip the load here?  if the `end` is
-      // not yet moved, we get one extra load and still must make another
-      // iteration.
-
+    int value = atomic_load(marker);
+    if (value == -1) {
       continue;
     }
 
-    int new_end = advance(p, end, num_packets);
-    if (atomic_compare_exchange_weak(&p->end, &end, new_end)) {
-      break;
+    if (atomic_compare_exchange_weak(marker, &value, -1)) {
+      return value;
     }
   }
+}
+
+static void __marker_release(__global volatile atomic_int* marker, int value) {
+#if DEBUG_ASSERTS
+  int expected = -1;
+  if (!atomic_compare_exchange_weak(marker, &expected, value)) {
+    ASSERT(0 && "marker not acquired before release");
+  }
+#else
+  atomic_store(marker, value);
+#endif
+}
+
+reserve_id_t __reserve_write_pipe_intel(__global struct __pipe_t* p,
+                                        uint num_packets) {
+  int begin = __marker_fetch(&p->begin);
+  int end = __marker_lock(&p->end);
+  int avail = get_write_capacity(p, begin, end);
+
+  if (avail < (int) num_packets) {
+    PRINTF("__reserve_write_pipe: overflow: avail = %d, req = %d, "
+           "begin = %d, end = %d\n",
+           avail, num_packets, begin, end);
+
+    __marker_release(&p->end, end);
+    return CLK_NULL_RESERVE_ID;
+  }
+
+  int reserved = end;
+
+  set_hazard_flag(p, reserved, true);
+
+  __marker_release(&p->end, advance(p, reserved, num_packets));
 
   for (int i = advance(p, reserved, 1);
        i != advance(p, reserved, num_packets); i = advance(p, i, 1)) {
@@ -450,98 +486,57 @@ int __write_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
   PRINTF("__write_pipe_4: writing at index %d\n", write_index);
   __builtin_memcpy(get_packet_ptr(p, write_index), src, p->packet_size);
 
-  set_hazard_flag(p, write_index, false);
+  // OK, write is done. Now we need to move `hazard_write_begin` forward to the
+  // first hazardous item or to the `end`.
 
-  // OK, write is done and our hazard flag is not set. Now we need to atomically
-  // move `hazard_write_begin` forward to the first hazardous item or to the
-  // `end`.
-  int hazard_write_begin = atomic_load(&p->hazard_write_begin);
+  int hazard_write_begin = __marker_lock(&p->hazard_write_begin);
+  set_hazard_flag(p, write_index, false);
 
   if (hazard_write_begin != write_index) {
     // only the first hazardous item should move the `hazard_write_begin`
     PRINTF("__write_pipe_4: ok at index %d\n", write_index);
+    __marker_release(&p->hazard_write_begin, hazard_write_begin);
     return 0;
   }
 
   PRINTF("__write_pipe_4: start update hazard_write_begin from %d\n",
          hazard_write_begin);
 
-  while (true) {
-    int end = atomic_load(&p->end);
-    int haz_index = find_hazard_index(p, advance(p, write_index, 1), end);
+  int end = __marker_lock(&p->end);
 
-    atomic_store(&p->hazard_write_begin, haz_index);
+  int haz_index = find_hazard_index(p, advance(p, write_index, 1), end);
 
-    if (haz_index == end) {
-      PRINTF("__write_pipe_4: hazardous area is clear, end = %d\n", end);
-      break;
-    }
 
-    // make sure `haz_index` item didn't unset hazard flag between our
-    // find_hazard_index() and `hazard_write_begin` move
-    if (get_hazard_flag(p, haz_index) == true) {
-      // it's still hazardous, we can rely on him in moving `hazard_write_begin`
-      PRINTF("__write_pipe_4: updated hazard_write_begin to %d\n", haz_index);
-      break;
-    }
-  }
+  __marker_release(&p->end, end);
+  __marker_release(&p->hazard_write_begin, haz_index);;
 
+  PRINTF("__write_pipe_4: updated hazard_write_begin to %d\n", haz_index);
   return 0;
 }
 
 
 reserve_id_t __reserve_read_pipe_intel(__global struct __pipe_t* p,
                                        uint num_packets) {
-  int hazard_read_end = atomic_load(&p->hazard_read_end);
+  int hazard_write_begin = __marker_fetch(&p->hazard_write_begin);
+  int hazard_read_end = __marker_lock(&p->hazard_read_end);
+
+  int avail = get_read_capacity(p, hazard_read_end, hazard_write_begin);
+
+  if (avail < (int) num_packets) {
+    PRINTF("__reserve_read_pipe: overflow: avail = %d, req = %d, "
+           "hre = %d, hwb = %d\n",
+           avail, num_packets, hazard_read_end, hazard_write_begin);
+
+    __marker_release(&p->hazard_read_end, hazard_read_end);
+    return CLK_NULL_RESERVE_ID;
+  }
+
   int reserved = hazard_read_end;
 
-  int attempts = 1000000;
-  while (true) {
-#if DEBUG_INF_LOOPS
-    if (!--attempts) {
-      attempts = 1000000;
-      printf("__reserve_read_pipe: deadlock detected!");
-      __pipe_dump(p);
-      *((volatile int*)NULL) = 0xdead;
-    }
-#endif
-    int hazard_write_begin = atomic_load(&p->hazard_write_begin);
+  set_hazard_flag(p, reserved, true);
 
-    int avail = get_read_capacity(p, hazard_read_end, hazard_write_begin);
-
-    if (avail < (int) num_packets) {
-      PRINTF("__reserve_read_pipe: overflow: avail = %d, req = %d, "
-             "hre = %d, hwb = %d\n",
-             avail, num_packets, hazard_read_end, hazard_write_begin);
-
-      return CLK_NULL_RESERVE_ID;
-    }
-
-    reserved = hazard_read_end;
-
-    // first, set the hazard flag to make sure that `hazard_read_end` will not be
-    // moved to the item ahead of our first packet after we move the `end`.
-    bool hazard_expected = false;
-    if (!cmp_xchg_hazard_flag(p, reserved, &hazard_expected, true)) {
-      // somebody set the hazard flag before us
-      // they probably moved the end, so we must load it and start again
-
-      hazard_read_end = atomic_load(&p->hazard_read_end);
-
-      // TODO: asavonic: performance: maybe skip the load here?  if the `end` is
-      // not yet moved, we get one extra load and still must make another
-      // iteration.
-
-      continue;
-    }
-
-
-    int new = advance(p, hazard_read_end, num_packets);
-    if (atomic_compare_exchange_weak(&p->hazard_read_end, &hazard_read_end,
-                                       new)) {
-      break;
-    }
-  }
+  __marker_release(&p->hazard_read_end,
+                   advance(p, reserved, num_packets));
 
   for (int i = advance(p, reserved, 1);
        i != advance(p, reserved, num_packets); i = advance(p, i, 1)) {
@@ -561,53 +556,30 @@ int __read_pipe_4_intel(__global struct __pipe_t* p, reserve_id_t reserve_id,
   int read_index = advance(p, reserved, index);
   __builtin_memcpy(dst, get_packet_ptr(p, read_index), p->packet_size);
 
-  set_hazard_flag(p, read_index, false);
+  // OK, read is done. Now we need to move `begin` forward to the first
+  // hazardous item or to the `hazard_read_end`.
 
-  // OK, read is done and our hazard flag is not set. Now we need to atomically
-  // move `begin` forward to the first hazardous item or to the
-  // `hazard_read_end`.
-  int begin = atomic_load(&p->begin);
+  int begin = __marker_lock(&p->begin);
+  set_hazard_flag(p, read_index, false);
 
   if (begin != read_index) {
     // only the first hazardous item should move the `begin`
     PRINTF("__read_pipe_4: ok at index %d\n", read_index);
+    __marker_release(&p->begin, begin);
     return 0;
   }
 
   PRINTF("__read_pipe_4: start update begin from %d\n", begin);
 
-  long attempts = 100000;
-  while (true) {
-#if DEBUG_INF_LOOPS
-    if (!--attempts) {
-      attempts = 1000000;
-      printf("__read_pipe: deadlock detected!");
-      __pipe_dump(p);
-      *((volatile int*)NULL) = 0xdead;
-    }
-#endif
+  int hazard_read_end = __marker_lock(&p->hazard_read_end);
 
-    int hazard_read_end = atomic_load(&p->hazard_read_end);
-    int haz_index = find_hazard_index(p, advance(p, read_index, 1),
-                                      hazard_read_end);
+  int haz_index = find_hazard_index(p, advance(p, read_index, 1),
+                                    hazard_read_end);
 
-    atomic_store(&p->begin, haz_index);
+  __marker_release(&p->hazard_read_end, hazard_read_end);
+  __marker_release(&p->begin, haz_index);
 
-    if (haz_index == hazard_read_end) {
-      PRINTF("__read_pipe_4: hazardous area is clear, begin = %d\n",
-             haz_index);
-      break;
-    }
-
-    // make sure `haz_index` item didn't unset hazard flag between our
-    // find_hazard_index() and `begin` move
-    if (get_hazard_flag(p, haz_index) == true) {
-      // it's still hazardous, we can rely on him in moving `hazard_write_begin`
-      PRINTF("__read_pipe_4: updated begin to %d\n", haz_index);
-      break;
-    }
-  }
-
+  PRINTF("__read_pipe_4: updated begin to %d\n", haz_index);
   return 0;
 }
 
@@ -646,6 +618,7 @@ int __read_pipe_2_bl_intel(__global struct __pipe_t* p, void* dst) {
 
 int __write_pipe_2_bl_intel(__global struct __pipe_t* p, void* src) {
   long attempts = 10000000;
+  // __pipe_dump(p);
   while(__write_pipe_2_intel(p, src)) {
 #if DEBUG_INF_LOOPS
     if (!--attempts) {
