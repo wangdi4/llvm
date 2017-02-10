@@ -202,6 +202,9 @@ template <class T>
 void function_missing_typename(const T::Type param)// expected-warning {{missing 'typename' prior to dependent type name}}
 {
     const T::Type var = 2; // expected-warning {{missing 'typename' prior to dependent type name}}
+    const A<T>::TYPE var2 = 2; // expected-warning {{missing 'typename' prior to dependent type name}}            // INTEL
+    A<T>::TYPE var3 = 2; // expected-warning {{missing 'typename' prior to dependent type name}}                  // INTEL
+    MissingTypename::A<T>::TYPE var4 = 2; // expected-warning {{missing 'typename' prior to dependent type name}} // INTEL
 }
 
 template void function_missing_typename<D>(const D::Type param);

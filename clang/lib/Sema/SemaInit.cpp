@@ -4992,10 +4992,11 @@ InitializationSequence::InitializationSequence(Sema &S,
                                                const InitializationKind &Kind,
                                                MultiExprArg Args,
                                                bool TopLevelOfInitList,
-                                               bool TreatUnavailableAsInvalid)
+                                               bool TreatUnavailableAsInvalid, // INTEL
+                                               bool AllowGnuPermissive) // INTEL
     : FailedCandidateSet(Kind.getLocation(), OverloadCandidateSet::CSK_Normal) {
   InitializeFrom(S, Entity, Kind, Args, TopLevelOfInitList,
-                 TreatUnavailableAsInvalid);
+                 TreatUnavailableAsInvalid, AllowGnuPermissive); // INTEL
 }
 
 /// Tries to get a FunctionDecl out of `E`. If it succeeds and we can take the
@@ -5014,7 +5015,8 @@ void InitializationSequence::InitializeFrom(Sema &S,
                                             const InitializationKind &Kind,
                                             MultiExprArg Args,
                                             bool TopLevelOfInitList,
-                                            bool TreatUnavailableAsInvalid) {
+                                            bool TreatUnavailableAsInvalid, // INTEL
+                                            bool AllowGnuPermissive) { // INTEL
   ASTContext &Context = S.Context;
 
   // Eliminate non-overload placeholder types in the arguments.  We
@@ -5309,7 +5311,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
                               /*AllowExplicitConversions*/ false,
                               /*InOverloadResolution*/ false,
                               /*CStyle=*/Kind.isCStyleOrFunctionalCast(),
-                              allowObjCWritebackConversion);
+                              allowObjCWritebackConversion, AllowGnuPermissive); // INTEL
 
   if (ICS.isStandard() &&
       ICS.Standard.Second == ICK_Writeback_Conversion) {

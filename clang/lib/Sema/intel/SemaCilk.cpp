@@ -4530,7 +4530,7 @@ StmtResult Sema::BuildCilkForStmt(SourceLocation CilkForLoc,
   Result->setInnerLoopControlVar(FSI->InnerLoopControlVar);
   Result->setInnerLoopVarAdjust(AdjustExpr.get());
 
-  if (FSI->ExprNeedsCleanups)
+  if (FSI->Cleanup.exprNeedsCleanups())
     Cleanup.setExprNeedsCleanups(true);
 
   PopExpressionEvaluationContext();
@@ -4627,7 +4627,7 @@ StmtResult Sema::BuildSIMDForStmt(SourceLocation PragmaLoc,
                                             LoopStride, LoopControlVar, ForLoc,
                                             LParenLoc, RParenLoc);
 
-  if (FSI->ExprNeedsCleanups)
+  if (FSI->Cleanup.exprNeedsCleanups())
     Cleanup.setExprNeedsCleanups(true);
   PopExpressionEvaluationContext();
   PopDeclContext();

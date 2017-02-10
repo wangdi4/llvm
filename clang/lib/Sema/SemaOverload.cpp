@@ -1323,7 +1323,8 @@ TryImplicitConversion(Sema &S, Expr *From, QualType ToType,
                       bool InOverloadResolution,
                       bool CStyle,
                       bool AllowObjCWritebackConversion,
-                      bool AllowObjCConversionOnExplicit) {
+                      bool AllowObjCConversionOnExplicit, // INTEL
+                      bool AllowGnuPermissive = true) {  // INTEL
   ImplicitConversionSequence ICS;
   if (IsStandardConversion(S, From, ToType, InOverloadResolution,
                            ICS.Standard, CStyle, AllowObjCWritebackConversion)){
@@ -1371,7 +1372,7 @@ TryImplicitConversion(Sema &S, Expr *From, QualType ToType,
       S, From, ToType, SuppressUserConversions, AllowExplicit,
       InOverloadResolution, CStyle, AllowObjCWritebackConversion,
       AllowObjCConversionOnExplicit);
-  if (Result.isBad() &&
+  if (AllowGnuPermissive && Result.isBad() &&
       S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive &&
       isPermissivePointerConversion(FromType, ToType, S.Context)) {
     // Permissive conversion like a standard conversion but for overloading
@@ -1390,12 +1391,14 @@ Sema::TryImplicitConversion(Expr *From, QualType ToType,
                             bool AllowExplicit,
                             bool InOverloadResolution,
                             bool CStyle,
-                            bool AllowObjCWritebackConversion) {
+                            bool AllowObjCWritebackConversion, // INTEL
+                            bool AllowGnuPermissive) {  // INTEL
   return ::TryImplicitConversion(*this, From, ToType, 
                                  SuppressUserConversions, AllowExplicit,
                                  InOverloadResolution, CStyle, 
                                  AllowObjCWritebackConversion,
-                                 /*AllowObjCConversionOnExplicit=*/false);
+                                 /*AllowObjCConversionOnExplicit=*/false, // INTEL
+                                 AllowGnuPermissive); // INTEL
 }
 
 /// PerformImplicitConversion - Perform an implicit conversion of the
