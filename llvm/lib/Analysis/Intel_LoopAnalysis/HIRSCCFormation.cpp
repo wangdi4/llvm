@@ -346,7 +346,7 @@ bool HIRSCCFormation::removedIntermediateNodes(SCC &CurSCC) const {
   // Collect all the intermediate nodes of the SCC for removal afterwards.
   for (auto Node : CurSCC) {
 
-    if ((NodeCount > 2) && hasMultipleNonPhiSCCUses(Node, CurSCC)) {
+    if ((NodeCount > 2) && hasMultipleSCCUsesAtSameLevel(Node, CurSCC)) {
       return false;
     }
 
@@ -394,7 +394,7 @@ bool HIRSCCFormation::removedIntermediateNodes(SCC &CurSCC) const {
 
   for (auto InterNode : IntermediateNodes) {
     auto NodeIt = std::find(CurSCC.begin(), CurSCC.end(), InterNode);
-    assert((NodeIt != CurSCC.end()) && "SCC node not found!"); 
+    assert((NodeIt != CurSCC.end()) && "SCC node not found!");
     CurSCC.remove(NodeIt);
   }
 
@@ -506,36 +506,53 @@ bool HIRSCCFormation::isCmpAndSelectPattern(Instruction *Inst1,
   return (CInst->hasOneUse() && (*(CInst->user_begin()) == SelInst));
 }
 
-bool HIRSCCFormation::hasMultipleNonPhiSCCUses(NodeTy *Node,
-                                               const SCC &CurSCC) const {
+bool HIRSCCFormation::hasMultipleSCCUsesAtSameLevel(NodeTy *Node,
+                                                    const SCC &CurSCC) const {
   NodeTy *SCCUserNode = nullptr;
+  SmallPtrSet<Loop *, 4> LoopUses;
 
-  // Use in multiple non-phi nodes can lead to live-range issues which SSA
-  // deconstruction cannot handle.
+  // Use in multiple scc nodes at the same loop level can lead to live-range
+  // issues which SSA deconstruction cannot handle.
   // This SCC contains multiple cycles instead of a single simple cycle that we
   // are looking for.
   // Ref- https://en.wikipedia.org/wiki/Cycle_(graph_theory)
   for (auto UserIt = Node->user_begin(), E = Node->user_end(); UserIt != E;
        ++UserIt) {
-    if (isa<PHINode>(*UserIt)) {
-      continue;
-    }
-
     auto UserNode = cast<NodeTy>(*UserIt);
 
     // After deconstruction the uses will be substituted by the liveout copy so
     // check its uses.
     if (SE->getHIRMetadata(UserNode, ScalarEvolution::HIRLiveKind::LiveOut)) {
-      return hasMultipleNonPhiSCCUses(UserNode, CurSCC);
+      return hasMultipleSCCUsesAtSameLevel(UserNode, CurSCC);
     }
 
-    if (CurSCC.contains(UserNode)) {
-      if (SCCUserNode && (SCCUserNode != UserNode) &&
-          // Used to identify min/max reductions.
-          !isCmpAndSelectPattern(SCCUserNode, UserNode)) {
-        return true;
-      }
+    if (!CurSCC.contains(UserNode)) {
+      continue;
+    }
+
+    auto PhiUse = dyn_cast<PHINode>(UserNode);
+
+    // Ignore non-header phi uses.
+    if (PhiUse && !RI->isHeaderPhi(PhiUse)) {
+      continue;
+    }
+
+    // Use in same node is okay. For example-
+    // t = add a, a
+    if (SCCUserNode && ((SCCUserNode == UserNode) ||
+                        // Used to identify min/max reductions.
+                        isCmpAndSelectPattern(SCCUserNode, UserNode))) {
+      continue;
+    }
+
+    auto Lp = LI->getLoopFor(UserNode->getParent());
+    assert(Lp && "SCC use is outside any loop!");
+
+    if (LoopUses.count(Lp)) {
+      return true;
+    } else {
       SCCUserNode = UserNode;
+      LoopUses.insert(Lp);
     }
   }
 
