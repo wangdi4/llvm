@@ -200,10 +200,13 @@ const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
       break;
     }
 
-    Scalar = PhiInst->getOperand(0);
+    auto Op = PhiInst->getOperand(0);
 
-    assert(isa<Instruction>(Scalar) &&
-           "Single phi operand is not an instruction!");
+    if (!isa<Instruction>(Op)) {
+      break;
+    }
+
+    Scalar = Op;
 
     PhiInst = dyn_cast<PHINode>(Scalar);
   }

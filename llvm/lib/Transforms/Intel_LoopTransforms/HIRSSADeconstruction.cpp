@@ -717,8 +717,10 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     // }
     //
 
-    // Standalone single operand phis do not need to be processed.
-    if (Phi->getNumIncomingValues() == 1) {
+    // Standalone single operand phis with instruction operand do not need to be
+    // processed.
+    if ((Phi->getNumIncomingValues() == 1) &&
+        isa<Instruction>(Phi->getOperand(0))) {
       return;
     }
 
