@@ -184,32 +184,6 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   return InsertionPos;
 }
 
-bool HIRCreation::isReachableFrom(
-    const BasicBlock *BB, const SmallPtrSet<const BasicBlock *, 2> &EndBBs,
-    const SmallPtrSet<const BasicBlock *, 8> &FromBBs) const {
-
-  if (FromBBs.count(BB)) {
-    return true;
-  }
-
-  if (EndBBs.count(BB)) {
-    return false;
-  }
-
-  for (auto Pred = pred_begin(BB), E = pred_end(BB); Pred != E; ++Pred) {
-    auto PredBB = *Pred;
-
-    // Skip recursing into backedges otherwise we will get stuck in an infinite
-    // cycle.
-    if (!DT->dominates(BB, PredBB) &&
-        isReachableFrom(PredBB, EndBBs, FromBBs)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 void HIRCreation::populateEndBBs(
     const BasicBlock *BB, SmallPtrSet<const BasicBlock *, 2> &EndBBs) const {
   EndBBs.insert(BB);
@@ -236,7 +210,7 @@ bool HIRCreation::isCrossLinked(const BranchInst *BI,
     FromBBs.insert(BI->getSuccessor(0));
   }
 
-  return isReachableFrom(SuccessorBB, EndBBs, FromBBs);
+  return RI->isReachableFrom(SuccessorBB, EndBBs, FromBBs);
 }
 
 bool HIRCreation::isCrossLinked(const SwitchInst *SI,
@@ -267,7 +241,7 @@ bool HIRCreation::isCrossLinked(const SwitchInst *SI,
     }
   }
 
-  return isReachableFrom(SuccessorBB, EndBBs, FromBBs);
+  return RI->isReachableFrom(SuccessorBB, EndBBs, FromBBs);
 }
 
 void HIRCreation::sortDomChildren(
@@ -299,7 +273,7 @@ void HIRCreation::sortDomChildren(
 
     // First check satisfies the strict weak ordering requirements of
     // comparator function.
-    return ((B1 != B2) && isReachableFrom(B1, EndBBs, FromBBs));
+    return ((B1 != B2) && RI->isReachableFrom(B1, EndBBs, FromBBs));
   };
 
   std::sort(SortedChildren.begin(), SortedChildren.end(), ReverseLexOrder);

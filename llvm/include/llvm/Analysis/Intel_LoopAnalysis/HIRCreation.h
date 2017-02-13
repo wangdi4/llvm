@@ -103,12 +103,6 @@ private:
   void populateEndBBs(const BasicBlock *BB,
                       SmallPtrSet<const BasicBlock *, 2> &EndBBs) const;
 
-  /// Returns true if \p BB can be reached from any of the \p FromBBs before
-  /// hitting any \p EndBBs and without going through any backedges.
-  bool isReachableFrom(const BasicBlock *BB,
-                       const SmallPtrSet<const BasicBlock *, 2> &EndBBs,
-                       const SmallPtrSet<const BasicBlock *, 8> &FromBBs) const;
-
   /// Returns true if \p SuccessorBB is cross linked to (reachable from) the
   /// other successor of \p BI.
   bool isCrossLinked(const BranchInst *BI, const BasicBlock *SuccessorBB) const;
