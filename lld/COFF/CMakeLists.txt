@@ -21,6 +21,8 @@ add_lld_library(lldCOFF
   LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
   Core
+  DebugInfoMSF
+  DebugInfoPDB
   LTO
   LibDriver
   Object
@@ -33,6 +35,8 @@ add_lld_library(lldCOFF
   LINK_LIBS
   lldCore
   ${PTHREAD_LIB}
-  )
 
-add_dependencies(lldCOFF COFFOptionsTableGen)
+  DEPENDS
+  COFFOptionsTableGen
+  intrinsics_gen
+  )

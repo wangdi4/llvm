@@ -13,15 +13,17 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
   # Rely on llvm-config.
   set(CONFIG_OUTPUT)
-  find_program(LLVM_CONFIG "llvm-config")
+  if (NOT LLVM_CONFIG_PATH)
+    find_program(LLVM_CONFIG_PATH "llvm-config")
+  endif()
   if(DEFINED LLVM_PATH)
     set(LLVM_INCLUDE_DIR ${LLVM_INCLUDE_DIR} CACHE PATH "Path to llvm/include")
     set(LLVM_PATH ${LLVM_PATH} CACHE PATH "Path to LLVM source tree")
     set(LLVM_MAIN_SRC_DIR ${LLVM_PATH})
     set(LLVM_CMAKE_PATH "${LLVM_PATH}/cmake/modules")
-  elseif(LLVM_CONFIG)
-    message(STATUS "Found LLVM_CONFIG as ${LLVM_CONFIG}")
-    set(CONFIG_COMMAND ${LLVM_CONFIG}
+  elseif(LLVM_CONFIG_PATH)
+    message(STATUS "Found LLVM_CONFIG_PATH as ${LLVM_CONFIG_PATH}")
+    set(CONFIG_COMMAND ${LLVM_CONFIG_PATH}
       "--includedir"
       "--prefix"
       "--src-root")
@@ -47,11 +49,11 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(LLVM_INCLUDE_DIR ${INCLUDE_DIR} CACHE PATH "Path to llvm/include")
     set(LLVM_BINARY_DIR ${LLVM_OBJ_ROOT} CACHE PATH "Path to LLVM build tree")
     set(LLVM_MAIN_SRC_DIR ${MAIN_SRC_DIR} CACHE PATH "Path to LLVM source tree")
-    set(LLVM_CMAKE_PATH "${LLVM_BINARY_DIR}/share/llvm/cmake")
+    set(LLVM_CMAKE_PATH "${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}/cmake/llvm")
     set(LLVM_LIT_PATH "${LLVM_PATH}/utils/lit/lit.py")
   else()
     message(FATAL_ERROR "llvm-config not found and LLVM_MAIN_SRC_DIR not defined. "
-                        "Reconfigure with -DLLVM_CONFIG=path/to/llvm-config "
+                        "Reconfigure with -DLLVM_CONFIG_PATH=path/to/llvm-config "
                         "or -DLLVM_PATH=path/to/llvm-source-root.")
   endif()
 
@@ -96,7 +98,7 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   set(LIBCXXABI_LIBDIR_SUFFIX "${LLVM_LIBDIR_SUFFIX}" CACHE STRING
       "Define suffix of library directory name (32/64)")
 
-  set(LIBCXXABI_BUILT_STANDALONE 1)
+  set(LIBCXXABI_STANDALONE_BUILD 1)
 else()
   set(LLVM_MAIN_SRC_DIR "${CMAKE_SOURCE_DIR}" CACHE PATH "Path to LLVM source tree")
   set(LLVM_LIT "${CMAKE_SOURCE_DIR}/utils/lit/lit.py")
@@ -135,13 +137,27 @@ if (NOT LIBCXXABI_ENABLE_SHARED AND NOT LIBCXXABI_ENABLE_STATIC)
   message(FATAL_ERROR "libc++abi must be built as either a shared or static library.")
 endif()
 
+if (LLVM_EXTERNAL_LIBCXX_SOURCE_DIR)
+  set(LIBCXXABI_LIBCXX_SRC_DIRS ${LLVM_EXTERNAL_LIBCXX_SOURCE_DIR})
+else()
+  set(LIBCXXABI_LIBCXX_SRC_DIRS
+    "${LLVM_MAIN_SRC_DIR}/projects/libcxx"
+    "${LLVM_MAIN_SRC_DIR}/runtimes/libcxx"
+    )
+endif()
+
+set(LIBCXXABI_LIBCXX_INCLUDE_DIRS "")
+foreach(dir ${LIBCXXABI_LIBCXX_SRC_DIRS})
+  list(APPEND LIBCXXABI_LIBCXX_INCLUDE_DIRS "${dir}/include")
+endforeach()
+
 find_path(
   LIBCXXABI_LIBCXX_INCLUDES
   vector
   PATHS ${LIBCXXABI_LIBCXX_INCLUDES}
         ${LIBCXXABI_LIBCXX_PATH}/include
         ${CMAKE_BINARY_DIR}/${LIBCXXABI_LIBCXX_INCLUDES}
-        ${LLVM_MAIN_SRC_DIR}/projects/libcxx/include
+        ${LIBCXXABI_LIBCXX_INCLUDE_DIRS}
         ${LLVM_INCLUDE_DIR}/c++/v1
   )
 
@@ -153,7 +169,7 @@ find_path(
   test/libcxx/__init__.py
   PATHS ${LIBCXXABI_LIBCXX_PATH}
         ${LIBCXXABI_LIBCXX_INCLUDES}/../
-        ${LLVM_MAIN_SRC_DIR}/projects/libcxx/
+        ${LIBCXXABI_LIBCXX_SRC_DIRS}
   NO_DEFAULT_PATH
   )
 
@@ -233,6 +249,10 @@ add_target_flags_if(LIBCXXABI_GCC_TOOLCHAIN
 add_target_flags_if(LIBCXXABI_SYSROOT
           "--sysroot=${LIBCXXABI_SYSROOT}")
 
+if (LIBCXXABI_TARGET_TRIPLE)
+  set(TARGET_TRIPLE "${LIBCXXABI_TARGET_TRIPLE}")
+endif()
+
 # Configure compiler. Must happen after setting the target flags.
 include(config-ix)
 
@@ -245,6 +265,15 @@ endif()
 
 if (LIBCXXABI_USE_COMPILER_RT)
   list(APPEND LIBCXXABI_LINK_FLAGS "-rtlib=compiler-rt")
+endif()
+
+# Let the library headers know they are currently being used to build the
+# library.
+add_definitions(-D_LIBCXXABI_BUILDING_LIBRARY)
+
+# Disable DLL annotations on Windows for static builds.
+if (WIN32 AND LIBCXXABI_ENABLE_STATIC AND NOT LIBCXXABI_ENABLE_SHARED)
+  add_definitions(-D_LIBCXXABI_DISABLE_DLL_IMPORT_EXPORT)
 endif()
 
 append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WERROR_FLAG -Werror=return-type)
@@ -324,20 +353,20 @@ if (NOT LIBCXXABI_ENABLE_THREADS)
                         " be set to ON when LIBCXXABI_ENABLE_THREADS"
                         " is also set to ON.")
   endif()
-  add_definitions(-DLIBCXXABI_HAS_NO_THREADS=1)
+  add_definitions(-D_LIBCXXABI_HAS_NO_THREADS)
 endif()
 
 if (LIBCXXABI_HAS_PTHREAD_API)
   add_definitions(-D_LIBCPP_HAS_THREAD_API_PTHREAD)
+  add_definitions(-D_LIBCXXABI_USE_THREAD_API_PTHREAD)
 endif()
 
-# This is the _ONLY_ place where add_definitions is called.
 if (MSVC)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 # Define LIBCXXABI_USE_LLVM_UNWINDER for conditional compilation.
-if (LIBCXXABI_USE_LLVM_UNWINDER OR LLVM_NATIVE_ARCH MATCHES ARM)
+if (LIBCXXABI_USE_LLVM_UNWINDER)
   add_definitions(-DLIBCXXABI_USE_LLVM_UNWINDER=1)
 endif()
 
@@ -363,6 +392,7 @@ if (LIBCXXABI_USE_LLVM_UNWINDER OR LLVM_NATIVE_ARCH MATCHES ARM)
           ${LIBCXXABI_LIBUNWIND_PATH}/include
           ${CMAKE_BINARY_DIR}/${LIBCXXABI_LIBUNWIND_INCLUDES}
           ${LLVM_MAIN_SRC_DIR}/projects/libunwind/include
+          ${LLVM_MAIN_SRC_DIR}/runtimes/libunwind/include
     NO_DEFAULT_PATH
   )
 
@@ -372,6 +402,7 @@ if (LIBCXXABI_USE_LLVM_UNWINDER OR LLVM_NATIVE_ARCH MATCHES ARM)
     PATHS ${LIBCXXABI_LIBUNWIND_PATH}/src/
           ${LIBCXXABI_LIBUNWIND_INCLUDES}/../src/
           ${LLVM_MAIN_SRC_DIR}/projects/libunwind/src/
+          ${LLVM_MAIN_SRC_DIR}/runtimes/libunwind/src/
     NO_DEFAULT_PATH
   )
 
@@ -388,7 +419,7 @@ endif()
 # soname, etc...
 add_subdirectory(src)
 
-if (LIBCXXABI_BUILT_STANDALONE AND NOT LIBCXXABI_ENABLE_SHARED)
+if (LIBCXXABI_STANDALONE_BUILD AND NOT LIBCXXABI_ENABLE_SHARED)
   # We can't reasonably test the system C++ library with a static libc++abi.
   # We either need to be able to replace libc++abi at run time (with a shared
   # libc++abi), or we need to be able to replace the C++ runtime (with a non-

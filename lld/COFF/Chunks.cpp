@@ -28,7 +28,7 @@ namespace lld {
 namespace coff {
 
 SectionChunk::SectionChunk(ObjectFile *F, const coff_section *H)
-    : Chunk(SectionKind), Repl(this), File(F), Header(H),
+    : Chunk(SectionKind), Repl(this), Header(H), File(F),
       Relocs(File->getCOFFObj()->getRelocations(Header)),
       NumRelocs(std::distance(Relocs.begin(), Relocs.end())) {
   // Initialize SectionName.
@@ -134,6 +134,7 @@ void SectionChunk::applyRelARM(uint8_t *Off, uint16_t Type, Defined *Sym,
   case IMAGE_REL_ARM_BRANCH20T: applyBranch20T(Off, S - P - 4); break;
   case IMAGE_REL_ARM_BRANCH24T: applyBranch24T(Off, S - P - 4); break;
   case IMAGE_REL_ARM_BLX23T:    applyBranch24T(Off, S - P - 4); break;
+  case IMAGE_REL_ARM_SECREL:    add32(Off, Sym->getSecrel()); break;
   default:
     fatal("unsupported relocation type");
   }
@@ -248,7 +249,7 @@ void SectionChunk::replace(SectionChunk *Other) {
 CommonChunk::CommonChunk(const COFFSymbolRef S) : Sym(S) {
   // Common symbols are aligned on natural boundaries up to 32 bytes.
   // This is what MSVC link.exe does.
-  Align = std::min(uint64_t(32), NextPowerOf2(Sym.getValue()));
+  Align = std::min(uint64_t(32), PowerOf2Ceil(Sym.getValue()));
 }
 
 uint32_t CommonChunk::getPermissions() const {
