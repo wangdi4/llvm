@@ -25,6 +25,7 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSSAUpdater.h"
@@ -170,6 +171,7 @@ namespace llvm {
     bool CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb);
     void replaceIfFooterPhiSeq();
     void assignLicForDF();
+    void createFIEntryDefs();
     void removeBranch();
     void linearizeCFG();
     unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb);
@@ -357,6 +359,13 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (exitBlks.size() > 1) return false;
 #endif
 
+  // Give up and run on SXU if there is dynamic stack activity we don't handle.
+  if (thisMF->getFrameInfo().hasVarSizedObjects()) {
+    errs() << "WARNING: dataflow conversion not attempting to handle dynamic stack allocation.\n";
+    errs() << "Function \"" << thisMF->getName() << "\" will run on the SXU.\n";
+    return false;
+  }
+
   bool Modified = false;
 
 #if 0
@@ -367,6 +376,12 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     return false;
   }
 #endif
+
+  // Move reads of index references, which turn into invariant uses of
+  // implicitly live-in registers, into the function entry. This is done so
+  // that dataflow conversion recognizes these non-loop value defs as ones
+  // which need to be flowed in.
+  createFIEntryDefs();
 
   replaceUndefWithIgn();
 
@@ -1423,6 +1438,90 @@ void CSACvtCFDFPass::replaceLoopHdrPhi() {
   }
 }
 
+/* Do a sweep over all instructions, looking for direct frame index uses. The
+ * use will be replaced with a vreg defined in the entry of the function so
+ * that they will be recognized as defs going into any dataflow. This is only
+ * intended to handle fixed-size frame objects. The result should still be
+ * suitable for SXU execution. */
+void CSACvtCFDFPass::createFIEntryDefs() {
+  const TargetInstrInfo *TII = thisMF->getSubtarget().getInstrInfo();
+  MachineRegisterInfo &MRI = thisMF->getRegInfo();
+
+  // Build a set of FI users which should be moved to the function entry.
+  std::set<MachineOperand*> toReplace;
+  // The set of FIs which need vregs created for them in this function.
+  std::set<int> entryFIs;
+  // A map of FIs to their corresponding virtual registers in the function's
+  // entry BB.
+  std::map<int, unsigned> fiVRegMap;
+
+  // Collect the FI users which need to be modified.
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    ControlDependenceNode* mNode = CDG->getNode(&*BB);
+    bool hasCDGParent = (mNode->getNumParents() > 1 ||
+        (mNode->getNumParents() == 1 && (*mNode->parent_begin())->getBlock()));
+
+    // Only worry about uses which aren't already in control flow entry.
+    if (!hasCDGParent)
+      continue;
+
+    for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
+        if (MO->isFI()) {
+          int index = MO->getIndex();
+          toReplace.insert(&*MO);
+          entryFIs.insert(index);
+        }
+      }
+    }
+  }
+
+  // If no interesting uses were found, then nothing needs to be done.
+  if (toReplace.empty())
+    return;
+
+  // Find the entry block. (Surely there's an easier way to do this?)
+  ControlDependenceNode *rootN = CDG->getRoot();
+  assert(rootN && *rootN->begin());
+  MachineBasicBlock *rootBB = (*rootN->begin())->getBlock();
+  assert(rootBB);
+
+  // Def a virtual register for this FI index in the function entry.
+  for (int index : entryFIs) {
+    unsigned vReg = MRI.createVirtualRegister(&CSA::I64RegClass);
+    BuildMI(*rootBB, rootBB->getFirstInstrTerminator(), DebugLoc(),
+        TII->get(CSA::MOV64), vReg).addFrameIndex(index);
+
+    fiVRegMap[index] = vReg;
+  }
+
+  // Try to eliminate the in-loop def, in case it's now just a redundant mov of
+  // the entry def. If the use of the value wasn't as simple as a mov, then
+  // just replace the operand.
+  for (MachineOperand *mo : toReplace) {
+    int index = mo->getIndex();
+    unsigned vReg = fiVRegMap[index];
+    MachineInstr *oldInst = mo->getParent();
+
+    if (oldInst->getOpcode() == CSA::MOV64 && oldInst->getOperand(0).isReg() &&
+        TargetRegisterInfo::isVirtualRegister(oldInst->getOperand(0).getReg())) {
+      // If the value we're replacing is just being moved into another virtual
+      // register, then replace the whole instruction.
+      unsigned oldVReg = oldInst->getOperand(0).getReg();
+      MRI.replaceRegWith(oldVReg, vReg);
+      oldInst->eraseFromParent();
+    } else {
+      // This is an assert because I'm not sure that it ever happens.
+      assert(false && "Found a non-MOV use of a frame index. This is not handled.");
+      // If it does, replacing the use with the new vReg is the thing to do,
+      // but doing this (below) alone doesn't seem to be sufficient to get the
+      // values correctly passed through picks/switchs. Needs debugging.
+
+      // Just replace the FI operand with our new vReg.
+      mo->ChangeToRegister(vReg, false);
+    }
+  }
+}
 
 void CSACvtCFDFPass::assignLicForDF() {
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
