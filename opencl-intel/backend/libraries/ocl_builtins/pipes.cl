@@ -220,10 +220,10 @@ void __ovld atomic_store(__global volatile atomic_int *object, int desired);
 bool __ovld atomic_compare_exchange_weak(__global volatile atomic_int *object,
                                          __private int *expected, int desired);
 
-#define DEBUG_INF_LOOPS 1
+#define DEBUG_INF_LOOPS 0
 #define DEBUG_PRINTF 0
-#define DEBUG_DUMP_HAZ_FLAGS 1
-#define DEBUG_ASSERTS 1
+#define DEBUG_DUMP_HAZ_FLAGS 
+#define DEBUG_ASSERTS 0
 
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
