@@ -545,6 +545,7 @@ StmtResult Parser::ParseExprStatement() {
   // If a case keyword is missing, this is where it should be inserted.
   Token OldToken = Tok;
 
+  ExprStatementTokLoc = Tok.getLocation();
 #if INTEL_SPECIFIC_CILKPLUS
   // expression[opt] ';'
   Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);

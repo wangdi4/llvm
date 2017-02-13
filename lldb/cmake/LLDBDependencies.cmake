@@ -21,7 +21,7 @@ set( LLDB_USED_LIBS
   lldbPluginDynamicLoaderPosixDYLD
   lldbPluginDynamicLoaderHexagonDYLD
   lldbPluginDynamicLoaderWindowsDYLD
-  
+
   lldbPluginCPlusPlusLanguage
   lldbPluginGoLanguage
   lldbPluginJavaLanguage
@@ -81,6 +81,7 @@ set( LLDB_USED_LIBS
   lldbPluginInstrumentationRuntimeThreadSanitizer
   lldbPluginSystemRuntimeMacOSX
   lldbPluginProcessElfCore
+  lldbPluginProcessMinidump
   lldbPluginJITLoaderGDB
   lldbPluginExpressionParserClang
   lldbPluginExpressionParserGo
@@ -90,7 +91,6 @@ set( LLDB_USED_LIBS
 if ( CMAKE_SYSTEM_NAME MATCHES "Windows" )
   list(APPEND LLDB_USED_LIBS
     lldbPluginProcessWindows
-    lldbPluginProcessWinMiniDump
     lldbPluginProcessWindowsCommon
     Ws2_32
     Rpcrt4
@@ -191,6 +191,7 @@ set(LLVM_LINK_COMPONENTS
   bitreader
   bitwriter
   codegen
+  demangle
   ipo
   selectiondag
   bitreader
@@ -207,8 +208,6 @@ set(LLVM_LINK_COMPONENTS
   )
 
 if ( NOT LLDB_DISABLE_PYTHON )
-  set(LLDB_WRAP_PYTHON ${LLDB_BINARY_DIR}/scripts/LLDBWrapPython.cpp)
-
   set_source_files_properties(${LLDB_WRAP_PYTHON} PROPERTIES GENERATED 1)
   if (CLANG_CL)
     set_source_files_properties(${LLDB_WRAP_PYTHON} PROPERTIES COMPILE_FLAGS -Wno-unused-function)

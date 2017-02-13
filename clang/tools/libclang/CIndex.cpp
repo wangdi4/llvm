@@ -1255,8 +1255,20 @@ bool CursorVisitor::VisitUnresolvedUsingTypenameDecl(
 bool CursorVisitor::VisitStaticAssertDecl(StaticAssertDecl *D) {
   if (Visit(MakeCXCursor(D->getAssertExpr(), StmtParent, TU, RegionOfInterest)))
     return true;
-  if (Visit(MakeCXCursor(D->getMessage(), StmtParent, TU, RegionOfInterest)))
-    return true;
+  if (StringLiteral *Message = D->getMessage())
+    if (Visit(MakeCXCursor(Message, StmtParent, TU, RegionOfInterest)))
+      return true;
+  return false;
+}
+
+bool CursorVisitor::VisitFriendDecl(FriendDecl *D) {
+  if (NamedDecl *FriendD = D->getFriendDecl()) {
+    if (Visit(MakeCXCursor(FriendD, TU, RegionOfInterest)))
+      return true;
+  } else if (TypeSourceInfo *TI = D->getFriendType()) {
+    if (Visit(TI->getTypeLoc()))
+      return true;
+  }
   return false;
 }
 
@@ -1544,6 +1556,18 @@ bool CursorVisitor::VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc TL) {
 
 bool CursorVisitor::VisitObjCInterfaceTypeLoc(ObjCInterfaceTypeLoc TL) {
   return Visit(MakeCursorObjCClassRef(TL.getIFaceDecl(), TL.getNameLoc(), TU));
+}
+
+bool CursorVisitor::VisitObjCTypeParamTypeLoc(ObjCTypeParamTypeLoc TL) {
+  if (Visit(MakeCursorTypeRef(TL.getDecl(), TL.getLocStart(), TU)))
+    return true;
+  for (unsigned I = 0, N = TL.getNumProtocols(); I != N; ++I) {
+    if (Visit(MakeCursorObjCProtocolRef(TL.getProtocol(I), TL.getProtocolLoc(I),
+                                        TU)))
+      return true;
+  }
+
+  return false;
 }
 
 bool CursorVisitor::VisitObjCObjectTypeLoc(ObjCObjectTypeLoc TL) {
@@ -1990,6 +2014,8 @@ public:
       const OMPTargetParallelForSimdDirective *D);
   void VisitOMPTargetSimdDirective(const OMPTargetSimdDirective *D);
   void VisitOMPTeamsDistributeDirective(const OMPTeamsDistributeDirective *D);
+  void VisitOMPTeamsDistributeSimdDirective(
+      const OMPTeamsDistributeSimdDirective *D);
 
 private:
   void AddDeclarationNameInfo(const Stmt *S);
@@ -2776,6 +2802,11 @@ void EnqueueVisitor::VisitOMPTargetSimdDirective(
 
 void EnqueueVisitor::VisitOMPTeamsDistributeDirective(
     const OMPTeamsDistributeDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPTeamsDistributeSimdDirective(
+    const OMPTeamsDistributeSimdDirective *D) {
   VisitOMPLoopDirective(D);
 }
 
@@ -4911,12 +4942,16 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPTargetSimdDirective");
   case CXCursor_OMPTeamsDistributeDirective:
     return cxstring::createRef("OMPTeamsDistributeDirective");
+  case CXCursor_OMPTeamsDistributeSimdDirective:
+    return cxstring::createRef("OMPTeamsDistributeSimdDirective");
   case CXCursor_OverloadCandidate:
       return cxstring::createRef("OverloadCandidate");
   case CXCursor_TypeAliasTemplateDecl:
       return cxstring::createRef("TypeAliasTemplateDecl");
   case CXCursor_StaticAssert:
       return cxstring::createRef("StaticAssert");
+  case CXCursor_FriendDecl:
+    return cxstring::createRef("FriendDecl");
   }
 
   llvm_unreachable("Unhandled CXCursorKind");
@@ -5659,6 +5694,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::ObjCImplementation:
   case Decl::AccessSpec:
   case Decl::LinkageSpec:
+  case Decl::Export:
   case Decl::ObjCPropertyImpl:
   case Decl::FileScopeAsm:
   case Decl::StaticAssert:
@@ -6147,7 +6183,7 @@ static void getTokens(ASTUnit *CXXUnit, SourceRange Range,
     }
     CXTokens.push_back(CXTok);
     previousWasAt = Tok.is(tok::at);
-  } while (Lex.getBufferLocation() <= EffectiveBufferEnd);
+  } while (Lex.getBufferLocation() < EffectiveBufferEnd);
 }
 
 void clang_tokenize(CXTranslationUnit TU, CXSourceRange Range,
@@ -7752,7 +7788,7 @@ CXTUResourceUsage clang_getCXTUResourceUsage(CXTranslationUnit TU) {
   CXTUResourceUsage usage = { (void*) entries.get(),
                             (unsigned) entries->size(),
                             !entries->empty() ? &(*entries)[0] : nullptr };
-  entries.release();
+  (void)entries.release();
   return usage;
 }
 
@@ -8111,4 +8147,10 @@ cxindex::Logger::~Logger() {
 extern volatile int ClangTidyPluginAnchorSource;
 static int LLVM_ATTRIBUTE_UNUSED ClangTidyPluginAnchorDestination =
     ClangTidyPluginAnchorSource;
+
+// This anchor is used to force the linker to link the clang-include-fixer
+// plugin.
+extern volatile int ClangIncludeFixerPluginAnchorSource;
+static int LLVM_ATTRIBUTE_UNUSED ClangIncludeFixerPluginAnchorDestination =
+    ClangIncludeFixerPluginAnchorSource;
 #endif

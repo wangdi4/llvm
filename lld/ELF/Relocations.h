@@ -15,14 +15,20 @@
 namespace lld {
 namespace elf {
 class SymbolBody;
+class InputSectionData;
 template <class ELFT> class InputSection;
 template <class ELFT> class InputSectionBase;
 
+// List of target-independent relocation types. Relocations read
+// from files are converted to these types so that the main code
+// doesn't have to know about architecture-specific details.
 enum RelExpr {
   R_ABS,
   R_GOT,
   R_GOTONLY_PC,
+  R_GOTONLY_PC_FROM_END,
   R_GOTREL,
+  R_GOTREL_FROM_END,
   R_GOT_FROM_END,
   R_GOT_OFF,
   R_GOT_PAGE_PC,
@@ -30,6 +36,8 @@ enum RelExpr {
   R_HINT,
   R_MIPS_GOT_LOCAL_PAGE,
   R_MIPS_GOT_OFF,
+  R_MIPS_GOT_OFF32,
+  R_MIPS_GOTREL,
   R_MIPS_TLSGD,
   R_MIPS_TLSLD,
   R_NEG_TLS,
@@ -58,26 +66,28 @@ enum RelExpr {
   R_TLS,
   R_TLSDESC,
   R_TLSDESC_PAGE,
+  R_TLSDESC_CALL,
   R_TLSGD,
   R_TLSGD_PC,
   R_TLSLD,
-  R_TLSLD_PC
+  R_TLSLD_PC,
 };
 
-template <class ELFT> struct Relocation {
+// Architecture-neutral representation of relocation.
+struct Relocation {
   RelExpr Expr;
   uint32_t Type;
-  InputSectionBase<ELFT> *InputSec;
   uint64_t Offset;
   uint64_t Addend;
   SymbolBody *Sym;
 };
 
-template <class ELFT>
-void scanRelocations(InputSectionBase<ELFT> &, const typename ELFT::Shdr &);
+template <class ELFT> void scanRelocations(InputSectionBase<ELFT> &);
+
+template <class ELFT> void createThunks(InputSectionBase<ELFT> &);
 
 template <class ELFT>
-void createThunks(InputSectionBase<ELFT> &, const typename ELFT::Shdr &);
+std::string getLocation(InputSectionBase<ELFT> &S, typename ELFT::uint Offset);
 
 template <class ELFT>
 static inline typename ELFT::uint getAddend(const typename ELFT::Rel &Rel) {
