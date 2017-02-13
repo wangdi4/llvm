@@ -265,6 +265,8 @@ public:
 
   bool visitBasicBlock(const BasicBlock &BB);
   bool visitInstruction(const Instruction &Inst);
+  bool visitLoadInst(const LoadInst &LI);
+  bool visitStoreInst(const StoreInst &SI);
   bool visitCallInst(const CallInst &CI);
   bool visitBranchInst(const BranchInst &BI);
 };
@@ -314,6 +316,28 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
   }
 
   return Ret;
+}
+
+bool HIRRegionIdentification::CostModelAnalyzer::visitLoadInst(
+    const LoadInst &LI) {
+  if (LI.isVolatile()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
+                    "volatile load.\n");
+    return false;
+  }
+
+  return visitInstruction(static_cast<const Instruction &>(LI));
+}
+
+bool HIRRegionIdentification::CostModelAnalyzer::visitStoreInst(
+    const StoreInst &SI) {
+  if (SI.isVolatile()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
+                    "volatile store.\n");
+    return false;
+  }
+
+  return visitInstruction(static_cast<const Instruction &>(SI));
 }
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
