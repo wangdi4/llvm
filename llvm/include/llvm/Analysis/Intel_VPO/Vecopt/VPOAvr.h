@@ -85,7 +85,6 @@ private:
 protected:
   AVR(unsigned SCID);
   AVR(const AVR &AVRObj);
-  virtual ~AVR() {}
 
   /// \brief Destroys the object.
   void destroy();
@@ -111,6 +110,8 @@ protected:
   }
 
 public:
+  virtual ~AVR() {}
+
   /// Virtual Clone Method
   virtual AVR *clone() const = 0;
 
@@ -183,6 +184,12 @@ public:
 
 } // End VPO Vectorizer Namspace
 
+#if 0
+/// FIXME(DLK) - The ilist data structure was again changed in r281184. Make
+///              sure this is the right way to deal with it. Note that I also
+///              made ~AVR() public, which is probably not the right thing to
+///              do. You might want to talk to Pankaj & Pavel, since they had
+///              to make similar changes in loopopt.
 /// \brief Traits for iplist<AVR>
 ///
 /// See ilist_traits<Instruction> in BasicBlock.h for details
@@ -197,6 +204,7 @@ struct ilist_traits<vpo::AVR> : public ilist_default_traits<vpo::AVR> {
   }
   static void deleteNode(vpo::AVR *) {}
 };
+#endif
 
 namespace vpo { // VPO Vectorizer Namespace
 

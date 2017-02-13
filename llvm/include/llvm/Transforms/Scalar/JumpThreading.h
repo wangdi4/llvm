@@ -135,16 +135,7 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   };
 
 public:
-  JumpThreadingPass(int T = -1, bool AllowCFGSimps = true);
-  // Hack for MSVC 2013 which seems like it can't synthesize this.
-  JumpThreadingPass(JumpThreadingPass &&Other)
-      : TLI(Other.TLI), LVI(Other.LVI), BFI(std::move(Other.BFI)),
-        BPI(std::move(Other.BPI)), HasProfileData(Other.HasProfileData),
-        LoopHeaders(std::move(Other.LoopHeaders)),
-        RecursionSet(std::move(Other.RecursionSet)),
-        DoCFGSimplifications(Other.DoCFGSimplifications),               // INTEL
-        BlockThreadCount(std::move(Other.BlockThreadCount)),            // INTEL
-        BBDupThreshold(Other.BBDupThreshold) {}
+  JumpThreadingPass(int T = -1, bool AllowCFGSimps = true); // INTEL
 
   // Glue for old PM.
   bool runImpl(Function &F, TargetLibraryInfo *TLI_, LazyValueInfo *LVI_,
@@ -194,6 +185,8 @@ private:
                        const SmallVectorImpl<BasicBlock*> &RegionBlocks,
                        DenseMap<BasicBlock*, BasicBlock*> &BlockMapping);
 #endif // INTEL_CUSTOMIZATION
+  /// Check if the block has profile metadata for its outgoing edges.
+  bool doesBlockHaveProfileData(BasicBlock *BB);
 };
 
 } // end namespace llvm

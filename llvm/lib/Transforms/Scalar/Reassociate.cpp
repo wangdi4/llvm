@@ -146,7 +146,8 @@ static BinaryOperator *isReassociableOp(Value *V, unsigned Opcode1,
   return nullptr;
 }
 
-void ReassociatePass::BuildRankMap(Function &F) {
+void ReassociatePass::BuildRankMap(Function &F,
+                                   ReversePostOrderTraversal<Function*> &RPOT) {
   unsigned i = 2;
 
   // Assign distinct ranks to function arguments.
@@ -155,7 +156,7 @@ void ReassociatePass::BuildRankMap(Function &F) {
     DEBUG(dbgs() << "Calculated Rank[" << I->getName() << "] = " << i << "\n");
   }
 
-  ReversePostOrderTraversal<Function *> RPOT(&F);
+  // Traverse basic blocks in ReversePostOrder
   for (BasicBlock *BB : RPOT) {
     unsigned BBRank = RankMap[BB] = ++i << 16;
 
@@ -508,9 +509,10 @@ static bool LinearizeExprTree(BinaryOperator *I,
           continue;
         }
         // No uses outside the expression, try morphing it.
-      } else if (It != Leaves.end()) {
+      } else {
         // Already in the leaf map.
-        assert(Visited.count(Op) && "In leaf map but not visited!");
+        assert(It != Leaves.end() && Visited.count(Op) &&
+               "In leaf map but not visited!");
 
         // Update the number of paths to the leaf.
         IncorporateWeight(It->second, Weight, Opcode);
@@ -1864,6 +1866,8 @@ void ReassociatePass::RecursivelyEraseDeadInsts(
 /// Zap the given instruction, adding interesting operands to the work list.
 void ReassociatePass::EraseInst(Instruction *I) {
   assert(isInstructionTriviallyDead(I) && "Trivially dead instructions only!");
+  DEBUG(dbgs() << "Erasing dead inst: "; I->dump());
+
   SmallVector<Value*, 8> Ops(I->op_begin(), I->op_end());
   // Erase the dead instruction.
   ValueRankMap.erase(I);
@@ -2173,11 +2177,19 @@ void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
 }
 
 PreservedAnalyses ReassociatePass::run(Function &F, FunctionAnalysisManager &) {
+  // Get the functions basic blocks in Reverse Post Order. This order is used by
+  // BuildRankMap to pre calculate ranks correctly. It also excludes dead basic
+  // blocks (it has been seen that the analysis in this pass could hang when
+  // analysing dead basic blocks).
+  ReversePostOrderTraversal<Function *> RPOT(&F);
+
   // Calculate the rank map for F.
-  BuildRankMap(F);
+  BuildRankMap(F, RPOT);
 
   MadeChange = false;
-  for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
+  // Traverse the same blocks that was analysed by BuildRankMap.
+  for (BasicBlock *BI : RPOT) {
+    assert(RankMap.count(&*BI) && "BB should be ranked.");
     // Optimize every instruction in the basic block.
     for (BasicBlock::iterator II = BI->begin(), IE = BI->end(); II != IE;)
       if (isInstructionTriviallyDead(&*II)) {
@@ -2197,8 +2209,10 @@ PreservedAnalyses ReassociatePass::run(Function &F, FunctionAnalysisManager &) {
     // trivially dead instructions have been removed.
     while (!ToRedo.empty()) {
       Instruction *I = ToRedo.pop_back_val();
-      if (isInstructionTriviallyDead(I))
+      if (isInstructionTriviallyDead(I)) {
         RecursivelyEraseDeadInsts(I, ToRedo);
+        MadeChange = true;
+      }
     }
 
     // Now that we have removed dead instructions, we can reoptimize the

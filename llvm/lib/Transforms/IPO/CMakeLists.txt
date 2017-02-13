@@ -12,6 +12,7 @@ add_llvm_library(LLVMipo
   FunctionImport.cpp
   GlobalDCE.cpp
   GlobalOpt.cpp
+  GlobalSplit.cpp
   IPConstantPropagation.cpp
   IPO.cpp
   InferFunctionAttrs.cpp
@@ -34,6 +35,7 @@ add_llvm_library(LLVMipo
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/IPO
-  )
 
-add_dependencies(LLVMipo intrinsics_gen)
+  DEPENDS
+  intrinsics_gen
+  )

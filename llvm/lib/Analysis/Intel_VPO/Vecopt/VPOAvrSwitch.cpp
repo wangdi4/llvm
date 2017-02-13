@@ -58,7 +58,7 @@ AVRSwitch::case_child_rbegin_internal(unsigned CaseNumber) {
   if (CaseNumber == getNumCases()) {
     return Children.rbegin();
   } else {
-    return reverse_case_child_iterator(CaseBegin[CaseNumber]);
+    return reverse_case_child_iterator(*CaseBegin[CaseNumber]);
   }
 }
 
@@ -72,7 +72,7 @@ AVRSwitch::case_child_rend_internal(unsigned CaseNumber) {
   if (CaseNumber == 0) {
     return Children.rend();
   } else {
-    return reverse_case_child_iterator(CaseBegin[CaseNumber - 1]);
+    return reverse_case_child_iterator(*CaseBegin[CaseNumber - 1]);
   }
 }
 

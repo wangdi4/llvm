@@ -4628,13 +4628,20 @@ STINumeric* STIDebugImpl::createNumericAPFloat(
 //===----------------------------------------------------------------------===//
 
 void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
+  DenseMap<const DIGlobalVariable *, const GlobalVariable *> GlobalMap;
+  for (const GlobalVariable &GV : MMI()->getModule()->globals()) {
+    SmallVector<MDNode *, 1> MDs;
+    GV.getMetadata(LLVMContext::MD_dbg, MDs);
+    for (MDNode *MD : MDs)
+      GlobalMap[cast<DIGlobalVariable>(MD)] = &GV;
+  }
+
   DINodeArray DIGVs = CU->getGlobalVariables();
 
   for (unsigned int I = 0, E = DIGVs.size(); I < E; ++I) {
     DIGlobalVariable *DIGV = cast<DIGlobalVariable>(DIGVs[I]);
 
-    if (GlobalVariable* global =
-        dyn_cast_or_null<GlobalVariable>(DIGV->getVariable())) {
+    if (const GlobalVariable* global = GlobalMap.lookup(DIGV)) {
       STISymbolVariable* variable;
       const DIScope *    scope;
 
@@ -4671,7 +4678,9 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
       getFullFileName((scope != nullptr ? scope : CU)->getFile(), path);
       (void)getOrCreateChecksum(path);  // FIXME:  Do not check every variable!
 
-    } else if (Constant* constant = DIGV->getVariable()) {
+    } else if (Constant* constant = nullptr /*DIGV->getVariable()*/) {
+      // TODO: This case is disabled due to the change in r281284.
+      //       Should use getExpr() to determine the constant values.
       STISymbolConstant* symbol;
       DIScope*           scope = DIGV->getScope();
       DIType *           ditype  = resolve(DIGV->getType());
@@ -4739,7 +4748,7 @@ void STIDebugImpl::collectModuleInfo() {
     compileUnit = STISymbolCompileUnit::create();
     compileUnit->setProducer(CU->getProducer());
     compileUnit->setMachineID(
-        toMachineID(Triple(ASM()->getTargetTriple()).getArch()));
+        toMachineID(ASM()->TM.getTargetTriple().getArch()));
     module->add(compileUnit);
 
     // Record the primary source file name in the file checksum table.

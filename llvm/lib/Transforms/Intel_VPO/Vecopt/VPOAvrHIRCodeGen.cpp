@@ -1115,9 +1115,9 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
     HLInst *Combine = Loop->getHLNodeUtils().createBinaryHLInst(
         BOpcode, Lo->getLvalDDRef()->clone(), Hi->getLvalDDRef()->clone(),
         "reduced");
-    InstContainer.push_back(Lo);
-    InstContainer.push_back(Hi);
-    InstContainer.push_back(Combine);
+    InstContainer.push_back(*Lo);
+    InstContainer.push_back(*Hi);
+    InstContainer.push_back(*Combine);
 
     RegDDRef *ScalarValue = Combine->getLvalDDRef();
 
@@ -1125,7 +1125,7 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
     auto FinalInst = Loop->getHLNodeUtils().createBinaryHLInst(
         BOpcode, ScalarValue->clone(), InitValRef->clone(), "" /* Name */,
         ResultRef->clone());
-    InstContainer.push_back(FinalInst);
+    InstContainer.push_back(*FinalInst);
     return FinalInst;
   }
   SmallVector<uint32_t, 16> LoMask, HiMask;
@@ -1140,9 +1140,9 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
   HLInst *Result = Loop->getHLNodeUtils().createBinaryHLInst(
       BOpcode, Lo->getLvalDDRef()->clone(), Hi->getLvalDDRef()->clone(),
       "reduce");
-  InstContainer.push_back(Lo);
-  InstContainer.push_back(Hi);
-  InstContainer.push_back(Result);
+  InstContainer.push_back(*Lo);
+  InstContainer.push_back(*Hi);
+  InstContainer.push_back(*Result);
   return buildReductionTail(InstContainer, BOpcode, Result->getLvalDDRef(),
                             InitValRef, Loop, ResultRef);
 }
@@ -1225,7 +1225,7 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node) {
   HLContainerTy Tail;
   const RegDDRef *Address = RHM.getReductionValuePtr(RI);
   HLInst *LoadInitValInst = Node->getHLNodeUtils().createLoad(Address->clone());
-  Tail.push_back(LoadInitValInst);
+  Tail.push_back(*LoadInitValInst);
 
   RegDDRef *InitValue = LoadInitValInst->getLvalDDRef();
   RegDDRef *VecRef = WideInst->getLvalDDRef();

@@ -37,6 +37,11 @@ class LibcxxTestFormat(object):
         self.execute_external = execute_external
         self.executor = executor
         self.exec_env = dict(exec_env)
+        self.compile_env = dict(os.environ)
+        # 'CCACHE_CPP2' prevents ccache from stripping comments while
+        # preprocessing. This is required to prevent stripping of '-verify'
+        # comments.
+        self.compile_env['CCACHE_CPP2'] = '1'
 
     # TODO: Move this into lit's FileBasedTest
     def getTestsInDirectory(self, testSuite, path_in_suite,
@@ -65,9 +70,11 @@ class LibcxxTestFormat(object):
 
     def _execute(self, test, lit_config):
         name = test.path_in_suite[-1]
-        is_sh_test = name.endswith('.sh.cpp')
+        name_root, name_ext = os.path.splitext(name)
+        is_sh_test = name_root.endswith('.sh')
         is_pass_test = name.endswith('.pass.cpp')
         is_fail_test = name.endswith('.fail.cpp')
+        assert is_sh_test or name_ext == '.cpp', 'non-cpp file must be sh test'
 
         if test.config.unsupported:
             return (lit.Test.UNSUPPORTED,
@@ -114,6 +121,9 @@ class LibcxxTestFormat(object):
     def _evaluate_pass_test(self, test, tmpBase, lit_config):
         execDir = os.path.dirname(test.getExecPath())
         source_path = test.getSourcePath()
+        with open(source_path, 'r') as f:
+            contents = f.read()
+        is_flaky = 'FLAKY_TEST' in contents
         exec_path = tmpBase + '.exe'
         object_path = tmpBase + '.o'
         # Create the output directory if it does not already exist.
@@ -122,7 +132,7 @@ class LibcxxTestFormat(object):
             # Compile the test
             cmd, out, err, rc = self.cxx.compileLinkTwoSteps(
                 source_path, out=exec_path, object_file=object_path,
-                cwd=execDir)
+                cwd=execDir, env=self.compile_env)
             compile_cmd = cmd
             if rc != 0:
                 report = libcxx.util.makeReport(cmd, out, err, rc)
@@ -139,14 +149,21 @@ class LibcxxTestFormat(object):
             # should add a `// FILE-DEP: foo.dat` to each test to track this.
             data_files = [os.path.join(local_cwd, f)
                           for f in os.listdir(local_cwd) if f.endswith('.dat')]
-            cmd, out, err, rc = self.executor.run(exec_path, [exec_path],
-                                                  local_cwd, data_files, env)
-            if rc != 0:
-                report = libcxx.util.makeReport(cmd, out, err, rc)
-                report = "Compiled With: %s\n%s" % (compile_cmd, report)
-                report += "Compiled test failed unexpectedly!"
-                return lit.Test.FAIL, report
-            return lit.Test.PASS, ''
+            max_retry = 3 if is_flaky else 1
+            for retry_count in range(max_retry):
+                cmd, out, err, rc = self.executor.run(exec_path, [exec_path],
+                                                      local_cwd, data_files,
+                                                      env)
+                if rc == 0:
+                    res = lit.Test.PASS if retry_count == 0 else lit.Test.FLAKYPASS
+                    return res, ''
+                elif rc != 0 and retry_count + 1 == max_retry:
+                    report = libcxx.util.makeReport(cmd, out, err, rc)
+                    report = "Compiled With: %s\n%s" % (compile_cmd, report)
+                    report += "Compiled test failed unexpectedly!"
+                    return lit.Test.FAIL, report
+
+            assert False # Unreachable
         finally:
             # Note that cleanup of exec_file happens in `_clean()`. If you
             # override this, cleanup is your reponsibility.
@@ -175,7 +192,8 @@ class LibcxxTestFormat(object):
         cmd, out, err, rc = self.cxx.compile(source_path, out=os.devnull,
                                              flags=extra_flags,
                                              disable_ccache=True,
-                                             enable_warnings=False)
+                                             enable_warnings=False,
+                                             env=self.compile_env)
         expected_rc = 0 if use_verify else 1
         if rc == expected_rc:
             return lit.Test.PASS, ''

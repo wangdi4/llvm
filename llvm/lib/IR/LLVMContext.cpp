@@ -138,6 +138,11 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
   assert(TypeID == MD_type && "type kind id drifted");
   (void)TypeID;
 
+  unsigned SectionPrefixID = getMDKindID("section_prefix");
+  assert(SectionPrefixID == MD_section_prefix &&
+         "section_prefix kind id drifted");
+  (void)SectionPrefixID;
+
 #if INTEL_CUSTOMIZATION
   auto StdContainerPtrID = getMDKindID("std.container.ptr");
   assert(StdContainerPtrID == MD_std_container_ptr &&
@@ -213,6 +218,14 @@ void LLVMContext::setDiagnosticHotnessRequested(bool Requested) {
 }
 bool LLVMContext::getDiagnosticHotnessRequested() const {
   return pImpl->DiagnosticHotnessRequested;
+}
+
+yaml::Output *LLVMContext::getDiagnosticsOutputFile() {
+  return pImpl->DiagnosticsOutputFile.get();
+}
+
+void LLVMContext::setDiagnosticsOutputFile(yaml::Output *F) {
+  pImpl->DiagnosticsOutputFile.reset(F);
 }
 
 LLVMContext::DiagnosticHandlerTy LLVMContext::getDiagnosticHandler() const {

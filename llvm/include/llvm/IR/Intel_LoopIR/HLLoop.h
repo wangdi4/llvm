@@ -124,10 +124,6 @@ protected:
   /// loop properties from Lp to this loop.
   HLLoop &operator=(HLLoop &&Lp);
 
-  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
-  /// tries to access and destroy the nodes if we don't clear them out here.
-  virtual ~HLLoop() override { Children.clearAndLeakNodesUnsafely(); }
-
   friend class HLNodeUtils;
   friend class HIRParser; // accesses ZTT
   friend class HIRTransformUtils; // For compile-time, allow permuteLoopNests()
@@ -421,10 +417,10 @@ public:
   const_pre_iterator pre_end() const { return ChildBegin; }
 
   reverse_pre_iterator pre_rbegin() {
-    return ChildNodeTy::reverse_iterator(ChildBegin);
+    return ChildBegin.getReverse();
   }
   const_reverse_pre_iterator pre_rbegin() const {
-    return ChildNodeTy::const_reverse_iterator(ChildBegin);
+    return ChildBegin.getReverse();
   }
 
   reverse_pre_iterator pre_rend() { return Children.rend(); }
@@ -468,10 +464,10 @@ public:
   reverse_post_iterator post_rbegin() { return Children.rbegin(); }
   const_reverse_post_iterator post_rbegin() const { return Children.rbegin(); }
   reverse_post_iterator post_rend() {
-    return ChildNodeTy::reverse_iterator(PostexitBegin);
+    return PostexitBegin.getReverse();
   }
   const_reverse_post_iterator post_rend() const {
-    return ChildNodeTy::const_reverse_iterator(PostexitBegin);
+    return PostexitBegin.getReverse();
   }
 
   /// Postexit acess methods

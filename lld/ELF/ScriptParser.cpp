@@ -60,22 +60,27 @@ std::vector<StringRef> ScriptParserBase::tokenize(StringRef S) {
     if (S.empty())
       return Ret;
 
-    // Quoted token
+    // Quoted token. Note that double-quote characters are parts of a token
+    // because, in a glob match context, only unquoted tokens are interpreted
+    // as glob patterns. Double-quoted tokens are literal patterns in that
+    // context.
     if (S.startswith("\"")) {
       size_t E = S.find("\"", 1);
       if (E == StringRef::npos) {
         error("unclosed quote");
         return {};
       }
-      Ret.push_back(S.substr(1, E - 1));
+      Ret.push_back(S.take_front(E + 1));
       S = S.substr(E + 1);
       continue;
     }
 
-    // Unquoted token
+    // Unquoted token. This is more relaxed than tokens in C-like language,
+    // so that you can write "file-name.cpp" as one bare token, for example.
     size_t Pos = S.find_first_not_of(
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-        "0123456789_.$/\\~=+[]*?-:!<>");
+        "0123456789_.$/\\~=+[]*?-:!<>^");
+
     // A character that cannot start a word (which is usually a
     // punctuation) forms a single character token.
     if (Pos == 0)
@@ -132,18 +137,15 @@ StringRef ScriptParserBase::peek() {
   return Tok;
 }
 
-bool ScriptParserBase::skip(StringRef Tok) {
-  if (Error)
-    return false;
-  if (atEOF()) {
-    setError("unexpected EOF");
-    return false;
+bool ScriptParserBase::consume(StringRef Tok) {
+  if (peek() == Tok) {
+    skip();
+    return true;
   }
-  if (Tokens[Pos] != Tok)
-    return false;
-  ++Pos;
-  return true;
+  return false;
 }
+
+void ScriptParserBase::skip() { (void)next(); }
 
 void ScriptParserBase::expect(StringRef Expect) {
   if (Error)

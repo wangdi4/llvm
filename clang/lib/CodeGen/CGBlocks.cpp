@@ -189,7 +189,7 @@ static llvm::Constant *buildBlockDescriptor(CodeGenModule &CGM,
  */
 
 /// The number of fields in a block header.
-const unsigned BlockHeaderSize = 5;
+const static unsigned BlockHeaderSize = 5;
 
 namespace {
   /// A chunk of data that we actually have to capture in the block.
@@ -199,13 +199,14 @@ namespace {
     Qualifiers::ObjCLifetime Lifetime;
     const BlockDecl::Capture *Capture; // null for 'this'
     llvm::Type *Type;
+    QualType FieldType;
 
     BlockLayoutChunk(CharUnits align, CharUnits size,
                      Qualifiers::ObjCLifetime lifetime,
                      const BlockDecl::Capture *capture,
-                     llvm::Type *type)
+                     llvm::Type *type, QualType fieldType)
       : Alignment(align), Size(size), Lifetime(lifetime),
-        Capture(capture), Type(type) {}
+        Capture(capture), Type(type), FieldType(fieldType) {}
 
     /// Tell the block info that this chunk has the given field index.
     void setIndex(CGBlockInfo &info, unsigned index, CharUnits offset) {
@@ -213,8 +214,8 @@ namespace {
         info.CXXThisIndex = index;
         info.CXXThisOffset = offset;
       } else {
-        info.Captures.insert({Capture->getVariable(),
-                              CGBlockInfo::Capture::makeIndex(index, offset)});
+        auto C = CGBlockInfo::Capture::makeIndex(index, offset, FieldType);
+        info.Captures.insert({Capture->getVariable(), C});
       }
     }
   };
@@ -363,7 +364,7 @@ static void computeBlockInfo(CodeGenModule &CGM, CodeGenFunction *CGF,
 
     layout.push_back(BlockLayoutChunk(tinfo.second, tinfo.first,
                                       Qualifiers::OCL_None,
-                                      nullptr, llvmType));
+                                      nullptr, llvmType, thisType));
   }
 
   // Next, all the block captures.
@@ -380,7 +381,7 @@ static void computeBlockInfo(CodeGenModule &CGM, CodeGenFunction *CGF,
 
       layout.push_back(BlockLayoutChunk(align, CGM.getPointerSize(),
                                         Qualifiers::OCL_None, &CI,
-                                        CGM.VoidPtrTy));
+                                        CGM.VoidPtrTy, variable->getType()));
       continue;
     }
 
@@ -436,6 +437,14 @@ static void computeBlockInfo(CodeGenModule &CGM, CodeGenFunction *CGF,
     }
 
     QualType VT = variable->getType();
+
+    // If the variable is captured by an enclosing block or lambda expression,
+    // use the type of the capture field.
+    if (CGF->BlockInfo && CI.isNested())
+      VT = CGF->BlockInfo->getCapture(variable).fieldType();
+    else if (auto *FD = CGF->LambdaCaptureFields.lookup(variable))
+      VT = FD->getType();
+
     CharUnits size = C.getTypeSizeInChars(VT);
     CharUnits align = C.getDeclAlign(variable);
     
@@ -444,7 +453,8 @@ static void computeBlockInfo(CodeGenModule &CGM, CodeGenFunction *CGF,
     llvm::Type *llvmType =
       CGM.getTypes().ConvertTypeForMem(VT);
     
-    layout.push_back(BlockLayoutChunk(align, size, lifetime, &CI, llvmType));
+    layout.push_back(
+        BlockLayoutChunk(align, size, lifetime, &CI, llvmType, VT));
   }
 
   // If that was everything, we're done here.
@@ -775,7 +785,7 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
     // Ignore constant captures.
     if (capture.isConstant()) continue;
 
-    QualType type = variable->getType();
+    QualType type = capture.fieldType();
 
     // This will be a [[type]]*, except that a byref entry will just be
     // an i8**.
@@ -965,25 +975,24 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
   const BlockPointerType *BPT =
     E->getCallee()->getType()->getAs<BlockPointerType>();
 
-  llvm::Value *Callee = EmitScalarExpr(E->getCallee());
+  llvm::Value *BlockPtr = EmitScalarExpr(E->getCallee());
 
   // Get a pointer to the generic block literal.
   llvm::Type *BlockLiteralTy =
     llvm::PointerType::getUnqual(CGM.getGenericBlockLiteralType());
 
   // Bitcast the callee to a block literal.
-  llvm::Value *BlockLiteral =
-    Builder.CreateBitCast(Callee, BlockLiteralTy, "block.literal");
+  BlockPtr = Builder.CreateBitCast(BlockPtr, BlockLiteralTy, "block.literal");
 
   // Get the function pointer from the literal.
   llvm::Value *FuncPtr =
-    Builder.CreateStructGEP(CGM.getGenericBlockLiteralType(), BlockLiteral, 3);
+    Builder.CreateStructGEP(CGM.getGenericBlockLiteralType(), BlockPtr, 3);
 
-  BlockLiteral = Builder.CreateBitCast(BlockLiteral, VoidPtrTy);
+  BlockPtr = Builder.CreateBitCast(BlockPtr, VoidPtrTy);
 
   // Add the block literal.
   CallArgList Args;
-  Args.add(RValue::get(BlockLiteral), getContext().VoidPtrTy);
+  Args.add(RValue::get(BlockPtr), getContext().VoidPtrTy);
 
   QualType FnType = BPT->getPointeeType();
 
@@ -1003,8 +1012,11 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
   llvm::Type *BlockFTyPtr = llvm::PointerType::getUnqual(BlockFTy);
   Func = Builder.CreateBitCast(Func, BlockFTyPtr);
 
+  // Prepare the callee.
+  CGCallee Callee(CGCalleeInfo(), Func);
+
   // And call the block.
-  return EmitCall(FnInfo, Func, ReturnValue, Args);
+  return EmitCall(FnInfo, Callee, ReturnValue, Args);
 }
 
 Address CodeGenFunction::GetAddrOfBlockDecl(const VarDecl *variable,
@@ -1033,18 +1045,17 @@ Address CodeGenFunction::GetAddrOfBlockDecl(const VarDecl *variable,
                                  variable->getName());
   }
 
-  if (auto refType = variable->getType()->getAs<ReferenceType>()) {
+  if (auto refType = capture.fieldType()->getAs<ReferenceType>())
     addr = EmitLoadOfReference(addr, refType);
-  }
 
   return addr;
 }
 
 llvm::Constant *
-CodeGenModule::GetAddrOfGlobalBlock(const BlockExpr *blockExpr,
-                                    const char *name) {
-  CGBlockInfo blockInfo(blockExpr->getBlockDecl(), name);
-  blockInfo.BlockExpression = blockExpr;
+CodeGenModule::GetAddrOfGlobalBlock(const BlockExpr *BE,
+                                    StringRef Name) {
+  CGBlockInfo blockInfo(BE->getBlockDecl(), Name);
+  blockInfo.BlockExpression = BE;
 
   // Compute information about the layout, etc., of this block.
   computeBlockInfo(*this, nullptr, blockInfo);
