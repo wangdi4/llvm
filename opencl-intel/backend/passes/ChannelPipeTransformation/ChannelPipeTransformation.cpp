@@ -103,7 +103,7 @@ static void createPipeBackingStore(Module &M,
     assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
            "Pipe metadata not found.");
 
-    size_t BSSize = pipe_get_total_size(PipeMD.PacketSize, 1);
+    size_t BSSize = pipe_get_total_size(PipeMD.PacketSize, 64);
     auto *ArrayTy = ArrayType::get(Int8Ty, BSSize);
 
     SmallString<16> NameStr;
