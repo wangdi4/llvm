@@ -151,6 +151,16 @@ private:
   /// \brief Generate __kmpc_fork_call Instruction after CodeExtractor
   CallInst* genForkCallInst(WRegionNode *W, CallInst *CI);
 
+  /// \brief If the IR in the WRegion has some kmpc_call_* and the tid
+  /// parameter's definition is outside the region, the compiler
+  /// generates the call __kmpc_global_thread_num() at the entry of
+  /// of the region and replaces all tid uses with the new call.
+  void codeExtractorPrepare(WRegionNode *W);
+
+  /// \brief Cleans up the generated __kmpc_global_thread_num() in the
+  /// outlined function.
+  void finiCodeExtractorPrepare(Function *F);
+
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
 
@@ -169,6 +179,17 @@ private:
   /// \brief Generates code for the OpenMP critical construct:
   /// #pragma omp critical [(name)]
   bool genCriticalCode(WRNCriticalNode *CriticalNode);
+
+  /// \brief Finds the alloc stack variables where the tid stores.
+  void getAllocFromTid(CallInst *Tid);
+
+  /// \brief The data structure which builds the map between the
+  /// alloc/tid and the uses instruction in the WRegion.
+  SmallDenseMap<Instruction *, std::vector<Instruction *> > TidMap;
+
+  /// \brief The data structure which stores the alloc or tid call
+  ///  instruction whose uses are in the WRegion.
+  SmallVector<Instruction*, 8> StartIns;
 };
 
 } /// namespace vpo

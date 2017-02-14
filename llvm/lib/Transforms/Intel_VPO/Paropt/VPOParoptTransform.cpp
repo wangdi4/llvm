@@ -178,17 +178,23 @@ bool VPOParoptTransform::paroptTransforms() {
     BidPtr->setAlignment(4);
   }
 
-  CallInst *RI = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, AI, IdentTy);
-  RI->insertBefore(AI);
+  CallInst *RI;
+  RI = VPOParoptUtils::findKmpcGlobalThreadNumCall(&F->getEntryBlock());
+  if (!RI) {
+    RI = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, AI, IdentTy);
+    RI->insertBefore(AI);
+  }
 
-  StoreInst *Tmp0 = new StoreInst(RI, TidPtr, false, AI);
+  StoreInst *Tmp0 = new StoreInst(RI, TidPtr, false, 
+                                  F->getEntryBlock().getTerminator());
   Tmp0->setAlignment(4);
 
   // Constant Definitions
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
   if ((Mode & OmpPar) && (Mode & ParTrans)) {
-    StoreInst *Tmp1 = new StoreInst(ValueZero, BidPtr, false, AI);
+    StoreInst *Tmp1 = new StoreInst(ValueZero, BidPtr, false, 
+                                    F->getEntryBlock().getTerminator());
     Tmp1->setAlignment(4);
   }
 
@@ -384,9 +390,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
   assert(L->isLoopSimplifyForm() && "should follow from addRequired<>");
 
-  BasicBlock *LoopHeader = L->getHeader();
-  BasicBlock *LoopLatch = L->getLoopLatch();
-
   // 
   // This is initial implementation of parallel loop scheduling to get 
   // a simple loop to work end-to-end.
@@ -495,7 +498,254 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   return Changed;
 }
 
+// Collects the alloc stack variables where the tid stores.
+void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
+  Instruction *User;
+  for (auto IB = Tid->user_begin(), IE = Tid->user_end();
+       IB != IE; IB++) {
+    User = dyn_cast<Instruction>(*IB);
+    if (User) {
+      StoreInst *S0 = dyn_cast<StoreInst>(User);
+      if (S0) {
+        assert(S0->isSimple() && "Expect non-volatile store instruction.");
+        Value *V = S0->getPointerOperand();
+        AllocaInst *AI = dyn_cast<AllocaInst>(V);
+        if (AI)
+          StartIns.push_back(AI);
+        else 
+          llvm_unreachable("Expect the stack alloca instruction.");
+      }
+    }
+  }
+}
+
+// Generates the tid call instruction at the entry of WRegion
+// if the IR in the WRegion uses the tid value at the entry of
+// the function.
+// Here is one example compiled at -O3.
+//
+// Before:
+// entry:
+//   %tid.addr = alloca i32, align 4
+//   %tid.val = tail call i32 
+//    @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0)
+// 
+// for.body3:
+//   %j.0 = phi i32 [ %add12, %for.body3 ], [ %add, %for.body3.preheader ]
+//     call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//      @.kmpc_loc.0.0.2, i32 %tid.val, [8 x i32]* @.gomp_critical_user_.var)
+//
+// After:
+// entry:
+//   %tid.addr = alloca i32, align 4
+//   %tid.val = tail call i32 
+//    @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0)
+//
+// DIR.OMP.PARALLEL.1:
+//   call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL")
+//   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+//   %tid.val38 = tail call i32 @__kmpc_global_thread_num(
+//    { i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.6)
+//   br label %DIR.QUAL.LIST.END.2
+//
+// for.body3:
+//   %j.0 = phi i32 [ %add12, %for.body3 ], [ %add, %for.body3.preheader ]
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//    @.kmpc_loc.0.0.2, i32 %tid.val38, [8 x i32]* @.gomp_critical_user_.var)
+//
+// Here is another example compiled at -O0.
+//
+// Before:
+// entry:
+//   %tid.addr23 = alloca i32, align 4
+//   %tid.addr = alloca i32, align 4
+//   %tid.val = tail call i32 @__kmpc_global_thread_num(
+//     { i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0)
+//   store i32 %tid.val, i32* %tid.addr, align 4
+//   store i32 %tid.val, i32* %tid.addr23, align 4
+//
+// for.body3:
+//   %my.tid = load i32, i32* %tid.addr, align 4
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//    @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
+//
+// After:
+//
+// for.body:
+//   call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL")
+//   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+//   %tid.val24 = tail call i32 @__kmpc_global_thread_num(
+//     { i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.6)
+//   %new.tid.addr = alloca i32, align 4
+//   store i32 %tid.val24, i32* %new.tid.addr
+//   br label %DIR.QUAL.LIST.END.221
+//
+// for.body3: 
+//   %my.tid = load i32, i32* %new.tid.addr, align 4
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//     @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
+//   br label %DIR.QUAL.LIST.END.5
+// 
+void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
+  Function *F = W->getEntryBBlock()->getParent();
+  BasicBlock *EntryBB = &F->getEntryBlock();
+  CallInst *Tid = VPOParoptUtils::findKmpcGlobalThreadNumCall(EntryBB);
+  if (!Tid) return;
+
+  BasicBlock *WREntryBB = W->getEntryBBlock();
+  CallInst *NewTid = VPOParoptUtils::findKmpcGlobalThreadNumCall(WREntryBB);
+  if (NewTid) return;
+
+  StartIns.clear();
+  TidMap.clear();
+
+  getAllocFromTid(Tid);
+  StartIns.push_back(Tid);
+
+  for (auto &I : StartIns) 
+    for (auto IB = I->user_begin(), IE = I->user_end();
+         IB != IE; IB++) {
+      if (Instruction *User = dyn_cast<Instruction>(*IB)) {
+        if (W->contains(User->getParent()))
+          TidMap[I].push_back(User);
+      }
+      else 
+        llvm_unreachable("Expect the tid used in the instruction.");
+    }
+
+  Value *Tmp0;
+  AllocaInst *NewAI = nullptr;
+  for (auto &I : TidMap) {
+    for (auto &J : I.second) {
+      if (NewTid == nullptr) {
+        NewTid = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, 
+                                &*(WREntryBB->getFirstInsertionPt()),
+                                nullptr);
+        NewTid->insertBefore(WREntryBB->getTerminator());
+        Tmp0 = NewTid;
+      }
+      if (!NewAI) {
+        if (isa<AllocaInst>(I.first)) {
+          NewAI = new AllocaInst(Type::getInt32Ty(F->getContext()), 
+                                 "new.tid.addr", 
+                                 WREntryBB->getTerminator());
+          NewAI->setAlignment(4);
+          Value *SI = new StoreInst(NewTid, NewAI, false, 
+                               WREntryBB->getTerminator());
+          Tmp0 = NewAI;
+        }
+      }
+      J->replaceUsesOfWith(I.first, Tmp0);
+    }
+  }
+}
+
+// Cleans up the generated __kmpc_global_thread_num() in the
+// outlined function. Replaces the use of the __kmpc_global_thread_num()
+// with the first argument of the outlined function.
+// 
+// Here is one example compiled at -O3.
+// 
+// Before:
+// DIR.OMP.PARALLEL.1:                               ; preds = %newFuncRoot
+//   call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL")
+//   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+//   %tid.val38 = tail call i32 @__kmpc_global_thread_num(
+//     { i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.6)
+//   br label %DIR.QUAL.LIST.END.2
+//
+// for.body3:
+//   %j.0 = phi i32 [ %add12, %for.body3 ], [ %add, %for.body3.preheader ]
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//     @.kmpc_loc.0.0.2, i32 %tid.val38, [8 x i32]* @.gomp_critical_user_.var)
+//
+//  After:
+//  DIR.OMP.PARALLEL.1:                               ; preds = %newFuncRoot
+//    %0 = load i32, i32* %tid
+//    call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL")
+//    call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+//    br label %DIR.QUAL.LIST.END.2
+//
+//  for.body3:
+//   %j.0 = phi i32 [ %add12, %for.body3 ], [ %add, %for.body3.preheader ]
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//     @.kmpc_loc.0.0.2, i32 %0, [8 x i32]* @.gomp_critical_user_.var)
+//
+// Another example is compiled at -O0.
+//
+// Before:
+// for.body:                                         ; preds = %newFuncRoot
+//   call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL")
+//   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+//   %tid.val24 = tail call i32 @__kmpc_global_thread_num(
+//     { i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.6)
+//   %new.tid.addr = alloca i32, align 4
+//   store i32 %tid.val24, i32* %new.tid.addr
+//
+// for.body3:
+//   %my.tid = load i32, i32* %new.tid.addr, align 4
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//     @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
+//
+// After:
+//
+// for.body3:
+//   %my.tid = load i32, i32* %tid, align 4
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//     @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
+//   br label %DIR.QUAL.LIST.END.5
+//
+void VPOParoptTransform::finiCodeExtractorPrepare(Function *F) {
+  CallInst *Tid = nullptr;
+  BasicBlock *NextBB = &F->getEntryBlock();
+  do {
+    Tid = VPOParoptUtils::findKmpcGlobalThreadNumCall(NextBB);
+    if (Tid) 
+      break;
+    if (std::distance(succ_begin(NextBB), succ_end(NextBB))==1) 
+      NextBB = *(succ_begin(NextBB));
+    else 
+      break;
+    if (std::distance(pred_begin(NextBB), pred_end(NextBB))!=1) 
+      break;
+  }while (!Tid);
+
+  if (!Tid) return;
+
+  StartIns.clear();
+
+  getAllocFromTid(Tid);
+  StartIns.push_back(Tid);
+
+  Value *Tmp0;
+  Value *NewAI = nullptr;
+  LoadInst *NewLoad = nullptr;
+  for (auto &I : StartIns) {
+    if (isa<AllocaInst>(I)) {
+      if(!NewAI) {
+        NewAI = &*(F->arg_begin());
+        Tmp0 = NewAI;
+      }
+    }
+    else if (NewLoad == nullptr) {
+      IRBuilder<> Builder(NextBB);
+      Builder.SetInsertPoint(NextBB, NextBB->getFirstInsertionPt());
+      NewLoad = Builder.CreateLoad(&*(F->arg_begin()));
+      Tmp0 = NewLoad;
+    }
+    I->replaceAllUsesWith(Tmp0);
+  }
+  
+  while (!StartIns.empty()) {
+    Instruction *I = StartIns.pop_back_val();
+    I->eraseFromParent();
+  }
+}
+
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
+
+  codeExtractorPrepare(W);
+
   bool Changed = false;
 
   // brief extract a W-Region to generate a function
@@ -544,6 +794,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     MTFnArgs.push_back(TidPtr);
     MTFnArgs.push_back(BidPtr);
     genThreadedEntryActualParmList(W, MTFnArgs);
+
+    finiCodeExtractorPrepare(MTFn);
 
     DEBUG(dbgs() << " New Call to MTFn: " << *NewCall << "\n"); 
     // Pass all the same arguments of the extracted function.

@@ -115,6 +115,14 @@ public:
     static CallInst* genKmpcEndCall(Function *F, 
                                     Instruction *InsertPt, 
                                     StructType *IdentTy);
+
+    /// \brief Check whether the call __kmpc_global_thread_num() exists
+    /// in the given basic block BB.
+    static CallInst* findKmpcGlobalThreadNumCall(BasicBlock *BB);
+
+    /// \brief Check whether the given instruction is the call
+    /// __kmpc_global_thread_num().
+    static bool isKmpcGlobalThreadNumCall(Value *V);
    
     /// \brief Generate OpenMP runtime __kmpc_global_thread_num() call 
     /// The generated runtime routine call is invoked (only once) to get 

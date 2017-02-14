@@ -413,6 +413,10 @@ public:
   bbset_reverse_iterator bbset_rend() { return BBlockSet.rend(); }
   bbset_const_reverse_iterator bbset_rend() const { return BBlockSet.rend(); }
 
+  bool contains(BasicBlock *BB) {
+    return std::count(BBlockSet.begin(), BBlockSet.end(), BB);
+  }
+
   /// \brief Returns True if BasicBlockSet is empty.
   unsigned isBBSetEmpty() const { return BBlockSet.empty(); }
 

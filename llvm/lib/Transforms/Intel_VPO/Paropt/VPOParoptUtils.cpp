@@ -293,6 +293,24 @@ CallInst *VPOParoptUtils::genKmpcThreadPrivateCachedCall(
   return genCall(M, "__kmpc_threadprivate_cached", ReturnTy, FnGetTpvArgs);
 }
 
+bool VPOParoptUtils::isKmpcGlobalThreadNumCall(Value *V) {
+  CallInst *callInst = dyn_cast<CallInst>(V);
+  if (callInst) {
+    StringRef funcName = callInst->getCalledFunction()->getName();
+    if (funcName.equals("__kmpc_global_thread_num")) 
+      return true;
+  }
+  return false;
+}
+
+CallInst *VPOParoptUtils::findKmpcGlobalThreadNumCall(BasicBlock *BB) {
+  for (Instruction &II : *BB) {
+    if (isKmpcGlobalThreadNumCall(&II))
+      return dyn_cast<CallInst>(&II);
+  }
+  return nullptr;
+}
+
 // This function generates a runtime library call to get global OpenMP thread
 // ID - __kmpc_global_thread_num(&loc)
 CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
@@ -300,6 +318,13 @@ CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
                                                      StructType *IdentTy) {
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
+
+  if (!IdentTy) 
+    IdentTy = StructType::get(C, {Type::getInt32Ty(C),
+                                  Type::getInt32Ty(C),  
+                                  Type::getInt32Ty(C),  
+                                  Type::getInt32Ty(C),   
+                                  Type::getInt8PtrTy(C)});
 
   BasicBlock &B = F->getEntryBlock();
   BasicBlock &E = B;
