@@ -879,6 +879,7 @@ BUILTIN(__builtin_ia32_rdpmc, "ULLii", "")
 BUILTIN(__builtin_ia32_rdtsc, "ULLi", "")
 BUILTIN(__rdtsc, "ULLi", "")
 BUILTIN(__builtin_ia32_rdtscp, "ULLiUi*", "")
+
 // PKU
 TARGET_BUILTIN(__builtin_ia32_rdpkru, "Ui", "", "pku")
 TARGET_BUILTIN(__builtin_ia32_wrpkru, "vUi", "", "pku")
@@ -1852,6 +1853,9 @@ TARGET_HEADER_BUILTIN(__emulu, "ULLiUiUi", "nh", "intrin.h", ALL_MS_LANGUAGES, "
 TARGET_HEADER_BUILTIN(_AddressOfReturnAddress, "v*", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 
 TARGET_HEADER_BUILTIN(__stosb, "vUc*Ucz", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+
+// CSA-target-specific, but must be visible to host compilation, where it is a no-op
+BUILTIN(__builtin_csa_parallel_loop, "v", "n")
 
 #undef BUILTIN
 #undef TARGET_BUILTIN
