@@ -345,7 +345,8 @@ Value *WRegionUtils::getOmpLoopStride(Loop *L) {
   PHINode *PN = getOmpCanonicalInductionVariable(L);
   assert(PN != nullptr && "Omp loop must have induction variable!");
 
-  if (Instruction *Inc = dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()))) 
+  if (Instruction *Inc = 
+      dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch())))
     if ((Inc->getOpcode() == Instruction::Add ||
        Inc->getOpcode() == Instruction::Sub) &&
        Inc->getOperand(0) == PN) 
@@ -361,7 +362,8 @@ Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
 
   CondInst = getOmpLoopBottomTest(L);
   PHINode *PN = getOmpCanonicalInductionVariable(L);
-  Instruction *Inc = dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
+  Instruction *Inc = 
+    dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
   if (CondInst->getOperand(0) == Inc) 
     Res = CondInst->getOperand(1);
   else{
@@ -414,7 +416,8 @@ ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
        return CondInst;
 
   }
-  llvm_unreachable("Omp loop with non-const upper bound must have zero trip test!"); 
+  llvm_unreachable("Omp loop with non-const \
+    upper bound must have zero trip test!");
   
 }
 
@@ -463,7 +466,8 @@ CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, unsigned &Pos) {
   ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
   assert(CondInst && "Omp loop must have cmp instruction at the end!");
   PHINode *PN = getOmpCanonicalInductionVariable(L);
-  Instruction *Inc = dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
+  Instruction *Inc = 
+    dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
   if (CondInst->getOperand(0) == Inc)
     Pos = 0;
   else {

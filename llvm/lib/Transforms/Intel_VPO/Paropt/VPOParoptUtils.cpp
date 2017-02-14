@@ -965,7 +965,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
                       getIncomingValue(0)->getType());
   ConstantInt *ValueOne  = ConstantInt::get(IndValTy, 1);
 
-  Value *Res;
+  Value *Res = RightValue;
   IRBuilder<> Builder(InsertPt);
 
   if (PD == ICmpInst::ICMP_SLT ||
