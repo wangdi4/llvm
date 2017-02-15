@@ -5,11 +5,13 @@ add_llvm_library(LLVMCodeGen
   AtomicExpandPass.cpp
   BasicTargetTransformInfo.cpp
   BranchFolding.cpp
+  BranchRelaxation.cpp
   BuiltinGCs.cpp
   CalcSpillWeights.cpp
   CallingConvLower.cpp
   CodeGen.cpp
   CodeGenPrepare.cpp
+  CountingFunctionInserter.cpp
   CriticalAntiDepBreaker.cpp
   DeadMachineInstructionElim.cpp
   DetectDeadLanes.cpp
@@ -145,9 +147,10 @@ add_llvm_library(LLVMCodeGen
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/CodeGen/PBQP
 
   LINK_LIBS ${PTHREAD_LIB}
-  )
 
-add_dependencies(LLVMCodeGen intrinsics_gen)
+  DEPENDS
+  intrinsics_gen
+  )
 
 add_subdirectory(SelectionDAG)
 add_subdirectory(AsmPrinter)

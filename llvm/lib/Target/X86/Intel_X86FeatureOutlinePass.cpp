@@ -53,7 +53,7 @@ class FeatureOutliner : public ModulePass {
       initializeFeatureOutlinerPass(*PassRegistry::getPassRegistry());
     }
     bool runOnModule(Module &M) override;
-    const char *getPassName() const override {return "Feature Outliner";}
+    StringRef getPassName() const override {return "Feature Outliner";}
   
   private:
     typedef std::vector<BasicBlock*> Region;

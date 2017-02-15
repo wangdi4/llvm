@@ -13,6 +13,19 @@ tablegen(LLVM X86GenSubtargetInfo.inc -gen-subtarget)
 tablegen(LLVM X86GenMAPatterns.inc -gen-ma-patterns) # INTEL
 add_public_tablegen_target(X86CommonTableGen)
 
+# Add GlobalISel files if the build option was enabled.
+set(GLOBAL_ISEL_FILES
+  X86CallLowering.cpp
+  )
+
+if(LLVM_BUILD_GLOBAL_ISEL)
+  set(GLOBAL_ISEL_BUILD_FILES ${GLOBAL_ISEL_FILES})
+else()
+  set(GLOBAL_ISEL_BUILD_FILES "")
+  set(LLVM_OPTIONAL_SOURCES LLVMGlobalISel ${GLOBAL_ISEL_FILES})
+endif()
+
+
 set(sources
   Intel_X86FMA.cpp        # INTEL
   Intel_X86FeatureOutlinePass.cpp
@@ -27,6 +40,7 @@ set(sources
   X86FrameLowering.cpp
   X86ISelDAGToDAG.cpp
   X86ISelLowering.cpp
+  X86InterleavedAccess.cpp
   X86InstrFMA3Info.cpp
   X86InstrInfo.cpp
   X86MCInstLower.cpp
@@ -44,6 +58,8 @@ set(sources
   X86WinAllocaExpander.cpp
   X86FixupBWInsts.cpp     # INTEL
   X86WinEHState.cpp
+  X86CallingConv.cpp
+  ${GLOBAL_ISEL_BUILD_FILES}
   )
 
 add_llvm_target(X86CodeGen ${sources})

@@ -887,7 +887,7 @@ struct HLNodeUtils::CloneVisitor final : public HLNodeVisitorBase {
 
   void visit(const HLNode *Node) {
     CloneContainer->push_back(
-        HLNode::cloneBaseImpl(Node, GotoList, LabelMap, NodeMapper));
+        *HLNode::cloneBaseImpl(Node, GotoList, LabelMap, NodeMapper));
   }
 
   void postVisit(const HLNode *Node) {}
@@ -916,7 +916,7 @@ void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
   // Check for Node2 as nullptr or a single node
   if (!Node2 || (Node1 == Node2)) {
     CloneContainer->push_back(
-        HLNode::cloneBaseImpl(Node1, &GotoList, &LabelMap, NodeMapper));
+        *HLNode::cloneBaseImpl(Node1, &GotoList, &LabelMap, NodeMapper));
     updateGotos(&GotoList, &LabelMap);
     return;
   }
@@ -988,7 +988,7 @@ void HLNodeUtils::insertInternal(HLContainerTy &InsertContainer,
                                  HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last) {
   if (!OrigContainer) {
-    InsertContainer.insert(Pos, &*(First));
+    InsertContainer.insert(Pos, *(First));
   } else {
     InsertContainer.splice(Pos, *OrigContainer, First, Last);
   }
@@ -1350,7 +1350,9 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
   for (auto I = First, Next = I, E = Last; I != E; I = Next) {
 
     Next++;
-    Node = Container.remove(I);
+    Node = &*I;
+
+    Container.remove(*Node);
 
     if (Erase) {
       Node->getHLNodeUtils().destroy(Node);

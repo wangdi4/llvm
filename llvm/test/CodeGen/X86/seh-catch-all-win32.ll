@@ -64,7 +64,7 @@ entry:
 ; CHECK: movl %esp, [[reg_offs:[-0-9]+]](%ebp)
 ; CHECK: movl $L__ehtable$main,
 ;       EH state 0
-; CHECK: movl $0, [[id_off:[-0-9]+]](%ebp)
+; CHECK: movl $0, -16(%ebp)
 ; CHECK: calll _crash
 ; CHECK: popl %esi
 ; CHECK: popl %edi

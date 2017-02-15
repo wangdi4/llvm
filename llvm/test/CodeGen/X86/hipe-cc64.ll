@@ -38,12 +38,12 @@ entry:
 
 define cc 11 void @foo(i64 %hp, i64 %p, i64 %arg0, i64 %arg1, i64 %arg2, i64 %arg3) nounwind {
 entry:
-  ; CHECK:      movq  %r15, [[OFF1:[0-9]*]](%rsp)
-  ; CHECK-NEXT: movq  %rbp, [[OFF2:[0-9]*]](%rsp)
-  ; CHECK-NEXT: movq  %rsi, [[OFF3:[0-9]*]](%rsp)
-  ; CHECK-NEXT: movq  %rdx, [[OFF4:[0-9]*]](%rsp)
-  ; CHECK-NEXT: movq  %rcx, [[OFF5:[0-9]*]](%rsp)
-  ; CHECK-NEXT: movq  %r8, {{[0-9]*}}(%rsp)
+  ; CHECK:      movq  %r15, 40(%rsp)
+  ; CHECK-NEXT: movq  %rbp, 32(%rsp)
+  ; CHECK-NEXT: movq  %rsi, 24(%rsp)
+  ; CHECK-NEXT: movq  %rdx, 16(%rsp)
+  ; CHECK-NEXT: movq  %rcx, 8(%rsp)
+  ; CHECK-NEXT: movq  %r8, (%rsp)
   %hp_var   = alloca i64
   %p_var    = alloca i64
   %arg0_var = alloca i64
@@ -57,11 +57,11 @@ entry:
   store i64 %arg2, i64* %arg2_var
   store i64 %arg3, i64* %arg3_var
 
-  ; CHECK:      movq  [[OFF1]](%rsp), %r15
-  ; CHECK-NEXT: movq  [[OFF2]](%rsp), %rbp
-  ; CHECK-NEXT: movq  [[OFF3]](%rsp), %rsi
-  ; CHECK-NEXT: movq  [[OFF4]](%rsp), %rdx
-  ; CHECK-NEXT: movq  [[OFF5]](%rsp), %rcx
+  ; CHECK:      movq  40(%rsp), %r15
+  ; CHECK-NEXT: movq  32(%rsp), %rbp
+  ; CHECK-NEXT: movq  24(%rsp), %rsi
+  ; CHECK-NEXT: movq  16(%rsp), %rdx
+  ; CHECK-NEXT: movq  8(%rsp), %rcx
   %0 = load i64, i64* %hp_var
   %1 = load i64, i64* %p_var
   %2 = load i64, i64* %arg0_var

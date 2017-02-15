@@ -612,7 +612,7 @@ public:
         MRI(nullptr), Patterns(nullptr) {}
   ~X86GlobalFMA() { delete Patterns; }
 
-  const char *getPassName() const override { return "X86 GlobalFMA"; }
+  StringRef getPassName() const override { return "X86 GlobalFMA"; }
 
   bool runOnMachineFunction(MachineFunction &MFunc) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {

@@ -9,6 +9,8 @@ Discussion group: https://groups.google.com/d/forum/benchmark-discuss
 
 IRC channel: https://freenode.net #googlebenchmark
 
+[Known issues and common problems](#known-issues)
+
 ## Example usage
 ### Basic usage
 Define a function that executes the code to be measured.
@@ -391,6 +393,13 @@ The number of runs of each benchmark is specified globally by the
 `Repetitions` on the registered benchmark object. When a benchmark is run
 more than once the mean and standard deviation of the runs will be reported.
 
+Additionally the `--benchmark_report_aggregates_only={true|false}` flag or
+`ReportAggregatesOnly(bool)` function can be used to change how repeated tests
+are reported. By default the result of each repeated run is reported. When this
+option is 'true' only the mean and standard deviation of the runs is reported.
+Calling `ReportAggregatesOnly(bool)` on a registered benchmark object overrides
+the value of the flag for that benchmark.
+
 ## Fixtures
 Fixture tests are created by
 first defining a type that derives from ::benchmark::Fixture and then
@@ -452,6 +461,24 @@ static void BM_test(benchmark::State& state) {
   }
 }
 ```
+
+## Running a subset of the benchmarks
+
+The `--benchmark_filter=<regex>` option can be used to only run the benchmarks
+which match the specified `<regex>`. For example:
+
+```bash
+$ ./run_benchmarks.x --benchmark_filter=BM_memcpy/32
+Run on (1 X 2300 MHz CPU )
+2016-06-25 19:34:24
+Benchmark              Time           CPU Iterations
+----------------------------------------------------
+BM_memcpy/32          11 ns         11 ns   79545455
+BM_memcpy/32k       2181 ns       2185 ns     324074
+BM_memcpy/32          12 ns         12 ns   54687500
+BM_memcpy/32k       1834 ns       1837 ns     357143
+```
+
 
 ## Output Formats
 The library supports multiple output formats. Use the
@@ -560,3 +587,11 @@ Anything older *may* work.
 
 Note: Using the library and its headers in C++03 is supported. C++11 is only
 required to build the library.
+
+# Known Issues
+
+### Windows
+
+* Users must manually link `shlwapi.lib`. Failure to do so may result
+in unresolved symbols.
+

@@ -397,7 +397,7 @@ void HIRCreation::create() {
 
     setExitBBlock();
 
-    Regions.push_back(CurRegion);
+    Regions.push_back(*CurRegion);
   }
 }
 

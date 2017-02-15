@@ -13,7 +13,6 @@
 ;  %10 = shufflevector <4 x 64> %5, <4 x 64> %7, <4 x 32><2, 3, 6, 7>
 ;  %11 = shufflevector <4 x 64> %6, <4 x 64> %8, <4 x 32><0, 1, 4, 5>
 ;  %12 = shufflevector <4 x 64> %6, <4 x 64> %8, <4 x 32><2, 3, 6, 7>
-; TODO: support testing specific mask such as <0, 4, 2, 6>
 ;
 ; REQUIRES: asserts
 ; RUN: intelovls-test < %s 2>&1 | FileCheck %s
@@ -23,18 +22,18 @@
 ; To test manually define OVLSTESTCLIENT in intelovls-test.h
 ; XFAIL: *
 ;
-; CHECK: mask.load.64.4
-; CHECK: mask.load.64.4
-; CHECK: mask.load.64.4
-; CHECK: mask.load.64.4
-; CHECK: shufflevector
-; CHECK: shufflevector
-; CHECK: shufflevector
-; CHECK: shufflevector
-; CHECK: shufflevector
-; CHECK: shufflevector
-; CHECK: shufflevector
-; CHECK: shufflevector
+; CHECK: [[TMP1:%.*]] = mask.load.64.4 (<[[Base:.*]] Offset:0>, 1111)
+; CHECK-NEXT: [[TMP2:%.*]] = mask.load.64.4 (<[[Base:.*]] Offset:32>, 1111)
+; CHECK-NEXT: [[TMP3:%.*]] = mask.load.64.4 (<[[Base:.*]] Offset:64>, 1111)
+; CHECK-NEXT: [[TMP4:%.*]] = mask.load.64.4 (<[[Base:.*]] Offset:96>, 1111)
+; CHECK-NEXT: [[TMP5:%.*]] = shufflevector <4 x 64> [[TMP1]], <4 x 64> [[TMP2]], <4 x 32><0, 4, 2, 6>
+; CHECK-NEXT: [[TMP6:%.*]] = shufflevector <4 x 64> [[TMP1]], <4 x 64> [[TMP2]], <4 x 32><1, 5, 3, 7>
+; CHECK-NEXT: [[TMP7:%.*]] = shufflevector <4 x 64> [[TMP3]], <4 x 64> [[TMP4]], <4 x 32><0, 4, 2, 6>
+; CHECK-NEXT: [[TMP8:%.*]] = shufflevector <4 x 64> [[TMP3]], <4 x 64> [[TMP4]], <4 x 32><1, 5, 3, 7>
+; CHECK-NEXT: [[TMP9:%.*]] = shufflevector <4 x 64> [[TMP5]], <4 x 64> [[TMP7]], <4 x 32><0, 1, 4, 5>
+; CHECK-NEXT: [[TMP10:%.*]] = shufflevector <4 x 64> [[TMP5]], <4 x 64> [[TMP7]], <4 x 32><2, 3, 6, 7>
+; CHECK-NEXT: [[TMP11:%.*]] = shufflevector <4 x 64> [[TMP6]], <4 x 64> [[TMP8]], <4 x 32><0, 1, 4, 5>
+; CHECK-NEXT: [[TMP12:%.*]] = shufflevector <4 x 64> [[TMP6]], <4 x 64> [[TMP8]], <4 x 32><2, 3, 6, 7>
 ; CHECK-NOT: shufflevector
 # 32
 1 A 0 f64 4 SLoad C 32
