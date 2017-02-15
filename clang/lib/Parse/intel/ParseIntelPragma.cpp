@@ -90,7 +90,7 @@ void PragmaCilkGrainsizeHandler::HandlePragma(Preprocessor &PP,
   unsigned Size = CachedToks.size();
 
   Token *Toks = (Token *) Allocator.Allocate(sizeof(Token) * (Size + 2),
-                                             llvm::alignOf<Token>());
+                                             alignof(Token));
   Token &GsBeginTok = Toks[0];
   GsBeginTok.startToken();
   GsBeginTok.setKind(tok::annot_pragma_cilk_grainsize_begin);

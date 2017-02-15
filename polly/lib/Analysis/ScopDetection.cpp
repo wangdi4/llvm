@@ -178,7 +178,7 @@ static cl::opt<bool, true> XPollyInvariantLoadHoisting(
     cl::location(PollyInvariantLoadHoisting), cl::Hidden, cl::ZeroOrMore,
     cl::init(false), cl::cat(PollyCategory));
 
-/// @brief The minimal trip count under which loops are considered unprofitable.
+/// The minimal trip count under which loops are considered unprofitable.
 static const unsigned MIN_LOOP_TRIP_COUNT = 8;
 
 bool polly::PollyTrackFailures = false;
@@ -297,56 +297,10 @@ bool ScopDetection::addOverApproximatedRegion(Region *AR,
   // All loops in the region have to be overapproximated too if there
   // are accesses that depend on the iteration count.
 
-  BoxedLoopsSetTy ARBoxedLoopsSet;
-
   for (BasicBlock *BB : AR->blocks()) {
     Loop *L = LI->getLoopFor(BB);
-    if (AR->contains(L)) {
+    if (AR->contains(L))
       Context.BoxedLoopsSet.insert(L);
-      ARBoxedLoopsSet.insert(L);
-    }
-  }
-
-  // Reject if the surrounding loop does not entirely contain the nonaffine
-  // subregion.
-  // This can happen because a region can contain BBs that have no path to the
-  // exit block (Infinite loops, UnreachableInst), but such blocks are never
-  // part of a loop.
-  //
-  // _______________
-  // | Loop Header | <-----------.
-  // ---------------             |
-  //        |                    |
-  // _______________       ______________
-  // | RegionEntry |-----> | RegionExit |----->
-  // ---------------       --------------
-  //        |
-  // _______________
-  // | EndlessLoop | <--.
-  // ---------------    |
-  //       |            |
-  //       \------------/
-  //
-  // In the example above, the loop (LoopHeader,RegionEntry,RegionExit) is
-  // neither entirely contained in the region RegionEntry->RegionExit
-  // (containing RegionEntry,EndlessLoop) nor is the region entirely contained
-  // in the loop.
-  // The block EndlessLoop is contained is in the region because
-  // Region::contains tests whether it is not dominated by RegionExit. This is
-  // probably to not having to query the PostdominatorTree.
-  // Instead of an endless loop, a dead end can also be formed by
-  // UnreachableInst. This case is already caught by isErrorBlock(). We hence
-  // only have to test whether there is an endless loop not contained in the
-  // surrounding loop.
-  BasicBlock *BBEntry = AR->getEntry();
-  Loop *L = LI->getLoopFor(BBEntry);
-  while (L && AR->contains(L))
-    L = L->getParentLoop();
-  if (L) {
-    for (const auto *ARBoxedLoop : ARBoxedLoopsSet)
-      if (!L->contains(ARBoxedLoop))
-        return invalid<ReportLoopOverlapWithNonAffineSubRegion>(
-            Context, /*Assert=*/true, L, AR);
   }
 
   return (AllowNonAffineSubLoops || Context.BoxedLoopsSet.empty());
@@ -360,7 +314,7 @@ bool ScopDetection::onlyValidRequiredInvariantLoads(
     return false;
 
   for (LoadInst *Load : RequiredILS)
-    if (!isHoistableLoad(Load, CurRegion, *LI, *SE))
+    if (!isHoistableLoad(Load, CurRegion, *LI, *SE, *DT))
       return false;
 
   Context.RequiredILS.insert(RequiredILS.begin(), RequiredILS.end());
@@ -387,15 +341,15 @@ bool ScopDetection::isValidSwitch(BasicBlock &BB, SwitchInst *SI,
   Loop *L = LI->getLoopFor(&BB);
   const SCEV *ConditionSCEV = SE->getSCEVAtScope(Condition, L);
 
+  if (IsLoopBranch && L->isLoopLatch(&BB))
+    return false;
+
   if (isAffine(ConditionSCEV, L, Context))
     return true;
 
-  if (!IsLoopBranch && AllowNonAffineSubRegions &&
+  if (AllowNonAffineSubRegions &&
       addOverApproximatedRegion(RI->getRegionFor(&BB), Context))
     return true;
-
-  if (IsLoopBranch)
-    return false;
 
   return invalid<ReportNonAffBranch>(Context, /*Assert=*/true, &BB,
                                      ConditionSCEV, ConditionSCEV, SI);
@@ -404,6 +358,10 @@ bool ScopDetection::isValidSwitch(BasicBlock &BB, SwitchInst *SI,
 bool ScopDetection::isValidBranch(BasicBlock &BB, BranchInst *BI,
                                   Value *Condition, bool IsLoopBranch,
                                   DetectionContext &Context) const {
+
+  // Constant integer conditions are always affine.
+  if (isa<ConstantInt>(Condition))
+    return true;
 
   if (BinaryOperator *BinOp = dyn_cast<BinaryOperator>(Condition)) {
     auto Opcode = BinOp->getOpcode();
@@ -430,7 +388,7 @@ bool ScopDetection::isValidBranch(BasicBlock &BB, BranchInst *BI,
       isa<UndefValue>(ICmp->getOperand(1)))
     return invalid<ReportUndefOperand>(Context, /*Assert=*/true, &BB, ICmp);
 
-  Loop *L = LI->getLoopFor(ICmp->getParent());
+  Loop *L = LI->getLoopFor(&BB);
   const SCEV *LHS = SE->getSCEVAtScope(ICmp->getOperand(0), L);
   const SCEV *RHS = SE->getSCEVAtScope(ICmp->getOperand(1), L);
 
@@ -470,10 +428,6 @@ bool ScopDetection::isValidCFG(BasicBlock &BB, bool IsLoopBranch,
   // UndefValue is not allowed as condition.
   if (isa<UndefValue>(Condition))
     return invalid<ReportUndefCond>(Context, /*Assert=*/true, TI, &BB);
-
-  // Constant integer conditions are always affine.
-  if (isa<ConstantInt>(Condition))
-    return true;
 
   if (BranchInst *BI = dyn_cast<BranchInst>(TI))
     return isValidBranch(BB, BI, Condition, IsLoopBranch, Context);
@@ -537,6 +491,8 @@ bool ScopDetection::isValidCallInst(CallInst &CI,
       Context.AST.add(&CI);
       return true;
     case FMRB_DoesNotReadMemory:
+    case FMRB_OnlyAccessesInaccessibleMem:
+    case FMRB_OnlyAccessesInaccessibleOrArgMem:
       return false;
     }
   }
@@ -621,7 +577,7 @@ bool ScopDetection::isInvariant(const Value &Val, const Region &Reg) const {
   return true;
 }
 
-/// @brief Remove smax of smax(0, size) expressions from a SCEV expression and
+/// Remove smax of smax(0, size) expressions from a SCEV expression and
 /// register the '...' components.
 ///
 /// Array access expressions as they are generated by gfortran contain smax(0,
@@ -633,29 +589,16 @@ bool ScopDetection::isInvariant(const Value &Val, const Region &Reg) const {
 /// always add and verify the assumption that for all subscript expressions
 /// 'exp' the inequality 0 <= exp < size holds. Hence, we will also verify
 /// that 0 <= size, which means smax(0, size) == size.
-struct SCEVRemoveMax : public SCEVVisitor<SCEVRemoveMax, const SCEV *> {
+class SCEVRemoveMax : public SCEVRewriteVisitor<SCEVRemoveMax> {
 public:
-  static const SCEV *remove(ScalarEvolution &SE, const SCEV *Expr,
-                            std::vector<const SCEV *> *Terms = nullptr) {
-
-    SCEVRemoveMax D(SE, Terms);
-    return D.visit(Expr);
+  static const SCEV *rewrite(const SCEV *Scev, ScalarEvolution &SE,
+                             std::vector<const SCEV *> *Terms = nullptr) {
+    SCEVRemoveMax Rewriter(SE, Terms);
+    return Rewriter.visit(Scev);
   }
 
   SCEVRemoveMax(ScalarEvolution &SE, std::vector<const SCEV *> *Terms)
-      : SE(SE), Terms(Terms) {}
-
-  const SCEV *visitTruncateExpr(const SCEVTruncateExpr *Expr) { return Expr; }
-
-  const SCEV *visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr) {
-    return Expr;
-  }
-
-  const SCEV *visitSignExtendExpr(const SCEVSignExtendExpr *Expr) {
-    return SE.getSignExtendExpr(visit(Expr->getOperand()), Expr->getType());
-  }
-
-  const SCEV *visitUDivExpr(const SCEVUDivExpr *Expr) { return Expr; }
+      : SCEVRewriteVisitor(SE), Terms(Terms) {}
 
   const SCEV *visitSMaxExpr(const SCEVSMaxExpr *Expr) {
     if ((Expr->getNumOperands() == 2) && Expr->getOperand(0)->isZero()) {
@@ -668,42 +611,7 @@ public:
     return Expr;
   }
 
-  const SCEV *visitUMaxExpr(const SCEVUMaxExpr *Expr) { return Expr; }
-
-  const SCEV *visitUnknown(const SCEVUnknown *Expr) { return Expr; }
-
-  const SCEV *visitCouldNotCompute(const SCEVCouldNotCompute *Expr) {
-    return Expr;
-  }
-
-  const SCEV *visitConstant(const SCEVConstant *Expr) { return Expr; }
-
-  const SCEV *visitAddRecExpr(const SCEVAddRecExpr *Expr) {
-    SmallVector<const SCEV *, 5> NewOps;
-    for (const SCEV *Op : Expr->operands())
-      NewOps.push_back(visit(Op));
-
-    return SE.getAddRecExpr(NewOps, Expr->getLoop(), Expr->getNoWrapFlags());
-  }
-
-  const SCEV *visitAddExpr(const SCEVAddExpr *Expr) {
-    SmallVector<const SCEV *, 5> NewOps;
-    for (const SCEV *Op : Expr->operands())
-      NewOps.push_back(visit(Op));
-
-    return SE.getAddExpr(NewOps);
-  }
-
-  const SCEV *visitMulExpr(const SCEVMulExpr *Expr) {
-    SmallVector<const SCEV *, 5> NewOps;
-    for (const SCEV *Op : Expr->operands())
-      NewOps.push_back(visit(Op));
-
-    return SE.getMulExpr(NewOps);
-  }
-
 private:
-  ScalarEvolution &SE;
   std::vector<const SCEV *> *Terms;
 };
 
@@ -713,7 +621,7 @@ ScopDetection::getDelinearizationTerms(DetectionContext &Context,
   SmallVector<const SCEV *, 4> Terms;
   for (const auto &Pair : Context.Accesses[BasePointer]) {
     std::vector<const SCEV *> MaxTerms;
-    SCEVRemoveMax::remove(*SE, Pair.second, &MaxTerms);
+    SCEVRemoveMax::rewrite(Pair.second, *SE, &MaxTerms);
     if (MaxTerms.size() > 0) {
       Terms.insert(Terms.begin(), MaxTerms.begin(), MaxTerms.end());
       continue;
@@ -772,7 +680,7 @@ bool ScopDetection::hasValidArraySizes(DetectionContext &Context,
       auto *V = dyn_cast<Value>(Unknown->getValue());
       if (auto *Load = dyn_cast<LoadInst>(V)) {
         if (Context.CurRegion.contains(Load) &&
-            isHoistableLoad(Load, CurRegion, *LI, *SE))
+            isHoistableLoad(Load, CurRegion, *LI, *SE, *DT))
           Context.RequiredILS.insert(Load);
         continue;
       }
@@ -819,7 +727,7 @@ bool ScopDetection::computeAccessFunctions(
   for (const auto &Pair : Context.Accesses[BasePointer]) {
     const Instruction *Insn = Pair.first;
     auto *AF = Pair.second;
-    AF = SCEVRemoveMax::remove(*SE, AF);
+    AF = SCEVRemoveMax::rewrite(AF, *SE);
     bool IsNonAffine = false;
     TempMemoryAccesses.insert(std::make_pair(Insn, MemAcc(Insn, Shape)));
     MemAcc *Acc = &TempMemoryAccesses.find(Insn)->second;
@@ -981,7 +889,7 @@ bool ScopDetection::isValidAccess(Instruction *Inst, const SCEV *AF,
         Instruction *Inst = dyn_cast<Instruction>(Ptr.getValue());
         if (Inst && Context.CurRegion.contains(Inst)) {
           auto *Load = dyn_cast<LoadInst>(Inst);
-          if (Load && isHoistableLoad(Load, Context.CurRegion, *LI, *SE)) {
+          if (Load && isHoistableLoad(Load, Context.CurRegion, *LI, *SE, *DT)) {
             Context.RequiredILS.insert(Load);
             continue;
           }
@@ -1057,18 +965,23 @@ bool ScopDetection::isValidInstruction(Instruction &Inst,
   return invalid<ReportUnknownInst>(Context, /*Assert=*/true, &Inst);
 }
 
+/// Check whether @p L has exiting blocks.
+///
+/// @param L The loop of interest
+///
+/// @return True if the loop has exiting blocks, false otherwise.
+static bool hasExitingBlocks(Loop *L) {
+  SmallVector<BasicBlock *, 4> ExitingBlocks;
+  L->getExitingBlocks(ExitingBlocks);
+  return !ExitingBlocks.empty();
+}
+
 bool ScopDetection::canUseISLTripCount(Loop *L,
                                        DetectionContext &Context) const {
   // Ensure the loop has valid exiting blocks as well as latches, otherwise we
   // need to overapproximate it as a boxed loop.
   SmallVector<BasicBlock *, 4> LoopControlBlocks;
   L->getExitingBlocks(LoopControlBlocks);
-
-  // Loops without exiting blocks cannot be handled by the schedule generation
-  // as it depends on a region covering that is not given.
-  if (LoopControlBlocks.empty())
-    return false;
-
   L->getLoopLatches(LoopControlBlocks);
   for (BasicBlock *ControlBB : LoopControlBlocks) {
     if (!isValidCFG(*ControlBB, true, false, Context))
@@ -1080,6 +993,38 @@ bool ScopDetection::canUseISLTripCount(Loop *L,
 }
 
 bool ScopDetection::isValidLoop(Loop *L, DetectionContext &Context) const {
+  // Loops that contain part but not all of the blocks of a region cannot be
+  // handled by the schedule generation. Such loop constructs can happen
+  // because a region can contain BBs that have no path to the exit block
+  // (Infinite loops, UnreachableInst), but such blocks are never part of a
+  // loop.
+  //
+  // _______________
+  // | Loop Header | <-----------.
+  // ---------------             |
+  //        |                    |
+  // _______________       ______________
+  // | RegionEntry |-----> | RegionExit |----->
+  // ---------------       --------------
+  //        |
+  // _______________
+  // | EndlessLoop | <--.
+  // ---------------    |
+  //       |            |
+  //       \------------/
+  //
+  // In the example above, the loop (LoopHeader,RegionEntry,RegionExit) is
+  // neither entirely contained in the region RegionEntry->RegionExit
+  // (containing RegionEntry,EndlessLoop) nor is the region entirely contained
+  // in the loop.
+  // The block EndlessLoop is contained in the region because Region::contains
+  // tests whether it is not dominated by RegionExit. This is probably to not
+  // having to query the PostdominatorTree. Instead of an endless loop, a dead
+  // end can also be formed by an UnreachableInst. This case is already caught
+  // by isErrorBlock(). We hence only have to reject endless loops here.
+  if (!hasExitingBlocks(L))
+    return invalid<ReportLoopHasNoExit>(Context, /*Assert=*/true, L);
+
   if (canUseISLTripCount(L, Context))
     return true;
 
@@ -1096,7 +1041,7 @@ bool ScopDetection::isValidLoop(Loop *L, DetectionContext &Context) const {
   return invalid<ReportLoopBound>(Context, /*Assert=*/true, L, LoopCount);
 }
 
-/// @brief Return the number of loops in @p L (incl. @p L) that have a trip
+/// Return the number of loops in @p L (incl. @p L) that have a trip
 ///        count that is not known to be less than MIN_LOOP_TRIP_COUNT.
 static int countBeneficialSubLoops(Loop *L, ScalarEvolution &SE) {
   auto *TripCount = SE.getBackedgeTakenCount(L);
@@ -1307,6 +1252,9 @@ bool ScopDetection::hasSufficientCompute(DetectionContext &Context,
                                          int NumLoops) const {
   int InstCount = 0;
 
+  if (NumLoops == 0)
+    return false;
+
   for (auto *BB : Context.CurRegion.blocks())
     if (Context.CurRegion.contains(LI->getLoopFor(BB)))
       InstCount += BB->size();
@@ -1435,7 +1383,7 @@ void ScopDetection::emitMissedRemarks(const Function &F) {
 }
 
 bool ScopDetection::isReducibleRegion(Region &R, DebugLoc &DbgLoc) const {
-  /// @brief Enum for coloring BBs in Region.
+  /// Enum for coloring BBs in Region.
   ///
   /// WHITE - Unvisited BB in DFS walk.
   /// GREY - BBs which are currently on the DFS stack for processing.
@@ -1584,7 +1532,7 @@ void polly::ScopDetection::verifyAnalysis() const {
 
 void ScopDetection::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopInfoWrapperPass>();
-  AU.addRequired<ScalarEvolutionWrapperPass>();
+  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequired<DominatorTreeWrapperPass>();
   // We also need AA and RegionInfo when we are verifying analysis.
   AU.addRequiredTransitive<AAResultsWrapperPass>();

@@ -12,12 +12,13 @@ class ConcurrentDelayWatchBreak(ConcurrentEventsBase):
 
     mydir = ConcurrentEventsBase.compute_mydir(__file__)
 
-    @skipIfFreeBSD # timing out on buildbot
+    @skipIfFreeBSD  # timing out on buildbot
     @skipIfRemoteDueToDeadlock
-    @expectedFailureAll(triple = '^mips') # Atomic sequences are not supported yet for MIPS in LLDB.
-    def test_delay_watch_break(self):
+    # Atomic sequences are not supported yet for MIPS in LLDB.
+    @skipIf(triple='^mips')
+    def test(self):
         """Test (1-second delay) watchpoint and a breakpoint in multiple threads."""
         self.build(dictionary=self.getBuildFlags())
-        self.do_thread_actions(num_breakpoint_threads=1, num_delay_watchpoint_threads=1)
-
-
+        self.do_thread_actions(
+            num_breakpoint_threads=1,
+            num_delay_watchpoint_threads=1)

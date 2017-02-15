@@ -88,8 +88,8 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     VisContext(nullptr),
     IsBuildingRecoveryCallExpr(false),
     Cleanup{}, LateTemplateParser(nullptr),
-    LateTemplateParserCleanup(nullptr),
-    OpaqueParser(nullptr), IdResolver(pp), StdInitializerList(nullptr),
+    LateTemplateParserCleanup(nullptr), OpaqueParser(nullptr), IdResolver(pp),
+    StdExperimentalNamespaceCache(nullptr), StdInitializerList(nullptr),
     CXXTypeInfoDecl(nullptr), MSVCGuidDecl(nullptr),
     NSNumberDecl(nullptr), NSValueDecl(nullptr),
     NSStringDecl(nullptr), StringWithUTF8StringMethod(nullptr),
@@ -315,7 +315,6 @@ void Sema::Initialize() {
 }
 
 Sema::~Sema() {
-  llvm::DeleteContainerSeconds(LateParsedTemplateMap);
   if (VisContext) FreeVisContext();
   // Kill all the active scopes.
   for (unsigned I = 1, E = FunctionScopes.size(); I != E; ++I)
@@ -822,7 +821,8 @@ if (!optLevelDecls.empty()) {
 
   if (TUKind == TU_Prefix) {
     // Translation unit prefixes don't need any of the checking below.
-    TUScope = nullptr;
+    if (!PP.isIncrementalProcessingEnabled())
+      TUScope = nullptr;
     return;
   }
 
@@ -979,8 +979,11 @@ if (!optLevelDecls.empty()) {
           Diag(DiagD->getLocation(), diag::warn_unneeded_internal_decl)
                 << /*variable*/1 << DiagD->getDeclName();
         } else if (DiagD->getType().isConstQualified()) {
-          Diag(DiagD->getLocation(), diag::warn_unused_const_variable)
-              << DiagD->getDeclName();
+          const SourceManager &SM = SourceMgr;
+          if (SM.getMainFileID() != SM.getFileID(DiagD->getLocation()) ||
+              !PP.getLangOpts().IsHeaderFile)
+            Diag(DiagD->getLocation(), diag::warn_unused_const_variable)
+                << DiagD->getDeclName();
         } else {
           Diag(DiagD->getLocation(), diag::warn_unused_variable)
               << DiagD->getDeclName();
@@ -1023,7 +1026,8 @@ if (!optLevelDecls.empty()) {
   assert(ParsingInitForAutoVars.empty() &&
          "Didn't unmark var as having its initializer parsed");
 
-  TUScope = nullptr;
+  if (!PP.isIncrementalProcessingEnabled())
+    TUScope = nullptr;
 }
 
 
@@ -1348,11 +1352,19 @@ SIMDForScopeInfo *Sema::getCurSIMDFor() {
 }
 #endif // INTEL_SPECIFIC_CILKPLUS
 
-LambdaScopeInfo *Sema::getCurLambda() {
+LambdaScopeInfo *Sema::getCurLambda(bool IgnoreCapturedRegions) {
   if (FunctionScopes.empty())
     return nullptr;
 
-  auto CurLSI = dyn_cast<LambdaScopeInfo>(FunctionScopes.back());
+  auto I = FunctionScopes.rbegin();
+  if (IgnoreCapturedRegions) {
+    auto E = FunctionScopes.rend();
+    while (I != E && isa<CapturedRegionScopeInfo>(*I))
+      ++I;
+    if (I == E)
+      return nullptr;
+  }
+  auto *CurLSI = dyn_cast<LambdaScopeInfo>(*I);
   if (CurLSI && CurLSI->Lambda &&
       !CurLSI->Lambda->Encloses(CurContext)) {
     // We have switched contexts due to template instantiation.

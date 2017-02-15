@@ -550,7 +550,13 @@ bool Parser::ParseFirstTopLevelDecl(DeclGroupPtrTy &Result) {
     return false;
   } else if (getLangOpts().getCompilingModule() ==
              LangOptions::CMK_ModuleInterface) {
-    Diag(Tok, diag::err_expected_module_interface_decl);
+    // FIXME: We avoid providing this diagnostic when generating an object file
+    // from an existing PCM file. This is not a good way to detect this
+    // condition; we should provide a mechanism to indicate whether we've
+    // already parsed a declaration in this translation unit and avoid calling
+    // ParseFirstTopLevelDecl in that case.
+    if (Actions.TUKind == TU_Module)
+      Diag(Tok, diag::err_expected_module_interface_decl);
   }
 
   // C11 6.9p1 says translation units must have at least one top-level
@@ -622,7 +628,6 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result) {
 
   ParsedAttributesWithRange attrs(AttrFactory);
   MaybeParseCXX11Attributes(attrs);
-  MaybeParseMicrosoftAttributes(attrs);
 
   Result = ParseExternalDeclaration(attrs);
   return false;
@@ -848,11 +853,17 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
                                               : Sema::PCC_Namespace);
     cutOffParsing();
     return nullptr;
+  case tok::kw_export:
+    if (getLangOpts().ModulesTS) {
+      SingleDecl = ParseExportDeclaration();
+      break;
+    }
+    // This must be 'export template'. Parse it so we can diagnose our lack
+    // of support.
   case tok::kw_using:
   case tok::kw_namespace:
   case tok::kw_typedef:
   case tok::kw_template:
-  case tok::kw_export:    // As in 'export template'
   case tok::kw_static_assert:
   case tok::kw__Static_assert:
     // A function definition cannot start with any of these keywords.
@@ -969,11 +980,10 @@ bool Parser::isStartOfFunctionDefinition(const ParsingDeclarator &Declarator) {
          Tok.is(tok::kw_try);          // X() try { ... }
 }
 
-/// ParseDeclarationOrFunctionDefinition - Parse either a function-definition or
-/// a declaration.  We can't tell which we have until we read up to the
-/// compound-statement in function-definition. TemplateParams, if
-/// non-NULL, provides the template parameters when we're parsing a
-/// C++ template-declaration.
+/// Parse either a function-definition or a declaration.  We can't tell which
+/// we have until we read up to the compound-statement in function-definition.
+/// TemplateParams, if non-NULL, provides the template parameters when we're
+/// parsing a C++ template-declaration.
 ///
 ///       function-definition: [C99 6.9.1]
 ///         decl-specs      declarator declaration-list[opt] compound-statement
@@ -989,6 +999,7 @@ Parser::DeclGroupPtrTy
 Parser::ParseDeclOrFunctionDefInternal(ParsedAttributesWithRange &attrs,
                                        ParsingDeclSpec &DS,
                                        AccessSpecifier AS) {
+  MaybeParseMicrosoftAttributes(DS.getAttributes());
   // Parse the common declaration-specifiers piece.
   ParseDeclarationSpecifiers(DS, ParsedTemplateInfo(), AS, DSC_top_level);
 
@@ -1068,7 +1079,7 @@ Parser::ParseDeclarationOrFunctionDefinition(ParsedAttributesWithRange &attrs,
     // parsing c constructs and re-enter objc container scope
     // afterwards.
     ObjCDeclContextSwitch ObjCDC(*this);
-      
+
     return ParseDeclOrFunctionDefInternal(attrs, PDS, AS);
   }
 }
@@ -1617,6 +1628,8 @@ Parser::TryAnnotateName(bool IsAddressOfOperand,
                                                    NewEndLoc);
       if (NewType.isUsable())
         Ty = NewType.get();
+      else if (Tok.is(tok::eof)) // Nothing to do here, bail out...
+        return ANK_Error;
     }
 
     Tok.setKind(tok::annot_typename);
@@ -1848,6 +1861,8 @@ bool Parser::TryAnnotateTypeOrScopeTokenAfterScopeSpec(bool EnteringContext,
                                                    NewEndLoc);
         if (NewType.isUsable())
           Ty = NewType.get();
+        else if (Tok.is(tok::eof)) // Nothing to do here, bail out...
+          return false;
       }
 
       // This is a typename. Replace the current token in-place with an
@@ -2110,7 +2125,6 @@ void Parser::ParseMicrosoftIfExistsExternalDeclaration() {
   while (Tok.isNot(tok::r_brace) && !isEofOrEom()) {
     ParsedAttributesWithRange attrs(AttrFactory);
     MaybeParseCXX11Attributes(attrs);
-    MaybeParseMicrosoftAttributes(attrs);
     DeclGroupPtrTy Result = ParseExternalDeclaration(attrs);
     if (Result && !getCurScope()->getParent())
       Actions.getASTConsumer().HandleTopLevelDecl(Result.get());

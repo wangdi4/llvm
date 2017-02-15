@@ -40,7 +40,17 @@ void test_in_place_type() {
     assert(Type::count == 0);
     Type::reset();
     {
-        any a(std::in_place<Type>);
+        any a(std::in_place_type<Type>);
+
+        assert(Type::count == 1);
+        assert(Type::copied == 0);
+        assert(Type::moved == 0);
+        assertContains<Type>(a, 0);
+    }
+    assert(Type::count == 0);
+    Type::reset();
+    { // Test that the in_place argument is properly decayed
+        any a(std::in_place_type<Type&>);
 
         assert(Type::count == 1);
         assert(Type::copied == 0);
@@ -50,7 +60,7 @@ void test_in_place_type() {
     assert(Type::count == 0);
     Type::reset();
     {
-        any a(std::in_place<Type>, 101);
+        any a(std::in_place_type<Type>, 101);
 
         assert(Type::count == 1);
         assert(Type::copied == 0);
@@ -60,7 +70,7 @@ void test_in_place_type() {
     assert(Type::count == 0);
     Type::reset();
     {
-        any a(std::in_place<Type>, -1, 42, -1);
+        any a(std::in_place_type<Type>, -1, 42, -1);
 
         assert(Type::count == 1);
         assert(Type::copied == 0);
@@ -76,22 +86,49 @@ void test_in_place_type_tracked() {
     // constructing from a small type should perform no allocations.
     DisableAllocationGuard g(isSmallType<Type>()); ((void)g);
     {
-        any a(std::in_place<Type>);
+        any a(std::in_place_type<Type>);
         assertArgsMatch<Type>(a);
     }
     {
-        any a(std::in_place<Type>, -1, 42, -1);
+        any a(std::in_place_type<Type>, -1, 42, -1);
         assertArgsMatch<Type, int, int, int>(a);
     }
     // initializer_list constructor tests
     {
-        any a(std::in_place<Type>, {-1, 42, -1});
+        any a(std::in_place_type<Type>, {-1, 42, -1});
         assertArgsMatch<Type, std::initializer_list<int>>(a);
     }
     {
         int x = 42;
-        any a(std::in_place<Type>, {-1, 42, -1}, x);
+        any a(std::in_place_type<Type&>, {-1, 42, -1}, x);
         assertArgsMatch<Type, std::initializer_list<int>, int&>(a);
+    }
+}
+
+void test_func() {}
+
+void test_in_place_type_decayed() {
+    {
+        using Type = decltype(test_func);
+        using DecayT = void(*)();
+        any a(std::in_place_type<Type>, test_func);
+        assert(containsType<DecayT>(a));
+        assert(any_cast<DecayT>(a) == test_func);
+    }
+    {
+        int my_arr[5];
+        using Type = int(&)[5];
+        using DecayT = int*;
+        any a(std::in_place_type<Type>, my_arr);
+        assert(containsType<DecayT>(a));
+        assert(any_cast<DecayT>(a) == my_arr);
+    }
+    {
+        using Type = int[5];
+        using DecayT = int*;
+        any a(std::in_place_type<Type>);
+        assert(containsType<DecayT>(a));
+        assert(any_cast<DecayT>(a) == nullptr);
     }
 }
 
@@ -115,10 +152,14 @@ void test_ctor_sfinae() {
           NoCopy(std::initializer_list<int>, int) {}
         };
         using Tag = std::in_place_type_t<NoCopy>;
+        using RefTag = std::in_place_type_t<NoCopy&>;
         using IL = std::initializer_list<int>;
         static_assert(!std::is_constructible<std::any, Tag>::value, "");
         static_assert(!std::is_constructible<std::any, Tag, int>::value, "");
         static_assert(!std::is_constructible<std::any, Tag, IL, int>::value, "");
+        static_assert(!std::is_constructible<std::any, RefTag>::value, "");
+        static_assert(!std::is_constructible<std::any, RefTag, int>::value, "");
+        static_assert(!std::is_constructible<std::any, RefTag, IL, int>::value, "");
     }
 }
 
@@ -147,6 +188,7 @@ int main() {
     test_in_place_type<throws_on_move>();
     test_in_place_type_tracked<small_tracked_t>();
     test_in_place_type_tracked<large_tracked_t>();
+    test_in_place_type_decayed();
     test_ctor_sfinae();
     test_constructor_explicit();
 }

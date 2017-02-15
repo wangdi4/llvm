@@ -168,6 +168,10 @@ public:
 #endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
+  /// \brief Indicates whether the front-end is explicitly told that the
+  /// input is a header file (i.e. -x c-header).
+  bool IsHeaderFile;
+
   LangOptions();
 
   // Define accessors/mutators for language options of enumeration type.
@@ -201,7 +205,7 @@ public:
 
   /// \brief Is this a libc/libm function that is no longer recognized as a
   /// builtin because a -fno-builtin-* option has been specified?
-  bool isNoBuiltinFunc(const char *Name) const;
+  bool isNoBuiltinFunc(StringRef Name) const;
 };
 
 /// \brief Floating point control options

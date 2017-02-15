@@ -78,6 +78,16 @@
 // CHECK-PROFILE-ARCS: "-femit-coverage-data"
 // CHECK-NO-PROFILE-ARCS-NOT: "-femit-coverage-data"
 
+// RUN: %clang -### -S -fprofile-dir=abc %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-DIR-UNUSED %s
+// RUN: %clang -### -S -ftest-coverage -fprofile-dir=abc %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-DIR-UNUSED %s
+// RUN: %clang -### -S -fprofile-arcs -fprofile-dir=abc %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-DIR %s
+// RUN: %clang -### -S --coverage -fprofile-dir=abc %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-DIR %s
+// RUN: %clang -### -S -fprofile-arcs -fno-profile-arcs -fprofile-dir=abc %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-DIR-NEITHER %s
+// CHECK-PROFILE-DIR: "-coverage-data-file" "abc
+// CHECK-PROFILE-DIR-UNUSED: argument unused
+// CHECK-PROFILE-DIR-UNUSED-NOT: "-coverage-data-file" "abc
+// CHECK-PROFILE-DIR-NEITHER-NOT: argument unused
+
 // RUN: %clang -### -S -fprofile-generate %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-GENERATE-LLVM %s
 // RUN: %clang -### -S -fprofile-instr-generate %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-GENERATE %s
 // RUN: %clang -### -S -fprofile-generate=/some/dir %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-GENERATE-DIR %s
@@ -224,7 +234,6 @@
 // RUN:     -fdefer-pop -fno-defer-pop                                        \
 // RUN:     -fprefetch-loop-arrays -fno-prefetch-loop-arrays                  \
 // RUN:     -fprofile-correction -fno-profile-correction                      \
-// RUN:     -fprofile-dir=bar                                                 \
 // RUN:     -fprofile-values -fno-profile-values                              \
 // RUN:     -frounding-math -fno-rounding-math                                \
 // RUN:     -fsee -fno-see                                                    \
@@ -302,7 +311,6 @@
 // RUN: -fkeep-inline-functions                                               \
 // RUN: -fno-keep-inline-functions                                            \
 // RUN: -freorder-blocks                                                      \
-// RUN: -fprofile-dir=/rand/dir                                               \
 // RUN: -falign-functions                                                     \
 // RUN: -falign-functions=1                                                   \
 // RUN: -ffloat-store                                                         \
@@ -369,7 +377,6 @@
 // CHECK-WARNING-DAG: optimization flag '-fkeep-inline-functions' is not supported
 // CHECK-WARNING-DAG: optimization flag '-fno-keep-inline-functions' is not supported
 // CHECK-WARNING-DAG: optimization flag '-freorder-blocks' is not supported
-// CHECK-WARNING-DAG: optimization flag '-fprofile-dir=/rand/dir' is not supported
 // CHECK-WARNING-DAG: optimization flag '-falign-functions' is not supported
 // CHECK-WARNING-DAG: optimization flag '-falign-functions=1' is not supported
 // CHECK-WARNING-DAG: optimization flag '-ffloat-store' is not supported
