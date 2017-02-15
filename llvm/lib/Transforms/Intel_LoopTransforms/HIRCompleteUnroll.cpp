@@ -1077,4 +1077,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
   HNU.remove(Loop);
 }
 
-void HIRCompleteUnroll::releaseMemory() { CandidateLoops.clear(); }
+void HIRCompleteUnroll::releaseMemory() { 
+  CandidateLoops.clear();
+  AvgTripCount.clear();
+}

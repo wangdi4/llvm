@@ -106,7 +106,7 @@ int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
   APInt Result(64, A / gcd(A, B), true);
   APInt Op(64, B, true);
   bool Overflows = false;
-  
+
   Result = Result.smul_ov(Op, Overflows);
 
   return Overflows ? 0 : Result.getZExtValue();
@@ -594,6 +594,16 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
     }
 
     Diff = Result->getSingleBlobCoeff();
+
+  } else if (Index1 != InvalidBlobIndex) {
+    // IV has a blob coefficient so Result should have a blob term to have valid
+    // iteration distance.
+    assert((NumBlobs == 0) && "Unexpected nuumber of blobs in result!");
+
+    // Allow identical CEs to pass through.
+    if (Diff != 0) {
+      return false;
+    }
   }
 
   if ((Diff % std::llabs(Coeff1)) != 0) {
