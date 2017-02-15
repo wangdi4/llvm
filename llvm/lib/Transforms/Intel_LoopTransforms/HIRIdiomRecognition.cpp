@@ -89,10 +89,12 @@ class HIRIdiomRecognition : public HIRTransformPass {
   SmallPtrSet<HLNode *, 8> RemovedNodes;
 
   // Checks if the candidate is legal from DDG point of view.
-  bool isLegalEdge(const DDEdge &E, unsigned Level);
+  bool isLegalEdge(const RegDDRef *Ref, const DDEdge &E, unsigned Level,
+                   bool IsStore);
+
   template <bool IsOutgoing>
   bool isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
-                    const MemOpCandidate &Candidate);
+                    const RegDDRef *Ref, bool IsStore);
   bool isLegalCandidate(const HLLoop *Loop, const MemOpCandidate &Candidate);
 
   // Analyze and create the transformation candidate for the reference.
@@ -219,18 +221,40 @@ bool HIRIdiomRecognition::isBytewiseValue(RegDDRef *Ref, bool DoBitcast) {
   return false;
 }
 
-// Check that it's legal to hoist store/load pair to the pre-header.
-bool HIRIdiomRecognition::isLegalEdge(const DDEdge &E, unsigned Level) {
+// Check that it's legal to hoist store/load to the pre-header.
+bool HIRIdiomRecognition::isLegalEdge(const RegDDRef *Ref, const DDEdge &E,
+                                      unsigned Level, bool IsStore) {
   const DirectionVector &DV = E.getDV();
 
   if (DV.isIndepFromLevel(Level)) {
     return true;
   }
 
+  // This is a workaround because of not precise DDG for multiple level
+  // loopnests. We consider any * outer level DV illegal. Ex.: (* * ?).
+  // Only outer "=" DVs are handled for multilevel loopnests. Ex.: (= = ?).
+  // Note that we already checked for isIndepFromLevel() before.
+  for (unsigned L = 0; L < Level - 1; ++L) {
+    if (DV[L] != DVKind::EQ) {
+      return false;
+    }
+  }
+
+  // No stores should be before the idiom DDRef.
+  if (IsStore && E.isOUTPUTdep()) {
+    DVKind Kind = DV[Level - 1];
+    return (Kind == DVKind::EQ || Kind == DVKind::LT) && E.getSrc() == Ref;
+  }
+
+  assert(!E.isINPUTdep() && "Input edges are not expected");
+
+  // No loads should be before the idiom DDRef.
+  // Legality table:
+  //      | Store | Load  |
+  // ANTI |   >   |   <   |
+  // FLOW |   <   |   >   |
   DVKind Kind;
-  if (E.isOUTPUTdep()) {
-    Kind = DVKind::EQ;
-  } else if (E.isANTIdep()) {
+  if (E.isANTIdep() ^ !IsStore) {
     Kind = DVKind::GT;
   } else {
     Kind = DVKind::LT;
@@ -241,11 +265,11 @@ bool HIRIdiomRecognition::isLegalEdge(const DDEdge &E, unsigned Level) {
 
 template <bool IsOutgoing>
 bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
-                                       const MemOpCandidate &Candidate) {
+                                       const RegDDRef *Ref, bool IsStore) {
   unsigned Level = Loop->getNestingLevel();
 
-  auto Range = IsOutgoing ? DDG.outgoing(Candidate.StoreRef)
-                          : DDG.incoming(Candidate.StoreRef);
+  auto Range = IsOutgoing ? DDG.outgoing(Ref)
+                          : DDG.incoming(Ref);
 
   for (DDEdge *E : Range) {
     DDRef *OtherRef = IsOutgoing ? E->getSink() : E->getSrc();
@@ -255,13 +279,7 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
       continue;
     }
 
-    if (OtherRef == Candidate.RHS) {
-      // Check that there is no dependency between store and load.
-      DEBUG(E->dump());
-      return false;
-    }
-
-    if (!isLegalEdge(*E, Level)) {
+    if (!isLegalEdge(Ref, *E, Level, IsStore)) {
       DEBUG(E->dump());
       return false;
     }
@@ -275,12 +293,22 @@ bool HIRIdiomRecognition::isLegalCandidate(const HLLoop *Loop,
   DEBUG(dbgs() << "R: ");
   DDGraph DDG = DDA->getGraph(Loop);
 
-  if (!isLegalGraph<true>(DDG, Loop, Candidate)) {
+  if (!isLegalGraph<true>(DDG, Loop, Candidate.StoreRef, true)) {
     return false;
   }
 
-  if (!isLegalGraph<false>(DDG, Loop, Candidate)) {
+  if (!isLegalGraph<false>(DDG, Loop, Candidate.StoreRef, true)) {
     return false;
+  }
+
+  if (Candidate.isMemcopy()) {
+    if (!isLegalGraph<true>(DDG, Loop, Candidate.RHS, false)) {
+      return false;
+    }
+
+    if (!isLegalGraph<false>(DDG, Loop, Candidate.RHS, false)) {
+      return false;
+    }
   }
 
   DEBUG(dbgs() << "OK\n");
@@ -679,7 +707,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   bool Changed = false;
   for (MemOpCandidate &Candidate : Candidates) {
     DEBUG(dbgs() << "A: ");
-    DEBUG(Candidate.StoreRef->dump(true));
+    DEBUG(Candidate.DefInst->dump(true));
     DEBUG(dbgs() << "\n");
 
     if (!isLegalCandidate(Loop, Candidate)) {
