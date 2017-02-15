@@ -70,7 +70,6 @@ protected:
   /// \brief
   VGNode(unsigned SCID);
   VGNode(const VGNode &Obj);
-  virtual ~VGNode() {}
 
   /// \brief Destroys the object.
   void destroy();
@@ -89,6 +88,8 @@ protected:
   friend class VectorGraphUtils;
 
 public:
+  virtual ~VGNode() {}
+
   /// Virtual Clone Method
   virtual VGNode *clone() const = 0;
 
@@ -127,6 +128,13 @@ public:
   enum VectorGraphNodeVal { VGLoopNode, VGBlockNode, VGPredicateNode };
 };
 
+#if 0
+/// FIXME(DLK) - The ilist data structure was again changed in r281184. Make
+///              sure this is the right way to deal with it. Note that I also
+///              made ~VGNode() public, which is probably not the right thing to
+///              do. You might want to talk to Pankaj & Pavel, since they had
+///              to make similar changes in loopopt.
+/// \brief Traits for iplist<AVR>
 /// \brief Traits for iplist<VGNode>
 ///
 /// See ilist_traits<Instruction> in BasicBlock.h for details
@@ -141,6 +149,7 @@ struct ilist_traits<VGNode> : public ilist_default_traits<VGNode> {
   }
   static void deleteNode(VGNode *) {}
 };
+#endif
 
 typedef iplist<VGNode> VectorGraphTy;
 

@@ -47,6 +47,8 @@
 #include "sanitizer_symbolizer.h"
 #include "sanitizer_flags.h"
 
+using namespace __sanitizer;
+
 static const u64 kMagic64 = 0xC0BFFFFFFFFFFF64ULL;
 static const u64 kMagic32 = 0xC0BFFFFFFFFFFF32ULL;
 static const uptr kNumWordsForMagic = SANITIZER_WORDSIZE == 64 ? 1 : 2;
@@ -111,8 +113,6 @@ class CoverageData {
   uptr *data();
   uptr size() const;
 
-  void SetPcBuffer(uptr* data, uptr length);
-
  private:
   struct NamedPcRange {
     const char *copied_module_name;
@@ -142,9 +142,6 @@ class CoverageData {
   uptr pc_array_mapped_size;
   // Descriptor of the file mapped pc array.
   fd_t pc_fd;
-
-  uptr *pc_buffer;
-  uptr pc_buffer_len;
 
   // Vector of coverage guard arrays, protected by mu.
   InternalMmapVectorNoCtor<s32*> guard_array_vec;
@@ -216,9 +213,6 @@ void CoverageData::Enable() {
   } else {
     atomic_store(&pc_array_size, kPcArrayMaxSize, memory_order_relaxed);
   }
-
-  pc_buffer = nullptr;
-  pc_buffer_len = 0;
 
   cc_array = reinterpret_cast<uptr **>(MmapNoReserveOrDie(
       sizeof(uptr *) * kCcArrayMaxSize, "CovInit::cc_array"));
@@ -425,7 +419,6 @@ void CoverageData::Add(uptr pc, u32 *guard) {
            atomic_load(&pc_array_size, memory_order_acquire));
   uptr counter = atomic_fetch_add(&coverage_counter, 1, memory_order_relaxed);
   pc_array[idx] = BundlePcAndCounter(pc, counter);
-  if (pc_buffer && counter < pc_buffer_len) pc_buffer[counter] = pc;
 }
 
 // Registers a pair caller=>callee.
@@ -879,11 +872,6 @@ void CoverageData::DumpAll() {
   DumpCallerCalleePairs();
 }
 
-void CoverageData::SetPcBuffer(uptr* data, uptr length) {
-  pc_buffer = data;
-  pc_buffer_len = length;
-}
-
 void CovPrepareForSandboxing(__sanitizer_sandbox_arguments *args) {
   if (!args) return;
   if (!coverage_enabled) return;
@@ -1019,16 +1007,6 @@ uptr __sanitizer_get_coverage_guards(uptr **data) {
 }
 
 SANITIZER_INTERFACE_ATTRIBUTE
-void __sanitizer_set_coverage_pc_buffer(uptr *data, uptr length) {
-  coverage_data.SetPcBuffer(data, length);
-}
-
-SANITIZER_INTERFACE_ATTRIBUTE
-uptr __sanitizer_get_coverage_pc_buffer_pos() {
-  return __sanitizer_get_total_unique_coverage();
-}
-
-SANITIZER_INTERFACE_ATTRIBUTE
 uptr __sanitizer_get_number_of_counters() {
   return coverage_data.GetNumberOf8bitCounters();
 }
@@ -1038,6 +1016,7 @@ uptr __sanitizer_update_counter_bitset_and_clear_counters(u8 *bitset) {
   return coverage_data.Update8bitCounterBitsetAndClearCounters(bitset);
 }
 // Default empty implementations (weak). Users should redefine them.
+#if !SANITIZER_WINDOWS  // weak does not work on Windows.
 SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
 void __sanitizer_cov_trace_cmp() {}
 SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
@@ -1050,4 +1029,17 @@ SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
 void __sanitizer_cov_trace_cmp8() {}
 SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
 void __sanitizer_cov_trace_switch() {}
+SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
+void __sanitizer_cov_trace_div4() {}
+SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
+void __sanitizer_cov_trace_div8() {}
+SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
+void __sanitizer_cov_trace_gep() {}
+SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
+void __sanitizer_cov_trace_pc_guard() {}
+SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
+void __sanitizer_cov_trace_pc_indir() {}
+SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
+void __sanitizer_cov_trace_pc_guard_init() {}
+#endif  // !SANITIZER_WINDOWS
 } // extern "C"

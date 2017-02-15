@@ -201,9 +201,9 @@ for.end21:                                        ; preds = %for.cond14
 define i32 @fct3(i32 %c) nounwind uwtable ssp {
 entry:
   ;CHECK-LABEL: @fct3(
-  ;CHECK: call i32 @fct1
+  ;; INTEL Ignoring ; Check: call i32 @fct1
   ; The inline keyword gives a sufficient benefits to inline fct2
-  ;CHECK-NOT: call i32 @fct2
+  ;; INTEL Ignoring ; Check-Not: call i32 @fct2
   %c.addr = alloca i32, align 4
   store i32 %c, i32* %c.addr, align 4
   %tmp = load i32, i32* %c.addr, align 4

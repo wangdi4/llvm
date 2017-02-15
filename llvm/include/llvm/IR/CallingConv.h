@@ -193,14 +193,10 @@ namespace CallingConv {
     /// Calling convention for AMDGPU code object kernels.
     AMDGPU_KERNEL = 91,
 
-#ifdef INTEL_CUSTOMIZATION
-    /// \brief The __regcall convention as specified in the Intel Vector
-    /// Function ABI. This calling convention differs from the x86 ABI in
-    /// that scalar arguments are passed in GPRs, the order of GPRs used
-    /// differs from the x86-64 ABI, and all XMM/YMM registers are used for
-    /// vector/FP arguments.
+    /// Register calling convention used for parameters transfer optimization
     X86_RegCall = 92,
 
+#ifdef INTEL_CUSTOMIZATION
     /// \brief SVML for intel compiler
     SVML = 93,
 #endif  // INTEL_CUSTOMIZATION

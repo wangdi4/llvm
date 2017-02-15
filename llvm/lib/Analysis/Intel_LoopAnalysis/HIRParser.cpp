@@ -1593,16 +1593,22 @@ void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
 
 bool HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
                           unsigned IVLevel, bool IndicateFailure) {
+  // Process and create base version of the blob.
   int64_t Multiplier;
 
-  // Process and create base version of the blob.
-  BlobProcessor BP(this, CE, Level);
-
-  if (IndicateFailure && !BP.canProcessSafely(Blob)) {
+  // We need two different BlobProcessor objects, one for safe mode processing
+  // and the other for regular mode processing because the base class of
+  // BlobProcessor (SCEVRewriteVisitor) caches mapping results which differ in
+  // the two modes.
+  // TODO: Safe mode doesn't require CE and level and hence can have a simpler
+  // constructor which is cleaner. Whether we can use a single safe mode and
+  // regular mode BlobProcessor object for HIRParser needs to be investigated.
+  if (IndicateFailure &&
+      !BlobProcessor(this, CE, Level).canProcessSafely(Blob)) {
     return false;
   }
 
-  auto NewBlob = BP.process(Blob);
+  auto NewBlob = BlobProcessor(this, CE, Level).process(Blob);
   breakConstantMultiplierBlob(NewBlob, &Multiplier, &NewBlob);
 
   unsigned Index = findOrInsertBlobWrapper(NewBlob);
@@ -2541,7 +2547,7 @@ const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
 
     if ((GEPInst = dyn_cast<GetElementPtrInst>(TempGEPOp)) &&
         (SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange) ||
-        !RI->isSupported(GEPInst->getPointerOperand()->getType()))) {
+         !RI->isSupported(GEPInst->getPointerOperand()->getType()))) {
       break;
     }
 

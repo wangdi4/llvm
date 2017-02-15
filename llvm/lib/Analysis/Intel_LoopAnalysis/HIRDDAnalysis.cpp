@@ -64,8 +64,7 @@ cl::list<DDVerificationLevel> VerifyLevelList(
                clEnumVal(L7, "Build for Loop at Level 7"),
                clEnumVal(L8, "Build for Loop at Level 8"),
                clEnumVal(L9, "Build for Loop at Level 9"),
-               clEnumVal(Innermost, "Build for innermost loops only"),
-               clEnumValEnd));
+               clEnumVal(Innermost, "Build for innermost loops only")));
 
 static cl::list<int> DumpGraphForNodeNumbers(
     "hir-dd-analysis-dump-nodes", cl::CommaSeparated,

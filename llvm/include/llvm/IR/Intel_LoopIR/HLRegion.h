@@ -52,10 +52,6 @@ public:
 protected:
   HLRegion(HLNodeUtils &HNU, IRRegion &IReg);
 
-  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
-  /// tries to access and destroy the nodes if we don't clear them out here.
-  virtual ~HLRegion() override { Children.clearAndLeakNodesUnsafely(); }
-
   friend class HLNodeUtils;
   friend class HIRCreation;
   // Accesses getIRRegion().

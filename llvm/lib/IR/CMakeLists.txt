@@ -56,7 +56,9 @@ add_llvm_library(LLVMCore
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
+
+  DEPENDS
+  intrinsics_gen
   )
 
-add_dependencies(LLVMCore intrinsics_gen)
 add_subdirectory(Intel_LoopIR)
