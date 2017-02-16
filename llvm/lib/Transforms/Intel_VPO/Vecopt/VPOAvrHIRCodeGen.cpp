@@ -728,9 +728,12 @@ bool AVRCodeGenHIR::isSmallShortAddRedLoop() {
     if (Count > 2)
       return false;
 
-    assert(isa<AVRAssignHIR>(Itr) && "Expected AVR assign");
-    auto HInst = cast<AVRAssignHIR>(Itr)->getHIRInstruction();
+    auto AAssign = dyn_cast<AVRAssignHIR>(Itr);
+    // Return false if the loop has anything other than AVRAssigns
+    if (!AAssign)
+      return false;
 
+    auto HInst = AAssign->getHIRInstruction();
     if (HInst->getLLVMInstruction()->getOpcode() != Instruction::Add)
       continue;
 
