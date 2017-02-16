@@ -138,9 +138,9 @@ private:
   /// Implements isReachableFrom().
   bool
   isReachableFromImpl(const BasicBlock *BB,
-                      const SmallPtrSet<const BasicBlock *, 2> &EndBBs,
-                      const SmallPtrSet<const BasicBlock *, 8> &FromBBs,
-                      SmallPtrSet<const BasicBlock *, 32> &VisitedBBs) const;
+                      const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
+                      const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
+                      SmallPtrSetImpl<const BasicBlock *> &VisitedBBs) const;
 
   /// Returns true if dominator children of \p BB in \p Lp are involved in a
   /// cycle which doesn't go through backedges. This indicates irreducible CFG.
@@ -186,9 +186,10 @@ public:
 
   /// Returns true if \p BB can be reached from any of the \p FromBBs before
   /// hitting any \p EndBBs and without going through any backedges.
-  bool isReachableFrom(const BasicBlock *BB,
-                       const SmallPtrSet<const BasicBlock *, 2> &EndBBs,
-                       const SmallPtrSet<const BasicBlock *, 8> &FromBBs) const;
+  bool
+  isReachableFrom(const BasicBlock *BB,
+                  const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
+                  const SmallPtrSetImpl<const BasicBlock *> &FromBBs) const;
 };
 
 } // End namespace loopopt

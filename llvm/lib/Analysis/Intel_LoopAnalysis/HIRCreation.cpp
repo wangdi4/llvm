@@ -199,7 +199,7 @@ void HIRCreation::populateEndBBs(
 
 bool HIRCreation::isCrossLinked(const BranchInst *BI,
                                 const BasicBlock *SuccessorBB) const {
-  SmallPtrSet<const BasicBlock *, 8> FromBBs;
+  SmallPtrSet<const BasicBlock *, 1> FromBBs;
   SmallPtrSet<const BasicBlock *, 2> EndBBs;
 
   populateEndBBs(BI->getParent(), EndBBs);

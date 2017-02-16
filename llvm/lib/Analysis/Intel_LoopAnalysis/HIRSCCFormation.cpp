@@ -559,6 +559,83 @@ bool HIRSCCFormation::hasMultipleSCCUsesAtSameLevel(NodeTy *Node,
   return false;
 }
 
+bool HIRSCCFormation::hasLiveRangeOverlap(const PHINode *MergePhi,
+                                          const SCC &CurSCC) const {
+  assert(!RI->isHeaderPhi(MergePhi) && "Header phi not expected!");
+
+  // Single operand phis cannot cause live range overlap.
+  if (MergePhi->getNumIncomingValues() == 1) {
+    return false;
+  }
+
+  SmallVector<const BasicBlock *, 4> OverlapCandidates;
+
+  // Collect predecessor BBs of MergePhi which can overlap.
+  for (unsigned I = 0, E = MergePhi->getNumIncomingValues(); I != E; ++I) {
+    auto InstPhiOp = dyn_cast<Instruction>(MergePhi->getIncomingValue(I));
+
+    if (!InstPhiOp) {
+      continue;
+    }
+
+    // We are not interested in non-SCC operands.
+    if (!CurSCC.contains(InstPhiOp)) {
+      continue;
+    }
+
+    auto PredBB = MergePhi->getIncomingBlock(I);
+
+    // If SCC node is defined in the incoming block, it cannot cause live range
+    // overlap.
+    if (InstPhiOp->getParent() == PredBB) {
+      continue;
+    }
+
+    OverlapCandidates.push_back(PredBB);
+  }
+
+  auto Size = OverlapCandidates.size();
+
+  if (Size < 2) {
+    return false;
+  }
+
+  SmallPtrSet<const BasicBlock *, 1> EndBBs;
+  SmallPtrSet<const BasicBlock *, 1> FromBBs;
+
+  auto Lp = LI->getLoopFor(MergePhi->getParent());
+  assert(Lp && "SCC phi is not part of a loop!");
+
+  EndBBs.insert(Lp->getHeader());
+
+  // Do pairwise comparison of predecessor BBs. If one is reachable from the
+  // other, we have two SCC operands alive in the same CFG path causing live
+  // range overlap.
+  for (unsigned I = 0; I < Size - 1; ++I) {
+    auto BB1 = OverlapCandidates[I];
+
+    for (unsigned J = I + 1; J < Size; ++J) {
+      auto BB2 = OverlapCandidates[J];
+
+      FromBBs.clear();
+      FromBBs.insert(BB2);
+
+      if (RI->isReachableFrom(BB1, EndBBs, FromBBs)) {
+        return true;
+      }
+
+      FromBBs.clear();
+      FromBBs.insert(BB1);
+
+      if (RI->isReachableFrom(BB2, EndBBs, FromBBs)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
   SmallPtrSet<BasicBlock *, 12> BBlocks;
   Type *RootTy = CurSCC.getRoot()->getType();
@@ -612,7 +689,7 @@ bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
       continue;
     }
 
-    if (!isUsedInSCCPhi(Phi, CurSCC)) {
+    if (!isUsedInSCCPhi(Phi, CurSCC) || hasLiveRangeOverlap(Phi, CurSCC)) {
       return false;
     }
   }

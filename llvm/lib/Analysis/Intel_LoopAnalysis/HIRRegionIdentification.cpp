@@ -452,9 +452,9 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
 }
 
 bool HIRRegionIdentification::isReachableFromImpl(
-    const BasicBlock *BB, const SmallPtrSet<const BasicBlock *, 2> &EndBBs,
-    const SmallPtrSet<const BasicBlock *, 8> &FromBBs,
-    SmallPtrSet<const BasicBlock *, 32> &VisitedBBs) const {
+    const BasicBlock *BB, const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
+    const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
+    SmallPtrSetImpl<const BasicBlock *> &VisitedBBs) const {
 
   if (FromBBs.count(BB)) {
     return true;
@@ -484,8 +484,8 @@ bool HIRRegionIdentification::isReachableFromImpl(
 }
 
 bool HIRRegionIdentification::isReachableFrom(
-    const BasicBlock *BB, const SmallPtrSet<const BasicBlock *, 2> &EndBBs,
-    const SmallPtrSet<const BasicBlock *, 8> &FromBBs) const {
+    const BasicBlock *BB, const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
+    const SmallPtrSetImpl<const BasicBlock *> &FromBBs) const {
   SmallPtrSet<const BasicBlock *, 32> VisitedBBs;
 
   return isReachableFromImpl(BB, EndBBs, FromBBs, VisitedBBs);
@@ -512,8 +512,8 @@ bool HIRRegionIdentification::containsCycle(const BasicBlock *BB,
     return false;
   }
 
-  SmallPtrSet<const BasicBlock *, 2> EndBBs;
-  SmallPtrSet<const BasicBlock *, 8> FromBBs;
+  SmallPtrSet<const BasicBlock *, 1> EndBBs;
+  SmallPtrSet<const BasicBlock *, 1> FromBBs;
   EndBBs.insert(BB);
 
   // For each pair of dominator children, check if they can reach each other
