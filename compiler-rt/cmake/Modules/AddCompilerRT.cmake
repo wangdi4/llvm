@@ -195,8 +195,14 @@ function(add_compiler_rt_runtime name type)
     set_target_properties(${libname} PROPERTIES
         OUTPUT_NAME ${output_name_${libname}})
     set_target_properties(${libname} PROPERTIES FOLDER "Compiler-RT Runtime")
-    if(LIB_LINK_LIBS AND ${type} STREQUAL "SHARED")
-      target_link_libraries(${libname} ${LIB_LINK_LIBS})
+    if(${type} STREQUAL "SHARED")
+      if(LIB_LINK_LIBS)
+        target_link_libraries(${libname} ${LIB_LINK_LIBS})
+      endif()
+      if(WIN32 AND NOT CYGWIN AND NOT MINGW)
+        set_target_properties(${libname} PROPERTIES IMPORT_PREFIX "")
+        set_target_properties(${libname} PROPERTIES IMPORT_SUFFIX ".lib")
+      endif()
     endif()
     install(TARGETS ${libname}
       ARCHIVE DESTINATION ${COMPILER_RT_LIBRARY_INSTALL_DIR}
@@ -263,12 +269,6 @@ if(MSVC)
 
   # gtest use a lot of stuff marked as deprecated on Windows.
   list(APPEND COMPILER_RT_GTEST_CFLAGS -Wno-deprecated-declarations)
-
-  # Visual Studio 2012 only supports up to 8 template parameters in
-  # std::tr1::tuple by default, but gtest requires 10
-  if(MSVC_VERSION EQUAL 1700)
-    list(APPEND COMPILER_RT_GTEST_CFLAGS -D_VARIADIC_MAX=10)
-  endif()
 endif()
 
 # Link objects into a single executable with COMPILER_RT_TEST_COMPILER,

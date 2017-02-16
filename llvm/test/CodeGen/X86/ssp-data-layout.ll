@@ -11,9 +11,6 @@
 ;  and that the groups have the correct relative stack offset.  The ordering
 ;  within a group is not relevant to this test.  Unfortunately, there is not
 ;  an elegant way to do this, so just match the offset for each object.
-;  We'll only check the large objects that we care about. The "Everything else"
-;  beyond that can be reordered to satisfy stack layout heuristics for code size
-;  or anything else, and it's impossible to reliably check for them.
 ; RUN: llc < %s -disable-fp-elim -mtriple=x86_64-unknown-unknown -O0 -mcpu=corei7 -o - \
 ; RUN:   | FileCheck --check-prefix=FAST-NON-LIN %s
 ; FastISel was not setting the StackProtectorIndex when lowering
@@ -33,7 +30,7 @@ entry:
 ; Expected stack layout for ssp is
 ;  -16 large_char          . Group 1, nested arrays, arrays >= ssp-buffer-size
 ;  -24 struct_large_char   .
-;  -28 scalar1             | Everything else (don't check for these)
+;  -28 scalar1             | Everything else
 ;  -32 scalar2
 ;  -36 scalar3
 ;  -40 addr-of
@@ -45,6 +42,34 @@ entry:
 ;  -128 struct_small_nonchar
 
 ; CHECK: layout_ssp:
+; CHECK: call{{l|q}} get_scalar1
+; CHECK: movl %eax, -28(
+; CHECK: call{{l|q}} end_scalar1
+
+; CHECK: call{{l|q}} get_scalar2
+; CHECK: movl %eax, -32(
+; CHECK: call{{l|q}} end_scalar2
+
+; CHECK: call{{l|q}} get_scalar3
+; CHECK: movl %eax, -36(
+; CHECK: call{{l|q}} end_scalar3
+
+; CHECK: call{{l|q}} get_addrof
+; CHECK: movl %eax, -40(
+; CHECK: call{{l|q}} end_addrof
+
+; CHECK: get_small_nonchar
+; CHECK: movw %ax, -44(
+; CHECK: call{{l|q}} end_small_nonchar
+
+; CHECK: call{{l|q}} get_large_nonchar
+; CHECK: movl %eax, -80(
+; CHECK: call{{l|q}} end_large_nonchar
+
+; CHECK: call{{l|q}} get_small_char
+; CHECK: movb %al, -82(
+; CHECK: call{{l|q}} end_small_char
+
 ; CHECK: call{{l|q}} get_large_char
 ; CHECK: movb %al, -16(
 ; CHECK: call{{l|q}} end_large_char
@@ -53,6 +78,17 @@ entry:
 ; CHECK: movb %al, -24(
 ; CHECK: call{{l|q}} end_struct_large_char
 
+; CHECK: call{{l|q}} get_struct_small_char
+; CHECK: movb %al, -88(
+; CHECK: call{{l|q}} end_struct_small_char
+
+; CHECK: call{{l|q}} get_struct_large_nonchar
+; CHECK: movl %eax, -120(
+; CHECK: call{{l|q}} end_struct_large_nonchar
+
+; CHECK: call{{l|q}} get_struct_small_nonchar
+; CHECK: movw %ax, -128(
+; CHECK: call{{l|q}} end_struct_small_nonchar
   %x = alloca i32, align 4
   %y = alloca i32, align 4
   %z = alloca i32, align 4
@@ -145,11 +181,22 @@ entry:
 ;   -104  struct_small_char      |
 ;   -112  struct_small_nonchar   |
 ;   -116  addrof                 * Group 3, addr-of local
-;   -120  scalar                 + Group 4, everything else (don't check).
+;   -120  scalar                 + Group 4, everything else
 ;   -124  scalar                 +
 ;   -128  scalar                 +
 ;   
 ; CHECK: layout_sspstrong:
+; CHECK: call{{l|q}} get_scalar1
+; CHECK: movl %eax, -120(
+; CHECK: call{{l|q}} end_scalar1
+
+; CHECK: call{{l|q}} get_scalar2
+; CHECK: movl %eax, -124(
+; CHECK: call{{l|q}} end_scalar2
+
+; CHECK: call{{l|q}} get_scalar3
+; CHECK: movl %eax, -128(
+; CHECK: call{{l|q}} end_scalar3
 
 ; CHECK: call{{l|q}} get_addrof
 ; CHECK: movl %eax, -116(
@@ -271,6 +318,17 @@ entry:
 ; Expected stack layout for sspreq is the same as sspstrong
 ;   
 ; CHECK: layout_sspreq:
+; CHECK: call{{l|q}} get_scalar1
+; CHECK: movl %eax, -120(
+; CHECK: call{{l|q}} end_scalar1
+
+; CHECK: call{{l|q}} get_scalar2
+; CHECK: movl %eax, -124(
+; CHECK: call{{l|q}} end_scalar2
+
+; CHECK: call{{l|q}} get_scalar3
+; CHECK: movl %eax, -128(
+; CHECK: call{{l|q}} end_scalar3
 
 ; CHECK: call{{l|q}} get_addrof
 ; CHECK: movl %eax, -116(

@@ -60,8 +60,8 @@ static cl::bits<ALOpts> DisableALOpt(
     cl::values(clEnumVal(ALBuild, "Disable Abstract Layer Build"),
                clEnumVal(ALLoopOpt, "Disable Abstract Layer Loop Opt"),
                clEnumVal(ALBranchOpt, "Disable Abstract Layer Branch Opt"),
-               clEnumVal(ALExprTreeOpt, "Disable Abstract Layer Expr Tree Opt"),
-               clEnumValEnd));
+               clEnumVal(ALExprTreeOpt, "Disable Abstract Layer Expr Tree Opt"))
+    );
 
 // Pass Initialization
 

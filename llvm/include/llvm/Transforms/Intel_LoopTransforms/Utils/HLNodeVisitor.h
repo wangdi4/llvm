@@ -246,15 +246,14 @@ private:
   /// \brief Visits HLNodes in the specified direction in the range [begin,
   /// end).
   /// Returns true to indicate that early termination has occurred.
-  template <typename NodeTy, template <typename> class It,
-            typename = IsHLNodeTy<NodeTy>>
-  bool visitRange(It<NodeTy> Begin, It<NodeTy> End) {
+  template <typename It, typename = IsHLNodeTy<typename It::value_type>>
+  bool visitRange(It Begin, It End) {
     if (Forward) {
       for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
 
         ++Next;
 
-        if (visit<NodeTy>(&(*I))) {
+        if (visit<typename It::value_type>(&(*I))) {
           return true;
         }
       }
@@ -266,7 +265,7 @@ private:
 
         ++Next;
 
-        if (visit<NodeTy>(&(*I))) {
+        if (visit<typename It::value_type>(&(*I))) {
           return true;
         }
       }
@@ -487,9 +486,8 @@ private:
   /// \brief Visits HLNodes in the forward/backward direction in the range
   /// [begin, end). Returns true to indicate that early termination has
   /// occurred.
-  template <typename NodeTy, typename = IsHLNodeTy<NodeTy>>
-  bool visitRangeRecurseInsideLoops(ilist_iterator<NodeTy> Begin,
-                                    ilist_iterator<NodeTy> End) {
+  template <typename It, typename = IsHLNodeTy<typename It::value_type>>
+  bool visitRangeRecurseInsideLoops(It Begin, It End) {
     if (Forward) {
       for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
         ++Next;
@@ -513,12 +511,12 @@ private:
   /// \brief Visits HLNodes in the forward/backward direction in the range
   /// [begin, end). Returns true to indicate that early termination has
   /// occurred.
-  template <typename NodeTy, typename = IsHLNodeTy<NodeTy>>
-  bool visitRange(ilist_iterator<NodeTy> Begin, ilist_iterator<NodeTy> End) {
+  template <typename It, typename = IsHLNodeTy<typename It::value_type>>
+  bool visitRange(It Begin, It End) {
     if (Forward) {
       for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
         ++Next;
-        if (visit(&(*I))) {
+        if (visit<typename It::value_type>(&(*I))) {
           return true;
         }
       }
@@ -527,7 +525,7 @@ private:
       std::reverse_iterator<decltype(End)> RE(Begin);
       for (auto I = RI, Next = I, E = RE; I != E; I = Next) {
         ++Next;
-        if (visit(&(*I))) {
+        if (visit<typename It::value_type>(&(*I))) {
           return true;
         }
       }

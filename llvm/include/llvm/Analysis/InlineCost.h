@@ -32,13 +32,13 @@ class TargetTransformInfo;
 
 namespace InlineConstants {
 // Various thresholds used by inline cost analysis.
-// Use when optsize (-Os) is specified.
+/// Use when optsize (-Os) is specified.
 const int OptSizeThreshold = 75;
 
-// Use when minsize (-Oz) is specified.
+/// Use when minsize (-Oz) is specified.
 const int OptMinSizeThreshold = 25;
 
-// Use when -O3 is specified.
+/// Use when -O3 is specified.
 const int OptAggressiveThreshold = 275;
 
 // Various magic constants used to adjust heuristics.
@@ -48,6 +48,7 @@ const int CallPenalty = 25;
 const int LastCallToStaticBonus = 15000;
 const int SecondToLastCallToStaticBonus = 410; // INTEL
 const int AggressiveInlineCallBonus = 5000;    // INTEL
+const int BigBasicBlockPredCount = 90;         // INTEL
 const int ColdccPenalty = 2000;
 const int NoreturnPenalty = 10000;
 /// Do not inline functions which allocate this many bytes on the stack
@@ -111,6 +112,7 @@ typedef enum {
    InlrAlmostSingleBasicBlock,
    InlrEmptyFunction,
    InlrDoubleLocalCall,
+   InlrDoubleNonLocalCall,
    InlrVectorBonus,
    InlrAggInline,
    InlrProfitable,

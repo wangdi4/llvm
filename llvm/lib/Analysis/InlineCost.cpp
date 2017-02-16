@@ -95,15 +95,15 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   /// Profile summary information.
   ProfileSummaryInfo *PSI;
 
-  // The called function.
+  /// The called function.
   Function &F;
 
-  // The candidate callsite being analyzed. Please do not use this to do
-  // analysis in the caller function; we want the inline cost query to be
-  // easily cacheable. Instead, use the cover function paramHasAttr.
+  /// The candidate callsite being analyzed. Please do not use this to do
+  /// analysis in the caller function; we want the inline cost query to be
+  /// easily cacheable. Instead, use the cover function paramHasAttr.
   CallSite CandidateCS;
 
-  // Tunable parameters that control the analysis.
+  /// Tunable parameters that control the analysis.
   const InlineParams &Params;
 
   int Threshold;
@@ -130,25 +130,25 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   int FiftyPercentVectorBonus, TenPercentVectorBonus;
   int VectorBonus;
 
-  // While we walk the potentially-inlined instructions, we build up and
-  // maintain a mapping of simplified values specific to this callsite. The
-  // idea is to propagate any special information we have about arguments to
-  // this call through the inlinable section of the function, and account for
-  // likely simplifications post-inlining. The most important aspect we track
-  // is CFG altering simplifications -- when we prove a basic block dead, that
-  // can cause dramatic shifts in the cost of inlining a function.
+  /// While we walk the potentially-inlined instructions, we build up and
+  /// maintain a mapping of simplified values specific to this callsite. The
+  /// idea is to propagate any special information we have about arguments to
+  /// this call through the inlinable section of the function, and account for
+  /// likely simplifications post-inlining. The most important aspect we track
+  /// is CFG altering simplifications -- when we prove a basic block dead, that
+  /// can cause dramatic shifts in the cost of inlining a function.
   DenseMap<Value *, Constant *> SimplifiedValues;
 
-  // Keep track of the values which map back (through function arguments) to
-  // allocas on the caller stack which could be simplified through SROA.
+  /// Keep track of the values which map back (through function arguments) to
+  /// allocas on the caller stack which could be simplified through SROA.
   DenseMap<Value *, Value *> SROAArgValues;
 
-  // The mapping of caller Alloca values to their accumulated cost savings. If
-  // we have to disable SROA for one of the allocas, this tells us how much
-  // cost must be added.
+  /// The mapping of caller Alloca values to their accumulated cost savings. If
+  /// we have to disable SROA for one of the allocas, this tells us how much
+  /// cost must be added.
   DenseMap<Value *, int> SROAArgCosts;
 
-  // Keep track of values which map to a pointer base and constant offset.
+  /// Keep track of values which map to a pointer base and constant offset.
   DenseMap<Value *, std::pair<Value *, APInt>> ConstantOffsetPtrs;
 
   // Custom simplification helper routines.
@@ -678,14 +678,14 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
   // when it would increase the threshold and the caller does not need to
   // minimize its size.
   bool InlineHint = Callee.hasFnAttribute(Attribute::InlineHint) ||
-                    PSI->isHotFunction(&Callee);
+                    PSI->isFunctionEntryHot(&Callee);
   if (InlineHint && !Caller->optForMinSize())
     Threshold = MaxIfValid(Threshold, Params.HintThreshold);
 
   if (HotCallsite && !Caller->optForMinSize())
     Threshold = MaxIfValid(Threshold, Params.HotCallSiteThreshold);
 
-  bool ColdCallee = PSI->isColdFunction(&Callee);
+  bool ColdCallee = PSI->isFunctionEntryCold(&Callee);
   // For cold callees, use the ColdThreshold knob if it is available and reduces
   // the threshold.
   if (ColdCallee)
@@ -994,7 +994,7 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
   CallAnalyzer CA(TTI, GetAssumptionCache, PSI, ILIC, AI, *F, CS, // INTEL
-    Params);                         // INTEL
+    IndirectCallParams);
   if (CA.analyzeCall(CS, nullptr)) { // INTEL 
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -1400,7 +1400,7 @@ static bool boundConstArg(Function *F, Loop *L) {
     return false;
   auto ICmp = dyn_cast<ICmpInst>(BI->getCondition());
   if (!ICmp)
-    return false;
+    return false ;
   for (unsigned i = 0, e = ICmp->getNumOperands(); i != e; ++i) {
     auto Arg = dyn_cast<Argument>(ICmp->getOperand(i));
     if (!Arg)
@@ -1454,11 +1454,123 @@ static bool worthyDoubleCallSite2(CallSite &CS, InliningLoopInfoCache& ILIC) {
 }
 
 //
-// Return 'true' if this is a double callsite worth inlining.
+// Return the total number of predecessors for the basic blocks of 'F'
 //
-static bool worthyDoubleCallSite(CallSite &CS, InliningLoopInfoCache& ILIC)
+static unsigned int totalBasicBlockPredCount(Function &F)
 {
-  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC);
+  unsigned int count = 0; 
+  for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
+    BasicBlock *BB = &*BI; 
+    count += std::distance(pred_begin(BB), pred_end(BB));
+  } 
+  return count;
+} 
+
+//
+// Temporary switch to control new double callsite inlining heuristics
+// until tuning of loopopt is complete.
+//
+static cl::opt<bool> NewDoubleCallSiteInliningHeuristics
+  ("new-double-callsite-inlining-heuristics",
+   cl::init(false), cl::ReallyHidden);
+
+//
+// Return 'true' if this is a double callsite worth inlining.
+//   (This is one of multiple double callsite heuristics.)
+//
+// The criteria for this heuristic are:
+//   (1) Must have exactly two calls to the function
+//   (2) Call must be in a loop 
+//   (3) Called function must have loops
+//   (4) Called function must not have any arguments 
+//         OR Called function must have a large enough total number 
+//           of predecessors
+//
+static bool worthyDoubleCallSite3(CallSite &CS, InliningLoopInfoCache& ILIC) {
+  if (!NewDoubleCallSiteInliningHeuristics)
+    return false; 
+  Function *Caller = CS.getCaller();
+  LoopInfo *CallerLI = ILIC.getLI(Caller);
+  if (!CallerLI->getLoopFor(CS.getInstruction()->getParent()))
+    return false; 
+  Function *Callee = CS.getCalledFunction();
+  LoopInfo *CalleeLI = ILIC.getLI(Callee);
+  if (CalleeLI->begin() == CalleeLI->end())
+    return false; 
+  if (CS.arg_begin() != CS.arg_end() 
+    && totalBasicBlockPredCount(*Callee) 
+    < InlineConstants::BigBasicBlockPredCount) 
+    return false; 
+  return true; 
+} 
+
+//
+// Return true if 'F' has exactly two callsites
+//
+static bool isDoubleCallSite(Function *F)
+{
+  unsigned int count = 0; 
+  for (User *U : F->users()) {
+    CallSite Site(U);
+    if (!Site || Site.getCalledFunction() != F)
+      continue;
+    if (++count > 2) 
+      return false; 
+  } 
+  return count == 2;
+}
+ 
+//
+// Return 'true' if 'CS' worth inlining, given that it is a double callsite
+// with internal linkage.
+//
+static bool worthyDoubleInternalCallSite(CallSite &CS, 
+  InliningLoopInfoCache& ILIC)
+{
+  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC)
+    || worthyDoubleCallSite3(CS, ILIC);
+}
+
+//
+// Return 'true' if 'CS' worth inlining, given that it is a double callsite
+// with external linkage.
+//
+// The criteria for this heuristic are:
+//   (1) Single basic block in the caller
+//   (2) Single use which is not a direct invocation of the caller
+//   (3) No calls to functions other than the called function
+//       (except intrinsics added by using -g)
+//
+static bool worthyDoubleExternalCallSite(CallSite &CS) {
+  Function *Caller = CS.getCaller();
+  if (!NewDoubleCallSiteInliningHeuristics)
+    return false; 
+  if (std::distance(Caller->begin(), Caller->end()) != 1)
+    return false;
+  Function *Callee = CS.getCalledFunction();
+  unsigned int count = 0;
+  for (User *U : Caller->users()) {
+    CallSite Site(U);
+    if (Site && Site.getCalledFunction() == Caller)
+      return false;
+    if (++count > 1)
+      return false;
+  }
+  if (count != 1) 
+    return false;
+  for (BasicBlock &BB : *Caller) {
+    for (Instruction &I : BB) {
+      CallSite CS(cast<Value>(&I));
+      if (!CS)
+        continue;
+      Function *F = CS.getCalledFunction();
+      if (F != nullptr && F->getName() == "llvm.dbg.value")
+        continue;
+      if (F != Callee)
+        return false;
+    }
+  }
+  return true;
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -1546,7 +1658,9 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
       Cost -= InlineConstants::InstrCost;
     }
   }
-
+  // The call instruction also disappears after inlining.
+  Cost -= InlineConstants::InstrCost + InlineConstants::CallPenalty;
+  
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically.
   // INTEL CQ370998: Added link once ODR linkage case.
@@ -1559,23 +1673,32 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
-  // If there are two calls of the function, and it has internal linkage,
-  // the cost of inlining it drops less dramatically.
-
-  bool TwoCallsAndLocalLinkage
-    = (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) &&
-    (&F == CS.getCalledFunction()) && worthyDoubleCallSite(CS, *ILIC);
-  if (TwoCallsAndLocalLinkage) {
-    Cost -= InlineConstants::SecondToLastCallToStaticBonus;
-    YesReasonVector.push_back(InlrDoubleLocalCall);
+  else { 
+    if (&F == CS.getCalledFunction()) { 
+      if (isDoubleCallSite(&F)) { 
+        // If there are two calls of the function, the cost of inlining it may 
+        // drop, but less dramatically.
+        if (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) { 
+           if (worthyDoubleInternalCallSite(CS, *ILIC)) { 
+             Cost -= InlineConstants::SecondToLastCallToStaticBonus;
+             YesReasonVector.push_back(InlrDoubleLocalCall);
+           } 
+        } 
+        else { 
+           if (worthyDoubleExternalCallSite(CS)) { 
+             Cost -= InlineConstants::SecondToLastCallToStaticBonus;
+             YesReasonVector.push_back(InlrDoubleNonLocalCall);
+           } 
+        } 
+      }
+    }
   }
-
+ 
   // Use InlineAggressiveInfo to expose uses of global ptrs
   if (AI != nullptr && AI->isCallInstInAggInlList(CS)) {
     Cost -= InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
   }
-
 #endif // INTEL_CUSTOMIZATION
 
   // If this function uses the coldcc calling convention, prefer not to inline

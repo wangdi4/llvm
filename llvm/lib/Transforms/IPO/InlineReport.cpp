@@ -83,6 +83,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtCost, "Callee is empty", 
   // InlrDoubleLocalCall,
   InlPrtCost, "Callee has double callsite and local linkage",
+  // InlrDoubleNonLocalCall,
+  InlPrtCost, "Callee has double callsite without local linkage",
   // InlrVectorBonus,
   InlPrtCost, "Callee has vector instructions", 
   // InlrAggInline,

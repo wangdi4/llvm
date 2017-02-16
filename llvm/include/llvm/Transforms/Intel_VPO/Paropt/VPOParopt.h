@@ -60,7 +60,7 @@ public:
   explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar);
   ~VPOParopt(){};
 
-  const char *getPassName() const override { return "VPO Paropt Pass"; }
+  StringRef getPassName() const override { return "VPO Paropt Pass"; }
 
   bool runOnModule(Module &M) override;
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;

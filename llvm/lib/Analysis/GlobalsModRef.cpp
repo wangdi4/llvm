@@ -78,7 +78,7 @@ class GlobalsAAResult::FunctionInfo {
       return (AlignedMap *)P;
     }
     enum { NumLowBitsAvailable = 3 };
-    static_assert(AlignOf<AlignedMap>::Alignment >= (1 << NumLowBitsAvailable),
+    static_assert(alignof(AlignedMap) >= (1 << NumLowBitsAvailable),
                   "AlignedMap insufficiently aligned to have enough low bits.");
   };
 
@@ -320,6 +320,27 @@ void GlobalsAAResult::AnalyzeGlobals(Module &M) {
     }
 }
 
+#if INTEL_CUSTOMIZATION
+// Returns true if I is a call instruction that doesn't escape any 
+// argument pointers. For now, it returns true only if it is
+// a call to llvm.memset.p0i8.i64.
+//
+static bool isNonEscapingArgsLibCall(const Value *I) {
+  const CallInst *CI = dyn_cast<CallInst>(I);
+  if (!CI)
+    return false;
+  Function *Callee = CI->getCalledFunction();
+  if (Callee == nullptr)
+    return false;
+
+  // Add more intrinsics later
+  if (Callee->getName() != "llvm.memset.p0i8.i64")
+    return false;
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// AnalyzeUsesOfPointer - Look at all of the users of the specified pointer.
 /// If this is used by anything complex (i.e., the address escapes), return
 /// true.  Also, while we are at it, keep track of those functions that read and
@@ -356,7 +377,8 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
       // passing into the function.
       if (CS.isDataOperand(&U)) {
         // Detect calls to free.
-        if (CS.isArgOperand(&U) && isFreeCall(I, &TLI)) {
+        if (CS.isArgOperand(&U) && (isFreeCall(I, &TLI) ||       // INTEL
+            (isNonEscapingArgsLibCall(I)))) {                    // INTEL
           if (Writers)
             Writers->insert(CS->getParent()->getParent());
         } else {
@@ -366,6 +388,10 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
     } else if (ICmpInst *ICI = dyn_cast<ICmpInst>(I)) {
       if (!isa<ConstantPointerNull>(ICI->getOperand(1)))
         return true; // Allow comparison against null.
+    } else if (Constant *C = dyn_cast<Constant>(I)) {
+      // Ignore constants which don't have any live uses.
+      if (isa<GlobalValue>(C) || C->isConstantUsed())
+        return true;
     } else {
       return true;
     }
