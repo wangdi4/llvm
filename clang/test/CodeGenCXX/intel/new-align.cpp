@@ -1,6 +1,5 @@
-// RUN: %clang_cc1 -O0 -emit-llvm %s -o - -triple=x86_64-unknown-linux-gnu -fintel-compatibility | FileCheck %s
+// RUN: %clang_cc1 -O0 -emit-llvm %s -o - -triple=x86_64-unknown-linux-gnu -fintel-compatibility -faligned-allocation| FileCheck %s
 // This test fails in xmain. CQ376359.
-// XFAIL: *
 
 struct __declspec(align(4096)) A {
   int a;
