@@ -43,16 +43,16 @@ namespace {
 class Executor {
 public:
   explicit Executor(StringRef S) : Saver(Alloc), Prog(Saver.save(S)) {}
-  void add(StringRef S)    { Args.push_back(Saver.save(S)); }
-  void add(std::string &S) { Args.push_back(Saver.save(S)); }
-  void add(Twine S)        { Args.push_back(Saver.save(S)); }
-  void add(const char *S)  { Args.push_back(Saver.save(S)); }
+  void add(StringRef S) { Args.push_back(Saver.save(S).data()); }
+  void add(std::string &S) { Args.push_back(Saver.save(S).data()); }
+  void add(Twine S) { Args.push_back(Saver.save(S).data()); }
+  void add(const char *S) { Args.push_back(Saver.save(S).data()); }
 
   void run() {
     ErrorOr<std::string> ExeOrErr = llvm::sys::findProgramByName(Prog);
     if (auto EC = ExeOrErr.getError())
       fatal(EC, "unable to find " + Prog + " in PATH: ");
-    const char *Exe = Saver.save(*ExeOrErr);
+    const char *Exe = Saver.save(*ExeOrErr).data();
     Args.insert(Args.begin(), Exe);
     Args.push_back(nullptr);
     if (llvm::sys::ExecuteAndWait(Args[0], Args.data()) != 0) {
@@ -75,10 +75,8 @@ private:
 // Returns /machine's value.
 MachineTypes getMachineType(StringRef S) {
   MachineTypes MT = StringSwitch<MachineTypes>(S.lower())
-                        .Case("x64", AMD64)
-                        .Case("amd64", AMD64)
-                        .Case("x86", I386)
-                        .Case("i386", I386)
+                        .Cases("x64", "amd64", AMD64)
+                        .Cases("x86", "i386", I386)
                         .Case("arm", ARMNT)
                         .Default(IMAGE_FILE_MACHINE_UNKNOWN);
   if (MT != IMAGE_FILE_MACHINE_UNKNOWN)
@@ -279,18 +277,54 @@ static void quoteAndPrint(raw_ostream &Out, StringRef S) {
   }
 }
 
+// An RAII temporary file class that automatically removes a temporary file.
+namespace {
+class TemporaryFile {
+public:
+  TemporaryFile(StringRef Prefix, StringRef Extn) {
+    SmallString<128> S;
+    if (auto EC = sys::fs::createTemporaryFile("lld-" + Prefix, Extn, S))
+      fatal(EC, "cannot create a temporary file");
+    Path = S.str();
+  }
+
+  TemporaryFile(TemporaryFile &&Obj) {
+    std::swap(Path, Obj.Path);
+  }
+
+  ~TemporaryFile() {
+    if (Path.empty())
+      return;
+    if (sys::fs::remove(Path))
+      fatal("failed to remove " + Path);
+  }
+
+  // Returns a memory buffer of this temporary file.
+  // Note that this function does not leave the file open,
+  // so it is safe to remove the file immediately after this function
+  // is called (you cannot remove an opened file on Windows.)
+  std::unique_ptr<MemoryBuffer> getMemoryBuffer() {
+    // IsVolatileSize=true forces MemoryBuffer to not use mmap().
+    return check(MemoryBuffer::getFile(Path, /*FileSize=*/-1,
+                                       /*RequiresNullTerminator=*/false,
+                                       /*IsVolatileSize=*/true),
+                 "could not open " + Path);
+  }
+
+  std::string Path;
+};
+}
+
 // Create the default manifest file as a temporary file.
-static std::string createDefaultXml() {
+TemporaryFile createDefaultXml() {
   // Create a temporary file.
-  SmallString<128> Path;
-  if (auto EC = sys::fs::createTemporaryFile("tmp", "manifest", Path))
-    fatal(EC, "cannot create a temporary file");
+  TemporaryFile File("defaultxml", "manifest");
 
   // Open the temporary file for writing.
   std::error_code EC;
-  llvm::raw_fd_ostream OS(Path, EC, sys::fs::F_Text);
+  llvm::raw_fd_ostream OS(File.Path, EC, sys::fs::F_Text);
   if (EC)
-    fatal(EC, "failed to open " + Path);
+    fatal(EC, "failed to open " + File.Path);
 
   // Emit the XML. Note that we do *not* verify that the XML attributes are
   // syntactically correct. This is intentional for link.exe compatibility.
@@ -316,56 +350,48 @@ static std::string createDefaultXml() {
   }
   OS << "</assembly>\n";
   OS.close();
-  return StringRef(Path);
+  return File;
 }
 
 static std::string readFile(StringRef Path) {
   std::unique_ptr<MemoryBuffer> MB =
       check(MemoryBuffer::getFile(Path), "could not open " + Path);
-  std::unique_ptr<MemoryBuffer> Buf(std::move(MB));
-  return Buf->getBuffer();
+  return MB->getBuffer();
 }
 
 static std::string createManifestXml() {
   // Create the default manifest file.
-  std::string Path1 = createDefaultXml();
+  TemporaryFile File1 = createDefaultXml();
   if (Config->ManifestInput.empty())
-    return readFile(Path1);
+    return readFile(File1.Path);
 
   // If manifest files are supplied by the user using /MANIFESTINPUT
   // option, we need to merge them with the default manifest.
-  SmallString<128> Path2;
-  if (auto EC = sys::fs::createTemporaryFile("tmp", "manifest", Path2))
-    fatal(EC, "cannot create a temporary file");
-  FileRemover Remover1(Path1);
-  FileRemover Remover2(Path2);
+  TemporaryFile File2("user", "manifest");
 
   Executor E("mt.exe");
   E.add("/manifest");
-  E.add(Path1);
+  E.add(File1.Path);
   for (StringRef Filename : Config->ManifestInput) {
     E.add("/manifest");
     E.add(Filename);
   }
   E.add("/nologo");
-  E.add("/out:" + StringRef(Path2));
+  E.add("/out:" + StringRef(File2.Path));
   E.run();
-  return readFile(Path2);
+  return readFile(File2.Path);
 }
 
 // Create a resource file containing a manifest XML.
 std::unique_ptr<MemoryBuffer> createManifestRes() {
   // Create a temporary file for the resource script file.
-  SmallString<128> RCPath;
-  if (auto EC = sys::fs::createTemporaryFile("tmp", "rc", RCPath))
-    fatal(EC, "cannot create a temporary file");
-  FileRemover RCRemover(RCPath);
+  TemporaryFile RCFile("manifest", "rc");
 
   // Open the temporary file for writing.
   std::error_code EC;
-  llvm::raw_fd_ostream Out(RCPath, EC, sys::fs::F_Text);
+  llvm::raw_fd_ostream Out(RCFile.Path, EC, sys::fs::F_Text);
   if (EC)
-    fatal(EC, "failed to open " + RCPath);
+    fatal(EC, "failed to open " + RCFile.Path);
 
   // Write resource script to the RC file.
   Out << "#define LANG_ENGLISH 9\n"
@@ -379,17 +405,15 @@ std::unique_ptr<MemoryBuffer> createManifestRes() {
   Out.close();
 
   // Create output resource file.
-  SmallString<128> ResPath;
-  if (auto EC = sys::fs::createTemporaryFile("tmp", "res", ResPath))
-    fatal(EC, "cannot create a temporary file");
+  TemporaryFile ResFile("output-resource", "res");
 
   Executor E("rc.exe");
   E.add("/fo");
-  E.add(ResPath.str());
+  E.add(ResFile.Path);
   E.add("/nologo");
-  E.add(RCPath.str());
+  E.add(RCFile.Path);
   E.run();
-  return check(MemoryBuffer::getFile(ResPath), "could not open " + ResPath);
+  return ResFile.getMemoryBuffer();
 }
 
 void createSideBySideManifest() {
@@ -555,20 +579,39 @@ void checkFailIfMismatch(StringRef Arg) {
 std::unique_ptr<MemoryBuffer>
 convertResToCOFF(const std::vector<MemoryBufferRef> &MBs) {
   // Create an output file path.
-  SmallString<128> Path;
-  if (auto EC = llvm::sys::fs::createTemporaryFile("resource", "obj", Path))
-    fatal(EC, "could not create temporary file");
+  TemporaryFile File("resource-file", "obj");
 
   // Execute cvtres.exe.
   Executor E("cvtres.exe");
   E.add("/machine:" + machineToStr(Config->Machine));
   E.add("/readonly");
   E.add("/nologo");
-  E.add("/out:" + Path);
-  for (MemoryBufferRef MB : MBs)
-    E.add(MB.getBufferIdentifier());
+  E.add("/out:" + Twine(File.Path));
+
+  // We must create new files because the memory buffers we have may have no
+  // underlying file still existing on the disk.
+  // It happens if it was created from a TemporaryFile, which usually delete
+  // the file just after creating the MemoryBuffer.
+  std::vector<TemporaryFile> ResFiles;
+  ResFiles.reserve(MBs.size());
+  for (MemoryBufferRef MB : MBs) {
+    // We store the temporary file in a vector to avoid deletion
+    // before running cvtres
+    ResFiles.emplace_back("resource-file", "res");
+    TemporaryFile& ResFile = ResFiles.back();
+    // Write the content of the resource in a temporary file
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(ResFile.Path, EC, sys::fs::F_None);
+    if (EC)
+      fatal(EC, "failed to open " + ResFile.Path);
+    OS << MB.getBuffer();
+    OS.close();
+
+    E.add(ResFile.Path);
+  }
+
   E.run();
-  return check(MemoryBuffer::getFile(Path), "could not open " + Path);
+  return File.getMemoryBuffer();
 }
 
 // Create OptTable

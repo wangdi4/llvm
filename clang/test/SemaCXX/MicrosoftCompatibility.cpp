@@ -202,6 +202,9 @@ template <class T>
 void function_missing_typename(const T::Type param)// expected-warning {{missing 'typename' prior to dependent type name}}
 {
     const T::Type var = 2; // expected-warning {{missing 'typename' prior to dependent type name}}
+    const A<T>::TYPE var2 = 2; // expected-warning {{missing 'typename' prior to dependent type name}}            // INTEL
+    A<T>::TYPE var3 = 2; // expected-warning {{missing 'typename' prior to dependent type name}}                  // INTEL
+    MissingTypename::A<T>::TYPE var4 = 2; // expected-warning {{missing 'typename' prior to dependent type name}} // INTEL
 }
 
 template void function_missing_typename<D>(const D::Type param);
@@ -241,4 +244,15 @@ namespace IntToNullPtrConv {
 
   template<int N> int *get_n() { return N; }   // expected-warning {{expression which evaluates to zero treated as a null pointer constant}}
   int *g_nullptr = get_n<0>();  // expected-note {{in instantiation of function template specialization}}
+}
+
+namespace signed_hex_i64 {
+void f(long long);
+void f(int);
+void g() {
+  // This is an ambiguous call in standard C++.
+  // This calls f(long long) in Microsoft mode because LL is always signed.
+  f(0xffffffffffffffffLL);
+  f(0xffffffffffffffffi64);
+}
 }

@@ -395,6 +395,12 @@ public:
     return Base & 0x1;
   }
 
+  /// \brief Determine whether this is an array new with an unknown bound.
+  bool isVariableLengthArrayNew() const {
+    return getKind() == EK_New && dyn_cast_or_null<IncompleteArrayType>(
+                                      getType()->getAsArrayTypeUnsafe());
+  }
+
   /// \brief Determine the location of the 'return' keyword when initializing
   /// the result of a function call.
   SourceLocation getReturnLoc() const {
@@ -902,15 +908,21 @@ public:
   ///        narrowing conversions in C++11 onwards.
   /// \param TreatUnavailableAsInvalid true if we want to treat unavailable
   ///        as invalid.
+  /// \param AllowGnuPermissive GNU Permissive mode allows a large //INTEL
+  ///        amount of additional conversions that aren't always // INTEL
+  ///        needed.  This flag enables this feature. // INTEL
   InitializationSequence(Sema &S, 
                          const InitializedEntity &Entity,
                          const InitializationKind &Kind,
                          MultiExprArg Args,
                          bool TopLevelOfInitList = false,
-                         bool TreatUnavailableAsInvalid = true);
+                         bool TreatUnavailableAsInvalid = true, // INTEL
+                         bool AllowGnuPermissive = true); // INTEL
   void InitializeFrom(Sema &S, const InitializedEntity &Entity,
                       const InitializationKind &Kind, MultiExprArg Args,
-                      bool TopLevelOfInitList, bool TreatUnavailableAsInvalid);
+                      bool TopLevelOfInitList,  // INTEL
+                      bool TreatUnavailableAsInvalid, // INTEL
+                      bool AllowGnuPermissive = true); // INTEL
 
   ~InitializationSequence();
   

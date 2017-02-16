@@ -14,12 +14,6 @@ def AllocSize : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def RegCall : InheritableAttr {
-  let Spellings = [GCC<"regcall">, Keyword<"__regcall">,
-                   Keyword<"_regcall">];
-  let Documentation = [RegCallDocs];
-}
-
 def SIMD : InheritableAttr {
   let Spellings = [];
   let Documentation = [Undocumented];

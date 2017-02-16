@@ -665,7 +665,7 @@ public:
   unsigned short OpenMPLevel;
 #if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether any of the capture expressions require cleanups.
-  bool ExprNeedsCleanups;
+  CleanupInfo Cleanup;
 #endif // INTEL_SPECIFIC_CILKPLUS
   CapturedRegionScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
                           RecordDecl *RD, ImplicitParamDecl *Context,
@@ -674,7 +674,7 @@ public:
       TheCapturedDecl(CD), TheRecordDecl(RD), TheScope(S),
       ContextParam(Context), CapRegionKind(K), OpenMPLevel(OpenMPLevel)
 #if INTEL_SPECIFIC_CILKPLUS
-      , ExprNeedsCleanups(false)
+      , Cleanup{}
 #endif // INTEL_SPECIFIC_CILKPLUS
   {
     Kind = SK_CapturedRegion;
@@ -994,7 +994,16 @@ public:
   ///  to local variables that are usable as constant expressions and
   ///  do not involve an odr-use (they may still need to be captured
   ///  if the enclosing full-expression is instantiation dependent).
-  llvm::SmallSet<Expr*, 8> NonODRUsedCapturingExprs; 
+  llvm::SmallSet<Expr *, 8> NonODRUsedCapturingExprs;
+
+  /// Contains all of the variables defined in this lambda that shadow variables
+  /// that were defined in parent contexts. Used to avoid warnings when the
+  /// shadowed variables are uncaptured by this lambda.
+  struct ShadowedOuterDecl {
+    const VarDecl *VD;
+    const VarDecl *ShadowedDecl;
+  };
+  llvm::SmallVector<ShadowedOuterDecl, 4> ShadowingDecls;
 
   SourceLocation PotentialThisCaptureLocation;
 

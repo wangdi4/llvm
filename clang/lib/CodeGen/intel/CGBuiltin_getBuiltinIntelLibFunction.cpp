@@ -16,8 +16,8 @@ using namespace CodeGen;
 
 /// getBuiltinIntelLibFunction - Given a builtin id for a function like
 /// "__apply_args", return a Function* for "__apply_args".
-llvm::Value *CodeGenModule::getBuiltinIntelLibFunction(const FunctionDecl *FD,
-                                                       unsigned BuiltinID) {
+llvm::Constant *CodeGenModule::getBuiltinIntelLibFunction(
+  const FunctionDecl *FD, unsigned BuiltinID) {
   // Get the name, skip over the __builtin_ prefix (if necessary).
   GlobalDecl D(FD);
   StringRef Name = Context.BuiltinInfo.getName(BuiltinID);

@@ -7,13 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Writer.h"
 #include "Config.h"
 #include "DLL.h"
 #include "Error.h"
 #include "InputFiles.h"
+#include "PDB.h"
 #include "SymbolTable.h"
 #include "Symbols.h"
-#include "Writer.h"
 #include "lld/Core/Parallel.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
@@ -21,6 +22,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/FileOutputBuffer.h"
+#include "llvm/Support/RandomNumberGenerator.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstdio>
@@ -42,6 +44,61 @@ static const int DOSStubSize = 64;
 static const int NumberfOfDataDirectory = 16;
 
 namespace {
+
+class DebugDirectoryChunk : public Chunk {
+public:
+  DebugDirectoryChunk(const std::vector<std::unique_ptr<Chunk>> &R)
+      : Records(R) {}
+
+  size_t getSize() const override {
+    return Records.size() * sizeof(debug_directory);
+  }
+
+  void writeTo(uint8_t *B) const override {
+    auto *D = reinterpret_cast<debug_directory *>(B + OutputSectionOff);
+
+    for (const std::unique_ptr<Chunk> &Record : Records) {
+      D->Characteristics = 0;
+      D->TimeDateStamp = 0;
+      D->MajorVersion = 0;
+      D->MinorVersion = 0;
+      D->Type = COFF::IMAGE_DEBUG_TYPE_CODEVIEW;
+      D->SizeOfData = Record->getSize();
+      D->AddressOfRawData = Record->getRVA();
+      // TODO(compnerd) get the file offset
+      D->PointerToRawData = 0;
+
+      ++D;
+    }
+  }
+
+private:
+  const std::vector<std::unique_ptr<Chunk>> &Records;
+};
+
+class CVDebugRecordChunk : public Chunk {
+  size_t getSize() const override {
+    return sizeof(codeview::DebugInfo) + Config->PDBPath.size() + 1;
+  }
+
+  void writeTo(uint8_t *B) const override {
+    // Save off the DebugInfo entry to backfill the file signature (build id)
+    // in Writer::writeBuildId
+    DI = reinterpret_cast<codeview::DebugInfo *>(B + OutputSectionOff);
+
+    DI->Signature.CVSignature = OMF::Signature::PDB70;
+
+    // variable sized field (PDB Path)
+    auto *P = reinterpret_cast<char *>(B + OutputSectionOff + sizeof(*DI));
+    if (!Config->PDBPath.empty())
+      memcpy(P, Config->PDBPath.data(), Config->PDBPath.size());
+    P[Config->PDBPath.size()] = '\0';
+  }
+
+public:
+  mutable codeview::DebugInfo *DI = nullptr;
+};
+
 // The writer writes a SymbolTable result to a file.
 class Writer {
 public:
@@ -62,6 +119,7 @@ private:
   void setSectionPermissions();
   void writeSections();
   void sortExceptionTable();
+  void writeBuildId();
   void applyRelocations();
 
   llvm::Optional<coff_symbol16> createSymbol(Defined *D);
@@ -86,6 +144,11 @@ private:
   DelayLoadContents DelayIdata;
   EdataContents Edata;
   std::unique_ptr<SEHTableChunk> SEHTable;
+
+  std::unique_ptr<Chunk> DebugDirectory;
+  std::vector<std::unique_ptr<Chunk>> DebugRecords;
+  CVDebugRecordChunk *BuildId = nullptr;
+  ArrayRef<uint8_t> SectionTable;
 
   uint64_t FileSize;
   uint32_t PointerToSymbolTable = 0;
@@ -239,6 +302,11 @@ void Writer::run() {
   fixSafeSEHSymbols();
   writeSections();
   sortExceptionTable();
+  writeBuildId();
+
+  if (!Config->PDBPath.empty())
+    createPDB(Config->PDBPath, Symtab, SectionTable);
+
   if (auto EC = Buffer->commit())
     fatal(EC, "failed to write the output file");
 }
@@ -292,6 +360,23 @@ void Writer::createMiscChunks() {
   if (!Symtab->LocalImportChunks.empty()) {
     for (Chunk *C : Symtab->LocalImportChunks)
       RData->addChunk(C);
+  }
+
+  // Create Debug Information Chunks
+  if (Config->Debug) {
+    DebugDirectory = llvm::make_unique<DebugDirectoryChunk>(DebugRecords);
+
+    // TODO(compnerd) create a coffgrp entry if DebugType::CV is not enabled
+    if (Config->DebugTypes & static_cast<unsigned>(coff::DebugType::CV)) {
+      auto Chunk = llvm::make_unique<CVDebugRecordChunk>();
+
+      BuildId = Chunk.get();
+      DebugRecords.push_back(std::move(Chunk));
+    }
+
+    RData->addChunk(DebugDirectory.get());
+    for (const std::unique_ptr<Chunk> &C : DebugRecords)
+      RData->addChunk(C.get());
   }
 
   // Create SEH table. x86-only.
@@ -608,6 +693,10 @@ template <typename PEHeaderTy> void Writer::writeHeader() {
                                 : sizeof(object::coff_tls_directory32);
     }
   }
+  if (Config->Debug) {
+    Dir[DEBUG_DIRECTORY].RelativeVirtualAddress = DebugDirectory->getRVA();
+    Dir[DEBUG_DIRECTORY].Size = DebugDirectory->getSize();
+  }
   if (Symbol *Sym = Symtab->findUnderscore("_load_config_used")) {
     if (auto *B = dyn_cast<DefinedRegular>(Sym->Body)) {
       SectionChunk *SC = B->getChunk();
@@ -636,6 +725,8 @@ template <typename PEHeaderTy> void Writer::writeHeader() {
     Sec->writeHeaderTo(Buf);
     Buf += sizeof(coff_section);
   }
+  SectionTable = ArrayRef<uint8_t>(
+      Buf - OutputSections.size() * sizeof(coff_section), Buf);
 
   if (OutputSymtab.empty())
     return;
@@ -719,6 +810,27 @@ void Writer::sortExceptionTable() {
   errs() << "warning: don't know how to handle .pdata.\n";
 }
 
+// Backfill the CVSignature in a PDB70 Debug Record.  This backfilling allows us
+// to get reproducible builds.
+void Writer::writeBuildId() {
+  // There is nothing to backfill if BuildId was not setup.
+  if (BuildId == nullptr)
+    return;
+
+  MD5 Hash;
+  MD5::MD5Result Res;
+
+  Hash.update(ArrayRef<uint8_t>{Buffer->getBufferStart(),
+                                Buffer->getBufferEnd()});
+  Hash.final(Res);
+
+  assert(BuildId->DI->Signature.CVSignature == OMF::Signature::PDB70 &&
+         "only PDB 7.0 is supported");
+  memcpy(BuildId->DI->PDB70.Signature, Res, 16);
+  // TODO(compnerd) track the Age
+  BuildId->DI->PDB70.Age = 1;
+}
+
 OutputSection *Writer::findSection(StringRef Name) {
   for (OutputSection *Sec : OutputSections)
     if (Sec->getName() == Name)
@@ -748,10 +860,7 @@ OutputSection *Writer::createSection(StringRef Name) {
   uint32_t Perms = StringSwitch<uint32_t>(Name)
                        .Case(".bss", BSS | R | W)
                        .Case(".data", DATA | R | W)
-                       .Case(".didat", DATA | R)
-                       .Case(".edata", DATA | R)
-                       .Case(".idata", DATA | R)
-                       .Case(".rdata", DATA | R)
+                       .Cases(".didat", ".edata", ".idata", ".rdata", DATA | R)
                        .Case(".reloc", DATA | DISCARDABLE | R)
                        .Case(".text", CODE | R | X)
                        .Default(0);

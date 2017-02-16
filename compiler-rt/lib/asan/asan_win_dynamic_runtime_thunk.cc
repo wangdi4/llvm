@@ -15,7 +15,6 @@
 //
 // This includes:
 //  - forwarding the detect_stack_use_after_return runtime option
-//  - forwarding the detect_stack_use_after_scope runtime option
 //  - working around deficiencies of the MD runtime
 //  - installing a custom SEH handler
 //
@@ -25,14 +24,17 @@
 // Using #ifdef rather than relying on Makefiles etc.
 // simplifies the build procedure.
 #ifdef ASAN_DYNAMIC_RUNTIME_THUNK
+#include "asan_globals_win.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 // First, declare CRT sections we'll be using in this file
+#pragma section(".CRT$XIB", long, read)  // NOLINT
 #pragma section(".CRT$XID", long, read)  // NOLINT
 #pragma section(".CRT$XCAB", long, read)  // NOLINT
 #pragma section(".CRT$XTW", long, read)  // NOLINT
 #pragma section(".CRT$XTY", long, read)  // NOLINT
+#pragma section(".CRT$XLAB", long, read)  // NOLINT
 
 ////////////////////////////////////////////////////////////////////////////////
 // Define a copy of __asan_option_detect_stack_use_after_return that should be
@@ -47,26 +49,32 @@
 // after initialization anyways.
 extern "C" {
 __declspec(dllimport) int __asan_should_detect_stack_use_after_return();
-int __asan_option_detect_stack_use_after_return =
-    __asan_should_detect_stack_use_after_return();
+int __asan_option_detect_stack_use_after_return;
+
+__declspec(dllimport) void* __asan_get_shadow_memory_dynamic_address();
+void* __asan_shadow_memory_dynamic_address;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Define a copy of __asan_option_detect_stack_use_after_scope that should be
-// used when linking an MD runtime with a set of object files on Windows.
-//
-// The ASan MD runtime dllexports '__asan_option_detect_stack_use_after_scope',
-// so normally we would just dllimport it.  Unfortunately, the dllimport
-// attribute adds __imp_ prefix to the symbol name of a variable.
-// Since in general we don't know if a given TU is going to be used
-// with a MT or MD runtime and we don't want to use ugly __imp_ names on Windows
-// just to work around this issue, let's clone the variable that is constant
-// after initialization anyways.
-extern "C" {
-__declspec(dllimport) int __asan_should_detect_stack_use_after_scope();
-int __asan_option_detect_stack_use_after_scope =
-    __asan_should_detect_stack_use_after_scope();
+static int InitializeClonedVariables() {
+  __asan_option_detect_stack_use_after_return =
+    __asan_should_detect_stack_use_after_return();
+  __asan_shadow_memory_dynamic_address =
+    __asan_get_shadow_memory_dynamic_address();
+  return 0;
 }
+
+static void NTAPI asan_thread_init(void *mod, unsigned long reason,
+    void *reserved) {
+  if (reason == DLL_PROCESS_ATTACH) InitializeClonedVariables();
+}
+
+// Our cloned variables must be initialized before C/C++ constructors.  If TLS
+// is used, our .CRT$XLAB initializer will run first. If not, our .CRT$XIB
+// initializer is needed as a backup.
+__declspec(allocate(".CRT$XIB")) int (*__asan_initialize_cloned_variables)() =
+    InitializeClonedVariables;
+__declspec(allocate(".CRT$XLAB")) void (NTAPI *__asan_tls_init)(void *,
+    unsigned long, void *) = asan_thread_init;
 
 ////////////////////////////////////////////////////////////////////////////////
 // For some reason, the MD CRT doesn't call the C/C++ terminators during on DLL
@@ -91,6 +99,7 @@ void UnregisterGlobals() {
 int ScheduleUnregisterGlobals() {
   return atexit(UnregisterGlobals);
 }
+}  // namespace
 
 // We need to call 'atexit(UnregisterGlobals);' as early as possible, but after
 // atexit() is initialized (.CRT$XIC).  As this is executed before C++
@@ -98,8 +107,6 @@ int ScheduleUnregisterGlobals() {
 // dtors for C++ globals.
 __declspec(allocate(".CRT$XID"))
 int (*__asan_schedule_unregister_globals)() = ScheduleUnregisterGlobals;
-
-}  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // ASan SEH handling.
@@ -114,5 +121,7 @@ static int SetSEHFilter() { return __asan_set_seh_filter(); }
 __declspec(allocate(".CRT$XCAB")) int (*__asan_seh_interceptor)() =
     SetSEHFilter;
 }
+
+ASAN_LINK_GLOBALS_WIN()
 
 #endif // ASAN_DYNAMIC_RUNTIME_THUNK

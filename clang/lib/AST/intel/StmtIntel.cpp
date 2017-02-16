@@ -89,7 +89,7 @@ SIMDForStmt::SIMDVariable *SIMDForStmt::getStoredSIMDVars() const {
 
   // Offset of the first SIMDVariable object.
   unsigned FirstSIMDVariableOffset =
-      llvm::alignTo(Size, llvm::alignOf<SIMDVariable>());
+      llvm::alignTo(Size, alignof(SIMDVariable));
 
   return reinterpret_cast<SIMDVariable *>(
       reinterpret_cast<char *>(const_cast<SIMDForStmt *>(this)) +
@@ -131,7 +131,7 @@ SIMDForStmt *SIMDForStmt::Create(const ASTContext &C, SourceLocation PragmaLoc,
   unsigned Size = sizeof(SIMDForStmt) + sizeof(Attr *) * SIMDAttrs.size();
   if (!SIMDVars.empty()) {
     // Realign for the following SIMDVariable array.
-    Size = llvm::alignTo(Size, llvm::alignOf<SIMDVariable>());
+    Size = llvm::alignTo(Size, alignof(SIMDVariable));
     Size += sizeof(SIMDVariable) * SIMDVars.size();
   }
 
@@ -160,7 +160,7 @@ SIMDForStmt *SIMDForStmt::CreateEmpty(const ASTContext &C,
   unsigned Size = sizeof(SIMDForStmt) + sizeof(Attr *) * NumSIMDAttrs;
   if (NumSIMDVars > 0) {
     // Realign for the following SIMDVariable array.
-    Size = llvm::alignTo(Size, llvm::alignOf<SIMDVariable>());
+    Size = llvm::alignTo(Size, alignof(SIMDVariable));
     Size += sizeof(SIMDVariable) * NumSIMDVars;
   }
 
@@ -195,7 +195,7 @@ CilkRankedStmt::Create(const ASTContext &C, SourceLocation StartLoc,
   void *Mem = C.Allocate(sizeof(CilkRankedStmt) + 2 * sizeof(Stmt *) +
                              sizeof(Expr *) * Lengths.size() +
                              sizeof(Stmt *) * 2 * Vars.size(),
-                         llvm::alignOf<CilkRankedStmt>());
+                         alignof(CilkRankedStmt));
   CilkRankedStmt *S =
       new (Mem) CilkRankedStmt(StartLoc, EndLoc, Lengths.size());
   S->setLengths(Lengths);
@@ -210,7 +210,7 @@ CilkRankedStmt *CilkRankedStmt::CreateEmpty(const ASTContext &C, unsigned N,
                                             EmptyShell) {
   void *Mem = C.Allocate(sizeof(CilkRankedStmt) + 2 * sizeof(Stmt *) +
                              sizeof(Expr *) * N + sizeof(Stmt *) * 2 * N,
-                         llvm::alignOf<CilkRankedStmt>());
+                         alignof(CilkRankedStmt));
   return new (Mem) CilkRankedStmt(N);
 }
 

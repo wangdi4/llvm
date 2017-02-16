@@ -52,7 +52,7 @@ void MangleContext::anchor() { }
 enum CCMangling {
   CCM_Other,
   CCM_Fast,
-  CCM_RegCall,  // Intel
+  CCM_RegCall,
   CCM_Vector,
   CCM_Std
 };
@@ -157,10 +157,9 @@ void MangleContext::mangleName(const NamedDecl *D, raw_ostream &Out) {
     Out << '_';
   else if (CC == CCM_Fast)
     Out << '@';
-#if INTEL_CUSTOMIZATION
   else if (CC == CCM_RegCall)
     Out << "__regcall3__";
-#endif // INTEL_CUSTOMIZATION
+
   if (!MCXX)
     Out << D->getIdentifier()->getName();
   else if (const ObjCMethodDecl *OMD = dyn_cast<ObjCMethodDecl>(D))

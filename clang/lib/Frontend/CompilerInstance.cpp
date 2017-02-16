@@ -337,9 +337,16 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
   InitializePreprocessor(*PP, PPOpts, getPCHContainerReader(),
                          getFrontendOpts());
 
-  // Initialize the header search object.
+  // Initialize the header search object.  In CUDA compilations, we use the aux
+  // triple (the host triple) to initialize our header search, since we need to
+  // find the host headers in order to compile the CUDA code.
+  const llvm::Triple *HeaderSearchTriple = &PP->getTargetInfo().getTriple();
+  if (PP->getTargetInfo().getTriple().getOS() == llvm::Triple::CUDA &&
+      PP->getAuxTargetInfo())
+    HeaderSearchTriple = &PP->getAuxTargetInfo()->getTriple();
+
   ApplyHeaderSearchOptions(PP->getHeaderSearchInfo(), getHeaderSearchOpts(),
-                           PP->getLangOpts(), PP->getTargetInfo().getTriple());
+                           PP->getLangOpts(), *HeaderSearchTriple);
 
   PP->setPreprocessedOutput(getPreprocessorOutputOpts().ShowCPP);
 
@@ -518,9 +525,11 @@ void CompilerInstance::createCodeCompletionConsumer() {
 }
 
 void CompilerInstance::createFrontendTimer() {
-  FrontendTimerGroup.reset(new llvm::TimerGroup("Clang front-end time report"));
+  FrontendTimerGroup.reset(
+      new llvm::TimerGroup("frontend", "Clang front-end time report"));
   FrontendTimer.reset(
-      new llvm::Timer("Clang front-end timer", *FrontendTimerGroup));
+      new llvm::Timer("frontend", "Clang front-end timer",
+                      *FrontendTimerGroup));
 }
 
 CodeCompleteConsumer *
@@ -541,6 +550,11 @@ void CompilerInstance::createSema(TranslationUnitKind TUKind,
                                   CodeCompleteConsumer *CompletionConsumer) {
   TheSema.reset(new Sema(getPreprocessor(), getASTContext(), getASTConsumer(),
                          TUKind, CompletionConsumer));
+  // Attach the external sema source if there is any.
+  if (ExternalSemaSrc) {
+    TheSema->addExternalSource(ExternalSemaSrc.get());
+    ExternalSemaSrc->InitializeSema(*TheSema);
+  }
 }
 
 // Output Files
@@ -861,8 +875,8 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
   if (getFrontendOpts().ShowTimers)
     createFrontendTimer();
 
-  if (getFrontendOpts().ShowStats)
-    llvm::EnableStatistics();
+  if (getFrontendOpts().ShowStats || !getFrontendOpts().StatsFile.empty())
+    llvm::EnableStatistics(false);
 
   for (const FrontendInputFile &FIF : getFrontendOpts().Inputs) {
     // Reset the ID tables if we are reusing the SourceManager and parsing
@@ -895,9 +909,24 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
       OS << " generated.\n";
   }
 
-  if (getFrontendOpts().ShowStats && hasFileManager()) {
-    getFileManager().PrintStats();
-    OS << "\n";
+  if (getFrontendOpts().ShowStats) {
+    if (hasFileManager()) {
+      getFileManager().PrintStats();
+      OS << '\n';
+    }
+    llvm::PrintStatistics(OS);
+  }
+  StringRef StatsFile = getFrontendOpts().StatsFile;
+  if (!StatsFile.empty()) {
+    std::error_code EC;
+    auto StatS = llvm::make_unique<llvm::raw_fd_ostream>(StatsFile, EC,
+                                                         llvm::sys::fs::F_Text);
+    if (EC) {
+      getDiagnostics().Report(diag::warn_fe_unable_to_open_stats_file)
+          << StatsFile << EC.message();
+    } else {
+      llvm::PrintStatisticsJSON(*StatS);
+    }
   }
 
   return !getDiagnostics().getClient()->getNumErrors();
@@ -943,7 +972,8 @@ static bool compileModuleImpl(CompilerInstance &ImportingInstance,
       std::remove_if(PPOpts.Macros.begin(), PPOpts.Macros.end(),
                      [&HSOpts](const std::pair<std::string, bool> &def) {
         StringRef MacroDef = def.first;
-        return HSOpts.ModulesIgnoreMacros.count(MacroDef.split('=').first) > 0;
+        return HSOpts.ModulesIgnoreMacros.count(
+                   llvm::CachedHashString(MacroDef.split('=').first)) > 0;
       }),
       PPOpts.Macros.end());
 
@@ -1299,7 +1329,8 @@ void CompilerInstance::createModuleManager() {
     const PreprocessorOptions &PPOpts = getPreprocessorOpts();
     std::unique_ptr<llvm::Timer> ReadTimer;
     if (FrontendTimerGroup)
-      ReadTimer = llvm::make_unique<llvm::Timer>("Reading modules",
+      ReadTimer = llvm::make_unique<llvm::Timer>("reading_modules",
+                                                 "Reading modules",
                                                  *FrontendTimerGroup);
     ModuleManager = new ASTReader(
         getPreprocessor(), getASTContext(), getPCHContainerReader(),
@@ -1332,7 +1363,8 @@ void CompilerInstance::createModuleManager() {
 bool CompilerInstance::loadModuleFile(StringRef FileName) {
   llvm::Timer Timer;
   if (FrontendTimerGroup)
-    Timer.init("Preloading " + FileName.str(), *FrontendTimerGroup);
+    Timer.init("preloading." + FileName.str(), "Preloading " + FileName.str(),
+               *FrontendTimerGroup);
   llvm::TimeRegion TimeLoading(FrontendTimerGroup ? &Timer : nullptr);
 
   // Helper to recursively read the module names for all modules we're adding.
@@ -1484,7 +1516,8 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
 
     llvm::Timer Timer;
     if (FrontendTimerGroup)
-      Timer.init("Loading " + ModuleFileName, *FrontendTimerGroup);
+      Timer.init("loading." + ModuleFileName, "Loading " + ModuleFileName,
+                 *FrontendTimerGroup);
     llvm::TimeRegion TimeLoading(FrontendTimerGroup ? &Timer : nullptr);
 
     // Try to load the module file. If we are trying to load from the prebuilt
@@ -1807,3 +1840,8 @@ CompilerInstance::lookupMissingImports(StringRef Name,
   return false;
 }
 void CompilerInstance::resetAndLeakSema() { BuryPointer(takeSema()); }
+
+void CompilerInstance::setExternalSemaSource(
+    IntrusiveRefCntPtr<ExternalSemaSource> ESS) {
+  ExternalSemaSrc = std::move(ESS);
+}

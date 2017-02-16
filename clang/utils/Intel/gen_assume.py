@@ -4,6 +4,7 @@ import re
 import os
 import sys
 import argparse
+import traceback
 
 # This maps feature names as found in the XML file to _FEATURE_ names expected
 # by the compiler. Names that do not appear do not require translation
@@ -161,7 +162,12 @@ def main():
   for file in args.filelist:
     fullName = os.path.join(args.dir, file)
     tempName = fullName + ".tmp"
-    os.rename(fullName, tempName)
+    try:
+        os.rename(fullName, tempName)
+    except OSError:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        print("{0} \nFile rename [{1}]".format(repr(traceback.format_exception(exc_type, exc_value, exc_traceback)), fullName))
+        sys.exit(1) 
     with open(tempName, "r") as inFile:
       line = inFile.readline()
       if line == includeString:

@@ -15,8 +15,13 @@ int m(int argc)
            ? 1 
            : 0;
 
-  if (f+1)  	//Question: also suppress for this expresson?
+  if (f+1)  	
     return 1;
+
+  if (!f ) return 0;
+
+  if (!f 
+       || f < 1.0)
 
   while (f) ;
 

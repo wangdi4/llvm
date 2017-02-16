@@ -2,7 +2,6 @@
 # This file has been heavily modified. Merge with care.
 set(modified_files
   adxintrin.h
-  armintr.h
   avx2intrin.h
   avx512bwintrin.h
   avx512cdintrin.h
@@ -31,9 +30,9 @@ set(modified_files
   lzcntintrin.h
   mmintrin.h
   mm_malloc.h
+  msa.h
   mwaitxintrin.h
   nmmintrin.h
-  opencl-c.h
   pkuintrin.h
   pmmintrin.h
   popcntintrin.h
@@ -64,13 +63,15 @@ set(special_files
 set(orig_files
   altivec.h
   ammintrin.h
+  armintr.h
   arm_acle.h
+  __clang_cuda_builtin_vars.h
   __clang_cuda_cmath.h
+  __clang_cuda_complex_builtins.h
   __clang_cuda_intrinsics.h
   __clang_cuda_math_forward_declares.h
   __clang_cuda_runtime_wrapper.h
   cpuid.h
-  cuda_builtin_vars.h
   float.h
   fma4intrin.h
   htmintrin.h
@@ -80,6 +81,7 @@ set(orig_files
   limits.h
   module.modulemap
   mm3dnow.h  
+  opencl-c.h
   s390intrin.h
   stdalign.h
   stdarg.h
@@ -100,6 +102,12 @@ set(orig_files
 set(intel_files ${modified_files} ${special_files})
 set(all_files ${orig_files} ${modified_files} ${special_files})
   
+set(cuda_wrapper_files
+  cuda_wrappers/algorithm
+  cuda_wrappers/complex
+  cuda_wrappers/new
+)
+
 set(output_dir ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION}/include)
 set(intel_output_dir ${LLVM_INCLUDE_DIR}/intel)
 
@@ -108,7 +116,7 @@ clang_tablegen(arm_neon.h -gen-arm-neon
   SOURCE ${CLANG_SOURCE_DIR}/include/clang/Basic/arm_neon.td)
 
 set(out_files)
-foreach( f ${all_files} )
+foreach( f ${all_files} ${cuda_wrapper_files} )
   set( src ${CMAKE_CURRENT_SOURCE_DIR}/${f} )
   set( dst ${output_dir}/${f} )
   add_custom_command(OUTPUT ${dst}
@@ -160,6 +168,12 @@ install(
   COMPONENT clang-headers
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
+
+install(
+  FILES ${cuda_wrapper_files}
+  COMPONENT clang-headers
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include/cuda_wrappers)
 
 if (NOT CMAKE_CONFIGURATION_TYPES) # don't add this for IDE's.
   add_custom_target(install-clang-headers

@@ -193,6 +193,68 @@ static llvm::Value *emitIntelOpenMPCopyConstructor(CodeGenModule &CGM,
   return Fn;
 }
 
+static llvm::Value *emitIntelOpenMPCopyAssign(CodeGenModule &CGM,
+                                              const VarDecl *Private,
+                                              const Expr *SrcExpr,
+                                              const Expr *DstExpr,
+                                              const Expr *AssignOp) {
+  auto &C = CGM.getContext();
+  QualType Ty = Private->getType();
+  QualType ElemType = Ty;
+  if (Ty->isArrayType())
+    ElemType = C.getBaseElementType(Ty).getNonReferenceType();
+
+  SmallString<256> OutName;
+  llvm::raw_svector_ostream Out(OutName);
+  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  Out << ".omp.copy_assign";
+
+  if (llvm::Value *F = CGM.GetGlobalValue(OutName))
+    return F;
+
+  IdentifierInfo *II = &CGM.getContext().Idents.get(OutName);
+  FunctionDecl *FD = FunctionDecl::Create(
+      C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
+      C.VoidTy, /*TInfo=*/nullptr, SC_Static);
+
+  QualType ObjPtrTy = C.getPointerType(Ty);
+
+  CodeGenFunction CGF(CGM);
+  FunctionArgList Args;
+  ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  Args.push_back(&DstDecl);
+  ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  Args.push_back(&SrcDecl);
+
+  const CGFunctionInfo &FI =
+      CGM.getTypes().arrangeBuiltinFunctionDeclaration(C.VoidTy, Args);
+
+  llvm::FunctionType *LTy = CGM.getTypes().GetFunctionType(FI);
+
+  llvm::Function *Fn = llvm::Function::Create(
+      LTy, llvm::GlobalValue::InternalLinkage, OutName, &CGM.getModule());
+
+  CGM.SetInternalFunctionAttributes(nullptr, Fn, FI);
+
+  CGF.StartFunction(FD, C.VoidTy, Fn, FI, Args);
+
+  auto DestAddr = CGF.EmitLoadOfPointerLValue(CGF.GetAddrOfLocalVar(&DstDecl),
+                                              ObjPtrTy->getAs<PointerType>())
+                      .getAddress();
+
+  auto SrcAddr = CGF.EmitLoadOfPointerLValue(CGF.GetAddrOfLocalVar(&SrcDecl),
+                                             ObjPtrTy->getAs<PointerType>())
+                     .getAddress();
+
+  auto *SrcVD = cast<VarDecl>(cast<DeclRefExpr>(SrcExpr)->getDecl());
+  auto *DestVD = cast<VarDecl>(cast<DeclRefExpr>(DstExpr)->getDecl());
+
+  CGF.EmitOMPCopy(Ty, DestAddr, SrcAddr, DestVD, SrcVD, AssignOp);
+
+  CGF.FinishFunction();
+  return Fn;
+}
+
 namespace {
 enum OMPAtomicClause {
   OMP_read,
@@ -217,7 +279,6 @@ class OpenMPCodeOutliner {
   StringRef End;
   llvm::Function *IntelDirective = nullptr;
   llvm::Function *IntelSimpleClause = nullptr;
-  llvm::Function *IntelOpndClause = nullptr;
   llvm::Function *IntelListClause = nullptr;
   llvm::LLVMContext &C;
   llvm::SmallVector<llvm::Value *, 16> Args;
@@ -340,13 +401,14 @@ class OpenMPCodeOutliner {
     Args.clear();
   }
   void emitSimpleClause() {
+    assert(Args.size() == 1);
     CGF.EmitRuntimeCall(IntelSimpleClause, Args);
     Args.clear();
   }
   void emitOpndClause() {
     assert(Args.size() == 2);
-    llvm::Type *Types[] = {Args[0]->getType(), Args[1]->getType()};
-    IntelOpndClause =
+    llvm::Type *Types[] = {Args[1]->getType()};
+    llvm::Function *IntelOpndClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual_opnd, Types);
     CGF.EmitRuntimeCall(IntelOpndClause, Args);
     Args.clear();
@@ -376,6 +438,31 @@ class OpenMPCodeOutliner {
         addArg(emitIntelOpenMPDestructor(CGF.CGM, Private));
       }
       ++IPriv;
+    }
+    emitListClause();
+  }
+  void emitOMPLastprivateClause(const OMPLastprivateClause *Cl) {
+    addArg("QUAL.OMP.LASTPRIVATE");
+    auto IPriv = Cl->private_copies().begin();
+    auto ISrcExpr = Cl->source_exprs().begin();
+    auto IDestExpr = Cl->destination_exprs().begin();
+    auto IAssignOp = Cl->assignment_ops().begin();
+    for (auto *E : Cl->varlists()) {
+      auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
+      bool IsPODType = Private->getType().isPODType(CGF.getContext());
+      if (!IsPODType)
+        addArg("QUAL.OPND.NONPOD");
+      addArg(E);
+      if (!IsPODType) {
+        addArg(emitIntelOpenMPDefaultConstructor(CGF.CGM, Private));
+        addArg(emitIntelOpenMPCopyAssign(CGF.CGM, Private, *ISrcExpr,
+                                         *IDestExpr, *IAssignOp));
+        addArg(emitIntelOpenMPDestructor(CGF.CGM, Private));
+      }
+      ++IPriv;
+      ++ISrcExpr;
+      ++IDestExpr;
+      ++IAssignOp;
     }
     emitListClause();
   }
@@ -486,14 +573,16 @@ class OpenMPCodeOutliner {
       ++I;
     }
   }
+
   void emitOMPOrderedClause(const OMPOrderedClause *C) {
     addArg("QUAL.OMP.ORDERED");
-    if (auto *E = C->getNumForLoops()) {
+    if (auto *E = C->getNumForLoops())
       addArg(CGF.EmitScalarExpr(E));
-      emitOpndClause();
-    } else
-      emitSimpleClause();
+    else
+      addArg(CGF.Builder.getInt32(1));
+    emitOpndClause();
   }
+
   void emitOMPMapClause(const OMPMapClause *Cl) {
     StringRef Op;
     switch (Cl->getMapType()) {
@@ -611,17 +700,78 @@ class OpenMPCodeOutliner {
     emitListClause();
   }
 
-  void emitOMPIfClause(const OMPIfClause *) {}
+  void emitOMPIfClause(const OMPIfClause *Cl) {
+    addArg("QUAL.OMP.IF");
+    addArg(CGF.EmitScalarExpr(Cl->getCondition()));
+    emitOpndClause();
+  }
+
+  void emitOMPNumThreadsClause(const OMPNumThreadsClause *Cl) {
+    addArg("QUAL.OMP.NUM_THREADS");
+    addArg(CGF.EmitScalarExpr(Cl->getNumThreads()));
+    emitOpndClause();
+  }
+
+  void emitOMPDefaultClause(const OMPDefaultClause *Cl) {
+    switch (Cl->getDefaultKind()) {
+    case OMPC_DEFAULT_none:
+      addArg("QUAL.OMP.DEFAULT.NONE");
+      break;
+    case OMPC_DEFAULT_shared:
+      addArg("QUAL.OMP.DEFAULT.SHARED");
+      break;
+    case OMPC_DEFAULT_unknown:
+      llvm_unreachable("Unknown default clause");
+    }
+    emitSimpleClause();
+  }
+
+  void emitOMPProcBindClause(const OMPProcBindClause *Cl) {
+    switch (Cl->getProcBindKind()) {
+    case OMPC_PROC_BIND_master:
+      addArg("QUAL.OMP.PROCBIND.MASTER");
+      break;
+    case OMPC_PROC_BIND_close:
+      addArg("QUAL.OMP.PROCBIND.CLOSE");
+      break;
+    case OMPC_PROC_BIND_spread:
+      addArg("QUAL.OMP.PROCBIND.SPREAD");
+      break;
+    case OMPC_PROC_BIND_unknown:
+      llvm_unreachable("Unknown proc_bind clause");
+    }
+    emitSimpleClause();
+  }
+
+  void emitOMPSafelenClause(const OMPSafelenClause *Cl) {
+    addArg("QUAL.OMP.SAFELEN");
+    addArg(CGF.EmitScalarExpr(Cl->getSafelen()));
+    emitOpndClause();
+  }
+
+  void emitOMPSimdlenClause(const OMPSimdlenClause *Cl) {
+    addArg("QUAL.OMP.SIMDLEN");
+    addArg(CGF.EmitScalarExpr(Cl->getSimdlen()));
+    emitOpndClause();
+  }
+
+  void emitOMPCollapseClause(const OMPCollapseClause *Cl) {
+    addArg("QUAL.OMP.COLLAPSE");
+    addArg(CGF.EmitScalarExpr(Cl->getNumForLoops()));
+    emitOpndClause();
+  }
+
+  void emitOMPAlignedClause(const OMPAlignedClause *Cl) {
+    addArg("QUAL.OMP.ALIGNED");
+    for (auto *E : Cl->varlists())
+      addArg(E);
+    addArg(Cl->getAlignment() ? CGF.EmitScalarExpr(Cl->getAlignment())
+                              : CGF.Builder.getInt32(0));
+    emitListClause();
+  }
+
   void emitOMPFinalClause(const OMPFinalClause *) {}
-  void emitOMPNumThreadsClause(const OMPNumThreadsClause *) {}
-  void emitOMPSafelenClause(const OMPSafelenClause *) {}
-  void emitOMPSimdlenClause(const OMPSimdlenClause *) {}
-  void emitOMPCollapseClause(const OMPCollapseClause *) {}
-  void emitOMPDefaultClause(const OMPDefaultClause *) {}
-  void emitOMPLastprivateClause(const OMPLastprivateClause *) {}
-  void emitOMPAlignedClause(const OMPAlignedClause *) {}
   void emitOMPCopyprivateClause(const OMPCopyprivateClause *) {}
-  void emitOMPProcBindClause(const OMPProcBindClause *) {}
   void emitOMPNowaitClause(const OMPNowaitClause *) {}
   void emitOMPUntiedClause(const OMPUntiedClause *) {}
   void emitOMPMergeableClause(const OMPMergeableClause *) {}
@@ -655,9 +805,6 @@ public:
     IntelDirective = CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive);
     IntelSimpleClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual);
-    llvm::Type *Args[] = {CGF.VoidTy, CGF.VoidPtrTy, CGF.VoidPtrTy};
-    IntelOpndClause =
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual_opnd, Args);
     IntelListClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual_opndlist);
   }

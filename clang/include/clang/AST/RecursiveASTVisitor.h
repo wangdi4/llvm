@@ -485,6 +485,11 @@ public:
 private:
   // These are helper methods used by more than one Traverse* method.
   bool TraverseTemplateParameterListHelper(TemplateParameterList *TPL);
+
+  // Traverses template parameter lists of either a DeclaratorDecl or TagDecl.
+  template <typename T>
+  bool TraverseDeclTemplateParameterLists(T *D);
+
 #define DEF_TRAVERSE_TMPL_INST(TMPLDECLKIND)                                   \
   bool TraverseTemplateInstantiations(TMPLDECLKIND##TemplateDecl *D);
   DEF_TRAVERSE_TMPL_INST(Class)
@@ -1042,6 +1047,8 @@ DEF_TRAVERSE_TYPE(DependentTemplateSpecializationType, {
 
 DEF_TRAVERSE_TYPE(PackExpansionType, { TRY_TO(TraverseType(T->getPattern())); })
 
+DEF_TRAVERSE_TYPE(ObjCTypeParamType, {})
+
 DEF_TRAVERSE_TYPE(ObjCInterfaceType, {})
 
 DEF_TRAVERSE_TYPE(ObjCObjectType, {
@@ -1273,6 +1280,8 @@ DEF_TRAVERSE_TYPELOC(DependentTemplateSpecializationType, {
 DEF_TRAVERSE_TYPELOC(PackExpansionType,
                      { TRY_TO(TraverseTypeLoc(TL.getPatternLoc())); })
 
+DEF_TRAVERSE_TYPELOC(ObjCTypeParamType, {})
+
 DEF_TRAVERSE_TYPELOC(ObjCInterfaceType, {})
 
 DEF_TRAVERSE_TYPELOC(ObjCObjectType, {
@@ -1392,6 +1401,8 @@ DEF_TRAVERSE_DECL(ClassScopeFunctionSpecializationDecl, {
 })
 
 DEF_TRAVERSE_DECL(LinkageSpecDecl, {})
+
+DEF_TRAVERSE_DECL(ExportDecl, {})
 
 DEF_TRAVERSE_DECL(ObjCPropertyImplDecl, {// FIXME: implement this
                                         })
@@ -1532,6 +1543,16 @@ bool RecursiveASTVisitor<Derived>::TraverseTemplateParameterListHelper(
          I != E; ++I) {
       TRY_TO(TraverseDecl(*I));
     }
+  }
+  return true;
+}
+
+template <typename Derived>
+template <typename T>
+bool RecursiveASTVisitor<Derived>::TraverseDeclTemplateParameterLists(T *D) {
+  for (unsigned i = 0; i < D->getNumTemplateParameterLists(); i++) {
+    TemplateParameterList *TPL = D->getTemplateParameterList(i);
+    TraverseTemplateParameterListHelper(TPL);
   }
   return true;
 }
@@ -1697,6 +1718,8 @@ DEF_TRAVERSE_DECL(UnresolvedUsingTypenameDecl, {
 })
 
 DEF_TRAVERSE_DECL(EnumDecl, {
+  TRY_TO(TraverseDeclTemplateParameterLists(D));
+
   if (D->getTypeForDecl())
     TRY_TO(TraverseType(QualType(D->getTypeForDecl(), 0)));
 
@@ -1711,6 +1734,7 @@ bool RecursiveASTVisitor<Derived>::TraverseRecordHelper(RecordDecl *D) {
   // We shouldn't traverse D->getTypeForDecl(); it's a result of
   // declaring the type, not something that was written in the source.
 
+  TRY_TO(TraverseDeclTemplateParameterLists(D));
   TRY_TO(TraverseNestedNameSpecifierLoc(D->getQualifierLoc()));
   return true;
 }
@@ -1805,6 +1829,7 @@ DEF_TRAVERSE_DECL(IndirectFieldDecl, {})
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::TraverseDeclaratorHelper(DeclaratorDecl *D) {
+  TRY_TO(TraverseDeclTemplateParameterLists(D));
   TRY_TO(TraverseNestedNameSpecifierLoc(D->getQualifierLoc()));
   if (D->getTypeSourceInfo())
     TRY_TO(TraverseTypeLoc(D->getTypeSourceInfo()->getTypeLoc()));
@@ -1851,6 +1876,7 @@ DEF_TRAVERSE_DECL(ObjCIvarDecl, {
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::TraverseFunctionHelper(FunctionDecl *D) {
+  TRY_TO(TraverseDeclTemplateParameterLists(D));
   TRY_TO(TraverseNestedNameSpecifierLoc(D->getQualifierLoc()));
   TRY_TO(TraverseDeclarationNameInfo(D->getNameInfo()));
 
@@ -2341,7 +2367,10 @@ DEF_TRAVERSE_STMT(CompoundLiteralExpr, {
 })
 DEF_TRAVERSE_STMT(CXXBindTemporaryExpr, {})
 DEF_TRAVERSE_STMT(CXXBoolLiteralExpr, {})
-DEF_TRAVERSE_STMT(CXXDefaultArgExpr, {})
+DEF_TRAVERSE_STMT(CXXDefaultArgExpr, {
+  if (getDerived().shouldVisitImplicitCode())
+    TRY_TO(TraverseStmt(S->getExpr()));
+})
 DEF_TRAVERSE_STMT(CXXDefaultInitExpr, {})
 DEF_TRAVERSE_STMT(CXXDeleteExpr, {})
 DEF_TRAVERSE_STMT(ExprWithCleanups, {})
@@ -2617,6 +2646,9 @@ DEF_TRAVERSE_STMT(OMPTargetSimdDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 DEF_TRAVERSE_STMT(OMPTeamsDistributeDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPTeamsDistributeSimdDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 // OpenMP clauses.

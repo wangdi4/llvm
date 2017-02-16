@@ -127,7 +127,7 @@ CEANBuiltinExpr *CEANBuiltinExpr::Create(ASTContext &C,
                          sizeof(Expr *) * Lengths.size() +
                          sizeof(Stmt *) * Vars.size() +
                          sizeof(Stmt *) * Increments.size(),
-                         llvm::alignOf<CEANBuiltinExpr>());
+                         alignof(CEANBuiltinExpr));
   CEANBuiltinExpr *E =
       new (Mem) CEANBuiltinExpr(StartLoc, Rank, Args.size(), Kind, QTy, EndLoc,
                                 Return ? Return->getValueKind() : VK_RValue);
@@ -159,7 +159,7 @@ CEANBuiltinExpr *CEANBuiltinExpr::CreateEmpty(ASTContext &C, unsigned Rank,
                          sizeof(Expr *) * ArgsSize +
                          sizeof(Expr *) * Rank +
                          sizeof(Stmt *) * 2 * Rank,
-                         llvm::alignOf<CEANBuiltinExpr>());
+                         alignof(CEANBuiltinExpr));
   return new (Mem) CEANBuiltinExpr(Rank, ArgsSize);
 }
 
