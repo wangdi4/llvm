@@ -128,21 +128,26 @@ class DDRefGathererUtils {
   DDRefGathererUtils(const DDRefGathererUtils &) = delete;
   DDRefGathererUtils &operator=(const DDRefGathererUtils &) = delete;
 
+public:
   static bool compareMemRefCE(const CanonExpr *ACanon, const CanonExpr *BCanon);
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
 
-public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   template <typename RefTy> static void dump(const SymToRefTy<RefTy> &RefMap) {
-    for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
-         SymVecPair != Last; ++SymVecPair) {
-      auto &RefVec = SymVecPair->second;
-      dbgs() << "Symbase " << SymVecPair->first << " contains: \n";
-      for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
-        dbgs() << "\t";
-        (*Ref)->dump();
-        dbgs() << "\n";
-      }
+    for (auto &RefVec : RefMap) {
+      dbgs() << "Symbase " << RefVec.first << " contains: \n";
+      dump(RefVec.second);
+    }
+  }
+#endif
+
+public:
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  template <typename RefTy> static void dump(const RefVectorTy<RefTy> &RefVec) {
+    for (auto *Ref : RefVec) {
+      dbgs() << "\t";
+      Ref->dump();
+      dbgs() << "\n";
     }
   }
 #endif
@@ -277,14 +282,15 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
     }
   };
 
-  static void gather(const HLNode *Node, MapTy &SymToMemRef) {
-    DDRefGathererLambda<RefTy>::gather(Node, SymToMemRef,
+  template <typename ContainerTy>
+  static void gather(const HLNode *Node, ContainerTy &Container) {
+    DDRefGathererLambda<RefTy>::gather(Node, Container,
                                        ModeSelectorPredicate());
   }
 
-  template <typename It>
-  static void gatherRange(It Begin, It End, MapTy &SymToMemRef) {
-    DDRefGathererLambda<RefTy>::gatherRange(Begin, End, SymToMemRef,
+  template <typename It, typename ContainerTy>
+  static void gatherRange(It Begin, It End, ContainerTy &Container) {
+    DDRefGathererLambda<RefTy>::gatherRange(Begin, End, Container,
                                             ModeSelectorPredicate());
   }
 };

@@ -239,6 +239,8 @@ public:
   /// performed.
   bool replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
                        unsigned NewTempIndex, unsigned &NewBlobIndex);
+
+  Value *getTempBlobValue(unsigned BlobIndex);
 };
 
 } // End namespace loopopt

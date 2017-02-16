@@ -56,10 +56,10 @@
 //                                                                            //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -77,7 +77,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define DEBUG_TYPE "ddtest"
+#define DEBUG_TYPE "hir-dd-test"
+#define DEBUG_AA(X) DEBUG_WITH_TYPE("hir-dd-test-aa", X)
 
 //===----------------------------------------------------------------------===//
 // statistics
@@ -892,7 +893,7 @@ void Dependences::dump(raw_ostream &OS) const {
 }
 #endif
 
-#if 0 
+#if 0	
 
 static
 AAResults::AliasResult underlyingObjectsAlias(AAResults *AA,
@@ -3972,16 +3973,47 @@ DDTest::~DDTest() {
   WorkCE.clear();
 }
 
+static MemoryLocation getMemoryLocation(const RegDDRef *Ref) {
+  MemoryLocation Loc;
+
+  auto &DL = Ref->getDDRefUtils().getDataLayout();
+
+  const CanonExpr *BaseCE = Ref->getBaseCE();
+  if (BaseCE->isNull()) {
+    Loc.Ptr = Constant::getNullValue(BaseCE->getDestType());
+  } else {
+    auto BaseBlobIndex = Ref->getBaseCE()->getSingleBlobIndex();
+    Loc.Ptr = Ref->getBlobUtils().getTempBlobValue(BaseBlobIndex);
+  }
+
+  Loc.Size = MemoryLocation::UnknownSize;
+
+  Ref->getAAMetadata(Loc.AATags);
+
+  return Loc;
+}
+
 bool DDTest::queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef) {
   assert(SrcDDRef->isMemRef() && DstDDRef->isMemRef() &&
          "Both should be mem refs");
 
-  MemoryLocation SrcLoc;
-  MemoryLocation DstLoc;
-  SrcDDRef->getAAMetadata(SrcLoc.AATags);
-  DstDDRef->getAAMetadata(DstLoc.AATags);
+  if (SrcDDRef == DstDDRef) {
+    return false;
+  }
 
-  return AAR.isNoAlias(SrcLoc, DstLoc);
+  DEBUG_AA(dbgs() << "call queryAAIndep():\n");
+  DEBUG_AA(SrcDDRef->dump());
+  DEBUG_AA(dbgs() << "\n");
+  DEBUG_AA(DstDDRef->dump());
+  DEBUG_AA(dbgs() << "\nR: ");
+
+  if (AAR.isNoAlias(getMemoryLocation(SrcDDRef), getMemoryLocation(DstDDRef))) {
+    DEBUG_AA(dbgs() << "No Alias\n\n");
+    return true;
+  }
+
+  DEBUG_AA(dbgs() << "May Alias\n\n");
+  return false;
 }
 
 // depends:
@@ -4084,7 +4116,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   DEBUG(dbgs() << "\nSrc/Dst Blob?  " << (SrcRegDDRef == nullptr) << " "
-               << (DstRegDDRef == nullptr) << "\n ");
+               << (DstRegDDRef == nullptr) << "\n");
 
   if ((IsSrcRval && IsDstRval)) {
     // if both instructions don't reference memory, there's no dependence

@@ -156,20 +156,8 @@ public:
   FilterEdgeIterator outgoing_edges_end(const DDRef *Ref) const {
     return outgoing(Ref).end();
   }
-  /// \brief single edge going out of this DDRef
-  bool singleEdgeGoingOut(const DDRef *LRef) {
-
-    unsigned NumEdge = 0;
-    DDRef *Ref = const_cast<DDRef *>(LRef);
-
-    for (auto I1 = outgoing_edges_begin(Ref), E1 = outgoing_edges_end(Ref);
-         I1 != E1; ++I1) {
-      if (NumEdge++ > 1) {
-        return false;
-      }
-    }
-    return true;
-  }
+  /// Single edge going out of this DDRef.
+  bool singleEdgeGoingOut(const DDRef *LRef);
 
   void print(raw_ostream &OS) const;
 

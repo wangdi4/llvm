@@ -84,6 +84,7 @@ struct Segment {
 // on the IV. This class is used to generate specific memory segments where
 // IV is replaced with a Lower and Upper bound.
 class IVSegment {
+  const RegDDRef *OriginalRef;
   RegDDRef *Lower;
   RegDDRef *Upper;
   const CanonExpr *BaseCE;
@@ -119,6 +120,7 @@ public:
   const RegDDRef *getLower() const { return Lower; }
   const RegDDRef *getUpper() const { return Upper; }
   const CanonExpr *getBaseCE() const { return BaseCE; }
+  const RegDDRef *getOriginalRef() const { return OriginalRef; }
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {
@@ -133,6 +135,7 @@ public:
 
 struct LoopContext {
   HLLoop *Loop;
+  RefGroupVecTy Groups;
   llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   bool GenTripCountTest;
 
@@ -181,7 +184,6 @@ private:
   static RuntimeDDResult
   processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
                   SmallVectorImpl<IVSegment> &IVSegments,
-                  SmallVectorImpl<RuntimeDDResult> &SegmentConditions,
                   bool &ShouldGenerateTripCount);
 
   // \brief The predicate used in ref grouping. Returns true if two references
@@ -189,10 +191,14 @@ private:
   static bool isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
                                         const RegDDRef *Ref2);
 
+  // Finds or creates an appropriate group in \p Groups for the \p Ref. Returns
+  // a group number.
+  unsigned findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref);
+
   // \brief Returns required DD tests for an arbitrary loop L.
   RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
 
-  static HLInst *createIntersectionCondition(HLLoop *OrigLoop,
+  static HLInst *createIntersectionCondition(HLNodeUtils &HNU,
                                              HLContainerTy &Nodes, Segment &S1,
                                              Segment &S2);
 
@@ -200,7 +206,7 @@ private:
   static void generateDDTest(LoopContext &Context);
 
   // \brief Marks all DDRefs independent across groups.
-  static void markDDRefsIndep(HLLoop *Loop);
+  static void markDDRefsIndep(LoopContext &Context);
 };
 }
 }

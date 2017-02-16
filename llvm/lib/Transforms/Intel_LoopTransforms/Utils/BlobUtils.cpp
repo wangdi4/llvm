@@ -233,3 +233,9 @@ bool BlobUtils::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
   return getHIRParser().replaceTempBlob(BlobIndex, OldTempIndex, NewTempIndex,
                                         NewBlobIndex);
 }
+
+Value *BlobUtils::getTempBlobValue(unsigned BlobIndex) {
+  BlobTy Blob = getBlob(BlobIndex);
+  assert(isTempBlob(Blob) && "BlobIndex is not a temp blob");
+  return cast<SCEVUnknown>(Blob)->getValue();
+}

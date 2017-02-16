@@ -19,6 +19,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -84,6 +85,7 @@ INITIALIZE_PASS_BEGIN(HIRDDAnalysis, "hir-dd-analysis",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(StdContainerAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
@@ -100,13 +102,13 @@ void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
   AU.addUsedIfAvailable<StdContainerAAWrapperPass>();
+  AU.addUsedIfAvailable<BasicAAWrapperPass>();
   // TODO: Do we need to add scev alias analysis??
 }
 
 // \brief Because the graph is evaluated lazily, runOnFunction doesn't
 // do any analysis
 bool HIRDDAnalysis::runOnFunction(Function &F) {
-
   AAR.reset(
       new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI()));
 
@@ -119,6 +121,10 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
   }
 
   if (auto *Pass = getAnalysisIfAvailable<StdContainerAAWrapperPass>()) {
+    AAR->addAAResult(Pass->getResult());
+  }
+
+  if (auto *Pass = getAnalysisIfAvailable<BasicAAWrapperPass>()) {
     AAR->addAAResult(Pass->getResult());
   }
 
@@ -455,6 +461,19 @@ void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
       CurDDA->buildGraph(Loop, false);
     }
   }
+}
+
+bool DDGraph::singleEdgeGoingOut(const DDRef *LRef) {
+  unsigned NumEdge = 0;
+
+  for (auto *Edge : outgoing(LRef)) {
+    (void)Edge;
+    if (NumEdge++ > 1) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 void DDGraph::print(raw_ostream &OS) const {
