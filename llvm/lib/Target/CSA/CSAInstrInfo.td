@@ -671,7 +671,7 @@ class MullohiOp<GenericOp gen, CSAOpInfo oi,
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
 
-class AtomicOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
+class AtomicOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <
     (outs oi.RC:$dst),
@@ -1609,16 +1609,21 @@ def OATMCMPXCHG16 : OAtomicOp2<ATMCMPXCHG, Ti16, IIATM>;
 def OATMCMPXCHG32 : OAtomicOp2<ATMCMPXCHG, Ti32, IIATM>;
 def OATMCMPXCHG64 : OAtomicOp2<ATMCMPXCHG, Ti64, IIATM>;
 
-/* // How do we find these?
-def ATMADDF32 : AtomicOp<"atmaddf32", atomic_load_add, F32, IIATM>;
-def ATMADDF64 : AtomicOp<"atmaddf64", atomic_load_add, F64, IIATM>;
+// For now, LLVM cannot match/select these because the IR's atomics only deal
+// with integers.
+def ATMADDF32 : AtomicOp<ATMADD, null_frag, Tf32, IIATM>;
+def ATMADDF64 : AtomicOp<ATMADD, null_frag, Tf64, IIATM>;
+def ATMMINF32 : AtomicOp<ATMMIN, null_frag, Tf32, IIATM>;
+def ATMMINF64 : AtomicOp<ATMMIN, null_frag, Tf64, IIATM>;
+def ATMMAXF32 : AtomicOp<ATMMAX, null_frag, Tf32, IIATM>;
+def ATMMAXF64 : AtomicOp<ATMMAX, null_frag, Tf64, IIATM>;
 
-def ATMMINF32 : AtomicOp<"atmminf32", atomic_load_min, F32, IIATM>;
-def ATMMINF64 : AtomicOp<"atmminf64", atomic_load_min, F64, IIATM>;
-
-def ATMMAXF32 : AtomicOp<"atmmaxf32", atomic_load_max, F32, IIATM>;
-def ATMMAXF64 : AtomicOp<"atmmaxf64", atomic_load_max, F64, IIATM>;
-*/
+def OATMADDF32 : OAtomicOp<ATMADD, Tf32, IIATM>;
+def OATMADDF64 : OAtomicOp<ATMADD, Tf64, IIATM>;
+def OATMMINF32 : OAtomicOp<ATMMIN, Tf32, IIATM>;
+def OATMMINF64 : OAtomicOp<ATMMIN, Tf64, IIATM>;
+def OATMMAXF32 : OAtomicOp<ATMMAX, Tf32, IIATM>;
+def OATMMAXF64 : OAtomicOp<ATMMAX, Tf64, IIATM>;
 
 // Unit - type only
 def UNIT : PseudoInstCSA<
