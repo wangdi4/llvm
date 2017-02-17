@@ -1860,6 +1860,7 @@ MachineInstr* CSACvtCFDFPass::PatchOrInsertPickAtFork(
     MO.substVirtReg(Reg, 0, TRI);
     MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     MachineInstr *DefMI = MRI->getVRegDef(Reg);
+    //if (TII.isPick(DefMI) && DefMI->getParent() == pickInstr->getParent()) {
     if (multiInputsPick.find(DefMI) != multiInputsPick.end()) {
       //make sure input src is before the pick
       assert(DefMI->getParent() == pickInstr->getParent());
@@ -1951,8 +1952,8 @@ void CSACvtCFDFPass::generateCompletePickTreeForPhi(MachineBasicBlock* mbb) {
           PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, dst);
           continue;
         } else {
-          bool inBBFork = inBB->succ_size() > 1 && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB);
-          if (inBBFork) {
+          bool inBBFork = inBB->succ_size() > 1 && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB);          
+		  if (inBBFork) {
             MachineInstr* pickInstr = PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, 0);
             if (!pickInstr) {
               //patched
@@ -1965,48 +1966,6 @@ void CSACvtCFDFPass::generateCompletePickTreeForPhi(MachineBasicBlock* mbb) {
         }
       }
     } //end of for MO
-
-    //replace pick instr with ign input with switch
-    std::set<MachineInstr*>::iterator ipick = multiInputsPick.begin(); 
-    while (ipick != multiInputsPick.end()) {
-      MachineInstr* pickInstr = *ipick;
-      ++ipick;
-      unsigned numIgn = 0;
-      unsigned ignLoc = 0;
-      for (MIOperands MO(*MI); MO.isValid(); ++MO, ++ignLoc) {
-        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-        if (MO->isUse()) {
-          if (MO->getReg() == CSA::IGN) {
-            numIgn++;
-          }
-        }
-      }
-      assert(numIgn == 0 || numIgn == 1);
-      if (numIgn) {
-        const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-        unsigned predReg = pickInstr->getOperand(1).getReg();
-        unsigned pickSrcLoc = 5 - ignLoc;
-        unsigned switchIndex = 3 - ignLoc;
-        unsigned switchTrue = 0;
-        unsigned switchFalse = 0;
-        if (switchIndex == 0) {
-          switchFalse = pickInstr->getOperand(0).getReg();
-          switchTrue = CSA::IGN;
-        } else {
-          switchFalse = CSA::IGN;
-          switchTrue = pickInstr->getOperand(0).getReg();
-        }
-        const TargetRegisterClass *TRC = MRI->getRegClass(pickInstr->getOperand(0).getReg());
-        const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
-        MachineInstr *switchInst = BuildMI(*pickInstr->getParent(), pickInstr, DebugLoc(), TII.get(switchOpcode),
-          switchFalse).
-          addReg(switchTrue, RegState::Define).
-          addReg(predReg).
-          addReg(pickInstr->getOperand(pickSrcLoc).getReg());
-        switchInst->setFlag(MachineInstr::NonSequential);
-        pickInstr->removeFromParent();
-      }
-    }
     MI->removeFromParent();
   }
 }
@@ -2346,7 +2305,7 @@ bool CSACvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
           //move to its incoming block operand
           ++MO;
           MachineBasicBlock* inBB = MO->getMBB();
-          if (!CheckPhiInputBB(inBB, mbb)) {
+          if (!PDT->dominates(mbb, inBB) || !CheckPhiInputBB(inBB, mbb)) {
             return true;
           }
         }
@@ -2599,7 +2558,9 @@ bool CSACvtCFDFPass::CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock*
     ++numCtrl;
     if (numCtrl > 1) 
       return false;
-   
+    if (!PDT->dominates(mbb, ctrlBB)) {
+      return false;
+    }
     if (!CheckPhiInputBB(ctrlBB, mbb)) {
       return false;
     }
