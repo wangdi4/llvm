@@ -1712,7 +1712,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
                             VD->hasAttr<CUDADeviceAttr>());
     if (!MustEmitForCuda &&
         VD->isThisDeclarationADefinition() != VarDecl::Definition &&
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         // Fix for CQ#371078: linkfail when static const/constexpr is used as a
         // field of a structure.
         !Context.isIntelStaticDataMemberInlineDefinition(VD) &&
@@ -2304,7 +2304,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
       EmitGlobalVarDefinition(D);
     }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ#371078: linkfail when static const/constexpr is used as a
     // field of a structure.
     if (getContext().isIntelStaticDataMemberInlineDefinition(D)) {
@@ -2732,7 +2732,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
       !llvm::GlobalVariable::isWeakLinkage(Linkage))
     Linkage = llvm::GlobalValue::InternalLinkage;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369830 - static declarations are treated differently.
   // In case of "external - internal" linkage conflict, set external linkage if
   // variable has ever been declared without storage class in C.
@@ -2899,7 +2899,7 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
 
   // C++ doesn't have tentative definitions and thus cannot have common
   // linkage.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ375398: 'common' attribute is not supported in C++
   if ((getLangOpts().IntelCompat || !getLangOpts().CPlusPlus) &&
       isa<VarDecl>(D) &&
@@ -4301,7 +4301,7 @@ static void EmitGlobalDeclMetadata(CodeGenModule &CGM,
                                    llvm::NamedMDNode *&GlobalMetadata,
                                    GlobalDecl D,
                                    llvm::GlobalValue *Addr) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (!Addr)
     return;
 #endif // INTEL_CUSTOMIZATION
@@ -4414,7 +4414,7 @@ void CodeGenModule::EmitTargetMetadata() {
   }
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// \brief Emits metadata in TheModule with the given Name and Value.
 static void AddLLVMDbgMetadata(llvm::Module &TheModule, StringRef Name,
                                StringRef Value) {

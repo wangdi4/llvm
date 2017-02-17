@@ -442,7 +442,7 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
     switch (M->getStorageDuration()) {
     case SD_Automatic:
     case SD_FullExpression:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // This is a temporary "hack" to disable lifetime.start/lifetime.end
       // for cilk programs.
       // After r274385 which started lifetime.start/end on temporary markers,
@@ -1005,7 +1005,7 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
   ApplyDebugLocation DL(*this, E);
   switch (E->getStmtClass()) {
   default: return EmitUnsupportedLValue(E, "l-value expression");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Expr::CEANBuiltinExprClass: {
     auto *CBE = cast<CEANBuiltinExpr>(E);
     LocalVarsDeclGuard Guard(*this);

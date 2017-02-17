@@ -22,7 +22,7 @@
 #include "clang/Basic/Visibility.h"
 #include <string>
 #include <vector>
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ381541: support for IMF attributes
 #include "llvm/ADT/StringSet.h"
 #endif // INTEL_CUSTOMIZATION
@@ -78,7 +78,7 @@ public:
   };
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ381541: support for IMF attributes
   typedef llvm::StringMap<std::string> IMFAttrMap;
   typedef llvm::StringMap<IMFAttrMap> IMFAttrFuncMap;

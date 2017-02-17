@@ -2345,7 +2345,7 @@ enum CXCursorKind {
   /** \brief OpenMP teams distribute simd directive.
    */
   CXCursor_OMPTeamsDistributeSimdDirective = 272,
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   CXCursor_CilkRankedStmt                = 273,
   CXCursor_LastStmt                      = CXCursor_CilkRankedStmt,
 #endif /* INTEL_CUSTOMIZATION */
