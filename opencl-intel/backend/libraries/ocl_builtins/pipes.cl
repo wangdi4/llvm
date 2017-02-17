@@ -222,7 +222,7 @@ bool __ovld atomic_compare_exchange_weak(__global volatile atomic_int *object,
 
 #define DEBUG_INF_LOOPS 0
 #define DEBUG_PRINTF 0
-#define DEBUG_DUMP_HAZ_FLAGS 
+#define DEBUG_DUMP_HAZ_FLAGS 0
 #define DEBUG_ASSERTS 0
 
 #define _STRINGIFY(x) #x
