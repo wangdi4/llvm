@@ -554,7 +554,9 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
       continue;
     }
 
-    if ((*BB)->isLandingPad()) {
+    auto FirstInst = (*BB)->getFirstNonPHI();
+
+    if (isa<LandingPadInst>(FirstInst) || isa<FuncletPadInst>(FirstInst)) {
       DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
                       "supported.\n");
       return false;
@@ -568,7 +570,9 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
       return false;
     }
 
-    if (isa<InvokeInst>(Term) || isa<ResumeInst>(Term)) {
+    if (isa<InvokeInst>(Term) || isa<ResumeInst>(Term) ||
+        isa<CatchSwitchInst>(Term) || isa<CatchReturnInst>(Term) ||
+        isa<CleanupReturnInst>(Term)) {
       DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
                       "supported.\n");
       return false;

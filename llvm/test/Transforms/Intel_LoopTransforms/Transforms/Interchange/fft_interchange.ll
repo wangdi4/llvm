@@ -1,7 +1,6 @@
 ; RUN: opt -anders-aa  -hir-ssa-deconstruction  -hir-temp-cleanup  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK:  Interchanged:
-; XFAIL: * 
-;  Need SCEV improvement (already submitted to llorg)  
+
 ;Module Before HIR; ModuleID = 'fft_interchange.c'
 source_filename = "fft_interchange.c"
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
