@@ -40,7 +40,7 @@ static cl::opt<unsigned> IPFunctionCloningLimit("ip-function-cloning-limit",
 
 // Enable Loop related heuristic for Cloning.
 static cl::opt<bool> IPCloningLoopHeuristic("ip-cloning-loop-heuristic",
-                                   cl::init(false), cl::ReallyHidden);
+                                   cl::init(true), cl::ReallyHidden);
 
 // Enable switch related heuristic for Cloning.
 static cl::opt<bool> IPCloningSwitchHeuristic("ip-cloning-switch-heuristic",
