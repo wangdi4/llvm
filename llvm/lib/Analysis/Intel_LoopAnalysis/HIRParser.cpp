@@ -2748,6 +2748,8 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
     return PhiInitVal;
   }
 
+  const Instruction *GEPInst = nullptr;
+
   // A phi init GEP representing an offset cannot be merged into the ref as it
   // represents an unconventional access.
   if (representsStructOffset(GEPOp)) {
@@ -2759,6 +2761,11 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
     // PhiInitVal is a constant expr, return null to indicate that the phi
     // itself should act as the base.
     return nullptr;
+  } else if ((GEPInst = dyn_cast<Instruction>(PhiInitVal)) &&
+             SE->getHIRMetadata(GEPInst,
+                                ScalarEvolution::HIRLiveKind::LiveRange)) {
+    // Return the same value if it has live range metadata.
+    return PhiInitVal;
   }
 
   *InitGEPOp = GEPOp;

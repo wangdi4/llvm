@@ -3976,8 +3976,6 @@ DDTest::~DDTest() {
 static MemoryLocation getMemoryLocation(const RegDDRef *Ref) {
   MemoryLocation Loc;
 
-  auto &DL = Ref->getDDRefUtils().getDataLayout();
-
   const CanonExpr *BaseCE = Ref->getBaseCE();
   if (BaseCE->isNull()) {
     Loc.Ptr = Constant::getNullValue(BaseCE->getDestType());
