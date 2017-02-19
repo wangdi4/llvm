@@ -1,5 +1,6 @@
 
 #include "IntelVPlan.h"
+#include "LoopVectorizationCodeGen.h"
 
 using namespace llvm;
 
@@ -41,8 +42,8 @@ public:
 
 void VPVectorizeOneByOneRecipe::transformIRInstruction(
     Instruction *I, VPTransformState &State) {
-  // assert(I && "No instruction to vectorize.");
-  // State.ILV->vectorizeInstruction(*I);
+  assert(I && "No instruction to vectorize.");
+  State.ILV->vectorizeInstruction(I);
   // if (willAlsoPackOrUnpack(I)) { // Unpack instruction
   //  for (unsigned Part = 0; Part < State.UF; ++Part)
   //    for (unsigned Lane = 0; Lane < State.VF; ++Lane)

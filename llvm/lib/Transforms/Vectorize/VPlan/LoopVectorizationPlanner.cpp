@@ -3,6 +3,7 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
+#include "LoopVectorizationCodeGen.h"
 
 #define DEBUG_TYPE "vplan-loop-vec-planner" 
 
@@ -10,7 +11,7 @@ using namespace llvm;
 
 unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
                                                           unsigned MaxVF) {
-  // ILV->collectTriviallyDeadInstructions(TheLoop, Legal, DeadInstructions);
+  collectDeadInstructions();
 
   unsigned StartRangeVF = MinVF;
   unsigned EndRangeVF = MaxVF + 1;
@@ -27,6 +28,19 @@ unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
   }
 
   return i;
+}
+
+void LoopVectorizationPlannerBase::setBestPlan(unsigned VF, unsigned UF) {
+  DEBUG(dbgs() << "Setting best plan to VF=" << VF << ", UF=" << UF << '\n');
+  BestVF = VF;
+  BestUF = UF;
+
+  assert(VPlans.count(VF) && "Best VF does not have a VPlan.");
+  // Delete all other VPlans.
+  for (auto &Entry : VPlans) {
+    if (Entry.first != VF)
+      VPlans.erase(Entry.first);
+  }
 }
 
 void LoopVectorizationPlannerBase::printCurrentPlans(const std::string &Title,
@@ -102,6 +116,11 @@ VPRegionBlock *LoopVectorizationPlanner::buildInitialCFG(
     return VPBB;
   };
 
+  auto isInstructionToIgnore = [&](Instruction *I) -> bool {
+    return DeadInstructions.count(I) || isa<BranchInst>(I) ||
+        isa<DbgInfoIntrinsic>(I);
+  };
+
   // Scan the body of the loop in a topological order to visit each basic block
   // after having visited its predecessor basic blocks.
   LoopBlocksDFS DFS(TheLoop);
@@ -111,34 +130,49 @@ VPRegionBlock *LoopVectorizationPlanner::buildInitialCFG(
     BasicBlock::iterator I = BB->begin();
     BasicBlock::iterator E = BB->end();
 
-    // New Recipe and VPBasicBlock
-    bool Scalarized = false;
-    VPRecipeBase *Recipe = PlanUtils.createOneByOneRecipe(I, E, Scalarized);
-    VPBasicBlock *VPBB = createOrGetVPBB(BB);
-    PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
+    while (I != E) {
 
-    // Add successors and predecessors
-    // TODO: Old bug in VPOPredicator. Split setSuccessor into setSuccessor and
-    // setPrecedessor. 
-    TerminatorInst *TI = BB->getTerminator();
-    assert(TI && "Terminator expected");
-    unsigned NumSuccs = TI->getNumSuccessors();
+      for (; I != E && isInstructionToIgnore(&*I); ++I);
+      if (I == E)
+        break;
 
-    if (NumSuccs == 1) {
-      VPBasicBlock *SuccVPBB = createOrGetVPBB(TI->getSuccessor(0));
-      assert(SuccVPBB && "VPBB Successor not found");
+      BasicBlock::iterator J = I;
+      for (++J; J != E; ++J) {
+        Instruction *Instr = &*J;
+        if (isInstructionToIgnore(Instr))
+          break; // Sequence of instructions not to ignore ended.
+      }
 
-      PlanUtils.setSuccessor(VPBB, SuccVPBB);
-    } else if (NumSuccs == 2) {
-      VPBasicBlock *SuccVPBB0 = createOrGetVPBB(TI->getSuccessor(0));
-      assert(SuccVPBB0 && "Successor 0 not found");
-      VPBasicBlock *SuccVPBB1 = createOrGetVPBB(TI->getSuccessor(1));
-      assert(SuccVPBB1 && "Successor 1 not found");
+      // New Recipe and VPBasicBlock
+      bool Scalarized = false;
+      VPRecipeBase *Recipe = PlanUtils.createOneByOneRecipe(I, J, Scalarized);
+      VPBasicBlock *VPBB = createOrGetVPBB(BB);
+      // Add successors and predecessors
+      // TODO: Old bug in VPOPredicator. Split setSuccessor into setSuccessor and
+      // setPrecedessor. 
+      TerminatorInst *TI = BB->getTerminator();
+      assert(TI && "Terminator expected");
+      unsigned NumSuccs = TI->getNumSuccessors();
 
-      PlanUtils.setTwoSuccessors(VPBB, nullptr /*VPConditionBitRecipeBase*/,
-                                 SuccVPBB0, SuccVPBB1);
-    } else {
-      llvm_unreachable("Number of successors not supported");
+      if (NumSuccs == 1) {
+        VPBasicBlock *SuccVPBB = createOrGetVPBB(TI->getSuccessor(0));
+        assert(SuccVPBB && "VPBB Successor not found");
+
+        PlanUtils.setSuccessor(VPBB, SuccVPBB);
+      } else if (NumSuccs == 2) {
+        VPBasicBlock *SuccVPBB0 = createOrGetVPBB(TI->getSuccessor(0));
+        assert(SuccVPBB0 && "Successor 0 not found");
+        VPBasicBlock *SuccVPBB1 = createOrGetVPBB(TI->getSuccessor(1));
+        assert(SuccVPBB1 && "Successor 1 not found");
+
+        PlanUtils.setTwoSuccessors(VPBB, nullptr /*VPConditionBitRecipeBase*/,
+                                    SuccVPBB0, SuccVPBB1);
+      } else {
+        llvm_unreachable("Number of successors not supported");
+      }
+      PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
+
+      I = J;
     }
   }
 
@@ -366,4 +400,28 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   // EndRangeVF = StartRangeVF * 2;
 
   return SharedPlan;
+}
+
+void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
+  ILV = &LB;
+
+  // Perform the actual loop widening (vectorization).
+  // 1. Create a new empty loop. Unlink the old loop and connect the new one.
+  ILV->createEmptyLoop();
+
+  // 2. Widen each instruction in the old loop to a new one in the new loop.
+
+  VPTransformState State { BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV, Legal };
+  State.CFG.PrevBB = ILV->getLoopVectorPH();
+
+  VPlan *Plan = getVPlanForVF(BestVF);
+
+  Plan->vectorize(&State);
+
+  // 3. Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
+  // ILV->finalizeLoop();
+}
+
+void LoopVectorizationPlanner::collectDeadInstructions() {
+  VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, Legal, DeadInstructions);
 }

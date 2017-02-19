@@ -1,4 +1,4 @@
-;RUN: opt -VPODriver -S %s | FileCheck %s
+;RUN: opt -VPlanDriver -vpo-codegen=true -S %s | FileCheck %s
 
 ;void foo(int *ip, int n)
 ;{
@@ -12,10 +12,20 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; In the first version I check that the loop is found inside if-block
+; The vectorized loop with scalar remainder
 
 ; CHECK-LABEL: var_tripcount
+; CHECK: min.iters.checked
 ; CHECK: vector.body
+; CHECK: %index = phi i64 [ 0,
+; CHECK: %vec.ind = phi <4 x i64> [
+; CHECK: store {{.*}} <4 x i32>
+; CHECK: %vec.ind.next = add <4 x i64> %vec.ind, <i64 4, i64 4, i64 4, i64 4>
+; CHECK: middle.block
+; CHECK: scalar.ph
+; CHECK: %bc.resume.val = phi i64 [ %n.vec, %middle.block ], [ 0, %for.body.preheader ], [ 0, %min.iters.checked ]
+; CHECK: for.body:
+; CHECK: %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ %bc.resume.val, %scalar.ph ]
 
 ; Function Attrs: nounwind uwtable
 define void @var_tripcount(i32* nocapture %ip, i32 %n) local_unnamed_addr #0 {

@@ -48,6 +48,11 @@ namespace llvm {
 class VPBasicBlock;
 #ifdef INTEL_CUSTOMIZATION
 class VPLoop;
+class VPOCodeGen;
+class VPOVectorizationLegality;
+// Class names mapping to minimize the diff:
+#define InnerLoopVectorizer VPOCodeGen
+#define LoopVectorizationLegality VPOVectorizationLegality
 #endif
 /// VPRecipeBase is a base class describing one or more instructions that will
 /// appear consecutively in the vectorized version, based on Instructions from

@@ -14,10 +14,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "LoopVectorizationCodeGen.h"
 #include "LoopVectorizationPlanner.h"
 
 // From VPlanDriver.h"
@@ -70,6 +74,10 @@ using namespace llvm::vpo; //Needed for WRegionInfo
 //                               cl::Hidden,
 //                               cl::desc("Disable VPO directive cleanup"));
 
+static cl::opt<bool>
+    EnableCodeGen("vpo-codegen", cl::init(false), cl::Hidden,
+         cl::desc("Enable VPO codegen, when false, the pass stops at VPlan creation"));
+
 static cl::opt<bool> VPlanStressTest(
     "vplan-build-stress-test", cl::init(false),
     cl::desc("Construct VPlan for every loop (stress testing)"));
@@ -91,25 +99,20 @@ class VPlanDriverBase : public FunctionPass {
 protected:
   // TODO: We are not using LoopInfo for HIR
   LoopInfo *LI;
-  //ScalarEvolution *SC;
+  ScalarEvolution *SE;
   WRegionInfo *WR;
 
   /// Handle to Target Information 
-//  const TargetTransformInfo *TTI;
-//  TargetLibraryInfo *TLI;
-
-  /// Handle to AVR Generate Pass
-//  AVRGenerateBase *AV;
-
-  virtual LoopVectorizationPlannerBase *
-  createLoopVecPlanner(WRNVecLoopNode *WRLoop) = 0;
-
-  virtual LoopVectorizationPlannerBase *createLoopVecPlanner(Loop *Lp) = 0;
+  TargetTransformInfo *TTI;
+  DominatorTree *DT;
+  TargetLibraryInfo *TLI;
 
 public:
   VPlanDriverBase(char &ID) : FunctionPass(ID){};
   bool runOnFunction(Function &F) override;
 
+  virtual void processLoop(Loop *LoopNode, Function &F,
+                           WRNVecLoopNode *WRLoop = 0) = 0;
   /// Get a handle to the engine that explores and evaluates the 
   /// vectorization opportunities in a Region.
   //virtual VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AWrn, 
@@ -122,14 +125,8 @@ public:
 class VPlanDriver : public VPlanDriverBase {
 
 private:
-  //VPOScenarioEvaluation *ScenariosEngine;
-  //AvrDefUse *DefUse;
 
-  LoopVectorizationPlannerBase *
-  createLoopVecPlanner(WRNVecLoopNode *WRLoop) override;
-
-  // Stress testing
-  LoopVectorizationPlannerBase *createLoopVecPlanner(Loop *Lp) override;
+  void processLoop(Loop *Lp, Function &F, WRNVecLoopNode *WRLoop = 0);
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -244,10 +241,11 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
   //  DEBUG(errs() << "VPODriver: ");
   //  DEBUG(errs().write_escaped(Fn.getName()) << '\n');
   //
-  //  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  //  SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  //  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
-  //  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  LI =  &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  SE =  &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
+  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  DT =  &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   std::function<bool(Loop *)> isSupported = [&isSupported](Loop *Lp) -> bool {
     if (!Lp->getExitingBlock() || !Lp->getExitBlock() || !Lp->getLoopLatch() ||
@@ -288,18 +286,8 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
 
         DEBUG(errs() << "Starting VPlan gen for \n");
         DEBUG(WRNode->dump());
-
-        // TODO: Is it a good idea to retrieve LoopInfo analysis from WLoopNode?
-        // Shouldn't we retrieve with from getAnalysis?
-        LoopVectorizationPlannerBase *LVP = createLoopVecPlanner(WLoopNode);
-        // TODO: VF
-        LVP->buildInitialVPlans(4 /*MinVF*/, 4 /*MaxVF*/);
-
-        DEBUG(VPlan *Plan = LVP->getVPlanForVF(4);
-              VPlanPrinter PlanPrinter(dbgs(), *Plan);
-              PlanPrinter.dump("LVP: Initial VPlan for VF=4"));
-
-        // TODO: destroyLoopPlanner
+        if (WLoopNode = dyn_cast<WRNVecLoopNode>(WRNode))
+          processLoop(WLoopNode->getLoop(), Fn, WLoopNode);
       }
     }
   } else {
@@ -307,14 +295,8 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
 
     // Iterate on TopLevelLoops
     for (auto Lp : make_range(LI->begin(), LI->end())) {
-      if (isSupported(Lp)) {
-        LoopVectorizationPlannerBase *LVP = createLoopVecPlanner(Lp);
-        LVP->buildInitialVPlans(4 /*MinVF*/, 4 /*MaxVF*/);
-
-        DEBUG(VPlan *Plan = LVP->getVPlanForVF(4);
-              VPlanPrinter PlanPrinter(dbgs(), *Plan);
-              PlanPrinter.dump("LVP: Initial VPlan for VF=4"));
-      }
+      if (isSupported(Lp))
+        processLoop(Lp, Fn);
       // TODO: Subloops
     }
   }
@@ -384,7 +366,6 @@ INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-//INITIALIZE_PASS_DEPENDENCY(AVRGenerate)
 //INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 //INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 //INITIALIZE_PASS_DEPENDENCY(AvrDefUse)
@@ -404,23 +385,15 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequired<WRegionInfo>();
   AU.addRequired<LoopInfoWrapperPass>();
-//  AU.addRequired<AVRGenerate>();
-//  AU.addRequired<ScalarEvolutionWrapperPass>();
-//  AU.addRequired<TargetTransformInfoWrapperPass>();
-//  AU.addRequired<TargetLibraryInfoWrapperPass>();
-//  AU.addRequired<AvrDefUse>();
-//
-//  AU.addPreserved<AVRGenerate>();
-//  AU.addPreserved<TargetTransformInfoWrapperPass>();
-//  AU.addPreserved<AvrDefUse>();
+  AU.addRequired<ScalarEvolutionWrapperPass>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<DominatorTreeWrapperPass>();
 }
 
 bool VPlanDriver::runOnFunction(Function &F) {
 
   bool ret_val = false;
-
-  //  AV = &getAnalysis<AVRGenerate>();
-  //  DefUse = &getAnalysis<AvrDefUse>();
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   WR = &getAnalysis<WRegionInfo>();
@@ -431,11 +404,11 @@ bool VPlanDriver::runOnFunction(Function &F) {
 
   // Remove calls to directive intrinsics since the LLVM back end does not know
   // how to translate them.
-  // VPOUtils::stripDirectives(F);
+  VPOUtils::stripDirectives(F);
 
   return ret_val;
 }
-
+/*
 LoopVectorizationPlannerBase *
 VPlanDriver::createLoopVecPlanner(WRNVecLoopNode *WRLoop) {
   return new LoopVectorizationPlanner(WRLoop, WRLoop->getLoop(), LI);
@@ -444,15 +417,45 @@ VPlanDriver::createLoopVecPlanner(WRNVecLoopNode *WRLoop) {
 // Used only for stress mode
 LoopVectorizationPlannerBase *
 VPlanDriver::createLoopVecPlanner(Loop *Lp) {
-  return new LoopVectorizationPlanner(nullptr /*WRLoop*/, Lp, LI);
-}
+  return new LoopVectorizationPlanner(nullptr WRLoop, Lp, LI);
+}*/
 
+
+void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
+  PredicatedScalarEvolution PSE(*SE, *Lp);
+  VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &F, LI);
+
+  // The function canVectorize() collects information about induction
+  // and reduction variables. It also verifies that the loop vectorization
+  // is fully supported.
+  if (!LVL.canVectorize()) {
+    DEBUG(dbgs() << "LV: Not vectorizing: Cannot prove legality.\n");
+    return;
+  }
+
+  LoopVectorizationPlanner *LVP = 
+    new LoopVectorizationPlanner(LoopNode, Lp, LI, TLI, TTI, DT, &LVL);
+
+  LVP->buildInitialVPlans(4 /*MinVF*/, 4 /*MaxVF*/);
+
+  LVP->setBestPlan(4, 1);
+
+  DEBUG(VPlan *Plan = LVP->getVPlanForVF(4);
+        VPlanPrinter PlanPrinter(dbgs(), *Plan);
+        PlanPrinter.dump("LVP: Initial VPlan for VF=4"));
+
+  if (EnableCodeGen) {
+    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, 4, 1, &LVL);
+    LVP->executeBestPlan(VCodeGen);
+  }
+  delete LVP;
+  return;
+}
 
 #if 0
 void VPODirectiveCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 #endif
-
 //bool VPODirectiveCleanup::runOnFunction(Function &F) {
 //
 //  // Skip if disabled

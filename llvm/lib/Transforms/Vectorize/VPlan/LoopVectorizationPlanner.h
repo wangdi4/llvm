@@ -8,6 +8,8 @@
 namespace llvm {
 
 class Loop;
+class VPOCodeGen;
+class VPOVectorizationLegality;
 
 using namespace vpo;
 
@@ -23,6 +25,8 @@ public:
   /// Returns the number of VPlans built, zero if failed.
   unsigned buildInitialVPlans(unsigned MinVF, unsigned MaxVF);
 
+  virtual void collectDeadInstructions() {}
+
   /// On VPlan construction, each instruction marked for predication by Legal
   /// gets its own basic block guarded by an if-then. This initial planning
   /// is legal, but is not optimal. This function attempts to leverage the
@@ -32,7 +36,7 @@ public:
   //void optimizePredicatedInstructions();
 
   /// Record CM's decision and dispose of all other VPlans.
-  //void setBestPlan(unsigned VF, unsigned UF);
+  void setBestPlan(unsigned VF, unsigned UF);
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
@@ -101,27 +105,20 @@ private:
   /// VPlans are shared between VFs, use smart pointers.
   DenseMap<unsigned, std::shared_ptr<VPlan>> VPlans;
 
+protected:
   unsigned BestVF = 0;
-
-  //unsigned BestUF = 0;
-
-  // Holds instructions from the original loop whose counterparts in the
-  // vectorized loop would be trivially dead if generated. For example,
-  // original induction update instructions can become dead because we
-  // separately emit induction "steps" when generating code for the new loop.
-  // Similarly, we create a new latch condition when setting up the structure
-  // of the new loop, so the old one can become dead.
-  //SmallPtrSet<Instruction *, 4> DeadInstructions;
+  unsigned BestUF = 0;
 };
 
 class LoopVectorizationPlanner : public LoopVectorizationPlannerBase {
 public:
-  LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI)
-      //                        const TargetLibraryInfo *TLI,
-      //                        const TargetTransformInfo *TTI,
-      //                        LoopVectorizationLegality *Legal,
-      //                        LoopVectorizationCostModel *CM)
-      : LoopVectorizationPlannerBase(WRL), TheLoop(Lp), LI(LI) {}
+  LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
+                           const TargetLibraryInfo *TLI,
+                           const TargetTransformInfo *TTI,
+                           class DominatorTree* DT,
+                           VPOVectorizationLegality *Legal)
+      : LoopVectorizationPlannerBase(WRL),
+        TheLoop(Lp), LI(LI), TLI(TLI), TTI(TTI), DT(DT), Legal(Legal) {}
 
   ~LoopVectorizationPlanner() {}
 
@@ -138,7 +135,11 @@ public:
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
-  //void executeBestPlan(InnerLoopVectorizer &LB);
+  void executeBestPlan(VPOCodeGen &LB);
+
+  Loop *getLoop() { return TheLoop; }
+
+  void collectDeadInstructions() override;
 
 private:
   /// Build an initial VPlan according to the information gathered by Legal
@@ -182,18 +183,21 @@ private:
   LoopInfo *LI;
 
   /// Target Library Info.
-  //const TargetLibraryInfo *TLI;
+  const TargetLibraryInfo *TLI;
 
   /// Target Transform Info.
-  //const TargetTransformInfo *TTI;
+  const TargetTransformInfo *TTI;
 
   /// The legality analysis.
-  //LoopVectorizationLegality *Legal;
+  VPOVectorizationLegality *Legal;
+
+  /// The dominators tree.
+  class DominatorTree* DT;
 
   /// The profitablity analysis.
   //LoopVectorizationCostModel *CM;
 
-  //InnerLoopVectorizer *ILV = nullptr;
+  VPOCodeGen *ILV = nullptr;
 
   // Holds instructions from the original loop that we predicated. Such
   // instructions reside in their own conditioned VPBasicBlock and represent
@@ -207,7 +211,7 @@ private:
   // separately emit induction "steps" when generating code for the new loop.
   // Similarly, we create a new latch condition when setting up the structure
   // of the new loop, so the old one can become dead.
-  //SmallPtrSet<Instruction *, 4> DeadInstructions;
+  SmallPtrSet<Instruction *, 4> DeadInstructions;
 };
 
 
