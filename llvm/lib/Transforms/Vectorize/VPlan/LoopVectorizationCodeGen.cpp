@@ -122,6 +122,13 @@ bool VPOVectorizationLegality::canVectorize() {
           continue;
         }*/
 
+        RecurrenceDescriptor RedDes;
+        if (RecurrenceDescriptor::isReductionPHI(Phi, TheLoop, RedDes)) {
+          AllowedExit.insert(RedDes.getLoopExitInstr());
+          Reductions[Phi] = RedDes;
+          continue;
+        }
+
         InductionDescriptor ID;
         if (InductionDescriptor::isInductionPHI(Phi, TheLoop, PSE, ID)) {
           addInductionPhi(Phi, ID, AllowedExit);
@@ -133,7 +140,11 @@ bool VPOVectorizationLegality::canVectorize() {
       } // end of PHI handling
     }
   }
-  return Induction != nullptr;
+  if (!Induction && Inductions.empty()) {
+    DEBUG(dbgs() << "LV: Did not find one integer induction var.\n");
+    return false;
+  }
+  return true;
 }
 
 static Type *convertPointerToIntegerType(const DataLayout &DL, Type *Ty) {
@@ -314,7 +325,6 @@ void VPOCodeGen::emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass) {
   ReplaceInstWithInst(BB->getTerminator(),
                       BranchInst::Create(Bypass, NewBB, Cmp));
   LoopBypassBlocks.push_back(BB);
-  LoopVectorPreHeader = NewBB;
 }
 
 PHINode *VPOCodeGen::createInductionVariable(Loop *L, Value *Start, Value *End,
@@ -398,7 +408,7 @@ void VPOCodeGen::createEmptyLoop() {
   // CountRoundDown = Count - Count % VF.
   Value *CountRoundDown = getOrCreateVectorTripCount(Lp);
   
-  Type *IdxTy = Legal->getInduction()->getType();
+  Type *IdxTy = Legal->getWidestInductionType();
   Value *StartIdx = ConstantInt::get(IdxTy, 0);
   Constant *Step = ConstantInt::get(IdxTy, VF);
 
@@ -424,6 +434,175 @@ void VPOCodeGen::createEmptyLoop() {
   LoopVectorPreHeader = Lp->getLoopPreheader();
 }
 
+void VPOCodeGen::finalizeLoop() {
+  
+  fixCrossIterationPHIs();
+
+  updateAnalysis();
+}
+
+void VPOCodeGen::fixCrossIterationPHIs() {
+  // In order to support recurrences we need to be able to vectorize Phi nodes.
+  // Phi nodes have cycles, so we need to vectorize them in two stages. First,
+  // we create a new vector PHI node with no incoming edges. We use this value
+  // when we vectorize all of the instructions that use the PHI. Next, after
+  // all of the instructions in the block are complete we add the new incoming
+  // edges to the PHI. At this point all of the instructions in the basic block
+  // are vectorized, so we can use them to construct the PHI.
+
+  // At this point every instruction in the original loop is widened to a
+  // vector form. Now we need to fix the recurrences. These PHI nodes are
+  // currently empty because we did not want to introduce cycles.
+  // This is the second stage of vectorizing recurrences.
+  for (Instruction &I : *OrigLoop->getHeader()) {
+    PHINode *Phi = dyn_cast<PHINode>(&I);
+    if (!Phi)
+      break;
+    // Handle first-order recurrences and reductions that need to be fixed.
+    // TODO: handle first-order recurrences
+    if (Legal->isReductionVariable(Phi))
+      fixReduction(Phi);
+  }
+}
+
+void VPOCodeGen::fixReduction(PHINode *Phi) {
+  Constant *Zero = Builder.getInt32(0);
+
+  // Get the reduction variable descriptor.
+  RecurrenceDescriptor RdxDesc = (*Legal->getReductionVars())[Phi];
+
+  RecurrenceDescriptor::RecurrenceKind RK = RdxDesc.getRecurrenceKind();
+  TrackingVH<Value> ReductionStartValue = RdxDesc.getRecurrenceStartValue();
+  Instruction *LoopExitInst = RdxDesc.getLoopExitInstr();
+  RecurrenceDescriptor::MinMaxRecurrenceKind MinMaxKind =
+    RdxDesc.getMinMaxRecurrenceKind();
+
+  // We need to generate a reduction vector from the incoming scalar.
+  // To do so, we need to generate the 'identity' vector and override
+  // one of the elements with the incoming scalar reduction. We need
+  // to do it in the vector-loop preheader.
+  Builder.SetInsertPoint(LoopBypassBlocks[1]->getTerminator());
+
+  // This is the vector-clone of the value that leaves the loop.
+  Value *VecExit = getVectorValue(LoopExitInst);
+  Type *VecTy = VecExit->getType();
+
+  // Find the reduction identity variable. Zero for addition, or, xor,
+  // one for multiplication, -1 for And.
+  Value *Identity;
+  Value *VectorStart;
+  if (RK == RecurrenceDescriptor::RK_IntegerMinMax ||
+      RK == RecurrenceDescriptor::RK_FloatMinMax) {
+    // MinMax reduction have the start value as their identify.
+    VectorStart = Identity =
+        Builder.CreateVectorSplat(VF, ReductionStartValue, "minmax.ident");
+  } else {
+    // Handle other reduction kinds:
+    Constant *Iden =
+      RecurrenceDescriptor::getRecurrenceIdentity(RK, VecTy->getScalarType());
+    Identity = ConstantVector::getSplat(VF, Iden);
+
+    // This vector is the Identity vector where the first element is the
+    // incoming scalar reduction.
+    VectorStart =
+      Builder.CreateInsertElement(Identity, ReductionStartValue, Zero);
+  }
+
+  // Fix the vector-loop phi.
+  // Reductions do not have to start at zero. They can start with
+  // any loop invariant values.
+  Value *VecRdxPhi = getVectorValue(Phi);
+  BasicBlock *Latch = OrigLoop->getLoopLatch();
+  Value *LoopVal = Phi->getIncomingValueForBlock(Latch);
+  Value *VecLoopVal = getVectorValue(LoopVal);
+  cast<PHINode>(VecRdxPhi)->addIncoming(VectorStart, LoopVectorPreHeader);
+  cast<PHINode>(VecRdxPhi)
+    ->addIncoming(VecLoopVal, LI->getLoopFor(LoopVectorBody)->getLoopLatch());
+
+  // Before each round, move the insertion point right between
+  // the PHIs and the values we are going to write.
+  // This allows us to write both PHINodes and the extractelement
+  // instructions.
+  Builder.SetInsertPoint(&*LoopMiddleBlock->getFirstInsertionPt());
+
+  // Reduce all of the unrolled parts into a single vector.
+  Value *ReducedPartRdx = VecExit;
+  unsigned Op = RecurrenceDescriptor::getRecurrenceBinOp(RK);
+  // VF is a power of 2 so we can emit the reduction using log2(VF) shuffles
+  // and vector ops, reducing the set of values being computed by half each
+  // round.
+  assert(isPowerOf2_32(VF) &&
+          "Reduction emission only supported for pow2 vectors!");
+  Value *TmpVec = ReducedPartRdx;
+  SmallVector<Constant *, 32> ShuffleMask(VF, nullptr);
+  for (unsigned i = VF; i != 1; i >>= 1) {
+    // Move the upper half of the vector to the lower half.
+    for (unsigned j = 0; j != i / 2; ++j)
+      ShuffleMask[j] = Builder.getInt32(i / 2 + j);
+
+    // Fill the rest of the mask with undef.
+    std::fill(&ShuffleMask[i / 2], ShuffleMask.end(),
+              UndefValue::get(Builder.getInt32Ty()));
+
+    Value *Shuf = Builder.CreateShuffleVector(
+      TmpVec, UndefValue::get(TmpVec->getType()),
+      ConstantVector::get(ShuffleMask), "rdx.shuf");
+
+    if (Op != Instruction::ICmp && Op != Instruction::FCmp)
+        // Floating point operations had to be 'fast' to enable the reduction.
+        TmpVec = Builder.CreateBinOp((Instruction::BinaryOps)Op,
+                                     TmpVec, Shuf, "bin.rdx");
+      else
+        TmpVec = RecurrenceDescriptor::createMinMaxOp(Builder, MinMaxKind,
+                                                      TmpVec, Shuf);
+    }
+
+    // The result is in the first element of the vector.
+    ReducedPartRdx = Builder.CreateExtractElement(TmpVec, Builder.getInt32(0));
+
+  // Create a phi node that merges control-flow from the backedge-taken check
+  // block and the middle block.
+  PHINode *BCBlockPhi = PHINode::Create(Phi->getType(), 2, "bc.merge.rdx",
+                                        LoopScalarPreHeader->getTerminator());
+  for (unsigned I = 0, E = LoopBypassBlocks.size(); I != E; ++I)
+    BCBlockPhi->addIncoming(ReductionStartValue, LoopBypassBlocks[I]);
+  BCBlockPhi->addIncoming(ReducedPartRdx, LoopMiddleBlock);
+
+  // Now, we need to fix the users of the reduction variable
+  // inside and outside of the scalar remainder loop.
+  // We know that the loop is in LCSSA form. We need to update the
+  // PHI nodes in the exit blocks.
+  for (BasicBlock::iterator LEI = LoopExitBlock->begin(),
+       LEE = LoopExitBlock->end();
+       LEI != LEE; ++LEI) {
+    PHINode *LCSSAPhi = dyn_cast<PHINode>(LEI);
+    if (!LCSSAPhi)
+      break;
+
+    // All PHINodes need to have a single entry edge, or two if
+    // we already fixed them.
+    assert(LCSSAPhi->getNumIncomingValues() < 3 && "Invalid LCSSA PHI");
+
+    // We found our reduction value exit-PHI. Update it with the
+    // incoming bypass edge.
+    if (LCSSAPhi->getIncomingValue(0) == LoopExitInst) {
+      // Add an edge coming from the bypass.
+      LCSSAPhi->addIncoming(ReducedPartRdx, LoopMiddleBlock);
+      break;
+    }
+  } // end of the LCSSA phi scan.
+
+    // Fix the scalar loop reduction variable with the incoming reduction sum
+    // from the vector body and from the backedge value.
+  int IncomingEdgeBlockIdx = Phi->getBasicBlockIndex(OrigLoop->getLoopLatch());
+  assert(IncomingEdgeBlockIdx >= 0 && "Invalid block index");
+  // Pick the other block.
+  int SelfEdgeBlockIdx = (IncomingEdgeBlockIdx ? 0 : 1);
+  Phi->setIncomingValue(SelfEdgeBlockIdx, BCBlockPhi);
+  Phi->setIncomingValue(IncomingEdgeBlockIdx, LoopExitInst);
+}
+
+
 void VPOCodeGen::updateAnalysis() {
   // Forget the original basic block.
   PSE.getSE()->forgetLoop(OrigLoop);
@@ -432,9 +611,8 @@ void VPOCodeGen::updateAnalysis() {
   assert(DT->properlyDominates(LoopBypassBlocks.front(), LoopExitBlock) &&
          "Entry does not dominate exit.");
 
-  // We don't predicate stores by this point, so the vector body should be a
-  // single loop.
-  DT->addNewBlock(LoopVectorBody, LoopVectorPreHeader);
+  if (!DT->getNode(LoopVectorBody))
+    DT->addNewBlock(LoopVectorBody, LoopVectorPreHeader);
 
   DT->addNewBlock(LoopMiddleBlock, LoopVectorBody);
   DT->addNewBlock(LoopScalarPreHeader, LoopBypassBlocks[0]);
@@ -547,6 +725,30 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
                                                   0, "wide.masked.gather");
 
   WidenMap[cast<Value>(Inst)] = cast<Value>(NewLI);
+}
+
+void VPOCodeGen::vectorizeSelectInstruction(Instruction *Inst) {
+  SelectInst *SelectI = cast<SelectInst>(Inst);
+  // If the selector is loop invariant we can create a select
+  // instruction with a scalar condition. Otherwise, use vector-select.
+  auto *SE = PSE.getSE();
+  Value *Cond = SelectI->getOperand(0);
+  Value *VCond = getVectorValue(Cond);
+  Value *Op0 = getVectorValue(SelectI->getOperand(1));
+  Value *Op1 = getVectorValue(SelectI->getOperand(2));
+
+  bool InvariantCond =
+    SE->isLoopInvariant(PSE.getSCEV(Cond), OrigLoop);
+
+  // The condition can be loop invariant  but still defined inside the
+  // loop. This means that we can't just use the original 'cond' value.
+
+  if (InvariantCond)
+    VCond = getScalarValue(Cond);
+
+  Value *NewSelect = Builder.CreateSelect(VCond, Op0, Op1);
+
+  WidenMap[Inst] = NewSelect;
 }
 
 void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
@@ -872,6 +1074,15 @@ void VPOCodeGen::widenIntInduction(PHINode *IV) {
 void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
 
   PHINode *P = cast<PHINode>(Inst);
+  // Handle recurrences.
+  if (Legal->isReductionVariable(P)) {
+    Type *VecTy = VectorType::get(P->getType(), VF);
+    PHINode *VecPhi = PHINode::Create(
+      VecTy, 2, "vec.phi", &*LoopVectorBody->getFirstInsertionPt());
+    WidenMap[P] = VecPhi;
+    return;
+  }
+
   // This PHINode must be an induction variable.
   // Make sure that we know about it.
   assert(Legal->getInductionVars()->count(P) && "Not an induction variable");
@@ -1010,6 +1221,28 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     break;
   }
 
+  case Instruction::ICmp: {
+    auto *Cmp = dyn_cast<ICmpInst>(Inst);
+    Value *A = getVectorValue(Cmp->getOperand(0));
+    Value *B = getVectorValue(Cmp->getOperand(1));
+    WidenMap[Inst] = Builder.CreateICmp(Cmp->getPredicate(), A, B);
+    break;
+  }
+
+  case Instruction::FCmp: {
+    auto *FCmp = dyn_cast<FCmpInst>(Inst);
+    Value *A = getVectorValue(FCmp->getOperand(0));
+    Value *B = getVectorValue(FCmp->getOperand(1));
+    Value *NewFCmp = Builder.CreateFCmp(FCmp->getPredicate(), A, B);
+    cast<FCmpInst>(NewFCmp)->copyFastMathFlags(FCmp);
+    WidenMap[Inst] = NewFCmp;
+    break;
+  }
+
+  case Instruction::Select: {
+    vectorizeSelectInstruction(Inst);
+    break;
+  }
   case Instruction::Call: {
     // Currently, the LLVM code gen side does not let AVRIf nodes flow through
     // during loop legalization (loopIsHandled()), so we don't need to worry

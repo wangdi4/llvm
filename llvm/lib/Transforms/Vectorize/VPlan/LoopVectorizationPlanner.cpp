@@ -419,7 +419,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   Plan->vectorize(&State);
 
   // 3. Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
-  // ILV->finalizeLoop();
+  ILV->finalizeLoop();
 }
 
 void LoopVectorizationPlanner::collectDeadInstructions() {

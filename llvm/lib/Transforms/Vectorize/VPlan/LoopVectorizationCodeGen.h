@@ -54,6 +54,9 @@ public:
   /// Returns the induction variables found in the loop.
   InductionList *getInductionVars() { return &Inductions; }
 
+  /// Returns the reduction variables found in the loop.
+  ReductionList *getReductionVars() { return &Reductions; }
+
   /// Returns True if V is an induction variable in this loop.
   bool isInductionVariable(const Value *V);
 
@@ -130,7 +133,7 @@ public:
   ~VPOCodeGen() {}
 
   // Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
-  bool finalizeLoop();
+  void finalizeLoop();
 
   // Create the vector loop skeleton which iterates from StartIndex
   // to StartIndex +  VL * Stride * TripCount. We also setup the control
@@ -186,6 +189,13 @@ private:
   /// Create the primary induction variable for vector loop.
   PHINode *createInductionVariable(Loop *L, Value *Start,
                                    Value *End, Value *Step);
+
+  /// Handle all cross-iteration phis in the header.
+  void fixCrossIterationPHIs();
+
+  /// Fix a reduction cross-iteration phi. This is the second phase of
+  /// vectorizing this phi node.
+  void fixReduction(PHINode *Phi);
 
   /// Insert the new loop to the loop hierarchy and pass manager
   /// and update the analysis passes.
@@ -295,6 +305,9 @@ private:
   // to svml function support that is hooked in to TLI. Later, this can be
   // extended to user-defined vector functions.
   void vectorizeCallInstruction(CallInst *Call);
+
+  // Widen Select instruction.
+  void vectorizeSelectInstruction(Instruction *Inst);
 
   // Widen the given PHI instruction. For now we assume this corresponds to
   // the Induction PHI.
