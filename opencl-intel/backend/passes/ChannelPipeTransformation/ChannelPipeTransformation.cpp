@@ -132,7 +132,6 @@ static void createPipeBackingStore(Module &M,
   for (auto KV : ChannelToPipeMap) {
     auto *PipeOpaquePtr = cast<GlobalVariable>(KV.second);
 
-    // TODO: asavonic: store channel depth in metadata
     auto PipeMD = PipesMD.lookup(PipeOpaquePtr);
     assert(PipeMD.PacketSize && PipeMD.PacketAlign && PipeMD.Depth &&
            "Pipe metadata not found.");
