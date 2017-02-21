@@ -690,6 +690,25 @@ class OAtomicOp<GenericOp gen, CSAOpInfo oi,
     [], !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
+class AtomicOpR<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
+               InstrItinClass itin = IIATM, list<Predicate> preds = []> :
+  FMTGEN <
+    (outs oi.RC:$dst),
+    (ins ADDR_R:$addr, oi.RCL:$op3, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t%ign, $dst, $addr, $op3, %ign, $rm\t# NOTE: Generated as unordered."),
+    [(set oi.VT:$dst, (opNode ADDR_R:$addr, (oi.VT oi.RCL:$op3)))],
+    !listconcat(preds,oi.Preds), itin>
+    { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
+
+class OAtomicOpR<GenericOp gen, CSAOpInfo oi,
+                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
+  FMTGEN <
+    (outs oi.RC:$dst, I0:$issued),
+    (ins ADDR_R:$addr, oi.RCL:$op3, I0:$ready, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $ready, $rm"),
+    [], !listconcat(preds,oi.Preds), itin>
+    { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
+
 class AtomicOp2<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
                 InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <
@@ -1611,19 +1630,19 @@ def OATMCMPXCHG64 : OAtomicOp2<ATMCMPXCHG, Ti64, IIATM>;
 
 // For now, LLVM cannot match/select these because the IR's atomics only deal
 // with integers.
-def ATMADDF32 : AtomicOp<ATMADD, null_frag, Tf32, IIATM>;
-def ATMADDF64 : AtomicOp<ATMADD, null_frag, Tf64, IIATM>;
-def ATMMINF32 : AtomicOp<ATMMIN, null_frag, Tf32, IIATM>;
-def ATMMINF64 : AtomicOp<ATMMIN, null_frag, Tf64, IIATM>;
-def ATMMAXF32 : AtomicOp<ATMMAX, null_frag, Tf32, IIATM>;
-def ATMMAXF64 : AtomicOp<ATMMAX, null_frag, Tf64, IIATM>;
+def ATMADDF32 : AtomicOpR<ATMADD, null_frag, Tf32, IIATM>;
+def ATMADDF64 : AtomicOpR<ATMADD, null_frag, Tf64, IIATM>;
+def ATMMINF32 : AtomicOp<ATMMIN,  null_frag, Tf32, IIATM>;
+def ATMMINF64 : AtomicOp<ATMMIN,  null_frag, Tf64, IIATM>;
+def ATMMAXF32 : AtomicOp<ATMMAX,  null_frag, Tf32, IIATM>;
+def ATMMAXF64 : AtomicOp<ATMMAX,  null_frag, Tf64, IIATM>;
 
-def OATMADDF32 : OAtomicOp<ATMADD, Tf32, IIATM>;
-def OATMADDF64 : OAtomicOp<ATMADD, Tf64, IIATM>;
-def OATMMINF32 : OAtomicOp<ATMMIN, Tf32, IIATM>;
-def OATMMINF64 : OAtomicOp<ATMMIN, Tf64, IIATM>;
-def OATMMAXF32 : OAtomicOp<ATMMAX, Tf32, IIATM>;
-def OATMMAXF64 : OAtomicOp<ATMMAX, Tf64, IIATM>;
+def OATMADDF32 : OAtomicOpR<ATMADD, Tf32, IIATM>;
+def OATMADDF64 : OAtomicOpR<ATMADD, Tf64, IIATM>;
+def OATMMINF32 : OAtomicOp<ATMMIN,  Tf32, IIATM>;
+def OATMMINF64 : OAtomicOp<ATMMIN,  Tf64, IIATM>;
+def OATMMAXF32 : OAtomicOp<ATMMAX,  Tf32, IIATM>;
+def OATMMAXF64 : OAtomicOp<ATMMAX,  Tf64, IIATM>;
 
 // Unit - type only
 def UNIT : PseudoInstCSA<
