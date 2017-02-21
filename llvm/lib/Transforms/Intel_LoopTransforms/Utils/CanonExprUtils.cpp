@@ -505,8 +505,7 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   std::unique_ptr<CanonExpr> Term(CE2->clone());
 
   // It's safe to change the Term type as CE1 and CE2 are mergeable.
-  Term->setDestType(CE1->getSrcType());
-  Term->setSrcType(CE1->getSrcType());
+  Term->setSrcAndDestType(CE1->getSrcType());
 
   // CE2 <- CE2 * C1
   if (!Term->multiplyByConstant(ConstCoeff)) {

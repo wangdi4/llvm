@@ -280,11 +280,7 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
       // Have to treat bound as blob and then truncate or extend it.
       std::unique_ptr<CanonExpr> NewBoundCE(BoundCE->clone());
 
-      if (CE->getSrcType() == NewBoundCE->getSrcType()) {
-        Ret = NewBoundCE->convertToStandAloneBlob();
-      } else {
-        Ret = NewBoundCE->castStandAloneBlob(CE->getSrcType(), false);
-      }
+      Ret = NewBoundCE->castStandAloneBlob(CE->getSrcType(), false);
 
       assert(Ret && "convertToStandAloneBlob() should always succeed as we"
                     "already checked if it's convertible");
@@ -828,7 +824,7 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   markDDRefsIndep(Context);
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(ModifiedLoop);
-  HIRInvalidationUtils::invalidateBody(ModifiedLoop);
+  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(ModifiedLoop);
 }
 
 void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {

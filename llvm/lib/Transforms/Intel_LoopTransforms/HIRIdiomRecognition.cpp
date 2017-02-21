@@ -49,9 +49,9 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
-static cl::list<unsigned> TransformNodes(
-    OPT_SWITCH "-nodes", cl::Hidden,
-    cl::desc("List nodes to transform by " OPT_DESC));
+static cl::list<unsigned>
+    TransformNodes(OPT_SWITCH "-nodes", cl::Hidden,
+                   cl::desc("List nodes to transform by " OPT_DESC));
 
 STATISTIC(NumMemSet, "Number of memset's formed from loop stores");
 STATISTIC(NumMemCpy, "Number of memcpy's formed from loop load+stores");
@@ -93,8 +93,8 @@ class HIRIdiomRecognition : public HIRTransformPass {
                    bool IsStore);
 
   template <bool IsOutgoing>
-  bool isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
-                    const RegDDRef *Ref, bool IsStore);
+  bool isLegalGraph(const DDGraph &DDG, const HLLoop *Loop, const RegDDRef *Ref,
+                    bool IsStore);
   bool isLegalCandidate(const HLLoop *Loop, const MemOpCandidate &Candidate);
 
   // Analyze and create the transformation candidate for the reference.
@@ -188,8 +188,7 @@ bool HIRIdiomRecognition::isBytewiseValue(RegDDRef *Ref, bool DoBitcast) {
       Type *I8TY = Type::getInt8Ty(Ref->getDDRefUtils().getContext());
 
       CE->clear();
-      CE->setSrcType(I8TY);
-      CE->setDestType(I8TY);
+      CE->setSrcAndDestType(I8TY);
 
       if (SplatValue.getBitWidth() > 8) {
         SplatValue = SplatValue.trunc(8);
@@ -268,8 +267,7 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
                                        const RegDDRef *Ref, bool IsStore) {
   unsigned Level = Loop->getNestingLevel();
 
-  auto Range = IsOutgoing ? DDG.outgoing(Ref)
-                          : DDG.incoming(Ref);
+  auto Range = IsOutgoing ? DDG.outgoing(Ref) : DDG.incoming(Ref);
 
   for (DDEdge *E : Range) {
     DDRef *OtherRef = IsOutgoing ? E->getSink() : E->getSrc();
@@ -409,7 +407,6 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, const RegDDRef *Ref,
       return false;
     }
 
-
     if (IsNegStride != Candidate.IsStoreNegStride) {
       return false;
     }
@@ -438,13 +435,7 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
         std::unique_ptr<CanonExpr> UpperCE(OrigUpperCE->clone());
 
         // If merge doesn't work - try to convert UB to blob.
-        // TODO: candidate for code simplification.
-        bool Ret;
-        if (UpperCE->getDestType() != CE->getSrcType()) {
-          Ret = UpperCE->castStandAloneBlob(CE->getSrcType(), false);
-        } else {
-          Ret = UpperCE->convertToStandAloneBlob();
-        }
+        bool Ret = UpperCE->castStandAloneBlob(CE->getSrcType(), false);
 
         if (!Ret) {
           return false;
@@ -593,7 +584,7 @@ unsigned HIRIdiomRecognition::getRefSizeInBytes(const RegDDRef *Ref) {
 }
 
 bool HIRIdiomRecognition::processMemset(HLLoop *Loop,
-                                         MemOpCandidate &Candidate) {
+                                        MemOpCandidate &Candidate) {
 
   unsigned StoreSize = getRefSizeInBytes(Candidate.RHS);
 
@@ -784,7 +775,8 @@ bool HIRIdiomRecognition::runOnFunction(Function &F) {
     if (HLRegion *Region = dyn_cast<HLRegion>(Node)) {
       HIRInvalidationUtils::invalidateNonLoopRegion(Region);
     } else {
-      HIRInvalidationUtils::invalidateBody(cast<HLLoop>(Node));
+      HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(
+          cast<HLLoop>(Node));
     }
   }
 

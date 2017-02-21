@@ -109,7 +109,8 @@ STATISTIC(
 
 MemRefGroup::MemRefGroup(RegDDRef *FirstRef, HIRLoopStatistics *HLS)
     : IsProfitable(false), IsLegal(false), IsAnalyzed(false), HasLoad(false),
-      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false), HLS(HLS) {
+      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false),
+      HLS(HLS) {
   RefV.push_back(FirstRef);
 
   Lp = FirstRef->getHLDDNode()->getParentLoop();
@@ -558,8 +559,8 @@ void HIRLMM::doTransform(HLLoop *Lp) {
 
   // Mark the loop and its parent loop/region have been changed
   Lp->getParentRegion()->setGenCode();
-  HIRInvalidationUtils::invalidateBody(Lp);
-  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Lp);
+  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(Lp);
 }
 
 // Check whether we need a Load in the Loops' preheader:

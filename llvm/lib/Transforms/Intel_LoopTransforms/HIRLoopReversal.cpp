@@ -809,15 +809,8 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
       CanonExpr *UBCEClone = UBCE->clone();
       // DEBUG(::dump(UBCEClone, "UBCEClone [BEFORE]: "));
 
-      bool CastToStandaloneBlob = false;
-      if (CEPrime->getSrcType() != UBCE->getSrcType()) {
-        CastToStandaloneBlob =
-            UBCEClone->castStandAloneBlob(CE->getSrcType(), false);
-      } else {
-        // assert(0 && "Expect different Src Types\n");
-        // Bring the next line back if the above assert fires!
-        CastToStandaloneBlob = UBCEClone->convertToStandAloneBlob();
-      }
+      bool CastToStandaloneBlob =
+          UBCEClone->castStandAloneBlob(CE->getSrcType(), false);
 
       // DEBUG(::dump(UBCEClone, "UBCEClone [AFTER]: "));
       // Note: CastToStandaloneBlob may NOT necessarily return true,

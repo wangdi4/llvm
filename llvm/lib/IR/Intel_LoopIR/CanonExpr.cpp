@@ -1390,6 +1390,11 @@ bool CanonExpr::castStandAloneBlob(Type *Ty, bool IsSExt) {
     return false;
   }
 
+  // Cast is a no-op.
+  if (Ty == getDestType()) {
+    return true;
+  }
+
   unsigned OldIndex = getSingleBlobIndex();
   unsigned NewIndex = InvalidBlobIndex;
 
@@ -1397,8 +1402,7 @@ bool CanonExpr::castStandAloneBlob(Type *Ty, bool IsSExt) {
                                 IsSExt, Ty, true, &NewIndex);
 
   replaceBlob(OldIndex, NewIndex);
-  setSrcType(Ty);
-  setDestType(Ty);
+  setSrcAndDestType(Ty);
 
   return true;
 }
