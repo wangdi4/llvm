@@ -83,6 +83,17 @@ class RegImmOperand<ValueType vt> : Operand<vt>, ComplexPattern<vt,1,"SelectRegI
     let ParserMatchClass = RegImmAsmOperand;
   }
 
+// Rounding mode operands. These are literal integers underneath, but are
+// printed and parsed as their symbolic names. The default numerically matches
+// the simulator's default value in csa.h. (This is CSA::ROUND_NEAREST.)
+// Note that RMODE operands are optional in the sense that the compiler doesn't
+// need to add them to MachineInstrs. However, the parser needs them to be
+// explicitly provided.
+def RMODE : OperandWithDefaultOps <i64, (ops (i64 0))>
+{
+  let PrintMethod = "printRModeOperand";
+}
+
 // RCL (Reg/Chan/Literal) is the same as used in the simulator
 def RCLi0  : RegImmOperand<i1>;
 def RCLi1  : RegImmOperand<i1>;
@@ -288,6 +299,16 @@ class BinOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
     [(set oi.RC:$dst, (opNode oi.RCL:$op1, oi.RCL:$op2))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
+// Same as BinOp, but with an optional rounding mode.
+class BinOpR<GenericOp gen, SDNode opNode, CSAOpInfo oi,
+            InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$dst),
+    (ins oi.RCL:$op1, oi.RCL:$op2, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $rm"),
+    [(set oi.RC:$dst, (opNode oi.RCL:$op1, oi.RCL:$op2))],
+    !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
 // There is no SDNode for these. If we want them to be selected, we'll need
 // custom selection in CSAISelLowering due to TableGen's inability to deal with
 // multi-output selection.
@@ -344,8 +365,8 @@ class FusedOp1<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
-    (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $op3"),
+    (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $op3, $rm"),
     [(set oi.RC:$dst, (outer (inner oi.RCL:$op1, oi.RCL:$op2), oi.RCL:$op3))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
@@ -353,8 +374,8 @@ class FusedOp2<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$dst),
-    (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op2, $op3, $op1"),
+    (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op2, $op3, $op1, $rm"),
     [(set oi.RC:$dst, (outer oi.RCL:$op1, (inner oi.RCL:$op2, oi.RCL:$op3)))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
@@ -473,12 +494,20 @@ class SReduceOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
+class SReduceOpR<GenericOp gen, CSAOpInfo oi,
+                InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$result, oi.RC:$each),
+    (ins oi.RCL:$init, oi.RCL:$inval, I1:$ctl, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl, $rm"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
+
 class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<
     (outs oi.RC:$result, oi.RC:$each),
-    (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, I1:$ctl),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl"),
+    (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, I1:$ctl, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl, $rm"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 multiclass LdOp<string opStr, CSAOpInfo t,
@@ -960,9 +989,9 @@ def ADC16     : BinOpC<  ADC,            Ti16, IIALU>;
 def ADC32     : BinOpC<  ADC,            Ti32, IIALU>;
 def ADC64     : BinOpC<  ADC,            Ti64, IIALU>;
 
-def ADDF16    : BinOp<   ADD,    fadd,   Tf16, IIAddF16>;
-def ADDF32    : BinOp<   ADD,    fadd,   Tf32, IIAddF32>;
-def ADDF64    : BinOp<   ADD,    fadd,   Tf64, IIAddF64>;
+def ADDF16    : BinOpR<  ADD,    fadd,   Tf16, IIAddF16>;
+def ADDF32    : BinOpR<  ADD,    fadd,   Tf32, IIAddF32>;
+def ADDF64    : BinOpR<  ADD,    fadd,   Tf64, IIAddF64>;
 
 def : Pat<(i1 (sub i1:$op1, i1:$op2)),       (XOR1 $op1,$op2)>;
 def : Pat<(i1 (sub i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
@@ -978,9 +1007,9 @@ def SBB16     : BinOpC<  SBB,            Ti16, IIALU>;
 def SBB32     : BinOpC<  SBB,            Ti32, IIALU>;
 def SBB64     : BinOpC<  SBB,            Ti64, IIALU>;
 
-def SUBF16    : BinOp<   SUB,    fsub,   Tf16, IIAddF16>;
-def SUBF32    : BinOp<   SUB,    fsub,   Tf32, IIAddF32>;
-def SUBF64    : BinOp<   SUB,    fsub,   Tf64, IIAddF64>;
+def SUBF16    : BinOpR<  SUB,    fsub,   Tf16, IIAddF16>;
+def SUBF32    : BinOpR<  SUB,    fsub,   Tf32, IIAddF32>;
+def SUBF64    : BinOpR<  SUB,    fsub,   Tf64, IIAddF64>;
 
 def MUL       : GenericOp<"mul">;
 def MUL8      : BinOp<   MUL,    mul,    Ti8,  IIMulI8>;
@@ -988,9 +1017,9 @@ def MUL16     : BinOp<   MUL,    mul,    Ti16, IIMulI16>;
 def MUL32     : BinOp<   MUL,    mul,    Ti32, IIMulI32>;
 def MUL64     : BinOp<   MUL,    mul,    Ti64, IIMulI64>;
 
-def MULF16    : BinOp<   MUL,    fmul,   Tf16, IIMulF16>;
-def MULF32    : BinOp<   MUL,    fmul,   Tf32, IIMulF32>;
-def MULF64    : BinOp<   MUL,    fmul,   Tf64, IIMulF64>;
+def MULF16    : BinOpR<  MUL,    fmul,   Tf16, IIMulF16>;
+def MULF32    : BinOpR<  MUL,    fmul,   Tf32, IIMulF32>;
+def MULF64    : BinOpR<  MUL,    fmul,   Tf64, IIMulF64>;
 
 def DIV       : GenericOp<"div">;
 def DIVS8     : BinOp<   DIV,    sdiv,   Ts8,  IIDivI8,  [HasIDiv]>;
@@ -1003,9 +1032,9 @@ def DIVU16    : BinOp<   DIV,    udiv,   Tu16, IIDivI16, [HasIDiv]>;
 def DIVU32    : BinOp<   DIV,    udiv,   Tu32, IIDivI32, [HasIDiv]>;
 def DIVU64    : BinOp<   DIV,    udiv,   Tu64, IIDivI64, [HasIDiv]>;
 
-def DIVF16    : BinOp<   DIV,    fdiv,   Tf16, IIDivF16, [HasFDiv]>;
-def DIVF32    : BinOp<   DIV,    fdiv,   Tf32, IIDivF32, [HasFDiv]>;
-def DIVF64    : BinOp<   DIV,    fdiv,   Tf64, IIDivF64, [HasFDiv]>;
+def DIVF16    : BinOpR<  DIV,    fdiv,   Tf16, IIDivF16, [HasFDiv]>;
+def DIVF32    : BinOpR<  DIV,    fdiv,   Tf32, IIDivF32, [HasFDiv]>;
+def DIVF64    : BinOpR<  DIV,    fdiv,   Tf64, IIDivF64, [HasFDiv]>;
 
 def POW       : GenericOp<"pow", [HasMath0]>;
 def POWF32    : BinOp<   POW,    fpow,   Tf32, IIMathF32>;
@@ -1390,46 +1419,46 @@ def FMSREDAF64: FMSReduceOp<FMSREDA, Tf64, IIALU>;
 
 // Standard sequenced reductions.
 def SREDSUB   : GenericOp<"sredsub">;
-def SREDSUB8  : SReduceOp<SREDSUB, Ti8,  IIALU>;
-def SREDSUB16 : SReduceOp<SREDSUB, Ti16, IIALU>;
-def SREDSUB32 : SReduceOp<SREDSUB, Ti32, IIALU>;
-def SREDSUB64 : SReduceOp<SREDSUB, Ti64, IIALU>;
-def SREDSUBF32: SReduceOp<SREDSUB, Tf32, IIALU>;
-def SREDSUBF64: SReduceOp<SREDSUB, Tf64, IIALU>;
+def SREDSUB8  : SReduceOp<SREDSUB,  Ti8,  IIALU>;
+def SREDSUB16 : SReduceOp<SREDSUB,  Ti16, IIALU>;
+def SREDSUB32 : SReduceOp<SREDSUB,  Ti32, IIALU>;
+def SREDSUB64 : SReduceOp<SREDSUB,  Ti64, IIALU>;
+def SREDSUBF32: SReduceOpR<SREDSUB, Tf32, IIALU>;
+def SREDSUBF64: SReduceOpR<SREDSUB, Tf64, IIALU>;
 
 def SREDADD   : GenericOp<"sredadd">;
-def SREDADD8  : SReduceOp<SREDADD, Ti8,  IIALU>;
-def SREDADD16 : SReduceOp<SREDADD, Ti16, IIALU>;
-def SREDADD32 : SReduceOp<SREDADD, Ti32, IIALU>;
-def SREDADD64 : SReduceOp<SREDADD, Ti64, IIALU>;
-def SREDADDF32: SReduceOp<SREDADD, Tf32, IIALU>;
-def SREDADDF64: SReduceOp<SREDADD, Tf64, IIALU>;
+def SREDADD8  : SReduceOp<SREDADD,  Ti8,  IIALU>;
+def SREDADD16 : SReduceOp<SREDADD,  Ti16, IIALU>;
+def SREDADD32 : SReduceOp<SREDADD,  Ti32, IIALU>;
+def SREDADD64 : SReduceOp<SREDADD,  Ti64, IIALU>;
+def SREDADDF32: SReduceOpR<SREDADD, Tf32, IIALU>;
+def SREDADDF64: SReduceOpR<SREDADD, Tf64, IIALU>;
 
 def SREDMUL   : GenericOp<"sredmul">;
-def SREDMUL8  : SReduceOp<SREDMUL, Ti8,  IIALU>;
-def SREDMUL16 : SReduceOp<SREDMUL, Ti16, IIALU>;
-def SREDMUL32 : SReduceOp<SREDMUL, Ti32, IIALU>;
-def SREDMUL64 : SReduceOp<SREDMUL, Ti64, IIALU>;
-def SREDMULF32: SReduceOp<SREDMUL, Tf32, IIALU>;
-def SREDMULF64: SReduceOp<SREDMUL, Tf64, IIALU>;
+def SREDMUL8  : SReduceOp<SREDMUL,  Ti8,  IIALU>;
+def SREDMUL16 : SReduceOp<SREDMUL,  Ti16, IIALU>;
+def SREDMUL32 : SReduceOp<SREDMUL,  Ti32, IIALU>;
+def SREDMUL64 : SReduceOp<SREDMUL,  Ti64, IIALU>;
+def SREDMULF32: SReduceOpR<SREDMUL, Tf32, IIALU>;
+def SREDMULF64: SReduceOpR<SREDMUL, Tf64, IIALU>;
 
 def SREDAND   : GenericOp<"sredand">;
-def SREDAND8  : SReduceOp<SREDAND, Ti8,  IIALU>;
-def SREDAND16 : SReduceOp<SREDAND, Ti16, IIALU>;
-def SREDAND32 : SReduceOp<SREDAND, Ti32, IIALU>;
-def SREDAND64 : SReduceOp<SREDAND, Ti64, IIALU>;
+def SREDAND8  : SReduceOp<SREDAND,  Ti8,  IIALU>;
+def SREDAND16 : SReduceOp<SREDAND,  Ti16, IIALU>;
+def SREDAND32 : SReduceOp<SREDAND,  Ti32, IIALU>;
+def SREDAND64 : SReduceOp<SREDAND,  Ti64, IIALU>;
 
 def SREDOR    : GenericOp<"sredor">;
-def SREDOR8   : SReduceOp<SREDOR, Ti8,  IIALU>;
-def SREDOR16  : SReduceOp<SREDOR, Ti16, IIALU>;
-def SREDOR32  : SReduceOp<SREDOR, Ti32, IIALU>;
-def SREDOR64  : SReduceOp<SREDOR, Ti64, IIALU>;
+def SREDOR8   : SReduceOp<SREDOR,   Ti8,  IIALU>;
+def SREDOR16  : SReduceOp<SREDOR,   Ti16, IIALU>;
+def SREDOR32  : SReduceOp<SREDOR,   Ti32, IIALU>;
+def SREDOR64  : SReduceOp<SREDOR,   Ti64, IIALU>;
 
 def SREDXOR   : GenericOp<"sredxor">;
-def SREDXOR8  : SReduceOp<SREDXOR, Ti8,  IIALU>;
-def SREDXOR16 : SReduceOp<SREDXOR, Ti16, IIALU>;
-def SREDXOR32 : SReduceOp<SREDXOR, Ti32, IIALU>;
-def SREDXOR64 : SReduceOp<SREDXOR, Ti64, IIALU>;
+def SREDXOR8  : SReduceOp<SREDXOR,  Ti8,  IIALU>;
+def SREDXOR16 : SReduceOp<SREDXOR,  Ti16, IIALU>;
+def SREDXOR32 : SReduceOp<SREDXOR,  Ti32, IIALU>;
+def SREDXOR64 : SReduceOp<SREDXOR,  Ti64, IIALU>;
 
 
 // TBD(jsukha): This info probably needs predicates

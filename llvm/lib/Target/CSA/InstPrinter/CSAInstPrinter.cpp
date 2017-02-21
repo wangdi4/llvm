@@ -30,6 +30,7 @@ WrapAsmOpt("csa-wrap-asm", cl::Hidden,
            cl::init(false));
 
 static std::map<int,const char*> FUName;
+static std::map<int,const char*> RMName;
 
 // Pin the vtable to this file
 void CSAInstPrinter::anchor() {}
@@ -50,6 +51,12 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
   FUName[CSA::FUNCUNIT::MEM] = "mem"; // Memory access
   FUName[CSA::FUNCUNIT::SXU] = "sxu"; // Sequential eXecution Unit
   FUName[CSA::FUNCUNIT::SPD] = "spd";// Scratchpad
+
+  // Should match lists in CSAInstrInfo.h and csa.h in the simulator.
+  RMName[CSA::ROUND_NEAREST]    = "ROUND_NEAREST";
+  RMName[CSA::ROUND_DOWNWARD]   = "ROUND_DOWNWARD";
+  RMName[CSA::ROUND_UPWARD]     = "ROUND_UPWARD";
+  RMName[CSA::ROUND_TOWARDZERO] = "ROUND_TOWARDZERO";
 }
 
 bool CSAInstPrinter::WrapCsaAsm() {
@@ -120,4 +127,15 @@ void CSAInstPrinter::printUnitOperand(const MCInst *MI, unsigned OpNo,
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
   O << FUName[Op.getImm()];
+}
+
+void CSAInstPrinter::printRModeOperand(const MCInst *MI, unsigned OpNo,
+                                     raw_ostream &O, const char *Modifier) {
+  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
+  const MCOperand &Op = MI->getOperand(OpNo);
+  auto it = RMName.find(Op.getImm());
+  if (it != RMName.end())
+    O << RMName[Op.getImm()];
+  else
+    printOperand(MI, OpNo, O, Modifier);
 }

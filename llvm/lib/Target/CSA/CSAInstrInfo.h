@@ -52,6 +52,14 @@ namespace CSA {
         Count
     };
   }
+
+  // This should match the same enum in the simulator's csa.h.
+  enum RoundingMode {
+    ROUND_NEAREST = 0,
+    ROUND_DOWNWARD,
+    ROUND_UPWARD,
+    ROUND_TOWARDZERO,
+  };
 }
 
 class CSASubtarget;

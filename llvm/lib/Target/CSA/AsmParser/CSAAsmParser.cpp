@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSA.h"
+#include "CSAInstrInfo.h"
 #include "MCTargetDesc/CSAMCTargetDesc.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/MC/MCContext.h"
@@ -322,6 +323,15 @@ bool CSAAsmParser::ParseRegister(unsigned &RegNum, SMLoc &StartLoc,
   return (Op == nullptr);
 }
 
+static int roundingModeToInt(StringRef T) {
+  return StringSwitch<int>(T)
+    .Case("ROUND_NEAREST",    CSA::ROUND_NEAREST)
+    .Case("ROUND_DOWNWARD",   CSA::ROUND_DOWNWARD)
+    .Case("ROUND_UPWARD",     CSA::ROUND_UPWARD)
+    .Case("ROUND_TOWARDZERO", CSA::ROUND_TOWARDZERO)
+    .Default(-1);
+}
+
 std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
   SMLoc Start = Parser.getTok().getLoc();
   SMLoc End = SMLoc::getFromPointer(Parser.getTok().getLoc().getPointer() - 1);
@@ -330,9 +340,15 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
   switch (Lexer.getKind()) {
   case AsmToken::Identifier:
     {
+      int rm;
       StringRef Identifier;
       if (Parser.parseIdentifier(Identifier))
         return 0;
+      rm = roundingModeToInt(Identifier);
+      if (rm >= 0) {
+        const MCConstantExpr *rmExp = MCConstantExpr::create(rm, getContext());
+        return CSAOperand::createImm(rmExp, Start, End);
+      }
       MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
       const MCExpr *Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None,
           getContext());
