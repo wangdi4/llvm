@@ -32,15 +32,28 @@ target triple = "spir"
 @far = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
 @star = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
 
-; CHECK:      @[[PIPE_BAR:.*]] = common global %opencl.pipe_t[[PIPE_INDEX]] addrspace(1)* null, align 4
-; CHECK-NEXT: @[[PIPE_FAR:.*]] = common global %opencl.pipe_t[[PIPE_INDEX]] addrspace(1)* null, align 4
-; CHECK-NEXT: @[[PIPE_STAR:.*]] = common global %opencl.pipe_t[[PIPE_INDEX]] addrspace(1)* null, align 4
-
+; CHECK:      @[[PIPE_BAR:.*]] = common global %opencl.pipe_t[[PIPE_INDEX]] addrspace(1)*
+; CHECK-NEXT: @[[PIPE_FAR:.*]] = common global %opencl.pipe_t[[PIPE_INDEX]] addrspace(1)*
+; CHECK-NEXT: @[[PIPE_STAR:.*]] = common global %opencl.pipe_t[[PIPE_INDEX]] addrspace(1)*
+;
 ; CHECK-DAG: @[[PIPE_BAR]].bs = common addrspace(1) global [32 x i8] zeroinitializer, align 4
 ; CHECK-DAG: @[[PIPE_FAR]].bs = common addrspace(1) global [48 x i8] zeroinitializer, align 4
 ; CHECK-DAG: @[[PIPE_STAR]].bs = common addrspace(1) global [32 x i8] zeroinitializer, align 4
-
+;
 ; CHECK: @llvm.global_ctors = {{.*}} @__global_pipes_ctor
+;
+; CHECK: declare void @__pipe_init_intel(%struct.__pipe_t addrspace(1)*, i32, i32) #3
+;
+; CHECK: define void @__global_pipes_ctor()
+;
+; CHECK-DAG: call void @__pipe_init_intel({{.*}}* @[[PIPE_STAR]].bs {{.*}}, i32 4, i32 1)
+; CHECK-DAG: store {{.*}}* @[[PIPE_STAR]].bs {{.*}}, {{.*}}** @[[PIPE_STAR]]
+;
+; CHECK-DAG: call void @__pipe_init_intel({{.*}}* @[[PIPE_BAR]].bs {{.*}}, i32 4, i32 1)
+; CHECK-DAG: store {{.*}}* @[[PIPE_BAR]].bs {{.*}}, {{.*}}** @[[PIPE_BAR]]
+;
+; CHECK-DAG: call void @__pipe_init_intel({{.*}}* @[[PIPE_FAR]].bs {{.*}}, i32 4, i32 3)
+; CHECK-DAG: store {{.*}}* @[[PIPE_FAR]].bs {{.*}}, {{.*}}** @[[PIPE_FAR]]
 
 ; Function Attrs: nounwind
 define spir_kernel void @foo() #0 {
@@ -52,13 +65,10 @@ entry:
   store i32 0, i32* %1, align 4
   %2 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @bar, align 4, !tbaa !16
   tail call void @_Z20write_channel_altera11ocl_channelii(%opencl.channel_t addrspace(1)* %2, i32 42) #3
-; CHECK: %6 = call i32 @__write_pipe_2_bl_intel(%opencl.pipe_t.0 addrspace(1)* %4, i8* %5)
   %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @far, align 4, !tbaa !16
   tail call void @_Z20write_channel_altera11ocl_channelff(%opencl.channel_t addrspace(1)* %3, float 0x3FDAE147A0000000) #3
-; CHECK: %11 = call i32 @__write_pipe_2_bl_intel(%opencl.pipe_t.0 addrspace(1)* %9, i8* %10)
   %4 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @star, align 4, !tbaa !16
   call void @_Z20write_channel_altera11ocl_channel3FooS_(%opencl.channel_t addrspace(1)* %4, %struct.Foo* byval nonnull align 4 %st) #3
-; CHECK: %16 = call i32 @__write_pipe_2_bl_intel(%opencl.pipe_t.0 addrspace(1)* %14, i8* %15)
   call void @llvm.lifetime.end(i64 4, i8* %0) #3
   ret void
 }
@@ -74,19 +84,6 @@ declare void @_Z20write_channel_altera11ocl_channel3FooS_(%opencl.channel_t addr
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end(i64, i8* nocapture) #1
-
-; CHECK: declare void @__pipe_init_intel(%struct.__pipe_t addrspace(1)*, i32, i32) #3
-
-; CHECK: define void @__global_pipes_ctor() {
-; CHECK: entry:
-; CHECK-DAG:   call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([32 x i8] addrspace(1)* @[[PIPE_BAR]].bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 1)
-; CHECK-DAG:   store %opencl.pipe_t.0 addrspace(1)* bitcast ([32 x i8] addrspace(1)* @[[PIPE_BAR]].bs to %opencl.pipe_t.0 addrspace(1)*), %opencl.pipe_t.0 addrspace(1)** @[[PIPE_BAR]]
-; CHECK-DAG:   call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([48 x i8] addrspace(1)* @[[PIPE_FAR]].bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 3)
-; CHECK-DAG:   store %opencl.pipe_t.0 addrspace(1)* bitcast ([48 x i8] addrspace(1)* @[[PIPE_FAR]].bs to %opencl.pipe_t.0 addrspace(1)*), %opencl.pipe_t.0 addrspace(1)** @[[PIPE_FAR]]
-; CHECK-DAG:   call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([32 x i8] addrspace(1)* @[[PIPE_STAR]].bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 1)
-; CHECK-DAG:   store %opencl.pipe_t.0 addrspace(1)* bitcast ([32 x i8] addrspace(1)* @[[PIPE_STAR]].bs to %opencl.pipe_t.0 addrspace(1)*), %opencl.pipe_t.0 addrspace(1)** @[[PIPE_STAR]]
-; CHECK:   ret void
-; CHECK: }
 
 attributes #0 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
