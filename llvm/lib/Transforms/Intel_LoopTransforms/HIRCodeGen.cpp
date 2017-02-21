@@ -193,9 +193,9 @@ private:
         // type
         unsigned PtrSize =
             F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType);
-        assert(Ty->getPrimitiveSizeInBits() == PtrSize &&
+        assert(Ty->getScalarSizeInBits() == PtrSize &&
                "Pointer size and CE size mismatch");
-        Blob = Builder->CreatePtrToInt(Blob, Ty);
+        Blob = Builder->CreatePtrToInt(Blob, Ty->getScalarType());
       }
       return Blob;
     }
