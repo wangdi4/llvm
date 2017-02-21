@@ -132,10 +132,20 @@ void CSAInstPrinter::printUnitOperand(const MCInst *MI, unsigned OpNo,
 void CSAInstPrinter::printRModeOperand(const MCInst *MI, unsigned OpNo,
                                      raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
-  const MCOperand &Op = MI->getOperand(OpNo);
-  auto it = RMName.find(Op.getImm());
+
+  // This is an optional operand. The optional MO is added at selection, so if
+  // this instruction was added later, it may still not have this operand. In
+  // this case, just print the default, 0.
+  int64_t immV = 0;
+
+  if (OpNo < MI->getNumOperands()) {
+    const MCOperand &Op = MI->getOperand(OpNo);
+    immV = Op.getImm();
+  }
+
+  auto it = RMName.find(immV);
   if (it != RMName.end())
-    O << RMName[Op.getImm()];
+    O << RMName[immV];
   else
     printOperand(MI, OpNo, O, Modifier);
 }
