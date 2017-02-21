@@ -119,7 +119,13 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
   unsigned NumVecElems = Tp->getVectorNumElements();
   assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
 
-  if (TTI.isTargetSpecificShuffleMask(Mask))
+  if (isExtractSubvectorMask(Mask)) {
+    // TODO: Support other sized subvectors.
+    int index = Mask[0] == 0 ? 0 : 1;
+    return TTI.getShuffleCost(
+        TargetTransformInfo::SK_ExtractSubvector, Tp, index,
+        VectorType::get(Tp->getScalarType(), NumVecElems / 2));
+  } else if (TTI.isTargetSpecificShuffleMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0,
                               nullptr);
   else if (isReverseVectorMask(Mask))
@@ -128,8 +134,12 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
     return TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0,
                               nullptr);
 
-  // TODO: Support SK_Insert, SK_Extract
-  return 2 * Mask.size();
+  // TODO: Support SK_Insert
+  uint32_t TotalElems = Mask.size();
+  for (int MaskElem : Mask)
+    if (MaskElem < 0)
+      TotalElems--;
+  return 2 * TotalElems;
 }
 
 namespace OptVLS {
@@ -471,7 +481,8 @@ public:
   // Generate a shuffle instruction for this node.
   void genShuffle() {
     OVLSOperand *Op1 = new OVLSUndef();
-    OVLSOperand *Op2 = new OVLSUndef();;
+    OVLSOperand *Op2 = new OVLSUndef();
+
     OVLSConstant *ShuffleMask = nullptr;
 
     // Use 'Type' which is the type of this result node to define the
@@ -500,12 +511,12 @@ public:
       assert(BR.getNumBits() == ElemSize &&
              "Each edge should move element-size "
              "number of bits!!!");
-      if (isa<OVLSUndef> (Src))
+      if (isa<OVLSUndef>(Src))
         IntShuffleMask[MaskIndex++] = -1;
       else {
-        if (isa<OVLSUndef> (Op1))
+        if (isa<OVLSUndef>(Op1))
           Op1 = Src;
-        else if (Src != Op1 && isa<OVLSUndef> (Op2))
+        else if (Src != Op1 && isa<OVLSUndef>(Op2))
           Op2 = Src;
         else if (Src != Op1 && Src != Op2)
           assert("Invalid number of operands for OVLSShuffle!!!");
@@ -519,7 +530,7 @@ public:
     }
 
     assert(MaskIndex == NumElems && "IntShuffleMask got out of range!!!");
-    if (isa<OVLSUndef> (Op2))
+    if (isa<OVLSUndef>(Op2))
       Op2->setType(Op1->getType());
 
     ShuffleMask =
