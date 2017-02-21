@@ -1087,12 +1087,15 @@ seq_classify_repeat_or_reduction(CSASeqCandidate& x) {
           // To do reductions for "fma" and "sub", it needs to be.
           //
           bool matched_last_use = false;
-          int num_operands = def_bottom->getNumOperands();
-          assert(num_operands >= 3);
 
-          // Look up the last three operands of the instruction.
-          MachineOperand* last_op = &def_bottom->getOperand(num_operands-1);
-          MachineOperand* prev_op = &def_bottom->getOperand(num_operands-2);
+          // Look up the last two data inputs by navigating from the first
+          // input operand. In the case of FMA, where there are three input
+          // operands, we look at the last two.
+          const MCInstrDesc &desc = def_bottom->getDesc();
+          unsigned pair_first_op = desc.getNumDefs() + (is_fma ? 1 : 0);
+
+          MachineOperand* prev_op = &def_bottom->getOperand(pair_first_op);
+          MachineOperand* last_op = &def_bottom->getOperand(pair_first_op + 1);
 
           if (last_op->isReg() &&
               (last_op->getReg() == top_channel)) {
@@ -1101,7 +1104,6 @@ seq_classify_repeat_or_reduction(CSASeqCandidate& x) {
 
           MachineOperand* input0_op = NULL;
           if (is_fma) {
-            assert(num_operands == 4);
             if (!matched_last_use) {
               DEBUG(errs() << "WARNING: FMA reduction with transform "
                     << *def_bottom << " does not have last input == pick output.\n");
@@ -1112,13 +1114,11 @@ seq_classify_repeat_or_reduction(CSASeqCandidate& x) {
           }
           else if (is_commuting_3op_reduction) {
             // Ops that commute and
-            assert(num_operands == 3);
             input0_op = (matched_last_use ? prev_op : last_op);
           }
           else {
             // Should be subtraction.
             assert(is_sub);
-            assert(num_operands == 3);
             if (!matched_last_use) {
               DEBUG(errs() << "WARNING: FMA reduction with transform "
                     << *def_bottom << " does not have last input == pick output.\n");
@@ -2242,10 +2242,6 @@ seq_do_transform_loop_reduction(CSASeqCandidate& scandidate,
   assert(scandidate.transformInst);
   bool is_fma = TII.isFMA(scandidate.transformInst);
 
-  // Check the number of operands for the transform instruction, to
-  // see which kind of transform we are dealing with.
-  unsigned expected_operands = (is_fma ? 4 : 3);
-  assert(scandidate.transformInst->getNumOperands() == expected_operands);
   MachineInstr* red_inst =
     seq_add_reduction(scandidate,
                       loop.header,
@@ -2325,7 +2321,6 @@ CSAOptDFPass::seq_do_transform_loop(CSASeqLoopInfo& loop) {
 
 
       case CSASeqCandidate::SeqType::REDUCTION:
-        DEBUG(errs() << "ERROR: Reductions are not yet implemented\n");
         seq_do_transform_loop_reduction(scandidate,
                                         loop,
                                         BB,
