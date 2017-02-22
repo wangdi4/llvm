@@ -363,8 +363,6 @@ OclBuiltinImpl modf_pas_svml = OclBuiltinImpl<modf_pas, modf_pas.Types, 0, modf_
 OclBuiltinImpl modf_las_svml = OclBuiltinImpl<modf_las, modf_las.Types, 0, modf_svml>;
 OclBuiltinImpl modf_gas_svml = OclBuiltinImpl<modf_gas, modf_gas.Types, 0, modf_svml>;
 
-
-
 // remquo
 code remquo_svml = [{
     return __ocl_svml_$Target_remquo$SVMLSuffix($Arg0VarName, $Arg1VarName, ($Arg2NoASType)$Arg2VarName);
@@ -520,17 +518,17 @@ OclBuiltinImpl native_divide_impl_not_shared = OclBuiltinImpl<native_divide, [v8
   }]>;
 
 // native_recip
-OclBuiltinImpl native_recip_svml_not_shared = OclBuiltinImpl<native_recip, [v8f32, v1f64], 0, [{
+OclBuiltinImpl native_recip_svml_not_shared = OclBuiltinImpl<native_recip, [v8f32], 0, [{
     return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_rsqrt
-OclBuiltinImpl native_rsqrt_impl_not_shared = OclBuiltinImpl<native_rsqrt, [v1f32, v1f64, v8f32], 0, [{
+OclBuiltinImpl native_rsqrt_impl_not_shared = OclBuiltinImpl<native_rsqrt, [v8f32], 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_sqrt
-OclBuiltinImpl native_sqrt_svml_not_shared = OclBuiltinImpl<native_sqrt, [v8f32, v8f64, v16f32, v16f64], 0, [{
+OclBuiltinImpl native_sqrt_svml_not_shared = OclBuiltinImpl<native_sqrt, [v8f32, v8f64, v16f32], 0, [{
     // SLOW version. assume that SVML call will be even slower
     return sqrt($Arg0VarName);
   }]>;
