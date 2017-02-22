@@ -1,17 +1,20 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTELVPLAN_H 
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTELVPLAN_H 
+#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTELVPLAN_H
 
 #include "../VPlan.h" // FIXME
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopInfoImpl.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 
 namespace llvm {
 
-// TODO: VPLoopBase, VPLoop, VPLoopHIR  
-class VPLoop : public VPRegionBlock { 
+// TODO: VPLoopBase, VPLoop, VPLoopHIR
+class VPLoop : public VPRegionBlock, public LoopBase<VPBlockBase, VPLoop> {
+  friend class IntelVPlanUtils; 
   
-//private: 
-//  const unsigned char VLID;   // Subclass identifier (for isa/dyn_cast) 
-  
+private: 
+//  const unsigned char VLID;   // Subclass identifier (for isa/dyn_cast)
+
 public: 
 //  typedef enum { 
 //    VPLoopHIRSC,   
@@ -23,18 +26,91 @@ public:
   VPLoop(const std::string &Name)
       : VPRegionBlock(VPBlockBase::VPLoopRegionSC, Name) {}
 
+  //TODO: Name
+  VPLoop(VPBlockBase *Header)
+      : VPRegionBlock(VPBlockBase::VPLoopRegionSC, ""),
+      //: VPRegionBlock(VPBlockBase::VPLoopRegionSC, createUniqueName("loop")),
+        LoopBase(Header) {}
+
+  //TODO: Do not use. Temporal workaround
+  void setName(const std::string &N) {
+    Name = N;
+  }
+  
+  /// Return all unique successor blocks of this loop.
+  /// These are the blocks _outside of the current loop_ which are branched to.
+  /// This assumes that loop exits are in canonical form.
+  void getUniqueExitBlocks(SmallVectorImpl<VPBlockBase *> &ExitBlocks) const;
+
+  /// If getUniqueExitBlocks would return exactly one block, return that block.
+  /// Otherwise return null.
+  VPBlockBase *getUniqueExitBlock() const;
+
+  //TODO: print as LoopBase or print as VPBlockBase
+  void print(raw_ostream &OS, unsigned Depth = 0) const {
+    LoopBase::print(OS, Depth);
+  }
+
   /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRegionBlock *R) {
-    return R->getVPBlockID() == VPBlockBase::VPLoopRegionSC;
+  static inline bool classof(const VPBlockBase *B) {
+    return B->getVPBlockID() == VPBlockBase::VPLoopRegionSC;
   }
 }; 
+
+class VPLoopInfo : public LoopInfoBase<VPBlockBase, VPLoop>{
+
+public:
+  VPLoopInfo() {}
+
+  size_t getNumTopLevelLoops() const {
+    // TODO: TopLevelLoops is private
+    //return TopLevelLoops.size();
+   
+    return std::distance(begin(), end());
+  }
+
+  VPLoop *getLoopFromPreHeader(VPBasicBlock *PotentialPH) {
+    
+    // VPLoop PH has a single successor
+    VPBlockBase *PotentialH = PotentialPH->getSingleSuccessor();
+
+    if (!PotentialH || !isLoopHeader(PotentialH))
+      return nullptr;
+
+    // PotentialPH points to Loop H
+    VPLoop *VPL = getLoopFor(PotentialH);
+    assert (VPL && "VPLoop is nullptr");
+
+    // Returns VPL only if PotentialPH is VPL PH
+    return (VPL->getLoopPreheader() == PotentialPH) ? VPL : nullptr;
+  }
+};
+
+class IntelVPlan : public VPlan {
+
+private:
+  VPLoopInfo *VPLInfo;
+
+public: 
+  IntelVPlan() : VPlan(), VPLInfo(nullptr) {}
+
+  ~IntelVPlan() {
+    if (VPLInfo)
+      delete(VPLInfo);
+  }
+
+  VPLoopInfo *getVPLoopInfo() { return VPLInfo; }
+  const VPLoopInfo *getVPLoopInfo() const { return VPLInfo; }
+
+  void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
+};
 
 /// The IntelVPlanUtils class provides interfaces for the construction and
 /// manipulation of a VPlan.
 class IntelVPlanUtils : public VPlanUtils {
 
 public:
-  IntelVPlanUtils(VPlan *Plan) : VPlanUtils(Plan) {}
+  IntelVPlanUtils(IntelVPlan *Plan) : VPlanUtils(Plan) {}
 
   /// Creates a new VPScalarizeOneByOneRecipe or VPVectorizeOneByOneRecipe based
   /// on the isScalarizing parameter respectively.
@@ -51,9 +127,26 @@ public:
     setReplicator(Loop, false /*IsReplicator*/);
     return Loop;
   }
+
+  /// Create a new, empty VPLoop, with no blocks.
+  //void setLoopLatch(VPLoop *Lp, VPBasicBlock *LatchBB) { Lp->Latch = LatchBB; }
+  //void setLoopPreHeader(VPLoop *VPL, VPBasicBlock *PreHeader) {
+  //  VPL->PreHeader = PreHeader;
+  //} 
 };
 
 // TODO: We may need this in VPlan.h/cpp eventually
+typedef DomTreeNodeBase<VPBlockBase> VPDomTreeNode;
+
+template <>
+struct GraphTraits<VPDomTreeNode *>
+    : public DomTreeGraphTraitsBase<VPDomTreeNode, VPDomTreeNode::iterator> {};
+
+template <>
+struct GraphTraits<const VPDomTreeNode *>
+    : public DomTreeGraphTraitsBase<const VPDomTreeNode,
+                                    VPDomTreeNode::const_iterator> {};
+
 /// \brief Template specialization of the standard LLVM dominator tree utility
 /// for VPBlocks.
 class VPDominatorTree : public DominatorTreeBase<VPBlockBase> {
@@ -63,6 +156,7 @@ public:
 
   virtual ~VPDominatorTree() {}
 };
+
 
 // From HIR POC
    

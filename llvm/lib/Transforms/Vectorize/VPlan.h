@@ -312,7 +312,10 @@ class VPBlockBase {
 private:
   const unsigned char VBID; // Subclass identifier (for isa/dyn_cast).
 
+  //TODO: Temporal workaround
+protected:
   std::string Name;
+private:
 
   /// The immediate VPRegionBlock which this VPBlockBase belongs to, or null if
   /// it is a topmost VPBlockBase.
@@ -377,6 +380,7 @@ public:
   unsigned getVPBlockID() const { return VBID; }
 
   const class VPRegionBlock *getParent() const { return Parent; }
+  class VPRegionBlock *getParent() { return Parent; }
 
   /// \return the VPBasicBlock that is the entry of this VPBlockBase,
   /// recursively, if the latter is a VPRegionBlock. Otherwise, if this
@@ -402,6 +406,18 @@ public:
   SmallVectorImpl<VPBlockBase *> &getPredecessors() { return Predecessors; }
 
 #ifdef INTEL_CUSTOMIZATION
+  VPBlockBase *getSingleSuccessor() {
+    if (Successors.size() != 1)
+      return nullptr;
+    return *Successors.begin();
+  }
+
+  VPBlockBase *getSinglePredecessor() {
+    if (Predecessors.size() != 1)
+      return nullptr;
+    return *Predecessors.begin();
+  }
+
   size_t getNumSuccessors() const { return Successors.size(); }
 
   size_t getNumPredecessors() const { return Predecessors.size(); }
@@ -487,10 +503,15 @@ public:
     print(FOS, 0);
   }
 
+  void print(raw_ostream &OS) const {
+    formatted_raw_ostream FOS(OS);
+    print(FOS, 0);
+  }
+
   // TODO: Improve implementation for debugging
   void print(formatted_raw_ostream &OS, unsigned Depth) const {
     std::string Indent((Depth * 4), ' ');
-    OS << Indent << getName() << "\n";
+    OS << Indent << getName();// << "\n";
   }
 #endif
 };
@@ -671,6 +692,11 @@ public:
 
 #ifdef INTEL_CUSTOMIZATION
   unsigned getSize() const { return Size; }
+
+  // TODO: This is weird. For some reason, DominatorTreeBase is using
+  // A->getParent()->front() instead of using GraphTraints::getEntry. We may
+  // need to report it.
+  VPBlockBase &front() const { return *Entry; }
 #endif
   /// An indicator if the VPRegionBlock represents single or multiple instances.
   bool isReplicator() const { return IsReplicator; }
@@ -779,6 +805,12 @@ public:
     RSO << Prefix << NextOrdinal++;
     return RSO.str();
   }
+
+  // For debugging.
+  // TODO: Is VPlan necessary in VPlanUtils?
+#ifdef INTEL_CUSTOMIZATION
+  VPlan *getVPlan() { return Plan; }
+#endif
 
   /// Add a given \p Recipe as the last recipe of a given VPBasicBlock.
   void appendRecipeToBasicBlock(VPRecipeBase *Recipe, VPBasicBlock *ToVPBB) {
@@ -900,11 +932,17 @@ public:
     Predecessors.insert(PredIt, NewPredecessor);
   }
 
+  void movePredecessor(VPBlockBase *Pred, VPBlockBase *From, VPBlockBase *To) {
+    replaceBlockSuccessor(Pred, From /*OldSuccessor*/, To /*NewSuccessor*/);
+    To->appendPredecessor(Pred);
+    From->removePredecessor(Pred);
+  }
+
   void movePredecessors(VPBlockBase *From, VPBlockBase *To) {
     auto &Predecessors = From->getPredecessors();
 
-    for (auto Pred : Predecessors) {
-      replaceBlockSuccessor(&*Pred, From, To);
+    for (auto &Pred : Predecessors) {
+      replaceBlockSuccessor(Pred, From, To);
       To->appendPredecessor(Pred);
     }
 
@@ -913,11 +951,11 @@ public:
   }
 
   void moveSuccessors(VPBlockBase *From, VPBlockBase *To) {
-    auto& Successors = From->getSuccessors();
+    auto &Successors = From->getSuccessors();
 
-    for (auto Succ : Successors) {
-      replaceBlockPredecessor(&*Succ, From, To);
-      To->appendSuccessor(&*Succ);
+    for (auto &Succ : Successors) {
+      replaceBlockPredecessor(Succ, From, To);
+      To->appendSuccessor(Succ);
       //TODO: Move something else? ConditionRecipe?
     }
 
@@ -937,7 +975,7 @@ public:
     if (Entry->getParent()->getEntry() == Entry) {
       assert(!Entry->getNumPredecessors() &&
              "Entry node cannot have predecessors");
-      setRegionEntry(Entry->Parent, Region);
+      setRegionEntry(Entry->getParent(), Region);
     } else {
       movePredecessors(Entry, Region);
     }
@@ -956,6 +994,14 @@ public:
     // need to set the parent before if we don't want to propagate a nullptr.
     setBlockParent(NewBlock, BlockPtr->Parent);
     setSuccessor(NewBlock, BlockPtr);
+  }
+
+  void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+    moveSuccessors(BlockPtr, NewBlock);
+    // TODO: setSuccessor is propagating NewBlock's parent to BlockPtr, so we
+    // need to set the parent before if we don't want to propagate a nullptr.
+    setBlockParent(NewBlock, BlockPtr->Parent);
+    setSuccessor(BlockPtr, NewBlock);
   }
 
 #endif // INTEL_CUSTOMIZATION

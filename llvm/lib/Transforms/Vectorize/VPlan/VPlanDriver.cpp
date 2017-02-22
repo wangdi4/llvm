@@ -82,6 +82,11 @@ static cl::opt<bool> VPlanStressTest(
     "vplan-build-stress-test", cl::init(false),
     cl::desc("Construct VPlan for every loop (stress testing)"));
 
+static cl::opt<bool>
+    VPlanForceBuild("vplan-force-build", cl::init(false),
+                    cl::desc("Construct VPlan even if loop is not supported "
+                             "(only for development)"));
+
 namespace {
 //class VPODirectiveCleanup : public FunctionPass {
 //public:
@@ -248,8 +253,14 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
   DT =  &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   std::function<bool(Loop *)> isSupported = [&isSupported](Loop *Lp) -> bool {
-    if (!Lp->getExitingBlock() || !Lp->getExitBlock() || !Lp->getLoopLatch() ||
-        Lp->getLoopLatch() != Lp->getExitingBlock()) {
+
+    //if (!Lp->getLoopLatch()) {
+    //  DEBUG(errs() << "Loop form is not supported: multiple latches.\n");
+    //  return false;
+    //}
+
+    if (!Lp->getUniqueExitBlock()) {
+      DEBUG(errs() << "Loop form is not supported: multiple exit blocks.\n");
       return false;
     }
 
@@ -281,23 +292,22 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
       WRNVecLoopNode *WLoopNode;
       if ((WLoopNode = dyn_cast<WRNVecLoopNode>(WRNode))) {
 
-        assert(isSupported(WLoopNode->getLoop()) &&
+        assert((VPlanForceBuild || isSupported(WLoopNode->getLoop())) &&
                "Loop is not supported by VPlan");
 
         DEBUG(errs() << "Starting VPlan gen for \n");
         DEBUG(WRNode->dump());
-        if (WLoopNode = dyn_cast<WRNVecLoopNode>(WRNode))
-          processLoop(WLoopNode->getLoop(), Fn, WLoopNode);
+
+        processLoop(WLoopNode->getLoop(), Fn, WLoopNode);
       }
     }
   } else {
     DEBUG(errs() << "VPlan stress test mode\n");
 
     // Iterate on TopLevelLoops
-    SmallVector<Loop *, 2> WorkList(LI->begin(), LI->end());
-    while (!WorkList.empty()) {
-      Loop *Lp = WorkList.pop_back_val();
-      processLoop(Lp, Fn);
+    for (Loop *Lp : make_range(LI->begin(), LI->end())) {
+      if (VPlanForceBuild || isSupported(Lp))
+        processLoop(Lp, Fn);
       // TODO: Subloops
     }
   }
@@ -396,6 +406,7 @@ bool VPlanDriver::runOnFunction(Function &F) {
 
   bool ret_val = false;
 
+  // TODO: get LI only for stress testing
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   WR = &getAnalysis<WRegionInfo>();
 
@@ -449,7 +460,9 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
     VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, 4, 1, &LVL);
     LVP->executeBestPlan(VCodeGen);
   }
-  delete LVP;
+
+  // TODO: Destroy LVP
+  //delete LVP;
   return;
 }
 

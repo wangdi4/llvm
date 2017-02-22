@@ -4,6 +4,60 @@
 
 using namespace llvm;
 
+// Replicated from class Loop with minor changes (successors/predecessors iterators)
+// TODO: Would it possible to move this to LoopBase?
+void VPLoop::getUniqueExitBlocks(
+    SmallVectorImpl<VPBlockBase *> &ExitBlocks) const {
+  //TODO: This method is in class Loop.
+  //assert(hasDedicatedExits() &&
+  //       "getUniqueExitBlocks assumes the loop has canonical form exits!");
+
+  SmallVector<VPBlockBase *, 32> SwitchExitBlocks;
+  for (VPBlockBase *BB : this->blocks()) {
+    SwitchExitBlocks.clear();
+    for (VPBlockBase *Successor : BB->getSuccessors()) {
+      // If block is inside the loop then it is not an exit block.
+      if (contains(Successor))
+        continue;
+
+      auto PI = Successor->getPredecessors().begin();
+      VPBlockBase *FirstPred = *PI;
+
+      // If current basic block is this exit block's first predecessor
+      // then only insert exit block in to the output ExitBlocks vector.
+      // This ensures that same exit block is not inserted twice into
+      // ExitBlocks vector.
+      if (BB != FirstPred)
+        continue;
+
+      // If a terminator has more then two successors, for example SwitchInst,
+      // then it is possible that there are multiple edges from current block
+      // to one exit block.
+      if (std::distance(BB->getSuccessors().begin(),
+                        BB->getSuccessors().end()) <= 2) {
+        ExitBlocks.push_back(Successor);
+        continue;
+      }
+
+      // In case of multiple edges from current block to exit block, collect
+      // only one edge in ExitBlocks. Use switchExitBlocks to keep track of
+      // duplicate edges.
+      if (!is_contained(SwitchExitBlocks, Successor)) {
+        SwitchExitBlocks.push_back(Successor);
+        ExitBlocks.push_back(Successor);
+      }
+    }
+  }
+}
+
+VPBlockBase *VPLoop::getUniqueExitBlock() const {
+  SmallVector<VPBlockBase *, 8> UniqueExitBlocks;
+  getUniqueExitBlocks(UniqueExitBlocks);
+  if (UniqueExitBlocks.size() == 1)
+    return UniqueExitBlocks[0];
+  return nullptr;
+}
+
 //Replicated from LoopVectorize.cpp
 
 /// VPVectorizeOneByOneRecipe is a VPOneByOneRecipeBase which transforms by

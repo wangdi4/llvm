@@ -42,7 +42,7 @@ public:
   /// best selected VPlan.
   //void executeBestPlan(InnerLoopVectorizer &LB);
 
-  VPlan *getVPlanForVF(unsigned VF) { return VPlans[VF].get(); }
+  IntelVPlan *getVPlanForVF(unsigned VF) { return VPlans[VF].get(); }
 
   void printCurrentPlans(const std::string &Title, raw_ostream &O);
 
@@ -55,7 +55,7 @@ protected:
   /// that corresponds to vectorization factors starting from the given
   /// \p StartRangeVF and up to \p EndRangeVF, exclusive, possibly decreasing
   /// the given \p EndRangeVF.
-  virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
+  virtual std::shared_ptr<IntelVPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                    unsigned &EndRangeVF) = 0;
 
   WRNVecLoopNode *WRLoop;
@@ -103,7 +103,7 @@ private:
   //SmallPtrSet<Instruction *, 4> PredicatedInstructions;
 
   /// VPlans are shared between VFs, use smart pointers.
-  DenseMap<unsigned, std::shared_ptr<VPlan>> VPlans;
+  DenseMap<unsigned, std::shared_ptr<IntelVPlan>> VPlans;
 
 protected:
   unsigned BestVF = 0;
@@ -147,34 +147,67 @@ private:
   /// that corresponds to vectorization factors starting from the given
   /// \p StartRangeVF and up to \p EndRangeVF, exclusive, possibly decreasing
   /// the given \p EndRangeVF.
-  std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                           unsigned &EndRangeVF) override;
+  std::shared_ptr<IntelVPlan> buildInitialVPlan(unsigned StartRangeVF,
+                                                unsigned &EndRangeVF) override;
 
-  VPRegionBlock *
-  buildInitialCFG(IntelVPlanUtils &PlanUtils,
-                  DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
-                  DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
+  VPRegionBlock *buildPlainCFG(IntelVPlanUtils &PlanUtils,
+                               DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
+                               DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
 
-  void buildSubRegions(VPBasicBlock *Entry, VPRegionBlock *ParentRegion,
+  void computeVPLoopInfo(Loop *Lp, IntelVPlanUtils &PlanUtils,
+                         DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB);
+
+  void simplifyPlainCFG(VPRegionBlock *TopRegion, VPLoopInfo *VPLInfo,
+                        VPDominatorTree &DomTree, VPDominatorTree &PostDomTree,
+                        IntelVPlanUtils &PlanUtils);
+
+  void splitSingleSuccessorBlock(VPBlockBase *Block,
+                                 VPLoopInfo *VPLInfo,
+                                 VPDominatorTree &DomTree,
+                                 VPDominatorTree &PostDomTree,
+                                 IntelVPlanUtils &PlanUtils);
+
+  void splitLoopsPreheader(VPLoop *VPL, VPLoopInfo *VPLInfo,
+                           VPDominatorTree &DomTree,
+                           VPDominatorTree &PostDomTree,
+                           IntelVPlanUtils &PlanUtils);
+
+  void splitLoopsExits(VPLoop *VPL, VPLoopInfo *VPLInfo,
                        VPDominatorTree &DomTree, VPDominatorTree &PostDomTree,
-                       IntelVPlanUtils &PlanUtils,
-                       DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
-                       DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
+                       IntelVPlanUtils &PlanUtils);
+
+  void simplifyNonLoopRegions(VPRegionBlock *TopRegion, VPLoopInfo *VPLInfo,
+                              VPDominatorTree &DomTree,
+                              VPDominatorTree &PostDomTree,
+                              IntelVPlanUtils &PlanUtils);
+
+  void buildHierarchicalCFG(VPBasicBlock *Entry, VPRegionBlock *ParentRegion,
+                            VPLoopInfo *VPLInfo, VPDominatorTree &DomTree,
+                            VPDominatorTree &PostDomTree,
+                            IntelVPlanUtils &PlanUtils,
+                            DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
+                            DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
+
+  void verifyHierarchicalCFG(const VPRegionBlock *TopRegion,
+                             const VPLoopInfo *VPLInfo) const;
 
   /// Determine whether \p I will be scalarized in a given range of VFs.
-  /// The returned value reflects the result for a prefix of the range, with \p
+  /// The returned value reflects the result for a prefix of the range, with
+  /// \p
   /// EndRangeVF modified accordingly.
-  //bool willBeScalarized(Instruction *I, unsigned StartRangeVF,
+  // bool willBeScalarized(Instruction *I, unsigned StartRangeVF,
   //                      unsigned &EndRangeVF);
 
-  /// Iteratively sink the scalarized operands of a predicated instruction into
+  /// Iteratively sink the scalarized operands of a predicated instruction
+  /// into
   /// the block that was created for it.
-  //void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
+  // void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
 
-  /// Determine whether a newly-created recipe adds a second user to one of the
+  /// Determine whether a newly-created recipe adds a second user to one of
+  /// the
   /// variants the values its ingredients use. This may cause the defining
   /// recipe to generate that variant itself to serve all such users.
-  //void assignScalarVectorConversions(Instruction *PredInst, VPlan *Plan);
+  // void assignScalarVectorConversions(Instruction *PredInst, VPlan *Plan);
 
   /// The loop that we evaluate.
   Loop *TheLoop;
@@ -195,7 +228,7 @@ private:
   class DominatorTree* DT;
 
   /// The profitablity analysis.
-  //LoopVectorizationCostModel *CM;
+  // LoopVectorizationCostModel *CM;
 
   VPOCodeGen *ILV = nullptr;
 
@@ -203,7 +236,7 @@ private:
   // instructions reside in their own conditioned VPBasicBlock and represent
   // an optimization opportunity for sinking their scalarized operands thus
   // reducing their cost by the predicate's probability.
-  //SmallPtrSet<Instruction *, 4> PredicatedInstructions;
+  // SmallPtrSet<Instruction *, 4> PredicatedInstructions;
 
   // Holds instructions from the original loop whose counterparts in the
   // vectorized loop would be trivially dead if generated. For example,

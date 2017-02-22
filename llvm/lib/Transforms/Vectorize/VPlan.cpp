@@ -301,7 +301,8 @@ VPlanPrinter::getReplicatorString(const VPRegionBlock *Region) {
 void VPlanPrinter::dump(const std::string &Title) {
   resetDepth();
   OS << "digraph VPlan {\n";
-  OS << "graph [labelloc=t, fontsize=30; label=\"Vectorization Plan";
+  OS << "graph [labelloc=t, fontsize=30, splines=spline; label=\"Vectorization "
+        "Plan";
   if (!Title.empty())
     OS << "\\n" << DOT::EscapeString(Title);
   OS << "\"]\n";
@@ -332,6 +333,7 @@ void VPlanPrinter::drawEdge(const VPBlockBase *From, const VPBlockBase *To,
   // exit basic block and the entry basic of the respective regions.
   const VPBlockBase *Tail = From->getExitBasicBlock();
   const VPBlockBase *Head = To->getEntryBasicBlock();
+
   OS << Indent << getNodePrefix(Tail) << DOT::EscapeString(Tail->getName())
      << " -> " << getNodePrefix(Head) << DOT::EscapeString(Head->getName());
   OS << " [ label=\"" << Label << '\"';
