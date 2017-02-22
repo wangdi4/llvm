@@ -340,12 +340,7 @@ OclBuiltinImpl half_sqrt_impl = OclBuiltinImpl<half_sqrt, half_sqrt.Types, 0, [{
 ///////////////////////////////////////////////////////////////////////////////////////
 // half_ functions
 // half_divide f(vXfX, vXfX)
-//OclBuiltinImpl half_divide_svml_hack_expand = OclBuiltinImpl<half_divide, math_svml_vF32vF32_expand, 0, Expand2>;
-//OclBuiltinImpl half_divide_svml_hack_promote = OclBuiltinImpl<half_divide, math_svml_vF32vF32_promote, 0, Promote2_v3_to_v4>;
-// TODO: revert to SVML when SVML DPD200306938 will be fixed
-OclBuiltinImpl half_divide_hack = OclBuiltinImpl<half_divide, half_divide.Types, 0, [{
-    return $Arg0VarName/$Arg1VarName;
-  }]>;
+OclBuiltinImpl half_divide_svml_hack_promote = OclBuiltinImpl<half_divide, math_svml_vF32vF32_expand, 0, Promote2_v3_to_v4>;
 
 // half_cos f(vXfX)
 OclBuiltinImpl half_cos_svml_expand = OclBuiltinImpl<half_cos, math_svml_vF32_expand, 0, Expand1>;

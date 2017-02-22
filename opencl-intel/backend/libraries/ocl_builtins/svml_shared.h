@@ -605,6 +605,12 @@
   float4  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanf4_half (float4  a);
   float8  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanf8_half (float8  a);
 
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf1_half  (float  a,  float  b);
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf2_half  (float2  a,  float2  b);
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf3_half  (float3  a,  float3  b);
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf4_half  (float4  a,  float4  b);
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf8_half  (float8  a,  float8  b);
+
   float   __attribute__((intel_ocl_bicc)) __ocl_svml_shared_acosf1_native  (float  a);
   float2  __attribute__((intel_ocl_bicc)) __ocl_svml_shared_acosf2_native  (float2  a);
   float4  __attribute__((intel_ocl_bicc)) __ocl_svml_shared_acosf4_native  (float4  a);

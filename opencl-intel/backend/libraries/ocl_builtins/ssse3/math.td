@@ -333,6 +333,9 @@ OclBuiltinImpl half_sin_svml_expand = OclBuiltinImpl<half_sin, math_svml_v16f32_
 // half_tan f(vXfX)
 OclBuiltinImpl half_tan_svml_expand = OclBuiltinImpl<half_tan, math_svml_v16f32_expand, 0, Expand1>;
 
+// half_divide f(vXfX)
+OclBuiltinImpl half_divide_svml_expand = OclBuiltinImpl<half_divide, math_svml_v16f32_expand, 0, Expand2>;
+
 ///////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////////////
