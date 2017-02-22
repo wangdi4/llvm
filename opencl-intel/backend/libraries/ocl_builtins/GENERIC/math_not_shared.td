@@ -138,6 +138,62 @@ OclBuiltinImpl fmod_svml_not_shared = OclBuiltinImpl<fmod, math_not_shared_types
     return __ocl_svml_$Target_fmod$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
+// OpenCL 2.0 -cl-fast-relaxed-math functions
+// float16 is excluded from shared lib since ssse3 and sse42
+// svml libs don't include v16f32 FRM functions
+// cos_rm
+OclBuiltinImpl cos_svml_rm_not_shared = OclBuiltinImpl<cos_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_cos$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// exp_rm
+OclBuiltinImpl exp_svml_rm_not_shared = OclBuiltinImpl<exp_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_exp$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// exp2_rm
+OclBuiltinImpl exp2_svml_rm_not_shared = OclBuiltinImpl<exp2_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_exp2$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// exp10_rm
+OclBuiltinImpl exp10_svml_rm_not_shared = OclBuiltinImpl<exp10_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_exp10$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// log_rm
+OclBuiltinImpl log_svml_rm_not_shared = OclBuiltinImpl<log_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_log$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// log2_rm
+OclBuiltinImpl log2_svml_rm_not_shared = OclBuiltinImpl<log2_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_log2$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// pow_rm
+OclBuiltinImpl pow_svml_rm_not_shared = OclBuiltinImpl<pow_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_pow$SVMLSuffix_rm($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// sin_rm
+OclBuiltinImpl sin_svml_rm_not_shared = OclBuiltinImpl<sin_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_sin$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// tan_rm
+OclBuiltinImpl tan_svml_rm_not_shared = OclBuiltinImpl<tan_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_tan$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// sincos_rm
+code sincos_svml_rm = [{
+    return __ocl_svml_$Target_sincos$SVMLSuffix_rm($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
+  }];
+OclBuiltinImpl sincos_pas_svml_rm_not_shared = OclBuiltinImpl<sincos_pas_rm, [v16f32], 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_las_svml_rm_not_shared = OclBuiltinImpl<sincos_las_rm, [v16f32], 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_gas_svml_rm_not_shared = OclBuiltinImpl<sincos_gas_rm, [v16f32], 0, sincos_svml_rm>;
+
 // intel_movemask scalar
 OclBuiltinImpl intel_scalar_movemask_impl = OclBuiltinImpl<intel_movemask, [v1i8,  v1i16, v1i32, v1i64], 0, [{
     return $Arg0VarName != 0;

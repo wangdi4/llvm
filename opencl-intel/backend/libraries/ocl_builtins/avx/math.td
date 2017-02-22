@@ -10,8 +10,6 @@ list<OclType> math_svml_vFpvI32_expand = [v16f64];
 list<OclType> math_svml_vFpvF_expand = [v16f64];
 list<OclType> math_svml_vF32_expand = [v3f32];
 list<OclType> math_svml_vF32vF32_expand = [v3f32, v16f32];
-// get back to the generic implementation of FRM built-ins for AVX and its inheritors
-list<OclType> math_svml_vFRM_expand = [];
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -325,6 +323,60 @@ OclBuiltinImpl tanh_svml = OclBuiltinImpl<tanh, avx_types, 0, [{
 OclBuiltinImpl tanpi_svml = OclBuiltinImpl<tanpi, avx_types, 0, [{
     return __ocl_svml_$Target_tanpi$SVMLSuffix($Arg0VarName);
   }]>;
+
+// OpenCL 2.0 -cl-fast-relaxed-math functions
+// cos_rm
+OclBuiltinImpl cos_svml_rm = OclBuiltinImpl<cos_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_cos$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// exp_rm
+OclBuiltinImpl exp_svml_rm = OclBuiltinImpl<exp_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_exp$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// exp2_rm
+OclBuiltinImpl exp2_svml_rm = OclBuiltinImpl<exp2_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_exp2$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// exp10_rm
+OclBuiltinImpl exp10_svml_rm = OclBuiltinImpl<exp10_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_exp10$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// log_rm
+OclBuiltinImpl log_svml_rm = OclBuiltinImpl<log_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_log$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// log2_rm
+OclBuiltinImpl log2_svml_rm = OclBuiltinImpl<log2_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_log2$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// pow_rm
+OclBuiltinImpl pow_svml_rm = OclBuiltinImpl<pow_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_pow$SVMLSuffix_rm($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// sin_rm
+OclBuiltinImpl sin_svml_rm = OclBuiltinImpl<sin_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_sin$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// tan_rm
+OclBuiltinImpl tan_svml_rm = OclBuiltinImpl<tan_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_tan$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// sincos_rm
+code sincos_svml_rm = [{
+    return __ocl_svml_$Target_sincos$SVMLSuffix_rm($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
+  }];
+OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, [v16f32], 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, [v16f32], 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, [v16f32], 0, sincos_svml_rm>;
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 //                SVML ABI hacks for AVX
