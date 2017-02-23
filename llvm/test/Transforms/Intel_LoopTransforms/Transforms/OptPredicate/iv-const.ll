@@ -11,9 +11,17 @@
 ; <21>            + END LOOP
 ;           END REGION
 
-; CHECK: BEGIN REGION { modified }
-; CHECK: DO i1 = 0
-; CHECK: DO i1 = 201, %n + -1
+; CHECK:    BEGIN REGION { modified }
+; CHECK:          + DO i1 = 0, (-1 + (-1 * smax(-201, (-1 * %n)))), 1   <DO_LOOP>
+; CHECK:          |   (%q)[i1] = i1;
+; CHECK:          |   (%p)[i1] = i1;
+; CHECK:          + END LOOP
+;
+;
+; CHECK:          + DO i1 = 0, %n + -202, 1   <DO_LOOP>
+; CHECK:          |   (%p)[i1 + 201] = i1 + 201;
+; CHECK:          + END LOOP
+; CHECK:    END REGION
 
 ;Module Before HIR; ModuleID = 'iv-const.c'
 source_filename = "iv-const.c"

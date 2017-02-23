@@ -1369,6 +1369,10 @@ unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob) {
   return findOrInsertBlob(Blob, Symbase);
 }
 
+unsigned HIRParser::getGenericRvalSymbase() const {
+  return ScalarSA->getGenericRvalSymbase();
+}
+
 unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   const Value *OldTemp = nullptr;
 

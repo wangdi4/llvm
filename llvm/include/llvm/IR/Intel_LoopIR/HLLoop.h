@@ -688,8 +688,11 @@ public:
 
   void setMaxTripCountEstimate(uint64_t MaxTC) { MaxTripCountEstimate = MaxTC; }
 
-  // \brief Marks loop to do not vectorize.
+  /// Marks loop to do not vectorize.
   void markDoNotVectorize();
+
+  bool canNormalize() const;
+  bool normalize();
 };
 
 } // End namespace loopopt

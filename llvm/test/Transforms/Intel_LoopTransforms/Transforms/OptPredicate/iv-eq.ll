@@ -37,12 +37,12 @@
 ; CHECK:          |   (%q)[i1] = i1;
 ; CHECK:          + END LOOP
 ;
-; CHECK:          + DO i1 = smax(0, %d), (-1 + (-1 * smax((-1 + (-1 * %d)), (-1 * %n)))), 1   <DO_LOOP>
-; CHECK:          |   (%p)[%d] = i1;
+; CHECK:          + DO i1 = 0, (-1 + (-1 * smax((-1 + (-1 * %d)), (-1 * %n)))) + -1 * smax(0, %d), 1   <DO_LOOP>
+; CHECK:          |   (%p)[%d] = i1 + smax(0, %d);
 ; CHECK:          + END LOOP
 ;
-; CHECK:          + DO i1 = smax(0, (1 + %d)), %n + -1, 1   <DO_LOOP>
-; CHECK:          |   (%q)[i1] = i1;
+; CHECK:          + DO i1 = 0, %n + -1 * smax(0, (1 + %d)) + -1, 1   <DO_LOOP>
+; CHECK:          |   (%q)[i1 + smax(0, (1 + %d))] = i1 + smax(0, (1 + %d));
 ; CHECK:          + END LOOP
 ; CHECK:    END REGION
 

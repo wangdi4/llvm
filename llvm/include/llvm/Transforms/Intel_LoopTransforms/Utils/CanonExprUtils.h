@@ -100,8 +100,8 @@ private:
                                   bool RelaxedMode, bool *CreatedAuxCE);
 
   /// Implements add() functionality.
-  /// This routine will return nullptr, if the canon exprs are not mergeable.
-  static CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2,
+  /// This routine will return false, if the canon exprs are not mergeable.
+  static bool addImpl(CanonExpr *CE1, const CanonExpr *CE2,
                             bool RelaxedMode);
 
 public:
@@ -170,8 +170,8 @@ public:
   /// Modifies and returns CE1 to reflect sum of CE1 and CE2.
   /// CE1 = CE1 + CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  static CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
-                        bool RelaxedMode = false);
+  static bool add(CanonExpr *CE1, const CanonExpr *CE2,
+                  bool RelaxedMode = false);
 
   /// Returns a canon expr which represents the sum of CE1 and CE2.
   /// Result = CE1 + CE2
@@ -182,8 +182,8 @@ public:
   /// Modifies and returns CE1 to reflect difference of CE1 and CE2.
   /// CE1 = CE1 - CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                             bool RelaxedMode = false);
+  static bool subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                       bool RelaxedMode = false);
 
   /// Returns a canon expr which represents the difference of CE1 and CE2.
   /// Result = CE1 - CE2
@@ -217,7 +217,7 @@ public:
   static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel);
 
   /// Replaces IV in /p CE1 at the loop /p Level by the /p CE2.
-  static CanonExpr *replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
+  static bool replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
                                          const CanonExpr *CE2,
                                          bool RelaxedMode = false);
 

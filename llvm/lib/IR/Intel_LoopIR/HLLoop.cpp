@@ -14,15 +14,22 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
+
+#define DEBUG_NORMALIZE(X) DEBUG_WITH_TYPE("hir-loop-normalize", X)
+
+llvm::Statistic LoopsNormalized = {"hir-loop-normalize", "LoopsNormalized",
+                                   "Loops normalized On-Demand"};
 
 void HLLoop::initialize() {
   unsigned NumOp;
@@ -1046,4 +1053,126 @@ void HLLoop::markDoNotVectorize() {
                    MDNode::get(Context, MDInterleaveCount)};
 
   addLoopMetadata(MDs);
+}
+
+bool HLLoop::canNormalize() const {
+  if (!isDo()) {
+    return false;
+  }
+
+  const CanonExpr *LowerCE = getLowerCanonExpr();
+
+  assert(CanonExprUtils::mergeable(LowerCE, getUpperCanonExpr(), false) &&
+         "Lower and Upper are expected to be always mergeable");
+
+  unsigned Level = getNestingLevel();
+
+  bool Mergeable = true;
+  ForEach<const HLDDNode>::visitRange(
+      child_begin(), child_end(),
+      [LowerCE, Level, &Mergeable](const HLDDNode *Node) {
+        for (RegDDRef *Ref :
+             llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
+          for (CanonExpr *CE :
+               llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
+            if (!CE->hasIV(Level)) {
+              continue;
+            }
+
+            if (!CanonExprUtils::mergeable(CE, LowerCE, true)) {
+              Mergeable = false;
+              return;
+            }
+          }
+        }
+      });
+
+  return Mergeable;
+}
+
+bool HLLoop::normalize() {
+  if (isNormalized()) {
+    return true;
+  }
+
+  if (!canNormalize()) {
+    return false;
+  }
+
+  CanonExpr *LowerCE = getLowerCanonExpr();
+  CanonExpr *StrideCE = getStrideCanonExpr();
+
+  DEBUG_NORMALIZE(dbgs() << "[HIR-NORMALIZE] Before:\n");
+  DEBUG_NORMALIZE(dump());
+
+  int64_t Stride;
+  StrideCE->isIntConstant(&Stride);
+
+  CanonExpr *UpperCE = getUpperCanonExpr();
+
+  // New Upper = (U - L) / S
+  if (!CanonExprUtils::subtract(UpperCE, LowerCE, false)) {
+    llvm_unreachable("[HIR-NORMALIZE] Can not subtract L from U");
+  }
+
+
+  RegDDRef *UpperRef = getUpperDDRef();
+  RegDDRef *LowerRef = getLowerDDRef();
+  SmallVector<const RegDDRef *, 2> Aux = { LowerRef, UpperRef };
+
+  UpperCE->divide(Stride);
+  UpperCE->simplify(true);
+
+  unsigned Level = getNestingLevel();
+
+  // NewIV = S * IV + L
+  std::unique_ptr<CanonExpr> NewIV(LowerCE->clone());
+  NewIV->addIV(Level, InvalidBlobIndex, Stride, false);
+
+  auto UpdateCE = [&NewIV, Level](CanonExpr *CE) {
+    if (!CE->hasIV(Level)) {
+      return;
+    }
+
+    // The CEs are either properly mergeable or LowerCE is a mergeable constant.
+    // Because we add an IV to the constant LowerCE is can make it
+    // non-mergeable.
+    // For ex.: LowerCE: i64 7       - can merge with a constant
+    //          NewIV:   i64 i1 + 7  - type conflict i32/i64.
+    //          CE:      sext.i32.i64(i1 + %61 + 8)
+    // To avoid artificial assertion in the replaceIVByCanonExpr() we set the
+    // correct src type to the NewIV.
+    NewIV->setSrcType(CE->getSrcType());
+
+    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(), true)) {
+      llvm_unreachable("[HIR-NORMALIZE] Can not replace IV by Lower");
+    }
+  };
+
+  ForEach<HLDDNode>::visitRange(
+      child_begin(), child_end(), [&UpdateCE, &Aux](HLDDNode *Node) {
+        for (RegDDRef *Ref :
+             llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
+          for (CanonExpr *CE :
+               llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
+            UpdateCE(CE);
+          }
+
+          Ref->makeConsistent(&Aux);
+        }
+      });
+
+  StrideCE->setConstant(1);
+
+  UpperRef->makeConsistent(&Aux);
+
+  LowerCE->clear();
+  LowerRef->makeConsistent(nullptr);
+
+  DEBUG_NORMALIZE(dbgs() << "[HIR-NORMALIZE] After:\n");
+  DEBUG_NORMALIZE(dump());
+
+  LoopsNormalized++;
+
+  return true;
 }

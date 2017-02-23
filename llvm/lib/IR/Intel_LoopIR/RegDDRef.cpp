@@ -840,6 +840,9 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
     }
 
     return;
+  } else if (getSymbase() == ConstantSymbase) {
+    assert(!IsLvalAssumed && "Unexpected LVAL RegDDRef");
+    setSymbase(getDDRefUtils().getGenericRvalSymbase());
   }
 
   collectTempBlobIndices(BlobIndices);

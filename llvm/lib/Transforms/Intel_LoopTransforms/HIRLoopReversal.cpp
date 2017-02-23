@@ -783,14 +783,15 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
     // Handle merge-able case: Merge directly
     if (MergeableCase) {
       // Update: CE' = UB - IV; (LB is always 0)
-      CEPrime = CEU.add(CEPrime, UBCE, true);
-      assert(CEPrime && "CanonExprUtils::add(.) failed on UBCE\n ");
+      bool CEPrimeRet = CanonExprUtils::add(CEPrime, UBCE, true);
+      (void)CEPrimeRet;
+      assert(CEPrimeRet && "CanonExprUtils::add(.) failed on UBCE\n ");
       // DEBUG(::dump(CEPrime, "CEPrime, Expect: CE' = UB - IV"));
 
       // Replace original IV with CE' = UB - IV;
       // DEBUG(::dump(CE, "CE [BEFORE replaceIVByCanonExpr(.)]\n"););
       bool ReplaceIVByCE =
-          CEU.replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
+          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
       (void)ReplaceIVByCE;
       assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
       // DEBUG(::dump(CE, "CE [AFTER replaceIVByCanonExpr(.)]\n"););
@@ -821,13 +822,14 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
       (void)CastToStandaloneBlob;
 
       // Build: CE' = UBCEClone - iv;
-      CEPrime = CEU.add(CEPrime, UBCEClone, true);
-      assert(CEPrime && "CanonExprUtils::add(.) failed on UBCE\n ");
+      bool CEPrimeRet = CanonExprUtils::add(CEPrime, UBCEClone, true);
+      (void)CEPrimeRet;
+      assert(CEPrimeRet && "CanonExprUtils::add(.) failed on UBCE\n ");
       // DEBUG(::dump(CEPrime, "Expect: CE' = UB - iv"));
 
       // Replace CE's original IV with the CE' = UB - IV;
       bool ReplaceIVByCE =
-          CEU.replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
+          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
       assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
       (void)ReplaceIVByCE;
       // DEBUG(::dump(CE, "CE After replaceIVByCanonExpr(.)\n"););

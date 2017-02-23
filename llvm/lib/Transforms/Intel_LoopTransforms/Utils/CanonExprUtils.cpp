@@ -325,8 +325,8 @@ void CanonExprUtils::updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
   }
 }
 
-CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
-                                   bool RelaxedMode) {
+bool CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
+                             bool RelaxedMode) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
@@ -335,14 +335,14 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
 
   if (CE2->isZero()) {
-    return CE1;
+    return true;
   }
 
   bool IsMergeable = mergeable(CE1, NewCE2, RelaxedMode);
   // assert(IsMergeable && " Canon Expr are not mergeable!");
   // Bail out if we cannot merge the canon expr.
   if (!IsMergeable) {
-    return nullptr;
+    return false;
   }
 
   updateConstantTypes(CE1, &NewCE2, RelaxedMode, &CreatedAuxCE);
@@ -354,7 +354,7 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
 
   // Bail out if LCM overflows signed 64 bit range.
   if (NewDenom == 0) {
-    return nullptr;
+    return false;
   }
 
   if (NewDenom != Denom1) {
@@ -416,10 +416,10 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
     NewCE2->getCanonExprUtils().destroy(NewCE2);
   }
 
-  return CE1;
+  return true;
 }
 
-CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
+bool CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
                                bool RelaxedMode) {
   return addImpl(CE1, CE2, RelaxedMode);
 }
@@ -428,26 +428,26 @@ CanonExpr *CanonExprUtils::cloneAndAdd(const CanonExpr *CE1,
                                        const CanonExpr *CE2, bool RelaxedMode) {
   CanonExpr *Clone = CE1->clone();
 
-  auto Result = addImpl(Clone, CE2, RelaxedMode);
-  if (!Result) {
+  if (!addImpl(Clone, CE2, RelaxedMode)) {
     CE1->getCanonExprUtils().destroy(Clone);
+    return nullptr;
   }
 
-  return Result;
+  return Clone;
 }
 
-CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                                    bool RelaxedMode) {
+bool CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                              bool RelaxedMode) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
   // Here, we avoid cloning by doing negation twice.
   // -(-CE1+CE2) => CE1-CE2
   CE1->negate();
   if (!add(CE1, CE2, RelaxedMode)) {
-    return nullptr;
+    return false;
   }
   CE1->negate();
-  return CE1;
+  return true;
 }
 
 CanonExpr *CanonExprUtils::cloneAndSubtract(const CanonExpr *CE1,
@@ -483,9 +483,9 @@ bool CanonExprUtils::hasNonLinearSemantics(unsigned DefLevel,
           (DefLevel && (DefLevel >= NestingLevel)));
 }
 
-CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                                const CanonExpr *CE2,
-                                                bool RelaxedMode) {
+bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
+                                          const CanonExpr *CE2,
+                                          bool RelaxedMode) {
   assert(mergeable(CE1, CE2, RelaxedMode) && "CanonExprs are not mergeable");
 
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
@@ -493,13 +493,13 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
 
   auto ConstCoeff = CE1->getIVConstCoeff(Level);
   if (ConstCoeff == 0) {
-    return CE1;
+    return true;
   }
 
   // If CE2 is zero - just remove the IV
   if (CE2->isZero()) {
     CE1->removeIV(Level);
-    return CE1;
+    return true;
   }
 
   std::unique_ptr<CanonExpr> Term(CE2->clone());
@@ -509,14 +509,14 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
 
   // CE2 <- CE2 * C1
   if (!Term->multiplyByConstant(ConstCoeff)) {
-    return nullptr;
+    return false;
   }
 
   auto BlobCoeff = CE1->getIVBlobCoeff(Level);
   if (CE1->getBlobUtils().isBlobIndexValid(BlobCoeff)) {
     // CE2 <- CE2 * B1
     if (!Term->multiplyByBlob(BlobCoeff)) {
-      return nullptr;
+      return false;
     }
   }
 
@@ -529,9 +529,11 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   Term->divide(CE1->getDenominator());
 
   // CE1 = C1*C2 * B1*B2 + C3*i2 + ...
-  CanonExpr *AddResult = add(CE1, Term.get(), RelaxedMode);
+  if (!add(CE1, Term.get(), RelaxedMode)) {
+    return false;
+  }
 
-  return AddResult;
+  return true;
 }
 
 bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,

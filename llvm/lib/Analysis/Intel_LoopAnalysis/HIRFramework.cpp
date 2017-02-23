@@ -59,8 +59,6 @@ void HIRFramework::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool HIRFramework::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
-  SA = &getAnalysis<HIRSymbaseAssignment>();
-  ScalarSA = &getAnalysis<HIRScalarSymbaseAssignment>();
 
   getHLNodeUtils().HIRF = this;
   getHLNodeUtils().removeEmptyNodesRange(hir_begin(), hir_end());
