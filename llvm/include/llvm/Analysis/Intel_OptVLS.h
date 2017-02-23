@@ -36,6 +36,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <map>
 
@@ -743,6 +744,51 @@ class OVLSCostModel {
       IsAlternate = Mask[i] == (int)((i & 1) ? i : MaskSize + i);
     }
     return IsAlternate;
+  }
+
+  // Returns true if Mask represents either the lower half
+  // or the upper half of the source-vector; Otherwise, returns false.
+  // For example, returns true for
+  // mask: <0, 1, -1, -1> or <2, 3, -1, -1> for a source: <0, 1, 2, 3>.
+  //
+  // This routine follows the semantics of [v]extracti128.
+  // It assumes mask size equals the source-vector size since there is no
+  // source vector size. If size of the Mask
+  // does not equal the source-vector size, this routine will compute
+  // incorrect result because the mask index will be misleading.
+  // Here is an example: A<0, 1, 2, 3>, B<4, 5, 6, 7>; if Mask is <0, 1> which
+  // contains only 2 elements, will not be considered as a lower/upper
+  // subvector.
+  // Because it does not know the size of source. Therefore, it considers 2 as
+  // source size. Where the lower subvector will be <0> and the upper subvector
+  // should be <1>.
+  // TODO: Support extracting other possible sized subvectors.
+  bool isExtractSubvectorMask(SmallVectorImpl<int> &Mask) const {
+    bool IsExtract = true;
+    int MaskSize = Mask.size();
+
+    if (MaskSize <= 1 || !isPowerOf2_32(MaskSize))
+      return false;
+
+    int Modulo = MaskSize / 2;
+    int StartElem = Mask[0];
+    if (StartElem != 0 && StartElem != Modulo)
+      return false;
+
+    // A<0, 1, 2, 3>
+    // Example of an extract vector mask <0, 1, -1, -1> or <2, 3, -1, -1>
+    for (int i = 0; i < MaskSize && IsExtract; ++i) {
+      if (i >= Modulo) {
+        if (Mask[i] < 0)
+          continue;
+        else
+          return false;
+      }
+
+      IsExtract = Mask[i] == StartElem + i;
+    }
+
+    return IsExtract;
   }
 
 protected:

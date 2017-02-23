@@ -119,7 +119,13 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
   unsigned NumVecElems = Tp->getVectorNumElements();
   assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
 
-  if (TTI.isTargetSpecificShuffleMask(Mask))
+  if (isExtractSubvectorMask(Mask)) {
+    // TODO: Support other sized subvectors.
+    int index = Mask[0] == 0 ? 0 : 1;
+    return TTI.getShuffleCost(
+        TargetTransformInfo::SK_ExtractSubvector, Tp, index,
+        VectorType::get(Tp->getScalarType(), NumVecElems / 2));
+  } else if (TTI.isTargetSpecificShuffleMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0,
                               nullptr);
   else if (isReverseVectorMask(Mask))
@@ -128,8 +134,12 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
     return TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0,
                               nullptr);
 
-  // TODO: Support SK_Insert, SK_Extract
-  return 2 * Mask.size();
+  // TODO: Support SK_Insert
+  uint32_t TotalElems = Mask.size();
+  for (int MaskElem : Mask)
+    if (MaskElem < 0)
+      TotalElems--;
+  return 2 * TotalElems;
 }
 
 namespace OptVLS {
@@ -177,10 +187,11 @@ private:
   GraphNode *Src;
   GraphNode *Dst;
   BitRange BR;
+  uint32_t DstBitIndex;
 
 public:
-  Edge(GraphNode *S, GraphNode *D, BitRange BRange)
-      : Src(S), Dst(D), BR(BRange) {
+  Edge(GraphNode *S, GraphNode *D, BitRange BRange, uint32_t DBIdx)
+      : Src(S), Dst(D), BR(BRange), DstBitIndex(DBIdx) {
     BR = BitRange(BRange.getBitIndex(), BRange.getNumBits());
   }
 
@@ -189,6 +200,7 @@ public:
   BitRange getBitRange() const { return BR; }
   uint32_t getBitIndex() const { return BR.getBitIndex(); }
   uint32_t getNumBits() const { return BR.getNumBits(); }
+  uint32_t getDstBitIndex() const { return DstBitIndex; }
 
   void updateSource(GraphNode *NewSrc, uint32_t NewBIndex) {
     Src = NewSrc;
@@ -358,7 +370,8 @@ public:
       // to fillup the gap.
       uint32_t GapSize = (BIndex - TotalIncomingBits);
 
-      Edge *Gap = new Edge(nullptr, this, BitRange(0, GapSize));
+      Edge *Gap =
+          new Edge(nullptr, this, BitRange(0, GapSize), TotalIncomingBits);
       IncomingEdges.push_back(Gap);
       TotalIncomingBits += GapSize;
     }
@@ -388,8 +401,9 @@ public:
   ///             dst
   void splitEdge(Edge *E, GraphNode *NewNode) {
     // Create an edge from src to NewNode.
-    Edge *NewEdge = new Edge(E->getSource(), NewNode, E->getBitRange());
     uint32_t NewNodeBIndex = NewNode->size();
+    Edge *NewEdge =
+        new Edge(E->getSource(), NewNode, E->getBitRange(), NewNodeBIndex);
     NewNode->addAnIncomingEdge(NewNodeBIndex, NewEdge);
 
     // Update outgoing edgelist of NewNode.
@@ -471,7 +485,8 @@ public:
   // Generate a shuffle instruction for this node.
   void genShuffle() {
     OVLSOperand *Op1 = new OVLSUndef();
-    OVLSOperand *Op2 = new OVLSUndef();;
+    OVLSOperand *Op2 = new OVLSUndef();
+
     OVLSConstant *ShuffleMask = nullptr;
 
     // Use 'Type' which is the type of this result node to define the
@@ -485,6 +500,7 @@ public:
     int32_t IntShuffleMask[MaxNumElems];
     uint32_t MaskIndex = 0;
 
+    uint32_t Op2StartIndex;
     // Traverse through the incoming edges, collect the input vectors and the
     // correspondent vector indices
     for (Edge *E : IncomingEdges) {
@@ -500,12 +516,13 @@ public:
       assert(BR.getNumBits() == ElemSize &&
              "Each edge should move element-size "
              "number of bits!!!");
-      if (isa<OVLSUndef> (Src))
+      if (isa<OVLSUndef>(Src))
         IntShuffleMask[MaskIndex++] = -1;
       else {
-        if (isa<OVLSUndef> (Op1))
+        if (isa<OVLSUndef>(Op1)) {
           Op1 = Src;
-        else if (Src != Op1 && isa<OVLSUndef> (Op2))
+          Op2StartIndex = Op1->getType().getNumElements();
+        } else if (Src != Op1 && isa<OVLSUndef>(Op2))
           Op2 = Src;
         else if (Src != Op1 && Src != Op2)
           assert("Invalid number of operands for OVLSShuffle!!!");
@@ -514,12 +531,12 @@ public:
           IntShuffleMask[MaskIndex++] = BR.getBitIndex() / ElemSize;
         else
           IntShuffleMask[MaskIndex++] =
-              (BR.getBitIndex() / ElemSize) + NumElems;
+              (BR.getBitIndex() / ElemSize) + Op2StartIndex;
       }
     }
 
     assert(MaskIndex == NumElems && "IntShuffleMask got out of range!!!");
-    if (isa<OVLSUndef> (Op2))
+    if (isa<OVLSUndef>(Op2))
       Op2->setType(Op1->getType());
 
     ShuffleMask =
@@ -637,8 +654,8 @@ public:
   /// N2 N1 N2 N1, etc.
   /// It makes more sense to merge as N1 N1 N2 N2 which will most likely lead
   /// to vperm or vinsert.
-  OVLSVector<int> getShuffleMask(const GraphNode &N1,
-                                 const GraphNode &N2) const {
+  OVLSVector<int> getPossibleIncomingMask(const GraphNode &N1,
+                                          const GraphNode &N2) const {
     OVLSVector<int> Mask;
     std::set<GraphNode *> UniqueSources;
     N1.getNumUniqueSources(UniqueSources);
@@ -680,7 +697,118 @@ public:
         Mask.push_back(BIndex / ElemSize + S2StartIndex);
     }
 
+    // Mask size needs to match the source size.
+    while (Mask.size() < S2StartIndex)
+      Mask.push_back(-1);
+
     return Mask;
+  }
+
+  /// Computes the masks created by the outgoing edges of N to its
+  /// destinations. Here N's starting index starts from NodeStartIndex
+  /// (in bits)
+  ///
+  /// For example,
+  ///  V1[0:63] = N[0:63]
+  ///  V2[0:63] = N[64:127]
+  /// Computes the following two masks with NodeStartIndex 64:
+  ///   V1-Mask: <1, -1, 1, -1>
+  ///   V2-Mask: <2, -1, 1, -1>
+  void getPossibleOutgoingMasks(
+      const GraphNode &N, uint32_t NodeStartIndex,
+      std::map<int, SmallVector<int, 16>> &NodeMaskMap) const {
+    uint32_t ElemSize = N.type().getElementSize();
+    for (const auto &E : N.outgoingEdges()) {
+      GraphNode *Dst = E->getDest();
+      uint32_t Id = E->getDest()->getId();
+      BitRange BR = E->getBitRange();
+      uint32_t SrcBitIndex = BR.getBitIndex();
+      uint32_t NumBits = BR.getNumBits();
+      OVLSType DstTy = Dst->type();
+      uint32_t NumElems = DstTy.getNumElements();
+
+      // According to the destination's element size.
+      int32_t MaskIndex = E->getDstBitIndex() / DstTy.getElementSize();
+      uint32_t SrcIndex = NodeStartIndex + SrcBitIndex;
+      assert((SrcIndex % ElemSize == 0) && (NumBits % ElemSize == 0) &&
+             "Unexpected BitIndex and/or NumBits");
+
+      // According to the source's element size.
+      uint32_t MaskElem = SrcIndex / ElemSize;
+
+      std::map<int, SmallVector<int, 16>>::iterator MapIt =
+          NodeMaskMap.find(Id);
+      SmallVector<int, 16> Mask;
+      if (MapIt == NodeMaskMap.end())
+        // Mask size needs to match the source size.
+        Mask = SmallVector<int, 16>(NumElems, -1);
+      else
+        Mask = MapIt->second;
+
+      Mask[MaskIndex] = MaskElem;
+
+      // An edge can move multiple elements and they are contiguous.
+      while (NumBits -= ElemSize)
+        Mask[++MaskIndex] = ++MaskElem;
+
+      NodeMaskMap[Id] = Mask;
+    }
+  }
+
+  /// Computes the masks created by the outgoing edges of merge(N1,N2) to its
+  /// destinations.
+  ///
+  /// For example,
+  ///  V1[0:63] = N1[0:63]
+  ///  V2[128:192] = N2[0:63]
+  /// Computes the following two masks:
+  ///   V1-Mask: <0, -1, -1, -1>
+  ///   V2-Mask: <-1, -1, 1, -1> // After merging the first element of N2
+  ///                            // becomes the 2nd element of the merged N12.
+  ///
+  /// This needs to follow the merging pattern of getPossibleIncomingMask which
+  /// assumes merging of N1 and N2 happened as N1 N1 .. N2 N2..
+  SmallVector<SmallVector<int, 16>, 16>
+  getPossibleOutgoingMergeMasks(const GraphNode &N1,
+                                const GraphNode &N2) const {
+    SmallVector<SmallVector<int, 16>, 16> Masks;
+    std::map<int, SmallVector<int, 16>> NodeMaskMap;
+
+    // Compute masks that are created by the outgoing edges of N1
+    getPossibleOutgoingMasks(N1, 0, NodeMaskMap);
+
+    // Compute masks that are created by the outgoing edges of N2
+    getPossibleOutgoingMasks(N2, N1.type().getSize(), NodeMaskMap);
+
+    std::map<int, SmallVector<int, 16>>::iterator MapIt, MapItE;
+
+    for (MapIt = NodeMaskMap.begin(), MapItE = NodeMaskMap.end();
+         MapIt != MapItE; ++MapIt)
+      Masks.push_back(MapIt->second);
+
+    return Masks;
+  }
+
+  // Returns the cost of merging N1 and N2.
+  uint64_t getMergeCost(const GraphNode &N1, const GraphNode &N2) const {
+    // Assumes N1 and N2 has the same element size.
+    uint32_t ElemSize = N1.type().getElementSize();
+    Type *ElemType = Type::getIntNTy(CM.getContext(), ElemSize);
+
+    // Compute inward impact.
+    SmallVector<int, 16> Mask = getPossibleIncomingMask(N1, N2);
+    VectorType *VecTy = VectorType::get(ElemType, Mask.size());
+    uint64_t Cost = CM.getShuffleCost(Mask, VecTy);
+
+    // Compute outward impact.
+    SmallVector<SmallVector<int, 16>, 16> Masks =
+        getPossibleOutgoingMergeMasks(N1, N2);
+    for (auto Mask : Masks) {
+      VecTy = VectorType::get(ElemType, Mask.size());
+      Cost += CM.getShuffleCost(Mask, VecTy);
+    }
+
+    return Cost;
   }
 
   /// N1 and N2 can be merged if
@@ -729,7 +857,6 @@ public:
     for (GraphNodeList::iterator It1 = WorkList.begin(); It1 != WorkList.end();
          ++It1) {
       GraphNode *N1 = *It1;
-      OVLSType N1T = N1->type();
       GraphNodeList::iterator ToBeMergedIT = WorkList.end();
 
       int MinCost = INT_MAX;
@@ -738,19 +865,7 @@ public:
            ++It2) {
         GraphNode *N2 = *It2;
         if (canBeMerged(*N1, *N2)) {
-          SmallVector<int, 16> Mask = getShuffleMask(*N1, *N2);
-          // Create resulting vector type due to this merge.
-
-          Type *ElemType =
-              Type::getIntNTy(CM.getContext(), N1T.getElementSize());
-          VectorType *VecTy = VectorType::get(ElemType, Mask.size());
-
-          // Get merging cost.
-          // TODO: Current implementation only considers the cost
-          // of incoming edges. It does not consider the cost of the impact
-          // of the outgoing edges due to this merge. Support the combined
-          // cost, both incoming and outgoing cost.
-          int MergingCost = CM.getShuffleCost(Mask, VecTy);
+          int MergingCost = getMergeCost(*N1, *N2);
 
           // Compute the lowest cost.
           if (MergingCost < MinCost) {
@@ -1243,7 +1358,8 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
 
       // Draw an edge from the loaded element to the gather node.
       BitRange LoadBR = BitRange(LoadSize * BYTE, ElemSizeInBit);
-      Edge *E = new Edge(CurrLoadNode, GatherNode, LoadBR);
+      Edge *E =
+          new Edge(CurrLoadNode, GatherNode, LoadBR, IthElem * ElemSizeInBit);
       GatherNode->addAnIncomingEdge(IthElem * ElemSizeInBit, E);
       CurrLoadNode->addAnOutgoingEdge(E);
 
