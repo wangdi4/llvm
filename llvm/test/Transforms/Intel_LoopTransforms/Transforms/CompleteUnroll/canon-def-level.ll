@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-before=hir-complete-unroll -print-after=hir-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -hir-complete-unroll-trip-threshold=50 -print-before=hir-complete-unroll -print-after=hir-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
 
 ; Source code-
 ;  for(i=0; i<60; i++) {

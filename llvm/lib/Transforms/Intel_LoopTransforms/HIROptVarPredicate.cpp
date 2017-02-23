@@ -427,13 +427,13 @@ void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
   CE->clear();
 
   int64_t Value;
-  if (BlobUtilsObj->isConstantIntBlob(Blob, &Value)) {
+  if (BlobUtils::isConstantIntBlob(Blob, &Value)) {
     CE->setConstant(Value);
     Ref->setSymbase(ConstantSymbase);
   } else {
     CE->setBlobCoeff(BlobIndex, 1);
 
-    if (BlobUtilsObj->isTempBlob(Blob)) {
+    if (BlobUtils::isTempBlob(Blob)) {
       Ref->setSymbase(BlobUtilsObj->findTempBlobSymbase(Blob));
     } else {
       Ref->setSymbase(HIR->getGenericRvalSymbase());

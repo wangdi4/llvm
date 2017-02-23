@@ -1,14 +1,14 @@
 ; Test for complete unrolling with nine loop levels.
 
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -hir-complete-unroll-trip-threshold=64 -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
-; Checks the unrolling of loops from 5th level to 9th level.
+; Checks the unrolling of loops from 4th level to 9th level.
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: DO i1 = 0, 1, 1
-; CHECK: DO i4 = 0, 1, 1
-; CHECK-NOT: DO i5 = 0, 1, 1
-; CHECK: %0 = (%B64)[0][i1][i2][i3][i4][0][0][0][0][0];
-; CHECK: (%A64)[0][i1][i2][i3][i4][0][0][0][0][0] = %0;
+; CHECK: DO i3 = 0, 1, 1
+; CHECK-NOT: DO i4 = 0, 1, 1
+; CHECK: %0 = (%B64)[0][i1][i2][i3][0][0][0][0][0][0];
+; CHECK: (%A64)[0][i1][i2][i3][0][0][0][0][0][0] = %0;
 
 ; Source Code
 ;int64_t foo(int M)

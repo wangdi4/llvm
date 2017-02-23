@@ -135,9 +135,9 @@ CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
                                                          unsigned Level) {
   auto Blob = getBlobUtils().getBlob(Index);
 
-  assert((getBlobUtils().isTempBlob(Blob) ||
-          getBlobUtils().isMetadataBlob(Blob) ||
-          getBlobUtils().isConstantVectorBlob(Blob)) &&
+  assert((BlobUtils::isTempBlob(Blob) ||
+          BlobUtils::isMetadataBlob(Blob) ||
+          BlobUtils::isConstantVectorBlob(Blob)) &&
          "Unexpected temp blob!");
   assert(isValidDefLevel(Level) && "Invalid level!");
 

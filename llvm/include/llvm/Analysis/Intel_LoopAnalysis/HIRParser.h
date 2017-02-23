@@ -166,9 +166,6 @@ private:
   /// TempBlobCollector - Collects temp blobs within a blob.
   class TempBlobCollector;
 
-  /// NestedBlobChecker - Check to see if we have a nested blob
-  class NestedBlobChecker;
-
   /// BlobPrinter - Used to print blobs.
   class BlobPrinter;
 
@@ -586,37 +583,8 @@ private:
   /// Prints blob.
   void printBlob(raw_ostream &OS, BlobTy Blob) const;
 
-  /// Checks if the blob is constant or not.
-  /// If blob is constant, sets the return value in Val.
-  bool isConstantIntBlob(BlobTy Blob, int64_t *Val) const;
-
   /// Returns true if this is a temp blob.
-  bool isTempBlob(BlobTy Blob) const;
-
-  /// Returns true if this is a nested blob(SCEV tree with > 1 node).
-  bool isNestedBlob(BlobTy Blob) const;
-
-  /// Returns true if TempBlob always has a defined at level of zero.
-  bool isGuaranteedProperLinear(BlobTy TempBlob) const;
-
-  /// Returns true if this is an UndefValue blob.
-  bool isUndefBlob(BlobTy Blob) const;
-
-  /// Returns true if Blob represents a constant FP value.
-  /// If blob is FP constant, returns the underlying LLVM Value in Val
-  bool isConstantFPBlob(BlobTy Blob, ConstantFP **Val = nullptr) const;
-
-  /// Returns true if Blob represents a vector of constant values.
-  /// If yes, returns the underlying LLVM Value in Val
-  bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr) const;
-
-  /// Returns true if Blob represents a metadata value.
-  /// If blob is metadata, sets the return value in Val.
-  bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) const;
-
-  /// Returns true if \p Blob represents a signed extension value.
-  /// If \p Val is not null, returns cast operand in \p Val.
-  bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr) const;
+  static bool isTempBlob(BlobTy Blob);
 
   /// Returns true if \p HInst is a livein copy.
   bool isLiveinCopy(const HLInst *HInst);

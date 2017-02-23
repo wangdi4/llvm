@@ -865,7 +865,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
 
     // Defined at level is only applicable for instruction blobs. Other types
     // (like globals, function paramaters) are always proper linear.
-    if (!getBlobUtils().isGuaranteedProperLinear(getBlobUtils().getBlob(I))) {
+    if (!BlobUtils::isGuaranteedProperLinear(getBlobUtils().getBlob(I))) {
       NewBlobs.push_back(BRef);
     }
   }

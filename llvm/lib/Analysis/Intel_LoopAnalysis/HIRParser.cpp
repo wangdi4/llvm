@@ -273,117 +273,17 @@ void HIRParser::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
   }
 }
 
-bool HIRParser::isConstantIntBlob(BlobTy Blob, int64_t *Val) const {
-
-  // Check if this Blob is of Constant Type
-  const SCEVConstant *SConst = dyn_cast<SCEVConstant>(Blob);
-  if (!SConst)
-    return false;
-
-  if (Val)
-    *Val = getSCEVConstantValue(SConst);
-
-  return true;
-}
-
-bool HIRParser::isTempBlob(BlobTy Blob) const {
+bool HIRParser::isTempBlob(BlobTy Blob) {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
     Type *Ty;
     Constant *FieldNo;
 
     if (!UnknownSCEV->isSizeOf(Ty) && !UnknownSCEV->isAlignOf(Ty) &&
         !UnknownSCEV->isOffsetOf(Ty, FieldNo) &&
-        !ScalarSA->isConstant(UnknownSCEV->getValue()) &&
-        !isMetadataBlob(Blob, nullptr)) {
+        !HIRScalarSymbaseAssignment::isConstant(UnknownSCEV->getValue()) &&
+        !BlobUtils::isMetadataBlob(Blob, nullptr)) {
       return true;
     }
-  }
-
-  return false;
-}
-
-bool HIRParser::isGuaranteedProperLinear(BlobTy TempBlob) const {
-  assert(isTempBlob(TempBlob) && "Not a temp blob!");
-
-  auto UnknownSCEV = cast<SCEVUnknown>(TempBlob);
-
-  return !isa<Instruction>(UnknownSCEV->getValue());
-}
-
-bool HIRParser::isUndefBlob(BlobTy Blob) const {
-  Value *V = nullptr;
-
-  if (auto *UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    V = UnknownSCEV->getValue();
-  } else if (auto *ConstantSCEV = dyn_cast<SCEVConstant>(Blob)) {
-    V = ConstantSCEV->getValue();
-  } else {
-    return false;
-  }
-
-  assert(V && "Blob should have a value");
-  return isa<UndefValue>(V);
-}
-
-bool HIRParser::isConstantFPBlob(BlobTy Blob, ConstantFP **Val) const {
-  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    if (auto P = dyn_cast<ConstantFP>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = P;
-      }
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool HIRParser::isConstantVectorBlob(BlobTy Blob, Constant **Val) const {
-  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    if (auto P = dyn_cast<ConstantVector>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = P;
-      }
-      return true;
-    }
-
-    if (auto P = dyn_cast<ConstantDataVector>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = P;
-      }
-      return true;
-    }
-
-    if (auto P = dyn_cast<ConstantAggregateZero>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = P;
-      }
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool HIRParser::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) const {
-  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    if (auto *p = dyn_cast<MetadataAsValue>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = p;
-      }
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool HIRParser::isSignExtendBlob(BlobTy Blob, BlobTy *Val) const {
-  if (auto CastSCEV = dyn_cast<SCEVSignExtendExpr>(Blob)) {
-    if (Val) {
-      *Val = CastSCEV->getOperand();
-    }
-    return true;
   }
 
   return false;
@@ -597,38 +497,11 @@ public:
   bool isDone() const { return false; }
 };
 
-class HIRParser::NestedBlobChecker {
-private:
-  const HIRParser &HIRP;
-  unsigned NumSubBlobs;
-
-public:
-  NestedBlobChecker(const HIRParser &HIRP) : HIRP(HIRP), NumSubBlobs(0) {}
-
-  ~NestedBlobChecker() {}
-
-  bool follow(const SCEV *SC) {
-    NumSubBlobs++;
-    return !isDone();
-  }
-
-  bool isDone() const { return isNestedBlob(); }
-  bool isNestedBlob() const { return NumSubBlobs > 1; }
-};
-
 void HIRParser::collectTempBlobs(BlobTy Blob,
                                  SmallVectorImpl<BlobTy> &TempBlobs) const {
   TempBlobCollector TBC(*this, TempBlobs);
   SCEVTraversal<TempBlobCollector> Collector(TBC);
   Collector.visitAll(Blob);
-}
-
-bool HIRParser::isNestedBlob(BlobTy Blob) const {
-  NestedBlobChecker NBC(*this);
-  SCEVTraversal<NestedBlobChecker> Collector(NBC);
-  Collector.visitAll(Blob);
-
-  return NBC.isNestedBlob();
 }
 
 bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
