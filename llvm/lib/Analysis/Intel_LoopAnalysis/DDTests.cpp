@@ -437,8 +437,8 @@ const CanonExpr *DDTest::getMulExpr(const CanonExpr *CE1,
   return CE;
 }
 
-const CanonExpr *DDTest::getConstantfromAPInt(Type *Ty, const APInt &apint) {
-  CanonExpr *CE = HNU.getCanonExprUtils().createCanonExpr(Ty, apint);
+const CanonExpr *DDTest::getConstantfromAPInt(Type *Ty, APInt Value) {
+  CanonExpr *CE = HNU.getCanonExprUtils().createCanonExpr(Ty, Value);
   push(CE);
   return CE;
 }

@@ -59,9 +59,9 @@ CanonExpr *CanonExprUtils::createExtCanonExpr(Type *SrcType, Type *DestType,
                        IsSignedDiv);
 }
 
-CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, const APInt &APVal) {
+CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, APInt Value) {
   // make apint into a CanonExpr
-  int64_t Val = APVal.getSExtValue();
+  int64_t Val = Value.getSExtValue();
   return createCanonExpr(Ty, 0, Val);
 }
 

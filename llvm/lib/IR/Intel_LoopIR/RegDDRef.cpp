@@ -522,6 +522,12 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
 
+    // It's hard to compute the stride of non-unit denominator offset, so we
+    // conservatively return nullptr.
+    if (DimCE->getDenominator() != 1) {
+      return nullptr;
+    }
+
     // We want to guarantee that we return a Stride that is invariant at Level,
     // or otherwise to bail out.
     // IsLinearAtLevel guarantees that DimCE is defined at a lower (outer)
@@ -568,9 +574,10 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
     }
   }
 
-  // There is no stride for invariant references, so we bail out.
+  // There is zero stride for invariant references.
   if (!StrideAtLevel) {
-    return nullptr;
+    return getCanonExprUtils().createCanonExpr(
+        Type::getInt1Ty(getDDRefUtils().getContext()), 0, 0);
   }
 
   // Collect the temp blobs of strideCE to potentially update the

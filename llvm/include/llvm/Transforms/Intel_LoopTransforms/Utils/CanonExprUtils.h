@@ -135,7 +135,7 @@ public:
                                 int64_t Denom = 1, bool IsSignedDiv = false);
 
   /// Returns a new linear CanonExpr created from APInt Value.
-  CanonExpr *createCanonExpr(Type *Ty, const APInt &APVal);
+  CanonExpr *createCanonExpr(Type *Ty, APInt APVal);
 
   /// Returns a self-blob canon expr. Level is the defined at level for the
   /// blob.
