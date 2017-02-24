@@ -1,10 +1,6 @@
-# If we don't need RTTI or EH, there's no reason to export anything
-# from the hello plugin.
-#if( NOT LLVM_REQUIRES_RTTI )
-#  if( NOT LLVM_REQUIRES_EH )
-#    set(LLVM_EXPORTED_SYMBOL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/FPGA-Advisor.exports)
-#  endif()
-#endif()
+if(NOT LLVM_SPATIAL_ADVISOR)
+  return()
+endif()
 
 if(WIN32 OR CYGWIN)
   set(LLVM_LINK_COMPONENTS Core Support)
@@ -18,15 +14,14 @@ find_package( Boost REQUIRED)
 if(Boost_FOUND)
 	include_directories(${Boost_INCLUDE_DIR})
 endif()
-message("boost: ${Boost_INCLUDE_DIRS}")
 
 add_llvm_loadable_module( LLVMBasicBlockDumper
   BasicBlockDumper.cpp
   BasicBlockCompiler.cpp
   ../Utils/CloneModule.cpp
+
+  PLUGIN_TOOL
+  opt
   )
 
-#if (TARGET intrinsics_gen)
-#  add_dependencies(LLVMFPGA-Advisor intrinsics_gen)
-#endif()
-
+add_dependencies(LLVMBasicBlockDumper intrinsics_gen)

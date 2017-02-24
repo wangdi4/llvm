@@ -153,16 +153,15 @@ class DependenceGraph : public FunctionPass {
 	public:
 		static char ID;
 		void getAnalysisUsage(AnalysisUsage &AU) const override {
-			AU.addPreserved<AliasAnalysis>();
 			AU.setPreservesAll();
 			AU.addRequired<DominatorTreeWrapperPass>();
-			AU.addRequiredTransitive<AliasAnalysis>();
+			AU.addRequiredTransitive<AAResultsWrapperPass>();
 			//AU.addPreserved<MemoryDependenceAnalysis>();
-			AU.addRequiredTransitive<MemoryDependenceAnalysis>();
+			AU.addRequiredTransitive<MemoryDependenceWrapperPass>();
 		}
 		DependenceGraph() : FunctionPass(ID) {
 			//initializeDependenceGraph(*PassRegistry::getPassRegistry());
-			initializeBasicAliasAnalysisPass(*PassRegistry::getPassRegistry());
+      initializeBasicAAWrapperPassPass(*PassRegistry::getPassRegistry());
 		}
 		bool runOnFunction(Function &F);
 		DepGraph &getDepGraph() {
@@ -183,7 +182,7 @@ class DependenceGraph : public FunctionPass {
 		void output_graph_to_file(raw_ostream *outputFile);
 
 		Function *func;
-		MemoryDependenceAnalysis *MDA;
+		MemoryDependenceResults *MDA;
 		DominatorTree *DT;
 		DepGraph DG;
 		std::vector<std::string> NameVec;
@@ -461,8 +460,8 @@ class FunctionScheduler : public FunctionPass , public InstVisitor<FunctionSched
 			LatencyStruct latencyStruct;
                         latencyStruct.cpuLatency = 0;    
 
-                        for (auto I = BB.begin(); I != BB.end(); I++) {
-                          latencyStruct.cpuLatency += get_instruction_latency(I);
+                        for (Instruction &I : BB) {
+                          latencyStruct.cpuLatency += get_instruction_latency(&I);
                         }
 
                         if (useDefault) {
@@ -521,8 +520,8 @@ class FunctionAreaEstimator : public FunctionPass, public InstVisitor<FunctionAr
                 }        
                 
 		void getAnalysisUsage(AnalysisUsage &AU) const override {
-			AU.addPreserved<AliasAnalysis>();
-			AU.addPreserved<MemoryDependenceAnalysis>();
+			AU.addPreserved<AAResultsWrapperPass>();
+			AU.addPreserved<MemoryDependenceWrapperPass>();
 			AU.addPreserved<DependenceGraph>();
 			AU.setPreservesAll();
 		}
@@ -551,8 +550,8 @@ class FunctionAreaEstimator : public FunctionPass, public InstVisitor<FunctionAr
                           // x1 is the complexity of the operation
                           // y1 is the number of this operation existing in the basic block
 
-                          for (auto I = BB.begin(); I != BB.end(); I++) {
-                            area += instruction_area_complexity(I);
+                          for (Instruction &I : BB) {
+                            area += instruction_area_complexity(&I);
                           }
                         } else {
                           area = getBlockArea(&BB); 
@@ -731,10 +730,10 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
                 const int THREADS = 16;
                 const bool useThreading = true;
 		void getAnalysisUsage(AnalysisUsage &AU) const override {
-			AU.addPreserved<AliasAnalysis>();
+			AU.addPreserved<AAResultsWrapperPass>();
 			AU.setPreservesAll();
 			AU.addRequired<CallGraphWrapperPass>();
-			AU.addRequired<LoopInfo>();
+			AU.addRequired<LoopInfoWrapperPass>();
 			AU.addRequired<DominatorTreeWrapperPass>();
 			AU.addPreserved<DependenceGraph>();
 			AU.addRequired<DependenceGraph>();

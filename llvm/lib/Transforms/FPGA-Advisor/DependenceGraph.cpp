@@ -92,7 +92,7 @@ bool DependenceGraph::runOnFunction(Function &F) {
 	MemoryBBs.clear();
 
 	// get analyses
-	MDA = &getAnalysis<MemoryDependenceAnalysis>();
+	MDA = &getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
 	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
 	// add each BB into DG
@@ -145,19 +145,19 @@ void DependenceGraph::output_graph_to_file(raw_ostream *outputFile) {
 
 
 void DependenceGraph::add_vertices(Function &F) {
-	for (auto BB = F.begin(); BB != F.end(); BB++) {
-		*outputLog << __func__ << " ADD VERTEX FOR BB: " << BB->getName() << "\n";
+	for (auto &BB : F) {
+		*outputLog << __func__ << " ADD VERTEX FOR BB: " << BB.getName() << "\n";
 		//bool memoryInst = false;
-		for (auto I = BB->begin(); I != BB->end(); I++) {
-			if (I->mayReadOrWriteMemory()) {
+		for (auto &I : BB) {
+			if (I.mayReadOrWriteMemory()) {
 				//memoryInst = true;
-				MemoryBBs.push_back(BB);
+				MemoryBBs.push_back(&BB);
 				//break;
 			}
 		}
 		DepGraph_descriptor currVertex = boost::add_vertex(DG);
-		DG[currVertex] = BB;
-		NameVec.push_back(BB->getName().str());
+		DG[currVertex] = &BB;
+		NameVec.push_back(BB.getName().str());
 		//if (memoryInst) {
 			//MemoryBBs.push_back(currVertex);
 		//}
@@ -208,7 +208,7 @@ void DependenceGraph::add_edges() {
 				//*outputLog << "\tfrom basic block " << I->getParent()->getName() << "\n";
 
 				// we cannot analyze function call instructions
-				if (unsupported_memory_instruction(I)) {
+				if (unsupported_memory_instruction(&*I)) {
 					// do something
 					*outputLog << "Not a supported memory instruction but may read or write memory. Adding dependence to all basic blocks.\n";
 					insert_dependent_basic_block_all_memory(depBBs, false);
@@ -222,14 +222,14 @@ void DependenceGraph::add_edges() {
 				// non-local (within the same function, but different basic blocks)
 				// non-func-local (will matter for basic blocks that call functions
 				// but for now we can restrict these, or inline the functions
-				MemDepResult MDR = MDA->getDependency(I);
+				MemDepResult MDR = MDA->getDependency(&*I);
 				if (MDR.isNonFuncLocal()) {
 					*outputLog << "> Not handling non function local memory dependencies.\n";
 				} else if (MDR.isNonLocal()) {
 					*outputLog << "> Non-local dependence.\n";
 					
 					SmallVector<NonLocalDepResult, 0> queryResult;
-					MDA->getNonLocalPointerDependency(I, queryResult);
+					MDA->getNonLocalPointerDependency(&*I, queryResult);
 					
 					for (SmallVectorImpl<NonLocalDepResult>::const_iterator qi = queryResult.begin(); qi != queryResult.end(); qi++) {
 						NonLocalDepResult NLDR = *qi;
@@ -310,16 +310,16 @@ void DependenceGraph::insert_dependent_basic_block(std::vector<std::pair<BasicBl
 }
 
 void DependenceGraph::insert_dependent_basic_block_all(std::vector<std::pair<BasicBlock *, bool> > &list, bool trueDep) {
-	for (auto BB = func->begin(); BB != func->end(); BB++) {
-		insert_dependent_basic_block(list, BB, trueDep);
+	for (auto &BB : *func) {
+		insert_dependent_basic_block(list, &BB, trueDep);
 	}
 }
 
 // Function insert_dependent_basic_block_all_memory
 // adds all basic blocks with memory instructions into dependency list
 void DependenceGraph::insert_dependent_basic_block_all_memory(std::vector<std::pair<BasicBlock *, bool> > &list, bool trueDep) {
-	for (auto BB = MemoryBBs.begin(); BB != MemoryBBs.end(); BB++) {
-		insert_dependent_basic_block(list, *BB, trueDep);
+	for (auto &BB : MemoryBBs) {
+		insert_dependent_basic_block(list, BB, trueDep);
 	}
 }
 

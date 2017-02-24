@@ -7,4 +7,6 @@ add_subdirectory(Vectorize)
 add_subdirectory(Hello)
 add_subdirectory(ObjCARC)
 add_subdirectory(Coroutines)
+add_subdirectory(BasicBlockDumper)
+add_subdirectory(FPGA-Advisor)
 

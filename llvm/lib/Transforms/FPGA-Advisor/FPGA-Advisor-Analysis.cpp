@@ -126,7 +126,7 @@ using std::ifstream;
 //===----------------------------------------------------------------------===//
 
 std::error_code AEC;
-MemoryDependenceAnalysis *MDA;
+MemoryDependenceResults *MDA;
 DominatorTree *DT;
 DepGraph *depGraph;
 // latency tables
@@ -282,8 +282,8 @@ bool AdvisorAnalysis::runOnModule(Module &M) {
 	//=------------------------------------------------------=//
 	// [4] Analysis after dynamic feedback for each function
 	//=------------------------------------------------------=//
-	for (auto F = M.begin(), FE = M.end(); F != FE; F++) {
-		run_on_function(F);
+	for (auto &F : M) {
+		run_on_function(&F);
 	}
 
 	//=------------------------------------------------------=//
@@ -313,7 +313,7 @@ void AdvisorAnalysis::visitFunction(Function &F) {
 	
 	if (! F.isDeclaration()) {
 		// only get the loop info for functions with a body, else will get assertion error
-		newFuncInfo->loopInfo = &getAnalysis<LoopInfo>(F);
+		newFuncInfo->loopInfo = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 		*outputLog << "PRINTOUT THE LOOPINFO\n";
 		newFuncInfo->loopInfo->print(*outputLog);
 		*outputLog << "\n";
@@ -395,12 +395,12 @@ void AdvisorAnalysis::find_recursive_functions(Module &M) {
 	// either itself or contains a call to itself
 	// (ironically), use recursion for this...
 	// store onto the recursiveFunctionList
-	for (auto F = M.begin(), FE = M.end(); F != FE; F++) {
-		if (!F->isDeclaration()) {
-                  DEBUG(*outputLog << "Calling does_function_recurse on function: " << F->getName() << "\n");
+	for (auto &F : M) {
+		if (!F.isDeclaration()) {
+                  DEBUG(*outputLog << "Calling does_function_recurse on function: " << F.getName() << "\n");
 			std::vector<Function *> fStack;
 			// function will modify recursiveFunctionList directly
-			does_function_recurse(F, callGraph->getOrInsertFunction(F), fStack); 
+			does_function_recurse(&F, callGraph->getOrInsertFunction(&F), fStack); 
 			assert(fStack.empty());
 		} else {
 			errs() << __func__ << " ignored.\n";
@@ -1692,12 +1692,12 @@ void AdvisorAnalysis::getCPULatencyTable(Function *F, std::map<BasicBlock *, Lat
 	*/
 
 	// compute for each basic block across each execution
-	for (auto BB = F->begin(); BB != F->end(); BB++) {
+	for (auto &BB : *F) {
 		int iterCount = 0;
 		float avgLatency = 0;
 		for (eol = (executionOrderList).begin(), tgl = (executionGraphList).begin();
 			eol != (executionOrderList).end() && tgl != (executionGraphList).end(); eol++, tgl++) {
-			auto search = (*eol).find(BB);
+			auto search = (*eol).find(&BB);
 			if (search == (*eol).end()) {
 				// this basic block did not execute in this function call
 				continue;
@@ -1718,11 +1718,11 @@ void AdvisorAnalysis::getCPULatencyTable(Function *F, std::map<BasicBlock *, Lat
 			latency++; // must be due to truncation
 		}
 		
-		*outputLog << "Average Latency for basic block: " << BB->getName() << " " << latency << "\n";
+		*outputLog << "Average Latency for basic block: " << BB.getName() << " " << latency << "\n";
 
-                // std::cerr << "Average Latency for basic block: " << BB->getName() << " " << latency << "\n";
+                // std::cerr << "Average Latency for basic block: " << BB.getName() << " " << latency << "\n";
 
-                auto search = LT->find(BB);
+                auto search = LT->find(&BB);
 		assert(search != LT->end());
                 
                 // Should we use the runtime latency or not.
@@ -1793,13 +1793,13 @@ bool AdvisorAnalysis::trace_cfg(BasicBlock *startBB) {
 // Return: Pointer to the basic block belonging to function and basic block, NULL if
 // not found
 BasicBlock *AdvisorAnalysis::find_basicblock_by_name(std::string funcName, std::string bbName) {
-	for (auto F = mod->begin(), FE = mod->end(); F != FE; F++) {
-		if (strcmp(funcName.c_str(), F->getName().str().c_str()) != 0) {
+	for (auto &F : *mod) {
+		if (strcmp(funcName.c_str(), F.getName().str().c_str()) != 0) {
 			continue;
 		}
-		for (auto BB = F->begin(), BE = F->end(); BB != BE; BB++) {
-			if (strcmp(bbName.c_str(), BB->getName().str().c_str()) == 0) {
-				return BB;
+		for (auto &BB : F) {
+			if (strcmp(bbName.c_str(), BB.getName().str().c_str()) == 0) {
+				return &BB;
 			}
 		}
 	}
@@ -1809,11 +1809,11 @@ BasicBlock *AdvisorAnalysis::find_basicblock_by_name(std::string funcName, std::
 // Function: find_function_by_name
 // Return: Pointer to the function belonging to function, NULL if not found
 Function *AdvisorAnalysis::find_function_by_name(std::string funcName) {
-	for (auto F = mod->begin(), FE = mod->end(); F != FE; F++) {
-		if (strcmp(funcName.c_str(), F->getName().str().c_str()) != 0) {
+	for (auto &F : *mod) {
+		if (strcmp(funcName.c_str(), F.getName().str().c_str()) != 0) {
 			continue;
 		}
-		return F;
+		return &F;
 	}
 	return NULL;
 }
@@ -2293,24 +2293,24 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 void AdvisorAnalysis::initialize_basic_block_instance_count(Function *F) {
   // delete anything left over from a previous run. 
 
-  for (auto it = threadPoolInstanceCounts.begin(); it != threadPoolInstanceCounts.end(); it++) {
-    free((*it).second);
+  for (auto it : threadPoolInstanceCounts) {
+    free(it.second);
   }
   threadPoolInstanceCounts.clear();
 
   // first we must set up the threadpool structures. 
-  for (auto BB = F->begin(); BB != F->end(); BB++) {
-    threadPoolInstanceCounts[BB] = new std::unordered_map<BasicBlock*, int>();
+  for (auto &BB : *F) {
+    threadPoolInstanceCounts[&BB] = new std::unordered_map<BasicBlock*, int>();
     // Initialize to zero, since we used the thread-safe find in the set method.
     // Find needs something to 'find'.
-    for (auto zeroBB = F->begin(); zeroBB != F->end(); zeroBB++) {
-      threadPoolInstanceCounts[BB]->insert(std::make_pair(zeroBB,0));
+    for (auto &zeroBB : *F) {
+      threadPoolInstanceCounts[&BB]->insert(std::make_pair(&zeroBB,0));
     }
   }
 
-  for (auto BB = F->begin(); BB != F->end(); BB++) {
+  for (auto &BB : *F) {
     // Initialize both the main count structure and the thread pool structure.      
-    set_basic_block_instance_count(BB, 0);       
+    set_basic_block_instance_count(&BB, 0);       
   }
        
 }
@@ -2453,9 +2453,9 @@ bool AdvisorAnalysis::basicblock_is_dependent(BasicBlock *child, BasicBlock *par
 	//	- how do we account for loop dependencies??
 	// compare each instruction in the child to the parent
 	bool dependent = false;
-	for (auto cI = child->begin(); cI != child->end(); cI++) {
-		for (auto pI = parent->begin(); pI != parent->end(); pI++) {
-			dependent |= instruction_is_dependent(cI, pI);
+	for (auto &cI : *child) {
+		for (auto &pI : *parent) {
+			dependent |= instruction_is_dependent(&cI, &pI);
 		}
 	}
 
@@ -2920,13 +2920,13 @@ void AdvisorAnalysis::find_optimal_configuration_for_all_calls(Function *F, unsi
         }
         threadPoolResourceTables.clear();
 
-        for (auto BB = F->begin(); BB != F->end(); BB++) {
-          gradients[BB] = new Gradient();
-          gradient[BB] = 0; 
+        for (auto &BB : *F) {
+          gradients[&BB] = new Gradient();
+          gradient[&BB] = 0; 
           std::unordered_map<BasicBlock *, std::vector<unsigned> > *resourceTable = new std::unordered_map<BasicBlock *, std::vector<unsigned> >();
           resourceTable->clear();
           initialize_resource_table(F, resourceTable, false);
-          threadPoolResourceTables[BB] = resourceTable;
+          threadPoolResourceTables[&BB] = resourceTable;
         } 
 
         int64_t initialLatency;
@@ -3106,15 +3106,15 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
           }
         }*/
  
-	for (auto BB = F->begin(); BB != F->end(); BB++) {
+	for (auto &BB : *F) {
 		//if (decrement_basic_block_instance_count(BB)) {
-                auto search = resourceTable.find(BB);
+                auto search = resourceTable.find(&BB);
                 std::vector<unsigned> &resourceVector = search->second;                
                 int count = resourceVector.size();
                 if(count == 1) {
-                  blocks.push_back(BB);                 
+                  blocks.push_back(&BB);                 
                 } else if (count > 1) {                  
-                  blocks.push_front(BB);                 
+                  blocks.push_front(&BB);                 
                 }                          
         }
 
@@ -4188,8 +4188,8 @@ bool AdvisorAnalysis::increment_basic_block_instance_count_and_update_transition
 }
 
 void AdvisorAnalysis::decrement_all_basic_block_instance_count_and_update_transition(Function *F) {
-	for (auto BB = F->begin(); BB != F->end(); BB++) {
-		while(decrement_basic_block_instance_count(BB));
+	for (auto &BB : *F) {
+		while(decrement_basic_block_instance_count(&BB));
 	}
 
 	// this is dumb and inefficient, but just do this for now
@@ -4232,8 +4232,8 @@ static int AdvisorAnalysis::get_basic_block_instance_count(BasicBlock *BB) {
 // other??
 // FIXME: integrate the cpu
 void AdvisorAnalysis::initialize_resource_table(Function *F, std::unordered_map<BasicBlock *, std::vector<unsigned> > *resourceTable, bool cpuOnly) {
-	for (auto BB = F->begin(); BB != F->end(); BB++) {
-		int repFactor = get_basic_block_instance_count(BB);
+	for (auto &BB : *F) {
+		int repFactor = get_basic_block_instance_count(&BB);
 		if (repFactor < 0) {
 			continue;
 		}
@@ -4241,16 +4241,16 @@ void AdvisorAnalysis::initialize_resource_table(Function *F, std::unordered_map<
 		if (cpuOnly) {
 			// cpu 
 			std::vector<unsigned> resourceVector(0);
-			resourceTable->insert(std::make_pair(BB, resourceVector));
-			DEBUG(*outputLog << "Created entry in resource table for basic block: " << BB->getName()
+			resourceTable->insert(std::make_pair(&BB, resourceVector));
+			DEBUG(*outputLog << "Created entry in resource table for basic block: " << BB.getName()
                               << " using cpu resources.\n");
 		} else {
 			// fpga
 			// create a vector
 			std::vector<unsigned> resourceVector(repFactor, 0);
-			resourceTable->insert(std::make_pair(BB, resourceVector));
+			resourceTable->insert(std::make_pair(&BB, resourceVector));
 
-			DEBUG(*outputLog << "Created entry in resource table for basic block: " << BB->getName()
+			DEBUG(*outputLog << "Created entry in resource table for basic block: " << BB.getName()
                               << " with " << repFactor << " entries.\n");
 		}
 	}
@@ -4264,9 +4264,9 @@ unsigned AdvisorAnalysis::get_area_requirement(Function *F) {
 	// baseline area required for cpu
 	//int area = 1000;
 	int area = 0;
-	for (auto BB = F->begin(); BB != F->end(); BB++) {
-		int areaBB = FunctionAreaEstimator::get_basic_block_area(*AT, BB);
-		int repFactor = get_basic_block_instance_count(BB);
+	for (auto &BB : *F) {
+		int areaBB = FunctionAreaEstimator::get_basic_block_area(*AT, &BB);
+		int repFactor = get_basic_block_instance_count(&BB);
 		area += areaBB * repFactor;
 	}
 	return area;
@@ -4359,39 +4359,39 @@ unsigned AdvisorAnalysis::get_transition_delay(BasicBlock *source, BasicBlock *t
 
 void AdvisorAnalysis::print_basic_block_configuration(Function *F, raw_ostream *out) {
 	*out << "Basic Block Configuration:\n";
-	for (auto BB = F->begin(); BB != F->end(); BB++) {
-		int repFactor = get_basic_block_instance_count(BB);
-		*out << BB->getName() << "\t[" << repFactor << "]\n";
+	for (auto &BB : *F) {
+		int repFactor = get_basic_block_instance_count(&BB);
+		*out << BB.getName() << "\t[" << repFactor << "]\n";
 	}
 }
 
 int AdvisorAnalysis::get_total_basic_block_instances(Function *F) {
   int total = 0;
-  for (auto BB = F->begin(); BB != F->end(); BB++) {
-    total += get_basic_block_instance_count(BB);
+  for (auto &BB : *F) {
+    total += get_basic_block_instance_count(&BB);
   }
   return total;
 }
 
 bool AdvisorAnalysis::prune_basic_block_configuration_to_device_area(Function *F) {
 
-  for (auto BB = F->begin(); BB != F->end(); BB++) {
-    int areaBB = FunctionAreaEstimator::get_basic_block_area(*AT, BB);
-    int repFactor = get_basic_block_instance_count(BB);
+  for (auto &BB : *F) {
+    int areaBB = FunctionAreaEstimator::get_basic_block_area(*AT, &BB);
+    int repFactor = get_basic_block_instance_count(&BB);
     int maxBBCount = areaConstraint/areaBB;
     // Lower repFactor to the maximum for the target FPGA. 
     repFactor = std::min(maxBBCount, repFactor);                
-    set_basic_block_instance_count(BB, repFactor);
+    set_basic_block_instance_count(&BB, repFactor);
   }
 
   return true;
 }
 
 void AdvisorAnalysis::dumpImplementationCounts(Function *F) {
-  for (auto BB = F->begin(); BB != F->end(); BB++) {
-    int repFactor = get_basic_block_instance_count(BB);
+  for (auto &BB : *F) {
+    int repFactor = get_basic_block_instance_count(&BB);
     if ( repFactor > 0 ) {
-      std::cerr << "Implementation for block : " << BB->getName().str() << " (area: " << FunctionAreaEstimator::get_basic_block_area(*AT, BB) << ") count is " << repFactor << std::endl;      
+      std::cerr << "Implementation for block : " << BB.getName().str() << " (area: " << FunctionAreaEstimator::get_basic_block_area(*AT, &BB) << ") count is " << repFactor << std::endl;      
     }
   }
 }
