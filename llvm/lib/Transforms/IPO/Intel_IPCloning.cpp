@@ -49,6 +49,12 @@ enum IPCloneKind {
 // Option to trace IP Cloning
 static cl::opt<bool> IPCloningTrace("print-ip-cloning", cl::ReallyHidden);
 
+// Option to enable AfterInl IP Cloning, which is disabled by default.
+// This option mainly for LIT tests to test AfterInl cloning
+// without LTO.
+static cl::opt<bool> IPCloningAfterInl("ip-cloning-after-inl",
+                                   cl::init(false), cl::ReallyHidden);
+
 // Maximum number of clones allowed for any routine.
 static cl::opt<unsigned> IPFunctionCloningLimit("ip-function-cloning-limit",
                                    cl::init(3), cl::ReallyHidden);
@@ -1984,6 +1990,7 @@ public:
     if (skipModule(M))
       return false;
 
+    if (IPCloningAfterInl) AfterInl = true;
     return runIPCloning(M, AfterInl);
   }
 
@@ -2004,6 +2011,8 @@ ModulePass *llvm::createIPCloningLegacyPass(bool AfterInl) {
 
 PreservedAnalyses IPCloningPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
+  if (IPCloningAfterInl) AfterInl = true;
+
   if (runIPCloning(M, AfterInl))
     return PreservedAnalyses::none();
   return PreservedAnalyses::all();
