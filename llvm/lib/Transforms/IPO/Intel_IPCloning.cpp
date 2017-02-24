@@ -836,8 +836,10 @@ static void analyzeCallSitesForSpecializationCloning(Function &F) {
     return;
   }
   for (User *UR : F.users()) {
-    CallSite CS = CallSite(UR);
 
+    if (!isa<CallInst>(UR)) continue;
+
+    CallSite CS = CallSite(UR);
     if (!CS || CS.getCalledFunction() != &F)
       continue;
 
@@ -1692,7 +1694,7 @@ static CallSite createNewCall(CallSite CS, BasicBlock* Insert_BB,
 ////
 //
 static void cloneSpecializationFunction(void) {
-#if 0
+
   std::vector<CmpInst*> NewCondStmts;
     // New conditonal tests used in specialization
   std::vector<BasicBlock*> NewCondStmtBBs;
@@ -1702,6 +1704,10 @@ static void cloneSpecializationFunction(void) {
    
   // Iterate through the list of CallSites that will be cloned.
   for (unsigned I = 0, E = CurrCallList.size(); I != E; ++I) {
+    NewClonedCallBBs.clear();
+    NewClonedCalls.clear();
+    NewCondStmtBBs.clear();
+    NewCondStmts.clear();
     Instruction *Inst = CurrCallList[I];
     if (IPCloningTrace)
        errs() << "\n Call-Site (Spec): " << *Inst << "\n\n";
@@ -1724,8 +1730,8 @@ static void cloneSpecializationFunction(void) {
     BasicBlock *OrigBB = CI->getParent();
     BasicBlock *TailBB = OrigBB->splitBasicBlock(CI);
     unsigned CloneCount = CallArgsSets.size();
-    unsigned NumConds = CloneCount - 1;
     bool IsInexact = InexactArgsSetsCallList.count(CI);
+    unsigned NumConds = CloneCount - 1;
     if (IsInexact) ++NumConds;
     // Make the clones for this CallSite
     for (unsigned J = 0; J < CloneCount; J++) {
@@ -1794,8 +1800,8 @@ static void cloneSpecializationFunction(void) {
     OrigBB->getInstList().pop_back();
     BranchInst::Create(NewCondStmtBBs[0], OrigBB);
     BasicBlock* F_BB;
-    for (unsigned J = 0; J < CloneCount -1; J++) {
-      if (J + 1 < CloneCount -1) {
+    for (unsigned J = 0; J < NumConds; J++) {
+      if (J + 1 < NumConds) {
         F_BB = NewCondStmtBBs[J+1];
       }
       else {
@@ -1818,23 +1824,22 @@ static void cloneSpecializationFunction(void) {
       CI->replaceAllUsesWith(RPHI);
     }
     if (IPCloningTrace) {
-      for (unsigned J = 0; J < CloneCount; J++) {
-       if (J != CloneCount -1) {
+      for  (unsigned J = 0; J < CloneCount; J++) {
+       if (J < NumConds) {
         errs() << "    Cond[" << J << "] = ";
         errs() << *NewCondStmtBBs[J] << "\n";
        }
         errs() << "    Call[" << J << "] = "
-          << *(NewClonedCalls[J]) << "\n\n";
+          << *(NewClonedCallBBs[J]) << "\n\n";
       }
       if (IsInexact)
         errs() << "    Fallback Call = "
-          << *(NewClonedCalls[CloneCount]) << "\n\n";
+          << *(NewClonedCallBBs[CloneCount]) << "\n\n";
       else
         errs() << "    No Fallback Call" << "\n\n";
     }
     CI->eraseFromParent();
   }
-#endif
 } 
 
 // Main routine to analyze all calls and clone functions if profitable.
