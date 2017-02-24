@@ -194,8 +194,7 @@ protected:
 
   /// Returns true if the canon expr represents a constant.
   bool isConstInternal() const {
-    return (!containsUndef() && !hasIV() && !hasBlob() &&
-            (getDenominator() == 1));
+    return (!hasIV() && !hasBlob() && (getDenominator() == 1));
   }
 
   /// Returns true if canon expr is a constant integer. Integer value is

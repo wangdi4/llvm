@@ -276,7 +276,7 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
 
-  if (getUpperDDRef() && (isDo() || isDoMultiExit())) {
+  if (getStrideDDRef() && (isDo() || isDoMultiExit())) {
     OS << "+ DO ";
     if (Detailed) {
       getIVType()->print(OS);
@@ -298,11 +298,11 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
 
     if (isDo()) {
       OS << "<DO_LOOP>";
-    } else if (isDoMultiExit()) {
+    } else {
       OS << "<DO_MULTI_EXIT_LOOP>";
     }
 
-  } else if (!getUpperDDRef() || isUnknown()) {
+  } else if (!getStrideDDRef() || isUnknown()) {
     OS << "+ UNKNOWN LOOP i" << NestingLevel;
   } else {
     llvm_unreachable("Unexpected loop type!");
@@ -459,18 +459,6 @@ bool HLLoop::isZttOperandDDRef(const RegDDRef *Ref) const {
   return (It != ztt_ddref_end());
 }
 
-RegDDRef *HLLoop::getLowerDDRef() { return getOperandDDRefImpl(0); }
-
-const RegDDRef *HLLoop::getLowerDDRef() const {
-  return const_cast<HLLoop *>(this)->getLowerDDRef();
-}
-
-void HLLoop::setLowerDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isTerminalRef()) && "Invalid LowerDDRef!");
-
-  setOperandDDRefImpl(Ref, 0);
-}
-
 RegDDRef *HLLoop::removeLowerDDRef() {
   auto TRef = getLowerDDRef();
 
@@ -479,18 +467,6 @@ RegDDRef *HLLoop::removeLowerDDRef() {
   }
 
   return TRef;
-}
-
-RegDDRef *HLLoop::getUpperDDRef() { return getOperandDDRefImpl(1); }
-
-const RegDDRef *HLLoop::getUpperDDRef() const {
-  return const_cast<HLLoop *>(this)->getUpperDDRef();
-}
-
-void HLLoop::setUpperDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isTerminalRef()) && "Invalid UpperDDRef!");
-
-  setOperandDDRefImpl(Ref, 1);
 }
 
 RegDDRef *HLLoop::removeUpperDDRef() {
@@ -502,20 +478,6 @@ RegDDRef *HLLoop::removeUpperDDRef() {
 
   return TRef;
 }
-
-RegDDRef *HLLoop::getStrideDDRef() { return getOperandDDRefImpl(2); }
-
-const RegDDRef *HLLoop::getStrideDDRef() const {
-  return const_cast<HLLoop *>(this)->getStrideDDRef();
-}
-
-void HLLoop::setStrideDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isTerminalRef()) && "Invalid StrideDDRef!");
-
-  setOperandDDRefImpl(Ref, 2);
-}
-
-void HLLoop::setLLVMLoop(const Loop *LLVMLoop) { OrigLoop = LLVMLoop; }
 
 RegDDRef *HLLoop::removeStrideDDRef() {
   auto TRef = getStrideDDRef();
@@ -888,32 +850,24 @@ void HLLoop::removePostexit() {
 void HLLoop::verify() const {
   HLDDNode::verify();
 
-  assert(((!getLowerDDRef()->isUndefSelfBlob() &&
-           !getUpperDDRef()->isUndefSelfBlob() &&
-           !getStrideDDRef()->isUndefSelfBlob()) ||
-          (getLowerDDRef()->isUndefSelfBlob() &&
-           getUpperDDRef()->isUndefSelfBlob() &&
-           getStrideDDRef()->isUndefSelfBlob())) &&
-         "Lower, Upper and Stride DDRefs "
-         "should be all defined or all undefined");
+  if (!isUnknown()) {
+    auto StrideCE = getStrideDDRef()->getSingleCanonExpr();
+    (void)StrideCE;
 
-  auto StrideCE = getStrideDDRef()->getSingleCanonExpr();
-  (void)StrideCE;
+    assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
+           "Loop lower cannot be non-linear!");
+    assert(!getUpperDDRef()->getSingleCanonExpr()->isNonLinear() &&
+           "Loop upper cannot be non-linear!");
+    assert(!StrideCE->isNonLinear() && "Loop stride cannot be non-linear!");
 
-  assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
-         "Loop lower cannot be non-linear!");
-  assert(!getUpperDDRef()->getSingleCanonExpr()->isNonLinear() &&
-         "Loop upper cannot be non-linear!");
-  assert(!StrideCE->isNonLinear() && "Loop stride cannot be non-linear!");
-
-  int64_t Val;
-
-  assert((StrideCE->isIntConstant(&Val) && (Val > 0)) &&
+    int64_t Val;
+    assert((StrideCE->isIntConstant(&Val) && (Val > 0)) &&
          "Loop stride expected to be a postive integer!");
-  (void)Val;
+    (void)Val;
 
-  assert(getUpperDDRef()->getSrcType()->isIntegerTy() &&
-         "Invalid loop upper type!");
+    assert(getUpperDDRef()->getSrcType()->isIntegerTy() &&
+           "Invalid loop upper type!");
+  }
 
   // TODO: Implement special case as ZTT's DDRefs are attached to node
   // if (Ztt) {

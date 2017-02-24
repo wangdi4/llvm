@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Verify that we do not get stuck in infinite recursion when processing this file.
-; CHECK: UNKNOWN LOOP i1
+; CHECK: DO i1
 ; CHECK: END LOOP
 
 

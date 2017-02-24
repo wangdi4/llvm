@@ -2019,8 +2019,8 @@ RegDDRef *HIRParser::createLowerDDRef(Type *IVType) {
   return Ref;
 }
 
-RegDDRef *HIRParser::createStrideDDRef(Type *IVType) {
-  auto Ref = getDDRefUtils().createConstDDRef(IVType, 1);
+RegDDRef *HIRParser::createStrideDDRef(Type *IVType, unsigned Stride) {
+  auto Ref = getDDRefUtils().createConstDDRef(IVType, Stride);
   return Ref;
 }
 
@@ -2119,13 +2119,18 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setLowerDDRef(LowerRef);
 
     // Initialize Stride to 1.
-    auto StrideRef = createStrideDDRef(IVType);
+    auto StrideRef = createStrideDDRef(IVType, 1);
     HLoop->setStrideDDRef(StrideRef);
 
     // Set the upper bound
     auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType);
     HLoop->setUpperDDRef(UpperRef);
+  } else {
+    // Initialize Stride to 0 for unknown loops.
+    auto StrideRef = createStrideDDRef(IVType, 0);
+    HLoop->setStrideDDRef(StrideRef);
   }
+
   // TODO: assert that SIMD loops are always DO loops.
 
   // Parse ztt.

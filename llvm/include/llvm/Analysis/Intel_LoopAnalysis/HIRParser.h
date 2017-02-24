@@ -350,8 +350,8 @@ private:
   /// Returns a RegDDRef representing loop lower (constant 0).
   RegDDRef *createLowerDDRef(Type *IVType);
 
-  /// Returns a RegDDRef representing loop stride (constant 1).
-  RegDDRef *createStrideDDRef(Type *IVType);
+  /// Returns a RegDDRef representing loop stride with value \p Val.
+  RegDDRef *createStrideDDRef(Type *IVType, unsigned Val);
 
   /// Returns a RegDDRef representing loop upper.
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
