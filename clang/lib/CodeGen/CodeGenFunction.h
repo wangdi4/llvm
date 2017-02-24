@@ -3011,7 +3011,11 @@ public:
       const Stmt &S, bool RequiresCleanup, const Expr *LoopCond,
       const Expr *IncExpr,
       const llvm::function_ref<void(CodeGenFunction &)> &BodyGen,
-      const llvm::function_ref<void(CodeGenFunction &)> &PostIncGen);
+#if INTEL_SPECIFIC_OPENMP
+      const llvm::function_ref<void(CodeGenFunction &)> &PostIncGen,
+      llvm::BasicBlock *IncomingBlock = nullptr,
+      const Expr *IterationVariable = nullptr);
+#endif // INTEL_SPECIFIC_OPENMP
 
   JumpDest getOMPCancelDestination(OpenMPDirectiveKind Kind);
   /// Emit initial code for loop counters of loop-based directives.
@@ -3046,6 +3050,9 @@ private:
 
 #if INTEL_SPECIFIC_OPENMP
   void EmitIntelOpenMPDirective(const OMPExecutableDirective &S);
+  void EmitIntelOMPLoop(const OMPLoopDirective &S, OpenMPDirectiveKind K);
+  void EmitIntelOMPSimdDirective(const OMPSimdDirective &S);
+  void EmitIntelOMPParallelForDirective(const OMPParallelForDirective &S);
 #endif // INTEL_SPECIFIC_OPENMP
 public:
 
