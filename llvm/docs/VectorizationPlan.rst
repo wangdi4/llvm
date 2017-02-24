@@ -281,6 +281,12 @@ VPlan Classes: Definitions
   terms Region and Block rather than Tile [8]_ to avoid confusion with loop
   tiling.
 
+  VPO VPlan: The topmost VPBasicBlock in the Hierarchical CFG is a
+  VPRegionBlock that encloses any other VPRegionBlock or VPBasicBlock in the
+  CFG, including the VPlan's outermost VPLoop. The Entry and Exit of this
+  region are dummy VPBasicBlock’s that do not have any correspondence with
+  the incoming IR. 
+
 :VPBasicBlock:
   Serves as the leaf of the Hierarchical CFG. Represents a sequence of
   instructions that will appear consecutively in a basic block of the vectorized
@@ -374,6 +380,30 @@ VPlan Classes: Definitions
   SESE region is to be replicated. It is also designed to serve predicating
   divergent branches while retaining uniform branches as much as possible /
   desirable, and represent inner loops.
+
+:VPLoop:
+  is a VPRegionBlock that represents a loop in the Hierarchical CFG. Entry
+  block is the loop pre-header. Exit block is a post-dominator of all loop
+  blocks. Consequently, all loop latches will be inside the VPLoop region.
+  
+  A new pre-header block may need to be constructed if one does not exist or if
+  existing pre-header has multiple successors.
+  
+  WIP 1: If the loop has a single exit block, this block is used as exit block
+  of the region. Otherwise, the immediate post-dominator of the loop header is
+  used.
+  WIP 2: Currently, VPLoop class inherits from VPRegionBlock and LoopBase
+  classes to represent both a loop in the Hierarchical CFG and the loop
+  metadata produced by VPLoopInfo analysis. This design is going to change in
+  the near future. The plan is to have two separate classes, VPLoopRegion and
+  VPLoop, to decouple the representation of CFG loop from loop metadata,
+  respectively.
+
+:VPLoopInfo:
+  is a specialization of LoopInfoBase that provides analysis of natural loops
+  for a VPBlockBase-based CFG. It is used to build VPLoop’s and keep consistent
+  all the loop metadata information throughout the CFG transformation steps of
+  VPlan construction.
 
 :VPBlockBase:
   The building block of the Hierarchical CFG. A VPBlockBase can be either a

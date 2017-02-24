@@ -744,6 +744,30 @@ void LoopVectorizationPlanner::verifyHierarchicalCFG(
          "Number of loops in CFG doesn't match number of loops in VPLoopInfo");
 }
 
+// It builds a VPlan with the initial Hierarchical CFG (HCFG) based on the
+// of the input IR. The resulting HCFG won't have a one-to-one correspondence
+// with the incoming CFG. The algorithm applies the following steps:
+//
+// 1. buildPlainCFG: builds the HCFG topmost VPRegionBlock that encloses a CFG
+//    with only VPBasicBlock's (plain CFG). This plain CFG closely represents
+//    the CFG from the input IR.
+//
+//    - Topmost VPRegionBlock has a dummy Entry and Exit
+//    - VPBasicBlock's contain OneByOneRecipes
+//    - Dummy landing pad generated for outermost loop with multiple exits
+//
+// 2. simplifyPlanCFG:
+//     - Loop PH massaging
+//     - Loop Exits massaging
+//     - Non-loop region massaging
+//     - DT, PDT and VPLoopInfo are preserved
+//
+// 3. buildHierarchicalCFG:
+//     - outer-in traversal
+//     - VPLoop construction
+//     - Non-loop VPRegion construction
+//
+
 std::shared_ptr<IntelVPlan>
 LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
                                             unsigned &EndRangeVF) {
