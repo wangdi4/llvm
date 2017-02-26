@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 #include "llvm/ADT/Statistic.h"
@@ -2165,51 +2166,96 @@ struct StructuredFlowChecker final : public HLNodeVisitorBase {
   bool IsStructured;
   bool IsDone;
 
-  StructuredFlowChecker(bool PDom, const HLNode *TNode)
-      : IsPDom(PDom), TargetNode(TNode), IsStructured(true), IsDone(false) {}
+  StructuredFlowChecker(bool PDom, const HLNode *TNode,
+                        const HLLoop *ParentLoop, HIRLoopStatistics *HLS);
 
-  void visit(const HLNode *Node) {
-    if (Node == TargetNode) {
-      IsDone = true;
-      return;
-    }
+  // Returns true if visitor is done.
+  bool visit(const HLNode *Node);
 
-    if (!IsPDom) {
-      if (isa<HLLabel>(Node)) {
-        IsStructured = false;
+  void visit(const HLLabel *Label);
+  void visit(const HLGoto *Goto);
+  void visit(const HLLoop *Lp);
+
+  void postVisit(const HLNode *) {}
+
+  bool isDone() const override { return (IsDone || !isStructured()); }
+  bool isStructured() const { return IsStructured; }
+};
+
+StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
+                                             const HLLoop *ParentLoop,
+                                             HIRLoopStatistics *HLS)
+    : IsPDom(PDom), TargetNode(TNode), IsStructured(true), IsDone(false) {
+  // Query HIRLoopStatistics for a possible faster response.
+  if (HLS && ParentLoop) {
+    if (IsPDom) {
+      auto &TLS = HLS->getTotalLoopStatistics(ParentLoop);
+
+      // Should we store statistics for multi-exit children loops to only
+      // require self statistics?
+      if (!TLS.hasGotos()) {
+        IsDone = true;
       }
-      return;
-    }
+    } else {
+      auto &SLS = HLS->getSelfLoopStatistics(ParentLoop);
 
-    // Post domination logic.
-    if (auto Goto = dyn_cast<HLGoto>(Node)) {
-      if (Goto->isExternal()) {
-        IsStructured = false;
-        return;
-      }
-
-      auto Label = Goto->getTargetLabel();
-
-      if (Label->getTopSortNum() > TargetNode->getTopSortNum()) {
-        IsStructured = false;
-      }
-
-    } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
-      // Be conservative in the presence of multi-exit loops.
-      if (Loop->getNumExits() > 1) {
-        IsStructured = false;
+      if (!SLS.hasLabels()) {
+        IsDone = true;
       }
     }
   }
+}
 
-  void postVisit(const HLNode *) {}
-  bool isDone() const override { return (IsDone || !IsStructured); }
-  bool isStructured() { return IsStructured; }
-};
+bool StructuredFlowChecker::visit(const HLNode *Node) {
+  if (Node == TargetNode) {
+    IsDone = true;
+  }
+
+  return IsDone;
+}
+
+void StructuredFlowChecker::visit(const HLLabel *Label) {
+  if (visit(static_cast<const HLNode *>(Label)) || IsPDom) {
+    return;
+  }
+
+  if (isa<HLLabel>(Label)) {
+    IsStructured = false;
+  }
+}
+
+void StructuredFlowChecker::visit(const HLGoto *Goto) {
+  if (visit(static_cast<const HLNode *>(Goto)) || !IsPDom) {
+    return;
+  }
+
+  if (Goto->isExternal()) {
+    IsStructured = false;
+    return;
+  }
+
+  auto Label = Goto->getTargetLabel();
+
+  if (Label->getTopSortNum() > TargetNode->getTopSortNum()) {
+    IsStructured = false;
+  }
+}
+
+void StructuredFlowChecker::visit(const HLLoop *Lp) {
+  if (visit(static_cast<const HLNode *>(Lp)) || !IsPDom) {
+    return;
+  }
+
+  // Be conservative in the presence of multi-exit loops.
+  if (Lp->getNumExits() > 1) {
+    IsStructured = false;
+  }
+}
 
 bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
                                     const HLNode *TargetNode,
-                                    bool PostDomination, bool UpwardTraversal) {
+                                    bool PostDomination, bool UpwardTraversal,
+                                    HIRLoopStatistics *HLS) {
   const HLNode *FirstNode = nullptr, *LastNode = nullptr;
 
   // For parent loops we should retrieve the absolute first/last lexical child
@@ -2237,7 +2283,8 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
 
   assert((FirstNode && LastNode) && "Could not find first/last lexical child!");
 
-  StructuredFlowChecker SFC(PostDomination, TargetNode);
+  StructuredFlowChecker SFC(PostDomination, TargetNode,
+                            FirstNode->getParentLoop(), HLS);
 
   // Don't need to recurse into loops.
   // Do a forward traversal when going down and vice versa.
@@ -2253,6 +2300,7 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
 const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
                                                   const HLNode *Node2,
                                                   bool PostDomination,
+                                                  HIRLoopStatistics *HLS,
                                                   const HLNode **LastParent1) {
   const HLNode *Parent = Node1->getParent();
   const HLNode *FirstNode = nullptr, *LastNode = nullptr;
@@ -2296,7 +2344,7 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
     // Keep checking for structured flow for the nodes we come acoss while
     // moving up the chain.
     if (!hasStructuredFlow(Parent, *LastParent1, TargetNode, PostDomination,
-                           PostDomination)) {
+                           PostDomination, HLS)) {
       return nullptr;
     }
 
@@ -2309,7 +2357,7 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
 
 const HLNode *HLNodeUtils::getCommonDominatingParent(
     const HLNode *Parent1, const HLNode *LastParent1, const HLNode *Node2,
-    bool PostDomination, const HLNode **LastParent2) {
+    bool PostDomination, HIRLoopStatistics *HLS, const HLNode **LastParent2) {
   const HLNode *CommonParent = Node2->getParent();
   *LastParent2 = Node2;
 
@@ -2319,7 +2367,7 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
     // Keep checking for structured flow for the nodes we come acoss while
     // moving up the chain.
     if (!hasStructuredFlow(CommonParent, *LastParent2, LastParent1,
-                           PostDomination, !PostDomination)) {
+                           PostDomination, !PostDomination, HLS)) {
       return nullptr;
     }
 
@@ -2335,7 +2383,8 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
 }
 
 bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
-                                bool PostDomination, bool StrictDomination) {
+                                bool PostDomination, bool StrictDomination,
+                                HIRLoopStatistics *HLS) {
 
   assert(Node1 && Node2 && "Node is null!");
 
@@ -2375,7 +2424,7 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   // }
   const HLNode *LastParent1 = nullptr;
   const HLNode *Parent1 =
-      getOutermostSafeParent(Node1, Node2, PostDomination, &LastParent1);
+      getOutermostSafeParent(Node1, Node2, PostDomination, HLS, &LastParent1);
 
   // Could't find an appropriate parent for Node1.
   if (!Parent1) {
@@ -2384,7 +2433,7 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
 
   const HLNode *LastParent2 = nullptr;
   const HLNode *CommonParent = getCommonDominatingParent(
-      Parent1, LastParent1, Node2, PostDomination, &LastParent2);
+      Parent1, LastParent1, Node2, PostDomination, HLS, &LastParent2);
 
   const HLIf *IfParent = dyn_cast_or_null<HLIf>(CommonParent);
   const HLSwitch *SwitchParent = dyn_cast_or_null<HLSwitch>(CommonParent);
@@ -2441,27 +2490,31 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   }
 
   llvm_unreachable("Unexpected condition encountered!");
-  ;
 }
 
-bool HLNodeUtils::dominates(const HLNode *Node1, const HLNode *Node2) {
-  return dominatesImpl(Node1, Node2, false, false);
+bool HLNodeUtils::dominates(const HLNode *Node1, const HLNode *Node2,
+                            HIRLoopStatistics *HLS) {
+  return dominatesImpl(Node1, Node2, false, false, HLS);
 }
 
-bool HLNodeUtils::strictlyDominates(const HLNode *Node1, const HLNode *Node2) {
-  return dominatesImpl(Node1, Node2, false, true);
+bool HLNodeUtils::strictlyDominates(const HLNode *Node1, const HLNode *Node2,
+                                    HIRLoopStatistics *HLS) {
+  return dominatesImpl(Node1, Node2, false, true, HLS);
 }
 
-bool HLNodeUtils::postDominates(const HLNode *Node1, const HLNode *Node2) {
-  return dominatesImpl(Node1, Node2, true, false);
+bool HLNodeUtils::postDominates(const HLNode *Node1, const HLNode *Node2,
+                                HIRLoopStatistics *HLS) {
+  return dominatesImpl(Node1, Node2, true, false, HLS);
 }
 
 bool HLNodeUtils::strictlyPostDominates(const HLNode *Node1,
-                                        const HLNode *Node2) {
-  return dominatesImpl(Node1, Node2, true, true);
+                                        const HLNode *Node2,
+                                        HIRLoopStatistics *HLS) {
+  return dominatesImpl(Node1, Node2, true, true, HLS);
 }
 
-bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2) {
+bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2,
+                                    HIRLoopStatistics *HLS) {
   // The dominance checks can return true for nodes under different parent
   // loops when the references are under constant bound loops. For the example
   // below these checks might incorrectly deduce that both references can be
@@ -2491,8 +2544,8 @@ bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2) {
     return false;
   }
 
-  if (!(dominates(Node2, Node1) && postDominates(Node1, Node2)) &&
-      !(dominates(Node1, Node2) && postDominates(Node2, Node1))) {
+  if (!(dominates(Node2, Node1, HLS) && postDominates(Node1, Node2, HLS)) &&
+      !(dominates(Node1, Node2, HLS) && postDominates(Node2, Node1, HLS))) {
     return false;
   }
 
@@ -2522,23 +2575,6 @@ bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
   }
 
   return false;
-}
-
-const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned Level,
-                                                  const HLLoop *InnermostLoop) {
-  assert(InnermostLoop && " InnermostLoop is null.");
-  assert(Level > 0 && Level <= MaxLoopNestLevel && " Level is invalid.");
-  // level is at least 1
-  // parentLoop is immediate parent
-  // return nullptr for invalid inputs
-  HLLoop *Loop;
-  for (Loop = const_cast<HLLoop *>(InnermostLoop); Loop != nullptr;
-       Loop = Loop->getParentLoop()) {
-    if (Level == Loop->getNestingLevel()) {
-      return Loop;
-    }
-  }
-  return nullptr;
 }
 
 bool HLNodeUtils::isMinValue(VALType ValType) {
@@ -2720,9 +2756,12 @@ HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
 
   ConditionCE->addConstant(EqualOffset, false);
 
-  VALType Type = getMinMaxBlobValue(BlobIdx, ConditionCE.get(), Val);
-  if (Ret == VALType::IsUnknown) {
-    Ret = Type;
+  VALType BlobValueType = getMinMaxBlobValue(BlobIdx, ConditionCE.get(), Val);
+
+  // Return BlobValueType if there is no information about blob or if it wasn't
+  // previously recognized as IsConstant.
+  if (BlobValueType == VALType::IsUnknown || Ret != VALType::IsConstant) {
+    Ret = BlobValueType;
   }
 
   return Ret;
@@ -3367,7 +3406,7 @@ STATISTIC(IfsRemoved, "Empty Ifs removed");
 
 struct EmptyLoopRemoverVisitor final : HLNodeVisitorBase {
   void postVisit(HLLoop *Loop) {
-    if (Loop->isDo() && !Loop->hasChildren()) {
+    if (!Loop->hasChildren()) {
       Loop->extractPreheaderAndPostexit();
       HLNodeUtils::remove(Loop);
       LoopsRemoved++;

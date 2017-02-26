@@ -29,6 +29,7 @@ protected:
   virtual HLNode *getMappedImpl(const HLNode *Node) const = 0;
 
 public:
+  virtual ~HLNodeMapper() {}
   virtual void map(const HLNode *Node, HLNode *MappedNode){};
 
   template <typename T> T *getMapped(const T *Node) const {
@@ -44,6 +45,7 @@ protected:
 
 public:
   HLNodeToNodeMapperImpl() {}
+  virtual ~HLNodeToNodeMapperImpl() {}
 
   HLNode *getMappedImpl(const HLNode *Node) const override {
     auto Iter = NodeMap.find(Node);
@@ -58,6 +60,7 @@ class HLNodeLambdaMapperImpl : public HLNodeToNodeMapperImpl {
 
 public:
   HLNodeLambdaMapperImpl(const Predicate Pred) : Pred(Pred) {}
+  virtual ~HLNodeLambdaMapperImpl() {}
 
   void map(const HLNode *Node, HLNode *MappedNode) override {
     if (Pred(Node)) {
@@ -70,12 +73,13 @@ namespace HLNodeLambdaMapper {
 
 template <typename Predicate>
 HLNodeLambdaMapperImpl<Predicate> mapper(Predicate Pred) {
-  return std::move(HLNodeLambdaMapperImpl<Predicate>(Pred));
+  return HLNodeLambdaMapperImpl<Predicate>(Pred);
 }
 }
 
 struct HLNodeToNodeMapper final : public HLNodeToNodeMapperImpl {
   HLNodeToNodeMapper() {}
+  virtual ~HLNodeToNodeMapper() {}
 
   template <typename... T>
   HLNodeToNodeMapper(T... Args) {

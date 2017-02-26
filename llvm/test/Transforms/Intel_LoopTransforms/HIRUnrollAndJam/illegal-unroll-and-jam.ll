@@ -5,7 +5,7 @@
 
 ; CHECK: Dump Before HIR Unroll & Jam
 
-; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 99>
 ; CHECK: |   + DO i2 = 0, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   |   %0 = (@A)[0][i1][i2];
 ; CHECK: |   |   %1 = (@A)[0][i1 + 1][i2];
@@ -18,7 +18,7 @@
 ; CHECK: Dump After HIR Unroll & Jam 
 
 ; CHECK: BEGIN REGION { }
-; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 99>
 ; CHECK: |   + DO i2 = 0, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   |   %0 = (@A)[0][i1][i2];
 ; CHECK: |   |   %1 = (@A)[0][i1 + 1][i2];

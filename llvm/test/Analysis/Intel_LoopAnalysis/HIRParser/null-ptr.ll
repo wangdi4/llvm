@@ -4,7 +4,7 @@
 
 ; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %0 = (%A)[i1];
-; CHECK: |   if (&((%0)[0]) != 0)
+; CHECK: |   if (&((%0)[0]) != null)
 ; CHECK: |   {
 ; CHECK: |      %1 = (%0)[i1];
 ; CHECK: |      (%B)[i1] = %1;

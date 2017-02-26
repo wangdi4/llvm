@@ -1,14 +1,15 @@
 ; RUN: opt < %s -analyze -hir-creation | FileCheck %s
 
-; Check that the post-dominating switch case (L3 bblock) is linked after the switch while creating lexical links.
+; Check that the cross-linked case L2 and post-dominating switch case (L3 bblock) is linked after the switch while creating lexical links.
 ; CHECK: switch
 ; CHECK: case
 ; CHECK-NEXT: goto L3
 ; CHECK-NEXT: case
-; CHECK: L2:
-; CHECK: goto L3
+; CHECK: goto L2
 ; CHECK: default
 ; CHECK: goto L2
+; CHECK: L2:
+; CHECK: goto L3
 ; CHECK: L3:
 
 

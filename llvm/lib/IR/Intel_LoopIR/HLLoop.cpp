@@ -623,7 +623,7 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
   // For normalized loop, TC = (UB+1).
   if (isNormalized()) {
     Result = UBCE->clone();
-    Result->addConstant(1);
+    Result->addConstant(1, true);
     return Result;
   }
 
@@ -891,6 +891,7 @@ void HLLoop::verify() const {
          "should be all defined or all undefined");
 
   auto StrideCE = getStrideDDRef()->getSingleCanonExpr();
+  (void)StrideCE;
 
   assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
          "Loop lower cannot be non-linear!");

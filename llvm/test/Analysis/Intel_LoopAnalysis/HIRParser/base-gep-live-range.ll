@@ -9,7 +9,7 @@
 ; CHECK: + DO i1 = 0, 11, 1   <DO_LOOP>
 ; CHECK: |   %2 = (@size)[0][i1];
 ; CHECK: |   %1 = &((%1)[%2]);
-; CHECK: |   %retval.0.i = 0;
+; CHECK: |   %retval.0.i = null;
 ; CHECK: |   if (&((%1)[0]) <=u &((@allocbuf)[1][0]))
 ; CHECK: |   {
 ; CHECK: |      (@allocp)[0] = &((%1)[0]);

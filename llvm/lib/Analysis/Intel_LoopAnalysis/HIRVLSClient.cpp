@@ -52,7 +52,6 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
   DDGraph DDG = VectContext->getDDG();
   const HLDDNode *DDNode = Ref->getHLDDNode();
   const HLDDNode *AtDDNode = AtRef->getHLDDNode();
-  auto &HNU = DDNode->getHLNodeUtils();
 
   //(1) Check Control Flow: In terms of CFG Ref and AtRef need to be
   //"equivalent": In the context of optVLS (which calls this utility), if
@@ -62,7 +61,7 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
   // now anytime Ref is accessed AtRef will be accessed and vice versa. So
   // if there is a scenario/path in which Ref is accessed and AtRef isn't,
   // or the other way around, we have to return false.
-  if (!HNU.canAccessTogether(DDNode, AtDDNode))
+  if (!HLNodeUtils::canAccessTogether(DDNode, AtDDNode, nullptr))
     return false;
 
   //(2) Check Aliasing:
@@ -104,8 +103,8 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
     // relevant, but the sink r0 and r6 are not relevant.
     // FIXME: Probably this check holds only for straight line code? may need a
     // stronger check for the general case
-    if (!HNU.isInTopSortNumRange(SinkNode, DDNode, AtDDNode) &&
-        !HNU.isInTopSortNumRange(SinkNode, AtDDNode, DDNode)) {
+    if (!HLNodeUtils::isInTopSortNumRange(SinkNode, DDNode, AtDDNode) &&
+        !HLNodeUtils::isInTopSortNumRange(SinkNode, AtDDNode, DDNode)) {
       continue;
     }
     // Lastly: Check the dependence edge.
@@ -222,4 +221,3 @@ OVLSTTICostModelHIR::getGatherScatterOpCost(const OVLSMemref &Mrf) const {
   GatherScatterCost += TTI.getAddressComputationCost(VectorTy);
   return GatherScatterCost;
 }
-

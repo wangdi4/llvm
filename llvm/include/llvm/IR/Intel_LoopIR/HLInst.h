@@ -170,8 +170,11 @@ public:
   /// populated back.
   bool isIntrinCall(Intrinsic::ID &IntrinID) const;
 
-  /// Checks whether the instruction is a call to SIMD Directive, i.e.,
-  /// intel_directive call with the right metadata.
+  /// Checks whether the instruction is a call to a specific Intel Directive,
+  /// i.e. the intel_directive call with the right metadata.
+  bool isIntelDirective(int DirectiveID) const;
+
+  /// Checks whether the instruction is a call to a omp simd directive.
   bool isSIMDDirective() const;
 
   /// Checks if the Opcode is a reduction and returns OpCode

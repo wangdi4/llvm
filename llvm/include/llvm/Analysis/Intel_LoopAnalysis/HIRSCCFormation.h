@@ -35,7 +35,7 @@ class ScalarEvolution;
 
 namespace loopopt {
 
-/// \brief This analysis identifies SCCs for non-linear loop header phis in the
+/// This analysis identifies SCCs for non-linear loop header phis in the
 /// regions which are then used by SSA deconstruction pass to map different
 /// values to the same symbase.
 /// It looks for phis(nodes) in the loop headers and traverses the def-use
@@ -127,7 +127,7 @@ private:
   const int NO_SCC = -1;
 
 private:
-  /// \brief Returns true if this is a potential root of a new SCC.
+  /// Returns true if this is a potential root of a new SCC.
   bool isCandidateRootNode(const NodeTy *Node) const;
 
   /// Returns true if \p Phi is used in a header phi contained in CurLoop.
@@ -143,34 +143,34 @@ private:
   /// Returns true if this is a single trip loop.
   bool isSingleTripLoop(Loop *Lp) const;
 
-  /// \brief Returns true if this is a node of the graph.
+  /// Returns true if this is a node of the graph.
   bool isCandidateNode(const NodeTy *Node) const;
 
-  /// \brief Returns the next successor of Node in the graph.
+  /// Returns the next successor of Node in the graph.
   NodeTy::user_iterator getNextSucc(NodeTy *Node,
                                     NodeTy::user_iterator PrevSucc) const;
 
-  /// \brief Returns the first successor of Node in the graph.
+  /// Returns the first successor of Node in the graph.
   NodeTy::user_iterator getFirstSucc(NodeTy *Node) const;
 
-  /// \brief Returns the last successor of Node in the graph.
+  /// Returns the last successor of Node in the graph.
   NodeTy::user_iterator getLastSucc(NodeTy *Node) const;
 
-  /// \brief Removes non-phi nodes which are not directly connected to phi nodes
-  /// in the SCC.
+  /// Removes non-phi nodes which are not directly connected to phi nodes in the
+  /// SCC.
   /// Returns false if intermediate nodes cannot be removed (invalid SCC).
   bool removedIntermediateNodes(SCC &CurSCC) const;
 
-  /// \brief Sets the RegionSCCBegin iterator for a new region.
+  /// Sets the RegionSCCBegin iterator for a new region.
   void setRegionSCCBegin();
 
-  /// \brief Returns the index/offset of this region relative to RI->begin().
+  /// Returns the index/offset of this region relative to RI->begin().
   unsigned getRegionIndex(HIRRegionIdentification::const_iterator RegIt) const;
 
-  /// \brief Sets RegIt as the current region being processed.
+  /// Sets RegIt as the current region being processed.
   void setRegion(HIRRegionIdentification::const_iterator RegIt);
 
-  /// \brief Returns true if forming this SCC results in a cleaner HIR.
+  /// Returns true if forming this SCC results in a cleaner HIR.
   bool isProfitableSCC(const SCC &CurSCC) const;
 
   /// Returns true if one of \p Inst1 and \p Inst2 is a CmpInst and the other is
@@ -178,25 +178,28 @@ private:
   /// identiy min/max patterns.
   static bool isCmpAndSelectPattern(Instruction *Inst1, Instruction *Inst2);
 
-  /// Returns true if Node has multiple non-phi uses in the SCC.
-  bool hasMultipleNonPhiSCCUses(NodeTy *Node, const SCC &CurSCC) const;
+  /// Returns true if Node has multiple uses in the SCC at the same loop level.
+  bool hasMultipleSCCUsesAtSameLevel(NodeTy *Node, const SCC &CurSCC) const;
 
-  /// \brief Checks the validity of an SCC w.r.t assigning the same symbase to
-  /// all its nodes.
+  /// Returns true if the SCC operands of MergePhi (non-header Phi) have
+  /// live-range overlap.
+  bool hasLiveRangeOverlap(const PHINode *MergePhi, const SCC &CurSCC) const;
+
+  /// Checks the validity of an SCC w.r.t assigning the same symbase to all its
+  /// nodes.
   bool isValidSCC(const SCC &CurSCC) const;
 
-  /// \brief Checks that Phi is used in another phi in the SCC.
+  /// Checks that Phi is used in another phi in the SCC.
   static bool isUsedInSCCPhi(PHINode *Phi, const SCC &CurSCC);
 
   /// Used to set the outermost loop header phi amongst the nodes as the root
   /// node.
   void updateRoot(SCC &CurSCC, NodeTy *NewRoot) const;
 
-  /// \brief Runs Tarjan's algorithm on this node. Returns the lowlink for this
-  /// node.
+  /// Runs Tarjan's algorithm on this node. Returns the lowlink for this node.
   unsigned findSCC(NodeTy *Node);
 
-  /// \brief Forms SCCs for non-linear loop header phis in the regions.
+  /// Forms SCCs for non-linear loop header phis in the regions.
   void formRegionSCCs();
 
 public:
@@ -206,17 +209,17 @@ public:
   bool runOnFunction(Function &F) override;
   void releaseMemory() override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
-  /// \brief Prints SCCs for all regions.
+  /// Prints SCCs for all regions.
   void print(raw_ostream &OS, const Module * = nullptr) const override;
-  /// \brief Prints SCCs for a region.
+  /// Prints SCCs for a region.
   void print(raw_ostream &OS,
              HIRRegionIdentification::const_iterator RegIt) const;
   void verifyAnalysis() const override;
 
-  /// \brief Returns true if this node is considered linear by parsing.
+  /// Returns true if this node is considered linear by parsing.
   bool isConsideredLinear(const NodeTy *Node) const;
 
-  /// \brief Returns true if Inst has a user outside region pointed to by RegIt.
+  /// Returns true if Inst has a user outside region pointed to by RegIt.
   static bool isRegionLiveOut(HIRRegionIdentification::const_iterator RegIt,
                               const Instruction *Inst);
 

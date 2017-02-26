@@ -126,7 +126,7 @@ void HIRVectVLSAnalysis::testVLSMemrefAnalysis(VectVLSContext *VectContext,
       DEBUG(dbgs() << "\n   Compare with Ref "; Ref2->dump());
 
       // Compute Distances
-      if (Ref->getDDRefUtils().getConstDistance(Ref, Ref2, &Distance)) {
+      if (DDRefUtils::getConstByteDistance(Ref, Ref2, &Distance)) {
         DEBUG(dbgs() << "     Distance  = " << Distance << ".\n");
       } else {
         DEBUG(dbgs() << "     Could not compute Distance.\n");

@@ -56,10 +56,10 @@
 //                                                                            //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -77,7 +77,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define DEBUG_TYPE "ddtest"
+#define DEBUG_TYPE "hir-dd-test"
+#define DEBUG_AA(X) DEBUG_WITH_TYPE("hir-dd-test-aa", X)
 
 //===----------------------------------------------------------------------===//
 // statistics
@@ -227,7 +228,7 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVNum,
       CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
   unsigned int IVFound = 0;
-  assert(HNU.isLoopLevelValid(IVNum) && "IVnum not within range");
+  assert(CanonExprUtils::isValidLoopLevel(IVNum) && "IVnum not within range");
 
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
@@ -292,8 +293,7 @@ static const HLLoop *getLoop(const CanonExpr *CE, const HLLoop *ParentLoop) {
     }
   }
 
-  Loop =
-      ParentLoop->getHLNodeUtils().getParentLoopwithLevel(IVLevel, ParentLoop);
+  Loop = ParentLoop->getParentLoopAtLevel(IVLevel);
 
   return Loop;
 }
@@ -315,8 +315,7 @@ static const HLLoop *getFirstLoop(const CanonExpr *CE,
     }
   }
 
-  Loop = ParentLoop->getHLNodeUtils().getParentLoopwithLevel(
-      CE->getLevel(CurIVPair), ParentLoop);
+  Loop = ParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
   assert(Loop && "Loop must be found for iv ");
   return Loop;
 }
@@ -358,8 +357,7 @@ const CanonExpr *DDTest::getMinus(const CanonExpr *SrcConst,
     return nullptr;
   }
 
-  CanonExpr *CE =
-      HNU.getCanonExprUtils().cloneAndSubtract(SrcConst, DstConst, true);
+  CanonExpr *CE = CanonExprUtils::cloneAndSubtract(SrcConst, DstConst, true);
   if (!CE) {
     return nullptr;
   }
@@ -376,7 +374,7 @@ const CanonExpr *DDTest::getAdd(const CanonExpr *SrcConst,
   if (!SrcConst || !DstConst) {
     return nullptr;
   }
-  CanonExpr *CE = HNU.getCanonExprUtils().cloneAndAdd(SrcConst, DstConst, true);
+  CanonExpr *CE = CanonExprUtils::cloneAndAdd(SrcConst, DstConst, true);
   if (!CE) {
     return nullptr;
   }
@@ -415,29 +413,27 @@ const CanonExpr *DDTest::getNegativeDist(const CanonExpr *CE) {
   return getNegative(CE);
 }
 
+// Current support in Util: one of them must be a constant
 const CanonExpr *DDTest::getMulExpr(const CanonExpr *CE1,
                                     const CanonExpr *CE2) {
-
-  // Current support in Util: one of them must be a constant
   int64_t CVal = 0;
-
-  CanonExpr *CE = nullptr;
 
   if (!CE1 || !CE2) {
     return nullptr;
   }
 
   if (CE2->isIntConstant(&CVal)) {
-    CE = CE1->clone();
-    CE->multiplyByConstant(CVal);
-  } else if (CE1->isIntConstant(&CVal)) {
-    CE = CE2->clone();
-    CE->multiplyByConstant(CVal);
-  } else {
+    std::swap(CE1, CE2);
+  } else if (!CE1->isIntConstant(&CVal)) {
     return nullptr;
   }
 
+  CanonExpr *CE = CE2->clone();
   push(CE);
+  if (!CE->multiplyByConstant(CVal)) {
+    return nullptr;
+  }
+
   return CE;
 }
 
@@ -897,7 +893,7 @@ void Dependences::dump(raw_ostream &OS) const {
 }
 #endif
 
-#if 0 
+#if 0	
 
 static
 AAResults::AliasResult underlyingObjectsAlias(AAResults *AA,
@@ -2930,7 +2926,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
     // based on level, get to corrs. parent loop
     const HLLoop *CurLoop =
-        HNU.getParentLoopwithLevel(CE->getLevel(CurIVPair), SrcParentLoop);
+        SrcParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
 
     assert(CurLoop && "Expecting parent loop not null");
 
@@ -3518,10 +3514,10 @@ DDTest::CoefficientInfo *DDTest::collectCoeffInfo(const CanonExpr *Subscript,
       continue;
     }
     if (SrcFlag) {
-      L = HNU.getParentLoopwithLevel(CE->getLevel(CurIVPair), SrcParentLoop);
+      L = SrcParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
       K = mapSrcLoop(L);
     } else {
-      L = HNU.getParentLoopwithLevel(CE->getLevel(CurIVPair), DstParentLoop);
+      L = DstParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
       K = mapDstLoop(L);
     }
 
@@ -3960,7 +3956,8 @@ static void dumpSmallBitVector(SmallBitVector &BV) {
 }
 #endif
 
-DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU) : AAR(AAR), HNU(HNU) {
+DDTest::DDTest(AAResults &AAR, HLNodeUtils &HNU, HIRLoopStatistics &HLS)
+    : AAR(AAR), HNU(HNU), HLS(HLS) {
   DEBUG(dbgs() << "DDTest initiated\n");
   WorkCE.clear();
 }
@@ -3976,16 +3973,45 @@ DDTest::~DDTest() {
   WorkCE.clear();
 }
 
+static MemoryLocation getMemoryLocation(const RegDDRef *Ref) {
+  MemoryLocation Loc;
+
+  const CanonExpr *BaseCE = Ref->getBaseCE();
+  if (BaseCE->isNull()) {
+    Loc.Ptr = Constant::getNullValue(BaseCE->getDestType());
+  } else {
+    auto BaseBlobIndex = Ref->getBaseCE()->getSingleBlobIndex();
+    Loc.Ptr = Ref->getBlobUtils().getTempBlobValue(BaseBlobIndex);
+  }
+
+  Loc.Size = MemoryLocation::UnknownSize;
+
+  Ref->getAAMetadata(Loc.AATags);
+
+  return Loc;
+}
+
 bool DDTest::queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef) {
   assert(SrcDDRef->isMemRef() && DstDDRef->isMemRef() &&
          "Both should be mem refs");
 
-  MemoryLocation SrcLoc;
-  MemoryLocation DstLoc;
-  SrcDDRef->getAAMetadata(SrcLoc.AATags);
-  DstDDRef->getAAMetadata(DstLoc.AATags);
+  if (SrcDDRef == DstDDRef) {
+    return false;
+  }
 
-  return AAR.isNoAlias(SrcLoc, DstLoc);
+  DEBUG_AA(dbgs() << "call queryAAIndep():\n");
+  DEBUG_AA(SrcDDRef->dump());
+  DEBUG_AA(dbgs() << "\n");
+  DEBUG_AA(DstDDRef->dump());
+  DEBUG_AA(dbgs() << "\nR: ");
+
+  if (AAR.isNoAlias(getMemoryLocation(SrcDDRef), getMemoryLocation(DstDDRef))) {
+    DEBUG_AA(dbgs() << "No Alias\n\n");
+    return true;
+  }
+
+  DEBUG_AA(dbgs() << "May Alias\n\n");
+  return false;
 }
 
 // depends:
@@ -4055,6 +4081,9 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
   DEBUG(dbgs() << ",  "; DstDDRef->dump());
+  DEBUG(dbgs() << "\n"
+               << SrcDDRef->getHLDDNode()->getNumber() << ":"
+               << DstDDRef->getHLDDNode()->getNumber());
 
   assert(SrcDDRef->getSymbase() == DstDDRef->getSymbase() &&
          "Asking DDA for distinct references is useless");
@@ -4085,7 +4114,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   DEBUG(dbgs() << "\nSrc/Dst Blob?  " << (SrcRegDDRef == nullptr) << " "
-               << (DstRegDDRef == nullptr) << "\n ");
+               << (DstRegDDRef == nullptr) << "\n");
 
   if ((IsSrcRval && IsDstRval)) {
     // if both instructions don't reference memory, there's no dependence
@@ -4831,7 +4860,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       return false;
     }
 
-    if (HNU.dominates(SrcHIR, DstHIR)) {
+    if (HLNodeUtils::dominates(SrcHIR, DstHIR, &HLS)) {
       if (IsFlow) {
         // If src can reach Dst lexically
         //   assuming 2 level loop
@@ -5105,22 +5134,19 @@ bool DirectionVector::isEQ() const {
 /// Is DV implying INDEP for level L to end?
 /// e.g.  DV = (< *)	 implies INDEP for innermost loop
 /// In this example, isDVIndepFromLevel(&DV, 2) return true
-bool DirectionVector::isIndepFromLevel(unsigned FromLevel) const {
+bool DirectionVector::isIndepFromLevel(unsigned Level) const {
 
-  assert(HLNodeUtils::isLoopLevelValid(FromLevel) && "incorrect Level");
+  assert(CanonExprUtils::isValidLoopLevel(Level) && "incorrect Level");
 
-  for (unsigned II = 1; II <= FromLevel - 1; ++II) {
-    unsigned Direction = (*this)[II - 1];
-    if (Direction == DVKind::NONE) {
-      break;
-    }
-    switch (Direction) {
-    case DVKind::LT:
-    case DVKind::GT:
-    case DVKind::NE:
+  // DVKind::LT:  001
+  // DVKind::GT : 100
+  // LT | GT :    101 <=> Either LT or GT <=> DVKind::NE
+  // DVKind::EQ : 010
+  for (unsigned Lvl = 1; Lvl <= Level - 1; ++Lvl) {
+    unsigned Dir = (*this)[Lvl - 1];
+    assert(Dir != DVKind::NONE);
+    if ((Dir & DVKind::EQ) == DVKind::NONE) {
       return true;
-    default:
-      break;
     }
   }
 

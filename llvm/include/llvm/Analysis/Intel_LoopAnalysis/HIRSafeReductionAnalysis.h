@@ -34,6 +34,7 @@ namespace loopopt {
 class CanonExpr;
 class HLInst;
 class HLLoop;
+class HIRLoopStatistics;
 
 typedef SmallVector<const HLInst *, 4> SafeRedChain;
 
@@ -52,6 +53,7 @@ class HIRSafeReductionAnalysis final : public HIRAnalysisPass {
 
 private:
   HIRDDAnalysis *DDA;
+  HIRLoopStatistics *HLS;
   unsigned FirstRvalSB;
   const HLNode *FirstChild;
   // From Loop, look up all sets of Insts in a Safe Reduction chain
@@ -68,7 +70,6 @@ private:
   void setSafeRedChainList(SafeRedChain &RedInsts, const HLLoop *Loop,
                            unsigned RedSymbase, unsigned RedOpCode);
 
-  void identifySingleStatementReduction(const HLLoop *Loop, DDGraph DDG);
   void identifySafeReductionChain(const HLLoop *Loop, DDGraph DDG);
   bool isValidSR(const RegDDRef *LRef, const HLLoop *Loop, HLInst **SinkInst,
                  DDRef **SinkDDRef, unsigned ReductionOpCode, DDGraph DDG);
@@ -105,7 +106,7 @@ public:
   // Checks if operand is a safe reduction operand and returns related opcode
   bool isReductionRef(const RegDDRef *Ref, unsigned &RedOpCode);
 
-  void print(formatted_raw_ostream &OS, const HLLoop *Loop);
+  void print(formatted_raw_ostream &OS, const HLLoop *Loop) override;
   void print(formatted_raw_ostream &OS, const HLLoop *Loop,
              const SafeRedChainList *SR);
   // void print(formatted_raw_ostream &OS, unsigned Indented,

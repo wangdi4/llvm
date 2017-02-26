@@ -54,8 +54,16 @@ static AVRValue *decomposeCoeff(Constant *Const) {
   return AVal;
 }
 
-static AVRValue *decomposeCoeff(int64_t Coeff, Type *Type) {
-  Constant *ConstCoeff = ConstantInt::getSigned(Type, Coeff);
+static AVRValue *decomposeCoeff(int64_t Coeff, Type *Ty) {
+  Constant *ConstCoeff;
+
+  // Null value for pointer types needs special treatment
+  if (Coeff == 0 && Ty->isPointerTy()) {
+    ConstCoeff = Constant::getNullValue(Ty);
+  } else {
+    ConstCoeff = ConstantInt::getSigned(Ty, Coeff);
+  }
+ 
   ConstLog.push_back(ConstCoeff);
   return decomposeCoeff(ConstCoeff);
 }

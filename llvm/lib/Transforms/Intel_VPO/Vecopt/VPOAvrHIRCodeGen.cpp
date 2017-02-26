@@ -360,6 +360,11 @@ bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
 
   const CanonExpr *FirstCE = nullptr;
 
+  // Return false for cases where the lowest dimension has trailing struct
+  // field offsets.
+  if (Ref->hasTrailingStructOffsets(1))
+    return false;
+
   // Check that canon exprs for dimensions other than the first are
   // invariant.
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
@@ -497,6 +502,13 @@ void HandledCheck::visit(HLDDNode *Node) {
 // present inside it.
 void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
   int64_t IVConstCoeff;
+
+  if (!VectorType::isValidElementType(RegDD->getSrcType())) {
+    DEBUG(RegDD->getSrcType()->dump());
+    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - invalid element type\n");
+    IsHandled = false;
+    return;
+  }
 
   if (AVRCodeGenHIR::isConstStrideRef(RegDD, LoopLevel, &IVConstCoeff) &&
       IVConstCoeff == 1)
@@ -716,9 +728,12 @@ bool AVRCodeGenHIR::isSmallShortAddRedLoop() {
     if (Count > 2)
       return false;
 
-    assert(isa<AVRAssignHIR>(Itr) && "Expected AVR assign");
-    auto HInst = cast<AVRAssignHIR>(Itr)->getHIRInstruction();
+    auto AAssign = dyn_cast<AVRAssignHIR>(Itr);
+    // Return false if the loop has anything other than AVRAssigns
+    if (!AAssign)
+      return false;
 
+    auto HInst = AAssign->getHIRInstruction();
     if (HInst->getLLVMInstruction()->getOpcode() != Instruction::Add)
       continue;
 
@@ -1123,7 +1138,7 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
 
     // Combine with initial value
     auto FinalInst = Loop->getHLNodeUtils().createBinaryHLInst(
-        BOpcode, ScalarValue->clone(), InitValRef->clone(), "" /* Name */,
+        BOpcode, ScalarValue->clone(), InitValRef->clone(), "final" /* Name */,
         ResultRef->clone());
     InstContainer.push_back(*FinalInst);
     return FinalInst;
@@ -1219,12 +1234,13 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node) {
   // Create a wide reduction instruction
   HLInst *WideInst = Node->getHLNodeUtils().createBinaryHLInst(
       BOp->getOpcode(), RedOpVecInst->getLvalDDRef()->clone(), FreeOpVec,
-      "" /* Name */, RedOpVecInst->getLvalDDRef()->clone(), BOp);
+      "red" /* Name */, RedOpVecInst->getLvalDDRef()->clone(), BOp);
 
   // Build the tail - horizontal operation that converts vector to scalar
   HLContainerTy Tail;
   const RegDDRef *Address = RHM.getReductionValuePtr(RI);
-  HLInst *LoadInitValInst = Node->getHLNodeUtils().createLoad(Address->clone());
+  HLInst *LoadInitValInst =
+      Node->getHLNodeUtils().createLoad(Address->clone(), "init");
   Tail.push_back(*LoadInitValInst);
 
   RegDDRef *InitValue = LoadInitValInst->getLvalDDRef();

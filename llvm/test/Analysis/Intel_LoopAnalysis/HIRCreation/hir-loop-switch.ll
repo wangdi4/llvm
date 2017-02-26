@@ -10,13 +10,13 @@
 ; CHECK: goto sw.bb1;
 ; CHECK: case
 ; CHECK: goto sw.bb1;
-; CHECK-NEXT: sw.bb1:
-; CHECK: goto for.inc;
-; CHECK: default
+; CHECK-NEXT: default
 ; CHECK: goto sw.default;
 ; CHECK-NEXT: sw.default:
 ; CHECK: goto for.inc;
-; CHECK: for.inc
+; CHECK: sw.bb1:
+; CHECK: goto for.inc;
+; CHECK-NEXT: for.inc
 
 ; RUN: opt < %s -analyze -hir-creation -debug 2>&1 | FileCheck -check-prefix=COST-MODEL %s
 ; COST-MODEL: Loop throttled due to presence of user calls

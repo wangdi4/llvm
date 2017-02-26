@@ -53,6 +53,7 @@ INITIALIZE_PASS_BEGIN(HIRLoopDistributionForLoopNest,
                       "hir-loop-distribute-loopnest",
                       "HIR Loop Distribution LoopNest", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRLoopDistributionForLoopNest,
                     "hir-loop-distribute-loopnest",

@@ -83,16 +83,6 @@ void HIRRegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
 }
 
-const GEPOperator *
-HIRRegionIdentification::getBaseGEPOp(const GEPOperator *GEPOp) const {
-
-  while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
-    GEPOp = TempGEPOp;
-  }
-
-  return GEPOp;
-}
-
 Type *HIRRegionIdentification::getPrimaryElementType(Type *PtrTy) const {
   assert(isa<PointerType>(PtrTy) && "Unexpected type!");
 
@@ -124,7 +114,7 @@ bool HIRRegionIdentification::isHeaderPhi(const PHINode *Phi) const {
   return false;
 }
 
-bool HIRRegionIdentification::isSupported(Type *Ty) const {
+bool HIRRegionIdentification::isSupported(Type *Ty) {
   assert(Ty && "Type is null!");
 
   for (; SequentialType *SeqTy = dyn_cast<SequentialType>(Ty);) {
@@ -136,9 +126,9 @@ bool HIRRegionIdentification::isSupported(Type *Ty) const {
     Ty = SeqTy->getElementType();
   }
 
-  if (Ty->isStructTy() || Ty->isFunctionTy()) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: structure/function pointer types "
-                    "currently not supported.\n");
+  if (Ty->isFunctionTy()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: function pointer types currently not "
+                    "supported.\n");
     return false;
   }
 
@@ -154,15 +144,35 @@ bool HIRRegionIdentification::isSupported(Type *Ty) const {
   return true;
 }
 
-bool HIRRegionIdentification::containsUnsupportedTy(
-    const Instruction *Inst) const {
+bool HIRRegionIdentification::containsUnsupportedTy(const GEPOperator *GEPOp) {
+  SmallVector<Value *, 8> Operands;
 
-  if (auto GEPOp = dyn_cast<GEPOperator>(Inst)) {
-    GEPOp = getBaseGEPOp(GEPOp);
+  auto BaseTy = GEPOp->getPointerOperandType()->getSequentialElementType();
 
-    if (!isSupported(GEPOp->getSourceElementType())) {
+  if (!isSupported(BaseTy)) {
+    return true;
+  }
+
+  unsigned NumOp = GEPOp->getNumOperands() - 1;
+  Operands.push_back(const_cast<Value *>(GEPOp->getOperand(1)));
+
+  for (unsigned I = 2; I <= NumOp; ++I) {
+    Operands.push_back(const_cast<Value *>(GEPOp->getOperand(I)));
+
+    auto OpTy = GetElementPtrInst::getIndexedType(BaseTy, Operands);
+
+    if (!isSupported(OpTy)) {
       return true;
     }
+  }
+
+  return false;
+}
+
+bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst) {
+
+  if (auto GEPOp = dyn_cast<GEPOperator>(Inst)) {
+    return containsUnsupportedTy(GEPOp);
   }
 
   unsigned NumOp = Inst->getNumOperands();
@@ -176,15 +186,7 @@ bool HIRRegionIdentification::containsUnsupportedTy(
 
   // Check instruction operands
   for (unsigned I = 0; I < NumOp; ++I) {
-
-    if (const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Inst->getOperand(I))) {
-      GEPOp = getBaseGEPOp(GEPOp);
-
-      if (!isSupported(GEPOp->getSourceElementType())) {
-        return true;
-      }
-
-    } else if (!isSupported(Inst->getOperand(I)->getType())) {
+    if (!isSupported(Inst->getOperand(I)->getType())) {
       return true;
     }
   }
@@ -246,7 +248,15 @@ public:
   bool isProfitable() const { return IsProfitable; }
 
   void analyze() {
+    bool IsInnermostLoop = Lp.empty();
+
     for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
+
+      // Skip bblocks which belong to inner loops.
+      if (!IsInnermostLoop && (RI.LI->getLoopFor(*BB) != &Lp)) {
+        continue;
+      }
+
       if (!visitBasicBlock(**BB)) {
         IsProfitable = false;
         break;
@@ -256,6 +266,8 @@ public:
 
   bool visitBasicBlock(const BasicBlock &BB);
   bool visitInstruction(const Instruction &Inst);
+  bool visitLoadInst(const LoadInst &LI);
+  bool visitStoreInst(const StoreInst &SI);
   bool visitCallInst(const CallInst &CI);
   bool visitBranchInst(const BranchInst &BI);
 };
@@ -307,6 +319,28 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
   return Ret;
 }
 
+bool HIRRegionIdentification::CostModelAnalyzer::visitLoadInst(
+    const LoadInst &LI) {
+  if (LI.isVolatile()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
+                    "volatile load.\n");
+    return false;
+  }
+
+  return visitInstruction(static_cast<const Instruction &>(LI));
+}
+
+bool HIRRegionIdentification::CostModelAnalyzer::visitStoreInst(
+    const StoreInst &SI) {
+  if (SI.isVolatile()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
+                    "volatile store.\n");
+    return false;
+  }
+
+  return visitInstruction(static_cast<const Instruction &>(SI));
+}
+
 bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     const CallInst &CI) {
 
@@ -329,6 +363,13 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return visitInstruction(static_cast<const Instruction &>(BI));
   }
 
+  auto ParentBB = BI.getParent();
+
+  // Complex CFG checks do not apply to headers/latches.
+  if ((ParentBB == Lp.getHeader()) || (ParentBB == Lp.getLoopLatch())) {
+    return true;
+  }
+
   if (++IfCount > MaxIfThreshold) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many ifs.\n");
@@ -336,7 +377,6 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   }
 
   unsigned IfNestCount = 0;
-  auto ParentBB = BI.getParent();
   auto DomNode = RI.DT->getNode(const_cast<BasicBlock *>(ParentBB));
 
   while (DomNode != HeaderDomNode) {
@@ -374,11 +414,6 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return false;
   }
 
-  // Complex CFG checks do not apply to headers/latches.
-  if ((ParentBB == Lp.getHeader()) || (ParentBB == Lp.getLoopLatch())) {
-    return true;
-  }
-
   auto Succ0 = BI.getSuccessor(0);
   auto Succ1 = BI.getSuccessor(1);
 
@@ -410,15 +445,184 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
     return false;
   }
 
-  // Restrict checks to innermost loops for now. This can be expanded later.
-  if (!Lp.empty()) {
-    return false;
-  }
-
   CostModelAnalyzer CMA(*this, Lp);
   CMA.analyze();
 
   return !CMA.isProfitable();
+}
+
+bool HIRRegionIdentification::isReachableFromImpl(
+    const BasicBlock *BB, const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
+    const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
+    SmallPtrSetImpl<const BasicBlock *> &VisitedBBs) const {
+
+  if (FromBBs.count(BB)) {
+    return true;
+  }
+
+  if (EndBBs.count(BB)) {
+    return false;
+  }
+
+  if (VisitedBBs.count(BB)) {
+    return false;
+  } else {
+    VisitedBBs.insert(BB);
+  }
+
+  for (auto Pred = pred_begin(BB), E = pred_end(BB); Pred != E; ++Pred) {
+    auto PredBB = *Pred;
+
+    // Skip recursing into backedges.
+    if (!DT->dominates(BB, PredBB) &&
+        isReachableFromImpl(PredBB, EndBBs, FromBBs, VisitedBBs)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HIRRegionIdentification::isReachableFrom(
+    const BasicBlock *BB, const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
+    const SmallPtrSetImpl<const BasicBlock *> &FromBBs) const {
+  SmallPtrSet<const BasicBlock *, 32> VisitedBBs;
+
+  return isReachableFromImpl(BB, EndBBs, FromBBs, VisitedBBs);
+}
+
+bool HIRRegionIdentification::containsCycle(const BasicBlock *BB,
+                                            const Loop &Lp) const {
+  SmallVector<BasicBlock *, 8> DomChildren;
+
+  auto Node = DT->getNode(const_cast<BasicBlock *>(BB));
+
+  // Collect dominator children in the same loop.
+  for (auto &I : (*Node)) {
+    auto BB = I->getBlock();
+
+    if (LI->getLoopFor(BB) == &Lp) {
+      DomChildren.push_back(BB);
+    }
+  }
+
+  unsigned Size = DomChildren.size();
+
+  if (Size < 2) {
+    return false;
+  }
+
+  SmallPtrSet<const BasicBlock *, 1> EndBBs;
+  SmallPtrSet<const BasicBlock *, 1> FromBBs;
+  EndBBs.insert(BB);
+
+  // For each pair of dominator children, check if they can reach each other
+  // without going through the dominator.
+  for (unsigned I = 0; I < Size - 1; ++I) {
+    auto ChildBB1 = DomChildren[I];
+
+    for (unsigned J = I + 1; J < Size; ++J) {
+      auto ChildBB2 = DomChildren[J];
+
+      FromBBs.clear();
+      FromBBs.insert(ChildBB2);
+
+      if (!isReachableFrom(ChildBB1, EndBBs, FromBBs)) {
+        continue;
+      }
+
+      FromBBs.clear();
+      FromBBs.insert(ChildBB1);
+
+      if (isReachableFrom(ChildBB2, EndBBs, FromBBs)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
+  bool IsInnermostLoop = Lp.empty();
+
+  // Check instructions inside the loop.
+  for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
+
+    // Skip this bblock as it has been checked by an inner loop.
+    if (!IsInnermostLoop && LI->getLoopFor(*BB) != (&Lp)) {
+      continue;
+    }
+
+    auto FirstInst = (*BB)->getFirstNonPHI();
+
+    if (isa<LandingPadInst>(FirstInst) || isa<FuncletPadInst>(FirstInst)) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
+                      "supported.\n");
+      return false;
+    }
+
+    auto Term = (*BB)->getTerminator();
+
+    if (isa<IndirectBrInst>(Term)) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Indirect branches currently not "
+                      "supported.\n");
+      return false;
+    }
+
+    if (isa<InvokeInst>(Term) || isa<ResumeInst>(Term) ||
+        isa<CatchSwitchInst>(Term) || isa<CatchReturnInst>(Term) ||
+        isa<CleanupReturnInst>(Term)) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
+                      "supported.\n");
+      return false;
+    }
+
+    // Skip the terminator instruction.
+    for (auto Inst = (*BB)->begin(), E = std::prev((*BB)->end()); Inst != E;
+         ++Inst) {
+
+      if (Inst->isAtomic()) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Atomic instructions are currently "
+                        "not supported.\n");
+        return false;
+      }
+
+      // TODO: think about HIR representation for
+      // InsertValueInst/ExtractValueInst.
+      if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst)) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: InsertValueInst/ExtractValueInst "
+                        "currently not supported.\n");
+        return false;
+      }
+
+      if (Inst->getType()->isVectorTy()) {
+        DEBUG(dbgs()
+              << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
+        return false;
+      }
+
+      if (auto CInst = dyn_cast<CallInst>(Inst)) {
+        if (CInst->isInlineAsm()) {
+          DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Inline assembly currently not "
+                          "supported.\n");
+          return false;
+        }
+      }
+
+      if (containsUnsupportedTy(&*Inst)) {
+        return false;
+      }
+    }
+
+    // TODO: Is there a more efficient way to check this?
+    if (containsCycle(*BB, Lp)) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
@@ -482,17 +686,16 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   // Check that the loop backedge is a conditional branch.
-  auto Term = LatchBB->getTerminator();
-  auto BrInst = dyn_cast<BranchInst>(Term);
+  auto BrInst = dyn_cast<BranchInst>(LatchBB->getTerminator());
 
   if (!BrInst) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Non-branch instrcutions in loop latch "
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Non-branch instructions in loop latch "
                     "currently not supported.\n");
     return false;
   }
 
   if (BrInst->isUnconditional()) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Unconditional branch instrcutions in "
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Unconditional branch instructions in "
                     "loop latch currently not supported.\n");
     return false;
   }
@@ -525,53 +728,8 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // TODO: move into a separate function.
-  // Check instructions inside the loop.
-  for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
-
-    // Skip this bblock as it has been checked by an inner loop.
-    if (!Lp.empty() && LI->getLoopFor(*BB) != (&Lp)) {
-      continue;
-    }
-
-    if ((*BB)->isLandingPad()) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
-                      "supported.\n");
-      return false;
-    }
-
-    Term = (*BB)->getTerminator();
-
-    if (isa<IndirectBrInst>(Term)) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Indirect branches currently not "
-                      "supported.\n");
-      return false;
-    }
-
-    if (isa<InvokeInst>(Term) || isa<ResumeInst>(Term)) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
-                      "supported.\n");
-      return false;
-    }
-
-    for (const Instruction &Inst : **BB) {
-
-      if (Inst.isAtomic()) {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Atomic instructions are currently "
-                        "not supported.\n");
-        return false;
-      }
-
-      if (Inst.getType()->isVectorTy()) {
-        DEBUG(dbgs()
-              << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
-        return false;
-      }
-
-      if (containsUnsupportedTy(&Inst)) {
-        return false;
-      }
-    }
+  if (!areBBlocksGenerable(Lp)) {
+    return false;
   }
 
   if (shouldThrottleLoop(Lp)) {

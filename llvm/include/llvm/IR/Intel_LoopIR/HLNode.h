@@ -190,8 +190,9 @@ public:
   /// \brief Returns the outermost parent loop of this node, if one exists.
   HLLoop *getOutermostParentLoop() const;
 
-  /// Returns parent loop with a nesting level of \p Level. Asserts if it cannot
-  /// find such a loop.
+  /// Returns parent loop with a nesting level of \p Level. Starts checking from
+  /// the current node which could be a loop. Asserts if it cannot find such a
+  /// loop.
   HLLoop *getParentLoopAtLevel(unsigned Level) const;
 
   /// \brief Returns the Level of HLNode.

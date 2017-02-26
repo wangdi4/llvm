@@ -13,14 +13,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
-#include "llvm/Support/Debug.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 
 #define DEBUG_TYPE "hir-transform-utils"
 
@@ -130,9 +130,9 @@ bool HIRTransformUtils::doHIRLoopMemoryMotion(
 }
 
 bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
-                                                  unsigned UnrollOrVecFactor,
-                                                  uint64_t *NewTripCountP,
-                                                  RegDDRef **NewTCRef) {
+                                              unsigned UnrollOrVecFactor,
+                                              uint64_t *NewTripCountP,
+                                              RegDDRef **NewTCRef) {
 
   uint64_t TripCount;
 
@@ -184,9 +184,8 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
   return true;
 }
 
-void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
-                                             unsigned BlobIndex,
-                                             unsigned DefLevel) {
+void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
+                                         unsigned DefLevel) {
   // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
   BoundRef->setSymbase(BoundRef->getDDRefUtils().getNewSymbase());
 
@@ -196,10 +195,10 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
 }
 
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
-                                                     unsigned UnrollOrVecFactor,
-                                                     uint64_t NewTripCount,
-                                                     const RegDDRef *NewTCRef,
-                                                     bool VecMode) {
+                                                 unsigned UnrollOrVecFactor,
+                                                 uint64_t NewTripCount,
+                                                 const RegDDRef *NewTCRef,
+                                                 bool VecMode) {
   HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
 
   // Number of exits do not change due to vectorization
@@ -230,11 +229,14 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
     // For vectorizer mode, upper bound needs to be multiplied by
     // UnrollOrVecFactor since it is used as the stride
     if (VecMode) {
-      NewUBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
+      auto Ret =
+          NewUBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
+      assert(Ret && "multiplyByConstant() failed");
+      (void)Ret;
     }
 
     // Subtract 1.
-    NewUBRef->getSingleCanonExpr()->addConstant(-1);
+    NewUBRef->getSingleCanonExpr()->addConstant(-1, true);
 
     NewLoop->setUpperDDRef(NewUBRef);
 
@@ -265,9 +267,9 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
 }
 
 void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
-                                                 unsigned UnrollOrVecFactor,
-                                                 uint64_t NewTripCount,
-                                                 const RegDDRef *NewTCRef) {
+                                             unsigned UnrollOrVecFactor,
+                                             uint64_t NewTripCount,
+                                             const RegDDRef *NewTCRef) {
   // Mark Loop bounds as modified.
   HIRInvalidationUtils::invalidateBounds(OrigLoop);
 
@@ -281,7 +283,10 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
 
     // Non-constant trip loop, lb = (UnrollOrVecFactor)*t.
     RegDDRef *NewLBRef = NewTCRef->clone();
-    NewLBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
+    auto Ret =
+        NewLBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
+    assert(Ret && "multiplyByConstant() failed.");
+    (void)Ret;
 
     OrigLoop->setLowerDDRef(NewLBRef);
     // Sets the defined at level of new LB to (nesting level - 1) as the LB temp
@@ -338,6 +343,19 @@ void HIRTransformUtils::permuteLoopNests(
 
   SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
   HLLoop *DstLoop = OutermostLoop;
+
+  // isPerfectLoopNest() allows Prehdr/PostExit
+  // in outermost loop. If not extracted, it will lead to errors
+  // in this case:
+  // do i2=1,n   (before interchange)
+  //    do i3 =1,6
+  //    end
+  // end
+  //	 a[i1] = 2 (PostExit)
+  //
+  if (OutermostLoop != LoopPermutation.front()) {
+    OutermostLoop->extractPreheaderAndPostexit();
+  }
 
   for (auto &Lp : LoopPermutation) {
     HLLoop *LoopCopy = Lp->cloneEmptyLoop();

@@ -16,6 +16,7 @@
 #include "llvm/IR/BasicBlock.h"
 
 #include "llvm/IR/Intel_LoopIR/HLGoto.h"
+#include "llvm/IR/Intel_LoopIR/HLIf.h"
 #include "llvm/IR/Intel_LoopIR/HLLabel.h"
 
 using namespace llvm;
@@ -70,5 +71,22 @@ void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
 void HLGoto::verify() const {
   assert(((!TargetBBlock && TargetLabel) || (TargetBBlock && !TargetLabel)) &&
          "One and only one TargetBBlock or TargetLabel should be non-NULL");
+
+  if (TargetLabel) {
+    assert((TargetLabel->getTopSortNum() > getTopSortNum()) &&
+           "backward jump encountered in HIR!");
+
+    HLIf *IfParent = nullptr;
+    HLNode *CurParent = getParent();
+
+    while (CurParent && (IfParent = dyn_cast<HLIf>(CurParent))) {
+      if (IfParent->isThenChild(this)) {
+        assert(!IfParent->isElseChild(TargetLabel) &&
+               "Jump from then to else case encountered!");
+      }
+      CurParent = CurParent->getParent();
+    }
+  }
+
   HLNode::verify();
 }

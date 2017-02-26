@@ -35,10 +35,8 @@ class DDRefGrouping {
 public:
   template <typename RefTy> using RefGroupTy = SmallVector<RefTy *, 8>;
 
-  // RefGroupsTy data structure.
-  // The first unsigned argument is the group number.
   template <typename RefTy>
-  using RefGroupMapTy = std::map<unsigned, RefGroupTy<RefTy>>;
+  using RefGroupVecTy = std::vector<RefGroupTy<RefTy>>;
 
 private:
   DDRefGrouping() = delete;
@@ -46,58 +44,68 @@ private:
   DDRefGrouping(const DDRefGathererUtils &) = delete;
   DDRefGrouping &operator=(const DDRefGrouping &) = delete;
 
+  template <typename GroupingPredicate, typename InVector, typename OutVec>
+  static void groupImpl(OutVec &Groups, const InVector &MemRefVector,
+                        GroupingPredicate Predicate,
+                        unsigned &CurrentGroupIndex) {
+    auto StartGroupIndex = CurrentGroupIndex;
+
+    for (auto *Ref : MemRefVector) {
+      bool MatchFound = false;
+
+      // Check if DDRef matches any of the groups.
+      for (unsigned GroupIndex = StartGroupIndex, MaxGroupIndex = Groups.size();
+           GroupIndex < MaxGroupIndex; ++GroupIndex) {
+        auto &GroupRefVec = Groups[GroupIndex];
+        assert(!GroupRefVec.empty() && "Ref Group is empty.");
+        if (Predicate(GroupRefVec[0], Ref)) {
+          MatchFound = true;
+          GroupRefVec.push_back(Ref);
+          break;
+        }
+      }
+
+      // Create a new group since no match was found.
+      if (!MatchFound) {
+        Groups.resize(Groups.size() + 1);
+        Groups.back().emplace_back(Ref);
+      }
+    }
+  }
+
 public:
   /// \brief Creates a reference group out of the Symbol to Mem Ref Table.
   /// GroupingPredicate is a callable bool(const RefTy *, const RefTy *)
   /// that gets two RegDDRefs and returns true if both belong to the same group.
-  template <typename GroupingPredicate, typename InMap, typename OutMap>
-  static void createGroups(OutMap &Groups, const InMap &MemRefMap,
-                           GroupingPredicate Predicate) {
+  template <typename GroupingPredicate, typename InMap, typename OutVec>
+  static void groupMap(OutVec &Groups, const InMap &MemRefMap,
+                       GroupingPredicate Predicate) {
     // Incremented whenever a new group is created.
     unsigned MaxGroupNo = 0;
-
-    for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
-         SymVecPair != Last; ++SymVecPair) {
-
-      // Keep track of the new groups to match existing DDRefs.
-      unsigned StartGroupIndex = MaxGroupNo;
-
-      auto &RefVec = SymVecPair->second;
-      for (auto VecIt = RefVec.begin(), End = RefVec.end(); VecIt != End;
-           ++VecIt) {
-
-        bool MatchFound = false;
-
-        // Check if DDRef matches any of the groups.
-        for (unsigned GroupIndex = StartGroupIndex; GroupIndex < MaxGroupNo;
-             ++GroupIndex) {
-          auto &GroupRefVec = Groups[GroupIndex];
-          assert(!GroupRefVec.empty() && " Ref Group is empty.");
-          if (Predicate(GroupRefVec[0], *VecIt)) {
-            MatchFound = true;
-            GroupRefVec.push_back(*VecIt);
-            break;
-          }
-        }
-
-        // Create a new group since no match was found.
-        if (!MatchFound) {
-          Groups[MaxGroupNo++].push_back(*VecIt);
-        }
-      }
+    for (auto SymVecPair : MemRefMap) {
+      groupImpl(Groups, SymVecPair.second, Predicate, MaxGroupNo);
     }
+  }
+
+  /// \brief Creates a reference group out of the Mem Ref Vector.
+  /// GroupingPredicate is a callable bool(const RefTy *, const RefTy *)
+  /// that gets two RegDDRefs and returns true if both belong to the same group.
+  template <typename GroupingPredicate, typename InVector, typename OutVec>
+  static void groupVec(OutVec &Groups, const InVector &MemRefVector,
+                    GroupingPredicate Predicate) {
+    // Incremented whenever a new group is created.
+    unsigned MaxGroupNo = 0;
+    groupImpl(Groups, MemRefVector, Predicate, MaxGroupNo);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// \brief Prints out the array reference group mapping.
   template <typename RefTy>
-  static void dump(const RefGroupMapTy<RefTy> &Groups) {
-    dbgs() << "\n Reference Groups \n";
-    for (auto &Group : Groups) {
-      const RefGroupTy<RefTy> &RefVec = Group.second;
+  static void dump(const RefGroupVecTy<RefTy> &Groups) {
+    for (auto It = Groups.begin(), E = Groups.end(); It != E; ++It) {
+      auto &RefVec = *It;
 
-      dbgs() << "Group " << Group.first
-             << " {sb: " << RefVec.front()->getSymbase() << "} contains: \n";
+      dbgs() << "Group " << It - Groups.begin() << " contains: \n";
 
       for (const DDRef *Ref : RefVec) {
         dbgs() << "\t";
@@ -106,7 +114,8 @@ public:
         const RegDDRef *RegRef = dyn_cast<const RegDDRef>(Ref);
         bool IsLval = RegRef ? RegRef->isLval() : false;
 
-        dbgs() << " -> isWrite:" << IsLval << "\n";
+        dbgs() << " {sb:" << Ref->getSymbase() << "} -> isWrite:" << IsLval
+               << "\n";
       }
     }
   }

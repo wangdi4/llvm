@@ -81,12 +81,12 @@ public:
     ///    llvm.intel.directive.qual, 
     ///    llvm.intel.directive.qual.opnd, and 
     ///    llvm.intel.directive.qual.opndlist.
-    static StringRef getDirectiveMetadataString(IntrinsicInst *Call);
+    static StringRef getDirectiveMetadataString(const IntrinsicInst *Call);
 
     /// \brief Return the string representation of the modifier metadata 
     /// argument used in an llvm.intel.directive.qual.opndlist intrinsic
     /// that represents a schedule clause
-    static StringRef getScheduleModifierMDString(IntrinsicInst *Call);
+    static StringRef getScheduleModifierMDString(const IntrinsicInst *Call);
 
     /// \brief Similar to getDirectiveString(), 
     /// but strips out the leading "DIR_OMP_" prefix substring

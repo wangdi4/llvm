@@ -42,7 +42,7 @@ class TargetLibraryInfo;
 
 namespace loopopt {
 
-/// \brief This analysis is the first step in creating HIR. We start by
+/// This analysis is the first step in creating HIR. We start by
 /// identiyfing regions as a set of basic blocks in the incoming IR. This
 /// information is then used by HIRCreation pass to create and populate
 /// HIR regions.
@@ -79,18 +79,15 @@ private:
   /// would be profitable.
   class CostModelAnalyzer;
 
-  /// \brief Returns the base(earliest) GEP operator in case of multiple GEPs
-  /// associated with a load/store.
-  /// This is used for temporarily suppressing struct GEPs until we can handle
-  /// them in HIR.
-  const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
-
-  /// \brief Returns true if this loop should be throttled based on cost model
+  /// Returns true if this loop should be throttled based on cost model
   /// analysis.
   bool shouldThrottleLoop(const Loop &Lp) const;
 
-  /// \brief Returns true if Lp appears to be generable without looking at the
-  /// sub loops.
+  /// Returns true if bblocks of \p Lp are generable.
+  bool areBBlocksGenerable(const Loop &Lp) const;
+
+  /// Returns true if Lp appears to be generable without looking at the sub
+  /// loops.
   bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth) const;
 
   /// Returns true if this instruction represents simd begin/end directive. \p
@@ -110,30 +107,44 @@ private:
   void addBBlocks(const BasicBlock *BeginBB, const BasicBlock *EndBB,
                   IRRegion::RegionBBlocksTy &RegBBlocks) const;
 
-  /// \brief Returns true if Lp is a SIMD loop. If RegBBlocks is non-null, it
-  /// adds simd loop predecess/successor bblocks to it. Entry/Exit bblocks for
-  /// the simd loop region are returned via \p EntryBB and \p ExitBB.
+  /// Returns true if Lp is a SIMD loop. If RegBBlocks is non-null, it adds
+  /// simd loop predecess/successor bblocks to it. Entry/Exit bblocks for the
+  /// simd loop region are returned via \p EntryBB and \p ExitBB.
   bool isSIMDLoop(const Loop &Lp,
                   IRRegion::RegionBBlocksTy *RegBBlocks = nullptr,
                   BasicBlock **RegEntryBB = nullptr,
                   BasicBlock **RegExitBB = nullptr) const;
 
-  /// \brief Creates a Region out of Lp's basic blocks.
+  /// Creates a Region out of Lp's basic blocks.
   void createRegion(const Loop &Lp);
 
-  /// \brief Returns true if we can form a region around this loop. Returns the
-  /// max loopnest depth in LoopnestDepth.
+  /// Returns true if we can form a region around this loop. Returns the max
+  /// loopnest depth in LoopnestDepth.
   bool formRegionForLoop(const Loop &Lp, unsigned *LoopnestDepth);
 
-  /// \brief Identifies regions in the incoming LLVM IR.
+  /// Identifies regions in the incoming LLVM IR.
   void formRegions();
 
-  /// \brief Returns true if Inst contains a type not supported by HIR.
-  bool containsUnsupportedTy(const Instruction *Inst) const;
+  /// Returns true if \p GEPOp contains a type not supported by HIR.
+  static bool containsUnsupportedTy(const GEPOperator *GEPOp);
 
-  /// \brief Returns IV definition PHINode of the loop.
+  /// Returns true if \p Inst contains a type not supported by HIR.
+  static bool containsUnsupportedTy(const Instruction *Inst);
+
+  /// Returns IV definition PHINode of the loop.
   const PHINode *findIVDefInHeader(const Loop &Lp,
                                    const Instruction *Inst) const;
+
+  /// Implements isReachableFrom().
+  bool
+  isReachableFromImpl(const BasicBlock *BB,
+                      const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
+                      const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
+                      SmallPtrSetImpl<const BasicBlock *> &VisitedBBs) const;
+
+  /// Returns true if dominator children of \p BB in \p Lp are involved in a
+  /// cycle which doesn't go through backedges. This indicates irreducible CFG.
+  bool containsCycle(const BasicBlock *BB, const Loop &Lp) const;
 
 public:
   static char ID; // Pass identification
@@ -158,20 +169,27 @@ public:
 
   unsigned getNumRegions() const { return IRRegions.size(); }
 
-  /// \brief Returns true if this type is supported. Currently returns false for
+  /// Returns true if this type is supported. Currently returns false for
   /// structure and function types.
-  bool isSupported(Type *Ty) const;
+  static bool isSupported(Type *Ty);
 
   // NOTE: Following functions were moved here so they can be shared between
   // HIRParser and SSADeconstruction. Is there a better way?
 
-  /// \brief Returns the primary element type of PtrTy. Primary element type is
-  /// the underlying type which this type is pointing to. For example, the
-  /// primary element type of both i32* && [100 x [100 x i32]]* is i32.
+  /// Returns the primary element type of PtrTy. Primary element type is the
+  /// underlying type which this type is pointing to. For example, the primary
+  /// element type of both i32* && [100 x [100 x i32]]* is i32.
   Type *getPrimaryElementType(Type *PtrTy) const;
 
-  /// \brief Returns true if Phi occurs in the header of a loop.
+  /// Returns true if Phi occurs in the header of a loop.
   bool isHeaderPhi(const PHINode *Phi) const;
+
+  /// Returns true if \p BB can be reached from any of the \p FromBBs before
+  /// hitting any \p EndBBs and without going through any backedges.
+  bool
+  isReachableFrom(const BasicBlock *BB,
+                  const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
+                  const SmallPtrSetImpl<const BasicBlock *> &FromBBs) const;
 };
 
 } // End namespace loopopt
