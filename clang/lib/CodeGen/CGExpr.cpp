@@ -4562,8 +4562,9 @@ static void EmitRecursiveCEANBuiltinExpr(CodeGenFunction &CGF,
     CGF.EmitBlock(CondBlock);
     CGF.LoopStack.setParallel();
     CGF.LoopStack.setVectorizeEnable(true);
-    // FIXME(DLK) - use accurate DebugLoc here
-    CGF.LoopStack.push(CondBlock, llvm::DebugLoc(), llvm::DebugLoc());
+    CGF.LoopStack.push(CondBlock, 
+                       CGF.SourceLocToDebugLoc(E->getLocStart()),
+                       CGF.SourceLocToDebugLoc(E->getLocEnd()));
     llvm::BasicBlock *MainLoop = CGF.createBasicBlock("cean.loop.body");
     llvm::BasicBlock *ExitLoop = CGF.createBasicBlock("cean.loop.exit");
     const VarDecl *VD = cast<VarDecl>(DS->getSingleDecl());

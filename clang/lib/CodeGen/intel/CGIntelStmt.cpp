@@ -237,8 +237,8 @@ void CodeGenFunction::EmitCilkForHelperBody(const Stmt *S) {
     llvm::BasicBlock *ExitBlock = LoopExit.getBlock();
 
     LoopStack.setParallel();
-    // FIXME(DLK) - use accurate DebugLoc here
-    LoopStack.push(CondBlock, llvm::DebugLoc(), llvm::DebugLoc());
+    LoopStack.push(CondBlock, SourceLocToDebugLoc(S->getLocStart()),
+                   SourceLocToDebugLoc(S->getLocEnd()));
 
     // If there are any cleanups between here and the loop-exit scope,
     // create a block to stage a loop exit along.
@@ -601,9 +601,9 @@ void CodeGenFunction::EmitPragmaSimd(CodeGenFunction::CGPragmaSimdWrapper &W) {
     // later.
     JumpDest Continue = getJumpDestInCurrentScope("for.cond");
     llvm::BasicBlock *CondBlock = Continue.getBlock();
-    // FIXME(DLK) - use accurate DebugLoc here
-    LoopStack.push(CondBlock, llvm::DebugLoc(), llvm::DebugLoc());
-
+    LoopStack.push(CondBlock,
+                   SourceLocToDebugLoc(W.getSourceRange().getBegin()),
+                   SourceLocToDebugLoc(W.getSourceRange().getEnd()));
     EmitBlock(CondBlock);
 
     llvm::Value *BoolCondVal = 0;
@@ -1020,8 +1020,8 @@ static void EmitRecursiveCilkRankedStmt(CodeGenFunction &CGF,
     CGF.EmitBlock(CondBlock);
     CGF.LoopStack.setParallel();
     CGF.LoopStack.setVectorizeEnable(true);
-    // FIXME(DLK) - use accurate DebugLoc here
-    CGF.LoopStack.push(CondBlock, llvm::DebugLoc(), llvm::DebugLoc());
+    CGF.LoopStack.push(CondBlock, CGF.SourceLocToDebugLoc(S.getLocStart()),
+                       CGF.SourceLocToDebugLoc(S.getLocEnd()));
     const VarDecl *VD = cast<VarDecl>(DS->getSingleDecl());
     CGF.Builder.CreateCondBr(
      CGF.Builder.CreateICmpNE(
