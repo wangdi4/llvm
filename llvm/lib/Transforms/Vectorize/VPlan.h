@@ -406,6 +406,8 @@ public:
   SmallVectorImpl<VPBlockBase *> &getPredecessors() { return Predecessors; }
 
 #ifdef INTEL_CUSTOMIZATION
+  bool isInsideLoop();
+
   VPBlockBase *getSingleSuccessor() {
     if (Successors.size() != 1)
       return nullptr;
@@ -1279,6 +1281,16 @@ struct GraphTraits<Inverse<VPRegionBlock *>>
     return N->getSize();
   }
 };
+
+inline bool VPBlockBase::isInsideLoop() {
+  if (auto *ParentRegion = getParent()) {
+    if (ParentRegion->getVPBlockID() == VPLoopRegionSC)
+      return (ParentRegion->getEntry() != this &&
+              ParentRegion->getExit() != this);
+    return ParentRegion->isInsideLoop();
+  }
+  return false;
+}
 
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm

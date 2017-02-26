@@ -122,6 +122,10 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
 }
 
 void VPBasicBlock::vectorize(VPTransformState *State) {
+#ifdef INTEL_CUSTOMIZATION
+  if (!isInsideLoop())
+    return;
+#endif // INTEL_CUSTOMIZATION
   VPIterationInstance *I = State->Instance;
   bool Replica = I && !(I->Part == 0 && I->Lane == 0);
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;

@@ -305,7 +305,9 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
     DEBUG(errs() << "VPlan stress test mode\n");
 
     // Iterate on TopLevelLoops
-    for (Loop *Lp : make_range(LI->begin(), LI->end())) {
+    SmallVector<Loop *, 2> WorkList(LI->begin(), LI->end());
+    while (!WorkList.empty()) {
+      Loop *Lp = WorkList.pop_back_val();
       if (VPlanForceBuild || isSupported(Lp))
         processLoop(Lp, Fn);
       // TODO: Subloops
