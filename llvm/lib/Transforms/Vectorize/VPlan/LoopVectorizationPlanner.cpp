@@ -744,29 +744,45 @@ void LoopVectorizationPlanner::verifyHierarchicalCFG(
          "Number of loops in CFG doesn't match number of loops in VPLoopInfo");
 }
 
-// It builds a VPlan with the initial Hierarchical CFG (HCFG) based on the
-// of the input IR. The resulting HCFG won't have a one-to-one correspondence
-// with the incoming CFG. The algorithm applies the following steps:
+// It builds a VPlan with the initial Hierarchical CFG (HCFG) from the input IR.
+// The resulting HCFG won't have a one-to-one correspondence with the input CFG.
+// The algorithm applies the following steps:
 //
-// 1. buildPlainCFG: builds the HCFG topmost VPRegionBlock that encloses a CFG
-//    with only VPBasicBlock's (plain CFG). This plain CFG closely represents
-//    the CFG from the input IR.
+//// 1. buildPlainCFG: builds a plain CFG from the input IR. The plain CFG only
+// contains VPBasicBlock's with VPOneByOneRecipe's (only
+// VPVectorizeOneByOneRecipe's by now). A VPRegionBlock encloses all the
+// VPBasicBlock's of the plain CFG (topmost VPRegionBlock). Two dummy
+// VPBasicBlock's are used as topmost region's Entry
+// and Exit.
+/
+// WIP/TODOs:
+//     - Add VPScalarizeOneByOneRecipe's
+//     - Add VPConditionalBitRecipe's (Matt)
+//     - Temporal implementation: if incoming outermost loop has multiple exits,
+//     a dummy VPBasicBlock is created as landing pad for all loop exits.
 //
-//    - Topmost VPRegionBlock has a dummy Entry and Exit
-//    - VPBasicBlock's contain OneByOneRecipes
-//    - Dummy landing pad generated for outermost loop with multiple exits
+// 2. simplifyPlanCFG: applies transformations to plain CFG to make it suitable
+// for construction of VPRegionBlock's in step 3. These transformations include:
+//     - Loop preheader massaging
+//     - Loop exits massaging
+//     - SEME-to-SESE loop massaging (TODO, Satish)
+//     - Non-loop region Entry and Exit massaging
 //
-// 2. simplifyPlanCFG:
-//     - Loop PH massaging
-//     - Loop Exits massaging
-//     - Non-loop region massaging
-//     - DT, PDT and VPLoopInfo are preserved
+// VPBlockBase-based DT/PDT trees and VPLoopInfo must be consistent after this
+// step.
 //
-// 3. buildHierarchicalCFG:
-//     - outer-in traversal
-//     - VPLoop construction
-//     - Non-loop VPRegion construction
+// WIP: Most of these massages are currently under development. This step is
+// expected to change significantly.
 //
+// 3. buildHierarchicalCFG: builds VPLoop's and non-loop VPRegionBlock's using
+// an outer-to-inner approach. The result of this step is a HCFG.
+//
+// WIP/TODOs:
+//     - VPRegionBlock size is not computed appropriately.
+//     - Add VPRegionBlock's to VPLoopInfo
+//     - Revisit VPLoop detection
+//     - VPBlockBase-based DT/PDT cannot be reused after this step. We need a
+//       specific DT/PDT per regionregion of HCFG
 
 std::shared_ptr<IntelVPlan>
 LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
