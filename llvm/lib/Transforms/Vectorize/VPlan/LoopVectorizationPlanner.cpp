@@ -754,7 +754,7 @@ void LoopVectorizationPlanner::verifyHierarchicalCFG(
 // VPBasicBlock's of the plain CFG (topmost VPRegionBlock). Two dummy
 // VPBasicBlock's are used as topmost region's Entry
 // and Exit.
-/
+//
 // WIP/TODOs:
 //     - Add VPScalarizeOneByOneRecipe's
 //     - Add VPConditionalBitRecipe's (Matt)
