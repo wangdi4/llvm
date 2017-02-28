@@ -672,10 +672,10 @@ class AdvisorAnalysis;
 class ScheduleVisitor : public boost::default_dfs_visitor {
 	public:
 		TraceGraphList_iterator graph_ref;
+                AdvisorAnalysis *parent;
 		std::map<BasicBlock *, LatencyStruct> &LT;
 		int mutable lastCycle;
 		int *lastCycle_ref;
-                AdvisorAnalysis *parent;
                 int tid;
 
                 ScheduleVisitor(TraceGraphList_iterator graph, AdvisorAnalysis* _parent, std::map<BasicBlock *, LatencyStruct> &_LT, int &lastCycle, int _tid) : graph_ref(graph), parent(_parent), LT(_LT), lastCycle_ref(&lastCycle), tid(_tid) {}
