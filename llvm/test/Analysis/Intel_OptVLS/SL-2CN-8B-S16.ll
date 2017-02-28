@@ -8,12 +8,6 @@
 ;  %4 = shufflevector <4 x 64> %1, <4 x 64> %2, <4 x 32><2, 3, 6, 7>
 ;  %5 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><0, 4, 2, 6>
 ;  %6 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><1, 5, 3, 7>
-; Note: This test needs to be fixed since it generates two unoptimized shuffles(cost = 8)
-; instead of 4 optimized shuffles(cost 2). Generated sequence:
-;  %1 = mask.load.64.4 (<Base:0x3c98a90 Offset:0>, 1111)
-;  %2 = mask.load.64.4 (<Base:0x3c98a90 Offset:32>, 1111)
-;  %3 = shufflevector <4 x 64> %1, <4 x 64> %2, <4 x 32><0, 2, 4, 6>
-;  %4 = shufflevector <4 x 64> %1, <4 x 64> %2, <4 x 32><1, 3, 5, 7>
 ;
 ; REQUIRES: asserts
 ; RUN: intelovls-test < %s 2>&1 | FileCheck %s
@@ -23,12 +17,12 @@
 ; To test manually define OVLSTESTCLIENT in intelovls-test.h
 ; XFAIL: *
 ;
-; CHECK: mask.load.64.4
-; CHECK: mask.load.64.4
-; CHECK: shufflevector
-; CHECK: shufflevector
-; CHECK: shufflevector
-; CHECK: shufflevector
+; CHECK: [[TMP1:%.*]] = mask.load.64.4 (<[[Base:.*]] Offset:0>, 1111)
+; CHECK-NEXT: [[TMP2:%.*]] = mask.load.64.4 (<[[Base:.*]] Offset:32>, 1111)
+; CHECK-NEXT: [[TMP3:%.*]] = shufflevector <4 x 64> [[TMP1]], <4 x 64> [[TMP2]], <4 x 32><0, 1, 4, 5>
+; CHECK-NEXT: [[TMP4:%.*]] = shufflevector <4 x 64> [[TMP1]], <4 x 64> [[TMP2]], <4 x 32><2, 3, 6, 7>
+; CHECK-NEXT: [[TMP5:%.*]] = shufflevector <4 x 64> [[TMP3]], <4 x 64> [[TMP4]], <4 x 32><0, 4, 2, 6>
+; CHECK-NEXT: [[TMP6:%.*]] = shufflevector <4 x 64> [[TMP3]], <4 x 64> [[TMP4]], <4 x 32><1, 5, 3, 7>
 ; CHECK-NOT: shufflevector
 # 32
 1 A 0 f64 4 SLoad C 16

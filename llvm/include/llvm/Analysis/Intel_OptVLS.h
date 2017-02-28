@@ -473,7 +473,7 @@ private:
 public:
   explicit OVLSConstant(OVLSType T, int8_t *V) : OVLSOperand(OK_Constant, T) {
     assert(T.getSize() <= BitWidth && "Unsupported OVLSConstant size!");
-    memcpy(ConstValue, V, T.getSize());
+    memcpy(ConstValue, V, T.getSize() / BYTE);
   }
 
   static bool classof(const OVLSOperand *Operand) {
