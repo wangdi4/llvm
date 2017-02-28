@@ -19,7 +19,6 @@ list<OclType> math_svml_vF32_expand = [v3f32];
 list<OclType> math_svml_vF32vF32_expand = [v3f32];
 list<OclType> math_svml_vF64_expand = [v16f64];
 list<OclType> math_svml_vF_expand_native = [v16f64];
-list<OclType> math_svml_vFRM_expand = [v16f32];
 
 // acos f(vXfX)
 OclBuiltinImpl acos_svml_expand = OclBuiltinImpl<acos, math_svml_vF_expand, 0, Expand1>;
@@ -575,32 +574,3 @@ OclBuiltinImpl native_powr_svml_promote = OclBuiltinImpl<native_powr, [v3f64], 0
 // native_tanh f(vXfX)
 OclBuiltinImpl native_tanh_svml_expand = OclBuiltinImpl<native_tanh, math_svml_vF_expand_native, 0, Expand1>;
 OclBuiltinImpl native_tanh_svml_promote = OclBuiltinImpl<native_tanh, [v3f64], 0, Promote1_v3_to_v4>;
-
-// OpenCL 2.0 -cl-fast-relax-math functions
-// cos_rm
-OclBuiltinImpl cos_svml_rm_expand = OclBuiltinImpl<cos_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// exp_rm
-OclBuiltinImpl exp_svml_rm_expand = OclBuiltinImpl<exp_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// exp2_rm
-OclBuiltinImpl exp2_svml_rm_expand = OclBuiltinImpl<exp2_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// exp10_rm
-OclBuiltinImpl exp10_svml_rm_expand = OclBuiltinImpl<exp10_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// log_rm
-OclBuiltinImpl log_svml_rm_expand = OclBuiltinImpl<log_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// log2_rm
-OclBuiltinImpl log2_svml_rm_expand = OclBuiltinImpl<log2_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// pow_rm
-OclBuiltinImpl pow_svml_rm_expand = OclBuiltinImpl<pow_rm, math_svml_vFRM_expand, 0, Expand2>;
-
-// sin_rm
-OclBuiltinImpl sin_svml_rm_expand = OclBuiltinImpl<sin_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// tan_rm
-OclBuiltinImpl tan_svml_rm_expand = OclBuiltinImpl<tan_rm, math_svml_vFRM_expand, 0, Expand1>;
-

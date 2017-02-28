@@ -83,7 +83,6 @@ include "ssse3/code_promote.td"
 // vXfX = f(vXfX)
 list<OclType> math_svml_vF64_expand = [v16f64, v8f64];
 list<OclType> math_svml_v16f32_expand = [v16f32];
-list<OclType> math_svml_vFRM_expand = [v16f32];
 
 // vXfX = f(vXfX, vXfX, vXfX)
 list<OclType> math_svml_vFvFvF_expand = [v8f32, v16f32, v4f64, v8f64, v16f64];
@@ -482,8 +481,34 @@ OclBuiltinImpl ilogb_f32_promote = OclBuiltinImpl<ilogb, [v1f32, v2f32], 0, Prom
 OclBuiltinImpl ilogb_svml_expand = OclBuiltinImpl<ilogb, [v8f64], 0, Expand1>;
 
 // OpenCL 2.0 -cl-fast-relax-math functions
+// cos_rm
+OclBuiltinImpl cos_svml_rm_expand = OclBuiltinImpl<cos_rm, math_svml_v16f32_expand, 0, Expand1>;
+
+// sin_rm
+OclBuiltinImpl sin_svml_rm_expand = OclBuiltinImpl<sin_rm, math_svml_v16f32_expand, 0, Expand1>;
+
+// exp_rm
+OclBuiltinImpl exp_svml_rm_expand = OclBuiltinImpl<exp_rm, math_svml_v16f32_expand, 0, Expand1>;
+
+// exp2_rm
+OclBuiltinImpl exp2_svml_rm_expand = OclBuiltinImpl<exp2_rm, math_svml_v16f32_expand, 0, Expand1>;
+
+// exp10_rm
+OclBuiltinImpl exp10_svml_rm_expand = OclBuiltinImpl<exp10_rm, math_svml_v16f32_expand, 0, Expand1>;
+
+// log_rm
+OclBuiltinImpl log_svml_rm_expand = OclBuiltinImpl<log_rm, math_svml_v16f32_expand, 0, Expand1>;
+
+// log2_rm
+OclBuiltinImpl log2_svml_rm_expand = OclBuiltinImpl<log2_rm, math_svml_v16f32_expand, 0, Expand1>;
+
+// pow_rm
+OclBuiltinImpl pow_svml_rm_expand = OclBuiltinImpl<pow_rm, math_svml_v16f32_expand, 0, Expand2>;
+
+// tan_rm
+OclBuiltinImpl tan_svml_rm_expand = OclBuiltinImpl<tan_rm, math_svml_v16f32_expand, 0, Expand1>;
 
 // sincos_rm
-OclBuiltinImpl sincos_pas_svml_rm_expand = OclBuiltinImpl<sincos_pas_rm, math_svml_vFRM_expand, 0, Expand_2Ptr>;
-OclBuiltinImpl sincos_las_svml_rm_expand = OclBuiltinImpl<sincos_las_rm, math_svml_vFRM_expand, 0, Expand_2Ptr>;
-OclBuiltinImpl sincos_gas_svml_rm_expand = OclBuiltinImpl<sincos_gas_rm, math_svml_vFRM_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl sincos_pas_svml_rm_expand = OclBuiltinImpl<sincos_pas_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl sincos_las_svml_rm_expand = OclBuiltinImpl<sincos_las_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl sincos_gas_svml_rm_expand = OclBuiltinImpl<sincos_gas_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
