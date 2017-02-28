@@ -889,7 +889,7 @@ template <class TraceGraph>
 class TraceGraphVertexWriter {
         AdvisorAnalysis *parent;
 	public:
-                TraceGraphVertexWriter(TraceGraph& _graph, AdvisorAnalysis *_parent) : graph(_graph), parent(_parent) {}
+                TraceGraphVertexWriter(TraceGraph& _graph, AdvisorAnalysis *_parent) : parent(_parent), graph(_graph) {}
 		template <class TraceGraph_vertex_descriptor>
 		void operator()(std::ostream& out, const TraceGraph_vertex_descriptor &v) const {
 			/*

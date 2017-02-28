@@ -213,7 +213,7 @@ STATISTIC(ConvergenceCounter, "Number of steps taken to converge in gradient des
 // AdvisorAnalysis Class functions
 //===----------------------------------------------------------------------===//
 
-AdvisorAnalysis::AdvisorAnalysis() : ModulePass(ID), areaConstraint(1000), bbInstanceCounts(), init(UseThreads), tidPool(UseThreads) {}
+AdvisorAnalysis::AdvisorAnalysis() : ModulePass(ID), tidPool(UseThreads), bbInstanceCounts(), init(UseThreads), areaConstraint(1000) {}
 
 // Function: runOnModule
 // This is the main analysis pass
@@ -4537,7 +4537,7 @@ void AdvisorAnalysis::modify_resource_requirement(Function *F, TraceGraphList_it
 
 // this is not super optimal due to things like false sharing. But it is easier to code.
 BBSchedElem::BBSchedElem()
-  : minCycStart(-1), cycStart(UseThreads, 0), cycEnd(UseThreads, 0) { }
+  : cycStart(UseThreads, 0), cycEnd(UseThreads, 0), minCycStart(-1) { }
 
 void ScheduleVisitor::discover_vertex(TraceGraph_vertex_descriptor v, const TraceGraph &graph) {
 	// find the latest finishing parent
