@@ -18,8 +18,6 @@ endif()
 add_llvm_loadable_module( LLVMBasicBlockDumper
   BasicBlockDumper.cpp
   BasicBlockCompiler.cpp
-  ../Utils/CloneModule.cpp
-
   PLUGIN_TOOL
   opt
   )
