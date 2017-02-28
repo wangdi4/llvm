@@ -314,14 +314,16 @@ class FunctionScheduler : public FunctionPass , public InstVisitor<FunctionSched
                     }
                     
                     // pull objects out of the library         
-                    getBlockLatency = (int (*)(BasicBlock* BB)) dlsym(analyzerLibHandle, "getBlockLatency");
+                    assert(sizeof(getBlockLatency) == sizeof(analyzerLibHandle));
+                    memcpy(&getBlockLatency, &analyzerLibHandle, sizeof(analyzerLibHandle));
 
                     if (getBlockLatency == NULL) {
                       printf("failed to load getBlockLatency\n");  
                       exit(1);
                     }                         
 
-                    getBlockII = (int (*)(BasicBlock* BB)) dlsym(analyzerLibHandle, "getBlockII");
+                    assert(sizeof(getBlockII) == sizeof(analyzerLibHandle));
+                    memcpy(&getBlockII, &analyzerLibHandle, sizeof(analyzerLibHandle));
 
                     if (getBlockII == NULL) {
                       printf("failed to load getBlockII\n");  
@@ -508,7 +510,8 @@ class FunctionAreaEstimator : public FunctionPass, public InstVisitor<FunctionAr
                     }
                     
                     // pull objects out of the library         
-                    getBlockArea = (int (*)(BasicBlock* BB)) dlsym(analyzerLibHandle, "getBlockArea");
+                    assert(sizeof(getBlockArea) == sizeof(analyzerLibHandle));
+                    memcpy(&getBlockArea, &analyzerLibHandle, sizeof(analyzerLibHandle));
 
                     if (getBlockArea == NULL) {
                       printf("failed to load getBlockArea\n");  
