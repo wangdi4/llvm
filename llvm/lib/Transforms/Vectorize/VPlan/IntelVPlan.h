@@ -2,12 +2,81 @@
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTELVPLAN_H
 
 #include "../VPlan.h" // FIXME
+#include "VPInstruction.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopInfoImpl.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 
 namespace llvm {
 
+namespace vpo {
+
+class VPOneByOneIRRecipeBase : public VPRecipeBase {
+  friend class VPlanUtilsLoopVectorizer;
+
+private:
+  /// Container of IR instructions
+  VPInstructionContainerTy InstContainer;
+
+protected:
+  VPOneByOneIRRecipeBase() = delete;
+
+  VPOneByOneIRRecipeBase(unsigned char SC,
+                         const BasicBlock::iterator B,
+                         const BasicBlock::iterator E,
+                         class VPlan *Plan) : VPRecipeBase(SC) {
+    for (auto It = B; It != E; ++It) {
+      VPInstructionIR *VPInst;
+
+      VPInst = new VPInstructionIR(&*It);
+      InstContainer.insert(InstContainer.end(), VPInst);
+    }
+  }
+
+  /// Do the actual code generation for a single instruction.
+  /// This function is to be implemented and specialized by the respective
+  /// sub-class.
+  virtual void transformIRInstruction(Instruction *I,
+                                      struct VPTransformState &State) = 0;
+
+public:
+  typedef VPInstructionContainerTy::iterator iterator;
+  typedef VPInstructionContainerTy::const_iterator const_iterator;
+  
+  ~VPOneByOneIRRecipeBase() {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPScalarizeOneByOneSC ||
+           V->getVPRecipeID() == VPRecipeBase::VPVectorizeOneByOneSC;
+  }
+
+  bool isScalarizing() {
+    return getVPRecipeID() == VPRecipeBase::VPScalarizeOneByOneSC;
+  }
+
+  /// The method which generates all new IR instructions that correspond to
+  /// this VPOneByOneIRRecipeBase in the vectorized version, thereby
+  /// "executing" the VPlan.
+  /// VPOneByOneIRRecipeBase may either scalarize or vectorize all Instructions.
+  void vectorize(struct VPTransformState &State) override {
+    auto It = begin();
+    auto End = end();
+
+    for (; It != End; ++It) {
+      auto Inst = cast<VPInstructionIR>(&*It);
+      transformIRInstruction(Inst->getInstruction(), State);
+    }
+  }
+
+  iterator begin() { return InstContainer.begin(); }
+  const_iterator begin() const { return InstContainer.begin(); }
+
+  iterator end() { return InstContainer.end(); }
+  const_iterator end() const { return InstContainer.end(); }
+};
+} // namespace vpo
+ 
 // TODO: VPLoopBase, VPLoop, VPLoopHIR
 class VPLoop : public VPRegionBlock, public LoopBase<VPBlockBase, VPLoop> {
   friend class IntelVPlanUtils; 
@@ -116,10 +185,10 @@ public:
   /// on the isScalarizing parameter respectively.
   // TODO: VPlan is passed in the original interface. Why is this necessary if
   // VPlanUtils already has a copy?
-  VPOneByOneRecipeBase *createOneByOneRecipe(const BasicBlock::iterator B,
-                                             const BasicBlock::iterator E,
-                                             // VPlan *Plan,
-                                             bool isScalarizing);
+  vpo::VPOneByOneIRRecipeBase *createOneByOneRecipe(const BasicBlock::iterator B,
+                                                    const BasicBlock::iterator E,
+                                                    // VPlan *Plan,
+                                                    bool isScalarizing);
 
   /// Create a new, empty VPLoop, with no blocks.
   VPLoop *createLoop() {
