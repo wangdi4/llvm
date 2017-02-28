@@ -2776,9 +2776,9 @@ bool AdvisorAnalysis::find_maximal_resource_requirement(Function *F, TraceGraphL
 		// this will be an issue if the basic block is merged/split...
 		for (auto it = activeBBs.begin(); it != activeBBs.end(); it++) {
                         DEBUG(*outputLog << it->first->getName() << " repfactor " << it->second << "\n");
-			Instruction *inst = dyn_cast<Instruction>(it->first->getTerminator());
+			//Instruction *inst = dyn_cast<Instruction>(it->first->getTerminator());
 			// look at pre-existing replication factor
-			LLVMContext &C = inst->getContext();
+			//LLVMContext &C = inst->getContext();
 			//MDNode *N = MDNode::get(C, MDString::get(C, "FPGA_ADVISOR_REPLICATION_FACTOR"));
 			// inst->setMetadata(repFactorStr, N);
                         BasicBlock *currBB = (it->first); 
@@ -3035,7 +3035,6 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
         uint64_t start = rdtsc();  
 
         uint64_t finalArea = initialArea;
-        uint64_t finalLatency = initialLatency;
 
         int64_t finalDeltaLatency = 0;
         int64_t finalDeltaArea = 0;
@@ -3085,10 +3084,6 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
 	if ((initialLatency > (unsigned) projectedPerformance) && initialArea < 100 /*hard coded...*/) {
 		return false; // go to cpu only solution
 	}
-
-	// we set an initial min marginal performance as the average performance/area
-	//float minMarginalPerformance = (float) initialLatency / (float) initialArea;
-	float minMarginalPerformance = FLT_MAX;
 
         // we will reuse resource table to avoid all those ugly calls to malloc. 
         // Really, the table could be hoisted even higher, and that will come at some point. 
@@ -3282,7 +3277,6 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
           // Multiply coefs to obtain block counts. Need to adjust alpha up to deal with need to floor. 
           double area_removed_floor = 0;
           double area_removed = 0;
-          double minimum_delta_to_threshold = FLT_MAX;
 
           // We get some estimate of alpha.  Since we are doing
           // rounding and also cannot reduce block counts beneath 0,
@@ -3398,7 +3392,6 @@ void AdvisorAnalysis::handle_basic_block_gradient(BasicBlock * BB, std::unordere
   // find the resourceTable associated with this block.
   std::unordered_map<BasicBlock *, std::vector<unsigned> >* resourceTable;
   resourceTable = threadPoolResourceTables.find(BB)->second;
-  std::unordered_map<BasicBlock*,int>* instanceCounts = threadPoolInstanceCounts.find(BB)->second; 
 
   Function *F = BB->getParent();
 
