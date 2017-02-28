@@ -24,6 +24,7 @@
 
 #include "stdafx.h"
 
+#include "cl_sys_info.h"
 #include "cpu_device.h"
 #include "program_service.h"
 #include "memory_allocator.h"
@@ -1020,7 +1021,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
-        case( CL_DEVICE_LOCAL_MEM_SIZE):                // Consider local memory size is 24Kbyte LCL_MEM_SIZE constant
+        case( CL_DEVICE_LOCAL_MEM_SIZE): // Consider local memory size is StackSize() - 32Kbyte LCL_MEM_SIZE constant
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -1030,7 +1031,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(cl_ulong*)paramVal = CPU_DEV_LCL_MEM_SIZE;
+                *(cl_ulong*)paramVal = StackSize() - CPU_DEV_LCL_MEM_SIZE;
             }
             return CL_DEV_SUCCESS;
         }
