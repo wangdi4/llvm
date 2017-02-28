@@ -341,7 +341,6 @@ class FunctionScheduler : public FunctionPass , public InstVisitor<FunctionSched
 		}
 
 		static int get_basic_block_latency_accelerator(std::map<BasicBlock *, LatencyStruct> &LT, BasicBlock *BB) {
-			int latency = 0;
 			auto search = LT.find(BB);
 			assert(search != LT.end());
 
@@ -350,7 +349,6 @@ class FunctionScheduler : public FunctionPass , public InstVisitor<FunctionSched
 
 
 		static int get_basic_block_latency_cpu(std::map<BasicBlock *, LatencyStruct> &LT, BasicBlock *BB) {
-			int latency = 0;
 			auto search = LT.find(BB);
 			assert(search != LT.end());
 
