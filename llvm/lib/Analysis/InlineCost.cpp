@@ -1573,6 +1573,12 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
   return true;
 }
 
+static bool preferCloningToInlining(CallSite& CS)
+{ 
+  // TODO: Prasad will implement this.
+  return false;
+} 
+
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Analyze a call site for potential inlining.
@@ -1630,6 +1636,13 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // this Threshold any time, and cost cannot decrease, we can stop processing
   // the rest of the function body.
   Threshold += (SingleBBBonus + FiftyPercentVectorBonus);
+
+#ifdef INTEL_CUSTOMIZATION
+  if (preferCloningToInlining(CS)) {
+    NoReasonVector.push_back(NinlrPreferCloning);
+    return false; 
+  } 
+#endif // INTEL_CUSTOMIZATION
 
   // Give out bonuses per argument, as the instructions setting them up will
   // be gone after inlining.
@@ -1697,6 +1710,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     Cost -= InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
   }
+
 #endif // INTEL_CUSTOMIZATION
 
   // If this function uses the coldcc calling convention, prefer not to inline
