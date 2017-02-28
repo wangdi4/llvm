@@ -213,8 +213,8 @@ class BBSchedElem
 {
   private:
 		// cycStart and cycEnd are the actual schedules
-                int *cycStart; 
-                int *cycEnd;
+                std::vector<int> mutable cycStart;
+                std::vector<int> mutable cycEnd;
 
   public:
                 void set_min_start(int _start) const { minCycStart = _start;}

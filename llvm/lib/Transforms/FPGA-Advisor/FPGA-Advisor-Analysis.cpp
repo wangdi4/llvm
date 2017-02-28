@@ -3601,6 +3601,7 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(TraceGraphList_iter
           // this gives us the O(V+E) runtime we want. 
           auto degree = boost::in_degree(*vi, graph);
           if (degree == 0) { 
+            graph[*vi].set_start(0, tid);
             schedulableBB.push(*vi);
           } else {
             // Is this in the graph?
@@ -3772,6 +3773,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints(TraceGraphList_i
           // this gives us the O(V+E) runtime we want. 
           auto degree = boost::in_degree(*vi, graph);
           if (degree == 0) { 
+            graph[*vi].set_start(0, SINGLE_THREAD_TID);
             schedulableBB.push(*vi);
           } else {
             // Is this in the graph?
@@ -3936,6 +3938,7 @@ uint64_t AdvisorAnalysis::schedule_cpu(TraceGraphList_iterator graph_it, Functio
           // this gives us the O(V+E) runtime we want. 
           auto degree = boost::in_degree(*vi, graph);
           if (degree == 0) { 
+            graph[*vi].set_start(0, SINGLE_THREAD_TID);
             schedulableBB.push(*vi);
           } else {
             // Is this in the graph?
@@ -4540,11 +4543,8 @@ void AdvisorAnalysis::modify_resource_requirement(Function *F, TraceGraphList_it
 
 
 // this is not super optimal due to things like false sharing. But it is easier to code.
-BBSchedElem::BBSchedElem() {
-  cycStart = new int[UseThreads];
-  cycEnd = new int[UseThreads];
-  minCycStart = -1;
-}
+BBSchedElem::BBSchedElem()
+  : minCycStart(-1), cycStart(UseThreads, 0), cycEnd(UseThreads, 0) { }
 
 void ScheduleVisitor::discover_vertex(TraceGraph_vertex_descriptor v, const TraceGraph &graph) {
 	// find the latest finishing parent
