@@ -31,7 +31,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains tools for dumping basic block llvm. 
+// This file contains tools for dumping basic block llvm.
 //
 //===----------------------------------------------------------------------===//
 // Author: kefleming (Kermin Fleming)
@@ -42,56 +42,54 @@
 #ifndef LLVM_BASIC_BLOCK_DUMPER_H
 #define LLVM_BASIC_BLOCK_DUMPER_H
 
-#include "llvm/Pass.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/DependenceAnalysis.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/TypeBuilder.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/ValueMap.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/IR/TypeBuilder.h"
+#include "llvm/IR/ValueMap.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 #include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/breadth_first_search.hpp>
+#include <boost/graph/depth_first_search.hpp>
 //#include <boost/graph/graphviz.hpp>
 
 #include <algorithm>
-#include <vector>
-#include <unordered_map>
-#include <map>
 #include <list>
+#include <map>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 using namespace llvm;
 
-//Helper function.
+// Helper function.
 bool dumpBasicBlock(std::string outputLL, llvm::BasicBlock *BB);
 
-// Pass view of basic block dumper. 
-class  BasicBlockDumper: public BasicBlockPass {
-	public:
-          static char ID;
-          BasicBlockDumper() : BasicBlockPass(ID) {}                   
-          bool doInitialization (Function &F) {return true;};                
-          bool runOnBasicBlock(BasicBlock &BB);
-          bool doFinalization (Function &F) {return true;};                
-	
-}; 
-
+// Pass view of basic block dumper.
+class BasicBlockDumper : public BasicBlockPass {
+public:
+  static char ID;
+  BasicBlockDumper() : BasicBlockPass(ID) {}
+  bool doInitialization(Function &F) { return true; };
+  bool runOnBasicBlock(BasicBlock &BB);
+  bool doFinalization(Function &F) { return true; };
+};
 
 #endif
