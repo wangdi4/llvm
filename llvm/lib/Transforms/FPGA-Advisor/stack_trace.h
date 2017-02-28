@@ -15,10 +15,11 @@ static inline void print_stacktrace(FILE *out = stderr, unsigned int max_frames 
   fprintf(out, "stack trace:\n");
 
   // storage array for stack trace address data
-  void* addrlist[max_frames+1];
+  std::vector<void*> addrlist_storage(max_frames+1, NULL);
+  void** addrlist = &addrlist_storage[0];
 
   // retrieve current stack addresses
-  int addrlen = backtrace(addrlist, sizeof(addrlist) / sizeof(void*));
+  int addrlen = backtrace(addrlist, max_frames);
 
   if (addrlen == 0) {
     fprintf(out, "  <empty, possibly corrupt>\n");
