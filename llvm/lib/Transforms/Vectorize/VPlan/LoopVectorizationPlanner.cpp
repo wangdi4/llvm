@@ -9,8 +9,9 @@
 
 using namespace llvm;
 
-static cl::opt<bool> EnableNonLoopSubRegions(
-    "vplan-enable-subregions", cl::init(false), // TODO: vplan-disable-subregions
+static cl::opt<bool> NonLoopSubRegionsEnabled(
+    "vplan-enable-subregions",
+    cl::init(false), // TODO: vplan-disable-subregions
     cl::desc("Enable construction of non-loop subregions in VPlan"));
 
 unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
@@ -292,6 +293,74 @@ void LoopVectorizationPlanner::splitSingleSuccessorBlock(
   PostDomTree.changeImmediateDominator(BlockPDT, NewSuccPDT);
 }
 
+// It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
+// PostDomTree accordingly.
+VPBasicBlock *LoopVectorizationPlanner::splitBlock(VPBlockBase *Block,
+                                                   VPLoopInfo *VPLInfo,
+                                                   VPDominatorTree &DomTree,
+                                                   VPDominatorTree &PostDomTree,
+                                                   IntelVPlanUtils &PlanUtils) {
+  // TODO: If Exit has multiple successor, move ConditionBitRecipe when it's
+  // available
+
+  VPBasicBlock *NewBlock = PlanUtils.createBasicBlock();
+  PlanUtils.insertBlockAfter(NewBlock, Block);
+
+  // Add NewBlock to VPLoopInfo
+  if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {
+    Loop->addBasicBlockToLoop(NewBlock, *VPLInfo);
+  }
+
+  // Update dom information
+
+  VPDomTreeNode *BlockDT = DomTree.getNode(Block);
+  SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
+                                                  BlockDT->end());
+  // Block is NewBlock's idom. 
+  VPDomTreeNode *NewBlockDT = DomTree.addNewBlock(NewBlock, Block /*IDom*/);
+ 
+  // NewBlock dominates all other nodes dominated by Block.
+  for (VPDomTreeNode *Child : BlockDTChildren)
+    DomTree.changeImmediateDominator(Child, NewBlockDT);
+
+  // Update postdom information
+
+  VPDomTreeNode *NewBlockPDT;
+  if (VPBlockBase *NewBlockSucc = NewBlock->getSingleSuccessor()) {
+    // NewBlock has a single successor. That successor is NewBlock's ipostdom.
+    NewBlockPDT = PostDomTree.addNewBlock(NewBlock, NewBlockSucc /*IDom*/);
+  } else {
+    // NewBlock has multiple successors. NewBlock's ipostdom is the nearest
+    // common post-dominator of both successors.
+
+    // TODO: getSuccessor(0)
+    auto& Successors = NewBlock->getSuccessors();
+    VPBlockBase *Succ1 = *Successors.begin();
+    VPBlockBase *Succ2 = *std::next(Successors.begin());
+
+    NewBlockPDT = PostDomTree.addNewBlock(
+        NewBlock, PostDomTree.findNearestCommonDominator(Succ1, Succ2));
+  }
+
+  VPDomTreeNode *BlockPDT = PostDomTree.getNode(Block);
+
+  // TODO: remove getBlock?
+  if (BlockPDT->getIDom()->getBlock() == NewBlockPDT->getIDom()->getBlock()) {
+    // Block's old ipostdom is the same as NewBlock's ipostdom. Block's new
+    // ipostdom is NewBlock
+    PostDomTree.changeImmediateDominator(BlockPDT, NewBlockPDT);
+
+  } else {
+    // Otherwise, Block's new ipostdom is the nearest common post-dominator of
+    // NewBlock and Block's old ipostdom
+    PostDomTree.changeImmediateDominator(
+        BlockPDT, PostDomTree.getNode(PostDomTree.findNearestCommonDominator(
+                      NewBlock, BlockPDT->getIDom()->getBlock())));
+  }
+
+  return NewBlock;
+}
+
 void LoopVectorizationPlanner::splitLoopsPreheader(VPLoop *VPL,
                                                    VPLoopInfo *VPLInfo,
                                                    VPDominatorTree &DomTree,
@@ -362,7 +431,7 @@ void LoopVectorizationPlanner::splitLoopsPreheader(VPLoop *VPL,
          "Expected preheader with single successor");
 
   if (VPLInfo->isLoopHeader(PH)) {
-    splitSingleSuccessorBlock(PH, VPLInfo, DomTree, PostDomTree, PlanUtils);
+    splitBlock(PH, VPLInfo, DomTree, PostDomTree, PlanUtils);
   }
 
   // Apply simplification to subloops
@@ -381,17 +450,14 @@ void LoopVectorizationPlanner::splitLoopsExits(VPLoop *VPL, VPLoopInfo *VPLInfo,
 
   for (VPBlockBase *Exit : ExitBlocks) {
 
-    // Split loop exit that is preheader of another loop
+    // Split loop exit with multiple successors or that is preheader of another
+    // loop
     VPBlockBase *PotentialH = Exit->getSingleSuccessor();
-    if (PotentialH && VPLInfo->isLoopHeader(PotentialH) &&
-        VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit) {
+    if (!PotentialH ||
+        (VPLInfo->isLoopHeader(PotentialH) &&
+         VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit)) {
 
-      splitSingleSuccessorBlock(Exit, VPLInfo, DomTree, PostDomTree, PlanUtils);
-    }
-
-    // Split loop exit with multiple successors
-    if (Exit->getNumSuccessors() > 1) {
-      // TODO
+      splitBlock(Exit, VPLInfo, DomTree, PostDomTree, PlanUtils);
     }
   }
 
@@ -405,94 +471,98 @@ void LoopVectorizationPlanner::simplifyNonLoopRegions(
     VPRegionBlock *TopRegion, VPLoopInfo *VPLInfo, VPDominatorTree &DomTree,
     VPDominatorTree &PostDomTree, IntelVPlanUtils &PlanUtils) {
 
-// TODO: WIP. It will enable the build of VPRegions that
-// currently are not built because they share entry/exit nodes
-// with other VPRegions.
-#if 0
-    // TODO: revisit data structure for WorkList
-    // TODO: po_iterator should work here
-    //std::list<VPBlockBase *> WorkList;
-    //SmallPtrSet<VPBlockBase *, 2> Visited;
+  // TODO: WIP. It will enable the build of VPRegions that
+  // currently are not built because they share entry/exit nodes
+  // with other VPRegions.
+  
+  // TODO: revisit data structure for WorkList
+  std::list<VPBlockBase *> WorkList;
+  SmallPtrSet<VPBlockBase *, 2> Visited;
 
-    //WorkList.push_back(TopRegion->getEntry());
+  WorkList.push_back(TopRegion->getEntry());
 
-    bool CFGChanged = false;
-    for (auto CurrentBlock :
-         make_range(po_iterator<VPBlockBase *>::begin(TopRegion->getEntry()),
-                    po_iterator<VPBlockBase *>::end(TopRegion->getEntry()))) {
+  while (!WorkList.empty()) {
 
-      // while (!WorkList.empty()) {
+    // Get CurrentVPBB and and skip it if visited.
+    VPBlockBase *CurrentBlock = WorkList.back();
+    WorkList.pop_back();
+    if (Visited.count(CurrentBlock))
+      continue;
 
-      // Get CurrentVPBB and and skip it if visited.
-      //VPBlockBase *CurrentBlock = WorkList.back();
-      //WorkList.pop_back();
-      //if (Visited.count(CurrentBlock))
-      //  continue;
+    // Set CurrentVPBB to visited
+    Visited.insert(CurrentBlock);
 
-      // Set CurrentVPBB to visited
-      //Visited.insert(CurrentBlock);
+    // Potential VPRegion entry
+    if (CurrentBlock->getNumSuccessors() > 1) {
 
-      // Potential VPRegion entry
-      if (CurrentBlock->getNumSuccessors() > 1) {
-       
-        VPBlockBase *PostDom =
-            PostDomTree.getNode(CurrentBlock)->getIDom()->getBlock();
-        VPBlockBase *Dom = DomTree.getNode(PostDom)->getIDom()->getBlock();
-        assert(isa<VPBasicBlock>(PostDom) &&
-               "Expected VPBasicBlock as post-dominator");
-        assert(isa<VPBasicBlock>(Dom) && "Expected VPBasicBlock as dominator");
-
-        // TODO: This condition is currently too generic. It needs refinement.
-        // However, if detecting more specific cases is expensive, we may want to
-        // leave as it is.
-        //
-        // When we need to insert a fake exit block:
-        //   - PostDom is exit of a region and entry of another region (PostDom
-        //   numSucc > 1)
-        //   - Dom != CurrentBlock:
-        //       - Nested region shares exit with parent region. We need a fake
-        //       exit for nested region to be created. With fake exit, Dom ==
-        //       CurrentBlock
-        //       - Dom != CurrentBlock even if we introduce the fake exit. We
-        //       won't create region for these cases so we don't want to introduce
-        //       fake exit. (TODO: We are currently introducing fake exit for this
-        //       case).
-        //       - Loops with multiple exiting blocks and region sharing exit
-        //       (TODO)
-        //       - Anything else?
-        //
-        if (Dom != CurrentBlock || PostDom->getNumSuccessors() > 1) {
-
-          // New fake exit
-          VPBasicBlock *FakeExit = PlanUtils.createBasicBlock();
-          PlanUtils.setBlockParent(FakeExit, TopRegion);
-
-          // Set Predecessors
-          if (Dom != CurrentBlock) {
-            // Move only those predecessors from PostDom that are part of the
-            // nested region (i.e. they are dominated by Dom)
-            for (auto Pred : PostDom->getPredecessors()) {
-              if (DomTree.dominates(Dom, Pred)) {
-                PlanUtils.movePredecessor(Pred, PostDom /*From*/,
-                                          FakeExit /*To*/);
-              }
-            }
-          } else {
-            // All the predecessors will be in the same region. Move them all from
-            // PostDom to FakeExit
-            PlanUtils.movePredecessors(PostDom, FakeExit);
-          }
-
-          // Add PostDom as single successor
-          PlanUtils.setSuccessor(FakeExit, PostDom);
-
-          CFGChanged = true;
-        }
+      // Currently, this rule covers:
+      //   - Loop H with multiple successors
+      //   - Region exit that is another region entry
+      //   - Loop latch+exiting block with multiple successors
+      //
+      // TODO: skip single basic block loops?
+      if (CurrentBlock->getNumPredecessors() > 1) {
+        splitBlock(CurrentBlock, VPLInfo, DomTree, PostDomTree, PlanUtils);
       }
-    }
 
-    return CFGChanged;
-#endif
+      //VPBlockBase *PostDom =
+      //    PostDomTree.getNode(CurrentBlock)->getIDom()->getBlock();
+      //VPBlockBase *Dom = DomTree.getNode(PostDom)->getIDom()->getBlock();
+      //assert(isa<VPBasicBlock>(PostDom) &&
+      //       "Expected VPBasicBlock as post-dominator");
+      //assert(isa<VPBasicBlock>(Dom) && "Expected VPBasicBlock as dominator");
+
+      // TODO: This condition is currently too generic. It needs refinement.
+      // However, if detecting more specific cases is expensive, we may want to
+      // leave as it is.
+      //
+      // When we need to insert a fake exit block:
+      //   - PostDom is exit of a region and entry of another region (PostDom
+      //   numSucc > 1)
+      //   - Dom != CurrentBlock:
+      //       - Nested region shares exit with parent region. We need a fake
+      //       exit for nested region to be created. With fake exit, Dom ==
+      //       CurrentBlock
+      //       - Dom != CurrentBlock even if we introduce the fake exit. We
+      //       won't create region for these cases so we don't want to introduce
+      //       fake exit. (TODO: We are currently introducing fake exit for this
+      //       case).
+      //       - Loops with multiple exiting blocks and region sharing exit
+      //       (TODO)
+      //       - Anything else?
+      //
+      //if (Dom != CurrentBlock || PostDom->getNumSuccessors() > 1) {
+
+      //  // New fake exit
+      //  VPBasicBlock *FakeExit = PlanUtils.createBasicBlock();
+      //  PlanUtils.setBlockParent(FakeExit, TopRegion);
+
+      //  // Set Predecessors
+      //  if (Dom != CurrentBlock) {
+      //    // Move only those predecessors from PostDom that are part of the
+      //    // nested region (i.e. they are dominated by Dom)
+      //    for (auto Pred : PostDom->getPredecessors()) {
+      //      if (DomTree.dominates(Dom, Pred)) {
+      //        PlanUtils.movePredecessor(Pred, PostDom /*From*/,
+      //                                  FakeExit /*To*/);
+      //      }
+      //    }
+      //  } else {
+      //    // All the predecessors will be in the same region. Move them all from
+      //    // PostDom to FakeExit
+      //    PlanUtils.movePredecessors(PostDom, FakeExit);
+      //  }
+
+      //  // Add PostDom as single successor
+      //  PlanUtils.setSuccessor(FakeExit, PostDom);
+
+      //}
+    }
+   
+    // Add successors to the worklist 
+    for (VPBlockBase *Succ : CurrentBlock->getSuccessors()) 
+      WorkList.push_back(Succ);
+  }
 }
 
 void LoopVectorizationPlanner::simplifyPlainCFG(VPRegionBlock *TopRegion,
@@ -605,7 +675,7 @@ void LoopVectorizationPlanner::buildHierarchicalCFG(
     }
     // VPRegion detection. We only consider ParentRegion's entry when
     // ParentRegion is a VPLoop
-    else if (EnableNonLoopSubRegions && CurrentVPBB->getNumSuccessors() > 1) {
+    else if (NonLoopSubRegionsEnabled && CurrentVPBB->getNumSuccessors() > 1) {
 
       VPBlockBase *PostDom =
           PostDomTree.getNode(CurrentVPBB)->getIDom()->getBlock();
@@ -620,13 +690,8 @@ void LoopVectorizationPlanner::buildHierarchicalCFG(
 
         // New VPRegion entry found.
         // TODO: PostDom check is a temporal check to skip regions that share
-        // exit
-        // node with parent region.
-        // TODO: isLoopHeader check is to skip non-loop regions that start from
-        // the loop header. They are problematic because there is a back-edge
-        // involved. We will split loop header block in the future.
-        if (Dom == CurrentVPBB && PostDom->getParent()->getExit() != PostDom &&
-            !VPLInfo->isLoopHeader(CurrentVPBB)) {
+        // exit node with parent region.
+        if (Dom == CurrentVPBB && PostDom->getParent()->getExit() != PostDom) {
           // Create new region
           NewRegion = PlanUtils.createRegion(false /*isReplicator*/);
 

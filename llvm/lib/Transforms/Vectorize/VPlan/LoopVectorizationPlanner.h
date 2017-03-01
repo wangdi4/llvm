@@ -167,6 +167,11 @@ private:
                                  VPDominatorTree &PostDomTree,
                                  IntelVPlanUtils &PlanUtils);
 
+  VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                           VPDominatorTree &DomTree,
+                           VPDominatorTree &PostDomTree,
+                           IntelVPlanUtils &PlanUtils);
+
   void splitLoopsPreheader(VPLoop *VPL, VPLoopInfo *VPLInfo,
                            VPDominatorTree &DomTree,
                            VPDominatorTree &PostDomTree,
