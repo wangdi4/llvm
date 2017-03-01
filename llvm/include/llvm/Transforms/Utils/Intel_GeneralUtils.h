@@ -54,15 +54,22 @@ public:
   /// first item in BBSet is 'EntryBB' and the last item is 'ExitBB'.
   static void collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
                            SmallVectorImpl<BasicBlock *> &BBSet);
-  /// Breaks up the instruction recursively for all the constant expression
-  /// operands.
+  /// \brief Breaks up the instruction recursively for all the constant 
+  /// expression operands.
   static void breakExpressions(Instruction *Inst);
-  /// Breaks up the instruction recursively for the gvien constant
+
+  /// \brief Breaks up the instruction recursively for the gvien constant
   /// expression operand.
   static void breakExpressionsHelper(ConstantExpr* Expr, 
                                      unsigned OperandIndex, 
                                      Instruction* User);
 
+  /// \brief Returns false if I's next instruction is terminator instruction.
+  /// Otherwise returns true.
+  static bool hasNextUniqueInstruction(Instruction *I);
+
+  /// \brief Returns instruction I's next instruction in the same basic block.
+  static Instruction* nextUniqueInstruction(Instruction *I);
 };
 
 } // end llvm namespace

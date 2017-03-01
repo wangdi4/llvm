@@ -179,3 +179,24 @@ void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr,
         breakExpressionsHelper(InnerExpr, I, NewInst);
     }
 }
+
+// Checks instruction I has unique next instruction or not.
+// If I is terminator instruction, checks whether it has unique succ BB.
+bool IntelGeneralUtils::hasNextUniqueInstruction(Instruction *I) {
+  if (!I->isTerminator())
+    return true;
+
+  BasicBlock *nextBB = I->getParent()->getUniqueSuccessor();
+  return nextBB && (nextBB->getUniquePredecessor() != nullptr);
+}
+
+// Returns I's next unique instruciton, which could be in the same 
+// basic block or the first instruciotn of the unique succ BB.
+Instruction* IntelGeneralUtils::nextUniqueInstruction(Instruction *I) {
+  assert(hasNextUniqueInstruction(I) &&
+         "first check if there is a next instruction!");
+
+  if (I->isTerminator())
+    return &I->getParent()->getUniqueSuccessor()->front();
+  return &*++I->getIterator();
+}

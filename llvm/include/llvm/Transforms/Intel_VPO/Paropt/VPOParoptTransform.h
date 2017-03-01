@@ -78,7 +78,7 @@ public:
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE, int Mode)
       : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr), 
-        TidPtr(nullptr), BidPtr(nullptr) {}
+        TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -113,6 +113,10 @@ private:
 
   /// \brief Hold the pointer to Bid (binding thread id) Value
   AllocaInst *BidPtr;
+
+  /// \brief Hold the function type for the function
+  /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
+  FunctionType *KmpcMicroTaskTy;
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -182,6 +186,10 @@ private:
 
   /// \brief Finds the alloc stack variables where the tid stores.
   void getAllocFromTid(CallInst *Tid);
+ 
+  /// \brief Finds the function pointer type for the function
+  /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
+  FunctionType* getKmpcMicroTaskPointerTy();
 
   /// \brief The data structure which builds the map between the
   /// alloc/tid and the uses instruction in the WRegion.

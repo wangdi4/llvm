@@ -489,10 +489,15 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
                                                    CompInst);
   ReplaceInstWithInst(InsertPt, NewTermInst);
 
+  BasicBlock *StaticInitBB = NewTermInst->getParent();
+
   InsertPt = dyn_cast<Instruction>(&*ExitBlock->rbegin());
   CallInst* StaticFiniCall = VPOParoptUtils::genKmpcStaticFini(W, IdentTy,
                                LoadTid, InsertPt);
   StaticFiniCall->setCallingConv(CallingConv::C);
+
+  if (DT) 
+    DT->changeImmediateDominator(ExitBlock, StaticInitBB);
 
   Changed = true;
   return Changed;
@@ -630,8 +635,8 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
                                  "new.tid.addr", 
                                  WREntryBB->getTerminator());
           NewAI->setAlignment(4);
-          Value *SI = new StoreInst(NewTid, NewAI, false, 
-                               WREntryBB->getTerminator());
+          new StoreInst(NewTid, NewAI, false, 
+                        WREntryBB->getTerminator());
           Tmp0 = NewAI;
         }
       }
@@ -822,6 +827,12 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     // Keep the orginal extraced function name after finalization
     MTFnCI->takeName(NewCall);
+    BasicBlock *MTFnBB = MTFnCI->getParent();
+
+    if (IntelGeneralUtils::hasNextUniqueInstruction(MTFnCI)) {
+      Instruction* NextI = IntelGeneralUtils::nextUniqueInstruction(MTFnCI);
+      SplitBlock(MTFnBB, NextI, DT, LI);
+    }
 
     // Remove the orginal serial call to extracted NewF from the program,
     // reducing the use-count of NewF
@@ -879,9 +890,10 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     ReplaceInstWithInst(ThenForkBB->getTerminator(), NewForkBI);
 
-
-    DT->changeImmediateDominator(ForkTestCI->getParent(),
-                                 ThenForkBB->getTerminator()->getSuccessor(0));
+    DT->changeImmediateDominator(ThenForkBB, ForkTestCI->getParent());
+    DT->changeImmediateDominator(ElseCallBB, ForkTestCI->getParent());
+    DT->changeImmediateDominator(ThenForkBB->getTerminator()->getSuccessor(0),
+                                 ForkTestCI->getParent());
 
     // Remove the serial call to MTFn function from the program, reducing
     // the use-count of MTFn
@@ -891,10 +903,24 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     // know how to translate them.
     VPOUtils::stripDirectives(W);
 
+    if (W->getParent())
+      W->getParent()->populateBBSet();
+
     Changed = true;
   }
 
   return Changed;
+}
+
+FunctionType *VPOParoptTransform::getKmpcMicroTaskPointerTy() {
+  if (!KmpcMicroTaskTy) {
+    LLVMContext &C = F->getContext();
+    Type *MicroParams[] = {PointerType::getUnqual(Type::getInt32Ty(C)),
+                           PointerType::getUnqual(Type::getInt32Ty(C))};
+    KmpcMicroTaskTy = FunctionType::get(Type::getVoidTy(C), 
+                                    MicroParams, true);
+  }
+  return KmpcMicroTaskTy;
 }
 
 CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
@@ -903,7 +929,8 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 
   // Get MicroTask Function for __kmpc_fork_call
   Function *MicroTaskFn = CI->getCalledFunction();
-  FunctionType *MicroTaskFnTy = MicroTaskFn->getFunctionType();
+  FunctionType *MicroTaskFnTy = getKmpcMicroTaskPointerTy();
+  //MicroTaskFn->getFunctionType();
 
   // Get MicroTask Function for __kmpc_fork_call
   //
@@ -919,7 +946,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
                         PointerType::getUnqual(MicroTaskFnTy)};
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ForkParams, true);
-
+  
   Function *ForkCallFn = M->getFunction("__kmpc_fork_call");
 
   if (!ForkCallFn) {
@@ -954,7 +981,10 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
   std::vector<Value *> Params;
   Params.push_back(KmpcLoc);
   Params.push_back(NumArgs);
-  Params.push_back(MicroTaskFn);
+  IRBuilder<> Builder(EntryBB);
+  Value *Cast =Builder.CreateBitCast(MicroTaskFn, 
+                           PointerType::getUnqual(MicroTaskFnTy));
+  Params.push_back(Cast);
 
   auto InitArg = CS.arg_begin(); ++InitArg; ++InitArg; 
 
@@ -1228,8 +1258,11 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
                                                    SuccEndMasterBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
-  DT->changeImmediateDominator(MasterCI->getParent(),
-                               ThenMasterBB->getTerminator()->getSuccessor(0));
+  DT->changeImmediateDominator(ThenMasterBB,
+                               MasterCI->getParent());
+  DT->changeImmediateDominator(ThenMasterBB->getTerminator()->getSuccessor(0),
+                               MasterCI->getParent());
+
 
   // Remove calls to directive intrinsics since the LLVM back end does not
   // know how to translate them.
@@ -1299,8 +1332,9 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
                                                    EndSingleSuccBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
-  DT->changeImmediateDominator(SingleCI->getParent(),
-                               ThenSingleBB->getTerminator()->getSuccessor(0));
+  DT->changeImmediateDominator(ThenSingleBB, SingleCI->getParent());
+  DT->changeImmediateDominator(ThenSingleBB->getTerminator()->getSuccessor(0),
+                               SingleCI->getParent());
 
   // Remove calls to directive intrinsics since the LLVM back end does not
   // know how to translate them.

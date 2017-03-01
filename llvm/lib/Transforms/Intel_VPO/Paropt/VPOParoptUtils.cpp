@@ -961,7 +961,8 @@ CallInst* VPOParoptUtils::genMemcpy(Value *D,
 
   // For 32/64 bit architecture, the size and alignment should be
   // set accordingly.
-  if (DL.getIntPtrType(MemcpyBuilder.getInt8PtrTy())->getIntegerBitWidth() == 64) {
+  if (DL.getIntPtrType(MemcpyBuilder.getInt8PtrTy())->
+      getIntegerBitWidth() == 64) {
     Size = 
       MemcpyBuilder.getInt64(
             DL.getTypeAllocSize(D->getType()->getPointerElementType()));
@@ -969,7 +970,8 @@ CallInst* VPOParoptUtils::genMemcpy(Value *D,
   }
   else {
     Size = 
-      MemcpyBuilder.getInt32(DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+      MemcpyBuilder.getInt32(DL.getTypeAllocSize(
+      D->getType()->getPointerElementType()));
     A = StackAdjustedAlignment/4;
   }
 

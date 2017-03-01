@@ -95,7 +95,7 @@ void WRegionNode::populateBBSet(void) {
 
   assert(EntryBB && "Missing EntryBB!");
   assert(ExitBB && "Missing ExitBB!");
-
+  resetBBSet();
   IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
 }
 
