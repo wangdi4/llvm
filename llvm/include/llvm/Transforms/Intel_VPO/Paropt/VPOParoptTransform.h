@@ -195,9 +195,9 @@ private:
   /// alloc/tid and the uses instruction in the WRegion.
   SmallDenseMap<Instruction *, std::vector<Instruction *> > TidMap;
 
-  /// \brief The data structure which stores the alloc or tid call
-  ///  instruction whose uses are in the WRegion.
-  SmallVector<Instruction*, 8> StartIns;
+  /// \brief The data structure that is used to store the alloca or tid call
+  ///  instruction that are used in the WRegion.
+  SmallPtrSet<Instruction*, 8> StartIns;
 };
 
 } /// namespace vpo

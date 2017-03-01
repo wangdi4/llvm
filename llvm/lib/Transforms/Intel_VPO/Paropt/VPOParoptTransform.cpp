@@ -516,7 +516,7 @@ void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
         Value *V = S0->getPointerOperand();
         AllocaInst *AI = dyn_cast<AllocaInst>(V);
         if (AI)
-          StartIns.push_back(AI);
+          StartIns.insert(AI);
         else 
           llvm_unreachable("Expect the stack alloca instruction.");
       }
@@ -605,9 +605,9 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
   TidMap.clear();
 
   getAllocFromTid(Tid);
-  StartIns.push_back(Tid);
+  StartIns.insert(Tid);
 
-  for (auto &I : StartIns) 
+  for (Instruction *I : StartIns) 
     for (auto IB = I->user_begin(), IE = I->user_end();
          IB != IE; IB++) {
       if (Instruction *User = dyn_cast<Instruction>(*IB)) {
@@ -618,7 +618,6 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
         llvm_unreachable("Expect the tid used in the instruction.");
     }
 
-  Value *Tmp0;
   AllocaInst *NewAI = nullptr;
   for (auto &I : TidMap) {
     for (auto &J : I.second) {
@@ -627,7 +626,6 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
                                 &*(WREntryBB->getFirstInsertionPt()),
                                 nullptr);
         NewTid->insertBefore(WREntryBB->getTerminator());
-        Tmp0 = NewTid;
       }
       if (!NewAI) {
         if (isa<AllocaInst>(I.first)) {
@@ -637,10 +635,12 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
           NewAI->setAlignment(4);
           new StoreInst(NewTid, NewAI, false, 
                         WREntryBB->getTerminator());
-          Tmp0 = NewAI;
         }
       }
-      J->replaceUsesOfWith(I.first, Tmp0);
+      if (isa<AllocaInst>(I.first))
+        J->replaceUsesOfWith(I.first, NewAI);
+      else
+        J->replaceUsesOfWith(I.first, NewTid);
     }
   }
 }
@@ -720,31 +720,29 @@ void VPOParoptTransform::finiCodeExtractorPrepare(Function *F) {
   StartIns.clear();
 
   getAllocFromTid(Tid);
-  StartIns.push_back(Tid);
+  StartIns.insert(Tid);
 
-  Value *Tmp0;
   Value *NewAI = nullptr;
   LoadInst *NewLoad = nullptr;
-  for (auto &I : StartIns) {
+  for (Instruction *I : StartIns) {
     if (isa<AllocaInst>(I)) {
       if(!NewAI) {
         NewAI = &*(F->arg_begin());
-        Tmp0 = NewAI;
       }
     }
     else if (NewLoad == nullptr) {
       IRBuilder<> Builder(NextBB);
       Builder.SetInsertPoint(NextBB, NextBB->getFirstInsertionPt());
       NewLoad = Builder.CreateLoad(&*(F->arg_begin()));
-      Tmp0 = NewLoad;
     }
-    I->replaceAllUsesWith(Tmp0);
+    if (isa<AllocaInst>(I))
+      I->replaceAllUsesWith(NewAI);
+    else
+      I->replaceAllUsesWith(NewLoad);
   }
   
-  while (!StartIns.empty()) {
-    Instruction *I = StartIns.pop_back_val();
+  for (Instruction *I : StartIns) 
     I->eraseFromParent();
-  }
 }
 
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
