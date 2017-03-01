@@ -100,9 +100,19 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
     IntelVPlanUtils &PlanUtils, DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
     DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB) {
 
+  DenseMap<Value *, VPConditionBitRecipeBase *> BranchCondMap;
+
   auto isInstructionToIgnore = [&](Instruction *I) -> bool {
     return DeadInstructions.count(I) || isa<BranchInst>(I) ||
            isa<DbgInfoIntrinsic>(I);
+  };
+
+  auto isConditionForUniformBranch = [&](Instruction *I) -> bool {
+    auto isBranchInst = [&](User *U) -> bool {
+      return isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U));
+    };
+    return TheLoop->contains(I) && TheLoop->isLoopInvariant(I) &&
+           any_of(I->users(), isBranchInst);
   };
 
   auto createRecipesForVPBB = [&](BasicBlock *BB, VPBasicBlock *VPBB) {
@@ -118,8 +128,19 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
       BasicBlock::iterator J = I;
       for (++J; J != E; ++J) {
         Instruction *Instr = &*J;
-        if (isInstructionToIgnore(Instr))
+        if (isInstructionToIgnore(Instr) || isConditionForUniformBranch(Instr))
           break; // Sequence of instructions not to ignore ended.
+      }
+
+      if (isConditionForUniformBranch(&*I)) {
+        Instruction *Instr = &*I;
+        VPUniformConditionBitRecipe *Recipe =
+          PlanUtils.createUniformConditionBitRecipe(Instr);
+        PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
+        for(User *U : Instr->users()) {
+          if (isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U)))
+            BranchCondMap[cast<BranchInst>(U)->getCondition()] = Recipe;
+        }
       }
 
       // Create new Recipe and add it to VPBB
@@ -164,6 +185,7 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
   DFS.perform(LI);
   // ReversePostOrderTraversal<BasicBlock *> RPOT(TheLoop->getLoopPreheader());
 
+
   for (BasicBlock *BB : make_range(DFS.beginRPO(), DFS.endRPO())) {
     // for (BasicBlock *BB : make_range(RPOT.begin(), RPOT.end())) {
 
@@ -191,8 +213,17 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
           createOrGetVPBB(TI->getSuccessor(1), TopRegion, TopRegionSize);
       assert(SuccVPBB1 && "Successor 1 not found");
 
-      PlanUtils.setTwoSuccessors(VPBB, nullptr /*VPConditionBitRecipeBase*/,
-                                 SuccVPBB0, SuccVPBB1);
+      BranchInst *Br = cast<BranchInst>(TI);
+      Value *Condition = Br->getCondition();
+      VPConditionBitRecipeBase *CondBitR = nullptr;
+      if (TheLoop->isLoopInvariant(Condition)) {
+        if (BranchCondMap.count(Condition))
+          CondBitR = BranchCondMap[Condition];
+        else
+          CondBitR = PlanUtils.createLiveInConditionBitRecipe(Condition);
+      }
+ 
+      PlanUtils.setTwoSuccessors(VPBB, CondBitR, SuccVPBB0, SuccVPBB1);
     } else {
       llvm_unreachable("Number of successors not supported");
     }
@@ -937,6 +968,8 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
   VPlan *Plan = getVPlanForVF(BestVF);
+
+  ILV->collectUniformsAndScalars(BestVF);
 
   Plan->vectorize(&State);
 

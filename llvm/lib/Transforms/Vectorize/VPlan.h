@@ -103,6 +103,10 @@ public:
     VPInterleaveSC,
     VPExtractMaskBitSC,
     VPMergeScalarizeBranchSC,
+#ifdef INTEL_CUSTOMIZATION
+    VPUniformBranchSC,
+    VPLiveInBranchSC,
+#endif
   } VPRecipeTy;
 
   VPRecipeBase(const unsigned char SC) : VRID(SC), Parent(nullptr) {}

@@ -622,32 +622,83 @@ void VPOCodeGen::updateAnalysis() {
   DEBUG(DT->verifyDomTree());
 }
 
+Value *VPOCodeGen::getBroadcastInstrs(Value *V) {
+  // We need to place the broadcast of invariant variables outside the loop.
+  Instruction *Instr = dyn_cast<Instruction>(V);
+  bool NewInstr = (Instr && Instr->getParent() == LoopVectorBody);
+  bool Invariant = OrigLoop->isLoopInvariant(V) && !NewInstr;
+
+  auto OldIP = Builder.saveIP();
+  // Place the code for broadcasting invariant variables in the new preheader.
+  IRBuilder<>::InsertPointGuard Guard(Builder);
+  if (Invariant)
+    Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
+
+  // Broadcast the scalar into all locations in the vector.
+  Value *Shuf = Builder.CreateVectorSplat(VF, V, "broadcast");
+
+  Builder.restoreIP(OldIP);
+  return Shuf;
+}
+
 Value * VPOCodeGen::getVectorValue(Value *V) {
   assert(!V->getType()->isVectorTy() && "Can't widen a vector");
 
   // If we have this scalar in the map, return it.
-  if (WidenMap.find(V) != WidenMap.end())
+  if (WidenMap.count(V))
     return WidenMap[V];
+
+  // If the value has not been vectorized, check if it has been scalarized
+  // instead. If it has been scalarized, and we actually need the value in
+  // vector form, we will construct the vector values on demand.
+  if (ScalarMap.count(V)) {
+    bool isUniform = isUniformAfterVectorization(cast<Instruction>(V), VF);
+    unsigned LastLane = isUniform ? 0 : VF - 1;
+    auto *LastInst = cast<Instruction>(ScalarMap[V][LastLane]);
+
+    // Set the insert point after the last scalarized instruction. This ensures
+    // the insertelement sequence will directly follow the scalar definitions.
+    auto OldIP = Builder.saveIP();
+    auto NewIP = std::next(BasicBlock::iterator(LastInst));
+    Builder.SetInsertPoint(&*NewIP);
+
+    Value *VectorValue = nullptr;
+    if (isUniform) {
+      Value *ScalarValue = ScalarMap[V][0];
+      VectorValue = Builder.CreateVectorSplat(VF, ScalarValue, "broadcast");
+    } else {
+      VectorValue = UndefValue::get(VectorType::get(V->getType(), VF));
+      for (unsigned Lane = 0; Lane < VF; ++Lane) {
+        Value *ScalarValue = ScalarMap[V][Lane];
+        VectorValue = Builder.CreateInsertElement(
+          VectorValue, ScalarValue, Builder.getInt32(Lane));
+      }
+    }
+    Builder.restoreIP(OldIP);
+
+    WidenMap[V] = VectorValue;
+    return VectorValue;
+  }
 
   // If this scalar is unknown, assume that it is a constant or that it is
   // loop invariant. Broadcast V and save the value for future uses.
-  Value *B = Builder.CreateVectorSplat(VF, V, "broadcast");
+  Value *B = getBroadcastInstrs(V);
   WidenMap[V] = B;
 
   return WidenMap[V];
 }
 
-Value *VPOCodeGen::getScalarValue(Value *V) {
+Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   // If the value is not an instruction contained in the loop, it should
   // already be scalar.
   if (OrigLoop->isLoopInvariant(V))
     return V;
 
   if (ScalarMap.count(V))
-    return ScalarMap[V];
+    return ScalarMap[V][Lane];
 
   Value *VecV = getVectorValue(V);
-  return Builder.CreateExtractElement(VecV, Builder.getInt32(0));
+  return Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
 }
 
 Value *VPOCodeGen::reverseVector(Value *Vec) {
@@ -702,10 +753,10 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
       Gep2->setName("gep.indvar");
 
       for (unsigned i = 0; i < Gep->getNumOperands(); ++i)
-        Gep2->setOperand(i, getScalarValue(Gep->getOperand(i)));
+        Gep2->setOperand(i, getScalarValue(Gep->getOperand(i), 0));
       Ptr = Builder.Insert(Gep2);
     } else // No GEP
-      Ptr = getScalarValue(Ptr);
+      Ptr = getScalarValue(Ptr, 0);
 
     Ptr = Reverse ?
       Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - VF)) : Ptr;   
@@ -744,7 +795,7 @@ void VPOCodeGen::vectorizeSelectInstruction(Instruction *Inst) {
   // loop. This means that we can't just use the original 'cond' value.
 
   if (InvariantCond)
-    VCond = getScalarValue(Cond);
+    VCond = getScalarValue(Cond, 0);
 
   Value *NewSelect = Builder.CreateSelect(VCond, Op0, Op1);
 
@@ -782,10 +833,10 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
       Gep2->setName("gep.indvar");
 
       for (unsigned i = 0; i < Gep->getNumOperands(); ++i)
-        Gep2->setOperand(i, getScalarValue(Gep->getOperand(i)));
+        Gep2->setOperand(i, getScalarValue(Gep->getOperand(i), 0));
       Ptr = Builder.Insert(Gep2);
     } else // No GEP
-      Ptr = getScalarValue(Ptr);
+      Ptr = getScalarValue(Ptr, 0);
 
     Ptr = Reverse ?
       Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - VF)) : Ptr;
@@ -806,79 +857,31 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
   Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, nullptr);
 }
 
-void VPOCodeGen::serializeInstruction(Instruction *Inst) {
-  assert(!Inst->getType()->isAggregateType() && "Can't handle vectors");
+void VPOCodeGen::serializeInstruction(Instruction *Instr) {
 
-  // Holds vector parameters or scalars, in case of uniform vals.
-  SmallVector<Value *, 4> Params;
+  assert(!Instr->getType()->isAggregateType() && "Can't handle vectors");
 
-  // Find all of the vectorized parameters.
-  for (unsigned op = 0, e = Inst->getNumOperands(); op != e; ++op) {
-    Value *SrcOp = Inst->getOperand(op);
-
-    // Try using previously calculated values.
-    Instruction *SrcInst = dyn_cast<Instruction>(SrcOp);
-
-    // If the src is an instruction that appeared earlier in the loop
-    // then it should already be vectorized.
-    if (SrcInst && OrigLoop->contains(SrcInst)) {
-      assert(WidenMap.find(SrcOp) != WidenMap.end() &&
-             "Source operand is unavailable");
-
-      // The parameter is a vector value from earlier.
-      Params.push_back(WidenMap[SrcOp]);
-    } else {
-      // The parameter is a scalar from outside the loop. Maybe even a constant.
-      Params.push_back(SrcOp);
-    }
-  }
-
-  assert(Params.size() == Inst->getNumOperands() &&
-         "Invalid number of operands");
+  unsigned Lanes = isUniformAfterVectorization(Instr, VF) ? 1 : VF;
 
   // Does this instruction return a value ?
-  bool IsVoidRetTy = Inst->getType()->isVoidTy();
+  bool IsVoidRetTy = Instr->getType()->isVoidTy();
 
-  Value *UndefVec = IsVoidRetTy
-                        ? nullptr
-                        : UndefValue::get(VectorType::get(Inst->getType(), VF));
+  // For each scalar that we create:
+  for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
 
-  // Create a new entry in the WidenMap and initialize it to Undef or Null.
-  Value *VecResults = UndefVec;
-
-  for (unsigned ElemNum = 0; ElemNum < VF; ++ElemNum) {
-    Instruction *Cloned = Inst->clone();
-
+    Instruction *Cloned = Instr->clone();
     if (!IsVoidRetTy)
-      Cloned->setName(Inst->getName() + ".cloned");
+      Cloned->setName(Instr->getName() + ".cloned");
 
-    // Replace the operands of the cloned instructions with extracted scalars.
-    for (unsigned op = 0, e = Inst->getNumOperands(); op != e; ++op) {
-      Value *Op = Params[op];
-
-      // Param is a vector. Need to extract the right lane.
-      if (Op->getType()->isVectorTy()) {
-        Op = Builder.CreateExtractElement(Op, Builder.getInt32(ElemNum));
-      }
-
-      Cloned->setOperand(op, Op);
+    // Replace the operands of the cloned instructions with their scalar
+    // equivalents in the new loop.
+    for (unsigned op = 0, e = Instr->getNumOperands(); op != e; ++op) {
+      auto *NewOp = getScalarValue(Instr->getOperand(op), Lane);
+      Cloned->setOperand(op, NewOp);
     }
-
     // Place the cloned scalar in the new loop.
     Builder.Insert(Cloned);
-
-    // If the original scalar returns a value we need to build up the return
-    // vector value.
-    if (!IsVoidRetTy) {
-      VecResults = Builder.CreateInsertElement(VecResults, Cloned,
-                                               Builder.getInt32(ElemNum));
-    }
-  }
-
-  // If the original scalar returns a value we need to place the vector result
-  // in WidenMap so that future users will be able to use it.
-  if (!IsVoidRetTy) {
-    WidenMap[cast<Value>(Inst)] = VecResults;
+    ScalarMap[Instr][Lane] = Cloned;
   }
 }
 
@@ -1038,6 +1041,28 @@ void VPOCodeGen::widenFpInduction(PHINode *IV) {
   WidenMap[IV] = BOp;
 }
 
+void VPOCodeGen::buildScalarSteps(Value *ScalarIV, Value *Step,
+                                  Value *EntryVal) {
+
+  // Get the value type and ensure it and the step have the same integer type.
+  Type *ScalarIVTy = ScalarIV->getType()->getScalarType();
+  assert(ScalarIVTy->isIntegerTy() && ScalarIVTy == Step->getType() &&
+         "Val and Step should have the same integer type");
+
+  // Determine the number of scalars we need to generate for each unroll
+  // iteration. If EntryVal is uniform, we only need to generate the first
+  // lane. Otherwise, we generate all VF values.
+  unsigned Lanes = VF;
+
+  // Compute the scalar steps and save the results in VectorLoopValueMap.
+  for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
+    auto *StartIdx = ConstantInt::get(ScalarIVTy, Lane);
+    auto *Mul = Builder.CreateMul(StartIdx, Step);
+    auto *Add = Builder.CreateAdd(ScalarIV, Mul);
+    ScalarMap[EntryVal][Lane] = Add;
+  }
+}
+
 void VPOCodeGen::widenIntInduction(PHINode *IV) {
 
   auto II = Legal->getInductionVars()->find(IV);
@@ -1068,7 +1093,53 @@ void VPOCodeGen::widenIntInduction(PHINode *IV) {
     ScalarIV->setName("offset.idx");
   }
 
-  ScalarMap[cast<Value>(IV)] = ScalarIV;
+  buildScalarSteps(ScalarIV, Step, IV);
+}
+
+static unsigned getPredecessorIdx(BasicBlock *BB, BasicBlock *PredBB) {
+  unsigned Idx = 0;
+  for (auto It : predecessors(BB)) {
+    if (PredBB == It)
+      return Idx;
+    Idx++;
+  }
+  assert(false && "Predecessor not found");
+  return -1;
+}
+
+static BasicBlock *getPredecessor(BasicBlock *BB, unsigned Idx) {
+  auto It = pred_begin(BB);
+  unsigned i = 0;
+  for (pred_iterator E = pred_end(BB); It != E && i < Idx; It++, i++);
+  assert(It != pred_end(BB) && "Unexpected predecessor index");
+  return *It;
+}
+
+void VPOCodeGen::widenNonInductionPhi(PHINode *Phi) {
+  unsigned NumIncomingValues = Phi->getNumIncomingValues();
+  Type *Ty = Phi->getType();
+  if (Legal->isLoopInvariant(Phi)) {
+    Instruction *Cloned = Phi->clone();
+    Cloned->setName(Phi->getName() + ".cloned");
+    Builder.Insert(Cloned);
+    ScalarMap[Phi][0] = Cloned;
+    return;
+  }
+  Type *VecTy = VectorType::get(Ty, VF);
+  PHINode *VecPhi =
+    Builder.CreatePHI(VecTy, NumIncomingValues, Phi->getName() + ".vec");
+
+  // We assume that blocks layout is preserved and search the incoming BB
+  // basing on the predecessors order in scalar blocks.
+  for (unsigned i = 0; i < NumIncomingValues; ++i) {
+    Value *IncV = Phi->getIncomingValue(i);
+    BasicBlock *IncBB = Phi->getIncomingBlock(i);
+    unsigned PredecessorNo = getPredecessorIdx(Phi->getParent(), IncBB);
+    Value *VecIncV = getVectorValue(IncV);
+    BasicBlock *VecIncBB = getPredecessor(VecPhi->getParent(), PredecessorNo);
+    VecPhi->addIncoming(VecIncV, VecIncBB);
+  }
+  WidenMap[Phi] = VecPhi;
 }
 
 void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
@@ -1083,11 +1154,14 @@ void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
     return;
   }
 
-  // This PHINode must be an induction variable.
-  // Make sure that we know about it.
-  assert(Legal->getInductionVars()->count(P) && "Not an induction variable");
+  if (!Legal->getInductionVars()->count(P)) {
+    // The Phi node is not induction. It combines 2 basic blocks ruled out
+    // by uniform branch.
+    return widenNonInductionPhi(P);
+  }
 
   InductionDescriptor II = Legal->getInductionVars()->lookup(P);
+  const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
 
   switch (II.getKind()) {
   default:
@@ -1096,6 +1170,28 @@ void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
     return widenIntInduction(P);
   case InductionDescriptor::IK_FpInduction:
     return widenFpInduction(P);
+  case InductionDescriptor::IK_PtrInduction: {
+    // Handle the pointer induction variable case.
+    assert(P->getType()->isPointerTy() && "Unexpected type.");
+    // This is the normalized GEP that starts counting at zero.
+    Value *PtrInd = Induction;
+    PtrInd = Builder.CreateSExtOrTrunc(PtrInd, II.getStep()->getType());
+    // Determine the number of scalars we need to generate for each unroll
+    // iteration. If the instruction is uniform, we only need to generate the
+    // first lane. Otherwise, we generate all VF values.
+    unsigned Lanes = VF;
+    // These are the scalar results. Notice that we don't generate vector GEPs
+    // because scalar GEPs result in better code.
+    for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
+      Constant *Idx = ConstantInt::get(PtrInd->getType(), Lane);
+      Value *GlobalIdx = Builder.CreateAdd(PtrInd, Idx);
+      Value *SclrGep = II.transform(Builder, GlobalIdx, PSE.getSE(), DL);
+      SclrGep->setName("next.gep");
+      ScalarMap[Inst][Lane] = SclrGep;
+    }
+    return;
+  }
+
   }
 }
 
@@ -1212,7 +1308,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   }
 
   case Instruction::Store: {
-    vectorizeStoreInstruction(Inst, false);
+    vectorizeStoreInstruction(Inst, true);
     break;
   }
 
@@ -1398,4 +1494,183 @@ Value *VPOCodeGen::getOrCreateTripCount(Loop *L) {
                                     L->getLoopPreheader()->getTerminator());
 
   return TripCount;
+}
+
+/// A helper function that returns the pointer operand of a load or store
+/// instruction.
+static Value *getPointerOperand(Value *I) {
+  if (auto *LI = dyn_cast<LoadInst>(I))
+    return LI->getPointerOperand();
+  if (auto *SI = dyn_cast<StoreInst>(I))
+    return SI->getPointerOperand();
+  return nullptr;
+}
+
+void VPOCodeGen::collectLoopUniforms(unsigned VF) {
+
+  // We should not collect Uniforms more than once per VF. Right now,
+  // this function is called from collectUniformsAndScalars(), which 
+  // already does this check. Collecting Uniforms for VF=1 does not make any
+  // sense.
+
+  assert(VF >= 2 && !Uniforms.count(VF) &&
+          "This function should not be visited twice for the same VF");
+
+  // Visit the list of Uniforms. If we'll not find any uniform value, we'll 
+  // not analyze again.  Uniforms.count(VF) will return 1.
+  Uniforms[VF].clear();
+
+  // We now know that the loop is vectorizable!
+  // Collect instructions inside the loop that will remain uniform after
+  // vectorization.
+
+  // Global values, params and instructions outside of current loop are out of
+  // scope.
+  auto isOutOfScope = [&](Value *V) -> bool {
+    Instruction *I = dyn_cast<Instruction>(V);
+    return (!I || !OrigLoop->contains(I));
+  };
+
+  SetVector<Instruction *> Worklist;
+  BasicBlock *Latch = OrigLoop->getLoopLatch();
+
+  // Start with the conditional branch. If the branch condition is an
+  // instruction contained in the loop that is only used by the branch, it is
+  // uniform.
+  auto *Cmp = dyn_cast<Instruction>(Latch->getTerminator()->getOperand(0));
+  if (Cmp && OrigLoop->contains(Cmp) && Cmp->hasOneUse()) {
+    Worklist.insert(Cmp);
+    DEBUG(dbgs() << "LV: Found uniform instruction: " << *Cmp << "\n");
+  }
+
+  // Holds consecutive and consecutive-like pointers. Consecutive-like pointers
+  // are pointers that are treated like consecutive pointers during
+  // vectorization. The pointer operands of interleaved accesses are an
+  // example.
+  SmallSetVector<Instruction *, 8> ConsecutiveLikePtrs;
+
+  // Holds pointer operands of instructions that are possibly non-uniform.
+  SmallPtrSet<Instruction *, 8> PossibleNonUniformPtrs;
+
+  // Iterate over the instructions in the loop, and collect all
+  // consecutive-like pointer operands in ConsecutiveLikePtrs. If it's possible
+  // that a consecutive-like pointer operand will be scalarized, we collect it
+  // in PossibleNonUniformPtrs instead. We use two sets here because a single
+  // getelementptr instruction can be used by both vectorized and scalarized
+  // memory instructions. For example, if a loop loads and stores from the same
+  // location, but the store is conditional, the store will be scalarized, and
+  // the getelementptr won't remain uniform.
+  for (auto *BB : OrigLoop->blocks())
+    for (auto &I : *BB) {
+
+      // If there's no pointer operand, there's nothing to do.
+      auto *Ptr = dyn_cast_or_null<Instruction>(getPointerOperand(&I));
+      if (!Ptr)
+        continue;
+
+      // True if all users of Ptr are memory accesses that have Ptr as their
+      // pointer operand.
+      auto UsersAreMemAccesses = all_of(Ptr->users(), [&](User *U) -> bool {
+        return getPointerOperand(U) == Ptr;
+      });
+
+      // Ensure the memory instruction will not be scalarized or used by
+      // gather/scatter, making its pointer operand non-uniform. If the pointer
+      // operand is used by any instruction other than a memory access, we
+      // conservatively assume the pointer operand may be non-uniform.
+      if (!UsersAreMemAccesses || !Legal->isConsecutivePtr(Ptr))
+        PossibleNonUniformPtrs.insert(Ptr);
+
+      // If the memory instruction will be vectorized and its pointer operand
+      // is consecutive-like, or interleaving - the pointer operand should
+      // remain uniform.
+      else
+        ConsecutiveLikePtrs.insert(Ptr);
+    }
+
+  // Add to the Worklist all consecutive and consecutive-like pointers that
+  // aren't also identified as possibly non-uniform.
+  for (auto *V : ConsecutiveLikePtrs)
+    if (!PossibleNonUniformPtrs.count(V)) {
+      DEBUG(dbgs() << "LV: Found uniform instruction: " << *V << "\n");
+      Worklist.insert(V);
+    }
+
+  // Expand Worklist in topological order: whenever a new instruction
+  // is added , its users should be either already inside Worklist, or
+  // out of scope. It ensures a uniform instruction will only be used
+  // by uniform instructions or out of scope instructions.
+  unsigned idx = 0;
+  while (idx != Worklist.size()) {
+    Instruction *I = Worklist[idx++];
+
+    for (auto OV : I->operand_values()) {
+      if (isOutOfScope(OV))
+        continue;
+      auto *OI = cast<Instruction>(OV);
+      if (all_of(OI->users(), [&](User *U) -> bool {
+        return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
+      })) {
+        Worklist.insert(OI);
+        DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+      }
+    }
+  }
+
+  // Returns true if Ptr is the pointer operand of a memory access instruction
+  // I, and I is known to not require scalarization.
+  auto isVectorizedMemAccessUse = [&](Instruction *I, Value *Ptr) -> bool {
+    return getPointerOperand(I) == Ptr && Legal->isConsecutivePtr(Ptr);
+  };
+
+  // For an instruction to be added into Worklist above, all its users inside
+  // the loop should also be in Worklist. However, this condition cannot be
+  // true for phi nodes that form a cyclic dependence. We must process phi
+  // nodes separately. An induction variable will remain uniform if all users
+  // of the induction variable and induction variable update remain uniform.
+  // The code below handles both pointer and non-pointer induction variables.
+  for (auto &Induction : *Legal->getInductionVars()) {
+    auto *Ind = Induction.first;
+    auto *IndUpdate = cast<Instruction>(Ind->getIncomingValueForBlock(Latch));
+
+    // Determine if all users of the induction variable are uniform after
+    // vectorization.
+    auto UniformInd = all_of(Ind->users(), [&](User *U) -> bool {
+      auto *I = cast<Instruction>(U);
+      return I == IndUpdate || !OrigLoop->contains(I) || Worklist.count(I) ||
+        isVectorizedMemAccessUse(I, Ind);
+    });
+    if (!UniformInd)
+      continue;
+
+    // Determine if all users of the induction variable update instruction are
+    // uniform after vectorization.
+    auto UniformIndUpdate = all_of(IndUpdate->users(), [&](User *U) -> bool {
+      auto *I = cast<Instruction>(U);
+      return I == Ind || !OrigLoop->contains(I) || Worklist.count(I) ||
+        isVectorizedMemAccessUse(I, IndUpdate);
+    });
+    if (!UniformIndUpdate)
+      continue;
+
+    // The induction variable and its update instruction will remain uniform.
+    Worklist.insert(Ind);
+    Worklist.insert(IndUpdate);
+    DEBUG(dbgs() << "LV: Found uniform instruction: " << *Ind << "\n");
+    DEBUG(dbgs() << "LV: Found uniform instruction: " << *IndUpdate << "\n");
+  }
+
+  Uniforms[VF].insert(Worklist.begin(), Worklist.end());
+}
+
+void VPOCodeGen::collectUniformsAndScalars(unsigned VF) {
+  collectLoopUniforms(VF);
+}
+
+/// Returns true if \p I is known to be uniform after vectorization.
+bool VPOCodeGen::isUniformAfterVectorization(Instruction *I,
+                                             unsigned VF) const {
+  assert(Uniforms.count(VF) && "VF not yet analyzed for uniformity");
+  auto UniformsPerVF = Uniforms.find(VF);
+  return UniformsPerVF->second.count(I);
 }

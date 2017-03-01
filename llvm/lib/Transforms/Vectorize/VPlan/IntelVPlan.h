@@ -174,6 +174,61 @@ public:
   void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 };
 
+/// A VPUniformConditionBitRecipe is a VPConditionBitRecipe which supports a
+/// uniform conditional branch. 
+class VPUniformConditionBitRecipe : public VPConditionBitRecipeBase {
+public:
+  VPUniformConditionBitRecipe(Value *Cond)
+    : VPConditionBitRecipeBase(VPUniformBranchSC) {
+    ScConditionBit = Cond;
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPUniformBranchSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void vectorize(VPTransformState &State) override;
+
+  /// Print the recipe.
+  void print(raw_ostream &O) const override {
+    O << "Uniform Branch condition: " << ConditionBit;
+  }
+
+  StringRef getName() const { return "Cond Bit Recipe"; };
+
+private:
+  Value *ScConditionBit;
+};
+
+/// A VPLiveInConditionBitRecipe is a recipe for a Condition operand of 
+/// a uniform conditional branch. The Condition is defined outside the loop.
+class VPLiveInConditionBitRecipe : public VPConditionBitRecipeBase {
+public:
+  VPLiveInConditionBitRecipe(Value *Cond)
+    : VPConditionBitRecipeBase(VPLiveInBranchSC) {
+    ConditionBit = Cond;
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPLiveInBranchSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void vectorize(VPTransformState &State) override {}
+
+  /// Print the recipe.
+  void print(raw_ostream &O) const override {
+    O << "Live-in Branch condition: " << ConditionBit;
+  }
+
+  StringRef getName() const { return "Live-in cond Bit Recipe"; };
+};
+
 /// The IntelVPlanUtils class provides interfaces for the construction and
 /// manipulation of a VPlan.
 class IntelVPlanUtils : public VPlanUtils {
@@ -189,6 +244,18 @@ public:
                                                     const BasicBlock::iterator E,
                                                     // VPlan *Plan,
                                                     bool isScalarizing);
+
+  /// Creates a new VPUniformConditionBitRecipe.
+  VPUniformConditionBitRecipe *
+  createUniformConditionBitRecipe(Value *Cond) {
+    return new VPUniformConditionBitRecipe(Cond);
+  }
+
+  /// Creates a new VPLiveInConditionBitRecipe.
+  VPLiveInConditionBitRecipe *
+  createLiveInConditionBitRecipe(Value *Cond) {
+    return new VPLiveInConditionBitRecipe(Cond);
+  }
 
   /// Create a new, empty VPLoop, with no blocks.
   VPLoop *createLoop() {

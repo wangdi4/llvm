@@ -20,6 +20,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "LoopVectorizationCodeGen.h"
 #include "LoopVectorizationPlanner.h"
@@ -251,6 +252,7 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   DT =  &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
 
   std::function<bool(Loop *)> isSupported = [&isSupported](Loop *Lp) -> bool {
 
@@ -291,14 +293,17 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
 
       WRNVecLoopNode *WLoopNode;
       if ((WLoopNode = dyn_cast<WRNVecLoopNode>(WRNode))) {
+        Loop *Lp = WLoopNode->getLoop();
+        simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
+        formLCSSARecursively(*Lp, *DT, LI, SE);
 
-        assert((VPlanForceBuild || isSupported(WLoopNode->getLoop())) &&
+        assert((VPlanForceBuild || isSupported(Lp)) &&
                "Loop is not supported by VPlan");
 
         DEBUG(errs() << "Starting VPlan gen for \n");
         DEBUG(WRNode->dump());
 
-        processLoop(WLoopNode->getLoop(), Fn, WLoopNode);
+        processLoop(Lp, Fn, WLoopNode);
       }
     }
   } else {
@@ -308,6 +313,8 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
     SmallVector<Loop *, 2> WorkList(LI->begin(), LI->end());
     while (!WorkList.empty()) {
       Loop *Lp = WorkList.pop_back_val();
+      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
+      formLCSSARecursively(*Lp, *DT, LI, SE);
       if (VPlanForceBuild || isSupported(Lp))
         processLoop(Lp, Fn);
       // TODO: Subloops
@@ -379,6 +386,7 @@ INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 //INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 //INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 //INITIALIZE_PASS_DEPENDENCY(AvrDefUse)
@@ -402,6 +410,7 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<DominatorTreeWrapperPass>();
+  AU.addRequired<AssumptionCacheTracker>();
 }
 
 bool VPlanDriver::runOnFunction(Function &F) {
@@ -437,7 +446,7 @@ VPlanDriver::createLoopVecPlanner(Loop *Lp) {
 
 void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
   PredicatedScalarEvolution PSE(*SE, *Lp);
-  VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &F, LI);
+  VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &F, LI, DT);
 
   // The function canVectorize() collects information about induction
   // and reduction variables. It also verifies that the loop vectorization

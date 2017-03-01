@@ -169,3 +169,10 @@ template void llvm::Calculate<VPRegionBlock, VPBlockBase *>(
 //template void llvm::Calculate<VPRegionBlock, Inverse<VPBlockBase *>>(
 //    DominatorTreeBase<GraphTraits<Inverse<VPBlockBase *>>::NodeType> &DT,
 //    VPRegionBlock &VPR);
+
+void VPUniformConditionBitRecipe::vectorize(VPTransformState &State) {
+  if (isa<Instruction>(ConditionBit)) {
+    State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
+    ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
+  }
+}

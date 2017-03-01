@@ -33,8 +33,8 @@ class VPOVectorizationLegality {
 public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution& PSE,
                            TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
-                           Function *F, LoopInfo *LI)
-    : TheLoop(L), PSE(PSE), TLI(TLI), TTI(TTI), LI(LI),
+                           Function *F, LoopInfo *LI, DominatorTree *DT)
+    : TheLoop(L), PSE(PSE), TLI(TLI), TTI(TTI), LI(LI), DT(DT),
     Induction(nullptr), WidestIndTy(nullptr) {}
 
   /// Returns true if it is legal to vectorize this loop.
@@ -94,6 +94,8 @@ private:
   /// Target Transform Info
   const TargetTransformInfo *TTI;
   LoopInfo *LI;
+  /// Dominator Tree.
+  DominatorTree *DT;
   /// Holds the integer induction variable. This is the counter of the
   /// loop.
   PHINode *Induction;
@@ -142,6 +144,13 @@ public:
 
   // Widen the given instruction to VL wide vector instruction
   void vectorizeInstruction(Instruction *Inst);
+  // Vectorize the given instruction that cannot be widened using serialization.
+  // This is done using a sequence of extractelement, Scalar Op, InsertElement
+  // instructions.
+  void serializeInstruction(Instruction *Inst);
+
+  /// Collect Uniform and Scalar values for the given \p VF.
+  void collectUniformsAndScalars(unsigned VF);
 
   IRBuilder<>& getBuilder() { return Builder; }
 
@@ -150,6 +159,17 @@ public:
   static void collectTriviallyDeadInstructions(
     Loop *OrigLoop, VPOVectorizationLegality *Legal,
     SmallPtrSetImpl<Instruction *> &DeadInstructions);
+
+  // Get the widened vector value for given value V. If the scalar value
+  // has not been widened, we widen it by VL and store it in WidenMap
+  // before returning the widened value
+  Value *getVectorValue(Value *V);
+
+  /// Return a value in the new loop corresponding to \p V from the original
+  /// loop at vector index \p Lane. If the value has
+  /// been vectorized but not scalarized, the necessary extractelement
+  /// instruction will be generated.
+  Value *getScalarValue(Value *V, unsigned Lane);
 
 private:
 
@@ -205,16 +225,48 @@ private:
   /// to each vector element of Val. The sequence starts at StartIndex.
   Value *getStepVector(Value *Val, int StartIdx, Value *Step);
 
+  /// Create a broadcast instruction. This method generates a broadcast
+  /// instruction (shuffle) for loop invariant values and for the induction
+  /// value. If this is the induction variable then we extend it to N, N+1, ...
+  /// this is needed because each iteration in the loop corresponds to a SIMD
+  /// element.
+  Value *getBroadcastInstrs(Value *V);
+
   /// Create vector and scalar version of the same induction variable.
   /// We don't need always the both, cost model may provide information
   /// about this.
   void widenIntInduction(PHINode *IV);
+
+  /// Widen Phi node, which is not an induction variable. This Phi node
+  /// is a result of merging blocks ruled out by uniform branch.
+  void widenNonInductionPhi(PHINode *Phi);
+
+  /// Compute scalar induction steps. \p ScalarIV is the scalar induction
+  /// variable on which to base the steps, \p Step is the size of the step, and
+  /// \p EntryVal is the value from the original loop that maps to the steps.
+  /// Note that \p EntryVal doesn't have to be an induction variable (e.g., it
+  /// can be a truncate instruction).
+  void buildScalarSteps(Value *ScalarIV, Value *Step, Value *EntryVal);
 
   /// Create a vector version of FP induction.
   void widenFpInduction(PHINode *IV);
 
   /// Create a vector version of induction.
   void createVectorIntInductionPHI(PHINode *IV, Instruction *& VectorInd);
+
+  /// Collect the instructions that are uniform after vectorization. An
+  /// instruction is uniform if we represent it with a single scalar value in
+  /// the vectorized loop corresponding to each vector iteration. Examples of
+  /// uniform instructions include pointer operands of consecutive or
+  /// interleaved memory accesses. Note that although uniformity implies an
+  /// instruction will be scalar, the reverse is not true. In general, a
+  /// scalarized instruction will be represented by VF scalar values in the
+  /// vectorized loop, each corresponding to an iteration of the original
+  /// scalar loop.
+  void collectLoopUniforms(unsigned VF);
+
+  /// Returns true if \p I is known to be uniform after vectorization.
+  bool isUniformAfterVectorization(Instruction *I, unsigned VF) const;
 
   /// The original loop.
   Loop *OrigLoop;
@@ -260,10 +312,18 @@ private:
   // Loop increment
   ConstantInt *StrideValue;
 
+  /// Holds the instructions known to be uniform after vectorization.
+  /// The data is collected per VF.
+  DenseMap<unsigned, SmallPtrSet<Instruction *, 4>> Uniforms;
+
+  /// Holds the instructions known to be scalar after vectorization.
+  /// The data is collected per VF.
+  DenseMap<unsigned, SmallPtrSet<Instruction *, 4>> Scalars;
+
   // Map of widened value.
   std::map<Value *, Value *> WidenMap;
   // Map of scalar values.
-  std::map<Value *, Value *> ScalarMap;
+  std::map<Value *, DenseMap<unsigned, Value *>> ScalarMap;
 
   // Holds the end values for each induction variable. We save the end values
   // so we can later fix-up the external users of the induction variables.
@@ -314,18 +374,6 @@ private:
   void vectorizePHIInstruction(Instruction *Inst);
 
   void vectorizeReductionPHI(PHINode *Inst);
-
-  // Vectorize the given instruction that cannot be widened using serialization.
-  // This is done using a sequence of extractelement, Scalar Op, InsertElement
-  // instructions.
-  void serializeInstruction(Instruction *Inst);
-
-  // Get the widened vector value for given value V. If the scalar value
-  // has not been widened, we widen it by VL and store it in WidenMap
-  // before returning the widened value
-  Value *getVectorValue(Value *V);
-
-  Value *getScalarValue(Value *V);
 
   // Return a vector Vl wide: <Val, Val + Stride,
   // ... VAL + (VL - 1) * Stride>
