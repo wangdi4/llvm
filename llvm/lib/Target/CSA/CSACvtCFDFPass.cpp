@@ -80,7 +80,7 @@ OrderMemopsType("csa-order-memops-type",
                 cl::values(clEnumVal(none,
                                      "No memory ordering. Possibly incorrect"),
                            clEnumVal(linear,
-                                     "Linear ordering. Dumb but incorrect"),
+                                     "Linear ordering. Dumb but correct"),
                            clEnumVal(wavefront,
                                      "Totally ordered stores, parallel loads between stores.")),
                 cl::init(OrderMemopsMode::wavefront));
