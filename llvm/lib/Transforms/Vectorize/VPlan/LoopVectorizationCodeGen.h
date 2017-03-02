@@ -138,11 +138,21 @@ public:
   void finalizeLoop();
 
   // Create the vector loop skeleton which iterates from StartIndex
-  // to StartIndex +  VL * Stride * TripCount. We also setup the control
+  // to StartIndex +  VF * Stride * TripCount. We also setup the control
   // flow such that the scalar loop is skipped.
   void createEmptyLoop();
 
-  // Widen the given instruction to VL wide vector instruction
+  /// Set up the values of the IVs correctly when exiting the vector loop.
+  void fixupIVUsers(PHINode *OrigPhi, const InductionDescriptor &II,
+                    Value *CountRoundDown, Value *EndValue,
+                    BasicBlock *MiddleBlock);
+
+  /// \brief The Loop exit block may have single value PHI nodes where the
+  /// incoming value is 'Undef'. While vectorizing we only handled real values
+  /// that were defined inside the loop. Here we fix the 'undef case'.
+  void fixLCSSAPHIs();
+
+  // Widen the given instruction to VF wide vector instruction
   void vectorizeInstruction(Instruction *Inst);
   // Vectorize the given instruction that cannot be widened using serialization.
   // This is done using a sequence of extractelement, Scalar Op, InsertElement
@@ -161,7 +171,7 @@ public:
     SmallPtrSetImpl<Instruction *> &DeadInstructions);
 
   // Get the widened vector value for given value V. If the scalar value
-  // has not been widened, we widen it by VL and store it in WidenMap
+  // has not been widened, we widen it by VF and store it in WidenMap
   // before returning the widened value
   Value *getVectorValue(Value *V);
 
@@ -376,7 +386,7 @@ private:
   void vectorizeReductionPHI(PHINode *Inst);
 
   // Return a vector Vl wide: <Val, Val + Stride,
-  // ... VAL + (VL - 1) * Stride>
+  // ... VAL + (VF - 1) * Stride>
   Value *getStrideVector(Value *Val, Value *Stride);
 };
 

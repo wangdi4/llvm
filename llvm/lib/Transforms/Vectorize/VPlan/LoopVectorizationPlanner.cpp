@@ -336,6 +336,7 @@ VPBasicBlock *LoopVectorizationPlanner::splitBlock(VPBlockBase *Block,
 
   VPBasicBlock *NewBlock = PlanUtils.createBasicBlock();
   PlanUtils.insertBlockAfter(NewBlock, Block);
+  NewBlock->setConditionBitRecipe(Block->getConditionBitRecipe());
 
   // Add NewBlock to VPLoopInfo
   if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {

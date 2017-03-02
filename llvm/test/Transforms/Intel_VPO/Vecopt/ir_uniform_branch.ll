@@ -1,4 +1,4 @@
-; RUN: opt -S -VPODriver -vplan-build-stress-test -vpo-codegen < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-build-stress-test -vpo-codegen < %s | FileCheck %s
 
 ; CHECK-LABEL: foo
 ; CHECK: vector.body

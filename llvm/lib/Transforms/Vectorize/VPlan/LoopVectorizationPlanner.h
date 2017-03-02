@@ -118,7 +118,7 @@ public:
                            class DominatorTree* DT,
                            VPOVectorizationLegality *Legal)
       : LoopVectorizationPlannerBase(WRL),
-        TheLoop(Lp), LI(LI), TLI(TLI), TTI(TTI), DT(DT), Legal(Legal) {}
+        TheLoop(Lp), LI(LI), TLI(TLI), TTI(TTI), Legal(Legal), DT(DT){}
 
   ~LoopVectorizationPlanner() {}
 

@@ -439,6 +439,14 @@ void VPOCodeGen::finalizeLoop() {
   fixCrossIterationPHIs();
 
   updateAnalysis();
+
+  // Fix-up external users of the induction variables.
+  for (auto &Entry : *Legal->getInductionVars())
+    fixupIVUsers(Entry.first, Entry.second,
+                 getOrCreateVectorTripCount(LI->getLoopFor(LoopVectorBody)),
+                 IVEndValues[Entry.first], LoopMiddleBlock);
+  
+  fixLCSSAPHIs();
 }
 
 void VPOCodeGen::fixCrossIterationPHIs() {
@@ -1673,4 +1681,76 @@ bool VPOCodeGen::isUniformAfterVectorization(Instruction *I,
   assert(Uniforms.count(VF) && "VF not yet analyzed for uniformity");
   auto UniformsPerVF = Uniforms.find(VF);
   return UniformsPerVF->second.count(I);
+}
+
+// Fix up external users of the induction variable. At this point, we are
+// in LCSSA form, with all external PHIs that use the IV having one input value,
+// coming from the remainder loop. We need those PHIs to also have a correct
+// value for the IV when arriving directly from the middle block.
+void VPOCodeGen::fixupIVUsers(PHINode *OrigPhi,
+                              const InductionDescriptor &II,
+                              Value *CountRoundDown, Value *EndValue,
+                              BasicBlock *MiddleBlock) {
+  // There are two kinds of external IV usages - those that use the value
+  // computed in the last iteration (the PHI) and those that use the penultimate
+  // value (the value that feeds into the phi from the loop latch).
+  // We allow both, but they, obviously, have different values.
+
+  assert(OrigLoop->getExitBlock() && "Expected a single exit block");
+
+  DenseMap<Value *, Value *> MissingVals;
+
+  // An external user of the last iteration's value should see the value that
+  // the remainder loop uses to initialize its own IV.
+  Value *PostInc = OrigPhi->getIncomingValueForBlock(OrigLoop->getLoopLatch());
+  for (User *U : PostInc->users()) {
+    Instruction *UI = cast<Instruction>(U);
+    if (!OrigLoop->contains(UI)) {
+      assert(isa<PHINode>(UI) && "Expected LCSSA form");
+      MissingVals[UI] = EndValue;
+    }
+  }
+
+  // An external user of the penultimate value need to see EndValue - Step.
+  // The simplest way to get this is to recompute it from the constituent SCEVs,
+  // that is Start + (Step * (CRD - 1)).
+  for (User *U : OrigPhi->users()) {
+    auto *UI = cast<Instruction>(U);
+    if (!OrigLoop->contains(UI)) {
+      const DataLayout &DL =
+        OrigLoop->getHeader()->getModule()->getDataLayout();
+      assert(isa<PHINode>(UI) && "Expected LCSSA form");
+
+      IRBuilder<> B(MiddleBlock->getTerminator());
+      Value *CountMinusOne = B.CreateSub(
+        CountRoundDown, ConstantInt::get(CountRoundDown->getType(), 1));
+      Value *CMO = B.CreateSExtOrTrunc(CountMinusOne, II.getStep()->getType(),
+                                       "cast.cmo");
+      Value *Escape = II.transform(B, CMO, PSE.getSE(), DL);
+      Escape->setName("ind.escape");
+      MissingVals[UI] = Escape;
+    }
+  }
+
+  for (auto &I : MissingVals) {
+    PHINode *PHI = cast<PHINode>(I.first);
+    // One corner case we have to handle is two IVs "chasing" each-other,
+    // that is %IV2 = phi [...], [ %IV1, %latch ]
+    // In this case, if IV1 has an external use, we need to avoid adding both
+    // "last value of IV1" and "penultimate value of IV2". So, verify that we
+    // don't already have an incoming value for the middle block.
+    if (PHI->getBasicBlockIndex(MiddleBlock) == -1)
+      PHI->addIncoming(I.second, MiddleBlock);
+  }
+}
+
+void VPOCodeGen::fixLCSSAPHIs() {
+  for (Instruction &LEI : *LoopExitBlock) {
+    auto *LCSSAPhi = dyn_cast<PHINode>(&LEI);
+    if (!LCSSAPhi)
+      break;
+    if (LCSSAPhi->getNumIncomingValues() == 1)
+      LCSSAPhi->addIncoming(UndefValue::get(LCSSAPhi->getType()),
+                            LoopMiddleBlock);
+  }
 }
