@@ -409,3 +409,35 @@ void VPlanPrinter::dumpRegion(const VPRegionBlock *Region) {
   OS << Indent << "}\n";
   dumpEdges(Region);
 }
+
+void VPAllOnesPredicateRecipe::vectorize(VPTransformState &State) {
+
+}
+
+void VPAllOnesPredicateRecipe::print(raw_ostream &O) const {
+
+}
+
+void VPBlockPredicateRecipe::vectorize(VPTransformState &State) {
+
+}
+
+void VPBlockPredicateRecipe::print(raw_ostream &O) const {
+
+}
+
+void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
+
+}
+
+void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
+
+}
+
+void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
+
+}
+
+void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {
+
+}

@@ -24,6 +24,7 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "LoopVectorizationCodeGen.h"
 #include "LoopVectorizationPlanner.h"
+#include "VPlanPredicator.h"
 
 // From VPlanDriver.h"
 //#include "llvm/Analysis/LoopInfo.h"
@@ -87,6 +88,9 @@ static cl::opt<bool>
     VPlanForceBuild("vplan-force-build", cl::init(false),
                     cl::desc("Construct VPlan even if loop is not supported "
                              "(only for development)"));
+static cl::opt<bool>
+    EnableVPlanPredicator("vplan-predicator", cl::init(false), cl::Hidden,
+                          cl::desc("Enable VPlan predicator."));
 
 namespace {
 //class VPODirectiveCleanup : public FunctionPass {
@@ -460,6 +464,13 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
     new LoopVectorizationPlanner(LoopNode, Lp, LI, TLI, TTI, DT, &LVL);
 
   LVP->buildInitialVPlans(4 /*MinVF*/, 4 /*MaxVF*/);
+  // Predicator changes BEGIN
+  if (EnableVPlanPredicator) {
+    IntelVPlan *Plan = LVP->getVPlanForVF(4);
+    VPlanPredicator VPP(Plan);
+    VPP.predicate();
+  }
+  // Predicator changes END
 
   LVP->setBestPlan(4, 1);
 

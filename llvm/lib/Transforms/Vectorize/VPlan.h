@@ -46,6 +46,7 @@ class LoopVectorizationLegality;
 namespace llvm {
 
 class VPBasicBlock;
+class VPBlockBase;
 #ifdef INTEL_CUSTOMIZATION
 class VPLoop;
 class VPOCodeGen;
@@ -102,7 +103,12 @@ public:
     VPBuildScalarStepsSC,
     VPInterleaveSC,
     VPExtractMaskBitSC,
-    VPMergeScalarizeBranchSC,
+	VPMergeScalarizeBranchSC,
+	// predicates
+	VPAllOnesPredicateRecipeSC,
+	VPBlockPredicatesRecipeSC,
+	VPIfTruePredicateRecipeSC,
+	VPIfFalsePredicateRecipeSC,
 #ifdef INTEL_CUSTOMIZATION
     VPUniformBranchSC,
     VPLiveInBranchSC,
@@ -142,6 +148,219 @@ public:
   }
 };
 
+/// A VPPredicateRecipeBase is a pure virtual recipe which supports predicate
+/// generation/modeling. Concrete sub-classes represent block & edge predicates
+/// and their relations to one another.
+/// The predicate value and its generating VPPredicateRecipe are considered as 
+/// one (in a similar manner to a value and its instruction in LLVM-IR).
+/// Moreover, a concrete predicate-recipe exists with the main purpose of 
+/// generating a specific portion of the predicate generation sequence in the 
+/// output-IR. While some recipe instances serve as the actual predicates for 
+/// predicating instructions in a predicated VP-BB, other recipe instances may
+/// only exist as an intermediate recipe in the predicate generation process.
+///
+/// Predicate relations are defined as listed below:
+/// *** A predicate/edge-condition is represented in the definition as the set 
+/// *** of active lanes.
+/// (a) Predicate(VP-BB): Either (1) the union across all incoming 
+///     edge-predicates. Or (2) the \phi between them, this kind of case serves
+///     inner-loop predicate handling in the header of the loop.
+/// (b) Predicate(edge): the intersection between the source-BB predicate and 
+///     the condition-predicate (where a condition-predicate is defined as
+///     the set of lanes choosing to traverse a given edge). E.g. given the 
+///     true-edge of an if-statement, its condition-predicate is the set of 
+///     lanes traversing it across all lanes (rather than only considering the 
+///     active lanes). When the condition is void, the source-BB has only a 
+///     single edge and its condition-predicate is set to all lanes.
+class VPPredicateRecipeBase : public VPRecipeBase {
+public:
+  /// Type definition for an array of vectorized masks. One per unroll
+  /// iteration.
+  typedef SmallVector<Value*, 2> VectorParts;
+
+  /// Temporary, should be removed.
+  BasicBlock* SourceBB;
+
+protected:
+
+  /// The result after vectorizing. used for feeding future v-instructions.
+  VectorParts VectorizedPredicate;
+
+  /// Construct a VPPredicateRecipeBase.
+  VPPredicateRecipeBase(const unsigned char SC)
+    : VPRecipeBase(SC), VectorizedPredicate() {}
+
+  /// Predicate's name.
+  std::string Name;
+
+public:
+  /// Get the vectorized value. Must be used after vectorizing the concrete
+  /// recipe.
+  const VectorParts &getVectorizedPredicate() const { 
+    return VectorizedPredicate; 
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPAllOnesPredicateRecipeSC ||
+           V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC  ||
+           V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC  ||
+           V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC;
+  }
+
+  // Get predicate's name.
+  std::string getName() const { return Name; }
+  // Set predicate's name.
+  void setName(std::string Name) { this->Name = Name; }
+};
+
+/// A VPAllOnesPredicateRecipe is a concrete VPPredicateRecipe recipe which
+/// models a special block-predicate which has all lanes active. This is the
+/// default entry and exit predicate value for any vectorized code.
+/// A VPAllOnesPredicateRecipe is a singletone, i.e. it instantiates once
+/// in the program's lifespan for all VPlans.
+/// no singletone.
+class VPAllOnesPredicateRecipe : public VPPredicateRecipeBase {
+public:
+
+  /// Construct a VPAllOnesPredicateRecipe.
+  VPAllOnesPredicateRecipe()
+    : VPPredicateRecipeBase(VPAllOnesPredicateRecipeSC) {}
+
+public:
+  inline static VPAllOnesPredicateRecipe* getPredicateRecipe() {
+    //static VPAllOnesPredicateRecipe AllOnes;
+    //return AllOnes;
+    return new VPAllOnesPredicateRecipe();
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPAllOnesPredicateRecipeSC;
+  }
+
+  void vectorize(VPTransformState &State) override;
+
+  void print(raw_ostream &O) const override;
+
+};
+
+class VPBlockBase;
+
+/// A VPBlockPredicateRecipe is a concrete VPPredicateRecipe recipe which
+/// models a block predicate. As defined above in Predicate relations (a.1.),
+/// this predicate is the union of all IncomingPredicates.
+class VPBlockPredicateRecipe : public VPPredicateRecipeBase {
+private:
+  /// The list of incoming edges to the block
+  SmallVector<VPPredicateRecipeBase*, 2> IncomingPredicates;
+
+public:
+  /// Construct a VPPredicateRecipeBase.
+  VPBlockPredicateRecipe()
+    : VPPredicateRecipeBase(VPBlockPredicatesRecipeSC), IncomingPredicates() {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC;
+  }
+
+  /// \brief Add Incoming Predicate.
+  void appendIncomingPredicate(VPPredicateRecipeBase *incoming) {
+    assert(incoming && "Cannot add nullptr incoming predicate!");
+    IncomingPredicates.push_back(incoming);
+  }
+
+  const SmallVector<VPPredicateRecipeBase*, 2> &getIncomingPredicates(void) const {
+    return IncomingPredicates;
+  }
+
+  /*
+  /// \brief Remove Incoming Predicate.
+  void removeIncomingPredicate(VPBlockBase *Incoming) {
+    auto Pos = std::find(IncomingPredicates.begin(), IncomingPredicates.end(), Incoming);
+    assert(Pos && "incoming predicate does not exist");
+    IncomingPredicates.erase(Pos);
+  }
+  */
+  void vectorize(VPTransformState &State) override;
+
+  void print(raw_ostream &O) const override;
+};
+
+/// A VPEdgePredicateRecipeBase is a pure virtual recipe which supports 
+/// predicate generation/modeling on edges. Concrete sub-classes represent 
+/// if-statement edge predicates and select-statement edge predicates in the
+/// future.
+/// A VPEdgePredicateRecipeBase holds reference to edge's source-BB predicate
+/// and condition-predicate as illustrated in Predicate relations (b).
+class VPEdgePredicateRecipeBase : public VPPredicateRecipeBase {
+protected:
+  /// A pointer to the source-IR condition value.
+  Value *ConditionValue;
+  
+  /// A pointer to the predecessor block's predicate.
+  VPPredicateRecipeBase* PredecessorPredicate;
+
+  /// Construct a VPEdgePredicateRecipeBase.
+  VPEdgePredicateRecipeBase(const unsigned char SC, Value* ConditionValue,
+    VPPredicateRecipeBase* PredecessorPredicate)
+    : VPPredicateRecipeBase(SC), ConditionValue(ConditionValue),
+    PredecessorPredicate(PredecessorPredicate){}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC ||
+           V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC;
+  }
+
+  /// A helper function which prints out the details of an edge predicate.
+  void printDetails(raw_ostream &O) const;
+};
+
+/// A VPIfTruePredicateRecipe is a concrete recipe which represents the 
+/// edge-predicate of the true-edged if-statement case.
+class VPIfTruePredicateRecipe : public VPEdgePredicateRecipeBase {
+
+public:
+  /// Construct a VPIfTruePredicateRecipe.
+  VPIfTruePredicateRecipe(Value* ConditionValue, 
+    VPPredicateRecipeBase* PredecessorPredicate)
+    : VPEdgePredicateRecipeBase(VPIfTruePredicateRecipeSC, 
+      ConditionValue, PredecessorPredicate) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC;
+  }
+
+  void vectorize(VPTransformState &State) override;
+
+  void print(raw_ostream &O) const override;
+};
+
+/// A VPIfFalsePredicateRecipe is a concrete recipe which represents the 
+/// edge-predicate of the false-edged if-statement case.
+class VPIfFalsePredicateRecipe : public VPEdgePredicateRecipeBase {
+
+public:
+  /// Construct a VPIfFalsePredicateRecipe.
+  VPIfFalsePredicateRecipe(Value* ConditionValue,
+    VPPredicateRecipeBase* PredecessorPredicate)
+    : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, 
+      ConditionValue, PredecessorPredicate) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC;
+  }
+
+  void vectorize(VPTransformState &State) override;
+
+  void print(raw_ostream &O) const override;
+
+};
+
 /// A VPConditionBitRecipeBase is a pure virtual VPRecipe which supports a
 /// conditional branch. Concrete sub-classes of this recipe are in charge of
 /// generating the instructions that compute the condition for this branch in
@@ -164,6 +383,7 @@ public:
 
   virtual StringRef getName() const = 0;
 };
+
 
 /// VPOneByOneRecipeBase is a VPRecipeBase which handles each Instruction in its
 /// ingredients independently, in order. The ingredients are either all
@@ -334,6 +554,9 @@ private:
   /// \brief Successor selector, null for zero or single successor blocks.
   VPConditionBitRecipeBase *ConditionBitRecipe;
 
+  /// holds a predicate for a VPBlock. 
+  VPPredicateRecipeBase* PredicateRecipe;
+
   /// \brief Add \p Successor as the last successor to this block.
   void appendSuccessor(VPBlockBase *Successor) {
     assert(Successor && "Cannot add nullptr successor!");
@@ -362,7 +585,8 @@ private:
 
 protected:
   VPBlockBase(const unsigned char SC, const std::string &N)
-      : VBID(SC), Name(N), Parent(nullptr), ConditionBitRecipe(nullptr) {}
+      : VBID(SC), Name(N), Parent(nullptr), ConditionBitRecipe(nullptr),
+        PredicateRecipe(nullptr) {}
 
 public:
   /// An enumeration for keeping track of the concrete subclass of VPBlockBase
@@ -494,6 +718,14 @@ public:
 
   void setConditionBitRecipe(VPConditionBitRecipeBase *R) {
     ConditionBitRecipe = R;
+  }
+
+  VPPredicateRecipeBase *getPredicateRecipe() const {
+    return PredicateRecipe;
+  }
+
+  void setPredicateRecipe(VPPredicateRecipeBase *R) {
+    PredicateRecipe = R;
   }
 
   /// The method which generates all new IR instructions that correspond to
