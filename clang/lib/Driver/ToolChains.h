@@ -1300,6 +1300,11 @@ public:
   // will have the "readnone" attribute indicating that they do not change
   // any global state (like errno)
   bool IsMathErrnoDefault() const override { return false; }
+
+  // If this is an OpenMP offload build, add -mllvm -csa-wrap-asm to the
+  // options
+  void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                             llvm::opt::ArgStringList &CC1Args) const override;
 };
 
 } // end namespace toolchains

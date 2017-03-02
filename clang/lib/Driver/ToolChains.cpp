@@ -5369,3 +5369,32 @@ SanitizerMask Contiki::getSupportedSanitizers() const {
     Res |= SanitizerKind::SafeStack;
   return Res;
 }
+
+void
+CSAToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                                    llvm::opt::ArgStringList &CC1Args) const {
+  // Linux default options to pass to cc1
+  Linux::addClangTargetOptions(DriverArgs, CC1Args);
+
+  // Since we're using the CSAToolChain, we know the target is CSA.
+  // If we're not compiling for an OpenMP offload target, we're done.
+  Arg *targets = DriverArgs.getLastArg(options::OPT_fopenmp_targets_EQ);
+  if (nullptr == targets) {
+    return;
+  }
+
+  // Check the list of arguments for "csa"
+  for (unsigned i = 0; i < targets->getNumValues(); i++) {
+
+    // If we found an offload for the CSA. Add -mllvm -csa-wrap-asm to the
+    // options so any CSA assembly code will be "wrapped" as strings and
+    // won't cause errors when the x86 assembler sees them.
+    const char *tgt = targets->getValue(i);
+    if (0 == strcmp(tgt, "csa")) {
+      CC1Args.push_back("-mllvm");
+      CC1Args.push_back("-csa-wrap-asm");
+      return;
+    }
+  }
+}
+
