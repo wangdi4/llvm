@@ -44,6 +44,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#endif
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -1248,6 +1251,11 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
 
     if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
       return Changed;
+
+#if INTEL_CUSTOMIZATION
+    // Do not hoist llvm intrinsics that represent OpenMP directives.
+    if (IntelIntrinsicUtils::isIntelDirective(I1)) return Changed;
+#endif // INTEL_CUSTOMIZATION
 
     // For a normal instruction, we just move one to right before the branch,
     // then replace all uses of the other with the first.  Finally, we remove

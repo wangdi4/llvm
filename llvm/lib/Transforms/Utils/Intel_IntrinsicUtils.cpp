@@ -131,3 +131,17 @@ StringRef IntelIntrinsicUtils::getClauseString(int Id) {
          "Can't find a string for clause id");
   return IntelDirectives::ClauseStrings[Id];
 }
+
+bool IntelIntrinsicUtils::isIntelDirective(Instruction *I) {
+  if (I==nullptr) return false;
+  IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+  if (Call) {
+    Intrinsic::ID Id = Call->getIntrinsicID();
+    if (Id == Intrinsic::intel_directive           ||
+        Id == Intrinsic::intel_directive_qual      ||
+        Id == Intrinsic::intel_directive_qual_opnd ||
+        Id == Intrinsic::intel_directive_qual_opndlist) return true;
+  }
+  return false;
+}
+

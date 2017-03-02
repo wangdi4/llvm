@@ -66,6 +66,10 @@ public:
     StringRef Str(getClauseString(Id));
     return cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
   }
+
+  /// \brief Return true if the instruction is an llvm.intel.directive*() 
+  /// intrinsic call
+  static bool isIntelDirective(Instruction *I);
 };
 
 } // end llvm namespace
