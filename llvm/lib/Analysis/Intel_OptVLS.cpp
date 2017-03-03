@@ -116,16 +116,22 @@ void OVLSGroup::dump() const {
 
 uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
                                        Type *Tp) const {
+  int index = 0;
+  unsigned NumSubVecElems = 0;
   unsigned NumVecElems = Tp->getVectorNumElements();
   assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
 
   if (isExtractSubvectorMask(Mask)) {
     // TODO: Support other sized subvectors.
-    int index = Mask[0] == 0 ? 0 : 1;
+    index = Mask[0] == 0 ? 0 : 1;
     return TTI.getShuffleCost(
         TargetTransformInfo::SK_ExtractSubvector, Tp, index,
         VectorType::get(Tp->getScalarType(), NumVecElems / 2));
-  } else if (TTI.isTargetSpecificShuffleMask(Mask))
+  } else if (isInsertSubvectorMask(Mask, index, NumSubVecElems))
+    return TTI.getShuffleCost(
+        TargetTransformInfo::SK_InsertSubvector, Tp, index,
+        VectorType::get(Tp->getScalarType(), NumSubVecElems));
+  else if (TTI.isTargetSpecificShuffleMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0,
                               nullptr);
   else if (isReverseVectorMask(Mask))
@@ -139,6 +145,7 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
   for (int MaskElem : Mask)
     if (MaskElem < 0)
       TotalElems--;
+
   return 2 * TotalElems;
 }
 
