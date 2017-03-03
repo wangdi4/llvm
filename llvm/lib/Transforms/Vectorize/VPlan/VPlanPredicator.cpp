@@ -30,9 +30,12 @@
 //
 // Predicate Propagation across the HCFG
 // -------------------------------------
-// The Entry Block of a Region shares the same predicate as the Region.
-// Once a Region is about to be predicated by predicateRegion(), the
-// Region->getPredicateRecipe() is set as the Region->getEntry()'s predicate.
+// In theory the Entry Block of a Region shares the same predicate as the
+// Region. However, the Entry Block's Block Predicate does not point to
+// the Region's BP. Instead it keeps its own copy.
+//
+// Before a Region gets predicated by predicateRegion(), the Region's
+// Block Predicate should have already been set.
 // The top level region (VPlan's entry block) is assigned Block Predicate
 // with an AllOnes recipe as its only input edge.
 
@@ -265,7 +268,8 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
 	outs() << "\n";
 }
 
-// Generate all predicates for LOOP
+// Generate all predicates within Region. We stay at the same level in
+// the HCFG and do not attempt to predicate the internals of other regions.
 void VPlanPredicator::predicateRegion(VPRegionBlock *Region) {
 	VPPredicateRecipeBase *RegionRecipe = Region->getPredicateRecipe();
 	assert(RegionRecipe && "Must have been assigned an input predicate");
@@ -275,15 +279,20 @@ void VPlanPredicator::predicateRegion(VPRegionBlock *Region) {
 	for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
 				 ite = df_iterator<VPBlockBase *>::end(EntryBlock);
 			 it != ite; ++it) {
-		VPBlockBase *Block = *it;
-		if (Block != Region->getEntry()) {
-			genAndAttachEmptyBlockPredicate(Block);
-		}
+		genAndAttachEmptyBlockPredicate(*it);
 	}
 
-	// 2. Propagate the Region's predicate to its Entry Block
-	Region->getEntry()->setPredicateRecipe(RegionRecipe);
-	emitRecipeIfBB(RegionRecipe, EntryBlock);
+	// 2. Propagate the Region's Block Predicate inputs to its Entry Block's
+	//    Block Predicate.
+	VPBlockPredicateRecipe *RegionBP
+		= dyn_cast<VPBlockPredicateRecipe>(RegionRecipe);
+	assert(RegionBP && "Each region should have a BP attached to it.");
+	VPBlockPredicateRecipe *EntryBP
+		= dyn_cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
+	assert(EntryBP && "Should have been emitted by Step 1.");
+	for (VPPredicateRecipeBase *Incoming : RegionBP->getIncomingPredicates()) {
+		EntryBP->appendIncomingPredicate(Incoming);
+	}
 
 	// 3. Generate edge predicates and append them to the block predicate
 	//    The visitng order does not matter.
