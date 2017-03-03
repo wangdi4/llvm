@@ -104,6 +104,7 @@ public:
 
     /// \brief Returns the ID (enum) corresponding to OpenMP directives.
     static int getDirectiveID(StringRef DirFullName);
+    static int getDirectiveID(Instruction *I);
 
     /// \brief Returns the ID (enum) corresponding to OpenMP clauses.
     static int getClauseID(StringRef ClauseFullName);
@@ -112,23 +113,31 @@ public:
 
     /// \brief Return true iff DirString corresponds to a directive that
     /// begins a region (eg, DIR_OMP_PARALLEL, DIR_OMP_SIMD, etc.
-    static bool isBeginDirective(StringRef DirString);
     static bool isBeginDirective(int DirID);
+    static bool isBeginDirective(StringRef DirString);
+    static bool isBeginDirective(Instruction *I);
+    static bool isBeginDirective(BasicBlock *BB);
 
     /// \brief Return true iff DirString corresponds to a directive that
     /// ends a region (eg, DIR_OMP_END_PARALLEL, DIR_OMP_END_SIMD, etc.
-    static bool isEndDirective(StringRef DirString);
     static bool isEndDirective(int DirID);
+    static bool isEndDirective(StringRef DirString);
+    static bool isEndDirective(Instruction *I);
+    static bool isEndDirective(BasicBlock *BB);
 
     /// \brief Return true iff DirString corresponds to a directive that
     /// begins or ends a region
-    static bool isBeginOrEndDirective(StringRef DirString);
     static bool isBeginOrEndDirective(int DirID);
+    static bool isBeginOrEndDirective(StringRef DirString);
+    static bool isBeginOrEndDirective(Instruction *I);
+    static bool isBeginOrEndDirective(BasicBlock *BB);
 
     /// \brief Return true iff DirString corresponds to a stand-alone 
     /// directive (doesn't begin or end a region). Eg: DIR_OMP_FLUSH
-    static bool isStandAloneDirective(StringRef DirString);
     static bool isStandAloneDirective(int DirID);
+    static bool isStandAloneDirective(StringRef DirString);
+    static bool isStandAloneDirective(Instruction *I);
+    static bool isStandAloneDirective(BasicBlock *BB);
 
     /// \brief Return true iff DirString corresponds to DIR_QUAL_LIST_END,
     /// the mandatory marker to end a directive
