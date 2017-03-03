@@ -1685,7 +1685,10 @@ static CallSite createNewCall(CallSite CS, BasicBlock* Insert_BB,
     NumIPCloned++;
   }
   std::vector<Value*> Args(CI->op_begin(), CI->op_end() - 1);
-  New_CI = CallInst::Create(NewFn, Args, ".clone.spec.cs", Insert_BB);
+  // NameStr should be "" if return type is void. 
+  std::string New_Name;
+  New_Name = CI->hasName() ? CI->getName().str() + ".clone.spec.cs" : "";
+  New_CI = CallInst::Create(NewFn, Args, New_Name, Insert_BB);
   New_CI->setDebugLoc(CI->getDebugLoc());
   New_CI->setCallingConv(CI->getCallingConv());
   New_CI->setAttributes(CI->getAttributes());
@@ -1835,7 +1838,7 @@ static void cloneSpecializationFunction(void) {
         errs() << "    Cond[" << J << "] = ";
         errs() << *NewCondStmtBBs[J] << "\n";
        }
-        errs() << "    Call[" << J << "] = "
+        errs() << "    ClonedCall[" << J << "] = "
           << *(NewClonedCallBBs[J]) << "\n\n";
       }
       if (IsInexact)
