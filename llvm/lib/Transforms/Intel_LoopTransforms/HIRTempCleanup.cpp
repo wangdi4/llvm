@@ -266,18 +266,11 @@ class TempSubstituter final : public HLNodeVisitorBase {
   HIRFramework *HIRF;
   SmallVector<TempInfo, 32> CandidateTemps;
   bool SIMDDirSeen;
+  bool HasEmptyNodes;
 
-public:
-  TempSubstituter(HIRFramework *HIRF) : HIRF(HIRF), SIMDDirSeen(false) {}
-
-  /// Adds/updates temp candidates.
-  void visit(HLInst *Inst);
-  /// Processes node by performing substitution and/or invalidating candidate
-  /// temps.
-  void visit(HLDDNode *Node);
-
-  void visit(HLNode *Node) {}
-  void postVisit(HLNode *Node) {}
+private:
+  // Returns true if the parent node is empty due to node removal.
+  bool isNodeEmpty(HLNode *Parent) const;
 
   /// Returns true if the instruction is either of the form t1 = t2 (where both
   /// lval/rval are self blobs) or t1 = &t2[0] (for pointer types).
@@ -296,6 +289,19 @@ public:
 
   /// Eliminates temps which have been successfully substituted.
   void eliminateSubstitutedTemps(HLRegion *Reg);
+
+public:
+  TempSubstituter(HIRFramework *HIRF)
+      : HIRF(HIRF), SIMDDirSeen(false), HasEmptyNodes(false) {}
+
+  /// Adds/updates temp candidates.
+  void visit(HLInst *Inst);
+  /// Processes node by performing substitution and/or invalidating candidate
+  /// temps.
+  void visit(HLDDNode *Node);
+
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
 
   /// Main driver function to find and substitutes unnecessary temps.
   void substituteTemps(HLRegion *Reg);
@@ -532,6 +538,20 @@ void TempSubstituter::visit(HLInst *HInst) {
   }
 }
 
+bool TempSubstituter::isNodeEmpty(HLNode *Node) const {
+  if (auto Loop = dyn_cast<HLLoop>(Node)) {
+    return !Loop->hasChildren();
+
+  } else if (auto If = dyn_cast<HLIf>(Node)) {
+    return (!If->hasThenChildren() && !If->hasElseChildren());
+
+  }
+
+  // No-op for empty region.
+  // I don't think switches can become empty due to temp removal.
+  return false;
+}
+
 void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
   for (auto &Temp : CandidateTemps) {
     if (!Temp.isValid()) {
@@ -587,16 +607,32 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
       }
     }
 
+    auto Parent = Temp.getDefInst()->getParent();
+
     // Temp is deemed unnecessary.
     Reg->getHLNodeUtils().remove(Temp.getDefInst());
+
+    if (isNodeEmpty(Parent)) {
+      HasEmptyNodes = true;
+    }
   }
 
   CandidateTemps.clear();
 }
 
 void TempSubstituter::substituteTemps(HLRegion *Reg) {
-  Reg->getHLNodeUtils().visitRange(*this, Reg->child_begin(), Reg->child_end());
+  HLNodeUtils::visitRange(*this, Reg->child_begin(), Reg->child_end());
   eliminateSubstitutedTemps(Reg);
+
+  // Parents can become recursively empty when we remove nodes so it is better
+  // to scan the whole region.
+  if (HasEmptyNodes) {
+    HLNodeUtils::removeEmptyNodes(Reg);
+  }
+
+  // Restore flags.
+  SIMDDirSeen = false;
+  HasEmptyNodes = false;
 }
 
 bool HIRTempCleanup::runOnFunction(Function &F) {
