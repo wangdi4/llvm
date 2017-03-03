@@ -2110,8 +2110,15 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   for (BasicBlock::iterator BBI = BB->begin(); &*BBI != BI; ++BBI) {
     if (isa<DbgInfoIntrinsic>(BBI))
       continue;
+
     if (Size > 10)
       return false; // Don't clone large BB's.
+
+#if INTEL_CUSTOMIZATION
+    if (IntelIntrinsicUtils::isIntelDirective(&*BBI))
+      return false;
+#endif // INTEL_CUSTOMIZATION
+
     ++Size;
 
     // We can only support instructions that do not define values that are
