@@ -44,9 +44,9 @@ for.body:                                         ; preds = %for.body, %entry.sp
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  store float %add, float* %x, align 4
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  store float %add, float* %x, align 4
   %conv6 = fpext float %add to double
   %call = call i32 (i8*, ...) @printf(i8* nonnull getelementptr inbounds ([8 x i8], [8 x i8]* @.str, i64 0, i64 0), double %conv6) #4
   %x1 = load float, float* %x, align 4
