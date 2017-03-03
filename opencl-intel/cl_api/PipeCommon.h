@@ -57,7 +57,7 @@ static size_t pipe_get_total_size(cl_uint uiPacketSize, cl_uint uiMaxPackets) {
   return INTEL_PIPE_HEADER_RESERVED_SPACE + uiPacketSize * uiMaxPackets;
 }
 
-static void pipe_init(void* mem, uint packet_size, uint max_packets) {
+static void pipe_init(void* mem, cl_uint packet_size, cl_uint max_packets) {
   pipe_control_intel_t* pipe_ctrl = (pipe_control_intel_t*) mem;
   pipe_ctrl->pipe_max_packets_plus_one = max_packets + 1;
 }
