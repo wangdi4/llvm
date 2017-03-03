@@ -115,8 +115,8 @@ public:
   /// \brief Returns true if ParOpt/VecOpt is able to handle this loop.
   bool isCandidateLoop(Loop &Lp);
 
-  /// \brief performs pre-order visit in LLVM Dom-Tree to get W-Regions
-  void doPreOrderDomTreeVisit(BasicBlock *BB, WRStack<WRegionNode *> *S);
+  /// \brief Process a BB to extract W-Region information
+  void getWRegionFromBB(BasicBlock *BB, WRStack<WRegionNode *> *S);
 
   /// \brief Identifies WRegionNodes and builds WRGraph for LLVM Dom-Tree
   void buildWRGraphFromLLVMIR(Function &F);

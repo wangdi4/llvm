@@ -32,6 +32,8 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
+#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -83,10 +85,9 @@ bool WRegionCollection::isCandidateLoop(Loop &Lp) {
 }
 
 /// \brief Visit the Dom Tree to identify all W-Regions
-void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
+void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
                                                WRStack<WRegionNode *> *S) {
-  // DEBUG(dbgs() << "\ndoPreOrderDomTreeVisit: processing BB:\n" << *BB);
-  auto Root = DT->getNode(BB);
+  DEBUG(dbgs() << "\n=== getWRegionFromBB is processing this BB: " << *BB);
   WRegionNode *W;
 
   //
@@ -112,7 +113,6 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
         // Otherwise, W is nullptr.
         W = WRegionUtils::createWRegion(DirID, BB, LI, S->size());
         if (W) {
-          // DEBUG(dbgs() << "\n Starting New WRegion{\n");
 
           // The intrinsic represents an intel BEGIN directive.
           // W is a pointer to an object for the corresponding WRN.
@@ -127,12 +127,11 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
           }
 
           S->push(W);
-          // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
+          DEBUG(dbgs() << "\n  === New WRegion. ");
+          DEBUG(dbgs() << "Stacksize after push = " << S->size() << "\n");
         } else if (VPOAnalysisUtils::isEndDirective(DirID)) {
           // The intrinsic represents an intel END directive
           // TODO: verify the END directive is the expected one
-
-          // DEBUG(dbgs() << "\n} Ending WRegion.\n");
 
           assert(!(S->empty()) &&
                  "Unexpected empty WRN stack when seeing an END directive");
@@ -145,7 +144,8 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
           W->populateBBSet();
 
           S->pop();
-          // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
+          DEBUG(dbgs() << "\n  === Closed WRegion. ");
+          DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
         }
         else if (VPOAnalysisUtils::isListEndDirective(DirID) && 
                  !(S->empty())) {
@@ -154,6 +154,8 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
             // Current WRN is for a stand-alone directive, so
             // pop the stack as soon as DIR_QUAL_LIST_END is seen
             S->pop();
+            DEBUG(dbgs() << "\n  === Closed WRegion (standalone dir). ");
+            DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
           }
         }
       } else { // Process clauses below
@@ -184,19 +186,65 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
     } // if (Call)
   }   // for
 
-  /// Walk over dominator children.
-  for (auto D = Root->begin(), E = Root->end(); D != E; ++D) {
-    auto DomChildBB = (*D)->getBlock();
-    doPreOrderDomTreeVisit(DomChildBB, S);
+  return;
+}
+
+
+/// \brief Invoking this routine with the entry BBs of a CFG puts all the BBs
+/// of the CFG in the BBStack in a topologically sorted manner (ignoring
+/// backedges). Popping BBStack gives BBs in sorted order. This ordering
+/// allows getWRegionFromBB() to build nested OMP constructs correctly,
+/// visiting all the inner constructs' directives before processing the END
+/// directive of an enclosing outer construct.
+void TopSortBasicBlocks(
+  BasicBlock *BB,
+  WRStack<BasicBlock *> &BBStack,
+  SmallPtrSetImpl<BasicBlock *> &Visited
+)
+{
+  // DEBUG(dbgs() << "\n=== TopSortBasicBlocks visiting this BB: " << *BB);
+
+  // Skip visited nodes.
+  if (Visited.count(BB)) return;
+
+  // Mark BB as "visited".
+  Visited.insert(BB);
+
+  // Visit all the successors first
+  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+    TopSortBasicBlocks(*I, BBStack, Visited);
   }
 
-  return;
+  // We are only interested in BBs that start with OMP directives. Paying the
+  // cost now to look at BB's first instruction allows us to save memory by
+  // only pushing BBs with such directives onto BBStack. It will also save 
+  // compile time later in getWRegionFromBB, which no longer has to look at all
+  // the BBs in the CFG. For typical OpenMP programs where the percentage of
+  // BBs with OMP directives is small, this should result in net savings of
+  // compile time.
+  if (IntelIntrinsicUtils::isIntelDirective(&(BB->front()))) {
+    // DEBUG(dbgs() << "\n=== TopSortBasicBlocks pushed this BB: " << *BB);
+    BBStack.push(BB);
+  }
 }
 
 void WRegionCollection::buildWRGraphFromLLVMIR(Function &F) {
   WRGraph = new (WRContainerTy);
   WRStack<WRegionNode *> S;
-  doPreOrderDomTreeVisit(&F.getEntryBlock(), &S);
+
+  // First, sort the CFG's BBs in topological order (ignoring backedges)
+  // and put them in BBStack
+  BasicBlock *RootBB = &F.getEntryBlock();
+  WRStack<BasicBlock *> BBStack;
+  SmallPtrSet<BasicBlock *, 32> Visited;
+  TopSortBasicBlocks(RootBB, BBStack, Visited);
+
+  // Then, visit the BBs in sorted order (by popping BBStack) to build WRNs
+  while (!BBStack.empty()) {
+    BasicBlock *BB = BBStack.top();
+    getWRegionFromBB(BB, &S);
+    BBStack.pop();
+  }
   return;
 }
 

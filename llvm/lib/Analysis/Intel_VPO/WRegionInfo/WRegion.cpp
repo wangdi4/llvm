@@ -817,10 +817,10 @@ WRNCriticalNode::WRNCriticalNode(WRNCriticalNode *W)
 
 void WRNCriticalNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNCriticalNode<" << getNumber() << "> {\n";
+  OS << Indent << "BEGIN WRNCriticalNode<" << getNumber() << "> {\n";
 
   if (!UserLockName.empty())
-    OS << Indent << "\nUser Lock Name: " << UserLockName << "\n";
+    OS << Indent << "User Lock Name: " << UserLockName << "\n";
 
   if (!isBBSetEmpty())
     for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
