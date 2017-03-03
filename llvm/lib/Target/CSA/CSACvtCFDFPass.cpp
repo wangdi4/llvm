@@ -20,6 +20,7 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SparseSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -137,6 +138,7 @@ namespace llvm {
       //AU.addRequired<LiveVariables>();
       AU.addRequired<MachineDominatorTree>();
       AU.addRequired<MachinePostDominatorTree>();
+      AU.addRequired<AAResultsWrapperPass>();
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -194,17 +196,24 @@ namespace llvm {
     // TBD(jsukha): Experimental code for ordering of memory ops.
     void addMemoryOrderingConstraints();
 
+    typedef std::map<const AliasSet*, unsigned> AliasSetVReg;
+    typedef std::map<const AliasSet*, std::unique_ptr<MachineSSAUpdater> > AliasSetUpdater;
+    typedef std::map<const AliasSet*, std::set<MachineOperand*> > AliasSetUses;
+
     // Helper methods:
 
     // Create a new OLD/OST instruction, to replace an existing LD /
     // ST instruction.
     //  issued_reg is the register to define as the extra output
     //  ready_reg is the register which is the extra input
+    //  If non-NULL, ready_op_num will have the operand number which uses the
+    //  ready_reg stored to it.
     MachineInstr* convert_memop_ins(MachineInstr* memop,
                                     unsigned new_opcode,
                                     const CSAInstrInfo& TII,
                                     unsigned issued_reg,
-                                    unsigned ready_reg);
+                                    unsigned ready_reg,
+                                    unsigned *ready_op_num);
 
     // Create a dependency chain in virtual registers through the
     // basic block BB.
@@ -224,16 +233,20 @@ namespace llvm {
     // linear version of this function links all memory operations in
     // the block together in a single chain.
     //
-    unsigned convert_block_memops_linear(MachineFunction::iterator& BB,
-                                         unsigned mem_in_reg);
+    void convert_block_memops_linear(MachineFunction::iterator& BB,
+                                         AliasSetUpdater& depchain_updater,
+                                         AliasSetUses &depchain_uses,
+                                         AliasSetVReg& depchain_start);
 
     // Wavefront version.   Same conceptual functionality as linear version,
     // but more optimized.
     //
     // Only serializes stores in a block, but allows loads to occur in
     // parallel between stores.
-    unsigned convert_block_memops_wavefront(MachineFunction::iterator& BB,
-                                            unsigned mem_in_reg);
+    void convert_block_memops_wavefront(MachineFunction::iterator& BB,
+                                         AliasSetUpdater& depchain_updater,
+                                         AliasSetUses &depchain_uses,
+                                         AliasSetVReg &depchain_start);
 
     // Merge all the .i1 registers stored in "current_wavefront" into
     // a single output register.
@@ -249,13 +262,6 @@ namespace llvm {
                                       MachineInstr* MI,
                                       SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
                                       unsigned input_mem_reg);
-
-
-    void createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
-                                 DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut);
-
-
-
   private:
     MachineFunction *thisMF;
     const CSAInstrInfo* TII;
@@ -266,6 +272,9 @@ namespace llvm {
     MachinePostDominatorTree *PDT;
     ControlDependenceGraph *CDG;
     MachineLoopInfo *MLI;
+    AliasAnalysis *AA;
+    AliasSetTracker *AS;
+    MachineBasicBlock *entryBB;
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2switch;  //switch for Reg added in bb
     DenseMap<MachineBasicBlock *, unsigned> bb2predcpy;
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2pick;  //switch for Reg added in bb
@@ -282,7 +291,9 @@ namespace llvm {
 //  To hoist init out of namespace blocks.
 char CSACvtCFDFPass::ID = 0;
 //declare CSACvtCFDFPass Pass
-INITIALIZE_PASS(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
+INITIALIZE_PASS_BEGIN(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_END(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
 
 CSACvtCFDFPass::CSACvtCFDFPass() : MachineFunctionPass(ID) {
   initializeCSACvtCFDFPassPass(*PassRegistry::getPassRegistry());
@@ -373,11 +384,33 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   TRI = thisMF->getSubtarget().getRegisterInfo();
   LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
 
+  AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   DT = &getAnalysis<MachineDominatorTree>();
   PDT = &getAnalysis<MachinePostDominatorTree>();
   if (PDT->getRootNode() == nullptr) return false;
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
+
+  // Find the entry block. (Surely there's an easier way to do this?)
+  // TODO: consider saving the entry block somewhere.
+  ControlDependenceNode *rootN = CDG->getRoot();
+  assert(rootN && *rootN->begin());
+  entryBB = (*rootN->begin())->getBlock();
+  assert(entryBB && "Couldn't determine this function's entry block");
+
+  // Create the AliasSetTracker and populate with all basic blocks.
+  AliasSetTracker AST(*AA);
+  AS = &AST;
+  for (MachineBasicBlock &MB : MF) {
+    for (MachineInstr &MI : MB) {
+      for (MachineMemOperand *op : MI.memoperands()) {
+        AS->add(const_cast<Value*>(op->getValue()),
+            op->getSize(), op->getAAInfo());
+      }
+    }
+  }
+  DEBUG(errs() << "AliasSets for function " << MF.getName() << ":\n");
+  DEBUG(AS->dump());
 
 #if 1
   //exception handling code creates multiple exits from a function
@@ -2946,7 +2979,8 @@ MachineInstr* CSACvtCFDFPass::convert_memop_ins(MachineInstr* MI,
                                                 unsigned new_opcode,
                                                 const CSAInstrInfo& TII,
                                                 unsigned issued_reg,
-                                                unsigned ready_reg) {
+                                                unsigned ready_reg,
+                                                unsigned *ready_op_num = nullptr) {
   MachineInstr* new_inst = NULL;
   DEBUG(errs() << "We want convert this instruction.\n");
   for (unsigned i = 0; i < MI->getNumOperands(); ++i) {
@@ -3024,8 +3058,12 @@ MachineInstr* CSACvtCFDFPass::convert_memop_ins(MachineInstr* MI,
     new_inst->addOperand(MO);
     opidx++;
   }
-  // 3. Finally, add the ready flag.
+  // 3. Finally, add the ready flag...
   new_inst->addOperand(ready_op);
+
+  // ...and if requested, save the ready_op for the caller.
+  if(ready_op_num != nullptr)
+    *ready_op_num = new_inst->getNumOperands() - 1;
 
   // 4. Now copy over remaining state in MI:
   //      Flags
@@ -3051,86 +3089,15 @@ MachineInstr* CSACvtCFDFPass::convert_memop_ins(MachineInstr* MI,
   return new_inst;
 }
 
-
-// Insert all the definitions of mem_in for each block,
-// either as:
-//   1. PHI from our predecessors, if multiple predecessors
-//   2. Direct initialization, if 1 predecessor
-//   3. mov of a constant, if 0 predecessors.
-//
-void CSACvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
-                                             DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  const unsigned MemTokenMOVOpcode = TII.getMemTokenMOVOpcode();
-  
-  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-
-    MachineBasicBlock* BBptr = &(*BB);
-
-    assert(blockToMemIn.find(BBptr) != blockToMemIn.end());
-    unsigned mem_in_reg = blockToMemIn[BBptr];
-
-    if (BB->pred_size() > 1) {
-      // Case 1: Insert a PHI of the mem_out registers from all the
-      // predecessors.
-      MachineInstrBuilder mbuilder = BuildMI(*BB,
-                                             BB->getFirstNonPHI(),
-                                             DebugLoc(),
-                                             TII.get(TargetOpcode::PHI),
-                                             mem_in_reg);
-
-      // Scan the predecessors, and add the PHI value for each.
-      for (MachineBasicBlock::pred_iterator PI = BB->pred_begin();
-           PI != BB->pred_end();
-           ++PI) {
-        assert(blockToMemIn.find(*PI) != blockToMemIn.end());
-        unsigned target_out_reg = blockToMemOut[*PI];
-        mbuilder.addReg(target_out_reg);
-        mbuilder.addMBB(*PI);
-      }
-    }
-    else if (BB->pred_size() == 1) {
-      // Case 2: Only one predecessor.  Just use the mem_out register
-      // from the predecessor directly.
-      MachineBasicBlock::pred_iterator PI = BB->pred_begin();
-      MachineBasicBlock* PIptr = *PI;
-      assert(blockToMemIn.find(PIptr) != blockToMemIn.end());
-      unsigned target_out_reg = blockToMemOut[PIptr];
-
-      // Add in the mov of the register from the previous block.
-      BuildMI(*BB,
-              BB->getFirstNonPHI(),
-              DebugLoc(),
-              TII.get(MemTokenMOVOpcode),
-              mem_in_reg).addReg(target_out_reg);
-    }
-    else {
-      assert(BB->pred_size() == 0);
-      // Case 3: No predecessors.  Generate a simple mov of a
-      // constant, to handle the initialization.
-
-      // Add in the mov of the register from the previous block.
-      BuildMI(*BB,
-              BB->getFirstNonPHI(),
-              DebugLoc(),
-              TII.get(MemTokenMOVOpcode),
-              mem_in_reg).addImm(1);
-    }
-
-    DEBUG(errs() << "After createMemInRegisterDefs: " << *BB << "\n");
-  }
-}
-
-
-
-unsigned CSACvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& BB,
-                                                     unsigned mem_in_reg)
-
+void CSACvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& BB,
+    AliasSetUpdater& depchain_updater, AliasSetUses &depchain_uses,
+    AliasSetVReg& depchain_start)
 {
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI= &thisMF->getRegInfo();
 
-  unsigned current_mem_reg = mem_in_reg;
+  // Save the latest evolution of each alias set's memory chain here.
+  AliasSetVReg depchain_reg;
 
   MachineBasicBlock::iterator iterMI = BB->begin();
   while (iterMI != BB->end()) {
@@ -3140,33 +3107,55 @@ unsigned CSACvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& 
     unsigned current_opcode = MI->getOpcode();
     unsigned converted_opcode = TII.get_ordered_opcode_for_LDST(current_opcode);
 
-    if (current_opcode != converted_opcode) {
-      // TBD(jsukha): For now, we are just going to create a linear
-      // chain of dependencies for memory instructions within a
-      // basic block.
-      //
-      // We will want to optimize this implementation further, but
-      // this is the simple version for now.
-      unsigned next_mem_reg = MRI->createVirtualRegister(MemopRC);
-
-      convert_memop_ins(MI,
-                        converted_opcode,
-                        TII,
-                        next_mem_reg,
-                        current_mem_reg);
-
-      // Erase the old instruction.
-      iterMI = BB->erase(iterMI);
-
-      // Advance the chain.
-      current_mem_reg = next_mem_reg;
-    }
-    else {
+    // If this is not an ordered instruction, we're done.
+    if (current_opcode == converted_opcode) {
       ++iterMI;
+      continue;
     }
-  }
 
-  return current_mem_reg;
+    assert(MI->hasOneMemOperand() && "Can't handle multiple-memop ordering");
+    const MachineMemOperand *cOp = *MI->memoperands_begin();
+
+    // Use AliasAnalysis to determine which ordering chain we should be on.
+    AliasSet *as =
+      AS->getAliasSetForPointerIfExists(const_cast<Value*>(cOp->getValue()),
+          cOp->getSize(), cOp->getAAInfo());
+
+    // Create a new vreg which will be written to as the next link of the
+    // chain.
+    unsigned next_mem_reg = MRI->createVirtualRegister(MemopRC);
+
+    // If the previous link is the first into this block, we use the vreg which
+    // the updater was initialized with. The use will be saved, and then the
+    // updater will fix it up later. Otherwise, just use an output created in
+    // this block, which won't need updating.
+    depchain_reg[as] = depchain_reg[as] ? depchain_reg[as] : depchain_start[as];
+
+    // Hook this instruction into the chain, connecting the previous and next
+    // values. The operand number using the old value is saved to newOpNum.
+    unsigned newOpNum;
+    MachineInstr *newInst = convert_memop_ins(MI, converted_opcode, TII,
+        next_mem_reg, depchain_reg[as], &newOpNum);
+
+    // If the instruction uses a value coming into the block, then it will need
+    // to be fixed by MachineSSAUpdater later. Save the operand to the list to
+    // do this later.
+    MachineOperand *newOp = &newInst->getOperand(newOpNum);
+    assert(newOp && newOp->isReg() && newOp->isUse());
+    if (newOp->getReg() == depchain_start[as]) {
+      depchain_uses[as].insert(newOp);
+    }
+
+    // Advance the chain.
+    depchain_reg[as] = next_mem_reg;
+
+    // Update the SSA updater, advising it on the latest value in this
+    // evolution coming out of this BB.
+    depchain_updater[as]->AddAvailableValue(&*BB, next_mem_reg);
+
+    // Finally, erase the old instruction.
+    iterMI = BB->erase(iterMI);
+  }
 }
 
 
@@ -3252,16 +3241,20 @@ unsigned CSACvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
 
 
 
-unsigned CSACvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterator& BB,
-                                                        unsigned mem_in_reg)
+void
+CSACvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterator& BB,
+    AliasSetUpdater& depchain_updater, AliasSetUses &depchain_uses,
+    AliasSetVReg &depchain_start)
 {
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
-  unsigned current_mem_reg = mem_in_reg;
-  SmallVector<unsigned, MEMDEP_VEC_WIDTH> current_wavefront;
-  current_wavefront.clear();
   DEBUG(errs() << "Wavefront memory ordering for block " << &*BB << "\n");
+
+  // Save the latest evolution of each alias set's memory chain here.
+  AliasSetVReg depchain_reg;
+  // Also save a wavefront of load output signals per alias set.
+  std::map<AliasSet*, SmallVector<unsigned, MEMDEP_VEC_WIDTH> > wavefront;
 
   MachineBasicBlock::iterator iterMI = BB->begin();
   while (iterMI != BB->end()) {
@@ -3271,57 +3264,89 @@ unsigned CSACvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterato
     unsigned current_opcode = MI->getOpcode();
     unsigned converted_opcode = TII.get_ordered_opcode_for_LDST(current_opcode);
 
+    // If this is not an ordered instruction, we're done.
+    if (current_opcode == converted_opcode) {
+      ++iterMI;
+      continue;
+    }
+
+    assert(MI->hasOneMemOperand() && "Can't handle multiple-memop ordering");
+    const MachineMemOperand *cOp = *MI->memoperands_begin();
+
+    // Use AliasAnalysis to determine which ordering chain we should be on.
+    AliasSet *as =
+      AS->getAliasSetForPointerIfExists(const_cast<Value*>(cOp->getValue()),
+          cOp->getSize(), cOp->getAAInfo());
+
+    // Create a new vreg which will be written to as the next link of the
+    // chain.
+    unsigned next_mem_reg = MRI->createVirtualRegister(MemopRC);
+
+    // If the previous link is the first into this block, we use the vreg which
+    // the updater was initialized with. The use will be saved, and then the
+    // updater will fix it up later. Otherwise, just use an output created in
+    // this block, which won't need updating.
+    depchain_reg[as] = depchain_reg[as] ? depchain_reg[as] : depchain_start[as];
+
     bool is_load = TII.isLoad(MI);
-
-    if (current_opcode != converted_opcode) {
-      // Create a register for the "issued" output of this memory
-      // operation.
-      unsigned next_out_reg = MRI->createVirtualRegister(MemopRC);
-
-      if (is_load) {
-        // Just a load. Build up the set of load outputs that we
-        // depend on.
-        current_wavefront.push_back(next_out_reg);
-      }
-      else {
-        // This is a store or atomic instruction.
-        // If there were any loads in the last interval, merge all
-        // their outputs into one output, and change the latest
-        // source.
-        if (current_wavefront.size() > 0) {
-          current_mem_reg = merge_dependency_signals(BB,
-                                                     MI,
-                                                     &current_wavefront,
-                                                     current_mem_reg);
-          assert(current_wavefront.size() == 0);
-        }
-      }
-
-      convert_memop_ins(MI,
-                        converted_opcode,
-                        TII,
-                        next_out_reg,
-                        current_mem_reg);
-
-      if (!is_load) {
-        current_mem_reg = next_out_reg;
-      }
-
-      // Erase the old instruction.
-      iterMI = BB->erase(iterMI);
+    if (is_load) {
+      // Just a load. Build up the set of load outputs that we depend on.
+      wavefront[as].push_back(next_mem_reg);
     }
     else {
-      ++iterMI;
+      // This is a store or atomic instruction.  If there were any loads in the
+      // last interval, merge all their outputs into one output, and change the
+      // latest source.
+      depchain_reg[as] = merge_dependency_signals(BB,
+          MI,
+          &wavefront[as],
+          depchain_reg[as]);
+
+      // Update the SSA updater.
+      depchain_updater[as]->AddAvailableValue(&*BB, depchain_reg[as]);
+
+      // We have merged/consumed all pending load outputs.
+      assert(wavefront[as].size() == 0);
     }
+
+    unsigned newOpNum;
+    MachineInstr *newInst = convert_memop_ins(MI, converted_opcode, TII,
+        next_mem_reg, depchain_reg[as], &newOpNum);
+
+    // If the instruction uses a value coming into the block, then it will need
+    // to be fixed by MachineSSAUpdater later. Save the operand to the list to
+    // do this later.
+    MachineOperand *newOp = &newInst->getOperand(newOpNum);
+    assert(newOp && newOp->isReg() && newOp->isUse());
+    if (newOp->getReg() == depchain_start[as]) {
+      depchain_uses[as].insert(newOp);
+    }
+
+    if (!is_load) {
+      // Advance the chain.
+      depchain_reg[as] = next_mem_reg;
+
+      // Update the SSA updater.
+      depchain_updater[as]->AddAvailableValue(&*BB, next_mem_reg);
+    }
+
+    // Finally, erase the old instruction.
+    iterMI = BB->erase(iterMI);
   }
 
-  // Sink any loads at the end of the block to the end of the block.
-  current_mem_reg = merge_dependency_signals(BB,
-                                             NULL,
-                                             &current_wavefront,
-                                             current_mem_reg);
+  for (auto &pair : wavefront) {
+    AliasSet *as = pair.first;
+    assert(depchain_reg[as]);
 
-  return current_mem_reg;
+    // Sink any loads at the end of the block to the end of the block.
+    depchain_reg[as] = merge_dependency_signals(BB,
+        NULL,
+        &pair.second,
+        depchain_reg[as]);
+
+    // Update the SSA updater.
+    depchain_updater[as]->AddAvailableValue(&*BB, depchain_reg[as]);
+  }
 }
 
 /* Find all implicitly defined vregs. These are problematic with dataflow
@@ -3379,17 +3404,33 @@ void CSACvtCFDFPass::addMemoryOrderingConstraints() {
 
   const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  const unsigned MemTokenMOVOpcode = TII.getMemTokenMOVOpcode();
 
-  DenseMap<MachineBasicBlock*, unsigned> blockToMemIn;
-  DenseMap<MachineBasicBlock*, unsigned> blockToMemOut;
+  // For each alias set, maintain 3 items:
+  // depchain_start:   a map from the set to the first vreg in its chain
+  // depchain_updater: a map from the set to a MachineSSAUpdater
+  // depchain_uses:    a map from the set to a collection of all of its uses
+  AliasSetVReg    depchain_start;
+  AliasSetUpdater depchain_updater;
+  AliasSetUses    depchain_uses;
 
+  // Initialize the above maps.
+  for (const AliasSet &set : AS->getAliasSets()) {
+    // Create the start of the chain for each alias set.
+    depchain_start[&set] = MRI->createVirtualRegister(MemopRC);
+    BuildMI(*entryBB,
+        entryBB->getFirstNonPHI(),
+        DebugLoc(),
+        TII.get(MemTokenMOVOpcode),
+        depchain_start[&set]).addImm(1);
+    // Initialize an SSAUpdater for each set.
+    depchain_updater[&set] = std::unique_ptr<MachineSSAUpdater>(new MachineSSAUpdater(*thisMF));
+    depchain_updater[&set]->Initialize(depchain_start[&set]);
+    depchain_updater[&set]->AddAvailableValue(entryBB, depchain_start[&set]);
+  }
 
   DEBUG(errs() << "Before addMemoryOrderingConstraints");
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-
-    // Create a virtual register for the block input.
-    unsigned mem_in_reg = MRI->createVirtualRegister(MemopRC);
-    unsigned last_mem_reg;
 
     // Link all the memory ops in BB together.
     // Return the name of the last output register (which could be
@@ -3397,14 +3438,12 @@ void CSACvtCFDFPass::addMemoryOrderingConstraints() {
     switch (OrderMemopsType) {
     case OrderMemopsMode::wavefront:
       {
-        last_mem_reg = convert_block_memops_wavefront(BB,
-                                                      mem_in_reg);
+        convert_block_memops_wavefront(BB, depchain_updater, depchain_uses, depchain_start);
       }
       break;
     case OrderMemopsMode::linear:
       {
-        last_mem_reg = convert_block_memops_linear(BB,
-                                                   mem_in_reg);
+        convert_block_memops_linear(BB, depchain_updater, depchain_uses, depchain_start);
       }
       break;
 
@@ -3415,36 +3454,42 @@ void CSACvtCFDFPass::addMemoryOrderingConstraints() {
 
     }
 
-    // Create a last (virtual) register for the output of the block.
-    unsigned mem_out_reg = MRI->createVirtualRegister(MemopRC);
-
-    // This operation creates an instruction before the terminating
-    // instruction in the block that moves the contents of the last
-    // "issued" flag in the block into the mem_out register.
-    //
-    // TBD(jsukha): For now, I'm just going to do this operation
-    // with a mov1.  I don't know if some other instruction will be
-    // better.
-    const unsigned MemTokenMOVOpcode = TII.getMemTokenMOVOpcode();    
-    MachineInstr* mem_out_def = BuildMI(*BB,
-                                        BB->getFirstTerminator(),
-                                        DebugLoc(),
-                                        TII.get(MemTokenMOVOpcode),
-                                        mem_out_reg).addReg(last_mem_reg);
-
-    DEBUG(errs() << "Inserted mem_out_def instruction " << *mem_out_def << "\n");
-
-    // Save mem_in_reg and mem_out_reg for each block into a DenseMap,
-    // so that we can create a PHI instruction as an input to the
-    // block.
-    blockToMemIn[&*BB] = mem_in_reg;
-    blockToMemOut[&*BB] = mem_out_reg;
-
     DEBUG(errs() << "After memop conversion of function: " << *BB << "\n");
   }
 
-  // Another walk over basic blocks: add in definitions for mem_in
-  // register for each block, based on predecessors.
-  createMemInRegisterDefs(blockToMemIn, blockToMemOut);
+  // Create a mov to consume the end of all of each chain. We'll need one in
+  // each terminating basic block. (We are still thinking control flow here.)
+  // Note that using RI1 register class should keep this on the SXU.  Even
+  // though we allocate a separate virtual register for each one, LLVM in the
+  // end is free to re-use the same physical register since the values are dead
+  // after each def.
+  for (MachineBasicBlock &BB : *thisMF) {
+    if (!BB.isReturnBlock())
+      continue;
+
+    for (const AliasSet &set : AS->getAliasSets()) {
+      unsigned depchain_end = MRI->createVirtualRegister(&CSA::RI1RegClass);
+      unsigned prev_chain_reg = depchain_start[&set];
+      MachineInstr* endMov = BuildMI(BB, BB.getFirstTerminator(), DebugLoc(), TII.get(MemTokenMOVOpcode), depchain_end).addReg(prev_chain_reg);
+      depchain_uses[&set].insert(endMov->operands_end()-1);
+    }
+  }
+
+  // Finally, use the updater for each set to fully rewrite to SSA. This
+  // includes generating PHI nodes.
+  for (const AliasSet &set : AS->getAliasSets()) {
+    for (auto &op : depchain_uses[&set]) {
+      // There is an exception here: RewriteUse is not smart enough to find new
+      // values added by "AddAvailableValue" before a use in the same basic
+      // block. (I.e., it can only find them if they are in a basic block which
+      // is a strict dominator.) This is only an issue when the use is in the
+      // function's entry block. Fortunately, in this case, we can be sure that
+      // depchain_reg contained the right value to use.
+      if(op->getParent()->getParent() == entryBB)
+        continue;
+
+      depchain_updater[&set]->RewriteUse(*op);
+    }
+  }
 }
 
