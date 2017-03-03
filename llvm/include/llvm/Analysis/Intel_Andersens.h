@@ -302,7 +302,7 @@ public:
 
   // Interface routine to get possible targets of function pointers
   bool GetFuncPointerPossibleTargets(Value *FP, 
-                                     std::vector<llvm::Value*>& Targets);
+              std::vector<llvm::Value*>& Targets, CallSite CS, bool Trace);
 
   //------------------------------------------------
   // Implement the AliasAnalysis API
