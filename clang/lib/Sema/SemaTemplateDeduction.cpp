@@ -3621,7 +3621,8 @@ Sema::DeduceTemplateArguments(FunctionTemplateDecl *FunctionTemplate,
                               QualType ArgFunctionType,
                               FunctionDecl *&Specialization,
                               TemplateDeductionInfo &Info,
-                              bool InOverloadResolution) {
+                              bool InOverloadResolution, // INTEL
+                              bool IgnoreExceptionSpecDifferences) { //INTEL
   if (FunctionTemplate->isInvalidDecl())
     return TDK_Invalid;
 
@@ -3692,6 +3693,7 @@ Sema::DeduceTemplateArguments(FunctionTemplateDecl *FunctionTemplate,
   auto *SpecializationFPT =
       Specialization->getType()->castAs<FunctionProtoType>();
   if (getLangOpts().CPlusPlus1z &&
+      !IgnoreExceptionSpecDifferences &&  // INTEL
       isUnresolvedExceptionSpec(SpecializationFPT->getExceptionSpecType()) &&
       !ResolveExceptionSpec(Info.getLocation(), SpecializationFPT))
     return TDK_MiscellaneousDeductionFailure;

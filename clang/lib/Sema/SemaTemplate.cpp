@@ -8118,7 +8118,8 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
           = DeduceTemplateArguments(FunTmpl,
                                (HasExplicitTemplateArgs ? &TemplateArgs
                                                         : nullptr),
-                                    R, Specialization, Info)) {
+                                    R, Specialization, Info, // INTEL
+                                    getLangOpts().IntelCompat)) { // INTEL
       // Keep track of almost-matches.
       FailedCandidates.addCandidate()
           .set(P.getPair(), FunTmpl->getTemplatedDecl(),
