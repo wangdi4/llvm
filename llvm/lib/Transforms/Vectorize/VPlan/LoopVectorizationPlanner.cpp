@@ -743,7 +743,7 @@
               // with parent region.
               PostDom->getParent()->getExit() != PostDom &&
               // Skip potential entry block if it has outgoing back-edges
-              PlanUtils.blockIsLoopLatch(Dom, VPLInfo)) {
+              !PlanUtils.blockIsLoopLatch(Dom, VPLInfo)) {
 
             // Create new region
             NewRegion = PlanUtils.createRegion(false /*isReplicator*/);
