@@ -238,7 +238,7 @@ void TempInfo::processInnerLoopUses(HLLoop *InvalidatingLoop) {
     auto TempLoop = getLoop();
 
     for (auto UseRef : InnerLoopUses) {
-      auto LCALoop = DefInst->getHLNodeUtils().getLowestCommonAncestorLoop(
+      auto LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(
           InvalidatingLoop, UseRef->getLexicalParentLoop());
 
       if (LCALoop == TempLoop) {
@@ -462,8 +462,8 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
 
         if (auto LastUseLoop = Temp.getLastUseLoop()) {
           auto TempLoop = Temp.getLoop();
-          auto LCALoop = HInst->getHLNodeUtils().getLowestCommonAncestorLoop(
-              LastUseLoop, TempLoop);
+          auto LCALoop =
+              HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, TempLoop);
 
           auto NewSymbase = Temp.getRvalSymbase();
 
@@ -577,33 +577,29 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
       Temp.processInnerLoopUses(nullptr);
 
       unsigned Symbase = Temp.getSymbase();
-
-      // Temp may have been substituted in some places. We need to remove it
-      // from loop liveouts based on performed substitutions.
+      unsigned NewSymbase = Temp.getRvalSymbase();
       HLLoop *ParentLoop = Temp.getLoop();
-      if (auto LastUseLoop = Temp.getLastUseLoop()) {
-        auto LCALoop = Reg->getHLNodeUtils().getLowestCommonAncestorLoop(
-            LastUseLoop, ParentLoop);
+      HLLoop *LCALoop = nullptr;
 
-        while (ParentLoop != LCALoop) {
-          ParentLoop->removeLiveOutTemp(Symbase);
-          ParentLoop = ParentLoop->getParentLoop();
-        }
-      }
-
-      // TODO: The following loop is more like a workaround. Please check if
-      // there is a proper fix required.
-      // https://ir-codecollab.intel.com/ui#review:id=56154
-      // If no substitutions were done, we still need to update loop liveout
-      // in the parent loops.
-      while (ParentLoop && ParentLoop->isLiveOut(Symbase)) {
-        ParentLoop->replaceLiveOutTemp(Symbase, Temp.getRvalSymbase());
-        ParentLoop = ParentLoop->getParentLoop();
-      }
-
-      // Update region liveout.
+      // Temp may have been substituted in some places. We need to replace it in
+      // loop liveouts by its rval symbase.
       if (Reg->isLiveOut(Symbase)) {
-        Reg->replaceLiveOutTemp(Symbase, Temp.getRvalSymbase());
+        assert(Temp.isSubstitutable() && "Temp is live out of region and "
+                                         "non-subtitutable but wat not marked "
+                                         "invalid!");
+        // LCALoop is null in this path as the region liveout temp should be
+        // replaced as loop liveout in all the parent loops.
+        Reg->replaceLiveOutTemp(Symbase, NewSymbase);
+      } else {
+        auto LastUseLoop = Temp.getLastUseLoop();
+        assert(LastUseLoop && "No use found for liveout temp!");
+        LCALoop =
+            HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, ParentLoop);
+      }
+
+      while (ParentLoop != LCALoop) {
+        ParentLoop->replaceLiveOutTemp(Symbase, NewSymbase);
+        ParentLoop = ParentLoop->getParentLoop();
       }
     }
 

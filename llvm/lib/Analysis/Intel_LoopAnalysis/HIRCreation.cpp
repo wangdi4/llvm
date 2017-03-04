@@ -43,9 +43,14 @@ INITIALIZE_PASS_END(HIRCreation, "hir-creation", "HIR Creation", false, true)
 
 char HIRCreation::ID = 0;
 
+static cl::opt<bool> HIRPrinterDetails("hir-details",
+                                       cl::desc("Show HIR with dd_ref details"),
+                                       cl::init(false));
+
 static cl::opt<bool>
-    HIRPrinterDetailed("hir-details", cl::desc("Show HIR with dd_ref details"),
-                       cl::init(false));
+    HIRFrameworkDetails("hir-framework-details",
+                        cl::desc("Show framework detail in print"),
+                        cl::init(false));
 
 static cl::opt<bool>
     HIRPrintModified("hir-print-modified",
@@ -429,7 +434,7 @@ void HIRCreation::releaseMemory() {
 }
 
 void HIRCreation::print(raw_ostream &OS, const Module *M) const {
-  print(HIRPrinterDetailed, OS, M);
+  print(HIRPrinterDetails, OS, M);
 }
 
 void HIRCreation::print(bool FrameworkDetails, raw_ostream &OS,
@@ -438,18 +443,19 @@ void HIRCreation::print(bool FrameworkDetails, raw_ostream &OS,
   auto RegBegin = RI->begin();
   auto SCCF = &getAnalysis<HIRSCCFormation>();
   unsigned Offset = 0;
+  bool PrintFrameworkDetails = HIRFrameworkDetails || FrameworkDetails;
 
   for (auto I = begin(), E = end(); I != E; ++I, ++Offset) {
     assert(isa<HLRegion>(I) && "Top level node is not a region!");
     const HLRegion *Region = cast<HLRegion>(I);
     if (!HIRPrintModified || Region->shouldGenCode()) {
       // Print SCCs in hir-parser output and in detailed mode.
-      if (FrameworkDetails) {
+      if (PrintFrameworkDetails) {
         SCCF->print(FOS, RegBegin + Offset);
       }
 
       FOS << "\n";
-      Region->print(FOS, 0, FrameworkDetails, HIRPrinterDetailed);
+      Region->print(FOS, 0, PrintFrameworkDetails, HIRPrinterDetails);
     }
   }
   FOS << "\n";

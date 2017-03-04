@@ -762,9 +762,8 @@ public:
             typename = IsHLNodeTy<NodeTy>>
   static void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
-    visitRange<Recursive, RecurseInsideLoops, Forward>(Visitor,
-                                                       Begin->getIterator(),
-                                                       ++(End->getIterator()));
+    visitRange<Recursive, RecurseInsideLoops, Forward>(
+        Visitor, Begin->getIterator(), ++(End->getIterator()));
   }
 
   /// Visits all HLNodes in the HIR. The direction is specified using Forward
@@ -1194,9 +1193,9 @@ public:
 
   /// Returns the lowest common ancestor loop of Lp1 and Lp2. Returns null if
   /// there is no such parent loop.
-  const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
-                                            const HLLoop *Lp2);
-  HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
+  static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
+                                                   const HLLoop *Lp2);
+  static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
 
   /// Returns true if the minimum value of blob can be evaluated. Returns the
   /// minimum value in \p Val.

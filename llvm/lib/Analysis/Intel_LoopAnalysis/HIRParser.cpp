@@ -1423,8 +1423,8 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     }
 
   } else if (DefLoop && UseLoop &&
-             (LCALoop = getHLNodeUtils().getLowestCommonAncestorLoop(
-                  DefLoop, UseLoop))) {
+             (LCALoop =
+                  HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop))) {
     // If the current node where the blob is used and the blob definition are
     // both in some HLLoop, the defined at level should be the lowest common
     // ancestor loop. For example-
@@ -1453,7 +1453,7 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     assert(DefLoop && "Defining HLLoop of BaseInst is null!");
 
     if (UseLoop) {
-      LCALoop = getHLNodeUtils().getLowestCommonAncestorLoop(UseLoop, DefLoop);
+      LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
     }
   }
 
@@ -1488,9 +1488,13 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
       DefLoop->addLiveInTemp(Symbase);
     }
 
-    while (DefLoop != LCALoop) {
-      DefLoop->addLiveOutTemp(Symbase);
-      DefLoop = DefLoop->getParentLoop();
+    // Instructions with livein metadata are deconstructed definitions (not
+    // uses). Therefore, they should not be used to mark loop liveouts.
+    if (!SE->getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn)) {
+      while (DefLoop != LCALoop) {
+        DefLoop->addLiveOutTemp(Symbase);
+        DefLoop = DefLoop->getParentLoop();
+      }
     }
   }
 

@@ -317,8 +317,7 @@ bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
   const HLLoop *RefParentLoop2 = cast<HLLoop>(RefParent2);
 
   const HLLoop *Ancestor =
-      RefParentLoop1->getHLNodeUtils().getLowestCommonAncestorLoop(
-          RefParentLoop1, RefParentLoop2);
+      HLNodeUtils::getLowestCommonAncestorLoop(RefParentLoop1, RefParentLoop2);
   if (Ancestor) {
     return ValidationMap[Ancestor] == GraphState::Valid;
   }
