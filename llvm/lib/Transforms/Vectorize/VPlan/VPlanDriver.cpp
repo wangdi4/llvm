@@ -248,8 +248,8 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
   //
   //  bool ret_val = false;
   //
-  //  DEBUG(errs() << "VPODriver: ");
-  //  DEBUG(errs().write_escaped(Fn.getName()) << '\n');
+  //  DEBUG(dbgs() << "VPODriver: ");
+  //  DEBUG(dbgs().write_escaped(Fn.getName()) << '\n');
   //
   LI =  &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE =  &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -260,13 +260,8 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
 
   std::function<bool(Loop *)> isSupported = [&isSupported](Loop *Lp) -> bool {
 
-    //if (!Lp->getLoopLatch()) {
-    //  DEBUG(errs() << "Loop form is not supported: multiple latches.\n");
-    //  return false;
-    //}
-
     if (!Lp->getUniqueExitBlock()) {
-      DEBUG(errs() << "Loop form is not supported: multiple exit blocks.\n");
+      DEBUG(dbgs() << "Loop form is not supported: multiple exit blocks.\n");
       return false;
     }
 
@@ -278,7 +273,7 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
     for (BasicBlock *BB : Lp->blocks()) {
       // We don't support switch statements inside loops.
       if (!isa<BranchInst>(BB->getTerminator())) {
-        DEBUG(errs() << "loop contains a switch statement\n");
+        DEBUG(dbgs() << "loop contains a switch statement\n");
         return false;
       }
     }
@@ -288,7 +283,7 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
 
   if (!VPlanStressTest) {
     WRContainerImpl *WRGraph = WR->getWRGraph();
-    DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
+    DEBUG(dbgs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
     for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
       DEBUG((*I)->dump());
     }
@@ -304,14 +299,14 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
         assert((VPlanForceBuild || isSupported(Lp)) &&
                "Loop is not supported by VPlan");
 
-        DEBUG(errs() << "Starting VPlan gen for \n");
+        DEBUG(dbgs() << "Starting VPlan gen for \n");
         DEBUG(WRNode->dump());
 
         processLoop(Lp, Fn, WLoopNode);
       }
     }
   } else {
-    DEBUG(errs() << "VPlan stress test mode\n");
+    DEBUG(dbgs() << "VPlan stress test mode\n");
 
     // Iterate on TopLevelLoops
     SmallVector<Loop *, 2> WorkList(LI->begin(), LI->end());
@@ -325,64 +320,6 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
     }
   }
 
-  //  for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
-  //    AVR *Avr = &*I;
-  //    AVRWrn *AvrWrn;
-  //
-  //    if (!(AvrWrn = dyn_cast<AVRWrn>(Avr))) {
-  //      continue;
-  //    }
-  //
-  //    VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn,
-  //    Fn);
-  //
-  //    if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
-  //      AVRCodeGen AvrCGNode(Avr, SC, LI, TLI, &Fn);
-  //      assert(isa<VPOScenarioEvaluation>(ScenariosEngine));
-  //      VPOScenarioEvaluation *LLVMIRScenariosEngine =
-  //          cast<VPOScenarioEvaluation>(&ScenariosEngine);
-  //      LLVMIRScenariosEngine->setCG(&AvrCGNode);
-  //
-  //      // Decide if/how to vectorize in terms of profitability.
-  //      VPOVecContextBase VC = ScenariosEngine.getBestCandidate(AvrWrn);
-  //
-  //      // FORNOW: We pass CodeGen only the selected VF, since currently
-  //      AvrWrn
-  //      // contains only a single ALoop.
-  //      int VF = VC.getVectFactor();
-  //      DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF <<
-  //      "\n");
-  //
-  //      // Widen selected candidate
-  //      ret_val = ret_val | AvrCGNode.vectorize(VF);
-  //    } else {
-  //      HIRSafeReductionAnalysis *SRA;
-  //      SRA = &getAnalysis<HIRSafeReductionAnalysis>();
-  //      AVRCodeGenHIR AvrCGNode(Avr, TLI, SRA, Fn);
-  //
-  //      assert(isa<VPOScenarioEvaluationHIR>(ScenariosEngine));
-  //      VPOScenarioEvaluationHIR *HIRScenariosEngine =
-  //          cast<VPOScenarioEvaluationHIR>(&ScenariosEngine);
-  //      HIRScenariosEngine->setCG(&AvrCGNode);
-  //
-  //      // Decide if/how to vectorize in terms of profitability.
-  //      VPOVecContextBase VC = ScenariosEngine.getBestCandidate(AvrWrn);
-  //
-  //      // FORNOW: We pass CodeGen only the selected VF, since currently
-  //      AvrWrn
-  //      // contains only a single ALoop.
-  //      int VF = VC.getVectFactor();
-  //      DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF <<
-  //      "\n");
-  //
-  //      // Widen selected candidate
-  //      ret_val = ret_val | AvrCGNode.vectorize(VF);
-  //    }
-  //
-  //    resetScenariosEngineForRegion();
-  //  }
-  //
-  //  return ret_val;
   return false;
 }
 
@@ -483,7 +420,7 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
     LVP->executeBestPlan(VCodeGen);
   }
 
-  // TODO: Destroy LVP
+  // TODO: Destroy LVP. We need to remove VPLoop multi-inheritance first
   //delete LVP;
   return;
 }

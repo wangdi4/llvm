@@ -264,11 +264,18 @@ public:
     return Loop;
   }
 
-  /// Create a new, empty VPLoop, with no blocks.
-  //void setLoopLatch(VPLoop *Lp, VPBasicBlock *LatchBB) { Lp->Latch = LatchBB; }
-  //void setLoopPreHeader(VPLoop *VPL, VPBasicBlock *PreHeader) {
-  //  VPL->PreHeader = PreHeader;
-  //} 
+  /// Returns true if Block is a loop latch
+  bool blockIsLoopLatch(const VPBlockBase *Block,
+                        const VPLoopInfo *VPLInfo) const {
+
+    if (const VPLoop *ParentVPL = VPLInfo->getLoopFor(Block)) {
+      SmallVector<VPBlockBase *, 2> Latches;
+      ParentVPL->getLoopLatches(Latches);
+      return std::find(Latches.begin(), Latches.end(), Block);
+    }
+   
+    return false;
+  }
 };
 
 // TODO: We may need this in VPlan.h/cpp eventually
