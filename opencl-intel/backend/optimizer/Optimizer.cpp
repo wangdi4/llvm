@@ -220,6 +220,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        unsigned OptLevel,
                                        const intel::OptimizerConfig *pConfig,
                                        bool isOcl20,
+                                       bool isFpgaEmulator,
                                        bool UnrollLoops) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
@@ -268,7 +269,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
 
-  PM.add(createChannelPipeTransformationPass());
+  if (isFpgaEmulator) {
+      PM.add(createChannelPipeTransformationPass());
+  }
 
 
   // Adding module passes.
@@ -628,6 +631,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   unsigned int OptLevel = 3;
   if (pConfig->GetDisableOpt() || debugType != intel::None)
     OptLevel = 0;
+  const bool isFpgaEmulator = pConfig->isFpgaEmulator();
 
   // Detect OCL2.0 compilation mode
   const bool isOcl20 = CompilationUtils::getCLVersionFromModuleOrDefault(
@@ -636,7 +640,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20,
-                             UnrollLoops);
+                             isFpgaEmulator, UnrollLoops);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false

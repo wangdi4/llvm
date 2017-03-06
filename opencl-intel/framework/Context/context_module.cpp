@@ -318,6 +318,7 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
             
             static const cl_context_properties legalProperties[] = {
                 CL_CONTEXT_PLATFORM,
+                CL_CONTEXT_FPGA_EMULATOR_INTEL,
                 CL_CONTEXT_INTEROP_USER_SYNC
 #if defined (_WIN32)
                 ,
@@ -1514,7 +1515,8 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
         }
         return CL_INVALID_HANDLE;
     }
-    err = CheckMemObjectParameters(flags, NULL, CL_MEM_OBJECT_PIPE, 0, 0, 0, 0, 0, 0, NULL);
+    err = CheckMemObjectParameters(flags, NULL, CL_MEM_OBJECT_PIPE, 0, 0, 0,
+                                   0, 0, 0, NULL, pContext);
     if (CL_FAILED(err) || NULL != pProperties)
     {
         if (NULL != piErrcodeRet)
@@ -1733,7 +1735,9 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
         return CL_INVALID_HANDLE;
     }
 
-    cl_err_code clErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, pHostPtr);
+    cl_err_code clErr = CheckMemObjectParameters(clFlags, NULL,
+                                                 CL_MEM_OBJECT_BUFFER, 0, 0, 0,
+                                                 0, 0, 0, pHostPtr, pContext);
     if ( !((CL_INVALID_IMAGE_FORMAT_DESCRIPTOR == clErr) || (CL_SUCCESS == clErr)) )
     {
         if (NULL != pErrcodeRet)
@@ -1816,11 +1820,6 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
     cl_int iNullErr;
     cl_int& iErr = pErrcodeRet ? *pErrcodeRet : iNullErr;
 
-    iErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, NULL);
-    if (CL_FAILED(iErr))
-    {
-        return CL_INVALID_HANDLE;
-    }
     if (!clBuffer)
     {
         iErr = CL_INVALID_MEM_OBJECT;        
@@ -1836,6 +1835,13 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
     }
 
     SharedPtr<Context> pContext = pMemObj->GetContext();
+
+    iErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0,
+                                    0, 0, 0, 0, NULL, pContext);
+    if (CL_FAILED(iErr))
+    {
+        return CL_INVALID_HANDLE;
+    }
 
     // check memory object is a Buffer not Image2D/3D
     if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER)
@@ -2050,8 +2056,12 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
 
     // Do some initial (not context specific) parameter checking
     // check input memory flags
-    cl_err_code clErr = CheckMemObjectParameters(clFlags, clImageFormat, pClImageDesc->image_type, pClImageDesc->image_width, pClImageDesc->image_height, 0, pClImageDesc->image_row_pitch,
-        pClImageDesc->image_slice_pitch, pClImageDesc->image_array_size, pHostPtr);
+    cl_err_code clErr = CheckMemObjectParameters(
+                        clFlags, clImageFormat, pClImageDesc->image_type,
+                        pClImageDesc->image_width, pClImageDesc->image_height,
+                        0, pClImageDesc->image_row_pitch,
+                        pClImageDesc->image_slice_pitch,
+                        pClImageDesc->image_array_size, pHostPtr, pContext);
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("%s"), TEXT("Parameter check failed"));
@@ -2641,15 +2651,6 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
     LOG_INFO(TEXT("Enter CreateFromGLBuffer (clContext=%d, clFlags=%d, pErrcodeRet=%d)"), 
         clContext, clMemFlags, pErrcodeRet);
     
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, CL_GL_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, NULL);
-    if (CL_FAILED(clErr))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
     if (NULL == pContext)
     {
@@ -2661,6 +2662,17 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
             return CL_INVALID_HANDLE;
     }
 
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL,
+                                                 CL_GL_OBJECT_BUFFER, 0, 0, 0,
+                                                 0, 0, 0, NULL, pContext);
+    if (CL_FAILED(clErr))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
     SharedPtr<GLContext> pGLContext = pContext.DynamicCast<GLContext>();
     if (NULL == pGLContext)
     {
@@ -2753,17 +2765,8 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
     LOG_INFO(TEXT("Enter params(clContext=%x, clFlags=%x, glTextureTarget=%d, glMipLevel=%d, glTexture=%d)"), 
         clContext, clMemFlags, glTextureTarget, glMipLevel, glTexture);
 
-    cl_mem_object_type clObjType = ConvertGLTargetToCLObject(glTextureTarget);
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, clObjType, 0, 0, 0, 0, 0, 0, NULL);
-    if (CL_FAILED(clErr))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
+    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject(
+            (_cl_context_int*)clContext).DynamicCast<Context>();
     if (NULL == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
@@ -2774,6 +2777,18 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
         return CL_INVALID_HANDLE;
     }
 
+    cl_mem_object_type clObjType = ConvertGLTargetToCLObject(glTextureTarget);
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, clObjType,
+                                                 0, 0, 0, 0, 0, 0, NULL,
+                                                 pContext);
+    if (CL_FAILED(clErr))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
     SharedPtr<GLContext> pGLContext = pContext.DynamicCast<GLContext>();
     if (NULL == pGLContext)
     {
@@ -2966,8 +2981,20 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
                                          size_t szImageRowPitch,
                                          size_t szImageSlicePitch,
                                          size_t szArraySize,
-                                         void * pHostPtr)
+                                         void * pHostPtr,
+                                         SharedPtr<Context> pContext)
 {
+    cl_mem_flags extensions_flags = 0;
+    if (pContext->IsFPGAEmulator())
+    {
+        extensions_flags = CL_MEM_BANK_1_ALTERA |
+                           CL_MEM_BANK_2_ALTERA |
+                           CL_MEM_BANK_3_ALTERA |
+                           CL_MEM_BANK_4_ALTERA |
+                           CL_MEM_BANK_5_ALTERA |
+                           CL_MEM_BANK_6_ALTERA |
+                           CL_MEM_HETEROGENEOUS_ALTERA;
+    }
     // check for illegal flags
     if ((clMemFlags & ~(
         CL_MEM_READ_WRITE |
@@ -2979,13 +3006,7 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
         CL_MEM_HOST_WRITE_ONLY |
         CL_MEM_HOST_READ_ONLY |
         CL_MEM_HOST_NO_ACCESS |
-        CL_MEM_BANK_1_ALTERA |
-        CL_MEM_BANK_2_ALTERA |
-        CL_MEM_BANK_3_ALTERA |
-        CL_MEM_BANK_4_ALTERA |
-        CL_MEM_BANK_5_ALTERA |
-        CL_MEM_BANK_6_ALTERA |
-        CL_MEM_HETEROGENEOUS_ALTERA)) != 0)
+        extensions_flags)) != 0)
     {
         return CL_INVALID_VALUE;
     }

@@ -36,6 +36,7 @@
 #include <d3d9.h>
 #include <basetsd.h>
 #include "CL\cl_dx9_media_sharing.h"
+#include "CL/cl_ext.h"
 #if defined (DX_MEDIA_SHARING)
 #include "d3d9_definitions.h"
 #endif
@@ -279,7 +280,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                          size_t szImageRowPitch,
                                          size_t szImageSlicePitch,
                                          size_t szArraySize,
-                                         void * pHostPtr);
+                                         void * pHostPtr,
+                                         SharedPtr<Context> pContext);
 
         /**
          * Check context specific limitations (device capabilities).
@@ -374,7 +376,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Do some initial (not context specific) parameter checking
         // check input memory flags
-        cl_err_code clErr = CheckMemObjectParameters(clFlags, clImageFormat, OBJ_TYPE, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, 0, pHostPtr);
+        cl_err_code clErr = CheckMemObjectParameters(clFlags, clImageFormat, OBJ_TYPE, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, 0, pHostPtr, pContext);
         if (CL_FAILED(clErr))
         {
             LOG_ERROR(TEXT("%s"), TEXT("Parameter check failed"));

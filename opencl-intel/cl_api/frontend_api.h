@@ -52,6 +52,8 @@ struct FECompileProgramDescriptor
     const char**    pszInputHeadersNames;
     // A string for compile options
     const char*     pszOptions;
+    // Fpga emulator indicator
+    bool            bFpgaEmulator;
 };
 
 // Link task descriptor, contains FE Linking info
