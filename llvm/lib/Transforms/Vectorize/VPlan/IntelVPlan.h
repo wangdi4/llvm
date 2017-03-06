@@ -257,6 +257,22 @@ public:
     return new VPLiveInConditionBitRecipe(Cond);
   }
 
+  /// Returns true if the edge FromBlock->ToBlock is a back-edge.
+  static bool isBackEdge(const VPBlockBase *FromBlock,
+                         const VPBlockBase *ToBlock) {
+      assert(FromBlock->getParent() == ToBlock->getParent());
+      // A back-edge has to be within a loop region
+      const VPLoop *Loop = dyn_cast<VPLoop>(FromBlock->getParent());
+      if (! Loop) {
+          return false;
+      }
+      // A back-edge is latch->header
+      return (Loop->contains(FromBlock) && Loop->contains(ToBlock)
+              && Loop->isLoopLatch(FromBlock)
+              && (ToBlock == Loop->getHeader()));
+  }
+
+
   /// Create a new, empty VPLoop, with no blocks.
   VPLoop *createLoop() {
     VPLoop *Loop = new VPLoop(createUniqueName("loop"));

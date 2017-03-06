@@ -108,7 +108,7 @@ static void emitRecipeIfBB(VPPredicateRecipeBase *Predicate,
 void VPlanPredicator::getSuccessorsNoBE(VPBlockBase *PredBlock,
                                         SmallVector<VPBlockBase *, 2> &Succs) {
 	for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-		if (! isBackEdge(PredBlock, SuccBlock)) {
+		if (! IntelVPlanUtils::isBackEdge(PredBlock, SuccBlock)) {
 			Succs.push_back(SuccBlock);
 		}
 	}
@@ -186,21 +186,6 @@ void VPlanPredicator::genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock) {
 	CurrBlock->setPredicateRecipe(blockPredicate);
 }
 
-// Returns TRUE if the edge FromBlock->ToBlock is a back-edge
-bool VPlanPredicator::isBackEdge(VPBlockBase *FromBlock,
-                                 VPBlockBase *ToBlock) {
-	assert(FromBlock->getParent() == ToBlock->getParent());
-	// A back-edge has to be within a loop region
-	VPLoop *Loop = dyn_cast<VPLoop>(FromBlock->getParent());
-	if (! Loop) {
-		return false;
-	}
-	// A back-edge is latch->header
-	return (Loop->contains(FromBlock) && Loop->contains(ToBlock)
-					&& Loop->isLoopLatch(FromBlock)
-					&& (ToBlock == Loop->getHeader()));
-}
-
 // Generate all predicates needed for currBB
 void VPlanPredicator::propagateInputPredicates(VPBlockBase *CurrBlock,
                                                VPRegionBlock *Region) {
@@ -212,7 +197,7 @@ void VPlanPredicator::propagateInputPredicates(VPBlockBase *CurrBlock,
 	// For each input block, get the predicate and append it to BP
 	for (VPBlockBase *PredBlock : CurrBlock->getPredecessors()) {
 		// Skip back-edges
-		if (isBackEdge(PredBlock, CurrBlock)) {
+		if (IntelVPlanUtils::isBackEdge(PredBlock, CurrBlock)) {
 			continue;
 		}
 
