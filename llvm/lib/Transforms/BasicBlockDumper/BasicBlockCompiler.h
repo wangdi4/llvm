@@ -31,8 +31,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//  This file contains some hooks for compiling basic blocks. Implementation is
-//  left to the particular compiler.
+//  This file contains some hooks for compiling basic blocks. Implementation is 
+//  left to the particular compiler.  
 //
 //===----------------------------------------------------------------------===//
 // Author: kefleming (Kermin Fleming)
@@ -43,42 +43,42 @@
 #ifndef LLVM_BASIC_BLOCK_COMPILER_H
 #define LLVM_BASIC_BLOCK_COMPILER_H
 
-#include "llvm/ADT/SmallVector.h"
+#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/PassManager.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/TypeBuilder.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/breadth_first_search.hpp>
 #include <boost/graph/depth_first_search.hpp>
+#include <boost/graph/breadth_first_search.hpp>
 //#include <boost/graph/graphviz.hpp>
 
 #include "BasicBlockDumper.h"
 
 #include <algorithm>
-#include <list>
-#include <map>
-#include <string>
-#include <unordered_map>
 #include <vector>
+#include <unordered_map>
+#include <map>
+#include <list>
+#include <string>
 
 using namespace llvm;
 
@@ -94,52 +94,56 @@ void compileBlock(BasicBlock *BB);
 
 // Export a C interface so that dynamic linking is a bit simpler
 
-extern std::map<BasicBlock *, BlockMetadata> *metaMap;
+extern std::map<BasicBlock*, BlockMetadata> *metaMap;
 
 extern "C" {
 
-int getBlockArea(BasicBlock *BB) {
-  if (metaMap == NULL) {
-    metaMap = new std::map<BasicBlock *, BlockMetadata>();
+  int getBlockArea(BasicBlock *BB) {
+    if (metaMap == NULL ) {
+      metaMap = new std::map<BasicBlock*, BlockMetadata>();
+    }
+
+    auto it = metaMap->find(BB);
+    if (it == metaMap->end()) {
+        compileBlock(BB);
+    }
+
+    return metaMap->find(BB)->second.area;
   }
 
-  auto it = metaMap->find(BB);
-  if (it == metaMap->end()) {
-    compileBlock(BB);
+  int getBlockLatency(BasicBlock *BB) {
+    if (metaMap == NULL ) {
+      metaMap = new std::map<BasicBlock*, BlockMetadata>();
+    }
+
+    auto it = metaMap->find(BB);
+    if (it == metaMap->end()) {
+        compileBlock(BB);
+    }
+
+    return metaMap->find(BB)->second.latency;
   }
 
-  return metaMap->find(BB)->second.area;
-}
+ int getBlockII(BasicBlock *BB) {
+    if (metaMap == NULL ) {
+      metaMap = new std::map<BasicBlock*, BlockMetadata>();
+    }
 
-int getBlockLatency(BasicBlock *BB) {
-  if (metaMap == NULL) {
-    metaMap = new std::map<BasicBlock *, BlockMetadata>();
-  }
-
-  auto it = metaMap->find(BB);
-  if (it == metaMap->end()) {
-    compileBlock(BB);
-  }
-
-  return metaMap->find(BB)->second.latency;
-}
-
-int getBlockII(BasicBlock *BB) {
-  if (metaMap == NULL) {
-    metaMap = new std::map<BasicBlock *, BlockMetadata>();
-  }
-
-  auto it = metaMap->find(BB);
-  if (it == metaMap->end()) {
-    compileBlock(BB);
-  }
+    auto it = metaMap->find(BB);
+    if (it == metaMap->end()) {
+        compileBlock(BB);
+    }
 
 #ifdef ASSUME_PIPELINE
-  return metaMap->find(BB)->second.ii;
+    return metaMap->find(BB)->second.ii;
 #else
-  return metaMap->find(BB)->second.latency;
+    return metaMap->find(BB)->second.latency;
 #endif
+    
+  }
+    
 }
-}
+
+
 
 #endif
