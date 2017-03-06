@@ -274,9 +274,10 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
     }
 
     unsigned long long stackSize = Intel::OpenCL::Utils::StackSize();
+    // We force stack size of TBB created threads to match main thread stack size
     // TBB calls global_market constructor from market::create_arena with default
     // stack size and TBB Warning occurs in stdout if stack size is less than TBB default value
-    unsigned long long TBBMinStackSize = (sizeof(uintptr_t) <= 4 ? 2 : 4 ) * 1024 * 1024; // 2 or 4 MBytes
+    const unsigned long long TBBMinStackSize = (sizeof(uintptr_t) <= 4 ? 2 : 4 ) * 1024 * 1024; // 2 or 4 MBytes
     stackSize = stackSize < TBBMinStackSize ? TBBMinStackSize : stackSize;
     m_pScheduler = new tbb::task_scheduler_init(gWorker_threads, stackSize);
     if (NULL == m_pScheduler)

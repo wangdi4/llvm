@@ -29,7 +29,7 @@
 #include "common_dev_limits.h"
 
 #define CPU_DEV_MAX_WI_SIZE             (8*1024)            // Maximum values that could be specified for WI in one dimension
-#define CPU_DEV_LCL_MEM_SIZE            (32*1024)
+#define CPU_DEV_LCL_MEM_SIZE            (32*1024) // 32 KB
 #define CPU_DEV_DCU_LINE_SIZE           64
 #define CPU_DEV_MAXIMUM_ALIGN           (DEV_MAXIMUM_ALIGN)
 
