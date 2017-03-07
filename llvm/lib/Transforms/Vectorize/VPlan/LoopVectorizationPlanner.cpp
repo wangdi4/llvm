@@ -1,9 +1,9 @@
 
 #include "LoopVectorizationPlanner.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "LoopVectorizationCodeGen.h"
+#include "VPLoopInfo.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -675,9 +675,10 @@
       // TODO: Think about detecting loop from header and related issues
       // detecting non-loop regions.
       if (VPLoop *VPL = VPLInfo->getLoopFromPreHeader(CurrentVPBB)) {
-        NewRegion = VPL;
-        // TODO: Temporal workaround
-        VPL->setName(PlanUtils.createUniqueName("loop"));
+
+        // Create new loop region
+        VPLoopRegion *VPLR = PlanUtils.createLoop(VPL);
+        NewRegion = VPLR;
 
         // TODO
         VPBasicBlock *VPLHeader = cast<VPBasicBlock>(VPL->getHeader());
@@ -711,13 +712,13 @@
         }
 
         // Connect VPLoop to graph
-        PlanUtils.insertRegion(VPL, RegionEntry, RegionExit);
-        DEBUG(dbgs() << "Creating VPLoop " << VPL->getName() << "\n"
+        PlanUtils.insertRegion(VPLR, RegionEntry, RegionExit);
+        DEBUG(dbgs() << "Creating VPLoopRegion " << VPLR->getName() << "\n"
                      << "   Entry: " << RegionEntry->getName() << "\n"
                      << "   Exit: " << RegionExit->getName() << "\n");
 
         // Recursively build subregions inside VPLoop from loop header
-        buildHierarchicalCFG(VPLHeader, VPL, VPLInfo, DomTree, PostDomTree,
+        buildHierarchicalCFG(VPLHeader, VPLR, VPLInfo, DomTree, PostDomTree,
                              PlanUtils, BB2VPBB, VPBB2BB);
       }
       // Non-loop VPRegion detection
@@ -828,7 +829,7 @@ void LoopVectorizationPlanner::verifyHierarchicalCFG(
          make_range(df_iterator<const VPBlockBase *>::begin(Region->getEntry()),
                     df_iterator<const VPBlockBase *>::end(Region->getExit()))) {
 
-      if (isa<VPLoop>(VPB))
+      if (isa<VPLoopRegion>(VPB))
         ++NumLoops;
 
       // Count nested VPLoops

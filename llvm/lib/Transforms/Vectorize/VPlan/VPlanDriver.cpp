@@ -420,8 +420,9 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
     LVP->executeBestPlan(VCodeGen);
   }
 
-  // TODO: Destroy LVP. We need to remove VPLoop multi-inheritance first
-  //delete LVP;
+  // Destroy LVP
+  delete LVP;
+
   return;
 }
 

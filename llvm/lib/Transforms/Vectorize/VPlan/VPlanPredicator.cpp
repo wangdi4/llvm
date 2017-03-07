@@ -51,6 +51,7 @@
 #include <sstream>
 
 using namespace llvm;
+using namespace vpo;
 
 static cl::opt<bool>
 VPlanPredicatorReport("vplan-predicator-report", cl::init(false),

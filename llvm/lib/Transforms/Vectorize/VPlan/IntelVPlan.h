@@ -3,13 +3,16 @@
 
 #include "../VPlan.h" // FIXME
 #include "VPInstruction.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/LoopInfoImpl.h"
+#include "VPLoopInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 
 namespace llvm {
 
 namespace vpo {
+
+class VPLoop;
+class VPLoopInfo;
 
 class VPOneByOneIRRecipeBase : public VPRecipeBase {
   friend class VPlanUtilsLoopVectorizer;
@@ -75,85 +78,32 @@ public:
   iterator end() { return InstContainer.end(); }
   const_iterator end() const { return InstContainer.end(); }
 };
-} // namespace vpo
- 
-// TODO: VPLoopBase, VPLoop, VPLoopHIR
-class VPLoop : public VPRegionBlock, public LoopBase<VPBlockBase, VPLoop> {
+
+class VPLoopRegion : public VPRegionBlock {
   friend class IntelVPlanUtils; 
   
 private: 
-//  const unsigned char VLID;   // Subclass identifier (for isa/dyn_cast)
+  // Pointer to VPLoopInfo analysis information for this loop region
+  VPLoop *VPL;
 
 public: 
-//  typedef enum { 
-//    VPLoopHIRSC,   
-//  } VPLoopTy; 
-  
-//  VPLoop(const std::string &Name, VPLoopTy SC) 
-//      : VPRegion(Name, VPLoopSC), VLID(SC) {}
 
-  VPLoop(const std::string &Name)
-      : VPRegionBlock(VPBlockBase::VPLoopRegionSC, Name) {}
+  VPLoopRegion(const std::string &Name, VPLoop *L)
+      : VPRegionBlock(VPLoopRegionSC, Name), VPL(L) {}
 
-  //TODO: Name
-  VPLoop(VPBlockBase *Header)
-      : VPRegionBlock(VPBlockBase::VPLoopRegionSC, ""),
-      //: VPRegionBlock(VPBlockBase::VPLoopRegionSC, createUniqueName("loop")),
-        LoopBase(Header) {}
-
-  //TODO: Do not use. Temporal workaround
-  void setName(const std::string &N) {
-    Name = N;
-  }
-  
-  /// Return all unique successor blocks of this loop.
-  /// These are the blocks _outside of the current loop_ which are branched to.
-  /// This assumes that loop exits are in canonical form.
-  void getUniqueExitBlocks(SmallVectorImpl<VPBlockBase *> &ExitBlocks) const;
-
-  /// If getUniqueExitBlocks would return exactly one block, return that block.
-  /// Otherwise return null.
-  VPBlockBase *getUniqueExitBlock() const;
+  const VPLoop *getVPLoop() const { return VPL; }
+  VPLoop *getVPLoop() { return VPL; }
 
   //TODO: print as LoopBase or print as VPBlockBase
-  void print(raw_ostream &OS, unsigned Depth = 0) const {
-    LoopBase::print(OS, Depth);
-  }
+  //void print(raw_ostream &OS, unsigned Depth = 0) const {
+  //  VPBlocLoopBase::print(OS, Depth);
+  //}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPBlockBase *B) {
     return B->getVPBlockID() == VPBlockBase::VPLoopRegionSC;
   }
 }; 
-
-class VPLoopInfo : public LoopInfoBase<VPBlockBase, VPLoop>{
-
-public:
-  VPLoopInfo() {}
-
-  size_t getNumTopLevelLoops() const {
-    // TODO: TopLevelLoops is private
-    //return TopLevelLoops.size();
-   
-    return std::distance(begin(), end());
-  }
-
-  VPLoop *getLoopFromPreHeader(VPBasicBlock *PotentialPH) {
-    
-    // VPLoop PH has a single successor
-    VPBlockBase *PotentialH = PotentialPH->getSingleSuccessor();
-
-    if (!PotentialH || !isLoopHeader(PotentialH))
-      return nullptr;
-
-    // PotentialPH points to Loop H
-    VPLoop *VPL = getLoopFor(PotentialH);
-    assert (VPL && "VPLoop is nullptr");
-
-    // Returns VPL only if PotentialPH is VPL PH
-    return (VPL->getLoopPreheader() == PotentialPH) ? VPL : nullptr;
-  }
-};
 
 class IntelVPlan : public VPlan {
 
@@ -165,7 +115,7 @@ public:
 
   ~IntelVPlan() {
     if (VPLInfo)
-      delete(VPLInfo);
+      delete (VPLInfo);
   }
 
   VPLoopInfo *getVPLoopInfo() { return VPLInfo; }
@@ -262,11 +212,12 @@ public:
                          const VPBlockBase *ToBlock) {
       assert(FromBlock->getParent() == ToBlock->getParent());
       // A back-edge has to be within a loop region
-      const VPLoop *Loop = dyn_cast<VPLoop>(FromBlock->getParent());
-      if (! Loop) {
+      const VPLoopRegion *LoopRegion = dyn_cast<VPLoopRegion>(FromBlock->getParent());
+      if (! LoopRegion) {
           return false;
       }
       // A back-edge is latch->header
+      const VPLoop *Loop = LoopRegion->getVPLoop();
       return (Loop->contains(FromBlock) && Loop->contains(ToBlock)
               && Loop->isLoopLatch(FromBlock)
               && (ToBlock == Loop->getHeader()));
@@ -274,8 +225,8 @@ public:
 
 
   /// Create a new, empty VPLoop, with no blocks.
-  VPLoop *createLoop() {
-    VPLoop *Loop = new VPLoop(createUniqueName("loop"));
+  VPLoopRegion *createLoop(VPLoop *VPL) {
+    VPLoopRegion *Loop = new VPLoopRegion(createUniqueName("loop"), VPL);
     setReplicator(Loop, false /*IsReplicator*/);
     return Loop;
   }
@@ -293,6 +244,8 @@ public:
     return false;
   }
 };
+
+} // End VPO Vectorizer Namespace 
 
 // TODO: We may need this in VPlan.h/cpp eventually
 typedef DomTreeNodeBase<VPBlockBase> VPDomTreeNode;
@@ -493,8 +446,8 @@ public:
 //   } 
 // }; 
 //   
-// } // End VPO Vectorizer Namespace 
 
+//} // End VPO Vectorizer Namespace 
 }  // namespace llvm
 
   

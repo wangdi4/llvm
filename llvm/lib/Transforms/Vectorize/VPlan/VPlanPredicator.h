@@ -7,6 +7,7 @@
 
 
 namespace llvm {
+namespace vpo {
 	class VPlanPredicator {
 	protected:
 		IntelVPlan *Plan;
@@ -28,5 +29,6 @@ namespace llvm {
 		// The driver function for the predicator
 		void predicate(void);
 	};
+} // namespace vpo
 } // namespace llvm
 #endif

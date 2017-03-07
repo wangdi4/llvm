@@ -48,7 +48,7 @@ public:
 
 protected:
   LoopVectorizationPlannerBase(WRNVecLoopNode *WRL) : WRLoop(WRL) {}
-  ~LoopVectorizationPlannerBase() {}
+  virtual ~LoopVectorizationPlannerBase() {}
 
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan

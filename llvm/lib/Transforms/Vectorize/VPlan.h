@@ -48,7 +48,6 @@ namespace llvm {
 class VPBasicBlock;
 class VPBlockBase;
 #ifdef INTEL_CUSTOMIZATION
-class VPLoop;
 class VPOCodeGen;
 class VPOVectorizationLegality;
 // Class names mapping to minimize the diff:
