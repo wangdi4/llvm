@@ -248,6 +248,10 @@ public:
     /// \brief Get the name of the capture helper.
     virtual StringRef getHelperName() const { return "__captured_stmt"; }
 
+#if INTEL_CUSTOMIZATION
+    virtual void recordVariableDefinition(const VarDecl *VD) {}
+    virtual void recordVariableReference(const VarDecl *VD) {}
+#endif // INTEL_CUSTOMIZATION
   private:
     /// \brief The kind of captured statement being generated.
     CapturedRegionKind Kind;

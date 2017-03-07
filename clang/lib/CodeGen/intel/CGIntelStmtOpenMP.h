@@ -19,6 +19,7 @@
 #include "../CodeGenModule.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtOpenMP.h"
+#include "llvm/ADT/DenseSet.h"
 using namespace clang;
 using namespace CodeGen;
 
@@ -50,6 +51,8 @@ class OpenMPCodeOutliner {
   llvm::Function *IntelListClause = nullptr;
   llvm::LLVMContext &C;
   llvm::SmallVector<llvm::Value *, 16> Args;
+  llvm::CallInst *DirectiveInst;
+  const OMPExecutableDirective &Directive;
 
   ArraySectionDataTy emitArraySectionData(const OMPArraySectionExpr *E);
   Address emitOMPArraySectionExpr(const OMPArraySectionExpr *E,
@@ -121,8 +124,15 @@ class OpenMPCodeOutliner {
                                                 const Expr *SrcExpr,
                                                 const Expr *DstExpr,
                                                 const Expr *AssignOp);
+
+  void addImplicitClauses();
+  void addRefsToOuter();
+  llvm::DenseSet<const VarDecl *> ExplicitRefs;
+  llvm::DenseSet<const VarDecl *> VarDefs;
+  llvm::DenseSet<const VarDecl *> VarRefs;
+
 public:
-  OpenMPCodeOutliner(CodeGenFunction &CGF);
+  OpenMPCodeOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D);
   ~OpenMPCodeOutliner();
   void emitOMPParallelDirective();
   void emitOMPParallelForDirective();
@@ -134,16 +144,22 @@ public:
   void emitOMPOrderedDirective();
   void emitOMPTargetDirective();
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
+  void emitImplicit(Expr *E, OpenMPClauseKind K);
+  void emitImplicit(const VarDecl *VD, OpenMPClauseKind K);
+  void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
+  void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
+  void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
 };
 
 /// Base class for handling code generation inside OpenMP regions.
 class CGOpenMPRegionInfo : public CodeGenFunction::CGCapturedStmtInfo {
 public:
   CGOpenMPRegionInfo(CodeGenFunction::CGCapturedStmtInfo *OldCSI,
+                     OpenMPCodeOutliner &O,
                      const OMPExecutableDirective &D)
       : CGCapturedStmtInfo(*cast<CapturedStmt>(D.getAssociatedStmt()),
                            CR_OpenMP),
-        OldCSI(OldCSI), D(D) {}
+        OldCSI(OldCSI), Outliner(O), D(D) {}
 
   /// \brief Emit the captured statement body.
   void EmitBody(CodeGenFunction &CGF, const Stmt *S) override;
@@ -159,25 +175,36 @@ public:
 
   CodeGenFunction::CGCapturedStmtInfo *getOldCSI() const { return OldCSI; }
 
+  void recordVariableDefinition(const VarDecl *VD) {
+    Outliner.addVariableDef(VD);
+  }
+  void recordVariableReference(const VarDecl *VD) {
+    Outliner.addVariableRef(VD);
+  }
+
 private:
   /// \brief CodeGen info about outer OpenMP region.
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;
+  OpenMPCodeOutliner &Outliner;
   const OMPExecutableDirective &D;
 };
 
 /// \brief RAII for emitting code of OpenMP constructs.
 class InlinedOpenMPRegionRAII {
   CodeGenFunction &CGF;
-
+  OpenMPCodeOutliner &Outliner;
+  const OMPExecutableDirective &Dir;
 public:
   /// \brief Constructs region for combined constructs.
   /// \param CodeGen Code generation sequence for combined directives. Includes
   /// a list of functions used for code generation of implicitly inlined
   /// regions.
-  InlinedOpenMPRegionRAII(CodeGenFunction &CGF, const OMPExecutableDirective &D)
-      : CGF(CGF) {
+  InlinedOpenMPRegionRAII(CodeGenFunction &CGF, OpenMPCodeOutliner &O,
+                          const OMPExecutableDirective &D)
+      : CGF(CGF), Outliner(O), Dir(D) {
     // Start emission for the construct.
-    CGF.CapturedStmtInfo = new CGOpenMPRegionInfo(CGF.CapturedStmtInfo, D);
+    CGF.CapturedStmtInfo = new CGOpenMPRegionInfo(CGF.CapturedStmtInfo,
+                                                  Outliner, D);
   }
   ~InlinedOpenMPRegionRAII() {
     // Restore original CapturedStmtInfo only if we're done with code emission.

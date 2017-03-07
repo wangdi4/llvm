@@ -371,7 +371,9 @@ namespace CGIntelOpenMP {
   }
 
   void OpenMPCodeOutliner::emitDirective() {
-    CGF.EmitRuntimeCall(IntelDirective, Args);
+    llvm::CallInst *C = CGF.EmitRuntimeCall(IntelDirective, Args);
+    if (!DirectiveInst)
+      DirectiveInst = C;
     Args.clear();
   }
   void OpenMPCodeOutliner::emitSimpleClause() {
@@ -392,6 +394,67 @@ namespace CGIntelOpenMP {
     Args.clear();
   }
 
+  void OpenMPCodeOutliner::emitImplicit(Expr *E, OpenMPClauseKind K) {
+    auto SavedIP = CGF.Builder.saveIP();
+    CGF.Builder.SetInsertPoint(DirectiveInst->getNextNode());
+    switch (K) {
+    case OMPC_private:
+      addArg("QUAL.OMP.PRIVATE"); break;
+    case OMPC_shared: 
+      addArg("QUAL.OMP.SHARED"); break;
+    default:
+      llvm_unreachable("Clause not allowed");
+    }
+    addArg(E);
+    emitListClause();
+    CGF.Builder.restoreIP(SavedIP);
+  }
+
+  void OpenMPCodeOutliner::emitImplicit(const VarDecl *VD, OpenMPClauseKind K) {
+    DeclRefExpr DRE(const_cast<VarDecl *>(VD),
+                    /*RefersToEnclosingVariableOrCapture=*/false,
+                    VD->getType().getNonReferenceType(), VK_LValue,
+                    SourceLocation());
+    emitImplicit(&DRE, K);
+  }
+
+  void OpenMPCodeOutliner::addImplicitClauses() {
+    auto DKind = Directive.getDirectiveKind();
+    if (DKind != OMPD_simd && !isOpenMPParallelDirective(DKind))
+      return;
+
+    // We need to process some DeclRefExprs without havining them affect the
+    // Def/Ref lists so save and null the CapturedStmtInfo.
+    auto savedCSI = CGF.CapturedStmtInfo;
+    CGF.CapturedStmtInfo = nullptr;
+
+    auto End = ExplicitRefs.end();
+    for (const auto *I : VarRefs) {
+      if (ExplicitRefs.find(I) != End) continue;
+      if (VarDefs.find(I) != VarDefs.end()) {
+        // Defined here = private
+        emitImplicit(I, OMPC_private);
+      } else if (DKind != OMPD_simd) {
+        // Referenced but not definted = shared
+        emitImplicit(I, OMPC_shared);
+      }
+    }
+
+    // Restore the CSI
+    CGF.CapturedStmtInfo = savedCSI;
+  }
+
+  void OpenMPCodeOutliner::addRefsToOuter() {
+    if (CGF.CapturedStmtInfo) {
+      for (const auto *I : VarDefs)
+        CGF.CapturedStmtInfo->recordVariableDefinition(I);
+      for (const auto *I : VarRefs)
+        CGF.CapturedStmtInfo->recordVariableReference(I);
+      for (const auto *I : ExplicitRefs)
+        CGF.CapturedStmtInfo->recordVariableReference(I);
+    }
+  }
+
   void OpenMPCodeOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
     addArg("QUAL.OMP.SHARED");
     for (auto *E : Cl->varlists())
@@ -402,6 +465,8 @@ namespace CGIntelOpenMP {
     addArg("QUAL.OMP.PRIVATE");
     auto IPriv = Cl->private_copies().begin();
     for (auto *E : Cl->varlists()) {
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
       auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
       auto *Init = Private->getInit();
       if (Init || Private->getType().isDestructedType())
@@ -672,6 +737,8 @@ namespace CGIntelOpenMP {
     for (auto *E : Cl->varlists()) {
       if (!E->getType().isPODType(CGF.getContext()))
         CGF.CGM.ErrorUnsupported(E, "non-POD copyin variable");
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
       addArg(E);
     }
     emitListClause();
@@ -783,8 +850,10 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPIsDevicePtrClause(
                                                const OMPIsDevicePtrClause *) {}
 
-  OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF)
-      : CGF(CGF), C(CGF.CGM.getLLVMContext()) {
+  OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
+                                         const OMPExecutableDirective &D)
+      : CGF(CGF), C(CGF.CGM.getLLVMContext()), DirectiveInst(nullptr),
+        Directive(D) {
     IntelDirective = CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive);
     IntelSimpleClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual);
@@ -792,12 +861,14 @@ namespace CGIntelOpenMP {
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual_opndlist);
   }
   OpenMPCodeOutliner::~OpenMPCodeOutliner() {
+    addImplicitClauses();
     if (!End.empty()) {
       addArg(End);
       emitDirective();
       addArg("DIR.QUAL.LIST.END");
       emitDirective();
     }
+    addRefsToOuter();
   }
   void OpenMPCodeOutliner::emitOMPParallelDirective() {
     End = "DIR.OMP.END.PARALLEL";
@@ -974,7 +1045,7 @@ namespace CGIntelOpenMP {
 
 void CodeGenFunction::EmitIntelOpenMPDirective(
     const OMPExecutableDirective &S) {
-  OpenMPCodeOutliner Outliner(*this);
+  OpenMPCodeOutliner Outliner(*this, S);
   switch (S.getDirectiveKind()) {
   case OMPD_parallel:
     Outliner.emitOMPParallelDirective();
@@ -1051,7 +1122,7 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   }
   Outliner << S.clauses();
   if (S.hasAssociatedStmt()) {
-    InlinedOpenMPRegionRAII Region(*this, S);
+    InlinedOpenMPRegionRAII Region(*this, Outliner, S);
     CapturedStmtInfo->EmitBody(*this, S.getAssociatedStmt());
   }
 }

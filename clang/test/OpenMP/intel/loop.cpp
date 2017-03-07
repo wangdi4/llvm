@@ -17,6 +17,8 @@ void foo(int *arr1, int **arr2) {
 
 // Ensure the PHI loop structure is there
 // CHECK: directive(metadata !"DIR.OMP.SIMD")
+// CHECK-NEXT: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %.omp.iv
+// CHECK-NEXT: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %iter
 // CHECK-NEXT: qual.opnd.i32(metadata !"QUAL.OMP.SAFELEN", i32 4)
 // CHECK-NEXT: directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: [[PHIVAL:%[0-9]+]] = phi i32 [ 0, {{%.+}} ], [ [[INCVAL:%[0-9]+]], {{.+}} ]

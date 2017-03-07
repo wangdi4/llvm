@@ -3916,7 +3916,8 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
 
     // Emit 'then' code.
     {
-      CGIntelOpenMP::OpenMPCodeOutliner Outliner(*this);
+      CGIntelOpenMP::OpenMPCodeOutliner Outliner(*this, S);
+      CGIntelOpenMP::InlinedOpenMPRegionRAII Region(*this, Outliner, S);
       OMPPrivateScope LoopScope(*this);
 
       auto LoopExit =
@@ -3946,6 +3947,15 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
                        [](CodeGenFunction &) {}, ThenBlock,
                        S.getIterationVariable());
       EmitBlock(LoopExit.getBlock());
+      // The iteration variable is always defined inside and will be marked
+      // private when used.
+      // The original loop control variable could be defined inside or
+      // outside so treat it as an explicit private
+      for (auto *C : S.counters()) {
+        auto VD = cast<VarDecl>(cast<DeclRefExpr>(C)->getDecl());
+        Outliner.addExplicit(VD);
+        Outliner.emitImplicit(C, OMPC_private);
+      }
     }
      
     // We're now done with the loop, so jump to the continuation block.

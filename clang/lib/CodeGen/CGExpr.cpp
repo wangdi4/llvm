@@ -38,6 +38,9 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
+#if INTEL_CUSTOMIZATION
+#include "intel/CGIntelStmtOpenMP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace CodeGen;
@@ -2160,6 +2163,13 @@ static LValue EmitGlobalNamedRegister(const VarDecl *VD, CodeGenModule &CGM) {
 LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
   const NamedDecl *ND = E->getDecl();
   QualType T = E->getType();
+
+#if INTEL_CUSTOMIZATION
+  if (CapturedStmtInfo) {
+    if (const auto *VD = dyn_cast<VarDecl>(ND))
+      CapturedStmtInfo->recordVariableReference(VD);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Global Named registers access via intrinsics only
