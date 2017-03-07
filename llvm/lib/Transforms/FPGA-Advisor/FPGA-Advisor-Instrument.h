@@ -38,6 +38,7 @@
 #define LLVM_LIB_TRANSFORMS_FPGA_ADVISOR_INSTRUMENT_H
 
 #include "llvm/Pass.h"
+#include "llvm/PassManager.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -45,7 +46,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/IR/TypeBuilder.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
