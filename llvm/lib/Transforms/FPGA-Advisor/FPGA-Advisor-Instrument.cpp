@@ -74,15 +74,15 @@ bool AdvisorInstr::runOnModule(Module &M) {
 
 	std::vector<Type *> timespecTypeAR;
 	timespecTypeAR.clear();
-	timespecTypeAR.push_back(Type::getInt64Ty(getGlobalContext()));
-	timespecTypeAR.push_back(Type::getInt64Ty(getGlobalContext()));
+	timespecTypeAR.push_back(Type::getInt64Ty(M.getContext()));
+	timespecTypeAR.push_back(Type::getInt64Ty(M.getContext()));
 
 	timespecType = StructType::create(makeArrayRef(timespecTypeAR));
 
-	paramType.push_back(Type::getInt32Ty(getGlobalContext()));
+	paramType.push_back(Type::getInt32Ty(M.getContext()));
 	paramType.push_back(PointerType::get(timespecType, 0)); // pointer to struct
 
-	clock_gettime_type = FunctionType::get(Type::getInt32Ty(getGlobalContext()), 
+	clock_gettime_type = FunctionType::get(Type::getInt32Ty(M.getContext()), 
 					makeArrayRef(paramType), false);
 
 	clock_gettimeFunc = cast<Function>(mod->getOrInsertFunction("clock_gettime", clock_gettime_type));
@@ -90,18 +90,18 @@ bool AdvisorInstr::runOnModule(Module &M) {
 	// get_rdtsc function
 	// unsigned long long get_rdtsc(void)
 	// create declaration only
-	FunctionType *get_rdtsc_type = FunctionType::get(Type::getInt64Ty(getGlobalContext()), false);
+	FunctionType *get_rdtsc_type = FunctionType::get(Type::getInt64Ty(M.getContext()), false);
 	get_rdtscFunc = cast<Function>(mod->getOrInsertFunction("get_rdtsc", get_rdtsc_type));
 
 	// printf function
 	// void printf(...)
 
-	FunctionType *printf_type = TypeBuilder<int(char *, ...), false>::get(getGlobalContext());
+	FunctionType *printf_type = TypeBuilder<int(char *, ...), false>::get(M.getContext());
 	printfFunc = cast<Function>(mod->getOrInsertFunction("ROIprintf", printf_type, 
 					AttributeSet().addAttribute(mod->getContext(), 1U, Attribute::NoAlias)));
 
 	for (auto F = M.begin(), FE = M.end(); F != FE; F++) {
-		instrument_function(F);
+		instrument_function(&*F);
 		F->print(*outputLog);
 	}
 
@@ -123,7 +123,7 @@ void AdvisorInstr::instrument_function(Function *F) {
 	// will be printed before the basicblock due to the way the instructions
 	// are inserted (at first insertion point in basic block)
 	for (auto BB = F->begin(), BE = F->end(); BB != BE; BB++) {
-		instrument_basic_block(BB);
+		instrument_basic_block(&*BB);
 	}
 
 	*outputLog << "Inserting printf call for function: " << F->getName() << "\n";
@@ -134,7 +134,7 @@ void AdvisorInstr::instrument_function(Function *F) {
 	// insert call to printf for entry block
 	std::vector<Value *> printfArgs;
 
-	IRBuilder<> builder(entry->getFirstInsertionPt());
+	IRBuilder<> builder(&*entry->getFirstInsertionPt());
 	StringRef funcMsgString = StringRef("\nEntering Function: %s\n");
 	Value *funcMsg = builder.CreateGlobalStringPtr(funcMsgString, "func_msg_string");
 	printfArgs.push_back(funcMsg);
@@ -193,7 +193,7 @@ void AdvisorInstr::instrument_basic_block(BasicBlock *BB) {
 			if (calledFunc->isDeclaration()) {
 				continue;
 			}
-			instrument_rdtsc_for_call(I);
+			instrument_rdtsc_for_call(&*I);
 		}
 	}
 
@@ -203,7 +203,7 @@ void AdvisorInstr::instrument_basic_block(BasicBlock *BB) {
 	// insert call to printf at first insertion point
 	std::vector<Value *> printfArgs;
 
-	IRBuilder<> builder(BB->getFirstInsertionPt());
+	IRBuilder<> builder(&*BB->getFirstInsertionPt());
 
 	StringRef bbMsgString = StringRef("\nB: %s F: %s\n");
 	Value *bbMsg = builder.CreateGlobalStringPtr(bbMsgString, "bb_msg_string");
@@ -415,7 +415,7 @@ void AdvisorInstr::instrument_timer_for_call(Instruction *I) {
 
 	std::vector<Value *> clock_gettimeArgs;
 	//clock_gettimeArgs.push_back(Constant::getNullValue(Type::getInt32Ty(getGlobalContext()))); // null - CLOCK_REALTIME
-	clock_gettimeArgs.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0)); // null - CLOCK_MONOTONIC
+	clock_gettimeArgs.push_back(ConstantInt::get(Type::getInt32Ty(I->getModule()->getContext()), 0)); // null - CLOCK_MONOTONIC
 	clock_gettimeArgs.push_back(tp);
 
 	//builder.CreateCall(clock_gettimeFunc, clock_gettimeArgs, llvm::Twine("clock_gettime"));
@@ -428,20 +428,22 @@ void AdvisorInstr::instrument_timer_for_call(Instruction *I) {
 	// need to create a getelementptr instruction for accessing the struct
 	std::vector<Value *> tv_secAR;
 	tv_secAR.clear();
-	tv_secAR.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0));
-	tv_secAR.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0));
+	tv_secAR.push_back(ConstantInt::get(Type::getInt32Ty(I->getModule()->getContext()), 0));
+	tv_secAR.push_back(ConstantInt::get(Type::getInt32Ty(I->getModule()->getContext()), 0));
 	//Value *tv_secptr = builder.CreateGEP(tp, makeArrayRef(tv_secAR), "tv_sec");
 	//Value *tv_sec = builder.CreateLoad(tv_secptr, llvm::Twine("load_sec"));
-	GetElementPtrInst *tv_secptr = GetElementPtrInst::Create(tp, makeArrayRef(tv_secAR), llvm::Twine("tv_sec"), I);
+	GetElementPtrInst *tv_secptr =
+          GetElementPtrInst::Create(tp->getType(), tp, makeArrayRef(tv_secAR), "tv_sec", I);
 	Value *tv_sec = new LoadInst(tv_secptr, llvm::Twine("load_sec"), I);
 
 	std::vector<Value *> tv_nsecAR;
 	tv_nsecAR.clear();
-	tv_nsecAR.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0));
-	tv_nsecAR.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1));
+	tv_nsecAR.push_back(ConstantInt::get(Type::getInt32Ty(I->getModule()->getContext()), 0));
+	tv_nsecAR.push_back(ConstantInt::get(Type::getInt32Ty(I->getModule()->getContext()), 1));
 	//Value *tv_nsecptr = builder.CreateGEP(tp, makeArrayRef(tv_nsecAR), "tv_nsec");
 	//Value *tv_nsec = builder.CreateLoad(tv_nsecptr, llvm::Twine("load_nsec"));
-	GetElementPtrInst *tv_nsecptr = GetElementPtrInst::Create(tp, makeArrayRef(tv_nsecAR), "tv_nsec", I);
+	GetElementPtrInst *tv_nsecptr =
+          GetElementPtrInst::Create(tp->getType(), tp, makeArrayRef(tv_nsecAR), "tv_nsec", I);
 	Value *tv_nsec = new LoadInst(tv_nsecptr, llvm::Twine("load_nsec"), I);
 	
 	std::vector<Value *> printfArgs;
@@ -532,8 +534,8 @@ void AdvisorInstr::instrument_store(StoreInst *SI) {
 // get the size of the store
 uint64_t AdvisorInstr::get_store_size_in_bytes(StoreInst *SI) {
 	// ...
-	const DataLayout *DL = SI->getParent()->getParent()->getParent()->getDataLayout();
-	uint64_t numBytes = DL->getTypeStoreSize(SI->getValueOperand()->getType());
+	const DataLayout &DL = SI->getParent()->getParent()->getParent()->getDataLayout();
+	uint64_t numBytes = DL.getTypeStoreSize(SI->getValueOperand()->getType());
 
 	*outputLog << "Store width in bytes: " << numBytes << "\n";
 
@@ -543,13 +545,13 @@ uint64_t AdvisorInstr::get_store_size_in_bytes(StoreInst *SI) {
 
 // get the size of the load
 uint64_t AdvisorInstr::get_load_size_in_bytes(LoadInst *LI) {
-	const DataLayout *DL = LI->getParent()->getParent()->getParent()->getDataLayout();
+	const DataLayout &DL = LI->getParent()->getParent()->getParent()->getDataLayout();
 	Type *pointerType = LI->getPointerOperand()->getType();
 	// this must be a pointer type... right?
 	assert(pointerType->isPointerTy());
 
 	// ... should the argument always be 0?? TODO FIXME
-	uint64_t numBytes = DL->getTypeSizeInBits(pointerType->getContainedType(0));
+	uint64_t numBytes = DL.getTypeSizeInBits(pointerType->getContainedType(0));
 	numBytes >>= 3;
 
 	*outputLog << "Load width in bytes: " << numBytes << "\n";
@@ -574,18 +576,3 @@ std::string AdvisorInstr::get_value_as_string(const Value *value) {
 	return buf;
 }
 */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

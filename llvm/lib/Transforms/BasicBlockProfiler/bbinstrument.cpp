@@ -53,18 +53,13 @@ VOID ProcessLLVMBB(llvm::BasicBlock *bbl, BBPROFILE * bbprofile, UINT32 bblId)
     //Instruction *I = bbl->getFirstNonPHI();
     Instruction *I = bbl->getTerminator();
     stringstream ss;
-    if(MDNode *M = I->getMetadata("dbg"))
-    {
-        DILocation  Loc(M);
-        unsigned Lin = Loc.getLineNumber();
-        StringRef File = Loc.getFilename();
-    
-        ss << File.str() << ":" << dec << Lin;
-    }
-    else
-    {
-        ss << "nofile:0"; 
-    }
+
+    const DebugLoc& DL = I->getDebugLoc();
+    unsigned Lin = DL.getLine();
+    DIScope *Scope = cast<DIScope>(DL.getScope());
+    StringRef File = Scope->getFilename();
+    ss << File.str() << ":" << dec << Lin;
+
     block->_sourceInfo = ss.str();
     //IRBuilder<> builder(I);
     if(I)

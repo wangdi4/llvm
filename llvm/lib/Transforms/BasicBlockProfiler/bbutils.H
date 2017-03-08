@@ -39,7 +39,20 @@ END_LEGAL */
 #include <unistd.h>
 
 #include "bbdefs.H"
+
+// GCC is whining about an extra ";" in
+// /usr/intel/pkgs/boost/1.59.0/include/boost/archive/detail/interface_oarchive.hpp:78:6
+// I could fix it, but that would be wrong. Instead, I'll tell GCC to stop
+// being pedantic.
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #include <boost/archive/text_oarchive.hpp>
+#pragma GCC diagnostic pop
+#else
+#include <boost/archive/text_oarchive.hpp>
+#endif  // __GNUC__
+
 #include <boost/archive/text_iarchive.hpp>
 
 using namespace std;

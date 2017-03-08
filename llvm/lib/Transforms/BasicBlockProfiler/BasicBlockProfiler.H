@@ -35,7 +35,7 @@ END_LEGAL */
 //===----------------------------------------------------------------------===//
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Pass.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/LoopInfo.h"

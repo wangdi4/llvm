@@ -37,7 +37,7 @@ END_LEGAL */
 #include <fstream>
 #include <sstream>
 #include "llvm/Pass.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/TypeBuilder.h"
@@ -57,7 +57,7 @@ class BasicBlockNumberer : public ModulePass {
         bool runOnModule(llvm::Module &M);
         bool runOnBasicBlock(BasicBlock &BB);
         bool runOnModuleBegin();
-        bool runOnModuleEnd();
+        void runOnModuleEnd();
     private:
         Module *mod;
         ofstream bbNumberFile;

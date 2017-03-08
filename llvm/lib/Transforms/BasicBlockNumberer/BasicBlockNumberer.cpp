@@ -53,7 +53,7 @@ bool BasicBlockNumberer::runOnModuleBegin() {
       return false; // no modifications to the IR was made
 }
 
-bool BasicBlockNumberer::runOnModuleEnd() {
+void BasicBlockNumberer::runOnModuleEnd() {
       if(!KnobOutputFile.empty()) 
       {
         bbNumberFile.close();

@@ -43,7 +43,7 @@
 #define LLVM_LIB_TRANSFORMS_FPGA_ADVISOR_COMMON_H
 
 #include "llvm/Pass.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
