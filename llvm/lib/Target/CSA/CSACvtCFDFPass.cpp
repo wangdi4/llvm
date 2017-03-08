@@ -2405,7 +2405,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForHeader(MachineBasicBlock* mbb) {
     MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
     MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
     MachineBasicBlock* exitBlk = mloop->contains(succ1) ? succ2 : succ1;
-    unsigned ec = getEdgePred(exitingBlk, CDG->getEdgeType(exitingBlk, exitBlk, true));
+    unsigned ec = computeEdgePred(exitingBlk, exitBlk, path);
     if (!orSrc) {
       orSrc = ec;
     } else if (!orResult) {
