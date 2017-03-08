@@ -47,7 +47,6 @@ using namespace llvm::vpo;
 INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare", 
                      "VPO Paropt Prepare Function Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
-INITIALIZE_PASS_DEPENDENCY(LCSSAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
 INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare", 
                     "VPO Paropt Prepare Function Pass", false, false)
@@ -66,7 +65,6 @@ VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode)
 
 void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredID(LoopSimplifyID);
-  AU.addRequiredID(LCSSAID);
   AU.addRequired<WRegionInfo>();
 }
 

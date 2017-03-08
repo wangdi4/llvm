@@ -341,7 +341,7 @@ Value *WRegionUtils::getOmpLoopLowerBound(Loop *L) {
 }
 
 // gets the loop stride of the OMP loop.
-Value *WRegionUtils::getOmpLoopStride(Loop *L) {
+Value *WRegionUtils::getOmpLoopStride(Loop *L, bool &IsNeg) {
   PHINode *PN = getOmpCanonicalInductionVariable(L);
   assert(PN != nullptr && "Omp loop must have induction variable!");
 
@@ -349,8 +349,13 @@ Value *WRegionUtils::getOmpLoopStride(Loop *L) {
       dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch())))
     if ((Inc->getOpcode() == Instruction::Add ||
        Inc->getOpcode() == Instruction::Sub) &&
-       Inc->getOperand(0) == PN) 
+       Inc->getOperand(0) == PN) {
+      if (Inc->getOpcode() == Instruction::Sub)
+        IsNeg = true;
+      else
+        IsNeg = false;
       return Inc->getOperand(1);
+    }
   llvm_unreachable("Omp loop must have stride!");
 }
 
@@ -374,17 +379,15 @@ Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
   if (dyn_cast<ConstantInt>(Res))
     return Res;
 
-  CondInst = getOmpLoopZeroTripTest(L);
-  if (CondInst) {
-    if (CondInst->getOperand(0) == getOmpLoopLowerBound(L)) 
-      return CondInst->getOperand(1);
-    else{
-      assert(CondInst->getOperand(1) == getOmpLoopLowerBound(L) &&
-             "Omp loop must have right cmp instruction");
-      return CondInst->getOperand(0);
-    }
+  LoadInst *LI = dyn_cast<LoadInst>(Res);
+  if (LI) {
+    Value *Ptr = LI->getPointerOperand();
+    AllocaInst *AI = dyn_cast<AllocaInst>(Ptr);
+    assert(AI && "upper bound must be stack load here");
+    return Res;
   }
-  llvm_unreachable("Omp loop must have upper bound!");
+
+  llvm_unreachable("upper bound must be a constant or a stack load");
 }
 
 // gets the zero trip test of the OMP loop if the zero trip

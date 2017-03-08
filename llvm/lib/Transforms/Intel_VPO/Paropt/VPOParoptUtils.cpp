@@ -177,20 +177,32 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
 
   DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
+  Type *ArgIntTy;
+  std::string CallName;
+  if (LB->getType()->getPointerElementType()->getIntegerBitWidth() == 64) {
+    CallName = "__kmpc_for_static_init_8";
+    ArgIntTy = Type::getInt64Ty(C);
+  }
+  else {
+    CallName = "__kmpc_for_static_init_4";
+    ArgIntTy = IntTy;
+  }
+
   Type *InitParamsTy[] = {PointerType::getUnqual(IdentTy), 
                           IntTy, IntTy, PointerType::getUnqual(IntTy),
-                          PointerType::getUnqual(IntTy),
-                          PointerType::getUnqual(IntTy),
-                          PointerType::getUnqual(IntTy), IntTy, IntTy};
+                          PointerType::getUnqual(ArgIntTy),
+                          PointerType::getUnqual(ArgIntTy),
+                          PointerType::getUnqual(ArgIntTy), 
+                          ArgIntTy, ArgIntTy};
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), 
                                          InitParamsTy, false);
 
-  Function *FnStaticInit = M->getFunction("__kmpc_for_static_init_4");
+  Function *FnStaticInit = M->getFunction(CallName);
 
   if (!FnStaticInit) {
     FnStaticInit = Function::Create(FnTy, GlobalValue::ExternalLinkage,
-                                  "__kmpc_for_static_init_4", M);
+                                    CallName, M);
     FnStaticInit->setCallingConv(CallingConv::C);
   }
 
@@ -1042,4 +1054,15 @@ void VPOParoptUtils::updateOmpPredicate(WRegionNode *W) {
     IC->setPredicate(ICmpInst::ICMP_SGE);
   else if (PD == ICmpInst::ICMP_UGT) 
     IC->setPredicate(ICmpInst::ICMP_UGE);
+}
+
+// Clones the load instruction and inserts before the InsertPt.
+Value* VPOParoptUtils::cloneLoadInstruction(Value *V, Instruction *InsertPt) {
+  if (auto *LI = dyn_cast<LoadInst>(V)) {
+    auto NewLI = LI->clone();
+    NewLI->insertBefore(&*InsertPt);
+    return NewLI;
+  }
+  else 
+    return V;
 }

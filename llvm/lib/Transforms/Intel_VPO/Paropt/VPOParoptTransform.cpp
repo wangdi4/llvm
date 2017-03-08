@@ -397,6 +397,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   // TBD: handle all loop forms: Top test loop, bottom test loop, with 
   // PHI and without PHI nodes as SCEV bails out for many cases
   //
+  LLVMContext &C = F->getContext();
+  IntegerType *Int32Ty = Type::getInt32Ty(C);
 
   IntegerType *IndValTy = cast<IntegerType>(
     WRegionUtils::getOmpCanonicalInductionVariable(L)->
@@ -408,7 +410,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(4);
 
-  AllocaInst *IsLastVal = new AllocaInst(IndValTy, "is.last", InsertPt);
+  AllocaInst *IsLastVal = new AllocaInst(Int32Ty, "is.last", InsertPt);
   IsLastVal->setAlignment(4);
 
   AllocaInst *LowerBnd = new AllocaInst(IndValTy, "lower.bnd", InsertPt);
@@ -425,22 +427,34 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   UpperD->setAlignment(4);
 
   // Constant Definitions
-  ConstantInt *ValueZero = ConstantInt::get(IndValTy, 0);
+  ConstantInt *ValueZero = 
+    ConstantInt::getSigned(Int32Ty, 0);
   ConstantInt *ValueOne  = ConstantInt::get(IndValTy, 1);
 
   // For now, set the default schedule type static_even.     
   // TBD: to get Schedule type and chunk information from W-Region node
-  ConstantInt *SchedType = ConstantInt::get(IndValTy, 34);
+  ConstantInt *SchedType = 
+    ConstantInt::getSigned(Int32Ty, 34);
 
   StoreInst *Tmp0 = new StoreInst(InitVal, LowerBnd, false, InsertPt);
   Tmp0->setAlignment(4);
 
   Value *RightValue = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
+  RightValue = VPOParoptUtils::cloneLoadInstruction(RightValue, InsertPt);
 
   StoreInst *Tmp1 = new StoreInst(RightValue, UpperBnd, false, InsertPt);
   Tmp1->setAlignment(4);
-
-  StoreInst *Tmp2 = new StoreInst(ValueOne, Stride, false, InsertPt);
+ 
+  bool IsNeg;
+  Value *StrideVal = WRegionUtils::getOmpLoopStride(L, IsNeg);
+  StrideVal = VPOParoptUtils::cloneLoadInstruction(StrideVal, InsertPt);
+    
+  if (IsNeg) {
+    ConstantInt *Zero = ConstantInt::get(IndValTy, 0);
+    IRBuilder<> B(InsertPt);
+    StrideVal = B.CreateSub(Zero, StrideVal);
+  }
+  StoreInst *Tmp2 = new StoreInst(StrideVal, Stride, false, InsertPt);
   Tmp2->setAlignment(4);
 
   StoreInst *Tmp3 = new StoreInst(RightValue, UpperD, false, InsertPt);

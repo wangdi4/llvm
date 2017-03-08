@@ -311,6 +311,10 @@ public:
 
     /// \brief Updates the bottom test predicate to include equal predicate.
     static void updateOmpPredicate(WRegionNode *W);
+    
+    /// \brief Clones the load instruction and inserts before the InsertPt.
+    static Value* cloneLoadInstruction(Value *V, 
+                                       Instruction *InsertPt);
 private:
     /// \name Private constructor and destructor to disable instantiation.
     /// @{

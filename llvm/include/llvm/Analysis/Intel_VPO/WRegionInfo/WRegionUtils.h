@@ -242,7 +242,7 @@ public:
   static Value *getOmpLoopLowerBound(Loop *L);
 
   /// \brief gets the loop stride of the OMP loop.
-  static Value *getOmpLoopStride(Loop *L);
+  static Value *getOmpLoopStride(Loop *L, bool &IsNeg);
 
   /// \brief gets the loop upper bound of the OMP loop.
   static Value *getOmpLoopUpperBound(Loop *L);
