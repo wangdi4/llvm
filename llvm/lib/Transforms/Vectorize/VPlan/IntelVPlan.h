@@ -144,7 +144,19 @@ public:
 
   /// Print the recipe.
   void print(raw_ostream &O) const override {
-    O << "Uniform Branch condition: " << ConditionBit;
+    O << "Uniform Branch condition. Output: ";
+    if (ConditionBit) {
+      O << *ConditionBit;
+    } else {
+      O << "NULL";
+    }
+
+    O << " Input: ";
+    if (ScConditionBit) {
+      O << *ScConditionBit;
+    } else {
+      O << "NULL";
+    }
   }
 
   StringRef getName() const { return "Cond Bit Recipe"; };
