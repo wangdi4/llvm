@@ -161,12 +161,6 @@ private:
                         VPDominatorTree &DomTree, VPDominatorTree &PostDomTree,
                         IntelVPlanUtils &PlanUtils);
 
-  void splitSingleSuccessorBlock(VPBlockBase *Block,
-                                 VPLoopInfo *VPLInfo,
-                                 VPDominatorTree &DomTree,
-                                 VPDominatorTree &PostDomTree,
-                                 IntelVPlanUtils &PlanUtils);
-
   VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                            VPDominatorTree &DomTree,
                            VPDominatorTree &PostDomTree,
@@ -192,6 +186,9 @@ private:
                             IntelVPlanUtils &PlanUtils,
                             DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
                             DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
+
+  void verifyLoops(const VPRegionBlock *TopRegion,
+                   const VPLoopInfo *VPLInfo) const;
 
   void verifyHierarchicalCFG(const VPRegionBlock *TopRegion,
                              const VPLoopInfo *VPLInfo) const;

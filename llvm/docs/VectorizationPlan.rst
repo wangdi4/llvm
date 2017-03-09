@@ -384,17 +384,15 @@ VPlan Classes: Definitions
 :VPLoopRegion:
   is a VPRegionBlock that represents a loop in the Hierarchical CFG. Entry
   block is the loop pre-header. Exit block is a post-dominator of all loop
-  blocks. Consequently, all loop latches will be inside the VPLoopRegion.
+  blocks. Consequently, all loop exits will be inside the VPLoopRegion.
   A new pre-header block may need to be constructed if one does not exist or if
   existing pre-header has multiple successors.
+
+  TODO: Multiple-exit massaging.
 
   A VPLoopRegion has an attached VPLoop instance that contains all the loop
   information computed in VPLoopInfo for that VPLoopRegion.
   
-  WIP 1: If the loop has a single exit block, this block is used as exit block
-  of the region. Otherwise, the immediate post-dominator of the loop header is
-  used.
-
 :VPLoop:
   is a LoopBase that holds all the information computed for a natural loop
   detected by VPLoopInfo.

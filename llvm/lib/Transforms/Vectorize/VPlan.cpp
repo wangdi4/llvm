@@ -393,7 +393,7 @@ void VPlanPrinter::dumpRegion(const VPRegionBlock *Region) {
   OS << Indent;
   OS << "label = \"" << getReplicatorString(Region) << " "
 #ifdef INTEL_CUSTOMIZATION
-     << DOT::EscapeString(Region->getName()) << " S=" << Region->getSize()
+     << DOT::EscapeString(Region->getName()) << " Size=" << Region->getSize()
      << "\"\n\n";
 #else
      << DOT::EscapeString(Region->getName()) << "\"\n\n";

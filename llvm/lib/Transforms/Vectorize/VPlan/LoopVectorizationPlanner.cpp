@@ -297,53 +297,10 @@
   }
 
   // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
-  // PostDomTree accordingly. 'A' must have a single successor. 'A' must be IDom
-  // of 'B'. NewSucc will be added to A's loop.
-  void LoopVectorizationPlanner::splitSingleSuccessorBlock(
+  // PostDomTree accordingly.
+  VPBasicBlock *LoopVectorizationPlanner::splitBlock(
       VPBlockBase *Block, VPLoopInfo *VPLInfo, VPDominatorTree &DomTree,
       VPDominatorTree &PostDomTree, IntelVPlanUtils &PlanUtils) {
-
-    VPBlockBase *OldSucc = Block->getSingleSuccessor();
-    assert(Block->getSingleSuccessor() && "Expected single successor");
-    assert((DomTree.getNode(OldSucc)->getIDom()->getBlock() == Block) &&
-           "Expected Block to be IDom of old successor");
-
-    // Create new successor
-    VPBasicBlock *NewSucc = PlanUtils.createBasicBlock();
-    PlanUtils.insertBlockAfter(NewSucc, Block);
-
-    // Add new successor to VPLoopInfo
-    if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {
-      Loop->addBasicBlockToLoop(NewSucc, *VPLInfo);
-    }
-
-    // Update dom/postdom information
-
-    // Block is idom of new succ
-    VPDomTreeNode *NewSuccDT = DomTree.addNewBlock(NewSucc, Block /*IDom*/);
-
-    // New successor is idom of old succ
-    VPDomTreeNode *OldSuccDT = DomTree.getNode(OldSucc);
-    assert(OldSuccDT && "Expected DomTreeNode for old successor");
-    DomTree.changeImmediateDominator(OldSuccDT, NewSuccDT);
-
-    // Block's iposdom is new successor's ipostdom
-    VPDomTreeNode *BlockPDT = PostDomTree.getNode(Block);
-    assert(BlockPDT && "Expected DomTreeNode for Block");
-    VPDomTreeNode *NewSuccPDT = PostDomTree.addNewBlock(
-        NewSucc, BlockPDT->getIDom()->getBlock() /*IDom*/);
-
-    // New successor is ipostdom of block
-    PostDomTree.changeImmediateDominator(BlockPDT, NewSuccPDT);
-  }
-
-  // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
-  // PostDomTree accordingly.
-  VPBasicBlock *LoopVectorizationPlanner::splitBlock(VPBlockBase *Block,
-                                                     VPLoopInfo *VPLInfo,
-                                                     VPDominatorTree &DomTree,
-                                                     VPDominatorTree &PostDomTree,
-                                                     IntelVPlanUtils &PlanUtils) {
     // TODO: If Exit has multiple successor, move ConditionBitRecipe when it's
     // available
 
@@ -355,15 +312,17 @@
       Loop->addBasicBlockToLoop(NewBlock, *VPLInfo);
     }
 
+    // TODO
+    NewBlock->setConditionBitRecipe(Block->getConditionBitRecipe());
+
     // Update dom information
-  NewBlock->setConditionBitRecipe(Block->getConditionBitRecipe());
 
     VPDomTreeNode *BlockDT = DomTree.getNode(Block);
     SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
                                                     BlockDT->end());
-    // Block is NewBlock's idom. 
+    // Block is NewBlock's idom.
     VPDomTreeNode *NewBlockDT = DomTree.addNewBlock(NewBlock, Block /*IDom*/);
-   
+
     // NewBlock dominates all other nodes dominated by Block.
     for (VPDomTreeNode *Child : BlockDTChildren)
       DomTree.changeImmediateDominator(Child, NewBlockDT);
@@ -379,7 +338,7 @@
       // common post-dominator of both successors.
 
       // TODO: getSuccessor(0)
-      auto& Successors = NewBlock->getSuccessors();
+      auto &Successors = NewBlock->getSuccessors();
       VPBlockBase *Succ1 = *Successors.begin();
       VPBlockBase *Succ2 = *std::next(Successors.begin());
 
@@ -709,20 +668,10 @@
         // PlanUtils.setLoopLatch(NewLoop, BB2VPBB[Lp->getLoopLatch()]);
 
         // Set VPLoop's entry and exit.
-        // VPLoop's entry = loop preheader.
+        // Entry = loop preheader, Exit = loop exit
         VPBasicBlock *RegionEntry = CurrentVPBB;
-
-        // If loop has single exit, region's exit is that exit block
-        // TODO: cast
+        assert(VPL->getUniqueExitBlock() && "Only single-exit loops expected");
         VPBasicBlock *RegionExit = cast<VPBasicBlock>(VPL->getUniqueExitBlock());
-        // If multiple exits, region's exit is IDOM(loop header)
-        if (!RegionExit) {
-          VPBlockBase *IDomBlock =
-              PostDomTree.getNode(VPLHeader)->getIDom()->getBlock();
-          assert(isa<VPBasicBlock>(IDomBlock) && "IDom must be a VPBasicBlock");
-
-          RegionExit = cast<VPBasicBlock>(IDomBlock);
-        }
 
         // Connect VPLoop to graph
         PlanUtils.insertRegion(VPLR, RegionEntry, RegionExit);
@@ -830,7 +779,7 @@
   DEBUG(dbgs() << "End of HCFG build for " << ParentRegion->getName() << "\n");
 }
 
-void LoopVectorizationPlanner::verifyHierarchicalCFG(
+void LoopVectorizationPlanner::verifyLoops(
     const VPRegionBlock *TopRegion, const VPLoopInfo *VPLInfo) const {
 
   std::function<unsigned(const VPRegionBlock *)> countLoopsInRegion =
@@ -853,32 +802,59 @@ void LoopVectorizationPlanner::verifyHierarchicalCFG(
     return NumLoops;
   };
 
-  std::function<unsigned(const VPLoop *)> countLoopsInVPLoop =
-      [&](const VPLoop *Loop) -> unsigned {
+  //TODO: It seems C++14 is not allowed yet (generic lambdas). Replicating the
+  //code by now
+  std::function<unsigned(const VPLoop*)>
+      countLoopsInVPLoop = [&](const VPLoop* Lp) -> unsigned {
 
-    const std::vector<VPLoop *> &SubLoops = Loop->getSubLoops();
+    const std::vector<VPLoop *> &SubLoops = Lp->getSubLoops();
     unsigned NumLoops = SubLoops.size();
 
-    for (const VPLoop *VPSL : SubLoops)
-      NumLoops += countLoopsInVPLoop(VPSL);
+    for (const VPLoop *SL : SubLoops)
+      NumLoops += countLoopsInVPLoop(SL);
+
+    return NumLoops;
+  };
+  std::function<unsigned(const Loop*)>
+      countLoopsInLoop = [&](const Loop* Lp) -> unsigned {
+
+    const std::vector<Loop *> &SubLoops = Lp->getSubLoops();
+    unsigned NumLoops = SubLoops.size();
+
+    for (const Loop *SL : SubLoops)
+      NumLoops += countLoopsInLoop(SL);
 
     return NumLoops;
   };
 
-  // Compare number of loops in CFG with loops in VPLoopInfo
+  // Compare number of loops in HCFG with loops in VPLoopInfo and LoopInfo
   unsigned NumLoopsInCFG = countLoopsInRegion(TopRegion);
 
-  unsigned NumLoopsInLoopInfo = 0;
-  for (VPLoop *TopLoop : make_range(VPLInfo->begin(), VPLInfo->end())) {
-    NumLoopsInLoopInfo += 1 /*TopLoop*/ + countLoopsInVPLoop(TopLoop);
-  }
+  assert(std::distance(VPLInfo->begin(), VPLInfo->end()) == 1 &&
+         "More than one top loop is not expected");
+  unsigned NumLoopsInVPLoopInfo =
+      1 /*TopLoop*/ + countLoopsInVPLoop(*VPLInfo->begin());
+  unsigned NumLoopsInLoopInfo = 1 /*TopLoop*/ + countLoopsInLoop(TheLoop);
 
-  DEBUG(dbgs() << "Verify Hierarchical VPlan:\n";
-        dbgs() << "  NumLoopsInCFG: " << NumLoopsInCFG << "\n";
-        dbgs() << "  NumLoopsInLoopInfo: " << NumLoopsInLoopInfo << "\n";);
+  DEBUG(dbgs().indent(2) << "Verify Loops:\n";
+        dbgs().indent(4) << "NumLoopsInCFG: " << NumLoopsInCFG << "\n";
+        dbgs().indent(4) << "NumLoopsInVPLoopInfo: " << NumLoopsInVPLoopInfo
+                         << "\n";
+        dbgs().indent(4) << "NumLoopsInLoopInfo: " << NumLoopsInLoopInfo
+                         << "\n";);
 
-  assert((NumLoopsInCFG == NumLoopsInLoopInfo) &&
-         "Number of loops in CFG doesn't match number of loops in VPLoopInfo");
+  assert(NumLoopsInCFG == NumLoopsInVPLoopInfo &&
+         NumLoopsInVPLoopInfo == NumLoopsInLoopInfo &&
+         "Number of loops in HCFG, VPLoopInfo and LoopInfo don't match");
+}
+
+void LoopVectorizationPlanner::verifyHierarchicalCFG(
+    const VPRegionBlock *TopRegion, const VPLoopInfo *VPLInfo) const {
+
+  DEBUG(dbgs() << "Verify Hierarchical VPlan:\n";);
+
+  verifyLoops(TopRegion, VPLInfo);
+
 }
 
 // It builds a VPlan with the initial Hierarchical CFG (HCFG) from the input IR.
@@ -959,6 +935,7 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   VPLoopInfo *VPLInfo = new VPLoopInfo();
   Plan->setVPLoopInfo(VPLInfo);
   VPLInfo->analyze(DomTree);
+  DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
   DEBUG(dbgs() << "VPLoop Info:\n"; VPLInfo->print(dbgs()));
 
   // Compute postdom tree.
@@ -975,6 +952,10 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
 
   DEBUG(VPlanPrinter PlanPrinter(dbgs(), *Plan);
         PlanPrinter.dump("LVP: After simplifyPlainCFG for VF=4"));
+  DEBUG(dbgs() << "Dominator Tree After simplifyPlainCFG\n";
+        DomTree.print(dbgs()));
+  DEBUG(dbgs() << "PostDominator Tree After simplifyPlainCFG:\n";
+        PostDomTree.print(dbgs()));
 
   // Build sub-regions, including VPLoops. At this point, only SESE regions are
   // expected. The algorithm will fail otherwise

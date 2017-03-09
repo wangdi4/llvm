@@ -250,7 +250,7 @@ public:
     if (const VPLoop *ParentVPL = VPLInfo->getLoopFor(Block)) {
       SmallVector<VPBlockBase *, 2> Latches;
       ParentVPL->getLoopLatches(Latches);
-      return std::find(Latches.begin(), Latches.end(), Block);
+      return std::find(Latches.begin(), Latches.end(), Block) != Latches.end();
     }
    
     return false;
