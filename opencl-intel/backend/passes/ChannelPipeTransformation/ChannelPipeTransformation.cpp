@@ -234,7 +234,9 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
                                ValueToValueMap ChannelToPipeMap,
                                PipeMetadataMap PipesMD) {
   bool Changed = false;
-  for (auto *U : F.users()) {
+
+  SmallVector<User *, 32> ReadChannelUsers(F.user_begin(), F.user_end());
+  for (auto *U : ReadChannelUsers) {
     auto *ChannelCall = dyn_cast<CallInst>(U);
     if (!ChannelCall) {
       continue;
@@ -308,7 +310,9 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
                                 ValueToValueMap ChannelToPipeMap,
                                 PipeMetadataMap PipesMD) {
   bool Changed = false;
-  for (auto *U : F.users()) {
+  SmallVector<User *, 32> WriteChannelUsers(F.user_begin(), F.user_end());
+
+  for (auto *U : WriteChannelUsers) {
     auto *ChannelCall = dyn_cast<CallInst>(U);
     if (!ChannelCall) {
       continue;
