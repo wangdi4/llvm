@@ -1,5 +1,5 @@
 NAME=matrixmult
 EXT=c
-LEVEL=../
+LEVEL=../common
 
-include $(LEVEL)/Makefile
+include $(LEVEL)/common.mak

@@ -30,6 +30,18 @@
 #
 #===-------------------------------------------------------------------------===#
 
+#
+# Common file for running the FPGA Advisor.
+#
+# DO NOT RUN THIS MAKEFILE DIRECTLY!
+#
+# To run a test, cd into the appropriate directory and use the Makefile there
+#
+#
+ifndef NAME
+  $(error Do not run this Makefile directly. It provides common functionality for the Makefiles in the subdirectories)
+endif
+
 #===-------------------------------------------------------------------------===#
 # Variables
 #===-------------------------------------------------------------------------===#
