@@ -1,0 +1,9 @@
+# Ignore log files
+fpga-advisor-instrument.log
+trace.log
+
+# Ignore LLVM assembly files
+matrixmult*.ll
+
+# Ignore LLVM bitcode files
+matrixmult*.bc

@@ -1,0 +1,9 @@
+# Ignore log files
+fpga-advisor-instrument.log
+trace.log
+
+# Ignore LLVM assembly files
+xsbench*.ll
+
+# Ignore LLVM bitcode files
+xsbench*.bc
