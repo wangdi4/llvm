@@ -107,20 +107,11 @@
              isa<DbgInfoIntrinsic>(I);
     };
 
-    // NOTE: We can remove this later if it is no longer needed.
-    // auto isConditionForUniformBranch = [&](Instruction *I) -> bool {
-    //   auto isBranchInst = [&](User *U) -> bool {
-    //     return isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U));
-    //   };
-    //   return TheLoop->contains(I) && TheLoop->isLoopInvariant(I) &&
-    //          any_of(I->users(), isBranchInst);
-    // };
-
-    auto isConditionForBranch = [&](Instruction *I) -> bool {
+    auto isConditionForUniformBranch = [&](Instruction *I) -> bool {
       auto isBranchInst = [&](User *U) -> bool {
         return isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U));
       };
-      return TheLoop->contains(I) &&
+      return TheLoop->contains(I) && /*TheLoop->isLoopInvariant(I) &&*/
              any_of(I->users(), isBranchInst);
     };
 
@@ -129,34 +120,48 @@
       BasicBlock::iterator E = BB->end();
 
       while (I != E) {
-        for (; I != E && isInstructionToIgnore(&*I); ++I)
-          ;
+        // Search for first live Instruction to open VPBB.
+        while (I != E && isInstructionToIgnore(&*I))
+          ++I;
+
         if (I == E)
           break;
 
-        BasicBlock::iterator J = I;
-        for (++J; J != E; ++J) {
-          Instruction *Instr = &*J;
-          if (isInstructionToIgnore(Instr) || isConditionForBranch(Instr))
-            break; // Sequence of instructions not to ignore ended.
-        }
-
-        // Create new Recipe and add it to VPBB
-        bool Scalarized = false;
-        VPRecipeBase *Recipe = PlanUtils.createOneByOneRecipe(I, J, Scalarized);
-        PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
-
-        if (isConditionForBranch(&*I)) {
+        // If 'I' is a branch condition, create a UniformConditionBitRecipe.
+        // Note that we don't have to add the recipe as successor selector at
+        // this point. The branch using this conditiong might not be necessarily
+        // in this VPBB.
+        if (isConditionForUniformBranch(&*I)) {
           Instruction *Instr = &*I;
           VPUniformConditionBitRecipe *Recipe =
-            PlanUtils.createUniformConditionBitRecipe(Instr);
+              PlanUtils.createUniformConditionBitRecipe(Instr);
           PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
-          VPBB->setConditionBitRecipe(Recipe);
-          for(User *U : Instr->users()) {
+
+          for (User *U : Instr->users()) {
             if (isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U)))
               BranchCondMap[cast<BranchInst>(U)->getCondition()] = Recipe;
           }
+
+          // Move iterator forward to skip branch condition in next iteration
+          ++I;
+          continue;
+        } 
+
+        // Create new OnebyOneRecipe and add it to VPBB
+
+        // Search for last live Instruction to close VPBB.
+        BasicBlock::iterator J = I;
+        for (++J; J != E; ++J) {
+          Instruction *Instr = &*J;
+          if (isInstructionToIgnore(Instr) ||
+              isConditionForUniformBranch(Instr))
+            break; // Sequence of instructions not to ignore ended.
         }
+
+        bool Scalarized = false;
+        VPRecipeBase *Recipe =
+          PlanUtils.createOneByOneRecipe(I, J, Scalarized);
+        PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
 
         I = J;
       }
@@ -223,19 +228,20 @@
             createOrGetVPBB(TI->getSuccessor(1), TopRegion, TopRegionSize);
         assert(SuccVPBB1 && "Successor 1 not found");
 
+        // Add ConditionBitRecipe to VPBB
         BranchInst *Br = cast<BranchInst>(TI);
         Value *Condition = Br->getCondition();
         VPConditionBitRecipeBase *CondBitR = nullptr;
-        if (TheLoop->isLoopInvariant(Condition)) {
-          if (BranchCondMap.count(Condition)) {
-            CondBitR = BranchCondMap[Condition];
-          } else {
-            CondBitR = PlanUtils.createLiveInConditionBitRecipe(Condition);
-            PlanUtils.appendRecipeToBasicBlock(CondBitR, VPBB);
-            VPBB->setConditionBitRecipe(CondBitR);
-          }
+
+        if (BranchCondMap.count(Condition)) {
+          // ConditionBitRecipe is a UniformConditionBitRecipe
+          CondBitR = BranchCondMap[Condition];
+        } else {
+          // Branch condition is a live-in value. Create a
+          // LiveInConditionBitRecipe
+          CondBitR = PlanUtils.createLiveInConditionBitRecipe(Condition);
         }
-   
+
         PlanUtils.setTwoSuccessors(VPBB, CondBitR, SuccVPBB0, SuccVPBB1);
       } else {
         llvm_unreachable("Number of successors not supported");
@@ -301,8 +307,6 @@
   VPBasicBlock *LoopVectorizationPlanner::splitBlock(
       VPBlockBase *Block, VPLoopInfo *VPLInfo, VPDominatorTree &DomTree,
       VPDominatorTree &PostDomTree, IntelVPlanUtils &PlanUtils) {
-    // TODO: If Exit has multiple successor, move ConditionBitRecipe when it's
-    // available
 
     VPBasicBlock *NewBlock = PlanUtils.createBasicBlock();
     PlanUtils.insertBlockAfter(NewBlock, Block);
@@ -311,9 +315,6 @@
     if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {
       Loop->addBasicBlockToLoop(NewBlock, *VPLInfo);
     }
-
-    // TODO
-    NewBlock->setConditionBitRecipe(Block->getConditionBitRecipe());
 
     // Update dom information
 

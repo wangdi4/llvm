@@ -1234,6 +1234,16 @@ public:
   }
 
   void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+    // Set ConditionBitRecipe in NewBlock. Note that we are only setting the
+    // successor selector pointer. The ConditionBitRecipe is kept in its
+    // original VPBB recipe list.
+    if (BlockPtr->getNumSuccessors() > 1) {
+      assert(BlockPtr->getConditionBitRecipe() && "Missing ConditionBitRecipe");
+      NewBlock->setConditionBitRecipe(BlockPtr->getConditionBitRecipe());
+      // BlockPtr will have a single successor now.
+      BlockPtr->setConditionBitRecipe(nullptr);
+    }
+
     moveSuccessors(BlockPtr, NewBlock);
     // TODO: setSuccessor is propagating NewBlock's parent to BlockPtr, so we
     // need to set the parent before if we don't want to propagate a nullptr.
