@@ -33,7 +33,7 @@ class Optimizer
 {
 public:
     Optimizer( llvm::Module* pModule,
-               llvm::SmallVector<llvm::Module*, 2> pRtlModuleList,
+               llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
                const intel::OptimizerConfig* pConfig);
 
     ~Optimizer();
@@ -65,7 +65,7 @@ private:
     llvm::legacy::PassManager m_PostFailCheckPM;
     llvm::legacy::PassManager m_PreFailCheckPM;
     llvm::Module* m_pModule;
-
+    llvm::SmallVector<llvm::Module*, 2> m_pRtlModuleList;
     std::vector<std::string> m_undefinedExternalFunctions;
 };
 

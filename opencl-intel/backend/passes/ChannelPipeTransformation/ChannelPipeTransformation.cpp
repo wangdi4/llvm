@@ -103,7 +103,7 @@ static void createPipeBackingStore(Module &M,
     assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
            "Pipe metadata not found.");
 
-    size_t BSSize = pipe_get_total_size(PipeMD.PacketSize, 1);
+    size_t BSSize = pipe_get_total_size(PipeMD.PacketSize, 64);
     auto *ArrayTy = ArrayType::get(Int8Ty, BSSize);
 
     SmallString<16> NameStr;
@@ -131,11 +131,11 @@ Function *createPipesCtor(Module &M,
                           const SmallVectorImpl<Module *> &BuiltinModules) {
   Function *PipeInit = nullptr;
   for (auto &BIModule : BuiltinModules) {
-    if ((PipeInit = BIModule->getFunction("__pipe_init")))
+    if ((PipeInit = BIModule->getFunction("__pipe_init_intel")))
       break;
   }
   if (!PipeInit) {
-    assert(PipeInit && "__pipe_init() not found in RTL.");
+    assert(PipeInit && "__pipe_init_intel() not found in RTL.");
     return nullptr;
   } else {
     PipeInit = cast<Function>(
@@ -160,9 +160,7 @@ Function *createPipesCtor(Module &M,
            "Pipe metadata not found.");
 
     Value *CallArgs[] = {
-      Builder.CreateBitCast(BS, PointerType::get(
-                                IntegerType::getInt8Ty(M.getContext()),
-                                Utils::OCLAddressSpace::Global)),
+      Builder.CreateBitCast(BS, PipeInit->getFunctionType()->getParamType(0)),
       ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
       ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketAlign)
     };
@@ -180,7 +178,6 @@ Function *createPipesCtor(Module &M,
 
 static bool createPipeGlobals(Module &M,
                               ValueToValueMap &ChannelToPipeMap,
-                              PipeMetadataMap &PipesMD,
                               SmallVectorImpl<Module *> &BuiltinModules) {
   auto *ChannelTy = M.getTypeByName("opencl.channel_t");
   if (!ChannelTy) {
@@ -217,6 +214,7 @@ static bool createPipeGlobals(Module &M,
     ChannelToPipeMap[GV] = PipeGV;
   }
 
+  PipeMetadataMap PipesMD;
   getPipesMetadata(M, ChannelToPipeMap, PipesMD);
 
   ValueToValueMap PipeToBSMap;
@@ -231,14 +229,17 @@ static bool createPipeGlobals(Module &M,
 
 static bool replaceReadChannel(Function &F, Function &Replacement,
                                Module &M,
-                               ValueToValueMap ChannelToPipeMap,
-                               PipeMetadataMap PipesMD) {
+                               ValueToValueMap ChannelToPipeMap) {
   bool Changed = false;
-  for (auto *U : F.users()) {
+
+  SmallVector<User *, 32> ReadChannelUsers(F.user_begin(), F.user_end());
+  for (auto *U : ReadChannelUsers) {
     auto *ChannelCall = dyn_cast<CallInst>(U);
     if (!ChannelCall) {
       continue;
     }
+
+    IRBuilder<> Builder(ChannelCall);
 
     auto *ReadChannelFTy = ChannelCall->getCalledFunction();
     auto ArgIt = ChannelCall->arg_begin();
@@ -255,12 +256,11 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
     if (!ResultPtr) {
       // primitive type result is returned by value from read_channel
       // make an alloca to pass it by pointer to read_pipe
-      ResultPtr = new AllocaInst(ResultTy, "", /*InsertBefore*/ ChannelCall);
+      ResultPtr = Builder.CreateAlloca(ResultTy);
     }
 
     assert(ArgIt == ChannelCall->arg_end() &&
            "Unexpected number of arguments in read_channel_altera.");
-
 
     auto *ReadPipe = &Replacement;
     if (Replacement.getParent() != &M) {
@@ -273,21 +273,14 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
     Value *ChanGlobal = cast<LoadInst>(ChanArg)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
 
-    auto PipeMD = PipesMD.lookup(PipeGlobal);
-    assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
-           "Pipe metadata not found.");
-
     Value *PipeCallArgs[] = {
-      new LoadInst(PipeGlobal, "", /*InsertBefore*/ChannelCall),
-      CastInst::CreatePointerBitCastOrAddrSpaceCast(
-          ResultPtr, ReadPipeFTy->getParamType(1),
-          "", /*InsertBefore*/ChannelCall),
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketAlign)
+      Builder.CreateBitCast(
+          Builder.CreateLoad(PipeGlobal), ReadPipeFTy->getParamType(0)),
+      Builder.CreatePointerBitCastOrAddrSpaceCast(
+          ResultPtr, ReadPipeFTy->getParamType(1))
     };
 
-    CallInst::Create(ReadPipe, PipeCallArgs, "", ChannelCall);
-
+    Builder.CreateCall(ReadPipe, PipeCallArgs);
 
     if (ReadChannelFTy->getReturnType()->isVoidTy()) {
       ChannelCall->eraseFromParent();
@@ -295,7 +288,7 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
       BasicBlock::iterator II(ChannelCall);
       ReplaceInstWithValue(ChannelCall->getParent()->getInstList(),
                            II,
-                           new LoadInst(ResultPtr, "", ChannelCall));
+                           Builder.CreateLoad(ResultPtr));
     }
 
     Changed = true;
@@ -305,10 +298,11 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
 
 static bool replaceWriteChannel(Function &F, Function &Replacement,
                                 Module &M,
-                                ValueToValueMap ChannelToPipeMap,
-                                PipeMetadataMap PipesMD) {
+                                ValueToValueMap ChannelToPipeMap) {
   bool Changed = false;
-  for (auto *U : F.users()) {
+  SmallVector<User *, 32> WriteChannelUsers(F.user_begin(), F.user_end());
+
+  for (auto *U : WriteChannelUsers) {
     auto *ChannelCall = dyn_cast<CallInst>(U);
     if (!ChannelCall) {
       continue;
@@ -328,25 +322,19 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
     Value *ChanGlobal = cast<LoadInst>(Chan)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
 
-    auto PipeMD = PipesMD.lookup(PipeGlobal);
-    assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
-           "Pipe metadata not found.");
+    IRBuilder<> Builder(ChannelCall);
 
-
-    Value *ValPtr = new AllocaInst(Val->getType(), "",
-                                   /*InsertBefore*/ChannelCall);
-    new StoreInst(Val, ValPtr, /*InsertBefore*/ChannelCall);
+    Value *ValPtr = Builder.CreateAlloca(Val->getType());
+    Builder.CreateStore(Val, ValPtr);
 
     Value *PipeCallArgs[] = {
-      new LoadInst(PipeGlobal, "", /*InsertBefore*/ChannelCall),
-      CastInst::CreatePointerBitCastOrAddrSpaceCast(
-          ValPtr, WritePipeFTy->getParamType(1),
-          "", /*InsertBefore*/ChannelCall),
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketAlign)
+      Builder.CreateBitCast(
+          Builder.CreateLoad(PipeGlobal), WritePipeFTy->getParamType(0)),
+      Builder.CreatePointerBitCastOrAddrSpaceCast(
+          ValPtr, WritePipeFTy->getParamType(1))
     };
 
-    CallInst::Create(WritePipe, PipeCallArgs, "", ChannelCall);
+    Builder.CreateCall(WritePipe, PipeCallArgs);
     ChannelCall->eraseFromParent();
 
     Changed = true;
@@ -356,33 +344,30 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
 
 static bool replaceChannelBuiltins(Module &M,
                                    ValueToValueMap ChannelToPipeMap,
-                                   PipeMetadataMap PipesMD,
                                    SmallVectorImpl<Module *> &BuiltinModules) {
   Function *ReadPipe = nullptr;
   Function *WritePipe = nullptr;
   for (auto *BIModule : BuiltinModules) {
     if (!ReadPipe) {
-      ReadPipe = BIModule->getFunction("__read_pipe_2_bl");
+      ReadPipe = BIModule->getFunction("__read_pipe_2_bl_intel");
     }
 
     if (!WritePipe) {
-      WritePipe = BIModule->getFunction("__write_pipe_2_bl");
+      WritePipe = BIModule->getFunction("__write_pipe_2_bl_intel");
     }
   }
 
-  assert(ReadPipe && "no '__read_pipe_2_bl' built-in declared in RTL");
-  assert(WritePipe && "no '__write_pipe_2_bl' built-in declared in RTL");
+  assert(ReadPipe && "no '__read_pipe_2_bl_intel' built-in declared in RTL");
+  assert(WritePipe && "no '__write_pipe_2_bl_intel' built-in declared in RTL");
 
   bool Changed = false;
   for (auto &F : M) {
     auto Name = F.getName();
     if (Name.npos != Name.find("read_channel_altera")) {
-      Changed |= replaceReadChannel(F, *ReadPipe, M,
-                                    ChannelToPipeMap, PipesMD);
+      Changed |= replaceReadChannel(F, *ReadPipe, M, ChannelToPipeMap);
     } else if (Name.npos !=
                F.getName().find("write_channel_altera")) {
-      Changed |= replaceWriteChannel(F, *WritePipe, M,
-                                     ChannelToPipeMap, PipesMD);
+      Changed |= replaceWriteChannel(F, *WritePipe, M, ChannelToPipeMap);
     }
   }
   return Changed;
@@ -395,10 +380,8 @@ bool ChannelPipeTransformation::runOnModule(Module &M) {
   SmallVector<Module*, 2> BuiltinModules = BLI.getBuiltinModules();
 
   ValueToValueMap ChannelToPipeMap;
-  PipeMetadataMap PipesMD;
-  Changed |= createPipeGlobals(M, ChannelToPipeMap, PipesMD, BuiltinModules);
-  Changed |= replaceChannelBuiltins(M, ChannelToPipeMap, PipesMD,
-                                    BuiltinModules);
+  Changed |= createPipeGlobals(M, ChannelToPipeMap, BuiltinModules);
+  Changed |= replaceChannelBuiltins(M, ChannelToPipeMap, BuiltinModules);
 
   return Changed;
 }
