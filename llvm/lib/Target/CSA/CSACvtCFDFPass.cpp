@@ -52,6 +52,11 @@ RunSXU("csa-run-sxu", cl::Hidden,
   cl::desc("CSA Specific: run on sequential unit"),
   cl::init(0));
 
+static cl::opt<int>
+UseDynamicPred("csa-dynamic-pred", cl::Hidden,
+  cl::desc("CSA Specific: run on sequential unit"),
+  cl::init(0));
+
 
 // Flag for controlling code that deals with memory ordering.
 enum OrderMemopsMode {
@@ -456,10 +461,11 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForLoopExit();
   //rename, adding lhdr phi to seal all up range of each defintions up till loop hdr
   insertSWITCHForRepeat();
+  //if loop hdr is also an exiting blk, repeatOperand generated loop hdr phi need to go through SWITCHforIf process
   insertSWITCHForIf();
 
 
-if (needDynamicPreds())
+if (needDynamicPreds() || UseDynamicPred)
   generateDynamicPreds();
 else
   replacePhiWithPICK();
@@ -482,6 +488,8 @@ else
     removeBranch();
     linearizeCFG();
   }
+  //destroy all the data structures for current function,
+  //after branches are removed, BB pointer are no longer valid
   releaseMemory();
 
   return Modified;
