@@ -172,6 +172,7 @@ namespace llvm {
     unsigned mergeIncomingEdgePreds(MachineBasicBlock* inBB, std::list<MachineBasicBlock*> &path);
     unsigned computeBBPred(MachineBasicBlock *inBB, std::list<MachineBasicBlock*> &path);
     void TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI);
+    void CombineDuplicatePhiInputs(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* iPhi);
     void LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr *MI);
     bool CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb);
     void replaceIfFooterPhiSeq();
@@ -1586,7 +1587,7 @@ void CSACvtCFDFPass::assignLicForDF() {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
       MachineInstr *mInst = &*MI;
       if (TII.isPick(mInst) || TII.isSwitch(mInst) ||  mInst->getOpcode() == CSA::MERGE64f ||
-          TII.isFMA(mInst) || TII.isDiv(mInst) || TII.isMul(mInst) ||
+          TII.isFMA(mInst) || TII.isDiv(mInst) || TII.isMul(mInst) || TII.isMOV(mInst) ||
           TII.isAdd(mInst) || TII.isSub(mInst) || TII.isPickany(mInst) ||
           mInst->getOpcode() == CSA::PREDMERGE || 
           mInst->getOpcode() == CSA::PREDPROP || 
@@ -2129,7 +2130,7 @@ unsigned CSACvtCFDFPass::mergeIncomingEdgePreds(MachineBasicBlock* inBB, std::li
       lorInstr = BuildMI(*inBB, loc, DebugLoc(), TII.get(mergeOp), predBB).addReg(lorSrc).addReg(ctrlEdge);
       lorInstr->setFlag(MachineInstr::NonSequential);
     } else {
-      if (i % numInputs) {
+      if ((i % numInputs) && (numInputs > 2)) {
         lorInstr->addOperand(MachineOperand::CreateReg(ctrlEdge, false));
       } else {
         unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
@@ -2589,6 +2590,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForFooter(MachineBasicBlock* mbb) {
         }
       }
 #else 
+      CombineDuplicatePhiInputs(pred2values, MI);
       LowerXPhi(pred2values, MI);
 #endif 
     }
@@ -2601,6 +2603,35 @@ void CSACvtCFDFPass::generateDynamicPickTreeForFooter(MachineBasicBlock* mbb) {
   }
 }
 
+void CSACvtCFDFPass::CombineDuplicatePhiInputs(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* iPhi) {
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  unsigned pairsLen = pred2values.size();
+  for (unsigned i = 0; i < pairsLen; i++) {
+    std::pair<unsigned, unsigned> *pair1 = pred2values[i];
+    for (unsigned j = i+1; j < pairsLen;) {
+      std::pair<unsigned, unsigned> *pair2 = pred2values[j];
+      if (pair1->second == pair2->second) {
+        unsigned orResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+        MachineInstr* orInstr = BuildMI(*iPhi->getParent(), iPhi, DebugLoc(), TII.get(CSA::OR1),
+          orResult).
+          addReg(pair1->first).
+          addReg(pair2->first);
+        orInstr->setFlag(MachineInstr::NonSequential);
+        pair1->first = orResult;
+        //remove pair2
+        delete pair2;
+        for (unsigned k = j; k < pairsLen - 1; k++) {
+          pred2values[k] = pred2values[k + 1];
+        }
+        pairsLen--;
+      } else {
+        j++;
+      }
+    }
+  }
+  pred2values.set_size(pairsLen);
+}
 
 
 void CSACvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* loc) {
