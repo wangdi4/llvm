@@ -32,6 +32,54 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+bool VPOAnalysisUtils::isRegionDirective(Instruction *I) {
+  if (I) {
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+    if (Call) {
+      Intrinsic::ID Id = Call->getIntrinsicID();
+      if (Id == Intrinsic::directive_region_entry ||
+          Id == Intrinsic::directive_region_exit) 
+        return true;
+    }
+  }
+  return false;
+}
+
+StringRef VPOAnalysisUtils::getRegionDirectiveString(Instruction *I) {
+  StringRef DirString;  // ctor initializes its data to nullptr
+  if (VPOAnalysisUtils::isRegionDirective(I)) {
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+    if (Call->getNumOperandBundles() > 0) {
+      // First operand bundle has the directive name
+      OperandBundleUse BU = Call->getOperandBundleAt(0);
+      DirString = BU.getTagName();
+    }
+  }
+  return DirString;
+}
+
+int VPOAnalysisUtils::getRegionDirectiveID(Instruction *I) {
+  StringRef DirString = VPOAnalysisUtils::getRegionDirectiveString(I);  
+  return VPOAnalysisUtils::getDirectiveID(DirString);
+} 
+
+bool VPOAnalysisUtils::isIntelDirective(Instruction *I) {
+  if (I) {
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+    if (Call) {
+      Intrinsic::ID Id = Call->getIntrinsicID();
+      // Is it an intel_directive?
+      if (VPOAnalysisUtils::isIntelDirective(Id))
+        return true;
+
+      // Is it an directive_region_entry/exit?
+      StringRef DirString = VPOAnalysisUtils::getRegionDirectiveString(I);  
+      return VPOAnalysisUtils::isOpenMPDirective(DirString);
+    }
+  }
+  return false;
+}
+
 bool VPOAnalysisUtils::isIntelDirective(Intrinsic::ID Id) {
   return Id == Intrinsic::intel_directive;
 }

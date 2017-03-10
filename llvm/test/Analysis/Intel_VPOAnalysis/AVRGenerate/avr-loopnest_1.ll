@@ -9,10 +9,8 @@
 ;CHECK-NEXT: WRN
 
 ;CHECK:      simd.begin.region:
-;CHECK:      br label %DIR.QUAL.LIST.END
 
-;CHECK-NEXT: DIR.QUAL.LIST.END
-;CHECK-NEXT: br label %simd.loop
+;CHECK:      br label %simd.loop
 
 ;CHECK:      LOOP( IV )
 
@@ -68,12 +66,10 @@
 ;CHECK:      br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
 
 ;CHECK:      simd.end.region:
-;CHECK:      br label %DIR.QUAL.LIST.END
 
-;CHECK-NEXT: DIR.QUAL.LIST.END
-;CHECK-NEXT: br label %return
-
+;CHECK:      br label %return
 ;CHECK-NEXT: return:
+
 ;CHECK:      ret <4 x i32> %vec.ret
 
 ; ModuleID = 'test.bc'

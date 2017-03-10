@@ -133,15 +133,25 @@ StringRef IntelIntrinsicUtils::getClauseString(int Id) {
 }
 
 bool IntelIntrinsicUtils::isIntelDirective(Instruction *I) {
-  if (I==nullptr) return false;
+  if (I==nullptr) 
+    return false;
   IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
   if (Call) {
     Intrinsic::ID Id = Call->getIntrinsicID();
     if (Id == Intrinsic::intel_directive           ||
         Id == Intrinsic::intel_directive_qual      ||
         Id == Intrinsic::intel_directive_qual_opnd ||
-        Id == Intrinsic::intel_directive_qual_opndlist) return true;
+        Id == Intrinsic::intel_directive_qual_opndlist)
+      return true;
+
+    if (Id == Intrinsic::directive_region_entry ||
+        Id == Intrinsic::directive_region_exit)
+      if (Call->getNumOperandBundles() > 0) {
+        // First operand bundle has the directive name
+        OperandBundleUse BU = Call->getOperandBundleAt(0);
+        // Check if the TagName corresponds to an OpenMP directive name
+        return IntelDirectives::DirectiveIDs.count(BU.getTagName());
+      }
   }
   return false;
 }
-

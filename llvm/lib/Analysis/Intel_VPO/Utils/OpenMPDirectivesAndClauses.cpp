@@ -21,20 +21,49 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Analysis/Intel_Directives.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
 #define DEBUG_TYPE "vpo-utils"
 
 using namespace llvm;
 using namespace llvm::vpo;
 
+StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I) {
+  StringRef DirString;  // ctor initializes its data to nullptr
+  if (I) { 
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+    if (Call) {
+      Intrinsic::ID Id = Call->getIntrinsicID();
+      if (VPOAnalysisUtils::isIntelDirective(Id))
+        // this is an llvm.intel.directive intrinsic
+        DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
+      else 
+        // check if it's an llvm.directive.region.entry/exit intrinsic
+        DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
+    }
+  }
+  return DirString;
+}
+
+StringRef VPOAnalysisUtils::getDirectiveString(int Id) {
+  assert(IntelDirectives::DirectiveStrings.count(Id) &&
+         "Can't find a string for directive id");
+  return IntelDirectives::DirectiveStrings[Id];
+}
+
+StringRef VPOAnalysisUtils::getClauseString(int Id) {
+  assert(IntelDirectives::ClauseStrings.count(Id) &&
+         "Can't find a string for clause id");
+  return IntelDirectives::ClauseStrings[Id];
+}
+
 StringRef VPOAnalysisUtils::getDirectiveName(int Id) {
   // skip "DIR_OMP_"
-  return IntelDirectives::DirectiveStrings[Id].substr(8);
+  return VPOAnalysisUtils::getDirectiveString(Id).substr(8);
 }
 
 StringRef VPOAnalysisUtils::getClauseName(int Id) {
-  return IntelIntrinsicUtils::getClauseString(Id).substr(9); // skip "QUAL_OMP_"
+  // skip "QUAL_OMP_"
+  return VPOAnalysisUtils::getClauseString(Id).substr(9);
 }
 
 bool VPOAnalysisUtils::isOpenMPDirective(StringRef DirFullName) {
@@ -46,25 +75,16 @@ bool VPOAnalysisUtils::isOpenMPClause(StringRef ClauseFullName) {
 }
 
 int VPOAnalysisUtils::getDirectiveID(StringRef DirFullName) {
-  // DEBUG(dbgs() << "DirFullName 1" << DirFullName << "\n" );
-  assert(VPOAnalysisUtils::isOpenMPDirective(DirFullName) && 
-         "Directive string not found");
-  return IntelDirectives::DirectiveIDs[DirFullName];
+  if (VPOAnalysisUtils::isOpenMPDirective(DirFullName)) 
+    return IntelDirectives::DirectiveIDs[DirFullName];
+  else
+    return -1;
 }
 
 int VPOAnalysisUtils::getDirectiveID(Instruction *I)
 {
-  int DirID = -1; // initialize with an invalid DirID
-  if (I==nullptr) return DirID;
-  IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
-  if (Call) {
-    Intrinsic::ID IntrinId = Call->getIntrinsicID();
-    if (IntrinId == Intrinsic::intel_directive) {
-      StringRef DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-      DirID = VPOAnalysisUtils::getDirectiveID(DirString);
-    }
-  }
-  return DirID;
+  StringRef DirString = VPOAnalysisUtils::getDirectiveString(I);
+  return VPOAnalysisUtils::getDirectiveID(DirString);
 }
 
 int VPOAnalysisUtils::getClauseID(StringRef ClauseFullName) {
@@ -176,7 +196,7 @@ bool VPOAnalysisUtils::isBeginOrEndDirective(BasicBlock *BB) {
   return VPOAnalysisUtils::isBeginOrEndDirective(&(BB->front()));
 }
 
-bool VPOAnalysisUtils::isStandAloneDirective(int DirID) {
+bool VPOAnalysisUtils::isStandAloneBeginDirective(int DirID) {
   switch(DirID) {
   case DIR_OMP_BARRIER:
   case DIR_OMP_TASKWAIT:
@@ -194,18 +214,53 @@ bool VPOAnalysisUtils::isStandAloneDirective(int DirID) {
   return false;
 }
 
-bool VPOAnalysisUtils::isStandAloneDirective(StringRef DirString) {
+bool VPOAnalysisUtils::isStandAloneBeginDirective(StringRef DirString) {
   int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
-  return VPOAnalysisUtils::isStandAloneDirective(DirID);
+  return VPOAnalysisUtils::isStandAloneBeginDirective(DirID);
 }
 
-bool VPOAnalysisUtils::isStandAloneDirective(Instruction *I) {
+bool VPOAnalysisUtils::isStandAloneBeginDirective(Instruction *I) {
   int DirID = VPOAnalysisUtils::getDirectiveID(I);
-  return VPOAnalysisUtils::isStandAloneDirective(DirID);
+  return VPOAnalysisUtils::isStandAloneBeginDirective(DirID);
 }
 
-bool VPOAnalysisUtils::isStandAloneDirective(BasicBlock *BB) {
-  return VPOAnalysisUtils::isStandAloneDirective(&(BB->front()));
+bool VPOAnalysisUtils::isStandAloneBeginDirective(BasicBlock *BB) {
+  return VPOAnalysisUtils::isStandAloneBeginDirective(&(BB->front()));
+}
+
+bool VPOAnalysisUtils::isStandAloneEndDirective(int DirID) {
+  switch(DirID) {
+  case DIR_OMP_END_BARRIER:
+  case DIR_OMP_END_TASKWAIT:
+  case DIR_OMP_END_TASKYIELD:
+  case DIR_OMP_END_FLUSH:
+  case DIR_OMP_END_SECTION:
+  case DIR_OMP_END_TARGET_ENTER_DATA:
+  case DIR_OMP_END_TARGET_EXIT_DATA:
+  case DIR_OMP_END_TARGET_UPDATE:
+  case DIR_OMP_END_CANCEL:
+  case DIR_OMP_END_CANCELLATION_POINT:
+    return true;
+  }
+  return false;
+}
+
+bool VPOAnalysisUtils::isStandAloneEndDirective(StringRef DirString) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
+  return VPOAnalysisUtils::isStandAloneEndDirective(DirID);
+}
+
+bool VPOAnalysisUtils::isStandAloneEndDirective(Instruction *I) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(I);
+  return VPOAnalysisUtils::isStandAloneEndDirective(DirID);
+}
+
+bool VPOAnalysisUtils::isStandAloneEndDirective(BasicBlock *BB) {
+  return VPOAnalysisUtils::isStandAloneEndDirective(&(BB->front()));
+}
+
+bool VPOAnalysisUtils::isListEndDirective(int DirID) {
+  return DirID == DIR_QUAL_LIST_END;
 }
 
 bool VPOAnalysisUtils::isListEndDirective(StringRef DirString) {
@@ -213,8 +268,9 @@ bool VPOAnalysisUtils::isListEndDirective(StringRef DirString) {
   return VPOAnalysisUtils::isListEndDirective(DirID);
 }
 
-bool VPOAnalysisUtils::isListEndDirective(int DirID) {
-  return DirID == DIR_QUAL_LIST_END;
+bool VPOAnalysisUtils::isListEndDirective(Instruction *I) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(I);
+  return VPOAnalysisUtils::isListEndDirective(DirID);
 }
 
 bool VPOAnalysisUtils::isReductionClause(int ClauseID) {

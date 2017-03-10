@@ -12,14 +12,11 @@
 ;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
 ;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
 ;CHECK-NEXT: call void @llvm.intel.directive(metadata !10)
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END
-
-;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %simd.loop
 
 ;CHECK-NEXT: LOOP
 ;CHECK: simd.loop:
-;CHECK-NEXT: %index = phi [0, DIR.QUAL.LIST.END.{{[0-9]}}], [%indvar, simd.loop.exit]
+;CHECK-NEXT: %index = phi [0, simd.begin.region], [%indvar, simd.loop.exit]
 
 ;TEMP-DO-NOT-CHECK: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 ;CHECK: simd.loop.then:
@@ -36,9 +33,6 @@
 ;CHECK: simd.end.region:
 ;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: call void @llvm.intel.directive
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END
-
-;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %return
 
 ;CHECK-NEXT: return:

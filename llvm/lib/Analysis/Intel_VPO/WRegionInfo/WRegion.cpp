@@ -18,7 +18,6 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -130,7 +129,7 @@ void WRNParallelLoopNode::print(formatted_raw_ostream &OS,
 
   if (auto PrivC = getPriv())
     for (PrivateItem *PrivI : PrivC->items()) {
-      StringRef PrivS = IntelIntrinsicUtils::getClauseString(QUAL_OMP_PRIVATE);
+      StringRef PrivS = VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
       OS << Indent << "PRIVATE clause: " << PrivS << " "
          << PrivI->getOrig()->getName() << "\n";
     }
@@ -479,7 +478,7 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
     for (ReductionItem *RI : RC->items()) {
       ReductionItem::WRNReductionKind RType = RI->getType();
       int RedClauseID = ReductionItem::getClauseIdFromKind(RType);
-      StringRef RedStr = IntelIntrinsicUtils::getClauseString(RedClauseID);
+      StringRef RedStr = VPOAnalysisUtils::getClauseString(RedClauseID);
       OS << Indent << "REDUCTION clause: " << RedStr << " "
          << RI->getOrig()->getName() << "\n";
     }
