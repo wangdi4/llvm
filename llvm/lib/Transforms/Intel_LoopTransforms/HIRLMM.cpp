@@ -107,20 +107,18 @@ STATISTIC(
     HIRLIMMRefPromoted,
     "Number of HIR loop-invariant memory load(s)/store(s) References Promoted");
 
-MemRefGroup::MemRefGroup(RegDDRef *FirstRef)
+MemRefGroup::MemRefGroup(RegDDRef *FirstRef, HIRLoopStatistics *HLS)
     : IsProfitable(false), IsLegal(false), IsAnalyzed(false), HasLoad(false),
-      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false) {
+      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false),
+      HLS(HLS) {
   RefV.push_back(FirstRef);
 
-  // Setup Lp, HNU, and DDRU:
   Lp = FirstRef->getHLDDNode()->getParentLoop();
-  HNU = &(Lp->getHLNodeUtils());
-  DDRU = &(FirstRef->getDDRefUtils());
-  assert((Lp && HNU && DDRU) && "Not expect any nullptr in Lp, HNU or DDRU\n");
+  assert(Lp && "Not expecting null Lp\n");
 }
 
 bool MemRefGroup::belongs(RegDDRef *Ref) const {
-  return DDRU->areEqual(Ref, RefV[0]);
+  return DDRefUtils::areEqual(Ref, RefV[0]);
 }
 
 void MemRefGroup::analyze(void) {
@@ -140,7 +138,8 @@ void MemRefGroup::analyze(void) {
       HasLoad = true;
 
       // Load on DomPath
-      if (!HasLoadOnDomPath && HNU->dominates(Ref->getHLDDNode(), LoopTail)) {
+      if (!HasLoadOnDomPath &&
+          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail, HLS)) {
         HasLoadOnDomPath = true;
       }
     }
@@ -149,7 +148,8 @@ void MemRefGroup::analyze(void) {
       HasStore = true;
 
       // Store on DomPath
-      if (!HasStoreOnDomPath && HNU->dominates(Ref->getHLDDNode(), LoopTail)) {
+      if (!HasStoreOnDomPath &&
+          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail, HLS)) {
         HasStoreOnDomPath = true;
       }
     }
@@ -235,7 +235,7 @@ void MemRefCollection::insert(RegDDRef *Ref) {
   if (find(Ref, Idx)) {
     MRVV[Idx].insert(Ref);
   } else {
-    MRVV.emplace_back(Ref);
+    MRVV.emplace_back(Ref, HLS);
   }
 }
 
@@ -262,13 +262,12 @@ class HIRLMM::CollectMemRefs final : public HLNodeVisitorBase {
 private:
   struct MemRefCollection &MRC;
   unsigned LoopLevel;
-  HLNodeUtils *HNU;
 
 public:
-  CollectMemRefs(MemRefCollection &InitMRC, unsigned InitLevel,
-                 HLNodeUtils *InitHNU)
-      : MRC(InitMRC), LoopLevel(InitLevel), HNU(InitHNU) {
-    assert(HNU->isLoopLevelValid(InitLevel) && "LoopLevel is out of bound\n");
+  CollectMemRefs(MemRefCollection &InitMRC, unsigned InitLevel)
+      : MRC(InitMRC), LoopLevel(InitLevel) {
+    assert(CanonExprUtils::isValidLoopLevel(InitLevel) &&
+           "LoopLevel is out of bound\n");
   }
 
   void visit(HLDDNode *Node) {
@@ -382,6 +381,7 @@ bool HIRLMM::runOnFunction(Function &F) {
 
   HDDA = &getAnalysis<HIRDDAnalysis>();
   HLS = &getAnalysis<HIRLoopStatistics>();
+  MRC.HLS = HLS;
   bool Result = false;
 
   for (auto &Lp : CandidateLoops) {
@@ -413,7 +413,6 @@ bool HIRLMM::doAnalysis(HLLoop *Lp, HIRDDAnalysis &DDA, HIRLoopStatistics &LS) {
   HDDA = &DDA;
   HLS = &LS;
   HNU = &(Lp->getHLNodeUtils());
-  DDRU = &(Lp->getDDRefUtils());
 
   if (!doLoopPreliminaryChecks(Lp)) {
     DEBUG(dbgs() << "HIRLMM: failed Loop Preliminary Checks\n";);
@@ -442,7 +441,7 @@ bool HIRLMM::doAnalysis(HLLoop *Lp, HIRDDAnalysis &DDA, HIRLoopStatistics &LS) {
 // (After collection, data is in MRC)
 bool HIRLMM::doCollection(HLLoop *Lp) {
   // Collect all loop-inv MemRefs within the loop's body
-  CollectMemRefs Collector(MRC, LoopLevel, HNU);
+  CollectMemRefs Collector(MRC, LoopLevel);
   HNU->visitRange(Collector, Lp->getFirstChild(), Lp->getLastChild());
 
   // Examine the collection result
@@ -560,8 +559,8 @@ void HIRLMM::doTransform(HLLoop *Lp) {
 
   // Mark the loop and its parent loop/region have been changed
   Lp->getParentRegion()->setGenCode();
-  HIRInvalidationUtils::invalidateBody(Lp);
-  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Lp);
+  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(Lp);
 }
 
 // Check whether we need a Load in the Loops' preheader:
@@ -586,7 +585,7 @@ bool HIRLMM::isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG) {
     }
 
     // If hit a Store (on dominate path) 1st, no need of tmp
-    if (HNU->dominates(CurRef->getHLDDNode(), LoopTail)) {
+    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail, HLS)) {
       return false;
     }
   }
@@ -821,7 +820,7 @@ HLInst *HIRLMM::getLoadInLoopPreheader(HLLoop *Lp, RegDDRef *MemRef) const {
     // -Lval() is a TempDDRef
     // -RVal() matches the input MemRef
     if (HInst->getLvalDDRef()->isTerminalRef() &&
-        DDRU->areEqual(MemRef, HInst->getRvalDDRef())) {
+        DDRefUtils::areEqual(MemRef, HInst->getRvalDDRef())) {
       return HInst;
     }
   }
@@ -848,7 +847,7 @@ HLInst *HIRLMM::getStoreInLoopPostexit(HLLoop *Lp, RegDDRef *MemRef) const {
     // -RVal() is a TempDDRef
     // -Lval() is a MemRef matching the input Ref
     if ((HInst->getRvalDDRef()->isTerminalRef()) &&
-        DDRU->areEqual(MemRef, HInst->getLvalDDRef())) {
+        DDRefUtils::areEqual(MemRef, HInst->getLvalDDRef())) {
       return HInst;
     }
   }

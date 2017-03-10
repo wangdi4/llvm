@@ -113,6 +113,13 @@ public:
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
 
+  /// Mark loop containing switches as non-vectorizable until VPO is able to
+  /// handle them.
+  void visit(HLSwitch *Switch) {
+    Info->setVecType(ParVecInfo::SWITCH_STMT);
+    Info->setParType(ParVecInfo::SWITCH_STMT);
+  }
+
   /// \brief catch-all visit().
   void visit(HLNode *Node) {}
   /// \brief catch-all postVisit().
@@ -319,14 +326,6 @@ void DDWalk::analyze(const DDEdge *Edge) {
   DEBUG(Edge->dump());
 
   DDRef *DDref = Edge->getSink();
-  if (!CandidateLoop->getHLNodeUtils().contains(CandidateLoop,
-                                                DDref->getHLDDNode())) {
-    DEBUG(dbgs() << "\tis safe to vectorize/parallelize (Sink not in loop)\n");
-    if (Edge->isFLOWdep()) {
-      // TODO: produce info for liveout information
-    }
-    return;
-  }
 
   unsigned NestLevel = CandidateLoop->getNestingLevel();
   if (!Edge->preventsParallelization(NestLevel)) {
@@ -378,6 +377,7 @@ void DDWalk::visit(HLDDNode *Node) {
   for (auto Itr = Node->ddref_begin(), End = Node->ddref_end(); Itr != End;
        ++Itr) {
     auto Ref = *Itr;
+
     auto II = DDG.outgoing_edges_begin(Ref), EE = DDG.outgoing_edges_end(Ref);
 
     // TODO - Check if we really need to analyze edges for non-livein temps

@@ -77,6 +77,11 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
   auto Denom = getDenominator();
   bool Printed = false;
 
+  if (isNull()) {
+    OS << "null";
+    return;
+  }
+
   if (Detailed) {
     if (!isConstant()) {
       if (isNonLinear()) {
@@ -203,8 +208,6 @@ void CanonExpr::setDenominator(int64_t Val) {
     Denominator = Val;
   }
 }
-
-void CanonExpr::divide(int64_t Val) { setDenominator(Denominator * Val); }
 
 bool CanonExpr::isExtImpl(bool IsSigned, bool IsTrunc) const {
   // Account for vector Src/Dest types.
@@ -1088,7 +1091,7 @@ int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
   if (CurrentGCD == -1) {
     CurrentGCD = llabs(Num);
   } else {
-    CurrentGCD = getCanonExprUtils().gcd(CurrentGCD, llabs(Num));
+    CurrentGCD = CanonExprUtils::gcd(CurrentGCD, llabs(Num));
   }
 
   return CurrentGCD;
@@ -1161,7 +1164,28 @@ void CanonExpr::simplify(bool SimplifyCast) {
   }
 }
 
-void CanonExpr::multiplyByConstantImpl(int64_t Val, bool Simplify) {
+bool CanonExpr::canMultiplyNumeratorByUnknown() const {
+  // The result of the multiplication may be invalid if there is:
+  // 1) Type extension. Ex.: c0*i8.i16(%b) != i8.i16(c0*%b), where %b is 255
+  // 2) Non-unit denominator. Ex.: 2*((%b-1)/3) != (2*%b - 2)/3
+  return !(isSExt() || isZExt() || getDenominator() != 1);
+}
+
+bool CanonExpr::canMultiplyNumeratorByConstant(int64_t Val) const {
+  if (Val == 0 || Val == 1) {
+    return true;
+  }
+
+  if (Val == -1) {
+    // Can multiply numerator if CE is not a zero extension and if the
+    // division is signed.
+    return !isZExt() && (getDenominator() == 1 || isSignedDiv());
+  }
+
+  return canMultiplyNumeratorByUnknown();
+}
+
+void CanonExpr::multiplyNumeratorByConstant(int64_t Val, bool Simplify) {
 
   // Multiplying by constant is equivalent to clearing the canon expr.
   if (Val == 0) {
@@ -1181,8 +1205,9 @@ void CanonExpr::multiplyByConstantImpl(int64_t Val, bool Simplify) {
   }
 
   // Identity multiplication.
-  if (Val == 1)
+  if (Val == 1) {
     return;
+  }
 
   // Multiply Val by IVCoeff, BlobCoeffs and Const
   for (auto I = iv_begin(), End = iv_end(); I != End; ++I) {
@@ -1196,11 +1221,25 @@ void CanonExpr::multiplyByConstantImpl(int64_t Val, bool Simplify) {
   setConstant(getConstant() * Val);
 }
 
-void CanonExpr::multiplyByConstant(int64_t Val) {
-  multiplyByConstantImpl(Val, true);
+bool CanonExpr::multiplyByConstant(int64_t Val) {
+  if (!canMultiplyNumeratorByConstant(Val) && !convertToStandAloneBlob()) {
+    return false;
+  }
+
+  multiplyNumeratorByConstant(Val, true);
+  return true;
 }
 
-void CanonExpr::multiplyByBlob(unsigned Index) {
+bool CanonExpr::multiplyByBlob(unsigned Index) {
+  if (!canMultiplyNumeratorByUnknown() && !convertToStandAloneBlob()) {
+    return false;
+  }
+
+  multiplyNumeratorByBlob(Index);
+  return true;
+}
+
+void CanonExpr::multiplyNumeratorByBlob(unsigned Index) {
   assert(getBlobUtils().isBlobIndexValid(Index) &&
          "Must be a valid blob index");
 
@@ -1351,6 +1390,11 @@ bool CanonExpr::castStandAloneBlob(Type *Ty, bool IsSExt) {
     return false;
   }
 
+  // Cast is a no-op.
+  if (Ty == getDestType()) {
+    return true;
+  }
+
   unsigned OldIndex = getSingleBlobIndex();
   unsigned NewIndex = InvalidBlobIndex;
 
@@ -1358,8 +1402,7 @@ bool CanonExpr::castStandAloneBlob(Type *Ty, bool IsSExt) {
                                 IsSExt, Ty, true, &NewIndex);
 
   replaceBlob(OldIndex, NewIndex);
-  setSrcType(Ty);
-  setDestType(Ty);
+  setSrcAndDestType(Ty);
 
   return true;
 }

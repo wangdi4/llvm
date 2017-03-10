@@ -660,14 +660,14 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
 
       if (auto SCCPhiInst = dyn_cast<PHINode>(SCCInst)) {
 
-        // Single operand phis do not need to be processed.
-        if (1 == SCCPhiInst->getNumIncomingValues()) {
-          continue;
-        }
+        // Skip livein processing for single operand phis as the incoming value
+        // has to belong to the SCC.
+        if (SCCPhiInst->getNumIncomingValues() != 1) {
 
-        LiveinCopyInserted =
-            processPhiLiveins(SCCPhiInst, PhiSCC, Name.str()) ||
-            LiveinCopyInserted;
+          LiveinCopyInserted =
+              processPhiLiveins(SCCPhiInst, PhiSCC, Name.str()) ||
+              LiveinCopyInserted;
+        }
 
         processLiveouts(SCCPhiInst, PhiSCC, Name.str());
 
@@ -717,8 +717,10 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     // }
     //
 
-    // Single operand phis do not need to be deconstructed.
-    if (1 == Phi->getNumIncomingValues()) {
+    // Standalone single operand phis with instruction operand do not need to be
+    // processed.
+    if ((Phi->getNumIncomingValues() == 1) &&
+        isa<Instruction>(Phi->getOperand(0))) {
       return;
     }
 

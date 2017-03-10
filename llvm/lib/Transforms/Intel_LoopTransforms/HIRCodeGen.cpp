@@ -193,9 +193,9 @@ private:
         // type
         unsigned PtrSize =
             F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType);
-        assert(Ty->getPrimitiveSizeInBits() == PtrSize &&
+        assert(Ty->getScalarSizeInBits() == PtrSize &&
                "Pointer size and CE size mismatch");
-        Blob = Builder->CreatePtrToInt(Blob, Ty);
+        Blob = Builder->CreatePtrToInt(Blob, Ty->getScalarType());
       }
       return Blob;
     }
@@ -693,10 +693,11 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
   SmallVector<Value *, 4> IndexV;
   bool AnyVector = false;
+  unsigned DimNum = Ref->getNumDimensions();
 
   // stored as A[canon3][canon2][canon1], but gep requires them in reverse order
   for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;
-       ++CEIt) {
+       ++CEIt, --DimNum) {
     auto IndexVal = visitCanonExpr(*CEIt);
 
     if (IndexVal->getType()->isVectorTy()) {
@@ -704,6 +705,19 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     }
 
     IndexV.push_back(IndexVal);
+
+    // Push back indices for dimensions's trailing offsets.
+    auto Offsets = Ref->getTrailingStructOffsets(DimNum);
+
+    if (Offsets) {
+      // Structure fields are always i32 type.
+      auto I32Ty = Type::getInt32Ty(F->getContext());
+
+      for (auto OffsetVal : *Offsets) {
+        auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
+        IndexV.push_back(OffsetIndex);
+      }
+    }
   }
 
   // A GEP instruction is allowed to have a mix of scalar and vector operands.

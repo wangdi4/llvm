@@ -22,7 +22,7 @@ namespace loopopt {
 
 class DDGraph;
 class HIRDDAnalysis;
-struct LoopStatistics;
+class HIRLoopStatistics;
 
 namespace lmm {
 
@@ -35,11 +35,10 @@ class MemRefGroup {
   bool IsAnalyzed;
   bool HasLoad, HasLoadOnDomPath, HasStore, HasStoreOnDomPath;
   HLLoop *Lp = nullptr;
-  HLNodeUtils *HNU = nullptr;
-  DDRefUtils *DDRU = nullptr;
+  HIRLoopStatistics *HLS;
 
 public:
-  MemRefGroup(RegDDRef *FirstRef);
+  MemRefGroup(RegDDRef *FirstRef, HIRLoopStatistics *HLS);
 
   bool getProfitable(void) const { return IsProfitable; }
   void setProfitable(bool NewFlag) { IsProfitable = NewFlag; }
@@ -111,6 +110,7 @@ public:
 //
 struct MemRefCollection {
   SmallVector<MemRefGroup, 8> MRVV;
+  HIRLoopStatistics *HLS = nullptr;
 
   unsigned getSize(void) const { return MRVV.size(); }
   bool isEmpty(void) { return MRVV.empty(); }
@@ -150,7 +150,6 @@ private:
   HIRLoopStatistics *HLS;
   MemRefCollection MRC;
   HLNodeUtils *HNU;
-  DDRefUtils *DDRU;
 
   struct CollectMemRefs;
   unsigned LoopLevel = 0;

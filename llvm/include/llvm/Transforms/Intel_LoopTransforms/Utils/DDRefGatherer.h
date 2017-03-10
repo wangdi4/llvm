@@ -15,7 +15,6 @@
 //   MemRefs         - collect GEP references, excluding IsAddressOfRefs
 //   TerminalRefs    - collect terminal references
 //   IsAddressOfRefs - collect GEP references for getting a ref. address
-//   BlobRefs        - collect BlobDDRefs
 //   ConstantRefs    - collect constants
 //   UndefRefs       - collect undefined DDRefs
 //
@@ -39,34 +38,57 @@ namespace llvm {
 
 namespace loopopt {
 
-enum DDRefGatherMode {
+enum DDRefGatherMode : unsigned int {
   MemRefs = 1 << 0,
   TerminalRefs = 1 << 1,
   IsAddressOfRefs = 1 << 2,
   BlobRefs = 1 << 3,
   ConstantRefs = 1 << 4,
 
-  // When adding new modes, ensure AllRef
-  // bits are set.
-  AllRefs = (1 << 20) - 1,
+  AllRefs = ~0U,
 };
+
+template <typename RefTy>
+using RefVectorTy = SmallVector<RefTy *, 32>;
 
 // Data Structure to store mapping of symbase to memory references. We are using
 // std::map here instead of DenseMap because of a large vector size.
 template <typename RefTy>
-using SymToRefTy = std::map<unsigned int, SmallVector<RefTy *, 32>>;
+using SymToRefTy = std::map<unsigned int, RefVectorTy<RefTy>>;
 
-template <typename RefTy, unsigned Mode, bool CollectUndefs = true>
+template <typename ContainerTy, typename RefTy>
+struct DDRefGathererVisitorTraits {
+  static void addRef(ContainerTy &, RefTy *);
+};
+
+template <typename RefTy>
+struct DDRefGathererVisitorTraits<RefVectorTy<RefTy>, RefTy> {
+  static void addRef(RefVectorTy<RefTy> &Vector, RefTy *Ref) {
+    Vector.push_back(Ref);
+  }
+};
+
+template <typename RefTy>
+struct DDRefGathererVisitorTraits<SymToRefTy<RefTy>, RefTy> {
+  static void addRef(SymToRefTy<RefTy> &Map, RefTy *Ref) {
+    unsigned SB = Ref->getSymbase();
+    Map[SB].push_back(Ref);
+  }
+};
+
+template <typename RefTy, typename ContainerTy, typename Predicate>
 class DDRefGathererVisitor final : public HLNodeVisitorBase {
-protected:
-  SymToRefTy<RefTy> &SymToMemRef;
+  ContainerTy &Container;
+  Predicate Pred;
 
   template <typename T>
   void
   addRef(T *Ref,
          typename std::enable_if<std::is_convertible<T *, RefTy *>::value>::type
              * = 0) {
-    addRefImpl(Ref);
+    if (Pred(Ref)) {
+      addRefImpl(Ref);
+    }
   }
 
   template <typename T>
@@ -75,38 +97,22 @@ protected:
                   !std::is_convertible<T *, RefTy *>::value>::type * = 0) {}
 
   void addRefImpl(RefTy *Ref) {
-    if (!CollectUndefs && Ref->containsUndef()) {
-      return;
-    }
-
-    unsigned SB = Ref->getSymbase();
-    SymToMemRef[SB].push_back(Ref);
+    DDRefGathererVisitorTraits<ContainerTy, RefTy>::addRef(Container, Ref);
   }
 
 public:
-  DDRefGathererVisitor(SymToRefTy<RefTy> &SymToMemRef)
-      : SymToMemRef(SymToMemRef) {}
+  DDRefGathererVisitor(ContainerTy &Container,
+                       Predicate Pred = Predicate())
+      : Container(Container), Pred(Pred) {}
 
   void visit(const HLDDNode *RefNode) {
     for (auto I = RefNode->ddref_begin(), E = RefNode->ddref_end(); I != E;
          ++I) {
-      RegDDRef *Ref = (*I);
+      addRef<RegDDRef>(*I);
 
-      if (!(Mode & ConstantRefs) && (*I)->getSymbase() == ConstantSymbase) {
-        continue;
-      }
-
-      if (((Mode & TerminalRefs) && Ref->isTerminalRef()) ||
-          ((Mode & IsAddressOfRefs) && Ref->isAddressOf()) ||
-          ((Mode & MemRefs) && Ref->isMemRef())) {
-        addRef<RegDDRef>(*I);
-      }
-
-      if (Mode & BlobRefs) {
-        for (auto II = (*I)->blob_cbegin(), EE = (*I)->blob_cend(); II != EE;
-             ++II) {
-          addRef<BlobDDRef>(*II);
-        }
+      for (auto II = (*I)->blob_cbegin(), EE = (*I)->blob_cend(); II != EE;
+           ++II) {
+        addRef<BlobDDRef>(*II);
       }
     }
   }
@@ -122,21 +128,26 @@ class DDRefGathererUtils {
   DDRefGathererUtils(const DDRefGathererUtils &) = delete;
   DDRefGathererUtils &operator=(const DDRefGathererUtils &) = delete;
 
+public:
   static bool compareMemRefCE(const CanonExpr *ACanon, const CanonExpr *BCanon);
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
 
-public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   template <typename RefTy> static void dump(const SymToRefTy<RefTy> &RefMap) {
-    for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
-         SymVecPair != Last; ++SymVecPair) {
-      auto &RefVec = SymVecPair->second;
-      dbgs() << "Symbase " << SymVecPair->first << " contains: \n";
-      for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
-        dbgs() << "\t";
-        (*Ref)->dump();
-        dbgs() << "\n";
-      }
+    for (auto &RefVec : RefMap) {
+      dbgs() << "Symbase " << RefVec.first << " contains: \n";
+      dump(RefVec.second);
+    }
+  }
+#endif
+
+public:
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  template <typename RefTy> static void dump(const RefVectorTy<RefTy> &RefVec) {
+    for (auto *Ref : RefVec) {
+      dbgs() << "\t";
+      Ref->dump();
+      dbgs() << "\n";
     }
   }
 #endif
@@ -155,8 +166,13 @@ public:
     }
   }
 
-  /// Sorts the Memory Refs in the MemRefMap.
-  template <typename RefTy> static void sort(SymToRefTy<RefTy> &MemRefMap) {
+  template <typename RefTy>
+  static void sort(SymToRefTy<RefTy> &MemRefMap) {
+    sort(MemRefMap, DDRefGathererUtils::compareMemRef);
+  }
+
+  template <typename RefTy, typename Compare>
+  static void sort(SymToRefTy<RefTy> &MemRefMap, Compare Cmp) {
     // Sorts the memory reference based on the comparison provided
     // by compareMemRef.
     for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
@@ -199,8 +215,7 @@ public:
       }
 #endif
 
-      std::sort(RefVec.begin(), RefVec.end(),
-                DDRefGathererUtils::compareMemRef);
+      std::sort(RefVec.begin(), RefVec.end(), Cmp);
     }
   }
 
@@ -213,33 +228,77 @@ public:
   }
 };
 
-template <typename RefTy, unsigned Mode>
-struct DDRefGatherer : public DDRefGathererUtils {
+template <typename RefTy>
+struct DDRefGathererLambda : public DDRefGathererUtils {
+
+  DDRefGathererLambda() = delete;
+  ~DDRefGathererLambda() = delete;
+  DDRefGathererLambda(const DDRefGathererLambda &) = delete;
+  DDRefGathererLambda &operator=(const DDRefGathererLambda &) = delete;
+
+  typedef SymToRefTy<RefTy> MapTy;
+  typedef RefVectorTy<RefTy> VectorTy;
+
+  template <bool Recursive = true, typename Predicate, typename ContainerTy>
+  static void gather(const HLNode *Node, ContainerTy &Container,
+                     Predicate Pred) {
+    DDRefGathererVisitor<RefTy, ContainerTy, Predicate> VImpl(Container, Pred);
+    HLNodeUtils::visit<Recursive>(VImpl, Node);
+  }
+
+  template <bool Recursive = true, typename It, typename Predicate,
+            typename ContainerTy>
+  static void gatherRange(It Begin, It End, ContainerTy &Container,
+                          Predicate Pred) {
+    DDRefGathererVisitor<RefTy, ContainerTy, Predicate> VImpl(Container, Pred);
+    HLNodeUtils::visitRange<Recursive>(VImpl, Begin, End);
+  }
+};
+
+template <typename RefTy, unsigned Mode, bool CollectUndefs = true>
+struct DDRefGatherer : DDRefGathererLambda<RefTy> {
 
   DDRefGatherer() = delete;
   ~DDRefGatherer() = delete;
   DDRefGatherer(const DDRefGatherer &) = delete;
   DDRefGatherer &operator=(const DDRefGatherer &) = delete;
 
-  typedef SymToRefTy<RefTy> MapTy;
+  using typename DDRefGathererLambda<RefTy>::MapTy;
 
-  static void gather(const HLNode *Node, MapTy &SymToMemRef) {
-    DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
-    Node->getHLNodeUtils().visit(VImpl, Node);
+  struct ModeSelectorPredicate {
+    bool operator()(const RegDDRef *Ref) {
+      if (!(Mode & ConstantRefs) && Ref->getSymbase() == ConstantSymbase) {
+        return false;
+      }
+
+      return ((Mode & TerminalRefs) && Ref->isTerminalRef()) ||
+             ((Mode & IsAddressOfRefs) && Ref->isAddressOf()) ||
+             ((Mode & MemRefs) && Ref->isMemRef()) ||
+             (!CollectUndefs && !Ref->containsUndef());
+    }
+
+    bool operator()(const BlobDDRef *Ref) {
+      return Mode & BlobRefs;
+    }
+  };
+
+  template <typename ContainerTy>
+  static void gather(const HLNode *Node, ContainerTy &Container) {
+    DDRefGathererLambda<RefTy>::gather(Node, Container,
+                                       ModeSelectorPredicate());
   }
 
-  template <typename It>
-  static void gatherRange(It Begin, It End, MapTy &SymToMemRef) {
-    DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
-    if (Begin != End) {
-      (*Begin).getHLNodeUtils().visitRange(VImpl, Begin, End);
-    }
+  template <typename It, typename ContainerTy>
+  static void gatherRange(It Begin, It End, ContainerTy &Container) {
+    DDRefGathererLambda<RefTy>::gatherRange(Begin, End, Container,
+                                            ModeSelectorPredicate());
   }
 };
 
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 typedef DDRefGatherer<const RegDDRef, MemRefs> ConstMemRefGatherer;
-typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs> NonConstantRefGatherer;
+typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs>
+    NonConstantRefGatherer;
 }
 }
 

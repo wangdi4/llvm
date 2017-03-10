@@ -120,23 +120,15 @@ void MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   }
 
   // We cannot rely on information from non-inbounds gep.
-  // Ref with a single dimension does not contain information about number of
-  // elements.
-  if (!Ref->isInBounds() || (Ref->getNumDimensions() == 1)) {
+  if (!Ref->isInBounds()) {
     return;
   }
 
-  SequentialType *BaseArrType = cast<PointerType>(Ref->getBaseSrcType());
-
-  // Traverse CEs in reverse order (highest to lowest dimension) as LLVM types
-  // are recursed into, in this order.
-  for (auto CEIt = (Ref->canon_rbegin() + 1), E = Ref->canon_rend(); CEIt != E;
-       ++CEIt) {
-    BaseArrType = cast<SequentialType>(BaseArrType->getElementType());
-    assert(isa<ArrayType>(BaseArrType) &&
-           "Found non-array type for subscripts!");
-
-    visit(*CEIt, cast<ArrayType>(BaseArrType), Node);
+  // Highest dimension is intentionally skipped as it doesn't contain
+  // information about number of elements.
+  for (unsigned I = 1, E = Ref->getNumDimensions(); I < E; ++I) {
+    visit(Ref->getDimensionIndex(I), cast<ArrayType>(Ref->getDimensionType(I)),
+          Node);
   }
 }
 
@@ -191,17 +183,15 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
     // Remove IV to calculate min/max for the remaining part.
     CE->removeIV(Level);
 
-    // This is a crude way of avoiding trip count estimation based on conditions
-    // like this-
-    // if (i < 5) A[5 - i] = 0
-    // TODO : Can we refine this logic?
-    if (!HNU.postDominates(Node, Lp->getFirstChild()) ||
-        // The max value of the rest of the CE gives a better estimate on max
-        // trip count so we check max value first. For example, A[i + j] will
-        // give a tighter bound on j for max value of i. Similarly, for A[i - j]
-        // max value of i gives max estimate for j.
-        (!HNU.getMaxValue(CE, Node, NonIVVal) &&
-         !HNU.getMinValue(CE, Node, NonIVVal))) {
+    // Note: Avoiding post-domination check here to save compile time. Since
+    // this is just an estimate, it is okay to not be very accurate.
+
+    // The max value of the rest of the CE gives a better estimate on max
+    // trip count so we check max value first. For example, A[i + j] will
+    // give a tighter bound on j for max value of i. Similarly, for A[i - j]
+    // max value of i gives max estimate for j.
+    if (!HNU.getMaxValue(CE, Node, NonIVVal) &&
+        !HNU.getMinValue(CE, Node, NonIVVal)) {
       // This gets us the most conservative estimate.
       NonIVVal = 0;
     }

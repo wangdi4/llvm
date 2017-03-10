@@ -16,9 +16,11 @@
 ; CHECK: |   |   |   %0 = (%g)[0][i3 + 1];
 ; CHECK: |   |   |   %mul26.lcssa95 = %mul26.lcssa95  *  %0;
 ; CHECK: |   |   + END LOOP
+; CHECK: |   |
+; CHECK: |   |   %mul26.lcssa95.out = %mul26.lcssa95;
 ; CHECK: |   + END LOOP
 ; CHECK: |      (%j0)[0] = 11;
-; CHECK: |      %mul26.lcssa.lcssa98 = %mul26.lcssa95;
+; CHECK: |      %mul26.lcssa.lcssa98 = %mul26.lcssa95.out;
 ; CHECK: |   %mul26.lcssa.lcssa99 = %mul26.lcssa.lcssa98;
 ; CHECK: + END LOOP
 

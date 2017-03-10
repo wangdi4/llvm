@@ -133,6 +133,24 @@ BlobTy BlobUtils::createBlob(int64_t Val, Type *Ty, bool Insert,
   return getHIRParser().createBlob(Val, Ty, Insert, NewBlobIndex);
 }
 
+BlobTy BlobUtils::createUndefBlob(Type *Ty, bool Insert,
+                                  unsigned *NewBlobIndex) {
+  Value *UndefValue = UndefValue::get(Ty);
+  auto Blob = createBlob(UndefValue, false);
+  unsigned BlobIndex = findBlob(Blob);
+
+  if (Insert && BlobIndex == InvalidBlobIndex) {
+    HIRSymbaseAssignment &HSA = getHIRSymbaseAssignment();
+    return createBlob(UndefValue, HSA.getNewSymbase(), true, NewBlobIndex);
+  }
+
+  if (NewBlobIndex) {
+    *NewBlobIndex = BlobIndex;
+  }
+
+  return Blob;
+}
+
 BlobTy BlobUtils::createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert,
                                 unsigned *NewBlobIndex) {
   return getHIRParser().createAddBlob(LHS, RHS, Insert, NewBlobIndex);
@@ -214,4 +232,10 @@ bool BlobUtils::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
                                 unsigned NewTempIndex, unsigned &NewBlobIndex) {
   return getHIRParser().replaceTempBlob(BlobIndex, OldTempIndex, NewTempIndex,
                                         NewBlobIndex);
+}
+
+Value *BlobUtils::getTempBlobValue(unsigned BlobIndex) {
+  BlobTy Blob = getBlob(BlobIndex);
+  assert(isTempBlob(Blob) && "BlobIndex is not a temp blob");
+  return cast<SCEVUnknown>(Blob)->getValue();
 }

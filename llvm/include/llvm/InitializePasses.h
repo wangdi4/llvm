@@ -432,6 +432,7 @@ void initializeHIRLMMPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 void initializeHIROptVarPredicatePass(PassRegistry&);
+void initializeHIRIdiomRecognitionPass(PassRegistry&);
 // VPO WRegion Passes
 void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);

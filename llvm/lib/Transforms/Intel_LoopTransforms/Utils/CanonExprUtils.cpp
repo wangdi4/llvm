@@ -100,7 +100,16 @@ int64_t CanonExprUtils::gcd(int64_t A, int64_t B) {
 
 // Internal Method that calculates the lcm of two positive integers
 int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
-  return ((A * B) / gcd(A, B));
+  // If A and B are both big numbers, LCM can overflow. We can avoid artificial
+  // overflow if we divide by GCD first before multiplying A and B. For example,
+  // when both A and B are the same but (A * B) overflows.
+  APInt Result(64, A / gcd(A, B), true);
+  APInt Op(64, B, true);
+  bool Overflows = false;
+
+  Result = Result.smul_ov(Op, Overflows);
+
+  return Overflows ? 0 : Result.getZExtValue();
 }
 
 CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
@@ -317,45 +326,46 @@ void CanonExprUtils::updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
 }
 
 CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
-                                   bool CreateNewCE, bool RelaxedMode) {
+                                   bool RelaxedMode) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
   bool CreatedAuxCE = false;
 
-  CanonExpr *Result = CreateNewCE ? CE1->clone() : CE1;
   CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
 
   if (CE2->isZero()) {
-    return Result;
+    return CE1;
   }
 
-  bool IsMergeable = mergeable(Result, NewCE2, RelaxedMode);
+  bool IsMergeable = mergeable(CE1, NewCE2, RelaxedMode);
   // assert(IsMergeable && " Canon Expr are not mergeable!");
   // Bail out if we cannot merge the canon expr.
   if (!IsMergeable) {
-    if (CreateNewCE) {
-      Result->getCanonExprUtils().destroy(Result);
-    }
     return nullptr;
   }
 
-  updateConstantTypes(Result, &NewCE2, RelaxedMode, &CreatedAuxCE);
+  updateConstantTypes(CE1, &NewCE2, RelaxedMode, &CreatedAuxCE);
 
   // Process the denoms.
-  int64_t Denom1 = Result->getDenominator();
+  int64_t Denom1 = CE1->getDenominator();
   int64_t Denom2 = NewCE2->getDenominator();
   int64_t NewDenom = lcm(Denom1, Denom2);
+
+  // Bail out if LCM overflows signed 64 bit range.
+  if (NewDenom == 0) {
+    return nullptr;
+  }
 
   if (NewDenom != Denom1) {
     // Do not simplify while multiplying as this is an intermediate result of
     // add.
-    Result->multiplyByConstantImpl(NewDenom / Denom1, false);
+    CE1->multiplyNumeratorByConstant(NewDenom / Denom1, false);
 
     // Since the denominator has changed, we should set the flag based on CE2.
     // This is safe to do because the division type difference is only allowed
     // if one of the denominators is 1 which in this case is Denom1.
-    Result->setDivisionType(CE2->isSignedDiv());
+    CE1->setDivisionType(CE2->isSignedDiv());
   }
   if (NewDenom != Denom2) {
     // Cannot avoid cloning CE2 here
@@ -365,10 +375,10 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
     }
     // Do not simplify while multiplying as this is an intermediate result of
     // add.
-    NewCE2->multiplyByConstantImpl(NewDenom / Denom2, false);
+    NewCE2->multiplyNumeratorByConstant(NewDenom / Denom2, false);
   }
 
-  Result->setDenominator(NewDenom);
+  CE1->setDenominator(NewDenom);
 
   // Add NewCE2's IVs to Result.
   for (auto I = NewCE2->iv_begin(), End = NewCE2->iv_end(); I != End; ++I) {
@@ -376,7 +386,7 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
       continue;
     }
 
-    Result->addIV(NewCE2->getLevel(I), I->Index, I->Coeff);
+    CE1->addIV(NewCE2->getLevel(I), I->Index, I->Coeff);
   }
 
   // Add NewCE2's Blobs to Result.
@@ -385,20 +395,20 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
       continue;
     }
 
-    Result->addBlob(I->Index, I->Coeff);
+    CE1->addBlob(I->Index, I->Coeff);
   }
 
   // Add the constant.
-  int64_t CVal = Result->getConstant() + NewCE2->getConstant();
-  Result->setConstant(CVal);
+  int64_t CVal = CE1->getConstant() + NewCE2->getConstant();
+  CE1->setConstant(CVal);
 
   // Update DefinedAtLevel.
   if (NewCE2->isNonLinear()) {
-    Result->setNonLinear();
+    CE1->setNonLinear();
 
-  } else if (!Result->isNonLinear() &&
-             NewCE2->getDefinedAtLevel() > Result->getDefinedAtLevel()) {
-    Result->setDefinedAtLevel(NewCE2->getDefinedAtLevel());
+  } else if (!CE1->isNonLinear() &&
+             NewCE2->getDefinedAtLevel() > CE1->getDefinedAtLevel()) {
+    CE1->setDefinedAtLevel(NewCE2->getDefinedAtLevel());
   }
 
   // Destroy auxiliary canon expr.
@@ -406,17 +416,24 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
     NewCE2->getCanonExprUtils().destroy(NewCE2);
   }
 
-  return Result;
+  return CE1;
 }
 
 CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
                                bool RelaxedMode) {
-  return addImpl(CE1, CE2, false, RelaxedMode);
+  return addImpl(CE1, CE2, RelaxedMode);
 }
 
 CanonExpr *CanonExprUtils::cloneAndAdd(const CanonExpr *CE1,
                                        const CanonExpr *CE2, bool RelaxedMode) {
-  return addImpl(const_cast<CanonExpr *>(CE1), CE2, true, RelaxedMode);
+  CanonExpr *Clone = CE1->clone();
+
+  auto Result = addImpl(Clone, CE2, RelaxedMode);
+  if (!Result) {
+    CE1->getCanonExprUtils().destroy(Clone);
+  }
+
+  return Result;
 }
 
 CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
@@ -485,23 +502,22 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
     return CE1;
   }
 
-  int64_t Denom = CE2->getDenominator();
-  if (Denom != 1) {
-    return nullptr;
-  }
-
   std::unique_ptr<CanonExpr> Term(CE2->clone());
 
-  // It's safe to change the Term src type as CE1 and CE2 are mergeable.
-  Term->setSrcType(CE1->getSrcType());
+  // It's safe to change the Term type as CE1 and CE2 are mergeable.
+  Term->setSrcAndDestType(CE1->getSrcType());
 
   // CE2 <- CE2 * C1
-  Term->multiplyByConstant(ConstCoeff);
+  if (!Term->multiplyByConstant(ConstCoeff)) {
+    return nullptr;
+  }
 
   auto BlobCoeff = CE1->getIVBlobCoeff(Level);
   if (CE1->getBlobUtils().isBlobIndexValid(BlobCoeff)) {
     // CE2 <- CE2 * B1
-    Term->multiplyByBlob(BlobCoeff);
+    if (!Term->multiplyByBlob(BlobCoeff)) {
+      return nullptr;
+    }
   }
 
   CE1->removeIV(Level);
@@ -516,4 +532,101 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   CanonExpr *AddResult = add(CE1, Term.get(), RelaxedMode);
 
   return AddResult;
+}
+
+bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
+                                               const CanonExpr *CE2,
+                                               unsigned LoopLevel,
+                                               int64_t *Distance) {
+  assert(isValidLoopLevel(LoopLevel) && "Invalid loop level!");
+
+  int64_t Coeff1, Coeff2;
+  unsigned Index1, Index2;
+
+  CE1->getIVCoeff(LoopLevel, &Index1, &Coeff1);
+  CE2->getIVCoeff(LoopLevel, &Index2, &Coeff2);
+
+  if ((Coeff1 != Coeff2) || (Index1 != Index2)) {
+    return false;
+  }
+
+  // Both CE1 and CE2 are invariant w.r.t IV. Return distance of 0 if both are
+  // equal.
+  if (!Coeff1) {
+    *Distance = 0;
+    return areEqual(CE1, CE2);
+  }
+
+  std::unique_ptr<CanonExpr> Result(cloneAndSubtract(CE1, CE2));
+
+  // Subtraction failed, return false.
+  if (!Result) {
+    return false;
+  }
+
+  if (Result->hasIV() || (Result->getDenominator() > 1)) {
+    return false;
+  }
+
+  auto NumBlobs = Result->numBlobs();
+  int64_t Diff = Result->getConstant();
+
+  if (NumBlobs > 1) {
+    return false;
+
+  } else if (NumBlobs == 1) {
+
+    // When IV has a blob coefficient, the diff is in the form of a single blob.
+    // For example-
+    // CE1 = 2*%b*i1 + 2*%b
+    // CE2 = 2*%b*i1
+    // CE1 - CE2 = 2*%b
+    // Distance = 1
+    if (Diff != 0) {
+      return false;
+    }
+
+    auto BlobIndex = Result->getSingleBlobIndex();
+
+    if (BlobIndex != Index1) {
+      return false;
+    }
+
+    Diff = Result->getSingleBlobCoeff();
+
+  } else if (Index1 != InvalidBlobIndex) {
+    // IV has a blob coefficient so Result should have a blob term to have valid
+    // iteration distance.
+    assert((NumBlobs == 0) && "Unexpected nuumber of blobs in result!");
+
+    // Allow identical CEs to pass through.
+    if (Diff != 0) {
+      return false;
+    }
+  }
+
+  if ((Diff % std::llabs(Coeff1)) != 0) {
+    return false;
+  }
+
+  *Distance = Diff / Coeff1;
+
+  return true;
+}
+
+bool CanonExprUtils::getConstDistance(const CanonExpr *CE1,
+                                      const CanonExpr *CE2, int64_t *Distance) {
+  std::unique_ptr<CanonExpr> Result(cloneAndSubtract(CE1, CE2));
+
+  // Subtract operation can fail.
+  if (!Result) {
+    return false;
+  }
+
+  if (Result->hasIV() || Result->hasBlob() || (Result->getDenominator() > 1)) {
+    return false;
+  }
+
+  *Distance = Result->getConstant();
+  return true;
 }

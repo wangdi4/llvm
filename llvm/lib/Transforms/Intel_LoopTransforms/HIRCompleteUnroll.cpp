@@ -237,12 +237,13 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 
   unsigned NumMemRefs;
   unsigned NumDDRefs;
+  bool AccessesStruct; 
 
   // Private constructor used for chilren loops.
   ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp,
                         const HLLoop *OuterLp)
       : HCU(HCU), CurLoop(CurLp), OuterLoop(OuterLp), ProfitabilityIndex(0),
-        NumMemRefs(0), NumDDRefs(0) {}
+        NumMemRefs(0), NumDDRefs(0), AccessesStruct(false) {}
 
   /// Processes RegDDRef for profitability. Returns true if Ref can be
   /// simplified to a constant.
@@ -274,7 +275,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 public:
   ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp)
       : HCU(HCU), CurLoop(CurLp), OuterLoop(CurLp), ProfitabilityIndex(0),
-        NumMemRefs(0), NumDDRefs(0) {}
+        NumMemRefs(0), NumDDRefs(0), AccessesStruct(false) {}
 
   // Main interface of the analyzer.
   void analyze();
@@ -296,6 +297,8 @@ public:
     llvm_unreachable("Node not supported for Complete Unrolling.");
   }
   void postVisit(const HLNode *Node) {}
+
+  bool isDone() const override { return AccessesStruct; }
 };
 }
 
@@ -486,6 +489,14 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
+
+  // Workaround to skip loops with struct references. 
+  // TODO: clean this up later.
+  if (Ref->accessesStruct()) {
+    AccessesStruct = true;
+    ProfitabilityIndex = -200;
+    return false;
+  }
 
   bool CanSimplify = true;
 
@@ -1066,4 +1077,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
   HNU.remove(Loop);
 }
 
-void HIRCompleteUnroll::releaseMemory() { CandidateLoops.clear(); }
+void HIRCompleteUnroll::releaseMemory() { 
+  CandidateLoops.clear();
+  AvgTripCount.clear();
+}

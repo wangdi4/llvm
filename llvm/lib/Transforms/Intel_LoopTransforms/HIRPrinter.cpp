@@ -45,10 +45,12 @@ public:
   bool runOnFunction(Function &F) override {
     auto &HIRF = getAnalysis<HIRFramework>();
 
-    OS << Banner << "\n";
-    OS << "Function: " << F.getName() << "\n";
+    if (llvm::isFunctionInPrintList(F.getName())) {
+      OS << Banner << "\n";
+      OS << "Function: " << F.getName() << "\n";
 
-    HIRF.print(HIRDetailedFrameworkInfo, OS);
+      HIRF.print(HIRDetailedFrameworkInfo, OS);
+    }
 
     return false;
   }

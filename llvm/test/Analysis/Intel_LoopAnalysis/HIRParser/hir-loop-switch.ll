@@ -2,41 +2,25 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S | FileCheck -check-prefix=CHECK-CG %s
 
 ; Check parsing output for the loop verifying that the switch is parsed correctly.
-; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: switch(%c) 
-; CHECK-NEXT: { 
-; CHECK-NEXT: case 0:
-; CHECK-NEXT: %call = @printf(&((@.str)[0][0]))
-; CHECK-NEXT: goto sw.bb1
-; CHECK-NEXT: case 1:
-; CHECK-NEXT: sw.bb1:
-; CHECK-NEXT: %call2 = @printf(&((@.str1)[0][0]))
-; CHECK-NEXT: break
-; CHECK-NEXT: default:
-; CHECK-NEXT: %call3 = @printf(&((@.str2)[0][0]))
-; CHECK-NEXT: break
-; CHECK-NEXT: }
-; CHECK-NEXT: END LOOP
 
-; Check cg for this switch
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
+; CHECK: |   switch(%c)
+; CHECK: |   {
+; CHECK: |   case 0:
+; CHECK: |      %call = @printf(&((@.str)[0][0]));
+; CHECK: |      break;
+; CHECK: |   case 1:
+; CHECK: |      break;
+; CHECK: |   default:
+; CHECK: |      %call3 = @printf(&((@.str2)[0][0]));
+; CHECK: |      goto for.inc;
+; CHECK: |   }
+; CHECK: |   %call2 = @printf(&((@.str1)[0][0]));
+; CHECK: |   for.inc:
+; CHECK: + END LOOP
 
-;          BEGIN REGION { }
-;<21>         + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-;<2>          |   switch(%c)
-;<2>          |   {
-;<2>          |   case 0:
-;<16>         |      %call = @printf(&((@.str)[0][0]));
-;<17>         |      goto sw.bb1;
-;<2>          |   case 1:
-;<18>         |      sw.bb1:
-;<19>         |      %call2 = @printf(&((@.str1)[0][0]));
-;<2>          |      break;
-;<2>          |   default:
-;<7>          |      %call3 = @printf(&((@.str2)[0][0]));
-;<2>          |      break;
-;<2>          |   }
-;<21>         + END LOOP
-;          END REGION
+
+; Check cg for this switch.
 
 ;CHECK-CG: region:
 ;CHECK-CG: loop.[[LOOP_NUM:[0-9]+]]:
@@ -47,30 +31,26 @@
 
 ;CHECK-CG: [[SWITCH_NAME]].default:
 ;CHECK-CG: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str2, i64 0, i64 0))
-;CHECK-CG: br label %[[SWITCH_NAME]].end
+;CHECK-CG: br label %hir.for.inc
 
-;case 0 is fall through into case1
-;which is genereated as a jump to the appropriate bblock
+; Check loop backedge
+;CHECK-CG: hir.for.inc:
+;CHECK-CG: br i1 %condloop.[[LOOP_NUM]], label %loop.[[LOOP_NUM]], label %afterloop.[[LOOP_NUM]]
+
+; case0 and case1 jump to a merge block before jumping to the backedge
 ;CHECK-CG: [[SWITCH_NAME]].case.0:
 ;CHECK-CG: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0))
-;CHECK-CG: br label %hir.sw.bb1
-
-;check the contents of hir.sw.bb1 which is in some sense the real case 1 bblock
-;CHECK-CG: hir.sw.bb1:
-;CHECK-CG: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str1, i64 0, i64 0))
 ;CHECK-CG: br label %[[SWITCH_NAME]].end
 
-;continuation bblock from the goto is after the goto target bblock
-;CHECK-CG: hir.goto.{{[0-9]+}}.cont:
+;CHECK-CG: [[SWITCH_NAME]].case.1:
 ;CHECK-CG-NEXT: br label %[[SWITCH_NAME]].end
 
-;case 1 contains a bblock labeled sw.bb1. CG creates a jump to the labeled
-;bblock
-;CHECK-CG: [[SWITCH_NAME]].case.1:
-;CHECK-CG-NEXT: br label %hir.sw.bb1
-
+; Check the merge block of case0 and case1 leading to the backedge
 ;CHECK-CG: [[SWITCH_NAME]].end:
-;CHECK-CG: br i1 %condloop.[[LOOP_NUM]], label %loop.[[LOOP_NUM]], label %afterloop.[[LOOP_NUM]]
+;CHECK-CG: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str1, i64 0, i64 0))
+;CHECK-CG: br label %hir.for.inc
+
+
 
 
 ; ModuleID = 'loop-switch.c'
