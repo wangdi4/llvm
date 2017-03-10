@@ -19,6 +19,16 @@ else ()
   set (ICC_PLATFORM intel64)
 endif ()
 
+# To be sure that ICC compiler uses the correct presentation of 80-bit long doubles
+# we have to set proper compiler options:
+if (WIN32)
+  set ( ICC_AUXILIARY_CXX_FLAGS "/fp:source /Qlong-double /fp:strict /Qpc80 /Qprec-div" )
+  set ( ICC_AUXILIARY_C_FLAGS   "/fp:source /Qlong-double /fp:strict /Qpc80 /Qprec-div" )
+else ()
+  set ( ICC_AUXILIARY_CXX_FLAGS "-fp-model extended -pc80 -prec-div" )
+  set ( ICC_AUXILIARY_C_FLAGS   "-fp-model extended -pc80 -prec-div" )
+endif()
+
 include_directories( ${VALIDATIONS_ROOT}/Common )
 
 add_subdirectory(ImathLibd)
