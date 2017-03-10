@@ -357,7 +357,8 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     // the updater was initialized with. The use will be saved, and then the
     // updater will fix it up later. Otherwise, just use an output created in
     // this block, which won't need updating.
-    depchain_reg[as] = depchain_reg[as] ? depchain_reg[as] : depchain_start[as];
+    if (!depchain_reg[as])
+      depchain_reg[as] = depchain_start[as];
 
     bool is_load = TII->isLoad(MI);
     if (is_load) {
@@ -457,7 +458,8 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     // the updater was initialized with. The use will be saved, and then the
     // updater will fix it up later. Otherwise, just use an output created in
     // this block, which won't need updating.
-    depchain_reg[as] = depchain_reg[as] ? depchain_reg[as] : depchain_start[as];
+    if (!depchain_reg[as])
+      depchain_reg[as] = depchain_start[as];
 
     // Hook this instruction into the chain, connecting the previous and next
     // values. The operand number using the old value is saved to newOpNum.
