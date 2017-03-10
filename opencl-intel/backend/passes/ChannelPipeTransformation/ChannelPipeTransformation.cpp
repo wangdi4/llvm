@@ -27,15 +27,20 @@ namespace {
 
 struct PipeMetadata {
   PipeMetadata() :
-      PacketSize(0), PacketAlign(0) {
+      PacketSize(0), PacketAlign(0), Depth(1) {
   }
 
   PipeMetadata(int PacketSize, int PacketAlign) :
-      PacketSize(PacketSize), PacketAlign(PacketAlign) {
+      PacketSize(PacketSize), PacketAlign(PacketAlign), Depth(1) {
+  }
+
+  PipeMetadata(int PacketSize, int PacketAlign, int Depth) :
+      PacketSize(PacketSize), PacketAlign(PacketAlign), Depth(Depth) {
   }
 
   int PacketSize;
   int PacketAlign;
+  int Depth;
 };
 
 } // anonymous namespace
@@ -68,11 +73,28 @@ static void getPipesMetadata(const Module &M,
   }
 
   for (auto *MD : MDs->operands()) {
-    assert(MD->getNumOperands() == 3 &&
-           "Invalid number of channel metadata operands");
+    assert(MD->getNumOperands() >= 3 &&
+           "Channel metedata must contain at least 3 operands");
     auto *ChanMD = dyn_cast<ValueAsMetadata>(MD->getOperand(0).get());
-    auto *PacketSizeMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(1).get());
-    auto *PacketAlignMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(2).get());
+    ConstantAsMetadata *PacketSizeMD = nullptr;
+    ConstantAsMetadata *PacketAlignMD = nullptr;
+    ConstantAsMetadata *DepthMD = nullptr;
+
+    for (unsigned i = 1; i < MD->getNumOperands(); ++i) {
+      MDNode *MDN = dyn_cast<MDNode>(MD->getOperand(i).get());
+
+      auto *Key = dyn_cast<MDString>(MDN->getOperand(0).get());
+      if (Key->getString() == "packet_size") {
+        PacketSizeMD = dyn_cast<ConstantAsMetadata>(MDN->getOperand(1).get());
+      } else if (Key->getString() == "packet_align") {
+        PacketAlignMD = dyn_cast<ConstantAsMetadata>(MDN->getOperand(1).get());
+      } else if (Key->getString() == "depth") {
+        DepthMD = dyn_cast<ConstantAsMetadata>(MDN->getOperand(1).get());
+      } else {
+        llvm_unreachable("Unknown metadata operand key");
+        continue;
+      }
+    }
 
     if (!ChanMD || !PacketSizeMD || !PacketAlignMD) {
       llvm_unreachable("Invalid channel metadata.");
@@ -84,9 +106,21 @@ static void getPipesMetadata(const Module &M,
     ConstantInt *PacketAlign = cast<ConstantInt>(PacketAlignMD->getValue());
 
     Value *Pipe = ChannelToPipeMap[Chan];
-    PipesMD[Pipe] = PipeMetadata(
-        PacketSize->getLimitedValue(),
-        PacketAlign->getLimitedValue());
+    if (!DepthMD) {
+      PipesMD[Pipe] = PipeMetadata(
+          PacketSize->getLimitedValue(),
+          PacketAlign->getLimitedValue());
+    } else {
+      ConstantInt *Depth = cast<ConstantInt>(DepthMD->getValue());
+      auto DepthValue = Depth->getLimitedValue();
+      if (DepthValue == 0)
+        DepthValue = 1;
+
+      PipesMD[Pipe] = PipeMetadata(
+          PacketSize->getLimitedValue(),
+          PacketAlign->getLimitedValue(),
+          DepthValue);
+    }
   }
 }
 
@@ -98,12 +132,11 @@ static void createPipeBackingStore(Module &M,
   for (auto KV : ChannelToPipeMap) {
     auto *PipeOpaquePtr = cast<GlobalVariable>(KV.second);
 
-    // TODO: asavonic: store channel depth in metadata
     auto PipeMD = PipesMD.lookup(PipeOpaquePtr);
-    assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
+    assert(PipeMD.PacketSize && PipeMD.PacketAlign && PipeMD.Depth &&
            "Pipe metadata not found.");
 
-    size_t BSSize = pipe_get_total_size(PipeMD.PacketSize, 64);
+    size_t BSSize = pipe_get_total_size(PipeMD.PacketSize, PipeMD.Depth);
     auto *ArrayTy = ArrayType::get(Int8Ty, BSSize);
 
     SmallString<16> NameStr;
@@ -156,13 +189,13 @@ Function *createPipesCtor(Module &M,
     Value *BS = PipeBSPair.second;
 
     auto PipeMD = PipesMD.lookup(PipeGlobal);
-    assert(PipeMD.PacketSize && PipeMD.PacketAlign &&
+    assert(PipeMD.PacketSize && PipeMD.PacketAlign && PipeMD.Depth &&
            "Pipe metadata not found.");
 
     Value *CallArgs[] = {
       Builder.CreateBitCast(BS, PipeInit->getFunctionType()->getParamType(0)),
       ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketAlign)
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.Depth)
     };
     Builder.CreateCall(PipeInit, CallArgs);
     Builder.CreateStore(
