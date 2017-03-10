@@ -10,6 +10,8 @@
 #include "CSA.h"
 #include "CSATargetMachine.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSSAUpdater.h"
@@ -63,10 +65,12 @@ OrderMemops("csa-order-memops",
 const TargetRegisterClass* MemopRC = &CSA::I1RegClass;
 
 
+// These values are used for tuning LLVM datastructures; correctness is not at
+// stake if they are off.
 // Width of vectors we are using for memory op calculations.
-// TBD(jsukha): As far as I know, this value only affects performance,
-// not correctness?
 #define MEMDEP_VEC_WIDTH 8
+// A guess at the number of memops per alias set per function.
+#define MEMDEP_OPS_PER_SET 32
 
 #define DEBUG_TYPE "csa-memop-ordering"
 
@@ -104,9 +108,9 @@ namespace {
     const CSAInstrInfo *TII;
     MachineRegisterInfo *MRI;
 
-    typedef std::map<const AliasSet*, unsigned> AliasSetVReg;
-    typedef std::map<const AliasSet*, std::unique_ptr<MachineSSAUpdater> > AliasSetUpdater;
-    typedef std::map<const AliasSet*, std::set<MachineOperand*> > AliasSetUses;
+    typedef DenseMap<const AliasSet*, unsigned> AliasSetVReg;
+    typedef DenseMap<const AliasSet*, std::unique_ptr<MachineSSAUpdater> > AliasSetUpdater;
+    typedef DenseMap<const AliasSet*, SmallPtrSet<MachineOperand*, MEMDEP_OPS_PER_SET> > AliasSetUses;
 
     void addMemoryOrderingConstraints(MachineFunction* thisMF);
 
@@ -142,9 +146,9 @@ namespace {
     // linear version of this function links all memory operations in
     // the block together in a single chain.
     //
-    void convert_block_memops_linear(MachineFunction::iterator& BB,
+    void convert_block_memops_linear(MachineBasicBlock& BB,
                                          AliasSetUpdater& depchain_updater,
-                                         AliasSetUses &depchain_uses,
+                                         AliasSetUses& depchain_uses,
                                          AliasSetVReg& depchain_start);
 
     // Wavefront version.   Same conceptual functionality as linear version,
@@ -152,10 +156,10 @@ namespace {
     //
     // Only serializes stores in a block, but allows loads to occur in
     // parallel between stores.
-    void convert_block_memops_wavefront(MachineFunction::iterator& BB,
+    void convert_block_memops_wavefront(MachineBasicBlock& BB,
                                          AliasSetUpdater& depchain_updater,
-                                         AliasSetUses &depchain_uses,
-                                         AliasSetVReg &depchain_start);
+                                         AliasSetUses& depchain_uses,
+                                         AliasSetVReg& depchain_start);
 
     // Merge all the .i1 registers stored in "current_wavefront" into
     // a single output register.
@@ -167,7 +171,7 @@ namespace {
     //      instruction MI in BB, or before the last terminator in the
     //      block if MI == NULL, and
     //  (b) It clears current_wavefront.
-    unsigned merge_dependency_signals(MachineFunction::iterator& BB,
+    unsigned merge_dependency_signals(MachineBasicBlock& BB,
                                       MachineInstr* MI,
                                       SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
                                       unsigned input_mem_reg);
@@ -248,7 +252,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
   }
 
   DEBUG(errs() << "Before addMemoryOrderingConstraints");
-  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+  for (MachineBasicBlock &BB : *thisMF) {
 
     // Link all the memory ops in BB together.
     // Return the name of the last output register (which could be
@@ -272,7 +276,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
 
     }
 
-    DEBUG(errs() << "After memop conversion of function: " << *BB << "\n");
+    DEBUG(errs() << "After memop conversion of function: " << BB << "\n");
   }
 
   // Create a mov to consume the end of all of each chain. We'll need one in
@@ -296,7 +300,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
   // Finally, use the updater for each set to fully rewrite to SSA. This
   // includes generating PHI nodes.
   for (const AliasSet &set : AS->getAliasSets()) {
-    for (auto &op : depchain_uses[&set]) {
+    for (MachineOperand *op : depchain_uses[&set]) {
       // There is an exception here: RewriteUse is not smart enough to find new
       // values added by "AddAvailableValue" before a use in the same basic
       // block. (I.e., it can only find them if they are in a basic block which
@@ -312,19 +316,19 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
 }
 
 void
-CSAMemopOrdering::convert_block_memops_wavefront(MachineFunction::iterator& BB,
+CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     AliasSetUpdater& depchain_updater, AliasSetUses &depchain_uses,
     AliasSetVReg &depchain_start)
 {
-  DEBUG(errs() << "Wavefront memory ordering for block " << &*BB << "\n");
+  DEBUG(errs() << "Wavefront memory ordering for block " << BB << "\n");
 
   // Save the latest evolution of each alias set's memory chain here.
   AliasSetVReg depchain_reg;
   // Also save a wavefront of load output signals per alias set.
-  std::map<AliasSet*, SmallVector<unsigned, MEMDEP_VEC_WIDTH> > wavefront;
+  DenseMap<AliasSet*, SmallVector<unsigned, MEMDEP_VEC_WIDTH> > wavefront;
 
-  MachineBasicBlock::iterator iterMI = BB->begin();
-  while (iterMI != BB->end()) {
+  MachineBasicBlock::iterator iterMI = BB.begin();
+  while (iterMI != BB.end()) {
     MachineInstr* MI = &*iterMI;
     DEBUG(errs() << "Found instruction: " << *MI << "\n");
 
@@ -338,12 +342,12 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineFunction::iterator& BB,
     }
 
     assert(MI->hasOneMemOperand() && "Can't handle multiple-memop ordering");
-    const MachineMemOperand *cOp = *MI->memoperands_begin();
+    const MachineMemOperand *mOp = *MI->memoperands_begin();
 
     // Use AliasAnalysis to determine which ordering chain we should be on.
     AliasSet *as =
-      AS->getAliasSetForPointerIfExists(const_cast<Value*>(cOp->getValue()),
-          cOp->getSize(), cOp->getAAInfo());
+      AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
+          mOp->getSize(), mOp->getAAInfo());
 
     // Create a new vreg which will be written to as the next link of the
     // chain.
@@ -370,7 +374,7 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineFunction::iterator& BB,
           depchain_reg[as]);
 
       // Update the SSA updater.
-      depchain_updater[as]->AddAvailableValue(&*BB, depchain_reg[as]);
+      depchain_updater[as]->AddAvailableValue(&BB, depchain_reg[as]);
 
       // We have merged/consumed all pending load outputs.
       assert(wavefront[as].size() == 0);
@@ -394,11 +398,11 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineFunction::iterator& BB,
       depchain_reg[as] = next_mem_reg;
 
       // Update the SSA updater.
-      depchain_updater[as]->AddAvailableValue(&*BB, next_mem_reg);
+      depchain_updater[as]->AddAvailableValue(&BB, next_mem_reg);
     }
 
     // Finally, erase the old instruction.
-    iterMI = BB->erase(iterMI);
+    iterMI = BB.erase(iterMI);
   }
 
   for (auto &pair : wavefront) {
@@ -412,19 +416,19 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineFunction::iterator& BB,
         depchain_reg[as]);
 
     // Update the SSA updater.
-    depchain_updater[as]->AddAvailableValue(&*BB, depchain_reg[as]);
+    depchain_updater[as]->AddAvailableValue(&BB, depchain_reg[as]);
   }
 }
 
-void CSAMemopOrdering::convert_block_memops_linear(MachineFunction::iterator& BB,
+void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     AliasSetUpdater& depchain_updater, AliasSetUses &depchain_uses,
     AliasSetVReg& depchain_start)
 {
   // Save the latest evolution of each alias set's memory chain here.
   AliasSetVReg depchain_reg;
 
-  MachineBasicBlock::iterator iterMI = BB->begin();
-  while (iterMI != BB->end()) {
+  MachineBasicBlock::iterator iterMI = BB.begin();
+  while (iterMI != BB.end()) {
     MachineInstr* MI = &*iterMI;
     DEBUG(errs() << "Found instruction: " << *MI << "\n");
 
@@ -438,12 +442,12 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineFunction::iterator& BB
     }
 
     assert(MI->hasOneMemOperand() && "Can't handle multiple-memop ordering");
-    const MachineMemOperand *cOp = *MI->memoperands_begin();
+    const MachineMemOperand *mOp = *MI->memoperands_begin();
 
     // Use AliasAnalysis to determine which ordering chain we should be on.
     AliasSet *as =
-      AS->getAliasSetForPointerIfExists(const_cast<Value*>(cOp->getValue()),
-          cOp->getSize(), cOp->getAAInfo());
+      AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
+          mOp->getSize(), mOp->getAAInfo());
 
     // Create a new vreg which will be written to as the next link of the
     // chain.
@@ -475,14 +479,14 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineFunction::iterator& BB
 
     // Update the SSA updater, advising it on the latest value in this
     // evolution coming out of this BB.
-    depchain_updater[as]->AddAvailableValue(&*BB, next_mem_reg);
+    depchain_updater[as]->AddAvailableValue(&BB, next_mem_reg);
 
     // Finally, erase the old instruction.
-    iterMI = BB->erase(iterMI);
+    iterMI = BB.erase(iterMI);
   }
 }
 
-unsigned CSAMemopOrdering::merge_dependency_signals(MachineFunction::iterator& BB,
+unsigned CSAMemopOrdering::merge_dependency_signals(MachineBasicBlock& BB,
                                                   MachineInstr* MI,
                                                   SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
                                                   unsigned input_mem_reg) {
@@ -520,8 +524,8 @@ unsigned CSAMemopOrdering::merge_dependency_signals(MachineFunction::iterator& B
           }
           else {
             // Adding a merge at the end of the block.
-            new_inst = BuildMI(*BB,
-                               BB->getFirstTerminator(),
+            new_inst = BuildMI(BB,
+                               BB.getFirstTerminator(),
                                DebugLoc(),
                                TII->get(CSA::MERGE1),
                                next_out_reg).addImm(0).addReg((*current_level)[i]).addReg((*current_level)[i+1]);
