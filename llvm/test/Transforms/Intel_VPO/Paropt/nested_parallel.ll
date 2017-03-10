@@ -136,5 +136,4 @@ attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 
 !0 = !{!"clang version 4.0.0 (branches/vpo 20871)"}
 
-; CHECK:  bitcast (void (i32*, i32*, i32*, i32*, i32*)*
 ; CHECK:  bitcast (void (i32*, i32*, i32*, i32*)*

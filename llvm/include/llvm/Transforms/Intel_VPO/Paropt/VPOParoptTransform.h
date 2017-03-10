@@ -159,11 +159,29 @@ private:
   /// parameter's definition is outside the region, the compiler
   /// generates the call __kmpc_global_thread_num() at the entry of
   /// of the region and replaces all tid uses with the new call.
+  /// It also generates the bid alloca instruciton in the region 
+  /// if the region has outlined function.
   void codeExtractorPrepare(WRegionNode *W);
 
   /// \brief Cleans up the generated __kmpc_global_thread_num() in the
-  /// outlined function.
+  /// outlined function. It also cleans the genererated bid alloca 
+  /// instruction in the outline function.
   void finiCodeExtractorPrepare(Function *F);
+
+  /// \brief Collects the bid alloca instructions used by the outline functions.
+  void collectTidAndBidInstructionsForBB(BasicBlock *BB);
+
+  /// \brief Collects the instruction uses for the instructions 
+  /// in the set TidAndBidInstructions.
+  void collectInstructionUsesInRegion(WRegionNode *W);
+
+  /// \brief Generates the new tid/bid alloca instructions at the entry of the
+  /// region and replaces the uses of tid/bid with the new value.
+  void codeExtractorPrepareTransform(WRegionNode *W, bool IsTid);
+
+  /// \brief Replaces the use of tid/bid with the outlined function arguments.
+  void finiCodeExtractorPrepareTransform(Function *F, bool IsTid,
+                                         BasicBlock *NextBB);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -193,11 +211,11 @@ private:
 
   /// \brief The data structure which builds the map between the
   /// alloc/tid and the uses instruction in the WRegion.
-  SmallDenseMap<Instruction *, std::vector<Instruction *> > TidMap;
+  SmallDenseMap<Instruction *, std::vector<Instruction *> > IdMap;
 
   /// \brief The data structure that is used to store the alloca or tid call
   ///  instruction that are used in the WRegion.
-  SmallPtrSet<Instruction*, 8> StartIns;
+  SmallPtrSet<Instruction*, 8> TidAndBidInstructions;
 };
 
 } /// namespace vpo

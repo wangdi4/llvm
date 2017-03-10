@@ -251,7 +251,7 @@ public:
   static BasicBlock *getOmpExitBlock(Loop *L);
 
   /// \brief gets the predicate for the bottom test.
-  static CmpInst::Predicate getOmpPredicate(Loop *L, unsigned &Pos);
+  static CmpInst::Predicate getOmpPredicate(Loop *L, bool& IsLeft);
 
   /// \brief gets the bottom test of the OMP loop.
   static ICmpInst* getOmpLoopBottomTest(Loop *L);

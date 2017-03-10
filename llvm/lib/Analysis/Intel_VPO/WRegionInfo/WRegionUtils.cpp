@@ -463,7 +463,7 @@ BasicBlock *WRegionUtils::getOmpExitBlock(Loop* L) {
 }
 
 // gets the predicate for the bottom test.
-CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, unsigned &Pos) {
+CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, bool& IsLeft) {
   BranchInst *ExitBrInst;
   ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
   ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
@@ -472,11 +472,11 @@ CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, unsigned &Pos) {
   Instruction *Inc = 
     dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
   if (CondInst->getOperand(0) == Inc)
-    Pos = 0;
+    IsLeft = true;
   else {
     assert(CondInst->getOperand(1) == Inc &&
            "Omp loop must have right cmp instruction");
-    Pos = 1;
+    IsLeft = false;
   }
 
   return CondInst->getPredicate();

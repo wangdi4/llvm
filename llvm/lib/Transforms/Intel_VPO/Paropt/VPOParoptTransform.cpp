@@ -483,17 +483,22 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
   BasicBlock *ExitBlock = WRegionUtils::getOmpExitBlock(L);
 
-  unsigned Pos;
+  bool IsLeft;
   CmpInst::Predicate PD = 
     VPOParoptUtils::computeOmpPredicate(
-      WRegionUtils::getOmpPredicate(L, Pos));
+      WRegionUtils::getOmpPredicate(L, IsLeft));
 
   ICmpInst* CompInst;
-  if (Pos == 0)
+  if (IsLeft)
     CompInst = new ICmpInst(InsertPt, PD, LoadLB, LoadUB, "");
   else
     CompInst = new ICmpInst(InsertPt, PD, LoadUB, LoadLB, "");
-  VPOParoptUtils::updateOmpPredicate(W);
+
+  LoadUB = new LoadInst(UpperBnd, "ub.new", InsertPt);
+  LoadUB->setAlignment(4);
+
+  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB);
+
   BranchInst* PreHdrInst = dyn_cast<BranchInst>(InsertPt);
   assert(PreHdrInst->getNumSuccessors() == 1 &&
          "Expect preheader BB has one exit!");
@@ -530,7 +535,7 @@ void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
         Value *V = S0->getPointerOperand();
         AllocaInst *AI = dyn_cast<AllocaInst>(V);
         if (AI)
-          StartIns.insert(AI);
+          TidAndBidInstructions.insert(AI);
         else 
           llvm_unreachable("Expect the stack alloca instruction.");
       }
@@ -538,9 +543,82 @@ void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
   }
 }
 
+// Collects the users instructions for the instructions 
+// in the set TidAndBidInstructions.
+void VPOParoptTransform::collectInstructionUsesInRegion(WRegionNode *W) {
+  for (Instruction *I : TidAndBidInstructions) 
+    for (auto IB = I->user_begin(), IE = I->user_end();
+         IB != IE; IB++) {
+      if (Instruction *User = dyn_cast<Instruction>(*IB)) {
+        if (W->contains(User->getParent()))
+          IdMap[I].push_back(User);
+      }
+      else 
+        llvm_unreachable("Expect the user is instruction.");
+    }
+}
+
+// Collects the bid alloca instructions used by the outline functions.
+void VPOParoptTransform::collectTidAndBidInstructionsForBB(BasicBlock *BB) {
+  for (auto &I : *BB) {
+    if (auto *CI = dyn_cast<CallInst>(&I)) {
+      if (CI->hasFnAttr("mt-func")) {
+        AllocaInst *AI = dyn_cast<AllocaInst>(CI->getArgOperand(1));
+        assert(AI && "Expect alloca instruction for bid.");
+        TidAndBidInstructions.insert(AI);
+      }
+    }
+  }
+}
+
+// Generates the new tid/bid alloca instructions at the entry of the
+// region and replaces the uses of tid/bid with the new value.
+void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
+                                                       bool IsTid) {
+  AllocaInst *NewAI = nullptr;
+  CallInst *NewTid = nullptr;
+  BasicBlock *WREntryBB = W->getEntryBBlock();
+
+  for (auto &I : IdMap) {
+    for (auto &J : I.second) {
+      if (IsTid && NewTid == nullptr) {
+        NewTid = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, 
+                                &*(WREntryBB->getFirstInsertionPt()),
+                                nullptr);
+        NewTid->insertBefore(WREntryBB->getTerminator());
+      }
+      if (!NewAI) {
+        if (isa<AllocaInst>(I.first)) {
+          NewAI = new AllocaInst(Type::getInt32Ty(F->getContext()), 
+                                 IsTid?"new.tid.addr":"new.bid.addr",
+                                 WREntryBB->getTerminator());
+          NewAI->setAlignment(4);
+
+          ConstantInt *ValueZero;
+          if (IsTid == false) 
+            ValueZero = ConstantInt::get(Type::getInt32Ty(F->getContext()), 0);
+
+          Value *StValue;
+          if (IsTid) 
+            StValue = NewTid;
+          else
+            StValue = ValueZero;
+          new StoreInst(StValue, NewAI, false,
+                        WREntryBB->getTerminator());
+        }
+      }
+      if (isa<AllocaInst>(I.first))
+        J->replaceUsesOfWith(I.first, NewAI);
+      else if (IsTid)
+        J->replaceUsesOfWith(I.first, NewTid);
+    }
+  }
+}
+
 // Generates the tid call instruction at the entry of WRegion
 // if the IR in the WRegion uses the tid value at the entry of
-// the function.
+// the function. It also generates the bid alloca instruction in 
+// the region if the region has outlined function.
 // Here is one example compiled at -O3.
 //
 // Before:
@@ -606,6 +684,23 @@ void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
 //   br label %DIR.QUAL.LIST.END.5
 // 
 void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
+  // Generates the bid alloca instruction in the region 
+  // if the region has outlined function.
+  TidAndBidInstructions.clear();
+  IdMap.clear();
+
+  for (auto IB = W->bbset_begin(); IB != W->bbset_end(); IB++) 
+    collectTidAndBidInstructionsForBB(*IB);
+
+  collectInstructionUsesInRegion(W);
+
+  // The flag false indicates it is for bid case. Otherwise
+  // it is for tid case.
+  codeExtractorPrepareTransform(W, false);
+
+  // Generates the tid call instruction at the entry of WRegion
+  // if the IR in the WRegion uses the tid value at the entry of
+  // the function.
   Function *F = W->getEntryBBlock()->getParent();
   BasicBlock *EntryBB = &F->getEntryBlock();
   CallInst *Tid = VPOParoptUtils::findKmpcGlobalThreadNumCall(EntryBB);
@@ -615,48 +710,17 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
   CallInst *NewTid = VPOParoptUtils::findKmpcGlobalThreadNumCall(WREntryBB);
   if (NewTid) return;
 
-  StartIns.clear();
-  TidMap.clear();
+  TidAndBidInstructions.clear();
+  IdMap.clear();
 
   getAllocFromTid(Tid);
-  StartIns.insert(Tid);
+  TidAndBidInstructions.insert(Tid);
 
-  for (Instruction *I : StartIns) 
-    for (auto IB = I->user_begin(), IE = I->user_end();
-         IB != IE; IB++) {
-      if (Instruction *User = dyn_cast<Instruction>(*IB)) {
-        if (W->contains(User->getParent()))
-          TidMap[I].push_back(User);
-      }
-      else 
-        llvm_unreachable("Expect the tid used in the instruction.");
-    }
+  collectInstructionUsesInRegion(W);
+  // The flag false indicates it is for bid case. Otherwise
+  // it is for tid case.
+  codeExtractorPrepareTransform(W, true);
 
-  AllocaInst *NewAI = nullptr;
-  for (auto &I : TidMap) {
-    for (auto &J : I.second) {
-      if (NewTid == nullptr) {
-        NewTid = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, 
-                                &*(WREntryBB->getFirstInsertionPt()),
-                                nullptr);
-        NewTid->insertBefore(WREntryBB->getTerminator());
-      }
-      if (!NewAI) {
-        if (isa<AllocaInst>(I.first)) {
-          NewAI = new AllocaInst(Type::getInt32Ty(F->getContext()), 
-                                 "new.tid.addr", 
-                                 WREntryBB->getTerminator());
-          NewAI->setAlignment(4);
-          new StoreInst(NewTid, NewAI, false, 
-                        WREntryBB->getTerminator());
-        }
-      }
-      if (isa<AllocaInst>(I.first))
-        J->replaceUsesOfWith(I.first, NewAI);
-      else
-        J->replaceUsesOfWith(I.first, NewTid);
-    }
-  }
 }
 
 // Cleans up the generated __kmpc_global_thread_num() in the
@@ -715,6 +779,18 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
 //   br label %DIR.QUAL.LIST.END.5
 //
 void VPOParoptTransform::finiCodeExtractorPrepare(Function *F) {
+  // Cleans the genererated bid alloca instruction in the 
+  // outline function.
+  TidAndBidInstructions.clear();
+
+  for (Function::iterator B = F->begin(), Be = F->end(); B != Be; ++B) 
+    collectTidAndBidInstructionsForBB(&*B);
+ 
+  finiCodeExtractorPrepareTransform(F, false, nullptr);
+
+  // Cleans up the generated __kmpc_global_thread_num() in the
+  // outlined function. Replaces the use of the __kmpc_global_thread_num()
+  // with the first argument of the outlined function.
   CallInst *Tid = nullptr;
   BasicBlock *NextBB = &F->getEntryBlock();
   do {
@@ -731,31 +807,41 @@ void VPOParoptTransform::finiCodeExtractorPrepare(Function *F) {
 
   if (!Tid) return;
 
-  StartIns.clear();
+  TidAndBidInstructions.clear();
 
   getAllocFromTid(Tid);
-  StartIns.insert(Tid);
+  TidAndBidInstructions.insert(Tid);
 
+  finiCodeExtractorPrepareTransform(F, true, NextBB);
+}
+
+// Replaces the use of tid/bid with the outlined function arguments.
+void VPOParoptTransform::finiCodeExtractorPrepareTransform(Function *F,
+                                                          bool IsTid, 
+                                                          BasicBlock *NextBB) {
   Value *NewAI = nullptr;
   LoadInst *NewLoad = nullptr;
-  for (Instruction *I : StartIns) {
+  for (Instruction *I : TidAndBidInstructions) {
     if (isa<AllocaInst>(I)) {
       if(!NewAI) {
-        NewAI = &*(F->arg_begin());
+        auto IT = F->arg_begin();
+        if (!IsTid)
+          IT++;
+        NewAI = &*(IT);
       }
     }
-    else if (NewLoad == nullptr) {
+    else if (IsTid && NewLoad == nullptr) {
       IRBuilder<> Builder(NextBB);
       Builder.SetInsertPoint(NextBB, NextBB->getFirstInsertionPt());
       NewLoad = Builder.CreateLoad(&*(F->arg_begin()));
     }
     if (isa<AllocaInst>(I))
       I->replaceAllUsesWith(NewAI);
-    else
+    else if (IsTid)
       I->replaceAllUsesWith(NewLoad);
   }
   
-  for (Instruction *I : StartIns) 
+  for (Instruction *I : TidAndBidInstructions) 
     I->eraseFromParent();
 }
 

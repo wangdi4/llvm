@@ -179,12 +179,26 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
 
   Type *ArgIntTy;
   std::string CallName;
+
+  WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
+  Loop *L = WL->getLoop();
+  ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
+  bool isUnsigned = IC->isUnsigned();
+
   if (LB->getType()->getPointerElementType()->getIntegerBitWidth() == 64) {
-    CallName = "__kmpc_for_static_init_8";
+    if (isUnsigned)
+      CallName = "__kmpc_for_static_init_8u";
+    else
+      CallName = "__kmpc_for_static_init_8";
+
     ArgIntTy = Type::getInt64Ty(C);
   }
   else {
-    CallName = "__kmpc_for_static_init_4";
+    if (isUnsigned)
+      CallName = "__kmpc_for_static_init_4u";
+    else
+      CallName = "__kmpc_for_static_init_4";
+
     ArgIntTy = IntTy;
   }
 
@@ -997,8 +1011,8 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
   WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
   Loop *L = WL->getLoop();
   Value* RightValue = WRegionUtils::getOmpLoopUpperBound(L); 
-  unsigned Pos;
-  CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, Pos);
+  bool IsLeft = true;
+  CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
   IntegerType *IndValTy = 
     cast<IntegerType>(WRegionUtils::getOmpCanonicalInductionVariable(L)->
                       getIncomingValue(0)->getType());
@@ -1009,14 +1023,14 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
 
   if (PD == ICmpInst::ICMP_SLT ||
       PD == ICmpInst::ICMP_ULT) {
-    if (Pos==0)
+    if (IsLeft)
       Res = Builder.CreateSub(RightValue, ValueOne);
     else
       Res = Builder.CreateAdd(RightValue, ValueOne);
   }
   else if (PD == ICmpInst::ICMP_SGT ||
            PD == ICmpInst::ICMP_UGT) {
-    if (Pos==0)
+    if (IsLeft)
       Res = Builder.CreateAdd(RightValue, ValueOne);
     else
       Res = Builder.CreateSub(RightValue, ValueOne);
@@ -1040,12 +1054,18 @@ CmpInst::Predicate VPOParoptUtils::computeOmpPredicate(CmpInst::Predicate PD) {
 }
 
 // Updates the bottom test predicate to include equal predicate.
-void VPOParoptUtils::updateOmpPredicate(WRegionNode *W) {
+void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
+                                                     Value *LoadUB) {
   WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
   Loop *L = WL->getLoop();
   ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
-  unsigned Pos;
-  CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, Pos);
+  bool IsLeft = true;
+  CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
+  if (IsLeft)
+    IC->setOperand(1, LoadUB);
+  else 
+    IC->setOperand(0, LoadUB);
+
   if (PD == ICmpInst::ICMP_SLT)
     IC->setPredicate(ICmpInst::ICMP_SLE);
   else if (PD == ICmpInst::ICMP_ULT)
