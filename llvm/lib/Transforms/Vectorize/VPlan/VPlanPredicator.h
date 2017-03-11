@@ -12,9 +12,14 @@ namespace vpo {
 	protected:
 		IntelVPlan *Plan;
 		VPLoopInfo *VPLI;
+    // Map to remember which VBRs have already been generated
+    // for corresponding CBRs.
+		std::map<VPConditionBitRecipeWithScalar *,
+             VPVectorizeBooleanRecipe *> CBRtoVBRMap;
 		void initializeGenPredicates(VPBasicBlock *VPBB);
 		void getSuccessorsNoBE(VPBlockBase *PredBlock,
 													 SmallVector<VPBlockBase *, 2> &Succs);
+    VPVectorizeBooleanRecipe * getConditionRecipe(VPConditionBitRecipeBase *CBR);
 		VPPredicateRecipeBase *genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
 																										 VPBlockBase *PredBlock);
 		void genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock);

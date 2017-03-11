@@ -124,12 +124,30 @@ public:
   void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 };
 
+
+/// A pure virtual class that provides the getScalarCondition() interface
+/// function for accessing the scalar condition value.
+class VPConditionBitRecipeWithScalar : public VPConditionBitRecipeBase {
+public:
+  VPConditionBitRecipeWithScalar(const unsigned char SC)
+      : VPConditionBitRecipeBase(SC) { }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+      return V->getVPRecipeID() == VPRecipeBase::VPUniformBranchSC
+          || V->getVPRecipeID() == VPRecipeBase::VPLiveInBranchSC;
+  }
+
+  /// Return the scalar condition value
+  virtual Value *getScalarCondition(void) const = 0;
+};
+
 /// A VPUniformConditionBitRecipe is a VPConditionBitRecipe which supports a
 /// uniform conditional branch. 
-class VPUniformConditionBitRecipe : public VPConditionBitRecipeBase {
+class VPUniformConditionBitRecipe : public VPConditionBitRecipeWithScalar {
 public:
   VPUniformConditionBitRecipe(Value *Cond)
-    : VPConditionBitRecipeBase(VPUniformBranchSC) {
+    : VPConditionBitRecipeWithScalar(VPUniformBranchSC) {
     ScConditionBit = Cond;
   }
 
@@ -141,6 +159,11 @@ public:
   /// The method clones a uniform instruction that calculates condition
   /// for uniform branch.
   void vectorize(VPTransformState &State) override;
+
+  /// Return the scalar condition value.
+  Value *getScalarCondition(void) const override{
+    return ScConditionBit;
+  }
 
   /// Print the recipe.
   void print(raw_ostream &O) const override {
@@ -167,10 +190,10 @@ private:
 
 /// A VPLiveInConditionBitRecipe is a recipe for a Condition operand of 
 /// a uniform conditional branch. The Condition is defined outside the loop.
-class VPLiveInConditionBitRecipe : public VPConditionBitRecipeBase {
+class VPLiveInConditionBitRecipe : public VPConditionBitRecipeWithScalar {
 public:
   VPLiveInConditionBitRecipe(Value *Cond)
-    : VPConditionBitRecipeBase(VPLiveInBranchSC) {
+    : VPConditionBitRecipeWithScalar(VPLiveInBranchSC) {
     ConditionBit = Cond;
   }
 
@@ -182,6 +205,12 @@ public:
   /// The method clones a uniform instruction that calculates condition
   /// for uniform branch.
   void vectorize(VPTransformState &State) override {}
+
+  /// Return the scalar condition value.
+  /// NOTE: Since it is a live-in CBR, the scalar ConditionBit is re-used.
+  Value *getScalarCondition(void) const override {
+    return ConditionBit;
+  }
 
   /// Print the recipe.
   void print(raw_ostream &O) const override {
@@ -217,6 +246,13 @@ public:
   VPLiveInConditionBitRecipe *
   createLiveInConditionBitRecipe(Value *Cond) {
     return new VPLiveInConditionBitRecipe(Cond);
+  }
+
+  /// Create a new VPVectorizeBooleanRecipe
+  static VPVectorizeBooleanRecipe *
+  createVPVectorizeBooleanRecipe(Value *Cond) {
+	  return new VPVectorizeBooleanRecipe(VPRecipeBase::VPVectorizeBooleanSC,
+                                        Cond);
   }
 
   /// Returns true if the edge FromBlock->ToBlock is a back-edge.

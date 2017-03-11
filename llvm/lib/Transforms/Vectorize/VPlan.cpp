@@ -415,7 +415,7 @@ void VPAllOnesPredicateRecipe::vectorize(VPTransformState &State) {
 }
 
 void VPAllOnesPredicateRecipe::print(raw_ostream &O) const {
-
+    O << "All Ones Predicate Recipe";
 }
 
 void VPBlockPredicateRecipe::vectorize(VPTransformState &State) {
@@ -423,7 +423,7 @@ void VPBlockPredicateRecipe::vectorize(VPTransformState &State) {
 }
 
 void VPBlockPredicateRecipe::print(raw_ostream &O) const {
-
+    O << "Block Predicate Recipe";
 }
 
 void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
@@ -431,7 +431,7 @@ void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
 }
 
 void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
-
+    O << "If True Predicate Recipe";
 }
 
 void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
@@ -439,5 +439,10 @@ void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
 }
 
 void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {
+    O << "If False Predicate Recipe";
+}
+
+void VPVectorizeBooleanRecipe::vectorize(VPTransformState &State) {
 
 }
+

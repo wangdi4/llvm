@@ -61,33 +61,6 @@ static cl::opt<bool>
 DumpVPlanDot("dump-vplan-dot", cl::init(false), cl::Hidden,
 						 cl::desc("Dump the vplan dot file"));
 
-
-
-// Return the condition instruction of VPBB
-// FIXME: This code is TEMPORARY and WRONG!
-//        This should be provided by consulting condition recipe direclty.
-static CmpInst *getBBCondition(VPBasicBlock *BB) {
-	assert(BB);
-	// Walk down the recipes looking for the condition recipe
-	for (VPBasicBlock::iterator it = BB->begin(), ite = BB->end();
-			 it != ite; ++it) {
-		VPRecipeBase *recipe = &*it;
-		if (VPOneByOneRecipeBase *OBORecipe
-				= dyn_cast<VPOneByOneRecipeBase>(recipe)) {
-			// FIXME: This code is wrong.
-			//        We should be using the condition recipe directly.
-			for (BasicBlock::iterator bbit = OBORecipe->begin(),
-						 bbite = OBORecipe->end(); bbit != bbite; ++bbit) {
-				Instruction *Instr = &*bbit;
-				if (CmpInst *CI = dyn_cast<CmpInst>(Instr)) {
-					return CI;
-				}
-			}
-		}
-	}
-	return nullptr;
-}
-
 // Returns the first recipe in BB or NULL if empty.
 static VPRecipeBase *getFirstRecipeSafe(VPBasicBlock *BB) {
 	VPRecipeBase *FirstRecipe = nullptr;
@@ -128,6 +101,40 @@ static std::string genPredicateName(const std::string &Name,
 	return "[" + ParentBlockName + "." + Block->getName() + "]" + Name;
 }
 
+// FIXME: This should change once Matt introduces the recipes
+//        that point to other recipes so that we point to the one
+//        closest to the condition.
+VPVectorizeBooleanRecipe *
+VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
+  // When we have LiveIn/Uniform CBR, we remove it
+  // and replace it with a VPVectorizeBoolean
+  if (VPConditionBitRecipeWithScalar *CBRWS
+			= dyn_cast<VPConditionBitRecipeWithScalar>(CBR)) {
+		VPVectorizeBooleanRecipe *VBR = nullptr;
+		// If we have not generated the CBRWS recipe, generate it.
+    auto it = CBRtoVBRMap.find(CBRWS);
+    if (it == CBRtoVBRMap.end()) {
+			Value *CI = CBRWS->getScalarCondition();
+			assert(CI);
+			VBR = IntelVPlanUtils::createVPVectorizeBooleanRecipe(CI);
+      // Remember that we have already generated this VBR for CBR
+      CBRtoVBRMap[CBRWS] = VBR;
+			VPBasicBlock *BB = CBRWS->getParent();
+			BB->addRecipe(VBR, CBRWS);
+		}
+		// Reuse the one we have already generated.
+		else {
+			VBR = it->second;
+		}
+    return VBR;
+	}
+	// FIXME: 
+	else {
+    assert(0 && "FIXME");
+		return nullptr;
+	}
+}
+
 // Return/Generate the incoming predicate.
 // If a single successor, then return predBB's block predicate
 // Else generate the ifTrue/ifFalse predicates and return them
@@ -151,13 +158,14 @@ VPlanPredicator::genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
 	else if (PredSuccessorsNoBE.size() == 2) {
 		VPBasicBlock *PredBB = dyn_cast<VPBasicBlock>(PredBlock);
 		assert(PredBB && "Only BBs can have more than one successsors");
-		// FIXME: This is a HACK: getBBCondition() should use a utils function instead
-		CmpInst *CI = getBBCondition(PredBB);
+    VPConditionBitRecipeBase *CBR = PredBB->getConditionBitRecipe();
+    VPVectorizeBooleanRecipe *VBR = getConditionRecipe(CBR);
+    assert(VBR);
 		// currBB is the True successor of PredBB
 		if (PredBlock->getSuccessors()[0] == CurrBlock) {
 			// FIXME: We should be using the creation utils instead
 			VPIfTruePredicateRecipe *IfTrueRecipe
-				= new VPIfTruePredicateRecipe(CI, PredBB->getPredicateRecipe());
+				= new VPIfTruePredicateRecipe(VBR, PredBB->getPredicateRecipe());
 			IfTrueRecipe->setName(genPredicateName("IfTrue", PredBB));
 			emitRecipeIfBB(IfTrueRecipe, CurrBlock);
 			IncomingPredicate = IfTrueRecipe;
@@ -167,7 +175,7 @@ VPlanPredicator::genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
 		if (PredBlock->getSuccessors()[1] == CurrBlock) {
 			// FIXME: We should be using the creation utils instead
 			VPIfFalsePredicateRecipe *IfFalseRecipe
-				= new VPIfFalsePredicateRecipe(CI, PredBB->getPredicateRecipe());
+				= new VPIfFalsePredicateRecipe(VBR, PredBB->getPredicateRecipe());
 			IfFalseRecipe->setName(genPredicateName("IfFalse", PredBB));
 			emitRecipeIfBB(IfFalseRecipe, CurrBlock);
 			IncomingPredicate = IfFalseRecipe;
@@ -304,10 +312,11 @@ static void appendRegionsToWorklist(VPBlockBase *EntryBlock,
 }
 
 // FIXME: Only for debugging. Can be removed.
-static void dumpVplanDot(IntelVPlan *Plan) {
+static void dumpVplanDot(IntelVPlan *Plan,
+                         const char *dotFile = "/tmp/vplan.dot") {
 	if (DumpVPlanDot) {
 		std::error_code EC;
-		raw_fd_ostream file("/tmp/vplan.dot", EC, sys::fs::F_RW);
+		raw_fd_ostream file(dotFile, EC, sys::fs::F_RW);
 		VPlanPrinter printer(file, *Plan);
 		printer.dump();
 		file.close();
@@ -316,7 +325,7 @@ static void dumpVplanDot(IntelVPlan *Plan) {
 
 // Entry point. The driver function for the predicator.
 void VPlanPredicator::predicate(void) {
-	dumpVplanDot(Plan);	// FIXME: Only for debugging. Can be removed.
+  dumpVplanDot(Plan, "/tmp/vplan.before.dot");	// FIXME: Only for debugging. Can be removed.
 
 	VPBlockBase *EntryBlock = Plan->getEntry();
 	std::vector<VPRegionBlock *> RegionsWorklist;
@@ -347,4 +356,6 @@ void VPlanPredicator::predicate(void) {
 		//       a second pass through the Region's blocks.
 		appendRegionsToWorklist(Region->getEntry(), RegionsWorklist);
 	}
+
+  dumpVplanDot(Plan, "/tmp/vplan.after.dot");	// FIXME: Only for debugging. Can be removed.
 }

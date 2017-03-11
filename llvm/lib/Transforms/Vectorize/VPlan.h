@@ -111,6 +111,7 @@ public:
 #ifdef INTEL_CUSTOMIZATION
     VPUniformBranchSC,
     VPLiveInBranchSC,
+    VPVectorizeBooleanSC,
 #endif
   } VPRecipeTy;
 
@@ -146,6 +147,7 @@ public:
     return AlsoPackOrUnpack.count(I);
   }
 };
+
 
 /// A VPPredicateRecipeBase is a pure virtual recipe which supports predicate
 /// generation/modeling. Concrete sub-classes represent block & edge predicates
@@ -287,6 +289,43 @@ public:
   void print(raw_ostream &O) const override;
 };
 
+#ifdef INTEL_CUSTOMIZATION
+/// A VPVectorizeBooleanRecipe is a concrete recipe which works as a container
+/// for the condition value.
+class VPVectorizeBooleanRecipe : public VPRecipeBase {
+protected:
+  /// The actual condition value.
+  Value *ConditionValue;
+
+public:
+  /// Construct a VPVectorizeBooleanRecipe
+ VPVectorizeBooleanRecipe(const unsigned char SC, Value *CV)
+      : VPRecipeBase(SC), ConditionValue(CV) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPVectorizeBooleanSC;
+  }
+
+  /// Getter 
+  Value *getConditionValue(void) { return ConditionValue; }
+
+	void vectorize(VPTransformState &State) override;
+	
+	/// Printer
+  void print(raw_ostream &OS) const override {
+    OS << "Vectorize Boolean Recipe: ";
+		if (ConditionValue) {
+			OS << *ConditionValue;
+		} else {
+			OS << "NULL";
+		}
+  }
+
+  StringRef getName() const { return "Vectorize Boolean Recipe"; };
+};
+#endif
+
 /// A VPEdgePredicateRecipeBase is a pure virtual recipe which supports 
 /// predicate generation/modeling on edges. Concrete sub-classes represent 
 /// if-statement edge predicates and select-statement edge predicates in the
@@ -295,17 +334,30 @@ public:
 /// and condition-predicate as illustrated in Predicate relations (b).
 class VPEdgePredicateRecipeBase : public VPPredicateRecipeBase {
 protected:
+  #ifdef INTEL_CUSTOMIZATION
+  /// A pointer to the recipe closest to the condition value
+	VPVectorizeBooleanRecipe *ConditionRecipe;
+  #else
   /// A pointer to the source-IR condition value.
   Value *ConditionValue;
+  #endif
   
   /// A pointer to the predecessor block's predicate.
   VPPredicateRecipeBase* PredecessorPredicate;
 
   /// Construct a VPEdgePredicateRecipeBase.
+  #ifdef INTEL_CUSTOMIZATION
+  VPEdgePredicateRecipeBase(const unsigned char SC,
+		VPVectorizeBooleanRecipe* CR,
+    VPPredicateRecipeBase* PredecessorPredicate)
+    : VPPredicateRecipeBase(SC), ConditionRecipe(CR),
+    PredecessorPredicate(PredecessorPredicate){}
+  #else
   VPEdgePredicateRecipeBase(const unsigned char SC, Value* ConditionValue,
     VPPredicateRecipeBase* PredecessorPredicate)
     : VPPredicateRecipeBase(SC), ConditionValue(ConditionValue),
     PredecessorPredicate(PredecessorPredicate){}
+  #endif
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {
@@ -323,11 +375,17 @@ class VPIfTruePredicateRecipe : public VPEdgePredicateRecipeBase {
 
 public:
   /// Construct a VPIfTruePredicateRecipe.
+  #ifdef INTEL_CUSTOMIZATION
+ VPIfTruePredicateRecipe(VPVectorizeBooleanRecipe* BR, 
+    VPPredicateRecipeBase* PredecessorPredicate)
+    : VPEdgePredicateRecipeBase(VPIfTruePredicateRecipeSC, 
+      BR, PredecessorPredicate) {}
+  #else
   VPIfTruePredicateRecipe(Value* ConditionValue, 
     VPPredicateRecipeBase* PredecessorPredicate)
     : VPEdgePredicateRecipeBase(VPIfTruePredicateRecipeSC, 
       ConditionValue, PredecessorPredicate) {}
-
+  #endif
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {
     return V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC;
@@ -344,10 +402,17 @@ class VPIfFalsePredicateRecipe : public VPEdgePredicateRecipeBase {
 
 public:
   /// Construct a VPIfFalsePredicateRecipe.
+  #ifdef INTEL_CUSTOMIZATION
+  VPIfFalsePredicateRecipe(VPVectorizeBooleanRecipe* BR,
+    VPPredicateRecipeBase* PredecessorPredicate)
+    : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, 
+      BR, PredecessorPredicate) {}
+	#else
   VPIfFalsePredicateRecipe(Value* ConditionValue,
     VPPredicateRecipeBase* PredecessorPredicate)
     : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, 
       ConditionValue, PredecessorPredicate) {}
+	#endif
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {
@@ -382,7 +447,6 @@ public:
 
   virtual StringRef getName() const = 0;
 };
-
 
 /// VPOneByOneRecipeBase is a VPRecipeBase which handles each Instruction in its
 /// ingredients independently, in order. The ingredients are either all
@@ -837,6 +901,11 @@ public:
            "Insertion before point not in this basic block.");
     Recipes.insert(Before->getIterator(), Recipe);
   }
+
+	/// Remove the recipe from VPBasicBlock's recipes.
+	void removeRecipe(VPRecipeBase *Recipe) {
+		Recipes.erase(Recipe);
+	}
 
   /// The method which generates all new IR instructions that correspond to
   /// this VPBasicBlock in the vectorized version, thereby "executing" the
