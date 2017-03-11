@@ -169,6 +169,13 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+void VPRegionBlock::recomputeSize() {
+  Size = std::distance(df_iterator<const VPBlockBase *>::begin(Entry),
+                       df_iterator<const VPBlockBase *>::end(Exit));
+}
+#endif
+
 void VPRegionBlock::vectorize(VPTransformState *State) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
   typedef std::vector<VPBlockBase *>::reverse_iterator rpo_iterator;

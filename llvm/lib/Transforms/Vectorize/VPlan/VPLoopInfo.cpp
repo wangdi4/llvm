@@ -74,19 +74,25 @@ VPBlockBase *VPLoop::getUniqueExitBlock() const {
   return nullptr;
 }
 
-VPLoop *VPLoopInfo::getLoopFromPreHeader(VPBlockBase *PotentialPH) const {
+const VPLoop *
+VPLoopInfo::getLoopFromPreHeader(const VPBlockBase *PotentialPH) const {
 
   // VPLoop PH has a single successor
-  VPBlockBase *PotentialH = PotentialPH->getSingleSuccessor();
+  const VPBlockBase *PotentialH = PotentialPH->getSingleSuccessor();
 
   if (!PotentialH || !isLoopHeader(PotentialH))
     return nullptr;
 
   // PotentialPH's successor is Loop H
-  VPLoop *VPL = getLoopFor(PotentialH);
+  const VPLoop *VPL = getLoopFor(PotentialH);
   assert(VPL && "VPLoop is nullptr");
 
   // Returns VPL only if PotentialPH is VPL PH
   return (VPL->getLoopPreheader() == PotentialPH) ? VPL : nullptr;
+}
+
+VPLoop *VPLoopInfo::getLoopFromPreHeader(VPBlockBase *PotentialPH) {
+  return const_cast<VPLoop *>(
+      static_cast<const VPLoopInfo *>(this)->getLoopFromPreHeader(PotentialPH));
 }
 

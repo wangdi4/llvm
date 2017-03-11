@@ -47,7 +47,8 @@ public:
     return std::distance(begin(), end());
   }
 
-  VPLoop *getLoopFromPreHeader(VPBlockBase *PotentialPH) const;
+  const VPLoop *getLoopFromPreHeader(const VPBlockBase *PotentialPH) const;
+  VPLoop *getLoopFromPreHeader(VPBlockBase *PotentialPH);
 };
 
 } // End VPO Vectorizer Namespace 

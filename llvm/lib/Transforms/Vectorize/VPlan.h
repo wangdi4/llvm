@@ -599,10 +599,7 @@ class VPBlockBase {
 private:
   const unsigned char VBID; // Subclass identifier (for isa/dyn_cast).
 
-  //TODO: Temporal workaround
-protected:
   std::string Name;
-private:
 
   /// The immediate VPRegionBlock which this VPBlockBase belongs to, or null if
   /// it is a topmost VPBlockBase.
@@ -958,6 +955,11 @@ private:
   /// used when the internal SESE region handles a single scalarized lane.
   bool IsReplicator;
 
+#ifdef INTEL_CUSTOMIZATION
+  /// Traverse all the region VPBasicBlocks to recompute Size
+  void recomputeSize();
+#endif
+
 public:
   /// An enumeration for keeping track of the concrete subclass of VPRegionBlock
   /// that is actually instantiated. Values of this enumeration are kept in the
@@ -1262,47 +1264,77 @@ public:
     for (auto &Succ : Successors) {
       replaceBlockPredecessor(Succ, From, To);
       To->appendSuccessor(Succ);
-      //TODO: Move something else? ConditionRecipe?
     }
 
     // Remove successors from From
     Successors.clear();
   }
 
+  /// Insert a Region in a HCFG using Entry and Exit blocks as Region's single
+  /// entry and single exit. Entry and Exit blocks must be part of the HCFG and
+  /// be in the same region. Region cannot be part of a HCFG.
   void insertRegion(VPRegionBlock *Region, VPBlockBase *Entry,
-                     VPBlockBase *Exit) {
+                    VPBlockBase *Exit, bool RecomputeSize = true) {
+
+    assert(Entry->getNumSuccessors() != 0 && "Entry must be in a HCFG");
+    assert(Entry->getNumPredecessors() != 0 && "Exit must be in a HCFG");
+    assert(Entry->getParent() && Exit->getParent() &&
+           "Entry and Exit must have a parent region");
+    assert(Entry->getParent() == Exit->getParent() &&
+           "Entry and Exit must have the same parent region");
+    assert(Exit->getParent()->getExit() != Exit &&
+           "Exit node cannot be an exit node in another region");
     assert(!Region->getEntry() && "Region's entry must be null");
     assert(!Region->getExit() && "Region's exit must be null");
     assert(!Region->getNumSuccessors() && "Region cannot have successors");
     assert(!Region->getNumPredecessors() && "Region cannot have predecessors");
 
-    // If Entry node is parent region's entry, set Region as entry of parent
-    // region
-    if (Entry->getParent()->getEntry() == Entry) {
-      assert(!Entry->getNumPredecessors() &&
-             "Entry node cannot have predecessors");
-      setRegionEntry(Entry->getParent(), Region);
+    VPRegionBlock *ParentRegion = Entry->getParent();
+
+    // If Entry is parent region's entry, set Region as parent region's entry
+    if (ParentRegion->getEntry() == Entry) {
+      setRegionEntry(ParentRegion, Region);
     } else {
       movePredecessors(Entry, Region);
     }
 
-    assert(Exit->getParent()->getExit() != Exit &&
-           "Exit node cannot be an exit node in another region");
+    // moveSuccessors is propagating Exit's parent to Region
     moveSuccessors(Exit, Region);
-
     setRegionEntry(Region, Entry);
     setRegionExit(Region, Exit);
+
+    // Recompute region size and update parent
+    if (RecomputeSize) {
+      Region->recomputeSize();
+      ParentRegion->Size -= Region->Size + 1 /*Region*/;
+    }
   }
 
+  /// Insert NewBlock in the HCFG before BlockPtr and update parent region
+  /// accordingly
   void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+    VPRegionBlock *ParentRegion = BlockPtr->getParent();
+
     movePredecessors(BlockPtr, NewBlock);
     // TODO: setSuccessor is propagating NewBlock's parent to BlockPtr, so we
     // need to set the parent before if we don't want to propagate a nullptr.
-    setBlockParent(NewBlock, BlockPtr->Parent);
+    setBlockParent(NewBlock, ParentRegion);
     setSuccessor(NewBlock, BlockPtr);
+    ++BlockPtr->Parent->Size;
+
+    // If BlockPtr is parent region's entry, set BlockPtr as parent region's
+    // entry
+    if (ParentRegion->getEntry() == BlockPtr) {
+      setRegionEntry(ParentRegion, NewBlock);
+    }
   }
 
+  /// Insert NewBlock in the HCFG after BlockPtr and update parent region
+  /// accordingly. If BlockPtr has more that two successors, its
+  /// ConditionBitRecipe is propagated to NewBlock.
   void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+    VPRegionBlock *ParentRegion = BlockPtr->getParent();
+
     // Set ConditionBitRecipe in NewBlock. Note that we are only setting the
     // successor selector pointer. The ConditionBitRecipe is kept in its
     // original VPBB recipe list.
@@ -1316,8 +1348,15 @@ public:
     moveSuccessors(BlockPtr, NewBlock);
     // TODO: setSuccessor is propagating NewBlock's parent to BlockPtr, so we
     // need to set the parent before if we don't want to propagate a nullptr.
-    setBlockParent(NewBlock, BlockPtr->Parent);
+    setBlockParent(NewBlock, ParentRegion);
     setSuccessor(BlockPtr, NewBlock);
+    ++BlockPtr->Parent->Size;
+
+    // If BlockPtr is parent region's exit, set BlockPtr as parent region's
+    // exit
+    if (ParentRegion->getExit() == BlockPtr) {
+      setRegionExit(ParentRegion, NewBlock);
+    }
   }
 
 #endif // INTEL_CUSTOMIZATION

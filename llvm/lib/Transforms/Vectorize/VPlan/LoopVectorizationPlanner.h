@@ -187,11 +187,35 @@ private:
                             DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
                             DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
 
-  void verifyLoops(const VPRegionBlock *TopRegion,
-                   const VPLoopInfo *VPLInfo) const;
-
+  /// Verify that HCFG is well-formed starting from the topmost region. If
+  /// VPLInfo is not nullptr, it also checks that loop related information in
+  /// HCFG is consistent with information in VPLInfo and LoopInfo.
+  ///
+  /// For each VPRegionBlock, it checks that:
+  ///   - Entry/Exit is not another region.
+  ///   - Entry/Exit has no predecessors/successors, repectively.
+  ///   - Size is correct.
+  ///   - Blocks' parent is correct.
+  ///   - Blocks with multiple successors have a ConditionBitRecipe set.
+  ///   - Linked blocks have a bi-directional link (successor/predecessor).
+  ///   - All predecessors/successors are inside the region.
+  ///   - Blocks have no duplicated successor/predecessor (TODO: switch)
+  ///
+  /// A global verification step for loops checks that the number of
+  /// VPLoopRegion's (HCFG), VPLoop's (VPLoopInfo) and Loop's (LoopInfo) match.
+  ///
+  /// For each VPLoopRegion, it checks:
+  ///   - VPLoopRegion has VPLoop attached.
+  ///   - Entry is loop preheader
+  ///   - Loop preheader has a single successor
+  ///   - Loop preheader's successor is a loop header
+  ///   - VPLoopInfo returns the expected VPLoop from loop preheader/header
+  ///   - VPLoop preheader and exits's successors are contained in VPLoop's
+  ///   parent loop (if any)
+  ///   - Blocks in the "loop cycle" are contained in VPLoop
+  ///
   void verifyHierarchicalCFG(const VPRegionBlock *TopRegion,
-                             const VPLoopInfo *VPLInfo) const;
+                             const VPLoopInfo *VPLInfo = nullptr) const;
 
   /// Determine whether \p I will be scalarized in a given range of VFs.
   /// The returned value reflects the result for a prefix of the range, with
