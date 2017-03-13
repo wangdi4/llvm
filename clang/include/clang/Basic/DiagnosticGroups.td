@@ -444,6 +444,11 @@ def UninitializedSometimes : DiagGroup<"sometimes-uninitialized">;
 def UninitializedStaticSelfInit : DiagGroup<"static-self-init">;
 def Uninitialized  : DiagGroup<"uninitialized", [UninitializedSometimes,
                                                  UninitializedStaticSelfInit]>;
+//#if INTEL_CUSTOMIZATION
+def MaybeUninitialized
+    : DiagGroup<"maybe-uninitialized",
+                [ UninitializedMaybe, UninitializedSometimes ]>;
+//#endif // INTEL_CUSTOMIZATION
 def IgnoredPragmaIntrinsic : DiagGroup<"ignored-pragma-intrinsic">;
 def UnknownPragmas : DiagGroup<"unknown-pragmas">;
 def IgnoredPragmas : DiagGroup<"ignored-pragmas", [IgnoredPragmaIntrinsic]>;
