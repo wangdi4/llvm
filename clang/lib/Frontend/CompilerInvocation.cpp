@@ -1803,6 +1803,14 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       case IK_ObjC:
       case IK_PreprocessedC:
       case IK_PreprocessedObjC:
+#if INTEL_CUSTOMIZATION
+        if (!(Std.isC89() || Std.isC99()) &&
+            Args.hasArg(OPT_fintel_compatibility)) {
+          Diags.Report(diag::warn_drv_argument_not_allowed_with)
+              << A->getAsString(Args) << "C/ObjC";
+          LangStd = LangStandard::lang_gnu99;
+        } else
+#endif // INTEL_CUSTOMIZATION
         if (!(Std.isC89() || Std.isC99()))
           Diags.Report(diag::err_drv_argument_not_allowed_with)
             << A->getAsString(Args) << "C/ObjC";
@@ -1811,6 +1819,14 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       case IK_ObjCXX:
       case IK_PreprocessedCXX:
       case IK_PreprocessedObjCXX:
+#if INTEL_CUSTOMIZATION
+        if (!Std.isCPlusPlus() && 
+            Args.hasArg(OPT_fintel_compatibility)) {
+          Diags.Report(diag::warn_drv_argument_not_allowed_with)
+            << A->getAsString(Args) << "C++/ObjC++"; 
+          LangStd = LangStandard::lang_gnucxx14;
+        } else
+#endif // INTEL_CUSTOMIZATION
         if (!Std.isCPlusPlus())
           Diags.Report(diag::err_drv_argument_not_allowed_with)
             << A->getAsString(Args) << "C++/ObjC++";
