@@ -113,17 +113,13 @@ class OpenMPCodeOutliner {
   void emitOMPUseDevicePtrClause(const OMPUseDevicePtrClause *);
   void emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *);
 
-  static llvm::Value *emitIntelOpenMPDefaultConstructor(CodeGenModule &CGM,
-                                                        const VarDecl *Private);
-  static llvm::Value *emitIntelOpenMPDestructor(CodeGenModule &CGM,
-                                                const VarDecl *Private);
-  static llvm::Value *emitIntelOpenMPCopyConstructor(CodeGenModule &CGM,
-                                                     const VarDecl *Private);
-  static llvm::Value *emitIntelOpenMPCopyAssign(CodeGenModule &CGM,
-                                                const VarDecl *Private,
-                                                const Expr *SrcExpr,
-                                                const Expr *DstExpr,
-                                                const Expr *AssignOp);
+  llvm::Value *emitIntelOpenMPDefaultConstructor(const Expr *IPriv);
+  llvm::Value *emitIntelOpenMPDestructor(QualType Ty);
+  llvm::Value *emitIntelOpenMPCopyConstructor(const Expr *IPriv);
+  llvm::Value *emitIntelOpenMPCopyAssign(QualType Ty,
+                                         const Expr *SrcExpr,
+                                         const Expr *DstExpr,
+                                         const Expr *AssignOp);
 
   void addImplicitClauses();
   void addRefsToOuter();
