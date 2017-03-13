@@ -359,8 +359,17 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   Value *V = Call->getArgOperand(2);
   Sched.setChunkExpr(V);
 
-  // if chunk size is constant, extract and save the constant chunk size
-  int64_t ChunkSize = 0;
+  // If ChunkExpr is a constant expression, extract the constant and save it
+  // in ChunkSize, which is initialized to -1 (an invalid chunk size) to
+  // signify that ChunkExpr is not constant.
+  // Examples:
+  //   User's clause:        Clang sends:            Extracted ChunkSize here:
+  //     schedule(static)      schedule(static,0)      ChunkSize ==  0
+  //     schedule(static,2)    schedule(static,2)      ChunkSize ==  2
+  //     schedule(static,x)    schedule(static,%x)     ChunkSize == -1
+  // Therefore, a negative ChunkSize means that the chunk expression is a
+  // symbolic expr whose value is unkown at compile time.
+  int64_t ChunkSize = -1;
   ConstantInt *CI = dyn_cast<ConstantInt>(V);
   if (CI != nullptr) { 
     ChunkSize = *((CI->getValue()).getRawData());
@@ -373,15 +382,16 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
                            VPOAnalysisUtils::getScheduleModifierMDString(Call);
   DEBUG(dbgs() << " Schedule Modifier Argument: " << ModifierString << "\n");
 
+  if (ModifierString == "MODIFIERNONE")
+    return; // done; no modifiers
+
   SmallVector<StringRef, 4> ModifierSubString;
   ModifierString.split(ModifierSubString, ".");
 
-  DEBUG(dbgs() << "   Modifier SubString: " << ModifierSubString[0] << "\n");
-  DEBUG(dbgs() << "   Modifier SubString: " << ModifierSubString[1] << "\n");
-
-  for (int i=0; i<2; i++) {
+  for (unsigned i=0; i<ModifierSubString.size(); i++) {
     // Max number of substrings is 2, because monotonic and nonmonotonic
     // are mutually exclusive
+    DEBUG(dbgs() << "   Modifier SubString: " << ModifierSubString[i] << "\n");
     if (ModifierSubString[i] == "MONOTONIC") {
       Sched.setIsSchedMonotonic(true);
     } else if (ModifierSubString[i] == "NONMONOTONIC") {
