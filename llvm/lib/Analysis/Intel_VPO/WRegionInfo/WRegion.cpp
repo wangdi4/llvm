@@ -90,7 +90,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
-  setOrdered(false);
+  setOrdered(0);
   Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
   setLoop(L);
 
@@ -266,7 +266,7 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
-  setOrdered(false);
+  setOrdered(0);
   Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
   setLoop(L);
 
