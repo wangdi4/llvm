@@ -444,6 +444,76 @@ OclBuiltinImpl trunc_svml_not_shared = OclBuiltinImpl<trunc,[v4f32, v8f32, v2f64
     return __ocl_svml_$Target_trunc$SVMLSuffix($Arg0VarName);
   }]>;
 
+// half_cos
+OclBuiltinImpl half_svml_not_shared = OclBuiltinImpl<half_cos, [v16f32], 0, [{
+    return __ocl_svml_$Target_cos$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_divide
+OclBuiltinImpl half_divide_svml_not_shared = OclBuiltinImpl<half_divide, [v16i32], 0, [{
+    return __ocl_svml_$Target_div$SVMLSuffix_half($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// half_exp
+OclBuiltinImpl half_exp_svml_not_shared = OclBuiltinImpl<half_exp, [v16i32], 0, [{
+    return __ocl_svml_$Target_exp$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_exp2
+OclBuiltinImpl half_exp2_svml_not_shared = OclBuiltinImpl<half_exp2, [v16i32], 0, [{
+    return __ocl_svml_$Target_exp2$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_exp10
+OclBuiltinImpl half_exp10_svml_not_shared = OclBuiltinImpl<half_exp10, [v16i32], 0, [{
+    return __ocl_svml_$Target_exp10$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_log
+OclBuiltinImpl half_log_svml_not_shared = OclBuiltinImpl<half_log, [v16i32], 0, [{
+    return __ocl_svml_$Target_log$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_log2
+OclBuiltinImpl half_log2_svml_not_shared = OclBuiltinImpl<half_log2, [v16i32], 0, [{
+    return __ocl_svml_$Target_log2$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_log10
+OclBuiltinImpl half_log10_svml_not_shared = OclBuiltinImpl<half_log10, [v16i32], 0, [{
+    return __ocl_svml_$Target_log10$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_powr
+OclBuiltinImpl half_powr_svml_not_shared = OclBuiltinImpl<half_powr, [v16i32], 0, [{
+    return __ocl_svml_$Target_powr$SVMLSuffix_half($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// half_recip
+OclBuiltinImpl half_recip_svml_not_shared = OclBuiltinImpl<half_recip, [v16i32], 0, [{
+    return __ocl_svml_$Target_inv$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_rsqrt
+OclBuiltinImpl half_rsqrt_svml_not_shared = OclBuiltinImpl<half_rsqrt, [v16i32], 0, [{
+    return __ocl_svml_$Target_rsqrt$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_sin
+OclBuiltinImpl half_sin_svml_not_shared = OclBuiltinImpl<half_sin, [v16i32], 0, [{
+    return __ocl_svml_$Target_sin$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_sqrt
+OclBuiltinImpl half_sqrt_svml_not_shared = OclBuiltinImpl<half_sqrt, [v16i32], 0, [{
+    return __ocl_svml_$Target_sqrt$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
+// half_tan
+OclBuiltinImpl half_tan_svml_not_shared = OclBuiltinImpl<half_tan, [v16i32], 0, [{
+    return __ocl_svml_$Target_tan$SVMLSuffix_half($Arg0VarName);
+  }]>;
+
 // native_divide
 OclBuiltinImpl native_divide_impl_not_shared = OclBuiltinImpl<native_divide, [v8f32], 0, [{
     return __ocl_svml_$Target_div$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
