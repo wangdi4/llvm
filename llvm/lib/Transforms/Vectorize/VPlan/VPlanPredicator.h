@@ -19,7 +19,7 @@ namespace vpo {
     void initializeGenPredicates(VPBasicBlock *VPBB);
     void getSuccessorsNoBE(VPBlockBase *PredBlock,
                            SmallVector<VPBlockBase *, 2> &Succs);
-    VPVectorizeBooleanRecipe * getConditionRecipe(VPConditionBitRecipeBase *CBR);
+    VPVectorizeBooleanRecipe *getConditionRecipe(VPConditionBitRecipeBase *CBR);
     VPPredicateRecipeBase *genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
                                                      VPBlockBase *PredBlock);
     void genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock);

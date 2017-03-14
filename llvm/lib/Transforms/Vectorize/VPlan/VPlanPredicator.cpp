@@ -102,13 +102,25 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
     auto it = CBRtoVBRMap.find(CBRWS);
     if (it == CBRtoVBRMap.end()) {
       Value *CI = CBRWS->getScalarCondition();
+      VPConditionBitRecipeWithScalar *InsertBefore = CBRWS;
       assert(CI);
       VBR = IntelVPlanUtils::createVPVectorizeBooleanRecipe(CI);
       VBR->setName(getUniqueName("VecBooleanRecipe"));
       // Remember that we have already generated this VBR for CBR
       CBRtoVBRMap[CBRWS] = VBR;
       VPBasicBlock *BB = CBRWS->getParent();
-      BB->addRecipe(VBR, CBRWS);
+      if (! BB) {
+        // Live-Ins need special treatment as they are not in a BB.
+        // We emit the VecBooleanRecipe at the outer loop preheader.
+        assert(isa<VPLiveInConditionBitRecipe>(CBRWS));
+        assert(VPLI->end() - VPLI->begin() == 1 && "Multiple outer loops?");
+        const VPLoop *Loop = *VPLI->begin();
+        VPBlockBase *PreheaderBlock = Loop->getLoopPreheader();
+        BB = dyn_cast<VPBasicBlock>(PreheaderBlock);
+        InsertBefore = nullptr;
+      }
+      assert(BB);
+      BB->addRecipe(VBR, InsertBefore);
     }
     // Reuse the one we have already generated.
     else {
