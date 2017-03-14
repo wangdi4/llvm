@@ -21,7 +21,7 @@ struct __is_same { // expected-warning {{keyword '__is_same' will be made availa
 
 __is_same<int> isi;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ414772: ensure __is_signed is still an identifier in libstdc++
 // even if the return type is hidden by a typedef.
 typedef bool _B;

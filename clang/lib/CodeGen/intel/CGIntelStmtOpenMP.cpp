@@ -1,6 +1,6 @@
 //===--- CGIntelStmtOpenMP.cpp - Emit Intel Code from OpenMP Directives ---===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -14,15 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #if INTEL_SPECIFIC_OPENMP
-#include "../CGCXXABI.h"
-#include "../CodeGenFunction.h"
-#include "../CodeGenModule.h"
-#include "clang/AST/Stmt.h"
-#include "clang/AST/StmtOpenMP.h"
+#include "CGIntelStmtOpenMP.h"
 using namespace clang;
 using namespace CodeGen;
+using namespace CGIntelOpenMP;
 
-static llvm::Value *emitIntelOpenMPDefaultConstructor(CodeGenModule &CGM,
+llvm::Value *
+OpenMPCodeOutliner::emitIntelOpenMPDefaultConstructor(CodeGenModule &CGM,
                                                       const VarDecl *Private) {
   QualType Ty = Private->getType();
 
@@ -61,7 +59,8 @@ static llvm::Value *emitIntelOpenMPDefaultConstructor(CodeGenModule &CGM,
   return Fn;
 }
 
-static llvm::Value *emitIntelOpenMPDestructor(CodeGenModule &CGM,
+llvm::Value *
+OpenMPCodeOutliner::emitIntelOpenMPDestructor(CodeGenModule &CGM,
                                               const VarDecl *Private) {
   QualType Ty = Private->getType();
 
@@ -101,7 +100,8 @@ static llvm::Value *emitIntelOpenMPDestructor(CodeGenModule &CGM,
   return Fn;
 }
 
-static llvm::Value *emitIntelOpenMPCopyConstructor(CodeGenModule &CGM,
+llvm::Value *
+OpenMPCodeOutliner::emitIntelOpenMPCopyConstructor(CodeGenModule &CGM,
                                                    const VarDecl *Private) {
   auto &C = CGM.getContext();
   QualType Ty = Private->getType();
@@ -175,7 +175,7 @@ static llvm::Value *emitIntelOpenMPCopyConstructor(CodeGenModule &CGM,
     // Add possible default arguments, which start with the second arg.
     for (auto I = CCE->arg_begin() + 1, End = CCE->arg_end(); I != End; ++I)
       ConstructorArgs.push_back(const_cast<Expr *>(*I));
-    
+
     CXXConstructExpr *RebuiltCCE = CXXConstructExpr::Create(
         C, Ty, CCE->getLocation(), CCE->getConstructor(), CCE->isElidable(),
         ConstructorArgs, CCE->hadMultipleCandidates(),
@@ -193,11 +193,9 @@ static llvm::Value *emitIntelOpenMPCopyConstructor(CodeGenModule &CGM,
   return Fn;
 }
 
-static llvm::Value *emitIntelOpenMPCopyAssign(CodeGenModule &CGM,
-                                              const VarDecl *Private,
-                                              const Expr *SrcExpr,
-                                              const Expr *DstExpr,
-                                              const Expr *AssignOp) {
+llvm::Value *OpenMPCodeOutliner::emitIntelOpenMPCopyAssign(
+    CodeGenModule &CGM, const VarDecl *Private, const Expr *SrcExpr,
+    const Expr *DstExpr, const Expr *AssignOp) {
   auto &C = CGM.getContext();
   QualType Ty = Private->getType();
   QualType ElemType = Ty;
@@ -255,37 +253,12 @@ static llvm::Value *emitIntelOpenMPCopyAssign(CodeGenModule &CGM,
   return Fn;
 }
 
-namespace {
-enum OMPAtomicClause {
-  OMP_read,
-  OMP_write,
-  OMP_update,
-  OMP_capture,
-  OMP_read_seq_cst,
-  OMP_write_seq_cst,
-  OMP_update_seq_cst,
-  OMP_capture_seq_cst,
-};
-/// Class used for emission of Intel-specific intrinsics for OpenMP code.
-class OpenMPCodeOutliner {
-  struct ArraySectionDataTy final {
-    llvm::Value *LowerBound = nullptr;
-    llvm::Value *Length = nullptr;
-    llvm::Value *Stride = nullptr;
-    llvm::Value *VLASize = nullptr;
-  };
-  typedef llvm::SmallVector<ArraySectionDataTy, 4> ArraySectionTy;
-  CodeGenFunction &CGF;
-  StringRef End;
-  llvm::Function *IntelDirective = nullptr;
-  llvm::Function *IntelSimpleClause = nullptr;
-  llvm::Function *IntelListClause = nullptr;
-  llvm::LLVMContext &C;
-  llvm::SmallVector<llvm::Value *, 16> Args;
+namespace CGIntelOpenMP {
   /*--- Process array section expression ---*/
   /// Emit an address of the base of OMPArraySectionExpr and fills data for
   /// array sections.
-  ArraySectionDataTy emitArraySectionData(const OMPArraySectionExpr *E) {
+  OpenMPCodeOutliner::ArraySectionDataTy
+  OpenMPCodeOutliner::emitArraySectionData(const OMPArraySectionExpr *E) {
     ArraySectionDataTy Data;
     auto &C = CGF.getContext();
     if (auto *LowerBound = E->getLowerBound()) {
@@ -324,7 +297,8 @@ class OpenMPCodeOutliner {
     Data.Stride = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/1);
     return Data;
   }
-  Address emitOMPArraySectionExpr(const OMPArraySectionExpr *E,
+  Address OpenMPCodeOutliner::emitOMPArraySectionExpr(
+                                  const OMPArraySectionExpr *E,
                                   ArraySectionTy &AS) {
     const Expr *Base = E->getBase()->IgnoreParenImpCasts();
     AS.push_back(emitArraySectionData(E));
@@ -361,11 +335,11 @@ class OpenMPCodeOutliner {
   }
   /*--- Process array section expression ---*/
 
-  void addArg(llvm::Value *Val) { Args.push_back(Val); }
-  void addArg(StringRef Str) {
+  void OpenMPCodeOutliner::addArg(llvm::Value *Val) { Args.push_back(Val); }
+  void OpenMPCodeOutliner::addArg(StringRef Str) {
     Args.push_back(llvm::MetadataAsValue::get(C, llvm::MDString::get(C, Str)));
   }
-  void addArg(const Expr *E) {
+  void OpenMPCodeOutliner::addArg(const Expr *E) {
     if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
       ArraySectionTy AS;
       Address Base = emitOMPArraySectionExpr(
@@ -396,16 +370,18 @@ class OpenMPCodeOutliner {
     addArg(CGF.EmitLValue(E).getPointer());
   }
 
-  void emitDirective() {
-    CGF.EmitRuntimeCall(IntelDirective, Args);
+  void OpenMPCodeOutliner::emitDirective() {
+    llvm::CallInst *C = CGF.EmitRuntimeCall(IntelDirective, Args);
+    if (!DirectiveInst)
+      DirectiveInst = C;
     Args.clear();
   }
-  void emitSimpleClause() {
+  void OpenMPCodeOutliner::emitSimpleClause() {
     assert(Args.size() == 1);
     CGF.EmitRuntimeCall(IntelSimpleClause, Args);
     Args.clear();
   }
-  void emitOpndClause() {
+  void OpenMPCodeOutliner::emitOpndClause() {
     assert(Args.size() == 2);
     llvm::Type *Types[] = {Args[1]->getType()};
     llvm::Function *IntelOpndClause =
@@ -413,21 +389,84 @@ class OpenMPCodeOutliner {
     CGF.EmitRuntimeCall(IntelOpndClause, Args);
     Args.clear();
   }
-  void emitListClause() {
+  void OpenMPCodeOutliner::emitListClause() {
     CGF.EmitRuntimeCall(IntelListClause, Args);
     Args.clear();
   }
 
-  void emitOMPSharedClause(const OMPSharedClause *Cl) {
+  void OpenMPCodeOutliner::emitImplicit(Expr *E, OpenMPClauseKind K) {
+    auto SavedIP = CGF.Builder.saveIP();
+    CGF.Builder.SetInsertPoint(DirectiveInst->getNextNode());
+    switch (K) {
+    case OMPC_private:
+      addArg("QUAL.OMP.PRIVATE"); break;
+    case OMPC_shared: 
+      addArg("QUAL.OMP.SHARED"); break;
+    default:
+      llvm_unreachable("Clause not allowed");
+    }
+    addArg(E);
+    emitListClause();
+    CGF.Builder.restoreIP(SavedIP);
+  }
+
+  void OpenMPCodeOutliner::emitImplicit(const VarDecl *VD, OpenMPClauseKind K) {
+    DeclRefExpr DRE(const_cast<VarDecl *>(VD),
+                    /*RefersToEnclosingVariableOrCapture=*/false,
+                    VD->getType().getNonReferenceType(), VK_LValue,
+                    SourceLocation());
+    emitImplicit(&DRE, K);
+  }
+
+  void OpenMPCodeOutliner::addImplicitClauses() {
+    auto DKind = Directive.getDirectiveKind();
+    if (DKind != OMPD_simd && !isOpenMPParallelDirective(DKind))
+      return;
+
+    // We need to process some DeclRefExprs without havining them affect the
+    // Def/Ref lists so save and null the CapturedStmtInfo.
+    auto savedCSI = CGF.CapturedStmtInfo;
+    CGF.CapturedStmtInfo = nullptr;
+
+    auto End = ExplicitRefs.end();
+    for (const auto *I : VarRefs) {
+      if (ExplicitRefs.find(I) != End) continue;
+      if (VarDefs.find(I) != VarDefs.end()) {
+        // Defined here = private
+        emitImplicit(I, OMPC_private);
+      } else if (DKind != OMPD_simd) {
+        // Referenced but not definted = shared
+        emitImplicit(I, OMPC_shared);
+      }
+    }
+
+    // Restore the CSI
+    CGF.CapturedStmtInfo = savedCSI;
+  }
+
+  void OpenMPCodeOutliner::addRefsToOuter() {
+    if (CGF.CapturedStmtInfo) {
+      for (const auto *I : VarDefs)
+        CGF.CapturedStmtInfo->recordVariableDefinition(I);
+      for (const auto *I : VarRefs)
+        CGF.CapturedStmtInfo->recordVariableReference(I);
+      for (const auto *I : ExplicitRefs)
+        CGF.CapturedStmtInfo->recordVariableReference(I);
+    }
+  }
+
+  void OpenMPCodeOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
     addArg("QUAL.OMP.SHARED");
     for (auto *E : Cl->varlists())
       addArg(E);
     emitListClause();
   }
-  void emitOMPPrivateClause(const OMPPrivateClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
     addArg("QUAL.OMP.PRIVATE");
     auto IPriv = Cl->private_copies().begin();
     for (auto *E : Cl->varlists()) {
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
       auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
       auto *Init = Private->getInit();
       if (Init || Private->getType().isDestructedType())
@@ -441,7 +480,8 @@ class OpenMPCodeOutliner {
     }
     emitListClause();
   }
-  void emitOMPLastprivateClause(const OMPLastprivateClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPLastprivateClause(
+                                     const OMPLastprivateClause *Cl) {
     addArg("QUAL.OMP.LASTPRIVATE");
     auto IPriv = Cl->private_copies().begin();
     auto ISrcExpr = Cl->source_exprs().begin();
@@ -466,7 +506,7 @@ class OpenMPCodeOutliner {
     }
     emitListClause();
   }
-  void emitOMPLinearClause(const OMPLinearClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
     StringRef Linear;
     switch (Cl->getModifier()) {
     case OMPC_LINEAR_ref:
@@ -488,7 +528,8 @@ class OpenMPCodeOutliner {
                          : CGF.Builder.getInt32(1));
     emitListClause();
   }
-  void emitOMPReductionClause(const OMPReductionClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPReductionClause(
+                                      const OMPReductionClause *Cl) {
     StringRef Op;
     OverloadedOperatorKind OOK =
         Cl->getNameInfo().getName().getCXXOverloadedOperator();
@@ -574,7 +615,7 @@ class OpenMPCodeOutliner {
     }
   }
 
-  void emitOMPOrderedClause(const OMPOrderedClause *C) {
+  void OpenMPCodeOutliner::emitOMPOrderedClause(const OMPOrderedClause *C) {
     addArg("QUAL.OMP.ORDERED");
     if (auto *E = C->getNumForLoops())
       addArg(CGF.EmitScalarExpr(E));
@@ -583,7 +624,7 @@ class OpenMPCodeOutliner {
     emitOpndClause();
   }
 
-  void emitOMPMapClause(const OMPMapClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *Cl) {
     StringRef Op;
     switch (Cl->getMapType()) {
     case OMPC_MAP_alloc:
@@ -614,7 +655,7 @@ class OpenMPCodeOutliner {
     emitListClause();
   }
 
-  void emitOMPScheduleClause(const OMPScheduleClause *C) {
+  void OpenMPCodeOutliner::emitOMPScheduleClause(const OMPScheduleClause *C) {
     int DefaultChunkSize = 0;
     switch (C->getScheduleKind()) {
     case OMPC_SCHEDULE_static:
@@ -672,7 +713,8 @@ class OpenMPCodeOutliner {
     emitListClause();
   }
 
-  void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPFirstprivateClause(
+                                  const OMPFirstprivateClause *Cl) {
     addArg("QUAL.OMP.FIRSTPRIVATE");
     auto *IPriv = Cl->private_copies().begin();
     for (auto *E : Cl->varlists()) {
@@ -690,29 +732,32 @@ class OpenMPCodeOutliner {
     emitListClause();
   }
 
-  void emitOMPCopyinClause(const OMPCopyinClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPCopyinClause(const OMPCopyinClause *Cl) {
     addArg("QUAL.OMP.COPYIN");
     for (auto *E : Cl->varlists()) {
       if (!E->getType().isPODType(CGF.getContext()))
         CGF.CGM.ErrorUnsupported(E, "non-POD copyin variable");
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
       addArg(E);
     }
     emitListClause();
   }
 
-  void emitOMPIfClause(const OMPIfClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPIfClause(const OMPIfClause *Cl) {
     addArg("QUAL.OMP.IF");
     addArg(CGF.EmitScalarExpr(Cl->getCondition()));
     emitOpndClause();
   }
 
-  void emitOMPNumThreadsClause(const OMPNumThreadsClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPNumThreadsClause(
+                                    const OMPNumThreadsClause *Cl) {
     addArg("QUAL.OMP.NUM_THREADS");
     addArg(CGF.EmitScalarExpr(Cl->getNumThreads()));
     emitOpndClause();
   }
 
-  void emitOMPDefaultClause(const OMPDefaultClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
     switch (Cl->getDefaultKind()) {
     case OMPC_DEFAULT_none:
       addArg("QUAL.OMP.DEFAULT.NONE");
@@ -726,7 +771,7 @@ class OpenMPCodeOutliner {
     emitSimpleClause();
   }
 
-  void emitOMPProcBindClause(const OMPProcBindClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPProcBindClause(const OMPProcBindClause *Cl) {
     switch (Cl->getProcBindKind()) {
     case OMPC_PROC_BIND_master:
       addArg("QUAL.OMP.PROCBIND.MASTER");
@@ -743,25 +788,25 @@ class OpenMPCodeOutliner {
     emitSimpleClause();
   }
 
-  void emitOMPSafelenClause(const OMPSafelenClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPSafelenClause(const OMPSafelenClause *Cl) {
     addArg("QUAL.OMP.SAFELEN");
     addArg(CGF.EmitScalarExpr(Cl->getSafelen()));
     emitOpndClause();
   }
 
-  void emitOMPSimdlenClause(const OMPSimdlenClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPSimdlenClause(const OMPSimdlenClause *Cl) {
     addArg("QUAL.OMP.SIMDLEN");
     addArg(CGF.EmitScalarExpr(Cl->getSimdlen()));
     emitOpndClause();
   }
 
-  void emitOMPCollapseClause(const OMPCollapseClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPCollapseClause(const OMPCollapseClause *Cl) {
     addArg("QUAL.OMP.COLLAPSE");
     addArg(CGF.EmitScalarExpr(Cl->getNumForLoops()));
     emitOpndClause();
   }
 
-  void emitOMPAlignedClause(const OMPAlignedClause *Cl) {
+  void OpenMPCodeOutliner::emitOMPAlignedClause(const OMPAlignedClause *Cl) {
     addArg("QUAL.OMP.ALIGNED");
     for (auto *E : Cl->varlists())
       addArg(E);
@@ -770,68 +815,77 @@ class OpenMPCodeOutliner {
     emitListClause();
   }
 
-  void emitOMPFinalClause(const OMPFinalClause *) {}
-  void emitOMPCopyprivateClause(const OMPCopyprivateClause *) {}
-  void emitOMPNowaitClause(const OMPNowaitClause *) {}
-  void emitOMPUntiedClause(const OMPUntiedClause *) {}
-  void emitOMPMergeableClause(const OMPMergeableClause *) {}
-  void emitOMPFlushClause(const OMPFlushClause *) {}
-  void emitOMPReadClause(const OMPReadClause *) {}
-  void emitOMPWriteClause(const OMPWriteClause *) {}
-  void emitOMPUpdateClause(const OMPUpdateClause *) {}
-  void emitOMPCaptureClause(const OMPCaptureClause *) {}
-  void emitOMPSeqCstClause(const OMPSeqCstClause *) {}
-  void emitOMPDependClause(const OMPDependClause *) {}
-  void emitOMPDeviceClause(const OMPDeviceClause *) {}
-  void emitOMPThreadsClause(const OMPThreadsClause *) {}
-  void emitOMPSIMDClause(const OMPSIMDClause *) {}
-  void emitOMPNumTeamsClause(const OMPNumTeamsClause *) {}
-  void emitOMPThreadLimitClause(const OMPThreadLimitClause *) {}
-  void emitOMPPriorityClause(const OMPPriorityClause *) {}
-  void emitOMPGrainsizeClause(const OMPGrainsizeClause *) {}
-  void emitOMPNogroupClause(const OMPNogroupClause *) {}
-  void emitOMPNumTasksClause(const OMPNumTasksClause *) {}
-  void emitOMPHintClause(const OMPHintClause *) {}
-  void emitOMPDistScheduleClause(const OMPDistScheduleClause *) {}
-  void emitOMPDefaultmapClause(const OMPDefaultmapClause *) {}
-  void emitOMPToClause(const OMPToClause *) {}
-  void emitOMPFromClause(const OMPFromClause *) {}
-  void emitOMPUseDevicePtrClause(const OMPUseDevicePtrClause *) {}
-  void emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *) {}
+  void OpenMPCodeOutliner::emitOMPFinalClause(const OMPFinalClause *) {}
+  void OpenMPCodeOutliner::emitOMPCopyprivateClause(
+                                        const OMPCopyprivateClause *) {}
+  void OpenMPCodeOutliner::emitOMPNowaitClause(const OMPNowaitClause *) {}
+  void OpenMPCodeOutliner::emitOMPUntiedClause(const OMPUntiedClause *) {}
+  void OpenMPCodeOutliner::emitOMPMergeableClause(const OMPMergeableClause *) {}
+  void OpenMPCodeOutliner::emitOMPFlushClause(const OMPFlushClause *) {}
+  void OpenMPCodeOutliner::emitOMPReadClause(const OMPReadClause *) {}
+  void OpenMPCodeOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
+  void OpenMPCodeOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
+  void OpenMPCodeOutliner::emitOMPCaptureClause(const OMPCaptureClause *) {}
+  void OpenMPCodeOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
+  void OpenMPCodeOutliner::emitOMPDependClause(const OMPDependClause *) {}
+  void OpenMPCodeOutliner::emitOMPDeviceClause(const OMPDeviceClause *) {}
+  void OpenMPCodeOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
+  void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
+  void OpenMPCodeOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *) {}
+  void OpenMPCodeOutliner::emitOMPThreadLimitClause(
+                                              const OMPThreadLimitClause *) {}
+  void OpenMPCodeOutliner::emitOMPPriorityClause(const OMPPriorityClause *) {}
+  void OpenMPCodeOutliner::emitOMPGrainsizeClause(const OMPGrainsizeClause *) {}
+  void OpenMPCodeOutliner::emitOMPNogroupClause(const OMPNogroupClause *) {}
+  void OpenMPCodeOutliner::emitOMPNumTasksClause(const OMPNumTasksClause *) {}
+  void OpenMPCodeOutliner::emitOMPHintClause(const OMPHintClause *) {}
+  void OpenMPCodeOutliner::emitOMPDistScheduleClause(
+                                              const OMPDistScheduleClause *) {}
+  void OpenMPCodeOutliner::emitOMPDefaultmapClause(
+                                                const OMPDefaultmapClause *) {}
+  void OpenMPCodeOutliner::emitOMPToClause(const OMPToClause *) {}
+  void OpenMPCodeOutliner::emitOMPFromClause(const OMPFromClause *) {}
+  void OpenMPCodeOutliner::emitOMPUseDevicePtrClause(
+                                              const OMPUseDevicePtrClause *) {}
+  void OpenMPCodeOutliner::emitOMPIsDevicePtrClause(
+                                               const OMPIsDevicePtrClause *) {}
 
-public:
-  OpenMPCodeOutliner(CodeGenFunction &CGF)
-      : CGF(CGF), C(CGF.CGM.getLLVMContext()) {
+  OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
+                                         const OMPExecutableDirective &D)
+      : CGF(CGF), C(CGF.CGM.getLLVMContext()), DirectiveInst(nullptr),
+        Directive(D) {
     IntelDirective = CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive);
     IntelSimpleClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual);
     IntelListClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual_opndlist);
   }
-  ~OpenMPCodeOutliner() {
+  OpenMPCodeOutliner::~OpenMPCodeOutliner() {
+    addImplicitClauses();
     if (!End.empty()) {
       addArg(End);
       emitDirective();
       addArg("DIR.QUAL.LIST.END");
       emitDirective();
     }
+    addRefsToOuter();
   }
-  void emitOMPParallelDirective() {
+  void OpenMPCodeOutliner::emitOMPParallelDirective() {
     End = "DIR.OMP.END.PARALLEL";
     addArg("DIR.OMP.PARALLEL");
     emitDirective();
   }
-  void emitOMPParallelForDirective() {
+  void OpenMPCodeOutliner::emitOMPParallelForDirective() {
     End = "DIR.OMP.END.PARALLEL.LOOP";
     addArg("DIR.OMP.PARALLEL.LOOP");
     emitDirective();
   }
-  void emitOMPSIMDDirective() {
+  void OpenMPCodeOutliner::emitOMPSIMDDirective() {
     End = "DIR.OMP.END.SIMD";
     addArg("DIR.OMP.SIMD");
     emitDirective();
   }
-  void emitOMPAtomicDirective(OMPAtomicClause ClauseKind) {
+  void OpenMPCodeOutliner::emitOMPAtomicDirective(OMPAtomicClause ClauseKind) {
     End = "DIR.OMP.END.ATOMIC";
     addArg("DIR.OMP.ATOMIC");
     emitDirective();
@@ -864,32 +918,33 @@ public:
     addArg(Op);
     emitSimpleClause();
   }
-  void emitOMPSingleDirective() {
+  void OpenMPCodeOutliner::emitOMPSingleDirective() {
     End = "DIR.OMP.END.SINGLE";
     addArg("DIR.OMP.SINGLE");
     emitDirective();
   }
-  void emitOMPMasterDirective() {
+  void OpenMPCodeOutliner::emitOMPMasterDirective() {
     End = "DIR.OMP.END.MASTER";
     addArg("DIR.OMP.MASTER");
     emitDirective();
   }
-  void emitOMPCriticalDirective() {
+  void OpenMPCodeOutliner::emitOMPCriticalDirective() {
     End = "DIR.OMP.END.CRITICAL";
     addArg("DIR.OMP.CRITICAL");
     emitDirective();
   }
-  void emitOMPOrderedDirective() {
+  void OpenMPCodeOutliner::emitOMPOrderedDirective() {
     End = "DIR.OMP.END.ORDERED";
     addArg("DIR.OMP.ORDERED");
     emitDirective();
   }
-  void emitOMPTargetDirective() {
+  void OpenMPCodeOutliner::emitOMPTargetDirective() {
     End = "DIR.OMP.END.TARGET";
     addArg("DIR.OMP.TARGET");
     emitDirective();
   }
-  OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses) {
+  OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
+                                         ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
       switch (C->getClauseKind()) {
 #define OPENMP_CLAUSE(Name, Class)                                             \
@@ -907,19 +962,9 @@ public:
     emitDirective();
     return *this;
   }
-};
-
-/// Base class for handling code generation inside OpenMP regions.
-class CGOpenMPRegionInfo : public CodeGenFunction::CGCapturedStmtInfo {
-public:
-  CGOpenMPRegionInfo(CodeGenFunction::CGCapturedStmtInfo *OldCSI,
-                     const OMPExecutableDirective &D)
-      : CGCapturedStmtInfo(*cast<CapturedStmt>(D.getAssociatedStmt()),
-                           CR_OpenMP),
-        OldCSI(OldCSI), D(D) {}
 
   /// \brief Emit the captured statement body.
-  void EmitBody(CodeGenFunction &CGF, const Stmt *S) override {
+  void CGOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF, const Stmt *S) {
     if (!CGF.HaveInsertPoint())
       return;
     CodeGenFunction::OMPPrivateScope PrivScope(CGF);
@@ -969,12 +1014,12 @@ public:
   }
 
   // \brief Retrieve the value of the context parameter.
-  llvm::Value *getContextValue() const override {
+  llvm::Value *CGOpenMPRegionInfo::getContextValue() const {
     if (OldCSI)
       return OldCSI->getContextValue();
     llvm_unreachable("No context value for inlined OpenMP region");
   }
-  void setContextValue(llvm::Value *V) override {
+  void CGOpenMPRegionInfo::setContextValue(llvm::Value *V) {
     if (OldCSI) {
       OldCSI->setContextValue(V);
       return;
@@ -982,55 +1027,25 @@ public:
     llvm_unreachable("No context value for inlined OpenMP region");
   }
   /// \brief Lookup the captured field decl for a variable.
-  const FieldDecl *lookup(const VarDecl *VD) const override {
+  const FieldDecl *CGOpenMPRegionInfo::lookup(
+                                   const VarDecl *VD) const {
     if (OldCSI)
       return OldCSI->lookup(VD);
     // If there is no outer outlined region,no need to lookup in a list of
     // captured variables, we can use the original one.
     return nullptr;
   }
-  FieldDecl *getThisFieldDecl() const override {
+  FieldDecl *CGOpenMPRegionInfo::getThisFieldDecl() const {
     if (OldCSI)
       return OldCSI->getThisFieldDecl();
     return nullptr;
   }
 
-  CodeGenFunction::CGCapturedStmtInfo *getOldCSI() const { return OldCSI; }
-
-private:
-  /// \brief CodeGen info about outer OpenMP region.
-  CodeGenFunction::CGCapturedStmtInfo *OldCSI;
-  const OMPExecutableDirective &D;
-};
-
-/// \brief RAII for emitting code of OpenMP constructs.
-class InlinedOpenMPRegionRAII {
-  CodeGenFunction &CGF;
-
-public:
-  /// \brief Constructs region for combined constructs.
-  /// \param CodeGen Code generation sequence for combined directives. Includes
-  /// a list of functions used for code generation of implicitly inlined
-  /// regions.
-  InlinedOpenMPRegionRAII(CodeGenFunction &CGF, const OMPExecutableDirective &D)
-      : CGF(CGF) {
-    // Start emission for the construct.
-    CGF.CapturedStmtInfo = new CGOpenMPRegionInfo(CGF.CapturedStmtInfo, D);
-  }
-  ~InlinedOpenMPRegionRAII() {
-    // Restore original CapturedStmtInfo only if we're done with code emission.
-    auto *OldCSI =
-        static_cast<CGOpenMPRegionInfo *>(CGF.CapturedStmtInfo)->getOldCSI();
-    delete CGF.CapturedStmtInfo;
-    CGF.CapturedStmtInfo = OldCSI;
-  }
-};
-
 } // namespace
 
 void CodeGenFunction::EmitIntelOpenMPDirective(
     const OMPExecutableDirective &S) {
-  OpenMPCodeOutliner Outliner(*this);
+  OpenMPCodeOutliner Outliner(*this, S);
   switch (S.getDirectiveKind()) {
   case OMPD_parallel:
     Outliner.emitOMPParallelDirective();
@@ -1107,7 +1122,7 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   }
   Outliner << S.clauses();
   if (S.hasAssociatedStmt()) {
-    InlinedOpenMPRegionRAII Region(*this, S);
+    InlinedOpenMPRegionRAII Region(*this, Outliner, S);
     CapturedStmtInfo->EmitBody(*this, S.getAssociatedStmt());
   }
 }

@@ -69,7 +69,7 @@ namespace clang {
     TST_typeofExpr,
     TST_decltype,         // C++11 decltype
     TST_underlyingType,   // __underlying_type for C++11
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
     TST_bases,            // __bases for C++11
     TST_directBases,      // __direct_bases for C++11

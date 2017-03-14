@@ -6898,7 +6898,8 @@ public:
                           QualType ArgFunctionType,
                           FunctionDecl *&Specialization,
                           sema::TemplateDeductionInfo &Info,
-                          bool InOverloadResolution = false);
+                          bool InOverloadResolution = false, // INTEL
+                          bool IgnoreExceptionSpecDifferences = false); // INTEL
 
   TemplateDeductionResult
   DeduceTemplateArguments(FunctionTemplateDecl *FunctionTemplate,
@@ -9041,7 +9042,7 @@ public:
     VariadicDoesNotApply
   };
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // cq381613: The declaration is pulled down and additional argument was added.
   //
   // DefaultArgumentPromotion (C99 6.5.2.2p6). Used for function calls that

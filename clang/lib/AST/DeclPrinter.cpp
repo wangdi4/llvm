@@ -105,7 +105,7 @@ namespace {
     void prettyPrintAttributes(Decl *D);
     void prettyPrintPragmas(Decl *D);
     void printDeclType(QualType T, StringRef DeclName, bool Pack = false);
-#ifdef  INTEL_CUSTOMIZATION
+#if  INTEL_CUSTOMIZATION
     void VisitPragmaDecl(PragmaDecl *D);
 #endif  // INTEL_CUSTOMIZATION
   };

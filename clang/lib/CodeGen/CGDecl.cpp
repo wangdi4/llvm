@@ -35,6 +35,9 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
+#if INTEL_CUSTOMIZATION
+#include "intel/CGIntelStmtOpenMP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace CodeGen;
@@ -164,6 +167,10 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
 /// EmitVarDecl - This method handles emission of any variable declaration
 /// inside a function, including static vars etc.
 void CodeGenFunction::EmitVarDecl(const VarDecl &D) {
+#if INTEL_CUSTOMIZATION
+  if (CapturedStmtInfo)
+    CapturedStmtInfo->recordVariableDefinition(&D);
+#endif  // INTEL_CUSTOMIZATION
   if (D.isStaticLocal()) {
     llvm::GlobalValue::LinkageTypes Linkage =
         CGM.getLLVMLinkageVarDefinition(&D, /*isConstant=*/false);

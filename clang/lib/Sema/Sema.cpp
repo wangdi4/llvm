@@ -289,9 +289,6 @@ void Sema::Initialize() {
           /*IsScopedUsingClassTag=*/true, /*IsFixed=*/true);
       auto BestType = Context.getSizeType();
       AlignValTTy->setIntegerType(BestType);
-      AlignValTTy->completeDefinition(BestType, BestType,
-                                      /*NumPositiveBits=*/0,
-                                      /*NumNegativeBits=*/0);
       StdNamespace->addDecl(AlignValTTy);
     }
 

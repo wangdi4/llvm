@@ -81,9 +81,15 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   EmitStopPoint(S);
 
 #if INTEL_SPECIFIC_OPENMP
-  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
-    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP) {
+    if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
+      return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
+    else if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
+      return EmitIntelOMPParallelForDirective(
+                                cast<OMPParallelForDirective>(*S));
+    else if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       return EmitIntelOpenMPDirective(*Dir);
+  }
 #endif // INTEL_SPECIFIC_OPENMP
 
   switch (S->getStmtClass()) {
