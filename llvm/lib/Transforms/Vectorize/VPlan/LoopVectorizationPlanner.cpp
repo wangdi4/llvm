@@ -103,6 +103,12 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
   DenseMap<Value *, VPConditionBitRecipeBase *> BranchCondMap;
 
   auto isInstructionToIgnore = [&](Instruction *I) -> bool {
+    // DeadInstructions are not taken into account at this point. IV update and
+    // loop latch condition need to be part of HCFG to constitute a
+    // UniformConditionBitRecipe. If we treat them as dead instructions, we
+    // would create a LiveInConditionBitRecipe for the loop latch condition,
+    // which is not correct.
+    // TODO: Comment out DeadInstruction check?
     return DeadInstructions.count(I) || isa<BranchInst>(I) ||
            isa<DbgInfoIntrinsic>(I);
   };
@@ -115,6 +121,8 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
            any_of(I->users(), isBranchInst);
   };
 
+  // CreateRecipesForVPBB must be invoked in RPO. UniformConditionBitRecipe
+  // creation assumes that all predecessors have been visited.
   auto createRecipesForVPBB = [&](BasicBlock *BB, VPBasicBlock *VPBB) {
     BasicBlock::iterator I = BB->begin();
     BasicBlock::iterator E = BB->end();
@@ -165,8 +173,6 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
     }
   };
 
-  // TODO: If we detect backedges, we should be able to use RPOT without
-  // BB2VPBB/VPBB2BB maps
   auto createOrGetVPBB = [&](BasicBlock *BB, VPRegionBlock *TopRegion,
                              unsigned &TopRegionSize) -> VPBasicBlock * {
     auto BlockIt = BB2VPBB.find(BB);
@@ -175,7 +181,6 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
     if (BlockIt == BB2VPBB.end()) {
       // New VPBB
       VPBB = PlanUtils.createBasicBlock();
-      createRecipesForVPBB(BB, VPBB);
       BB2VPBB[BB] = VPBB;
       VPBB2BB[VPBB] = BB;
       PlanUtils.setBlockParent(VPBB, TopRegion);
@@ -196,19 +201,22 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
   // TODO: Remove LI
   LoopBlocksDFS DFS(TheLoop);
   DFS.perform(LI);
-  // ReversePostOrderTraversal<BasicBlock *> RPOT(TheLoop->getLoopPreheader());
 
   for (BasicBlock *BB : make_range(DFS.beginRPO(), DFS.endRPO())) {
-    // for (BasicBlock *BB : make_range(RPOT.begin(), RPOT.end())) {
+
+    DEBUG(dbgs() << "Building VPBasicBlock for " << BB->getName() << "\n");
 
     // Create new VPBasicBlock and its recipes
     VPBasicBlock *VPBB = createOrGetVPBB(BB, TopRegion, TopRegionSize);
+    createRecipesForVPBB(BB, VPBB);
 
     // Add successors and predecessors
     TerminatorInst *TI = BB->getTerminator();
     assert(TI && "Terminator expected");
     unsigned NumSuccs = TI->getNumSuccessors();
 
+    // Note: we are not invoking createRecipesForVPBB for successor blocks at
+    // this point because we would be breaking the RPO traversal
     if (NumSuccs == 1) {
       VPBasicBlock *SuccVPBB =
           createOrGetVPBB(TI->getSuccessor(0), TopRegion, TopRegionSize);
@@ -243,15 +251,23 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
     }
   }
 
-  // Outermost loop preheader is not successor of any block inside the loop. It
-  // needs explicit treatment. Add outermost loop preheader to CFG
-  assert(
-      (TheLoop->getLoopPreheader()->getTerminator()->getNumSuccessors() == 1) &&
-      "Unexpected loop preheader");
-  VPBlockBase *Preheader =
-      createOrGetVPBB(TheLoop->getLoopPreheader(), TopRegion, TopRegionSize);
-  VPBlockBase *Header = BB2VPBB[TheLoop->getHeader()];
-  PlanUtils.setSuccessor(Preheader, Header);
+  // Create recipes for loop exit blocks.
+  SmallVector<BasicBlock *, 2> LoopExits;
+  TheLoop->getUniqueExitBlocks(LoopExits);
+  for (BasicBlock *BB : LoopExits)
+    createRecipesForVPBB(BB, BB2VPBB[BB]);
+
+  // Add outermost loop preheader to CFG. It needs explicit treatment because
+  // it's not a successor of any block inside the loop.
+  BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
+  assert((PreheaderBB->getTerminator()->getNumSuccessors() == 1) &&
+         "Unexpected loop preheader");
+  VPBasicBlock *PreheaderVPBB =
+      createOrGetVPBB(PreheaderBB, TopRegion, TopRegionSize);
+  createRecipesForVPBB(PreheaderBB, PreheaderVPBB);
+
+  VPBlockBase *HeaderVPBB = BB2VPBB[TheLoop->getHeader()];
+  PlanUtils.setSuccessor(PreheaderVPBB, HeaderVPBB);
 
   // Top region setup
 
@@ -259,7 +275,7 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
   VPBlockBase *RegionEntry = PlanUtils.createBasicBlock();
   ++TopRegionSize;
   PlanUtils.setBlockParent(RegionEntry, TopRegion);
-  PlanUtils.setSuccessor(RegionEntry, Preheader);
+  PlanUtils.setSuccessor(RegionEntry, PreheaderVPBB);
 
   // Create a fake block as top region's exit
   VPBlockBase *RegionExit = PlanUtils.createBasicBlock();
