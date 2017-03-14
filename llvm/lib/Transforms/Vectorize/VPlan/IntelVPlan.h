@@ -14,6 +14,18 @@ namespace vpo {
 class VPLoop;
 class VPLoopInfo;
 
+// FIXME: Place into utils
+// Helper function generating a unique name Name+UID
+static std::string getUniqueName(const std::string &Name) {
+  static unsigned int uid = 0;
+  char buf[8];
+  snprintf(buf, 8, "%u", uid);
+  uid++;
+  return Name + buf;
+}
+
+
+
 class VPOneByOneIRRecipeBase : public VPRecipeBase {
   friend class VPlanUtilsLoopVectorizer;
 
@@ -128,6 +140,10 @@ public:
 /// A pure virtual class that provides the getScalarCondition() interface
 /// function for accessing the scalar condition value.
 class VPConditionBitRecipeWithScalar : public VPConditionBitRecipeBase {
+protected:
+	/// Recipe name.
+  std::string Name;
+
 public:
   VPConditionBitRecipeWithScalar(const unsigned char SC)
       : VPConditionBitRecipeBase(SC) { }
@@ -149,6 +165,7 @@ public:
   VPUniformConditionBitRecipe(Value *Cond)
     : VPConditionBitRecipeWithScalar(VPUniformBranchSC) {
     ScConditionBit = Cond;
+    Name = getUniqueName("UniformCBR");
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -167,7 +184,9 @@ public:
 
   /// Print the recipe.
   void print(raw_ostream &O) const override {
-    O << "Uniform Branch condition. Output: ";
+		O << Name;
+		
+    O << " Output: ";
     if (ConditionBit) {
       O << *ConditionBit;
     } else {
@@ -182,7 +201,7 @@ public:
     }
   }
 
-  StringRef getName() const { return "Cond Bit Recipe"; };
+  StringRef getName() const { return Name; };
 
 private:
   Value *ScConditionBit;
@@ -195,6 +214,7 @@ public:
   VPLiveInConditionBitRecipe(Value *Cond)
     : VPConditionBitRecipeWithScalar(VPLiveInBranchSC) {
     ConditionBit = Cond;
+		Name = getUniqueName("LiveInCBR");
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -214,10 +234,17 @@ public:
 
   /// Print the recipe.
   void print(raw_ostream &O) const override {
-    O << "Live-in Branch condition: " << ConditionBit;
+    O << Name;
+
+		O << " Output: ";
+    if (ConditionBit) {
+      O << *ConditionBit;
+    } else {
+      O << "NULL";
+    }
   }
 
-  StringRef getName() const { return "Live-in cond Bit Recipe"; };
+  StringRef getName() const { return Name; };
 };
 
 /// The IntelVPlanUtils class provides interfaces for the construction and
@@ -270,7 +297,6 @@ public:
               && Loop->isLoopLatch(FromBlock)
               && (ToBlock == Loop->getHeader()));
   }
-
 
   /// Create a new, empty VPLoop, with no blocks.
   VPLoopRegion *createLoop(VPLoop *VPL) {

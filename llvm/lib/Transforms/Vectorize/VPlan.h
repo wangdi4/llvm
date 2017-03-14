@@ -194,6 +194,11 @@ protected:
   /// Predicate's name.
   std::string Name;
 
+  #ifdef INTEL_CUSTOMIZATION
+  /// The predicate inputs - for debugging
+  std::string Inputs;
+  #endif
+
 public:
   /// Get the vectorized value. Must be used after vectorizing the concrete
   /// recipe.
@@ -211,6 +216,7 @@ public:
 
   // Get predicate's name.
   std::string getName() const { return Name; }
+
   // Set predicate's name.
   void setName(std::string Name) { this->Name = Name; }
 };
@@ -297,6 +303,8 @@ protected:
   /// The actual condition value.
   Value *ConditionValue;
 
+	/// Name
+	std::string Name;
 public:
   /// Construct a VPVectorizeBooleanRecipe
  VPVectorizeBooleanRecipe(const unsigned char SC, Value *CV)
@@ -310,19 +318,16 @@ public:
   /// Getter 
   Value *getConditionValue(void) { return ConditionValue; }
 
-	void vectorize(VPTransformState &State) override;
-	
-	/// Printer
-  void print(raw_ostream &OS) const override {
-    OS << "Vectorize Boolean Recipe: ";
-		if (ConditionValue) {
-			OS << *ConditionValue;
-		} else {
-			OS << "NULL";
-		}
-  }
+  void vectorize(VPTransformState &State) override;
 
-  StringRef getName() const { return "Vectorize Boolean Recipe"; };
+  // Get name.
+  std::string getName() const { return Name; }
+
+  // Set name.
+  void setName(std::string Name) { this->Name = Name; }
+
+  /// Printer
+  void print(raw_ostream &OS) const override;
 };
 #endif
 
@@ -336,19 +341,19 @@ class VPEdgePredicateRecipeBase : public VPPredicateRecipeBase {
 protected:
   #ifdef INTEL_CUSTOMIZATION
   /// A pointer to the recipe closest to the condition value
-	VPVectorizeBooleanRecipe *ConditionRecipe;
+  VPVectorizeBooleanRecipe *ConditionRecipe;
   #else
   /// A pointer to the source-IR condition value.
   Value *ConditionValue;
   #endif
-  
+
   /// A pointer to the predecessor block's predicate.
   VPPredicateRecipeBase* PredecessorPredicate;
 
   /// Construct a VPEdgePredicateRecipeBase.
   #ifdef INTEL_CUSTOMIZATION
   VPEdgePredicateRecipeBase(const unsigned char SC,
-		VPVectorizeBooleanRecipe* CR,
+    VPVectorizeBooleanRecipe* CR,
     VPPredicateRecipeBase* PredecessorPredicate)
     : VPPredicateRecipeBase(SC), ConditionRecipe(CR),
     PredecessorPredicate(PredecessorPredicate){}
@@ -407,12 +412,12 @@ public:
     VPPredicateRecipeBase* PredecessorPredicate)
     : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, 
       BR, PredecessorPredicate) {}
-	#else
+  #else
   VPIfFalsePredicateRecipe(Value* ConditionValue,
     VPPredicateRecipeBase* PredecessorPredicate)
     : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, 
       ConditionValue, PredecessorPredicate) {}
-	#endif
+  #endif
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {
@@ -899,10 +904,10 @@ public:
     Recipes.insert(Before->getIterator(), Recipe);
   }
 
-	/// Remove the recipe from VPBasicBlock's recipes.
-	void removeRecipe(VPRecipeBase *Recipe) {
-		Recipes.erase(Recipe);
-	}
+  /// Remove the recipe from VPBasicBlock's recipes.
+  void removeRecipe(VPRecipeBase *Recipe) {
+    Recipes.erase(Recipe);
+  }
 
   /// The method which generates all new IR instructions that correspond to
   /// this VPBasicBlock in the vectorized version, thereby "executing" the

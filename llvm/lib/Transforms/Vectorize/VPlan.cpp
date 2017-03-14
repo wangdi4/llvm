@@ -422,7 +422,7 @@ void VPAllOnesPredicateRecipe::vectorize(VPTransformState &State) {
 }
 
 void VPAllOnesPredicateRecipe::print(raw_ostream &O) const {
-    O << "All Ones Predicate Recipe";
+    O << Name;
 }
 
 void VPBlockPredicateRecipe::vectorize(VPTransformState &State) {
@@ -430,7 +430,16 @@ void VPBlockPredicateRecipe::vectorize(VPTransformState &State) {
 }
 
 void VPBlockPredicateRecipe::print(raw_ostream &O) const {
-    O << "Block Predicate Recipe";
+  O << Name;
+  // Predicate Inputs
+  if (! getIncomingPredicates().empty()) {
+    O << " <- {";
+    for (VPPredicateRecipeBase *inputPredicate
+           : getIncomingPredicates()) {
+      O << inputPredicate->getName() << " , ";
+    }
+  O << "}";
+  }
 }
 
 void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
@@ -438,7 +447,21 @@ void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
 }
 
 void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
-    O << "If True Predicate Recipe";
+  O << Name;
+  O << " {";
+  if (PredecessorPredicate) {
+    O << PredecessorPredicate->getName();
+  } else {
+    O << "-";
+  }
+  O << "}";
+
+  O << ", Cond: ";
+  if (ConditionRecipe) {
+    O << ConditionRecipe->getName();
+  } else {
+    O << "-";
+  }
 }
 
 void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
@@ -446,10 +469,32 @@ void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
 }
 
 void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {
-    O << "If False Predicate Recipe";
+  O << Name;
+  O << " {";
+  if (PredecessorPredicate) {
+    O << PredecessorPredicate->getName();
+  } else {
+    O << "-";
+  }
+  O << "}";
+
+  O << ", Cond: ";
+  if (ConditionRecipe) {
+    O << ConditionRecipe->getName();
+  } else {
+    O << "-";
+  }
 }
 
 void VPVectorizeBooleanRecipe::vectorize(VPTransformState &State) {
 
 }
 
+void VPVectorizeBooleanRecipe::print(raw_ostream &O) const {
+  O << Name << " ";
+  if (ConditionValue) {
+    O << *ConditionValue;
+  } else {
+    O << "-";
+  }
+}

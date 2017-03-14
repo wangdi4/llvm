@@ -55,50 +55,37 @@ using namespace vpo;
 
 static cl::opt<bool>
 VPlanPredicatorReport("vplan-predicator-report", cl::init(false),
-											cl::Hidden,
-											cl::desc("VPlan Predicator report for testing"));
+                      cl::Hidden,
+                      cl::desc("VPlan Predicator report for testing"));
 static cl::opt<bool>
 DumpVPlanDot("dump-vplan-dot", cl::init(false), cl::Hidden,
-						 cl::desc("Dump the vplan dot file"));
+             cl::desc("Dump the vplan dot file"));
 
 // Returns the first recipe in BB or NULL if empty.
 static VPRecipeBase *getFirstRecipeSafe(VPBasicBlock *BB) {
-	VPRecipeBase *FirstRecipe = nullptr;
-	if (! BB->getRecipes().empty()) {
-		FirstRecipe = &BB->front();
-	}
-	return FirstRecipe;
+  VPRecipeBase *FirstRecipe = nullptr;
+  if (! BB->getRecipes().empty()) {
+    FirstRecipe = &BB->front();
+  }
+  return FirstRecipe;
 }
 
 // Emit the Predicate recipe to BLOCK if it is a BB
 static void emitRecipeIfBB(VPPredicateRecipeBase *Predicate,
-													 VPBlockBase *Block) {
-	if (VPBasicBlock *BB = dyn_cast<VPBasicBlock>(Block)) {
-		BB->addRecipe(Predicate, getFirstRecipeSafe(BB));
-	}
+                           VPBlockBase *Block) {
+  if (VPBasicBlock *BB = dyn_cast<VPBasicBlock>(Block)) {
+    BB->addRecipe(Predicate, getFirstRecipeSafe(BB));
+  }
 }
 
 // Get the PredBlock's successors, skipping the Back-Edges
 void VPlanPredicator::getSuccessorsNoBE(VPBlockBase *PredBlock,
                                         SmallVector<VPBlockBase *, 2> &Succs) {
-	for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-		if (! IntelVPlanUtils::isBackEdge(PredBlock, SuccBlock)) {
-			Succs.push_back(SuccBlock);
-		}
-	}
-}
-
-// Helper function generating a unique name for a predicate
-static std::string genPredicateName(const std::string &Name,
-																		VPBlockBase *Block) {
-	VPBlockBase *ParentBlock = Block->getParent();
-	std::string ParentBlockName;
-	if (ParentBlock) {
-		ParentBlockName = ParentBlock->getName();
-	} else {
-		ParentBlockName = "VPlan";
-	}
-	return "[" + ParentBlockName + "." + Block->getName() + "]" + Name;
+  for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
+    if (! IntelVPlanUtils::isBackEdge(PredBlock, SuccBlock)) {
+      Succs.push_back(SuccBlock);
+    }
+  }
 }
 
 // FIXME: This should change once Matt introduces the recipes
@@ -109,30 +96,31 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
   // When we have LiveIn/Uniform CBR, we remove it
   // and replace it with a VPVectorizeBoolean
   if (VPConditionBitRecipeWithScalar *CBRWS
-			= dyn_cast<VPConditionBitRecipeWithScalar>(CBR)) {
-		VPVectorizeBooleanRecipe *VBR = nullptr;
-		// If we have not generated the CBRWS recipe, generate it.
+      = dyn_cast<VPConditionBitRecipeWithScalar>(CBR)) {
+    VPVectorizeBooleanRecipe *VBR = nullptr;
+    // If we have not generated the CBRWS recipe, generate it.
     auto it = CBRtoVBRMap.find(CBRWS);
     if (it == CBRtoVBRMap.end()) {
-			Value *CI = CBRWS->getScalarCondition();
-			assert(CI);
-			VBR = IntelVPlanUtils::createVPVectorizeBooleanRecipe(CI);
+      Value *CI = CBRWS->getScalarCondition();
+      assert(CI);
+      VBR = IntelVPlanUtils::createVPVectorizeBooleanRecipe(CI);
+      VBR->setName(getUniqueName("VecBooleanRecipe"));
       // Remember that we have already generated this VBR for CBR
       CBRtoVBRMap[CBRWS] = VBR;
-			VPBasicBlock *BB = CBRWS->getParent();
-			BB->addRecipe(VBR, CBRWS);
-		}
-		// Reuse the one we have already generated.
-		else {
-			VBR = it->second;
-		}
+      VPBasicBlock *BB = CBRWS->getParent();
+      BB->addRecipe(VBR, CBRWS);
+    }
+    // Reuse the one we have already generated.
+    else {
+      VBR = it->second;
+    }
     return VBR;
-	}
-	// FIXME: 
-	else {
+  }
+  // FIXME: 
+  else {
     assert(0 && "FIXME");
-		return nullptr;
-	}
+    return nullptr;
+  }
 }
 
 // Return/Generate the incoming predicate.
@@ -141,221 +129,220 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
 VPPredicateRecipeBase *
 VPlanPredicator::genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
                                            VPBlockBase *PredBlock) {
-	VPPredicateRecipeBase *IncomingPredicate = nullptr;
+  VPPredicateRecipeBase *IncomingPredicate = nullptr;
 
-	// Get the predecessor's successors skipping the Back-Edges
-	SmallVector<VPBlockBase *, 2> PredSuccessorsNoBE;
-	getSuccessorsNoBE(PredBlock, PredSuccessorsNoBE);
+  // Get the predecessor's successors skipping the Back-Edges
+  SmallVector<VPBlockBase *, 2> PredSuccessorsNoBE;
+  getSuccessorsNoBE(PredBlock, PredSuccessorsNoBE);
 
-	// 1. Generate Edge Predicates if needed.
-	//    If there is an unconditional branch to the currBB, then we don't
-	//    create edge predicates. We use the predecessor's block predicate
-	//    instead.
-	if (PredSuccessorsNoBE.size() == 1) {
-		IncomingPredicate = PredBlock->getPredicateRecipe();
-	}
-	// If the predecessor block contains a condition
-	else if (PredSuccessorsNoBE.size() == 2) {
-		VPBasicBlock *PredBB = dyn_cast<VPBasicBlock>(PredBlock);
-		assert(PredBB && "Only BBs can have more than one successsors");
+  // 1. Generate Edge Predicates if needed.
+  //    If there is an unconditional branch to the currBB, then we don't
+  //    create edge predicates. We use the predecessor's block predicate
+  //    instead.
+  if (PredSuccessorsNoBE.size() == 1) {
+    IncomingPredicate = PredBlock->getPredicateRecipe();
+  }
+  // If the predecessor block contains a condition
+  else if (PredSuccessorsNoBE.size() == 2) {
+    VPBasicBlock *PredBB = dyn_cast<VPBasicBlock>(PredBlock);
+    assert(PredBB && "Only BBs can have more than one successsors");
     VPConditionBitRecipeBase *CBR = PredBB->getConditionBitRecipe();
     VPVectorizeBooleanRecipe *VBR = getConditionRecipe(CBR);
     assert(VBR);
-		// currBB is the True successor of PredBB
-		if (PredBlock->getSuccessors()[0] == CurrBlock) {
-			// FIXME: We should be using the creation utils instead
-			VPIfTruePredicateRecipe *IfTrueRecipe
-				= new VPIfTruePredicateRecipe(VBR, PredBB->getPredicateRecipe());
-			IfTrueRecipe->setName(genPredicateName("IfTrue", PredBB));
-			emitRecipeIfBB(IfTrueRecipe, CurrBlock);
-			IncomingPredicate = IfTrueRecipe;
-		}
+    // currBB is the True successor of PredBB
+    if (PredBlock->getSuccessors()[0] == CurrBlock) {
+      // FIXME: We should be using the creation utils instead
+      VPIfTruePredicateRecipe *IfTrueRecipe
+        = new VPIfTruePredicateRecipe(VBR, PredBB->getPredicateRecipe());
+      IfTrueRecipe->setName(getUniqueName("IfTrue"));
+      emitRecipeIfBB(IfTrueRecipe, CurrBlock);
+      IncomingPredicate = IfTrueRecipe;
+    }
 
-		// currBB is the False successor of PredBB
-		if (PredBlock->getSuccessors()[1] == CurrBlock) {
-			// FIXME: We should be using the creation utils instead
-			VPIfFalsePredicateRecipe *IfFalseRecipe
-				= new VPIfFalsePredicateRecipe(VBR, PredBB->getPredicateRecipe());
-			IfFalseRecipe->setName(genPredicateName("IfFalse", PredBB));
-			emitRecipeIfBB(IfFalseRecipe, CurrBlock);
-			IncomingPredicate = IfFalseRecipe;
-		}
-	} else {
-		assert(0 && "Unreachable: Inconsistent predecessors / successors");
-	}
-	return IncomingPredicate;
+    // currBB is the False successor of PredBB
+    if (PredBlock->getSuccessors()[1] == CurrBlock) {
+      // FIXME: We should be using the creation utils instead
+      VPIfFalsePredicateRecipe *IfFalseRecipe
+        = new VPIfFalsePredicateRecipe(VBR, PredBB->getPredicateRecipe());
+      IfFalseRecipe->setName(getUniqueName("IfFalse"));
+      emitRecipeIfBB(IfFalseRecipe, CurrBlock);
+      IncomingPredicate = IfFalseRecipe;
+    }
+  } else {
+    assert(0 && "Unreachable: Inconsistent predecessors / successors");
+  }
+  return IncomingPredicate;
 }
 
 // Generate and attach an empty Block Predicate onto CurrBlock
 void VPlanPredicator::genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock) {
-	// Create the BP
-	VPBlockPredicateRecipe *blockPredicate = new VPBlockPredicateRecipe();
-	blockPredicate->setName(genPredicateName("BP", CurrBlock));
-	emitRecipeIfBB(blockPredicate, CurrBlock);
-	CurrBlock->setPredicateRecipe(blockPredicate);
+  // Create the BP
+  VPBlockPredicateRecipe *blockPredicate = new VPBlockPredicateRecipe();
+  blockPredicate->setName(getUniqueName("BlockPred"));
+  emitRecipeIfBB(blockPredicate, CurrBlock);
+  CurrBlock->setPredicateRecipe(blockPredicate);
 }
 
 // Generate all predicates needed for currBB
-void VPlanPredicator::propagateInputPredicates(VPBlockBase *CurrBlock,
-                                               VPRegionBlock *Region) {
-	// Skip entry blocks
-	if (CurrBlock == Region->getEntry()) {
-		return;
-	}
+void VPlanPredicator::generateEdgePredicates(VPBlockBase *CurrBlock,
+                                             VPRegionBlock *Region) {
+  // Skip entry blocks
+  if (CurrBlock == Region->getEntry()) {
+    return;
+  }
 
-	// For each input block, get the predicate and append it to BP
-	for (VPBlockBase *PredBlock : CurrBlock->getPredecessors()) {
-		// Skip back-edges
-		if (IntelVPlanUtils::isBackEdge(PredBlock, CurrBlock)) {
-			continue;
-		}
+  // For each input block, get the predicate and append it to BP
+  for (VPBlockBase *PredBlock : CurrBlock->getPredecessors()) {
+    // Skip back-edges
+    if (IntelVPlanUtils::isBackEdge(PredBlock, CurrBlock)) {
+      continue;
+    }
 
-		VPPredicateRecipeBase *IncomingPredicate
-			= genOrUseIncomingPredicate(CurrBlock, PredBlock);
+    VPPredicateRecipeBase *IncomingPredicate
+      = genOrUseIncomingPredicate(CurrBlock, PredBlock);
 
-		// Create a block predicate and append the inputs to it
-		VPBlockPredicateRecipe *blockPredicate
-			= dyn_cast<VPBlockPredicateRecipe>(CurrBlock->getPredicateRecipe());
-		assert(blockPredicate);
-		blockPredicate->appendIncomingPredicate(IncomingPredicate);
-	}
-}
-
-// Return the predicate's name. If it is a BP, then expand its inputs too.
-static std::string getExpandedName(VPPredicateRecipeBase *predicate) {
-	std::string outString;
-	std::stringstream ss(outString);
-
-	ss << predicate->getName();
-	if (VPBlockPredicateRecipe* blockPredicate
-			= dyn_cast<VPBlockPredicateRecipe>(predicate)) {
-		for (VPPredicateRecipeBase *incomingPredicate
-					 : blockPredicate->getIncomingPredicates()) {
-			ss << "\n";
-			ss << "  " << incomingPredicate->getName()
-				 << "->" << predicate->getName();
-		}
-	}
-	return ss.str();
-}
-
-// Helper for genLitReport()
-static void dumpBlockPredicate(VPBlockBase *Block) {
-		VPPredicateRecipeBase *Predicate = Block->getPredicateRecipe();
-		outs() << Block->getName()
-					 << ": " << getExpandedName(Predicate) << "\n";
+    // Create a block predicate and append the inputs to it
+    VPBlockPredicateRecipe *blockPredicate
+      = dyn_cast<VPBlockPredicateRecipe>(CurrBlock->getPredicateRecipe());
+    assert(blockPredicate);
+    blockPredicate->appendIncomingPredicate(IncomingPredicate);
+  }
 }
 
 // Dump predicates for LIT testing.
 void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
-	if (! VPlanPredicatorReport) {
-		return;
-	}
-
-	dumpBlockPredicate(Region);
-	VPBlockBase *EntryBlock = Region->getEntry();
-	for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
-				 ite = df_iterator<VPBlockBase *>::end(EntryBlock);
-			 it != ite; ++it) {
-		dumpBlockPredicate(*it);
-	}
-	outs() << "\n";
+  if (! VPlanPredicatorReport) {
+    return;
+  }
+  raw_ostream &OS = outs();
+  OS << Region->getName() << ":\n";
+  VPBlockBase *EntryBlock = Region->getEntry();
+  for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
+         ite = df_iterator<VPBlockBase *>::end(EntryBlock);
+       it != ite; ++it) {
+    VPBlockBase *Block = *it;
+    // If it is a BB, print all predicate recipes within it.
+    if (const VPBasicBlock *BasicBlock = dyn_cast<VPBasicBlock>(Block)) {
+      OS << "  " << BasicBlock->getName() << ":\n";
+      for (const VPRecipeBase &Recipe : BasicBlock->getRecipes()) {
+        if (const VPPredicateRecipeBase *Predicate = dyn_cast<VPPredicateRecipeBase>(&Recipe)) {
+          OS << "    ";
+          Predicate->print(OS);
+          OS << "\n";
+        }
+      }
+    }
+    // If it is a region, then print the predicate recipe attached to it.
+    else if (const VPRegionBlock *Region = dyn_cast<VPRegionBlock>(Block)) {
+      OS << "  " << Region->getName() << ":\n";
+      VPPredicateRecipeBase *Predicate = Region->getPredicateRecipe();
+      OS << "    ";
+      Predicate->print(OS);
+      OS << "\n";
+    }
+    else {
+      llvm_unreachable("Unsupported block type");
+    }
+  }
+  outs() << "\n";
 }
 
 // Generate all predicates within Region. We stay at the same level in
 // the HCFG and do not attempt to predicate the internals of other regions.
 void VPlanPredicator::predicateRegion(VPRegionBlock *Region) {
-	VPPredicateRecipeBase *RegionRecipe = Region->getPredicateRecipe();
-	assert(RegionRecipe && "Must have been assigned an input predicate");
-	VPBlockBase *EntryBlock = dyn_cast<VPBasicBlock>(Region->getEntry());
+  VPPredicateRecipeBase *RegionRecipe = Region->getPredicateRecipe();
+  assert(RegionRecipe && "Must have been assigned an input predicate");
+  VPBlockBase *EntryBlock = dyn_cast<VPBasicBlock>(Region->getEntry());
 
-	// 1. Generate the block predicates in any order.
-	for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
-				 ite = df_iterator<VPBlockBase *>::end(EntryBlock);
-			 it != ite; ++it) {
-		genAndAttachEmptyBlockPredicate(*it);
-	}
+  // 1. Generate the block predicates in any order.
+  for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
+         ite = df_iterator<VPBlockBase *>::end(EntryBlock);
+       it != ite; ++it) {
+    genAndAttachEmptyBlockPredicate(*it);
+  }
 
-	// 2. Propagate the Region's Block Predicate inputs to its Entry Block's
-	//    Block Predicate.
-	VPBlockPredicateRecipe *RegionBP
-		= dyn_cast<VPBlockPredicateRecipe>(RegionRecipe);
-	assert(RegionBP && "Each region should have a BP attached to it.");
-	VPBlockPredicateRecipe *EntryBP
-		= dyn_cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
-	assert(EntryBP && "Should have been emitted by Step 1.");
-	for (VPPredicateRecipeBase *Incoming : RegionBP->getIncomingPredicates()) {
-		EntryBP->appendIncomingPredicate(Incoming);
-	}
+  // 2. Propagate the Region's Block Predicate inputs to its Entry Block's
+  //    Block Predicate.
+  VPBlockPredicateRecipe *RegionBP
+    = dyn_cast<VPBlockPredicateRecipe>(RegionRecipe);
+  assert(RegionBP && "Each region should have a BP attached to it.");
+  VPBlockPredicateRecipe *EntryBP
+    = dyn_cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
+  assert(EntryBP && "Should have been emitted by Step 1.");
+  for (VPPredicateRecipeBase *Incoming : RegionBP->getIncomingPredicates()) {
+    EntryBP->appendIncomingPredicate(Incoming);
+  }
+  //    Set PredicateRecipe to NULL as we no longer need it.
+  Region->setPredicateRecipe(nullptr);
 
-	// 3. Generate edge predicates and append them to the block predicate
-	//    The visitng order does not matter.
-	for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
-				 ite = df_iterator<VPBlockBase *>::end(EntryBlock);
-			 it != ite; ++it) {
-		propagateInputPredicates(*it, Region);
-	}
+  // 3. Generate edge predicates and append them to the block predicate
+  //    The visitng order does not matter.
+  for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
+         ite = df_iterator<VPBlockBase *>::end(EntryBlock);
+       it != ite; ++it) {
+    generateEdgePredicates(*it, Region);
+  }
 }
 
 // Helper function for traversing the Hierarchical Control Flow
 // Look for region blocks within entryBlock and append them to regionWL
 static void appendRegionsToWorklist(VPBlockBase *EntryBlock,
                                     std::vector<VPRegionBlock *> &RegionWL) {
-	for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
-				 ite = df_iterator<VPBlockBase *>::end(EntryBlock);
-			 it != ite; ++it) {
-		VPBlockBase *block = *it;
-		if (VPRegionBlock *Region = dyn_cast<VPRegionBlock>(block)) {
-			RegionWL.push_back(Region);
-		}
-	}
+  for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
+         ite = df_iterator<VPBlockBase *>::end(EntryBlock);
+       it != ite; ++it) {
+    VPBlockBase *block = *it;
+    if (VPRegionBlock *Region = dyn_cast<VPRegionBlock>(block)) {
+      RegionWL.push_back(Region);
+    }
+  }
 }
 
 // FIXME: Only for debugging. Can be removed.
 static void dumpVplanDot(IntelVPlan *Plan,
                          const char *dotFile = "/tmp/vplan.dot") {
-	if (DumpVPlanDot) {
-		std::error_code EC;
-		raw_fd_ostream file(dotFile, EC, sys::fs::F_RW);
-		VPlanPrinter printer(file, *Plan);
-		printer.dump();
-		file.close();
-	}
+  if (DumpVPlanDot) {
+    std::error_code EC;
+    raw_fd_ostream file(dotFile, EC, sys::fs::F_RW);
+    VPlanPrinter printer(file, *Plan);
+    printer.dump();
+    file.close();
+  }
 }
 
 // Entry point. The driver function for the predicator.
 void VPlanPredicator::predicate(void) {
   dumpVplanDot(Plan, "/tmp/vplan.before.dot");	// FIXME: Only for debugging. Can be removed.
 
-	VPBlockBase *EntryBlock = Plan->getEntry();
-	std::vector<VPRegionBlock *> RegionsWorklist;
-	appendRegionsToWorklist(EntryBlock, RegionsWorklist);
-	assert(RegionsWorklist.size() == 1 && isa<VPRegionBlock>(EntryBlock)
-				 && "We expect a single entry block for Plan.");
+  VPBlockBase *EntryBlock = Plan->getEntry();
+  std::vector<VPRegionBlock *> RegionsWorklist;
+  appendRegionsToWorklist(EntryBlock, RegionsWorklist);
+  assert(RegionsWorklist.size() == 1 && isa<VPRegionBlock>(EntryBlock)
+         && "We expect a single entry block for Plan.");
 
-	// The plan's entry block should have an "AllOnes" predicate.
-	VPPredicateRecipeBase *AllOnes
-		= VPAllOnesPredicateRecipe::getPredicateRecipe();
-	AllOnes->setName(genPredicateName("AllOnes", EntryBlock));
-	genAndAttachEmptyBlockPredicate(EntryBlock);
-	VPBlockPredicateRecipe *EntryBlockBP
-		= dyn_cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
-	EntryBlockBP->appendIncomingPredicate(AllOnes);
+  // The plan's entry block should have an "AllOnes" predicate.
+  VPPredicateRecipeBase *AllOnes
+    = VPAllOnesPredicateRecipe::getPredicateRecipe();
+  AllOnes->setName(getUniqueName("AllOnes"));
+  genAndAttachEmptyBlockPredicate(EntryBlock);
+  VPBlockPredicateRecipe *EntryBlockBP
+    = dyn_cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
+  EntryBlockBP->appendIncomingPredicate(AllOnes);
 
-	// Iterate until there are no Regions left.
-	while (! RegionsWorklist.empty()) {
-		VPRegionBlock *Region = RegionsWorklist.back();
-		RegionsWorklist.pop_back();
-		// Predicate the blocks within Region at the same level as the
-		// Region entry. It will not dive deeper into the HCFG.
-		predicateRegion(Region);
-		// For LIT testing
-		genLitReport(Region);
-		// Add Regions within REGION into the worklist.
-		// NOTE: This could be done from within predicateRegion() to save
-		//       a second pass through the Region's blocks.
-		appendRegionsToWorklist(Region->getEntry(), RegionsWorklist);
-	}
+  // Iterate until there are no Regions left.
+  while (! RegionsWorklist.empty()) {
+    VPRegionBlock *Region = RegionsWorklist.back();
+    RegionsWorklist.pop_back();
+    // Predicate the blocks within Region at the same level as the
+    // Region entry. It will not dive deeper into the HCFG.
+    predicateRegion(Region);
+    // For LIT testing
+    genLitReport(Region);
+    // Add Regions within REGION into the worklist.
+    // NOTE: This could be done from within predicateRegion() to save
+    //       a second pass through the Region's blocks.
+    appendRegionsToWorklist(Region->getEntry(), RegionsWorklist);
+  }
 
   dumpVplanDot(Plan, "/tmp/vplan.after.dot");	// FIXME: Only for debugging. Can be removed.
 }
