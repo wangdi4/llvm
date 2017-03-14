@@ -101,7 +101,7 @@ void VPOParoptTransform::gatherWRegionNodeList() {
 
 //
 // ParPrepare mode: 
-//   Perform Paropt prepare transformations for lowering and privitizing   
+//   Paropt prepare transformations for lowering and privatizing
 //
 // ParTrans mode: 
 //   Paropt transformations for loop partitioning and outlining
@@ -212,23 +212,32 @@ bool VPOParoptTransform::paroptTransforms() {
 
     // Parallel constructs need to perform outlining
     case WRegionNode::WRNParallel:
-      DEBUG(dbgs() << "\n WRegionNode::WRNParallel - Transformation \n\n");
-      Changed = genPrivatizationCode(W);
+      {
+        DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
 
-      if ((Mode & OmpPar) && (Mode & ParTrans))
-        Changed |= genMultiThreadedCode(W);
-      break;
+        // Privatization is enabled for both Prepare and Transform passes
+        Changed = genPrivatizationCode(W);
+
+        if ((Mode & OmpPar) && (Mode & ParTrans))
+          Changed |= genMultiThreadedCode(W);
+
+        break;
+      }
     case WRegionNode::WRNParallelLoop:
-      DEBUG(dbgs() << "\n WRegionNode::WRNParallelLoop - Transformation \n\n");
+      {
+        DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
 
-      if ((Mode & OmpPar) && (Mode & ParTrans))
-        Changed = genLoopSchedulingCode(W);
+        if ((Mode & OmpPar) && (Mode & ParTrans))
+          Changed = genLoopSchedulingCode(W);
   
-      Changed |= genPrivatizationCode(W);
+        // Privatization is enabled for both Prepare and Transform passes
+        Changed |= genPrivatizationCode(W);
 
-      if ((Mode & OmpPar) && (Mode & ParTrans))
-        Changed |= genMultiThreadedCode(W);
+        if ((Mode & OmpPar) && (Mode & ParTrans))
+          Changed |= genMultiThreadedCode(W);
 
+        break;
+      }
     case WRegionNode::WRNParallelSections:
       break;
 
@@ -236,46 +245,61 @@ bool VPOParoptTransform::paroptTransforms() {
     case WRegionNode::WRNTask:
     case WRegionNode::WRNTaskloop:
       break;
+    case WRegionNode::WRNTaskgroup:
+      break;
 
     // Constructs do not need to perform outlining
     case WRegionNode::WRNAtomic:
-      DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
-      if (Mode & ParPrepare) 
-        Changed |= VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
-                                                  IdentTy, TidPtr);
-      break;
-    case WRegionNode::WRNVecLoop:
+      { DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
+        if (Mode & ParPrepare) 
+          Changed |= VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
+                                                    IdentTy, TidPtr);
+        break;
+      }
     case WRegionNode::WRNWksLoop:
+      { 
+        DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
+
+        if ((Mode & OmpPar) && (Mode & ParTrans))
+          Changed = genLoopSchedulingCode(W);
+
+        Changed |= genPrivatizationCode(W);
+        break;
+      }
     case WRegionNode::WRNSections:
+    case WRegionNode::WRNVecLoop:
       break;
     case WRegionNode::WRNSingle:
-      DEBUG(dbgs() << "\nWRegionNode::WRNSingle - Transformation \n\n");
-      if (Mode & ParPrepare) 
-        Changed = genSingleThreadCode(W);
-      break;
+      { DEBUG(dbgs() << "\nWRegionNode::WRNSingle - Transformation \n\n");
+        if (Mode & ParPrepare) 
+          Changed = genSingleThreadCode(W);
+        break;
+      }
     case WRegionNode::WRNMaster:
-      DEBUG(dbgs() << "\nWRegionNode::WRNMaster - Transformation \n\n");
-      if (Mode & ParPrepare) 
+      { DEBUG(dbgs() << "\nWRegionNode::WRNMaster - Transformation \n\n");
+        if (Mode & ParPrepare) 
         Changed |= genMasterThreadCode(W);
-      break;
+        break;
+      }
+    case WRegionNode::WRNCritical:
+      {
+        DEBUG(dbgs() << "\nWRegionNode::WRNCritical - Transformation \n\n");
+        if (Mode & ParPrepare) 
+          Changed |= genCriticalCode(dyn_cast<WRNCriticalNode>(W));
+        break;
+      } 
+    case WRegionNode::WRNOrdered:
+      {
+        DEBUG(dbgs() << "\nWRegionNode::WRNOrdered - Transformation \n\n");
+        if (Mode & ParPrepare) 
+          Changed = genOrderedThreadCode(W);
+        break;
+      }
     case WRegionNode::WRNBarrier:
     case WRegionNode::WRNCancel:
-    case WRegionNode::WRNCritical:
-      DEBUG(dbgs() << "\nWRegionNode::WRNCritical - Transformation \n\n");
-      if (Mode & ParPrepare) 
-        Changed |= genCriticalCode(dyn_cast<WRNCriticalNode>(W));
-      break;
     case WRegionNode::WRNFlush:
       break;
-    case WRegionNode::WRNOrdered:
-      DEBUG(dbgs() << "\nWRegionNode::WRNOrdered - Transformation \n\n");
-      if (Mode & ParPrepare) 
-        Changed = genOrderedThreadCode(W);
-      break;
-    case WRegionNode::WRNTaskgroup:
-      break;
-    default:
-      break;
+    default: break;
     }
   }
 
@@ -405,7 +429,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
     getIncomingValue(0)->getType());
   Value *InitVal = WRegionUtils::getOmpLoopLowerBound(L);
 
-  Instruction *InsertPt = dyn_cast<Instruction>(L->getLoopPreheader()->getTerminator());
+  Instruction *InsertPt = dyn_cast<Instruction>(
+    L->getLoopPreheader()->getTerminator());
 
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(4);
@@ -422,19 +447,17 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   AllocaInst *Stride = new AllocaInst(IndValTy, "stride", InsertPt);
   Stride->setAlignment(4);
 
-  // UpperD is for distribtue loop
+  // UpperD is for distribute loop
   AllocaInst *UpperD = new AllocaInst(IndValTy, "upperD", InsertPt);
   UpperD->setAlignment(4);
 
   // Constant Definitions
-  ConstantInt *ValueZero = 
-    ConstantInt::getSigned(Int32Ty, 0);
+  ConstantInt *ValueZero = ConstantInt::getSigned(Int32Ty, 0);
   ConstantInt *ValueOne  = ConstantInt::get(IndValTy, 1);
 
   // For now, set the default schedule type static_even.     
   // TBD: to get Schedule type and chunk information from W-Region node
-  ConstantInt *SchedType = 
-    ConstantInt::getSigned(Int32Ty, 34);
+  ConstantInt *SchedType = ConstantInt::getSigned(Int32Ty, 34);
 
   StoreInst *Tmp0 = new StoreInst(InitVal, LowerBnd, false, InsertPt);
   Tmp0->setAlignment(4);

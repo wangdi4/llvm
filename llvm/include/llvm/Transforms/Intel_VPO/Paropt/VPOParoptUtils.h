@@ -170,14 +170,66 @@ public:
                                        StructType *IdentTy,
                                        Value *Tid, Instruction *InsertPt);
 
+    /// \brief Generate a call to pass all loop info to the runtime system 
+    /// for guided/runtime/dynamic/auto loop scheduling
+    ///
+    ///   call void @__kmpc_for_dispatch_init_4{u}(%ident_t* %loc, i32 %tid,
+    ///               i32 schedtype, i32 %lb, i32 %ub, i32 %st, i32 chunk)
+    ///
+    ///   call void @__kmpc_for_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid,
+    ///               i32 schedtype, i64 %lb, i64 %ub, i64 %st, i64 chunk)
+    static CallInst* genkmpcDispatchInit(WRegionNode *W,
+                                         StructType *IdentTy,
+                                         Value *Tid, Value *SchedType,
+                                         Value *LB, Value *UB,
+                                         Value *ST, Value *Chunk,
+                                         int Size, bool IsUnsigned,
+                                         Instruction *InsertPt);
+
+    /// \brief Generate a call to the runtime system that performs
+    /// loop partitioning for guided/runtime/dynamic/auto scheduling.
+    ///
+    ///   call void @__kmpc_for_dispatch_next_4{u}(%ident_t* %loc, i32 %tid,
+    ///               i32 *isLast, i32 *%lb, i32 *%ub, i32 *%st)
+    ///
+    ///   call void @__kmpc_for_dispatch_next_8{u}(%ident_t* %loc, i32 %tid,
+    ///               i32 *isLast, i64 *%lb, i64 *%ub, i64 *%st)
+    static CallInst* genKmpcDispatchNext(WRegionNode *W,
+                                         StructType *IdentTy,
+                                         Value *Tid, Value *SchedType,
+                                         Value *IsLastVal, Value *LB,
+                                         Value *UB, Value *ST,
+                                         int Size, bool IsUnsigned,
+                                         Instruction *InsertPt);
+
+    /// \brief Generate a call to the runtime system that informs 
+    /// guided/runtime/dynamic/auto scheduling is done.
+    ///
+    ///   call void @__kmpc_for_dispatch_fini_4{u}(%ident_t* %loc, i32 %tid)
+    ///   call void @__kmpc_for_dispatch_fini_8{u}(%ident_t* %loc, i32 %tid)
+    static CallInst* genKmpcDispatchFini(WRegionNode *W,
+                                         StructType *IdentTy,
+                                         Value *Tid, int Size, bool IsUnsigned, 
+                                         Instruction *InsertPt);
+
+    /// \Brief Update loop scheduling kind based on ordered clause and chunk 
+    /// size information
+    static WRNScheduleKind genScheduleKind(WRNScheduleKind Kind, 
+                                           int IsOrdered, int Chunk);
+
+    /// \Brief Query loop scheduling kind based on ordered clause and chunk 
+    /// size information
+    static WRNScheduleKind getLoopScheduleKind(WRegionNode *W);
+
+    static WRNScheduleKind genLoopScheduleKind(WRegionNode *W);
     /// \brief Generate source location information for Explicit barrier
-    static GlobalVariable *genKmpcLocforExplicitBarrier(Function *F,
+    static GlobalVariable* genKmpcLocforExplicitBarrier(Function *F,
                                                         Instruction *InsertPt,
                                                         StructType *IdentTy,
                                                         BasicBlock *BB);
 
     /// \brief Generate source location information for Implicit barrier
-    static GlobalVariable *genKmpcLocforImplicitBarrier(WRegionNode *W,
+    static GlobalVariable* genKmpcLocforImplicitBarrier(WRegionNode *W,
                                                         Function *F,
                                                         Instruction *InsertPt,
                                                         StructType *IdentTy,
@@ -266,7 +318,7 @@ public:
                        StructType *IdentTy, Value *Tid,
                        Instruction *InsertPt, bool IsOrderedStart);
 
-    /// \brief Generates KMPC runtime call to the function \p IntrinsicName
+    /// \brief Generate KMPC runtime call to the function \p IntrinsicName
     /// with arguments Loc(obtained using \p IdentTy), Tid (Obtained using \p
     /// TidPtr), and \p Args.
     /// \param TidPtr is the AllocaInst for Tid.
@@ -287,7 +339,7 @@ public:
                                         StringRef IntrinsicName, Type *ReturnTy,
                                         ArrayRef<Value *> Args);
 
-    /// \brief Generates a memcpy call with the destination argument D
+    /// \brief Generate a memcpy call with the destination argument D
     /// and the source argument S at the end of basic block BB.
     ///
     ///     call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*),

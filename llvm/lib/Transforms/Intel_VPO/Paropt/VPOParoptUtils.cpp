@@ -147,6 +147,96 @@ CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
   return ForkTestCall;
 }
 
+/// Update loop scheduling kind based on ordered clause and chunk
+/// size information
+WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind, 
+                                                int IsOrdered, int Chunk)
+{
+  if (IsOrdered) {
+    switch (Kind) {
+    case WRNScheduleStatic:
+      if (Chunk == 0)
+        return WRNScheduleOrderedStaticEven;
+      else
+        return WRNScheduleOrderedStatic;
+    case WRNScheduleStaticEven:
+      return WRNScheduleOrderedStaticEven;
+    case WRNScheduleDynamic:
+      return WRNScheduleOrderedDynamic;
+    case WRNScheduleGuided:
+      return WRNScheduleOrderedGuided;
+    case WRNScheduleRuntime:
+      return WRNScheduleOrderedRuntime;
+    case WRNScheduleAuto:
+      return WRNScheduleOrderedAuto;
+    case WRNScheduleTrapezoidal:
+      return WRNScheduleOrderedTrapezoidal;
+    case WRNScheduleStaticGreedy:
+      return WRNScheduleOrderedStaticGreedy;
+    case WRNScheduleStaticBalanced:
+      return WRNScheduleOrderedStaticBalanced;
+    case WRNScheduleGuidedIterative:
+      return WRNScheduleOrderedGuidedIterative;
+    case WRNScheduleGuidedAnalytical:
+      return WRNScheduleOrderedGuidedAnalytical;
+    default:
+      return WRNScheduleOrderedStaticEven;
+    }
+  }
+  else if (Chunk == 0 && Kind == WRNScheduleStatic)
+    return WRNScheduleStaticEven;
+
+  return Kind;
+}
+
+// Query scheduling type based on ordered clause and chunk size information
+//
+// The values of the enums are used to invoke the RTL, so do not change 
+// them
+//
+// typedef enum WRNScheduleKind {
+//    WRNScheduleCrewloop                = 18,
+//    WRNScheduleStatic                  = 33,
+//    WRNScheduleStaticEven              = 34,
+//    WRNScheduleDynamic                 = 35,
+//    WRNScheduleGuided                  = 36,
+//    WRNScheduleRuntime                 = 37,
+//    WRNScheduleAuto                    = 38,
+//    WRNScheduleTrapezoidal             = 39,
+//    WRNScheduleStaticGreedy            = 40,
+//    WRNScheduleStaticBalanced          = 41,
+//    WRNScheduleGuidedIterative         = 42,
+//    WRNScheduleGuidedAnalytical        = 43,
+//
+//    WRNScheduleOrderedStatic           = 65,
+//    WRNScheduleOrderedStaticEven       = 66,
+//    WRNScheduleOrderedDynamic          = 67,
+//    WRNScheduleOrderedGuided           = 68,
+//    WRNScheduleOrderedRuntime          = 69,
+//    WRNScheduleOrderedAuto             = 70,
+//
+//    WRNScheduleOrderedTrapezoidal      = 71,
+//    WRNScheduleOrderedStaticGreedy     = 72,
+//    WRNScheduleOrderedStaticBalanced   = 73,
+//    WRNScheduleOrderedGuidedIterative  = 74,
+//    WRNScheduleOrderedGuidedAnalytical = 75,
+//
+//    WRNScheduleDistributeStatic        = 91,
+//    WRNScheduleDistributeStaticEven    = 92
+// } WRNScheduleKind;
+WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
+{
+  if (isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) { 
+    auto IsOrdered = W->getOrdered();
+    auto Schedule  = W->getSchedule();
+
+    auto Kind   = Schedule.getKind();
+    auto Chunk  = Schedule.getChunk();
+
+    return VPOParoptUtils::genScheduleKind(Kind, IsOrdered, Chunk);
+  }
+  return WRNScheduleOrderedStaticEven;
+}
 
 // This function generates a call to notify the runtime system that the static 
 // loop scheduling is started
@@ -240,12 +330,12 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
   return StaticInitCall;
 }
 
-// This function generates a call to notify the runtime system that the static 
-// loop scheduling is done 
+// This function generates a call to notify the runtime system that the static
+// loop scheduling is done
 //   call void @__kmpc_for_static_fini(%ident_t* %loc, i32 %tid)
-CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W, 
-                                            StructType *IdentTy, 
-                                            Value *Tid, 
+CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
+                                            StructType *IdentTy,
+                                            Value *Tid,
                                             Instruction *InsertPt) {
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -287,6 +377,195 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 
   return StaticFiniCall;
 }
+
+// This function generates a call to notify the runtime system that the 
+// guided/runtime/dynamic loop scheduling is started
+//
+//   call void @__kmpc_for_dispatch_init_4{u}(%ident_t* %loc, i32 %tid, 
+//               i32 schedtype, i32 %lb, i32 %ub, i32 %st, i32 chunk)
+// 
+//   call void @__kmpc_for_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid, 
+//               i32 schedtype, i64 %lb, i64 %ub, i64 %st, i64 chunk)
+CallInst *VPOParoptUtils::genkmpcDispatchInit(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *Tid, Value *SchedType,
+                                              Value *LB, Value *UB, 
+                                              Value *ST, Value *Chunk, 
+                                              int Size, bool IsUnsigned, 
+                                              Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+
+  Function *F = B->getParent();
+  Module   *M = F->getParent();
+
+  LLVMContext &C = F->getContext();
+
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+
+  Type *IntArgTy = (Size == 32) ? Int32Ty : Int64Ty;
+
+  int Flags = KMP_IDENT_KMPC;
+
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+
+  std::string FnName;
+
+  if (IsUnsigned)
+    FnName = (Size == 32) ? "__kmpc_for_dispatch_init_4u" : 
+                            "__kmpc_for_dispatch_init_8u" ;
+  else 
+    FnName = (Size == 32) ? "__kmpc_for_dispatch_init_4" : 
+                            "__kmpc_for_dispatch_init_8" ;
+
+  Type *InitParamsTy[] = {PointerType::getUnqual(IdentTy),
+                          Int32Ty, Int32Ty, 
+                          IntArgTy, IntArgTy, IntArgTy, IntArgTy};
+
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), 
+                                         InitParamsTy, false);
+
+  Function *FnDispatchInit = M->getFunction(FnName);
+
+  if (!FnDispatchInit) {
+    FnDispatchInit = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                      FnName, M);
+    FnDispatchInit->setCallingConv(CallingConv::C);
+  }
+
+  std::vector<Value *> FnDispatchInitArgs;
+
+  FnDispatchInitArgs.push_back(Loc);
+  FnDispatchInitArgs.push_back(Tid);
+  FnDispatchInitArgs.push_back(SchedType);
+  FnDispatchInitArgs.push_back(LB);
+  FnDispatchInitArgs.push_back(UB);
+  FnDispatchInitArgs.push_back(ST);
+  FnDispatchInitArgs.push_back(Chunk);
+
+  CallInst *DispatchInitCall = CallInst::Create(FnDispatchInit,
+                                         FnDispatchInitArgs, "", InsertPt);
+  DispatchInitCall->setCallingConv(CallingConv::C);
+  DispatchInitCall->setTailCall(false);
+
+  return DispatchInitCall;
+}
+
+// This function generates a call to the runtime system that performs
+// loop partitioning for guided/runtime/dynamic/auto scheduling.
+//
+//   call void @__kmpc_for_dispatch_next_4{u}(%ident_t* %loc, i32 %tid, 
+//               i32 *isLast, i32 *%lb, i32 *%ub, i32 *%st)
+// 
+//   call void @__kmpc_for_dispatch_next_8{u}(%ident_t* %loc, i32 %tid, 
+//               i32 *isLast, i64 *%lb, i64 *%ub, i64 *%st)
+CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *Tid, Value *SchedType,
+                                              Value *IsLastVal, Value *LB,
+                                              Value *UB, Value *ST,
+                                              int Size, bool IsUnsigned, 
+                                              Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+
+  Function *F = B->getParent();
+  Module   *M = F->getParent();
+
+  LLVMContext &C = F->getContext();
+
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+
+  Type *IntArgTy = (Size == 32) ? Int32Ty : Int64Ty;
+
+  int Flags = KMP_IDENT_KMPC;
+
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+
+  std::string FnName;
+
+  if (IsUnsigned) 
+    FnName = (Size == 32) ? "__kmpc_for_dispatch_next_4u" :
+                            "__kmpc_for_dispatch_next_8u" ;
+  else 
+    FnName = (Size == 32) ? "__kmpc_for_dispatch_next_4" :
+                            "__kmpc_for_dispatch_next_8" ;
+
+  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
+                      Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
+                      PointerType::getUnqual(IntArgTy),
+                      PointerType::getUnqual(IntArgTy),
+                      PointerType::getUnqual(IntArgTy)};
+
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
+
+  Function *FnDispatchNext = M->getFunction(FnName);
+
+  if (!FnDispatchNext) {
+    FnDispatchNext = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                      FnName, M);
+    FnDispatchNext->setCallingConv(CallingConv::C);
+  }
+
+  std::vector<Value *> FnDispatchNextArgs;
+
+  FnDispatchNextArgs.push_back(Loc);
+  FnDispatchNextArgs.push_back(Tid);
+  FnDispatchNextArgs.push_back(SchedType);
+  FnDispatchNextArgs.push_back(IsLastVal);
+  FnDispatchNextArgs.push_back(LB);
+  FnDispatchNextArgs.push_back(UB);
+  FnDispatchNextArgs.push_back(ST);
+
+  CallInst *DispatchNextCall = CallInst::Create(FnDispatchNext,
+                                         FnDispatchNextArgs, "", InsertPt);
+  DispatchNextCall->setCallingConv(CallingConv::C);
+  DispatchNextCall->setTailCall(false);
+  return DispatchNextCall;
+}
+
+// This function generates a call to the runtime system that informs
+// guided/runtime/dynamic/auto scheduling is done.
+//
+//   call void @__kmpc_for_dispatch_fini_4{u}(%ident_t* %loc, i32 %tid)
+//   call void @__kmpc_for_dispatch_fini_8{u}(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W, 
+                                              StructType *IdentTy, 
+                                              Value *Tid, int Size, 
+                                              bool IsUnsigned,
+                                              Instruction *InsertPt) {
+  std::string FnName;
+
+  if (IsUnsigned)
+    FnName = (Size == 32) ? "__kmpc_for_dispatch_fini_4u" :
+                              "__kmpc_for_dispatch_fini_8u" ;
+  else
+    FnName = (Size == 32) ? "__kmpc_for_dispatch_fini_4" :
+                              "__kmpc_for_dispatch_fini_8" ;
+
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 3> FnArgs = {LoadTid};
+
+  CallInst *DispatchFini =
+    VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, nullptr, FnArgs);
+
+  // Now insert the calls in the IR.
+  DispatchFini->insertBefore(InsertPt);
+
+  return DispatchFini;
+}
+
 
 // This function generates OpenMP runtime __kmpc_threadprivate_cached call.
 CallInst *VPOParoptUtils::genKmpcThreadPrivateCachedCall(
@@ -619,7 +898,9 @@ VPOParoptUtils::genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
 
   // Now bundle all the function arguments together.
   SmallVector<Value*, 3> FnArgs = {LoadTid};
-  FnArgs.append(Args.begin(), Args.end());
+
+  if (!Args.empty())
+    FnArgs.append(Args.begin(), Args.end());
 
   // And then try to generate the KMPC call.
   return VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, IntrinsicName,

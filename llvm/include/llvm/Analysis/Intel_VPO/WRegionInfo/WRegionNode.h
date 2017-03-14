@@ -155,6 +155,8 @@ protected:
   /// \brief Update WRN for clauses with operand list.
   void handleQualOpndList(int ClauseID, IntrinsicInst* Call);
 
+public:
+
   // Below are virtual functions to get/set clause information of the WRN.
   // These routines should never be called; calling them indicates intention
   // to access clause info for a WRN that does not allow such clause (eg, a 
@@ -311,8 +313,6 @@ protected:
   friend class WRegionCollection;  //temporary
   friend class VPOParoptTransform;
 
-public:
-  
 #if 1
   // WRegionNodes are destroyed in bulk using WRegionUtils::destroyAll()
   virtual ~WRegionNode() { Children.clear(); }
@@ -409,7 +409,8 @@ public:
   bbset_const_iterator bbset_end() const { return BBlockSet.end(); }
 
   bbset_reverse_iterator bbset_rbegin() { return BBlockSet.rbegin(); }
-  bbset_const_reverse_iterator bbset_rbegin() const { return BBlockSet.rbegin(); }
+  bbset_const_reverse_iterator bbset_rbegin() const { 
+                                                  return BBlockSet.rbegin(); }
   bbset_reverse_iterator bbset_rend() { return BBlockSet.rend(); }
   bbset_const_reverse_iterator bbset_rend() const { return BBlockSet.rend(); }
 

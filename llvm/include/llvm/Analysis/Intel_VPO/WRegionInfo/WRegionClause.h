@@ -661,8 +661,8 @@ typedef enum WRNScheduleKind {
     WRNScheduleTrapezoidal             = 39,
     WRNScheduleStaticGreedy            = 40,
     WRNScheduleStaticBalanced          = 41,
-    WRNScheduleGUIDEDIterative         = 42,
-    WRNScheduleGUIDEDAnalytical        = 43,
+    WRNScheduleGuidedIterative         = 42,
+    WRNScheduleGuidedAnalytical        = 43,
 
     WRNScheduleOrderedStatic           = 65,
     WRNScheduleOrderedStaticEven       = 66,
@@ -674,7 +674,7 @@ typedef enum WRNScheduleKind {
     WRNScheduleOrderedTrapezoidal      = 71,
     WRNScheduleOrderedStaticGreedy     = 72,
     WRNScheduleOrderedStaticBalanced   = 73,
-    WRNScheduleOrderedGuidedITerative  = 74,
+    WRNScheduleOrderedGuidedIterative  = 74,
     WRNScheduleOrderedGuidedAnalytical = 75,
 
     WRNScheduleDistributeStatic        = 91,
