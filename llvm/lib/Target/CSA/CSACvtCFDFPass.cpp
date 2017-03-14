@@ -1942,14 +1942,18 @@ unsigned CSACvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB,
     return edgeReg;
   }
   unsigned bbPredReg = 0;
-  if (*CDG->getNode(fromBB)->parent_begin() == CDG->getRoot()) {
+  if (CDG->getNode(fromBB)->getNumParents() == 1 &&
+      *CDG->getNode(fromBB)->parent_begin() == CDG->getRoot()) {
     //root level, out side any loop
     //mov 1
-    MachineBasicBlock* entryBB = &*thisMF->begin();
-    unsigned cpyReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-    const unsigned moveOpcode = TII->getMoveOpcode(&CSA::I1RegClass);
-    BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII->get(moveOpcode), cpyReg).addImm(1);
-    bbPredReg = cpyReg;
+    if (!(bbPredReg = getBBPred(fromBB))) {
+      MachineBasicBlock* entryBB = &*thisMF->begin();
+      unsigned cpyReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      const unsigned moveOpcode = TII->getMoveOpcode(&CSA::I1RegClass);
+      BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII->get(moveOpcode), cpyReg).addImm(1);
+      bbPredReg = cpyReg;
+      setBBPred(fromBB, bbPredReg);
+    }
   } else if (MLI->getLoopFor(toBB) &&
     MLI->getLoopFor(toBB)->getHeader() == toBB &&
     !MLI->getLoopFor(toBB)->contains(fromBB)) {
