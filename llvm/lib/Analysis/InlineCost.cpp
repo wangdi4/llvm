@@ -1639,7 +1639,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
 
 #ifdef INTEL_CUSTOMIZATION
   if (preferCloningToInlining(CS)) {
-    NoReasonVector.push_back(NinlrPreferCloning);
+    *ReasonAddr = NinlrPreferCloning; 
     return false; 
   } 
 #endif // INTEL_CUSTOMIZATION
