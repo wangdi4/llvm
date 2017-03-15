@@ -45,6 +45,7 @@ protected:
 
       VPInst = new VPInstructionIR(&*It);
       InstContainer.insert(InstContainer.end(), VPInst);
+      Plan->setInst2Recipe(&*It, this);
     }
   }
 
@@ -84,11 +85,145 @@ public:
     }
   }
 
+  void removeInstructions(VPInstructionContainerTy::iterator B,
+                          VPInstructionContainerTy::iterator E) {
+    InstContainer.erase(B, E);  
+  }
+
   iterator begin() { return InstContainer.begin(); }
   const_iterator begin() const { return InstContainer.begin(); }
 
   iterator end() { return InstContainer.end(); }
   const_iterator end() const { return InstContainer.end(); }
+};
+
+class VPVectorizeOneByOneIRRecipe : public VPOneByOneIRRecipeBase {
+  friend class VPlanUtilsLoopVectorizer;
+
+private:
+  /// Do the actual code generation for a single instruction.
+  void transformIRInstruction(Instruction *I, VPTransformState &State) override;
+
+public:
+  VPVectorizeOneByOneIRRecipe(const BasicBlock::iterator B,
+                              const BasicBlock::iterator E, VPlan *Plan)
+      : VPOneByOneIRRecipeBase(VPVectorizeOneByOneSC, B, E, Plan) {}
+
+  ~VPVectorizeOneByOneIRRecipe() {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPVectorizeOneByOneSC;
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &O) const override {
+    auto It = begin();
+    auto End = end();
+
+    O << "Vectorize VPInstIR:";
+    for (; It != End; ++It) {
+      auto Inst = cast<VPInstructionIR>(&*It);
+      auto IRInst = Inst->getInstruction();
+      O << '\n' << *IRInst;
+      if (willAlsoPackOrUnpack(IRInst))
+        O << " (S->V)";
+    }
+  }
+};
+
+class VPBranchIfNotAllZeroRecipe : public VPConditionBitRecipeBase {
+  friend class VPlanUtilsLoopVectorizer;
+
+public:
+  VPBranchIfNotAllZeroRecipe(Value *Cond, VPlan *Plan) :
+      VPConditionBitRecipeBase(VPBranchIfNotAllZeroRecipeSC) {
+    Instruction *I = dyn_cast<Instruction>(Cond);
+    assert(I && "Expected Cond to be an instruction");
+    Plan->setInst2Recipe(I, this);
+    ConditionBit = Cond;
+  }
+
+  ~VPBranchIfNotAllZeroRecipe() {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPBranchIfNotAllZeroRecipeSC;
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &O) const override {
+    O << "IfNotAllZero: ";
+    O << '\n' << *ConditionBit;
+  }
+
+  void vectorize(struct VPTransformState &State) override {
+    // TODO: vectorizing this recipe should involve generating some type of
+    // intrinsic that can do a vector compare, since branch instructions cannot
+    // simply be widened.
+  }
+
+  StringRef getName() const { return "Branch If Not All Zero Recipe"; }
+};
+
+class VPMaskGenerationRecipe : public VPRecipeBase {
+  friend class VPlanUtilsLoopVectorizer;
+
+private:
+  const Value *IncomingPred;
+  const Value *LoopBackedge;
+
+public:
+  VPMaskGenerationRecipe(const Value *Pred, const Value *Backedge) :
+      VPRecipeBase(VPMaskGenerationRecipeSC), IncomingPred(Pred),
+      LoopBackedge(Backedge) {}
+
+  ~VPMaskGenerationRecipe() {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPMaskGenerationRecipeSC;
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &O) const override {
+    O << "MaskGeneration: ";
+    O << '\n' << *IncomingPred << " & " << *LoopBackedge;
+  }
+
+  void vectorize(struct VPTransformState &State) override {
+    // TODO: vectorizing this recipe should involve generating a mask for the
+    // instructions in the loop body. i.e., a phi instruction that has incoming
+    // values using IncomingPred and LoopBackedge.
+  }
+};
+
+class VPNonUniformConditionBitRecipe : public VPConditionBitRecipeBase {
+  friend class VPlanUtilsLoopVectorizer;
+
+private:
+const VPMaskGenerationRecipe *MaskRecipe;
+
+public:
+  VPNonUniformConditionBitRecipe(const VPMaskGenerationRecipe *MR)
+    : VPConditionBitRecipeBase(VPNonUniformBranchSC), MaskRecipe(MR) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPNonUniformBranchSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void vectorize(VPTransformState &State) override {}
+
+  /// Print the recipe.
+  void print(raw_ostream &O) const override {
+    O << "Non-uniform branch condition: ";
+    MaskRecipe->print(O);
+  }
+
+  StringRef getName() const { return "Non-Uniform Cond Bit Recipe"; };
 };
 
 class VPLoopRegion : public VPRegionBlock {
@@ -260,10 +395,25 @@ public:
   /// on the isScalarizing parameter respectively.
   // TODO: VPlan is passed in the original interface. Why is this necessary if
   // VPlanUtils already has a copy?
-  vpo::VPOneByOneIRRecipeBase *createOneByOneRecipe(const BasicBlock::iterator B,
-                                                    const BasicBlock::iterator E,
-                                                    // VPlan *Plan,
-                                                    bool isScalarizing);
+  vpo::VPOneByOneIRRecipeBase *createOneByOneRecipe(
+    const BasicBlock::iterator B,
+    const BasicBlock::iterator E,
+    // VPlan *Plan,
+    bool isScalarizing);
+
+  /// Creates a new recipe that represents an all zeros bypass.
+  vpo::VPBranchIfNotAllZeroRecipe *createBranchIfNotAllZeroRecipe(
+    Instruction *Cond);
+
+  /// Creates a new recipe that represents generation of an i1 vector to be used
+  /// as a mask.
+  vpo::VPMaskGenerationRecipe *createMaskGenerationRecipe(
+    const Value *Pred, const Value *Backedge);
+
+  /// Creates a new recipe that points to an i1 vector representing a
+  /// non-uniform condition.
+  vpo::VPNonUniformConditionBitRecipe *createNonUniformConditionBitRecipe(
+    const vpo::VPMaskGenerationRecipe *MaskRecipe);
 
   /// Creates a new VPUniformConditionBitRecipe.
   VPUniformConditionBitRecipe *
@@ -344,7 +494,6 @@ public:
 
   virtual ~VPDominatorTree() {}
 };
-
 
 // From HIR POC
    

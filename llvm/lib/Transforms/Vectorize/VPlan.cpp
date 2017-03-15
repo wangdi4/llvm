@@ -18,10 +18,10 @@
 
 #include "VPlan.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/GraphWriter.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
@@ -89,6 +89,13 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
 
   for (VPBlockBase *Block : Blocks)
     delete Block;
+}
+
+void VPBlockBase::setConditionBitRecipe(VPConditionBitRecipeBase *R,
+                                        VPlan *Plan) {
+  ConditionBitRecipe = R;
+  if (R)
+    Plan->setConditionBitRecipeUser(R, this);
 }
 
 BasicBlock *
@@ -415,6 +422,18 @@ void VPlanPrinter::dumpRegion(const VPRegionBlock *Region) {
   decreaseDepth();
   OS << Indent << "}\n";
   dumpEdges(Region);
+}
+
+void VPlan::printInst2Recipe() {
+  DenseMap<Instruction *, VPRecipeBase *>::iterator It, End;
+  for (It = Inst2Recipe.begin(), End = Inst2Recipe.end(); It != End; ++It) {
+    DEBUG(errs() << "Instruction: " << *It->first << "\n");
+    std::string RecipeString;
+    raw_string_ostream RSO(RecipeString);
+    VPRecipeBase *Recipe = It->second;
+    Recipe->print(RSO);
+    DEBUG(errs() << "Recipe: " << RSO.str() << "\n");
+  }
 }
 
 void VPAllOnesPredicateRecipe::vectorize(VPTransformState &State) {

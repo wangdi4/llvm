@@ -10,6 +10,7 @@ add_llvm_library(LLVMVectorize
   VPlan/LoopVectorizationCodeGen.cpp
   VPlan/LoopVectorizationPlanner.cpp
   VPlan/VPlanDriver.cpp
+  VPlan/Intel_LoopCFU.cpp
   VPlan/VPlanPredicator.cpp
 
   ADDITIONAL_HEADER_DIRS

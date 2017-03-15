@@ -4,6 +4,7 @@
 #include "VPLoopInfo.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
+#include "Intel_LoopCFU.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -13,6 +14,9 @@ static cl::opt<bool> NonLoopSubRegionsEnabled(
     "vplan-enable-subregions",
     cl::init(false), // TODO: vplan-disable-subregions
     cl::desc("Enable construction of non-loop subregions in VPlan"));
+
+static cl::opt<bool> VPlanLoopCFU("vplan-loop-cfu", cl::init(false),
+    cl::desc("Perform inner loop control flow uniformity transformation"));
 
 unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
                                                           unsigned MaxVF) {
@@ -144,6 +148,8 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
         VPUniformConditionBitRecipe *Recipe =
             PlanUtils.createUniformConditionBitRecipe(Instr);
         PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
+          VPlan *Plan = PlanUtils.getVPlan();
+          Plan->setInst2Recipe(Instr, Recipe);
 
         for (User *U : Instr->users()) {
           if (isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U)))
@@ -1174,6 +1180,10 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
 
   // TODO: CFG massaging for inner loops in outer loop vectorization scenarios
   // might happen here.
+  if (VPlanLoopCFU) {
+    VPLoopCFU LCFU(Plan, PlanUtils, SE, LI);
+    LCFU.makeLoopControlFlowUniform();
+  }
 
   // FOR STRESS TESTING, uncomment the following:
   // EndRangeVF = StartRangeVF * 2;

@@ -1,7 +1,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
 
-#include "IntelVPlan.h"
+#include "./IntelVPlan.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
@@ -113,12 +113,13 @@ protected:
 class LoopVectorizationPlanner : public LoopVectorizationPlannerBase {
 public:
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
+                           ScalarEvolution *SE,
                            const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI,
                            class DominatorTree* DT,
                            VPOVectorizationLegality *Legal)
       : LoopVectorizationPlannerBase(WRL),
-        TheLoop(Lp), LI(LI), TLI(TLI), TTI(TTI), Legal(Legal), DT(DT){}
+        TheLoop(Lp), LI(LI), SE(SE), TLI(TLI), TTI(TTI), DT(DT), Legal(Legal) {}
 
   ~LoopVectorizationPlanner() {}
 
@@ -241,17 +242,20 @@ private:
   /// Loop Info analysis.
   LoopInfo *LI;
 
+  /// Scalar Evolution analysis.
+  ScalarEvolution *SE;
+
   /// Target Library Info.
   const TargetLibraryInfo *TLI;
 
   /// Target Transform Info.
   const TargetTransformInfo *TTI;
 
-  /// The legality analysis.
-  VPOVectorizationLegality *Legal;
-
   /// The dominators tree.
   class DominatorTree* DT;
+
+  /// The legality analysis.
+  VPOVectorizationLegality *Legal;
 
   /// The profitablity analysis.
   // LoopVectorizationCostModel *CM;

@@ -28,7 +28,7 @@
 
 // From VPlanDriver.h"
 //#include "llvm/Analysis/LoopInfo.h"
-//#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 //#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 //#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 //#include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
@@ -327,6 +327,7 @@ INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 //INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 //INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -361,6 +362,7 @@ bool VPlanDriver::runOnFunction(Function &F) {
   // TODO: get LI only for stress testing
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   WR = &getAnalysis<WRegionInfo>();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   WR->buildWRGraph(WRegionCollection::LLVMIR);
 
@@ -375,7 +377,7 @@ bool VPlanDriver::runOnFunction(Function &F) {
 /*
 LoopVectorizationPlannerBase *
 VPlanDriver::createLoopVecPlanner(WRNVecLoopNode *WRLoop) {
-  return new LoopVectorizationPlanner(WRLoop, WRLoop->getLoop(), LI);
+  return new LoopVectorizationPlanner(WRLoop, WRLoop->getLoop(), LI, SE);
 }
 
 // Used only for stress mode
@@ -398,7 +400,7 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
   }
 
   LoopVectorizationPlanner *LVP = 
-    new LoopVectorizationPlanner(LoopNode, Lp, LI, TLI, TTI, DT, &LVL);
+    new LoopVectorizationPlanner(LoopNode, Lp, LI, SE, TLI, TTI, DT, &LVL);
 
   LVP->buildInitialVPlans(4 /*MinVF*/, 4 /*MaxVF*/);
   // Predicator changes BEGIN

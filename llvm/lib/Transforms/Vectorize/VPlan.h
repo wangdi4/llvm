@@ -28,6 +28,7 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "llvm/ADT/DepthFirstIterator.h"
@@ -35,6 +36,7 @@
 #else
 #include "llvm/Support/raw_ostream.h"
 #endif
+#include <vector>
 
 // The (re)use of existing LoopVectorize classes is subject to future VPlan
 // refactoring.
@@ -113,6 +115,9 @@ public:
     VPLiveInBranchSC,
     VPVectorizeBooleanSC,
 #endif
+    VPBranchIfNotAllZeroRecipeSC,
+    VPMaskGenerationRecipeSC,
+    VPNonUniformBranchSC,
   } VPRecipeTy;
 
   VPRecipeBase(const unsigned char SC) : VRID(SC), Parent(nullptr) {}
@@ -781,9 +786,7 @@ public:
     return ConditionBitRecipe;
   }
 
-  void setConditionBitRecipe(VPConditionBitRecipeBase *R) {
-    ConditionBitRecipe = R;
-  }
+  void setConditionBitRecipe(VPConditionBitRecipeBase *R, VPlan *Plan);
 
   VPPredicateRecipeBase *getPredicateRecipe() const {
     return PredicateRecipe;
@@ -916,6 +919,7 @@ public:
 
   /// Retrieve the list of VPRecipes that belong to this VPBasicBlock.
   const RecipeListTy &getRecipes() const { return Recipes; }
+  RecipeListTy &getRecipes() { return Recipes; }
 
 private:
   /// Create an IR BasicBlock to hold the instructions vectorized from this
@@ -1003,6 +1007,8 @@ public:
 
   const VPBlockBase *getExit() const { return Exit; }
 
+  void setEntry(VPBlockBase* NewEntry) { Entry = NewEntry; }
+
 #ifdef INTEL_CUSTOMIZATION
   unsigned getSize() const { return Size; }
 
@@ -1047,6 +1053,9 @@ private:
   /// serves optimizations that operate on the VPlan.
   DenseMap<Instruction *, VPRecipeBase *> Inst2Recipe;
 
+  /// Keep track of the VPBasicBlock users of a ConditionBitRecipe.
+  DenseMap<VPConditionBitRecipeBase*, std::set<const VPBlockBase*>> RecipeUsers;
+
 public:
   VPlan() : Entry(nullptr) {}
 
@@ -1075,6 +1084,28 @@ public:
   void setInst2Recipe(Instruction *I, VPRecipeBase *R) { Inst2Recipe[I] = R; }
 
   void resetInst2Recipe(Instruction *I) { Inst2Recipe.erase(I); }
+
+  void resetInst2RecipeRange(BasicBlock::iterator B, BasicBlock::iterator E) {
+    for (auto It = B; It != E; ++It) {
+      resetInst2Recipe(&*It);
+    }
+  }
+
+  std::set<const VPBlockBase*>& getRecipeUsers(
+    VPConditionBitRecipeBase* Recipe) {
+    return RecipeUsers[Recipe];
+  }
+
+  void removeRecipeUsers(VPConditionBitRecipeBase *Recipe) {
+    RecipeUsers[Recipe].clear();
+  }
+
+  void setConditionBitRecipeUser(VPConditionBitRecipeBase* Recipe,
+                                 const VPBlockBase *Block) {
+    RecipeUsers[Recipe].insert(Block);
+  }
+
+  void printInst2Recipe();
 
   /// Retrieve the VPBasicBlock a given instruction \p Inst belongs to in the
   /// VPlan. Returns null if it belongs to no VPRecipe.
@@ -1182,6 +1213,12 @@ public:
   void setRegionSize(VPRegionBlock *Region, unsigned Size) {
     Region->Size = Size;
   }
+
+  /// \brief Add \p Successor as the last successor to this block.
+  void appendSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
+    assert(Successor && "Cannot add nullptr successor!");
+    Block->appendSuccessor(Successor);
+  }
 #endif
   /// Sets a given VPBlockBase \p Successor as the single successor of another
   /// VPBlockBase \p Block. The parent of \p Block is copied to be the parent of
@@ -1200,7 +1237,7 @@ public:
   void setTwoSuccessors(VPBlockBase *Block, VPConditionBitRecipeBase *R,
                         VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
     assert(Block->getSuccessors().empty() && "Block successors already set.");
-    Block->setConditionBitRecipe(R);
+    Block->setConditionBitRecipe(R, Plan);
     Block->appendSuccessor(IfTrue);
     Block->appendSuccessor(IfFalse);
     IfTrue->appendPredecessor(Block);
@@ -1345,9 +1382,9 @@ public:
     // original VPBB recipe list.
     if (BlockPtr->getNumSuccessors() > 1) {
       assert(BlockPtr->getConditionBitRecipe() && "Missing ConditionBitRecipe");
-      NewBlock->setConditionBitRecipe(BlockPtr->getConditionBitRecipe());
+      NewBlock->setConditionBitRecipe(BlockPtr->getConditionBitRecipe(), Plan);
       // BlockPtr will have a single successor now.
-      BlockPtr->setConditionBitRecipe(nullptr);
+      BlockPtr->setConditionBitRecipe(nullptr, Plan);
     }
 
     moveSuccessors(BlockPtr, NewBlock);
