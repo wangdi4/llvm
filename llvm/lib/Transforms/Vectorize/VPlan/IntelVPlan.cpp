@@ -117,7 +117,7 @@ template void llvm::Calculate<VPRegionBlock, VPBlockBase *>(
 //    VPRegionBlock &VPR);
 
 void VPUniformConditionBitRecipe::vectorize(VPTransformState &State) {
-  if (isa<Instruction>(ConditionBit)) {
+  if (isa<Instruction>(ScConditionBit)) {
     State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
     ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
   }

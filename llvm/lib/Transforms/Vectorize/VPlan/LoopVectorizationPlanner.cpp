@@ -109,7 +109,7 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
     // would create a LiveInConditionBitRecipe for the loop latch condition,
     // which is not correct.
     // TODO: Comment out DeadInstruction check?
-    return DeadInstructions.count(I) || isa<BranchInst>(I) ||
+    return /*DeadInstructions.count(I) ||*/ isa<BranchInst>(I) ||
            isa<DbgInfoIntrinsic>(I);
   };
 

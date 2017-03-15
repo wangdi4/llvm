@@ -184,16 +184,17 @@ public:
 
   /// Print the recipe.
   void print(raw_ostream &O) const override {
-		O << Name;
-		
-    O << " Output: ";
-    if (ConditionBit) {
-      O << *ConditionBit;
-    } else {
-      O << "NULL";
-    }
+    O << Name;
 
-    O << " Input: ";
+    // O << " Output: ";
+    // if (ConditionBit) {
+    //  O << *ConditionBit;
+    //} else {
+    //  O << "NULL";
+    //}
+
+    // O << " Input: ";
+    O << ": ";
     if (ScConditionBit) {
       O << *ScConditionBit;
     } else {
@@ -236,7 +237,8 @@ public:
   void print(raw_ostream &O) const override {
     O << Name;
 
-		O << " Output: ";
+    //O << " Output: ";
+    O << ": ";
     if (ConditionBit) {
       O << *ConditionBit;
     } else {
