@@ -21,38 +21,34 @@
 #ifndef __PIPE_COMMON_H__
 #define __PIPE_COMMON_H__
 
-// The following struct must be in sync with structs defined in pipes.cl
-struct __pipe_t {
-  cl_int packet_size;
-  cl_int max_packets;
-
-  cl_int read_lock;
-  cl_int write_lock;
-
-  cl_int read_begin;
-  cl_int read_end;
-
-  cl_int write_begin;
-  cl_int write_end;
-};
+#include "../backend/libraries/ocl_builtins/pipes.h"
+#include <algorithm>
 
 static size_t pipe_get_total_size(cl_uint packet_size, cl_uint max_packets) {
-  size_t total = sizeof(__pipe_t)           // header
-    + sizeof(cl_int) * (max_packets + 1) // flags
+  size_t total = sizeof(__pipe_t)       // header
     + packet_size * (max_packets + 1);  // packets (one extra packet
                                         // for a begin/end border)
-
-  printf("OCLRT: pipe (%u x %u)total size = %zu bytes\n", packet_size, max_packets, total);
   return total;
 }
 
 static void pipe_init(void* mem, cl_uint packet_size, cl_uint max_packets) {
+  if (max_packets == 1) {
+    max_packets++;
+  }
+
   __pipe_t* p = (__pipe_t*) mem;
-  // zero both header and flags
-  memset((char*)p, 0, sizeof(cl_int) * (max_packets + 1));
+
+  memset((char*)p, 0, sizeof(__pipe_t));
 
   p->packet_size = packet_size;
-  p->max_packets = max_packets + 1;
+  p->max_packets = max_packets;
+
+  p->read_buf.size = -1;
+  p->read_buf.limit = PIPE_READ_BUF_PREFERRED_LIMIT;
+
+  p->write_buf.size = -1;
+  p->write_buf.limit = std::min((int)max_packets - 1,
+                                PIPE_WRITE_BUF_PREFERRED_LIMIT);
 }
 
 
