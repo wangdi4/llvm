@@ -20,6 +20,9 @@
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/DeclOpenMP.h"
 #include "llvm/IR/CallSite.h"
+#if INTEL_SPECIFIC_OPENMP
+#include "intel/CGIntelStmtOpenMP.h"
+#endif // INTEL_SPECIFIC_OPENMP
 using namespace clang;
 using namespace CodeGen;
 
@@ -1274,11 +1277,27 @@ void CodeGenFunction::EmitOMPParallelDirective(const OMPParallelDirective &S) {
 void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
                                       JumpDest LoopExit) {
   RunCleanupsScope BodyScope(*this);
+#if INTEL_SPECIFIC_OPENMP
+  if (CGM.getLangOpts().IntelOpenMP) {
+    // Emit variables for orignal loop controls
+    for (auto *E : D.counters()) {
+      auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      // Emit var without initialization.
+      if (!LocalDeclMap.count(VD)) {
+        auto VarEmission = EmitAutoVarAlloca(*VD);
+        EmitAutoVarCleanups(VarEmission);
+      }
+    }
+  }
+#endif // INTEL_SPECIFIC_OPENMP
   // Update counters values on current iteration.
   for (auto I : D.updates()) {
     EmitIgnoredExpr(I);
   }
   // Update the linear variables.
+#if INTEL_SPECIFIC_OPENMP
+  if (!CGM.getLangOpts().IntelOpenMP)
+#endif // INTEL_SPECIFIC_OPENMP
   for (const auto *C : D.getClausesOfKind<OMPLinearClause>()) {
     for (auto *U : C->updates())
       EmitIgnoredExpr(U);
@@ -1298,7 +1317,12 @@ void CodeGenFunction::EmitOMPInnerLoop(
     const Stmt &S, bool RequiresCleanup, const Expr *LoopCond,
     const Expr *IncExpr,
     const llvm::function_ref<void(CodeGenFunction &)> &BodyGen,
-    const llvm::function_ref<void(CodeGenFunction &)> &PostIncGen) {
+#if INTEL_SPECIFIC_OPENMP
+    const llvm::function_ref<void(CodeGenFunction &)> &PostIncGen,
+    llvm::BasicBlock *IncomingBlock,
+    const Expr *IterationVariable) {
+#endif // INTEL_SPECIFIC_OPENMP
+  CodeGenFunction::OMPPrivateScope PrivScope(*this);
   auto LoopExit = getJumpDestInCurrentScope("omp.inner.for.end");
 
   // Start the loop with a block that tests the condition.
@@ -1316,6 +1340,21 @@ void CodeGenFunction::EmitOMPInnerLoop(
 
   auto LoopBody = createBasicBlock("omp.inner.for.body");
 
+#if INTEL_SPECIFIC_OPENMP
+  llvm::PHINode *LoopPHI;
+  llvm::Type *IVType;
+  if (IncomingBlock != nullptr) {
+    // Create a PHI for the loop and store its value in the iteration variable
+    auto *VD = cast<VarDecl>(cast<DeclRefExpr>(IterationVariable)->getDecl());
+    IVType = ConvertTypeForMem(VD->getType());
+    LoopPHI = Builder.CreatePHI(IVType, 2);
+    auto Zero = llvm::ConstantInt::get(IVType, 0);
+    LoopPHI->addIncoming(Zero, IncomingBlock);
+    EmitVarDecl(*VD);
+    Address A = GetAddrOfLocalVar(VD);
+    Builder.CreateStore(LoopPHI, A);
+  }
+#endif // INTEL_SPECIFIC_OPENMP
   // Emit condition.
   EmitBranchOnBoolExpr(LoopCond, LoopBody, ExitBlock, getProfileCount(&S));
   if (ExitBlock != LoopExit.getBlock()) {
@@ -1334,6 +1373,13 @@ void CodeGenFunction::EmitOMPInnerLoop(
 
   // Emit "IV = IV + 1" and a back-edge to the condition block.
   EmitBlock(Continue.getBlock());
+#if INTEL_SPECIFIC_OPENMP
+  if (IncomingBlock != nullptr) {
+    auto One = llvm::ConstantInt::get(IVType, 1);
+    llvm::Value *Add = Builder.CreateAdd(LoopPHI, One);   
+    LoopPHI->addIncoming(Add, Builder.GetInsertBlock());
+  } else
+#endif // INTEL_SPECIFIC_OPENMP
   EmitIgnoredExpr(IncExpr);
   PostIncGen(*this);
   BreakContinueStack.pop_back();
@@ -3826,3 +3872,122 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
 
   CGM.getOpenMPRuntime().emitTargetDataStandAloneCall(*this, S, IfCond, Device);
 }
+
+#if INTEL_SPECIFIC_OPENMP
+void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
+                                       OpenMPDirectiveKind K) {
+  // Emit the iterations count variable.
+  // If it is not a variable, Sema decided to calculate iterations count on each
+  // iteration (e.g., it is foldable into a constant).
+  if (auto LIExpr = dyn_cast<DeclRefExpr>(S.getLastIteration())) {
+    EmitVarDecl(*cast<VarDecl>(LIExpr->getDecl()));
+    // Emit calculation of the iterations count.
+    EmitIgnoredExpr(S.getCalcLastIteration());
+  }
+
+  // Check pre-condition.
+  {
+    OMPLoopScope PreInitScope(*this, S);
+    // Skip the entire loop if we don't meet the precondition.
+    // If the condition constant folds and can be elided, avoid emitting the
+    // whole loop.
+    bool CondConstant;
+    llvm::BasicBlock *ContBlock = nullptr;
+    llvm::BasicBlock *ThenBlock = nullptr;
+    if (ConstantFoldsToSimpleInteger(S.getPreCond(), CondConstant)) {
+      if (!CondConstant)
+        return;
+    } else {
+      ThenBlock = createBasicBlock("omp.precond.then");
+      ContBlock = createBasicBlock("omp.precond.end");
+      EmitBranchOnBoolExpr(S.getPreCond(), ThenBlock, ContBlock,
+                           getProfileCount(&S));
+      EmitBlock(ThenBlock);
+      incrementProfileCounter(&S);
+    }
+
+    if (isOpenMPWorksharingDirective(S.getDirectiveKind())) {
+      // Emit helper vars inits.
+      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
+      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
+      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getStrideVariable()));
+      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getIsLastIterVariable()));
+    }
+
+    // Emit 'then' code.
+    {
+      CGIntelOpenMP::OpenMPCodeOutliner Outliner(*this, S);
+      CGIntelOpenMP::InlinedOpenMPRegionRAII Region(*this, Outliner, S);
+      OMPPrivateScope LoopScope(*this);
+
+      auto LoopExit =
+          getJumpDestInCurrentScope(createBasicBlock("omp.loop.exit"));
+
+      switch (K) {
+      case OMPD_simd:
+        Outliner.emitOMPSIMDDirective();
+        break;
+      case OMPD_parallel_for:
+        Outliner.emitOMPParallelForDirective();
+        break;
+      default:
+        llvm_unreachable("unexpected loop kind");
+      }
+      Outliner << S.clauses();
+
+      // while (idx <= UB) { BODY; ++idx; }
+      if (ThenBlock == nullptr)
+        ThenBlock = Builder.GetInsertBlock();
+      EmitOMPInnerLoop(S, LoopScope.requiresCleanups(), S.getCond(),
+                       S.getInc(),
+                       [&S, LoopExit](CodeGenFunction &CGF) {
+                         CGF.EmitOMPLoopBody(S, LoopExit);
+                         CGF.EmitStopPoint(&S);
+                       },
+                       [](CodeGenFunction &) {}, ThenBlock,
+                       S.getIterationVariable());
+      EmitBlock(LoopExit.getBlock());
+      // The iteration variable is always defined inside and will be marked
+      // private when used.
+      // The original loop control variable could be defined inside or
+      // outside so treat it as an explicit private
+      for (auto *C : S.counters()) {
+        auto VD = cast<VarDecl>(cast<DeclRefExpr>(C)->getDecl());
+        Outliner.addExplicit(VD);
+        Outliner.emitImplicit(C, OMPC_private);
+      }
+    }
+     
+    // We're now done with the loop, so jump to the continuation block.
+    if (ContBlock) {
+      EmitBranch(ContBlock);
+      EmitBlock(ContBlock, true);
+    }
+  }
+}
+
+static void emitIntelDirective(CodeGenFunction &CGF,
+                               OpenMPDirectiveKind InnerKind,
+                               const RegionCodeGenTy &CodeGen) {
+  if (!CGF.HaveInsertPoint())
+    return;
+  CGF.EHStack.pushTerminate();
+  CodeGen(CGF);
+  CGF.EHStack.popTerminate();
+}
+
+void CodeGenFunction::EmitIntelOMPSimdDirective(const OMPSimdDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_simd);
+  };
+  emitIntelDirective(*this, OMPD_simd, CodeGen);
+}
+
+void CodeGenFunction::EmitIntelOMPParallelForDirective(
+                                      const OMPParallelForDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_parallel_for);
+  };
+  emitIntelDirective(*this, OMPD_parallel_for, CodeGen);
+}
+#endif // INTEL_SPECIFIC_OPENMP
