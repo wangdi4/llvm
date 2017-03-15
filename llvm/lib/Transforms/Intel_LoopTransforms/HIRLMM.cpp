@@ -99,9 +99,10 @@ using namespace llvm::loopopt::lmm;
 const std::string LIMMTempName = "limm";
 const std::string LIMMCopyName = "copy";
 
-// Enable the HIR Loop-Invariant Memory Motion (default is ON)
-static cl::opt<bool> EnableHIRLMM("enable-hir-lmm", cl::init(true), cl::Hidden,
-                                  cl::desc("Enable HIR Loop Memory Motion"));
+// Disable the HIR Loop-Invariant Memory Motion (default is false)
+static cl::opt<bool>
+    DisableHIRLMM("disable-hir-lmm", cl::init(false), cl::Hidden,
+                  cl::desc("Disable HIR Loop Memory Motion (LMM)"));
 
 STATISTIC(
     HIRLIMMRefPromoted,
@@ -352,7 +353,7 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
 }
 
 bool HIRLMM::handleCmdlineArgs(Function &F) {
-  if (!EnableHIRLMM || skipFunction(F)) {
+  if (DisableHIRLMM || skipFunction(F)) {
     DEBUG(dbgs() << "HIRLMM (Loop Memory Motion) Disabled or Skipped\n");
     return false;
   }

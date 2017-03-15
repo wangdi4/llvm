@@ -88,6 +88,11 @@ FunctionPass *createHIRParDirInsertPass();
 /// directives for auto vectorization candidate loops.
 FunctionPass *createHIRVecDirInsertPass(bool OuterVec = true);
 
+/// createHIRScalarReplArrayPass - This creates a HIR Loop pass that performs 
+/// Scalar Replacement over Array access 
+FunctionPass *createHIRScalarReplArrayPass();
+
+
 /// Creates pass that splits loops based on variant predicates.
 FunctionPass *createHIROptVarPredicatePass();
 

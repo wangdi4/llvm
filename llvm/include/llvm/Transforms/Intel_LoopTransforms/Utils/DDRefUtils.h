@@ -242,6 +242,24 @@ public:
   /// This is useful for ordering DDRefs.
   static int compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
                             unsigned DimensionNum);
+
+  /// Check if replaceIVByCanonExpr(.) can actually succeed without doing it for
+  /// real.
+  ///
+  /// Return: bool
+  /// - true: if replacIVByCanonExpr() succeeds on each loop-level IV in Ref
+  /// -false: otherwise
+  static bool canReplaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
+                                      CanonExpr *CE, bool RelaxedMode = true);
+
+  /// Replace any IV in the Ref with a given CanonExpr*.
+  ///(e.g. A[i]->A[CE], A[i+2]->A[CE+2] )
+  ///
+  /// Return: bool
+  /// - true: can successfully replace every loop-level CE in Ref
+  /// -false: otherwise
+  static bool replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
+                                   CanonExpr *CE, bool RelaxedMode = true);
 };
 
 } // End namespace loopopt

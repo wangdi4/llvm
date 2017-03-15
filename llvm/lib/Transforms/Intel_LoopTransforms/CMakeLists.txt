@@ -16,6 +16,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRLoopDistributionLoopNest.cpp
         HIRLoopReversal.cpp 
         HIRLMM.cpp
+        HIRScalarReplArray.cpp
         ParVecDirectiveInsertion.cpp
         HIRParDirInsert.cpp
         HIRVecDirInsert.cpp

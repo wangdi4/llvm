@@ -255,6 +255,12 @@ bool CanonExprUtils::canMergeConstants(const CanonExpr *CE1,
     return false;
   }
 
+  // Check: vector type not supported
+  if (isa<VectorType>(CE2->getSrcType()) ||
+      isa<VectorType>(CE1->getSrcType())) {
+    return false;
+  }
+
   // Check if either is constant.
   int64_t Val1 = 0, Val2 = 0;
   bool IsCE1Const = CE1->isIntConstant(&Val1);
@@ -578,7 +584,8 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
 
   } else if (NumBlobs == 1) {
 
-    // When IV has a blob coefficient, the diff is in the form of a single blob.
+    // When IV has a blob coefficient, the diff is in the form of a single
+    // blob.
     // For example-
     // CE1 = 2*%b*i1 + 2*%b
     // CE2 = 2*%b*i1

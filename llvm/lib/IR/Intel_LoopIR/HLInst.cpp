@@ -13,10 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -42,8 +42,7 @@ HLInst::HLInst(HLNodeUtils &HNU, Instruction *Inst)
 
 HLInst::HLInst(const HLInst &HLInstObj)
     : HLDDNode(HLInstObj), Inst(HLInstObj.Inst),
-      CmpOrSelectPred(HLInstObj.CmpOrSelectPred),
-      PredFMF(HLInstObj.PredFMF) {
+      CmpOrSelectPred(HLInstObj.CmpOrSelectPred), PredFMF(HLInstObj.PredFMF) {
 
   unsigned NumOp, Count = 0;
 
@@ -433,9 +432,7 @@ bool HLInst::isIntelDirective(int DirectiveID) const {
   return vpo::VPOAnalysisUtils::getDirectiveID(DirStr) == DirectiveID;
 }
 
-bool HLInst::isSIMDDirective() const {
-  return isIntelDirective(DIR_OMP_SIMD);
-}
+bool HLInst::isSIMDDirective() const { return isIntelDirective(DIR_OMP_SIMD); }
 
 bool HLInst::isValidReductionOpCode(unsigned OpCode) {
   // Start with these initially - when adding a new opcode ensure

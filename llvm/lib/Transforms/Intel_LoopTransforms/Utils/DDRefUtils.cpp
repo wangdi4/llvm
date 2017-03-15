@@ -19,6 +19,7 @@
 #include "llvm/IR/Metadata.h"  // needed for MetadataAsValue -> Value
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace loopopt;
@@ -444,4 +445,30 @@ Type *DDRefUtils::getOffsetType(Type *Ty,
   }
 
   return RetTy;
+}
+
+bool DDRefUtils::canReplaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
+                                         CanonExpr *CE, bool RelaxedMode) {
+  // TODO:
+  // A more efficient/elegant version may exist by not calling
+  // replaceIVByCanonExpr() on a ref clone, instead, just work with CE's fine
+  // details on the original Ref.
+  std::unique_ptr<RegDDRef> RefClone(Ref->clone());
+  return DDRefUtils::replaceIVByCanonExpr(RefClone.get(), LoopLevel, CE,
+                                          RelaxedMode);
+}
+
+bool DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
+                                      CanonExpr *CE, bool RelaxedMode) {
+
+  for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
+    CanonExpr *CurCE = (*I);
+
+    if (!CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE,
+                                              RelaxedMode)) {
+      return false;
+    }
+  }
+
+  return true;
 }

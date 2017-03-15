@@ -947,6 +947,47 @@ bool RegDDRef::containsUndef() const {
   return std::any_of(canon_begin(), canon_end(), UndefCanonPredicate);
 }
 
+bool RegDDRef::hasIV(unsigned LoopLevel) const {
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    CanonExpr *CE = (*I);
+
+    if (CE->hasIV(LoopLevel)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool RegDDRef::isNonLinear(void) const {
+  // Check BaseCE if available
+  const CanonExpr *BaseCE = getBaseCE();
+  if (BaseCE && BaseCE->isNonLinear()) {
+    return true;
+  }
+
+  // Check each dimension
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    CanonExpr *CE = (*I);
+
+    if (CE->isNonLinear()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void RegDDRef::replaceIVByConstant(unsigned LoopLevel, int64_t Val) {
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    CanonExpr *CE = (*I);
+
+    // Replace IV by constant Val and then simplify the CE
+    CE->replaceIVByConstant(LoopLevel, Val);
+    CE->simplify();
+  }
+}
+
 void RegDDRef::verify() const {
   bool IsConst = isConstant();
 
@@ -1060,4 +1101,16 @@ bool RegDDRef::hasTrailingStructOffsets() const {
   }
 
   return false;
+}
+
+void RegDDRef::shift(unsigned LoopLevel, int64_t Amount) {
+  unsigned Dim = getNumDimensions();
+
+  // Examine every Dimension
+  for (unsigned I = 1; I <= Dim; ++I) {
+    CanonExpr *CE = getDimensionIndex(I);
+
+    // Shift to create target CE
+    CE->shift(LoopLevel, Amount);
+  }
 }

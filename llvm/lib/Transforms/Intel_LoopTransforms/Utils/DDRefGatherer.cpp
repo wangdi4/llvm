@@ -30,15 +30,19 @@ bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *CE1,
     return (CE1->numIVs() < CE2->numIVs());
   }
 
-  // Check the IV's.
-  for (auto IV1 = CE1->iv_begin(), IV2 = CE2->iv_begin(), End = CE1->iv_end();
-       IV1 != End; ++IV1, ++IV2) {
-    if (IV1->Coeff != IV2->Coeff) {
-      return (IV1->Coeff < IV2->Coeff);
+  // Check the IV's (temp fix: use level)
+  for (unsigned Lvl = 1; Lvl <= MaxLoopNestLevel; ++Lvl) {
+    int64_t Iv1Coeff, Iv2Coeff;
+    unsigned Iv1BlobIndex, Iv2BlobIndex;
+    CE1->getIVCoeff(Lvl, &Iv1BlobIndex, &Iv1Coeff);
+    CE2->getIVCoeff(Lvl, &Iv2BlobIndex, &Iv2Coeff);
+
+    if (Iv1Coeff != Iv2Coeff) {
+      return (Iv1Coeff < Iv2Coeff);
     }
 
-    if (IV1->Index != IV2->Index) {
-      return (IV1->Index < IV2->Index);
+    if (Iv1BlobIndex != Iv2BlobIndex) {
+      return (Iv1BlobIndex < Iv2BlobIndex);
     }
   }
 
