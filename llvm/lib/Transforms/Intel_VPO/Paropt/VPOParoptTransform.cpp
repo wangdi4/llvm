@@ -424,9 +424,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
 
-  IntegerType *IndValTy = cast<IntegerType>(
-    WRegionUtils::getOmpCanonicalInductionVariable(L)->
-    getIncomingValue(0)->getType());
+  Type *LoopIndexType =
+          WRegionUtils::getOmpCanonicalInductionVariable(L)->
+          getIncomingValue(0)->getType();
+
+  IntegerType *IndValTy = cast<IntegerType>(LoopIndexType);
   Value *InitVal = WRegionUtils::getOmpLoopLowerBound(L);
 
   Instruction *InsertPt = dyn_cast<Instruction>(
@@ -463,7 +465,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   Tmp0->setAlignment(4);
 
   Value *RightValue = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
-  RightValue = VPOParoptUtils::cloneLoadInstruction(RightValue, InsertPt);
+
+  IRBuilder<> B(InsertPt);
+  if (RightValue->getType()->getIntegerBitWidth() != 
+      LoopIndexType->getIntegerBitWidth()) 
+    RightValue = B.CreateSExtOrTrunc(RightValue, LoopIndexType);
 
   StoreInst *Tmp1 = new StoreInst(RightValue, UpperBnd, false, InsertPt);
   Tmp1->setAlignment(4);
@@ -474,7 +480,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
     
   if (IsNeg) {
     ConstantInt *Zero = ConstantInt::get(IndValTy, 0);
-    IRBuilder<> B(InsertPt);
     StrideVal = B.CreateSub(Zero, StrideVal);
   }
   StoreInst *Tmp2 = new StoreInst(StrideVal, Stride, false, InsertPt);
@@ -520,7 +525,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   LoadUB = new LoadInst(UpperBnd, "ub.new", InsertPt);
   LoadUB->setAlignment(4);
 
-  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB);
+  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB, InsertPt);
 
   BranchInst* PreHdrInst = dyn_cast<BranchInst>(InsertPt);
   assert(PreHdrInst->getNumSuccessors() == 1 &&

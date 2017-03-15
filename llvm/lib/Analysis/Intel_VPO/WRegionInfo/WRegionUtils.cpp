@@ -359,6 +359,28 @@ Value *WRegionUtils::getOmpLoopStride(Loop *L, bool &IsNeg) {
   llvm_unreachable("Omp loop must have stride!");
 }
 
+void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
+                                              Instruction *CondInst,
+                                              bool& IsLeft) {
+  Value *Operand = CondInst->getOperand(0);
+  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand)) 
+    Operand = cast<Instruction>(Operand)->getOperand(0);
+
+  if (Operand == LoopIndex) {
+      IsLeft = true;
+      return;
+  }
+
+  Operand = CondInst->getOperand(1);
+  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand)) 
+    Operand = cast<Instruction>(Operand)->getOperand(1);
+
+  if (Operand == LoopIndex) {
+      IsLeft = false;
+      return;
+  }
+  llvm_unreachable("Omp loop bottom test must have loop index!");
+}
 
 // gets the loop upper bound of the OMP loop.
 Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
@@ -369,25 +391,14 @@ Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
   PHINode *PN = getOmpCanonicalInductionVariable(L);
   Instruction *Inc = 
     dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
-  if (CondInst->getOperand(0) == Inc) 
+  bool IsLeft;
+  getLoopIndexPosInPredicate(Inc, CondInst, IsLeft);
+  if (IsLeft) 
     Res = CondInst->getOperand(1);
-  else{
-    assert(CondInst->getOperand(1) == Inc &&
-           "Omp loop must have right cmp instruction");
+  else
     Res = CondInst->getOperand(0);
-  }
-  if (dyn_cast<ConstantInt>(Res))
-    return Res;
-
-  LoadInst *LI = dyn_cast<LoadInst>(Res);
-  if (LI) {
-    Value *Ptr = LI->getPointerOperand();
-    AllocaInst *AI = dyn_cast<AllocaInst>(Ptr);
-    assert(AI && "upper bound must be stack load here");
-    return Res;
-  }
-
-  llvm_unreachable("upper bound must be a constant or a stack load");
+  
+  return Res;
 }
 
 // gets the zero trip test of the OMP loop if the zero trip
@@ -413,10 +424,11 @@ ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
        CondInst->getPredicate() == ICmpInst::ICMP_UGT ||
        CondInst->getPredicate() == ICmpInst::ICMP_UGE ||
        CondInst->getPredicate() == ICmpInst::ICMP_ULT ||
-       CondInst->getPredicate() == ICmpInst::ICMP_ULE) &&
-       (CondInst->getOperand(0) == getOmpLoopLowerBound(L) ||
-       CondInst->getOperand(1) == getOmpLoopLowerBound(L))) 
-       return CondInst;
+       CondInst->getPredicate() == ICmpInst::ICMP_ULE)) {
+         bool IsLeft;
+         getLoopIndexPosInPredicate(getOmpLoopLowerBound(L), CondInst, IsLeft);
+         return CondInst;
+       }
 
   }
   llvm_unreachable("Omp loop with non-const \
@@ -471,13 +483,8 @@ CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, bool& IsLeft) {
   PHINode *PN = getOmpCanonicalInductionVariable(L);
   Instruction *Inc = 
     dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
-  if (CondInst->getOperand(0) == Inc)
-    IsLeft = true;
-  else {
-    assert(CondInst->getOperand(1) == Inc &&
-           "Omp loop must have right cmp instruction");
-    IsLeft = false;
-  }
+
+  getLoopIndexPosInPredicate(Inc, CondInst, IsLeft);
 
   return CondInst->getPredicate();
 }

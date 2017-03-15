@@ -363,7 +363,9 @@ public:
 
     /// \brief Updates the bottom test predicate to include equal predicate.
     /// It also updates the loop upper bound.
-    static void updateOmpPredicateAndUpperBound(WRegionNode *W, Value *Load);
+    static void updateOmpPredicateAndUpperBound(WRegionNode *W, 
+                                                Value *Load,
+                                                Instruction *InsertPt);
     
     /// \brief Clones the load instruction and inserts before the InsertPt.
     static Value* cloneLoadInstruction(Value *V, 

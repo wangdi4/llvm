@@ -1292,12 +1292,12 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
   WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
   Loop *L = WL->getLoop();
   Value* RightValue = WRegionUtils::getOmpLoopUpperBound(L); 
+  RightValue = VPOParoptUtils::cloneLoadInstruction(RightValue, InsertPt);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
-  IntegerType *IndValTy = 
-    cast<IntegerType>(WRegionUtils::getOmpCanonicalInductionVariable(L)->
-                      getIncomingValue(0)->getType());
-  ConstantInt *ValueOne  = ConstantInt::get(IndValTy, 1);
+  IntegerType *UpperBoundTy = 
+    cast<IntegerType>(RightValue->getType());
+  ConstantInt *ValueOne  = ConstantInt::get(UpperBoundTy, 1);
 
   Value *Res = RightValue;
   IRBuilder<> Builder(InsertPt);
@@ -1316,7 +1316,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
     else
       Res = Builder.CreateSub(RightValue, ValueOne);
   }
-  return Res; 
+  return Res;
    
 }
 
@@ -1336,16 +1336,29 @@ CmpInst::Predicate VPOParoptUtils::computeOmpPredicate(CmpInst::Predicate PD) {
 
 // Updates the bottom test predicate to include equal predicate.
 void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
-                                                     Value *LoadUB) {
+                                                     Value *UB, 
+                                                     Instruction* InsertPt) {
   WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
   Loop *L = WL->getLoop();
   ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
+  Value *PredOperand;
   if (IsLeft)
-    IC->setOperand(1, LoadUB);
+    PredOperand = IC->getOperand(1);
   else 
-    IC->setOperand(0, LoadUB);
+    PredOperand = IC->getOperand(0);
+
+  if (UB->getType()->getIntegerBitWidth() != 
+      PredOperand->getType()->getIntegerBitWidth()) {
+    IRBuilder<> B(InsertPt);
+    UB = B.CreateSExtOrTrunc(UB, PredOperand->getType());
+  }
+
+  if (IsLeft)
+    IC->setOperand(1, UB);
+  else 
+    IC->setOperand(0, UB);
 
   if (PD == ICmpInst::ICMP_SLT)
     IC->setPredicate(ICmpInst::ICMP_SLE);
