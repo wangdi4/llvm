@@ -12,11 +12,11 @@
 ;
 ; CHECK-DAG: region1:
 ; CHECK-DAG:   BB7:
-; CHECK-DAG:     BlockPred2 <- {AllOnes0 , }
+; CHECK-DAG:     BlockPred1 <- {AllOnes0 , }
 ; CHECK-DAG:   loop11:
-; CHECK-DAG:     BlockPred3 <- {BlockPred2 , }
+; CHECK-DAG:     BlockPred1 <- {AllOnes0 , }
 ; CHECK-DAG:   BB8:
-; CHECK-DAG:     BlockPred4 <- {BlockPred3 , }
+; CHECK-DAG:     BlockPred2 <- {BlockPred1 , }
 
 
 ; loop11
@@ -36,15 +36,16 @@
 ;
 ; CHECK-DAG: loop11:
 ; CHECK-DAG:   BB6:
-; CHECK-DAG:     BlockPred5 <- {BlockPred2 , }
+; CHECK-DAG:     BlockPred3 <- {BlockPred1 , }
 ; CHECK-DAG:   BB2:
-; CHECK-DAG:     BlockPred6 <- {BlockPred5 , }
+; CHECK-DAG:     BlockPred4 <- {BlockPred3 , }
 ; CHECK-DAG:   region12:
-; CHECK-DAG:     BlockPred7 <- {BlockPred6 , }
+; CHECK-DAG:     BlockPred4 <- {BlockPred3 , }
 ; CHECK-DAG:   BB10:
-; CHECK-DAG:     BlockPred8 <- {BlockPred7 , }
+; CHECK-DAG:     BlockPred5 <- {BlockPred4 , }
 ; CHECK-DAG:   BB5:
-; CHECK-DAG:     BlockPred9 <- {BlockPred8 , }
+; CHECK-DAG:     BlockPred6 <- {BlockPred5 , }
+
 
 
 ; region12
@@ -59,13 +60,13 @@
 ;
 ; CHECK-DAG: region12:
 ; CHECK-DAG:   BB9:
-; CHECK-DAG:     BlockPred10 <- {BlockPred6 , }
+; CHECK-DAG:     BlockPred7 <- {BlockPred4 , }
 ; CHECK-DAG:   BB3:
-; CHECK-DAG:     IfTrue14 {BlockPred10}, Cond: VecBooleanRecipe13
-; CHECK-DAG:     BlockPred11 <- {IfTrue14 , BlockPred12 , }
+; CHECK-DAG:     IfTrue11 {BlockPred7}, Cond: VecBooleanRecipe10
+; CHECK-DAG:     BlockPred8 <- {IfTrue11 , BlockPred9 , }
 ; CHECK-DAG:   BB4:
-; CHECK-DAG:     IfFalse15 {BlockPred10}, Cond: VecBooleanRecipe13
-; CHECK-DAG:     BlockPred12 <- {IfFalse15 , }
+; CHECK-DAG:     IfFalse12 {BlockPred7}, Cond: VecBooleanRecipe10
+; CHECK-DAG:     BlockPred9 <- {IfFalse12 , }
 
 
 ; #define SIZE 1024

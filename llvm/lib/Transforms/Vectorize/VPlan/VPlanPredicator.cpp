@@ -30,14 +30,11 @@
 //
 // Predicate Propagation across the HCFG
 // -------------------------------------
-// In theory the Entry Block of a Region shares the same predicate as the
-// Region. However, the Entry Block's Block Predicate does not point to
-// the Region's BP. Instead it keeps its own copy.
-//
+// A Region's PredicateRecipe pointer points to the incoming block's predicate
+// recipe.
 // Before a Region gets predicated by predicateRegion(), the Region's
 // Block Predicate should have already been set.
-// The top level region (VPlan's entry block) is assigned Block Predicate
-// with an AllOnes recipe as its only input edge.
+// The top level region (VPlan's entry block) is assigned an AllOnes recipe.
 
 
 #include "VPlan.h"
@@ -188,16 +185,40 @@ VPlanPredicator::genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
 
 // Generate and attach an empty Block Predicate onto CurrBlock
 void VPlanPredicator::genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock) {
-  // Create the BP
-  VPBlockPredicateRecipe *blockPredicate = new VPBlockPredicateRecipe();
-  blockPredicate->setName(getUniqueName("BlockPred"));
-  emitRecipeIfBB(blockPredicate, CurrBlock);
-  CurrBlock->setPredicateRecipe(blockPredicate);
+  // Only Basic Blocks have block predicates attached to them, as they are the
+  // ones capable of generating code.
+  if (isa<VPBasicBlock>(CurrBlock)) {
+    VPBlockPredicateRecipe *blockPredicate = new VPBlockPredicateRecipe();
+    blockPredicate->setName(getUniqueName("BlockPred"));
+    emitRecipeIfBB(blockPredicate, CurrBlock);
+    CurrBlock->setPredicateRecipe(blockPredicate);
+  }
+  // A Region will simply point to its incoming predicate recipe.
+  // This gets taken care of later.
+  else {
+    CurrBlock->setPredicateRecipe(nullptr);
+  }
+}
+
+// Helper for appending a Recipe to Block.
+// It hides the fact that we only BBs get to have a BlockPredicate.
+// Regions simply point to the input's recipe.
+static void appendPredicateToBlock(VPBlockBase *Block,
+                                   VPPredicateRecipeBase *Recipe) {
+  if (isa<VPBasicBlock>(Block)) {
+    VPBlockPredicateRecipe *BP
+      = dyn_cast<VPBlockPredicateRecipe>(Block->getPredicateRecipe());
+    assert(BP);
+    BP->appendIncomingPredicate(Recipe);
+  } else {
+    assert(Block->getPredicateRecipe() == nullptr && "Overwriting ?");
+    Block->setPredicateRecipe(Recipe);
+  }
 }
 
 // Generate all predicates needed for currBB
-void VPlanPredicator::generateEdgePredicates(VPBlockBase *CurrBlock,
-                                             VPRegionBlock *Region) {
+void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
+                                                      VPRegionBlock *Region) {
   // Skip entry blocks
   if (CurrBlock == Region->getEntry()) {
     return;
@@ -213,11 +234,12 @@ void VPlanPredicator::generateEdgePredicates(VPBlockBase *CurrBlock,
     VPPredicateRecipeBase *IncomingPredicate
       = genOrUseIncomingPredicate(CurrBlock, PredBlock);
 
-    // Create a block predicate and append the inputs to it
-    VPBlockPredicateRecipe *blockPredicate
-      = dyn_cast<VPBlockPredicateRecipe>(CurrBlock->getPredicateRecipe());
-    assert(blockPredicate);
-    blockPredicate->appendIncomingPredicate(IncomingPredicate);
+    // // Create a block predicate and append the inputs to it
+    // VPBlockPredicateRecipe *BlockPredicate
+    //   = dyn_cast<VPBlockPredicateRecipe>(CurrBlock->getPredicateRecipe());
+    // assert(blockPredicate);
+    // BlockPredicate->appendIncomingPredicate(IncomingPredicate);
+    appendPredicateToBlock(CurrBlock, IncomingPredicate);
   }
 }
 
@@ -266,33 +288,30 @@ void VPlanPredicator::predicateRegion(VPRegionBlock *Region) {
   assert(RegionRecipe && "Must have been assigned an input predicate");
   VPBlockBase *EntryBlock = dyn_cast<VPBasicBlock>(Region->getEntry());
 
-  // 1. Generate the block predicates in any order.
+  // 1. Generate the block predicates for all Basic Blocks in any order
   for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
          ite = df_iterator<VPBlockBase *>::end(EntryBlock);
        it != ite; ++it) {
     genAndAttachEmptyBlockPredicate(*it);
   }
 
-  // 2. Propagate the Region's Block Predicate inputs to its Entry Block's
-  //    Block Predicate.
-  VPBlockPredicateRecipe *RegionBP
-    = dyn_cast<VPBlockPredicateRecipe>(RegionRecipe);
-  assert(RegionBP && "Each region should have a BP attached to it.");
+  // 2. Propagate the Region's Block Predicate inputs to the entry block
+  // VPBlockPredicateRecipe *RegionBP
+  //   = dyn_cast<VPBlockPredicateRecipe>(RegionRecipe);
+  // assert(RegionBP && "Each region should have a BP attached to it.");
   VPBlockPredicateRecipe *EntryBP
     = dyn_cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
   assert(EntryBP && "Should have been emitted by Step 1.");
-  for (VPPredicateRecipeBase *Incoming : RegionBP->getIncomingPredicates()) {
-    EntryBP->appendIncomingPredicate(Incoming);
-  }
-  //    Set PredicateRecipe to NULL as we no longer need it.
-  Region->setPredicateRecipe(nullptr);
+  // for (VPPredicateRecipeBase *Incoming : RegionBP->getIncomingPredicates()) {
+  EntryBP->appendIncomingPredicate(RegionRecipe);
+  // }
 
   // 3. Generate edge predicates and append them to the block predicate
   //    The visitng order does not matter.
   for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
          ite = df_iterator<VPBlockBase *>::end(EntryBlock);
        it != ite; ++it) {
-    generateEdgePredicates(*it, Region);
+    propagatePredicatesAcrossBlocks(*it, Region);
   }
 }
 
@@ -337,9 +356,7 @@ void VPlanPredicator::predicate(void) {
     = VPAllOnesPredicateRecipe::getPredicateRecipe();
   AllOnes->setName(getUniqueName("AllOnes"));
   genAndAttachEmptyBlockPredicate(EntryBlock);
-  VPBlockPredicateRecipe *EntryBlockBP
-    = dyn_cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
-  EntryBlockBP->appendIncomingPredicate(AllOnes);
+  appendPredicateToBlock(EntryBlock, AllOnes);
 
   // Iterate until there are no Regions left.
   while (! RegionsWorklist.empty()) {

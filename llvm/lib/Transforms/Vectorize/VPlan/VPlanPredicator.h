@@ -24,7 +24,8 @@ namespace vpo {
                                                      VPBlockBase *PredBlock);
     void genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock);
     bool isBackEdge(VPBlockBase *predBlock, VPBlockBase *CurrBlock);
-    void generateEdgePredicates(VPBlockBase *CurrBlock, VPRegionBlock *Region);
+    void propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
+                                         VPRegionBlock *Region);
     void genLitReport(VPRegionBlock *Region);
     void predicateRegion(VPRegionBlock *Region);
   public:
