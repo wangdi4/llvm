@@ -13,10 +13,6 @@ tblgenoclblt(OCL_TABLEGEN_SOURCE
   ${CMD_ARGS}
 )
 
-list(APPEND OCL_TABLEGEN_SOURCE 
-  ${CMAKE_CURRENT_SOURCE_DIR}/as-type-builtin-defines.c
-  )
-
 # build .rtl file out of OCL code (by clang) and copy it to install directory
 set (OUTPUT_FILE ${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION})
 set (PROC core2)
