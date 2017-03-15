@@ -13,7 +13,7 @@ tblgenoclblt(OCL_TABLEGEN_SOURCE
   ${CMD_ARGS}
 )
 
-list(APPEND OCL_TABLEGEN_SOURCE
+list(APPEND OCL_TABLEGEN_SOURCE 
   ${CMAKE_CURRENT_SOURCE_DIR}/as-type-builtin-defines.c
   )
 
