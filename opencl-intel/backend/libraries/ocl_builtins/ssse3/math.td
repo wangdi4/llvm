@@ -16,25 +16,6 @@ OclBuiltinImpl trunc_f32_expand = OclBuiltinImpl<trunc, [v8f32], 0, Expand1>;
 // rsqrt
 OclBuiltinImpl rsqrt_svml_v64_expand = OclBuiltinImpl<rsqrt, [v8f64], 0, Expand1>;
 OclBuiltinImpl rsqrt_f32_expand = OclBuiltinImpl<rsqrt, [v8f32, v16f32], 0, Expand1>;
-OclBuiltinImpl native_rsqrt_f32_expand = OclBuiltinImpl<native_rsqrt, [v16f32, v8f64], 0, Expand1>;
-
-
-// native_rsqrt, native_recip
-OclBuiltinImpl native_recip_f32_expand = OclBuiltinImpl<native_recip, [v16f32, v8f64], 0, Expand1>;
-OclBuiltinImpl native_recip_f32_promote = OclBuiltinImpl<native_recip, [v1f32], 0, Promote1>;
-
-OclBuiltinImpl native_rsqrt_v1f32_impl = OclBuiltinImpl<native_rsqrt, [v1f32], 0, [{
-    float4 tmp;
-    tmp.s0 = $Arg0VarName;
-    return as_float4(_mm_rsqrt_ss(tmp)).s0;
-  }]>;
-
-OclBuiltinImpl native_recip_v1f32_impl = OclBuiltinImpl<native_recip, [v1f32], 0, [{
-    float4 tmp;
-    tmp.s0 = $Arg0VarName;
-    return as_float4(_mm_rcp_ss(tmp)).s0;
-  }]>;
-
 
 // intel_maskmove()
 // non OpenCL builtin. Specialization for SSE42
@@ -452,11 +433,9 @@ OclBuiltinImpl native_log1p_svml_expand = OclBuiltinImpl<native_log1p, math_svml
 OclBuiltinImpl native_divide_svml_hack_expand = OclBuiltinImpl<native_divide, math_svml_vF512_expand, 0, Expand2>;
 
 // native_recip f(vXfX, vXfX)
-// only doubles. floats are implemented natively
 OclBuiltinImpl native_recip_svml_expand = OclBuiltinImpl<native_recip, math_svml_vF512_expand, 0, Expand1>;
 
 // native_rsqrt f(vXfX)
-// only doubles. floats are implemented natively
 OclBuiltinImpl native_rsqrt_svml_expand = OclBuiltinImpl<native_rsqrt, math_svml_vF512_expand, 0, Expand1>;
 
 // native_rcbrt f(vXfX)
