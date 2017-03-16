@@ -71,6 +71,12 @@ static cl::opt<bool> IPCloningSwitchHeuristic("ip-cloning-switch-heuristic",
 static cl::opt<bool> IPCloningIFHeuristic("ip-cloning-if-heuristic",
                                    cl::init(false), cl::ReallyHidden);
 
+// Maximum number of formal uses explored while collecting formals that
+// are candidates for cloning using different heuristics.
+static cl::opt<unsigned> IPCloningNumOfFormalUsesExploredLimit(
+        "ip-cloning-num-formal-uses-explored-limit",
+                                   cl::init(30), cl::ReallyHidden);
+
 // Enable Specialization cloning.
 static cl::opt<bool> IPSpecializationCloning("ip-specialization-cloning",
                                    cl::init(true), cl::ReallyHidden);
@@ -1018,6 +1024,36 @@ static void dumpFormalsConstants(Function &F) {
   errs() << "\n\n";
 }
 
+// This routine collects uses of 'V' that are SExt/ZExt instructions
+// and adds them to PotentialConstValuesAfterCloning. 'NumUsesExplored'
+// is used to limit number of uses explored.
+//
+// This basically helps to handle cases like below:
+//   define internal fastcc void @bar(i32 %ub) unnamed_addr #1 {
+//   entry:
+//     %add = add i32 %ub, 20
+//     ...
+//     %wide.trip.count = zext i32 %add to i64  ; It is used as TripCount
+//     ...
+//     %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
+//
+static void collectSextZextAsPotentialConstants(Value* V,
+                                                unsigned& NumUsesExplored) {
+  for (auto *U : V->users()) {
+
+    if (NumUsesExplored >= IPCloningNumOfFormalUsesExploredLimit) break;
+
+    NumUsesExplored++;
+
+    if (isa<SExtInst>(U) || isa<ZExtInst>(U)) {
+
+      PotentialConstValuesAfterCloning.insert(U);
+      if (IPCloningTrace)
+        errs() <<  "     SExt/ZExt:  " << *U << "\n";
+    }
+  }
+}
+
 // It collects uses of given formal variable 'V' that will become 
 // constant values after cloning.
 //
@@ -1034,8 +1070,7 @@ static void collectPotentialConstantsAfterCloning(Value *V) {
   for (auto *U : V->users()) {
 
     // Avoid huge lists
-    if (NumUsesExplored >= 30)
-      break;
+    if (NumUsesExplored >= IPCloningNumOfFormalUsesExploredLimit) break;
 
     NumUsesExplored++;
 
@@ -1044,14 +1079,19 @@ static void collectPotentialConstantsAfterCloning(Value *V) {
       PotentialConstValuesAfterCloning.insert(U);
       if (IPCloningTrace)
         errs() <<  "     Unary:  " << *U << "\n";
+      // Consider SExt/ZExt as potential constants
+      collectSextZextAsPotentialConstants(U, NumUsesExplored);
     }
     else if (isa<BinaryOperator>(U)) {
       Value *LHS = U->getOperand(0), *RHS = U->getOperand(1);
       // Add it if other operand is constant
-      if (isa<Constant>(LHS) || isa<Constant>(RHS))
+      if (isa<Constant>(LHS) || isa<Constant>(RHS)) {
         PotentialConstValuesAfterCloning.insert(U);
         if (IPCloningTrace)
           errs() <<  "     Binary:   " << *U << "\n";
+        // Consider SExt/ZExt as potential constants
+        collectSextZextAsPotentialConstants(U, NumUsesExplored);
+      }
     }
   }
 }
