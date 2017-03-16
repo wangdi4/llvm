@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -VPlanDriver -vplan-build-stress-test -vplan-loop-cfu -debug -S < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-loop-cfu -debug -S < %s 2>&1 | FileCheck %s
 
 ; Test the transformation of the innermost loop non-uniform control flow to uniform control flow.
 
@@ -49,6 +49,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define void @foo(float** nocapture readonly %a, i32 %m, i32 %n, i32 %k) local_unnamed_addr #0 {
 entry:
+  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   %cmp36 = icmp sgt i32 %m, 0
   br i1 %cmp36, label %while.cond.preheader.lr.ph, label %for.end
 
@@ -114,10 +116,15 @@ for.inc:                                          ; preds = %for.inc.loopexit, %
   br i1 %exitcond, label %for.end.loopexit, label %while.cond.preheader
 
 for.end.loopexit:                                 ; preds = %for.inc
+  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
   ret void
 }
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.intel.directive(metadata) #1
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

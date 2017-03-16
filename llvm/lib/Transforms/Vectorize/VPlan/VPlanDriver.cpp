@@ -84,6 +84,11 @@ static cl::opt<bool> VPlanStressTest(
     "vplan-build-stress-test", cl::init(false),
     cl::desc("Construct VPlan for every loop (stress testing)"));
 
+static cl::opt<bool> VPlanStressOnlyInnermost(
+    "vplan-build-stress-only-innermost", cl::init(false),
+    cl::desc("When stress testing is enable, construct VPlan only for "
+             "innermost loops"));
+
 static cl::opt<bool>
     VPlanForceBuild("vplan-force-build", cl::init(false),
                     cl::desc("Construct VPlan even if loop is not supported "
@@ -312,11 +317,18 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
     SmallVector<Loop *, 2> WorkList(LI->begin(), LI->end());
     while (!WorkList.empty()) {
       Loop *Lp = WorkList.pop_back_val();
-      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
-      formLCSSARecursively(*Lp, *DT, LI, SE);
-      if (VPlanForceBuild || isSupported(Lp))
-        processLoop(Lp, Fn);
-      // TODO: Subloops
+
+      // Add subloops to worklist
+      for (Loop *SubLp: Lp->getSubLoops())
+        WorkList.push_back(SubLp);
+
+      // Process only innermost loops if VPlanStressOnlyInnermost is enabled
+      if (!VPlanStressOnlyInnermost || Lp->getSubLoops().empty()) {
+        simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
+        formLCSSARecursively(*Lp, *DT, LI, SE);
+        if (VPlanForceBuild || isSupported(Lp))
+          processLoop(Lp, Fn);
+      }
     }
   }
 

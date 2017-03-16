@@ -283,9 +283,9 @@ public:
   }
 
   /// \brief Add Incoming Predicate.
-  void appendIncomingPredicate(VPPredicateRecipeBase *incoming) {
-    assert(incoming && "Cannot add nullptr incoming predicate!");
-    IncomingPredicates.push_back(incoming);
+  void appendIncomingPredicate(VPPredicateRecipeBase *Incoming) {
+    assert(Incoming && "Cannot add nullptr incoming predicate!");
+    IncomingPredicates.push_back(Incoming);
   }
 
   const SmallVector<VPPredicateRecipeBase*, 2> &getIncomingPredicates(void) const {
