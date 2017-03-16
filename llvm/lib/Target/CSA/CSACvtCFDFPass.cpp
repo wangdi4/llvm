@@ -348,7 +348,10 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForRepeat();
   //if loop hdr is also an exiting blk, repeatOperand generated loop hdr phi need to go through SWITCHforIf process
   insertSWITCHForIf();
-
+  //run it twice; 
+  //non-latch exit affect def/use chain running across the loop; 
+  //new switch inserted at the exit blk need to repeated its src
+  insertSWITCHForRepeat();
 
 if (needDynamicPreds() || UseDynamicPred)
   generateDynamicPreds();
