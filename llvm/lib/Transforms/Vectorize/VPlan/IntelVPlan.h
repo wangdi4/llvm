@@ -343,6 +343,7 @@ private:
   Value *ScConditionBit;
 };
 
+
 /// A VPLiveInConditionBitRecipe is a recipe for a Condition operand of 
 /// a uniform conditional branch. The Condition is defined outside the loop.
 class VPLiveInConditionBitRecipe : public VPConditionBitRecipeWithScalar {
@@ -384,7 +385,141 @@ public:
   StringRef getName() const { return Name; };
 };
 
-/// The IntelVPlanUtils class provides interfaces for the construction and
+/// A VPConstantRecipe is a recipe which represents a constant in VPlan.
+/// This recipe represents a scalar integer w/o any relation to the source IR.
+/// The usage of this recipe is mainly beneficial when we need to argue about
+/// new recipes altering the original structure of the code and introducing new
+/// commands. e.g. consider the single-exit loop massaging, we need to
+/// represent a new \phi with respect to new constant values and compares to 
+/// those same values.
+class VPConstantRecipe : public VPRecipeBase {
+public:
+  VPConstantRecipe(int val)
+    : VPRecipeBase(VPConstantSC), val(val) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPConstantSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void vectorize(VPTransformState &State) override {}
+
+  Value *getValue(void) const {
+    // TODO after vectorize.
+    return nullptr;
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &O) const override {
+    O << "Const " << val;
+  }
+
+  StringRef getName() const { return "Constant: " + val; };
+
+private:
+  int val;
+};
+
+/// A VPConstantRecipe is a recipe which represents a new Phi in VPlan to 
+/// facilitate the alteration of VPlan from its original source coded form.
+/// Currently the elements of the phi are constants in-order to generate the
+/// needed \phi for the single-exit loop massaging. However, this phi can be
+/// further enhanced to handle any type of value.
+class VPPhiValueRecipe : public VPRecipeBase {
+public:
+  VPPhiValueRecipe()
+    : VPRecipeBase(VPPhiValueSC), Phi(nullptr), Incoming() {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPLiveInBranchSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void vectorize(VPTransformState &State) override {}
+
+  /// Return the phi value after vectorization.
+  Value *getValue(void) const {
+    return Phi;
+  }
+
+  /// Adds a new element to the resulting \phi.
+  void addIncomingValue(VPConstantRecipe IncomingValue,
+    VPBlockBase* IncomingBlock) {
+    Incoming.push_back(IncomingPair(IncomingValue, IncomingBlock));
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &O) const override {
+    O << "Phi ";
+    for (auto item : Incoming) {
+      O << "[";
+      item.first.print(O);
+      O << ", " << item.second->getName() << "] ";
+    }
+  }
+
+  StringRef getName() const { return "Phi Recipe"; };
+
+  ~VPPhiValueRecipe() {
+    delete Phi;
+  }
+
+private:
+  typedef std::pair<VPConstantRecipe , VPBlockBase *> IncomingPair;
+  SmallVector<IncomingPair, 4> Incoming;
+  Value* Phi;
+};
+
+
+/// A VPCmpBitRecipe is a compare recipe which represents a compare against
+/// and exact value, in our case a constant value in order to support the 
+/// compares needed for the cascaded ifs in the single-exit loop massaging. 
+class VPCmpBitRecipe : public VPConditionBitRecipeWithScalar {
+public:
+  VPCmpBitRecipe(VPPhiValueRecipe* Phi, VPConstantRecipe ConstantValue)
+    : VPConditionBitRecipeWithScalar(VPCmpBitSC), Phi(Phi),
+    ConstantValue(ConstantValue) {
+    ConditionBit = nullptr;
+    Name = getUniqueName("ExactCmpCBR");
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPCmpBitSC;
+  }
+
+  /// The method clones a uniform instruction that calculates condition
+  /// for uniform branch.
+  void vectorize(VPTransformState &State) override {
+    ConditionBit = nullptr;
+  }
+
+  /// Return the scalar condition value.
+  /// NOTE: Since it is a live-in CBR, the scalar ConditionBit is re-used.
+  Value *getScalarCondition(void) const override {
+    return ConditionBit;
+  }
+
+  /// Print the recipe.
+  void print(raw_ostream &O) const override {
+    O << Name << "Cmp-Bit Exact Condition: ";
+    Phi->print(O);
+    O << " == ";
+    ConstantValue.print(O);
+  }
+
+  StringRef getName() const { return Name; };
+
+private:
+  VPPhiValueRecipe* Phi;
+  VPConstantRecipe ConstantValue;
+};
+
+/// ; IntelVPlanUtils class provides interfaces for the construction and
 /// manipulation of a VPlan.
 class IntelVPlanUtils : public VPlanUtils {
 

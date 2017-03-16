@@ -105,6 +105,7 @@ public:
     VPInterleaveSC,
     VPExtractMaskBitSC,
 	VPMergeScalarizeBranchSC,
+
 	// predicates
 	VPAllOnesPredicateRecipeSC,
 	VPBlockPredicatesRecipeSC,
@@ -114,6 +115,10 @@ public:
     VPUniformBranchSC,
     VPLiveInBranchSC,
     VPVectorizeBooleanSC,
+    VPCmpBitSC,
+    VPPhiValueSC,
+    VPConstantSC,
+
 #endif
     VPBranchIfNotAllZeroRecipeSC,
     VPMaskGenerationRecipeSC,
@@ -1240,6 +1245,13 @@ public:
     Successor->Parent = Block->Parent;
   }
 
+  /// Sets a given VPBlockBase \p Predecessor as the single predecessor of another
+  /// VPBlockBase \p Block.
+  void setPredecessor(VPBlockBase *Block, VPBlockBase *Predecessor) {
+    assert(Block->getPredecessors().empty() && "Block predeseccors already set.");
+    Block->appendPredecessor(Predecessor);
+  }
+
   /// Sets two given VPBlockBases \p IfTrue and \p IfFalse to be the two
   /// successors of another VPBlockBase \p Block. A given
   /// VPConditionBitRecipeBase provides the control selector. The parent of
@@ -1276,7 +1288,9 @@ public:
     auto SuccIt = std::find(Successors.begin(), Successors.end(), OldSuccessor);
     assert(SuccIt != Successors.end() && "Successor not found");
     SuccIt = Successors.erase(SuccIt);
+    OldSuccessor->removePredecessor(Block);
     Successors.insert(SuccIt, NewSuccessor);
+    NewSuccessor->appendPredecessor(Block);
   }
 
   void replaceBlockPredecessor(VPBlockBase *Block, VPBlockBase *OldPredecessor,

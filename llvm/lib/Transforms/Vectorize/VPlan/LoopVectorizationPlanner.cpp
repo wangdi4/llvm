@@ -467,6 +467,153 @@ void LoopVectorizationPlanner::splitLoopsPreheader(VPLoop *VPL,
   }
 }
 
+void LoopVectorizationPlanner::mergeLoopExits(VPLoop *VPL, VPLoopInfo *VPLInfo,
+  VPDominatorTree &DomTree,
+  VPDominatorTree &PostDomTree,
+  IntelVPlanUtils &PlanUtils) {
+
+  SmallVector<VPBlockBase *, 2> ExitBlocks;
+  VPL->getUniqueExitBlocks(ExitBlocks);
+
+  // If Exit-Blocks count is less than 2, then there is nothing to do.
+  if (ExitBlocks.size() < 2) {
+    // Apply simplification to subloops
+    for (auto VPSL : VPL->getSubLoops()) {
+      mergeLoopExits(VPSL, VPLInfo, DomTree, PostDomTree, PlanUtils);
+    }
+    return;
+  }
+
+  DenseMap<VPBlockBase *, VPBlockBase *> Exitting2ExitBlock;
+  unsigned ExitCounter = 0;
+  VPBlockBase* CascadedExit = nullptr;
+
+  /*
+  auto addDedicatedExittingBlock = [&](VPBlockBase* ExittingBlock,
+    VPBlockBase* ExitBlock) -> VPBasicBlock* {
+    VPBasicBlock* NewExitingBlock = PlanUtils.createBasicBlock();
+    PlanUtils.setSuccessor(NewExitingBlock, ExitBlock);
+    PlanUtils.replaceBlockSuccessor(ExittingBlock, ExitBlock, NewExitingBlock);
+    return NewExitingBlock;
+  };
+  */
+
+  // This function generates the new merged multiple to single exit epilog.
+  // This epilog is composed of cascading ifs directing the exit path for 
+  // each of the loop exiting options.
+  // A new Phi recipe is added to the focal exit point indicating which
+  // exiting path was taken, then compare statements for the cascading
+  // if-blocks are generated to direct the flow to the respective exit path.
+  // This function is invoked to build the cascading ifs iteratively from the
+  // last cascading if to the first cascading if in the single exit focal point.
+  auto CreateCascadedExit = [&](VPBlockBase* LastCascadedExitBlock,
+    VPBlockBase* ExittingBlock, VPBlockBase* ExitBlock, 
+    int ExitID) -> VPBlockBase* {
+
+    static VPPhiValueRecipe* PhiRecipe = nullptr;
+    static SmallVector<VPBlockBase*, 4> ExittingBlocks;
+
+    if (ExitID == 1) {
+      PhiRecipe = new VPPhiValueRecipe();
+      PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID), ExittingBlock);
+      ExittingBlocks.clear();
+      ExittingBlocks.push_back(ExittingBlock);
+      return ExitBlock;
+    }
+
+    ExittingBlocks.push_back(ExittingBlock);
+    PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID), ExittingBlock);
+
+    VPBasicBlock* NewCascadedExit = PlanUtils.createBasicBlock();
+    VPCmpBitRecipe* CBR = new VPCmpBitRecipe(PhiRecipe,
+      VPConstantRecipe(ExitID));
+    VPRegionBlock* Parent = ExitBlock->getParent();
+    PlanUtils.setBlockParent(NewCascadedExit, Parent);
+    PlanUtils.setRegionSize(Parent, Parent->getSize() + 1);
+    PlanUtils.setTwoSuccessors(NewCascadedExit, CBR, 
+                               ExitBlock, LastCascadedExitBlock);
+    // Add NewBlock to VPLoopInfo
+    if (VPLoop *Loop = VPLInfo->getLoopFor(ExitBlock)) {
+      Loop->addBasicBlockToLoop(NewCascadedExit, *VPLInfo);
+    }
+    if (ExitID == ExitBlocks.size())
+      PlanUtils.appendRecipeToBasicBlock(PhiRecipe, NewCascadedExit);
+    PlanUtils.appendRecipeToBasicBlock(CBR, NewCascadedExit);
+
+
+    if (ExitID < ExitBlocks.size())
+      return NewCascadedExit;
+
+    for (auto ExittingBlock : ExittingBlocks) {
+      PlanUtils.replaceBlockSuccessor(ExittingBlock, 
+        Exitting2ExitBlock[ExittingBlock], NewCascadedExit);
+    }
+
+    return NewCascadedExit;
+  };
+
+  // This function handles the dominance and post-dominance required updates
+  // after the above cascading-exits transformation.
+  auto FixDominance = [&](VPBlockBase* LastCascadedExitBlock) -> void {
+
+    VPBlockBase* NCD = nullptr;
+    for (auto Pred : LastCascadedExitBlock->getPredecessors()) {
+      if (!NCD) {
+        NCD = Pred;
+        continue;
+      }
+      NCD = DomTree.findNearestCommonDominator(NCD, Pred);
+    }
+
+    // Update dom information
+    VPBlockBase* CascadedExit = nullptr;
+    VPBlockBase* NextCascadedExit = LastCascadedExitBlock;
+    for (int i = 0; i < ExitBlocks.size() - 1; ++i) {
+      CascadedExit = NextCascadedExit;
+      NCD = DomTree.addNewBlock(CascadedExit, NCD /*IDom*/)->getBlock();
+      DomTree.changeImmediateDominator(CascadedExit->getSuccessors()[0], NCD);
+      NextCascadedExit = CascadedExit->getSuccessors()[1];
+    }
+    DomTree.changeImmediateDominator(NextCascadedExit, NCD);
+
+    // Update post-dom information
+    // CascadedExit contains the last cascaded if.
+    for (int i = 0; i < ExitBlocks.size() - 1; ++i) {
+      VPBlockBase* NCPD = PostDomTree.findNearestCommonDominator(
+        CascadedExit->getSuccessors()[0],
+        CascadedExit->getSuccessors()[1]);
+      PostDomTree.addNewBlock(CascadedExit, NCPD);
+      CascadedExit = CascadedExit->getSinglePredecessor();
+    }
+
+    for (auto Pred : LastCascadedExitBlock->getPredecessors()) {
+      PostDomTree.changeImmediateDominator(Pred, LastCascadedExitBlock);
+    }
+
+    PostDomTree.updateDFSNumbers();
+    DomTree.updateDFSNumbers();
+  };
+
+  for (VPBlockBase *Exit : ExitBlocks) {
+    ++ExitCounter;
+    for (VPBlockBase* Pred : Exit->getPredecessors()) {
+      // check if Pred is an exitting block. if not continue.
+      if (!VPL->contains(Pred) || Exitting2ExitBlock[Pred])
+        continue;
+      Exitting2ExitBlock[Pred] = Exit;
+      CascadedExit = CreateCascadedExit(CascadedExit, Pred, Exit, ExitCounter);
+    }
+  }
+  FixDominance(CascadedExit);
+
+  //DEBUG(VPlanPrinter PlanPrinter(dbgs(), *PlanUtils.getVPlan());
+  //PlanPrinter.dump("LVP: Plain CFG for VF=4"));
+  //exit(0);
+
+  // Apply simplification to subloops
+  mergeLoopExits(VPL, VPLInfo, DomTree, PostDomTree, PlanUtils);
+}
+
 void LoopVectorizationPlanner::splitLoopsExits(VPLoop *VPL, VPLoopInfo *VPLInfo,
                                                VPDominatorTree &DomTree,
                                                VPDominatorTree &PostDomTree,
@@ -591,7 +738,7 @@ void LoopVectorizationPlanner::simplifyNonLoopRegions(
       WorkList.push_back(Succ);
   }
 }
-
+static void verifyRegions(const VPRegionBlock *Region);
 void LoopVectorizationPlanner::simplifyPlainCFG(VPRegionBlock *TopRegion,
                                                 VPLoopInfo *VPLInfo,
                                                 VPDominatorTree &DomTree,
@@ -601,10 +748,17 @@ void LoopVectorizationPlanner::simplifyPlainCFG(VPRegionBlock *TopRegion,
   assert((VPLInfo->getNumTopLevelLoops() == 1) &&
          "Expected only 1 top-level loop");
   VPLoop *TopLoop = *VPLInfo->begin();
-
+  
   splitLoopsPreheader(TopLoop, VPLInfo, DomTree, PostDomTree, PlanUtils);
 
-  // TODO: SEME-to-SESE loop massaging should happen here.
+  //DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
+  //DomTree.print(dbgs()));
+
+  mergeLoopExits(TopLoop, VPLInfo, DomTree, PostDomTree, PlanUtils);
+  verifyRegions(TopRegion);
+
+  //DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
+  //DomTree.print(dbgs()));
 
   splitLoopsExits(TopLoop, VPLInfo, DomTree, PostDomTree, PlanUtils);
 

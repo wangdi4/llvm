@@ -172,6 +172,11 @@ private:
                            VPDominatorTree &PostDomTree,
                            IntelVPlanUtils &PlanUtils);
 
+  void mergeLoopExits(VPLoop *VPL, VPLoopInfo *VPLInfo,
+                      VPDominatorTree &DomTree,
+                      VPDominatorTree &PostDomTree,
+                      IntelVPlanUtils &PlanUtils);
+
   void splitLoopsExits(VPLoop *VPL, VPLoopInfo *VPLInfo,
                        VPDominatorTree &DomTree, VPDominatorTree &PostDomTree,
                        IntelVPlanUtils &PlanUtils);
