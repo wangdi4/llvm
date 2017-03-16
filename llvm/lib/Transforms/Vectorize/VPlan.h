@@ -1278,7 +1278,9 @@ public:
   void setBlockParent(VPBlockBase *Block, VPRegionBlock *Parent) {
     Block->Parent = Parent;
   }
-  
+ 
+  // Replace \p OldSuccessor by \p NewSuccessor in Block's successor list.
+  // \p NewSuccessor will be inserted in the same position as \p OldSuccessor.
   void replaceBlockSuccessor(VPBlockBase *Block, VPBlockBase *OldSuccessor,
                         VPBlockBase *NewSuccessor) {
     // Replace successor
@@ -1288,11 +1290,11 @@ public:
     auto SuccIt = std::find(Successors.begin(), Successors.end(), OldSuccessor);
     assert(SuccIt != Successors.end() && "Successor not found");
     SuccIt = Successors.erase(SuccIt);
-    OldSuccessor->removePredecessor(Block);
     Successors.insert(SuccIt, NewSuccessor);
-    NewSuccessor->appendPredecessor(Block);
   }
 
+  // Replace \p OldPredecessor by \p NewPredecessor in Block's predecessor list.
+  // \p NewPredecessor will be inserted in the same position as \p OldPredecessor.
   void replaceBlockPredecessor(VPBlockBase *Block, VPBlockBase *OldPredecessor,
                         VPBlockBase *NewPredecessor) {
     // Replace predecessor

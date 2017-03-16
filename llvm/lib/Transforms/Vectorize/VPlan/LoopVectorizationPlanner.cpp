@@ -754,7 +754,9 @@ void LoopVectorizationPlanner::simplifyPlainCFG(VPRegionBlock *TopRegion,
   //DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
   //DomTree.print(dbgs()));
 
-  mergeLoopExits(TopLoop, VPLInfo, DomTree, PostDomTree, PlanUtils);
+  //TODO: Please, add a switch to enable this transformation on demand. It
+  //should be disabled by default.
+  //mergeLoopExits(TopLoop, VPLInfo, DomTree, PostDomTree, PlanUtils);
   verifyRegions(TopRegion);
 
   //DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
