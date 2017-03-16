@@ -34,6 +34,9 @@ public:
   }
   // The driver function for the predicator
   void predicate(void);
+
+  // Linearize the CFG
+  void linearize(VPBlockBase *);
 };
 } // namespace vpo
 } // namespace llvm

@@ -129,7 +129,8 @@ public:
     Builder(PSE.getSE()->getContext()), StartValue(nullptr),
     StrideValue(nullptr), LoopVectorPreHeader(nullptr),
     LoopScalarPreHeader(nullptr), LoopMiddleBlock(nullptr),
-    LoopExitBlock(nullptr), LoopVectorBody(nullptr), LoopScalarBody(nullptr){
+    LoopExitBlock(nullptr), LoopVectorBody(nullptr), LoopScalarBody(nullptr),
+    MaskValue(nullptr) {
     }
 
   ~VPOCodeGen() {}
@@ -181,6 +182,9 @@ public:
   /// instruction will be generated.
   Value *getScalarValue(Value *V, unsigned Lane);
 
+  /// MaskValue setter
+  void setMaskValue(Value *MV) { MaskValue = MV; }
+  
 private:
 
   /// Emit blocks of vector loop
@@ -353,6 +357,8 @@ private:
   BasicBlock *LoopVectorBody;
   /// The scalar loop body.
   BasicBlock *LoopScalarBody;
+  /// Current mask value for instructions being generated
+  Value *MaskValue;
   /// A list of all bypass blocks. The first block is the entry of the loop.
   SmallVector<BasicBlock *, 4> LoopBypassBlocks;
 

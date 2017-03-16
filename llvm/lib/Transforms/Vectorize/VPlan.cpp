@@ -17,11 +17,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "VPlan.h"
+#include "./VPlan/LoopVectorizationCodeGen.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/GraphWriter.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
@@ -224,7 +225,7 @@ void VPlan::vectorize(VPTransformState *State) {
 
   // 1. Make room to generate basic blocks inside loop body if needed.
   VectorLatchBB = VectorHeaderBB->splitBasicBlock(
-       VectorHeaderBB->getFirstInsertionPt(), "vector.body.latch");
+      VectorHeaderBB->getFirstInsertionPt(), "vector.body.latch");
   Loop *L = State->LI->getLoopFor(VectorHeaderBB);
   L->addBasicBlockToLoop(VectorLatchBB, *State->LI);
   // Remove the edge between Header and Latch to allow other connections.
@@ -437,32 +438,71 @@ void VPlan::printInst2Recipe() {
 }
 
 void VPAllOnesPredicateRecipe::vectorize(VPTransformState &State) {
-
+  // Nothing to do for AllOnesPredicate case - push null to indicate
+  // that we do not need a mask value for this case.
+  for (unsigned Index = 0; Index < State.UF; ++Index)
+    VectorizedPredicate.push_back(nullptr);
 }
 
-void VPAllOnesPredicateRecipe::print(raw_ostream &O) const {
-    O << Name;
-}
+void VPAllOnesPredicateRecipe::print(raw_ostream &O) const { O << Name; }
 
 void VPBlockPredicateRecipe::vectorize(VPTransformState &State) {
+  auto IncomingPredicates = getIncomingPredicates();
+  auto NumIncoming = IncomingPredicates.size();
+  auto UF = State.UF;
 
+  for (unsigned UnrIndex = 0; UnrIndex < UF; ++UnrIndex) {
+    Value *PredValue = nullptr;
+
+    for (unsigned CurIncoming = 0; CurIncoming < NumIncoming; ++CurIncoming) {
+      auto IncomingPredRecipe = IncomingPredicates[CurIncoming];
+
+      if (IncomingPredRecipe->getVectorizedPredicate().size() == 0)
+        IncomingPredRecipe->vectorize(State);
+
+      auto CurIncomingPredVal =
+          IncomingPredRecipe->getVectorizedPredicate()[UnrIndex];
+      if (!PredValue)
+        PredValue = CurIncomingPredVal;
+      else
+        PredValue =
+            State.Builder.CreateOr(PredValue, CurIncomingPredVal, "IncOr");
+    }
+    VectorizedPredicate.push_back(PredValue);
+  }
+
+  // Set mask value to use to mask instructions in the block
+  State.ILV->setMaskValue(VectorizedPredicate[0]);
 }
 
 void VPBlockPredicateRecipe::print(raw_ostream &O) const {
   O << Name;
   // Predicate Inputs
-  if (! getIncomingPredicates().empty()) {
+  if (!getIncomingPredicates().empty()) {
     O << " <- {";
-    for (VPPredicateRecipeBase *inputPredicate
-           : getIncomingPredicates()) {
+    for (VPPredicateRecipeBase *inputPredicate : getIncomingPredicates()) {
       O << inputPredicate->getName() << " , ";
     }
-  O << "}";
+    O << "}";
   }
 }
 
 void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
+  auto PredMask = PredecessorPredicate->getVectorizedPredicate()[0];
 
+  // Get the vector mask value of the branch condition
+  auto VecCondMask =
+      State.ILV->getVectorValue(ConditionRecipe->getConditionValue());
+
+  // Combine with the predecessor block mask if needed - a null predecessor mask
+  // implies allones(predecessor is active for all lanes).
+  Value *EdgeMask;
+  if (PredMask)
+    EdgeMask = State.Builder.CreateAnd(VecCondMask, PredMask);
+  else
+    EdgeMask = VecCondMask;
+
+  VectorizedPredicate.push_back(EdgeMask);
 }
 
 void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
@@ -484,7 +524,24 @@ void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
 }
 
 void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
+  auto PredMask = PredecessorPredicate->getVectorizedPredicate()[0];
 
+  // Get the vector mask value of the branch condition - since this
+  // edge is taken if the mask value is false we compute the negation
+  // of this mask value.
+  auto VecCondMask =
+      State.ILV->getVectorValue(ConditionRecipe->getConditionValue());
+  VecCondMask = State.Builder.CreateNot(VecCondMask);
+
+  // Combine with the predecessor block mask if needed - a null predecessor mask
+  // implies allones(predecessor is active for all lanes).
+  Value *EdgeMask;
+  if (PredMask)
+    EdgeMask = State.Builder.CreateAnd(VecCondMask, PredMask);
+  else
+    EdgeMask = VecCondMask;
+
+  VectorizedPredicate.push_back(EdgeMask);
 }
 
 void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {
@@ -506,7 +563,7 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {
 }
 
 void VPVectorizeBooleanRecipe::vectorize(VPTransformState &State) {
-
+  State.ILV->vectorizeInstruction(cast<Instruction>(ConditionValue));
 }
 
 void VPVectorizeBooleanRecipe::print(raw_ostream &O) const {

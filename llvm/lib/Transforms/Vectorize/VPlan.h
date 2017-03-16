@@ -704,6 +704,11 @@ public:
   SmallVectorImpl<VPBlockBase *> &getPredecessors() { return Predecessors; }
 
 #ifdef INTEL_CUSTOMIZATION
+  void clearEdges() {
+    Successors.clear();
+    Predecessors.clear();
+  }
+
   bool isInsideLoop();
 
   VPBlockBase *getSingleSuccessor() {
@@ -1212,6 +1217,11 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   void setRegionSize(VPRegionBlock *Region, unsigned Size) {
     Region->Size = Size;
+  }
+
+  static void addEdge(VPBlockBase *From, VPBlockBase *To) {
+    From->Successors.push_back(To);
+    To->Predecessors.push_back(From);
   }
 
   /// \brief Add \p Successor as the last successor to this block.

@@ -732,14 +732,14 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
                                           bool EmitIntrinsic) {
   LoadInst *LI = cast<LoadInst>(Inst);
   Value *Ptr = LI->getPointerOperand();
-  if (Legal->isLoopInvariant(Ptr)) {
+  if (!MaskValue && Legal->isLoopInvariant(Ptr)) {
     vectorizeLoopInvariantLoad(Inst);
     return;
   }
 
   int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
   bool Reverse = (ConsecutiveStride == -1);
-  if (ConsecutiveStride == 0 && !EmitIntrinsic) {
+  if (!MaskValue && ConsecutiveStride == 0 && !EmitIntrinsic) {
     serializeInstruction(Inst);
     return;
   }
@@ -771,7 +771,14 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
 
     Value *VecPtr =
       Builder.CreateBitCast(Ptr, DataTy->getPointerTo(AddressSpace));
-    Value *NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+  
+    Value *NewLI;
+    if (MaskValue) {
+      NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, MaskValue, 
+                                       nullptr, "wide.masked.load");
+    } else {
+      NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+    }
     if (Reverse)
       NewLI = reverseVector(NewLI);
     WidenMap[cast<Value>(Inst)] = NewLI;
@@ -780,8 +787,8 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
 
   // GATHER
   Value *VectorPtr = getVectorValue(Ptr);
-  Instruction *NewLI = Builder.CreateMaskedGather(VectorPtr, Alignment, nullptr,
-                                                  0, "wide.masked.gather");
+  Instruction *NewLI = Builder.CreateMaskedGather(VectorPtr, Alignment, MaskValue,
+                                                  nullptr, "wide.masked.gather");
 
   WidenMap[cast<Value>(Inst)] = cast<Value>(NewLI);
 }
@@ -817,7 +824,7 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
 
   int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
   bool Reverse = (ConsecutiveStride == -1);
-  if (ConsecutiveStride == 0 && !EmitIntrinsic) {
+  if (!MaskValue && ConsecutiveStride == 0 && !EmitIntrinsic) {
     serializeInstruction(Inst);
     return;
   }
@@ -856,13 +863,18 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
 
     Value *VecPtr =
       Builder.CreateBitCast(Ptr, DataTy->getPointerTo(AddressSpace));
-    Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment, "wide.store");
+    if (MaskValue) {
+      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
+    }
+    else {
+      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment, "wide.store");
+    }
     return;
   }
 
   // SCATTER
   Value *VectorPtr = getVectorValue(Ptr);
-  Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, nullptr);
+  Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, MaskValue);
 }
 
 void VPOCodeGen::serializeInstruction(Instruction *Instr) {
@@ -1238,11 +1250,9 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Inst);
     SmallVector<Value*, 4> OpsV;
     for (Value *Op : GEP->operands()) {
-      Instruction *SrcInst = dyn_cast<Instruction>(Op);
-      if (SrcInst && OrigLoop->contains(SrcInst))
-        OpsV.push_back(getVectorValue(Op));
-      else
-        OpsV.push_back(Op);
+      // Mixing up scalar/vector operands trips up downstream optimizations,
+      // vectorize all operands.
+      OpsV.push_back(getVectorValue(Op));
     }
     Value *GepBasePtr = OpsV[0];
     OpsV.erase(OpsV.begin());

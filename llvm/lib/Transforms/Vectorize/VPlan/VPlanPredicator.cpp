@@ -339,6 +339,55 @@ static void dumpVplanDot(IntelVPlan *Plan,
   }
 }
 
+#if 0
+// TODO - if we need to skip backedges
+typedef SmallPtrSet<VPBlockBase *, 8> VPBlockSet;
+
+namespace llvm {
+// Specialize po_iterator_storage to skip backedges
+template<> class po_iterator_storage<VPBlockSet, true> {
+  VPBlockSet &Visited;
+public:
+  po_iterator_storage(VPBlockSet &VBS) : Visited(VBS) {}
+  po_iterator_storage(const po_iterator_storage &S) : Visited(S.Visited) {}
+
+  // These functions are defined below.
+  bool insertEdge(VPBlockBase * From, VPBlockBase *To) {
+    if (IntelVPlanUtils::isBackEdge(From, To)) {
+      errs() << "Saw backedge\n";
+      return false;
+    }
+    
+    return Visited.insert(To).second;
+  }
+
+  void finishPostorder(VPBlockBase *VB) {};
+};
+}
+#endif
+
+// Linearize the CFG
+void VPlanPredicator::linearize(VPBlockBase *EntryBlock) {
+  typedef std::vector<VPBlockBase *>::reverse_iterator rpo_iterator;
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(EntryBlock);
+
+  VPBlockBase *PrevBlock = nullptr;
+  for (rpo_iterator I = RPOT.begin(); I != RPOT.end(); ++I) {
+    VPBlockBase *CurrBlock = (*I);
+
+    // dbgs() << "LV: VPBlock in RPO " << CurrBlock->getName() << '\n';
+
+    CurrBlock->clearEdges();
+    if (PrevBlock) {
+      VPlanUtils::addEdge(PrevBlock, CurrBlock);
+    }
+    if (VPRegionBlock *Region = dyn_cast<VPRegionBlock>(CurrBlock)) {
+      linearize(Region->getEntry());
+    }
+    PrevBlock = CurrBlock;
+  }
+}
+
 // Entry point. The driver function for the predicator.
 void VPlanPredicator::predicate(void) {
   dumpVplanDot(
@@ -372,6 +421,8 @@ void VPlanPredicator::predicate(void) {
     //       a second pass through the Region's blocks.
     appendRegionsToWorklist(Region->getEntry(), RegionsWorklist);
   }
+
+  linearize(Plan->getEntry());
 
   dumpVplanDot(
       Plan,
